@@ -293,6 +293,8 @@ fn pdf_v2_layout_page_facts(page : PdfV2PageModel) -> PdfV2PageLayoutFacts {
 ///|
 fn pdf_v2_layout_summary(
   page_layouts : Array[PdfV2PageLayoutFacts],
+  object_summary : PdfV2ObjectSummary,
+  unsupported_capabilities : Array[PdfV2UnsupportedCapabilityReport],
   warning_count : Int,
   risk_count : Int,
 ) -> PdfV2LayoutFactSummary {
@@ -334,9 +336,28 @@ fn pdf_v2_layout_summary(
     pages_with_missing_geometry,
     pages_source_order_only,
     pages_with_layout_not_attempted,
+    unsupported_capability_count: object_summary.unsupported_capability_count,
+    partial_fact_count: object_summary.partial_fact_count,
+    capped_object_count: pdf_v2_layout_capped_object_count(
+      unsupported_capabilities,
+    ),
+    metadata_only_count: object_summary.metadata_only_count,
     warning_count,
     risk_count,
   }
+}
+
+///|
+fn pdf_v2_layout_capped_object_count(
+  unsupported_capabilities : Array[PdfV2UnsupportedCapabilityReport],
+) -> Int {
+  let mut count = 0
+  for report in unsupported_capabilities {
+    if report.status == PdfV2CapabilityStatus::Capped {
+      count = count + 1
+    }
+  }
+  count
 }
 
 ///|
@@ -366,6 +387,8 @@ pub fn pdf_v2_layout_facts_from_model(
   }
   let summary = pdf_v2_layout_summary(
     page_layouts,
+    model.object_summary,
+    model.unsupported_capabilities,
     warnings.length(),
     risks.length(),
   )
@@ -374,6 +397,8 @@ pub fn pdf_v2_layout_facts_from_model(
     summary,
     warnings,
     risks,
+    unsupported_capabilities: model.unsupported_capabilities,
+    partial_fact_reports: model.partial_fact_reports,
     source_refs,
     one_pass: model.one_pass,
     no_fallback: model.no_fallback,

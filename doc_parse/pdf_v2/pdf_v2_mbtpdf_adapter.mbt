@@ -2579,7 +2579,7 @@ pub fn pdf_v2_open_source_document_from_path(
   match pdf_v2_open_core_document_from_path(path, options) {
     CoreOpenOk(core, events) =>
       PdfV2SourceOpenResult::SourceOpenOk(
-        pdf_v2_source_document_from_core(core, events),
+        pdf_v2_source_document_from_core_with_options(core, events, options),
       )
     CoreOpenErr(warnings, risks, message) =>
       PdfV2SourceOpenResult::SourceOpenErr(warnings, risks, message)

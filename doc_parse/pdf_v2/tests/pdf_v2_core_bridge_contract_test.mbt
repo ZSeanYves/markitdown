@@ -81,6 +81,7 @@ test "pdf v2 core open options expose collection flags and performance caps" {
     max_objects: Some(100),
     max_stream_bytes: Some(4096),
     max_events: Some(20),
+    object_caps: @pdfv2.pdf_v2_default_object_cap_options(),
     fail_on_encrypted: true,
   }
   assert_true(options.collect_text)

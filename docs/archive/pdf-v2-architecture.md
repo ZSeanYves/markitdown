@@ -196,6 +196,44 @@ PDF-V2-RESET-10 Layout Facts Scaffold Note:
   convert lowering, dispatcher switching, model file reads, or old-runtime
   fallback.
 
+PDF-V2-RESET-11 Object Facts Integration Note:
+
+* Phase 11 wires common PDF object facts through the parser-owned source,
+  normalized model, and layout fact layers.
+* Image XObjects, inline images, annotations, links, forms/widgets, outlines,
+  destinations, resources, and metadata are represented as bounded candidates
+  with source refs, warnings, risks, reason tags, and summary counts.
+* Image handling remains metadata-only. The parser records available
+  dimensions, color space, bit depth, filters, mask flags, and object refs, but
+  does not decode image bytes, run OCR, infer captions, or emit Markdown.
+* Annotation, link, form, outline, destination, resource, and metadata facts
+  are partial parser facts, not convert policy or semantic classification.
+* Layout facts consume object candidates only for factual coverage flags and
+  scaffold statuses. This phase does not add true layout recovery, table
+  inference, figure/caption association, form semantic extraction, link
+  lowering, dispatcher changes, external data/model reads, or fallback to the
+  old PDF runtime.
+
+PDF-V2-RESET-12 Capability Caps And Unsupported Reporting Note:
+
+* Phase 12 adds explicit object capability statuses, object cap options,
+  unsupported capability reports, partial fact reports, and extended object
+  summaries on top of the Phase 11 parser candidates.
+* Object caps apply after source object candidate collection and before model
+  assembly, so candidate arrays are bounded without reopening or rescanning the
+  PDF.
+* Cap hits produce warnings, risks, `Capped` reports, and summary counters.
+  Metadata-only image decode and unsupported/heavy image filters are surfaced
+  as capability reports with source refs and reason tags.
+* Partial annotations, links, forms/widgets, outlines, destinations, and
+  metadata record available and missing fields instead of pretending the fact
+  is complete.
+* Source, model, and layout facts expose the same reports and summaries. This
+  phase still does not add image decode, OCR, object-region recovery,
+  figure/caption association, form semantic normalization, link lowering,
+  convert lowering, dispatcher switching, external data/model reads, or
+  old-runtime fallback.
+
 ## Runtime Adoption Record
 
 PDF v2 is not adopted yet. The current `doc_parse/pdf` and `convert/pdf`
@@ -1360,23 +1398,3 @@ This note should record the first quality, performance, and closure gate review
 for dispatcher readiness. It should include sample results, quality-lab report
 summaries, model calibration status, memory/latency/package closure numbers,
 and unresolved adoption blockers.
-
-### PDF-V2-RESET-11 Object Facts Integration Note
-
-Phase 11 wires common PDF object facts through the parser-owned source,
-normalized model, and layout fact layers. Image XObjects, inline images,
-annotations, links, forms/widgets, outlines, destinations, resources, and
-metadata are represented as bounded candidates with source refs, warnings,
-risks, reason tags, and summary counts.
-
-Image handling remains metadata-only: the parser records available dimensions,
-color space, bit depth, filters, mask flags, and object refs, but does not
-decode image bytes, run OCR, infer captions, or emit Markdown. Annotation,
-link, form, outline, destination, resource, and metadata facts are partial
-parser facts, not convert policy or semantic classification.
-
-Layout facts consume these object candidates only for factual coverage flags
-and scaffold statuses. This phase does not add true layout recovery, table
-inference, figure/caption association, form semantic extraction, link lowering,
-dispatcher changes, external data/model reads, or fallback to the old PDF
-runtime.

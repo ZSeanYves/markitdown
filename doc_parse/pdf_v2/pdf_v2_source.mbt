@@ -61,6 +61,8 @@ pub(all) struct PdfV2SourceDocument {
   destination_candidates : Array[PdfV2DestinationCandidate]
   resource_candidates : Array[PdfV2ResourceCandidate]
   metadata_candidates : Array[PdfV2MetadataCandidate]
+  unsupported_capabilities : Array[PdfV2UnsupportedCapabilityReport]
+  partial_fact_reports : Array[PdfV2PartialFactReport]
   object_summary : PdfV2ObjectSummary
   reconstruction_summary : PdfV2CharReconstructionSummary
   summary : PdfV2SourceSummary

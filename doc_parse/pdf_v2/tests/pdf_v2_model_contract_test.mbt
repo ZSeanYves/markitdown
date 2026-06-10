@@ -180,6 +180,8 @@ test "pdf v2 model assembly rejects invalid candidate page index" {
     destination_candidates: [],
     resource_candidates: [],
     metadata_candidates: [],
+    unsupported_capabilities: [],
+    partial_fact_reports: [],
     object_summary: @pdfv2.pdf_v2_empty_object_summary(),
     reconstruction_summary: @pdfv2.pdf_v2_empty_reconstruction_summary(),
     summary: @pdfv2.pdf_v2_source_summary(0, 1, 0, 0),

@@ -97,6 +97,8 @@ pub(all) struct PdfV2DocumentModel {
   outlines : Array[PdfV2OutlineCandidate]
   destinations : Array[PdfV2DestinationCandidate]
   metadata_candidates : Array[PdfV2MetadataCandidate]
+  unsupported_capabilities : Array[PdfV2UnsupportedCapabilityReport]
+  partial_fact_reports : Array[PdfV2PartialFactReport]
   object_summary : PdfV2ObjectSummary
   layout : PdfV2LayoutRecoveryResult
   warnings : Array[PdfV2Warning]
@@ -129,6 +131,8 @@ pub fn build_empty_pdf_v2_document() -> PdfV2DocumentModel {
     outlines: [],
     destinations: [],
     metadata_candidates: [],
+    unsupported_capabilities: [],
+    partial_fact_reports: [],
     object_summary: pdf_v2_empty_object_summary(),
     layout,
     warnings: [],

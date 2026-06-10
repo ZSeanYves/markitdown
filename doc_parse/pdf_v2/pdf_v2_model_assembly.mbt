@@ -671,6 +671,8 @@ pub fn pdf_v2_document_model_from_source(
     outlines: source.outline_candidates,
     destinations: source.destination_candidates,
     metadata_candidates: source.metadata_candidates,
+    unsupported_capabilities: source.unsupported_capabilities,
+    partial_fact_reports: source.partial_fact_reports,
     object_summary: source.object_summary,
     layout,
     warnings,

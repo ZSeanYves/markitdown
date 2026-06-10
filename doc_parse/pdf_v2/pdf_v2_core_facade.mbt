@@ -11,6 +11,7 @@ pub(all) struct PdfV2CoreOpenOptions {
   max_objects : Int?
   max_stream_bytes : Int?
   max_events : Int?
+  object_caps : PdfV2ObjectCapOptions
   fail_on_encrypted : Bool
 }
 
@@ -151,6 +152,7 @@ pub fn default_pdf_v2_core_open_options() -> PdfV2CoreOpenOptions {
     max_objects: None,
     max_stream_bytes: None,
     max_events: None,
+    object_caps: pdf_v2_default_object_cap_options(),
     fail_on_encrypted: true,
   }
 }

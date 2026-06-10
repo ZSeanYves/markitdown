@@ -392,6 +392,41 @@ fn phase11_image_xobject_pdf() -> String {
 }
 
 ///|
+fn phase12_two_image_xobject_pdf() -> String {
+  let content = "q\n/Im1 Do\n/Im2 Do\nQ\n"
+  phase3_pdf_from_objects([
+    (1, "<< /Type /Catalog /Pages 2 0 R >>"),
+    (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>"),
+    (
+      3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /XObject << /Im1 5 0 R /Im2 6 0 R >> >> /Contents 4 0 R >>",
+    ),
+    (4, phase3_stream_object(content)),
+    (
+      5, "<< /Type /XObject /Subtype /Image /Width 2 /Height 1 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length 3 >>\nstream\nabcendstream",
+    ),
+    (
+      6, "<< /Type /XObject /Subtype /Image /Width 3 /Height 2 /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /DCTDecode /Length 3 >>\nstream\nxyzendstream",
+    ),
+  ])
+}
+
+///|
+fn phase12_heavy_filter_image_pdf() -> String {
+  let content = "q\n/Im1 Do\nQ\n"
+  phase3_pdf_from_objects([
+    (1, "<< /Type /Catalog /Pages 2 0 R >>"),
+    (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>"),
+    (
+      3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /XObject << /Im1 5 0 R >> >> /Contents 4 0 R >>",
+    ),
+    (4, phase3_stream_object(content)),
+    (
+      5, "<< /Type /XObject /Subtype /Image /Width 2 /Height 1 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /JPXDecode /Length 3 >>\nstream\nabcendstream",
+    ),
+  ])
+}
+
+///|
 fn phase11_inline_image_pdf() -> String {
   let content = "q\nBI\n/W 1\n/H 1\n/BPC 8\n/CS /DeviceGray\nID\nz\nEI\nQ\n"
   phase4_text_pdf(content, false)
@@ -413,6 +448,19 @@ fn phase11_link_annotation_pdf() -> String {
 }
 
 ///|
+fn phase12_partial_link_annotation_pdf() -> String {
+  phase3_pdf_from_objects([
+    (1, "<< /Type /Catalog /Pages 2 0 R >>"),
+    (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>"),
+    (
+      3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Resources << >> /Annots [5 0 R] /Contents 4 0 R >>",
+    ),
+    (4, phase3_stream_object("q\nQ\n")),
+    (5, "<< /Type /Annot /Subtype /Link >>"),
+  ])
+}
+
+///|
 fn phase11_widget_form_pdf() -> String {
   phase3_pdf_from_objects([
     (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R] >> >>"),
@@ -427,6 +475,19 @@ fn phase11_widget_form_pdf() -> String {
     (
       6, "<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /Length 0 >>\nstream\nendstream",
     ),
+  ])
+}
+
+///|
+fn phase12_partial_widget_form_pdf() -> String {
+  phase3_pdf_from_objects([
+    (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R] >> >>"),
+    (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>"),
+    (
+      3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Resources << >> /Annots [5 0 R] /Contents 4 0 R >>",
+    ),
+    (4, phase3_stream_object("q\nQ\n")),
+    (5, "<< /Type /Annot /Subtype /Widget /Rect [10 20 110 40] /T (Field1) >>"),
   ])
 }
 
@@ -605,8 +666,44 @@ fn phase3_open_options(
     max_objects: None,
     max_stream_bytes: None,
     max_events,
+    object_caps: @pdfv2.pdf_v2_default_object_cap_options(),
     fail_on_encrypted: true,
   }
+}
+
+///|
+fn phase12_open_options_with_caps(
+  caps : @pdfv2.PdfV2ObjectCapOptions,
+) -> @pdfv2.PdfV2CoreOpenOptions {
+  { ..@pdfv2.default_pdf_v2_core_open_options(), object_caps: caps }
+}
+
+///|
+fn phase12_has_unsupported_capability(
+  reports : Array[@pdfv2.PdfV2UnsupportedCapabilityReport],
+  status : @pdfv2.PdfV2CapabilityStatus,
+  tag : String,
+) -> Bool {
+  for report in reports {
+    if report.status == status && report.reason_tags.contains(tag) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn phase12_has_partial_missing_field(
+  reports : Array[@pdfv2.PdfV2PartialFactReport],
+  fact_kind : String,
+  field : String,
+) -> Bool {
+  for report in reports {
+    if report.fact_kind == fact_kind && report.missing_fields.contains(field) {
+      return true
+    }
+  }
+  false
 }
 
 ///|
@@ -2571,5 +2668,278 @@ test "pdf v2 object facts remain parser facts without semantic convert fallback"
     }
     ModelAssemblyErr(_, _, message) =>
       fail("expected Phase 11 parser-fact-only model: " + message)
+  }
+}
+
+///|
+test "pdf v2 object capabilities report image metadata-only status" {
+  let path = "/tmp/markitdown-pdf-v2-phase12-image-metadata-only.pdf"
+  phase3_write_fixture(path, phase11_image_xobject_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_model_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    ModelAssemblyOk(model) => {
+      assert_true(model.pages[0].images.length() == 1)
+      assert_true(
+        model.pages[0].images[0].decode_status ==
+        @pdfv2.PdfV2ImageDecodeStatus::MetadataOnly,
+      )
+      assert_true(model.object_summary.metadata_only_count == 1)
+      assert_true(model.object_summary.unsupported_capability_count >= 1)
+      assert_true(
+        phase12_has_unsupported_capability(
+          model.unsupported_capabilities,
+          @pdfv2.PdfV2CapabilityStatus::MetadataOnly,
+          "metadata_only",
+        ),
+      )
+      assert_true(
+        !model.unsupported_capabilities[0].reason_tags.contains(
+          "decode_available",
+        ),
+      )
+    }
+    ModelAssemblyErr(_, _, message) =>
+      fail("expected Phase 12 metadata-only report: " + message)
+  }
+}
+
+///|
+test "pdf v2 object capabilities report unsupported heavy image filter" {
+  let path = "/tmp/markitdown-pdf-v2-phase12-heavy-filter.pdf"
+  phase3_write_fixture(path, phase12_heavy_filter_image_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_model_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    ModelAssemblyOk(model) => {
+      assert_true(model.pages[0].images.length() == 1)
+      assert_true(model.pages[0].images[0].filters.contains("/JPXDecode"))
+      assert_true(
+        model.pages[0].images[0].decode_status ==
+        @pdfv2.PdfV2ImageDecodeStatus::MetadataOnly,
+      )
+      assert_true(
+        phase12_has_unsupported_capability(
+          model.unsupported_capabilities,
+          @pdfv2.PdfV2CapabilityStatus::Unsupported,
+          "unsupported_filter",
+        ),
+      )
+      assert_true(model.object_summary.unsupported_object_count >= 1)
+      assert_true(model.warnings.length() > 0)
+      assert_true(model.risks.length() > 0)
+      assert_true(model.unsupported_capabilities[0].source_ref is Some(_))
+    }
+    ModelAssemblyErr(_, _, message) =>
+      fail("expected Phase 12 heavy filter report: " + message)
+  }
+}
+
+///|
+test "pdf v2 object caps trim image candidates and report cap hit" {
+  let path = "/tmp/markitdown-pdf-v2-phase12-image-cap.pdf"
+  phase3_write_fixture(path, phase12_two_image_xobject_pdf())
+  defer phase3_cleanup_fixture(path)
+  let options = phase12_open_options_with_caps({
+    ..@pdfv2.pdf_v2_default_object_cap_options(),
+    max_images: Some(1),
+  })
+
+  let result = @pdfv2.parse_pdf_v2_source_from_path(path, options)
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(doc.image_candidates.length() == 1)
+      assert_true(doc.object_summary.image_count == 1)
+      assert_true(doc.object_summary.capped_image_count == 1)
+      assert_true(
+        phase12_has_unsupported_capability(
+          doc.unsupported_capabilities,
+          @pdfv2.PdfV2CapabilityStatus::Capped,
+          "object_cap",
+        ),
+      )
+      assert_true(doc.summary.warning_count > 0)
+      assert_true(doc.summary.risk_count > 0)
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 12 image cap source facts: " + message)
+  }
+}
+
+///|
+test "pdf v2 object capabilities report annotation link partial facts" {
+  let path = "/tmp/markitdown-pdf-v2-phase12-partial-link.pdf"
+  phase3_write_fixture(path, phase12_partial_link_annotation_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_model_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    ModelAssemblyOk(model) => {
+      assert_true(model.pages[0].annotations.length() == 1)
+      assert_true(model.pages[0].links.length() == 1)
+      assert_true(
+        phase12_has_partial_missing_field(
+          model.partial_fact_reports,
+          "annotation",
+          "rect",
+        ),
+      )
+      assert_true(
+        phase12_has_partial_missing_field(
+          model.partial_fact_reports,
+          "link",
+          "uri_or_dest",
+        ),
+      )
+      assert_true(model.object_summary.partial_fact_count >= 2)
+      assert_true(
+        model.pages[0].links[0].reason_tags.contains("semantic_not_lowered"),
+      )
+    }
+    ModelAssemblyErr(_, _, message) =>
+      fail("expected Phase 12 annotation partial report: " + message)
+  }
+}
+
+///|
+test "pdf v2 object capabilities report widget form partial facts" {
+  let path = "/tmp/markitdown-pdf-v2-phase12-partial-widget.pdf"
+  phase3_write_fixture(path, phase12_partial_widget_form_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_model_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    ModelAssemblyOk(model) => {
+      assert_true(model.pages[0].forms.length() == 1)
+      assert_true(
+        phase12_has_partial_missing_field(
+          model.partial_fact_reports,
+          "form",
+          "appearance_ref",
+        ),
+      )
+      assert_true(
+        phase12_has_partial_missing_field(
+          model.partial_fact_reports,
+          "form",
+          "value",
+        ),
+      )
+      assert_true(model.object_summary.partial_fact_count >= 1)
+      assert_true(
+        model.pages[0].forms[0].reason_tags.contains("semantic_not_lowered"),
+      )
+    }
+    ModelAssemblyErr(_, _, message) =>
+      fail("expected Phase 12 widget partial report: " + message)
+  }
+}
+
+///|
+test "pdf v2 object caps trim metadata entries and report cap hit" {
+  let path = "/tmp/markitdown-pdf-v2-phase12-metadata-cap.pdf"
+  phase3_write_fixture(path, phase11_outline_destination_metadata_pdf())
+  defer phase3_cleanup_fixture(path)
+  let options = phase12_open_options_with_caps({
+    ..@pdfv2.pdf_v2_default_object_cap_options(),
+    max_metadata_entries: Some(1),
+  })
+
+  let result = @pdfv2.parse_pdf_v2_model_from_path(path, options)
+  match result {
+    ModelAssemblyOk(model) => {
+      assert_true(model.metadata_candidates.length() == 1)
+      assert_true(model.object_summary.metadata_count == 1)
+      assert_true(
+        phase12_has_unsupported_capability(
+          model.unsupported_capabilities,
+          @pdfv2.PdfV2CapabilityStatus::Capped,
+          "metadata",
+        ),
+      )
+      assert_true(model.warnings.length() > 0)
+      assert_true(model.risks.length() > 0)
+    }
+    ModelAssemblyErr(_, _, message) =>
+      fail("expected Phase 12 metadata cap model facts: " + message)
+  }
+}
+
+///|
+test "pdf v2 layout facts expose object capability reports" {
+  let path = "/tmp/markitdown-pdf-v2-phase12-layout-reports.pdf"
+  phase3_write_fixture(path, phase12_heavy_filter_image_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_layout_facts_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    LayoutFactOk(facts) => {
+      assert_true(facts.unsupported_capabilities.length() >= 2)
+      assert_true(facts.summary.unsupported_capability_count >= 2)
+      assert_true(facts.summary.metadata_only_count == 1)
+      assert_true(
+        phase12_has_unsupported_capability(
+          facts.unsupported_capabilities,
+          @pdfv2.PdfV2CapabilityStatus::Unsupported,
+          "unsupported_filter",
+        ),
+      )
+      assert_true(
+        facts.page_layouts[0].image_region_status ==
+        @pdfv2.PdfV2LayoutRecoveryStatus::PartialFacts,
+      )
+      assert_true(
+        facts.page_layouts[0].table_region_status ==
+        @pdfv2.PdfV2LayoutRecoveryStatus::NotAttempted,
+      )
+    }
+    LayoutFactErr(_, _, message) =>
+      fail("expected Phase 12 layout report integration: " + message)
+  }
+}
+
+///|
+test "pdf v2 object capability reports remain parser facts without convert fallback" {
+  let path = "/tmp/markitdown-pdf-v2-phase12-no-semantic-convert.pdf"
+  phase3_write_fixture(path, phase12_partial_link_annotation_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_model_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    ModelAssemblyOk(model) => {
+      assert_true(model.partial_fact_reports.length() > 0)
+      assert_true(model.layout.regions.length() == 0)
+      assert_true(model.layout.reading_order.region_indices.length() == 0)
+      assert_true(model.one_pass)
+      assert_true(model.no_fallback)
+      assert_true(model.source_summary.one_pass_scan)
+      assert_true(!model.source_summary.fallback_used)
+      assert_true(!model.source_summary.external_model_files_read)
+      assert_true(
+        model.pages[0].links[0].reason_tags.contains("semantic_not_lowered"),
+      )
+    }
+    ModelAssemblyErr(_, _, message) =>
+      fail("expected Phase 12 parser-fact-only reports: " + message)
   }
 }

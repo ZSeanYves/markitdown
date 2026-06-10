@@ -137,6 +137,10 @@ pub(all) struct PdfV2LayoutFactSummary {
   pages_with_missing_geometry : Int
   pages_source_order_only : Int
   pages_with_layout_not_attempted : Int
+  unsupported_capability_count : Int
+  partial_fact_count : Int
+  capped_object_count : Int
+  metadata_only_count : Int
   warning_count : Int
   risk_count : Int
 }
@@ -147,6 +151,8 @@ pub(all) struct PdfV2LayoutFactSet {
   summary : PdfV2LayoutFactSummary
   warnings : Array[PdfV2Warning]
   risks : Array[PdfV2Risk]
+  unsupported_capabilities : Array[PdfV2UnsupportedCapabilityReport]
+  partial_fact_reports : Array[PdfV2PartialFactReport]
   source_refs : Array[PdfV2SourceRef]
   one_pass : Bool
   no_fallback : Bool

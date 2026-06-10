@@ -23,6 +23,40 @@ The files in this package intentionally define typed contracts before real PDF
 reading is wired. Unsupported or incomplete capabilities should be represented
 as warnings and risks rather than hidden fallback behavior.
 
+## Phase 12 Object Capability Reporting Status
+
+Phase 12 adds explicit parser-owned object capability diagnostics on top of the
+Phase 11 object candidates:
+
+```text
+Object candidates
+  -> capability statuses
+  -> object caps
+  -> unsupported capability reports
+  -> partial fact reports
+```
+
+Current status:
+
+- `PdfV2ObjectCapOptions` bounds image, inline-image, annotation, link, form,
+  outline, destination, resource, and metadata candidate arrays.
+- Cap hits trim the parser candidate arrays and produce warnings, risks,
+  `Capped` capability reports, and `PdfV2ObjectSummary` cap counters.
+- `PdfV2UnsupportedCapabilityReport` records metadata-only image decode,
+  unsupported/heavy image filters, not-attempted object capabilities, source
+  refs, object refs, severities, and reason tags.
+- `PdfV2PartialFactReport` records available and missing fields for partial
+  annotations, links, forms/widgets, outlines, destinations, and metadata.
+- `PdfV2SourceDocument`, `PdfV2DocumentModel`, and `PdfV2LayoutFactSet` expose
+  the unsupported and partial reports alongside extended object summaries.
+- Image decode remains metadata-only/not-attempted unless a future phase adds a
+  reviewed decode pipeline behind explicit caps.
+
+This is still not image decoding, OCR, object-region recovery, caption/table
+association, form semantic normalization, link Markdown lowering, semantic
+classification, convert lowering, dispatcher behavior, external data/model
+reading, or fallback.
+
 ## Phase 11 Object Facts Integration Status
 
 Phase 11 maps object-related core/source events into parser-owned candidates and

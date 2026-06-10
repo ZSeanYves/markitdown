@@ -14,7 +14,13 @@ pub fn parse_pdf_v2_model_from_path(String, PdfV2CoreOpenOptions) -> PdfV2ModelA
 
 pub fn parse_pdf_v2_source_from_path(String, PdfV2CoreOpenOptions) -> PdfV2SourceOpenResult
 
+pub fn pdf_v2_apply_object_caps_to_source(PdfV2SourceDocument, PdfV2ObjectCapOptions) -> PdfV2SourceDocument
+
 pub fn pdf_v2_build_font_cache_from_text_events(Array[PdfV2CoreEvent]) -> PdfV2FontCache
+
+pub fn pdf_v2_collect_partial_fact_reports_from_model(PdfV2DocumentModel) -> Array[PdfV2PartialFactReport]
+
+pub fn pdf_v2_collect_unsupported_capabilities_from_model(PdfV2DocumentModel) -> Array[PdfV2UnsupportedCapabilityReport]
 
 pub fn pdf_v2_core_event(PdfV2CoreEventKind, PdfV2SourceRef) -> PdfV2CoreEvent
 
@@ -27,6 +33,8 @@ pub fn pdf_v2_default_block_reconstruction_options() -> PdfV2BlockReconstruction
 pub fn pdf_v2_default_line_reconstruction_options() -> PdfV2LineReconstructionOptions
 
 pub fn pdf_v2_default_max_char_candidates() -> Int
+
+pub fn pdf_v2_default_object_cap_options() -> PdfV2ObjectCapOptions
 
 pub fn pdf_v2_default_span_reconstruction_options() -> PdfV2SpanReconstructionOptions
 
@@ -69,6 +77,8 @@ pub fn pdf_v2_reconstruct_line_candidates(Array[PdfV2SpanCandidate], PdfV2LineRe
 pub fn pdf_v2_reconstruct_span_candidates(Array[PdfV2CharCandidate], PdfV2SpanReconstructionOptions) -> PdfV2SpanReconstructionResult
 
 pub fn pdf_v2_source_document_from_core(PdfV2CoreDocument, Array[PdfV2CoreEvent]) -> PdfV2SourceDocument
+
+pub fn pdf_v2_source_document_from_core_with_options(PdfV2CoreDocument, Array[PdfV2CoreEvent], PdfV2CoreOpenOptions) -> PdfV2SourceDocument
 
 pub fn pdf_v2_source_event(PdfV2SourceEventKind, PdfV2SourceRef) -> PdfV2SourceEvent
 
@@ -151,6 +161,17 @@ pub(all) struct PdfV2BlockReconstructionSummary {
   warnings_count : Int
   risk_count : Int
 }
+
+pub(all) enum PdfV2CapabilityStatus {
+  Supported
+  MetadataOnly
+  Partial
+  NotAttempted
+  Unsupported
+  Capped
+  Failed
+  Unknown
+} derive(Eq)
 
 pub(all) struct PdfV2Char {
   text : String
@@ -308,6 +329,7 @@ pub(all) struct PdfV2CoreOpenOptions {
   max_objects : Int?
   max_stream_bytes : Int?
   max_events : Int?
+  object_caps : PdfV2ObjectCapOptions
   fail_on_encrypted : Bool
 }
 
@@ -383,6 +405,8 @@ pub(all) struct PdfV2DocumentModel {
   outlines : Array[PdfV2OutlineCandidate]
   destinations : Array[PdfV2DestinationCandidate]
   metadata_candidates : Array[PdfV2MetadataCandidate]
+  unsupported_capabilities : Array[PdfV2UnsupportedCapabilityReport]
+  partial_fact_reports : Array[PdfV2PartialFactReport]
   object_summary : PdfV2ObjectSummary
   layout : PdfV2LayoutRecoveryResult
   warnings : Array[PdfV2Warning]
@@ -525,6 +549,8 @@ pub(all) struct PdfV2LayoutFactSet {
   summary : PdfV2LayoutFactSummary
   warnings : Array[PdfV2Warning]
   risks : Array[PdfV2Risk]
+  unsupported_capabilities : Array[PdfV2UnsupportedCapabilityReport]
+  partial_fact_reports : Array[PdfV2PartialFactReport]
   source_refs : Array[PdfV2SourceRef]
   one_pass : Bool
   no_fallback : Bool
@@ -537,6 +563,10 @@ pub(all) struct PdfV2LayoutFactSummary {
   pages_with_missing_geometry : Int
   pages_source_order_only : Int
   pages_with_layout_not_attempted : Int
+  unsupported_capability_count : Int
+  partial_fact_count : Int
+  capped_object_count : Int
+  metadata_only_count : Int
   warning_count : Int
   risk_count : Int
 }
@@ -701,6 +731,18 @@ pub(all) struct PdfV2ObjectCandidateFacts {
   source_refs : Array[PdfV2SourceRef]
 }
 
+pub(all) struct PdfV2ObjectCapOptions {
+  max_images : Int?
+  max_inline_images : Int?
+  max_annotations : Int?
+  max_links : Int?
+  max_forms : Int?
+  max_outlines : Int?
+  max_destinations : Int?
+  max_resources : Int?
+  max_metadata_entries : Int?
+}
+
 pub(all) struct PdfV2ObjectSummary {
   image_count : Int
   inline_image_count : Int
@@ -714,6 +756,13 @@ pub(all) struct PdfV2ObjectSummary {
   unsupported_object_count : Int
   warning_count : Int
   risk_count : Int
+  capped_image_count : Int
+  capped_annotation_count : Int
+  unsupported_capability_count : Int
+  partial_fact_count : Int
+  metadata_only_count : Int
+  not_attempted_count : Int
+  failed_object_count : Int
 }
 
 pub(all) struct PdfV2OutlineCandidate {
@@ -795,6 +844,19 @@ pub(all) struct PdfV2PageModel {
   layout_regions : Array[PdfV2LayoutRegion]
 }
 
+pub(all) struct PdfV2PartialFactReport {
+  fact_kind : String
+  page_index : Int?
+  object_ref : String?
+  source_ref : PdfV2SourceRef?
+  available_fields : Array[String]
+  missing_fields : Array[String]
+  status : PdfV2CapabilityStatus
+  reason_tags : Array[String]
+  warnings : Array[PdfV2Warning]
+  risks : Array[PdfV2Risk]
+}
+
 pub(all) struct PdfV2ReadingOrder {
   region_indices : Array[Int]
   confidence : Double
@@ -869,6 +931,8 @@ pub(all) struct PdfV2SourceDocument {
   destination_candidates : Array[PdfV2DestinationCandidate]
   resource_candidates : Array[PdfV2ResourceCandidate]
   metadata_candidates : Array[PdfV2MetadataCandidate]
+  unsupported_capabilities : Array[PdfV2UnsupportedCapabilityReport]
+  partial_fact_reports : Array[PdfV2PartialFactReport]
   object_summary : PdfV2ObjectSummary
   reconstruction_summary : PdfV2CharReconstructionSummary
   summary : PdfV2SourceSummary
@@ -1114,6 +1178,17 @@ pub(all) struct PdfV2TextStyleFlags {
   italic : Bool
   monospace : Bool
   serif : Bool
+}
+
+pub(all) struct PdfV2UnsupportedCapabilityReport {
+  capability : String
+  status : PdfV2CapabilityStatus
+  page_index : Int?
+  object_ref : String?
+  source_ref : PdfV2SourceRef?
+  message : String
+  reason_tags : Array[String]
+  severity : PdfV2Severity
 }
 
 pub(all) struct PdfV2Warning {

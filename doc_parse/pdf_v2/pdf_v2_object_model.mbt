@@ -183,6 +183,13 @@ pub(all) struct PdfV2ObjectSummary {
   unsupported_object_count : Int
   warning_count : Int
   risk_count : Int
+  capped_image_count : Int
+  capped_annotation_count : Int
+  unsupported_capability_count : Int
+  partial_fact_count : Int
+  metadata_only_count : Int
+  not_attempted_count : Int
+  failed_object_count : Int
 }
 
 ///|
@@ -200,5 +207,12 @@ pub fn pdf_v2_empty_object_summary() -> PdfV2ObjectSummary {
     unsupported_object_count: 0,
     warning_count: 0,
     risk_count: 0,
+    capped_image_count: 0,
+    capped_annotation_count: 0,
+    unsupported_capability_count: 0,
+    partial_fact_count: 0,
+    metadata_only_count: 0,
+    not_attempted_count: 0,
+    failed_object_count: 0,
   }
 }
