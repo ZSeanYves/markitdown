@@ -174,3 +174,20 @@ pub fn parse_pdf_v2_layout_facts_from_path(
       PdfV2LayoutFactResult::LayoutFactErr(warnings, risks, message)
   }
 }
+
+///|
+pub fn parse_pdf_v2_features_from_path(
+  path : String,
+  options : PdfV2CoreOpenOptions,
+) -> PdfV2FeatureResult {
+  match parse_pdf_v2_model_from_path(path, options) {
+    ModelAssemblyOk(model) => {
+      let layout = pdf_v2_layout_facts_from_model(model)
+      PdfV2FeatureResult::FeatureOk(
+        pdf_v2_features_from_model_and_layout(model, layout),
+      )
+    }
+    ModelAssemblyErr(warnings, risks, message) =>
+      PdfV2FeatureResult::FeatureErr(warnings, risks, message)
+  }
+}

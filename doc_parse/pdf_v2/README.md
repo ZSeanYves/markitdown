@@ -23,6 +23,39 @@ The files in this package intentionally define typed contracts before real PDF
 reading is wired. Unsupported or incomplete capabilities should be represented
 as warnings and risks rather than hidden fallback behavior.
 
+## Phase 13 Classifier Feature Scaffold Status
+
+Phase 13 builds classifier-ready feature scaffolding from existing parser facts:
+
+```text
+PdfV2DocumentModel
+  + PdfV2LayoutFactSet
+  + object capability reports
+  -> PdfV2FeatureSet
+```
+
+Current status:
+
+- `PdfV2FeatureSet` contains document, page, block, and object feature rows
+  plus summaries, warnings, risks, source refs, and one-pass/no-fallback flags.
+- Feature rows are parser facts and risk signals. They are not heading, list,
+  caption, table, figure, form, link, or Markdown labels.
+- Document and page rows expose text/object counts, layout statuses,
+  unsupported capability counts, partial fact counts, capped object counts,
+  metadata-only counts, warnings, risks, and source refs.
+- Block rows expose text length, line/span/char counts, decode confidence,
+  geometry confidence, missing-geometry and low-signal flags, object presence
+  flags, cap context, reason tags, and source refs.
+- Object rows expose object kind, capability status, metadata-only/partial/
+  unsupported/capped flags, bbox/source-ref presence, diagnostics, and reason
+  tags.
+- The feature parser API is `parse_pdf_v2_features_from_path`, which builds the
+  model and layout facts once and then derives features from those parser facts.
+
+This is still not model loading, model training, semantic classification,
+heading/list/caption/table detection, layout recovery, convert lowering,
+dispatcher behavior, external data/model reading, or fallback.
+
 ## Phase 12 Object Capability Reporting Status
 
 Phase 12 adds explicit parser-owned object capability diagnostics on top of the

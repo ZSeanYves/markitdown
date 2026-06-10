@@ -492,6 +492,26 @@ fn phase12_partial_widget_form_pdf() -> String {
 }
 
 ///|
+fn phase13_object_feature_pdf() -> String {
+  let content = "q\n/Im1 Do\nQ\n"
+  phase3_pdf_from_objects([
+    (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [7 0 R] >> >>"),
+    (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>"),
+    (
+      3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Resources << /XObject << /Im1 5 0 R >> >> /Annots [6 0 R 7 0 R] /Contents 4 0 R >>",
+    ),
+    (4, phase3_stream_object(content)),
+    (
+      5, "<< /Type /XObject /Subtype /Image /Width 2 /Height 1 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length 3 >>\nstream\nabcendstream",
+    ),
+    (
+      6, "<< /Type /Annot /Subtype /Link /Rect [50 40 150 80] /A << /S /URI /URI (https://example.test/link) >> >>",
+    ),
+    (7, "<< /Type /Annot /Subtype /Widget /Rect [10 20 110 40] /T (Field1) >>"),
+  ])
+}
+
+///|
 fn phase11_outline_destination_metadata_pdf() -> String {
   let header = "%PDF-1.4\n"
   let objects : Array[(Int, String)] = [
@@ -700,6 +720,45 @@ fn phase12_has_partial_missing_field(
 ) -> Bool {
   for report in reports {
     if report.fact_kind == fact_kind && report.missing_fields.contains(field) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn phase13_has_object_feature_kind(
+  rows : Array[@pdfv2.PdfV2ObjectFeatureRow],
+  kind : String,
+) -> Bool {
+  for row in rows {
+    if row.object_kind == kind {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn phase13_has_object_feature_status(
+  rows : Array[@pdfv2.PdfV2ObjectFeatureRow],
+  status : @pdfv2.PdfV2CapabilityStatus,
+) -> Bool {
+  for row in rows {
+    if row.capability_status == status {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn phase13_has_block_reason(
+  rows : Array[@pdfv2.PdfV2BlockFeatureRow],
+  tag : String,
+) -> Bool {
+  for row in rows {
+    if row.reason_tags.contains(tag) {
       return true
     }
   }
@@ -2941,5 +3000,244 @@ test "pdf v2 object capability reports remain parser facts without convert fallb
     }
     ModelAssemblyErr(_, _, message) =>
       fail("expected Phase 12 parser-fact-only reports: " + message)
+  }
+}
+
+///|
+test "pdf v2 classifier features expose minimal text rows without labels" {
+  let path = "/tmp/markitdown-pdf-v2-phase13-text-features.pdf"
+  phase3_write_fixture(path, phase4_simple_text_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_features_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    FeatureOk(features) => {
+      assert_true(features.document_features.page_count == 1)
+      assert_true(features.document_features.has_text)
+      assert_true(features.page_features.length() == 1)
+      assert_true(features.block_features.length() >= 1)
+      let block = features.block_features[0]
+      assert_true(block.text_length == 5)
+      assert_true(block.line_count == 1)
+      assert_true(block.char_count == 5)
+      assert_true(block.source_ref_count > 0)
+      assert_true(!block.reason_tags.contains("heading"))
+      assert_true(!block.reason_tags.contains("caption"))
+      assert_true(!block.reason_tags.contains("table"))
+      assert_true(features.one_pass)
+      assert_true(features.no_fallback)
+    }
+    FeatureErr(_, _, message) =>
+      fail("expected Phase 13 text feature set: " + message)
+  }
+}
+
+///|
+test "pdf v2 classifier features expose object rows and statuses" {
+  let path = "/tmp/markitdown-pdf-v2-phase13-object-features.pdf"
+  phase3_write_fixture(path, phase13_object_feature_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_features_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    FeatureOk(features) => {
+      assert_true(features.document_features.has_images)
+      assert_true(features.document_features.has_annotations)
+      assert_true(features.document_features.has_forms)
+      assert_true(
+        phase13_has_object_feature_kind(features.object_features, "image"),
+      )
+      assert_true(
+        phase13_has_object_feature_kind(features.object_features, "link"),
+      )
+      assert_true(
+        phase13_has_object_feature_kind(features.object_features, "form"),
+      )
+      assert_true(
+        phase13_has_object_feature_kind(features.object_features, "resource"),
+      )
+      assert_true(
+        phase13_has_object_feature_status(
+          features.object_features,
+          @pdfv2.PdfV2CapabilityStatus::MetadataOnly,
+        ),
+      )
+      assert_true(
+        phase13_has_object_feature_status(
+          features.object_features,
+          @pdfv2.PdfV2CapabilityStatus::Partial,
+        ),
+      )
+      assert_true(features.source_refs.length() > 0)
+    }
+    FeatureErr(_, _, message) =>
+      fail("expected Phase 13 object feature set: " + message)
+  }
+}
+
+///|
+test "pdf v2 classifier features propagate unsupported and capped context" {
+  let path = "/tmp/markitdown-pdf-v2-phase13-capped-features.pdf"
+  phase3_write_fixture(path, phase12_two_image_xobject_pdf())
+  defer phase3_cleanup_fixture(path)
+  let options = phase12_open_options_with_caps({
+    ..@pdfv2.pdf_v2_default_object_cap_options(),
+    max_images: Some(1),
+  })
+
+  let result = @pdfv2.parse_pdf_v2_features_from_path(path, options)
+  match result {
+    FeatureOk(features) => {
+      assert_true(features.document_features.capped_object_count >= 1)
+      assert_true(features.summary.capped_object_count >= 1)
+      assert_true(features.page_features[0].unsupported_capability_count >= 1)
+      assert_true(
+        phase13_has_object_feature_status(
+          features.object_features,
+          @pdfv2.PdfV2CapabilityStatus::Capped,
+        ),
+      )
+      if features.block_features.length() > 0 {
+        assert_true(features.block_features[0].capped_context_flag)
+      }
+      assert_true(features.warnings.length() > 0)
+      assert_true(features.risks.length() > 0)
+    }
+    FeatureErr(_, _, message) =>
+      fail("expected Phase 13 capped feature set: " + message)
+  }
+}
+
+///|
+test "pdf v2 classifier features expose unsupported heavy filter signals" {
+  let path = "/tmp/markitdown-pdf-v2-phase13-heavy-filter-features.pdf"
+  phase3_write_fixture(path, phase12_heavy_filter_image_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_features_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    FeatureOk(features) => {
+      assert_true(features.document_features.unsupported_capability_count >= 2)
+      assert_true(features.summary.unsupported_object_count >= 1)
+      assert_true(
+        phase13_has_object_feature_status(
+          features.object_features,
+          @pdfv2.PdfV2CapabilityStatus::Unsupported,
+        ),
+      )
+      assert_true(features.object_features.length() > 0)
+      assert_true(features.source_refs.length() > 0)
+    }
+    FeatureErr(_, _, message) =>
+      fail("expected Phase 13 unsupported feature set: " + message)
+  }
+}
+
+///|
+test "pdf v2 classifier features expose missing geometry and layout statuses" {
+  let path = "/tmp/markitdown-pdf-v2-phase13-missing-geometry.pdf"
+  phase3_write_fixture(path, phase4_simple_text_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_features_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    FeatureOk(features) => {
+      let page = features.page_features[0]
+      assert_true(
+        page.geometry_coverage == @pdfv2.PdfV2GeometryCoverage::Missing,
+      )
+      assert_true(
+        page.reading_order_status ==
+        @pdfv2.PdfV2LayoutRecoveryStatus::SourceOrderOnly,
+      )
+      assert_true(
+        page.layout_region_status ==
+        @pdfv2.PdfV2LayoutRecoveryStatus::InsufficientGeometry,
+      )
+      assert_true(features.block_features[0].missing_geometry_flag)
+      assert_true(features.block_features[0].low_signal_flag)
+      assert_true(
+        phase13_has_block_reason(
+          features.block_features,
+          "block_geometry_unavailable",
+        ),
+      )
+    }
+    FeatureErr(_, _, message) =>
+      fail("expected Phase 13 missing geometry features: " + message)
+  }
+}
+
+///|
+test "pdf v2 classifier feature summary matches produced rows" {
+  let path = "/tmp/markitdown-pdf-v2-phase13-summary.pdf"
+  phase3_write_fixture(path, phase13_object_feature_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_features_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    FeatureOk(features) => {
+      assert_true(features.summary.document_feature_count == 1)
+      assert_true(
+        features.summary.page_feature_count == features.page_features.length(),
+      )
+      assert_true(
+        features.summary.block_feature_count == features.block_features.length(),
+      )
+      assert_true(
+        features.summary.object_feature_count ==
+        features.object_features.length(),
+      )
+      assert_true(features.summary.warning_count == features.warnings.length())
+      assert_true(features.summary.risk_count == features.risks.length())
+    }
+    FeatureErr(_, _, message) =>
+      fail("expected Phase 13 summary consistency: " + message)
+  }
+}
+
+///|
+test "pdf v2 classifier features remain non-semantic parser facts" {
+  let path = "/tmp/markitdown-pdf-v2-phase13-no-semantic-convert.pdf"
+  phase3_write_fixture(path, phase12_partial_link_annotation_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_features_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    FeatureOk(features) => {
+      assert_true(features.block_features.length() == 0)
+      assert_true(features.object_features.length() > 0)
+      assert_true(
+        !phase13_has_object_feature_kind(features.object_features, "heading"),
+      )
+      assert_true(
+        !phase13_has_object_feature_kind(features.object_features, "caption"),
+      )
+      assert_true(
+        !phase13_has_object_feature_kind(features.object_features, "table"),
+      )
+      assert_true(features.one_pass)
+      assert_true(features.no_fallback)
+    }
+    FeatureErr(_, _, message) =>
+      fail("expected Phase 13 non-semantic feature set: " + message)
   }
 }

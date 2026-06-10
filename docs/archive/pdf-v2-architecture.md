@@ -234,6 +234,21 @@ PDF-V2-RESET-12 Capability Caps And Unsupported Reporting Note:
   convert lowering, dispatcher switching, external data/model reads, or
   old-runtime fallback.
 
+PDF-V2-RESET-13 Feature Scaffold Note:
+
+* Phase 13 derives `PdfV2FeatureSet` from the normalized parser model, layout
+  fact set, and object capability reports.
+* Feature rows cover document, page, block, and object facts: counts, layout
+  statuses, decode/geometry confidence, missing-geometry and low-signal flags,
+  object presence, unsupported/partial/capped/metadata-only signals, warnings,
+  risks, reason tags, and source refs.
+* The feature layer is parser/model-adjacent evidence for future classifier
+  gates. It does not emit heading, list, caption, table, figure, form, link, or
+  Markdown labels, and it does not provide semantic scores.
+* Feature extraction consumes existing model/layout facts only. It does not
+  reread PDFs, call convert, load `features.tsv`, load or train `model.pkl`, read
+  quality-lab data, switch dispatchers, or fallback to the old PDF runtime.
+
 ## Runtime Adoption Record
 
 PDF v2 is not adopted yet. The current `doc_parse/pdf` and `convert/pdf`
