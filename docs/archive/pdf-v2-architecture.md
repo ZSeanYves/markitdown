@@ -88,6 +88,22 @@ PDF-V2-RESET-3 Minimal Real Reader Adapter Note:
   convert lowering, text reconstruction, glyph decode, image decode, or layout
   recovery is introduced by this phase.
 
+PDF-V2-RESET-4 Typed Text Event Note:
+
+* Phase 4 recognizes text-related mbtpdf located content operators in the same
+  adapter pass and emits typed text source events.
+* `BT`, `ET`, `Tf`, text state operators, `Tj`, `TJ`, and quote operators now
+  produce `TextObjectBegin`, `TextObjectEnd`, `TextState`, `FontUse`,
+  `TextShow`, and `GlyphCandidate` facts while keeping the raw `Unknown`
+  source events for provenance.
+* Text facts carry conservative decode confidence, source refs, selected font
+  information, raw strings or TJ objects, and warnings/reason tags for missing
+  fonts, missing ToUnicode, decode failures, incomplete text state geometry,
+  and unavailable glyph geometry.
+* This phase intentionally stops before text reconstruction. It does not create
+  chars, spans, lines, blocks, paragraphs, layout recovery, convert lowering,
+  dispatcher switching, model file reads, or old-runtime fallback.
+
 ## Runtime Adoption Record
 
 PDF v2 is not adopted yet. The current `doc_parse/pdf` and `convert/pdf`

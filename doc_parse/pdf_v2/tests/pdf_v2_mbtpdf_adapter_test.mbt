@@ -80,6 +80,53 @@ fn phase3_two_page_pdf() -> String {
 }
 
 ///|
+fn phase4_text_pdf(content : String, include_font : Bool) -> String {
+  if include_font {
+    phase3_pdf_from_objects([
+      (1, "<< /Type /Catalog /Pages 2 0 R >>"),
+      (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>"),
+      (
+        3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>",
+      ),
+      (4, phase3_stream_object(content)),
+      (5, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"),
+    ])
+  } else {
+    phase3_pdf_from_objects([
+      (1, "<< /Type /Catalog /Pages 2 0 R >>"),
+      (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>"),
+      (
+        3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> /Contents 4 0 R >>",
+      ),
+      (4, phase3_stream_object(content)),
+    ])
+  }
+}
+
+///|
+fn phase4_simple_text_pdf() -> String {
+  phase4_text_pdf("BT\n/F1 12 Tf\n72 720 Td\n(Hello) Tj\nET\n", true)
+}
+
+///|
+fn phase4_tj_text_pdf() -> String {
+  phase4_text_pdf("BT\n/F1 12 Tf\n72 720 Td\n[(A) 120 (B)] TJ\nET\n", true)
+}
+
+///|
+fn phase4_missing_font_pdf() -> String {
+  phase4_text_pdf("BT\n/Missing 12 Tf\n72 720 Td\n(Hi) Tj\nET\n", false)
+}
+
+///|
+fn phase4_text_state_pdf() -> String {
+  phase4_text_pdf(
+    "BT\n/F1 12 Tf\n1 Tc\n2 Tw\n95 Tz\n14 TL\n1 Tr\n3 Ts\n1 0 0 1 72 720 Tm\nT*\n(State) Tj\nET\n",
+    true,
+  )
+}
+
+///|
 fn phase3_write_fixture(path : String, body : String) -> Unit raise {
   @fs.write_string_to_file(path, body, encoding="utf8") catch {
     err => fail("write fixture failed: " + err.to_string())
@@ -130,6 +177,89 @@ fn phase3_has_risk_kind(
     }
   }
   false
+}
+
+///|
+fn phase4_count_source_kind(
+  events : Array[@pdfv2.PdfV2SourceEvent],
+  kind : @pdfv2.PdfV2SourceEventKind,
+) -> Int {
+  let mut count = 0
+  for event in events {
+    if event.kind == kind {
+      count = count + 1
+    }
+  }
+  count
+}
+
+///|
+fn phase4_has_event_reason(
+  events : Array[@pdfv2.PdfV2SourceEvent],
+  tag : String,
+) -> Bool {
+  for event in events {
+    if event.reason_tags.contains(tag) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn phase4_has_warning_reason(
+  warnings : Array[@pdfv2.PdfV2Warning],
+  tag : String,
+) -> Bool {
+  for warning in warnings {
+    if warning.reason_tags.contains(tag) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn phase4_has_text_show_kind(
+  events : Array[@pdfv2.PdfV2SourceEvent],
+  kind : @pdfv2.PdfV2TextShowOperatorKind,
+) -> Bool {
+  for event in events {
+    match event.text_show {
+      Some(fact) if fact.raw_operator_kind == kind => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn phase4_first_text_show(
+  events : Array[@pdfv2.PdfV2SourceEvent],
+) -> @pdfv2.PdfV2TextShowFact? {
+  for event in events {
+    match event.text_show {
+      Some(fact) => return Some(fact)
+      None => ()
+    }
+  }
+  None
+}
+
+///|
+fn phase4_first_text_state_with_tag(
+  events : Array[@pdfv2.PdfV2SourceEvent],
+  tag : String,
+) -> @pdfv2.PdfV2TextStateFact? {
+  for event in events {
+    if event.reason_tags.contains(tag) {
+      match event.text_state {
+        Some(fact) => return Some(fact)
+        None => ()
+      }
+    }
+  }
+  None
 }
 
 ///|
@@ -319,5 +449,196 @@ test "pdf v2 mbtpdf adapter fails closed on malformed pdf" {
       )
       assert_true(phase3_has_risk_kind(risks, @pdfv2.PdfV2RiskKind::Malformed))
     }
+  }
+}
+
+///|
+test "pdf v2 mbtpdf adapter emits typed text events for simple text" {
+  let path = "/tmp/markitdown-pdf-v2-phase4-simple-text.pdf"
+  phase3_write_fixture(path, phase4_simple_text_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(phase3_has_source_kind(doc.source_events, TextObjectBegin))
+      assert_true(phase3_has_source_kind(doc.source_events, FontUse))
+      assert_true(phase3_has_source_kind(doc.source_events, TextShow))
+      assert_true(phase3_has_source_kind(doc.source_events, GlyphCandidate))
+      assert_true(
+        phase4_count_source_kind(doc.source_events, GlyphCandidate) >= 5,
+      )
+      assert_true(doc.pages[0].text_blocks.length() == 0)
+      assert_true(doc.pages[0].layout_regions.length() == 0)
+      match phase4_first_text_show(doc.source_events) {
+        Some(fact) => {
+          assert_true(
+            fact.raw_operator_kind == @pdfv2.PdfV2TextShowOperatorKind::Tj,
+          )
+          assert_true(fact.decoded_text == Some("Hello"))
+          assert_true(fact.font_size == Some(12.0))
+          assert_true(
+            fact.decode_confidence == @pdfv2.PdfV2TextDecodeConfidence::Medium,
+          )
+          assert_true(fact.source_ref.stream_index == Some(0))
+          assert_true(fact.source_ref.op_index is Some(_))
+        }
+        None => fail("expected text show fact")
+      }
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected simple text source document success: " + message)
+  }
+}
+
+///|
+test "pdf v2 mbtpdf adapter emits typed TJ text show and candidates" {
+  let path = "/tmp/markitdown-pdf-v2-phase4-tj.pdf"
+  phase3_write_fixture(path, phase4_tj_text_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(
+        phase4_has_text_show_kind(
+          doc.source_events,
+          @pdfv2.PdfV2TextShowOperatorKind::TJ,
+        ),
+      )
+      assert_true(
+        phase4_count_source_kind(doc.source_events, GlyphCandidate) >= 2,
+      )
+      assert_true(
+        phase4_has_event_reason(doc.source_events, "spacing_adjustment_present"),
+      )
+      match phase4_first_text_show(doc.source_events) {
+        Some(fact) => {
+          assert_true(fact.decoded_text == Some("AB"))
+          assert_true(fact.source_ref.stream_index == Some(0))
+          assert_true(fact.source_ref.op_index is Some(_))
+        }
+        None => fail("expected TJ text show fact")
+      }
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected TJ source document success: " + message)
+  }
+}
+
+///|
+test "pdf v2 mbtpdf adapter reports missing font resource conservatively" {
+  let path = "/tmp/markitdown-pdf-v2-phase4-missing-font.pdf"
+  phase3_write_fixture(path, phase4_missing_font_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(phase3_has_source_kind(doc.source_events, TextShow))
+      assert_true(
+        phase4_has_warning_reason(doc.warnings, "missing_font_resource"),
+      )
+      match phase4_first_text_show(doc.source_events) {
+        Some(fact) => {
+          assert_true(fact.decoded_text is None)
+          assert_true(
+            fact.decode_confidence == @pdfv2.PdfV2TextDecodeConfidence::Unknown,
+          )
+        }
+        None => fail("expected missing-font text show fact")
+      }
+    }
+    SourceOpenErr(_, _, message) =>
+      fail(
+        "expected missing-font document to return low-confidence events: " +
+        message,
+      )
+  }
+}
+
+///|
+test "pdf v2 mbtpdf adapter emits text state events" {
+  let path = "/tmp/markitdown-pdf-v2-phase4-text-state.pdf"
+  phase3_write_fixture(path, phase4_text_state_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(phase3_has_source_kind(doc.source_events, TextState))
+      assert_true(phase4_has_event_reason(doc.source_events, "operator_Tc"))
+      assert_true(phase4_has_event_reason(doc.source_events, "operator_Tw"))
+      assert_true(phase4_has_event_reason(doc.source_events, "operator_Tz"))
+      assert_true(phase4_has_event_reason(doc.source_events, "operator_TL"))
+      assert_true(phase4_has_event_reason(doc.source_events, "operator_Tr"))
+      assert_true(phase4_has_event_reason(doc.source_events, "operator_Ts"))
+      assert_true(
+        phase4_has_event_reason(doc.source_events, "text_state_incomplete"),
+      )
+      match phase4_first_text_state_with_tag(doc.source_events, "operator_Tm") {
+        Some(fact) => {
+          assert_true(fact.char_spacing == Some(1.0))
+          assert_true(fact.word_spacing == Some(2.0))
+          assert_true(fact.horizontal_scaling == Some(95.0))
+          assert_true(fact.leading == Some(14.0))
+          assert_true(fact.text_rendering_mode == Some(1))
+          assert_true(fact.rise == Some(3.0))
+          match fact.text_matrix {
+            Some(matrix) => {
+              assert_true(matrix.e == 72.0)
+              assert_true(matrix.f == 720.0)
+            }
+            None => fail("expected text matrix")
+          }
+        }
+        None => fail("expected Tm text state fact")
+      }
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected text-state source document success: " + message)
+  }
+}
+
+///|
+test "pdf v2 mbtpdf adapter caps typed text events" {
+  let path = "/tmp/markitdown-pdf-v2-phase4-text-cap.pdf"
+  phase3_write_fixture(path, phase4_simple_text_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let options = phase3_open_options(None, Some(6))
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(path, options)
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(doc.source_events.length() <= 6)
+      assert_true(
+        phase3_has_warning_kind(
+          doc.warnings,
+          @pdfv2.PdfV2WarningKind::PerformanceCap,
+        ),
+      )
+      assert_true(
+        phase3_has_risk_kind(
+          doc.risks,
+          @pdfv2.PdfV2RiskKind::PerformanceCapReached,
+        ),
+      )
+      assert_true(doc.pages[0].text_blocks.length() == 0)
+      assert_true(doc.pages[0].layout_regions.length() == 0)
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected capped typed text document success: " + message)
   }
 }

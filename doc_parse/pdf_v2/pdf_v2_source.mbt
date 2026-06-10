@@ -5,7 +5,12 @@ pub(all) enum PdfV2SourceEventKind {
   ContentStreamBegin
   ContentStreamEnd
   TextOp
+  TextObjectBegin
+  TextObjectEnd
+  TextState
+  FontUse
   TextShow
+  GlyphCandidate
   Glyph
   ImageObject
   InlineImage
@@ -32,6 +37,9 @@ pub(all) struct PdfV2SourceEvent {
   reason_tags : Array[String]
   warnings : Array[PdfV2Warning]
   risks : Array[PdfV2Risk]
+  text_state : PdfV2TextStateFact?
+  text_show : PdfV2TextShowFact?
+  glyph_candidate : PdfV2GlyphCandidateFact?
 }
 
 ///|
@@ -58,5 +66,8 @@ pub fn pdf_v2_source_event(
     reason_tags: [],
     warnings: [],
     risks: [],
+    text_state: None,
+    text_show: None,
+    glyph_candidate: None,
   }
 }

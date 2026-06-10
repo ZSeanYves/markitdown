@@ -100,7 +100,12 @@ pub(all) enum PdfV2CoreEventKind {
   PageEnd
   ContentStreamBegin
   ContentStreamEnd
+  TextObjectBegin
+  TextObjectEnd
+  TextState
+  FontUse
   TextShow
+  GlyphCandidate
   Glyph
   Image
   InlineImage
@@ -126,6 +131,9 @@ pub(all) struct PdfV2CoreEvent {
   source_ref : PdfV2SourceRef
   reason_tags : Array[String]
   warnings : Array[PdfV2Warning]
+  text_state : PdfV2TextStateFact?
+  text_show : PdfV2TextShowFact?
+  glyph_candidate : PdfV2GlyphCandidateFact?
 }
 
 ///|
@@ -178,6 +186,9 @@ pub fn pdf_v2_core_event(
     source_ref,
     reason_tags: [],
     warnings: [],
+    text_state: None,
+    text_show: None,
+    glyph_candidate: None,
   }
 }
 

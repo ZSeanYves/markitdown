@@ -46,6 +46,9 @@ test "pdf v2 model exposes source refs warnings risks and bbox" {
     reason_tags: ["glyph"],
     warnings: [warning],
     risks: [],
+    text_state: None,
+    text_show: None,
+    glyph_candidate: None,
   }
 
   assert_true(event.warnings.length() == 1)

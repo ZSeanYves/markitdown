@@ -137,6 +137,9 @@ test "pdf v2 raw bridge preserves source refs warnings and reason tags" {
     source_ref,
     reason_tags: ["text_show", "source_attributed"],
     warnings: [warning],
+    text_state: None,
+    text_show: None,
+    glyph_candidate: None,
   }
   let events = @pdfv2.pdf_v2_source_events_from_core_events([core_event])
   assert_true(events.length() == 1)
@@ -166,6 +169,9 @@ test "pdf v2 source document summary preserves warnings risks and avoids groupin
     source_ref,
     reason_tags: ["unsupported_filter"],
     warnings: [bridge_warning(source_ref)],
+    text_state: None,
+    text_show: None,
+    glyph_candidate: None,
   }
   let source_doc = @pdfv2.pdf_v2_source_document_from_core(core, [
     page_begin, unsupported,

@@ -7,7 +7,12 @@ fn pdf_v2_source_event_kind_from_core(
     PageEnd => PageEnd
     ContentStreamBegin => ContentStreamBegin
     ContentStreamEnd => ContentStreamEnd
+    TextObjectBegin => TextObjectBegin
+    TextObjectEnd => TextObjectEnd
+    TextState => TextState
+    FontUse => FontUse
     TextShow => TextShow
+    GlyphCandidate => GlyphCandidate
     Glyph => Glyph
     Image => ImageObject
     InlineImage => InlineImage
@@ -38,6 +43,9 @@ fn pdf_v2_source_event_from_core_event(
     reason_tags: event.reason_tags,
     warnings: event.warnings,
     risks: [],
+    text_state: event.text_state,
+    text_show: event.text_show,
+    glyph_candidate: event.glyph_candidate,
   }
 }
 

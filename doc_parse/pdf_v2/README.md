@@ -23,6 +23,42 @@ The files in this package intentionally define typed contracts before real PDF
 reading is wired. Unsupported or incomplete capabilities should be represented
 as warnings and risks rather than hidden fallback behavior.
 
+## Phase 4 Typed Text Event Status
+
+Phase 4 keeps the Phase 3 mbtpdf reader path and adds typed text-layer events
+from the same source-attributed content operators:
+
+```text
+located mbtpdf content ops
+  -> raw Unknown source event
+  -> TextObjectBegin / TextObjectEnd / TextState / FontUse
+  -> TextShow / GlyphCandidate
+```
+
+Current status:
+
+- Text operators are recognized from the existing `parse_operators_with_source`
+  result. The adapter does not re-open or re-parse the PDF.
+- `BT`, `ET`, `Tf`, `Tj`, `TJ`, quote operators, and common text state
+  operators are mapped to typed source events while preserving stream/op/object
+  source refs.
+- Text show events carry raw operator kind, raw string/object text, conservative
+  decoded text when mbtpdf can decode it, selected font ref/size, text matrix
+  snapshot, warnings, confidence, and reason tags.
+- Glyph candidates carry raw code/byte candidates, optional Unicode/glyph-name
+  candidates, font ref, text-position snapshot, confidence, source refs, and
+  reason tags.
+- Decode confidence is conservative: ToUnicode-backed decode is high, standard
+  or font-encoding decode is medium, missing font resources are unknown, and
+  failed decode is failed.
+- Missing font resources, missing ToUnicode, unsupported decode, incomplete
+  text state geometry, and unavailable glyph geometry are surfaced as
+  warnings/reason tags rather than hidden success.
+
+This is not text reconstruction. Phase 4 still does not build chars, spans,
+lines, blocks, paragraphs, headings, lists, captions, layout regions, convert
+output, dispatcher behavior, model features, or fallback.
+
 ## Phase 3 Minimal Real Reader Adapter Status
 
 Phase 3 wires a narrow read-only mbtpdf adapter behind the v2 facade:

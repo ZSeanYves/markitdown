@@ -26,6 +26,8 @@ pub fn pdf_v2_empty_source_summary() -> PdfV2SourceSummary
 
 pub fn pdf_v2_empty_text_shape_features() -> PdfV2TextShapeFeatures
 
+pub fn pdf_v2_identity_text_matrix() -> PdfV2TextMatrix
+
 pub fn pdf_v2_open_core_document_from_path(String, PdfV2CoreOpenOptions) -> PdfV2CoreOpenResult
 
 pub fn pdf_v2_open_source_document_from_path(String, PdfV2CoreOpenOptions) -> PdfV2SourceOpenResult
@@ -108,6 +110,9 @@ pub(all) struct PdfV2CoreEvent {
   source_ref : PdfV2SourceRef
   reason_tags : Array[String]
   warnings : Array[PdfV2Warning]
+  text_state : PdfV2TextStateFact?
+  text_show : PdfV2TextShowFact?
+  glyph_candidate : PdfV2GlyphCandidateFact?
 }
 
 pub(all) enum PdfV2CoreEventKind {
@@ -115,7 +120,12 @@ pub(all) enum PdfV2CoreEventKind {
   PageEnd
   ContentStreamBegin
   ContentStreamEnd
+  TextObjectBegin
+  TextObjectEnd
+  TextState
+  FontUse
   TextShow
+  GlyphCandidate
   Glyph
   Image
   InlineImage
@@ -210,6 +220,20 @@ pub(all) struct PdfV2Glyph {
   writing_direction : PdfV2WritingDirection
   rotation_degrees : Double
   decode_confidence : Double
+}
+
+pub(all) struct PdfV2GlyphCandidateFact {
+  raw_code : Int?
+  raw_bytes : String
+  unicode_candidate : String?
+  glyph_name : String?
+  font_ref : String?
+  advance_width : Double?
+  text_position : PdfV2TextMatrix?
+  bbox : PdfV2BBox?
+  decode_confidence : PdfV2TextDecodeConfidence
+  source_ref : PdfV2SourceRef
+  reason_tags : Array[String]
 }
 
 pub(all) struct PdfV2LayoutRecoveryHint {
@@ -325,6 +349,9 @@ pub(all) struct PdfV2SourceEvent {
   reason_tags : Array[String]
   warnings : Array[PdfV2Warning]
   risks : Array[PdfV2Risk]
+  text_state : PdfV2TextStateFact?
+  text_show : PdfV2TextShowFact?
+  glyph_candidate : PdfV2GlyphCandidateFact?
 }
 
 pub(all) enum PdfV2SourceEventKind {
@@ -333,7 +360,12 @@ pub(all) enum PdfV2SourceEventKind {
   ContentStreamBegin
   ContentStreamEnd
   TextOp
+  TextObjectBegin
+  TextObjectEnd
+  TextState
+  FontUse
   TextShow
+  GlyphCandidate
   Glyph
   ImageObject
   InlineImage
@@ -422,6 +454,23 @@ pub(all) struct PdfV2TextBlock {
   classifier_features : PdfV2ClassifierReadyFeatures
 }
 
+pub(all) enum PdfV2TextDecodeConfidence {
+  High
+  Medium
+  Low
+  Unknown
+  Failed
+} derive(Eq)
+
+pub(all) struct PdfV2TextMatrix {
+  a : Double
+  b : Double
+  c : Double
+  d : Double
+  e : Double
+  f : Double
+}
+
 pub(all) struct PdfV2TextShapeFeatures {
   has_list_marker : Bool
   list_marker_text : String?
@@ -429,6 +478,43 @@ pub(all) struct PdfV2TextShapeFeatures {
   caption_prefix_text : String?
   heading_shape_score : Double
   body_density_guard_score : Double
+}
+
+pub(all) struct PdfV2TextShowFact {
+  raw_operator_kind : PdfV2TextShowOperatorKind
+  raw_bytes_or_string : String
+  decoded_text : String?
+  font_ref : String?
+  font_size : Double?
+  text_matrix_snapshot : PdfV2TextMatrix?
+  source_ref : PdfV2SourceRef
+  decode_confidence : PdfV2TextDecodeConfidence
+  warnings : Array[PdfV2Warning]
+  reason_tags : Array[String]
+}
+
+pub(all) enum PdfV2TextShowOperatorKind {
+  Tj
+  TJ
+  SingleQuote
+  DoubleQuote
+  UnknownTextShow
+} derive(Eq)
+
+pub(all) struct PdfV2TextStateFact {
+  font_name_or_ref : String?
+  font_size : Double?
+  text_matrix : PdfV2TextMatrix?
+  line_matrix : PdfV2TextMatrix?
+  text_rendering_mode : Int?
+  char_spacing : Double?
+  word_spacing : Double?
+  horizontal_scaling : Double?
+  leading : Double?
+  rise : Double?
+  source_ref : PdfV2SourceRef
+  confidence : PdfV2TextDecodeConfidence
+  reason_tags : Array[String]
 }
 
 pub(all) struct PdfV2TextStyleFlags {
