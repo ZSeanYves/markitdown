@@ -283,6 +283,27 @@ PDF-V2-RESET-15 No-Model Gate Readiness Note:
   decisions do not claim high confidence and do not change fact-only lowering
   into semantic Markdown.
 
+PDF-V2-RESET-16 Gate-Aware Fact Lowering Note:
+
+* Phase 16 lets the Phase 14 fact-only lowerer optionally consume the Phase 15
+  `PdfV2GateResult` alongside `PdfV2DocumentModel` and optional
+  `PdfV2FeatureSet`.
+* No gate result preserves the Phase 14 behavior. With a gate result,
+  `PlainTextCandidate` lowers to plain text only, `Abstain` skips plain text by
+  default, `Unknown` stays option-controlled, and missing gate decisions are
+  treated as `Unknown` with a `missing_gate_decision` reason tag.
+* Abstain and unknown diagnostics reuse the existing low-confidence note
+  fragment kind. Explicit abstain-to-plain-text behavior records a conservative
+  risk and remains opt-in.
+* The lowering summary records gate candidate/abstain/unknown counts, missing
+  decisions, skipped plain text, and gate note counts. Object placeholders and
+  caps keep their Phase 14 behavior.
+* The lowerer still consumes parser model/features/gate facts only. It does not
+  read raw PDF paths or bytes, call parser path APIs, call mbtpdf, load
+  `features.tsv`, load or train `model.pkl`, read quality-lab artifacts, switch
+  dispatchers, fallback to the old PDF runtime, or emit heading, list, caption,
+  table, image, link, or form Markdown semantics.
+
 ## Runtime Adoption Record
 
 PDF v2 is not adopted yet. The current `doc_parse/pdf` and `convert/pdf`

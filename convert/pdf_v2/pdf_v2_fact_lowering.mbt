@@ -12,6 +12,11 @@ pub(all) struct PdfV2FactLoweringOptions {
   emit_page_breaks : Bool
   emit_low_confidence_notes : Bool
   emit_object_placeholders : Bool
+  respect_gate_decisions : Bool
+  emit_abstain_notes : Bool
+  emit_unknown_notes : Bool
+  allow_abstain_plain_text : Bool
+  allow_unknown_plain_text : Bool
   max_blocks : Int
   max_lines : Int
   max_chars : Int
@@ -21,6 +26,7 @@ pub(all) struct PdfV2FactLoweringOptions {
 pub(all) struct PdfV2FactLoweringInput {
   model : @pdfv2.PdfV2DocumentModel
   features : @pdfv2.PdfV2FeatureSet?
+  gate_result : PdfV2GateResult?
   options : PdfV2FactLoweringOptions
 }
 
@@ -41,6 +47,12 @@ pub(all) struct PdfV2FactLoweringSummary {
   plain_text_fragment_count : Int
   object_placeholder_count : Int
   low_confidence_note_count : Int
+  gate_note_count : Int
+  gate_plain_text_candidate_count : Int
+  gate_abstain_count : Int
+  gate_unknown_count : Int
+  gate_missing_decision_count : Int
+  gate_skipped_plain_text_count : Int
   warning_count : Int
   risk_count : Int
   capped_output : Bool
@@ -63,6 +75,11 @@ pub fn default_pdf_v2_fact_lowering_options() -> PdfV2FactLoweringOptions {
     emit_page_breaks: false,
     emit_low_confidence_notes: false,
     emit_object_placeholders: false,
+    respect_gate_decisions: true,
+    emit_abstain_notes: false,
+    emit_unknown_notes: false,
+    allow_abstain_plain_text: false,
+    allow_unknown_plain_text: true,
     max_blocks: 100000,
     max_lines: 100000,
     max_chars: 1000000,
@@ -75,7 +92,17 @@ pub fn pdf_v2_fact_lowering_input(
   features : @pdfv2.PdfV2FeatureSet?,
   options : PdfV2FactLoweringOptions,
 ) -> PdfV2FactLoweringInput {
-  { model, features, options }
+  { model, features, gate_result: None, options }
+}
+
+///|
+pub fn pdf_v2_fact_lowering_input_with_gate(
+  model : @pdfv2.PdfV2DocumentModel,
+  features : @pdfv2.PdfV2FeatureSet?,
+  gate_result : PdfV2GateResult?,
+  options : PdfV2FactLoweringOptions,
+) -> PdfV2FactLoweringInput {
+  { model, features, gate_result, options }
 }
 
 ///|
@@ -112,6 +139,21 @@ fn pdf_v2_fact_append_unique_tag(
     out.push(tag)
     out
   }
+}
+
+///|
+fn pdf_v2_fact_append_unique_tags(
+  tags : Array[String],
+  extra_tags : Array[String],
+) -> Array[String] {
+  let out : Array[String] = []
+  out.append(tags)
+  for tag in extra_tags {
+    if !out.contains(tag) {
+      out.push(tag)
+    }
+  }
+  out
 }
 
 ///|
@@ -180,6 +222,151 @@ fn pdf_v2_fact_cap_risk(
     source_refs,
     reason_tags: ["pdf_v2_fact_lowering", tag],
   }
+}
+
+///|
+fn pdf_v2_fact_gate_plain_text_risk(
+  source_refs : Array[@pdfv2.PdfV2SourceRef],
+  reason_tags : Array[String],
+) -> @pdfv2.PdfV2Risk {
+  {
+    kind: @pdfv2.PdfV2RiskKind::LowSignal,
+    severity: @pdfv2.PdfV2Severity::Warning,
+    message: "PDF v2 fact lowering emitted plain text after gate abstain by explicit option",
+    source_refs,
+    reason_tags: pdf_v2_fact_append_unique_tag(
+      reason_tags, "allow_abstain_plain_text",
+    ),
+  }
+}
+
+///|
+fn pdf_v2_fact_respects_gate(input : PdfV2FactLoweringInput) -> Bool {
+  if !input.options.respect_gate_decisions {
+    false
+  } else {
+    match input.gate_result {
+      Some(_) => true
+      None => false
+    }
+  }
+}
+
+///|
+fn pdf_v2_fact_gate_decision_for_block(
+  gate_result : PdfV2GateResult?,
+  page_index : Int?,
+  block_index : Int,
+) -> PdfV2BlockGateDecision? {
+  match gate_result {
+    Some(gate) =>
+      for decision in gate.decisions {
+        if decision.page_index == page_index &&
+          decision.block_index == block_index {
+          return Some(decision)
+        }
+      }
+    None => ()
+  }
+  None
+}
+
+///|
+fn pdf_v2_fact_effective_gate_kind(
+  gate_active : Bool,
+  decision : PdfV2BlockGateDecision?,
+) -> PdfV2BlockDecisionKind {
+  if !gate_active {
+    PdfV2BlockDecisionKind::PlainTextCandidate
+  } else {
+    match decision {
+      Some(value) => value.decision_kind
+      None => PdfV2BlockDecisionKind::Unknown
+    }
+  }
+}
+
+///|
+fn pdf_v2_fact_missing_gate_decision(
+  gate_active : Bool,
+  decision : PdfV2BlockGateDecision?,
+) -> Bool {
+  if !gate_active {
+    false
+  } else {
+    match decision {
+      Some(_) => false
+      None => true
+    }
+  }
+}
+
+///|
+fn pdf_v2_fact_gate_tags(
+  gate_active : Bool,
+  kind : PdfV2BlockDecisionKind,
+  decision : PdfV2BlockGateDecision?,
+  missing_decision : Bool,
+) -> Array[String] {
+  let tags : Array[String] = []
+  if gate_active {
+    tags.push("pdf_v2_fact_lowering")
+    match kind {
+      PlainTextCandidate => tags.push("gate_plain_text_candidate")
+      Abstain => tags.push("gate_abstain")
+      Unknown => tags.push("gate_unknown")
+    }
+    match decision {
+      Some(value) => tags.append(value.abstain_reason_tags)
+      None => ()
+    }
+    if missing_decision {
+      tags.push("missing_gate_decision")
+    }
+  }
+  tags
+}
+
+///|
+fn pdf_v2_fact_gate_note_refs(
+  decision : PdfV2BlockGateDecision?,
+  fallback_refs : Array[@pdfv2.PdfV2SourceRef],
+) -> Array[@pdfv2.PdfV2SourceRef] {
+  match decision {
+    Some(value) =>
+      if value.source_refs.length() > 0 {
+        value.source_refs
+      } else {
+        fallback_refs
+      }
+    None => fallback_refs
+  }
+}
+
+///|
+fn pdf_v2_fact_gate_note_text(kind : PdfV2BlockDecisionKind) -> String {
+  match kind {
+    Abstain => "PDF v2 gate abstained from text fact lowering"
+    Unknown => "PDF v2 gate could not verify text fact lowering"
+    PlainTextCandidate => "PDF v2 gate allowed plain text fact lowering"
+  }
+}
+
+///|
+fn pdf_v2_fact_push_gate_note(
+  fragments : Array[PdfV2FactFragment],
+  kind : PdfV2BlockDecisionKind,
+  page_index : Int?,
+  source_refs : Array[@pdfv2.PdfV2SourceRef],
+  reason_tags : Array[String],
+) -> Unit {
+  fragments.push({
+    kind: PdfV2FactFragmentKind::LowConfidenceNote,
+    text: pdf_v2_fact_gate_note_text(kind),
+    page_index,
+    source_refs,
+    reason_tags,
+  })
 }
 
 ///|
@@ -376,6 +563,76 @@ fn pdf_v2_fact_append_model_object_placeholders(
 }
 
 ///|
+fn pdf_v2_fact_summary_gate_plain_text_count(
+  input : PdfV2FactLoweringInput,
+) -> Int {
+  if pdf_v2_fact_respects_gate(input) {
+    match input.gate_result {
+      Some(gate) => gate.summary.plain_text_candidate_count
+      None => 0
+    }
+  } else {
+    0
+  }
+}
+
+///|
+fn pdf_v2_fact_summary_gate_abstain_count(
+  input : PdfV2FactLoweringInput,
+) -> Int {
+  if pdf_v2_fact_respects_gate(input) {
+    match input.gate_result {
+      Some(gate) => gate.summary.abstain_count
+      None => 0
+    }
+  } else {
+    0
+  }
+}
+
+///|
+fn pdf_v2_fact_summary_gate_unknown_count(
+  input : PdfV2FactLoweringInput,
+) -> Int {
+  if pdf_v2_fact_respects_gate(input) {
+    match input.gate_result {
+      Some(gate) => gate.summary.unknown_count
+      None => 0
+    }
+  } else {
+    0
+  }
+}
+
+///|
+fn pdf_v2_fact_one_pass(input : PdfV2FactLoweringInput) -> Bool {
+  let mut one_pass = input.model.one_pass
+  match input.features {
+    Some(features) => one_pass = one_pass && features.one_pass
+    None => ()
+  }
+  match input.gate_result {
+    Some(gate) => one_pass = one_pass && gate.one_pass
+    None => ()
+  }
+  one_pass
+}
+
+///|
+fn pdf_v2_fact_no_fallback(input : PdfV2FactLoweringInput) -> Bool {
+  let mut no_fallback = input.model.no_fallback
+  match input.features {
+    Some(features) => no_fallback = no_fallback && features.no_fallback
+    None => ()
+  }
+  match input.gate_result {
+    Some(gate) => no_fallback = no_fallback && gate.no_fallback
+    None => ()
+  }
+  no_fallback
+}
+
+///|
 pub fn pdf_v2_lower_fact_model(
   input : PdfV2FactLoweringInput,
 ) -> PdfV2FactLoweringResult {
@@ -396,12 +653,28 @@ pub fn pdf_v2_lower_fact_model(
     }
     None => ()
   }
+  match input.gate_result {
+    Some(gate) => {
+      warnings.append(gate.warnings)
+      risks.append(gate.risks)
+    }
+    None => ()
+  }
 
   let mut lowered_blocks = 0
   let mut lowered_lines = 0
   let mut lowered_chars = 0
   let mut plain_text_count = 0
   let mut low_confidence_note_count = 0
+  let mut gate_note_count = 0
+  let gate_active = pdf_v2_fact_respects_gate(input)
+  let gate_plain_text_candidate_count = pdf_v2_fact_summary_gate_plain_text_count(
+    input,
+  )
+  let gate_abstain_count = pdf_v2_fact_summary_gate_abstain_count(input)
+  let mut gate_unknown_count = pdf_v2_fact_summary_gate_unknown_count(input)
+  let mut gate_missing_decision_count = 0
+  let mut gate_skipped_plain_text_count = 0
   let mut capped_output = false
   let mut stop = false
   for page_index in 0..<model.pages.length() {
@@ -455,6 +728,63 @@ pub fn pdf_v2_lower_fact_model(
       }
       let (text, reason_tags, text_refs) = pdf_v2_fact_block_text(block)
       let effective_refs = pdf_v2_fact_source_refs_or_page(page, text_refs)
+      let gate_decision = if gate_active {
+        pdf_v2_fact_gate_decision_for_block(
+          input.gate_result,
+          block.page_index,
+          block.block_index,
+        )
+      } else {
+        None
+      }
+      let gate_kind = pdf_v2_fact_effective_gate_kind(
+        gate_active, gate_decision,
+      )
+      let missing_gate_decision = pdf_v2_fact_missing_gate_decision(
+        gate_active, gate_decision,
+      )
+      if missing_gate_decision {
+        gate_missing_decision_count = gate_missing_decision_count + 1
+        gate_unknown_count = gate_unknown_count + 1
+      }
+      let gate_tags = pdf_v2_fact_gate_tags(
+        gate_active, gate_kind, gate_decision, missing_gate_decision,
+      )
+      let gate_note_refs = pdf_v2_fact_gate_note_refs(
+        gate_decision, effective_refs,
+      )
+      if gate_active &&
+        gate_kind == PdfV2BlockDecisionKind::Abstain &&
+        !options.allow_abstain_plain_text {
+        if options.emit_abstain_notes {
+          pdf_v2_fact_push_gate_note(
+            fragments,
+            gate_kind,
+            block.page_index,
+            gate_note_refs,
+            gate_tags,
+          )
+          gate_note_count = gate_note_count + 1
+        }
+        gate_skipped_plain_text_count = gate_skipped_plain_text_count + 1
+        continue
+      }
+      if gate_active &&
+        gate_kind == PdfV2BlockDecisionKind::Unknown &&
+        !options.allow_unknown_plain_text {
+        if options.emit_unknown_notes {
+          pdf_v2_fact_push_gate_note(
+            fragments,
+            gate_kind,
+            block.page_index,
+            gate_note_refs,
+            gate_tags,
+          )
+          gate_note_count = gate_note_count + 1
+        }
+        gate_skipped_plain_text_count = gate_skipped_plain_text_count + 1
+        continue
+      }
       if lowered_chars + text.length() > max_chars {
         warnings.push(
           pdf_v2_fact_cap_warning(
@@ -471,6 +801,35 @@ pub fn pdf_v2_lower_fact_model(
         capped_output = true
         stop = true
         continue
+      }
+      if gate_active &&
+        gate_kind == PdfV2BlockDecisionKind::Abstain &&
+        options.allow_abstain_plain_text {
+        let abstain_tags = pdf_v2_fact_append_unique_tag(
+          gate_tags, "allow_abstain_plain_text",
+        )
+        pdf_v2_fact_push_gate_note(
+          fragments,
+          gate_kind,
+          block.page_index,
+          gate_note_refs,
+          abstain_tags,
+        )
+        risks.push(
+          pdf_v2_fact_gate_plain_text_risk(gate_note_refs, abstain_tags),
+        )
+        gate_note_count = gate_note_count + 1
+      } else if gate_active &&
+        gate_kind == PdfV2BlockDecisionKind::Unknown &&
+        options.emit_unknown_notes {
+        pdf_v2_fact_push_gate_note(
+          fragments,
+          gate_kind,
+          block.page_index,
+          gate_note_refs,
+          gate_tags,
+        )
+        gate_note_count = gate_note_count + 1
       }
       let feature_row = pdf_v2_fact_block_feature_row(
         input.features,
@@ -497,7 +856,7 @@ pub fn pdf_v2_lower_fact_model(
           text,
           page_index: block.page_index,
           source_refs: effective_refs,
-          reason_tags,
+          reason_tags: pdf_v2_fact_append_unique_tags(reason_tags, gate_tags),
         })
         plain_text_count = plain_text_count + 1
       }
@@ -522,17 +881,17 @@ pub fn pdf_v2_lower_fact_model(
       plain_text_fragment_count: plain_text_count,
       object_placeholder_count,
       low_confidence_note_count,
+      gate_note_count,
+      gate_plain_text_candidate_count,
+      gate_abstain_count,
+      gate_unknown_count,
+      gate_missing_decision_count,
+      gate_skipped_plain_text_count,
       warning_count: warnings.length(),
       risk_count: risks.length(),
       capped_output,
     },
-    one_pass: match input.features {
-      Some(features) => model.one_pass && features.one_pass
-      None => model.one_pass
-    },
-    no_fallback: match input.features {
-      Some(features) => model.no_fallback && features.no_fallback
-      None => model.no_fallback
-    },
+    one_pass: pdf_v2_fact_one_pass(input),
+    no_fallback: pdf_v2_fact_no_fallback(input),
   }
 }

@@ -80,3 +80,36 @@ Current status:
 This is not heading/list/caption/table classification, model loading, model
 training, external `features.tsv`/`model.pkl` reading, Markdown semantic
 lowering, dispatcher integration, raw PDF reading, mbtpdf access, or fallback.
+
+## Phase 16 Gate-Aware Fact-Only Lowering Status
+
+Phase 16 lets the fact-only lowerer optionally consume the Phase 15 gate:
+
+```text
+PdfV2DocumentModel
+  + optional PdfV2FeatureSet
+  + optional PdfV2GateResult
+  -> PdfV2FactLoweringResult
+```
+
+Current status:
+
+- No gate result preserves the Phase 14 fact-only lowering path.
+- `PlainTextCandidate` blocks lower to plain text only, preserving source refs
+  and reason tags.
+- `Abstain` blocks fail closed by default and skip plain text. Optional abstain
+  notes use the existing low-confidence note fragment; explicitly allowing
+  abstain plain text also records a conservative risk.
+- `Unknown` blocks are option-controlled. The default keeps Phase 14 plain text
+  behavior, while stricter options can skip text and emit diagnostic notes.
+- Missing gate decisions are treated as `Unknown` with a
+  `missing_gate_decision` reason tag.
+- Gate counts, skipped text counts, missing decisions, and gate notes are
+  reflected in the lowering summary.
+- Object placeholders remain separately option-gated, and output caps still
+  produce warnings, risks, and capped summaries.
+
+This remains fact-only lowering. It does not introduce semantic Markdown,
+heading/list/caption/table/image/link/form lowering, model loading, dispatcher
+integration, raw PDF reading, mbtpdf access, external data/model reads, or
+fallback.

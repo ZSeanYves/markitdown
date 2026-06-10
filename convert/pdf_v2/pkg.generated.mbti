@@ -16,6 +16,8 @@ pub fn pdf_v2_abstain_decision(Array[String]) -> PdfV2BlockDecision
 
 pub fn pdf_v2_fact_lowering_input(@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2DocumentModel, @ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2FeatureSet?, PdfV2FactLoweringOptions) -> PdfV2FactLoweringInput
 
+pub fn pdf_v2_fact_lowering_input_with_gate(@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2DocumentModel, @ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2FeatureSet?, PdfV2GateResult?, PdfV2FactLoweringOptions) -> PdfV2FactLoweringInput
+
 pub fn pdf_v2_keep_as_text_decision(Double, PdfV2DecisionSource, Array[String]) -> PdfV2BlockDecision
 
 pub fn pdf_v2_lower_fact_model(PdfV2FactLoweringInput) -> PdfV2FactLoweringResult
@@ -105,6 +107,7 @@ pub(all) enum PdfV2FactFragmentKind {
 pub(all) struct PdfV2FactLoweringInput {
   model : @ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2DocumentModel
   features : @ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2FeatureSet?
+  gate_result : PdfV2GateResult?
   options : PdfV2FactLoweringOptions
 }
 
@@ -113,6 +116,11 @@ pub(all) struct PdfV2FactLoweringOptions {
   emit_page_breaks : Bool
   emit_low_confidence_notes : Bool
   emit_object_placeholders : Bool
+  respect_gate_decisions : Bool
+  emit_abstain_notes : Bool
+  emit_unknown_notes : Bool
+  allow_abstain_plain_text : Bool
+  allow_unknown_plain_text : Bool
   max_blocks : Int
   max_lines : Int
   max_chars : Int
@@ -134,6 +142,12 @@ pub(all) struct PdfV2FactLoweringSummary {
   plain_text_fragment_count : Int
   object_placeholder_count : Int
   low_confidence_note_count : Int
+  gate_note_count : Int
+  gate_plain_text_candidate_count : Int
+  gate_abstain_count : Int
+  gate_unknown_count : Int
+  gate_missing_decision_count : Int
+  gate_skipped_plain_text_count : Int
   warning_count : Int
   risk_count : Int
   capped_output : Bool

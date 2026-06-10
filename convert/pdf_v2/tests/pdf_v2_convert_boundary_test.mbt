@@ -297,6 +297,19 @@ fn phase14_has_warning_tag(
 }
 
 ///|
+fn phase14_has_fragment_tag(
+  fragments : Array[@pdfv2conv.PdfV2FactFragment],
+  tag : String,
+) -> Bool {
+  for fragment in fragments {
+    if fragment.reason_tags.contains(tag) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn phase14_has_risk_tag(risks : Array[@pdfv2.PdfV2Risk], tag : String) -> Bool {
   for risk in risks {
     if risk.reason_tags.contains(tag) {
@@ -307,12 +320,120 @@ fn phase14_has_risk_tag(risks : Array[@pdfv2.PdfV2Risk], tag : String) -> Bool {
 }
 
 ///|
+fn phase14_plain_text_fragment_count(
+  fragments : Array[@pdfv2conv.PdfV2FactFragment],
+) -> Int {
+  let mut count = 0
+  for fragment in fragments {
+    if fragment.kind == @pdfv2conv.PdfV2FactFragmentKind::PlainText {
+      count = count + 1
+    }
+  }
+  count
+}
+
+///|
+fn phase14_find_fragment_kind(
+  fragments : Array[@pdfv2conv.PdfV2FactFragment],
+  kind : @pdfv2conv.PdfV2FactFragmentKind,
+) -> @pdfv2conv.PdfV2FactFragment? {
+  for fragment in fragments {
+    if fragment.kind == kind {
+      return Some(fragment)
+    }
+  }
+  None
+}
+
+///|
 fn phase14_text_contains_semantic_markdown(text : String) -> Bool {
   text.contains("# ") ||
   text.contains("![") ||
   text.contains("](") ||
   text.contains("|---") ||
   text.contains("<table")
+}
+
+///|
+fn phase16_gate_decision(
+  kind : @pdfv2conv.PdfV2BlockDecisionKind,
+  block_index : Int,
+  source_refs : Array[@pdfv2.PdfV2SourceRef],
+  tags : Array[String],
+) -> @pdfv2conv.PdfV2BlockGateDecision {
+  {
+    page_index: Some(0),
+    block_index,
+    decision_kind: kind,
+    confidence: if kind == @pdfv2conv.PdfV2BlockDecisionKind::PlainTextCandidate {
+      0.55
+    } else {
+      0.0
+    },
+    risk_score: if kind == @pdfv2conv.PdfV2BlockDecisionKind::PlainTextCandidate {
+      0.1
+    } else {
+      0.8
+    },
+    abstain_reason_tags: tags,
+    source_refs,
+    warning_count: 0,
+    risk_count: 0,
+    feature_summary: "phase16-test",
+    decision_source: @pdfv2conv.PdfV2NoModelDecisionSource::NoModelGate,
+  }
+}
+
+///|
+fn phase16_gate_result(
+  decisions : Array[@pdfv2conv.PdfV2BlockGateDecision],
+) -> @pdfv2conv.PdfV2GateResult {
+  let mut plain_text_candidate_count = 0
+  let mut abstain_count = 0
+  let mut unknown_count = 0
+  for decision in decisions {
+    match decision.decision_kind {
+      @pdfv2conv.PdfV2BlockDecisionKind::PlainTextCandidate =>
+        plain_text_candidate_count = plain_text_candidate_count + 1
+      @pdfv2conv.PdfV2BlockDecisionKind::Abstain =>
+        abstain_count = abstain_count + 1
+      @pdfv2conv.PdfV2BlockDecisionKind::Unknown =>
+        unknown_count = unknown_count + 1
+    }
+  }
+  {
+    decisions,
+    warnings: [],
+    risks: [],
+    summary: {
+      block_count: decisions.length(),
+      plain_text_candidate_count,
+      abstain_count,
+      unknown_count,
+      risk_guard_count: 0,
+      cap_guard_count: 0,
+      unsupported_guard_count: 0,
+      missing_geometry_guard_count: 0,
+      warning_count: 0,
+      risk_count: 0,
+    },
+    one_pass: true,
+    no_fallback: true,
+  }
+}
+
+///|
+fn phase16_input(
+  model : @pdfv2.PdfV2DocumentModel,
+  gate_result : @pdfv2conv.PdfV2GateResult,
+  options : @pdfv2conv.PdfV2FactLoweringOptions,
+) -> @pdfv2conv.PdfV2FactLoweringInput {
+  @pdfv2conv.pdf_v2_fact_lowering_input_with_gate(
+    model,
+    None,
+    Some(gate_result),
+    options,
+  )
 }
 
 ///|
@@ -360,6 +481,228 @@ test "pdf v2 fact lowerer emits minimal model plain text only" {
   )
   assert_true(lowered.one_pass)
   assert_true(lowered.no_fallback)
+}
+
+///|
+test "pdf v2 fact lowerer gate plain text candidate outputs text" {
+  let source_ref = phase14_text_ref(0)
+  let line = phase14_line(0, "Gate text", source_ref)
+  let block = phase14_block(
+    0,
+    "Gate text",
+    [line],
+    @pdfv2.PdfV2TextDecodeConfidence::High,
+  )
+  let model = phase14_model([block])
+  let gate = phase16_gate_result([
+    phase16_gate_decision(
+      @pdfv2conv.PdfV2BlockDecisionKind::PlainTextCandidate,
+      0,
+      [source_ref],
+      ["plain_text_candidate"],
+    ),
+  ])
+  let lowered = @pdfv2conv.pdf_v2_lower_fact_model(
+    phase16_input(
+      model,
+      gate,
+      @pdfv2conv.default_pdf_v2_fact_lowering_options(),
+    ),
+  )
+
+  assert_true(lowered.fragments.length() == 1)
+  assert_true(
+    lowered.fragments[0].kind == @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+  )
+  assert_true(lowered.fragments[0].text == "Gate text")
+  assert_true(lowered.fragments[0].source_refs.length() == 1)
+  assert_true(lowered.fragments[0].source_refs[0].object_id == Some("4 0 R"))
+  assert_true(
+    lowered.fragments[0].reason_tags.contains("gate_plain_text_candidate"),
+  )
+  assert_true(lowered.summary.gate_plain_text_candidate_count == 1)
+  assert_true(
+    !phase14_text_contains_semantic_markdown(lowered.fragments[0].text),
+  )
+}
+
+///|
+test "pdf v2 fact lowerer gate abstain skips text by default" {
+  let source_ref = phase14_text_ref(0)
+  let block = phase14_block(
+    0,
+    "Unsafe",
+    [phase14_line(0, "Unsafe", source_ref)],
+    @pdfv2.PdfV2TextDecodeConfidence::High,
+  )
+  let model = phase14_model([block])
+  let gate = phase16_gate_result([
+    phase16_gate_decision(
+      @pdfv2conv.PdfV2BlockDecisionKind::Abstain,
+      0,
+      [source_ref],
+      ["unsupported_guard"],
+    ),
+  ])
+  let lowered = @pdfv2conv.pdf_v2_lower_fact_model(
+    phase16_input(
+      model,
+      gate,
+      @pdfv2conv.default_pdf_v2_fact_lowering_options(),
+    ),
+  )
+
+  assert_true(
+    !phase14_has_fragment_kind(
+      lowered.fragments,
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+    ),
+  )
+  assert_true(lowered.summary.gate_abstain_count == 1)
+  assert_true(lowered.summary.gate_skipped_plain_text_count == 1)
+  assert_true(lowered.no_fallback)
+}
+
+///|
+test "pdf v2 fact lowerer gate abstain note is conservative" {
+  let source_ref = phase14_text_ref(0)
+  let block = phase14_block(
+    0,
+    "Maybe",
+    [phase14_line(0, "Maybe", source_ref)],
+    @pdfv2.PdfV2TextDecodeConfidence::High,
+  )
+  let model = phase14_model([block])
+  let gate = phase16_gate_result([
+    phase16_gate_decision(
+      @pdfv2conv.PdfV2BlockDecisionKind::Abstain,
+      0,
+      [source_ref],
+      ["cap_guard"],
+    ),
+  ])
+  let lowered = @pdfv2conv.pdf_v2_lower_fact_model(
+    phase16_input(model, gate, {
+      ..@pdfv2conv.default_pdf_v2_fact_lowering_options(),
+      emit_abstain_notes: true,
+    }),
+  )
+
+  assert_true(phase14_plain_text_fragment_count(lowered.fragments) == 0)
+  assert_true(lowered.summary.gate_note_count == 1)
+  match
+    phase14_find_fragment_kind(
+      lowered.fragments,
+      @pdfv2conv.PdfV2FactFragmentKind::LowConfidenceNote,
+    ) {
+    Some(note) => {
+      assert_true(note.text.contains("gate abstained"))
+      assert_true(note.reason_tags.contains("gate_abstain"))
+      assert_true(note.reason_tags.contains("cap_guard"))
+      assert_true(note.source_refs.length() == 1)
+      assert_true(note.source_refs[0].object_id == Some("4 0 R"))
+    }
+    None => fail("expected abstain note")
+  }
+
+  let allow_lowered = @pdfv2conv.pdf_v2_lower_fact_model(
+    phase16_input(model, gate, {
+      ..@pdfv2conv.default_pdf_v2_fact_lowering_options(),
+      allow_abstain_plain_text: true,
+    }),
+  )
+  assert_true(phase14_plain_text_fragment_count(allow_lowered.fragments) == 1)
+  assert_true(allow_lowered.summary.gate_note_count == 1)
+  assert_true(
+    phase14_has_risk_tag(allow_lowered.risks, "allow_abstain_plain_text"),
+  )
+}
+
+///|
+test "pdf v2 fact lowerer gate unknown stays option controlled" {
+  let source_ref = phase14_text_ref(0)
+  let block = phase14_block(
+    0,
+    "Unknown text",
+    [phase14_line(0, "Unknown text", source_ref)],
+    @pdfv2.PdfV2TextDecodeConfidence::High,
+  )
+  let model = phase14_model([block])
+  let gate = phase16_gate_result([
+    phase16_gate_decision(
+      @pdfv2conv.PdfV2BlockDecisionKind::Unknown,
+      0,
+      [source_ref],
+      ["unknown_fail_closed"],
+    ),
+  ])
+  let default_lowered = @pdfv2conv.pdf_v2_lower_fact_model(
+    phase16_input(
+      model,
+      gate,
+      @pdfv2conv.default_pdf_v2_fact_lowering_options(),
+    ),
+  )
+  assert_true(phase14_plain_text_fragment_count(default_lowered.fragments) == 1)
+  assert_true(default_lowered.fragments[0].reason_tags.contains("gate_unknown"))
+  assert_true(default_lowered.summary.gate_unknown_count == 1)
+
+  let skip_lowered = @pdfv2conv.pdf_v2_lower_fact_model(
+    phase16_input(model, gate, {
+      ..@pdfv2conv.default_pdf_v2_fact_lowering_options(),
+      allow_unknown_plain_text: false,
+      emit_unknown_notes: true,
+    }),
+  )
+  assert_true(phase14_plain_text_fragment_count(skip_lowered.fragments) == 0)
+  assert_true(
+    phase14_has_fragment_kind(
+      skip_lowered.fragments,
+      @pdfv2conv.PdfV2FactFragmentKind::LowConfidenceNote,
+    ),
+  )
+  assert_true(skip_lowered.summary.gate_skipped_plain_text_count == 1)
+}
+
+///|
+test "pdf v2 fact lowerer missing gate decision is unknown" {
+  let first_ref = phase14_text_ref(0)
+  let second_ref = phase14_text_ref(1)
+  let first = phase14_block(
+    0,
+    "Known",
+    [phase14_line(0, "Known", first_ref)],
+    @pdfv2.PdfV2TextDecodeConfidence::High,
+  )
+  let second = phase14_block(
+    1,
+    "Missing",
+    [phase14_line(1, "Missing", second_ref)],
+    @pdfv2.PdfV2TextDecodeConfidence::High,
+  )
+  let model = phase14_model([first, second])
+  let gate = phase16_gate_result([
+    phase16_gate_decision(
+      @pdfv2conv.PdfV2BlockDecisionKind::PlainTextCandidate,
+      0,
+      [first_ref],
+      ["plain_text_candidate"],
+    ),
+  ])
+  let lowered = @pdfv2conv.pdf_v2_lower_fact_model(
+    phase16_input(
+      model,
+      gate,
+      @pdfv2conv.default_pdf_v2_fact_lowering_options(),
+    ),
+  )
+
+  assert_true(phase14_plain_text_fragment_count(lowered.fragments) == 2)
+  assert_true(lowered.summary.gate_missing_decision_count == 1)
+  assert_true(lowered.summary.gate_unknown_count == 1)
+  assert_true(
+    phase14_has_fragment_tag(lowered.fragments, "missing_gate_decision"),
+  )
 }
 
 ///|
@@ -498,6 +841,61 @@ test "pdf v2 fact lowerer emits conservative object placeholders when enabled" {
 }
 
 ///|
+test "pdf v2 fact lowerer object placeholders are unaffected by gate" {
+  let image_ref = phase14_image_ref()
+  let report : @pdfv2.PdfV2UnsupportedCapabilityReport = {
+    capability: "image_decode",
+    status: @pdfv2.PdfV2CapabilityStatus::MetadataOnly,
+    page_index: Some(0),
+    object_ref: Some("5 0 R"),
+    source_ref: Some(image_ref),
+    message: "metadata only image",
+    reason_tags: ["metadata_only_image"],
+    severity: @pdfv2.PdfV2Severity::Info,
+  }
+  let block = phase14_block(
+    0,
+    "Skipped",
+    [phase14_line(0, "Skipped", phase14_text_ref(0))],
+    @pdfv2.PdfV2TextDecodeConfidence::High,
+  )
+  let model = {
+    ..phase14_model([block]),
+    unsupported_capabilities: [report],
+    object_summary: {
+      ..@pdfv2.pdf_v2_empty_object_summary(),
+      image_count: 1,
+      unsupported_capability_count: 1,
+      metadata_only_count: 1,
+    },
+  }
+  let gate = phase16_gate_result([
+    phase16_gate_decision(
+      @pdfv2conv.PdfV2BlockDecisionKind::Abstain,
+      0,
+      [phase14_text_ref(0)],
+      ["unsupported_guard"],
+    ),
+  ])
+  let lowered = @pdfv2conv.pdf_v2_lower_fact_model(
+    phase16_input(model, gate, {
+      ..@pdfv2conv.default_pdf_v2_fact_lowering_options(),
+      emit_object_placeholders: true,
+    }),
+  )
+
+  assert_true(phase14_plain_text_fragment_count(lowered.fragments) == 0)
+  assert_true(lowered.summary.gate_skipped_plain_text_count == 1)
+  assert_true(lowered.summary.object_placeholder_count == 1)
+  assert_true(
+    phase14_has_fragment_kind(
+      lowered.fragments,
+      @pdfv2conv.PdfV2FactFragmentKind::UnsupportedObjectNote,
+    ),
+  )
+}
+
+///|
 test "pdf v2 fact lowerer low confidence notes are option gated" {
   let line = phase14_line(0, "Faint", phase14_text_ref(0))
   let block = phase14_block(
@@ -590,6 +988,51 @@ test "pdf v2 fact lowerer output caps warn risk and stop conservatively" {
 }
 
 ///|
+test "pdf v2 fact lowerer caps still apply with gate" {
+  let first_ref = phase14_text_ref(0)
+  let second_ref = phase14_text_ref(1)
+  let first = phase14_block(
+    0,
+    "Alpha",
+    [phase14_line(0, "Alpha", first_ref)],
+    @pdfv2.PdfV2TextDecodeConfidence::High,
+  )
+  let second = phase14_block(
+    1,
+    "Beta",
+    [phase14_line(1, "Beta", second_ref)],
+    @pdfv2.PdfV2TextDecodeConfidence::High,
+  )
+  let model = phase14_model([first, second])
+  let gate = phase16_gate_result([
+    phase16_gate_decision(
+      @pdfv2conv.PdfV2BlockDecisionKind::PlainTextCandidate,
+      0,
+      [first_ref],
+      ["plain_text_candidate"],
+    ),
+    phase16_gate_decision(
+      @pdfv2conv.PdfV2BlockDecisionKind::PlainTextCandidate,
+      1,
+      [second_ref],
+      ["plain_text_candidate"],
+    ),
+  ])
+  let lowered = @pdfv2conv.pdf_v2_lower_fact_model(
+    phase16_input(model, gate, {
+      ..@pdfv2conv.default_pdf_v2_fact_lowering_options(),
+      max_blocks: 1,
+    }),
+  )
+
+  assert_true(lowered.summary.capped_output)
+  assert_true(lowered.summary.plain_text_fragment_count == 1)
+  assert_true(lowered.summary.gate_plain_text_candidate_count == 2)
+  assert_true(phase14_has_warning_tag(lowered.warnings, "max_blocks_cap"))
+  assert_true(phase14_has_risk_tag(lowered.risks, "max_blocks_cap"))
+}
+
+///|
 test "pdf v2 fact lowerer keeps semantic markdown out" {
   let line = phase14_line(0, "Figure 1. Plain fact text", phase14_text_ref(0))
   let block = phase14_block(
@@ -643,4 +1086,11 @@ test "pdf v2 convert boundary guard stays parser fact only" {
   assert_true(!lowerer_text.contains("parse_pdf_v2_model_from_path"))
   assert_true(!lowerer_text.contains("parse_pdf_v2_source_from_path"))
   assert_true(!lowerer_text.contains("pdf_v2_open_source_document_from_path"))
+  assert_true(!lowerer_text.contains("model.pkl"))
+  assert_true(!lowerer_text.contains("features.tsv"))
+  assert_true(!lowerer_text.contains("markitdown-quality-lab"))
+  assert_true(!lowerer_text.contains("Heading"))
+  assert_true(!lowerer_text.contains("ListItem"))
+  assert_true(!lowerer_text.contains("Caption"))
+  assert_true(!lowerer_text.contains("TableLike"))
 }
