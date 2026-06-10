@@ -1,0 +1,355 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/doc_parse/pdf_v2"
+
+// Values
+pub fn build_empty_pdf_v2_core_document() -> PdfV2CoreDocument
+
+pub fn build_empty_pdf_v2_document() -> PdfV2DocumentModel
+
+pub fn pdf_v2_core_supported_capabilities() -> Array[PdfV2CoreCapability]
+
+pub fn pdf_v2_document_source_ref() -> PdfV2SourceRef
+
+pub fn pdf_v2_empty_bbox() -> PdfV2BBox
+
+pub fn pdf_v2_empty_classifier_ready_features() -> PdfV2ClassifierReadyFeatures
+
+pub fn pdf_v2_empty_geometry_features() -> PdfV2GeometryFeatures
+
+pub fn pdf_v2_empty_text_shape_features() -> PdfV2TextShapeFeatures
+
+pub fn pdf_v2_plain_text_style_flags() -> PdfV2TextStyleFlags
+
+pub fn pdf_v2_source_event(PdfV2SourceEventKind, PdfV2SourceRef) -> PdfV2SourceEvent
+
+pub fn pdf_v2_warning(PdfV2WarningKind, PdfV2Severity, String, Array[PdfV2SourceRef], Array[String]) -> PdfV2Warning
+
+pub fn recover_pdf_v2_layout_noop(Array[PdfV2SourceRef]) -> PdfV2LayoutRecoveryResult
+
+// Errors
+
+// Types and methods
+pub(all) struct PdfV2BBox {
+  x0 : Double
+  y0 : Double
+  x1 : Double
+  y1 : Double
+}
+
+pub(all) struct PdfV2Char {
+  text : String
+  bbox : PdfV2BBox
+  source_refs : Array[PdfV2SourceRef]
+  decode_confidence : Double
+}
+
+pub(all) struct PdfV2ClassifierReadyFeatures {
+  text_preview : String
+  geometry : PdfV2GeometryFeatures
+  text_shape : PdfV2TextShapeFeatures
+  source_refs : Array[PdfV2SourceRef]
+  risk_tags : Array[String]
+}
+
+pub(all) enum PdfV2CoreCapability {
+  ObjectGraph
+  XrefTable
+  XrefStream
+  ObjectStream
+  Streams
+  Filters
+  EncryptionMetadata
+  PageTree
+  ContentStreams
+  Fonts
+  CMap
+  ToUnicode
+  Images
+  Vectors
+  Annotations
+  Forms
+  Outlines
+  Metadata
+} derive(Eq)
+
+pub(all) struct PdfV2CoreDocument {
+  page_count : Int
+  warnings : Array[PdfV2Warning]
+}
+
+pub(all) struct PdfV2CrossPageBoundary {
+  from_page_index : Int
+  to_page_index : Int
+  confidence : Double
+  source_refs : Array[PdfV2SourceRef]
+  reason_tags : Array[String]
+}
+
+pub(all) struct PdfV2DocumentMetadata {
+  title : String?
+  author : String?
+  subject : String?
+  creator : String?
+  producer : String?
+  source_refs : Array[PdfV2SourceRef]
+}
+
+pub(all) struct PdfV2DocumentModel {
+  metadata : PdfV2DocumentMetadata
+  pages : Array[PdfV2Page]
+  source_events : Array[PdfV2SourceEvent]
+  layout : PdfV2LayoutRecoveryResult
+  warnings : Array[PdfV2Warning]
+  risks : Array[PdfV2Risk]
+  source_summary : PdfV2SourceSummary
+}
+
+pub(all) struct PdfV2GeometryFeatures {
+  bbox : PdfV2BBox
+  line_gap_before : Double?
+  line_gap_after : Double?
+  indent : Double?
+  relative_x0 : Double
+  relative_y0 : Double
+  relative_width : Double
+  relative_height : Double
+}
+
+pub(all) struct PdfV2Glyph {
+  text : String
+  bbox : PdfV2BBox
+  source_ref : PdfV2SourceRef
+  font_name : String?
+  font_size : Double?
+  style_flags : PdfV2TextStyleFlags
+  writing_direction : PdfV2WritingDirection
+  rotation_degrees : Double
+  decode_confidence : Double
+}
+
+pub(all) struct PdfV2LayoutRecoveryHint {
+  source_refs : Array[PdfV2SourceRef]
+  reason_tags : Array[String]
+}
+
+pub(all) struct PdfV2LayoutRecoveryResult {
+  regions : Array[PdfV2LayoutRegion]
+  reading_order : PdfV2ReadingOrder
+  cross_page_boundaries : Array[PdfV2CrossPageBoundary]
+  hints : Array[PdfV2LayoutRecoveryHint]
+  risks : Array[PdfV2Risk]
+  warnings : Array[PdfV2Warning]
+  confidence : Double
+}
+
+pub(all) struct PdfV2LayoutRegion {
+  kind : PdfV2LayoutRegionKind
+  bbox : PdfV2BBox
+  source_refs : Array[PdfV2SourceRef]
+  confidence : Double
+  reason_tags : Array[String]
+}
+
+pub(all) enum PdfV2LayoutRegionKind {
+  Text
+  Table
+  Figure
+  Image
+  Caption
+  Header
+  Footer
+  PageNumber
+  Form
+  Annotation
+  Unknown
+} derive(Eq)
+
+pub(all) struct PdfV2Line {
+  text : String
+  bbox : PdfV2BBox
+  source_refs : Array[PdfV2SourceRef]
+  spans : Array[PdfV2Span]
+  line_gap_before : Double?
+  line_gap_after : Double?
+  indent : Double?
+  writing_direction : PdfV2WritingDirection
+  rotation_degrees : Double
+  decode_confidence : Double
+}
+
+pub(all) struct PdfV2Page {
+  page_index : Int
+  bbox : PdfV2BBox
+  source_ref : PdfV2SourceRef
+  events : Array[PdfV2SourceEvent]
+  text_blocks : Array[PdfV2TextBlock]
+  layout_regions : Array[PdfV2LayoutRegion]
+  warnings : Array[PdfV2Warning]
+  risks : Array[PdfV2Risk]
+}
+
+pub(all) struct PdfV2ReadingOrder {
+  region_indices : Array[Int]
+  confidence : Double
+  source_refs : Array[PdfV2SourceRef]
+  reason_tags : Array[String]
+}
+
+pub(all) struct PdfV2Risk {
+  kind : PdfV2RiskKind
+  severity : PdfV2Severity
+  message : String
+  source_refs : Array[PdfV2SourceRef]
+  reason_tags : Array[String]
+}
+
+pub(all) enum PdfV2RiskKind {
+  LowSignal
+  Malformed
+  UnsupportedFeature
+  DecodeLowConfidence
+  MultiColumn
+  ReadingOrderAmbiguous
+  CrossPageAmbiguous
+  EncryptedOrRestricted
+  ObjectGraphIssue
+  PerformanceCapReached
+} derive(Eq)
+
+pub(all) enum PdfV2Severity {
+  Info
+  Warning
+  Error
+} derive(Eq)
+
+pub(all) struct PdfV2SourceEvent {
+  kind : PdfV2SourceEventKind
+  text : String?
+  bbox : PdfV2BBox?
+  source_ref : PdfV2SourceRef
+  warnings : Array[PdfV2Warning]
+}
+
+pub(all) enum PdfV2SourceEventKind {
+  PageBegin
+  PageEnd
+  TextOp
+  Glyph
+  ImageObject
+  VectorPath
+  AnnotationObject
+  FormObject
+  OutlineItem
+  Metadata
+  Unknown
+} derive(Eq)
+
+pub(all) enum PdfV2SourceKind {
+  Document
+  Page
+  ContentStream
+  Object
+  TextOp
+  Glyph
+  Image
+  Vector
+  Annotation
+  Form
+  Outline
+  Unknown
+} derive(Eq)
+
+pub(all) struct PdfV2SourceRef {
+  page_index : Int?
+  object_id : String?
+  stream_index : Int?
+  op_index : Int?
+  content_order_index : Int?
+  kind : PdfV2SourceKind
+}
+
+pub(all) struct PdfV2SourceSummary {
+  event_count : Int
+  page_count : Int
+  warning_count : Int
+  risk_count : Int
+  one_pass_scan : Bool
+  fallback_used : Bool
+  external_model_files_read : Bool
+}
+
+pub(all) struct PdfV2Span {
+  text : String
+  bbox : PdfV2BBox
+  source_refs : Array[PdfV2SourceRef]
+  font_name : String?
+  font_size : Double?
+  style_flags : PdfV2TextStyleFlags
+  writing_direction : PdfV2WritingDirection
+  rotation_degrees : Double
+  decode_confidence : Double
+}
+
+pub(all) struct PdfV2TextBlock {
+  text : String
+  bbox : PdfV2BBox
+  source_refs : Array[PdfV2SourceRef]
+  lines : Array[PdfV2Line]
+  font_name : String?
+  font_size : Double?
+  style_flags : PdfV2TextStyleFlags
+  writing_direction : PdfV2WritingDirection
+  rotation_degrees : Double
+  decode_confidence : Double
+  shape_features : PdfV2TextShapeFeatures
+  geometry_features : PdfV2GeometryFeatures
+  classifier_features : PdfV2ClassifierReadyFeatures
+}
+
+pub(all) struct PdfV2TextShapeFeatures {
+  has_list_marker : Bool
+  list_marker_text : String?
+  has_caption_prefix : Bool
+  caption_prefix_text : String?
+  heading_shape_score : Double
+  body_density_guard_score : Double
+}
+
+pub(all) struct PdfV2TextStyleFlags {
+  bold : Bool
+  italic : Bool
+  monospace : Bool
+  serif : Bool
+}
+
+pub(all) struct PdfV2Warning {
+  kind : PdfV2WarningKind
+  severity : PdfV2Severity
+  message : String
+  source_refs : Array[PdfV2SourceRef]
+  reason_tags : Array[String]
+}
+
+pub(all) enum PdfV2WarningKind {
+  UnsupportedCapability
+  MalformedObject
+  DecodeIssue
+  EncryptedOrRestricted
+  PerformanceCap
+  LowSignal
+  ModelUnavailable
+  InternalInvariant
+} derive(Eq)
+
+pub(all) enum PdfV2WritingDirection {
+  LeftToRight
+  RightToLeft
+  TopToBottom
+  BottomToTop
+  Unknown
+} derive(Eq)
+
+// Type aliases
+
+// Traits
+

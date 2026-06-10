@@ -1174,6 +1174,14 @@ closure measurements. It should identify which core read/text/page/object
 facades are in the fast runtime subset and which writer/debug/crypto/vendor
 test surfaces stay outside fast closure.
 
+#### PDF-V2-RESET-1 Scaffold Note
+
+`doc_parse/pdf_v2` and `convert/pdf_v2` now contain an experimental scaffold for
+parser facts, source events, warnings/risks, layout recovery no-op behavior,
+convert classifier gates, and contract-fast tests. The old PDF runtime is not
+switched, dispatcher behavior is unchanged, fallback is not introduced, and no
+model file, Python runtime, or external quality-lab dependency is read.
+
 ### PDF-V2-RESET-2 One-pass Parser Scaffold Note
 
 This note should record the first parser scaffold that consumes PDF input once

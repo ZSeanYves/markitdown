@@ -1,0 +1,83 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/convert/pdf_v2"
+
+// Values
+pub fn decide_pdf_v2_block_role(PdfV2BlockClassifierHint?, PdfV2DecisionInputs) -> PdfV2BlockDecision
+
+pub fn default_pdf_v2_markdown_policy() -> PdfV2MarkdownPolicy
+
+pub fn lower_pdf_v2_document_scaffold(@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2DocumentModel) -> PdfV2LoweringScaffoldResult
+
+pub fn pdf_v2_abstain_decision(Array[String]) -> PdfV2BlockDecision
+
+pub fn pdf_v2_keep_as_text_decision(Double, PdfV2DecisionSource, Array[String]) -> PdfV2BlockDecision
+
+pub fn pdf_v2_policy_keeps_uncertain_text(PdfV2MarkdownPolicy) -> Bool
+
+// Errors
+
+// Types and methods
+pub(all) struct PdfV2BlockClassifierHint {
+  role : PdfV2BlockRole
+  confidence : Double
+  reason_tags : Array[String]
+}
+
+pub(all) struct PdfV2BlockDecision {
+  role : PdfV2BlockRole
+  confidence : Double
+  source : PdfV2DecisionSource
+  reason_tags : Array[String]
+  abstained : Bool
+}
+
+pub(all) enum PdfV2BlockRole {
+  Heading
+  Paragraph
+  ListItem
+  Caption
+  TableLike
+  FooterHeaderNoise
+  PageNumberNoise
+  KeepAsText
+  Uncertain
+} derive(Eq)
+
+pub(all) struct PdfV2DecisionInputs {
+  deterministic_constraint_score : Double
+  model_confidence : Double
+  feature_support_score : Double
+  risk_penalty : Double
+}
+
+pub(all) enum PdfV2DecisionSource {
+  DeterministicRule
+  ModelHint
+  WeightedGate
+  Abstain
+} derive(Eq)
+
+pub(all) struct PdfV2LoweredBlockFragment {
+  text : String
+  decision : PdfV2BlockDecision
+  source_refs : Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2SourceRef]
+  reason_tags : Array[String]
+}
+
+pub(all) struct PdfV2LoweringScaffoldResult {
+  fragments : Array[PdfV2LoweredBlockFragment]
+  warnings : Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2Warning]
+  risks : Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2Risk]
+  fallback_used : Bool
+  raw_pdf_scanned_by_convert : Bool
+}
+
+pub(all) struct PdfV2MarkdownPolicy {
+  preserve_uncertain_text : Bool
+  emit_reason_tags : Bool
+}
+
+// Type aliases
+
+// Traits
+
