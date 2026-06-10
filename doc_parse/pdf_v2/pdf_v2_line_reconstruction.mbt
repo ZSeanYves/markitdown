@@ -478,6 +478,11 @@ fn pdf_v2_merge_line_reconstruction_summary(
     line_break_count: line_summary.line_break_count,
     line_geometry_missing_count: line_summary.line_geometry_missing_count,
     max_line_cap_hit: line_summary.max_line_cap_hit,
+    block_candidate_count: reconstruction_summary.block_candidate_count,
+    lines_grouped_count: reconstruction_summary.lines_grouped_count,
+    block_break_count: reconstruction_summary.block_break_count,
+    block_geometry_missing_count: reconstruction_summary.block_geometry_missing_count,
+    max_block_cap_hit: reconstruction_summary.max_block_cap_hit,
     warnings_count: reconstruction_summary.warnings_count +
     line_summary.warnings_count,
     risk_count: reconstruction_summary.risk_count + line_summary.risk_count,

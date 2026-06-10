@@ -23,6 +23,45 @@ The files in this package intentionally define typed contracts before real PDF
 reading is wired. Unsupported or incomplete capabilities should be represented
 as warnings and risks rather than hidden fallback behavior.
 
+## Phase 8 Block Candidate Status
+
+Phase 8 consumes Phase 7 line candidates and adds bounded parser-owned block
+candidates:
+
+```text
+PdfV2LineCandidate[]
+  -> PdfV2BlockCandidate[]
+```
+
+Current status:
+
+- `PdfV2BlockCandidate` records grouped line candidates, text, source refs,
+  decode confidence, geometry confidence, warnings, merge reason tags, break
+  reason tags, optional bbox, writing direction, rotation, and a weak
+  parser-level block kind hint.
+- Block candidates are source-order parser facts. They are not Markdown
+  paragraphs, final text blocks, layout regions, headings, lists, captions,
+  tables, or convert decisions.
+- `PdfV2BlockKindHint` is deliberately narrow: `TextLike`, `Unknown`, or
+  `LowSignal`. It does not encode Heading/List/Caption/Table semantics.
+- Grouping is conservative. Adjacent lines may merge only when page/source
+  order stays compatible, no text-object or explicit block boundary is visible,
+  decode confidence does not fail, geometry does not contradict, and the
+  configured block caps are not exceeded.
+- Geometry remains conservative. Blocks do not invent bounding boxes;
+  unavailable geometry is reported with `block_geometry_unavailable` and
+  unknown geometry confidence.
+- `max_blocks` and `max_lines_per_block` are explicit reconstruction caps and
+  report warnings/risks when reached.
+- `PdfV2SourceDocument` carries block candidates as experimental parser facts
+  alongside char, span, and line candidates. Page `text_blocks`, layout
+  regions, convert output, dispatcher behavior, model features, and fallback
+  remain untouched.
+
+This is still not normalized model assembly or layout recovery. Phase 8 does
+not build Markdown paragraphs, headings, lists, captions, tables, layout
+regions, convert output, dispatcher behavior, model features, or fallback.
+
 ## Phase 7 Line Candidate Status
 
 Phase 7 consumes Phase 6 span candidates and adds bounded parser-owned line

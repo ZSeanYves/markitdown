@@ -145,6 +145,24 @@ PDF-V2-RESET-7 Line Candidate Note:
   blocks, paragraphs, layout recovery, convert lowering, dispatcher switching,
   model file reads, or old-runtime fallback.
 
+PDF-V2-RESET-8 Block Candidate Note:
+
+* Phase 8 consumes only Phase 7 `PdfV2LineCandidate` facts and builds bounded
+  `PdfV2BlockCandidate` parser facts.
+* Block grouping is source-order-first and conservative: page changes,
+  text-object boundaries, explicit block boundaries, source-order
+  discontinuities, hard line break boundaries, failed decode boundaries,
+  geometry contradictions, and block caps all control merge or break behavior.
+* Block candidates preserve source refs, line candidates, warnings, merge
+  reason tags, and break reason tags. Bboxes stay absent unless safely
+  derivable; unavailable geometry is reported explicitly.
+* Block kind hints are weak parser facts only: `TextLike`, `Unknown`, or
+  `LowSignal`. This phase does not classify headings, lists, captions, tables,
+  paragraphs, or Markdown roles.
+* These candidates are not normalized text blocks or layout regions. This phase
+  still does not create layout recovery, convert lowering, dispatcher
+  switching, model file reads, or old-runtime fallback.
+
 ## Runtime Adoption Record
 
 PDF v2 is not adopted yet. The current `doc_parse/pdf` and `convert/pdf`

@@ -339,6 +339,39 @@ fn phase7_explicit_line_move_pdf() -> String {
 }
 
 ///|
+fn phase8_source_order_block_pdf() -> String {
+  phase4_text_pdf(
+    "BT\n/F1 12 Tf\n72 720 Td\n(Hello) Tj\nT*\n(World) Tj\nET\n", true,
+  )
+}
+
+///|
+fn phase8_three_line_block_pdf() -> String {
+  phase4_text_pdf(
+    "BT\n/F1 12 Tf\n72 720 Td\n(A) Tj\nT*\n(B) Tj\nT*\n(C) Tj\nET\n", true,
+  )
+}
+
+///|
+fn phase8_two_page_text_pdf() -> String {
+  let content_a = "BT\n/F1 12 Tf\n72 720 Td\n(A) Tj\nET\n"
+  let content_b = "BT\n/F1 12 Tf\n72 720 Td\n(B) Tj\nET\n"
+  phase3_pdf_from_objects([
+    (1, "<< /Type /Catalog /Pages 2 0 R >>"),
+    (2, "<< /Type /Pages /Count 2 /Kids [3 0 R 4 0 R] >>"),
+    (
+      3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 7 0 R >> >> /Contents 5 0 R >>",
+    ),
+    (
+      4, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 7 0 R >> >> /Contents 6 0 R >>",
+    ),
+    (5, phase3_stream_object(content_a)),
+    (6, phase3_stream_object(content_b)),
+    (7, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"),
+  ])
+}
+
+///|
 fn phase6_span_options(
   max_spans : Int,
   max_chars_per_span : Int,
@@ -363,6 +396,23 @@ fn phase7_line_options(
 }
 
 ///|
+fn phase8_block_options(
+  max_blocks : Int,
+  max_lines_per_block : Int,
+  allow_source_order_merge : Bool,
+  allow_geometry_merge : Bool,
+  allow_vertical_gap_merge : Bool,
+) -> @pdfv2.PdfV2BlockReconstructionOptions {
+  {
+    max_blocks,
+    max_lines_per_block,
+    allow_source_order_merge,
+    allow_geometry_merge,
+    allow_vertical_gap_merge,
+  }
+}
+
+///|
 fn phase6_has_span_break_reason(
   spans : Array[@pdfv2.PdfV2SpanCandidate],
   tag : String,
@@ -382,6 +432,32 @@ fn phase7_has_line_break_reason(
 ) -> Bool {
   for line in lines {
     if line.break_reason_tags.contains(tag) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn phase8_has_block_break_reason(
+  blocks : Array[@pdfv2.PdfV2BlockCandidate],
+  tag : String,
+) -> Bool {
+  for block in blocks {
+    if block.break_reason_tags.contains(tag) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn phase8_has_block_reason(
+  blocks : Array[@pdfv2.PdfV2BlockCandidate],
+  tag : String,
+) -> Bool {
+  for block in blocks {
+    if block.reason_tags.contains(tag) || block.merge_reason_tags.contains(tag) {
       return true
     }
   }
@@ -1460,5 +1536,262 @@ test "pdf v2 line reconstruction remains parser facts only" {
     }
     SourceOpenErr(_, _, message) =>
       fail("expected Phase 7 parser-fact-only line: " + message)
+  }
+}
+
+///|
+test "pdf v2 block reconstruction emits source-order block candidate" {
+  let path = "/tmp/markitdown-pdf-v2-phase8-source-order-block.pdf"
+  phase3_write_fixture(path, phase8_source_order_block_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(doc.line_candidates.length() == 2)
+      assert_true(doc.block_candidates.length() == 1)
+      assert_true(doc.block_candidates[0].text.contains("Hello"))
+      assert_true(doc.block_candidates[0].text.contains("World"))
+      assert_true(doc.block_candidates[0].source_refs.length() == 10)
+      assert_true(doc.block_candidates[0].bbox is None)
+      assert_true(
+        doc.block_candidates[0].geometry_confidence ==
+        @pdfv2.PdfV2GeometryConfidence::Unknown,
+      )
+      assert_true(
+        doc.block_candidates[0].block_kind_hint ==
+        @pdfv2.PdfV2BlockKindHint::TextLike,
+      )
+      assert_true(
+        phase8_has_block_reason(
+          doc.block_candidates,
+          "block_geometry_unavailable",
+        ),
+      )
+      assert_true(doc.reconstruction_summary.block_candidate_count == 1)
+      assert_true(doc.reconstruction_summary.lines_grouped_count == 2)
+      assert_true(doc.pages[0].text_blocks.length() == 0)
+      assert_true(doc.pages[0].layout_regions.length() == 0)
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 8 source-order block candidate: " + message)
+  }
+}
+
+///|
+test "pdf v2 block reconstruction breaks on page boundary" {
+  let path = "/tmp/markitdown-pdf-v2-phase8-page-boundary.pdf"
+  phase3_write_fixture(path, phase8_two_page_text_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(doc.line_candidates.length() == 2)
+      assert_true(doc.block_candidates.length() == 2)
+      assert_true(doc.block_candidates[0].text == "A")
+      assert_true(doc.block_candidates[1].text == "B")
+      assert_true(
+        phase8_has_block_break_reason(doc.block_candidates, "page_change"),
+      )
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 8 page-boundary blocks: " + message)
+  }
+}
+
+///|
+test "pdf v2 block reconstruction handles text object boundary conservatively" {
+  let path = "/tmp/markitdown-pdf-v2-phase8-text-object-boundary.pdf"
+  phase3_write_fixture(path, phase7_text_object_boundary_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(doc.line_candidates.length() == 2)
+      assert_true(doc.block_candidates.length() == 2)
+      assert_true(
+        phase8_has_block_break_reason(
+          doc.block_candidates,
+          "text_object_boundary",
+        ),
+      )
+      assert_true(
+        !(doc.block_candidates.length() == 1 &&
+        !phase8_has_block_reason(doc.block_candidates, "text_object_boundary")),
+      )
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 8 text object boundary blocks: " + message)
+  }
+}
+
+///|
+test "pdf v2 block reconstruction enforces max lines per block" {
+  let path = "/tmp/markitdown-pdf-v2-phase8-max-lines-per-block.pdf"
+  phase3_write_fixture(path, phase8_three_line_block_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      let blocks = @pdfv2.pdf_v2_reconstruct_block_candidates(
+        doc.line_candidates,
+        phase8_block_options(10, 2, true, false, false),
+      )
+      assert_true(doc.line_candidates.length() == 3)
+      assert_true(blocks.blocks.length() == 2)
+      assert_true(blocks.blocks[0].text.contains("A"))
+      assert_true(blocks.blocks[0].text.contains("B"))
+      assert_true(blocks.blocks[1].text == "C")
+      assert_true(
+        phase8_has_block_break_reason(blocks.blocks, "max_lines_per_block"),
+      )
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 8 max lines per block: " + message)
+  }
+}
+
+///|
+test "pdf v2 block reconstruction max_blocks cap is explicit" {
+  let path = "/tmp/markitdown-pdf-v2-phase8-max-blocks.pdf"
+  phase3_write_fixture(path, phase8_three_line_block_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      let blocks = @pdfv2.pdf_v2_reconstruct_block_candidates(
+        doc.line_candidates,
+        phase8_block_options(1, 1, true, false, false),
+      )
+      assert_true(blocks.blocks.length() == 1)
+      assert_true(blocks.summary.max_block_cap_hit)
+      assert_true(
+        phase8_has_block_break_reason(blocks.blocks, "max_blocks_cap"),
+      )
+      assert_true(
+        phase3_has_warning_kind(
+          blocks.warnings,
+          @pdfv2.PdfV2WarningKind::PerformanceCap,
+        ),
+      )
+      assert_true(
+        phase3_has_risk_kind(
+          blocks.risks,
+          @pdfv2.PdfV2RiskKind::PerformanceCapReached,
+        ),
+      )
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 8 max blocks cap: " + message)
+  }
+}
+
+///|
+test "pdf v2 block reconstruction keeps geometry unavailable conservative" {
+  let path = "/tmp/markitdown-pdf-v2-phase8-geometry-unavailable.pdf"
+  phase3_write_fixture(path, phase4_simple_text_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(doc.block_candidates.length() == 1)
+      assert_true(doc.block_candidates[0].bbox is None)
+      assert_true(
+        doc.block_candidates[0].geometry_confidence ==
+        @pdfv2.PdfV2GeometryConfidence::Unknown,
+      )
+      assert_true(
+        doc.block_candidates[0].reason_tags.contains(
+          "block_geometry_unavailable",
+        ),
+      )
+      assert_true(doc.reconstruction_summary.block_geometry_missing_count == 1)
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 8 geometry unavailable block: " + message)
+  }
+}
+
+///|
+test "pdf v2 block reconstruction keeps unknown decode conservative" {
+  let path = "/tmp/markitdown-pdf-v2-phase8-unknown-decode.pdf"
+  phase3_write_fixture(path, phase4_missing_font_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(doc.block_candidates.length() == 1)
+      assert_true(
+        doc.block_candidates[0].decode_confidence !=
+        @pdfv2.PdfV2TextDecodeConfidence::High,
+      )
+      assert_true(
+        doc.block_candidates[0].decode_confidence ==
+        @pdfv2.PdfV2TextDecodeConfidence::Unknown ||
+        doc.block_candidates[0].decode_confidence ==
+        @pdfv2.PdfV2TextDecodeConfidence::Failed,
+      )
+      assert_true(
+        doc.block_candidates[0].block_kind_hint !=
+        @pdfv2.PdfV2BlockKindHint::TextLike,
+      )
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 8 unknown decode block: " + message)
+  }
+}
+
+///|
+test "pdf v2 block reconstruction remains parser facts only" {
+  let path = "/tmp/markitdown-pdf-v2-phase8-no-semantic-convert.pdf"
+  phase3_write_fixture(path, phase8_source_order_block_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(doc.block_candidates.length() == 1)
+      assert_true(
+        doc.block_candidates[0].block_kind_hint ==
+        @pdfv2.PdfV2BlockKindHint::TextLike,
+      )
+      assert_true(doc.pages[0].text_blocks.length() == 0)
+      assert_true(doc.pages[0].layout_regions.length() == 0)
+      assert_true(doc.summary.one_pass_scan)
+      assert_true(!doc.summary.fallback_used)
+      assert_true(!doc.summary.external_model_files_read)
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 8 parser-fact-only block: " + message)
   }
 }

@@ -50,6 +50,7 @@ pub(all) struct PdfV2SourceDocument {
   char_candidates : Array[PdfV2CharCandidate]
   span_candidates : Array[PdfV2SpanCandidate]
   line_candidates : Array[PdfV2LineCandidate]
+  block_candidates : Array[PdfV2BlockCandidate]
   reconstruction_summary : PdfV2CharReconstructionSummary
   summary : PdfV2SourceSummary
   warnings : Array[PdfV2Warning]

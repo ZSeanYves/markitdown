@@ -48,6 +48,11 @@ pub(all) struct PdfV2CharReconstructionSummary {
   line_break_count : Int
   line_geometry_missing_count : Int
   max_line_cap_hit : Bool
+  block_candidate_count : Int
+  lines_grouped_count : Int
+  block_break_count : Int
+  block_geometry_missing_count : Int
+  max_block_cap_hit : Bool
   warnings_count : Int
   risk_count : Int
   max_chars : Int
@@ -421,6 +426,11 @@ pub fn pdf_v2_reconstruct_char_candidates(
     line_break_count: 0,
     line_geometry_missing_count: 0,
     max_line_cap_hit: false,
+    block_candidate_count: 0,
+    lines_grouped_count: 0,
+    block_break_count: 0,
+    block_geometry_missing_count: 0,
+    max_block_cap_hit: false,
     warnings_count: warnings.length(),
     risk_count: risks.length(),
     max_chars: effective_max,
