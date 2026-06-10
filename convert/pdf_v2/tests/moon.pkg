@@ -1,6 +1,7 @@
 import {
   "ZSeanYves/markitdown/convert/pdf_v2" @pdfv2conv,
   "ZSeanYves/markitdown/doc_parse/pdf_v2" @pdfv2,
+  "moonbitlang/x/fs",
 } for "test"
 
 options(

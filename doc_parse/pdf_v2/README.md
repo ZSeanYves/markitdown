@@ -23,6 +23,22 @@ The files in this package intentionally define typed contracts before real PDF
 reading is wired. Unsupported or incomplete capabilities should be represented
 as warnings and risks rather than hidden fallback behavior.
 
+## Phase 14 Convert Consumer Boundary Note
+
+Phase 14 adds a one-way `convert/pdf_v2` fact-only lowering smoke over
+`PdfV2DocumentModel` and optional `PdfV2FeatureSet`.
+
+Parser status remains unchanged:
+
+- `doc_parse/pdf_v2` does not import or call `convert/pdf_v2`.
+- Parser APIs still produce source documents, normalized models, layout facts,
+  and feature sets only.
+- Convert is a downstream consumer of parser facts. It must not reopen raw PDF
+  input, call mbtpdf, depend on old `doc_parse/pdf`, or fallback to the old PDF
+  runtime.
+- The Phase 14 lowerer emits plain text and conservative diagnostic fragments
+  only; parser facts still do not contain Markdown roles.
+
 ## Phase 13 Classifier Feature Scaffold Status
 
 Phase 13 builds classifier-ready feature scaffolding from existing parser facts:

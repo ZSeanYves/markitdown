@@ -249,6 +249,23 @@ PDF-V2-RESET-13 Feature Scaffold Note:
   reread PDFs, call convert, load `features.tsv`, load or train `model.pkl`, read
   quality-lab data, switch dispatchers, or fallback to the old PDF runtime.
 
+PDF-V2-RESET-14 Fact-Only Convert Lowering Note:
+
+* Phase 14 adds a `convert/pdf_v2` fact-only lowering smoke from
+  `PdfV2DocumentModel` plus optional `PdfV2FeatureSet` to conservative
+  fragments.
+* The lowerer consumes parser model/features only. It does not read raw PDF
+  paths or bytes, call mbtpdf, depend on old `doc_parse/pdf`, call parser path
+  APIs, switch dispatchers, read external feature/model artifacts, or fallback
+  to the old PDF runtime.
+* Fragment kinds are limited to plain text, page breaks, low-confidence notes,
+  and unsupported-object notes. Unsupported, partial, capped, metadata-only,
+  not-attempted, failed, and unknown facts remain conservative diagnostics.
+* No heading, list, caption, table, image Markdown, link Markdown, form
+  semantic, or layout-recovery lowering is introduced by this smoke.
+* Output caps for blocks, lines, and chars produce warnings, risks, and capped
+  summaries rather than pretending the output is complete.
+
 ## Runtime Adoption Record
 
 PDF v2 is not adopted yet. The current `doc_parse/pdf` and `convert/pdf`
