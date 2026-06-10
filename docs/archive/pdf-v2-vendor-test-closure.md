@@ -241,3 +241,61 @@ Next deletion prerequisites:
   the facade does not consume those APIs.
 - Keep malformed/source-attribution, object-stream widget, text/font, and
   replacement contract tests until stronger facade contracts exist.
+
+## Phase 1.5g Narrow Mixed-Behavior Contracts
+
+This batch adds small contracts for the mixed page/document behaviors that the
+Phase 1.5f audit identified as still unique. It does not delete old tests and
+does not change vendor runtime source.
+
+New contracts:
+
+- `doc_parse/pdf/vendor/mbtpdf/document/pdfpage/pdfpage_tree_contract_test.mbt`
+- `doc_parse/pdf/vendor/mbtpdf/document/pdfpage/pdfpage_resource_contract_test.mbt`
+- `doc_parse/pdf/vendor/mbtpdf/document/pdfdest/pdfdest_contract_test.mbt`
+- `doc_parse/pdf/vendor/mbtpdf/graphics/pdfops/pdfops_inline_image_contract_test.mbt`
+
+Coverage added:
+
+- Nested page-tree traversal with inherited `MediaBox`, `CropBox`, `Rotate`,
+  and `Resources`, stable page order, page count, and fail-closed missing-kid
+  behavior.
+- Page-local resource override plus explicit local-first resource union through
+  `combine_pdf_resources`, including Form XObject object-reference identity.
+- Destination arrays for `XYZ`, `Fit`, `FitH`, and `FitV`, plus catalog named
+  destinations, name-tree string destinations, and GoTo action `/D` facts.
+- Inline image `BI` / `ID` / `EI` source attribution through
+  `parse_operators_with_source`, with `W`, `H`, `CS`, `BPC`, and `F` metadata
+  preserved without entering a full image decode lane.
+
+1.5f coverage now better isolated:
+
+- Page-tree read facts no longer depend only on broad page-tree coverage tests.
+- Resource and Form XObject reference facts no longer depend only on
+  XObject-processing mutation tests.
+- Destination variant facts no longer depend only on the broad destination test
+  file.
+- Inline image source events no longer depend only on broader inline image
+  parsing and decode tests.
+
+Still not covered by narrow contracts:
+
+- Full image decode behavior, image masks, color conversion, and codec-specific
+  payload handling.
+- Vector/path semantics and graphics-state interpretation beyond operator
+  source events.
+- Rich color spaces such as ICCBased, Lab, Indexed, Separation, DeviceN, and
+  Pattern.
+- Encryption and crypto reader behavior.
+- Page editing/output behavior such as `change_pages`, `pdf_of_pages`, prefix,
+  renumber, fixups, and content mutation.
+- Complex malformed-reader behavior beyond the small page-tree missing-child
+  and existing malformed smoke tests.
+
+Next-round options:
+
+- Phase 1.5h can be an image decode lane that separates metadata/source events
+  from byte decode, masks, and rich color-space behavior.
+- Alternatively, Phase 1.5h can trim a small page editing/output-only batch if
+  PDF v2 explicitly does not consume those APIs and the remaining parser-facing
+  facts are covered by contracts.
