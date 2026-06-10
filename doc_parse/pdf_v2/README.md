@@ -39,6 +39,18 @@ Parser status remains unchanged:
 - The Phase 14 lowerer emits plain text and conservative diagnostic fragments
   only; parser facts still do not contain Markdown roles.
 
+## Phase 15 Feature Gate Consumer Boundary Note
+
+Phase 15 adds a `convert/pdf_v2` no-model gate over `PdfV2FeatureSet`.
+
+Parser status remains unchanged:
+
+- `PdfV2FeatureSet` remains parser-owned factual evidence and risk signal data.
+- `doc_parse/pdf_v2` still has no dependency on `convert/pdf_v2`.
+- The gate is a downstream consumer only; it must not call parser path APIs,
+  reopen raw PDF input, call mbtpdf, read external model/data files, or emit
+  semantic block labels.
+
 ## Phase 13 Classifier Feature Scaffold Status
 
 Phase 13 builds classifier-ready feature scaffolding from existing parser facts:

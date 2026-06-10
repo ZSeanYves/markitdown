@@ -51,3 +51,32 @@ This is not semantic classification, model gating, heading/list/caption/table
 lowering, Markdown image/link/table lowering, dispatcher integration, raw PDF
 reading, mbtpdf access, old PDF runtime fallback, external data/model loading,
 or core IR adoption.
+
+## Phase 15 No-Model Gate Readiness Status
+
+Phase 15 adds a no-model block decision gate:
+
+```text
+PdfV2FeatureSet
+  -> pdf_v2_run_no_model_block_gate
+  -> PdfV2GateResult
+```
+
+Current status:
+
+- The gate consumes only `PdfV2FeatureSet`.
+- It is a decision shell for future classifier readiness, not classifier
+  inference.
+- Decision kinds are limited to `PlainTextCandidate`, `Abstain`, and `Unknown`.
+- Decision sources are limited to no-model and guard sources:
+  `NoModelGate`, `RuleGuard`, `RiskGuard`, `CapGuard`, and
+  `UnsupportedGuard`.
+- Unsupported/partial object context, capped context, missing geometry, low
+  signal, warnings, and risks contribute to conservative risk scoring or
+  fail-closed abstain behavior.
+- Plain text candidate confidence is capped at a medium-level value; abstain
+  and unknown decisions do not claim high confidence.
+
+This is not heading/list/caption/table classification, model loading, model
+training, external `features.tsv`/`model.pkl` reading, Markdown semantic
+lowering, dispatcher integration, raw PDF reading, mbtpdf access, or fallback.

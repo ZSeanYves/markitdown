@@ -266,6 +266,23 @@ PDF-V2-RESET-14 Fact-Only Convert Lowering Note:
 * Output caps for blocks, lines, and chars produce warnings, risks, and capped
   summaries rather than pretending the output is complete.
 
+PDF-V2-RESET-15 No-Model Gate Readiness Note:
+
+* Phase 15 adds a `convert/pdf_v2` no-model block decision gate from
+  `PdfV2FeatureSet` to conservative block decisions.
+* The gate consumes feature rows only. It does not read raw PDF paths or bytes,
+  call parser path APIs, call mbtpdf, load `features.tsv`, load or train
+  `model.pkl`, read quality-lab artifacts, switch dispatchers, or fallback to
+  the old PDF runtime.
+* No-model decision kinds are limited to `PlainTextCandidate`, `Abstain`, and
+  `Unknown`. The gate does not output heading, list item, caption, table,
+  figure, header/footer, page-number, image, link, or form semantic labels.
+* Unsupported, partial, capped, metadata-only, missing-geometry, low-signal,
+  warning, and risk features increase risk or trigger fail-closed guards.
+* Plain text candidates stay medium-confidence at most; abstain and unknown
+  decisions do not claim high confidence and do not change fact-only lowering
+  into semantic Markdown.
+
 ## Runtime Adoption Record
 
 PDF v2 is not adopted yet. The current `doc_parse/pdf` and `convert/pdf`
