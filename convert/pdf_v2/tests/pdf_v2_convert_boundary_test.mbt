@@ -138,6 +138,18 @@ fn phase14_image_ref() -> @pdfv2.PdfV2SourceRef {
 }
 
 ///|
+fn phase14_link_ref(order : Int) -> @pdfv2.PdfV2SourceRef {
+  {
+    page_index: Some(0),
+    object_id: Some("6 0 R"),
+    stream_index: None,
+    op_index: Some(order),
+    content_order_index: Some(order),
+    kind: @pdfv2.PdfV2SourceKind::Annotation,
+  }
+}
+
+///|
 fn phase14_page() -> @pdfv2.PdfV2PageModel {
   let page_ref = phase14_page_ref()
   let bbox : @pdfv2.PdfV2BBox = { x0: 0.0, y0: 0.0, x1: 612.0, y1: 792.0 }
@@ -646,7 +658,7 @@ fn phase20_pipeline_ok(
   page_count : Int,
   fragments : Array[@pdfv2conv.PdfV2FactFragment],
 ) -> @pdfv2conv.PdfV2ConvertPipelineResult {
-  phase20_pipeline_ok_with_candidates(page_count, fragments, [])
+  phase20_pipeline_ok_with_candidates(page_count, fragments, [], [])
 }
 
 ///|
@@ -654,6 +666,7 @@ fn phase20_pipeline_ok_with_candidates(
   page_count : Int,
   fragments : Array[@pdfv2conv.PdfV2FactFragment],
   text_flow_candidates : Array[@pdfv2.PdfV2TextFlowCandidate],
+  link_candidates : Array[@pdfv2.PdfV2LinkCandidate],
 ) -> @pdfv2conv.PdfV2ConvertPipelineResult {
   @pdfv2conv.PdfV2ConvertPipelineResult::ConvertPipelineOk({
     source_summary: @pdfv2.pdf_v2_source_summary(0, page_count, 0, 0),
@@ -665,11 +678,90 @@ fn phase20_pipeline_ok_with_candidates(
     lowering_summary: phase20_lowering_summary(page_count, fragments),
     fragments,
     text_flow_candidates,
+    link_candidates,
     warnings: [],
     risks: [],
     one_pass: true,
     no_fallback: true,
   })
+}
+
+///|
+fn phase20_link_candidate(
+  page_index : Int?,
+  uri : String?,
+  dest : String?,
+  subtype : String?,
+  rect : @pdfv2.PdfV2BBox?,
+  order : Int,
+) -> @pdfv2.PdfV2LinkCandidate {
+  {
+    page_index,
+    object_ref: Some("6 0 R"),
+    subtype,
+    rect,
+    uri,
+    dest,
+    source_ref: { ..phase14_link_ref(order), page_index, },
+    warnings: [],
+    risks: [],
+    reason_tags: ["phase20_link_test"],
+  }
+}
+
+///|
+fn phase20_link_rect() -> @pdfv2.PdfV2BBox {
+  { x0: 72.0, y0: 700.0, x1: 180.0, y1: 716.0 }
+}
+
+///|
+fn phase20_has_inline_link(inlines : Array[@cor.Inline]) -> Bool {
+  for inline in inlines {
+    match inline {
+      @cor.Inline::Link(_, _) => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn phase20_assert_single_inline_link(
+  inlines : Array[@cor.Inline],
+  label : String,
+  uri : String,
+) -> Unit raise {
+  let mut link_count = 0
+  for inline in inlines {
+    match inline {
+      @cor.Inline::Link(text, href) => {
+        link_count = link_count + 1
+        assert_true(text == label)
+        assert_true(href == uri)
+      }
+      _ => ()
+    }
+  }
+  assert_true(link_count == 1)
+}
+
+///|
+fn phase20_assert_no_rich_scope_blocks(doc : @cor.Document) -> Unit raise {
+  for block in doc.blocks.val {
+    match block {
+      @cor.Block::Image(_, _) | @cor.Block::ImageBlock(_) =>
+        fail("pdf v2 bridge must not lower images in URI link parity")
+      @cor.Block::Table(_) | @cor.Block::RichTable(_) =>
+        fail("pdf v2 bridge must not lower tables in URI link parity")
+      @cor.Block::BlockQuote(_) | @cor.Block::RichBlockQuote(_) =>
+        fail(
+          "pdf v2 bridge must not lower captions or figures in URI link parity",
+        )
+      @cor.Block::CodeBlock(_) =>
+        fail("pdf v2 bridge must not lower forms in URI link parity")
+      _ => ()
+    }
+  }
 }
 
 ///|
@@ -1540,6 +1632,288 @@ test "pdf v2 product bridge emits plain text document" {
 }
 
 ///|
+test "pdf v2 product bridge emits URI inline link for exact URI text" {
+  let uri = "https://example.com"
+  let fragment = phase20_fragment(
+    @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+    "Visit https://example.com for details.",
+    Some(0),
+    [phase14_text_ref(0)],
+  )
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok_with_candidates(1, [fragment], [], [
+      phase20_link_candidate(
+        Some(0),
+        Some(uri),
+        None,
+        Some("/Link"),
+        Some(phase20_link_rect()),
+        0,
+      ),
+    ]),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(doc.blocks.val.length() == 1)
+  match doc.blocks.val[0] {
+    @cor.Block::RichParagraph(inlines) =>
+      phase20_assert_single_inline_link(inlines, uri, uri)
+    _ => fail("expected exact URI text to emit RichParagraph link")
+  }
+  assert_true(markdown.contains("[https://example.com](https://example.com)"))
+  assert_true(!markdown.contains("PDF_V2_PIPELINE_DIAGNOSTICS"))
+  phase20_assert_no_rich_scope_blocks(doc)
+}
+
+///|
+test "pdf v2 product bridge falls back only for single link and single text block" {
+  let uri = "https://example.com"
+  let fragment = phase20_fragment(
+    @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+    "Example site",
+    Some(0),
+    [phase14_text_ref(0)],
+  )
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok_with_candidates(1, [fragment], [], [
+      phase20_link_candidate(
+        Some(0),
+        Some(uri),
+        None,
+        Some("/Link"),
+        Some(phase20_link_rect()),
+        0,
+      ),
+    ]),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(doc.blocks.val.length() == 1)
+  match doc.blocks.val[0] {
+    @cor.Block::RichParagraph(inlines) =>
+      phase20_assert_single_inline_link(inlines, "Example site", uri)
+    _ => fail("expected single-block URI fallback to emit RichParagraph link")
+  }
+  assert_true(markdown.contains("[Example site](https://example.com)"))
+  assert_true(!markdown.contains("PDF_V2_PIPELINE_DIAGNOSTICS"))
+  phase20_assert_no_rich_scope_blocks(doc)
+}
+
+///|
+test "pdf v2 product bridge rejects ambiguous same page URI fallback" {
+  let uri = "https://example.com"
+  let fragments = [
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "First paragraph.",
+      Some(0),
+      [phase14_text_ref(0)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Second paragraph.",
+      Some(0),
+      [phase14_text_ref(1)],
+    ),
+  ]
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok_with_candidates(1, fragments, [], [
+      phase20_link_candidate(
+        Some(0),
+        Some(uri),
+        None,
+        Some("/Link"),
+        Some(phase20_link_rect()),
+        0,
+      ),
+    ]),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(doc.blocks.val.length() == 2)
+  match doc.blocks.val[0] {
+    @cor.Block::Paragraph(text) => assert_true(text == "First paragraph.")
+    _ => fail("expected ambiguous first paragraph to stay plain")
+  }
+  match doc.blocks.val[1] {
+    @cor.Block::Paragraph(text) => assert_true(text == "Second paragraph.")
+    _ => fail("expected ambiguous second paragraph to stay plain")
+  }
+  assert_true(!markdown.contains("](https://example.com)"))
+  assert_true(markdown.contains("First paragraph."))
+  assert_true(markdown.contains("Second paragraph."))
+  phase20_assert_no_rich_scope_blocks(doc)
+}
+
+///|
+test "pdf v2 product bridge rejects multiple same page URI annotations" {
+  let fragment = phase20_fragment(
+    @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+    "Only visible paragraph.",
+    Some(0),
+    [phase14_text_ref(0)],
+  )
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok_with_candidates(1, [fragment], [], [
+      phase20_link_candidate(
+        Some(0),
+        Some("https://example.com/a"),
+        None,
+        Some("/Link"),
+        Some(phase20_link_rect()),
+        0,
+      ),
+      phase20_link_candidate(
+        Some(0),
+        Some("https://example.com/b"),
+        None,
+        Some("/Link"),
+        Some(phase20_link_rect()),
+        1,
+      ),
+    ]),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(doc.blocks.val.length() == 1)
+  match doc.blocks.val[0] {
+    @cor.Block::Paragraph(text) =>
+      assert_true(text == "Only visible paragraph.")
+    _ => fail("expected multiple URI annotations to keep plain paragraph")
+  }
+  assert_true(!markdown.contains("](https://example.com/"))
+  phase20_assert_no_rich_scope_blocks(doc)
+}
+
+///|
+test "pdf v2 product bridge ignores unsafe malformed and non URI link facts" {
+  let fragments = [
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Unsafe JavaScript candidate",
+      Some(0),
+      [phase14_text_ref(0)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Unsafe data candidate",
+      Some(1),
+      [phase14_text_ref(1)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Malformed URI candidate",
+      Some(2),
+      [phase14_text_ref(2)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Destination only",
+      Some(3),
+      [phase14_text_ref(3)],
+    ),
+  ]
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok_with_candidates(4, fragments, [], [
+      phase20_link_candidate(
+        Some(0),
+        Some("javascript:alert(1)"),
+        None,
+        Some("/Link"),
+        Some(phase20_link_rect()),
+        0,
+      ),
+      phase20_link_candidate(
+        Some(1),
+        Some("data:text/html,hello"),
+        None,
+        Some("/Link"),
+        Some(phase20_link_rect()),
+        1,
+      ),
+      phase20_link_candidate(
+        Some(2),
+        Some("not-a-uri"),
+        None,
+        Some("/Link"),
+        Some(phase20_link_rect()),
+        2,
+      ),
+      phase20_link_candidate(
+        Some(3),
+        None,
+        Some("named-destination"),
+        Some("/Link"),
+        Some(phase20_link_rect()),
+        3,
+      ),
+    ]),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(doc.blocks.val.length() > 0)
+  for block in doc.blocks.val {
+    match block {
+      @cor.Block::Paragraph(_) => ()
+      @cor.Block::RichParagraph(inlines) =>
+        assert_true(!phase20_has_inline_link(inlines))
+      _ => fail("expected unsafe URI cases to stay text-only")
+    }
+  }
+  assert_true(markdown.contains("Unsafe JavaScript candidate"))
+  assert_true(markdown.contains("Unsafe data candidate"))
+  assert_true(markdown.contains("Malformed URI candidate"))
+  assert_true(markdown.contains("Destination only"))
+  assert_true(!markdown.contains("](javascript:"))
+  assert_true(!markdown.contains("](data:"))
+  assert_true(!markdown.contains("](not-a-uri)"))
+  assert_true(!markdown.contains("PDF_V2_PIPELINE_DIAGNOSTICS"))
+  phase20_assert_no_rich_scope_blocks(doc)
+}
+
+///|
+test "pdf v2 product bridge URI link rules are semantic gated" {
+  let uri = "https://example.com"
+  let fragment = phase20_fragment(
+    @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+    "https://example.com",
+    Some(0),
+    [phase14_text_ref(0)],
+  )
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok_with_candidates(1, [fragment], [], [
+      phase20_link_candidate(
+        Some(0),
+        Some(uri),
+        None,
+        Some("/Link"),
+        Some(phase20_link_rect()),
+        0,
+      ),
+    ]),
+    {
+      ..@pdfv2conv.default_pdf_v2_product_bridge_options(),
+      enable_semantic_rules: false,
+    },
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(doc.blocks.val.length() == 1)
+  match doc.blocks.val[0] {
+    @cor.Block::Paragraph(text) => assert_true(text == uri)
+    _ => fail("expected semantic-disabled URI candidate to stay paragraph")
+  }
+  assert_true(markdown.contains(uri))
+  assert_true(!markdown.contains("[https://example.com](https://example.com)"))
+  phase20_assert_no_rich_scope_blocks(doc)
+}
+
+///|
 test "pdf v2 metadata document properties map model metadata to core sidecar" {
   let model = {
     ..phase14_model([]),
@@ -1603,6 +1977,7 @@ test "pdf v2 metadata sidecar path adds document properties without diagnostics"
     lowering_summary: phase20_lowering_summary(2, [fragment]),
     fragments: [fragment],
     text_flow_candidates: [],
+    link_candidates: [],
     warnings: [],
     risks: [],
     one_pass: true,
@@ -2467,6 +2842,7 @@ test "pdf v2 product bridge consumes parser fact candidates for list evidence" {
       1,
       lowered.fragments,
       lowered.text_flow_candidates,
+      [],
     ),
     @pdfv2conv.default_pdf_v2_product_bridge_options(),
   )
@@ -2507,6 +2883,7 @@ test "pdf v2 product bridge suppresses parser page artifact candidates" {
       1,
       lowered.fragments,
       lowered.text_flow_candidates,
+      [],
     ),
     @pdfv2conv.default_pdf_v2_product_bridge_options(),
   )
@@ -2538,6 +2915,7 @@ test "pdf v2 product bridge semantic disabled keeps parser fact text plain" {
       1,
       lowered.fragments,
       lowered.text_flow_candidates,
+      [],
     ),
     {
       ..@pdfv2conv.default_pdf_v2_product_bridge_options(),
@@ -2641,6 +3019,8 @@ test "pdf v2 convert boundary guard stays parser fact only" {
   assert_true(!bridge_text.contains("features.tsv"))
   assert_true(!bridge_text.contains("markitdown-quality-lab"))
   assert_true(!bridge_text.contains("PdfV2BlockRole"))
+  assert_true(bridge_text.contains("enable_uri_link_rules"))
+  assert_true(bridge_text.contains("@cor.Inline::Link"))
   assert_true(!semantic_rules_text.contains("@fs"))
   assert_true(!semantic_rules_text.contains("read_file"))
   assert_true(!semantic_rules_text.contains("model.pkl"))
@@ -2652,12 +3032,13 @@ test "pdf v2 convert boundary guard stays parser fact only" {
   assert_true(bridge_text.contains("enable_semantic_rules"))
   assert_true(bridge_text.contains("pdf_v2_semantic_blocks_from_fragments"))
   assert_true(!bridge_text.contains("pdf_v2_should_emit_minimal_heading"))
-  assert_true(!bridge_text.contains("RichHeading"))
-  assert_true(!bridge_text.contains("RichParagraph"))
-  assert_true(!bridge_text.contains("RichListItem"))
   assert_true(!bridge_text.contains("Caption"))
   assert_true(!bridge_text.contains("TableLike"))
   assert_true(!bridge_text.contains("RichTable"))
+  assert_true(!bridge_text.contains("@cor.Block::Table"))
   assert_true(!bridge_text.contains("ImageBlock"))
-  assert_true(!bridge_text.contains("@cor.Inline::Link"))
+  assert_true(!bridge_text.contains("@cor.Block::Image"))
+  assert_true(!bridge_text.contains("@cor.Block::BlockQuote"))
+  assert_true(!bridge_text.contains("@cor.Block::RichBlockQuote"))
+  assert_true(!bridge_text.contains("@cor.Block::CodeBlock"))
 }

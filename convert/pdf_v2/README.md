@@ -268,3 +268,25 @@ PdfV2DocumentModel.metadata
 - Product output does not emit metadata diagnostics into Markdown.
 - Link/image/table sidecar parity remains tied to later core block lowering and
   is not added in this reset.
+
+## Reset 9B URI Link Parity
+
+Reset 9B consumes parser-owned URI link facts in the pipeline/product bridge
+without broadening the non-text product surface.
+
+- `PdfV2ConvertPipelineOutput` now carries `link_candidates` from
+  `PdfV2DocumentModel.pages[].links`.
+- The product bridge can emit `RichParagraph`, `RichHeading`, and
+  `RichListItem` inline links when semantic URI link rules are enabled.
+- Link association is deliberately safe and page-local: accepted candidates must
+  be `/Link` annotations with a rect and a safe `http`, `https`, or `mailto`
+  URI.
+- Exact URI text in the emitted block is preferred and linked only when the URI
+  appears exactly once in that block.
+- Whole-block fallback is allowed only when the page has exactly one safe URI
+  annotation and exactly one emitted text block.
+- Ambiguous pages, unsafe or malformed URI candidates, and destination-only
+  links stay plain text; the bridge does not invent fake link labels and does
+  not fall back to v1 PDF.
+- Image, table, caption/figure, and form lowering remain out of scope.
+- Model hooks remain absent at runtime; this is a rule/fact bridge only.

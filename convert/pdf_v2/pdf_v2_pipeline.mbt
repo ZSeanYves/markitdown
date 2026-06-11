@@ -31,6 +31,7 @@ pub(all) struct PdfV2ConvertPipelineOutput {
   lowering_summary : PdfV2FactLoweringSummary
   fragments : Array[PdfV2FactFragment]
   text_flow_candidates : Array[@pdfv2.PdfV2TextFlowCandidate]
+  link_candidates : Array[@pdfv2.PdfV2LinkCandidate]
   warnings : Array[@pdfv2.PdfV2Warning]
   risks : Array[@pdfv2.PdfV2Risk]
   one_pass : Bool
@@ -126,6 +127,17 @@ fn pdf_v2_convert_pipeline_gate_result(
 }
 
 ///|
+fn pdf_v2_pipeline_link_candidates(
+  model : @pdfv2.PdfV2DocumentModel,
+) -> Array[@pdfv2.PdfV2LinkCandidate] {
+  let out : Array[@pdfv2.PdfV2LinkCandidate] = []
+  for page in model.pages {
+    out.append(page.links)
+  }
+  out
+}
+
+///|
 pub fn convert_pdf_v2_experimental_from_path(
   path : String,
   options : PdfV2ConvertPipelineOptions,
@@ -158,6 +170,7 @@ pub fn convert_pdf_v2_experimental_from_path(
         lowering_summary: lowered.summary,
         fragments: lowered.fragments,
         text_flow_candidates: lowered.text_flow_candidates,
+        link_candidates: pdf_v2_pipeline_link_candidates(model),
         warnings: lowered.warnings,
         risks: lowered.risks,
         one_pass: model.one_pass &&

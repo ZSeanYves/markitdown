@@ -474,3 +474,33 @@ Still out of scope:
   shape.
 - link/image/table metadata parity, which must come from core block lowering in
   later Reset 9 batches.
+
+## Reset 9B URI Link Parity
+
+Reset 9B consumes parser-owned link facts in convert without moving product
+semantics into the parser:
+
+```text
+PdfV2LinkCandidate[]
+  -> PdfV2ConvertPipelineOutput.link_candidates
+  -> safe product bridge association
+  -> @core.Inline::Link
+```
+
+Current status:
+
+- Parser/object URI facts are carried forward from page `links` into pipeline
+  `link_candidates`.
+- Convert product policy accepts only safe `/Link` URI annotations with rects
+  and `http`, `https`, or `mailto` schemes.
+- Association stays page-local. Exact URI text match wins when the URI appears
+  exactly once in the emitted block.
+- Whole-block fallback is limited to exactly one safe URI annotation and exactly
+  one emitted text block on the same page.
+- Ambiguous same-page links, unsafe/malformed URI values, and destination-only
+  or non-URI facts are ignored for visible link lowering and keep plain text
+  behavior.
+- Product bridge scope remains narrow: no image, table, caption/figure, or form
+  lowering was added.
+- The model hook remains absent at runtime; URI link parity is deterministic
+  rule/fact consumption only.

@@ -523,3 +523,20 @@ PDF v2 now promotes existing Info-dictionary metadata candidates into
   values and does not parse XMP beyond existing metadata object facts.
 - Convert maps these facts to the current core metadata sidecar convention and
   uses parser page count for the sidecar document `pages` field.
+
+## Reset 9B URI Link Parity
+
+Parser/object URI facts are now consumed by the v2 convert pipeline for
+conservative inline link parity.
+
+- Parser ownership is unchanged: link facts remain `PdfV2LinkCandidate` values
+  with page index, subtype, rect, URI or destination, source refs, warnings,
+  risks, and reason tags.
+- The pipeline forwards page-local `links` as `link_candidates`; convert owns
+  final association and core inline lowering.
+- URI lowering accepts only safe URI schemes and never turns destination-only or
+  partial non-URI facts into visible fake links.
+- Exact URI text matches and the single-link/single-emitted-text-block fallback
+  are product bridge policy, not parser semantics.
+- Ambiguous pages, unsafe/malformed URI candidates, images, tables, captions,
+  forms, OCR, v1 fallback, and model hooks remain out of parser scope.
