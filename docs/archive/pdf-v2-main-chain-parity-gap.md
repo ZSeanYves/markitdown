@@ -572,3 +572,136 @@
   - add conservative list-item lowering only after block boundaries are stable.
   - then tackle URI links and image/table product lowering before metadata
     sidecar parity.
+
+## Reset 7 v1 Rule Audit
+
+- v1 useful ideas:
+  - run hard guards before promotion: page-number/noise, caption-like prefixes,
+    list markers, intro phrases, sentence punctuation, and overlong bodies block
+    heading promotion.
+  - require context for weak headings: short title-shaped lines need following
+    body/list context, parser heading evidence, geometry gaps, or font support.
+  - keep list lowering anchored at block start and use the core
+    `Block::ListItem(ordered, level, text)` representation.
+  - normalize obvious heading text only at the product boundary, such as CJK
+    chapter spacing and clear numbered subsection depth.
+- v1 pitfalls to avoid:
+  - heading/list behavior is split across classify, layout gate, merge, and IR
+    lowering, which makes later fixes patch-shaped and hard to replace.
+  - final IR still contains special-case repairs such as run-in heading splits
+    and list gates, so semantic policy is not a single module boundary.
+  - layout/image/table/link rules live close to text semantics; copying that
+    shape into v2 would widen this reset beyond heading/list/paragraph scope.
+- v2 design choices:
+  - introduce a centralized text-only semantic system:
+    `PdfV2TextFlow -> PdfV2RuleDecision -> arbitration -> PdfV2SemanticBlock`.
+  - keep heading/list/paragraph/noise decisions in `pdf_v2_semantic_rules.mbt`
+    and leave product bridge as a mapper to `@core.Document`.
+  - add a future model hint interface with rule-hard-constraint precedence, but
+    keep runtime model hints absent and do not read model/data files.
+  - preserve parser/fact source refs and block/page indexes through flow units
+    and semantic blocks.
+
+## Reset 7 Rule-based Semantic Block System
+
+- commit:
+  - this change, target message `pdf-v2: add rule-based semantic blocks`
+- focus:
+  - replace Reset 6 minimal heading helper with a centralized rule-based
+    semantic block system for text flow, headings, ordered/unordered list
+    items, continuation paragraphs, plain text, and unknown fallback.
+  - keep scope text-only; no caption/table/image/link/form/OCR/layout-model
+    lowering.
+- v1 rule audit:
+  - useful guard/context ideas were retained, but v1's distributed nested
+    classify/layout/IR patch route was not copied.
+- v2 semantic rule design:
+  - `pdf_v2_text_flow.mbt` builds source-ref preserving flow units with marker,
+    page-number, caption, body-following, previous-heading, and continuation
+    signals.
+  - `pdf_v2_semantic_rules.mbt` owns all heading/list/paragraph/noise decisions
+    with numbered rule IDs.
+  - `pdf_v2_semantic_model.mbt` defines internal semantic kinds, flow signals,
+    decisions, semantic blocks, and future model hint shapes.
+  - `pdf_v2_semantic_arbitration.mbt` accepts high-confidence rules, forces
+    hard-negative rule fallback, and degrades weak rules to plain paragraph
+    fallback.
+- model hook status:
+  - `PdfV2ModelHint`, `PdfV2SemanticArbitrationInput`, and
+    `PdfV2SemanticArbitrationResult` exist.
+  - model hint is absent in runtime, ignored by first-version arbitration, and
+    no model file/data is read or trained.
+- commands:
+  - `moon info && moon fmt`
+  - `moon check doc_parse/pdf_v2 convert/pdf_v2 convert/convert pdf`
+  - `moon test doc_parse/pdf_v2/tests convert/pdf_v2/tests convert/convert/test doc_parse/pdf_v2/tests`
+  - `moon test convert/pdf_v2`
+  - `git diff --check`
+  - `moon build cli pdf zip`
+  - `bash samples/check.sh --format pdf || true`
+  - explicit built runner command with `bash samples/check.sh --format pdf || true`
+  - same explicit built runner command with
+    `bash samples/check.sh --metadata-only --format pdf || true`
+  - same explicit built runner command with
+    `bash samples/check.sh --assets-only --format pdf || true`
+- before:
+  - Reset 6 main PDF run `.tmp/check/runs/pdf-20260611-133518-45770`: 23
+    non-empty Markdown diffs, 30 diff files, 7 empty matching artifacts.
+- after:
+  - default command run `.tmp/check/runs/pdf-20260611-140357-49287`: runner
+    summary still exits before row accounting, so explicit built runners remain
+    the comparable source.
+  - main explicit run `.tmp/check/runs/pdf-20260611-140732-51143`: log reports
+    23 Markdown failures. Workspace has 30 diff files, 23 non-empty diffs, and
+    7 empty matching artifacts. Conversion/error artifacts: 0.
+  - metadata-only run `.tmp/check/runs/pdf-20260611-140932-52035`: log reports
+    13 metadata failures, with 7 Markdown diff files plus sidecar mismatches.
+    Conversion/error artifacts: 0.
+  - assets-only run `.tmp/check/runs/pdf-20260611-140932-52036`: log reports 7
+    asset-scope Markdown failures. Conversion/error artifacts: 0.
+- heading cases:
+  - `heading_basic` and `metadata/pdf_metadata_text_structure` still fail
+    because parser block boundaries merge top-level CJK heading/body and split
+    `1.1 研究目标`; semantic rules now infer the visible `1.1 研究` fragment as
+    H2 instead of Reset 6's H1.
+  - `pdf_heading_vs_short_sentence` improves over Reset 6 for the first title
+    and `Introduction`: output now has `# Heading vs Short Sentence` and
+    `## Introduction`; `Method` is still H1 because current context does not
+    know a preceding same-depth section, and list/body lines remain merged.
+  - `pdf_repeated_header_footer_variants` improves `Summary` from merged
+    paragraph text to `## Summary`; later headings still carry parser noise
+    prefixes (`/ Details`, `/ Conclusion`).
+- list cases:
+  - synthetic/system tests cover `-`, `*`, `•`, `1.`, `1)`, `(1)`, and
+    `（一）` marker lowering to core `ListItem`.
+  - sample list bullets in `pdf_heading_vs_short_sentence` remain unlowered
+    because parser/fact output currently merges `Key points: • First item •
+    Second item ...` into one flow unit.
+- regressions:
+  - no failure-count regression observed: main Markdown remains at 23 non-empty
+    diffs, metadata-only remains 13 failures, and assets-only remains 7
+    failures.
+  - Some individual diff shapes changed as semantic rules now emit more
+    headings; remaining mismatches are documented above and stem from parser
+    block-boundary/noise limits rather than fallback or non-text lowering.
+- remaining failures:
+  - main Markdown non-empty diffs: 23.
+  - unchanged matching/empty-diff artifacts: `hardwrap_en`, `hardwrap_zh`,
+    `not_heading_sentence`, `pdf_page_noise_cleanup`, `text_hardwrap`,
+    `text_multipage`, and `text_simple`.
+  - metadata-only: 13 failures.
+  - assets-only: 7 failures.
+- remaining categories:
+  - parser text boundaries: CJK heading/body merges, split heading suffixes,
+    list bullets merged into lead-in paragraphs, and page-noise prefixes.
+  - layout/order/noise: cross-page paragraph variants, repeated header/footer
+    variants, two-column ordering, and table-like ordering.
+  - product lowering: images/assets, image captions, URI links, tables, and
+    metadata sidecar parity remain intentionally out of this reset.
+- next fix batch:
+  - improve parser/fact block reconstruction around heading/body/list
+    boundaries before adding richer semantic rules.
+  - add a narrow cleanup for repeated header/footer variant prefixes only after
+    source-boundary evidence is available.
+  - then tackle URI links and image/table product lowering before metadata
+    sidecar parity.

@@ -300,6 +300,12 @@ fn pdf_v2_output_line_starts_new_paragraph(
   if l == "" || r == "" {
     return true
   }
+  if pdf_v2_output_line_starts_semantic_marker(l) ||
+    pdf_v2_output_line_starts_semantic_marker(r) ||
+    pdf_v2_is_page_number_like_noise(l) ||
+    pdf_v2_is_page_number_like_noise(r) {
+    return true
+  }
   if pdf_v2_looks_like_standalone_title_line(l) {
     return true
   }
@@ -324,6 +330,12 @@ fn pdf_v2_should_ignore_blank_between_output_lines(
   if l == "" || r == "" {
     return false
   }
+  if pdf_v2_output_line_starts_semantic_marker(l) ||
+    pdf_v2_output_line_starts_semantic_marker(r) ||
+    pdf_v2_is_page_number_like_noise(l) ||
+    pdf_v2_is_page_number_like_noise(r) {
+    return false
+  }
   if pdf_v2_looks_like_standalone_title_line(l) ||
     pdf_v2_looks_like_standalone_title_line(r) ||
     pdf_v2_ends_sentence(l) {
@@ -332,6 +344,11 @@ fn pdf_v2_should_ignore_blank_between_output_lines(
   pdf_v2_join_without_space(l, r) ||
   pdf_v2_should_unwrap_hyphenated_word(l, r) ||
   pdf_v2_is_lowercase_continuation(r)
+}
+
+///|
+fn pdf_v2_output_line_starts_semantic_marker(text : String) -> Bool {
+  pdf_v2_text_flow_parse_marker(text) is Some(_)
 }
 
 ///|

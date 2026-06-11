@@ -12,15 +12,6 @@ fn registry_assert_contains_extension(
 }
 
 ///|
-fn dispatcher_text_contains_semantic_markdown(text : String) -> Bool {
-  text.contains("# ") ||
-  text.contains("![") ||
-  text.contains("](") ||
-  text.contains("|---") ||
-  text.contains("<table")
-}
-
-///|
 fn dispatcher_pdf_pad_xref_offset(value : Int) -> String {
   let mut out = value.to_string()
   while out.length() < 10 {
@@ -176,8 +167,14 @@ async test "pdf dispatcher parse uses v2 product bridge" {
       if markdown.contains("PDF_V2_PIPELINE_DIAGNOSTICS") {
         fail("dispatcher pdf v2 route must not emit diagnostics")
       }
-      if dispatcher_text_contains_semantic_markdown(markdown) {
-        fail("dispatcher pdf v2 bridge must stay plain text")
+      for block in doc.blocks.val {
+        match block {
+          @cor.Block::Paragraph(_)
+          | @cor.Block::Heading(_, _)
+          | @cor.Block::ListItem(_, _, _)
+          | @cor.Block::BlankLine => ()
+          _ => fail("dispatcher pdf v2 bridge must stay text-semantic only")
+        }
       }
     }
     Err(err) => fail("dispatcher pdf route failed: " + err.to_string())

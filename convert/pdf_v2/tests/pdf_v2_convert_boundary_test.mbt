@@ -682,6 +682,8 @@ fn phase20_assert_text_bridge_blocks(doc : @cor.Document) -> Unit raise {
         assert_true(!phase14_text_contains_semantic_markdown(text))
       @cor.Block::Paragraph(text) =>
         assert_true(!phase14_text_contains_semantic_markdown(text))
+      @cor.Block::ListItem(_, _, text) =>
+        assert_true(!phase14_text_contains_semantic_markdown(text))
       @cor.Block::BlankLine => ()
       _ => fail("unexpected product bridge block")
     }
@@ -1555,7 +1557,7 @@ test "pdf v2 product bridge emits minimal heading by default" {
 }
 
 ///|
-test "pdf v2 product bridge heading option can be disabled" {
+test "pdf v2 product bridge heading rules can be disabled" {
   let fragments = [
     phase20_fragment(
       @pdfv2conv.PdfV2FactFragmentKind::PlainText,
@@ -1572,14 +1574,82 @@ test "pdf v2 product bridge heading option can be disabled" {
   ]
   let doc = phase20_bridge_document(phase20_pipeline_ok(1, fragments), {
     ..@pdfv2conv.default_pdf_v2_product_bridge_options(),
-    emit_minimal_headings: false,
+    enable_heading_rules: false,
   })
 
   assert_true(doc.blocks.val.length() == 2)
   match doc.blocks.val[0] {
     @cor.Block::Paragraph(text) => assert_true(text == "Hard Wrap Test")
-    _ => fail("expected heading option disabled paragraph")
+    _ => fail("expected heading rules disabled paragraph")
   }
+}
+
+///|
+test "pdf v2 product bridge semantic rules disabled keeps plain paragraphs" {
+  let fragments = [
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Document Conversion Pipeline",
+      Some(0),
+      [phase14_text_ref(0)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "- item",
+      Some(0),
+      [phase14_text_ref(1)],
+    ),
+  ]
+  let doc = phase20_bridge_document(phase20_pipeline_ok(1, fragments), {
+    ..@pdfv2conv.default_pdf_v2_product_bridge_options(),
+    enable_semantic_rules: false,
+  })
+
+  assert_true(doc.blocks.val.length() == 2)
+  match doc.blocks.val[0] {
+    @cor.Block::Paragraph(text) =>
+      assert_true(text == "Document Conversion Pipeline")
+    _ => fail("expected semantic-disabled title paragraph")
+  }
+  match doc.blocks.val[1] {
+    @cor.Block::Paragraph(text) => assert_true(text == "- item")
+    _ => fail("expected semantic-disabled list marker paragraph")
+  }
+}
+
+///|
+test "pdf v2 product bridge emits semantic list items" {
+  let fragments = [
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "- First item",
+      Some(0),
+      [phase14_text_ref(0)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "1. Ordered item",
+      Some(0),
+      [phase14_text_ref(1)],
+    ),
+  ]
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok(1, fragments),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(doc.blocks.val.length() == 2)
+  match doc.blocks.val[0] {
+    @cor.Block::ListItem(false, 0, text) => assert_true(text == "First item")
+    _ => fail("expected unordered list item")
+  }
+  match doc.blocks.val[1] {
+    @cor.Block::ListItem(true, 0, text) => assert_true(text == "Ordered item")
+    _ => fail("expected ordered list item")
+  }
+  assert_true(markdown.contains("- First item"))
+  assert_true(markdown.contains("1. Ordered item"))
 }
 
 ///|
@@ -2184,7 +2254,7 @@ test "pdf v2 product bridge caps output characters" {
   ]
   let doc = phase20_bridge_document(phase20_pipeline_ok(1, fragments), {
     ..@pdfv2conv.default_pdf_v2_product_bridge_options(),
-    emit_minimal_headings: false,
+    enable_semantic_rules: false,
     max_output_chars: Some(7),
   })
   let markdown = @cor.emit_markdown(doc)
@@ -2277,6 +2347,18 @@ test "pdf v2 convert boundary guard stays parser fact only" {
   ) catch {
     err => fail("read product bridge source failed: " + err.to_string())
   }
+  let semantic_rules_text = @fs.read_file_to_string(
+    "convert/pdf_v2/pdf_v2_semantic_rules.mbt",
+    encoding="utf8",
+  ) catch {
+    err => fail("read semantic rules source failed: " + err.to_string())
+  }
+  let semantic_arbitration_text = @fs.read_file_to_string(
+    "convert/pdf_v2/pdf_v2_semantic_arbitration.mbt",
+    encoding="utf8",
+  ) catch {
+    err => fail("read semantic arbitration source failed: " + err.to_string())
+  }
 
   assert_true(package_text.contains("doc_parse/pdf_v2"))
   assert_true(package_text.contains("markitdown/core"))
@@ -2319,10 +2401,20 @@ test "pdf v2 convert boundary guard stays parser fact only" {
   assert_true(!bridge_text.contains("features.tsv"))
   assert_true(!bridge_text.contains("markitdown-quality-lab"))
   assert_true(!bridge_text.contains("PdfV2BlockRole"))
-  assert_true(bridge_text.contains("emit_minimal_headings"))
+  assert_true(!semantic_rules_text.contains("@fs"))
+  assert_true(!semantic_rules_text.contains("read_file"))
+  assert_true(!semantic_rules_text.contains("model.pkl"))
+  assert_true(!semantic_rules_text.contains("features.tsv"))
+  assert_true(!semantic_arbitration_text.contains("@fs"))
+  assert_true(!semantic_arbitration_text.contains("read_file"))
+  assert_true(!semantic_arbitration_text.contains("model.pkl"))
+  assert_true(!semantic_arbitration_text.contains("features.tsv"))
+  assert_true(bridge_text.contains("enable_semantic_rules"))
+  assert_true(bridge_text.contains("pdf_v2_semantic_blocks_from_fragments"))
+  assert_true(!bridge_text.contains("pdf_v2_should_emit_minimal_heading"))
   assert_true(!bridge_text.contains("RichHeading"))
   assert_true(!bridge_text.contains("RichParagraph"))
-  assert_true(!bridge_text.contains("ListItem"))
+  assert_true(!bridge_text.contains("RichListItem"))
   assert_true(!bridge_text.contains("Caption"))
   assert_true(!bridge_text.contains("TableLike"))
   assert_true(!bridge_text.contains("RichTable"))

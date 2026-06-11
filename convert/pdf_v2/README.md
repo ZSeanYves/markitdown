@@ -174,8 +174,14 @@ Current status:
 
 - `pdf_v2_pipeline_result_to_document` converts successful pipeline results into
   a core document.
-- Default output is plain text only: `PlainText` fragments become paragraph
-  blocks.
+- Default output now routes `PlainText` fragments through the rule-based
+  semantic block system. The current semantic scope is intentionally text-only:
+  paragraphs, headings, ordered/unordered list items, continuation paragraphs,
+  and plain/unknown fallback to paragraphs.
+- Semantic lowering is centralized behind text flow, rule decisions, and
+  arbitration. Product bridge options expose `enable_semantic_rules`,
+  `enable_heading_rules`, `enable_list_rules`, and `enable_noise_guards`; the
+  default enables the rule path for main-chain parity.
 - `PageBreak` fragments are ignored by default, matching the v1 product path
   audit where page provenance exists but no dedicated visible page-break block
   was found. Opt-in page breaks and preserved explicit empty-page boundaries use
@@ -186,14 +192,16 @@ Current status:
   closed without old PDF fallback or fake content.
 - Product bridge options expose `emit_page_breaks`,
   `emit_low_confidence_notes`, `emit_unsupported_object_notes`,
-  `preserve_empty_pages`, and `max_output_chars`; the default keeps page breaks
-  and notes hidden.
+  `preserve_empty_pages`, semantic rule switches, and `max_output_chars`; the
+  default keeps page breaks and notes hidden.
 - The bridge preserves minimal block origins where available: source name, page,
   block index, and first object reference. `@core.Document` has no document-level
   format/parser/page-count property slot, so those remain pipeline summaries, not
   document metadata fields.
+- A future model-hint/arbitration interface exists for semantic kind hints, but
+  the runtime does not load, train, or read model/data files. Rule hard
+  constraints take precedence over any future model hint.
 
-This is not dispatcher integration, old PDF runtime replacement, semantic
-Markdown, heading/list/caption/table/image/link/form lowering, model loading,
-layout recovery, external data/model reading, mbtpdf access from convert, or
-fallback.
+This is not old PDF runtime fallback, caption/table/image/link/form lowering,
+model loading, layout recovery, external data/model reading, mbtpdf access from
+convert, or fallback.

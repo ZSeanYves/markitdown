@@ -5,7 +5,10 @@ pub(all) struct PdfV2ProductBridgeOptions {
   emit_unsupported_object_notes : Bool
   preserve_empty_pages : Bool
   normalize_plain_text : Bool
-  emit_minimal_headings : Bool
+  enable_semantic_rules : Bool
+  enable_heading_rules : Bool
+  enable_list_rules : Bool
+  enable_noise_guards : Bool
   suppress_page_number_like_noise : Bool
   suppress_repeated_page_artifact_noise : Bool
   max_output_chars : Int?
@@ -20,7 +23,10 @@ pub fn default_pdf_v2_product_bridge_options() -> PdfV2ProductBridgeOptions {
     emit_unsupported_object_notes: false,
     preserve_empty_pages: false,
     normalize_plain_text: true,
-    emit_minimal_headings: true,
+    enable_semantic_rules: true,
+    enable_heading_rules: true,
+    enable_list_rules: true,
+    enable_noise_guards: true,
     suppress_page_number_like_noise: true,
     suppress_repeated_page_artifact_noise: true,
     max_output_chars: None,
@@ -52,37 +58,54 @@ fn pdf_v2_pipeline_output_to_document(
 ) -> @cor.Document {
   let doc = @cor.new_document()
   let mut remaining_chars = options.max_output_chars
-  let text_paragraphs = if options.normalize_plain_text {
+  let text_paragraphs = if options.normalize_plain_text &&
+    !options.enable_semantic_rules {
     pdf_v2_product_bridge_text_paragraphs(output.fragments, options)
   } else {
     []
   }
+  let semantic_blocks = if options.normalize_plain_text &&
+    options.enable_semantic_rules {
+    pdf_v2_product_bridge_semantic_blocks(output.fragments, options)
+  } else {
+    []
+  }
   let mut shaped_index = 0
+  let mut semantic_index = 0
   for fragment_index in 0..<output.fragments.length() {
     let fragment = output.fragments[fragment_index]
     match fragment.kind {
       PlainText =>
-        if options.normalize_plain_text {
+        if options.normalize_plain_text && options.enable_semantic_rules {
+          while semantic_index < semantic_blocks.length() &&
+                semantic_blocks[semantic_index].fragment_index == fragment_index {
+            let semantic_block = semantic_blocks[semantic_index]
+            let text = pdf_v2_product_bridge_take_text(
+              semantic_block.text,
+              remaining_chars,
+            )
+            remaining_chars = text.1
+            pdf_v2_product_bridge_push_semantic_block(
+              doc,
+              semantic_block,
+              text.0,
+              options,
+            )
+            semantic_index = semantic_index + 1
+          }
+        } else if options.normalize_plain_text {
           while shaped_index < text_paragraphs.length() &&
                 text_paragraphs[shaped_index].fragment_index == fragment_index {
             let paragraph = text_paragraphs[shaped_index]
-            let next_text = if shaped_index + 1 < text_paragraphs.length() {
-              Some(text_paragraphs[shaped_index + 1].text)
-            } else {
-              None
-            }
             let text = pdf_v2_product_bridge_take_text(
               paragraph.text,
               remaining_chars,
             )
             remaining_chars = text.1
-            pdf_v2_product_bridge_push_text(
+            pdf_v2_product_bridge_push_plain_text(
               doc,
               text.0,
-              paragraph.text,
-              paragraph.line_count,
               fragment,
-              next_text,
               options,
             )
             shaped_index = shaped_index + 1
@@ -93,15 +116,7 @@ fn pdf_v2_pipeline_output_to_document(
             remaining_chars,
           )
           remaining_chars = text.1
-          pdf_v2_product_bridge_push_text(
-            doc,
-            text.0,
-            fragment.text,
-            1,
-            fragment,
-            None,
-            options,
-          )
+          pdf_v2_product_bridge_push_plain_text(doc, text.0, fragment, options)
         }
       PageBreak =>
         if options.emit_page_breaks || options.preserve_empty_pages {
@@ -118,15 +133,7 @@ fn pdf_v2_pipeline_output_to_document(
             remaining_chars,
           )
           remaining_chars = text.1
-          pdf_v2_product_bridge_push_text(
-            doc,
-            text.0,
-            fragment.text,
-            1,
-            fragment,
-            None,
-            options,
-          )
+          pdf_v2_product_bridge_push_plain_text(doc, text.0, fragment, options)
         }
       UnsupportedObjectNote =>
         if options.emit_unsupported_object_notes {
@@ -135,15 +142,7 @@ fn pdf_v2_pipeline_output_to_document(
             remaining_chars,
           )
           remaining_chars = text.1
-          pdf_v2_product_bridge_push_text(
-            doc,
-            text.0,
-            fragment.text,
-            1,
-            fragment,
-            None,
-            options,
-          )
+          pdf_v2_product_bridge_push_plain_text(doc, text.0, fragment, options)
         }
     }
   }
@@ -159,31 +158,69 @@ fn pdf_v2_product_bridge_text_paragraphs(
 }
 
 ///|
-fn pdf_v2_product_bridge_push_text(
+fn pdf_v2_product_bridge_semantic_blocks(
+  fragments : Array[PdfV2FactFragment],
+  options : PdfV2ProductBridgeOptions,
+) -> Array[PdfV2SemanticBlock] {
+  pdf_v2_semantic_blocks_from_fragments(fragments, options)
+}
+
+///|
+fn pdf_v2_product_bridge_push_plain_text(
   doc : @cor.Document,
   text : String,
-  heading_source_text : String,
-  paragraph_line_count : Int,
   fragment : PdfV2FactFragment,
-  next_text : String?,
   options : PdfV2ProductBridgeOptions,
 ) -> Unit {
   let trimmed = text.trim().to_owned()
   if trimmed == "" {
     return
   }
-  let block = if pdf_v2_should_emit_minimal_heading(
-      heading_source_text, fragment, paragraph_line_count, next_text, options,
-    ) {
-    @cor.Block::Heading(1, trimmed)
-  } else {
-    @cor.Block::Paragraph(trimmed)
+  @cor.push_with_origin(
+    doc,
+    @cor.Block::Paragraph(trimmed),
+    Some(pdf_v2_product_bridge_origin(doc, fragment, options)),
+  )
+}
+
+///|
+fn pdf_v2_product_bridge_push_semantic_block(
+  doc : @cor.Document,
+  semantic_block : PdfV2SemanticBlock,
+  text : String,
+  options : PdfV2ProductBridgeOptions,
+) -> Unit {
+  let trimmed = text.trim().to_owned()
+  if trimmed == "" {
+    return
   }
+  let block = pdf_v2_product_bridge_core_block(semantic_block, trimmed)
   @cor.push_with_origin(
     doc,
     block,
-    Some(pdf_v2_product_bridge_origin(doc, fragment, options)),
+    Some(
+      pdf_v2_product_bridge_origin_for_semantic(doc, semantic_block, options),
+    ),
   )
+}
+
+///|
+fn pdf_v2_product_bridge_core_block(
+  semantic_block : PdfV2SemanticBlock,
+  text : String,
+) -> @cor.Block {
+  match semantic_block.kind {
+    PdfV2SemanticBlockKind::Heading =>
+      @cor.Block::Heading(semantic_block.level.unwrap_or(1), text)
+    PdfV2SemanticBlockKind::OrderedListItem =>
+      @cor.Block::ListItem(true, semantic_block.list_level, text)
+    PdfV2SemanticBlockKind::UnorderedListItem =>
+      @cor.Block::ListItem(false, semantic_block.list_level, text)
+    PdfV2SemanticBlockKind::Paragraph
+    | PdfV2SemanticBlockKind::Continuation
+    | PdfV2SemanticBlockKind::PlainText
+    | PdfV2SemanticBlockKind::Unknown => @cor.Block::Paragraph(text)
+  }
 }
 
 ///|
@@ -210,9 +247,38 @@ fn pdf_v2_product_bridge_origin(
   fragment : PdfV2FactFragment,
   options : PdfV2ProductBridgeOptions,
 ) -> @cor.Origin {
+  pdf_v2_product_bridge_origin_from_parts(
+    doc,
+    fragment.page_index,
+    fragment.source_refs,
+    options,
+  )
+}
+
+///|
+fn pdf_v2_product_bridge_origin_for_semantic(
+  doc : @cor.Document,
+  semantic_block : PdfV2SemanticBlock,
+  options : PdfV2ProductBridgeOptions,
+) -> @cor.Origin {
+  pdf_v2_product_bridge_origin_from_parts(
+    doc,
+    semantic_block.page_index,
+    semantic_block.source_refs,
+    options,
+  )
+}
+
+///|
+fn pdf_v2_product_bridge_origin_from_parts(
+  doc : @cor.Document,
+  page_index : Int?,
+  source_refs : Array[@pdfv2.PdfV2SourceRef],
+  options : PdfV2ProductBridgeOptions,
+) -> @cor.Origin {
   {
     source_name: options.source_name,
-    page: match fragment.page_index {
+    page: match page_index {
       Some(index) => Some(index + 1)
       None => None
     },
@@ -224,7 +290,7 @@ fn pdf_v2_product_bridge_origin(
     line_end: None,
     row_index: None,
     column_index: None,
-    object_ref: pdf_v2_product_bridge_object_ref(fragment.source_refs),
+    object_ref: pdf_v2_product_bridge_object_ref(source_refs),
     relationship_id: None,
     key_path: None,
   }
