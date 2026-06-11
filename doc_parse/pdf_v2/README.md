@@ -23,6 +23,17 @@ The files in this package intentionally define typed contracts before real PDF
 reading is wired. Unsupported or incomplete capabilities should be represented
 as warnings and risks rather than hidden fallback behavior.
 
+## Productization Reset Direction
+
+Current work is focused on main-chain parity with the shipped v1 PDF path.
+`doc_parse/pdf_v2` should continue to own source events, the normalized model,
+layout facts, object facts, feature rows, warnings, and risks while convert
+owns product lowering. The diagnostics renderer/goldens/adoption scaffold have
+been stopped and removed from the current route. v2 is preparing for controlled
+dispatcher registration only after the product-surface bridge is close enough
+to compare expected diffs. Model integration stays deferred until text, object,
+and layout signals are stable enough to extract training data.
+
 ## Phase 14 Convert Consumer Boundary Note
 
 Phase 14 adds a one-way `convert/pdf_v2` fact-only lowering smoke over

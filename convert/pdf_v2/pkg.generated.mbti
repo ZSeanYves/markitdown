@@ -26,11 +26,7 @@ pub fn pdf_v2_keep_as_text_decision(Double, PdfV2DecisionSource, Array[String]) 
 
 pub fn pdf_v2_lower_fact_model(PdfV2FactLoweringInput) -> PdfV2FactLoweringResult
 
-pub fn pdf_v2_pipeline_diagnostics_from_result(PdfV2ConvertPipelineResult) -> PdfV2PipelineDiagnostics
-
 pub fn pdf_v2_policy_keeps_uncertain_text(PdfV2MarkdownPolicy) -> Bool
-
-pub fn pdf_v2_render_pipeline_diagnostics_text(PdfV2PipelineDiagnostics) -> String
 
 pub fn pdf_v2_run_no_model_block_gate(@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2FeatureSet, PdfV2NoModelGateOptions) -> PdfV2GateResult
 
@@ -145,15 +141,6 @@ pub(all) enum PdfV2DecisionSource {
   WeightedGate
   Abstain
 } derive(Eq)
-
-pub(all) struct PdfV2DiagnosticRow {
-  section : String
-  key : String
-  value : String
-  severity : String?
-  source_ref_count : Int
-  reason_tags : Array[String]
-}
 
 pub(all) struct PdfV2FactFragment {
   kind : PdfV2FactFragmentKind
@@ -275,25 +262,6 @@ pub(all) struct PdfV2NoModelGateOptions {
   abstain_on_unsupported_objects : Bool
   abstain_on_capped_context : Bool
   max_risk_score_for_plain_text : Double
-}
-
-pub(all) enum PdfV2PipelineDiagnosticStatus {
-  Ok
-  Err
-} derive(Eq)
-
-pub(all) struct PdfV2PipelineDiagnostics {
-  status : PdfV2PipelineDiagnosticStatus
-  one_pass : Bool
-  no_fallback : Bool
-  stage_rows : Array[PdfV2DiagnosticRow]
-  summary_rows : Array[PdfV2DiagnosticRow]
-  fragment_rows : Array[PdfV2DiagnosticRow]
-  warning_rows : Array[PdfV2DiagnosticRow]
-  risk_rows : Array[PdfV2DiagnosticRow]
-  cap_rows : Array[PdfV2DiagnosticRow]
-  gate_rows : Array[PdfV2DiagnosticRow]
-  lowering_rows : Array[PdfV2DiagnosticRow]
 }
 
 // Type aliases

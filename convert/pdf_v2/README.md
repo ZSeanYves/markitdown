@@ -16,8 +16,19 @@ Boundaries for this scaffold:
 - No Python runtime, model file, DocLayNet data, `features.tsv`, `model.pkl`,
   quality-lab artifact, or old PDF fallback is used.
 
-This phase intentionally provides contract-fast scaffolding only. Later phases
-can lower to core IR once parser facts and policy gates stabilize.
+Current productization route:
+
+- The immediate goal is main-chain capability parity with the shipped v1 PDF
+  path.
+- v2 should first close the v1 product-surface gaps in parser facts, object
+  coverage, fact lowering, and the pipeline-to-product bridge.
+- After that surface is close enough, the next runtime step is preparing for
+  controlled dispatcher registration so expected diffs can drive the remaining
+  fixes.
+- Model integration is deferred until parser text/object/layout signals are
+  stable enough to extract a training set.
+- The diagnostics renderer, diagnostics goldens, and adoption scaffold have
+  been stopped and removed; they are not the current route.
 
 ## Phase 14 Fact-Only Lowering Smoke Status
 
@@ -138,7 +149,7 @@ Current status:
 - Successful results expose source, model, layout, feature, optional gate, and
   lowering summaries together with fragments, warnings, risks, `one_pass`, and
   `no_fallback`.
-- Parser-stage failures return a fail-closed error result with diagnostics and
+- Parser-stage failures return a fail-closed error result with warnings/risks and
   no fragments.
 - Gate-disabled mode preserves the Phase 14 fact-only lowering path.
 
@@ -146,63 +157,3 @@ This is not dispatcher integration, old PDF runtime replacement, semantic
 Markdown, heading/list/caption/table/image/link/form lowering, model loading,
 layout recovery, external data/model reading, mbtpdf access from convert, or
 fallback.
-
-## Phase 18 Structured Pipeline Diagnostics Status
-
-Phase 18 adds stable diagnostics over the experimental pipeline result:
-
-```text
-PdfV2ConvertPipelineResult
-  -> PdfV2PipelineDiagnostics
-  -> stable diagnostic text
-```
-
-Current status:
-
-- Diagnostics consume only `PdfV2ConvertPipelineResult`.
-- `PdfV2DiagnosticRow` records section, key, value, optional severity, source
-  ref count, and reason tags.
-- Fixed sections include pipeline/stages, summary, gate, lowering, caps,
-  fragments, warnings, and risks.
-- The text renderer starts with `PDF_V2_PIPELINE_DIAGNOSTICS` and emits stable
-  key/value rows suitable for future golden, quality, performance, and adoption
-  gate tests.
-- Ok results render stage summaries, gate/lowering/cap counts, fragments, and
-  diagnostics. Err results render error status, failure stage/message,
-  diagnostics, and no product fragments.
-- Fragment rows include kind, page, char count, and source-ref count rather
-  than raw source internals or filesystem paths.
-
-These diagnostics are not product Markdown and are not dispatcher output. They
-do not read raw PDFs, call parser path APIs, call mbtpdf, read external
-model/data files, introduce fallback, or add semantic Markdown lowering.
-
-## Phase 19 Diagnostics Golden Fixtures Status
-
-Phase 19 adds the first small exact-match diagnostics goldens for the
-experimental pipeline:
-
-```text
-tiny PDF fixture
-  -> convert_pdf_v2_experimental_from_path
-  -> pdf_v2_render_pipeline_diagnostics_text
-  -> diagnostics golden text
-```
-
-Current status:
-
-- Golden fixtures live under `convert/pdf_v2/tests/goldens/`.
-- Covered cases are minimal text, gate disabled text, capped image abstain,
-  malformed fail-closed, and lowering output cap.
-- The goldens validate diagnostics text only. They are not product Markdown,
-  sample expected output, dispatcher output, or quality-lab rows.
-- The renderer normalizes unstable fail-closed parser exception text before
-  diagnostics are rendered, preserving stable err output without recording
-  implementation paths.
-- Boundary tests reject temp paths, external model/data filenames, quality-lab
-  strings, old PDF runtime imports, and semantic Markdown markers in the
-  checked diagnostics surface.
-
-These fixtures are intended for future adoption gates. They do not switch the
-dispatcher, replace the old PDF runtime, introduce fallback, read external
-model/data files, load or train a model, or add semantic Markdown lowering.

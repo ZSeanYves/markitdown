@@ -13,13 +13,19 @@ The core design rule is:
 PDF input is scanned once by the vendor/raw/parser pipeline.
 ```
 
-RESET-16 locks the current implementation direction:
+RESET-16 locked the reader-foundation implementation direction:
 
 ```text
 mbtpdf owns low-level PDF parsing.
-PDF v2 owns diagnostics, source-event contracts, parser facts, feature/export,
-classifier gates, and fail-closed lowering policy.
+PDF v2 owns source-event contracts, parser facts, feature/export, classifier
+gates, warnings/risks, and fail-closed lowering policy.
 ```
+
+Productization Reset 1 changes the current route: the diagnostics
+renderer/goldens/adoption scaffold is stopped and removed. Current work is
+main-chain parity with the shipped v1 PDF path, then preparing for controlled
+dispatcher registration to inspect expected diffs. Model integration is
+deferred until parser signals are stable.
 
 PDF v2 is not a full low-level PDF parser rewrite inside `doc_parse/pdf_v2`.
 The stable `open_pdf_core_v2(Bytes)` entry remains scaffold-only and
@@ -317,7 +323,7 @@ PDF-V2-RESET-17 Experimental Pipeline Note:
   enabled.
 * Successful pipeline output exposes source, model, layout, feature, optional
   gate, and lowering summaries, plus fragments, warnings, risks, `one_pass`,
-  and `no_fallback` for adoption-gate debugging.
+  and `no_fallback` for productization auditing.
 * Parser-stage failures return a fail-closed result with warnings/risks and no
   fragments. Gate-disabled mode preserves fact-only lowering.
 * This phase does not switch dispatchers, replace the old PDF runtime, load or
@@ -325,53 +331,47 @@ PDF-V2-RESET-17 Experimental Pipeline Note:
   layout recovery, fallback, or emit heading, list, caption, table, image, link,
   or form Markdown semantics.
 
-PDF-V2-RESET-18 Pipeline Diagnostics Note:
+PDF-V2-PRODUCTIZATION-RESET-1 Main-chain Parity Note:
 
-* Phase 18 adds a structured diagnostics renderer over
-  `PdfV2ConvertPipelineResult`.
-* Diagnostics rows expose stable section/key/value data with optional severity,
-  source-ref counts, and reason tags. Fixed sections cover pipeline/stage,
-  summary, gate, lowering, caps, fragments, warnings, and risks.
-* The stable text renderer is intended for future golden, quality, performance,
-  and adoption-gate tests. It reports ok/err status, one-pass/no-fallback,
-  stage summaries, gate decisions, lowering counts, cap hits, fragment counts,
-  warnings, and risks.
-* Err results render failure stage/message, warnings/risks, and no product
-  fragments. Missing gate summaries render a stable disabled marker.
-* Diagnostics are debug/audit output only, not product Markdown. The renderer
-  consumes only pipeline results and does not read raw PDF input, call parser
-  path APIs, call mbtpdf, load model/data artifacts, switch dispatchers,
-  fallback, or emit heading, list, caption, table, image, link, or form
-  Markdown semantics.
+* Productization Reset 1 removes the structured diagnostics renderer and exact
+  diagnostics golden fixtures from `convert/pdf_v2`.
+* The current route is main-chain capability parity with the shipped v1 PDF
+  path, not expansion of diagnostics/adoption scaffolding.
+* v2 should first close product-surface gaps: real PDF text ordering, product
+  output bridge, error behavior, default options, and v1-visible object
+  surfaces.
+* After parity work narrows the obvious gaps, v2 can prepare for controlled
+  dispatcher registration so expected diffs drive the next fixes.
+* Model files, training data, quality-lab inputs, and semantic Markdown
+  expansion remain deferred until parser text/object/layout signals stabilize.
 
-## Runtime Adoption Record
+## Runtime Productization Record
 
 PDF v2 is not adopted yet. The current `doc_parse/pdf` and `convert/pdf`
 runtime remains the default PDF path. Dispatcher behavior is unchanged, the old
-runtime is untouched, and this document is a contract input for later scaffold
-work rather than an implementation record for an active runtime.
+runtime is untouched, and this document is a contract input for parity work
+rather than an implementation record for an active runtime.
 
-Current adoption status:
+Current productization status:
 
 * Old PDF runtime: still normal path.
 * Dispatcher: not switched.
-* v2 code scaffold: pending.
-* v2 contract: this document plus the existing PDF model-training architecture
-  contract.
+* v2 parser/convert scaffold: implemented experimentally, not registered.
+* v2 contract: this document plus the existing PDF model-training architecture.
 * Model runtime: not wired.
-* Vendor facade split: planned, not implemented here.
+* Diagnostics renderer/goldens/adoption scaffold: removed from current route.
 
-Runtime adoption requires all of the following gates:
+Before controlled dispatcher registration, v2 must at least cover the main
+chain surface:
 
-* Quality gate: v2 output meets documented sample and quality-lab thresholds.
-* Performance gate: latency, memory, package closure, and inference overhead
-  stay within explicit budgets.
-* Model gate: layout recovery and block classifier hints are calibrated,
-  fail-closed, and explainable.
-* Vendor gate: normal runtime uses the necessary reader/parser subset without
-  pulling writer/debug/vendor-slow tests into fast closure.
-* No-fallback gate: normal v2 conversion has no hidden fallback to the old PDF
-  parser, external tools, model TSVs, or quality-lab artifacts.
+* Pipeline result to product convert output bridge.
+* Plain text block/page ordering close enough to produce useful expected diffs.
+* Fail-closed error behavior with no old PDF fallback.
+* Default options that do not block the first text diff run through the no-model
+  gate.
+* No diagnostics text in product output.
+* No model files, training data, quality-lab artifacts, or external fallback in
+  runtime.
 
 ## Problem Statement
 
@@ -645,7 +645,8 @@ Responsibilities:
   external training reports, and regression summaries.
 * Explain why v1 fallback, old tools, TSV exports, and model JSON paths are
   forbidden in v2 runtime.
-* Provide evidence for future milestones and adoption gates.
+* Provide evidence for future parity milestones and controlled registration
+  reviews.
 
 Non-responsibilities:
 
@@ -962,9 +963,9 @@ For every gated decision, record:
 * Does not mutate the parser model.
 
 Runtime readiness is not proven by macro F1 alone. A classifier can have useful
-high-confidence precision while still failing macro F1 on weak classes. Runtime
-adoption requires calibrated high-confidence slices, explicit abstain behavior,
-regression evidence, and blocked-reason reporting.
+high-confidence precision while still failing macro F1 on weak classes.
+Registration requires calibrated high-confidence slices, explicit abstain
+behavior, regression evidence, and blocked-reason reporting.
 
 External model artifacts remain outside normal runtime unless separately
 embedded or distilled as reviewed runtime assets. `model.pkl`, feature TSVs,
@@ -1005,9 +1006,10 @@ the decision type.
 
 ## Historical Legacy Details
 
-The current PDF path remains active until v2 reaches adoption gates. It is
+The current PDF path remains active until v2 is explicitly registered. It is
 historical evidence and a production fallback only in the sense that dispatcher
-still points to it before v2 adoption; it is not a runtime fallback inside v2.
+still points to it before v2 registration; it is not a runtime fallback inside
+v2.
 
 Historical references:
 
@@ -1341,11 +1343,11 @@ Current record:
 * `layout_recovery` still needs parser-owned foundation and stable export
   facts.
 * A design input matrix exists from previous PDF v2 preparation work.
-* This document is contract input for later scaffold, not proof of adoption.
+* This document is contract input for parity work, not proof of registration.
 
-Implemented packages will be recorded here once they exist. Adoption notes
-should include commit ids, validation commands, quality-lab rows, performance
-numbers, package closure measurements, and no-fallback guard results.
+Implemented packages should record commit ids, validation commands, selected
+sample diffs, performance numbers, package closure measurements, and no-fallback
+guard results as the parity surface matures.
 
 ## Test Strategy
 
@@ -1358,7 +1360,7 @@ Lanes:
   layout result shape, classifier hint shape, and convert boundary tests. This
   lane blocks v2 scaffold.
 * `parser-source snapshots`: raw/source events for small deterministic fixtures,
-  with source refs and warnings. This lane blocks parser milestone adoption.
+  with source refs and warnings. This lane blocks parser milestone readiness.
 * `normalized model snapshots`: pages, blocks, objects, regions, risks, and
   classifier-ready features. This lane blocks parser/model readiness.
 * `layout recovery tests`: deterministic baseline, spatial index, regions,
@@ -1367,7 +1369,7 @@ Lanes:
 * `classifier gate tests`: confidence, hard constraints, risk penalties,
   abstain, reason tags, and blocked reasons. This lane blocks model gate
   readiness.
-* `lowering golden tests`: core IR/Markdown for representative text, heading,
+* `product lowering tests`: core IR/Markdown for representative text, heading,
   list, caption, table-like, annotation, form, link, and image cases. This lane
   blocks convert baseline readiness.
 * `integration samples`: selected repo samples and small pdfjs fixtures. This
@@ -1380,11 +1382,12 @@ Lanes:
   model overhead, and convert-only overhead. This lane blocks dispatcher switch.
 * `closure guard tests`: ensure fast v2 packages do not import old PDF runtime,
   debug/model/export tools, writer-only facades, or quality-lab files. This
-  lane blocks scaffold and adoption.
+  lane blocks scaffold and registration.
 
-Scaffold is blocked only by `contract-fast` and closure guards. Dispatcher
-switch is blocked by integration samples, lowering golden tests,
-performance-smoke, selected quality thresholds, and no-fallback guard tests.
+Scaffold is blocked only by `contract-fast` and closure guards. Controlled
+dispatcher registration is blocked by product lowering tests, integration
+samples, performance-smoke, selected quality thresholds, and no-fallback guard
+tests.
 
 ## Runtime Invariants
 
@@ -1505,23 +1508,29 @@ not mutate parser facts.
 ### PDF-V2-RESET-7 Quality Gate Note
 
 This note should record the first quality, performance, and closure gate review
-for dispatcher readiness. It should include sample results, quality-lab report
+for dispatcher readiness. It should include sample results, selected quality
 summaries, model calibration status, memory/latency/package closure numbers,
-and unresolved adoption blockers.
+and unresolved registration blockers.
 
-### PDF-V2-RESET-19 Diagnostics Goldens Note
+### PDF-V2-PRODUCTIZATION-RESET-1 Main-chain Parity Note
 
-Phase 19 adds the first exact-match diagnostics golden fixtures for the v2-only
-experimental pipeline. The fixtures cover minimal text, gate disabled text,
-capped image abstain, malformed fail-closed, and lowering cap cases.
+Productization Reset 1 removes the Phase 18 diagnostics renderer and Phase 19
+diagnostics golden fixtures. Those artifacts are no longer part of the current
+route and should not be extended.
 
-The goldens assert `pdf_v2_render_pipeline_diagnostics_text` output only. They
-do not define product Markdown, samples expected output, dispatcher behavior, or
-quality-lab data. The diagnostics renderer keeps fixed section ordering, a
-stable final newline, explicit absent optional sections, and a normalized
-fail-closed parser error message so internal exception paths are not recorded in
-golden text.
+The route is now:
 
-The boundary guard continues to ensure the convert diagnostics surface does not
-import the old PDF runtime or vendor internals, read external model/data files,
-use quality-lab assets, introduce fallback, or emit semantic Markdown kinds.
+```text
+v2 parser/model/object/features
+  -> fact-only lowerer and experimental pipeline
+  -> v1 main-chain parity work
+  -> preparing for controlled dispatcher registration
+  -> expected diff repair
+  -> model training/integration after signals stabilize
+```
+
+The parity audit lives in `docs/archive/pdf-v2-main-chain-parity-gap.md`.
+Controlled dispatcher registration should wait for the bridge from v2 pipeline
+results to product convert output, useful text ordering, fail-closed errors,
+default options that do not suppress the first text diff run, and no diagnostics
+text in product output.
