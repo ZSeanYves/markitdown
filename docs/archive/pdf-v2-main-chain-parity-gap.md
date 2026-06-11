@@ -286,10 +286,11 @@
 | Semantic role decision shell | synthetic-only / scaffold | `pdf_v2_decision.mbt`; classifier gate tests | `PdfV2BlockRole` includes semantic roles but is not product lowering. Seal or delete before product registration unless intentionally revived later. |
 | Fact-only lowerer | partial | `pdf_v2_fact_lowering.mbt`; `pdf_v2_convert_boundary_test.mbt` | Emits plain text, optional page break fragments, optional notes/placeholders. |
 | Experimental path pipeline | real / partial | `pdf_v2_pipeline.mbt`; pipeline smoke tests | Runs parser model -> layout -> features -> optional gate -> fact lowerer from real PDF path. |
-| Product `@core.Document` output | partial | `pdf_v2_product_bridge.mbt`; product bridge tests; `pdf_v2_converter.mbt`; dispatcher tests | Converts pipeline results to core documents for text blocks, safe URI inline links, optional notes, optional explicit page-break blank lines, and fail-closed errors. Reset 3 routes dispatcher-facing PDF through this bridge. |
+| Product `@core.Document` output | partial | `pdf_v2_product_bridge.mbt`; product bridge tests; `pdf_v2_converter.mbt`; dispatcher tests | Converts pipeline results to core documents for text blocks, safe URI inline links, metadata-only image placeholders, optional notes, optional explicit page-break blank lines, and fail-closed errors. Reset 3 routes dispatcher-facing PDF through this bridge. |
 | Markdown headings/lists/links | partial | product bridge and semantic tests | Text semantics and safe URI inline links are rule/fact based; unsafe/ambiguous/non-URI links stay plain text. |
-| Markdown tables/images/forms/outlines | not implemented | lowerer tests and boundary guard | v2 still does not emit table, image, form, outline, caption, or figure product blocks. |
-| Metadata/origin product surface | partial | `pdf_v2_product_bridge.mbt`; product bridge origin and metadata tests | Block origins preserve source name, page, block index, and first object ref; document metadata sidecars use parser metadata. Asset/table/link sidecar payload parity still depends on later core block lowering/metadata work. |
+| Markdown images/assets | partial / metadata-only | product bridge image tests | v2 emits `ImageBlock` metadata placeholders with stable `.metadata` paths and asset origins; it does not export image bytes or infer captions. |
+| Markdown tables/forms/outlines | not implemented | lowerer tests and boundary guard | v2 still does not emit table, form, outline, caption, or figure product blocks. |
+| Metadata/origin product surface | partial | `pdf_v2_product_bridge.mbt`; product bridge origin, metadata, link, and image tests | Block origins preserve source name, page, block index, and first object ref; document metadata sidecars use parser metadata. Image placeholders are indexed in `asset_origins`; table/link sidecar payload parity still depends on later core block lowering/metadata work. |
 | Diagnostics renderer/goldens | removed | this reset | Not current route. |
 
 ## 5. v1 vs v2 Gap Matrix
@@ -302,8 +303,8 @@
 | Page/block ordering | Convert page objects interleave text/images by page object order | Source-order block candidates only | Ordering gap | High | P0 |
 | Default gate behavior | v1 does not block plain text through a v2 no-model gate | v2 default gate can abstain on unsupported/capped context | First diff suppression risk | High | P0 |
 | Error behavior | Raises app errors / native parse failures through main chain | Bridge maps pipeline errors to `@core.AppError`; dispatcher now returns the v2 bridge result | Parity/error-message gap | High | P0 routing closed |
-| Metadata/origin | Product origins, asset origins, metadata JSON | Block origins and document metadata sidecar parity are partial | Remaining asset/table/link payload gap | High | P0/P1 |
-| Images | Asset export and `ImageBlock` | Image metadata candidates only | Capability missing | High | P1 |
+| Metadata/origin | Product origins, asset origins, metadata JSON | Block origins, document metadata sidecars, and image placeholder asset origins are partial | Remaining table/link payload and real asset export gap | High | P0/P1 |
+| Images | Asset export and `ImageBlock` | Metadata-only `ImageBlock` placeholders with asset origins; no byte export | Export/caption parity gap | High | P1 partial |
 | Image captions | Conservative caption association | No caption association/lowering | Capability missing | Medium-high | P1 |
 | URI links | Inline `RichParagraph` links for safe high-confidence URI annotations | Safe page-local URI inline links supported; ambiguous/unsafe/non-URI links stay plain | Remaining sidecar/provenance and complex association gap | Medium | P1 partial |
 | Internal/named links | Annotation appendix notes | Destination/link facts partial | Product policy missing | Medium | P2 |
@@ -932,4 +933,41 @@
 - still out of scope:
   - image/link/table/caption/form lowering changes.
   - full layout recovery, column detection, OCR, v1 fallback, and runtime model
+    hooks.
+
+## Reset 9D Images And Assets
+
+- focus:
+  - consume existing parser image and inline-image facts through the product
+    bridge.
+  - follow core/v1 image conventions where available: emit `ImageBlock` and
+    populate `Document.asset_origins`.
+  - avoid inventing exported bytes while the parser is metadata-only.
+- v1/core audit:
+  - core exposes canonical `ImageBlock(ImageData)` with optional origin,
+    alt/title/caption fields, and `asset_origins` keyed by relative asset path.
+  - v1 PDF emits `ImageBlock` only when it has an exported asset path and
+    mirrors image provenance into `asset_origins`.
+  - docx/pptx/html converters also rely on `ImageBlock` plus `asset_origins`
+    rather than visible diagnostic placeholders.
+- implementation:
+  - `PdfV2ConvertPipelineOutput` carries parser `image_candidates` and
+    `inline_image_candidates`.
+  - product bridge emits metadata-only `ImageBlock` placeholders with stable
+    paths such as `assets/pdf-v2-image-001.metadata` and
+    `assets/pdf-v2-inline-image-001.metadata`.
+  - asset origins record source name, one-based page, object ref when present,
+    origin id, and a `pdf_v2.image.metadata` or
+    `pdf_v2.inline_image.metadata` key path.
+  - unsupported/heavy filters are non-fatal and remain visible only as
+    metadata/title details, not conversion errors or fallback.
+- validation:
+  - focused product tests cover metadata image blocks, asset origins,
+    unsupported filters, inline image behavior, stable placeholder paths, and
+    no fake byte extension/caption/table/OCR overreach.
+  - real pipeline smoke covers parser image candidates flowing into pipeline
+    output.
+- still out of scope:
+  - real image byte export/decode, OCR, caption inference, image-table
+    recovery, complex placement/order repair, v1 fallback, and runtime model
     hooks.

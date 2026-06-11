@@ -136,6 +136,8 @@ pub(all) struct PdfV2ConvertPipelineOutput {
   fragments : Array[PdfV2FactFragment]
   text_flow_candidates : Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2TextFlowCandidate]
   link_candidates : Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2LinkCandidate]
+  image_candidates : Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2ImageCandidate]
+  inline_image_candidates : Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2InlineImageCandidate]
   warnings : Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2Warning]
   risks : Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2Risk]
   one_pass : Bool

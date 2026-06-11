@@ -310,3 +310,26 @@ table, caption, or form lowering.
   `suppress_repeated_page_artifact_noise`.
 - No image, table, caption/figure, form, OCR, v1 fallback, or model hook was
   added.
+
+## Reset 9D Images And Assets
+
+Reset 9D consumes existing parser image facts through the core image convention
+without adding byte export or OCR.
+
+- `PdfV2ConvertPipelineOutput` now carries `image_candidates` and
+  `inline_image_candidates` from `PdfV2DocumentModel.pages[]`.
+- The product bridge emits canonical `@core.Block::ImageBlock(ImageData)`
+  entries for image and inline-image facts.
+- Because PDF v2 does not yet decode/export image bytes, emitted paths are
+  stable metadata-only placeholders such as
+  `assets/pdf-v2-image-001.metadata` and
+  `assets/pdf-v2-inline-image-001.metadata`.
+- Every emitted image placeholder is indexed in `Document.asset_origins` with
+  source name, one-based page number, object ref when present, origin id, and a
+  `pdf_v2.*.metadata` key path.
+- Unsupported or heavy filters remain non-fatal and are represented in the
+  image title/metadata instead of triggering fallback.
+- The bridge does not create fake image bytes, infer captions, run OCR, recover
+  image tables, or fall back to v1 PDF.
+- Model hooks remain absent at runtime; image parity is deterministic
+  parser-fact consumption.

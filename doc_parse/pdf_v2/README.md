@@ -556,3 +556,22 @@ repeated header/footer and page-number suppression.
   parser facts, not page artifacts.
 - Convert still owns the final suppress/preserve decision; parser facts do not
   lower images, links, tables, captions, forms, OCR, or model predictions.
+
+## Reset 9D Images And Assets
+
+Parser image and inline-image facts are now consumed by the v2 convert pipeline
+for product image placeholder parity.
+
+- Parser ownership is unchanged: image facts remain `PdfV2ImageCandidate` and
+  `PdfV2InlineImageCandidate` values with page index, dimensions, filters,
+  source refs, reason tags, warnings, risks, and decode status.
+- The pipeline forwards page-local image facts as `image_candidates` and
+  `inline_image_candidates`; convert owns core `ImageBlock` lowering and asset
+  origin indexing.
+- Current parser capabilities remain metadata-only for image bytes. Unsupported
+  or heavy filters must stay non-fatal parser facts/reports, not conversion
+  failures.
+- The product bridge represents these facts as metadata-only image placeholders
+  with stable `.metadata` paths and `asset_origins`.
+- Parser facts do not imply fake bytes, OCR, caption inference, table recovery,
+  v1 fallback, or model predictions.

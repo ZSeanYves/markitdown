@@ -138,6 +138,18 @@ fn phase14_image_ref() -> @pdfv2.PdfV2SourceRef {
 }
 
 ///|
+fn phase14_inline_image_ref(order : Int) -> @pdfv2.PdfV2SourceRef {
+  {
+    page_index: Some(0),
+    object_id: None,
+    stream_index: Some(0),
+    op_index: Some(order),
+    content_order_index: Some(order),
+    kind: @pdfv2.PdfV2SourceKind::InlineImage,
+  }
+}
+
+///|
 fn phase14_link_ref(order : Int) -> @pdfv2.PdfV2SourceRef {
   {
     page_index: Some(0),
@@ -658,7 +670,7 @@ fn phase20_pipeline_ok(
   page_count : Int,
   fragments : Array[@pdfv2conv.PdfV2FactFragment],
 ) -> @pdfv2conv.PdfV2ConvertPipelineResult {
-  phase20_pipeline_ok_with_candidates(page_count, fragments, [], [])
+  phase20_pipeline_ok_with_candidates(page_count, fragments, [], [], [], [])
 }
 
 ///|
@@ -667,6 +679,8 @@ fn phase20_pipeline_ok_with_candidates(
   fragments : Array[@pdfv2conv.PdfV2FactFragment],
   text_flow_candidates : Array[@pdfv2.PdfV2TextFlowCandidate],
   link_candidates : Array[@pdfv2.PdfV2LinkCandidate],
+  image_candidates : Array[@pdfv2.PdfV2ImageCandidate],
+  inline_image_candidates : Array[@pdfv2.PdfV2InlineImageCandidate],
 ) -> @pdfv2conv.PdfV2ConvertPipelineResult {
   @pdfv2conv.PdfV2ConvertPipelineResult::ConvertPipelineOk({
     source_summary: @pdfv2.pdf_v2_source_summary(0, page_count, 0, 0),
@@ -679,11 +693,46 @@ fn phase20_pipeline_ok_with_candidates(
     fragments,
     text_flow_candidates,
     link_candidates,
+    image_candidates,
+    inline_image_candidates,
     warnings: [],
     risks: [],
     one_pass: true,
     no_fallback: true,
   })
+}
+
+///|
+fn phase20_pipeline_ok_with_links(
+  page_count : Int,
+  fragments : Array[@pdfv2conv.PdfV2FactFragment],
+  link_candidates : Array[@pdfv2.PdfV2LinkCandidate],
+) -> @pdfv2conv.PdfV2ConvertPipelineResult {
+  phase20_pipeline_ok_with_candidates(
+    page_count,
+    fragments,
+    [],
+    link_candidates,
+    [],
+    [],
+  )
+}
+
+///|
+fn phase20_pipeline_ok_with_images(
+  page_count : Int,
+  fragments : Array[@pdfv2conv.PdfV2FactFragment],
+  image_candidates : Array[@pdfv2.PdfV2ImageCandidate],
+  inline_image_candidates : Array[@pdfv2.PdfV2InlineImageCandidate],
+) -> @pdfv2conv.PdfV2ConvertPipelineResult {
+  phase20_pipeline_ok_with_candidates(
+    page_count,
+    fragments,
+    [],
+    [],
+    image_candidates,
+    inline_image_candidates,
+  )
 }
 
 ///|
@@ -712,6 +761,79 @@ fn phase20_link_candidate(
 ///|
 fn phase20_link_rect() -> @pdfv2.PdfV2BBox {
   { x0: 72.0, y0: 700.0, x1: 180.0, y1: 716.0 }
+}
+
+///|
+fn phase20_image_candidate(
+  object_ref : String?,
+  filters : Array[String],
+  status : @pdfv2.PdfV2ImageDecodeStatus,
+) -> @pdfv2.PdfV2ImageCandidate {
+  {
+    page_index: Some(0),
+    object_ref,
+    width: Some(2),
+    height: Some(1),
+    color_space: Some("/DeviceRGB"),
+    bits_per_component: Some(8),
+    filters,
+    image_mask: None,
+    mask_present: false,
+    smask_present: false,
+    inline: false,
+    bbox: None,
+    source_ref: phase14_image_ref(),
+    warnings: [],
+    risks: [],
+    reason_tags: ["phase20_image_test"],
+    decode_status: status,
+  }
+}
+
+///|
+fn phase20_inline_image_candidate(
+  filters : Array[String],
+  status : @pdfv2.PdfV2ImageDecodeStatus,
+) -> @pdfv2.PdfV2InlineImageCandidate {
+  {
+    page_index: Some(0),
+    width: Some(1),
+    height: Some(1),
+    color_space: Some("/DeviceGray"),
+    bits_per_component: Some(8),
+    filters,
+    image_mask: None,
+    decode_params_present: false,
+    bbox: None,
+    source_ref: phase14_inline_image_ref(3),
+    warnings: [],
+    risks: [],
+    reason_tags: ["phase20_inline_image_test"],
+    decode_status: status,
+  }
+}
+
+///|
+fn phase20_first_image_block(doc : @cor.Document) -> @cor.ImageData? {
+  for block in doc.blocks.val {
+    match block {
+      @cor.Block::ImageBlock(image) => return Some(image)
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
+fn phase20_image_block_count(doc : @cor.Document) -> Int {
+  let mut count = 0
+  for block in doc.blocks.val {
+    match block {
+      @cor.Block::ImageBlock(_) => count = count + 1
+      _ => ()
+    }
+  }
+  count
 }
 
 ///|
@@ -1196,6 +1318,34 @@ test "pdf v2 experimental pipeline smokes minimal real pdf" {
 }
 
 ///|
+test "pdf v2 experimental pipeline carries image candidates from parser model" {
+  let path = "/tmp/markitdown-pdf-v2-phase20-image-pipeline.pdf"
+  phase14_write_fixture(path, phase17_two_image_text_pdf())
+  defer phase14_cleanup_fixture(path)
+
+  let result = @pdfv2conv.convert_pdf_v2_experimental_from_path(
+    path,
+    @pdfv2conv.default_pdf_v2_convert_pipeline_options(),
+  )
+  match result {
+    ConvertPipelineOk(output) => {
+      assert_true(output.image_candidates.length() == 2)
+      assert_true(output.inline_image_candidates.length() == 0)
+      assert_true(output.image_candidates[0].width == Some(2))
+      assert_true(output.image_candidates[0].height == Some(1))
+      assert_true(output.image_candidates[0].filters.contains("/DCTDecode"))
+      assert_true(
+        output.image_candidates[0].decode_status ==
+        @pdfv2.PdfV2ImageDecodeStatus::MetadataOnly,
+      )
+      assert_true(output.no_fallback)
+    }
+    ConvertPipelineErr(failure) =>
+      fail("expected image pipeline candidates: " + failure.message)
+  }
+}
+
+///|
 test "pdf v2 experimental pipeline can disable gate" {
   let path = "/tmp/markitdown-pdf-v2-phase17-no-gate.pdf"
   phase14_write_fixture(path, phase14_simple_text_pdf())
@@ -1641,7 +1791,7 @@ test "pdf v2 product bridge emits URI inline link for exact URI text" {
     [phase14_text_ref(0)],
   )
   let doc = phase20_bridge_document(
-    phase20_pipeline_ok_with_candidates(1, [fragment], [], [
+    phase20_pipeline_ok_with_links(1, [fragment], [
       phase20_link_candidate(
         Some(0),
         Some(uri),
@@ -1676,7 +1826,7 @@ test "pdf v2 product bridge falls back only for single link and single text bloc
     [phase14_text_ref(0)],
   )
   let doc = phase20_bridge_document(
-    phase20_pipeline_ok_with_candidates(1, [fragment], [], [
+    phase20_pipeline_ok_with_links(1, [fragment], [
       phase20_link_candidate(
         Some(0),
         Some(uri),
@@ -1719,7 +1869,7 @@ test "pdf v2 product bridge rejects ambiguous same page URI fallback" {
     ),
   ]
   let doc = phase20_bridge_document(
-    phase20_pipeline_ok_with_candidates(1, fragments, [], [
+    phase20_pipeline_ok_with_links(1, fragments, [
       phase20_link_candidate(
         Some(0),
         Some(uri),
@@ -1757,7 +1907,7 @@ test "pdf v2 product bridge rejects multiple same page URI annotations" {
     [phase14_text_ref(0)],
   )
   let doc = phase20_bridge_document(
-    phase20_pipeline_ok_with_candidates(1, [fragment], [], [
+    phase20_pipeline_ok_with_links(1, [fragment], [
       phase20_link_candidate(
         Some(0),
         Some("https://example.com/a"),
@@ -1818,7 +1968,7 @@ test "pdf v2 product bridge ignores unsafe malformed and non URI link facts" {
     ),
   ]
   let doc = phase20_bridge_document(
-    phase20_pipeline_ok_with_candidates(4, fragments, [], [
+    phase20_pipeline_ok_with_links(4, fragments, [
       phase20_link_candidate(
         Some(0),
         Some("javascript:alert(1)"),
@@ -1886,7 +2036,7 @@ test "pdf v2 product bridge URI link rules are semantic gated" {
     [phase14_text_ref(0)],
   )
   let doc = phase20_bridge_document(
-    phase20_pipeline_ok_with_candidates(1, [fragment], [], [
+    phase20_pipeline_ok_with_links(1, [fragment], [
       phase20_link_candidate(
         Some(0),
         Some(uri),
@@ -1911,6 +2061,208 @@ test "pdf v2 product bridge URI link rules are semantic gated" {
   assert_true(markdown.contains(uri))
   assert_true(!markdown.contains("[https://example.com](https://example.com)"))
   phase20_assert_no_rich_scope_blocks(doc)
+}
+
+///|
+test "pdf v2 product bridge emits metadata image block and asset origin" {
+  let fragment = phase20_fragment(
+    @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+    "Body before image.",
+    Some(0),
+    [phase14_text_ref(0)],
+  )
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok_with_images(
+      1,
+      [fragment],
+      [
+        phase20_image_candidate(
+          Some("5 0 R"),
+          ["/DCTDecode"],
+          @pdfv2.PdfV2ImageDecodeStatus::MetadataOnly,
+        ),
+      ],
+      [],
+    ),
+    {
+      ..@pdfv2conv.default_pdf_v2_product_bridge_options(),
+      source_name: Some("images.pdf"),
+    },
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(phase20_image_block_count(doc) == 1)
+  match phase20_first_image_block(doc) {
+    Some(img) => {
+      assert_true(img.path == "assets/pdf-v2-image-001.metadata")
+      assert_true(img.alt_text == Some("PDF v2 image metadata 2x1"))
+      assert_true(img.title.unwrap_or("").contains("metadata-only"))
+      assert_true(img.title.unwrap_or("").contains("/DCTDecode"))
+      assert_true(img.caption == None)
+      match img.origin {
+        Some(origin) => {
+          assert_true(origin.source_name == Some("images.pdf"))
+          assert_true(origin.page == Some(1))
+          assert_true(origin.object_ref == Some("5 0 R"))
+        }
+        None => fail("expected image block origin")
+      }
+      match doc.asset_origins.val.get(img.path) {
+        Some(origin) => {
+          assert_true(origin.source_name == Some("images.pdf"))
+          assert_true(origin.page == Some(1))
+          assert_true(origin.origin_id == Some("pdf-v2-image:5 0 R"))
+          assert_true(origin.object_ref == Some("5 0 R"))
+          assert_true(origin.key_path == Some("pdf_v2.image.metadata"))
+          assert_true(origin.source_path == None)
+          assert_true(origin.nearby_caption == None)
+        }
+        None => fail("expected metadata image asset origin")
+      }
+    }
+    None => fail("expected metadata ImageBlock")
+  }
+  assert_true(
+    markdown.contains(
+      "![PDF v2 image metadata 2x1](assets/pdf-v2-image-001.metadata)",
+    ),
+  )
+  assert_true(markdown.contains("metadata-only"))
+  assert_true(!markdown.contains(".png"))
+  assert_true(!markdown.contains(".jpg"))
+  assert_true(!markdown.contains("PDF_V2_PIPELINE_DIAGNOSTICS"))
+}
+
+///|
+test "pdf v2 product bridge unsupported image filter does not fail" {
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok_with_images(
+      1,
+      [],
+      [
+        phase20_image_candidate(
+          Some("5 0 R"),
+          ["/JPXDecode"],
+          @pdfv2.PdfV2ImageDecodeStatus::Unsupported,
+        ),
+      ],
+      [],
+    ),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(phase20_image_block_count(doc) == 1)
+  match phase20_first_image_block(doc) {
+    Some(img) => {
+      assert_true(img.path == "assets/pdf-v2-image-001.metadata")
+      assert_true(img.title.unwrap_or("").contains("/JPXDecode"))
+      assert_true(img.title.unwrap_or("").contains("decode=unsupported"))
+      assert_true(img.caption == None)
+    }
+    None => fail("expected unsupported filter metadata ImageBlock")
+  }
+  assert_true(markdown.contains("assets/pdf-v2-image-001.metadata"))
+  assert_true(!markdown.contains(".png"))
+  assert_true(!markdown.contains(".jpg"))
+  assert_true(!markdown.contains("PDF_V2_PIPELINE_DIAGNOSTICS"))
+}
+
+///|
+test "pdf v2 product bridge emits inline image metadata safely" {
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok_with_images(1, [], [], [
+      phase20_inline_image_candidate(
+        ["/FlateDecode"],
+        @pdfv2.PdfV2ImageDecodeStatus::MetadataOnly,
+      ),
+    ]),
+    {
+      ..@pdfv2conv.default_pdf_v2_product_bridge_options(),
+      source_name: Some("inline-images.pdf"),
+    },
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(phase20_image_block_count(doc) == 1)
+  match phase20_first_image_block(doc) {
+    Some(img) => {
+      assert_true(img.path == "assets/pdf-v2-inline-image-001.metadata")
+      assert_true(img.alt_text == Some("PDF v2 inline image metadata 1x1"))
+      assert_true(img.title.unwrap_or("").contains("/FlateDecode"))
+      assert_true(img.caption == None)
+      match doc.asset_origins.val.get(img.path) {
+        Some(origin) => {
+          assert_true(origin.source_name == Some("inline-images.pdf"))
+          assert_true(origin.page == Some(1))
+          assert_true(origin.origin_id == Some("pdf-v2-inline-image-1"))
+          assert_true(origin.object_ref == None)
+          assert_true(origin.key_path == Some("pdf_v2.inline_image.metadata"))
+          assert_true(origin.source_path == None)
+          assert_true(origin.nearby_caption == None)
+        }
+        None => fail("expected inline metadata image asset origin")
+      }
+    }
+    None => fail("expected inline metadata ImageBlock")
+  }
+  assert_true(
+    markdown.contains(
+      "![PDF v2 inline image metadata 1x1](assets/pdf-v2-inline-image-001.metadata)",
+    ),
+  )
+  assert_true(!markdown.contains(".png"))
+  assert_true(!markdown.contains(".jpg"))
+}
+
+///|
+test "pdf v2 product bridge image metadata does not infer captions tables or OCR" {
+  let fragment = phase20_fragment(
+    @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+    "Figure 1. Nearby text remains a paragraph.",
+    Some(0),
+    [phase14_text_ref(0)],
+  )
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok_with_images(
+      1,
+      [fragment],
+      [
+        phase20_image_candidate(
+          None,
+          ["/DCTDecode"],
+          @pdfv2.PdfV2ImageDecodeStatus::MetadataOnly,
+        ),
+      ],
+      [],
+    ),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+
+  assert_true(doc.blocks.val.length() == 2)
+  match doc.blocks.val[0] {
+    @cor.Block::Paragraph(text) =>
+      assert_true(text == "Figure 1. Nearby text remains a paragraph.")
+    _ => fail("expected nearby text to stay paragraph")
+  }
+  match doc.blocks.val[1] {
+    @cor.Block::ImageBlock(img) => {
+      assert_true(img.caption == None)
+      assert_true(img.path == "assets/pdf-v2-image-001.metadata")
+    }
+    _ => fail("expected metadata image block")
+  }
+  for block in doc.blocks.val {
+    match block {
+      @cor.Block::Table(_) | @cor.Block::RichTable(_) =>
+        fail("pdf v2 image metadata must not infer table structure")
+      @cor.Block::BlockQuote(_) | @cor.Block::RichBlockQuote(_) =>
+        fail("pdf v2 image metadata must not infer captions")
+      @cor.Block::CodeBlock(_) =>
+        fail("pdf v2 image metadata must not emit OCR/form text")
+      _ => ()
+    }
+  }
 }
 
 ///|
@@ -1978,6 +2330,8 @@ test "pdf v2 metadata sidecar path adds document properties without diagnostics"
     fragments: [fragment],
     text_flow_candidates: [],
     link_candidates: [],
+    image_candidates: [],
+    inline_image_candidates: [],
     warnings: [],
     risks: [],
     one_pass: true,
@@ -2973,6 +3327,8 @@ test "pdf v2 product bridge consumes parser fact candidates for list evidence" {
       lowered.fragments,
       lowered.text_flow_candidates,
       [],
+      [],
+      [],
     ),
     @pdfv2conv.default_pdf_v2_product_bridge_options(),
   )
@@ -3013,6 +3369,8 @@ test "pdf v2 product bridge suppresses parser page artifact candidates" {
       1,
       lowered.fragments,
       lowered.text_flow_candidates,
+      [],
+      [],
       [],
     ),
     @pdfv2conv.default_pdf_v2_product_bridge_options(),
@@ -3101,6 +3459,8 @@ test "pdf v2 product bridge suppresses parser repeated artifact candidates" {
       lowered.fragments,
       lowered.text_flow_candidates,
       [],
+      [],
+      [],
     ),
     @pdfv2conv.default_pdf_v2_product_bridge_options(),
   )
@@ -3131,6 +3491,8 @@ test "pdf v2 product bridge semantic disabled keeps parser fact text plain" {
       1,
       lowered.fragments,
       lowered.text_flow_candidates,
+      [],
+      [],
       [],
     ),
     {
@@ -3252,8 +3614,9 @@ test "pdf v2 convert boundary guard stays parser fact only" {
   assert_true(!bridge_text.contains("TableLike"))
   assert_true(!bridge_text.contains("RichTable"))
   assert_true(!bridge_text.contains("@cor.Block::Table"))
-  assert_true(!bridge_text.contains("ImageBlock"))
-  assert_true(!bridge_text.contains("@cor.Block::Image"))
+  assert_true(bridge_text.contains("ImageBlock"))
+  assert_true(bridge_text.contains("@cor.Block::ImageBlock"))
+  assert_true(!bridge_text.contains("@cor.Block::Image("))
   assert_true(!bridge_text.contains("@cor.Block::BlockQuote"))
   assert_true(!bridge_text.contains("@cor.Block::RichBlockQuote"))
   assert_true(!bridge_text.contains("@cor.Block::CodeBlock"))

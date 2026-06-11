@@ -531,3 +531,28 @@ Current status:
   guard and requires high confidence for repeated non-page-number suppression.
 - No image, link, table, caption, form, OCR, layout-model, v1 fallback, or
   runtime model hook was added.
+
+## Reset 9D Images And Assets
+
+Reset 9D consumes existing parser image facts without moving asset export or
+semantic image policy into the parser:
+
+```text
+PdfV2ImageCandidate[] / PdfV2InlineImageCandidate[]
+  -> PdfV2ConvertPipelineOutput.image_candidates
+  -> metadata-only ImageBlock placeholders
+  -> Document.asset_origins
+```
+
+Current status:
+
+- Parser image facts remain factual candidates with page index, dimensions,
+  filters, source refs, warnings, risks, reason tags, and decode status.
+- The pipeline carries page image and inline-image facts forward; convert owns
+  `ImageBlock` creation and asset-origin indexing.
+- Current byte capability remains metadata-only. Unsupported filters are
+  non-fatal facts/reports, not fallback triggers.
+- Product output uses stable `.metadata` placeholder paths because no actual
+  image bytes are exported yet.
+- No fake image bytes, OCR, caption inference, table-from-image recovery,
+  layout-model hook, v1 fallback, or model prediction was added.

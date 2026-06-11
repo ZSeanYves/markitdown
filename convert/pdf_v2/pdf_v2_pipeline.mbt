@@ -32,6 +32,8 @@ pub(all) struct PdfV2ConvertPipelineOutput {
   fragments : Array[PdfV2FactFragment]
   text_flow_candidates : Array[@pdfv2.PdfV2TextFlowCandidate]
   link_candidates : Array[@pdfv2.PdfV2LinkCandidate]
+  image_candidates : Array[@pdfv2.PdfV2ImageCandidate]
+  inline_image_candidates : Array[@pdfv2.PdfV2InlineImageCandidate]
   warnings : Array[@pdfv2.PdfV2Warning]
   risks : Array[@pdfv2.PdfV2Risk]
   one_pass : Bool
@@ -138,6 +140,28 @@ fn pdf_v2_pipeline_link_candidates(
 }
 
 ///|
+fn pdf_v2_pipeline_image_candidates(
+  model : @pdfv2.PdfV2DocumentModel,
+) -> Array[@pdfv2.PdfV2ImageCandidate] {
+  let out : Array[@pdfv2.PdfV2ImageCandidate] = []
+  for page in model.pages {
+    out.append(page.images)
+  }
+  out
+}
+
+///|
+fn pdf_v2_pipeline_inline_image_candidates(
+  model : @pdfv2.PdfV2DocumentModel,
+) -> Array[@pdfv2.PdfV2InlineImageCandidate] {
+  let out : Array[@pdfv2.PdfV2InlineImageCandidate] = []
+  for page in model.pages {
+    out.append(page.inline_images)
+  }
+  out
+}
+
+///|
 pub fn convert_pdf_v2_experimental_from_path(
   path : String,
   options : PdfV2ConvertPipelineOptions,
@@ -171,6 +195,8 @@ pub fn convert_pdf_v2_experimental_from_path(
         fragments: lowered.fragments,
         text_flow_candidates: lowered.text_flow_candidates,
         link_candidates: pdf_v2_pipeline_link_candidates(model),
+        image_candidates: pdf_v2_pipeline_image_candidates(model),
+        inline_image_candidates: pdf_v2_pipeline_inline_image_candidates(model),
         warnings: lowered.warnings,
         risks: lowered.risks,
         one_pass: model.one_pass &&
