@@ -88,11 +88,110 @@
   - no samples expected were updated
   - no quality-lab, model, external data, layout recovery, fallback, or semantic Markdown path was introduced
 
+## 2.2 Productization Reset 3 Update
+
+- active PDF registration:
+  - `convert/convert/dispatcher.mbt` now routes the default `.pdf` arm to
+    `@pdfv2conv.parse_pdf_v2`.
+  - `convert/pdf_v2/pdf_v2_converter.mbt` is the dispatcher-facing wrapper from
+    file path to `Result[@core.Document, @core.AppError]`.
+  - `pdf/main.mbt` now uses the same v2 bridge because the product CLI sample
+    runner delegates PDF conversion through the standalone PDF component.
+  - `convert/pdf` v1 remains on disk for rollback/reference; no fallback branch
+    calls it from the dispatcher path.
+- dispatcher defaults:
+  - v2 gate disabled for first diff collection.
+  - fact lowering ignores gate decisions.
+  - product bridge notes, visible page breaks, and empty-page markers remain off.
+  - no diagnostics text, semantic Markdown, image/link/table/form/layout
+    recovery, quality-lab, model, or external-data path was added.
+- expected diff runs:
+  - `bash samples/check.sh --format pdf || true`
+    - run: `.tmp/check/runs/pdf-20260611-113036-26817`
+    - result: failed in the runner probe before comparisons because the active
+      PDF output no longer matches the current v1-based expected sample.
+  - main diff command with explicit built runners:
+    - `MARKITDOWN_CLI="$PWD/_build/native/debug/build/cli/cli.exe" MARKITDOWN_PDF_CLI="$PWD/_build/native/debug/build/pdf/pdf.exe" MARKITDOWN_ZIP_CLI="$PWD/_build/native/debug/build/zip/zip.exe" bash samples/check.sh --format pdf || true`
+    - run: `.tmp/check/runs/pdf-20260611-113458-28263`
+    - result: Markdown log reports 30 PDF failures, with 26 diff files and 4
+      conversion failures. The wrapper summary counters remain zero because the
+      check exits through its failure path before row totals are written.
+  - metadata-focused command:
+    - same runner overrides with `bash samples/check.sh --metadata-only --format pdf || true`
+    - run: `.tmp/check/runs/pdf-20260611-113702-28999`
+    - result: metadata log reports 13 failures.
+  - asset-focused command:
+    - same runner overrides with `bash samples/check.sh --assets-only --format pdf || true`
+    - run: `.tmp/check/runs/pdf-20260611-113702-29171`
+    - result: asset log reports 7 failures.
+  - no expected files were updated.
+- Markdown failure inventory:
+  - `assets/pdf_image_form_xobject`
+  - `assets/pdf_image_inline`
+  - `assets/pdf_image_xobject`
+  - `hardwrap_en`
+  - `hardwrap_zh`
+  - `heading_basic`
+  - `metadata/pdf_image_no_caption_negative`
+  - `metadata/pdf_image_single_caption_like`
+  - `metadata/pdf_metadata_image_caption`
+  - `metadata/pdf_metadata_noise_merge`
+  - `metadata/pdf_metadata_table_like`
+  - `metadata/pdf_metadata_text_structure`
+  - `metadata/pdf_metadata_uri_link`
+  - `not_heading_sentence`
+  - `pdf_cross_page_paragraph`
+  - `pdf_cross_page_should_merge_phase15`
+  - `pdf_cross_page_should_not_merge_phase15`
+  - `pdf_header_footer_variants_phase15`
+  - `pdf_heading_false_positive_phase15`
+  - `pdf_heading_vs_short_sentence`
+  - `pdf_image_caption_like`
+  - `pdf_page_noise_cleanup`
+  - `pdf_repeated_header_footer`
+  - `pdf_repeated_header_footer_variants`
+  - `pdf_simple_table_like`
+  - `pdf_two_column_negative_phase15`
+  - `pdf_uri_link_basic`
+  - `text_hardwrap`
+  - `text_multipage`
+  - `text_simple`
+- first diff categories:
+  - fail-closed parser errors: 4 image/caption-related PDFs fail at
+    `parse_pdf_v2_model_from_path` with `PdfError.Msg`.
+  - decode/control-byte corruption: 13 text-oriented outputs contain NUL or
+    invalid control characters, including hardwrap, heading, simple text,
+    repeated header/footer, and metadata text/noise samples.
+  - spacing/newline/hardwrap/cross-page shaping: broad across most non-empty
+    diffs; line fragments often surface as `<br>` instead of paragraph-shaped
+    Markdown.
+  - page/order/layout/noise: cross-page, two-column, page-noise, repeated
+    header/footer, and table-like samples differ because v2 has no product
+    ordering repair or noise policy yet.
+  - image/assets: 3 asset samples lose image Markdown/asset emission, and 4
+    image/caption samples fail closed.
+  - links: 2 URI samples emit plain text instead of safe Markdown links.
+  - tables: 2 table-like samples emit separate text fragments instead of table
+    blocks.
+  - metadata/origin: metadata-only run has 6 sidecar failure rows; two samples
+    produce invalid JSON sidecars due control characters, and two produce valid
+    sidecars with `blocks`, `links`, or `summary` mismatches.
+  - forms/annotations/outlines: no dedicated failures observed in this first
+    PDF sample batch.
+- first blockers to fix after registration:
+  - repair parser text decoding/control bytes and the fail-closed image/caption
+    parser cases first.
+  - then fix text shaping, order, page-crossing behavior, and noise filtering.
+  - then add product metadata/origin parity, followed by images, links, and
+    tables.
+  - keep semantic headings/lists and model integration deferred until the plain
+    text/object diff surface is stable.
+
 ## 3. v1 PDF Main-chain Capability Summary
 
 | capability | v1 behavior | evidence file/test | notes |
 |---|---|---|---|
-| Dispatcher registration | `.pdf` is default-enabled and routes to `@pdf.parse_pdf`. | `convert/convert/dispatcher.mbt`; `convert/convert/test/dispatcher_registry_test.mbt` | Registry notes explicitly say native PDF through `convert/pdf`. |
+| Dispatcher registration | Before Reset 3, `.pdf` was default-enabled and routed to `@pdf.parse_pdf`; Reset 3 changes the active route to `@pdfv2conv.parse_pdf_v2`. | `convert/convert/dispatcher.mbt`; `convert/convert/test/dispatcher_registry_test.mbt` | v1 behavior is retained here as the parity baseline, while active registration now uses `convert/pdf_v2`. |
 | Converter entry | `parse_pdf` returns `@core.Document` and checks file existence. | `convert/pdf/pdf_parser.mbt` | OCR modes fail closed because OCR is not wired in this build. |
 | Parser model | v1 lower layer returns `PdfDocumentModel` with metadata, pages, text blocks, images, annotations, forms, outlines, geometry, and source refs. | `doc_parse/pdf/api/pdf_api.mbt`; `doc_parse/pdf/model/pdf_page_model.mbt` | Model is parser-facing, not final Markdown. |
 | Text extraction | Raw mbtpdf output is reconstructed into chars, spans, lines, blocks, then convert lines/blocks. | `doc_parse/pdf/README.md`; `convert/pdf/pdf_parser.mbt`; `convert/pdf/pdf_lines.mbt`; `convert/pdf/pdf_blocks.mbt` | Main text path is real PDF path, not synthetic only. |
@@ -128,7 +227,7 @@
 | Semantic role decision shell | synthetic-only / scaffold | `pdf_v2_decision.mbt`; classifier gate tests | `PdfV2BlockRole` includes semantic roles but is not product lowering. Seal or delete before product registration unless intentionally revived later. |
 | Fact-only lowerer | partial | `pdf_v2_fact_lowering.mbt`; `pdf_v2_convert_boundary_test.mbt` | Emits plain text, optional page break fragments, optional notes/placeholders. |
 | Experimental path pipeline | real / partial | `pdf_v2_pipeline.mbt`; pipeline smoke tests | Runs parser model -> layout -> features -> optional gate -> fact lowerer from real PDF path. |
-| Product `@core.Document` output | partial / plain text | `pdf_v2_product_bridge.mbt`; product bridge tests | Converts pipeline results to core documents for plain text, optional notes, optional explicit page-break blank lines, and fail-closed errors. Dispatcher still not switched. |
+| Product `@core.Document` output | partial / plain text | `pdf_v2_product_bridge.mbt`; product bridge tests; `pdf_v2_converter.mbt`; dispatcher tests | Converts pipeline results to core documents for plain text, optional notes, optional explicit page-break blank lines, and fail-closed errors. Reset 3 routes dispatcher-facing PDF through this bridge. |
 | Markdown headings/lists/tables/images/links/forms/outlines | not implemented | lowerer tests assert no semantic Markdown | v2 intentionally does not emit v1 product semantics yet. |
 | Metadata/origin product surface | partial / minimal | `pdf_v2_product_bridge.mbt`; product bridge origin test | Block origins preserve source name, page, block index, and first object ref. No asset origin or document-level metadata parity yet. |
 | Diagnostics renderer/goldens | removed | this reset | Not current route. |
@@ -137,12 +236,12 @@
 
 | capability | v1 status | v2 status | gap type | expected diff risk | priority |
 |---|---|---|---|---|---|
-| Dispatcher entry | Registered default PDF path to v1 | Not registered by constraint | Integration gap | High once switched | P0 later, after bridge |
+| Dispatcher entry | Previously registered default PDF path to v1 | Registered through v2 product bridge in Reset 3 | First-diff integration complete; parity gaps remain | High, confirmed by first diff | P0 closed for routing |
 | Product output bridge | Returns `@core.Document` | Narrow plain-text bridge returns `@core.Document` from pipeline result | Remaining integration/semantic gap | High | P0 mostly closed before dispatcher |
 | Plain text extraction | Real PDF to Markdown paragraphs | Real parser path, fact fragments, and plain paragraph bridge | Text shaping/order gap | High | P0 |
 | Page/block ordering | Convert page objects interleave text/images by page object order | Source-order block candidates only | Ordering gap | High | P0 |
 | Default gate behavior | v1 does not block plain text through a v2 no-model gate | v2 default gate can abstain on unsupported/capped context | First diff suppression risk | High | P0 |
-| Error behavior | Raises app errors / native parse failures through main chain | Bridge maps pipeline errors to `@core.AppError`; dispatcher still not switched | Dispatcher contract gap | High | P0 |
+| Error behavior | Raises app errors / native parse failures through main chain | Bridge maps pipeline errors to `@core.AppError`; dispatcher now returns the v2 bridge result | Parity/error-message gap | High | P0 routing closed |
 | Metadata/origin | Product origins, asset origins, metadata JSON | Minimal block origins only | Product metadata gap | High | P0/P1 |
 | Images | Asset export and `ImageBlock` | Image metadata candidates only | Capability missing | High | P1 |
 | Image captions | Conservative caption association | No caption association/lowering | Capability missing | Medium-high | P1 |
@@ -177,11 +276,13 @@
 - `lower_pdf_v2_document_scaffold`:
   - Historical scaffold output exists for boundary testing, not main-chain product output.
 
-## 7. Capabilities To Complete Before Dispatcher Registration
+## 7. Dispatcher Registration Guards
 
 - v2 pipeline result -> main convert output bridge:
   - Narrow plain-text `@core.Document` bridge exists.
-  - Remaining work: connect it to a controlled dispatcher path later, then add asset origins/document metadata only when corresponding product features exist.
+  - Reset 3 connects it to the controlled dispatcher path.
+  - Remaining work: add asset origins/document metadata only when corresponding
+    product features exist.
 - Plain text block/page ordering:
   - Produce useful paragraph blocks from real PDF path.
   - Keep page order and source order deterministic enough for expected diffs.
@@ -200,7 +301,8 @@
 - No gate blocking first diff run:
   - Run gate disabled or text-preserving by default during the first expected-diff batch.
 - Boundary guards:
-  - Keep convert from importing old PDF runtime, mbtpdf vendor internals, quality-lab assets, or external model/data files.
+  - Keep the dispatcher from importing old PDF runtime, mbtpdf vendor internals,
+    quality-lab assets, or external model/data files.
 
 ## 8. Capabilities To Improve After Expected Diff
 
@@ -257,8 +359,9 @@
 - Do not load or train models.
 - Narrow v2 product bridge is now present for plain text, minimal block origins,
   and fail-closed error mapping.
-- Next configure first-run defaults so no-model gate does not hide text during
-  diff collection.
-- Then prepare controlled dispatcher registration and inspect expected diffs.
-- After dispatcher registration, fix text/decode/spacing/order first, then link/image/table/metadata, then forms/annotations/outlines, then headings/lists/noise.
+- Reset 3 has configured first-run defaults so no-model gate does not hide text
+  during diff collection.
+- Controlled dispatcher registration is active and first expected diffs are
+  recorded above.
+- Next fix text/decode/spacing/order first, then link/image/table/metadata, then forms/annotations/outlines, then headings/lists/noise.
 - Start model integration only after the diff-driven parser signals are stable.

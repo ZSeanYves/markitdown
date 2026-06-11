@@ -41,7 +41,7 @@ let converter_registry_entries : Array[ConverterRegistryEntry] = [
     extensions: ["pdf"],
     capability: ConverterCapability::NativeDocument,
     default_enabled: true,
-    notes: "native PDF conversion through convert/pdf text pipeline",
+    notes: "native PDF conversion through convert/pdf_v2 product bridge; convert/pdf v1 retained for rollback/reference",
   },
   {
     format: "xlsx",
@@ -211,19 +211,8 @@ pub async fn parse_to_ir(
 
   match registry_entry.format {
     "docx" => Ok(@doc.parse_docx(input_path, out_dir_str, max_h))
-    // PDF currently routes to the shipped native text pipeline.
-    "pdf" =>
-      Ok(
-        @pdf.parse_pdf(
-          input_path,
-          out_dir_str,
-          max_h,
-          opts.pdf_enhance_mode,
-          opts.pdf_extract_debug,
-          opts.pdf_dump_selected_raw,
-          opts.pdf_pipeline_debug,
-        ),
-      )
+    // Active PDF route uses the v2 product bridge; v1 convert/pdf is retained for rollback/reference.
+    "pdf" => @pdfv2conv.parse_pdf_v2(input_path, out_dir_str, max_h)
     "xlsx" => Ok(@xlsx.parse_xlsx(input_path, out_dir_str, max_h))
     "pptx" => Ok(@pptx.parse_pptx(input_path, out_dir_str, max_h))
     "html" => Ok(@html.parse_html(input_path, out_dir_str, max_h))

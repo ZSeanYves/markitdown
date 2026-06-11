@@ -17,7 +17,7 @@ fn pdf_cli_args(args : Array[String]) -> Array[String] {
 }
 
 ///|
-async fn main {
+fn main {
   let cli_args = pdf_cli_args(@clicom.normalize_cli_args(@sys.get_cli_args()))
   if cli_args.length() == 0 {
     print_pdf_help()
@@ -68,7 +68,7 @@ async fn main {
 }
 
 ///|
-async fn cmd_pdf_normal(
+fn cmd_pdf_normal(
   input : String,
   output : String?,
   with_metadata : Bool,
@@ -94,16 +94,9 @@ async fn cmd_pdf_normal(
     }
   }
 
-  let doc = @pdfconv.parse_pdf(
-    input,
-    parse_out_dir,
-    6,
-    None,
-    false,
-    false,
-    false,
-  ) catch {
-    e => {
+  let doc = match @pdfv2conv.parse_pdf_v2(input, parse_out_dir, 6) {
+    Ok(doc) => doc
+    Err(e) => {
       @clicom.exit_error("parse failed: " + e.to_string())
       return
     }

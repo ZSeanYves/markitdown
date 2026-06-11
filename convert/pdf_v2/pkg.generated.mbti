@@ -22,6 +22,8 @@ pub fn default_pdf_v2_product_bridge_options() -> PdfV2ProductBridgeOptions
 
 pub fn lower_pdf_v2_document_scaffold(@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2DocumentModel) -> PdfV2LoweringScaffoldResult
 
+pub fn parse_pdf_v2(String, String, Int) -> Result[@core.Document, @core.AppError]
+
 pub fn pdf_v2_abstain_decision(Array[String]) -> PdfV2BlockDecision
 
 pub fn pdf_v2_fact_lowering_input(@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2DocumentModel, @ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2FeatureSet?, PdfV2FactLoweringOptions) -> PdfV2FactLoweringInput
