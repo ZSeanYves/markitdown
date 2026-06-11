@@ -325,6 +325,25 @@ PDF-V2-RESET-17 Experimental Pipeline Note:
   layout recovery, fallback, or emit heading, list, caption, table, image, link,
   or form Markdown semantics.
 
+PDF-V2-RESET-18 Pipeline Diagnostics Note:
+
+* Phase 18 adds a structured diagnostics renderer over
+  `PdfV2ConvertPipelineResult`.
+* Diagnostics rows expose stable section/key/value data with optional severity,
+  source-ref counts, and reason tags. Fixed sections cover pipeline/stage,
+  summary, gate, lowering, caps, fragments, warnings, and risks.
+* The stable text renderer is intended for future golden, quality, performance,
+  and adoption-gate tests. It reports ok/err status, one-pass/no-fallback,
+  stage summaries, gate decisions, lowering counts, cap hits, fragment counts,
+  warnings, and risks.
+* Err results render failure stage/message, warnings/risks, and no product
+  fragments. Missing gate summaries render a stable disabled marker.
+* Diagnostics are debug/audit output only, not product Markdown. The renderer
+  consumes only pipeline results and does not read raw PDF input, call parser
+  path APIs, call mbtpdf, load model/data artifacts, switch dispatchers,
+  fallback, or emit heading, list, caption, table, image, link, or form
+  Markdown semantics.
+
 ## Runtime Adoption Record
 
 PDF v2 is not adopted yet. The current `doc_parse/pdf` and `convert/pdf`

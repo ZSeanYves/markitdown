@@ -146,3 +146,33 @@ This is not dispatcher integration, old PDF runtime replacement, semantic
 Markdown, heading/list/caption/table/image/link/form lowering, model loading,
 layout recovery, external data/model reading, mbtpdf access from convert, or
 fallback.
+
+## Phase 18 Structured Pipeline Diagnostics Status
+
+Phase 18 adds stable diagnostics over the experimental pipeline result:
+
+```text
+PdfV2ConvertPipelineResult
+  -> PdfV2PipelineDiagnostics
+  -> stable diagnostic text
+```
+
+Current status:
+
+- Diagnostics consume only `PdfV2ConvertPipelineResult`.
+- `PdfV2DiagnosticRow` records section, key, value, optional severity, source
+  ref count, and reason tags.
+- Fixed sections include pipeline/stages, summary, gate, lowering, caps,
+  fragments, warnings, and risks.
+- The text renderer starts with `PDF_V2_PIPELINE_DIAGNOSTICS` and emits stable
+  key/value rows suitable for future golden, quality, performance, and adoption
+  gate tests.
+- Ok results render stage summaries, gate/lowering/cap counts, fragments, and
+  diagnostics. Err results render error status, failure stage/message,
+  diagnostics, and no product fragments.
+- Fragment rows include kind, page, char count, and source-ref count rather
+  than raw source internals or filesystem paths.
+
+These diagnostics are not product Markdown and are not dispatcher output. They
+do not read raw PDFs, call parser path APIs, call mbtpdf, read external
+model/data files, introduce fallback, or add semantic Markdown lowering.

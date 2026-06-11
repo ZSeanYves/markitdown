@@ -495,6 +495,15 @@ fn phase16_input(
 }
 
 ///|
+fn phase18_render_result(
+  result : @pdfv2conv.PdfV2ConvertPipelineResult,
+) -> String {
+  @pdfv2conv.pdf_v2_render_pipeline_diagnostics_text(
+    @pdfv2conv.pdf_v2_pipeline_diagnostics_from_result(result),
+  )
+}
+
+///|
 test "pdf v2 lowering scaffold consumes parser model without raw scan fallback" {
   let model = @pdfv2.build_empty_pdf_v2_document()
   let lowered = @pdfv2conv.lower_pdf_v2_document_scaffold(model)
@@ -971,6 +980,135 @@ test "pdf v2 experimental pipeline propagates caps" {
 }
 
 ///|
+test "pdf v2 pipeline diagnostics render minimal ok result" {
+  let path = "/tmp/markitdown-pdf-v2-phase18-ok.pdf"
+  phase14_write_fixture(path, phase14_simple_text_pdf())
+  defer phase14_cleanup_fixture(path)
+  let result = @pdfv2conv.convert_pdf_v2_experimental_from_path(
+    path,
+    @pdfv2conv.default_pdf_v2_convert_pipeline_options(),
+  )
+  let diagnostics = @pdfv2conv.pdf_v2_pipeline_diagnostics_from_result(result)
+  let text = @pdfv2conv.pdf_v2_render_pipeline_diagnostics_text(diagnostics)
+
+  assert_true(
+    diagnostics.status == @pdfv2conv.PdfV2PipelineDiagnosticStatus::Ok,
+  )
+  assert_true(text.contains("PDF_V2_PIPELINE_DIAGNOSTICS"))
+  assert_true(text.contains("status: ok"))
+  assert_true(text.contains("one_pass: true"))
+  assert_true(text.contains("no_fallback: true"))
+  assert_true(text.contains("[summary]"))
+  assert_true(text.contains("source.pages: 1"))
+  assert_true(text.contains("model.pages: 1"))
+  assert_true(text.contains("features.blocks: 1"))
+  assert_true(text.contains("[fragments]"))
+  assert_true(text.contains("PlainText page=0 chars=5"))
+}
+
+///|
+test "pdf v2 pipeline diagnostics render gate disabled marker" {
+  let path = "/tmp/markitdown-pdf-v2-phase18-no-gate.pdf"
+  phase14_write_fixture(path, phase14_simple_text_pdf())
+  defer phase14_cleanup_fixture(path)
+  let result = @pdfv2conv.convert_pdf_v2_experimental_from_path(path, {
+    ..@pdfv2conv.default_pdf_v2_convert_pipeline_options(),
+    run_gate: false,
+  })
+  let text = phase18_render_result(result)
+
+  assert_true(text.contains("[gate]"))
+  assert_true(text.contains("gate.enabled: false"))
+  assert_true(text.contains("lowering.plain_text_fragments: 1"))
+}
+
+///|
+test "pdf v2 pipeline diagnostics render abstain and skipped lowering" {
+  let path = "/tmp/markitdown-pdf-v2-phase18-abstain.pdf"
+  phase14_write_fixture(path, phase17_two_image_text_pdf())
+  defer phase14_cleanup_fixture(path)
+  let result = @pdfv2conv.convert_pdf_v2_experimental_from_path(path, {
+    ..@pdfv2conv.default_pdf_v2_convert_pipeline_options(),
+    parser_options: {
+      ..@pdfv2.default_pdf_v2_core_open_options(),
+      object_caps: {
+        ..@pdfv2.pdf_v2_default_object_cap_options(),
+        max_images: Some(1),
+      },
+    },
+  })
+  let text = phase18_render_result(result)
+
+  assert_true(text.contains("gate.enabled: true"))
+  assert_true(text.contains("gate.abstain: 1"))
+  assert_true(text.contains("gate.cap_guard: 1"))
+  assert_true(text.contains("lowering.gate_abstain: 1"))
+  assert_true(text.contains("lowering.gate_skipped_plain_text: 1"))
+  assert_true(text.contains("lowering.plain_text_fragments: 0"))
+}
+
+///|
+test "pdf v2 pipeline diagnostics render malformed err result" {
+  let path = "/tmp/markitdown-pdf-v2-phase18-malformed.pdf"
+  phase14_write_fixture(path, "%PDF-1.4\nnot a valid body\n%%EOF\n")
+  defer phase14_cleanup_fixture(path)
+  let result = @pdfv2conv.convert_pdf_v2_experimental_from_path(
+    path,
+    @pdfv2conv.default_pdf_v2_convert_pipeline_options(),
+  )
+  let diagnostics = @pdfv2conv.pdf_v2_pipeline_diagnostics_from_result(result)
+  let text = @pdfv2conv.pdf_v2_render_pipeline_diagnostics_text(diagnostics)
+
+  assert_true(
+    diagnostics.status == @pdfv2conv.PdfV2PipelineDiagnosticStatus::Err,
+  )
+  assert_true(diagnostics.fragment_rows.length() == 0)
+  assert_true(text.contains("status: err"))
+  assert_true(text.contains("pipeline.stage: parse_pdf_v2_model_from_path"))
+  assert_true(text.contains("pipeline.fragments: 0"))
+  assert_true(text.contains("[warnings]"))
+  assert_true(text.contains("[risks]"))
+}
+
+///|
+test "pdf v2 pipeline diagnostics render caps" {
+  let path = "/tmp/markitdown-pdf-v2-phase18-caps.pdf"
+  phase14_write_fixture(path, phase14_simple_text_pdf())
+  defer phase14_cleanup_fixture(path)
+  let result = @pdfv2conv.convert_pdf_v2_experimental_from_path(path, {
+    ..@pdfv2conv.default_pdf_v2_convert_pipeline_options(),
+    lowering_options: {
+      ..@pdfv2conv.default_pdf_v2_fact_lowering_options(),
+      max_chars: 3,
+    },
+  })
+  let text = phase18_render_result(result)
+
+  assert_true(text.contains("[caps]"))
+  assert_true(text.contains("caps.lowering_capped_output: true"))
+  assert_true(text.contains("caps.warning_count: 1"))
+  assert_true(text.contains("caps.risk_count: 1"))
+  assert_true(text.contains("lowering.capped_output: true"))
+}
+
+///|
+test "pdf v2 pipeline diagnostics render stable text" {
+  let path = "/tmp/markitdown-pdf-v2-phase18-stable.pdf"
+  phase14_write_fixture(path, phase14_simple_text_pdf())
+  defer phase14_cleanup_fixture(path)
+  let result = @pdfv2conv.convert_pdf_v2_experimental_from_path(
+    path,
+    @pdfv2conv.default_pdf_v2_convert_pipeline_options(),
+  )
+  let diagnostics = @pdfv2conv.pdf_v2_pipeline_diagnostics_from_result(result)
+  let first = @pdfv2conv.pdf_v2_render_pipeline_diagnostics_text(diagnostics)
+  let second = @pdfv2conv.pdf_v2_render_pipeline_diagnostics_text(diagnostics)
+
+  assert_true(first == second)
+  assert_true(!first.contains(path))
+}
+
+///|
 test "pdf v2 fact lowerer does not emit object placeholders by default" {
   let image_ref = phase14_image_ref()
   let report : @pdfv2.PdfV2UnsupportedCapabilityReport = {
@@ -1293,6 +1431,12 @@ test "pdf v2 convert boundary guard stays parser fact only" {
   ) catch {
     err => fail("read pipeline source failed: " + err.to_string())
   }
+  let diagnostics_text = @fs.read_file_to_string(
+    "convert/pdf_v2/pdf_v2_pipeline_diagnostics.mbt",
+    encoding="utf8",
+  ) catch {
+    err => fail("read pipeline diagnostics source failed: " + err.to_string())
+  }
 
   assert_true(package_text.contains("doc_parse/pdf_v2"))
   assert_true(!package_text.contains("doc_parse/pdf/vendor"))
@@ -1321,4 +1465,20 @@ test "pdf v2 convert boundary guard stays parser fact only" {
   assert_true(!pipeline_text.contains("ListItem"))
   assert_true(!pipeline_text.contains("Caption"))
   assert_true(!pipeline_text.contains("TableLike"))
+  assert_true(!diagnostics_text.contains("parse_pdf_v2_model_from_path"))
+  assert_true(!diagnostics_text.contains("parse_pdf_v2_source_from_path"))
+  assert_true(
+    !diagnostics_text.contains("pdf_v2_open_source_document_from_path"),
+  )
+  assert_true(!diagnostics_text.contains("doc_parse/pdf/vendor"))
+  assert_true(!diagnostics_text.contains("doc_parse/pdf\""))
+  assert_true(!diagnostics_text.contains("mbtpdf"))
+  assert_true(!diagnostics_text.contains("model.pkl"))
+  assert_true(!diagnostics_text.contains("features.tsv"))
+  assert_true(!diagnostics_text.contains("markitdown-quality-lab"))
+  assert_true(!diagnostics_text.contains("PdfV2BlockRole"))
+  assert_true(!diagnostics_text.contains("Heading"))
+  assert_true(!diagnostics_text.contains("ListItem"))
+  assert_true(!diagnostics_text.contains("Caption"))
+  assert_true(!diagnostics_text.contains("TableLike"))
 }
