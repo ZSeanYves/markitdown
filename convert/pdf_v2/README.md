@@ -113,3 +113,36 @@ This remains fact-only lowering. It does not introduce semantic Markdown,
 heading/list/caption/table/image/link/form lowering, model loading, dispatcher
 integration, raw PDF reading, mbtpdf access, external data/model reads, or
 fallback.
+
+## Phase 17 Experimental Convert Pipeline Status
+
+Phase 17 adds a v2-only experimental path entry point:
+
+```text
+PDF path
+  -> parse_pdf_v2_model_from_path
+  -> pdf_v2_layout_facts_from_model
+  -> pdf_v2_features_from_model_and_layout
+  -> optional pdf_v2_run_no_model_block_gate
+  -> pdf_v2_lower_fact_model
+```
+
+Current status:
+
+- `convert_pdf_v2_experimental_from_path` accepts a path only as a thin
+  experiment over the parser v2 public path API.
+- The lowerer still consumes only the parser model, feature set, and optional
+  gate result; it does not read paths or raw PDF bytes.
+- Pipeline options expose parser, gate, and lowering options plus `run_gate`.
+  The default runs the no-model gate and leaves lowerer gate respect enabled.
+- Successful results expose source, model, layout, feature, optional gate, and
+  lowering summaries together with fragments, warnings, risks, `one_pass`, and
+  `no_fallback`.
+- Parser-stage failures return a fail-closed error result with diagnostics and
+  no fragments.
+- Gate-disabled mode preserves the Phase 14 fact-only lowering path.
+
+This is not dispatcher integration, old PDF runtime replacement, semantic
+Markdown, heading/list/caption/table/image/link/form lowering, model loading,
+layout recovery, external data/model reading, mbtpdf access from convert, or
+fallback.

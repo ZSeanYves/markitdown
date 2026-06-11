@@ -304,6 +304,27 @@ PDF-V2-RESET-16 Gate-Aware Fact Lowering Note:
   dispatchers, fallback to the old PDF runtime, or emit heading, list, caption,
   table, image, link, or form Markdown semantics.
 
+PDF-V2-RESET-17 Experimental Pipeline Note:
+
+* Phase 17 adds a v2-only experimental convert pipeline entry point from a PDF
+  path to parser model, layout facts, feature rows, optional no-model gate, and
+  gate-aware fact lowering.
+* The path entry delegates to `parse_pdf_v2_model_from_path`; convert does not
+  call mbtpdf directly, depend on old `doc_parse/pdf`, read raw PDF bytes, or
+  reopen parser content in the lowerer.
+* Pipeline options expose parser, gate, and lowering options plus a `run_gate`
+  flag. The default runs the no-model gate and keeps gate-aware lowering
+  enabled.
+* Successful pipeline output exposes source, model, layout, feature, optional
+  gate, and lowering summaries, plus fragments, warnings, risks, `one_pass`,
+  and `no_fallback` for adoption-gate debugging.
+* Parser-stage failures return a fail-closed result with warnings/risks and no
+  fragments. Gate-disabled mode preserves fact-only lowering.
+* This phase does not switch dispatchers, replace the old PDF runtime, load or
+  train models, read `features.tsv`/`model.pkl`/quality-lab artifacts, run true
+  layout recovery, fallback, or emit heading, list, caption, table, image, link,
+  or form Markdown semantics.
+
 ## Runtime Adoption Record
 
 PDF v2 is not adopted yet. The current `doc_parse/pdf` and `convert/pdf`

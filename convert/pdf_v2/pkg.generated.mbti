@@ -2,7 +2,11 @@
 package "ZSeanYves/markitdown/convert/pdf_v2"
 
 // Values
+pub fn convert_pdf_v2_experimental_from_path(String, PdfV2ConvertPipelineOptions) -> PdfV2ConvertPipelineResult
+
 pub fn decide_pdf_v2_block_role(PdfV2BlockClassifierHint?, PdfV2DecisionInputs) -> PdfV2BlockDecision
+
+pub fn default_pdf_v2_convert_pipeline_options() -> PdfV2ConvertPipelineOptions
 
 pub fn default_pdf_v2_fact_lowering_options() -> PdfV2FactLoweringOptions
 
@@ -74,6 +78,55 @@ pub(all) enum PdfV2BlockRole {
   KeepAsText
   Uncertain
 } derive(Eq)
+
+pub(all) struct PdfV2ConvertModelSummary {
+  page_count : Int
+  source_event_count : Int
+  block_count : Int
+  line_count : Int
+  span_count : Int
+  char_count : Int
+  unsupported_capability_count : Int
+  partial_fact_count : Int
+  warning_count : Int
+  risk_count : Int
+}
+
+pub(all) struct PdfV2ConvertPipelineFailure {
+  stage : String
+  message : String
+  fragments : Array[PdfV2FactFragment]
+  warnings : Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2Warning]
+  risks : Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2Risk]
+  one_pass : Bool
+  no_fallback : Bool
+}
+
+pub(all) struct PdfV2ConvertPipelineOptions {
+  parser_options : @ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2CoreOpenOptions
+  gate_options : PdfV2NoModelGateOptions
+  lowering_options : PdfV2FactLoweringOptions
+  run_gate : Bool
+}
+
+pub(all) struct PdfV2ConvertPipelineOutput {
+  source_summary : @ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2SourceSummary
+  model_summary : PdfV2ConvertModelSummary
+  layout_summary : @ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2LayoutFactSummary
+  feature_summary : @ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2FeatureSummary
+  gate_summary : PdfV2GateSummary?
+  lowering_summary : PdfV2FactLoweringSummary
+  fragments : Array[PdfV2FactFragment]
+  warnings : Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2Warning]
+  risks : Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2Risk]
+  one_pass : Bool
+  no_fallback : Bool
+}
+
+pub(all) enum PdfV2ConvertPipelineResult {
+  ConvertPipelineOk(PdfV2ConvertPipelineOutput)
+  ConvertPipelineErr(PdfV2ConvertPipelineFailure)
+}
 
 pub(all) struct PdfV2DecisionInputs {
   deterministic_constraint_score : Double
