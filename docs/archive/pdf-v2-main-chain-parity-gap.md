@@ -1002,3 +1002,54 @@
   - image-table OCR, arbitrary visual table detection, merged cells, complex
     layout recovery, multi-column reading order, caption inference, v1 fallback,
     and runtime model hooks.
+
+## Reset 9F Product Parity Sweep Summary
+
+- commits:
+  - 9A metadata/origin: `82dbe48 pdf-v2: add metadata origin parity`.
+  - 9B URI links: `2a05258 pdf-v2: add URI link parity`.
+  - 9C repeated artifacts: `c92a695 pdf-v2: suppress repeated page artifacts`.
+  - 9D images/assets: `76ea469 pdf-v2: add image asset parity`.
+  - 9E tables: `2320896 pdf-v2: add conservative table parity`.
+- validation:
+  - `moon info && moon fmt` passed.
+  - `moon check doc_parse/pdf_v2 convert/pdf_v2 convert/convert pdf` passed.
+  - `moon test doc_parse/pdf_v2/tests convert/pdf_v2/tests
+    convert/convert/test doc_parse/pdf_v2/tests` passed: 198 tests.
+  - `moon test convert/pdf_v2` passed: 21 tests.
+  - `git diff --check` passed.
+- final sample runs:
+  - main Markdown:
+    `.tmp/check/runs/pdf-20260612-071917-15495`, 24 failures.
+  - metadata-only:
+    `.tmp/check/runs/pdf-20260612-071917-15527`, 15 failures.
+  - assets-only:
+    `.tmp/check/runs/pdf-20260612-071917-15591`, 13 failures.
+  - quality:
+    `.tmp/quality/runs/pdf-20260612-071917-15754`, 78 rows, 70 checked, 8
+    skipped, 57 failed.
+- before/after:
+  - comparable Reset 8/9A main Markdown baseline:
+    `.tmp/check/runs/pdf-20260611-152859-63255`, 23 failures.
+  - comparable metadata-only baseline:
+    `.tmp/check/runs/pdf-20260611-160542-65887`, 13 failures.
+  - comparable assets-only baseline:
+    `.tmp/check/runs/pdf-20260611-160542-66087`, 7 failures.
+  - URI link failures dropped out of the main Markdown failure list.
+  - image placeholder visibility increased main/metadata/assets expected diffs
+    and exposed missing `.metadata` materialized asset files.
+- fixed categories:
+  - safe URI inline link product lowering.
+  - repeated page artifact/page-label suppression variants.
+  - metadata-only image `ImageBlock` placeholders with asset origins.
+  - conservative pipe/simple aligned text table lowering.
+- remaining blockers:
+  - real image byte export and asset materialization.
+  - image caption pairing for v2, table sidecar parity, and richer table layout
+    facts.
+  - parser block reconstruction, hardwrap/cross-page shaping, heading false
+    positives, and repeated header/footer sample variants.
+  - annotations, forms, outlines/bookmarks, internal/named link appendix notes,
+    full layout recovery, OCR, and runtime model hooks remain out of scope.
+- expected files:
+  - no sample expected files were updated.

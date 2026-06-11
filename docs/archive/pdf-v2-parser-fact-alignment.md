@@ -580,3 +580,33 @@ Current status:
 - No image OCR, arbitrary visual table detection, merged-cell reconstruction,
   multi-column reading-order recovery, v1 fallback, external model/data file, or
   runtime model hook was added.
+
+## Reset 9F Product Parity Sweep Summary
+
+Reset 9F closes the 9A-9F resume batch with parser facts still separated from
+product policy.
+
+Current status:
+
+- Parser facts consumed by product parity now include metadata, URI links,
+  page artifacts, image/inline-image metadata, and text/table evidence.
+- Convert remains responsible for safe association and final core block
+  lowering.
+- Final validation passed: `moon info && moon fmt`,
+  `moon check doc_parse/pdf_v2 convert/pdf_v2 convert/convert pdf`, the
+  requested test matrix, `moon test convert/pdf_v2`, and `git diff --check`.
+- Sample checks with explicit prebuilt CLIs remain red: main Markdown 24,
+  metadata-only 15, assets-only 13, quality 57 failures out of 70 checked rows.
+- URI sample failures are no longer present in the main Markdown failure list.
+- New image placeholders intentionally avoid fake bytes, but assets-only now
+  reports missing `.metadata` assets because no materialized asset export exists
+  yet.
+
+Remaining parser/fact work:
+
+- stable geometry/font/table-region facts for richer table and block recovery.
+- image byte/export capability if v2 should satisfy assets-only expectations.
+- annotation, form, outline, internal destination, caption, and richer layout
+  facts before broader product parity.
+- no model/data file is loaded or trained until these factual boundaries are
+  stable.

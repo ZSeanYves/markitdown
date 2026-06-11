@@ -353,3 +353,33 @@ Reset 9E adds conservative text-table lowering in the product bridge.
 - This reset does not do arbitrary visual table detection, merged cells,
   multi-column reading-order repair, image-table OCR, caption inference, v1
   fallback, or model loading.
+
+## Reset 9F Product Parity Sweep Summary
+
+Reset 9F reran the product parity sweep after 9B-9E.
+
+- Validation passed: `moon info && moon fmt`,
+  `moon check doc_parse/pdf_v2 convert/pdf_v2 convert/convert pdf`,
+  `moon test doc_parse/pdf_v2/tests convert/pdf_v2/tests convert/convert/test
+  doc_parse/pdf_v2/tests`, `moon test convert/pdf_v2`, and
+  `git diff --check`.
+- Explicit prebuilt PDF sample run:
+  `.tmp/check/runs/pdf-20260612-071917-15495`.
+  Main Markdown failures: 24, compared with 23 in the Reset 8/9A comparable
+  baseline.
+- Metadata-only run:
+  `.tmp/check/runs/pdf-20260612-071917-15527`.
+  Failures: 15, compared with 13 in the comparable baseline.
+- Assets-only run:
+  `.tmp/check/runs/pdf-20260612-071917-15591`.
+  Failures: 13, compared with 7 in the comparable baseline.
+- Quality run:
+  `.tmp/quality/runs/pdf-20260612-071917-15754`.
+  Rows: 78, checked: 70, skipped: 8, failed: 57.
+- Fixed product categories in focused tests: safe URI inline links,
+  high-confidence repeated page artifacts, metadata-only image placeholders
+  with asset origins, and conservative text tables.
+- Sample regressions are expected-diff churn from new visible image metadata
+  placeholders and missing `.metadata` files in assets-only checks; real image
+  byte export/materialization remains the next asset blocker.
+- No expected samples were updated.

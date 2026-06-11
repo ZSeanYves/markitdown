@@ -591,3 +591,18 @@ semantics.
 - Parser still does not perform visual table region recovery, merged-cell
   reconstruction, image-table OCR, caption inference, v1 fallback, model
   prediction, or external data loading.
+
+## Reset 9F Product Parity Sweep Summary
+
+Reset 9F confirms the parser/convert boundary after 9B-9E.
+
+- Parser facts now feed product parity for URI links, repeated artifacts, image
+  metadata placeholders, and conservative text tables.
+- Parser scope remains factual: no final link/image/table/caption/form
+  semantics, no OCR, no v1 fallback, no model loading, and no external data.
+- Final validation passed for parser/convert packages and `git diff --check`.
+- PDF samples still fail against v1-oriented expected files: main Markdown 24,
+  metadata-only 15, assets-only 13. Image metadata placeholders added visibility
+  but also expose missing real asset materialization.
+- Remaining parser-side blockers are richer geometry/font bands, block
+  reconstruction, layout/table region facts, and image byte/export support.
