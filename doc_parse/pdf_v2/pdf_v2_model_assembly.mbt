@@ -552,14 +552,75 @@ fn pdf_v2_model_source_refs(
 }
 
 ///|
+fn pdf_v2_model_metadata_key_name(key : String?) -> String {
+  match key {
+    None => ""
+    Some(value) => {
+      let trimmed = value.trim().to_owned()
+      let without_slash = if trimmed.has_prefix("/") {
+        trimmed[1:].to_owned()
+      } else {
+        trimmed
+      }
+      without_slash.to_lower()
+    }
+  }
+}
+
+///|
+fn pdf_v2_model_metadata_value(
+  metadata : Array[PdfV2MetadataCandidate],
+  key : String,
+) -> String? {
+  let expected = key.to_lower()
+  for item in metadata {
+    if item.kind != PdfV2MetadataKind::Info {
+      continue
+    }
+    if pdf_v2_model_metadata_key_name(item.key) != expected {
+      continue
+    }
+    match item.value {
+      Some(value) => {
+        let trimmed = value.trim().to_owned()
+        if trimmed != "" {
+          return Some(trimmed)
+        }
+      }
+      None => ()
+    }
+  }
+  None
+}
+
+///|
+fn pdf_v2_model_metadata_refs(
+  source : PdfV2SourceDocument,
+) -> Array[PdfV2SourceRef] {
+  let refs : Array[PdfV2SourceRef] = []
+  for item in source.metadata_candidates {
+    refs.push(item.source_ref)
+  }
+  if refs.length() == 0 {
+    pdf_v2_model_source_refs(source)
+  } else {
+    refs
+  }
+}
+
+///|
 fn pdf_v2_model_metadata(source : PdfV2SourceDocument) -> PdfV2DocumentMetadata {
+  let metadata = source.metadata_candidates
   {
-    title: None,
-    author: None,
-    subject: None,
-    creator: None,
-    producer: None,
-    source_refs: pdf_v2_model_source_refs(source),
+    title: pdf_v2_model_metadata_value(metadata, "title"),
+    author: pdf_v2_model_metadata_value(metadata, "author"),
+    subject: pdf_v2_model_metadata_value(metadata, "subject"),
+    creator: pdf_v2_model_metadata_value(metadata, "creator"),
+    producer: pdf_v2_model_metadata_value(metadata, "producer"),
+    keywords: pdf_v2_model_metadata_value(metadata, "keywords"),
+    created: pdf_v2_model_metadata_value(metadata, "creationdate"),
+    modified: pdf_v2_model_metadata_value(metadata, "moddate"),
+    source_refs: pdf_v2_model_metadata_refs(source),
   }
 }
 

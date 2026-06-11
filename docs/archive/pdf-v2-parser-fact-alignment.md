@@ -441,3 +441,36 @@ Fields:
   - no full column detection or layout recovery was added.
   - image/link/table/form and metadata sidecar parity remain out of scope.
   - model hooks remain absent at runtime.
+
+## Reset 9A Metadata Sidecars And Origin
+
+Reset 9A promotes existing metadata candidates into document-level parser facts:
+
+```text
+PdfV2MetadataCandidate(Info)
+  -> PdfV2DocumentMetadata
+  -> @core.MetadataDocumentProperties
+  -> metadata sidecar document section
+```
+
+Current status:
+
+- `PdfV2DocumentMetadata` records title, author, subject, creator, producer,
+  keywords, created, modified, and source refs.
+- Model assembly maps Info dictionary keys (`/Title`, `/Author`, `/Subject`,
+  `/Creator`, `/Producer`, `/Keywords`, `/CreationDate`, `/ModDate`) without
+  parsing XMP or inventing missing values.
+- Convert maps PDF v2 metadata to the existing core sidecar convention. Core has
+  no separate author slot, so author is preserved in the v2 model and used as
+  sidecar creator only when creator is absent.
+- Page count is provided from the parser model page count.
+- Block origins remain product-bridge origins and continue to carry page/source
+  refs; no visible diagnostics are emitted into Markdown.
+
+Still out of scope:
+
+- XMP parsing beyond existing metadata object facts.
+- Source path fields not supported by the current core document-properties
+  shape.
+- link/image/table metadata parity, which must come from core block lowering in
+  later Reset 9 batches.

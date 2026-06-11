@@ -509,3 +509,17 @@ Current status:
 `convert/pdf_v2` owns final semantic decisions and core block mapping. The
 parser still does not load models, read external data, run OCR, do full layout
 recovery, lower non-text objects, or fall back to the v1 PDF parser.
+
+## Reset 9A Metadata Sidecars And Origin
+
+PDF v2 now promotes existing Info-dictionary metadata candidates into
+`PdfV2DocumentModel.metadata`.
+
+- Supported fields: title, author, subject, creator, producer, keywords,
+  created, and modified.
+- Metadata facts keep source refs and remain parser facts, not visible Markdown
+  output.
+- Missing metadata stays absent; the parser does not synthesize title/author
+  values and does not parse XMP beyond existing metadata object facts.
+- Convert maps these facts to the current core metadata sidecar convention and
+  uses parser page count for the sidecar document `pages` field.

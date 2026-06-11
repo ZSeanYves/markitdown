@@ -246,3 +246,25 @@ Current status:
 The product bridge still only maps semantic text blocks to core paragraphs,
 headings, list items, and blank lines. It does not lower captions, tables,
 images, links, forms, OCR, or v1 PDF fallback behavior.
+
+## Reset 9A Metadata Sidecars And Origin
+
+Reset 9A adds metadata sidecar plumbing without changing Markdown block
+semantics:
+
+```text
+PdfV2DocumentModel.metadata
+  -> pdf_v2_metadata_document_properties
+  -> parse_pdf_v2_with_metadata
+  -> cli_common.write_document_output_with_document_properties
+```
+
+- `parse_pdf_v2(...)` remains the dispatcher-compatible document API.
+- `parse_pdf_v2_with_metadata(...)` is used by the bundled `pdf` component so
+  `--with-metadata` can pass document properties to the existing core sidecar
+  writer.
+- PDF `/Producer` maps to core `application`; `/Creator` maps to core
+  `creator`; `/Author` is used as creator only when `/Creator` is absent.
+- Product output does not emit metadata diagnostics into Markdown.
+- Link/image/table sidecar parity remains tied to later core block lowering and
+  is not added in this reset.

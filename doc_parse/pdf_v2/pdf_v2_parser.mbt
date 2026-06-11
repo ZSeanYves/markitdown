@@ -5,6 +5,9 @@ pub(all) struct PdfV2DocumentMetadata {
   subject : String?
   creator : String?
   producer : String?
+  keywords : String?
+  created : String?
+  modified : String?
   source_refs : Array[PdfV2SourceRef]
 }
 
@@ -124,6 +127,9 @@ pub fn build_empty_pdf_v2_document() -> PdfV2DocumentModel {
       subject: None,
       creator: None,
       producer: None,
+      keywords: None,
+      created: None,
+      modified: None,
       source_refs: [source_ref],
     },
     pages: [],

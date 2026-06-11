@@ -94,8 +94,9 @@ fn cmd_pdf_normal(
     }
   }
 
-  let doc = match @pdfv2conv.parse_pdf_v2(input, parse_out_dir, 6) {
-    Ok(doc) => doc
+  let parsed = match
+    @pdfv2conv.parse_pdf_v2_with_metadata(input, parse_out_dir, 6) {
+    Ok(parsed) => parsed
     Err(e) => {
       @clicom.exit_error("parse failed: " + e.to_string())
       return
@@ -103,7 +104,14 @@ fn cmd_pdf_normal(
   }
 
   match
-    @clicom.write_document_output(input, "pdf", doc, output, with_metadata) {
+    @clicom.write_document_output_with_document_properties(
+      input,
+      "pdf",
+      parsed.document,
+      output,
+      with_metadata,
+      parsed.document_properties,
+    ) {
     Ok(_) => ()
     Err(msg) => @clicom.exit_error(msg)
   }

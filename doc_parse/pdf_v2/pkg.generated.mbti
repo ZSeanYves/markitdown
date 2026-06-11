@@ -467,6 +467,9 @@ pub(all) struct PdfV2DocumentMetadata {
   subject : String?
   creator : String?
   producer : String?
+  keywords : String?
+  created : String?
+  modified : String?
   source_refs : Array[PdfV2SourceRef]
 }
 

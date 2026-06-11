@@ -24,6 +24,8 @@ pub fn lower_pdf_v2_document_scaffold(@ZSeanYves/markitdown/doc_parse/pdf_v2.Pdf
 
 pub fn parse_pdf_v2(String, String, Int) -> Result[@core.Document, @core.AppError]
 
+pub fn parse_pdf_v2_with_metadata(String, String, Int) -> Result[PdfV2ParsedDocument, @core.AppError]
+
 pub fn pdf_v2_abstain_decision(Array[String]) -> PdfV2BlockDecision
 
 pub fn pdf_v2_arbitrate_semantic_decision(PdfV2SemanticArbitrationInput) -> PdfV2SemanticArbitrationResult
@@ -35,6 +37,8 @@ pub fn pdf_v2_fact_lowering_input_with_gate(@ZSeanYves/markitdown/doc_parse/pdf_
 pub fn pdf_v2_keep_as_text_decision(Double, PdfV2DecisionSource, Array[String]) -> PdfV2BlockDecision
 
 pub fn pdf_v2_lower_fact_model(PdfV2FactLoweringInput) -> PdfV2FactLoweringResult
+
+pub fn pdf_v2_metadata_document_properties(@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2DocumentModel) -> @core.MetadataDocumentProperties?
 
 pub fn pdf_v2_pipeline_result_to_document(PdfV2ConvertPipelineResult, PdfV2ProductBridgeOptions) -> Result[@core.Document, @core.AppError]
 
@@ -124,6 +128,7 @@ pub(all) struct PdfV2ConvertPipelineOptions {
 pub(all) struct PdfV2ConvertPipelineOutput {
   source_summary : @ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2SourceSummary
   model_summary : PdfV2ConvertModelSummary
+  document_properties : @core.MetadataDocumentProperties?
   layout_summary : @ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2LayoutFactSummary
   feature_summary : @ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2FeatureSummary
   gate_summary : PdfV2GateSummary?
@@ -285,6 +290,11 @@ pub(all) struct PdfV2NoModelGateOptions {
   abstain_on_unsupported_objects : Bool
   abstain_on_capped_context : Bool
   max_risk_score_for_plain_text : Double
+}
+
+pub(all) struct PdfV2ParsedDocument {
+  document : @core.Document
+  document_properties : @core.MetadataDocumentProperties?
 }
 
 pub(all) struct PdfV2ProductBridgeOptions {

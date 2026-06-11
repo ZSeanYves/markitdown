@@ -24,6 +24,7 @@ pub(all) struct PdfV2ConvertModelSummary {
 pub(all) struct PdfV2ConvertPipelineOutput {
   source_summary : @pdfv2.PdfV2SourceSummary
   model_summary : PdfV2ConvertModelSummary
+  document_properties : @cor.MetadataDocumentProperties?
   layout_summary : @pdfv2.PdfV2LayoutFactSummary
   feature_summary : @pdfv2.PdfV2FeatureSummary
   gate_summary : PdfV2GateSummary?
@@ -150,6 +151,7 @@ pub fn convert_pdf_v2_experimental_from_path(
       PdfV2ConvertPipelineResult::ConvertPipelineOk({
         source_summary: model.source_summary,
         model_summary,
+        document_properties: pdf_v2_metadata_document_properties(model),
         layout_summary: layout.summary,
         feature_summary: features.summary,
         gate_summary,

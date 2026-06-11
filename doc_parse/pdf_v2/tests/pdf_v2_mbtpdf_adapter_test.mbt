@@ -2698,6 +2698,8 @@ test "pdf v2 object facts expose outline destination metadata candidates" {
       assert_true(model.outlines.length() == 1)
       assert_true(model.destinations.length() == 1)
       assert_true(model.metadata_candidates.length() >= 2)
+      assert_true(model.metadata.title == Some("Doc title"))
+      assert_true(model.metadata.author == Some("Ada"))
       assert_true(model.outlines[0].title == Some("Chapter 1"))
       assert_true(model.outlines[0].reason_tags.contains("toc_not_lowered"))
       assert_true(model.object_summary.outline_count == 1)

@@ -257,6 +257,9 @@ fn phase14_model(
       subject: None,
       creator: None,
       producer: None,
+      keywords: None,
+      created: None,
+      modified: None,
       source_refs: [page_ref],
     },
     pages: [page],
@@ -655,6 +658,7 @@ fn phase20_pipeline_ok_with_candidates(
   @pdfv2conv.PdfV2ConvertPipelineResult::ConvertPipelineOk({
     source_summary: @pdfv2.pdf_v2_source_summary(0, page_count, 0, 0),
     model_summary: phase20_model_summary(page_count, fragments),
+    document_properties: None,
     layout_summary: phase20_layout_summary(page_count),
     feature_summary: phase20_feature_summary(),
     gate_summary: None,
@@ -1533,6 +1537,97 @@ test "pdf v2 product bridge emits plain text document" {
   assert_true(!markdown.contains("PDF_V2_PIPELINE_DIAGNOSTICS"))
   assert_true(!phase14_text_contains_semantic_markdown(markdown))
   phase20_assert_text_bridge_blocks(doc)
+}
+
+///|
+test "pdf v2 metadata document properties map model metadata to core sidecar" {
+  let model = {
+    ..phase14_model([]),
+    page_count: 3,
+    metadata: {
+      title: Some("Quarterly Report"),
+      author: Some("Ada"),
+      subject: Some("Status"),
+      creator: None,
+      producer: Some("ReportLab"),
+      keywords: Some("pdf,semantic"),
+      created: Some("D:20260401000000+00'00'"),
+      modified: Some("D:20260402000000+00'00'"),
+      source_refs: [phase14_page_ref()],
+    },
+  }
+  match @pdfv2conv.pdf_v2_metadata_document_properties(model) {
+    Some(props) => {
+      assert_true(props.title == Some("Quarterly Report"))
+      assert_true(props.subject == Some("Status"))
+      assert_true(props.creator == Some("Ada"))
+      assert_true(props.keywords == Some("pdf,semantic"))
+      assert_true(props.created == Some("D:20260401000000+00'00'"))
+      assert_true(props.modified == Some("D:20260402000000+00'00'"))
+      assert_true(props.application == Some("ReportLab"))
+      assert_true(props.pages == Some("3"))
+    }
+    None => fail("expected pdf v2 document properties")
+  }
+}
+
+///|
+test "pdf v2 metadata sidecar path adds document properties without diagnostics" {
+  let fragment = phase20_fragment(
+    @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+    "Body text",
+    Some(0),
+    [phase14_text_ref(0)],
+  )
+  let document_properties = @cor.metadata_document_properties(
+    Some("Doc Title"),
+    None,
+    Some("Doc Creator"),
+    None,
+    None,
+    None,
+    None,
+    Some("PDF Producer"),
+    Some("2"),
+    None,
+    None,
+    None,
+  )
+  let pipeline = @pdfv2conv.PdfV2ConvertPipelineResult::ConvertPipelineOk({
+    source_summary: @pdfv2.pdf_v2_source_summary(0, 2, 0, 0),
+    model_summary: phase20_model_summary(2, [fragment]),
+    document_properties: Some(document_properties),
+    layout_summary: phase20_layout_summary(2),
+    feature_summary: phase20_feature_summary(),
+    gate_summary: None,
+    lowering_summary: phase20_lowering_summary(2, [fragment]),
+    fragments: [fragment],
+    text_flow_candidates: [],
+    warnings: [],
+    risks: [],
+    one_pass: true,
+    no_fallback: true,
+  })
+  let doc = phase20_bridge_document(pipeline, {
+    ..@pdfv2conv.default_pdf_v2_product_bridge_options(),
+    source_name: Some("metadata.pdf"),
+  })
+  let markdown = @cor.emit_markdown(doc)
+  assert_true(markdown.contains("Body text"))
+  assert_true(!markdown.contains("PDF v2"))
+  let json = @cor.emit_metadata_json_with_document_properties(
+    doc,
+    "metadata.pdf",
+    "pdf",
+    "metadata.md",
+    Some(document_properties),
+  )
+  assert_true(json.contains("\"document\": {"))
+  assert_true(json.contains("\"title\": \"Doc Title\""))
+  assert_true(json.contains("\"creator\": \"Doc Creator\""))
+  assert_true(json.contains("\"application\": \"PDF Producer\""))
+  assert_true(json.contains("\"pages\": \"2\""))
+  assert_true(!json.contains("PDF v2"))
 }
 
 ///|

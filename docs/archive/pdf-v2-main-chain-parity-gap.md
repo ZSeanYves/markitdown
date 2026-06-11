@@ -829,3 +829,41 @@
     more semantic rules.
   - add page-band/font-size facts when reliable geometry is available.
   - keep model integration deferred until rule/fact interfaces stabilize.
+
+## Reset 9A Metadata Sidecars And Origin
+
+- focus:
+  - add PDF v2 document metadata plumbing for metadata sidecars without changing
+    Markdown samples or falling back to v1 PDF.
+  - keep block origins on the product bridge path: source name, page, block
+    index, and first object ref still come from parser facts.
+- v1/core audit:
+  - core sidecars receive document properties through
+    `write_document_output_with_document_properties` and
+    `emit_metadata_json_with_document_properties`.
+  - core has no separate `author` document-property slot; PDF `/Creator` maps
+    to core `creator`, `/Producer` maps to core `application`, and `/Author` is
+    used as creator only when `/Creator` is absent.
+  - metadata links/assets/tables remain derived from core blocks.
+- implementation:
+  - `PdfV2DocumentMetadata` now carries title, author, subject, creator,
+    producer, keywords, created, modified, and source refs.
+  - model assembly promotes existing Info-dictionary metadata candidates into
+    `PdfV2DocumentModel.metadata`.
+  - convert exposes `pdf_v2_metadata_document_properties(model)` and
+    `parse_pdf_v2_with_metadata(...)`.
+  - `pdf/main.mbt` calls the metadata-aware CLI writer for `--with-metadata`.
+- validation:
+  - focused `moon check doc_parse/pdf_v2 convert/pdf_v2 pdf` passed.
+  - `moon test doc_parse/pdf_v2/tests convert/pdf_v2/tests` passed: 149 tests.
+  - `moon test convert/pdf_v2` passed: 21 tests.
+- before:
+  - explicit built PDF baseline: 23 main Markdown failures, 13 metadata-only
+    failures, and 7 assets-only diffs.
+- after:
+  - no expected files were updated in 9A.
+  - later Reset 9 batches still need to rerun the full PDF expected diff after
+    link/image/table/artifact lowering changes.
+- remaining blockers:
+  - sidecar block/link/asset/table mismatches still depend on product lowering
+    and parser boundary work in later Reset 9 batches.
