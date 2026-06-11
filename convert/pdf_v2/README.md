@@ -176,3 +176,33 @@ Current status:
 These diagnostics are not product Markdown and are not dispatcher output. They
 do not read raw PDFs, call parser path APIs, call mbtpdf, read external
 model/data files, introduce fallback, or add semantic Markdown lowering.
+
+## Phase 19 Diagnostics Golden Fixtures Status
+
+Phase 19 adds the first small exact-match diagnostics goldens for the
+experimental pipeline:
+
+```text
+tiny PDF fixture
+  -> convert_pdf_v2_experimental_from_path
+  -> pdf_v2_render_pipeline_diagnostics_text
+  -> diagnostics golden text
+```
+
+Current status:
+
+- Golden fixtures live under `convert/pdf_v2/tests/goldens/`.
+- Covered cases are minimal text, gate disabled text, capped image abstain,
+  malformed fail-closed, and lowering output cap.
+- The goldens validate diagnostics text only. They are not product Markdown,
+  sample expected output, dispatcher output, or quality-lab rows.
+- The renderer normalizes unstable fail-closed parser exception text before
+  diagnostics are rendered, preserving stable err output without recording
+  implementation paths.
+- Boundary tests reject temp paths, external model/data filenames, quality-lab
+  strings, old PDF runtime imports, and semantic Markdown markers in the
+  checked diagnostics surface.
+
+These fixtures are intended for future adoption gates. They do not switch the
+dispatcher, replace the old PDF runtime, introduce fallback, read external
+model/data files, load or train a model, or add semantic Markdown lowering.

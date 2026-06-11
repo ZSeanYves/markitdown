@@ -125,6 +125,27 @@ fn pdf_v2_diag_page_text(page_index : Int?) -> String {
 }
 
 ///|
+fn pdf_v2_diag_stable_message(message : String) -> String {
+  if message.contains("Failure(") || message.contains("@") {
+    "PDF v2 parser failed closed before model assembly"
+  } else {
+    message.replace(old="\r\n", new="\n").replace(old="\r", new="\n")
+  }
+}
+
+///|
+fn pdf_v2_diag_stable_reason_tags(tags : Array[String]) -> Array[String] {
+  let stable : Array[String] = []
+  for tag in tags {
+    let normalized = if tag.contains("reader") { "parser_reader" } else { tag }
+    if !stable.contains(normalized) {
+      stable.push(normalized)
+    }
+  }
+  stable
+}
+
+///|
 fn pdf_v2_diag_add_source_rows(
   rows : Array[PdfV2DiagnosticRow],
   summary : @pdfv2.PdfV2SourceSummary,
@@ -666,10 +687,12 @@ fn pdf_v2_diag_add_warning_rows(
       pdf_v2_diag_row(
         "warnings",
         "warning." + index.to_string(),
-        pdf_v2_diag_warning_kind_text(warning.kind) + ": " + warning.message,
+        pdf_v2_diag_warning_kind_text(warning.kind) +
+        ": " +
+        pdf_v2_diag_stable_message(warning.message),
         Some(pdf_v2_diag_severity_text(warning.severity)),
         warning.source_refs.length(),
-        warning.reason_tags,
+        pdf_v2_diag_stable_reason_tags(warning.reason_tags),
       ),
     )
   }
@@ -686,10 +709,12 @@ fn pdf_v2_diag_add_risk_rows(
       pdf_v2_diag_row(
         "risks",
         "risk." + index.to_string(),
-        pdf_v2_diag_risk_kind_text(risk.kind) + ": " + risk.message,
+        pdf_v2_diag_risk_kind_text(risk.kind) +
+        ": " +
+        pdf_v2_diag_stable_message(risk.message),
         Some(pdf_v2_diag_severity_text(risk.severity)),
         risk.source_refs.length(),
-        risk.reason_tags,
+        pdf_v2_diag_stable_reason_tags(risk.reason_tags),
       ),
     )
   }
@@ -790,7 +815,11 @@ fn pdf_v2_diag_err_rows(
 ) -> PdfV2PipelineDiagnostics {
   let stage_rows : Array[PdfV2DiagnosticRow] = [
     pdf_v2_diag_plain_row("pipeline", "pipeline.stage", failure.stage),
-    pdf_v2_diag_plain_row("pipeline", "pipeline.error", failure.message),
+    pdf_v2_diag_plain_row(
+      "pipeline",
+      "pipeline.error",
+      pdf_v2_diag_stable_message(failure.message),
+    ),
   ]
   let summary_rows : Array[PdfV2DiagnosticRow] = [
     pdf_v2_diag_plain_row("pipeline", "pipeline.fragments", "0"),
@@ -879,5 +908,5 @@ pub fn pdf_v2_render_pipeline_diagnostics_text(
   pdf_v2_diag_render_section(lines, "fragments", diagnostics.fragment_rows)
   pdf_v2_diag_render_section(lines, "warnings", diagnostics.warning_rows)
   pdf_v2_diag_render_section(lines, "risks", diagnostics.risk_rows)
-  lines.join("\n")
+  lines.join("\n") + "\n"
 }

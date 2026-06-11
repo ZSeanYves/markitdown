@@ -1508,3 +1508,20 @@ This note should record the first quality, performance, and closure gate review
 for dispatcher readiness. It should include sample results, quality-lab report
 summaries, model calibration status, memory/latency/package closure numbers,
 and unresolved adoption blockers.
+
+### PDF-V2-RESET-19 Diagnostics Goldens Note
+
+Phase 19 adds the first exact-match diagnostics golden fixtures for the v2-only
+experimental pipeline. The fixtures cover minimal text, gate disabled text,
+capped image abstain, malformed fail-closed, and lowering cap cases.
+
+The goldens assert `pdf_v2_render_pipeline_diagnostics_text` output only. They
+do not define product Markdown, samples expected output, dispatcher behavior, or
+quality-lab data. The diagnostics renderer keeps fixed section ordering, a
+stable final newline, explicit absent optional sections, and a normalized
+fail-closed parser error message so internal exception paths are not recorded in
+golden text.
+
+The boundary guard continues to ensure the convert diagnostics surface does not
+import the old PDF runtime or vendor internals, read external model/data files,
+use quality-lab assets, introduce fallback, or emit semantic Markdown kinds.

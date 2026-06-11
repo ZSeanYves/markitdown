@@ -504,6 +504,75 @@ fn phase18_render_result(
 }
 
 ///|
+fn phase19_golden_path(name : String) -> String {
+  "convert/pdf_v2/tests/goldens/" + name
+}
+
+///|
+fn phase19_read_golden(name : String) -> String raise {
+  @fs.read_file_to_string(phase19_golden_path(name), encoding="utf8")
+}
+
+///|
+fn phase19_assert_stable_diagnostics_text(text : String) -> Unit raise {
+  assert_true(!text.contains("/tmp/"))
+  assert_true(!text.contains("markitdown-pdf-v2-phase"))
+  assert_true(!text.contains("Failure("))
+  assert_true(!text.contains("@ZSeanYves/markitdown"))
+  assert_true(!text.contains("model.pkl"))
+  assert_true(!text.contains("features.tsv"))
+  assert_true(!text.contains("markitdown-quality-lab"))
+  assert_true(!text.contains("mbtpdf"))
+  assert_true(!text.contains("doc_parse/pdf/vendor"))
+  assert_true(!text.contains("Heading"))
+  assert_true(!text.contains("ListItem"))
+  assert_true(!text.contains("Caption"))
+  assert_true(!text.contains("TableLike"))
+  assert_true(!phase14_text_contains_semantic_markdown(text))
+}
+
+///|
+fn phase19_assert_diagnostics_golden(
+  name : String,
+  actual : String,
+) -> Unit raise {
+  phase19_assert_stable_diagnostics_text(actual)
+  let expected = phase19_read_golden(name) catch {
+    err =>
+      fail(
+        "read diagnostics golden failed for " + name + ": " + err.to_string(),
+      )
+  }
+  phase19_assert_stable_diagnostics_text(expected)
+  if actual != expected {
+    fail(
+      "diagnostics golden mismatch for " +
+      name +
+      "\nEXPECTED:\n" +
+      expected +
+      "\nACTUAL:\n" +
+      actual,
+    )
+  }
+}
+
+///|
+fn phase19_assert_pipeline_golden(
+  name : String,
+  path : String,
+  body : String,
+  options : @pdfv2conv.PdfV2ConvertPipelineOptions,
+) -> String raise {
+  phase14_write_fixture(path, body)
+  defer phase14_cleanup_fixture(path)
+  let text = phase18_render_result(
+    @pdfv2conv.convert_pdf_v2_experimental_from_path(path, options),
+  )
+  phase19_assert_diagnostics_golden(name, text)
+  text
+}
+
+///|
 test "pdf v2 lowering scaffold consumes parser model without raw scan fallback" {
   let model = @pdfv2.build_empty_pdf_v2_document()
   let lowered = @pdfv2conv.lower_pdf_v2_document_scaffold(model)
@@ -1109,6 +1178,117 @@ test "pdf v2 pipeline diagnostics render stable text" {
 }
 
 ///|
+test "pdf v2 diagnostics golden matches minimal text" {
+  let text = phase19_assert_pipeline_golden(
+    "minimal_text.diagnostics.txt",
+    "/tmp/markitdown-pdf-v2-phase19-minimal.pdf",
+    phase14_simple_text_pdf(),
+    @pdfv2conv.default_pdf_v2_convert_pipeline_options(),
+  )
+
+  assert_true(text.contains("status: ok"))
+  assert_true(text.contains("one_pass: true"))
+  assert_true(text.contains("no_fallback: true"))
+  assert_true(text.contains("gate.enabled: true"))
+  assert_true(text.contains("lowering.plain_text_fragments: 1"))
+  assert_true(text.contains("fragment.0: 0 PlainText"))
+}
+
+///|
+test "pdf v2 diagnostics golden matches gate disabled text" {
+  let text = phase19_assert_pipeline_golden(
+    "gate_disabled_text.diagnostics.txt",
+    "/tmp/markitdown-pdf-v2-phase19-no-gate.pdf",
+    phase14_simple_text_pdf(),
+    { ..@pdfv2conv.default_pdf_v2_convert_pipeline_options(), run_gate: false },
+  )
+
+  assert_true(text.contains("gate.enabled: false"))
+  assert_true(text.contains("lowering.plain_text_fragments: 1"))
+}
+
+///|
+test "pdf v2 diagnostics golden matches unsupported image abstain" {
+  let text = phase19_assert_pipeline_golden(
+    "unsupported_image_abstain.diagnostics.txt",
+    "/tmp/markitdown-pdf-v2-phase19-abstain.pdf",
+    phase17_two_image_text_pdf(),
+    {
+      ..@pdfv2conv.default_pdf_v2_convert_pipeline_options(),
+      parser_options: {
+        ..@pdfv2.default_pdf_v2_core_open_options(),
+        object_caps: {
+          ..@pdfv2.pdf_v2_default_object_cap_options(),
+          max_images: Some(1),
+        },
+      },
+    },
+  )
+
+  assert_true(text.contains("model.unsupported_capabilities: 2"))
+  assert_true(text.contains("features.capped_objects: 1"))
+  assert_true(text.contains("gate.abstain: 1"))
+  assert_true(text.contains("lowering.gate_skipped_plain_text: 1"))
+  assert_true(text.contains("[fragments]\n\n[warnings]"))
+}
+
+///|
+test "pdf v2 diagnostics golden matches malformed fail closed" {
+  let text = phase19_assert_pipeline_golden(
+    "malformed_fail_closed.diagnostics.txt",
+    "/tmp/markitdown-pdf-v2-phase19-malformed.pdf",
+    "%PDF-1.4\nnot a valid body\n%%EOF\n",
+    @pdfv2conv.default_pdf_v2_convert_pipeline_options(),
+  )
+
+  assert_true(text.contains("status: err"))
+  assert_true(text.contains("pipeline.stage: parse_pdf_v2_model_from_path"))
+  assert_true(
+    text.contains(
+      "pipeline.error: PDF v2 parser failed closed before model assembly",
+    ),
+  )
+  assert_true(text.contains("pipeline.fragments: 0"))
+  assert_true(text.contains("gate.enabled: false"))
+}
+
+///|
+test "pdf v2 diagnostics golden matches lowering cap" {
+  let text = phase19_assert_pipeline_golden(
+    "lowering_cap.diagnostics.txt",
+    "/tmp/markitdown-pdf-v2-phase19-cap.pdf",
+    phase14_simple_text_pdf(),
+    {
+      ..@pdfv2conv.default_pdf_v2_convert_pipeline_options(),
+      lowering_options: {
+        ..@pdfv2conv.default_pdf_v2_fact_lowering_options(),
+        max_chars: 3,
+      },
+    },
+  )
+
+  assert_true(text.contains("lowering.capped_output: true"))
+  assert_true(text.contains("caps.lowering_capped_output: true"))
+  assert_true(text.contains("caps.warning_count: 1"))
+  assert_true(text.contains("caps.risk_count: 1"))
+  assert_true(text.contains("[fragments]\n\n[warnings]"))
+}
+
+///|
+test "pdf v2 diagnostics golden missing fixture failure is clear" {
+  let mut saw_missing = false
+  let _ = phase19_read_golden("missing_fixture_should_fail.diagnostics.txt") catch {
+    err => {
+      saw_missing = true
+      assert_true(err.to_string().length() > 0)
+      ""
+    }
+  }
+
+  assert_true(saw_missing)
+}
+
+///|
 test "pdf v2 fact lowerer does not emit object placeholders by default" {
   let image_ref = phase14_image_ref()
   let report : @pdfv2.PdfV2UnsupportedCapabilityReport = {
@@ -1437,6 +1617,24 @@ test "pdf v2 convert boundary guard stays parser fact only" {
   ) catch {
     err => fail("read pipeline diagnostics source failed: " + err.to_string())
   }
+  let golden_texts : Array[String] = []
+  for
+    name in [
+      "minimal_text.diagnostics.txt", "gate_disabled_text.diagnostics.txt", "unsupported_image_abstain.diagnostics.txt",
+      "malformed_fail_closed.diagnostics.txt", "lowering_cap.diagnostics.txt",
+    ] {
+    golden_texts.push(
+      phase19_read_golden(name) catch {
+        err =>
+          fail(
+            "read diagnostics golden failed for guard " +
+            name +
+            ": " +
+            err.to_string(),
+          )
+      },
+    )
+  }
 
   assert_true(package_text.contains("doc_parse/pdf_v2"))
   assert_true(!package_text.contains("doc_parse/pdf/vendor"))
@@ -1481,4 +1679,7 @@ test "pdf v2 convert boundary guard stays parser fact only" {
   assert_true(!diagnostics_text.contains("ListItem"))
   assert_true(!diagnostics_text.contains("Caption"))
   assert_true(!diagnostics_text.contains("TableLike"))
+  for golden_text in golden_texts {
+    phase19_assert_stable_diagnostics_text(golden_text)
+  }
 }

@@ -1,0 +1,29 @@
+PDF_V2_PIPELINE_DIAGNOSTICS
+status: err
+one_pass: true
+no_fallback: true
+
+[stages]
+pipeline.stage: parse_pdf_v2_model_from_path refs=0 tags=
+pipeline.error: PDF v2 parser failed closed before model assembly refs=0 tags=
+
+[summary]
+pipeline.fragments: 0 refs=0 tags=
+
+[gate]
+gate.enabled: false refs=0 tags=
+
+[lowering]
+
+[caps]
+caps.lowering_capped_output: false refs=0 tags=
+caps.warning_count: 0 refs=0 tags=
+caps.risk_count: 0 refs=0 tags=
+
+[fragments]
+
+[warnings]
+warning.0: MalformedObject: PDF v2 parser failed closed before model assembly severity=error refs=1 tags=parser_reader,malformed,fail_closed,no_fallback
+
+[risks]
+risk.0: Malformed: PDF v2 parser failed closed before model assembly severity=error refs=1 tags=parser_reader,malformed,fail_closed,no_fallback
