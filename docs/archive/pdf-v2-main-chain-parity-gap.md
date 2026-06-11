@@ -424,3 +424,76 @@
   recorded above.
 - Next fix text/decode/spacing/order first, then link/image/table/metadata, then forms/annotations/outlines, then headings/lists/noise.
 - Start model integration only after the diff-driven parser signals are stable.
+
+## Reset 5 Text Shaping And Noise Pass
+
+- commit:
+  - this change, target message `pdf-v2: improve text shaping and cleanup`
+- focus:
+  - product-level plain text shaping, conservative block/line ordering, CJK
+    compatibility radical cleanup, hardwrap/hyphen repair, and narrow
+    page-artifact suppression.
+  - no fallback, no semantic Markdown lowering, no image/link/table/form or
+    metadata lowering.
+- commands:
+  - `moon info && moon fmt`
+  - `moon check doc_parse/pdf_v2 convert/pdf_v2 convert/convert pdf`
+  - `moon test doc_parse/pdf_v2/tests convert/pdf_v2/tests convert/convert/test doc_parse/pdf_v2/tests`
+  - `moon test convert/pdf_v2`
+  - `git diff --check`
+  - `moon build cli pdf zip`
+  - `MARKITDOWN_CLI="$PWD/_build/native/debug/build/cli/cli.exe" MARKITDOWN_PDF_CLI="$PWD/_build/native/debug/build/pdf/pdf.exe" MARKITDOWN_ZIP_CLI="$PWD/_build/native/debug/build/zip/zip.exe" bash samples/check.sh --format pdf || true`
+  - same explicit runner command with `--metadata-only --format pdf || true`
+  - same explicit runner command with `--assets-only --format pdf || true`
+- before:
+  - main PDF run `.tmp/check/runs/pdf-20260611-121940-35097`: 30 Markdown
+    failures, all diffs, 0 conversion failure artifacts, 0 generated files with
+    disallowed control bytes.
+  - metadata-only run `.tmp/check/runs/pdf-20260611-122002-35616`: 7 Markdown
+    diff files, 0 conversion/error artifacts, 0 disallowed control-byte files.
+  - assets-only run `.tmp/check/runs/pdf-20260611-122002-35628`: 7 Markdown
+    diff files, 0 conversion/error artifacts, 0 disallowed control-byte files.
+- after:
+  - main PDF run `.tmp/check/runs/pdf-20260611-130026-40884`: log reports 29
+    Markdown failures. Workspace has 30 diff files, 29 non-empty diffs, and one
+    empty `text_multipage.diff` artifact. Conversion/error artifacts: 0.
+    Disallowed control-byte files: 0.
+  - metadata-only run `.tmp/check/runs/pdf-20260611-130055-41422`: log reports
+    13 metadata failures, with 7 Markdown diff files plus sidecar mismatches.
+    Conversion/error artifacts: 0. Disallowed control-byte files: 0.
+  - assets-only run `.tmp/check/runs/pdf-20260611-130055-41453`: 7 Markdown
+    diff files. Conversion/error artifacts: 0. Disallowed control-byte files: 0.
+- fixed cases:
+  - `text_multipage` Markdown now matches expected; only an empty diff artifact
+    remains in the workspace.
+  - `hardwrap_en` is reduced to heading-only difference: paragraphs, ligature
+    output, and `inter-` line wrap are repaired.
+  - `text_hardwrap` is reduced to heading-only difference: English and CJK
+    hardwraps are joined and observed CJK radical glyphs normalize.
+  - `pdf_cross_page_paragraph` now emits paragraph-shaped text without `<br>`
+    artifacts, expands common ligature glyphs, and drops the isolated page
+    number inside the paragraph.
+  - `pdf_repeated_header_footer` drops repeated `Project Report` headers and
+    repairs common `fi` ligature-word splits; remaining footer/body merge still
+    needs stronger line/block facts.
+- regressions:
+  - none observed in validation. Some CJK heading-like lines now remain plain
+    paragraphs rather than headings; heading semantics are still intentionally
+    out of scope.
+- remaining failures:
+  - 29 non-empty main Markdown diffs remain.
+  - Text-only remaining issues are dominated by missing heading semantics,
+    limited block boundary inference, footer/header variants embedded in
+    multi-line fragments, and table/two-column ordering.
+  - Non-text remaining issues are unchanged: images/assets, URI links, table
+    lowering, and metadata sidecar parity.
+- remaining categories:
+  - text: heading/list semantics deferred, more line/block boundaries, stronger
+    page-label cleanup for split `第/页` fragments, repeated footer variants.
+  - layout/order: two-column and table-like source-order limitations.
+  - product lowering: image/link/table/metadata parity still not implemented.
+- next fix batch:
+  - move simple page-artifact and hardwrap cues closer to parser block/line
+    facts where source boundaries are available.
+  - add conservative heading/list/table/link/image product lowering only after
+    plain text boundaries are stable.

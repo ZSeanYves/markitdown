@@ -4,6 +4,9 @@ pub(all) struct PdfV2ProductBridgeOptions {
   emit_low_confidence_notes : Bool
   emit_unsupported_object_notes : Bool
   preserve_empty_pages : Bool
+  normalize_plain_text : Bool
+  suppress_page_number_like_noise : Bool
+  suppress_repeated_page_artifact_noise : Bool
   max_output_chars : Int?
   source_name : String?
 }
@@ -15,6 +18,9 @@ pub fn default_pdf_v2_product_bridge_options() -> PdfV2ProductBridgeOptions {
     emit_low_confidence_notes: false,
     emit_unsupported_object_notes: false,
     preserve_empty_pages: false,
+    normalize_plain_text: true,
+    suppress_page_number_like_noise: true,
+    suppress_repeated_page_artifact_noise: true,
     max_output_chars: None,
     source_name: Some("pdf_v2"),
   }
@@ -44,16 +50,35 @@ fn pdf_v2_pipeline_output_to_document(
 ) -> @cor.Document {
   let doc = @cor.new_document()
   let mut remaining_chars = options.max_output_chars
-  for fragment in output.fragments {
+  let text_paragraphs = if options.normalize_plain_text {
+    pdf_v2_product_bridge_text_paragraphs(output.fragments, options)
+  } else {
+    []
+  }
+  let mut shaped_index = 0
+  for fragment_index in 0..<output.fragments.length() {
+    let fragment = output.fragments[fragment_index]
     match fragment.kind {
-      PlainText => {
-        let text = pdf_v2_product_bridge_take_text(
-          fragment.text,
-          remaining_chars,
-        )
-        remaining_chars = text.1
-        pdf_v2_product_bridge_push_text(doc, text.0, fragment, options)
-      }
+      PlainText =>
+        if options.normalize_plain_text {
+          while shaped_index < text_paragraphs.length() &&
+                text_paragraphs[shaped_index].fragment_index == fragment_index {
+            let text = pdf_v2_product_bridge_take_text(
+              text_paragraphs[shaped_index].text,
+              remaining_chars,
+            )
+            remaining_chars = text.1
+            pdf_v2_product_bridge_push_text(doc, text.0, fragment, options)
+            shaped_index = shaped_index + 1
+          }
+        } else {
+          let text = pdf_v2_product_bridge_take_text(
+            fragment.text,
+            remaining_chars,
+          )
+          remaining_chars = text.1
+          pdf_v2_product_bridge_push_text(doc, text.0, fragment, options)
+        }
       PageBreak =>
         if options.emit_page_breaks || options.preserve_empty_pages {
           @cor.push_with_origin(
@@ -83,6 +108,14 @@ fn pdf_v2_pipeline_output_to_document(
     }
   }
   doc
+}
+
+///|
+fn pdf_v2_product_bridge_text_paragraphs(
+  fragments : Array[PdfV2FactFragment],
+  options : PdfV2ProductBridgeOptions,
+) -> Array[PdfV2TextOutputParagraph] {
+  pdf_v2_text_output_paragraphs(fragments, options)
 }
 
 ///|

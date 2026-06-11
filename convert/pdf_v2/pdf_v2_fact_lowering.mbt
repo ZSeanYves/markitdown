@@ -177,19 +177,40 @@ fn pdf_v2_fact_line_source_refs(
 }
 
 ///|
+fn pdf_v2_fact_ordered_lines(
+  lines : Array[@pdfv2.PdfV2LineCandidate],
+) -> Array[@pdfv2.PdfV2LineCandidate] {
+  let ordered : Array[@pdfv2.PdfV2LineCandidate] = []
+  ordered.append(lines)
+  ordered.sort_by(fn(a, b) { a.line_index - b.line_index })
+  ordered
+}
+
+///|
+fn pdf_v2_fact_ordered_blocks(
+  blocks : Array[@pdfv2.PdfV2BlockCandidate],
+) -> Array[@pdfv2.PdfV2BlockCandidate] {
+  let ordered : Array[@pdfv2.PdfV2BlockCandidate] = []
+  ordered.append(blocks)
+  ordered.sort_by(fn(a, b) { a.block_index - b.block_index })
+  ordered
+}
+
+///|
 fn pdf_v2_fact_block_text(
   block : @pdfv2.PdfV2BlockCandidate,
 ) -> (String, Array[String], Array[@pdfv2.PdfV2SourceRef]) {
   if block.text.length() > 0 {
     (block.text, block.reason_tags, block.source_refs)
   } else {
+    let lines = pdf_v2_fact_ordered_lines(block.lines)
     (
-      pdf_v2_fact_line_text(block.lines),
+      pdf_v2_fact_line_text(lines),
       pdf_v2_fact_append_unique_tag(
         block.reason_tags,
         "fact_lowering_block_text_from_lines",
       ),
-      pdf_v2_fact_line_source_refs(block.lines),
+      pdf_v2_fact_line_source_refs(lines),
     )
   }
 }
@@ -688,7 +709,8 @@ pub fn pdf_v2_lower_fact_model(
         reason_tags: ["pdf_v2_fact_lowering", "page_break"],
       })
     }
-    for block in page.blocks {
+    let ordered_blocks = pdf_v2_fact_ordered_blocks(page.blocks)
+    for block in ordered_blocks {
       if stop {
         continue
       }

@@ -949,6 +949,32 @@ test "pdf v2 fact lowerer uses line text when block text is empty" {
 }
 
 ///|
+test "pdf v2 fact lowerer orders page blocks and fallback lines by candidate index" {
+  let second_line = phase14_line(1, "Line two", phase14_text_ref(1))
+  let first_line = phase14_line(0, "Line one", phase14_text_ref(0))
+  let later = phase14_block(
+    1,
+    "Second block",
+    [phase14_line(0, "Second block", phase14_text_ref(2))],
+    @pdfv2.PdfV2TextDecodeConfidence::High,
+  )
+  let earlier = phase14_block(
+    0,
+    "",
+    [second_line, first_line],
+    @pdfv2.PdfV2TextDecodeConfidence::High,
+  )
+  let model = phase14_model([later, earlier])
+  let lowered = @pdfv2conv.pdf_v2_lower_fact_model(
+    phase14_default_input(model, None),
+  )
+
+  assert_true(lowered.fragments.length() == 2)
+  assert_true(lowered.fragments[0].text == "Line one\nLine two")
+  assert_true(lowered.fragments[1].text == "Second block")
+}
+
+///|
 test "pdf v2 fact lowerer consumes real parser model smoke without path input" {
   let path = "/tmp/markitdown-pdf-v2-phase14-real-parser-smoke.pdf"
   phase14_write_fixture(path, phase14_simple_text_pdf())
@@ -1451,6 +1477,299 @@ test "pdf v2 product bridge emits plain text document" {
   assert_true(!markdown.contains("PDF_V2_PIPELINE_DIAGNOSTICS"))
   assert_true(!phase14_text_contains_semantic_markdown(markdown))
   phase20_assert_plain_bridge_blocks(doc)
+}
+
+///|
+test "pdf v2 product bridge normalizes hardwrap and ligature text" {
+  let fragments = [
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Document Conversion Pipeline",
+      Some(0),
+      [phase14_text_ref(0)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "This project aims to build a uni",
+      Some(0),
+      [phase14_text_ref(1)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "ﬁ",
+      Some(0),
+      [phase14_text_ref(2)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "ed document",
+      Some(0),
+      [phase14_text_ref(3)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "conversion pipeline for docx, pdf, xlsx, pptx, and html.",
+      Some(0),
+      [phase14_text_ref(4)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "The parser should support inter-",
+      Some(0),
+      [phase14_text_ref(5)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "national text processing.",
+      Some(0),
+      [phase14_text_ref(6)],
+    ),
+  ]
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok(1, fragments),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("Document Conversion Pipeline"))
+  assert_true(markdown.contains("unified document conversion pipeline"))
+  assert_true(markdown.contains("international text processing."))
+  assert_true(!markdown.contains("<br>"))
+  assert_true(!markdown.contains("ﬁ"))
+  phase20_assert_plain_bridge_blocks(doc)
+}
+
+///|
+test "pdf v2 product bridge preserves CJK while joining split lines" {
+  let fragments = [
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Hard Wrap Test",
+      Some(0),
+      [phase14_text_ref(0)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "下一段：",
+      Some(0),
+      [phase14_text_ref(1)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "中",
+      Some(0),
+      [phase14_text_ref(2)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "⽂",
+      Some(0),
+      [phase14_text_ref(3)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "也可能被硬换⾏拆开。",
+      Some(0),
+      [phase14_text_ref(4)],
+    ),
+  ]
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok(1, fragments),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("Hard Wrap Test"))
+  assert_true(
+    markdown.contains("下一段：中文也可能被硬换行拆开。"),
+  )
+  assert_true(!markdown.contains("⽂"))
+  assert_true(!markdown.contains("⾏"))
+  assert_true(!markdown.contains("<br>"))
+}
+
+///|
+test "pdf v2 product bridge suppresses page-number-like noise by default" {
+  let fragments = [
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "第",
+      Some(0),
+      [phase14_text_ref(0)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "⻚",
+      Some(0),
+      [phase14_text_ref(1)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "1",
+      Some(0),
+      [phase14_text_ref(2)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "- 2 -",
+      Some(0),
+      [phase14_text_ref(3)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "3/10",
+      Some(0),
+      [phase14_text_ref(4)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Alpha page content.",
+      Some(0),
+      [phase14_text_ref(5)],
+    ),
+  ]
+  let default_doc = phase20_bridge_document(
+    phase20_pipeline_ok(1, fragments),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+  let default_markdown = @cor.emit_markdown(default_doc)
+
+  assert_true(default_markdown.contains("Alpha page content."))
+  assert_true(!default_markdown.contains("第"))
+  assert_true(!default_markdown.contains("- 2 -"))
+  assert_true(!default_markdown.contains("3/10"))
+
+  let keep_doc = phase20_bridge_document(phase20_pipeline_ok(1, fragments), {
+    ..@pdfv2conv.default_pdf_v2_product_bridge_options(),
+    suppress_page_number_like_noise: false,
+  })
+  let keep_markdown = @cor.emit_markdown(keep_doc)
+  assert_true(keep_markdown.contains("- 2 -"))
+  assert_true(keep_markdown.contains("3/10"))
+}
+
+///|
+test "pdf v2 product bridge suppresses repeated short header footer artifacts" {
+  let fragments = [
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Project Report",
+      Some(0),
+      [phase14_text_ref(0)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Alpha body sentence.",
+      Some(0),
+      [phase14_text_ref(1)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Confidential Footer",
+      Some(0),
+      [phase14_text_ref(2)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Project Report",
+      Some(1),
+      [phase14_text_ref(3)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Beta body sentence.",
+      Some(1),
+      [phase14_text_ref(4)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Confidential Footer",
+      Some(1),
+      [phase14_text_ref(5)],
+    ),
+  ]
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok(2, fragments),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("Alpha body sentence."))
+  assert_true(markdown.contains("Beta body sentence."))
+  assert_true(!markdown.contains("Project Report"))
+  assert_true(!markdown.contains("Confidential Footer"))
+}
+
+///|
+test "pdf v2 product bridge keeps normal numeric content when noise suppression is on" {
+  let fragments = [
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Revenue 2026 was 1234 units.",
+      Some(0),
+      [phase14_text_ref(0)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Section 3 discusses growth.",
+      Some(0),
+      [phase14_text_ref(1)],
+    ),
+  ]
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok(1, fragments),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("Revenue 2026 was 1234 units."))
+  assert_true(markdown.contains("Section 3 discusses growth."))
+}
+
+///|
+test "pdf v2 product bridge preserves page block order" {
+  let fragments = [
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Page one first.",
+      Some(0),
+      [phase14_text_ref(0)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Page one second.",
+      Some(0),
+      [phase14_text_ref(1)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Page two first.",
+      Some(1),
+      [phase14_text_ref(2)],
+    ),
+  ]
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok(2, fragments),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("Page one first."))
+  assert_true(markdown.contains("Page one second."))
+  assert_true(markdown.contains("Page two first."))
+  assert_true(doc.blocks.val.length() == 3)
+  match doc.blocks.val[0] {
+    @cor.Block::Paragraph(text) => assert_true(text == "Page one first.")
+    _ => fail("expected first page block")
+  }
+  match doc.blocks.val[1] {
+    @cor.Block::Paragraph(text) => assert_true(text == "Page one second.")
+    _ => fail("expected second page block")
+  }
+  match doc.blocks.val[2] {
+    @cor.Block::Paragraph(text) => assert_true(text == "Page two first.")
+    _ => fail("expected third page block")
+  }
 }
 
 ///|

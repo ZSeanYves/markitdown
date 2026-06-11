@@ -279,6 +279,9 @@ pub(all) struct PdfV2ProductBridgeOptions {
   emit_low_confidence_notes : Bool
   emit_unsupported_object_notes : Bool
   preserve_empty_pages : Bool
+  normalize_plain_text : Bool
+  suppress_page_number_like_noise : Bool
+  suppress_repeated_page_artifact_noise : Bool
   max_output_chars : Int?
   source_name : String?
 }
