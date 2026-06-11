@@ -837,6 +837,29 @@ fn phase20_image_block_count(doc : @cor.Document) -> Int {
 }
 
 ///|
+fn phase20_first_rich_table(doc : @cor.Document) -> @cor.TableData? {
+  for block in doc.blocks.val {
+    match block {
+      @cor.Block::RichTable(table) => return Some(table)
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
+fn phase20_table_block_count(doc : @cor.Document) -> Int {
+  let mut count = 0
+  for block in doc.blocks.val {
+    match block {
+      @cor.Block::Table(_) | @cor.Block::RichTable(_) => count = count + 1
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
 fn phase20_has_inline_link(inlines : Array[@cor.Inline]) -> Bool {
   for inline in inlines {
     match inline {
@@ -2266,6 +2289,212 @@ test "pdf v2 product bridge image metadata does not infer captions tables or OCR
 }
 
 ///|
+test "pdf v2 product bridge recognizes pipe table" {
+  let fragment = phase20_fragment(
+    @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+    "| Product | Revenue |\n| --- | --- |\n| Alpha | 12 |\n| Beta | 34 |",
+    Some(0),
+    [phase14_text_ref(0)],
+  )
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok(1, [fragment]),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(doc.blocks.val.length() == 1)
+  assert_true(phase20_table_block_count(doc) == 1)
+  match phase20_first_rich_table(doc) {
+    Some(table) => {
+      assert_true(table.header_rows == 1)
+      assert_true(table.rows.length() == 3)
+      assert_true(table.rows[0] == ["Product", "Revenue"])
+      assert_true(table.rows[1] == ["Alpha", "12"])
+      assert_true(table.rows[2] == ["Beta", "34"])
+    }
+    None => fail("expected pipe table RichTable")
+  }
+  assert_true(markdown.contains("| Product | Revenue |"))
+  assert_true(markdown.contains("| Alpha | 12 |"))
+  assert_true(!markdown.contains("PDF_V2_PIPELINE_DIAGNOSTICS"))
+}
+
+///|
+test "pdf v2 product bridge recognizes reliable aligned table" {
+  let fragment = phase20_fragment(
+    @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+    "Product  Revenue\nAlpha    12\nBeta     34",
+    Some(0),
+    [phase14_text_ref(0)],
+  )
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok(1, [fragment]),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(doc.blocks.val.length() == 1)
+  match phase20_first_rich_table(doc) {
+    Some(table) => {
+      assert_true(table.header_rows == 1)
+      assert_true(table.rows[0] == ["Product", "Revenue"])
+      assert_true(table.rows[1] == ["Alpha", "12"])
+      assert_true(table.rows[2] == ["Beta", "34"])
+    }
+    None => fail("expected aligned table RichTable")
+  }
+  assert_true(markdown.contains("| Product | Revenue |"))
+  assert_true(markdown.contains("| Beta | 34 |"))
+}
+
+///|
+test "pdf v2 product bridge keeps ordinary paragraph out of table rules" {
+  let fragment = phase20_fragment(
+    @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+    "This ordinary paragraph mentions Product and Revenue in a sentence.",
+    Some(0),
+    [phase14_text_ref(0)],
+  )
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok(1, [fragment]),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+
+  assert_true(phase20_table_block_count(doc) == 0)
+  assert_true(doc.blocks.val.length() == 1)
+  match doc.blocks.val[0] {
+    @cor.Block::Paragraph(text) =>
+      assert_true(
+        text ==
+        "This ordinary paragraph mentions Product and Revenue in a sentence.",
+      )
+    _ => fail("expected ordinary paragraph")
+  }
+}
+
+///|
+test "pdf v2 product bridge malformed table rows fallback to paragraph" {
+  let fragment = phase20_fragment(
+    @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+    "| Product | Revenue |\n| --- | --- |\n| Alpha | 12 | Extra |\n| Beta | 34 |",
+    Some(0),
+    [phase14_text_ref(0)],
+  )
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok(1, [fragment]),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+
+  assert_true(phase20_table_block_count(doc) == 0)
+  assert_true(doc.blocks.val.length() == 1)
+  match doc.blocks.val[0] {
+    @cor.Block::Paragraph(text) => {
+      assert_true(text.contains("Alpha"))
+      assert_true(text.contains("Extra"))
+    }
+    _ => fail("expected malformed table paragraph fallback")
+  }
+}
+
+///|
+test "pdf v2 product bridge table rules are semantic gated" {
+  let fragment = phase20_fragment(
+    @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+    "| Product | Revenue |\n| --- | --- |\n| Alpha | 12 |",
+    Some(0),
+    [phase14_text_ref(0)],
+  )
+  let doc = phase20_bridge_document(phase20_pipeline_ok(1, [fragment]), {
+    ..@pdfv2conv.default_pdf_v2_product_bridge_options(),
+    enable_semantic_rules: false,
+  })
+
+  assert_true(phase20_table_block_count(doc) == 0)
+  assert_true(doc.blocks.val.length() == 1)
+  match doc.blocks.val[0] {
+    @cor.Block::Paragraph(text) => {
+      assert_true(text.contains("Product"))
+      assert_true(text.contains("Alpha"))
+    }
+    _ => fail("expected semantic-disabled table text paragraph")
+  }
+}
+
+///|
+test "pdf v2 product bridge does not duplicate parser candidate table text" {
+  let table_fragment = {
+    ..phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "| Product | Revenue |\n| --- | --- |\n| Alpha | 12 |",
+      Some(0),
+      [phase14_text_ref(0)],
+    ),
+    block_index: Some(0),
+  }
+  let list_fragment = {
+    ..phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "• parser item",
+      Some(0),
+      [phase14_text_ref(1)],
+    ),
+    block_index: Some(1),
+  }
+  let table_block = phase14_block(
+    0,
+    table_fragment.text,
+    [phase14_line(0, "Product Revenue Alpha 12", phase14_text_ref(0))],
+    @pdfv2.PdfV2TextDecodeConfidence::High,
+  )
+  let list_block = phase14_block(
+    1,
+    "• parser item",
+    [phase14_line(1, "• parser item", phase14_text_ref(1))],
+    @pdfv2.PdfV2TextDecodeConfidence::High,
+  )
+  let model = phase14_model([table_block, list_block])
+  let lowered = @pdfv2conv.pdf_v2_lower_fact_model(
+    phase14_default_input(model, None),
+  )
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok_with_candidates(
+      1,
+      [table_fragment, list_fragment],
+      lowered.text_flow_candidates,
+      [],
+      [],
+      [],
+    ),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+
+  assert_true(phase20_table_block_count(doc) == 0)
+  assert_true(doc.blocks.val.length() == 2)
+}
+
+///|
+test "pdf v2 product bridge does not infer image tables or OCR" {
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok_with_images(
+      1,
+      [],
+      [
+        phase20_image_candidate(
+          Some("5 0 R"),
+          ["/DCTDecode"],
+          @pdfv2.PdfV2ImageDecodeStatus::MetadataOnly,
+        ),
+      ],
+      [],
+    ),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+
+  assert_true(phase20_table_block_count(doc) == 0)
+  assert_true(phase20_image_block_count(doc) == 1)
+}
+
+///|
 test "pdf v2 metadata document properties map model metadata to core sidecar" {
   let model = {
     ..phase14_model([]),
@@ -3598,6 +3827,7 @@ test "pdf v2 convert boundary guard stays parser fact only" {
   assert_true(!bridge_text.contains("markitdown-quality-lab"))
   assert_true(!bridge_text.contains("PdfV2BlockRole"))
   assert_true(bridge_text.contains("enable_uri_link_rules"))
+  assert_true(bridge_text.contains("enable_table_rules"))
   assert_true(bridge_text.contains("@cor.Inline::Link"))
   assert_true(!semantic_rules_text.contains("@fs"))
   assert_true(!semantic_rules_text.contains("read_file"))
@@ -3612,7 +3842,7 @@ test "pdf v2 convert boundary guard stays parser fact only" {
   assert_true(!bridge_text.contains("pdf_v2_should_emit_minimal_heading"))
   assert_true(!bridge_text.contains("Caption"))
   assert_true(!bridge_text.contains("TableLike"))
-  assert_true(!bridge_text.contains("RichTable"))
+  assert_true(bridge_text.contains("RichTable"))
   assert_true(!bridge_text.contains("@cor.Block::Table"))
   assert_true(bridge_text.contains("ImageBlock"))
   assert_true(bridge_text.contains("@cor.Block::ImageBlock"))

@@ -10,6 +10,7 @@ pub(all) struct PdfV2ProductBridgeOptions {
   enable_list_rules : Bool
   enable_noise_guards : Bool
   enable_uri_link_rules : Bool
+  enable_table_rules : Bool
   suppress_page_number_like_noise : Bool
   suppress_repeated_page_artifact_noise : Bool
   max_output_chars : Int?
@@ -20,6 +21,13 @@ pub(all) struct PdfV2ProductBridgeOptions {
 priv struct PdfV2ProductBridgePageTextCount {
   page_index : Int?
   count : Int
+}
+
+///|
+priv struct PdfV2ProductBridgeTableCandidate {
+  fragment_index : Int
+  rows : Array[Array[String]]
+  header_rows : Int
 }
 
 ///|
@@ -35,6 +43,7 @@ pub fn default_pdf_v2_product_bridge_options() -> PdfV2ProductBridgeOptions {
     enable_list_rules: true,
     enable_noise_guards: true,
     enable_uri_link_rules: true,
+    enable_table_rules: true,
     suppress_page_number_like_noise: true,
     suppress_repeated_page_artifact_noise: true,
     max_output_chars: None,
@@ -82,16 +91,35 @@ fn pdf_v2_pipeline_output_to_document(
   } else {
     []
   }
+  let table_candidates = pdf_v2_product_bridge_table_candidates(
+    output.fragments,
+    options,
+  )
   let candidate_semantic_mode = options.normalize_plain_text &&
     options.enable_semantic_rules &&
     pdf_v2_product_bridge_has_actionable_text_flow_candidates(
       output.text_flow_candidates,
     )
   let link_page_counts = pdf_v2_product_bridge_link_page_text_counts(
-    output, semantic_blocks, text_paragraphs, candidate_semantic_mode, options,
+    output, semantic_blocks, text_paragraphs, table_candidates, candidate_semantic_mode,
+    options,
   )
+  let emitted_table_fragments : Array[Int] = []
   if candidate_semantic_mode {
     for semantic_block in semantic_blocks {
+      if semantic_block.fragment_index >= 0 &&
+        pdf_v2_product_bridge_push_table_for_fragment(
+          doc,
+          table_candidates,
+          semantic_block.fragment_index,
+          emitted_table_fragments,
+          output.fragments,
+          output.text_flow_candidates,
+          candidate_semantic_mode,
+          options,
+        ) {
+        continue
+      }
       let text = pdf_v2_product_bridge_take_text(
         semantic_block.text,
         remaining_chars,
@@ -106,9 +134,22 @@ fn pdf_v2_pipeline_output_to_document(
         link_page_counts,
       )
     }
-    for fragment in output.fragments {
+    for fragment_index in 0..<output.fragments.length() {
+      let fragment = output.fragments[fragment_index]
       match fragment.kind {
-        PlainText => ()
+        PlainText =>
+          ignore(
+            pdf_v2_product_bridge_push_table_for_fragment(
+              doc,
+              table_candidates,
+              fragment_index,
+              emitted_table_fragments,
+              output.fragments,
+              output.text_flow_candidates,
+              candidate_semantic_mode,
+              options,
+            ),
+          )
         PageBreak =>
           if options.emit_page_breaks || options.preserve_empty_pages {
             @cor.push_with_origin(
@@ -165,7 +206,26 @@ fn pdf_v2_pipeline_output_to_document(
     let fragment = output.fragments[fragment_index]
     match fragment.kind {
       PlainText =>
-        if options.normalize_plain_text && options.enable_semantic_rules {
+        if pdf_v2_product_bridge_push_table_for_fragment(
+            doc,
+            table_candidates,
+            fragment_index,
+            emitted_table_fragments,
+            output.fragments,
+            output.text_flow_candidates,
+            candidate_semantic_mode,
+            options,
+          ) {
+          while semantic_index < semantic_blocks.length() &&
+                semantic_blocks[semantic_index].fragment_index <= fragment_index {
+            semantic_index = semantic_index + 1
+          }
+          while shaped_index < text_paragraphs.length() &&
+                text_paragraphs[shaped_index].fragment_index <= fragment_index {
+            shaped_index = shaped_index + 1
+          }
+          ()
+        } else if options.normalize_plain_text && options.enable_semantic_rules {
           while semantic_index < semantic_blocks.length() &&
                 semantic_blocks[semantic_index].fragment_index == fragment_index {
             let semantic_block = semantic_blocks[semantic_index]
@@ -311,6 +371,7 @@ fn pdf_v2_product_bridge_link_page_text_counts(
   output : PdfV2ConvertPipelineOutput,
   semantic_blocks : Array[PdfV2SemanticBlock],
   text_paragraphs : Array[PdfV2TextOutputParagraph],
+  table_candidates : Array[PdfV2ProductBridgeTableCandidate],
   candidate_semantic_mode : Bool,
   options : PdfV2ProductBridgeOptions,
 ) -> Array[PdfV2ProductBridgePageTextCount] {
@@ -318,9 +379,17 @@ fn pdf_v2_product_bridge_link_page_text_counts(
   if candidate_semantic_mode {
     for block in semantic_blocks {
       if !block.risk_tags.contains("suppress_output") &&
+        !pdf_v2_product_bridge_has_table_for_fragment(
+          table_candidates,
+          block.fragment_index,
+        ) &&
         block.text.trim().to_owned() != "" {
         pdf_v2_product_bridge_increment_page_count(counts, block.page_index)
       }
+    }
+    for table in table_candidates {
+      let fragment = output.fragments[table.fragment_index]
+      pdf_v2_product_bridge_increment_page_count(counts, fragment.page_index)
     }
     if options.emit_low_confidence_notes ||
       options.emit_unsupported_object_notes {
@@ -351,9 +420,17 @@ fn pdf_v2_product_bridge_link_page_text_counts(
   if options.normalize_plain_text && options.enable_semantic_rules {
     for block in semantic_blocks {
       if !block.risk_tags.contains("suppress_output") &&
+        !pdf_v2_product_bridge_has_table_for_fragment(
+          table_candidates,
+          block.fragment_index,
+        ) &&
         block.text.trim().to_owned() != "" {
         pdf_v2_product_bridge_increment_page_count(counts, block.page_index)
       }
+    }
+    for table in table_candidates {
+      let fragment = output.fragments[table.fragment_index]
+      pdf_v2_product_bridge_increment_page_count(counts, fragment.page_index)
     }
   } else if options.normalize_plain_text {
     for paragraph in text_paragraphs {
@@ -371,6 +448,19 @@ fn pdf_v2_product_bridge_link_page_text_counts(
     }
   }
   counts
+}
+
+///|
+fn pdf_v2_product_bridge_has_table_for_fragment(
+  tables : Array[PdfV2ProductBridgeTableCandidate],
+  fragment_index : Int,
+) -> Bool {
+  for table in tables {
+    if table.fragment_index == fragment_index {
+      return true
+    }
+  }
+  false
 }
 
 ///|
@@ -398,6 +488,467 @@ fn pdf_v2_product_bridge_page_text_count(
     }
   }
   0
+}
+
+///|
+fn pdf_v2_product_bridge_table_candidates(
+  fragments : Array[PdfV2FactFragment],
+  options : PdfV2ProductBridgeOptions,
+) -> Array[PdfV2ProductBridgeTableCandidate] {
+  let out : Array[PdfV2ProductBridgeTableCandidate] = []
+  if !options.normalize_plain_text ||
+    !options.enable_semantic_rules ||
+    !options.enable_table_rules {
+    return out
+  }
+  for fragment_index in 0..<fragments.length() {
+    let fragment = fragments[fragment_index]
+    if fragment.kind != PdfV2FactFragmentKind::PlainText {
+      continue
+    }
+    match pdf_v2_product_bridge_table_from_text(fragment.text) {
+      Some(table) =>
+        out.push({
+          fragment_index,
+          rows: table.rows,
+          header_rows: table.header_rows,
+        })
+      None => ()
+    }
+  }
+  out
+}
+
+///|
+fn pdf_v2_product_bridge_push_table_for_fragment(
+  doc : @cor.Document,
+  tables : Array[PdfV2ProductBridgeTableCandidate],
+  fragment_index : Int,
+  emitted : Array[Int],
+  fragments : Array[PdfV2FactFragment],
+  text_flow_candidates : Array[@pdfv2.PdfV2TextFlowCandidate],
+  candidate_semantic_mode : Bool,
+  options : PdfV2ProductBridgeOptions,
+) -> Bool {
+  if emitted.contains(fragment_index) {
+    return true
+  }
+  if candidate_semantic_mode &&
+    pdf_v2_product_bridge_fragment_has_text_flow_candidate(
+      fragments[fragment_index],
+      text_flow_candidates,
+    ) {
+    return false
+  }
+  for table in tables {
+    if table.fragment_index == fragment_index {
+      let fragment = fragments[fragment_index]
+      @cor.push_with_origin(
+        doc,
+        @cor.Block::RichTable({
+          rows: table.rows,
+          header_rows: table.header_rows,
+          hints: Some({
+            format: Some("pdf_v2_text_table"),
+            sheet_state: None,
+            merged_ranges: None,
+            formula_cells: None,
+            semantic_types: None,
+            span_cells: None,
+          }),
+        }),
+        Some(pdf_v2_product_bridge_origin(doc, fragment, options)),
+      )
+      emitted.push(fragment_index)
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn pdf_v2_product_bridge_fragment_has_text_flow_candidate(
+  fragment : PdfV2FactFragment,
+  text_flow_candidates : Array[@pdfv2.PdfV2TextFlowCandidate],
+) -> Bool {
+  for candidate in text_flow_candidates {
+    if candidate.page_index == fragment.page_index &&
+      candidate.block_index == fragment.block_index {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn pdf_v2_product_bridge_table_from_text(
+  text : String,
+) -> PdfV2ProductBridgeTableCandidate? {
+  match pdf_v2_product_bridge_pipe_table_from_text(text) {
+    Some(table) => Some(table)
+    None => pdf_v2_product_bridge_aligned_table_from_text(text)
+  }
+}
+
+///|
+fn pdf_v2_product_bridge_pipe_table_from_text(
+  text : String,
+) -> PdfV2ProductBridgeTableCandidate? {
+  let lines = pdf_v2_product_bridge_table_lines(text)
+  if lines.length() < 2 {
+    return None
+  }
+  let rows : Array[Array[String]] = []
+  let mut separator_seen = false
+  let mut width = 0
+  for i in 0..<lines.length() {
+    let line = lines[i]
+    if !line.contains("|") {
+      return None
+    }
+    if pdf_v2_product_bridge_is_pipe_separator_line(line) {
+      if i != 1 || separator_seen || rows.length() != 1 {
+        return None
+      }
+      separator_seen = true
+      continue
+    }
+    let row = pdf_v2_product_bridge_parse_pipe_row(line)
+    if row.length() < 2 {
+      return None
+    }
+    if width == 0 {
+      width = row.length()
+    } else if row.length() != width {
+      return None
+    }
+    rows.push(row)
+  }
+  if rows.length() < 2 {
+    return None
+  }
+  if separator_seen {
+    Some({ fragment_index: -1, rows, header_rows: 1 })
+  } else if pdf_v2_product_bridge_table_rows_reliable(rows) {
+    Some({
+      fragment_index: -1,
+      rows,
+      header_rows: pdf_v2_product_bridge_infer_table_header_rows(rows),
+    })
+  } else {
+    None
+  }
+}
+
+///|
+fn pdf_v2_product_bridge_aligned_table_from_text(
+  text : String,
+) -> PdfV2ProductBridgeTableCandidate? {
+  let lines = pdf_v2_product_bridge_table_lines(text)
+  if lines.length() < 2 {
+    return None
+  }
+  let rows : Array[Array[String]] = []
+  let mut width = 0
+  for line in lines {
+    if line.contains("|") {
+      return None
+    }
+    let row = pdf_v2_product_bridge_parse_aligned_row(line)
+    if row.length() < 2 {
+      return None
+    }
+    if pdf_v2_product_bridge_table_row_reject(row) {
+      return None
+    }
+    if width == 0 {
+      width = row.length()
+    } else if row.length() != width {
+      return None
+    }
+    rows.push(row)
+  }
+  if rows.length() < 2 || !pdf_v2_product_bridge_table_rows_reliable(rows) {
+    return None
+  }
+  Some({
+    fragment_index: -1,
+    rows,
+    header_rows: pdf_v2_product_bridge_infer_table_header_rows(rows),
+  })
+}
+
+///|
+fn pdf_v2_product_bridge_table_lines(text : String) -> Array[String] {
+  let out : Array[String] = []
+  for
+    raw in text
+    .replace_all(old="\r\n", new="\n")
+    .replace_all(old="\r", new="\n")
+    .split("\n") {
+    let line = raw.to_owned().trim().to_owned()
+    if line != "" {
+      out.push(line)
+    }
+  }
+  out
+}
+
+///|
+fn pdf_v2_product_bridge_parse_pipe_row(line : String) -> Array[String] {
+  let trimmed = line.trim().to_owned()
+  let inner = pdf_v2_product_bridge_trim_edge_pipes(trimmed)
+  let row : Array[String] = []
+  for cell in inner.split("|") {
+    row.push(cell.to_owned().trim().to_owned())
+  }
+  row
+}
+
+///|
+fn pdf_v2_product_bridge_trim_edge_pipes(text : String) -> String {
+  let mut out = text
+  if out.has_prefix("|") {
+    out = out[1:].to_owned()
+  }
+  if out.has_suffix("|") && out.length() > 0 {
+    out = out[:out.length() - 1].to_owned()
+  }
+  out.trim().to_owned()
+}
+
+///|
+fn pdf_v2_product_bridge_is_pipe_separator_line(line : String) -> Bool {
+  let row = pdf_v2_product_bridge_parse_pipe_row(line)
+  if row.length() < 2 {
+    return false
+  }
+  for cell in row {
+    if !pdf_v2_product_bridge_is_pipe_separator_cell(cell) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn pdf_v2_product_bridge_is_pipe_separator_cell(cell : String) -> Bool {
+  let t = cell.trim().to_owned()
+  if t.length() < 3 {
+    return false
+  }
+  let chars = t.to_array()
+  let mut dash_count = 0
+  for i in 0..<chars.length() {
+    let ch = chars[i]
+    if ch == '-' {
+      dash_count = dash_count + 1
+    } else if (ch == ':' && (i == 0 || i + 1 == chars.length())) || ch == ' ' {
+      ()
+    } else {
+      return false
+    }
+  }
+  dash_count >= 3
+}
+
+///|
+fn pdf_v2_product_bridge_parse_aligned_row(line : String) -> Array[String] {
+  let row : Array[String] = []
+  let chars = line.to_array()
+  let mut cell = ""
+  let mut i = 0
+  while i < chars.length() {
+    let ch = chars[i]
+    if ch == ' ' || ch == '\t' {
+      let mut j = i
+      while j < chars.length() && (chars[j] == ' ' || chars[j] == '\t') {
+        j = j + 1
+      }
+      if j - i >= 2 {
+        let value = cell.to_string().trim().to_owned()
+        if value == "" {
+          return []
+        }
+        row.push(value)
+        cell = ""
+      } else {
+        cell = cell + " "
+      }
+      i = j
+    } else {
+      cell = cell + ch.to_string()
+      i = i + 1
+    }
+  }
+  let value = cell.trim().to_owned()
+  if value != "" {
+    row.push(value)
+  }
+  row
+}
+
+///|
+fn pdf_v2_product_bridge_table_rows_reliable(
+  rows : Array[Array[String]],
+) -> Bool {
+  if rows.length() < 2 {
+    return false
+  }
+  let width = rows[0].length()
+  if width < 2 {
+    return false
+  }
+  let mut numeric_count = 0
+  let mut short_label_count = 0
+  let mut cell_count = 0
+  for row in rows {
+    if row.length() != width || pdf_v2_product_bridge_table_row_reject(row) {
+      return false
+    }
+    for cell in row {
+      cell_count = cell_count + 1
+      if pdf_v2_product_bridge_cell_numeric_like(cell) {
+        numeric_count = numeric_count + 1
+      }
+      if pdf_v2_product_bridge_cell_short_label(cell) {
+        short_label_count = short_label_count + 1
+      }
+    }
+  }
+  numeric_count > 0 || short_label_count * 2 >= cell_count
+}
+
+///|
+fn pdf_v2_product_bridge_table_row_reject(row : Array[String]) -> Bool {
+  for cell in row {
+    let t = cell.trim().to_owned()
+    if t == "" {
+      return true
+    }
+    let lower = t.to_lower()
+    if lower.has_prefix("figure ") ||
+      lower.has_prefix("fig. ") ||
+      lower.has_prefix("table ") ||
+      t.has_prefix("图") ||
+      t.has_prefix("表 ") ||
+      t.has_prefix("- ") ||
+      t.has_prefix("* ") ||
+      t.has_prefix("\u{2022} ") ||
+      pdf_v2_product_bridge_starts_with_numbered_list_marker(t) {
+      return true
+    }
+    if pdf_v2_product_bridge_sentence_like_table_cell(t) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn pdf_v2_product_bridge_infer_table_header_rows(
+  rows : Array[Array[String]],
+) -> Int {
+  if rows.length() < 2 {
+    return 0
+  }
+  let first_numeric = pdf_v2_product_bridge_numeric_cell_count(rows[0])
+  let second_numeric = pdf_v2_product_bridge_numeric_cell_count(rows[1])
+  if first_numeric == 0 && second_numeric > 0 {
+    return 1
+  }
+  let mut short_labels = 0
+  for cell in rows[0] {
+    if pdf_v2_product_bridge_cell_short_label(cell) {
+      short_labels = short_labels + 1
+    }
+  }
+  if short_labels * 2 >= rows[0].length() {
+    1
+  } else {
+    0
+  }
+}
+
+///|
+fn pdf_v2_product_bridge_numeric_cell_count(row : Array[String]) -> Int {
+  let mut out = 0
+  for cell in row {
+    if pdf_v2_product_bridge_cell_numeric_like(cell) {
+      out = out + 1
+    }
+  }
+  out
+}
+
+///|
+fn pdf_v2_product_bridge_cell_numeric_like(cell : String) -> Bool {
+  let t = cell
+    .trim()
+    .to_owned()
+    .replace_all(old=",", new="")
+    .replace_all(old="%", new="")
+  if t == "" {
+    return false
+  }
+  let chars = t.to_array()
+  let mut digit_count = 0
+  for i in 0..<chars.length() {
+    let ch = chars[i]
+    if ch >= '0' && ch <= '9' {
+      digit_count = digit_count + 1
+    } else if ch == '.' || (i == 0 && (ch == '-' || ch == '+')) || ch == '$' {
+      ()
+    } else {
+      return false
+    }
+  }
+  digit_count > 0
+}
+
+///|
+fn pdf_v2_product_bridge_cell_short_label(cell : String) -> Bool {
+  let t = cell.trim().to_owned()
+  t != "" &&
+  t.length() <= 32 &&
+  !pdf_v2_product_bridge_cell_numeric_like(t) &&
+  !pdf_v2_product_bridge_sentence_like_table_cell(t)
+}
+
+///|
+fn pdf_v2_product_bridge_sentence_like_table_cell(cell : String) -> Bool {
+  let t = cell.trim().to_owned()
+  if t.length() < 24 {
+    return false
+  }
+  let words = t.split(" ").length()
+  (t.has_suffix(".") || t.has_suffix("!") || t.has_suffix("?")) && words >= 5
+}
+
+///|
+fn pdf_v2_product_bridge_starts_with_numbered_list_marker(
+  text : String,
+) -> Bool {
+  let chars = text.to_array()
+  if chars.length() < 4 {
+    return false
+  }
+  let mut i = 0
+  let mut saw_digit = false
+  while i < chars.length() {
+    let ch = chars[i]
+    if ch >= '0' && ch <= '9' {
+      saw_digit = true
+      i = i + 1
+      continue
+    }
+    break
+  }
+  if !saw_digit || i + 1 >= chars.length() {
+    return false
+  }
+  (chars[i] == '.' || chars[i] == ')' || chars[i] == '\u{3001}') &&
+  (chars[i + 1] == ' ' || chars[i + 1] == '\t')
 }
 
 ///|

@@ -575,3 +575,19 @@ for product image placeholder parity.
   with stable `.metadata` paths and `asset_origins`.
 - Parser facts do not imply fake bytes, OCR, caption inference, table recovery,
   v1 fallback, or model predictions.
+
+## Reset 9E Table Parity
+
+Text-table parity is implemented in `convert/pdf_v2`, not as final parser
+semantics.
+
+- Parser text and text-flow facts remain factual inputs with source refs,
+  normalized lines, boundary signals, and reason tags.
+- Convert lowers only conservative text-derived tables: coherent pipe tables
+  and simple aligned rows that pass product-bridge reliability guards.
+- Malformed rows, ordinary paragraphs, captions, list-like text, and
+  parser-backed candidate text that would duplicate raw fragments remain plain
+  text.
+- Parser still does not perform visual table region recovery, merged-cell
+  reconstruction, image-table OCR, caption inference, v1 fallback, model
+  prediction, or external data loading.

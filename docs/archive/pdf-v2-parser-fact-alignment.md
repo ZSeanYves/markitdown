@@ -556,3 +556,27 @@ Current status:
   image bytes are exported yet.
 - No fake image bytes, OCR, caption inference, table-from-image recovery,
   layout-model hook, v1 fallback, or model prediction was added.
+
+## Reset 9E Table Parity
+
+Reset 9E keeps table semantics in convert while consuming parser text facts:
+
+```text
+PdfV2FactFragment.text / PdfV2TextFlowCandidate guards
+  -> conservative product bridge table detection
+  -> @core.RichTable(TableData)
+```
+
+Current status:
+
+- Parser text-flow facts remain evidence; they do not become final parser table
+  roles.
+- Convert lowers coherent pipe tables and reliable simple aligned text tables
+  to `RichTable(TableData)` under `enable_table_rules`.
+- Parser-backed candidate mode guards against duplicate table emission from the
+  raw fragment when a parser text-flow candidate already represents that block.
+- Malformed table-like text, ordinary paragraphs, captions, list-like rows, and
+  image-only evidence remain plain text or image metadata placeholders.
+- No image OCR, arbitrary visual table detection, merged-cell reconstruction,
+  multi-column reading-order recovery, v1 fallback, external model/data file, or
+  runtime model hook was added.

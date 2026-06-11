@@ -311,6 +311,7 @@ pub(all) struct PdfV2ProductBridgeOptions {
   enable_list_rules : Bool
   enable_noise_guards : Bool
   enable_uri_link_rules : Bool
+  enable_table_rules : Bool
   suppress_page_number_like_noise : Bool
   suppress_repeated_page_artifact_noise : Bool
   max_output_chars : Int?

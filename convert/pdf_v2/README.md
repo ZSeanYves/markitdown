@@ -243,9 +243,10 @@ Current status:
 - `PdfV2ModelHint` and semantic arbitration remain present, but model hints are
   absent at runtime and no model/data file is loaded or trained.
 
-The product bridge still only maps semantic text blocks to core paragraphs,
-headings, list items, and blank lines. It does not lower captions, tables,
-images, links, forms, OCR, or v1 PDF fallback behavior.
+The product bridge maps semantic text blocks to core paragraphs, headings, list
+items, blank lines, safe URI links, metadata-only image placeholders, and
+conservative text tables. It does not lower captions, forms, OCR, or v1 PDF
+fallback behavior.
 
 ## Reset 9A Metadata Sidecars And Origin
 
@@ -333,3 +334,22 @@ without adding byte export or OCR.
   image tables, or fall back to v1 PDF.
 - Model hooks remain absent at runtime; image parity is deterministic
   parser-fact consumption.
+
+## Reset 9E Table Parity
+
+Reset 9E adds conservative text-table lowering in the product bridge.
+
+- The product bridge emits canonical `@core.Block::RichTable(TableData)` for
+  clear pipe tables and reliable simple aligned text tables.
+- Table rules are gated by normalized semantic output and the new
+  `enable_table_rules` option.
+- Pipe tables require coherent row width and support a standard Markdown
+  separator row as the header signal.
+- Aligned tables require at least two rows, at least two stable columns, and
+  numeric or short-label evidence; ordinary sentences, captions, lists, and
+  malformed rows stay paragraphs.
+- Parser text-flow candidate mode is guarded against duplicate raw-fragment
+  table emission.
+- This reset does not do arbitrary visual table detection, merged cells,
+  multi-column reading-order repair, image-table OCR, caption inference, v1
+  fallback, or model loading.

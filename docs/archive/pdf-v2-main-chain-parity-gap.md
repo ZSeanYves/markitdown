@@ -286,11 +286,12 @@
 | Semantic role decision shell | synthetic-only / scaffold | `pdf_v2_decision.mbt`; classifier gate tests | `PdfV2BlockRole` includes semantic roles but is not product lowering. Seal or delete before product registration unless intentionally revived later. |
 | Fact-only lowerer | partial | `pdf_v2_fact_lowering.mbt`; `pdf_v2_convert_boundary_test.mbt` | Emits plain text, optional page break fragments, optional notes/placeholders. |
 | Experimental path pipeline | real / partial | `pdf_v2_pipeline.mbt`; pipeline smoke tests | Runs parser model -> layout -> features -> optional gate -> fact lowerer from real PDF path. |
-| Product `@core.Document` output | partial | `pdf_v2_product_bridge.mbt`; product bridge tests; `pdf_v2_converter.mbt`; dispatcher tests | Converts pipeline results to core documents for text blocks, safe URI inline links, metadata-only image placeholders, optional notes, optional explicit page-break blank lines, and fail-closed errors. Reset 3 routes dispatcher-facing PDF through this bridge. |
+| Product `@core.Document` output | partial | `pdf_v2_product_bridge.mbt`; product bridge tests; `pdf_v2_converter.mbt`; dispatcher tests | Converts pipeline results to core documents for text blocks, safe URI inline links, metadata-only image placeholders, conservative text tables, optional notes, optional explicit page-break blank lines, and fail-closed errors. Reset 3 routes dispatcher-facing PDF through this bridge. |
 | Markdown headings/lists/links | partial | product bridge and semantic tests | Text semantics and safe URI inline links are rule/fact based; unsafe/ambiguous/non-URI links stay plain text. |
 | Markdown images/assets | partial / metadata-only | product bridge image tests | v2 emits `ImageBlock` metadata placeholders with stable `.metadata` paths and asset origins; it does not export image bytes or infer captions. |
-| Markdown tables/forms/outlines | not implemented | lowerer tests and boundary guard | v2 still does not emit table, form, outline, caption, or figure product blocks. |
-| Metadata/origin product surface | partial | `pdf_v2_product_bridge.mbt`; product bridge origin, metadata, link, and image tests | Block origins preserve source name, page, block index, and first object ref; document metadata sidecars use parser metadata. Image placeholders are indexed in `asset_origins`; table/link sidecar payload parity still depends on later core block lowering/metadata work. |
+| Markdown tables | partial / conservative | product bridge table tests | v2 emits `RichTable(TableData)` for coherent pipe tables and reliable simple aligned text tables; malformed rows, captions, lists, paragraphs, image tables, and merged/layout tables stay out of scope. |
+| Markdown forms/outlines | not implemented | lowerer tests and boundary guard | v2 still does not emit form, outline, caption, or figure product blocks. |
+| Metadata/origin product surface | partial | `pdf_v2_product_bridge.mbt`; product bridge origin, metadata, link, image, and table tests | Block origins preserve source name, page, block index, and first object ref; document metadata sidecars use parser metadata. Image placeholders are indexed in `asset_origins`; richer table/link sidecar payload parity still depends on later metadata work. |
 | Diagnostics renderer/goldens | removed | this reset | Not current route. |
 
 ## 5. v1 vs v2 Gap Matrix
@@ -308,7 +309,7 @@
 | Image captions | Conservative caption association | No caption association/lowering | Capability missing | Medium-high | P1 |
 | URI links | Inline `RichParagraph` links for safe high-confidence URI annotations | Safe page-local URI inline links supported; ambiguous/unsafe/non-URI links stay plain | Remaining sidecar/provenance and complex association gap | Medium | P1 partial |
 | Internal/named links | Annotation appendix notes | Destination/link facts partial | Product policy missing | Medium | P2 |
-| Tables | `RichTable` for selected aligned tables | No table recovery/lowering | Capability missing | High | P1 |
+| Tables | `RichTable` for selected aligned tables | Conservative pipe/simple aligned text tables lower to `RichTable`; visual/layout tables remain absent | Layout/cell recovery gap | High | P1 partial |
 | Forms | Visible forms appendix | Form facts partial | Product policy missing | Medium | P2 |
 | Annotations | Visible/printable annotation appendix | Annotation facts partial | Product policy missing | Medium | P2 |
 | Outlines | Optional bookmarks section | Outline/destination metadata candidates | Product policy missing | Medium | P2 |
@@ -971,3 +972,33 @@
   - real image byte export/decode, OCR, caption inference, image-table
     recovery, complex placement/order repair, v1 fallback, and runtime model
     hooks.
+
+## Reset 9E Table Parity
+
+- focus:
+  - add conservative text-table product parity after link/image/artifact work.
+  - emit core `RichTable(TableData)` only for clear text evidence.
+  - keep low-confidence or malformed table-like content as paragraphs.
+- v1/core audit:
+  - core has canonical `RichTable(TableData)` with explicit `header_rows` and
+    markdown rendering support.
+  - v1 PDF detects aligned text tables conservatively before consuming source
+    text blocks; image overlap, captions, list-like text, and paragraph-like
+    regions are guarded out.
+- implementation:
+  - product bridge option `enable_table_rules` gates table lowering alongside
+    normalized semantic output.
+  - pipe tables lower when rows have coherent width, with a Markdown separator
+    row treated as header evidence.
+  - simple aligned text tables lower when rows split into stable columns and
+    have numeric or short-label evidence.
+  - parser-candidate semantic mode avoids duplicate raw-fragment table emission
+    when a parser text-flow candidate already represents that fragment.
+- validation:
+  - focused tests cover pipe table recognition, reliable aligned table
+    recognition, ordinary paragraph fallback, malformed-row fallback,
+    semantic-disabled behavior, image/OCR non-overreach, and duplicate guards.
+- still out of scope:
+  - image-table OCR, arbitrary visual table detection, merged cells, complex
+    layout recovery, multi-column reading order, caption inference, v1 fallback,
+    and runtime model hooks.
