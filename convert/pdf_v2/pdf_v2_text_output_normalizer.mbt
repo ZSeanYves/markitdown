@@ -641,13 +641,31 @@ fn pdf_v2_noise_key(text : String) -> String {
 ///|
 fn pdf_v2_is_repeated_page_artifact_candidate(text : String) -> Bool {
   let t = pdf_v2_normalize_paragraph_text(text)
-  if t == "" || t.length() > 80 || pdf_v2_word_count(t) > 8 {
+  let word_count = pdf_v2_word_count(t)
+  if t == "" || t.length() > 80 || word_count > 8 {
     return false
   }
-  if pdf_v2_ends_sentence(t) && pdf_v2_word_count(t) >= 5 {
+  if pdf_v2_ends_sentence(t) && word_count >= 5 {
     return false
   }
   let lower = t.to_lower()
+  if pdf_v2_repeated_line_has_artifact_keyword(lower) {
+    return true
+  }
+  if pdf_v2_repeated_line_has_title_shape(t) {
+    return false
+  }
+  if pdf_v2_repeated_line_has_mixed_numeric_content(t) {
+    return false
+  }
+  if word_count <= 3 && t.length() <= 40 && !pdf_v2_ends_sentence(t) {
+    return true
+  }
+  false
+}
+
+///|
+fn pdf_v2_repeated_line_has_artifact_keyword(lower : String) -> Bool {
   lower.contains("header") ||
   lower.contains("footer") ||
   lower.contains("confidential") ||
@@ -658,6 +676,65 @@ fn pdf_v2_is_repeated_page_artifact_candidate(text : String) -> Bool {
 }
 
 ///|
+fn pdf_v2_repeated_line_has_mixed_numeric_content(text : String) -> Bool {
+  let mut has_digit = false
+  let mut has_letter = false
+  for ch in text {
+    if pdf_v2_is_ascii_digit(ch) {
+      has_digit = true
+    } else if pdf_v2_is_ascii_letter(ch) {
+      has_letter = true
+    }
+  }
+  has_digit && has_letter
+}
+
+///|
+fn pdf_v2_repeated_line_has_title_shape(text : String) -> Bool {
+  let lower = text.trim().to_owned().to_lower()
+  lower == "abstract" ||
+  lower == "introduction" ||
+  lower == "background" ||
+  lower == "method" ||
+  lower == "methods" ||
+  lower == "results" ||
+  lower == "discussion" ||
+  lower == "summary" ||
+  lower == "details" ||
+  lower == "conclusion" ||
+  lower == "references" ||
+  (text.has_prefix("第") && (text.contains("章") || text.contains("节"))) ||
+  pdf_v2_repeated_line_has_english_title_shape(text)
+}
+
+///|
+fn pdf_v2_repeated_line_has_english_title_shape(text : String) -> Bool {
+  let word_count = pdf_v2_word_count(text)
+  if word_count < 2 || word_count > 6 {
+    return false
+  }
+  let mut latin_words = 0
+  let mut capitalized_words = 0
+  for raw in text.split(" ") {
+    let word = raw.trim().to_owned()
+    if word == "" {
+      continue
+    }
+    match pdf_v2_first_char(word) {
+      Some(ch) =>
+        if (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') {
+          latin_words = latin_words + 1
+          if ch >= 'A' && ch <= 'Z' {
+            capitalized_words = capitalized_words + 1
+          }
+        }
+      None => ()
+    }
+  }
+  latin_words >= 2 && capitalized_words >= 2
+}
+
+///|
 fn pdf_v2_is_page_number_like_noise(text : String) -> Bool {
   let t = pdf_v2_normalize_paragraph_text(text)
   if t == "" {
@@ -665,6 +742,11 @@ fn pdf_v2_is_page_number_like_noise(text : String) -> Bool {
   }
   let compact = t.replace_all(old=" ", new="")
   if compact.length() <= 4 && pdf_v2_all_ascii_digits(compact) {
+    return true
+  }
+  let lower = t.to_lower()
+  if lower.has_prefix("p. ") &&
+    pdf_v2_all_ascii_digits(lower[3:].trim().to_owned()) {
     return true
   }
   if pdf_v2_looks_like_page_label(t) ||

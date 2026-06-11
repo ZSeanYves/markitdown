@@ -175,7 +175,7 @@ fn pdf_v2_semantic_noise_guard_decision(
     )
   }
   if unit.signals.parser_fact_backed &&
-    unit.signals.parser_artifact_candidate_score >= 0.80 &&
+    unit.signals.parser_artifact_candidate_score >= 0.90 &&
     !unit.signals.looks_like_page_number &&
     options.suppress_repeated_page_artifact_noise {
     return Some(

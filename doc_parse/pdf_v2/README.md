@@ -540,3 +540,19 @@ conservative inline link parity.
   are product bridge policy, not parser semantics.
 - Ambiguous pages, unsafe/malformed URI candidates, images, tables, captions,
   forms, OCR, v1 fallback, and model hooks remain out of parser scope.
+
+## Reset 9C Repeated Header Footer Variants
+
+Parser page-artifact facts now provide stronger high-confidence evidence for
+repeated header/footer and page-number suppression.
+
+- `PdfV2LineTextSignal` recognizes additional standalone page-number variants,
+  including fraction labels, `p. N`, and spaced CJK page labels.
+- `PdfV2PageArtifactCandidate` repeated-line construction tracks page bands and
+  avoids promoting body-band repeats into high-confidence artifacts.
+- Repeated top/bottom band lines become `HeaderLike`/`FooterLike` candidates
+  with high confidence when they repeat across pages.
+- Normal body titles, `第一章` chapter labels, and mixed numeric content remain
+  parser facts, not page artifacts.
+- Convert still owns the final suppress/preserve decision; parser facts do not
+  lower images, links, tables, captions, forms, OCR, or model predictions.

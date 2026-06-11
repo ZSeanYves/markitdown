@@ -2558,6 +2558,123 @@ test "pdf v2 product bridge suppresses repeated short header footer artifacts" {
 }
 
 ///|
+test "pdf v2 product bridge suppresses repeated short line variants" {
+  let fragments = [
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "DRAFT",
+      Some(0),
+      [phase14_text_ref(0)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Alpha body sentence.",
+      Some(0),
+      [phase14_text_ref(1)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "DRAFT",
+      Some(1),
+      [phase14_text_ref(2)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Beta body sentence.",
+      Some(1),
+      [phase14_text_ref(3)],
+    ),
+  ]
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok(2, fragments),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("Alpha body sentence."))
+  assert_true(markdown.contains("Beta body sentence."))
+  assert_true(!markdown.contains("DRAFT"))
+}
+
+///|
+test "pdf v2 product bridge preserves normal repeated titles" {
+  let fragments = [
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Project Overview",
+      Some(0),
+      [phase14_text_ref(0)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Alpha body sentence.",
+      Some(0),
+      [phase14_text_ref(1)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Project Overview",
+      Some(1),
+      [phase14_text_ref(2)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Beta body sentence.",
+      Some(1),
+      [phase14_text_ref(3)],
+    ),
+  ]
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok(2, fragments),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("Project Overview"))
+  assert_true(markdown.contains("Alpha body sentence."))
+  assert_true(markdown.contains("Beta body sentence."))
+}
+
+///|
+test "pdf v2 product bridge preserves cjk chapter titles" {
+  let fragments = [
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "第一章 绪论",
+      Some(0),
+      [phase14_text_ref(0)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "本章介绍项目背景。",
+      Some(0),
+      [phase14_text_ref(1)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "第一章 绪论",
+      Some(1),
+      [phase14_text_ref(2)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "本章继续介绍范围。",
+      Some(1),
+      [phase14_text_ref(3)],
+    ),
+  ]
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok(2, fragments),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("第一章 绪论"))
+  assert_true(markdown.contains("本章介绍项目背景。"))
+  assert_true(markdown.contains("本章继续介绍范围。"))
+}
+
+///|
 test "pdf v2 product bridge keeps normal numeric content when noise suppression is on" {
   let fragments = [
     phase20_fragment(
@@ -2572,6 +2689,18 @@ test "pdf v2 product bridge keeps normal numeric content when noise suppression 
       Some(0),
       [phase14_text_ref(1)],
     ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Revenue 2026",
+      Some(0),
+      [phase14_text_ref(2)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Revenue 2026",
+      Some(1),
+      [phase14_text_ref(3)],
+    ),
   ]
   let doc = phase20_bridge_document(
     phase20_pipeline_ok(1, fragments),
@@ -2581,6 +2710,7 @@ test "pdf v2 product bridge keeps normal numeric content when noise suppression 
 
   assert_true(markdown.contains("Revenue 2026 was 1234 units."))
   assert_true(markdown.contains("Section 3 discusses growth."))
+  assert_true(markdown.contains("Revenue 2026"))
 }
 
 ///|
@@ -2893,6 +3023,92 @@ test "pdf v2 product bridge suppresses parser page artifact candidates" {
     @cor.Block::Paragraph(text) => assert_true(text == "Actual body sentence.")
     _ => fail("expected body paragraph only")
   }
+}
+
+///|
+test "pdf v2 product bridge suppresses parser repeated artifact candidates" {
+  let first_header = {
+    ..phase14_line(0, "Running Footer", phase14_text_ref(0)),
+    bbox: Some({ x0: 72.0, y0: 32.0, x1: 240.0, y1: 50.0 }),
+  }
+  let first_body = phase14_line(1, "Alpha body sentence.", phase14_text_ref(1))
+  let second_header = {
+    ..phase14_line(0, "Running Footer", phase14_text_ref(2)),
+    page_index: Some(1),
+    source_refs: [{ ..phase14_text_ref(2), page_index: Some(1) }],
+    bbox: Some({ x0: 72.0, y0: 32.0, x1: 240.0, y1: 50.0 }),
+  }
+  let second_body = {
+    ..phase14_line(1, "Beta body sentence.", phase14_text_ref(3)),
+    page_index: Some(1),
+    source_refs: [{ ..phase14_text_ref(3), page_index: Some(1) }],
+  }
+  let first_page = {
+    ..phase14_page(),
+    blocks: [
+      phase14_block(
+        0,
+        "Running Footer",
+        [first_header],
+        @pdfv2.PdfV2TextDecodeConfidence::High,
+      ),
+      phase14_block(
+        1,
+        "Alpha body sentence.",
+        [first_body],
+        @pdfv2.PdfV2TextDecodeConfidence::High,
+      ),
+    ],
+    lines: [first_header, first_body],
+  }
+  let second_page = {
+    ..phase14_page(),
+    page_index: 1,
+    source_ref: { ..phase14_page_ref(), page_index: Some(1) },
+    blocks: [
+      {
+        ..phase14_block(
+          0,
+          "Running Footer",
+          [second_header],
+          @pdfv2.PdfV2TextDecodeConfidence::High,
+        ),
+        page_index: Some(1),
+      },
+      {
+        ..phase14_block(
+          1,
+          "Beta body sentence.",
+          [second_body],
+          @pdfv2.PdfV2TextDecodeConfidence::High,
+        ),
+        page_index: Some(1),
+      },
+    ],
+    lines: [second_header, second_body],
+  }
+  let model = {
+    ..phase14_model([]),
+    page_count: 2,
+    pages: [first_page, second_page],
+  }
+  let lowered = @pdfv2conv.pdf_v2_lower_fact_model(
+    phase14_default_input(model, None),
+  )
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok_with_candidates(
+      2,
+      lowered.fragments,
+      lowered.text_flow_candidates,
+      [],
+    ),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("Alpha body sentence."))
+  assert_true(markdown.contains("Beta body sentence."))
+  assert_true(!markdown.contains("Running Footer"))
 }
 
 ///|

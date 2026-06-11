@@ -83,6 +83,7 @@ fn pdf_v2_page_artifact_repeated_lines(
   let pages_by_text : Array[Array[Int]] = []
   let refs_by_text : Array[Array[PdfV2SourceRef]] = []
   let band_by_text : Array[PdfV2PagePositionBand] = []
+  let body_seen_by_text : Array[Bool] = []
   for page in model.pages {
     for line in page.lines {
       let t = line.text_signal.normalized_text
@@ -102,6 +103,7 @@ fn pdf_v2_page_artifact_repeated_lines(
         pages_by_text.push([page.page_index])
         refs_by_text.push(line.source_refs)
         band_by_text.push(band)
+        body_seen_by_text.push(band == PdfV2PagePositionBand::Body)
       } else {
         if !pages_by_text[found].contains(page.page_index) {
           pages_by_text[found].push(page.page_index)
@@ -111,12 +113,15 @@ fn pdf_v2_page_artifact_repeated_lines(
           band != PdfV2PagePositionBand::Unknown {
           band_by_text[found] = band
         }
+        if band == PdfV2PagePositionBand::Body {
+          body_seen_by_text[found] = true
+        }
       }
     }
   }
   let out : Array[PdfV2PageArtifactCandidate] = []
   for i in 0..<texts.length() {
-    if pages_by_text[i].length() >= 2 {
+    if pages_by_text[i].length() >= 2 && !body_seen_by_text[i] {
       let band = band_by_text[i]
       let kind = match band {
         Top => PdfV2PageArtifactKind::HeaderLike
@@ -129,12 +134,11 @@ fn pdf_v2_page_artifact_repeated_lines(
         page_indices: pages_by_text[i],
         repeat_count: pages_by_text[i].length(),
         position_band: band,
-        confidence: if band == PdfV2PagePositionBand::Top ||
-          band == PdfV2PagePositionBand::Bottom {
-          0.88
-        } else {
-          0.82
-        },
+        confidence: pdf_v2_page_artifact_repeated_confidence(
+          band,
+          pages_by_text[i].length(),
+          model.page_count,
+        ),
         reason_tags: [
           "page_artifact_candidate", "parser_owned_page_artifact_candidate", "repeated_short_line",
         ],
@@ -143,6 +147,23 @@ fn pdf_v2_page_artifact_repeated_lines(
     }
   }
   out
+}
+
+///|
+fn pdf_v2_page_artifact_repeated_confidence(
+  band : PdfV2PagePositionBand,
+  repeat_count : Int,
+  page_count : Int,
+) -> Double {
+  if band == PdfV2PagePositionBand::Top || band == PdfV2PagePositionBand::Bottom {
+    if page_count <= 2 || repeat_count >= 3 {
+      0.92
+    } else {
+      0.90
+    }
+  } else {
+    0.82
+  }
 }
 
 ///|

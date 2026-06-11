@@ -286,6 +286,7 @@ fn pdf_v2_product_bridge_has_actionable_text_flow_candidates(
 ) -> Bool {
   for candidate in text_flow_candidates {
     if candidate.reason_tags.contains("inline_list_split") ||
+      candidate.reason_tags.contains("page_artifact_fact_attached") ||
       candidate.boundary_signal.list_candidate_score >= 0.70 {
       return true
     }

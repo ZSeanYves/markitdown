@@ -902,3 +902,34 @@
   - complex geometric link association, fake link labels, OCR, v1 fallback, and
     runtime model hooks.
   - link metadata sidecar payload parity beyond the core inline link block.
+
+## Reset 9C Repeated Header Footer Variants
+
+- focus:
+  - suppress repeated short line artifacts, repeated top/bottom page-band
+    headers/footers, standalone page-number variants, CJK page labels, and
+    broken page-prefix patterns.
+  - keep suppression high confidence and preserve normal repeated titles,
+    `第一章` chapter labels, and numeric body content.
+- implementation:
+  - parser line signals recognize `p. N`, fraction labels, and spaced CJK page
+    labels as page-number-like facts.
+  - parser repeated `PageArtifactCandidate` construction tracks page bands and
+    avoids promoting body-band repeats.
+  - repeated top/bottom band artifacts receive high confidence so the semantic
+    noise guard can suppress them; lower-confidence body/unknown repeated facts
+    do not cross the product suppression threshold.
+  - product bridge candidate mode now treats parser-attached page artifacts as
+    actionable evidence.
+  - synthetic/fragment fallback repeated-line suppression is less keyword
+    fragile but preserves title-shaped and mixed numeric content.
+- validation:
+  - focused parser tests cover repeated edge header/footer candidates, page
+    number variants, repeated body titles, `第一章`, and numeric content.
+  - focused product tests cover repeated footer/header suppression, repeated
+    short-line variants, page numbers, normal repeated titles, CJK chapter
+    labels, parser artifact candidates, and numeric body content.
+- still out of scope:
+  - image/link/table/caption/form lowering changes.
+  - full layout recovery, column detection, OCR, v1 fallback, and runtime model
+    hooks.

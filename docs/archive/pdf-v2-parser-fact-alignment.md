@@ -504,3 +504,30 @@ Current status:
   lowering was added.
 - The model hook remains absent at runtime; URI link parity is deterministic
   rule/fact consumption only.
+
+## Reset 9C Repeated Header Footer Variants
+
+Reset 9C improves parser-owned page artifact facts and keeps the convert
+semantic boundary intact:
+
+```text
+PdfV2LineTextSignal
+  -> PdfV2PageArtifactCandidate
+  -> PdfV2TextFlowCandidate.artifact_refs
+  -> convert semantic noise guard
+```
+
+Current status:
+
+- Parser line signals recognize more page-number variants, including `p. N`,
+  fraction labels, and spaced CJK page labels.
+- Repeated artifact candidates track top/body/bottom bands and avoid
+  high-confidence suppression facts when the repeated text appears in the body
+  band.
+- Top/bottom repeated lines can become high-confidence `HeaderLike` or
+  `FooterLike` facts; normal repeated titles, `第一章` chapter labels, and mixed
+  numeric body content remain ordinary text facts.
+- Convert consumes attached page-artifact facts only through the semantic noise
+  guard and requires high confidence for repeated non-page-number suppression.
+- No image, link, table, caption, form, OCR, layout-model, v1 fallback, or
+  runtime model hook was added.

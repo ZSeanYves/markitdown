@@ -33,6 +33,16 @@ fn reset8_line(
   line_index : Int,
   text : String,
 ) -> @pdfv2.PdfV2LineCandidate {
+  reset8_line_with_bbox(page_index, line_index, text, None)
+}
+
+///|
+fn reset8_line_with_bbox(
+  page_index : Int,
+  line_index : Int,
+  text : String,
+  bbox : @pdfv2.PdfV2BBox?,
+) -> @pdfv2.PdfV2LineCandidate {
   let source_ref = reset8_text_ref(page_index, line_index)
   {
     page_index: Some(page_index),
@@ -52,11 +62,53 @@ fn reset8_line(
       [source_ref],
       ["line_candidate"],
     ),
-    bbox: None,
+    bbox,
     baseline: None,
     writing_direction: @pdfv2.PdfV2WritingDirection::Unknown,
     rotation: None,
   }
+}
+
+///|
+fn reset8_top_line(
+  page_index : Int,
+  line_index : Int,
+  text : String,
+) -> @pdfv2.PdfV2LineCandidate {
+  reset8_line_with_bbox(
+    page_index,
+    line_index,
+    text,
+    Some({ x0: 72.0, y0: 742.0, x1: 300.0, y1: 760.0 }),
+  )
+}
+
+///|
+fn reset8_bottom_line(
+  page_index : Int,
+  line_index : Int,
+  text : String,
+) -> @pdfv2.PdfV2LineCandidate {
+  reset8_line_with_bbox(
+    page_index,
+    line_index,
+    text,
+    Some({ x0: 72.0, y0: 32.0, x1: 300.0, y1: 50.0 }),
+  )
+}
+
+///|
+fn reset8_body_line(
+  page_index : Int,
+  line_index : Int,
+  text : String,
+) -> @pdfv2.PdfV2LineCandidate {
+  reset8_line_with_bbox(
+    page_index,
+    line_index,
+    text,
+    Some({ x0: 72.0, y0: 360.0, x1: 300.0, y1: 378.0 }),
+  )
 }
 
 ///|
@@ -345,4 +397,98 @@ test "pdf v2 page artifact candidates stay conservative" {
   for artifact in artifacts {
     assert_true(artifact.normalized_text != "第一章 绪论")
   }
+}
+
+///|
+test "pdf v2 page artifact candidates classify repeated edge headers and footers" {
+  let first = reset8_page(0, [
+    reset8_block(0, 0, [reset8_top_line(0, 0, "Confidential")]),
+    reset8_block(0, 1, [reset8_body_line(0, 1, "Alpha body sentence.")]),
+    reset8_block(0, 2, [reset8_bottom_line(0, 2, "draft footer")]),
+  ])
+  let second = reset8_page(1, [
+    reset8_block(1, 0, [reset8_top_line(1, 0, "Confidential")]),
+    reset8_block(1, 1, [reset8_body_line(1, 1, "Beta body sentence.")]),
+    reset8_block(1, 2, [reset8_bottom_line(1, 2, "draft footer")]),
+  ])
+  let artifacts = @pdfv2.pdf_v2_build_page_artifact_candidates(
+    reset8_model([first, second]),
+  )
+
+  let mut header_seen = false
+  let mut footer_seen = false
+  for artifact in artifacts {
+    if artifact.normalized_text == "Confidential" {
+      header_seen = true
+      assert_true(artifact.kind == @pdfv2.PdfV2PageArtifactKind::HeaderLike)
+      assert_true(artifact.position_band == @pdfv2.PdfV2PagePositionBand::Top)
+      assert_true(artifact.confidence >= 0.90)
+    }
+    if artifact.normalized_text == "draft footer" {
+      footer_seen = true
+      assert_true(artifact.kind == @pdfv2.PdfV2PageArtifactKind::FooterLike)
+      assert_true(
+        artifact.position_band == @pdfv2.PdfV2PagePositionBand::Bottom,
+      )
+      assert_true(artifact.confidence >= 0.90)
+    }
+  }
+  assert_true(header_seen)
+  assert_true(footer_seen)
+}
+
+///|
+test "pdf v2 page artifact candidates preserve repeated body titles and content" {
+  let first = reset8_page(0, [
+    reset8_block(0, 0, [reset8_body_line(0, 0, "Project Overview")]),
+    reset8_block(0, 1, [reset8_body_line(0, 1, "第一章 绪论")]),
+    reset8_block(0, 2, [reset8_body_line(0, 2, "Revenue 2026")]),
+  ])
+  let second = reset8_page(1, [
+    reset8_block(1, 0, [reset8_body_line(1, 0, "Project Overview")]),
+    reset8_block(1, 1, [reset8_body_line(1, 1, "第一章 绪论")]),
+    reset8_block(1, 2, [reset8_body_line(1, 2, "Revenue 2026")]),
+  ])
+  let artifacts = @pdfv2.pdf_v2_build_page_artifact_candidates(
+    reset8_model([first, second]),
+  )
+
+  for artifact in artifacts {
+    assert_true(artifact.normalized_text != "Project Overview")
+    assert_true(artifact.normalized_text != "第一章 绪论")
+    assert_true(artifact.normalized_text != "Revenue 2026")
+  }
+}
+
+///|
+test "pdf v2 line signals recognize standalone page number variants" {
+  let p_label = @pdfv2.pdf_v2_build_line_text_signal(
+    "p. 7",
+    @pdfv2.PdfV2TextDecodeConfidence::High,
+    [reset8_text_ref(0, 0)],
+    ["line_candidate"],
+  )
+  let fraction = @pdfv2.pdf_v2_build_line_text_signal(
+    "3/10",
+    @pdfv2.PdfV2TextDecodeConfidence::High,
+    [reset8_text_ref(0, 1)],
+    ["line_candidate"],
+  )
+  let cjk_fraction = @pdfv2.pdf_v2_build_line_text_signal(
+    "第 3/10 页",
+    @pdfv2.PdfV2TextDecodeConfidence::High,
+    [reset8_text_ref(0, 2)],
+    ["line_candidate"],
+  )
+  let chapter = @pdfv2.pdf_v2_build_line_text_signal(
+    "第一章 绪论",
+    @pdfv2.PdfV2TextDecodeConfidence::High,
+    [reset8_text_ref(0, 3)],
+    ["line_candidate"],
+  )
+
+  assert_true(p_label.starts_with_page_number)
+  assert_true(fraction.starts_with_page_number)
+  assert_true(cjk_fraction.starts_with_page_number)
+  assert_true(!chapter.starts_with_page_number)
 }

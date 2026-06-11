@@ -418,6 +418,9 @@ fn pdf_v2_line_signal_page_number_like(text : String) -> Bool {
   if lower.has_prefix("p. ") {
     return pdf_v2_line_signal_ascii_digit_tail(lower[3:].to_owned())
   }
+  if pdf_v2_line_signal_fraction_page_number(t) {
+    return true
+  }
   pdf_v2_line_signal_cjk_page_number(t)
 }
 
@@ -455,8 +458,26 @@ fn pdf_v2_line_signal_dash_wrapped_page_number(text : String) -> Bool {
 }
 
 ///|
+fn pdf_v2_line_signal_fraction_page_number(text : String) -> Bool {
+  let compact = text.replace_all(old=" ", new="")
+  let parts = compact.split("/").to_array()
+  if parts.length() != 2 {
+    return false
+  }
+  let left = parts[0].trim().to_owned()
+  let right = parts[1].trim().to_owned()
+  left != "" &&
+  right != "" &&
+  left.length() <= 4 &&
+  right.length() <= 4 &&
+  pdf_v2_line_signal_all_ascii_digits(left) &&
+  pdf_v2_line_signal_all_ascii_digits(right)
+}
+
+///|
 fn pdf_v2_line_signal_cjk_page_number(text : String) -> Bool {
-  let chars = text.to_array()
+  let compact = text.replace_all(old=" ", new="")
+  let chars = compact.to_array()
   if chars.length() < 3 ||
     chars[0] != '第' ||
     chars[chars.length() - 1] != '页' {
@@ -465,7 +486,8 @@ fn pdf_v2_line_signal_cjk_page_number(text : String) -> Bool {
   let middle = String::from_array(chars[1:chars.length() - 1].to_owned())
     .trim()
     .to_owned()
-  pdf_v2_line_signal_all_ascii_digits(middle)
+  pdf_v2_line_signal_all_ascii_digits(middle) ||
+  pdf_v2_line_signal_fraction_page_number(middle)
 }
 
 ///|

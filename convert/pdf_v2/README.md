@@ -290,3 +290,23 @@ without broadening the non-text product surface.
   not fall back to v1 PDF.
 - Image, table, caption/figure, and form lowering remain out of scope.
 - Model hooks remain absent at runtime; this is a rule/fact bridge only.
+
+## Reset 9C Repeated Header Footer Variants
+
+Reset 9C strengthens page-artifact suppression without changing image, link,
+table, caption, or form lowering.
+
+- Product semantic mode now treats parser-attached `PageArtifactCandidate`
+  evidence as actionable, so repeated header/footer/page-number facts can
+  suppress output through the same semantic noise guard as other text decisions.
+- Parser-backed repeated artifacts suppress only at high confidence (`>= 0.90`)
+  and still preserve body-band repeats, normal repeated titles, `第一章`-style
+  chapter titles, and mixed numeric content.
+- Fragment fallback suppression recognizes repeated short running-header/footer
+  variants and standalone page labels such as `p. 7`, fractions, dash-wrapped
+  numbers, and CJK page labels.
+- Page-number suppression remains controlled by `suppress_page_number_like_noise`;
+  repeated artifact suppression remains controlled by
+  `suppress_repeated_page_artifact_noise`.
+- No image, table, caption/figure, form, OCR, v1 fallback, or model hook was
+  added.
