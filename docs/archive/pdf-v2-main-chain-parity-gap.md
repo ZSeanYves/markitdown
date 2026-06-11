@@ -187,6 +187,65 @@
   - keep semantic headings/lists and model integration deferred until the plain
     text/object diff surface is stable.
 
+## 2.3 Productization Reset 4 Update
+
+- encoding/unicode audit:
+  - `tonyfettes/encoding` is suitable for strict UTF-8 and UTF-16BE/LE decoding
+    and is now used for explicit BOM decoding in the v2 text sanitizer.
+  - `tonyfettes/unicode` was inspected but not imported; its useful data is
+    internal/normalization-oriented for this need, so Reset 4 keeps a small
+    local PDF text control-byte predicate.
+  - mbtpdf text APIs already provide the main PDF font/text decode surface:
+    `PdfText::text_extractor_of_font`, ToUnicode/CMap handling, WinAnsi/MacRoman
+    font tables, PDFDocEncoding, UTF-16BE, UTF-8, GBK, and Shift-JIS helpers.
+- parser hardening:
+  - decoded text now passes through a parser-layer sanitizer before glyph
+    candidates are reconstructed.
+  - NUL, unsafe C0/C1 controls, and replacement characters are suppressed with
+    decode warnings and reason tags; allowed PDF text whitespace is normalized
+    to spaces.
+  - sanitized glyph candidates preserve provenance while dropping unsafe product
+    text and lowering high/medium decode confidence to low when data was
+    suppressed.
+  - span text no longer falls back to raw bytes for undecoded chars.
+  - PDF object strings for metadata/forms/annotations/outlines decode through
+    mbtpdf PDFDocString handling with explicit BOM/control suppression.
+- malformed object boundary:
+  - v2 now constructs `PdfRead` with mbtpdf malformed-PDF recovery enabled
+    (`error_on_malformed=false`).
+  - This is still the mbtpdf/v2 parser path, not a v1 fallback; unrecoverable
+    documents or missing page trees continue to fail closed.
+- focused tests:
+  - sanitizer whitebox coverage for controls, CJK preservation, UTF-16BE BOM,
+    and binary PDFDocString suppression.
+  - parser coverage for sanitized control bytes in a real content stream.
+  - malformed-xref recovery coverage proving a recoverable catalog/page tree
+    opens without v1 fallback.
+- expected diff runs:
+  - main command with explicit built runners:
+    - `MARKITDOWN_CLI="$PWD/_build/native/debug/build/cli/cli.exe" MARKITDOWN_PDF_CLI="$PWD/_build/native/debug/build/pdf/pdf.exe" MARKITDOWN_ZIP_CLI="$PWD/_build/native/debug/build/zip/zip.exe" bash samples/check.sh --format pdf || true`
+    - run: `.tmp/check/runs/pdf-20260611-121940-35097`
+    - result: Markdown log still reports 30 PDF failures, now all diff files
+      and 0 conversion failure artifacts.
+  - metadata-focused command:
+    - same runner overrides with `bash samples/check.sh --metadata-only --format pdf || true`
+    - run: `.tmp/check/runs/pdf-20260611-122002-35616`
+    - result: metadata workspace has 7 diff files and 0 conversion/error
+      artifacts.
+  - asset-focused command:
+    - same runner overrides with `bash samples/check.sh --assets-only --format pdf || true`
+    - run: `.tmp/check/runs/pdf-20260611-122002-35628`
+    - result: asset workspace has 7 diff files and 0 conversion/error artifacts.
+  - generated main/metadata/assets workspaces contain 0 files with disallowed
+    control bytes.
+  - no expected files were updated.
+- remaining blockers:
+  - Markdown parity is still dominated by text shaping, hardwrap/cross-page
+    merging, page/order/noise behavior, and missing semantic product lowering
+    for images, links, and tables.
+  - metadata sidecars are now valid enough to diff, but still lack v1 block,
+    link, image, and summary parity.
+
 ## 3. v1 PDF Main-chain Capability Summary
 
 | capability | v1 behavior | evidence file/test | notes |

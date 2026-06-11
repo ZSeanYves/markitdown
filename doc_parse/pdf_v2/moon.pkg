@@ -6,6 +6,7 @@ import {
   "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/graphics/pdfops",
   "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/io/pdfread",
   "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/text/pdftextread" @pdftext,
+  "tonyfettes/encoding",
   "moonbitlang/x/fs",
 }
 

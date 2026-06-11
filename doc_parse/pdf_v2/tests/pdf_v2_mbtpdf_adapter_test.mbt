@@ -109,6 +109,11 @@ fn phase4_simple_text_pdf() -> String {
 }
 
 ///|
+fn phase4_control_text_pdf() -> String {
+  phase4_text_pdf("BT\n/F1 12 Tf\n72 720 Td\n(A\\000B\\001C) Tj\nET\n", true)
+}
+
+///|
 fn phase4_tj_text_pdf() -> String {
   phase4_text_pdf("BT\n/F1 12 Tf\n72 720 Td\n[(A) 120 (B)] TJ\nET\n", true)
 }
@@ -293,6 +298,20 @@ fn phase5_has_candidate_warning_reason(
 ///|
 fn phase5_repeated_text_pdf() -> String {
   phase4_text_pdf("BT\n/F1 12 Tf\n72 720 Td\n(A) Tj\n(B) Tj\nET\n", true)
+}
+
+///|
+fn phase5_bad_xref_text_pdf() -> String {
+  let content = "BT\n/F1 12 Tf\n72 720 Td\n(Hello) Tj\nET\n"
+  "%PDF-1.4\n" +
+  phase3_pdf_object(1, "<< /Type /Catalog /Pages 2 0 R >>") +
+  phase3_pdf_object(2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>") +
+  phase3_pdf_object(
+    3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>",
+  ) +
+  phase3_pdf_object(4, phase3_stream_object(content)) +
+  phase3_pdf_object(5, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>") +
+  "trailer\n<< /Root 1 0 R /Size 6 >>\nstartxref\n0\n%%EOF\n"
 }
 
 ///|
@@ -929,8 +948,35 @@ test "pdf v2 mbtpdf adapter fails closed on malformed pdf" {
           @pdfv2.PdfV2WarningKind::MalformedObject,
         ),
       )
-      assert_true(phase3_has_risk_kind(risks, @pdfv2.PdfV2RiskKind::Malformed))
+      assert_true(
+        phase3_has_risk_kind(risks, @pdfv2.PdfV2RiskKind::ObjectGraphIssue),
+      )
     }
+  }
+}
+
+///|
+test "pdf v2 mbtpdf adapter recovers malformed xref with parser-only path" {
+  let path = "/tmp/markitdown-pdf-v2-phase4-bad-xref.pdf"
+  phase3_write_fixture(path, phase5_bad_xref_text_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_model_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    ModelAssemblyOk(model) => {
+      assert_true(model.page_count == 1)
+      assert_true(model.pages[0].blocks.length() == 1)
+      assert_true(model.pages[0].blocks[0].text == "Hello")
+      assert_true(model.one_pass)
+      assert_true(model.no_fallback)
+      assert_true(model.source_summary.one_pass_scan)
+      assert_true(!model.source_summary.fallback_used)
+    }
+    ModelAssemblyErr(_, _, message) =>
+      fail("expected malformed-xref recovery without v1 fallback: " + message)
   }
 }
 
@@ -973,6 +1019,38 @@ test "pdf v2 mbtpdf adapter emits typed text events for simple text" {
     }
     SourceOpenErr(_, _, message) =>
       fail("expected simple text source document success: " + message)
+  }
+}
+
+///|
+test "pdf v2 mbtpdf adapter sanitizes decoded control bytes before reconstruction" {
+  let path = "/tmp/markitdown-pdf-v2-phase4-control-text.pdf"
+  phase3_write_fixture(path, phase4_control_text_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_model_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    ModelAssemblyOk(model) => {
+      assert_true(model.pages[0].chars.length() == 5)
+      assert_true(model.pages[0].chars[0].text == Some("A"))
+      assert_true(model.pages[0].chars[1].text is None)
+      assert_true(model.pages[0].chars[2].text == Some("B"))
+      assert_true(model.pages[0].chars[3].text is None)
+      assert_true(model.pages[0].chars[4].text == Some("C"))
+      assert_true(model.reconstruction_summary.decoded_char_count == 3)
+      assert_true(model.pages[0].spans[0].text == "ABC")
+      assert_true(model.pages[0].lines[0].text == "ABC")
+      assert_true(model.pages[0].blocks[0].text == "ABC")
+      assert_true(
+        phase4_has_warning_reason(model.warnings, "control_byte_dropped"),
+      )
+      assert_true(phase4_has_warning_reason(model.warnings, "nul_byte_dropped"))
+    }
+    ModelAssemblyErr(_, _, message) =>
+      fail("expected sanitized control-byte model: " + message)
   }
 }
 

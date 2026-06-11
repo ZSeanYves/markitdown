@@ -251,7 +251,7 @@ fn pdf_v2_span_text(chars : Array[PdfV2CharCandidate]) -> String {
   for ch in chars {
     match ch.text {
       Some(value) => parts.push(value)
-      None => parts.push(ch.raw_bytes)
+      None => ()
     }
   }
   parts.join("")

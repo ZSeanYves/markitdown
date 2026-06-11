@@ -232,14 +232,6 @@ fn pdf_v2_candidate_warnings(
 }
 
 ///|
-fn pdf_v2_candidate_text(glyph : PdfV2GlyphCandidateFact) -> String? {
-  match glyph.unicode_candidate {
-    Some(value) => Some(value)
-    None => None
-  }
-}
-
-///|
 fn pdf_v2_line_boundary_tags_from_event(
   event : PdfV2CoreEvent,
   emitted_candidate : Bool,
@@ -262,6 +254,27 @@ fn pdf_v2_line_boundary_tags_from_event(
     _ => ()
   }
   tags
+}
+
+///|
+fn pdf_v2_candidate_decode_confidence(
+  glyph : PdfV2GlyphCandidateFact,
+  sanitized_text : String?,
+  sanitize_tags : Array[String],
+) -> PdfV2TextDecodeConfidence {
+  match glyph.decode_confidence {
+    High | Medium =>
+      if glyph.unicode_candidate is Some(_) && sanitized_text is None {
+        PdfV2TextDecodeConfidence::Low
+      } else if sanitize_tags.contains("control_byte_dropped") ||
+        sanitize_tags.contains("nul_byte_dropped") ||
+        sanitize_tags.contains("invalid_unicode_suppressed") {
+        PdfV2TextDecodeConfidence::Low
+      } else {
+        glyph.decode_confidence
+      }
+    _ => glyph.decode_confidence
+  }
 }
 
 ///|
@@ -383,6 +396,18 @@ pub fn pdf_v2_reconstruct_char_candidates(
           show, geometry_warning,
         )
         warnings.push(geometry_warning)
+        let (text, sanitize_tags, sanitize_warnings) = pdf_v2_sanitize_candidate_char_text(
+          glyph.unicode_candidate,
+          glyph.source_ref,
+        )
+        if sanitize_tags.length() > 0 {
+          reason_tags = pdf_v2_reconstruction_tags(reason_tags, sanitize_tags)
+          candidate_warnings.append(sanitize_warnings)
+          warnings.append(sanitize_warnings)
+        }
+        let decode_confidence = pdf_v2_candidate_decode_confidence(
+          glyph, text, sanitize_tags,
+        )
         match glyph.decode_confidence {
           Failed => {
             failed_count = failed_count + 1
@@ -394,7 +419,6 @@ pub fn pdf_v2_reconstruct_char_candidates(
           }
           _ => ()
         }
-        let text = pdf_v2_candidate_text(glyph)
         match text {
           Some(_) => decoded_count = decoded_count + 1
           None => ()
@@ -418,7 +442,7 @@ pub fn pdf_v2_reconstruct_char_candidates(
           position: pdf_v2_candidate_position(glyph, geometry_confidence),
           bbox: glyph.bbox,
           source_ref: glyph.source_ref,
-          decode_confidence: glyph.decode_confidence,
+          decode_confidence,
           geometry_confidence,
           reason_tags,
           warnings: candidate_warnings,

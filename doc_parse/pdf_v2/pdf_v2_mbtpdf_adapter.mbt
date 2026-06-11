@@ -261,7 +261,12 @@ fn pdf_v2_adapter_pdf_object_string(obj : @pdf.PdfObject) -> String? {
   match obj {
     Null => None
     Name(name) => Some(name.to_string_bytes())
-    String(value) => Some(value)
+    String(value) =>
+      match
+        pdf_v2_decode_pdfdoc_string_text(value, pdf_v2_document_source_ref()) {
+        (Some(text), _, _) => Some(text)
+        _ => None
+      }
     Integer(value) => Some(value.to_string())
     Real(value) => Some(value.to_string())
     Boolean(value) => Some(value.to_string())
@@ -526,6 +531,21 @@ fn pdf_v2_adapter_codepoints_to_utf8(codepoints : Array[Int]) -> String? {
 }
 
 ///|
+fn pdf_v2_adapter_sanitized_decode_confidence(
+  confidence : PdfV2TextDecodeConfidence,
+  dropped_count : Int,
+) -> PdfV2TextDecodeConfidence {
+  if dropped_count == 0 {
+    confidence
+  } else {
+    match confidence {
+      High | Medium => PdfV2TextDecodeConfidence::Low
+      _ => confidence
+    }
+  }
+}
+
+///|
 fn pdf_v2_adapter_decode_text(
   pdf : @pdf.Pdf,
   state : PdfV2AdapterTextState,
@@ -566,15 +586,37 @@ fn pdf_v2_adapter_decode_text(
         Ok(pairs) => {
           let decoded_parts : Array[String] = []
           let glyphs : Array[PdfV2AdapterDecodedGlyph] = []
+          let mut sanitize_tags : Array[String] = []
+          let mut sanitized_dropped_count = 0
           for pair in pairs {
-            let unicode = pdf_v2_adapter_codepoints_to_utf8(pair.1)
+            let raw_unicode = pdf_v2_adapter_codepoints_to_utf8(pair.1)
+            let unicode = match raw_unicode {
+              Some(text) => {
+                let sanitized = pdf_v2_sanitize_decoded_text_for_candidate(
+                  text, source_ref,
+                )
+                warnings.append(sanitized.warnings)
+                sanitize_tags = pdf_v2_adapter_tags(
+                  sanitize_tags,
+                  sanitized.reason_tags,
+                )
+                sanitized_dropped_count = sanitized_dropped_count +
+                  sanitized.dropped_count
+                if sanitized.text.length() == 0 {
+                  None
+                } else {
+                  Some(sanitized.text)
+                }
+              }
+              None => None
+            }
             match unicode {
               Some(text) => decoded_parts.push(text)
               None => ()
             }
             glyphs.push({ glyph_name: Some(pair.0), unicode_candidate: unicode })
           }
-          let confidence = if state.font_has_tounicode.val {
+          let base_confidence = if state.font_has_tounicode.val {
             PdfV2TextDecodeConfidence::High
           } else {
             warnings.push(
@@ -588,6 +630,9 @@ fn pdf_v2_adapter_decode_text(
             )
             PdfV2TextDecodeConfidence::Medium
           }
+          let confidence = pdf_v2_adapter_sanitized_decode_confidence(
+            base_confidence, sanitized_dropped_count,
+          )
           warnings.push(
             pdf_v2_adapter_warning(
               PdfV2WarningKind::DecodeIssue,
@@ -601,13 +646,16 @@ fn pdf_v2_adapter_decode_text(
             decoded_text: Some(decoded_parts.join("")),
             confidence,
             glyphs,
-            reason_tags: if state.font_has_tounicode.val {
-              pdf_v2_adapter_tags(reason_tags, ["tounicode_or_font_decode"])
-            } else {
-              pdf_v2_adapter_tags(reason_tags, [
-                "missing_tounicode", "font_encoding_candidate",
-              ])
-            },
+            reason_tags: pdf_v2_adapter_tags(
+              if state.font_has_tounicode.val {
+                pdf_v2_adapter_tags(reason_tags, ["tounicode_or_font_decode"])
+              } else {
+                pdf_v2_adapter_tags(reason_tags, [
+                  "missing_tounicode", "font_encoding_candidate",
+                ])
+              },
+              sanitize_tags,
+            ),
             warnings,
           }
         }
@@ -2526,7 +2574,7 @@ fn pdf_v2_open_core_document_from_bytes(
   options : PdfV2CoreOpenOptions,
 ) -> PdfV2CoreOpenResult {
   let input = @pdfio.Input::of_bytes(bytes.to_array(), source~)
-  let reader = @pdfread.PdfRead::new(error_on_malformed=true, logger=_ => ())
+  let reader = @pdfread.PdfRead::new(error_on_malformed=false, logger=_ => ())
   let pdf_result : Result[@pdf.Pdf, Error] = try
     @pdfe.with_silenced_logs(fn() raise {
       reader.pdf_of_input(None, None, input)
