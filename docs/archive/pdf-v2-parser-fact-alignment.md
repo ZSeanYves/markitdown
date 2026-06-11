@@ -391,3 +391,53 @@ Fields:
 - Product bridge remains a mapper from semantic blocks to core blocks.
 - No fallback, model loading, external data, OCR, table/image/link/form
   lowering, vendor runtime change, or sample expected update is introduced.
+
+## Reset 8B-F Parser Facts To Semantic Consumption
+
+- facts implemented:
+  - `PdfV2LineTextSignal` records normalized text, char/word counts,
+    sentence punctuation, ordered/unordered marker candidates, page-number and
+    caption guards, title/noise shape, decode confidence, and reason tags.
+  - `PdfV2BlockBoundarySignal` records first/last line text, line count,
+    optional future layout/font fields, heading/list/continuation/artifact
+    scores, boundary confidence, and reason tags.
+  - `PdfV2PageArtifactCandidate` records page-number, caption-like, and
+    repeated short-line candidates with page indices, repeat count, page band,
+    confidence, source refs, and reason tags.
+  - `PdfV2TextFlowCandidate` records parser-owned flow units with original and
+    normalized lines, line indices, line signals, boundary signal, artifact
+    refs, source refs, and reason tags.
+- model integration:
+  - `PdfV2LineCandidate` now embeds `text_signal`.
+  - `PdfV2BlockCandidate` now embeds `boundary_signal`.
+  - `pdf_v2_build_text_flow_candidates(model)` builds parser-owned flow
+    candidates from page/block/line facts without adding final semantic roles
+    to the parser model.
+- semantic consumption path:
+  - `convert/pdf_v2` lowering carries `text_flow_candidates` alongside plain
+    fragments.
+  - Reset 7 semantic rules consume parser-backed flow candidates when they
+    carry currently actionable evidence, and keep fragment-derived text flow
+    available for normalized paragraph behavior, tests, and constructed
+    outputs.
+  - Heading/list/continuation/noise rules consume parser scores and line
+    signals, while final semantic decisions remain in convert.
+- page artifact behavior:
+  - standalone page numbers and page labels are parser facts and can be
+    suppressed by the existing product noise option.
+  - split page-label sequences such as `第` / `页` / `3/1` are suppressed by a
+    centralized semantic noise guard.
+  - repeated short-line artifacts are conservative: title-like, list-like,
+    caption-like, and sentence-like body lines are excluded before semantic
+    suppression.
+  - caption-like candidates remain guard facts only; no caption lowering was
+    added.
+- expected diff result:
+  - explicit built PDF sample run
+    `.tmp/check/runs/pdf-20260611-152859-63255` reports 23 non-empty main
+    Markdown diffs, matching the Reset 7/8A baseline.
+- remaining blockers:
+  - parser geometry/font bands remain sparse.
+  - no full column detection or layout recovery was added.
+  - image/link/table/form and metadata sidecar parity remain out of scope.
+  - model hooks remain absent at runtime.

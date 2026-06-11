@@ -754,3 +754,78 @@
   - Reset 8D: add repeated edge artifact aggregation.
   - Reset 8E: make Reset 7 semantic rules consume parser facts and retire
     duplicate convert-only string guesses where parser facts exist.
+
+## Reset 8B-F Parser Facts To Semantic Consumption
+
+- facts implemented:
+  - Parser-owned `PdfV2LineTextSignal`, `PdfV2BlockBoundarySignal`,
+    `PdfV2TextFlowCandidate`, and `PdfV2PageArtifactCandidate`.
+  - Line candidates embed text signals; block candidates embed boundary
+    signals.
+  - Text-flow candidates preserve original/normalized lines, line indices,
+    source refs, parser scores, and page artifact refs.
+- model integration:
+  - `pdf_v2_build_text_flow_candidates(model)` builds parser-owned flow
+    candidates from the document model.
+  - Convert fact lowering now carries candidates only for blocks that were
+    actually emitted as plain text after gate/cap decisions.
+- semantic consumption path:
+  - Product bridge consumes parser-owned flow candidates through the semantic
+    engine when they carry currently actionable evidence, and preserves the
+    fragment-derived flow path for normalized paragraph behavior.
+  - Heading/list/continuation/page-noise rules consume parser facts and keep
+    final semantic decisions centralized in `pdf_v2_semantic_rules.mbt`.
+  - Fragment-derived flow remains as a compatibility path for manually
+    constructed pipeline outputs and semantic-disabled behavior, not as v1 PDF
+    fallback.
+- page artifact behavior:
+  - Page-number candidates suppress output when
+    `suppress_page_number_like_noise` is enabled.
+  - Repeated short-line artifact candidates suppress output when
+    `suppress_repeated_page_artifact_noise` is enabled.
+  - Normal titles such as `第一章` are guarded from page-number/repeated-artifact
+    suppression.
+- model hook status:
+  - Existing `PdfV2ModelHint`/arbitration API remains present.
+  - Runtime model hint remains absent; no model/data file is read or trained.
+- commands:
+  - `moon info && moon fmt` passed.
+  - `moon check doc_parse/pdf_v2 convert/pdf_v2 convert/convert pdf` passed.
+  - `moon test doc_parse/pdf_v2/tests convert/pdf_v2/tests convert/convert/test doc_parse/pdf_v2/tests`
+    passed: 171 tests.
+  - `moon test convert/pdf_v2` passed: 21 tests.
+  - `git diff --check` passed.
+  - `bash samples/check.sh --format pdf || true` still reports the repository
+    default `runner=none`/`rows=0` wrapper behavior.
+  - explicit built runner command with `MARKITDOWN_CLI`,
+    `MARKITDOWN_PDF_CLI`, and `MARKITDOWN_ZIP_CLI` produced
+    `.tmp/check/runs/pdf-20260611-152859-63255`.
+- before:
+  - Reset 7/8A baseline: 23 non-empty main Markdown diffs.
+- after:
+  - explicit built runner
+    `.tmp/check/runs/pdf-20260611-152859-63255`: 23 non-empty main Markdown
+    diffs, matching the Reset 7/8A baseline.
+  - `pdf_page_noise_cleanup` is no longer a non-empty diff after adding the
+    semantic page-label sequence guard.
+- heading cases:
+  - Parser/semantic tests cover parser-backed heading/body split facts.
+  - Main sample heading failures remain the same category as Reset 7/8A:
+    parser block-boundary splits and heading suffix/prefix noise.
+- list cases:
+  - parser text-flow candidates split inline bullet runs such as
+    `Key points: • First item • Second item`.
+  - product bridge tests now cover parser-driven unordered list lowering.
+- regressions:
+  - none in the comparable main Markdown failure set: 23 before, 23 after.
+- remaining failures:
+  - main Markdown non-empty diffs: 23.
+- remaining categories:
+  - parser geometry/font bands and richer block boundaries.
+  - repeated header/footer variants that need reliable page-band evidence.
+  - non-text product lowering and metadata sidecars remain out of scope.
+- next fix batch:
+  - tune parser block reconstruction with source/layout evidence before adding
+    more semantic rules.
+  - add page-band/font-size facts when reliable geometry is available.
+  - keep model integration deferred until rule/fact interfaces stabilize.

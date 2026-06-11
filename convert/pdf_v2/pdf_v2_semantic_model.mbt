@@ -37,6 +37,11 @@ pub(all) struct PdfV2TextFlowSignals {
   has_following_body : Bool
   has_previous_heading : Bool
   continuation_candidate : Bool
+  parser_fact_backed : Bool
+  parser_heading_candidate_score : Double
+  parser_list_candidate_score : Double
+  parser_continuation_candidate_score : Double
+  parser_artifact_candidate_score : Double
 }
 
 ///|

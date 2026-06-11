@@ -151,6 +151,7 @@ test "pdf v2 model assembly rejects invalid candidate page index" {
     reason_tags: ["block_candidate"],
     merge_reason_tags: [],
     break_reason_tags: [],
+    boundary_signal: @pdfv2.pdf_v2_empty_block_boundary_signal(),
     bbox: None,
     writing_direction: @pdfv2.PdfV2WritingDirection::Unknown,
     rotation: None,

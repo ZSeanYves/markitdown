@@ -66,9 +66,75 @@ fn pdf_v2_pipeline_output_to_document(
   }
   let semantic_blocks = if options.normalize_plain_text &&
     options.enable_semantic_rules {
-    pdf_v2_product_bridge_semantic_blocks(output.fragments, options)
+    pdf_v2_product_bridge_semantic_blocks(
+      output.text_flow_candidates,
+      output.fragments,
+      options,
+    )
   } else {
     []
+  }
+  let candidate_semantic_mode = options.normalize_plain_text &&
+    options.enable_semantic_rules &&
+    pdf_v2_product_bridge_has_actionable_text_flow_candidates(
+      output.text_flow_candidates,
+    )
+  if candidate_semantic_mode {
+    for semantic_block in semantic_blocks {
+      let text = pdf_v2_product_bridge_take_text(
+        semantic_block.text,
+        remaining_chars,
+      )
+      remaining_chars = text.1
+      pdf_v2_product_bridge_push_semantic_block(
+        doc,
+        semantic_block,
+        text.0,
+        options,
+      )
+    }
+    for fragment in output.fragments {
+      match fragment.kind {
+        PlainText => ()
+        PageBreak =>
+          if options.emit_page_breaks || options.preserve_empty_pages {
+            @cor.push_with_origin(
+              doc,
+              @cor.Block::BlankLine,
+              Some(pdf_v2_product_bridge_origin(doc, fragment, options)),
+            )
+          }
+        LowConfidenceNote =>
+          if options.emit_low_confidence_notes {
+            let text = pdf_v2_product_bridge_take_text(
+              fragment.text,
+              remaining_chars,
+            )
+            remaining_chars = text.1
+            pdf_v2_product_bridge_push_plain_text(
+              doc,
+              text.0,
+              fragment,
+              options,
+            )
+          }
+        UnsupportedObjectNote =>
+          if options.emit_unsupported_object_notes {
+            let text = pdf_v2_product_bridge_take_text(
+              fragment.text,
+              remaining_chars,
+            )
+            remaining_chars = text.1
+            pdf_v2_product_bridge_push_plain_text(
+              doc,
+              text.0,
+              fragment,
+              options,
+            )
+          }
+      }
+    }
+    return doc
   }
   let mut shaped_index = 0
   let mut semantic_index = 0
@@ -159,10 +225,30 @@ fn pdf_v2_product_bridge_text_paragraphs(
 
 ///|
 fn pdf_v2_product_bridge_semantic_blocks(
+  text_flow_candidates : Array[@pdfv2.PdfV2TextFlowCandidate],
   fragments : Array[PdfV2FactFragment],
   options : PdfV2ProductBridgeOptions,
 ) -> Array[PdfV2SemanticBlock] {
-  pdf_v2_semantic_blocks_from_fragments(fragments, options)
+  if pdf_v2_product_bridge_has_actionable_text_flow_candidates(
+      text_flow_candidates,
+    ) {
+    pdf_v2_semantic_blocks_from_candidates(text_flow_candidates, options)
+  } else {
+    pdf_v2_semantic_blocks_from_fragments(fragments, options)
+  }
+}
+
+///|
+fn pdf_v2_product_bridge_has_actionable_text_flow_candidates(
+  text_flow_candidates : Array[@pdfv2.PdfV2TextFlowCandidate],
+) -> Bool {
+  for candidate in text_flow_candidates {
+    if candidate.reason_tags.contains("inline_list_split") ||
+      candidate.boundary_signal.list_candidate_score >= 0.70 {
+      return true
+    }
+  }
+  false
 }
 
 ///|
@@ -190,6 +276,9 @@ fn pdf_v2_product_bridge_push_semantic_block(
   text : String,
   options : PdfV2ProductBridgeOptions,
 ) -> Unit {
+  if semantic_block.risk_tags.contains("suppress_output") {
+    return
+  }
   let trimmed = text.trim().to_owned()
   if trimmed == "" {
     return

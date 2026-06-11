@@ -63,6 +63,7 @@ pub(all) struct PdfV2FactLoweringSummary {
 ///|
 pub(all) struct PdfV2FactLoweringResult {
   fragments : Array[PdfV2FactFragment]
+  text_flow_candidates : Array[@pdfv2.PdfV2TextFlowCandidate]
   warnings : Array[@pdfv2.PdfV2Warning]
   risks : Array[@pdfv2.PdfV2Risk]
   summary : PdfV2FactLoweringSummary
@@ -156,6 +157,20 @@ fn pdf_v2_fact_append_unique_tags(
     }
   }
   out
+}
+
+///|
+fn pdf_v2_fact_append_text_flow_candidates_for_block(
+  text_flow_candidates : Array[@pdfv2.PdfV2TextFlowCandidate],
+  all_candidates : Array[@pdfv2.PdfV2TextFlowCandidate],
+  block : @pdfv2.PdfV2BlockCandidate,
+) -> Unit {
+  for candidate in all_candidates {
+    if candidate.page_index == block.page_index &&
+      candidate.block_index == Some(block.block_index) {
+      text_flow_candidates.push(candidate)
+    }
+  }
 }
 
 ///|
@@ -673,6 +688,10 @@ pub fn pdf_v2_lower_fact_model(
   let max_lines = pdf_v2_fact_effective_cap(options.max_lines)
   let max_chars = pdf_v2_fact_effective_cap(options.max_chars)
   let fragments : Array[PdfV2FactFragment] = []
+  let text_flow_candidates : Array[@pdfv2.PdfV2TextFlowCandidate] = []
+  let parser_text_flow_candidates = @pdfv2.pdf_v2_build_text_flow_candidates(
+    model,
+  )
   let warnings : Array[@pdfv2.PdfV2Warning] = []
   let risks : Array[@pdfv2.PdfV2Risk] = []
   warnings.append(model.warnings)
@@ -896,6 +915,9 @@ pub fn pdf_v2_lower_fact_model(
           source_refs: effective_refs,
           reason_tags: pdf_v2_fact_append_unique_tags(reason_tags, gate_tags),
         })
+        pdf_v2_fact_append_text_flow_candidates_for_block(
+          text_flow_candidates, parser_text_flow_candidates, block,
+        )
         plain_text_count = plain_text_count + 1
       }
       lowered_blocks = lowered_blocks + 1
@@ -910,6 +932,7 @@ pub fn pdf_v2_lower_fact_model(
   }
   {
     fragments,
+    text_flow_candidates,
     warnings,
     risks,
     summary: {

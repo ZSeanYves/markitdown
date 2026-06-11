@@ -18,6 +18,7 @@ pub(all) struct PdfV2BlockCandidate {
   reason_tags : Array[String]
   merge_reason_tags : Array[String]
   break_reason_tags : Array[String]
+  boundary_signal : PdfV2BlockBoundarySignal
   bbox : PdfV2BBox?
   writing_direction : PdfV2WritingDirection
   rotation : Double?
@@ -497,6 +498,9 @@ fn pdf_v2_make_block_candidate(
     reason_tags,
     merge_reason_tags,
     break_reason_tags,
+    boundary_signal: pdf_v2_build_block_boundary_signal(
+      lines, reason_tags, bbox,
+    ),
     bbox,
     writing_direction: pdf_v2_block_writing_direction(lines),
     rotation: pdf_v2_block_rotation(lines),

@@ -211,3 +211,38 @@ scope remains core block mapping only.
 This is not old PDF runtime fallback, caption/table/image/link/form lowering,
 model loading, layout recovery, external data/model reading, mbtpdf access from
 convert, or fallback.
+
+## Reset 8B-F Parser Fact Consumption Status
+
+Reset 8B-F wires parser-owned facts into the existing Reset 7 semantic rule
+engine:
+
+```text
+PdfV2FactLoweringResult.text_flow_candidates
+  -> PdfV2TextFlowUnit(parser_fact_backed=true)
+  -> PdfV2RuleDecision
+  -> PdfV2SemanticBlock
+  -> @core.Document
+```
+
+Current status:
+
+- Fact lowering carries parser `PdfV2TextFlowCandidate[]` alongside fragments,
+  and appends candidates only for blocks that pass gate/cap plain-text lowering.
+- Product bridge consumes parser-owned candidates when they carry currently
+  actionable semantic evidence. The Reset 7 fragment text-flow path remains
+  available for normalized paragraph behavior, constructed outputs, and
+  semantic-disabled tests.
+- Heading rules consume parser title-line and boundary heading scores.
+- List rules consume parser marker signals and list boundary scores.
+- Continuation rules consume parser continuation boundary scores.
+- Noise rules consume parser page-artifact scores and preserve existing product
+  switches for page-number and repeated artifact suppression.
+- Split page-label sequences such as `第` / `页` / `3/1` are suppressed in the
+  centralized semantic noise guard, not as bridge-local string patches.
+- `PdfV2ModelHint` and semantic arbitration remain present, but model hints are
+  absent at runtime and no model/data file is loaded or trained.
+
+The product bridge still only maps semantic text blocks to core paragraphs,
+headings, list items, and blank lines. It does not lower captions, tables,
+images, links, forms, OCR, or v1 PDF fallback behavior.

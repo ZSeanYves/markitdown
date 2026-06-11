@@ -480,3 +480,32 @@ warnings and risks. That adapter must not expose mbtpdf internal object types to
 Source events are parser facts. They are not Markdown policy, not block roles,
 and not convert decisions. `convert/pdf_v2` consumes parser/source documents and
 must not reopen raw PDF bytes or vendor internals.
+
+## Reset 8B-F Parser Fact Status
+
+Reset 8B-F adds the first parser-owned semantic evidence chain:
+
+```text
+PdfV2DocumentModel
+  -> PdfV2LineTextSignal
+  -> PdfV2BlockBoundarySignal
+  -> PdfV2PageArtifactCandidate
+  -> PdfV2TextFlowCandidate
+```
+
+Current status:
+
+- `PdfV2LineCandidate` embeds `text_signal`.
+- `PdfV2BlockCandidate` embeds `boundary_signal`.
+- `pdf_v2_build_page_artifact_candidates(model)` aggregates standalone page
+  numbers, page labels, caption-like guard facts, and repeated short-line
+  artifacts.
+- `pdf_v2_build_text_flow_candidates(model)` builds parser-owned flow
+  candidates and can split heading/body evidence and inline bullet runs while
+  preserving source refs.
+- All facts are candidates/scores with reason tags. They are not final
+  paragraph, heading, list, caption, table, image, link, or form semantics.
+
+`convert/pdf_v2` owns final semantic decisions and core block mapping. The
+parser still does not load models, read external data, run OCR, do full layout
+recovery, lower non-text objects, or fall back to the v1 PDF parser.

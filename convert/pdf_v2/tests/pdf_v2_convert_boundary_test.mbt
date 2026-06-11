@@ -186,6 +186,12 @@ fn phase14_line(
     reason_tags: ["line_candidate"],
     merge_reason_tags: [],
     break_reason_tags: [],
+    text_signal: @pdfv2.pdf_v2_build_line_text_signal(
+      text,
+      @pdfv2.PdfV2TextDecodeConfidence::High,
+      [source_ref],
+      ["line_candidate"],
+    ),
     bbox: None,
     baseline: None,
     writing_direction: @pdfv2.PdfV2WritingDirection::Unknown,
@@ -219,6 +225,11 @@ fn phase14_block(
     reason_tags: ["block_candidate"],
     merge_reason_tags: [],
     break_reason_tags: [],
+    boundary_signal: @pdfv2.pdf_v2_build_block_boundary_signal(
+      lines,
+      ["block_candidate"],
+      None,
+    ),
     bbox: None,
     writing_direction: @pdfv2.PdfV2WritingDirection::Unknown,
     rotation: None,
@@ -632,6 +643,15 @@ fn phase20_pipeline_ok(
   page_count : Int,
   fragments : Array[@pdfv2conv.PdfV2FactFragment],
 ) -> @pdfv2conv.PdfV2ConvertPipelineResult {
+  phase20_pipeline_ok_with_candidates(page_count, fragments, [])
+}
+
+///|
+fn phase20_pipeline_ok_with_candidates(
+  page_count : Int,
+  fragments : Array[@pdfv2conv.PdfV2FactFragment],
+  text_flow_candidates : Array[@pdfv2.PdfV2TextFlowCandidate],
+) -> @pdfv2conv.PdfV2ConvertPipelineResult {
   @pdfv2conv.PdfV2ConvertPipelineResult::ConvertPipelineOk({
     source_summary: @pdfv2.pdf_v2_source_summary(0, page_count, 0, 0),
     model_summary: phase20_model_summary(page_count, fragments),
@@ -640,6 +660,7 @@ fn phase20_pipeline_ok(
     gate_summary: None,
     lowering_summary: phase20_lowering_summary(page_count, fragments),
     fragments,
+    text_flow_candidates,
     warnings: [],
     risks: [],
     one_pass: true,
@@ -1947,6 +1968,24 @@ test "pdf v2 product bridge suppresses page-number-like noise by default" {
     ),
     phase20_fragment(
       @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "第",
+      Some(0),
+      [phase14_text_ref(40)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "页",
+      Some(0),
+      [phase14_text_ref(41)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "3/1",
+      Some(0),
+      [phase14_text_ref(42)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
       "Alpha page content.",
       Some(0),
       [phase14_text_ref(5)],
@@ -2312,6 +2351,112 @@ test "pdf v2 product bridge preserves minimal origins" {
       assert_true(origin.relationship_id is None)
     }
     None => fail("expected product bridge origin")
+  }
+}
+
+///|
+test "pdf v2 product bridge consumes parser fact candidates for list evidence" {
+  let list_line = phase14_line(0, "• parser item", phase14_text_ref(0))
+  let list_block = phase14_block(
+    0,
+    "• parser item",
+    [list_line],
+    @pdfv2.PdfV2TextDecodeConfidence::High,
+  )
+  let model = phase14_model([list_block])
+  let lowered = @pdfv2conv.pdf_v2_lower_fact_model(
+    phase14_default_input(model, None),
+  )
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok_with_candidates(
+      1,
+      lowered.fragments,
+      lowered.text_flow_candidates,
+    ),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+
+  assert_true(doc.blocks.val.length() == 1)
+  match doc.blocks.val[0] {
+    @cor.Block::ListItem(ordered, _, text) => {
+      assert_true(!ordered)
+      assert_true(text == "parser item")
+    }
+    _ => fail("expected parser-fact list item")
+  }
+}
+
+///|
+test "pdf v2 product bridge suppresses parser page artifact candidates" {
+  let page_number_line = phase14_line(0, "Page 1", phase14_text_ref(0))
+  let body_line = phase14_line(1, "Actual body sentence.", phase14_text_ref(1))
+  let model = phase14_model([
+    phase14_block(
+      0,
+      "Page 1",
+      [page_number_line],
+      @pdfv2.PdfV2TextDecodeConfidence::High,
+    ),
+    phase14_block(
+      1,
+      "Actual body sentence.",
+      [body_line],
+      @pdfv2.PdfV2TextDecodeConfidence::High,
+    ),
+  ])
+  let lowered = @pdfv2conv.pdf_v2_lower_fact_model(
+    phase14_default_input(model, None),
+  )
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok_with_candidates(
+      1,
+      lowered.fragments,
+      lowered.text_flow_candidates,
+    ),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+
+  assert_true(doc.blocks.val.length() == 1)
+  match doc.blocks.val[0] {
+    @cor.Block::Paragraph(text) => assert_true(text == "Actual body sentence.")
+    _ => fail("expected body paragraph only")
+  }
+}
+
+///|
+test "pdf v2 product bridge semantic disabled keeps parser fact text plain" {
+  let title_line = phase14_line(0, "Introduction", phase14_text_ref(0))
+  let body_line = phase14_line(1, "Body sentence.", phase14_text_ref(1))
+  let model = phase14_model([
+    phase14_block(
+      0,
+      "Introduction\nBody sentence.",
+      [title_line, body_line],
+      @pdfv2.PdfV2TextDecodeConfidence::High,
+    ),
+  ])
+  let lowered = @pdfv2conv.pdf_v2_lower_fact_model(
+    phase14_default_input(model, None),
+  )
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok_with_candidates(
+      1,
+      lowered.fragments,
+      lowered.text_flow_candidates,
+    ),
+    {
+      ..@pdfv2conv.default_pdf_v2_product_bridge_options(),
+      enable_semantic_rules: false,
+    },
+  )
+
+  assert_true(doc.blocks.val.length() == 1)
+  match doc.blocks.val[0] {
+    @cor.Block::Paragraph(text) =>
+      assert_true(
+        text.contains("Introduction") && text.contains("Body sentence."),
+      )
+    _ => fail("expected plain paragraph when semantic rules are disabled")
   }
 }
 

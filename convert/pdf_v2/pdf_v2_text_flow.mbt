@@ -8,6 +8,64 @@ fn pdf_v2_text_flow_from_fragments(
 }
 
 ///|
+fn pdf_v2_text_flow_from_candidates(
+  candidates : Array[@pdfv2.PdfV2TextFlowCandidate],
+  options : PdfV2ProductBridgeOptions,
+) -> Array[PdfV2TextFlowUnit] {
+  let units : Array[PdfV2TextFlowUnit] = []
+  let mut previous_heading = false
+  for i in 0..<candidates.length() {
+    let candidate = candidates[i]
+    let next_candidate = if i + 1 < candidates.length() {
+      Some(candidates[i + 1])
+    } else {
+      None
+    }
+    let marker = pdf_v2_text_flow_marker_from_candidate(candidate)
+    let marker_kind = match marker {
+      Some(value) => Some(value.kind)
+      None => None
+    }
+    let normalized_text = pdf_v2_text_output_normalize_candidate_lines(
+      candidate.original_lines,
+      candidate.normalized_text,
+      options,
+    )
+    let signals = pdf_v2_text_flow_signals_from_candidate(
+      candidate, marker, normalized_text, next_candidate, previous_heading,
+    )
+    let unit : PdfV2TextFlowUnit = {
+      page_index: candidate.page_index,
+      block_index: candidate.block_index,
+      flow_index: i,
+      fragment_index: -1,
+      line_start: pdf_v2_text_flow_candidate_line_start(candidate),
+      line_end: pdf_v2_text_flow_candidate_line_end(candidate),
+      text: candidate.text,
+      normalized_text,
+      line_count: if candidate.line_indices.length() > 0 {
+        candidate.line_indices.length()
+      } else if candidate.normalized_lines.length() > 0 {
+        candidate.normalized_lines.length()
+      } else {
+        1
+      },
+      char_count: candidate.normalized_text.to_array().length(),
+      starts_with_marker: marker is Some(_),
+      marker_kind,
+      marker,
+      indent_level: pdf_v2_text_flow_indent_level(candidate.text),
+      source_refs: candidate.source_refs,
+      reason_tags: candidate.reason_tags,
+      signals,
+    }
+    units.push(unit)
+    previous_heading = pdf_v2_text_flow_unit_shape_is_heading(unit)
+  }
+  units
+}
+
+///|
 fn pdf_v2_text_flow_from_paragraphs(
   fragments : Array[PdfV2FactFragment],
   paragraphs : Array[PdfV2TextOutputParagraph],
@@ -284,6 +342,238 @@ fn pdf_v2_text_flow_signals(
     has_previous_heading: previous_heading,
     continuation_candidate: line_count > 1 ||
     pdf_v2_text_flow_continuation_shape(text),
+    parser_fact_backed: false,
+    parser_heading_candidate_score: 0.0,
+    parser_list_candidate_score: 0.0,
+    parser_continuation_candidate_score: 0.0,
+    parser_artifact_candidate_score: 0.0,
+  }
+}
+
+///|
+fn pdf_v2_text_flow_signals_from_candidate(
+  candidate : @pdfv2.PdfV2TextFlowCandidate,
+  marker : PdfV2TextFlowMarker?,
+  normalized_text : String,
+  next_candidate : @pdfv2.PdfV2TextFlowCandidate?,
+  previous_heading : Bool,
+) -> PdfV2TextFlowSignals {
+  let first_signal = pdf_v2_text_flow_first_line_signal(candidate)
+  let last_signal = pdf_v2_text_flow_last_line_signal(candidate)
+  let artifact_score = pdf_v2_text_flow_candidate_artifact_score(candidate)
+  let line_count = if candidate.line_signals.length() > 0 {
+    candidate.line_signals.length()
+  } else {
+    1
+  }
+  let starts_with_ordered_marker = match first_signal {
+    Some(signal) => signal.starts_with_ordered_marker
+    None =>
+      match marker {
+        Some(value) => value.kind == PdfV2TextFlowMarkerKind::OrderedListMarker
+        None => false
+      }
+  }
+  let starts_with_unordered_marker = match first_signal {
+    Some(signal) => signal.starts_with_unordered_marker
+    None =>
+      match marker {
+        Some(value) =>
+          value.kind == PdfV2TextFlowMarkerKind::UnorderedListMarker
+        None => false
+      }
+  }
+  let page_number_from_signal = match first_signal {
+    Some(signal) => signal.starts_with_page_number
+    None => pdf_v2_is_page_number_like_noise(normalized_text)
+  }
+  let looks_like_page_number = artifact_score >= 0.90 ||
+    pdf_v2_text_flow_candidate_has_artifact_kind(
+      candidate,
+      @pdfv2.PdfV2PageArtifactKind::PageNumberLike,
+    ) ||
+    page_number_from_signal
+  let caption_from_signal = match first_signal {
+    Some(signal) => signal.starts_with_caption_marker
+    None => pdf_v2_heading_looks_like_caption(normalized_text)
+  }
+  let looks_like_caption_marker = pdf_v2_text_flow_candidate_has_artifact_kind(
+      candidate,
+      @pdfv2.PdfV2PageArtifactKind::CaptionLike,
+    ) ||
+    caption_from_signal
+  let continuation_candidate = candidate.boundary_signal.continuation_candidate_score >=
+    0.50 ||
+    line_count > 1 ||
+    pdf_v2_text_flow_continuation_shape(normalized_text)
+  {
+    is_single_line: line_count <= 1,
+    is_short: normalized_text.to_array().length() <= 72,
+    ends_with_sentence_punctuation: match last_signal {
+      Some(signal) => signal.ends_with_sentence_punctuation
+      None => pdf_v2_heading_ends_sentence(normalized_text)
+    },
+    starts_with_ordered_marker,
+    starts_with_unordered_marker,
+    starts_with_heading_marker: match marker {
+      Some(value) => value.kind == PdfV2TextFlowMarkerKind::HeadingMarker
+      None => false
+    },
+    looks_like_page_number,
+    looks_like_caption_marker,
+    has_following_body: pdf_v2_text_flow_candidate_has_following_body(
+      candidate, next_candidate,
+    ),
+    has_previous_heading: previous_heading,
+    continuation_candidate,
+    parser_fact_backed: true,
+    parser_heading_candidate_score: candidate.boundary_signal.heading_candidate_score,
+    parser_list_candidate_score: candidate.boundary_signal.list_candidate_score,
+    parser_continuation_candidate_score: candidate.boundary_signal.continuation_candidate_score,
+    parser_artifact_candidate_score: artifact_score,
+  }
+}
+
+///|
+fn pdf_v2_text_flow_marker_from_candidate(
+  candidate : @pdfv2.PdfV2TextFlowCandidate,
+) -> PdfV2TextFlowMarker? {
+  match pdf_v2_text_flow_first_marker_candidate(candidate) {
+    Some(marker) =>
+      match marker.kind {
+        @pdfv2.PdfV2TextMarkerKind::HeadingMarker =>
+          Some({
+            kind: PdfV2TextFlowMarkerKind::HeadingMarker,
+            marker_text: marker.marker_text,
+            body_text: marker.body_text,
+            level_hint: marker.level_hint,
+          })
+        @pdfv2.PdfV2TextMarkerKind::OrderedListMarker =>
+          Some({
+            kind: PdfV2TextFlowMarkerKind::OrderedListMarker,
+            marker_text: marker.marker_text,
+            body_text: marker.body_text,
+            level_hint: marker.level_hint,
+          })
+        @pdfv2.PdfV2TextMarkerKind::UnorderedListMarker =>
+          Some({
+            kind: PdfV2TextFlowMarkerKind::UnorderedListMarker,
+            marker_text: marker.marker_text,
+            body_text: marker.body_text,
+            level_hint: marker.level_hint,
+          })
+        @pdfv2.PdfV2TextMarkerKind::UnknownMarker =>
+          pdf_v2_text_flow_parse_marker(candidate.normalized_text)
+      }
+    None => pdf_v2_text_flow_parse_marker(candidate.normalized_text)
+  }
+}
+
+///|
+fn pdf_v2_text_flow_first_marker_candidate(
+  candidate : @pdfv2.PdfV2TextFlowCandidate,
+) -> @pdfv2.PdfV2TextMarkerCandidate? {
+  if candidate.line_signals.length() == 0 {
+    return None
+  }
+  candidate.line_signals[0].marker_candidate
+}
+
+///|
+fn pdf_v2_text_flow_first_line_signal(
+  candidate : @pdfv2.PdfV2TextFlowCandidate,
+) -> @pdfv2.PdfV2LineTextSignal? {
+  if candidate.line_signals.length() == 0 {
+    None
+  } else {
+    Some(candidate.line_signals[0])
+  }
+}
+
+///|
+fn pdf_v2_text_flow_last_line_signal(
+  candidate : @pdfv2.PdfV2TextFlowCandidate,
+) -> @pdfv2.PdfV2LineTextSignal? {
+  if candidate.line_signals.length() == 0 {
+    None
+  } else {
+    Some(candidate.line_signals[candidate.line_signals.length() - 1])
+  }
+}
+
+///|
+fn pdf_v2_text_flow_candidate_line_start(
+  candidate : @pdfv2.PdfV2TextFlowCandidate,
+) -> Int? {
+  if candidate.line_indices.length() == 0 {
+    None
+  } else {
+    Some(candidate.line_indices[0])
+  }
+}
+
+///|
+fn pdf_v2_text_flow_candidate_line_end(
+  candidate : @pdfv2.PdfV2TextFlowCandidate,
+) -> Int? {
+  if candidate.line_indices.length() == 0 {
+    None
+  } else {
+    Some(candidate.line_indices[candidate.line_indices.length() - 1])
+  }
+}
+
+///|
+fn pdf_v2_text_flow_candidate_has_artifact_kind(
+  candidate : @pdfv2.PdfV2TextFlowCandidate,
+  kind : @pdfv2.PdfV2PageArtifactKind,
+) -> Bool {
+  for artifact in candidate.artifact_refs {
+    if artifact.kind == kind {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn pdf_v2_text_flow_candidate_artifact_score(
+  candidate : @pdfv2.PdfV2TextFlowCandidate,
+) -> Double {
+  let mut score = candidate.boundary_signal.artifact_candidate_score
+  for artifact in candidate.artifact_refs {
+    if artifact.confidence > score {
+      score = artifact.confidence
+    }
+  }
+  score
+}
+
+///|
+fn pdf_v2_text_flow_candidate_has_following_body(
+  candidate : @pdfv2.PdfV2TextFlowCandidate,
+  next_candidate : @pdfv2.PdfV2TextFlowCandidate?,
+) -> Bool {
+  if candidate.boundary_signal.heading_candidate_score >= 0.80 {
+    return true
+  }
+  match next_candidate {
+    Some(next) => {
+      let t = pdf_v2_normalize_paragraph_text(next.normalized_text)
+      if t == "" {
+        return false
+      }
+      match pdf_v2_text_flow_first_line_signal(next) {
+        Some(signal) =>
+          signal.ends_with_sentence_punctuation ||
+          signal.starts_with_ordered_marker ||
+          signal.starts_with_unordered_marker ||
+          signal.char_count >= 24 ||
+          signal.word_count >= 5
+        None => pdf_v2_heading_next_looks_like_body(Some(t))
+      }
+    }
+    None => false
   }
 }
 

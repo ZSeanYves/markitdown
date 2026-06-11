@@ -18,7 +18,15 @@ pub fn parse_pdf_v2_source_from_path(String, PdfV2CoreOpenOptions) -> PdfV2Sourc
 
 pub fn pdf_v2_apply_object_caps_to_source(PdfV2SourceDocument, PdfV2ObjectCapOptions) -> PdfV2SourceDocument
 
+pub fn pdf_v2_build_block_boundary_signal(Array[PdfV2LineCandidate], Array[String], PdfV2BBox?) -> PdfV2BlockBoundarySignal
+
 pub fn pdf_v2_build_font_cache_from_text_events(Array[PdfV2CoreEvent]) -> PdfV2FontCache
+
+pub fn pdf_v2_build_line_text_signal(String, PdfV2TextDecodeConfidence, Array[PdfV2SourceRef], Array[String]) -> PdfV2LineTextSignal
+
+pub fn pdf_v2_build_page_artifact_candidates(PdfV2DocumentModel) -> Array[PdfV2PageArtifactCandidate]
+
+pub fn pdf_v2_build_text_flow_candidates(PdfV2DocumentModel) -> Array[PdfV2TextFlowCandidate]
 
 pub fn pdf_v2_collect_partial_fact_reports_from_model(PdfV2DocumentModel) -> Array[PdfV2PartialFactReport]
 
@@ -46,9 +54,13 @@ pub fn pdf_v2_document_source_ref() -> PdfV2SourceRef
 
 pub fn pdf_v2_empty_bbox() -> PdfV2BBox
 
+pub fn pdf_v2_empty_block_boundary_signal() -> PdfV2BlockBoundarySignal
+
 pub fn pdf_v2_empty_classifier_ready_features() -> PdfV2ClassifierReadyFeatures
 
 pub fn pdf_v2_empty_geometry_features() -> PdfV2GeometryFeatures
+
+pub fn pdf_v2_empty_line_text_signal() -> PdfV2LineTextSignal
 
 pub fn pdf_v2_empty_object_summary() -> PdfV2ObjectSummary
 
@@ -90,6 +102,8 @@ pub fn pdf_v2_source_events_from_core_events(Array[PdfV2CoreEvent]) -> Array[Pdf
 
 pub fn pdf_v2_source_summary(Int, Int, Int, Int) -> PdfV2SourceSummary
 
+pub fn pdf_v2_text_flow_candidates_for_block(PdfV2PageModel, PdfV2BlockCandidate, Array[PdfV2PageArtifactCandidate]) -> Array[PdfV2TextFlowCandidate]
+
 pub fn pdf_v2_warning(PdfV2WarningKind, PdfV2Severity, String, Array[PdfV2SourceRef], Array[String]) -> PdfV2Warning
 
 pub fn recover_pdf_v2_layout_noop(Array[PdfV2SourceRef]) -> PdfV2LayoutRecoveryResult
@@ -117,6 +131,22 @@ pub(all) struct PdfV2BBox {
   y1 : Double
 }
 
+pub(all) struct PdfV2BlockBoundarySignal {
+  line_count : Int
+  first_line_text : String
+  last_line_text : String
+  vertical_gap_before : Double?
+  vertical_gap_after : Double?
+  indent_profile : String?
+  font_size_relation_to_page : String?
+  heading_candidate_score : Double
+  list_candidate_score : Double
+  continuation_candidate_score : Double
+  artifact_candidate_score : Double
+  boundary_confidence : Double
+  reason_tags : Array[String]
+}
+
 pub(all) struct PdfV2BlockCandidate {
   page_index : Int?
   block_index : Int
@@ -129,6 +159,7 @@ pub(all) struct PdfV2BlockCandidate {
   reason_tags : Array[String]
   merge_reason_tags : Array[String]
   break_reason_tags : Array[String]
+  boundary_signal : PdfV2BlockBoundarySignal
   bbox : PdfV2BBox?
   writing_direction : PdfV2WritingDirection
   rotation : Double?
@@ -716,6 +747,7 @@ pub(all) struct PdfV2LineCandidate {
   reason_tags : Array[String]
   merge_reason_tags : Array[String]
   break_reason_tags : Array[String]
+  text_signal : PdfV2LineTextSignal
   bbox : PdfV2BBox?
   baseline : Double?
   writing_direction : PdfV2WritingDirection
@@ -744,6 +776,24 @@ pub(all) struct PdfV2LineReconstructionSummary {
   max_line_cap_hit : Bool
   warnings_count : Int
   risk_count : Int
+}
+
+pub(all) struct PdfV2LineTextSignal {
+  normalized_text : String
+  char_count : Int
+  word_count : Int
+  is_empty : Bool
+  is_short : Bool
+  ends_with_sentence_punctuation : Bool
+  starts_with_unordered_marker : Bool
+  starts_with_ordered_marker : Bool
+  starts_with_page_number : Bool
+  starts_with_caption_marker : Bool
+  looks_like_title_line : Bool
+  looks_like_noise_line : Bool
+  marker_candidate : PdfV2TextMarkerCandidate?
+  decode_confidence : PdfV2TextDecodeConfidence
+  reason_tags : Array[String]
 }
 
 pub(all) struct PdfV2LinkCandidate {
@@ -893,6 +943,26 @@ pub(all) struct PdfV2Page {
   risks : Array[PdfV2Risk]
 }
 
+pub(all) struct PdfV2PageArtifactCandidate {
+  kind : PdfV2PageArtifactKind
+  normalized_text : String
+  page_indices : Array[Int]
+  repeat_count : Int
+  position_band : PdfV2PagePositionBand
+  confidence : Double
+  reason_tags : Array[String]
+  source_refs : Array[PdfV2SourceRef]
+}
+
+pub(all) enum PdfV2PageArtifactKind {
+  HeaderLike
+  FooterLike
+  PageNumberLike
+  RepeatedLineLike
+  CaptionLike
+  Unknown
+} derive(Eq)
+
 pub(all) struct PdfV2PageBoxFacts {
   media_box : PdfV2BBox
   crop_box : PdfV2BBox?
@@ -967,6 +1037,13 @@ pub(all) struct PdfV2PageModel {
   text_blocks : Array[PdfV2TextBlock]
   layout_regions : Array[PdfV2LayoutRegion]
 }
+
+pub(all) enum PdfV2PagePositionBand {
+  Top
+  Body
+  Bottom
+  Unknown
+} derive(Eq)
 
 pub(all) struct PdfV2PartialFactReport {
   fact_kind : String
@@ -1240,6 +1317,43 @@ pub(all) enum PdfV2TextDecodeConfidence {
   Low
   Unknown
   Failed
+} derive(Eq)
+
+pub(all) struct PdfV2TextFlowCandidate {
+  page_index : Int?
+  block_index : Int?
+  flow_index : Int
+  line_indices : Array[Int]
+  text : String
+  normalized_text : String
+  original_lines : Array[String]
+  normalized_lines : Array[String]
+  line_signals : Array[PdfV2LineTextSignal]
+  boundary_signal : PdfV2BlockBoundarySignal
+  artifact_refs : Array[PdfV2PageArtifactCandidate]
+  source_refs : Array[PdfV2SourceRef]
+  reason_tags : Array[String]
+}
+
+pub(all) struct PdfV2TextMarkerCandidate {
+  kind : PdfV2TextMarkerKind
+  marker_text : String
+  body_text : String
+  marker_char_start : Int
+  marker_char_end : Int
+  body_char_start : Int
+  body_char_end : Int
+  level_hint : Int?
+  source_refs : Array[PdfV2SourceRef]
+  reason_tags : Array[String]
+  confidence : Double
+}
+
+pub(all) enum PdfV2TextMarkerKind {
+  HeadingMarker
+  OrderedListMarker
+  UnorderedListMarker
+  UnknownMarker
 } derive(Eq)
 
 pub(all) struct PdfV2TextMatrix {

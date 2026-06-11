@@ -29,6 +29,36 @@ fn pdf_v2_text_output_fragment_lines(
 }
 
 ///|
+fn pdf_v2_text_output_normalize_candidate_lines(
+  raw_lines : Array[String],
+  fallback_text : String,
+  options : PdfV2ProductBridgeOptions,
+) -> String {
+  let lines : Array[PdfV2TextOutputLine] = []
+  if raw_lines.length() == 0 {
+    for raw in fallback_text.split("\n") {
+      lines.push({
+        text: pdf_v2_normalize_paragraph_text(raw.to_owned()),
+        fragment_index: 0,
+      })
+    }
+  } else {
+    for raw in raw_lines {
+      lines.push({
+        text: pdf_v2_normalize_paragraph_text(raw),
+        fragment_index: 0,
+      })
+    }
+  }
+  let text = pdf_v2_join_output_lines(lines)
+  if options.suppress_page_number_like_noise {
+    pdf_v2_strip_cjk_page_prefix(text)
+  } else {
+    text
+  }
+}
+
+///|
 fn pdf_v2_normalize_plain_text_fragment(text : String) -> String {
   pdf_v2_normalize_observed_compat_glyphs(@cor.normalize_pdf_text_cleanup(text))
 }
@@ -683,7 +713,11 @@ fn pdf_v2_looks_like_cjk_page_label(compact : String) -> Bool {
     .replace_all(old="页", new="")
     .trim()
     .to_owned()
-  digits != "" && digits.length() <= 4 && pdf_v2_all_ascii_digits(digits)
+  if digits == "" {
+    return false
+  }
+  (digits.length() <= 4 && pdf_v2_all_ascii_digits(digits)) ||
+  pdf_v2_looks_like_fraction_label(digits)
 }
 
 ///|
@@ -817,11 +851,40 @@ fn pdf_v2_page_label_sequence_length(
   lines : Array[PdfV2TextOutputLine],
   index : Int,
 ) -> Int {
+  if index >= lines.length() || lines[index].text.trim().to_owned() == "" {
+    return 0
+  }
+  match pdf_v2_next_non_empty_line_index(lines, index + 1) {
+    Some(second_index) => {
+      let a = lines[index].text
+      let b = lines[second_index].text
+      match pdf_v2_next_non_empty_line_index(lines, second_index + 1) {
+        Some(third_index) => {
+          let c = lines[third_index].text
+          if a == "第" && b == "页" && pdf_v2_is_page_number_like_noise(c) {
+            return third_index - index + 1
+          }
+          if a == "第" && pdf_v2_all_ascii_digits(b) && c == "页" {
+            return third_index - index + 1
+          }
+        }
+        None => ()
+      }
+      if a == "第" && b == "页" {
+        return second_index - index + 1
+      }
+      let joined = a + b
+      if pdf_v2_is_page_number_like_noise(joined) {
+        return second_index - index + 1
+      }
+    }
+    None => ()
+  }
   if index + 2 < lines.length() {
     let a = lines[index].text
     let b = lines[index + 1].text
     let c = lines[index + 2].text
-    if a == "第" && b == "页" && pdf_v2_all_ascii_digits(c) {
+    if a == "第" && b == "页" && pdf_v2_is_page_number_like_noise(c) {
       return 3
     }
     if a == "第" && pdf_v2_all_ascii_digits(b) && c == "页" {

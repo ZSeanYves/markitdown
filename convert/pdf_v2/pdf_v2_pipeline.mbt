@@ -29,6 +29,7 @@ pub(all) struct PdfV2ConvertPipelineOutput {
   gate_summary : PdfV2GateSummary?
   lowering_summary : PdfV2FactLoweringSummary
   fragments : Array[PdfV2FactFragment]
+  text_flow_candidates : Array[@pdfv2.PdfV2TextFlowCandidate]
   warnings : Array[@pdfv2.PdfV2Warning]
   risks : Array[@pdfv2.PdfV2Risk]
   one_pass : Bool
@@ -154,6 +155,7 @@ pub fn convert_pdf_v2_experimental_from_path(
         gate_summary,
         lowering_summary: lowered.summary,
         fragments: lowered.fragments,
+        text_flow_candidates: lowered.text_flow_candidates,
         warnings: lowered.warnings,
         risks: lowered.risks,
         one_pass: model.one_pass &&

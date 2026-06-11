@@ -8,12 +8,43 @@ fn pdf_v2_semantic_blocks_from_fragments(
 }
 
 ///|
+fn pdf_v2_semantic_blocks_from_candidates(
+  candidates : Array[@pdfv2.PdfV2TextFlowCandidate],
+  options : PdfV2ProductBridgeOptions,
+) -> Array[PdfV2SemanticBlock] {
+  let flow = pdf_v2_text_flow_from_candidates(candidates, options)
+  pdf_v2_semantic_blocks_from_flow(flow, options)
+}
+
+///|
 fn pdf_v2_semantic_blocks_from_flow(
   flow : Array[PdfV2TextFlowUnit],
   options : PdfV2ProductBridgeOptions,
 ) -> Array[PdfV2SemanticBlock] {
   let blocks : Array[PdfV2SemanticBlock] = []
-  for unit in flow {
+  let mut i = 0
+  while i < flow.length() {
+    let sequence_length = pdf_v2_semantic_page_label_sequence_length(
+      flow, i, options,
+    )
+    if sequence_length > 0 {
+      for offset in 0..<sequence_length {
+        let unit = flow[i + offset]
+        let decision = pdf_v2_semantic_decision(
+          PdfV2SemanticBlockKind::Unknown,
+          1.0,
+          "noise.page_label_sequence_guard",
+          ["noise_guard", "page_label_sequence"],
+          ["not_heading", "not_list"],
+          unit.source_refs,
+          ["hard_negative_rule", "noise_guard", "suppress_output"],
+        )
+        blocks.push(pdf_v2_semantic_block_from_decision(unit, decision))
+      }
+      i = i + sequence_length
+      continue
+    }
+    let unit = flow[i]
     let rule_decision = pdf_v2_semantic_rule_decision(unit, options)
     let arbitration = pdf_v2_arbitrate_semantic_decision({
       rule_decision,
@@ -21,8 +52,66 @@ fn pdf_v2_semantic_blocks_from_flow(
       disagreement_policy: PdfV2SemanticDisagreementPolicy::RuleHardConstraintsFirst,
     })
     blocks.push(pdf_v2_semantic_block_from_decision(unit, arbitration.decision))
+    i = i + 1
   }
   blocks
+}
+
+///|
+fn pdf_v2_semantic_page_label_sequence_length(
+  flow : Array[PdfV2TextFlowUnit],
+  index : Int,
+  options : PdfV2ProductBridgeOptions,
+) -> Int {
+  if !options.enable_noise_guards ||
+    !options.suppress_page_number_like_noise ||
+    index >= flow.length() {
+    return 0
+  }
+  let a = flow[index].normalized_text.trim().to_owned()
+  if a == "" {
+    return 0
+  }
+  match pdf_v2_semantic_next_non_empty_flow_index(flow, index + 1) {
+    Some(second_index) => {
+      let b = flow[second_index].normalized_text.trim().to_owned()
+      match pdf_v2_semantic_next_non_empty_flow_index(flow, second_index + 1) {
+        Some(third_index) => {
+          let c = flow[third_index].normalized_text.trim().to_owned()
+          if a == "第" && b == "页" && pdf_v2_is_page_number_like_noise(c) {
+            return third_index - index + 1
+          }
+          if a == "第" && pdf_v2_all_ascii_digits(b) && c == "页" {
+            return third_index - index + 1
+          }
+        }
+        None => ()
+      }
+      if a == "第" && b == "页" {
+        return second_index - index + 1
+      }
+      if pdf_v2_is_page_number_like_noise(a + b) {
+        return second_index - index + 1
+      }
+    }
+    None => ()
+  }
+  0
+}
+
+///|
+fn pdf_v2_semantic_next_non_empty_flow_index(
+  flow : Array[PdfV2TextFlowUnit],
+  start : Int,
+) -> Int? {
+  let mut i = start
+  while i < flow.length() {
+    if flow[i].normalized_text.trim().to_owned() != "" {
+      return Some(i)
+    }
+    i = i + 1
+  }
+  None
 }
 
 ///|
@@ -31,7 +120,7 @@ fn pdf_v2_semantic_rule_decision(
   options : PdfV2ProductBridgeOptions,
 ) -> PdfV2RuleDecision {
   if options.enable_noise_guards {
-    match pdf_v2_semantic_noise_guard_decision(unit) {
+    match pdf_v2_semantic_noise_guard_decision(unit, options) {
       Some(decision) => return decision
       None => ()
     }
@@ -54,6 +143,7 @@ fn pdf_v2_semantic_rule_decision(
 ///|
 fn pdf_v2_semantic_noise_guard_decision(
   unit : PdfV2TextFlowUnit,
+  options : PdfV2ProductBridgeOptions,
 ) -> PdfV2RuleDecision? {
   if unit.normalized_text == "" {
     return Some(
@@ -64,20 +154,53 @@ fn pdf_v2_semantic_noise_guard_decision(
         ["noise_guard", "empty_line"],
         [],
         unit.source_refs,
-        ["hard_negative_rule", "noise_guard"],
+        ["hard_negative_rule", "noise_guard", "suppress_output"],
       ),
     )
   }
-  if unit.signals.looks_like_page_number {
+  if unit.signals.parser_fact_backed &&
+    unit.signals.parser_artifact_candidate_score >= 0.90 &&
+    unit.signals.looks_like_page_number &&
+    options.suppress_page_number_like_noise {
     return Some(
       pdf_v2_semantic_decision(
-        PdfV2SemanticBlockKind::PlainText,
+        PdfV2SemanticBlockKind::Unknown,
+        1.0,
+        "noise.parser_artifact_guard",
+        ["noise_guard", "parser_artifact_fact"],
+        ["not_heading", "not_list"],
+        unit.source_refs,
+        ["hard_negative_rule", "noise_guard", "suppress_output"],
+      ),
+    )
+  }
+  if unit.signals.parser_fact_backed &&
+    unit.signals.parser_artifact_candidate_score >= 0.80 &&
+    !unit.signals.looks_like_page_number &&
+    options.suppress_repeated_page_artifact_noise {
+    return Some(
+      pdf_v2_semantic_decision(
+        PdfV2SemanticBlockKind::Unknown,
+        0.96,
+        "noise.parser_repeated_artifact_guard",
+        ["noise_guard", "parser_repeated_artifact_fact"],
+        ["not_heading", "not_list"],
+        unit.source_refs,
+        ["hard_negative_rule", "noise_guard", "suppress_output"],
+      ),
+    )
+  }
+  if unit.signals.looks_like_page_number &&
+    options.suppress_page_number_like_noise {
+    return Some(
+      pdf_v2_semantic_decision(
+        PdfV2SemanticBlockKind::Unknown,
         1.0,
         "noise.page_number_guard",
         ["noise_guard", "page_number_like"],
         ["not_heading", "not_list"],
         unit.source_refs,
-        ["hard_negative_rule", "noise_guard"],
+        ["hard_negative_rule", "noise_guard", "suppress_output"],
       ),
     )
   }
@@ -90,6 +213,35 @@ fn pdf_v2_semantic_list_decision(
 ) -> PdfV2RuleDecision? {
   if pdf_v2_semantic_indent_unsupported(unit) {
     return None
+  }
+  if unit.signals.parser_fact_backed &&
+    unit.signals.parser_list_candidate_score >= 0.70 {
+    if unit.signals.starts_with_unordered_marker {
+      return Some(
+        pdf_v2_semantic_decision(
+          PdfV2SemanticBlockKind::UnorderedListItem,
+          0.94,
+          "list.unordered_marker.parser_fact",
+          ["list_marker", "unordered_marker", "parser_fact"],
+          [],
+          unit.source_refs,
+          [],
+        ),
+      )
+    }
+    if unit.signals.starts_with_ordered_marker {
+      return Some(
+        pdf_v2_semantic_decision(
+          PdfV2SemanticBlockKind::OrderedListItem,
+          0.92,
+          "list.ordered_marker.parser_fact",
+          ["list_marker", "ordered_marker", "parser_fact"],
+          [],
+          unit.source_refs,
+          [],
+        ),
+      )
+    }
   }
   match unit.marker {
     Some(marker) =>
@@ -145,6 +297,26 @@ fn pdf_v2_semantic_heading_decision(
   if t == "" {
     return None
   }
+  if unit.signals.parser_fact_backed &&
+    unit.signals.parser_heading_candidate_score >= 0.75 &&
+    unit.signals.is_single_line &&
+    !unit.signals.ends_with_sentence_punctuation &&
+    !unit.signals.looks_like_page_number &&
+    !unit.signals.looks_like_caption_marker &&
+    !unit.signals.starts_with_ordered_marker &&
+    !unit.signals.starts_with_unordered_marker {
+    return Some(
+      pdf_v2_semantic_decision(
+        PdfV2SemanticBlockKind::Heading,
+        0.88,
+        "heading.short_single_line_followed_by_body.parser_fact",
+        ["short_single_line", "parser_fact", "boundary_heading_score"],
+        [],
+        unit.source_refs,
+        [],
+      ),
+    )
+  }
   if !unit.signals.is_single_line {
     return None
   }
@@ -186,6 +358,18 @@ fn pdf_v2_semantic_heading_decision(
 fn pdf_v2_semantic_paragraph_decision(
   unit : PdfV2TextFlowUnit,
 ) -> PdfV2RuleDecision {
+  if unit.signals.parser_fact_backed &&
+    unit.signals.parser_continuation_candidate_score >= 0.55 {
+    return pdf_v2_semantic_decision(
+      PdfV2SemanticBlockKind::Continuation,
+      0.66,
+      "continuation.parser_boundary_fact",
+      ["parser_fact", "continuation_boundary_score"],
+      [],
+      unit.source_refs,
+      [],
+    )
+  }
   if unit.signals.continuation_candidate && unit.line_count > 1 {
     return pdf_v2_semantic_decision(
       PdfV2SemanticBlockKind::Continuation,
@@ -224,7 +408,11 @@ fn pdf_v2_semantic_block_from_decision(
   unit : PdfV2TextFlowUnit,
   decision : PdfV2RuleDecision,
 ) -> PdfV2SemanticBlock {
-  let text = pdf_v2_semantic_block_text(unit, decision.kind)
+  let text = if decision.risk_tags.contains("suppress_output") {
+    ""
+  } else {
+    pdf_v2_semantic_block_text(unit, decision.kind)
+  }
   {
     kind: decision.kind,
     text,

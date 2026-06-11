@@ -43,3 +43,9 @@ test "pdf v2 text output normalizer repairs common split ligature words" {
 
   assert_true(normalized == "This is the first flow and Confidential text.")
 }
+
+///|
+test "pdf v2 text output normalizer recognizes split cjk fraction page labels" {
+  assert_true(pdf_v2_is_page_number_like_noise("3/1"))
+  assert_true(pdf_v2_is_page_number_like_noise("第页3/1"))
+}

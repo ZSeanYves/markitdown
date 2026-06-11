@@ -11,6 +11,7 @@ pub(all) struct PdfV2LineCandidate {
   reason_tags : Array[String]
   merge_reason_tags : Array[String]
   break_reason_tags : Array[String]
+  text_signal : PdfV2LineTextSignal
   bbox : PdfV2BBox?
   baseline : Double?
   writing_direction : PdfV2WritingDirection
@@ -393,6 +394,8 @@ fn pdf_v2_make_line_candidate(
   if bbox is None || baseline is None {
     reason_tags = pdf_v2_line_tags(reason_tags, ["line_geometry_unavailable"])
   }
+  let text = pdf_v2_line_text(spans)
+  let decode_confidence = pdf_v2_line_decode_confidence(spans)
   {
     page_index: if spans.length() > 0 {
       spans[0].page_index
@@ -400,15 +403,18 @@ fn pdf_v2_make_line_candidate(
       None
     },
     line_index,
-    text: pdf_v2_line_text(spans),
+    text,
     spans,
     source_refs,
-    decode_confidence: pdf_v2_line_decode_confidence(spans),
+    decode_confidence,
     geometry_confidence,
     warnings: pdf_v2_line_warnings(spans, geometry_warning),
     reason_tags,
     merge_reason_tags,
     break_reason_tags,
+    text_signal: pdf_v2_build_line_text_signal(
+      text, decode_confidence, source_refs, reason_tags,
+    ),
     bbox,
     baseline,
     writing_direction: PdfV2WritingDirection::Unknown,
