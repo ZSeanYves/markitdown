@@ -1,6 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "ZSeanYves/markitdown/convert/pdf_v2"
 
+import {
+  "ZSeanYves/markitdown/core",
+}
+
 // Values
 pub fn convert_pdf_v2_experimental_from_path(String, PdfV2ConvertPipelineOptions) -> PdfV2ConvertPipelineResult
 
@@ -14,6 +18,8 @@ pub fn default_pdf_v2_markdown_policy() -> PdfV2MarkdownPolicy
 
 pub fn default_pdf_v2_no_model_gate_options() -> PdfV2NoModelGateOptions
 
+pub fn default_pdf_v2_product_bridge_options() -> PdfV2ProductBridgeOptions
+
 pub fn lower_pdf_v2_document_scaffold(@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2DocumentModel) -> PdfV2LoweringScaffoldResult
 
 pub fn pdf_v2_abstain_decision(Array[String]) -> PdfV2BlockDecision
@@ -25,6 +31,8 @@ pub fn pdf_v2_fact_lowering_input_with_gate(@ZSeanYves/markitdown/doc_parse/pdf_
 pub fn pdf_v2_keep_as_text_decision(Double, PdfV2DecisionSource, Array[String]) -> PdfV2BlockDecision
 
 pub fn pdf_v2_lower_fact_model(PdfV2FactLoweringInput) -> PdfV2FactLoweringResult
+
+pub fn pdf_v2_pipeline_result_to_document(PdfV2ConvertPipelineResult, PdfV2ProductBridgeOptions) -> Result[@core.Document, @core.AppError]
 
 pub fn pdf_v2_policy_keeps_uncertain_text(PdfV2MarkdownPolicy) -> Bool
 
@@ -262,6 +270,15 @@ pub(all) struct PdfV2NoModelGateOptions {
   abstain_on_unsupported_objects : Bool
   abstain_on_capped_context : Bool
   max_risk_score_for_plain_text : Double
+}
+
+pub(all) struct PdfV2ProductBridgeOptions {
+  emit_page_breaks : Bool
+  emit_low_confidence_notes : Bool
+  emit_unsupported_object_notes : Bool
+  preserve_empty_pages : Bool
+  max_output_chars : Int?
+  source_name : String?
 }
 
 // Type aliases

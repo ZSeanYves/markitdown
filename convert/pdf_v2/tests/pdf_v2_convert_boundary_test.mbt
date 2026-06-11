@@ -495,6 +495,167 @@ fn phase16_input(
 }
 
 ///|
+fn phase20_fragment(
+  kind : @pdfv2conv.PdfV2FactFragmentKind,
+  text : String,
+  page_index : Int?,
+  source_refs : Array[@pdfv2.PdfV2SourceRef],
+) -> @pdfv2conv.PdfV2FactFragment {
+  { kind, text, page_index, source_refs, reason_tags: ["phase20_bridge_test"] }
+}
+
+///|
+fn phase20_model_summary(
+  page_count : Int,
+  fragments : Array[@pdfv2conv.PdfV2FactFragment],
+) -> @pdfv2conv.PdfV2ConvertModelSummary {
+  {
+    page_count,
+    source_event_count: 0,
+    block_count: fragments.length(),
+    line_count: 0,
+    span_count: 0,
+    char_count: 0,
+    unsupported_capability_count: 0,
+    partial_fact_count: 0,
+    warning_count: 0,
+    risk_count: 0,
+  }
+}
+
+///|
+fn phase20_layout_summary(page_count : Int) -> @pdfv2.PdfV2LayoutFactSummary {
+  {
+    page_count,
+    pages_with_text_candidates: 0,
+    pages_with_block_candidates: 0,
+    pages_with_missing_geometry: 0,
+    pages_source_order_only: 0,
+    pages_with_layout_not_attempted: 0,
+    unsupported_capability_count: 0,
+    partial_fact_count: 0,
+    capped_object_count: 0,
+    metadata_only_count: 0,
+    warning_count: 0,
+    risk_count: 0,
+  }
+}
+
+///|
+fn phase20_feature_summary() -> @pdfv2.PdfV2FeatureSummary {
+  {
+    document_feature_count: 0,
+    page_feature_count: 0,
+    block_feature_count: 0,
+    object_feature_count: 0,
+    low_signal_block_count: 0,
+    missing_geometry_block_count: 0,
+    unsupported_object_count: 0,
+    partial_object_count: 0,
+    capped_object_count: 0,
+    warning_count: 0,
+    risk_count: 0,
+  }
+}
+
+///|
+fn phase20_lowering_summary(
+  page_count : Int,
+  fragments : Array[@pdfv2conv.PdfV2FactFragment],
+) -> @pdfv2conv.PdfV2FactLoweringSummary {
+  let mut plain_text_fragment_count = 0
+  let mut object_placeholder_count = 0
+  let mut low_confidence_note_count = 0
+  for fragment in fragments {
+    match fragment.kind {
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText =>
+        plain_text_fragment_count = plain_text_fragment_count + 1
+      @pdfv2conv.PdfV2FactFragmentKind::UnsupportedObjectNote =>
+        object_placeholder_count = object_placeholder_count + 1
+      @pdfv2conv.PdfV2FactFragmentKind::LowConfidenceNote =>
+        low_confidence_note_count = low_confidence_note_count + 1
+      @pdfv2conv.PdfV2FactFragmentKind::PageBreak => ()
+    }
+  }
+  {
+    page_count,
+    block_count: fragments.length(),
+    line_count: 0,
+    plain_text_fragment_count,
+    object_placeholder_count,
+    low_confidence_note_count,
+    gate_note_count: 0,
+    gate_plain_text_candidate_count: 0,
+    gate_abstain_count: 0,
+    gate_unknown_count: 0,
+    gate_missing_decision_count: 0,
+    gate_skipped_plain_text_count: 0,
+    warning_count: 0,
+    risk_count: 0,
+    capped_output: false,
+  }
+}
+
+///|
+fn phase20_pipeline_ok(
+  page_count : Int,
+  fragments : Array[@pdfv2conv.PdfV2FactFragment],
+) -> @pdfv2conv.PdfV2ConvertPipelineResult {
+  @pdfv2conv.PdfV2ConvertPipelineResult::ConvertPipelineOk({
+    source_summary: @pdfv2.pdf_v2_source_summary(0, page_count, 0, 0),
+    model_summary: phase20_model_summary(page_count, fragments),
+    layout_summary: phase20_layout_summary(page_count),
+    feature_summary: phase20_feature_summary(),
+    gate_summary: None,
+    lowering_summary: phase20_lowering_summary(page_count, fragments),
+    fragments,
+    warnings: [],
+    risks: [],
+    one_pass: true,
+    no_fallback: true,
+  })
+}
+
+///|
+fn phase20_pipeline_err(
+  stage : String,
+  message : String,
+) -> @pdfv2conv.PdfV2ConvertPipelineResult {
+  @pdfv2conv.PdfV2ConvertPipelineResult::ConvertPipelineErr({
+    stage,
+    message,
+    fragments: [],
+    warnings: [],
+    risks: [],
+    one_pass: true,
+    no_fallback: true,
+  })
+}
+
+///|
+fn phase20_bridge_document(
+  result : @pdfv2conv.PdfV2ConvertPipelineResult,
+  options : @pdfv2conv.PdfV2ProductBridgeOptions,
+) -> @cor.Document raise {
+  match @pdfv2conv.pdf_v2_pipeline_result_to_document(result, options) {
+    Ok(doc) => doc
+    Err(err) => fail("expected product bridge success: " + err.to_string())
+  }
+}
+
+///|
+fn phase20_assert_plain_bridge_blocks(doc : @cor.Document) -> Unit raise {
+  for block in doc.blocks.val {
+    match block {
+      @cor.Block::Paragraph(text) =>
+        assert_true(!phase14_text_contains_semantic_markdown(text))
+      @cor.Block::BlankLine => ()
+      _ => fail("unexpected product bridge block")
+    }
+  }
+}
+
+///|
 test "pdf v2 lowering scaffold consumes parser model without raw scan fallback" {
   let model = @pdfv2.build_empty_pdf_v2_document()
   let lowered = @pdfv2conv.lower_pdf_v2_document_scaffold(model)
@@ -1268,6 +1429,225 @@ test "pdf v2 fact lowerer keeps semantic markdown out" {
 }
 
 ///|
+test "pdf v2 product bridge emits plain text document" {
+  let fragment = phase20_fragment(
+    @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+    "Hello product bridge",
+    Some(0),
+    [phase14_text_ref(0)],
+  )
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok(1, [fragment]),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(doc.blocks.val.length() == 1)
+  match doc.blocks.val[0] {
+    @cor.Block::Paragraph(text) => assert_true(text == "Hello product bridge")
+    _ => fail("expected product bridge paragraph")
+  }
+  assert_true(markdown.contains("Hello product bridge"))
+  assert_true(!markdown.contains("PDF_V2_PIPELINE_DIAGNOSTICS"))
+  assert_true(!phase14_text_contains_semantic_markdown(markdown))
+  phase20_assert_plain_bridge_blocks(doc)
+}
+
+///|
+test "pdf v2 product bridge page breaks are stable and opt in" {
+  let fragments = [
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Alpha",
+      Some(0),
+      [phase14_text_ref(0)],
+    ),
+    phase20_fragment(@pdfv2conv.PdfV2FactFragmentKind::PageBreak, "", Some(0), []),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Beta",
+      Some(1),
+      [phase14_text_ref(1)],
+    ),
+  ]
+  let default_doc = phase20_bridge_document(
+    phase20_pipeline_ok(2, fragments),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+  assert_true(default_doc.blocks.val.length() == 2)
+  phase20_assert_plain_bridge_blocks(default_doc)
+
+  let page_break_doc = phase20_bridge_document(
+    phase20_pipeline_ok(2, fragments),
+    {
+      ..@pdfv2conv.default_pdf_v2_product_bridge_options(),
+      emit_page_breaks: true,
+    },
+  )
+  assert_true(page_break_doc.blocks.val.length() == 3)
+  match page_break_doc.blocks.val[1] {
+    @cor.Block::BlankLine => ()
+    _ => fail("expected opt-in page break blank line")
+  }
+
+  let preserved_doc = phase20_bridge_document(
+    phase20_pipeline_ok(2, fragments),
+    {
+      ..@pdfv2conv.default_pdf_v2_product_bridge_options(),
+      preserve_empty_pages: true,
+    },
+  )
+  assert_true(preserved_doc.blocks.val.length() == 3)
+  match preserved_doc.blocks.val[1] {
+    @cor.Block::BlankLine => ()
+    _ => fail("expected preserved page break blank line")
+  }
+}
+
+///|
+test "pdf v2 product bridge notes are disabled by default" {
+  let fragments = [
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::LowConfidenceNote,
+      "gate abstained note",
+      Some(0),
+      [phase14_text_ref(0)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::UnsupportedObjectNote,
+      "unsupported object note",
+      Some(0),
+      [phase14_image_ref()],
+    ),
+  ]
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok(1, fragments),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(doc.blocks.val.length() == 0)
+  assert_true(markdown == "")
+  assert_true(!markdown.contains("gate abstained note"))
+  assert_true(!markdown.contains("unsupported object note"))
+}
+
+///|
+test "pdf v2 product bridge notes are plain opt in paragraphs" {
+  let fragments = [
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Visible text",
+      Some(0),
+      [phase14_text_ref(0)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::LowConfidenceNote,
+      "gate abstained note",
+      Some(0),
+      [phase14_text_ref(1)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::UnsupportedObjectNote,
+      "unsupported object note",
+      Some(0),
+      [phase14_image_ref()],
+    ),
+  ]
+  let doc = phase20_bridge_document(phase20_pipeline_ok(1, fragments), {
+    ..@pdfv2conv.default_pdf_v2_product_bridge_options(),
+    emit_low_confidence_notes: true,
+    emit_unsupported_object_notes: true,
+  })
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(doc.blocks.val.length() == 3)
+  assert_true(markdown.contains("Visible text"))
+  assert_true(markdown.contains("gate abstained note"))
+  assert_true(markdown.contains("unsupported object note"))
+  assert_true(!phase14_text_contains_semantic_markdown(markdown))
+  phase20_assert_plain_bridge_blocks(doc)
+}
+
+///|
+test "pdf v2 product bridge caps output characters" {
+  let fragments = [
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "ABCDE",
+      Some(0),
+      [phase14_text_ref(0)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "FGHI",
+      Some(0),
+      [phase14_text_ref(1)],
+    ),
+  ]
+  let doc = phase20_bridge_document(phase20_pipeline_ok(1, fragments), {
+    ..@pdfv2conv.default_pdf_v2_product_bridge_options(),
+    max_output_chars: Some(6),
+  })
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(doc.blocks.val.length() == 2)
+  assert_true(markdown.contains("ABCDE"))
+  assert_true(markdown.contains("F"))
+  assert_true(!markdown.contains("GHI"))
+}
+
+///|
+test "pdf v2 product bridge fails closed on pipeline error" {
+  match
+    @pdfv2conv.pdf_v2_pipeline_result_to_document(
+      phase20_pipeline_err("parse_pdf_v2_model_from_path", "broken xref"),
+      @pdfv2conv.default_pdf_v2_product_bridge_options(),
+    ) {
+    Ok(doc) =>
+      fail("expected product bridge failure, got " + @cor.emit_markdown(doc))
+    Err(err) => {
+      let message = err.to_string()
+      assert_true(message.contains("parse_pdf_v2_model_from_path"))
+      assert_true(message.contains("broken xref"))
+      assert_true(!message.contains("Hello product bridge"))
+    }
+  }
+}
+
+///|
+test "pdf v2 product bridge preserves minimal origins" {
+  let source_ref = {
+    ..phase14_text_ref(0),
+    page_index: Some(2),
+    object_id: Some("7 0 R"),
+  }
+  let fragment = phase20_fragment(
+    @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+    "Origin text",
+    Some(2),
+    [source_ref],
+  )
+  let doc = phase20_bridge_document(phase20_pipeline_ok(3, [fragment]), {
+    ..@pdfv2conv.default_pdf_v2_product_bridge_options(),
+    source_name: Some("bridge.pdf"),
+  })
+
+  assert_true(doc.block_origins.val.length() == 1)
+  match doc.block_origins.val[0] {
+    Some(origin) => {
+      assert_true(origin.source_name == Some("bridge.pdf"))
+      assert_true(origin.page == Some(3))
+      assert_true(origin.block_index == Some(0))
+      assert_true(origin.object_ref == Some("7 0 R"))
+      assert_true(origin.line_start is None)
+      assert_true(origin.relationship_id is None)
+    }
+    None => fail("expected product bridge origin")
+  }
+}
+
+///|
 test "pdf v2 convert boundary guard stays parser fact only" {
   let package_text = @fs.read_file_to_string(
     "convert/pdf_v2/moon.pkg",
@@ -1293,8 +1673,15 @@ test "pdf v2 convert boundary guard stays parser fact only" {
   ) catch {
     err => fail("read pipeline source failed: " + err.to_string())
   }
+  let bridge_text = @fs.read_file_to_string(
+    "convert/pdf_v2/pdf_v2_product_bridge.mbt",
+    encoding="utf8",
+  ) catch {
+    err => fail("read product bridge source failed: " + err.to_string())
+  }
 
   assert_true(package_text.contains("doc_parse/pdf_v2"))
+  assert_true(package_text.contains("markitdown/core"))
   assert_true(!package_text.contains("doc_parse/pdf/vendor"))
   assert_true(!package_text.contains("doc_parse/pdf\""))
   assert_true(!package_text.contains("mbtpdf"))
@@ -1321,4 +1708,25 @@ test "pdf v2 convert boundary guard stays parser fact only" {
   assert_true(!pipeline_text.contains("ListItem"))
   assert_true(!pipeline_text.contains("Caption"))
   assert_true(!pipeline_text.contains("TableLike"))
+  assert_true(!bridge_text.contains("doc_parse/pdf/vendor"))
+  assert_true(!bridge_text.contains("doc_parse/pdf\""))
+  assert_true(!bridge_text.contains("mbtpdf"))
+  assert_true(!bridge_text.contains("@fs"))
+  assert_true(!bridge_text.contains("read_file"))
+  assert_true(!bridge_text.contains("_from_path"))
+  assert_true(!bridge_text.contains("convert/convert"))
+  assert_true(!bridge_text.contains("parse_to_ir"))
+  assert_true(!bridge_text.contains("dispatcher"))
+  assert_true(!bridge_text.contains("model.pkl"))
+  assert_true(!bridge_text.contains("features.tsv"))
+  assert_true(!bridge_text.contains("markitdown-quality-lab"))
+  assert_true(!bridge_text.contains("PdfV2BlockRole"))
+  assert_true(!bridge_text.contains("Heading"))
+  assert_true(!bridge_text.contains("RichParagraph"))
+  assert_true(!bridge_text.contains("ListItem"))
+  assert_true(!bridge_text.contains("Caption"))
+  assert_true(!bridge_text.contains("TableLike"))
+  assert_true(!bridge_text.contains("RichTable"))
+  assert_true(!bridge_text.contains("ImageBlock"))
+  assert_true(!bridge_text.contains("@cor.Inline::Link"))
 }

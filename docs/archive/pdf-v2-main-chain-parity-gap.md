@@ -72,6 +72,22 @@
   - `doc_parse/pdf_v2/README.md` now states diagnostics/goldens/adoption scaffold is stopped.
   - `docs/archive/pdf-v2-architecture.md` now records Productization Reset 1 and removes the diagnostics renderer/golden forward route.
 
+## 2.1 Productization Reset 2 Update
+
+- added narrow product bridge:
+  - `convert/pdf_v2/pdf_v2_product_bridge.mbt`
+  - `PdfV2ConvertPipelineResult -> @core.Document`
+  - plain text fragments to paragraph blocks
+  - optional visible page-break/empty-page blank-line blocks
+  - optional low-confidence and unsupported-object notes as plain paragraphs
+  - fail-closed pipeline error mapping to `@core.AppError`
+  - minimal block origins from source name, page, block index, and first object reference
+- intentionally unchanged:
+  - dispatcher registration still points at the shipped v1 PDF path
+  - old PDF runtime remains in place
+  - no samples expected were updated
+  - no quality-lab, model, external data, layout recovery, fallback, or semantic Markdown path was introduced
+
 ## 3. v1 PDF Main-chain Capability Summary
 
 | capability | v1 behavior | evidence file/test | notes |
@@ -112,9 +128,9 @@
 | Semantic role decision shell | synthetic-only / scaffold | `pdf_v2_decision.mbt`; classifier gate tests | `PdfV2BlockRole` includes semantic roles but is not product lowering. Seal or delete before product registration unless intentionally revived later. |
 | Fact-only lowerer | partial | `pdf_v2_fact_lowering.mbt`; `pdf_v2_convert_boundary_test.mbt` | Emits plain text, optional page break fragments, optional notes/placeholders. |
 | Experimental path pipeline | real / partial | `pdf_v2_pipeline.mbt`; pipeline smoke tests | Runs parser model -> layout -> features -> optional gate -> fact lowerer from real PDF path. |
-| Product `@core.Document` output | not implemented | absence in `convert/pdf_v2`; pipeline returns `PdfV2ConvertPipelineResult` | Largest blocker before dispatcher registration. |
+| Product `@core.Document` output | partial / plain text | `pdf_v2_product_bridge.mbt`; product bridge tests | Converts pipeline results to core documents for plain text, optional notes, optional explicit page-break blank lines, and fail-closed errors. Dispatcher still not switched. |
 | Markdown headings/lists/tables/images/links/forms/outlines | not implemented | lowerer tests assert no semantic Markdown | v2 intentionally does not emit v1 product semantics yet. |
-| Metadata/origin product surface | not implemented | no `@core.Origin`/asset origin bridge in v2 convert | Needed for parity with v1 main chain. |
+| Metadata/origin product surface | partial / minimal | `pdf_v2_product_bridge.mbt`; product bridge origin test | Block origins preserve source name, page, block index, and first object ref. No asset origin or document-level metadata parity yet. |
 | Diagnostics renderer/goldens | removed | this reset | Not current route. |
 
 ## 5. v1 vs v2 Gap Matrix
@@ -122,12 +138,12 @@
 | capability | v1 status | v2 status | gap type | expected diff risk | priority |
 |---|---|---|---|---|---|
 | Dispatcher entry | Registered default PDF path to v1 | Not registered by constraint | Integration gap | High once switched | P0 later, after bridge |
-| Product output bridge | Returns `@core.Document` | Returns pipeline result/fragments only | Product bridge missing | High | P0 |
-| Plain text extraction | Real PDF to Markdown paragraphs | Real parser path, fact fragments only | Product lowering gap | High | P0 |
+| Product output bridge | Returns `@core.Document` | Narrow plain-text bridge returns `@core.Document` from pipeline result | Remaining integration/semantic gap | High | P0 mostly closed before dispatcher |
+| Plain text extraction | Real PDF to Markdown paragraphs | Real parser path, fact fragments, and plain paragraph bridge | Text shaping/order gap | High | P0 |
 | Page/block ordering | Convert page objects interleave text/images by page object order | Source-order block candidates only | Ordering gap | High | P0 |
 | Default gate behavior | v1 does not block plain text through a v2 no-model gate | v2 default gate can abstain on unsupported/capped context | First diff suppression risk | High | P0 |
-| Error behavior | Raises app errors / native parse failures through main chain | Pipeline has fail-closed result, not dispatcher error contract | Contract gap | High | P0 |
-| Metadata/origin | Product origins, asset origins, metadata JSON | Parser source refs only | Product metadata gap | High | P0 |
+| Error behavior | Raises app errors / native parse failures through main chain | Bridge maps pipeline errors to `@core.AppError`; dispatcher still not switched | Dispatcher contract gap | High | P0 |
+| Metadata/origin | Product origins, asset origins, metadata JSON | Minimal block origins only | Product metadata gap | High | P0/P1 |
 | Images | Asset export and `ImageBlock` | Image metadata candidates only | Capability missing | High | P1 |
 | Image captions | Conservative caption association | No caption association/lowering | Capability missing | Medium-high | P1 |
 | URI links | Inline `RichParagraph` links for safe high-confidence URI annotations | Link candidates/features only | Capability missing | High | P1 |
@@ -139,7 +155,7 @@
 | Headings/lists | Rule-heavy product semantics | Semantic role scaffold only; no output | Capability missing | High | P2 after text baseline |
 | Noise/header/footer | Filtered/gated in v1 | No product noise policy | Capability missing | Medium-high | P2 |
 | Hardwrap/spacing | Regression-tested expected Markdown | Basic source-order text fragments | Text shaping gap | High | P1 |
-| Page breaks/provenance | Page origins in metadata; no dedicated product page-break block found | Optional PageBreak fact fragment, no product bridge | Product policy gap | Medium | P2 |
+| Page breaks/provenance | Page origins in metadata; no dedicated product page-break block found | Default bridge ignores page breaks; opt-in explicit fragments become blank lines | Product policy mostly set for first diff | Medium | P2 |
 | Model integration | No v2 model runtime | Deferred | Deferred plan | Low before parity | P3 |
 
 ## 6. Scaffold / Interface-only Items Still Present
@@ -156,15 +172,16 @@
   - Semantic role scaffold is still present.
   - Recommendation: seal behind tests only or delete before dispatcher registration unless the next model-integration batch explicitly revives it. It must not leak into product Markdown during main-chain parity work.
 - `PdfV2FactFragmentKind::PageBreak`:
-  - Interface exists, but product semantics are not connected.
+  - Default product bridge ignores page breaks.
+  - Opt-in page break emission and explicit empty-page preservation use blank-line blocks.
 - `lower_pdf_v2_document_scaffold`:
   - Historical scaffold output exists for boundary testing, not main-chain product output.
 
 ## 7. Capabilities To Complete Before Dispatcher Registration
 
 - v2 pipeline result -> main convert output bridge:
-  - Build `@core.Document` output from v2 facts/fragments.
-  - Preserve source name, page origin, block origin, and asset origin hooks.
+  - Narrow plain-text `@core.Document` bridge exists.
+  - Remaining work: connect it to a controlled dispatcher path later, then add asset origins/document metadata only when corresponding product features exist.
 - Plain text block/page ordering:
   - Produce useful paragraph blocks from real PDF path.
   - Keep page order and source order deterministic enough for expected diffs.
@@ -174,6 +191,9 @@
 - Default options:
   - Choose product-run defaults that keep text flowing for first diff collection.
   - Do not let no-model gate abstain block all text in the first controlled registration run.
+- Product bridge defaults:
+  - Keep visible page breaks disabled by default.
+  - Keep low-confidence and unsupported-object notes disabled by default.
 - No diagnostics in product output:
   - Warnings/risks can stay internal/audit facts.
   - Removed diagnostics renderer text must not be reintroduced as Markdown.
@@ -235,13 +255,10 @@
 
 - Do not rebuild diagnostics/adoption scaffolding.
 - Do not load or train models.
-- First implement a narrow v2 product bridge:
-  - `convert_pdf_v2_experimental_from_path`
-  - plain text fragments
-  - `@core.Document`
-  - origin metadata
-  - fail-closed error mapping
-- Configure first-run defaults so no-model gate does not hide text during diff collection.
+- Narrow v2 product bridge is now present for plain text, minimal block origins,
+  and fail-closed error mapping.
+- Next configure first-run defaults so no-model gate does not hide text during
+  diff collection.
 - Then prepare controlled dispatcher registration and inspect expected diffs.
 - After dispatcher registration, fix text/decode/spacing/order first, then link/image/table/metadata, then forms/annotations/outlines, then headings/lists/noise.
 - Start model integration only after the diff-driven parser signals are stable.

@@ -22,6 +22,9 @@ Current productization route:
   path.
 - v2 should first close the v1 product-surface gaps in parser facts, object
   coverage, fact lowering, and the pipeline-to-product bridge.
+- A narrow pipeline-to-product bridge now exists for plain text fragments and
+  minimal block origins. It is not dispatcher registration and does not replace
+  the shipped v1 PDF path.
 - After that surface is close enough, the next runtime step is preparing for
   controlled dispatcher registration so expected diffs can drive the remaining
   fixes.
@@ -152,6 +155,43 @@ Current status:
 - Parser-stage failures return a fail-closed error result with warnings/risks and
   no fragments.
 - Gate-disabled mode preserves the Phase 14 fact-only lowering path.
+
+This is not dispatcher integration, old PDF runtime replacement, semantic
+Markdown, heading/list/caption/table/image/link/form lowering, model loading,
+layout recovery, external data/model reading, mbtpdf access from convert, or
+fallback.
+
+## Phase 20 Product Bridge Status
+
+Phase 20 adds a narrow product bridge:
+
+```text
+PdfV2ConvertPipelineResult
+  -> @core.Document
+```
+
+Current status:
+
+- `pdf_v2_pipeline_result_to_document` converts successful pipeline results into
+  a core document.
+- Default output is plain text only: `PlainText` fragments become paragraph
+  blocks.
+- `PageBreak` fragments are ignored by default, matching the v1 product path
+  audit where page provenance exists but no dedicated visible page-break block
+  was found. Opt-in page breaks and preserved explicit empty-page boundaries use
+  core blank-line blocks.
+- Low-confidence and unsupported-object notes are disabled by default. When
+  explicitly enabled, they emit plain paragraph text only.
+- Pipeline failures map to `Result[@core.Document, @core.AppError]` and fail
+  closed without old PDF fallback or fake content.
+- Product bridge options expose `emit_page_breaks`,
+  `emit_low_confidence_notes`, `emit_unsupported_object_notes`,
+  `preserve_empty_pages`, and `max_output_chars`; the default keeps page breaks
+  and notes hidden.
+- The bridge preserves minimal block origins where available: source name, page,
+  block index, and first object reference. `@core.Document` has no document-level
+  format/parser/page-count property slot, so those remain pipeline summaries, not
+  document metadata fields.
 
 This is not dispatcher integration, old PDF runtime replacement, semantic
 Markdown, heading/list/caption/table/image/link/form lowering, model loading,
