@@ -35,6 +35,8 @@ pub(all) struct PdfV2FactFragment {
   kind : PdfV2FactFragmentKind
   text : String
   page_index : Int?
+  block_index : Int?
+  line_count : Int
   source_refs : Array[@pdfv2.PdfV2SourceRef]
   reason_tags : Array[String]
 }
@@ -385,6 +387,8 @@ fn pdf_v2_fact_push_gate_note(
     kind: PdfV2FactFragmentKind::LowConfidenceNote,
     text: pdf_v2_fact_gate_note_text(kind),
     page_index,
+    block_index: None,
+    line_count: 0,
     source_refs,
     reason_tags,
   })
@@ -522,6 +526,8 @@ fn pdf_v2_fact_append_object_placeholders(
               row.capability_status,
             ),
             page_index: row.page_index,
+            block_index: None,
+            line_count: 0,
             source_refs: row.source_refs,
             reason_tags: pdf_v2_fact_append_unique_tag(
               row.reason_tags,
@@ -552,6 +558,8 @@ fn pdf_v2_fact_append_model_object_placeholders(
       kind: PdfV2FactFragmentKind::UnsupportedObjectNote,
       text: pdf_v2_fact_object_note(report.capability, report.status),
       page_index: report.page_index,
+      block_index: None,
+      line_count: 0,
       source_refs: refs,
       reason_tags: pdf_v2_fact_append_unique_tag(
         report.reason_tags,
@@ -572,6 +580,8 @@ fn pdf_v2_fact_append_model_object_placeholders(
         report.status,
       ),
       page_index: report.page_index,
+      block_index: None,
+      line_count: 0,
       source_refs: refs,
       reason_tags: pdf_v2_fact_append_unique_tag(
         report.reason_tags,
@@ -705,6 +715,8 @@ pub fn pdf_v2_lower_fact_model(
         kind: PdfV2FactFragmentKind::PageBreak,
         text: "",
         page_index: Some(page.page_index),
+        block_index: None,
+        line_count: 0,
         source_refs: [page.source_ref],
         reason_tags: ["pdf_v2_fact_lowering", "page_break"],
       })
@@ -867,6 +879,8 @@ pub fn pdf_v2_lower_fact_model(
           kind: PdfV2FactFragmentKind::LowConfidenceNote,
           text: "PDF v2 low-confidence text fact kept as plain text",
           page_index: block.page_index,
+          block_index: Some(block.block_index),
+          line_count: block.lines.length(),
           source_refs: effective_refs,
           reason_tags: pdf_v2_fact_low_confidence_tags(block, feature_row),
         })
@@ -877,6 +891,8 @@ pub fn pdf_v2_lower_fact_model(
           kind: PdfV2FactFragmentKind::PlainText,
           text,
           page_index: block.page_index,
+          block_index: Some(block.block_index),
+          line_count: block.lines.length(),
           source_refs: effective_refs,
           reason_tags: pdf_v2_fact_append_unique_tags(reason_tags, gate_tags),
         })

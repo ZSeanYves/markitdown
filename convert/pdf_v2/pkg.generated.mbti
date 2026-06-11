@@ -156,6 +156,8 @@ pub(all) struct PdfV2FactFragment {
   kind : PdfV2FactFragmentKind
   text : String
   page_index : Int?
+  block_index : Int?
+  line_count : Int
   source_refs : Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2SourceRef]
   reason_tags : Array[String]
 }
@@ -280,6 +282,7 @@ pub(all) struct PdfV2ProductBridgeOptions {
   emit_unsupported_object_notes : Bool
   preserve_empty_pages : Bool
   normalize_plain_text : Bool
+  emit_minimal_headings : Bool
   suppress_page_number_like_noise : Bool
   suppress_repeated_page_artifact_noise : Bool
   max_output_chars : Int?

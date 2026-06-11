@@ -5,6 +5,7 @@ pub(all) struct PdfV2ProductBridgeOptions {
   emit_unsupported_object_notes : Bool
   preserve_empty_pages : Bool
   normalize_plain_text : Bool
+  emit_minimal_headings : Bool
   suppress_page_number_like_noise : Bool
   suppress_repeated_page_artifact_noise : Bool
   max_output_chars : Int?
@@ -19,6 +20,7 @@ pub fn default_pdf_v2_product_bridge_options() -> PdfV2ProductBridgeOptions {
     emit_unsupported_object_notes: false,
     preserve_empty_pages: false,
     normalize_plain_text: true,
+    emit_minimal_headings: true,
     suppress_page_number_like_noise: true,
     suppress_repeated_page_artifact_noise: true,
     max_output_chars: None,
@@ -63,12 +65,26 @@ fn pdf_v2_pipeline_output_to_document(
         if options.normalize_plain_text {
           while shaped_index < text_paragraphs.length() &&
                 text_paragraphs[shaped_index].fragment_index == fragment_index {
+            let paragraph = text_paragraphs[shaped_index]
+            let next_text = if shaped_index + 1 < text_paragraphs.length() {
+              Some(text_paragraphs[shaped_index + 1].text)
+            } else {
+              None
+            }
             let text = pdf_v2_product_bridge_take_text(
-              text_paragraphs[shaped_index].text,
+              paragraph.text,
               remaining_chars,
             )
             remaining_chars = text.1
-            pdf_v2_product_bridge_push_text(doc, text.0, fragment, options)
+            pdf_v2_product_bridge_push_text(
+              doc,
+              text.0,
+              paragraph.text,
+              paragraph.line_count,
+              fragment,
+              next_text,
+              options,
+            )
             shaped_index = shaped_index + 1
           }
         } else {
@@ -77,7 +93,15 @@ fn pdf_v2_pipeline_output_to_document(
             remaining_chars,
           )
           remaining_chars = text.1
-          pdf_v2_product_bridge_push_text(doc, text.0, fragment, options)
+          pdf_v2_product_bridge_push_text(
+            doc,
+            text.0,
+            fragment.text,
+            1,
+            fragment,
+            None,
+            options,
+          )
         }
       PageBreak =>
         if options.emit_page_breaks || options.preserve_empty_pages {
@@ -94,7 +118,15 @@ fn pdf_v2_pipeline_output_to_document(
             remaining_chars,
           )
           remaining_chars = text.1
-          pdf_v2_product_bridge_push_text(doc, text.0, fragment, options)
+          pdf_v2_product_bridge_push_text(
+            doc,
+            text.0,
+            fragment.text,
+            1,
+            fragment,
+            None,
+            options,
+          )
         }
       UnsupportedObjectNote =>
         if options.emit_unsupported_object_notes {
@@ -103,7 +135,15 @@ fn pdf_v2_pipeline_output_to_document(
             remaining_chars,
           )
           remaining_chars = text.1
-          pdf_v2_product_bridge_push_text(doc, text.0, fragment, options)
+          pdf_v2_product_bridge_push_text(
+            doc,
+            text.0,
+            fragment.text,
+            1,
+            fragment,
+            None,
+            options,
+          )
         }
     }
   }
@@ -122,16 +162,26 @@ fn pdf_v2_product_bridge_text_paragraphs(
 fn pdf_v2_product_bridge_push_text(
   doc : @cor.Document,
   text : String,
+  heading_source_text : String,
+  paragraph_line_count : Int,
   fragment : PdfV2FactFragment,
+  next_text : String?,
   options : PdfV2ProductBridgeOptions,
 ) -> Unit {
   let trimmed = text.trim().to_owned()
   if trimmed == "" {
     return
   }
+  let block = if pdf_v2_should_emit_minimal_heading(
+      heading_source_text, fragment, paragraph_line_count, next_text, options,
+    ) {
+    @cor.Block::Heading(1, trimmed)
+  } else {
+    @cor.Block::Paragraph(trimmed)
+  }
   @cor.push_with_origin(
     doc,
-    @cor.Block::Paragraph(trimmed),
+    block,
     Some(pdf_v2_product_bridge_origin(doc, fragment, options)),
   )
 }

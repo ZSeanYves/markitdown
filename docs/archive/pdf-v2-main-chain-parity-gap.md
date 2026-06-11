@@ -497,3 +497,78 @@
     facts where source boundaries are available.
   - add conservative heading/list/table/link/image product lowering only after
     plain text boundaries are stable.
+
+## Reset 6 Heading And Block Boundary Pass
+
+- commit:
+  - this change, target message `pdf-v2: add minimal heading and boundary parity`
+- focus:
+  - minimal product-bridge heading parity for obvious title-shaped plain text.
+  - stronger output block-boundary cues for title/body separation and hardwrap
+    continuation, including split CJK body fragments.
+  - narrow page-label cleanup for `第` / `页` and joined `第页` prefixes.
+  - no fallback, model, image/link/table/form/metadata lowering, or v1 PDF
+    runtime changes.
+- commands:
+  - `moon info && moon fmt`
+  - `moon check doc_parse/pdf_v2 convert/pdf_v2 convert/convert pdf`
+  - `moon test doc_parse/pdf_v2/tests convert/pdf_v2/tests convert/convert/test doc_parse/pdf_v2/tests`
+  - `moon test convert/pdf_v2`
+  - `git diff --check`
+  - `moon build cli pdf zip`
+  - `MARKITDOWN_CLI="$PWD/_build/native/debug/build/cli/cli.exe" MARKITDOWN_PDF_CLI="$PWD/_build/native/debug/build/pdf/pdf.exe" MARKITDOWN_ZIP_CLI="$PWD/_build/native/debug/build/zip/zip.exe" bash samples/check.sh --format pdf || true`
+  - same explicit runner command with `--metadata-only --format pdf || true`
+  - same explicit runner command with `--assets-only --format pdf || true`
+- before:
+  - Reset 5 main PDF run `.tmp/check/runs/pdf-20260611-130026-40884`: log
+    reports 29 Markdown failures, with 30 diff files and 29 non-empty diffs.
+  - `hardwrap_en` and `text_hardwrap` were reduced to heading-only or mostly
+    heading/block-boundary diffs.
+  - `hardwrap_zh` still had missing headings plus CJK body line splits.
+  - `pdf_page_noise_cleanup` still surfaced split `第` / `页` artifacts.
+  - metadata-only and assets-only runs remained at 13 metadata failures and 7
+    asset Markdown diff files.
+- after:
+  - main PDF run `.tmp/check/runs/pdf-20260611-133518-45770`: log reports 23
+    Markdown failures. Workspace has 30 diff files, 23 non-empty diffs, and 7
+    empty diff artifacts for now-matching samples. Conversion/error artifacts:
+    0. Disallowed control-byte files: 0.
+  - metadata-only run `.tmp/check/runs/pdf-20260611-133559-46341`: log reports
+    13 metadata failures, with 7 Markdown diff files plus sidecar mismatches.
+    Conversion/error artifacts: 0. Disallowed control-byte files: 0.
+  - assets-only run `.tmp/check/runs/pdf-20260611-133559-46376`: 7 Markdown
+    diff files. Conversion/error artifacts: 0. Disallowed control-byte files: 0.
+- fixed cases:
+  - `hardwrap_en` now matches expected Markdown, including `# Document
+    Conversion Pipeline`.
+  - `text_hardwrap` now matches expected Markdown, including `# Hard Wrap Test`
+    and joined English/CJK hardwraps.
+  - `hardwrap_zh` now matches expected Markdown, including `# 研究内容`, `#
+    技术路线`, joined CJK body text, and `统一 IR` repair.
+  - `pdf_page_noise_cleanup` now matches expected Markdown by removing split and
+    joined CJK page-label prefixes.
+  - `not_heading_sentence`, `text_simple`, and `text_multipage` remain matching
+    and only produce empty diff artifacts in the runner workspace.
+- regressions:
+  - none observed in check/test/sample validation.
+  - Remaining heading-heavy samples such as `heading_basic`,
+    `pdf_heading_vs_short_sentence`, and
+    `pdf_heading_false_positive_phase15` still need parser-level block
+    boundaries and richer heading/list policy; this reset intentionally did not
+    implement full classifier semantics.
+- remaining failures:
+  - 23 non-empty main Markdown diffs remain.
+  - Metadata-only remains at 13 failures; asset-only remains at 7 Markdown diff
+    files.
+- remaining categories:
+  - text: complex heading samples, list bullets, cross-page paragraph edge cases,
+    repeated header/footer variants, and table/two-column ordering.
+  - product lowering: images/assets, image captions, URI links, tables, and
+    metadata sidecar parity are still not implemented.
+  - model/layout: no layout recovery model or semantic classifier path is wired.
+- next fix batch:
+  - improve parser block reconstruction around real heading/body boundaries,
+    especially `heading_basic` and `pdf_heading_vs_short_sentence`.
+  - add conservative list-item lowering only after block boundaries are stable.
+  - then tackle URI links and image/table product lowering before metadata
+    sidecar parity.

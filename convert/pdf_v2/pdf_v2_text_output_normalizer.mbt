@@ -8,6 +8,7 @@ priv struct PdfV2TextOutputLine {
 priv struct PdfV2TextOutputParagraph {
   text : String
   fragment_index : Int
+  line_count : Int
 }
 
 ///|
@@ -199,21 +200,57 @@ fn pdf_v2_text_output_paragraphs(
     if current.length() == 0 {
       return
     }
-    let text = pdf_v2_join_output_lines(current)
+    let text = if options.suppress_page_number_like_noise {
+      pdf_v2_strip_cjk_page_prefix(pdf_v2_join_output_lines(current))
+    } else {
+      pdf_v2_join_output_lines(current)
+    }
     if text != "" {
-      paragraphs.push({ text, fragment_index: current[0].fragment_index })
+      paragraphs.push({
+        text,
+        fragment_index: current[0].fragment_index,
+        line_count: current.length(),
+      })
     }
     current.clear()
   }
 
   let mut i = 0
   while i < lines.length() {
+    let mut line = lines[i]
+    match pdf_v2_split_cjk_page_prefix_target_index(lines, i, options) {
+      Some(target_index) => {
+        i = target_index
+        line = {
+          text: pdf_v2_strip_cjk_page_prefix(lines[target_index].text),
+          fragment_index: lines[target_index].fragment_index,
+        }
+      }
+      None => ()
+    }
     if pdf_v2_should_skip_page_label_sequence(lines, i, options) {
       i = i + pdf_v2_page_label_sequence_length(lines, i)
       continue
     }
-    let line = lines[i]
+    if options.suppress_page_number_like_noise {
+      line = {
+        text: pdf_v2_strip_cjk_page_prefix(line.text),
+        fragment_index: line.fragment_index,
+      }
+    }
     if line.text == "" {
+      match pdf_v2_next_non_empty_line_index(lines, i + 1) {
+        Some(next_index) =>
+          if current.length() > 0 &&
+            pdf_v2_should_ignore_blank_between_output_lines(
+              current[current.length() - 1],
+              lines[next_index],
+            ) {
+            i = i + 1
+            continue
+          }
+        None => ()
+      }
       flush_current()
       i = i + 1
       continue
@@ -275,6 +312,26 @@ fn pdf_v2_output_line_starts_new_paragraph(
     return true
   }
   false
+}
+
+///|
+fn pdf_v2_should_ignore_blank_between_output_lines(
+  left : PdfV2TextOutputLine,
+  right : PdfV2TextOutputLine,
+) -> Bool {
+  let l = left.text.trim().to_owned()
+  let r = right.text.trim().to_owned()
+  if l == "" || r == "" {
+    return false
+  }
+  if pdf_v2_looks_like_standalone_title_line(l) ||
+    pdf_v2_looks_like_standalone_title_line(r) ||
+    pdf_v2_ends_sentence(l) {
+    return false
+  }
+  pdf_v2_join_without_space(l, r) ||
+  pdf_v2_should_unwrap_hyphenated_word(l, r) ||
+  pdf_v2_is_lowercase_continuation(r)
 }
 
 ///|
@@ -437,20 +494,14 @@ fn pdf_v2_is_lowercase_continuation(text : String) -> Bool {
 ///|
 fn pdf_v2_looks_like_standalone_title_line(text : String) -> Bool {
   let t = text.trim().to_owned()
-  if t.length() < 4 || t.length() > 48 {
+  let char_count = t.to_array().length()
+  if char_count < 4 || char_count > 48 {
     return false
   }
   if pdf_v2_ends_sentence(t) || t.has_suffix(":") || t.has_suffix("：") {
     return false
   }
-  let words = pdf_v2_word_count(t)
-  if words >= 5 {
-    return false
-  }
-  if pdf_v2_all_ascii_lowercase_words(t) {
-    return false
-  }
-  true
+  pdf_v2_heading_basic_shape_ok(t) && pdf_v2_heading_has_title_shape(t)
 }
 
 ///|
@@ -473,21 +524,6 @@ fn pdf_v2_word_count(text : String) -> Int {
     }
   }
   count
-}
-
-///|
-fn pdf_v2_all_ascii_lowercase_words(text : String) -> Bool {
-  let chars = text.to_array()
-  let mut saw_alpha = false
-  for ch in chars {
-    if ch >= 'A' && ch <= 'Z' {
-      return false
-    }
-    if ch >= 'a' && ch <= 'z' {
-      saw_alpha = true
-    }
-  }
-  saw_alpha
 }
 
 ///|
@@ -684,6 +720,79 @@ fn pdf_v2_should_skip_page_label_sequence(
     return false
   }
   pdf_v2_page_label_sequence_length(lines, index) > 0
+}
+
+///|
+fn pdf_v2_split_cjk_page_prefix_target_index(
+  lines : Array[PdfV2TextOutputLine],
+  index : Int,
+  options : PdfV2ProductBridgeOptions,
+) -> Int? {
+  if !options.suppress_page_number_like_noise || index + 1 >= lines.length() {
+    return None
+  }
+  if lines[index].text != "第" {
+    return None
+  }
+  match pdf_v2_next_non_empty_line_index(lines, index + 1) {
+    Some(target_index) =>
+      if pdf_v2_starts_with_cjk_page_prefix(lines[target_index].text) {
+        Some(target_index)
+      } else {
+        None
+      }
+    None => None
+  }
+}
+
+///|
+fn pdf_v2_next_non_empty_line_index(
+  lines : Array[PdfV2TextOutputLine],
+  start : Int,
+) -> Int? {
+  let mut i = start
+  while i < lines.length() {
+    if lines[i].text.trim() != "" {
+      return Some(i)
+    }
+    i = i + 1
+  }
+  None
+}
+
+///|
+fn pdf_v2_starts_with_cjk_page_prefix(text : String) -> Bool {
+  let chars = text.trim().to_owned().to_array()
+  (chars.length() >= 2 && chars[0] == '页' && chars[1] == ' ') ||
+  (
+    chars.length() >= 3 &&
+    chars[0] == '第' &&
+    chars[1] == '页' &&
+    chars[2] == ' '
+  )
+}
+
+///|
+fn pdf_v2_strip_cjk_page_prefix(text : String) -> String {
+  let chars = text.trim().to_owned().to_array()
+  if chars.length() >= 2 && chars[0] == '页' && chars[1] == ' ' {
+    let out = StringBuilder::new()
+    for i = 2; i < chars.length(); i = i + 1 {
+      out.write_char(chars[i])
+    }
+    return out.to_string().trim().to_owned()
+  }
+  if chars.length() >= 3 &&
+    chars[0] == '第' &&
+    chars[1] == '页' &&
+    chars[2] == ' ' {
+    let out = StringBuilder::new()
+    for i = 3; i < chars.length(); i = i + 1 {
+      out.write_char(chars[i])
+    }
+    return out.to_string().trim().to_owned()
+  }
+  text
 }
 
 ///|
