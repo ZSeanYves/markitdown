@@ -705,3 +705,52 @@
     source-boundary evidence is available.
   - then tackle URI links and image/table product lowering before metadata
     sidecar parity.
+
+## Reset 8A Parser Fact Alignment Audit
+
+- focus:
+  - audit v1 parser/convert rule intent and map it to the v2 parser fact model
+    needed by the Reset 7 rule-based semantic block system.
+  - document the next parser fact batches without changing parser/convert code
+    or sample expected outputs.
+- v1 rule audit summary:
+  - useful v1 intent is fact-driven: text shape, markers, punctuation, page
+    labels, caption guards, gaps, indents, font deltas, first/last line
+    summaries, page edge zones, repeated edge text, and boundary continuation
+    evidence all feed heading/list/paragraph decisions.
+  - v1 pitfalls to avoid are the distributed patch shape across line/block
+    staging, classify, layout gate, merge, noise, and final IR repair.
+- v2 fact coverage summary:
+  - present: source refs, source order, decode confidence, geometry confidence,
+    candidate line/block arrays, weak block hints, object facts, layout coverage
+    scaffold, and feature rows.
+  - partial: bbox, baseline, gap, indent, font/style, text shape, and block
+    boundary reason tags.
+  - convert-only: Reset 7 text-flow marker/page-number/caption/title signals
+    and semantic decisions.
+  - missing: parser-owned line text signals, marker/body split facts,
+    page-number/page-label/caption-like candidates, repeated edge artifacts,
+    block boundary scores, text-flow candidates, and page-relative layout/font
+    summaries.
+- biggest parser fact gaps:
+  - `LineTextSignal` for normalized text shape and guards.
+  - `LineLayoutSignal` for page-relative geometry, indent, font, and edge-band
+    evidence.
+  - `BlockBoundarySignal` for continuation/new-paragraph/new-block evidence.
+  - `PageArtifactCandidate` for page labels, page numbers, repeated edge text,
+    and caption-like guards.
+  - `TextFlowCandidate` so convert can consume parser-owned flow units instead
+    of rebuilding them from plain fragments.
+- proposed fact model:
+  - full proposal recorded in
+    `docs/archive/pdf-v2-parser-fact-alignment.md`.
+  - parser/model produces neutral facts and candidates; convert semantic rules
+    remain responsible for final paragraph/heading/list decisions and core
+    lowering.
+- recommended next implementation batch:
+  - Reset 8B: add parser-owned `LineTextSignal` plus marker/page-label/
+    caption-like candidates.
+  - Reset 8C: add block first/last line summaries and `BlockBoundarySignal`.
+  - Reset 8D: add repeated edge artifact aggregation.
+  - Reset 8E: make Reset 7 semantic rules consume parser facts and retire
+    duplicate convert-only string guesses where parser facts exist.

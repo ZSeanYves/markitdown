@@ -1,0 +1,393 @@
+# PDF v2 Parser Fact Alignment
+
+## 1. Scope
+
+- current commit: `95deabe pdf-v2: add rule-based semantic blocks`
+- inspected v1 files:
+  - `doc_parse/pdf/README.md`
+  - `doc_parse/pdf/api/pdf_api.mbt`
+  - `doc_parse/pdf/model/pdf_page_model.mbt`
+  - `doc_parse/pdf/model/pdf_text_model.mbt`
+  - `doc_parse/pdf/text/pdf_text_blocks.mbt`
+  - `doc_parse/pdf/text/pdf_text_lines.mbt`
+  - `doc_parse/pdf/text/pdf_text_rules.mbt`
+  - `convert/pdf/pdf_lines.mbt`
+  - `convert/pdf/pdf_blocks.mbt`
+  - `convert/pdf/pdf_classify.mbt`
+  - `convert/pdf/pdf_heading_decision.mbt`
+  - `convert/pdf/pdf_ir_heading_rules.mbt`
+  - `convert/pdf/pdf_ir_text_rules.mbt`
+  - `convert/pdf/pdf_ir_title_signals.mbt`
+  - `convert/pdf/pdf_layout_gate.mbt`
+  - `convert/pdf/pdf_layout_gate_support.mbt`
+  - `convert/pdf/pdf_layout_text_signals.mbt`
+  - `convert/pdf/pdf_layout_lexical_signals.mbt`
+  - `convert/pdf/pdf_layout_feature_signals.mbt`
+  - `convert/pdf/pdf_layout_object_signals.mbt`
+  - `convert/pdf/pdf_merge.mbt`
+  - `convert/pdf/pdf_merge_decision.mbt`
+  - `convert/pdf/pdf_merge_boundary_signals.mbt`
+  - `convert/pdf/pdf_noise.mbt`
+  - `convert/pdf/pdf_noise_decision.mbt`
+  - `convert/pdf/pdf_to_ir.mbt`
+- inspected v2 files:
+  - `doc_parse/pdf_v2/README.md`
+  - `doc_parse/pdf_v2/pdf_v2_types.mbt`
+  - `doc_parse/pdf_v2/pdf_v2_text_model.mbt`
+  - `doc_parse/pdf_v2/pdf_v2_line_reconstruction.mbt`
+  - `doc_parse/pdf_v2/pdf_v2_block_reconstruction.mbt`
+  - `doc_parse/pdf_v2/pdf_v2_model_assembly.mbt`
+  - `doc_parse/pdf_v2/pdf_v2_layout_model.mbt`
+  - `doc_parse/pdf_v2/pdf_v2_layout_facts.mbt`
+  - `doc_parse/pdf_v2/pdf_v2_object_model.mbt`
+  - `doc_parse/pdf_v2/pdf_v2_features.mbt`
+  - `doc_parse/pdf_v2/pdf_v2_feature_extraction.mbt`
+  - `convert/pdf_v2/pdf_v2_fact_lowering.mbt`
+  - `convert/pdf_v2/pdf_v2_text_flow.mbt`
+  - `convert/pdf_v2/pdf_v2_semantic_model.mbt`
+  - `convert/pdf_v2/pdf_v2_semantic_rules.mbt`
+  - `convert/pdf_v2/pdf_v2_semantic_arbitration.mbt`
+  - `convert/pdf_v2/pdf_v2_product_bridge.mbt`
+- non-goals:
+  - no implementation changes in this reset.
+  - no sample expected updates.
+  - no v1 PDF deletion or fallback to v1.
+  - no model loading, model training, or external training/data reads.
+  - no OCR, table/image/link/form lowering, or large layout recovery.
+  - no mbtpdf vendor runtime change.
+  - no quality-lab integration.
+
+## 2. v1 Rule Intent Audit
+
+| category | v1 observed behavior | useful intent | v1 pitfall to avoid | evidence file/function |
+|---|---|---|---|---|
+| Text line staging | Converts parser text blocks into normalized line units while carrying source block kind, bbox, font, indent, gap, wrap, page-number, header/footer, artifact, caption, and table-cell candidates. | Preserve factual evidence before semantic classification. | Do not let convert become the only owner of facts that parser can provide deterministically. | `convert/pdf/pdf_lines.mbt:build_convert_segments_from_core_line` |
+| Block grouping | Groups lines by source block and local geometry, then derives block text, line range, bbox, dominant font, first/last indent, line gaps, and continuation flags. | Semantic rules need stable block-local first/last line facts and boundary evidence. | Avoid baking final heading/list policy into grouping. | `convert/pdf/pdf_blocks.mbt:make_block_from_lines` |
+| Heading classification | Collects heading evidence from text shape, line count, page lead, section prefixes, CJK/English title shape, gap before, font size delta, next body/list context, and layout candidates. | Heading should be a decision over combined text, layout, and neighborhood facts. | v1 spreads guards and promotions across nested convert decisions. | `convert/pdf/pdf_heading_decision.mbt:collect_heading_evidence` |
+| Heading guards | Blocks headings for page labels, bullets, list item sentences, colon labels, side markers, intro phrases, captions, noise tails, numbered body sentences, body-like punctuation, excessive length, and adjacent heading hazards. | Negative evidence is as important as positive title shape. | Do not copy the full patch forest; expose negative facts and centralize rule arbitration. | `convert/pdf/pdf_heading_decision.mbt:has_blocking_heading_guard` |
+| IR heading repair | Final IR still decides document-title role, section depth, and run-in numbered heading splits. | Some heading/body splits require a parser candidate boundary, not just final string surgery. | Avoid final-IR special cases as the primary recovery mechanism. | `convert/pdf/pdf_ir_heading_rules.mbt:decide_heading_role_and_depth_for_ir`, `convert/pdf/pdf_ir_text_rules.mbt:try_split_run_in_numbered_heading_for_ir` |
+| List lowering | Parses unordered bullets and lowers them to core list items after convert block classification. | Marker detection should produce marker/body splits while preserving source refs. | Do not keep list parsing as a late product-bridge string patch. | `convert/pdf/pdf_ir_text_rules.mbt:try_parse_bullet_list_item_for_ir`, `convert/pdf/pdf_to_ir.mbt` |
+| Layout gate | Uses repeated text, page zones, page labels, font ratio, sentence signals, technical literals, caption/table/link constraints, and list support to demote risky headings or suppress risky list items. | Rule arbitration needs hard constraints and override reasons. | Avoid a parallel gate that competes with semantic rules. | `convert/pdf/pdf_layout_gate.mbt:decide_pdf_layout_list_gate`, `convert/pdf/pdf_layout_gate_support.mbt:layout_gate_feature_values` |
+| Text shape features | Computes currency/date/time/address/separator/page-number/bullet/url/email/terminal punctuation/clause punctuation and related lexical flags. | Parser can expose neutral line text signals without claiming final semantic labels. | Avoid duplicating the same string tests in parser, text flow, and product bridge. | `convert/pdf/pdf_layout_text_signals.mbt`, `convert/pdf/pdf_layout_lexical_signals.mbt` |
+| Cross-page merge | Merges paragraph boundaries only when body-to-body, sentence continuation, indent, width, gap, wrap, same column band, and core continuation support agree; guards headings, lists, tables, images, captions, noise, page numbers, and column shifts. | Boundary facts should be explicit and explainable. | Do not hide paragraph continuation behind final Markdown normalization. | `convert/pdf/pdf_merge_decision.mbt:collect_page_boundary_merge_evidence` |
+| Page artifacts | Builds repeated edge indexes and drops short repeated headers/footers/page numbers near page edges while preserving body-like lines, captions, links, and two-column edge content. | Repeated header/footer/page-number candidates need page-level aggregation. | Avoid ad hoc heading/list guards that rediscover repeated artifact facts one block at a time. | `convert/pdf/pdf_noise_decision.mbt:build_repeated_edge_noise_index`, `convert/pdf/pdf_noise_decision.mbt:collect_edge_noise_evidence` |
+
+## 3. v2 Current Fact Coverage
+
+| fact/signal | current status | evidence | limitation |
+|---|---|---|---|
+| Source references | present | `PdfV2SourceRef`, `PdfV2LineCandidate.source_refs`, `PdfV2BlockCandidate.source_refs`, `PdfV2TextFlowUnit.source_refs` | Present and useful; future split candidates must preserve subranges, not just block-wide refs. |
+| Decode confidence | present | `PdfV2LineCandidate.decode_confidence`, `PdfV2BlockCandidate.decode_confidence`, `PdfV2BlockFeatureRow.avg_decode_confidence` | Good parser-owned fact, but semantic rules currently do not consume it. |
+| Geometry confidence | present | `PdfV2LineCandidate.geometry_confidence`, `PdfV2BlockCandidate.geometry_confidence`, `PdfV2BlockFeatureRow.geometry_confidence` | Coverage can be unknown because baselines are often absent. |
+| BBox and baseline | partial | `PdfV2LineCandidate.bbox`, `baseline`, `PdfV2BlockCandidate.bbox`; line reconstruction sets `baseline` to `None` | BBox exists when source geometry survives; baseline/line-height/page-relative summaries are not stable semantic facts yet. |
+| Line/block gaps | partial | `PdfV2Line.line_gap_before/after`, candidate reason tags | Model type has optional gaps, but candidate reconstruction does not yet compute reliable paragraph/heading gap facts. |
+| Indent | partial | `PdfV2Line.indent`, `PdfV2GeometryFeatures.indent`; Reset 7 text flow guesses indent from raw text | Parser does not expose reliable first/last indent, indent delta, or list depth confidence. |
+| Font/style facts | partial | `PdfV2Span.font_name/font_size/style_flags`, `PdfV2TextBlock.font_size/style_flags` | No line/block dominant font summary, page median font, relative font score, bold ratio, or neighbor delta fact for semantic rules. |
+| Text shape features | partial | `PdfV2TextShapeFeatures.has_list_marker`, `heading_shape_score`, `body_density_guard_score` | Type exists, but current assembly largely leaves these as empty/default and not line-level. |
+| Block kind hint | partial | `PdfV2BlockKindHint::{TextLike, Unknown, LowSignal}` | Intentionally weak; not enough for heading/list/artifact boundaries. |
+| Page layout facts | scaffold | `PdfV2PageLayoutFacts`, `PdfV2LayoutFactSet`, `recover_pdf_v2_layout_noop` | Counts and coverage only; no true regions, page edge bands, reading-order rows, repeated artifact candidates, or column facts. |
+| Feature rows | partial | `PdfV2BlockFeatureRow` | Good for no-model readiness/risk, but lacks semantic text-shape, marker/body split, boundary, page artifact, and font-relative signals. |
+| Text flow units | convert-only | `convert/pdf_v2/pdf_v2_text_flow.mbt:pdf_v2_text_flow_signals` | Reset 7 duplicates string-shape logic in convert because parser facts are missing. |
+| Heading/list semantic rules | convert-only | `convert/pdf_v2/pdf_v2_semantic_rules.mbt:pdf_v2_semantic_rule_decision` | Centralized and testable, but currently depends on convert-built text-flow guesses rather than parser-owned facts. |
+| Repeated header/footer candidates | missing | No v2 parser repeated edge index | Reset 7 only has page-number string guard, not repeated artifact evidence. |
+| Page number/artifact shape | missing/convert-only | `pdf_v2_text_flow_signals.looks_like_page_number` | Parser does not expose page-number/page-label candidates or edge support. |
+| List marker body split | convert-only | `PdfV2TextFlowMarker` in convert | Parser does not preserve marker range/body range/source refs as facts. |
+| Heading/body split candidates | missing | Sample failures still show merged heading/body fragments | Parser does not emit proposed split points for run-in headings or CJK heading/body merges. |
+| Block boundary confidence | missing | `PdfV2BlockCandidate.merge_reason_tags/break_reason_tags` exist | Tags exist, but no scored `BlockBoundarySignal` with continuation/new-block evidence. |
+| Page artifact aggregation | missing | No v2 analog of v1 repeated edge index | Needed before repeated headers/footers can be guarded without string patches. |
+
+## 4. Gap Matrix
+
+| needed fact/signal | why needed | v1 intent source | current v2 gap | should live in parser/model/convert | priority |
+|---|---|---|---|---|---|
+| Normalized line text shape | Heading/list/noise rules need stable casing, punctuation, word counts, CJK ratios, numeric ratios, sentence endings, and title-shape flags. | `pdf_layout_text_signals.mbt`, `pdf_heading_decision.mbt` | Mostly convert-only in Reset 7 text flow and semantic rules. | parser/model | P0 |
+| Marker candidate with body split | Lists and markdown-like headings need start-of-line marker/body ranges and source refs. | `try_parse_bullet_list_item_for_ir`, `looks_like_list_start` | Convert parses marker text after paragraph shaping, losing source-range precision. | parser/model | P0 |
+| Page number/page label candidate | Page labels must be guarded before heading/list decisions. | `is_page_label_like`, `looks_like_page_number_signal`, `collect_edge_noise_evidence` | Only a convert string guard exists. | parser/model | P0 |
+| Caption-like prefix candidate | Heading rules need hard negatives for figure/table captions, even if caption lowering is out of scope. | `looks_like_figure_or_table_caption`, layout gate caption constraints | No parser-owned caption-like text signal. | parser/model | P1 |
+| First/last line layout summary | Heading and continuation rules need line count, first/last gap, first/last indent, and first/last bbox. | `make_block_from_lines`, `collect_heading_evidence`, `collect_page_boundary_merge_evidence` | Candidate fields exist but no block summary or confidence. | parser/model | P0 |
+| Font relative evidence | Heading confidence needs dominant font, page median, neighbor delta, bold/monospace hints. | `is_visually_larger_than_neighbors`, `page_median_font_size`, layout gate features | Span style exists; no page/block summaries. | parser/model | P1 |
+| Block boundary signal | Hardwrap vs new paragraph vs new heading/list needs scored evidence and negative guards. | `collect_page_boundary_merge_evidence`, `pdf_blocks.mbt` grouping | `merge_reason_tags` and `break_reason_tags` are unscored and not semantic-ready. | parser/model | P0 |
+| Continuation candidate | Product bridge should not infer hardwrap solely from joined text. | `first_is_wrapped_candidate`, `is_same_paragraph_with_prev_candidate` | v2 candidate tags exist, but no explicit continuation score/reason object. | parser/model | P0 |
+| Repeated edge artifact index | Repeated headers/footers should not become headings or list items. | `build_repeated_edge_noise_index` | No v2 page-level aggregation. | parser/model | P1 |
+| Page edge/body band signal | Page number and header/footer guards need top/bottom/inside-body facts. | `collect_edge_noise_evidence`, layout gate support | Layout facts are source-order/coverage scaffold only. | parser/model | P1 |
+| TextFlowCandidate | Convert semantic engine needs a stable parser-produced flow unit instead of rebuilding flow from plain fragments. | v1 line/block staging plus Reset 7 text flow | Current `PdfV2TextFlowUnit` is convert-only. | parser/model with convert mapping | P0 |
+| Rule evidence provenance | Debugging expected diffs requires explicit positive/negative reason tags flowing into semantic decisions. | v1 decision summaries and reason tags | v2 has reason tags but lacks structured parser fact categories. | parser/model + convert | P1 |
+
+## 5. Proposed Parser Fact Model Extensions
+
+These extensions are proposed facts/candidates, not final Markdown or core IR
+roles. They should be produced by `doc_parse/pdf_v2` and consumed by
+`convert/pdf_v2` semantic rules in later resets.
+
+### 5.1 LineTextSignal
+
+Purpose: expose deterministic, source-ref preserving text-shape facts for each
+line candidate and optionally aggregate them to block candidates.
+
+Fields:
+
+- `normalized_text : String`
+- `trimmed_text : String`
+- `char_count : Int`
+- `word_count : Int`
+- `latin_ratio : Double`
+- `cjk_ratio : Double`
+- `digit_ratio : Double`
+- `punctuation_ratio : Double`
+- `uppercase_ratio : Double`
+- `is_empty : Bool`
+- `is_short : Bool`
+- `is_single_token : Bool`
+- `has_terminal_sentence_punctuation : Bool`
+- `has_clause_punctuation : Bool`
+- `ends_with_colon : Bool`
+- `looks_like_sentence : Bool`
+- `looks_like_title_shape : Bool`
+- `looks_like_cjk_title_shape : Bool`
+- `looks_like_numbered_section : Bool`
+- `looks_like_intro_phrase : Bool`
+- `looks_like_separator : Bool`
+- `marker_candidate : TextMarkerCandidate?`
+- `page_label_candidate : PageArtifactCandidate?`
+- `caption_like_candidate : PageArtifactCandidate?`
+- `source_refs : Array[PdfV2SourceRef]`
+- `reason_tags : Array[String]`
+- `confidence : Double`
+
+`TextMarkerCandidate` should stay semantic-neutral:
+
+- `kind : HeadingMarker | OrderedListMarker | UnorderedListMarker | UnknownMarker`
+- `marker_text : String`
+- `body_text : String`
+- `marker_char_start : Int`
+- `marker_char_end : Int`
+- `body_char_start : Int`
+- `body_char_end : Int`
+- `indent_prefix_width : Double?`
+- `source_refs : Array[PdfV2SourceRef]`
+- `reason_tags : Array[String]`
+- `confidence : Double`
+
+### 5.2 LineLayoutSignal
+
+Purpose: give semantic rules stable visual/context evidence without requiring
+convert to infer layout from raw bbox fields.
+
+Fields:
+
+- `bbox : PdfV2BBox?`
+- `baseline : Double?`
+- `line_height : Double?`
+- `width : Double?`
+- `height : Double?`
+- `page_x0_ratio : Double?`
+- `page_y0_ratio : Double?`
+- `page_width_ratio : Double?`
+- `page_height_ratio : Double?`
+- `top_band : Bool`
+- `bottom_band : Bool`
+- `left_edge_band : Bool`
+- `right_edge_band : Bool`
+- `inside_body_band : Bool?`
+- `indent_left : Double?`
+- `indent_right : Double?`
+- `indent_level_hint : Int?`
+- `alignment_hint : Left | Center | Right | Justified | Unknown`
+- `dominant_font_name : String?`
+- `dominant_font_size : Double?`
+- `relative_font_size : Double?`
+- `font_size_delta_prev : Double?`
+- `font_size_delta_next : Double?`
+- `style_flags : PdfV2TextStyleFlags`
+- `writing_direction : PdfV2WritingDirection`
+- `rotation_degrees : Double?`
+- `geometry_confidence : PdfV2GeometryConfidence`
+- `reason_tags : Array[String]`
+
+### 5.3 BlockBoundarySignal
+
+Purpose: represent line-to-line and block-to-block boundary evidence as
+structured parser facts, so convert can decide paragraph/heading/list semantics
+without rebuilding boundary logic.
+
+Fields:
+
+- `page_index : Int?`
+- `left_block_index : Int?`
+- `right_block_index : Int?`
+- `left_line_index : Int?`
+- `right_line_index : Int?`
+- `boundary_kind_hint : SameParagraph | NewParagraph | NewBlock | PageBreak | Unknown`
+- `continuation_score : Double`
+- `new_paragraph_score : Double`
+- `heading_boundary_score : Double`
+- `list_boundary_score : Double`
+- `geometry_compatible : Bool?`
+- `same_column_band : Bool?`
+- `indent_delta : Double?`
+- `line_gap : Double?`
+- `line_gap_ratio : Double?`
+- `previous_ends_sentence : Bool`
+- `next_starts_lowercase : Bool`
+- `next_starts_marker : Bool`
+- `next_starts_heading_shape : Bool`
+- `hard_negative_tags : Array[String]`
+- `reason_tags : Array[String]`
+- `source_refs : Array[PdfV2SourceRef]`
+- `confidence : Double`
+
+### 5.4 PageArtifactCandidate
+
+Purpose: provide page-number/header/footer/caption-like guards without doing
+full non-text semantic lowering.
+
+Fields:
+
+- `kind : PageNumber | PageLabel | HeaderFooter | RepeatedEdgeText | CaptionLike | Unknown`
+- `text : String`
+- `normalized_key : String`
+- `page_index : Int?`
+- `block_index : Int?`
+- `line_index : Int?`
+- `edge : Top | Bottom | Left | Right | None | Unknown`
+- `top_band : Bool`
+- `bottom_band : Bool`
+- `outside_body_band : Bool?`
+- `short_text : Bool`
+- `repeated_count : Int`
+- `repeated_page_ratio : Double`
+- `same_edge_repeated : Bool`
+- `same_prefix_repeated : Bool`
+- `page_number_shape : Bool`
+- `page_count_shape : Bool`
+- `caption_prefix_shape : Bool`
+- `body_like_guard : Bool`
+- `link_or_annotation_guard : Bool`
+- `source_refs : Array[PdfV2SourceRef]`
+- `reason_tags : Array[String]`
+- `confidence : Double`
+
+### 5.5 TextFlowCandidate
+
+Purpose: give `convert/pdf_v2` a parser-owned text-flow unit that preserves the
+Reset 7 semantic engine boundary while replacing convert-only reconstruction.
+
+Fields:
+
+- `page_index : Int?`
+- `block_index : Int?`
+- `flow_index : Int`
+- `line_start : Int?`
+- `line_end : Int?`
+- `text : String`
+- `normalized_text : String`
+- `line_count : Int`
+- `char_count : Int`
+- `source_refs : Array[PdfV2SourceRef]`
+- `line_text_signals : Array[LineTextSignal]`
+- `line_layout_signals : Array[LineLayoutSignal]`
+- `first_line_text_signal : LineTextSignal?`
+- `last_line_text_signal : LineTextSignal?`
+- `first_line_layout_signal : LineLayoutSignal?`
+- `last_line_layout_signal : LineLayoutSignal?`
+- `marker_candidate : TextMarkerCandidate?`
+- `artifact_candidates : Array[PageArtifactCandidate]`
+- `boundary_before : BlockBoundarySignal?`
+- `boundary_after : BlockBoundarySignal?`
+- `continuation_candidate : Bool`
+- `heading_candidate_score : Double`
+- `list_candidate_score : Double`
+- `paragraph_candidate_score : Double`
+- `artifact_candidate_score : Double`
+- `risk_tags : Array[String]`
+- `reason_tags : Array[String]`
+- `confidence : Double`
+
+## 6. Parser vs Convert Responsibility Boundary
+
+- Parser/model owns facts:
+  - source refs and source order.
+  - normalized line/block text facts.
+  - marker candidates and marker/body split ranges.
+  - page label/page number/caption-like/page artifact candidates.
+  - geometry, page-relative layout, font/style, first/last line summaries.
+  - boundary candidates and confidence/reason tags.
+  - low-signal, missing-geometry, unsupported, and ambiguity risks.
+- Convert semantic rules own decisions:
+  - final `Paragraph`, `Heading`, `OrderedListItem`,
+    `UnorderedListItem`, `Continuation`, `PlainText`, and `Unknown`.
+  - rule IDs, thresholds, hard negative rules, and arbitration.
+  - mapping semantic blocks to `@core.Document`.
+  - product options such as enabling/disabling heading/list/noise rules.
+- Product bridge stays thin:
+  - consume semantic blocks.
+  - map to `@core.Block::Paragraph`, `@core.Block::Heading`, and
+    `@core.Block::ListItem`.
+  - preserve origins.
+  - no string patch expansion.
+- Future model hook stays in convert arbitration:
+  - parser facts can be features.
+  - model hint remains absent until a later model reset.
+  - rule hard constraints still outrank model hints.
+- Normalizer stays cleanup-only:
+  - paragraph shaping and whitespace cleanup are acceptable.
+  - recovering missing parser facts in the normalizer is not acceptable.
+
+## 7. Implementation Plan
+
+- Reset 8B: add parser-owned `LineTextSignal` and marker/page-label/caption-like
+  candidates.
+  - Keep facts deterministic.
+  - Add synthetic parser/model tests.
+  - Do not change sample expected files.
+- Reset 8C: add `BlockBoundarySignal` and first/last line summaries.
+  - Focus on hardwrap, paragraph boundaries, list starts, and heading/body
+    split evidence.
+  - Preserve source refs and reason tags across split candidates.
+- Reset 8D: add page artifact aggregation.
+  - Build repeated edge text/page-number/header-footer candidates.
+  - Keep caption-like output as guard facts only; do not lower captions.
+- Reset 8E: make `convert/pdf_v2` semantic rules consume parser facts.
+  - Keep Reset 7 centralized semantic rule engine.
+  - Remove duplicate convert-side string guesses as parser facts become
+    available.
+  - Keep model hints absent.
+- Reset 8F: rerun PDF expected diff and tune thresholds only where parser facts
+  provide explicit evidence.
+  - Do not add sample-specific patches.
+  - Record fixed cases, regressions, and remaining blockers.
+
+## 8. Risks
+
+- Fact explosion: adding many booleans can recreate v1 complexity unless each
+  fact has a clear owner, source, reason tag, and test.
+- Premature semantics in parser: parser facts should be candidates/scores, not
+  final Markdown roles.
+- Geometry sparsity: v2 may still lack reliable baseline/font/page bands on some
+  PDFs; every layout signal needs confidence and missing-data behavior.
+- Duplicate string rules: Reset 7 convert text-flow rules should be retired
+  gradually as parser facts land, or parity behavior will become hard to reason
+  about.
+- Overfitting sample names: implementation should target fact classes such as
+  marker/body split, repeated edge text, and sentence guards, not individual
+  expected files.
+- Model timing: adding a model before facts stabilize would train on unstable
+  labels and make rule/model disagreements noisy.
+
+## 9. Acceptance Criteria
+
+- Parser emits deterministic line text signals with source refs, reason tags,
+  and tests.
+- Parser emits marker candidates for heading markers, unordered markers, and
+  ordered markers without lowering them to core list/heading blocks.
+- Parser emits page-number/page-label candidates and caption-like guard
+  candidates without caption lowering.
+- Parser emits block boundary facts for continuation vs new paragraph vs new
+  block with confidence and negative guard tags.
+- Parser emits repeated edge artifact candidates across pages before convert
+  semantic rules decide final text/noise behavior.
+- Convert semantic rules consume parser facts through the existing Reset 7
+  semantic engine.
+- Product bridge remains a mapper from semantic blocks to core blocks.
+- No fallback, model loading, external data, OCR, table/image/link/form
+  lowering, vendor runtime change, or sample expected update is introduced.

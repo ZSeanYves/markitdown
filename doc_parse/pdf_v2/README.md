@@ -34,6 +34,12 @@ dispatcher registration only after the product-surface bridge is close enough
 to compare expected diffs. Model integration stays deferred until text, object,
 and layout signals are stable enough to extract training data.
 
+Reset 8A audits the parser fact gap behind the Reset 7 semantic block system.
+The next parser-facing batches should add neutral facts such as line text
+signals, line layout signals, block boundary signals, page artifact candidates,
+and text flow candidates. These are parser/model facts only: convert still owns
+final paragraph, heading, list, continuation, plain text, and unknown decisions.
+
 ## Phase 14 Convert Consumer Boundary Note
 
 Phase 14 adds a one-way `convert/pdf_v2` fact-only lowering smoke over

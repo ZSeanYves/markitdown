@@ -202,6 +202,12 @@ Current status:
   the runtime does not load, train, or read model/data files. Rule hard
   constraints take precedence over any future model hint.
 
+Reset 8A records that the semantic rule engine should increasingly consume
+parser-owned facts instead of growing convert-only string guesses. The intended
+next inputs are line text signals, line layout signals, block boundary signals,
+page artifact candidates, and parser-owned text flow candidates. Product bridge
+scope remains core block mapping only.
+
 This is not old PDF runtime fallback, caption/table/image/link/form lowering,
 model loading, layout recovery, external data/model reading, mbtpdf access from
 convert, or fallback.
