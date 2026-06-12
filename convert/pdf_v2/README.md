@@ -480,3 +480,26 @@ text-backed tables to the shared core table block.
   - no OCR, image-table recovery, arbitrary visual table recovery, merged-cell
     reconstruction, fake cells, diagnostics Markdown, v1 fallback, model
     loading/training, or external data access.
+
+## Reset 13 Metadata Sidecar Key Parity
+
+Reset 13 narrows the PDF v2 public metadata sidecar to the current core/v1 PDF
+shape.
+
+- `parse_pdf_v2_with_metadata` returns `document_properties: None` for the PDF
+  sidecar path, so core emits `document: null`.
+- Product bridge block origins keep source name, one-based page, block index,
+  and other shared origin fields, but no longer expose PDF object refs.
+- Image asset origins still keep the image object ref, but the public origin id
+  is v1-style `xobj-image-<object-number>` instead of a PDF v2 private id.
+- Nested Form/resource provenance remains parser facts; the asset sidecar now
+  omits `source_path` to match existing PDF expected metadata.
+- Inline image ids use the v1-style `inline-image-N` prefix.
+- Metadata-only sample failures improved from 8 to 4. The remaining two failing
+  metadata samples each fail on visible text/block structure first, producing
+  `blocks` and `summary` sidecar differences.
+- Main Markdown stayed 18 failures and assets-only stayed 3 failures, so this
+  reset does not expand visible output or asset materialization behavior.
+- No sample expected files, v1 PDF path, diagnostics output, fallback,
+  OCR/image-table recovery, full layout recovery, model loading/training, or
+  external data access were introduced.

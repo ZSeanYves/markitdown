@@ -696,3 +696,26 @@ for final product Markdown policy.
 - Boundaries:
   - no full visual table recovery, merged-cell reconstruction, image-table OCR,
     fake cells, v1 fallback, model loading/training, or external data access.
+
+## Reset 13 Metadata Sidecar Key Parity
+
+Reset 13 does not add parser capabilities. It records how downstream convert
+maps existing parser facts into the current PDF metadata sidecar contract.
+
+- Parser-owned facts still include PDF metadata, object refs, source refs,
+  image placement, Form XObject nesting, resource paths, link candidates, and
+  table candidates.
+- Convert now suppresses those parser-private details from public sidecar keys
+  when the core/v1 PDF convention omits them:
+  - PDF document properties are not emitted into metadata sidecars.
+  - block and link origins omit PDF object refs.
+  - image asset origins keep image `object_ref` but use v1-style
+    `xobj-image-<object-number>` ids.
+  - Form/resource `source_path` stays parser provenance and is not emitted in
+    current PDF asset sidecars.
+- Metadata-only PDF sample failures improved from 8 to 4; remaining failures
+  are tied to text/block structure parity rather than parser metadata key
+  shape.
+- No annotation/form/outline expansion, text/hardwrap reconstruction, OCR,
+  image-table recovery, full layout recovery, fallback, vendor runtime change,
+  model loading/training, or external data access was added.

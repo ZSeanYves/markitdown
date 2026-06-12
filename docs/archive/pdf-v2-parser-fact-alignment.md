@@ -725,3 +725,40 @@ Boundaries:
 - no merged-cell or full layout reconstruction.
 - no fake cells, diagnostics Markdown, v1 fallback, external model/data access,
   or training hook.
+
+## Reset 13 Metadata Sidecar Key Parity
+
+Reset 13 is a product sidecar contract alignment, not a parser fact expansion.
+
+- Parser facts remain unchanged:
+  - PDF metadata facts, image object refs, Form XObject nesting, resource paths,
+    source refs, and link/object candidates still stay available internally.
+  - no parser-side annotation/form/outline expansion, text reconstruction,
+    hardwrap repair, OCR, image-table recovery, full layout recovery, fallback,
+    or model hook was added.
+- Sidecar convention audited from core/v1:
+  - PDF sidecars currently serialize `document: null` for existing PDF metadata
+    fixtures.
+  - PDF block origins omit PDF object refs; image asset origins retain the image
+    object ref.
+  - image asset origin ids use v1-style names such as `xobj-image-3`.
+  - resource-path facts are parser provenance, but the current PDF asset
+    sidecar convention does not emit `source_path`.
+- Convert-side alignment:
+  - public PDF v2 metadata parse results now pass `None` as document properties
+    to the sidecar writer.
+  - product bridge block origins no longer expose PDF object refs.
+  - XObject image asset origins use `xobj-image-<object-number>` and omit
+    `source_path`; inline image ids use `inline-image-N`.
+- Sample signal:
+  - metadata-only failures improved from Reset 12's 8 to 4 in
+    `.tmp/check/runs/pdf-20260612-182554-59551`.
+  - main Markdown stayed 18 and assets-only stayed 3, confirming the change is
+    metadata-surface only.
+- Remaining parser-facing blockers:
+  - the two remaining metadata-only sidecar failures are driven by
+    `pdf_metadata_noise_merge` and `pdf_metadata_text_structure` visible
+    text/block structure mismatches.
+  - future parser/model work should focus on block reconstruction, hardwrap and
+    cross-page facts, repeated artifact/header-footer evidence, and later
+    annotation/form/outline product facts.

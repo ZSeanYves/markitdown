@@ -45,7 +45,6 @@ priv struct PdfV2ProductBridgeImageOutput {
   caption_source_refs : Array[@pdfv2.PdfV2SourceRef]
   object_ref : String?
   origin_id : String
-  source_path : String?
 }
 
 ///|
@@ -1421,15 +1420,17 @@ fn pdf_v2_product_bridge_caption_source_refs(
 }
 
 ///|
-fn pdf_v2_product_bridge_image_source_path(
-  image : @pdfv2.PdfV2ImageCandidate,
-) -> String? {
-  match image.nesting {
-    Some(nesting) =>
-      match nesting.resource_path {
-        Some(path) if path.trim().to_owned() != "" => Some(path)
-        _ => None
+fn pdf_v2_product_bridge_object_ref_number(object_ref : String?) -> String? {
+  match object_ref {
+    Some(value) => {
+      let trimmed = value.trim().to_owned()
+      let parts = trimmed.split(" ").to_array()
+      if parts.length() > 0 && parts[0].trim().to_owned() != "" {
+        Some(parts[0].trim().to_owned())
+      } else {
+        None
       }
+    }
     None => None
   }
 }
@@ -1439,19 +1440,9 @@ fn pdf_v2_product_bridge_image_origin_id(
   image : @pdfv2.PdfV2ImageCandidate,
   index : Int,
 ) -> String {
-  let base = match image.object_ref {
-    Some(value) => "pdf-v2-image:" + value
-    None => "pdf-v2-image-" + index.to_string()
-  }
-  match image.nesting {
-    Some(nesting) =>
-      match (nesting.parent_object_ref, nesting.resource_path) {
-        (Some(parent), Some(path)) if path.trim().to_owned() != "" =>
-          base + "@form:" + parent + ":" + path
-        (_, Some(path)) if path.trim().to_owned() != "" => base + "@" + path
-        _ => base
-      }
-    None => base
+  match pdf_v2_product_bridge_object_ref_number(image.object_ref) {
+    Some(number) => "xobj-image-" + number
+    None => "xobj-image-" + index.to_string()
   }
 }
 
@@ -1477,7 +1468,6 @@ fn pdf_v2_product_bridge_image_outputs(
           ),
           object_ref: image.object_ref,
           origin_id: pdf_v2_product_bridge_image_origin_id(image, index),
-          source_path: pdf_v2_product_bridge_image_source_path(image),
         })
       }
       None => ()
@@ -1497,8 +1487,7 @@ fn pdf_v2_product_bridge_image_outputs(
             image.caption,
           ),
           object_ref: image.source_ref.object_id,
-          origin_id: "pdf-v2-inline-image-" + index.to_string(),
-          source_path: None,
+          origin_id: "inline-image-" + index.to_string(),
         })
       }
       None => ()
@@ -1546,7 +1535,7 @@ fn pdf_v2_product_bridge_emit_image_output(
     nearby_caption: output.caption,
     object_ref: output.object_ref,
     relationship_id: None,
-    source_path: output.source_path,
+    source_path: None,
     row_index: None,
     column_index: None,
     key_path: None,
@@ -2063,7 +2052,7 @@ fn pdf_v2_product_bridge_max_int(values : Array[Int]) -> Int {
 fn pdf_v2_product_bridge_origin_from_parts(
   doc : @cor.Document,
   page_index : Int?,
-  source_refs : Array[@pdfv2.PdfV2SourceRef],
+  _source_refs : Array[@pdfv2.PdfV2SourceRef],
   options : PdfV2ProductBridgeOptions,
 ) -> @cor.Origin {
   {
@@ -2080,21 +2069,8 @@ fn pdf_v2_product_bridge_origin_from_parts(
     line_end: None,
     row_index: None,
     column_index: None,
-    object_ref: pdf_v2_product_bridge_object_ref(source_refs),
+    object_ref: None,
     relationship_id: None,
     key_path: None,
   }
-}
-
-///|
-fn pdf_v2_product_bridge_object_ref(
-  source_refs : Array[@pdfv2.PdfV2SourceRef],
-) -> String? {
-  for source_ref in source_refs {
-    match source_ref.object_id {
-      Some(object_id) => return Some(object_id)
-      None => ()
-    }
-  }
-  None
 }

@@ -1769,7 +1769,7 @@ test "pdf v2 experimental pipeline materializes ReportLab inline image asset" {
       )
       assert_true(json.contains("\"path\": \"assets/image01.bmp\""))
       assert_true(json.contains("\"source_name\": \"pdf_image_inline.pdf\""))
-      assert_true(json.contains("\"origin_id\": \"pdf-v2-inline-image-1\""))
+      assert_true(json.contains("\"origin_id\": \"inline-image-1\""))
     }
     ConvertPipelineErr(failure) =>
       fail("expected materialized inline image success: " + failure.message)
@@ -2571,7 +2571,7 @@ test "pdf v2 product bridge emits supported image asset and origin" {
         Some(origin) => {
           assert_true(origin.source_name == Some("images.pdf"))
           assert_true(origin.page == Some(1))
-          assert_true(origin.object_ref == Some("5 0 R"))
+          assert_true(origin.object_ref == None)
         }
         None => fail("expected image block origin")
       }
@@ -2579,7 +2579,7 @@ test "pdf v2 product bridge emits supported image asset and origin" {
         Some(origin) => {
           assert_true(origin.source_name == Some("images.pdf"))
           assert_true(origin.page == Some(1))
-          assert_true(origin.origin_id == Some("pdf-v2-image:5 0 R"))
+          assert_true(origin.origin_id == Some("xobj-image-5"))
           assert_true(origin.object_ref == Some("5 0 R"))
           assert_true(origin.key_path == None)
           assert_true(origin.source_path == None)
@@ -2659,8 +2659,9 @@ test "pdf v2 product bridge uses parser caption facts and resource path origin" 
       match doc.asset_origins.val.get(img.path) {
         Some(origin) => {
           assert_true(origin.nearby_caption == Some("Figure 1. PDF caption"))
-          assert_true(origin.source_path == Some("Fm1/Im1"))
-          assert_true(origin.origin_id.unwrap_or("").contains("@form:4 0 R"))
+          assert_true(origin.source_path == None)
+          assert_true(origin.origin_id == Some("xobj-image-5"))
+          assert_true(origin.object_ref == Some("5 0 R"))
         }
         None => fail("expected captioned image asset origin")
       }
@@ -3279,6 +3280,34 @@ test "pdf v2 metadata sidecar path adds document properties without diagnostics"
   assert_true(json.contains("\"application\": \"PDF Producer\""))
   assert_true(json.contains("\"pages\": \"2\""))
   assert_true(!json.contains("PDF v2"))
+}
+
+///|
+test "pdf v2 metadata parse path follows pdf sidecar document null convention" {
+  let result = @pdfv2conv.parse_pdf_v2_with_metadata(
+    "samples/main_process/pdf/metadata/pdf_metadata_table_like.pdf", "", 6,
+  )
+  match result {
+    Ok(parsed) => {
+      match parsed.document_properties {
+        None => ()
+        Some(_) =>
+          fail("expected pdf metadata sidecar document properties to be absent")
+      }
+      let json = @cor.emit_metadata_json_with_document_properties(
+        parsed.document,
+        "pdf_metadata_table_like.pdf",
+        "pdf",
+        "pdf_metadata_table_like.md",
+        parsed.document_properties,
+      )
+      assert_true(json.contains("\"document\": null"))
+      assert_true(!json.contains("\"pages\":"))
+      assert_true(!json.contains("PDF v2"))
+    }
+    Err(err) =>
+      fail("expected pdf v2 metadata parse success: " + err.to_string())
+  }
 }
 
 ///|
@@ -4222,7 +4251,7 @@ test "pdf v2 product bridge preserves minimal origins" {
       assert_true(origin.source_name == Some("bridge.pdf"))
       assert_true(origin.page == Some(3))
       assert_true(origin.block_index == Some(0))
-      assert_true(origin.object_ref == Some("7 0 R"))
+      assert_true(origin.object_ref == None)
       assert_true(origin.line_start is None)
       assert_true(origin.relationship_id is None)
     }

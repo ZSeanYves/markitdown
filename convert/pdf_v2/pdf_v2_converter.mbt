@@ -79,12 +79,11 @@ pub fn parse_pdf_v2_with_metadata(
   })
   match pipeline_result {
     ConvertPipelineOk(output) => {
-      let document_properties = output.document_properties
       let document = pdf_v2_pipeline_output_to_document(output, {
         ..default_pdf_v2_product_bridge_options(),
         source_name: Some(@cor.basename(input_path)),
       })
-      Ok({ document, document_properties })
+      Ok({ document, document_properties: None })
     }
     ConvertPipelineErr(failure) =>
       Err(

@@ -1202,3 +1202,69 @@
   - no v1 fallback, v1 PDF runtime change, vendor runtime change, OCR,
     image-table recovery, full layout recovery, fake cells, diagnostics
     Markdown, external model/data access, or training hook was added.
+
+## Reset 13 Metadata Sidecar Key Parity
+
+- focus:
+  - align PDF v2 metadata-only sidecar keys with the current core/v1 PDF
+    convention.
+  - fix document-property, block-origin, link-origin, and image asset-origin
+    shape differences without changing visible Markdown.
+- failure classification from Reset 12:
+  - document properties: every remaining metadata sidecar mismatch carried an
+    eager PDF v2 `document` object while current PDF fixtures expect
+    `document: null`.
+  - asset origins: image metadata samples differed on `origin_id` and leaked
+    Form/resource `source_path` in the sidecar.
+  - block origins: paragraph/link/image block sidecars leaked text/image object
+    refs that v1 PDF omits from block origins.
+  - table sidecar: table payload already matched core `RichTable`; the remaining
+    table-like sidecar diff was document-property only.
+  - remaining text samples: `pdf_metadata_noise_merge` and
+    `pdf_metadata_text_structure` still differ because visible text/block
+    structure is not v1-parity yet.
+- audited conventions:
+  - PDF v1 image blocks set block-origin `object_ref` to `None`.
+  - PDF v1 asset origins keep the image object ref and use
+    `xobj-image-<object-number>` ids.
+  - current PDF metadata fixtures use `document: null`; page count and
+    producer/application values are not emitted into the PDF sidecar.
+  - link sidecar origins follow the block origin, so PDF object refs should not
+    leak there either.
+- implementation:
+  - `parse_pdf_v2_with_metadata` now returns no document properties for the PDF
+    metadata sidecar path, so core serializes `document: null`.
+  - product bridge block origins now omit PDF object refs from public core
+    block origins.
+  - materialized XObject image asset origins now use v1-style
+    `xobj-image-<object-number>` ids and keep `source_path: None` in the
+    sidecar; the parser still retains Form nesting/resource facts internally.
+  - inline image asset origin ids use the v1-style `inline-image-N` prefix.
+- sample signal with explicit prebuilt CLIs:
+  - Reset 12 metadata-only baseline:
+    `.tmp/check/runs/pdf-20260612-180315-55360`, 8 failures.
+  - Reset 13 metadata-only run:
+    `.tmp/check/runs/pdf-20260612-182554-59551`, 4 failures.
+  - Reset 13 main Markdown run:
+    `.tmp/check/runs/pdf-20260612-182554-59563`, 18 failures, unchanged from
+    Reset 12.
+  - Reset 13 assets-only run:
+    `.tmp/check/runs/pdf-20260612-182554-59567`, 3 failures, unchanged from
+    Reset 12.
+- fixed cases:
+  - `pdf_metadata_table_like` sidecar now matches its expected document shape.
+  - image caption metadata samples now match image block origin and asset origin
+    key shape.
+  - URI link metadata sample no longer leaks text object refs in block/link
+    origins.
+- remaining limitations:
+  - `pdf_metadata_noise_merge` and `pdf_metadata_text_structure` still have
+    Markdown/text-block structure differences that produce `blocks` and
+    `summary` sidecar mismatches.
+  - hardwrap, cross-page merge, heading/header-footer, image placement edge
+    cases, and annotation/form/outline product parity remain later phases.
+- unchanged boundaries:
+  - no sample expected files were updated.
+  - no v1 fallback, v1 PDF deletion, vendor runtime change, OCR, image-table
+    recovery, full layout recovery, diagnostics text, external model/data
+    access, or training hook was added.
