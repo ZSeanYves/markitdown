@@ -1110,6 +1110,7 @@ pub fn pdf_v2_apply_object_caps_to_source(
     span_candidates: source.span_candidates,
     line_candidates: source.line_candidates,
     block_candidates: source.block_candidates,
+    table_candidates: source.table_candidates,
     image_candidates: capped.image_candidates,
     inline_image_candidates: capped.inline_image_candidates,
     annotation_candidates: capped.annotation_candidates,

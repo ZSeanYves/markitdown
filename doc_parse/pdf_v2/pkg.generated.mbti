@@ -26,6 +26,8 @@ pub fn pdf_v2_build_line_text_signal(String, PdfV2TextDecodeConfidence, Array[Pd
 
 pub fn pdf_v2_build_page_artifact_candidates(PdfV2DocumentModel) -> Array[PdfV2PageArtifactCandidate]
 
+pub fn pdf_v2_build_table_candidates(Array[PdfV2SourceEvent], Array[PdfV2BlockCandidate]) -> Array[PdfV2TableCandidate]
+
 pub fn pdf_v2_build_text_flow_candidates(PdfV2DocumentModel) -> Array[PdfV2TextFlowCandidate]
 
 pub fn pdf_v2_collect_partial_fact_reports_from_model(PdfV2DocumentModel) -> Array[PdfV2PartialFactReport]
@@ -1119,6 +1121,7 @@ pub(all) struct PdfV2PageModel {
   inline_images : Array[PdfV2InlineImageCandidate]
   annotations : Array[PdfV2AnnotationCandidate]
   links : Array[PdfV2LinkCandidate]
+  tables : Array[PdfV2TableCandidate]
   forms : Array[PdfV2FormCandidate]
   resources : Array[PdfV2ResourceCandidate]
   metadata_refs : Array[PdfV2MetadataCandidate]
@@ -1213,6 +1216,7 @@ pub(all) struct PdfV2SourceDocument {
   span_candidates : Array[PdfV2SpanCandidate]
   line_candidates : Array[PdfV2LineCandidate]
   block_candidates : Array[PdfV2BlockCandidate]
+  table_candidates : Array[PdfV2TableCandidate]
   image_candidates : Array[PdfV2ImageCandidate]
   inline_image_candidates : Array[PdfV2InlineImageCandidate]
   annotation_candidates : Array[PdfV2AnnotationCandidate]
@@ -1371,6 +1375,36 @@ pub(all) struct PdfV2SpanReconstructionSummary {
   warnings_count : Int
   risk_count : Int
 }
+
+pub(all) struct PdfV2TableCandidate {
+  page_index : Int?
+  block_indices : Array[Int]
+  line_indices : Array[Int]
+  rows : Array[Array[String]]
+  columns : Int
+  cells : Array[PdfV2TableCellCandidate]
+  source_refs : Array[PdfV2SourceRef]
+  confidence : Double
+  reason_tags : Array[String]
+  table_kind : PdfV2TableKind
+  has_header : Bool
+  header_row_index : Int?
+}
+
+pub(all) struct PdfV2TableCellCandidate {
+  text : String
+  row_index : Int
+  column_index : Int
+  source_refs : Array[PdfV2SourceRef]
+  confidence : Double
+}
+
+pub(all) enum PdfV2TableKind {
+  PipeSeparated
+  WhitespaceAligned
+  CoordinateGrid
+  Unknown
+} derive(Eq)
 
 pub(all) struct PdfV2TextBlock {
   text : String

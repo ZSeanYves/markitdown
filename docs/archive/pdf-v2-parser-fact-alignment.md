@@ -681,3 +681,47 @@ the product bridge to place and caption materialized images.
   - no OCR, image-table extraction, full layout recovery, aggressive caption
     inference, v1 fallback, external model/data access, or vendor runtime
     change was added.
+
+## Reset 12 Table Structure And Sidecar Parity
+
+Reset 12 promotes table evidence into parser-owned facts while keeping final
+product policy in convert:
+
+```text
+TextShow / block / line facts
+  -> PdfV2TableCandidate
+  -> pipeline table_candidates
+  -> @core.RichTable(TableData)
+  -> existing core metadata sidecar table payload
+```
+
+Current status:
+
+- Parser now emits `PdfV2TableCandidate` values with page, block, line,
+  source-ref, row, column, cell, confidence, kind, and header evidence.
+- Pipe and whitespace-aligned candidates come from reconstructed block/line
+  text when rows have stable width and reliable cell shapes.
+- Coordinate-grid candidates come from text-show matrix positions, grouped by
+  page, y row, and x column alignment. The rule requires at least three rows,
+  at least two columns, stable x alignment, and sufficient x spread.
+- Coordinate-grid candidates retain matching cell block indices and source refs
+  so convert can consume multi-fragment cell output as one table.
+- Convert lowers only high-confidence parser-backed candidates to
+  `RichTable(TableData)` and leaves weak/malformed table-like content on the
+  paragraph path.
+- The product bridge suppresses later semantic/text-flow duplicates when their
+  source refs overlap an already-emitted parser-backed table.
+- Core sidecar behavior is reused as-is: table sidecars carry
+  `block_type: "table"`, flat text, `rows`, `header_rows`, and origin line
+  range. No PDF v2 private sidecar schema was added.
+- Sample signal: main PDF failures improved from 20 to 18, metadata-only from 9
+  to 8, and assets-only stayed 3. The simple table Markdown samples now match;
+  the remaining metadata table-like sidecar diff is document-property parity.
+
+Boundaries:
+
+- no complete visual table recovery.
+- no image-table OCR or table-from-image recovery.
+- no merged-cell or full layout reconstruction.
+- no fake cells, diagnostics Markdown, v1 fallback, external model/data access,
+  or training hook.

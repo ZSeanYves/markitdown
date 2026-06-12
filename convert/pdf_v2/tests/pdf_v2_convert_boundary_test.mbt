@@ -329,6 +329,7 @@ fn phase14_page() -> @pdfv2.PdfV2PageModel {
     inline_images: [],
     annotations: [],
     links: [],
+    tables: [],
     forms: [],
     resources: [],
     metadata_refs: [],
@@ -839,9 +840,52 @@ fn phase20_pipeline_ok_with_candidates(
     lowering_summary: phase20_lowering_summary(page_count, fragments),
     fragments,
     text_flow_candidates,
+    table_candidates: [],
     link_candidates,
     image_candidates,
     inline_image_candidates,
+    warnings: [],
+    risks: [],
+    one_pass: true,
+    no_fallback: true,
+  })
+}
+
+///|
+fn phase20_pipeline_ok_with_tables(
+  page_count : Int,
+  fragments : Array[@pdfv2conv.PdfV2FactFragment],
+  table_candidates : Array[@pdfv2.PdfV2TableCandidate],
+) -> @pdfv2conv.PdfV2ConvertPipelineResult {
+  phase20_pipeline_ok_with_text_flow_and_tables(
+    page_count,
+    fragments,
+    [],
+    table_candidates,
+  )
+}
+
+///|
+fn phase20_pipeline_ok_with_text_flow_and_tables(
+  page_count : Int,
+  fragments : Array[@pdfv2conv.PdfV2FactFragment],
+  text_flow_candidates : Array[@pdfv2.PdfV2TextFlowCandidate],
+  table_candidates : Array[@pdfv2.PdfV2TableCandidate],
+) -> @pdfv2conv.PdfV2ConvertPipelineResult {
+  @pdfv2conv.PdfV2ConvertPipelineResult::ConvertPipelineOk({
+    source_summary: @pdfv2.pdf_v2_source_summary(0, page_count, 0, 0),
+    model_summary: phase20_model_summary(page_count, fragments),
+    document_properties: None,
+    layout_summary: phase20_layout_summary(page_count),
+    feature_summary: phase20_feature_summary(),
+    gate_summary: None,
+    lowering_summary: phase20_lowering_summary(page_count, fragments),
+    fragments,
+    text_flow_candidates,
+    table_candidates,
+    link_candidates: [],
+    image_candidates: [],
+    inline_image_candidates: [],
     warnings: [],
     risks: [],
     one_pass: true,
@@ -964,6 +1008,69 @@ fn phase20_inline_image_candidate(
     reason_tags: ["phase20_inline_image_test"],
     decode_status: status,
     asset: None,
+  }
+}
+
+///|
+fn phase20_table_candidate(
+  rows : Array[Array[String]],
+  refs : Array[@pdfv2.PdfV2SourceRef],
+  line_indices : Array[Int],
+  confidence : Double,
+) -> @pdfv2.PdfV2TableCandidate {
+  {
+    page_index: Some(0),
+    block_indices: [0],
+    line_indices,
+    rows,
+    columns: if rows.length() == 0 {
+      0
+    } else {
+      rows[0].length()
+    },
+    cells: [],
+    source_refs: refs,
+    confidence,
+    reason_tags: ["table_candidate", "parser_side_fact", "unit_test"],
+    table_kind: @pdfv2.PdfV2TableKind::CoordinateGrid,
+    has_header: true,
+    header_row_index: Some(0),
+  }
+}
+
+///|
+fn phase20_text_flow_candidate(
+  block_index : Int,
+  flow_index : Int,
+  line_index : Int,
+  text : String,
+  refs : Array[@pdfv2.PdfV2SourceRef],
+  reason_tags : Array[String],
+  list_score : Double,
+) -> @pdfv2.PdfV2TextFlowCandidate {
+  let signal = @pdfv2.pdf_v2_build_line_text_signal(
+    text,
+    @pdfv2.PdfV2TextDecodeConfidence::High,
+    refs,
+    reason_tags,
+  )
+  {
+    page_index: Some(0),
+    block_index: Some(block_index),
+    flow_index,
+    line_indices: [line_index],
+    text,
+    normalized_text: signal.normalized_text,
+    original_lines: [text],
+    normalized_lines: [signal.normalized_text],
+    line_signals: [signal],
+    boundary_signal: {
+      ..@pdfv2.pdf_v2_empty_block_boundary_signal(),
+      list_candidate_score: list_score,
+    },
+    artifact_refs: [],
+    source_refs: refs,
+    reason_tags,
   }
 }
 
@@ -1491,6 +1598,40 @@ test "pdf v2 experimental pipeline smokes minimal real pdf" {
     }
     ConvertPipelineErr(failure) =>
       fail("expected Phase 17 pipeline success: " + failure.message)
+  }
+}
+
+///|
+test "pdf v2 experimental pipeline lowers real sample table candidate" {
+  let path = "samples/main_process/pdf/pdf_simple_table_like.pdf"
+  let result = @pdfv2conv.convert_pdf_v2_experimental_from_path(
+    path,
+    @pdfv2conv.default_pdf_v2_convert_pipeline_options(),
+  )
+  match result {
+    ConvertPipelineOk(output) => {
+      assert_true(output.table_candidates.length() == 1)
+      let doc = phase20_bridge_document(
+        @pdfv2conv.PdfV2ConvertPipelineResult::ConvertPipelineOk(output),
+        {
+          ..@pdfv2conv.default_pdf_v2_product_bridge_options(),
+          source_name: Some("pdf_simple_table_like.pdf"),
+        },
+      )
+      assert_true(output.table_candidates[0].block_indices.length() == 9)
+      assert_true(phase20_table_block_count(doc) == 1)
+      assert_true(doc.blocks.val.length() == 1)
+      match phase20_first_rich_table(doc) {
+        Some(table) => {
+          assert_true(table.rows[0] == ["Product", "Region", "Status"])
+          assert_true(table.rows[2] == ["Beta", "West", "Closed"])
+          assert_true(table.header_rows == 1)
+        }
+        None => fail("expected real sample RichTable")
+      }
+    }
+    ConvertPipelineErr(failure) =>
+      fail("expected table sample pipeline success: " + failure.message)
   }
 }
 
@@ -2758,6 +2899,102 @@ test "pdf v2 product bridge table rules are semantic gated" {
 }
 
 ///|
+test "pdf v2 product bridge lowers parser-backed table and sidecar metadata" {
+  let refs = [
+    phase14_text_ref(0),
+    phase14_text_ref(1),
+    phase14_text_ref(2),
+    phase14_text_ref(3),
+    phase14_text_ref(4),
+    phase14_text_ref(5),
+    phase14_text_ref(6),
+    phase14_text_ref(7),
+    phase14_text_ref(8),
+  ]
+  let fragment = {
+    ..phase20_fragment_with_line_count(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Product Region Status Alpha East Open Beta West Closed",
+      Some(0),
+      9,
+      refs,
+    ),
+    block_index: Some(0),
+  }
+  let table = phase20_table_candidate(
+    [
+      ["Product", "Region", "Status"],
+      ["Alpha", "East", "Open"],
+      ["Beta", "West", "Closed"],
+    ],
+    refs,
+    [0, 1, 2, 3, 4, 5, 6, 7, 8],
+    0.90,
+  )
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok_with_tables(1, [fragment], [table]),
+    {
+      ..@pdfv2conv.default_pdf_v2_product_bridge_options(),
+      source_name: Some("table.pdf"),
+    },
+  )
+  let markdown = @cor.emit_markdown(doc)
+  let json = @cor.emit_metadata_json(doc, "table.pdf", "pdf", "table.md")
+
+  assert_true(phase20_table_block_count(doc) == 1)
+  assert_true(doc.blocks.val.length() == 1)
+  match phase20_first_rich_table(doc) {
+    Some(rich_table) => {
+      assert_true(rich_table.header_rows == 1)
+      assert_true(rich_table.rows[0] == ["Product", "Region", "Status"])
+      assert_true(rich_table.rows[2] == ["Beta", "West", "Closed"])
+      assert_true(rich_table.hints is None)
+    }
+    None => fail("expected parser-backed RichTable")
+  }
+  assert_true(markdown.contains("| Product | Region | Status |"))
+  assert_true(!markdown.contains("Product Region Status Alpha"))
+  assert_true(json.contains("\"block_type\": \"table\""))
+  assert_true(json.contains("\"header_rows\": 1"))
+  assert_true(json.contains("[\"Product\", \"Region\", \"Status\"]"))
+  assert_true(json.contains("\"line_start\": 1"))
+  assert_true(json.contains("\"line_end\": 9"))
+  assert_true(!json.contains("\"format\": \"pdf_v2_text_table\""))
+}
+
+///|
+test "pdf v2 product bridge low-confidence parser table falls back to paragraph" {
+  let refs = [phase14_text_ref(0)]
+  let fragment = {
+    ..phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Product Region Status only",
+      Some(0),
+      refs,
+    ),
+    block_index: Some(0),
+  }
+  let table = phase20_table_candidate(
+    [["Product", "Region", "Status"], ["Alpha", "East", "Open"]],
+    refs,
+    [0, 1, 2, 3, 4, 5],
+    0.40,
+  )
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok_with_tables(1, [fragment], [table]),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+
+  assert_true(phase20_table_block_count(doc) == 0)
+  assert_true(doc.blocks.val.length() == 1)
+  match doc.blocks.val[0] {
+    @cor.Block::Paragraph(text) =>
+      assert_true(text == "Product Region Status only")
+    _ => fail("expected low-confidence table paragraph fallback")
+  }
+}
+
+///|
 test "pdf v2 product bridge does not duplicate parser candidate table text" {
   let table_fragment = {
     ..phase20_fragment(
@@ -2794,19 +3031,137 @@ test "pdf v2 product bridge does not duplicate parser candidate table text" {
     phase14_default_input(model, None),
   )
   let doc = phase20_bridge_document(
-    phase20_pipeline_ok_with_candidates(
+    phase20_pipeline_ok_with_text_flow_and_tables(
       1,
       [table_fragment, list_fragment],
       lowered.text_flow_candidates,
-      [],
-      [],
-      [],
+      [
+        phase20_table_candidate(
+          [["Product", "Revenue"], ["Alpha", "12"]],
+          table_fragment.source_refs,
+          [0, 1, 2, 3],
+          0.90,
+        ),
+      ],
     ),
     @pdfv2conv.default_pdf_v2_product_bridge_options(),
   )
 
-  assert_true(phase20_table_block_count(doc) == 0)
+  assert_true(phase20_table_block_count(doc) == 1)
   assert_true(doc.blocks.val.length() == 2)
+  match doc.blocks.val[0] {
+    @cor.Block::RichTable(table) => {
+      assert_true(table.rows[0] == ["Product", "Revenue"])
+      assert_true(table.rows[1] == ["Alpha", "12"])
+    }
+    _ => fail("expected parser table before list item")
+  }
+  match doc.blocks.val[1] {
+    @cor.Block::RichListItem(_, _, _) | @cor.Block::ListItem(_, _, _) => ()
+    _ => fail("expected parser list item to remain separate")
+  }
+}
+
+///|
+test "pdf v2 product bridge suppresses split parser table text-flow duplicates" {
+  let first_ref = phase14_text_ref(0)
+  let second_ref = phase14_text_ref(1)
+  let third_ref = phase14_text_ref(2)
+  let list_ref = phase14_text_ref(3)
+  let table_refs = [first_ref, second_ref, third_ref]
+  let table_fragment = {
+    ..phase20_fragment_with_line_count(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Product Revenue Alpha 12 Beta 34",
+      Some(0),
+      3,
+      table_refs,
+    ),
+    block_index: Some(0),
+  }
+  let list_fragment = {
+    ..phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "• parser item",
+      Some(0),
+      [list_ref],
+    ),
+    block_index: Some(1),
+  }
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok_with_text_flow_and_tables(
+      1,
+      [table_fragment, list_fragment],
+      [
+        phase20_text_flow_candidate(
+          0,
+          0,
+          0,
+          "Product Revenue",
+          [first_ref],
+          ["text_flow_candidate", "inline_list_split"],
+          0.0,
+        ),
+        phase20_text_flow_candidate(
+          0,
+          1,
+          1,
+          "Alpha 12",
+          [second_ref],
+          ["text_flow_candidate", "inline_list_split"],
+          0.0,
+        ),
+        phase20_text_flow_candidate(
+          0,
+          2,
+          2,
+          "Beta 34",
+          [third_ref],
+          ["text_flow_candidate", "inline_list_split"],
+          0.0,
+        ),
+        phase20_text_flow_candidate(
+          1,
+          3,
+          3,
+          "• parser item",
+          [list_ref],
+          ["text_flow_candidate", "block_flow_candidate"],
+          0.90,
+        ),
+      ],
+      [
+        phase20_table_candidate(
+          [["Product", "Revenue"], ["Alpha", "12"], ["Beta", "34"]],
+          table_refs,
+          [0, 1, 2],
+          0.90,
+        ),
+      ],
+    ),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+  let markdown = @cor.emit_markdown(doc)
+  let json = @cor.emit_metadata_json(doc, "table.pdf", "pdf", "table.md")
+
+  assert_true(phase20_table_block_count(doc) == 1)
+  assert_true(doc.blocks.val.length() == 2)
+  assert_true(!markdown.contains("Product Revenue Alpha"))
+  match doc.blocks.val[0] {
+    @cor.Block::RichTable(table) => {
+      assert_true(table.header_rows == 1)
+      assert_true(table.rows[2] == ["Beta", "34"])
+    }
+    _ => fail("expected one parser RichTable")
+  }
+  match doc.blocks.val[1] {
+    @cor.Block::RichListItem(_, _, _) | @cor.Block::ListItem(_, _, _) => ()
+    _ => fail("expected unrelated list item to remain")
+  }
+  assert_true(json.contains("\"block_type\": \"table\""))
+  assert_true(json.contains("\"header_rows\": 1"))
+  assert_true(json.contains("\"line_start\": 1"))
+  assert_true(json.contains("\"line_end\": 3"))
 }
 
 ///|
@@ -2895,6 +3250,7 @@ test "pdf v2 metadata sidecar path adds document properties without diagnostics"
     lowering_summary: phase20_lowering_summary(2, [fragment]),
     fragments: [fragment],
     text_flow_candidates: [],
+    table_candidates: [],
     link_candidates: [],
     image_candidates: [],
     inline_image_candidates: [],

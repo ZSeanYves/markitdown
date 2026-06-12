@@ -2356,6 +2356,34 @@ test "pdf v2 model assembly groups candidates by page" {
 }
 
 ///|
+test "pdf v2 model assembly exposes coordinate table candidates for real sample" {
+  let path = "samples/main_process/pdf/pdf_simple_table_like.pdf"
+  let result = @pdfv2.parse_pdf_v2_model_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    ModelAssemblyOk(model) => {
+      assert_true(model.pages.length() == 1)
+      if model.pages[0].tables.length() != 1 {
+        fail(
+          "expected one table candidate, got " +
+          model.pages[0].tables.length().to_string(),
+        )
+      }
+      let table = model.pages[0].tables[0]
+      assert_true(table.table_kind == @pdfv2.PdfV2TableKind::CoordinateGrid)
+      assert_true(table.rows[0] == ["Product", "Region", "Status"])
+      assert_true(table.rows[2] == ["Beta", "West", "Closed"])
+      assert_true(table.has_header)
+      assert_true(table.source_refs.length() == 9)
+    }
+    ModelAssemblyErr(_, _, message) =>
+      fail("expected table sample model: " + message)
+  }
+}
+
+///|
 test "pdf v2 model assembly preserves source refs" {
   let path = "/tmp/markitdown-pdf-v2-phase9-source-refs.pdf"
   phase3_write_fixture(path, phase4_simple_text_pdf())

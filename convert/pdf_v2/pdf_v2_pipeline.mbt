@@ -32,6 +32,7 @@ pub(all) struct PdfV2ConvertPipelineOutput {
   lowering_summary : PdfV2FactLoweringSummary
   fragments : Array[PdfV2FactFragment]
   text_flow_candidates : Array[@pdfv2.PdfV2TextFlowCandidate]
+  table_candidates : Array[@pdfv2.PdfV2TableCandidate]
   link_candidates : Array[@pdfv2.PdfV2LinkCandidate]
   image_candidates : Array[@pdfv2.PdfV2ImageCandidate]
   inline_image_candidates : Array[@pdfv2.PdfV2InlineImageCandidate]
@@ -142,6 +143,17 @@ fn pdf_v2_pipeline_link_candidates(
 }
 
 ///|
+fn pdf_v2_pipeline_table_candidates(
+  model : @pdfv2.PdfV2DocumentModel,
+) -> Array[@pdfv2.PdfV2TableCandidate] {
+  let out : Array[@pdfv2.PdfV2TableCandidate] = []
+  for page in model.pages {
+    out.append(page.tables)
+  }
+  out
+}
+
+///|
 fn pdf_v2_pipeline_image_candidates(
   model : @pdfv2.PdfV2DocumentModel,
 ) -> Array[@pdfv2.PdfV2ImageCandidate] {
@@ -200,6 +212,7 @@ pub fn convert_pdf_v2_experimental_from_path(
         lowering_summary: lowered.summary,
         fragments: lowered.fragments,
         text_flow_candidates: lowered.text_flow_candidates,
+        table_candidates: pdf_v2_pipeline_table_candidates(model),
         link_candidates: pdf_v2_pipeline_link_candidates(model),
         image_candidates: pdf_v2_pipeline_image_candidates(model),
         inline_image_candidates: pdf_v2_pipeline_inline_image_candidates(model),

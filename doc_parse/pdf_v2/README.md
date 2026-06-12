@@ -662,3 +662,37 @@ discovery.
   treated as image captions.
 - Parser facts remain factual: no OCR, image-table recovery, full layout
   recovery, v1 fallback, external model/data access, or vendor runtime change.
+
+## Reset 12 Table Structure And Sidecar Parity
+
+Reset 12 adds parser-side table evidence without making the parser responsible
+for final product Markdown policy.
+
+- New fact: `PdfV2TableCandidate`.
+  - carries page index, block indices, line indices, rows, columns, cell
+    candidates, source refs, confidence, reason tags, table kind, and header
+    evidence.
+- Candidate kinds:
+  - `PipeSeparated` for coherent pipe rows with optional Markdown separator.
+  - `WhitespaceAligned` for simple repeated whitespace columns with stable row
+    width.
+  - `CoordinateGrid` for text-show matrix positions that align into stable
+    x/y rows and columns.
+- Guards:
+  - minimum rows and columns.
+  - consistent column count.
+  - paragraph/list/caption/sentence-like rejection.
+  - numeric or short-label evidence for non-explicit tables.
+  - no image-only or OCR evidence.
+- Source evidence:
+  - candidates keep source refs and, for coordinate grids, matching cell block
+    indices so convert can consume split cell fragments as one table.
+  - line indices are preserved when line facts exist; coordinate-grid
+    candidates use text-show order as conservative line evidence.
+- Convert owns final lowering:
+  - high-confidence parser candidates can become core `RichTable(TableData)`.
+  - weak or malformed table-like text remains plain paragraphs.
+  - core metadata sidecars provide rows/header_rows/origin through `RichTable`.
+- Boundaries:
+  - no full visual table recovery, merged-cell reconstruction, image-table OCR,
+    fake cells, v1 fallback, model loading/training, or external data access.

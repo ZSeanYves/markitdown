@@ -207,6 +207,10 @@ pub fn pdf_v2_source_document_from_core_with_options(
     line_reconstruction.lines,
     pdf_v2_default_block_reconstruction_options(),
   )
+  let table_candidates = pdf_v2_build_table_candidates(
+    source_events,
+    block_reconstruction.blocks,
+  )
   let warnings = pdf_v2_append_warnings(
     pdf_v2_append_warnings(
       pdf_v2_append_warnings(
@@ -249,6 +253,7 @@ pub fn pdf_v2_source_document_from_core_with_options(
     span_candidates: span_reconstruction.spans,
     line_candidates: line_reconstruction.lines,
     block_candidates: block_reconstruction.blocks,
+    table_candidates,
     image_candidates: capped_object_candidates.image_candidates,
     inline_image_candidates: capped_object_candidates.inline_image_candidates,
     annotation_candidates: capped_object_candidates.annotation_candidates,

@@ -1153,3 +1153,52 @@
   - no vendor runtime change, OCR, image-table recovery, full layout recovery,
     aggressive caption inference, v1 fallback, external model/data access, or
     training hook was added.
+
+## Reset 12 Table Structure And Sidecar Parity
+
+- focus:
+  - move PDF v2 table parity from bridge-only text heuristics to parser-backed
+    `PdfV2TableCandidate` facts.
+  - lower only high-confidence text-derived tables to core
+    `RichTable(TableData)`.
+  - rely on the existing core metadata sidecar table convention instead of
+    inventing PDF v2 sidecar fields.
+- v1/core audit:
+  - core `RichTable(TableData)` carries `rows`, `header_rows`, and optional
+    hints.
+  - the Markdown emitter renders `RichTable` as a Markdown table and uses the
+    first header row as the Markdown header.
+  - metadata sidecars already serialize `block_type: "table"`, flat table text,
+    `table.rows`, and `table.header_rows`.
+  - v1 PDF detects simple aligned text tables conservatively and leaves weak
+    table-like paragraphs as text.
+- implementation:
+  - parser source/raw/model/page structures now carry `table_candidates`.
+  - candidates include page, block, line/source evidence, rows, columns, cell
+    records, confidence, kind, and header evidence.
+  - supported candidate kinds are pipe-separated text, simple whitespace-aligned
+    text, and coordinate grids derived from text-show matrix positions.
+  - coordinate grids keep cell block indices so product lowering can consume
+    multi-fragment cell output as one table.
+  - product lowering maps parser-backed candidates with confidence >= 0.80 to
+    `RichTable` with `hints: None`; low-confidence candidates fall back to the
+    existing paragraph path.
+  - parser table source refs suppress duplicate semantic/text-flow fragments
+    after the table has emitted.
+- sample signal with explicit prebuilt CLIs:
+  - Reset 11 main Markdown: 20 failures; Reset 12 run
+    `.tmp/check/runs/pdf-20260612-180306-54858` has 18 failures.
+  - Reset 11 metadata-only: 9 failures; Reset 12 run
+    `.tmp/check/runs/pdf-20260612-180315-55360` has 8 failures.
+  - Reset 11 assets-only: 3 failures; Reset 12 run
+    `.tmp/check/runs/pdf-20260612-180322-55586` remains 3 failures.
+  - `pdf_simple_table_like` and
+    `metadata/pdf_metadata_table_like` now render the expected Markdown table.
+  - `pdf_metadata_table_like.metadata.json` now contains a table block with
+    rows, `header_rows: 1`, and line range origin; its remaining sidecar diff is
+    document-property parity, not table payload.
+- unchanged boundaries:
+  - no sample expected files were updated.
+  - no v1 fallback, v1 PDF runtime change, vendor runtime change, OCR,
+    image-table recovery, full layout recovery, fake cells, diagnostics
+    Markdown, external model/data access, or training hook was added.

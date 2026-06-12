@@ -23,6 +23,44 @@ fn reset8_text_ref(page_index : Int, order : Int) -> @pdfv2.PdfV2SourceRef {
 }
 
 ///|
+fn reset12_text_show_event(
+  page_index : Int,
+  order : Int,
+  text : String,
+  x : Double,
+  y : Double,
+) -> @pdfv2.PdfV2SourceEvent {
+  let source_ref = reset8_text_ref(page_index, order)
+  let show : @pdfv2.PdfV2TextShowFact = {
+    raw_operator_kind: @pdfv2.PdfV2TextShowOperatorKind::Tj,
+    raw_bytes_or_string: text,
+    decoded_text: Some(text),
+    font_ref: Some("/F1"),
+    font_size: Some(12.0),
+    text_matrix_snapshot: Some({ a: 1.0, b: 0.0, c: 0.0, d: 1.0, e: x, f: y }),
+    source_ref,
+    decode_confidence: @pdfv2.PdfV2TextDecodeConfidence::High,
+    warnings: [],
+    reason_tags: ["text_show", "operator_Tj"],
+  }
+  {
+    kind: @pdfv2.PdfV2SourceEventKind::TextShow,
+    page_index: Some(page_index),
+    text: Some(text),
+    bbox: None,
+    object_ref: source_ref.object_id,
+    source_ref,
+    reason_tags: ["text_show", "operator_Tj"],
+    warnings: [],
+    risks: [],
+    text_state: None,
+    text_show: Some(show),
+    glyph_candidate: None,
+    object_fact: None,
+  }
+}
+
+///|
 fn reset8_bbox() -> @pdfv2.PdfV2BBox {
   { x0: 0.0, y0: 0.0, x1: 612.0, y1: 792.0 }
 }
@@ -187,6 +225,7 @@ fn reset8_page(
     inline_images: [],
     annotations: [],
     links: [],
+    tables: [],
     forms: [],
     resources: [],
     metadata_refs: [],
@@ -364,6 +403,90 @@ test "pdf v2 text flow candidates split heading body and inline list facts" {
   assert_true(candidates[3].normalized_text == "• First item")
   assert_true(candidates[3].line_signals[0].starts_with_unordered_marker)
   assert_true(candidates[4].normalized_text == "• Second item")
+}
+
+///|
+test "pdf v2 parser builds pipe and aligned table candidates conservatively" {
+  let pipe_block = reset8_block(0, 0, [
+    reset8_line(0, 0, "| Product | Revenue |"),
+    reset8_line(0, 1, "| --- | --- |"),
+    reset8_line(0, 2, "| Alpha | 12 |"),
+    reset8_line(0, 3, "| Beta | 34 |"),
+  ])
+  let aligned_block = reset8_block(0, 1, [
+    reset8_line(0, 4, "Product  Revenue"),
+    reset8_line(0, 5, "Alpha    12"),
+    reset8_line(0, 6, "Beta     34"),
+  ])
+  let candidates = @pdfv2.pdf_v2_build_table_candidates([], [
+    pipe_block, aligned_block,
+  ])
+
+  assert_true(candidates.length() == 2)
+  assert_true(candidates[0].table_kind == @pdfv2.PdfV2TableKind::PipeSeparated)
+  assert_true(candidates[0].has_header)
+  assert_true(candidates[0].rows[0] == ["Product", "Revenue"])
+  assert_true(candidates[0].rows[2] == ["Beta", "34"])
+  assert_true(
+    candidates[1].table_kind == @pdfv2.PdfV2TableKind::WhitespaceAligned,
+  )
+  assert_true(candidates[1].rows[1] == ["Alpha", "12"])
+}
+
+///|
+test "pdf v2 parser builds coordinate grid table candidates from text shows" {
+  let block = reset8_block(0, 0, [
+    reset8_line(0, 0, "Product Region Status Alpha East Open Beta West Closed"),
+  ])
+  let events = [
+    reset12_text_show_event(0, 0, "Product", 40.0, 710.0),
+    reset12_text_show_event(0, 1, "Region", 180.0, 710.0),
+    reset12_text_show_event(0, 2, "Status", 300.0, 710.0),
+    reset12_text_show_event(0, 3, "Alpha", 40.0, 688.0),
+    reset12_text_show_event(0, 4, "East", 180.0, 688.0),
+    reset12_text_show_event(0, 5, "Open", 300.0, 688.0),
+    reset12_text_show_event(0, 6, "Beta", 40.0, 666.0),
+    reset12_text_show_event(0, 7, "West", 180.0, 666.0),
+    reset12_text_show_event(0, 8, "Closed", 300.0, 666.0),
+  ]
+  let candidates = @pdfv2.pdf_v2_build_table_candidates(events, [block])
+
+  assert_true(candidates.length() == 1)
+  let table = candidates[0]
+  assert_true(table.table_kind == @pdfv2.PdfV2TableKind::CoordinateGrid)
+  assert_true(table.confidence >= 0.90)
+  assert_true(table.block_indices == [0])
+  assert_true(table.line_indices.length() == 9)
+  assert_true(table.source_refs.length() == 9)
+  assert_true(table.rows.length() == 3)
+  assert_true(table.columns == 3)
+  assert_true(table.rows[0] == ["Product", "Region", "Status"])
+  assert_true(table.rows[1] == ["Alpha", "East", "Open"])
+  assert_true(table.rows[2] == ["Beta", "West", "Closed"])
+}
+
+///|
+test "pdf v2 parser rejects weak table-like paragraphs lists and captions" {
+  let paragraph = reset8_block(0, 0, [
+    reset8_line(0, 0, "This ordinary paragraph mentions Product and Revenue."),
+  ])
+  let listish = reset8_block(0, 1, [
+    reset8_line(0, 1, "- Product  Revenue"),
+    reset8_line(0, 2, "- Alpha    12"),
+  ])
+  let caption = reset8_block(0, 2, [
+    reset8_line(0, 3, "Table 1  Revenue"),
+    reset8_line(0, 4, "Alpha    12"),
+  ])
+  let ragged = reset8_block(0, 3, [
+    reset8_line(0, 5, "Product  Revenue"),
+    reset8_line(0, 6, "Alpha    12  Extra"),
+  ])
+  let candidates = @pdfv2.pdf_v2_build_table_candidates([], [
+    paragraph, listish, caption, ragged,
+  ])
+
+  assert_true(candidates.length() == 0)
 }
 
 ///|

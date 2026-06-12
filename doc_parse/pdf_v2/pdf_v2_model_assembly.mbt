@@ -168,6 +168,28 @@ fn pdf_v2_model_validate_block_pages(
 }
 
 ///|
+fn pdf_v2_model_validate_table_pages(
+  tables : Array[PdfV2TableCandidate],
+  page_count : Int,
+  warnings : Array[PdfV2Warning],
+  risks : Array[PdfV2Risk],
+) -> Bool {
+  let mut ok = true
+  for table in tables {
+    if !pdf_v2_model_page_index_valid(table.page_index, page_count) {
+      pdf_v2_model_append_invalid_page(
+        warnings,
+        risks,
+        "table",
+        table.source_refs,
+      )
+      ok = false
+    }
+  }
+  ok
+}
+
+///|
 fn pdf_v2_model_validate_image_pages(
   images : Array[PdfV2ImageCandidate],
   page_count : Int,
@@ -391,6 +413,20 @@ fn pdf_v2_model_images_for_page(
   for image in images {
     if image.page_index == Some(page_index) {
       out.push(image)
+    }
+  }
+  out
+}
+
+///|
+fn pdf_v2_model_tables_for_page(
+  tables : Array[PdfV2TableCandidate],
+  page_index : Int,
+) -> Array[PdfV2TableCandidate] {
+  let out : Array[PdfV2TableCandidate] = []
+  for table in tables {
+    if table.page_index == Some(page_index) {
+      out.push(table)
     }
   }
   out
@@ -687,6 +723,10 @@ fn pdf_v2_model_page_from_source(
       page.page_index,
     ),
     links: pdf_v2_model_links_for_page(source.link_candidates, page.page_index),
+    tables: pdf_v2_model_tables_for_page(
+      source.table_candidates,
+      page.page_index,
+    ),
     forms: pdf_v2_model_forms_for_page(source.form_candidates, page.page_index),
     resources: pdf_v2_model_resources_for_page(
       source.resource_candidates,
@@ -835,6 +875,13 @@ pub fn pdf_v2_document_model_from_source(
     valid
   valid = pdf_v2_model_validate_block_pages(
       source.block_candidates,
+      page_count,
+      warnings,
+      risks,
+    ) &&
+    valid
+  valid = pdf_v2_model_validate_table_pages(
+      source.table_candidates,
       page_count,
       warnings,
       risks,

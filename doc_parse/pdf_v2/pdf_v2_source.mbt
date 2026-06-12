@@ -52,6 +52,7 @@ pub(all) struct PdfV2SourceDocument {
   span_candidates : Array[PdfV2SpanCandidate]
   line_candidates : Array[PdfV2LineCandidate]
   block_candidates : Array[PdfV2BlockCandidate]
+  table_candidates : Array[PdfV2TableCandidate]
   image_candidates : Array[PdfV2ImageCandidate]
   inline_image_candidates : Array[PdfV2InlineImageCandidate]
   annotation_candidates : Array[PdfV2AnnotationCandidate]

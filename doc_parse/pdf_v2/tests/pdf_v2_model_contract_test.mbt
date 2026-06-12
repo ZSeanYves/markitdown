@@ -172,6 +172,7 @@ test "pdf v2 model assembly rejects invalid candidate page index" {
     span_candidates: [],
     line_candidates: [],
     block_candidates: [block],
+    table_candidates: [],
     image_candidates: [],
     inline_image_candidates: [],
     annotation_candidates: [],

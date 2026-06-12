@@ -442,3 +442,41 @@ visual inference.
 - Product output still emits `ImageBlock` only for candidates with real
   materialized asset paths and does not create fake bytes, OCR text,
   table-from-image output, diagnostics Markdown, v1 fallback, or model hooks.
+
+## Reset 12 Table Structure And Sidecar Parity
+
+Reset 12 consumes parser-side table candidates and lowers only high-confidence
+text-backed tables to the shared core table block.
+
+- Pipeline:
+  - `PdfV2ConvertPipelineOutput` now carries parser `table_candidates`.
+  - page-local model tables are flattened into the product bridge input.
+- Product bridge:
+  - parser-backed candidates with confidence below 0.80 are ignored and their
+    text follows the paragraph fallback path.
+  - high-confidence parser-backed candidates lower to
+    `@core.Block::RichTable({ rows, header_rows, hints: None })`.
+  - PDF v2 does not add private table hints, so sidecars avoid extra
+    PDF-specific `format` fields.
+  - origins use parser page/source refs and table line range; parser-backed
+    table origins intentionally omit the text-object `object_ref` so they match
+    the existing PDF table sidecar convention.
+  - emitted parser-backed tables mark overlapping source refs and matching
+    block-index fragments as consumed, preventing split cell text-flow
+    duplicates.
+- Core sidecar:
+  - table metadata is supplied by existing core `RichTable` handling:
+    `block_type: "table"`, flat table text, `table.rows`, and
+    `table.header_rows`.
+  - no new sidecar schema is introduced.
+- Sample signal:
+  - main Markdown failures improved from Reset 11's 20 to 18.
+  - metadata-only failures improved from 9 to 8.
+  - assets-only stayed 3.
+  - `pdf_simple_table_like` and `metadata/pdf_metadata_table_like` now render
+    the expected Markdown table; the remaining table-like metadata sidecar diff
+    is document-property parity.
+- Boundaries:
+  - no OCR, image-table recovery, arbitrary visual table recovery, merged-cell
+    reconstruction, fake cells, diagnostics Markdown, v1 fallback, model
+    loading/training, or external data access.

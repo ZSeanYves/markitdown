@@ -81,6 +81,7 @@ pub(all) struct PdfV2PageModel {
   inline_images : Array[PdfV2InlineImageCandidate]
   annotations : Array[PdfV2AnnotationCandidate]
   links : Array[PdfV2LinkCandidate]
+  tables : Array[PdfV2TableCandidate]
   forms : Array[PdfV2FormCandidate]
   resources : Array[PdfV2ResourceCandidate]
   metadata_refs : Array[PdfV2MetadataCandidate]
