@@ -65,13 +65,18 @@ pub fn pdf_v2_metadata_document_properties(
 ///|
 pub fn parse_pdf_v2_with_metadata(
   input_path : String,
-  _out_dir : String,
+  out_dir : String,
   _max_heading : Int,
 ) -> Result[PdfV2ParsedDocument, @cor.AppError] {
-  let pipeline_result = convert_pdf_v2_experimental_from_path(
-    input_path,
-    pdf_v2_dispatcher_pipeline_options(),
-  )
+  let asset_output_dir = if out_dir.trim().to_owned() == "" {
+    None
+  } else {
+    Some(out_dir)
+  }
+  let pipeline_result = convert_pdf_v2_experimental_from_path(input_path, {
+    ..pdf_v2_dispatcher_pipeline_options(),
+    asset_output_dir,
+  })
   match pipeline_result {
     ConvertPipelineOk(output) => {
       let document_properties = output.document_properties

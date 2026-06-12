@@ -244,9 +244,10 @@ Current status:
   absent at runtime and no model/data file is loaded or trained.
 
 The product bridge maps semantic text blocks to core paragraphs, headings, list
-items, blank lines, safe URI links, metadata-only image placeholders, and
-conservative text tables. It does not lower captions, forms, OCR, or v1 PDF
-fallback behavior.
+items, blank lines, safe URI links, materialized image assets when bytes are
+available, and conservative text tables. Metadata-only image candidates are
+suppressed from visible Markdown. It does not lower captions, forms, OCR, or v1
+PDF fallback behavior.
 
 ## Reset 9A Metadata Sidecars And Origin
 
@@ -383,3 +384,43 @@ Reset 9F reran the product parity sweep after 9B-9E.
   placeholders and missing `.metadata` files in assets-only checks; real image
   byte export/materialization remains the next asset blocker.
 - No expected samples were updated.
+
+## Reset 10 Real Image Asset Materialization
+
+Reset 10 wires parser asset candidates through convert and the PDF CLI writer
+path using the existing core/v1 asset convention.
+
+- Pipeline/product path:
+  - `PdfV2ConvertPipelineOptions.asset_output_dir` carries the CLI output root.
+  - supported candidates are written under `assets/imageNN.ext` with
+    `@core.next_image_asset_rel_path_unique`.
+  - raw encoded JPEG/JP2/JBIG2 candidates are written unchanged.
+  - decoded inline RGB/Gray pixels are wrapped as BMP bytes before writing.
+  - materialized pipeline candidates keep `rel_path` and `byte_count` and clear
+    in-memory `bytes`.
+- Visible ImageBlock policy:
+  - emit `ImageBlock(ImageData)` only when `asset.rel_path` is present and
+    non-empty.
+  - suppress metadata-only or unsupported candidates from Markdown so output
+    never contains a broken image reference.
+  - alt/title/caption stay empty for materialized PDF v2 images; no diagnostics
+    text is written into product Markdown.
+- `asset_origins`:
+  - keyed by the emitted relative path.
+  - include source name, one-based page, object ref when known, and origin id.
+  - keep `key_path: None`, matching v1 PDF asset sidecar behavior.
+- Sample signal:
+  - Reset 9F assets-only had 13 failures from visible placeholders and missing
+    `.metadata` assets.
+  - Reset 10 assets-only run
+    `.tmp/check/runs/pdf-20260612-151859-35645` has 7 failures.
+  - fixed cases include `pdf_image_xobject` writing `assets/image01.jpg`,
+    ReportLab inline image writing `assets/image01.bmp`, and metadata image
+    samples no longer emitting missing `.metadata` references.
+- Remaining limitations:
+  - Form XObject nested images remain missing.
+  - residual sample diffs are mostly text structure/heading parity and
+    non-Reset-10 image placement/caption gaps.
+  - no v1 fallback, OCR, table-from-image, fake bytes, model loading/training,
+    external data access, sample expected updates, or vendor runtime changes
+    were introduced.

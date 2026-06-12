@@ -1,6 +1,7 @@
 import {
   "ZSeanYves/markitdown/core" @cor,
   "ZSeanYves/markitdown/doc_parse/pdf_v2" @pdfv2,
+  "moonbitlang/x/fs",
 }
 
 options(

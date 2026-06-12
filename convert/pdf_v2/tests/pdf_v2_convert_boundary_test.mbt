@@ -22,6 +22,37 @@ fn phase14_stream_object(content : String) -> String {
 }
 
 ///|
+fn phase14_stream_object_bytes(
+  dict : String,
+  data : Array[Byte],
+) -> Array[Byte] {
+  let prefix = ("<< " +
+  dict +
+  " /Length " +
+  data.length().to_string() +
+  " >>\nstream\n").to_array()
+  let suffix = "\nendstream".to_array()
+  let out : Array[Byte] = []
+  for ch in prefix {
+    out.push((ch.to_int() & 0xFF).to_byte())
+  }
+  out.append(data)
+  for ch in suffix {
+    out.push((ch.to_int() & 0xFF).to_byte())
+  }
+  out
+}
+
+///|
+fn phase14_bytes_of_string(text : String) -> Array[Byte] {
+  let out : Array[Byte] = []
+  for ch in text.to_array() {
+    out.push((ch.to_int() & 0xFF).to_byte())
+  }
+  out
+}
+
+///|
 fn phase14_pdf_from_objects(objects : Array[(Int, String)]) -> String {
   let header = "%PDF-1.4\n"
   let pieces : Array[String] = [header]
@@ -47,6 +78,44 @@ fn phase14_pdf_from_objects(objects : Array[(Int, String)]) -> String {
   )
   pieces.push(xref_entries.join(""))
   pieces.join("")
+}
+
+///|
+fn phase14_pdf_from_binary_objects(
+  objects : Array[(Int, Array[Byte])],
+) -> Array[Byte] {
+  let pieces : Array[Array[Byte]] = [phase14_bytes_of_string("%PDF-1.4\n")]
+  let offsets : Array[Int] = []
+  let mut offset = pieces[0].length()
+  for pair in objects {
+    let object_bytes : Array[Byte] = []
+    object_bytes.append(
+      phase14_bytes_of_string(pair.0.to_string() + " 0 obj\n"),
+    )
+    object_bytes.append(pair.1)
+    object_bytes.append(phase14_bytes_of_string("\nendobj\n"))
+    offsets.push(offset)
+    pieces.push(object_bytes)
+    offset = offset + object_bytes.length()
+  }
+  let xref_offset = offset
+  let size = objects.length() + 1
+  let xref_entries : Array[String] = [
+    "xref\n0 \{size}\n",
+    "0000000000 65535 f \n",
+  ]
+  for object_offset in offsets {
+    xref_entries.push(phase14_pad_xref_offset(object_offset) + " 00000 n \n")
+  }
+  xref_entries.push(
+    "trailer\n<< /Root 1 0 R /Size \{size} >>\nstartxref\n\{xref_offset}\n%%EOF\n",
+  )
+  pieces.push(phase14_bytes_of_string(xref_entries.join("")))
+  let out : Array[Byte] = []
+  for piece in pieces {
+    out.append(piece)
+  }
+  out
 }
 
 ///|
@@ -88,8 +157,49 @@ fn phase17_two_image_text_pdf() -> String {
 }
 
 ///|
+fn phase17_real_jpeg_image_text_pdf() -> Array[Byte] raise {
+  let jpeg = @fs.read_file_to_bytes(
+    "samples/main_process/html/assets/img/img_red.jpg",
+  ) catch {
+    err => fail("read jpeg fixture failed: " + err.to_string())
+  }
+  let content = "BT\n/F1 12 Tf\n72 720 Td\n(Hello) Tj\nET\nq\n/Im1 Do\nQ\n"
+  phase14_pdf_from_binary_objects([
+    (1, phase14_bytes_of_string("<< /Type /Catalog /Pages 2 0 R >>")),
+    (2, phase14_bytes_of_string("<< /Type /Pages /Count 1 /Kids [3 0 R] >>")),
+    (
+      3,
+      phase14_bytes_of_string(
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 6 0 R >> /XObject << /Im1 5 0 R >> >> /Contents 4 0 R >>",
+      ),
+    ),
+    (4, phase14_bytes_of_string(phase14_stream_object(content))),
+    (
+      5,
+      phase14_stream_object_bytes(
+        "/Type /XObject /Subtype /Image /Width 640 /Height 360 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode",
+        jpeg.to_array(),
+      ),
+    ),
+    (
+      6,
+      phase14_bytes_of_string(
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+      ),
+    ),
+  ])
+}
+
+///|
 fn phase14_write_fixture(path : String, body : String) -> Unit raise {
   @fs.write_string_to_file(path, body, encoding="utf8") catch {
+    err => fail("write fixture failed: " + err.to_string())
+  }
+}
+
+///|
+fn phase14_write_bytes_fixture(path : String, body : Array[Byte]) -> Unit raise {
+  @fs.write_bytes_to_file(path, Bytes::from_array(body)) catch {
     err => fail("write fixture failed: " + err.to_string())
   }
 }
@@ -98,6 +208,31 @@ fn phase14_write_fixture(path : String, body : String) -> Unit raise {
 fn phase14_cleanup_fixture(path : String) -> Unit {
   if @fs.path_exists(path) {
     let _ = @fs.remove_file(path) catch { _ => () }
+  }
+}
+
+///|
+fn phase14_remove_dir_recursive(path : String) -> Unit raise {
+  if !@fs.path_exists(path) {
+    return
+  }
+  for name in @fs.read_dir(path) {
+    let child = path + "/" + name
+    if @fs.is_dir(child) {
+      phase14_remove_dir_recursive(child)
+    } else if @fs.is_file(child) {
+      let _ = @fs.remove_file(child) catch { _ => () }
+    }
+  }
+  @fs.remove_dir(path) catch {
+    _ => ()
+  }
+}
+
+///|
+fn phase14_ensure_dir(path : String) -> Unit raise {
+  if !@fs.path_exists(path) {
+    @fs.create_dir(path)
   }
 }
 
@@ -787,6 +922,7 @@ fn phase20_image_candidate(
     risks: [],
     reason_tags: ["phase20_image_test"],
     decode_status: status,
+    asset: None,
   }
 }
 
@@ -810,6 +946,7 @@ fn phase20_inline_image_candidate(
     risks: [],
     reason_tags: ["phase20_inline_image_test"],
     decode_status: status,
+    asset: None,
   }
 }
 
@@ -1365,6 +1502,119 @@ test "pdf v2 experimental pipeline carries image candidates from parser model" {
     }
     ConvertPipelineErr(failure) =>
       fail("expected image pipeline candidates: " + failure.message)
+  }
+}
+
+///|
+test "pdf v2 experimental pipeline materializes valid image asset" {
+  let root = "/tmp/markitdown-pdf-v2-reset10-image-assets"
+  phase14_remove_dir_recursive(root) catch {
+    _ => ()
+  }
+  phase14_ensure_dir(root) catch {
+    err => fail("create test dir failed: " + err.to_string())
+  }
+  defer (phase14_remove_dir_recursive(root) catch { _ => () })
+
+  let path = root + "/real-image.pdf"
+  phase14_write_bytes_fixture(path, phase17_real_jpeg_image_text_pdf())
+
+  let result = @pdfv2conv.convert_pdf_v2_experimental_from_path(path, {
+    ..@pdfv2conv.default_pdf_v2_convert_pipeline_options(),
+    asset_output_dir: Some(root),
+  })
+  match result {
+    ConvertPipelineOk(output) => {
+      assert_true(output.image_candidates.length() == 1)
+      let image = output.image_candidates[0]
+      assert_true(
+        image.decode_status == @pdfv2.PdfV2ImageDecodeStatus::DecodeAvailable,
+      )
+      match image.asset {
+        Some(asset) => {
+          assert_true(asset.rel_path == Some("assets/image01.jpg"))
+          assert_true(asset.bytes == None)
+          assert_true(asset.byte_count.unwrap_or(0) > 1000)
+          assert_true(@fs.path_exists(root + "/assets/image01.jpg"))
+        }
+        None => fail("expected materialized image asset")
+      }
+      let doc = phase20_bridge_document(
+        @pdfv2conv.PdfV2ConvertPipelineResult::ConvertPipelineOk(output),
+        {
+          ..@pdfv2conv.default_pdf_v2_product_bridge_options(),
+          source_name: Some("real-image.pdf"),
+        },
+      )
+      let markdown = @cor.emit_markdown(doc)
+      assert_true(phase20_image_block_count(doc) == 1)
+      assert_true(markdown.contains("![image](assets/image01.jpg)"))
+      assert_true(!markdown.contains(".metadata"))
+      match doc.asset_origins.val.get("assets/image01.jpg") {
+        Some(origin) => {
+          assert_true(origin.source_name == Some("real-image.pdf"))
+          assert_true(origin.page == Some(1))
+          assert_true(origin.object_ref == Some("5 0 R"))
+        }
+        None => fail("expected materialized asset origin")
+      }
+    }
+    ConvertPipelineErr(failure) =>
+      fail("expected materialized image pipeline success: " + failure.message)
+  }
+}
+
+///|
+test "pdf v2 experimental pipeline materializes ReportLab inline image asset" {
+  let root = "/tmp/markitdown-pdf-v2-reset10-inline-assets"
+  phase14_remove_dir_recursive(root) catch {
+    _ => ()
+  }
+  phase14_ensure_dir(root) catch {
+    err => fail("create test dir failed: " + err.to_string())
+  }
+  defer (phase14_remove_dir_recursive(root) catch { _ => () })
+
+  let input = "samples/main_process/pdf/assets/pdf_image_inline.pdf"
+  let result = @pdfv2conv.convert_pdf_v2_experimental_from_path(input, {
+    ..@pdfv2conv.default_pdf_v2_convert_pipeline_options(),
+    asset_output_dir: Some(root),
+  })
+  match result {
+    ConvertPipelineOk(output) => {
+      assert_true(output.inline_image_candidates.length() == 1)
+      let image = output.inline_image_candidates[0]
+      assert_true(
+        image.decode_status == @pdfv2.PdfV2ImageDecodeStatus::DecodeAvailable,
+      )
+      match image.asset {
+        Some(asset) => {
+          assert_true(asset.rel_path == Some("assets/image01.bmp"))
+          assert_true(asset.bytes == None)
+          assert_true(asset.byte_count.unwrap_or(0) > 100)
+          assert_true(@fs.path_exists(root + "/assets/image01.bmp"))
+        }
+        None => fail("expected inline image asset")
+      }
+      let doc = phase20_bridge_document(
+        @pdfv2conv.PdfV2ConvertPipelineResult::ConvertPipelineOk(output),
+        {
+          ..@pdfv2conv.default_pdf_v2_product_bridge_options(),
+          source_name: Some("pdf_image_inline.pdf"),
+        },
+      )
+      let markdown = @cor.emit_markdown(doc)
+      assert_true(phase20_image_block_count(doc) == 1)
+      assert_true(markdown.contains("![image](assets/image01.bmp)"))
+      let json = @cor.emit_metadata_json(
+        doc, "pdf_image_inline.pdf", "pdf", "pdf_image_inline.md",
+      )
+      assert_true(json.contains("\"path\": \"assets/image01.bmp\""))
+      assert_true(json.contains("\"source_name\": \"pdf_image_inline.pdf\""))
+      assert_true(json.contains("\"origin_id\": \"pdf-v2-inline-image-1\""))
+    }
+    ConvertPipelineErr(failure) =>
+      fail("expected materialized inline image success: " + failure.message)
   }
 }
 
@@ -2087,7 +2337,7 @@ test "pdf v2 product bridge URI link rules are semantic gated" {
 }
 
 ///|
-test "pdf v2 product bridge emits metadata image block and asset origin" {
+test "pdf v2 product bridge suppresses metadata-only image without asset" {
   let fragment = phase20_fragment(
     @pdfv2conv.PdfV2FactFragmentKind::PlainText,
     "Body before image.",
@@ -2114,13 +2364,50 @@ test "pdf v2 product bridge emits metadata image block and asset origin" {
   )
   let markdown = @cor.emit_markdown(doc)
 
+  assert_true(phase20_image_block_count(doc) == 0)
+  assert_true(doc.asset_origins.val.is_empty())
+  assert_true(markdown.contains("Body before image."))
+  assert_true(!markdown.contains("pdf-v2-image"))
+  assert_true(!markdown.contains(".metadata"))
+  assert_true(!markdown.contains(".png"))
+  assert_true(!markdown.contains(".jpg"))
+  assert_true(!markdown.contains("PDF_V2_PIPELINE_DIAGNOSTICS"))
+}
+
+///|
+test "pdf v2 product bridge emits supported image asset and origin" {
+  let supported = {
+    ..phase20_image_candidate(
+      Some("5 0 R"),
+      ["/DCTDecode"],
+      @pdfv2.PdfV2ImageDecodeStatus::DecodeAvailable,
+    ),
+    asset: Some({
+      rel_path: Some("assets/image01.jpg"),
+      byte_kind: @pdfv2.PdfV2ImageAssetByteKind::RawEncoded,
+      mime: Some("image/jpeg"),
+      extension: Some("jpg"),
+      bytes: None,
+      byte_count: Some(4),
+      status: @pdfv2.PdfV2CapabilityStatus::Supported,
+      reason_tags: ["asset_materialized"],
+    }),
+  }
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok_with_images(1, [], [supported], []),
+    {
+      ..@pdfv2conv.default_pdf_v2_product_bridge_options(),
+      source_name: Some("images.pdf"),
+    },
+  )
+  let markdown = @cor.emit_markdown(doc)
+
   assert_true(phase20_image_block_count(doc) == 1)
   match phase20_first_image_block(doc) {
     Some(img) => {
-      assert_true(img.path == "assets/pdf-v2-image-001.metadata")
-      assert_true(img.alt_text == Some("PDF v2 image metadata 2x1"))
-      assert_true(img.title.unwrap_or("").contains("metadata-only"))
-      assert_true(img.title.unwrap_or("").contains("/DCTDecode"))
+      assert_true(img.path == "assets/image01.jpg")
+      assert_true(img.alt_text == None)
+      assert_true(img.title == None)
       assert_true(img.caption == None)
       match img.origin {
         Some(origin) => {
@@ -2136,28 +2423,23 @@ test "pdf v2 product bridge emits metadata image block and asset origin" {
           assert_true(origin.page == Some(1))
           assert_true(origin.origin_id == Some("pdf-v2-image:5 0 R"))
           assert_true(origin.object_ref == Some("5 0 R"))
-          assert_true(origin.key_path == Some("pdf_v2.image.metadata"))
+          assert_true(origin.key_path == None)
           assert_true(origin.source_path == None)
           assert_true(origin.nearby_caption == None)
         }
-        None => fail("expected metadata image asset origin")
+        None => fail("expected image asset origin")
       }
     }
-    None => fail("expected metadata ImageBlock")
+    None => fail("expected real ImageBlock")
   }
-  assert_true(
-    markdown.contains(
-      "![PDF v2 image metadata 2x1](assets/pdf-v2-image-001.metadata)",
-    ),
-  )
-  assert_true(markdown.contains("metadata-only"))
-  assert_true(!markdown.contains(".png"))
-  assert_true(!markdown.contains(".jpg"))
+  assert_true(markdown.contains("![image](assets/image01.jpg)"))
+  assert_true(!markdown.contains("metadata-only"))
+  assert_true(!markdown.contains(".metadata"))
   assert_true(!markdown.contains("PDF_V2_PIPELINE_DIAGNOSTICS"))
 }
 
 ///|
-test "pdf v2 product bridge unsupported image filter does not fail" {
+test "pdf v2 product bridge unsupported image filter does not emit broken asset" {
   let doc = phase20_bridge_document(
     phase20_pipeline_ok_with_images(
       1,
@@ -2175,24 +2457,17 @@ test "pdf v2 product bridge unsupported image filter does not fail" {
   )
   let markdown = @cor.emit_markdown(doc)
 
-  assert_true(phase20_image_block_count(doc) == 1)
-  match phase20_first_image_block(doc) {
-    Some(img) => {
-      assert_true(img.path == "assets/pdf-v2-image-001.metadata")
-      assert_true(img.title.unwrap_or("").contains("/JPXDecode"))
-      assert_true(img.title.unwrap_or("").contains("decode=unsupported"))
-      assert_true(img.caption == None)
-    }
-    None => fail("expected unsupported filter metadata ImageBlock")
-  }
-  assert_true(markdown.contains("assets/pdf-v2-image-001.metadata"))
+  assert_true(phase20_image_block_count(doc) == 0)
+  assert_true(doc.asset_origins.val.is_empty())
+  assert_true(!markdown.contains("pdf-v2-image"))
+  assert_true(!markdown.contains(".metadata"))
   assert_true(!markdown.contains(".png"))
   assert_true(!markdown.contains(".jpg"))
   assert_true(!markdown.contains("PDF_V2_PIPELINE_DIAGNOSTICS"))
 }
 
 ///|
-test "pdf v2 product bridge emits inline image metadata safely" {
+test "pdf v2 product bridge suppresses inline image without asset" {
   let doc = phase20_bridge_document(
     phase20_pipeline_ok_with_images(1, [], [], [
       phase20_inline_image_candidate(
@@ -2207,33 +2482,10 @@ test "pdf v2 product bridge emits inline image metadata safely" {
   )
   let markdown = @cor.emit_markdown(doc)
 
-  assert_true(phase20_image_block_count(doc) == 1)
-  match phase20_first_image_block(doc) {
-    Some(img) => {
-      assert_true(img.path == "assets/pdf-v2-inline-image-001.metadata")
-      assert_true(img.alt_text == Some("PDF v2 inline image metadata 1x1"))
-      assert_true(img.title.unwrap_or("").contains("/FlateDecode"))
-      assert_true(img.caption == None)
-      match doc.asset_origins.val.get(img.path) {
-        Some(origin) => {
-          assert_true(origin.source_name == Some("inline-images.pdf"))
-          assert_true(origin.page == Some(1))
-          assert_true(origin.origin_id == Some("pdf-v2-inline-image-1"))
-          assert_true(origin.object_ref == None)
-          assert_true(origin.key_path == Some("pdf_v2.inline_image.metadata"))
-          assert_true(origin.source_path == None)
-          assert_true(origin.nearby_caption == None)
-        }
-        None => fail("expected inline metadata image asset origin")
-      }
-    }
-    None => fail("expected inline metadata ImageBlock")
-  }
-  assert_true(
-    markdown.contains(
-      "![PDF v2 inline image metadata 1x1](assets/pdf-v2-inline-image-001.metadata)",
-    ),
-  )
+  assert_true(phase20_image_block_count(doc) == 0)
+  assert_true(doc.asset_origins.val.is_empty())
+  assert_true(!markdown.contains("pdf-v2-inline-image"))
+  assert_true(!markdown.contains(".metadata"))
   assert_true(!markdown.contains(".png"))
   assert_true(!markdown.contains(".jpg"))
 }
@@ -2262,18 +2514,11 @@ test "pdf v2 product bridge image metadata does not infer captions tables or OCR
     @pdfv2conv.default_pdf_v2_product_bridge_options(),
   )
 
-  assert_true(doc.blocks.val.length() == 2)
+  assert_true(doc.blocks.val.length() == 1)
   match doc.blocks.val[0] {
     @cor.Block::Paragraph(text) =>
       assert_true(text == "Figure 1. Nearby text remains a paragraph.")
     _ => fail("expected nearby text to stay paragraph")
-  }
-  match doc.blocks.val[1] {
-    @cor.Block::ImageBlock(img) => {
-      assert_true(img.caption == None)
-      assert_true(img.path == "assets/pdf-v2-image-001.metadata")
-    }
-    _ => fail("expected metadata image block")
   }
   for block in doc.blocks.val {
     match block {
@@ -2491,7 +2736,7 @@ test "pdf v2 product bridge does not infer image tables or OCR" {
   )
 
   assert_true(phase20_table_block_count(doc) == 0)
-  assert_true(phase20_image_block_count(doc) == 1)
+  assert_true(phase20_image_block_count(doc) == 0)
 }
 
 ///|

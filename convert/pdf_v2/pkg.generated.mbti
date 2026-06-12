@@ -120,6 +120,7 @@ pub(all) struct PdfV2ConvertPipelineFailure {
 
 pub(all) struct PdfV2ConvertPipelineOptions {
   parser_options : @ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2CoreOpenOptions
+  asset_output_dir : String?
   gate_options : PdfV2NoModelGateOptions
   lowering_options : PdfV2FactLoweringOptions
   run_gate : Bool

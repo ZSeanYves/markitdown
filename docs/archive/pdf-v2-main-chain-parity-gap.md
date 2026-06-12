@@ -279,19 +279,19 @@
 | Char/span/line/block candidates | real / partial | `pdf_v2_char_reconstruction.mbt`; `pdf_v2_span_reconstruction.mbt`; `pdf_v2_line_reconstruction.mbt`; `pdf_v2_block_reconstruction.mbt`; adapter tests | Source-order facts exist; geometry is often unknown. |
 | Normalized document model | real / partial | `pdf_v2_model_assembly.mbt`; `pdf_v2_parser.mbt`; model tests | Has pages, candidates, source refs, warnings, risks, summaries. |
 | Layout facts | partial / scaffold | `pdf_v2_layout_facts.mbt`; layout tests | Reports status such as source-order-only/not-attempted, not true region recovery. |
-| Object facts | metadata-only / partial | `pdf_v2_object_facts.mbt`; `pdf_v2_object_caps.mbt`; object tests | Images are metadata-only; links/forms/outlines/destinations are partial parser facts. |
+| Object facts | partial | `pdf_v2_object_facts.mbt`; `pdf_v2_object_caps.mbt`; object tests | Images keep metadata facts and can include materializable asset candidates when bytes are available; links/forms/outlines/destinations are partial parser facts. |
 | Object caps and unsupported reports | real / partial | `pdf_v2_object_caps.mbt`; object cap tests | Caps and reports are parser facts with warnings/risks. |
 | FeatureSet | scaffold / partial | `pdf_v2_features.mbt`; feature tests | Exposes factual rows and risk signals, not semantic labels. |
 | No-model gate | synthetic-only / scaffold | `pdf_v2_no_model_gate.mbt`; `pdf_v2_classifier_gate_contract_test.mbt` | Consumes synthetic feature rows in focused tests; not a trained classifier. |
 | Semantic role decision shell | synthetic-only / scaffold | `pdf_v2_decision.mbt`; classifier gate tests | `PdfV2BlockRole` includes semantic roles but is not product lowering. Seal or delete before product registration unless intentionally revived later. |
 | Fact-only lowerer | partial | `pdf_v2_fact_lowering.mbt`; `pdf_v2_convert_boundary_test.mbt` | Emits plain text, optional page break fragments, optional notes/placeholders. |
 | Experimental path pipeline | real / partial | `pdf_v2_pipeline.mbt`; pipeline smoke tests | Runs parser model -> layout -> features -> optional gate -> fact lowerer from real PDF path. |
-| Product `@core.Document` output | partial | `pdf_v2_product_bridge.mbt`; product bridge tests; `pdf_v2_converter.mbt`; dispatcher tests | Converts pipeline results to core documents for text blocks, safe URI inline links, metadata-only image placeholders, conservative text tables, optional notes, optional explicit page-break blank lines, and fail-closed errors. Reset 3 routes dispatcher-facing PDF through this bridge. |
+| Product `@core.Document` output | partial | `pdf_v2_product_bridge.mbt`; product bridge tests; `pdf_v2_converter.mbt`; dispatcher tests | Converts pipeline results to core documents for text blocks, safe URI inline links, materialized image assets when bytes are available, conservative text tables, optional notes, optional explicit page-break blank lines, and fail-closed errors. Reset 3 routes dispatcher-facing PDF through this bridge. |
 | Markdown headings/lists/links | partial | product bridge and semantic tests | Text semantics and safe URI inline links are rule/fact based; unsafe/ambiguous/non-URI links stay plain text. |
-| Markdown images/assets | partial / metadata-only | product bridge image tests | v2 emits `ImageBlock` metadata placeholders with stable `.metadata` paths and asset origins; it does not export image bytes or infer captions. |
+| Markdown images/assets | partial / materialized when bytes available | product bridge image tests | v2 emits `ImageBlock` only after a real asset path is materialized, writes supported JPEG/BMP assets, suppresses unavailable images from visible Markdown, and still does not infer captions. |
 | Markdown tables | partial / conservative | product bridge table tests | v2 emits `RichTable(TableData)` for coherent pipe tables and reliable simple aligned text tables; malformed rows, captions, lists, paragraphs, image tables, and merged/layout tables stay out of scope. |
 | Markdown forms/outlines | not implemented | lowerer tests and boundary guard | v2 still does not emit form, outline, caption, or figure product blocks. |
-| Metadata/origin product surface | partial | `pdf_v2_product_bridge.mbt`; product bridge origin, metadata, link, image, and table tests | Block origins preserve source name, page, block index, and first object ref; document metadata sidecars use parser metadata. Image placeholders are indexed in `asset_origins`; richer table/link sidecar payload parity still depends on later metadata work. |
+| Metadata/origin product surface | partial | `pdf_v2_product_bridge.mbt`; product bridge origin, metadata, link, image, and table tests | Block origins preserve source name, page, block index, and first object ref; document metadata sidecars use parser metadata. Materialized image assets are indexed in `asset_origins`; richer table/link sidecar payload parity still depends on later metadata work. |
 | Diagnostics renderer/goldens | removed | this reset | Not current route. |
 
 ## 5. v1 vs v2 Gap Matrix
@@ -1053,3 +1053,62 @@
     full layout recovery, OCR, and runtime model hooks remain out of scope.
 - expected files:
   - no sample expected files were updated.
+
+## Reset 10 Real Image Asset Materialization
+
+- focus:
+  - replace PDF v2 visible image placeholders with real asset materialization
+    when bytes are available.
+  - keep parser image/object facts for unavailable or unsupported images
+    without emitting broken Markdown image references.
+  - preserve the existing core/v1 asset convention instead of inventing a new
+    sidecar format.
+- core/v1 asset convention:
+  - core image output is `ImageBlock(ImageData)` with `path`, optional
+    alt/title/caption, and optional origin.
+  - `Document.asset_origins` is keyed by the same relative path rendered in
+    Markdown.
+  - v1 PDF writes assets into `assets/imageNN.ext` with
+    `next_image_asset_rel_path_unique` and emits an image block only after a
+    writeable path exists.
+  - metadata sidecars derive `assets[]` from `asset_origins`; core carries
+    paths/origins, while bytes are written by the converter/CLI path.
+- implementation:
+  - parser image facts now optionally carry `PdfV2ImageAssetCandidate` with
+    byte kind, MIME, extension, byte count, payload bytes before materialization,
+    status, and reason tags.
+  - supported raw encoded image containers are DCT/JPEG, JPX/JPEG2000, and JBIG2
+    when a signature-valid payload is already exposed; XObject wrapper filters
+    can be peeled with the existing mbtpdf codec.
+  - inline images can materialize decoded RGB pixels through existing mbtpdf
+    image decoding and are written as BMP; simple no-filter DeviceRGB/Gray bytes
+    remain supported.
+  - the convert pipeline accepts `asset_output_dir`, writes assets as
+    `assets/image01.jpg`, `assets/image01.bmp`, and so on, then clears in-memory
+    bytes from the public pipeline facts.
+  - the product bridge emits visible `ImageBlock`s only for candidates with a
+    real materialized `rel_path`; unsupported or unavailable images stay
+    internal facts and do not create `.metadata` placeholder references.
+  - `asset_origins` use source name, one-based page, object ref when available,
+    and v1-style `key_path: None`.
+- sample before/after:
+  - Reset 9F main Markdown: 24 failures; Reset 10 run
+    `.tmp/check/runs/pdf-20260612-151858-35170` also has 24 failures.
+  - Reset 9F metadata-only: 15 failures; Reset 10 run
+    `.tmp/check/runs/pdf-20260612-151859-35930` has 12 failures.
+  - Reset 9F assets-only: 13 failures; Reset 10 run
+    `.tmp/check/runs/pdf-20260612-151859-35645` has 7 failures.
+  - the sample wrapper still prints `rows=0` because its summary regex does not
+    parse the current failure header; the log headers above contain the actual
+    checked failure counts.
+- fixed image cases:
+  - XObject DCT images now emit `assets/image01.jpg` and write the JPEG bytes.
+  - ReportLab inline images now emit `assets/image01.bmp` and write decoded BMP
+    bytes.
+  - image metadata samples no longer emit missing `.metadata` asset references.
+- remaining limitations:
+  - Form XObject image traversal is still missing in the v2 product path.
+  - Flate XObject pixels are not exported unless they are decoded through the
+    supported inline-image path.
+  - captions, table-from-image, OCR, full layout recovery, model loading, v1
+    fallback, and sample expected updates remain out of scope.

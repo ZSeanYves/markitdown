@@ -7,6 +7,25 @@ pub(all) enum PdfV2ImageDecodeStatus {
 } derive(Eq)
 
 ///|
+pub(all) enum PdfV2ImageAssetByteKind {
+  RawEncoded
+  Decoded
+  Unavailable
+} derive(Eq)
+
+///|
+pub(all) struct PdfV2ImageAssetCandidate {
+  rel_path : String?
+  byte_kind : PdfV2ImageAssetByteKind
+  mime : String?
+  extension : String?
+  bytes : Array[Byte]?
+  byte_count : Int?
+  status : PdfV2CapabilityStatus
+  reason_tags : Array[String]
+}
+
+///|
 pub(all) enum PdfV2ResourceKind {
   Font
   XObject
@@ -45,6 +64,7 @@ pub(all) struct PdfV2ImageCandidate {
   risks : Array[PdfV2Risk]
   reason_tags : Array[String]
   decode_status : PdfV2ImageDecodeStatus
+  asset : PdfV2ImageAssetCandidate?
 }
 
 ///|
@@ -63,6 +83,7 @@ pub(all) struct PdfV2InlineImageCandidate {
   risks : Array[PdfV2Risk]
   reason_tags : Array[String]
   decode_status : PdfV2ImageDecodeStatus
+  asset : PdfV2ImageAssetCandidate?
 }
 
 ///|

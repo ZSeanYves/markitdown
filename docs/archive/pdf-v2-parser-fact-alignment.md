@@ -610,3 +610,43 @@ Remaining parser/fact work:
   facts before broader product parity.
 - no model/data file is loaded or trained until these factual boundaries are
   stable.
+
+## Reset 10 Real Image Asset Materialization
+
+Reset 10 keeps parser facts factual while adding a narrow byte-bearing image
+asset candidate for cases where mbtpdf already exposes trustworthy bytes:
+
+```text
+PdfV2ImageCandidate.asset / PdfV2InlineImageCandidate.asset
+  -> PdfV2ConvertPipelineOptions.asset_output_dir
+  -> assets/imageNN.ext materialization
+  -> ImageBlock + asset_origins
+```
+
+Current status:
+
+- `PdfV2ImageAssetCandidate` records the materialization state:
+  `RawEncoded`, `Decoded`, or `Unavailable`, plus MIME, extension, byte count,
+  optional bytes, status, and reason tags.
+- XObject images can expose raw encoded assets for signature-valid DCT/JPEG,
+  JPX/JPEG2000, and JBIG2 payloads. Existing mbtpdf one-stage decoding is used
+  only to peel wrapper filters such as ASCII85 before checking the final image
+  container.
+- Inline images can expose raw container bytes for supported single filters or
+  decoded RGB pixel bytes through existing mbtpdf image decoding; decoded inline
+  pixels are written later as BMP assets.
+- Unsupported filters and unavailable bytes remain parser facts with
+  metadata-only status. They do not imply product output and do not create fake
+  bytes.
+- Convert owns materialization and final `ImageBlock` policy. Visible image
+  output is now gated on a real materialized asset path, and asset origins follow
+  the core/v1 convention.
+- No vendor runtime changes, OCR, image-table recovery, caption inference,
+  v1 fallback, external model/data access, or runtime model hook was added.
+
+Remaining parser/fact work:
+
+- recurse Form XObject content if v2 product parity needs nested image facts.
+- expose richer placement geometry for image ordering/caption association.
+- decide whether Flate XObject pixel decoding should become a supported
+  product asset path after careful memory and color-space review.

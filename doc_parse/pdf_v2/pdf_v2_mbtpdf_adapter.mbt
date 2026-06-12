@@ -328,6 +328,310 @@ fn pdf_v2_adapter_filter_names(
 }
 
 ///|
+fn pdf_v2_adapter_stream_dict_and_bytes(
+  pdf : @pdf.Pdf,
+  object : @pdf.PdfObject,
+) -> (@pdf.PdfObject, Array[Byte])? {
+  let stream = pdf.direct(object)
+  stream.getstream() catch {
+    _ => return None
+  }
+  match stream {
+    Stream(r) =>
+      match r.val {
+        (dict, @pdf.Stream::Got(bytes)) => Some((dict, bytes))
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn pdf_v2_adapter_filter_ext_from_names(filters : Array[String]) -> String? {
+  if filters.is_empty() {
+    return None
+  }
+  let last = filters[filters.length() - 1]
+  if last == "/DCTDecode" || last == "/DCT" {
+    Some("jpg")
+  } else if last == "/JPXDecode" {
+    Some("jp2")
+  } else if last == "/JBIG2Decode" {
+    Some("jb2")
+  } else {
+    None
+  }
+}
+
+///|
+fn pdf_v2_adapter_mime_from_ext(ext : String) -> String? {
+  if ext == "jpg" {
+    Some("image/jpeg")
+  } else if ext == "jp2" {
+    Some("image/jp2")
+  } else if ext == "jb2" {
+    Some("image/jbig2")
+  } else if ext == "bmp" {
+    Some("image/bmp")
+  } else {
+    None
+  }
+}
+
+///|
+fn pdf_v2_adapter_u8(bytes : Array[Byte], index : Int) -> Int {
+  bytes[index].to_int() & 0xFF
+}
+
+///|
+fn pdf_v2_adapter_bytes_have_image_signature(
+  bytes : Array[Byte],
+  ext : String,
+) -> Bool {
+  if ext == "jpg" {
+    bytes.length() >= 4 &&
+    pdf_v2_adapter_u8(bytes, 0) == 0xFF &&
+    pdf_v2_adapter_u8(bytes, 1) == 0xD8 &&
+    pdf_v2_adapter_u8(bytes, bytes.length() - 2) == 0xFF &&
+    pdf_v2_adapter_u8(bytes, bytes.length() - 1) == 0xD9
+  } else if ext == "jp2" {
+    bytes.length() >= 12 &&
+    pdf_v2_adapter_u8(bytes, 4) == 0x6A &&
+    pdf_v2_adapter_u8(bytes, 5) == 0x50 &&
+    pdf_v2_adapter_u8(bytes, 6) == 0x20 &&
+    pdf_v2_adapter_u8(bytes, 7) == 0x20
+  } else if ext == "jb2" {
+    bytes.length() >= 8 &&
+    pdf_v2_adapter_u8(bytes, 0) == 0x97 &&
+    pdf_v2_adapter_u8(bytes, 1) == 0x4A &&
+    pdf_v2_adapter_u8(bytes, 2) == 0x42 &&
+    pdf_v2_adapter_u8(bytes, 3) == 0x32
+  } else {
+    false
+  }
+}
+
+///|
+fn pdf_v2_adapter_image_asset_candidate(
+  bytes : Array[Byte],
+  ext : String,
+  byte_kind : PdfV2ImageAssetByteKind,
+  reason_tags : Array[String],
+) -> PdfV2ImageAssetCandidate? {
+  let mime = pdf_v2_adapter_mime_from_ext(ext)
+  if mime is None {
+    return None
+  }
+  if byte_kind == PdfV2ImageAssetByteKind::RawEncoded &&
+    !pdf_v2_adapter_bytes_have_image_signature(bytes, ext) {
+    return None
+  }
+  Some({
+    rel_path: None,
+    byte_kind,
+    mime,
+    extension: Some(ext),
+    bytes: Some(bytes),
+    byte_count: Some(bytes.length()),
+    status: PdfV2CapabilityStatus::Supported,
+    reason_tags,
+  })
+}
+
+///|
+fn pdf_v2_adapter_try_container_asset_from_stream(
+  pdf : @pdf.Pdf,
+  stream : @pdf.PdfObject,
+  reason_tags : Array[String],
+) -> PdfV2ImageAssetCandidate? {
+  match pdf_v2_adapter_stream_dict_and_bytes(pdf, stream) {
+    Some((dict, bytes)) => {
+      let filters = pdf_v2_adapter_filter_names(pdf, dict)
+      match pdf_v2_adapter_filter_ext_from_names(filters) {
+        Some(ext) if filters.length() == 1 =>
+          pdf_v2_adapter_image_asset_candidate(
+            bytes,
+            ext,
+            PdfV2ImageAssetByteKind::RawEncoded,
+            pdf_v2_adapter_tags(reason_tags, [
+              "asset_candidate", "raw_encoded", ext,
+            ]),
+          )
+        _ => None
+      }
+    }
+    None => None
+  }
+}
+
+///|
+fn pdf_v2_adapter_extract_image_xobject_asset(
+  pdf : @pdf.Pdf,
+  raw_object : @pdf.PdfObject,
+) -> PdfV2ImageAssetCandidate? {
+  let stream = pdf.direct(raw_object)
+  match
+    pdf_v2_adapter_try_container_asset_from_stream(pdf, stream, [
+      "image_xobject",
+    ]) {
+    Some(asset) => return Some(asset)
+    None => ()
+  }
+  for _ in 0..<4 {
+    @pdfcodec.PdfCodec::new().decode_pdfstream_onestage(pdf, stream) catch {
+      _ => return None
+    }
+    match
+      pdf_v2_adapter_try_container_asset_from_stream(pdf, stream, [
+        "image_xobject", "decoded_wrapper",
+      ]) {
+      Some(asset) => return Some(asset)
+      None => ()
+    }
+  }
+  None
+}
+
+///|
+fn pdf_v2_adapter_raw_inline_image_asset(
+  dict : @pdf.PdfObject,
+  data : Array[Byte],
+) -> PdfV2ImageAssetCandidate? {
+  let width = pdf_v2_adapter_image_width(@pdf.Pdf::empty(), dict)
+  let height = pdf_v2_adapter_image_height(@pdf.Pdf::empty(), dict)
+  let bpc = pdf_v2_adapter_image_bpc(@pdf.Pdf::empty(), dict)
+  let color_space = pdf_v2_adapter_color_space(@pdf.Pdf::empty(), dict)
+  match (width, height, bpc, color_space) {
+    (Some(w), Some(h), Some(8), Some(cs)) => {
+      if w <= 0 || h <= 0 || (cs != "/DeviceRGB" && cs != "/DeviceGray") {
+        return None
+      }
+      let expected = if cs == "/DeviceRGB" { w * h * 3 } else { w * h }
+      if data.length() < expected {
+        return None
+      }
+      Some({
+        rel_path: None,
+        byte_kind: PdfV2ImageAssetByteKind::Decoded,
+        mime: Some("image/bmp"),
+        extension: Some("bmp"),
+        bytes: Some(data),
+        byte_count: Some(data.length()),
+        status: PdfV2CapabilityStatus::Supported,
+        reason_tags: [
+          "inline_image", "asset_candidate", "decoded_pixels", "bmp_export",
+        ],
+      })
+    }
+    _ => None
+  }
+}
+
+///|
+fn pdf_v2_adapter_decoded_inline_image_asset(
+  pdf : @pdf.Pdf,
+  resources : @pdf.PdfObject,
+  dict : @pdf.PdfObject,
+  data : Array[Byte],
+) -> PdfV2ImageAssetCandidate? {
+  let width = pdf_v2_adapter_image_width(pdf, dict)
+  let height = pdf_v2_adapter_image_height(pdf, dict)
+  match (width, height) {
+    (Some(w), Some(h)) => {
+      if w <= 0 || h <= 0 {
+        return None
+      }
+      let image = @pdfimage.Image::from_stream_data(
+        pdf, resources, w, h, dict, data,
+      ) catch {
+        _ => return None
+      }
+      match image {
+        @pdfimage.Image::Raw(_, _, @pdfimage.PixelLayout::BPP24, bytes) =>
+          Some({
+            rel_path: None,
+            byte_kind: PdfV2ImageAssetByteKind::Decoded,
+            mime: Some("image/bmp"),
+            extension: Some("bmp"),
+            bytes: Some(bytes),
+            byte_count: Some(bytes.length()),
+            status: PdfV2CapabilityStatus::Supported,
+            reason_tags: [
+              "inline_image", "asset_candidate", "decoded_pixels", "bmp_export",
+            ],
+          })
+        _ => None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn pdf_v2_adapter_extract_inline_image_asset(
+  pdf : @pdf.Pdf,
+  resources : @pdf.PdfObject,
+  dict : @pdf.PdfObject,
+  data : Array[Byte],
+) -> PdfV2ImageAssetCandidate? {
+  let filters = pdf_v2_adapter_filter_names(pdf, dict)
+  match pdf_v2_adapter_filter_ext_from_names(filters) {
+    Some(ext) if filters.length() == 1 =>
+      pdf_v2_adapter_image_asset_candidate(
+        data,
+        ext,
+        PdfV2ImageAssetByteKind::RawEncoded,
+        pdf_v2_adapter_tags(["inline_image"], [
+          "asset_candidate", "raw_encoded", ext,
+        ]),
+      )
+    _ =>
+      if filters.is_empty() {
+        match pdf_v2_adapter_raw_inline_image_asset(dict, data) {
+          Some(asset) => Some(asset)
+          None =>
+            pdf_v2_adapter_decoded_inline_image_asset(
+              pdf, resources, dict, data,
+            )
+        }
+      } else {
+        None
+      }
+  }
+}
+
+///|
+fn pdf_v2_adapter_image_decode_status(
+  asset : PdfV2ImageAssetCandidate?,
+) -> PdfV2ImageDecodeStatus {
+  match asset {
+    Some(_) => PdfV2ImageDecodeStatus::DecodeAvailable
+    None => PdfV2ImageDecodeStatus::MetadataOnly
+  }
+}
+
+///|
+fn pdf_v2_adapter_image_reason_tags(
+  base : Array[String],
+  name : String?,
+  asset : PdfV2ImageAssetCandidate?,
+) -> Array[String] {
+  let tags = pdf_v2_adapter_tags(base, ["object_fact", "partial_object_fact"])
+  match asset {
+    Some(_) => tags.push("asset_available")
+    None => {
+      tags.push("metadata_only")
+      tags.push("image_decode_not_attempted")
+    }
+  }
+  match name {
+    Some(value) => tags.push(value)
+    None => ()
+  }
+  tags
+}
+
+///|
 fn pdf_v2_adapter_color_space(pdf : @pdf.Pdf, dict : @pdf.PdfObject) -> String? {
   match pdf.lookup_direct_orelse("/CS", "/ColorSpace", dict) {
     Some(value) => pdf_v2_adapter_pdf_object_string(value)
@@ -1620,6 +1924,8 @@ fn pdf_v2_adapter_add_image_xobject_candidate(
   content_order : Ref[Int],
 ) -> Unit {
   let image = pdf.direct(raw_object)
+  let filters = pdf_v2_adapter_filter_names(pdf, image)
+  let asset = pdf_v2_adapter_extract_image_xobject_asset(pdf, raw_object)
   let source_ref = pdf_v2_adapter_source_ref(
     Some(page_index),
     pdf_v2_adapter_indirect_ref(raw_object),
@@ -1636,7 +1942,7 @@ fn pdf_v2_adapter_add_image_xobject_candidate(
     height: pdf_v2_adapter_image_height(pdf, image),
     color_space: pdf_v2_adapter_color_space(pdf, image),
     bits_per_component: pdf_v2_adapter_image_bpc(pdf, image),
-    filters: pdf_v2_adapter_filter_names(pdf, image),
+    filters,
     image_mask: pdf_v2_adapter_image_mask(pdf, image),
     mask_present: pdf_v2_adapter_has_direct_entry(pdf, "/Mask", image),
     smask_present: pdf_v2_adapter_has_direct_entry(pdf, "/SMask", image),
@@ -1645,11 +1951,13 @@ fn pdf_v2_adapter_add_image_xobject_candidate(
     source_ref,
     warnings: [],
     risks: [],
-    reason_tags: [
-      "object_fact", "image_xobject", "metadata_only", "partial_object_fact", "image_decode_not_attempted",
-      name,
-    ],
-    decode_status: PdfV2ImageDecodeStatus::MetadataOnly,
+    reason_tags: pdf_v2_adapter_image_reason_tags(
+      ["image_xobject"],
+      Some(name),
+      asset,
+    ),
+    decode_status: pdf_v2_adapter_image_decode_status(asset),
+    asset,
   }
   let _ = pdf_v2_adapter_push_capped_event(
     events,
@@ -1980,6 +2288,7 @@ fn pdf_v2_adapter_add_annotation_events(
 fn pdf_v2_adapter_add_inline_image_event(
   pdf : @pdf.Pdf,
   page_index : Int,
+  page : @pdfpage.Page,
   item : @pdfops.LocatedOp,
   object_ref : String?,
   events : Array[PdfV2CoreEvent],
@@ -1988,7 +2297,13 @@ fn pdf_v2_adapter_add_inline_image_event(
   content_order : Ref[Int],
 ) -> Unit {
   match item.op {
-    InlineImage((dict, decode_params, _)) => {
+    InlineImage((dict, decode_params, data)) => {
+      let asset = pdf_v2_adapter_extract_inline_image_asset(
+        pdf,
+        page.resources,
+        dict,
+        data,
+      )
       let source_ref = pdf_v2_adapter_located_source_ref(
         page_index,
         item,
@@ -2010,11 +2325,13 @@ fn pdf_v2_adapter_add_inline_image_event(
         source_ref,
         warnings: [],
         risks: [],
-        reason_tags: [
-          "object_fact", "inline_image", "metadata_only", "partial_object_fact",
-          "image_decode_not_attempted",
-        ],
-        decode_status: PdfV2ImageDecodeStatus::MetadataOnly,
+        reason_tags: pdf_v2_adapter_image_reason_tags(
+          ["inline_image"],
+          None,
+          asset,
+        ),
+        decode_status: pdf_v2_adapter_image_decode_status(asset),
+        asset,
       }
       let _ = pdf_v2_adapter_push_capped_event(
         events,
@@ -2087,7 +2404,8 @@ fn pdf_v2_adapter_add_located_ops(
           events, event, options, event_cap_hit,
         )
         pdf_v2_adapter_add_inline_image_event(
-          pdf, page_index, item, object_ref, events, options, event_cap_hit, content_order,
+          pdf, page_index, page, item, object_ref, events, options, event_cap_hit,
+          content_order,
         )
         pdf_v2_adapter_add_text_events_for_op(
           pdf, page_index, page, item, object_ref, text_state, events, warnings,

@@ -22,6 +22,34 @@ fn phase3_stream_object(content : String) -> String {
 }
 
 ///|
+fn phase3_stream_object_bytes(dict : String, data : Array[Byte]) -> Array[Byte] {
+  let prefix = ("<< " +
+  dict +
+  " /Length " +
+  data.length().to_string() +
+  " >>\nstream\n").to_array()
+  let suffix = "\nendstream".to_array()
+  let out : Array[Byte] = []
+  for ch in prefix {
+    out.push((ch.to_int() & 0xFF).to_byte())
+  }
+  out.append(data)
+  for ch in suffix {
+    out.push((ch.to_int() & 0xFF).to_byte())
+  }
+  out
+}
+
+///|
+fn phase3_bytes_of_string(text : String) -> Array[Byte] {
+  let out : Array[Byte] = []
+  for ch in text.to_array() {
+    out.push((ch.to_int() & 0xFF).to_byte())
+  }
+  out
+}
+
+///|
 fn phase3_pdf_from_objects(objects : Array[(Int, String)]) -> String {
   let header = "%PDF-1.4\n"
   let pieces : Array[String] = [header]
@@ -47,6 +75,44 @@ fn phase3_pdf_from_objects(objects : Array[(Int, String)]) -> String {
   )
   pieces.push(xref_entries.join(""))
   pieces.join("")
+}
+
+///|
+fn phase3_pdf_from_binary_objects(
+  objects : Array[(Int, Array[Byte])],
+) -> Array[Byte] {
+  let pieces : Array[Array[Byte]] = [phase3_bytes_of_string("%PDF-1.4\n")]
+  let offsets : Array[Int] = []
+  let mut offset = pieces[0].length()
+  for pair in objects {
+    let prefix = phase3_bytes_of_string(pair.0.to_string() + " 0 obj\n")
+    let suffix = phase3_bytes_of_string("\nendobj\n")
+    let object_bytes : Array[Byte] = []
+    object_bytes.append(prefix)
+    object_bytes.append(pair.1)
+    object_bytes.append(suffix)
+    offsets.push(offset)
+    pieces.push(object_bytes)
+    offset = offset + object_bytes.length()
+  }
+  let xref_offset = offset
+  let size = objects.length() + 1
+  let xref_entries : Array[String] = [
+    "xref\n0 \{size}\n",
+    "0000000000 65535 f \n",
+  ]
+  for object_offset in offsets {
+    xref_entries.push(phase3_pad_xref_offset(object_offset) + " 00000 n \n")
+  }
+  xref_entries.push(
+    "trailer\n<< /Root 1 0 R /Size \{size} >>\nstartxref\n\{xref_offset}\n%%EOF\n",
+  )
+  pieces.push(phase3_bytes_of_string(xref_entries.join("")))
+  let out : Array[Byte] = []
+  for piece in pieces {
+    out.append(piece)
+  }
+  out
 }
 
 ///|
@@ -134,6 +200,13 @@ fn phase4_text_state_pdf() -> String {
 ///|
 fn phase3_write_fixture(path : String, body : String) -> Unit raise {
   @fs.write_string_to_file(path, body, encoding="utf8") catch {
+    err => fail("write fixture failed: " + err.to_string())
+  }
+}
+
+///|
+fn phase3_write_bytes_fixture(path : String, body : Array[Byte]) -> Unit raise {
+  @fs.write_bytes_to_file(path, Bytes::from_array(body)) catch {
     err => fail("write fixture failed: " + err.to_string())
   }
 }
@@ -406,6 +479,34 @@ fn phase11_image_xobject_pdf() -> String {
     (6, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"),
     (
       7, "<< /Type /Metadata /Subtype /XML /Length 7 >>\nstream\n<xmp/> endstream",
+    ),
+  ])
+}
+
+///|
+fn phase11_real_jpeg_image_xobject_pdf() -> Array[Byte] raise {
+  let jpeg = @fs.read_file_to_bytes(
+    "samples/main_process/html/assets/img/img_red.jpg",
+  ) catch {
+    err => fail("read jpeg fixture failed: " + err.to_string())
+  }
+  let content = "q\n/Im1 Do\nQ\n"
+  phase3_pdf_from_binary_objects([
+    (1, phase3_bytes_of_string("<< /Type /Catalog /Pages 2 0 R >>")),
+    (2, phase3_bytes_of_string("<< /Type /Pages /Count 1 /Kids [3 0 R] >>")),
+    (
+      3,
+      phase3_bytes_of_string(
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /XObject << /Im1 5 0 R >> >> /Contents 4 0 R >>",
+      ),
+    ),
+    (4, phase3_bytes_of_string(phase3_stream_object(content))),
+    (
+      5,
+      phase3_stream_object_bytes(
+        "/Type /XObject /Subtype /Image /Width 640 /Height 360 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode",
+        jpeg.to_array(),
+      ),
     ),
   ])
 }
@@ -2579,12 +2680,64 @@ test "pdf v2 object facts expose image xobject metadata candidate" {
       assert_true(
         image.decode_status == @pdfv2.PdfV2ImageDecodeStatus::MetadataOnly,
       )
+      match image.asset {
+        None => ()
+        Some(_) => fail("invalid DCT bytes must not emit an asset candidate")
+      }
       assert_true(image.reason_tags.contains("image_decode_not_attempted"))
+      assert_true(!image.reason_tags.contains("asset_available"))
       assert_true(image.source_ref.kind == @pdfv2.PdfV2SourceKind::Image)
       assert_true(doc.object_summary.image_count == 1)
     }
     SourceOpenErr(_, _, message) =>
       fail("expected Phase 11 image source facts: " + message)
+  }
+}
+
+///|
+test "pdf v2 object facts expose valid DCT image asset bytes" {
+  let path = "/tmp/markitdown-pdf-v2-phase11-real-image-asset.pdf"
+  phase3_write_bytes_fixture(path, phase11_real_jpeg_image_xobject_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_source_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(doc.image_candidates.length() == 1)
+      let image = doc.image_candidates[0]
+      assert_true(image.width == Some(640))
+      assert_true(image.height == Some(360))
+      assert_true(image.filters.contains("/DCTDecode"))
+      assert_true(
+        image.decode_status == @pdfv2.PdfV2ImageDecodeStatus::DecodeAvailable,
+      )
+      assert_true(image.reason_tags.contains("asset_available"))
+      match image.asset {
+        Some(asset) => {
+          assert_true(
+            asset.byte_kind == @pdfv2.PdfV2ImageAssetByteKind::RawEncoded,
+          )
+          assert_true(asset.extension == Some("jpg"))
+          assert_true(asset.mime == Some("image/jpeg"))
+          assert_true(asset.rel_path == None)
+          match asset.bytes {
+            Some(bytes) => {
+              assert_true(bytes.length() > 1000)
+              assert_true((bytes[0].to_int() & 0xFF) == 0xFF)
+              assert_true((bytes[1].to_int() & 0xFF) == 0xD8)
+            }
+            None => fail("expected image asset bytes")
+          }
+        }
+        None => fail("expected image asset candidate")
+      }
+      assert_true(doc.object_summary.metadata_only_count == 0)
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected real JPEG image asset source facts: " + message)
   }
 }
 
@@ -2608,14 +2761,61 @@ test "pdf v2 object facts expose inline image metadata candidate" {
       assert_true(image.bits_per_component == Some(8))
       assert_true(image.filters.length() == 0)
       assert_true(
-        image.decode_status == @pdfv2.PdfV2ImageDecodeStatus::MetadataOnly,
+        image.decode_status == @pdfv2.PdfV2ImageDecodeStatus::DecodeAvailable,
       )
+      match image.asset {
+        Some(asset) => {
+          assert_true(
+            asset.byte_kind == @pdfv2.PdfV2ImageAssetByteKind::Decoded,
+          )
+          assert_true(asset.extension == Some("bmp"))
+          assert_true(asset.mime == Some("image/bmp"))
+          assert_true(asset.byte_count == Some(1))
+          assert_true(asset.rel_path == None)
+          assert_true(asset.reason_tags.contains("bmp_export"))
+        }
+        None => fail("expected inline image asset candidate")
+      }
       assert_true(image.reason_tags.contains("inline_image"))
+      assert_true(image.reason_tags.contains("asset_available"))
       assert_true(image.source_ref.kind == @pdfv2.PdfV2SourceKind::InlineImage)
       assert_true(doc.object_summary.inline_image_count == 1)
     }
     SourceOpenErr(_, _, message) =>
       fail("expected Phase 11 inline image facts: " + message)
+  }
+}
+
+///|
+test "pdf v2 object facts expose ReportLab inline image asset bytes" {
+  let path = "samples/main_process/pdf/assets/pdf_image_inline.pdf"
+  let result = @pdfv2.parse_pdf_v2_source_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(doc.inline_image_candidates.length() == 1)
+      let image = doc.inline_image_candidates[0]
+      assert_true(
+        image.decode_status == @pdfv2.PdfV2ImageDecodeStatus::DecodeAvailable,
+      )
+      match image.asset {
+        Some(asset) => {
+          assert_true(
+            asset.byte_kind == @pdfv2.PdfV2ImageAssetByteKind::Decoded,
+          )
+          assert_true(asset.extension == Some("bmp"))
+          assert_true(asset.mime == Some("image/bmp"))
+          assert_true(asset.byte_count.unwrap_or(0) > 0)
+          assert_true(asset.reason_tags.contains("bmp_export"))
+        }
+        None => fail("expected ReportLab inline image asset candidate")
+      }
+      assert_true(image.reason_tags.contains("asset_available"))
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected ReportLab inline image facts: " + message)
   }
 }
 

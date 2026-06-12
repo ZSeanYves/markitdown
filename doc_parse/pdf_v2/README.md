@@ -120,20 +120,21 @@ Current status:
   outline, destination, resource, and metadata candidate arrays.
 - Cap hits trim the parser candidate arrays and produce warnings, risks,
   `Capped` capability reports, and `PdfV2ObjectSummary` cap counters.
-- `PdfV2UnsupportedCapabilityReport` records metadata-only image decode,
-  unsupported/heavy image filters, not-attempted object capabilities, source
-  refs, object refs, severities, and reason tags.
+- `PdfV2UnsupportedCapabilityReport` records metadata-only image decode for
+  unavailable bytes, unsupported/heavy image filters, not-attempted object
+  capabilities, source refs, object refs, severities, and reason tags.
 - `PdfV2PartialFactReport` records available and missing fields for partial
   annotations, links, forms/widgets, outlines, destinations, and metadata.
 - `PdfV2SourceDocument`, `PdfV2DocumentModel`, and `PdfV2LayoutFactSet` expose
   the unsupported and partial reports alongside extended object summaries.
-- Image decode remains metadata-only/not-attempted unless a future phase adds a
-  reviewed decode pipeline behind explicit caps.
+- Image materialization is limited to Reset 10 reviewed asset candidates:
+  signature-valid raw image containers and decoded inline pixels. Other images
+  remain metadata-only/not-attempted behind explicit caps.
 
-This is still not image decoding, OCR, object-region recovery, caption/table
-association, form semantic normalization, link Markdown lowering, semantic
-classification, convert lowering, dispatcher behavior, external data/model
-reading, or fallback.
+This is still not full image decoding, OCR, object-region recovery,
+caption/table association, form semantic normalization, link Markdown lowering,
+semantic classification, convert lowering, dispatcher behavior, external
+data/model reading, or fallback.
 
 ## Phase 11 Object Facts Integration Status
 
@@ -606,3 +607,38 @@ Reset 9F confirms the parser/convert boundary after 9B-9E.
   but also expose missing real asset materialization.
 - Remaining parser-side blockers are richer geometry/font bands, block
   reconstruction, layout/table region facts, and image byte/export support.
+
+## Reset 10 Real Image Asset Materialization
+
+Reset 10 adds parser-side asset candidates only when real bytes are already
+available from mbtpdf.
+
+- New parser fact: `PdfV2ImageAssetCandidate`.
+  - `byte_kind`: raw encoded container bytes, decoded pixels, or unavailable.
+  - `mime`, `extension`, `byte_count`, `status`, and reason tags.
+  - `bytes` is populated before convert-side materialization and can be cleared
+    after the asset writer succeeds.
+- Supported first-pass bytes:
+  - XObject DCT/JPEG raw bytes (`.jpg`) when the payload has a valid JPEG
+    signature.
+  - XObject JPX/JPEG2000 and JBIG2 raw bytes when their signatures are valid.
+  - XObject wrapper filters can be peeled with existing mbtpdf
+    `decode_pdfstream_onestage`; no vendor runtime changes were made.
+  - inline image raw container bytes for supported single filters.
+  - inline decoded RGB pixels through existing mbtpdf image decoding, intended
+    for later BMP export.
+- Unsupported policy:
+  - unavailable bytes, bad signatures, unsupported filters, and failed decodes
+    remain safe metadata-only parser facts.
+  - parser facts do not require visible product output and do not create broken
+    image references.
+- Boundaries:
+  - the parser does not write files, choose final asset names, infer captions,
+    run OCR, recover image tables, fall back to v1, load models, train models,
+    or read external training data.
+- Remaining limitations:
+  - Form XObject recursion is still not implemented in the v2 parser product
+    path.
+  - Flate XObject pixel export is not enabled except through supported inline
+    image decoding.
+  - richer image placement/caption facts remain future parser work.

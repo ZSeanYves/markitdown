@@ -1,6 +1,7 @@
 ///|
 pub(all) struct PdfV2ConvertPipelineOptions {
   parser_options : @pdfv2.PdfV2CoreOpenOptions
+  asset_output_dir : String?
   gate_options : PdfV2NoModelGateOptions
   lowering_options : PdfV2FactLoweringOptions
   run_gate : Bool
@@ -61,6 +62,7 @@ pub(all) enum PdfV2ConvertPipelineResult {
 pub fn default_pdf_v2_convert_pipeline_options() -> PdfV2ConvertPipelineOptions {
   {
     parser_options: @pdfv2.default_pdf_v2_core_open_options(),
+    asset_output_dir: None,
     gate_options: default_pdf_v2_no_model_gate_options(),
     lowering_options: {
       ..default_pdf_v2_fact_lowering_options(),
@@ -167,7 +169,11 @@ pub fn convert_pdf_v2_experimental_from_path(
   options : PdfV2ConvertPipelineOptions,
 ) -> PdfV2ConvertPipelineResult {
   match @pdfv2.parse_pdf_v2_model_from_path(path, options.parser_options) {
-    @pdfv2.ModelAssemblyOk(model) => {
+    @pdfv2.ModelAssemblyOk(parsed_model) => {
+      let model = pdf_v2_materialize_image_assets(
+        parsed_model,
+        options.asset_output_dir,
+      )
       let model_summary = pdf_v2_convert_pipeline_model_summary(model)
       let layout = @pdfv2.pdf_v2_layout_facts_from_model(model)
       let features = @pdfv2.pdf_v2_features_from_model_and_layout(model, layout)

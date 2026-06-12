@@ -960,175 +960,109 @@ fn pdf_v2_product_bridge_push_images(
 ) -> Unit {
   let mut index = 0
   for image in images {
-    index = index + 1
-    let path = pdf_v2_product_bridge_image_path(index, false)
-    let origin = pdf_v2_product_bridge_origin_from_parts(
-      doc,
-      image.page_index,
-      [image.source_ref],
-      options,
-    )
-    @cor.push_with_origin(
-      doc,
-      @cor.Block::ImageBlock({
-        path,
-        alt_text: Some(pdf_v2_product_bridge_image_alt_text(image)),
-        title: pdf_v2_product_bridge_image_title(
-          image.width,
-          image.height,
-          image.filters,
-          image.decode_status,
-        ),
-        caption: None,
-        origin: Some(origin),
-      }),
-      Some(origin),
-    )
-    @cor.set_asset_origin(doc, path, {
-      source_name: options.source_name,
-      page: match image.page_index {
-        Some(value) => Some(value + 1)
-        None => None
-      },
-      slide: None,
-      sheet: None,
-      origin_id: Some(pdf_v2_product_bridge_image_origin_id(image, index)),
-      nearby_caption: None,
-      object_ref: image.object_ref,
-      relationship_id: None,
-      source_path: None,
-      row_index: None,
-      column_index: None,
-      key_path: Some("pdf_v2.image.metadata"),
-    })
+    match pdf_v2_product_bridge_image_asset_path(image.asset) {
+      None => continue
+      Some(path) => {
+        index = index + 1
+        let origin = pdf_v2_product_bridge_origin_from_parts(
+          doc,
+          image.page_index,
+          [image.source_ref],
+          options,
+        )
+        @cor.push_with_origin(
+          doc,
+          @cor.Block::ImageBlock({
+            path,
+            alt_text: None,
+            title: None,
+            caption: None,
+            origin: Some(origin),
+          }),
+          Some(origin),
+        )
+        @cor.set_asset_origin(doc, path, {
+          source_name: options.source_name,
+          page: match image.page_index {
+            Some(value) => Some(value + 1)
+            None => None
+          },
+          slide: None,
+          sheet: None,
+          origin_id: Some(pdf_v2_product_bridge_image_origin_id(image, index)),
+          nearby_caption: None,
+          object_ref: image.object_ref,
+          relationship_id: None,
+          source_path: None,
+          row_index: None,
+          column_index: None,
+          key_path: None,
+        })
+      }
+    }
   }
   for image in inline_images {
-    index = index + 1
-    let path = pdf_v2_product_bridge_image_path(index, true)
-    let origin = pdf_v2_product_bridge_origin_from_parts(
-      doc,
-      image.page_index,
-      [image.source_ref],
-      options,
-    )
-    @cor.push_with_origin(
-      doc,
-      @cor.Block::ImageBlock({
-        path,
-        alt_text: Some(pdf_v2_product_bridge_inline_image_alt_text(image)),
-        title: pdf_v2_product_bridge_image_title(
-          image.width,
-          image.height,
-          image.filters,
-          image.decode_status,
-        ),
-        caption: None,
-        origin: Some(origin),
-      }),
-      Some(origin),
-    )
-    @cor.set_asset_origin(doc, path, {
-      source_name: options.source_name,
-      page: match image.page_index {
-        Some(value) => Some(value + 1)
-        None => None
-      },
-      slide: None,
-      sheet: None,
-      origin_id: Some("pdf-v2-inline-image-" + index.to_string()),
-      nearby_caption: None,
-      object_ref: image.source_ref.object_id,
-      relationship_id: None,
-      source_path: None,
-      row_index: None,
-      column_index: None,
-      key_path: Some("pdf_v2.inline_image.metadata"),
-    })
+    match pdf_v2_product_bridge_image_asset_path(image.asset) {
+      None => continue
+      Some(path) => {
+        index = index + 1
+        let origin = pdf_v2_product_bridge_origin_from_parts(
+          doc,
+          image.page_index,
+          [image.source_ref],
+          options,
+        )
+        @cor.push_with_origin(
+          doc,
+          @cor.Block::ImageBlock({
+            path,
+            alt_text: None,
+            title: None,
+            caption: None,
+            origin: Some(origin),
+          }),
+          Some(origin),
+        )
+        @cor.set_asset_origin(doc, path, {
+          source_name: options.source_name,
+          page: match image.page_index {
+            Some(value) => Some(value + 1)
+            None => None
+          },
+          slide: None,
+          sheet: None,
+          origin_id: Some("pdf-v2-inline-image-" + index.to_string()),
+          nearby_caption: None,
+          object_ref: image.source_ref.object_id,
+          relationship_id: None,
+          source_path: None,
+          row_index: None,
+          column_index: None,
+          key_path: None,
+        })
+      }
+    }
   }
 }
 
 ///|
-fn pdf_v2_product_bridge_image_path(index : Int, inline : Bool) -> String {
-  let prefix = if inline {
-    "assets/pdf-v2-inline-image-"
-  } else {
-    "assets/pdf-v2-image-"
-  }
-  prefix + pdf_v2_product_bridge_pad_asset_index(index) + ".metadata"
-}
-
-///|
-fn pdf_v2_product_bridge_pad_asset_index(index : Int) -> String {
-  let mut out = index.to_string()
-  while out.length() < 3 {
-    out = "0" + out
-  }
-  out
-}
-
-///|
-fn pdf_v2_product_bridge_image_alt_text(
-  image : @pdfv2.PdfV2ImageCandidate,
-) -> String {
-  let kind = if image.inline { "inline image" } else { "image" }
-  let size = pdf_v2_product_bridge_image_size_text(image.width, image.height)
-  if size == "" {
-    "PDF v2 " + kind + " metadata"
-  } else {
-    "PDF v2 " + kind + " metadata " + size
-  }
-}
-
-///|
-fn pdf_v2_product_bridge_inline_image_alt_text(
-  image : @pdfv2.PdfV2InlineImageCandidate,
-) -> String {
-  let size = pdf_v2_product_bridge_image_size_text(image.width, image.height)
-  if size == "" {
-    "PDF v2 inline image metadata"
-  } else {
-    "PDF v2 inline image metadata " + size
-  }
-}
-
-///|
-fn pdf_v2_product_bridge_image_size_text(width : Int?, height : Int?) -> String {
-  match (width, height) {
-    (Some(w), Some(h)) => "\{w}x\{h}"
-    (Some(w), None) => "\{w}x?"
-    (None, Some(h)) => "?x\{h}"
-    (None, None) => ""
-  }
-}
-
-///|
-fn pdf_v2_product_bridge_image_title(
-  width : Int?,
-  height : Int?,
-  filters : Array[String],
-  status : @pdfv2.PdfV2ImageDecodeStatus,
+fn pdf_v2_product_bridge_image_asset_path(
+  asset : @pdfv2.PdfV2ImageAssetCandidate?,
 ) -> String? {
-  let parts : Array[String] = ["metadata-only"]
-  let size = pdf_v2_product_bridge_image_size_text(width, height)
-  if size != "" {
-    parts.push(size)
-  }
-  if filters.length() > 0 {
-    parts.push("filters=" + filters.join(","))
-  }
-  parts.push("decode=" + pdf_v2_product_bridge_image_decode_status(status))
-  Some(parts.join("; "))
-}
-
-///|
-fn pdf_v2_product_bridge_image_decode_status(
-  status : @pdfv2.PdfV2ImageDecodeStatus,
-) -> String {
-  match status {
-    MetadataOnly => "metadata-only"
-    DecodeAvailable => "decode-available"
-    Unsupported => "unsupported"
-    NotAttempted => "not-attempted"
+  match asset {
+    Some(candidate) =>
+      match candidate.rel_path {
+        Some(path) => {
+          let trimmed = path.trim().to_owned()
+          if trimmed == "" {
+            None
+          } else {
+            Some(trimmed)
+          }
+        }
+        None => None
+      }
+    None => None
   }
 }
 
