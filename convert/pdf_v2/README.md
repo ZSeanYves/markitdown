@@ -841,7 +841,9 @@ heading/title-like blockers, no matching pair, actual join decisions, and
 fallback-to-existing-behavior counts. The bridge, pipeline, and lowerer do not
 call these helpers.
 
-The latest PDF sample check still reports 10 Markdown parity failures:
+Repo-local validation on June 13, 2026 still reproduces the older
+`10`-failure PDF Markdown parity state. A fresh `samples/check.sh --format pdf`
+run reports the same 10 Markdown failures:
 
 | bucket | samples |
 | --- | --- |
@@ -852,9 +854,36 @@ The latest PDF sample check still reports 10 Markdown parity failures:
 | heading/list false positives or negatives | `pdf_heading_false_positive_phase15`, `pdf_heading_vs_short_sentence` |
 | column/reading order | `pdf_two_column_negative_phase15` |
 
-The cross-page bucket remains visible because the sample diffs are mixed with
-non-cross-page structure problems such as title/body boundaries and list marker
-preservation. Reset 17D did not relax gates and did not update sample expected
-files. The next useful step is a repo-local v2 sample diagnostic that exposes
-candidate facts and audit counters for those PDFs before deciding whether any
-fact-backed expected-output update is justified.
+- Real-sample cross-page audit result:
+  - `pdf_cross_page_paragraph` still shows a visible cross-page merge miss, but
+    the same diff also includes a heading-level change from `## Next Section`
+    to `# Next Section`.
+  - `pdf_cross_page_should_merge_phase15` is dominated by title/body boundary
+    collapse into one line, so the visible parity failure is not cleanly
+    attributable to missing cross-page arbitration alone.
+  - `pdf_cross_page_should_not_merge_phase15` preserves the paragraph split, but
+    still fails visibly because the next-page heading and list structure
+    collapse into plain text.
+- Current Reset 17D conclusion:
+  - Reset 17C cross-page behavior is retained as-is.
+  - no narrow fix was applied in Reset 17D.
+  - no threshold lowering, blocker removal, sample expected update, or other
+    product-output change was needed in this checkout.
+  - the helpers improve diagnosis, but they do not by themselves reduce visible
+    parity failures when those samples are still mixed with heading/title/list
+    structure differences.
+  - the top-level sample wrapper may still print `rows=0` on failing runs
+    because its summary parser does not read the current failure header; the
+    `markdown-only.entrypoint.log` for the run is the authoritative failure
+    record.
+- Focused audit coverage:
+  - targeted whitebox tests exercise one successful fact-backed join and one
+    rejection each for `confidence_below_threshold`,
+    `mismatched_source_refs`, `next_heading_title_like_blocker`, and
+    `no_matching_fragment_or_semantic_pair`.
+  - a no-fact case still preserves existing behavior.
+- Next recommended action:
+  - keep Reset 17C/17D gates unchanged.
+  - add a repo-local PDF v2 sample diagnostic that exposes
+    `PdfV2CrossPageBoundaryFact` candidates plus audit counters for the three
+    cross-page samples before considering any fact-backed output update.

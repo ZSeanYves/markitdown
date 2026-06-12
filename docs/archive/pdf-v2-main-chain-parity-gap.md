@@ -1684,9 +1684,10 @@ remaining cross-page merge/split parity gap.
 
 ## Reset 17D Cross-page Arbitration Effectiveness Audit
 
-Reset 17D audits why Reset 17C did not reduce the visible PDF Markdown parity
-failure count. `samples/check.sh --format pdf` still reports 10 Markdown
-failures, and no sample expected files were changed.
+Reset 17D originally audited why Reset 17C did not reduce the visible PDF
+Markdown parity failure count on that checkout. A fresh June 13, 2026
+repo-local `samples/check.sh --format pdf` run still reproduces that same
+10-failure Markdown parity state, and no sample expected files were changed.
 
 Current failure taxonomy:
 
@@ -1727,6 +1728,10 @@ Focused synthetic audit distribution:
 
 Real sample inspection remains limited because the sample check/debug CLI path
 does not yet expose PDF v2 candidate/fact audit counters for the failing PDFs.
+The top-level sample wrapper can also still print `rows=0` on failing runs
+because its summary parser does not read the current failure header; the
+matching `markdown-only.entrypoint.log` remains the authoritative log for the
+10 Markdown failures.
 Reset 17D therefore retains Reset 17C behavior as-is: no threshold lowering, no
 blocker removal, no image/header/footer/heading/column change, no generated
 artifacts, and no sample expected update. The recommended next action is a

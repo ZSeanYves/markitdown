@@ -1150,9 +1150,13 @@ Alignment update:
 | next marker/list/page-number or heading/title-like start | counted separately | existing split behavior preserved |
 | no matching fragment or semantic pair | counted separately | existing behavior preserved |
 
-The visible PDF sample parity count remains 10 because the cross-page failures
-are mixed with title/body or list-boundary issues, while the other failures are
-image, header/footer, heading/list, and column/read-order buckets. The audit
-does not justify relaxing the Reset 17C gates. Future work should first expose
-repo-local PDF v2 sample candidate/fact counters before deciding whether a
-targeted fact-backed output update is warranted.
+At Reset 17D time, the visible PDF sample parity count remained 10 because the
+cross-page failures were mixed with title/body or list-boundary issues, while
+the other failures were image, header/footer, heading/list, and
+column/read-order buckets. A fresh June 13, 2026 repo-local
+`samples/check.sh --format pdf` run still reproduces that same 10-failure
+state, and the cross-page-related diffs are still mixed with title/body or
+list-boundary issues. The audit therefore still does not justify relaxing the
+Reset 17C gates. Future work should first expose repo-local PDF v2 sample
+candidate/fact counters for the three cross-page samples before deciding
+whether a targeted fact-backed output update is warranted.

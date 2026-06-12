@@ -538,12 +538,17 @@ training-ready.
     confidence/source/open-ended/marker/tag rejections, mismatched source refs,
     heading/title blockers, missing fragment or semantic pairs, actual joins,
     split changes, and fallback behavior.
-- Current sample result:
-  - PDF Markdown parity remains at 10 failures.
-  - three files are cross-page-related, but their diffs are mixed with heading,
-    title/body, or list-boundary structure.
-  - seven files remain image, header/footer, heading/list, or column/read-order
-    failures and are outside the cross-page-only consumer.
+- Historical sample result at Reset 17D time:
+  - PDF Markdown parity remained at 10 failures on that checkout.
+  - three files were cross-page-related, but their diffs were mixed with
+    heading, title/body, or list-boundary structure.
+  - seven files remained image, header/footer, heading/list, or
+    column/read-order failures and were outside the cross-page-only consumer.
+- Current repo-local status on June 13, 2026:
+  - `samples/check.sh --format pdf` still reports the same 10 Markdown
+    failures.
+  - the three cross-page-related files are still mixed-shape failures rather
+    than clean isolation of cross-page arbitration alone.
 - Still blocked for training:
   - audit counters are not labels.
   - weak fact evidence is not gold.

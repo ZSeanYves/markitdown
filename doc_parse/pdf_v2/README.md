@@ -990,9 +990,27 @@ in-memory audit helpers for the first product consumer of
   previous side not open-ended, next marker/list/page-number blockers,
   next heading/title-like blockers, ambiguity/audit-only tags, and no matching
   fragment or semantic pair.
-- The current 10 visible PDF Markdown sample failures include three
-  cross-page-related files, but those diffs are mixed with title/body or list
-  boundary failures. The remaining seven failures are image, header/footer,
-  heading/list, or column/read-order buckets.
+- A fresh June 13, 2026 repo-local `samples/check.sh --format pdf` run still
+  reports the same 10 Markdown failures described by Reset 17D, including the
+  three cross-page-related files.
+- Those three cross-page sample diffs remain mixed with non-cross-page
+  structure issues:
+  - `pdf_cross_page_paragraph` still visibly misses one cross-page merge and
+    also changes the following heading level.
+  - `pdf_cross_page_should_merge_phase15` collapses title and body structure,
+    so the visible diff is not cleanly attributable to cross-page arbitration
+    alone.
+  - `pdf_cross_page_should_not_merge_phase15` preserves the paragraph split but
+    still loses the next-page heading/list structure.
+- Focused convert whitebox tests still exercise the intended rejection buckets:
+  low confidence, mismatched source refs, heading/title-like blocker, missing
+  matching pair, and no-fact fallback.
+- Reset 17C behavior is therefore retained as-is. No parser API, threshold,
+  blocker, or sample expected-output change was needed. No narrow fix was
+  applied.
+- The top-level sample wrapper may still report `rows=0` on failing runs
+  because its summary parser misses the current failure header; the
+  `markdown-only.entrypoint.log` is the authoritative failure log for the 10
+  Markdown failures.
 - No parser API, metadata sidecar, sample expected output, quality-lab path,
   model loading, runtime inference, or training workflow changed.
