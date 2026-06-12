@@ -1587,3 +1587,24 @@ Reset 16B can export when explicitly called.
 - Privacy:
   - caller-provided `doc_id` is preserved; callers should use synthetic stable
     ids, not local paths.
+
+## Reset 16D Quality-lab Adapter Mapping Dry-run
+
+Reset 16D does not change main-chain parity behavior. It documents how the
+opt-in PDF v2 exporter could be mapped into existing quality-lab adapter
+conventions without creating a default workflow.
+
+- Runtime boundary:
+  - no product Markdown, metadata sidecar, sample expected, fallback,
+    normalizer/semantic patch, model, training hook, generated dataset, or
+    quality-lab invocation changed.
+- Mapping result:
+  - `TextFlowRow` is still the closest route to the current text-block TSV, but
+    remains audit-only until bbox, source-label, reviewed-label, grouped-split,
+    and feature-exclusion policy exists.
+  - `BoundaryRow` belongs to layout-recovery boundary tooling.
+  - `ArtifactRow` and `AdjacencyRow` remain review/audit rows; parser facts are
+    not promoted to labels.
+- Remaining parity learning blockers:
+  - no gold labels, no populated layout-region/read-order rows, incomplete
+    geometry/font/column facts, and no quality-lab-side adapter gate.

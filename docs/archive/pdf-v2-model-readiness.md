@@ -424,3 +424,33 @@ that the exporter remains a scaffold, not a training input.
 - Model timing:
   - still blocked: no gold labels, no reviewed splits, incomplete geometry and
     read-order facts, no adapter gate, and no heldout report.
+
+## 15. Reset 16D Quality-lab Adapter Mapping Dry-run
+
+Reset 16D keeps the adapter mapping dry-run as documentation in the main repo.
+Quality-lab was read for conventions only and remains unchanged.
+
+- Mapping strategy:
+  - docs-only artifact in `docs/archive/pdf-v2-dataset-export-contract.md`.
+  - no compatibility helper yet because label review, bbox policy, grouped
+    splits, and feature exclusion rules belong beside quality-lab adapters.
+  - future adapter code should live in quality-lab adapter/audit tooling, not
+    in the public convert/test path.
+- Quality-lab conventions:
+  - current text-block adapter rows require
+    `sample_id/source_dataset/source_page_id/source_region_id/page_no/bbox/source_label/target_label/target_task/text/confidence/split/notes`.
+  - feature builders keep ids, provenance, labels, split, text, and notes out
+    of numeric model features.
+  - distilled hints are downstream model outputs and are not a mapping input.
+- Row-family readiness:
+  - `TextFlowRow`: audit-only, closest future text-block adapter input.
+  - `BoundaryRow`: audit-only, layout-recovery adapter required.
+  - `ArtifactRow`: audit/review queue only, labels remain blank.
+  - `AdjacencyRow`: audit-only, blocked on reviewed associations and true
+    object/text geometry.
+- Training remains blocked:
+  - `gold_label` is blank.
+  - `weak_label` is rule evidence only and must not become gold.
+  - artifact/adjacency parser facts are evidence, not labels.
+  - no reviewed splits, bbox policy, adapter confidence policy, heldout gate,
+    populated layout-region rows, or reading-order rows.

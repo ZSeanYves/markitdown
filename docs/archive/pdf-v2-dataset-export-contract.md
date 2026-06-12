@@ -700,3 +700,105 @@ Training remains blocked because:
 - geometry/font/column/read-order facts are incomplete.
 - a quality-lab-side adapter is still required before any external feature
   builder can consume these rows safely.
+
+## 13. Reset 16D Quality-lab Adapter Mapping Dry-run
+
+Reset 16D keeps the mapping artifact docs-only. No quality-lab file, public
+test, product path, Markdown output, metadata sidecar, sample expectation,
+training script, model artifact, or runtime inference path changed.
+
+Observed quality-lab adapter conventions, read-only:
+
+- Text-block adapter TSV input has a fixed header:
+  `sample_id`, `source_dataset`, `source_page_id`, `source_region_id`,
+  `page_no`, `bbox`, `source_label`, `target_label`, `target_task`, `text`,
+  `confidence`, `split`, and `notes`.
+- The baseline feature builder validates that header exactly and derives
+  text-shape, bbox, page-position, spacing, indent, neighbor, list, heading,
+  and caption proxy features.
+- Metadata and label/provenance fields stay out of model features:
+  `sample_id`, `source_dataset`, `source_page_id`, `source_region_id`,
+  `page_no`, `feature_set`, `source_label`, `target_label`, `split`, `text`,
+  and `notes`.
+- Label columns are adapter-owned. `target_label` is a reviewed or explicit
+  adapter label, not a copy of PDF v2 `weak_label` for gold training.
+- Split is adapter-owned. Main-repo rows may keep `split = unknown` until an
+  external grouped split policy assigns train/dev/heldout.
+- Missing scalar metadata uses stable empty/unknown conventions, but bbox must
+  be parseable before the current text-block feature builder can consume a
+  row.
+- Distilled hint export is downstream of feature TSVs and local models; it is
+  not an input convention for this main-repo exporter dry-run.
+- Layout recovery has separate manifest and boundary/manual-label conventions;
+  DocLayNet layout labels must not be mapped directly to Markdown semantic
+  labels.
+
+Mapping strategy chosen:
+
+- Keep the main repo as the opt-in exporter and schema owner only.
+- Do not add a compatibility helper yet because direct adapter TSV output would
+  still need label policy, bbox policy, grouped splits, and feature exclusion
+  rules that belong beside quality-lab training/audit scripts.
+- Recommended future location for adapter code:
+  `markitdown-quality-lab/pdf_model_training/text_block_classifier/adapters/`
+  for text-flow/artifact preview rows and
+  `markitdown-quality-lab/pdf_model_training/layout_recovery/adapters/` for
+  boundary, layout-region, and reading-order rows.
+
+Row-family readiness matrix:
+
+| row family | directly mappable fields | rename or flatten | labels and risk policy | missing or unknown | readiness |
+| --- | --- | --- | --- | --- | --- |
+| `TextFlowRow` | doc id, page index, candidate id, text, normalized text, task, split, rule confidence | `row_id -> sample_id`; `doc_id -> source_page_id` or document group; `candidate_id -> source_region_id`; text/normalized text -> `text`; arrays to `notes` | `weak_label` is report-only rule evidence; `gold_label` remains blank; risk/reason/source fields are audit metadata | bbox, DocLayNet `source_label`, reviewed `target_label`, grouped split, visual/font features | audit-only; closest future text-block adapter input after review |
+| `BoundaryRow` | previous/next candidate ids, page refs, texts, same-page, cross-page, task, split | pair ids and source refs flatten to boundary TSV or notes | boundary labels stay blank unless manually reviewed; cross-page risk is audit metadata | reviewed boundary label, line indices, vertical gaps, font deltas, reliable geometry | audit-only; layout-recovery adapter needed |
+| `ArtifactRow` | doc id, page index, candidate id, text, artifact kind, position band, repeat count, confidence | artifact kind and page indices flatten to notes or dedicated artifact columns | parser artifact kind is evidence, not a rule decision; `weak_label` and `gold_label` remain blank | reviewed header/footer/page-number label, bbox/source label, grouped split, variant artifact matching | audit-only; possible review queue, not training-ready |
+| `AdjacencyRow` | object kind/ref, asset ref, page index, nearby text, relation, source order, bbox distance placeholder | object/source/risk arrays flatten to notes; relation may become a future adapter column | table/image/link relation evidence is not a label; artifact/adjacency labels remain blank unless reviewed | reviewed association label, object/text bbox distance, layout region ids, source-order confidence | audit-only; blocked for training |
+
+Fields that must not be emitted as model features by a future adapter:
+
+- identifiers and provenance: `row_id`, `doc_id`, `candidate_id`,
+  `object_ref`, `asset_ref`, and `source_refs`.
+- label/provenance fields: `weak_label`, `gold_label`, `label_source`,
+  `current_rule_decision`, adapter `target_label`, `source_label`, split, and
+  mapping confidence.
+- audit/debug fields: `reason_tags`, `risk_tags`, `notes`, parser warnings,
+  and semantic fallback tags.
+- product-derived outputs: Markdown text, IR decisions, previous classifier
+  predictions, or metadata sidecar conclusions.
+
+Dry-run compatibility checks, documented for the future adapter:
+
+- preserve the quality-lab adapter TSV header order exactly.
+- produce deterministic rows from deterministic PDF v2 JSONL/TSV input.
+- never promote `weak_label` to `gold_label` or reviewed `target_label`.
+- keep artifact and adjacency labels blank unless a reviewed adapter supplies
+  them.
+- flatten arrays only into audit/notes fields unless a future schema defines a
+  typed adapter column.
+- keep missing values stable: `unknown` for unavailable categorical facts,
+  `none` for absent provenance/source classes, `""` for labels, and empty
+  arrays before flattening.
+
+Adapter readiness result:
+
+- `TextFlowRow` is schema-compatible enough for a quality-lab-side preview
+  adapter, but not training-ready.
+- `BoundaryRow` belongs to layout recovery, not the current text-block
+  feature builder.
+- `ArtifactRow` and `AdjacencyRow` are review/audit inputs until labels and
+  visual proximity facts mature.
+- `LayoutRegionRow` and `ReadingOrderRow` remain documented-only blockers for
+  region and ordering tasks.
+
+Training remains blocked because:
+
+- there are still no row-level gold labels.
+- current weak labels are rule decisions and can encode temporary bridge
+  behavior.
+- bbox/geometry/font/column/read-order facts are incomplete for the external
+  feature conventions.
+- grouped splits, label review, adapter confidence policy, heldout gates, and
+  model reports still belong in quality-lab and do not exist for PDF v2 export
+  rows yet.
+- caller-provided `doc_id` may reveal private filenames or local paths unless
+  callers pass stable synthetic ids or hashes.

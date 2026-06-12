@@ -880,3 +880,25 @@ parser fact gaps visible before any quality-lab adapter work.
 - Boundary:
   - no parser output, product output, fallback, model loading, training, or
     quality-lab integration changed.
+
+## Reset 16D Quality-lab Adapter Mapping Dry-run
+
+Reset 16D adds no parser facts and changes no parser runtime behavior. The
+quality-lab adapter mapping was audited as a documentation-only dry-run.
+
+- Parser/layout ownership:
+  - `BoundaryRow` should map to future layout-recovery boundary adapters, not
+    the text-block classifier TSV.
+  - `LayoutRegionRow` and `ReadingOrderRow` remain documented-only blockers for
+    region, column, and read-order learning.
+  - DocLayNet layout labels must not be mapped directly to Markdown semantic
+    labels.
+- Current parser blockers for training:
+  - no reviewed boundary or adjacency labels.
+  - incomplete bbox-distance, vertical-gap, font-delta, column, and read-order
+    facts.
+  - no parser-derived safe document id; callers still supply stable synthetic
+    ids for export.
+- Boundary:
+  - no parser output, product output, quality-lab dependency, training,
+    runtime inference, generated dataset, or sample expectation changed.

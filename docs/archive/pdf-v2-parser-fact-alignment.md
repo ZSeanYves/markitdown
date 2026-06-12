@@ -996,3 +996,25 @@ in exported rows.
 - Privacy:
   - the parser does not derive a document id; callers must provide a stable
     synthetic `doc_id` to avoid leaking local paths.
+
+## Reset 16D Quality-lab Adapter Mapping Dry-run
+
+Reset 16D is docs-only for parser fact alignment. Quality-lab adapter
+conventions were inspected read-only, and no parser/export code changed.
+
+- Mapping ownership:
+  - `TextFlowRow` can be adapted to text-block conventions only after an
+    external adapter supplies bbox/source-label/reviewed-label policy.
+  - `BoundaryRow`, future `LayoutRegionRow`, and future `ReadingOrderRow`
+    belong to quality-lab layout-recovery tooling.
+  - `ArtifactRow` and `AdjacencyRow` are parser-evidence/audit rows until
+    reviewed labels and visual associations exist.
+- Parser facts still blocking training:
+  - true object/text bbox distance and visual proximity.
+  - reliable vertical gaps and font-size/font-style deltas.
+  - column ids, reading-order ids, and layout-region rows.
+  - reviewed boundary and adjacency labels.
+- Boundary:
+  - no parser output, product output, model loading, training, quality-lab
+    dependency, generated dataset, or DocLayNet-to-Markdown direct label
+    mapping was introduced.

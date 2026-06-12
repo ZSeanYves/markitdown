@@ -735,3 +735,26 @@ pdf_v2_dataset_export_audit(...)
   refs, reason tags, and risk tags can be mapped, but reviewed labels, bbox
   policy, source labels, grouped splits, and feature exclusion still need
   adapter ownership.
+
+## Reset 16D Quality-lab Adapter Mapping Dry-run
+
+Reset 16D keeps the dry-run docs-only and leaves `convert/pdf_v2` runtime and
+tests unchanged.
+
+- Quality-lab was inspected read-only:
+  - text-block adapter rows use a fixed TSV header ending in `notes`.
+  - feature builders exclude ids, labels, provenance, split, text, and notes
+    from model feature columns.
+  - distilled hint export is downstream of local models, not a main-repo input.
+- Mapping result:
+  - `TextFlowRow` can become a quality-lab-side preview adapter row after bbox,
+    source-label, reviewed-label, and grouped-split policy are supplied.
+  - `BoundaryRow` belongs to layout recovery, not the current text-block TSV.
+  - `ArtifactRow` and `AdjacencyRow` remain audit/review rows; their parser
+    facts are not weak labels.
+- Boundary:
+  - no adapter helper, generated dataset, product Markdown, metadata sidecar,
+    quality-lab dependency, training, runtime inference, or sample expectation
+    changed.
+  - future adapter code should live under quality-lab adapter/audit tooling so
+    public `moon test` and conversion paths stay independent.
