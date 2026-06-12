@@ -1241,3 +1241,29 @@ Actual June 13, 2026 outcome:
 - Reset 17G therefore retains the current fact family and points next work at
   remaining heading/list/title-body structure ownership rather than new fact
   families, threshold lowering, or string-specific rules.
+
+## Reset 17H Semantic Arbitration Consumption Alignment
+
+Reset 17H still does not add a new parser fact family. It consumes the 17G
+candidate evidence inside semantic arbitration.
+
+Alignment update:
+
+| signal | semantic use after 17H | still missing |
+| --- | --- | --- |
+| parser-backed `title_body_boundary_candidate` on a title-like single line with following body | may classify as `Heading` before lowering | stable real-sample evidence for the remaining heading-level mismatches |
+| parser-backed `list_marker_body_boundary_candidate` on a preserved list/body split | may classify as list item and keep the full list body text | title/heading classification around the list still remains conservative |
+| no preserved structure evidence | semantic fallback stays unchanged | new parser evidence if future parity movement is desired |
+
+Actual June 13, 2026 outcome:
+
+- No new parser API or fact schema changed.
+- No sample expected files changed.
+- Repo-local PDF Markdown parity still remains at 10 failures.
+- `pdf_cross_page_should_not_merge_phase15` now keeps the full ordered-list
+  body text from the preserved parser-backed list candidate.
+- `pdf_cross_page_paragraph` and `pdf_cross_page_should_merge_phase15` still do
+  not expose enough parser-backed heading/title evidence for 17H to move them.
+- Reset 17H therefore keeps current parser fact alignment intact and points
+  next work at missing heading/title evidence rather than new fact families or
+  broader semantic promotion rules.

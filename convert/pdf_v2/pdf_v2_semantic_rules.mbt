@@ -1174,25 +1174,167 @@ fn pdf_v2_semantic_rule_decision(
   unit : PdfV2TextFlowUnit,
   options : PdfV2ProductBridgeOptions,
 ) -> PdfV2RuleDecision {
-  if options.enable_noise_guards {
+  let decision = if options.enable_noise_guards {
     match pdf_v2_semantic_noise_guard_decision(unit, options) {
-      Some(decision) => return decision
-      None => ()
+      Some(decision) => decision
+      None =>
+        if options.enable_list_rules {
+          match pdf_v2_semantic_list_decision(unit) {
+            Some(decision) => decision
+            None =>
+              if options.enable_heading_rules {
+                match pdf_v2_semantic_heading_decision(unit) {
+                  Some(decision) => decision
+                  None => pdf_v2_semantic_paragraph_decision(unit)
+                }
+              } else {
+                pdf_v2_semantic_paragraph_decision(unit)
+              }
+          }
+        } else if options.enable_heading_rules {
+          match pdf_v2_semantic_heading_decision(unit) {
+            Some(decision) => decision
+            None => pdf_v2_semantic_paragraph_decision(unit)
+          }
+        } else {
+          pdf_v2_semantic_paragraph_decision(unit)
+        }
     }
+  } else if options.enable_list_rules {
+    match pdf_v2_semantic_list_decision(unit) {
+      Some(decision) => decision
+      None =>
+        if options.enable_heading_rules {
+          match pdf_v2_semantic_heading_decision(unit) {
+            Some(decision) => decision
+            None => pdf_v2_semantic_paragraph_decision(unit)
+          }
+        } else {
+          pdf_v2_semantic_paragraph_decision(unit)
+        }
+    }
+  } else if options.enable_heading_rules {
+    match pdf_v2_semantic_heading_decision(unit) {
+      Some(decision) => decision
+      None => pdf_v2_semantic_paragraph_decision(unit)
+    }
+  } else {
+    pdf_v2_semantic_paragraph_decision(unit)
+  }
+  pdf_v2_apply_structure_evidence_arbitration(unit, decision, options)
+}
+
+///|
+fn pdf_v2_apply_structure_evidence_arbitration(
+  unit : PdfV2TextFlowUnit,
+  decision : PdfV2RuleDecision,
+  options : PdfV2ProductBridgeOptions,
+) -> PdfV2RuleDecision {
+  if decision.risk_tags.contains("suppress_output") {
+    return decision
   }
   if options.enable_list_rules {
-    match pdf_v2_semantic_list_decision(unit) {
-      Some(decision) => return decision
+    match pdf_v2_semantic_structure_evidence_list_decision(unit, decision) {
+      Some(adjusted) => return adjusted
       None => ()
     }
   }
   if options.enable_heading_rules {
-    match pdf_v2_semantic_heading_decision(unit) {
-      Some(decision) => return decision
+    match pdf_v2_semantic_structure_evidence_heading_decision(unit, decision) {
+      Some(adjusted) => return adjusted
       None => ()
     }
   }
-  pdf_v2_semantic_paragraph_decision(unit)
+  decision
+}
+
+///|
+fn pdf_v2_semantic_structure_evidence_list_decision(
+  unit : PdfV2TextFlowUnit,
+  decision : PdfV2RuleDecision,
+) -> PdfV2RuleDecision? {
+  if decision.kind == PdfV2SemanticBlockKind::OrderedListItem ||
+    decision.kind == PdfV2SemanticBlockKind::UnorderedListItem {
+    return None
+  }
+  if !unit.reason_tags.contains("list_marker_body_boundary_candidate") ||
+    !unit.signals.parser_fact_backed {
+    return None
+  }
+  if unit.signals.starts_with_unordered_marker {
+    return Some(
+      pdf_v2_semantic_decision(
+        PdfV2SemanticBlockKind::UnorderedListItem,
+        0.93,
+        "list.structure_boundary.parser_fact",
+        [
+          "parser_structure_evidence", "structure_boundary_candidate", "list_marker_body_boundary_candidate",
+          "unordered_marker",
+        ],
+        [],
+        unit.source_refs,
+        [],
+      ),
+    )
+  }
+  if unit.signals.starts_with_ordered_marker {
+    return Some(
+      pdf_v2_semantic_decision(
+        PdfV2SemanticBlockKind::OrderedListItem,
+        0.91,
+        "list.structure_boundary.parser_fact",
+        [
+          "parser_structure_evidence", "structure_boundary_candidate", "list_marker_body_boundary_candidate",
+          "ordered_marker",
+        ],
+        [],
+        unit.source_refs,
+        [],
+      ),
+    )
+  }
+  None
+}
+
+///|
+fn pdf_v2_semantic_structure_evidence_heading_decision(
+  unit : PdfV2TextFlowUnit,
+  decision : PdfV2RuleDecision,
+) -> PdfV2RuleDecision? {
+  if decision.kind == PdfV2SemanticBlockKind::Heading {
+    return None
+  }
+  if !unit.reason_tags.contains("structure_boundary_candidate") ||
+    !unit.reason_tags.contains("title_body_boundary_candidate") ||
+    unit.reason_tags.contains("body_flow_candidate") ||
+    unit.reason_tags.contains("list_marker_body_boundary_candidate") ||
+    unit.signals.starts_with_ordered_marker ||
+    unit.signals.starts_with_unordered_marker ||
+    unit.signals.starts_with_heading_marker ||
+    !unit.signals.is_single_line ||
+    unit.signals.ends_with_sentence_punctuation ||
+    unit.signals.looks_like_page_number ||
+    unit.signals.looks_like_caption_marker ||
+    !unit.signals.has_following_body {
+    return None
+  }
+  if !unit.reason_tags.contains("heading_line_candidate") &&
+    unit.signals.parser_heading_candidate_score < 0.60 {
+    return None
+  }
+  Some(
+    pdf_v2_semantic_decision(
+      PdfV2SemanticBlockKind::Heading,
+      0.84,
+      "heading.structure_boundary.parser_fact",
+      [
+        "parser_structure_evidence", "structure_boundary_candidate", "title_body_boundary_candidate",
+      ],
+      [],
+      unit.source_refs,
+      [],
+    ),
+  )
 }
 
 ///|
@@ -1505,11 +1647,29 @@ fn pdf_v2_semantic_block_text(
       }
     PdfV2SemanticBlockKind::OrderedListItem
     | PdfV2SemanticBlockKind::UnorderedListItem =>
+      pdf_v2_semantic_list_item_text(unit)
+    _ => unit.normalized_text
+  }
+}
+
+///|
+fn pdf_v2_semantic_list_item_text(unit : PdfV2TextFlowUnit) -> String {
+  match pdf_v2_text_flow_parse_marker(unit.normalized_text) {
+    Some(marker) =>
+      match marker.kind {
+        PdfV2TextFlowMarkerKind::OrderedListMarker
+        | PdfV2TextFlowMarkerKind::UnorderedListMarker => marker.body_text
+        PdfV2TextFlowMarkerKind::HeadingMarker =>
+          match unit.marker {
+            Some(fallback) => fallback.body_text
+            None => unit.normalized_text
+          }
+      }
+    None =>
       match unit.marker {
         Some(marker) => marker.body_text
         None => unit.normalized_text
       }
-    _ => unit.normalized_text
   }
 }
 

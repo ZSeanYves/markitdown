@@ -643,3 +643,31 @@ make the stack training-ready.
   - 17G therefore improves evidence quality for future audits, but it still
     does not reduce the training-readiness gap or justify new labels from these
     samples.
+
+## 23. Reset 17H Semantic Arbitration Consumption
+
+Reset 17H improves semantic consumption of parser-backed structure evidence,
+but it still does not make the stack training-ready.
+
+- What changed:
+  - semantic arbitration now consumes preserved parser-backed structure tags for
+    narrow title/body and list/body cases.
+  - multi-line parser-backed list items now preserve the full list body text in
+    semantic output.
+- What did not change:
+  - no new parser labels or exported training rows.
+  - no quality-lab adapter or dataset schema change.
+  - no runtime model loading or inference.
+  - no sample expected updates.
+- Readiness impact:
+  - repo-local `samples/check.sh --format pdf` still reports the same 10
+    Markdown failures.
+  - the wrapper summary may still print `rows=0`; the run's
+    `markdown-only.entrypoint.log` remains authoritative.
+  - visible output improved again for
+    `pdf_cross_page_should_not_merge_phase15`, but only partially: the full
+    list item body now survives while heading levels still remain wrong.
+  - `pdf_cross_page_paragraph` and `pdf_cross_page_should_merge_phase15` still
+    lack stable preserved heading/title evidence for 17H to move them.
+  - 17H therefore improves semantic evidence consumption, but it still does not
+    reduce the training-readiness gap or justify new labels from these samples.

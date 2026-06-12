@@ -1244,6 +1244,84 @@ test "pdf v2 heading rules infer clear numbered subsection level" {
 }
 
 ///|
+test "pdf v2 semantic arbitration promotes parser-backed title body candidate to heading" {
+  let title_ref = semantic_test_ref_for_page(1, 10)
+  let body_ref = semantic_test_ref_for_page(1, 11)
+  let candidates = [
+    semantic_test_text_flow_candidate(
+      1,
+      0,
+      0,
+      "Cross-page should merge",
+      [0],
+      [title_ref],
+      [
+        "text_flow_candidate", "heading_body_split", "heading_line_candidate", "structure_boundary_candidate",
+        "title_body_boundary_candidate",
+      ],
+    ),
+    semantic_test_text_flow_candidate(
+      1,
+      1,
+      1,
+      "This paragraph should stay as body text.",
+      [1],
+      [body_ref],
+      [
+        "text_flow_candidate", "heading_body_split", "body_flow_candidate", "structure_boundary_candidate",
+        "title_body_boundary_candidate",
+      ],
+    ),
+  ]
+
+  let blocks = pdf_v2_semantic_blocks_from_candidates(
+    candidates,
+    semantic_test_options(),
+  )
+
+  assert_true(blocks.length() == 2)
+  assert_true(blocks[0].kind == PdfV2SemanticBlockKind::Heading)
+  assert_true(blocks[0].level == Some(1))
+  assert_true(blocks[0].reason_tags.contains("parser_structure_evidence"))
+  assert_true(blocks[0].reason_tags.contains("title_body_boundary_candidate"))
+  assert_true(blocks[1].kind == PdfV2SemanticBlockKind::Paragraph)
+}
+
+///|
+test "pdf v2 semantic arbitration preserves multiline parser-backed list item body" {
+  let list_refs = [
+    semantic_test_ref_for_page_block_line(1, 2, 0, 200),
+    semantic_test_ref_for_page_block_line(1, 2, 1, 201),
+  ]
+  let candidates = [
+    semantic_test_text_flow_candidate(
+      1,
+      2,
+      0,
+      "1. New section starts here and must remain separated. This block should not\nbe attached to previous page paragraph.",
+      [0, 1],
+      list_refs,
+      [
+        "text_flow_candidate", "structure_boundary_candidate", "parser_layout_backed",
+        "list_marker_body_boundary_candidate",
+      ],
+    ),
+  ]
+
+  let blocks = pdf_v2_semantic_blocks_from_candidates(
+    candidates,
+    semantic_test_options(),
+  )
+
+  assert_true(blocks.length() == 1)
+  assert_true(blocks[0].kind == PdfV2SemanticBlockKind::OrderedListItem)
+  assert_eq(
+    blocks[0].text,
+    "New section starts here and must remain separated. This block should not be attached to previous page paragraph.",
+  )
+}
+
+///|
 test "pdf v2 list rules cover unordered and ordered marker families" {
   let blocks = semantic_test_blocks([
     "- dash item", "* star item", "• bullet item", "1. dot item", "1) paren item",

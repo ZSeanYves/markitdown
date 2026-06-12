@@ -1149,3 +1149,49 @@ Current recommendation:
 - keep the 17G parser-side preservation as-is.
 - next work should audit remaining heading/list/title-body classification and
   continuation ownership, not lower thresholds or add string patches.
+
+## Reset 17H Semantic Arbitration Consumption Follow-up
+
+Reset 17H still does not add a new parser API or a new parser fact family. It
+reuses 17G candidate tags inside semantic arbitration.
+
+- Parser-owned evidence reused by 17H:
+  - `PdfV2TextFlowCandidate.reason_tags`:
+    `structure_boundary_candidate`,
+    `title_body_boundary_candidate`,
+    `list_marker_body_boundary_candidate`
+  - existing parser-backed marker and boundary scores already carried into
+    `PdfV2TextFlowUnit.signals`
+- Convert-side outcome:
+  - semantic arbitration may now promote parser-backed title/body title lines
+    to `Heading` when the candidate already carries stable title/body boundary
+    evidence.
+  - parser-backed list/body candidates may now remain list items through
+    semantic arbitration even when raw text parsing alone would have been too
+    weak.
+  - multi-line parser-backed list items now keep the full list item body text
+    in semantic block output.
+- What still did not change:
+  - no new parser API.
+  - no new fact schema.
+  - no metadata sidecar rows.
+  - no quality-lab, training, or inference changes.
+
+Repo-local June 13, 2026 outcome:
+
+- `samples/check.sh --format pdf` still reports the same 10 Markdown
+  failures.
+- the wrapper summary may still print `rows=0`; the matching
+  `markdown-only.entrypoint.log` remains authoritative.
+- `pdf_cross_page_should_not_merge_phase15` now keeps the full ordered-list
+  body text as well as the preserved paragraph/list block split, but the sample
+  still fails because the surrounding title/heading levels are still wrong.
+- `pdf_cross_page_paragraph` and `pdf_cross_page_should_merge_phase15` do not
+  gain new parser evidence in 17H, so their remaining visible misses stay
+  unchanged.
+
+Current recommendation:
+
+- keep parser ownership unchanged.
+- next work should inspect missing heading/title evidence for the remaining
+  heading-level mismatches, not broaden semantic rules globally.

@@ -1898,3 +1898,54 @@ Reset 17G closeout:
 - the narrow preserved-evidence changes are retained.
 - the next reset should target remaining heading/list/title-body structure
   ownership instead of gate relaxation or string-specific repair.
+
+## Reset 17H Consume Preserved Structure Evidence In Semantic Arbitration
+
+Reset 17H keeps the 17G evidence-preservation model but moves one step further:
+consume the preserved typed structure evidence inside semantic arbitration
+instead of relying only on text shape after candidate mode is selected.
+
+- Evidence consumed:
+  - `structure_boundary_candidate`
+  - `title_body_boundary_candidate`
+  - `list_marker_body_boundary_candidate`
+- Narrow semantic changes:
+  - parser-backed title/body title lines may now classify as `Heading` before
+    lowering when the candidate already carries title/body boundary evidence and
+    following-body evidence.
+  - parser-backed list/body candidates may now classify as list items from the
+    preserved structure evidence path instead of relying only on raw marker
+    parsing.
+  - multi-line parser-backed list items now preserve the full list body text in
+    semantic output.
+- What 17H still rejects:
+  - no normalizer patching.
+  - no phrase-specific or sample-specific rules.
+  - no broad heading rewrite.
+  - no bridge-owned classifier behavior.
+
+Repo-local June 13, 2026 sample result:
+
+- the 10-failure taxonomy still does not change.
+- no sample expected files changed.
+- the wrapper summary may still print `rows=0`; the run's
+  `markdown-only.entrypoint.log` remains authoritative.
+
+Target sample outcome matrix:
+
+| sample | 17H semantic change | visible result after 17H | still failing because |
+| --- | --- | --- | --- |
+| `pdf_cross_page_paragraph` | none; no new stable title/heading evidence reached semantic arbitration | no visible output change in 17H | `Next Section` still remains H1 instead of the expected level |
+| `pdf_cross_page_should_merge_phase15` | none; title/body evidence is still missing before semantic ownership | no visible output change | title/body collapse still happens before semantic arbitration can consume preserved structure evidence |
+| `pdf_cross_page_should_not_merge_phase15` | full ordered-list body text now survives semantic output | paragraph/list split remains preserved and the list body is now complete | title and heading levels are still wrong, so expected output is still not reached |
+| `pdf_heading_false_positive_phase15` | none by design | no visible output change | failure is outside this narrow preserved-evidence path |
+| `pdf_heading_vs_short_sentence` | none by design | no visible output change | remaining diff is still single-page heading/list structure, not this cross-page semantic-evidence path |
+
+Reset 17H closeout:
+
+- product output changed narrowly again, but visible PDF parity count remained
+  10.
+- no expected outputs changed because the only visible 17H improvement was
+  partial.
+- the next reset should inspect missing heading/title evidence for the
+  remaining heading-level mismatches rather than widen semantic rules broadly.

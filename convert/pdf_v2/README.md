@@ -1054,3 +1054,54 @@ Reset 17G conclusion:
   blocker removal.
 - next recommended reset should audit heading/list/title-body structure that
   still remains after parser preservation, not add string-specific repairs.
+
+## Reset 17H Semantic Arbitration Consumption Of Preserved Structure Evidence
+
+Reset 17H keeps classification inside semantic arbitration. The product bridge
+still only lowers semantic decisions; it does not gain new string-shape
+classification logic.
+
+- Typed evidence now consumed in semantic arbitration:
+  - `structure_boundary_candidate`
+  - `title_body_boundary_candidate`
+  - `list_marker_body_boundary_candidate`
+- Narrow semantic helper added:
+  - parser-backed title/body title lines may now become `Heading` before
+    lowering when the same candidate already carries stable
+    `title_body_boundary_candidate` evidence and following-body evidence.
+  - parser-backed list/body candidates may now stay list items through semantic
+    arbitration without depending only on raw marker parsing.
+- Narrow semantic text fix:
+  - multi-line parser-backed list items now preserve the full list body text
+    instead of dropping everything after the first marker line body.
+- What 17H still does not do:
+  - no normalizer patching.
+  - no phrase-specific or sample-specific rules.
+  - no broad heading rewrite.
+  - no new bridge classification logic.
+
+Repo-local June 13, 2026 outcome:
+
+- `samples/check.sh --format pdf` still reports the same 10 PDF Markdown
+  failures.
+- no sample expected files changed.
+- the wrapper summary may still print `rows=0`; the matching
+  `markdown-only.entrypoint.log` remains authoritative.
+- visible target sample changes:
+  - `pdf_cross_page_should_not_merge_phase15` now preserves the full ordered
+    list item body text in addition to the 17G block separation, but it still
+    misses the expected title and heading levels, so the sample still fails.
+  - `pdf_cross_page_paragraph` remains unchanged in 17H; the remaining visible
+    miss is still `# Next Section` vs expected `## Next Section`.
+  - `pdf_cross_page_should_merge_phase15` remains unchanged because 17H still
+    has no preserved title/body evidence to consume for that sample.
+
+Reset 17H conclusion:
+
+- keep the 17G parser-side evidence preservation and the 17H semantic
+  arbitration consumption.
+- no expected sample update is justified yet because the only visible 17H
+  improvement is partial.
+- next recommended reset should inspect why parser-backed heading/title
+  evidence is still absent for the remaining heading-level mismatches, not add
+  broad semantic heading promotion.
