@@ -941,3 +941,32 @@ contract, but should not yet be wired into training or runtime.
 - Decision:
   - docs-only in Reset 16A; no parser output, product output, or metadata
     sidecar behavior changed.
+
+## Reset 16B Dataset Exporter Adapter Scaffold
+
+Reset 16B does not add parser facts. It consumes the parser facts already
+available through `PdfV2ConvertPipelineOutput` and exposes them through an
+explicit convert-side dataset exporter.
+
+- Parser facts used:
+  - `PdfV2TextFlowCandidate` for `TextFlowRow`.
+  - `PdfV2BlockBoundarySignal` and line signal tags for weak text-flow and
+    boundary features.
+  - `PdfV2PageArtifactCandidate` for `ArtifactRow`.
+  - `PdfV2TableCandidate`, `PdfV2ImageCandidate`,
+    `PdfV2InlineImageCandidate`, and `PdfV2LinkCandidate` for minimal
+    `AdjacencyRow`.
+  - `PdfV2SourceRef` for provenance in both JSONL and TSV.
+- Missing parser/model facts remain:
+  - stable layout region rows.
+  - reading-order and column ids.
+  - reliable vertical gap and font-size relation.
+  - reviewed caption/object adjacency labels.
+  - reviewed cross-page boundary labels.
+- Label policy:
+  - semantic rule decisions are weak labels.
+  - parser artifact/object facts are weak evidence.
+  - no parser fact becomes `gold_label` in this scaffold.
+- Runtime boundary:
+  - no parser behavior, vendor runtime, product output, fallback, model
+    loading, training, or quality-lab integration changed.

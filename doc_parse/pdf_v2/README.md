@@ -830,3 +830,29 @@ stack and defines how parser-owned facts should appear in future export rows.
     training, or product output behavior changed.
   - next step is an opt-in exporter design after adapter flattening is
     reviewed.
+
+## Reset 16B Dataset Exporter Adapter Scaffold
+
+Reset 16B keeps `doc_parse/pdf_v2` runtime behavior unchanged. The new exporter
+lives in `convert/pdf_v2` and consumes existing parser facts only when a caller
+explicitly invokes it.
+
+- Parser facts consumed by the exporter:
+  - text-flow candidates.
+  - block boundary signals.
+  - page artifact candidates.
+  - table, image, inline-image, and link candidates.
+  - source refs, reason tags, confidence values, and caption relation facts.
+- Export behavior:
+  - `TextFlowRow`, `BoundaryRow`, `ArtifactRow`, and minimal `AdjacencyRow`
+    rows are populated.
+  - `LayoutRegionRow` and `ReadingOrderRow` remain documented future rows.
+  - JSONL/TSV serialization is deterministic and memory-only.
+  - missing parser fields flatten to `unknown`, `none`, `""`, or empty arrays
+    according to the dataset contract.
+- Label boundary:
+  - semantic rule decisions and parser facts are weak labels/evidence only.
+  - no parser fact is treated as gold.
+- Runtime boundary:
+  - no parser output, vendor runtime, fallback, quality-lab integration,
+    training, model loading, or runtime inference change.

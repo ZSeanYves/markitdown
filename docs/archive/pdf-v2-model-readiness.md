@@ -363,3 +363,34 @@ export rows. It is docs-only and does not train or connect a model.
 - model readiness conclusion:
   - ready to design an opt-in exporter next.
   - not ready for production training, runtime inference, or model arbitration.
+
+## 13. Reset 16B Dataset Exporter Adapter Scaffold
+
+Reset 16B implements the non-runtime exporter scaffold that Reset 16A deferred
+until row-id and flattening conventions were reviewed.
+
+- API added in `convert/pdf_v2`:
+  - `pdf_v2_export_dataset_from_pipeline_output`.
+  - `pdf_v2_export_dataset_from_fact_arrays`.
+  - `pdf_v2_dataset_export_to_jsonl`.
+  - `pdf_v2_dataset_export_to_tsv`.
+- Implemented row families:
+  - `TextFlowRow`, `BoundaryRow`, `ArtifactRow`, and minimal `AdjacencyRow`.
+- Flattening:
+  - JSONL is deterministic, one flat object per row.
+  - TSV uses one fixed header across families.
+  - missing scalar fields use `""`, `none`, or `unknown` according to field
+    type; arrays use `[]` in JSONL and pipe-joined strings in TSV.
+- Weak labels:
+  - semantic rule decisions become text-flow weak labels only.
+  - artifact/object facts remain weak parser-fact evidence.
+  - `gold_label` remains blank.
+- Risk tags:
+  - emitted only from current parser or semantic facts, including weak rule
+    labels, low boundary confidence, cross-page adjacency, low artifact repeat,
+    image caption proximity, tables, and links.
+- Model timing:
+  - still no model training, model artifact, runtime inference, model hint
+    loading, or semantic arbitration change.
+  - exporter output is a raw offline scaffold; it is not a heldout report and
+    must not be used as gold without review.

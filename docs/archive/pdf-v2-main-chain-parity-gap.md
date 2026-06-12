@@ -1528,3 +1528,36 @@ before any code scaffold is added.
 - Next recommended task:
   - `Reset 16B` should implement an opt-in exporter only after row-id and
     adapter flattening details are reviewed against quality-lab scripts.
+
+## Reset 16B Dataset Exporter Adapter Scaffold
+
+Reset 16B adds an opt-in exporter scaffold and leaves main-chain PDF output
+unchanged.
+
+- Product path impact:
+  - no default convert-path call to the exporter.
+  - no Markdown output, metadata sidecar, sample expected, diagnostics,
+    fallback, or v1 PDF deletion change.
+- Implemented export rows:
+  - `TextFlowRow` from text-flow candidates and semantic rule decisions.
+  - `BoundaryRow` from adjacent text-flow candidates, including cross-page
+    flags.
+  - `ArtifactRow` from parser page artifact candidates referenced by text-flow
+    rows.
+  - minimal `AdjacencyRow` from table, image, inline-image, and link facts.
+- Stable ids:
+  - row ids are deterministic `pdfv2:<task>:<safe_doc_id>:p<page>:<suffix>`
+    values.
+  - `doc_id` is caller-provided; absolute paths and random ids are not used.
+- Serialization:
+  - JSONL and TSV are deterministic and memory-only.
+  - TSV follows quality-lab-style fixed headers; arrays flatten with `|`.
+- Parity connection:
+  - text structure residuals can now be studied as text-flow weak-label rows.
+  - cross-page residuals can be studied as boundary rows.
+  - header/footer residuals can be studied as artifact rows.
+  - image/table/link residuals can be studied as adjacency rows.
+- Still not done:
+  - no `LayoutRegionRow` or `ReadingOrderRow` population.
+  - no gold labels, split assignment, quality-lab adapter, training, runtime
+    model, model hint, or arbitration change.

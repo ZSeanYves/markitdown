@@ -676,3 +676,37 @@ semantic decisions and parser-produced flow facts should be exported later.
   - no product Markdown, metadata sidecar, fallback, training, runtime model,
     model arbitration, external data, quality-lab invocation, or `.vscode`
     change.
+
+## Reset 16B Dataset Exporter Adapter Scaffold
+
+Reset 16B adds an explicit, opt-in dataset exporter scaffold. It is not called
+by the default PDF v2 convert path and does not write files.
+
+- API:
+  - `pdf_v2_export_dataset_from_pipeline_output`.
+  - `pdf_v2_export_dataset_from_fact_arrays`.
+  - `pdf_v2_dataset_export_to_jsonl`.
+  - `pdf_v2_dataset_export_to_tsv`.
+- Row families implemented:
+  - `TextFlowRow` from text-flow candidates plus semantic rule decisions.
+  - `BoundaryRow` from adjacent text-flow candidates.
+  - `ArtifactRow` from referenced page artifact candidates.
+  - minimal `AdjacencyRow` from table, image, inline-image, and link facts.
+- Stable ids:
+  - row ids use `pdfv2:<task>:<safe_doc_id>:p<page>:<suffix>`.
+  - callers supply `doc_id`; row ids sanitize it for identifier use.
+- Serialization:
+  - JSONL is one deterministic flat object per row.
+  - TSV uses a fixed shared header and pipe-joined array fields.
+  - missing values use `unknown`, `none`, `""`, and empty arrays as documented
+    in the dataset contract.
+- Labels and risk:
+  - semantic rule decisions become weak labels for text-flow rows.
+  - parser object/artifact facts stay weak evidence.
+  - `gold_label` is blank.
+  - risk tags are emitted only from current facts, including weak rule labels,
+    low geometry confidence, cross-page candidates, artifacts, image captions,
+    tables, and links.
+- Boundary:
+  - no product Markdown, metadata sidecar, samples expected, fallback, runtime
+    model, training, model arbitration, quality-lab call, or `.vscode` change.

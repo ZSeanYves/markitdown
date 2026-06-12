@@ -30,6 +30,16 @@ pub fn pdf_v2_abstain_decision(Array[String]) -> PdfV2BlockDecision
 
 pub fn pdf_v2_arbitrate_semantic_decision(PdfV2SemanticArbitrationInput) -> PdfV2SemanticArbitrationResult
 
+pub fn pdf_v2_dataset_export_schema_version() -> String
+
+pub fn pdf_v2_dataset_export_to_jsonl(PdfV2DatasetExport) -> String
+
+pub fn pdf_v2_dataset_export_to_tsv(PdfV2DatasetExport) -> String
+
+pub fn pdf_v2_export_dataset_from_fact_arrays(String, Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2TextFlowCandidate], Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2TableCandidate], Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2LinkCandidate], Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2ImageCandidate], Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2InlineImageCandidate]) -> PdfV2DatasetExport
+
+pub fn pdf_v2_export_dataset_from_pipeline_output(PdfV2ConvertPipelineOutput, String) -> PdfV2DatasetExport
+
 pub fn pdf_v2_fact_lowering_input(@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2DocumentModel, @ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2FeatureSet?, PdfV2FactLoweringOptions) -> PdfV2FactLoweringInput
 
 pub fn pdf_v2_fact_lowering_input_with_gate(@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2DocumentModel, @ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2FeatureSet?, PdfV2GateResult?, PdfV2FactLoweringOptions) -> PdfV2FactLoweringInput
@@ -149,6 +159,112 @@ pub(all) struct PdfV2ConvertPipelineOutput {
 pub(all) enum PdfV2ConvertPipelineResult {
   ConvertPipelineOk(PdfV2ConvertPipelineOutput)
   ConvertPipelineErr(PdfV2ConvertPipelineFailure)
+}
+
+pub(all) struct PdfV2DatasetAdjacencyRow {
+  schema_version : String
+  doc_id : String
+  row_id : String
+  task : String
+  split : String
+  page_index : Int?
+  object_kind : String
+  object_ref : String
+  asset_ref : String
+  candidate_id : String
+  nearby_text : String
+  source_refs : Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2SourceRef]
+  reason_tags : Array[String]
+  risk_tags : Array[String]
+  current_rule_decision : String
+  current_rule_confidence : Double
+  weak_label : String
+  gold_label : String
+  label_source : String
+  relation : String
+  source_order_delta : String
+  bbox_distance : String
+}
+
+pub(all) struct PdfV2DatasetArtifactRow {
+  schema_version : String
+  doc_id : String
+  row_id : String
+  task : String
+  split : String
+  page_index : Int?
+  candidate_id : String
+  text : String
+  normalized_text : String
+  artifact_kind : String
+  position_band : String
+  page_indices : Array[Int]
+  repeat_count : Int
+  confidence : Double
+  source_refs : Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2SourceRef]
+  reason_tags : Array[String]
+  risk_tags : Array[String]
+  current_rule_decision : String
+  current_rule_confidence : Double
+  weak_label : String
+  gold_label : String
+  label_source : String
+}
+
+pub(all) struct PdfV2DatasetBoundaryRow {
+  schema_version : String
+  doc_id : String
+  row_id : String
+  task : String
+  split : String
+  prev_page_index : Int?
+  next_page_index : Int?
+  prev_candidate_id : String
+  next_candidate_id : String
+  prev_text : String
+  next_text : String
+  same_page : Bool
+  cross_page : Bool
+  source_refs : Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2SourceRef]
+  reason_tags : Array[String]
+  risk_tags : Array[String]
+  current_rule_decision : String
+  current_rule_confidence : Double
+  weak_label : String
+  gold_label : String
+  label_source : String
+}
+
+pub(all) struct PdfV2DatasetExport {
+  schema_version : String
+  doc_id : String
+  text_flow_rows : Array[PdfV2DatasetTextFlowRow]
+  boundary_rows : Array[PdfV2DatasetBoundaryRow]
+  artifact_rows : Array[PdfV2DatasetArtifactRow]
+  adjacency_rows : Array[PdfV2DatasetAdjacencyRow]
+}
+
+pub(all) struct PdfV2DatasetTextFlowRow {
+  schema_version : String
+  doc_id : String
+  row_id : String
+  task : String
+  split : String
+  page_index : Int?
+  block_index : Int?
+  flow_index : Int
+  candidate_id : String
+  candidate_text : String
+  normalized_text : String
+  line_count : Int
+  source_refs : Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2SourceRef]
+  reason_tags : Array[String]
+  risk_tags : Array[String]
+  current_rule_decision : String
+  current_rule_confidence : Double
+  weak_label : String
+  gold_label : String
+  label_source : String
 }
 
 pub(all) struct PdfV2DecisionInputs {

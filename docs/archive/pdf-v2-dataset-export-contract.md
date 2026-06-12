@@ -506,3 +506,99 @@ Any future runtime proposal must be a separate reset with:
 - per-label gate thresholds.
 - hard-negative precedence.
 - product regression gates.
+
+## 11. Reset 16B Dataset Exporter Adapter Scaffold
+
+Reset 16B adds the first opt-in MoonBit exporter scaffold in
+`convert/pdf_v2/pdf_v2_dataset_export.mbt`. It does not run from the default
+convert path, does not write files, and does not call quality-lab or training
+scripts.
+
+External flattening conventions observed from quality-lab remain TSV-first:
+fixed header order, Python `csv.DictWriter` style scalar fields, empty strings
+for missing scalar values, `0`/`1` booleans in feature TSVs, and split values
+such as `train`, `dev`, `heldout`, `test`, and `unknown`. The main-repo
+exporter therefore emits:
+
+- deterministic JSONL with one flat row object per line.
+- deterministic TSV with one shared header across row families.
+- array fields serialized as JSON arrays in JSONL and pipe-joined strings in
+  TSV.
+- missing categorical values as `unknown`, missing label values as `""`, absent
+  label provenance as `none`, and absent arrays as `[]`.
+
+Stable row id policy:
+
+```text
+pdfv2:<task>:<safe_doc_id>:p<page_index>:c<candidate_index>
+pdfv2:<task>:<safe_doc_id>:p<page_index>:b<boundary_index>
+pdfv2:<task>:<safe_doc_id>:p<page_index>:a<artifact_index>
+pdfv2:<task>:<safe_doc_id>:p<page_index>:adj<adjacency_index>
+```
+
+Rules:
+
+- `doc_id` is caller-provided and preserved as a row field.
+- `safe_doc_id` is only used inside `row_id`; non `[A-Za-z0-9_.-]` characters
+  become `_`.
+- row ids depend only on the supplied `doc_id`, row family order, page index,
+  and deterministic row index.
+- row ids do not depend on sample diffs, randomness, absolute paths, or file IO.
+
+Implemented row families:
+
+- `TextFlowRow`: one row per `PdfV2TextFlowCandidate`, with semantic rule
+  decision, confidence, weak label, source refs, reason tags, and risk tags.
+- `BoundaryRow`: one row per adjacent text-flow pair, including same-page and
+  cross-page flags.
+- `ArtifactRow`: one row per unique page artifact candidate referenced by
+  text-flow candidates.
+- `AdjacencyRow`: minimal rows for available table, image, inline-image, and
+  link facts.
+
+Documented but not populated in this scaffold:
+
+- `LayoutRegionRow`.
+- `ReadingOrderRow`.
+
+Weak label behavior:
+
+- text-flow rows use the current semantic rule decision as `weak_label` with
+  `label_source = rule_decision`.
+- artifact rows may expose parser artifact kind as weak parser-fact evidence;
+  this remains non-gold.
+- adjacency rows only expose parser/object weak evidence when directly
+  available, such as table candidates.
+- `gold_label` is always blank in the scaffold.
+
+Risk tags are deterministic and only emitted when backed by current facts:
+
+- `weak_label_rule_decision`
+- `low_geometry_confidence`
+- `cross_page_candidate`
+- `heading_short_text`
+- `list_marker_weak`
+- `artifact_repeat_low`
+- `image_nearby_text`
+- `table_candidate`
+- `link_annotation_nearby`
+- `semantic_fallback_paragraph`
+
+Export API:
+
+```text
+pdf_v2_export_dataset_from_pipeline_output(...)
+pdf_v2_export_dataset_from_fact_arrays(...)
+pdf_v2_dataset_export_to_jsonl(...)
+pdf_v2_dataset_export_to_tsv(...)
+```
+
+Boundary:
+
+- no product Markdown output changes.
+- no metadata sidecar changes.
+- no samples expected changes.
+- no training, model loading, model hints, runtime inference, or model
+  arbitration.
+- no default convert-path integration.
+- no quality-lab file changes or calls.
