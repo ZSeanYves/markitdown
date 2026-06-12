@@ -1311,3 +1311,116 @@
   - no v1 fallback, v1 PDF deletion, vendor runtime change, OCR, image-table
     recovery, full layout recovery, diagnostics text, external model/data
     access, or training hook was added.
+
+## Reset 15A Main Markdown Failure Taxonomy And Low-Risk Fixes
+
+- focus:
+  - classify every remaining Reset 14 main Markdown parity failure before
+    taking code changes.
+  - apply only evidence-backed text/layout fixes that cover a stable bucket and
+    do not touch sample expectations, metadata sidecar schema, asset material
+    policy, v1 fallback, OCR, image-table recovery, full layout recovery, model
+    loading/training, or external data access.
+- Reset 14 starting point:
+  - commit: `75c13a5 pdf-v2: improve text structure parity`.
+  - main Markdown run:
+    `.tmp/check/runs/pdf-20260612-191248-66777`, 15 failures.
+  - metadata-only run:
+    `.tmp/check/runs/pdf-20260612-191228-66529`, 0 failures.
+  - assets-only run:
+    `.tmp/check/runs/pdf-20260612-191248-66837`, 3 failures.
+- exact taxonomy of the 15 Reset 14 main Markdown failures:
+  - `assets/pdf_image_form_xobject`: image/text placement bucket. The nested
+    Form image asset is emitted, but the expected nearby heading
+    `Image inside Form XObject` is missing before the image. This still needs
+    safer image-nearby text placement/caption/title association.
+  - `assets/pdf_image_inline`: image sample heading bucket. The leading
+    `Inline image sample` line remains a paragraph rather than H1. A generic
+    lower-case title promotion would be broad and risky, so it was deferred.
+  - `assets/pdf_image_xobject`: image sample heading bucket. The leading
+    `XObject image sample` line remains a paragraph rather than H1. Same risk
+    profile as the inline image case.
+  - `hardwrap_zh`: CJK hardwrap and heading bucket. `技术路线` was not promoted
+    and body text split around `IR，`; fixed in this reset.
+  - `not_heading_sentence`: CJK punctuation hardwrap bucket. A short body
+    sentence split after `，`; fixed in this reset.
+  - `pdf_cross_page_paragraph`: cross-page paragraph and heading-level bucket.
+    A paragraph still splits at `page` / `break`, and `Next Section` is H1
+    rather than H2. Defer until page-boundary facts can distinguish section
+    continuation from new section starts.
+  - `pdf_cross_page_should_merge_phase15`: cross-page heading/body boundary
+    bucket. The title is fused with body text and the lower-case continuation
+    still appears as a new paragraph. Defer broad cross-page block recovery.
+  - `pdf_cross_page_should_not_merge_phase15`: cross-page non-merge and
+    marker-preservation bucket. The lead title is not a heading, and the page-2
+    section/list marker is fused into one paragraph. Defer until page-break
+    boundary and marker evidence survive together.
+  - `pdf_header_footer_variants_phase15`: repeated header/footer variant
+    bucket. Header lines with page numbers are fused with body starts and the
+    final footer remains attached. Defer because safe removal needs stronger
+    repeated-artifact facts for variant lines, not filename-specific filters.
+  - `pdf_heading_false_positive_phase15`: paragraph boundary and
+    heading/list-negative bucket. Multiple intentionally tricky short/all-caps
+    and numbered body lines are collapsed into one paragraph. Defer broad block
+    boundary reconstruction.
+  - `pdf_heading_vs_short_sentence`: heading/list bucket. The `Method` heading
+    level is fixed in this reset; remaining diff is lost unordered list markers
+    for `First item` / `Second item`.
+  - `pdf_repeated_header_footer_variants`: repeated header/footer plus
+    ligature/heading-level bucket. `Details` / `Conclusion` levels and the
+    `di ff erent` ligature split were fixed in this reset.
+  - `pdf_two_column_negative_phase15`: paragraph boundary and two-column order
+    bucket. Left/right column lines are collapsed into one paragraph. Defer
+    until column-aware layout recovery is in scope.
+  - `text_hardwrap`: CJK punctuation hardwrap bucket. `下一段：` was split from
+    its CJK body; fixed in this reset.
+  - `text_simple`: CJK/ASCII hardwrap plus heading false-positive bucket. The
+    first paragraph split around `PDF` and the prefix was promoted as H1; fixed
+    in this reset.
+- low-risk fixes applied:
+  - text output normalizer now treats conservative CJK punctuation-to-CJK
+    breaks and CJK/short-uppercase-ASCII term breaks as hardwrap
+    continuations.
+  - blank-line handling can ignore a cross-page blank only when the surrounding
+    text is an unfinished continuation, keeping sentence-ended page breaks
+    separated.
+  - heading rules treat common English section labels followed by intro/body
+    phrases such as `Key points:` as headings and infer them as subsections
+    after the document lead.
+  - heading rules reject inline CJK body markers such as
+    `第一段：这是...` as heading candidates.
+  - common observed ligature repair now covers `di ff erent`.
+- regression coverage:
+  - CJK/ASCII hardwrap positives and unsafe lowercase/sentence-ended negatives.
+  - unfinished cross-page continuation positive and sentence-ended cross-page
+    negative.
+  - English section-label-before-intro-phrase heading level.
+  - intro phrase and short body sentence not promoted.
+  - inline CJK body marker not promoted as a heading.
+- sample signal with explicit prebuilt CLIs:
+  - main Markdown improved from Reset 14's 15 failures to 10 in
+    `.tmp/check/runs/pdf-20260612-194329-70975`.
+  - metadata-only stayed 0 failures in
+    `.tmp/check/runs/pdf-20260612-194340-71480`.
+  - assets-only stayed 3 failures in
+    `.tmp/check/runs/pdf-20260612-194340-71483`.
+- remaining main Markdown failures after Reset 15A:
+  - image heading/placement: `assets/pdf_image_form_xobject`,
+    `assets/pdf_image_inline`, `assets/pdf_image_xobject`.
+  - cross-page paragraph/section boundary:
+    `pdf_cross_page_paragraph`,
+    `pdf_cross_page_should_merge_phase15`,
+    `pdf_cross_page_should_not_merge_phase15`.
+  - repeated header/footer variants:
+    `pdf_header_footer_variants_phase15`.
+  - paragraph boundary/list/heading negatives:
+    `pdf_heading_false_positive_phase15`,
+    `pdf_heading_vs_short_sentence`.
+  - two-column paragraph/order recovery:
+    `pdf_two_column_negative_phase15`.
+- unchanged boundaries:
+  - no sample expected files were updated.
+  - no v1 fallback, v1 PDF deletion, mbtpdf vendor runtime change, OCR,
+    image-table recovery, full layout recovery, diagnostics text, metadata
+    sidecar schema change, public `object_ref` reintroduction, external
+    model/data access, or training hook was added.

@@ -176,12 +176,14 @@ fn pdf_v2_repair_common_ligature_word_splits(text : String) -> String {
   .replace_all(old=" fi dential", new="fidential")
   .replace_all(old=" fi rm", new="firm")
   .replace_all(old=" fi ed", new="fied")
+  .replace_all(old="di ff erent", new="different")
   .replace_all(old=" fl ow", new=" flow")
   .replace_all(old=" Fi rst", new=" First")
   .replace_all(old=" Fi nal", new=" Final")
   .replace_all(old=" Fi dential", new="Fidential")
   .replace_all(old=" Fi rm", new="Firm")
   .replace_all(old=" Fi ed", new="Fied")
+  .replace_all(old="Di ff erent", new="Different")
   .replace_all(old=" Fl ow", new=" Flow")
 }
 
@@ -458,7 +460,7 @@ fn pdf_v2_output_line_starts_new_paragraph(
     return true
   }
   if left.page_index != right.page_index {
-    return true
+    return !pdf_v2_cross_page_output_line_continues(l, r)
   }
   if pdf_v2_output_line_starts_semantic_marker(l) ||
     pdf_v2_output_line_starts_semantic_marker(r) ||
@@ -475,9 +477,7 @@ fn pdf_v2_output_line_starts_new_paragraph(
   if pdf_v2_repeated_artifact_line_before_body(l, r) {
     return true
   }
-  if pdf_v2_join_without_space(l, r) ||
-    pdf_v2_should_unwrap_hyphenated_word(l, r) ||
-    pdf_v2_is_lowercase_continuation(r) {
+  if pdf_v2_output_line_continues_hardwrap(l, r) {
     return false
   }
   if pdf_v2_ends_sentence(l) &&
@@ -501,7 +501,7 @@ fn pdf_v2_should_ignore_blank_between_output_lines(
     return false
   }
   if left.page_index != right.page_index {
-    return false
+    return pdf_v2_cross_page_output_line_continues(l, r)
   }
   if pdf_v2_numbered_section_heading_waits_across_blank(l, r) {
     return true
@@ -517,9 +517,7 @@ fn pdf_v2_should_ignore_blank_between_output_lines(
     pdf_v2_ends_sentence(l) {
     return false
   }
-  pdf_v2_join_without_space(l, r) ||
-  pdf_v2_should_unwrap_hyphenated_word(l, r) ||
-  pdf_v2_is_lowercase_continuation(r)
+  pdf_v2_output_line_continues_hardwrap(l, r)
 }
 
 ///|
@@ -622,6 +620,7 @@ fn pdf_v2_join_without_space(left : String, right : String) -> Bool {
   match (pdf_v2_last_char(left), pdf_v2_first_char(right)) {
     (Some(lc), Some(rc)) =>
       (pdf_v2_is_cjk(lc) && pdf_v2_is_cjk(rc)) ||
+      pdf_v2_cjk_punctuation_to_cjk_continuation(lc, rc) ||
       pdf_v2_right_tight_punctuation(rc) ||
       pdf_v2_left_tight_punctuation(lc) ||
       pdf_v2_numeric_separator_continuation(left, rc) ||
@@ -854,10 +853,101 @@ fn pdf_v2_current_output_line_continues(
   current_text : String,
   right_text : String,
 ) -> Bool {
-  pdf_v2_join_without_space(current_text, right_text) ||
-  pdf_v2_should_unwrap_hyphenated_word(current_text, right_text) ||
-  pdf_v2_is_lowercase_continuation(right_text) ||
+  pdf_v2_output_line_continues_hardwrap(current_text, right_text) ||
   pdf_v2_cross_block_cjk_term_continuation(current_text, right_text)
+}
+
+///|
+fn pdf_v2_output_line_continues_hardwrap(
+  left_text : String,
+  right_text : String,
+) -> Bool {
+  pdf_v2_join_without_space(left_text, right_text) ||
+  pdf_v2_should_unwrap_hyphenated_word(left_text, right_text) ||
+  pdf_v2_is_lowercase_continuation(right_text) ||
+  pdf_v2_mixed_cjk_ascii_term_continuation(left_text, right_text)
+}
+
+///|
+fn pdf_v2_cross_page_output_line_continues(
+  left_text : String,
+  right_text : String,
+) -> Bool {
+  let left = left_text.trim().to_owned()
+  let right = right_text.trim().to_owned()
+  if left == "" ||
+    right == "" ||
+    pdf_v2_ends_sentence(left) ||
+    pdf_v2_output_line_starts_semantic_marker(right) ||
+    pdf_v2_is_page_number_like_noise(left) ||
+    pdf_v2_is_page_number_like_noise(right) ||
+    pdf_v2_looks_like_standalone_title_line(left) ||
+    pdf_v2_looks_like_standalone_title_line(right) {
+    return false
+  }
+  pdf_v2_output_line_continues_hardwrap(left, right)
+}
+
+///|
+fn pdf_v2_mixed_cjk_ascii_term_continuation(
+  left_text : String,
+  right_text : String,
+) -> Bool {
+  let left = left_text.trim().to_owned()
+  let right = right_text.trim().to_owned()
+  if left == "" ||
+    right == "" ||
+    pdf_v2_ends_sentence(left) ||
+    pdf_v2_output_line_starts_semantic_marker(right) ||
+    pdf_v2_is_page_number_like_noise(left) ||
+    pdf_v2_is_page_number_like_noise(right) ||
+    pdf_v2_looks_like_standalone_title_line(left) ||
+    pdf_v2_looks_like_standalone_title_line(right) {
+    return false
+  }
+  match (pdf_v2_last_char(left), pdf_v2_first_char(right)) {
+    (Some(lc), Some(rc)) =>
+      if pdf_v2_is_ascii_letter(lc) && pdf_v2_is_cjk(rc) {
+        let term = pdf_v2_trailing_ascii_letters(left)
+        pdf_v2_has_cjk(left) && pdf_v2_short_upper_ascii_term(term)
+      } else if pdf_v2_is_cjk(lc) && pdf_v2_is_ascii_letter(rc) {
+        let term = pdf_v2_leading_ascii_letters(right)
+        pdf_v2_has_cjk(left) && pdf_v2_short_upper_ascii_term(term)
+      } else {
+        false
+      }
+    _ => false
+  }
+}
+
+///|
+fn pdf_v2_short_upper_ascii_term(text : String) -> Bool {
+  let t = text.trim().to_owned()
+  if t.length() < 2 || t.length() > 8 {
+    return false
+  }
+  let mut letters = 0
+  for ch in t {
+    if ch >= 'A' && ch <= 'Z' {
+      letters = letters + 1
+    } else {
+      return false
+    }
+  }
+  letters >= 2
+}
+
+///|
+fn pdf_v2_cjk_punctuation_to_cjk_continuation(
+  left : Char,
+  right : Char,
+) -> Bool {
+  pdf_v2_cjk_continuation_punctuation(left) && pdf_v2_is_cjk(right)
+}
+
+///|
+fn pdf_v2_cjk_continuation_punctuation(ch : Char) -> Bool {
+  ch == '，' || ch == '、' || ch == '：' || ch == '；'
 }
 
 ///|
@@ -1642,6 +1732,16 @@ fn pdf_v2_is_cjk(ch : Char) -> Bool {
   (code >= 0x3400 && code <= 0x4DBF) ||
   (code >= 0x4E00 && code <= 0x9FFF) ||
   (code >= 0xF900 && code <= 0xFAFF)
+}
+
+///|
+fn pdf_v2_has_cjk(text : String) -> Bool {
+  for ch in text {
+    if pdf_v2_is_cjk(ch) {
+      return true
+    }
+  }
+  false
 }
 
 ///|

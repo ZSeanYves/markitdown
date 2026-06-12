@@ -38,14 +38,58 @@ test "pdf v2 text output normalizer expands ligatures without semantic markdown"
 ///|
 test "pdf v2 text output normalizer repairs common split ligature words" {
   let normalized = pdf_v2_normalize_paragraph_text(
-    "This is the fi rst fl ow and Con fi dential text.",
+    "This is the fi rst fl ow, di ff erent, and Con fi dential text.",
   )
 
-  assert_true(normalized == "This is the first flow and Confidential text.")
+  assert_true(
+    normalized == "This is the first flow, different, and Confidential text.",
+  )
 }
 
 ///|
 test "pdf v2 text output normalizer recognizes split cjk fraction page labels" {
   assert_true(pdf_v2_is_page_number_like_noise("3/1"))
   assert_true(pdf_v2_is_page_number_like_noise("第页3/1"))
+}
+
+///|
+test "pdf v2 text output normalizer joins conservative CJK hardwrap continuations" {
+  assert_true(
+    pdf_v2_output_line_continues_hardwrap("用于验证 PDF", "文本抽取"),
+  )
+  assert_true(
+    pdf_v2_output_line_continues_hardwrap("首先完成统一", "IR，"),
+  )
+  assert_true(
+    pdf_v2_output_line_continues_hardwrap(
+      "下一段：", "中文也可能被硬换行",
+    ),
+  )
+}
+
+///|
+test "pdf v2 text output normalizer keeps unsafe CJK ASCII breaks separate" {
+  assert_true(
+    !pdf_v2_output_line_continues_hardwrap("用于验证 pdf", "文本抽取"),
+  )
+  assert_true(
+    !pdf_v2_output_line_continues_hardwrap("完整句子。", "下一段正文"),
+  )
+  assert_true(
+    !pdf_v2_cross_page_output_line_continues("Heading", "下一段正文"),
+  )
+}
+
+///|
+test "pdf v2 text output normalizer allows only unfinished cross page continuation" {
+  assert_true(
+    pdf_v2_cross_page_output_line_continues(
+      "continues across the page", "break and resumes",
+    ),
+  )
+  assert_true(
+    !pdf_v2_cross_page_output_line_continues(
+      "This section ends cleanly here.", "Next topic",
+    ),
+  )
 }

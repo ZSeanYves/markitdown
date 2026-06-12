@@ -530,3 +530,43 @@ remaining metadata-only text samples.
 - No sample expected files, v1 PDF path, diagnostics output, fallback,
   OCR/image-table recovery, full layout recovery, model loading/training, or
   external data access were introduced.
+
+## Reset 15A Main Markdown Failure Taxonomy And Low-Risk Fixes
+
+Reset 15A keeps the work in convert/productization and narrows only
+evidence-backed text/layout patterns from the 15 remaining main Markdown
+failures.
+
+- Starting taxonomy:
+  - Reset 14 main Markdown had 15 failures in
+    `.tmp/check/runs/pdf-20260612-191248-66777`.
+  - Buckets were image heading/placement, CJK/ASCII hardwrap, cross-page
+    merge/non-merge, repeated header/footer variants, heading/list negatives,
+    and two-column paragraph ordering.
+- Product fixes:
+  - CJK punctuation-to-CJK hardwrap and CJK/short-uppercase-ASCII term
+    hardwrap continuations are joined conservatively.
+  - Cross-page blank lines can be ignored only when both sides look like an
+    unfinished continuation; sentence-ended page breaks still separate blocks.
+  - Common section labels followed by intro/body phrases such as `Key points:`
+    can promote as headings and infer subsection level after a document lead.
+  - Inline CJK body markers such as `第一段：这是...` are guarded from heading
+    promotion.
+  - Observed ligature split repair includes `di ff erent`.
+- Regression coverage:
+  - hardwrap positives and unsafe lowercase/sentence-ended negatives.
+  - cross-page continuation positive and sentence-ended negative.
+  - section-label heading level, intro phrase safety, short body sentence
+    safety, and inline CJK body-marker safety.
+- Sample signal:
+  - main Markdown improved to 10 failures in
+    `.tmp/check/runs/pdf-20260612-194329-70975`.
+  - metadata-only remained 0 failures in
+    `.tmp/check/runs/pdf-20260612-194340-71480`.
+  - assets-only remained 3 failures in
+    `.tmp/check/runs/pdf-20260612-194340-71483`.
+- Boundaries:
+  - no sample expected updates, v1 fallback, diagnostics Markdown, metadata
+    sidecar schema change, public `object_ref` reintroduction, OCR/image-table
+    recovery, full layout recovery, model loading/training, or external data
+    access.

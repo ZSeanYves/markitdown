@@ -293,3 +293,37 @@ test "pdf v2 sample targeted heading versus short sentence like flow" {
   assert_true(blocks[5].kind == PdfV2SemanticBlockKind::Paragraph)
   assert_true(blocks[6].kind == PdfV2SemanticBlockKind::UnorderedListItem)
 }
+
+///|
+test "pdf v2 heading rules promote section label before intro phrase as subsection" {
+  let blocks = semantic_test_blocks([
+    "Heading vs Short Sentence", "Introduction", "This matters.", "Figure 1. System overview.",
+    "Method", "Key points:", "• First item",
+  ])
+
+  assert_true(blocks[4].kind == PdfV2SemanticBlockKind::Heading)
+  assert_true(blocks[4].level == Some(2))
+  assert_true(blocks[5].kind == PdfV2SemanticBlockKind::Paragraph)
+  assert_true(blocks[6].kind == PdfV2SemanticBlockKind::UnorderedListItem)
+}
+
+///|
+test "pdf v2 heading rules keep intro phrase and short body sentence safe" {
+  let blocks = semantic_test_blocks([
+    "Heading vs Short Sentence", "Introduction", "This matters.", "In conclusion,",
+    "This final paragraph should remain a normal paragraph.",
+  ])
+
+  assert_true(blocks[3].kind == PdfV2SemanticBlockKind::Paragraph)
+  assert_true(blocks[4].kind == PdfV2SemanticBlockKind::Paragraph)
+}
+
+///|
+test "pdf v2 heading rules keep inline CJK body marker as paragraph" {
+  let blocks = semantic_test_blocks([
+    "MarkItDown MoonBit MVP 测试（Simple）", "第一段：这是一个用于验证 PDF 文本抽取的样例。",
+  ])
+
+  assert_true(blocks[0].kind == PdfV2SemanticBlockKind::Heading)
+  assert_true(blocks[1].kind == PdfV2SemanticBlockKind::Paragraph)
+}

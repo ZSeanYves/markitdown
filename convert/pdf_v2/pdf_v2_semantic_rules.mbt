@@ -494,6 +494,9 @@ fn pdf_v2_semantic_infer_heading_level(unit : PdfV2TextFlowUnit) -> Int {
   } else if unit.signals.has_previous_heading &&
     pdf_v2_heading_looks_like_common_english_section_label(text) {
     2
+  } else if unit.flow_index > 0 &&
+    pdf_v2_heading_looks_like_common_english_section_label(text) {
+    2
   } else {
     1
   }
@@ -622,6 +625,9 @@ fn pdf_v2_heading_basic_shape_ok(text : String) -> Bool {
     t.has_suffix("；") {
     return false
   }
+  if pdf_v2_heading_contains_inline_cjk_body_marker(t) {
+    return false
+  }
   if pdf_v2_is_page_number_like_noise(t) ||
     pdf_v2_heading_looks_like_caption(t) ||
     pdf_v2_heading_looks_like_bullet_or_list_item(t) ||
@@ -657,6 +663,9 @@ fn pdf_v2_heading_next_looks_like_body(next_text : String?) -> Bool {
         return true
       }
       if t.length() >= 24 || pdf_v2_heading_word_count(t) >= 5 {
+        return true
+      }
+      if pdf_v2_heading_looks_like_intro_phrase(t) {
         return true
       }
       false
@@ -851,6 +860,22 @@ fn pdf_v2_heading_looks_like_caption(text : String) -> Bool {
   lower.has_prefix("image ") ||
   text.has_prefix("图") ||
   text.has_prefix("表")
+}
+
+///|
+fn pdf_v2_heading_contains_inline_cjk_body_marker(text : String) -> Bool {
+  let chars = text.to_array()
+  for i in 0..<chars.length() {
+    let ch = chars[i]
+    if (ch == '：' || ch == ':') &&
+      i > 0 &&
+      i + 1 < chars.length() &&
+      pdf_v2_is_cjk(chars[i - 1]) &&
+      pdf_v2_is_cjk(chars[i + 1]) {
+      return true
+    }
+  }
+  false
 }
 
 ///|

@@ -790,3 +790,42 @@ Reset 14 remains a convert/productization pass over existing parser facts.
 - Remaining parser-facing blockers:
   - hardwrap, cross-page merge, heading/header-footer variants, image placement
     parity, and later annotation/form/outline product facts remain future work.
+
+## Reset 15A Main Markdown Failure Taxonomy And Low-Risk Fixes
+
+Reset 15A does not add parser capabilities. It records which Reset 14 main
+Markdown failures were safe to reduce in convert and which still need stronger
+parser/layout evidence.
+
+- Convert-only reductions:
+  - conservative CJK/ASCII hardwrap continuations.
+  - unfinished cross-page continuation across an intervening blank.
+  - section-label heading inference before intro/body phrases.
+  - heading-negative guard for inline CJK body markers.
+  - one observed ligature split repair for `di ff erent`.
+- Parser facts unchanged:
+  - text flow candidates, page artifacts, source refs, image facts, table
+    candidates, links, forms, metadata, and object facts keep their Reset 14
+    shape.
+  - no parser-side OCR, image-table recovery, full layout recovery,
+    annotation/form/outline expansion, fallback, vendor runtime change, model
+    loading/training, or external data access was introduced.
+- Remaining parser-facing blockers after the Reset 15A sample run:
+  - image heading/placement needs stronger nearby text/caption/title evidence
+    around XObject, inline image, and nested Form image placements.
+  - cross-page merge/non-merge needs page-boundary facts that preserve both
+    title/body boundaries and list/numbered-marker starts.
+  - repeated header/footer variants need parser-backed artifact matching for
+    lines with varying page labels and fused body starts.
+  - `pdf_heading_false_positive_phase15` and the remaining
+    `pdf_heading_vs_short_sentence` list-marker gap need more reliable
+    paragraph/list boundary facts.
+  - `pdf_two_column_negative_phase15` needs column-aware layout order recovery;
+    it is intentionally outside this low-risk convert pass.
+- Sample signal:
+  - main Markdown: 15 -> 10 failures, final run
+    `.tmp/check/runs/pdf-20260612-194329-70975`.
+  - metadata-only: stayed 0 failures, final run
+    `.tmp/check/runs/pdf-20260612-194340-71480`.
+  - assets-only: stayed 3 failures, final run
+    `.tmp/check/runs/pdf-20260612-194340-71483`.
