@@ -800,3 +800,26 @@ consume parity facts.
   - no product Markdown, metadata sidecar, samples expected, fallback,
     normalizer patch, semantic patch, model loading, runtime inference,
     quality-lab dependency, or training changed.
+
+## Reset 17C Cross-page Fact-backed Arbitration
+
+Reset 17C is the first narrow parser-fact-backed product behavior change. It
+only consumes `PdfV2CrossPageBoundaryFact` through the dedicated
+`pdf_v2_cross_page_boundary_facts_from_candidates(...)` API; it does not call
+the full parity fact builder and does not consume image, header/footer,
+heading-boundary, or column facts.
+
+- Join gates:
+  - confidence must be at least `0.60`.
+  - source refs must be present and match both sides of the page boundary.
+  - previous text must be open-ended.
+  - the next page start must not be a marker/list, page artifact, page number,
+    or heading/title-like blocker.
+  - low-confidence, ambiguity, or audit-only tags block product arbitration.
+- Fallback:
+  - no qualifying fact preserves the existing product path.
+  - explicit blockers keep the existing split behavior.
+- Scope intentionally untouched:
+  - metadata sidecars, assets, images/captions, header/footer suppression,
+    heading classification, columns/reading order, samples expected,
+    quality-lab, model loading, runtime inference, and training.

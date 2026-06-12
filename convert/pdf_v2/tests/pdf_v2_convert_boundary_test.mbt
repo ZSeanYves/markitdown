@@ -4572,6 +4572,163 @@ test "pdf v2 product bridge suppresses parser repeated artifact candidates" {
 }
 
 ///|
+fn reset17c_page_text_ref(
+  page_index : Int,
+  order : Int,
+) -> @pdfv2.PdfV2SourceRef {
+  {
+    ..phase14_text_ref(order),
+    page_index: Some(page_index),
+    op_index: Some(order),
+    content_order_index: Some(order),
+  }
+}
+
+///|
+fn reset17c_line(
+  page_index : Int,
+  line_index : Int,
+  text : String,
+  order : Int,
+) -> @pdfv2.PdfV2LineCandidate {
+  let source_ref = reset17c_page_text_ref(page_index, order)
+  { ..phase14_line(line_index, text, source_ref), page_index: Some(page_index) }
+}
+
+///|
+fn reset17c_block(
+  page_index : Int,
+  block_index : Int,
+  text : String,
+  order : Int,
+) -> @pdfv2.PdfV2BlockCandidate {
+  {
+    ..phase14_block(
+      block_index,
+      text,
+      [reset17c_line(page_index, 0, text, order)],
+      @pdfv2.PdfV2TextDecodeConfidence::High,
+    ),
+    page_index: Some(page_index),
+  }
+}
+
+///|
+fn reset17c_model(
+  first_text : String,
+  second_text : String,
+) -> @pdfv2.PdfV2DocumentModel {
+  let first_block = reset17c_block(0, 0, first_text, 0)
+  let second_block = reset17c_block(1, 0, second_text, 1)
+  let first_page = { ..phase14_page(), blocks: [first_block] }
+  let second_page = {
+    ..phase14_page(),
+    page_index: 1,
+    source_ref: { ..phase14_page_ref(), page_index: Some(1) },
+    blocks: [second_block],
+  }
+  {
+    ..phase14_model([]),
+    page_count: 2,
+    pages: [first_page, second_page],
+    source_summary: @pdfv2.pdf_v2_source_summary(0, 2, 0, 0),
+  }
+}
+
+///|
+fn reset17c_bridge_doc(
+  first_text : String,
+  second_text : String,
+) -> @cor.Document raise {
+  let model = reset17c_model(first_text, second_text)
+  let lowered = @pdfv2conv.pdf_v2_lower_fact_model(
+    phase14_default_input(model, None),
+  )
+  phase20_bridge_document(
+    phase20_pipeline_ok_with_candidates(
+      2,
+      lowered.fragments,
+      lowered.text_flow_candidates,
+      [],
+      [],
+      [],
+    ),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+}
+
+///|
+test "pdf v2 product bridge joins high confidence cross page continuation fact" {
+  let doc = reset17c_bridge_doc(
+    "The implementation continues across the page", "break and resumes cleanly.",
+  )
+
+  assert_true(doc.blocks.val.length() == 1)
+  match doc.blocks.val[0] {
+    @cor.Block::Paragraph(text) =>
+      assert_true(
+        text ==
+        "The implementation continues across the page break and resumes cleanly.",
+      )
+    _ => fail("expected fact-backed merged paragraph")
+  }
+}
+
+///|
+test "pdf v2 product bridge keeps next page list marker split" {
+  let doc = reset17c_bridge_doc(
+    "The implementation continues across the page", "- blocker item",
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(doc.blocks.val.length() == 2)
+  assert_true(markdown.contains("The implementation continues across the page"))
+  assert_true(markdown.contains("- blocker item"))
+}
+
+///|
+test "pdf v2 product bridge keeps heading like next page split" {
+  let doc = reset17c_bridge_doc(
+    "The implementation continues across the page", "Next Section",
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(doc.blocks.val.length() == 2)
+  assert_true(markdown.contains("The implementation continues across the page"))
+  assert_true(markdown.contains("Next Section"))
+}
+
+///|
+test "pdf v2 product bridge does not join without cross page fact" {
+  let fragments = [
+    @pdfv2conv.PdfV2FactFragment::{
+      kind: PlainText,
+      text: "The implementation continues across the page",
+      page_index: Some(0),
+      block_index: Some(0),
+      line_count: 1,
+      source_refs: [reset17c_page_text_ref(0, 0)],
+      reason_tags: ["reset17c_fragment_only"],
+    },
+    @pdfv2conv.PdfV2FactFragment::{
+      kind: PlainText,
+      text: "break and resumes cleanly.",
+      page_index: Some(1),
+      block_index: Some(0),
+      line_count: 1,
+      source_refs: [reset17c_page_text_ref(1, 1)],
+      reason_tags: ["reset17c_fragment_only"],
+    },
+  ]
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok(2, fragments),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+
+  assert_true(doc.blocks.val.length() == 2)
+}
+
+///|
 test "pdf v2 product bridge semantic disabled keeps parser fact text plain" {
   let title_line = phase14_line(0, "Introduction", phase14_text_ref(0))
   let body_line = phase14_line(1, "Body sentence.", phase14_text_ref(1))
@@ -4697,6 +4854,19 @@ test "pdf v2 convert boundary guard stays parser fact only" {
   assert_true(!bridge_text.contains("pdf_v2_parity_facts_from_model"))
   assert_true(!pipeline_text.contains("pdf_v2_parity_facts_from_model"))
   assert_true(!lowerer_text.contains("pdf_v2_parity_facts_from_model"))
+  assert_true(
+    bridge_text.contains("pdf_v2_cross_page_boundary_facts_from_candidates"),
+  )
+  assert_true(semantic_rules_text.contains("PdfV2CrossPageBoundaryFact"))
+  assert_true(!bridge_text.contains("PdfV2ImageTextBoundaryFact"))
+  assert_true(!bridge_text.contains("PdfV2HeaderFooterVariantFact"))
+  assert_true(!bridge_text.contains("PdfV2HeadingBoundaryFact"))
+  assert_true(!bridge_text.contains("PdfV2ColumnLayoutFact"))
+  assert_true(!semantic_rules_text.contains("PdfV2ImageTextBoundaryFact"))
+  assert_true(!semantic_rules_text.contains("PdfV2HeaderFooterVariantFact"))
+  assert_true(!semantic_rules_text.contains("PdfV2HeadingBoundaryFact"))
+  assert_true(!semantic_rules_text.contains("PdfV2ColumnLayoutFact"))
+  assert_true(!bridge_text.contains("pdf_v2_parity_facts_from_model"))
   assert_true(!bridge_text.contains("PdfV2BlockRole"))
   assert_true(bridge_text.contains("enable_uri_link_rules"))
   assert_true(bridge_text.contains("enable_table_rules"))

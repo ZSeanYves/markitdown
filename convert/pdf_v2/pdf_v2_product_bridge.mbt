@@ -458,10 +458,40 @@ fn pdf_v2_product_bridge_semantic_blocks(
   if pdf_v2_product_bridge_has_actionable_text_flow_candidates(
       text_flow_candidates,
     ) {
-    pdf_v2_semantic_blocks_from_candidates(text_flow_candidates, options)
+    let cross_page_facts = @pdfv2.pdf_v2_cross_page_boundary_facts_from_candidates(
+      text_flow_candidates,
+    )
+    if pdf_v2_has_product_cross_page_arbitration_candidate(cross_page_facts) {
+      pdf_v2_semantic_blocks_from_candidates_with_cross_page_facts(
+        text_flow_candidates, options, cross_page_facts,
+      )
+    } else {
+      pdf_v2_semantic_blocks_from_candidates(text_flow_candidates, options)
+    }
   } else {
-    pdf_v2_semantic_blocks_from_fragments(fragments, options)
+    let cross_page_facts = @pdfv2.pdf_v2_cross_page_boundary_facts_from_candidates(
+      text_flow_candidates,
+    )
+    if pdf_v2_has_product_cross_page_arbitration_candidate(cross_page_facts) {
+      pdf_v2_semantic_blocks_from_fragments_with_cross_page_facts(
+        fragments, options, cross_page_facts,
+      )
+    } else {
+      pdf_v2_semantic_blocks_from_fragments(fragments, options)
+    }
   }
+}
+
+///|
+fn pdf_v2_has_product_cross_page_arbitration_candidate(
+  cross_page_facts : Array[@pdfv2.PdfV2CrossPageBoundaryFact],
+) -> Bool {
+  for fact in cross_page_facts {
+    if pdf_v2_cross_page_fact_qualifies(fact) {
+      return true
+    }
+  }
+  false
 }
 
 ///|

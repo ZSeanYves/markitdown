@@ -40,6 +40,8 @@ pub fn pdf_v2_core_page_fact(Int, PdfV2BBox, PdfV2SourceRef) -> PdfV2CorePageFac
 
 pub fn pdf_v2_core_supported_capabilities() -> Array[PdfV2CoreCapability]
 
+pub fn pdf_v2_cross_page_boundary_facts_from_candidates(Array[PdfV2TextFlowCandidate]) -> Array[PdfV2CrossPageBoundaryFact]
+
 pub fn pdf_v2_default_block_reconstruction_options() -> PdfV2BlockReconstructionOptions
 
 pub fn pdf_v2_default_line_reconstruction_options() -> PdfV2LineReconstructionOptions

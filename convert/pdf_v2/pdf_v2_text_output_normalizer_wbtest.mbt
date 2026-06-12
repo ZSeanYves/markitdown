@@ -160,41 +160,49 @@ fn text_output_normalizer_test_has_paragraph(
 }
 
 ///|
+fn text_output_normalizer_test_paragraph(
+  fragment_index : Int,
+  text : String,
+) -> PdfV2TextOutputParagraph {
+  {
+    text,
+    fragment_index,
+    line_count: 1,
+    source_refs: [],
+    reason_tags: ["text_output_normalizer_test"],
+  }
+}
+
+///|
 test "pdf v2 text output normalizer requires repeated artifact evidence" {
   let options = default_pdf_v2_product_bridge_options()
   let single = pdf_v2_filter_repeated_artifact_paragraphs(
     [
-      { text: "Project Report", fragment_index: 0, line_count: 1 },
-      { text: "Confidential", fragment_index: 1, line_count: 1 },
-      {
-        text: "This body sentence remains visible.",
-        fragment_index: 2,
-        line_count: 1,
-      },
+      text_output_normalizer_test_paragraph(0, "Project Report"),
+      text_output_normalizer_test_paragraph(1, "Confidential"),
+      text_output_normalizer_test_paragraph(
+        2, "This body sentence remains visible.",
+      ),
     ],
     options,
   )
   let repeated_artifact = pdf_v2_filter_repeated_artifact_paragraphs(
     [
-      { text: "Project Report", fragment_index: 0, line_count: 1 },
-      {
-        text: "This body sentence remains visible.",
-        fragment_index: 1,
-        line_count: 1,
-      },
-      { text: "Project Report", fragment_index: 2, line_count: 1 },
+      text_output_normalizer_test_paragraph(0, "Project Report"),
+      text_output_normalizer_test_paragraph(
+        1, "This body sentence remains visible.",
+      ),
+      text_output_normalizer_test_paragraph(2, "Project Report"),
     ],
     options,
   )
   let repeated_title = pdf_v2_filter_repeated_artifact_paragraphs(
     [
-      { text: "Project Overview", fragment_index: 0, line_count: 1 },
-      {
-        text: "This body sentence remains visible.",
-        fragment_index: 1,
-        line_count: 1,
-      },
-      { text: "Project Overview", fragment_index: 2, line_count: 1 },
+      text_output_normalizer_test_paragraph(0, "Project Overview"),
+      text_output_normalizer_test_paragraph(
+        1, "This body sentence remains visible.",
+      ),
+      text_output_normalizer_test_paragraph(2, "Project Overview"),
     ],
     options,
   )

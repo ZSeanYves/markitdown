@@ -1102,3 +1102,30 @@ Product boundary:
 - no product Markdown, metadata sidecar, samples expected, v1 fallback,
   normalizer patch, semantic patch, model loading, runtime inference, training,
   quality-lab write, dataset export, or model artifact changed.
+
+## Reset 17C Cross-page Boundary Fact-backed Product Arbitration
+
+Reset 17C narrows product consumption to one parser-owned fact family.
+
+New cross-page-only API:
+
+```text
+pdf_v2_cross_page_boundary_facts_from_candidates(candidates)
+```
+
+Alignment update:
+
+| fact | Reset 17C product status | still audit-only |
+| --- | --- | --- |
+| `PdfV2CrossPageBoundaryFact` | consumed only for adjacent cross-page paragraph merge/split arbitration when confidence >= 0.60, source refs match both sides, previous text is open-ended, and the next side is not marker/list/heading-like | low confidence, missing refs, marker/list/heading-like next side, ambiguity/audit-only tags |
+| `PdfV2ImageTextBoundaryFact` | not consumed | all image placement/caption/nearby-heading evidence |
+| `PdfV2HeaderFooterVariantFact` | not consumed | all header/footer variant evidence |
+| `PdfV2HeadingBoundaryFact` | not consumed | heading risk/demotion evidence |
+| `PdfV2ColumnLayoutFact` | not consumed | column count and reading-order ambiguity evidence |
+
+Product guard:
+
+- `convert/pdf_v2` may call the cross-page-only candidate extractor.
+- `convert/pdf_v2` still does not call `pdf_v2_parity_facts_from_model`.
+- no quality-lab, training, runtime inference, generated dataset, metadata
+  sidecar, assets, or sample expected output changed.

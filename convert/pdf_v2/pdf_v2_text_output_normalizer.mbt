@@ -4,6 +4,8 @@ priv struct PdfV2TextOutputLine {
   fragment_index : Int
   page_index : Int?
   block_index : Int?
+  source_refs : Array[@pdfv2.PdfV2SourceRef]
+  reason_tags : Array[String]
 }
 
 ///|
@@ -11,6 +13,8 @@ priv struct PdfV2TextOutputParagraph {
   text : String
   fragment_index : Int
   line_count : Int
+  source_refs : Array[@pdfv2.PdfV2SourceRef]
+  reason_tags : Array[String]
 }
 
 ///|
@@ -30,6 +34,8 @@ fn pdf_v2_text_output_fragment_lines(
       fragment_index,
       page_index: fragment.page_index,
       block_index: fragment.block_index,
+      source_refs: fragment.source_refs,
+      reason_tags: fragment.reason_tags,
     })
   }
   lines
@@ -49,6 +55,8 @@ fn pdf_v2_text_output_normalize_candidate_lines(
         fragment_index: 0,
         page_index: None,
         block_index: None,
+        source_refs: [],
+        reason_tags: [],
       })
     }
   } else {
@@ -58,6 +66,8 @@ fn pdf_v2_text_output_normalize_candidate_lines(
         fragment_index: 0,
         page_index: None,
         block_index: None,
+        source_refs: [],
+        reason_tags: [],
       })
     }
   }
@@ -249,6 +259,15 @@ fn pdf_v2_text_output_paragraphs(
   fragments : Array[PdfV2FactFragment],
   options : PdfV2ProductBridgeOptions,
 ) -> Array[PdfV2TextOutputParagraph] {
+  pdf_v2_text_output_paragraphs_with_cross_page_facts(fragments, options, [])
+}
+
+///|
+fn pdf_v2_text_output_paragraphs_with_cross_page_facts(
+  fragments : Array[PdfV2FactFragment],
+  options : PdfV2ProductBridgeOptions,
+  cross_page_facts : Array[@pdfv2.PdfV2CrossPageBoundaryFact],
+) -> Array[PdfV2TextOutputParagraph] {
   let lines = pdf_v2_text_output_line_stream(fragments)
   let paragraphs : Array[PdfV2TextOutputParagraph] = []
   let current : Array[PdfV2TextOutputLine] = []
@@ -271,6 +290,8 @@ fn pdf_v2_text_output_paragraphs(
         text,
         fragment_index: current[0].fragment_index,
         line_count,
+        source_refs: pdf_v2_text_output_line_refs(current),
+        reason_tags: pdf_v2_text_output_line_tags(current),
       })
     }
     current.clear()
@@ -287,6 +308,8 @@ fn pdf_v2_text_output_paragraphs(
           fragment_index: lines[target_index].fragment_index,
           page_index: lines[target_index].page_index,
           block_index: lines[target_index].block_index,
+          source_refs: lines[target_index].source_refs,
+          reason_tags: lines[target_index].reason_tags,
         }
       }
       None => ()
@@ -301,6 +324,8 @@ fn pdf_v2_text_output_paragraphs(
         fragment_index: line.fragment_index,
         page_index: line.page_index,
         block_index: line.block_index,
+        source_refs: line.source_refs,
+        reason_tags: line.reason_tags,
       }
     }
     if line.text == "" {
@@ -310,6 +335,7 @@ fn pdf_v2_text_output_paragraphs(
             pdf_v2_should_ignore_blank_between_output_lines(
               current[current.length() - 1],
               lines[next_index],
+              cross_page_facts,
             ) {
             i = i + 1
             continue
@@ -340,7 +366,7 @@ fn pdf_v2_text_output_paragraphs(
       }
       let joined = pdf_v2_join_output_lines(current)
       let current_starts_new = pdf_v2_current_output_starts_new_paragraph(
-        current, line,
+        current, line, cross_page_facts,
       )
       if pdf_v2_current_numbered_heading_waits_for_tail(joined, line.text) {
         current.push(line)
@@ -352,7 +378,9 @@ fn pdf_v2_text_output_paragraphs(
         current.push(line)
         i = i + 1
         continue
-      } else if pdf_v2_output_line_starts_new_paragraph(last, line) {
+      } else if pdf_v2_output_line_starts_new_paragraph(
+          last, line, cross_page_facts,
+        ) {
         flush_current()
       }
       current.push(line)
@@ -378,6 +406,8 @@ fn pdf_v2_text_output_line_stream(
         fragment_index,
         page_index: fragment.page_index,
         block_index: fragment.block_index,
+        source_refs: fragment.source_refs,
+        reason_tags: fragment.reason_tags,
       })
     }
   }
@@ -385,9 +415,65 @@ fn pdf_v2_text_output_line_stream(
 }
 
 ///|
+fn pdf_v2_text_output_line_refs(
+  lines : Array[PdfV2TextOutputLine],
+) -> Array[@pdfv2.PdfV2SourceRef] {
+  let refs : Array[@pdfv2.PdfV2SourceRef] = []
+  for line in lines {
+    refs.append(line.source_refs)
+  }
+  refs
+}
+
+///|
+fn pdf_v2_text_output_line_tags(
+  lines : Array[PdfV2TextOutputLine],
+) -> Array[String] {
+  let tags : Array[String] = []
+  for line in lines {
+    for tag in line.reason_tags {
+      if !tags.contains(tag) {
+        tags.push(tag)
+      }
+    }
+  }
+  if pdf_v2_text_output_lines_cross_page(lines) {
+    if !tags.contains("cross_page_boundary_fact_arbitration") {
+      tags.push("cross_page_boundary_fact_arbitration")
+    }
+    if !tags.contains("fact_backed_cross_page_join") {
+      tags.push("fact_backed_cross_page_join")
+    }
+  }
+  tags
+}
+
+///|
+fn pdf_v2_text_output_lines_cross_page(
+  lines : Array[PdfV2TextOutputLine],
+) -> Bool {
+  let mut page_index : Int? = None
+  for line in lines {
+    if line.text.trim().to_owned() == "" {
+      continue
+    }
+    match page_index {
+      Some(page) => if line.page_index != Some(page) { return true }
+      None =>
+        match line.page_index {
+          Some(page) => page_index = Some(page)
+          None => ()
+        }
+    }
+  }
+  false
+}
+
+///|
 fn pdf_v2_current_output_starts_new_paragraph(
   current : Array[PdfV2TextOutputLine],
   right : PdfV2TextOutputLine,
+  cross_page_facts : Array[@pdfv2.PdfV2CrossPageBoundaryFact],
 ) -> Bool {
   if current.length() == 0 {
     return false
@@ -399,7 +485,9 @@ fn pdf_v2_current_output_starts_new_paragraph(
   }
   let last = current[current.length() - 1]
   if last.page_index != right.page_index {
-    return true
+    return !pdf_v2_should_join_cross_page_with_fact(
+      last, right, cross_page_facts,
+    )
   }
   if pdf_v2_current_complete_cjk_heading_before(joined, r) {
     return true
@@ -447,12 +535,16 @@ fn pdf_v2_split_heading_tail_from_body(
         fragment_index: right.fragment_index,
         page_index: right.page_index,
         block_index: right.block_index,
+        source_refs: right.source_refs,
+        reason_tags: right.reason_tags,
       }
       let body_line = {
         text: body_text,
         fragment_index: right.fragment_index,
         page_index: right.page_index,
         block_index: right.block_index,
+        source_refs: right.source_refs,
+        reason_tags: right.reason_tags,
       }
       Some((tail_line, body_line))
     }
@@ -464,6 +556,7 @@ fn pdf_v2_split_heading_tail_from_body(
 fn pdf_v2_output_line_starts_new_paragraph(
   left : PdfV2TextOutputLine,
   right : PdfV2TextOutputLine,
+  cross_page_facts : Array[@pdfv2.PdfV2CrossPageBoundaryFact],
 ) -> Bool {
   let l = left.text.trim().to_owned()
   let r = right.text.trim().to_owned()
@@ -471,7 +564,9 @@ fn pdf_v2_output_line_starts_new_paragraph(
     return true
   }
   if left.page_index != right.page_index {
-    return !pdf_v2_cross_page_output_line_continues(l, r)
+    return !pdf_v2_should_join_cross_page_with_fact(
+      left, right, cross_page_facts,
+    )
   }
   if pdf_v2_output_line_starts_semantic_marker(l) ||
     pdf_v2_output_line_starts_semantic_marker(r) ||
@@ -505,6 +600,7 @@ fn pdf_v2_output_line_starts_new_paragraph(
 fn pdf_v2_should_ignore_blank_between_output_lines(
   left : PdfV2TextOutputLine,
   right : PdfV2TextOutputLine,
+  cross_page_facts : Array[@pdfv2.PdfV2CrossPageBoundaryFact],
 ) -> Bool {
   let l = left.text.trim().to_owned()
   let r = right.text.trim().to_owned()
@@ -512,7 +608,9 @@ fn pdf_v2_should_ignore_blank_between_output_lines(
     return false
   }
   if left.page_index != right.page_index {
-    return pdf_v2_cross_page_output_line_continues(l, r)
+    return pdf_v2_should_join_cross_page_with_fact(
+      left, right, cross_page_facts,
+    )
   }
   if pdf_v2_numbered_section_heading_waits_across_blank(l, r) {
     return true
@@ -529,6 +627,112 @@ fn pdf_v2_should_ignore_blank_between_output_lines(
     return false
   }
   pdf_v2_output_line_continues_hardwrap(l, r)
+}
+
+///|
+fn pdf_v2_should_join_cross_page_with_fact(
+  left : PdfV2TextOutputLine,
+  right : PdfV2TextOutputLine,
+  cross_page_facts : Array[@pdfv2.PdfV2CrossPageBoundaryFact],
+) -> Bool {
+  if left.page_index == right.page_index {
+    return false
+  }
+  let l = left.text.trim().to_owned()
+  let r = right.text.trim().to_owned()
+  if l == "" ||
+    r == "" ||
+    pdf_v2_ends_sentence(l) ||
+    pdf_v2_output_line_starts_semantic_marker(r) ||
+    pdf_v2_is_page_number_like_noise(l) ||
+    pdf_v2_is_page_number_like_noise(r) ||
+    pdf_v2_looks_like_standalone_title_line(l) ||
+    pdf_v2_looks_like_standalone_title_line(r) ||
+    !pdf_v2_cross_page_output_line_continues(l, r) {
+    return false
+  }
+  for fact in cross_page_facts {
+    if pdf_v2_cross_page_fact_qualifies(fact) &&
+      pdf_v2_cross_page_fact_matches_line_pair(fact, left, right) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn pdf_v2_cross_page_fact_qualifies(
+  fact : @pdfv2.PdfV2CrossPageBoundaryFact,
+) -> Bool {
+  fact.confidence >= 0.60 &&
+  fact.source_refs.length() > 0 &&
+  fact.prev_open_ended &&
+  !fact.next_starts_with_marker &&
+  !fact.reason_tags.contains("low_confidence") &&
+  !fact.reason_tags.contains("cross_page_ambiguous") &&
+  !fact.reason_tags.contains("ambiguity") &&
+  !fact.reason_tags.contains("audit_only")
+}
+
+///|
+fn pdf_v2_cross_page_fact_matches_line_pair(
+  fact : @pdfv2.PdfV2CrossPageBoundaryFact,
+  left : PdfV2TextOutputLine,
+  right : PdfV2TextOutputLine,
+) -> Bool {
+  if left.page_index != Some(fact.page_from) ||
+    right.page_index != Some(fact.page_to) {
+    return false
+  }
+  match fact.prev_block_ref {
+    Some(block_ref) =>
+      match left.block_index {
+        Some(left_block) => if left_block != block_ref { return false }
+        None => ()
+      }
+    None => ()
+  }
+  match fact.next_block_ref {
+    Some(block_ref) =>
+      match right.block_index {
+        Some(right_block) => if right_block != block_ref { return false }
+        None => ()
+      }
+    None => ()
+  }
+  if left.source_refs.length() == 0 || right.source_refs.length() == 0 {
+    return false
+  }
+  pdf_v2_source_refs_overlap(left.source_refs, fact.source_refs) &&
+  pdf_v2_source_refs_overlap(right.source_refs, fact.source_refs)
+}
+
+///|
+fn pdf_v2_source_refs_overlap(
+  left : Array[@pdfv2.PdfV2SourceRef],
+  right : Array[@pdfv2.PdfV2SourceRef],
+) -> Bool {
+  for l in left {
+    for r in right {
+      if pdf_v2_same_source_ref(l, r) {
+        return true
+      }
+    }
+  }
+  false
+}
+
+///|
+fn pdf_v2_same_source_ref(
+  left : @pdfv2.PdfV2SourceRef,
+  right : @pdfv2.PdfV2SourceRef,
+) -> Bool {
+  left.page_index == right.page_index &&
+  left.object_id == right.object_id &&
+  left.stream_index == right.stream_index &&
+  left.op_index == right.op_index &&
+  left.content_order_index == right.content_order_index &&
+  left.kind == right.kind
 }
 
 ///|

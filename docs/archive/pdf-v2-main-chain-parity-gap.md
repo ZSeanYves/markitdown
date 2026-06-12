@@ -1658,3 +1658,26 @@ main-chain output.
   - no product Markdown, metadata sidecar, sample expected, fallback,
     normalizer/semantic patch, model, training hook, generated dataset, or
     quality-lab invocation changed.
+
+## Reset 17C Cross-page Boundary Fact Arbitration
+
+Reset 17C consumes only high-confidence `PdfV2CrossPageBoundaryFact` for the
+remaining cross-page merge/split parity gap.
+
+- Product behavior:
+  - a cross-page paragraph may now join when the parser fact has confidence
+    `>= 0.60`, source refs for both sides, open-ended previous text, no next
+    marker/list/heading-like blocker, and no low-confidence/ambiguity/audit-only
+    tag.
+  - if no qualifying fact exists, the previous product path and split behavior
+    are preserved.
+- Static guard:
+  - convert may call `pdf_v2_cross_page_boundary_facts_from_candidates(...)`.
+  - convert still does not call `pdf_v2_parity_facts_from_model(...)`.
+  - image-text, header/footer, heading-boundary, and column-layout facts remain
+    unconsumed by product code.
+- Untouched gaps:
+  - image placement/caption/nearby heading, header/footer variants, heading
+    classification, and two-column ordering are intentionally unchanged.
+- No metadata sidecar, assets, sample expected, fallback, quality-lab, model,
+  training hook, or generated dataset changed.

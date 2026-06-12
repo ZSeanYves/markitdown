@@ -8,12 +8,34 @@ fn pdf_v2_semantic_blocks_from_fragments(
 }
 
 ///|
+fn pdf_v2_semantic_blocks_from_fragments_with_cross_page_facts(
+  fragments : Array[PdfV2FactFragment],
+  options : PdfV2ProductBridgeOptions,
+  cross_page_facts : Array[@pdfv2.PdfV2CrossPageBoundaryFact],
+) -> Array[PdfV2SemanticBlock] {
+  let flow = pdf_v2_text_flow_from_fragments_with_cross_page_facts(
+    fragments, options, cross_page_facts,
+  )
+  pdf_v2_semantic_blocks_from_flow(flow, options)
+}
+
+///|
 fn pdf_v2_semantic_blocks_from_candidates(
   candidates : Array[@pdfv2.PdfV2TextFlowCandidate],
   options : PdfV2ProductBridgeOptions,
 ) -> Array[PdfV2SemanticBlock] {
   let flow = pdf_v2_text_flow_from_candidates(candidates, options)
   pdf_v2_semantic_blocks_from_flow(flow, options)
+}
+
+///|
+fn pdf_v2_semantic_blocks_from_candidates_with_cross_page_facts(
+  candidates : Array[@pdfv2.PdfV2TextFlowCandidate],
+  options : PdfV2ProductBridgeOptions,
+  cross_page_facts : Array[@pdfv2.PdfV2CrossPageBoundaryFact],
+) -> Array[PdfV2SemanticBlock] {
+  let blocks = pdf_v2_semantic_blocks_from_candidates(candidates, options)
+  pdf_v2_apply_cross_page_boundary_arbitration(blocks, cross_page_facts)
 }
 
 ///|
@@ -55,6 +77,200 @@ fn pdf_v2_semantic_blocks_from_flow(
     i = i + 1
   }
   blocks
+}
+
+///|
+fn pdf_v2_apply_cross_page_boundary_arbitration(
+  blocks : Array[PdfV2SemanticBlock],
+  cross_page_facts : Array[@pdfv2.PdfV2CrossPageBoundaryFact],
+) -> Array[PdfV2SemanticBlock] {
+  if cross_page_facts.length() == 0 {
+    return blocks
+  }
+  let out : Array[PdfV2SemanticBlock] = []
+  let mut i = 0
+  while i < blocks.length() {
+    if i + 1 < blocks.length() {
+      let left = blocks[i]
+      let right = blocks[i + 1]
+      match pdf_v2_cross_page_arbitration_fact(left, right, cross_page_facts) {
+        Some(fact) => {
+          out.push(pdf_v2_merge_cross_page_semantic_blocks(left, right, fact))
+          i = i + 2
+          continue
+        }
+        None => ()
+      }
+    }
+    out.push(blocks[i])
+    i = i + 1
+  }
+  out
+}
+
+///|
+fn pdf_v2_cross_page_arbitration_fact(
+  left : PdfV2SemanticBlock,
+  right : PdfV2SemanticBlock,
+  cross_page_facts : Array[@pdfv2.PdfV2CrossPageBoundaryFact],
+) -> @pdfv2.PdfV2CrossPageBoundaryFact? {
+  if !pdf_v2_cross_page_semantic_pair_can_join(left, right) {
+    return None
+  }
+  for fact in cross_page_facts {
+    if pdf_v2_cross_page_fact_qualifies(fact) &&
+      pdf_v2_cross_page_fact_matches_semantic_pair(fact, left, right) {
+      return Some(fact)
+    }
+  }
+  None
+}
+
+///|
+fn pdf_v2_cross_page_semantic_pair_can_join(
+  left : PdfV2SemanticBlock,
+  right : PdfV2SemanticBlock,
+) -> Bool {
+  if left.kind != PdfV2SemanticBlockKind::Paragraph ||
+    right.kind != PdfV2SemanticBlockKind::Paragraph ||
+    left.page_index == right.page_index {
+    return false
+  }
+  let l = left.text.trim().to_owned()
+  let r = right.text.trim().to_owned()
+  if l == "" ||
+    r == "" ||
+    pdf_v2_ends_sentence(l) ||
+    pdf_v2_text_flow_parse_marker(r) is Some(_) ||
+    pdf_v2_is_page_number_like_noise(l) ||
+    pdf_v2_is_page_number_like_noise(r) ||
+    pdf_v2_looks_like_standalone_title_line(l) ||
+    pdf_v2_looks_like_standalone_title_line(r) ||
+    !pdf_v2_cross_page_output_line_continues(l, r) {
+    return false
+  }
+  true
+}
+
+///|
+fn pdf_v2_cross_page_fact_matches_semantic_pair(
+  fact : @pdfv2.PdfV2CrossPageBoundaryFact,
+  left : PdfV2SemanticBlock,
+  right : PdfV2SemanticBlock,
+) -> Bool {
+  if left.page_index != Some(fact.page_from) ||
+    right.page_index != Some(fact.page_to) {
+    return false
+  }
+  match fact.prev_block_ref {
+    Some(block_ref) =>
+      match left.block_index {
+        Some(left_block) => if left_block != block_ref { return false }
+        None => ()
+      }
+    None => ()
+  }
+  match fact.next_block_ref {
+    Some(block_ref) =>
+      match right.block_index {
+        Some(right_block) => if right_block != block_ref { return false }
+        None => ()
+      }
+    None => ()
+  }
+  if left.source_refs.length() == 0 || right.source_refs.length() == 0 {
+    return false
+  }
+  pdf_v2_source_refs_overlap(left.source_refs, fact.source_refs) &&
+  pdf_v2_source_refs_overlap(right.source_refs, fact.source_refs)
+}
+
+///|
+fn pdf_v2_merge_cross_page_semantic_blocks(
+  left : PdfV2SemanticBlock,
+  right : PdfV2SemanticBlock,
+  fact : @pdfv2.PdfV2CrossPageBoundaryFact,
+) -> PdfV2SemanticBlock {
+  let merged_refs = pdf_v2_merge_source_refs(
+    left.source_refs,
+    right.source_refs,
+  )
+  let merged_tags = pdf_v2_semantic_merge_tags(
+    pdf_v2_semantic_merge_tags(left.reason_tags, right.reason_tags),
+    ["cross_page_boundary_fact_arbitration", "fact_backed_cross_page_join"],
+  )
+  let decision = {
+    ..left.decision,
+    source_refs: merged_refs,
+    reason_tags: pdf_v2_semantic_merge_tags(
+      pdf_v2_semantic_merge_tags(
+        left.decision.reason_tags,
+        right.decision.reason_tags,
+      ),
+      ["cross_page_boundary_fact_arbitration", "fact_backed_cross_page_join"],
+    ),
+    confidence: if left.decision.confidence < fact.confidence {
+      left.decision.confidence
+    } else {
+      fact.confidence
+    },
+  }
+  {
+    ..left,
+    text: pdf_v2_join_cross_page_semantic_text(left.text, right.text),
+    source_refs: merged_refs,
+    reason_tags: merged_tags,
+    risk_tags: pdf_v2_semantic_merge_tags(left.risk_tags, right.risk_tags),
+    decision,
+  }
+}
+
+///|
+fn pdf_v2_join_cross_page_semantic_text(
+  left : String,
+  right : String,
+) -> String {
+  let l = left.trim().to_owned()
+  let r = right.trim().to_owned()
+  if l == "" {
+    r
+  } else if r == "" {
+    l
+  } else if pdf_v2_should_unwrap_hyphenated_word(l, r) {
+    pdf_v2_trim_trailing_wrap_hyphen(l) + r
+  } else if pdf_v2_join_without_space(l, r) {
+    l + r
+  } else {
+    l + " " + r
+  }
+}
+
+///|
+fn pdf_v2_merge_source_refs(
+  left : Array[@pdfv2.PdfV2SourceRef],
+  right : Array[@pdfv2.PdfV2SourceRef],
+) -> Array[@pdfv2.PdfV2SourceRef] {
+  let refs : Array[@pdfv2.PdfV2SourceRef] = []
+  refs.append(left)
+  for source_ref in right {
+    if !pdf_v2_source_refs_contains(refs, source_ref) {
+      refs.push(source_ref)
+    }
+  }
+  refs
+}
+
+///|
+fn pdf_v2_source_refs_contains(
+  refs : Array[@pdfv2.PdfV2SourceRef],
+  target : @pdfv2.PdfV2SourceRef,
+) -> Bool {
+  for source_ref in refs {
+    if pdf_v2_same_source_ref(source_ref, target) {
+      return true
+    }
+  }
+  false
 }
 
 ///|

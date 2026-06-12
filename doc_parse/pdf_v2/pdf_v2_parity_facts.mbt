@@ -164,6 +164,13 @@ pub fn pdf_v2_parity_facts_from_model(
 }
 
 ///|
+pub fn pdf_v2_cross_page_boundary_facts_from_candidates(
+  candidates : Array[PdfV2TextFlowCandidate],
+) -> Array[PdfV2CrossPageBoundaryFact] {
+  pdf_v2_parity_cross_page_boundaries(candidates)
+}
+
+///|
 pub fn pdf_v2_parity_fact_audit(
   facts : PdfV2ParityFactSet,
 ) -> PdfV2ParityFactAudit {

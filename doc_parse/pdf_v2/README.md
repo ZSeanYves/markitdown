@@ -958,3 +958,23 @@ calibrates weak image-nearby evidence downward.
   - no parser runtime output, product Markdown, metadata sidecar, samples,
     fallback, quality-lab, model loading, inference, training, or generated
     export changed.
+
+## Reset 17C Cross-page Boundary Fact Product Consumer
+
+Reset 17C exposes a narrower cross-page-only parser API for downstream product
+arbitration:
+
+```text
+pdf_v2_cross_page_boundary_facts_from_candidates(candidates)
+```
+
+This keeps `pdf_v2_parity_facts_from_model(model)` opt-in for audits while
+allowing convert to consume only `PdfV2CrossPageBoundaryFact`.
+
+- Convert-side arbitration may join a cross-page paragraph only when the fact
+  is high enough confidence, source-ref covered, open-ended on the previous
+  side, and unblocked by marker/list/heading-like evidence on the next side.
+- Image-text, header/footer, heading-boundary, and column-layout facts remain
+  audit/export inputs only.
+- Parser runtime output, metadata sidecars, samples, fallback, quality-lab,
+  model loading, inference, training, and generated exports remain unchanged.

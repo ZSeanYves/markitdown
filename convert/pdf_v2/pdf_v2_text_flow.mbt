@@ -4,7 +4,19 @@ fn pdf_v2_text_flow_from_fragments(
   options : PdfV2ProductBridgeOptions,
 ) -> Array[PdfV2TextFlowUnit] {
   let paragraphs = pdf_v2_text_output_paragraphs(fragments, options)
-  pdf_v2_text_flow_from_paragraphs(fragments, paragraphs)
+  pdf_v2_text_flow_from_paragraphs(fragments, paragraphs, false)
+}
+
+///|
+fn pdf_v2_text_flow_from_fragments_with_cross_page_facts(
+  fragments : Array[PdfV2FactFragment],
+  options : PdfV2ProductBridgeOptions,
+  cross_page_facts : Array[@pdfv2.PdfV2CrossPageBoundaryFact],
+) -> Array[PdfV2TextFlowUnit] {
+  let paragraphs = pdf_v2_text_output_paragraphs_with_cross_page_facts(
+    fragments, options, cross_page_facts,
+  )
+  pdf_v2_text_flow_from_paragraphs(fragments, paragraphs, true)
 }
 
 ///|
@@ -69,6 +81,7 @@ fn pdf_v2_text_flow_from_candidates(
 fn pdf_v2_text_flow_from_paragraphs(
   fragments : Array[PdfV2FactFragment],
   paragraphs : Array[PdfV2TextOutputParagraph],
+  preserve_paragraph_refs : Bool,
 ) -> Array[PdfV2TextFlowUnit] {
   let units : Array[PdfV2TextFlowUnit] = []
   let mut previous_heading = false
@@ -110,8 +123,16 @@ fn pdf_v2_text_flow_from_paragraphs(
       marker_kind,
       marker,
       indent_level: pdf_v2_text_flow_best_indent_level(fragment.text, text),
-      source_refs: fragment.source_refs,
-      reason_tags: fragment.reason_tags,
+      source_refs: if preserve_paragraph_refs {
+        paragraph.source_refs
+      } else {
+        fragment.source_refs
+      },
+      reason_tags: if preserve_paragraph_refs {
+        paragraph.reason_tags
+      } else {
+        fragment.reason_tags
+      },
       signals,
     }
     units.push(unit)

@@ -11,6 +11,14 @@ fn semantic_test_ref(order : Int) -> @pdfv2.PdfV2SourceRef {
 }
 
 ///|
+fn semantic_test_ref_for_page(
+  page_index : Int,
+  order : Int,
+) -> @pdfv2.PdfV2SourceRef {
+  { ..semantic_test_ref(order), page_index: Some(page_index) }
+}
+
+///|
 fn semantic_test_fragment(
   index : Int,
   text : String,
@@ -42,6 +50,62 @@ fn semantic_test_blocks(texts : Array[String]) -> Array[PdfV2SemanticBlock] {
 }
 
 ///|
+fn semantic_test_cross_page_fact(
+  confidence : Double,
+  source_refs : Array[@pdfv2.PdfV2SourceRef],
+) -> @pdfv2.PdfV2CrossPageBoundaryFact {
+  {
+    page_from: 0,
+    page_to: 1,
+    prev_block_ref: Some(0),
+    next_block_ref: Some(0),
+    prev_line_refs: [0],
+    next_line_refs: [0],
+    prev_vertical_band: @pdfv2.PdfV2ParityVerticalBand::Body,
+    next_vertical_band: @pdfv2.PdfV2ParityVerticalBand::Body,
+    prev_open_ended: true,
+    next_starts_with_marker: false,
+    repeated_artifact_gap: false,
+    confidence,
+    reason_tags: [
+      "cross_page_boundary_fact", "parser_layout_backed", "source_order_pair", "prev_open_ended",
+    ],
+    source_refs,
+  }
+}
+
+///|
+fn semantic_test_cross_page_block(
+  text : String,
+  page_index : Int,
+  source_ref : @pdfv2.PdfV2SourceRef,
+) -> PdfV2SemanticBlock {
+  let decision = pdf_v2_semantic_decision(
+    PdfV2SemanticBlockKind::Paragraph,
+    0.76,
+    "paragraph.test",
+    ["paragraph_guard"],
+    [],
+    [source_ref],
+    [],
+  )
+  {
+    kind: PdfV2SemanticBlockKind::Paragraph,
+    text,
+    level: None,
+    ordered: None,
+    list_level: 0,
+    page_index: Some(page_index),
+    block_index: Some(0),
+    fragment_index: page_index,
+    source_refs: [source_ref],
+    reason_tags: ["semantic_test_block"],
+    risk_tags: [],
+    decision,
+  }
+}
+
+///|
 test "pdf v2 text flow records title body and source refs" {
   let fragments = [
     semantic_test_fragment(0, "Document Conversion Pipeline", 1),
@@ -60,6 +124,32 @@ test "pdf v2 text flow records title body and source refs" {
   assert_true(flow[0].signals.has_following_body)
   assert_true(flow[0].source_refs.length() == 1)
   assert_true(flow[0].reason_tags.contains("semantic_test_fragment"))
+}
+
+///|
+test "pdf v2 cross page arbitration rejects low confidence and missing refs" {
+  let left_ref = semantic_test_ref_for_page(0, 0)
+  let right_ref = semantic_test_ref_for_page(1, 1)
+  let left = semantic_test_cross_page_block(
+    "The paragraph continues across the page", 0, left_ref,
+  )
+  let right = semantic_test_cross_page_block("break and resumes.", 1, right_ref)
+  let low = pdf_v2_apply_cross_page_boundary_arbitration([left, right], [
+    semantic_test_cross_page_fact(0.50, [left_ref, right_ref]),
+  ])
+  let missing_refs = pdf_v2_apply_cross_page_boundary_arbitration(
+    [left, right],
+    [semantic_test_cross_page_fact(0.70, [])],
+  )
+  let joined = pdf_v2_apply_cross_page_boundary_arbitration([left, right], [
+    semantic_test_cross_page_fact(0.70, [left_ref, right_ref]),
+  ])
+
+  assert_true(low.length() == 2)
+  assert_true(missing_refs.length() == 2)
+  assert_true(joined.length() == 1)
+  assert_true(joined[0].reason_tags.contains("fact_backed_cross_page_join"))
+  assert_true(joined[0].source_refs.length() == 2)
 }
 
 ///|

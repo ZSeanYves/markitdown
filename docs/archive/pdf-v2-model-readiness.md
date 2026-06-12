@@ -502,3 +502,26 @@ Reset 17B adds auditability before model or arbitration work.
 - Still no training:
   - facts are not labels, no reviewed gold exists, and no quality-lab adapter
     gate or heldout report exists.
+
+## 18. Reset 17C Cross-page Boundary Fact Arbitration
+
+Reset 17C uses one audited parser fact family for narrow product arbitration,
+but it still does not make the stack training-ready.
+
+- Added product consumption:
+  - `convert/pdf_v2` calls
+    `pdf_v2_cross_page_boundary_facts_from_candidates(...)`.
+  - only `PdfV2CrossPageBoundaryFact` can affect output.
+  - the full `pdf_v2_parity_facts_from_model(...)` builder remains out of the
+    product bridge, pipeline, and lowerer.
+- Gates:
+  - confidence `>= 0.60`.
+  - source refs on both sides.
+  - previous side is open-ended.
+  - next side is not marker/list/heading-like/page artifact evidence.
+  - low-confidence, ambiguity, and audit-only tags fail closed.
+- Still no training:
+  - the fact is runtime parser evidence, not a reviewed gold label.
+  - weak/rule evidence is not promoted to gold.
+  - no quality-lab adapter, heldout validation, model artifact, runtime
+    inference, or training workflow was added.
