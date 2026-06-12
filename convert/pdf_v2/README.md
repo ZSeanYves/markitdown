@@ -602,3 +602,42 @@ changing convert behavior.
 - Next action:
   - prefer `Reset 15B-AuditCleanup`; then add a non-runtime dataset export
     scaffold with weak-label and risk-tag fields.
+
+## Reset 15B Audit Cleanup And Anti-Patch Guardrails
+
+Reset 15B is behavior-equivalent cleanup. It keeps the Reset 14/15A output
+bridges in place, but marks their risk and adds tests so they do not grow into
+sample-specific product patches.
+
+- Helpers and ownership:
+  - `pdf_v2_normalize_known_pdf_ligature_splits` is a closed compatibility
+    helper, not a general spaced-letter merger.
+  - `pdf_v2_should_suppress_repeated_artifact_paragraph` makes repeated
+    evidence the artifact suppression boundary.
+  - heading-tail, hardwrap, cross-page, lexical body-merge, repeated artifact,
+    and semantic heading guards now carry owner/risk/TODO comments.
+  - product bridge candidate mode is documented as parser-fact ownership; it
+    does not classify headings, lists, or artifacts from raw text alone.
+- Guard tests:
+  - known ligature split repair still works; arbitrary spaced letters and
+    normal spaces are preserved.
+  - CJK/decimal heading-tail repair stays narrow; body colon lines are
+    paragraphs.
+  - unfinished cross-page continuation still joins, while sentence-ended and
+    structural starts do not.
+  - repeated artifact-like lines are suppressed only with repeated evidence;
+    single occurrences and repeated section titles stay visible.
+  - Method-like labels require boundary/body evidence before heading promotion.
+  - bridge source guard blocks raw `candidate.normalized_text` classifier
+    ownership.
+- Migration targets:
+  - parser facts for glyph repair, text flow, block boundary, artifacts,
+    captions/images, and read order.
+  - offline classifiers for boundary, artifact, block kind,
+    caption/adjacency, and column/read-order decisions.
+- Boundaries:
+  - no samples expected updates, fallback, v1 deletion, diagnostics text,
+    metadata sidecar schema change, runtime model, external data, quality-lab
+    dependency, or `.vscode` change.
+  - next recommended task: `Reset 16 Dataset Export Scaffold`, non-runtime
+    only.

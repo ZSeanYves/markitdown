@@ -605,6 +605,10 @@ fn pdf_v2_heading_normalize(text : String) -> String {
 }
 
 ///|
+// PDF v2 temporary rule.
+// Owner today: convert semantic rules. Correct owner: parser LineTextSignal
+// facts and a future BlockKindClassifier. Keep lexical heading exclusions narrow.
+// TODO(pdf-v2-model): export exclusions as weak negative block-kind features.
 fn pdf_v2_heading_basic_shape_ok(text : String) -> Bool {
   let t = text.trim().to_owned()
   if t == "" {
@@ -767,6 +771,10 @@ fn pdf_v2_heading_looks_like_english_title(text : String) -> Bool {
 }
 
 ///|
+// PDF v2 temporary rule.
+// Owner today: convert semantic rules. Correct owner: future BlockKindClassifier
+// features. These labels require boundary/body evidence before promotion.
+// TODO(pdf-v2-model): replace section-label tables with labeled block-kind data.
 fn pdf_v2_heading_looks_like_common_english_section_label(
   text : String,
 ) -> Bool {
@@ -816,6 +824,10 @@ fn pdf_v2_heading_looks_like_cjk_title(text : String) -> Bool {
 }
 
 ///|
+// PDF v2 temporary rule.
+// Owner today: convert semantic rules. Correct owner: parser CJK text-flow
+// boundary facts or a future BlockKindClassifier.
+// TODO(pdf-v2-model): replace CJK section-label tables with labeled block data.
 fn pdf_v2_heading_looks_like_common_cjk_section_label(text : String) -> Bool {
   text == "研究内容" ||
   text == "技术路线" ||
@@ -863,6 +875,10 @@ fn pdf_v2_heading_looks_like_caption(text : String) -> Bool {
 }
 
 ///|
+// PDF v2 temporary rule.
+// Owner today: convert semantic rules. Correct owner: parser sentence/body
+// boundary facts. Guard CJK inline body markers from heading promotion.
+// TODO(pdf-v2-model): export as negative heading evidence.
 fn pdf_v2_heading_contains_inline_cjk_body_marker(text : String) -> Bool {
   let chars = text.to_array()
   for i in 0..<chars.length() {
@@ -899,6 +915,10 @@ fn pdf_v2_heading_looks_like_numbered_body_sentence(text : String) -> Bool {
 }
 
 ///|
+// PDF v2 temporary rule.
+// Owner today: convert semantic rules. Correct owner: parser boundary facts or
+// future BlockKindClassifier negative features.
+// TODO(pdf-v2-model): export as negative block-kind evidence.
 fn pdf_v2_heading_looks_like_intro_phrase(text : String) -> Bool {
   let lower = pdf_v2_heading_ascii_lower(text.trim().to_owned())
   lower == "in conclusion," ||
@@ -911,6 +931,10 @@ fn pdf_v2_heading_looks_like_intro_phrase(text : String) -> Bool {
 }
 
 ///|
+// PDF v2 temporary rule.
+// Owner today: convert semantic rules. Correct owner: parser sentence/body facts
+// or future BlockKindClassifier negative features.
+// TODO(pdf-v2-model): export as negative block-kind evidence.
 fn pdf_v2_heading_looks_like_complete_statement(text : String) -> Bool {
   let words = pdf_v2_heading_words(text)
   if words.length() >= 8 {

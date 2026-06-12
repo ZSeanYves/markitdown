@@ -285,3 +285,45 @@ Rationale:
 - After 15B, proceed to `Reset 16 Dataset Export Scaffold` as a non-runtime
   exporter with weak-label fields, explicit risk tags, and no product-output
   changes.
+
+## 11. Reset 15B Audit Cleanup And Anti-Patch Guardrails
+
+Reset 15B keeps runtime output unchanged and adds ownership markers, helper
+boundaries, and guard tests around the Reset 14/15A bridge rules.
+
+- High-risk rules left temporarily in place:
+  - closed-list split ligature repairs in the text normalizer.
+  - CJK/decimal heading-tail split helpers.
+  - hardwrap and cross-page continuation helpers.
+  - legacy English lexical body-merge cue helper.
+  - repeated artifact suppression requiring repeated evidence.
+  - common section-label and inline-body-marker heading guards.
+- Cleanup performed:
+  - renamed the ligature repair boundary to
+    `pdf_v2_normalize_known_pdf_ligature_splits`.
+  - extracted `pdf_v2_should_suppress_repeated_artifact_paragraph`.
+  - added owner/risk/TODO comments pointing each temporary bridge to parser
+    facts or offline classifiers.
+  - documented bridge ownership so candidate mode does not classify raw strings.
+- Guard coverage added:
+  - split ligature repairs stay closed and arbitrary spaced letters are not
+    merged.
+  - CJK/decimal heading-tail repair stays narrow; body colon lines remain
+    paragraphs.
+  - cross-page joins reject list/title/page-number starts.
+  - artifact suppression requires repeated evidence; single artifact-like lines
+    remain visible and repeated section titles are preserved.
+  - `Method` is not blanket-promoted without boundary/body evidence.
+  - bridge source guard rejects raw `candidate.normalized_text` ownership for
+    candidate-mode classification.
+- Migration targets:
+  - parser facts: glyph/font text reconstruction, line text signals, block
+    boundary signals, text-flow candidates, page artifact candidates.
+  - classifiers: boundary, artifact, block kind, caption/adjacency, and
+    column/read-order.
+- Model readiness:
+  - still no runtime model, training hook, external data, quality-lab
+    dependency, or model arbitration change.
+  - the right next step is `Reset 16 Dataset Export Scaffold`: a non-runtime
+    exporter that records weak labels, risk tags, source refs, parser facts,
+    and rule decisions without changing product Markdown.

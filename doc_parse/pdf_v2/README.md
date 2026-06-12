@@ -772,3 +772,30 @@ It does not add parser capabilities.
 - Next action:
   - run an audit cleanup pass before dataset export so weak labels do not
     silently encode normalizer patches as gold behavior.
+
+## Reset 15B Audit Cleanup Alignment
+
+Reset 15B does not change parser output. It records the parser/model ownership
+for temporary convert-side bridge rules before any dataset export work starts.
+
+- Convert rules that should migrate to parser facts or exported features:
+  - glyph/font text reconstruction for split ligature repairs.
+  - text-flow and block-boundary facts for heading-tail, hardwrap, and
+    cross-page joins.
+  - page artifact candidates for repeated header/footer suppression.
+  - line text/neighborhood signals for heading/body and Method-like label
+    decisions.
+  - caption/adjacency plus read-order/column facts for image placement and
+    two-column residual gaps.
+- Guardrails now live in convert:
+  - owner/risk/TODO comments on high-risk bridge helpers.
+  - closed helper boundaries for ligature repair and repeated artifact
+    suppression.
+  - tests for ligature scope, heading-tail scope, artifact evidence, cross-page
+    structural starts, and bridge parser-fact ownership.
+- Model timing:
+  - no runtime model, training data, external data, quality-lab dependency, or
+    parser vendor/runtime change was introduced.
+  - next recommended task is `Reset 16 Dataset Export Scaffold`, a non-runtime
+    exporter for parser facts, weak labels, rule decisions, source refs, and
+    risk tags.

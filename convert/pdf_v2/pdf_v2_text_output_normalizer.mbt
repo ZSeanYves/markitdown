@@ -85,7 +85,7 @@ fn pdf_v2_normalize_plain_text_fragment(text : String) -> String {
 
 ///|
 fn pdf_v2_normalize_paragraph_text(text : String) -> String {
-  pdf_v2_repair_common_ligature_word_splits(
+  pdf_v2_normalize_known_pdf_ligature_splits(
     pdf_v2_remove_spaces_between_cjk(
       pdf_v2_fix_ascii_punctuation_spacing(
         pdf_v2_collapse_ascii_spaces(
@@ -169,7 +169,13 @@ fn pdf_v2_fix_ascii_punctuation_spacing(text : String) -> String {
 }
 
 ///|
-fn pdf_v2_repair_common_ligature_word_splits(text : String) -> String {
+// PDF v2 temporary rule.
+// Owner today: convert normalizer. Correct owner: parser glyph/font text
+// reconstruction or offline BoundaryClassifier features.
+// Risk: high. Keep this observed compatibility list closed; do not extend it
+// with sample-specific words.
+// TODO(pdf-v2-model): export as weak/excluded text-repair evidence before training.
+fn pdf_v2_normalize_known_pdf_ligature_splits(text : String) -> String {
   text
   .replace_all(old=" fi rst", new=" first")
   .replace_all(old=" fi nal", new=" final")
@@ -414,6 +420,11 @@ fn pdf_v2_current_output_starts_new_paragraph(
 }
 
 ///|
+// PDF v2 temporary rule.
+// Owner today: convert normalizer. Correct owner: parser TextFlowCandidate
+// boundary facts and a future BoundaryClassifier/BlockKindClassifier.
+// Risk: high. This only repairs the known numbered-CJK heading tail case.
+// TODO(pdf-v2-model): migrate split decisions to parser boundary facts.
 fn pdf_v2_split_heading_tail_from_body(
   current : Array[PdfV2TextOutputLine],
   right : PdfV2TextOutputLine,
@@ -521,6 +532,10 @@ fn pdf_v2_should_ignore_blank_between_output_lines(
 }
 
 ///|
+// PDF v2 temporary rule.
+// Owner today: convert normalizer. Correct owner: parser boundary facts for
+// split heading/body lines. Keep the CJK tail vocabulary closed until migrated.
+// TODO(pdf-v2-model): replace CJK tail vocabulary with exported boundary features.
 fn pdf_v2_numbered_section_heading_waits_across_blank(
   left_text : String,
   right_text : String,
@@ -858,6 +873,10 @@ fn pdf_v2_current_output_line_continues(
 }
 
 ///|
+// PDF v2 temporary rule.
+// Owner today: convert normalizer. Correct owner: parser read-order/boundary
+// facts or a BoundaryClassifier. Do not add document-name-specific joins here.
+// TODO(pdf-v2-model): migrate hardwrap joins to parser read-order features.
 fn pdf_v2_output_line_continues_hardwrap(
   left_text : String,
   right_text : String,
@@ -869,6 +888,10 @@ fn pdf_v2_output_line_continues_hardwrap(
 }
 
 ///|
+// PDF v2 temporary rule.
+// Owner today: convert normalizer. Correct owner: parser cross-page boundary
+// facts. The guard must stay conservative around semantic/table/image starts.
+// TODO(pdf-v2-model): replace punctuation-only joins with cross-page facts.
 fn pdf_v2_cross_page_output_line_continues(
   left_text : String,
   right_text : String,
@@ -1002,11 +1025,15 @@ fn pdf_v2_english_body_sentence(text : String) -> Bool {
   }
   pdf_v2_word_count(t) >= 5 &&
   pdf_v2_ascii_letter_count(t) >= 12 &&
-  pdf_v2_english_noise_merge_body_signal(t)
+  pdf_v2_legacy_english_noise_merge_body_signal(t)
 }
 
 ///|
-fn pdf_v2_english_noise_merge_body_signal(text : String) -> Bool {
+// PDF v2 temporary rule.
+// Owner today: convert normalizer. Correct owner: parser artifact/boundary facts
+// and future BoundaryClassifier features. Keep this legacy lexical bridge closed.
+// TODO(pdf-v2-model): export as a weak feature, not a product keyword list.
+fn pdf_v2_legacy_english_noise_merge_body_signal(text : String) -> Bool {
   let lower = text.to_lower()
   lower.contains("body") ||
   lower.contains("cleanup") ||
@@ -1235,6 +1262,11 @@ fn pdf_v2_should_drop_output_line(
 }
 
 ///|
+// PDF v2 temporary rule.
+// Owner today: convert normalizer. Correct owner: parser PageArtifactCandidate
+// facts and a future ArtifactClassifier. Suppression must require repeated
+// evidence; single "Project Report"/"Confidential" occurrences stay visible.
+// TODO(pdf-v2-model): migrate suppression to parser artifact rows/classifier.
 fn pdf_v2_filter_repeated_artifact_paragraphs(
   paragraphs : Array[PdfV2TextOutputParagraph],
   options : PdfV2ProductBridgeOptions,
@@ -1243,10 +1275,9 @@ fn pdf_v2_filter_repeated_artifact_paragraphs(
     let repeated_counts = pdf_v2_repeated_paragraph_noise_counts(paragraphs)
     let out : Array[PdfV2TextOutputParagraph] = []
     for paragraph in paragraphs {
-      let key = pdf_v2_noise_key(paragraph.text)
-      if key != "" &&
-        repeated_counts.get(key).unwrap_or(0) >= 2 &&
-        pdf_v2_is_repeated_page_artifact_candidate(paragraph.text) {
+      if pdf_v2_should_suppress_repeated_artifact_paragraph(
+          paragraph, repeated_counts,
+        ) {
         continue
       }
       out.push(paragraph)
@@ -1255,6 +1286,17 @@ fn pdf_v2_filter_repeated_artifact_paragraphs(
   } else {
     paragraphs
   }
+}
+
+///|
+fn pdf_v2_should_suppress_repeated_artifact_paragraph(
+  paragraph : PdfV2TextOutputParagraph,
+  repeated_counts : Map[String, Int],
+) -> Bool {
+  let key = pdf_v2_noise_key(paragraph.text)
+  key != "" &&
+  repeated_counts.get(key).unwrap_or(0) >= 2 &&
+  pdf_v2_is_repeated_page_artifact_candidate(paragraph.text)
 }
 
 ///|
@@ -1298,6 +1340,11 @@ fn pdf_v2_noise_key(text : String) -> String {
 }
 
 ///|
+// PDF v2 temporary rule.
+// Owner today: convert normalizer. Correct owner: parser PageArtifactCandidate
+// facts and future ArtifactClassifier. Do not grow this into a product keyword
+// blocklist; repeated evidence is checked at the caller boundary.
+// TODO(pdf-v2-model): keep keywords as weak artifact features only.
 fn pdf_v2_is_repeated_page_artifact_candidate(text : String) -> Bool {
   let t = pdf_v2_normalize_paragraph_text(text)
   let word_count = pdf_v2_word_count(t)

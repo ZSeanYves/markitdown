@@ -295,6 +295,20 @@ test "pdf v2 sample targeted heading versus short sentence like flow" {
 }
 
 ///|
+test "pdf v2 heading rules do not blanket promote method-like labels" {
+  let method_blocks = semantic_test_blocks([
+    "Document Conversion Pipeline", "Method",
+  ])
+  let colon_blocks = semantic_test_blocks([
+    "Document Conversion Pipeline", "This body sentence: remains inside paragraph",
+  ])
+
+  assert_true(method_blocks[0].kind == PdfV2SemanticBlockKind::Heading)
+  assert_true(method_blocks[1].kind == PdfV2SemanticBlockKind::Paragraph)
+  assert_true(colon_blocks[1].kind == PdfV2SemanticBlockKind::Paragraph)
+}
+
+///|
 test "pdf v2 heading rules promote section label before intro phrase as subsection" {
   let blocks = semantic_test_blocks([
     "Heading vs Short Sentence", "Introduction", "This matters.", "Figure 1. System overview.",

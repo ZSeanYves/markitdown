@@ -465,6 +465,11 @@ fn pdf_v2_product_bridge_semantic_blocks(
 }
 
 ///|
+// PDF v2 bridge boundary.
+// Owner today: product bridge candidate-mode selection. Correct owner: parser
+// TextFlowCandidate readiness facts. Do not classify heading/list/artifact by
+// candidate.normalized_text raw strings here; map only parser-backed final facts.
+// TODO(pdf-v2-model): move readiness to parser-exported candidate ownership rows.
 fn pdf_v2_product_bridge_has_actionable_text_flow_candidates(
   text_flow_candidates : Array[@pdfv2.PdfV2TextFlowCandidate],
 ) -> Bool {

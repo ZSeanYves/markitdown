@@ -4708,6 +4708,13 @@ test "pdf v2 convert boundary guard stays parser fact only" {
   assert_true(!semantic_arbitration_text.contains("features.tsv"))
   assert_true(bridge_text.contains("enable_semantic_rules"))
   assert_true(bridge_text.contains("pdf_v2_semantic_blocks_from_fragments"))
+  assert_true(
+    bridge_text.contains("pdf_v2_product_bridge_candidate_has_list_marker"),
+  )
+  assert_true(bridge_text.contains("boundary_signal.list_candidate_score"))
+  assert_true(!bridge_text.contains("candidate.normalized_text.contains(\""))
+  assert_true(!bridge_text.contains("candidate.normalized_text.to_lower"))
+  assert_true(!bridge_text.contains("candidate.normalized_text.has_prefix"))
   assert_true(!bridge_text.contains("pdf_v2_should_emit_minimal_heading"))
   assert_true(!bridge_text.contains("TableLike"))
   assert_true(bridge_text.contains("RichTable"))

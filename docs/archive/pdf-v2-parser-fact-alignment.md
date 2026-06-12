@@ -866,3 +866,38 @@ productization fixes. It adds no parser facts and changes no runtime behavior.
 - Next recommended action:
   - prefer `Reset 15B-AuditCleanup`, followed by a non-runtime
     `Reset 16 Dataset Export Scaffold`.
+
+## Reset 15B Audit Cleanup And Parser Fact Migration Targets
+
+Reset 15B adds no parser facts and changes no parser runtime behavior. It marks
+which convert-side rules must eventually move to parser facts or offline
+classifier rows before training.
+
+- Temporary convert ownership:
+  - split ligature text repair belongs in parser glyph/font reconstruction or
+    weak text-repair export rows.
+  - heading-tail/body splitting belongs in `PdfV2TextFlowCandidate` and
+    `PdfV2BlockBoundarySignal` evidence.
+  - hardwrap and cross-page joins belong in parser boundary/read-order facts.
+  - repeated artifact suppression belongs in `PdfV2PageArtifactCandidate` and
+    artifact-classifier rows.
+  - common heading labels and inline body-marker negatives belong in
+    block-kind classifier features backed by parser neighborhood signals.
+- Guardrails added in convert:
+  - owner/risk/TODO comments for each high-risk bridge.
+  - helper boundaries for closed-list ligature repair and repeated-artifact
+    suppression.
+  - tests proving single artifact-like lines are not suppressed and bridge
+    candidate mode does not classify raw strings.
+- Parser/model migration targets for Reset 16 export:
+  - parser fact rows: source refs, text-flow candidates, line text signals,
+    block boundary scores, page artifacts, table/image/caption adjacency, and
+    confidence/reason tags.
+  - weak labels: rule decisions, suppress-output decisions, temporary bridge
+    risk tags, and expected-output alignment markers.
+  - known gaps: cross-page table/image boundaries, column/read-order ids,
+    vertical gaps, font-size relation, stable gold labels, dev/test splits, and
+    quality-lab gates.
+- Model timing:
+  - do not train or load a model yet. The next step is only a non-runtime
+    `Reset 16 Dataset Export Scaffold`.

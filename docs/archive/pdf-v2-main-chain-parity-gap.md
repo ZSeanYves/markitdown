@@ -1455,3 +1455,42 @@ parser/model facts, and why direct training would be premature.
 - Next recommended action:
   - run `Reset 15B-AuditCleanup` first to tag or contain high-risk bridge
     rules, then proceed to `Reset 16 Dataset Export Scaffold`.
+
+## Reset 15B Audit Cleanup And Anti-Patch Guardrails
+
+Reset 15B intentionally does not reduce sample failure counts. It contains the
+Reset 14/15A parity bridges so future work can export evidence without turning
+normalizer patches into gold labels.
+
+- Runtime/sample contract:
+  - no Markdown expected files were changed.
+  - no fallback, v1 deletion, diagnostics text, sidecar schema change,
+    public `object_ref`, runtime model, training hook, external data,
+    quality-lab dependency, or `.vscode` change was introduced.
+- Rules tagged as temporary:
+  - exact split ligature repairs.
+  - CJK/decimal heading-tail split helpers.
+  - hardwrap and cross-page continuation helpers.
+  - English lexical body-merge cue helper.
+  - repeated artifact suppression after text assembly.
+  - common section-label and inline CJK body-marker semantic guards.
+- Cleanup:
+  - high-risk normalizer decisions now have owner/risk/TODO comments.
+  - ligature and artifact suppression logic has explicit helper boundaries.
+  - the product bridge documents that it only switches candidate semantic mode
+    from parser-backed marker/score evidence, not raw text classification.
+- Guard tests:
+  - ligature split scope, heading-tail scope, cross-page structural starts,
+    repeated artifact evidence, repeated title preservation, Method-like label
+    safety, and bridge source ownership.
+  - table/image-specific cross-page prevention still needs parser-owned
+    boundary/object facts and should be part of the Reset 16 export design.
+- Migration targets:
+  - boundary classifier for hardwrap, heading-tail, and cross-page decisions.
+  - artifact classifier backed by `PdfV2PageArtifactCandidate`.
+  - block-kind classifier for headings, intro phrases, and Method-like labels.
+  - caption/adjacency and column/read-order classifiers for image placement and
+    two-column residual failures.
+- Next recommended task:
+  - `Reset 16 Dataset Export Scaffold`, non-runtime only, exporting parser
+    facts, rule decisions, weak labels, risk tags, and source refs.
