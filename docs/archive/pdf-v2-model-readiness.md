@@ -481,3 +481,24 @@ Reset 17A improves model-readiness inputs but does not make training ready.
   - no product Markdown, metadata sidecar, sample expected, normalizer patch,
     semantic string patch, model loading, runtime inference, or training
     changed.
+
+## 17. Reset 17B Parity Facts Audit And Calibration
+
+Reset 17B adds auditability before model or arbitration work.
+
+- Added:
+  - `PdfV2ParityFactAudit` and `pdf_v2_parity_fact_audit(...)`.
+  - counters for fact family/page/confidence/reason tags, source refs,
+    insufficient geometry, and readiness.
+- Calibration:
+  - image-nearby without caption evidence is low-confidence audit-only.
+  - repeated edge header/footer variants are explicit candidates.
+  - heading-risk and two-column ambiguity remain non-decisive.
+- Readiness:
+  - safe future candidates are facts with source refs, sufficient confidence,
+    and no ambiguity tags.
+  - audit-only facts include weak image-nearby, sentence-like heading risks,
+    unknown geometry, and two-column reorder ambiguity.
+- Still no training:
+  - facts are not labels, no reviewed gold exists, and no quality-lab adapter
+    gate or heldout report exists.

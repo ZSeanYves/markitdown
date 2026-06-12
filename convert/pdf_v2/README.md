@@ -779,3 +779,24 @@ consume the new facts by default.
     replacing bridge heuristics.
   - column layout facts can feed future reading-order/layout rows once geometry
     and review labels mature.
+
+## Reset 17B Parity Facts Audit And Calibration
+
+Reset 17B remains parser-side and opt-in. `convert/pdf_v2` still does not
+consume parity facts.
+
+- Audit helper:
+  - `pdf_v2_parity_fact_audit(...)` summarizes fact counts, confidence
+    buckets, reason tags, source-ref coverage, insufficient geometry, and
+    audit-only versus future-arbitration candidate counts.
+- Calibration:
+  - weak image-nearby text without caption evidence is explicitly tagged
+    `nearby_text_not_caption` and kept below arbitration confidence.
+  - header/footer edge variants require repeated edge evidence.
+  - heading-risk and two-column facts remain non-decisive signals.
+- Product boundary:
+  - static convert tests still guard bridge, pipeline, and fact lowerer from
+    calling `pdf_v2_parity_facts_from_model`.
+  - no product Markdown, metadata sidecar, samples expected, fallback,
+    normalizer patch, semantic patch, model loading, runtime inference,
+    quality-lab dependency, or training changed.

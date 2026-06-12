@@ -84,6 +84,8 @@ pub fn pdf_v2_open_document_model_from_path(String, PdfV2CoreOpenOptions) -> Pdf
 
 pub fn pdf_v2_open_source_document_from_path(String, PdfV2CoreOpenOptions) -> PdfV2SourceOpenResult
 
+pub fn pdf_v2_parity_fact_audit(PdfV2ParityFactSet) -> PdfV2ParityFactAudit
+
 pub fn pdf_v2_parity_facts_from_model(PdfV2DocumentModel) -> PdfV2ParityFactSet
 
 pub fn pdf_v2_plain_text_style_flags() -> PdfV2TextStyleFlags
@@ -1208,6 +1210,30 @@ pub(all) enum PdfV2PagePositionBand {
   Bottom
   Unknown
 } derive(Eq)
+
+pub(all) struct PdfV2ParityFactAudit {
+  total_facts : Int
+  cross_page_fact_count : Int
+  image_text_fact_count : Int
+  header_footer_variant_group_count : Int
+  heading_risk_fact_count : Int
+  column_layout_fact_count : Int
+  unknown_or_low_confidence_count : Int
+  source_ref_coverage_count : Int
+  insufficient_geometry_count : Int
+  audit_only_count : Int
+  future_arbitration_candidate_count : Int
+  facts_by_type : Array[PdfV2ParityFactAuditCounter]
+  facts_by_page : Array[PdfV2ParityFactAuditCounter]
+  confidence_buckets : Array[PdfV2ParityFactAuditCounter]
+  reason_tag_distribution : Array[PdfV2ParityFactAuditCounter]
+  readiness_distribution : Array[PdfV2ParityFactAuditCounter]
+}
+
+pub(all) struct PdfV2ParityFactAuditCounter {
+  key : String
+  count : Int
+}
 
 pub(all) struct PdfV2ParityFactSet {
   cross_page_boundaries : Array[PdfV2CrossPageBoundaryFact]

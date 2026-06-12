@@ -929,3 +929,32 @@ loading, or training.
   - convert/product code does not call the new fact builder.
   - facts are intended for future dataset export, quality-lab adapters, and
     semantic arbitration experiments, not current product behavior.
+
+## Reset 17B Parity Facts Audit And Confidence Calibration
+
+Reset 17B adds an opt-in in-memory audit for the Reset 17A parity facts and
+calibrates weak image-nearby evidence downward.
+
+- New opt-in API:
+  - `pdf_v2_parity_fact_audit(facts)`.
+- Audit counters:
+  - total facts and facts by family/page.
+  - confidence buckets.
+  - reason-tag distribution.
+  - cross-page, image-text, header/footer variant, heading-risk, and
+    column-layout counts.
+  - unknown or low-confidence facts.
+  - source-ref coverage.
+  - insufficient-geometry facts.
+  - audit-only versus future-arbitration-candidate counts.
+- Calibration notes:
+  - nearby image text without caption evidence now gets
+    `nearby_text_not_caption` and remains low confidence.
+  - repeated edge header/footer variant facts carry
+    `repeated_edge_evidence`.
+  - heading-risk and two-column facts remain evidence only; they do not demote
+    headings or reorder content.
+- Boundary:
+  - no parser runtime output, product Markdown, metadata sidecar, samples,
+    fallback, quality-lab, model loading, inference, training, or generated
+    export changed.

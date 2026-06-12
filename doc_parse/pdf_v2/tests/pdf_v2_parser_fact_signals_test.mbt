@@ -352,6 +352,19 @@ fn reset8_has_artifact_kind(
 }
 
 ///|
+fn reset17_audit_counter_count(
+  counters : Array[@pdfv2.PdfV2ParityFactAuditCounter],
+  key : String,
+) -> Int {
+  for counter in counters {
+    if counter.key == key {
+      return counter.count
+    }
+  }
+  0
+}
+
+///|
 test "pdf v2 line text signal exposes normalized markers and guards" {
   let normalized = @pdfv2.pdf_v2_build_line_text_signal(
     "  Hello\tworld\n中文  ",
@@ -806,4 +819,137 @@ test "pdf v2 parity facts mark column layout unknown before geometry is reliable
   assert_true(
     facts.column_layouts[1].reason_tags.contains("two_column_candidate"),
   )
+}
+
+///|
+test "pdf v2 parity fact audit counts readiness confidence and source refs" {
+  let first = reset8_page(0, [
+    reset8_block(0, 0, [reset8_line(0, 0, "This sentence continues")]),
+    reset8_block(0, 1, [reset8_top_line(0, 1, "Confidential 1")]),
+    reset8_block(0, 2, [reset8_bottom_line(0, 2, "draft footer")]),
+  ])
+  let caption = reset8_block(1, 0, [
+    reset8_line(1, 6, "Figure 1 System diagram"),
+  ])
+  let right = reset17_block_with_bbox(
+    1,
+    1,
+    [reset8_line(1, 7, "Right column")],
+    Some({ x0: 360.0, y0: 600.0, x1: 560.0, y1: 620.0 }),
+  )
+  let second = {
+    ..reset8_page(1, [
+      caption,
+      right,
+      reset8_block(1, 2, [reset8_top_line(1, 8, "Confidential 2")]),
+      reset8_block(1, 3, [reset8_bottom_line(1, 9, "draft footer")]),
+    ]),
+    images: [reset17_image(1, 5, "9 0 R", None)],
+  }
+  let facts = @pdfv2.pdf_v2_parity_facts_from_model(
+    reset8_model([first, second]),
+  )
+  let audit = @pdfv2.pdf_v2_parity_fact_audit(facts)
+
+  assert_true(audit.total_facts == 13)
+  assert_true(audit.cross_page_fact_count == 1)
+  assert_true(audit.image_text_fact_count == 1)
+  assert_true(audit.header_footer_variant_group_count == 2)
+  assert_true(audit.heading_risk_fact_count == 7)
+  assert_true(audit.column_layout_fact_count == 2)
+  assert_true(audit.source_ref_coverage_count == audit.total_facts)
+  assert_true(audit.insufficient_geometry_count >= 2)
+  assert_true(audit.audit_only_count > 0)
+  assert_true(audit.future_arbitration_candidate_count > 0)
+  assert_true(
+    reset17_audit_counter_count(audit.facts_by_type, "ImageTextBoundaryFact") ==
+    1,
+  )
+  assert_true(
+    reset17_audit_counter_count(
+      audit.reason_tag_distribution,
+      "edge_variant_cluster",
+    ) ==
+    1,
+  )
+  assert_true(
+    reset17_audit_counter_count(audit.confidence_buckets, "candidate_0_60_0_79") >
+    0,
+  )
+  assert_true(
+    reset17_audit_counter_count(audit.readiness_distribution, "audit_only") ==
+    audit.audit_only_count,
+  )
+}
+
+///|
+test "pdf v2 parity calibration keeps weak image nearby text audit only" {
+  let nearby = reset8_block(0, 0, [
+    reset8_line(0, 6, "ordinary nearby sentence."),
+  ])
+  let page = {
+    ..reset8_page(0, [nearby]),
+    images: [reset17_image(0, 5, "9 0 R", None)],
+  }
+  let facts = @pdfv2.pdf_v2_parity_facts_from_model(reset8_model([page]))
+  let image_fact = facts.image_text_boundaries[0]
+
+  assert_true(!image_fact.caption_candidate)
+  assert_true(!image_fact.title_nearby)
+  assert_true(image_fact.confidence < 0.60)
+  assert_true(
+    image_fact.reason_tags ==
+    [
+      "image_text_boundary_fact", "parser_layout_backed", "image_text_nearby_scaffold",
+      "nearby_text_not_caption", "image_geometry_unknown",
+    ],
+  )
+  let audit = @pdfv2.pdf_v2_parity_fact_audit(facts)
+  assert_true(audit.future_arbitration_candidate_count == 0)
+  assert_true(audit.audit_only_count == audit.total_facts)
+}
+
+///|
+test "pdf v2 parity calibration requires repeated edge evidence for variants" {
+  let page = reset8_page(0, [
+    reset8_block(0, 0, [reset8_top_line(0, 0, "Confidential 1")]),
+    reset8_block(0, 1, [reset8_body_line(0, 1, "Body sentence.")]),
+  ])
+  let facts = @pdfv2.pdf_v2_parity_facts_from_model(reset8_model([page]))
+
+  for fact in facts.header_footer_variants {
+    assert_true(fact.normalized_key != "confidential #")
+  }
+  assert_true(facts.header_footer_variants.length() == 0)
+}
+
+///|
+test "pdf v2 parity calibration keeps heading and column facts non-decisive" {
+  let page = reset8_page(0, [
+    reset8_block(0, 0, [reset8_line(0, 0, "Short sentence.")]),
+    reset8_block(0, 1, [reset8_line(0, 1, "Column maybe")]),
+  ])
+  let facts = @pdfv2.pdf_v2_parity_facts_from_model(reset8_model([page]))
+  let audit = @pdfv2.pdf_v2_parity_fact_audit(facts)
+
+  let mut sentence_risk_seen = false
+  for fact in facts.heading_boundaries {
+    if fact.sentence_like_risk {
+      sentence_risk_seen = true
+      assert_true(fact.confidence < 0.60)
+      assert_true(fact.reason_tags.contains("sentence_like_risk"))
+    }
+  }
+  assert_true(sentence_risk_seen)
+  assert_true(facts.column_layouts[0].detected_column_count == "unknown")
+  assert_true(facts.column_layouts[0].reading_order_confidence == 0.25)
+  assert_true(facts.column_layouts[0].ambiguity_flag)
+  assert_true(
+    reset17_audit_counter_count(
+      audit.reason_tag_distribution,
+      "column_geometry_unknown",
+    ) ==
+    1,
+  )
+  assert_true(audit.audit_only_count == audit.total_facts)
 }

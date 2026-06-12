@@ -1635,3 +1635,26 @@ keeps main-chain output unchanged.
   - true visual distances, full column/read-order ids, font/style deltas,
     layout-region rows, review labels, and quality-lab gates remain future
     work.
+
+## Reset 17B Parity Facts Audit And Calibration
+
+Reset 17B audits and calibrates the Reset 17A facts without changing
+main-chain output.
+
+- Audit helper:
+  - `pdf_v2_parity_fact_audit(...)` counts fact families, pages, confidence
+    buckets, reason tags, unknown/low-confidence facts, source-ref coverage,
+    insufficient geometry, and audit-only versus future-arbitration candidates.
+- Calibration:
+  - image nearby text without caption evidence is tagged
+    `nearby_text_not_caption` and kept low confidence.
+  - header/footer variants require repeated edge evidence.
+  - heading-risk facts do not demote headings by themselves.
+  - unknown or two-column layout facts do not imply reorder.
+- Gap coverage:
+  - image/caption, cross-page, header/footer, heading-risk, and two-column
+    categories now have auditable parser signals.
+- Boundary:
+  - no product Markdown, metadata sidecar, sample expected, fallback,
+    normalizer/semantic patch, model, training hook, generated dataset, or
+    quality-lab invocation changed.

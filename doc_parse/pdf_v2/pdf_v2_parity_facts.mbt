@@ -100,6 +100,32 @@ pub(all) struct PdfV2ParityFactSet {
 }
 
 ///|
+pub(all) struct PdfV2ParityFactAuditCounter {
+  key : String
+  count : Int
+}
+
+///|
+pub(all) struct PdfV2ParityFactAudit {
+  total_facts : Int
+  cross_page_fact_count : Int
+  image_text_fact_count : Int
+  header_footer_variant_group_count : Int
+  heading_risk_fact_count : Int
+  column_layout_fact_count : Int
+  unknown_or_low_confidence_count : Int
+  source_ref_coverage_count : Int
+  insufficient_geometry_count : Int
+  audit_only_count : Int
+  future_arbitration_candidate_count : Int
+  facts_by_type : Array[PdfV2ParityFactAuditCounter]
+  facts_by_page : Array[PdfV2ParityFactAuditCounter]
+  confidence_buckets : Array[PdfV2ParityFactAuditCounter]
+  reason_tag_distribution : Array[PdfV2ParityFactAuditCounter]
+  readiness_distribution : Array[PdfV2ParityFactAuditCounter]
+}
+
+///|
 pub fn pdf_v2_parity_facts_from_model(
   model : PdfV2DocumentModel,
 ) -> PdfV2ParityFactSet {
@@ -134,6 +160,180 @@ pub fn pdf_v2_parity_facts_from_model(
     reason_tags: [
       "pdf_v2_parity_fact_set", "parser_layout_backed", "not_product_behavior",
     ],
+  }
+}
+
+///|
+pub fn pdf_v2_parity_fact_audit(
+  facts : PdfV2ParityFactSet,
+) -> PdfV2ParityFactAudit {
+  let facts_by_type : Array[PdfV2ParityFactAuditCounter] = []
+  let facts_by_page : Array[PdfV2ParityFactAuditCounter] = []
+  let confidence_buckets : Array[PdfV2ParityFactAuditCounter] = []
+  let reason_tag_distribution : Array[PdfV2ParityFactAuditCounter] = []
+  let readiness_distribution : Array[PdfV2ParityFactAuditCounter] = []
+  let mut total = 0
+  let mut unknown_or_low = 0
+  let mut source_ref_covered = 0
+  let mut insufficient_geometry = 0
+  let mut audit_only = 0
+  let mut future_candidate = 0
+  for fact in facts.cross_page_boundaries {
+    total = total + 1
+    pdf_v2_parity_audit_add_counter(facts_by_type, "CrossPageBoundaryFact")
+    pdf_v2_parity_audit_add_counter(
+      facts_by_page,
+      fact.page_from.to_string() + "->" + fact.page_to.to_string(),
+    )
+    pdf_v2_parity_audit_add_counter(
+      confidence_buckets,
+      pdf_v2_parity_confidence_bucket(fact.confidence),
+    )
+    pdf_v2_parity_audit_add_tags(reason_tag_distribution, fact.reason_tags)
+    if pdf_v2_parity_audit_unknown_or_low(fact.confidence, fact.reason_tags) {
+      unknown_or_low = unknown_or_low + 1
+    }
+    if fact.source_refs.length() > 0 {
+      source_ref_covered = source_ref_covered + 1
+    }
+    let readiness = pdf_v2_parity_cross_page_readiness(fact)
+    pdf_v2_parity_audit_add_counter(readiness_distribution, readiness)
+    if readiness == "future_arbitration_candidate" {
+      future_candidate = future_candidate + 1
+    } else {
+      audit_only = audit_only + 1
+    }
+  }
+  for fact in facts.image_text_boundaries {
+    total = total + 1
+    pdf_v2_parity_audit_add_counter(facts_by_type, "ImageTextBoundaryFact")
+    pdf_v2_parity_audit_add_counter(
+      facts_by_page,
+      pdf_v2_parity_page_key(fact.page_index),
+    )
+    pdf_v2_parity_audit_add_counter(
+      confidence_buckets,
+      pdf_v2_parity_confidence_bucket(fact.confidence),
+    )
+    pdf_v2_parity_audit_add_tags(reason_tag_distribution, fact.reason_tags)
+    if pdf_v2_parity_audit_unknown_or_low(fact.confidence, fact.reason_tags) {
+      unknown_or_low = unknown_or_low + 1
+    }
+    if fact.source_refs.length() > 0 {
+      source_ref_covered = source_ref_covered + 1
+    }
+    if fact.reason_tags.contains("image_geometry_unknown") ||
+      fact.reason_tags.contains("nearby_text_unknown") {
+      insufficient_geometry = insufficient_geometry + 1
+    }
+    let readiness = pdf_v2_parity_image_text_readiness(fact)
+    pdf_v2_parity_audit_add_counter(readiness_distribution, readiness)
+    if readiness == "future_arbitration_candidate" {
+      future_candidate = future_candidate + 1
+    } else {
+      audit_only = audit_only + 1
+    }
+  }
+  for fact in facts.header_footer_variants {
+    total = total + 1
+    pdf_v2_parity_audit_add_counter(facts_by_type, "HeaderFooterVariantFact")
+    for page_index in fact.page_positions {
+      pdf_v2_parity_audit_add_counter(facts_by_page, page_index.to_string())
+    }
+    pdf_v2_parity_audit_add_counter(
+      confidence_buckets,
+      pdf_v2_parity_confidence_bucket(fact.confidence),
+    )
+    pdf_v2_parity_audit_add_tags(reason_tag_distribution, fact.reason_tags)
+    if pdf_v2_parity_audit_unknown_or_low(fact.confidence, fact.reason_tags) {
+      unknown_or_low = unknown_or_low + 1
+    }
+    if fact.source_refs.length() > 0 {
+      source_ref_covered = source_ref_covered + 1
+    }
+    let readiness = pdf_v2_parity_header_footer_readiness(fact)
+    pdf_v2_parity_audit_add_counter(readiness_distribution, readiness)
+    if readiness == "future_arbitration_candidate" {
+      future_candidate = future_candidate + 1
+    } else {
+      audit_only = audit_only + 1
+    }
+  }
+  for fact in facts.heading_boundaries {
+    total = total + 1
+    pdf_v2_parity_audit_add_counter(facts_by_type, "HeadingBoundaryFact")
+    pdf_v2_parity_audit_add_counter(
+      facts_by_page,
+      pdf_v2_parity_page_key(fact.page_index),
+    )
+    pdf_v2_parity_audit_add_counter(
+      confidence_buckets,
+      pdf_v2_parity_confidence_bucket(fact.confidence),
+    )
+    pdf_v2_parity_audit_add_tags(reason_tag_distribution, fact.reason_tags)
+    if pdf_v2_parity_audit_unknown_or_low(fact.confidence, fact.reason_tags) {
+      unknown_or_low = unknown_or_low + 1
+    }
+    if fact.source_refs.length() > 0 {
+      source_ref_covered = source_ref_covered + 1
+    }
+    if fact.font_layout_evidence == "unknown" {
+      insufficient_geometry = insufficient_geometry + 1
+    }
+    let readiness = pdf_v2_parity_heading_readiness(fact)
+    pdf_v2_parity_audit_add_counter(readiness_distribution, readiness)
+    if readiness == "future_arbitration_candidate" {
+      future_candidate = future_candidate + 1
+    } else {
+      audit_only = audit_only + 1
+    }
+  }
+  for fact in facts.column_layouts {
+    total = total + 1
+    pdf_v2_parity_audit_add_counter(facts_by_type, "ColumnLayoutFact")
+    pdf_v2_parity_audit_add_counter(facts_by_page, fact.page_index.to_string())
+    pdf_v2_parity_audit_add_counter(
+      confidence_buckets,
+      pdf_v2_parity_confidence_bucket(fact.reading_order_confidence),
+    )
+    pdf_v2_parity_audit_add_tags(reason_tag_distribution, fact.reason_tags)
+    if pdf_v2_parity_audit_unknown_or_low(
+        fact.reading_order_confidence,
+        fact.reason_tags,
+      ) {
+      unknown_or_low = unknown_or_low + 1
+    }
+    if fact.source_refs.length() > 0 {
+      source_ref_covered = source_ref_covered + 1
+    }
+    if fact.reason_tags.contains("column_geometry_unknown") {
+      insufficient_geometry = insufficient_geometry + 1
+    }
+    let readiness = pdf_v2_parity_column_readiness(fact)
+    pdf_v2_parity_audit_add_counter(readiness_distribution, readiness)
+    if readiness == "future_arbitration_candidate" {
+      future_candidate = future_candidate + 1
+    } else {
+      audit_only = audit_only + 1
+    }
+  }
+  {
+    total_facts: total,
+    cross_page_fact_count: facts.cross_page_boundaries.length(),
+    image_text_fact_count: facts.image_text_boundaries.length(),
+    header_footer_variant_group_count: facts.header_footer_variants.length(),
+    heading_risk_fact_count: facts.heading_boundaries.length(),
+    column_layout_fact_count: facts.column_layouts.length(),
+    unknown_or_low_confidence_count: unknown_or_low,
+    source_ref_coverage_count: source_ref_covered,
+    insufficient_geometry_count: insufficient_geometry,
+    audit_only_count: audit_only,
+    future_arbitration_candidate_count: future_candidate,
+    facts_by_type,
+    facts_by_page,
+    confidence_buckets,
+    reason_tag_distribution,
+    readiness_distribution,
   }
 }
 
@@ -190,6 +390,130 @@ fn pdf_v2_parity_cross_page_boundaries(
     }
   }
   out
+}
+
+///|
+fn pdf_v2_parity_audit_add_counter(
+  counters : Array[PdfV2ParityFactAuditCounter],
+  key : String,
+) -> Unit {
+  for index in 0..<counters.length() {
+    if counters[index].key == key {
+      counters[index] = { key, count: counters[index].count + 1 }
+      return
+    }
+  }
+  counters.push({ key, count: 1 })
+}
+
+///|
+fn pdf_v2_parity_audit_add_tags(
+  counters : Array[PdfV2ParityFactAuditCounter],
+  tags : Array[String],
+) -> Unit {
+  for tag in tags {
+    pdf_v2_parity_audit_add_counter(counters, tag)
+  }
+}
+
+///|
+fn pdf_v2_parity_confidence_bucket(confidence : Double) -> String {
+  if confidence < 0.30 {
+    "low_lt_0_30"
+  } else if confidence < 0.60 {
+    "medium_0_30_0_59"
+  } else if confidence < 0.80 {
+    "candidate_0_60_0_79"
+  } else {
+    "high_gte_0_80"
+  }
+}
+
+///|
+fn pdf_v2_parity_page_key(page_index : Int?) -> String {
+  match page_index {
+    Some(value) => value.to_string()
+    None => "unknown"
+  }
+}
+
+///|
+fn pdf_v2_parity_audit_unknown_or_low(
+  confidence : Double,
+  reason_tags : Array[String],
+) -> Bool {
+  confidence < 0.60 ||
+  reason_tags.contains("image_geometry_unknown") ||
+  reason_tags.contains("nearby_text_unknown") ||
+  reason_tags.contains("column_geometry_unknown") ||
+  reason_tags.contains("source_order_only")
+}
+
+///|
+fn pdf_v2_parity_cross_page_readiness(
+  fact : PdfV2CrossPageBoundaryFact,
+) -> String {
+  if fact.confidence >= 0.60 &&
+    fact.prev_open_ended &&
+    !fact.next_starts_with_marker &&
+    fact.source_refs.length() > 0 {
+    "future_arbitration_candidate"
+  } else {
+    "audit_only"
+  }
+}
+
+///|
+fn pdf_v2_parity_image_text_readiness(
+  fact : PdfV2ImageTextBoundaryFact,
+) -> String {
+  if fact.confidence >= 0.60 &&
+    fact.caption_candidate &&
+    fact.source_refs.length() > 0 &&
+    !fact.reason_tags.contains("nearby_text_not_caption") &&
+    !fact.reason_tags.contains("nearby_text_unknown") {
+    "future_arbitration_candidate"
+  } else {
+    "audit_only"
+  }
+}
+
+///|
+fn pdf_v2_parity_header_footer_readiness(
+  fact : PdfV2HeaderFooterVariantFact,
+) -> String {
+  if fact.confidence >= 0.70 &&
+    fact.page_positions.length() >= 2 &&
+    fact.position_band != PdfV2ParityVerticalBand::Body &&
+    fact.source_refs.length() > 0 {
+    "future_arbitration_candidate"
+  } else {
+    "audit_only"
+  }
+}
+
+///|
+fn pdf_v2_parity_heading_readiness(fact : PdfV2HeadingBoundaryFact) -> String {
+  if fact.confidence >= 0.70 &&
+    !fact.sentence_like_risk &&
+    !fact.body_continuation_evidence &&
+    fact.source_refs.length() > 0 {
+    "future_arbitration_candidate"
+  } else {
+    "audit_only"
+  }
+}
+
+///|
+fn pdf_v2_parity_column_readiness(fact : PdfV2ColumnLayoutFact) -> String {
+  if fact.detected_column_count == "1" &&
+    !fact.ambiguity_flag &&
+    fact.reading_order_confidence >= 0.60 &&
+    fact.source_refs.length() > 0 {
+    "future_arbitration_candidate"
+  } else {
+    "audit_only"
+  }
 }
 
 ///|
@@ -409,6 +733,7 @@ fn pdf_v2_parity_append_edge_variant_facts(
       confidence: 0.78,
       reason_tags: [
         "header_footer_variant_fact", "parser_layout_backed", "edge_variant_cluster",
+        "repeated_edge_evidence",
       ],
       source_refs: refs_by_key[index],
     })
@@ -610,6 +935,8 @@ fn pdf_v2_parity_image_text_boundary_for_image(
   ]
   if caption_candidate {
     reason_tags.push("caption_candidate")
+  } else if nearby.length() > 0 {
+    reason_tags.push("nearby_text_not_caption")
   }
   if title_nearby {
     reason_tags.push("title_nearby")
@@ -736,6 +1063,8 @@ fn pdf_v2_parity_image_text_confidence(
   let mut confidence = 0.35
   if caption_candidate {
     confidence = confidence + 0.30
+  } else {
+    confidence = confidence - 0.15
   }
   if title_nearby {
     confidence = confidence + 0.10

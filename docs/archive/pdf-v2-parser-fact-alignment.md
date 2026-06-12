@@ -1053,3 +1053,52 @@ Future export/arbitration mapping:
   semantic arbitration.
 - column layout facts can feed future `ReadingOrderRow` once geometry and
   review labels mature.
+
+## Reset 17B Parity Facts Audit And Confidence Calibration
+
+Reset 17B audits the Reset 17A facts in memory and keeps them out of product
+conversion.
+
+New audit API:
+
+```text
+pdf_v2_parity_fact_audit(facts)
+```
+
+Audit counters:
+
+- total facts and facts by type/page.
+- confidence buckets: low, medium, candidate, and high.
+- reason-tag distribution.
+- cross-page, image-text, header/footer variant, heading-risk, and
+  column-layout counts.
+- unknown or low-confidence facts.
+- source-ref coverage.
+- insufficient-geometry facts.
+- audit-only versus future-arbitration-candidate counts.
+
+Calibration changes:
+
+- image nearby text without caption evidence gets `nearby_text_not_caption`
+  and confidence remains below candidate threshold.
+- repeated edge header/footer variants get `repeated_edge_evidence`.
+- sentence-like heading risks stay low confidence.
+- column facts with unknown geometry stay audit-only and do not imply reorder.
+
+Fact readiness matrix:
+
+| fact | future arbitration candidate when | audit-only when |
+| --- | --- | --- |
+| `PdfV2CrossPageBoundaryFact` | open-ended previous text, no marker start on next page, source refs, confidence >= 0.60 | marker start, weak confidence, or missing source refs |
+| `PdfV2ImageTextBoundaryFact` | caption evidence, source refs, no nearby-text-unknown tag, confidence >= 0.60 | nearby text lacks caption evidence, geometry/text unknown, or low confidence |
+| `PdfV2HeaderFooterVariantFact` | repeated non-body edge evidence, source refs, confidence >= 0.70 | body/unknown band, single-page edge text, or low confidence |
+| `PdfV2HeadingBoundaryFact` | strong heading evidence without sentence-like/body-continuation risks | short-text or sentence-like risk without review |
+| `PdfV2ColumnLayoutFact` | currently only non-ambiguous single-column source-order facts | unknown geometry, two-column ambiguity, or reorder need |
+
+Product boundary:
+
+- product bridge, pipeline, and fact lowerer still do not call
+  `pdf_v2_parity_facts_from_model`.
+- no product Markdown, metadata sidecar, samples expected, v1 fallback,
+  normalizer patch, semantic patch, model loading, runtime inference, training,
+  quality-lab write, dataset export, or model artifact changed.
