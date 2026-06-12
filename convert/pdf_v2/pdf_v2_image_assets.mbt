@@ -194,6 +194,22 @@ fn pdf_v2_image_asset_materialize_one(
 }
 
 ///|
+fn pdf_v2_image_asset_caption_with_asset(
+  caption : @pdfv2.PdfV2ImageCaptionCandidate?,
+  asset : @pdfv2.PdfV2ImageAssetCandidate?,
+) -> @pdfv2.PdfV2ImageCaptionCandidate? {
+  match (caption, asset) {
+    (Some(candidate), Some(asset_candidate)) =>
+      match asset_candidate.rel_path {
+        Some(path) if path.trim().to_owned() != "" =>
+          Some({ ..candidate, asset_ref: Some(path) })
+        _ => caption
+      }
+    _ => caption
+  }
+}
+
+///|
 fn pdf_v2_materialize_image_assets(
   model : @pdfv2.PdfV2DocumentModel,
   out_dir : String?,
@@ -211,7 +227,11 @@ fn pdf_v2_materialize_image_assets(
             root,
             next_image_idx,
           )
-          { ..image, asset, }
+          {
+            ..image,
+            asset,
+            caption: pdf_v2_image_asset_caption_with_asset(image.caption, asset),
+          }
         })
         let inline_images = page.inline_images.map(fn(image) {
           let asset = pdf_v2_image_asset_materialize_one(

@@ -273,6 +273,18 @@ fn phase14_image_ref() -> @pdfv2.PdfV2SourceRef {
 }
 
 ///|
+fn phase14_image_ref_with_order(order : Int) -> @pdfv2.PdfV2SourceRef {
+  {
+    page_index: Some(0),
+    object_id: Some("5 0 R"),
+    stream_index: Some(0),
+    op_index: Some(order),
+    content_order_index: Some(order),
+    kind: @pdfv2.PdfV2SourceKind::Image,
+  }
+}
+
+///|
 fn phase14_inline_image_ref(order : Int) -> @pdfv2.PdfV2SourceRef {
   {
     page_index: Some(0),
@@ -917,6 +929,9 @@ fn phase20_image_candidate(
     smask_present: false,
     inline: false,
     bbox: None,
+    nesting: None,
+    placement: None,
+    caption: None,
     source_ref: phase14_image_ref(),
     warnings: [],
     risks: [],
@@ -941,6 +956,8 @@ fn phase20_inline_image_candidate(
     image_mask: None,
     decode_params_present: false,
     bbox: None,
+    placement: None,
+    caption: None,
     source_ref: phase14_inline_image_ref(3),
     warnings: [],
     risks: [],
@@ -2436,6 +2453,81 @@ test "pdf v2 product bridge emits supported image asset and origin" {
   assert_true(!markdown.contains("metadata-only"))
   assert_true(!markdown.contains(".metadata"))
   assert_true(!markdown.contains("PDF_V2_PIPELINE_DIAGNOSTICS"))
+}
+
+///|
+test "pdf v2 product bridge uses parser caption facts and resource path origin" {
+  let caption_ref = phase14_text_ref(2)
+  let supported = {
+    ..phase20_image_candidate(
+      Some("5 0 R"),
+      ["/DCTDecode"],
+      @pdfv2.PdfV2ImageDecodeStatus::DecodeAvailable,
+    ),
+    source_ref: phase14_image_ref_with_order(1),
+    nesting: Some({
+      parent_kind: @pdfv2.PdfV2ImageParentKind::FormXObject,
+      parent_object_ref: Some("4 0 R"),
+      xobject_name: Some("/Im1"),
+      nesting_depth: 1,
+      invocation_source_ref: Some(phase14_image_ref_with_order(1)),
+      resource_path: Some("Fm1/Im1"),
+      reason_tags: ["test_nesting"],
+    }),
+    caption: Some({
+      image_object_ref: Some("5 0 R"),
+      asset_ref: Some("assets/image01.jpg"),
+      caption_text: "Figure 1. PDF caption",
+      page_index: Some(0),
+      line_source_refs: [caption_ref],
+      relation: @pdfv2.PdfV2ImageCaptionRelation::Below,
+      confidence: 0.85,
+      reason_tags: ["test_caption_fact"],
+    }),
+    asset: Some({
+      rel_path: Some("assets/image01.jpg"),
+      byte_kind: @pdfv2.PdfV2ImageAssetByteKind::RawEncoded,
+      mime: Some("image/jpeg"),
+      extension: Some("jpg"),
+      bytes: None,
+      byte_count: Some(4),
+      status: @pdfv2.PdfV2CapabilityStatus::Supported,
+      reason_tags: ["asset_materialized"],
+    }),
+  }
+  let caption_fragment = phase20_fragment(
+    @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+    "Figure 1. PDF caption",
+    Some(0),
+    [caption_ref],
+  )
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok_with_images(1, [caption_fragment], [supported], []),
+    {
+      ..@pdfv2conv.default_pdf_v2_product_bridge_options(),
+      source_name: Some("captioned.pdf"),
+    },
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(phase20_image_block_count(doc) == 1)
+  assert_true(doc.blocks.val.length() == 1)
+  match phase20_first_image_block(doc) {
+    Some(img) => {
+      assert_true(img.caption == Some("Figure 1. PDF caption"))
+      match doc.asset_origins.val.get(img.path) {
+        Some(origin) => {
+          assert_true(origin.nearby_caption == Some("Figure 1. PDF caption"))
+          assert_true(origin.source_path == Some("Fm1/Im1"))
+          assert_true(origin.origin_id.unwrap_or("").contains("@form:4 0 R"))
+        }
+        None => fail("expected captioned image asset origin")
+      }
+    }
+    None => fail("expected captioned ImageBlock")
+  }
+  assert_true(markdown.contains("![image](assets/image01.jpg)"))
+  assert_true(markdown.contains("Figure 1. PDF caption"))
 }
 
 ///|
@@ -4044,7 +4136,6 @@ test "pdf v2 convert boundary guard stays parser fact only" {
   assert_true(!lowerer_text.contains("markitdown-quality-lab"))
   assert_true(!lowerer_text.contains("Heading"))
   assert_true(!lowerer_text.contains("ListItem"))
-  assert_true(!lowerer_text.contains("Caption"))
   assert_true(!lowerer_text.contains("TableLike"))
   assert_true(pipeline_text.contains("parse_pdf_v2_model_from_path"))
   assert_true(!pipeline_text.contains("doc_parse/pdf/vendor"))
@@ -4056,7 +4147,6 @@ test "pdf v2 convert boundary guard stays parser fact only" {
   assert_true(!pipeline_text.contains("PdfV2BlockRole"))
   assert_true(!pipeline_text.contains("Heading"))
   assert_true(!pipeline_text.contains("ListItem"))
-  assert_true(!pipeline_text.contains("Caption"))
   assert_true(!pipeline_text.contains("TableLike"))
   assert_true(!bridge_text.contains("doc_parse/pdf/vendor"))
   assert_true(!bridge_text.contains("doc_parse/pdf\""))
@@ -4085,7 +4175,6 @@ test "pdf v2 convert boundary guard stays parser fact only" {
   assert_true(bridge_text.contains("enable_semantic_rules"))
   assert_true(bridge_text.contains("pdf_v2_semantic_blocks_from_fragments"))
   assert_true(!bridge_text.contains("pdf_v2_should_emit_minimal_heading"))
-  assert_true(!bridge_text.contains("Caption"))
   assert_true(!bridge_text.contains("TableLike"))
   assert_true(bridge_text.contains("RichTable"))
   assert_true(!bridge_text.contains("@cor.Block::Table"))

@@ -26,6 +26,76 @@ pub(all) struct PdfV2ImageAssetCandidate {
 }
 
 ///|
+pub(all) enum PdfV2ImageParentKind {
+  Page
+  FormXObject
+  Unknown
+} derive(Eq)
+
+///|
+pub(all) struct PdfV2ImageNestingInfo {
+  parent_kind : PdfV2ImageParentKind
+  parent_object_ref : String?
+  xobject_name : String?
+  nesting_depth : Int
+  invocation_source_ref : PdfV2SourceRef?
+  resource_path : String?
+  reason_tags : Array[String]
+}
+
+///|
+pub(all) enum PdfV2ImagePlacementConfidence {
+  High
+  Sparse
+  Unknown
+} derive(Eq)
+
+///|
+pub(all) struct PdfV2ImageTransform {
+  a : Double
+  b : Double
+  c : Double
+  d : Double
+  e : Double
+  f : Double
+}
+
+///|
+pub(all) struct PdfV2ImagePlacementFact {
+  page_index : Int?
+  image_object_ref : String?
+  parent_object_ref : String?
+  source_order : Int?
+  bbox : PdfV2BBox?
+  ctm : PdfV2ImageTransform?
+  width : Int?
+  height : Int?
+  placement_confidence : PdfV2ImagePlacementConfidence
+  reason_tags : Array[String]
+  source_refs : Array[PdfV2SourceRef]
+}
+
+///|
+pub(all) enum PdfV2ImageCaptionRelation {
+  Below
+  Above
+  Nearby
+  Unknown
+} derive(Eq)
+
+///|
+pub(all) struct PdfV2ImageCaptionCandidate {
+  image_object_ref : String?
+  asset_ref : String?
+  caption_text : String
+  page_index : Int?
+  line_source_refs : Array[PdfV2SourceRef]
+  relation : PdfV2ImageCaptionRelation
+  confidence : Double
+  reason_tags : Array[String]
+}
+
+///|
 pub(all) enum PdfV2ResourceKind {
   Font
   XObject
@@ -59,6 +129,9 @@ pub(all) struct PdfV2ImageCandidate {
   smask_present : Bool
   inline : Bool
   bbox : PdfV2BBox?
+  nesting : PdfV2ImageNestingInfo?
+  placement : PdfV2ImagePlacementFact?
+  caption : PdfV2ImageCaptionCandidate?
   source_ref : PdfV2SourceRef
   warnings : Array[PdfV2Warning]
   risks : Array[PdfV2Risk]
@@ -78,6 +151,8 @@ pub(all) struct PdfV2InlineImageCandidate {
   image_mask : Bool?
   decode_params_present : Bool
   bbox : PdfV2BBox?
+  placement : PdfV2ImagePlacementFact?
+  caption : PdfV2ImageCaptionCandidate?
   source_ref : PdfV2SourceRef
   warnings : Array[PdfV2Warning]
   risks : Array[PdfV2Risk]

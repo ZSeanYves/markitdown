@@ -1112,3 +1112,44 @@
     supported inline-image path.
   - captions, table-from-image, OCR, full layout recovery, model loading, v1
     fallback, and sample expected updates remain out of scope.
+
+## Reset 11 Form XObject Images And Caption Facts
+
+- focus:
+  - discover images drawn from nested Form XObject content streams when the
+    page invokes the Form with `Do`.
+  - attach conservative image placement facts from the graphics CTM and content
+    order.
+  - attach high-confidence caption candidates only for same-page
+    single-image/single-figure-caption cases.
+- implementation:
+  - page resources still emit resource/form facts, but visible image candidates
+    are created from actual `Do` invocations so placement/order facts are tied
+    to drawn content.
+  - Form XObject traversal is depth-capped and cycle-guarded. Cycles record
+    warnings/risks and remain non-fatal; there is no v1 fallback.
+  - `PdfV2ImageCandidate` now carries optional nesting, placement, and caption
+    facts. Nested images include the parent Form object ref and resource path
+    when known.
+  - the product bridge interleaves materialized images by source order, lowers
+    parser caption facts into `ImageBlock.caption`, mirrors them to
+    `asset_origins.nearby_caption`, and suppresses only the exact caption text
+    consumed for that image.
+  - asset origins keep the image object ref and include the resource path in
+    `source_path`; `key_path` stays `None` for v1-style PDF asset parity.
+- sample signal with explicit prebuilt CLIs:
+  - Reset 10 main Markdown: 24 failures; Reset 11 run
+    `.tmp/check/runs/pdf-20260612-161426-44853` has 20 failures.
+  - Reset 10 assets-only: 7 failures; Reset 11 run
+    `.tmp/check/runs/pdf-20260612-161427-45335` has 3 failures.
+  - Reset 10 metadata-only: 12 failures; Reset 11 run
+    `.tmp/check/runs/pdf-20260612-161427-44852` has 9 failures.
+  - `assets/pdf_image_form_xobject` now writes and references
+    `assets/image01.jpg`; its remaining diff is heading/text structure.
+  - caption-like image samples now render image then caption and mirror
+    `nearby_caption` in metadata sidecars.
+- unchanged boundaries:
+  - no sample expected files were updated.
+  - no vendor runtime change, OCR, image-table recovery, full layout recovery,
+    aggressive caption inference, v1 fallback, external model/data access, or
+    training hook was added.

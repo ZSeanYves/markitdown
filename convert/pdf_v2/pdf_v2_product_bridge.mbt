@@ -31,6 +31,19 @@ priv struct PdfV2ProductBridgeTableCandidate {
 }
 
 ///|
+priv struct PdfV2ProductBridgeImageOutput {
+  path : String
+  page_index : Int?
+  source_refs : Array[@pdfv2.PdfV2SourceRef]
+  source_order : Int?
+  caption : String?
+  caption_source_refs : Array[@pdfv2.PdfV2SourceRef]
+  object_ref : String?
+  origin_id : String
+  source_path : String?
+}
+
+///|
 pub fn default_pdf_v2_product_bridge_options() -> PdfV2ProductBridgeOptions {
   {
     emit_page_breaks: false,
@@ -95,6 +108,11 @@ fn pdf_v2_pipeline_output_to_document(
     output.fragments,
     options,
   )
+  let image_outputs = pdf_v2_product_bridge_image_outputs(
+    output.image_candidates,
+    output.inline_image_candidates,
+  )
+  let emitted_images : Array[String] = []
   let candidate_semantic_mode = options.normalize_plain_text &&
     options.enable_semantic_rules &&
     pdf_v2_product_bridge_has_actionable_text_flow_candidates(
@@ -107,6 +125,14 @@ fn pdf_v2_pipeline_output_to_document(
   let emitted_table_fragments : Array[Int] = []
   if candidate_semantic_mode {
     for semantic_block in semantic_blocks {
+      pdf_v2_product_bridge_push_due_images_for_order(
+        doc,
+        image_outputs,
+        emitted_images,
+        semantic_block.page_index,
+        pdf_v2_product_bridge_source_order(semantic_block.source_refs),
+        options,
+      )
       if semantic_block.fragment_index >= 0 &&
         pdf_v2_product_bridge_push_table_for_fragment(
           doc,
@@ -125,17 +151,33 @@ fn pdf_v2_pipeline_output_to_document(
         remaining_chars,
       )
       remaining_chars = text.1
-      pdf_v2_product_bridge_push_semantic_block(
-        doc,
-        semantic_block,
-        text.0,
-        options,
-        output.link_candidates,
-        link_page_counts,
-      )
+      if !pdf_v2_product_bridge_should_suppress_caption_text(
+          text.0,
+          semantic_block.page_index,
+          semantic_block.source_refs,
+          image_outputs,
+          emitted_images,
+        ) {
+        pdf_v2_product_bridge_push_semantic_block(
+          doc,
+          semantic_block,
+          text.0,
+          options,
+          output.link_candidates,
+          link_page_counts,
+        )
+      }
     }
     for fragment_index in 0..<output.fragments.length() {
       let fragment = output.fragments[fragment_index]
+      pdf_v2_product_bridge_push_due_images_for_order(
+        doc,
+        image_outputs,
+        emitted_images,
+        fragment.page_index,
+        pdf_v2_product_bridge_source_order(fragment.source_refs),
+        options,
+      )
       match fragment.kind {
         PlainText =>
           ignore(
@@ -165,14 +207,22 @@ fn pdf_v2_pipeline_output_to_document(
               remaining_chars,
             )
             remaining_chars = text.1
-            pdf_v2_product_bridge_push_plain_text(
-              doc,
-              text.0,
-              fragment,
-              options,
-              output.link_candidates,
-              link_page_counts,
-            )
+            if !pdf_v2_product_bridge_should_suppress_caption_text(
+                text.0,
+                fragment.page_index,
+                fragment.source_refs,
+                image_outputs,
+                emitted_images,
+              ) {
+              pdf_v2_product_bridge_push_plain_text(
+                doc,
+                text.0,
+                fragment,
+                options,
+                output.link_candidates,
+                link_page_counts,
+              )
+            }
           }
         UnsupportedObjectNote =>
           if options.emit_unsupported_object_notes {
@@ -181,22 +231,27 @@ fn pdf_v2_pipeline_output_to_document(
               remaining_chars,
             )
             remaining_chars = text.1
-            pdf_v2_product_bridge_push_plain_text(
-              doc,
-              text.0,
-              fragment,
-              options,
-              output.link_candidates,
-              link_page_counts,
-            )
+            if !pdf_v2_product_bridge_should_suppress_caption_text(
+                text.0,
+                fragment.page_index,
+                fragment.source_refs,
+                image_outputs,
+                emitted_images,
+              ) {
+              pdf_v2_product_bridge_push_plain_text(
+                doc,
+                text.0,
+                fragment,
+                options,
+                output.link_candidates,
+                link_page_counts,
+              )
+            }
           }
       }
     }
-    pdf_v2_product_bridge_push_images(
-      doc,
-      output.image_candidates,
-      output.inline_image_candidates,
-      options,
+    pdf_v2_product_bridge_push_remaining_images(
+      doc, image_outputs, emitted_images, options,
     )
     return doc
   }
@@ -204,6 +259,14 @@ fn pdf_v2_pipeline_output_to_document(
   let mut semantic_index = 0
   for fragment_index in 0..<output.fragments.length() {
     let fragment = output.fragments[fragment_index]
+    pdf_v2_product_bridge_push_due_images_for_order(
+      doc,
+      image_outputs,
+      emitted_images,
+      fragment.page_index,
+      pdf_v2_product_bridge_source_order(fragment.source_refs),
+      options,
+    )
     match fragment.kind {
       PlainText =>
         if pdf_v2_product_bridge_push_table_for_fragment(
@@ -234,14 +297,22 @@ fn pdf_v2_pipeline_output_to_document(
               remaining_chars,
             )
             remaining_chars = text.1
-            pdf_v2_product_bridge_push_semantic_block(
-              doc,
-              semantic_block,
-              text.0,
-              options,
-              output.link_candidates,
-              link_page_counts,
-            )
+            if !pdf_v2_product_bridge_should_suppress_caption_text(
+                text.0,
+                semantic_block.page_index,
+                semantic_block.source_refs,
+                image_outputs,
+                emitted_images,
+              ) {
+              pdf_v2_product_bridge_push_semantic_block(
+                doc,
+                semantic_block,
+                text.0,
+                options,
+                output.link_candidates,
+                link_page_counts,
+              )
+            }
             semantic_index = semantic_index + 1
           }
         } else if options.normalize_plain_text {
@@ -253,14 +324,22 @@ fn pdf_v2_pipeline_output_to_document(
               remaining_chars,
             )
             remaining_chars = text.1
-            pdf_v2_product_bridge_push_plain_text(
-              doc,
-              text.0,
-              fragment,
-              options,
-              output.link_candidates,
-              link_page_counts,
-            )
+            if !pdf_v2_product_bridge_should_suppress_caption_text(
+                text.0,
+                fragment.page_index,
+                fragment.source_refs,
+                image_outputs,
+                emitted_images,
+              ) {
+              pdf_v2_product_bridge_push_plain_text(
+                doc,
+                text.0,
+                fragment,
+                options,
+                output.link_candidates,
+                link_page_counts,
+              )
+            }
             shaped_index = shaped_index + 1
           }
         } else {
@@ -269,14 +348,22 @@ fn pdf_v2_pipeline_output_to_document(
             remaining_chars,
           )
           remaining_chars = text.1
-          pdf_v2_product_bridge_push_plain_text(
-            doc,
-            text.0,
-            fragment,
-            options,
-            output.link_candidates,
-            link_page_counts,
-          )
+          if !pdf_v2_product_bridge_should_suppress_caption_text(
+              text.0,
+              fragment.page_index,
+              fragment.source_refs,
+              image_outputs,
+              emitted_images,
+            ) {
+            pdf_v2_product_bridge_push_plain_text(
+              doc,
+              text.0,
+              fragment,
+              options,
+              output.link_candidates,
+              link_page_counts,
+            )
+          }
         }
       PageBreak =>
         if options.emit_page_breaks || options.preserve_empty_pages {
@@ -293,14 +380,22 @@ fn pdf_v2_pipeline_output_to_document(
             remaining_chars,
           )
           remaining_chars = text.1
-          pdf_v2_product_bridge_push_plain_text(
-            doc,
-            text.0,
-            fragment,
-            options,
-            output.link_candidates,
-            link_page_counts,
-          )
+          if !pdf_v2_product_bridge_should_suppress_caption_text(
+              text.0,
+              fragment.page_index,
+              fragment.source_refs,
+              image_outputs,
+              emitted_images,
+            ) {
+            pdf_v2_product_bridge_push_plain_text(
+              doc,
+              text.0,
+              fragment,
+              options,
+              output.link_candidates,
+              link_page_counts,
+            )
+          }
         }
       UnsupportedObjectNote =>
         if options.emit_unsupported_object_notes {
@@ -309,22 +404,27 @@ fn pdf_v2_pipeline_output_to_document(
             remaining_chars,
           )
           remaining_chars = text.1
-          pdf_v2_product_bridge_push_plain_text(
-            doc,
-            text.0,
-            fragment,
-            options,
-            output.link_candidates,
-            link_page_counts,
-          )
+          if !pdf_v2_product_bridge_should_suppress_caption_text(
+              text.0,
+              fragment.page_index,
+              fragment.source_refs,
+              image_outputs,
+              emitted_images,
+            ) {
+            pdf_v2_product_bridge_push_plain_text(
+              doc,
+              text.0,
+              fragment,
+              options,
+              output.link_candidates,
+              link_page_counts,
+            )
+          }
         }
     }
   }
-  pdf_v2_product_bridge_push_images(
-    doc,
-    output.image_candidates,
-    output.inline_image_candidates,
-    options,
+  pdf_v2_product_bridge_push_remaining_images(
+    doc, image_outputs, emitted_images, options,
   )
   doc
 }
@@ -952,100 +1052,6 @@ fn pdf_v2_product_bridge_starts_with_numbered_list_marker(
 }
 
 ///|
-fn pdf_v2_product_bridge_push_images(
-  doc : @cor.Document,
-  images : Array[@pdfv2.PdfV2ImageCandidate],
-  inline_images : Array[@pdfv2.PdfV2InlineImageCandidate],
-  options : PdfV2ProductBridgeOptions,
-) -> Unit {
-  let mut index = 0
-  for image in images {
-    match pdf_v2_product_bridge_image_asset_path(image.asset) {
-      None => continue
-      Some(path) => {
-        index = index + 1
-        let origin = pdf_v2_product_bridge_origin_from_parts(
-          doc,
-          image.page_index,
-          [image.source_ref],
-          options,
-        )
-        @cor.push_with_origin(
-          doc,
-          @cor.Block::ImageBlock({
-            path,
-            alt_text: None,
-            title: None,
-            caption: None,
-            origin: Some(origin),
-          }),
-          Some(origin),
-        )
-        @cor.set_asset_origin(doc, path, {
-          source_name: options.source_name,
-          page: match image.page_index {
-            Some(value) => Some(value + 1)
-            None => None
-          },
-          slide: None,
-          sheet: None,
-          origin_id: Some(pdf_v2_product_bridge_image_origin_id(image, index)),
-          nearby_caption: None,
-          object_ref: image.object_ref,
-          relationship_id: None,
-          source_path: None,
-          row_index: None,
-          column_index: None,
-          key_path: None,
-        })
-      }
-    }
-  }
-  for image in inline_images {
-    match pdf_v2_product_bridge_image_asset_path(image.asset) {
-      None => continue
-      Some(path) => {
-        index = index + 1
-        let origin = pdf_v2_product_bridge_origin_from_parts(
-          doc,
-          image.page_index,
-          [image.source_ref],
-          options,
-        )
-        @cor.push_with_origin(
-          doc,
-          @cor.Block::ImageBlock({
-            path,
-            alt_text: None,
-            title: None,
-            caption: None,
-            origin: Some(origin),
-          }),
-          Some(origin),
-        )
-        @cor.set_asset_origin(doc, path, {
-          source_name: options.source_name,
-          page: match image.page_index {
-            Some(value) => Some(value + 1)
-            None => None
-          },
-          slide: None,
-          sheet: None,
-          origin_id: Some("pdf-v2-inline-image-" + index.to_string()),
-          nearby_caption: None,
-          object_ref: image.source_ref.object_id,
-          relationship_id: None,
-          source_path: None,
-          row_index: None,
-          column_index: None,
-          key_path: None,
-        })
-      }
-    }
-  }
-}
-
-///|
 fn pdf_v2_product_bridge_image_asset_path(
   asset : @pdfv2.PdfV2ImageAssetCandidate?,
 ) -> String? {
@@ -1067,14 +1073,303 @@ fn pdf_v2_product_bridge_image_asset_path(
 }
 
 ///|
+fn pdf_v2_product_bridge_source_order(
+  source_refs : Array[@pdfv2.PdfV2SourceRef],
+) -> Int? {
+  let mut out : Int? = None
+  for source_ref in source_refs {
+    match source_ref.content_order_index {
+      Some(order) =>
+        match out {
+          Some(current) if current <= order => ()
+          _ => out = Some(order)
+        }
+      None => ()
+    }
+  }
+  out
+}
+
+///|
+fn pdf_v2_product_bridge_image_source_order(
+  image : @pdfv2.PdfV2ImageCandidate,
+) -> Int? {
+  match image.placement {
+    Some(placement) =>
+      match placement.source_order {
+        Some(_) => placement.source_order
+        None => image.source_ref.content_order_index
+      }
+    None => image.source_ref.content_order_index
+  }
+}
+
+///|
+fn pdf_v2_product_bridge_caption_text(
+  caption : @pdfv2.PdfV2ImageCaptionCandidate?,
+) -> String? {
+  match caption {
+    Some(candidate) => {
+      let text = candidate.caption_text.trim().to_owned()
+      if text == "" {
+        None
+      } else {
+        Some(text)
+      }
+    }
+    None => None
+  }
+}
+
+///|
+fn pdf_v2_product_bridge_caption_source_refs(
+  caption : @pdfv2.PdfV2ImageCaptionCandidate?,
+) -> Array[@pdfv2.PdfV2SourceRef] {
+  match caption {
+    Some(candidate) => candidate.line_source_refs
+    None => []
+  }
+}
+
+///|
+fn pdf_v2_product_bridge_image_source_path(
+  image : @pdfv2.PdfV2ImageCandidate,
+) -> String? {
+  match image.nesting {
+    Some(nesting) =>
+      match nesting.resource_path {
+        Some(path) if path.trim().to_owned() != "" => Some(path)
+        _ => None
+      }
+    None => None
+  }
+}
+
+///|
 fn pdf_v2_product_bridge_image_origin_id(
   image : @pdfv2.PdfV2ImageCandidate,
   index : Int,
 ) -> String {
-  match image.object_ref {
+  let base = match image.object_ref {
     Some(value) => "pdf-v2-image:" + value
     None => "pdf-v2-image-" + index.to_string()
   }
+  match image.nesting {
+    Some(nesting) =>
+      match (nesting.parent_object_ref, nesting.resource_path) {
+        (Some(parent), Some(path)) if path.trim().to_owned() != "" =>
+          base + "@form:" + parent + ":" + path
+        (_, Some(path)) if path.trim().to_owned() != "" => base + "@" + path
+        _ => base
+      }
+    None => base
+  }
+}
+
+///|
+fn pdf_v2_product_bridge_image_outputs(
+  images : Array[@pdfv2.PdfV2ImageCandidate],
+  inline_images : Array[@pdfv2.PdfV2InlineImageCandidate],
+) -> Array[PdfV2ProductBridgeImageOutput] {
+  let out : Array[PdfV2ProductBridgeImageOutput] = []
+  let mut index = 0
+  for image in images {
+    match pdf_v2_product_bridge_image_asset_path(image.asset) {
+      Some(path) => {
+        index = index + 1
+        out.push({
+          path,
+          page_index: image.page_index,
+          source_refs: [image.source_ref],
+          source_order: pdf_v2_product_bridge_image_source_order(image),
+          caption: pdf_v2_product_bridge_caption_text(image.caption),
+          caption_source_refs: pdf_v2_product_bridge_caption_source_refs(
+            image.caption,
+          ),
+          object_ref: image.object_ref,
+          origin_id: pdf_v2_product_bridge_image_origin_id(image, index),
+          source_path: pdf_v2_product_bridge_image_source_path(image),
+        })
+      }
+      None => ()
+    }
+  }
+  for image in inline_images {
+    match pdf_v2_product_bridge_image_asset_path(image.asset) {
+      Some(path) => {
+        index = index + 1
+        out.push({
+          path,
+          page_index: image.page_index,
+          source_refs: [image.source_ref],
+          source_order: image.source_ref.content_order_index,
+          caption: pdf_v2_product_bridge_caption_text(image.caption),
+          caption_source_refs: pdf_v2_product_bridge_caption_source_refs(
+            image.caption,
+          ),
+          object_ref: image.source_ref.object_id,
+          origin_id: "pdf-v2-inline-image-" + index.to_string(),
+          source_path: None,
+        })
+      }
+      None => ()
+    }
+  }
+  out
+}
+
+///|
+fn pdf_v2_product_bridge_emit_image_output(
+  doc : @cor.Document,
+  output : PdfV2ProductBridgeImageOutput,
+  emitted_images : Array[String],
+  options : PdfV2ProductBridgeOptions,
+) -> Unit {
+  if emitted_images.contains(output.origin_id) {
+    return
+  }
+  let origin = pdf_v2_product_bridge_origin_from_parts(
+    doc,
+    output.page_index,
+    output.source_refs,
+    options,
+  )
+  @cor.push_with_origin(
+    doc,
+    @cor.Block::ImageBlock({
+      path: output.path,
+      alt_text: None,
+      title: None,
+      caption: output.caption,
+      origin: Some(origin),
+    }),
+    Some(origin),
+  )
+  @cor.set_asset_origin(doc, output.path, {
+    source_name: options.source_name,
+    page: match output.page_index {
+      Some(value) => Some(value + 1)
+      None => None
+    },
+    slide: None,
+    sheet: None,
+    origin_id: Some(output.origin_id),
+    nearby_caption: output.caption,
+    object_ref: output.object_ref,
+    relationship_id: None,
+    source_path: output.source_path,
+    row_index: None,
+    column_index: None,
+    key_path: None,
+  })
+  emitted_images.push(output.origin_id)
+}
+
+///|
+fn pdf_v2_product_bridge_push_due_images_for_order(
+  doc : @cor.Document,
+  outputs : Array[PdfV2ProductBridgeImageOutput],
+  emitted_images : Array[String],
+  page_index : Int?,
+  text_order : Int?,
+  options : PdfV2ProductBridgeOptions,
+) -> Unit {
+  match text_order {
+    None => ()
+    Some(order) =>
+      for output in outputs {
+        if output.page_index != page_index ||
+          emitted_images.contains(output.origin_id) {
+          continue
+        }
+        match output.source_order {
+          Some(image_order) if image_order <= order =>
+            pdf_v2_product_bridge_emit_image_output(
+              doc, output, emitted_images, options,
+            )
+          _ => ()
+        }
+      }
+  }
+}
+
+///|
+fn pdf_v2_product_bridge_push_remaining_images(
+  doc : @cor.Document,
+  outputs : Array[PdfV2ProductBridgeImageOutput],
+  emitted_images : Array[String],
+  options : PdfV2ProductBridgeOptions,
+) -> Unit {
+  for output in outputs {
+    if !emitted_images.contains(output.origin_id) {
+      pdf_v2_product_bridge_emit_image_output(
+        doc, output, emitted_images, options,
+      )
+    }
+  }
+}
+
+///|
+fn pdf_v2_product_bridge_source_refs_overlap(
+  left : Array[@pdfv2.PdfV2SourceRef],
+  right : Array[@pdfv2.PdfV2SourceRef],
+) -> Bool {
+  if left.length() == 0 || right.length() == 0 {
+    return false
+  }
+  for a in left {
+    for b in right {
+      if pdf_v2_product_bridge_source_ref_same(a, b) {
+        return true
+      }
+    }
+  }
+  false
+}
+
+///|
+fn pdf_v2_product_bridge_source_ref_same(
+  left : @pdfv2.PdfV2SourceRef,
+  right : @pdfv2.PdfV2SourceRef,
+) -> Bool {
+  left.page_index == right.page_index &&
+  left.object_id == right.object_id &&
+  left.stream_index == right.stream_index &&
+  left.op_index == right.op_index &&
+  left.content_order_index == right.content_order_index &&
+  left.kind == right.kind
+}
+
+///|
+fn pdf_v2_product_bridge_should_suppress_caption_text(
+  text : String,
+  page_index : Int?,
+  source_refs : Array[@pdfv2.PdfV2SourceRef],
+  image_outputs : Array[PdfV2ProductBridgeImageOutput],
+  emitted_images : Array[String],
+) -> Bool {
+  let trimmed = text.trim().to_owned()
+  if trimmed == "" {
+    return false
+  }
+  for output in image_outputs {
+    if output.page_index != page_index ||
+      !emitted_images.contains(output.origin_id) {
+      continue
+    }
+    match output.caption {
+      Some(caption) =>
+        if caption.trim().to_owned() == trimmed &&
+          pdf_v2_product_bridge_source_refs_overlap(
+            source_refs,
+            output.caption_source_refs,
+          ) {
+          return true
+        }
+      None => ()
+    }
+  }
+  false
 }
 
 ///|

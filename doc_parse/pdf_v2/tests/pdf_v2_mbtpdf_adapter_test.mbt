@@ -512,6 +512,67 @@ fn phase11_real_jpeg_image_xobject_pdf() -> Array[Byte] raise {
 }
 
 ///|
+fn phase11_real_jpeg_form_xobject_pdf() -> Array[Byte] raise {
+  let jpeg = @fs.read_file_to_bytes(
+    "samples/main_process/html/assets/img/img_red.jpg",
+  ) catch {
+    err => fail("read jpeg fixture failed: " + err.to_string())
+  }
+  let content = "q\n100 0 0 50 10 20 cm\n/Fm1 Do\nQ\n"
+  let form_content = "q\n1 0 0 1 0 0 cm\n/Im1 Do\nQ\n"
+  phase3_pdf_from_binary_objects([
+    (1, phase3_bytes_of_string("<< /Type /Catalog /Pages 2 0 R >>")),
+    (2, phase3_bytes_of_string("<< /Type /Pages /Count 1 /Kids [3 0 R] >>")),
+    (
+      3,
+      phase3_bytes_of_string(
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /XObject << /Fm1 5 0 R >> >> /Contents 4 0 R >>",
+      ),
+    ),
+    (4, phase3_bytes_of_string(phase3_stream_object(content))),
+    (
+      5,
+      phase3_bytes_of_string(
+        "<< /Type /XObject /Subtype /Form /BBox [0 0 1 1] /Resources << /XObject << /Im1 6 0 R >> >> /Length " +
+        form_content.length().to_string() +
+        " >>\nstream\n" +
+        form_content +
+        "endstream",
+      ),
+    ),
+    (
+      6,
+      phase3_stream_object_bytes(
+        "/Type /XObject /Subtype /Image /Width 640 /Height 360 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode",
+        jpeg.to_array(),
+      ),
+    ),
+  ])
+}
+
+///|
+fn phase11_cyclic_form_xobject_pdf() -> String {
+  let content = "q\n/Fm1 Do\nQ\n"
+  let form_content = "q\n/Fm1 Do\nQ\n"
+  phase3_pdf_from_objects([
+    (1, "<< /Type /Catalog /Pages 2 0 R >>"),
+    (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>"),
+    (
+      3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /XObject << /Fm1 5 0 R >> >> /Contents 4 0 R >>",
+    ),
+    (4, phase3_stream_object(content)),
+    (
+      5,
+      "<< /Type /XObject /Subtype /Form /BBox [0 0 1 1] /Resources << /XObject << /Fm1 5 0 R >> >> /Length " +
+      form_content.length().to_string() +
+      " >>\nstream\n" +
+      form_content +
+      "endstream",
+    ),
+  ])
+}
+
+///|
 fn phase12_two_image_xobject_pdf() -> String {
   let content = "q\n/Im1 Do\n/Im2 Do\nQ\n"
   phase3_pdf_from_objects([
@@ -2742,6 +2803,90 @@ test "pdf v2 object facts expose valid DCT image asset bytes" {
 }
 
 ///|
+test "pdf v2 object facts discover images inside Form XObject placement" {
+  let path = "/tmp/markitdown-pdf-v2-reset11-form-image.pdf"
+  phase3_write_bytes_fixture(path, phase11_real_jpeg_form_xobject_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_source_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(doc.form_candidates.length() == 1)
+      assert_true(doc.image_candidates.length() == 1)
+      let image = doc.image_candidates[0]
+      assert_true(image.object_ref == Some("6 0 R"))
+      assert_true(
+        image.decode_status == @pdfv2.PdfV2ImageDecodeStatus::DecodeAvailable,
+      )
+      match image.nesting {
+        Some(nesting) => {
+          assert_true(
+            nesting.parent_kind == @pdfv2.PdfV2ImageParentKind::FormXObject,
+          )
+          assert_true(nesting.parent_object_ref == Some("5 0 R"))
+          assert_true(nesting.xobject_name == Some("/Im1"))
+          assert_true(nesting.nesting_depth == 1)
+          assert_true(nesting.resource_path == Some("Fm1/Im1"))
+        }
+        None => fail("expected nested Form XObject image path facts")
+      }
+      match image.placement {
+        Some(placement) => {
+          assert_true(placement.parent_object_ref == Some("5 0 R"))
+          match placement.bbox {
+            Some(bbox) => {
+              assert_true(bbox.x0 == 10.0)
+              assert_true(bbox.y0 == 20.0)
+              assert_true(bbox.x1 == 110.0)
+              assert_true(bbox.y1 == 70.0)
+            }
+            None => fail("expected placement bbox for Form image")
+          }
+          assert_true(
+            placement.placement_confidence ==
+            @pdfv2.PdfV2ImagePlacementConfidence::High,
+          )
+        }
+        None => fail("expected placement fact")
+      }
+      match image.asset {
+        Some(asset) => assert_true(asset.extension == Some("jpg"))
+        None => fail("expected nested image asset bytes")
+      }
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Reset 11 Form image source facts: " + message)
+  }
+}
+
+///|
+test "pdf v2 Form XObject traversal stops cycles without fallback" {
+  let path = "/tmp/markitdown-pdf-v2-reset11-form-cycle.pdf"
+  phase3_write_fixture(path, phase11_cyclic_form_xobject_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_source_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(doc.form_candidates.length() == 1)
+      assert_true(doc.image_candidates.length() == 0)
+      assert_true(
+        phase3_has_risk_kind(doc.risks, @pdfv2.PdfV2RiskKind::ObjectGraphIssue),
+      )
+      assert_true(!doc.summary.fallback_used)
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected cyclic Form traversal to stay non-fatal: " + message)
+  }
+}
+
+///|
 test "pdf v2 object facts expose inline image metadata candidate" {
   let path = "/tmp/markitdown-pdf-v2-phase11-inline-image.pdf"
   phase3_write_fixture(path, phase11_inline_image_pdf())
@@ -2992,7 +3137,7 @@ test "pdf v2 object facts remain parser facts without semantic convert fallback"
   match result {
     ModelAssemblyOk(model) => {
       assert_true(model.pages[0].images.length() == 1)
-      assert_true(model.pages[0].images[0].bbox is None)
+      assert_true(model.pages[0].images[0].placement is Some(_))
       assert_true(
         model.pages[0].images[0].decode_status ==
         @pdfv2.PdfV2ImageDecodeStatus::MetadataOnly,

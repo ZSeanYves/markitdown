@@ -424,3 +424,21 @@ path using the existing core/v1 asset convention.
   - no v1 fallback, OCR, table-from-image, fake bytes, model loading/training,
     external data access, sample expected updates, or vendor runtime changes
     were introduced.
+
+## Reset 11 Form XObject Images And Caption Facts
+
+Reset 11 consumes the new parser image facts without adding a fallback path or
+visual inference.
+
+- Materialized images are interleaved into Markdown by parser source order
+  instead of being appended after all text.
+- Parser caption facts lower into `ImageBlock.caption`; the same text is
+  mirrored into `asset_origins.nearby_caption`.
+- The bridge suppresses only the exact caption text whose source refs match the
+  consumed parser caption fact, avoiding broad caption inference.
+- Nested Form XObject resource paths are copied to asset origin `source_path`
+  when available. The image object ref remains `object_ref`; `key_path` remains
+  `None` for v1-style PDF asset parity.
+- Product output still emits `ImageBlock` only for candidates with real
+  materialized asset paths and does not create fake bytes, OCR text,
+  table-from-image output, diagnostics Markdown, v1 fallback, or model hooks.

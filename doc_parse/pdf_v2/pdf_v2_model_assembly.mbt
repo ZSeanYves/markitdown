@@ -481,6 +481,179 @@ fn pdf_v2_model_metadata_for_page(
 }
 
 ///|
+fn pdf_v2_model_source_order(refs : Array[PdfV2SourceRef]) -> Int? {
+  let mut out : Int? = None
+  for source_ref in refs {
+    match source_ref.content_order_index {
+      Some(order) =>
+        match out {
+          Some(current) if current <= order => ()
+          _ => out = Some(order)
+        }
+      None => ()
+    }
+  }
+  out
+}
+
+///|
+fn pdf_v2_model_image_source_order(image : PdfV2ImageCandidate) -> Int? {
+  match image.placement {
+    Some(placement) =>
+      match placement.source_order {
+        Some(_) => placement.source_order
+        None => image.source_ref.content_order_index
+      }
+    None => image.source_ref.content_order_index
+  }
+}
+
+///|
+fn pdf_v2_model_text_is_image_caption(text : String) -> Bool {
+  let t = text.trim().to_owned()
+  if t == "" {
+    return false
+  }
+  let lower = t.to_lower()
+  if lower.has_prefix("table ") ||
+    lower.has_prefix("chart ") ||
+    lower.has_prefix("表") {
+    return false
+  }
+  lower.has_prefix("figure ") ||
+  lower.has_prefix("fig. ") ||
+  lower.has_prefix("fig ") ||
+  lower.has_prefix("图 ")
+}
+
+///|
+fn pdf_v2_model_block_caption_candidate(
+  block : PdfV2BlockCandidate,
+  image_order : Int?,
+) -> Bool {
+  if !pdf_v2_model_text_is_image_caption(block.text) {
+    return false
+  }
+  match (image_order, pdf_v2_model_source_order(block.source_refs)) {
+    (Some(img_order), Some(block_order)) => block_order >= img_order
+    _ => true
+  }
+}
+
+///|
+fn pdf_v2_model_images_for_caption_page(
+  images : Array[PdfV2ImageCandidate],
+  page_index : Int?,
+) -> Array[PdfV2ImageCandidate] {
+  let out : Array[PdfV2ImageCandidate] = []
+  for image in images {
+    if image.page_index == page_index &&
+      image.decode_status == PdfV2ImageDecodeStatus::DecodeAvailable {
+      out.push(image)
+    }
+  }
+  out
+}
+
+///|
+fn pdf_v2_model_blocks_for_caption_page(
+  blocks : Array[PdfV2BlockCandidate],
+  page_index : Int?,
+  image_order : Int?,
+) -> Array[PdfV2BlockCandidate] {
+  let out : Array[PdfV2BlockCandidate] = []
+  for block in blocks {
+    if block.page_index == page_index &&
+      pdf_v2_model_block_caption_candidate(block, image_order) {
+      out.push(block)
+    }
+  }
+  out
+}
+
+///|
+fn pdf_v2_model_caption_relation(
+  image_order : Int?,
+  block_order : Int?,
+) -> PdfV2ImageCaptionRelation {
+  match (image_order, block_order) {
+    (Some(i), Some(b)) if b >= i => PdfV2ImageCaptionRelation::Below
+    (Some(_), Some(_)) => PdfV2ImageCaptionRelation::Above
+    _ => PdfV2ImageCaptionRelation::Nearby
+  }
+}
+
+///|
+fn pdf_v2_model_caption_for_image(
+  image : PdfV2ImageCandidate,
+  images : Array[PdfV2ImageCandidate],
+  blocks : Array[PdfV2BlockCandidate],
+) -> PdfV2ImageCaptionCandidate? {
+  let page_images = pdf_v2_model_images_for_caption_page(
+    images,
+    image.page_index,
+  )
+  if page_images.length() != 1 {
+    return None
+  }
+  let image_order = pdf_v2_model_image_source_order(image)
+  let caption_blocks = pdf_v2_model_blocks_for_caption_page(
+    blocks,
+    image.page_index,
+    image_order,
+  )
+  if caption_blocks.length() != 1 {
+    return None
+  }
+  let caption_block = caption_blocks[0]
+  let text = caption_block.text.trim().to_owned()
+  if text == "" {
+    return None
+  }
+  let block_order = pdf_v2_model_source_order(caption_block.source_refs)
+  Some({
+    image_object_ref: image.object_ref,
+    asset_ref: None,
+    caption_text: text,
+    page_index: image.page_index,
+    line_source_refs: caption_block.source_refs,
+    relation: pdf_v2_model_caption_relation(image_order, block_order),
+    confidence: 0.85,
+    reason_tags: [
+      "image_caption_candidate", "single_image_single_caption_marker", "parser_side_fact",
+    ],
+  })
+}
+
+///|
+fn pdf_v2_model_attach_image_captions(
+  images : Array[PdfV2ImageCandidate],
+  blocks : Array[PdfV2BlockCandidate],
+) -> Array[PdfV2ImageCandidate] {
+  let out : Array[PdfV2ImageCandidate] = []
+  for image in images {
+    match pdf_v2_model_caption_for_image(image, images, blocks) {
+      Some(caption) => out.push({ ..image, caption: Some(caption) })
+      None => out.push(image)
+    }
+  }
+  out
+}
+
+///|
+fn pdf_v2_model_source_with_image_captions(
+  source : PdfV2SourceDocument,
+) -> PdfV2SourceDocument {
+  {
+    ..source,
+    image_candidates: pdf_v2_model_attach_image_captions(
+      source.image_candidates,
+      source.block_candidates,
+    ),
+  }
+}
+
+///|
 fn pdf_v2_model_page_from_source(
   page : PdfV2Page,
   source : PdfV2SourceDocument,
@@ -721,6 +894,7 @@ pub fn pdf_v2_document_model_from_source(
     )
   }
 
+  let source = pdf_v2_model_source_with_image_captions(source)
   let layout = pdf_v2_model_empty_layout(pdf_v2_model_source_refs(source))
   let pages = pdf_v2_model_pages_from_source(source)
   PdfV2ModelAssemblyResult::ModelAssemblyOk({

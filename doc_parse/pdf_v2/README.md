@@ -642,3 +642,23 @@ available from mbtpdf.
   - Flate XObject pixel export is not enabled except through supported inline
     image decoding.
   - richer image placement/caption facts remain future parser work.
+
+## Reset 11 Form XObject Images And Captions
+
+Reset 11 extends parser facts for image placement and nested Form XObject image
+discovery.
+
+- Image XObject facts are now emitted from actual `Do` invocations, not merely
+  from page resource enumeration.
+- Form XObject streams are recursively scanned for nested image `Do`
+  invocations with a depth cap and cycle guard.
+- `PdfV2ImageCandidate` carries optional nesting, placement, and caption facts.
+  Nesting records parent Form object ref and resource path when known.
+- Placement facts include source order, CTM, unit-image bbox, and dimensions
+  when available. Inline images also receive placement facts from the current
+  graphics state.
+- Conservative caption candidates are attached only for same-page
+  single-image/single-figure-caption cases. Table/chart captions are not
+  treated as image captions.
+- Parser facts remain factual: no OCR, image-table recovery, full layout
+  recovery, v1 fallback, external model/data access, or vendor runtime change.

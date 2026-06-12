@@ -178,6 +178,24 @@ priv struct PdfV2AdapterTextState {
 }
 
 ///|
+priv struct PdfV2AdapterGraphicsState {
+  ctm : Ref[PdfV2ImageTransform]
+  stack : Ref[Array[PdfV2ImageTransform]]
+}
+
+///|
+priv struct PdfV2AdapterXObjectContext {
+  page_index : Int
+  resources : @pdf.PdfObject
+  parent_kind : PdfV2ImageParentKind
+  parent_object_ref : String?
+  resource_path : String?
+  nesting_depth : Int
+  ctm : PdfV2ImageTransform
+  visited_forms : Array[String]
+}
+
+///|
 priv struct PdfV2AdapterDecodedGlyph {
   glyph_name : String?
   unicode_candidate : String?
@@ -212,6 +230,19 @@ fn pdf_v2_adapter_empty_text_state() -> PdfV2AdapterTextState {
 }
 
 ///|
+fn pdf_v2_adapter_identity_image_transform() -> PdfV2ImageTransform {
+  { a: 1.0, b: 0.0, c: 0.0, d: 1.0, e: 0.0, f: 0.0 }
+}
+
+///|
+fn pdf_v2_adapter_empty_graphics_state() -> PdfV2AdapterGraphicsState {
+  {
+    ctm: { val: pdf_v2_adapter_identity_image_transform() },
+    stack: { val: [] },
+  }
+}
+
+///|
 fn pdf_v2_adapter_matrix(
   a : Double,
   b : Double,
@@ -221,6 +252,121 @@ fn pdf_v2_adapter_matrix(
   f : Double,
 ) -> PdfV2TextMatrix {
   { a, b, c, d, e, f }
+}
+
+///|
+fn pdf_v2_adapter_image_transform_from_pdf(
+  matrix : @pdftransform.TransformMatrix,
+) -> PdfV2ImageTransform {
+  {
+    a: matrix.a,
+    b: matrix.b,
+    c: matrix.c,
+    d: matrix.d,
+    e: matrix.e,
+    f: matrix.f,
+  }
+}
+
+///|
+fn pdf_v2_adapter_image_transform_compose(
+  left : PdfV2ImageTransform,
+  right : PdfV2ImageTransform,
+) -> PdfV2ImageTransform {
+  {
+    a: left.a * right.a + left.c * right.b,
+    c: left.a * right.c + left.c * right.d,
+    e: left.a * right.e + left.c * right.f + left.e,
+    b: left.b * right.a + left.d * right.b,
+    d: left.b * right.c + left.d * right.d,
+    f: left.b * right.e + left.d * right.f + left.f,
+  }
+}
+
+///|
+fn pdf_v2_adapter_image_transform_apply(
+  matrix : PdfV2ImageTransform,
+  x : Double,
+  y : Double,
+) -> (Double, Double) {
+  (
+    matrix.a * x + matrix.c * y + matrix.e,
+    matrix.b * x + matrix.d * y + matrix.f,
+  )
+}
+
+///|
+fn pdf_v2_adapter_min_double(a : Double, b : Double) -> Double {
+  if a < b {
+    a
+  } else {
+    b
+  }
+}
+
+///|
+fn pdf_v2_adapter_max_double(a : Double, b : Double) -> Double {
+  if a > b {
+    a
+  } else {
+    b
+  }
+}
+
+///|
+fn pdf_v2_adapter_unit_image_bbox(matrix : PdfV2ImageTransform) -> PdfV2BBox {
+  let p0 = pdf_v2_adapter_image_transform_apply(matrix, 0.0, 0.0)
+  let p1 = pdf_v2_adapter_image_transform_apply(matrix, 1.0, 0.0)
+  let p2 = pdf_v2_adapter_image_transform_apply(matrix, 0.0, 1.0)
+  let p3 = pdf_v2_adapter_image_transform_apply(matrix, 1.0, 1.0)
+  let min_x = pdf_v2_adapter_min_double(
+    pdf_v2_adapter_min_double(p0.0, p1.0),
+    pdf_v2_adapter_min_double(p2.0, p3.0),
+  )
+  let min_y = pdf_v2_adapter_min_double(
+    pdf_v2_adapter_min_double(p0.1, p1.1),
+    pdf_v2_adapter_min_double(p2.1, p3.1),
+  )
+  let max_x = pdf_v2_adapter_max_double(
+    pdf_v2_adapter_max_double(p0.0, p1.0),
+    pdf_v2_adapter_max_double(p2.0, p3.0),
+  )
+  let max_y = pdf_v2_adapter_max_double(
+    pdf_v2_adapter_max_double(p0.1, p1.1),
+    pdf_v2_adapter_max_double(p2.1, p3.1),
+  )
+  { x0: min_x, y0: min_y, x1: max_x, y1: max_y }
+}
+
+///|
+fn pdf_v2_adapter_transform_has_extent(matrix : PdfV2ImageTransform) -> Bool {
+  matrix.a != 0.0 || matrix.b != 0.0 || matrix.c != 0.0 || matrix.d != 0.0
+}
+
+///|
+fn pdf_v2_adapter_graphics_save(state : PdfV2AdapterGraphicsState) -> Unit {
+  state.stack.val.push(state.ctm.val)
+}
+
+///|
+fn pdf_v2_adapter_graphics_restore(state : PdfV2AdapterGraphicsState) -> Unit {
+  if state.stack.val.length() == 0 {
+    return
+  }
+  let last_index = state.stack.val.length() - 1
+  state.ctm.val = state.stack.val[last_index]
+  state.stack.val = state.stack.val[:last_index].to_owned()
+}
+
+///|
+fn pdf_v2_adapter_graphics_concat(
+  state : PdfV2AdapterGraphicsState,
+  matrix : @pdftransform.TransformMatrix,
+) -> Unit {
+  state.ctm.val = pdf_v2_adapter_image_transform_compose(
+    state.ctm.val,
+    pdf_v2_adapter_image_transform_from_pdf(matrix),
+  )
 }
 
 ///|
@@ -1918,23 +2064,16 @@ fn pdf_v2_adapter_add_image_xobject_candidate(
   page_index : Int,
   name : String,
   raw_object : @pdf.PdfObject,
+  source_ref : PdfV2SourceRef,
+  nesting : PdfV2ImageNestingInfo?,
+  placement : PdfV2ImagePlacementFact?,
   events : Array[PdfV2CoreEvent],
   options : PdfV2CoreOpenOptions,
   event_cap_hit : Ref[Bool],
-  content_order : Ref[Int],
 ) -> Unit {
   let image = pdf.direct(raw_object)
   let filters = pdf_v2_adapter_filter_names(pdf, image)
   let asset = pdf_v2_adapter_extract_image_xobject_asset(pdf, raw_object)
-  let source_ref = pdf_v2_adapter_source_ref(
-    Some(page_index),
-    pdf_v2_adapter_indirect_ref(raw_object),
-    None,
-    None,
-    Some(content_order.val),
-    PdfV2SourceKind::Image,
-  )
-  content_order.val = content_order.val + 1
   let candidate : PdfV2ImageCandidate = {
     page_index: Some(page_index),
     object_ref: pdf_v2_adapter_indirect_ref(raw_object),
@@ -1947,7 +2086,13 @@ fn pdf_v2_adapter_add_image_xobject_candidate(
     mask_present: pdf_v2_adapter_has_direct_entry(pdf, "/Mask", image),
     smask_present: pdf_v2_adapter_has_direct_entry(pdf, "/SMask", image),
     inline: false,
-    bbox: None,
+    bbox: match placement {
+      Some(fact) => fact.bbox
+      None => None
+    },
+    nesting,
+    placement,
+    caption: None,
     source_ref,
     warnings: [],
     risks: [],
@@ -1973,6 +2118,347 @@ fn pdf_v2_adapter_add_image_xobject_candidate(
     options,
     event_cap_hit,
   )
+}
+
+///|
+fn pdf_v2_adapter_resource_name_part(name : String) -> String {
+  let trimmed = name.trim().to_owned()
+  if trimmed.has_prefix("/") && trimmed.length() > 1 {
+    trimmed[1:].to_owned()
+  } else {
+    trimmed
+  }
+}
+
+///|
+fn pdf_v2_adapter_resource_path_append(
+  parent : String?,
+  name : String,
+) -> String {
+  let part = pdf_v2_adapter_resource_name_part(name)
+  match parent {
+    Some(value) => {
+      let trimmed = value.trim().to_owned()
+      if trimmed == "" {
+        part
+      } else {
+        trimmed + "/" + part
+      }
+    }
+    None => part
+  }
+}
+
+///|
+fn pdf_v2_adapter_xobject_from_resources(
+  pdf : @pdf.Pdf,
+  resources : @pdf.PdfObject,
+  name : String,
+) -> @pdf.PdfObject? {
+  match pdf.lookup_direct("/XObject", resources) {
+    Some(xobjects) =>
+      match xobjects.lookup_immediate(name) {
+        Some(value) => Some(value)
+        None => None
+      }
+    None => None
+  }
+}
+
+///|
+fn pdf_v2_adapter_image_placement_fact(
+  page_index : Int,
+  image_object_ref : String?,
+  parent_object_ref : String?,
+  source_ref : PdfV2SourceRef,
+  ctm : PdfV2ImageTransform,
+  width : Int?,
+  height : Int?,
+) -> PdfV2ImagePlacementFact {
+  let bbox = if pdf_v2_adapter_transform_has_extent(ctm) {
+    Some(pdf_v2_adapter_unit_image_bbox(ctm))
+  } else {
+    None
+  }
+  {
+    page_index: Some(page_index),
+    image_object_ref,
+    parent_object_ref,
+    source_order: source_ref.content_order_index,
+    bbox,
+    ctm: Some(ctm),
+    width,
+    height,
+    placement_confidence: match bbox {
+      Some(_) => PdfV2ImagePlacementConfidence::High
+      None => PdfV2ImagePlacementConfidence::Sparse
+    },
+    reason_tags: ["image_placement_fact", "ctm", "content_order"],
+    source_refs: [source_ref],
+  }
+}
+
+///|
+fn pdf_v2_adapter_image_nesting_info(
+  context : PdfV2AdapterXObjectContext,
+  name : String,
+  source_ref : PdfV2SourceRef,
+) -> PdfV2ImageNestingInfo {
+  {
+    parent_kind: context.parent_kind,
+    parent_object_ref: context.parent_object_ref,
+    xobject_name: Some(name),
+    nesting_depth: context.nesting_depth,
+    invocation_source_ref: Some(source_ref),
+    resource_path: Some(
+      pdf_v2_adapter_resource_path_append(context.resource_path, name),
+    ),
+    reason_tags: ["image_nesting_fact", "xobject_do", "resource_path"],
+  }
+}
+
+///|
+fn pdf_v2_adapter_form_matrix(
+  pdf : @pdf.Pdf,
+  form : @pdf.PdfObject,
+) -> PdfV2ImageTransform {
+  let matrix = pdf.parse_matrix("/Matrix", form) catch {
+    _ => @pdftransform.TransformMatrix::identity()
+  }
+  pdf_v2_adapter_image_transform_from_pdf(matrix)
+}
+
+///|
+fn pdf_v2_adapter_form_resources(
+  pdf : @pdf.Pdf,
+  form : @pdf.PdfObject,
+  fallback : @pdf.PdfObject,
+) -> @pdf.PdfObject {
+  match pdf.lookup_direct("/Resources", form) {
+    Some(resources) => resources
+    None => fallback
+  }
+}
+
+///|
+fn pdf_v2_adapter_add_form_traversal_warning(
+  source_ref : PdfV2SourceRef,
+  form_ref : String?,
+  message : String,
+  tags : Array[String],
+  warnings : Array[PdfV2Warning],
+  risks : Array[PdfV2Risk],
+) -> Unit {
+  warnings.push(
+    pdf_v2_adapter_warning(
+      if tags.contains("performance_cap") {
+        PdfV2WarningKind::PerformanceCap
+      } else {
+        PdfV2WarningKind::UnsupportedCapability
+      },
+      PdfV2Severity::Warning,
+      message,
+      source_ref,
+      pdf_v2_adapter_tags(["form_xobject", "nested_image_traversal"], tags),
+    ),
+  )
+  risks.push(
+    pdf_v2_adapter_risk(
+      if tags.contains("performance_cap") {
+        PdfV2RiskKind::PerformanceCapReached
+      } else {
+        PdfV2RiskKind::ObjectGraphIssue
+      },
+      PdfV2Severity::Warning,
+      match form_ref {
+        Some(value) => message + " (" + value + ")"
+        None => message
+      },
+      source_ref,
+      pdf_v2_adapter_tags(["form_xobject", "nested_image_traversal"], tags),
+    ),
+  )
+}
+
+///|
+fn pdf_v2_adapter_process_xobject_do(
+  pdf : @pdf.Pdf,
+  name : String,
+  source_ref : PdfV2SourceRef,
+  context : PdfV2AdapterXObjectContext,
+  events : Array[PdfV2CoreEvent],
+  warnings : Array[PdfV2Warning],
+  risks : Array[PdfV2Risk],
+  options : PdfV2CoreOpenOptions,
+  event_cap_hit : Ref[Bool],
+  content_order : Ref[Int],
+) -> Unit {
+  let raw_object = match
+    pdf_v2_adapter_xobject_from_resources(pdf, context.resources, name) {
+    Some(value) => value
+    None => return
+  }
+  let direct = pdf.direct(raw_object)
+  match pdf_v2_adapter_resource_kind_from_bucket("/XObject", direct, pdf) {
+    ImageXObject => {
+      let image_ref = pdf_v2_adapter_indirect_ref(raw_object)
+      let width = pdf_v2_adapter_image_width(pdf, direct)
+      let height = pdf_v2_adapter_image_height(pdf, direct)
+      let placement = pdf_v2_adapter_image_placement_fact(
+        context.page_index,
+        image_ref,
+        context.parent_object_ref,
+        source_ref,
+        context.ctm,
+        width,
+        height,
+      )
+      let nesting = pdf_v2_adapter_image_nesting_info(context, name, source_ref)
+      pdf_v2_adapter_add_image_xobject_candidate(
+        pdf,
+        context.page_index,
+        name,
+        raw_object,
+        source_ref,
+        Some(nesting),
+        Some(placement),
+        events,
+        options,
+        event_cap_hit,
+      )
+    }
+    FormXObject =>
+      pdf_v2_adapter_traverse_form_xobject(
+        pdf, name, raw_object, source_ref, context, events, warnings, risks, options,
+        event_cap_hit, content_order,
+      )
+    _ => ()
+  }
+}
+
+///|
+fn pdf_v2_adapter_traverse_form_xobject(
+  pdf : @pdf.Pdf,
+  name : String,
+  raw_object : @pdf.PdfObject,
+  source_ref : PdfV2SourceRef,
+  context : PdfV2AdapterXObjectContext,
+  events : Array[PdfV2CoreEvent],
+  warnings : Array[PdfV2Warning],
+  risks : Array[PdfV2Risk],
+  options : PdfV2CoreOpenOptions,
+  event_cap_hit : Ref[Bool],
+  content_order : Ref[Int],
+) -> Unit {
+  let form_ref = pdf_v2_adapter_indirect_ref(raw_object)
+  if context.nesting_depth >= 4 {
+    pdf_v2_adapter_add_form_traversal_warning(
+      source_ref,
+      form_ref,
+      "PDF v2 stopped nested Form XObject image traversal at the configured depth cap",
+      ["performance_cap", "depth_cap"],
+      warnings,
+      risks,
+    )
+    return
+  }
+  match form_ref {
+    Some(value) =>
+      if context.visited_forms.contains(value) {
+        pdf_v2_adapter_add_form_traversal_warning(
+          source_ref,
+          form_ref,
+          "PDF v2 stopped cyclic Form XObject image traversal",
+          ["cycle_detected"],
+          warnings,
+          risks,
+        )
+        return
+      }
+    None => ()
+  }
+  let form = pdf.direct(raw_object)
+  let resources = pdf_v2_adapter_form_resources(pdf, form, context.resources)
+  let form_ctm = pdf_v2_adapter_image_transform_compose(
+    context.ctm,
+    pdf_v2_adapter_form_matrix(pdf, form),
+  )
+  let visited : Array[String] = []
+  visited.append(context.visited_forms)
+  match form_ref {
+    Some(value) => visited.push(value)
+    None => ()
+  }
+  let form_context : PdfV2AdapterXObjectContext = {
+    page_index: context.page_index,
+    resources,
+    parent_kind: PdfV2ImageParentKind::FormXObject,
+    parent_object_ref: form_ref,
+    resource_path: Some(
+      pdf_v2_adapter_resource_path_append(context.resource_path, name),
+    ),
+    nesting_depth: context.nesting_depth + 1,
+    ctm: form_ctm,
+    visited_forms: visited,
+  }
+  let located_result : Result[Array[@pdfops.LocatedOp], Error] = try
+    @pdfops.Op::parse_operators_with_source(pdf, resources, [raw_object]) |> Ok
+  catch {
+    err => Err(err)
+  }
+  match located_result {
+    Ok(located) => {
+      let graphics_state : PdfV2AdapterGraphicsState = {
+        ctm: { val: form_context.ctm },
+        stack: { val: [] },
+      }
+      for item in located {
+        pdf_v2_adapter_update_graphics_state_for_op(graphics_state, item.op)
+        match item.op {
+          OpDo(child_name) => {
+            let child_source_ref = pdf_v2_adapter_source_ref(
+              Some(context.page_index),
+              form_ref,
+              Some(item.source_stream_index),
+              Some(item.source_op_index),
+              Some(content_order.val),
+              PdfV2SourceKind::Image,
+            )
+            content_order.val = content_order.val + 1
+            let child_context = { ..form_context, ctm: graphics_state.ctm.val }
+            pdf_v2_adapter_process_xobject_do(
+              pdf, child_name, child_source_ref, child_context, events, warnings,
+              risks, options, event_cap_hit, content_order,
+            )
+          }
+          _ => ()
+        }
+      }
+    }
+    Err(err) =>
+      pdf_v2_adapter_add_form_traversal_warning(
+        source_ref,
+        form_ref,
+        "PDF v2 could not parse nested Form XObject operators: " +
+        err.to_string(),
+        ["malformed_form_content"],
+        warnings,
+        risks,
+      )
+  }
+}
+
+///|
+fn pdf_v2_adapter_update_graphics_state_for_op(
+  graphics_state : PdfV2AdapterGraphicsState,
+  op : @pdfops.Op,
+) -> Unit {
+  match op {
+    Opq => pdf_v2_adapter_graphics_save(graphics_state)
+    OpQ => pdf_v2_adapter_graphics_restore(graphics_state)
+    Opcm(matrix) => pdf_v2_adapter_graphics_concat(graphics_state, matrix)
+    _ => ()
+  }
 }
 
 ///|
@@ -2062,17 +2548,6 @@ fn pdf_v2_adapter_add_page_resource_events(
               let direct = pdf.direct(item.1)
               match
                 pdf_v2_adapter_resource_kind_from_bucket(bucket, direct, pdf) {
-                ImageXObject =>
-                  pdf_v2_adapter_add_image_xobject_candidate(
-                    pdf,
-                    page_index,
-                    name,
-                    item.1,
-                    events,
-                    options,
-                    event_cap_hit,
-                    content_order,
-                  )
                 FormXObject =>
                   pdf_v2_adapter_add_form_xobject_candidate(
                     pdf,
@@ -2291,6 +2766,7 @@ fn pdf_v2_adapter_add_inline_image_event(
   page : @pdfpage.Page,
   item : @pdfops.LocatedOp,
   object_ref : String?,
+  graphics_state : PdfV2AdapterGraphicsState,
   events : Array[PdfV2CoreEvent],
   options : PdfV2CoreOpenOptions,
   event_cap_hit : Ref[Bool],
@@ -2321,7 +2797,19 @@ fn pdf_v2_adapter_add_inline_image_event(
         filters: pdf_v2_adapter_filter_names(pdf, dict),
         image_mask: pdf_v2_adapter_image_mask(pdf, dict),
         decode_params_present: decode_params is Some(_),
-        bbox: None,
+        bbox: Some(pdf_v2_adapter_unit_image_bbox(graphics_state.ctm.val)),
+        placement: Some(
+          pdf_v2_adapter_image_placement_fact(
+            page_index,
+            object_ref,
+            None,
+            source_ref,
+            graphics_state.ctm.val,
+            pdf_v2_adapter_image_width(pdf, dict),
+            pdf_v2_adapter_image_height(pdf, dict),
+          ),
+        ),
+        caption: None,
         source_ref,
         warnings: [],
         risks: [],
@@ -2376,6 +2864,7 @@ fn pdf_v2_adapter_add_located_ops(
   match located_result {
     Ok(located) => {
       let text_state = pdf_v2_adapter_empty_text_state()
+      let graphics_state = pdf_v2_adapter_empty_graphics_state()
       for item in located {
         let object_ref = item.source_object_ref.map(pdf_v2_adapter_object_ref)
         let source_ref = pdf_v2_adapter_located_source_ref(
@@ -2403,9 +2892,37 @@ fn pdf_v2_adapter_add_located_ops(
         let _ = pdf_v2_adapter_push_capped_event(
           events, event, options, event_cap_hit,
         )
+        pdf_v2_adapter_update_graphics_state_for_op(graphics_state, item.op)
+        match item.op {
+          OpDo(name) => {
+            let do_source_ref = pdf_v2_adapter_located_source_ref(
+              page_index,
+              item,
+              object_ref,
+              content_order.val,
+              PdfV2SourceKind::Image,
+            )
+            content_order.val = content_order.val + 1
+            let context : PdfV2AdapterXObjectContext = {
+              page_index,
+              resources: page.resources,
+              parent_kind: PdfV2ImageParentKind::Page,
+              parent_object_ref: None,
+              resource_path: None,
+              nesting_depth: 0,
+              ctm: graphics_state.ctm.val,
+              visited_forms: [],
+            }
+            pdf_v2_adapter_process_xobject_do(
+              pdf, name, do_source_ref, context, events, warnings, risks, options,
+              event_cap_hit, content_order,
+            )
+          }
+          _ => ()
+        }
         pdf_v2_adapter_add_inline_image_event(
-          pdf, page_index, page, item, object_ref, events, options, event_cap_hit,
-          content_order,
+          pdf, page_index, page, item, object_ref, graphics_state, events, options,
+          event_cap_hit, content_order,
         )
         pdf_v2_adapter_add_text_events_for_op(
           pdf, page_index, page, item, object_ref, text_state, events, warnings,

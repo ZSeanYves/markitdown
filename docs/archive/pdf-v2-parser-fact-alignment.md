@@ -650,3 +650,34 @@ Remaining parser/fact work:
 - expose richer placement geometry for image ordering/caption association.
 - decide whether Flate XObject pixel decoding should become a supported
   product asset path after careful memory and color-space review.
+
+## Reset 11 Form XObject Images And Placement Facts
+
+Reset 11 keeps image handling parser-fact-first while adding facts needed by
+the product bridge to place and caption materialized images.
+
+- Form XObject traversal:
+  - page-level `Do` invocations now resolve XObject resources and create image
+    facts only for drawn images.
+  - Form XObject streams are parsed recursively for nested `Do` image
+    invocations.
+  - traversal carries the page CTM into the Form, applies the Form `/Matrix`
+    when present, tracks resource paths such as `Fm1/Im1`, and records the
+    parent Form object ref when known.
+  - recursion is depth-capped and cycle-guarded; malformed/cyclic forms add
+    parser warnings/risks and do not trigger fallback.
+- Placement facts:
+  - `PdfV2ImagePlacementFact` records source order, CTM, unit-image bbox,
+    dimensions when available, confidence, and source refs.
+  - inline images also receive placement facts from the current graphics state.
+- Caption facts:
+  - `PdfV2ImageCaptionCandidate` is attached during model assembly only for
+    conservative same-page single-image/single-figure-caption cases.
+  - table/chart/CJK table caption markers are intentionally rejected by the
+    image caption rule.
+  - parser facts do not delete text; convert may suppress an exact caption
+    duplicate only after it lowers the caption into `ImageBlock.caption`.
+- Boundaries:
+  - no OCR, image-table extraction, full layout recovery, aggressive caption
+    inference, v1 fallback, external model/data access, or vendor runtime
+    change was added.
