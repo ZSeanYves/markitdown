@@ -4854,6 +4854,9 @@ test "pdf v2 convert boundary guard stays parser fact only" {
   assert_true(!bridge_text.contains("pdf_v2_parity_facts_from_model"))
   assert_true(!pipeline_text.contains("pdf_v2_parity_facts_from_model"))
   assert_true(!lowerer_text.contains("pdf_v2_parity_facts_from_model"))
+  assert_true(!bridge_text.contains("pdf_v2_cross_page_arbitration_audit"))
+  assert_true(!pipeline_text.contains("pdf_v2_cross_page_arbitration_audit"))
+  assert_true(!lowerer_text.contains("pdf_v2_cross_page_arbitration_audit"))
   assert_true(
     bridge_text.contains("pdf_v2_cross_page_boundary_facts_from_candidates"),
   )

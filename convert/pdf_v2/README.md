@@ -823,3 +823,38 @@ heading-boundary, or column facts.
   - metadata sidecars, assets, images/captions, header/footer suppression,
     heading classification, columns/reading order, samples expected,
     quality-lab, model loading, runtime inference, and training.
+
+## Reset 17D Cross-page Arbitration Effectiveness Audit
+
+Reset 17D adds opt-in in-memory audit helpers for the Reset 17C cross-page
+arbitration gates:
+
+```text
+pdf_v2_cross_page_arbitration_audit(blocks, facts)
+pdf_v2_cross_page_fragment_arbitration_audit(fragments, options, facts)
+```
+
+They report generated facts, product-candidate facts, confidence/source/open
+ended/marker/tag gate pass counts, rejected low confidence, missing or
+mismatched source refs, next marker/list/page-number blockers, next
+heading/title-like blockers, no matching pair, actual join decisions, and
+fallback-to-existing-behavior counts. The bridge, pipeline, and lowerer do not
+call these helpers.
+
+The latest PDF sample check still reports 10 Markdown parity failures:
+
+| bucket | samples |
+| --- | --- |
+| cross-page merge should happen | `pdf_cross_page_paragraph`, `pdf_cross_page_should_merge_phase15` |
+| cross-page split/marker preservation | `pdf_cross_page_should_not_merge_phase15` |
+| image placement/caption/nearby heading | `assets/pdf_image_form_xobject`, `assets/pdf_image_inline`, `assets/pdf_image_xobject` |
+| header/footer variants | `pdf_header_footer_variants_phase15` |
+| heading/list false positives or negatives | `pdf_heading_false_positive_phase15`, `pdf_heading_vs_short_sentence` |
+| column/reading order | `pdf_two_column_negative_phase15` |
+
+The cross-page bucket remains visible because the sample diffs are mixed with
+non-cross-page structure problems such as title/body boundaries and list marker
+preservation. Reset 17D did not relax gates and did not update sample expected
+files. The next useful step is a repo-local v2 sample diagnostic that exposes
+candidate facts and audit counters for those PDFs before deciding whether any
+fact-backed expected-output update is justified.

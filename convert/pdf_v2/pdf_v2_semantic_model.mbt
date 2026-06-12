@@ -93,6 +93,40 @@ pub(all) struct PdfV2SemanticBlock {
 }
 
 ///|
+pub(all) struct PdfV2CrossPageArbitrationAuditCounter {
+  key : String
+  count : Int
+}
+
+///|
+pub(all) struct PdfV2CrossPageArbitrationAudit {
+  generated_fact_count : Int
+  facts_reaching_product_arbitration_count : Int
+  product_candidate_fact_count : Int
+  facts_passing_confidence_gate : Int
+  facts_passing_source_ref_gate : Int
+  facts_passing_prev_open_ended_gate : Int
+  facts_passing_next_marker_gate : Int
+  facts_passing_ambiguity_tag_gate : Int
+  rejected_confidence_below_threshold_count : Int
+  rejected_missing_source_refs_count : Int
+  rejected_mismatched_source_refs_count : Int
+  rejected_prev_not_open_ended_count : Int
+  rejected_next_marker_list_page_number_blocker_count : Int
+  rejected_next_heading_title_like_blocker_count : Int
+  rejected_ambiguity_audit_or_low_confidence_tag_count : Int
+  rejected_no_matching_fragment_or_semantic_pair_count : Int
+  evaluated_pair_count : Int
+  semantic_pair_count : Int
+  fragment_pair_count : Int
+  actual_join_decision_changed_count : Int
+  actual_split_decision_changed_count : Int
+  fallback_existing_behavior_count : Int
+  reason_tag_distribution : Array[PdfV2CrossPageArbitrationAuditCounter]
+  gate_rejection_distribution : Array[PdfV2CrossPageArbitrationAuditCounter]
+}
+
+///|
 pub(all) struct PdfV2ModelHint {
   model_kind : String
   predicted_kind : PdfV2SemanticBlockKind?

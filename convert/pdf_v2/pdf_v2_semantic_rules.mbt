@@ -109,6 +109,228 @@ fn pdf_v2_apply_cross_page_boundary_arbitration(
 }
 
 ///|
+pub fn pdf_v2_cross_page_arbitration_audit(
+  blocks : Array[PdfV2SemanticBlock],
+  cross_page_facts : Array[@pdfv2.PdfV2CrossPageBoundaryFact],
+) -> PdfV2CrossPageArbitrationAudit {
+  pdf_v2_cross_page_arbitration_audit_for_blocks(
+    blocks,
+    cross_page_facts,
+    false,
+    None,
+  )
+}
+
+///|
+pub fn pdf_v2_cross_page_fragment_arbitration_audit(
+  fragments : Array[PdfV2FactFragment],
+  options : PdfV2ProductBridgeOptions,
+  cross_page_facts : Array[@pdfv2.PdfV2CrossPageBoundaryFact],
+) -> PdfV2CrossPageArbitrationAudit {
+  let baseline = pdf_v2_semantic_blocks_from_fragments(fragments, options)
+  let with_facts = pdf_v2_semantic_blocks_from_fragments_with_cross_page_facts(
+    fragments, options, cross_page_facts,
+  )
+  let actual_join_count = if baseline.length() > with_facts.length() {
+    baseline.length() - with_facts.length()
+  } else {
+    0
+  }
+  pdf_v2_cross_page_arbitration_audit_for_blocks(
+    baseline,
+    cross_page_facts,
+    true,
+    Some(actual_join_count),
+  )
+}
+
+///|
+fn pdf_v2_cross_page_arbitration_audit_for_blocks(
+  blocks : Array[PdfV2SemanticBlock],
+  cross_page_facts : Array[@pdfv2.PdfV2CrossPageBoundaryFact],
+  fragment_path : Bool,
+  actual_join_count_override : Int?,
+) -> PdfV2CrossPageArbitrationAudit {
+  let reason_tag_distribution : Array[PdfV2CrossPageArbitrationAuditCounter] = []
+  let gate_rejection_distribution : Array[PdfV2CrossPageArbitrationAuditCounter] = []
+  let mut facts_passing_confidence_gate = 0
+  let mut facts_passing_source_ref_gate = 0
+  let mut facts_passing_prev_open_ended_gate = 0
+  let mut facts_passing_next_marker_gate = 0
+  let mut facts_passing_ambiguity_tag_gate = 0
+  let mut rejected_confidence_below_threshold_count = 0
+  let mut rejected_missing_source_refs_count = 0
+  let mut rejected_prev_not_open_ended_count = 0
+  let mut rejected_next_marker_list_page_number_blocker_count = 0
+  let mut rejected_ambiguity_audit_or_low_confidence_tag_count = 0
+  let mut product_candidate_fact_count = 0
+  for fact in cross_page_facts {
+    pdf_v2_cross_page_audit_add_tags(reason_tag_distribution, fact.reason_tags)
+    if fact.confidence >= 0.60 {
+      facts_passing_confidence_gate = facts_passing_confidence_gate + 1
+    } else {
+      rejected_confidence_below_threshold_count = rejected_confidence_below_threshold_count +
+        1
+      pdf_v2_cross_page_audit_add_counter(
+        gate_rejection_distribution, "confidence_below_threshold",
+      )
+    }
+    if fact.source_refs.length() > 0 {
+      facts_passing_source_ref_gate = facts_passing_source_ref_gate + 1
+    } else {
+      rejected_missing_source_refs_count = rejected_missing_source_refs_count +
+        1
+      pdf_v2_cross_page_audit_add_counter(
+        gate_rejection_distribution, "missing_source_refs",
+      )
+    }
+    if fact.prev_open_ended {
+      facts_passing_prev_open_ended_gate = facts_passing_prev_open_ended_gate +
+        1
+    } else {
+      rejected_prev_not_open_ended_count = rejected_prev_not_open_ended_count +
+        1
+      pdf_v2_cross_page_audit_add_counter(
+        gate_rejection_distribution, "previous_not_open_ended",
+      )
+    }
+    if !fact.next_starts_with_marker {
+      facts_passing_next_marker_gate = facts_passing_next_marker_gate + 1
+    } else {
+      rejected_next_marker_list_page_number_blocker_count = rejected_next_marker_list_page_number_blocker_count +
+        1
+      pdf_v2_cross_page_audit_add_counter(
+        gate_rejection_distribution, "next_marker_list_page_number_blocker",
+      )
+    }
+    if !pdf_v2_cross_page_audit_fact_has_blocking_tag(fact) {
+      facts_passing_ambiguity_tag_gate = facts_passing_ambiguity_tag_gate + 1
+    } else {
+      rejected_ambiguity_audit_or_low_confidence_tag_count = rejected_ambiguity_audit_or_low_confidence_tag_count +
+        1
+      pdf_v2_cross_page_audit_add_counter(
+        gate_rejection_distribution, "ambiguity_audit_or_low_confidence_tag",
+      )
+    }
+    if pdf_v2_cross_page_fact_qualifies(fact) {
+      product_candidate_fact_count = product_candidate_fact_count + 1
+    }
+  }
+  let facts_reaching_product_arbitration_count = product_candidate_fact_count
+  let mut rejected_mismatched_source_refs_count = 0
+  let mut rejected_next_heading_title_like_blocker_count = 0
+  let mut rejected_no_matching_fragment_or_semantic_pair_count = 0
+  let mut evaluated_pair_count = 0
+  let mut semantic_pair_count = 0
+  let mut fragment_pair_count = 0
+  let mut actual_join_decision_changed_count = 0
+  let actual_split_decision_changed_count = 0
+  let mut fallback_existing_behavior_count = 0
+  let mut i = 0
+  while i + 1 < blocks.length() {
+    evaluated_pair_count = evaluated_pair_count + 1
+    if fragment_path {
+      fragment_pair_count = fragment_pair_count + 1
+    } else {
+      semantic_pair_count = semantic_pair_count + 1
+    }
+    let left = blocks[i]
+    let right = blocks[i + 1]
+    match pdf_v2_cross_page_semantic_pair_rejection(left, right) {
+      Some(reason) => {
+        fallback_existing_behavior_count = fallback_existing_behavior_count + 1
+        pdf_v2_cross_page_audit_add_counter(gate_rejection_distribution, reason)
+        if reason == "next_marker_list_page_number_blocker" {
+          rejected_next_marker_list_page_number_blocker_count = rejected_next_marker_list_page_number_blocker_count +
+            1
+        } else if reason == "next_heading_title_like_blocker" {
+          rejected_next_heading_title_like_blocker_count = rejected_next_heading_title_like_blocker_count +
+            1
+        }
+      }
+      None => {
+        let mut matched = false
+        let mut saw_missing_refs = false
+        let mut saw_mismatched_refs = false
+        let mut saw_no_matching_pair = false
+        for fact in cross_page_facts {
+          if pdf_v2_cross_page_fact_qualifies(fact) {
+            match
+              pdf_v2_cross_page_fact_semantic_pair_match_status(
+                fact, left, right,
+              ) {
+              "match" => {
+                matched = true
+                break
+              }
+              "missing_source_refs" => saw_missing_refs = true
+              "mismatched_source_refs" => saw_mismatched_refs = true
+              _ => saw_no_matching_pair = true
+            }
+          }
+        }
+        if matched {
+          actual_join_decision_changed_count = actual_join_decision_changed_count +
+            1
+        } else {
+          fallback_existing_behavior_count = fallback_existing_behavior_count +
+            1
+          if saw_missing_refs {
+            rejected_missing_source_refs_count = rejected_missing_source_refs_count +
+              1
+            pdf_v2_cross_page_audit_add_counter(
+              gate_rejection_distribution, "missing_source_refs",
+            )
+          } else if saw_mismatched_refs {
+            rejected_mismatched_source_refs_count = rejected_mismatched_source_refs_count +
+              1
+            pdf_v2_cross_page_audit_add_counter(
+              gate_rejection_distribution, "mismatched_source_refs",
+            )
+          } else if saw_no_matching_pair || product_candidate_fact_count > 0 {
+            rejected_no_matching_fragment_or_semantic_pair_count = rejected_no_matching_fragment_or_semantic_pair_count +
+              1
+            pdf_v2_cross_page_audit_add_counter(
+              gate_rejection_distribution, "no_matching_fragment_or_semantic_pair",
+            )
+          }
+        }
+      }
+    }
+    i = i + 1
+  }
+  {
+    generated_fact_count: cross_page_facts.length(),
+    facts_reaching_product_arbitration_count,
+    product_candidate_fact_count,
+    facts_passing_confidence_gate,
+    facts_passing_source_ref_gate,
+    facts_passing_prev_open_ended_gate,
+    facts_passing_next_marker_gate,
+    facts_passing_ambiguity_tag_gate,
+    rejected_confidence_below_threshold_count,
+    rejected_missing_source_refs_count,
+    rejected_mismatched_source_refs_count,
+    rejected_prev_not_open_ended_count,
+    rejected_next_marker_list_page_number_blocker_count,
+    rejected_next_heading_title_like_blocker_count,
+    rejected_ambiguity_audit_or_low_confidence_tag_count,
+    rejected_no_matching_fragment_or_semantic_pair_count,
+    evaluated_pair_count,
+    semantic_pair_count,
+    fragment_pair_count,
+    actual_join_decision_changed_count: match actual_join_count_override {
+      Some(count) => count
+      None => actual_join_decision_changed_count
+    },
+    actual_split_decision_changed_count,
+    fallback_existing_behavior_count,
+    reason_tag_distribution,
+    gate_rejection_distribution,
+  }
+}
+
+///|
 fn pdf_v2_cross_page_arbitration_fact(
   left : PdfV2SemanticBlock,
   right : PdfV2SemanticBlock,
@@ -122,6 +344,45 @@ fn pdf_v2_cross_page_arbitration_fact(
       pdf_v2_cross_page_fact_matches_semantic_pair(fact, left, right) {
       return Some(fact)
     }
+  }
+  None
+}
+
+///|
+fn pdf_v2_cross_page_semantic_pair_rejection(
+  left : PdfV2SemanticBlock,
+  right : PdfV2SemanticBlock,
+) -> String? {
+  if left.kind != PdfV2SemanticBlockKind::Paragraph ||
+    right.kind != PdfV2SemanticBlockKind::Paragraph {
+    return Some("pair_not_paragraph")
+  }
+  if left.page_index == right.page_index {
+    return Some("not_cross_page_pair")
+  }
+  let l = left.text.trim().to_owned()
+  let r = right.text.trim().to_owned()
+  if l == "" || r == "" {
+    return Some("empty_text")
+  }
+  if pdf_v2_ends_sentence(l) {
+    return Some("previous_sentence_ended")
+  }
+  if pdf_v2_is_page_number_like_noise(l) {
+    return Some("previous_page_number_blocker")
+  }
+  if pdf_v2_text_flow_parse_marker(r) is Some(_) ||
+    pdf_v2_is_page_number_like_noise(r) {
+    return Some("next_marker_list_page_number_blocker")
+  }
+  if pdf_v2_looks_like_standalone_title_line(l) {
+    return Some("previous_heading_title_like_blocker")
+  }
+  if pdf_v2_looks_like_standalone_title_line(r) {
+    return Some("next_heading_title_like_blocker")
+  }
+  if !pdf_v2_cross_page_output_line_continues(l, r) {
+    return Some("not_hardwrap_continuation")
   }
   None
 }
@@ -150,6 +411,51 @@ fn pdf_v2_cross_page_semantic_pair_can_join(
     return false
   }
   true
+}
+
+///|
+fn pdf_v2_cross_page_fact_semantic_pair_match_status(
+  fact : @pdfv2.PdfV2CrossPageBoundaryFact,
+  left : PdfV2SemanticBlock,
+  right : PdfV2SemanticBlock,
+) -> String {
+  if left.page_index != Some(fact.page_from) ||
+    right.page_index != Some(fact.page_to) {
+    return "no_matching_fragment_or_semantic_pair"
+  }
+  match fact.prev_block_ref {
+    Some(block_ref) =>
+      match left.block_index {
+        Some(left_block) =>
+          if left_block != block_ref {
+            return "no_matching_fragment_or_semantic_pair"
+          }
+        None => ()
+      }
+    None => ()
+  }
+  match fact.next_block_ref {
+    Some(block_ref) =>
+      match right.block_index {
+        Some(right_block) =>
+          if right_block != block_ref {
+            return "no_matching_fragment_or_semantic_pair"
+          }
+        None => ()
+      }
+    None => ()
+  }
+  if left.source_refs.length() == 0 ||
+    right.source_refs.length() == 0 ||
+    fact.source_refs.length() == 0 {
+    return "missing_source_refs"
+  }
+  if pdf_v2_source_refs_overlap(left.source_refs, fact.source_refs) &&
+    pdf_v2_source_refs_overlap(right.source_refs, fact.source_refs) {
+    "match"
+  } else {
+    "mismatched_source_refs"
+  }
 }
 
 ///|
@@ -183,6 +489,40 @@ fn pdf_v2_cross_page_fact_matches_semantic_pair(
   }
   pdf_v2_source_refs_overlap(left.source_refs, fact.source_refs) &&
   pdf_v2_source_refs_overlap(right.source_refs, fact.source_refs)
+}
+
+///|
+fn pdf_v2_cross_page_audit_fact_has_blocking_tag(
+  fact : @pdfv2.PdfV2CrossPageBoundaryFact,
+) -> Bool {
+  fact.reason_tags.contains("low_confidence") ||
+  fact.reason_tags.contains("cross_page_ambiguous") ||
+  fact.reason_tags.contains("ambiguity") ||
+  fact.reason_tags.contains("audit_only")
+}
+
+///|
+fn pdf_v2_cross_page_audit_add_counter(
+  counters : Array[PdfV2CrossPageArbitrationAuditCounter],
+  key : String,
+) -> Unit {
+  for i in 0..<counters.length() {
+    if counters[i].key == key {
+      counters[i] = { ..counters[i], count: counters[i].count + 1 }
+      return
+    }
+  }
+  counters.push({ key, count: 1 })
+}
+
+///|
+fn pdf_v2_cross_page_audit_add_tags(
+  counters : Array[PdfV2CrossPageArbitrationAuditCounter],
+  tags : Array[String],
+) -> Unit {
+  for tag in tags {
+    pdf_v2_cross_page_audit_add_counter(counters, tag)
+  }
 }
 
 ///|

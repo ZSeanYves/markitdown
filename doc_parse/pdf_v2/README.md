@@ -978,3 +978,21 @@ allowing convert to consume only `PdfV2CrossPageBoundaryFact`.
   audit/export inputs only.
 - Parser runtime output, metadata sidecars, samples, fallback, quality-lab,
   model loading, inference, training, and generated exports remain unchanged.
+
+## Reset 17D Cross-page Arbitration Audit Follow-up
+
+Reset 17D keeps parser fact generation unchanged and adds convert-side,
+in-memory audit helpers for the first product consumer of
+`PdfV2CrossPageBoundaryFact`.
+
+- The helpers count how many generated facts are product candidates and why
+  candidate pairs are rejected: confidence, missing or mismatched source refs,
+  previous side not open-ended, next marker/list/page-number blockers,
+  next heading/title-like blockers, ambiguity/audit-only tags, and no matching
+  fragment or semantic pair.
+- The current 10 visible PDF Markdown sample failures include three
+  cross-page-related files, but those diffs are mixed with title/body or list
+  boundary failures. The remaining seven failures are image, header/footer,
+  heading/list, or column/read-order buckets.
+- No parser API, metadata sidecar, sample expected output, quality-lab path,
+  model loading, runtime inference, or training workflow changed.

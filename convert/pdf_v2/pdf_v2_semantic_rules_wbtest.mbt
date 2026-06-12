@@ -36,6 +36,23 @@ fn semantic_test_fragment(
 }
 
 ///|
+fn semantic_test_fragment_for_page(
+  page_index : Int,
+  block_index : Int,
+  text : String,
+) -> PdfV2FactFragment {
+  {
+    kind: PdfV2FactFragmentKind::PlainText,
+    text,
+    page_index: Some(page_index),
+    block_index: Some(block_index),
+    line_count: 1,
+    source_refs: [semantic_test_ref_for_page(page_index, block_index)],
+    reason_tags: ["semantic_test_fragment"],
+  }
+}
+
+///|
 fn semantic_test_options() -> PdfV2ProductBridgeOptions {
   default_pdf_v2_product_bridge_options()
 }
@@ -72,6 +89,19 @@ fn semantic_test_cross_page_fact(
     ],
     source_refs,
   }
+}
+
+///|
+fn semantic_test_audit_count(
+  counters : Array[PdfV2CrossPageArbitrationAuditCounter],
+  key : String,
+) -> Int {
+  for counter in counters {
+    if counter.key == key {
+      return counter.count
+    }
+  }
+  0
 }
 
 ///|
@@ -150,6 +180,172 @@ test "pdf v2 cross page arbitration rejects low confidence and missing refs" {
   assert_true(joined.length() == 1)
   assert_true(joined[0].reason_tags.contains("fact_backed_cross_page_join"))
   assert_true(joined[0].source_refs.length() == 2)
+}
+
+///|
+test "pdf v2 cross page arbitration audit counts valid fact backed join" {
+  let left_ref = semantic_test_ref_for_page(0, 0)
+  let right_ref = semantic_test_ref_for_page(1, 1)
+  let left = semantic_test_cross_page_block(
+    "The paragraph continues across the page", 0, left_ref,
+  )
+  let right = semantic_test_cross_page_block("break and resumes.", 1, right_ref)
+  let fact = semantic_test_cross_page_fact(0.70, [left_ref, right_ref])
+  let joined = pdf_v2_apply_cross_page_boundary_arbitration([left, right], [
+    fact,
+  ])
+  let audit = pdf_v2_cross_page_arbitration_audit([left, right], [fact])
+
+  assert_true(joined.length() == 1)
+  assert_true(audit.generated_fact_count == 1)
+  assert_true(audit.facts_reaching_product_arbitration_count == 1)
+  assert_true(audit.product_candidate_fact_count == 1)
+  assert_true(audit.facts_passing_confidence_gate == 1)
+  assert_true(audit.facts_passing_source_ref_gate == 1)
+  assert_true(audit.facts_passing_prev_open_ended_gate == 1)
+  assert_true(audit.facts_passing_next_marker_gate == 1)
+  assert_true(audit.facts_passing_ambiguity_tag_gate == 1)
+  assert_true(audit.semantic_pair_count == 1)
+  assert_true(audit.actual_join_decision_changed_count == 1)
+  assert_true(audit.fallback_existing_behavior_count == 0)
+  assert_true(
+    semantic_test_audit_count(
+      audit.reason_tag_distribution,
+      "cross_page_boundary_fact",
+    ) ==
+    1,
+  )
+}
+
+///|
+test "pdf v2 cross page fragment arbitration audit counts fragment path join" {
+  let left = semantic_test_fragment_for_page(
+    0, 0, "The paragraph continues across the page",
+  )
+  let right = semantic_test_fragment_for_page(1, 0, "break and resumes.")
+  let left_ref = left.source_refs[0]
+  let right_ref = right.source_refs[0]
+  let fact = semantic_test_cross_page_fact(0.70, [left_ref, right_ref])
+  let audit = pdf_v2_cross_page_fragment_arbitration_audit(
+    [left, right],
+    semantic_test_options(),
+    [fact],
+  )
+
+  assert_true(audit.generated_fact_count == 1)
+  assert_true(audit.product_candidate_fact_count == 1)
+  assert_true(audit.fragment_pair_count == 1)
+  assert_true(audit.semantic_pair_count == 0)
+  assert_true(audit.actual_join_decision_changed_count == 1)
+  assert_true(audit.fallback_existing_behavior_count == 0)
+}
+
+///|
+test "pdf v2 cross page arbitration audit counts low confidence rejection" {
+  let left_ref = semantic_test_ref_for_page(0, 0)
+  let right_ref = semantic_test_ref_for_page(1, 1)
+  let left = semantic_test_cross_page_block(
+    "The paragraph continues across the page", 0, left_ref,
+  )
+  let right = semantic_test_cross_page_block("break and resumes.", 1, right_ref)
+  let fact = semantic_test_cross_page_fact(0.50, [left_ref, right_ref])
+  let audit = pdf_v2_cross_page_arbitration_audit([left, right], [fact])
+
+  assert_true(audit.generated_fact_count == 1)
+  assert_true(audit.facts_reaching_product_arbitration_count == 0)
+  assert_true(audit.product_candidate_fact_count == 0)
+  assert_true(audit.rejected_confidence_below_threshold_count == 1)
+  assert_true(audit.actual_join_decision_changed_count == 0)
+  assert_true(audit.fallback_existing_behavior_count == 1)
+  assert_true(
+    semantic_test_audit_count(
+      audit.gate_rejection_distribution,
+      "confidence_below_threshold",
+    ) ==
+    1,
+  )
+}
+
+///|
+test "pdf v2 cross page arbitration audit counts mismatched source refs" {
+  let left_ref = semantic_test_ref_for_page(0, 0)
+  let right_ref = semantic_test_ref_for_page(1, 1)
+  let unrelated_left_ref = semantic_test_ref_for_page(0, 8)
+  let unrelated_right_ref = semantic_test_ref_for_page(1, 9)
+  let left = semantic_test_cross_page_block(
+    "The paragraph continues across the page", 0, left_ref,
+  )
+  let right = semantic_test_cross_page_block("break and resumes.", 1, right_ref)
+  let fact = semantic_test_cross_page_fact(0.70, [
+    unrelated_left_ref, unrelated_right_ref,
+  ])
+  let audit = pdf_v2_cross_page_arbitration_audit([left, right], [fact])
+
+  assert_true(audit.product_candidate_fact_count == 1)
+  assert_true(audit.rejected_mismatched_source_refs_count == 1)
+  assert_true(audit.actual_join_decision_changed_count == 0)
+  assert_true(audit.fallback_existing_behavior_count == 1)
+  assert_true(
+    semantic_test_audit_count(
+      audit.gate_rejection_distribution,
+      "mismatched_source_refs",
+    ) ==
+    1,
+  )
+}
+
+///|
+test "pdf v2 cross page arbitration audit counts heading blocker" {
+  let left_ref = semantic_test_ref_for_page(0, 0)
+  let right_ref = semantic_test_ref_for_page(1, 1)
+  let left = semantic_test_cross_page_block(
+    "The paragraph continues across the page", 0, left_ref,
+  )
+  let right = semantic_test_cross_page_block("Next Section", 1, right_ref)
+  let fact = semantic_test_cross_page_fact(0.70, [left_ref, right_ref])
+  let audit = pdf_v2_cross_page_arbitration_audit([left, right], [fact])
+
+  assert_true(audit.product_candidate_fact_count == 1)
+  assert_true(audit.rejected_next_heading_title_like_blocker_count == 1)
+  assert_true(audit.actual_join_decision_changed_count == 0)
+  assert_true(audit.fallback_existing_behavior_count == 1)
+  assert_true(
+    semantic_test_audit_count(
+      audit.gate_rejection_distribution,
+      "next_heading_title_like_blocker",
+    ) ==
+    1,
+  )
+}
+
+///|
+test "pdf v2 cross page arbitration audit counts missing pair and no fact fallback" {
+  let left_ref = semantic_test_ref_for_page(0, 0)
+  let right_ref = semantic_test_ref_for_page(1, 1)
+  let left = semantic_test_cross_page_block(
+    "The paragraph continues across the page", 0, left_ref,
+  )
+  let right = semantic_test_cross_page_block("break and resumes.", 1, right_ref)
+  let mismatched_pair_fact = {
+    ..semantic_test_cross_page_fact(0.70, [left_ref, right_ref]),
+    next_block_ref: Some(3),
+  }
+  let missing_pair_audit = pdf_v2_cross_page_arbitration_audit([left, right], [
+    mismatched_pair_fact,
+  ])
+  let no_fact = pdf_v2_apply_cross_page_boundary_arbitration([left, right], [])
+  let no_fact_audit = pdf_v2_cross_page_arbitration_audit([left, right], [])
+
+  assert_true(missing_pair_audit.product_candidate_fact_count == 1)
+  assert_true(
+    missing_pair_audit.rejected_no_matching_fragment_or_semantic_pair_count == 1,
+  )
+  assert_true(missing_pair_audit.actual_join_decision_changed_count == 0)
+  assert_true(missing_pair_audit.fallback_existing_behavior_count == 1)
+  assert_true(no_fact.length() == 2)
+  assert_true(no_fact_audit.generated_fact_count == 0)
+  assert_true(no_fact_audit.actual_join_decision_changed_count == 0)
+  assert_true(no_fact_audit.fallback_existing_behavior_count == 1)
 }
 
 ///|

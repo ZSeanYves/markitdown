@@ -1681,3 +1681,54 @@ remaining cross-page merge/split parity gap.
     classification, and two-column ordering are intentionally unchanged.
 - No metadata sidecar, assets, sample expected, fallback, quality-lab, model,
   training hook, or generated dataset changed.
+
+## Reset 17D Cross-page Arbitration Effectiveness Audit
+
+Reset 17D audits why Reset 17C did not reduce the visible PDF Markdown parity
+failure count. `samples/check.sh --format pdf` still reports 10 Markdown
+failures, and no sample expected files were changed.
+
+Current failure taxonomy:
+
+| category | samples | Reset 17D finding |
+| --- | --- | --- |
+| cross-page merge should happen | `pdf_cross_page_paragraph`, `pdf_cross_page_should_merge_phase15` | still visible; diffs also involve heading level or title/body boundary issues |
+| cross-page split should happen / marker preservation | `pdf_cross_page_should_not_merge_phase15` | still visible; diff is mixed with heading/list marker structure |
+| image placement/caption/nearby heading | `assets/pdf_image_form_xobject`, `assets/pdf_image_inline`, `assets/pdf_image_xobject` | intentionally untouched by 17C/17D |
+| header/footer variants | `pdf_header_footer_variants_phase15` | intentionally untouched by 17C/17D |
+| heading/list false positives or negatives | `pdf_heading_false_positive_phase15`, `pdf_heading_vs_short_sentence` | intentionally untouched by 17C/17D |
+| column/reading order | `pdf_two_column_negative_phase15` | intentionally untouched by 17C/17D |
+
+Audit helper added:
+
+```text
+pdf_v2_cross_page_arbitration_audit(blocks, facts)
+pdf_v2_cross_page_fragment_arbitration_audit(fragments, options, facts)
+```
+
+The helpers are opt-in and in-memory only. They count generated facts, facts
+that would reach product arbitration, product-candidate facts, per-gate pass
+counts, confidence rejections, missing or mismatched source refs, previous side
+not open-ended, next marker/list/page-number blockers, next heading/title-like
+blockers, ambiguity/audit-only tags, no matching fragment or semantic pair,
+actual join decisions, split decisions, and fallback-to-existing-behavior
+counts.
+
+Focused synthetic audit distribution:
+
+| case | key counters |
+| --- | --- |
+| valid high-confidence fact | generated `1`, product candidate `1`, join decision `1`, fallback `0` |
+| low confidence | `confidence_below_threshold` rejected `1`, product candidate `0`, fallback `1` |
+| mismatched source refs | product candidate `1`, `mismatched_source_refs` rejected `1`, fallback `1` |
+| heading/title-like next block | product candidate `1`, `next_heading_title_like_blocker` rejected `1`, fallback `1` |
+| mismatched block pair | product candidate `1`, `no_matching_fragment_or_semantic_pair` rejected `1`, fallback `1` |
+| no fact | generated `0`, join decision `0`, fallback `1` |
+
+Real sample inspection remains limited because the sample check/debug CLI path
+does not yet expose PDF v2 candidate/fact audit counters for the failing PDFs.
+Reset 17D therefore retains Reset 17C behavior as-is: no threshold lowering, no
+blocker removal, no image/header/footer/heading/column change, no generated
+artifacts, and no sample expected update. The recommended next action is a
+repo-local PDF v2 diagnostic entrypoint that prints candidate facts and this
+audit summary for existing failing samples before any further product change.

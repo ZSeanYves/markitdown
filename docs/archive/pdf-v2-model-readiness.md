@@ -525,3 +525,29 @@ but it still does not make the stack training-ready.
   - weak/rule evidence is not promoted to gold.
   - no quality-lab adapter, heldout validation, model artifact, runtime
     inference, or training workflow was added.
+
+## 19. Reset 17D Cross-page Arbitration Effectiveness Audit
+
+Reset 17D improves auditability but still does not make the stack
+training-ready.
+
+- Added opt-in convert-side counters:
+  - `pdf_v2_cross_page_arbitration_audit(...)`.
+  - `pdf_v2_cross_page_fragment_arbitration_audit(...)`.
+  - counters cover generated facts, product candidates, gate pass counts,
+    confidence/source/open-ended/marker/tag rejections, mismatched source refs,
+    heading/title blockers, missing fragment or semantic pairs, actual joins,
+    split changes, and fallback behavior.
+- Current sample result:
+  - PDF Markdown parity remains at 10 failures.
+  - three files are cross-page-related, but their diffs are mixed with heading,
+    title/body, or list-boundary structure.
+  - seven files remain image, header/footer, heading/list, or column/read-order
+    failures and are outside the cross-page-only consumer.
+- Still blocked for training:
+  - audit counters are not labels.
+  - weak fact evidence is not gold.
+  - sample checks do not yet expose real v2 candidate/fact audit rows for the
+    failing PDFs.
+  - no quality-lab adapter, dataset export, reviewed labels, model artifact,
+    runtime inference, or training workflow changed.

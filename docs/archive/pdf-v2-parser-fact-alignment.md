@@ -1129,3 +1129,30 @@ Product guard:
 - `convert/pdf_v2` still does not call `pdf_v2_parity_facts_from_model`.
 - no quality-lab, training, runtime inference, generated dataset, metadata
   sidecar, assets, or sample expected output changed.
+
+## Reset 17D Cross-page Arbitration Audit
+
+Reset 17D adds convert-side audit helpers for the first product consumer of
+`PdfV2CrossPageBoundaryFact` without changing parser fact generation:
+
+```text
+pdf_v2_cross_page_arbitration_audit(blocks, facts)
+pdf_v2_cross_page_fragment_arbitration_audit(fragments, options, facts)
+```
+
+Alignment update:
+
+| signal | audit status | product status |
+| --- | --- | --- |
+| high-confidence cross-page fact with matching refs | counted as product candidate and join decision when the semantic/fragment pair also passes blockers | still the only fact-backed product join |
+| low confidence or blocking tags | counted as rejected | no product change |
+| missing or mismatched source refs | counted separately | no product change |
+| next marker/list/page-number or heading/title-like start | counted separately | existing split behavior preserved |
+| no matching fragment or semantic pair | counted separately | existing behavior preserved |
+
+The visible PDF sample parity count remains 10 because the cross-page failures
+are mixed with title/body or list-boundary issues, while the other failures are
+image, header/footer, heading/list, and column/read-order buckets. The audit
+does not justify relaxing the Reset 17C gates. Future work should first expose
+repo-local PDF v2 sample candidate/fact counters before deciding whether a
+targeted fact-backed output update is warranted.
