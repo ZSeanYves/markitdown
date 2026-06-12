@@ -503,3 +503,30 @@ shape.
 - No sample expected files, v1 PDF path, diagnostics output, fallback,
   OCR/image-table recovery, full layout recovery, model loading/training, or
   external data access were introduced.
+
+## Reset 14 Text Structure And Noise Merge Parity
+
+Reset 14 narrows PDF v2 visible text/block structure differences for the two
+remaining metadata-only text samples.
+
+- Text output lines now retain page and block context through normalization.
+- Repeated page-artifact suppression runs after fragment joining, so split
+  artifact words such as `Con` + `fi` + `dential` normalize before removal.
+- Paragraph joining handles target hardwrap/ligature body text without merging
+  repeated headers or footers into body paragraphs.
+- CJK chapter headings and decimal-section headings can absorb short split
+  heading tails such as `目标`; following body text remains a paragraph.
+- Parser text-flow candidate mode now requires actionable list-marker evidence
+  and avoids treating decimal section labels such as `1.1` as list candidates.
+- Regression coverage was added for the noise-merge body/footer case and the
+  split CJK decimal heading-tail case.
+- Sample signal:
+  - metadata-only improved from Reset 13's 4 failures to 0 in
+    `.tmp/check/runs/pdf-20260612-191228-66529`.
+  - main Markdown improved from 18 to 15 failures in
+    `.tmp/check/runs/pdf-20260612-191248-66777`.
+  - assets-only stayed 3 failures in
+    `.tmp/check/runs/pdf-20260612-191248-66837`.
+- No sample expected files, v1 PDF path, diagnostics output, fallback,
+  OCR/image-table recovery, full layout recovery, model loading/training, or
+  external data access were introduced.

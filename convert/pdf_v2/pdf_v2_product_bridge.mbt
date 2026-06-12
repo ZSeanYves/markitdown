@@ -469,9 +469,43 @@ fn pdf_v2_product_bridge_has_actionable_text_flow_candidates(
   text_flow_candidates : Array[@pdfv2.PdfV2TextFlowCandidate],
 ) -> Bool {
   for candidate in text_flow_candidates {
-    if candidate.reason_tags.contains("inline_list_split") ||
-      candidate.reason_tags.contains("page_artifact_fact_attached") ||
-      candidate.boundary_signal.list_candidate_score >= 0.70 {
+    if pdf_v2_product_bridge_candidate_has_list_marker(candidate) &&
+      !pdf_v2_product_bridge_candidate_looks_like_decimal_section(candidate) &&
+      (
+        candidate.reason_tags.contains("inline_list_split") ||
+        candidate.boundary_signal.list_candidate_score >= 0.70
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn pdf_v2_product_bridge_candidate_looks_like_decimal_section(
+  candidate : @pdfv2.PdfV2TextFlowCandidate,
+) -> Bool {
+  let chars = candidate.normalized_text.trim().to_owned().to_array()
+  if chars.length() < 4 || !pdf_v2_is_ascii_digit(chars[0]) {
+    return false
+  }
+  let mut i = 0
+  while i < chars.length() && pdf_v2_is_ascii_digit(chars[i]) {
+    i = i + 1
+  }
+  if i >= chars.length() || chars[i] != '.' {
+    return false
+  }
+  i = i + 1
+  i < chars.length() && pdf_v2_is_ascii_digit(chars[i])
+}
+
+///|
+fn pdf_v2_product_bridge_candidate_has_list_marker(
+  candidate : @pdfv2.PdfV2TextFlowCandidate,
+) -> Bool {
+  for signal in candidate.line_signals {
+    if signal.starts_with_ordered_marker || signal.starts_with_unordered_marker {
       return true
     }
   }

@@ -3863,6 +3863,155 @@ test "pdf v2 product bridge suppresses repeated short header footer artifacts" {
 }
 
 ///|
+test "pdf v2 product bridge joins noise merge body and split footer ligature" {
+  let fragments = [
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Project Report",
+      Some(0),
+      [phase14_text_ref(0)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "This is the",
+      Some(0),
+      [phase14_text_ref(1)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "fi",
+      Some(0),
+      [phase14_text_ref(2)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "rst page body.",
+      Some(0),
+      [phase14_text_ref(3)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "It should remain after cleanup.",
+      Some(0),
+      [phase14_text_ref(4)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Con",
+      Some(0),
+      [phase14_text_ref(5)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "fi",
+      Some(0),
+      [phase14_text_ref(6)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "dential",
+      Some(0),
+      [phase14_text_ref(7)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Project Report",
+      Some(1),
+      [phase14_text_ref(8)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "This is the second page body.",
+      Some(1),
+      [phase14_text_ref(9)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "The repeated header and footer should be removed.",
+      Some(1),
+      [phase14_text_ref(10)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "Con",
+      Some(1),
+      [phase14_text_ref(11)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "fi",
+      Some(1),
+      [phase14_text_ref(12)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "dential",
+      Some(1),
+      [phase14_text_ref(13)],
+    ),
+  ]
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok(2, fragments),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(
+    markdown.contains(
+      "This is the first page body. It should remain after cleanup.",
+    ),
+  )
+  assert_true(
+    markdown.contains(
+      "This is the second page body. The repeated header and footer should be removed.",
+    ),
+  )
+  assert_true(!markdown.contains("Project Report"))
+  assert_true(!markdown.contains("Confidential"))
+  assert_true(!markdown.contains("\nfi\n"))
+}
+
+///|
+test "pdf v2 product bridge joins split cjk numbered heading tail" {
+  let fragments = [
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "1.1 研究",
+      Some(0),
+      [phase14_text_ref(0)],
+    ),
+    phase20_fragment(@pdfv2conv.PdfV2FactFragmentKind::PlainText, "", Some(0), [
+      phase14_text_ref(1),
+    ]),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "目标",
+      Some(0),
+      [phase14_text_ref(2)],
+    ),
+    phase20_fragment(
+      @pdfv2conv.PdfV2FactFragmentKind::PlainText,
+      "实现 docx、pdf、xlsx、pptx、html 到 Markdown 的统一转换。",
+      Some(0),
+      [phase14_text_ref(3)],
+    ),
+  ]
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok(1, fragments),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("## 1.1 研究目标"))
+  assert_true(
+    markdown.contains(
+      "实现 docx、pdf、xlsx、pptx、html 到 Markdown 的统一转换。",
+    ),
+  )
+  assert_true(!markdown.contains("目标实现"))
+}
+
+///|
 test "pdf v2 product bridge suppresses repeated short line variants" {
   let fragments = [
     phase20_fragment(

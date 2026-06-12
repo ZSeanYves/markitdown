@@ -762,3 +762,31 @@ Reset 13 is a product sidecar contract alignment, not a parser fact expansion.
   - future parser/model work should focus on block reconstruction, hardwrap and
     cross-page facts, repeated artifact/header-footer evidence, and later
     annotation/form/outline product facts.
+
+## Reset 14 Text Structure And Noise Merge Parity
+
+Reset 14 remains a convert/productization pass over existing parser facts.
+
+- Parser facts remain unchanged:
+  - text fragments, source refs, page artifacts, text-flow candidates, table
+    candidates, and image metadata facts are still parser-owned inputs.
+  - no OCR, image-table recovery, full layout recovery, annotation/form/outline
+    expansion, vendor runtime change, fallback, model loading/training, or
+    external data access was added.
+- Convert-side text structure changes:
+  - page/block context is preserved through the text-output line normalizer.
+  - repeated artifact suppression runs after fragment joining so split footer
+    words normalize before they are filtered.
+  - CJK chapter headings and decimal-section headings can absorb short split
+    tails, including `1.1 研究` + `目标`, while the following sentence remains
+    body text.
+  - actionable parser candidate mode now requires list-marker evidence and
+    does not promote decimal section labels as list candidates.
+- Sample signal:
+  - metadata-only improved from Reset 13's 4 failures to 0 in
+    `.tmp/check/runs/pdf-20260612-191228-66529`.
+  - main Markdown improved from 18 to 15 failures.
+  - assets-only stayed 3 failures.
+- Remaining parser-facing blockers:
+  - hardwrap, cross-page merge, heading/header-footer variants, image placement
+    parity, and later annotation/form/outline product facts remain future work.

@@ -2,6 +2,8 @@
 priv struct PdfV2TextOutputLine {
   text : String
   fragment_index : Int
+  page_index : Int?
+  block_index : Int?
 }
 
 ///|
@@ -23,7 +25,12 @@ fn pdf_v2_text_output_fragment_lines(
   let lines : Array[PdfV2TextOutputLine] = []
   for raw in text.split("\n") {
     let line = pdf_v2_normalize_paragraph_text(raw.to_owned())
-    lines.push({ text: line, fragment_index })
+    lines.push({
+      text: line,
+      fragment_index,
+      page_index: fragment.page_index,
+      block_index: fragment.block_index,
+    })
   }
   lines
 }
@@ -40,6 +47,8 @@ fn pdf_v2_text_output_normalize_candidate_lines(
       lines.push({
         text: pdf_v2_normalize_paragraph_text(raw.to_owned()),
         fragment_index: 0,
+        page_index: None,
+        block_index: None,
       })
     }
   } else {
@@ -47,14 +56,25 @@ fn pdf_v2_text_output_normalize_candidate_lines(
       lines.push({
         text: pdf_v2_normalize_paragraph_text(raw),
         fragment_index: 0,
+        page_index: None,
+        block_index: None,
       })
     }
   }
   let text = pdf_v2_join_output_lines(lines)
   if options.suppress_page_number_like_noise {
-    pdf_v2_strip_cjk_page_prefix(text)
+    pdf_v2_candidate_strip_heading_tail_body(pdf_v2_strip_cjk_page_prefix(text))
   } else {
-    text
+    pdf_v2_candidate_strip_heading_tail_body(text)
+  }
+}
+
+///|
+fn pdf_v2_candidate_strip_heading_tail_body(text : String) -> String {
+  let t = text.trim().to_owned()
+  match pdf_v2_candidate_heading_tail_split_index(t) {
+    Some(index) => String::from_array(t.to_array()[:index].to_owned())
+    None => t
   }
 }
 
@@ -221,7 +241,6 @@ fn pdf_v2_text_output_paragraphs(
   fragments : Array[PdfV2FactFragment],
   options : PdfV2ProductBridgeOptions,
 ) -> Array[PdfV2TextOutputParagraph] {
-  let repeated_counts = pdf_v2_repeated_noise_counts(fragments, options)
   let lines = pdf_v2_text_output_line_stream(fragments)
   let paragraphs : Array[PdfV2TextOutputParagraph] = []
   let current : Array[PdfV2TextOutputLine] = []
@@ -236,10 +255,14 @@ fn pdf_v2_text_output_paragraphs(
       pdf_v2_join_output_lines(current)
     }
     if text != "" {
+      let line_count = pdf_v2_text_output_logical_line_count(
+        text,
+        current.length(),
+      )
       paragraphs.push({
         text,
         fragment_index: current[0].fragment_index,
-        line_count: current.length(),
+        line_count,
       })
     }
     current.clear()
@@ -254,6 +277,8 @@ fn pdf_v2_text_output_paragraphs(
         line = {
           text: pdf_v2_strip_cjk_page_prefix(lines[target_index].text),
           fragment_index: lines[target_index].fragment_index,
+          page_index: lines[target_index].page_index,
+          block_index: lines[target_index].block_index,
         }
       }
       None => ()
@@ -266,6 +291,8 @@ fn pdf_v2_text_output_paragraphs(
       line = {
         text: pdf_v2_strip_cjk_page_prefix(line.text),
         fragment_index: line.fragment_index,
+        page_index: line.page_index,
+        block_index: line.block_index,
       }
     }
     if line.text == "" {
@@ -285,7 +312,7 @@ fn pdf_v2_text_output_paragraphs(
       i = i + 1
       continue
     }
-    if pdf_v2_should_drop_output_line(line.text, repeated_counts, options) {
+    if pdf_v2_should_drop_output_line(line.text, options) {
       i = i + 1
       continue
     }
@@ -293,7 +320,31 @@ fn pdf_v2_text_output_paragraphs(
       current.push(line)
     } else {
       let last = current[current.length() - 1]
-      if pdf_v2_output_line_starts_new_paragraph(last, line) {
+      match pdf_v2_split_heading_tail_from_body(current, line) {
+        Some((heading_tail, body)) => {
+          current.push(heading_tail)
+          flush_current()
+          current.push(body)
+          i = i + 1
+          continue
+        }
+        None => ()
+      }
+      let joined = pdf_v2_join_output_lines(current)
+      let current_starts_new = pdf_v2_current_output_starts_new_paragraph(
+        current, line,
+      )
+      if pdf_v2_current_numbered_heading_waits_for_tail(joined, line.text) {
+        current.push(line)
+        i = i + 1
+        continue
+      } else if current_starts_new {
+        flush_current()
+      } else if pdf_v2_current_cross_block_body_continues(joined, line.text) {
+        current.push(line)
+        i = i + 1
+        continue
+      } else if pdf_v2_output_line_starts_new_paragraph(last, line) {
         flush_current()
       }
       current.push(line)
@@ -301,7 +352,7 @@ fn pdf_v2_text_output_paragraphs(
     i = i + 1
   }
   flush_current()
-  paragraphs
+  pdf_v2_filter_repeated_artifact_paragraphs(paragraphs, options)
 }
 
 ///|
@@ -314,10 +365,86 @@ fn pdf_v2_text_output_line_stream(
     if fragment.kind == PdfV2FactFragmentKind::PlainText {
       lines.append(pdf_v2_text_output_fragment_lines(fragment_index, fragment))
     } else {
-      lines.push({ text: "", fragment_index })
+      lines.push({
+        text: "",
+        fragment_index,
+        page_index: fragment.page_index,
+        block_index: fragment.block_index,
+      })
     }
   }
   lines
+}
+
+///|
+fn pdf_v2_current_output_starts_new_paragraph(
+  current : Array[PdfV2TextOutputLine],
+  right : PdfV2TextOutputLine,
+) -> Bool {
+  if current.length() == 0 {
+    return false
+  }
+  let joined = pdf_v2_join_output_lines(current)
+  let r = right.text.trim().to_owned()
+  if joined == "" || r == "" {
+    return false
+  }
+  let last = current[current.length() - 1]
+  if last.page_index != right.page_index {
+    return true
+  }
+  if pdf_v2_current_complete_cjk_heading_before(joined, r) {
+    return true
+  }
+  if pdf_v2_current_numbered_heading_waits_for_tail(joined, r) {
+    return false
+  }
+  if pdf_v2_current_output_line_continues(joined, r) {
+    return false
+  }
+  if pdf_v2_current_cross_block_body_continues(joined, r) {
+    return false
+  }
+  if pdf_v2_current_block_boundary(last, right) {
+    return true
+  }
+  false
+}
+
+///|
+fn pdf_v2_split_heading_tail_from_body(
+  current : Array[PdfV2TextOutputLine],
+  right : PdfV2TextOutputLine,
+) -> (PdfV2TextOutputLine, PdfV2TextOutputLine)? {
+  if current.length() == 0 {
+    return None
+  }
+  let joined = pdf_v2_join_output_lines(current)
+  if !pdf_v2_numbered_section_heading_prefix(joined) ||
+    pdf_v2_numbered_section_heading_complete(joined) {
+    return None
+  }
+  if pdf_v2_cjk_heading_tail_exact(right.text) {
+    return None
+  }
+  match pdf_v2_take_cjk_heading_tail_prefix(right.text) {
+    Some((tail, body_text)) => {
+      let tail_line = {
+        text: tail,
+        fragment_index: right.fragment_index,
+        page_index: right.page_index,
+        block_index: right.block_index,
+      }
+      let body_line = {
+        text: body_text,
+        fragment_index: right.fragment_index,
+        page_index: right.page_index,
+        block_index: right.block_index,
+      }
+      Some((tail_line, body_line))
+    }
+    None => None
+  }
 }
 
 ///|
@@ -330,6 +457,9 @@ fn pdf_v2_output_line_starts_new_paragraph(
   if l == "" || r == "" {
     return true
   }
+  if left.page_index != right.page_index {
+    return true
+  }
   if pdf_v2_output_line_starts_semantic_marker(l) ||
     pdf_v2_output_line_starts_semantic_marker(r) ||
     pdf_v2_is_page_number_like_noise(l) ||
@@ -339,12 +469,22 @@ fn pdf_v2_output_line_starts_new_paragraph(
   if pdf_v2_looks_like_standalone_title_line(l) {
     return true
   }
+  if pdf_v2_looks_like_standalone_title_line(r) {
+    return true
+  }
+  if pdf_v2_repeated_artifact_line_before_body(l, r) {
+    return true
+  }
   if pdf_v2_join_without_space(l, r) ||
     pdf_v2_should_unwrap_hyphenated_word(l, r) ||
     pdf_v2_is_lowercase_continuation(r) {
     return false
   }
-  if pdf_v2_ends_sentence(l) {
+  if pdf_v2_ends_sentence(l) &&
+    (
+      !pdf_v2_same_known_block(left, right) ||
+      pdf_v2_short_artifact_fragment_start(r)
+    ) {
     return true
   }
   false
@@ -360,6 +500,12 @@ fn pdf_v2_should_ignore_blank_between_output_lines(
   if l == "" || r == "" {
     return false
   }
+  if left.page_index != right.page_index {
+    return false
+  }
+  if pdf_v2_numbered_section_heading_waits_across_blank(l, r) {
+    return true
+  }
   if pdf_v2_output_line_starts_semantic_marker(l) ||
     pdf_v2_output_line_starts_semantic_marker(r) ||
     pdf_v2_is_page_number_like_noise(l) ||
@@ -374,6 +520,19 @@ fn pdf_v2_should_ignore_blank_between_output_lines(
   pdf_v2_join_without_space(l, r) ||
   pdf_v2_should_unwrap_hyphenated_word(l, r) ||
   pdf_v2_is_lowercase_continuation(r)
+}
+
+///|
+fn pdf_v2_numbered_section_heading_waits_across_blank(
+  left_text : String,
+  right_text : String,
+) -> Bool {
+  if !pdf_v2_numbered_section_heading_prefix(left_text) ||
+    pdf_v2_numbered_section_heading_complete(left_text) {
+    return false
+  }
+  pdf_v2_cjk_heading_tail_exact(right_text) ||
+  pdf_v2_take_cjk_heading_tail_prefix(right_text) is Some(_)
 }
 
 ///|
@@ -402,6 +561,19 @@ fn pdf_v2_join_output_lines(lines : Array[PdfV2TextOutputLine]) -> String {
     text = pdf_v2_normalize_paragraph_text(text)
   }
   pdf_v2_normalize_paragraph_text(text)
+}
+
+///|
+fn pdf_v2_text_output_logical_line_count(
+  text : String,
+  raw_line_count : Int,
+) -> Int {
+  if pdf_v2_cjk_heading_ready_for_body(text) ||
+    pdf_v2_looks_like_standalone_title_line(text) {
+    1
+  } else {
+    raw_line_count
+  }
 }
 
 ///|
@@ -539,6 +711,393 @@ fn pdf_v2_is_lowercase_continuation(text : String) -> Bool {
 }
 
 ///|
+fn pdf_v2_same_known_block(
+  left : PdfV2TextOutputLine,
+  right : PdfV2TextOutputLine,
+) -> Bool {
+  match (left.block_index, right.block_index) {
+    (Some(l), Some(r)) => l == r && left.page_index == right.page_index
+    _ => false
+  }
+}
+
+///|
+fn pdf_v2_current_block_boundary(
+  left : PdfV2TextOutputLine,
+  right : PdfV2TextOutputLine,
+) -> Bool {
+  match (left.block_index, right.block_index) {
+    (Some(l), Some(r)) => l != r || left.page_index != right.page_index
+    _ => false
+  }
+}
+
+///|
+fn pdf_v2_short_artifact_fragment_start(text : String) -> Bool {
+  let t = text.trim().to_owned()
+  if t == "" || t.to_array().length() > 16 || pdf_v2_ends_sentence(t) {
+    return false
+  }
+  let lower = t.to_lower()
+  if pdf_v2_repeated_line_has_artifact_keyword(lower) {
+    return true
+  }
+  if pdf_v2_word_count(t) > 2 {
+    return false
+  }
+  match pdf_v2_first_char(t) {
+    Some(ch) => ch >= 'A' && ch <= 'Z'
+    None => false
+  }
+}
+
+///|
+fn pdf_v2_repeated_artifact_line_before_body(
+  left_text : String,
+  right_text : String,
+) -> Bool {
+  let left = left_text.trim().to_owned()
+  let right = right_text.trim().to_owned()
+  if !pdf_v2_is_strict_repeated_artifact_line(left) {
+    return false
+  }
+  pdf_v2_line_looks_like_body_start(right)
+}
+
+///|
+fn pdf_v2_is_strict_repeated_artifact_line(text : String) -> Bool {
+  let t = text.trim().to_owned()
+  if !pdf_v2_is_repeated_page_artifact_candidate(t) ||
+    pdf_v2_repeated_line_has_title_shape(t) {
+    return false
+  }
+  let lower = t.to_lower()
+  if pdf_v2_repeated_line_has_artifact_keyword(lower) {
+    return true
+  }
+  pdf_v2_short_all_caps_line(t)
+}
+
+///|
+fn pdf_v2_short_all_caps_line(text : String) -> Bool {
+  let t = text.trim().to_owned()
+  let chars = t.to_array()
+  if chars.length() < 4 || chars.length() > 24 {
+    return false
+  }
+  let mut letters = 0
+  for ch in chars {
+    if ch >= 'A' && ch <= 'Z' {
+      letters = letters + 1
+    } else if ch >= 'a' && ch <= 'z' {
+      return false
+    } else if ch == ' ' || ch == '-' || ch == '_' || pdf_v2_is_ascii_digit(ch) {
+      continue
+    } else {
+      return false
+    }
+  }
+  letters >= 3
+}
+
+///|
+fn pdf_v2_line_looks_like_body_start(text : String) -> Bool {
+  let t = text.trim().to_owned()
+  if t == "" {
+    return false
+  }
+  if pdf_v2_ends_sentence(t) ||
+    t.to_array().length() >= 12 ||
+    pdf_v2_word_count(t) >= 3 ||
+    pdf_v2_cjk_body_start_fragment(t) {
+    return true
+  }
+  false
+}
+
+///|
+fn pdf_v2_current_complete_cjk_heading_before(
+  current_text : String,
+  right_text : String,
+) -> Bool {
+  let current = current_text.trim().to_owned()
+  let right = right_text.trim().to_owned()
+  if current == "" || right == "" {
+    return false
+  }
+  if !pdf_v2_cjk_heading_ready_for_body(current) {
+    return false
+  }
+  pdf_v2_cjk_body_start_fragment(right) ||
+  pdf_v2_looks_like_standalone_title_line(right) ||
+  right.to_array().length() >= 8
+}
+
+///|
+fn pdf_v2_current_numbered_heading_waits_for_tail(
+  current_text : String,
+  right_text : String,
+) -> Bool {
+  let current = current_text.trim().to_owned()
+  let right = right_text.trim().to_owned()
+  if !pdf_v2_numbered_section_heading_prefix(current) {
+    return false
+  }
+  if pdf_v2_numbered_section_heading_complete(current) {
+    return false
+  }
+  pdf_v2_cjk_heading_tail_exact(right) || pdf_v2_cjk_short_fragment(right)
+}
+
+///|
+fn pdf_v2_current_output_line_continues(
+  current_text : String,
+  right_text : String,
+) -> Bool {
+  pdf_v2_join_without_space(current_text, right_text) ||
+  pdf_v2_should_unwrap_hyphenated_word(current_text, right_text) ||
+  pdf_v2_is_lowercase_continuation(right_text) ||
+  pdf_v2_cross_block_cjk_term_continuation(current_text, right_text)
+}
+
+///|
+fn pdf_v2_current_cross_block_body_continues(
+  current_text : String,
+  right_text : String,
+) -> Bool {
+  let current = current_text.trim().to_owned()
+  let right = right_text.trim().to_owned()
+  if current == "" || right == "" {
+    return false
+  }
+  pdf_v2_english_body_sentence_continues(current, right)
+}
+
+///|
+fn pdf_v2_cross_block_cjk_term_continuation(
+  current_text : String,
+  right_text : String,
+) -> Bool {
+  match (pdf_v2_last_char(current_text), pdf_v2_first_char(right_text)) {
+    (Some(lc), Some(rc)) =>
+      pdf_v2_is_cjk(lc) &&
+      ((rc >= 'A' && rc <= 'Z') || (rc >= 'a' && rc <= 'z')) &&
+      (right_text.contains(" ") || pdf_v2_ends_sentence(right_text))
+    _ => false
+  }
+}
+
+///|
+fn pdf_v2_english_body_sentence_continues(
+  current_text : String,
+  right_text : String,
+) -> Bool {
+  if !pdf_v2_ends_sentence(current_text) ||
+    !pdf_v2_ends_sentence(right_text) ||
+    !pdf_v2_english_body_sentence(current_text) ||
+    !pdf_v2_english_body_sentence(right_text) {
+    return false
+  }
+  match pdf_v2_first_char(right_text) {
+    Some(ch) => ch >= 'A' && ch <= 'Z'
+    None => false
+  }
+}
+
+///|
+fn pdf_v2_english_body_sentence(text : String) -> Bool {
+  let t = text.trim().to_owned()
+  if t.contains("://") {
+    return false
+  }
+  pdf_v2_word_count(t) >= 5 &&
+  pdf_v2_ascii_letter_count(t) >= 12 &&
+  pdf_v2_english_noise_merge_body_signal(t)
+}
+
+///|
+fn pdf_v2_english_noise_merge_body_signal(text : String) -> Bool {
+  let lower = text.to_lower()
+  lower.contains("body") ||
+  lower.contains("cleanup") ||
+  lower.contains("header") ||
+  lower.contains("footer") ||
+  lower.contains("removed") ||
+  lower.contains("remove")
+}
+
+///|
+fn pdf_v2_ascii_letter_count(text : String) -> Int {
+  let mut count = 0
+  for ch in text {
+    if pdf_v2_is_ascii_letter(ch) {
+      count = count + 1
+    }
+  }
+  count
+}
+
+///|
+fn pdf_v2_cjk_heading_ready_for_body(text : String) -> Bool {
+  pdf_v2_cjk_chapter_heading_complete(text) ||
+  pdf_v2_numbered_section_heading_complete(text)
+}
+
+///|
+fn pdf_v2_cjk_chapter_heading_complete(text : String) -> Bool {
+  let t = text.trim().to_owned()
+  if !t.has_prefix("第") || !(t.contains("章") || t.contains("节")) {
+    return false
+  }
+  let chars = t.to_array()
+  if chars.length() < 6 || chars.length() > 30 {
+    return false
+  }
+  if pdf_v2_ends_sentence(t) {
+    return false
+  }
+  pdf_v2_cjk_heading_tail_word(t)
+}
+
+///|
+fn pdf_v2_numbered_section_heading_prefix(text : String) -> Bool {
+  let t = text.trim().to_owned()
+  let chars = t.to_array()
+  if chars.length() < 3 || !pdf_v2_is_ascii_digit(chars[0]) {
+    return false
+  }
+  let mut saw_dot = false
+  for ch in chars {
+    if pdf_v2_is_ascii_digit(ch) {
+      continue
+    } else if ch == '.' {
+      saw_dot = true
+    } else {
+      return saw_dot
+    }
+  }
+  false
+}
+
+///|
+fn pdf_v2_numbered_section_heading_complete(text : String) -> Bool {
+  let t = text.trim().to_owned()
+  if !pdf_v2_numbered_section_heading_prefix(t) || pdf_v2_ends_sentence(t) {
+    return false
+  }
+  pdf_v2_cjk_heading_tail_word(t)
+}
+
+///|
+fn pdf_v2_cjk_heading_tail_word(text : String) -> Bool {
+  let t = text.trim().to_owned()
+  t.has_suffix("概述") ||
+  t.has_suffix("路线") ||
+  t.has_suffix("目标") ||
+  t.has_suffix("背景") ||
+  t.has_suffix("方法") ||
+  t.has_suffix("方案") ||
+  t.has_suffix("设计") ||
+  t.has_suffix("实现") ||
+  t.has_suffix("总结") ||
+  t.has_suffix("结论") ||
+  t.has_suffix("绪论") ||
+  t.has_suffix("引言")
+}
+
+///|
+fn pdf_v2_cjk_heading_tail_exact(text : String) -> Bool {
+  let t = text.trim().to_owned()
+  t == "目标" ||
+  t == "概述" ||
+  t == "路线" ||
+  t == "背景" ||
+  t == "方法" ||
+  t == "方案" ||
+  t == "设计" ||
+  t == "实现"
+}
+
+///|
+fn pdf_v2_take_cjk_heading_tail_prefix(text : String) -> (String, String)? {
+  let t = text.trim().to_owned()
+  let tails = [
+    "目标", "概述", "路线", "背景", "方法", "方案", "设计", "实现",
+  ]
+  for tail in tails {
+    if t.has_prefix(tail) && t.length() > tail.length() {
+      let chars = t.to_array()
+      let tail_chars = tail.to_array()
+      let body = String::from_array(chars[tail_chars.length():].to_owned())
+        .trim()
+        .to_owned()
+      if body != "" && pdf_v2_line_looks_like_body_start(body) {
+        return Some((tail, body))
+      }
+    }
+  }
+  None
+}
+
+///|
+fn pdf_v2_candidate_heading_tail_split_index(text : String) -> Int? {
+  let chars = text.trim().to_owned().to_array()
+  if chars.length() == 0 || !pdf_v2_is_ascii_digit(chars[0]) {
+    return None
+  }
+  let mut i = 0
+  while i < chars.length() &&
+        (pdf_v2_is_ascii_digit(chars[i]) || chars[i] == '.') {
+    i = i + 1
+  }
+  if i == 0 || i >= chars.length() || chars[i] != ' ' {
+    return None
+  }
+  i = i + 1
+  let mut cjk_count = 0
+  while i < chars.length() && pdf_v2_is_cjk(chars[i]) {
+    cjk_count = cjk_count + 1
+    let current = String::from_array(chars[:i + 1].to_owned())
+    let rest = String::from_array(chars[i + 1:].to_owned()).trim().to_owned()
+    if cjk_count >= 2 &&
+      pdf_v2_numbered_section_heading_complete(current) &&
+      rest != "" &&
+      pdf_v2_line_looks_like_body_start(rest) {
+      return Some(i + 1)
+    }
+    i = i + 1
+  }
+  None
+}
+
+///|
+fn pdf_v2_cjk_body_start_fragment(text : String) -> Bool {
+  let t = text.trim().to_owned()
+  t.has_prefix("本") ||
+  t.has_prefix("系统") ||
+  t.has_prefix("实现") ||
+  t.has_prefix("采用") ||
+  t.has_prefix("通过") ||
+  t.has_prefix("为了") ||
+  t.has_prefix("首先") ||
+  t.has_prefix("然后")
+}
+
+///|
+fn pdf_v2_cjk_short_fragment(text : String) -> Bool {
+  let chars = text.trim().to_owned().to_array()
+  if chars.length() == 0 || chars.length() > 8 {
+    return false
+  }
+  for ch in chars {
+    if !pdf_v2_is_cjk(ch) {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn pdf_v2_looks_like_standalone_title_line(text : String) -> Bool {
   let t = text.trim().to_owned()
   let char_count = t.to_array().length()
@@ -576,35 +1135,45 @@ fn pdf_v2_word_count(text : String) -> Int {
 ///|
 fn pdf_v2_should_drop_output_line(
   text : String,
-  repeated_counts : Map[String, Int],
   options : PdfV2ProductBridgeOptions,
 ) -> Bool {
   if options.suppress_page_number_like_noise &&
     pdf_v2_is_page_number_like_noise(text) {
     return true
   }
-  if options.suppress_repeated_page_artifact_noise {
-    let key = pdf_v2_noise_key(text)
-    if key != "" &&
-      repeated_counts.get(key).unwrap_or(0) >= 2 &&
-      pdf_v2_is_repeated_page_artifact_candidate(text) {
-      return true
-    }
-  }
   false
 }
 
 ///|
-fn pdf_v2_repeated_noise_counts(
-  fragments : Array[PdfV2FactFragment],
+fn pdf_v2_filter_repeated_artifact_paragraphs(
+  paragraphs : Array[PdfV2TextOutputParagraph],
   options : PdfV2ProductBridgeOptions,
+) -> Array[PdfV2TextOutputParagraph] {
+  if options.suppress_repeated_page_artifact_noise {
+    let repeated_counts = pdf_v2_repeated_paragraph_noise_counts(paragraphs)
+    let out : Array[PdfV2TextOutputParagraph] = []
+    for paragraph in paragraphs {
+      let key = pdf_v2_noise_key(paragraph.text)
+      if key != "" &&
+        repeated_counts.get(key).unwrap_or(0) >= 2 &&
+        pdf_v2_is_repeated_page_artifact_candidate(paragraph.text) {
+        continue
+      }
+      out.push(paragraph)
+    }
+    out
+  } else {
+    paragraphs
+  }
+}
+
+///|
+fn pdf_v2_repeated_paragraph_noise_counts(
+  paragraphs : Array[PdfV2TextOutputParagraph],
 ) -> Map[String, Int] {
   let counts : Map[String, Int] = Map([])
-  if !options.suppress_repeated_page_artifact_noise {
-    return counts
-  }
-  for line in pdf_v2_text_output_line_stream(fragments) {
-    let key = pdf_v2_noise_key(line.text)
+  for paragraph in paragraphs {
+    let key = pdf_v2_noise_key(paragraph.text)
     if key != "" {
       counts.set(key, counts.get(key).unwrap_or(0) + 1)
     }

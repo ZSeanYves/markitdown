@@ -719,3 +719,23 @@ maps existing parser facts into the current PDF metadata sidecar contract.
 - No annotation/form/outline expansion, text/hardwrap reconstruction, OCR,
   image-table recovery, full layout recovery, fallback, vendor runtime change,
   model loading/training, or external data access was added.
+
+## Reset 14 Text Structure And Noise Merge Parity
+
+Reset 14 does not add parser capabilities. It records the downstream convert
+handling of existing parser text facts.
+
+- Parser-owned page artifacts, text-flow candidates, block/line source refs,
+  table candidates, and image facts are unchanged.
+- Convert now performs later paragraph-level repeated-artifact filtering after
+  text fragments have been joined and normalized.
+- Convert preserves page/block context while normalizing text output, allowing
+  safer joins for split ligature words, CJK heading fragments, and decimal
+  section headings.
+- The metadata-only PDF sample set now passes in
+  `.tmp/check/runs/pdf-20260612-191228-66529`; this closes the Reset 13
+  `pdf_metadata_noise_merge` and `pdf_metadata_text_structure` parser-facing
+  blockers without changing parser facts.
+- No OCR, image-table recovery, full layout recovery, annotation/form/outline
+  expansion, fallback, vendor runtime change, model loading/training, or
+  external data access was added.

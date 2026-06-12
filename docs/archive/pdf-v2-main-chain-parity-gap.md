@@ -1268,3 +1268,46 @@
   - no v1 fallback, v1 PDF deletion, vendor runtime change, OCR, image-table
     recovery, full layout recovery, diagnostics text, external model/data
     access, or training hook was added.
+
+## Reset 14 Text Structure And Noise Merge Parity
+
+- focus:
+  - close the two remaining Reset 13 metadata-only samples:
+    `pdf_metadata_noise_merge` and `pdf_metadata_text_structure`.
+  - keep the fix in PDF v2 text/block productization rather than changing
+    sample expectations or adding fallback/OCR/layout recovery.
+- implementation:
+  - fragment text normalization now carries page and block context so repeated
+    page artifacts can be filtered after ligature and hardwrap joining.
+  - repeated page artifacts are suppressed at paragraph level, allowing split
+    `Con` + `fi` + `dential` footers to normalize to `Confidential` and then
+    be removed consistently.
+  - CJK chapter and decimal-section headings can absorb short split heading
+    tails such as `目标`, while following body text remains a paragraph.
+  - page-boundary and artifact-boundary guards prevent the new joins from
+    merging unrelated pages, titles, or repeated headers/footers into body
+    text.
+  - parser text-flow candidate mode now requires actionable list-marker
+    evidence and avoids treating decimal section labels such as `1.1` as list
+    evidence.
+- sample signal with explicit prebuilt CLIs:
+  - Reset 13 metadata-only baseline:
+    `.tmp/check/runs/pdf-20260612-182554-59551`, 4 failures.
+  - Reset 14 metadata-only run:
+    `.tmp/check/runs/pdf-20260612-191228-66529`, 0 failures.
+  - Reset 14 main Markdown run:
+    `.tmp/check/runs/pdf-20260612-191248-66777`, 15 failures, improved from
+    Reset 13's 18.
+  - Reset 14 assets-only run:
+    `.tmp/check/runs/pdf-20260612-191248-66837`, 3 failures, unchanged from
+    Reset 13.
+- fixed cases:
+  - `pdf_metadata_noise_merge` now emits only the two expected body paragraphs
+    and removes repeated `Project Report` / `Confidential` artifacts.
+  - `pdf_metadata_text_structure` now emits chapter headings, the decimal
+    section heading `1.1 研究目标`, and the expected body paragraphs.
+- unchanged boundaries:
+  - no sample expected files were updated.
+  - no v1 fallback, v1 PDF deletion, vendor runtime change, OCR, image-table
+    recovery, full layout recovery, diagnostics text, external model/data
+    access, or training hook was added.
