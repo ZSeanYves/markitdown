@@ -901,3 +901,43 @@ classifier rows before training.
 - Model timing:
   - do not train or load a model yet. The next step is only a non-runtime
     `Reset 16 Dataset Export Scaffold`.
+
+## Reset 16A Training Stack Audit And Dataset Export Contract
+
+Reset 16A confirms that current parser facts can define a dataset export
+contract, but should not yet be wired into training or runtime.
+
+- Main repo exportable facts:
+  - `PdfV2LineTextSignal` supplies normalized text, marker/page/caption/title
+    signals, decode confidence, and reason tags.
+  - `PdfV2BlockBoundarySignal` supplies heading/list/continuation/artifact
+    scores, indent profile, boundary confidence, and parser-owned tags.
+  - `PdfV2TextFlowCandidate` supplies page/block/flow ids, line ids,
+    original/normalized lines, line signals, artifact refs, source refs, and
+    text-flow reason tags.
+  - `PdfV2PageArtifactCandidate` supplies artifact kind, repeat count, position
+    band, confidence, page indices, and source refs.
+  - table/image/link/form/object candidates supply adjacency and layout context.
+  - semantic blocks supply rule ids, confidence, source refs, negative reasons,
+    and Reset 15B risk tags.
+- External alignment:
+  - `text_block_classifier` can consume future `TextFlowRow`/`ArtifactRow`
+    exports after an adapter flattens them into DocLayNet-like TSV fields.
+  - `layout_recovery` should consume `LayoutRegionRow`, `BoundaryRow`, and
+    `ReadingOrderRow`; it must stay separate from convert semantic labels.
+  - DocLayNet `Title`, `Section-header`, `Text`, `List-item`, `Caption`,
+    `Page-header`, `Page-footer`, `Table`, `Footnote`, `Formula`, and
+    `Picture` mappings are documented in the export contract from observed
+    quality-lab mapping files.
+- Contract document:
+  - `docs/archive/pdf-v2-dataset-export-contract.md`.
+- Still missing before training:
+  - stable row ids and adapter flattening.
+  - complete vertical gap/font-size relation.
+  - column/read-order ids.
+  - reviewed caption/object adjacency labels.
+  - reviewed cross-page boundary labels.
+  - quality-lab heldout gate integration.
+- Decision:
+  - docs-only in Reset 16A; no parser output, product output, or metadata
+    sidecar behavior changed.

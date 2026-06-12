@@ -1494,3 +1494,37 @@ normalizer patches into gold labels.
 - Next recommended task:
   - `Reset 16 Dataset Export Scaffold`, non-runtime only, exporting parser
     facts, rule decisions, weak labels, risk tags, and source refs.
+
+## Reset 16A Training Stack Audit And Dataset Export Contract
+
+Reset 16A keeps all product parity behavior unchanged. It defines how future
+PDF v2 dataset export should align with the existing external training stack
+before any code scaffold is added.
+
+- External audit:
+  - quality-lab path: `markitdown-quality-lab/`.
+  - status: clean during audit.
+  - existing routes: `text_block_classifier` for convert-layer semantic hints
+    and `layout_recovery` for parser/layout recovery.
+  - existing DocLayNet adapter TSV fields are documented and concrete; active
+    text-block training uses local-only adapter rows and feature TSVs.
+- Contract outcome:
+  - added `docs/archive/pdf-v2-dataset-export-contract.md`.
+  - main row families are `TextFlowRow`, `BoundaryRow`, `ArtifactRow`,
+    `AdjacencyRow`, `LayoutRegionRow`, and `ReadingOrderRow`.
+  - DocLayNet labels are preserved as layout labels; they become Markdown/block
+    labels only through reviewed adapters.
+- Product contract:
+  - no samples expected changed.
+  - no product Markdown or metadata sidecar output changed.
+  - no fallback, runtime model, training hook, external data access,
+    quality-lab invocation, or `.vscode` change.
+- Remaining parity/export connection:
+  - image caption/placement residuals map to `AdjacencyRow` and
+    `LayoutRegionRow`.
+  - cross-page residuals map to `BoundaryRow`.
+  - header/footer residuals map to `ArtifactRow`.
+  - two-column residuals map to `ReadingOrderRow`.
+- Next recommended task:
+  - `Reset 16B` should implement an opt-in exporter only after row-id and
+    adapter flattening details are reviewed against quality-lab scripts.

@@ -641,3 +641,38 @@ sample-specific product patches.
     dependency, or `.vscode` change.
   - next recommended task: `Reset 16 Dataset Export Scaffold`, non-runtime
     only.
+
+## Reset 16A Training Stack Audit And Dataset Export Contract
+
+Reset 16A keeps convert behavior unchanged. It defines how convert-side
+semantic decisions and parser-produced flow facts should be exported later.
+
+- External training stack:
+  - `markitdown-quality-lab/` was present and clean during audit.
+  - `text_block_classifier` is the existing convert-facing route.
+  - current adapter rows use fields such as `sample_id`, `source_dataset`,
+    `source_page_id`, `source_region_id`, `page_no`, `bbox`, `source_label`,
+    `target_label`, `target_task`, `text`, `confidence`, `split`, and `notes`.
+  - current training uses local-only DocLayNet adapter rows, `baseline_v3`
+    features, and sklearn/HGB reports; no main-repo runtime hook exists.
+- Convert export alignment:
+  - semantic rule decisions and `PdfV2SemanticBlock` evidence map to
+    `TextFlowRow.current_rule_decision`,
+    `TextFlowRow.current_rule_confidence`, `weak_label`, and `risk_tags`.
+  - repeated artifact/noise decisions map to `ArtifactRow`.
+  - image/table/link/form adjacency decisions map to `AdjacencyRow`.
+  - product output alignment and metadata sidecar alignment are weak labels,
+    not gold labels.
+- Contract:
+  - `docs/archive/pdf-v2-dataset-export-contract.md`.
+  - label sources distinguish rule weak labels, DocLayNet layout labels,
+    manual gold labels, expected-Markdown weak labels, and metadata sidecar
+    weak labels.
+- Code scaffold decision:
+  - Option A, docs-only.
+  - no exporter code yet because row id stability and quality-lab adapter
+    flattening need review first.
+- Boundary:
+  - no product Markdown, metadata sidecar, fallback, training, runtime model,
+    model arbitration, external data, quality-lab invocation, or `.vscode`
+    change.

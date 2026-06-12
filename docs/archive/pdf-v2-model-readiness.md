@@ -327,3 +327,39 @@ boundaries, and guard tests around the Reset 14/15A bridge rules.
   - the right next step is `Reset 16 Dataset Export Scaffold`: a non-runtime
     exporter that records weak labels, risk tags, source refs, parser facts,
     and rule decisions without changing product Markdown.
+
+## 12. Reset 16A Training Stack Audit And Dataset Export Contract
+
+Reset 16A audits the local external training stack before defining main-repo
+export rows. It is docs-only and does not train or connect a model.
+
+- external stack:
+  - path: `markitdown-quality-lab/`.
+  - status: clean during audit.
+  - latest observed commit: `b30f0fc text-block: audit classifier feature gaps`.
+  - active training root: `pdf_model_training/`.
+- DocLayNet status:
+  - shared dataset docs exist under `pdf_model_training/datasets/doclaynet/`.
+  - external docs report local-only `DocLayNet_core.zip` and
+    `DocLayNet_extra.zip` cache under the historical text-block path.
+  - `doclaynet_pilot3000_v1` is the strongest current local text-block subset:
+    `82373` rows with `60447 / 10803 / 11123` train/dev/heldout rows.
+  - current best local teacher report is `pilot3000_v1_hgb_baseline_v3` with
+    heldout macro F1 `0.8097`.
+- training stack alignment:
+  - `text_block_classifier` is convert-facing and consumes DocLayNet adapter
+    rows plus `baseline_v3` features.
+  - `layout_recovery` is parser/layout-facing; its active manifest is
+    header-only until mature public adapters exist.
+  - model outputs, local features, raw dataset bytes, and prediction dumps stay
+    external/local-only.
+- contract added:
+  - `docs/archive/pdf-v2-dataset-export-contract.md`.
+  - row families: `TextFlowRow`, `BoundaryRow`, `ArtifactRow`, `AdjacencyRow`,
+    `LayoutRegionRow`, and `ReadingOrderRow`.
+  - label policy separates `RuleDecisionWeakLabel`,
+    `DocLayNetLayoutLabel`, `ManualGoldLabel`,
+    `ExpectedMarkdownWeakLabel`, and `MetadataSidecarWeakLabel`.
+- model readiness conclusion:
+  - ready to design an opt-in exporter next.
+  - not ready for production training, runtime inference, or model arbitration.

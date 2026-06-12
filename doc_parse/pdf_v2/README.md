@@ -799,3 +799,34 @@ for temporary convert-side bridge rules before any dataset export work starts.
   - next recommended task is `Reset 16 Dataset Export Scaffold`, a non-runtime
     exporter for parser facts, weak labels, rule decisions, source refs, and
     risk tags.
+
+## Reset 16A Training Stack Audit And Dataset Export Contract
+
+Reset 16A is docs-only for the parser package. It audits the external training
+stack and defines how parser-owned facts should appear in future export rows.
+
+- External stack observed:
+  - `markitdown-quality-lab/` exists and was clean during audit.
+  - `pdf_model_training/text_block_classifier` owns convert-facing block
+    semantic hints.
+  - `pdf_model_training/layout_recovery` owns parser/layout region, boundary,
+    column, and reading-order tasks.
+  - DocLayNet cache and derived feature/model outputs are local-only in the
+    external repo and are not touched by main-repo code.
+- Parser facts mapped to export:
+  - line text signals -> `TextFlowRow`.
+  - block boundary signals -> `TextFlowRow` and `BoundaryRow`.
+  - text-flow candidates -> `TextFlowRow`.
+  - page artifact candidates -> `ArtifactRow`.
+  - table/image/link/form/object candidates -> `AdjacencyRow` and
+    `LayoutRegionRow`.
+  - future column/order facts -> `ReadingOrderRow`.
+- Contract:
+  - `docs/archive/pdf-v2-dataset-export-contract.md` defines row families,
+    label provenance, DocLayNet mapping, split policy, and training/runtime
+    boundaries.
+- Boundary:
+  - no parser runtime, parser facts, vendor runtime, fallback, model loading,
+    training, or product output behavior changed.
+  - next step is an opt-in exporter design after adapter flattening is
+    reviewed.
