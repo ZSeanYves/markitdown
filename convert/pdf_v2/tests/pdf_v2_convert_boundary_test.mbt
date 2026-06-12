@@ -4699,6 +4699,128 @@ test "pdf v2 product bridge keeps heading like next page split" {
 }
 
 ///|
+test "pdf v2 structural handoff keeps next page mixed structure out of paragraph join" {
+  let model = reset17c_model(
+    "The implementation continues across the page", "Next Section\n- blocker item",
+  )
+  let lowered = @pdfv2conv.pdf_v2_lower_fact_model(
+    phase14_default_input(model, None),
+  )
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok_with_candidates(
+      2,
+      lowered.fragments,
+      lowered.text_flow_candidates,
+      [],
+      [],
+      [],
+    ),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(doc.blocks.val.length() == 2)
+  match doc.blocks.val[0] {
+    @cor.Block::Paragraph(text) =>
+      assert_true(text == "The implementation continues across the page")
+    _ => fail("expected leading paragraph")
+  }
+  match doc.blocks.val[1] {
+    @cor.Block::Paragraph(text) =>
+      assert_true(text == "Next Section - blocker item")
+    _ => fail("expected mixed next-page structure to remain separate")
+  }
+  assert_true(
+    !markdown.contains(
+      "The implementation continues across the page Next Section - blocker item",
+    ),
+  )
+}
+
+///|
+test "pdf v2 structural handoff does not switch on repeated heading like footer" {
+  let first_footer = {
+    ..reset17c_line(0, 0, "Running Footer", 0),
+    bbox: Some({ x0: 72.0, y0: 32.0, x1: 240.0, y1: 50.0 }),
+  }
+  let first_body = reset17c_line(0, 1, "Alpha body sentence.", 1)
+  let second_footer = {
+    ..reset17c_line(1, 0, "Running Footer", 2),
+    bbox: Some({ x0: 72.0, y0: 32.0, x1: 240.0, y1: 50.0 }),
+  }
+  let second_body = reset17c_line(1, 1, "Beta body sentence.", 3)
+  let first_page = {
+    ..phase14_page(),
+    blocks: [
+      phase14_block(
+        0,
+        "Running Footer",
+        [first_footer],
+        @pdfv2.PdfV2TextDecodeConfidence::High,
+      ),
+      phase14_block(
+        1,
+        "Alpha body sentence.",
+        [first_body],
+        @pdfv2.PdfV2TextDecodeConfidence::High,
+      ),
+    ],
+    lines: [first_footer, first_body],
+  }
+  let second_page = {
+    ..phase14_page(),
+    page_index: 1,
+    source_ref: { ..phase14_page_ref(), page_index: Some(1) },
+    blocks: [
+      {
+        ..phase14_block(
+          0,
+          "Running Footer",
+          [second_footer],
+          @pdfv2.PdfV2TextDecodeConfidence::High,
+        ),
+        page_index: Some(1),
+      },
+      {
+        ..phase14_block(
+          1,
+          "Beta body sentence.",
+          [second_body],
+          @pdfv2.PdfV2TextDecodeConfidence::High,
+        ),
+        page_index: Some(1),
+      },
+    ],
+    lines: [second_footer, second_body],
+  }
+  let model = {
+    ..phase14_model([]),
+    page_count: 2,
+    pages: [first_page, second_page],
+  }
+  let lowered = @pdfv2conv.pdf_v2_lower_fact_model(
+    phase14_default_input(model, None),
+  )
+  let doc = phase20_bridge_document(
+    phase20_pipeline_ok_with_candidates(
+      2,
+      lowered.fragments,
+      lowered.text_flow_candidates,
+      [],
+      [],
+      [],
+    ),
+    @pdfv2conv.default_pdf_v2_product_bridge_options(),
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(doc.blocks.val.length() == 2)
+  assert_true(markdown.contains("Alpha body sentence."))
+  assert_true(markdown.contains("Beta body sentence."))
+  assert_true(!markdown.contains("Running Footer"))
+}
+
+///|
 test "pdf v2 product bridge does not join without cross page fact" {
   let fragments = [
     @pdfv2conv.PdfV2FactFragment::{

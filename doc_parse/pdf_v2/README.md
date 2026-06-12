@@ -1014,3 +1014,35 @@ in-memory audit helpers for the first product consumer of
   Markdown failures.
 - No parser API, metadata sidecar, sample expected output, quality-lab path,
   model loading, runtime inference, or training workflow changed.
+
+## Reset 17E Cross-page Structural Handoff Follow-up
+
+Reset 17E changes the convert-side consumer, not parser fact generation.
+
+- Parser facts reused by 17E:
+  - `PdfV2CrossPageBoundaryFact`.
+  - text-flow candidates and block-boundary heading/list/continuation scores.
+  - heading/body split candidate tags when already present.
+- Parser facts still not added in 17E:
+  - no new parser API.
+  - no new persistent audit export.
+  - no new metadata sidecar rows.
+  - no quality-lab, training, or inference changes.
+- Convert-side handoff outcome:
+  - a new structural-handoff layer now uses existing parser-backed evidence to
+    decide when candidate semantic lowering must preserve page-boundary
+    structure.
+  - this fixed a narrow bridge-threading bug, but it did not change the visible
+    10-failure PDF Markdown sample count.
+- Why visible parity did not move:
+  - `pdf_cross_page_paragraph` still needs a clean parser-backed continuation
+    join plus stable next heading level.
+  - `pdf_cross_page_should_merge_phase15` still arrives as title/body-collapsed
+    structure.
+  - `pdf_cross_page_should_not_merge_phase15` still arrives without enough
+    parser-backed next-page heading/list separation to produce the expected
+    Markdown.
+- Current recommendation:
+  - improve parser/candidate evidence for page-boundary title/body and
+    heading/list separation first.
+  - do not lower thresholds broadly or add string-specific patches.

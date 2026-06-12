@@ -887,3 +887,62 @@ run reports the same 10 Markdown failures:
   - add a repo-local PDF v2 sample diagnostic that exposes
     `PdfV2CrossPageBoundaryFact` candidates plus audit counters for the three
     cross-page samples before considering any fact-backed output update.
+
+## Reset 17E Cross-page Structural Handoff Arbitration
+
+Reset 17E treats cross-page parity as a structural handoff problem, not only a
+paragraph merge/split problem.
+
+- Reused v1 intent:
+  - page-boundary joins stay conservative.
+  - heading/list/title-like starts remain blockers for plain paragraph joins.
+  - weak evidence falls back to the existing path.
+- Rejected v1 approach:
+  - no sample-specific patch forest.
+  - no string-normalizer overrides.
+  - no broad heading/list behavior rewrite outside the page-boundary handoff
+    path.
+- New convert-side abstraction:
+  - `PdfV2CrossPageStructuralHandoff` records page pair, source refs, block
+    kinds, heading/list/title-body evidence, join intent, preserve intent,
+    blockers, and the matched `PdfV2CrossPageBoundaryFact` when present.
+  - the bridge now returns both semantic blocks and whether candidate semantic
+    lowering must own emission. This fixes a narrow threading bug where
+    structural-handoff candidate blocks could be computed but still emitted
+    through the fragment-shaped path.
+- Explicit 17E gates:
+  - paragraph join still requires a qualifying high-confidence
+    `PdfV2CrossPageBoundaryFact` plus a paragraph-to-paragraph continuation pair.
+  - heading-level preservation now requires a qualifying fact.
+  - preserve-next-structure activates only for parser-backed list evidence,
+    title/body boundary evidence, qualifying heading/following-page structure
+    evidence, and never for repeated-artifact boundaries.
+  - repeated-artifact and weak heading-like boundaries fall back to the existing
+    conservative path.
+- Focused coverage added:
+  - bridge regression: mixed next-page structure stays out of the previous
+    paragraph join.
+  - bridge regression: repeated heading-like footer does not trigger candidate
+    handoff mode.
+  - whitebox regression: weak heading-like next-page evidence without a
+    qualifying fact does not activate structural-handoff mode.
+- Repo-local outcome on June 13, 2026:
+  - `samples/check.sh --format pdf` still reports the same 10 PDF Markdown
+    failures.
+  - the top-level wrapper still prints `rows=0`; the run's
+    `markdown-only.entrypoint.log` remains authoritative.
+  - no sample expected files changed.
+  - the three cross-page-labeled sample diffs remain visibly unchanged:
+    `pdf_cross_page_paragraph` still misses the `page` / `break` join and keeps
+    `# Next Section`; `pdf_cross_page_should_merge_phase15` still collapses
+    title/body into one line; `pdf_cross_page_should_not_merge_phase15` still
+    flattens next-page heading/list structure.
+- Reset 17E conclusion:
+  - keep the new structural-handoff wiring and gates.
+  - the narrow bridge/threading fix is retained.
+  - visible sample parity does not improve yet because the remaining target
+    failures still depend on parser-backed structure that current candidates do
+    not expose cleanly enough.
+  - next recommended action is parser/candidate-side evidence improvement for
+    title/body and next-page heading/list structure, not threshold lowering or
+    string patches.

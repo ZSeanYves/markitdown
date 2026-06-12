@@ -556,3 +556,28 @@ training-ready.
     failing PDFs.
   - no quality-lab adapter, dataset export, reviewed labels, model artifact,
     runtime inference, or training workflow changed.
+
+## 20. Reset 17E Cross-page Structural Handoff Arbitration
+
+Reset 17E improves convert-side correctness but still does not make the stack
+training-ready.
+
+- What changed:
+  - a convert-side structural-handoff abstraction now threads existing parser
+    evidence through page-boundary semantic lowering.
+  - a narrow bridge-threading bug was fixed so candidate-backed handoff blocks
+    cannot be dropped through the fragment path.
+  - focused regressions now cover weak heading-like and repeated-artifact
+    boundaries.
+- What did not change:
+  - no new parser labels or exported audit rows.
+  - no quality-lab adapter or dataset schema change.
+  - no runtime model loading or inference.
+  - no sample expected updates.
+- Readiness impact:
+  - visible PDF parity remains at the same 10 Markdown failures.
+  - the remaining cross-page-labeled failures are still mixed with title/body
+    or heading/list structure that current parser candidates do not separate
+    cleanly enough for gold labels.
+  - 17E therefore improves product-path discipline but does not reduce the
+    training-readiness gap.

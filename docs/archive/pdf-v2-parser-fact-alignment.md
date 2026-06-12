@@ -1160,3 +1160,29 @@ list-boundary issues. The audit therefore still does not justify relaxing the
 Reset 17C gates. Future work should first expose repo-local PDF v2 sample
 candidate/fact counters for the three cross-page samples before deciding
 whether a targeted fact-backed output update is warranted.
+
+## Reset 17E Cross-page Structural Handoff Alignment
+
+Reset 17E keeps parser facts unchanged and refines only the convert-side
+consumer alignment.
+
+Alignment update:
+
+| signal | product use after 17E | still missing |
+| --- | --- | --- |
+| qualifying `PdfV2CrossPageBoundaryFact` + paragraph continuation pair | may still join as one paragraph | none for the 17C path |
+| qualifying fact + next-page heading/list/title-body evidence | may activate structural-handoff preservation mode | stronger parser-backed structure in real failing samples |
+| weak or low-confidence fact | no handoff activation; existing behavior stays | stronger parser evidence if future change is desired |
+| repeated-artifact or weak heading-like boundary | explicitly blocked from structural-handoff activation | parser-side artifact/title disambiguation for real samples |
+
+Actual June 13, 2026 outcome:
+
+- The narrow bridge/threading bug is fixed and retained.
+- No parser API or fact schema changed.
+- No sample expected files changed.
+- Repo-local PDF Markdown parity still remains at 10 failures because the real
+  cross-page samples still lack clean parser-backed title/body or next-page
+  heading/list separation.
+- Reset 17E therefore aligns convert-side behavior more tightly with available
+  parser facts, but it still does not justify threshold lowering or string
+  patches.

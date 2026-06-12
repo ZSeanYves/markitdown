@@ -441,6 +441,42 @@ test "pdf v2 cross page arbitration audit counts missing pair and no fact fallba
 }
 
 ///|
+test "pdf v2 structural handoff does not activate for heading like next page without parser backed structure" {
+  let left_ref = semantic_test_ref_for_page(0, 0)
+  let right_ref = semantic_test_ref_for_page(1, 1)
+  let left = semantic_test_cross_page_block(
+    "The paragraph continues across the page", 0, left_ref,
+  )
+  let right_heading = {
+    ..semantic_test_cross_page_block("Running Footer", 1, right_ref),
+    kind: PdfV2SemanticBlockKind::Heading,
+    level: Some(1),
+    decision: {
+      ..pdf_v2_semantic_decision(
+        PdfV2SemanticBlockKind::Heading,
+        0.88,
+        "heading.short_single_line_followed_by_body.parser_fact",
+        ["short_single_line", "parser_fact", "boundary_heading_score"],
+        [],
+        [right_ref],
+        [],
+      )
+    },
+    reason_tags: ["semantic_test_block", "short_single_line", "parser_fact"],
+  }
+  let fact = semantic_test_cross_page_fact(0.50, [left_ref, right_ref])
+  let handoffs = pdf_v2_build_cross_page_structural_handoffs(
+    [left, right_heading],
+    [fact],
+  )
+
+  assert_true(handoffs.length() == 1)
+  assert_true(!handoffs[0].should_join_paragraph)
+  assert_true(!handoffs[0].should_preserve_heading_level)
+  assert_true(!pdf_v2_has_cross_page_structural_handoff_candidate(handoffs))
+}
+
+///|
 test "pdf v2 text flow joins hardwrapped paragraph as continuation unit" {
   let fragments = [
     semantic_test_fragment(

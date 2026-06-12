@@ -35,7 +35,14 @@ fn pdf_v2_semantic_blocks_from_candidates_with_cross_page_facts(
   cross_page_facts : Array[@pdfv2.PdfV2CrossPageBoundaryFact],
 ) -> Array[PdfV2SemanticBlock] {
   let blocks = pdf_v2_semantic_blocks_from_candidates(candidates, options)
-  pdf_v2_apply_cross_page_boundary_arbitration(blocks, cross_page_facts)
+  let handoffs = pdf_v2_build_cross_page_structural_handoffs(
+    blocks, cross_page_facts,
+  )
+  if pdf_v2_has_cross_page_structural_handoff_candidate(handoffs) {
+    pdf_v2_apply_cross_page_structural_handoffs(blocks, handoffs)
+  } else {
+    pdf_v2_apply_cross_page_boundary_arbitration(blocks, cross_page_facts)
+  }
 }
 
 ///|
@@ -106,6 +113,484 @@ fn pdf_v2_apply_cross_page_boundary_arbitration(
     i = i + 1
   }
   out
+}
+
+///|
+fn pdf_v2_structural_handoff_blocks_from_candidates(
+  candidates : Array[@pdfv2.PdfV2TextFlowCandidate],
+  options : PdfV2ProductBridgeOptions,
+  cross_page_facts : Array[@pdfv2.PdfV2CrossPageBoundaryFact],
+) -> Array[PdfV2SemanticBlock]? {
+  if candidates.length() == 0 || cross_page_facts.length() == 0 {
+    return None
+  }
+  let blocks = pdf_v2_semantic_blocks_from_candidates_with_cross_page_facts(
+    candidates, options, cross_page_facts,
+  )
+  let handoffs = pdf_v2_build_cross_page_structural_handoffs(
+    pdf_v2_semantic_blocks_from_candidates(candidates, options),
+    cross_page_facts,
+  )
+  if pdf_v2_has_cross_page_structural_handoff_candidate(handoffs) {
+    Some(blocks)
+  } else {
+    None
+  }
+}
+
+///|
+fn pdf_v2_build_cross_page_structural_handoffs(
+  blocks : Array[PdfV2SemanticBlock],
+  cross_page_facts : Array[@pdfv2.PdfV2CrossPageBoundaryFact],
+) -> Array[PdfV2CrossPageStructuralHandoff] {
+  let out : Array[PdfV2CrossPageStructuralHandoff] = []
+  let mut i = 0
+  while i + 1 < blocks.length() {
+    let left = blocks[i]
+    let right = blocks[i + 1]
+    match (left.page_index, right.page_index) {
+      (Some(page_from), Some(page_to)) if page_to > page_from => {
+        let matched_fact = pdf_v2_cross_page_boundary_fact_for_blocks(
+          left, right, cross_page_facts,
+        )
+        let matched_fact_qualifies = match matched_fact {
+          Some(fact) => pdf_v2_cross_page_fact_qualifies(fact)
+          None => false
+        }
+        let next_list_marker_evidence = pdf_v2_semantic_kind_is_list(right.kind)
+        let repeated_artifact_boundary = pdf_v2_cross_page_handoff_has_repeated_artifact_boundary(
+          left, right, matched_fact,
+        )
+        let next_starts_structural_block = right.kind ==
+          PdfV2SemanticBlockKind::Heading ||
+          next_list_marker_evidence
+        let following_page_structure_evidence = matched_fact_qualifies &&
+          pdf_v2_cross_page_handoff_has_following_page_structure(blocks, i)
+        let title_body_boundary_evidence = pdf_v2_cross_page_handoff_has_title_body_boundary_evidence(
+          blocks, i,
+        )
+        let should_join_paragraph = pdf_v2_cross_page_semantic_pair_can_join(
+            left, right,
+          ) &&
+          matched_fact_qualifies
+        let next_heading_level = pdf_v2_cross_page_preserved_heading_level(
+          blocks, i, right,
+        )
+        let should_preserve_heading_level = right.kind ==
+          PdfV2SemanticBlockKind::Heading &&
+          matched_fact_qualifies &&
+          next_heading_level != right.level
+        let should_preserve_list_marker = next_list_marker_evidence
+        let should_preserve_next_structure = should_preserve_list_marker ||
+          title_body_boundary_evidence ||
+          (
+            right.kind == PdfV2SemanticBlockKind::Heading &&
+            matched_fact_qualifies
+          ) ||
+          following_page_structure_evidence
+        let blockers : Array[String] = []
+        if repeated_artifact_boundary {
+          blockers.push("repeated_artifact_boundary")
+        }
+        if next_starts_structural_block {
+          blockers.push("next_structural_block")
+        }
+        if title_body_boundary_evidence {
+          blockers.push("title_body_boundary_evidence")
+        }
+        if !pdf_v2_ends_sentence(left.text.trim().to_owned()) {
+          blockers.push("previous_open_ended")
+        } else {
+          blockers.push("previous_sentence_ended")
+        }
+        if matched_fact is None &&
+          pdf_v2_cross_page_semantic_pair_can_join(left, right) {
+          blockers.push("no_matching_boundary_fact")
+        }
+        let reason_tags : Array[String] = ["cross_page_structural_handoff"]
+        if matched_fact is Some(_) {
+          reason_tags.push("cross_page_boundary_fact_backed")
+        }
+        if should_join_paragraph {
+          reason_tags.push("join_paragraph_continuation")
+        }
+        if should_preserve_next_structure {
+          reason_tags.push("preserve_next_structure")
+        }
+        if should_preserve_heading_level {
+          reason_tags.push("preserve_heading_level")
+        }
+        if should_preserve_list_marker {
+          reason_tags.push("preserve_list_marker")
+        }
+        if title_body_boundary_evidence {
+          reason_tags.push("title_body_boundary")
+        }
+        if following_page_structure_evidence {
+          reason_tags.push("following_page_structure")
+        }
+        if repeated_artifact_boundary {
+          reason_tags.push("repeated_artifact_boundary")
+        }
+        out.push({
+          boundary_index: i,
+          page_from,
+          page_to,
+          prev_refs: left.source_refs,
+          next_refs: right.source_refs,
+          prev_block_kind: left.kind,
+          next_block_kind: right.kind,
+          prev_heading_level: left.level,
+          next_heading_level,
+          next_list_marker_evidence,
+          prev_open_ended: !pdf_v2_ends_sentence(left.text.trim().to_owned()),
+          next_starts_structural_block,
+          title_body_boundary_evidence,
+          should_join_paragraph,
+          should_preserve_next_structure,
+          should_preserve_heading_level,
+          should_preserve_list_marker,
+          confidence: pdf_v2_cross_page_structural_handoff_confidence(
+            matched_fact, should_preserve_next_structure, should_preserve_heading_level,
+            should_preserve_list_marker, title_body_boundary_evidence,
+          ),
+          reason_tags,
+          blockers,
+          matched_fact,
+        })
+      }
+      _ => ()
+    }
+    i = i + 1
+  }
+  out
+}
+
+///|
+fn pdf_v2_has_cross_page_structural_handoff_candidate(
+  handoffs : Array[PdfV2CrossPageStructuralHandoff],
+) -> Bool {
+  for handoff in handoffs {
+    if pdf_v2_cross_page_structural_handoff_requires_candidate_semantics(
+        handoff,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn pdf_v2_cross_page_structural_handoff_requires_candidate_semantics(
+  handoff : PdfV2CrossPageStructuralHandoff,
+) -> Bool {
+  if handoff.blockers.contains("repeated_artifact_boundary") {
+    return false
+  }
+  handoff.should_preserve_next_structure ||
+  handoff.should_preserve_heading_level ||
+  handoff.should_preserve_list_marker
+}
+
+///|
+fn pdf_v2_apply_cross_page_structural_handoffs(
+  blocks : Array[PdfV2SemanticBlock],
+  handoffs : Array[PdfV2CrossPageStructuralHandoff],
+) -> Array[PdfV2SemanticBlock] {
+  let adjusted : Array[PdfV2SemanticBlock] = []
+  adjusted.append(blocks)
+  for handoff in handoffs {
+    if handoff.should_preserve_heading_level &&
+      handoff.boundary_index + 1 < adjusted.length() {
+      adjusted[handoff.boundary_index + 1] = pdf_v2_apply_cross_page_preserved_heading_level(
+        adjusted[handoff.boundary_index + 1],
+        handoff,
+      )
+    }
+  }
+  let out : Array[PdfV2SemanticBlock] = []
+  let mut i = 0
+  while i < adjusted.length() {
+    if i + 1 < adjusted.length() {
+      match pdf_v2_cross_page_structural_handoff_at(handoffs, i) {
+        Some(handoff) =>
+          match handoff.matched_fact {
+            Some(fact) =>
+              if handoff.should_join_paragraph {
+                out.push(
+                  pdf_v2_merge_cross_page_semantic_blocks_with_handoff(
+                    adjusted[i],
+                    adjusted[i + 1],
+                    fact,
+                    handoff,
+                  ),
+                )
+                i = i + 2
+                continue
+              }
+            None => ()
+          }
+        None => ()
+      }
+    }
+    out.push(adjusted[i])
+    i = i + 1
+  }
+  out
+}
+
+///|
+fn pdf_v2_cross_page_structural_handoff_at(
+  handoffs : Array[PdfV2CrossPageStructuralHandoff],
+  boundary_index : Int,
+) -> PdfV2CrossPageStructuralHandoff? {
+  for handoff in handoffs {
+    if handoff.boundary_index == boundary_index {
+      return Some(handoff)
+    }
+  }
+  None
+}
+
+///|
+fn pdf_v2_cross_page_handoff_has_title_body_boundary_evidence(
+  blocks : Array[PdfV2SemanticBlock],
+  boundary_index : Int,
+) -> Bool {
+  let left = blocks[boundary_index]
+  let right = blocks[boundary_index + 1]
+  if pdf_v2_cross_page_block_has_title_body_reason(left) ||
+    pdf_v2_cross_page_block_has_title_body_reason(right) {
+    return true
+  }
+  if boundary_index > 0 {
+    let previous = blocks[boundary_index - 1]
+    if previous.page_index == left.page_index &&
+      pdf_v2_cross_page_block_has_title_body_reason(previous) {
+      return true
+    }
+  }
+  if boundary_index + 2 < blocks.length() {
+    let following = blocks[boundary_index + 2]
+    if following.page_index == right.page_index &&
+      pdf_v2_cross_page_block_has_title_body_reason(following) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn pdf_v2_cross_page_handoff_has_following_page_structure(
+  blocks : Array[PdfV2SemanticBlock],
+  boundary_index : Int,
+) -> Bool {
+  let right = blocks[boundary_index + 1]
+  if boundary_index + 2 >= blocks.length() {
+    return false
+  }
+  let following = blocks[boundary_index + 2]
+  following.page_index == right.page_index &&
+  (
+    following.kind == PdfV2SemanticBlockKind::Heading ||
+    pdf_v2_semantic_kind_is_list(following.kind) ||
+    pdf_v2_cross_page_block_has_title_body_reason(following)
+  )
+}
+
+///|
+fn pdf_v2_cross_page_handoff_has_repeated_artifact_boundary(
+  left : PdfV2SemanticBlock,
+  right : PdfV2SemanticBlock,
+  matched_fact : @pdfv2.PdfV2CrossPageBoundaryFact?,
+) -> Bool {
+  if left.reason_tags.contains("page_artifact_fact_attached") ||
+    right.reason_tags.contains("page_artifact_fact_attached") ||
+    left.reason_tags.contains("parser_repeated_artifact_fact") ||
+    right.reason_tags.contains("parser_repeated_artifact_fact") {
+    return true
+  }
+  match matched_fact {
+    Some(fact) => fact.repeated_artifact_gap
+    None => false
+  }
+}
+
+///|
+fn pdf_v2_cross_page_block_has_title_body_reason(
+  block : PdfV2SemanticBlock,
+) -> Bool {
+  block.reason_tags.contains("heading_body_split") ||
+  block.decision.reason_tags.contains("heading_body_split")
+}
+
+///|
+fn pdf_v2_cross_page_structural_handoff_confidence(
+  matched_fact : @pdfv2.PdfV2CrossPageBoundaryFact?,
+  should_preserve_next_structure : Bool,
+  should_preserve_heading_level : Bool,
+  should_preserve_list_marker : Bool,
+  title_body_boundary_evidence : Bool,
+) -> Double {
+  match matched_fact {
+    Some(fact) => fact.confidence
+    None => {
+      let mut confidence = 0.0
+      if should_preserve_next_structure {
+        confidence = confidence + 0.58
+      }
+      if should_preserve_heading_level {
+        confidence = confidence + 0.12
+      }
+      if should_preserve_list_marker {
+        confidence = confidence + 0.18
+      }
+      if title_body_boundary_evidence {
+        confidence = confidence + 0.16
+      }
+      if confidence > 0.92 {
+        0.92
+      } else {
+        confidence
+      }
+    }
+  }
+}
+
+///|
+fn pdf_v2_cross_page_preserved_heading_level(
+  blocks : Array[PdfV2SemanticBlock],
+  boundary_index : Int,
+  right : PdfV2SemanticBlock,
+) -> Int? {
+  if right.kind != PdfV2SemanticBlockKind::Heading {
+    return right.level
+  }
+  match right.level {
+    Some(level) =>
+      if level > 1 {
+        Some(level)
+      } else if pdf_v2_cross_page_should_promote_following_heading(
+          blocks, boundary_index, right,
+        ) {
+        Some(2)
+      } else {
+        Some(level)
+      }
+    None => None
+  }
+}
+
+///|
+fn pdf_v2_cross_page_should_promote_following_heading(
+  blocks : Array[PdfV2SemanticBlock],
+  boundary_index : Int,
+  right : PdfV2SemanticBlock,
+) -> Bool {
+  if !pdf_v2_heading_has_title_shape(right.text) {
+    return false
+  }
+  let mut saw_prior_heading = false
+  let mut saw_prior_body = false
+  for i in 0..<=boundary_index {
+    let block = blocks[i]
+    if block.kind == PdfV2SemanticBlockKind::Heading {
+      saw_prior_heading = true
+    } else if block.kind == PdfV2SemanticBlockKind::Paragraph ||
+      block.kind == PdfV2SemanticBlockKind::Continuation {
+      saw_prior_body = true
+    }
+  }
+  saw_prior_heading && saw_prior_body
+}
+
+///|
+fn pdf_v2_apply_cross_page_preserved_heading_level(
+  block : PdfV2SemanticBlock,
+  handoff : PdfV2CrossPageStructuralHandoff,
+) -> PdfV2SemanticBlock {
+  match handoff.next_heading_level {
+    Some(level) => {
+      let handoff_tags = pdf_v2_semantic_merge_tags(handoff.reason_tags, [
+        "cross_page_structural_handoff", "preserve_heading_level",
+      ])
+      let decision = {
+        ..block.decision,
+        reason_tags: pdf_v2_semantic_merge_tags(
+          block.decision.reason_tags,
+          handoff_tags,
+        ),
+        confidence: if block.decision.confidence < handoff.confidence {
+          block.decision.confidence
+        } else {
+          handoff.confidence
+        },
+      }
+      {
+        ..block,
+        level: Some(level),
+        reason_tags: pdf_v2_semantic_merge_tags(block.reason_tags, handoff_tags),
+        decision,
+      }
+    }
+    None => block
+  }
+}
+
+///|
+fn pdf_v2_merge_cross_page_semantic_blocks_with_handoff(
+  left : PdfV2SemanticBlock,
+  right : PdfV2SemanticBlock,
+  fact : @pdfv2.PdfV2CrossPageBoundaryFact,
+  handoff : PdfV2CrossPageStructuralHandoff,
+) -> PdfV2SemanticBlock {
+  let merged = pdf_v2_merge_cross_page_semantic_blocks(
+    pdf_v2_cross_page_paragraph_like_block(left),
+    pdf_v2_cross_page_paragraph_like_block(right),
+    fact,
+  )
+  let merged_tags = pdf_v2_semantic_merge_tags(
+    merged.reason_tags,
+    handoff.reason_tags,
+  )
+  let decision = {
+    ..merged.decision,
+    kind: PdfV2SemanticBlockKind::Paragraph,
+    reason_tags: pdf_v2_semantic_merge_tags(
+      merged.decision.reason_tags,
+      handoff.reason_tags,
+    ),
+  }
+  {
+    ..merged,
+    kind: PdfV2SemanticBlockKind::Paragraph,
+    level: None,
+    ordered: None,
+    reason_tags: merged_tags,
+    decision,
+  }
+}
+
+///|
+fn pdf_v2_cross_page_paragraph_like_block(
+  block : PdfV2SemanticBlock,
+) -> PdfV2SemanticBlock {
+  if block.kind == PdfV2SemanticBlockKind::Paragraph {
+    return block
+  }
+  {
+    ..block,
+    kind: PdfV2SemanticBlockKind::Paragraph,
+    level: None,
+    ordered: None,
+    decision: { ..block.decision, kind: PdfV2SemanticBlockKind::Paragraph },
+  }
+}
+
+///|
+fn pdf_v2_semantic_kind_is_list(kind : PdfV2SemanticBlockKind) -> Bool {
+  kind == PdfV2SemanticBlockKind::OrderedListItem ||
+  kind == PdfV2SemanticBlockKind::UnorderedListItem
 }
 
 ///|
@@ -342,6 +827,20 @@ fn pdf_v2_cross_page_arbitration_fact(
   for fact in cross_page_facts {
     if pdf_v2_cross_page_fact_qualifies(fact) &&
       pdf_v2_cross_page_fact_matches_semantic_pair(fact, left, right) {
+      return Some(fact)
+    }
+  }
+  None
+}
+
+///|
+fn pdf_v2_cross_page_boundary_fact_for_blocks(
+  left : PdfV2SemanticBlock,
+  right : PdfV2SemanticBlock,
+  cross_page_facts : Array[@pdfv2.PdfV2CrossPageBoundaryFact],
+) -> @pdfv2.PdfV2CrossPageBoundaryFact? {
+  for fact in cross_page_facts {
+    if pdf_v2_cross_page_fact_matches_semantic_pair(fact, left, right) {
       return Some(fact)
     }
   }

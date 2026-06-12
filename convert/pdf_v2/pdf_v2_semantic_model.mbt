@@ -127,6 +127,31 @@ pub(all) struct PdfV2CrossPageArbitrationAudit {
 }
 
 ///|
+pub(all) struct PdfV2CrossPageStructuralHandoff {
+  boundary_index : Int
+  page_from : Int
+  page_to : Int
+  prev_refs : Array[@pdfv2.PdfV2SourceRef]
+  next_refs : Array[@pdfv2.PdfV2SourceRef]
+  prev_block_kind : PdfV2SemanticBlockKind
+  next_block_kind : PdfV2SemanticBlockKind
+  prev_heading_level : Int?
+  next_heading_level : Int?
+  next_list_marker_evidence : Bool
+  prev_open_ended : Bool
+  next_starts_structural_block : Bool
+  title_body_boundary_evidence : Bool
+  should_join_paragraph : Bool
+  should_preserve_next_structure : Bool
+  should_preserve_heading_level : Bool
+  should_preserve_list_marker : Bool
+  confidence : Double
+  reason_tags : Array[String]
+  blockers : Array[String]
+  matched_fact : @pdfv2.PdfV2CrossPageBoundaryFact?
+}
+
+///|
 pub(all) struct PdfV2ModelHint {
   model_kind : String
   predicted_kind : PdfV2SemanticBlockKind?

@@ -1737,3 +1737,57 @@ blocker removal, no image/header/footer/heading/column change, no generated
 artifacts, and no sample expected update. The recommended next action is a
 repo-local PDF v2 diagnostic entrypoint that prints candidate facts and this
 audit summary for existing failing samples before any further product change.
+
+## Reset 17E Cross-page Structural Handoff Arbitration
+
+Reset 17E converts the earlier audit finding into a narrow implementation:
+cross-page handling is now modeled as structural handoff rather than as
+paragraph join/split alone.
+
+- New abstraction:
+  - `PdfV2CrossPageStructuralHandoff` in `convert/pdf_v2`.
+  - fields cover page pair, refs, block kinds, heading/list/title-body
+    evidence, join intent, preserve intent, blockers, confidence, and matched
+    cross-page fact.
+- Useful v1 intent retained:
+  - explicit page-boundary blockers for heading/list/title-like starts.
+  - conservative fallback when evidence is weak.
+- Useful v1 intent rejected:
+  - no phrase- or sample-specific overrides.
+  - no normalizer patch forest.
+- Narrow bug fixed:
+  - the bridge now threads structural-handoff candidate blocks through
+    candidate-mode emission explicitly, instead of computing candidate-backed
+    semantic blocks and then accidentally lowering them through the fragment
+    path.
+- New 17E gates:
+  - paragraph join requires a qualifying fact and a paragraph continuation pair.
+  - heading-level preservation requires a qualifying fact.
+  - preserve-next-structure is limited to parser-backed list evidence,
+    title/body boundary evidence, or qualifying heading/following-page
+    structure evidence.
+  - repeated-artifact boundaries and weak heading-like boundaries do not
+    activate structural handoff.
+- Focused regression coverage added:
+  - mixed next-page structure remains out of the previous paragraph join.
+  - repeated heading-like footer does not trigger structural-handoff mode.
+  - weak heading-like next-page evidence without a qualifying fact does not
+    activate structural-handoff mode.
+- Sample result after Reset 17E:
+  - repo-local `samples/check.sh --format pdf` still shows the same 10
+    Markdown failures.
+  - no sample expected files changed.
+  - the three cross-page-labeled diffs remain visibly unchanged:
+    - `pdf_cross_page_paragraph`: paragraph still splits at `page` / `break`,
+      and `Next Section` remains H1.
+    - `pdf_cross_page_should_merge_phase15`: title/body still collapses into one
+      line.
+    - `pdf_cross_page_should_not_merge_phase15`: next-page heading/list still
+      flatten to plain text.
+  - the wrapper summary may still print `rows=0`; the markdown-only log remains
+    authoritative.
+- Reset 17E closeout:
+  - product code changed narrowly.
+  - visible repo-local PDF sample parity did not improve yet.
+  - expected next action is parser/candidate evidence improvement for the three
+    remaining cross-page structure cases, not gate relaxation.

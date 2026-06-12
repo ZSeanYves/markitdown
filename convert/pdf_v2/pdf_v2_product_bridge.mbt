@@ -98,7 +98,7 @@ fn pdf_v2_pipeline_output_to_document(
   } else {
     []
   }
-  let semantic_blocks = if options.normalize_plain_text &&
+  let semantic_selection = if options.normalize_plain_text &&
     options.enable_semantic_rules {
     pdf_v2_product_bridge_semantic_blocks(
       output.text_flow_candidates,
@@ -106,8 +106,9 @@ fn pdf_v2_pipeline_output_to_document(
       options,
     )
   } else {
-    []
+    ([], false)
   }
+  let semantic_blocks = semantic_selection.0
   let table_candidates = pdf_v2_product_bridge_table_candidates(
     output.fragments,
     output.table_candidates,
@@ -120,9 +121,7 @@ fn pdf_v2_pipeline_output_to_document(
   let emitted_images : Array[String] = []
   let candidate_semantic_mode = options.normalize_plain_text &&
     options.enable_semantic_rules &&
-    pdf_v2_product_bridge_has_actionable_text_flow_candidates(
-      output.text_flow_candidates,
-    )
+    semantic_selection.1
   let link_page_counts = pdf_v2_product_bridge_link_page_text_counts(
     output, semantic_blocks, text_paragraphs, table_candidates, candidate_semantic_mode,
     options,
@@ -454,31 +453,44 @@ fn pdf_v2_product_bridge_semantic_blocks(
   text_flow_candidates : Array[@pdfv2.PdfV2TextFlowCandidate],
   fragments : Array[PdfV2FactFragment],
   options : PdfV2ProductBridgeOptions,
-) -> Array[PdfV2SemanticBlock] {
+) -> (Array[PdfV2SemanticBlock], Bool) {
+  let cross_page_facts = @pdfv2.pdf_v2_cross_page_boundary_facts_from_candidates(
+    text_flow_candidates,
+  )
+  match
+    pdf_v2_structural_handoff_blocks_from_candidates(
+      text_flow_candidates, options, cross_page_facts,
+    ) {
+    Some(blocks) => return (blocks, true)
+    None => ()
+  }
   if pdf_v2_product_bridge_has_actionable_text_flow_candidates(
       text_flow_candidates,
     ) {
-    let cross_page_facts = @pdfv2.pdf_v2_cross_page_boundary_facts_from_candidates(
-      text_flow_candidates,
-    )
     if pdf_v2_has_product_cross_page_arbitration_candidate(cross_page_facts) {
-      pdf_v2_semantic_blocks_from_candidates_with_cross_page_facts(
-        text_flow_candidates, options, cross_page_facts,
+      (
+        pdf_v2_semantic_blocks_from_candidates_with_cross_page_facts(
+          text_flow_candidates, options, cross_page_facts,
+        ),
+        true,
       )
     } else {
-      pdf_v2_semantic_blocks_from_candidates(text_flow_candidates, options)
+      (
+        pdf_v2_semantic_blocks_from_candidates(text_flow_candidates, options),
+        true,
+      )
     }
-  } else {
-    let cross_page_facts = @pdfv2.pdf_v2_cross_page_boundary_facts_from_candidates(
-      text_flow_candidates,
-    )
-    if pdf_v2_has_product_cross_page_arbitration_candidate(cross_page_facts) {
+  } else if pdf_v2_has_product_cross_page_arbitration_candidate(
+      cross_page_facts,
+    ) {
+    (
       pdf_v2_semantic_blocks_from_fragments_with_cross_page_facts(
         fragments, options, cross_page_facts,
-      )
-    } else {
-      pdf_v2_semantic_blocks_from_fragments(fragments, options)
-    }
+      ),
+      false,
+    )
+  } else {
+    (pdf_v2_semantic_blocks_from_fragments(fragments, options), false)
   }
 }
 
