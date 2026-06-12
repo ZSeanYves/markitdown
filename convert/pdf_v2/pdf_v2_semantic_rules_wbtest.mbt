@@ -19,6 +19,23 @@ fn semantic_test_ref_for_page(
 }
 
 ///|
+fn semantic_test_ref_for_page_block_line(
+  page_index : Int,
+  block_index : Int,
+  line_index : Int,
+  order : Int,
+) -> @pdfv2.PdfV2SourceRef {
+  {
+    page_index: Some(page_index),
+    object_id: Some("block-\{block_index}-line-\{line_index}"),
+    stream_index: Some(0),
+    op_index: Some(order),
+    content_order_index: Some(order),
+    kind: @pdfv2.PdfV2SourceKind::TextOp,
+  }
+}
+
+///|
 fn semantic_test_fragment(
   index : Int,
   text : String,
@@ -238,6 +255,81 @@ test "pdf v2 cross page fragment arbitration audit counts fragment path join" {
   assert_true(audit.semantic_pair_count == 0)
   assert_true(audit.actual_join_decision_changed_count == 1)
   assert_true(audit.fallback_existing_behavior_count == 0)
+}
+
+///|
+test "pdf v2 cross page fragment audit exposes semantically equivalent source ref mismatch" {
+  let left_fragment_ref = semantic_test_ref_for_page_block_line(0, 0, 0, 10)
+  let right_fragment_ref = semantic_test_ref_for_page_block_line(1, 0, 0, 20)
+  let left_fact_line_ref = {
+    ..left_fragment_ref,
+    op_index: Some(11),
+    content_order_index: Some(11),
+  }
+  let right_fact_line_ref = {
+    ..right_fragment_ref,
+    op_index: Some(21),
+    content_order_index: Some(21),
+  }
+  let left = {
+    ..semantic_test_fragment_for_page(
+      0, 0, "This paragraph continues across the page",
+    ),
+    source_refs: [left_fragment_ref],
+    reason_tags: ["semantic_test_fragment", "source_ref_equivalent_block_line"],
+  }
+  let right = {
+    ..semantic_test_fragment_for_page(
+      1, 0, "break and should still become one paragraph.",
+    ),
+    source_refs: [right_fragment_ref],
+    reason_tags: ["semantic_test_fragment", "source_ref_equivalent_block_line"],
+  }
+  let fact = semantic_test_cross_page_fact(0.70, [
+    left_fact_line_ref, right_fact_line_ref,
+  ])
+  let audit = pdf_v2_cross_page_fragment_arbitration_audit(
+    [left, right],
+    semantic_test_options(),
+    [fact],
+  )
+  let with_facts = pdf_v2_semantic_blocks_from_fragments_with_cross_page_facts(
+    [left, right],
+    semantic_test_options(),
+    [fact],
+  )
+
+  assert_true(fact.prev_block_ref == left.block_index)
+  assert_true(fact.next_block_ref == right.block_index)
+  assert_true(fact.prev_line_refs == [0])
+  assert_true(fact.next_line_refs == [0])
+  assert_true(fact.source_refs.length() == 2)
+  assert_true(left.source_refs[0].page_index == fact.source_refs[0].page_index)
+  assert_true(right.source_refs[0].page_index == fact.source_refs[1].page_index)
+  assert_true(left.source_refs[0].object_id == fact.source_refs[0].object_id)
+  assert_true(right.source_refs[0].object_id == fact.source_refs[1].object_id)
+  assert_true(left.source_refs[0].op_index != fact.source_refs[0].op_index)
+  assert_true(right.source_refs[0].op_index != fact.source_refs[1].op_index)
+  assert_true(audit.generated_fact_count == 1)
+  assert_true(audit.product_candidate_fact_count == 1)
+  assert_true(audit.facts_passing_confidence_gate == 1)
+  assert_true(audit.facts_passing_source_ref_gate == 1)
+  assert_true(audit.facts_passing_prev_open_ended_gate == 1)
+  assert_true(audit.facts_passing_next_marker_gate == 1)
+  assert_true(audit.facts_passing_ambiguity_tag_gate == 1)
+  assert_true(audit.rejected_mismatched_source_refs_count == 1)
+  assert_true(audit.rejected_no_matching_fragment_or_semantic_pair_count == 0)
+  assert_true(audit.rejected_next_heading_title_like_blocker_count == 0)
+  assert_true(audit.actual_join_decision_changed_count == 0)
+  assert_true(audit.fallback_existing_behavior_count == 1)
+  assert_true(
+    semantic_test_audit_count(
+      audit.gate_rejection_distribution,
+      "mismatched_source_refs",
+    ) ==
+    1,
+  )
+  assert_true(with_facts.length() == 2)
 }
 
 ///|
