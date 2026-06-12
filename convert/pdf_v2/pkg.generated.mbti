@@ -30,6 +30,8 @@ pub fn pdf_v2_abstain_decision(Array[String]) -> PdfV2BlockDecision
 
 pub fn pdf_v2_arbitrate_semantic_decision(PdfV2SemanticArbitrationInput) -> PdfV2SemanticArbitrationResult
 
+pub fn pdf_v2_dataset_export_audit(PdfV2DatasetExport) -> PdfV2DatasetExportAudit
+
 pub fn pdf_v2_dataset_export_schema_version() -> String
 
 pub fn pdf_v2_dataset_export_to_jsonl(PdfV2DatasetExport) -> String
@@ -211,6 +213,11 @@ pub(all) struct PdfV2DatasetArtifactRow {
   label_source : String
 }
 
+pub(all) struct PdfV2DatasetAuditCounter {
+  key : String
+  count : Int
+}
+
 pub(all) struct PdfV2DatasetBoundaryRow {
   schema_version : String
   doc_id : String
@@ -242,6 +249,30 @@ pub(all) struct PdfV2DatasetExport {
   boundary_rows : Array[PdfV2DatasetBoundaryRow]
   artifact_rows : Array[PdfV2DatasetArtifactRow]
   adjacency_rows : Array[PdfV2DatasetAdjacencyRow]
+}
+
+pub(all) struct PdfV2DatasetExportAudit {
+  schema_version : String
+  total_rows : Int
+  text_flow_row_count : Int
+  boundary_row_count : Int
+  artifact_row_count : Int
+  adjacency_row_count : Int
+  empty_gold_label_count : Int
+  weak_label_count : Int
+  rows_with_unknown_none_or_empty_key_fields : Int
+  rows_with_source_refs : Int
+  geometry_unknown_row_count : Int
+  cross_page_candidate_count : Int
+  heading_short_text_count : Int
+  image_nearby_text_count : Int
+  table_candidate_count : Int
+  semantic_fallback_paragraph_count : Int
+  rows_by_family : Array[PdfV2DatasetAuditCounter]
+  rows_by_task : Array[PdfV2DatasetAuditCounter]
+  rows_by_label_source : Array[PdfV2DatasetAuditCounter]
+  rows_by_split : Array[PdfV2DatasetAuditCounter]
+  risk_tag_distribution : Array[PdfV2DatasetAuditCounter]
 }
 
 pub(all) struct PdfV2DatasetTextFlowRow {

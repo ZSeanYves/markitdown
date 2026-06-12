@@ -702,7 +702,8 @@ by the default PDF v2 convert path and does not write files.
     in the dataset contract.
 - Labels and risk:
   - semantic rule decisions become weak labels for text-flow rows.
-  - parser object/artifact facts stay weak evidence.
+  - parser object/artifact facts stay evidence in family-specific fields and
+    risk tags; they do not set `weak_label`.
   - `gold_label` is blank.
   - risk tags are emitted only from current facts, including weak rule labels,
     low geometry confidence, cross-page candidates, artifacts, image captions,
@@ -710,3 +711,27 @@ by the default PDF v2 convert path and does not write files.
 - Boundary:
   - no product Markdown, metadata sidecar, samples expected, fallback, runtime
     model, training, model arbitration, quality-lab call, or `.vscode` change.
+
+## Reset 16C Exported Row Quality Audit And Schema Dry-run
+
+Reset 16C adds an in-memory audit helper for the opt-in exporter:
+
+```text
+pdf_v2_dataset_export_audit(...)
+```
+
+- Counters include row totals, rows by family/task, empty gold labels, weak
+  labels, label sources, splits, unknown key fields, source refs, geometry
+  unknowns, and risk tag distribution.
+- The exporter remains opt-in only; pipeline, product bridge, dispatcher, and
+  PDF component runtime paths do not call it.
+- Weak labels remain limited to text-flow semantic rule decisions. Artifact and
+  adjacency rows carry parser/object evidence without setting `weak_label`.
+- JSONL/TSV output is still deterministic and memory-only.
+- `doc_id` is caller-provided and preserved; use stable synthetic ids rather
+  than local paths or private filenames.
+- Existing quality-lab TSV adapters require an intermediate adapter before
+  training. `row_id`, `candidate_id`, page index, text, task, split, source
+  refs, reason tags, and risk tags can be mapped, but reviewed labels, bbox
+  policy, source labels, grouped splits, and feature exclusion still need
+  adapter ownership.

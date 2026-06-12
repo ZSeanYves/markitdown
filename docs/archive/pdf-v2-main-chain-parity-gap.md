@@ -1561,3 +1561,29 @@ unchanged.
   - no `LayoutRegionRow` or `ReadingOrderRow` population.
   - no gold labels, split assignment, quality-lab adapter, training, runtime
     model, model hint, or arbitration change.
+
+## Reset 16C Exported Row Quality Audit And Schema Dry-run
+
+Reset 16C does not change main-chain parity behavior. It audits the rows that
+Reset 16B can export when explicitly called.
+
+- Runtime boundary:
+  - exporter remains absent from pipeline, product bridge, dispatcher, and PDF
+    component runtime paths.
+  - no Markdown output, metadata sidecar, sample expected, fallback, model, or
+    normalizer/semantic patch changed.
+- Audit summary:
+  - in-memory counters cover row totals, family/task distribution, empty-gold
+    counts, weak-label counts, label-source/split distribution, unknown key
+    fields, source refs, geometry unknowns, and risk tags.
+  - the synthetic test fixture has 7 rows, all empty gold labels, 2 text-flow
+    weak labels, and 5 `label_source=none` rows.
+- Schema readiness:
+  - `TextFlowRow` is the closest fit for the existing text-block adapter route.
+  - `BoundaryRow`, `ArtifactRow`, and `AdjacencyRow` need dedicated
+    quality-lab-side adapters or report-only audit paths.
+  - `LayoutRegionRow` and `ReadingOrderRow` remain blockers for layout and
+    read-order parity learning.
+- Privacy:
+  - caller-provided `doc_id` is preserved; callers should use synthetic stable
+    ids, not local paths.

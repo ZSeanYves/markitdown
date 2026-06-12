@@ -159,6 +159,19 @@ fn dataset_export_small_fixture(
 }
 
 ///|
+fn dataset_export_counter_count(
+  counters : Array[@pdfv2conv.PdfV2DatasetAuditCounter],
+  key : String,
+) -> Int {
+  for counter in counters {
+    if counter.key == key {
+      return counter.count
+    }
+  }
+  0
+}
+
+///|
 test "pdf v2 dataset exporter uses stable row ids and doc scoped ids" {
   let first = dataset_export_small_fixture("doc/A")
   let second = dataset_export_small_fixture("doc/A")
@@ -225,7 +238,8 @@ test "pdf v2 dataset exporter emits boundary artifact and adjacency rows" {
   assert_true(artifact.label_source == "none")
   assert_true(table.object_kind == "table")
   assert_true(table.risk_tags.contains("table_candidate"))
-  assert_true(table.current_rule_decision == "table_candidate")
+  assert_true(table.current_rule_decision == "")
+  assert_true(table.relation == "table_candidate")
   assert_true(table.weak_label == "")
   assert_true(table.label_source == "none")
   assert_true(image.object_kind == "image")
@@ -297,4 +311,53 @@ test "pdf v2 dataset exporter stays out of runtime product path" {
   )
   assert_true(!pipeline_text.contains("pdf_v2_dataset_export_to_jsonl"))
   assert_true(!bridge_text.contains("pdf_v2_dataset_export_to_jsonl"))
+}
+
+///|
+test "pdf v2 dataset export audit counts row quality in memory" {
+  let dataset = dataset_export_small_fixture("doc-audit")
+  let audit = @pdfv2conv.pdf_v2_dataset_export_audit(dataset)
+
+  assert_true(audit.schema_version == "pdf_v2_dataset_export_v1")
+  assert_true(audit.total_rows == 7)
+  assert_true(audit.text_flow_row_count == 2)
+  assert_true(audit.boundary_row_count == 1)
+  assert_true(audit.artifact_row_count == 1)
+  assert_true(audit.adjacency_row_count == 3)
+  assert_true(audit.empty_gold_label_count == audit.total_rows)
+  assert_true(audit.weak_label_count == 2)
+  assert_true(audit.rows_with_source_refs == audit.total_rows)
+  assert_true(audit.rows_with_unknown_none_or_empty_key_fields > 0)
+  assert_true(audit.geometry_unknown_row_count > 0)
+  assert_true(audit.cross_page_candidate_count == 1)
+  assert_true(audit.heading_short_text_count == 1)
+  assert_true(audit.image_nearby_text_count == 1)
+  assert_true(audit.table_candidate_count == 1)
+  assert_true(audit.semantic_fallback_paragraph_count == 0)
+  assert_true(
+    dataset_export_counter_count(audit.rows_by_family, "TextFlowRow") == 2,
+  )
+  assert_true(
+    dataset_export_counter_count(audit.rows_by_task, "text_flow") == 2,
+  )
+  assert_true(dataset_export_counter_count(audit.rows_by_task, "boundary") == 1)
+  assert_true(dataset_export_counter_count(audit.rows_by_task, "artifact") == 1)
+  assert_true(
+    dataset_export_counter_count(audit.rows_by_task, "adjacency") == 3,
+  )
+  assert_true(
+    dataset_export_counter_count(audit.rows_by_label_source, "rule_decision") ==
+    2,
+  )
+  assert_true(
+    dataset_export_counter_count(audit.rows_by_label_source, "none") == 5,
+  )
+  assert_true(dataset_export_counter_count(audit.rows_by_split, "unknown") == 7)
+  assert_true(
+    dataset_export_counter_count(
+      audit.risk_tag_distribution,
+      "weak_label_rule_decision",
+    ) ==
+    2,
+  )
 }

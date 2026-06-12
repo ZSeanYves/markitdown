@@ -565,10 +565,11 @@ Weak label behavior:
 
 - text-flow rows use the current semantic rule decision as `weak_label` with
   `label_source = rule_decision`.
-- artifact rows may expose parser artifact kind as weak parser-fact evidence;
-  this remains non-gold.
-- adjacency rows only expose parser/object weak evidence when directly
-  available, such as table candidates.
+- artifact rows expose parser artifact kind in artifact-specific fields and
+  `current_rule_decision` stays blank.
+- adjacency rows expose parser/object evidence through relation, object, and
+  risk-tag fields; `weak_label` and `current_rule_decision` stay blank unless a
+  future reviewed rule decision exists.
 - `gold_label` is always blank in the scaffold.
 
 Risk tags are deterministic and only emitted when backed by current facts:
@@ -602,3 +603,100 @@ Boundary:
   arbitration.
 - no default convert-path integration.
 - no quality-lab file changes or calls.
+
+## 12. Reset 16C Exported Row Quality Audit And Schema Dry-run
+
+Reset 16C adds an in-memory audit summary for exported rows and performs a
+schema dry-run against the observed quality-lab adapter conventions. It still
+does not generate dataset files, call quality-lab, train, or connect exporter
+output to runtime.
+
+Audit API:
+
+```text
+pdf_v2_dataset_export_audit(...)
+```
+
+Minimum row-quality counters implemented:
+
+- total rows.
+- rows by family and task.
+- rows with empty `gold_label`.
+- rows with `weak_label`.
+- rows by `label_source`.
+- rows by `split`.
+- rows with unknown, none, or empty key fields.
+- rows with source refs.
+- rows with geometry-related unknowns.
+- risk tag distribution.
+- dedicated counts for `cross_page_candidate`, `heading_short_text`,
+  `image_nearby_text`, `table_candidate`, and
+  `semantic_fallback_paragraph`.
+
+Test-only synthetic audit summary expectation:
+
+| counter | value |
+| --- | --- |
+| total rows | 7 |
+| TextFlowRow | 2 |
+| BoundaryRow | 1 |
+| ArtifactRow | 1 |
+| AdjacencyRow | 3 |
+| empty gold labels | 7 |
+| weak labels | 2 |
+| label_source=rule_decision | 2 |
+| label_source=none | 5 |
+| split=unknown | 7 |
+| rows with source refs | 7 |
+| cross_page_candidate | 1 |
+| heading_short_text | 1 |
+| image_nearby_text | 1 |
+| table_candidate | 1 |
+| semantic_fallback_paragraph | 0 |
+
+Schema dry-run:
+
+- Existing quality-lab text-block adapters expect TSV fields:
+  `sample_id`, `source_dataset`, `source_page_id`, `source_region_id`,
+  `page_no`, `bbox`, `source_label`, `target_label`, `target_task`, `text`,
+  `confidence`, `split`, and `notes`.
+- Reset 16B/16C rows can map partially:
+  - `row_id` -> `sample_id`.
+  - `doc_id` -> `source_page_id` or source document grouping key after an
+    external adapter defines the grouping.
+  - `candidate_id` -> `source_region_id`.
+  - `page_index` -> `page_no`.
+  - `weak_label` -> `target_label` only for weak-supervision/report-only
+    paths, never gold training labels.
+  - `task` -> `target_task`.
+  - `text`/`normalized_text`/`nearby_text` -> adapter `text` depending on row
+    family.
+  - `risk_tags`, `reason_tags`, and `source_refs` -> `notes` or audit-only
+    metadata.
+- Missing for direct adapter consumption:
+  - reviewed `target_label`/`gold_label`.
+  - bbox fields for text-flow rows.
+  - DocLayNet-style `source_label`.
+  - grouped train/dev/heldout split assignment.
+  - adapter-level confidence policy.
+  - row-family-specific feature selection.
+- Fields that should remain export/audit metadata, not direct model features:
+  - `row_id`, `doc_id`, `source_refs`, `reason_tags`, `risk_tags`,
+    `label_source`, `gold_label`, and split/grouping provenance.
+
+Privacy and stability:
+
+- `doc_id` is caller-provided and preserved in exported rows. Callers must pass
+  a stable synthetic id or hash when file names or local paths are sensitive.
+- `row_id` uses a sanitized `safe_doc_id`, but that is not a privacy boundary
+  because it remains derived from caller input.
+- The row id policy is unchanged; no behavior change was needed.
+
+Training remains blocked because:
+
+- `gold_label` is empty for all current rows.
+- weak labels are rule decisions only and may encode temporary bridge behavior.
+- `LayoutRegionRow` and `ReadingOrderRow` are not populated.
+- geometry/font/column/read-order facts are incomplete.
+- a quality-lab-side adapter is still required before any external feature
+  builder can consume these rows safely.

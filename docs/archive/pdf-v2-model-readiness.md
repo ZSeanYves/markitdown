@@ -394,3 +394,33 @@ until row-id and flattening conventions were reviewed.
     loading, or semantic arbitration change.
   - exporter output is a raw offline scaffold; it is not a heldout report and
     must not be used as gold without review.
+
+## 14. Reset 16C Exported Row Quality Audit And Schema Dry-run
+
+Reset 16C adds an in-memory audit summary for `PdfV2DatasetExport` and confirms
+that the exporter remains a scaffold, not a training input.
+
+- Audit counters:
+  - total rows, rows by family/task, rows by label source and split.
+  - empty-gold and weak-label counts.
+  - unknown/none/empty key-field counts.
+  - source-ref and geometry-unknown counts.
+  - risk tag distribution and dedicated cross-page, heading-short-text,
+    image-nearby-text, table-candidate, and semantic-fallback counters.
+- Weak labels:
+  - only text-flow semantic rule decisions produce `weak_label`.
+  - artifact and adjacency rows preserve parser evidence in family-specific
+    fields and risk tags, but do not pretend to have rule weak labels.
+- Schema dry-run:
+  - rows can be partially mapped to existing quality-lab adapter TSVs through
+    `row_id`, `doc_id`, `candidate_id`, page index, text, task, weak labels,
+    and notes.
+  - a quality-lab-side adapter is still required for target-label policy,
+    train/dev/heldout grouping, bbox/source-label handling, and feature
+    exclusion.
+- Privacy:
+  - callers must pass stable synthetic `doc_id` values when local paths or
+    private filenames would leak.
+- Model timing:
+  - still blocked: no gold labels, no reviewed splits, incomplete geometry and
+    read-order facts, no adapter gate, and no heldout report.

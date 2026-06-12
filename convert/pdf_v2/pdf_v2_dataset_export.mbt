@@ -110,6 +110,37 @@ pub(all) struct PdfV2DatasetAdjacencyRow {
 }
 
 ///|
+pub(all) struct PdfV2DatasetAuditCounter {
+  key : String
+  count : Int
+}
+
+///|
+pub(all) struct PdfV2DatasetExportAudit {
+  schema_version : String
+  total_rows : Int
+  text_flow_row_count : Int
+  boundary_row_count : Int
+  artifact_row_count : Int
+  adjacency_row_count : Int
+  empty_gold_label_count : Int
+  weak_label_count : Int
+  rows_with_unknown_none_or_empty_key_fields : Int
+  rows_with_source_refs : Int
+  geometry_unknown_row_count : Int
+  cross_page_candidate_count : Int
+  heading_short_text_count : Int
+  image_nearby_text_count : Int
+  table_candidate_count : Int
+  semantic_fallback_paragraph_count : Int
+  rows_by_family : Array[PdfV2DatasetAuditCounter]
+  rows_by_task : Array[PdfV2DatasetAuditCounter]
+  rows_by_label_source : Array[PdfV2DatasetAuditCounter]
+  rows_by_split : Array[PdfV2DatasetAuditCounter]
+  risk_tag_distribution : Array[PdfV2DatasetAuditCounter]
+}
+
+///|
 priv struct PdfV2DatasetFlatRow {
   schema_version : String
   row_family : String
@@ -222,6 +253,88 @@ pub fn pdf_v2_dataset_export_to_tsv(
     lines.push(pdf_v2_dataset_flat_row_to_tsv(row))
   }
   lines.join("\n") + "\n"
+}
+
+///|
+pub fn pdf_v2_dataset_export_audit(
+  dataset_export : PdfV2DatasetExport,
+) -> PdfV2DatasetExportAudit {
+  let rows = pdf_v2_dataset_flat_rows(dataset_export)
+  let rows_by_family : Array[PdfV2DatasetAuditCounter] = []
+  let rows_by_task : Array[PdfV2DatasetAuditCounter] = []
+  let rows_by_label_source : Array[PdfV2DatasetAuditCounter] = []
+  let rows_by_split : Array[PdfV2DatasetAuditCounter] = []
+  let risk_tag_distribution : Array[PdfV2DatasetAuditCounter] = []
+  let mut empty_gold_label_count = 0
+  let mut weak_label_count = 0
+  let mut rows_with_unknown_none_or_empty_key_fields = 0
+  let mut rows_with_source_refs = 0
+  let mut geometry_unknown_row_count = 0
+  let mut cross_page_candidate_count = 0
+  let mut heading_short_text_count = 0
+  let mut image_nearby_text_count = 0
+  let mut table_candidate_count = 0
+  let mut semantic_fallback_paragraph_count = 0
+  for row in rows {
+    pdf_v2_dataset_audit_add_counter(rows_by_family, row.row_family)
+    pdf_v2_dataset_audit_add_counter(rows_by_task, row.task)
+    pdf_v2_dataset_audit_add_counter(rows_by_label_source, row.label_source)
+    pdf_v2_dataset_audit_add_counter(rows_by_split, row.split)
+    if row.gold_label == "" {
+      empty_gold_label_count = empty_gold_label_count + 1
+    }
+    if row.weak_label != "" {
+      weak_label_count = weak_label_count + 1
+    }
+    if pdf_v2_dataset_flat_row_has_unknown_none_or_empty_key_field(row) {
+      rows_with_unknown_none_or_empty_key_fields = rows_with_unknown_none_or_empty_key_fields +
+        1
+    }
+    if row.source_refs.length() > 0 {
+      rows_with_source_refs = rows_with_source_refs + 1
+    }
+    if pdf_v2_dataset_flat_row_has_geometry_unknown(row) {
+      geometry_unknown_row_count = geometry_unknown_row_count + 1
+    }
+    for tag in row.risk_tags {
+      pdf_v2_dataset_audit_add_counter(risk_tag_distribution, tag)
+      if tag == "cross_page_candidate" {
+        cross_page_candidate_count = cross_page_candidate_count + 1
+      } else if tag == "heading_short_text" {
+        heading_short_text_count = heading_short_text_count + 1
+      } else if tag == "image_nearby_text" {
+        image_nearby_text_count = image_nearby_text_count + 1
+      } else if tag == "table_candidate" {
+        table_candidate_count = table_candidate_count + 1
+      } else if tag == "semantic_fallback_paragraph" {
+        semantic_fallback_paragraph_count = semantic_fallback_paragraph_count +
+          1
+      }
+    }
+  }
+  {
+    schema_version: dataset_export.schema_version,
+    total_rows: rows.length(),
+    text_flow_row_count: dataset_export.text_flow_rows.length(),
+    boundary_row_count: dataset_export.boundary_rows.length(),
+    artifact_row_count: dataset_export.artifact_rows.length(),
+    adjacency_row_count: dataset_export.adjacency_rows.length(),
+    empty_gold_label_count,
+    weak_label_count,
+    rows_with_unknown_none_or_empty_key_fields,
+    rows_with_source_refs,
+    geometry_unknown_row_count,
+    cross_page_candidate_count,
+    heading_short_text_count,
+    image_nearby_text_count,
+    table_candidate_count,
+    semantic_fallback_paragraph_count,
+    rows_by_family,
+    rows_by_task,
+    rows_by_label_source,
+    rows_by_split,
+    risk_tag_distribution,
+  }
 }
 
 ///|
@@ -396,8 +509,8 @@ fn pdf_v2_dataset_artifact_rows(
         source_refs: artifact.source_refs,
         reason_tags: artifact.reason_tags,
         risk_tags,
-        current_rule_decision: artifact_kind,
-        current_rule_confidence: artifact.confidence,
+        current_rule_decision: "",
+        current_rule_confidence: 0.0,
         weak_label: "",
         gold_label: "",
         label_source: "none",
@@ -441,7 +554,6 @@ fn pdf_v2_dataset_adjacency_rows(
         table.reason_tags,
         ["table_candidate"],
         "table_candidate",
-        table.confidence,
         "",
         "unknown",
         "unknown",
@@ -484,7 +596,6 @@ fn pdf_v2_dataset_adjacency_rows(
         image.reason_tags,
         risk_tags,
         relation,
-        0.0,
         "",
         "unknown",
         "unknown",
@@ -527,7 +638,6 @@ fn pdf_v2_dataset_adjacency_rows(
         inline_image.reason_tags,
         risk_tags,
         relation,
-        0.0,
         "",
         "unknown",
         "unknown",
@@ -560,7 +670,6 @@ fn pdf_v2_dataset_adjacency_rows(
         link.reason_tags,
         ["link_annotation_nearby"],
         "link_annotation",
-        0.0,
         "",
         "unknown",
         "unknown",
@@ -585,8 +694,7 @@ fn pdf_v2_dataset_adjacency_row(
   source_refs : Array[@pdfv2.PdfV2SourceRef],
   reason_tags : Array[String],
   risk_tags : Array[String],
-  current_rule_decision : String,
-  current_rule_confidence : Double,
+  relation : String,
   weak_label : String,
   source_order_delta : String,
   bbox_distance : String,
@@ -606,8 +714,8 @@ fn pdf_v2_dataset_adjacency_row(
     source_refs,
     reason_tags,
     risk_tags,
-    current_rule_decision,
-    current_rule_confidence,
+    current_rule_decision: "",
+    current_rule_confidence: 0.0,
     weak_label,
     gold_label: "",
     label_source: if weak_label == "" {
@@ -615,7 +723,7 @@ fn pdf_v2_dataset_adjacency_row(
     } else {
       "parser_fact"
     },
-    relation: current_rule_decision,
+    relation,
     source_order_delta,
     bbox_distance,
   }
@@ -871,6 +979,54 @@ fn pdf_v2_dataset_flat_row_to_json(row : PdfV2DatasetFlatRow) -> String {
     pdf_v2_dataset_json_field("extra", row.extra),
   ]
   "{" + fields.join(",") + "}"
+}
+
+///|
+fn pdf_v2_dataset_audit_add_counter(
+  counters : Array[PdfV2DatasetAuditCounter],
+  key : String,
+) -> Unit {
+  for i in 0..<counters.length() {
+    if counters[i].key == key {
+      counters[i] = { ..counters[i], count: counters[i].count + 1 }
+      return
+    }
+  }
+  counters.push({ key, count: 1 })
+}
+
+///|
+fn pdf_v2_dataset_flat_row_has_unknown_none_or_empty_key_field(
+  row : PdfV2DatasetFlatRow,
+) -> Bool {
+  row.doc_id == "" ||
+  row.row_id == "" ||
+  row.task == "" ||
+  row.split == "" ||
+  row.split == "unknown" ||
+  row.label_source == "none" ||
+  row.page_index == "unknown" ||
+  (
+    row.row_family == "TextFlowRow" &&
+    (row.candidate_id == "" || row.text == "")
+  ) ||
+  (
+    row.row_family == "BoundaryRow" &&
+    (row.prev_candidate_id == "" || row.next_candidate_id == "")
+  ) ||
+  (
+    row.row_family == "AdjacencyRow" &&
+    (row.object_kind == "" || row.object_ref == "unknown")
+  )
+}
+
+///|
+fn pdf_v2_dataset_flat_row_has_geometry_unknown(
+  row : PdfV2DatasetFlatRow,
+) -> Bool {
+  row.page_index == "unknown" ||
+  row.object_ref == "unknown" ||
+  row.extra.contains("bbox_distance=unknown")
 }
 
 ///|

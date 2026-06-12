@@ -970,3 +970,29 @@ explicit convert-side dataset exporter.
 - Runtime boundary:
   - no parser behavior, vendor runtime, product output, fallback, model
     loading, training, or quality-lab integration changed.
+
+## Reset 16C Exported Row Quality Audit And Schema Dry-run
+
+Reset 16C keeps parser facts unchanged and audits how the existing facts appear
+in exported rows.
+
+- Parser fact quality surfaced by audit:
+  - source refs are present on the synthetic text-flow, boundary, artifact, and
+    adjacency rows.
+  - geometry unknowns remain visible through `unknown` page/object/bbox-distance
+    fields rather than hidden defaults.
+  - cross-page and heading-short-text risks are countable without product-path
+    changes.
+- Label boundary:
+  - text-flow semantic rule decisions are weak labels.
+  - artifact kind, table relation, image caption proximity, and link proximity
+    are parser/object evidence, not gold labels.
+- Adapter blockers:
+  - text-flow rows need bbox/source-label and reviewed split assignment before
+    external training.
+  - boundary rows need reviewed boundary labels.
+  - adjacency rows need reviewed object/text association labels.
+  - layout/read-order rows still need parser/model facts before population.
+- Privacy:
+  - the parser does not derive a document id; callers must provide a stable
+    synthetic `doc_id` to avoid leaking local paths.

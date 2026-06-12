@@ -856,3 +856,27 @@ explicitly invokes it.
 - Runtime boundary:
   - no parser output, vendor runtime, fallback, quality-lab integration,
     training, model loading, or runtime inference change.
+
+## Reset 16C Exported Row Quality Audit And Schema Dry-run
+
+Reset 16C adds no parser facts and changes no parser runtime behavior. The
+convert-side exporter now has an in-memory audit helper that makes current
+parser fact gaps visible before any quality-lab adapter work.
+
+- Audit-visible parser facts:
+  - source refs.
+  - text-flow candidates.
+  - boundary scores and risk tags.
+  - page artifact candidates.
+  - table/image/link adjacency facts.
+- Audit-visible gaps:
+  - unknown geometry and bbox-distance fields.
+  - no populated layout region or reading-order rows.
+  - no reviewed boundary or adjacency labels.
+  - no parser-derived document id.
+- Privacy:
+  - callers must pass stable synthetic `doc_id` values; local paths or private
+    filenames should not be used as export document ids.
+- Boundary:
+  - no parser output, product output, fallback, model loading, training, or
+    quality-lab integration changed.
