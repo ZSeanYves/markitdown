@@ -1089,3 +1089,63 @@ convert-side trace consumer for repo-local audits.
   - preserve 17E as-is.
   - improve parser/candidate structure preservation before any future
     page-boundary output change is considered.
+
+## Reset 17G Parser/Candidate-side Structure Preservation Follow-up
+
+Reset 17G refines parser-owned candidate and fact preservation rather than
+adding a new public parser API or a new persistent fact family.
+
+- Refined parser evidence:
+  - `PdfV2TextFlowCandidate.reason_tags` now carries explicit structure tags
+    for title/body and heading/list boundaries:
+    `structure_boundary_candidate`,
+    `title_body_boundary_candidate`,
+    `heading_list_boundary_candidate`,
+    `list_marker_body_boundary_candidate`.
+  - heading/body split candidates preserve the body-side reason tags instead of
+    overwriting them when later lines extend the candidate.
+  - inline list-marker and multi-line structure transitions now preserve the
+    same parser-backed tags before semantic construction.
+- Refined cross-page fact targeting:
+  - `PdfV2CrossPageBoundaryFact` still remains the only product-consumed fact
+    family, but 17G now prefers a visible non-artifact boundary when the raw
+    adjacent page edge is only repeated artifact/page-number content.
+  - the artifact boundary is still preserved for audit via
+    `artifact_boundary_preserved_for_audit`.
+- What 17G still does not add:
+  - no new parser API.
+  - no new metadata sidecar rows.
+  - no quality-lab, training, or inference changes.
+  - no sample expected output changes.
+
+Useful PDF v1 intent was inspected only for structure-preservation direction:
+
+- retained:
+  - preserve list/body and title/body boundaries before later lowering.
+  - prefer visible content boundaries over page-number artifact edges.
+- rejected:
+  - no string-specific or sample-specific rule copying.
+  - no normalizer patching.
+  - no broad heading behavior rewrite.
+
+Repo-local June 13, 2026 outcome:
+
+- `samples/check.sh --format pdf` still reports the same 10 Markdown
+  failures.
+- the wrapper summary may still print `rows=0`; the matching
+  `markdown-only.entrypoint.log` remains authoritative.
+- `pdf_cross_page_paragraph` now gets a visible-boundary
+  `PdfV2CrossPageBoundaryFact` rather than only the repeated-artifact/page
+  number edge, so the paragraph continuation now joins, but the sample still
+  fails on the following heading level.
+- `pdf_cross_page_should_not_merge_phase15` now keeps parser-backed next-page
+  paragraph and ordered-list structure through candidate construction, but the
+  final Markdown still misses the expected heading/list shape.
+- `pdf_cross_page_should_merge_phase15` still loses title/body structure before
+  semantic classification, so 17G does not change its visible sample diff.
+
+Current recommendation:
+
+- keep the 17G parser-side preservation as-is.
+- next work should audit remaining heading/list/title-body classification and
+  continuation ownership, not lower thresholds or add string patches.

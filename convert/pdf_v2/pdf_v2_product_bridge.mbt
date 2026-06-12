@@ -516,16 +516,29 @@ fn pdf_v2_product_bridge_has_actionable_text_flow_candidates(
   text_flow_candidates : Array[@pdfv2.PdfV2TextFlowCandidate],
 ) -> Bool {
   for candidate in text_flow_candidates {
-    if pdf_v2_product_bridge_candidate_has_list_marker(candidate) &&
-      !pdf_v2_product_bridge_candidate_looks_like_decimal_section(candidate) &&
-      (
-        candidate.reason_tags.contains("inline_list_split") ||
-        candidate.boundary_signal.list_candidate_score >= 0.70
-      ) {
+    if pdf_v2_product_bridge_candidate_has_actionable_structure(candidate) {
       return true
     }
   }
   false
+}
+
+///|
+fn pdf_v2_product_bridge_candidate_has_actionable_structure(
+  candidate : @pdfv2.PdfV2TextFlowCandidate,
+) -> Bool {
+  if candidate.reason_tags.contains("structure_boundary_candidate") ||
+    candidate.reason_tags.contains("title_body_boundary_candidate") ||
+    candidate.reason_tags.contains("heading_list_boundary_candidate") ||
+    candidate.reason_tags.contains("list_marker_body_boundary_candidate") {
+    return true
+  }
+  pdf_v2_product_bridge_candidate_has_list_marker(candidate) &&
+  !pdf_v2_product_bridge_candidate_looks_like_decimal_section(candidate) &&
+  (
+    candidate.reason_tags.contains("inline_list_split") ||
+    candidate.boundary_signal.list_candidate_score >= 0.70
+  )
 }
 
 ///|

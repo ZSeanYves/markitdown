@@ -1212,3 +1212,32 @@ Actual June 13, 2026 outcome:
 - Reset 17F therefore preserves the current fact alignment and points next work
   at parser/candidate structure preservation rather than fact-threshold
   lowering or new string-specific convert rules.
+
+## Reset 17G Parser/Candidate-side Structure Preservation Alignment
+
+Reset 17G refines parser-owned candidate and fact alignment instead of adding a
+new exported fact family.
+
+Alignment update:
+
+| signal | parser representation after 17G | product use | still missing |
+| --- | --- | --- | --- |
+| title/body boundary inside one parser block | `PdfV2TextFlowCandidate.reason_tags` now carries `structure_boundary_candidate` and `title_body_boundary_candidate` | candidate semantic lowering may preserve the split instead of collapsing immediately | final heading-level classification is still conservative in real failing samples |
+| heading/list or list/body boundary on the body side | body candidate tags preserve `heading_list_boundary_candidate` and `list_marker_body_boundary_candidate` | candidate-backed emission can keep next-page structure separate | full expected heading/list Markdown is still not always reached |
+| repeated-artifact/page-number edge followed by visible continuation | `PdfV2CrossPageBoundaryFact` now prefers the visible non-artifact boundary and keeps the artifact edge tagged for audit | 17C/17E cross-page arbitration now sees the real continuation target when present | downstream heading/title ownership may still block a full parity win |
+| weak or ambiguous structure evidence | no new fact family; existing candidates stay conservative | fallback behavior remains unchanged | no broad rule change is justified |
+
+Actual June 13, 2026 outcome:
+
+- No new parser API or fact schema changed.
+- No sample expected files changed.
+- Repo-local PDF Markdown parity still remains at 10 failures.
+- `pdf_cross_page_paragraph` now has parser/fact alignment on the visible
+  continuation boundary instead of only the page-number artifact edge.
+- `pdf_cross_page_should_not_merge_phase15` now preserves parser-backed
+  next-page paragraph/list separation into candidate-backed emission.
+- `pdf_cross_page_should_merge_phase15` still loses title/body structure before
+  semantic ownership, so alignment improved but parity did not yet change.
+- Reset 17G therefore retains the current fact family and points next work at
+  remaining heading/list/title-body structure ownership rather than new fact
+  families, threshold lowering, or string-specific rules.

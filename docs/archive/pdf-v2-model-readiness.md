@@ -612,3 +612,34 @@ training-ready by itself.
     `pdf_heading_vs_short_sentence` remain non-cross-page structure issues.
   - 17F therefore improves auditability, but it still does not reduce the
     training-readiness gap or justify new labels from these samples.
+
+## 22. Reset 17G Parser/Candidate-side Structure Preservation
+
+Reset 17G improves parser-side structure preservation, but it still does not
+make the stack training-ready.
+
+- What changed:
+  - parser-backed title/body, heading/list, and list-marker boundaries are now
+    preserved more explicitly through `PdfV2TextFlowCandidate.reason_tags`.
+  - `PdfV2CrossPageBoundaryFact` now prefers visible non-artifact continuation
+    boundaries over repeated-artifact/page-number edges when both are present.
+  - candidate-backed lowering may now activate from those structure tags, so
+    preserved parser evidence is less likely to be flattened before emission.
+- What did not change:
+  - no new parser labels or exported training rows.
+  - no quality-lab adapter or dataset schema change.
+  - no runtime model loading or inference.
+  - no sample expected updates.
+- Readiness impact:
+  - repo-local `samples/check.sh --format pdf` still reports the same 10
+    Markdown failures.
+  - the wrapper summary may still print `rows=0`; the run's
+    `markdown-only.entrypoint.log` remains authoritative.
+  - visible output improved for `pdf_cross_page_paragraph` and
+    `pdf_cross_page_should_not_merge_phase15`, but both samples still fail for
+    heading/list/title-body reasons that are not yet label-clean.
+  - `pdf_cross_page_should_merge_phase15` still loses title/body structure
+    before semantic ownership.
+  - 17G therefore improves evidence quality for future audits, but it still
+    does not reduce the training-readiness gap or justify new labels from these
+    samples.

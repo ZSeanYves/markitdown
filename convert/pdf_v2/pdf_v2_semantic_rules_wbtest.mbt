@@ -989,6 +989,109 @@ test "pdf v2 target signal trace reports next page list structure preserved thro
 }
 
 ///|
+test "pdf v2 target signal trace selects candidate path for preserved title body structure" {
+  let left_ref = semantic_test_ref_for_page(0, 0)
+  let title_ref = semantic_test_ref_for_page(1, 10)
+  let body_ref = semantic_test_ref_for_page(1, 11)
+  let parser_blocks = [
+    semantic_test_block_candidate(
+      0,
+      0,
+      "The paragraph continues across the page",
+      ["The paragraph continues across the page"],
+      [left_ref],
+      ["semantic_test_parser_block"],
+    ),
+    semantic_test_block_candidate(
+      1,
+      0,
+      "Cross-page should merge",
+      ["Cross-page should merge"],
+      [title_ref],
+      [
+        "semantic_test_parser_block", "heading_body_split", "structure_boundary_candidate",
+        "title_body_boundary_candidate",
+      ],
+    ),
+    semantic_test_block_candidate(
+      1,
+      1,
+      "This paragraph should stay as body text.",
+      ["This paragraph should stay as body text."],
+      [body_ref],
+      [
+        "semantic_test_parser_block", "heading_body_split", "structure_boundary_candidate",
+        "title_body_boundary_candidate",
+      ],
+    ),
+  ]
+  let candidates = [
+    semantic_test_text_flow_candidate(
+      0,
+      0,
+      0,
+      "The paragraph continues across the page",
+      [0],
+      [left_ref],
+      ["text_flow_candidate", "block_flow_candidate"],
+    ),
+    semantic_test_text_flow_candidate(
+      1,
+      0,
+      1,
+      "Cross-page should merge",
+      [0],
+      [title_ref],
+      [
+        "text_flow_candidate", "heading_body_split", "heading_line_candidate", "structure_boundary_candidate",
+        "title_body_boundary_candidate",
+      ],
+    ),
+    semantic_test_text_flow_candidate(
+      1,
+      1,
+      2,
+      "This paragraph should stay as body text.",
+      [1],
+      [body_ref],
+      [
+        "text_flow_candidate", "heading_body_split", "body_flow_candidate", "structure_boundary_candidate",
+        "title_body_boundary_candidate",
+      ],
+    ),
+  ]
+  let fragments = [
+    semantic_test_fragment_for_page(
+      0, 0, "The paragraph continues across the page",
+    ),
+    semantic_test_fragment_for_page(1, 0, "Cross-page should merge"),
+    semantic_test_fragment_for_page(
+      1, 1, "This paragraph should stay as body text.",
+    ),
+  ]
+  let fact = semantic_test_cross_page_fact(0.72, [left_ref, title_ref])
+  let report = semantic_test_signal_trace_report(
+    "preserved_title_body",
+    2,
+    parser_blocks,
+    candidates,
+    [fact],
+    [],
+    fragments,
+  )
+
+  assert_true(report.selection.candidate_semantic_mode)
+  assert_true(
+    report.selection.path ==
+    PdfV2SignalTraceSelectionPath::CandidateStructuralHandoff ||
+    report.selection.path ==
+    PdfV2SignalTraceSelectionPath::CandidateCrossPageArbitration ||
+    report.selection.path ==
+    PdfV2SignalTraceSelectionPath::CandidateSemanticActionableTextFlow,
+  )
+}
+
+///|
 test "pdf v2 target signal trace reports heading candidate acceptance and reason tags" {
   let heading_ref = semantic_test_ref_for_page(1, 1)
   let heading_candidate = semantic_test_text_flow_candidate(

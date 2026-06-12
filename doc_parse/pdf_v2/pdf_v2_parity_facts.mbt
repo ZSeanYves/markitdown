@@ -355,48 +355,188 @@ fn pdf_v2_parity_cross_page_boundaries(
     let next = ordered[index + 1]
     match (prev.page_index, next.page_index) {
       (Some(page_from), Some(page_to)) if page_to > page_from => {
-        let prev_open = !pdf_v2_parity_candidate_ends_sentence(prev)
-        let next_marker = pdf_v2_parity_candidate_starts_marker(next)
-        let artifact_gap = prev.artifact_refs.length() > 0 ||
-          next.artifact_refs.length() > 0
-        let reason_tags = [
-          "cross_page_boundary_fact", "parser_layout_backed", "source_order_pair",
-        ]
-        if prev_open {
-          reason_tags.push("prev_open_ended")
+        let visible = pdf_v2_parity_cross_page_visible_boundary(
+          ordered, index, page_from, page_to, prev, next,
+        )
+        match visible {
+          Some(fact) => out.push(fact)
+          None => {
+            let prev_open = !pdf_v2_parity_candidate_ends_sentence(prev)
+            let next_marker = pdf_v2_parity_candidate_starts_marker(next)
+            let artifact_gap = prev.artifact_refs.length() > 0 ||
+              next.artifact_refs.length() > 0
+            let reason_tags = [
+              "cross_page_boundary_fact", "parser_layout_backed", "source_order_pair",
+            ]
+            if prev_open {
+              reason_tags.push("prev_open_ended")
+            }
+            if next_marker {
+              reason_tags.push("next_starts_with_marker")
+            }
+            if artifact_gap {
+              reason_tags.push("repeated_artifact_gap")
+            }
+            out.push({
+              page_from,
+              page_to,
+              prev_block_ref: prev.block_index,
+              next_block_ref: next.block_index,
+              prev_line_refs: prev.line_indices,
+              next_line_refs: next.line_indices,
+              prev_vertical_band: pdf_v2_parity_candidate_vertical_band(prev),
+              next_vertical_band: pdf_v2_parity_candidate_vertical_band(next),
+              prev_open_ended: prev_open,
+              next_starts_with_marker: next_marker,
+              repeated_artifact_gap: artifact_gap,
+              confidence: pdf_v2_parity_cross_page_confidence(
+                prev_open, next_marker, artifact_gap,
+              ),
+              reason_tags,
+              source_refs: pdf_v2_parity_refs_pair(
+                prev.source_refs,
+                next.source_refs,
+              ),
+            })
+          }
         }
-        if next_marker {
-          reason_tags.push("next_starts_with_marker")
+      }
+      _ => ()
+    }
+  }
+  out
+}
+
+///|
+fn pdf_v2_parity_cross_page_visible_boundary(
+  ordered : Array[PdfV2TextFlowCandidate],
+  boundary_index : Int,
+  page_from : Int,
+  page_to : Int,
+  prev : PdfV2TextFlowCandidate,
+  next : PdfV2TextFlowCandidate,
+) -> PdfV2CrossPageBoundaryFact? {
+  if prev.artifact_refs.length() > 0 || next.artifact_refs.length() > 0 {
+    match
+      (
+        pdf_v2_parity_last_visible_candidate_on_page(
+          ordered, boundary_index, page_from,
+        ),
+        pdf_v2_parity_first_visible_candidate_on_page(
+          ordered,
+          boundary_index + 1,
+          page_to,
+        ),
+      ) {
+      (Some(left), Some(right)) => {
+        if left.block_index == prev.block_index &&
+          right.block_index == next.block_index {
+          return None
         }
-        if artifact_gap {
-          reason_tags.push("repeated_artifact_gap")
-        }
-        out.push({
+        let prev_open = !pdf_v2_parity_candidate_ends_sentence(left)
+        let next_marker = pdf_v2_parity_candidate_starts_marker(right)
+        return Some({
           page_from,
           page_to,
-          prev_block_ref: prev.block_index,
-          next_block_ref: next.block_index,
-          prev_line_refs: prev.line_indices,
-          next_line_refs: next.line_indices,
-          prev_vertical_band: pdf_v2_parity_candidate_vertical_band(prev),
-          next_vertical_band: pdf_v2_parity_candidate_vertical_band(next),
+          prev_block_ref: left.block_index,
+          next_block_ref: right.block_index,
+          prev_line_refs: left.line_indices,
+          next_line_refs: right.line_indices,
+          prev_vertical_band: pdf_v2_parity_candidate_vertical_band(left),
+          next_vertical_band: pdf_v2_parity_candidate_vertical_band(right),
           prev_open_ended: prev_open,
           next_starts_with_marker: next_marker,
-          repeated_artifact_gap: artifact_gap,
+          repeated_artifact_gap: true,
           confidence: pdf_v2_parity_cross_page_confidence(
-            prev_open, next_marker, artifact_gap,
+            prev_open, next_marker, true,
           ),
-          reason_tags,
+          reason_tags: [
+            "cross_page_boundary_fact",
+            "parser_layout_backed",
+            "source_order_pair",
+            "visible_content_boundary",
+            "artifact_boundary_preserved_for_audit",
+            if prev_open {
+              "prev_open_ended"
+            } else {
+              "prev_sentence_ended"
+            },
+          ],
           source_refs: pdf_v2_parity_refs_pair(
-            prev.source_refs,
-            next.source_refs,
+            left.source_refs,
+            right.source_refs,
           ),
         })
       }
       _ => ()
     }
   }
-  out
+  None
+}
+
+///|
+fn pdf_v2_parity_last_visible_candidate_on_page(
+  ordered : Array[PdfV2TextFlowCandidate],
+  index : Int,
+  page_index : Int,
+) -> PdfV2TextFlowCandidate? {
+  let mut i = index
+  while i >= 0 {
+    let candidate = ordered[i]
+    if candidate.page_index != Some(page_index) {
+      break
+    }
+    if !pdf_v2_parity_candidate_is_artifact(candidate) {
+      return Some(candidate)
+    }
+    i = i - 1
+  }
+  None
+}
+
+///|
+fn pdf_v2_parity_first_visible_candidate_on_page(
+  ordered : Array[PdfV2TextFlowCandidate],
+  index : Int,
+  page_index : Int,
+) -> PdfV2TextFlowCandidate? {
+  let mut i = index
+  while i < ordered.length() {
+    let candidate = ordered[i]
+    if candidate.page_index != Some(page_index) {
+      break
+    }
+    if !pdf_v2_parity_candidate_is_artifact(candidate) {
+      return Some(candidate)
+    }
+    i = i + 1
+  }
+  None
+}
+
+///|
+fn pdf_v2_parity_candidate_is_artifact(
+  candidate : PdfV2TextFlowCandidate,
+) -> Bool {
+  if candidate.reason_tags.contains("structure_boundary_candidate") ||
+    candidate.reason_tags.contains("title_body_boundary_candidate") ||
+    candidate.reason_tags.contains("heading_list_boundary_candidate") ||
+    candidate.reason_tags.contains("list_marker_body_boundary_candidate") {
+    return false
+  }
+  candidate.artifact_refs.length() > 0 ||
+  (
+    pdf_v2_parity_candidate_starts_marker(candidate) &&
+    pdf_v2_parity_candidate_page_number_like(candidate)
+  )
+}
+
+///|
+fn pdf_v2_parity_candidate_page_number_like(
+  candidate : PdfV2TextFlowCandidate,
+) -> Bool {
+  candidate.line_signals.length() > 0 &&
+  candidate.line_signals[0].starts_with_page_number
 }
 
 ///|

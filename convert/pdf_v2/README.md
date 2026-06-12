@@ -992,3 +992,65 @@ Reset 17F conclusion:
 - next recommended reset should target parser/candidate preservation of
   title/body and next-page heading/list structure, not threshold lowering,
   blocker removal, or string/sample-specific patches.
+
+## Reset 17G Parser/Candidate-side Structure Preservation
+
+Reset 17G keeps the 17E/17F bridge and trace surfaces, but moves the next fix
+upstream: preserve structure before semantic lowering instead of trying to
+repair Markdown at the end.
+
+- Parser-backed evidence refined:
+  - `heading_body_split` candidates now carry
+    `structure_boundary_candidate` and `title_body_boundary_candidate`.
+  - body-side follow-up candidates now preserve parser evidence for list or
+    heading starts with `list_marker_body_boundary_candidate` and
+    `heading_list_boundary_candidate`.
+  - inline list-marker splits and multi-line structure transitions now keep the
+    same structure tags instead of collapsing too early into one candidate.
+- Cross-page fact targeting refined:
+  - when the adjacent page-boundary pair is only repeated artifact/page-number
+    content, `PdfV2CrossPageBoundaryFact` now prefers the nearest visible
+    non-artifact boundary.
+  - the preserved artifact/page-number edge stays audit-only via
+    `artifact_boundary_preserved_for_audit`, while the selected visible boundary
+    is tagged `visible_content_boundary`.
+- Narrow convert-side use:
+  - candidate semantic mode may now activate from parser-backed structure tags,
+    not only list-shaped text, so preserved title/body or heading/list evidence
+    can survive through candidate-backed emission.
+  - the product bridge still lowers preserved structure; it is not promoted
+    into a broad classifier.
+- Useful PDF v1 intent retained:
+  - preserve explicit title/body and list/body boundaries before lowering.
+  - prefer visible content boundaries over page-number artifact boundaries.
+- Useful PDF v1 intent rejected:
+  - no phrase-specific or sample-specific overrides.
+  - no normalizer patch forest.
+  - no broad heading rewrite.
+
+Repo-local June 13, 2026 outcome:
+
+- `samples/check.sh --format pdf` still reports the same 10 PDF Markdown
+  failures.
+- no sample expected files changed.
+- the wrapper summary may still print `rows=0`; the matching
+  `markdown-only.entrypoint.log` remains authoritative.
+- visible product output did change for two target samples:
+  - `pdf_cross_page_paragraph` now joins the visible `page` / `break`
+    paragraph continuation, but `Next Section` still remains H1, so the sample
+    still fails.
+  - `pdf_cross_page_should_not_merge_phase15` now keeps separate next-page
+    paragraph and ordered-list structure instead of flattening both into one
+    line, but heading/list classification and body continuation still differ
+    from expected output.
+- `pdf_cross_page_should_merge_phase15` remains unchanged because title/body
+  structure is still collapsed before preserved structure owns the visible
+  boundary.
+
+Reset 17G conclusion:
+
+- keep the 17E structural-handoff wiring and the 17G parser-side preservation.
+- retain the conservative gates; 17G does not justify threshold lowering or
+  blocker removal.
+- next recommended reset should audit heading/list/title-body structure that
+  still remains after parser preservation, not add string-specific repairs.

@@ -1839,3 +1839,62 @@ Reset 17F closeout:
 - expected next reset should target parser/candidate preservation of
   title/body and next-page heading/list structure instead of threshold
   lowering, blocker removal, or string-specific patches.
+
+## Reset 17G Parser/Candidate-side Structure Preservation
+
+Reset 17G moves the next parity attempt upstream. Instead of broadening the
+cross-page handoff gates or repairing Markdown after lowering, it preserves
+title/body, heading/list, list-marker, and visible boundary evidence on the
+parser/candidate side.
+
+- Evidence-preservation model:
+  - explicit parser-backed structure tags were added to
+    `PdfV2TextFlowCandidate` reason tags:
+    `structure_boundary_candidate`,
+    `title_body_boundary_candidate`,
+    `heading_list_boundary_candidate`,
+    `list_marker_body_boundary_candidate`.
+  - repeated-artifact/page-number page edges no longer have to be the only
+    `PdfV2CrossPageBoundaryFact`; when a visible non-artifact continuation
+    boundary exists nearby, 17G now targets that visible boundary and keeps the
+    artifact edge only as audit signal.
+- PDF v1 intent reused only as direction:
+  - retain explicit title/body and list/body boundary preservation.
+  - retain visible-content-over-artifact boundary preference.
+  - reject phrase-specific patches, normalizer overrides, and broad heading
+    rewrites.
+
+Repo-local June 13, 2026 sample result:
+
+- the 10-failure taxonomy did not change:
+  - image placement/caption: `pdf_image_form_xobject`,
+    `pdf_image_inline`, `pdf_image_xobject`
+  - cross-page merge should happen: `pdf_cross_page_paragraph`,
+    `pdf_cross_page_should_merge_phase15`
+  - cross-page split/next-page structure should happen:
+    `pdf_cross_page_should_not_merge_phase15`
+  - header/footer: `pdf_header_footer_variants_phase15`
+  - heading/list structure: `pdf_heading_false_positive_phase15`,
+    `pdf_heading_vs_short_sentence`
+  - column/reading order: `pdf_two_column_negative_phase15`
+- no sample expected files changed.
+- the wrapper summary may still print `rows=0`; the run's
+  `markdown-only.entrypoint.log` remains authoritative.
+
+Target sample outcome matrix:
+
+| sample | 17G evidence change | visible result after 17G | still failing because |
+| --- | --- | --- | --- |
+| `pdf_cross_page_paragraph` | cross-page fact retargeted from repeated-artifact/page-number edge to the visible continuation boundary | visible `page` / `break` paragraph join now happens | following `Next Section` still stays H1 instead of the expected level |
+| `pdf_cross_page_should_merge_phase15` | no additional structure survives before semantic ownership | no visible output change | title/body collapse still happens before structural-handoff ownership |
+| `pdf_cross_page_should_not_merge_phase15` | parser-backed next-page paragraph/list structure now survives into candidate-backed emission | next-page structure no longer flattens into one line | heading/list classification and full body continuation still differ from expected |
+| `pdf_heading_false_positive_phase15` | none by design | no visible output change | failure is not owned by cross-page structure preservation |
+| `pdf_heading_vs_short_sentence` | none by design | no visible output change | remaining diff is list/heading structure, not cross-page arbitration |
+
+Reset 17G closeout:
+
+- product output changed narrowly, but visible sample parity count remained 10.
+- no expected outputs changed.
+- the narrow preserved-evidence changes are retained.
+- the next reset should target remaining heading/list/title-body structure
+  ownership instead of gate relaxation or string-specific repair.

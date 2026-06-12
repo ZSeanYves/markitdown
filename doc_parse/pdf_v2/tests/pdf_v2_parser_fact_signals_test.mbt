@@ -724,6 +724,61 @@ test "pdf v2 parity facts expose cross-page and heading risks without product be
 }
 
 ///|
+test "pdf v2 text flow candidates preserve mixed heading list block structure" {
+  let page = reset8_page(0, [
+    reset8_block(0, 0, [
+      reset8_line(0, 0, "Next Section"),
+      reset8_line(0, 1, "1. New section starts here and should stay separate."),
+      reset8_line(0, 2, "This paragraph body stays with the list item."),
+    ]),
+  ])
+  let model = reset8_model([page])
+  let candidates = @pdfv2.pdf_v2_build_text_flow_candidates(model)
+
+  assert_true(candidates.length() == 2)
+  assert_true(candidates[0].normalized_text == "Next Section")
+  assert_true(
+    candidates[0].reason_tags.contains("structure_boundary_candidate"),
+  )
+  assert_true(
+    candidates[0].reason_tags.contains("title_body_boundary_candidate"),
+  )
+  assert_true(
+    candidates[1].normalized_text ==
+    "1. New section starts here and should stay separate.\nThis paragraph body stays with the list item.",
+  )
+  assert_true(
+    candidates[1].reason_tags.contains("list_marker_body_boundary_candidate"),
+  )
+}
+
+///|
+test "pdf v2 parity cross page facts prefer visible boundary over page number artifact" {
+  let first = reset8_page(0, [
+    reset8_block(0, 0, [
+      reset8_line(0, 0, "This sentence continues across the page"),
+    ]),
+  ])
+  let second = reset8_page(1, [
+    reset8_block(1, 0, [reset8_line(1, 0, "2")]),
+    reset8_block(1, 1, [reset8_line(1, 1, "break and resumes here.")]),
+  ])
+  let facts = @pdfv2.pdf_v2_parity_facts_from_model(
+    reset8_model([first, second]),
+  )
+
+  assert_true(facts.cross_page_boundaries.length() == 1)
+  let boundary = facts.cross_page_boundaries[0]
+  assert_true(boundary.prev_block_ref == Some(0))
+  assert_true(boundary.next_block_ref == Some(1))
+  assert_true(boundary.repeated_artifact_gap)
+  assert_true(boundary.reason_tags.contains("visible_content_boundary"))
+  assert_true(
+    boundary.reason_tags.contains("artifact_boundary_preserved_for_audit"),
+  )
+}
+
+///|
 test "pdf v2 parity facts expose image text boundary and unknown geometry" {
   let caption = reset8_block(0, 0, [
     reset8_line(0, 6, "Figure 1 System diagram"),
