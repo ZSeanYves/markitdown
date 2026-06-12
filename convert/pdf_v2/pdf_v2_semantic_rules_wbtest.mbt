@@ -265,6 +265,46 @@ fn semantic_test_text_flow_candidate(
 }
 
 ///|
+fn semantic_test_text_flow_candidate_with_parser_signals(
+  page_index : Int,
+  block_index : Int,
+  flow_index : Int,
+  lines : Array[String],
+  source_refs : Array[@pdfv2.PdfV2SourceRef],
+  reason_tags : Array[String],
+) -> @pdfv2.PdfV2TextFlowCandidate {
+  let text = lines.join("\n")
+  let block = semantic_test_block_candidate(
+    page_index, block_index, text, lines, source_refs, reason_tags,
+  )
+  let line_indices : Array[Int] = []
+  let original_lines : Array[String] = []
+  let normalized_lines : Array[String] = []
+  let line_signals : Array[@pdfv2.PdfV2LineTextSignal] = []
+  for i in 0..<block.lines.length() {
+    line_indices.push(i)
+    original_lines.push(block.lines[i].text)
+    normalized_lines.push(block.lines[i].text_signal.normalized_text)
+    line_signals.push(block.lines[i].text_signal)
+  }
+  {
+    page_index: Some(page_index),
+    block_index: Some(block_index),
+    flow_index,
+    line_indices,
+    text,
+    normalized_text: normalized_lines.join("\n"),
+    original_lines,
+    normalized_lines,
+    line_signals,
+    boundary_signal: block.boundary_signal,
+    artifact_refs: [],
+    source_refs,
+    reason_tags,
+  }
+}
+
+///|
 fn semantic_test_heading_fact(
   page_index : Int,
   block_ref : Int,
@@ -1248,24 +1288,22 @@ test "pdf v2 semantic arbitration promotes parser-backed title body candidate to
   let title_ref = semantic_test_ref_for_page(1, 10)
   let body_ref = semantic_test_ref_for_page(1, 11)
   let candidates = [
-    semantic_test_text_flow_candidate(
+    semantic_test_text_flow_candidate_with_parser_signals(
       1,
       0,
       0,
-      "Cross-page should merge",
-      [0],
+      ["merge strategy"],
       [title_ref],
       [
         "text_flow_candidate", "heading_body_split", "heading_line_candidate", "structure_boundary_candidate",
         "title_body_boundary_candidate",
       ],
     ),
-    semantic_test_text_flow_candidate(
+    semantic_test_text_flow_candidate_with_parser_signals(
       1,
       1,
       1,
-      "This paragraph should stay as body text.",
-      [1],
+      ["This paragraph should stay as body text."],
       [body_ref],
       [
         "text_flow_candidate", "heading_body_split", "body_flow_candidate", "structure_boundary_candidate",
@@ -1285,6 +1323,92 @@ test "pdf v2 semantic arbitration promotes parser-backed title body candidate to
   assert_true(blocks[0].reason_tags.contains("parser_structure_evidence"))
   assert_true(blocks[0].reason_tags.contains("title_body_boundary_candidate"))
   assert_true(blocks[1].kind == PdfV2SemanticBlockKind::Paragraph)
+}
+
+///|
+test "pdf v2 semantic arbitration promotes parser-backed heading fact without title body split" {
+  let lead_ref = semantic_test_ref_for_page(0, 29)
+  let heading_ref = semantic_test_ref_for_page(0, 30)
+  let candidates = [
+    semantic_test_text_flow_candidate_with_parser_signals(
+      0,
+      0,
+      0,
+      ["Body paragraph opens here."],
+      [lead_ref],
+      ["text_flow_candidate"],
+    ),
+    semantic_test_text_flow_candidate_with_parser_signals(
+      0,
+      1,
+      1,
+      ["New Section"],
+      [heading_ref],
+      ["text_flow_candidate", "block_flow_candidate"],
+    ),
+  ]
+
+  let blocks = pdf_v2_semantic_blocks_from_candidates(
+    candidates,
+    semantic_test_options(),
+  )
+
+  assert_true(blocks.length() == 2)
+  assert_true(blocks[0].kind == PdfV2SemanticBlockKind::Paragraph)
+  assert_true(blocks[1].kind == PdfV2SemanticBlockKind::Heading)
+  assert_true(blocks[1].level == Some(1))
+  assert_true(blocks[1].reason_tags.contains("heading_title_evidence"))
+  assert_true(blocks[1].reason_tags.contains("stable_parser_heading_candidate"))
+}
+
+///|
+test "pdf v2 semantic arbitration promotes parser-backed section phrase before list as subsection" {
+  let heading_ref = semantic_test_ref_for_page(1, 40)
+  let list_ref = semantic_test_ref_for_page(1, 41)
+  let candidates = [
+    semantic_test_text_flow_candidate_with_parser_signals(
+      0,
+      0,
+      0,
+      ["Introduction"],
+      [semantic_test_ref_for_page(0, 39)],
+      ["text_flow_candidate", "block_flow_candidate"],
+    ),
+    semantic_test_text_flow_candidate_with_parser_signals(
+      1,
+      0,
+      1,
+      ["Next section"],
+      [heading_ref],
+      [
+        "text_flow_candidate", "structure_boundary_candidate", "parser_layout_backed",
+      ],
+    ),
+    semantic_test_text_flow_candidate_with_parser_signals(
+      1,
+      1,
+      2,
+      ["1. First item must remain separated."],
+      [list_ref],
+      [
+        "text_flow_candidate", "structure_boundary_candidate", "parser_layout_backed",
+        "list_marker_body_boundary_candidate",
+      ],
+    ),
+  ]
+
+  let blocks = pdf_v2_semantic_blocks_from_candidates(
+    candidates,
+    semantic_test_options(),
+  )
+
+  assert_true(blocks.length() == 3)
+  assert_true(blocks[1].kind == PdfV2SemanticBlockKind::Heading)
+  assert_true(blocks[1].level == Some(2))
+  assert_true(
+    blocks[1].reason_tags.contains("stable_list_section_heading_candidate"),
+  )
+  assert_true(blocks[2].kind == PdfV2SemanticBlockKind::OrderedListItem)
 }
 
 ///|
@@ -1450,6 +1574,39 @@ test "pdf v2 sample targeted heading versus short sentence like flow" {
   assert_true(blocks[3].kind == PdfV2SemanticBlockKind::Heading)
   assert_true(blocks[5].kind == PdfV2SemanticBlockKind::Paragraph)
   assert_true(blocks[6].kind == PdfV2SemanticBlockKind::UnorderedListItem)
+}
+
+///|
+test "pdf v2 heading rules keep strong parser-backed intro phrase safe" {
+  let heading_ref = semantic_test_ref_for_page(0, 50)
+  let body_ref = semantic_test_ref_for_page(0, 51)
+  let candidates = [
+    semantic_test_text_flow_candidate(
+      0,
+      0,
+      0,
+      "In conclusion,",
+      [0],
+      [heading_ref],
+      ["text_flow_candidate", "block_flow_candidate"],
+    ),
+    semantic_test_text_flow_candidate(
+      0,
+      1,
+      1,
+      "This final paragraph should remain a normal paragraph.",
+      [1],
+      [body_ref],
+      ["text_flow_candidate", "block_flow_candidate"],
+    ),
+  ]
+
+  let blocks = pdf_v2_semantic_blocks_from_candidates(
+    candidates,
+    semantic_test_options(),
+  )
+
+  assert_true(blocks[0].kind == PdfV2SemanticBlockKind::Paragraph)
 }
 
 ///|

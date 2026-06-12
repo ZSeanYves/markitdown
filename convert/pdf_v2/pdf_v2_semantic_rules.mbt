@@ -1240,7 +1240,11 @@ fn pdf_v2_apply_structure_evidence_arbitration(
     }
   }
   if options.enable_heading_rules {
-    match pdf_v2_semantic_structure_evidence_heading_decision(unit, decision) {
+    let heading_evidence = pdf_v2_semantic_heading_title_evidence(unit)
+    match
+      pdf_v2_semantic_structure_evidence_heading_decision(
+        unit, decision, heading_evidence,
+      ) {
       Some(adjusted) => return adjusted
       None => ()
     }
@@ -1300,41 +1304,56 @@ fn pdf_v2_semantic_structure_evidence_list_decision(
 fn pdf_v2_semantic_structure_evidence_heading_decision(
   unit : PdfV2TextFlowUnit,
   decision : PdfV2RuleDecision,
+  evidence : PdfV2HeadingTitleEvidence,
 ) -> PdfV2RuleDecision? {
   if decision.kind == PdfV2SemanticBlockKind::Heading {
     return None
   }
-  if !unit.reason_tags.contains("structure_boundary_candidate") ||
-    !unit.reason_tags.contains("title_body_boundary_candidate") ||
-    unit.reason_tags.contains("body_flow_candidate") ||
-    unit.reason_tags.contains("list_marker_body_boundary_candidate") ||
-    unit.signals.starts_with_ordered_marker ||
+  if !pdf_v2_semantic_heading_title_evidence_allows_heading(unit, evidence) {
+    return None
+  }
+  let reason_tags = ["parser_structure_evidence", "heading_title_evidence"]
+  reason_tags.append(evidence.reason_tags)
+  Some(
+    pdf_v2_semantic_decision(
+      PdfV2SemanticBlockKind::Heading,
+      evidence.confidence,
+      "heading.heading_title_evidence",
+      reason_tags,
+      [],
+      unit.source_refs,
+      [],
+    ),
+  )
+}
+
+///|
+fn pdf_v2_semantic_heading_title_evidence_allows_heading(
+  unit : PdfV2TextFlowUnit,
+  evidence : PdfV2HeadingTitleEvidence,
+) -> Bool {
+  if unit.signals.starts_with_ordered_marker ||
     unit.signals.starts_with_unordered_marker ||
     unit.signals.starts_with_heading_marker ||
     !unit.signals.is_single_line ||
     unit.signals.ends_with_sentence_punctuation ||
     unit.signals.looks_like_page_number ||
     unit.signals.looks_like_caption_marker ||
-    !unit.signals.has_following_body {
-    return None
+    evidence.list_marker_nearby_risk ||
+    evidence.sentence_like_risk ||
+    evidence.body_continuation_risk {
+    return false
   }
-  if !unit.reason_tags.contains("heading_line_candidate") &&
-    unit.signals.parser_heading_candidate_score < 0.60 {
-    return None
+  if evidence.title_body.stable_title_boundary &&
+    !evidence.title_body.body_flow_candidate {
+    return true
   }
-  Some(
-    pdf_v2_semantic_decision(
-      PdfV2SemanticBlockKind::Heading,
-      0.84,
-      "heading.structure_boundary.parser_fact",
-      [
-        "parser_structure_evidence", "structure_boundary_candidate", "title_body_boundary_candidate",
-      ],
-      [],
-      unit.source_refs,
-      [],
-    ),
-  )
+  if evidence.stable_parser_heading_candidate &&
+    evidence.section_context_label &&
+    !evidence.title_body.body_flow_candidate {
+    return true
+  }
+  evidence.stable_list_section_heading_candidate
 }
 
 ///|
@@ -1613,7 +1632,11 @@ fn pdf_v2_semantic_block_from_decision(
   {
     kind: decision.kind,
     text,
-    level: pdf_v2_semantic_heading_level(unit, decision.kind),
+    level: pdf_v2_semantic_heading_level(
+      unit,
+      decision.kind,
+      pdf_v2_semantic_heading_title_evidence(unit),
+    ),
     ordered: pdf_v2_semantic_ordered_flag(decision.kind),
     list_level: 0,
     page_index: unit.page_index,
@@ -1677,6 +1700,7 @@ fn pdf_v2_semantic_list_item_text(unit : PdfV2TextFlowUnit) -> String {
 fn pdf_v2_semantic_heading_level(
   unit : PdfV2TextFlowUnit,
   kind : PdfV2SemanticBlockKind,
+  evidence : PdfV2HeadingTitleEvidence,
 ) -> Int? {
   if kind != PdfV2SemanticBlockKind::Heading {
     return None
@@ -1684,12 +1708,259 @@ fn pdf_v2_semantic_heading_level(
   match unit.marker {
     Some(marker) =>
       if marker.kind == PdfV2TextFlowMarkerKind::HeadingMarker {
-        marker.level_hint
+        evidence.level_evidence.level
       } else {
-        Some(pdf_v2_semantic_infer_heading_level(unit))
+        evidence.level_evidence.level
       }
-    None => Some(pdf_v2_semantic_infer_heading_level(unit))
+    None => evidence.level_evidence.level
   }
+}
+
+///|
+fn pdf_v2_semantic_heading_title_evidence(
+  unit : PdfV2TextFlowUnit,
+) -> PdfV2HeadingTitleEvidence {
+  let normalized_text = pdf_v2_heading_normalize(unit.normalized_text)
+  let basic_shape_ok = pdf_v2_heading_basic_shape_ok(normalized_text)
+  let title_body = pdf_v2_semantic_title_body_evidence(unit)
+  let title_shape = pdf_v2_heading_has_title_shape(normalized_text)
+  let common_section_label = pdf_v2_heading_looks_like_common_english_section_label(
+    normalized_text,
+  )
+  let section_context_label = common_section_label ||
+    pdf_v2_heading_looks_like_section_phrase(normalized_text)
+  let document_lead_context = unit.flow_index == 0
+  let page_boundary_context = match unit.page_index {
+    Some(page_index) =>
+      page_index > 0 &&
+      (unit.signals.has_previous_heading || section_context_label)
+    None => false
+  }
+  let sentence_like_risk = unit.signals.ends_with_sentence_punctuation ||
+    pdf_v2_heading_looks_like_complete_statement(normalized_text) ||
+    pdf_v2_heading_looks_like_intro_phrase(normalized_text)
+  let body_continuation_risk = unit.reason_tags.contains("body_flow_candidate") ||
+    (
+      unit.signals.continuation_candidate &&
+      !unit.reason_tags.contains("heading_body_split")
+    )
+  let inline_mixed_structure_risk = unit.normalized_text.contains("\n") &&
+    (
+      unit.normalized_text.contains("- ") ||
+      unit.normalized_text.contains("* ") ||
+      unit.normalized_text.contains("• ")
+    )
+  let raw_inline_mixed_structure_risk = unit.text.contains("\n") &&
+    (
+      unit.text.contains("\n- ") ||
+      unit.text.contains("\n* ") ||
+      unit.text.contains("\n• ")
+    )
+  let list_marker_nearby_risk = unit.reason_tags.contains(
+      "list_marker_body_boundary_candidate",
+    ) ||
+    unit.reason_tags.contains("heading_list_boundary_candidate") ||
+    unit.signals.starts_with_ordered_marker ||
+    unit.signals.starts_with_unordered_marker ||
+    inline_mixed_structure_risk ||
+    raw_inline_mixed_structure_risk
+  let stable_parser_heading_candidate = unit.signals.parser_fact_backed &&
+    unit.signals.parser_heading_candidate_score >= 0.70 &&
+    basic_shape_ok &&
+    !sentence_like_risk &&
+    !body_continuation_risk &&
+    !list_marker_nearby_risk
+  let stable_list_section_heading_candidate = page_boundary_context &&
+    unit.signals.parser_fact_backed &&
+    unit.reason_tags.contains("structure_boundary_candidate") &&
+    unit.signals.has_following_body &&
+    section_context_label &&
+    basic_shape_ok &&
+    !sentence_like_risk &&
+    !body_continuation_risk &&
+    !list_marker_nearby_risk
+  let level_evidence = pdf_v2_semantic_heading_level_evidence(
+    unit, document_lead_context, page_boundary_context, section_context_label,
+  )
+  let reason_tags : Array[String] = []
+  let blockers : Array[String] = []
+  if unit.signals.parser_fact_backed {
+    reason_tags.push("parser_fact")
+  }
+  if title_body.stable_title_boundary {
+    reason_tags.push("stable_title_body_boundary")
+  }
+  if stable_parser_heading_candidate {
+    reason_tags.push("stable_parser_heading_candidate")
+  }
+  if stable_list_section_heading_candidate {
+    reason_tags.push("stable_list_section_heading_candidate")
+  }
+  if document_lead_context {
+    reason_tags.push("document_lead_context")
+  }
+  if page_boundary_context {
+    reason_tags.push("page_boundary_context")
+  }
+  if section_context_label {
+    reason_tags.push("section_context_label")
+  }
+  if !basic_shape_ok {
+    blockers.push("basic_shape_not_ok")
+  }
+  if sentence_like_risk {
+    blockers.push("sentence_like_risk")
+  }
+  if body_continuation_risk {
+    blockers.push("body_continuation_risk")
+  }
+  if list_marker_nearby_risk {
+    blockers.push("list_marker_nearby_risk")
+  }
+  let mut confidence = 0.42
+  if stable_parser_heading_candidate {
+    confidence = confidence + 0.24
+  }
+  if title_body.stable_title_boundary {
+    confidence = confidence + 0.20
+  }
+  if stable_list_section_heading_candidate {
+    confidence = confidence + 0.18
+  }
+  if document_lead_context {
+    confidence = confidence + 0.06
+  }
+  if page_boundary_context {
+    confidence = confidence + 0.04
+  }
+  if confidence > 0.88 {
+    confidence = 0.88
+  }
+  {
+    page_index: unit.page_index,
+    block_index: unit.block_index,
+    source_refs: unit.source_refs,
+    parser_fact_backed: unit.signals.parser_fact_backed,
+    title_shape,
+    common_section_label,
+    section_context_label,
+    document_lead_context,
+    page_boundary_context,
+    short_text_risk: unit.signals.is_short,
+    sentence_like_risk,
+    body_continuation_risk,
+    list_marker_nearby_risk,
+    stable_parser_heading_candidate,
+    stable_list_section_heading_candidate,
+    title_body,
+    level_evidence,
+    confidence,
+    reason_tags,
+    blockers,
+  }
+}
+
+///|
+fn pdf_v2_semantic_title_body_evidence(
+  unit : PdfV2TextFlowUnit,
+) -> PdfV2TitleBodyEvidence {
+  let parser_structure_boundary = unit.reason_tags.contains(
+    "structure_boundary_candidate",
+  )
+  let title_body_boundary = unit.reason_tags.contains(
+    "title_body_boundary_candidate",
+  )
+  let parser_heading_split = unit.reason_tags.contains("heading_body_split")
+  let body_flow_candidate = unit.reason_tags.contains("body_flow_candidate")
+  let stable_title_boundary = parser_structure_boundary &&
+    title_body_boundary &&
+    parser_heading_split &&
+    unit.signals.has_following_body &&
+    !body_flow_candidate
+  let reason_tags : Array[String] = []
+  let blockers : Array[String] = []
+  if parser_structure_boundary {
+    reason_tags.push("structure_boundary_candidate")
+  }
+  if title_body_boundary {
+    reason_tags.push("title_body_boundary_candidate")
+  }
+  if parser_heading_split {
+    reason_tags.push("heading_body_split")
+  }
+  if body_flow_candidate {
+    blockers.push("body_flow_candidate")
+  }
+  if !unit.signals.has_following_body {
+    blockers.push("missing_following_body")
+  }
+  {
+    parser_structure_boundary,
+    title_body_boundary,
+    parser_heading_split,
+    body_flow_candidate,
+    has_following_body: unit.signals.has_following_body,
+    stable_title_boundary,
+    confidence: if stable_title_boundary {
+      0.86
+    } else {
+      0.0
+    },
+    reason_tags,
+    blockers,
+  }
+}
+
+///|
+fn pdf_v2_semantic_heading_level_evidence(
+  unit : PdfV2TextFlowUnit,
+  document_lead_context : Bool,
+  page_boundary_context : Bool,
+  section_context_label : Bool,
+) -> PdfV2HeadingLevelEvidence {
+  match unit.marker {
+    Some(marker) =>
+      if marker.kind == PdfV2TextFlowMarkerKind::HeadingMarker {
+        {
+          level: marker.level_hint,
+          stable: marker.level_hint is Some(_),
+          source: PdfV2HeadingLevelEvidenceSource::ExplicitMarker,
+          confidence: 0.98,
+          reason_tags: ["explicit_heading_marker"],
+        }
+      } else {
+        pdf_v2_semantic_infer_heading_level_with_context(
+          unit, document_lead_context, page_boundary_context, section_context_label,
+        )
+      }
+    None =>
+      pdf_v2_semantic_infer_heading_level_with_context(
+        unit, document_lead_context, page_boundary_context, section_context_label,
+      )
+  }
+}
+
+///|
+fn pdf_v2_semantic_infer_heading_level_with_context(
+  unit : PdfV2TextFlowUnit,
+  document_lead_context : Bool,
+  page_boundary_context : Bool,
+  section_context_label : Bool,
+) -> PdfV2HeadingLevelEvidence {
+  let inferred = pdf_v2_semantic_infer_heading_level(unit)
+  if inferred.source != PdfV2HeadingLevelEvidenceSource::ConservativeFallback {
+    return inferred
+  }
+  if page_boundary_context && section_context_label && !document_lead_context {
+    return {
+      level: Some(2),
+      stable: true,
+      source: PdfV2HeadingLevelEvidenceSource::PageBoundarySectionContext,
+      confidence: 0.80,
+      reason_tags: ["page_boundary_section_context", "section_context_label"],
+    }
+  }
+  inferred
 }
 
 ///|
@@ -1702,18 +1973,44 @@ fn pdf_v2_semantic_ordered_flag(kind : PdfV2SemanticBlockKind) -> Bool? {
 }
 
 ///|
-fn pdf_v2_semantic_infer_heading_level(unit : PdfV2TextFlowUnit) -> Int {
+fn pdf_v2_semantic_infer_heading_level(
+  unit : PdfV2TextFlowUnit,
+) -> PdfV2HeadingLevelEvidence {
   let text = unit.normalized_text
   if pdf_v2_semantic_numbered_section_depth(text) >= 2 {
-    2
+    {
+      level: Some(2),
+      stable: true,
+      source: PdfV2HeadingLevelEvidenceSource::NumberedSectionDepth,
+      confidence: 0.92,
+      reason_tags: ["numbered_section_depth"],
+    }
   } else if unit.signals.has_previous_heading &&
     pdf_v2_heading_looks_like_common_english_section_label(text) {
-    2
+    {
+      level: Some(2),
+      stable: true,
+      source: PdfV2HeadingLevelEvidenceSource::PriorHeadingSectionContext,
+      confidence: 0.84,
+      reason_tags: ["prior_heading_section_context"],
+    }
   } else if unit.flow_index > 0 &&
     pdf_v2_heading_looks_like_common_english_section_label(text) {
-    2
+    {
+      level: Some(2),
+      stable: true,
+      source: PdfV2HeadingLevelEvidenceSource::PageBoundarySectionContext,
+      confidence: 0.74,
+      reason_tags: ["page_boundary_section_context"],
+    }
   } else {
-    1
+    {
+      level: Some(1),
+      stable: false,
+      source: PdfV2HeadingLevelEvidenceSource::ConservativeFallback,
+      confidence: 0.55,
+      reason_tags: ["conservative_level_fallback"],
+    }
   }
 }
 
@@ -1998,6 +2295,42 @@ fn pdf_v2_heading_looks_like_common_english_section_label(
 }
 
 ///|
+fn pdf_v2_heading_looks_like_section_phrase(text : String) -> Bool {
+  let words = pdf_v2_heading_words(text)
+  if words.length() < 2 || words.length() > 5 {
+    return false
+  }
+  let mut saw_section_noun = false
+  let mut saw_context_word = false
+  for raw in words {
+    let word = pdf_v2_heading_ascii_lower(pdf_v2_heading_strip_edge_punct(raw))
+    if word == "" {
+      continue
+    }
+    if word == "section" ||
+      word == "sections" ||
+      word == "chapter" ||
+      word == "chapters" {
+      saw_section_noun = true
+      continue
+    }
+    if word == "next" ||
+      word == "new" ||
+      word == "page" ||
+      word == "part" ||
+      word == "topic" ||
+      pdf_v2_heading_all_ascii_digits(word) {
+      saw_context_word = true
+      continue
+    }
+    if word.length() <= 2 {
+      saw_context_word = true
+    }
+  }
+  saw_section_noun && saw_context_word && !pdf_v2_heading_ends_sentence(text)
+}
+
+///|
 fn pdf_v2_heading_is_common_english_section_word(text : String) -> Bool {
   text == "abstract" ||
   text == "introduction" ||
@@ -2055,6 +2388,20 @@ fn pdf_v2_heading_looks_like_common_cjk_section_label(text : String) -> Bool {
   text == "总结" ||
   text == "结论" ||
   text == "下一节"
+}
+
+///|
+fn pdf_v2_heading_all_ascii_digits(text : String) -> Bool {
+  let t = text.trim().to_owned()
+  if t == "" {
+    return false
+  }
+  for ch in t {
+    if !pdf_v2_is_ascii_digit(ch) {
+      return false
+    }
+  }
+  true
 }
 
 ///|

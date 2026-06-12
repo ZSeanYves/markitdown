@@ -1105,3 +1105,50 @@ Reset 17H conclusion:
 - next recommended reset should inspect why parser-backed heading/title
   evidence is still absent for the remaining heading-level mismatches, not add
   broad semantic heading promotion.
+
+## Reset 17I Heading/Title Evidence Modeling
+
+Reset 17I adds an explicit typed heading/title evidence layer without moving
+classification into the bridge.
+
+- What changed:
+  - semantic arbitration now builds typed `PdfV2HeadingTitleEvidence`,
+    `PdfV2HeadingLevelEvidence`, and `PdfV2TitleBodyEvidence`.
+  - parser-side candidate generation now preserves a narrow document-lead
+    title/body split for fused multi-op opener blocks.
+  - focused parser and semantic tests now cover stable heading level
+    preservation, title/body separation, nearby list-marker blocking, and weak
+    evidence fallback.
+- What did not change:
+  - no sample expected files changed.
+  - no broad heading rewrite, threshold lowering, or bridge classification was
+    added.
+  - no image, header/footer, or column behavior changed.
+
+Repo-local June 13, 2026 outcome:
+
+- `samples/check.sh --format pdf` still reports the same 10 PDF Markdown
+  failures when run with explicit native runner overrides.
+- the top-level wrapper may still print `rows=0`; the matching
+  `markdown-only.entrypoint.log` remains authoritative.
+- direct CLI output for the five 17I target samples is byte-for-byte identical
+  to Reset 17H output.
+- current visible target status therefore remains:
+  - `pdf_cross_page_paragraph`: cross-page paragraph join is already fixed, but
+    `# Next Section` still differs from expected `## Next Section`.
+  - `pdf_cross_page_should_merge_phase15`: title/body still emits as one plain
+    line.
+  - `pdf_cross_page_should_not_merge_phase15`: full ordered-list body remains
+    preserved, but title and heading levels still stay plain text.
+  - `pdf_heading_false_positive_phase15`: remaining failure is still broader
+    heading/list structure loss.
+  - `pdf_heading_vs_short_sentence`: remaining failure is still single-page
+    heading/list structure loss.
+
+Reset 17I conclusion:
+
+- keep the 17I typed evidence model and the conservative semantic gates.
+- no expected sample update is justified because 17I does not change visible
+  product output relative to 17H.
+- next recommended reset should inspect parser/semantic ownership of remaining
+  heading/title structure rather than widen heading promotion globally.

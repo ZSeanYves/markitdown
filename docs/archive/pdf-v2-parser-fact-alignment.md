@@ -1267,3 +1267,28 @@ Actual June 13, 2026 outcome:
 - Reset 17H therefore keeps current parser fact alignment intact and points
   next work at missing heading/title evidence rather than new fact families or
   broader semantic promotion rules.
+
+## Reset 17I Heading/Title Evidence Alignment
+
+Reset 17I still does not add a new parser fact family. It refines typed
+heading/title evidence built from already-preserved parser-side structure.
+
+Alignment update:
+
+- `PdfV2HeadingTitleEvidence`, `PdfV2HeadingLevelEvidence`, and
+  `PdfV2TitleBodyEvidence` now make heading/title ownership explicit inside
+  semantic arbitration.
+- parser-side document-lead title/body splitting now preserves one more narrow
+  evidence shape before semantic ownership.
+- no parser fact schema changed.
+
+Actual June 13, 2026 outcome:
+
+- No new parser API or fact schema changed.
+- No sample expected files changed.
+- Repo-local PDF Markdown parity still remains at 10 failures when run with
+  explicit native runner overrides.
+- Direct CLI output for the five 17I target samples is byte-for-byte identical
+  to Reset 17H output.
+- Reset 17I therefore improves evidence alignment and regression coverage, but
+  it still does not surface new visible parser-fact-owned parity wins.

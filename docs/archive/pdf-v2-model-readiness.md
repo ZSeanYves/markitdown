@@ -669,5 +669,32 @@ but it still does not make the stack training-ready.
     list item body now survives while heading levels still remain wrong.
   - `pdf_cross_page_paragraph` and `pdf_cross_page_should_merge_phase15` still
     lack stable preserved heading/title evidence for 17H to move them.
-  - 17H therefore improves semantic evidence consumption, but it still does not
-    reduce the training-readiness gap or justify new labels from these samples.
+- 17H therefore improves semantic evidence consumption, but it still does not
+  reduce the training-readiness gap or justify new labels from these samples.
+
+## 24. Reset 17I Heading/Title Evidence Modeling
+
+Reset 17I improves typed evidence modeling, but it still does not make the
+stack more training-ready.
+
+- What changed:
+  - semantic arbitration now carries explicit typed heading/title evidence for
+    stable level inference, title/body boundaries, and short-sentence/list
+    blockers.
+  - parser-side candidate generation now preserves a narrow document-lead
+    title/body split for fused multi-op opener blocks.
+- What did not change:
+  - no new parser labels or exported training rows.
+  - no quality-lab adapter or dataset schema change.
+  - no runtime model loading or inference.
+  - no sample expected updates.
+- Readiness impact:
+  - repo-local `samples/check.sh --format pdf` still reports the same 10
+    Markdown failures when run with explicit native runner overrides.
+  - the wrapper summary may still print `rows=0`; the run's
+    `markdown-only.entrypoint.log` remains authoritative.
+  - direct CLI output for the five 17I target samples is byte-for-byte
+    identical to Reset 17H output.
+  - 17I therefore improves evidence quality and regression coverage, but it
+    still does not reduce the training-readiness gap or justify new labels
+    from these samples.

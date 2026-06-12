@@ -71,6 +71,13 @@ fn pdf_v2_text_flow_candidates_from_block(
     }
     return out
   }
+  match
+    pdf_v2_text_flow_document_lead_title_body_candidates(
+      page, block, lines, artifacts,
+    ) {
+    Some(split_candidates) => return split_candidates
+    None => ()
+  }
   if pdf_v2_text_flow_should_split_heading_body(block, lines) {
     out.push(
       pdf_v2_text_flow_candidate_from_lines(
@@ -129,6 +136,225 @@ fn pdf_v2_text_flow_candidates_from_block(
     ),
   )
   out
+}
+
+///|
+fn pdf_v2_text_flow_document_lead_title_body_candidates(
+  page : PdfV2PageModel,
+  block : PdfV2BlockCandidate,
+  lines : Array[PdfV2LineCandidate],
+  artifacts : Array[PdfV2PageArtifactCandidate],
+) -> Array[PdfV2TextFlowCandidate]? {
+  if page.page_index != 0 || block.block_index != 0 || lines.length() != 1 {
+    return None
+  }
+  if !pdf_v2_text_flow_document_lead_has_multiple_text_ops(lines[0].source_refs) {
+    return None
+  }
+  let split = pdf_v2_text_flow_split_document_lead_title_body(
+    lines[0].text_signal.normalized_text,
+  )
+  if split is None {
+    return None
+  }
+  let (title_text, body_text) = split.unwrap()
+  let out : Array[PdfV2TextFlowCandidate] = []
+  out.push(
+    pdf_v2_text_flow_candidate_from_text(
+      page,
+      block,
+      title_text,
+      [lines[0].line_index],
+      lines[0].source_refs,
+      block.boundary_signal,
+      artifacts,
+      [
+        "text_flow_candidate", "document_lead_title_body_split", "heading_body_split",
+        "heading_line_candidate", "structure_boundary_candidate", "title_body_boundary_candidate",
+        "parser_layout_backed",
+      ],
+    ),
+  )
+  out.push(
+    pdf_v2_text_flow_candidate_from_text(
+      page,
+      block,
+      body_text,
+      [lines[0].line_index],
+      lines[0].source_refs,
+      block.boundary_signal,
+      artifacts,
+      [
+        "text_flow_candidate", "document_lead_title_body_split", "heading_body_split",
+        "body_flow_candidate", "structure_boundary_candidate", "title_body_boundary_candidate",
+        "parser_layout_backed",
+      ],
+    ),
+  )
+  Some(out)
+}
+
+///|
+fn pdf_v2_text_flow_split_document_lead_title_body(
+  text : String,
+) -> (String, String)? {
+  let normalized = text.trim().to_owned()
+  let words = normalized.split(" ").to_array()
+  if words.length() < 6 {
+    return None
+  }
+  let mut best_title = ""
+  let mut best_body = ""
+  let mut title_count = 0
+  for index = 1; index < words.length(); index = index + 1 {
+    let title = words[:index].to_owned().join(" ").trim().to_owned()
+    let body = words[index:].to_owned().join(" ").trim().to_owned()
+    if title == "" || body == "" {
+      continue
+    }
+    if !pdf_v2_text_flow_document_lead_title_prefix_ok(title) ||
+      !pdf_v2_text_flow_document_lead_body_suffix_ok(body) {
+      continue
+    }
+    let current_count = title.split(" ").to_array().length()
+    if current_count > title_count {
+      best_title = title
+      best_body = body
+      title_count = current_count
+    }
+  }
+  if best_title == "" || best_body == "" {
+    None
+  } else {
+    Some((best_title, best_body))
+  }
+}
+
+///|
+fn pdf_v2_text_flow_document_lead_title_prefix_ok(text : String) -> Bool {
+  let raw_words = text.split(" ").to_array()
+  let words : Array[String] = []
+  for raw in raw_words {
+    words.push(raw.trim().to_owned())
+  }
+  if words.length() < 3 || words.length() > 5 {
+    return false
+  }
+  if pdf_v2_text_flow_document_lead_sentence_style_title_prefix(text, words) {
+    return true
+  }
+  let mut latin_words = 0
+  let mut capitalized_or_connector_words = 0
+  for word in words {
+    if word == "" {
+      return false
+    }
+    let lower = word.to_lower()
+    if lower == "vs" || lower == "and" || lower == "or" {
+      capitalized_or_connector_words = capitalized_or_connector_words + 1
+      continue
+    }
+    match pdf_v2_text_flow_document_lead_first_char(word) {
+      Some(ch) =>
+        if (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') {
+          latin_words = latin_words + 1
+          if ch >= 'A' && ch <= 'Z' {
+            capitalized_or_connector_words = capitalized_or_connector_words + 1
+          }
+        } else {
+          return false
+        }
+      None => return false
+    }
+  }
+  latin_words >= 2 && capitalized_or_connector_words >= 2
+}
+
+///|
+fn pdf_v2_text_flow_document_lead_sentence_style_title_prefix(
+  text : String,
+  words : Array[String],
+) -> Bool {
+  if text.to_array().length() > 32 {
+    return false
+  }
+  match pdf_v2_text_flow_document_lead_first_char(words[0].trim().to_owned()) {
+    Some(ch) => if !(ch >= 'A' && ch <= 'Z') { return false }
+    None => return false
+  }
+  for index = 1; index < words.length(); index = index + 1 {
+    let word = words[index].trim().to_owned()
+    if word == "" {
+      return false
+    }
+    let lower = word.to_lower()
+    if lower == "and" ||
+      lower == "or" ||
+      lower == "of" ||
+      lower == "to" ||
+      lower == "for" ||
+      lower == "with" ||
+      lower == "on" ||
+      lower == "in" ||
+      lower == "by" ||
+      lower == "vs" {
+      continue
+    }
+    match pdf_v2_text_flow_document_lead_first_char(word) {
+      Some(ch) => if !(ch >= 'a' && ch <= 'z') { return false }
+      None => return false
+    }
+  }
+  true
+}
+
+///|
+fn pdf_v2_text_flow_document_lead_body_suffix_ok(text : String) -> Bool {
+  let chars = text.to_array()
+  let word_count = text.split(" ").to_array().length()
+  chars.length() >= 24 &&
+  word_count >= 5 &&
+  pdf_v2_text_flow_document_lead_starts_sentence_case(text)
+}
+
+///|
+fn pdf_v2_text_flow_document_lead_starts_sentence_case(text : String) -> Bool {
+  let parts = text.split(" ").to_array()
+  if parts.length() == 0 {
+    return false
+  }
+  match pdf_v2_text_flow_document_lead_first_char(parts[0].trim().to_owned()) {
+    Some(ch) => ch >= 'A' && ch <= 'Z'
+    None => false
+  }
+}
+
+///|
+fn pdf_v2_text_flow_document_lead_first_char(text : String) -> Char? {
+  for ch in text {
+    return Some(ch)
+  }
+  None
+}
+
+///|
+fn pdf_v2_text_flow_document_lead_has_multiple_text_ops(
+  source_refs : Array[PdfV2SourceRef],
+) -> Bool {
+  let seen_ops : Array[Int] = []
+  for source_ref in source_refs {
+    match source_ref.op_index {
+      Some(op_index) =>
+        if !seen_ops.contains(op_index) {
+          seen_ops.push(op_index)
+          if seen_ops.length() >= 2 {
+            return true
+          }
+        }
+      None => ()
+    }
+  }
+  false
 }
 
 ///|

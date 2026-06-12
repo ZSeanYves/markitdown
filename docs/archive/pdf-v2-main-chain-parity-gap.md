@@ -1949,3 +1949,35 @@ Reset 17H closeout:
   partial.
 - the next reset should inspect missing heading/title evidence for the
   remaining heading-level mismatches rather than widen semantic rules broadly.
+
+## Reset 17I Heading/Title Evidence Modeling
+
+Reset 17I adds a typed heading/title evidence layer and a narrow parser-side
+document-lead title/body split, but it does not reduce visible PDF parity.
+
+Repo-local June 13, 2026 outcome:
+
+- `samples/check.sh --format pdf` still shows the same 10 failing PDF Markdown
+  samples when run with explicit native runner overrides.
+- the wrapper summary may still print `rows=0`; the
+  `markdown-only.entrypoint.log` remains authoritative.
+- no expected outputs changed.
+- direct CLI output for:
+  - `pdf_cross_page_paragraph`
+  - `pdf_cross_page_should_merge_phase15`
+  - `pdf_cross_page_should_not_merge_phase15`
+  - `pdf_heading_false_positive_phase15`
+  - `pdf_heading_vs_short_sentence`
+  is byte-for-byte identical to Reset 17H output.
+
+Practical effect:
+
+- 17I improves evidence typing, coverage, and diagnostics.
+- 17I does not yet move ownership of the remaining visible heading/title
+  mismatches.
+- the parity gap therefore remains exactly where 17H left it:
+  - one cross-page sample still misses only heading level (`Next Section` H1
+    vs expected H2),
+  - two phase15 samples still miss title/body or heading/title ownership,
+  - two single-page heading/list samples still fail outside cross-page
+    handoff.

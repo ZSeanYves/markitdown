@@ -1195,3 +1195,31 @@ Current recommendation:
 - keep parser ownership unchanged.
 - next work should inspect missing heading/title evidence for the remaining
   heading-level mismatches, not broaden semantic rules globally.
+
+## Reset 17I Heading/Title Evidence Follow-up
+
+Reset 17I still does not add a new parser fact family or a new parser API. It
+refines how preserved parser-side evidence is modeled and then consumed in
+semantic arbitration.
+
+Repo-local June 13, 2026 outcome:
+
+- parser-side candidate generation now preserves a narrow document-lead
+  title/body split for fused multi-op opener blocks.
+- semantic arbitration now consumes explicit typed heading/title evidence rather
+  than only ad-hoc heading shape checks.
+- no sample expected files changed.
+- `samples/check.sh --format pdf` still reports the same 10 Markdown
+  failures when run with explicit native runner overrides.
+- the wrapper summary may still print `rows=0`; the matching
+  `markdown-only.entrypoint.log` remains authoritative.
+- direct CLI output for the five 17I target samples is byte-for-byte identical
+  to Reset 17H output, so 17I improves evidence modeling and test coverage but
+  does not yet change visible parser-owned sample behavior.
+
+Current recommendation:
+
+- keep parser ownership unchanged.
+- next work should inspect where remaining heading/title structure is still
+  lost before or during semantic ownership, not add broader parser facts or
+  semantic rewrites.

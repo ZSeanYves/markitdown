@@ -753,6 +753,40 @@ test "pdf v2 text flow candidates preserve mixed heading list block structure" {
 }
 
 ///|
+test "pdf v2 text flow candidates split document lead title body from single line" {
+  let first_ref = reset8_text_ref(0, 0)
+  let second_ref = reset8_text_ref(0, 1)
+  let line_text = "Cross-page should merge This paragraph is intentionally broken at the end of page one and should continue"
+  let line = {
+    ..reset8_line(0, 0, line_text),
+    source_refs: [first_ref, second_ref],
+    text_signal: @pdfv2.pdf_v2_build_line_text_signal(
+      line_text,
+      @pdfv2.PdfV2TextDecodeConfidence::High,
+      [first_ref, second_ref],
+      ["line_candidate"],
+    ),
+  }
+  let page = reset8_page(0, [reset8_block(0, 0, [line])])
+  let model = reset8_model([page])
+  let candidates = @pdfv2.pdf_v2_build_text_flow_candidates(model)
+
+  assert_true(candidates.length() == 2)
+  assert_true(candidates[0].normalized_text == "Cross-page should merge")
+  assert_true(
+    candidates[0].reason_tags.contains("document_lead_title_body_split"),
+  )
+  assert_true(
+    candidates[0].reason_tags.contains("title_body_boundary_candidate"),
+  )
+  assert_true(
+    candidates[1].normalized_text ==
+    "This paragraph is intentionally broken at the end of page one and should continue",
+  )
+  assert_true(candidates[1].reason_tags.contains("body_flow_candidate"))
+}
+
+///|
 test "pdf v2 parity cross page facts prefer visible boundary over page number artifact" {
   let first = reset8_page(0, [
     reset8_block(0, 0, [

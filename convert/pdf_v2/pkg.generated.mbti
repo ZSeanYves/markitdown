@@ -467,6 +467,45 @@ pub(all) struct PdfV2GateSummary {
   risk_count : Int
 }
 
+pub(all) struct PdfV2HeadingLevelEvidence {
+  level : Int?
+  stable : Bool
+  source : PdfV2HeadingLevelEvidenceSource
+  confidence : Double
+  reason_tags : Array[String]
+}
+
+pub(all) enum PdfV2HeadingLevelEvidenceSource {
+  ExplicitMarker
+  NumberedSectionDepth
+  PriorHeadingSectionContext
+  PageBoundarySectionContext
+  ConservativeFallback
+} derive(Eq)
+
+pub(all) struct PdfV2HeadingTitleEvidence {
+  page_index : Int?
+  block_index : Int?
+  source_refs : Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2SourceRef]
+  parser_fact_backed : Bool
+  title_shape : Bool
+  common_section_label : Bool
+  section_context_label : Bool
+  document_lead_context : Bool
+  page_boundary_context : Bool
+  short_text_risk : Bool
+  sentence_like_risk : Bool
+  body_continuation_risk : Bool
+  list_marker_nearby_risk : Bool
+  stable_parser_heading_candidate : Bool
+  stable_list_section_heading_candidate : Bool
+  title_body : PdfV2TitleBodyEvidence
+  level_evidence : PdfV2HeadingLevelEvidence
+  confidence : Double
+  reason_tags : Array[String]
+  blockers : Array[String]
+}
+
 pub(all) struct PdfV2LoweredBlockFragment {
   text : String
   decision : PdfV2BlockDecision
@@ -750,6 +789,18 @@ pub(all) struct PdfV2TextFlowUnit {
   source_refs : Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2SourceRef]
   reason_tags : Array[String]
   signals : PdfV2TextFlowSignals
+}
+
+pub(all) struct PdfV2TitleBodyEvidence {
+  parser_structure_boundary : Bool
+  title_body_boundary : Bool
+  parser_heading_split : Bool
+  body_flow_candidate : Bool
+  has_following_body : Bool
+  stable_title_boundary : Bool
+  confidence : Double
+  reason_tags : Array[String]
+  blockers : Array[String]
 }
 
 // Type aliases
