@@ -758,3 +758,24 @@ tests unchanged.
     changed.
   - future adapter code should live under quality-lab adapter/audit tooling so
     public `moon test` and conversion paths stay independent.
+
+## Reset 17A Parser/Layout-backed Parity Facts
+
+Reset 17A adds parser-side fact scaffolding only. `convert/pdf_v2` does not
+consume the new facts by default.
+
+- New parser API available for future opt-in callers:
+  - `pdf_v2_parity_facts_from_model(model)`.
+- Product boundary:
+  - product bridge, pipeline, and fact lowerer have a static test guard against
+    calling the new fact builder.
+  - no Markdown output, metadata sidecar, samples expected, fallback, model
+    loading, runtime inference, quality-lab dependency, or training changed.
+- Future use:
+  - cross-page facts can feed future `BoundaryRow` export and boundary
+    arbitration.
+  - image-text facts can feed future adjacency/caption rows.
+  - header/footer variant and heading-boundary facts can feed audit rows before
+    replacing bridge heuristics.
+  - column layout facts can feed future reading-order/layout rows once geometry
+    and review labels mature.

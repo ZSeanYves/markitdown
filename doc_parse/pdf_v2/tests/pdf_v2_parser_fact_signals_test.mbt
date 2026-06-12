@@ -191,6 +191,16 @@ fn reset8_block(
 }
 
 ///|
+fn reset17_block_with_bbox(
+  page_index : Int,
+  block_index : Int,
+  lines : Array[@pdfv2.PdfV2LineCandidate],
+  bbox : @pdfv2.PdfV2BBox?,
+) -> @pdfv2.PdfV2BlockCandidate {
+  { ..reset8_block(page_index, block_index, lines), bbox, }
+}
+
+///|
 fn reset8_lines_from_blocks(
   blocks : Array[@pdfv2.PdfV2BlockCandidate],
 ) -> Array[@pdfv2.PdfV2LineCandidate] {
@@ -233,6 +243,55 @@ fn reset8_page(
     page_risks: [],
     text_blocks: [],
     layout_regions: [],
+  }
+}
+
+///|
+fn reset17_image_ref(
+  page_index : Int,
+  order : Int,
+  object_ref : String,
+) -> @pdfv2.PdfV2SourceRef {
+  {
+    page_index: Some(page_index),
+    object_id: Some(object_ref),
+    stream_index: Some(0),
+    op_index: Some(order),
+    content_order_index: Some(order),
+    kind: @pdfv2.PdfV2SourceKind::Image,
+  }
+}
+
+///|
+fn reset17_image(
+  page_index : Int,
+  order : Int,
+  object_ref : String,
+  bbox : @pdfv2.PdfV2BBox?,
+) -> @pdfv2.PdfV2ImageCandidate {
+  let source_ref = reset17_image_ref(page_index, order, object_ref)
+  {
+    page_index: Some(page_index),
+    object_ref: Some(object_ref),
+    width: Some(640),
+    height: Some(360),
+    color_space: Some("/DeviceRGB"),
+    bits_per_component: Some(8),
+    filters: ["/DCTDecode"],
+    image_mask: None,
+    mask_present: false,
+    smask_present: false,
+    inline: false,
+    bbox,
+    nesting: None,
+    placement: None,
+    caption: None,
+    source_ref,
+    warnings: [],
+    risks: [],
+    reason_tags: ["image_candidate"],
+    decode_status: @pdfv2.PdfV2ImageDecodeStatus::DecodeAvailable,
+    asset: None,
   }
 }
 
@@ -614,4 +673,137 @@ test "pdf v2 line signals recognize standalone page number variants" {
   assert_true(fraction.starts_with_page_number)
   assert_true(cjk_fraction.starts_with_page_number)
   assert_true(!chapter.starts_with_page_number)
+}
+
+///|
+test "pdf v2 parity facts expose cross-page and heading risks without product behavior" {
+  let first = reset8_page(0, [
+    reset8_block(0, 0, [reset8_line(0, 0, "This sentence continues")]),
+  ])
+  let second = reset8_page(1, [
+    reset8_block(1, 0, [reset8_line(1, 0, "onto the next page.")]),
+    reset8_block(1, 1, [reset8_line(1, 1, "Short Heading")]),
+  ])
+  let facts = @pdfv2.pdf_v2_parity_facts_from_model(
+    reset8_model([first, second]),
+  )
+
+  assert_true(facts.cross_page_boundaries.length() == 1)
+  let boundary = facts.cross_page_boundaries[0]
+  assert_true(boundary.page_from == 0)
+  assert_true(boundary.page_to == 1)
+  assert_true(boundary.prev_open_ended)
+  assert_true(boundary.confidence >= 0.50)
+  assert_true(boundary.reason_tags.contains("cross_page_boundary_fact"))
+  assert_true(boundary.source_refs.length() >= 2)
+
+  let mut short_heading_seen = false
+  for fact in facts.heading_boundaries {
+    if fact.block_ref == Some(1) {
+      short_heading_seen = true
+      assert_true(fact.short_text_risk)
+      assert_true(fact.font_layout_evidence == "layout_score_only")
+      assert_true(fact.reason_tags.contains("heading_boundary_fact"))
+    }
+  }
+  assert_true(short_heading_seen)
+  assert_true(facts.reason_tags.contains("not_product_behavior"))
+}
+
+///|
+test "pdf v2 parity facts expose image text boundary and unknown geometry" {
+  let caption = reset8_block(0, 0, [
+    reset8_line(0, 6, "Figure 1 System diagram"),
+  ])
+  let page = {
+    ..reset8_page(0, [caption]),
+    images: [reset17_image(0, 5, "9 0 R", None)],
+  }
+  let facts = @pdfv2.pdf_v2_parity_facts_from_model(reset8_model([page]))
+
+  assert_true(facts.image_text_boundaries.length() == 1)
+  let image_fact = facts.image_text_boundaries[0]
+  assert_true(image_fact.image_ref == "9 0 R")
+  assert_true(image_fact.caption_candidate)
+  assert_true(image_fact.relation == @pdfv2.PdfV2ParityTextRelation::After)
+  assert_true(image_fact.distance == "unknown")
+  assert_true(image_fact.page_band == @pdfv2.PdfV2ParityVerticalBand::Unknown)
+  assert_true(image_fact.confidence >= 0.60)
+  assert_true(image_fact.reason_tags.contains("image_geometry_unknown"))
+  assert_true(image_fact.source_refs.length() >= 2)
+}
+
+///|
+test "pdf v2 parity facts expose repeated header footer variants" {
+  let first = reset8_page(0, [
+    reset8_block(0, 0, [reset8_top_line(0, 0, "Confidential 1")]),
+    reset8_block(0, 1, [reset8_bottom_line(0, 1, "draft footer")]),
+  ])
+  let second = reset8_page(1, [
+    reset8_block(1, 0, [reset8_top_line(1, 0, "Confidential 2")]),
+    reset8_block(1, 1, [reset8_bottom_line(1, 1, "draft footer")]),
+  ])
+  let facts = @pdfv2.pdf_v2_parity_facts_from_model(
+    reset8_model([first, second]),
+  )
+
+  let mut footer_seen = false
+  let mut header_variant_seen = false
+  for fact in facts.header_footer_variants {
+    if fact.repeated_text_cluster == "draft footer" {
+      footer_seen = true
+      assert_true(fact.normalized_key == "draft footer")
+      assert_true(fact.page_positions == [0, 1])
+      assert_true(fact.page_coverage_ratio == 1.0)
+      assert_true(fact.position_band == @pdfv2.PdfV2ParityVerticalBand::Bottom)
+      assert_true(fact.reason_tags.contains("header_footer_variant_fact"))
+    }
+    if fact.normalized_key == "confidential #" {
+      header_variant_seen = true
+      assert_true(fact.repeated_text_cluster.contains("Confidential 1"))
+      assert_true(fact.repeated_text_cluster.contains("Confidential 2"))
+      assert_true(fact.page_positions == [0, 1])
+      assert_true(fact.position_band == @pdfv2.PdfV2ParityVerticalBand::Top)
+      assert_true(fact.reason_tags.contains("edge_variant_cluster"))
+    }
+  }
+  assert_true(footer_seen)
+  assert_true(header_variant_seen)
+}
+
+///|
+test "pdf v2 parity facts mark column layout unknown before geometry is reliable" {
+  let unknown_page = reset8_page(0, [
+    reset8_block(0, 0, [reset8_line(0, 0, "Left column maybe")]),
+    reset8_block(0, 1, [reset8_line(0, 1, "Right column maybe")]),
+  ])
+  let known_page = reset8_page(1, [
+    reset17_block_with_bbox(
+      1,
+      0,
+      [reset8_line(1, 0, "Left column")],
+      Some({ x0: 40.0, y0: 600.0, x1: 240.0, y1: 620.0 }),
+    ),
+    reset17_block_with_bbox(
+      1,
+      1,
+      [reset8_line(1, 1, "Right column")],
+      Some({ x0: 360.0, y0: 600.0, x1: 560.0, y1: 620.0 }),
+    ),
+  ])
+  let facts = @pdfv2.pdf_v2_parity_facts_from_model(
+    reset8_model([unknown_page, known_page]),
+  )
+
+  assert_true(facts.column_layouts.length() == 2)
+  assert_true(facts.column_layouts[0].detected_column_count == "unknown")
+  assert_true(facts.column_layouts[0].ambiguity_flag)
+  assert_true(
+    facts.column_layouts[0].reason_tags.contains("column_geometry_unknown"),
+  )
+  assert_true(facts.column_layouts[1].detected_column_count == "2")
+  assert_true(facts.column_layouts[1].column_assignments == ["left", "right"])
+  assert_true(
+    facts.column_layouts[1].reason_tags.contains("two_column_candidate"),
+  )
 }

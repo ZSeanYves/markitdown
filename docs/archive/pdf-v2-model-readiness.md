@@ -454,3 +454,30 @@ Quality-lab was read for conventions only and remains unchanged.
   - artifact/adjacency parser facts are evidence, not labels.
   - no reviewed splits, bbox policy, adapter confidence policy, heldout gate,
     populated layout-region rows, or reading-order rows.
+
+## 16. Reset 17A Parser/Layout-backed Parity Facts
+
+Reset 17A improves model-readiness inputs but does not make training ready.
+
+- New parser-side facts:
+  - `PdfV2CrossPageBoundaryFact`.
+  - `PdfV2ImageTextBoundaryFact`.
+  - `PdfV2HeaderFooterVariantFact`.
+  - `PdfV2HeadingBoundaryFact`.
+  - `PdfV2ColumnLayoutFact`.
+- Readiness improvement:
+  - remaining parity buckets now have typed source refs, confidence values,
+    and reason tags before any product behavior change.
+  - image/caption, cross-page, heading-risk, header/footer-variant, and
+    two-column evidence can be exported or audited later without inventing
+    labels.
+- Still blocked:
+  - facts are parser evidence, not gold labels.
+  - image distance and column/read-order facts are still partial when geometry
+    is missing.
+  - reviewed labels, grouped splits, quality-lab adapter gates, and heldout
+    reports are still absent.
+- Runtime boundary:
+  - no product Markdown, metadata sidecar, sample expected, normalizer patch,
+    semantic string patch, model loading, runtime inference, or training
+    changed.

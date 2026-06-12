@@ -902,3 +902,30 @@ quality-lab adapter mapping was audited as a documentation-only dry-run.
 - Boundary:
   - no parser output, product output, quality-lab dependency, training,
     runtime inference, generated dataset, or sample expectation changed.
+
+## Reset 17A Parser/Layout-backed Parity Facts
+
+Reset 17A adds opt-in parser/layout parity facts without changing parser
+runtime output, product Markdown, metadata sidecars, samples, fallback, model
+loading, or training.
+
+- New opt-in API:
+  - `pdf_v2_parity_facts_from_model(model)`.
+- New fact families:
+  - `PdfV2CrossPageBoundaryFact` for adjacent text-flow pairs that cross pages.
+  - `PdfV2ImageTextBoundaryFact` for image/inline-image nearby text, caption,
+    title-nearby, source-order, and geometry-availability evidence.
+  - `PdfV2HeaderFooterVariantFact` for exact page-artifact clusters and edge
+    text variants such as page-numbered headers.
+  - `PdfV2HeadingBoundaryFact` for short-text, sentence-like, numbering, and
+    continuation risks around heading candidates.
+  - `PdfV2ColumnLayoutFact` for source-order reading confidence, unknown
+    geometry, and two-column candidate flags.
+- Remaining parser gaps:
+  - visual distances are still `unknown` when bbox/placement is unavailable.
+  - column facts are scaffolded and do not perform full reading-order recovery.
+  - boundary, heading, caption, and adjacency labels remain unreviewed.
+- Boundary:
+  - convert/product code does not call the new fact builder.
+  - facts are intended for future dataset export, quality-lab adapters, and
+    semantic arbitration experiments, not current product behavior.

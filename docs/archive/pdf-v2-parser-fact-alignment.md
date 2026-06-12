@@ -1018,3 +1018,38 @@ conventions were inspected read-only, and no parser/export code changed.
   - no parser output, product output, model loading, training, quality-lab
     dependency, generated dataset, or DocLayNet-to-Markdown direct label
     mapping was introduced.
+
+## Reset 17A Parser/Layout-backed Facts For Remaining Gaps
+
+Reset 17A adds typed parser/model fact scaffolding for the remaining parity
+gap families. The facts are opt-in through `pdf_v2_parity_facts_from_model` and
+are not wired into product conversion.
+
+| fact | current evidence | targeted remaining gaps | current blocker |
+| --- | --- | --- | --- |
+| `PdfV2CrossPageBoundaryFact` | adjacent text-flow candidates across page indices, source refs, punctuation/open-ended evidence, marker evidence, attached artifact refs | cross-page merge vs split | no reviewed boundary labels and limited vertical gap/font facts |
+| `PdfV2ImageTextBoundaryFact` | image/inline-image refs, source order, optional bbox/placement, attached caption candidate, nearby text refs | image placement, caption, nearby heading | true distance remains `unknown` without bbox/placement and labels are unreviewed |
+| `PdfV2HeaderFooterVariantFact` | page artifact candidates plus edge-line normalized-key grouping for numbered variants | header/footer variants | fuzzy variants and body-fused artifacts still need review |
+| `PdfV2HeadingBoundaryFact` | text-flow boundary scores, line signals, short-text risk, sentence-like risk, marker evidence, continuation score | heading false positives and heading vs short sentence | no font/style deltas or reviewed heading labels |
+| `PdfV2ColumnLayoutFact` | page block refs, optional bbox column assignment, source-order confidence, ambiguity flags | two-column ordering | full reading-order recovery, column ids, and layout-region rows remain missing |
+
+Implementation boundary:
+
+- no normalizer patch, semantic string-shape patch, Method/CJK/ligature
+  special case, sample expected update, v1 fallback, model loading, runtime
+  inference, training, or quality-lab modification.
+- facts preserve source refs and stable reason tags.
+- unknown or insufficient evidence remains explicit, for example
+  `image_geometry_unknown`, `nearby_text_unknown`, and
+  `column_geometry_unknown`.
+- product bridge, pipeline, and fact lowerer do not call the new builder.
+
+Future export/arbitration mapping:
+
+- cross-page facts can enrich `BoundaryRow`.
+- image-text facts can enrich `AdjacencyRow` and future caption rows.
+- header/footer variant facts can enrich `ArtifactRow`.
+- heading-boundary facts can enrich `TextFlowRow` risk tags and future
+  semantic arbitration.
+- column layout facts can feed future `ReadingOrderRow` once geometry and
+  review labels mature.

@@ -1608,3 +1608,30 @@ conventions without creating a default workflow.
 - Remaining parity learning blockers:
   - no gold labels, no populated layout-region/read-order rows, incomplete
     geometry/font/column facts, and no quality-lab-side adapter gate.
+
+## Reset 17A Parser/Layout-backed Parity Facts
+
+Reset 17A adds parser-side facts for the remaining parity gap families and
+keeps main-chain output unchanged.
+
+- Facts added:
+  - `PdfV2CrossPageBoundaryFact` targets cross-page merge/split decisions.
+  - `PdfV2ImageTextBoundaryFact` targets image placement, captions, and nearby
+    headings.
+  - `PdfV2HeaderFooterVariantFact` targets repeated and numbered edge
+    header/footer variants.
+  - `PdfV2HeadingBoundaryFact` targets heading false positives and short
+    sentence ambiguity.
+  - `PdfV2ColumnLayoutFact` targets two-column ordering risk and source-order
+    confidence.
+- Product path impact:
+  - no Markdown output, metadata sidecar, sample expected, fallback,
+    normalizer patch, semantic string patch, model, training hook, generated
+    dataset, or quality-lab invocation changed.
+  - convert tests guard that product bridge, pipeline, and fact lowerer do not
+    call `pdf_v2_parity_facts_from_model`.
+- Remaining blockers:
+  - facts are not labels.
+  - true visual distances, full column/read-order ids, font/style deltas,
+    layout-region rows, review labels, and quality-lab gates remain future
+    work.
