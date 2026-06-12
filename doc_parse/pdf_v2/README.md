@@ -739,3 +739,36 @@ handling of existing parser text facts.
 - No OCR, image-table recovery, full layout recovery, annotation/form/outline
   expansion, fallback, vendor runtime change, model loading/training, or
   external data access was added.
+
+## Reset 15R Anti-Patch Audit And Model Readiness
+
+Reset 15R confirms that the parser fact layer is suitable for an offline
+dataset export design, but not yet for training or runtime model integration.
+It does not add parser capabilities.
+
+- Why the audit was needed:
+  - Reset 14 and Reset 15A improved parity through product-side text
+    normalization and semantic rules.
+  - several remaining gaps need parser/model facts rather than more downstream
+    string patches.
+- Patch smell findings:
+  - high-risk product-side logic includes exact ligature-token repair,
+    heading-tail/body splitting, repeated artifact filtering after text
+    assembly, English lexical body-merge cues, and cross-page continuation
+    decisions without enough geometry.
+  - medium-risk logic includes CJK punctuation hardwrap, mixed CJK/short-ASCII
+    continuation, and narrow heading/body negative guards.
+- Parser responsibility alignment:
+  - `PdfV2LineTextSignal`, `PdfV2BlockBoundarySignal`,
+    `PdfV2TextFlowCandidate`, `PdfV2PageArtifactCandidate`,
+    `PdfV2TableCandidate`, image placement/nesting facts, feature rows,
+    confidence values, source refs, and reason tags are the right export
+    foundation.
+  - missing parser/model evidence includes stable row-level labels, vertical
+    gaps, font-size relation, column/read-order ids, and quality-lab splits.
+- Model readiness conclusion:
+  - ready for non-runtime export schema/scaffold work.
+  - not ready for training, runtime inference, or model arbitration.
+- Next action:
+  - run an audit cleanup pass before dataset export so weak labels do not
+    silently encode normalizer patches as gold behavior.

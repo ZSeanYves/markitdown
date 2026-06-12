@@ -829,3 +829,40 @@ parser/layout evidence.
     `.tmp/check/runs/pdf-20260612-194340-71480`.
   - assets-only: stayed 3 failures, final run
     `.tmp/check/runs/pdf-20260612-194340-71483`.
+
+## Reset 15R Anti-Patch Audit And Model Readiness
+
+Reset 15R is a responsibility audit over the Reset 14 and Reset 15A
+productization fixes. It adds no parser facts and changes no runtime behavior.
+
+- Why it was needed:
+  - recent parity improvements increasingly relied on normalizer and semantic
+    string rules.
+  - without an audit, future resets could turn sample-shaped fixes into an
+    implicit training target.
+- Patch smell findings:
+  - the normalizer now owns too much boundary and artifact judgment: CJK/decimal
+    heading-tail splits, repeated artifact suppression, English lexical
+    body-merge cues, exact ligature repair, and cross-page continuation.
+  - semantic rules are the better home for heading/list decisions, but common
+    section-label and inline CJK body-marker rules still need parser-backed
+    neighborhood facts before further expansion.
+- Keep/move/revisit:
+  - keep parser-owned line/block/text-flow/page-artifact/table/image facts as
+    the source of evidence.
+  - move future boundary decisions toward `PdfV2BlockBoundarySignal` and
+    `PdfV2TextFlowCandidate`.
+  - move repeated header/footer suppression toward
+    `PdfV2PageArtifactCandidate` and an artifact classifier.
+  - revisit exact string repairs before exporting weak labels.
+- Current model readiness:
+  - available signals include source refs, decode and geometry confidence,
+    line text signals, block boundary scores, page artifact candidates, table
+    candidates, image placement/nesting facts, feature rows, rule decisions,
+    confidence values, and reason tags.
+  - missing signals include stable gold labels, dev/test splits, complete
+    geometry, vertical gaps, font-size relation, column/read-order ids, and
+    quality-lab integration.
+- Next recommended action:
+  - prefer `Reset 15B-AuditCleanup`, followed by a non-runtime
+    `Reset 16 Dataset Export Scaffold`.

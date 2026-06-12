@@ -570,3 +570,35 @@ failures.
     sidecar schema change, public `object_ref` reintroduction, OCR/image-table
     recovery, full layout recovery, model loading/training, or external data
     access.
+
+## Reset 15R Anti-Patch Audit And Model Readiness
+
+Reset 15R reviews the Reset 14 and Reset 15A productization rules without
+changing convert behavior.
+
+- Why it was needed:
+  - convert has been carrying parity bridges while parser facts mature.
+  - the normalizer is beginning to own boundary, artifact, heading-tail, and
+    cross-page decisions that should become parser/model evidence.
+- Patch smell findings:
+  - exact `di ff erent` repair and English lexical body-merge cues are
+    high-risk string patches.
+  - CJK/decimal heading-tail splitting and cross-page continuation should be
+    represented as boundary facts or model features.
+  - repeated artifact suppression should be driven by parser page-artifact
+    candidates rather than paragraph text after joining.
+  - common section-label and inline CJK body-marker rules are better placed in
+    semantic rules than the normalizer, but still need export visibility.
+- Keep/move/revisit:
+  - keep current Reset 14/15A behavior as temporary bridge behavior.
+  - do not add more normalizer/semantic string patches before cleanup/export.
+  - move boundary and artifact choices toward parser facts plus offline model
+    rows.
+- Model readiness conclusion:
+  - convert has useful weak labels through semantic rule decisions, confidence,
+    reason tags, risk tags, and output alignment.
+  - there is no stable gold dataset, dev/test split, quality-lab gate, or real
+    model hint path ready for runtime use.
+- Next action:
+  - prefer `Reset 15B-AuditCleanup`; then add a non-runtime dataset export
+    scaffold with weak-label and risk-tag fields.

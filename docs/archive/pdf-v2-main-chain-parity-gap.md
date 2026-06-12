@@ -1424,3 +1424,34 @@
     image-table recovery, full layout recovery, diagnostics text, metadata
     sidecar schema change, public `object_ref` reintroduction, external
     model/data access, or training hook was added.
+
+## Reset 15R Anti-Patch Audit And Model Readiness
+
+Reset 15R was needed because Reset 14 and Reset 15A reduced visible parity gaps
+with useful but increasingly string-shaped product rules. The audit stops the
+failure-count chase and records which fixes are safe bridges, which belong in
+parser/model facts, and why direct training would be premature.
+
+- Patch smell findings:
+  - high risk: exact `di ff erent` repair, English lexical body-merge cues,
+    CJK/decimal heading-tail splitting in the normalizer, and cross-page
+    continuation decisions based mostly on punctuation/page indices.
+  - medium risk: CJK punctuation hardwrap, mixed CJK/short-uppercase term
+    continuation, common section-label heading inference, and inline CJK
+    body-marker heading negatives.
+  - lower risk: carrying page/block provenance through normalized lines and
+    using parser-backed list/artifact scores as bridge evidence.
+- Keep/move/revisit:
+  - keep Reset 14/15A as temporary parity bridges; do not revert wholesale.
+  - move boundary, heading-tail, repeated-artifact, and cross-page decisions
+    toward parser-owned `TextFlowCandidate`, `BlockBoundarySignal`,
+    `PageArtifactCandidate`, and later offline classifiers.
+  - revisit exact token repair and English lexical merge before any dataset
+    labels treat current product output as gold.
+- Model readiness conclusion:
+  - current facts are useful for offline export and weak-label analysis.
+  - current labels and geometry are not sufficient for production training,
+    runtime inference, or model arbitration.
+- Next recommended action:
+  - run `Reset 15B-AuditCleanup` first to tag or contain high-risk bridge
+    rules, then proceed to `Reset 16 Dataset Export Scaffold`.
