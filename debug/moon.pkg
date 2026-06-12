@@ -5,6 +5,7 @@ import {
   "ZSeanYves/markitdown/convert/epub" @epubconv,
   "ZSeanYves/markitdown/convert/pdf" @pdfconv,
   "ZSeanYves/markitdown/convert/pdf_debug" @pdfdebug,
+  "ZSeanYves/markitdown/convert/pdf_v2" @pdfv2conv,
   "ZSeanYves/markitdown/convert/xlsx",
   "ZSeanYves/markitdown/convert/zip" @zipconv,
   "ZSeanYves/markitdown/doc_parse/epub" @epubpkg,

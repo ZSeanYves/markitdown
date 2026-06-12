@@ -120,6 +120,49 @@ async test "debug inspect report includes layout assist advisory predictions" {
 }
 
 ///|
+async test "debug pdf v2 trace report surfaces cross page sections in json" {
+  let input = debug_resolve_sample(
+    "samples/main_process/pdf/pdf_cross_page_paragraph.pdf",
+  )
+  let pipeline_options = @pdfv2conv.default_pdf_v2_convert_pipeline_options()
+  let bridge_options = {
+    ..@pdfv2conv.default_pdf_v2_product_bridge_options(),
+    source_name: Some("pdf_cross_page_paragraph.pdf"),
+  }
+  let report = @pdfv2conv.pdf_v2_target_signal_trace_from_path(
+      input, pipeline_options, bridge_options,
+    )
+    |> unwrap_trace_or_fail("build pdf v2 trace report failed")
+
+  let rendered = @pdfv2conv.pdf_v2_target_signal_trace_to_json(report)
+  debug_assert_contains(rendered, "\"source_name\":")
+  debug_assert_contains(rendered, "\"selection\":")
+  debug_assert_contains(rendered, "\"boundaries\":")
+  debug_assert_contains(rendered, "\"heading_traces\":")
+}
+
+///|
+async test "debug pdf v2 trace report surfaces cross page sections in text" {
+  let input = debug_resolve_sample(
+    "samples/main_process/pdf/pdf_cross_page_should_not_merge_phase15.pdf",
+  )
+  let pipeline_options = @pdfv2conv.default_pdf_v2_convert_pipeline_options()
+  let bridge_options = {
+    ..@pdfv2conv.default_pdf_v2_product_bridge_options(),
+    source_name: Some("pdf_cross_page_should_not_merge_phase15.pdf"),
+  }
+  let report = @pdfv2conv.pdf_v2_target_signal_trace_from_path(
+      input, pipeline_options, bridge_options,
+    )
+    |> unwrap_trace_or_fail("build pdf v2 trace text report failed")
+
+  let rendered = @pdfv2conv.pdf_v2_target_signal_trace_to_text(report)
+  debug_assert_contains(rendered, "pdf-v2 target signal trace")
+  debug_assert_contains(rendered, "selection_path=")
+  debug_assert_contains(rendered, "[boundary")
+}
+
+///|
 async test "debug inspect report works for zip" {
   let input = debug_resolve_sample(
     "samples/main_process/zip/zip_basic_structured.zip",
@@ -219,6 +262,17 @@ fn unwrap_or_fail(
   match result {
     Ok(report) => report
     Err(err) => fail(message + ": " + err)
+  }
+}
+
+///|
+fn unwrap_trace_or_fail(
+  result : Result[@pdfv2conv.PdfV2TargetSignalTraceReport, @cor.AppError],
+  message : String,
+) -> @pdfv2conv.PdfV2TargetSignalTraceReport raise {
+  match result {
+    Ok(report) => report
+    Err(err) => fail(message + ": " + err.to_string())
   }
 }
 

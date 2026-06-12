@@ -62,6 +62,12 @@ pub fn pdf_v2_policy_keeps_uncertain_text(PdfV2MarkdownPolicy) -> Bool
 
 pub fn pdf_v2_run_no_model_block_gate(@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2FeatureSet, PdfV2NoModelGateOptions) -> PdfV2GateResult
 
+pub fn pdf_v2_target_signal_trace_from_path(String, PdfV2ConvertPipelineOptions, PdfV2ProductBridgeOptions) -> Result[PdfV2TargetSignalTraceReport, @core.AppError]
+
+pub fn pdf_v2_target_signal_trace_to_json(PdfV2TargetSignalTraceReport) -> String
+
+pub fn pdf_v2_target_signal_trace_to_text(PdfV2TargetSignalTraceReport) -> String
+
 // Errors
 
 // Types and methods
@@ -580,6 +586,119 @@ pub(all) enum PdfV2SemanticDisagreementPolicy {
   RuleHardConstraintsFirst
   RuleOnly
 } derive(Eq)
+
+pub(all) struct PdfV2SignalTraceBoundary {
+  page_from : Int
+  page_to : Int
+  parser_prev_block : PdfV2SignalTraceParserBlockPreview?
+  parser_next_block : PdfV2SignalTraceParserBlockPreview?
+  candidate_pair_adjacent : Bool
+  candidate_prev : PdfV2SignalTraceCandidatePreview?
+  candidate_next : PdfV2SignalTraceCandidatePreview?
+  cross_page_fact : @ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2CrossPageBoundaryFact?
+  heading_facts : Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2HeadingBoundaryFact]
+  baseline_candidate_pair : PdfV2SignalTraceSemanticPair?
+  selected_pair : PdfV2SignalTraceSemanticPair?
+  structural_handoff : PdfV2CrossPageStructuralHandoff?
+  title_body_boundary_evidence : Bool
+  next_list_marker_evidence : Bool
+  selection_path : PdfV2SignalTraceSelectionPath
+  candidate_backed_emission : Bool
+  fragment_path_used : Bool
+  loss_layer : PdfV2SignalTraceLossLayer
+  reason_tags : Array[String]
+}
+
+pub(all) struct PdfV2SignalTraceCandidatePreview {
+  page_index : Int?
+  block_index : Int?
+  flow_index : Int
+  line_indices : Array[Int]
+  text : String
+  normalized_text : String
+  source_refs : Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2SourceRef]
+  reason_tags : Array[String]
+  starts_with_list_marker : Bool
+  title_body_boundary_evidence : Bool
+}
+
+pub(all) struct PdfV2SignalTraceHeading {
+  page_index : Int?
+  block_ref : Int?
+  line_refs : Array[Int]
+  text : String
+  confidence : Double
+  reason_tags : Array[String]
+  semantic_preview : PdfV2SignalTraceSemanticPreview?
+  accepted_as_heading : Bool
+}
+
+pub(all) enum PdfV2SignalTraceLossLayer {
+  NoLossDetected
+  ParserModelExtractionLoss
+  ParserCandidateFactLoss
+  SemanticCandidateBlockLoss
+  StructuralHandoffGateRejection
+  BridgeLoweringPathLoss
+  ExpectedOutputNotOwnedByStructuralHandoff
+} derive(Eq)
+
+pub(all) struct PdfV2SignalTraceParserBlockPreview {
+  page_index : Int?
+  block_index : Int
+  text : String
+  lines : Array[String]
+  source_refs : Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2SourceRef]
+  reason_tags : Array[String]
+}
+
+pub(all) struct PdfV2SignalTraceSelection {
+  path : PdfV2SignalTraceSelectionPath
+  candidate_semantic_mode : Bool
+  structural_handoff_candidate_mode : Bool
+  candidate_backed_emission : Bool
+}
+
+pub(all) enum PdfV2SignalTraceSelectionPath {
+  CandidateStructuralHandoff
+  CandidateCrossPageArbitration
+  CandidateSemanticActionableTextFlow
+  FragmentCrossPageArbitration
+  FragmentSemanticFallback
+  SemanticRulesDisabled
+} derive(Eq)
+
+pub(all) struct PdfV2SignalTraceSemanticPair {
+  left : PdfV2SignalTraceSemanticPreview
+  right : PdfV2SignalTraceSemanticPreview
+}
+
+pub(all) struct PdfV2SignalTraceSemanticPreview {
+  kind : PdfV2SemanticBlockKind
+  text : String
+  level : Int?
+  page_index : Int?
+  block_index : Int?
+  fragment_index : Int
+  source_refs : Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2SourceRef]
+  reason_tags : Array[String]
+  negative_reason_tags : Array[String]
+}
+
+pub(all) struct PdfV2TargetSignalTraceReport {
+  source_name : String
+  page_count : Int
+  cross_page_fact_count : Int
+  heading_fact_count : Int
+  candidate_semantic_block_count : Int
+  selected_semantic_block_count : Int
+  selection : PdfV2SignalTraceSelection
+  boundaries : Array[PdfV2SignalTraceBoundary]
+  heading_traces : Array[PdfV2SignalTraceHeading]
+  candidate_semantic_blocks : Array[PdfV2SignalTraceSemanticPreview]
+  selected_semantic_blocks : Array[PdfV2SignalTraceSemanticPreview]
+  notes : Array[String]
+}
 
 pub(all) struct PdfV2TextFlowMarker {
   kind : PdfV2TextFlowMarkerKind

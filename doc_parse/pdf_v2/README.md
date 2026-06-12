@@ -1046,3 +1046,46 @@ Reset 17E changes the convert-side consumer, not parser fact generation.
   - improve parser/candidate evidence for page-boundary title/body and
     heading/list separation first.
   - do not lower thresholds broadly or add string-specific patches.
+
+## Reset 17F Target Sample Signal Trace Follow-up
+
+Reset 17F keeps parser extraction unchanged and adds only an opt-in
+convert-side trace consumer for repo-local audits.
+
+- New trace surface:
+  - `pdf_v2_target_signal_trace_from_path(...)` summarizes parser block
+    previews, source refs, nearby text-flow candidates,
+    `PdfV2CrossPageBoundaryFact`, `PdfV2HeadingBoundaryFact`, list/title-body
+    evidence, `PdfV2CrossPageStructuralHandoff`, semantic blocks, and the final
+    bridge selection path.
+  - `moon run debug -- debug pdf-v2-trace <sample.pdf>` exposes the same report
+    locally without writing a persistent artifact.
+- What did not change:
+  - no new parser API.
+  - no new fact schema.
+  - no metadata sidecar rows.
+  - no quality-lab, training, or inference changes.
+- Repo-local June 13, 2026 trace outcome:
+  - `samples/check.sh --format pdf` still reports the same 10 Markdown
+    failures.
+  - the top-level sample wrapper may still print `rows=0`; the matching
+    `markdown-only.entrypoint.log` remains authoritative.
+  - no sample expected files changed.
+  - no product output changed in Reset 17F.
+- Target ownership matrix:
+  - `pdf_cross_page_paragraph`: one parser fact exists, but it points at a
+    repeated-artifact/page-number boundary, so the visible miss is still
+    parser/candidate-owned rather than a new handoff-threading bug.
+  - `pdf_cross_page_should_merge_phase15`: title/body structure is already
+    collapsed before semantic boundary preservation can own it.
+  - `pdf_cross_page_should_not_merge_phase15`: next-page heading/list structure
+    is already flattened before lowering, and the visible diff is therefore not
+    fixed by additional handoff gating.
+  - `pdf_heading_false_positive_phase15`: single-page non-cross-page structure
+    issue.
+  - `pdf_heading_vs_short_sentence`: single-page list/structure issue, not a
+    cross-page handoff issue.
+- Current recommendation:
+  - preserve 17E as-is.
+  - improve parser/candidate structure preservation before any future
+    page-boundary output change is considered.

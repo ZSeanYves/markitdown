@@ -153,6 +153,212 @@ fn semantic_test_cross_page_block(
 }
 
 ///|
+fn semantic_test_block_candidate(
+  page_index : Int,
+  block_index : Int,
+  text : String,
+  lines : Array[String],
+  source_refs : Array[@pdfv2.PdfV2SourceRef],
+  reason_tags : Array[String],
+) -> @pdfv2.PdfV2BlockCandidate {
+  let line_candidates : Array[@pdfv2.PdfV2LineCandidate] = []
+  for i in 0..<lines.length() {
+    let line_text = lines[i]
+    line_candidates.push({
+      page_index: Some(page_index),
+      line_index: i,
+      text: line_text,
+      spans: [],
+      source_refs,
+      decode_confidence: @pdfv2.PdfV2TextDecodeConfidence::High,
+      geometry_confidence: @pdfv2.PdfV2GeometryConfidence::Medium,
+      warnings: [],
+      reason_tags: ["semantic_test_line"],
+      merge_reason_tags: [],
+      break_reason_tags: [],
+      text_signal: @pdfv2.pdf_v2_build_line_text_signal(
+        line_text,
+        @pdfv2.PdfV2TextDecodeConfidence::High,
+        source_refs,
+        reason_tags,
+      ),
+      bbox: Some(@pdfv2.pdf_v2_empty_bbox()),
+      baseline: None,
+      writing_direction: @pdfv2.PdfV2WritingDirection::Unknown,
+      rotation: None,
+    })
+  }
+  {
+    page_index: Some(page_index),
+    block_index,
+    text,
+    lines: line_candidates,
+    source_refs,
+    decode_confidence: @pdfv2.PdfV2TextDecodeConfidence::High,
+    geometry_confidence: @pdfv2.PdfV2GeometryConfidence::Medium,
+    warnings: [],
+    reason_tags,
+    merge_reason_tags: [],
+    break_reason_tags: [],
+    boundary_signal: @pdfv2.pdf_v2_build_block_boundary_signal(
+      line_candidates,
+      reason_tags,
+      Some(@pdfv2.pdf_v2_empty_bbox()),
+    ),
+    bbox: Some(@pdfv2.pdf_v2_empty_bbox()),
+    writing_direction: @pdfv2.PdfV2WritingDirection::Unknown,
+    rotation: None,
+    block_kind_hint: @pdfv2.PdfV2BlockKindHint::TextLike,
+  }
+}
+
+///|
+fn semantic_test_text_flow_candidate(
+  page_index : Int,
+  block_index : Int,
+  flow_index : Int,
+  text : String,
+  line_indices : Array[Int],
+  source_refs : Array[@pdfv2.PdfV2SourceRef],
+  reason_tags : Array[String],
+) -> @pdfv2.PdfV2TextFlowCandidate {
+  let lines = if line_indices.length() == 0 { [0] } else { line_indices }
+  let line_signals : Array[@pdfv2.PdfV2LineTextSignal] = []
+  for _ in lines {
+    line_signals.push(
+      @pdfv2.pdf_v2_build_line_text_signal(
+        text,
+        @pdfv2.PdfV2TextDecodeConfidence::High,
+        source_refs,
+        reason_tags,
+      ),
+    )
+  }
+  {
+    page_index: Some(page_index),
+    block_index: Some(block_index),
+    flow_index,
+    line_indices: lines,
+    text,
+    normalized_text: text,
+    original_lines: [text],
+    normalized_lines: [text],
+    line_signals,
+    boundary_signal: @pdfv2.pdf_v2_build_block_boundary_signal(
+      [
+        semantic_test_block_candidate(
+          page_index,
+          block_index,
+          text,
+          [text],
+          source_refs,
+          reason_tags,
+        ).lines[0],
+      ],
+      reason_tags,
+      Some(@pdfv2.pdf_v2_empty_bbox()),
+    ),
+    artifact_refs: [],
+    source_refs,
+    reason_tags,
+  }
+}
+
+///|
+fn semantic_test_heading_fact(
+  page_index : Int,
+  block_ref : Int,
+  line_refs : Array[Int],
+  source_refs : Array[@pdfv2.PdfV2SourceRef],
+  confidence : Double,
+  reason_tags : Array[String],
+) -> @pdfv2.PdfV2HeadingBoundaryFact {
+  {
+    page_index: Some(page_index),
+    block_ref: Some(block_ref),
+    line_refs,
+    short_text_risk: reason_tags.contains("short_text_risk"),
+    sentence_like_risk: reason_tags.contains("sentence_like_risk"),
+    font_layout_evidence: "synthetic",
+    numbering_evidence: reason_tags.contains("numbering_evidence"),
+    body_continuation_evidence: reason_tags.contains(
+      "body_continuation_evidence",
+    ),
+    confidence,
+    reason_tags,
+    source_refs,
+  }
+}
+
+///|
+fn semantic_test_signal_trace_report(
+  source_name : String,
+  page_count : Int,
+  parser_blocks : Array[@pdfv2.PdfV2BlockCandidate],
+  candidates : Array[@pdfv2.PdfV2TextFlowCandidate],
+  cross_page_facts : Array[@pdfv2.PdfV2CrossPageBoundaryFact],
+  heading_facts : Array[@pdfv2.PdfV2HeadingBoundaryFact],
+  fragments : Array[PdfV2FactFragment],
+) -> PdfV2TargetSignalTraceReport {
+  pdf_v2_target_signal_trace_report({
+    source_name,
+    page_count,
+    parser_blocks,
+    candidates,
+    cross_page_facts,
+    heading_facts,
+    fragments,
+    bridge_options: semantic_test_options(),
+    selection_override: None,
+  })
+}
+
+///|
+fn semantic_test_signal_trace_report_with_override(
+  source_name : String,
+  page_count : Int,
+  parser_blocks : Array[@pdfv2.PdfV2BlockCandidate],
+  candidates : Array[@pdfv2.PdfV2TextFlowCandidate],
+  cross_page_facts : Array[@pdfv2.PdfV2CrossPageBoundaryFact],
+  heading_facts : Array[@pdfv2.PdfV2HeadingBoundaryFact],
+  fragments : Array[PdfV2FactFragment],
+  path : PdfV2SignalTraceSelectionPath,
+  candidate_semantic_mode : Bool,
+  selected_blocks : Array[PdfV2SemanticBlock],
+) -> PdfV2TargetSignalTraceReport {
+  pdf_v2_target_signal_trace_report({
+    source_name,
+    page_count,
+    parser_blocks,
+    candidates,
+    cross_page_facts,
+    heading_facts,
+    fragments,
+    bridge_options: semantic_test_options(),
+    selection_override: Some((path, candidate_semantic_mode, selected_blocks)),
+  })
+}
+
+///|
+fn semantic_test_trace_boundary(
+  report : PdfV2TargetSignalTraceReport,
+  page_from : Int,
+  page_to : Int,
+) -> PdfV2SignalTraceBoundary raise {
+  for boundary in report.boundaries {
+    if boundary.page_from == page_from && boundary.page_to == page_to {
+      return boundary
+    }
+  }
+  fail(
+    "expected trace boundary " +
+    page_from.to_string() +
+    "->" +
+    page_to.to_string(),
+  )
+}
+
+///|
 test "pdf v2 text flow records title body and source refs" {
   let fragments = [
     semantic_test_fragment(0, "Document Conversion Pipeline", 1),
@@ -474,6 +680,363 @@ test "pdf v2 structural handoff does not activate for heading like next page wit
   assert_true(!handoffs[0].should_join_paragraph)
   assert_true(!handoffs[0].should_preserve_heading_level)
   assert_true(!pdf_v2_has_cross_page_structural_handoff_candidate(handoffs))
+}
+
+///|
+test "pdf v2 target signal trace reports parser evidence present but semantic boundary missing" {
+  let left_ref = semantic_test_ref_for_page(0, 0)
+  let title_ref = semantic_test_ref_for_page(1, 10)
+  let body_ref = semantic_test_ref_for_page(1, 11)
+  let parser_blocks = [
+    semantic_test_block_candidate(
+      0,
+      0,
+      "The paragraph continues across the page",
+      ["The paragraph continues across the page"],
+      [left_ref],
+      ["semantic_test_parser_block"],
+    ),
+    semantic_test_block_candidate(
+      1,
+      0,
+      "Cross-page should merge",
+      ["Cross-page should merge"],
+      [title_ref],
+      ["heading_body_split", "heading_line_candidate"],
+    ),
+    semantic_test_block_candidate(
+      1,
+      1,
+      "This paragraph should stay as body text.",
+      ["This paragraph should stay as body text."],
+      [body_ref],
+      ["heading_body_split", "body_flow_candidate"],
+    ),
+  ]
+  let candidates = [
+    semantic_test_text_flow_candidate(
+      0,
+      0,
+      0,
+      "The paragraph continues across the page",
+      [0],
+      [left_ref],
+      ["text_flow_candidate", "block_flow_candidate"],
+    ),
+    semantic_test_text_flow_candidate(
+      1,
+      0,
+      1,
+      "Cross-page should merge",
+      [0],
+      [title_ref],
+      ["text_flow_candidate", "heading_body_split", "heading_line_candidate"],
+    ),
+    semantic_test_text_flow_candidate(
+      1,
+      1,
+      2,
+      "This paragraph should stay as body text.",
+      [1],
+      [body_ref],
+      ["text_flow_candidate", "heading_body_split", "body_flow_candidate"],
+    ),
+  ]
+  let fragments = [
+    semantic_test_fragment_for_page(
+      0, 0, "The paragraph continues across the page",
+    ),
+    semantic_test_fragment_for_page(1, 0, "Cross-page should merge"),
+    semantic_test_fragment_for_page(
+      1, 1, "This paragraph should stay as body text.",
+    ),
+  ]
+  let fact = semantic_test_cross_page_fact(0.72, [left_ref, title_ref])
+  let report = semantic_test_signal_trace_report(
+    "semantic_loss",
+    2,
+    parser_blocks,
+    candidates,
+    [fact],
+    [],
+    fragments,
+  )
+  let boundary = semantic_test_trace_boundary(report, 0, 1)
+
+  assert_true(boundary.cross_page_fact is Some(_))
+  assert_true(boundary.candidate_prev is Some(_))
+  assert_true(boundary.candidate_next is Some(_))
+  assert_true(boundary.baseline_candidate_pair is Some(_))
+  assert_true(
+    boundary.loss_layer == PdfV2SignalTraceLossLayer::SemanticCandidateBlockLoss,
+  )
+  assert_true(
+    boundary.reason_tags.contains(
+      "title_body_boundary_merged_before_semantic_boundary",
+    ),
+  )
+}
+
+///|
+test "pdf v2 target signal trace reports structural handoff present but bridge path not used" {
+  let left_ref = semantic_test_ref_for_page(0, 0)
+  let right_ref = semantic_test_ref_for_page(1, 1)
+  let parser_blocks = [
+    semantic_test_block_candidate(
+      0,
+      0,
+      "This section ends cleanly here.",
+      ["This section ends cleanly here."],
+      [left_ref],
+      ["semantic_test_parser_block"],
+    ),
+    semantic_test_block_candidate(
+      1,
+      0,
+      "## page 2 new section",
+      ["## page 2 new section"],
+      [right_ref],
+      ["semantic_test_parser_block", "inline_list_split"],
+    ),
+  ]
+  let candidates = [
+    semantic_test_text_flow_candidate(
+      0,
+      0,
+      0,
+      "This section ends cleanly here.",
+      [0],
+      [left_ref],
+      ["text_flow_candidate", "block_flow_candidate"],
+    ),
+    semantic_test_text_flow_candidate(
+      1,
+      0,
+      1,
+      "## page 2 new section",
+      [0],
+      [right_ref],
+      ["text_flow_candidate", "inline_list_split"],
+    ),
+  ]
+  let fragments = [
+    semantic_test_fragment_for_page(0, 0, "This section ends cleanly here."),
+    semantic_test_fragment_for_page(1, 0, "## page 2 new section"),
+  ]
+  let fact = semantic_test_cross_page_fact(0.72, [left_ref, right_ref])
+  let selected_blocks = pdf_v2_semantic_blocks_from_fragments_with_cross_page_facts(
+    fragments,
+    { ..semantic_test_options(), suppress_page_number_like_noise: false },
+    [],
+  )
+  let report = semantic_test_signal_trace_report_with_override(
+    "bridge_loss",
+    2,
+    parser_blocks,
+    candidates,
+    [fact],
+    [],
+    fragments,
+    PdfV2SignalTraceSelectionPath::FragmentCrossPageArbitration,
+    false,
+    selected_blocks,
+  )
+  let boundary = semantic_test_trace_boundary(report, 0, 1)
+
+  assert_true(boundary.structural_handoff is Some(_))
+  assert_true(boundary.selected_pair is Some(_))
+  assert_true(
+    boundary.loss_layer == PdfV2SignalTraceLossLayer::BridgeLoweringPathLoss,
+  )
+  assert_true(
+    boundary.reason_tags.contains(
+      "candidate_structural_handoff_path_not_selected",
+    ),
+  )
+}
+
+///|
+test "pdf v2 target signal trace reports parser candidate fact loss for missing source refs" {
+  let left_ref = semantic_test_ref_for_page(0, 0)
+  let right_ref = semantic_test_ref_for_page(1, 1)
+  let parser_blocks = [
+    semantic_test_block_candidate(
+      0,
+      0,
+      "The paragraph continues across the page",
+      ["The paragraph continues across the page"],
+      [left_ref],
+      ["semantic_test_parser_block"],
+    ),
+    semantic_test_block_candidate(
+      1,
+      0,
+      "break and resumes.",
+      ["break and resumes."],
+      [right_ref],
+      ["semantic_test_parser_block"],
+    ),
+  ]
+  let candidates = [
+    semantic_test_text_flow_candidate(
+      0,
+      0,
+      0,
+      "The paragraph continues across the page",
+      [0],
+      [left_ref],
+      ["text_flow_candidate", "block_flow_candidate"],
+    ),
+    semantic_test_text_flow_candidate(
+      1,
+      0,
+      1,
+      "break and resumes.",
+      [0],
+      [right_ref],
+      ["text_flow_candidate", "block_flow_candidate"],
+    ),
+  ]
+  let fragments = [
+    semantic_test_fragment_for_page(
+      0, 0, "The paragraph continues across the page",
+    ),
+    semantic_test_fragment_for_page(1, 0, "break and resumes."),
+  ]
+  let fact = semantic_test_cross_page_fact(0.72, [])
+  let report = semantic_test_signal_trace_report(
+    "missing_refs",
+    2,
+    parser_blocks,
+    candidates,
+    [fact],
+    [],
+    fragments,
+  )
+  let boundary = semantic_test_trace_boundary(report, 0, 1)
+
+  assert_true(boundary.cross_page_fact is Some(_))
+  assert_true(
+    boundary.loss_layer == PdfV2SignalTraceLossLayer::ParserCandidateFactLoss,
+  )
+  assert_true(boundary.reason_tags.contains("missing_source_refs"))
+}
+
+///|
+test "pdf v2 target signal trace reports next page list structure preserved through lowering" {
+  let left_ref = semantic_test_ref_for_page(0, 0)
+  let right_ref = semantic_test_ref_for_page(1, 1)
+  let parser_blocks = [
+    semantic_test_block_candidate(
+      0,
+      0,
+      "This section ends cleanly here.",
+      ["This section ends cleanly here."],
+      [left_ref],
+      ["semantic_test_parser_block"],
+    ),
+    semantic_test_block_candidate(
+      1,
+      0,
+      "1. New section starts here and must remain separated.",
+      ["1. New section starts here and must remain separated."],
+      [right_ref],
+      ["semantic_test_parser_block", "inline_list_split"],
+    ),
+  ]
+  let candidates = [
+    semantic_test_text_flow_candidate(
+      0,
+      0,
+      0,
+      "This section ends cleanly here.",
+      [0],
+      [left_ref],
+      ["text_flow_candidate", "block_flow_candidate"],
+    ),
+    semantic_test_text_flow_candidate(
+      1,
+      0,
+      1,
+      "1. New section starts here and must remain separated.",
+      [0],
+      [right_ref],
+      ["text_flow_candidate", "inline_list_split"],
+    ),
+  ]
+  let fragments = [
+    semantic_test_fragment_for_page(0, 0, "This section ends cleanly here."),
+    semantic_test_fragment_for_page(
+      1, 0, "1. New section starts here and must remain separated.",
+    ),
+  ]
+  let fact = semantic_test_cross_page_fact(0.72, [left_ref, right_ref])
+  let report = semantic_test_signal_trace_report(
+    "structure_loss",
+    2,
+    parser_blocks,
+    candidates,
+    [fact],
+    [],
+    fragments,
+  )
+  let boundary = semantic_test_trace_boundary(report, 0, 1)
+
+  assert_true(boundary.next_list_marker_evidence)
+  assert_true(boundary.baseline_candidate_pair is Some(_))
+  assert_true(boundary.selected_pair is Some(_))
+  assert_true(boundary.loss_layer == PdfV2SignalTraceLossLayer::NoLossDetected)
+}
+
+///|
+test "pdf v2 target signal trace reports heading candidate acceptance and reason tags" {
+  let heading_ref = semantic_test_ref_for_page(1, 1)
+  let heading_candidate = semantic_test_text_flow_candidate(
+    1,
+    0,
+    0,
+    "Introduction",
+    [0],
+    [heading_ref],
+    ["text_flow_candidate", "heading_line_candidate"],
+  )
+  let heading_fact = semantic_test_heading_fact(
+    1,
+    0,
+    [0],
+    [heading_ref],
+    0.78,
+    [
+      "heading_boundary_fact", "parser_layout_backed", "short_text_risk", "body_continuation_evidence",
+    ],
+  )
+  let parser_blocks = [
+    semantic_test_block_candidate(
+      1,
+      0,
+      "Introduction",
+      ["Introduction"],
+      [heading_ref],
+      ["semantic_test_parser_block"],
+    ),
+  ]
+  let fragments = [semantic_test_fragment_for_page(1, 0, "Introduction")]
+  let report = semantic_test_signal_trace_report(
+    "heading_trace",
+    2,
+    parser_blocks,
+    [heading_candidate],
+    [],
+    [heading_fact],
+    fragments,
+  )
+
+  assert_true(report.heading_traces.length() == 1)
+  let heading = report.heading_traces[0]
+  assert_true(heading.reason_tags.contains("short_text_risk"))
+  assert_true(heading.reason_tags.contains("body_continuation_evidence"))
+  assert_true(heading.semantic_preview is Some(_))
+  assert_true(heading.accepted_as_heading)
 }
 
 ///|

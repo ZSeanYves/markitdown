@@ -1186,3 +1186,29 @@ Actual June 13, 2026 outcome:
 - Reset 17E therefore aligns convert-side behavior more tightly with available
   parser facts, but it still does not justify threshold lowering or string
   patches.
+
+## Reset 17F Target Sample Signal Trace Alignment
+
+Reset 17F keeps parser facts and schemas unchanged and adds only an opt-in
+convert-side trace consumer.
+
+Alignment update:
+
+| signal | trace result in target samples | alignment conclusion |
+| --- | --- | --- |
+| qualifying `PdfV2CrossPageBoundaryFact` on a clean continuation boundary | not present in the visible failing targets | no new parser-backed output update is justified |
+| cross-page fact aligned to repeated-artifact/page-number boundary | observed in `pdf_cross_page_paragraph` | parser/candidate ownership still dominates the visible miss |
+| title/body evidence near page boundary | present synthetically, but not preserved cleanly in real target output | semantic candidate/block preservation still needs work before convert-side handoff can help |
+| next-page heading/list evidence near page boundary | present synthetically, but flattened in real target output before lowering | parser/candidate separation remains the missing input |
+| single-page heading/list structure issues | observed in `pdf_heading_false_positive_phase15` and `pdf_heading_vs_short_sentence` | outside cross-page fact alignment ownership |
+
+Actual June 13, 2026 outcome:
+
+- The new trace helper confirms that no additional parser fact family is needed
+  to explain the current target failures.
+- No parser API or fact schema changed.
+- No sample expected files changed.
+- Repo-local PDF Markdown parity still remains at 10 failures.
+- Reset 17F therefore preserves the current fact alignment and points next work
+  at parser/candidate structure preservation rather than fact-threshold
+  lowering or new string-specific convert rules.

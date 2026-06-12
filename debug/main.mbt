@@ -101,6 +101,25 @@ async fn main {
               _ => None
             }
             cmd_debug_layout_assist_eval(debug_opts, split)
+          } else if first == "pdf-v2-trace" {
+            if positional.length() != 2 {
+              exit_error("usage: debug [--json] pdf-v2-trace <input>")
+              print_debug_usage()
+              return
+            }
+
+            let output_kind = if sub.get_flag("json").unwrap_or(false) {
+              @cor.DebugOutputKind::Json
+            } else {
+              @cor.DebugOutputKind::HumanReadable
+            }
+            let debug_opts : DebugCliOptions = {
+              output_kind,
+              with_ir: false,
+              with_metadata_summary: false,
+              with_normalization: false,
+            }
+            cmd_debug_pdf_v2_trace(positional[1], debug_opts)
           } else if first == "all" ||
             first == "extract" ||
             first == "raw" ||
@@ -192,7 +211,7 @@ fn new_debug_cli_parser() -> @clap.Parser {
             help="Legacy PDF debug: also write <name>.metadata.json next to markdown output",
           ),
           "input": @clap.Arg::positional(
-            help="Unified debug inspect input, provider listing keyword `providers`, eval keyword `layout-assist-eval`, or legacy PDF debug args: <all|extract|raw|pipeline> <input> [output]",
+            help="Unified debug inspect input, provider listing keyword `providers`, eval keyword `layout-assist-eval`, trace keyword `pdf-v2-trace <input>`, or legacy PDF debug args: <all|extract|raw|pipeline> <input> [output]",
           ),
         },
       ),
@@ -218,6 +237,7 @@ fn print_debug_usage() -> Unit {
   println(
     "  markitdown-mb-debug [debug] [--json] layout-assist-eval [--split train|heldout]",
   )
+  println("  markitdown-mb-debug [debug] [--json] pdf-v2-trace <input>")
   println(
     "  markitdown-mb-debug [debug] [--with-metadata] <all|extract|raw|pipeline> <input> [output]",
   )

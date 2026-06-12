@@ -946,3 +946,49 @@ paragraph merge/split problem.
   - next recommended action is parser/candidate-side evidence improvement for
     title/body and next-page heading/list structure, not threshold lowering or
     string patches.
+
+## Reset 17F Target Sample Signal Trace
+
+Reset 17F adds an opt-in trace helper for repo-local PDF audits:
+
+- convert-side helper:
+  `pdf_v2_target_signal_trace_from_path(path, pipeline_options, bridge_options)`
+- local debug entrypoint:
+  `moon run debug -- debug pdf-v2-trace <sample.pdf>` with optional `--json`
+
+The trace is test-only/debug-only:
+
+- it does not run during product conversion.
+- it does not write persistent generated logs.
+- it reports parser boundary previews, source refs, text-flow candidates,
+  `PdfV2CrossPageBoundaryFact`, `PdfV2HeadingBoundaryFact`, list/title-body
+  evidence, `PdfV2CrossPageStructuralHandoff`, semantic block previews, and the
+  final bridge lowering path.
+
+Repo-local result on June 13, 2026:
+
+- `samples/check.sh --format pdf` still reports the same 10 PDF Markdown
+  failures.
+- no sample expected files changed.
+- no product Markdown changed.
+- the top-level wrapper may still print `rows=0`; the run's
+  `markdown-only.entrypoint.log` remains authoritative.
+
+Target sample evidence-loss matrix:
+
+| sample | trace ownership | summary |
+| --- | --- | --- |
+| `pdf_cross_page_paragraph` | parser candidate/fact loss plus structural-handoff rejection | one cross-page fact is generated, but it lands on a repeated-artifact/page-number boundary (`...continues across the page` -> `2`), so candidate structural handoff never owns the visible `page` / `break` join and `Next Section` still remains H1 |
+| `pdf_cross_page_should_merge_phase15` | semantic candidate/block loss | parser-backed cross-page evidence reaches arbitration, but title/body structure is already collapsed before structural handoff owns the visible block boundary, so output still emits one line |
+| `pdf_cross_page_should_not_merge_phase15` | semantic candidate/block loss | next-page heading/list content is already flattened before lowering; the only cross-page fact is low-confidence and selected output stays on the fragment fallback path |
+| `pdf_heading_false_positive_phase15` | expected-output-owned, not structural-handoff-owned | single-page sample with no cross-page facts or handoff entries; remaining visible diff is not part of page-boundary structural arbitration |
+| `pdf_heading_vs_short_sentence` | expected-output-owned, not structural-handoff-owned | single-page sample with heading facts but no cross-page boundary facts; remaining visible diff is list-marker loss rather than page-boundary handoff |
+
+Reset 17F conclusion:
+
+- keep the 17E structural-handoff wiring and gates unchanged.
+- keep the 17E bridge-threading fix.
+- no additional narrow fix was justified in 17F.
+- next recommended reset should target parser/candidate preservation of
+  title/body and next-page heading/list structure, not threshold lowering,
+  blocker removal, or string/sample-specific patches.

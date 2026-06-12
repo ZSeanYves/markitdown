@@ -57,6 +57,27 @@ async fn cmd_debug_layout_assist_eval(
 }
 
 ///|
+fn cmd_debug_pdf_v2_trace(input : String, opts : DebugCliOptions) -> Unit {
+  let pipeline_options = @pdfv2conv.default_pdf_v2_convert_pipeline_options()
+  let bridge_options = {
+    ..@pdfv2conv.default_pdf_v2_product_bridge_options(),
+    source_name: Some(@cor.basename(input)),
+  }
+  match
+    @pdfv2conv.pdf_v2_target_signal_trace_from_path(
+      input, pipeline_options, bridge_options,
+    ) {
+    Ok(report) =>
+      match opts.output_kind {
+        @cor.DebugOutputKind::Json =>
+          println(@pdfv2conv.pdf_v2_target_signal_trace_to_json(report))
+        _ => println(@pdfv2conv.pdf_v2_target_signal_trace_to_text(report))
+      }
+    Err(err) => exit_error(err.to_string())
+  }
+}
+
+///|
 fn cmd_debug_providers(
   opts : DebugCliOptions,
   include_ocr : Bool,

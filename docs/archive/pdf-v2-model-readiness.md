@@ -581,3 +581,34 @@ training-ready.
     cleanly enough for gold labels.
   - 17E therefore improves product-path discipline but does not reduce the
     training-readiness gap.
+
+## 21. Reset 17F Target Sample Signal Trace
+
+Reset 17F improves diagnosis only. It does not make the stack more
+training-ready by itself.
+
+- What changed:
+  - an opt-in trace helper now summarizes repo-local PDF sample signals across
+    parser blocks, source refs, text-flow candidates, boundary facts, heading
+    facts, structural handoff, semantic blocks, and final bridge/lowering path.
+  - a local debug command can render the trace as text or JSON without writing
+    a persistent artifact.
+- What did not change:
+  - no parser labels or exported training rows.
+  - no quality-lab adapter or dataset schema change.
+  - no runtime model loading or inference.
+  - no sample expected updates.
+- Readiness impact:
+  - repo-local `samples/check.sh --format pdf` still reports the same 10
+    Markdown failures.
+  - the top-level wrapper may still print `rows=0`; the run's
+    `markdown-only.entrypoint.log` remains authoritative.
+  - `pdf_cross_page_paragraph` is still mixed with parser-side repeated-artifact
+    boundary evidence.
+  - `pdf_cross_page_should_merge_phase15` and
+    `pdf_cross_page_should_not_merge_phase15` still lose title/body or
+    heading/list structure before structural handoff owns the visible output.
+  - `pdf_heading_false_positive_phase15` and
+    `pdf_heading_vs_short_sentence` remain non-cross-page structure issues.
+  - 17F therefore improves auditability, but it still does not reduce the
+    training-readiness gap or justify new labels from these samples.
