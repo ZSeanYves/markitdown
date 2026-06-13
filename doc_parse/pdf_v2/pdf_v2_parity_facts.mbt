@@ -52,12 +52,19 @@ pub(all) struct PdfV2ImageTextBoundaryFact {
 pub(all) struct PdfV2HeaderFooterVariantFact {
   repeated_text_cluster : String
   normalized_key : String
+  raw_text_variants : Array[String]
   page_positions : Array[Int]
   page_coverage_ratio : Double
+  first_page_index : Int?
+  last_page_index : Int?
   variant_group_id : String
   position_band : PdfV2ParityVerticalBand
+  page_number_like : Bool
+  numbered_variant : Bool
+  real_heading_risk : Bool
   confidence : Double
   reason_tags : Array[String]
+  blockers : Array[String]
   source_refs : Array[PdfV2SourceRef]
 }
 
@@ -111,9 +118,17 @@ pub(all) struct PdfV2ParityFactAudit {
   cross_page_fact_count : Int
   image_text_fact_count : Int
   header_footer_variant_group_count : Int
+  repeated_edge_group_count : Int
+  top_band_group_count : Int
+  bottom_band_group_count : Int
+  numbered_variant_group_count : Int
+  page_number_like_variant_group_count : Int
+  real_heading_risk_group_count : Int
+  candidate_suppression_group_count : Int
   heading_risk_fact_count : Int
   column_layout_fact_count : Int
   unknown_or_low_confidence_count : Int
+  low_confidence_group_count : Int
   source_ref_coverage_count : Int
   insufficient_geometry_count : Int
   audit_only_count : Int
@@ -185,6 +200,14 @@ pub fn pdf_v2_parity_fact_audit(
   let mut insufficient_geometry = 0
   let mut audit_only = 0
   let mut future_candidate = 0
+  let mut repeated_edge_group_count = 0
+  let mut top_band_group_count = 0
+  let mut bottom_band_group_count = 0
+  let mut numbered_variant_group_count = 0
+  let mut page_number_like_variant_group_count = 0
+  let mut real_heading_risk_group_count = 0
+  let mut candidate_suppression_group_count = 0
+  let mut low_confidence_group_count = 0
   for fact in facts.cross_page_boundaries {
     total = total + 1
     pdf_v2_parity_audit_add_counter(facts_by_type, "CrossPageBoundaryFact")
@@ -254,9 +277,32 @@ pub fn pdf_v2_parity_fact_audit(
     pdf_v2_parity_audit_add_tags(reason_tag_distribution, fact.reason_tags)
     if pdf_v2_parity_audit_unknown_or_low(fact.confidence, fact.reason_tags) {
       unknown_or_low = unknown_or_low + 1
+      low_confidence_group_count = low_confidence_group_count + 1
     }
     if fact.source_refs.length() > 0 {
       source_ref_covered = source_ref_covered + 1
+    }
+    if fact.reason_tags.contains("repeated_edge_evidence") {
+      repeated_edge_group_count = repeated_edge_group_count + 1
+    }
+    if fact.position_band == PdfV2ParityVerticalBand::Top {
+      top_band_group_count = top_band_group_count + 1
+    }
+    if fact.position_band == PdfV2ParityVerticalBand::Bottom {
+      bottom_band_group_count = bottom_band_group_count + 1
+    }
+    if fact.numbered_variant {
+      numbered_variant_group_count = numbered_variant_group_count + 1
+    }
+    if fact.page_number_like {
+      page_number_like_variant_group_count = page_number_like_variant_group_count +
+        1
+    }
+    if fact.real_heading_risk {
+      real_heading_risk_group_count = real_heading_risk_group_count + 1
+    }
+    if fact.blockers.length() == 0 && fact.confidence >= 0.90 {
+      candidate_suppression_group_count = candidate_suppression_group_count + 1
     }
     let readiness = pdf_v2_parity_header_footer_readiness(fact)
     pdf_v2_parity_audit_add_counter(readiness_distribution, readiness)
@@ -329,9 +375,17 @@ pub fn pdf_v2_parity_fact_audit(
     cross_page_fact_count: facts.cross_page_boundaries.length(),
     image_text_fact_count: facts.image_text_boundaries.length(),
     header_footer_variant_group_count: facts.header_footer_variants.length(),
+    repeated_edge_group_count,
+    top_band_group_count,
+    bottom_band_group_count,
+    numbered_variant_group_count,
+    page_number_like_variant_group_count,
+    real_heading_risk_group_count,
+    candidate_suppression_group_count,
     heading_risk_fact_count: facts.heading_boundaries.length(),
     column_layout_fact_count: facts.column_layouts.length(),
     unknown_or_low_confidence_count: unknown_or_low,
+    low_confidence_group_count,
     source_ref_coverage_count: source_ref_covered,
     insufficient_geometry_count: insufficient_geometry,
     audit_only_count: audit_only,
@@ -632,7 +686,8 @@ fn pdf_v2_parity_header_footer_readiness(
   if fact.confidence >= 0.70 &&
     fact.page_positions.length() >= 2 &&
     fact.position_band != PdfV2ParityVerticalBand::Body &&
-    fact.source_refs.length() > 0 {
+    fact.source_refs.length() > 0 &&
+    fact.blockers.length() == 0 {
     "future_arbitration_candidate"
   } else {
     "audit_only"
@@ -733,6 +788,11 @@ fn pdf_v2_parity_header_footer_variants(
       let reason_tags = [
         "header_footer_variant_fact", "parser_layout_backed", "page_artifact_cluster",
       ]
+      for tag in artifact.reason_tags {
+        if !reason_tags.contains(tag) {
+          reason_tags.push(tag)
+        }
+      }
       if artifact.kind == PdfV2PageArtifactKind::RepeatedLineLike {
         reason_tags.push("variant_position_unknown")
       }
@@ -740,12 +800,19 @@ fn pdf_v2_parity_header_footer_variants(
       out.push({
         repeated_text_cluster: artifact.normalized_text,
         normalized_key: key,
+        raw_text_variants: artifact.raw_text_variants,
         page_positions: artifact.page_indices,
         page_coverage_ratio: coverage,
+        first_page_index: artifact.first_page_index,
+        last_page_index: artifact.last_page_index,
         variant_group_id: "artifact-variant-" + variant_index.to_string(),
         position_band: band,
+        page_number_like: artifact.page_number_like,
+        numbered_variant: artifact.numbered_variant,
+        real_heading_risk: artifact.real_heading_risk,
         confidence: artifact.confidence,
         reason_tags,
+        blockers: artifact.blockers,
         source_refs: artifact.source_refs,
       })
       variant_index = variant_index + 1
@@ -870,18 +937,29 @@ fn pdf_v2_parity_append_edge_variant_facts(
     } else {
       pages_by_key[index].length().to_double() / model.page_count.to_double()
     }
+    let reason_tags = [
+      "header_footer_variant_fact", "parser_layout_backed", "edge_variant_cluster",
+      "repeated_edge_evidence",
+    ]
+    if coverage >= 0.66 {
+      reason_tags.push("candidate_suppression_ready")
+    }
     out.push({
       repeated_text_cluster: clusters[index],
       normalized_key: pdf_v2_parity_group_key_without_band(keys[index]),
+      raw_text_variants: [clusters[index]],
       page_positions: pages_by_key[index],
       page_coverage_ratio: coverage,
+      first_page_index: pdf_v2_parity_first_page_index(pages_by_key[index]),
+      last_page_index: pdf_v2_parity_last_page_index(pages_by_key[index]),
       variant_group_id: "edge-variant-" + next_index.to_string(),
       position_band: band_by_key[index],
+      page_number_like: false,
+      numbered_variant: true,
+      real_heading_risk: false,
       confidence: 0.78,
-      reason_tags: [
-        "header_footer_variant_fact", "parser_layout_backed", "edge_variant_cluster",
-        "repeated_edge_evidence",
-      ],
+      reason_tags,
+      blockers: [],
       source_refs: refs_by_key[index],
     })
     next_index = next_index + 1
@@ -1523,6 +1601,24 @@ fn pdf_v2_parity_clamp_confidence(value : Double) -> Double {
     1.0
   } else {
     value
+  }
+}
+
+///|
+fn pdf_v2_parity_first_page_index(page_positions : Array[Int]) -> Int? {
+  if page_positions.length() == 0 {
+    None
+  } else {
+    Some(page_positions[0])
+  }
+}
+
+///|
+fn pdf_v2_parity_last_page_index(page_positions : Array[Int]) -> Int? {
+  if page_positions.length() == 0 {
+    None
+  } else {
+    Some(page_positions[page_positions.length() - 1])
   }
 }
 

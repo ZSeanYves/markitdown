@@ -787,6 +787,56 @@ test "pdf v2 text flow candidates split document lead title body from single lin
 }
 
 ///|
+test "pdf v2 text flow candidates split leading repeated edge artifact from body lines" {
+  let first = reset8_page(0, [
+    reset8_block(0, 0, [
+      reset8_top_line(0, 0, "Sample Report - Internal Use Only"),
+      reset8_top_line(0, 1, "Page 1"),
+      reset8_top_line(0, 2, "Body paragraph page 1"),
+      reset8_body_line(
+        0, 3, "The core text should be preserved while noisy repeat lines are filtered.",
+      ),
+      reset8_bottom_line(0, 4, "Confidential Footer - Do Not Distribute"),
+    ]),
+  ])
+  let second = reset8_page(1, [
+    reset8_block(1, 0, [
+      reset8_top_line(1, 0, "Sample Report - Internal Use Only"),
+      reset8_top_line(1, 1, "Page 2"),
+      reset8_top_line(1, 2, "Body paragraph page 2"),
+      reset8_body_line(
+        1, 3, "The core text should be preserved while noisy repeat lines are filtered.",
+      ),
+      reset8_bottom_line(1, 4, "Confidential Footer - Do Not Distribute"),
+    ]),
+  ])
+  let candidates = @pdfv2.pdf_v2_build_text_flow_candidates(
+    reset8_model([first, second]),
+  )
+
+  let mut split_seen = false
+  let mut body_page_1_seen = false
+  let mut body_page_2_seen = false
+  for candidate in candidates {
+    if candidate.reason_tags.contains("edge_artifact_split") &&
+      candidate.artifact_refs.length() > 0 {
+      split_seen = true
+    }
+    if candidate.normalized_text.contains("Body paragraph page 1") {
+      body_page_1_seen = true
+      assert_true(!candidate.normalized_text.contains("Confidential Footer"))
+    }
+    if candidate.normalized_text.contains("Body paragraph page 2") {
+      body_page_2_seen = true
+      assert_true(!candidate.normalized_text.contains("Confidential Footer"))
+    }
+  }
+  assert_true(split_seen)
+  assert_true(body_page_1_seen)
+  assert_true(body_page_2_seen)
+}
+
+///|
 test "pdf v2 parity cross page facts prefer visible boundary over page number artifact" {
   let first = reset8_page(0, [
     reset8_block(0, 0, [
@@ -874,6 +924,61 @@ test "pdf v2 parity facts expose repeated header footer variants" {
 }
 
 ///|
+test "pdf v2 parity facts expose strong repeated title-like footers without heading blockers" {
+  let first = reset8_page(0, [
+    reset8_block(0, 0, [reset8_bottom_line(0, 0, "Confidential Footer 1")]),
+  ])
+  let second = reset8_page(1, [
+    reset8_block(1, 0, [reset8_bottom_line(1, 0, "Confidential Footer 2")]),
+  ])
+  let facts = @pdfv2.pdf_v2_parity_facts_from_model(
+    reset8_model([first, second]),
+  )
+
+  let mut footer_seen = false
+  for fact in facts.header_footer_variants {
+    if fact.normalized_key == "confidential footer #" {
+      footer_seen = true
+      assert_true(fact.page_number_like == false)
+      assert_true(fact.numbered_variant)
+      assert_true(!fact.real_heading_risk)
+      assert_true(fact.position_band == @pdfv2.PdfV2ParityVerticalBand::Bottom)
+      assert_true(fact.blockers.length() == 0)
+      assert_true(fact.reason_tags.contains("repeated_edge_evidence"))
+      assert_true(fact.reason_tags.contains("candidate_suppression_ready"))
+    }
+  }
+  assert_true(footer_seen)
+}
+
+///|
+test "pdf v2 parity facts keep repeated top-edge section titles audit-only when heading risk remains" {
+  let first = reset8_page(0, [
+    reset8_block(0, 0, [reset8_top_line(0, 0, "Introduction")]),
+    reset8_block(0, 1, [reset8_body_line(0, 1, "Alpha body sentence.")]),
+  ])
+  let second = reset8_page(1, [
+    reset8_block(1, 0, [reset8_top_line(1, 0, "Introduction")]),
+    reset8_block(1, 1, [reset8_body_line(1, 1, "Beta body sentence.")]),
+  ])
+  let facts = @pdfv2.pdf_v2_parity_facts_from_model(
+    reset8_model([first, second]),
+  )
+
+  let mut intro_seen = false
+  for fact in facts.header_footer_variants {
+    if fact.normalized_key == "introduction" {
+      intro_seen = true
+      assert_true(fact.real_heading_risk)
+      assert_true(fact.position_band == @pdfv2.PdfV2ParityVerticalBand::Top)
+      assert_true(fact.blockers.contains("real_heading_risk"))
+      assert_true(!fact.reason_tags.contains("candidate_suppression_ready"))
+    }
+  }
+  assert_true(intro_seen)
+}
+
+///|
 test "pdf v2 parity facts mark column layout unknown before geometry is reliable" {
   let unknown_page = reset8_page(0, [
     reset8_block(0, 0, [reset8_line(0, 0, "Left column maybe")]),
@@ -944,6 +1049,9 @@ test "pdf v2 parity fact audit counts readiness confidence and source refs" {
   assert_true(audit.cross_page_fact_count == 1)
   assert_true(audit.image_text_fact_count == 1)
   assert_true(audit.header_footer_variant_group_count == 2)
+  assert_true(audit.repeated_edge_group_count >= 1)
+  assert_true(audit.bottom_band_group_count >= 1)
+  assert_true(audit.candidate_suppression_group_count >= 1)
   assert_true(audit.heading_risk_fact_count == 7)
   assert_true(audit.column_layout_fact_count == 2)
   assert_true(audit.source_ref_coverage_count == audit.total_facts)

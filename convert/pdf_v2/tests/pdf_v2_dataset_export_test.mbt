@@ -59,11 +59,21 @@ fn dataset_export_artifact() -> @pdfv2.PdfV2PageArtifactCandidate {
   {
     kind: @pdfv2.PdfV2PageArtifactKind::PageNumberLike,
     normalized_text: "Page 1",
+    normalized_key: "page #",
+    raw_text_variants: ["Page 1"],
     page_indices: [0],
     repeat_count: 1,
     position_band: @pdfv2.PdfV2PagePositionBand::Bottom,
+    page_coverage_ratio: 1.0,
+    first_page_index: Some(0),
+    last_page_index: Some(0),
+    page_number_like: true,
+    numbered_variant: true,
+    real_heading_risk: false,
+    table_header_body_risk: false,
     confidence: 0.98,
     reason_tags: ["page_artifact_candidate", "page_number_like"],
+    blockers: [],
     source_refs: [dataset_export_ref(0, 9)],
   }
 }

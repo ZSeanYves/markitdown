@@ -78,6 +78,13 @@ fn pdf_v2_text_flow_candidates_from_block(
     Some(split_candidates) => return split_candidates
     None => ()
   }
+  match
+    pdf_v2_text_flow_edge_artifact_split_candidates(
+      page, block, lines, artifacts,
+    ) {
+    Some(split_candidates) => return split_candidates
+    None => ()
+  }
   if pdf_v2_text_flow_should_split_heading_body(block, lines) {
     out.push(
       pdf_v2_text_flow_candidate_from_lines(
@@ -228,6 +235,210 @@ fn pdf_v2_text_flow_split_document_lead_title_body(
   } else {
     Some((best_title, best_body))
   }
+}
+
+///|
+fn pdf_v2_text_flow_edge_artifact_split_candidates(
+  page : PdfV2PageModel,
+  block : PdfV2BlockCandidate,
+  lines : Array[PdfV2LineCandidate],
+  artifacts : Array[PdfV2PageArtifactCandidate],
+) -> Array[PdfV2TextFlowCandidate]? {
+  if lines.length() < 2 {
+    return None
+  }
+  let prefix_count = pdf_v2_text_flow_leading_edge_artifact_count(
+    page, lines, artifacts,
+  )
+  if prefix_count > 0 && prefix_count < lines.length() {
+    let prefix : Array[PdfV2LineCandidate] = []
+    let rest : Array[PdfV2LineCandidate] = []
+    for index = 0; index < lines.length(); index = index + 1 {
+      if index < prefix_count {
+        prefix.push(lines[index])
+      } else {
+        rest.push(lines[index])
+      }
+    }
+    let prefix_artifacts = pdf_v2_text_flow_matching_artifacts_for_lines(
+      artifacts,
+      page.page_index,
+      prefix.map(fn(line) { line.text_signal.normalized_text }).join("\n"),
+      prefix.map(fn(line) { line.text_signal }),
+    )
+    let out : Array[PdfV2TextFlowCandidate] = []
+    out.push(
+      pdf_v2_text_flow_candidate_from_lines_with_artifacts(
+        page,
+        block,
+        prefix,
+        block.boundary_signal,
+        prefix_artifacts,
+        [
+          "text_flow_candidate", "edge_artifact_split", "edge_artifact_candidate",
+          "structure_boundary_candidate", "parser_layout_backed",
+        ],
+      ),
+    )
+    out.append(
+      pdf_v2_text_flow_candidates_from_subblock(page, block, rest, artifacts, [
+        "text_flow_candidate", "edge_artifact_split", "body_flow_candidate", "structure_boundary_candidate",
+        "parser_layout_backed",
+      ]),
+    )
+    return Some(out)
+  }
+  let suffix_count = pdf_v2_text_flow_trailing_edge_artifact_count(
+    page, lines, artifacts,
+  )
+  if suffix_count > 0 && suffix_count < lines.length() {
+    let head : Array[PdfV2LineCandidate] = []
+    let suffix : Array[PdfV2LineCandidate] = []
+    let suffix_start = lines.length() - suffix_count
+    for index = 0; index < lines.length(); index = index + 1 {
+      if index < suffix_start {
+        head.push(lines[index])
+      } else {
+        suffix.push(lines[index])
+      }
+    }
+    let suffix_artifacts = pdf_v2_text_flow_matching_artifacts_for_lines(
+      artifacts,
+      page.page_index,
+      suffix.map(fn(line) { line.text_signal.normalized_text }).join("\n"),
+      suffix.map(fn(line) { line.text_signal }),
+    )
+    let out : Array[PdfV2TextFlowCandidate] = []
+    out.append(
+      pdf_v2_text_flow_candidates_from_subblock(page, block, head, artifacts, [
+        "text_flow_candidate", "edge_artifact_split", "body_flow_candidate", "structure_boundary_candidate",
+        "parser_layout_backed",
+      ]),
+    )
+    out.push(
+      pdf_v2_text_flow_candidate_from_lines_with_artifacts(
+        page,
+        block,
+        suffix,
+        block.boundary_signal,
+        suffix_artifacts,
+        [
+          "text_flow_candidate", "edge_artifact_split", "edge_artifact_candidate",
+          "structure_boundary_candidate", "parser_layout_backed",
+        ],
+      ),
+    )
+    return Some(out)
+  }
+  None
+}
+
+///|
+fn pdf_v2_text_flow_candidates_from_subblock(
+  page : PdfV2PageModel,
+  block : PdfV2BlockCandidate,
+  lines : Array[PdfV2LineCandidate],
+  artifacts : Array[PdfV2PageArtifactCandidate],
+  reason_tags : Array[String],
+) -> Array[PdfV2TextFlowCandidate] {
+  let subblock = {
+    ..block,
+    text: pdf_v2_text_flow_subblock_text(lines),
+    lines,
+    source_refs: pdf_v2_text_flow_subblock_source_refs(lines),
+    boundary_signal: pdf_v2_build_block_boundary_signal(
+      lines,
+      block.reason_tags,
+      block.bbox,
+    ),
+  }
+  match pdf_v2_text_flow_candidates_from_block(page, subblock, artifacts) {
+    [] =>
+      [
+        pdf_v2_text_flow_candidate_from_lines(
+          page,
+          subblock,
+          lines,
+          subblock.boundary_signal,
+          artifacts,
+          reason_tags,
+        ),
+      ]
+    built =>
+      built.map(fn(candidate) {
+        {
+          ..candidate,
+          reason_tags: pdf_v2_text_flow_structure_reason_tags(
+            reason_tags,
+            candidate.reason_tags,
+          ),
+        }
+      })
+  }
+}
+
+///|
+fn pdf_v2_text_flow_subblock_text(lines : Array[PdfV2LineCandidate]) -> String {
+  let parts : Array[String] = []
+  for line in lines {
+    parts.push(line.text)
+  }
+  parts.join("\n")
+}
+
+///|
+fn pdf_v2_text_flow_subblock_source_refs(
+  lines : Array[PdfV2LineCandidate],
+) -> Array[PdfV2SourceRef] {
+  let refs : Array[PdfV2SourceRef] = []
+  for line in lines {
+    refs.append(line.source_refs)
+  }
+  refs
+}
+
+///|
+fn pdf_v2_text_flow_leading_edge_artifact_count(
+  page : PdfV2PageModel,
+  lines : Array[PdfV2LineCandidate],
+  artifacts : Array[PdfV2PageArtifactCandidate],
+) -> Int {
+  let mut count = 0
+  for line in lines {
+    let line_artifacts = pdf_v2_text_flow_matching_artifacts_for_line(
+      artifacts,
+      page.page_index,
+      line,
+    )
+    if !pdf_v2_text_flow_attachable_edge_artifacts(line_artifacts) {
+      break
+    }
+    count = count + 1
+  }
+  count
+}
+
+///|
+fn pdf_v2_text_flow_trailing_edge_artifact_count(
+  page : PdfV2PageModel,
+  lines : Array[PdfV2LineCandidate],
+  artifacts : Array[PdfV2PageArtifactCandidate],
+) -> Int {
+  let mut count = 0
+  let mut index = lines.length()
+  while index > 0 {
+    index = index - 1
+    let line_artifacts = pdf_v2_text_flow_matching_artifacts_for_line(
+      artifacts,
+      page.page_index,
+      lines[index],
+    )
+    if !pdf_v2_text_flow_attachable_edge_artifacts(line_artifacts) {
+      break
+    }
+    count = count + 1
+  }
+  count
 }
 
 ///|
@@ -679,25 +890,48 @@ fn pdf_v2_text_flow_candidate_from_lines(
     line_indices.push(line.line_index)
     source_refs.append(line.source_refs)
   }
-  let text = original_lines.join("\n")
   let normalized_text = normalized_lines.join("\n").trim().to_owned()
-  pdf_v2_text_flow_candidate(
+  pdf_v2_text_flow_candidate_from_lines_with_artifacts(
     page,
     block,
-    line_indices,
-    text,
-    normalized_text,
-    original_lines,
-    normalized_lines,
-    line_signals,
+    lines,
     boundary_signal,
-    pdf_v2_text_flow_matching_artifacts(
+    pdf_v2_text_flow_matching_artifacts_for_lines(
       artifacts,
       page.page_index,
       normalized_text,
+      line_signals,
     ),
-    source_refs,
     reason_tags,
+  )
+}
+
+///|
+fn pdf_v2_text_flow_candidate_from_lines_with_artifacts(
+  page : PdfV2PageModel,
+  block : PdfV2BlockCandidate,
+  lines : Array[PdfV2LineCandidate],
+  boundary_signal : PdfV2BlockBoundarySignal,
+  artifact_refs : Array[PdfV2PageArtifactCandidate],
+  reason_tags : Array[String],
+) -> PdfV2TextFlowCandidate {
+  let original_lines : Array[String] = []
+  let normalized_lines : Array[String] = []
+  let line_signals : Array[PdfV2LineTextSignal] = []
+  let line_indices : Array[Int] = []
+  let source_refs : Array[PdfV2SourceRef] = []
+  for line in lines {
+    original_lines.push(line.text)
+    normalized_lines.push(line.text_signal.normalized_text)
+    line_signals.push(line.text_signal)
+    line_indices.push(line.line_index)
+    source_refs.append(line.source_refs)
+  }
+  let text = original_lines.join("\n")
+  let normalized_text = normalized_lines.join("\n").trim().to_owned()
+  pdf_v2_text_flow_candidate(
+    page, block, line_indices, text, normalized_text, original_lines, normalized_lines,
+    line_signals, boundary_signal, artifact_refs, source_refs, reason_tags,
   )
 }
 
@@ -728,10 +962,11 @@ fn pdf_v2_text_flow_candidate_from_text(
     [signal.normalized_text],
     [signal],
     boundary_signal,
-    pdf_v2_text_flow_matching_artifacts(
+    pdf_v2_text_flow_matching_artifacts_for_lines(
       artifacts,
       page.page_index,
       signal.normalized_text,
+      [signal],
     ),
     source_refs,
     reason_tags,
@@ -779,12 +1014,142 @@ fn pdf_v2_text_flow_matching_artifacts(
   let out : Array[PdfV2PageArtifactCandidate] = []
   let t = normalized_text.trim().to_owned()
   for artifact in artifacts {
-    if artifact.normalized_text == t &&
-      artifact.page_indices.contains(page_index) {
+    if pdf_v2_text_flow_artifact_matches_text(artifact, page_index, t) {
       out.push(artifact)
     }
   }
   out
+}
+
+///|
+fn pdf_v2_text_flow_matching_artifacts_for_line(
+  artifacts : Array[PdfV2PageArtifactCandidate],
+  page_index : Int,
+  line : PdfV2LineCandidate,
+) -> Array[PdfV2PageArtifactCandidate] {
+  pdf_v2_text_flow_matching_artifacts_for_lines(
+    artifacts,
+    page_index,
+    line.text_signal.normalized_text,
+    [line.text_signal],
+  )
+}
+
+///|
+fn pdf_v2_text_flow_matching_artifacts_for_lines(
+  artifacts : Array[PdfV2PageArtifactCandidate],
+  page_index : Int,
+  normalized_text : String,
+  line_signals : Array[PdfV2LineTextSignal],
+) -> Array[PdfV2PageArtifactCandidate] {
+  let out = pdf_v2_text_flow_matching_artifacts(
+    artifacts, page_index, normalized_text,
+  )
+  if out.length() > 0 {
+    return out
+  }
+  let line_keys : Array[String] = []
+  for line_signal in line_signals {
+    line_keys.push(pdf_v2_text_flow_variant_key(line_signal.normalized_text))
+  }
+  for artifact in artifacts {
+    if !pdf_v2_text_flow_artifact_matches_page(artifact, page_index) {
+      continue
+    }
+    if pdf_v2_text_flow_artifact_key_matches_lines(
+        artifact.normalized_key,
+        line_keys,
+      ) &&
+      pdf_v2_text_flow_attachable_edge_artifact(artifact) &&
+      pdf_v2_text_flow_edge_band(artifact.position_band) {
+      out.push(artifact)
+    }
+  }
+  out
+}
+
+///|
+fn pdf_v2_text_flow_artifact_key_matches_lines(
+  artifact_key : String,
+  line_keys : Array[String],
+) -> Bool {
+  for line_key in line_keys {
+    if artifact_key == line_key {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn pdf_v2_text_flow_artifact_matches_text(
+  artifact : PdfV2PageArtifactCandidate,
+  page_index : Int,
+  normalized_text : String,
+) -> Bool {
+  pdf_v2_text_flow_artifact_matches_page(artifact, page_index) &&
+  artifact.normalized_text == normalized_text
+}
+
+///|
+fn pdf_v2_text_flow_artifact_matches_page(
+  artifact : PdfV2PageArtifactCandidate,
+  page_index : Int,
+) -> Bool {
+  artifact.page_indices.contains(page_index)
+}
+
+///|
+fn pdf_v2_text_flow_attachable_edge_artifacts(
+  artifacts : Array[PdfV2PageArtifactCandidate],
+) -> Bool {
+  for artifact in artifacts {
+    if pdf_v2_text_flow_attachable_edge_artifact(artifact) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn pdf_v2_text_flow_attachable_edge_artifact(
+  artifact : PdfV2PageArtifactCandidate,
+) -> Bool {
+  pdf_v2_text_flow_edge_band(artifact.position_band) &&
+  artifact.confidence >= 0.90 &&
+  artifact.blockers.length() == 0
+}
+
+///|
+fn pdf_v2_text_flow_edge_band(band : PdfV2PagePositionBand) -> Bool {
+  band == PdfV2PagePositionBand::Top || band == PdfV2PagePositionBand::Bottom
+}
+
+///|
+fn pdf_v2_text_flow_variant_key(text : String) -> String {
+  let out = StringBuilder::new()
+  let mut prev_space = false
+  let mut prev_digit = false
+  for ch in text.to_lower() {
+    if ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' {
+      if !prev_space {
+        out.write_char(' ')
+        prev_space = true
+      }
+      prev_digit = false
+    } else if ch >= '0' && ch <= '9' {
+      if !prev_digit {
+        out.write_char('#')
+        prev_digit = true
+      }
+      prev_space = false
+    } else {
+      out.write_char(ch)
+      prev_space = false
+      prev_digit = false
+    }
+  }
+  out.to_string().trim().to_owned()
 }
 
 ///|

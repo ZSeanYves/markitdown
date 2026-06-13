@@ -643,12 +643,19 @@ pub(all) struct PdfV2GlyphCandidateFact {
 pub(all) struct PdfV2HeaderFooterVariantFact {
   repeated_text_cluster : String
   normalized_key : String
+  raw_text_variants : Array[String]
   page_positions : Array[Int]
   page_coverage_ratio : Double
+  first_page_index : Int?
+  last_page_index : Int?
   variant_group_id : String
   position_band : PdfV2ParityVerticalBand
+  page_number_like : Bool
+  numbered_variant : Bool
+  real_heading_risk : Bool
   confidence : Double
   reason_tags : Array[String]
+  blockers : Array[String]
   source_refs : Array[PdfV2SourceRef]
 }
 
@@ -1113,11 +1120,21 @@ pub(all) struct PdfV2Page {
 pub(all) struct PdfV2PageArtifactCandidate {
   kind : PdfV2PageArtifactKind
   normalized_text : String
+  normalized_key : String
+  raw_text_variants : Array[String]
   page_indices : Array[Int]
   repeat_count : Int
   position_band : PdfV2PagePositionBand
+  page_coverage_ratio : Double
+  first_page_index : Int?
+  last_page_index : Int?
+  page_number_like : Bool
+  numbered_variant : Bool
+  real_heading_risk : Bool
+  table_header_body_risk : Bool
   confidence : Double
   reason_tags : Array[String]
+  blockers : Array[String]
   source_refs : Array[PdfV2SourceRef]
 }
 
@@ -1218,9 +1235,17 @@ pub(all) struct PdfV2ParityFactAudit {
   cross_page_fact_count : Int
   image_text_fact_count : Int
   header_footer_variant_group_count : Int
+  repeated_edge_group_count : Int
+  top_band_group_count : Int
+  bottom_band_group_count : Int
+  numbered_variant_group_count : Int
+  page_number_like_variant_group_count : Int
+  real_heading_risk_group_count : Int
+  candidate_suppression_group_count : Int
   heading_risk_fact_count : Int
   column_layout_fact_count : Int
   unknown_or_low_confidence_count : Int
+  low_confidence_group_count : Int
   source_ref_coverage_count : Int
   insufficient_geometry_count : Int
   audit_only_count : Int
