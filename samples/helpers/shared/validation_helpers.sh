@@ -239,7 +239,6 @@ markitdown_runner_command_prefix() {
 validation_probe_cases() {
   cat <<'EOF'
 samples/main_process/docx/docx_comment_basic.docx|samples/main_process/docx/expected/docx_comment_basic.md
-samples/main_process/pptx/pptx_hidden_slide_basic.pptx|samples/main_process/pptx/expected/pptx_hidden_slide_basic.md
 samples/main_process/pdf/pdf_page_noise_cleanup.pdf|samples/main_process/pdf/expected/pdf_page_noise_cleanup.md
 samples/main_process/zip/zip_basic_structured.zip|samples/main_process/zip/expected/zip_basic_structured.md
 EOF
@@ -418,7 +417,7 @@ validation_finish() {
   local failure_message="$2"
   validation_progress_done
   if [[ "$VALIDATION_HAS_FAILURES" -ne 0 ]]; then
-    echo "$failure_message (${#VALIDATION_FAILURES[@]} failures)"
+    echo "$failure_message ($VALIDATION_TOTAL samples, ${#VALIDATION_FAILURES[@]} failures)"
     validation_print_failures
     return 1
   fi

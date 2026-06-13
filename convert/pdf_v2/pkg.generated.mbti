@@ -44,6 +44,8 @@ pub fn pdf_v2_dataset_export_to_tsv(PdfV2DatasetExport) -> String
 
 pub fn pdf_v2_export_dataset_from_fact_arrays(String, Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2TextFlowCandidate], Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2TableCandidate], Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2LinkCandidate], Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2ImageCandidate], Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2InlineImageCandidate]) -> PdfV2DatasetExport
 
+pub fn pdf_v2_export_dataset_from_fact_arrays_with_parity(String, Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2TextFlowCandidate], Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2TableCandidate], Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2LinkCandidate], Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2ImageCandidate], Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2InlineImageCandidate], @ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2ParityFactSet) -> PdfV2DatasetExport
+
 pub fn pdf_v2_export_dataset_from_pipeline_output(PdfV2ConvertPipelineOutput, String) -> PdfV2DatasetExport
 
 pub fn pdf_v2_fact_lowering_input(@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2DocumentModel, @ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2FeatureSet?, PdfV2FactLoweringOptions) -> PdfV2FactLoweringInput
@@ -308,6 +310,29 @@ pub(all) struct PdfV2DatasetBoundaryRow {
   label_source : String
 }
 
+pub(all) struct PdfV2DatasetEvidenceRow {
+  schema_version : String
+  doc_id : String
+  row_id : String
+  task : String
+  split : String
+  page_index : Int?
+  evidence_kind : String
+  subject_id : String
+  related_id : String
+  text : String
+  normalized_text : String
+  confidence : Double
+  reason_tags : Array[String]
+  risk_tags : Array[String]
+  blockers : Array[String]
+  source_refs : Array[@ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2SourceRef]
+  weak_label : String
+  gold_label : String
+  label_source : String
+  extra : String
+}
+
 pub(all) struct PdfV2DatasetExport {
   schema_version : String
   doc_id : String
@@ -315,6 +340,7 @@ pub(all) struct PdfV2DatasetExport {
   boundary_rows : Array[PdfV2DatasetBoundaryRow]
   artifact_rows : Array[PdfV2DatasetArtifactRow]
   adjacency_rows : Array[PdfV2DatasetAdjacencyRow]
+  evidence_rows : Array[PdfV2DatasetEvidenceRow]
 }
 
 pub(all) struct PdfV2DatasetExportAudit {
@@ -324,6 +350,7 @@ pub(all) struct PdfV2DatasetExportAudit {
   boundary_row_count : Int
   artifact_row_count : Int
   adjacency_row_count : Int
+  evidence_row_count : Int
   empty_gold_label_count : Int
   weak_label_count : Int
   rows_with_unknown_none_or_empty_key_fields : Int
@@ -334,6 +361,10 @@ pub(all) struct PdfV2DatasetExportAudit {
   image_nearby_text_count : Int
   table_candidate_count : Int
   semantic_fallback_paragraph_count : Int
+  image_evidence_row_count : Int
+  heading_evidence_row_count : Int
+  column_evidence_row_count : Int
+  artifact_evidence_row_count : Int
   rows_by_family : Array[PdfV2DatasetAuditCounter]
   rows_by_task : Array[PdfV2DatasetAuditCounter]
   rows_by_label_source : Array[PdfV2DatasetAuditCounter]

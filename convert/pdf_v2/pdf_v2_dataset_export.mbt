@@ -6,6 +6,7 @@ pub(all) struct PdfV2DatasetExport {
   boundary_rows : Array[PdfV2DatasetBoundaryRow]
   artifact_rows : Array[PdfV2DatasetArtifactRow]
   adjacency_rows : Array[PdfV2DatasetAdjacencyRow]
+  evidence_rows : Array[PdfV2DatasetEvidenceRow]
 }
 
 ///|
@@ -110,6 +111,30 @@ pub(all) struct PdfV2DatasetAdjacencyRow {
 }
 
 ///|
+pub(all) struct PdfV2DatasetEvidenceRow {
+  schema_version : String
+  doc_id : String
+  row_id : String
+  task : String
+  split : String
+  page_index : Int?
+  evidence_kind : String
+  subject_id : String
+  related_id : String
+  text : String
+  normalized_text : String
+  confidence : Double
+  reason_tags : Array[String]
+  risk_tags : Array[String]
+  blockers : Array[String]
+  source_refs : Array[@pdfv2.PdfV2SourceRef]
+  weak_label : String
+  gold_label : String
+  label_source : String
+  extra : String
+}
+
+///|
 pub(all) struct PdfV2DatasetAuditCounter {
   key : String
   count : Int
@@ -123,6 +148,7 @@ pub(all) struct PdfV2DatasetExportAudit {
   boundary_row_count : Int
   artifact_row_count : Int
   adjacency_row_count : Int
+  evidence_row_count : Int
   empty_gold_label_count : Int
   weak_label_count : Int
   rows_with_unknown_none_or_empty_key_fields : Int
@@ -133,6 +159,10 @@ pub(all) struct PdfV2DatasetExportAudit {
   image_nearby_text_count : Int
   table_candidate_count : Int
   semantic_fallback_paragraph_count : Int
+  image_evidence_row_count : Int
+  heading_evidence_row_count : Int
+  column_evidence_row_count : Int
+  artifact_evidence_row_count : Int
   rows_by_family : Array[PdfV2DatasetAuditCounter]
   rows_by_task : Array[PdfV2DatasetAuditCounter]
   rows_by_label_source : Array[PdfV2DatasetAuditCounter]
@@ -155,6 +185,9 @@ priv struct PdfV2DatasetFlatRow {
   object_kind : String
   object_ref : String
   asset_ref : String
+  evidence_kind : String
+  subject_id : String
+  related_id : String
   text : String
   normalized_text : String
   nearby_text : String
@@ -166,6 +199,7 @@ priv struct PdfV2DatasetFlatRow {
   risk_tags : Array[String]
   reason_tags : Array[String]
   source_refs : Array[String]
+  blockers : Array[String]
   extra : String
 }
 
@@ -198,6 +232,35 @@ pub fn pdf_v2_export_dataset_from_fact_arrays(
   image_candidates : Array[@pdfv2.PdfV2ImageCandidate],
   inline_image_candidates : Array[@pdfv2.PdfV2InlineImageCandidate],
 ) -> PdfV2DatasetExport {
+  pdf_v2_export_dataset_from_fact_arrays_with_parity(
+    doc_id,
+    text_flow_candidates,
+    table_candidates,
+    link_candidates,
+    image_candidates,
+    inline_image_candidates,
+    {
+      cross_page_boundaries: [],
+      image_text_boundaries: [],
+      header_footer_variants: [],
+      heading_boundaries: [],
+      column_layouts: [],
+      source_refs: [],
+      reason_tags: [],
+    },
+  )
+}
+
+///|
+pub fn pdf_v2_export_dataset_from_fact_arrays_with_parity(
+  doc_id : String,
+  text_flow_candidates : Array[@pdfv2.PdfV2TextFlowCandidate],
+  table_candidates : Array[@pdfv2.PdfV2TableCandidate],
+  link_candidates : Array[@pdfv2.PdfV2LinkCandidate],
+  image_candidates : Array[@pdfv2.PdfV2ImageCandidate],
+  inline_image_candidates : Array[@pdfv2.PdfV2InlineImageCandidate],
+  parity_facts : @pdfv2.PdfV2ParityFactSet,
+) -> PdfV2DatasetExport {
   let schema_version = pdf_v2_dataset_export_schema_version()
   let safe_doc_id = pdf_v2_dataset_safe_row_id_part(doc_id)
   let semantic_blocks = pdf_v2_semantic_blocks_from_candidates(
@@ -217,6 +280,9 @@ pub fn pdf_v2_export_dataset_from_fact_arrays(
     schema_version, doc_id, safe_doc_id, table_candidates, link_candidates, image_candidates,
     inline_image_candidates,
   )
+  let evidence_rows = pdf_v2_dataset_evidence_rows(
+    schema_version, doc_id, safe_doc_id, parity_facts,
+  )
   {
     schema_version,
     doc_id,
@@ -224,6 +290,7 @@ pub fn pdf_v2_export_dataset_from_fact_arrays(
     boundary_rows,
     artifact_rows,
     adjacency_rows,
+    evidence_rows,
   }
 }
 
@@ -275,6 +342,10 @@ pub fn pdf_v2_dataset_export_audit(
   let mut image_nearby_text_count = 0
   let mut table_candidate_count = 0
   let mut semantic_fallback_paragraph_count = 0
+  let mut image_evidence_row_count = 0
+  let mut heading_evidence_row_count = 0
+  let mut column_evidence_row_count = 0
+  let mut artifact_evidence_row_count = 0
   for row in rows {
     pdf_v2_dataset_audit_add_counter(rows_by_family, row.row_family)
     pdf_v2_dataset_audit_add_counter(rows_by_task, row.task)
@@ -295,6 +366,19 @@ pub fn pdf_v2_dataset_export_audit(
     }
     if pdf_v2_dataset_flat_row_has_geometry_unknown(row) {
       geometry_unknown_row_count = geometry_unknown_row_count + 1
+    }
+    if row.row_family == "EvidenceRow" {
+      match row.evidence_kind {
+        "image_text_boundary" =>
+          image_evidence_row_count = image_evidence_row_count + 1
+        "heading_boundary" =>
+          heading_evidence_row_count = heading_evidence_row_count + 1
+        "column_layout" =>
+          column_evidence_row_count = column_evidence_row_count + 1
+        "header_footer_variant" =>
+          artifact_evidence_row_count = artifact_evidence_row_count + 1
+        _ => ()
+      }
     }
     for tag in row.risk_tags {
       pdf_v2_dataset_audit_add_counter(risk_tag_distribution, tag)
@@ -319,6 +403,7 @@ pub fn pdf_v2_dataset_export_audit(
     boundary_row_count: dataset_export.boundary_rows.length(),
     artifact_row_count: dataset_export.artifact_rows.length(),
     adjacency_row_count: dataset_export.adjacency_rows.length(),
+    evidence_row_count: dataset_export.evidence_rows.length(),
     empty_gold_label_count,
     weak_label_count,
     rows_with_unknown_none_or_empty_key_fields,
@@ -329,6 +414,10 @@ pub fn pdf_v2_dataset_export_audit(
     image_nearby_text_count,
     table_candidate_count,
     semantic_fallback_paragraph_count,
+    image_evidence_row_count,
+    heading_evidence_row_count,
+    column_evidence_row_count,
+    artifact_evidence_row_count,
     rows_by_family,
     rows_by_task,
     rows_by_label_source,
@@ -730,6 +819,264 @@ fn pdf_v2_dataset_adjacency_row(
 }
 
 ///|
+fn pdf_v2_dataset_evidence_rows(
+  schema_version : String,
+  doc_id : String,
+  safe_doc_id : String,
+  parity_facts : @pdfv2.PdfV2ParityFactSet,
+) -> Array[PdfV2DatasetEvidenceRow] {
+  let rows : Array[PdfV2DatasetEvidenceRow] = []
+  for i in 0..<parity_facts.cross_page_boundaries.length() {
+    let fact = parity_facts.cross_page_boundaries[i]
+    let risk_tags : Array[String] = []
+    if fact.confidence < 0.60 {
+      risk_tags.push("low_confidence")
+    }
+    if fact.next_starts_with_marker {
+      risk_tags.push("next_starts_with_marker")
+    }
+    if fact.repeated_artifact_gap {
+      risk_tags.push("repeated_artifact_gap")
+    }
+    rows.push({
+      schema_version,
+      doc_id,
+      row_id: pdf_v2_dataset_row_id(
+        "evidence",
+        safe_doc_id,
+        Some(fact.page_from),
+        "cp" + i.to_string(),
+      ),
+      task: "semantic_arbitration",
+      split: "unknown",
+      page_index: Some(fact.page_from),
+      evidence_kind: "cross_page_boundary",
+      subject_id: "p" +
+      fact.page_from.to_string() +
+      "->" +
+      fact.page_to.to_string(),
+      related_id: "prev_b" +
+      pdf_v2_dataset_optional_int(fact.prev_block_ref) +
+      ":next_b" +
+      pdf_v2_dataset_optional_int(fact.next_block_ref),
+      text: "",
+      normalized_text: "",
+      confidence: fact.confidence,
+      reason_tags: fact.reason_tags,
+      risk_tags: pdf_v2_dataset_unique_tags(risk_tags),
+      blockers: [],
+      source_refs: fact.source_refs,
+      weak_label: "",
+      gold_label: "",
+      label_source: "none",
+      extra: [
+        "prev_line_refs=" + pdf_v2_dataset_ints(fact.prev_line_refs),
+        "next_line_refs=" + pdf_v2_dataset_ints(fact.next_line_refs),
+        "prev_vertical_band=" +
+        pdf_v2_dataset_parity_vertical_band_name(fact.prev_vertical_band),
+        "next_vertical_band=" +
+        pdf_v2_dataset_parity_vertical_band_name(fact.next_vertical_band),
+        "prev_open_ended=" + pdf_v2_dataset_bool(fact.prev_open_ended),
+        "next_starts_with_marker=" +
+        pdf_v2_dataset_bool(fact.next_starts_with_marker),
+        "repeated_artifact_gap=" +
+        pdf_v2_dataset_bool(fact.repeated_artifact_gap),
+      ].join(";"),
+    })
+  }
+  for i in 0..<parity_facts.image_text_boundaries.length() {
+    let fact = parity_facts.image_text_boundaries[i]
+    let risk_tags : Array[String] = []
+    if fact.caption_candidate {
+      risk_tags.push("caption_candidate")
+    }
+    if fact.title_nearby {
+      risk_tags.push("title_nearby")
+    }
+    if fact.distance == "unknown" {
+      risk_tags.push("geometry_unknown")
+    }
+    rows.push({
+      schema_version,
+      doc_id,
+      row_id: pdf_v2_dataset_row_id(
+        "evidence",
+        safe_doc_id,
+        fact.page_index,
+        "im" + i.to_string(),
+      ),
+      task: "semantic_arbitration",
+      split: "unknown",
+      page_index: fact.page_index,
+      evidence_kind: "image_text_boundary",
+      subject_id: fact.image_ref,
+      related_id: fact.asset_origin_id,
+      text: "",
+      normalized_text: "",
+      confidence: fact.confidence,
+      reason_tags: fact.reason_tags,
+      risk_tags: pdf_v2_dataset_unique_tags(risk_tags),
+      blockers: [],
+      source_refs: fact.source_refs,
+      weak_label: "",
+      gold_label: "",
+      label_source: "none",
+      extra: [
+        "nearby_text_refs=" + pdf_v2_dataset_ints(fact.nearby_text_refs),
+        "relation=" + pdf_v2_dataset_parity_text_relation_name(fact.relation),
+        "distance=" + fact.distance,
+        "page_band=" + pdf_v2_dataset_parity_vertical_band_name(fact.page_band),
+        "caption_candidate=" + pdf_v2_dataset_bool(fact.caption_candidate),
+        "title_nearby=" + pdf_v2_dataset_bool(fact.title_nearby),
+      ].join(";"),
+    })
+  }
+  for i in 0..<parity_facts.header_footer_variants.length() {
+    let fact = parity_facts.header_footer_variants[i]
+    let risk_tags : Array[String] = []
+    if fact.page_number_like {
+      risk_tags.push("page_number_like")
+    }
+    if fact.numbered_variant {
+      risk_tags.push("numbered_variant")
+    }
+    if fact.real_heading_risk {
+      risk_tags.push("real_heading_risk")
+    }
+    rows.push({
+      schema_version,
+      doc_id,
+      row_id: pdf_v2_dataset_row_id(
+        "evidence",
+        safe_doc_id,
+        fact.first_page_index,
+        "hf" + i.to_string(),
+      ),
+      task: "layout_recovery",
+      split: "unknown",
+      page_index: fact.first_page_index,
+      evidence_kind: "header_footer_variant",
+      subject_id: fact.variant_group_id,
+      related_id: fact.normalized_key,
+      text: fact.repeated_text_cluster,
+      normalized_text: fact.normalized_key,
+      confidence: fact.confidence,
+      reason_tags: fact.reason_tags,
+      risk_tags: pdf_v2_dataset_unique_tags(risk_tags),
+      blockers: fact.blockers,
+      source_refs: fact.source_refs,
+      weak_label: "",
+      gold_label: "",
+      label_source: "none",
+      extra: [
+        "raw_text_variants=" + fact.raw_text_variants.join("|"),
+        "page_positions=" + pdf_v2_dataset_ints(fact.page_positions),
+        "page_coverage_ratio=" + fact.page_coverage_ratio.to_string(),
+        "last_page_index=" + pdf_v2_dataset_optional_int(fact.last_page_index),
+        "position_band=" +
+        pdf_v2_dataset_parity_vertical_band_name(fact.position_band),
+      ].join(";"),
+    })
+  }
+  for i in 0..<parity_facts.heading_boundaries.length() {
+    let fact = parity_facts.heading_boundaries[i]
+    let risk_tags : Array[String] = []
+    if fact.short_text_risk {
+      risk_tags.push("short_text_risk")
+    }
+    if fact.sentence_like_risk {
+      risk_tags.push("sentence_like_risk")
+    }
+    if fact.numbering_evidence {
+      risk_tags.push("numbering_evidence")
+    }
+    if fact.body_continuation_evidence {
+      risk_tags.push("body_continuation_evidence")
+    }
+    rows.push({
+      schema_version,
+      doc_id,
+      row_id: pdf_v2_dataset_row_id(
+        "evidence",
+        safe_doc_id,
+        fact.page_index,
+        "hd" + i.to_string(),
+      ),
+      task: "semantic_arbitration",
+      split: "unknown",
+      page_index: fact.page_index,
+      evidence_kind: "heading_boundary",
+      subject_id: "p" +
+      pdf_v2_dataset_optional_int(fact.page_index) +
+      ":b" +
+      pdf_v2_dataset_optional_int(fact.block_ref),
+      related_id: "lines:" + pdf_v2_dataset_ints(fact.line_refs),
+      text: "",
+      normalized_text: "",
+      confidence: fact.confidence,
+      reason_tags: fact.reason_tags,
+      risk_tags: pdf_v2_dataset_unique_tags(risk_tags),
+      blockers: [],
+      source_refs: fact.source_refs,
+      weak_label: "",
+      gold_label: "",
+      label_source: "none",
+      extra: [
+        "font_layout_evidence=" + fact.font_layout_evidence,
+        "short_text_risk=" + pdf_v2_dataset_bool(fact.short_text_risk),
+        "sentence_like_risk=" + pdf_v2_dataset_bool(fact.sentence_like_risk),
+        "numbering_evidence=" + pdf_v2_dataset_bool(fact.numbering_evidence),
+        "body_continuation_evidence=" +
+        pdf_v2_dataset_bool(fact.body_continuation_evidence),
+      ].join(";"),
+    })
+  }
+  for i in 0..<parity_facts.column_layouts.length() {
+    let fact = parity_facts.column_layouts[i]
+    let risk_tags : Array[String] = []
+    if fact.ambiguity_flag {
+      risk_tags.push("column_ambiguity")
+    }
+    if fact.detected_column_count == "unknown" {
+      risk_tags.push("geometry_unknown")
+    }
+    rows.push({
+      schema_version,
+      doc_id,
+      row_id: pdf_v2_dataset_row_id(
+        "evidence",
+        safe_doc_id,
+        Some(fact.page_index),
+        "col" + i.to_string(),
+      ),
+      task: "layout_recovery",
+      split: "unknown",
+      page_index: Some(fact.page_index),
+      evidence_kind: "column_layout",
+      subject_id: "p" + fact.page_index.to_string(),
+      related_id: fact.column_assignments.join("|"),
+      text: "",
+      normalized_text: fact.detected_column_count,
+      confidence: fact.reading_order_confidence,
+      reason_tags: fact.reason_tags,
+      risk_tags: pdf_v2_dataset_unique_tags(risk_tags),
+      blockers: [],
+      source_refs: fact.source_refs,
+      weak_label: "",
+      gold_label: "",
+      label_source: "none",
+      extra: [
+        "block_refs=" + pdf_v2_dataset_ints(fact.block_refs),
+        "column_assignments=" + fact.column_assignments.join("|"),
+        "detected_column_count=" + fact.detected_column_count,
+        "ambiguity_flag=" + pdf_v2_dataset_bool(fact.ambiguity_flag),
+      ].join(";"),
+    })
+  }
+  rows
+}
+
+///|
 fn pdf_v2_dataset_flat_rows(
   dataset_export : PdfV2DatasetExport,
 ) -> Array[PdfV2DatasetFlatRow] {
@@ -745,6 +1092,9 @@ fn pdf_v2_dataset_flat_rows(
   }
   for row in dataset_export.adjacency_rows {
     rows.push(pdf_v2_dataset_flat_adjacency_row(row))
+  }
+  for row in dataset_export.evidence_rows {
+    rows.push(pdf_v2_dataset_flat_evidence_row(row))
   }
   rows
 }
@@ -767,6 +1117,9 @@ fn pdf_v2_dataset_flat_text_flow_row(
     object_kind: "",
     object_ref: "",
     asset_ref: "",
+    evidence_kind: "",
+    subject_id: "",
+    related_id: "",
     text: row.candidate_text,
     normalized_text: row.normalized_text,
     nearby_text: "",
@@ -778,6 +1131,7 @@ fn pdf_v2_dataset_flat_text_flow_row(
     risk_tags: row.risk_tags,
     reason_tags: row.reason_tags,
     source_refs: pdf_v2_dataset_source_ref_strings(row.source_refs),
+    blockers: [],
     extra: [
       "block_index=" + pdf_v2_dataset_optional_int(row.block_index),
       "flow_index=" + row.flow_index.to_string(),
@@ -804,6 +1158,9 @@ fn pdf_v2_dataset_flat_boundary_row(
     object_kind: "",
     object_ref: "",
     asset_ref: "",
+    evidence_kind: "",
+    subject_id: "",
+    related_id: "",
     text: row.prev_text,
     normalized_text: row.prev_text,
     nearby_text: row.next_text,
@@ -815,6 +1172,7 @@ fn pdf_v2_dataset_flat_boundary_row(
     risk_tags: row.risk_tags,
     reason_tags: row.reason_tags,
     source_refs: pdf_v2_dataset_source_ref_strings(row.source_refs),
+    blockers: [],
     extra: [
       "next_page_index=" + pdf_v2_dataset_optional_int(row.next_page_index),
       "same_page=" + pdf_v2_dataset_bool(row.same_page),
@@ -841,6 +1199,9 @@ fn pdf_v2_dataset_flat_artifact_row(
     object_kind: "page_artifact",
     object_ref: "",
     asset_ref: "",
+    evidence_kind: "",
+    subject_id: "",
+    related_id: "",
     text: row.text,
     normalized_text: row.normalized_text,
     nearby_text: "",
@@ -852,6 +1213,7 @@ fn pdf_v2_dataset_flat_artifact_row(
     risk_tags: row.risk_tags,
     reason_tags: row.reason_tags,
     source_refs: pdf_v2_dataset_source_ref_strings(row.source_refs),
+    blockers: [],
     extra: [
       "artifact_kind=" + row.artifact_kind,
       "position_band=" + row.position_band,
@@ -880,6 +1242,9 @@ fn pdf_v2_dataset_flat_adjacency_row(
     object_kind: row.object_kind,
     object_ref: row.object_ref,
     asset_ref: row.asset_ref,
+    evidence_kind: "",
+    subject_id: "",
+    related_id: "",
     text: "",
     normalized_text: "",
     nearby_text: row.nearby_text,
@@ -891,6 +1256,7 @@ fn pdf_v2_dataset_flat_adjacency_row(
     risk_tags: row.risk_tags,
     reason_tags: row.reason_tags,
     source_refs: pdf_v2_dataset_source_ref_strings(row.source_refs),
+    blockers: [],
     extra: [
       "relation=" + row.relation,
       "source_order_delta=" + row.source_order_delta,
@@ -900,13 +1266,51 @@ fn pdf_v2_dataset_flat_adjacency_row(
 }
 
 ///|
+fn pdf_v2_dataset_flat_evidence_row(
+  row : PdfV2DatasetEvidenceRow,
+) -> PdfV2DatasetFlatRow {
+  {
+    schema_version: row.schema_version,
+    row_family: "EvidenceRow",
+    doc_id: row.doc_id,
+    row_id: row.row_id,
+    task: row.task,
+    split: row.split,
+    page_index: pdf_v2_dataset_optional_int(row.page_index),
+    candidate_id: "",
+    prev_candidate_id: "",
+    next_candidate_id: "",
+    object_kind: "",
+    object_ref: "",
+    asset_ref: "",
+    evidence_kind: row.evidence_kind,
+    subject_id: row.subject_id,
+    related_id: row.related_id,
+    text: row.text,
+    normalized_text: row.normalized_text,
+    nearby_text: "",
+    current_rule_decision: "",
+    current_rule_confidence: row.confidence.to_string(),
+    weak_label: row.weak_label,
+    gold_label: row.gold_label,
+    label_source: row.label_source,
+    risk_tags: row.risk_tags,
+    reason_tags: row.reason_tags,
+    source_refs: pdf_v2_dataset_source_ref_strings(row.source_refs),
+    blockers: row.blockers,
+    extra: row.extra,
+  }
+}
+
+///|
 fn pdf_v2_dataset_tsv_header() -> Array[String] {
   [
     "schema_version", "row_family", "doc_id", "row_id", "task", "split", "page_index",
     "candidate_id", "prev_candidate_id", "next_candidate_id", "object_kind", "object_ref",
-    "asset_ref", "text", "normalized_text", "nearby_text", "current_rule_decision",
-    "current_rule_confidence", "weak_label", "gold_label", "label_source", "risk_tags",
-    "reason_tags", "source_refs", "extra",
+    "asset_ref", "evidence_kind", "subject_id", "related_id", "text", "normalized_text",
+    "nearby_text", "current_rule_decision", "current_rule_confidence", "weak_label",
+    "gold_label", "label_source", "risk_tags", "reason_tags", "source_refs", "blockers",
+    "extra",
   ]
 }
 
@@ -926,6 +1330,9 @@ fn pdf_v2_dataset_flat_row_to_tsv(row : PdfV2DatasetFlatRow) -> String {
     row.object_kind,
     row.object_ref,
     row.asset_ref,
+    row.evidence_kind,
+    row.subject_id,
+    row.related_id,
     row.text,
     row.normalized_text,
     row.nearby_text,
@@ -937,6 +1344,7 @@ fn pdf_v2_dataset_flat_row_to_tsv(row : PdfV2DatasetFlatRow) -> String {
     pdf_v2_dataset_tsv_list(row.risk_tags),
     pdf_v2_dataset_tsv_list(row.reason_tags),
     pdf_v2_dataset_tsv_list(row.source_refs),
+    pdf_v2_dataset_tsv_list(row.blockers),
     row.extra,
   ]
   .map(pdf_v2_dataset_escape_tsv)
@@ -959,6 +1367,9 @@ fn pdf_v2_dataset_flat_row_to_json(row : PdfV2DatasetFlatRow) -> String {
     pdf_v2_dataset_json_field("object_kind", row.object_kind),
     pdf_v2_dataset_json_field("object_ref", row.object_ref),
     pdf_v2_dataset_json_field("asset_ref", row.asset_ref),
+    pdf_v2_dataset_json_field("evidence_kind", row.evidence_kind),
+    pdf_v2_dataset_json_field("subject_id", row.subject_id),
+    pdf_v2_dataset_json_field("related_id", row.related_id),
     pdf_v2_dataset_json_field("text", row.text),
     pdf_v2_dataset_json_field("normalized_text", row.normalized_text),
     pdf_v2_dataset_json_field("nearby_text", row.nearby_text),
@@ -976,6 +1387,7 @@ fn pdf_v2_dataset_flat_row_to_json(row : PdfV2DatasetFlatRow) -> String {
     pdf_v2_dataset_json_array_field("risk_tags", row.risk_tags),
     pdf_v2_dataset_json_array_field("reason_tags", row.reason_tags),
     pdf_v2_dataset_json_array_field("source_refs", row.source_refs),
+    pdf_v2_dataset_json_array_field("blockers", row.blockers),
     pdf_v2_dataset_json_field("extra", row.extra),
   ]
   "{" + fields.join(",") + "}"
@@ -1017,6 +1429,10 @@ fn pdf_v2_dataset_flat_row_has_unknown_none_or_empty_key_field(
   (
     row.row_family == "AdjacencyRow" &&
     (row.object_kind == "" || row.object_ref == "unknown")
+  ) ||
+  (
+    row.row_family == "EvidenceRow" &&
+    (row.evidence_kind == "" || row.subject_id == "")
   )
 }
 
@@ -1324,6 +1740,30 @@ fn pdf_v2_dataset_position_band_name(
     @pdfv2.PdfV2PagePositionBand::Body => "body"
     @pdfv2.PdfV2PagePositionBand::Bottom => "bottom"
     @pdfv2.PdfV2PagePositionBand::Unknown => "unknown"
+  }
+}
+
+///|
+fn pdf_v2_dataset_parity_vertical_band_name(
+  band : @pdfv2.PdfV2ParityVerticalBand,
+) -> String {
+  match band {
+    @pdfv2.PdfV2ParityVerticalBand::Top => "top"
+    @pdfv2.PdfV2ParityVerticalBand::Body => "body"
+    @pdfv2.PdfV2ParityVerticalBand::Bottom => "bottom"
+    @pdfv2.PdfV2ParityVerticalBand::Unknown => "unknown"
+  }
+}
+
+///|
+fn pdf_v2_dataset_parity_text_relation_name(
+  relation : @pdfv2.PdfV2ParityTextRelation,
+) -> String {
+  match relation {
+    @pdfv2.PdfV2ParityTextRelation::Before => "before"
+    @pdfv2.PdfV2ParityTextRelation::After => "after"
+    @pdfv2.PdfV2ParityTextRelation::SamePage => "same_page"
+    @pdfv2.PdfV2ParityTextRelation::Unknown => "unknown"
   }
 }
 

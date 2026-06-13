@@ -174,12 +174,32 @@ runner_from_log() {
 
 checks_from_log() {
   local log_path="$1"
-  sed -n 's/.*(\([0-9][0-9]*\) samples, \([0-9][0-9]*\) failures).*/\1/p' "$log_path" | tail -1
+  local parsed
+  parsed="$(sed -n 's/.*(\([0-9][0-9]*\) samples, \([0-9][0-9]*\) failures).*/\1/p' "$log_path" | tail -1)"
+  if [[ -n "$parsed" ]]; then
+    printf '%s\n' "$parsed"
+    return 0
+  fi
+
+  parsed="$(sed -n 's/.*(\([0-9][0-9]*\) failures).*/\1/p' "$log_path" | tail -1)"
+  if [[ -n "$parsed" ]]; then
+    printf '%s\n' "$parsed"
+  fi
 }
 
 failures_from_log() {
   local log_path="$1"
-  sed -n 's/.*(\([0-9][0-9]*\) samples, \([0-9][0-9]*\) failures).*/\2/p' "$log_path" | tail -1
+  local parsed
+  parsed="$(sed -n 's/.*(\([0-9][0-9]*\) samples, \([0-9][0-9]*\) failures).*/\2/p' "$log_path" | tail -1)"
+  if [[ -n "$parsed" ]]; then
+    printf '%s\n' "$parsed"
+    return 0
+  fi
+
+  parsed="$(sed -n 's/.*(\([0-9][0-9]*\) failures).*/\1/p' "$log_path" | tail -1)"
+  if [[ -n "$parsed" ]]; then
+    printf '%s\n' "$parsed"
+  fi
 }
 
 run_impl() {

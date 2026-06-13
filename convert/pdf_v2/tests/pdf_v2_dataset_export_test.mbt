@@ -169,6 +169,114 @@ fn dataset_export_small_fixture(
 }
 
 ///|
+fn dataset_export_parity_fixture(
+  doc_id : String,
+) -> @pdfv2conv.PdfV2DatasetExport {
+  @pdfv2conv.pdf_v2_export_dataset_from_fact_arrays_with_parity(
+    doc_id,
+    [
+      dataset_export_text_candidate(0, 0, 0, 0, "Overview", 0.80, 0.0, [
+        dataset_export_artifact(),
+      ]),
+      dataset_export_text_candidate(1, 1, 1, 1, "Body sentence.", 0.0, 0.0, []),
+    ],
+    [dataset_export_table()],
+    [dataset_export_link()],
+    [dataset_export_image()],
+    [],
+    {
+      cross_page_boundaries: [
+        {
+          page_from: 0,
+          page_to: 1,
+          prev_block_ref: Some(0),
+          next_block_ref: Some(1),
+          prev_line_refs: [0],
+          next_line_refs: [1],
+          prev_vertical_band: @pdfv2.PdfV2ParityVerticalBand::Body,
+          next_vertical_band: @pdfv2.PdfV2ParityVerticalBand::Body,
+          prev_open_ended: true,
+          next_starts_with_marker: false,
+          repeated_artifact_gap: false,
+          confidence: 0.72,
+          reason_tags: ["cross_page_boundary_fact", "dataset_export_test"],
+          source_refs: [dataset_export_ref(0, 10), dataset_export_ref(1, 11)],
+        },
+      ],
+      image_text_boundaries: [
+        {
+          page_index: Some(0),
+          image_ref: "8 0 R",
+          asset_origin_id: "xobj-image-8",
+          nearby_text_refs: [5],
+          relation: @pdfv2.PdfV2ParityTextRelation::After,
+          distance: "unknown",
+          page_band: @pdfv2.PdfV2ParityVerticalBand::Unknown,
+          caption_candidate: true,
+          title_nearby: false,
+          confidence: 0.67,
+          reason_tags: [
+            "image_text_boundary_fact", "parser_layout_backed", "image_geometry_unknown",
+          ],
+          source_refs: [dataset_export_ref(0, 6), dataset_export_ref(0, 5)],
+        },
+      ],
+      header_footer_variants: [
+        {
+          repeated_text_cluster: "Confidential Footer 1 / Confidential Footer 2",
+          normalized_key: "confidential footer #",
+          raw_text_variants: ["Confidential Footer 1", "Confidential Footer 2"],
+          page_positions: [0, 1],
+          page_coverage_ratio: 1.0,
+          first_page_index: Some(0),
+          last_page_index: Some(1),
+          variant_group_id: "edge-variant-0",
+          position_band: @pdfv2.PdfV2ParityVerticalBand::Bottom,
+          page_number_like: false,
+          numbered_variant: true,
+          real_heading_risk: false,
+          confidence: 0.78,
+          reason_tags: [
+            "header_footer_variant_fact", "parser_layout_backed", "repeated_edge_evidence",
+          ],
+          blockers: [],
+          source_refs: [dataset_export_ref(0, 12), dataset_export_ref(1, 13)],
+        },
+      ],
+      heading_boundaries: [
+        {
+          page_index: Some(0),
+          block_ref: Some(0),
+          line_refs: [0],
+          short_text_risk: true,
+          sentence_like_risk: false,
+          font_layout_evidence: "font_relation_available",
+          numbering_evidence: false,
+          body_continuation_evidence: false,
+          confidence: 0.61,
+          reason_tags: ["heading_boundary_fact", "short_text_risk"],
+          source_refs: [dataset_export_ref(0, 0)],
+        },
+      ],
+      column_layouts: [
+        {
+          page_index: 1,
+          detected_column_count: "2",
+          block_refs: [0, 1],
+          column_assignments: ["left", "right"],
+          reading_order_confidence: 0.74,
+          ambiguity_flag: false,
+          reason_tags: ["two_column_candidate"],
+          source_refs: [dataset_export_ref(1, 20)],
+        },
+      ],
+      source_refs: [],
+      reason_tags: ["dataset_export_test"],
+    },
+  )
+}
+
+///|
 fn dataset_export_counter_count(
   counters : Array[@pdfv2conv.PdfV2DatasetAuditCounter],
   key : String,
@@ -192,6 +300,7 @@ test "pdf v2 dataset exporter uses stable row ids and doc scoped ids" {
   assert_true(first.boundary_rows.length() == 1)
   assert_true(first.artifact_rows.length() == 1)
   assert_true(first.adjacency_rows.length() == 3)
+  assert_true(first.evidence_rows.length() == 0)
   assert_true(first.text_flow_rows[0].row_id == second.text_flow_rows[0].row_id)
   assert_true(first.boundary_rows[0].row_id == second.boundary_rows[0].row_id)
   assert_true(first.artifact_rows[0].row_id == second.artifact_rows[0].row_id)
@@ -292,6 +401,8 @@ test "pdf v2 dataset exporter serializes deterministic JSONL and TSV" {
     ),
   )
   assert_true(tsv.contains("pdfv2:text_flow:doc_weird:p0:c0"))
+  assert_true(tsv.contains("evidence_kind"))
+  assert_true(tsv.contains("blockers"))
   assert_true(tsv.contains("Hello World Again \"quoted\""))
   assert_true(first_jsonl.contains("Hello\\tWorld\\nAgain \\\"quoted\\\""))
   assert_true(first_jsonl.contains("\"risk_tags\":["))
@@ -334,6 +445,7 @@ test "pdf v2 dataset export audit counts row quality in memory" {
   assert_true(audit.boundary_row_count == 1)
   assert_true(audit.artifact_row_count == 1)
   assert_true(audit.adjacency_row_count == 3)
+  assert_true(audit.evidence_row_count == 0)
   assert_true(audit.empty_gold_label_count == audit.total_rows)
   assert_true(audit.weak_label_count == 2)
   assert_true(audit.rows_with_source_refs == audit.total_rows)
@@ -370,4 +482,41 @@ test "pdf v2 dataset export audit counts row quality in memory" {
     ) ==
     2,
   )
+}
+
+///|
+test "pdf v2 dataset exporter emits parity evidence rows for training readiness" {
+  let dataset = dataset_export_parity_fixture("doc-parity")
+  let audit = @pdfv2conv.pdf_v2_dataset_export_audit(dataset)
+  let tsv = @pdfv2conv.pdf_v2_dataset_export_to_tsv(dataset)
+  let jsonl = @pdfv2conv.pdf_v2_dataset_export_to_jsonl(dataset)
+
+  assert_true(dataset.evidence_rows.length() == 5)
+  assert_true(audit.total_rows == 12)
+  assert_true(audit.evidence_row_count == 5)
+  assert_true(audit.image_evidence_row_count == 1)
+  assert_true(audit.heading_evidence_row_count == 1)
+  assert_true(audit.column_evidence_row_count == 1)
+  assert_true(audit.artifact_evidence_row_count == 1)
+  assert_true(dataset.evidence_rows[0].gold_label == "")
+  assert_true(dataset.evidence_rows[0].label_source == "none")
+  assert_true(
+    dataset_export_counter_count(audit.rows_by_family, "EvidenceRow") == 5,
+  )
+  assert_true(
+    dataset_export_counter_count(audit.rows_by_task, "semantic_arbitration") ==
+    3,
+  )
+  assert_true(
+    dataset_export_counter_count(audit.rows_by_task, "layout_recovery") == 2,
+  )
+  assert_true(tsv.contains("cross_page_boundary"))
+  assert_true(tsv.contains("image_text_boundary"))
+  assert_true(tsv.contains("header_footer_variant"))
+  assert_true(tsv.contains("heading_boundary"))
+  assert_true(tsv.contains("column_layout"))
+  assert_true(tsv.contains("caption_candidate"))
+  assert_true(tsv.contains("column_assignments=left|right"))
+  assert_true(jsonl.contains("\"evidence_kind\":\"image_text_boundary\""))
+  assert_true(jsonl.contains("\"blockers\":[]"))
 }
