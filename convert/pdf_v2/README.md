@@ -1152,3 +1152,79 @@ Reset 17I conclusion:
   product output relative to 17H.
 - next recommended reset should inspect parser/semantic ownership of remaining
   heading/title structure rather than widen heading promotion globally.
+
+## Reset 17J Parity Line Closeout And Next-gap Selection
+
+Reset 17J closes out the 17C-17I cross-page and heading/title parity line as an
+audit/docs step. It does not change product Markdown output.
+
+17C-17I closeout summary:
+
+| reset | facts/evidence/model added | visible product effect |
+| --- | --- | --- |
+| 17C | product consumption of `PdfV2CrossPageBoundaryFact` through a narrow cross-page-only parser API | enabled the first fact-backed cross-page merge/split path, but did not reduce visible PDF parity count |
+| 17D | opt-in cross-page arbitration audit counters | no product-output change; clarified why visible failures were still mixed with heading/title/list issues |
+| 17E | `PdfV2CrossPageStructuralHandoff` and candidate-path bridge threading fix | bridge/threading bug fixed, but visible cross-page sample output still did not move |
+| 17F | opt-in target signal trace helper and debug entrypoint | no product-output change; localized evidence-loss ownership |
+| 17G | parser/candidate-side preservation tags for title/body and heading/list boundaries, plus visible-boundary cross-page fact retargeting | visible improvement for `pdf_cross_page_paragraph` and `pdf_cross_page_should_not_merge_phase15`, but both still failed |
+| 17H | semantic consumption of preserved structure tags and full parser-backed list-body preservation | further visible improvement only for `pdf_cross_page_should_not_merge_phase15`, still partial |
+| 17I | typed `PdfV2HeadingTitleEvidence`, `PdfV2HeadingLevelEvidence`, `PdfV2TitleBodyEvidence`, plus narrow document-lead title/body split preservation | no visible product-output change relative to 17H |
+
+Why the failure count stayed 10:
+
+- the cross-page paragraph join in `pdf_cross_page_paragraph` is already fixed,
+  but the remaining visible mismatch is heading level, not paragraph handoff.
+- `pdf_cross_page_should_merge_phase15` still loses title/body ownership before
+  the typed evidence path can move visible output.
+- `pdf_cross_page_should_not_merge_phase15` now preserves the list body, but
+  title and heading levels still remain plain text.
+- the remaining seven failures are in image placement/caption, header/footer,
+  single-page heading/list structure, or column/reading-order buckets that
+  17C-17I intentionally did not broaden into.
+
+Remaining-failure readiness matrix:
+
+| sample | current owner layer | available typed facts/evidence | missing typed facts/evidence | string-patch temptation | readiness |
+| --- | --- | --- | --- | --- | --- |
+| `pdf_cross_page_paragraph` | semantic arbitration | visible-boundary `PdfV2CrossPageBoundaryFact`, structural handoff, typed heading/title evidence | stable heading-level evidence from font/geometry or clearer parser heading ownership for `Next Section` | medium | audit first |
+| `pdf_cross_page_should_merge_phase15` | parser/model | cross-page fact, structural handoff, typed title/body evidence model | real parser-side title/body split before semantic collapse; stronger opener geometry/font evidence | high | blocked |
+| `pdf_cross_page_should_not_merge_phase15` | semantic arbitration | preserved next-page split, list-marker/body evidence, full list-body preservation, typed heading/title evidence | stable title and heading-level evidence for the plain-text title lines | medium | audit first |
+| `assets/pdf_image_form_xobject` | asset placement | image asset extraction and nearby text output | typed image-caption / nearby-heading placement evidence | high | audit first |
+| `assets/pdf_image_inline` | asset placement | inline image extraction, current title text output | typed title-vs-caption / nearby-heading placement evidence | medium | audit first |
+| `assets/pdf_image_xobject` | asset placement | image extraction, current title text output | typed title-vs-caption / nearby-heading placement evidence | medium | audit first |
+| `pdf_header_footer_variants_phase15` | insufficient geometry/font evidence | repeated-artifact suppression and page-noise heuristics | stronger repeated header/footer geometry/font repetition evidence across pages | medium | ready |
+| `pdf_heading_false_positive_phase15` | parser/model | typed heading/title evidence and short-sentence blockers | block-level structure and stronger list/body/font evidence across multiple short lines | high | blocked |
+| `pdf_heading_vs_short_sentence` | semantic arbitration | typed heading/title evidence, intro-phrase guard, current list/body preservation | stable list-marker ownership for the plain bullet lines without broad heading changes | medium | ready |
+| `pdf_two_column_negative_phase15` | insufficient geometry/font evidence | current block/candidate flow and basic boundary signals | column-aware geometry/reading-order evidence | low | defer |
+
+Cross-page / heading-title freeze decision:
+
+- Cross-page / heading-title should pause here rather than continue
+  immediately.
+- The next likely visible wins in that line need font/geometry/level evidence
+  or stronger parser-owned structure than the current parser signals expose.
+- Before returning to this line, PDF v2 would need at least one of:
+  - stable heading-level evidence from parser geometry/font summaries,
+  - parser-owned title/body separation for real fused opener blocks,
+  - parser-owned single-page heading/list structure preservation that is not
+    reducible to string-shape rules.
+
+Next-gap comparison:
+
+| candidate line | expected value | risk | available facts | missing facts | likely scope | recommended reset name |
+| --- | --- | --- | --- | --- | --- | --- |
+| image placement/caption | medium | high | asset extraction exists; failures are clearly isolated | caption/nearby-heading placement evidence | parser + lowering + asset placement | `PDF v2 Productization Reset 17K: image placement and caption ownership audit` |
+| header/footer variants | high | medium | repeated-artifact suppression already exists and one failing sample is isolated | stronger page-to-page geometry/font repetition evidence | parser heuristics + narrow semantic/noise use | `PDF v2 Productization Reset 17K: header/footer repetition evidence audit` |
+| column/reading order | high | high | failure is isolated and well-scoped | column geometry / reading-order evidence | parser layout model + lowering | `PDF v2 Productization Reset 17K: column reading-order evidence audit` |
+| remaining heading/list structure | medium | high | typed heading/title evidence now exists | stronger parser-owned line grouping, list ownership, font/geometry support | parser + semantic arbitration | `PDF v2 Productization Reset 17K: single-page heading-list structure audit` |
+| samples runner `rows=0` caveat | low | low | authoritative markdown-only log already exists | wrapper summary parser fix only | samples tooling/docs | `PDF v2 Tooling Reset: samples runner summary audit` |
+
+Reset 17J recommendation:
+
+- freeze the 17C-17I cross-page / heading-title parity line for now.
+- choose `header/footer variants` as the next highest-value PDF v2 gap.
+- keep an explicit anti-patch warning:
+  - do not add string-specific normalizer or semantic patches to chase the
+    remaining 10 failures.
+  - prefer new typed geometry/font/repetition evidence or clearly isolated
+    asset/ordering ownership before returning to this line.

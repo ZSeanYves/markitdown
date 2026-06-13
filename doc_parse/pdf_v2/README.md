@@ -1223,3 +1223,33 @@ Current recommendation:
 - next work should inspect where remaining heading/title structure is still
   lost before or during semantic ownership, not add broader parser facts or
   semantic rewrites.
+
+## Reset 17J Parity Line Closeout Follow-up
+
+Reset 17J closes out the parser-side view of the 17C-17I parity line.
+
+- 17C through 17I added or refined:
+  - `PdfV2CrossPageBoundaryFact` product consumption,
+  - cross-page audit counters,
+  - cross-page structural handoff,
+  - target signal trace,
+  - parser/candidate structure tags,
+  - semantic consumption of preserved structure tags,
+  - typed heading/title evidence models.
+- Visible outcome across that line:
+  - `pdf_cross_page_paragraph` improved at 17G, but its remaining mismatch is
+    now heading level rather than cross-page paragraph ownership.
+  - `pdf_cross_page_should_not_merge_phase15` improved at 17G and 17H, but its
+    remaining mismatch is still title/heading ownership.
+  - `pdf_cross_page_should_merge_phase15`,
+    `pdf_heading_false_positive_phase15`, and
+    `pdf_heading_vs_short_sentence` did not gain visible Markdown parity wins.
+- Current parser-side conclusion:
+  - the next cross-page/heading-title wins would require stronger parser-owned
+    geometry/font/structure evidence than the current candidate/fact surfaces
+    expose.
+  - the recommended next parser-side line is therefore not another immediate
+    cross-page/heading-title pass, but a new isolated evidence audit such as
+    header/footer repetition or column/reading-order ownership.
+  - do not use string-specific patches as a substitute for missing parser
+    evidence.

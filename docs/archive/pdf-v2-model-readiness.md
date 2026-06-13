@@ -695,6 +695,33 @@ stack more training-ready.
     `markdown-only.entrypoint.log` remains authoritative.
   - direct CLI output for the five 17I target samples is byte-for-byte
     identical to Reset 17H output.
-  - 17I therefore improves evidence quality and regression coverage, but it
-    still does not reduce the training-readiness gap or justify new labels
-    from these samples.
+- 17I therefore improves evidence quality and regression coverage, but it
+  still does not reduce the training-readiness gap or justify new labels
+  from these samples.
+
+## 25. Reset 17J Parity Line Closeout And Next-gap Selection
+
+Reset 17J is a closeout and prioritization step. It does not change runtime
+behavior, labels, or exports.
+
+- What changed:
+  - the 17C-17I parity line is now summarized as one closed audit thread.
+  - the remaining 10 PDF failures are classified by owner layer and fix
+    readiness.
+  - the next recommended target is selected explicitly.
+- What did not change:
+  - no new parser labels or exported training rows.
+  - no quality-lab adapter or dataset schema change.
+  - no runtime model loading or inference.
+  - no sample expected updates.
+- Readiness impact:
+  - repo-local PDF Markdown parity still remains at 10 failures.
+  - the wrapper summary may still print `rows=0`; the run's
+    `markdown-only.entrypoint.log` remains authoritative.
+  - cross-page / heading-title work is now considered paused until stronger
+    parser-owned geometry/font/level evidence exists.
+  - highest-value next gap is `header/footer variants`, because it is isolated,
+    already has some repeated-artifact evidence, and is narrower than
+    column/reading-order.
+  - explicit warning remains in force: do not replace missing typed evidence
+    with string-specific patches.

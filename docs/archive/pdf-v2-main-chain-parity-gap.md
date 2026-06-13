@@ -1981,3 +1981,70 @@ Practical effect:
   - two phase15 samples still miss title/body or heading/title ownership,
   - two single-page heading/list samples still fail outside cross-page
     handoff.
+
+## Reset 17J Parity Line Closeout And Next-gap Selection
+
+Reset 17J closes out the 17C-17I parity line without changing product output.
+
+Closeout summary:
+
+- 17C introduced fact-backed cross-page arbitration.
+- 17D added opt-in audit counters and proved the visible failures were still
+  mixed with heading/title/list structure.
+- 17E added structural handoff and fixed a narrow bridge-threading bug.
+- 17F added target signal tracing and localized ownership of the remaining
+  target failures.
+- 17G moved evidence preservation upstream and produced the last visible
+  cross-page parity improvements.
+- 17H consumed preserved structure evidence and produced the last visible
+  list-body preservation improvement.
+- 17I modeled typed heading/title evidence explicitly, but produced no visible
+  Markdown delta relative to 17H.
+
+Why parity stayed at 10:
+
+- the remaining cross-page-labeled failures are no longer clean
+  paragraph-handoff bugs; they are mixed with heading/title ownership.
+- the remaining single-page and asset/layout failures were intentionally out of
+  scope for 17C-17I.
+- no sample expected files changed, and no string-specific patching was used.
+
+Remaining-failure readiness matrix:
+
+| sample | owner layer | available evidence | missing evidence | string-patch risk | next-fix readiness |
+| --- | --- | --- | --- | --- | --- |
+| `pdf_cross_page_paragraph` | semantic arbitration | visible-boundary cross-page fact, structural handoff, typed heading/title evidence | stable heading-level evidence | medium | audit first |
+| `pdf_cross_page_should_merge_phase15` | parser/model | cross-page fact and typed title/body model | real parser-owned title/body split in sample shape | high | blocked |
+| `pdf_cross_page_should_not_merge_phase15` | semantic arbitration | preserved split, list-body evidence, typed heading/title evidence | stable title/heading-level evidence | medium | audit first |
+| `assets/pdf_image_form_xobject` | asset placement | image extraction | typed caption / nearby-heading placement evidence | high | audit first |
+| `assets/pdf_image_inline` | asset placement | inline image extraction | typed title-vs-caption placement evidence | medium | audit first |
+| `assets/pdf_image_xobject` | asset placement | image extraction | typed title-vs-caption placement evidence | medium | audit first |
+| `pdf_header_footer_variants_phase15` | insufficient geometry/font evidence | repeated-artifact filtering | stronger page-to-page repetition evidence | medium | ready |
+| `pdf_heading_false_positive_phase15` | parser/model | typed heading/title blockers | stronger multi-line structure and font/geometry evidence | high | blocked |
+| `pdf_heading_vs_short_sentence` | semantic arbitration | typed heading/title blockers, intro-phrase guard | stable list-marker ownership | medium | ready |
+| `pdf_two_column_negative_phase15` | insufficient geometry/font evidence | current block/candidate flow | column-aware geometry/reading-order evidence | low | defer |
+
+Freeze decision:
+
+- Pause the cross-page / heading-title line here.
+- Return only after parser-owned geometry/font/level evidence or stronger
+  parser-owned title/body and single-page structure evidence is available.
+
+Chosen next target:
+
+- next highest-value PDF v2 gap: `header/footer variants`
+- rationale:
+  - isolated failing sample,
+  - existing repeated-artifact suppression already provides a fact-backed
+    starting point,
+  - likely narrower than column/reading-order and less string-patch-prone than
+    remaining heading/title cleanup.
+- recommended next reset name:
+  - `PDF v2 Productization Reset 17K: header/footer repetition evidence audit`
+
+Explicit anti-patch warning:
+
+- do not add string-specific normalizer patches.
+- do not add sample-name-specific semantic rules.
+- if the missing signal is geometry/font/repetition evidence, add that evidence
+  first or defer the fix.

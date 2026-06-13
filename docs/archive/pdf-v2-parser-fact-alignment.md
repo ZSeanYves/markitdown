@@ -1292,3 +1292,36 @@ Actual June 13, 2026 outcome:
   to Reset 17H output.
 - Reset 17I therefore improves evidence alignment and regression coverage, but
   it still does not surface new visible parser-fact-owned parity wins.
+
+## Reset 17J Parity Line Alignment Closeout
+
+Reset 17J closes the 17C-17I alignment line without adding a new parser fact
+family.
+
+Alignment conclusion:
+
+- 17C-17I were enough to prove that one parser fact family plus preserved
+  candidate-side structure evidence can move some cross-page behavior safely.
+- 17G and 17H produced the only visible parity movement in that line.
+- 17I made heading/title ownership more explicit, but confirmed that the next
+  missing signals are not another parser fact schema; they are stronger
+  geometry/font/level or parser-owned structure signals.
+
+Remaining-failure parser alignment view:
+
+- `pdf_cross_page_paragraph`: current fact alignment is good enough for the
+  paragraph join, but not for the remaining heading level.
+- `pdf_cross_page_should_merge_phase15`: still blocked by missing parser-owned
+  title/body separation in the real sample shape.
+- `pdf_cross_page_should_not_merge_phase15`: current parser-owned split is good
+  enough for list-body preservation, but not for title/heading classification.
+- `pdf_heading_false_positive_phase15` and `pdf_two_column_negative_phase15`
+  both point at missing parser-side structure or geometry evidence rather than
+  missing fact schemas.
+
+Recommended next alignment line:
+
+- pause new cross-page/heading-title parser-fact work.
+- prefer a header/footer repetition evidence audit next.
+- keep the anti-patch rule explicit: no string-specific convert or parser
+  patches in place of missing typed evidence.
