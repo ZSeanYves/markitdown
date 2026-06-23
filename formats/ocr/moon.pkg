@@ -1,0 +1,16 @@
+import {
+  "moonbitlang/async/process",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/string",
+  "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/parser",
+}
+
+import {
+  "moonbitlang/async",
+} for "test"
+
+options(
+  "preferred-target": "native",
+)
