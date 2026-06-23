@@ -1,0 +1,22 @@
+import {
+  "moonbitlang/async",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/x/fs",
+  "ZSeanYves/markitdown/container",
+  "ZSeanYves/markitdown/convert",
+  "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/formats" @formats_root,
+  "ZSeanYves/markitdown/formats/docx" @fdocx,
+  "ZSeanYves/markitdown/formats/ocr" @focr,
+  "ZSeanYves/markitdown/formats/pdf" @formats,
+  "ZSeanYves/markitdown/format_readers/ooxml/shared",
+  "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/pipeline",
+  "ZSeanYves/markitdown/render",
+  "ZSeanYves/markitdown/runtime",
+} for "test"
+
+options(
+  "preferred-target": "native",
+)
