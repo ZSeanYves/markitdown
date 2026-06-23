@@ -1,10 +1,14 @@
 import {
-  "ZSeanYves/markitdown/cli_common" @clicom,
-  "ZSeanYves/markitdown/cli_support" @clisup,
-  "moonbitlang/x/sys",
-  "moonbitlang/x/fs",
-  "TheWaWaR/clap",
   "moonbitlang/async",
+  "ZSeanYves/markitdown/convert",
+  "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/format_readers/zip" @dzip,
+  "ZSeanYves/markitdown/formats/ocr" @focr,
+  "ZSeanYves/markitdown/formats/pdf" @fpdf,
+  "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/parser",
+  "moonbitlang/x/fs",
+  "moonbitlang/x/sys",
 }
 
 options(

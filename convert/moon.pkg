@@ -1,0 +1,14 @@
+import {
+  "ZSeanYves/markitdown/formats",
+  "ZSeanYves/markitdown/formats/ocr" @focr,
+  "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/pipeline",
+  "ZSeanYves/markitdown/render",
+  "ZSeanYves/markitdown/runtime",
+}
+
+options(
+  "preferred-target": "native",
+)

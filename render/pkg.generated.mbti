@@ -1,0 +1,39 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/render"
+
+import {
+  "ZSeanYves/markitdown/core",
+}
+
+// Values
+pub fn debug_json_renderer() -> Renderer
+
+pub fn make_render_context(Bool) -> RenderContext
+
+pub fn markdown_renderer() -> Renderer
+
+pub fn render_debug_json_document(@core.DocumentIR) -> String
+
+pub fn render_markdown_document(@core.DocumentIR) -> String
+
+// Errors
+
+// Types and methods
+pub struct RenderContext {
+  debug : Bool
+}
+
+pub struct RenderResult {
+  content : String
+  diagnostics : @core.Diagnostics
+}
+
+pub struct Renderer {
+  name : String
+  render : (@core.DocumentIR, RenderContext) -> RenderResult
+}
+
+// Type aliases
+
+// Traits
+

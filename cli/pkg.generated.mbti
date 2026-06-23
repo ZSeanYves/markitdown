@@ -1,11 +1,67 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "ZSeanYves/markitdown/cli"
 
+import {
+  "ZSeanYves/markitdown/convert",
+  "ZSeanYves/markitdown/formats/ocr",
+  "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/parser",
+  "moonbitlang/x/fs",
+}
+
 // Values
+pub fn cli_is_supported_format(@input.DetectedFormat) -> Bool
+
+pub fn cli_output_kind(Bool) -> @convert.OutputFormat
+
+pub fn cli_product_name() -> String
+
+pub fn cli_product_version() -> String
+
+pub fn cli_supported_formats() -> Array[String]
+
+pub fn cli_unsupported_format_message(String) -> String
+
+pub fn dirname_of_path(String) -> String
+
+pub fn ensure_dir_tree(String) -> Unit raise @fs.IOError
+
+pub fn make_cli_options(String, String?, @input.DetectedFormat?, @parser.OcrOptions, @convert.OutputFormat, pdf_cleanup_mode? : @convert.PdfCleanupMode, pdf_table_mode? : @convert.PdfTableMode) -> CliOptions
+
+pub fn normalize_cli_args(Array[String]) -> Array[String]
+
+pub fn normalize_cli_args_for_subcommand(Array[String]) -> Array[String]
+
+pub fn parse_explicit_format(String?) -> Result[@input.DetectedFormat?, String]
+
+pub fn print_cli_help() -> Unit
+
+pub fn print_cli_usage() -> Unit
+
+pub fn print_cli_version() -> Unit
+
+pub fn run_cli(CliOptions) -> Result[String, String]
+
+pub async fn run_cli_app(Array[String]) -> Int
+
+pub async fn run_cli_async(CliOptions) -> Result[String, String]
+
+pub async fn run_cli_with_async_image_ocr_provider(CliOptions, async (@ocr.OcrProviderRequest) -> Result[@ocr.OcrProviderResult, @ocr.OcrProviderError]) -> Result[String, String]
+
+pub fn run_cli_with_image_ocr_provider(CliOptions, (@ocr.OcrProviderRequest) -> Result[@ocr.OcrProviderResult, @ocr.OcrProviderError]) -> Result[String, String]
 
 // Errors
 
 // Types and methods
+pub struct CliOptions {
+  input : String
+  output : String?
+  explicit_format : @input.DetectedFormat?
+  ocr_options : @parser.OcrOptions
+  output_format : @convert.OutputFormat
+  pdf_cleanup_mode : @convert.PdfCleanupMode
+  pdf_table_mode : @convert.PdfTableMode
+}
 
 // Type aliases
 

@@ -1,7 +1,0 @@
-import {
-  "moonbitlang/core/encoding/utf8",
-  "moonbitlang/x/fs",
-  "moonbitlang/x/sys",
-  "ZSeanYves/markitdown/core" @cor,
-  "ZSeanYves/markitdown/convert/epub",
-} for "test"

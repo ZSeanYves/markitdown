@@ -1,0 +1,26 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/runtime"
+
+import {
+  "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/parser",
+}
+
+// Values
+pub fn merge_diagnostics_append(@core.Diagnostics, @core.Diagnostics) -> @core.Diagnostics
+
+pub fn merge_diagnostics_unique(@core.Diagnostics, @core.Diagnostics) -> @core.Diagnostics
+
+pub fn parse_child_to_document(@parser.ParserRegistry, @input.InputSource, @input.DetectedFormat, @parser.ParseContext) -> Result[@core.DocumentIR, String]
+
+pub fn parse_result_to_ir_input(@parser.ParseResult) -> @core.IRInput
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

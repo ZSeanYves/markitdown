@@ -1,0 +1,8 @@
+import {
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/x/fs",
+}
+
+options(
+  "preferred-target": "native",
+)

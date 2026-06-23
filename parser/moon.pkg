@@ -1,0 +1,8 @@
+import {
+  "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/input",
+}
+
+options(
+  "preferred-target": "native",
+)
