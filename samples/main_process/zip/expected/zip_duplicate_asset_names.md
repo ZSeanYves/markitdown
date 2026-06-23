@@ -1,4 +1,4 @@
-# alpha/img/img_red.jpg
+# alpha/img/img\_red.jpg
 
 > Skipped: unsupported file type: jpg
 
@@ -8,7 +8,7 @@
 *Alpha Red*
 Alpha caption
 
-# beta/img/img_red.jpg
+# beta/img/img\_red.jpg
 
 > Skipped: unsupported file type: jpg
 

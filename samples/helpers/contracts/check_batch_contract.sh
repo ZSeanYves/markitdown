@@ -22,24 +22,22 @@ fail() {
   exit 1
 }
 
-assert_file_exists() {
+assert_contains() {
   local path="$1"
-  [[ -f "$path" ]] || fail "expected file missing: $path"
+  local needle="$2"
+  grep -Fq -- "$needle" "$path" || fail "expected $path to contain: $needle"
 }
 
-assert_dir_exists() {
-  local path="$1"
-  [[ -d "$path" ]] || fail "expected directory missing: $path"
-}
-
-assert_file_not_exists() {
-  local path="$1"
-  [[ ! -e "$path" ]] || fail "unexpected path exists: $path"
+run_and_capture() {
+  local out="$1"
+  shift
+  set +e
+  "$@" >"$out" 2>&1
+  CAPTURED_STATUS=$?
+  set -e
 }
 
 INPUT_DIR="$OUT_DIR/input"
-NO_META_OUT="$OUT_DIR/no_meta"
-WITH_META_OUT="$OUT_DIR/with_meta"
 mkdir -p "$INPUT_DIR/nested"
 
 printf 'alpha\n' > "$INPUT_DIR/a.txt"
@@ -48,40 +46,14 @@ cp "$ROOT/samples/main_process/docx/metadata/docx_image_alt_title_basic.docx" "$
 printf 'ignored\n' > "$INPUT_DIR/nested/ignored.txt"
 printf 'bad\n' > "$INPUT_DIR/d.bin"
 
-echo "==> batch without metadata"
-set +e
-run_markitdown_cli batch "$INPUT_DIR" "$NO_META_OUT"
-status=$?
-set -e
-if [[ "$status" -ne 1 ]]; then
-  fail "expected batch without metadata to exit 1 because unsupported inputs are recorded; got $status"
-fi
-assert_file_exists "$NO_META_OUT/002-a/a.md"
-assert_file_exists "$NO_META_OUT/001-b/b.md"
-assert_file_exists "$NO_META_OUT/004-c/c.md"
-assert_dir_exists "$NO_META_OUT/004-c/assets"
-assert_file_exists "$NO_META_OUT/batch-summary.tsv"
-assert_file_not_exists "$NO_META_OUT/002-a/metadata/a.metadata.json"
-assert_file_not_exists "$NO_META_OUT/001-b/metadata/b.metadata.json"
-assert_file_not_exists "$NO_META_OUT/004-c/metadata/c.metadata.json"
-grep -q $'\tskipped_directory\t' "$NO_META_OUT/batch-summary.tsv" || fail "batch summary missing skipped_directory row"
-grep -q $'\tunsupported\t' "$NO_META_OUT/batch-summary.tsv" || fail "batch summary missing unsupported row"
+echo "==> batch subcommand is not exposed through the current main cli"
+run_and_capture "$OUT_DIR/batch.txt" run_markitdown_cli batch "$INPUT_DIR" "$OUT_DIR/out"
+[[ "$CAPTURED_STATUS" -ne 0 ]] || fail "batch should fail closed through main cli"
+assert_contains "$OUT_DIR/batch.txt" 'unsupported subcommand: batch is not migrated to the current main CLI yet'
 
-echo "==> batch with metadata"
-set +e
-run_markitdown_cli batch --with-metadata "$INPUT_DIR" "$WITH_META_OUT"
-status=$?
-set -e
-if [[ "$status" -ne 1 ]]; then
-  fail "expected batch with metadata to exit 1 because unsupported inputs are recorded; got $status"
-fi
-assert_file_exists "$WITH_META_OUT/002-a/a.md"
-assert_file_exists "$WITH_META_OUT/001-b/b.md"
-assert_file_exists "$WITH_META_OUT/004-c/c.md"
-assert_file_exists "$WITH_META_OUT/002-a/metadata/a.metadata.json"
-assert_file_exists "$WITH_META_OUT/001-b/metadata/b.metadata.json"
-assert_file_exists "$WITH_META_OUT/004-c/metadata/c.metadata.json"
-assert_dir_exists "$WITH_META_OUT/004-c/assets"
-assert_file_exists "$WITH_META_OUT/batch-summary.tsv"
+echo "==> batch metadata flags also stay fail-closed"
+run_and_capture "$OUT_DIR/batch_meta.txt" run_markitdown_cli batch --with-metadata "$INPUT_DIR" "$OUT_DIR/out-meta"
+[[ "$CAPTURED_STATUS" -ne 0 ]] || fail "batch --with-metadata should fail closed through main cli"
+assert_contains "$OUT_DIR/batch_meta.txt" 'unsupported subcommand: batch is not migrated to the current main CLI yet'
 
 echo "BATCH CONTRACT PASSED"

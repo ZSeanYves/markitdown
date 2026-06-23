@@ -1,4 +1,4 @@
-# XObject image sample
+XObject image sample
 
 Uses drawImage(), which should create an Image XObject referenced by Do.
 

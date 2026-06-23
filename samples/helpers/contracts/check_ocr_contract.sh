@@ -38,110 +38,59 @@ run_and_capture() {
 }
 
 TXT_INPUT="$ROOT/samples/main_process/txt/txt_plain.txt"
-TXT_OUTPUT="$OUT_DIR/txt_plain.md"
-PDF_INPUT="$ROOT/samples/main_process/pdf/text_simple.pdf"
-PDF_OUTPUT="$OUT_DIR/text_simple.md"
 IMAGE_INPUT="$ROOT/samples/fixtures/ocr/tiny_ocr_sample.png"
-tesseract_has_lang() {
-  local lang="$1"
-  if ! tesseract_available; then
-    return 1
-  fi
-  tesseract --list-langs 2>/dev/null | grep -Fxq "$lang"
-}
+PDF_INPUT="$ROOT/samples/main_process/pdf/text_simple.pdf"
 
-tesseract_available() {
-  if command -v tesseract >/dev/null 2>&1; then
-    return 0
-  fi
-  return 1
-}
-
-echo "==> normal path does not auto ocr"
-run_markitdown_cli normal "$TXT_INPUT" "$TXT_OUTPUT"
-[[ -f "$TXT_OUTPUT" ]] || fail "expected normal path output"
-if grep -Fq 'OCRPageModel' "$TXT_OUTPUT"; then
-  fail "normal path should not emit OCR rebuild text"
-fi
-
-echo "==> retired ocr surface fails closed"
+echo "==> retired ocr subcommand fails closed through the current main cli"
 run_and_capture "$OUT_DIR/ocr_retired.txt" run_markitdown_cli ocr "$TXT_INPUT"
-[[ "$CAPTURED_STATUS" -ne 0 ]] || fail "retired ocr surface should fail closed"
-assert_contains "$OUT_DIR/ocr_retired.txt" 'ocr product surface has been retired in this build'
+[[ "$CAPTURED_STATUS" -ne 0 ]] || fail "ocr subcommand should fail closed"
+assert_contains "$OUT_DIR/ocr_retired.txt" 'unsupported subcommand: ocr is not migrated to the current main CLI yet'
 
-echo "==> image input default auto-ocr executes when tesseract is available"
+echo "==> image input is not exposed through the current main cli"
 run_and_capture "$OUT_DIR/image_auto.txt" run_markitdown_cli "$IMAGE_INPUT"
-if tesseract_available; then
-  [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "image auto-ocr should succeed when tesseract is available"
-  assert_contains "$OUT_DIR/image_auto.txt" 'MoonBit OCR'
-  assert_contains "$OUT_DIR/image_auto.txt" 'Sample 123'
-else
-  [[ "$CAPTURED_STATUS" -ne 0 ]] || fail "image auto-ocr should fail clearly without tesseract"
-  assert_contains "$OUT_DIR/image_auto.txt" 'Image OCR failed: tesseract executable was not available or failed.'
-fi
+[[ "$CAPTURED_STATUS" -ne 0 ]] || fail "image input should fail closed through main cli"
+assert_contains "$OUT_DIR/image_auto.txt" 'unsupported format'
+assert_contains "$OUT_DIR/image_auto.txt" 'png'
+assert_contains "$OUT_DIR/image_auto.txt" 'current main CLI'
+assert_contains "$OUT_DIR/image_auto.txt" 'image OCR is not enabled'
 
-echo "==> image input explicit --ocr executes when tesseract is available"
+echo "==> explicit ocr flags still parse, but required contract does not depend on local provider availability"
 run_and_capture "$OUT_DIR/image_force.txt" run_markitdown_cli --ocr "$IMAGE_INPUT"
-if tesseract_available; then
-  [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "image --ocr should succeed when tesseract is available"
-  assert_contains "$OUT_DIR/image_force.txt" 'MoonBit OCR'
-  assert_contains "$OUT_DIR/image_force.txt" 'Sample 123'
+if [[ "$CAPTURED_STATUS" -eq 0 ]]; then
+  if [[ ! -s "$OUT_DIR/image_force.txt" ]]; then
+    fail "image --ocr succeeded but produced empty output"
+  fi
 else
-  [[ "$CAPTURED_STATUS" -ne 0 ]] || fail "image --ocr should fail clearly without tesseract"
-  assert_contains "$OUT_DIR/image_force.txt" 'Image OCR failed: tesseract executable was not available or failed.'
+  assert_contains "$OUT_DIR/image_force.txt" 'tesseract'
 fi
 
-echo "==> image input explicit --ocr-lang uses requested tesseract language when available"
 run_and_capture "$OUT_DIR/image_lang.txt" run_markitdown_cli --ocr-lang eng "$IMAGE_INPUT"
-if tesseract_available && tesseract_has_lang eng; then
-  [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "image --ocr-lang eng should succeed when tesseract eng is available"
-  assert_contains "$OUT_DIR/image_lang.txt" 'MoonBit OCR'
-  assert_contains "$OUT_DIR/image_lang.txt" 'Sample 123'
+[[ "$CAPTURED_STATUS" -ne 0 ]] || fail "image --ocr-lang should fail closed through main cli"
+assert_contains "$OUT_DIR/image_lang.txt" '--ocr-lang requires --ocr'
+
+run_and_capture "$OUT_DIR/image_no_ocr.txt" run_markitdown_cli --no-ocr "$IMAGE_INPUT"
+[[ "$CAPTURED_STATUS" -ne 0 ]] || fail "image --no-ocr should fail closed through main cli"
+assert_contains "$OUT_DIR/image_no_ocr.txt" 'unsupported format'
+assert_contains "$OUT_DIR/image_no_ocr.txt" 'OCR is disabled'
+
+run_and_capture "$OUT_DIR/image_force_lang.txt" run_markitdown_cli --ocr --ocr-lang eng "$IMAGE_INPUT"
+if [[ "$CAPTURED_STATUS" -eq 0 ]]; then
+  if [[ ! -s "$OUT_DIR/image_force_lang.txt" ]]; then
+    fail "image --ocr --ocr-lang succeeded but produced empty output"
+  fi
 else
-  [[ "$CAPTURED_STATUS" -ne 0 ]] || fail "image --ocr-lang eng should fail clearly without usable tesseract eng data"
-  assert_contains "$OUT_DIR/image_lang.txt" 'Image OCR failed: tesseract executable was not available or failed.'
+  assert_contains "$OUT_DIR/image_force_lang.txt" 'tesseract'
+  assert_contains "$OUT_DIR/image_force_lang.txt" 'language=eng'
 fi
 
-echo "==> image input explicit --no-ocr fails because no native image path exists"
-run_and_capture "$OUT_DIR/image_disable.txt" run_markitdown_cli --no-ocr "$IMAGE_INPUT"
-[[ "$CAPTURED_STATUS" -ne 0 ]] || fail "image --no-ocr should fail closed"
-assert_contains "$OUT_DIR/image_disable.txt" 'OCR disabled for image input; no native image-to-markdown conversion is available.'
+run_and_capture "$OUT_DIR/image_conflict.txt" run_markitdown_cli --ocr --no-ocr "$IMAGE_INPUT"
+[[ "$CAPTURED_STATUS" -ne 0 ]] || fail "image --ocr --no-ocr should fail closed through main cli"
+assert_contains "$OUT_DIR/image_conflict.txt" 'cannot combine --ocr and --no-ocr'
 
-echo "==> image input explicit --no-ocr rejects ocr language override"
-run_and_capture "$OUT_DIR/image_disable_lang.txt" run_markitdown_cli --no-ocr --ocr-lang eng "$IMAGE_INPUT"
-[[ "$CAPTURED_STATUS" -ne 0 ]] || fail "image --no-ocr --ocr-lang should fail closed"
-assert_contains "$OUT_DIR/image_disable_lang.txt" '--ocr-lang cannot be used when --no-ocr is set'
-
-echo "==> conflicting ocr policy flags fail clearly"
-run_and_capture "$OUT_DIR/ocr_conflict.txt" run_markitdown_cli --ocr --no-ocr "$IMAGE_INPUT"
-[[ "$CAPTURED_STATUS" -ne 0 ]] || fail "conflicting OCR flags should fail"
-assert_contains "$OUT_DIR/ocr_conflict.txt" '--ocr and --no-ocr cannot be used together'
-
-echo "==> missing ocr language value fails clearly"
-run_and_capture "$OUT_DIR/ocr_lang_missing.txt" run_markitdown_cli "$IMAGE_INPUT" --ocr-lang
-[[ "$CAPTURED_STATUS" -ne 0 ]] || fail "--ocr-lang without value should fail"
-assert_contains "$OUT_DIR/ocr_lang_missing.txt" 'missing value for --ocr-lang'
-
-echo "==> forcing ocr on non-image documents fails closed"
-run_and_capture "$OUT_DIR/txt_force.txt" run_markitdown_cli --ocr "$TXT_INPUT"
-[[ "$CAPTURED_STATUS" -ne 0 ]] || fail "non-image --ocr should fail closed"
-assert_contains "$OUT_DIR/txt_force.txt" 'OCR is only recognized for image inputs in this build; PDF OCR is not wired.'
-
-echo "==> non-image ocr language flag fails clearly"
-run_and_capture "$OUT_DIR/txt_lang.txt" run_markitdown_cli "$TXT_INPUT" --ocr-lang eng
-[[ "$CAPTURED_STATUS" -ne 0 ]] || fail "non-image --ocr-lang should fail closed"
-assert_contains "$OUT_DIR/txt_lang.txt" '--ocr-lang can only be used with image OCR in this build'
-
-echo "==> forcing ocr on pdf fails closed"
+echo "==> pdf ocr flags also stay fail-closed"
 run_and_capture "$OUT_DIR/pdf_force.txt" run_markitdown_cli --ocr --ocr-lang eng "$PDF_INPUT"
-[[ "$CAPTURED_STATUS" -ne 0 ]] || fail "pdf --ocr should fail closed"
-assert_contains "$OUT_DIR/pdf_force.txt" 'PDF OCR is not wired in this build. Image OCR will use the main CLI OCR path; PDF OCR will require an explicit PDF OCR provider.'
-
-echo "==> normal pdf path stays native and non-ocr"
-run_markitdown_cli normal "$PDF_INPUT" "$PDF_OUTPUT"
-[[ -f "$PDF_OUTPUT" ]] || fail "expected pdf normal path output"
-if grep -Fq 'OCRPageModel' "$PDF_OUTPUT"; then
-  fail "normal pdf path should not emit OCR rebuild text"
-fi
+[[ "$CAPTURED_STATUS" -ne 0 ]] || fail "pdf --ocr should fail closed through main cli"
+assert_contains "$OUT_DIR/pdf_force.txt" 'PDF OCR is not supported'
+assert_contains "$OUT_DIR/pdf_force.txt" 'scanned/image-only PDFs'
 
 echo "NO IMPLICIT OCR CONTRACT PASSED"

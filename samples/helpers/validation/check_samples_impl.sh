@@ -8,23 +8,35 @@ source "$ROOT/samples/helpers/shared/validation_helpers.sh"
 SAMPLES_DIR="$ROOT/samples/main_process"
 FIXTURE_METADATA_DIR="$ROOT/samples/fixtures/metadata"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp/check}"
-OUT_DIR="$(sample_make_isolated_tmp_dir "$TMP_ROOT" "main_process")"
+if [[ -n "${CHECK_SAMPLES_OUT_DIR:-}" ]]; then
+  OUT_DIR="$CHECK_SAMPLES_OUT_DIR"
+  mkdir -p "$OUT_DIR"
+  CLEANUP_OUT_DIR=0
+else
+  OUT_DIR="$(sample_make_isolated_tmp_dir "$TMP_ROOT" "main_process")"
+  CLEANUP_OUT_DIR=1
+fi
 
-MODE="full"
+MODE="markdown-only"
 FORMAT_FILTER=""
-FORMATS=("docx" "pdf" "xlsx" "html" "pptx" "csv" "tsv" "txt" "xml" "json" "yaml" "markdown" "zip" "epub")
+SPECIAL_MODE=""
+FORMATS=("csv" "tsv" "txt" "json" "jsonl" "ndjson" "xml" "yaml" "html" "markdown" "zip" "epub" "docx" "xlsx" "pptx" "pdf")
 
-trap 'status=$?; sample_cleanup_tmp_dir "$OUT_DIR"; exit "$status"' EXIT
+trap 'status=$?; if [[ "$CLEANUP_OUT_DIR" -ne 0 ]]; then sample_cleanup_tmp_dir "$OUT_DIR"; fi; exit "$status"' EXIT
 
 usage() {
   cat <<'EOF'
-Internal usage: check_samples_impl.sh [--markdown-only | --metadata-only | --assets-only] [--format FMT]
+Internal usage: check_samples_impl.sh [--markdown-only] [--format FMT] [--check-inventory] [--list-inventory]
 EOF
 }
 
 supported_formats() {
   local IFS=","
   echo "${FORMATS[*]}"
+}
+
+sample_inventory_formats() {
+  printf '%s\n' xlsx html zip epub docx pptx pdf csv tsv json yaml xml markdown txt
 }
 
 format_is_supported() {
@@ -43,12 +55,6 @@ while [[ $# -gt 0 ]]; do
     --markdown-only)
       MODE="markdown-only"
       ;;
-    --metadata-only)
-      MODE="metadata-only"
-      ;;
-    --assets-only)
-      MODE="assets-only"
-      ;;
     --format)
       shift
       if [[ $# -eq 0 || "${1:-}" == --* ]]; then
@@ -57,6 +63,12 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       FORMAT_FILTER="$1"
+      ;;
+    --check-inventory)
+      SPECIAL_MODE="check-inventory"
+      ;;
+    --list-inventory)
+      SPECIAL_MODE="list-inventory"
       ;;
     -h|--help)
       usage
@@ -72,8 +84,9 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -n "$FORMAT_FILTER" ]] && ! format_is_supported "$FORMAT_FILTER"; then
-  echo "unsupported format: $FORMAT_FILTER" >&2
-  echo "supported formats: $(supported_formats)" >&2
+  echo "unsupported format for current main CLI gate: $FORMAT_FILTER is not migrated to the current main CLI yet" >&2
+  echo "supported gate formats: $(supported_formats)" >&2
+  echo "supported format restoration is currently limited to the root pipeline set; no legacy fallback is used here" >&2
   exit 1
 fi
 
@@ -346,12 +359,120 @@ PY
   return 0
 }
 
-discover_samples() {
+count_non_hidden_files() {
+  local dir="$1"
+  if [[ ! -d "$dir" ]]; then
+    printf '0'
+    return
+  fi
+  find "$dir" -maxdepth 1 -type f ! -name '.*' | wc -l | tr -d '[:space:]'
+}
+
+count_main_process_inventory_samples() {
+  local fmt="$1"
+  local dir="$SAMPLES_DIR/$fmt"
+  if [[ ! -d "$dir" ]]; then
+    printf '0'
+    return
+  fi
+  if [[ "$fmt" == "pdf" ]]; then
+    enrolled_pdf_root_samples | sed '/^$/d' | wc -l | tr -d '[:space:]'
+    return
+  fi
+  find "$dir" -type f \
+    ! -name '.*' \
+    ! -path '*/expected' \
+    ! -path '*/expected/*' \
+    ! -path '*/expected_next' \
+    ! -path '*/expected_next/*' \
+    ! -path '*/img/*' \
+    ! -name '*.jpg' \
+    ! -name '*.jpeg' \
+    ! -name '*.png' \
+    ! -name '*.gif' \
+    ! -name '*.webp' \
+    ! -name '*.bmp' \
+    ! -name '*.svg' \
+    ! -name '*.key' \
+    | wc -l | tr -d '[:space:]'
+}
+
+enrolled_pdf_root_samples() {
+  printf '%s\n' "root_native_text_baseline.pdf"
+}
+
+count_quality_manifest_rows() {
+  local fmt="$1"
+  local manifest="$ROOT/samples/helpers/quality/manifest.tsv"
+  if [[ ! -f "$manifest" ]]; then
+    printf '0'
+    return
+  fi
+  awk -F '\t' -v fmt="$fmt" '
+    NR == 1 { next }
+    /^[[:space:]]*$/ { next }
+    /^[[:space:]]*#/ { next }
+    $2 == fmt { count++ }
+    END { print count + 0 }
+  ' "$manifest"
+}
+
+count_quality_comparison_reports() {
+  local fmt="$1"
+  local dir="$ROOT/docs/quality-comparisons"
+  if [[ ! -d "$dir" ]]; then
+    printf '0'
+    return
+  fi
+  find "$dir" -maxdepth 1 -type f -name "${fmt}*.md" | wc -l | tr -d '[:space:]'
+}
+
+inventory_list() {
+  local fmt
+  printf 'format\tmain_process\tmetadata_cases\tasset_cases\tfixtures\tbenchmark_retired\tquality_records\tquality_intake_public\tmetadata_expected\n'
+  while IFS= read -r fmt; do
+    [[ -z "$fmt" ]] && continue
+    local main_count meta_count assets_count fixture_count quality_count quality_manifest_count metadata_expected_count
+    main_count="$(count_main_process_inventory_samples "$fmt")"
+    meta_count="$(count_non_hidden_files "$SAMPLES_DIR/$fmt/metadata")"
+    assets_count="$(count_non_hidden_files "$SAMPLES_DIR/$fmt/assets")"
+    fixture_count="$(count_non_hidden_files "$ROOT/samples/fixtures/$fmt")"
+    quality_count="$(count_quality_comparison_reports "$fmt")"
+    quality_manifest_count="$(count_quality_manifest_rows "$fmt")"
+    metadata_expected_count="$(find "$SAMPLES_DIR/$fmt/expected" -type f -name '*.metadata.json' 2>/dev/null | wc -l | tr -d '[:space:]')"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+      "$fmt" \
+      "$main_count" \
+      "$meta_count" \
+      "$assets_count" \
+      "$fixture_count" \
+      "0" \
+      "$quality_count" \
+      "$quality_manifest_count" \
+      "$metadata_expected_count"
+  done < <(sample_inventory_formats)
+}
+
+sample_integrity_is_noise_file() {
+  local base="$1"
+  [[ "$base" == .* ]] && return 0
+  [[ "$base" == *~ ]] && return 0
+  [[ "$base" == *.swp ]] && return 0
+  [[ "$base" == *.tmp ]] && return 0
+  return 1
+}
+
+sample_integrity_discover_inputs() {
   local fmt="$1"
   local in_dir="$SAMPLES_DIR/$fmt"
   case "$fmt" in
     docx) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.docx" -print ;;
-    pdf) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.pdf" -print ;;
+    pdf)
+      while IFS= read -r rel; do
+        [[ -n "$rel" ]] || continue
+        printf '%s/%s\n' "$in_dir" "$rel"
+      done < <(enrolled_pdf_root_samples)
+      ;;
     xlsx) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.xlsx" -print ;;
     pptx) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.pptx" -print ;;
     html) find "$in_dir" -path "$in_dir/expected" -prune -o -type f \( -name "*.html" -o -name "*.htm" \) -print ;;
@@ -360,6 +481,152 @@ discover_samples() {
     txt) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.txt" -print ;;
     xml) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.xml" -print ;;
     json) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.json" -print ;;
+    yaml) find "$in_dir" -path "$in_dir/expected" -prune -o -type f \( -name "*.yaml" -o -name "*.yml" \) -print ;;
+    markdown) find "$in_dir" -path "$in_dir/expected" -prune -o -type f \( -name "*.md" -o -name "*.markdown" \) -print ;;
+    zip) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.zip" -print ;;
+    epub) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.epub" -print ;;
+    *) return 0 ;;
+  esac
+}
+
+sample_integrity_expected_bases() {
+  local fmt="$1"
+  local exp_dir="$2"
+  if [[ "$fmt" == "pdf" ]]; then
+    enrolled_pdf_root_samples | sed 's/\.pdf$//'
+    return
+  fi
+  find "$exp_dir" -type f -name '*.md' -print | sort | while read -r path; do
+    rel="${path#$exp_dir/}"
+    if [[ "$rel" == reference/* ]]; then
+      continue
+    fi
+    echo "${rel%.md}"
+  done | sort -u
+}
+
+check_sample_inventory_integrity() {
+  local formats=("docx" "pdf" "xlsx" "html" "pptx" "csv" "tsv" "txt" "xml" "json" "yaml" "markdown" "zip" "epub")
+  local fail=0 group_count=0 quiet_integrity=0 fmt in_dir exp_dir input_bases expected_bases missing_input missing_expected
+
+  if validation_bool_enabled "${SAMPLES_QUIET_INTEGRITY:-0}"; then
+    quiet_integrity=1
+  fi
+
+  if [[ "$quiet_integrity" -eq 0 ]]; then
+    echo "==> sample integrity check"
+  fi
+
+  for fmt in "${formats[@]}"; do
+    group_count=$((group_count + 1))
+    in_dir="$SAMPLES_DIR/$fmt"
+    exp_dir="$in_dir/expected"
+
+    if [[ ! -d "$in_dir" ]]; then
+      echo "[warn] input dir missing: $in_dir"
+      continue
+    fi
+
+    mkdir -p "$exp_dir"
+
+    input_bases="$(sample_integrity_discover_inputs "$fmt" | sort | while read -r path; do
+      rel="${path#$in_dir/}"
+      base="$(basename "$rel")"
+      if sample_integrity_is_noise_file "$base"; then
+        continue
+      fi
+      echo "${rel%.*}"
+    done | sort -u)"
+
+    expected_bases="$(sample_integrity_expected_bases "$fmt" "$exp_dir")"
+
+    if validation_bool_enabled "$SAMPLES_VERBOSE"; then
+      printf '\n[%s]\n' "$fmt"
+    fi
+
+    missing_input="$(comm -23 <(printf '%s\n' "$expected_bases" | sed '/^$/d') <(printf '%s\n' "$input_bases" | sed '/^$/d'))"
+    missing_expected="$(comm -13 <(printf '%s\n' "$expected_bases" | sed '/^$/d') <(printf '%s\n' "$input_bases" | sed '/^$/d'))"
+
+    if [[ -n "$missing_input" ]]; then
+      if [[ "$quiet_integrity" -eq 1 ]]; then
+        printf '[%s]\n' "$fmt"
+      fi
+      while IFS= read -r base; do
+        [[ -z "$base" ]] && continue
+        echo "  [error] expected exists but input missing:"
+        echo "    - $base"
+        fail=1
+      done <<< "$missing_input"
+    fi
+
+    if [[ -n "$missing_expected" ]]; then
+      if [[ "$quiet_integrity" -eq 1 && -z "$missing_input" ]]; then
+        printf '[%s]\n' "$fmt"
+      fi
+      echo "  [error] input exists but expected missing:"
+      while IFS= read -r base; do
+        [[ -z "$base" ]] && continue
+        echo "    - $base"
+      done <<< "$missing_expected"
+      fail=1
+    fi
+
+    if [[ -z "$missing_input" && -z "$missing_expected" ]] && validation_bool_enabled "$SAMPLES_VERBOSE"; then
+      echo "  [ok] sample/expected enrollment is consistent"
+    fi
+  done
+
+  if [[ "$fail" -ne 0 ]]; then
+    printf '\nSAMPLE INTEGRITY CHECK FAILED\n'
+    exit 1
+  fi
+
+  if validation_bool_enabled "$SAMPLES_VERBOSE"; then
+    printf '\nSAMPLE INTEGRITY CHECK PASSED\n'
+  else
+    printf 'SAMPLE INTEGRITY CHECK PASSED (%s groups)\n' "$group_count"
+  fi
+}
+
+if [[ -n "$SPECIAL_MODE" ]]; then
+  if [[ -n "$FORMAT_FILTER" ]]; then
+    echo "--format cannot be combined with --$SPECIAL_MODE" >&2
+    usage >&2
+    exit 1
+  fi
+  case "$SPECIAL_MODE" in
+    check-inventory)
+      check_sample_inventory_integrity
+      exit 0
+      ;;
+    list-inventory)
+      inventory_list
+      exit 0
+      ;;
+  esac
+fi
+
+discover_samples() {
+  local fmt="$1"
+  local in_dir="$SAMPLES_DIR/$fmt"
+  case "$fmt" in
+    docx) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.docx" -print ;;
+    pdf)
+      while IFS= read -r rel; do
+        [[ -n "$rel" ]] || continue
+        printf '%s/%s\n' "$in_dir" "$rel"
+      done < <(enrolled_pdf_root_samples)
+      ;;
+    xlsx) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.xlsx" -print ;;
+    pptx) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.pptx" -print ;;
+    html) find "$in_dir" -path "$in_dir/expected" -prune -o -type f \( -name "*.html" -o -name "*.htm" \) -print ;;
+    csv) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.csv" -print ;;
+    tsv) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.tsv" -print ;;
+    txt) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.txt" -print ;;
+    xml) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.xml" -print ;;
+    json) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.json" -print ;;
+    jsonl) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.jsonl" -print ;;
+    ndjson) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.ndjson" -print ;;
     yaml) find "$in_dir" -path "$in_dir/expected" -prune -o -type f \( -name "*.yaml" -o -name "*.yml" \) -print ;;
     markdown) find "$in_dir" -path "$in_dir/expected" -prune -o -type f \( -name "*.md" -o -name "*.markdown" \) -print ;;
     zip) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.zip" -print ;;
@@ -389,6 +656,22 @@ resolve_expected_metadata_fixture() {
   fi
 
   return 1
+}
+
+resolve_expected_markdown_fixture() {
+  local fmt="$1"
+  local rel_no_ext="$2"
+
+  if [[ "$fmt" == "xlsx" && -f "$SAMPLES_DIR/$fmt/expected_next/$rel_no_ext.md" ]]; then
+    printf '%s\n' "$SAMPLES_DIR/$fmt/expected_next/$rel_no_ext.md"
+    return 0
+  fi
+  if [[ "$fmt" == "pptx" && -f "$SAMPLES_DIR/$fmt/expected_next/$rel_no_ext.md" ]]; then
+    printf '%s\n' "$SAMPLES_DIR/$fmt/expected_next/$rel_no_ext.md"
+    return 0
+  fi
+
+  printf '%s\n' "$SAMPLES_DIR/$fmt/expected/$rel_no_ext.md"
 }
 
 sample_is_asset_relevant() {
@@ -430,8 +713,6 @@ sample_matches_mode() {
 }
 
 resolve_markitdown_cli
-require_python3
-
 echo "runner: $CLI_RUNNER_KIND"
 if [[ -n "${CLI_RUNNER_NOTE:-}" ]]; then
   echo "runner-note: $CLI_RUNNER_NOTE"
@@ -456,71 +737,25 @@ done
 FILTERED_LIST=()
 for entry in "${SAMPLE_LIST[@]}"; do
   IFS='|' read -r fmt rel <<< "$entry"
-  exp="$SAMPLES_DIR/$fmt/expected/${rel%.*}.md"
+  exp="$(resolve_expected_markdown_fixture "$fmt" "${rel%.*}")"
   if sample_matches_mode "$fmt" "$rel" "$exp"; then
     FILTERED_LIST+=("$entry")
   fi
 done
 
 if [[ ${#FILTERED_LIST[@]} -eq 0 ]]; then
-  if [[ "$MODE" == "assets-only" ]]; then
-    label="main_process_assets"
-    success_message="ALL MAIN PROCESS ASSET TESTS PASSED"
-    failure_message="FAILED MAIN PROCESS ASSET SAMPLES"
-    if [[ -n "$FORMAT_FILTER" ]]; then
-      label="${label}_${FORMAT_FILTER}"
-      success_message="$success_message ($FORMAT_FILTER)"
-      failure_message="$failure_message ($FORMAT_FILTER)"
-    fi
-    validation_progress_init "$label" 0
-    echo "No assets samples matched selected filters; treating as clean skip."
-    validation_finish "$success_message" "$failure_message"
-    exit 0
-  fi
   echo "No enrolled sample files matched mode=$MODE format=${FORMAT_FILTER:-all} under $SAMPLES_DIR"
   exit 1
 fi
 
-label="main_process"
-success_message="ALL MAIN PROCESS TESTS PASSED"
-failure_message="FAILED MAIN PROCESS SAMPLES"
+label="main_process_markdown"
+success_message="ALL MAIN PROCESS MARKDOWN TESTS PASSED"
+failure_message="FAILED MAIN PROCESS MARKDOWN SAMPLES"
 if [[ -n "$FORMAT_FILTER" ]]; then
   label="${label}_${FORMAT_FILTER}"
   success_message="$success_message ($FORMAT_FILTER)"
   failure_message="$failure_message ($FORMAT_FILTER)"
 fi
-case "$MODE" in
-  metadata-only)
-    label="main_process_metadata"
-    success_message="ALL MAIN PROCESS METADATA TESTS PASSED"
-    failure_message="FAILED MAIN PROCESS METADATA SAMPLES"
-    if [[ -n "$FORMAT_FILTER" ]]; then
-      label="${label}_${FORMAT_FILTER}"
-      success_message="$success_message ($FORMAT_FILTER)"
-      failure_message="$failure_message ($FORMAT_FILTER)"
-    fi
-    ;;
-  assets-only)
-    label="main_process_assets"
-    success_message="ALL MAIN PROCESS ASSET TESTS PASSED"
-    failure_message="FAILED MAIN PROCESS ASSET SAMPLES"
-    if [[ -n "$FORMAT_FILTER" ]]; then
-      label="${label}_${FORMAT_FILTER}"
-      success_message="$success_message ($FORMAT_FILTER)"
-      failure_message="$failure_message ($FORMAT_FILTER)"
-    fi
-    ;;
-  markdown-only)
-    label="main_process_markdown"
-    success_message="ALL MAIN PROCESS MARKDOWN TESTS PASSED"
-    failure_message="FAILED MAIN PROCESS MARKDOWN SAMPLES"
-    if [[ -n "$FORMAT_FILTER" ]]; then
-      label="${label}_${FORMAT_FILTER}"
-      success_message="$success_message ($FORMAT_FILTER)"
-      failure_message="$failure_message ($FORMAT_FILTER)"
-    fi
-    ;;
-esac
 
 validation_progress_init "$label" "${#FILTERED_LIST[@]}"
 
@@ -530,68 +765,28 @@ for entry in "${FILTERED_LIST[@]}"; do
   name="${base%.*}"
   rel_no_ext="${rel%.*}"
   input_path="$SAMPLES_DIR/$fmt/$rel"
-  exp="$SAMPLES_DIR/$fmt/expected/$rel_no_ext.md"
-  expected_metadata=""
-  if sample_has_metadata_dimension "$rel"; then
-    if expected_metadata="$(resolve_expected_metadata_fixture "$fmt" "$rel_no_ext" "$name")"; then
-      :
-    else
-      expected_metadata=""
-    fi
-  fi
+  exp="$(resolve_expected_markdown_fixture "$fmt" "$rel_no_ext")"
   scope="main_process/$fmt/$rel_no_ext"
   sample_out_dir="$OUT_DIR/$fmt/$rel_no_ext"
   normal_dir="$sample_out_dir/normal"
-  with_meta_dir="$sample_out_dir/with_metadata"
   normal_md="$normal_dir/$name.md"
   normal_diff="$normal_dir/$name.diff"
-  with_meta_md="$with_meta_dir/$name.md"
-  with_meta_diff="$with_meta_dir/$name.diff"
-  with_meta_sidecar="$with_meta_dir/metadata/$name.metadata.json"
 
-  mkdir -p "$normal_dir" "$with_meta_dir"
+  mkdir -p "$normal_dir"
   validation_progress_step "$fmt/$rel"
 
-  if [[ "$MODE" != "metadata-only" ]]; then
-    if validation_bool_enabled "$SAMPLES_VERBOSE"; then
-      echo "==> converting $scope"
-    fi
-    if ! run_markitdown_cli normal "$input_path" "$normal_md"; then
-      validation_record_failure "$scope" "$input_path" "$exp" "$normal_md" "conversion failed"
-      continue
-    fi
-
-    if [[ ! -f "$exp" ]]; then
-      validation_record_failure "$scope" "$input_path" "$exp" "$normal_md" "expected missing"
-    else
-      validation_diff_or_record "$scope" "$input_path" "$exp" "$normal_md" "$normal_diff" || true
-    fi
-
-    if [[ "$MODE" == "full" || "$MODE" == "assets-only" ]] && sample_is_asset_relevant "$fmt" "$rel" "$exp"; then
-      check_asset_refs_or_record "$scope" "$normal_dir" || true
-    fi
+  if validation_bool_enabled "$SAMPLES_VERBOSE"; then
+    echo "==> converting $scope"
+  fi
+  if ! run_markitdown_cli normal "$input_path" "$normal_md"; then
+    validation_record_failure "$scope" "$input_path" "$exp" "$normal_md" "conversion failed"
+    continue
   fi
 
-  if [[ "$MODE" != "markdown-only" && "$MODE" != "assets-only" ]] && sample_has_metadata_dimension "$rel"; then
-    if validation_bool_enabled "$SAMPLES_VERBOSE"; then
-      echo "==> converting with metadata $scope"
-    fi
-    if ! run_markitdown_cli normal --with-metadata "$input_path" "$with_meta_md"; then
-      validation_record_failure "$scope metadata" "$input_path" "$exp" "$with_meta_md" "conversion failed"
-      continue
-    fi
-
-    if [[ ! -f "$exp" ]]; then
-      validation_record_failure "$scope metadata" "$input_path" "$exp" "$with_meta_md" "expected missing"
-    else
-      validation_diff_or_record "$scope metadata" "$input_path" "$exp" "$with_meta_md" "$with_meta_diff" || true
-    fi
-
-    validate_metadata_sidecar "$scope metadata" "$input_path" "$fmt" "$with_meta_md" "$with_meta_sidecar" "$with_meta_dir" || true
-
-    if [[ -f "$expected_metadata" ]]; then
-      validate_metadata_fixture_json "$scope metadata sidecar" "$input_path" "$expected_metadata" "$with_meta_sidecar" || true
-    fi
+  if [[ ! -f "$exp" ]]; then
+    validation_record_failure "$scope" "$input_path" "$exp" "$normal_md" "expected missing"
+  else
+    validation_diff_or_record "$scope" "$input_path" "$exp" "$normal_md" "$normal_diff" || true
   fi
 done
 

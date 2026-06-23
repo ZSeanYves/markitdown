@@ -71,7 +71,9 @@
         "sheet": null,
         "block_index": 2,
         "heading_path": null,
-        "object_ref": "html:heading:1",
+        "line_start": 2,
+        "line_end": 2,
+        "object_ref": "html:heading:2",
         "key_path": "OPS/chapter.xhtml"
       },
       "image": null
@@ -88,7 +90,9 @@
         "sheet": null,
         "block_index": 3,
         "heading_path": null,
-        "object_ref": "html:paragraph:2",
+        "line_start": 2,
+        "line_end": 2,
+        "object_ref": "html:paragraph:3",
         "key_path": "OPS/chapter.xhtml"
       },
       "image": null

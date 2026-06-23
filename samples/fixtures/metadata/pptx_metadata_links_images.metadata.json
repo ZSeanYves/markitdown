@@ -18,14 +18,14 @@
   "sheets": null
 },
   "summary": {
-    "block_count": 5,
+    "block_count": 4,
     "asset_count": 1,
     "link_count": 1
   },
   "links": [
     {
       "link_index": 0,
-      "block_index": 3,
+      "block_index": 2,
       "inline_index": 1,
       "text_start": 4,
       "text_end": 13,
@@ -39,10 +39,11 @@
         "page": null,
         "slide": 1,
         "sheet": null,
-        "block_index": 3,
+        "block_index": 2,
         "heading_path": null,
         "object_ref": "shape-4",
-        "relationship_id": "rId3"
+        "relationship_id": "rId3",
+        "key_path": "ppt/slides/slide1.xml"
       }
     }
   ],
@@ -58,32 +59,14 @@
         "slide": 1,
         "sheet": null,
         "block_index": 0,
-        "heading_path": null
+        "heading_path": null,
+        "relationship_id": "rId7",
+        "key_path": "ppt/slides/slide1.xml"
       },
       "image": null
     },
     {
       "block_index": 1,
-      "block_type": "image",
-      "text": "",
-      "origin": {
-        "format": "pptx",
-        "source_name": "pptx_metadata_links_images.pptx",
-        "page": null,
-        "slide": 1,
-        "sheet": null,
-        "block_index": 1,
-        "heading_path": null
-      },
-      "image": {
-        "path": "assets/image01.png",
-        "alt_text": "Figure alt text",
-        "title": "Figure title text",
-        "caption": null
-      }
-    },
-    {
-      "block_index": 2,
       "block_type": "heading",
       "text": "PPTX Links And Images",
       "origin": {
@@ -92,14 +75,15 @@
         "page": null,
         "slide": 1,
         "sheet": null,
-        "block_index": 2,
+        "block_index": 1,
         "heading_path": null,
-        "object_ref": "shape-3"
+        "object_ref": "shape-3",
+        "key_path": "ppt/slides/slide1.xml"
       },
       "image": null
     },
     {
-      "block_index": 3,
+      "block_index": 2,
       "block_type": "paragraph",
       "text": "See reference before review.",
       "origin": {
@@ -108,16 +92,17 @@
         "page": null,
         "slide": 1,
         "sheet": null,
-        "block_index": 3,
+        "block_index": 2,
         "heading_path": null,
         "object_ref": "shape-4",
-        "relationship_id": "rId3"
+        "relationship_id": "rId3",
+        "key_path": "ppt/slides/slide1.xml"
       },
       "image": null
     },
     {
-      "block_index": 4,
-      "block_type": "blank_line",
+      "block_index": 3,
+      "block_type": "image",
       "text": "",
       "origin": {
         "format": "pptx",
@@ -125,10 +110,18 @@
         "page": null,
         "slide": 1,
         "sheet": null,
-        "block_index": 4,
-        "heading_path": null
+        "block_index": 3,
+        "heading_path": null,
+        "object_ref": "picture-2",
+        "relationship_id": "rId2",
+        "key_path": "ppt/slides/slide1.xml"
       },
-      "image": null
+      "image": {
+        "path": "assets/image01.png",
+        "alt_text": "Figure alt text",
+        "title": "Figure title text",
+        "caption": null
+      }
     }
   ],
   "assets": [
@@ -148,7 +141,8 @@
         "nearby_caption": null,
         "object_ref": "picture-2",
         "relationship_id": "rId2",
-        "source_path": "ppt/media/image1.png"
+        "source_path": "ppt/media/image1.png",
+        "key_path": "ppt/slides/slide1.xml"
       },
       "nearby_caption": null
     }

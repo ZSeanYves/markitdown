@@ -5,16 +5,16 @@ ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 source "$ROOT/samples/helpers/shared/tmp_helpers.sh"
 source "$ROOT/samples/helpers/shared/validation_helpers.sh"
 
-MANIFEST_PATH="$ROOT/samples/helpers/quality/manifest.tsv"
-LEGACY_LOCAL_MANIFEST_PATH="$ROOT/samples/quality_corpus/external_manifest.local.tsv"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
 QUALITY_TMP_ROOT="${QUALITY_TMP_ROOT:-$TMP_ROOT/quality}"
 QUALITY_RUN_ID="${QUALITY_RUN_ID:-manual-$(date +%Y%m%d-%H%M%S)-$$}"
 OUT_ROOT="${QUALITY_TMP_DIR:-$QUALITY_TMP_ROOT/runs/$QUALITY_RUN_ID}"
 CLI_TMP_ROOT="${MARKITDOWN_CLI_TMP_DIR:-$OUT_ROOT/workspace}"
-OUTPUT_DIR="$OUT_ROOT/outputs"
-DIFF_DIR="$OUT_ROOT/diffs"
 LOG_DIR="$OUT_ROOT/logs"
+DIFF_DIR="$OUT_ROOT/diff"
+RAW_DIR="$OUT_ROOT/raw"
+REPORTS_DIR="$OUT_ROOT/reports"
+OUTPUT_DIR="$RAW_DIR/outputs"
 SUMMARY_TSV="$OUT_ROOT/summary.tsv"
 SUMMARY_MD="$OUT_ROOT/summary.md"
 ROWS_TSV="$OUT_ROOT/rows.tsv"
@@ -24,12 +24,14 @@ SUMMARY_BY_TIER_TSV="$OUT_ROOT/summary.by_tier.tsv"
 KNOWN_BAD_TSV="$OUT_ROOT/known_bad.tsv"
 UNEXPECTED_PASS_TSV="$OUT_ROOT/unexpected_pass.tsv"
 SKIPPED_LICENSE_TSV="$OUT_ROOT/skipped_license.tsv"
-MODE="all"
 FILTER_ID=""
 FILTER_SOURCE=""
 FILTER_FORMAT=""
 LIST_ONLY=0
-METADATA_ENABLED=1
+METADATA_MODE="auto"
+METADATA_ENABLED=0
+METADATA_STATUS="unresolved"
+METADATA_NOTE=""
 PROFILE_ENABLED=0
 PROFILE_TSV="$OUT_ROOT/profile.tsv"
 CORPUS_ROOT_OVERRIDE=""
@@ -45,20 +47,20 @@ QUALITY_ROWS_MANIFEST_CANDIDATES=()
 QUALITY_ROWS_MANIFEST_CANDIDATE_LABELS=()
 RESOLVED_EXTERNAL_PATH=""
 TRIED_EXTERNAL_PATHS=()
+CLI_EXTRA_ARGS=()
 
-PUBLIC_HEADER=$'id\tformat\tpath\tsource_type\tlicense_status\tprivacy\tsize_class\tfeatures\texpected_signals\tquality_tier\tnotes'
 EXTERNAL_HEADER=$'id\tformat\tpath\tsource_type\tsource_id\tlicense_status\tlicense_review_status\tprivacy\tsize_class\tfeatures\texpected_signals\tquality_tier\toriginal_url\tlocal_cache_path\tnotes'
 
 usage() {
   cat <<'EOF'
 usage: ./samples/helpers/quality/check.sh [internal/debug args]
 
-Internal/debug modes:
-  --public-only   run only checked-in public intake rows
-  --private-only  run only external/lab-managed rows
-  --list          list merged manifest rows after filters, without running conversion
-  --no-metadata   run conversion without --with-metadata for profiling
+Internal/debug options:
+  --list          list manifest rows after filters, without running conversion
+  --no-metadata   force conversion without metadata sidecars
+  --with-metadata force conversion with --with-metadata and fail if unsupported
   --profile       write per-row timing diagnostics to a run-local profile.tsv
+  --cli-arg ARG   append one extra CLI arg to every conversion command
 
 Filters:
   --id <id>           match one exact row id
@@ -73,7 +75,6 @@ Filters:
 
 Filter semantics:
   * multiple filters are combined with AND
-  * source_id filtering only matches external rows
   * filters do not bypass license or file-presence gate semantics
   * external payload discovery checks, in order:
       --corpus-root
@@ -81,38 +82,30 @@ Filter semantics:
       MARKITDOWN_QUALITY_LAB/external_quality
       markitdown-quality-lab/external_quality
       ../markitdown-quality-lab/external_quality
-      .external/quality_corpus (legacy fallback)
-  * lab quality-row manifest discovery checks, in order:
+  * quality manifest discovery checks, in order:
       --lab-manifest
       MARKITDOWN_QUALITY_MANIFEST
-      MARKITDOWN_QUALITY_LAB/external_quality/_quality_rows_staging/manifest.tsv
-      markitdown-quality-lab/external_quality/_quality_rows_staging/manifest.tsv
-      ../markitdown-quality-lab/external_quality/_quality_rows_staging/manifest.tsv
-      legacy samples/quality_corpus/external_manifest.local.tsv
-  * --no-metadata disables sidecar metadata generation but keeps all other checks
+      MARKITDOWN_QUALITY_LAB/external_quality/MANIFEST.tsv
+      markitdown-quality-lab/external_quality/MANIFEST.tsv
+      ../markitdown-quality-lab/external_quality/MANIFEST.tsv
+  * metadata defaults to auto: this helper probes whether the current main CLI
+    supports --with-metadata and falls back to metadata-off when it does not
+  * --no-metadata forces metadata-off
+  * --with-metadata forces metadata-on and fails early if unsupported
   * --profile is diagnostic-only and does not change pass/fail semantics
 
 Notes:
   * the preferred user entrypoint is bash samples/check_quality.sh
-  * empty public manifest is valid
-  * bash samples/check_quality.sh always passes --private-only plus explicit
-    lab paths and --require-lab; it does not fall back to repo-local rows
-  * legacy local-manifest fallback remains internal compatibility only when
-    maintainers call this helper directly without --require-lab
+  * bash samples/check_quality.sh passes explicit lab paths and --require-lab
+  * this helper does not fall back to repo-local rows or staging manifests
   * non-approved external rows are skipped
-  * missing external legacy files are recorded as skipped when appropriate
+  * missing external files are recorded as skipped when appropriate
   * this is a signal-level intake checker, not an exact-output regression gate
 EOF
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --public-only)
-      MODE="public"
-      ;;
-    --private-only)
-      MODE="private"
-      ;;
     --id)
       [[ $# -ge 2 ]] || {
         echo "missing value for --id" >&2
@@ -165,7 +158,19 @@ while [[ $# -gt 0 ]]; do
       LIST_ONLY=1
       ;;
     --no-metadata)
-      METADATA_ENABLED=0
+      METADATA_MODE="off"
+      ;;
+    --with-metadata)
+      METADATA_MODE="on"
+      ;;
+    --cli-arg)
+      [[ $# -ge 2 ]] || {
+        echo "missing value for --cli-arg" >&2
+        usage >&2
+        exit 1
+      }
+      CLI_EXTRA_ARGS+=("$2")
+      shift
       ;;
     --profile)
       PROFILE_ENABLED=1
@@ -186,6 +191,8 @@ done
 mkdir -p "$OUTPUT_DIR"
 mkdir -p "$DIFF_DIR"
 mkdir -p "$LOG_DIR"
+mkdir -p "$RAW_DIR"
+mkdir -p "$REPORTS_DIR"
 
 trim_cr() {
   local value="${1-}"
@@ -226,8 +233,6 @@ detect_corpus_root() {
   fi
   add_corpus_root_candidate "repo-local quality lab" "$ROOT/markitdown-quality-lab/external_quality"
   add_corpus_root_candidate "sibling quality lab" "$ROOT/../markitdown-quality-lab/external_quality"
-  add_corpus_root_candidate "legacy sibling corpus" "$ROOT/../markitdown-quality-corpus"
-  add_corpus_root_candidate "legacy .external fallback" "$ROOT/.external/quality_corpus"
 
   local i
   for i in "${!CORPUS_ROOT_CANDIDATES[@]}"; do
@@ -261,18 +266,15 @@ detect_quality_rows_manifest() {
   add_quality_rows_manifest_candidate "MARKITDOWN_QUALITY_MANIFEST" "${MARKITDOWN_QUALITY_MANIFEST:-}"
   if [[ -n "${MARKITDOWN_QUALITY_LAB:-}" ]]; then
     add_quality_rows_manifest_candidate \
-      "MARKITDOWN_QUALITY_LAB/external_quality/_quality_rows_staging/manifest.tsv" \
-      "${MARKITDOWN_QUALITY_LAB%/}/external_quality/_quality_rows_staging/manifest.tsv"
+      "MARKITDOWN_QUALITY_LAB/external_quality/MANIFEST.tsv" \
+      "${MARKITDOWN_QUALITY_LAB%/}/external_quality/MANIFEST.tsv"
   fi
   add_quality_rows_manifest_candidate \
-    "repo-local quality rows manifest" \
-    "$ROOT/markitdown-quality-lab/external_quality/_quality_rows_staging/manifest.tsv"
+    "repo-local external_quality manifest" \
+    "$ROOT/markitdown-quality-lab/external_quality/MANIFEST.tsv"
   add_quality_rows_manifest_candidate \
-    "sibling quality rows manifest" \
-    "$ROOT/../markitdown-quality-lab/external_quality/_quality_rows_staging/manifest.tsv"
-  add_quality_rows_manifest_candidate \
-    "legacy local manifest" \
-    "$LEGACY_LOCAL_MANIFEST_PATH"
+    "sibling external_quality manifest" \
+    "$ROOT/../markitdown-quality-lab/external_quality/MANIFEST.tsv"
 
   local i
   for i in "${!QUALITY_ROWS_MANIFEST_CANDIDATES[@]}"; do
@@ -326,17 +328,11 @@ resolve_external_input_path() {
     local repo_candidate="$ROOT/$path"
     local repo_quality_lab_candidate="$ROOT/markitdown-quality-lab/$path"
     local sibling_quality_lab_candidate="$ROOT/../markitdown-quality-lab/$path"
-    local legacy_prefix=".external/quality_corpus/"
-    local legacy_abs_prefix="$ROOT/.external/quality_corpus/"
     local relative_suffix=""
-    if [[ "$path" == "$legacy_prefix"* ]]; then
-      relative_suffix="${path#$legacy_prefix}"
-    elif [[ "$path" == external_quality/* ]]; then
+    if [[ "$path" == external_quality/* ]]; then
       relative_suffix="${path#external_quality/}"
     elif [[ "$path" == markitdown-quality-lab/external_quality/* ]]; then
       relative_suffix="${path#markitdown-quality-lab/external_quality/}"
-    elif [[ "$repo_candidate" == "$legacy_abs_prefix"* ]]; then
-      relative_suffix="${repo_candidate#$legacy_abs_prefix}"
     elif [[ -n "$CORPUS_ROOT" ]]; then
       relative_suffix="$path"
     fi
@@ -389,6 +385,24 @@ format_missing_external_note() {
   printf 'external file missing: %s; tried: %s; hint: set MARKITDOWN_QUALITY_CORPUS or pass --corpus-root' "$original_path" "$joined"
 }
 
+single_line_note() {
+  local value="${1-}"
+  value="$(printf '%s' "$value" | tr '\r\n\t' '   ' | sed 's/[[:space:]]\+/ /g; s/^[[:space:]]*//; s/[[:space:]]*$//')"
+  if [[ "${#value}" -gt 200 ]]; then
+    value="${value:0:197}..."
+  fi
+  printf '%s' "$value"
+}
+
+tsv_field_unquote() {
+  local value="${1-}"
+  if [[ "$value" == \"*\" && "$value" == *\" ]]; then
+    value="${value:1:${#value}-2}"
+    value="${value//\"\"/\"}"
+  fi
+  printf '%s' "$value"
+}
+
 normalize_text() {
   local path="$1"
   python3 - "$path" <<'PY'
@@ -396,6 +410,32 @@ from pathlib import Path
 import sys
 text = Path(sys.argv[1]).read_text(encoding="utf-8")
 text = text.replace("\r\n", "\n").replace("\r", "\n")
+sys.stdout.write(text)
+PY
+}
+
+normalize_markdown_literal_text() {
+  local path="$1"
+  python3 - "$path" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+text = Path(sys.argv[1]).read_text(encoding="utf-8")
+text = text.replace("\r\n", "\n").replace("\r", "\n")
+text = re.sub(r'\\([\\`*_{}\[\]()#+!<>|])', r'\1', text)
+sys.stdout.write(text)
+PY
+}
+
+normalize_signal_literal() {
+  local text="${1-}"
+  python3 - "$text" <<'PY'
+import re
+import sys
+
+text = sys.argv[1]
+text = re.sub(r'\\([\\`*_{}\[\]()#+!<>|])', r'\1', text)
 sys.stdout.write(text)
 PY
 }
@@ -439,8 +479,19 @@ normalize_public_row() {
   local raw_line="$2"
   local delimiter=$'\x1f'
   local converted="${raw_line//$'\t'/$delimiter}"
-  local id format path source_type license_status privacy size_class features expected_signals quality_tier notes
-  IFS="$delimiter" read -r id format path source_type license_status privacy size_class features expected_signals quality_tier notes <<< "$converted"
+  local id format path source_type license_status privacy size_class features expected_signals quality_tier notes extra_fields
+  IFS="$delimiter" read -r id format path source_type license_status privacy size_class features expected_signals quality_tier notes extra_fields <<< "$converted"
+  id="$(tsv_field_unquote "$id")"
+  format="$(tsv_field_unquote "$format")"
+  path="$(tsv_field_unquote "$path")"
+  source_type="$(tsv_field_unquote "$source_type")"
+  license_status="$(tsv_field_unquote "$license_status")"
+  privacy="$(tsv_field_unquote "$privacy")"
+  size_class="$(tsv_field_unquote "$size_class")"
+  features="$(tsv_field_unquote "$features")"
+  expected_signals="$(tsv_field_unquote "$expected_signals")"
+  quality_tier="$(tsv_field_unquote "$quality_tier")"
+  notes="$(tsv_field_unquote "$notes")"
   printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
     "$scope" \
     "$id" \
@@ -463,8 +514,23 @@ normalize_external_row() {
   local raw_line="$1"
   local delimiter=$'\x1f'
   local converted="${raw_line//$'\t'/$delimiter}"
-  local id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url local_cache_path notes
-  IFS="$delimiter" read -r id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url local_cache_path notes <<< "$converted"
+  local id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url local_cache_path notes extra_fields
+  IFS="$delimiter" read -r id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url local_cache_path notes extra_fields <<< "$converted"
+  id="$(tsv_field_unquote "$id")"
+  format="$(tsv_field_unquote "$format")"
+  path="$(tsv_field_unquote "$path")"
+  source_type="$(tsv_field_unquote "$source_type")"
+  source_id="$(tsv_field_unquote "$source_id")"
+  license_status="$(tsv_field_unquote "$license_status")"
+  license_review_status="$(tsv_field_unquote "$license_review_status")"
+  privacy="$(tsv_field_unquote "$privacy")"
+  size_class="$(tsv_field_unquote "$size_class")"
+  features="$(tsv_field_unquote "$features")"
+  expected_signals="$(tsv_field_unquote "$expected_signals")"
+  quality_tier="$(tsv_field_unquote "$quality_tier")"
+  original_url="$(tsv_field_unquote "$original_url")"
+  local_cache_path="$(tsv_field_unquote "$local_cache_path")"
+  notes="$(tsv_field_unquote "$notes")"
   printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
     "external" \
     "$id" \
@@ -495,7 +561,7 @@ manifest_rows_from_file() {
     raw_line="$(trim_cr "$raw_line")"
     line_no=$((line_no + 1))
     if [[ "$line_no" -eq 1 ]]; then
-      if [[ "$raw_line" != "$expected_header" ]]; then
+      if [[ "$raw_line" != "$expected_header" && "$raw_line" != "$expected_header"$'\t'* ]]; then
         echo "quality manifest header mismatch: $manifest_path" >&2
         echo "expected: $expected_header" >&2
         echo "actual:   $raw_line" >&2
@@ -517,21 +583,10 @@ normalize_external_manifest_entry() {
 
 collect_manifest_rows() {
   local rows=()
-  if [[ "$MODE" != "private" ]]; then
-    while IFS= read -r row; do
-      [[ -n "$row" ]] && rows+=("$row")
-    done < <(manifest_rows_from_file "$MANIFEST_PATH" "public" "$PUBLIC_HEADER" normalize_public_row)
-  fi
-  if [[ "$MODE" != "public" && -n "$QUALITY_ROWS_MANIFEST" ]]; then
+  if [[ -n "$QUALITY_ROWS_MANIFEST" ]]; then
     while IFS= read -r row; do
       [[ -n "$row" ]] && rows+=("$row")
     done < <(manifest_rows_from_file "$QUALITY_ROWS_MANIFEST" "external" "$EXTERNAL_HEADER" normalize_external_manifest_entry)
-  else
-    if [[ "$MODE" != "public" && -f "$LEGACY_LOCAL_MANIFEST_PATH" ]]; then
-      while IFS= read -r row; do
-        [[ -n "$row" ]] && rows+=("$row")
-      done < <(manifest_rows_from_file "$LEGACY_LOCAL_MANIFEST_PATH" "external" "$EXTERNAL_HEADER" normalize_external_manifest_entry)
-    fi
   fi
   if [[ "${#rows[@]}" -eq 0 ]]; then
     return 0
@@ -542,13 +597,13 @@ collect_manifest_rows() {
 detect_corpus_root
 detect_quality_rows_manifest
 
-if [[ "$REQUIRE_LAB" -ne 0 && -z "$QUALITY_ROWS_MANIFEST" ]]; then
+if [[ -z "$QUALITY_ROWS_MANIFEST" ]]; then
   echo "quality lab manifest not found" >&2
   local_manifest_idx=0
   for local_manifest_idx in "${!QUALITY_ROWS_MANIFEST_CANDIDATES[@]}"; do
     echo "tried: ${QUALITY_ROWS_MANIFEST_CANDIDATE_LABELS[$local_manifest_idx]} -> ${QUALITY_ROWS_MANIFEST_CANDIDATES[$local_manifest_idx]}" >&2
   done
-  echo "hint: pass --lab-manifest or set MARKITDOWN_QUALITY_MANIFEST / MARKITDOWN_QUALITY_LAB" >&2
+  echo "hint: clone/place markitdown-quality-lab in the repo root, pass --lab-manifest, or set MARKITDOWN_QUALITY_MANIFEST / MARKITDOWN_QUALITY_LAB" >&2
   exit 1
 fi
 
@@ -569,6 +624,35 @@ metadata_summary_value() {
   fi
 }
 
+metadata_mode_summary_value() {
+  printf '%s' "$METADATA_MODE"
+}
+
+metadata_status_summary_value() {
+  printf '%s' "$METADATA_STATUS"
+}
+
+metadata_note_summary_value() {
+  printf '%s' "$(filter_summary_value "$METADATA_NOTE")"
+}
+
+cli_extra_args_summary_value() {
+  if [[ "${#CLI_EXTRA_ARGS[@]}" -eq 0 ]]; then
+    printf '*'
+    return
+  fi
+
+  local joined=""
+  local arg
+  for arg in "${CLI_EXTRA_ARGS[@]}"; do
+    if [[ -n "$joined" ]]; then
+      joined="$joined "
+    fi
+    joined="$joined$(printf '%q' "$arg")"
+  done
+  printf '%s' "$joined"
+}
+
 is_known_bad_tier() {
   local quality_tier="${1-}"
   [[ "$quality_tier" == "known_bad" ]]
@@ -587,6 +671,82 @@ profile_enabled_summary_value() {
   else
     printf 'false'
   fi
+}
+
+quality_runner_label() {
+  if [[ "${CLI_RUNNER_NOTE:-}" == built\ native\ CLI* ]]; then
+    printf 'built'
+    return
+  fi
+  case "${CLI_RUNNER_KIND:-}" in
+    prebuilt-native|override)
+      printf 'prebuilt'
+      ;;
+    moon-run)
+      printf 'moon-run'
+      ;;
+    *)
+      printf 'none'
+      ;;
+  esac
+}
+
+probe_with_metadata_support() {
+  local probe_tmp_root
+  probe_tmp_root="$(validation_cli_tmp_root)"
+  local probe_dir
+  probe_dir="$(sample_make_isolated_tmp_dir "$probe_tmp_root" "quality_metadata_probe")"
+  local probe_output="$probe_dir/txt_plain.md"
+  local probe_metadata="$probe_dir/metadata/txt_plain.metadata.json"
+  local probe_input="$ROOT/samples/main_process/txt/txt_plain.txt"
+  local status=0
+
+  if ! run_markitdown_cli normal --with-metadata "$probe_input" "$probe_output" >/dev/null 2>"$probe_dir/probe.stderr"; then
+    METADATA_STATUS="unsupported_option"
+    METADATA_NOTE="current main CLI rejects --with-metadata; external quality baseline falls back to metadata-off"
+    status=1
+  elif [[ -f "$probe_metadata" ]]; then
+    METADATA_STATUS="supported_sidecar"
+    METADATA_NOTE="current main CLI accepts --with-metadata and emits metadata sidecars"
+  else
+    METADATA_STATUS="supported_without_sidecar"
+    METADATA_NOTE="current main CLI accepts --with-metadata but did not emit a metadata sidecar in the probe"
+  fi
+
+  rm -rf "$probe_dir"
+  return "$status"
+}
+
+resolve_quality_metadata_mode() {
+  case "$METADATA_MODE" in
+    off)
+      METADATA_ENABLED=0
+      METADATA_STATUS="forced_off"
+      METADATA_NOTE="metadata sidecars disabled by quality runner flag"
+      return 0
+      ;;
+    on)
+      if probe_with_metadata_support; then
+        METADATA_ENABLED=1
+        return 0
+      fi
+      echo "quality metadata probe failed while --with-metadata was forced" >&2
+      echo "note: $METADATA_NOTE" >&2
+      return 1
+      ;;
+    auto)
+      if probe_with_metadata_support; then
+        METADATA_ENABLED=1
+      else
+        METADATA_ENABLED=0
+      fi
+      return 0
+      ;;
+    *)
+      echo "unknown metadata mode: $METADATA_MODE" >&2
+      return 1
+      ;;
+  esac
 }
 
 profile_init() {
@@ -826,32 +986,41 @@ check_signal() {
   local metadata_path="$3"
   local output_dir="$4"
   local normalized_text="$5"
+  local literal_text="$6"
 
   case "$signal" in
     no_empty_output)
       check_non_empty_output_file "$markdown_path"
       ;;
     contains:*)
-      [[ "$normalized_text" == *"${signal#contains:}"* ]]
+      local needle="${signal#contains:}"
+      needle="$(normalize_signal_literal "$needle")"
+      [[ "$literal_text" == *"$needle"* ]]
       ;;
     contains_all:*)
       local rest="${signal#contains_all:}"
-      printf '%s' "$normalized_text" | stdin_contains_all_parts "$rest"
+      rest="$(normalize_signal_literal "$rest")"
+      printf '%s' "$literal_text" | stdin_contains_all_parts "$rest"
       ;;
     exact_count:*)
       local spec="${signal#exact_count:}"
-      printf '%s' "$normalized_text" | stdin_count_occurrences "exact_count" "$spec"
+      spec="$(normalize_signal_literal "$spec")"
+      printf '%s' "$literal_text" | stdin_count_occurrences "exact_count" "$spec"
       ;;
     min_count:*)
       local spec="${signal#min_count:}"
-      printf '%s' "$normalized_text" | stdin_count_occurrences "min_count" "$spec"
+      spec="$(normalize_signal_literal "$spec")"
+      printf '%s' "$literal_text" | stdin_count_occurrences "min_count" "$spec"
       ;;
     max_count:*)
       local spec="${signal#max_count:}"
-      printf '%s' "$normalized_text" | stdin_count_occurrences "max_count" "$spec"
+      spec="$(normalize_signal_literal "$spec")"
+      printf '%s' "$literal_text" | stdin_count_occurrences "max_count" "$spec"
       ;;
     not_contains:*)
-      [[ "$normalized_text" != *"${signal#not_contains:}"* ]]
+      local needle="${signal#not_contains:}"
+      needle="$(normalize_signal_literal "$needle")"
+      [[ "$literal_text" != *"$needle"* ]]
       ;;
     heading_marker:*)
       local needle="${signal#heading_marker:}"
@@ -867,7 +1036,11 @@ check_signal() {
       grep -Eq '\[[^]]+\]\([^)]*\)' "$markdown_path"
       ;;
     metadata_file)
-      [[ -f "$metadata_path" ]]
+      if [[ "$METADATA_ENABLED" -eq 0 ]]; then
+        [[ "$METADATA_STATUS" == "unsupported_option" || "$METADATA_MODE" == "off" ]]
+      else
+        [[ -f "$metadata_path" ]]
+      fi
       ;;
     asset_count_min:*)
       local min_count="${signal#asset_count_min:}"
@@ -878,7 +1051,8 @@ check_signal() {
       ;;
     order:*)
       local rest="${signal#order:}"
-      printf '%s' "$normalized_text" | stdin_parts_in_order "$rest"
+      rest="$(normalize_signal_literal "$rest")"
+      printf '%s' "$literal_text" | stdin_parts_in_order "$rest"
       ;;
     line_fragmentation_max:*)
       local limit="${signal#line_fragmentation_max:}"
@@ -894,7 +1068,9 @@ check_signal() {
       printf '%s' "$token_text" | stdin_max_long_token_len "$limit"
       ;;
     page_noise_absent:*)
-      [[ "$normalized_text" != *"${signal#page_noise_absent:}"* ]]
+      local needle="${signal#page_noise_absent:}"
+      needle="$(normalize_signal_literal "$needle")"
+      [[ "$literal_text" != *"$needle"* ]]
       ;;
     review_note:*)
       return 0
@@ -1099,16 +1275,26 @@ run_row() {
   if [[ "$METADATA_ENABLED" -ne 0 ]]; then
     cli_args+=("--with-metadata")
   fi
+  if [[ "${#CLI_EXTRA_ARGS[@]}" -ne 0 ]]; then
+    cli_args+=("${CLI_EXTRA_ARGS[@]}")
+  fi
   cli_args+=("$abs_path" "$output_md")
+  local cli_stdout="$row_dir/convert.stdout.log"
+  local cli_stderr="$row_dir/convert.stderr.log"
   if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
     stage_start_ms="$(profile_now_ms)"
   fi
-  if ! run_markitdown_cli "${cli_args[@]}" >/dev/null 2>&1; then
+  if ! run_markitdown_cli "${cli_args[@]}" >"$cli_stdout" 2>"$cli_stderr"; then
     local failure_status="fail"
+    local failure_reason
+    failure_reason="$(single_line_note "$(sed -n '1,5p' "$cli_stderr" 2>/dev/null)")"
     local failure_note="cli conversion failed"
+    if [[ -n "$failure_reason" ]]; then
+      failure_note="$failure_note: $failure_reason"
+    fi
     if is_known_bad_tier "$quality_tier"; then
       failure_status="expected_fail"
-      failure_note="expected converter failure: cli conversion failed"
+      failure_note="expected converter failure: $failure_note"
     fi
     if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
       profile_record "$id" "convert" "$(( $(profile_now_ms) - stage_start_ms ))" "cli_failed"
@@ -1125,6 +1311,8 @@ run_row() {
   local metadata_path="$row_dir/metadata/$id.metadata.json"
   local normalized_text
   normalized_text="$(normalize_text "$output_md")"
+  local literal_text
+  literal_text="$(normalize_markdown_literal_text "$output_md")"
   if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
     profile_record "$id" "load_output" "$(( $(profile_now_ms) - stage_start_ms ))" "markdown_loaded"
     stage_start_ms="$(profile_now_ms)"
@@ -1153,7 +1341,7 @@ run_row() {
       profile_record "$id" "signal_start:$(profile_signal_stage_name "$signal")" 0 "$(profile_signal_notes "$signal" "start")"
       signal_start_ms="$(profile_now_ms)"
     fi
-    if check_signal "$signal" "$output_md" "$metadata_path" "$row_dir" "$normalized_text"; then
+    if check_signal "$signal" "$output_md" "$metadata_path" "$row_dir" "$normalized_text" "$literal_text"; then
       passed_signals=$((passed_signals + 1))
       if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
         profile_record "$id" "signal:$(profile_signal_stage_name "$signal")" "$(( $(profile_now_ms) - signal_start_ms ))" "$(profile_signal_notes "$signal" "pass")"
@@ -1240,7 +1428,10 @@ write_summary() {
   {
     printf 'id\tformat\tscope\tquality_tier\tstatus\tpassed_signals\ttotal_signals\tnotes\n'
     printf 'PROFILE_ENABLED\t-\t-\t-\t-\t0\t0\t%s\n' "$(profile_enabled_summary_value)"
+    printf 'METADATA_MODE\t-\t-\t-\t-\t0\t0\t%s\n' "$(metadata_mode_summary_value)"
     printf 'METADATA_ENABLED\t-\t-\t-\t-\t0\t0\t%s\n' "$(metadata_summary_value)"
+    printf 'METADATA_STATUS\t-\t-\t-\t-\t0\t0\t%s\n' "$(metadata_status_summary_value)"
+    printf 'METADATA_NOTE\t-\t-\t-\t-\t0\t0\t%s\n' "$(metadata_note_summary_value)"
     printf 'CORPUS_ROOT\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$CORPUS_ROOT")"
     printf 'CORPUS_ROOT_SOURCE\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$CORPUS_ROOT_SOURCE")"
     printf 'QUALITY_ROWS_MANIFEST\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$QUALITY_ROWS_MANIFEST")"
@@ -1248,6 +1439,7 @@ write_summary() {
     printf 'FILTER_ID\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$FILTER_ID")"
     printf 'FILTER_SOURCE\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$FILTER_SOURCE")"
     printf 'FILTER_FORMAT\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$FILTER_FORMAT")"
+    printf 'CLI_EXTRA_ARGS\t-\t-\t-\t-\t0\t0\t%s\n' "$(cli_extra_args_summary_value)"
     local row
     for row in "${SUMMARY_ROWS[@]-}"; do
       [[ -z "$row" ]] && continue
@@ -1273,7 +1465,11 @@ write_summary() {
       echo "Profile path: $PROFILE_TSV"
     fi
     echo
+    echo "Metadata mode: $(metadata_mode_summary_value)"
     echo "Metadata: $(if [[ "$METADATA_ENABLED" -ne 0 ]]; then printf 'enabled'; else printf 'disabled'; fi)"
+    echo "Metadata status: $(metadata_status_summary_value)"
+    echo "Metadata note: $(metadata_note_summary_value)"
+    echo "CLI extra args: $(cli_extra_args_summary_value)"
     echo
     echo "Filters:"
     echo "- id: $(filter_summary_value "$FILTER_ID")"
@@ -1345,6 +1541,8 @@ done < <(collect_manifest_rows)
 
 if [[ "${#MANIFEST_ROWS[@]}" -eq 0 ]]; then
   write_summary 0 0 0 0 0 0 0 0 1 0
+  validation_progress_init "quality" 0
+  validation_progress_zero "no manifest rows"
   echo "QUALITY CHECK PASSED (no manifest rows selected)"
   echo "summary: $SUMMARY_TSV"
   echo "report: $SUMMARY_MD"
@@ -1360,6 +1558,8 @@ done
 
 if [[ "${#FILTERED_ROWS[@]}" -eq 0 ]]; then
   write_summary 0 0 0 0 0 0 0 0 0 1
+  validation_progress_init "quality" 0
+  validation_progress_zero "no matching rows"
   echo "QUALITY CHECK PASSED (no rows matched filters)"
   echo "summary: $SUMMARY_TSV"
   echo "report: $SUMMARY_MD"
@@ -1373,12 +1573,29 @@ fi
 
 profile_init
 resolve_markitdown_cli
+resolve_quality_metadata_mode
+echo "runner: $(quality_runner_label)"
+if [[ -n "${CLI_RUNNER_NOTE:-}" ]]; then
+  echo "runner-note: $CLI_RUNNER_NOTE"
+fi
+echo "metadata-mode: $(metadata_mode_summary_value)"
+echo "metadata-status: $(metadata_status_summary_value)"
+if [[ -n "$METADATA_NOTE" ]]; then
+  echo "metadata-note: $METADATA_NOTE"
+fi
+if [[ "${#CLI_EXTRA_ARGS[@]}" -ne 0 ]]; then
+  echo "cli-extra-args: $(cli_extra_args_summary_value)"
+fi
 
 validation_progress_init "quality" "${#FILTERED_ROWS[@]}"
 
 for row in "${FILTERED_ROWS[@]}"; do
-  IFS=$'\t' read -r source_scope id _ <<< "$row"
-  validation_progress_step "$id"
+  IFS=$'\t' read -r source_scope id format path source_type source_id license_status license_review_status _ <<< "$row"
+  if [[ "$source_scope" == "external" && "$license_review_status" != "approved" ]]; then
+    validation_progress_step_status "skipped" "license $id"
+  else
+    validation_progress_step "$path"
+  fi
   run_row "$row"
 done
 
