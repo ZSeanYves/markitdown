@@ -1,0 +1,241 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/formats/pdf"
+
+import {
+  "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/parser",
+}
+
+// Values
+pub fn extract_pdf_native_document(@input.InputSource) -> Result[PdfNativeDocument, PdfNativeError]
+
+pub fn extract_pdf_native_document_from_path(String) -> Result[PdfNativeDocument, PdfNativeError]
+
+pub fn make_pdf_bbox(Double, Double, Double, Double) -> PdfBBox
+
+pub fn make_pdf_native_annotation(Int, String, bbox? : PdfBBox?, text? : String?, title? : String?, name? : String?, modified_at? : String?, action_kind? : String?, target? : String?, destination? : PdfNativeDestination?, source_ref? : @core.SourceRef?, annotation_index? : Int?, object_id? : Int?) -> PdfNativeAnnotation
+
+pub fn make_pdf_native_artifact_candidate(String, PdfBBox, source_ref? : @core.SourceRef?) -> PdfNativeArtifactCandidate
+
+pub fn make_pdf_native_destination(page_index? : Int?, target_page_index? : Int?, target_page_object_id? : Int?, kind? : String?, raw_value? : String?, name? : String?, source_ref? : @core.SourceRef?, object_id? : Int?) -> PdfNativeDestination
+
+pub fn make_pdf_native_document(pages? : Array[PdfNativePage], form_fields? : Array[PdfNativeFormField], outline_items? : Array[PdfNativeOutlineItem], named_destinations? : Array[PdfNativeDestination], metadata? : Map[String, @core.JsonValue], diagnostics? : @core.Diagnostics) -> PdfNativeDocument
+
+pub fn make_pdf_native_form_field(page_index? : Int?, field_type? : String?, field_name? : String?, alternate_name? : String?, value? : String?, default_value? : String?, options? : Array[String], bbox? : PdfBBox?, source_ref? : @core.SourceRef?, object_id? : Int?, widget_object_id? : Int?, flags? : Int?) -> PdfNativeFormField
+
+pub fn make_pdf_native_image_candidate(PdfBBox, source_ref? : @core.SourceRef?, asset_ref? : @core.AssetRef?, reading_order_index? : Int?) -> PdfNativeImageCandidate
+
+pub fn make_pdf_native_link_candidate(PdfBBox, String, text? : String?, source_ref? : @core.SourceRef?, annotation_index? : Int?, annotation_object_id? : Int?) -> PdfNativeLinkCandidate
+
+pub fn make_pdf_native_outline_item(String, Int, Int, page_index? : Int?, action_kind? : String?, target? : String?, destination? : PdfNativeDestination?, source_ref? : @core.SourceRef?, object_id? : Int?) -> PdfNativeOutlineItem
+
+pub fn make_pdf_native_page(PdfPageGeometry, text_blocks? : Array[PdfNativeTextBlock], image_candidates? : Array[PdfNativeImageCandidate], link_candidates? : Array[PdfNativeLinkCandidate], annotations? : Array[PdfNativeAnnotation], destinations? : Array[PdfNativeDestination], table_candidates? : Array[PdfNativeTableCandidate], artifact_candidates? : Array[PdfNativeArtifactCandidate], diagnostics? : @core.Diagnostics) -> PdfNativePage
+
+pub fn make_pdf_native_table_candidate(PdfBBox, source_ref? : @core.SourceRef?, row_count? : Int?, column_count? : Int?, cell_bboxes? : Array[PdfBBox]) -> PdfNativeTableCandidate
+
+pub fn make_pdf_native_text_block(Array[PdfNativeTextLine], PdfBBox, source_ref? : @core.SourceRef?, reading_order_index? : Int?) -> PdfNativeTextBlock
+
+pub fn make_pdf_native_text_line(Array[PdfNativeTextSpan], PdfBBox, source_ref? : @core.SourceRef?, reading_order_index? : Int?) -> PdfNativeTextLine
+
+pub fn make_pdf_native_text_span(String, PdfBBox, source_ref? : @core.SourceRef?, confidence? : Int?, font_name? : String?, font_size? : Double?, reading_order_index? : Int?) -> PdfNativeTextSpan
+
+pub fn make_pdf_page_geometry(Int, Double, Double, rotation_degrees? : Int, crop_box? : PdfBBox?) -> PdfPageGeometry
+
+pub fn pdf_bbox_bottom(PdfBBox) -> Double
+
+pub fn pdf_bbox_is_empty(PdfBBox) -> Bool
+
+pub fn pdf_bbox_right(PdfBBox) -> Double
+
+pub fn pdf_decode_gb2312_first_bytes(Array[Int]) -> PdfRawCjkDecodeResult
+
+pub fn pdf_native_document_to_ir(PdfNativeDocument) -> @core.DocumentIR
+
+pub fn pdf_native_document_to_ir_with_policies(PdfNativeDocument, @parser.PdfHeaderFooterFilterPolicy, @parser.PdfTableReconstructionPolicy) -> @core.DocumentIR
+
+pub fn pdf_native_fail_closed_diagnostics(@input.InputSource, @parser.ParseContext) -> @core.Diagnostics
+
+pub fn pdf_native_fail_closed_message() -> String
+
+pub fn pdf_native_parser() -> @parser.Parser
+
+pub fn pdf_native_parser_capability() -> @parser.ParserCapability
+
+pub fn pdf_native_parser_name() -> String
+
+pub fn pdf_native_parser_result(@input.InputSource, @parser.ParseContext) -> @parser.ParseResult
+
+pub fn pdf_raw_cjk_decode_result_is_confident_gb2312(PdfRawCjkDecodeResult) -> Bool
+
+pub fn pdf_union_bbox(PdfBBox, PdfBBox) -> PdfBBox
+
+// Errors
+
+// Types and methods
+pub struct PdfBBox {
+  x : Double
+  y : Double
+  width : Double
+  height : Double
+}
+
+pub struct PdfNativeAnnotation {
+  page_index : Int
+  subtype : String
+  bbox : PdfBBox?
+  text : String?
+  title : String?
+  name : String?
+  modified_at : String?
+  action_kind : String?
+  target : String?
+  destination : PdfNativeDestination?
+  source_ref : @core.SourceRef?
+  annotation_index : Int?
+  object_id : Int?
+}
+
+pub struct PdfNativeArtifactCandidate {
+  kind : String
+  bbox : PdfBBox
+  source_ref : @core.SourceRef?
+}
+
+pub struct PdfNativeDestination {
+  page_index : Int?
+  target_page_index : Int?
+  target_page_object_id : Int?
+  kind : String?
+  raw_value : String?
+  name : String?
+  source_ref : @core.SourceRef?
+  object_id : Int?
+}
+
+pub struct PdfNativeDocument {
+  pages : Array[PdfNativePage]
+  form_fields : Array[PdfNativeFormField]
+  outline_items : Array[PdfNativeOutlineItem]
+  named_destinations : Array[PdfNativeDestination]
+  metadata : Map[String, @core.JsonValue]
+  diagnostics : @core.Diagnostics
+}
+
+pub(all) enum PdfNativeError {
+  BackendUnavailable(String)
+  ReadFailed(String)
+  ParseFailed(String)
+  EncryptedUnsupported(String)
+  EmptyTextLayer(String)
+  UnsupportedFeature(String)
+} derive(Eq)
+pub impl Show for PdfNativeError
+
+pub struct PdfNativeFormField {
+  page_index : Int?
+  field_type : String?
+  field_name : String?
+  alternate_name : String?
+  value : String?
+  default_value : String?
+  options : Array[String]
+  bbox : PdfBBox?
+  source_ref : @core.SourceRef?
+  object_id : Int?
+  widget_object_id : Int?
+  flags : Int?
+}
+
+pub struct PdfNativeImageCandidate {
+  bbox : PdfBBox
+  source_ref : @core.SourceRef?
+  asset_ref : @core.AssetRef?
+  reading_order_index : Int?
+}
+
+pub struct PdfNativeLinkCandidate {
+  bbox : PdfBBox
+  href : String
+  text : String?
+  source_ref : @core.SourceRef?
+  annotation_index : Int?
+  annotation_object_id : Int?
+}
+
+pub struct PdfNativeOutlineItem {
+  title : String
+  level : Int
+  order_index : Int
+  page_index : Int?
+  action_kind : String?
+  target : String?
+  destination : PdfNativeDestination?
+  source_ref : @core.SourceRef?
+  object_id : Int?
+}
+
+pub struct PdfNativePage {
+  geometry : PdfPageGeometry
+  text_blocks : Array[PdfNativeTextBlock]
+  image_candidates : Array[PdfNativeImageCandidate]
+  link_candidates : Array[PdfNativeLinkCandidate]
+  annotations : Array[PdfNativeAnnotation]
+  destinations : Array[PdfNativeDestination]
+  table_candidates : Array[PdfNativeTableCandidate]
+  artifact_candidates : Array[PdfNativeArtifactCandidate]
+  diagnostics : @core.Diagnostics
+}
+
+pub struct PdfNativeTableCandidate {
+  bbox : PdfBBox
+  source_ref : @core.SourceRef?
+  row_count : Int?
+  column_count : Int?
+  cell_bboxes : Array[PdfBBox]
+}
+
+pub struct PdfNativeTextBlock {
+  lines : Array[PdfNativeTextLine]
+  bbox : PdfBBox
+  source_ref : @core.SourceRef?
+  reading_order_index : Int?
+}
+
+pub struct PdfNativeTextLine {
+  spans : Array[PdfNativeTextSpan]
+  bbox : PdfBBox
+  source_ref : @core.SourceRef?
+  reading_order_index : Int?
+}
+
+pub struct PdfNativeTextSpan {
+  text : String
+  bbox : PdfBBox
+  source_ref : @core.SourceRef?
+  confidence : Int?
+  font_name : String?
+  font_size : Double?
+  reading_order_index : Int?
+}
+
+pub struct PdfPageGeometry {
+  page_no : Int
+  width : Double
+  height : Double
+  rotation_degrees : Int
+  crop_box : PdfBBox?
+}
+
+pub(all) struct PdfRawCjkDecodeResult {
+  text : String
+  decoded_cjk_count : Int
+  decoded_two_byte_count : Int
+  invalid_byte_count : Int
+  has_high_bytes : Bool
+}
+
+// Type aliases
+
+// Traits
+
