@@ -1,4 +1,0 @@
-import {
-  "ZSeanYves/markitdown/doc_parse/csv",
-  "ZSeanYves/markitdown/doc_parse/tsv",
-} for "test"

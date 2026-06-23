@@ -1,0 +1,4 @@
+import {
+  "ZSeanYves/markitdown/format_readers/ooxml/package" @ox,
+  "ZSeanYves/markitdown/format_readers/ooxml/pptx",
+} for "test"

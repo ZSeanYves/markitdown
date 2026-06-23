@@ -1,0 +1,134 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/format_readers/json"
+
+// Values
+pub fn classify_json_error(JsonError) -> JsonErrorInfo
+
+pub fn inspect_json_document(JsonDocument) -> JsonInspectReport
+
+pub fn json_value_kind(JsonValue) -> String
+
+pub fn parse_json_document(String) -> JsonDocument raise
+
+pub fn parse_json_stream(String) -> JsonStreamDocument raise
+
+pub fn profile_json_document(String) -> JsonProfiledDocument raise
+
+// Errors
+pub(all) suberror JsonError {
+  ParseError(String)
+}
+pub impl Show for JsonError
+
+// Types and methods
+pub struct JsonDocument {
+  root : JsonValue
+}
+
+pub struct JsonErrorInfo {
+  kind : JsonErrorKind
+  detail : String
+}
+
+pub(all) enum JsonErrorKind {
+  UnexpectedEnd
+  TrailingContent
+  UnexpectedCharacter
+  ObjectKeyMustBeString
+  UnterminatedString
+  InvalidEscape
+  InvalidUnicodeEscape
+  InvalidUnicodeSurrogate
+  InvalidNumber
+  InvalidFraction
+  InvalidExponent
+  RawNewlineInString
+  RawControlCharacterInString
+  ExpectedToken
+  Unknown
+} derive(Eq)
+
+pub struct JsonInspectReport {
+  node_count : Int
+  object_count : Int
+  array_count : Int
+  scalar_count : Int
+  member_count : Int
+  max_depth : Int
+  root_kind : String
+}
+
+pub struct JsonMember {
+  key : String
+  value : JsonValue
+}
+
+pub(all) struct JsonParseProfileReport {
+  stages : Array[JsonParseProfileStage]
+}
+
+pub(all) struct JsonParseProfileStage {
+  name : String
+  elapsed_ms : UInt64
+  detail : String?
+}
+
+pub(all) struct JsonProfiledDocument {
+  document : JsonDocument
+  report : JsonParseProfileReport
+}
+
+pub struct JsonStreamDocument {
+  events : Array[JsonStreamEvent]
+  summary : JsonStreamSummary
+}
+
+pub struct JsonStreamEvent {
+  kind : JsonStreamEventKind
+  pointer : String
+  depth : Int
+  text : String?
+  source : JsonStreamSource
+}
+
+pub(all) enum JsonStreamEventKind {
+  ObjectStart
+  ObjectEnd
+  ArrayStart
+  ArrayEnd
+  Key
+  StringValue
+  NumberValue
+  BoolValue
+  NullValue
+} derive(Eq)
+
+pub struct JsonStreamSource {
+  line : Int
+  column : Int
+  byte_start : Int
+  byte_end : Int
+}
+
+pub struct JsonStreamSummary {
+  token_count : Int
+  object_count : Int
+  array_count : Int
+  scalar_count : Int
+  max_depth : Int
+  root_kind : String
+}
+
+pub(all) enum JsonValue {
+  Object(Array[JsonMember])
+  Array(Array[JsonValue])
+  String(String)
+  Number(String)
+  Bool(Bool)
+  Null
+}
+
+// Type aliases
+
+// Traits
+

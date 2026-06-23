@@ -1,5 +1,0 @@
-import {
-  "moonbitlang/x/fs",
-  "ZSeanYves/markitdown/core" @cor,
-  "ZSeanYves/markitdown/doc_parse/epub",
-} for "test"

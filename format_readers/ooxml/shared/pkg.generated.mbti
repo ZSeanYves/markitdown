@@ -1,0 +1,551 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/format_readers/ooxml/shared"
+
+import {
+  "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/parser",
+}
+
+// Values
+pub fn docx_contract_foundations() -> Array[String]
+
+pub fn docx_contract_granularity() -> @parser.StreamingGranularity
+
+pub fn docx_contract_guardrails() -> Array[String]
+
+pub fn docx_contract_ir_input_kind() -> String
+
+pub fn docx_contract_mode() -> @parser.ParserMode
+
+pub fn docx_contract_parser_name() -> String
+
+pub fn make_office_asset_plan(String, String, copy_policy? : OfficeAssetCopyPolicy, source_ref? : @core.SourceRef?) -> OfficeAssetPlan
+
+pub fn make_office_content_type(String, extension? : String?, part_name? : String?, source_ref? : @core.SourceRef?) -> OfficeContentType
+
+pub fn make_office_media_asset(String, content_type? : String?, relationship_id? : String?, source_part? : String?, size? : Int?, source_ref? : @core.SourceRef?) -> OfficeMediaAsset
+
+pub fn make_office_package(OfficeDocumentKind, Array[OfficePart], Array[OfficeRelationship], Array[OfficeContentType], Array[OfficeMediaAsset], container_path? : String?, source_id? : String?, diagnostics? : @core.Diagnostics, source_ref? : @core.SourceRef?) -> OfficePackage
+
+pub fn make_office_part(String, normalized_part_name? : String?, content_type? : String?, relationship_type? : String?, size? : Int?, source_ref? : @core.SourceRef?, security_findings? : Array[OfficeSecurityFinding]) -> OfficePart
+
+pub fn make_office_relationship(String, String, String, String, target_mode? : String, normalized_target? : String?, is_external? : Bool, source_ref? : @core.SourceRef?, security_findings? : Array[OfficeSecurityFinding]) -> OfficeRelationship
+
+pub fn make_office_semantic_plan(OfficeDocumentKind, OfficePackage, String, Array[String], Array[OfficeAssetPlan], diagnostics? : @core.Diagnostics) -> OfficeSemanticPlan
+
+pub fn make_pptx_comment_model(String, String, author? : String?, source_ref? : @core.SourceRef?) -> PptxCommentModel
+
+pub fn make_pptx_image_model(asset_part? : String?, content_type? : String?, alt_text? : String?, title? : String?, relationship_id? : String?, source_ref? : @core.SourceRef?) -> PptxImageModel
+
+pub fn make_pptx_layout_model(layout_name? : String?, part_name? : String?, master_part? : String?, theme_part? : String?, placeholder_count? : Int, source_ref? : @core.SourceRef?) -> PptxLayoutModel
+
+pub fn make_pptx_master_model(master_name? : String?, part_name? : String?, theme_part? : String?, placeholder_count? : Int, source_ref? : @core.SourceRef?) -> PptxMasterModel
+
+pub fn make_pptx_notes_model(Array[String], notes_part? : String?, source_ref? : @core.SourceRef?) -> PptxNotesModel
+
+pub fn make_pptx_paragraph_model(Int, Array[PptxTextRunModel], level? : Int?, bullet_kind? : String?, source_ref? : @core.SourceRef?) -> PptxParagraphModel
+
+pub fn make_pptx_placeholder_model(String, placeholder_index? : String?, placeholder_name? : String?, resolved_from? : PptxPlaceholderOrigin, source_ref? : @core.SourceRef?) -> PptxPlaceholderModel
+
+pub fn make_pptx_presentation_model(Array[PptxSlideModel], themes? : Array[PptxThemeModel], masters? : Array[PptxMasterModel], layouts? : Array[PptxLayoutModel], diagnostics? : @core.Diagnostics, source_ref? : @core.SourceRef?) -> PptxPresentationModel
+
+pub fn make_pptx_presentation_plan(PptxPresentationModel, Array[String], hidden_slide_ids? : Array[String], diagnostics? : @core.Diagnostics, source_ref? : @core.SourceRef?) -> PptxPresentationPlan
+
+pub fn make_pptx_reading_order_item(Int, Int, PptxReadingOrderStrategy, shape_id? : String?, confidence? : String?, source_ref? : @core.SourceRef?) -> PptxReadingOrderItem
+
+pub fn make_pptx_shape_model(PptxShapeType, text_paragraphs? : Array[PptxParagraphModel], shape_id? : String?, shape_name? : String?, bbox? : @core.BBox?, table? : PptxTableModel?, image? : PptxImageModel?, placeholder? : PptxPlaceholderModel?, source_ref? : @core.SourceRef?, diagnostics? : @core.Diagnostics) -> PptxShapeModel
+
+pub fn make_pptx_slide_model(Int, Array[PptxShapeModel], slide_id? : String?, slide_part? : String?, visibility? : PptxSlideVisibility, layout_part? : String?, master_part? : String?, theme_part? : String?, notes? : PptxNotesModel?, comments? : Array[PptxCommentModel], reading_order? : Array[PptxReadingOrderItem], source_ref? : @core.SourceRef?, diagnostics? : @core.Diagnostics) -> PptxSlideModel
+
+pub fn make_pptx_table_cell_model(Int, Int, String, row_span? : Int?, column_span? : Int?, source_ref? : @core.SourceRef?) -> PptxTableCellModel
+
+pub fn make_pptx_table_model(Array[PptxTableRowModel], source_ref? : @core.SourceRef?) -> PptxTableModel
+
+pub fn make_pptx_table_row_model(Int, Array[PptxTableCellModel], source_ref? : @core.SourceRef?) -> PptxTableRowModel
+
+pub fn make_pptx_text_run_model(String, hyperlink_target? : String?, relationship_id? : String?, source_ref? : @core.SourceRef?) -> PptxTextRunModel
+
+pub fn make_pptx_theme_model(theme_name? : String?, part_name? : String?, color_scheme_name? : String?, font_scheme_name? : String?, source_ref? : @core.SourceRef?) -> PptxThemeModel
+
+pub fn make_xlsx_cell_model(String, Int, Int, XlsxCellType, raw_value? : String?, display_value? : String?, shared_string_index? : Int?, style_ref? : @core.StyleRef?, formula? : XlsxFormula?, source_ref? : @core.SourceRef?, diagnostics? : @core.Diagnostics) -> XlsxCellModel
+
+pub fn make_xlsx_formula(String, cached_value? : String?, formula_ref? : String?, is_array_formula? : Bool, is_shared_formula? : Bool, source_ref? : @core.SourceRef?) -> XlsxFormula
+
+pub fn make_xlsx_merged_range(String, String, String, source_ref? : @core.SourceRef?) -> XlsxMergedRange
+
+pub fn make_xlsx_row_model(Int, Array[XlsxCellModel], source_ref? : @core.SourceRef?) -> XlsxRowModel
+
+pub fn make_xlsx_shared_string(Int, String, source_ref? : @core.SourceRef?) -> XlsxSharedString
+
+pub fn make_xlsx_sheet_model(String, Array[XlsxRowModel], sheet_id? : String?, relationship_id? : String?, part_name? : String?, visibility? : XlsxSheetVisibility, dimension_ref? : String?, merged_ranges? : Array[XlsxMergedRange], source_ref? : @core.SourceRef?, diagnostics? : @core.Diagnostics) -> XlsxSheetModel
+
+pub fn make_xlsx_workbook_model(Array[XlsxSheetModel], shared_strings? : Array[XlsxSharedString], styles_summary? : Map[String, @core.JsonValue], defined_names? : Array[String], diagnostics? : @core.Diagnostics, source_ref? : @core.SourceRef?) -> XlsxWorkbookModel
+
+pub fn make_xlsx_workbook_plan(XlsxWorkbookModel, Array[String], skipped_sheet_names? : Array[String], diagnostics? : @core.Diagnostics, source_ref? : @core.SourceRef?) -> XlsxWorkbookPlan
+
+pub fn office_asset_copy_policy_name(OfficeAssetCopyPolicy) -> String
+
+pub fn office_asset_output_path_is_safe(String) -> Bool
+
+pub fn office_asset_plan_is_safe(OfficeAssetPlan) -> Bool
+
+pub fn office_asset_write_guardrails() -> Array[String]
+
+pub fn office_diagnostic_metric_keys() -> Array[String]
+
+pub fn office_document_kind_name(OfficeDocumentKind) -> String
+
+pub fn office_parser_modes() -> Array[@parser.ParserMode]
+
+pub fn office_relationship_guardrails() -> Array[String]
+
+pub fn office_relationship_is_no_fetch(OfficeRelationship) -> Bool
+
+pub fn office_resource_limit_keys() -> Array[String]
+
+pub fn office_security_finding_name(OfficeSecurityFinding) -> String
+
+pub fn office_source_ref_extra_keys() -> Array[String]
+
+pub fn office_streaming_granularities() -> Array[@parser.StreamingGranularity]
+
+pub fn pptx_contract_asset_policy() -> Array[String]
+
+pub fn pptx_contract_excluded_runtime_foundations() -> Array[String]
+
+pub fn pptx_contract_foundations() -> Array[String]
+
+pub fn pptx_contract_granularity() -> @parser.StreamingGranularity
+
+pub fn pptx_contract_guardrails() -> Array[String]
+
+pub fn pptx_contract_ir_input_kind() -> String
+
+pub fn pptx_contract_mode() -> @parser.ParserMode
+
+pub fn pptx_contract_notes_policy() -> Array[String]
+
+pub fn pptx_contract_parser_name() -> String
+
+pub fn pptx_contract_placeholder_policy() -> Array[String]
+
+pub fn pptx_contract_reading_order_policy() -> Array[String]
+
+pub fn pptx_contract_relationship_policy() -> Array[String]
+
+pub fn pptx_contract_slide_policy() -> Array[String]
+
+pub fn pptx_contract_source_ref_extra_keys() -> Array[String]
+
+pub fn pptx_placeholder_origin_name(PptxPlaceholderOrigin) -> String
+
+pub fn pptx_reading_order_strategy_name(PptxReadingOrderStrategy) -> String
+
+pub fn pptx_shape_type_name(PptxShapeType) -> String
+
+pub fn pptx_slide_visibility_name(PptxSlideVisibility) -> String
+
+pub fn xlsx_cell_type_name(XlsxCellType) -> String
+
+pub fn xlsx_contract_asset_policy() -> Array[String]
+
+pub fn xlsx_contract_excluded_runtime_foundations() -> Array[String]
+
+pub fn xlsx_contract_formula_policy() -> Array[String]
+
+pub fn xlsx_contract_foundations() -> Array[String]
+
+pub fn xlsx_contract_granularity() -> @parser.StreamingGranularity
+
+pub fn xlsx_contract_guardrails() -> Array[String]
+
+pub fn xlsx_contract_ir_input_kind() -> String
+
+pub fn xlsx_contract_large_granularity() -> @parser.StreamingGranularity
+
+pub fn xlsx_contract_large_ir_input_kind() -> String
+
+pub fn xlsx_contract_mode() -> @parser.ParserMode
+
+pub fn xlsx_contract_parser_name() -> String
+
+pub fn xlsx_contract_relationship_policy() -> Array[String]
+
+pub fn xlsx_contract_sheet_policy() -> Array[String]
+
+pub fn xlsx_contract_source_ref_extra_keys() -> Array[String]
+
+pub fn xlsx_sheet_visibility_name(XlsxSheetVisibility) -> String
+
+// Errors
+
+// Types and methods
+pub(all) enum OfficeAssetCopyPolicy {
+  MaterializeAtOutputBoundary
+  ReferenceOnly
+  RejectUnsafePath
+} derive(Eq)
+
+pub struct OfficeAssetPlan {
+  media_part : String
+  output_relative_path : String
+  copy_policy : OfficeAssetCopyPolicy
+  source_ref : @core.SourceRef?
+}
+
+pub struct OfficeContentType {
+  extension : String?
+  part_name : String?
+  content_type : String
+  source_ref : @core.SourceRef?
+}
+
+pub(all) enum OfficeDocumentKind {
+  Docx
+  Pptx
+  Xlsx
+  Unknown
+} derive(Eq)
+
+pub struct OfficeMediaAsset {
+  part_name : String
+  content_type : String?
+  relationship_id : String?
+  source_part : String?
+  size : Int?
+  source_ref : @core.SourceRef?
+}
+
+pub struct OfficePackage {
+  document_kind : OfficeDocumentKind
+  container_path : String?
+  source_id : String?
+  parts : Array[OfficePart]
+  relationships : Array[OfficeRelationship]
+  content_types : Array[OfficeContentType]
+  media_assets : Array[OfficeMediaAsset]
+  diagnostics : @core.Diagnostics
+  source_ref : @core.SourceRef?
+}
+
+pub struct OfficePart {
+  part_name : String
+  normalized_part_name : String?
+  content_type : String?
+  relationship_type : String?
+  size : Int?
+  source_ref : @core.SourceRef?
+  security_findings : Array[OfficeSecurityFinding]
+}
+
+pub struct OfficeRelationship {
+  source_part : String
+  relationship_id : String
+  relationship_type : String
+  target : String
+  target_mode : String
+  normalized_target : String?
+  is_external : Bool
+  source_ref : @core.SourceRef?
+  security_findings : Array[OfficeSecurityFinding]
+}
+
+pub(all) enum OfficeSecurityFinding {
+  UnsafePartPath
+  DuplicateNormalizedPart
+  MissingRelationshipTarget
+  UnsupportedRelationship
+  ExternalRelationship
+  EncryptedEntry
+  UnsupportedCompression
+  ResourceLimitHit
+  PathTraversal
+} derive(Eq)
+
+pub struct OfficeSemanticPlan {
+  document_kind : OfficeDocumentKind
+  office_package : OfficePackage
+  semantic_model_kind : String
+  ordered_units : Array[String]
+  asset_plans : Array[OfficeAssetPlan]
+  diagnostics : @core.Diagnostics
+}
+
+pub struct PptxCommentModel {
+  comment_id : String
+  author : String?
+  text : String
+  source_ref : @core.SourceRef?
+}
+
+pub struct PptxImageModel {
+  asset_part : String?
+  content_type : String?
+  alt_text : String?
+  title : String?
+  relationship_id : String?
+  source_ref : @core.SourceRef?
+}
+
+pub struct PptxLayoutModel {
+  layout_name : String?
+  part_name : String?
+  master_part : String?
+  theme_part : String?
+  placeholder_count : Int
+  source_ref : @core.SourceRef?
+}
+
+pub struct PptxMasterModel {
+  master_name : String?
+  part_name : String?
+  theme_part : String?
+  placeholder_count : Int
+  source_ref : @core.SourceRef?
+}
+
+pub struct PptxNotesModel {
+  notes_part : String?
+  text_blocks : Array[String]
+  source_ref : @core.SourceRef?
+}
+
+pub struct PptxParagraphModel {
+  paragraph_index : Int
+  runs : Array[PptxTextRunModel]
+  level : Int?
+  bullet_kind : String?
+  source_ref : @core.SourceRef?
+}
+
+pub struct PptxPlaceholderModel {
+  placeholder_type : String
+  placeholder_index : String?
+  placeholder_name : String?
+  resolved_from : PptxPlaceholderOrigin
+  source_ref : @core.SourceRef?
+}
+
+pub(all) enum PptxPlaceholderOrigin {
+  DirectSlide
+  LayoutPlaceholder
+  MasterPlaceholder
+  GeometryInference
+  Unresolved
+} derive(Eq)
+
+pub struct PptxPresentationModel {
+  slides : Array[PptxSlideModel]
+  themes : Array[PptxThemeModel]
+  masters : Array[PptxMasterModel]
+  layouts : Array[PptxLayoutModel]
+  diagnostics : @core.Diagnostics
+  source_ref : @core.SourceRef?
+}
+
+pub struct PptxPresentationPlan {
+  presentation : PptxPresentationModel
+  ordered_slide_ids : Array[String]
+  hidden_slide_ids : Array[String]
+  diagnostics : @core.Diagnostics
+  source_ref : @core.SourceRef?
+}
+
+pub struct PptxReadingOrderItem {
+  reading_order_index : Int
+  slide_index : Int
+  shape_id : String?
+  strategy : PptxReadingOrderStrategy
+  confidence : String?
+  source_ref : @core.SourceRef?
+}
+
+pub(all) enum PptxReadingOrderStrategy {
+  PresentationOrder
+  PlaceholderThenGeometry
+  GeometryOnly
+  ExplicitZOrder
+  Unknown
+} derive(Eq)
+
+pub struct PptxShapeModel {
+  shape_id : String?
+  shape_name : String?
+  shape_type : PptxShapeType
+  bbox : @core.BBox?
+  text_paragraphs : Array[PptxParagraphModel]
+  table : PptxTableModel?
+  image : PptxImageModel?
+  placeholder : PptxPlaceholderModel?
+  source_ref : @core.SourceRef?
+  diagnostics : @core.Diagnostics
+}
+
+pub(all) enum PptxShapeType {
+  Title
+  Subtitle
+  Body
+  TextBox
+  Picture
+  Table
+  Chart
+  SmartArt
+  Media
+  Connector
+  Group
+  Placeholder
+  NotesAnchor
+  Decorative
+  Unknown
+} derive(Eq)
+
+pub struct PptxSlideModel {
+  slide_index : Int
+  slide_id : String?
+  slide_part : String?
+  visibility : PptxSlideVisibility
+  layout_part : String?
+  master_part : String?
+  theme_part : String?
+  shapes : Array[PptxShapeModel]
+  notes : PptxNotesModel?
+  comments : Array[PptxCommentModel]
+  reading_order : Array[PptxReadingOrderItem]
+  source_ref : @core.SourceRef?
+  diagnostics : @core.Diagnostics
+}
+
+pub(all) enum PptxSlideVisibility {
+  Visible
+  Hidden
+} derive(Eq)
+
+pub struct PptxTableCellModel {
+  row_index : Int
+  column_index : Int
+  text : String
+  row_span : Int?
+  column_span : Int?
+  source_ref : @core.SourceRef?
+}
+
+pub struct PptxTableModel {
+  rows : Array[PptxTableRowModel]
+  source_ref : @core.SourceRef?
+}
+
+pub struct PptxTableRowModel {
+  row_index : Int
+  cells : Array[PptxTableCellModel]
+  source_ref : @core.SourceRef?
+}
+
+pub struct PptxTextRunModel {
+  text : String
+  hyperlink_target : String?
+  relationship_id : String?
+  source_ref : @core.SourceRef?
+}
+
+pub struct PptxThemeModel {
+  theme_name : String?
+  part_name : String?
+  color_scheme_name : String?
+  font_scheme_name : String?
+  source_ref : @core.SourceRef?
+}
+
+pub struct XlsxCellModel {
+  cell_ref : String
+  row_index : Int
+  column_index : Int
+  cell_type : XlsxCellType
+  raw_value : String?
+  display_value : String?
+  shared_string_index : Int?
+  style_ref : @core.StyleRef?
+  formula : XlsxFormula?
+  source_ref : @core.SourceRef?
+  diagnostics : @core.Diagnostics
+}
+
+pub(all) enum XlsxCellType {
+  Blank
+  String
+  SharedString
+  InlineString
+  Number
+  Bool
+  Error
+  DateLike
+  Formula
+} derive(Eq)
+
+pub struct XlsxFormula {
+  formula_text : String
+  cached_value : String?
+  formula_ref : String?
+  is_array_formula : Bool
+  is_shared_formula : Bool
+  source_ref : @core.SourceRef?
+}
+
+pub struct XlsxMergedRange {
+  range_ref : String
+  start_cell : String
+  end_cell : String
+  source_ref : @core.SourceRef?
+}
+
+pub struct XlsxRowModel {
+  row_index : Int
+  cells : Array[XlsxCellModel]
+  source_ref : @core.SourceRef?
+}
+
+pub struct XlsxSharedString {
+  string_index : Int
+  value : String
+  source_ref : @core.SourceRef?
+}
+
+pub struct XlsxSheetModel {
+  sheet_name : String
+  sheet_id : String?
+  relationship_id : String?
+  part_name : String?
+  visibility : XlsxSheetVisibility
+  dimension_ref : String?
+  rows : Array[XlsxRowModel]
+  merged_ranges : Array[XlsxMergedRange]
+  source_ref : @core.SourceRef?
+  diagnostics : @core.Diagnostics
+}
+
+pub(all) enum XlsxSheetVisibility {
+  Visible
+  Hidden
+  VeryHidden
+} derive(Eq)
+
+pub struct XlsxWorkbookModel {
+  sheets : Array[XlsxSheetModel]
+  shared_strings : Array[XlsxSharedString]
+  styles_summary : Map[String, @core.JsonValue]
+  defined_names : Array[String]
+  diagnostics : @core.Diagnostics
+  source_ref : @core.SourceRef?
+}
+
+pub struct XlsxWorkbookPlan {
+  workbook : XlsxWorkbookModel
+  included_sheet_names : Array[String]
+  skipped_sheet_names : Array[String]
+  diagnostics : @core.Diagnostics
+  source_ref : @core.SourceRef?
+}
+
+// Type aliases
+
+// Traits
+

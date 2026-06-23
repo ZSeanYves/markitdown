@@ -1,0 +1,3 @@
+import {
+  "ZSeanYves/markitdown/format_readers/markdown" @md,
+} for "test"

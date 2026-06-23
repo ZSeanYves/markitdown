@@ -1,0 +1,192 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/format_readers/zip"
+
+// Values
+pub fn classify_zip_error(ZipError) -> ZipErrorInfo
+
+pub fn collect_zip_validation_issues(ZipArchive) -> Array[ZipValidationIssue]
+
+pub fn decompress(CompressionMethod, Bytes, max_output_size? : Int) -> Bytes raise CodecError
+
+pub fn find_entry_info(ZipArchive, String) -> ZipEntryInfo?
+
+pub fn has_entry(ZipArchive, String) -> Bool
+
+pub fn inspect_zip(Bytes) -> Array[ZipEntryMeta] raise ZipError
+
+pub fn inspect_zip_archive(ZipArchive) -> ZipArchiveInspectReport
+
+pub fn inspect_zip_inventory(ZipArchive) -> ZipArchiveInventory
+
+pub fn list_entries(ZipArchive) -> Array[ZipEntryMeta]
+
+pub fn list_entry_infos(ZipArchive) -> Array[ZipEntryInfo]
+
+pub fn normalize_entry_path(String) -> String?
+
+pub fn open_zip(Bytes) -> ZipArchive raise ZipError
+
+pub fn read_entry(ZipArchive, String, max_output_size? : Int) -> Bytes raise ZipError
+
+pub fn validate_zip_archive(ZipArchive) -> ZipValidationReport
+
+// Errors
+pub(all) suberror CodecError {
+  UnsupportedCompressionMethod(Int)
+  DecodeFailed(String)
+  OutputTooLarge(Int, Int)
+}
+pub impl Show for CodecError
+
+pub(all) suberror ZipError {
+  UnexpectedEOF(String)
+  InvalidSignature(String, Int, Int)
+  InvalidStructure(String)
+  UnsupportedCompressionMethod(Int)
+  EntryNotFound(String)
+  DecodeFailed(String)
+}
+pub impl Show for ZipError
+
+// Types and methods
+pub(all) enum CompressionMethod {
+  Store
+  DeflateRaw
+  Unsupported(Int)
+} derive(Eq)
+
+pub struct ZipArchive {
+  bytes : Bytes
+  entries : Array[ZipEntryMeta]
+  entry_index : Map[String, Int]
+}
+
+pub struct ZipArchiveInspectReport {
+  entry_count : Int
+  file_entry_count : Int
+  directory_entry_count : Int
+  unsafe_entry_count : Int
+  duplicate_normalized_entry_count : Int
+  encrypted_entry_count : Int
+  unsupported_compression_entry_count : Int
+  total_uncompressed_size : Int
+  total_compressed_size : Int
+  issue_count : Int
+  warning_count : Int
+  error_count : Int
+  inventory : ZipArchiveInventory
+  issues : Array[ZipValidationIssue]
+}
+
+pub struct ZipArchiveInventory {
+  entries : Array[ZipEntryInfo]
+  entry_count : Int
+  file_entry_count : Int
+  directory_entry_count : Int
+  unsafe_entry_count : Int
+  duplicate_normalized_entry_count : Int
+  encrypted_entry_count : Int
+  unsupported_compression_entry_count : Int
+  total_uncompressed_size : Int
+  total_compressed_size : Int
+  has_unsafe_paths : Bool
+  has_duplicate_normalized_paths : Bool
+}
+
+pub struct ZipEntryInfo {
+  raw_name : String
+  normalized_path : String?
+  is_directory : Bool
+  is_file : Bool
+  extension : String?
+  compression_method : CompressionMethod
+  compressed_size : Int
+  uncompressed_size : Int
+  local_header_offset : Int
+  crc32 : Int
+  flags : Int
+  is_encrypted : Bool
+  has_data_descriptor : Bool
+  uses_zip64 : Bool
+  is_unsafe_path : Bool
+  is_hidden_metadata : Bool
+  is_nested_archive_candidate : Bool
+  issue_count : Int
+}
+
+pub struct ZipEntryMeta {
+  name : String
+  compression_method : CompressionMethod
+  compressed_size : Int
+  uncompressed_size : Int
+  local_header_offset : Int
+  crc32 : Int
+  flags : Int
+  is_directory : Bool
+  is_encrypted : Bool
+  has_data_descriptor : Bool
+  uses_zip64 : Bool
+}
+
+pub struct ZipErrorInfo {
+  kind : ZipErrorKind
+  mapping : ZipErrorMappingKind
+  entry_name : String?
+  detail : String
+}
+
+pub(all) enum ZipErrorKind {
+  MissingEntry
+  UnsupportedCompressionMethod
+  EncryptedEntry
+  DuplicateEntryName
+  UnsupportedFeature
+  MalformedArchive
+  ReadEntryFailed
+  Unknown
+} derive(Eq)
+
+pub(all) enum ZipErrorMappingKind {
+  DirectVariant
+  BestEffortMessage
+} derive(Eq)
+
+pub struct ZipValidationIssue {
+  kind : ZipValidationIssueKind
+  severity : ZipValidationSeverity
+  raw_name : String
+  normalized_path : String?
+  compression_method : CompressionMethod?
+  message : String
+}
+
+pub(all) enum ZipValidationIssueKind {
+  UnsafeEntryPath
+  DuplicateNormalizedEntry
+  DirectoryEntry
+  EmptyEntry
+  UnsupportedCompressionMethod
+  NestedArchiveCandidate
+  FilenameTooLong
+  DirectoryDepthExceeded
+} derive(Eq)
+
+pub struct ZipValidationReport {
+  entry_count : Int
+  file_entry_count : Int
+  directory_entry_count : Int
+  issue_count : Int
+  warning_count : Int
+  error_count : Int
+  issues : Array[ZipValidationIssue]
+}
+
+pub(all) enum ZipValidationSeverity {
+  Warning
+  Error
+} derive(Eq)
+
+// Type aliases
+
+// Traits
+
