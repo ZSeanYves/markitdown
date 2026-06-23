@@ -1,0 +1,8 @@
+import {
+  "ZSeanYves/markitdown/formats/delimited_text",
+  "ZSeanYves/markitdown/parser",
+}
+
+options(
+  "preferred-target": "native",
+)

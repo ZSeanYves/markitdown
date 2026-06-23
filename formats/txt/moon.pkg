@@ -1,0 +1,12 @@
+import {
+  "moonbitlang/core/encoding/utf8",
+  "ZSeanYves/markitdown/format_readers/text" @dtext,
+  "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/formats/light_common",
+  "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/parser",
+}
+
+options(
+  "preferred-target": "native",
+)

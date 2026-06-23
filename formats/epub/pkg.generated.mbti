@@ -1,0 +1,18 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/formats/epub"
+
+import {
+  "ZSeanYves/markitdown/parser",
+}
+
+// Values
+pub fn epub_container_parser(() -> @parser.ParserRegistry) -> @parser.Parser
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

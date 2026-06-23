@@ -1,0 +1,12 @@
+import {
+  "ZSeanYves/markitdown/format_readers/json" @djson,
+  "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/formats/light_common",
+  "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/pipeline",
+}
+
+options(
+  "preferred-target": "native",
+)

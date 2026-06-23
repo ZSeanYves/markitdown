@@ -1,0 +1,11 @@
+import {
+  "ZSeanYves/markitdown/format_readers/csv" @dcsv,
+  "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/formats/light_common",
+  "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/parser",
+}
+
+options(
+  "preferred-target": "native",
+)
