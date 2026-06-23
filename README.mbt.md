@@ -1,177 +1,90 @@
 # markitdown-mb for MoonBit Developers
 
-`markitdown-mb` is a MoonBit-native multi-format document-to-Markdown project.
-This file is the short MoonBit-oriented entrypoint; the broader product-facing
-overview lives in [README.md](./README.md).
+This file is the short developer entrypoint for the active repository layout.
+The canonical architecture reference is
+[docs/architecture/mb-markitdown-architecture.md](./docs/architecture/mb-markitdown-architecture.md).
 
 ## Start Here
 
-| If you are here for | Start here |
-| --- | --- |
-| Build / validate the repo | [Core Commands](#core-commands) |
-| Converter work | [Package Shape](#package-shape) |
-| OCR boundary | [Current OCR boundary](#current-ocr-boundary) |
-| Detailed docs map | [docs/README.md](./docs/README.md) |
-| Product behavior overview | [README.md](./README.md) |
+- Product overview: [README.md](./README.md)
+- Architecture book:
+  [docs/architecture/mb-markitdown-architecture.md](./docs/architecture/mb-markitdown-architecture.md)
+- Repo-local samples: [samples/README.md](./samples/README.md)
+- Test package notes: [tests/README.md](./tests/README.md)
 
-## Five-Minute Orientation
+## Current Pipeline
 
-For a new contributor, the shortest accurate summary is:
+The active product path is:
 
-* the product CLI converts common document formats into Markdown-first output
-* shipped OCR currently means image OCR through the main CLI only
-* image OCR depends on local `tesseract` plus installed language data
-* main-CLI OCR flags are `--ocr`, `--no-ocr`, and `--ocr-lang <LANG>`
-* normal document conversion still stays no-OCR
-* PDF OCR is not wired; `pdf --ocr` remains future explicit provider work
-* repo-local validation is
-  `moon check`,
-  `bash samples/check.sh`,
-  `bash samples/check_quality.sh`,
-  `bash samples/bench.sh`,
-  and `bash samples/bench.sh --help`
-* `debug`, `bench`, PDF scan diagnostics, and layout-model tooling are
-  developer surfaces, not the normal product entrypoint
+```text
+input -> FormatDetector -> ParserRegistry -> ParseResult -> Core IR -> Renderer
+```
 
-If you need the detailed boundaries, read in this order:
+Key boundaries:
 
-* [docs/README.md](./docs/README.md)
-* [README.md](./README.md)
-* [docs/supported-formats.md](./docs/supported-formats.md)
-* [docs/pdf.md](./docs/pdf.md)
-* [docs/quality-and-release.md](./docs/quality-and-release.md)
-* [docs/architecture.md](./docs/architecture.md)
+- `input` owns source loading and format detection.
+- `parser` owns parser contracts such as `ParserMode`, `ParseContext`, and
+  `ParserRegistry`.
+- `formats` exposes product parsers.
+- `format_readers` stays below the parser layer and does not render Markdown.
+- `runtime` lowers `ParseResult` into IR input and supports child dispatch.
+- `pipeline` owns Core IR passes.
+- `render` owns Markdown and debug JSON output.
+- `convert` orchestrates the full conversion flow.
+
+## Supported Main-CLI Formats
+
+The current main CLI supports:
+
+- `txt`, `csv`, `tsv`
+- `json`, `jsonl`, `ndjson`
+- `xml`, `yaml`, `html`, `markdown`
+- `zip`, `epub`
+- `docx`, `xlsx`, `pptx`
+- `pdf` for native-text PDFs
+
+Fail-closed boundaries:
+
+- scanned or image-only PDFs
+- `pdf --ocr`
+- unsupported formats
+- default image inputs without explicit `--ocr`
 
 ## Core Commands
 
-Minimum development environment:
-
-* MoonBit native toolchain with `moon`
-* `bash` plus common POSIX/coreutils shell tools for sample helpers
-* Python for selected validation/quality helper scripts, not normal runtime
-* optional `tesseract` plus installed tessdata for image OCR
-* optional repo-root `markitdown-quality-lab/` for external quality checks
-
-Build the main product binaries:
-
 ```bash
-moon build cli --target native
-moon build pdf --target native
-moon build zip --target native
+moon fmt
+moon info
+moon check
+moon build
+moon test
+moon test tests
+bash samples/check.sh
+bash samples/check.sh --check-inventory
+bash samples/check_quality.sh
+bash samples/helpers/contracts/check_root_contracts.sh
 ```
 
-Optional internal/dev binaries:
+## Package Map
 
-* `moon build debug --target native`
-* `moon build bench --target native`
+| Package | Responsibility |
+| --- | --- |
+| `core` | Core IR, diagnostics, source refs, assets |
+| `input` | `InputSource` and format detection |
+| `parser` | parser contracts and registry |
+| `format_readers` | low-level readers and shared foundations |
+| `formats` | registry-facing product parsers |
+| `container` | container guardrails and helper contracts |
+| `runtime` | parse-result lowering and child conversion helpers |
+| `pipeline` | IR builder and pass pipeline |
+| `render` | renderers |
+| `convert` | end-to-end conversion orchestration |
+| `cli` | product CLI shell |
 
-Recommended validation entrypoints:
+## Notes
 
-* `moon check`
-* `moon test`
-* `bash samples/check.sh`
-* `bash samples/check_quality.sh`
-* `bash samples/check_quality.sh --format pdf`
-* `bash samples/bench.sh`
-* `bash samples/bench.sh --help`
-
-Public sample entrypoints:
-
-* `bash samples/check.sh` runs the full repo-local validation suite.
-* `bash samples/check_quality.sh` runs only the external quality corpus from
-  `markitdown-quality-lab/external_quality/` and fails clearly if that repo is
-  missing or incomplete.
-* `bash samples/check_quality.sh --format pdf` runs the focused PDF quality
-  slice from that same external corpus.
-* `bash samples/bench.sh` runs the default smoke benchmark suite and writes
-  results under `.tmp/bench/`.
-* `bash samples/bench.sh --help` shows additional suites and targeted options.
-
-The main repo is self-contained for:
-
-* runtime
-* `moon test`
-* `bash samples/check.sh`
-
-`bash samples/check_quality.sh` is the optional full quality gate and expects
-the repo-local quality-lab:
-
-```bash
-git clone git@github.com:ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab
-```
-
-That entrypoint:
-
-* expects `markitdown-quality-lab/external_quality/`
-* fails clearly when the external corpus is missing or incomplete
-* does not fall back to repo-local quality rows
-
-Current OCR boundary:
-
-* normal conversion never OCRs and never probes OCR providers.
-* main-CLI OCR policy flags `--ocr`, `--no-ocr`, and `--ocr-lang <LANG>` are
-  supported.
-* image inputs now auto-OCR through `convert/vision`.
-* product image OCR depends on local `tesseract` and language data; if they
-  are missing, image OCR fails clearly.
-* `--ocr-lang <LANG>` passes a Tesseract language value such as `eng` or
-  `eng+chi_sim` to image OCR only; there is no language auto-detection.
-* normal document conversion still stays no-OCR outside explicit image inputs.
-* PDF OCR is not wired in this build.
-* debug/report helpers are diagnostics, not the product entrypoint.
-* repo-root `markitdown-quality-lab/` is an optional external corpus/artifact
-  repo, not a runtime dependency.
-* see [docs/roadmap.md](./docs/roadmap.md) and
-  [docs/quality-and-release.md](./docs/quality-and-release.md) for rebuild
-  status and optional diagnostics.
-
-## Package Shape
-
-High-level boundaries:
-
-* `cli`: lightweight product entrypoint
-* `pdf`, `zip`: bundled product components
-* `debug`, `bench`: developer tools
-* `core`: shared document/metadata/emitter layer
-* `convert/*`: format-to-IR conversion policy
-* `doc_parse/*`: lower-layer parser/model/inspect foundations
-* `convert/vision`: provider-independent OCRPageModel scaffold and future OCR
-  implementation path
-* `doc_parse/pdf/layout_model_tool`: PDF layout export/infer tool
-
-Important current facts:
-
-* normal runtime does not read quality-lab assets
-* normal runtime does not read model JSON
-* PDF layout normal behavior is distilled into MoonBit rules/gates
-* `cli` stays out of the vendored PDF closure and should remain `mbtpdf=0`
-* normal conversion never OCRs and never probes OCR providers
-* main-CLI OCR policy flags `--ocr`, `--no-ocr`, and `--ocr-lang <LANG>` are
-  supported in this build
-* image inputs now auto-OCR through `convert/vision`
-* image OCR requires local `tesseract`; missing runtime support fails clearly
-* normal document conversion still stays no-OCR outside explicit image inputs
-* debug/report helpers are diagnostics, not product entrypoints
-* PDF OCR is not wired in this build
-
-## Current Checked Facts
-
-* `moon test`: `1579 passed`
-* `bash samples/check.sh`: 9 stages passed, including `444` markdown / `85`
-  metadata / `90` assets / `0` failures
-* `bash samples/check_quality.sh --format pdf`: `79` rows / `0` failed / `1`
-  skipped / `0` expected_fail on the current repo-local
-  `markitdown-quality-lab` checkout
-* `bash samples/check_quality.sh`: `315` rows / `0` failed / `1` skipped /
-  `0` expected_fail on the current repo-local `markitdown-quality-lab`
-  checkout
-
-## Primary Docs
-
-* [docs/architecture.md](./docs/architecture.md)
-* [docs/architecture-consolidation-audit.md](./docs/architecture-consolidation-audit.md)
-* [docs/supported-formats.md](./docs/supported-formats.md)
-* [docs/quality-and-release.md](./docs/quality-and-release.md)
-* [docs/pdf.md](./docs/pdf.md)
-* [docs/performance.md](./docs/performance.md)
-* [docs/roadmap.md](./docs/roadmap.md)
+- `Renderer` owns Markdown syntax. Parsers do not emit final Markdown.
+- `Core IR` is the stable interchange point between parsing and rendering.
+- `samples/check.sh` is the main repo-local regression entrypoint.
+- `samples/check_quality.sh` is the external quality bridge and expects the
+  optional repo-root `markitdown-quality-lab/`.

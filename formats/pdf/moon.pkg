@@ -1,0 +1,13 @@
+import {
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/string",
+  "tonyfettes/encoding",
+  "ZSeanYves/markitdown/format_readers/pdf_native" @dpdfnative,
+  "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/parser",
+}
+
+options(
+  "preferred-target": "native",
+)

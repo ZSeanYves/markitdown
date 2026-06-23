@@ -1,7 +1,0 @@
-import {
-  "ZSeanYves/markitdown/convert/pptx",
-  "ZSeanYves/markitdown/core" @cor,
-  "moonbitlang/core/encoding/utf8",
-  "moonbitlang/x/fs",
-  "moonbitlang/x/sys",
-} for "test"

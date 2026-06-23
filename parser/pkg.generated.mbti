@@ -1,0 +1,208 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/parser"
+
+import {
+  "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/input",
+}
+
+// Values
+pub fn default_ocr_options() -> OcrOptions
+
+pub fn default_parser_capability() -> ParserCapability
+
+pub fn default_pdf_header_footer_filter_policy() -> PdfHeaderFooterFilterPolicy
+
+pub fn default_pdf_native_runtime_policy() -> PdfNativeRuntimePolicy
+
+pub fn default_pdf_table_reconstruction_policy() -> PdfTableReconstructionPolicy
+
+pub fn disabled_ocr_options(language? : String?) -> OcrOptions
+
+pub fn empty_registry() -> ParserRegistry
+
+pub fn explicit_ocr_options(language? : String?) -> OcrOptions
+
+pub fn make_parser(String, ParserMode, ParserCapability, (@input.InputSource, ParseContext) -> Result[ParseResult, String]) -> Parser
+
+pub fn make_parser_capability(ParserMode, Bool, StreamingGranularity, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool) -> ParserCapability
+
+pub fn mode_name(ParserMode) -> String
+
+pub fn new_parse_context(@input.DetectedFormat) -> ParseContext
+
+pub fn ocr_intent_name(OcrIntent) -> String
+
+pub fn parse_context_with_limits(ParseContext, ParserMode?, Int?, Int?, Int?, Int?, Bool) -> ParseContext
+
+pub fn parse_context_with_ocr_options(ParseContext, OcrOptions) -> ParseContext
+
+pub fn parse_context_with_pdf_header_footer_filter_policy(ParseContext, PdfHeaderFooterFilterPolicy) -> ParseContext
+
+pub fn parse_context_with_pdf_native_runtime_policy(ParseContext, PdfNativeRuntimePolicy) -> ParseContext
+
+pub fn parse_context_with_pdf_table_reconstruction_policy(ParseContext, PdfTableReconstructionPolicy) -> ParseContext
+
+pub fn parse_result_with_blocks(String, ParserMode, Array[@core.CoreBlock], @core.Diagnostics) -> ParseResult
+
+pub fn parse_result_with_blocks_capability(String, ParserMode, Array[@core.CoreBlock], @core.Diagnostics, ParserCapability) -> ParseResult
+
+pub fn parse_result_with_container_manifest(String, @core.ContainerManifest, @core.Diagnostics, ParserCapability) -> ParseResult
+
+pub fn parse_result_with_container_plan(String, @core.ContainerPlan, @core.Diagnostics, ParserCapability) -> ParseResult
+
+pub fn parse_result_with_document(String, ParserMode, @core.DocumentIR, @core.Diagnostics) -> ParseResult
+
+pub fn parse_result_with_document_capability(String, ParserMode, @core.DocumentIR, @core.Diagnostics, ParserCapability) -> ParseResult
+
+pub fn parse_result_with_events(String, ParserMode, Array[@core.CoreEvent], @core.Diagnostics) -> ParseResult
+
+pub fn parse_result_with_events_capability(String, ParserMode, Array[@core.CoreEvent], @core.Diagnostics, ParserCapability) -> ParseResult
+
+pub fn parser_capability(Bool, Bool, Bool) -> ParserCapability
+
+pub fn pdf_header_footer_filter_policy_name(PdfHeaderFooterFilterPolicy) -> String
+
+pub fn pdf_native_runtime_policy_name(PdfNativeRuntimePolicy) -> String
+
+pub fn pdf_table_reconstruction_policy_name(PdfTableReconstructionPolicy) -> String
+
+pub fn registry_key(@input.DetectedFormat) -> String
+
+pub fn registry_lookup(ParserRegistry, @input.DetectedFormat) -> Parser?
+
+pub fn registry_parse(ParserRegistry, @input.InputSource, ParseContext) -> Result[ParseResult, String]
+
+pub fn registry_register(ParserRegistry, @input.DetectedFormat, Parser) -> Unit
+
+// Errors
+
+// Types and methods
+pub(all) enum OcrIntent {
+  Disabled
+  Auto
+  Explicit
+} derive(Eq)
+
+pub struct OcrOptions {
+  intent : OcrIntent
+  language : String?
+}
+
+pub struct ParseContext {
+  detected_format : @input.DetectedFormat
+  requested_mode : ParserMode?
+  ocr_options : OcrOptions
+  pdf_native_runtime_policy : PdfNativeRuntimePolicy
+  pdf_header_footer_filter_policy : PdfHeaderFooterFilterPolicy
+  pdf_table_reconstruction_policy : PdfTableReconstructionPolicy
+  max_rows : Int?
+  max_cols : Int?
+  max_cells : Int?
+  max_line_chars : Int?
+  debug : Bool
+}
+
+pub struct ParseResult {
+  parser_name : String
+  mode : ParserMode
+  capabilities : ParserCapability
+  event_stream : Array[@core.CoreEvent]?
+  block_stream : Array[@core.CoreBlock]?
+  document : @core.DocumentIR?
+  container_manifest : @core.ContainerManifest?
+  container_plan : @core.ContainerPlan?
+  diagnostics : @core.Diagnostics
+}
+
+pub struct Parser {
+  name : String
+  mode : ParserMode
+  capability : ParserCapability
+  parse : (@input.InputSource, ParseContext) -> Result[ParseResult, String]
+}
+
+pub struct ParserCapability {
+  parser_mode : ParserMode
+  supports_streaming : Bool
+  streaming_granularity : StreamingGranularity
+  requires_random_access : Bool
+  source_single_pass_preferred : Bool
+  source_single_pass_strict : Bool
+  supports_events : Bool
+  supports_blocks : Bool
+  supports_document_ir : Bool
+  produces_text : Bool
+  produces_structure : Bool
+  produces_layout : Bool
+  produces_tables : Bool
+  produces_images : Bool
+  produces_metadata : Bool
+  produces_source_map : Bool
+  can_be_lossless : Bool
+  can_preserve_order : Bool
+  can_preserve_styles : Bool
+}
+
+pub(all) enum ParserMode {
+  StreamingEvent
+  BlockStreaming
+  DocumentModel
+  PresentationModel
+  WorkbookModel
+  PackageSinglePass
+  PageSinglePass
+  DomAstModel
+  LayoutTwoStage
+  MediaPipeline
+  ContainerRecursive
+} derive(Eq)
+
+pub struct ParserRegistry {
+  parsers : Map[String, Parser]
+}
+
+pub(all) enum PdfHeaderFooterFilterPolicy {
+  Disabled
+  InternalHighConfidenceOnly
+} derive(Eq)
+
+pub(all) enum PdfNativeRuntimePolicy {
+  DisableTextRestore
+  EnableTextRestore
+} derive(Eq)
+
+pub(all) enum PdfTableReconstructionPolicy {
+  Disabled
+  InternalSimpleRowsOnly
+} derive(Eq)
+
+pub(all) enum StreamingGranularity {
+  Byte
+  Line
+  Record
+  Row
+  JsonStructure
+  XmlStructure
+  YamlStructure
+  HtmlTokenStructure
+  MarkdownBlock
+  DocxBlock
+  PptxSlide
+  XlsxSheet
+  XlsxRow
+  ArchiveEntry
+  EpubSpineItem
+  Block
+  Page
+  Slide
+  Sheet
+  Chapter
+  Message
+  None
+} derive(Eq)
+
+// Type aliases
+
+// Traits
+

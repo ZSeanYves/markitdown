@@ -1,18 +1,16 @@
 #!/usr/bin/env bash
 
+source "$ROOT/samples/helpers/shared/progress_helpers.sh"
+source "$ROOT/samples/helpers/shared/tmp_helpers.sh"
+
 SAMPLES_VERBOSE="${SAMPLES_VERBOSE:-${VERBOSE:-0}}"
 CLI_RUNNER_KIND=""
 CLI_RUNNER_NOTE=""
 CLI_BIN=""
 CLI_PACKAGE="cli"
+CLI_MODULE_ROOT=""
 CLI_NATIVE_BUILD_ATTEMPTED=0
 CLI_NATIVE_BUILD_ATTEMPTED_PACKAGE=""
-PDF_CLI_RUNNER_KIND=""
-PDF_CLI_RUNNER_NOTE=""
-PDF_CLI_BIN=""
-ZIP_CLI_RUNNER_KIND=""
-ZIP_CLI_RUNNER_NOTE=""
-ZIP_CLI_BIN=""
 
 runner_class_for_kind() {
   case "${1-}" in
@@ -45,45 +43,7 @@ validation_bool_enabled() {
 }
 
 resolve_markitdown_cli() {
-  resolve_markitdown_pdf_cli || return 1
-  PDF_CLI_RUNNER_KIND="$CLI_RUNNER_KIND"
-  PDF_CLI_RUNNER_NOTE="$CLI_RUNNER_NOTE"
-  PDF_CLI_BIN="$CLI_BIN"
-  resolve_markitdown_zip_cli || return 1
-  ZIP_CLI_RUNNER_KIND="$CLI_RUNNER_KIND"
-  ZIP_CLI_RUNNER_NOTE="$CLI_RUNNER_NOTE"
-  ZIP_CLI_BIN="$CLI_BIN"
   resolve_markitdown_package_cli "cli" "MARKITDOWN_CLI" || return 1
-  if [[ -n "${PDF_CLI_BIN:-}" ]]; then
-    if [[ -n "${CLI_RUNNER_NOTE:-}" ]]; then
-      CLI_RUNNER_NOTE="$CLI_RUNNER_NOTE; bundled pdf component: $PDF_CLI_BIN"
-    else
-      CLI_RUNNER_NOTE="bundled pdf component: $PDF_CLI_BIN"
-    fi
-  fi
-  if [[ -n "${ZIP_CLI_BIN:-}" ]]; then
-    if [[ -n "${CLI_RUNNER_NOTE:-}" ]]; then
-      CLI_RUNNER_NOTE="$CLI_RUNNER_NOTE; bundled zip component: $ZIP_CLI_BIN"
-    else
-      CLI_RUNNER_NOTE="bundled zip component: $ZIP_CLI_BIN"
-    fi
-  fi
-}
-
-resolve_markitdown_pdf_cli() {
-  resolve_markitdown_package_cli "pdf" "MARKITDOWN_PDF_CLI"
-}
-
-resolve_markitdown_zip_cli() {
-  resolve_markitdown_package_cli "zip" "MARKITDOWN_ZIP_CLI"
-}
-
-resolve_markitdown_debug_cli() {
-  resolve_markitdown_package_cli "debug" "MARKITDOWN_DEBUG_CLI"
-}
-
-resolve_markitdown_bench_cli() {
-  resolve_markitdown_package_cli "bench" "MARKITDOWN_BENCH_CLI"
 }
 
 resolve_markitdown_package_cli() {
@@ -92,6 +52,7 @@ resolve_markitdown_package_cli() {
   local override_bin=""
 
   CLI_PACKAGE="$package"
+  CLI_MODULE_ROOT="$(markitdown_package_module_root "$package")"
   CLI_RUNNER_KIND=""
   CLI_RUNNER_NOTE=""
   CLI_BIN=""
@@ -137,47 +98,30 @@ validation_cli_tmp_root() {
   printf '%s' "$base"
 }
 
+markitdown_package_module_root() {
+  printf '%s' "$ROOT"
+}
+
 run_markitdown_cli() {
   local cli_tmp_root
   cli_tmp_root="$(validation_cli_tmp_root)"
   if [[ "${CLI_RUNNER_KIND:-moon-run}" == "prebuilt-native" || "${CLI_RUNNER_KIND:-moon-run}" == "override" ]]; then
-    if [[ "${CLI_PACKAGE:-cli}" == "cli" && -n "${PDF_CLI_BIN:-}" ]]; then
-      MARKITDOWN_TMP_DIR="$cli_tmp_root" MARKITDOWN_PDF_CLI="$PDF_CLI_BIN" MARKITDOWN_ZIP_CLI="${ZIP_CLI_BIN:-${MARKITDOWN_ZIP_CLI:-}}" "$CLI_BIN" "$@"
-    else
-      MARKITDOWN_TMP_DIR="$cli_tmp_root" "$CLI_BIN" "$@"
-    fi
+    MARKITDOWN_TMP_DIR="$cli_tmp_root" "$CLI_BIN" "$@"
   else
-    if [[ "${CLI_PACKAGE:-cli}" == "cli" && -n "${PDF_CLI_BIN:-}" ]]; then
-      MARKITDOWN_TMP_DIR="$cli_tmp_root" MARKITDOWN_PDF_CLI="$PDF_CLI_BIN" MARKITDOWN_ZIP_CLI="${ZIP_CLI_BIN:-${MARKITDOWN_ZIP_CLI:-}}" moon run "$ROOT/$CLI_PACKAGE" -- "$@"
-    else
-      MARKITDOWN_TMP_DIR="$cli_tmp_root" moon run "$ROOT/$CLI_PACKAGE" -- "$@"
-    fi
+    (
+      cd "$CLI_MODULE_ROOT"
+      MARKITDOWN_TMP_DIR="$cli_tmp_root" moon run "$CLI_PACKAGE" -- "$@"
+    )
   fi
-}
-
-run_markitdown_pdf_cli() {
-  run_markitdown_cli "$@"
-}
-
-run_markitdown_zip_cli() {
-  run_markitdown_cli "$@"
-}
-
-run_markitdown_debug_cli() {
-  run_markitdown_cli "$@"
-}
-
-run_markitdown_bench_cli() {
-  run_markitdown_cli "$@"
 }
 
 markitdown_cli_candidates() {
   local package="${1-}"
   cat <<EOF
-$ROOT/_build/native/debug/build/$package/$package.exe
-$ROOT/_build/native/release/build/$package/$package.exe
-$ROOT/target/native/debug/build/$package/$package
-$ROOT/target/native/release/build/$package/$package
+$CLI_MODULE_ROOT/_build/native/debug/build/$package/$package.exe
+$CLI_MODULE_ROOT/_build/native/release/build/$package/$package.exe
+$CLI_MODULE_ROOT/target/native/debug/build/$package/$package
+$CLI_MODULE_ROOT/target/native/release/build/$package/$package
 EOF
 }
 
@@ -222,24 +166,26 @@ build_markitdown_cli_native_once() {
 
   CLI_NATIVE_BUILD_ATTEMPTED=1
   CLI_NATIVE_BUILD_ATTEMPTED_PACKAGE="$package"
-  echo "[markitdown-cli] building native runner once: moon build $package --target native" >&2
-  (cd "$ROOT" && moon build "$package" --target native)
+  echo "[markitdown-cli] building native runner once: (cd $CLI_MODULE_ROOT && moon build $package --target native)" >&2
+  (cd "$CLI_MODULE_ROOT" && moon build "$package" --target native)
 }
 
 markitdown_runner_command_prefix() {
   if [[ "${CLI_RUNNER_KIND:-moon-run}" == "prebuilt-native" || "${CLI_RUNNER_KIND:-moon-run}" == "override" ]]; then
     printf '%s' "$CLI_BIN"
   else
-    printf 'moon run %s/%s --' "$ROOT" "$CLI_PACKAGE"
+    printf 'cd %s && moon run %s --' "$CLI_MODULE_ROOT" "$CLI_PACKAGE"
   fi
 }
 
 validation_probe_cases() {
   cat <<'EOF'
-samples/main_process/docx/docx_comment_basic.docx|samples/main_process/docx/expected/docx_comment_basic.md
-samples/main_process/pptx/pptx_hidden_slide_basic.pptx|samples/main_process/pptx/expected/pptx_hidden_slide_basic.md
-samples/main_process/pdf/pdf_page_noise_cleanup.pdf|samples/main_process/pdf/expected/pdf_page_noise_cleanup.md
-samples/main_process/zip/zip_basic_structured.zip|samples/main_process/zip/expected/zip_basic_structured.md
+samples/main_process/txt/txt_plain.txt|samples/main_process/txt/expected/txt_plain.md
+samples/main_process/csv/csv_markdown_pipes.csv|samples/main_process/csv/expected/csv_markdown_pipes.md
+samples/main_process/tsv/tsv_markdown_pipes.tsv|samples/main_process/tsv/expected/tsv_markdown_pipes.md
+samples/main_process/json/json_object_basic.json|samples/main_process/json/expected/json_object_basic.md
+samples/main_process/jsonl/jsonl_records_basic.jsonl|samples/main_process/jsonl/expected/jsonl_records_basic.md
+samples/main_process/ndjson/ndjson_records_basic.ndjson|samples/main_process/ndjson/expected/ndjson_records_basic.md
 EOF
 }
 
@@ -248,45 +194,8 @@ probe_markitdown_cli() {
   local cli_bin="$2"
   local probe_tmp_root
   probe_tmp_root="$(validation_cli_tmp_root)"
-  if [[ "$package" == "bench" ]]; then
-    MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" _bench-noop >/dev/null 2>&1
-    return $?
-  fi
-  if [[ "$package" == "pdf" ]]; then
-    local pdf_input="$ROOT/samples/main_process/pdf/text_simple.pdf"
-    local pdf_expected="$ROOT/samples/main_process/pdf/expected/text_simple.md"
-    local pdf_tmp_root="$probe_tmp_root"
-    local pdf_probe_dir
-    pdf_probe_dir="$(sample_make_isolated_tmp_dir "$pdf_tmp_root" "pdf_probe")"
-    local pdf_out="$pdf_probe_dir/text_simple.md"
-    local status=0
-    if ! MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" "$pdf_input" "$pdf_out" >/dev/null 2>&1; then
-      status=1
-    elif ! diff -u "$pdf_expected" "$pdf_out" >/dev/null 2>&1; then
-      status=1
-    fi
-    rm -rf "$pdf_probe_dir"
-    return "$status"
-  fi
-  if [[ "$package" == "zip" ]]; then
-    local zip_input="$ROOT/samples/main_process/zip/zip_basic_structured.zip"
-    local zip_expected="$ROOT/samples/main_process/zip/expected/zip_basic_structured.md"
-    local zip_tmp_root="$probe_tmp_root"
-    local zip_probe_dir
-    zip_probe_dir="$(sample_make_isolated_tmp_dir "$zip_tmp_root" "zip_probe")"
-    local zip_out="$zip_probe_dir/zip_basic_structured.md"
-    local status=0
-    if ! MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" "$zip_input" "$zip_out" >/dev/null 2>&1; then
-      status=1
-    elif ! diff -u "$zip_expected" "$zip_out" >/dev/null 2>&1; then
-      status=1
-    fi
-    rm -rf "$zip_probe_dir"
-    return "$status"
-  fi
   if [[ "$package" != "cli" ]]; then
-    MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" --help >/dev/null 2>&1
-    return $?
+    return 1
   fi
   local tmp_root="$probe_tmp_root"
   local probe_dir
@@ -299,7 +208,7 @@ probe_markitdown_cli() {
     input_abs="$ROOT/$input_rel"
     expected_abs="$ROOT/$expected_rel"
     out="$probe_dir/$(basename "${input_rel%.*}").md"
-    if ! MARKITDOWN_TMP_DIR="$probe_tmp_root" MARKITDOWN_PDF_CLI="${PDF_CLI_BIN:-${MARKITDOWN_PDF_CLI:-}}" MARKITDOWN_ZIP_CLI="${ZIP_CLI_BIN:-${MARKITDOWN_ZIP_CLI:-}}" "$cli_bin" normal "$input_abs" "$out" >/dev/null 2>&1; then
+    if ! MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" normal "$input_abs" "$out" >/dev/null 2>&1; then
       status=1
       break
     fi
@@ -312,7 +221,7 @@ probe_markitdown_cli() {
   if [[ "$status" -eq 0 ]]; then
     local help_out
     help_out="$(MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" --help 2>&1)" || status=1
-    if [[ "$status" -eq 0 ]] && ! grep -Fq -- '[--ocr-lang LANG]' <<<"$help_out"; then
+    if [[ "$status" -eq 0 ]] && ! grep -Fq -- 'Supported product formats: txt, csv, tsv, json, jsonl, ndjson, xml' <<<"$help_out"; then
       status=1
     fi
   fi
@@ -322,7 +231,7 @@ probe_markitdown_cli() {
     local contract_input="$ROOT/samples/main_process/txt/txt_plain.txt"
     local contract_output="$contract_dir/txt_plain.md"
     mkdir -p "$contract_dir"
-    if ! MARKITDOWN_TMP_DIR="$probe_tmp_root" MARKITDOWN_PDF_CLI="${PDF_CLI_BIN:-${MARKITDOWN_PDF_CLI:-}}" MARKITDOWN_ZIP_CLI="${ZIP_CLI_BIN:-${MARKITDOWN_ZIP_CLI:-}}" "$cli_bin" normal "$contract_input" "$contract_output" >/dev/null 2>&1; then
+    if ! MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" normal "$contract_input" "$contract_output" >/dev/null 2>&1; then
       status=1
     elif [[ -e "$contract_dir/metadata/txt_plain.metadata.json" ]]; then
       status=1
@@ -339,45 +248,52 @@ validation_progress_init() {
   VALIDATION_CURRENT=0
   VALIDATION_HAS_FAILURES=0
   VALIDATION_FAILURES=()
-  VALIDATION_TTY=0
-  if [[ -t 1 ]]; then
-    VALIDATION_TTY=1
-  fi
 }
 
 validation_progress_render() {
   local current="$1"
   local total="$2"
-  local item="$3"
-  local percent="100"
-  if [[ "$total" -gt 0 ]]; then
-    percent=$(( current * 100 / total ))
-  fi
-  local line="[$VALIDATION_LABEL] $current/$total ${percent}% $item"
+  local status="$3"
+  local item="$4"
 
   if validation_bool_enabled "$SAMPLES_VERBOSE"; then
-    echo "$line"
+    echo "progress: $current/$total $status $item"
     return
   fi
 
-  if [[ "$VALIDATION_TTY" -eq 1 ]]; then
-    printf '\r%-120s' "$line"
-  else
-    if (( current == 1 || current == total || current % 25 == 0 )); then
-      echo "$line"
-    fi
-  fi
+  sample_progress_update "$current" "$total" "$status" "$item"
 }
 
 validation_progress_step() {
   VALIDATION_CURRENT=$((VALIDATION_CURRENT + 1))
-  validation_progress_render "$VALIDATION_CURRENT" "$VALIDATION_TOTAL" "$1"
+  validation_progress_render "$VALIDATION_CURRENT" "$VALIDATION_TOTAL" "running" "$1"
+}
+
+validation_progress_step_status() {
+  local status="$1"
+  local item="${2-}"
+  VALIDATION_CURRENT=$((VALIDATION_CURRENT + 1))
+  validation_progress_render "$VALIDATION_CURRENT" "$VALIDATION_TOTAL" "$status" "$item"
+}
+
+validation_progress_zero() {
+  local status="${1:-no matching rows}"
+  if validation_bool_enabled "$SAMPLES_VERBOSE"; then
+    echo "progress: 0/0 $status"
+    return
+  fi
+  sample_progress_zero "$status"
 }
 
 validation_progress_done() {
-  if ! validation_bool_enabled "$SAMPLES_VERBOSE" && [[ "$VALIDATION_TTY" -eq 1 ]]; then
-    printf '\n'
+  if [[ "${VALIDATION_TOTAL:-0}" -eq 0 ]]; then
+    return
   fi
+  if validation_bool_enabled "$SAMPLES_VERBOSE"; then
+    echo "progress: $VALIDATION_CURRENT/$VALIDATION_TOTAL done"
+    return
+  fi
+  sample_progress_finish "$VALIDATION_CURRENT" "$VALIDATION_TOTAL" "done"
 }
 
 validation_record_failure() {
@@ -409,7 +325,7 @@ validation_finish() {
   local failure_message="$2"
   validation_progress_done
   if [[ "$VALIDATION_HAS_FAILURES" -ne 0 ]]; then
-    echo "$failure_message (${#VALIDATION_FAILURES[@]} failures)"
+    echo "$failure_message ($VALIDATION_TOTAL samples, ${#VALIDATION_FAILURES[@]} failures)"
     validation_print_failures
     return 1
   fi

@@ -1,2 +1,0 @@
-record_kind	page_index	block_index	line_index	next_page_index	next_block_index	next_line_index	label	notes
-boundary	1	1	1	2	1	1	CrossPageMerge	body paragraph should merge across page boundary

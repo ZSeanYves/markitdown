@@ -1,3 +1,0 @@
-import {
-  "ZSeanYves/markitdown/core" @cor,
-} for "test"

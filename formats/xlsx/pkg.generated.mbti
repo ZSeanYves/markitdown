@@ -1,0 +1,20 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/formats/xlsx"
+
+import {
+  "ZSeanYves/markitdown/parser",
+}
+
+// Values
+pub fn xlsx_parser() -> @parser.Parser
+
+pub fn xlsx_parser_capability() -> @parser.ParserCapability
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

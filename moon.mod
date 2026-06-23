@@ -8,6 +8,7 @@ import {
   "moonbitlang/async@0.16.6",
   "bikallem/compress@0.3.4",
   "tonyfettes/unicode@0.3.0",
+  "tonyfettes/encoding@0.3.9",
 }
 
 readme = "README.mbt.md"

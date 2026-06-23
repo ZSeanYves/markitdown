@@ -1,7 +1,0 @@
-import {
-  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/core/pdf",
-  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/codec/pdfcodec",
-  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/core/pdfe",
-  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/graphics/pdffun",
-  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/core/pdfio",
-}

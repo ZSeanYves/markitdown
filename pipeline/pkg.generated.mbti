@@ -1,0 +1,63 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/pipeline"
+
+import {
+  "ZSeanYves/markitdown/core",
+}
+
+// Values
+pub fn assemble_section_tree_pass() -> IRPass
+
+pub fn blocks_to_event_stream(Array[@core.CoreBlock]) -> Array[@core.CoreEvent]
+
+pub fn build_document_from_events(Array[@core.CoreEvent]) -> @core.DocumentIR
+
+pub fn build_document_with_default_pipeline(@core.IRInput, PassContext, trace_builder? : Bool, trace_passes? : Bool) -> @core.DocumentIR
+
+pub fn collect_asset_refs_pass() -> IRPass
+
+pub fn collect_document_asset_refs(Array[@core.CoreBlock], Array[@core.AssetRef]) -> Array[@core.AssetRef]
+
+pub fn debug_annotation_pass() -> IRPass
+
+pub fn default_ir_builder() -> CoreIRBuilder
+
+pub fn default_pass_pipeline() -> PassPipeline
+
+pub fn ir_input_to_document(@core.IRInput) -> @core.DocumentIR
+
+pub fn make_pass_context(Bool, String) -> PassContext
+
+pub fn new_pass_pipeline(Array[IRPass]) -> PassPipeline
+
+pub fn normalize_text_pass() -> IRPass
+
+pub fn normalize_whitespace_pass() -> IRPass
+
+pub fn run_pipeline(PassPipeline, @core.DocumentIR, PassContext) -> @core.DocumentIR
+
+// Errors
+
+// Types and methods
+pub struct CoreIRBuilder {
+  build : (@core.IRInput) -> @core.DocumentIR
+}
+
+pub struct IRPass {
+  name : String
+  run : (@core.DocumentIR, PassContext) -> @core.DocumentIR
+}
+
+pub struct PassContext {
+  debug : Bool
+  mode_name : String
+}
+
+pub struct PassPipeline {
+  passes : Array[IRPass]
+}
+
+// Type aliases
+
+// Traits
+

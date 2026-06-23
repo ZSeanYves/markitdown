@@ -1,2 +1,0 @@
-sample_id	pdf_path	record_kind	split	label_source	label_path	notes
-pdf_cross_page_paragraph	samples/main_process/pdf/pdf_cross_page_paragraph.pdf	boundary	heldout	manual	debug/testdata/layout_assist_eval/pdf_cross_page_paragraph.tsv	cross-page merge held-out sample

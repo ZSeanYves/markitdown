@@ -1,6 +1,0 @@
-import {
-  "ZSeanYves/markitdown/convert/txt",
-  "ZSeanYves/markitdown/core" @cor,
-  "moonbitlang/core/encoding/utf8",
-  "moonbitlang/x/fs",
-} for "test"

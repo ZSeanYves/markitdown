@@ -1,0 +1,298 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/format_readers/ooxml/package"
+
+import {
+  "ZSeanYves/markitdown/format_readers/zip",
+}
+
+// Values
+pub fn classify_ooxml_error(OoxmlError) -> OoxmlErrorInfo
+
+pub fn collect_ooxml_validation_issues(OoxmlPackage, mode? : OoxmlValidationMode) -> Array[OoxmlValidationIssue]
+
+pub fn dump_media_assets_summary(OoxmlPackage) -> String
+
+pub fn dump_ooxml_package(OoxmlPackage) -> String
+
+pub fn dump_package_summary(OoxmlPackage) -> String
+
+pub fn dump_properties_summary(OoxmlPackage) -> String
+
+pub fn dump_relationships_summary(OoxmlPackage) -> String
+
+pub fn find_part_info(OoxmlPackage, String) -> OoxmlPartInfo? raise OoxmlError
+
+pub fn find_relationship_by_id(OoxmlPackage, String, String) -> OoxmlRelationship? raise OoxmlError
+
+pub fn find_relationships_by_type(OoxmlPackage, String, String) -> Array[OoxmlRelationship] raise OoxmlError
+
+pub fn has_part(OoxmlPackage, String) -> Bool
+
+pub fn has_relationships_part(OoxmlPackage, String) -> Bool
+
+pub fn inspect_ooxml_inventory(OoxmlPackage) -> OoxmlPackageInventory
+
+pub fn inspect_ooxml_package(OoxmlPackage) -> OoxmlPackageInspectReport
+
+pub fn inspect_ooxml_part_cache_stats(OoxmlPackage) -> OoxmlPartCacheStats
+
+pub fn inspect_ooxml_relationship_cache_stats(OoxmlPackage) -> OoxmlRelationshipCacheStats
+
+pub fn list_content_type_infos(OoxmlPackage) -> Array[OoxmlContentTypeInfo]
+
+pub fn list_media_assets(OoxmlPackage) -> Array[OoxmlAsset] raise OoxmlError
+
+pub fn list_part_infos(OoxmlPackage) -> Array[OoxmlPartInfo]
+
+pub fn list_parts(OoxmlPackage) -> Array[String]
+
+pub fn list_parts_by_content_type(OoxmlPackage, String) -> Array[String] raise OoxmlError
+
+pub fn list_parts_by_prefix(OoxmlPackage, String) -> Array[String]
+
+pub fn list_relationship_infos(OoxmlPackage, String) -> Array[OoxmlRelationshipInfo] raise OoxmlError
+
+pub fn lookup_content_type(OoxmlPackage, String) -> String? raise OoxmlError
+
+pub fn lookup_content_type_default(OoxmlPackage, String) -> String?
+
+pub fn lookup_content_type_override(OoxmlPackage, String) -> String? raise OoxmlError
+
+pub fn open_ooxml_package(Bytes) -> OoxmlPackage raise OoxmlError
+
+pub fn read_app_properties(OoxmlPackage) -> OoxmlAppProperties
+
+pub fn read_core_properties(OoxmlPackage) -> OoxmlCoreProperties
+
+pub fn read_custom_properties(OoxmlPackage) -> Array[OoxmlCustomProperty]
+
+pub fn read_package_relationships(OoxmlPackage) -> Array[OoxmlRelationship] raise OoxmlError
+
+pub fn read_part_bytes(OoxmlPackage, String) -> Bytes raise OoxmlError
+
+pub fn read_part_relationships(OoxmlPackage, String) -> Array[OoxmlRelationship] raise OoxmlError
+
+pub fn read_part_text(OoxmlPackage, String) -> String raise OoxmlError
+
+pub fn resolve_relationship(OoxmlPackage, String, String) -> String raise OoxmlError
+
+pub fn validate_ooxml_package(OoxmlPackage, mode? : OoxmlValidationMode) -> OoxmlValidationReport
+
+// Errors
+pub(all) suberror OoxmlError {
+  ZipError(String)
+  MissingPart(String)
+  InvalidXml(String)
+  InvalidPartPath(String)
+  RelationshipNotFound(String, String)
+}
+pub impl Show for OoxmlError
+
+// Types and methods
+pub struct OoxmlAppProperties {
+  application : String?
+  company : String?
+  manager : String?
+  pages : String?
+  words : String?
+  slides : String?
+  sheets : String?
+}
+
+pub struct OoxmlAsset {
+  part_name : String
+  content_type : String?
+  ext : String
+  size : Int
+  referenced_by : Array[OoxmlAssetRef]
+}
+
+pub struct OoxmlAssetRef {
+  source_part : String
+  rel_id : String
+  rel_type : String
+}
+
+pub struct OoxmlContentTypeInfo {
+  kind : OoxmlContentTypeInfoKind
+  extension : String?
+  part_name : String?
+  content_type : String
+}
+
+pub(all) enum OoxmlContentTypeInfoKind {
+  DefaultExtension
+  OverridePart
+} derive(Eq)
+
+pub struct OoxmlCoreProperties {
+  title : String?
+  subject : String?
+  creator : String?
+  last_modified_by : String?
+  description : String?
+  keywords : String?
+  category : String?
+  created : String?
+  modified : String?
+}
+
+pub struct OoxmlCustomProperty {
+  name : String
+  value : String
+  value_type : String?
+}
+
+pub struct OoxmlErrorInfo {
+  kind : OoxmlErrorKind
+  detail : String
+  part_name : String?
+  rels_part_name : String?
+  source_part : String?
+  rel_id : String?
+  target : String?
+}
+
+pub(all) enum OoxmlErrorKind {
+  ZipFailure
+  MissingPart
+  MalformedContentTypes
+  MalformedRelationships
+  InvalidXml
+  UnsafePartName
+  UnsafeRelationshipTarget
+  DuplicateNormalizedPart
+  DuplicateContentTypeOverride
+  RelationshipNotFound
+} derive(Eq)
+
+pub struct OoxmlPackage {
+  archive : @zip.ZipArchive
+  part_index : Map[String, Int]
+  content_types_default : Map[String, String]
+  content_types_override : Map[String, String]
+  // private fields
+}
+
+pub struct OoxmlPackageInspectReport {
+  part_count : Int
+  content_type_default_count : Int
+  content_type_override_count : Int
+  relationship_source_count : Int
+  package_relationship_count : Int
+  part_relationship_count : Int
+  media_asset_count : Int
+  inventory : OoxmlPackageInventory
+  package_relationships : Array[OoxmlRelationshipInfo]
+  part_relationships : Array[OoxmlRelationshipInfo]
+  media_assets : Array[OoxmlAsset]
+  core_properties : OoxmlCoreProperties
+  app_properties : OoxmlAppProperties
+}
+
+pub struct OoxmlPackageInventory {
+  parts : Array[OoxmlPartInfo]
+  content_types : Array[OoxmlContentTypeInfo]
+  relationship_source_parts : Array[String]
+  relationship_parts : Array[String]
+  part_count : Int
+  relationship_part_count : Int
+  content_type_entry_count : Int
+  media_asset_count : Int
+  has_core_properties : Bool
+  has_app_properties : Bool
+}
+
+pub struct OoxmlPartCacheStats {
+  bytes_hit_count : Int
+  bytes_miss_count : Int
+  text_hit_count : Int
+  text_decode_count : Int
+  bytes_entry_count : Int
+  text_entry_count : Int
+}
+
+pub struct OoxmlPartInfo {
+  part_name : String
+  content_type : String?
+  size : Int
+  is_relationships_part : Bool
+  has_relationships : Bool
+}
+
+pub struct OoxmlRelationship {
+  id : String
+  rel_type : String
+  target : String
+  target_mode : OoxmlTargetMode
+  resolved_target : String
+}
+
+pub struct OoxmlRelationshipCacheStats {
+  relationships_hit_count : Int
+  relationships_miss_count : Int
+  by_id_hit_count : Int
+  by_id_miss_count : Int
+  by_type_query_count : Int
+  entry_count : Int
+}
+
+pub struct OoxmlRelationshipInfo {
+  source_part : String?
+  rels_part_name : String
+  id : String
+  rel_type : String
+  target : String
+  target_mode : OoxmlTargetMode
+  resolved_target : String
+}
+
+pub(all) enum OoxmlTargetMode {
+  Internal
+  External
+} derive(Eq)
+
+pub struct OoxmlValidationIssue {
+  kind : OoxmlValidationIssueKind
+  severity : OoxmlValidationSeverity
+  part_name : String?
+  rels_part_name : String?
+  source_part : String?
+  relationship_id : String?
+  target : String?
+  message : String
+}
+
+pub(all) enum OoxmlValidationIssueKind {
+  ExternalRelationship
+  DuplicateRelationshipId
+  MissingRelationshipId
+  MissingRelationshipType
+  MissingRelationshipTarget
+  UnsafeRelationshipTarget
+} derive(Eq)
+
+pub(all) enum OoxmlValidationMode {
+  Compatible
+  Strict
+} derive(Eq)
+
+pub struct OoxmlValidationReport {
+  mode : OoxmlValidationMode
+  part_count : Int
+  relationship_part_count : Int
+  issue_count : Int
+  error_count : Int
+  warning_count : Int
+  issues : Array[OoxmlValidationIssue]
+}
+
+pub(all) enum OoxmlValidationSeverity {
+  Warning
+  Error
+} derive(Eq)
+
+// Type aliases
+
+// Traits
+

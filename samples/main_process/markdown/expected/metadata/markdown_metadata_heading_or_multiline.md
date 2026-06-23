@@ -1,3 +1,3 @@
 ## Section
-Line one
-Line two
+
+Line one Line two

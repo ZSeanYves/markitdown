@@ -1,0 +1,32 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/formats"
+
+import {
+  "ZSeanYves/markitdown/parser",
+}
+
+// Values
+pub fn builtin_registry() -> @parser.ParserRegistry
+
+pub fn docx_parser_contract() -> @parser.Parser
+
+pub fn docx_parser_contract_capability() -> @parser.ParserCapability
+
+pub fn pptx_parser_contract() -> @parser.Parser
+
+pub fn pptx_parser_contract_capability() -> @parser.ParserCapability
+
+pub fn register_builtin_parsers(@parser.ParserRegistry) -> Unit
+
+pub fn xlsx_parser_contract() -> @parser.Parser
+
+pub fn xlsx_parser_contract_capability() -> @parser.ParserCapability
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

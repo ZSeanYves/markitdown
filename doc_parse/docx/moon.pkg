@@ -1,7 +1,0 @@
-import {
-  "ZSeanYves/markitdown/doc_parse/ooxml" @ox,
-}
-
-options(
-  "preferred-target": "native",
-)

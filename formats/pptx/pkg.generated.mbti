@@ -1,0 +1,20 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/formats/pptx"
+
+import {
+  "ZSeanYves/markitdown/parser",
+}
+
+// Values
+pub fn pptx_parser() -> @parser.Parser
+
+pub fn pptx_parser_capability() -> @parser.ParserCapability
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

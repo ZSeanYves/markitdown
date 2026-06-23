@@ -18,7 +18,7 @@
   "sheets": null
 },
   "summary": {
-    "block_count": 3,
+    "block_count": 2,
     "asset_count": 1
   },
   "blocks": [
@@ -33,7 +33,9 @@
         "slide": 1,
         "sheet": null,
         "block_index": 0,
-        "heading_path": null
+        "heading_path": null,
+        "relationship_id": "rId7",
+        "key_path": "ppt/slides/slide1.xml"
       },
       "image": null
     },
@@ -48,7 +50,10 @@
         "slide": 1,
         "sheet": null,
         "block_index": 1,
-        "heading_path": null
+        "heading_path": null,
+        "object_ref": "picture-2",
+        "relationship_id": "rId2",
+        "key_path": "ppt/slides/slide1.xml"
       },
       "image": {
         "path": "assets/image01.png",
@@ -56,21 +61,6 @@
         "title": null,
         "caption": "Figure 1. Revenue trend"
       }
-    },
-    {
-      "block_index": 2,
-      "block_type": "blank_line",
-      "text": "",
-      "origin": {
-        "format": "pptx",
-        "source_name": "pptx_metadata_caption_like.pptx",
-        "page": null,
-        "slide": 1,
-        "sheet": null,
-        "block_index": 2,
-        "heading_path": null
-      },
-      "image": null
     }
   ],
   "assets": [
@@ -90,7 +80,8 @@
         "nearby_caption": "Figure 1. Revenue trend",
         "object_ref": "picture-2",
         "relationship_id": "rId2",
-        "source_path": "ppt/media/image1.png"
+        "source_path": "ppt/media/image1.png",
+        "key_path": "ppt/slides/slide1.xml"
       },
       "nearby_caption": "Figure 1. Revenue trend"
     }

@@ -1,0 +1,100 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/input"
+
+// Values
+pub fn default_format_detector() -> FormatDetector
+
+pub fn detect_format(InputSource) -> FormatDetectionResult
+
+pub fn detected_format_is_image_candidate(DetectedFormat) -> Bool
+
+pub fn detected_format_name(DetectedFormat) -> String
+
+pub fn image_format_name(ImageFormat) -> String
+
+pub fn input_from_bytes(Bytes, source_name? : String) -> InputSource
+
+pub fn input_from_bytes_with_format(Bytes, String, DetectedFormat?) -> InputSource
+
+pub fn input_from_path(String) -> InputSource
+
+pub fn input_from_path_with_format(String, DetectedFormat?) -> InputSource
+
+pub fn input_from_text(String, source_name? : String) -> InputSource
+
+pub fn input_from_text_with_format(String, String, DetectedFormat?) -> InputSource
+
+pub fn parse_detected_format(String) -> DetectedFormat
+
+pub fn read_input_bytes(InputSource) -> Result[Bytes, String]
+
+pub fn read_input_text(InputSource) -> Result[String, String]
+
+pub fn with_explicit_format(InputSource, DetectedFormat?) -> InputSource
+
+// Errors
+
+// Types and methods
+pub(all) enum DetectedFormat {
+  Txt
+  Markdown
+  Csv
+  Tsv
+  Json
+  Jsonl
+  Ndjson
+  Xml
+  Yaml
+  Html
+  Zip
+  Epub
+  Pdf
+  Docx
+  Pptx
+  Xlsx
+  Image(ImageFormat)
+  Unknown
+} derive(Eq)
+
+pub struct FormatDetectionResult {
+  format : DetectedFormat
+  used_explicit_format : Bool
+  used_extension : Bool
+  text_like : Bool
+  binary_like : Bool
+  notes : Array[String]
+}
+
+pub struct FormatDetector {
+  detect : (InputSource) -> FormatDetectionResult
+}
+
+pub(all) enum ImageFormat {
+  Png
+  Jpg
+  Jpeg
+  Bmp
+  Webp
+  Tif
+  Tiff
+} derive(Eq)
+
+pub(all) enum InputKind {
+  Path
+  Text
+  Bytes
+} derive(Eq)
+
+pub struct InputSource {
+  kind : InputKind
+  source_name : String
+  path : String?
+  text : String?
+  bytes : Bytes?
+  explicit_format : DetectedFormat?
+}
+
+// Type aliases
+
+// Traits
+

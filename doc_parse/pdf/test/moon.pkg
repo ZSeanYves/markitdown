@@ -1,9 +1,0 @@
-import {
-  "moonbitlang/x/fs",
-  "moonbitlang/async",
-  "ZSeanYves/markitdown/core" @cor,
-  "ZSeanYves/markitdown/doc_parse/pdf/api",
-  "ZSeanYves/markitdown/doc_parse/pdf/inspect",
-  "ZSeanYves/markitdown/doc_parse/pdf/model",
-  "ZSeanYves/markitdown/doc_parse/pdf/text",
-} for "test"

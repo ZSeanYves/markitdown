@@ -1,8 +1,0 @@
-import {
-  "ZSeanYves/markitdown/doc_parse/zip",
-  "moonbitlang/core/encoding/utf8",
-}
-
-options(
-  "preferred-target": "native",
-)

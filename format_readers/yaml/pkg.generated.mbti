@@ -1,0 +1,118 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/format_readers/yaml"
+
+// Values
+pub fn classify_yaml_error(YamlError) -> YamlErrorInfo
+
+pub fn inspect_yaml_document(YamlDocument) -> YamlInspectReport
+
+pub fn parse_yaml_document(String) -> YamlDocument raise
+
+pub fn parse_yaml_structure_document(String) -> YamlStructureDocument raise
+
+pub fn profile_yaml_document(String) -> YamlProfiledDocument raise
+
+pub fn yaml_value_kind(YamlValue) -> String
+
+// Errors
+pub(all) suberror YamlError {
+  ParseError(String)
+}
+pub impl Show for YamlError
+
+// Types and methods
+pub struct YamlDocument {
+  root : YamlValue?
+}
+
+pub struct YamlErrorInfo {
+  kind : YamlErrorKind
+  detail : String
+}
+
+pub(all) enum YamlErrorKind {
+  UnexpectedEnd
+  UnexpectedIndentation
+  TrailingContent
+  UnsupportedFeature
+  EmptyKey
+  ExpectedMappingEntry
+  ExpectedSequenceItem
+  UnterminatedQuotedScalar
+  InvalidEscape
+  TabsUnsupported
+  MultiDocumentUnsupported
+  Unknown
+} derive(Eq)
+
+pub struct YamlInspectReport {
+  is_empty : Bool
+  node_count : Int
+  mapping_count : Int
+  sequence_count : Int
+  scalar_count : Int
+  max_depth : Int
+  root_kind : String?
+}
+
+pub struct YamlMember {
+  key : String
+  value : YamlValue
+}
+
+pub struct YamlParseProfileReport {
+  stages : Array[YamlParseProfileStage]
+}
+
+pub struct YamlParseProfileStage {
+  name : String
+  elapsed_ms : UInt64
+  detail : String?
+}
+
+pub struct YamlProfiledDocument {
+  document : YamlDocument
+  report : YamlParseProfileReport
+}
+
+pub struct YamlStructureDocument {
+  document : YamlDocument
+  events : Array[YamlStructureEvent]
+}
+
+pub struct YamlStructureEvent {
+  kind : YamlStructureEventKind
+  text : String?
+  source : YamlStructureSource
+}
+
+pub(all) enum YamlStructureEventKind {
+  MappingStart
+  MappingEnd
+  SequenceStart
+  SequenceEnd
+  Key
+  StringValue
+  BoolValue
+  NullValue
+}
+
+pub struct YamlStructureSource {
+  line_start : Int
+  line_end : Int
+  path : String
+  depth : Int
+}
+
+pub(all) enum YamlValue {
+  Mapping(Array[YamlMember])
+  Sequence(Array[YamlValue])
+  String(String)
+  Bool(Bool)
+  Null
+}
+
+// Type aliases
+
+// Traits
+

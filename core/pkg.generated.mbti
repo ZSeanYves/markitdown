@@ -1,524 +1,429 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "ZSeanYves/markitdown/core"
 
-import {
-  "moonbitlang/core/ref",
-}
-
 // Values
 pub fn array_json(Array[String]) -> String
 
-pub fn basename(String) -> String
+pub fn asset_kind_name(AssetKind) -> String
 
-pub fn bool_json(Bool) -> String
+pub fn block_kind_name(BlockKind) -> String
 
-pub fn collapse_space_like_runs(String) -> String
+pub fn block_with_attr(CoreBlock, String, String) -> CoreBlock
 
-pub fn debug_report_add_error(DebugReport, String) -> Unit
+pub fn block_with_children(CoreBlock, Array[CoreBlock]) -> CoreBlock
 
-pub fn debug_report_add_section(DebugReport, DebugSection) -> Unit
+pub fn block_with_rich_inlines(CoreBlock, Array[CoreInline]?) -> CoreBlock
 
-pub fn debug_report_add_warning(DebugReport, String) -> Unit
+pub fn block_with_signals(CoreBlock, Array[CoreSignal]) -> CoreBlock
 
-pub fn debug_section(String, String, Bool, String?, String) -> DebugSection
+pub fn container_asset_copy_policy_name(ContainerAssetCopyPolicy) -> String
 
-pub fn decode_numeric_entities(String) -> String
+pub fn container_entry_kind_name(ContainerEntryKind) -> String
 
-pub fn default_text_normalization_options(NormalizeProfile) -> TextNormalizationOptions
+pub fn container_security_finding_name(ContainerSecurityFinding) -> String
 
-pub fn emit_markdown(Document) -> String
+pub fn diagnostics_add_degraded_feature(Diagnostics, String) -> Diagnostics
 
-pub fn emit_metadata_json(Document, String, String, String) -> String
+pub fn diagnostics_add_error(Diagnostics, String) -> Diagnostics
 
-pub fn emit_metadata_json_with_document_properties(Document, String, String, String, MetadataDocumentProperties?) -> String
+pub fn diagnostics_add_fallback_trace(Diagnostics, String) -> Diagnostics
 
-pub fn file_ext_lower(String) -> String
+pub fn diagnostics_add_metric(Diagnostics, String, String) -> Diagnostics
 
-pub fn int_json(Int) -> String
+pub fn diagnostics_add_pass_trace(Diagnostics, String) -> Diagnostics
 
-pub fn is_blank(String) -> Bool
+pub fn diagnostics_add_warning(Diagnostics, String) -> Diagnostics
 
-pub fn is_normalized_nfc(String) -> Bool
+pub fn diagnostics_with_input(Diagnostics, String?, String?) -> Diagnostics
 
-pub fn is_normalized_nfd(String) -> Bool
+pub fn diagnostics_with_mode(Diagnostics, String?, String?) -> Diagnostics
 
-pub fn is_normalized_nfkc(String) -> Bool
+pub fn diagnostics_with_parser(Diagnostics, String?, String?) -> Diagnostics
 
-pub fn is_normalized_nfkd(String) -> Bool
+pub fn document_from_blocks(Array[CoreBlock]) -> DocumentIR
+
+pub fn document_with_assets(DocumentIR, Array[AssetRef]) -> DocumentIR
+
+pub fn document_with_blocks(DocumentIR, Array[CoreBlock]) -> DocumentIR
+
+pub fn document_with_diagnostics(DocumentIR, Diagnostics) -> DocumentIR
+
+pub fn document_with_metadata(DocumentIR, Map[String, JsonValue]) -> DocumentIR
+
+pub fn document_with_signals(DocumentIR, Array[CoreSignal]) -> DocumentIR
+
+pub fn document_with_source_map(DocumentIR, SourceMap?) -> DocumentIR
+
+pub fn empty_diagnostics() -> Diagnostics
+
+pub fn empty_document_ir() -> DocumentIR
+
+pub fn empty_source_map() -> SourceMap
+
+pub fn empty_source_ref() -> SourceRef
+
+pub fn inline_kind_name(InlineKind) -> String
+
+pub fn inline_with_attr(CoreInline, String, String) -> CoreInline
 
 pub fn json_string(String) -> String
 
 pub fn json_string_opt(String?) -> String
 
-pub fn known_image_ext_from_path(String) -> String?
+pub fn make_asset_ref(AssetKind, String, source_ref? : SourceRef) -> AssetRef
 
-pub fn metadata_document_properties(String?, String?, String?, String?, String?, String?, String?, String?, String?, String?, String?, String?) -> MetadataDocumentProperties
+pub fn make_block(BlockKind, String, source_ref? : SourceRef) -> CoreBlock
 
-pub fn metadata_document_properties_with_extras(MetadataDocumentProperties, String?, String?, String?) -> MetadataDocumentProperties
+pub fn make_container_asset_plan(String, String, media_type? : String?, size? : Int?, copy_policy? : ContainerAssetCopyPolicy, source_ref? : SourceRef?) -> ContainerAssetPlan
 
-pub fn new_debug_report(String, String, String) -> DebugReport
+pub fn make_container_entry(String, ContainerEntryKind, normalized_path? : String?, entry_index? : Int?, detected_format? : String?, media_type? : String?, compressed_size? : Int?, uncompressed_size? : Int?, is_encrypted? : Bool, compression_method? : String?, crc? : String?, source_ref? : SourceRef?, security_findings? : Array[ContainerSecurityFinding]) -> ContainerEntry
 
-pub fn new_document() -> Document
+pub fn make_container_inner_document(ContainerEntry, String, explicit_detected_format? : String?, inner_source_ref? : SourceRef?) -> ContainerInnerDocument
 
-pub fn next_image_asset_rel_path(@ref.Ref[Int], String) -> String
+pub fn make_container_manifest(String, Array[ContainerEntry], container_path? : String?, selected_entries? : Array[ContainerEntry], skipped_entries? : Array[ContainerEntry], diagnostics? : Diagnostics, source_ref? : SourceRef?) -> ContainerManifest
 
-pub fn next_image_asset_rel_path_unique(@ref.Ref[Int], String, String) -> String
+pub fn make_container_plan(String, Array[ContainerEntry], Array[ContainerInnerDocument], Array[ContainerAssetPlan], container_path? : String?, skipped_entries? : Array[ContainerEntry], merged_blocks? : Array[CoreBlock], merged_assets? : Array[AssetRef], diagnostics? : Diagnostics, source_ref? : SourceRef?) -> ContainerPlan
 
-pub fn normalize_common_ligatures(String) -> String
+pub fn make_inline_code(String, source_ref? : SourceRef) -> CoreInline
 
-pub fn normalize_document_text_cleanup(String) -> String
+pub fn make_inline_image(String, String, title? : String?, source_ref? : SourceRef) -> CoreInline
 
-pub fn normalize_nfc(String) -> String
+pub fn make_inline_line_break(source_ref? : SourceRef) -> CoreInline
 
-pub fn normalize_nfd(String) -> String
+pub fn make_inline_link(String, String, title? : String?, source_ref? : SourceRef) -> CoreInline
 
-pub fn normalize_nfkc(String) -> String
+pub fn make_inline_text(String, source_ref? : SourceRef) -> CoreInline
 
-pub fn normalize_nfkd(String) -> String
+pub fn make_signal(SignalType, Int, payload? : Map[String, JsonValue]) -> CoreSignal
 
-pub fn normalize_pdf_text_cleanup(String) -> String
-
-pub fn normalize_text(String) -> String
-
-pub fn normalize_text_with_options(String, TextNormalizationOptions) -> String
-
-pub fn normalize_text_with_options_summary(String, NormalizeProfile, TextNormalizationOptions) -> TextNormalizationResult
-
-pub fn normalize_text_with_profile(String, NormalizeProfile) -> String
-
-pub fn normalize_text_with_profile_summary(String, NormalizeProfile) -> TextNormalizationResult
-
-pub fn normalize_unicode_spaces(String) -> String
+pub fn make_source_map_entry(primary_ref? : SourceRef?, refs? : Array[SourceRef], merged_from? : Array[SourceRef], confidence? : Int?, relation? : String?) -> SourceMapEntry
 
 pub fn object_json(Array[String]) -> String
 
-pub fn push(Document, Block) -> Unit
+pub fn signal_type_name(SignalType) -> String
 
-pub fn push_note_definition(Document, NoteDefinition) -> Unit
+pub fn source_map_add_asset_entry(SourceMap, SourceMapEntry) -> SourceMap
 
-pub fn push_with_origin(Document, Block, Origin?) -> Unit
+pub fn source_map_add_block_entry(SourceMap, SourceMapEntry) -> SourceMap
 
-pub fn render_debug_report(DebugReport, DebugOutputKind) -> String
+pub fn source_map_with_document_ref(SourceMap, SourceRef?) -> SourceMap
 
-pub fn set_asset_origin(Document, String, AssetOrigin) -> Unit
+pub fn source_ref_with_bytes(SourceRef, String?, String?, Int?, Int?) -> SourceRef
 
-pub fn set_passthrough_markdown(Document, String) -> Unit
+pub fn source_ref_with_cell_range(SourceRef, String?, String?, String?) -> SourceRef
 
-pub fn slice_to_string(Array[Char], Int, Int) -> String
+pub fn source_ref_with_container_entry(SourceRef, String?, String?, String?, String?, Int?, String?, String?) -> SourceRef
+
+pub fn source_ref_with_extra(SourceRef, String, String) -> SourceRef
+
+pub fn source_ref_with_html_path(SourceRef, String?, String?, String?) -> SourceRef
+
+pub fn source_ref_with_json_pointer(SourceRef, String?, String?, String?) -> SourceRef
+
+pub fn source_ref_with_lines(SourceRef, String?, String?, Int?, Int?) -> SourceRef
+
+pub fn source_ref_with_markdown_path(SourceRef, String?, String?, String?) -> SourceRef
+
+pub fn source_ref_with_office_fields(SourceRef, String?, String?, String?, String?, String?, Int?, String?, String?) -> SourceRef
+
+pub fn source_ref_with_yaml_path(SourceRef, String?, String?, String?) -> SourceRef
 
 pub fn string_array_json(Array[String]) -> String
 
-pub fn string_bool_kv_json(Array[(String, Bool)]) -> String
-
-pub fn string_int_kv_json(Array[(String, Int)]) -> String
-
-pub fn string_kv_json(Array[(String, String)]) -> String
-
-pub fn string_optional_kv_json(Array[(String, String?)]) -> String
-
-pub fn trim_string(String) -> String
-
-pub fn uint64_json(UInt64) -> String
-
 // Errors
-pub(all) suberror AppError {
-  AppError(String)
-}
-pub impl Show for AppError
-
-pub(all) suberror Utf8DecodeError {
-  Utf8DecodeError(String)
-}
-pub impl Show for Utf8DecodeError
 
 // Types and methods
-pub(all) struct AssetOrigin {
-  source_name : String?
-  page : Int?
-  slide : Int?
-  sheet : String?
-  origin_id : String?
-  nearby_caption : String?
-  object_ref : String?
-  relationship_id : String?
-  source_path : String?
-  row_index : Int?
-  column_index : Int?
-  key_path : String?
+pub(all) enum AssetKind {
+  Image
+  Attachment
+  Link
+  Embedded
+  Unknown
+} derive(Eq)
+
+pub(all) struct AssetRef {
+  asset_kind : AssetKind
+  asset_id : String
+  path : String?
+  mime_type : String?
+  source_ref : SourceRef?
+  attrs : Map[String, String]
 }
 
-pub(all) enum Block {
-  Heading(Int, String)
-  RichHeading(Int, Array[Inline])
-  Paragraph(String)
-  RichParagraph(Array[Inline])
-  ListItem(Bool, Int, String)
-  RichListItem(Bool, Int, Array[Inline])
-  BlockQuote(String)
-  RichBlockQuote(Array[Inline])
-  CodeBlock(String)
-  Table(Array[Array[String]])
-  RichTable(TableData)
-  Image(String, String)
-  ImageBlock(ImageData)
-  BlankLine
+#alias(LayoutBox)
+pub(all) struct BBox {
+  x0 : Double
+  y0 : Double
+  x1 : Double
+  y1 : Double
 }
 
-pub(all) enum CanonicalNormalizationForm {
-  Disabled
-  NFD
-  NFC
-  NFKD
-  NFKC
+pub(all) enum BlockKind {
+  Document
+  Section
+  Heading
+  Paragraph
+  List
+  ListItem
+  Table
+  TableRow
+  TableCell
+  Image
+  Code
+  BlockQuote
+  Raw
 } derive(Eq)
 
-pub(all) enum CjkSpacingPolicy {
-  Preserve
-  RemoveBetweenCjk
+pub(all) enum ContainerAssetCopyPolicy {
+  MaterializeAtOutputBoundary
+  ReferenceOnly
+  RejectUnsafePath
 } derive(Eq)
 
-pub(all) enum DebugOutputKind {
-  HumanReadable
-  Json
+pub(all) struct ContainerAssetPlan {
+  entry_path : String
+  output_relative_path : String
+  media_type : String?
+  size : Int?
+  copy_policy : ContainerAssetCopyPolicy
+  source_ref : SourceRef?
+}
+
+pub(all) struct ContainerEntry {
+  entry_path : String
+  normalized_path : String?
+  entry_index : Int?
+  entry_kind : ContainerEntryKind
+  detected_format : String?
+  media_type : String?
+  compressed_size : Int?
+  uncompressed_size : Int?
+  is_encrypted : Bool
+  compression_method : String?
+  crc : String?
+  source_ref : SourceRef?
+  security_findings : Array[ContainerSecurityFinding]
+}
+
+pub(all) enum ContainerEntryKind {
+  Document
+  Asset
+  Metadata
+  Directory
+  Unsupported
+  Unsafe
 } derive(Eq)
 
-pub(all) struct DebugReport {
-  version : String
+pub(all) struct ContainerInnerDocument {
+  entry : ContainerEntry
   source_name : String
-  detected_format : String
-  command_mode : String
-  mut status : String
-  mut summary : String
-  sections : Array[DebugSection]
+  explicit_detected_format : String?
+  inner_source_ref : SourceRef?
+}
+
+pub(all) struct ContainerManifest {
+  container_format : String
+  container_path : String?
+  entries : Array[ContainerEntry]
+  selected_entries : Array[ContainerEntry]
+  skipped_entries : Array[ContainerEntry]
+  diagnostics : Diagnostics
+  source_ref : SourceRef?
+}
+
+pub(all) struct ContainerPlan {
+  container_format : String
+  container_path : String?
+  ordered_entries : Array[ContainerEntry]
+  inner_documents_to_convert : Array[ContainerInnerDocument]
+  assets_to_materialize : Array[ContainerAssetPlan]
+  skipped_entries : Array[ContainerEntry]
+  merged_blocks : Array[CoreBlock]
+  merged_assets : Array[AssetRef]
+  diagnostics : Diagnostics
+  source_ref : SourceRef?
+}
+
+pub(all) enum ContainerSecurityFinding {
+  PathTraversal
+  AbsolutePath
+  EncryptedEntry
+  UnsupportedCompression
+  CompressionRatioLimit
+  DuplicateNormalizedPath
+  NestedArchive
+  ExternalReference
+  ResourceLimitHit
+} derive(Eq)
+
+pub(all) struct CoreBlock {
+  kind : BlockKind
+  text : String
+  rich_inlines : Array[CoreInline]?
+  children : Array[CoreBlock]
+  attrs : Map[String, String]
+  source_ref : SourceRef?
+  style : StyleRef?
+  signals : Array[CoreSignal]
+}
+
+pub(all) struct CoreEvent {
+  kind : EventKind
+  text : String
+  source_ref : SourceRef?
+}
+
+pub(all) struct CoreInline {
+  kind : InlineKind
+  text : String
+  href : String?
+  title : String?
+  attrs : Map[String, String]
+  source_ref : SourceRef?
+}
+
+pub(all) struct CoreSignal {
+  signal_type : SignalType
+  confidence : Int
+  payload : Map[String, JsonValue]
+}
+
+pub(all) struct Diagnostics {
+  parser_name : String?
+  parser_mode : String?
+  convert_mode : String?
+  input_kind : String?
+  detected_format : String?
   warnings : Array[String]
   errors : Array[String]
+  degraded_features : Array[String]
+  fallback_trace : Array[String]
+  pass_trace : Array[String]
+  metrics : Map[String, String]
 }
 
-pub(all) struct DebugSection {
-  name : String
-  kind : String
-  available : Bool
-  summary : String?
-  data_json : String
+pub(all) struct DocumentIR {
+  blocks : Array[CoreBlock]
+  metadata : Map[String, JsonValue]
+  diagnostics : Diagnostics
+  assets : Array[AssetRef]
+  signals : Array[CoreSignal]
+  source_map : SourceMap?
 }
 
-pub struct Document {
-  blocks : @ref.Ref[Array[Block]]
-  block_origins : @ref.Ref[Array[Origin?]]
-  asset_origins : @ref.Ref[Map[String, AssetOrigin]]
-  passthrough_markdown : @ref.Ref[String?]
-  note_definitions : @ref.Ref[Array[NoteDefinition]]
-}
-
-pub(all) struct ImageData {
-  path : String
-  alt_text : String?
-  title : String?
-  caption : String?
-  origin : Origin?
-}
-
-pub(all) enum Inline {
-  Text(String)
-  Break
-  Link(String, String)
-  NoteRef(NoteRef)
-}
-
-pub struct MetadataDocumentProperties {
-  title : String?
-  subject : String?
-  creator : String?
-  language : String?
-  identifier : String?
-  publisher : String?
-  description : String?
-  keywords : String?
-  created : String?
-  modified : String?
-  application : String?
-  pages : String?
-  words : String?
-  slides : String?
-  sheets : String?
-}
-
-pub(all) enum NormalizeProfile {
-  Literal
-  GeneralText
-  PdfText
-  PdfCompareText
-  HtmlText
-  OoxmlText
-  StructuredDataText
+pub(all) enum EventKind {
+  StartDocument
+  EndDocument
+  StartBlock(BlockKind)
+  EndBlock(BlockKind)
+  Text
+  TextLine
+  BlankLine
+  Cell
+  RowBreak
+  StructureStart
+  StructureEnd
+  Key
+  Scalar
 } derive(Eq)
 
-pub(all) enum NoteBodyStatus {
-  Resolved
-  Missing
-  Unknown
-} derive(Eq)
-
-pub(all) enum NoteConfidence {
-  High
-  Medium
-  Low
-} derive(Eq)
-
-pub(all) struct NoteDefinition {
-  note_id : String
-  marker : String
-  kind : NoteKind
-  blocks : Array[Block]
-  placement : NotePlacement
-  source_kind : NoteSourceKind
-  body_status : NoteBodyStatus
-  origin : Origin?
+pub(all) enum IRInput {
+  EventStream(Array[CoreEvent])
+  BlockStream(Array[CoreBlock])
+  Document(DocumentIR)
+  ContainerManifest(ContainerManifest)
+  ContainerPlan(ContainerPlan)
 }
 
-pub(all) enum NoteKind {
-  Footnote
-  Endnote
-  Citation
-  Unknown
+pub(all) enum InlineKind {
+  Text
+  LineBreak
+  Link
+  Image
+  Code
 } derive(Eq)
 
-pub(all) enum NotePlacement {
-  PageBottom
-  DocumentEnd
-  InlineSection
-  Unknown
+pub(all) enum JsonValue {
+  Object(Map[String, JsonValue])
+  Array(Array[JsonValue])
+  String(String)
+  Number(String)
+  Bool(Bool)
+  Null
 } derive(Eq)
 
-pub(all) struct NoteRef {
-  note_id : String
-  marker : String
-  kind : NoteKind
-  source_kind : NoteSourceKind
-  confidence : NoteConfidence
-  body_status : NoteBodyStatus
+pub(all) enum SignalType {
+  HeadingCandidate
+  ListCandidate
+  TableCandidate
+  CaptionCandidate
+  HeaderFooterCandidate
+  PageBreak
+  SectionBreak
+  ReadingOrderHint
+  FontSignal
+  StyleSignal
+  LayoutSignal
+  OcrSignal
+  TableContinuationCandidate
+  ArtifactCandidate
+  LanguageHint
+  CodeLanguageHint
+  NoteRef
+  CommentRef
+  RenderHint
+} derive(Eq)
+
+pub(all) struct SourceMap {
+  document_ref : SourceRef?
+  block_entries : Array[SourceMapEntry]
+  asset_entries : Array[SourceMapEntry]
 }
 
-pub(all) enum NoteSourceKind {
-  PdfSuperscript
-  DocxFootnoteRef
-  DocxEndnoteRef
-  DocxFootnoteBody
-  DocxEndnoteBody
-  HtmlSup
-  HtmlNoteRef
-  HtmlFootnoteBody
-  MarkdownFootnoteRef
-  MarkdownFootnoteBody
-  EpubNoteRef
-  EpubFootnoteBody
-  Unknown
-} derive(Eq)
+pub(all) struct SourceMapEntry {
+  primary_ref : SourceRef?
+  refs : Array[SourceRef]
+  merged_from : Array[SourceRef]
+  confidence : Int?
+  relation : String?
+}
 
-pub(all) struct Origin {
-  source_name : String?
+pub(all) struct SourceRef {
+  file_id : String?
+  format : String?
   page : Int?
-  slide : Int?
-  sheet : String?
-  block_index : Int?
-  heading_path : Array[String]?
+  bbox : BBox?
   line_start : Int?
   line_end : Int?
-  row_index : Int?
-  column_index : Int?
-  object_ref : String?
+  byte_start : Int?
+  byte_end : Int?
+  xpath : String?
+  json_pointer : String?
+  yaml_path : String?
+  html_path : String?
+  markdown_path : String?
+  container_path : String?
+  entry_path : String?
+  entry_index : Int?
+  entry_format : String?
+  inner_path : String?
+  sheet : String?
+  cell_range : String?
+  slide : Int?
+  shape_id : String?
   relationship_id : String?
-  key_path : String?
-} derive(Eq)
-pub impl Show for Origin
-
-pub(all) struct TableData {
-  rows : Array[Array[String]]
-  header_rows : Int
-  hints : TableHints?
+  chapter_href : String?
+  extra : Map[String, String]
 }
 
-pub(all) struct TableFormulaHint {
-  reference : String
-  row_index : Int
-  column_index : Int
-  formula_text : String
-  cached_value : String?
-  display_text : String
-  cell_kind : String
-  semantic_type : String
-  policy : String?
-  evaluated_value : String?
-  unsupported_reason : String?
-  error_reason : String?
-  referenced_cells : Array[String]?
-  referenced_ranges : Array[String]?
+pub(all) struct StyleRef {
+  style_id : String?
+  style_name : String?
+  attrs : Map[String, String]
 }
-
-pub(all) struct TableHints {
-  format : String?
-  sheet_state : String?
-  merged_ranges : Array[String]?
-  formula_cells : Array[TableFormulaHint]?
-  semantic_types : Array[Array[String]]?
-  span_cells : Array[TableSpanHint]?
-}
-
-pub(all) struct TableSpanHint {
-  row_index : Int
-  column_index : Int
-  rowspan : Int
-  colspan : Int
-  text : String?
-}
-
-pub(all) struct TextNormalizationChange {
-  kind : TextNormalizationChangeKind
-  before : String
-  after : String
-  count : Int
-} derive(Eq)
-
-pub(all) enum TextNormalizationChangeKind {
-  LineEndings
-  Tabs
-  Nbsp
-  UnicodeSpaces
-  SpaceLikeRuns
-  ZeroWidth
-  SoftHyphen
-  Ligatures
-  Quotes
-  Dashes
-  Fullwidth
-  CjkPunctuation
-  CjkPunctuationSpacing
-  AsciiPunctuationSpacing
-  BulletMarkerSpacing
-  NumberedMarkerSpacing
-  Canonical
-  Compatibility
-  PdfGlyph
-  CjkSpacing
-  PdfComparisonWhitespace
-} derive(Eq)
-
-pub(all) struct TextNormalizationOptions {
-  canonical_form : CanonicalNormalizationForm
-  normalize_line_endings : Bool
-  normalize_nbsp : Bool
-  normalize_unicode_spaces : Bool
-  collapse_space_like_runs : Bool
-  remove_zero_width : Bool
-  remove_soft_hyphen : Bool
-  expand_ligatures : Bool
-  normalize_quotes : Bool
-  normalize_dashes : Bool
-  normalize_fullwidth : Bool
-  normalize_cjk_punctuation : Bool
-  remove_spaces_around_cjk_punctuation : Bool
-  normalize_ascii_punctuation_spacing : Bool
-  normalize_bullet_marker_spacing : Bool
-  normalize_numbered_marker_spacing : Bool
-  preserve_newlines : Bool
-  preserve_tabs : Bool
-  cjk_spacing_policy : CjkSpacingPolicy
-  pdf_private_glyph_fallback : Bool
-  apply_pdf_compare_cleanup : Bool
-  record_summary : Bool
-  record_changes : Bool
-}
-
-pub(all) struct TextNormalizationResult {
-  text : String
-  changed : Bool
-  profile : NormalizeProfile
-  summary : TextNormalizationSummary
-  changes : Array[TextNormalizationChange]
-} derive(Eq)
-
-pub(all) enum TextNormalizationRuleId {
-  NormalizeLineEndings
-  NormalizeTabs
-  CanonicalUnicode
-  ExpandLigatures
-  NormalizeQuotes
-  NormalizeDashes
-  NormalizeFullwidth
-  NormalizeCjkPunctuation
-  NormalizeNbsp
-  NormalizeUnicodeSpaces
-  CollapseSpaceLikeRuns
-  RemoveSpacesBetweenCjk
-  RemoveSpacesAroundCjkPunctuation
-  NormalizeAsciiPunctuationSpacing
-  NormalizeBulletMarkerSpacing
-  NormalizeNumberedMarkerSpacing
-  RemoveZeroWidth
-  RemoveSoftHyphen
-  PdfPrivateGlyphFallback
-  CollapsePdfComparisonWhitespace
-} derive(Eq)
-
-pub(all) enum TextNormalizationRuleScope {
-  CharacterCleanup
-  CanonicalUnicode
-  CompatibilityGlyph
-  WhitespaceCleanup
-  PunctuationSpacing
-  MarkerSpacing
-  CjkSpacing
-  PdfCleanup
-  CompareOnly
-} derive(Eq)
-
-pub(all) struct TextNormalizationRuleSummary {
-  rule : TextNormalizationRuleId
-  scope : TextNormalizationRuleScope
-  applied : Bool
-  changed : Bool
-  total_changes : Int
-} derive(Eq)
-
-pub(all) enum TextNormalizationStage {
-  ValidateScalarStage
-  CanonicalUnicodeStage
-  CompatibilityGlyphStage
-  WhitespaceStage
-  InvisibleCharStage
-  SoftHyphenStage
-  LineEndingStage
-  PdfGlyphStage
-  PdfCompareStage
-} derive(Eq)
-
-pub(all) struct TextNormalizationStageSummary {
-  stage : TextNormalizationStage
-  changed : Bool
-  total_changes : Int
-  applied : Bool
-} derive(Eq)
-
-pub(all) struct TextNormalizationSummary {
-  total_changes : Int
-  changes : Array[TextNormalizationChange]
-  rules : Array[TextNormalizationRuleSummary]
-  stages : Array[TextNormalizationStageSummary]
-  warnings : Array[TextNormalizationWarning]
-} derive(Eq)
-
-pub(all) struct TextNormalizationWarning {
-  kind : TextNormalizationWarningKind
-  message : String
-} derive(Eq)
-
-pub(all) enum TextNormalizationWarningKind {
-  UnsupportedNormalization
-  InvalidScalar
-  SkippedDueToLiteralContext
-} derive(Eq)
 
 // Type aliases
+pub type DocumentMetadata = Map[String, JsonValue]
 
 // Traits
 

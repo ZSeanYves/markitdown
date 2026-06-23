@@ -1,0 +1,13 @@
+import {
+  "moonbitlang/core/string",
+  "ZSeanYves/markitdown/format_readers/ooxml/docx" @ddocx,
+  "ZSeanYves/markitdown/format_readers/ooxml/package" @ox,
+  "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/formats/light_common",
+  "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/parser",
+}
+
+options(
+  "preferred-target": "native",
+)

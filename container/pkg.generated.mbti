@@ -1,0 +1,37 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/container"
+
+import {
+  "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/input",
+}
+
+// Values
+pub fn container_asset_output_path_is_safe(String) -> Bool
+
+pub fn container_asset_plan_is_safe(@core.ContainerAssetPlan) -> Bool
+
+pub fn container_asset_write_guardrails() -> Array[String]
+
+pub fn container_diagnostic_metric_keys() -> Array[String]
+
+pub fn container_dispatch_guardrails() -> Array[String]
+
+pub fn container_resource_limit_keys() -> Array[String]
+
+pub fn container_source_ref_keys() -> Array[String]
+
+pub fn container_supported_inner_formats() -> Array[String]
+
+pub fn container_supports_inner_format(@input.DetectedFormat) -> Bool
+
+pub fn container_unsupported_inner_formats() -> Array[String]
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

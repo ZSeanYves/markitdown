@@ -18,7 +18,7 @@
   "sheets": null
 },
   "summary": {
-    "block_count": 12,
+    "block_count": 15,
     "asset_count": 0
   },
   "blocks": [
@@ -33,7 +33,9 @@
         "slide": 1,
         "sheet": null,
         "block_index": 0,
-        "heading_path": null
+        "heading_path": null,
+        "relationship_id": "rId2",
+        "key_path": "ppt/slides/slide1.xml"
       },
       "image": null
     },
@@ -49,7 +51,8 @@
         "sheet": null,
         "block_index": 1,
         "heading_path": null,
-        "object_ref": "shape-2"
+        "object_ref": "shape-2",
+        "key_path": "ppt/slides/slide1.xml"
       },
       "image": null
     },
@@ -65,10 +68,7 @@
         "sheet": null,
         "block_index": 2,
         "heading_path": null,
-        "row_index": 0,
-        "column_index": 0,
-        "object_ref": "group-200/graphicFrame-10",
-        "relationship_id": "rId2"
+        "key_path": "ppt/slides/slide1.xml"
       },
       "image": null,
       "table": {
@@ -82,8 +82,8 @@
     },
     {
       "block_index": 3,
-      "block_type": "blank_line",
-      "text": "",
+      "block_type": "heading",
+      "text": "Speaker Notes",
       "origin": {
         "format": "pptx",
         "source_name": "pptx_metadata_table_basic.pptx",
@@ -91,12 +91,29 @@
         "slide": 1,
         "sheet": null,
         "block_index": 3,
-        "heading_path": null
+        "heading_path": null,
+        "key_path": "ppt/notesSlides/notesSlide1.xml"
       },
       "image": null
     },
     {
       "block_index": 4,
+      "block_type": "paragraph",
+      "text": "1",
+      "origin": {
+        "format": "pptx",
+        "source_name": "pptx_metadata_table_basic.pptx",
+        "page": null,
+        "slide": 1,
+        "sheet": null,
+        "block_index": 4,
+        "heading_path": null,
+        "key_path": "ppt/notesSlides/notesSlide1.xml"
+      },
+      "image": null
+    },
+    {
+      "block_index": 5,
       "block_type": "heading",
       "text": "Slide 2",
       "origin": {
@@ -105,13 +122,15 @@
         "page": null,
         "slide": 2,
         "sheet": null,
-        "block_index": 4,
-        "heading_path": null
+        "block_index": 5,
+        "heading_path": null,
+        "relationship_id": "rId3",
+        "key_path": "ppt/slides/slide2.xml"
       },
       "image": null
     },
     {
-      "block_index": 5,
+      "block_index": 6,
       "block_type": "heading",
       "text": "第二页标题：Data Overview",
       "origin": {
@@ -120,14 +139,15 @@
         "page": null,
         "slide": 2,
         "sheet": null,
-        "block_index": 5,
+        "block_index": 6,
         "heading_path": null,
-        "object_ref": "shape-2"
+        "object_ref": "shape-2",
+        "key_path": "ppt/slides/slide2.xml"
       },
       "image": null
     },
     {
-      "block_index": 6,
+      "block_index": 7,
       "block_type": "paragraph",
       "text": "段落 A：这是一段普通文本。",
       "origin": {
@@ -136,14 +156,15 @@
         "page": null,
         "slide": 2,
         "sheet": null,
-        "block_index": 6,
+        "block_index": 7,
         "heading_path": null,
-        "object_ref": "shape-3"
+        "object_ref": "shape-3",
+        "key_path": "ppt/slides/slide2.xml"
       },
       "image": null
     },
     {
-      "block_index": 7,
+      "block_index": 8,
       "block_type": "paragraph",
       "text": "段落 B：支持中文、English、123。",
       "origin": {
@@ -152,29 +173,47 @@
         "page": null,
         "slide": 2,
         "sheet": null,
-        "block_index": 7,
+        "block_index": 8,
         "heading_path": null,
-        "object_ref": "shape-3"
+        "object_ref": "shape-3",
+        "key_path": "ppt/slides/slide2.xml"
       },
       "image": null
     },
     {
-      "block_index": 8,
-      "block_type": "blank_line",
-      "text": "",
+      "block_index": 9,
+      "block_type": "heading",
+      "text": "Speaker Notes",
       "origin": {
         "format": "pptx",
         "source_name": "pptx_metadata_table_basic.pptx",
         "page": null,
         "slide": 2,
         "sheet": null,
-        "block_index": 8,
-        "heading_path": null
+        "block_index": 9,
+        "heading_path": null,
+        "key_path": "ppt/notesSlides/notesSlide2.xml"
       },
       "image": null
     },
     {
-      "block_index": 9,
+      "block_index": 10,
+      "block_type": "paragraph",
+      "text": "2",
+      "origin": {
+        "format": "pptx",
+        "source_name": "pptx_metadata_table_basic.pptx",
+        "page": null,
+        "slide": 2,
+        "sheet": null,
+        "block_index": 10,
+        "heading_path": null,
+        "key_path": "ppt/notesSlides/notesSlide2.xml"
+      },
+      "image": null
+    },
+    {
+      "block_index": 11,
       "block_type": "heading",
       "text": "Slide 3",
       "origin": {
@@ -183,14 +222,16 @@
         "page": null,
         "slide": 3,
         "sheet": null,
-        "block_index": 9,
-        "heading_path": null
+        "block_index": 11,
+        "heading_path": null,
+        "relationship_id": "rId4",
+        "key_path": "ppt/slides/slide3.xml"
       },
       "image": null
     },
     {
-      "block_index": 10,
-      "block_type": "heading",
+      "block_index": 12,
+      "block_type": "paragraph",
       "text": "第三页：仅标题",
       "origin": {
         "format": "pptx",
@@ -198,24 +239,42 @@
         "page": null,
         "slide": 3,
         "sheet": null,
-        "block_index": 10,
+        "block_index": 12,
         "heading_path": null,
-        "object_ref": "shape-2"
+        "object_ref": "shape-2",
+        "key_path": "ppt/slides/slide3.xml"
       },
       "image": null
     },
     {
-      "block_index": 11,
-      "block_type": "blank_line",
-      "text": "",
+      "block_index": 13,
+      "block_type": "heading",
+      "text": "Speaker Notes",
       "origin": {
         "format": "pptx",
         "source_name": "pptx_metadata_table_basic.pptx",
         "page": null,
         "slide": 3,
         "sheet": null,
-        "block_index": 11,
-        "heading_path": null
+        "block_index": 13,
+        "heading_path": null,
+        "key_path": "ppt/notesSlides/notesSlide3.xml"
+      },
+      "image": null
+    },
+    {
+      "block_index": 14,
+      "block_type": "paragraph",
+      "text": "3",
+      "origin": {
+        "format": "pptx",
+        "source_name": "pptx_metadata_table_basic.pptx",
+        "page": null,
+        "slide": 3,
+        "sheet": null,
+        "block_index": 14,
+        "heading_path": null,
+        "key_path": "ppt/notesSlides/notesSlide3.xml"
       },
       "image": null
     }

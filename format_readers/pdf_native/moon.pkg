@@ -1,0 +1,7 @@
+import {
+  "bikallem/compress/zlib",
+}
+
+options(
+  "preferred-target": "native",
+)

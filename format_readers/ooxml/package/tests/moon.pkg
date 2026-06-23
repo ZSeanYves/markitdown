@@ -1,0 +1,5 @@
+import {
+  "moonbitlang/x/fs",
+  "ZSeanYves/markitdown/format_readers/ooxml/package" @ox,
+  "moonbitlang/core/encoding/utf8",
+} for "test"

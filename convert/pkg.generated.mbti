@@ -1,0 +1,105 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/convert"
+
+import {
+  "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/formats/ocr",
+  "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/parser",
+}
+
+// Values
+pub fn convert_input(@input.InputSource, ConvertOptions) -> Result[ConvertResult, ConvertError]
+
+pub fn convert_input_with_image_ocr_provider(@input.InputSource, ConvertOptions, (@ocr.OcrProviderRequest) -> Result[@ocr.OcrProviderResult, @ocr.OcrProviderError]) -> Result[ConvertResult, ConvertError]
+
+pub async fn convert_input_with_image_ocr_provider_async(@input.InputSource, ConvertOptions, async (@ocr.OcrProviderRequest) -> Result[@ocr.OcrProviderResult, @ocr.OcrProviderError]) -> Result[ConvertResult, ConvertError]
+
+pub fn convert_mode_name(ConvertMode) -> String
+
+pub fn default_convert_options() -> ConvertOptions
+
+pub fn default_pdf_cleanup_mode() -> PdfCleanupMode
+
+pub fn default_pdf_table_mode() -> PdfTableMode
+
+pub fn default_resource_limits() -> ResourceLimits
+
+pub fn make_convert_options(ConvertMode, OutputFormat, @input.DetectedFormat?, @parser.OcrOptions, ResourceLimits, pdf_cleanup_mode? : PdfCleanupMode, pdf_table_mode? : PdfTableMode) -> ConvertOptions
+
+pub fn make_resource_limits(Int, Int, Int, max_line_chars? : Int) -> ResourceLimits
+
+pub fn pdf_cleanup_mode_name(PdfCleanupMode) -> String
+
+pub fn pdf_cleanup_promotion_target() -> PdfCleanupMode
+
+pub fn pdf_table_mode_name(PdfTableMode) -> String
+
+pub fn pdf_table_promotion_target() -> PdfTableMode
+
+// Errors
+
+// Types and methods
+pub(all) enum ConvertError {
+  DetectFailed(String)
+  ParseFailed(String)
+  RenderFailed(String)
+} derive(Eq)
+pub impl Show for ConvertError
+
+pub(all) enum ConvertMode {
+  Fast
+  Balanced
+  Accurate
+  Stream
+  Rag
+  Debug
+} derive(Eq)
+
+pub struct ConvertOptions {
+  mode : ConvertMode
+  output_format : OutputFormat
+  explicit_format : @input.DetectedFormat?
+  ocr_options : @parser.OcrOptions
+  limits : ResourceLimits
+  pdf_cleanup_mode : PdfCleanupMode
+  pdf_table_mode : PdfTableMode
+}
+
+pub struct ConvertResult {
+  content : String
+  detected_format : @input.DetectedFormat
+  parser_mode : @parser.ParserMode
+  convert_mode : ConvertMode
+  diagnostics : @core.Diagnostics
+  assets : Array[@core.AssetRef]
+}
+
+pub(all) enum OutputFormat {
+  Markdown
+  Json
+  RagJson
+  DebugJson
+} derive(Eq)
+
+pub(all) enum PdfCleanupMode {
+  Disabled
+  Conservative
+} derive(Eq)
+
+pub(all) enum PdfTableMode {
+  Disabled
+  Simple
+} derive(Eq)
+
+pub struct ResourceLimits {
+  max_rows : Int
+  max_cols : Int
+  max_cells : Int
+  max_line_chars : Int
+}
+
+// Type aliases
+
+// Traits
+

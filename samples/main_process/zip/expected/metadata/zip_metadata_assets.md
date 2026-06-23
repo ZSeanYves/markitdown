@@ -1,4 +1,4 @@
-# site/img/img_red.jpg
+# site/img/img\_red.jpg
 
 > Skipped: unsupported file type: jpg
 

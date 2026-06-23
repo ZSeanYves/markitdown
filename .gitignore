@@ -4,7 +4,6 @@ target/
 .mooncakes/
 .moonagent/
 .tmp/
-.external/
 markitdown-quality-lab/
 .codex
 .codex/

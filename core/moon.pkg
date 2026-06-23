@@ -1,8 +1,3 @@
-import {
-  "moonbitlang/x/fs",
-  "tonyfettes/unicode/normalization" @unicode_normalization,
-}
-
 options(
   "preferred-target": "native",
 )
