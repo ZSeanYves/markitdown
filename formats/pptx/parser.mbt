@@ -296,12 +296,22 @@ fn pptx_fill_package_metrics(
   pkg : @ox.OoxmlPackage,
   presentation : @pptxdoc.PptxDocument,
 ) -> Unit {
-  let report = @ox.inspect_ooxml_package(pkg)
+  let inventory = @ox.inspect_ooxml_inventory(pkg)
   let validation = @ox.validate_ooxml_package(pkg)
-  diagnostics.metrics.set("ooxml_part_count", report.part_count.to_string())
+  let package_relationship_count = (@ox.read_package_relationships(pkg) catch {
+    _ => []
+  }).length()
+  let part_relationship_count = inventory.relationship_source_parts.fold(
+    init=0,
+    fn(acc, source_part) {
+      acc +
+      (@ox.read_part_relationships(pkg, source_part) catch { _ => [] }).length()
+    },
+  )
+  diagnostics.metrics.set("ooxml_part_count", inventory.part_count.to_string())
   diagnostics.metrics.set(
     "relationship_count",
-    (report.package_relationship_count + report.part_relationship_count).to_string(),
+    (package_relationship_count + part_relationship_count).to_string(),
   )
   let mut external_relationship_count = 0
   let mut missing_relationship_target_count = 0
@@ -331,14 +341,14 @@ fn pptx_fill_package_metrics(
   )
   diagnostics.metrics.set(
     "media_asset_count",
-    report.media_asset_count.to_string(),
+    count_pptx_media_parts(inventory.parts).to_string(),
   )
   diagnostics.metrics.set(
     "content_type_count",
-    report.inventory.content_type_entry_count.to_string(),
+    inventory.content_type_entry_count.to_string(),
   )
   let mut total_uncompressed_bytes = 0
-  for part in report.inventory.parts {
+  for part in inventory.parts {
     total_uncompressed_bytes += part.size
   }
   diagnostics.metrics.set(
@@ -361,7 +371,7 @@ fn pptx_fill_package_metrics(
 
   let mut duplicate_part_count = 0
   let mut prev_part = ""
-  let sorted_part_names = report.inventory.parts.map(part => part.part_name)
+  let sorted_part_names = inventory.parts.map(part => part.part_name)
   sorted_part_names.sort()
   for part_name in sorted_part_names {
     if part_name == prev_part {
@@ -376,7 +386,7 @@ fn pptx_fill_package_metrics(
 
   let mut macro_part_count = 0
   let mut ole_object_count = 0
-  for part in report.inventory.parts {
+  for part in inventory.parts {
     let content_type = part.content_type.unwrap_or("").to_lower()
     let part_name = part.part_name.to_lower()
     if content_type.contains("macroenabled") || part_name.has_suffix(".bin") {
@@ -461,6 +471,18 @@ fn pptx_fill_package_metrics(
     "pptx_external_media_count",
     external_media_count.val.to_string(),
   )
+}
+
+///|
+fn count_pptx_media_parts(parts : Array[@ox.OoxmlPartInfo]) -> Int {
+  let mut count = 0
+  for part in parts {
+    if part.part_name.has_prefix("ppt/media/") &&
+      !part.part_name.has_suffix("/") {
+      count += 1
+    }
+  }
+  count
 }
 
 ///|
@@ -649,13 +671,14 @@ fn pptx_order_slide_objects(
   if slide.reading_order.length() == 0 {
     return slide.objects
   }
+  let order_index_by_key = pptx_slide_order_index_map(slide)
   let ordered : Array[(Int, @pptxdoc.PptxObject)] = []
   let mut fallback_index = 100000
   for obj in slide.objects {
     let key = pptx_object_source_key(obj)
-    let order_index = pptx_slide_order_index(slide, key).unwrap_or(
-      fallback_index,
-    )
+    let order_index = order_index_by_key
+      .get(pptx_source_key_token(key))
+      .unwrap_or(fallback_index)
     ordered.push((order_index, obj))
     fallback_index += 1
   }
@@ -664,17 +687,21 @@ fn pptx_order_slide_objects(
 }
 
 ///|
-fn pptx_slide_order_index(
-  slide : @pptxdoc.PptxSlide,
-  key : @pptxdoc.PptxSourceKey,
-) -> Int? {
+fn pptx_slide_order_index_map(slide : @pptxdoc.PptxSlide) -> Map[String, Int] {
+  let index_by_key : Map[String, Int] = Map([])
   for index in 0..<slide.reading_order.length() {
     let item = slide.reading_order[index]
-    if item.part_name == key.part_name && item.node_key == key.node_key {
-      return Some(index)
+    let token = pptx_source_key_token(item)
+    if !index_by_key.contains(token) {
+      index_by_key.set(token, index)
     }
   }
-  None
+  index_by_key
+}
+
+///|
+fn pptx_source_key_token(key : @pptxdoc.PptxSourceKey) -> String {
+  key.part_name + "#" + key.node_key
 }
 
 ///|

@@ -42,7 +42,7 @@ pub fn print_cli_version() -> Unit
 
 pub fn run_cli(CliOptions) -> Result[String, String]
 
-pub async fn run_cli_app(Array[String]) -> Int
+pub fn run_cli_app(Array[String]) -> Int
 
 pub async fn run_cli_async(CliOptions) -> Result[String, String]
 

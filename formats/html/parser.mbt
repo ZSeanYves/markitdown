@@ -100,6 +100,51 @@ pub fn html_document_to_ir(
 }
 
 ///|
+/// Benchmark-oriented helper that only builds the HTML lowering indexes.
+pub fn html_lowering_prepare_metric(
+  doc : @dhtml.HtmlDocument,
+  semantic : @dhtml.HtmlSemanticDocument,
+) -> Int {
+  let dom_index = html_dom_lowering_index(doc)
+  let lowering_index = html_lowering_index(semantic, dom_index.nav_spans)
+  html_lowering_index_item_count(lowering_index)
+}
+
+///|
+/// Benchmark-oriented helper that builds lowering indexes and collects the
+/// top-level blocks that survive HTML semantic filtering.
+pub fn html_lowering_top_level_block_metric(
+  doc : @dhtml.HtmlDocument,
+  semantic : @dhtml.HtmlSemanticDocument,
+) -> Int {
+  let dom_index = html_dom_lowering_index(doc)
+  let lowering_index = html_lowering_index(semantic, dom_index.nav_spans)
+  let top_blocks = html_collect_top_level_blocks(semantic, lowering_index)
+  top_blocks.length()
+}
+
+///|
+/// Benchmark-oriented helper that runs the remaining lowering tail from
+/// semantic facts into Core IR blocks.
+pub fn html_lowering_block_metric(
+  source : @input.InputSource,
+  doc : @dhtml.HtmlDocument,
+  semantic : @dhtml.HtmlSemanticDocument,
+) -> Int {
+  let dom_index = html_dom_lowering_index(doc)
+  let lowering_index = html_lowering_index(semantic, dom_index.nav_spans)
+  let top_blocks = html_collect_top_level_blocks(semantic, lowering_index)
+  let document = lower_html_document_from_prepared(
+    semantic,
+    source,
+    dom_index.block_elements,
+    lowering_index,
+    top_blocks,
+  )
+  document.blocks.length()
+}
+
+///|
 fn parse_html_document_result(
   source : @input.InputSource,
   context : @parser.ParseContext,
@@ -369,23 +414,35 @@ fn lower_html_document(
   semantic : @dhtml.HtmlSemanticDocument,
   source : @input.InputSource,
 ) -> @core.DocumentIR {
-  let document = @core.empty_document_ir()
   let dom_index = html_dom_lowering_index(doc)
-  let top_blocks = html_collect_top_level_blocks(semantic, dom_index.nav_spans)
+  let lowering_index = html_lowering_index(semantic, dom_index.nav_spans)
+  let top_blocks = html_collect_top_level_blocks(semantic, lowering_index)
+  lower_html_document_from_prepared(
+    semantic,
+    source,
+    dom_index.block_elements,
+    lowering_index,
+    top_blocks,
+  )
+}
 
+///|
+fn lower_html_document_from_prepared(
+  semantic : @dhtml.HtmlSemanticDocument,
+  source : @input.InputSource,
+  dom_blocks : Map[String, @dhtml.HtmlElement],
+  lowering_index : HtmlLoweringIndex,
+  top_blocks : Array[@dhtml.HtmlBlockFact],
+) -> @core.DocumentIR {
+  let document = @core.empty_document_ir()
   for block in top_blocks {
     html_append_flattened_blocks(
       document.blocks,
       html_blocks_for_block(
-        document,
-        semantic,
-        source,
-        block,
-        dom_index.block_elements,
+        document, semantic, source, block, dom_blocks, lowering_index,
       ),
     )
   }
-
   match html_primary_title(semantic) {
     Some(title) =>
       if title.trim() != "" {
@@ -393,7 +450,6 @@ fn lower_html_document(
       }
     None => ()
   }
-
   document
 }
 
@@ -401,6 +457,31 @@ fn lower_html_document(
 priv struct HtmlDomLoweringIndex {
   block_elements : Map[String, @dhtml.HtmlElement]
   nav_spans : Array[@dhtml.HtmlSourceSpan]
+}
+
+///|
+priv struct HtmlLoweringIndex {
+  block_by_key : Map[String, @dhtml.HtmlBlockFact]
+  paragraph_by_block_key : Map[String, @dhtml.HtmlParagraphFact]
+  list_by_block_key : Map[String, @dhtml.HtmlListFact]
+  list_by_source_key : Map[String, @dhtml.HtmlListFact]
+  list_item_by_block_key : Map[String, @dhtml.HtmlListItemFact]
+  blockquote_by_block_key : Map[String, @dhtml.HtmlBlockQuoteFact]
+  code_block_by_block_key : Map[String, @dhtml.HtmlCodeBlockFact]
+  figure_by_block_key : Map[String, @dhtml.HtmlFigureFact]
+  table_by_block_key : Map[String, @dhtml.HtmlTableFact]
+  table_row_by_key : Map[String, @dhtml.HtmlTableRowFact]
+  table_cell_by_key : Map[String, @dhtml.HtmlTableCellFact]
+  table_section_by_key : Map[String, @dhtml.HtmlTableSectionFact]
+  inline_by_key : Map[String, @dhtml.HtmlInlineFact]
+  link_by_inline_key : Map[String, @dhtml.HtmlLinkFact]
+  image_by_inline_key : Map[String, @dhtml.HtmlImageFact]
+  image_by_key : Map[String, @dhtml.HtmlImageFact]
+  top_level_inline_facts_by_block_key : Map[
+    String,
+    Array[@dhtml.HtmlInlineFact],
+  ]
+  skipped_block_keys : Map[String, Bool]
 }
 
 ///|
@@ -541,19 +622,143 @@ fn html_dom_attr_token_contains(
 }
 
 ///|
-fn html_collect_top_level_blocks(
+fn html_lowering_index(
   semantic : @dhtml.HtmlSemanticDocument,
   nav_spans : Array[@dhtml.HtmlSourceSpan],
+) -> HtmlLoweringIndex {
+  let block_by_key : Map[String, @dhtml.HtmlBlockFact] = Map([])
+  let paragraph_by_block_key : Map[String, @dhtml.HtmlParagraphFact] = Map([])
+  let list_by_block_key : Map[String, @dhtml.HtmlListFact] = Map([])
+  let list_by_source_key : Map[String, @dhtml.HtmlListFact] = Map([])
+  let list_item_by_block_key : Map[String, @dhtml.HtmlListItemFact] = Map([])
+  let blockquote_by_block_key : Map[String, @dhtml.HtmlBlockQuoteFact] = Map([])
+  let code_block_by_block_key : Map[String, @dhtml.HtmlCodeBlockFact] = Map([])
+  let figure_by_block_key : Map[String, @dhtml.HtmlFigureFact] = Map([])
+  let table_by_block_key : Map[String, @dhtml.HtmlTableFact] = Map([])
+  let table_row_by_key : Map[String, @dhtml.HtmlTableRowFact] = Map([])
+  let table_cell_by_key : Map[String, @dhtml.HtmlTableCellFact] = Map([])
+  let table_section_by_key : Map[String, @dhtml.HtmlTableSectionFact] = Map([])
+  let inline_by_key : Map[String, @dhtml.HtmlInlineFact] = Map([])
+  let link_by_inline_key : Map[String, @dhtml.HtmlLinkFact] = Map([])
+  let image_by_inline_key : Map[String, @dhtml.HtmlImageFact] = Map([])
+  let image_by_key : Map[String, @dhtml.HtmlImageFact] = Map([])
+  let top_level_inline_facts_by_block_key : Map[
+    String,
+    Array[@dhtml.HtmlInlineFact],
+  ] = Map([])
+  let skipped_block_keys : Map[String, Bool] = Map([])
+
+  for block in semantic.blocks {
+    block_by_key.set(block.source_key, block)
+  }
+  for paragraph in semantic.paragraphs {
+    paragraph_by_block_key.set(paragraph.block_source_key, paragraph)
+  }
+  for list in semantic.lists {
+    list_by_block_key.set(list.block_source_key, list)
+    list_by_source_key.set(list.source_key, list)
+  }
+  for item in semantic.list_items {
+    list_item_by_block_key.set(item.block_source_key, item)
+  }
+  for quote in semantic.blockquotes {
+    blockquote_by_block_key.set(quote.block_source_key, quote)
+  }
+  for code in semantic.code_blocks {
+    code_block_by_block_key.set(code.block_source_key, code)
+    match code.code_block_source_key {
+      Some(key) => code_block_by_block_key.set(key, code)
+      None => ()
+    }
+  }
+  for figure in semantic.figures {
+    figure_by_block_key.set(figure.block_source_key, figure)
+  }
+  for table in semantic.tables {
+    table_by_block_key.set(table.block_source_key, table)
+  }
+  for row in semantic.table_rows {
+    table_row_by_key.set(row.source_key, row)
+  }
+  for cell in semantic.table_cells {
+    table_cell_by_key.set(cell.source_key, cell)
+  }
+  for section in semantic.table_sections {
+    table_section_by_key.set(section.source_key, section)
+  }
+  for inline in semantic.inlines {
+    inline_by_key.set(inline.source_key, inline)
+    if inline.parent_block_source_key is Some(_) &&
+      inline.parent_inline_source_key is None {
+      match inline.parent_block_source_key {
+        Some(block_key) =>
+          html_lowering_map_push_inline_fact(
+            top_level_inline_facts_by_block_key, block_key, inline,
+          )
+        None => ()
+      }
+    }
+  }
+  for link in semantic.links {
+    link_by_inline_key.set(link.inline_source_key, link)
+  }
+  for image in semantic.images {
+    image_by_inline_key.set(image.inline_source_key, image)
+    image_by_key.set(image.source_key, image)
+  }
+  html_mark_skipped_blocks(
+    semantic, block_by_key, skipped_block_keys, nav_spans,
+  )
+  {
+    block_by_key,
+    paragraph_by_block_key,
+    list_by_block_key,
+    list_by_source_key,
+    list_item_by_block_key,
+    blockquote_by_block_key,
+    code_block_by_block_key,
+    figure_by_block_key,
+    table_by_block_key,
+    table_row_by_key,
+    table_cell_by_key,
+    table_section_by_key,
+    inline_by_key,
+    link_by_inline_key,
+    image_by_inline_key,
+    image_by_key,
+    top_level_inline_facts_by_block_key,
+    skipped_block_keys,
+  }
+}
+
+///|
+fn html_lowering_map_push_inline_fact(
+  map : Map[String, Array[@dhtml.HtmlInlineFact]],
+  key : String,
+  value : @dhtml.HtmlInlineFact,
+) -> Unit {
+  match map.get(key) {
+    Some(existing) => existing.push(value)
+    None => map.set(key, [value])
+  }
+}
+
+///|
+fn html_lowering_index_item_count(index : HtmlLoweringIndex) -> Int {
+  index.block_by_key.length() +
+  index.inline_by_key.length() +
+  index.skipped_block_keys.length()
+}
+
+///|
+fn html_collect_top_level_blocks(
+  semantic : @dhtml.HtmlSemanticDocument,
+  index : HtmlLoweringIndex,
 ) -> Array[@dhtml.HtmlBlockFact] {
   let out : Array[@dhtml.HtmlBlockFact] = []
   let scope_root = html_selected_scope_root_key(semantic)
-  let skipped : Map[String, Bool] = Map([])
-  for unsupported in semantic.unsupported {
-    skipped.set(unsupported.source_key, true)
-  }
-  html_mark_noise_subtrees(semantic, skipped)
   for block in semantic.blocks {
-    if html_block_should_skip(semantic, skipped, block, nav_spans) {
+    if html_block_should_skip(index, block) {
       continue
     }
     if scope_root == Some(block.source_key) {
@@ -573,43 +778,10 @@ fn html_collect_top_level_blocks(
 
 ///|
 fn html_block_should_skip(
-  semantic : @dhtml.HtmlSemanticDocument,
-  skipped : Map[String, Bool],
+  index : HtmlLoweringIndex,
   block : @dhtml.HtmlBlockFact,
-  nav_spans : Array[@dhtml.HtmlSourceSpan],
 ) -> Bool {
-  if skipped.contains(block.source_key) {
-    return true
-  }
-  if html_block_span_in_nav_span(block.span, nav_spans) {
-    return true
-  }
-  if html_block_has_ancestor_tag(semantic, block.source_key, "nav") {
-    return true
-  }
-  for noise in semantic.noise_candidates {
-    if !html_noise_should_skip(noise) {
-      continue
-    }
-    if html_block_matches_noise_candidate(semantic, block, noise) {
-      return true
-    }
-  }
-  false
-}
-
-///|
-fn html_block_span_in_nav_span(
-  span : @dhtml.HtmlSourceSpan,
-  nav_spans : Array[@dhtml.HtmlSourceSpan],
-) -> Bool {
-  for nav_span in nav_spans {
-    if span.line_start >= nav_span.line_start &&
-      span.line_end <= nav_span.line_end {
-      return true
-    }
-  }
-  false
+  index.skipped_block_keys.contains(block.source_key)
 }
 
 ///|
@@ -625,20 +797,54 @@ fn html_selected_scope_root_key(
 }
 
 ///|
-fn html_mark_noise_subtrees(
+fn html_mark_skipped_blocks(
   semantic : @dhtml.HtmlSemanticDocument,
+  block_by_key : Map[String, @dhtml.HtmlBlockFact],
   skipped : Map[String, Bool],
+  nav_spans : Array[@dhtml.HtmlSourceSpan],
 ) -> Unit {
+  let nav_context_by_block_key : Map[String, Bool] = Map([])
+  for unsupported in semantic.unsupported {
+    skipped.set(unsupported.source_key, true)
+  }
+  for block in semantic.blocks {
+    let parent_in_nav_context = match block.parent_source_key {
+      Some(parent_key) => nav_context_by_block_key.get(parent_key).unwrap_or(false)
+      None => false
+    }
+    let in_nav_context = parent_in_nav_context || block.tag_name == "nav"
+    if in_nav_context {
+      nav_context_by_block_key.set(block.source_key, true)
+    }
+    if html_block_span_in_nav_span(block.span, nav_spans) ||
+      parent_in_nav_context {
+      skipped.set(block.source_key, true)
+    }
+  }
   for noise in semantic.noise_candidates {
     match noise.block_source_key {
       Some(key) =>
         if html_noise_should_skip(noise) {
           skipped.set(key, true)
-          html_mark_block_subtree(semantic, key, skipped)
+          html_mark_block_subtree(block_by_key, key, skipped)
         }
       None => ()
     }
   }
+}
+
+///|
+fn html_block_span_in_nav_span(
+  span : @dhtml.HtmlSourceSpan,
+  nav_spans : Array[@dhtml.HtmlSourceSpan],
+) -> Bool {
+  for nav_span in nav_spans {
+    if span.line_start >= nav_span.line_start &&
+      span.line_end <= nav_span.line_end {
+      return true
+    }
+  }
+  false
 }
 
 ///|
@@ -660,88 +866,17 @@ fn html_noise_should_skip(noise : @dhtml.HtmlNoiseCandidateFact) -> Bool {
 
 ///|
 fn html_mark_block_subtree(
-  semantic : @dhtml.HtmlSemanticDocument,
+  block_by_key : Map[String, @dhtml.HtmlBlockFact],
   root_key : String,
   skipped : Map[String, Bool],
 ) -> Unit {
-  for block in semantic.blocks {
-    if block.parent_source_key == Some(root_key) {
-      skipped.set(block.source_key, true)
-      html_mark_block_subtree(semantic, block.source_key, skipped)
-    }
-  }
-}
-
-///|
-fn html_block_matches_noise_candidate(
-  semantic : @dhtml.HtmlSemanticDocument,
-  block : @dhtml.HtmlBlockFact,
-  noise : @dhtml.HtmlNoiseCandidateFact,
-) -> Bool {
-  if noise.block_source_key == Some(block.source_key) ||
-    noise.source_key == block.source_key {
-    return true
-  }
-  html_block_has_ancestor_key(semantic, block.source_key, noise.source_key) ||
-  noise.block_source_key
-  .map(fn(key) { html_block_has_ancestor_key(semantic, block.source_key, key) })
-  .unwrap_or(false)
-}
-
-///|
-fn html_block_has_ancestor_tag(
-  semantic : @dhtml.HtmlSemanticDocument,
-  block_source_key : String,
-  tag_name : String,
-) -> Bool {
-  let mut current = html_parent_source_key_for_block(semantic, block_source_key)
-  while current is Some(_) {
-    match current {
-      Some(key) =>
-        match html_block_by_key(semantic, key) {
-          Some(block) =>
-            if block.tag_name == tag_name {
-              return true
-            } else {
-              current = block.parent_source_key
-            }
-          None => return false
-        }
+  match block_by_key.get(root_key) {
+    Some(root) =>
+      for child_key in root.children {
+        skipped.set(child_key, true)
+        html_mark_block_subtree(block_by_key, child_key, skipped)
+      }
       None => ()
-    }
-  }
-  false
-}
-
-///|
-fn html_block_has_ancestor_key(
-  semantic : @dhtml.HtmlSemanticDocument,
-  block_source_key : String,
-  ancestor_key : String,
-) -> Bool {
-  let mut current = html_parent_source_key_for_block(semantic, block_source_key)
-  while current is Some(_) {
-    match current {
-      Some(key) =>
-        if key == ancestor_key {
-          return true
-        } else {
-          current = html_parent_source_key_for_block(semantic, key)
-        }
-      None => ()
-    }
-  }
-  false
-}
-
-///|
-fn html_parent_source_key_for_block(
-  semantic : @dhtml.HtmlSemanticDocument,
-  block_source_key : String,
-) -> String? {
-  match html_block_by_key(semantic, block_source_key) {
-    Some(block) => block.parent_source_key
-    None => None
   }
 }
 
@@ -752,29 +887,38 @@ fn html_blocks_for_block(
   source : @input.InputSource,
   block : @dhtml.HtmlBlockFact,
   dom_blocks : Map[String, @dhtml.HtmlElement],
+  index : HtmlLoweringIndex,
 ) -> Array[@core.CoreBlock] {
   match block.kind {
     @dhtml.HtmlBlockKind::Heading(level) =>
-      html_heading_blocks(document, semantic, source, block, level)
+      html_heading_blocks(document, semantic, source, block, level, index)
     @dhtml.HtmlBlockKind::Paragraph =>
-      html_paragraph_blocks_for_block(document, semantic, source, block)
+      html_paragraph_blocks_for_block(document, semantic, source, block, index)
     @dhtml.HtmlBlockKind::List(_) =>
-      html_list_container_blocks(document, semantic, source, block, dom_blocks)
+      html_list_container_blocks(
+        document, semantic, source, block, dom_blocks, index,
+      )
     @dhtml.HtmlBlockKind::ListItem =>
-      html_list_item_blocks(document, semantic, source, block, dom_blocks)
+      html_list_item_blocks(
+        document, semantic, source, block, dom_blocks, index,
+      )
     @dhtml.HtmlBlockKind::Table =>
-      html_table_blocks(document, semantic, source, block)
+      html_table_blocks(document, semantic, source, block, index)
     @dhtml.HtmlBlockKind::BlockQuote =>
-      html_blockquote_blocks(document, semantic, source, block, dom_blocks)
-    @dhtml.HtmlBlockKind::Pre => html_code_blocks(semantic, source, block)
-    @dhtml.HtmlBlockKind::CodeBlock => html_code_blocks(semantic, source, block)
+      html_blockquote_blocks(
+        document, semantic, source, block, dom_blocks, index,
+      )
+    @dhtml.HtmlBlockKind::Pre =>
+      html_code_blocks(semantic, source, block, index)
+    @dhtml.HtmlBlockKind::CodeBlock =>
+      html_code_blocks(semantic, source, block, index)
     @dhtml.HtmlBlockKind::Figure =>
-      html_figure_blocks(document, semantic, source, block)
+      html_figure_blocks(document, semantic, source, block, index)
     @dhtml.HtmlBlockKind::HorizontalRule =>
       [html_horizontal_rule_block(source, block)]
     @dhtml.HtmlBlockKind::UnknownBlock =>
       html_unknown_container_blocks(
-        document, semantic, source, block, dom_blocks,
+        document, semantic, source, block, dom_blocks, index,
       )
     @dhtml.HtmlBlockKind::FigCaption
     | @dhtml.HtmlBlockKind::TableRow
@@ -790,12 +934,14 @@ fn html_heading_blocks(
   source : @input.InputSource,
   block : @dhtml.HtmlBlockFact,
   level : Int,
+  index : HtmlLoweringIndex,
 ) -> Array[@core.CoreBlock] {
   let inlines = html_inlines_for_block(
     document,
     semantic,
     source,
     block.source_key,
+    index,
   )
   let text = html_render_plain_inlines(inlines).trim().to_owned()
   if text == "" {
@@ -818,12 +964,14 @@ fn html_paragraph_blocks_for_block(
   semantic : @dhtml.HtmlSemanticDocument,
   source : @input.InputSource,
   block : @dhtml.HtmlBlockFact,
+  index : HtmlLoweringIndex,
 ) -> Array[@core.CoreBlock] {
   let inlines = html_inlines_for_paragraph(
     document,
     semantic,
     source,
     block.source_key,
+    index,
   )
   html_paragraph_inlines_to_blocks(
     inlines,
@@ -838,13 +986,14 @@ fn html_list_container_blocks(
   source : @input.InputSource,
   block : @dhtml.HtmlBlockFact,
   dom_blocks : Map[String, @dhtml.HtmlElement],
+  index : HtmlLoweringIndex,
 ) -> Array[@core.CoreBlock] {
   let list = @core.make_block(
     @core.BlockKind::List,
     "",
     source_ref=html_block_source_ref(source, block),
   )
-  match html_list_for_block(semantic, block.source_key) {
+  match html_list_for_block(index, block.source_key) {
     Some(fact) =>
       list.attrs.set(
         "ordered",
@@ -854,11 +1003,11 @@ fn html_list_container_blocks(
   }
   let trailing_blocks : Array[@core.CoreBlock] = []
   for child_key in block.children {
-    match html_block_by_key(semantic, child_key) {
+    match html_block_by_key(index, child_key) {
       Some(child) =>
         if child.kind == @dhtml.HtmlBlockKind::ListItem {
           let item_blocks = html_list_item_blocks(
-            document, semantic, source, child, dom_blocks,
+            document, semantic, source, child, dom_blocks, index,
           )
           if item_blocks.length() > 0 &&
             item_blocks[0].kind == @core.BlockKind::ListItem {
@@ -889,23 +1038,25 @@ fn html_list_item_blocks(
   source : @input.InputSource,
   block : @dhtml.HtmlBlockFact,
   dom_blocks : Map[String, @dhtml.HtmlElement],
+  index : HtmlLoweringIndex,
 ) -> Array[@core.CoreBlock] {
   match dom_blocks.get(block.source_key) {
     Some(element) =>
       return html_list_item_blocks_from_dom(
-        document, semantic, source, block, element, dom_blocks,
+        document, semantic, source, block, element, dom_blocks, index,
       )
     None => ()
   }
   let source_ref = html_block_source_ref(source, block)
-  let ordered = html_list_item_is_ordered(semantic, block.source_key)
-  let child_blocks = html_child_blocks_sorted(semantic, block.children)
+  let ordered = html_list_item_is_ordered(index, block.source_key)
+  let child_blocks = html_child_blocks_sorted(index, block.children)
   let inline_segments = html_core_inline_segments_for_block(
     document,
     semantic,
     source,
     block.source_key,
     child_blocks,
+    index,
   )
   let primary_child_index = if inline_segments[0].length() > 0 {
     None
@@ -916,13 +1067,14 @@ fn html_list_item_blocks(
     inline_segments[0]
   } else {
     match primary_child_index {
-      Some(index) =>
+      Some(child_pos) =>
         html_trim_core_inlines_edges(
           html_inlines_for_paragraph(
             document,
             semantic,
             source,
-            child_blocks[index].source_key,
+            child_blocks[child_pos].source_key,
+            index,
           ),
         )
       None => []
@@ -943,35 +1095,39 @@ fn html_list_item_blocks(
   }
   let nested_lists : Array[@core.CoreBlock] = []
   let extras : Array[@core.CoreBlock] = []
-  for index in 0..<child_blocks.length() {
-    let child = child_blocks[index]
-    if primary_child_index != Some(index) {
+  for child_pos in 0..<child_blocks.length() {
+    let child = child_blocks[child_pos]
+    if primary_child_index != Some(child_pos) {
       match child.kind {
         @dhtml.HtmlBlockKind::List(_) =>
           html_append_flattened_blocks(
             nested_lists,
-            html_blocks_for_block(document, semantic, source, child, dom_blocks),
+            html_blocks_for_block(
+              document, semantic, source, child, dom_blocks, index,
+            ),
           )
         @dhtml.HtmlBlockKind::BlockQuote =>
           html_append_flattened_blocks(
             extras,
             html_blockquote_body_blocks(
-              document, semantic, source, child, dom_blocks,
+              document, semantic, source, child, dom_blocks, index,
             ),
           )
         _ =>
           html_append_flattened_blocks(
             extras,
-            html_blocks_for_block(document, semantic, source, child, dom_blocks),
+            html_blocks_for_block(
+              document, semantic, source, child, dom_blocks, index,
+            ),
           )
       }
     }
-    if index + 1 < inline_segments.length() &&
-      inline_segments[index + 1].length() > 0 {
+    if child_pos + 1 < inline_segments.length() &&
+      inline_segments[child_pos + 1].length() > 0 {
       html_append_flattened_blocks(
         extras,
         html_core_inline_segment_to_blocks(
-          inline_segments[index + 1],
+          inline_segments[child_pos + 1],
           source_ref,
         ),
       )
@@ -996,8 +1152,9 @@ fn html_list_item_blocks_from_dom(
   block : @dhtml.HtmlBlockFact,
   element : @dhtml.HtmlElement,
   dom_blocks : Map[String, @dhtml.HtmlElement],
+  index : HtmlLoweringIndex,
 ) -> Array[@core.CoreBlock] {
-  let ordered = html_list_item_is_ordered(semantic, block.source_key)
+  let ordered = html_list_item_is_ordered(index, block.source_key)
   let source_ref = html_block_source_ref(source, block)
   let pieces = html_container_child_blocks_from_dom(
     document,
@@ -1006,6 +1163,7 @@ fn html_list_item_blocks_from_dom(
     block,
     element,
     dom_blocks,
+    index,
     flatten_blockquotes=true,
   )
   let nested_lists : Array[@core.CoreBlock] = []
@@ -1059,9 +1217,9 @@ fn html_list_item_blocks_from_dom(
 fn html_list_item_primary_child_index(
   child_blocks : Array[@dhtml.HtmlBlockFact],
 ) -> Int? {
-  for index in 0..<child_blocks.length() {
-    if child_blocks[index].kind == @dhtml.HtmlBlockKind::Paragraph {
-      return Some(index)
+  for child_pos in 0..<child_blocks.length() {
+    if child_blocks[child_pos].kind == @dhtml.HtmlBlockKind::Paragraph {
+      return Some(child_pos)
     }
   }
   None
@@ -1073,8 +1231,10 @@ fn html_table_blocks(
   semantic : @dhtml.HtmlSemanticDocument,
   source : @input.InputSource,
   block : @dhtml.HtmlBlockFact,
+  index : HtmlLoweringIndex,
 ) -> Array[@core.CoreBlock] {
-  match html_table_to_block(document, semantic, source, block.source_key) {
+  match
+    html_table_to_block(document, semantic, source, block.source_key, index) {
     Some(table) => [table]
     None =>
       if block.text_preview.trim() == "" {
@@ -1098,13 +1258,14 @@ fn html_blockquote_blocks(
   source : @input.InputSource,
   block : @dhtml.HtmlBlockFact,
   dom_blocks : Map[String, @dhtml.HtmlElement],
+  index : HtmlLoweringIndex,
 ) -> Array[@core.CoreBlock] {
   let body_blocks = html_blockquote_body_blocks(
-    document, semantic, source, block, dom_blocks,
+    document, semantic, source, block, dom_blocks, index,
   )
   if body_blocks.length() == 0 {
     let fallback = html_paragraph_blocks_for_block(
-      document, semantic, source, block,
+      document, semantic, source, block, index,
     )
     let lines = html_quote_lines_from_blocks(fallback)
     if lines.length() == 0 {
@@ -1135,6 +1296,7 @@ fn html_blockquote_body_blocks(
   source : @input.InputSource,
   block : @dhtml.HtmlBlockFact,
   dom_blocks : Map[String, @dhtml.HtmlElement],
+  index : HtmlLoweringIndex,
 ) -> Array[@core.CoreBlock] {
   match dom_blocks.get(block.source_key) {
     Some(element) =>
@@ -1145,15 +1307,15 @@ fn html_blockquote_body_blocks(
         block,
         element,
         dom_blocks,
+        index,
         flatten_blockquotes=true,
       )
     None => ()
   }
-  let child_blocks = match
-    html_blockquote_for_block(semantic, block.source_key) {
+  let child_blocks = match html_blockquote_for_block(index, block.source_key) {
     Some(quote) =>
-      html_child_blocks_sorted(semantic, quote.child_block_source_keys)
-    None => html_child_blocks_sorted(semantic, block.children)
+      html_child_blocks_sorted(index, quote.child_block_source_keys)
+    None => html_child_blocks_sorted(index, block.children)
   }
   let inline_segments = html_core_inline_segments_for_block(
     document,
@@ -1161,6 +1323,7 @@ fn html_blockquote_body_blocks(
     source,
     block.source_key,
     child_blocks,
+    index,
   )
   if child_blocks.length() == 0 {
     return html_core_inline_segment_to_blocks(
@@ -1169,12 +1332,12 @@ fn html_blockquote_body_blocks(
     )
   }
   let out : Array[@core.CoreBlock] = []
-  for index in 0..<child_blocks.length() {
-    if inline_segments[index].length() > 0 {
+  for child_pos in 0..<child_blocks.length() {
+    if inline_segments[child_pos].length() > 0 {
       html_append_flattened_blocks(
         out,
         html_core_inline_segment_to_blocks(
-          inline_segments[index],
+          inline_segments[child_pos],
           html_block_source_ref(source, block),
         ),
       )
@@ -1185,8 +1348,9 @@ fn html_blockquote_body_blocks(
         document,
         semantic,
         source,
-        child_blocks[index],
+        child_blocks[child_pos],
         dom_blocks,
+        index,
       ),
     )
   }
@@ -1210,11 +1374,12 @@ fn html_container_child_blocks_from_dom(
   block : @dhtml.HtmlBlockFact,
   element : @dhtml.HtmlElement,
   dom_blocks : Map[String, @dhtml.HtmlElement],
+  index : HtmlLoweringIndex,
   flatten_blockquotes? : Bool = false,
 ) -> Array[@core.CoreBlock] {
-  let child_blocks = html_child_blocks_sorted(semantic, block.children)
+  let child_blocks = html_child_blocks_sorted(index, block.children)
   let top_level_inline_facts = html_top_level_inline_facts_for_block(
-    semantic,
+    index,
     block.source_key,
   )
   let current_inline_facts : Array[@dhtml.HtmlInlineFact] = []
@@ -1229,6 +1394,7 @@ fn html_container_child_blocks_from_dom(
     semantic : @dhtml.HtmlSemanticDocument,
     source : @input.InputSource,
     block : @dhtml.HtmlBlockFact,
+    index : HtmlLoweringIndex,
   ) -> Unit {
     if current_inline_facts.length() == 0 {
       return
@@ -1241,6 +1407,7 @@ fn html_container_child_blocks_from_dom(
         source,
         current_inline_facts,
         html_block_source_ref(source, block),
+        index,
       ),
     )
     current_inline_facts.clear()
@@ -1251,26 +1418,26 @@ fn html_container_child_blocks_from_dom(
       @dhtml.HtmlNode::Element(child_element) =>
         if html_dom_nav_like(child_element) {
           flush_current_inline_facts(
-            out, current_inline_facts, document, semantic, source, block,
+            out, current_inline_facts, document, semantic, source, block, index,
           )
         } else if html_dom_counts_as_block(child_element.tag_name, false) {
           flush_current_inline_facts(
-            out, current_inline_facts, document, semantic, source, block,
+            out, current_inline_facts, document, semantic, source, block, index,
           )
           match
             html_find_matching_child_block(
               child_blocks, child_index, child_element,
             ) {
-            Some((index, child_block)) => {
-              child_index = index + 1
+            Some((matched_index, child_block)) => {
+              child_index = matched_index + 1
               let lowered = if flatten_blockquotes &&
                 child_block.kind == @dhtml.HtmlBlockKind::BlockQuote {
                 html_blockquote_body_blocks(
-                  document, semantic, source, child_block, dom_blocks,
+                  document, semantic, source, child_block, dom_blocks, index,
                 )
               } else {
                 html_blocks_for_block(
-                  document, semantic, source, child_block, dom_blocks,
+                  document, semantic, source, child_block, dom_blocks, index,
                 )
               }
               html_append_flattened_blocks(out, lowered)
@@ -1294,7 +1461,7 @@ fn html_container_child_blocks_from_dom(
     inline_index += 1
   }
   flush_current_inline_facts(
-    out, current_inline_facts, document, semantic, source, block,
+    out, current_inline_facts, document, semantic, source, block, index,
   )
   out
 }
@@ -1305,6 +1472,7 @@ fn html_find_matching_child_block(
   start : Int,
   element : @dhtml.HtmlElement,
 ) -> (Int, @dhtml.HtmlBlockFact)? {
+  let mut fallback : (Int, @dhtml.HtmlBlockFact)? = None
   for index in start..<child_blocks.length() {
     let block = child_blocks[index]
     if block.tag_name == element.tag_name &&
@@ -1312,14 +1480,11 @@ fn html_find_matching_child_block(
       block.span.line_end == element.span.line_end {
       return Some((index, block))
     }
-  }
-  for index in start..<child_blocks.length() {
-    let block = child_blocks[index]
-    if block.tag_name == element.tag_name {
-      return Some((index, block))
+    if fallback is None && block.tag_name == element.tag_name {
+      fallback = Some((index, block))
     }
   }
-  None
+  fallback
 }
 
 ///|
@@ -1412,11 +1577,12 @@ fn html_dom_element_has_top_level_inline_fact(
 
 ///|
 fn html_code_blocks(
-  semantic : @dhtml.HtmlSemanticDocument,
+  _semantic : @dhtml.HtmlSemanticDocument,
   source : @input.InputSource,
   block : @dhtml.HtmlBlockFact,
+  index : HtmlLoweringIndex,
 ) -> Array[@core.CoreBlock] {
-  match html_code_block_for_block(semantic, block.source_key) {
+  match html_code_block_for_block(index, block.source_key) {
     Some(code) =>
       if code.code_text.trim() == "" {
         []
@@ -1441,16 +1607,17 @@ fn html_code_blocks(
 ///|
 fn html_figure_blocks(
   document : @core.DocumentIR,
-  semantic : @dhtml.HtmlSemanticDocument,
+  _semantic : @dhtml.HtmlSemanticDocument,
   source : @input.InputSource,
   block : @dhtml.HtmlBlockFact,
+  index : HtmlLoweringIndex,
 ) -> Array[@core.CoreBlock] {
-  match html_figure_for_block(semantic, block.source_key) {
+  match html_figure_for_block(index, block.source_key) {
     Some(figure) =>
       if figure.image_source_keys.length() == 0 {
         []
       } else {
-        match html_image_by_key(semantic, figure.image_source_keys[0]) {
+        match html_image_by_key(index, figure.image_source_keys[0]) {
           Some(image) =>
             match html_image_to_asset(document, source, image) {
               Some(asset) => {
@@ -1528,12 +1695,10 @@ fn html_unknown_container_blocks(
   source : @input.InputSource,
   block : @dhtml.HtmlBlockFact,
   dom_blocks : Map[String, @dhtml.HtmlElement],
+  index : HtmlLoweringIndex,
 ) -> Array[@core.CoreBlock] {
   if block.tag_name == "summary" {
-    let summary = html_top_level_inline_facts_for_block(
-      semantic,
-      block.source_key,
-    )
+    let summary = html_top_level_inline_facts_for_block(index, block.source_key)
     if summary.length() > 0 {
       return html_inline_segment_to_blocks(
         document,
@@ -1541,6 +1706,7 @@ fn html_unknown_container_blocks(
         source,
         summary,
         html_inline_source_ref(source, summary[0]),
+        index,
       )
     }
     if block.text_preview.trim() != "" {
@@ -1559,6 +1725,7 @@ fn html_unknown_container_blocks(
     source,
     block.children,
     dom_blocks,
+    index,
   )
 }
 
@@ -1569,15 +1736,18 @@ fn html_blocks_for_child_keys(
   source : @input.InputSource,
   keys : Array[String],
   dom_blocks : Map[String, @dhtml.HtmlElement],
+  index : HtmlLoweringIndex,
 ) -> Array[@core.CoreBlock] {
   let out : Array[@core.CoreBlock] = []
   for key in keys {
-    match html_block_by_key(semantic, key) {
+    match html_block_by_key(index, key) {
       Some(child) =>
-        if !html_block_should_skip_descendant(semantic, child) {
+        if !html_block_should_skip_descendant(index, child) {
           html_append_flattened_blocks(
             out,
-            html_blocks_for_block(document, semantic, source, child, dom_blocks),
+            html_blocks_for_block(
+              document, semantic, source, child, dom_blocks, index,
+            ),
           )
         }
       None => ()
@@ -1588,34 +1758,10 @@ fn html_blocks_for_child_keys(
 
 ///|
 fn html_block_should_skip_descendant(
-  semantic : @dhtml.HtmlSemanticDocument,
+  index : HtmlLoweringIndex,
   block : @dhtml.HtmlBlockFact,
 ) -> Bool {
-  if block.tag_name == "nav" ||
-    html_block_has_ancestor_tag(semantic, block.source_key, "nav") {
-    return true
-  }
-  for noise in semantic.noise_candidates {
-    if html_noise_should_skip(noise) &&
-      html_block_matches_descendant_noise_candidate(semantic, block, noise) {
-      return true
-    }
-  }
-  false
-}
-
-///|
-fn html_block_matches_descendant_noise_candidate(
-  semantic : @dhtml.HtmlSemanticDocument,
-  block : @dhtml.HtmlBlockFact,
-  noise : @dhtml.HtmlNoiseCandidateFact,
-) -> Bool {
-  if noise.block_source_key == Some(block.source_key) {
-    return true
-  }
-  noise.block_source_key
-  .map(fn(key) { html_block_has_ancestor_key(semantic, block.source_key, key) })
-  .unwrap_or(false)
+  index.skipped_block_keys.contains(block.source_key)
 }
 
 ///|
@@ -1634,13 +1780,15 @@ fn html_inlines_for_block(
   semantic : @dhtml.HtmlSemanticDocument,
   source : @input.InputSource,
   block_source_key : String,
+  index : HtmlLoweringIndex,
 ) -> Array[@core.CoreInline] {
   html_inline_keys_to_core_inlines(
     document,
     semantic,
     source,
-    html_top_level_inline_keys_for_block(semantic, block_source_key),
+    html_top_level_inline_keys_for_block(index, block_source_key),
     true,
+    index,
   )
 }
 
@@ -1650,8 +1798,9 @@ fn html_inlines_for_paragraph(
   semantic : @dhtml.HtmlSemanticDocument,
   source : @input.InputSource,
   block_source_key : String,
+  index : HtmlLoweringIndex,
 ) -> Array[@core.CoreInline] {
-  match html_paragraph_for_block(semantic, block_source_key) {
+  match html_paragraph_for_block(index, block_source_key) {
     Some(paragraph) =>
       html_inline_keys_to_core_inlines(
         document,
@@ -1659,8 +1808,12 @@ fn html_inlines_for_paragraph(
         source,
         paragraph.inline_child_keys,
         true,
+        index,
       )
-    None => html_inlines_for_block(document, semantic, source, block_source_key)
+    None =>
+      html_inlines_for_block(
+        document, semantic, source, block_source_key, index,
+      )
   }
 }
 
@@ -1725,6 +1878,7 @@ fn html_inline_segment_to_blocks(
   source : @input.InputSource,
   segment : Array[@dhtml.HtmlInlineFact],
   fallback_source_ref : @core.SourceRef,
+  index : HtmlLoweringIndex,
 ) -> Array[@core.CoreBlock] {
   let inlines = html_inline_facts_to_core_inlines(
     document,
@@ -1732,6 +1886,7 @@ fn html_inline_segment_to_blocks(
     source,
     segment,
     trim_edges=true,
+    index,
   )
   let source_ref = if segment.length() > 0 {
     html_inline_source_ref(source, segment[0])
@@ -1761,10 +1916,11 @@ fn html_inline_facts_to_core_inlines(
   source : @input.InputSource,
   facts : Array[@dhtml.HtmlInlineFact],
   trim_edges? : Bool = false,
+  index : HtmlLoweringIndex,
 ) -> Array[@core.CoreInline] {
   let keys = facts.map(inline => inline.source_key)
   let inlines = html_inline_keys_to_core_inlines(
-    document, semantic, source, keys, true,
+    document, semantic, source, keys, true, index,
   )
   if trim_edges {
     html_trim_core_inlines_edges(inlines)
@@ -1780,12 +1936,15 @@ fn html_inline_keys_to_core_inlines(
   source : @input.InputSource,
   inline_keys : Array[String],
   allow_links : Bool,
+  index : HtmlLoweringIndex,
 ) -> Array[@core.CoreInline] {
   let out : Array[@core.CoreInline] = []
   for key in inline_keys {
-    match html_inline_by_key(semantic, key) {
+    match html_inline_by_key(index, key) {
       Some(inline) =>
-        html_append_inline(document, out, semantic, source, inline, allow_links)
+        html_append_inline(
+          document, out, semantic, source, inline, allow_links, index,
+        )
       None => ()
     }
   }
@@ -1800,6 +1959,7 @@ fn html_append_inline(
   source : @input.InputSource,
   inline : @dhtml.HtmlInlineFact,
   allow_links : Bool,
+  index : HtmlLoweringIndex,
 ) -> Unit {
   let source_ref = html_inline_source_ref(source, inline)
   match inline.kind {
@@ -1808,7 +1968,7 @@ fn html_append_inline(
     @dhtml.HtmlInlineKind::Break =>
       out.push(@core.make_inline_line_break(source_ref~))
     @dhtml.HtmlInlineKind::Image =>
-      match html_image_for_inline(semantic, inline.source_key) {
+      match html_image_for_inline(index, inline.source_key) {
         Some(image) =>
           match html_image_to_asset(document, source, image) {
             Some(asset) =>
@@ -1838,6 +1998,7 @@ fn html_append_inline(
           source,
           inline.children,
           false,
+          index,
         )
         if children.length() == 0 {
           html_push_text_if_non_empty(out, html_inline_text(inline), source_ref)
@@ -1846,11 +2007,11 @@ fn html_append_inline(
         }
         return
       }
-      match html_link_for_inline(semantic, inline.source_key) {
+      match html_link_for_inline(index, inline.source_key) {
         Some(link) =>
           match html_product_href(link) {
             Some(href) => {
-              let text = html_link_text(document, semantic, source, link)
+              let text = html_link_text(document, semantic, source, link, index)
                 .trim()
                 .to_owned()
               if text != "" {
@@ -1880,6 +2041,7 @@ fn html_append_inline(
         source,
         inline.children,
         allow_links,
+        index,
       )
       if children.length() == 0 {
         html_push_text_if_non_empty(out, html_inline_text(inline), source_ref)
@@ -1908,6 +2070,7 @@ fn html_link_text(
   semantic : @dhtml.HtmlSemanticDocument,
   source : @input.InputSource,
   link : @dhtml.HtmlLinkFact,
+  index : HtmlLoweringIndex,
 ) -> String {
   if link.inline_child_keys.length() == 0 {
     return link.text_preview
@@ -1919,6 +2082,7 @@ fn html_link_text(
       source,
       link.inline_child_keys,
       false,
+      index,
     ),
   )
 }
@@ -2023,8 +2187,9 @@ fn html_table_to_block(
   semantic : @dhtml.HtmlSemanticDocument,
   source : @input.InputSource,
   block_source_key : String,
+  index : HtmlLoweringIndex,
 ) -> @core.CoreBlock? {
-  match html_table_for_block(semantic, block_source_key) {
+  match html_table_for_block(index, block_source_key) {
     Some(table) => {
       if table.row_count == 0 || table.cell_count == 0 {
         return None
@@ -2033,22 +2198,22 @@ fn html_table_to_block(
         @core.BlockKind::Table,
         "table",
         source_ref=html_block_source_ref_by_key(
-          source, semantic, block_source_key,
+          source, semantic, block_source_key, index,
         ),
       )
       out.attrs.set(
         "header_rows",
-        html_table_header_rows(semantic, table).to_string(),
+        html_table_header_rows(index, table).to_string(),
       )
       for row_key in table.rows {
-        match html_table_row_by_key(semantic, row_key) {
+        match html_table_row_by_key(index, row_key) {
           Some(row) => {
             let row_values : Array[String] = []
             for cell_key in row.cell_source_keys {
-              match html_table_cell_by_key(semantic, cell_key) {
+              match html_table_cell_by_key(index, cell_key) {
                 Some(cell) => {
                   let value = html_table_cell_text(
-                    document, semantic, source, cell,
+                    document, semantic, source, cell, index,
                   )
                   row_values.push(value)
                 }
@@ -2065,7 +2230,7 @@ fn html_table_to_block(
               let cell_ref = if value_index < row.cell_source_keys.length() {
                 match
                   html_table_cell_by_key(
-                    semantic,
+                    index,
                     row.cell_source_keys[value_index],
                   ) {
                   Some(cell) => html_table_cell_source_ref(source, cell)
@@ -2084,12 +2249,12 @@ fn html_table_to_block(
               if value_index < row.cell_source_keys.length() {
                 match
                   html_table_cell_by_key(
-                    semantic,
+                    index,
                     row.cell_source_keys[value_index],
                   ) {
                   Some(cell) => {
                     let inlines = html_table_cell_inlines(
-                      document, semantic, source, cell,
+                      document, semantic, source, cell, index,
                     )
                     if inlines.length() > 0 {
                       cell_block = @core.block_with_rich_inlines(
@@ -2120,6 +2285,7 @@ fn html_table_cell_text(
   semantic : @dhtml.HtmlSemanticDocument,
   source : @input.InputSource,
   cell : @dhtml.HtmlTableCellFact,
+  index : HtmlLoweringIndex,
 ) -> String {
   let inlines = html_inline_keys_to_core_inlines(
     document,
@@ -2127,6 +2293,7 @@ fn html_table_cell_text(
     source,
     cell.inline_child_keys,
     true,
+    index,
   )
   let text = html_render_plain_inlines(inlines).trim().to_owned()
   if text == "" {
@@ -2142,6 +2309,7 @@ fn html_table_cell_inlines(
   semantic : @dhtml.HtmlSemanticDocument,
   source : @input.InputSource,
   cell : @dhtml.HtmlTableCellFact,
+  index : HtmlLoweringIndex,
 ) -> Array[@core.CoreInline] {
   html_inline_keys_to_core_inlines(
     document,
@@ -2149,6 +2317,7 @@ fn html_table_cell_inlines(
     source,
     cell.inline_child_keys,
     true,
+    index,
   )
 }
 
@@ -2212,10 +2381,10 @@ fn malformed_html_parse_result(
 
 ///|
 fn html_top_level_inline_keys_for_block(
-  semantic : @dhtml.HtmlSemanticDocument,
+  index : HtmlLoweringIndex,
   block_source_key : String,
 ) -> Array[String] {
-  html_top_level_inline_facts_for_block(semantic, block_source_key).map(inline => {
+  html_top_level_inline_facts_for_block(index, block_source_key).map(inline => {
     inline.source_key
   })
 }
@@ -2324,164 +2493,112 @@ fn html_merge_adjacent_text_inlines(
 
 ///|
 fn html_block_by_key(
-  semantic : @dhtml.HtmlSemanticDocument,
+  index : HtmlLoweringIndex,
   source_key : String,
 ) -> @dhtml.HtmlBlockFact? {
-  for block in semantic.blocks {
-    if block.source_key == source_key {
-      return Some(block)
-    }
-  }
-  None
+  index.block_by_key.get(source_key)
 }
 
 ///|
 fn html_paragraph_for_block(
-  semantic : @dhtml.HtmlSemanticDocument,
+  index : HtmlLoweringIndex,
   block_source_key : String,
 ) -> @dhtml.HtmlParagraphFact? {
-  for paragraph in semantic.paragraphs {
-    if paragraph.block_source_key == block_source_key {
-      return Some(paragraph)
-    }
-  }
-  None
+  index.paragraph_by_block_key.get(block_source_key)
 }
 
 ///|
 fn html_list_for_block(
-  semantic : @dhtml.HtmlSemanticDocument,
+  index : HtmlLoweringIndex,
   block_source_key : String,
 ) -> @dhtml.HtmlListFact? {
-  for item in semantic.lists {
-    if item.block_source_key == block_source_key {
-      return Some(item)
-    }
-  }
-  None
+  index.list_by_block_key.get(block_source_key)
 }
 
 ///|
 fn html_list_item_is_ordered(
-  semantic : @dhtml.HtmlSemanticDocument,
+  index : HtmlLoweringIndex,
   block_source_key : String,
 ) -> Bool {
-  for item in semantic.list_items {
-    if item.block_source_key == block_source_key {
+  match index.list_item_by_block_key.get(block_source_key) {
+    Some(item) =>
       match item.list_source_key {
         Some(list_key) =>
-          for list in semantic.lists {
-            if list.source_key == list_key {
-              return list.kind == @dhtml.HtmlListKind::Ordered
-            }
+          match index.list_by_source_key.get(list_key) {
+            Some(list) => return list.kind == @dhtml.HtmlListKind::Ordered
+            None => ()
           }
         None => ()
       }
-    }
+    None => ()
   }
   false
 }
 
 ///|
 fn html_blockquote_for_block(
-  semantic : @dhtml.HtmlSemanticDocument,
+  index : HtmlLoweringIndex,
   block_source_key : String,
 ) -> @dhtml.HtmlBlockQuoteFact? {
-  for quote in semantic.blockquotes {
-    if quote.block_source_key == block_source_key {
-      return Some(quote)
-    }
-  }
-  None
+  index.blockquote_by_block_key.get(block_source_key)
 }
 
 ///|
 fn html_code_block_for_block(
-  semantic : @dhtml.HtmlSemanticDocument,
+  index : HtmlLoweringIndex,
   block_source_key : String,
 ) -> @dhtml.HtmlCodeBlockFact? {
-  for code in semantic.code_blocks {
-    if code.block_source_key == block_source_key ||
-      code.code_block_source_key == Some(block_source_key) {
-      return Some(code)
-    }
-  }
-  None
+  index.code_block_by_block_key.get(block_source_key)
 }
 
 ///|
 fn html_figure_for_block(
-  semantic : @dhtml.HtmlSemanticDocument,
+  index : HtmlLoweringIndex,
   block_source_key : String,
 ) -> @dhtml.HtmlFigureFact? {
-  for figure in semantic.figures {
-    if figure.block_source_key == block_source_key {
-      return Some(figure)
-    }
-  }
-  None
+  index.figure_by_block_key.get(block_source_key)
 }
 
 ///|
 fn html_table_for_block(
-  semantic : @dhtml.HtmlSemanticDocument,
+  index : HtmlLoweringIndex,
   block_source_key : String,
 ) -> @dhtml.HtmlTableFact? {
-  for table in semantic.tables {
-    if table.block_source_key == block_source_key {
-      return Some(table)
-    }
-  }
-  None
+  index.table_by_block_key.get(block_source_key)
 }
 
 ///|
 fn html_table_row_by_key(
-  semantic : @dhtml.HtmlSemanticDocument,
+  index : HtmlLoweringIndex,
   source_key : String,
 ) -> @dhtml.HtmlTableRowFact? {
-  for row in semantic.table_rows {
-    if row.source_key == source_key {
-      return Some(row)
-    }
-  }
-  None
+  index.table_row_by_key.get(source_key)
 }
 
 ///|
 fn html_table_cell_by_key(
-  semantic : @dhtml.HtmlSemanticDocument,
+  index : HtmlLoweringIndex,
   source_key : String,
 ) -> @dhtml.HtmlTableCellFact? {
-  for cell in semantic.table_cells {
-    if cell.source_key == source_key {
-      return Some(cell)
-    }
-  }
-  None
+  index.table_cell_by_key.get(source_key)
 }
 
 ///|
 fn html_table_section_by_key(
-  semantic : @dhtml.HtmlSemanticDocument,
+  index : HtmlLoweringIndex,
   source_key : String,
 ) -> @dhtml.HtmlTableSectionFact? {
-  for section in semantic.table_sections {
-    if section.source_key == source_key {
-      return Some(section)
-    }
-  }
-  None
+  index.table_section_by_key.get(source_key)
 }
 
 ///|
 fn html_table_header_rows(
-  semantic : @dhtml.HtmlSemanticDocument,
+  index : HtmlLoweringIndex,
   table : @dhtml.HtmlTableFact,
 ) -> Int {
   let mut header_rows = 0
   for section_key in table.sections {
-    match html_table_section_by_key(semantic, section_key) {
+    match html_table_section_by_key(index, section_key) {
       Some(section) =>
         if section.kind == @dhtml.HtmlTableSectionKind::Head {
           header_rows += section.row_count
@@ -2495,10 +2612,10 @@ fn html_table_header_rows(
   if table.rows.length() == 0 {
     return 0
   }
-  match html_table_row_by_key(semantic, table.rows[0]) {
+  match html_table_row_by_key(index, table.rows[0]) {
     Some(row) => {
       for cell_key in row.cell_source_keys {
-        match html_table_cell_by_key(semantic, cell_key) {
+        match html_table_cell_by_key(index, cell_key) {
           Some(cell) =>
             if cell.kind != @dhtml.HtmlTableCellKind::Header {
               return 0
@@ -2514,89 +2631,68 @@ fn html_table_header_rows(
 
 ///|
 fn html_inline_by_key(
-  semantic : @dhtml.HtmlSemanticDocument,
+  index : HtmlLoweringIndex,
   source_key : String,
 ) -> @dhtml.HtmlInlineFact? {
-  for inline in semantic.inlines {
-    if inline.source_key == source_key {
-      return Some(inline)
-    }
-  }
-  None
+  index.inline_by_key.get(source_key)
 }
 
 ///|
 fn html_link_for_inline(
-  semantic : @dhtml.HtmlSemanticDocument,
+  index : HtmlLoweringIndex,
   inline_source_key : String,
 ) -> @dhtml.HtmlLinkFact? {
-  for link in semantic.links {
-    if link.inline_source_key == inline_source_key {
-      return Some(link)
-    }
-  }
-  None
+  index.link_by_inline_key.get(inline_source_key)
 }
 
 ///|
 fn html_image_for_inline(
-  semantic : @dhtml.HtmlSemanticDocument,
+  index : HtmlLoweringIndex,
   inline_source_key : String,
 ) -> @dhtml.HtmlImageFact? {
-  for image in semantic.images {
-    if image.inline_source_key == inline_source_key {
-      return Some(image)
-    }
-  }
-  None
+  index.image_by_inline_key.get(inline_source_key)
 }
 
 ///|
 fn html_image_by_key(
-  semantic : @dhtml.HtmlSemanticDocument,
+  index : HtmlLoweringIndex,
   source_key : String,
 ) -> @dhtml.HtmlImageFact? {
-  for image in semantic.images {
-    if image.source_key == source_key {
-      return Some(image)
-    }
-  }
-  None
+  index.image_by_key.get(source_key)
 }
 
 ///|
 fn html_child_blocks_sorted(
-  semantic : @dhtml.HtmlSemanticDocument,
+  index : HtmlLoweringIndex,
   keys : Array[String],
 ) -> Array[@dhtml.HtmlBlockFact] {
-  let out : Array[@dhtml.HtmlBlockFact] = []
+  let out : Array[@dhtml.HtmlBlockFact] = Array::new(capacity=keys.length())
   for key in keys {
-    match html_block_by_key(semantic, key) {
+    match html_block_by_key(index, key) {
       Some(block) => out.push(block)
       None => ()
     }
   }
-  out.sort_by(fn(a, b) { a.source_order.compare(b.source_order) })
   out
 }
 
 ///|
 fn html_top_level_inline_segments_for_block(
-  semantic : @dhtml.HtmlSemanticDocument,
+  index : HtmlLoweringIndex,
   block_source_key : String,
   child_blocks : Array[@dhtml.HtmlBlockFact],
 ) -> Array[Array[@dhtml.HtmlInlineFact]] {
-  let segments : Array[Array[@dhtml.HtmlInlineFact]] = []
+  let segments : Array[Array[@dhtml.HtmlInlineFact]] = Array::new(
+    capacity=child_blocks.length() + 1,
+  )
   let mut segment_count = child_blocks.length() + 1
   while segment_count > 0 {
     segments.push([])
     segment_count -= 1
   }
-  let inlines = html_top_level_inline_facts_for_block(
-    semantic, block_source_key,
-  )
+  let inlines = html_top_level_inline_facts_for_block(index, block_source_key)
+  let mut region = 0
   for inline in inlines {
-    let mut region = 0
     while region < child_blocks.length() &&
           inline.source_order > child_blocks[region].source_order {
       region += 1
@@ -2613,11 +2709,14 @@ fn html_core_inline_segments_for_block(
   source : @input.InputSource,
   block_source_key : String,
   child_blocks : Array[@dhtml.HtmlBlockFact],
+  index : HtmlLoweringIndex,
 ) -> Array[Array[@core.CoreInline]] {
   let fact_segments = html_top_level_inline_segments_for_block(
-    semantic, block_source_key, child_blocks,
+    index, block_source_key, child_blocks,
   )
-  let segments : Array[Array[@core.CoreInline]] = []
+  let segments : Array[Array[@core.CoreInline]] = Array::new(
+    capacity=fact_segments.length(),
+  )
   for facts in fact_segments {
     segments.push(
       html_inline_facts_to_core_inlines(
@@ -2626,6 +2725,7 @@ fn html_core_inline_segments_for_block(
         source,
         facts,
         trim_edges=true,
+        index,
       ),
     )
   }
@@ -2793,18 +2893,13 @@ fn render_quote_lines_from_text(text : String) -> Array[String] {
 
 ///|
 fn html_top_level_inline_facts_for_block(
-  semantic : @dhtml.HtmlSemanticDocument,
+  index : HtmlLoweringIndex,
   block_source_key : String,
 ) -> Array[@dhtml.HtmlInlineFact] {
-  let out : Array[@dhtml.HtmlInlineFact] = []
-  for inline in semantic.inlines {
-    if inline.parent_block_source_key == Some(block_source_key) &&
-      inline.parent_inline_source_key is None {
-      out.push(inline)
-    }
+  match index.top_level_inline_facts_by_block_key.get(block_source_key) {
+    Some(facts) => facts
+    None => []
   }
-  out.sort_by(fn(a, b) { a.source_order.compare(b.source_order) })
-  out
 }
 
 ///|
@@ -2967,10 +3062,11 @@ fn html_block_source_ref(
 ///|
 fn html_block_source_ref_by_key(
   source : @input.InputSource,
-  semantic : @dhtml.HtmlSemanticDocument,
+  _semantic : @dhtml.HtmlSemanticDocument,
   block_source_key : String,
+  index : HtmlLoweringIndex,
 ) -> @core.SourceRef {
-  match html_block_by_key(semantic, block_source_key) {
+  match html_block_by_key(index, block_source_key) {
     Some(block) => html_block_source_ref(source, block)
     None =>
       @core.source_ref_with_html_path(

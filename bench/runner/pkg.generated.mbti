@@ -1,0 +1,14 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/bench/runner"
+
+// Values
+pub async fn run_bench_cli(Array[String]) -> Int
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

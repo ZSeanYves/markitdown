@@ -316,10 +316,7 @@ fn render_markdown_table(block : @core.CoreBlock) -> String {
     )
   }
   let rows = block.children
-  let normalized_rows : Array[Array[String]] = rows.map(row => {
-    table_row_cells(row)
-  })
-  let width = table_render_width(block, normalized_rows)
+  let width = table_render_width_from_children(block, rows)
   if width == 0 {
     return render_markdown_raw(
       @core.block_with_attr(block, "raw_kind", "empty_table_fallback"),
@@ -330,55 +327,46 @@ fn render_markdown_table(block : @core.CoreBlock) -> String {
   ) catch {
     _ => 1
   }
-  let header_cells = pad_table_row(normalized_rows[0], width).map(cell => {
-    safe_markdown_table_cell(cell)
-  })
-  let lines : Array[String] = []
   let start = if header_rows == 0 { 0 } else { 1 }
+  let out = StringBuilder::new()
   if header_rows == 0 {
-    let synthetic_headers : Array[String] = []
-    for index in 0..<width {
-      synthetic_headers.push("Column " + (index + 1).to_string())
-    }
-    lines.push("| " + synthetic_headers.join(" | ") + " |")
+    write_markdown_table_synthetic_header(out, width)
   } else {
-    lines.push("| " + header_cells.join(" | ") + " |")
+    write_markdown_table_row(out, table_row_cells(rows[0]), width)
   }
-  let separators = Array::make(width, "---")
-  lines.push("| " + separators.join(" | ") + " |")
+  out.write_char('\n')
+  write_markdown_table_separator(out, width)
   for i in start..<rows.length() {
-    let cells = pad_table_row(normalized_rows[i], width).map(cell => {
-      safe_markdown_table_cell(cell)
-    })
-    lines.push("| " + cells.join(" | ") + " |")
+    out.write_char('\n')
+    write_markdown_table_row(out, table_row_cells(rows[i]), width)
   }
-  lines.join("\n")
+  out.to_string()
 }
 
 ///|
-fn table_render_width(
+fn table_render_width_from_children(
   block : @core.CoreBlock,
-  rows : Array[Array[String]],
+  rows : Array[@core.CoreBlock],
 ) -> Int {
   match block.attrs.get("table_column_count") {
     Some(raw) => {
       let parsed = @string.parse_int(raw.trim()) catch {
-        _ => widest_table_row_width(rows)
+        _ => widest_table_row_width_from_children(rows)
       }
       if parsed <= 0 {
-        return widest_table_row_width(rows)
+        return widest_table_row_width_from_children(rows)
       }
       if rows.length() == 0 {
         return parsed
       }
-      let header_width = rows[0].length()
+      let header_width = table_row_width(rows[0])
       if header_width > 0 && header_width < parsed {
         header_width
       } else {
         parsed
       }
     }
-    None => widest_table_row_width(rows)
+    None => widest_table_row_width_from_children(rows)
   }
 }
 
@@ -667,14 +655,26 @@ fn render_markdown_raw(block : @core.CoreBlock) -> String {
 }
 
 ///|
-fn widest_table_row_width(rows : Array[Array[String]]) -> Int {
+fn widest_table_row_width_from_children(rows : Array[@core.CoreBlock]) -> Int {
   let mut width = 0
   for row in rows {
-    if row.length() > width {
-      width = row.length()
+    let row_width = table_row_width(row)
+    if row_width > width {
+      width = row_width
     }
   }
   width
+}
+
+///|
+fn table_row_width(row : @core.CoreBlock) -> Int {
+  if row.children.length() > 0 {
+    return row.children.length()
+  }
+  if row.text.trim() == "" {
+    return 0
+  }
+  row.text.split("|").length()
 }
 
 ///|
@@ -695,13 +695,49 @@ fn table_row_cells(row : @core.CoreBlock) -> Array[String] {
 }
 
 ///|
-fn pad_table_row(row : Array[String], width : Int) -> Array[String] {
-  let next : Array[String] = []
-  next.append(row[:])
-  while next.length() < width {
-    next.push("")
+fn write_markdown_table_synthetic_header(
+  out : StringBuilder,
+  width : Int,
+) -> Unit {
+  out.write_string("| ")
+  for index in 0..<width {
+    if index > 0 {
+      out.write_string(" | ")
+    }
+    out.write_string("Column ")
+    out.write_string((index + 1).to_string())
   }
-  next
+  out.write_string(" |")
+}
+
+///|
+fn write_markdown_table_separator(out : StringBuilder, width : Int) -> Unit {
+  out.write_string("| ")
+  for index in 0..<width {
+    if index > 0 {
+      out.write_string(" | ")
+    }
+    out.write_string("---")
+  }
+  out.write_string(" |")
+}
+
+///|
+fn write_markdown_table_row(
+  out : StringBuilder,
+  row : Array[String],
+  width : Int,
+) -> Unit {
+  out.write_string("| ")
+  for index in 0..<width {
+    if index > 0 {
+      out.write_string(" | ")
+    }
+    if index < row.length() {
+      out.write_string(safe_markdown_table_cell(row[index]))
+    }
+  }
+  out.write_string(" |")
 }
 
 ///|

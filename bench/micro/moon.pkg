@@ -1,0 +1,11 @@
+import {
+  "moonbitlang/core/bench",
+  "ZSeanYves/markitdown/bench/shared",
+  "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/render",
+} for "test"
+
+options(
+  "preferred-target": "native",
+)

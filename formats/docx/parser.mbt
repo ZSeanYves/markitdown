@@ -286,6 +286,9 @@ priv struct DocxLoweringState {
   footnote_labels : Map[String, String]
   endnote_labels : Map[String, String]
   comment_labels : Map[String, String]
+  footnotes_by_id : Map[String, @ddocx.DocxNote]
+  endnotes_by_id : Map[String, @ddocx.DocxNote]
+  comments_by_id : Map[String, @ddocx.DocxComment]
 }
 
 ///|
@@ -324,6 +327,25 @@ fn new_docx_lowering_state(
   let comment_labels : Map[String, String] = Map([])
   let assets : Array[@core.AssetRef] = []
   let asset_ids : Map[String, String] = Map([])
+  let footnotes_by_id : Map[String, @ddocx.DocxNote] = Map([])
+  let endnotes_by_id : Map[String, @ddocx.DocxNote] = Map([])
+  let comments_by_id : Map[String, @ddocx.DocxComment] = Map([])
+
+  for note in docx.footnotes {
+    if !footnotes_by_id.contains(note.note_id) {
+      footnotes_by_id.set(note.note_id, note)
+    }
+  }
+  for note in docx.endnotes {
+    if !endnotes_by_id.contains(note.note_id) {
+      endnotes_by_id.set(note.note_id, note)
+    }
+  }
+  for comment in docx.comments {
+    if !comments_by_id.contains(comment.comment_id) {
+      comments_by_id.set(comment.comment_id, comment)
+    }
+  }
 
   let footnote_ids : Array[String] = []
   let endnote_ids : Array[String] = []
@@ -331,24 +353,21 @@ fn new_docx_lowering_state(
   collect_docx_reference_ids(docx.body, footnote_ids, endnote_ids, comment_ids)
   let mut idx = 1
   for id in footnote_ids {
-    if !footnote_labels.contains(id) &&
-      @ddocx.docx_find_footnote(docx, id) is Some(_) {
+    if !footnote_labels.contains(id) && footnotes_by_id.contains(id) {
       footnote_labels.set(id, idx.to_string())
       idx += 1
     }
   }
   idx = 1
   for id in endnote_ids {
-    if !endnote_labels.contains(id) &&
-      @ddocx.docx_find_endnote(docx, id) is Some(_) {
+    if !endnote_labels.contains(id) && endnotes_by_id.contains(id) {
       endnote_labels.set(id, idx.to_string())
       idx += 1
     }
   }
   idx = 1
   for id in comment_ids {
-    if !comment_labels.contains(id) &&
-      @ddocx.docx_find_comment(docx, id) is Some(_) {
+    if !comment_labels.contains(id) && comments_by_id.contains(id) {
       comment_labels.set(id, idx.to_string())
       idx += 1
     }
@@ -362,6 +381,9 @@ fn new_docx_lowering_state(
     footnote_labels,
     endnote_labels,
     comment_labels,
+    footnotes_by_id,
+    endnotes_by_id,
+    comments_by_id,
   }
 }
 
@@ -370,12 +392,22 @@ fn fill_docx_package_metrics(
   diagnostics : @core.Diagnostics,
   pkg : @ox.OoxmlPackage,
 ) -> Unit {
-  let report = @ox.inspect_ooxml_package(pkg)
+  let inventory = @ox.inspect_ooxml_inventory(pkg)
   let validation = @ox.validate_ooxml_package(pkg)
-  diagnostics.metrics.set("ooxml_part_count", report.part_count.to_string())
+  let package_relationship_count = (@ox.read_package_relationships(pkg) catch {
+    _ => []
+  }).length()
+  let part_relationship_count = inventory.relationship_source_parts.fold(
+    init=0,
+    fn(acc, source_part) {
+      acc +
+      (@ox.read_part_relationships(pkg, source_part) catch { _ => [] }).length()
+    },
+  )
+  diagnostics.metrics.set("ooxml_part_count", inventory.part_count.to_string())
   diagnostics.metrics.set(
     "relationship_count",
-    (report.package_relationship_count + report.part_relationship_count).to_string(),
+    (package_relationship_count + part_relationship_count).to_string(),
   )
   let mut external_relationship_count = 0
   let mut missing_relationship_target_count = 0
@@ -404,19 +436,17 @@ fn fill_docx_package_metrics(
     unsupported_relationship_count.to_string(),
   )
   diagnostics.metrics.set(
-    "media_asset_count",
-    report.media_asset_count.to_string(),
-  )
-  diagnostics.metrics.set(
     "content_type_count",
-    report.inventory.content_type_entry_count.to_string(),
+    inventory.content_type_entry_count.to_string(),
   )
+  let media_asset_count = count_docx_media_parts(inventory.parts)
+  diagnostics.metrics.set("media_asset_count", media_asset_count.to_string())
   let mut total_uncompressed_bytes = 0
   let mut path_traversal_count = 0
   let mut duplicate_part_count = 0
   let encrypted_entry_count = 0
   let unsupported_compression_count = 0
-  for part in report.inventory.parts {
+  for part in inventory.parts {
     total_uncompressed_bytes += part.size
   }
   for issue in validation.issues {
@@ -428,9 +458,6 @@ fn fill_docx_package_metrics(
     if message.contains("duplicate") {
       duplicate_part_count += 1
     }
-  }
-  for part in report.inventory.parts {
-    ignore(part)
   }
   diagnostics.metrics.set(
     "total_uncompressed_bytes",
@@ -457,13 +484,25 @@ fn fill_docx_package_metrics(
   diagnostics.metrics.set("xml_external_entity_count", "0")
   diagnostics.metrics.set(
     "macro_part_count",
-    count_docx_macro_parts(report.inventory.parts).to_string(),
+    count_docx_macro_parts(inventory.parts).to_string(),
   )
   diagnostics.metrics.set(
     "ole_object_count",
-    count_docx_ole_object_parts(report.inventory.parts).to_string(),
+    count_docx_ole_object_parts(inventory.parts).to_string(),
   )
   diagnostics.metrics.set("alt_chunk_count", "0")
+}
+
+///|
+fn count_docx_media_parts(parts : Array[@ox.OoxmlPartInfo]) -> Int {
+  let mut count = 0
+  for part in parts {
+    if part.part_name.has_prefix("word/media/") &&
+      !part.part_name.has_suffix("/") {
+      count += 1
+    }
+  }
+  count
 }
 
 ///|
@@ -683,7 +722,8 @@ fn lower_docx_paragraph_block(
   if docx_paragraph_is_image_only(inline) {
     return Some(lower_docx_image_only_paragraph(state, p, inline, source_ref))
   }
-  match docx_paragraph_heading_level(state.docx, p) {
+  let resolved_style = @ddocx.docx_resolve_paragraph_style(state.docx, p)
+  match docx_paragraph_heading_level(resolved_style, p) {
     Some(level) => {
       let heading0 = @core.make_block(
         @core.BlockKind::Heading,
@@ -723,7 +763,7 @@ fn lower_docx_paragraph_block(
     }
     None => ()
   }
-  if docx_paragraph_is_code_style(state.docx, p) {
+  if docx_paragraph_is_code_style(resolved_style, p, inline.plain_text) {
     let code = @core.make_block(
       @core.BlockKind::Code,
       inline.plain_text,
@@ -731,7 +771,7 @@ fn lower_docx_paragraph_block(
     )
     return Some(code)
   }
-  if docx_paragraph_is_quote_style(state.docx, p) {
+  if docx_paragraph_is_quote_style(resolved_style, p) {
     let quote0 = @core.make_block(
       @core.BlockKind::BlockQuote,
       inline.plain_text,
@@ -1036,6 +1076,12 @@ fn lower_docx_inlines(
 ) -> DocxInlineLowering {
   let rich_inlines : Array[@core.CoreInline] = []
   let plain = StringBuilder::new()
+  let inline_source_ref = docx_source_ref_from_key(
+    state,
+    source_key,
+    None,
+    None,
+  )
   let mut has_link = false
   let mut image_count = 0
   let mut hyperlink_count = 0
@@ -1058,25 +1104,13 @@ fn lower_docx_inlines(
   for inline in inlines {
     match inline {
       @ddocx.DocxInline::Text(text) =>
-        append_plain_and_rich(
-          plain,
-          rich_inlines,
-          text,
-          docx_source_ref_from_key(state, source_key, None, None),
-        )
+        append_plain_and_rich(plain, rich_inlines, text, inline_source_ref)
       @ddocx.DocxInline::Tab =>
-        append_plain_and_rich(
-          plain,
-          rich_inlines,
-          " ",
-          docx_source_ref_from_key(state, source_key, None, None),
-        )
+        append_plain_and_rich(plain, rich_inlines, " ", inline_source_ref)
       @ddocx.DocxInline::LineBreak => {
         plain.write_string("\n")
         rich_inlines.push(
-          @core.make_inline_line_break(
-            source_ref=docx_source_ref_from_key(state, source_key, None, None),
-          ),
+          @core.make_inline_line_break(source_ref=inline_source_ref),
         )
       }
       @ddocx.DocxInline::Break(value) =>
@@ -1084,23 +1118,11 @@ fn lower_docx_inlines(
           "\n" => {
             plain.write_string("\n")
             rich_inlines.push(
-              @core.make_inline_line_break(
-                source_ref=docx_source_ref_from_key(
-                  state,
-                  source_key,
-                  None,
-                  None,
-                ),
-              ),
+              @core.make_inline_line_break(source_ref=inline_source_ref),
             )
           }
           text =>
-            append_plain_and_rich(
-              plain,
-              rich_inlines,
-              text,
-              docx_source_ref_from_key(state, source_key, None, None),
-            )
+            append_plain_and_rich(plain, rich_inlines, text, inline_source_ref)
         }
       @ddocx.DocxInline::Hyperlink(link) => {
         let source_ref = docx_source_ref_from_key(
@@ -1302,14 +1324,8 @@ fn lower_docx_inlines(
         let gap = if !current.has_suffix(" ") { " " } else { "" }
         if gap != "" {
           plain.write_string(gap)
-          let gap_source_ref = docx_source_ref_from_key(
-            state,
-            source_key,
-            None,
-            None,
-          )
           rich_inlines.push(
-            @core.make_inline_text(gap, source_ref=gap_source_ref),
+            @core.make_inline_text(gap, source_ref=inline_source_ref),
           )
         }
         let marker_inline = docx_reference_inline(
@@ -1327,10 +1343,7 @@ fn lower_docx_inlines(
       @ddocx.DocxInline::TextBoxRef(_) => ()
       @ddocx.DocxInline::UnsupportedInline(_) =>
         append_plain_and_rich(
-          plain,
-          rich_inlines,
-          "[unsupported DOCX inline]",
-          docx_source_ref_from_key(state, source_key, None, None),
+          plain, rich_inlines, "[unsupported DOCX inline]", inline_source_ref,
         )
       @ddocx.DocxInline::Unsupported(_) => ()
     }
@@ -1541,7 +1554,7 @@ fn append_docx_comments_blocks(
   heading.attrs.set("level", "2")
   out.push(heading)
   for id in comment_ids {
-    match @ddocx.docx_find_comment(state.docx, id) {
+    match docx_lookup_comment(state, id) {
       Some(comment) => {
         let prefix = docx_comment_author_prefix(comment.author)
         let blocks : Array[@core.CoreBlock] = []
@@ -1725,7 +1738,7 @@ fn append_docx_note_definitions_blocks(
 ) -> Unit {
   let footnote_ids = docx_note_ids_sorted_by_label(state.footnote_labels)
   for id in footnote_ids {
-    match @ddocx.docx_find_footnote(state.docx, id) {
+    match docx_lookup_footnote(state, id) {
       Some(note) =>
         append_docx_note_definition_blocks(
           state,
@@ -1739,7 +1752,7 @@ fn append_docx_note_definitions_blocks(
   }
   let endnote_ids = docx_note_ids_sorted_by_label(state.endnote_labels)
   for id in endnote_ids {
-    match @ddocx.docx_find_endnote(state.docx, id) {
+    match docx_lookup_endnote(state, id) {
       Some(note) =>
         append_docx_note_definition_blocks(
           state,
@@ -2685,11 +2698,12 @@ fn docx_inline_spacing_source_ref(
 
 ///|
 fn docx_paragraph_heading_level(
-  docx : @ddocx.DocxDocument,
+  style : @ddocx.DocxStyle?,
   p : @ddocx.DocxParagraph,
 ) -> Int? {
-  match @ddocx.docx_resolve_paragraph_style(docx, p) {
-    Some(style) => docx_style_heading_level(style)
+  ignore(p)
+  match style {
+    Some(value) => docx_style_heading_level(value)
     None => None
   }
 }
@@ -2810,35 +2824,36 @@ fn docx_numbering_level_index(ilvl : String) -> Int {
 
 ///|
 fn docx_paragraph_is_code_style(
-  docx : @ddocx.DocxDocument,
+  style : @ddocx.DocxStyle?,
   p : @ddocx.DocxParagraph,
+  plain_text : String,
 ) -> Bool {
-  match @ddocx.docx_resolve_paragraph_style(docx, p) {
-    Some(style) =>
-      docx_style_label_matches(style, [
+  match style {
+    Some(value) =>
+      docx_style_label_matches(value, [
         "code", "pre", "preformatted", "htmlpreformatted", "sourcecode",
       ]) ||
-      docx_paragraph_has_code_shape(p)
+      docx_paragraph_has_code_shape(p, plain_text)
     None =>
       match p.style_id {
         Some(style_id) =>
           docx_style_labels_match(style_id, None, [
             "code", "pre", "preformatted", "htmlpreformatted", "sourcecode",
           ]) ||
-          docx_paragraph_has_code_shape(p)
-        None => docx_paragraph_has_code_shape(p)
+          docx_paragraph_has_code_shape(p, plain_text)
+        None => docx_paragraph_has_code_shape(p, plain_text)
       }
   }
 }
 
 ///|
 fn docx_paragraph_is_quote_style(
-  docx : @ddocx.DocxDocument,
+  style : @ddocx.DocxStyle?,
   p : @ddocx.DocxParagraph,
 ) -> Bool {
-  match @ddocx.docx_resolve_paragraph_style(docx, p) {
-    Some(style) =>
-      docx_style_label_matches(style, [
+  match style {
+    Some(value) =>
+      docx_style_label_matches(value, [
         "quote", "intensequote", "blockquote", "blockquotetext",
       ])
     None =>
@@ -2887,9 +2902,35 @@ fn docx_style_labels_match(
 }
 
 ///|
-fn docx_paragraph_has_code_shape(p : @ddocx.DocxParagraph) -> Bool {
-  let text = render_docx_plain_text_only(p.inlines)
-  let normalized = text
+fn docx_lookup_footnote(
+  state : DocxLoweringState,
+  note_id : String,
+) -> @ddocx.DocxNote? {
+  state.footnotes_by_id.get(note_id)
+}
+
+///|
+fn docx_lookup_endnote(
+  state : DocxLoweringState,
+  note_id : String,
+) -> @ddocx.DocxNote? {
+  state.endnotes_by_id.get(note_id)
+}
+
+///|
+fn docx_lookup_comment(
+  state : DocxLoweringState,
+  comment_id : String,
+) -> @ddocx.DocxComment? {
+  state.comments_by_id.get(comment_id)
+}
+
+///|
+fn docx_paragraph_has_code_shape(
+  p : @ddocx.DocxParagraph,
+  plain_text : String,
+) -> Bool {
+  let normalized = plain_text
     .replace(old="\r\n", new="\n")
     .replace(old="\r", new="\n")
   if !normalized.contains("\n") {

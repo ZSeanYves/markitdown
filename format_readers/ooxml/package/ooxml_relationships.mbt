@@ -115,18 +115,14 @@ fn find_relationships_by_type_from_normalized_source(
   rel_type_suffix : String,
 ) -> Array[OoxmlRelationship] raise OoxmlError {
   pkg.relationship_cache.by_type_query_count.val += 1
-  let out : Array[OoxmlRelationship] = []
   match read_relationship_index_from_normalized_source(pkg, source) {
     Some(index) =>
-      for entry in index.by_type {
-        let (rel_type, rels) = entry
-        if rel_type.has_suffix(rel_type_suffix) || rel_type == rel_type_suffix {
-          out.append(clone_ooxml_relationships(rels))
-        }
+      match index.by_type.get(rel_type_suffix) {
+        Some(rels) => clone_ooxml_relationships(rels)
+        None => find_relationships_by_type_suffix(index, rel_type_suffix)
       }
-    None => ()
+    None => []
   }
-  out
 }
 
 ///|
@@ -191,9 +187,24 @@ fn build_ooxml_relationship_index(
 fn clone_ooxml_relationships(
   rels : Array[OoxmlRelationship],
 ) -> Array[OoxmlRelationship] {
-  let out : Array[OoxmlRelationship] = []
+  let out : Array[OoxmlRelationship] = Array::new(capacity=rels.length())
   for rel in rels {
     out.push(rel)
+  }
+  out
+}
+
+///|
+fn find_relationships_by_type_suffix(
+  index : OoxmlRelationshipIndex,
+  rel_type_suffix : String,
+) -> Array[OoxmlRelationship] {
+  let out : Array[OoxmlRelationship] = []
+  for entry in index.by_type {
+    let (rel_type, rels) = entry
+    if rel_type.has_suffix(rel_type_suffix) {
+      out.append(clone_ooxml_relationships(rels))
+    }
   }
   out
 }

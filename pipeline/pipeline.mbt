@@ -396,9 +396,7 @@ fn build_document_from_simple_events(
   let text_lines : Array[@core.CoreEvent] = []
   let current_row : Array[String] = []
   let current_row_refs : Array[@core.SourceRef] = []
-  let table_rows : Array[Array[String]] = []
-  let table_row_refs : Array[@core.SourceRef] = []
-  let table_cell_refs : Array[Array[@core.SourceRef]] = []
+  let table_rows : Array[@core.CoreBlock] = []
   for event in events {
     match event.kind {
       @core.EventKind::StartBlock(kind) => {
@@ -429,12 +427,6 @@ fn build_document_from_simple_events(
       }
       @core.EventKind::RowBreak =>
         if current_row.length() > 0 {
-          let snapshot : Array[String] = []
-          snapshot.append(current_row[:])
-          table_rows.push(snapshot)
-          let ref_snapshot : Array[@core.SourceRef] = []
-          ref_snapshot.append(current_row_refs[:])
-          table_cell_refs.push(ref_snapshot)
           let row_ref = event.source_ref.unwrap_or(
             if current_row_refs.length() > 0 {
               current_row_refs[0]
@@ -442,7 +434,9 @@ fn build_document_from_simple_events(
               @core.empty_source_ref()
             },
           )
-          table_row_refs.push(row_ref)
+          table_rows.push(
+            simple_event_table_row(current_row, current_row_refs, row_ref),
+          )
           current_row.clear()
           current_row_refs.clear()
         }
@@ -455,8 +449,10 @@ fn build_document_from_simple_events(
     }
   }
   if table_rows.length() > 0 {
-    let first_row_ref = table_row_refs[0]
-    let last_row_ref = table_row_refs[table_row_refs.length() - 1]
+    let first_row = table_rows[0]
+    let last_row = table_rows[table_rows.length() - 1]
+    let first_row_ref = first_row.source_ref.unwrap_or(@core.empty_source_ref())
+    let last_row_ref = last_row.source_ref.unwrap_or(@core.empty_source_ref())
     let table_ref = @core.source_ref_with_cell_range(
       @core.source_ref_with_lines(
         @core.empty_source_ref(),
@@ -467,7 +463,9 @@ fn build_document_from_simple_events(
       ),
       first_row_ref.file_id,
       first_row_ref.format,
-      table_cell_span_range(table_row_refs),
+      table_cell_span_range(
+        table_rows.map(row => row.source_ref.unwrap_or(@core.empty_source_ref())),
+      ),
     )
     let table = @core.make_block(
       @core.BlockKind::Table,
@@ -475,36 +473,54 @@ fn build_document_from_simple_events(
       source_ref=table_ref,
     )
     table.attrs.set("header_rows", "1")
+    table.attrs.set(
+      "table_column_count",
+      simple_event_table_width(table_rows).to_string(),
+    )
     document.diagnostics.metrics.set("table_count", "1")
-    for i in 0..<table_rows.length() {
-      let row = table_rows[i]
-      let row_ref = table_row_refs[i]
-      let cell_refs = table_cell_refs[i]
-      let row_block = @core.make_block(
-        @core.BlockKind::TableRow,
-        row.join(" | "),
-        source_ref=row_ref,
-      )
-      for cell_index in 0..<row.length() {
-        let cell = row[cell_index]
-        let cell_ref = if cell_index < cell_refs.length() {
-          cell_refs[cell_index]
-        } else {
-          row_ref
-        }
-        row_block.children.push(
-          @core.make_block(
-            @core.BlockKind::TableCell,
-            cell,
-            source_ref=cell_ref,
-          ),
-        )
-      }
-      table.children.push(row_block)
-    }
+    table.children.append(table_rows[:])
     document.blocks.push(table)
   }
   document
+}
+
+///|
+fn simple_event_table_row(
+  current_row : Array[String],
+  current_row_refs : Array[@core.SourceRef],
+  row_ref : @core.SourceRef,
+) -> @core.CoreBlock {
+  let row_block = @core.make_block(
+    @core.BlockKind::TableRow,
+    current_row.join(" | "),
+    source_ref=row_ref,
+  )
+  for cell_index in 0..<current_row.length() {
+    let cell_ref = if cell_index < current_row_refs.length() {
+      current_row_refs[cell_index]
+    } else {
+      row_ref
+    }
+    row_block.children.push(
+      @core.make_block(
+        @core.BlockKind::TableCell,
+        current_row[cell_index],
+        source_ref=cell_ref,
+      ),
+    )
+  }
+  row_block
+}
+
+///|
+fn simple_event_table_width(rows : Array[@core.CoreBlock]) -> Int {
+  let mut width = 0
+  for row in rows {
+    if row.children.length() > width {
+      width = row.children.length()
+    }
+  }
+  width
 }
 
 ///|

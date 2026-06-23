@@ -4,7 +4,14 @@
 /// These helpers are intentionally read-only and lossy: they are for debugging
 /// package structure, not for feeding conversion logic.
 pub fn inspect_ooxml_inventory(pkg : OoxmlPackage) -> OoxmlPackageInventory {
-  build_package_inventory(pkg)
+  match pkg.inventory_cache.val {
+    Some(inventory) => inventory
+    None => {
+      let inventory = build_package_inventory(pkg)
+      pkg.inventory_cache.val = Some(inventory)
+      inventory
+    }
+  }
 }
 
 ///|
@@ -43,7 +50,7 @@ pub fn inspect_ooxml_package(pkg : OoxmlPackage) -> OoxmlPackageInspectReport {
 
 ///|
 pub fn list_part_infos(pkg : OoxmlPackage) -> Array[OoxmlPartInfo] {
-  inspect_ooxml_package(pkg).inventory.parts
+  inspect_ooxml_inventory(pkg).parts
 }
 
 ///|
@@ -64,7 +71,7 @@ pub fn find_part_info(
 pub fn list_content_type_infos(
   pkg : OoxmlPackage,
 ) -> Array[OoxmlContentTypeInfo] {
-  inspect_ooxml_package(pkg).inventory.content_types
+  inspect_ooxml_inventory(pkg).content_types
 }
 
 ///|

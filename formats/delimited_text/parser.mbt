@@ -47,6 +47,7 @@ fn delimited_parser(
       source : @input.InputSource,
       context : @parser.ParseContext,
     ) -> Result[@parser.ParseResult, String] {
+      let format_name = @input.detected_format_name(format)
       let text = match @input.read_input_text(source) {
         Ok(payload) => payload
         Err(err) => return Err(err)
@@ -55,7 +56,7 @@ fn delimited_parser(
         name,
         @parser.ParserMode::StreamingEvent,
         source,
-        @input.detected_format_name(format),
+        format_name,
       )
       let parsed = if is_tsv {
         try
@@ -95,14 +96,9 @@ fn delimited_parser(
         "input_kind",
         @light_common.input_kind_name(source.kind),
       )
-      diagnostics.metrics.set(
-        "detected_format",
-        @input.detected_format_name(format),
-      )
+      diagnostics.metrics.set("detected_format", format_name)
       @light_common.apply_readiness_metrics(
-        diagnostics,
-        @input.detected_format_name(format),
-        "near_ready",
+        diagnostics, format_name, "near_ready",
       )
       diagnostics.metrics.set("delimiter", delimiter_name)
       diagnostics.metrics.set("raw_row_count", raw_row_count.to_string())
@@ -207,7 +203,6 @@ fn delimited_parser(
         diagnostics.degraded_features.push("max_cells_truncation")
         diagnostics.fallback_trace.push("cell limit applied to delimited table")
       }
-      let events : Array[@core.CoreEvent] = []
       let max_rows_by_cells = if effective_col_count == 0 {
         0
       } else {
@@ -239,26 +234,42 @@ fn delimited_parser(
         diagnostics.degraded_features.push("cell_budget_row_trim")
         diagnostics.fallback_trace.push("cell budget trimmed row count")
       }
+      let row_event_width = if effective_col_count > 0 {
+        effective_col_count + 1
+      } else {
+        0
+      }
+      let events : Array[@core.CoreEvent] = Array::new(
+        capacity=allowed_rows * row_event_width,
+      )
+      let source_name = Some(source.source_name)
+      let format_value = Some(format_name)
+      let cell_suffixes : Array[String] = Array::new(
+        capacity=effective_col_count,
+      )
+      for col_index in 0..<effective_col_count {
+        cell_suffixes.push((col_index + 1).to_string())
+      }
+      let last_cell_suffix = if effective_col_count > 0 {
+        cell_suffixes[effective_col_count - 1]
+      } else {
+        ""
+      }
       for row_index in 0..<allowed_rows {
         let row = table_doc.rows[row_index]
+        let row_number = row_index + 1
+        let row_prefix = "R" + row_number.to_string() + "C"
         let row_ref = @core.source_ref_with_cell_range(
           @core.source_ref_with_lines(
             @core.empty_source_ref(),
-            Some(source.source_name),
-            Some(@input.detected_format_name(format)),
+            source_name,
+            format_value,
             Some(row.line_start),
             Some(row.line_end),
           ),
-          Some(source.source_name),
-          Some(@input.detected_format_name(format)),
-          Some(
-            "R" +
-            (row_index + 1).to_string() +
-            "C1:R" +
-            (row_index + 1).to_string() +
-            "C" +
-            effective_col_count.to_string(),
-          ),
+          source_name,
+          format_value,
+          Some(row_prefix + "1:" + row_prefix + last_cell_suffix),
         )
         for col_index in 0..<effective_col_count {
           events.push({
@@ -267,14 +278,9 @@ fn delimited_parser(
             source_ref: Some(
               @core.source_ref_with_cell_range(
                 row_ref,
-                Some(source.source_name),
-                Some(@input.detected_format_name(format)),
-                Some(
-                  "R" +
-                  (row_index + 1).to_string() +
-                  "C" +
-                  (col_index + 1).to_string(),
-                ),
+                source_name,
+                format_value,
+                Some(row_prefix + cell_suffixes[col_index]),
               ),
             ),
           })

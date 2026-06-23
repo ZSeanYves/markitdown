@@ -51,6 +51,8 @@ pub fn open_ooxml_package(bytes : Bytes) -> OoxmlPackage raise OoxmlError {
     content_types_override: overrides,
     part_cache,
     relationship_cache,
+    sorted_parts_cache: Ref(None),
+    inventory_cache: Ref(None),
   }
 }
 
@@ -176,12 +178,17 @@ pub fn read_part_text(
 ///|
 /// List all package parts in deterministic sorted order.
 pub fn list_parts(pkg : OoxmlPackage) -> Array[String] {
+  match pkg.sorted_parts_cache.val {
+    Some(parts) => return parts
+    None => ()
+  }
   let out : Array[String] = []
   for entry in pkg.part_index {
     let (name, _) = entry
     out.push(name)
   }
   out.sort()
+  pkg.sorted_parts_cache.val = Some(out)
   out
 }
 

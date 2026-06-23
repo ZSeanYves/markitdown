@@ -1,0 +1,69 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/bench/runner/tools"
+
+import {
+  "ZSeanYves/markitdown/bench/runner/command",
+  "ZSeanYves/markitdown/bench/runner/manifest",
+}
+
+// Values
+pub fn default_tool_registry_config() -> ToolRegistryConfig
+
+pub fn find_in_path(String, String?) -> String?
+
+pub fn find_tool(String, config? : ToolRegistryConfig) -> BenchTool?
+
+pub fn is_executable_file(String) -> Bool
+
+pub fn make_tool_command(String, Array[String], String?, Array[(String, String)], Int, String, String) -> ToolCommand
+
+pub fn make_tool_registry_config(String?) -> ToolRegistryConfig
+
+pub fn markitdown_tool(explicit_path? : String?) -> BenchTool
+
+pub fn moonbit_cli_tool() -> BenchTool
+
+pub fn moonbit_engine_tool() -> BenchTool
+
+// Errors
+
+// Types and methods
+pub struct BenchTool {
+  name : String
+  tool_version : String?
+  availability_note : String?
+  command_builder : (@manifest.BenchRow, String, Int, @command.CliOutputMode, @command.EngineOutputMode) -> ToolCommand
+}
+pub fn BenchTool::build_command(Self, @manifest.BenchRow, String, Int, @command.CliOutputMode, @command.EngineOutputMode) -> ToolCommand
+pub fn BenchTool::is_available(Self) -> Bool
+
+pub struct MarkItDownResolution {
+  path : String
+  source : MarkItDownSource
+} derive(Eq)
+
+pub(all) enum MarkItDownSource {
+  ExplicitArg
+  EnvVar
+  PathLookup
+  Fallback
+} derive(Eq)
+
+pub struct ToolCommand {
+  program : String
+  args : Array[String]
+  cwd : String?
+  env : Array[(String, String)]
+  timeout_ms : Int
+  command_kind : String
+  command_display : String
+} derive(Eq)
+
+pub struct ToolRegistryConfig {
+  markitdown_path : String?
+} derive(Eq)
+
+// Type aliases
+
+// Traits
+

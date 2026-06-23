@@ -408,17 +408,29 @@ pub fn normalize_cli_args_for_subcommand(args : Array[String]) -> Array[String] 
 }
 
 ///|
-pub async fn run_cli_app(raw_cli_args : Array[String]) -> Int {
-  let cli_args = normalize_cli_args_for_subcommand(
-    normalize_cli_args(raw_cli_args),
-  )
-  if cli_args.length() == 0 {
-    print_cli_help()
-    print_cli_usage()
-    return 0
+fn first_user_cli_arg(raw_cli_args : Array[String]) -> String? {
+  if raw_cli_args.length() <= 1 {
+    None
+  } else {
+    Some(raw_cli_args[1].trim().to_owned())
   }
+}
 
-  let first = cli_args[0].trim().to_owned().to_lower()
+///|
+fn is_convert_subcommand(name : String) -> Bool {
+  name == "convert" || name == "normal"
+}
+
+///|
+pub fn run_cli_app(raw_cli_args : Array[String]) -> Int {
+  let first = match first_user_cli_arg(raw_cli_args) {
+    Some(value) => value.to_lower()
+    None => {
+      print_cli_help()
+      print_cli_usage()
+      return 0
+    }
+  }
   if first == "help" || first == "--help" || first == "-h" {
     print_cli_help()
     print_cli_usage()
@@ -451,19 +463,23 @@ pub async fn run_cli_app(raw_cli_args : Array[String]) -> Int {
       "unsupported subcommand: bench moved to the dedicated bench package", true,
     )
   }
-  if first != "convert" && first != "normal" {
-    return exit_cli_error("unsupported subcommand", true)
-  }
 
-  let parsed_args : Array[String] = []
-  for i in 1..<cli_args.length() {
-    parsed_args.push(cli_args[i])
+  let cli_args = normalize_cli_args(raw_cli_args)
+  if cli_args.length() == 0 {
+    print_cli_help()
+    print_cli_usage()
+    return 0
   }
-  let opts = match parse_cli_options(parsed_args) {
+  let parsed = if is_convert_subcommand(first) {
+    parse_cli_options_from_index(cli_args, 1)
+  } else {
+    parse_cli_options(cli_args)
+  }
+  let opts = match parsed {
     Ok(value) => value
     Err(msg) => return exit_cli_error(msg, true)
   }
-  let rendered = match run_cli_async(opts) {
+  let rendered = match run_cli(opts) {
     Ok(value) => value
     Err(msg) => return exit_cli_error(msg, false)
   }
@@ -555,6 +571,14 @@ fn find_first_eq(s : String) -> Int? {
 
 ///|
 fn parse_cli_options(args : Array[String]) -> Result[CliOptions, String] {
+  parse_cli_options_from_index(args, 0)
+}
+
+///|
+fn parse_cli_options_from_index(
+  args : Array[String],
+  start_index : Int,
+) -> Result[CliOptions, String] {
   let positionals : Array[String] = []
   let mut explicit_format_raw : String? = None
   let mut ocr_enabled = false
@@ -563,7 +587,7 @@ fn parse_cli_options(args : Array[String]) -> Result[CliOptions, String] {
   let mut pdf_cleanup_raw : String? = None
   let mut pdf_tables_raw : String? = None
   let mut output_format = @convert.OutputFormat::Markdown
-  let mut i = 0
+  let mut i = start_index
 
   while i < args.length() {
     let arg = args[i].trim().to_owned()

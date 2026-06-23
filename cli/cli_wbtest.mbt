@@ -227,6 +227,32 @@ test "current main cli requires --ocr for --ocr-lang" {
 }
 
 ///|
+test "current main cli first user arg helper handles executable-prefixed argv" {
+  assert_true(first_user_cli_arg(["cli.exe"]) == None)
+  assert_true(first_user_cli_arg(["cli.exe", "help"]) == Some("help"))
+  assert_true(first_user_cli_arg(["cli.exe", "normal"]) == Some("normal"))
+}
+
+///|
+test "current main cli can parse options from either implicit or explicit convert position" {
+  match parse_cli_options_from_index(["demo.txt"], 0) {
+    Ok(opts) => {
+      assert_eq(opts.input, "demo.txt")
+      assert_true(opts.output == None)
+    }
+    Err(msg) => fail("expected implicit convert argv to parse: " + msg)
+  }
+
+  match parse_cli_options_from_index(["convert", "demo.txt", "out.md"], 1) {
+    Ok(opts) => {
+      assert_eq(opts.input, "demo.txt")
+      assert_true(opts.output == Some("out.md"))
+    }
+    Err(msg) => fail("expected explicit convert argv to parse: " + msg)
+  }
+}
+
+///|
 test "current main cli image OCR intent remains fail closed by mode" {
   let root = test_tmp_root() + "/main-cli-image-ocr-intent"
   recreate_clean_dir(root)

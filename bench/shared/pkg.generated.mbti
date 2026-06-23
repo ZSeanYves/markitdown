@@ -1,0 +1,94 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/bench/shared"
+
+import {
+  "ZSeanYves/markitdown/convert",
+  "ZSeanYves/markitdown/input",
+  "moonbitlang/core/bench",
+}
+
+// Values
+pub fn bench_row_bytes(BenchManifestRow) -> Bytes
+
+pub fn bench_row_default_convert_options(BenchManifestRow) -> @convert.ConvertOptions
+
+pub fn bench_row_input_source(BenchManifestRow) -> @input.InputSource
+
+pub fn bench_row_is_default_candidate(BenchManifestRow) -> Bool
+
+pub fn bench_row_payload_exists(BenchManifestRow) -> Bool
+
+pub fn bench_row_payload_path(BenchManifestRow) -> String
+
+pub fn bench_row_text(BenchManifestRow) -> String
+
+pub fn bench_row_tier_rank(String) -> Int
+
+pub fn keep_bytes_len(@bench.Bench, Bytes) -> Unit
+
+pub fn keep_int(@bench.Bench, Int) -> Unit
+
+pub fn keep_string(@bench.Bench, String) -> Unit
+
+pub fn load_bench_manifest() -> Array[BenchManifestRow]
+
+pub fn micro_detector_smoke_rows() -> Array[BenchManifestRow]
+
+pub fn micro_textlike_smoke_rows() -> Array[BenchManifestRow]
+
+pub fn pipeline_smoke_binary_rows() -> Array[BenchManifestRow]
+
+pub fn pipeline_smoke_textlike_rows() -> Array[BenchManifestRow]
+
+pub fn product_smoke_rows() -> Array[BenchManifestRow]
+
+pub fn regular_rows() -> Array[BenchManifestRow]
+
+pub fn release_rows() -> Array[BenchManifestRow]
+
+pub fn samples_bench_manifest_path() -> String
+
+pub fn samples_bench_root() -> String
+
+pub fn select_rows(BenchTier) -> Array[BenchManifestRow]
+
+pub fn select_rows_for_formats(BenchTier, Array[String]) -> Array[BenchManifestRow]
+
+pub fn select_rows_for_layer(BenchTier, String) -> Array[BenchManifestRow]
+
+pub fn select_rows_for_layer_and_formats(BenchTier, String, Array[String]) -> Array[BenchManifestRow]
+
+pub fn smoke_rows() -> Array[BenchManifestRow]
+
+pub fn stress_rows() -> Array[BenchManifestRow]
+
+// Errors
+
+// Types and methods
+pub struct BenchManifestRow {
+  bench_id : String
+  format : String
+  size_class : String
+  rel_path : String
+  source_kind : String
+  source_ref : String
+  bytes : Int
+  sha256 : String
+  enabled_tier : String
+  bench_layers : Array[String]
+  tags : Array[String]
+  review_status : String
+  notes : String
+}
+
+pub(all) enum BenchTier {
+  Smoke
+  Regular
+  Release
+  Stress
+} derive(Eq)
+
+// Type aliases
+
+// Traits
+

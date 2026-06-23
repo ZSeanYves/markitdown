@@ -1,0 +1,119 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/bench/runner/command"
+
+// Values
+pub fn cli_output_mode_name(CliOutputMode) -> String
+
+pub fn default_cli_output_mode() -> CliOutputMode
+
+pub fn default_engine_output_mode() -> EngineOutputMode
+
+pub fn default_runner_context() -> RunnerContext
+
+pub fn detect_runner_context(Array[String]) -> RunnerContext
+
+pub fn engine_output_mode_name(EngineOutputMode) -> String
+
+pub fn make_compare_request(String, String?, Int?, Int, Int, String?, CliOutputMode, EngineOutputMode, String, String, RunnerContext) -> CompareRequest
+
+pub fn make_diagnose_request(Int, Int, CliOutputMode, EngineOutputMode, String, String, RunnerContext) -> DiagnoseRequest
+
+pub fn make_run_request(String, String, String?, Int?, Int, Int, String?, CliOutputMode, EngineOutputMode, String, String, RunnerContext) -> RunRequest
+
+pub fn make_runner_context(String, String?) -> RunnerContext
+
+pub fn output_markdown_path(String, String, String, Int, Int) -> String
+
+pub fn overhead_report_markdown_path(String) -> String
+
+pub fn overhead_result_jsonl_path(String) -> String
+
+pub fn parse_cli_output_mode(String) -> CliOutputMode raise
+
+pub fn parse_compare_request(Array[String]) -> CompareRequest raise
+
+pub fn parse_compare_request_with_context(Array[String], RunnerContext) -> CompareRequest raise
+
+pub fn parse_diagnose_request(Array[String]) -> DiagnoseRequest raise
+
+pub fn parse_diagnose_request_with_context(Array[String], RunnerContext) -> DiagnoseRequest raise
+
+pub fn parse_engine_output_mode(String) -> EngineOutputMode raise
+
+pub fn parse_run_request(Array[String]) -> RunRequest raise
+
+pub fn parse_run_request_with_context(Array[String], RunnerContext) -> RunRequest raise
+
+pub fn report_markdown_path(String) -> String
+
+pub fn result_jsonl_path(String, String, String) -> String
+
+pub fn selector_stats_path(String) -> String
+
+pub fn summary_json_path(String) -> String
+
+pub fn tool_output_root(String, String) -> String
+
+// Errors
+
+// Types and methods
+pub enum CliOutputMode {
+  File
+  StdoutCapture
+} derive(Eq)
+
+pub struct CompareRequest {
+  tier : String
+  format_filter : String?
+  limit : Int?
+  repeat_count : Int
+  timeout_ms : Int
+  markitdown_path : String?
+  cli_output_mode : CliOutputMode
+  engine_output_mode : EngineOutputMode
+  run_id : String
+  git_commit : String
+  runner : RunnerContext
+} derive(Eq)
+
+pub struct DiagnoseRequest {
+  repeat_count : Int
+  timeout_ms : Int
+  cli_output_mode : CliOutputMode
+  engine_output_mode : EngineOutputMode
+  run_id : String
+  git_commit : String
+  runner : RunnerContext
+} derive(Eq)
+
+pub enum EngineOutputMode {
+  File
+  Memory
+  None
+} derive(Eq)
+
+pub struct RunRequest {
+  tool_name : String
+  tier : String
+  format_filter : String?
+  limit : Int?
+  repeat_count : Int
+  timeout_ms : Int
+  markitdown_path : String?
+  cli_output_mode : CliOutputMode
+  engine_output_mode : EngineOutputMode
+  run_id : String
+  git_commit : String
+  runner : RunnerContext
+} derive(Eq)
+
+pub struct RunnerContext {
+  runner_mode : String
+  canonical_performance : Bool
+  runner_path : String?
+} derive(Eq)
+
+// Type aliases
+
+// Traits
+

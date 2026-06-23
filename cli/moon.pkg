@@ -1,5 +1,4 @@
 import {
-  "moonbitlang/async",
   "ZSeanYves/markitdown/convert",
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/format_readers/zip" @dzip,
@@ -15,3 +14,7 @@ options(
   "is-main": true,
   "preferred-target": "native",
 )
+
+import {
+  "moonbitlang/async",
+} for "wbtest"

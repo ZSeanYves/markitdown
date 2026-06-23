@@ -2,13 +2,18 @@
 package "ZSeanYves/markitdown/formats/xlsx"
 
 import {
+  "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
 }
 
 // Values
+pub fn xlsx_first_sheet_metric(@input.InputSource) -> Result[Int, String]
+
 pub fn xlsx_parser() -> @parser.Parser
 
 pub fn xlsx_parser_capability() -> @parser.ParserCapability
+
+pub fn xlsx_workbook_metric(@input.InputSource) -> Result[Int, String]
 
 // Errors
 

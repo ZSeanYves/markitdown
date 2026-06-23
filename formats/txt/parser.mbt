@@ -24,24 +24,31 @@ pub fn txt_parser() -> @parser.Parser {
         }
       }
       let inspect = @dtext.inspect_text_document(parsed)
-      let events : Array[@core.CoreEvent] = []
+      let events : Array[@core.CoreEvent] = Array::new(
+        capacity=parsed.lines.length(),
+      )
       let max_line_chars = context.max_line_chars.unwrap_or(4000)
-      let long_line_count = count_long_text_lines(parsed, max_line_chars)
+      let mut long_line_count = 0
+      let source_name = Some(source.source_name)
+      let format_name = Some("txt")
       for line in parsed.lines {
+        if line.text.length() > max_line_chars {
+          long_line_count += 1
+        }
         let source_ref = @core.source_ref_with_bytes(
           @core.source_ref_with_lines(
             @core.empty_source_ref(),
-            Some(source.source_name),
-            Some("txt"),
+            source_name,
+            format_name,
             Some(line.line_no),
             Some(line.line_no),
           ),
-          Some(source.source_name),
-          Some("txt"),
+          source_name,
+          format_name,
           None,
           None,
         )
-        if line.text.trim() == "" {
+        if line.text.is_blank() {
           events.push({
             kind: @core.EventKind::BlankLine,
             text: "",
@@ -282,20 +289,6 @@ fn invalid_text_parse_result(
     diagnostics,
     txt_parser_capability(),
   )
-}
-
-///|
-fn count_long_text_lines(
-  parsed : @dtext.TextDocument,
-  max_line_chars : Int,
-) -> Int {
-  let mut count = 0
-  for line in parsed.lines {
-    if line.text.length() > max_line_chars {
-      count += 1
-    }
-  }
-  count
 }
 
 ///|

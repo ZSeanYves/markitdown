@@ -1,0 +1,15 @@
+import {
+  "moonbitlang/async",
+  "moonbitlang/x/sys",
+  "ZSeanYves/markitdown/bench/runner/command",
+  "ZSeanYves/markitdown/bench/runner/manifest",
+  "ZSeanYves/markitdown/bench/runner/process",
+  "ZSeanYves/markitdown/bench/runner/result",
+  "ZSeanYves/markitdown/bench/runner/tools",
+}
+
+supported_targets = "native"
+
+options(
+  "is-main": true,
+)

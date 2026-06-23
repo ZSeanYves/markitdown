@@ -8,21 +8,47 @@ pub fn collect_html_semantic_document(
 ) -> HtmlSemanticDocument {
   let ctx = HtmlSemanticCollectCtx::{
     blocks: [],
+    block_by_source_key: Map([]),
+    first_block_source_key_by_tag_name: Map([]),
+    child_block_source_keys_by_parent_source_key: Map([]),
+    descendant_block_source_keys_by_ancestor_source_key: Map([]),
+    descendant_table_row_block_source_keys_by_table_source_key: Map([]),
+    direct_table_cell_block_source_keys_by_row_source_key: Map([]),
+    parent_source_key_by_block_source_key: Map([]),
+    list_depth_by_block_source_key: Map([]),
+    quote_depth_by_block_source_key: Map([]),
+    nearest_list_source_key_by_block_source_key: Map([]),
+    nearest_list_item_source_key_by_block_source_key: Map([]),
+    nearest_quote_source_key_by_block_source_key: Map([]),
+    nearest_table_ancestor_source_key_by_block_source_key: Map([]),
     paragraphs: [],
     inlines: [],
+    inline_by_source_key: Map([]),
+    top_level_inline_keys_by_block_source_key: Map([]),
     links: [],
+    link_source_key_by_inline_source_key: Map([]),
+    link_source_keys_by_block_source_key: Map([]),
     images: [],
+    image_index_by_source_key: Map([]),
+    image_source_key_by_inline_source_key: Map([]),
+    image_source_keys_by_block_source_key: Map([]),
+    image_source_keys_by_parent_inline_source_key: Map([]),
     tables: [],
     table_sections: [],
     table_rows: [],
+    table_row_by_source_key: Map([]),
     table_cells: [],
+    table_cell_by_source_key: Map([]),
     lists: [],
+    list_source_key_by_block_source_key: Map([]),
     list_items: [],
+    list_item_source_key_by_block_source_key: Map([]),
     blockquotes: [],
     code_blocks: [],
     figures: [],
     note_refs: [],
     note_bodies: [],
+    note_body_by_id: Map([]),
     notes: [],
     scope: [],
     noise_candidates: [],
@@ -683,21 +709,56 @@ pub fn inspect_html_semantic_document(
 ///|
 priv struct HtmlSemanticCollectCtx {
   blocks : Array[HtmlBlockFact]
+  block_by_source_key : Map[String, HtmlBlockFact]
+  first_block_source_key_by_tag_name : Map[String, String]
+  child_block_source_keys_by_parent_source_key : Map[String, Array[String]]
+  descendant_block_source_keys_by_ancestor_source_key : Map[
+    String,
+    Array[String],
+  ]
+  descendant_table_row_block_source_keys_by_table_source_key : Map[
+    String,
+    Array[String],
+  ]
+  direct_table_cell_block_source_keys_by_row_source_key : Map[
+    String,
+    Array[String],
+  ]
+  parent_source_key_by_block_source_key : Map[String, String]
+  list_depth_by_block_source_key : Map[String, Int]
+  quote_depth_by_block_source_key : Map[String, Int]
+  nearest_list_source_key_by_block_source_key : Map[String, String]
+  nearest_list_item_source_key_by_block_source_key : Map[String, String]
+  nearest_quote_source_key_by_block_source_key : Map[String, String]
+  nearest_table_ancestor_source_key_by_block_source_key : Map[String, String]
   paragraphs : Array[HtmlParagraphFact]
   inlines : Array[HtmlInlineFact]
+  inline_by_source_key : Map[String, HtmlInlineFact]
+  top_level_inline_keys_by_block_source_key : Map[String, Array[String]]
   links : Array[HtmlLinkFact]
+  link_source_key_by_inline_source_key : Map[String, String]
+  link_source_keys_by_block_source_key : Map[String, Array[String]]
   images : Array[HtmlImageFact]
+  image_index_by_source_key : Map[String, Int]
+  image_source_key_by_inline_source_key : Map[String, String]
+  image_source_keys_by_block_source_key : Map[String, Array[String]]
+  image_source_keys_by_parent_inline_source_key : Map[String, Array[String]]
   tables : Array[HtmlTableFact]
   table_sections : Array[HtmlTableSectionFact]
   table_rows : Array[HtmlTableRowFact]
+  table_row_by_source_key : Map[String, HtmlTableRowFact]
   table_cells : Array[HtmlTableCellFact]
+  table_cell_by_source_key : Map[String, HtmlTableCellFact]
   lists : Array[HtmlListFact]
+  list_source_key_by_block_source_key : Map[String, String]
   list_items : Array[HtmlListItemFact]
+  list_item_source_key_by_block_source_key : Map[String, String]
   blockquotes : Array[HtmlBlockQuoteFact]
   code_blocks : Array[HtmlCodeBlockFact]
   figures : Array[HtmlFigureFact]
   note_refs : Array[HtmlNoteRefFact]
   note_bodies : Array[HtmlNoteBodyFact]
+  note_body_by_id : Map[String, HtmlNoteBodyFact]
   notes : Array[HtmlNoteFact]
   scope : Array[HtmlDocumentScopeFact]
   noise_candidates : Array[HtmlNoiseCandidateFact]
@@ -743,7 +804,7 @@ fn collect_html_semantic_element(
   parent_source_key : String?,
 ) -> String? {
   let kind = if element.tag_name == "code" &&
-    !html_semantic_parent_block_is_tag(ctx.blocks, parent_source_key, "pre") {
+    !html_semantic_parent_block_is_tag(ctx, parent_source_key, "pre") {
     None
   } else {
     html_semantic_block_kind(element.tag_name)
@@ -866,7 +927,7 @@ fn collect_html_semantic_element(
       )
 
       let children : Array[String] = []
-      ctx.blocks.push({
+      let block : HtmlBlockFact = {
         kind: block_kind,
         source_key,
         tag_name: element.tag_name,
@@ -878,7 +939,24 @@ fn collect_html_semantic_element(
         span: element.span,
         children,
         warnings: local_warnings,
-      })
+      }
+      ctx.blocks.push(block)
+      ctx.block_by_source_key.set(source_key, block)
+      if !ctx.first_block_source_key_by_tag_name.contains(element.tag_name) {
+        ctx.first_block_source_key_by_tag_name.set(element.tag_name, source_key)
+      }
+      html_semantic_index_block_ancestry(
+        ctx, source_key, block_kind, source_order, parent_source_key,
+      )
+      match parent_source_key {
+        Some(parent_key) =>
+          html_semantic_map_push_string(
+            ctx.child_block_source_keys_by_parent_source_key,
+            parent_key,
+            source_key,
+          )
+        None => ()
+      }
       ignore(
         collect_html_semantic_inlines_from_children(
           element.children,
@@ -1024,7 +1102,7 @@ fn collect_html_semantic_text_inline(
     [],
     text.span,
   )
-  ctx.inlines.push({
+  let inline : HtmlInlineFact = {
     kind: HtmlInlineKind::Text,
     source_key,
     tag_name: "",
@@ -1048,7 +1126,18 @@ fn collect_html_semantic_text_inline(
     span: text.span,
     children: [],
     warnings,
-  })
+  }
+  ctx.inlines.push(inline)
+  ctx.inline_by_source_key.set(source_key, inline)
+  match (parent_block_source_key, parent_inline_source_key) {
+    (Some(block_key), None) =>
+      html_semantic_map_push_string(
+        ctx.top_level_inline_keys_by_block_source_key,
+        block_key,
+        source_key,
+      )
+    _ => ()
+  }
   Some(source_key)
 }
 
@@ -1146,7 +1235,7 @@ fn collect_html_semantic_inline_element(
       )
 
       let children : Array[String] = []
-      ctx.inlines.push({
+      let inline : HtmlInlineFact = {
         kind,
         source_key,
         tag_name: element.tag_name,
@@ -1174,7 +1263,18 @@ fn collect_html_semantic_inline_element(
         span: element.span,
         children,
         warnings: local_warnings,
-      })
+      }
+      ctx.inlines.push(inline)
+      ctx.inline_by_source_key.set(source_key, inline)
+      match (parent_block_source_key, parent_inline_source_key) {
+        (Some(block_key), None) =>
+          html_semantic_map_push_string(
+            ctx.top_level_inline_keys_by_block_source_key,
+            block_key,
+            source_key,
+          )
+        _ => ()
+      }
       let child_keys = collect_html_semantic_inlines_from_children(
         element.children,
         ctx,
@@ -1242,14 +1342,9 @@ fn collect_html_semantic_link_fact(
   let is_note_ref = html_semantic_anchor_is_note_ref(element)
   let is_back_reference = html_semantic_anchor_is_backref(element)
   let image_source_keys = html_semantic_image_keys_for_parent_inline(
-    ctx.images,
-    inline_source_key,
+    ctx, inline_source_key,
   )
-  set_html_semantic_parent_link_source_key(
-    ctx.images,
-    inline_source_key,
-    source_key,
-  )
+  set_html_semantic_parent_link_source_key(ctx, inline_source_key, source_key)
   let warnings : Array[HtmlSemanticWarning] = []
   for warning in inline_warnings {
     warnings.push(warning)
@@ -1303,7 +1398,7 @@ fn collect_html_semantic_link_fact(
     }
     None => ()
   }
-  ctx.links.push({
+  let link : HtmlLinkFact = {
     source_key,
     inline_source_key,
     parent_block_source_key,
@@ -1321,7 +1416,18 @@ fn collect_html_semantic_link_fact(
     kind,
     span: element.span,
     warnings,
-  })
+  }
+  ctx.links.push(link)
+  ctx.link_source_key_by_inline_source_key.set(inline_source_key, source_key)
+  match parent_block_source_key {
+    Some(block_key) =>
+      html_semantic_map_push_string(
+        ctx.link_source_keys_by_block_source_key,
+        block_key,
+        source_key,
+      )
+    None => ()
+  }
   if is_note_ref || is_back_reference {
     collect_html_semantic_note_ref_fact(
       element, ctx, source_key, inline_source_key, parent_block_source_key, href,
@@ -1348,8 +1454,7 @@ fn collect_html_semantic_image_fact(
     .to_owned()
   let kind = classify_html_semantic_image_kind(src)
   let parent_link_source_key = html_semantic_link_key_for_inline(
-    ctx.links,
-    parent_inline_source_key,
+    ctx, parent_inline_source_key,
   )
   let warnings : Array[HtmlSemanticWarning] = []
   for warning in inline_warnings {
@@ -1422,7 +1527,7 @@ fn collect_html_semantic_image_fact(
     }
     None => ()
   }
-  ctx.images.push({
+  let image : HtmlImageFact = {
     source_key,
     inline_source_key,
     parent_block_source_key,
@@ -1448,7 +1553,28 @@ fn collect_html_semantic_image_fact(
     kind,
     span: element.span,
     warnings,
-  })
+  }
+  ctx.images.push(image)
+  ctx.image_index_by_source_key.set(source_key, ctx.images.length() - 1)
+  ctx.image_source_key_by_inline_source_key.set(inline_source_key, source_key)
+  match parent_block_source_key {
+    Some(block_key) =>
+      html_semantic_map_push_string(
+        ctx.image_source_keys_by_block_source_key,
+        block_key,
+        source_key,
+      )
+    None => ()
+  }
+  match parent_inline_source_key {
+    Some(parent_inline_key) =>
+      html_semantic_map_push_string(
+        ctx.image_source_keys_by_parent_inline_source_key,
+        parent_inline_key,
+        source_key,
+      )
+    None => ()
+  }
 }
 
 ///|
@@ -1516,12 +1642,10 @@ fn collect_html_semantic_paragraph_fact(
   block_warnings : Array[HtmlSemanticWarning],
 ) -> Unit {
   let inline_child_keys = html_semantic_inline_keys_for_block(
-    ctx.inlines,
-    block_source_key,
+    ctx, block_source_key,
   )
   let inline_summary = html_semantic_paragraph_inline_summary(
-    ctx.inlines,
-    inline_child_keys,
+    ctx, inline_child_keys,
   )
   let raw_text = html_semantic_raw_text_preview(element.children).0
   let normalized_text = normalize_html_semantic_preview(raw_text)
@@ -1578,7 +1702,7 @@ priv struct HtmlSemanticParagraphInlineSummary {
 
 ///|
 fn html_semantic_paragraph_inline_summary(
-  inlines : Array[HtmlInlineFact],
+  ctx : HtmlSemanticCollectCtx,
   inline_child_keys : Array[String],
 ) -> HtmlSemanticParagraphInlineSummary {
   let mut has_links = false
@@ -1590,7 +1714,7 @@ fn html_semantic_paragraph_inline_summary(
   let mut has_repeated_whitespace = false
   let mut has_newline = false
   for key in inline_child_keys {
-    match html_semantic_inline_for_key(inlines, key) {
+    match html_semantic_inline_for_key(ctx, key) {
       Some(inline) => {
         match inline.kind {
           HtmlInlineKind::Link => has_links = true
@@ -1624,19 +1748,6 @@ fn html_semantic_paragraph_inline_summary(
 }
 
 ///|
-fn html_semantic_inline_for_key(
-  inlines : Array[HtmlInlineFact],
-  source_key : String,
-) -> HtmlInlineFact? {
-  for inline in inlines {
-    if inline.source_key == source_key {
-      return Some(inline)
-    }
-  }
-  None
-}
-
-///|
 fn collect_html_semantic_list_fact(
   element : HtmlElement,
   ctx : HtmlSemanticCollectCtx,
@@ -1653,7 +1764,7 @@ fn collect_html_semantic_list_fact(
   let source_key = html_semantic_list_source_key(source_order)
   let item_keys : Array[String] = []
   for child_key in child_block_source_keys {
-    if html_semantic_block_kind_for_key(ctx.blocks, child_key) ==
+    if html_semantic_block_kind_for_key(ctx, child_key) ==
       Some(HtmlBlockKind::ListItem) {
       item_keys.push(child_key)
     }
@@ -1674,15 +1785,12 @@ fn collect_html_semantic_list_fact(
     tag_name: element.tag_name,
     source_order,
     depth: clamp_html_semantic_depth(depth),
-    list_depth: html_semantic_list_depth(ctx.blocks, block_source_key),
+    list_depth: html_semantic_list_depth(ctx, block_source_key),
     parent_list_source_key: html_semantic_parent_list_key(
-      ctx.blocks,
-      parent_block_source_key,
+      ctx, parent_block_source_key,
     ),
     parent_item_source_key: html_semantic_parent_item_key(
-      ctx.blocks,
-      ctx.list_items,
-      parent_block_source_key,
+      ctx, parent_block_source_key,
     ),
     item_source_keys: item_keys,
     item_count: item_keys.length(),
@@ -1694,6 +1802,7 @@ fn collect_html_semantic_list_fact(
     span: element.span,
     warnings,
   })
+  ctx.list_source_key_by_block_source_key.set(block_source_key, source_key)
 }
 
 ///|
@@ -1712,7 +1821,7 @@ fn collect_html_semantic_list_item_fact(
   let source_key = html_semantic_list_item_source_key(source_order)
   let child_list_source_keys : Array[String] = []
   for child_key in child_block_source_keys {
-    match html_semantic_block_for_key(ctx.blocks, child_key) {
+    match html_semantic_block_for_key(ctx, child_key) {
       Some(block) =>
         match block.kind {
           HtmlBlockKind::List(_) =>
@@ -1729,21 +1838,18 @@ fn collect_html_semantic_list_item_fact(
     warnings.push(warning)
   }
   let parent_list_source_key = html_semantic_parent_list_key(
-    ctx.blocks,
-    parent_block_source_key,
+    ctx, parent_block_source_key,
   )
   ctx.list_items.push({
     source_key,
     block_source_key,
     list_source_key: parent_list_source_key,
     parent_item_source_key: html_semantic_parent_item_key(
-      ctx.blocks,
-      ctx.list_items,
-      parent_block_source_key,
+      ctx, parent_block_source_key,
     ),
     source_order,
     depth: clamp_html_semantic_depth(depth),
-    list_depth: html_semantic_list_depth(ctx.blocks, block_source_key),
+    list_depth: html_semantic_list_depth(ctx, block_source_key),
     item_order: html_semantic_item_order_in_list(
       ctx.list_items,
       parent_list_source_key,
@@ -1754,6 +1860,7 @@ fn collect_html_semantic_list_item_fact(
     span: element.span,
     warnings,
   })
+  ctx.list_item_source_key_by_block_source_key.set(block_source_key, source_key)
 }
 
 ///|
@@ -1779,10 +1886,9 @@ fn collect_html_semantic_blockquote_fact(
     block_source_key,
     source_order,
     depth: clamp_html_semantic_depth(depth),
-    quote_depth: html_semantic_quote_depth(ctx.blocks, block_source_key),
+    quote_depth: html_semantic_quote_depth(ctx, block_source_key),
     parent_quote_source_key: html_semantic_parent_quote_key(
-      ctx.blocks,
-      parent_block_source_key,
+      ctx, parent_block_source_key,
     ),
     child_block_source_keys,
     cite: html_semantic_optional_bounded_attr(element.attributes, "cite"),
@@ -1832,11 +1938,7 @@ fn collect_html_semantic_code_block_fact(
     None => None
   }
   let code_child_key = if element.tag_name == "pre" {
-    find_html_semantic_child_block_key_by_tag(
-      ctx.blocks,
-      block_source_key,
-      "code",
-    )
+    find_html_semantic_child_block_key_by_tag(ctx, block_source_key, "code")
   } else {
     None
   }
@@ -1879,12 +1981,10 @@ fn collect_html_semantic_figure_fact(
     warnings.push(warning)
   }
   let caption_block_source_key = find_html_semantic_child_block_key_by_tag(
-    ctx.blocks,
-    block_source_key,
-    "figcaption",
+    ctx, block_source_key, "figcaption",
   )
   let caption_text_preview = match caption_block_source_key {
-    Some(key) => html_semantic_block_text_preview_for_key(ctx.blocks, key)
+    Some(key) => html_semantic_block_text_preview_for_key(ctx, key)
     None => None
   }
   ctx.figures.push({
@@ -1895,17 +1995,10 @@ fn collect_html_semantic_figure_fact(
     child_block_source_keys,
     caption_block_source_key,
     caption_text_preview,
-    image_source_keys: html_semantic_image_keys_for_block(
-      ctx.images,
-      block_source_key,
-    ),
-    link_source_keys: html_semantic_link_keys_for_block(
-      ctx.links,
-      block_source_key,
-    ),
+    image_source_keys: html_semantic_image_keys_for_block(ctx, block_source_key),
+    link_source_keys: html_semantic_link_keys_for_block(ctx, block_source_key),
     inline_child_keys: html_semantic_inline_keys_for_block(
-      ctx.inlines,
-      block_source_key,
+      ctx, block_source_key,
     ),
     text_preview,
     attributes,
@@ -1932,7 +2025,7 @@ fn collect_html_semantic_note_body_fact(
   }
   let note_id = html_semantic_note_body_id(element)
   let duplicate_target = match note_id {
-    Some(id) => html_semantic_note_body_id_seen(ctx.note_bodies, id)
+    Some(id) => html_semantic_note_body_id_seen(ctx, id)
     None => false
   }
   ctx.next_note_body_order += 1
@@ -1960,8 +2053,7 @@ fn collect_html_semantic_note_body_fact(
     marker: html_semantic_note_marker(element.children),
     body_text_preview: text_preview,
     inline_child_keys: html_semantic_inline_keys_for_block(
-      ctx.inlines,
-      block_source_key,
+      ctx, block_source_key,
     ),
     owning_block_source_key: parent_block_source_key,
     ref_source_keys: [],
@@ -1969,6 +2061,16 @@ fn collect_html_semantic_note_body_fact(
     span: element.span,
     warnings,
   })
+  match note_id {
+    Some(id) =>
+      if !duplicate_target {
+        ctx.note_body_by_id.set(
+          id,
+          ctx.note_bodies[ctx.note_bodies.length() - 1],
+        )
+      }
+    None => ()
+  }
 }
 
 ///|
@@ -2058,7 +2160,7 @@ fn collect_html_semantic_note_relations(ctx : HtmlSemanticCollectCtx) -> Unit {
     }
     match note_ref.target_id {
       Some(target_id) =>
-        match html_semantic_note_body_for_id(ctx.note_bodies, target_id) {
+        match html_semantic_note_body_for_id(ctx, target_id) {
           Some(body) => {
             ctx.next_note_order += 1
             let warnings : Array[HtmlSemanticWarning] = []
@@ -2276,49 +2378,27 @@ fn collect_html_semantic_table_fact(
   }
   push_html_semantic_warnings(ctx, table_warnings)
 
-  let max_column_count = html_semantic_table_max_column_count(
-    ctx.table_rows,
-    rows,
-  )
+  let max_column_count = html_semantic_table_max_column_count(ctx, rows)
   let has_ragged_rows = html_semantic_table_has_ragged_rows(
-    ctx.table_rows,
-    rows,
-    max_column_count,
+    ctx, rows, max_column_count,
   )
-  let has_span = html_semantic_table_has_span(ctx.table_cells, cells)
+  let has_span = html_semantic_table_has_span(ctx, cells)
   let has_caption = caption_source_key is Some(_)
   let has_nested_table = html_semantic_table_has_nested_table(
-    ctx.blocks,
-    block_source_key,
+    ctx, block_source_key,
   )
-  let has_complex_cell = html_semantic_table_has_complex_cell(
-    ctx.table_cells,
-    cells,
-  )
-  let span_cell_count = html_semantic_table_span_cell_count(
-    ctx.table_cells,
-    cells,
-  )
+  let has_complex_cell = html_semantic_table_has_complex_cell(ctx, cells)
+  let span_cell_count = html_semantic_table_span_cell_count(ctx, cells)
   let ragged_row_count = html_semantic_table_ragged_row_count(
-    ctx.table_rows,
-    rows,
-    max_column_count,
+    ctx, rows, max_column_count,
   )
   let nested_table_cell_count = html_semantic_table_nested_cell_count(
-    ctx.table_cells,
-    cells,
+    ctx, cells,
   )
-  let complex_cell_count = html_semantic_table_complex_cell_count(
-    ctx.table_cells,
-    cells,
-  )
-  let image_cell_count = html_semantic_table_image_cell_count(
-    ctx.table_cells,
-    cells,
-  )
+  let complex_cell_count = html_semantic_table_complex_cell_count(ctx, cells)
+  let image_cell_count = html_semantic_table_image_cell_count(ctx, cells)
   let block_child_cell_count = html_semantic_table_block_child_cell_count(
-    ctx.table_cells,
-    cells,
+    ctx, cells,
   )
   let malformed_warning_count = html_semantic_warning_kind_count(
     table_warnings,
@@ -2549,10 +2629,7 @@ fn collect_html_semantic_table_row_fact(
   let source_order = ctx.next_table_row_order
   let source_key = "html:table-row:" + source_order.to_string()
   let row_block_source_key = html_semantic_descendant_block_key_by_tag_index(
-    ctx.blocks,
-    table_block_source_key,
-    "tr",
-    row_index,
+    ctx, table_block_source_key, "tr", row_index,
   ).unwrap_or(table_block_source_key)
   let local_warnings : Array[HtmlSemanticWarning] = []
   let (attrs, attr_warnings) = html_semantic_attribute_summary(
@@ -2623,7 +2700,7 @@ fn collect_html_semantic_table_row_fact(
   push_html_semantic_warnings(ctx, local_warnings)
 
   table_rows.push(source_key)
-  ctx.table_rows.push({
+  let row : HtmlTableRowFact = {
     source_key,
     table_source_key,
     section_source_key,
@@ -2637,7 +2714,9 @@ fn collect_html_semantic_table_row_fact(
     attributes: attrs,
     span: element.span,
     warnings: local_warnings,
-  })
+  }
+  ctx.table_rows.push(row)
+  ctx.table_row_by_source_key.set(source_key, row)
   Some(source_key)
 }
 
@@ -2658,9 +2737,7 @@ fn collect_html_semantic_table_cell_fact(
   let source_order = ctx.next_table_cell_order
   let source_key = "html:table-cell:" + source_order.to_string()
   let cell_block_source_key = html_semantic_table_cell_block_key_by_index(
-    ctx.blocks,
-    block_source_key,
-    cell_index,
+    ctx, block_source_key, cell_index,
   ).unwrap_or(block_source_key)
   let local_warnings : Array[HtmlSemanticWarning] = []
   let (attrs, attr_warnings) = html_semantic_attribute_summary(
@@ -2685,12 +2762,10 @@ fn collect_html_semantic_table_cell_fact(
   push_html_semantic_warnings(ctx, local_warnings)
 
   let inline_child_keys = html_semantic_inline_keys_for_block(
-    ctx.inlines,
-    cell_block_source_key,
+    ctx, cell_block_source_key,
   )
   let direct_child_block_keys = html_semantic_direct_child_block_keys(
-    ctx.blocks,
-    cell_block_source_key,
+    ctx, cell_block_source_key,
   )
   let colspan = html_semantic_optional_bounded_attr(
     element.attributes,
@@ -2703,29 +2778,24 @@ fn collect_html_semantic_table_cell_fact(
   let colspan_value = parse_html_semantic_positive_int_attr(colspan)
   let rowspan_value = parse_html_semantic_positive_int_attr(rowspan)
   let has_nested_table = html_semantic_block_descendants_contain_kind(
-    ctx.blocks,
+    ctx,
     cell_block_source_key,
     HtmlBlockKind::Table,
   )
-  let has_image = html_semantic_block_has_image(
-    ctx.images,
-    cell_block_source_key,
-  )
+  let has_image = html_semantic_block_has_image(ctx, cell_block_source_key)
   let has_list = html_semantic_block_descendants_contain_list(
-    ctx.blocks,
-    cell_block_source_key,
+    ctx, cell_block_source_key,
   )
   let has_blockquote = html_semantic_block_descendants_contain_kind(
-    ctx.blocks,
+    ctx,
     cell_block_source_key,
     HtmlBlockKind::BlockQuote,
   )
   let has_pre = html_semantic_block_descendants_contain_pre(
-    ctx.blocks,
-    cell_block_source_key,
+    ctx, cell_block_source_key,
   )
   let has_figure = html_semantic_block_descendants_contain_kind(
-    ctx.blocks,
+    ctx,
     cell_block_source_key,
     HtmlBlockKind::Figure,
   )
@@ -2746,7 +2816,7 @@ fn collect_html_semantic_table_cell_fact(
     !has_complex_block &&
     !has_image &&
     !has_unsupported_warning
-  ctx.table_cells.push({
+  let cell : HtmlTableCellFact = {
     source_key,
     table_source_key,
     section_source_key,
@@ -2780,7 +2850,9 @@ fn collect_html_semantic_table_cell_fact(
     attributes: attrs,
     span: element.span,
     warnings: local_warnings,
-  })
+  }
+  ctx.table_cells.push(cell)
+  ctx.table_cell_by_source_key.set(source_key, cell)
   Some(source_key)
 }
 
@@ -2976,171 +3048,132 @@ fn html_semantic_caption_source_key(
 
 ///|
 fn html_semantic_inline_keys_for_block(
-  inlines : Array[HtmlInlineFact],
+  ctx : HtmlSemanticCollectCtx,
   block_source_key : String,
 ) -> Array[String] {
-  let out : Array[String] = []
-  for inline in inlines {
-    if inline.parent_block_source_key.unwrap_or("") == block_source_key &&
-      inline.parent_inline_source_key is None {
-      out.push(inline.source_key)
-    }
+  match ctx.top_level_inline_keys_by_block_source_key.get(block_source_key) {
+    Some(keys) => keys
+    None => []
   }
-  out
 }
 
 ///|
 fn html_semantic_link_keys_for_block(
-  links : Array[HtmlLinkFact],
+  ctx : HtmlSemanticCollectCtx,
   block_source_key : String,
 ) -> Array[String] {
-  let out : Array[String] = []
-  for link in links {
-    if link.parent_block_source_key.unwrap_or("") == block_source_key {
-      out.push(link.source_key)
-    }
+  match ctx.link_source_keys_by_block_source_key.get(block_source_key) {
+    Some(keys) => keys
+    None => []
   }
-  out
 }
 
 ///|
 fn html_semantic_image_keys_for_block(
-  images : Array[HtmlImageFact],
+  ctx : HtmlSemanticCollectCtx,
   block_source_key : String,
 ) -> Array[String] {
-  let out : Array[String] = []
-  for image in images {
-    if image.parent_block_source_key.unwrap_or("") == block_source_key {
-      out.push(image.source_key)
-    }
+  match ctx.image_source_keys_by_block_source_key.get(block_source_key) {
+    Some(keys) => keys
+    None => []
   }
-  out
 }
 
 ///|
 fn html_semantic_image_keys_for_parent_inline(
-  images : Array[HtmlImageFact],
+  ctx : HtmlSemanticCollectCtx,
   parent_inline_source_key : String,
 ) -> Array[String] {
-  let out : Array[String] = []
-  for image in images {
-    if image.parent_inline_source_key == Some(parent_inline_source_key) {
-      out.push(image.source_key)
-    }
+  match
+    ctx.image_source_keys_by_parent_inline_source_key.get(
+      parent_inline_source_key,
+    ) {
+    Some(keys) => keys
+    None => []
   }
-  out
 }
 
 ///|
 fn html_semantic_link_key_for_inline(
-  links : Array[HtmlLinkFact],
+  ctx : HtmlSemanticCollectCtx,
   inline_source_key : String?,
 ) -> String? {
   match inline_source_key {
-    Some(key) => {
-      for link in links {
-        if link.inline_source_key == key {
-          return Some(link.source_key)
-        }
-      }
-      None
-    }
+    Some(key) => ctx.link_source_key_by_inline_source_key.get(key)
     None => None
   }
 }
 
 ///|
 fn set_html_semantic_parent_link_source_key(
-  images : Array[HtmlImageFact],
+  ctx : HtmlSemanticCollectCtx,
   parent_inline_source_key : String,
   link_source_key : String,
 ) -> Unit {
-  for i in 0..<images.length() {
-    let image = images[i]
-    if image.parent_inline_source_key == Some(parent_inline_source_key) &&
-      image.parent_link_source_key is None {
-      images[i] = {
-        source_key: image.source_key,
-        inline_source_key: image.inline_source_key,
-        parent_block_source_key: image.parent_block_source_key,
-        parent_inline_source_key: image.parent_inline_source_key,
-        parent_link_source_key: Some(link_source_key),
-        src: image.src,
-        srcset: image.srcset,
-        alt: image.alt,
-        title: image.title,
-        width: image.width,
-        height: image.height,
-        loading: image.loading,
-        decoding: image.decoding,
-        picture_source_keys: image.picture_source_keys,
-        alt_complete: image.alt_complete,
-        title_complete: image.title_complete,
-        kind: image.kind,
-        span: image.span,
-        warnings: image.warnings,
+  for
+    image_source_key in html_semantic_image_keys_for_parent_inline(
+      ctx, parent_inline_source_key,
+    ) {
+    match ctx.image_index_by_source_key.get(image_source_key) {
+      Some(index) => {
+        let image = ctx.images[index]
+        if image.parent_link_source_key is None {
+          ctx.images[index] = {
+            source_key: image.source_key,
+            inline_source_key: image.inline_source_key,
+            parent_block_source_key: image.parent_block_source_key,
+            parent_inline_source_key: image.parent_inline_source_key,
+            parent_link_source_key: Some(link_source_key),
+            src: image.src,
+            srcset: image.srcset,
+            alt: image.alt,
+            title: image.title,
+            width: image.width,
+            height: image.height,
+            loading: image.loading,
+            decoding: image.decoding,
+            picture_source_keys: image.picture_source_keys,
+            alt_complete: image.alt_complete,
+            title_complete: image.title_complete,
+            kind: image.kind,
+            span: image.span,
+            warnings: image.warnings,
+          }
+        }
       }
+      None => ()
     }
   }
 }
 
 ///|
 fn html_semantic_block_kind_for_key(
-  blocks : Array[HtmlBlockFact],
+  ctx : HtmlSemanticCollectCtx,
   block_source_key : String,
 ) -> HtmlBlockKind? {
-  for block in blocks {
-    if block.source_key == block_source_key {
-      return Some(block.kind)
-    }
-  }
-  None
+  ctx.block_by_source_key.get(block_source_key).map(fn(block) { block.kind })
 }
 
 ///|
 fn html_semantic_parent_list_key(
-  blocks : Array[HtmlBlockFact],
+  ctx : HtmlSemanticCollectCtx,
   parent_block_source_key : String?,
 ) -> String? {
-  let mut current = parent_block_source_key
-  while current is Some(key) {
-    match html_semantic_block_for_key(blocks, key) {
-      Some(block) =>
-        match block.kind {
-          HtmlBlockKind::List(_) =>
-            return Some(html_semantic_list_source_key(block.source_order))
-          _ => current = block.parent_source_key
-        }
-      None => current = None
-    }
+  match parent_block_source_key {
+    Some(key) => ctx.nearest_list_source_key_by_block_source_key.get(key)
+    None => None
   }
-  None
 }
 
 ///|
 fn html_semantic_parent_item_key(
-  blocks : Array[HtmlBlockFact],
-  items : Array[HtmlListItemFact],
+  ctx : HtmlSemanticCollectCtx,
   parent_block_source_key : String?,
 ) -> String? {
-  let mut current = parent_block_source_key
-  while current is Some(parent_key) {
-    match html_semantic_block_for_key(blocks, parent_key) {
-      Some(block) => {
-        for item in items {
-          if item.block_source_key == parent_key {
-            return Some(item.source_key)
-          }
-        }
-        if block.kind == HtmlBlockKind::ListItem {
-          return Some(html_semantic_list_item_source_key(block.source_order))
-        }
-        current = block.parent_source_key
-      }
-      None => current = None
-    }
+  match parent_block_source_key {
+    Some(key) => ctx.nearest_list_item_source_key_by_block_source_key.get(key)
+    None => None
   }
-  None
 }
 
 ///|
@@ -3159,78 +3192,54 @@ fn html_semantic_item_order_in_list(
 
 ///|
 fn html_semantic_list_depth(
-  blocks : Array[HtmlBlockFact],
+  ctx : HtmlSemanticCollectCtx,
   block_source_key : String,
 ) -> Int {
-  let mut depth = 0
-  let mut current = Some(block_source_key)
-  while current is Some(key) {
-    match html_semantic_block_for_key(blocks, key) {
-      Some(block) => {
-        match block.kind {
-          HtmlBlockKind::List(_) => depth += 1
-          HtmlBlockKind::ListItem => ()
-          _ => ()
-        }
-        current = block.parent_source_key
-      }
-      None => current = None
-    }
+  match ctx.list_depth_by_block_source_key.get(block_source_key) {
+    Some(depth) => depth
+    None => 0
   }
-  depth
 }
 
 ///|
 fn html_semantic_quote_depth(
-  blocks : Array[HtmlBlockFact],
+  ctx : HtmlSemanticCollectCtx,
   block_source_key : String,
 ) -> Int {
-  let mut depth = 0
-  let mut current = Some(block_source_key)
-  while current is Some(key) {
-    match html_semantic_block_for_key(blocks, key) {
-      Some(block) => {
-        if block.kind == HtmlBlockKind::BlockQuote {
-          depth += 1
-        }
-        current = block.parent_source_key
-      }
-      None => current = None
-    }
+  match ctx.quote_depth_by_block_source_key.get(block_source_key) {
+    Some(depth) => depth
+    None => 0
   }
-  depth
 }
 
 ///|
 fn html_semantic_parent_quote_key(
-  blocks : Array[HtmlBlockFact],
+  ctx : HtmlSemanticCollectCtx,
   parent_block_source_key : String?,
 ) -> String? {
   match parent_block_source_key {
     Some(parent_key) =>
-      match html_semantic_block_for_key(blocks, parent_key) {
-        Some(block) =>
-          if block.kind == HtmlBlockKind::BlockQuote {
-            Some(html_semantic_blockquote_source_key(block.source_order))
-          } else {
-            None
-          }
-        None => None
-      }
+      ctx.nearest_quote_source_key_by_block_source_key.get(parent_key)
     None => None
   }
 }
 
 ///|
 fn find_html_semantic_child_block_key_by_tag(
-  blocks : Array[HtmlBlockFact],
+  ctx : HtmlSemanticCollectCtx,
   parent_block_source_key : String,
   tag_name : String,
 ) -> String? {
-  for block in blocks {
-    if block.parent_source_key.unwrap_or("") == parent_block_source_key &&
-      block.tag_name == tag_name {
-      return Some(block.source_key)
+  for
+    child_key in html_semantic_direct_child_block_keys(
+      ctx, parent_block_source_key,
+    ) {
+    match html_semantic_block_for_key(ctx, child_key) {
+      Some(block) =>
+        if block.tag_name == tag_name {
+          return Some(block.source_key)
+        }
+      None => ()
     }
   }
   None
@@ -3238,10 +3247,10 @@ fn find_html_semantic_child_block_key_by_tag(
 
 ///|
 fn html_semantic_block_text_preview_for_key(
-  blocks : Array[HtmlBlockFact],
+  ctx : HtmlSemanticCollectCtx,
   block_source_key : String,
 ) -> String? {
-  match html_semantic_block_for_key(blocks, block_source_key) {
+  match html_semantic_block_for_key(ctx, block_source_key) {
     Some(block) => Some(block.text_preview)
     None => None
   }
@@ -3249,97 +3258,91 @@ fn html_semantic_block_text_preview_for_key(
 
 ///|
 fn html_semantic_block_for_key(
-  blocks : Array[HtmlBlockFact],
+  ctx : HtmlSemanticCollectCtx,
   block_source_key : String,
 ) -> HtmlBlockFact? {
-  for block in blocks {
-    if block.source_key == block_source_key {
-      return Some(block)
-    }
+  ctx.block_by_source_key.get(block_source_key)
+}
+
+///|
+fn html_semantic_descendant_block_keys(
+  ctx : HtmlSemanticCollectCtx,
+  ancestor_block_source_key : String,
+) -> Array[String] {
+  match
+    ctx.descendant_block_source_keys_by_ancestor_source_key.get(
+      ancestor_block_source_key,
+    ) {
+    Some(keys) => keys
+    None => []
   }
-  None
 }
 
 ///|
 fn html_semantic_descendant_block_key_by_tag_index(
-  blocks : Array[HtmlBlockFact],
+  ctx : HtmlSemanticCollectCtx,
   ancestor_block_source_key : String,
   tag_name : String,
   descendant_index : Int,
 ) -> String? {
-  let mut seen = 0
-  for block in blocks {
-    if block.source_key != ancestor_block_source_key &&
-      block.tag_name == tag_name {
-      if html_semantic_nearest_table_ancestor_key(blocks, block.source_key) ==
-        Some(ancestor_block_source_key) {
-        if seen == descendant_index {
-          return Some(block.source_key)
-        }
-        seen += 1
+  let keys = if tag_name == "tr" {
+    match
+      ctx.descendant_table_row_block_source_keys_by_table_source_key.get(
+        ancestor_block_source_key,
+      ) {
+      Some(values) => values
+      None => []
+    }
+  } else {
+    let matched : Array[String] = []
+    for
+      key in html_semantic_descendant_block_keys(ctx, ancestor_block_source_key) {
+      match html_semantic_block_for_key(ctx, key) {
+        Some(block) => if block.tag_name == tag_name { matched.push(key) }
+        None => ()
       }
     }
+    matched
   }
-  None
-}
-
-///|
-fn html_semantic_nearest_table_ancestor_key(
-  blocks : Array[HtmlBlockFact],
-  source_key : String,
-) -> String? {
-  let mut current = html_semantic_parent_source_key_for_block(
-    blocks, source_key,
-  )
-  while current is Some(key) {
-    match html_semantic_block_for_key(blocks, key) {
-      Some(block) =>
-        if block.kind == HtmlBlockKind::Table {
-          return Some(block.source_key)
-        } else {
-          current = block.parent_source_key
-        }
-      None => current = None
-    }
+  if descendant_index >= 0 && descendant_index < keys.length() {
+    Some(keys[descendant_index])
+  } else {
+    None
   }
-  None
 }
 
 ///|
 fn html_semantic_table_cell_block_key_by_index(
-  blocks : Array[HtmlBlockFact],
+  ctx : HtmlSemanticCollectCtx,
   row_block_source_key : String,
   cell_index : Int,
 ) -> String? {
-  let mut seen = 0
-  for block in blocks {
-    if block.parent_source_key.unwrap_or("") == row_block_source_key {
-      match block.kind {
-        HtmlBlockKind::TableCell(_) => {
-          if seen == cell_index {
-            return Some(block.source_key)
-          }
-          seen += 1
-        }
-        _ => ()
+  match
+    ctx.direct_table_cell_block_source_keys_by_row_source_key.get(
+      row_block_source_key,
+    ) {
+    Some(keys) =>
+      if cell_index >= 0 && cell_index < keys.length() {
+        Some(keys[cell_index])
+      } else {
+        None
       }
-    }
+    None => None
   }
-  None
 }
 
 ///|
 fn html_semantic_direct_child_block_keys(
-  blocks : Array[HtmlBlockFact],
+  ctx : HtmlSemanticCollectCtx,
   parent_block_source_key : String,
 ) -> Array[String] {
-  let out : Array[String] = []
-  for block in blocks {
-    if block.parent_source_key.unwrap_or("") == parent_block_source_key {
-      out.push(block.source_key)
-    }
+  match
+    ctx.child_block_source_keys_by_parent_source_key.get(
+      parent_block_source_key,
+    ) {
+    Some(keys) => keys
+    None => []
   }
-  out
 }
 
 ///|
@@ -3374,15 +3377,14 @@ fn parse_html_semantic_positive_int_attr(raw : String?) -> Int {
 
 ///|
 fn html_semantic_table_max_column_count(
-  rows : Array[HtmlTableRowFact],
+  ctx : HtmlSemanticCollectCtx,
   row_source_keys : Array[String],
 ) -> Int {
   let mut max_count = 0
   for key in row_source_keys {
-    for row in rows {
-      if row.source_key == key && row.cell_count > max_count {
-        max_count = row.cell_count
-      }
+    match ctx.table_row_by_source_key.get(key) {
+      Some(row) => if row.cell_count > max_count { max_count = row.cell_count }
+      None => ()
     }
   }
   max_count
@@ -3390,7 +3392,7 @@ fn html_semantic_table_max_column_count(
 
 ///|
 fn html_semantic_table_has_ragged_rows(
-  rows : Array[HtmlTableRowFact],
+  ctx : HtmlSemanticCollectCtx,
   row_source_keys : Array[String],
   max_column_count : Int,
 ) -> Bool {
@@ -3398,10 +3400,9 @@ fn html_semantic_table_has_ragged_rows(
     return false
   }
   for key in row_source_keys {
-    for row in rows {
-      if row.source_key == key && row.cell_count != max_column_count {
-        return true
-      }
+    match ctx.table_row_by_source_key.get(key) {
+      Some(row) => if row.cell_count != max_column_count { return true }
+      None => ()
     }
   }
   false
@@ -3409,15 +3410,16 @@ fn html_semantic_table_has_ragged_rows(
 
 ///|
 fn html_semantic_table_has_span(
-  cells : Array[HtmlTableCellFact],
+  ctx : HtmlSemanticCollectCtx,
   cell_source_keys : Array[String],
 ) -> Bool {
   for key in cell_source_keys {
-    for cell in cells {
-      if cell.source_key == key &&
-        (cell.colspan_value > 1 || cell.rowspan_value > 1) {
-        return true
-      }
+    match ctx.table_cell_by_source_key.get(key) {
+      Some(cell) =>
+        if cell.colspan_value > 1 || cell.rowspan_value > 1 {
+          return true
+        }
+      None => ()
     }
   }
   false
@@ -3425,14 +3427,13 @@ fn html_semantic_table_has_span(
 
 ///|
 fn html_semantic_table_has_complex_cell(
-  cells : Array[HtmlTableCellFact],
+  ctx : HtmlSemanticCollectCtx,
   cell_source_keys : Array[String],
 ) -> Bool {
   for key in cell_source_keys {
-    for cell in cells {
-      if cell.source_key == key && !cell.safe_simple_cell_candidate {
-        return true
-      }
+    match ctx.table_cell_by_source_key.get(key) {
+      Some(cell) => if !cell.safe_simple_cell_candidate { return true }
+      None => ()
     }
   }
   false
@@ -3440,35 +3441,29 @@ fn html_semantic_table_has_complex_cell(
 
 ///|
 fn html_semantic_table_has_nested_table(
-  blocks : Array[HtmlBlockFact],
+  ctx : HtmlSemanticCollectCtx,
   table_block_source_key : String,
 ) -> Bool {
-  for block in blocks {
-    if block.source_key != table_block_source_key &&
-      block.kind == HtmlBlockKind::Table &&
-      html_semantic_block_has_ancestor(
-        blocks,
-        block.source_key,
-        table_block_source_key,
-      ) {
-      return true
-    }
-  }
-  false
+  html_semantic_block_descendants_contain_kind(
+    ctx,
+    table_block_source_key,
+    HtmlBlockKind::Table,
+  )
 }
 
 ///|
 fn html_semantic_table_span_cell_count(
-  cells : Array[HtmlTableCellFact],
+  ctx : HtmlSemanticCollectCtx,
   cell_source_keys : Array[String],
 ) -> Int {
   let mut count = 0
   for key in cell_source_keys {
-    for cell in cells {
-      if cell.source_key == key &&
-        (cell.colspan_value > 1 || cell.rowspan_value > 1) {
-        count += 1
-      }
+    match ctx.table_cell_by_source_key.get(key) {
+      Some(cell) =>
+        if cell.colspan_value > 1 || cell.rowspan_value > 1 {
+          count += 1
+        }
+      None => ()
     }
   }
   count
@@ -3476,7 +3471,7 @@ fn html_semantic_table_span_cell_count(
 
 ///|
 fn html_semantic_table_ragged_row_count(
-  rows : Array[HtmlTableRowFact],
+  ctx : HtmlSemanticCollectCtx,
   row_source_keys : Array[String],
   max_column_count : Int,
 ) -> Int {
@@ -3485,10 +3480,9 @@ fn html_semantic_table_ragged_row_count(
   }
   let mut count = 0
   for key in row_source_keys {
-    for row in rows {
-      if row.source_key == key && row.cell_count != max_column_count {
-        count += 1
-      }
+    match ctx.table_row_by_source_key.get(key) {
+      Some(row) => if row.cell_count != max_column_count { count += 1 }
+      None => ()
     }
   }
   count
@@ -3496,15 +3490,14 @@ fn html_semantic_table_ragged_row_count(
 
 ///|
 fn html_semantic_table_nested_cell_count(
-  cells : Array[HtmlTableCellFact],
+  ctx : HtmlSemanticCollectCtx,
   cell_source_keys : Array[String],
 ) -> Int {
   let mut count = 0
   for key in cell_source_keys {
-    for cell in cells {
-      if cell.source_key == key && cell.has_nested_table {
-        count += 1
-      }
+    match ctx.table_cell_by_source_key.get(key) {
+      Some(cell) => if cell.has_nested_table { count += 1 }
+      None => ()
     }
   }
   count
@@ -3512,15 +3505,14 @@ fn html_semantic_table_nested_cell_count(
 
 ///|
 fn html_semantic_table_complex_cell_count(
-  cells : Array[HtmlTableCellFact],
+  ctx : HtmlSemanticCollectCtx,
   cell_source_keys : Array[String],
 ) -> Int {
   let mut count = 0
   for key in cell_source_keys {
-    for cell in cells {
-      if cell.source_key == key && !cell.safe_simple_cell_candidate {
-        count += 1
-      }
+    match ctx.table_cell_by_source_key.get(key) {
+      Some(cell) => if !cell.safe_simple_cell_candidate { count += 1 }
+      None => ()
     }
   }
   count
@@ -3528,15 +3520,14 @@ fn html_semantic_table_complex_cell_count(
 
 ///|
 fn html_semantic_table_image_cell_count(
-  cells : Array[HtmlTableCellFact],
+  ctx : HtmlSemanticCollectCtx,
   cell_source_keys : Array[String],
 ) -> Int {
   let mut count = 0
   for key in cell_source_keys {
-    for cell in cells {
-      if cell.source_key == key && cell.has_image {
-        count += 1
-      }
+    match ctx.table_cell_by_source_key.get(key) {
+      Some(cell) => if cell.has_image { count += 1 }
+      None => ()
     }
   }
   count
@@ -3544,15 +3535,14 @@ fn html_semantic_table_image_cell_count(
 
 ///|
 fn html_semantic_table_block_child_cell_count(
-  cells : Array[HtmlTableCellFact],
+  ctx : HtmlSemanticCollectCtx,
   cell_source_keys : Array[String],
 ) -> Int {
   let mut count = 0
   for key in cell_source_keys {
-    for cell in cells {
-      if cell.source_key == key && cell.direct_child_block_keys.length() > 0 {
-        count += 1
-      }
+    match ctx.table_cell_by_source_key.get(key) {
+      Some(cell) => if cell.direct_child_block_keys.length() > 0 { count += 1 }
+      None => ()
     }
   }
   count
@@ -3574,30 +3564,20 @@ fn html_semantic_warning_kind_count(
 
 ///|
 fn html_semantic_block_has_image(
-  images : Array[HtmlImageFact],
+  ctx : HtmlSemanticCollectCtx,
   block_source_key : String,
 ) -> Bool {
-  for image in images {
-    if image.parent_block_source_key == Some(block_source_key) {
-      return true
-    }
-  }
-  false
+  html_semantic_image_keys_for_block(ctx, block_source_key).length() > 0
 }
 
 ///|
 fn html_semantic_block_descendants_contain_kind(
-  blocks : Array[HtmlBlockFact],
+  ctx : HtmlSemanticCollectCtx,
   root_source_key : String,
   kind : HtmlBlockKind,
 ) -> Bool {
-  for block in blocks {
-    if block.kind == kind &&
-      html_semantic_block_has_ancestor(
-        blocks,
-        block.source_key,
-        root_source_key,
-      ) {
+  for key in html_semantic_descendant_block_keys(ctx, root_source_key) {
+    if html_semantic_block_kind_for_key(ctx, key) == Some(kind) {
       return true
     }
   }
@@ -3606,19 +3586,13 @@ fn html_semantic_block_descendants_contain_kind(
 
 ///|
 fn html_semantic_block_descendants_contain_list(
-  blocks : Array[HtmlBlockFact],
+  ctx : HtmlSemanticCollectCtx,
   root_source_key : String,
 ) -> Bool {
-  for block in blocks {
-    match block.kind {
-      HtmlBlockKind::List(_) | HtmlBlockKind::ListItem =>
-        if html_semantic_block_has_ancestor(
-            blocks,
-            block.source_key,
-            root_source_key,
-          ) {
-          return true
-        }
+  for key in html_semantic_descendant_block_keys(ctx, root_source_key) {
+    match html_semantic_block_kind_for_key(ctx, key) {
+      Some(HtmlBlockKind::List(_)) | Some(HtmlBlockKind::ListItem) =>
+        return true
       _ => ()
     }
   }
@@ -3627,54 +3601,16 @@ fn html_semantic_block_descendants_contain_list(
 
 ///|
 fn html_semantic_block_descendants_contain_pre(
-  blocks : Array[HtmlBlockFact],
+  ctx : HtmlSemanticCollectCtx,
   root_source_key : String,
 ) -> Bool {
-  for block in blocks {
-    match block.kind {
-      HtmlBlockKind::Pre | HtmlBlockKind::CodeBlock =>
-        if html_semantic_block_has_ancestor(
-            blocks,
-            block.source_key,
-            root_source_key,
-          ) {
-          return true
-        }
+  for key in html_semantic_descendant_block_keys(ctx, root_source_key) {
+    match html_semantic_block_kind_for_key(ctx, key) {
+      Some(HtmlBlockKind::Pre) | Some(HtmlBlockKind::CodeBlock) => return true
       _ => ()
     }
   }
   false
-}
-
-///|
-fn html_semantic_block_has_ancestor(
-  blocks : Array[HtmlBlockFact],
-  source_key : String,
-  ancestor_source_key : String,
-) -> Bool {
-  let mut current = html_semantic_parent_source_key_for_block(
-    blocks, source_key,
-  )
-  while current is Some(key) {
-    if key == ancestor_source_key {
-      return true
-    }
-    current = html_semantic_parent_source_key_for_block(blocks, key)
-  }
-  false
-}
-
-///|
-fn html_semantic_parent_source_key_for_block(
-  blocks : Array[HtmlBlockFact],
-  source_key : String,
-) -> String? {
-  for block in blocks {
-    if block.source_key == source_key {
-      return block.parent_source_key
-    }
-  }
-  None
 }
 
 ///|
@@ -3696,13 +3632,13 @@ fn html_semantic_warnings_have_unsupported(
 
 ///|
 fn html_semantic_parent_block_is_tag(
-  blocks : Array[HtmlBlockFact],
+  ctx : HtmlSemanticCollectCtx,
   parent_block_source_key : String?,
   tag_name : String,
 ) -> Bool {
   match parent_block_source_key {
     Some(key) =>
-      match html_semantic_block_for_key(blocks, key) {
+      match html_semantic_block_for_key(ctx, key) {
         Some(block) => block.tag_name == tag_name
         None => false
       }
@@ -3986,28 +3922,160 @@ fn html_semantic_note_body_id(element : HtmlElement) -> String? {
 
 ///|
 fn html_semantic_note_body_id_seen(
-  bodies : Array[HtmlNoteBodyFact],
+  ctx : HtmlSemanticCollectCtx,
   note_id : String,
 ) -> Bool {
-  for body in bodies {
-    if body.note_id == Some(note_id) {
-      return true
-    }
-  }
-  false
+  ctx.note_body_by_id.contains(note_id)
 }
 
 ///|
 fn html_semantic_note_body_for_id(
-  bodies : Array[HtmlNoteBodyFact],
+  ctx : HtmlSemanticCollectCtx,
   note_id : String,
 ) -> HtmlNoteBodyFact? {
-  for body in bodies {
-    if body.note_id == Some(note_id) {
-      return Some(body)
+  ctx.note_body_by_id.get(note_id)
+}
+
+///|
+fn html_semantic_index_block_ancestry(
+  ctx : HtmlSemanticCollectCtx,
+  source_key : String,
+  block_kind : HtmlBlockKind,
+  source_order : Int,
+  parent_source_key : String?,
+) -> Unit {
+  let mut list_depth = 0
+  let mut quote_depth = 0
+  let mut nearest_list_source_key : String? = None
+  let mut nearest_list_item_source_key : String? = None
+  let mut nearest_quote_source_key : String? = None
+  let mut nearest_table_ancestor_source_key : String? = None
+
+  match parent_source_key {
+    Some(parent_key) => {
+      ctx.parent_source_key_by_block_source_key.set(source_key, parent_key)
+      match ctx.list_depth_by_block_source_key.get(parent_key) {
+        Some(depth) => list_depth = depth
+        None => ()
+      }
+      match ctx.quote_depth_by_block_source_key.get(parent_key) {
+        Some(depth) => quote_depth = depth
+        None => ()
+      }
+      nearest_list_source_key = ctx.nearest_list_source_key_by_block_source_key.get(
+        parent_key,
+      )
+      nearest_list_item_source_key = ctx.nearest_list_item_source_key_by_block_source_key.get(
+        parent_key,
+      )
+      nearest_quote_source_key = ctx.nearest_quote_source_key_by_block_source_key.get(
+        parent_key,
+      )
+      nearest_table_ancestor_source_key = ctx.nearest_table_ancestor_source_key_by_block_source_key.get(
+        parent_key,
+      )
+
+      let mut current = Some(parent_key)
+      while current is Some(ancestor_key) {
+        html_semantic_map_push_string(
+          ctx.descendant_block_source_keys_by_ancestor_source_key,
+          ancestor_key,
+          source_key,
+        )
+        current = ctx.parent_source_key_by_block_source_key.get(ancestor_key)
+      }
     }
+    None => ()
   }
-  None
+
+  match block_kind {
+    HtmlBlockKind::List(_) => {
+      list_depth += 1
+      nearest_list_source_key = Some(
+        html_semantic_list_source_key(source_order),
+      )
+    }
+    HtmlBlockKind::ListItem =>
+      nearest_list_item_source_key = Some(
+        html_semantic_list_item_source_key(source_order),
+      )
+    HtmlBlockKind::BlockQuote => {
+      quote_depth += 1
+      nearest_quote_source_key = Some(
+        html_semantic_blockquote_source_key(source_order),
+      )
+    }
+    HtmlBlockKind::Table => nearest_table_ancestor_source_key = Some(source_key)
+    _ => ()
+  }
+
+  ctx.list_depth_by_block_source_key.set(source_key, list_depth)
+  ctx.quote_depth_by_block_source_key.set(source_key, quote_depth)
+  match nearest_list_source_key {
+    Some(key) =>
+      ctx.nearest_list_source_key_by_block_source_key.set(source_key, key)
+    None => ()
+  }
+  match nearest_list_item_source_key {
+    Some(key) =>
+      ctx.nearest_list_item_source_key_by_block_source_key.set(source_key, key)
+    None => ()
+  }
+  match nearest_quote_source_key {
+    Some(key) =>
+      ctx.nearest_quote_source_key_by_block_source_key.set(source_key, key)
+    None => ()
+  }
+  match nearest_table_ancestor_source_key {
+    Some(key) =>
+      ctx.nearest_table_ancestor_source_key_by_block_source_key.set(
+        source_key, key,
+      )
+    None => ()
+  }
+
+  match (parent_source_key, block_kind) {
+    (Some(parent_key), HtmlBlockKind::TableCell(_)) =>
+      html_semantic_map_push_string(
+        ctx.direct_table_cell_block_source_keys_by_row_source_key,
+        parent_key,
+        source_key,
+      )
+    _ => ()
+  }
+  match block_kind {
+    HtmlBlockKind::TableRow =>
+      match nearest_table_ancestor_source_key {
+        Some(table_key) =>
+          html_semantic_map_push_string(
+            ctx.descendant_table_row_block_source_keys_by_table_source_key,
+            table_key,
+            source_key,
+          )
+        None => ()
+      }
+    _ => ()
+  }
+}
+
+///|
+fn html_semantic_inline_for_key(
+  ctx : HtmlSemanticCollectCtx,
+  source_key : String,
+) -> HtmlInlineFact? {
+  ctx.inline_by_source_key.get(source_key)
+}
+
+///|
+fn html_semantic_map_push_string(
+  map : Map[String, Array[String]],
+  key : String,
+  value : String,
+) -> Unit {
+  match map.get(key) {
+    Some(existing) => existing.push(value)
+    None => map.set(key, [value])
+  }
 }
 
 ///|
