@@ -1,12 +1,12 @@
 ///|
 pub fn xlsx_parser_capability() -> @parser.ParserCapability {
   @parser.make_parser_capability(
-    @parser.ParserMode::WorkbookModel,
+    @parser.ParserMode::PackageSinglePass,
     false,
     @parser.StreamingGranularity::XlsxSheet,
     true,
-    false,
-    false,
+    true,
+    true,
     false,
     false,
     true,
@@ -28,7 +28,7 @@ pub fn xlsx_parser() -> @parser.Parser {
   let capability = xlsx_parser_capability()
   @parser.make_parser(
     "xlsx_parser",
-    @parser.ParserMode::WorkbookModel,
+    @parser.ParserMode::PackageSinglePass,
     capability,
     fn(
       source : @input.InputSource,
@@ -96,7 +96,7 @@ fn xlsx_parse_document_result(
 ) -> Result[@parser.ParseResult, String] {
   let diagnostics = @light_common.empty_parser_diagnostics(
     "xlsx_parser",
-    @parser.ParserMode::WorkbookModel,
+    @parser.ParserMode::PackageSinglePass,
     source,
     "xlsx",
   )
@@ -169,7 +169,7 @@ fn xlsx_parse_document_result(
   Ok(
     @parser.parse_result_with_document_capability(
       "xlsx_parser",
-      @parser.ParserMode::WorkbookModel,
+      @parser.ParserMode::PackageSinglePass,
       final_document,
       diagnostics,
       capability,
@@ -281,7 +281,7 @@ fn xlsx_malformed_parse_result(
   )
   @parser.parse_result_with_document_capability(
     "xlsx_parser",
-    @parser.ParserMode::WorkbookModel,
+    @parser.ParserMode::PackageSinglePass,
     document,
     diagnostics,
     capability,
@@ -379,7 +379,7 @@ fn xlsx_init_diagnostics(
   context : @parser.ParseContext,
 ) -> Unit {
   diagnostics.metrics.set("parser_name", "xlsx_parser")
-  diagnostics.metrics.set("parser_mode", "workbook_model")
+  diagnostics.metrics.set("parser_mode", "package_single_pass")
   diagnostics.metrics.set(
     "input_kind",
     @light_common.input_kind_name(source.kind),
@@ -389,10 +389,10 @@ fn xlsx_init_diagnostics(
     "requested_mode",
     @light_common.requested_mode_name(context),
   )
-  diagnostics.metrics.set("effective_mode", "workbook_model")
+  diagnostics.metrics.set("effective_mode", "package_single_pass")
   diagnostics.metrics.set("ir_input_kind", "document")
   diagnostics.metrics.set("event_granularity", "xlsx_sheet")
-  diagnostics.metrics.set("event_semantics", "document_model")
+  diagnostics.metrics.set("event_semantics", "package_single_pass")
   diagnostics.metrics.set("office_document_kind", "xlsx")
   diagnostics.metrics.set("runtime_exposed", "true")
   diagnostics.metrics.set("legacy_runtime_dependency", "none")

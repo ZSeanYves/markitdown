@@ -2,6 +2,12 @@
 pub type LayoutBox = BBox
 
 ///|
+pub type BlockId = String
+
+///|
+pub type HeadingPath = Array[String]
+
+///|
 pub type DocumentMetadata = Map[String, JsonValue]
 
 ///|
@@ -21,6 +27,7 @@ pub(all) struct DocumentIR {
   assets : Array[AssetRef]
   signals : Array[CoreSignal]
   source_map : SourceMap?
+  assembly : DocumentAssembly?
 }
 
 ///|
@@ -42,6 +49,7 @@ pub(all) enum BlockKind {
 
 ///|
 pub(all) struct CoreBlock {
+  block_id : BlockId
   kind : BlockKind
   text : String
   rich_inlines : Array[CoreInline]?
@@ -50,6 +58,62 @@ pub(all) struct CoreBlock {
   source_ref : SourceRef?
   style : StyleRef?
   signals : Array[CoreSignal]
+}
+
+///|
+pub(all) struct SectionNode {
+  section_id : BlockId
+  heading_block_id : BlockId?
+  title : String
+  level : Int
+  heading_path : HeadingPath
+  child_section_ids : Array[BlockId]
+  block_ids : Array[BlockId]
+  source_ref : SourceRef?
+}
+
+///|
+pub(all) struct CaptionBinding {
+  caption_block_id : BlockId
+  target_block_id : BlockId
+  relation : String
+  confidence : Int?
+}
+
+///|
+pub(all) struct TableContinuation {
+  table_block_id : BlockId
+  continues_from_block_id : BlockId?
+  relation : String
+  confidence : Int?
+}
+
+///|
+pub(all) struct ReadingOrderEntry {
+  block_id : BlockId
+  ordinal : Int
+  page : Int?
+  slide : Int?
+  sheet : String?
+}
+
+///|
+pub(all) struct AssetBinding {
+  asset_id : String
+  owner_block_id : BlockId
+  relation : String
+  confidence : Int?
+}
+
+///|
+pub(all) struct DocumentAssembly {
+  root_block_ids : Array[BlockId]
+  sections : Array[SectionNode]
+  heading_paths : Map[String, HeadingPath]
+  caption_bindings : Array[CaptionBinding]
+  table_continuations : Array[TableContinuation]
+  reading_order : Array[ReadingOrderEntry]
+  asset_bindings : Array[AssetBinding]
 }
 
 ///|
@@ -328,6 +392,7 @@ pub fn empty_document_ir() -> DocumentIR {
     assets: [],
     signals: [],
     source_map: None,
+    assembly: None,
   }
 }
 
@@ -340,6 +405,20 @@ pub fn document_from_blocks(blocks : Array[CoreBlock]) -> DocumentIR {
     assets: [],
     signals: [],
     source_map: None,
+    assembly: None,
+  }
+}
+
+///|
+pub fn empty_document_assembly() -> DocumentAssembly {
+  {
+    root_block_ids: [],
+    sections: [],
+    heading_paths: Map([]),
+    caption_bindings: [],
+    table_continuations: [],
+    reading_order: [],
+    asset_bindings: [],
   }
 }
 
@@ -389,6 +468,14 @@ pub fn document_with_source_map(
   source_map : SourceMap?,
 ) -> DocumentIR {
   { ..document, source_map, }
+}
+
+///|
+pub fn document_with_assembly(
+  document : DocumentIR,
+  assembly : DocumentAssembly?,
+) -> DocumentIR {
+  { ..document, assembly, }
 }
 
 ///|
@@ -823,6 +910,7 @@ pub fn make_block(
   source_ref? : SourceRef = empty_source_ref(),
 ) -> CoreBlock {
   {
+    block_id: make_block_id(kind, text, source_ref=Some(source_ref)),
     kind,
     text,
     rich_inlines: None,
@@ -832,6 +920,11 @@ pub fn make_block(
     style: None,
     signals: [],
   }
+}
+
+///|
+pub fn block_with_block_id(block : CoreBlock, block_id : BlockId) -> CoreBlock {
+  { ..block, block_id, }
 }
 
 ///|
@@ -1020,6 +1113,109 @@ pub fn source_map_add_asset_entry(
   let next = { ..source_map }
   next.asset_entries.push(entry)
   next
+}
+
+///|
+pub fn make_block_id(
+  kind : BlockKind,
+  text : String,
+  source_ref? : SourceRef? = None,
+) -> BlockId {
+  let signature = block_kind_name(kind) +
+    "|" +
+    text +
+    "|" +
+    source_ref_block_id_signature(source_ref)
+  "b_" + crc32_of_string(signature).to_string()
+}
+
+///|
+fn source_ref_block_id_signature(source_ref : SourceRef?) -> String {
+  match source_ref {
+    Some(value) =>
+      string_opt_signature(value.file_id) +
+      "|" +
+      string_opt_signature(value.format) +
+      "|" +
+      int_opt_signature(value.page) +
+      "|" +
+      int_opt_signature(value.line_start) +
+      "|" +
+      int_opt_signature(value.line_end) +
+      "|" +
+      int_opt_signature(value.byte_start) +
+      "|" +
+      int_opt_signature(value.byte_end) +
+      "|" +
+      string_opt_signature(value.xpath) +
+      "|" +
+      string_opt_signature(value.json_pointer) +
+      "|" +
+      string_opt_signature(value.yaml_path) +
+      "|" +
+      string_opt_signature(value.html_path) +
+      "|" +
+      string_opt_signature(value.markdown_path) +
+      "|" +
+      string_opt_signature(value.container_path) +
+      "|" +
+      string_opt_signature(value.entry_path) +
+      "|" +
+      string_opt_signature(value.inner_path) +
+      "|" +
+      string_opt_signature(value.sheet) +
+      "|" +
+      string_opt_signature(value.cell_range) +
+      "|" +
+      int_opt_signature(value.slide) +
+      "|" +
+      string_opt_signature(value.shape_id) +
+      "|" +
+      string_opt_signature(value.relationship_id) +
+      "|" +
+      string_opt_signature(value.chapter_href)
+    None => ""
+  }
+}
+
+///|
+fn string_opt_signature(value : String?) -> String {
+  match value {
+    Some(text) => text
+    None => ""
+  }
+}
+
+///|
+fn int_opt_signature(value : Int?) -> String {
+  match value {
+    Some(number) => number.to_string()
+    None => ""
+  }
+}
+
+///|
+fn crc32_of_string(text : String) -> UInt {
+  let mut crc : UInt = 0xFFFFFFFF
+  for ch in text.to_array() {
+    crc = crc32_update_uint(crc, ch.to_int().reinterpret_as_uint())
+  }
+  UInt::lxor(crc, 0xFFFFFFFF)
+}
+
+///|
+fn crc32_update_uint(crc : UInt, value : UInt) -> UInt {
+  let mut acc = UInt::lxor(crc, value)
+  let mut i = 0
+  while i < 8 {
+    if UInt::land(acc, 1) != 0 {
+      acc = UInt::lxor(acc >> 1, 0xEDB88320)
+    } else {
+      acc = acc >> 1
+    }
+    i += 1
+  }
+  acc
 }
 
 ///|

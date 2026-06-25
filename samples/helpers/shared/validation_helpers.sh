@@ -180,12 +180,12 @@ markitdown_runner_command_prefix() {
 
 validation_probe_cases() {
   cat <<'EOF'
-samples/main_process/txt/txt_plain.txt|txt_plain
-samples/main_process/csv/csv_markdown_pipes.csv|csv_markdown_pipes
-samples/main_process/tsv/tsv_markdown_pipes.tsv|tsv_markdown_pipes
-samples/main_process/json/json_object_basic.json|json_object_basic
-samples/main_process/jsonl/jsonl_records_basic.jsonl|jsonl_records_basic
-samples/main_process/ndjson/ndjson_records_basic.ndjson|ndjson_records_basic
+samples/main_process/txt/markdown/txt_plain.txt|txt_plain
+samples/main_process/csv/markdown/csv_markdown_pipes.csv|csv_markdown_pipes
+samples/main_process/tsv/markdown/tsv_markdown_pipes.tsv|tsv_markdown_pipes
+samples/main_process/json/markdown/json_object_basic.json|json_object_basic
+samples/main_process/jsonl/markdown/jsonl_records_basic.jsonl|jsonl_records_basic
+samples/main_process/ndjson/markdown/ndjson_records_basic.ndjson|ndjson_records_basic
 EOF
 }
 
@@ -227,7 +227,7 @@ probe_markitdown_cli() {
 
   if [[ "$status" -eq 0 ]]; then
     local contract_dir="$probe_dir/contract"
-    local contract_input="$ROOT/samples/main_process/txt/txt_plain.txt"
+    local contract_input="$ROOT/samples/main_process/txt/markdown/txt_plain.txt"
     local contract_output="$contract_dir/txt_plain.md"
     mkdir -p "$contract_dir"
     if ! MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" normal "$contract_input" "$contract_output" >/dev/null 2>&1; then

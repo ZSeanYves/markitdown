@@ -56,8 +56,8 @@ run_and_capture() {
   set -e
 }
 
-DOCX_INPUT="$ROOT/samples/main_process/docx/metadata/docx_image_alt_title_basic.docx"
-DOCX_EXPECTED="$ROOT/samples/main_process/docx/expected/metadata/docx_image_alt_title_basic.md"
+DOCX_INPUT="$ROOT/samples/main_process/docx/rag/docx_image_alt_title_basic.docx"
+DOCX_EXPECTED="$ROOT/samples/main_process/docx/expected/assets/docx_image_alt_title_basic/result.md"
 DOCX_OUT="$OUT_DIR/docx_image_alt_title_basic.md"
 DOCX_JSON="$OUT_DIR/docx_image_alt_title_basic.json"
 DOCX_HELP="$OUT_DIR/help.txt"
@@ -102,11 +102,11 @@ assert_matches_expected "$DOCX_EXPECTED" "$DOCX_OUT"
 assert_not_contains "$DOCX_OUT" "docx_raw_fallback"
 assert_not_contains "$DOCX_OUT" "docx_legacy_fallback"
 
-echo "==> docx debug json exposes document-model diagnostics and office source refs"
+echo "==> docx debug json exposes package-single-pass diagnostics and office source refs"
 run_and_capture "$DOCX_JSON" run_markitdown_cli --debug "$DOCX_INPUT"
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "docx debug json should succeed"
 assert_contains "$DOCX_JSON" '"detected_format": "docx"'
-assert_contains "$DOCX_JSON" '"effective_mode": "document_model"'
+assert_contains "$DOCX_JSON" '"effective_mode": "package_single_pass"'
 assert_contains "$DOCX_JSON" '"ir_input_kind": "document"'
 assert_contains "$DOCX_JSON" '"event_granularity": "docx_block"'
 assert_contains "$DOCX_JSON" '"office_document_kind": "docx"'
@@ -122,10 +122,10 @@ assert_not_contains "$DOCX_JSON" 'convert_docx_used'
 assert_not_contains "$DOCX_JSON" 'convert_docx_v2_used'
 
 echo "==> pptx and pdf are both restored on the main product cli"
-run_markitdown_cli normal "$ROOT/samples/main_process/pptx/pptx_hidden_slide_basic.pptx" "$OUT_DIR/pptx_hidden_slide_basic.md"
-assert_matches_expected "$ROOT/samples/main_process/pptx/expected_next/pptx_hidden_slide_basic.md" "$OUT_DIR/pptx_hidden_slide_basic.md"
+run_markitdown_cli normal "$ROOT/samples/main_process/pptx/markdown/pptx_bullet_levels.pptx" "$OUT_DIR/pptx_bullet_levels.md"
+assert_matches_expected "$ROOT/samples/main_process/pptx/expected/markdown/pptx_bullet_levels.md" "$OUT_DIR/pptx_bullet_levels.md"
 
-run_markitdown_cli normal "$ROOT/samples/main_process/pdf/root_native_text_baseline.pdf" "$OUT_DIR/pdf_text_simple.md"
-assert_matches_expected "$ROOT/samples/main_process/pdf/expected/root_native_text_baseline.md" "$OUT_DIR/pdf_text_simple.md"
+run_markitdown_cli normal "$ROOT/samples/main_process/pdf/markdown/root_native_text_baseline.pdf" "$OUT_DIR/pdf_text_simple.md"
+assert_matches_expected "$ROOT/samples/main_process/pdf/expected/markdown/root_native_text_baseline.md" "$OUT_DIR/pdf_text_simple.md"
 
 echo "DOCX CONTRACT PASSED"

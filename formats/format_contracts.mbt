@@ -4,12 +4,12 @@
 ///|
 pub fn docx_parser_contract_capability() -> @parser.ParserCapability {
   @parser.make_parser_capability(
-    @parser.ParserMode::DocumentModel,
+    @parser.ParserMode::PackageSinglePass,
     false,
     @parser.StreamingGranularity::DocxBlock,
     true,
-    false,
-    false,
+    true,
+    true,
     false,
     false,
     true,
@@ -54,8 +54,8 @@ pub fn docx_parser_contract() -> @parser.Parser {
         "parser_name",
         @shared.docx_contract_parser_name(),
       )
-      diagnostics.metrics.set("parser_mode", "document_model")
-      diagnostics.metrics.set("effective_mode", "document_model")
+      diagnostics.metrics.set("parser_mode", "package_single_pass")
+      diagnostics.metrics.set("effective_mode", "package_single_pass")
       diagnostics.metrics.set("detected_format", "docx")
       diagnostics.metrics.set("ir_input_kind", "document")
       diagnostics.metrics.set("event_granularity", "docx_block")
@@ -92,12 +92,12 @@ fn docx_contract_input_kind_name(kind : @input.InputKind) -> String {
 ///|
 pub fn pptx_parser_contract_capability() -> @parser.ParserCapability {
   @parser.make_parser_capability(
-    @parser.ParserMode::PresentationModel,
+    @parser.ParserMode::PackageSinglePass,
     false,
     @parser.StreamingGranularity::PptxSlide,
     true,
-    false,
-    false,
+    true,
+    true,
     false,
     false,
     true,
@@ -142,8 +142,8 @@ pub fn pptx_parser_contract() -> @parser.Parser {
         "parser_name",
         @shared.pptx_contract_parser_name(),
       )
-      diagnostics.metrics.set("parser_mode", "presentation_model")
-      diagnostics.metrics.set("effective_mode", "presentation_model")
+      diagnostics.metrics.set("parser_mode", "package_single_pass")
+      diagnostics.metrics.set("effective_mode", "package_single_pass")
       diagnostics.metrics.set("detected_format", "pptx")
       diagnostics.metrics.set("ir_input_kind", "document")
       diagnostics.metrics.set("event_granularity", "pptx_slide")
@@ -203,12 +203,12 @@ fn pptx_contract_input_kind_name(kind : @input.InputKind) -> String {
 ///|
 pub fn xlsx_parser_contract_capability() -> @parser.ParserCapability {
   @parser.make_parser_capability(
-    @parser.ParserMode::WorkbookModel,
+    @parser.ParserMode::PackageSinglePass,
     false,
     @parser.StreamingGranularity::XlsxSheet,
     true,
-    false,
-    false,
+    true,
+    true,
     false,
     false,
     true,
@@ -253,8 +253,8 @@ pub fn xlsx_parser_contract() -> @parser.Parser {
         "parser_name",
         @shared.xlsx_contract_parser_name(),
       )
-      diagnostics.metrics.set("parser_mode", "workbook_model")
-      diagnostics.metrics.set("effective_mode", "workbook_model")
+      diagnostics.metrics.set("parser_mode", "package_single_pass")
+      diagnostics.metrics.set("effective_mode", "package_single_pass")
       diagnostics.metrics.set("detected_format", "xlsx")
       diagnostics.metrics.set("ir_input_kind", "document")
       diagnostics.metrics.set("event_granularity", "xlsx_sheet")

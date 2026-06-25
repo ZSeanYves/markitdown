@@ -60,11 +60,11 @@ run_and_capture() {
   set -e
 }
 
-ROOT_BASELINE_INPUT="$ROOT/samples/main_process/pdf/root_native_text_baseline.pdf"
-ROOT_BASELINE_EXPECTED="$ROOT/samples/main_process/pdf/expected/root_native_text_baseline.md"
-LINK_INPUT="$ROOT/samples/main_process/pdf/metadata/pdf_metadata_uri_link.pdf"
-HEADER_FOOTER_INPUT="$ROOT/samples/main_process/pdf/pdf_header_footer_variants_phase15.pdf"
-TABLE_INPUT="$ROOT/samples/main_process/pdf/pdf_simple_table_like.pdf"
+ROOT_BASELINE_INPUT="$ROOT/samples/main_process/pdf/markdown/root_native_text_baseline.pdf"
+ROOT_BASELINE_EXPECTED="$ROOT/samples/main_process/pdf/expected/markdown/root_native_text_baseline.md"
+LINK_INPUT="$ROOT/samples/main_process/pdf/rag/pdf_metadata_uri_link.pdf"
+HEADER_FOOTER_INPUT="$ROOT/samples/main_process/pdf/markdown/pdf_header_footer_variants_phase15.pdf"
+TABLE_INPUT="$ROOT/samples/main_process/pdf/markdown/pdf_simple_table_like.pdf"
 SCAN_INPUT="$OUT_DIR/root_empty_text_layer.pdf"
 
 ROOT_BASELINE_MD="$OUT_DIR/root_native_text_baseline.md"

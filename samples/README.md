@@ -39,7 +39,7 @@ bash samples/check.sh --format docx
 bash samples/check.sh --format xlsx
 bash samples/check.sh --format pptx
 bash samples/check.sh --format pdf
-bash samples/check.sh --markdown-only
+bash samples/check.sh --markdown
 bash samples/check.sh --check-inventory
 bash samples/check.sh --list-inventory
 ```
@@ -100,8 +100,8 @@ Current policy:
 
 ## Expected Output Policy
 
-- Most formats use `samples/main_process/<format>/expected/`.
-- `xlsx` and `pptx` use `expected_next/` because those directories are the
+- Most formats use `samples/main_process/<format>/expected/markdown/`, `expected/rag/`, and `expected/assets/`.
+- `xlsx` and `pptx` use `expected/markdown/` because those directories are the
   current product baselines for those formats.
 - `.tmp` output is disposable and must not become the only durable copy of a
   sample, manifest, or expected artifact.

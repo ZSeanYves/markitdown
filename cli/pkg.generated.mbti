@@ -6,6 +6,7 @@ import {
   "ZSeanYves/markitdown/formats/ocr",
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/rag",
   "moonbitlang/x/fs",
 }
 
@@ -26,7 +27,7 @@ pub fn dirname_of_path(String) -> String
 
 pub fn ensure_dir_tree(String) -> Unit raise @fs.IOError
 
-pub fn make_cli_options(String, String?, @input.DetectedFormat?, @parser.OcrOptions, @convert.OutputFormat, pdf_cleanup_mode? : @convert.PdfCleanupMode, pdf_table_mode? : @convert.PdfTableMode) -> CliOptions
+pub fn make_cli_options(String, String?, @input.DetectedFormat?, @parser.OcrOptions, @convert.ConvertMode, @convert.OutputFormat, pdf_cleanup_mode? : @convert.PdfCleanupMode, pdf_table_mode? : @convert.PdfTableMode, rag_options? : @rag.RagOptions) -> CliOptions
 
 pub fn normalize_cli_args(Array[String]) -> Array[String]
 
@@ -58,9 +59,11 @@ pub struct CliOptions {
   output : String?
   explicit_format : @input.DetectedFormat?
   ocr_options : @parser.OcrOptions
+  convert_mode : @convert.ConvertMode
   output_format : @convert.OutputFormat
   pdf_cleanup_mode : @convert.PdfCleanupMode
   pdf_table_mode : @convert.PdfTableMode
+  rag_options : @rag.RagOptions
 }
 
 // Type aliases

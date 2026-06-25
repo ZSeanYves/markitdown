@@ -63,13 +63,13 @@ Run the CLI:
 
 ```bash
 ./_build/native/debug/build/cli/cli.exe --help
-./_build/native/debug/build/cli/cli.exe normal samples/main_process/txt/txt_plain.txt .tmp/manual/out.md
+./_build/native/debug/build/cli/cli.exe normal samples/main_process/txt/markdown/txt_plain.txt .tmp/manual/out.md
 ```
 
 Native-text PDF example:
 
 ```bash
-./_build/native/debug/build/cli/cli.exe normal samples/main_process/pdf/root_native_text_baseline.pdf .tmp/manual/pdf.md
+./_build/native/debug/build/cli/cli.exe normal samples/main_process/pdf/markdown/root_native_text_baseline.pdf .tmp/manual/pdf.md
 ```
 
 ## Package Layout

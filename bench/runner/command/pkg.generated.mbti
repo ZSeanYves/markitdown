@@ -24,6 +24,8 @@ pub fn make_runner_context(String, String?) -> RunnerContext
 
 pub fn output_markdown_path(String, String, String, Int, Int) -> String
 
+pub fn outputs_root(String) -> String
+
 pub fn overhead_report_markdown_path(String) -> String
 
 pub fn overhead_result_jsonl_path(String) -> String
@@ -46,7 +48,13 @@ pub fn parse_run_request_with_context(Array[String], RunnerContext) -> RunReques
 
 pub fn report_markdown_path(String) -> String
 
+pub fn reports_root(String) -> String
+
 pub fn result_jsonl_path(String, String, String) -> String
+
+pub fn results_root(String) -> String
+
+pub fn run_root(String) -> String
 
 pub fn selector_stats_path(String) -> String
 

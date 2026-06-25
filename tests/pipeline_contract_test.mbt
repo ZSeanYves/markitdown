@@ -120,6 +120,30 @@ fn assert_contains_all(text : String, needles : Array[String]) -> Unit raise {
 }
 
 ///|
+fn final_document_from_parse_result(
+  parsed : @parser.ParseResult,
+  debug? : Bool = false,
+  pdf_cleanup_enabled? : Bool = false,
+) -> @core.DocumentIR {
+  let mut document = @pipeline.build_document_with_default_pipeline(
+    @runtime.parse_result_to_ir_input(parsed),
+    @pipeline.make_pass_context(
+      debug,
+      parsed.mode |> @parser.mode_name,
+      pdf_cleanup_enabled~,
+    ),
+    trace_builder=false,
+    trace_passes=false,
+  )
+  let merged = @runtime.merge_diagnostics_append(
+    parsed.diagnostics,
+    document.diagnostics,
+  )
+  document = @core.document_with_diagnostics(document, merged)
+  document
+}
+
+///|
 fn assert_contains_none(text : String, needles : Array[String]) -> Unit raise {
   for needle in needles {
     assert_true(!text.contains(needle))
@@ -571,7 +595,7 @@ test "convert contract threads OCR intent to image scaffold fail-closed branches
 ///|
 test "convert contract recognizes pdf as a root native-text product format" {
   let pdf = @input.input_from_path_with_format(
-    "samples/main_process/pdf/text_simple.pdf",
+    "samples/main_process/pdf/markdown/text_simple.pdf",
     Some(@input.DetectedFormat::Pdf),
   )
   let result = @convert.convert_input(pdf, @convert.default_convert_options())
@@ -635,7 +659,7 @@ test "convert contract recognizes pdf as a root native-text product format" {
 ///|
 test "convert pdf explicit OCR stays fail-closed before any image OCR provider route" {
   let pdf = @input.input_from_path_with_format(
-    "samples/main_process/pdf/root_native_text_baseline.pdf",
+    "samples/main_process/pdf/markdown/root_native_text_baseline.pdf",
     Some(@input.DetectedFormat::Pdf),
   )
   match
@@ -722,7 +746,7 @@ test "builtin registry wires pdf native text parser without unmigrated runtime i
     @parser.registry_parse(
       @formats_root.builtin_registry(),
       @input.input_from_path_with_format(
-        "samples/main_process/pdf/text_simple.pdf",
+        "samples/main_process/pdf/markdown/text_simple.pdf",
         Some(@input.DetectedFormat::Pdf),
       ),
       @parser.new_parse_context(@input.DetectedFormat::Pdf),
@@ -741,7 +765,7 @@ test "builtin registry wires pdf native text parser without unmigrated runtime i
 ///|
 test "pdf explicit disable policy can still force fail-closed registry behavior" {
   let source = @input.input_from_path_with_format(
-    "samples/main_process/pdf/text_simple.pdf",
+    "samples/main_process/pdf/markdown/text_simple.pdf",
     Some(@input.DetectedFormat::Pdf),
   )
   let gated_context = @parser.parse_context_with_pdf_native_runtime_policy(
@@ -773,7 +797,7 @@ test "pdf explicit disable policy can still force fail-closed registry behavior"
       @parser.new_parse_context(@input.DetectedFormat::Pdf),
     ) {
     Ok(parsed) => {
-      let document = parsed.document.unwrap_or(@core.empty_document_ir())
+      let document = final_document_from_parse_result(parsed)
       assert_true(document.blocks.length() >= 3)
       assert_true(
         document.diagnostics.metrics.get("pdf_native_parser_gate") ==
@@ -840,13 +864,13 @@ test "pdf native unit bridge lowers facts to document ir without changing regist
     @parser.registry_parse(
       @formats_root.builtin_registry(),
       @input.input_from_path_with_format(
-        "samples/main_process/pdf/text_simple.pdf",
+        "samples/main_process/pdf/markdown/text_simple.pdf",
         Some(@input.DetectedFormat::Pdf),
       ),
       @parser.new_parse_context(@input.DetectedFormat::Pdf),
     ) {
     Ok(parsed) => {
-      let parsed_document = parsed.document.unwrap_or(@core.empty_document_ir())
+      let parsed_document = final_document_from_parse_result(parsed)
       assert_true(parsed_document.blocks.length() >= 3)
     }
     Err(msg) => fail("pdf registry success path should remain enabled: " + msg)
@@ -857,12 +881,12 @@ test "pdf native unit bridge lowers facts to document ir without changing regist
 test "pdf native product path exposes header footer candidate diagnostics without changing markdown output" {
   let parsed = default_registry_parse(
     @input.input_from_path_with_format(
-      "samples/main_process/pdf/text_simple.pdf",
+      "samples/main_process/pdf/markdown/text_simple.pdf",
       Some(@input.DetectedFormat::Pdf),
     ),
     @input.DetectedFormat::Pdf,
   )
-  let document = parsed.document.unwrap_or(@core.empty_document_ir())
+  let document = final_document_from_parse_result(parsed)
   assert_true(
     document.diagnostics.metrics.get("pdf_header_footer_candidate_strategy") ==
     Some("conservative_v1"),
@@ -889,7 +913,7 @@ test "pdf native product path exposes header footer candidate diagnostics withou
 ///|
 test "pdf product options default disabled but expose future promotion targets in diagnostics" {
   let result = convert_path(
-    "samples/main_process/pdf/root_native_text_baseline.pdf",
+    "samples/main_process/pdf/markdown/root_native_text_baseline.pdf",
     format=Some(@input.DetectedFormat::Pdf),
     output=@convert.OutputFormat::DebugJson,
   )
@@ -910,11 +934,11 @@ test "pdf product options default disabled but expose future promotion targets i
 ///|
 test "pdf product options opt in to cleanup and simple tables without changing default baseline contract" {
   let baseline = convert_path(
-    "samples/main_process/pdf/root_native_text_baseline.pdf",
+    "samples/main_process/pdf/markdown/root_native_text_baseline.pdf",
     format=Some(@input.DetectedFormat::Pdf),
   )
   let opted_in = convert_path(
-    "samples/main_process/pdf/root_native_text_baseline.pdf",
+    "samples/main_process/pdf/markdown/root_native_text_baseline.pdf",
     format=Some(@input.DetectedFormat::Pdf),
     pdf_cleanup_mode=@convert.PdfCleanupMode::Conservative,
     pdf_table_mode=@convert.PdfTableMode::Simple,
@@ -1294,7 +1318,7 @@ test "pdf native table candidates stay metadata only and do not change rendered 
 ///|
 test "pdf native parser policy scaffold remains opt-in and default product markdown stays unchanged" {
   let source = @input.input_from_path_with_format(
-    "samples/main_process/pdf/root_native_text_baseline.pdf",
+    "samples/main_process/pdf/markdown/root_native_text_baseline.pdf",
     Some(@input.DetectedFormat::Pdf),
   )
   let default_parsed = match
@@ -1306,9 +1330,7 @@ test "pdf native parser policy scaffold remains opt-in and default product markd
     Ok(value) => value
     Err(msg) => fail("default pdf registry parse should succeed: " + msg)
   }
-  let default_document = default_parsed.document.unwrap_or(
-    @core.empty_document_ir(),
-  )
+  let default_document = final_document_from_parse_result(default_parsed)
   let default_rendered = (@render.markdown_renderer().render)(
     default_document,
     @render.make_render_context(false),
@@ -1339,9 +1361,7 @@ test "pdf native parser policy scaffold remains opt-in and default product markd
     Ok(value) => value
     Err(msg) => fail("internal pdf registry parse should still succeed: " + msg)
   }
-  let internal_document = internal_parsed.document.unwrap_or(
-    @core.empty_document_ir(),
-  )
+  let internal_document = final_document_from_parse_result(internal_parsed)
   let internal_rendered = (@render.markdown_renderer().render)(
     internal_document,
     @render.make_render_context(false),
@@ -2677,7 +2697,7 @@ test "html large input switches to true structure event stream" {
 ///|
 test "html convert contract keeps dom and event paths renderer-aligned" {
   let small = convert_path(
-    "samples/main_process/html/html_details_summary.html",
+    "samples/main_process/html/markdown/html_details_summary.html",
     format=Some(@input.DetectedFormat::Html),
   )
   let large_parsed = default_registry_parse(
@@ -2719,27 +2739,27 @@ test "html convert contract keeps dom and event paths renderer-aligned" {
 ///|
 test "html parser contract preserves semantic behavior clusters and asset persistence" {
   let details = convert_path(
-    "samples/main_process/html/html_details_summary.html",
+    "samples/main_process/html/markdown/html_details_summary.html",
     format=Some(@input.DetectedFormat::Html),
   )
   let nav = convert_path(
-    "samples/main_process/html/html_semantic_containers.html",
+    "samples/main_process/html/markdown/html_semantic_containers.html",
     format=Some(@input.DetectedFormat::Html),
   )
   let list_quote = convert_path(
-    "samples/main_process/html/html_listitem_with_blockquote.html",
+    "samples/main_process/html/markdown/html_listitem_with_blockquote.html",
     format=Some(@input.DetectedFormat::Html),
   )
   let blockquote = convert_path(
-    "samples/main_process/html/html_blockquote_mixed_text_and_paragraph.html",
+    "samples/main_process/html/markdown/html_blockquote_mixed_text_and_paragraph.html",
     format=Some(@input.DetectedFormat::Html),
   )
   let table = convert_path(
-    "samples/main_process/html/html_br_table.html",
+    "samples/main_process/html/markdown/html_br_table.html",
     format=Some(@input.DetectedFormat::Html),
   )
   let entities = convert_path(
-    "samples/main_process/html/html_entities.html",
+    "samples/main_process/html/markdown/html_entities.html",
     format=Some(@input.DetectedFormat::Html),
   )
   let assets = convert_path(
@@ -2767,7 +2787,7 @@ test "html parser contract preserves semantic behavior clusters and asset persis
 test "html parser keeps renderer boundary for link image table and br semantics" {
   let linked = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/html/html_link_in_paragraph.html",
+      "samples/main_process/html/markdown/html_link_in_paragraph.html",
     ),
     @input.DetectedFormat::Html,
   )
@@ -2794,7 +2814,9 @@ test "html parser keeps renderer boundary for link image table and br semantics"
   assert_contains_none(paragraph.text, ["[the docs](", "<a "])
 
   let table = default_registry_parse(
-    @input.input_from_path("samples/main_process/html/html_br_table.html"),
+    @input.input_from_path(
+      "samples/main_process/html/markdown/html_br_table.html",
+    ),
     @input.DetectedFormat::Html,
   )
   let table_doc = table.document.unwrap_or(@core.empty_document_ir())
@@ -2850,7 +2872,7 @@ test "html parser keeps renderer boundary for link image table and br semantics"
 test "docx merged table boundary keeps full body column count through product path" {
   let parsed = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/docx/docx_table_merged_cells_boundary.docx",
+      "samples/main_process/docx/markdown/docx_table_merged_cells_boundary.docx",
     ),
     @input.DetectedFormat::Docx,
   )
@@ -2879,7 +2901,7 @@ test "docx merged table boundary keeps full body column count through product pa
 test "nested ordered list indentation remains parser-owned while renderer stays generic" {
   let html_mixed = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/html/html_nested_list_mixed.html",
+      "samples/main_process/html/markdown/html_nested_list_mixed.html",
     ),
     @input.DetectedFormat::Html,
   )
@@ -2908,13 +2930,13 @@ test "nested ordered list indentation remains parser-owned while renderer stays 
     @render.make_render_context(false),
   )
   let html_mixed_expected = read_utf8_text(
-    "samples/main_process/html/expected/html_nested_list_mixed.md",
+    "samples/main_process/html/expected/markdown/html_nested_list_mixed.md",
   )
   let html_deep_expected = read_utf8_text(
-    "samples/main_process/html/expected/html_nested_lists_deep.md",
+    "samples/main_process/html/expected/markdown/html_nested_lists_deep.md",
   )
   let docx_mixed_expected = read_utf8_text(
-    "samples/main_process/docx/expected/docx_nested_lists_mixed.md",
+    "samples/main_process/docx/expected/markdown/docx_nested_lists_mixed.md",
   )
   assert_eq(
     html_mixed_rendered.content.trim().to_owned(),
@@ -2922,7 +2944,7 @@ test "nested ordered list indentation remains parser-owned while renderer stays 
   )
 
   let html_deep = convert_path(
-    "samples/main_process/html/html_nested_lists_deep.html",
+    "samples/main_process/html/markdown/html_nested_lists_deep.html",
     format=Some(@input.DetectedFormat::Html),
   )
   assert_eq(
@@ -2931,7 +2953,7 @@ test "nested ordered list indentation remains parser-owned while renderer stays 
   )
 
   let docx_mixed = convert_path(
-    "samples/main_process/docx/docx_nested_lists_mixed.docx",
+    "samples/main_process/docx/markdown/docx_nested_lists_mixed.docx",
     format=Some(@input.DetectedFormat::Docx),
   )
   assert_eq(
@@ -2994,7 +3016,7 @@ test "html product path keeps full safe external href" {
 test "html safety keeps unsafe links as text with diagnostics and no parser markdown fallback" {
   let parsed = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/html/html_link_unsafe_javascript.html",
+      "samples/main_process/html/markdown/html_link_unsafe_javascript.html",
     ),
     @input.DetectedFormat::Html,
   )
@@ -3737,6 +3759,178 @@ test "debug mode emits diagnostics parser metadata and pass trace" {
 }
 
 ///|
+test "rag mode emits chunk json metadata source map and diagnostics" {
+  let result = convert_memory_text(
+    "# Alpha\n\nBody one.\n\nBody two.\n",
+    "rag.md",
+    @input.DetectedFormat::Markdown,
+    mode=@convert.ConvertMode::Rag,
+    output=@convert.OutputFormat::RagJson,
+  )
+  assert_true(result.content.contains("\"output_format\": \"rag_json\""))
+  assert_true(result.content.contains("\"chunks\""))
+  assert_true(result.content.contains("\"heading_path\": [\"Alpha\"]"))
+  assert_true(result.content.contains("\"source_map\":"))
+  assert_true(result.chunks is Some(_))
+  let chunks = result.chunks.unwrap_or([])
+  assert_true(chunks.length() >= 1)
+  assert_true(chunks[0].metadata.get("document_format") is Some(_))
+  assert_true(
+    result.diagnostics.metrics.get("renderer_name") == Some("RagJsonRenderer"),
+  )
+  assert_true(
+    result.content.contains("\"source_map\": null") ||
+    result.source_map is Some(_),
+  )
+  assert_true(result.debug_ir is None)
+}
+
+///|
+test "rag chunking keeps text overlap and table code chunk splitting" {
+  let source_ref = @core.source_ref_with_lines(
+    @core.empty_source_ref(),
+    Some("demo.txt"),
+    Some("txt"),
+    Some(1),
+    Some(3),
+  )
+  let paragraph_a = @core.make_block(
+    @core.BlockKind::Paragraph,
+    "Alpha body text.",
+    source_ref~,
+  )
+  let paragraph_b = @core.make_block(
+    @core.BlockKind::Paragraph,
+    "Beta body text.",
+    source_ref~,
+  )
+  let table = @core.block_with_children(
+    @core.make_block(
+      @core.BlockKind::Table,
+      "",
+      source_ref=@core.source_ref_with_cell_range(
+        @core.empty_source_ref(),
+        Some("book.xlsx"),
+        Some("xlsx"),
+        Some("A1:B4"),
+      ),
+    ),
+    [
+      @core.block_with_children(
+        @core.make_block(@core.BlockKind::TableRow, ""),
+        [
+          @core.make_block(@core.BlockKind::TableCell, "H1"),
+          @core.make_block(@core.BlockKind::TableCell, "H2"),
+        ],
+      ),
+      @core.block_with_children(
+        @core.make_block(@core.BlockKind::TableRow, ""),
+        [
+          @core.make_block(@core.BlockKind::TableCell, "R1"),
+          @core.make_block(@core.BlockKind::TableCell, "V1"),
+        ],
+      ),
+      @core.block_with_children(
+        @core.make_block(@core.BlockKind::TableRow, ""),
+        [
+          @core.make_block(@core.BlockKind::TableCell, "R2"),
+          @core.make_block(@core.BlockKind::TableCell, "V2"),
+        ],
+      ),
+    ],
+  )
+  let code = @core.block_with_attr(
+    @core.make_block(
+      @core.BlockKind::Code,
+      "line1\nline2\nline3\nline4",
+      source_ref=@core.empty_source_ref(),
+    ),
+    "language",
+    "moonbit",
+  )
+  let document = @core.document_from_blocks([
+    paragraph_a, paragraph_b, table, code,
+  ])
+  document.metadata.set("format", @core.JsonValue::String("xlsx"))
+  let chunks = @rag.chunks_from_document(
+    document,
+    @rag.make_rag_options(20, 5, true, true, true, true),
+  )
+  assert_true(chunks.length() >= 4)
+  assert_true(chunks[0].kind == @rag.ChunkKind::Text)
+  assert_true(chunks[1].kind == @rag.ChunkKind::Text)
+  assert_true(chunks[0].text.contains("Alpha"))
+  assert_true(chunks[1].text.contains("Beta"))
+  assert_true(chunks.any(fn(chunk) { chunk.kind == @rag.ChunkKind::Table }))
+  assert_true(chunks.any(fn(chunk) { chunk.kind == @rag.ChunkKind::Code }))
+}
+
+///|
+test "rag output can suppress source refs while keeping library source map" {
+  let options = @convert.make_convert_options(
+    @convert.ConvertMode::Rag,
+    @convert.OutputFormat::RagJson,
+    Some(@input.DetectedFormat::Markdown),
+    @parser.default_ocr_options(),
+    @convert.default_resource_limits(),
+    rag_options=@rag.make_rag_options(1200, 150, true, false, true, true),
+  )
+  let result = match
+    @convert.convert_input(
+      @input.input_from_text_with_format(
+        "# Title\n\nBody\n",
+        "rag.md",
+        Some(@input.DetectedFormat::Markdown),
+      ),
+      options,
+    ) {
+    Ok(value) => value
+    Err(err) => abort("rag convert failed: " + err.to_string())
+  }
+  assert_true(result.content.contains("\"source_map\": null"))
+  let chunks = result.chunks.unwrap_or([])
+  assert_true(chunks.length() >= 1)
+  for chunk in chunks {
+    assert_eq(chunk.source_refs.length(), 0)
+  }
+}
+
+///|
+test "rag sample outputs preserve location metadata across html docx pdf pptx and xlsx" {
+  let html = convert_path(
+    "samples/main_process/html/markdown/html_link_in_paragraph.html",
+    mode=@convert.ConvertMode::Rag,
+    output=@convert.OutputFormat::RagJson,
+  )
+  let docx = convert_path(
+    "samples/main_process/docx/markdown/docx_heading_levels.docx",
+    mode=@convert.ConvertMode::Rag,
+    output=@convert.OutputFormat::RagJson,
+  )
+  let pdf = convert_path(
+    "samples/main_process/pdf/markdown/text_simple.pdf",
+    mode=@convert.ConvertMode::Rag,
+    output=@convert.OutputFormat::RagJson,
+  )
+  let pptx = convert_path(
+    "samples/main_process/pptx/markdown/pptx_bullet_levels.pptx",
+    mode=@convert.ConvertMode::Rag,
+    output=@convert.OutputFormat::RagJson,
+  )
+  let xlsx = convert_path(
+    "samples/main_process/xlsx/markdown/sheet_simple.xlsx",
+    mode=@convert.ConvertMode::Rag,
+    output=@convert.OutputFormat::RagJson,
+  )
+  assert_true(html.content.contains("\"heading_path\""))
+  assert_true(docx.content.contains("\"heading_path\""))
+  assert_true(pdf.content.contains("\"pages\""))
+  assert_true(pptx.content.contains("\"slides\""))
+  assert_true(xlsx.content.contains("\"sheets\""))
+  assert_true(xlsx.content.contains("\"cell_ranges\""))
+}
+
+///|
 test "debug json source ref serialization keeps json xpath and yaml path fields visible" {
   let json = convert_memory_text(
     "{\"name\":\"Alice\"}\n",
@@ -3877,6 +4071,990 @@ test "debug json source ref serialization keeps container fields visible" {
 }
 
 ///|
+test "phase1 core skeleton assigns stable block ids and assembly summary" {
+  let heading = @core.make_block(
+    @core.BlockKind::Heading,
+    "Alpha",
+    source_ref=@core.empty_source_ref(),
+  )
+  heading.attrs.set("level", "1")
+  let paragraph = @core.make_block(
+    @core.BlockKind::Paragraph,
+    "Body",
+    source_ref=@core.empty_source_ref(),
+  )
+  let document = @pipeline.build_document_with_default_pipeline(
+    @core.IRInput::BlockStream([heading, paragraph]),
+    @pipeline.make_pass_context(false, "balanced"),
+  )
+  assert_true(heading.block_id != "")
+  assert_true(paragraph.block_id != "")
+  let assembly = document.assembly.unwrap_or(@core.empty_document_assembly())
+  assert_true(assembly.root_block_ids.length() == 2)
+  assert_true(assembly.sections.length() == 1)
+  assert_true(assembly.sections[0].title == "Alpha")
+  assert_true(assembly.heading_paths.get(paragraph.block_id) == Some(["Alpha"]))
+  assert_metric_eq(document.diagnostics, "assembly_section_count", "1")
+}
+
+///|
+test "convert phase1 route planner emits canonical route diagnostics" {
+  let result = convert_memory_text(
+    "Alpha\nBeta\n",
+    "route.txt",
+    @input.DetectedFormat::Txt,
+  )
+  assert_metric_eq(result.diagnostics, "selected_route", "streaming_event")
+  assert_metric_eq(
+    result.diagnostics,
+    "route_reason",
+    "txt_canonical_streaming_event",
+  )
+  assert_true(
+    result.diagnostics.metrics.get("route_probe_summary") ==
+    Some("phase1_probe:txt:streaming_event"),
+  )
+}
+
+///|
+test "phase2 assembler promotes heading candidates and builds section tree" {
+  let candidate = @core.make_block(
+    @core.BlockKind::Paragraph,
+    "Candidate Title",
+    source_ref=@core.empty_source_ref(),
+  )
+  candidate.attrs.set("heading_candidate", "true")
+  candidate.attrs.set("heading_level", "2")
+  let body = @core.make_block(
+    @core.BlockKind::Paragraph,
+    "Body",
+    source_ref=@core.empty_source_ref(),
+  )
+  let document = @pipeline.build_document_with_default_pipeline(
+    @core.IRInput::BlockStream([candidate, body]),
+    @pipeline.make_pass_context(false, "balanced"),
+  )
+  assert_true(document.blocks[0].kind == @core.BlockKind::Heading)
+  assert_true(document.blocks[0].attrs.get("level") == Some("2"))
+  let assembly = document.assembly.unwrap_or(@core.empty_document_assembly())
+  assert_true(assembly.sections.length() == 1)
+  assert_true(assembly.sections[0].title == "Candidate Title")
+  assert_true(
+    assembly.heading_paths.get(body.block_id) == Some(["Candidate Title"]),
+  )
+  assert_metric_eq(document.diagnostics, "resolved_heading_count", "1")
+}
+
+///|
+test "phase2 assembler groups flat list items without breaking nested parser-owned lists" {
+  let item_a = @core.make_block(
+    @core.BlockKind::ListItem,
+    "First",
+    source_ref=@core.empty_source_ref(),
+  )
+  item_a.attrs.set("ordered", "false")
+  item_a.attrs.set("level", "0")
+  let item_b = @core.make_block(
+    @core.BlockKind::ListItem,
+    "Second",
+    source_ref=@core.empty_source_ref(),
+  )
+  item_b.attrs.set("ordered", "false")
+  item_b.attrs.set("level", "0")
+  let document = @pipeline.build_document_with_default_pipeline(
+    @core.IRInput::BlockStream([item_a, item_b]),
+    @pipeline.make_pass_context(false, "balanced"),
+  )
+  assert_true(document.blocks.length() == 1)
+  assert_true(document.blocks[0].kind == @core.BlockKind::List)
+  assert_true(document.blocks[0].children.length() == 2)
+  assert_true(document.blocks[0].children[0].text == "First")
+  assert_true(document.blocks[0].children[1].text == "Second")
+  assert_metric_eq(document.diagnostics, "resolved_list_count", "1")
+}
+
+///|
+test "phase2 rag prefers assembler heading paths over local heading scan state" {
+  let heading = @core.make_block(
+    @core.BlockKind::Heading,
+    "Root",
+    source_ref=@core.empty_source_ref(),
+  )
+  heading.attrs.set("level", "1")
+  let paragraph = @core.make_block(
+    @core.BlockKind::Paragraph,
+    "Body under root",
+    source_ref=@core.empty_source_ref(),
+  )
+  let document = @pipeline.build_document_with_default_pipeline(
+    @core.IRInput::BlockStream([heading, paragraph]),
+    @pipeline.make_pass_context(false, "rag"),
+  )
+  let chunks = @rag.chunks_from_document(
+    document,
+    @rag.make_rag_options(1200, 150, true, true, true, true),
+  )
+  let mut text_chunk : @rag.RagChunk? = None
+  for chunk in chunks {
+    if chunk.kind == @rag.ChunkKind::Text {
+      text_chunk = Some(chunk)
+      break
+    }
+  }
+  let text_chunk = match text_chunk {
+    Some(chunk) => chunk
+    None => fail("expected text chunk")
+  }
+  assert_true(text_chunk.heading_path == ["Root"])
+  assert_true(
+    text_chunk.metadata.get("heading_depth") ==
+    Some(@core.JsonValue::Number("1")),
+  )
+}
+
+///|
+test "phase3 assembler resolves adjacent logical table continuations" {
+  let heading = @core.make_block(
+    @core.BlockKind::Heading,
+    "Data",
+    source_ref=@core.empty_source_ref(),
+  )
+  heading.attrs.set("level", "1")
+
+  let left_ref = @core.source_ref_with_office_fields(
+    @core.empty_source_ref(),
+    Some("book.xlsx"),
+    Some("xlsx"),
+    None,
+    Some("Sheet1"),
+    Some("A1:B3"),
+    None,
+    None,
+    None,
+  )
+  let right_ref = @core.source_ref_with_office_fields(
+    @core.empty_source_ref(),
+    Some("book.xlsx"),
+    Some("xlsx"),
+    None,
+    Some("Sheet1"),
+    Some("A4:B6"),
+    None,
+    None,
+    None,
+  )
+
+  let left_base = @core.make_block(
+    @core.BlockKind::Table,
+    "",
+    source_ref=left_ref,
+  )
+  left_base.attrs.set("header_rows", "1")
+  left_base.attrs.set("table_column_count", "2")
+  let left = @core.block_with_children(left_base, [
+    @core.block_with_children(@core.make_block(@core.BlockKind::TableRow, ""), [
+      @core.make_block(@core.BlockKind::TableCell, "H1"),
+      @core.make_block(@core.BlockKind::TableCell, "H2"),
+    ]),
+    @core.block_with_children(@core.make_block(@core.BlockKind::TableRow, ""), [
+      @core.make_block(@core.BlockKind::TableCell, "A1"),
+      @core.make_block(@core.BlockKind::TableCell, "A2"),
+    ]),
+  ])
+
+  let right_base = @core.make_block(
+    @core.BlockKind::Table,
+    "",
+    source_ref=right_ref,
+  )
+  right_base.attrs.set("header_rows", "1")
+  right_base.attrs.set("table_column_count", "2")
+  let right = @core.block_with_children(right_base, [
+    @core.block_with_children(@core.make_block(@core.BlockKind::TableRow, ""), [
+      @core.make_block(@core.BlockKind::TableCell, "H1"),
+      @core.make_block(@core.BlockKind::TableCell, "H2"),
+    ]),
+    @core.block_with_children(@core.make_block(@core.BlockKind::TableRow, ""), [
+      @core.make_block(@core.BlockKind::TableCell, "B1"),
+      @core.make_block(@core.BlockKind::TableCell, "B2"),
+    ]),
+  ])
+
+  let document = @pipeline.build_document_with_default_pipeline(
+    @core.IRInput::BlockStream([heading, left, right]),
+    @pipeline.make_pass_context(false, "balanced"),
+  )
+  let assembly = document.assembly.unwrap_or(@core.empty_document_assembly())
+  assert_true(assembly.table_continuations.length() == 1)
+  assert_true(
+    assembly.table_continuations[0].table_block_id ==
+    document.blocks[2].block_id,
+  )
+  assert_true(
+    assembly.table_continuations[0].continues_from_block_id ==
+    Some(document.blocks[1].block_id),
+  )
+  assert_true(
+    assembly.table_continuations[0].relation == "adjacent_same_logical_table",
+  )
+  assert_metric_eq(
+    document.diagnostics,
+    "resolved_table_continuation_count",
+    "1",
+  )
+}
+
+///|
+test "phase3 assembler resolves embedded image captions into caption bindings" {
+  let image_ref = @core.source_ref_with_html_path(
+    @core.empty_source_ref(),
+    Some("sample.html"),
+    Some("html"),
+    Some("/html/body/figure/img[1]"),
+  )
+  let image = @core.make_block(@core.BlockKind::Image, "", source_ref=image_ref)
+  image.attrs.set("asset_id", "img-1")
+  image.attrs.set("path", "assets/image01.png")
+  image.attrs.set("caption", "Figure 1. Example")
+
+  let asset = @core.make_asset_ref(
+    @core.AssetKind::Image,
+    "img-1",
+    source_ref=image_ref,
+  )
+  let asset = { ..asset, path: Some("assets/image01.png") }
+
+  let document = @pipeline.build_document_with_default_pipeline(
+    @core.IRInput::Document({
+      ..@core.document_from_blocks([image]),
+      assets: [asset],
+    }),
+    @pipeline.make_pass_context(false, "balanced"),
+  )
+  let assembly = document.assembly.unwrap_or(@core.empty_document_assembly())
+  assert_true(assembly.caption_bindings.length() == 1)
+  assert_true(
+    assembly.caption_bindings[0].target_block_id == document.blocks[0].block_id,
+  )
+  assert_true(
+    assembly.caption_bindings[0].caption_block_id ==
+    document.blocks[0].block_id + ":caption",
+  )
+  assert_true(assembly.caption_bindings[0].relation == "embedded_caption_attr")
+  assert_metric_eq(document.diagnostics, "resolved_caption_binding_count", "1")
+}
+
+///|
+test "phase3 assembler resolves asset ownership from block asset ids" {
+  let source_ref = @core.source_ref_with_html_path(
+    @core.empty_source_ref(),
+    Some("sample.html"),
+    Some("html"),
+    Some("/html/body/p/img[1]"),
+  )
+  let image = @core.make_block(@core.BlockKind::Image, "", source_ref~)
+  image.attrs.set("asset_id", "asset-image-1")
+  image.attrs.set("path", "assets/image01.jpg")
+
+  let asset = @core.make_asset_ref(
+    @core.AssetKind::Image,
+    "asset-image-1",
+    source_ref~,
+  )
+  let asset = { ..asset, path: Some("assets/image01.jpg") }
+
+  let document = @pipeline.build_document_with_default_pipeline(
+    @core.IRInput::Document({
+      ..@core.document_from_blocks([image]),
+      assets: [asset],
+    }),
+    @pipeline.make_pass_context(false, "balanced"),
+  )
+  let assembly = document.assembly.unwrap_or(@core.empty_document_assembly())
+  assert_true(assembly.asset_bindings.length() == 1)
+  assert_true(assembly.asset_bindings[0].asset_id == "asset-image-1")
+  assert_true(
+    assembly.asset_bindings[0].owner_block_id == document.blocks[0].block_id,
+  )
+  assert_true(assembly.asset_bindings[0].relation == "rendered_image_block")
+  assert_metric_eq(document.diagnostics, "resolved_asset_binding_count", "1")
+}
+
+///|
+test "phase4 merge text line pass merges pdf line fragments within one text block only" {
+  let line_a_ref = @core.source_ref_with_extra(
+    @core.source_ref_with_extra(
+      {
+        ..@core.source_ref_with_lines(
+          @core.empty_source_ref(),
+          Some("sample.pdf"),
+          Some("pdf"),
+          Some(1),
+          Some(1),
+        ),
+        page: Some(1),
+      },
+      "pdf_text_block_index",
+      "7",
+    ),
+    "reading_order_index",
+    "3",
+  )
+  let line_a = @core.make_block(
+    @core.BlockKind::Paragraph,
+    "Alpha-",
+    source_ref=line_a_ref,
+  )
+
+  let line_b_ref = @core.source_ref_with_extra(
+    @core.source_ref_with_extra(
+      @core.empty_source_ref(),
+      "reading_order_index",
+      "3",
+    ),
+    "pdf_text_block_index",
+    "7",
+  )
+  let line_b_ref = {
+    ..@core.source_ref_with_lines(
+      line_b_ref,
+      Some("sample.pdf"),
+      Some("pdf"),
+      Some(2),
+      Some(2),
+    ),
+    page: Some(1),
+  }
+  let line_b = @core.make_block(
+    @core.BlockKind::Paragraph,
+    "Beta",
+    source_ref=line_b_ref,
+  )
+
+  let other_ref = @core.source_ref_with_extra(
+    @core.source_ref_with_extra(
+      @core.empty_source_ref(),
+      "reading_order_index",
+      "3",
+    ),
+    "pdf_text_block_index",
+    "8",
+  )
+  let other_ref = {
+    ..@core.source_ref_with_lines(
+      other_ref,
+      Some("sample.pdf"),
+      Some("pdf"),
+      Some(3),
+      Some(3),
+    ),
+    page: Some(1),
+  }
+  let line_c = @core.make_block(
+    @core.BlockKind::Paragraph,
+    "Gamma",
+    source_ref=other_ref,
+  )
+  let document = @pipeline.build_document_with_default_pipeline(
+    @core.IRInput::BlockStream([line_a, line_b, line_c]),
+    @pipeline.make_pass_context(false, "balanced"),
+  )
+  assert_true(document.blocks.length() == 2)
+  assert_true(document.blocks[0].text == "AlphaBeta")
+  assert_true(document.blocks[1].text == "Gamma")
+  assert_metric_eq(document.diagnostics, "merged_text_line_count", "1")
+}
+
+///|
+test "phase4 resolve reading order pass reorders only hinted siblings" {
+  let slide_ref = {
+    ..@core.source_ref_with_office_fields(
+      @core.empty_source_ref(),
+      Some("slides.pptx"),
+      Some("pptx"),
+      None,
+      None,
+      None,
+      Some(2),
+      Some("shape-a"),
+      None,
+    )
+  }
+  slide_ref.extra.set("reading_order_key", "0020")
+  let first = @core.make_block(
+    @core.BlockKind::Paragraph,
+    "Second visually",
+    source_ref=slide_ref,
+  )
+  let slide_ref2 = {
+    ..@core.source_ref_with_office_fields(
+      @core.empty_source_ref(),
+      Some("slides.pptx"),
+      Some("pptx"),
+      None,
+      None,
+      None,
+      Some(2),
+      Some("shape-b"),
+      None,
+    )
+  }
+  slide_ref2.extra.set("reading_order_key", "0010")
+  let second = @core.make_block(
+    @core.BlockKind::Paragraph,
+    "First visually",
+    source_ref=slide_ref2,
+  )
+  let plain = @core.make_block(
+    @core.BlockKind::Paragraph,
+    "Unhinted tail",
+    source_ref=@core.empty_source_ref(),
+  )
+  let document = @pipeline.build_document_with_default_pipeline(
+    @core.IRInput::BlockStream([first, second, plain]),
+    @pipeline.make_pass_context(false, "balanced"),
+  )
+  assert_true(document.blocks[0].text == "First visually")
+  assert_true(document.blocks[1].text == "Second visually")
+  assert_true(document.blocks[2].text == "Unhinted tail")
+  assert_metric_eq(
+    document.diagnostics,
+    "resolved_reading_order_block_count",
+    "2",
+  )
+}
+
+///|
+test "phase5 resolve reading order pass does not reorder across slide boundaries" {
+  let slide1_ref = {
+    ..@core.source_ref_with_office_fields(
+      @core.empty_source_ref(),
+      Some("slides.pptx"),
+      Some("pptx"),
+      None,
+      None,
+      None,
+      Some(1),
+      Some("shape-a"),
+      None,
+    )
+  }
+  slide1_ref.extra.set("reading_order_key", "030")
+  let slide1 = @core.make_block(
+    @core.BlockKind::Paragraph,
+    "Slide 1 body",
+    source_ref=slide1_ref,
+  )
+  let slide3_ref = {
+    ..@core.source_ref_with_office_fields(
+      @core.empty_source_ref(),
+      Some("slides.pptx"),
+      Some("pptx"),
+      None,
+      None,
+      None,
+      Some(3),
+      Some("shape-b"),
+      None,
+    )
+  }
+  slide3_ref.extra.set("reading_order_key", "010")
+  let slide3 = @core.make_block(
+    @core.BlockKind::Paragraph,
+    "Slide 3 heading-like",
+    source_ref=slide3_ref,
+  )
+  let document = @pipeline.build_document_with_default_pipeline(
+    @core.IRInput::BlockStream([slide1, slide3]),
+    @pipeline.make_pass_context(false, "balanced"),
+  )
+  assert_true(document.blocks[0].text == "Slide 1 body")
+  assert_true(document.blocks[1].text == "Slide 3 heading-like")
+}
+
+///|
+test "phase5 resolve reading order pass does not reorder across pdf pages" {
+  let page1_ref = @core.source_ref_with_lines(
+    @core.empty_source_ref(),
+    Some("sample.pdf"),
+    Some("pdf"),
+    Some(1),
+    Some(1),
+  )
+  page1_ref.extra.set("reading_order_index", "1")
+  let page1 = @core.make_block(
+    @core.BlockKind::Paragraph,
+    "Page 1 first",
+    source_ref=page1_ref,
+  )
+  let page2_ref = @core.source_ref_with_lines(
+    @core.empty_source_ref(),
+    Some("sample.pdf"),
+    Some("pdf"),
+    Some(2),
+    Some(2),
+  )
+  page2_ref.extra.set("reading_order_index", "1")
+  let page2 = @core.make_block(
+    @core.BlockKind::Paragraph,
+    "Page 2 first",
+    source_ref=page2_ref,
+  )
+  let document = @pipeline.build_document_with_default_pipeline(
+    @core.IRInput::BlockStream([page1, page2]),
+    @pipeline.make_pass_context(false, "balanced"),
+  )
+  assert_true(document.blocks[0].text == "Page 1 first")
+  assert_true(document.blocks[1].text == "Page 2 first")
+}
+
+///|
+test "phase5 resolve reading order pass sorts grouped pptx-like sibling keys by geometry rank" {
+  let title_ref = {
+    ..@core.source_ref_with_office_fields(
+      @core.empty_source_ref(),
+      Some("grouped.pptx"),
+      Some("pptx"),
+      None,
+      None,
+      None,
+      Some(1),
+      Some("shape-title"),
+      None,
+    )
+  }
+  title_ref.extra.set(
+    "reading_order_key", "010:0000000000:0000469681:00001:shape-title",
+  )
+  let title = @core.make_block(
+    @core.BlockKind::Heading,
+    "Highlights",
+    source_ref=title_ref,
+  )
+
+  let main_ref = {
+    ..@core.source_ref_with_office_fields(
+      @core.empty_source_ref(),
+      Some("grouped.pptx"),
+      Some("pptx"),
+      None,
+      None,
+      None,
+      Some(1),
+      Some("shape-main"),
+      None,
+    )
+  }
+  main_ref.extra.set(
+    "reading_order_key", "030:0012417387:0000634190:00002:group-200/shape-175",
+  )
+  let main = @core.make_block(
+    @core.BlockKind::Paragraph,
+    "Main paragraph",
+    source_ref=main_ref,
+  )
+
+  let item_a_ref = {
+    ..@core.source_ref_with_office_fields(
+      @core.empty_source_ref(),
+      Some("grouped.pptx"),
+      Some("pptx"),
+      None,
+      None,
+      None,
+      Some(1),
+      Some("shape-a"),
+      None,
+    )
+  }
+  item_a_ref.extra.set(
+    "reading_order_key", "030:0004880051:0011536527:00001:group-200/group-200/group-201/shape-172",
+  )
+  let item_a = @core.make_block(
+    @core.BlockKind::Paragraph,
+    "Item A",
+    source_ref=item_a_ref,
+  )
+
+  let item_b_ref = {
+    ..@core.source_ref_with_office_fields(
+      @core.empty_source_ref(),
+      Some("grouped.pptx"),
+      Some("pptx"),
+      None,
+      None,
+      None,
+      Some(1),
+      Some("shape-b"),
+      None,
+    )
+  }
+  item_b_ref.extra.set(
+    "reading_order_key", "030:0005618345:0011525250:00002:group-200/group-200/group-201/shape-173",
+  )
+  let item_b = @core.make_block(
+    @core.BlockKind::Paragraph,
+    "Item B",
+    source_ref=item_b_ref,
+  )
+
+  let item_c_ref = {
+    ..@core.source_ref_with_office_fields(
+      @core.empty_source_ref(),
+      Some("grouped.pptx"),
+      Some("pptx"),
+      None,
+      None,
+      None,
+      Some(1),
+      Some("shape-c"),
+      None,
+    )
+  }
+  item_c_ref.extra.set(
+    "reading_order_key", "030:0006453784:0011513972:00003:group-200/group-200/group-201/shape-174",
+  )
+  let item_c = @core.make_block(
+    @core.BlockKind::Paragraph,
+    "Item C",
+    source_ref=item_c_ref,
+  )
+
+  let document = @pipeline.build_document_with_default_pipeline(
+    @core.IRInput::BlockStream([title, main, item_a, item_b, item_c]),
+    @pipeline.make_pass_context(false, "balanced"),
+  )
+  assert_eq(document.blocks.map(block => block.text), [
+    "Highlights", "Item A", "Item B", "Item C", "Main paragraph",
+  ])
+}
+
+///|
+test "phase5 resolve reading order pass reorders mixed hinted pptx siblings by full key" {
+  let heading = @core.make_block(
+    @core.BlockKind::Heading,
+    "Slide 1",
+    source_ref=@core.source_ref_with_office_fields(
+      @core.empty_source_ref(),
+      Some("sample.pptx"),
+      Some("pptx"),
+      None,
+      None,
+      None,
+      Some(1),
+      Some("title"),
+      None,
+    ),
+  )
+  let picture_ref = @core.source_ref_with_office_fields(
+    @core.empty_source_ref(),
+    Some("sample.pptx"),
+    Some("pptx"),
+    None,
+    None,
+    None,
+    Some(1),
+    Some("picture-6"),
+    None,
+  )
+  picture_ref.extra.set(
+    "reading_order_key", "050:0001988840:0005580112:00003:picture-6",
+  )
+  let picture = @core.make_block(
+    @core.BlockKind::Image,
+    "",
+    source_ref=picture_ref,
+  )
+
+  let body_ref = @core.source_ref_with_office_fields(
+    @core.empty_source_ref(),
+    Some("sample.pptx"),
+    Some("pptx"),
+    None,
+    None,
+    None,
+    Some(1),
+    Some("shape-7"),
+    None,
+  )
+  body_ref.extra.set(
+    "reading_order_key", "060:0002924944:0005580112:00004:shape-7",
+  )
+  let body = @core.make_block(
+    @core.BlockKind::Paragraph,
+    "Test text",
+    source_ref=body_ref,
+  )
+
+  let grouped_ref = @core.source_ref_with_office_fields(
+    @core.empty_source_ref(),
+    Some("sample.pptx"),
+    Some("pptx"),
+    None,
+    None,
+    None,
+    Some(1),
+    Some("group-11/shape-10"),
+    None,
+  )
+  grouped_ref.extra.set(
+    "reading_order_key", "060:0004581128:0005580112:00002:group-11/shape-10",
+  )
+  let grouped = @core.make_block(
+    @core.BlockKind::Paragraph,
+    "Group test text",
+    source_ref=grouped_ref,
+  )
+
+  let document = @pipeline.build_document_with_default_pipeline(
+    @core.IRInput::BlockStream([heading, grouped, picture, body]),
+    @pipeline.make_pass_context(false, "balanced"),
+  )
+  assert_eq(document.blocks.map(block => block.text), [
+    "Slide 1", "", "Test text", "Group test text",
+  ])
+}
+
+///|
+test "phase5 resolve reading order pass preserves full hinted pptx stream order" {
+  let heading = @core.make_block(
+    @core.BlockKind::Heading,
+    "Slide 1",
+    source_ref=@core.source_ref_with_office_fields(
+      @core.empty_source_ref(),
+      Some("sample.pptx"),
+      Some("pptx"),
+      None,
+      None,
+      None,
+      Some(1),
+      Some("title"),
+      None,
+    ),
+  )
+  let box1_ref = @core.source_ref_with_office_fields(
+    @core.empty_source_ref(),
+    Some("sample.pptx"),
+    Some("pptx"),
+    None,
+    None,
+    None,
+    Some(1),
+    Some("shape-12"),
+    None,
+  )
+  box1_ref.extra.set(
+    "reading_order_key", "030:0005517232:0005652120:00006:shape-12",
+  )
+  let box1 = @core.make_block(
+    @core.BlockKind::Paragraph,
+    "Box 1",
+    source_ref=box1_ref,
+  )
+
+  let box2_ref = @core.source_ref_with_office_fields(
+    @core.empty_source_ref(),
+    Some("sample.pptx"),
+    Some("pptx"),
+    None,
+    None,
+    None,
+    Some(1),
+    Some("shape-13"),
+    None,
+  )
+  box2_ref.extra.set(
+    "reading_order_key", "030:0005517232:0007668344:00007:shape-13",
+  )
+  let box2 = @core.make_block(
+    @core.BlockKind::Paragraph,
+    "Box 2",
+    source_ref=box2_ref,
+  )
+
+  let picture1_ref = @core.source_ref_with_office_fields(
+    @core.empty_source_ref(),
+    Some("sample.pptx"),
+    Some("pptx"),
+    None,
+    None,
+    None,
+    Some(1),
+    Some("picture-6"),
+    None,
+  )
+  picture1_ref.extra.set(
+    "reading_order_key", "050:0001988840:0005580112:00003:picture-6",
+  )
+  let picture1 = @core.make_block(
+    @core.BlockKind::Image,
+    "",
+    source_ref=picture1_ref,
+  )
+
+  let picture2_ref = @core.source_ref_with_office_fields(
+    @core.empty_source_ref(),
+    Some("sample.pptx"),
+    Some("pptx"),
+    None,
+    None,
+    None,
+    Some(1),
+    Some("group-11/picture-9"),
+    None,
+  )
+  picture2_ref.extra.set(
+    "reading_order_key", "050:0003645024:0005580112:00001:group-11/picture-9",
+  )
+  let picture2 = @core.make_block(
+    @core.BlockKind::Image,
+    "",
+    source_ref=picture2_ref,
+  )
+
+  let body_ref = @core.source_ref_with_office_fields(
+    @core.empty_source_ref(),
+    Some("sample.pptx"),
+    Some("pptx"),
+    None,
+    None,
+    None,
+    Some(1),
+    Some("shape-7"),
+    None,
+  )
+  body_ref.extra.set(
+    "reading_order_key", "060:0002924944:0005580112:00004:shape-7",
+  )
+  let body = @core.make_block(
+    @core.BlockKind::Paragraph,
+    "Test text",
+    source_ref=body_ref,
+  )
+
+  let grouped_ref = @core.source_ref_with_office_fields(
+    @core.empty_source_ref(),
+    Some("sample.pptx"),
+    Some("pptx"),
+    None,
+    None,
+    None,
+    Some(1),
+    Some("group-11/shape-10"),
+    None,
+  )
+  grouped_ref.extra.set(
+    "reading_order_key", "060:0004581128:0005580112:00002:group-11/shape-10",
+  )
+  let grouped = @core.make_block(
+    @core.BlockKind::Paragraph,
+    "Group test text",
+    source_ref=grouped_ref,
+  )
+
+  let raw_ref = @core.source_ref_with_office_fields(
+    @core.empty_source_ref(),
+    Some("sample.pptx"),
+    Some("pptx"),
+    None,
+    None,
+    None,
+    Some(1),
+    Some("connector-15"),
+    None,
+  )
+  raw_ref.extra.set("reading_order_key", "950:999999999:999999999:connector-15")
+  let raw = @core.make_block(
+    @core.BlockKind::Raw,
+    "[PPTX connector omitted: Straight Arrow Connector 14]",
+    source_ref=raw_ref,
+  )
+
+  let table_ref = @core.source_ref_with_office_fields(
+    @core.empty_source_ref(),
+    Some("sample.pptx"),
+    Some("pptx"),
+    None,
+    None,
+    None,
+    Some(1),
+    Some("graphicFrame-16"),
+    None,
+  )
+  table_ref.extra.set(
+    "reading_order_key", "950:999999999:999999999:graphicFrame-16",
+  )
+  let table = @core.make_block(
+    @core.BlockKind::Table,
+    "table",
+    source_ref=table_ref,
+  )
+
+  let document = @pipeline.build_document_with_default_pipeline(
+    @core.IRInput::BlockStream([
+      heading, box1, box2, picture1, picture2, body, grouped, raw, table,
+    ]),
+    @pipeline.make_pass_context(false, "balanced"),
+  )
+  assert_eq(document.blocks.map(block => block.text), [
+    "Slide 1", "Box 1", "Box 2", "", "", "Test text", "Group test text", "[PPTX connector omitted: Straight Arrow Connector 14]",
+    "table",
+  ])
+}
+
+///|
+test "phase4 remove header footer pass honors cleanup flag and debug retention" {
+  let header = @core.make_block(
+    @core.BlockKind::Paragraph,
+    "Repeated Header",
+    source_ref=@core.source_ref_with_lines(
+      @core.empty_source_ref(),
+      Some("sample.pdf"),
+      Some("pdf"),
+      Some(1),
+      Some(1),
+    ),
+  )
+  header.signals.push(
+    @core.make_signal(@core.SignalType::HeaderFooterCandidate, 95),
+  )
+  let body = @core.make_block(
+    @core.BlockKind::Paragraph,
+    "Body",
+    source_ref=@core.empty_source_ref(),
+  )
+
+  let kept = @pipeline.build_document_with_default_pipeline(
+    @core.IRInput::BlockStream([header, body]),
+    @pipeline.make_pass_context(false, "balanced"),
+  )
+  assert_true(kept.blocks.length() == 2)
+  assert_metric_eq(kept.diagnostics, "removed_header_footer_count", "0")
+
+  let cleaned = @pipeline.build_document_with_default_pipeline(
+    @core.IRInput::BlockStream([header, body]),
+    @pipeline.make_pass_context(false, "balanced", pdf_cleanup_enabled=true),
+  )
+  assert_true(cleaned.blocks.length() == 1)
+  assert_true(cleaned.blocks[0].text == "Body")
+  assert_metric_eq(cleaned.diagnostics, "removed_header_footer_count", "1")
+
+  let debug_cleaned = @pipeline.build_document_with_default_pipeline(
+    @core.IRInput::BlockStream([header, body]),
+    @pipeline.make_pass_context(true, "debug", pdf_cleanup_enabled=true),
+  )
+  assert_true(debug_cleaned.blocks.length() == 2)
+  assert_true(
+    debug_cleaned.blocks[0].attrs.get("header_footer_candidate") == Some("true"),
+  )
+  assert_metric_eq(
+    debug_cleaned.diagnostics,
+    "removed_header_footer_count",
+    "0",
+  )
+}
+
+///|
 test "container contract helper keeps inner dispatch on the root pipeline and bounded" {
   let supported = @container.container_supported_inner_formats()
   assert_true(
@@ -3995,7 +5173,7 @@ test "office shared scaffold models and guardrails stay root-pipeline only" {
   let plan = @shared.make_office_semantic_plan(
     @shared.OfficeDocumentKind::Docx,
     pkg,
-    "document_model",
+    "package_single_pass",
     ["paragraph:0", "table:1"],
     [asset_plan],
     diagnostics~,
@@ -4041,9 +5219,7 @@ test "office shared scaffold models and guardrails stay root-pipeline only" {
 ///|
 test "office parser modes and granularities exist only as scaffold contracts" {
   let modes = @shared.office_parser_modes()
-  assert_true(modes.contains(@parser.ParserMode::DocumentModel))
-  assert_true(modes.contains(@parser.ParserMode::PresentationModel))
-  assert_true(modes.contains(@parser.ParserMode::WorkbookModel))
+  assert_true(modes == [@parser.ParserMode::PackageSinglePass])
   let granularities = @shared.office_streaming_granularities()
   assert_true(granularities.contains(@parser.StreamingGranularity::DocxBlock))
   assert_true(granularities.contains(@parser.StreamingGranularity::PptxSlide))
@@ -4058,7 +5234,7 @@ test "docx parser is product exposure and avoids legacy imports" {
   let result = match
     (contract.parse)(
       @input.input_from_path(
-        "samples/main_process/docx/docx_multiple_notes_order.docx",
+        "samples/main_process/docx/markdown/docx_multiple_notes_order.docx",
       ),
       context,
     ) {
@@ -4067,7 +5243,7 @@ test "docx parser is product exposure and avoids legacy imports" {
       fail("docx parser should return root-pipeline parse result: " + msg)
   }
   assert_true(contract.name == "docx_parser")
-  assert_true(contract.mode == @parser.ParserMode::DocumentModel)
+  assert_true(contract.mode == @parser.ParserMode::PackageSinglePass)
   assert_true(
     contract.capability.streaming_granularity ==
     @parser.StreamingGranularity::DocxBlock,
@@ -4087,7 +5263,8 @@ test "docx parser is product exposure and avoids legacy imports" {
   )
   assert_true(result.diagnostics.metrics.get("runtime_exposed") == Some("true"))
   assert_true(
-    result.diagnostics.metrics.get("effective_mode") == Some("document_model"),
+    result.diagnostics.metrics.get("effective_mode") ==
+    Some("package_single_pass"),
   )
   assert_true(
     result.diagnostics.metrics.get("parser_name") == Some("docx_parser"),
@@ -4137,7 +5314,7 @@ test "docx parser is product exposure and avoids legacy imports" {
 test "docx parser keeps note ordering and code blocks on the root pipeline" {
   let notes = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/docx/docx_multiple_notes_order.docx",
+      "samples/main_process/docx/markdown/docx_multiple_notes_order.docx",
     ),
     @input.DetectedFormat::Docx,
   )
@@ -4162,7 +5339,7 @@ test "docx parser keeps note ordering and code blocks on the root pipeline" {
 
   let code = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/docx/docx_codeblock_basic.docx",
+      "samples/main_process/docx/markdown/docx_codeblock_basic.docx",
     ),
     @input.DetectedFormat::Docx,
   )
@@ -4178,7 +5355,7 @@ test "docx parser keeps note ordering and code blocks on the root pipeline" {
 test "docx parser keeps note comment boundary spacing without duplicating markers" {
   let parsed = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/docx/docx_note_comment_rich_content_boundary.docx",
+      "samples/main_process/docx/markdown/docx_note_comment_rich_content_boundary.docx",
     ),
     @input.DetectedFormat::Docx,
   )
@@ -4200,7 +5377,9 @@ test "docx parser keeps note comment boundary spacing without duplicating marker
 ///|
 test "docx contract guardrails and helper remain aligned with product runtime" {
   assert_eq(@shared.docx_contract_parser_name(), "docx_parser_contract")
-  assert_true(@shared.docx_contract_mode() == @parser.ParserMode::DocumentModel)
+  assert_true(
+    @shared.docx_contract_mode() == @parser.ParserMode::PackageSinglePass,
+  )
   assert_true(
     @shared.docx_contract_granularity() ==
     @parser.StreamingGranularity::DocxBlock,
@@ -4211,7 +5390,7 @@ test "docx contract guardrails and helper remain aligned with product runtime" {
     ["format_readers/ooxml/docx", "format_readers/ooxml/package"],
   )
   assert_contains_all(@shared.docx_contract_guardrails().join("\n"), [
-    "DOCX is restored on the current main CLI", "DocumentModel / IRInput::Document / docx_block",
+    "DOCX is restored on the current main CLI", "PackageSinglePass / IRInput::Document / docx_block",
     "format_readers/ooxml/package + format_readers/ooxml/docx foundation", "no old core",
     "no legacy convert", "no markdown emitter", "no main CLI fallback", "assets stay output-boundary only",
   ])
@@ -4219,7 +5398,7 @@ test "docx contract guardrails and helper remain aligned with product runtime" {
   let helper_result = match
     (helper.parse)(
       @input.input_from_path(
-        "samples/main_process/docx/docx_multiple_notes_order.docx",
+        "samples/main_process/docx/markdown/docx_multiple_notes_order.docx",
       ),
       @parser.new_parse_context(@input.DetectedFormat::Docx),
     ) {
@@ -4231,7 +5410,7 @@ test "docx contract guardrails and helper remain aligned with product runtime" {
   assert_metric_eq(
     helper_result.diagnostics,
     "effective_mode",
-    "document_model",
+    "package_single_pass",
   )
   assert_metric_eq(helper_result.diagnostics, "ir_input_kind", "document")
   assert_metric_eq(helper_result.diagnostics, "event_granularity", "docx_block")
@@ -4253,11 +5432,11 @@ test "docx contract guardrails and helper remain aligned with product runtime" {
 test "docx parser diagnostics source refs and renderer boundary stay contract locked" {
   let parsed = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/docx/docx_image_alt_title.docx",
+      "samples/main_process/docx/assets/docx_image_alt_title.docx",
     ),
     @input.DetectedFormat::Docx,
   )
-  assert_metric_eq(parsed.diagnostics, "effective_mode", "document_model")
+  assert_metric_eq(parsed.diagnostics, "effective_mode", "package_single_pass")
   assert_metric_eq(parsed.diagnostics, "ir_input_kind", "document")
   assert_metric_eq(parsed.diagnostics, "event_granularity", "docx_block")
   assert_metric_eq(parsed.diagnostics, "office_document_kind", "docx")
@@ -4339,7 +5518,9 @@ test "docx parser diagnostics source refs and renderer boundary stay contract lo
   assert_true(rendered.content.contains("*Figure title text*"))
 
   let headings = default_registry_parse(
-    @input.input_from_path("samples/main_process/docx/docx_heading_levels.docx"),
+    @input.input_from_path(
+      "samples/main_process/docx/markdown/docx_heading_levels.docx",
+    ),
     @input.DetectedFormat::Docx,
   )
   let heading_document = headings.document.unwrap_or_else(fn() {
@@ -4574,7 +5755,7 @@ test "pptx scaffold models and guardrails stay contract-locked after runtime res
     None => fail("pptx scaffold shape should keep placeholder contract")
   }
   assert_contains_all(@shared.pptx_contract_guardrails().join("\n"), [
-    "PPTX is restored on the current main CLI", "PresentationModel / IRInput::Document / pptx_slide",
+    "PPTX is restored on the current main CLI", "PackageSinglePass / IRInput::Document / pptx_slide",
     "format_readers/ooxml/package + format_readers/ooxml/pptx foundation", "no old core",
     "no legacy convert", "no markdown emitter", "no main CLI fallback", "slide order follows presentation.xml",
     "placeholder inheritance is slide -> layout -> master -> geometry inference",
@@ -4611,7 +5792,7 @@ test "pptx scaffold models and guardrails stay contract-locked after runtime res
 test "pptx contract helper stays scaffold-only while runtime parser is exposed and legacy free" {
   assert_eq(@shared.pptx_contract_parser_name(), "pptx_parser_contract")
   assert_true(
-    @shared.pptx_contract_mode() == @parser.ParserMode::PresentationModel,
+    @shared.pptx_contract_mode() == @parser.ParserMode::PackageSinglePass,
   )
   assert_true(
     @shared.pptx_contract_granularity() ==
@@ -4630,7 +5811,7 @@ test "pptx contract helper stays scaffold-only while runtime parser is exposed a
   let helper_result = match
     (helper.parse)(
       @input.input_from_path(
-        "samples/main_process/pptx/pptx_hidden_slide_basic.pptx",
+        "samples/main_process/pptx/markdown/pptx_hidden_slide_basic.pptx",
       ),
       @parser.new_parse_context(@input.DetectedFormat::Unknown),
     ) {
@@ -4642,12 +5823,12 @@ test "pptx contract helper stays scaffold-only while runtime parser is exposed a
   assert_metric_eq(
     helper_result.diagnostics,
     "parser_mode",
-    "presentation_model",
+    "package_single_pass",
   )
   assert_metric_eq(
     helper_result.diagnostics,
     "effective_mode",
-    "presentation_model",
+    "package_single_pass",
   )
   assert_metric_eq(helper_result.diagnostics, "ir_input_kind", "document")
   assert_metric_eq(helper_result.diagnostics, "event_granularity", "pptx_slide")
@@ -4856,12 +6037,12 @@ test "pptx source ref debug json and metric scaffolds stay visible after runtime
 test "pptx runtime keeps presentation order reading order and diagnostics contracts" {
   let parsed = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/pptx/pptx_hidden_slides_policy.pptx",
+      "samples/main_process/pptx/markdown/pptx_hidden_slides_policy.pptx",
     ),
     @input.DetectedFormat::Pptx,
   )
-  assert_metric_eq(parsed.diagnostics, "parser_mode", "presentation_model")
-  assert_metric_eq(parsed.diagnostics, "effective_mode", "presentation_model")
+  assert_metric_eq(parsed.diagnostics, "parser_mode", "package_single_pass")
+  assert_metric_eq(parsed.diagnostics, "effective_mode", "package_single_pass")
   assert_metric_eq(parsed.diagnostics, "ir_input_kind", "document")
   assert_metric_eq(parsed.diagnostics, "event_granularity", "pptx_slide")
   assert_metric_eq(parsed.diagnostics, "office_document_kind", "pptx")
@@ -4925,10 +6106,12 @@ test "pptx runtime keeps presentation order reading order and diagnostics contra
 ///|
 test "pptx runtime keeps nested list tree and renderer boundary on expected-next sample" {
   let parsed = default_registry_parse(
-    @input.input_from_path("samples/main_process/pptx/pptx_bullet_levels.pptx"),
+    @input.input_from_path(
+      "samples/main_process/pptx/markdown/pptx_bullet_levels.pptx",
+    ),
     @input.DetectedFormat::Pptx,
   )
-  assert_metric_eq(parsed.diagnostics, "effective_mode", "presentation_model")
+  assert_metric_eq(parsed.diagnostics, "effective_mode", "package_single_pass")
   assert_metric_eq(parsed.diagnostics, "event_granularity", "pptx_slide")
   assert_diagnostics_lists_contain_none(parsed.diagnostics, [
     "pptx_raw_fallback", "pptx_legacy_fallback", "convert_pptx_used", "legacy_dispatcher_used",
@@ -4961,7 +6144,7 @@ test "pptx runtime keeps nested list tree and renderer boundary on expected-next
     @render.make_render_context(false),
   )
   let expected = read_utf8_text(
-    "samples/main_process/pptx/expected_next/pptx_bullet_levels.md",
+    "samples/main_process/pptx/expected/markdown/pptx_bullet_levels.md",
   )
   assert_eq(rendered.content.trim().to_owned(), expected.trim().to_owned())
   assert_true(rendered.content.contains("- Phase 1"))
@@ -4973,11 +6156,11 @@ test "pptx runtime keeps nested list tree and renderer boundary on expected-next
 test "pptx runtime keeps speaker notes separate from slide body and source refs explicit" {
   let parsed = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/pptx/pptx_speaker_notes_basic.pptx",
+      "samples/main_process/pptx/rag/pptx_speaker_notes_basic.pptx",
     ),
     @input.DetectedFormat::Pptx,
   )
-  assert_metric_eq(parsed.diagnostics, "effective_mode", "presentation_model")
+  assert_metric_eq(parsed.diagnostics, "effective_mode", "package_single_pass")
   assert_metric_eq(parsed.diagnostics, "pptx_notes_count", "3")
   assert_metric_eq(parsed.diagnostics, "pptx_comment_count", "0")
   assert_metric_eq(parsed.diagnostics, "pptx_hidden_slide_count", "0")
@@ -5012,7 +6195,7 @@ test "pptx runtime keeps speaker notes separate from slide body and source refs 
     @render.make_render_context(false),
   )
   let expected = read_utf8_text(
-    "samples/main_process/pptx/expected_next/pptx_speaker_notes_basic.md",
+    "samples/main_process/pptx/expected/markdown/pptx_speaker_notes_basic.md",
   )
   assert_eq(rendered.content.trim().to_owned(), expected.trim().to_owned())
   assert_true(rendered.content.contains("### Speaker Notes"))
@@ -5028,7 +6211,7 @@ test "pptx runtime keeps package-local assets in document ir and expected-next b
     ),
     @input.DetectedFormat::Pptx,
   )
-  assert_metric_eq(parsed.diagnostics, "effective_mode", "presentation_model")
+  assert_metric_eq(parsed.diagnostics, "effective_mode", "package_single_pass")
   assert_metric_eq(parsed.diagnostics, "asset_count", "1")
   assert_metric_eq(parsed.diagnostics, "media_asset_count", "1")
   assert_metric_eq(parsed.diagnostics, "materialized_asset_count", "1")
@@ -5055,7 +6238,7 @@ test "pptx runtime keeps package-local assets in document ir and expected-next b
     @render.make_render_context(false),
   )
   let expected = read_utf8_text(
-    "samples/main_process/pptx/expected_next/assets/pptx_image_single.md",
+    "samples/main_process/pptx/expected/assets/pptx_image_single/result.md",
   )
   assert_eq(rendered.content.trim().to_owned(), expected.trim().to_owned())
 }
@@ -5210,8 +6393,8 @@ test "xlsx scaffold models and guardrails stay root-pipeline only" {
     None => fail("xlsx scaffold cell should keep formula contract")
   }
   assert_contains_all(@shared.xlsx_contract_guardrails().join("\n"), [
-    "XLSX is restored on the current main CLI", "WorkbookModel / IRInput::Document / xlsx_sheet",
-    "future large path = StreamingEvent / EventStream / xlsx_row", "format_readers/ooxml/shared now owns the shared XLSX semantic scaffold",
+    "XLSX is restored on the current main CLI", "PackageSinglePass / IRInput::Document / xlsx_sheet",
+    "future large path = BlockStreaming / BlockStream / xlsx_row", "format_readers/ooxml/shared now owns the shared XLSX semantic scaffold",
     "no old core", "no legacy convert", "no markdown emitter", "no main CLI fallback",
     "assets stay output-boundary only", "formulas are preserved and never executed",
     "external links are no-fetch",
@@ -5222,7 +6405,7 @@ test "xlsx scaffold models and guardrails stay root-pipeline only" {
   ])
   assert_contains_all(@shared.xlsx_contract_sheet_policy().join("\n"), [
     "visible sheets are future first-scope input", "hidden sheets require explicit diagnostics policy",
-    "very hidden sheets require explicit diagnostics policy", "large sheets are bounded and defer to future xlsx_row streaming",
+    "very hidden sheets require explicit diagnostics policy", "large sheets are bounded and defer to future xlsx_row block streaming",
   ])
   assert_contains_all(@shared.xlsx_contract_relationship_policy().join("\n"), [
     "relationship target resolution is package-local by default", "TargetMode=External is no-fetch",
@@ -5238,7 +6421,9 @@ test "xlsx scaffold models and guardrails stay root-pipeline only" {
 ///|
 test "xlsx contract helper and dependency guard stay restored and legacy free" {
   assert_eq(@shared.xlsx_contract_parser_name(), "xlsx_parser_contract")
-  assert_true(@shared.xlsx_contract_mode() == @parser.ParserMode::WorkbookModel)
+  assert_true(
+    @shared.xlsx_contract_mode() == @parser.ParserMode::PackageSinglePass,
+  )
   assert_true(
     @shared.xlsx_contract_granularity() ==
     @parser.StreamingGranularity::XlsxSheet,
@@ -5248,7 +6433,7 @@ test "xlsx contract helper and dependency guard stay restored and legacy free" {
     @parser.StreamingGranularity::XlsxRow,
   )
   assert_eq(@shared.xlsx_contract_ir_input_kind(), "document")
-  assert_eq(@shared.xlsx_contract_large_ir_input_kind(), "event_stream")
+  assert_eq(@shared.xlsx_contract_large_ir_input_kind(), "block_stream")
   assert_true(
     @shared.xlsx_contract_foundations() ==
     ["format_readers/ooxml/package", "format_readers/ooxml/shared"],
@@ -5260,7 +6445,9 @@ test "xlsx contract helper and dependency guard stay restored and legacy free" {
   let helper = @formats_root.xlsx_parser_contract()
   let helper_result = match
     (helper.parse)(
-      @input.input_from_path("samples/main_process/xlsx/sheet_simple.xlsx"),
+      @input.input_from_path(
+        "samples/main_process/xlsx/markdown/sheet_simple.xlsx",
+      ),
       @parser.new_parse_context(@input.DetectedFormat::Unknown),
     ) {
     Ok(value) => value
@@ -5268,11 +6455,15 @@ test "xlsx contract helper and dependency guard stay restored and legacy free" {
   }
   assert_true(helper_result.document is Some(_))
   assert_metric_eq(helper_result.diagnostics, "runtime_exposed", "true")
-  assert_metric_eq(helper_result.diagnostics, "parser_mode", "workbook_model")
+  assert_metric_eq(
+    helper_result.diagnostics,
+    "parser_mode",
+    "package_single_pass",
+  )
   assert_metric_eq(
     helper_result.diagnostics,
     "effective_mode",
-    "workbook_model",
+    "package_single_pass",
   )
   assert_metric_eq(helper_result.diagnostics, "ir_input_kind", "document")
   assert_metric_eq(helper_result.diagnostics, "event_granularity", "xlsx_sheet")
@@ -5319,15 +6510,15 @@ test "xlsx contract helper and dependency guard stay restored and legacy free" {
 }
 
 ///|
-test "xlsx parser keeps workbook-model diagnostics source refs and sheet policy contract locked" {
+test "xlsx parser keeps package-single-pass diagnostics source refs and sheet policy contract locked" {
   let parsed = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/xlsx/xlsx_hidden_sheets_policy.xlsx",
+      "samples/main_process/xlsx/markdown/xlsx_hidden_sheets_policy.xlsx",
     ),
     @input.DetectedFormat::Xlsx,
   )
-  assert_metric_eq(parsed.diagnostics, "parser_mode", "workbook_model")
-  assert_metric_eq(parsed.diagnostics, "effective_mode", "workbook_model")
+  assert_metric_eq(parsed.diagnostics, "parser_mode", "package_single_pass")
+  assert_metric_eq(parsed.diagnostics, "effective_mode", "package_single_pass")
   assert_metric_eq(parsed.diagnostics, "ir_input_kind", "document")
   assert_metric_eq(parsed.diagnostics, "event_granularity", "xlsx_sheet")
   assert_metric_eq(parsed.diagnostics, "office_document_kind", "xlsx")
@@ -5402,11 +6593,11 @@ test "xlsx parser keeps workbook-model diagnostics source refs and sheet policy 
 test "xlsx parser preserves formulas and expected-next renderer boundary without execution" {
   let parsed = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/xlsx/xlsx_formula_missing_cache.xlsx",
+      "samples/main_process/xlsx/markdown/xlsx_formula_missing_cache.xlsx",
     ),
     @input.DetectedFormat::Xlsx,
   )
-  assert_metric_eq(parsed.diagnostics, "effective_mode", "workbook_model")
+  assert_metric_eq(parsed.diagnostics, "effective_mode", "package_single_pass")
   assert_metric_eq(parsed.diagnostics, "event_granularity", "xlsx_sheet")
   assert_metric_eq(parsed.diagnostics, "xlsx_formula_count", "3")
   assert_diagnostics_lists_contain_none(parsed.diagnostics, [
@@ -5420,7 +6611,7 @@ test "xlsx parser preserves formulas and expected-next renderer boundary without
     @render.make_render_context(false),
   )
   let expected = read_utf8_text(
-    "samples/main_process/xlsx/expected_next/xlsx_formula_missing_cache.md",
+    "samples/main_process/xlsx/expected/markdown/xlsx_formula_missing_cache.md",
   )
   assert_eq(rendered.content.trim().to_owned(), expected.trim().to_owned())
   assert_true(rendered.content.contains("| Missing numeric cache | =1+2 |"))
@@ -6506,7 +7697,9 @@ test "cli package stays isolated from legacy layers and calls root convert" {
 ///|
 test "zip parser stays on container plan archive entry contracts even when stream mode is requested" {
   let parsed = default_registry_parse(
-    @input.input_from_path("samples/main_process/zip/zip_basic_structured.zip"),
+    @input.input_from_path(
+      "samples/main_process/zip/markdown/zip_basic_structured.zip",
+    ),
     @input.DetectedFormat::Zip,
     requested_mode=Some(@parser.ParserMode::StreamingEvent),
   )
@@ -6552,7 +7745,7 @@ test "zip parser stays on container plan archive entry contracts even when strea
 test "zip parser keeps root-pipeline inner dispatch core block output and merged source refs" {
   let parsed = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/zip/zip_mixed_supported_entries.zip",
+      "samples/main_process/zip/markdown/zip_mixed_supported_entries.zip",
     ),
     @input.DetectedFormat::Zip,
   )
@@ -6629,7 +7822,7 @@ test "zip parser keeps root-pipeline inner dispatch core block output and merged
 ///|
 test "zip convert result keeps root container diagnostics and source refs" {
   let result = convert_path(
-    "samples/main_process/zip/zip_basic_structured.zip",
+    "samples/main_process/zip/markdown/zip_basic_structured.zip",
     format=Some(@input.DetectedFormat::Zip),
   )
   assert_true(result.content.contains("# data/person.json"))
@@ -6741,7 +7934,9 @@ test "epub foundation contract reuses active epub and zip readers plus root html
 ///|
 test "epub parser stays on container plan spine item contracts even when stream mode is requested" {
   let parsed = default_registry_parse(
-    @input.input_from_path("samples/main_process/epub/epub_basic_package.epub"),
+    @input.input_from_path(
+      "samples/main_process/epub/markdown/epub_basic_package.epub",
+    ),
     @input.DetectedFormat::Epub,
     requested_mode=Some(@parser.ParserMode::StreamingEvent),
   )
@@ -6786,7 +7981,9 @@ test "epub parser stays on container plan spine item contracts even when stream 
 ///|
 test "epub parser preserves opf spine order and root html source refs without parser markdown emission" {
   let parsed = default_registry_parse(
-    @input.input_from_path("samples/main_process/epub/epub_spine_order.epub"),
+    @input.input_from_path(
+      "samples/main_process/epub/markdown/epub_spine_order.epub",
+    ),
     @input.DetectedFormat::Epub,
   )
   let plan = unwrap_container_plan(parsed, "epub spine order")
@@ -6857,7 +8054,7 @@ test "epub parser preserves opf spine order and root html source refs without pa
 ///|
 test "epub parser keeps missing and unsupported spine diagnostics root-pipeline and renderer owned" {
   let missing = convert_path(
-    "samples/main_process/epub/epub_spine_missing_item_boundary.epub",
+    "samples/main_process/epub/markdown/epub_spine_missing_item_boundary.epub",
     format=Some(@input.DetectedFormat::Epub),
   )
   assert_true(missing.content.contains("# (missing manifest item #0: missing)"))
@@ -6879,7 +8076,7 @@ test "epub parser keeps missing and unsupported spine diagnostics root-pipeline 
   ])
 
   let unsupported = convert_path(
-    "samples/main_process/epub/epub_unsupported_spine_warning.epub",
+    "samples/main_process/epub/markdown/epub_unsupported_spine_warning.epub",
     format=Some(@input.DetectedFormat::Epub),
   )
   assert_true(unsupported.content.contains("# OPS/chapter.xhtml"))
@@ -6901,7 +8098,7 @@ test "epub parser keeps missing and unsupported spine diagnostics root-pipeline 
 ///|
 test "epub parser keeps remote and data image refs bounded without local asset materialization" {
   let remote_json = convert_path(
-    "samples/main_process/epub/epub_remote_data_image_boundary.epub",
+    "samples/main_process/epub/markdown/epub_remote_data_image_boundary.epub",
     format=Some(@input.DetectedFormat::Epub),
     output=@convert.OutputFormat::DebugJson,
   )
@@ -6967,7 +8164,7 @@ test "public gates and docs stay aligned on the markdown-restored main cli surfa
     "samples/main_process/", "samples/check.sh", "samples/check_quality.sh", "check_root_contracts.sh",
     "`txt`", "`csv`", "`tsv`", "`json`", "`jsonl`", "`ndjson`", "`xml`", "`yaml`",
     "`html`", "`markdown`", "`zip`", "`epub`", "`docx`", "`xlsx`", "`pptx`", "`pdf`",
-    "native-text baseline", "expected_next/",
+    "native-text baseline", "expected/markdown/",
   ])
   assert_file_contains_all("tests/README.md", [
     "moon test tests", "negative assertions", "architecture guard",
@@ -6987,7 +8184,7 @@ test "canonical architecture guide records stable parser and ir boundaries" {
 test "shared child runtime exposes parse result lowering and child dispatch entrypoints" {
   let empty = @parser.parse_result_with_document(
     "test_runtime",
-    @parser.ParserMode::DocumentModel,
+    @parser.ParserMode::PackageSinglePass,
     @core.empty_document_ir(),
     @core.empty_diagnostics(),
   )

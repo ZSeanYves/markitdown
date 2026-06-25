@@ -1,0 +1,59 @@
+{
+  "output_format": "rag_json",
+  "detected_format": "xlsx",
+  "parser_mode": "package_single_pass",
+  "convert_mode": "rag",
+  "diagnostics_contains": {
+    "parser_name": "xlsx_parser",
+    "metrics": {
+      "renderer_name": "RagJsonRenderer"
+    }
+  },
+  "source_map": "null",
+  "chunk_count": {
+    "min": 1
+  },
+  "chunks": [
+    {
+      "kind": "table",
+      "heading_path": [
+        "FormulaPolicy"
+      ],
+      "source_ref_count": 16,
+      "asset_ref_count": 0,
+      "text_contains_all": [
+        "| Case | Expression | Value |\n| Cached formula | 10+5 | 15 |\n| Evaluated missing"
+      ],
+      "location_contains": {
+        "cell_ranges": [
+          "A1:C5",
+          "A1",
+          "B1",
+          "C1",
+          "A2",
+          "B2",
+          "C2",
+          "A3",
+          "B3",
+          "C3",
+          "A4",
+          "B4",
+          "C4",
+          "A5",
+          "B5",
+          "C5"
+        ],
+        "container_paths": [
+          "xlsx_metadata_formula_policy_states.xlsx",
+          "FormulaPolicy"
+        ],
+        "entry_paths": [
+          "xl/worksheets/sheet1.xml"
+        ],
+        "sheets": [
+          "FormulaPolicy"
+        ]
+      }
+    }
+  ]
+}

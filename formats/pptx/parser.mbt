@@ -1,12 +1,12 @@
 ///|
 pub fn pptx_parser_capability() -> @parser.ParserCapability {
   @parser.make_parser_capability(
-    @parser.ParserMode::PresentationModel,
+    @parser.ParserMode::PackageSinglePass,
     false,
     @parser.StreamingGranularity::PptxSlide,
     true,
-    false,
-    false,
+    true,
+    true,
     false,
     false,
     true,
@@ -28,7 +28,7 @@ pub fn pptx_parser() -> @parser.Parser {
   let capability = pptx_parser_capability()
   @parser.make_parser(
     "pptx_parser",
-    @parser.ParserMode::PresentationModel,
+    @parser.ParserMode::PackageSinglePass,
     capability,
     fn(
       source : @input.InputSource,
@@ -65,7 +65,7 @@ fn parse_pptx_document_result(
 ) -> Result[@parser.ParseResult, String] {
   let diagnostics = @light_common.empty_parser_diagnostics(
     "pptx_parser",
-    @parser.ParserMode::PresentationModel,
+    @parser.ParserMode::PackageSinglePass,
     source,
     "pptx",
   )
@@ -138,7 +138,7 @@ fn parse_pptx_document_result(
   Ok(
     @parser.parse_result_with_document_capability(
       "pptx_parser",
-      @parser.ParserMode::PresentationModel,
+      @parser.ParserMode::PackageSinglePass,
       final_document,
       diagnostics,
       capability,
@@ -153,7 +153,7 @@ fn pptx_init_diagnostics(
   context : @parser.ParseContext,
 ) -> Unit {
   diagnostics.metrics.set("parser_name", "pptx_parser")
-  diagnostics.metrics.set("parser_mode", "presentation_model")
+  diagnostics.metrics.set("parser_mode", "package_single_pass")
   diagnostics.metrics.set(
     "input_kind",
     @light_common.input_kind_name(source.kind),
@@ -163,10 +163,10 @@ fn pptx_init_diagnostics(
     "requested_mode",
     @light_common.requested_mode_name(context),
   )
-  diagnostics.metrics.set("effective_mode", "presentation_model")
+  diagnostics.metrics.set("effective_mode", "package_single_pass")
   diagnostics.metrics.set("ir_input_kind", "document")
   diagnostics.metrics.set("event_granularity", "pptx_slide")
-  diagnostics.metrics.set("event_semantics", "presentation_model")
+  diagnostics.metrics.set("event_semantics", "package_single_pass")
   diagnostics.metrics.set("streaming_fallback", "false")
   diagnostics.metrics.set("office_document_kind", "pptx")
   diagnostics.metrics.set("runtime_exposed", "true")
@@ -283,7 +283,7 @@ fn pptx_malformed_parse_result(
   )
   @parser.parse_result_with_document_capability(
     "pptx_parser",
-    @parser.ParserMode::PresentationModel,
+    @parser.ParserMode::PackageSinglePass,
     document,
     diagnostics,
     capability,
@@ -646,9 +646,8 @@ fn pptx_lower_slide(
   slide_heading.attrs.set("level", "2")
   blocks.push(slide_heading)
 
-  let ordered = pptx_order_slide_objects(slide)
   let block_count_before = blocks.length()
-  for obj in ordered {
+  for obj in slide.objects {
     pptx_lower_object(blocks, state, slide, obj)
   }
   pptx_lower_slide_comments(blocks, state, slide)
@@ -665,61 +664,6 @@ fn pptx_lower_slide(
 }
 
 ///|
-fn pptx_order_slide_objects(
-  slide : @pptxdoc.PptxSlide,
-) -> Array[@pptxdoc.PptxObject] {
-  if slide.reading_order.length() == 0 {
-    return slide.objects
-  }
-  let order_index_by_key = pptx_slide_order_index_map(slide)
-  let ordered : Array[(Int, @pptxdoc.PptxObject)] = []
-  let mut fallback_index = 100000
-  for obj in slide.objects {
-    let key = pptx_object_source_key(obj)
-    let order_index = order_index_by_key
-      .get(pptx_source_key_token(key))
-      .unwrap_or(fallback_index)
-    ordered.push((order_index, obj))
-    fallback_index += 1
-  }
-  ordered.sort_by(fn(a, b) { a.0.compare(b.0) })
-  ordered.map(item => item.1)
-}
-
-///|
-fn pptx_slide_order_index_map(slide : @pptxdoc.PptxSlide) -> Map[String, Int] {
-  let index_by_key : Map[String, Int] = Map([])
-  for index in 0..<slide.reading_order.length() {
-    let item = slide.reading_order[index]
-    let token = pptx_source_key_token(item)
-    if !index_by_key.contains(token) {
-      index_by_key.set(token, index)
-    }
-  }
-  index_by_key
-}
-
-///|
-fn pptx_source_key_token(key : @pptxdoc.PptxSourceKey) -> String {
-  key.part_name + "#" + key.node_key
-}
-
-///|
-fn pptx_object_source_key(obj : @pptxdoc.PptxObject) -> @pptxdoc.PptxSourceKey {
-  match obj {
-    @pptxdoc.PptxObject::Shape(shape) => shape.source_key
-    @pptxdoc.PptxObject::Group(group) => group.source_key
-    @pptxdoc.PptxObject::Picture(pic) => pic.source_key
-    @pptxdoc.PptxObject::Table(table) => table.source_key
-    @pptxdoc.PptxObject::Chart(chart) => chart.source_key
-    @pptxdoc.PptxObject::SmartArt(smart) => smart.source_key
-    @pptxdoc.PptxObject::Ole(ole) => ole.source_key
-    @pptxdoc.PptxObject::Connector(conn) => conn.source_key
-    @pptxdoc.PptxObject::Unsupported(unsupported) => unsupported.source_key
-  }
-}
-
-///|
 fn pptx_lower_object(
   blocks : Array[@core.CoreBlock],
   state : PptxState,
@@ -730,7 +674,7 @@ fn pptx_lower_object(
     @pptxdoc.PptxObject::Shape(shape) =>
       pptx_lower_shape(blocks, state, slide, shape)
     @pptxdoc.PptxObject::Group(group) =>
-      for child in pptx_order_group_children(group.children) {
+      for child in group.children {
         pptx_lower_object(blocks, state, slide, child)
       }
     @pptxdoc.PptxObject::Picture(pic) =>
@@ -890,50 +834,6 @@ fn pptx_lower_shape(
         blocks.push(raw)
       }
   }
-}
-
-///|
-fn pptx_order_group_children(
-  objects : Array[@pptxdoc.PptxObject],
-) -> Array[@pptxdoc.PptxObject] {
-  let keyed : Array[(String, @pptxdoc.PptxObject)] = []
-  let mut fallback_order = 0
-  for obj in objects {
-    let key = match pptx_object_reading_hint(obj) {
-      Some(order) => order.order_key
-      None => {
-        fallback_order += 1
-        "100:999999999:999999999:" +
-        pptx_pad_int(fallback_order, 5) +
-        ":" +
-        pptx_object_source_key(obj).node_key
-      }
-    }
-    keyed.push((key, obj))
-  }
-  keyed.sort_by(fn(a, b) { a.0.compare(b.0) })
-  keyed.map(item => item.1)
-}
-
-///|
-fn pptx_object_reading_hint(
-  obj : @pptxdoc.PptxObject,
-) -> @pptxdoc.PptxReadingOrderHint? {
-  match obj {
-    @pptxdoc.PptxObject::Shape(shape) => shape.reading_order
-    @pptxdoc.PptxObject::Group(group) => group.reading_order
-    @pptxdoc.PptxObject::Picture(pic) => pic.reading_order
-    _ => None
-  }
-}
-
-///|
-fn pptx_pad_int(value : Int, width : Int) -> String {
-  let mut s = value.to_string()
-  while s.length() < width {
-    s = "0" + s
-  }
-  s
 }
 
 ///|
@@ -2196,8 +2096,13 @@ fn pptx_chart_source_ref(
     Some(chart.source_key),
     chart.relationship_id,
   )
-  match chart.target_part {
+  let base = match chart.target_part {
     Some(part) => @core.source_ref_with_extra(base, "part_name", part)
+    None => base
+  }
+  match pptx_slide_reading_order_key(slide, chart.source_key) {
+    Some(order_key) =>
+      @core.source_ref_with_extra(base, "reading_order_key", order_key)
     None => base
   }
 }
@@ -2685,7 +2590,12 @@ fn pptx_picture_source_ref(
     Some(name) => @core.source_ref_with_extra(base, "shape_name", name)
     None => base
   }
-  @core.source_ref_with_extra(base, "shape_type", "picture")
+  let base = @core.source_ref_with_extra(base, "shape_type", "picture")
+  match pic.reading_order {
+    Some(order) =>
+      @core.source_ref_with_extra(base, "reading_order_key", order.order_key)
+    None => base
+  }
 }
 
 ///|
@@ -2694,11 +2604,16 @@ fn pptx_table_source_ref(
   slide : @pptxdoc.PptxSlide,
   table : @pptxdoc.PptxTable,
 ) -> @core.SourceRef {
-  @core.source_ref_with_extra(
+  let base = @core.source_ref_with_extra(
     pptx_slide_source_ref(source, slide, Some(table.source_key), None),
     "shape_type",
     "table",
   )
+  match pptx_slide_reading_order_key(slide, table.source_key) {
+    Some(order_key) =>
+      @core.source_ref_with_extra(base, "reading_order_key", order_key)
+    None => base
+  }
 }
 
 ///|
@@ -2753,6 +2668,17 @@ fn pptx_raw_placeholder_block(
   raw_kind : String,
 ) -> @core.CoreBlock {
   let source_ref0 = pptx_slide_source_ref(state.source, slide, source_key, None)
+  let source_ref0 = match source_key {
+    Some(key) =>
+      match pptx_slide_reading_order_key(slide, key) {
+        Some(order_key) =>
+          @core.source_ref_with_extra(
+            source_ref0, "reading_order_key", order_key,
+          )
+        None => source_ref0
+      }
+    None => source_ref0
+  }
   let source_ref = match relationship_id {
     Some(rid) =>
       @core.source_ref_with_extra(source_ref0, "relationship_id", rid)
@@ -2769,4 +2695,104 @@ fn pptx_opt_suffix(value : String?) -> String {
     Some(text) => ": " + text
     None => ""
   }
+}
+
+///|
+fn pptx_slide_reading_order_key(
+  slide : @pptxdoc.PptxSlide,
+  source_key : @pptxdoc.PptxSourceKey,
+) -> String? {
+  for obj in slide.objects {
+    match pptx_object_reading_order_key(obj, source_key) {
+      Some(order_key) => return Some(order_key)
+      None => ()
+    }
+  }
+  None
+}
+
+///|
+fn pptx_object_reading_order_key(
+  obj : @pptxdoc.PptxObject,
+  source_key : @pptxdoc.PptxSourceKey,
+) -> String? {
+  match obj {
+    @pptxdoc.PptxObject::Shape(shape) =>
+      if pptx_source_keys_match(shape.source_key, source_key) {
+        match shape.reading_order {
+          Some(order) => Some(order.order_key)
+          None => None
+        }
+      } else {
+        None
+      }
+    @pptxdoc.PptxObject::Group(group) =>
+      if pptx_source_keys_match(group.source_key, source_key) {
+        match group.reading_order {
+          Some(order) => Some(order.order_key)
+          None => None
+        }
+      } else {
+        for child in group.children {
+          match pptx_object_reading_order_key(child, source_key) {
+            Some(order_key) => return Some(order_key)
+            None => ()
+          }
+        }
+        None
+      }
+    @pptxdoc.PptxObject::Picture(pic) =>
+      if pptx_source_keys_match(pic.source_key, source_key) {
+        match pic.reading_order {
+          Some(order) => Some(order.order_key)
+          None => None
+        }
+      } else {
+        None
+      }
+    @pptxdoc.PptxObject::Table(table) =>
+      if pptx_source_keys_match(table.source_key, source_key) {
+        Some("950:999999999:999999999:" + table.source_key.node_key)
+      } else {
+        None
+      }
+    @pptxdoc.PptxObject::Chart(chart) =>
+      if pptx_source_keys_match(chart.source_key, source_key) {
+        Some("950:999999999:999999999:" + chart.source_key.node_key)
+      } else {
+        None
+      }
+    @pptxdoc.PptxObject::SmartArt(smart) =>
+      if pptx_source_keys_match(smart.source_key, source_key) {
+        Some("950:999999999:999999999:" + smart.source_key.node_key)
+      } else {
+        None
+      }
+    @pptxdoc.PptxObject::Ole(ole) =>
+      if pptx_source_keys_match(ole.source_key, source_key) {
+        Some("950:999999999:999999999:" + ole.source_key.node_key)
+      } else {
+        None
+      }
+    @pptxdoc.PptxObject::Connector(conn) =>
+      if pptx_source_keys_match(conn.source_key, source_key) {
+        Some("950:999999999:999999999:" + conn.source_key.node_key)
+      } else {
+        None
+      }
+    @pptxdoc.PptxObject::Unsupported(unsupported) =>
+      if pptx_source_keys_match(unsupported.source_key, source_key) {
+        Some("950:999999999:999999999:" + unsupported.source_key.node_key)
+      } else {
+        None
+      }
+  }
+}
+
+///|
+fn pptx_source_keys_match(
+  left : @pptxdoc.PptxSourceKey,
+  right : @pptxdoc.PptxSourceKey,
+) -> Bool {
+  left.part_name == right.part_name && left.node_key == right.node_key
 }

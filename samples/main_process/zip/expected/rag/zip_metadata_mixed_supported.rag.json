@@ -1,0 +1,87 @@
+{
+  "output_format": "rag_json",
+  "detected_format": "zip",
+  "parser_mode": "container_recursive",
+  "convert_mode": "rag",
+  "diagnostics_contains": {
+    "parser_name": "zip_container_parser",
+    "metrics": {
+      "renderer_name": "RagJsonRenderer"
+    }
+  },
+  "source_map": "null",
+  "chunk_count": {
+    "min": 4
+  },
+  "chunks": [
+    {
+      "kind": "table",
+      "heading_path": [
+        "data/info.json"
+      ],
+      "source_ref_count": 10,
+      "asset_ref_count": 0,
+      "text_contains_all": [
+        "| Key | Value |\n| team | Infra |\n| owner | Ada |"
+      ],
+      "location_contains": {
+        "cell_ranges": [
+          "R1C1:R1C2",
+          "R1C1",
+          "R1C2",
+          "R2C1:R2C2",
+          "R2C1",
+          "R2C2",
+          "R3C1:R3C2",
+          "R3C1",
+          "R3C2"
+        ],
+        "container_paths": [
+          "zip_metadata_mixed_supported.zip"
+        ],
+        "entry_paths": [
+          "data/info.json"
+        ]
+      }
+    },
+    {
+      "kind": "text",
+      "heading_path": [
+        "notes/plain.txt"
+      ],
+      "source_ref_count": 1,
+      "asset_ref_count": 0,
+      "text_contains_all": [
+        "Plain note."
+      ],
+      "location_contains": {
+        "container_paths": [
+          "zip_metadata_mixed_supported.zip"
+        ],
+        "entry_paths": [
+          "notes/plain.txt"
+        ]
+      }
+    },
+    {
+      "kind": "text",
+      "heading_path": [
+        "site/page.html",
+        "HTML Note"
+      ],
+      "source_ref_count": 1,
+      "asset_ref_count": 0,
+      "text_contains_all": [
+        "Inside archive."
+      ],
+      "location_contains": {
+        "container_paths": [
+          "zip_metadata_mixed_supported.zip"
+        ],
+        "entry_paths": [
+          "site/page.html"
+        ]
+      }
+    }
+  ]
+}

@@ -49,19 +49,28 @@ RUN_DIR="$(sed -n 's/^run: //p' "$RUN_LOG" | tail -1)"
 
 SUMMARY_TSV="$ROOT/$RUN_DIR/summary.tsv"
 SUMMARY_MD="$ROOT/$RUN_DIR/summary.md"
-MARKDOWN_LOG="$ROOT/$RUN_DIR/logs/markdown-only.entrypoint.log"
+MARKDOWN_LOG="$ROOT/$RUN_DIR/logs/markdown.entrypoint.log"
+RAG_LOG="$ROOT/$RUN_DIR/logs/rag.entrypoint.log"
+ASSETS_LOG="$ROOT/$RUN_DIR/logs/assets.entrypoint.log"
 
 [[ -f "$SUMMARY_TSV" ]] || fail "missing summary.tsv"
 [[ -f "$SUMMARY_MD" ]] || fail "missing summary.md"
-[[ -f "$MARKDOWN_LOG" ]] || fail "missing markdown-only entrypoint log"
+[[ -f "$MARKDOWN_LOG" ]] || fail "missing markdown entrypoint log"
+[[ -f "$RAG_LOG" ]] || fail "missing rag entrypoint log"
+[[ -f "$ASSETS_LOG" ]] || fail "missing assets entrypoint log"
 
 assert_contains "$SUMMARY_TSV" $'markdown\ttxt\tpass\tprebuilt\t'
+assert_contains "$SUMMARY_TSV" $'rag\ttxt\tpass\tprebuilt\t2\t0\t'
+assert_contains "$SUMMARY_TSV" $'assets\ttxt\tpass\tprebuilt\t0\t0\t'
 assert_contains "$SUMMARY_MD" "Runner: prebuilt"
+assert_contains "$SUMMARY_MD" "Lanes: markdown, rag, assets"
 assert_contains "$SUMMARY_MD" "- Formats: txt"
 assert_contains "$SUMMARY_MD" "- Failed: 0"
 assert_contains "$SUMMARY_MD" "- Workspace scratch:"
 assert_contains "$SUMMARY_MD" "- Failure artifacts: none"
 assert_contains "$MARKDOWN_LOG" "ALL MAIN PROCESS MARKDOWN TESTS PASSED (txt)"
+assert_contains "$RAG_LOG" "ALL MAIN PROCESS RAG TESTS PASSED (txt) (2 samples, 0 failures)"
+assert_contains "$ASSETS_LOG" "ALL MAIN PROCESS ASSETS TESTS PASSED (0 samples, 0 failures)"
 assert_not_exists "$ROOT/$RUN_DIR/reports/failures.md"
 
 DIFF_RUN_DIR_REL="test-diff-$$"
@@ -94,10 +103,10 @@ set -e
 
 DIFF_SUMMARY_MD="$DIFF_RUN_DIR/summary.md"
 DIFF_FAILURE_INDEX="$DIFF_RUN_DIR/reports/failures.md"
-DIFF_REPORT="$DIFF_RUN_DIR/reports/failures/main_process_txt_txt_plain.md"
-DIFF_FILE="$DIFF_RUN_DIR/diff/main_process_txt_txt_plain.diff"
-DIFF_ACTUAL="$DIFF_RUN_DIR/raw/failures/main_process_txt_txt_plain/actual.md"
-DIFF_EXPECTED="$DIFF_RUN_DIR/raw/failures/main_process_txt_txt_plain/expected.md"
+DIFF_REPORT="$DIFF_RUN_DIR/reports/failures/main_process_markdown_txt_txt_plain.md"
+DIFF_FILE="$DIFF_RUN_DIR/diff/main_process_markdown_txt_txt_plain.diff"
+DIFF_ACTUAL="$DIFF_RUN_DIR/raw/failures/main_process_markdown_txt_txt_plain/actual.out"
+DIFF_EXPECTED="$DIFF_RUN_DIR/raw/failures/main_process_markdown_txt_txt_plain/expected.out"
 
 [[ -f "$DIFF_SUMMARY_MD" ]] || fail "missing diff failure summary.md"
 [[ -f "$DIFF_FAILURE_INDEX" ]] || fail "missing diff failure index"
@@ -108,7 +117,7 @@ DIFF_EXPECTED="$DIFF_RUN_DIR/raw/failures/main_process_txt_txt_plain/expected.md
 assert_contains "$DIFF_LOG" "result: fail"
 assert_contains "$DIFF_SUMMARY_MD" "- Failure index:"
 assert_contains "$DIFF_SUMMARY_MD" "- Failed diffs:"
-assert_contains "$DIFF_FAILURE_INDEX" "main_process_txt_txt_plain"
+assert_contains "$DIFF_FAILURE_INDEX" "main_process_markdown_txt_txt_plain"
 assert_contains "$DIFF_REPORT" "diff_mismatch"
 
 FAIL_RUN_DIR_REL="test-failure-$$"
@@ -139,8 +148,8 @@ set -e
 
 FAIL_SUMMARY_MD="$FAIL_RUN_DIR/summary.md"
 FAIL_FAILURE_INDEX="$FAIL_RUN_DIR/reports/failures.md"
-FAIL_REPORT="$FAIL_RUN_DIR/reports/failures/main_process_txt_txt_plain.md"
-FAIL_STDERR="$FAIL_RUN_DIR/raw/failures/main_process_txt_txt_plain/stderr.log"
+FAIL_REPORT="$FAIL_RUN_DIR/reports/failures/main_process_markdown_txt_txt_plain.md"
+FAIL_STDERR="$FAIL_RUN_DIR/raw/failures/main_process_markdown_txt_txt_plain/stderr.log"
 
 [[ -f "$FAIL_SUMMARY_MD" ]] || fail "missing failure summary.md"
 [[ -f "$FAIL_FAILURE_INDEX" ]] || fail "missing failure index"
@@ -148,7 +157,7 @@ FAIL_STDERR="$FAIL_RUN_DIR/raw/failures/main_process_txt_txt_plain/stderr.log"
 [[ -f "$FAIL_STDERR" ]] || fail "missing failure stderr log"
 assert_contains "$FAIL_SUMMARY_MD" "- Failure index:"
 assert_contains "$FAIL_SUMMARY_MD" "- Failed raw output:"
-assert_contains "$FAIL_FAILURE_INDEX" "main_process_txt_txt_plain"
+assert_contains "$FAIL_FAILURE_INDEX" "main_process_markdown_txt_txt_plain"
 assert_contains "$FAIL_REPORT" "conversion_failed"
 assert_contains "$FAIL_STDERR" "forced contract failure"
 

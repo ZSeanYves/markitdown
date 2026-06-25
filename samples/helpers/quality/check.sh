@@ -852,7 +852,7 @@ probe_with_metadata_support() {
   probe_dir="$(sample_make_isolated_tmp_dir "$probe_tmp_root" "quality_metadata_probe")"
   local probe_output="$probe_dir/txt_plain.md"
   local probe_metadata="$probe_dir/metadata/txt_plain.metadata.json"
-  local probe_input="$ROOT/samples/main_process/txt/txt_plain.txt"
+  local probe_input="$ROOT/samples/main_process/txt/markdown/txt_plain.txt"
   local status=0
 
   if ! run_markitdown_cli normal --with-metadata "$probe_input" "$probe_output" >/dev/null 2>"$probe_dir/probe.stderr"; then

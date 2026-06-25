@@ -6,6 +6,7 @@ import {
   "ZSeanYves/markitdown/formats/pdf" @fpdf,
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/rag",
   "moonbitlang/x/fs",
   "moonbitlang/x/sys",
 }

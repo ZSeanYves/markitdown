@@ -1,0 +1,59 @@
+{
+  "output_format": "rag_json",
+  "detected_format": "pdf",
+  "parser_mode": "page_single_pass",
+  "convert_mode": "rag",
+  "diagnostics_contains": {
+    "parser_name": "pdf_native_parser",
+    "metrics": {
+      "renderer_name": "RagJsonRenderer"
+    }
+  },
+  "source_map": "null",
+  "chunk_count": {
+    "min": 3
+  },
+  "chunks": [
+    {
+      "kind": "metadata",
+      "heading_path": [],
+      "source_ref_count": 0,
+      "asset_ref_count": 0,
+      "text_contains_all": [
+        "title: heading_basic\ncreator: Pages 文稿"
+      ]
+    },
+    {
+      "kind": "text",
+      "heading_path": [],
+      "source_ref_count": 4,
+      "asset_ref_count": 0,
+      "text_contains_all": [
+        "第一章 项目概述 本项目旨在将常见办公文档转换为结构化 Markdown。\n\n1.1 研究目标\n\n实现 docx、pdf、xlsx、pptx、html 到 Ma"
+      ],
+      "location_contains": {
+        "pages": [
+          "1"
+        ]
+      }
+    },
+    {
+      "kind": "text",
+      "heading_path": [],
+      "source_ref_count": 2,
+      "asset_ref_count": 0,
+      "text_contains_all": [
+        "第二章 技术路线 系统采用统一IR 作为中间表示。\n\n第 2页"
+      ],
+      "location_contains": {
+        "pages": [
+          "2"
+        ]
+      }
+    }
+  ],
+  "metadata_contains": {
+    "creator": "Pages 文稿",
+    "title": "heading_basic"
+  }
+}

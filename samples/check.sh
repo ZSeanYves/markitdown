@@ -16,19 +16,21 @@ fi
 
 usage() {
   cat <<'EOF'
-Usage: ./samples/check.sh [--markdown-only] [--format FMT] [--check-inventory] [--list-inventory]
+Usage: ./samples/check.sh [--markdown|--rag|--assets] [--format FMT] [--check-inventory] [--list-inventory]
 
 Runs repo-local samples/main_process regression checks.
 
 Options:
-  --markdown-only     Run only Markdown expected-output checks.
+  --markdown          Run only Markdown expected-output checks.
+  --rag               Run only RAG expected-output checks.
+  --assets            Run only light-asset expected-output checks.
   --format FMT        Restrict checks to one supported product format: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, pdf.
   --check-inventory   Run sample enrollment/integrity checks without conversion.
   --list-inventory    Print sample inventory counts in TSV form.
   -h, --help          Show this help.
 
 Default:
-  Run markdown checks for the current main CLI gate only: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, and pdf.
+  Run markdown, rag, and assets checks for the current main CLI gate: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, and pdf.
   Other formats remain pending root-pipeline migration and fail closed here.
 
 Run artifacts:
@@ -45,7 +47,7 @@ fail_usage() {
 
 set_only_mode() {
   if [[ -n "$ONLY_MODE" ]]; then
-    fail_usage "--markdown-only can be specified at most once"
+    fail_usage "choose only one of --markdown, --rag, or --assets"
   fi
   ONLY_MODE="$1"
 }
@@ -58,7 +60,7 @@ set_special_mode() {
 }
 
 deprecated_arg() {
-  fail_usage "$1 is deprecated; supported options are --markdown-only, --format FMT, --check-inventory, and --list-inventory"
+  fail_usage "$1 is deprecated; supported options are --markdown, --rag, --assets, --format FMT, --check-inventory, and --list-inventory"
 }
 
 supported_formats_compact() {
@@ -113,8 +115,14 @@ command_text() {
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --markdown-only)
-      set_only_mode "markdown-only"
+    --markdown)
+      set_only_mode "markdown"
+      ;;
+    --rag)
+      set_only_mode "rag"
+      ;;
+    --assets)
+      set_only_mode "assets"
       ;;
     --format)
       shift
@@ -144,7 +152,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -n "$SPECIAL_MODE" && -n "$ONLY_MODE" ]]; then
-  fail_usage "--markdown-only cannot be combined with --$SPECIAL_MODE"
+  fail_usage "--$ONLY_MODE cannot be combined with --$SPECIAL_MODE"
 fi
 if [[ -n "$SPECIAL_MODE" && -n "$FORMAT_FILTER" ]]; then
   fail_usage "--format cannot be combined with --$SPECIAL_MODE"
@@ -193,7 +201,7 @@ SKIPPED_TOTAL=0
 
 mode_display() {
   local mode="$1"
-  printf '%s' "${mode%-only}"
+  printf '%s' "$mode"
 }
 
 format_display() {
@@ -311,13 +319,9 @@ run_impl() {
   if [[ "$status" -ne 0 ]]; then
     line_status="fail"
     notes="exit=$status"
-  elif grep -q "No asset regression coverage" "$log_path" 2>/dev/null; then
-    line_status="skip"
-    notes="no asset regression coverage"
-    SKIPPED_TOTAL=$((SKIPPED_TOTAL + 1))
   else
     line_status="pass"
-    notes="markdown=$([[ "$mode_short" == "markdown" ]] && printf '%s' "$checks" || printf '0') metadata=$([[ "$mode_short" == "metadata" ]] && printf '%s' "$checks" || printf '0') assets=$([[ "$mode_short" == "assets" ]] && printf '%s' "$checks" || printf '0')"
+    notes="lane=$mode_short checks=$checks failures=$failures"
   fi
 
   printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$mode_short" "$fmt" "$line_status" "$runner" "$checks" "$failures" "$(display_path "$log_path")" "$notes" >> "$SUMMARY_PATH"
@@ -361,10 +365,14 @@ write_summary_md() {
   local status="$1"
   local finished_at="$2"
   local duration="$3"
+  local lanes="markdown, rag, assets"
   local result_word="PASS"
   local failure_report_count
   [[ "$status" -eq 0 ]] || result_word="FAIL"
   failure_report_count="$(count_failure_reports)"
+  if [[ -n "$ONLY_MODE" ]]; then
+    lanes="$ONLY_MODE"
+  fi
   {
     echo "# Run summary"
     echo
@@ -378,7 +386,8 @@ write_summary_md() {
     echo
     echo "## What was checked"
     echo
-    echo "Repo-local samples/main_process markdown checks for the current root-pipeline main CLI surface: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, and pdf."
+    echo "Repo-local samples/main_process lane checks for the current root-pipeline main CLI surface: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, and pdf."
+    echo "Lanes: $lanes"
     echo "Formats outside the current gate still remain pending root-pipeline migration and are not part of this check."
     echo
     echo "## Result"
@@ -423,7 +432,9 @@ overall_status=0
 if [[ -n "$ONLY_MODE" ]]; then
   run_impl "$ONLY_MODE" || overall_status=$?
 else
-  run_impl "markdown-only" || overall_status=$?
+  run_impl "markdown" || overall_status=$?
+  run_impl "rag" || overall_status=$?
+  run_impl "assets" || overall_status=$?
 fi
 
 FINISHED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"

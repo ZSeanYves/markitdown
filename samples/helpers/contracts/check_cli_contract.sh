@@ -53,36 +53,36 @@ run_and_capture() {
   set -e
 }
 
-TXT_INPUT="$ROOT/samples/main_process/txt/txt_plain.txt"
-TXT_EXPECTED="$ROOT/samples/main_process/txt/expected/txt_plain.md"
-CSV_INPUT="$ROOT/samples/main_process/csv/csv_basic.csv"
-CSV_EXPECTED="$ROOT/samples/main_process/csv/expected/csv_basic.md"
-TSV_INPUT="$ROOT/samples/main_process/tsv/tsv_basic.tsv"
-TSV_EXPECTED="$ROOT/samples/main_process/tsv/expected/tsv_basic.md"
-DOCX_INPUT="$ROOT/samples/main_process/docx/metadata/docx_image_alt_title_basic.docx"
-DOCX_EXPECTED="$ROOT/samples/main_process/docx/expected/metadata/docx_image_alt_title_basic.md"
-PPTX_INPUT="$ROOT/samples/main_process/pptx/pptx_hidden_slide_basic.pptx"
-XLSX_INPUT="$ROOT/samples/main_process/xlsx/sheet_simple.xlsx"
-ZIP_INPUT="$ROOT/samples/main_process/zip/zip_basic_structured.zip"
-ZIP_EXPECTED="$ROOT/samples/main_process/zip/expected/zip_basic_structured.md"
-EPUB_INPUT="$ROOT/samples/main_process/epub/epub_basic_package.epub"
-PDF_INPUT="$ROOT/samples/main_process/pdf/root_native_text_baseline.pdf"
-MD_INPUT="$ROOT/samples/main_process/markdown/markdown_heading.md"
-MARKDOWN_INPUT="$ROOT/samples/main_process/markdown/markdown_basic_heading_paragraph.md"
-MARKDOWN_DOT_INPUT="$ROOT/samples/main_process/markdown/markdown_frontmatter_passthrough.markdown"
-HTML_INPUT="$ROOT/samples/main_process/html/html_simple.html"
-JSON_INPUT="$ROOT/samples/main_process/json/json_object_basic.json"
-JSON_EXPECTED="$ROOT/samples/main_process/json/expected/json_object_basic.md"
-JSONL_INPUT="$ROOT/samples/main_process/jsonl/jsonl_records_basic.jsonl"
-JSONL_EXPECTED="$ROOT/samples/main_process/jsonl/expected/jsonl_records_basic.md"
-NDJSON_INPUT="$ROOT/samples/main_process/ndjson/ndjson_records_basic.ndjson"
-NDJSON_EXPECTED="$ROOT/samples/main_process/ndjson/expected/ndjson_records_basic.md"
-XML_INPUT="$ROOT/samples/main_process/xml/xml_basic.xml"
-XML_EXPECTED="$ROOT/samples/main_process/xml/expected/xml_basic.md"
-YAML_INPUT="$ROOT/samples/main_process/yaml/yaml_mapping_basic.yaml"
-YAML_EXPECTED="$ROOT/samples/main_process/yaml/expected/yaml_mapping_basic.md"
-MARKDOWN_EXPECTED="$ROOT/samples/main_process/markdown/expected/markdown_basic_heading_paragraph.md"
-MARKDOWN_DOT_EXPECTED="$ROOT/samples/main_process/markdown/expected/markdown_frontmatter_passthrough.md"
+TXT_INPUT="$ROOT/samples/main_process/txt/markdown/txt_plain.txt"
+TXT_EXPECTED="$ROOT/samples/main_process/txt/expected/markdown/txt_plain.md"
+CSV_INPUT="$ROOT/samples/main_process/csv/markdown/csv_basic.csv"
+CSV_EXPECTED="$ROOT/samples/main_process/csv/expected/markdown/csv_basic.md"
+TSV_INPUT="$ROOT/samples/main_process/tsv/markdown/tsv_basic.tsv"
+TSV_EXPECTED="$ROOT/samples/main_process/tsv/expected/markdown/tsv_basic.md"
+DOCX_INPUT="$ROOT/samples/main_process/docx/rag/docx_image_alt_title_basic.docx"
+DOCX_EXPECTED="$ROOT/samples/main_process/docx/expected/assets/docx_image_alt_title_basic/result.md"
+PPTX_INPUT="$ROOT/samples/main_process/pptx/markdown/pptx_hidden_slide_basic.pptx"
+XLSX_INPUT="$ROOT/samples/main_process/xlsx/markdown/sheet_simple.xlsx"
+ZIP_INPUT="$ROOT/samples/main_process/zip/markdown/zip_basic_structured.zip"
+ZIP_EXPECTED="$ROOT/samples/main_process/zip/expected/markdown/zip_basic_structured.md"
+EPUB_INPUT="$ROOT/samples/main_process/epub/markdown/epub_basic_package.epub"
+PDF_INPUT="$ROOT/samples/main_process/pdf/markdown/root_native_text_baseline.pdf"
+MD_INPUT="$ROOT/samples/main_process/markdown/markdown/markdown_heading.md"
+MARKDOWN_INPUT="$ROOT/samples/main_process/markdown/markdown/markdown_basic_heading_paragraph.md"
+MARKDOWN_DOT_INPUT="$ROOT/samples/main_process/markdown/rag/markdown_frontmatter_passthrough.markdown"
+HTML_INPUT="$ROOT/samples/main_process/html/markdown/html_simple.html"
+JSON_INPUT="$ROOT/samples/main_process/json/markdown/json_object_basic.json"
+JSON_EXPECTED="$ROOT/samples/main_process/json/expected/markdown/json_object_basic.md"
+JSONL_INPUT="$ROOT/samples/main_process/jsonl/markdown/jsonl_records_basic.jsonl"
+JSONL_EXPECTED="$ROOT/samples/main_process/jsonl/expected/markdown/jsonl_records_basic.md"
+NDJSON_INPUT="$ROOT/samples/main_process/ndjson/markdown/ndjson_records_basic.ndjson"
+NDJSON_EXPECTED="$ROOT/samples/main_process/ndjson/expected/markdown/ndjson_records_basic.md"
+XML_INPUT="$ROOT/samples/main_process/xml/markdown/xml_basic.xml"
+XML_EXPECTED="$ROOT/samples/main_process/xml/expected/markdown/xml_basic.md"
+YAML_INPUT="$ROOT/samples/main_process/yaml/markdown/yaml_mapping_basic.yaml"
+YAML_EXPECTED="$ROOT/samples/main_process/yaml/expected/markdown/yaml_mapping_basic.md"
+MARKDOWN_EXPECTED="$ROOT/samples/main_process/markdown/expected/markdown/markdown_basic_heading_paragraph.md"
+MARKDOWN_DOT_EXPECTED="$ROOT/samples/main_process/markdown/expected/markdown/markdown_frontmatter_passthrough.md"
 
 NO_META_DIR="$OUT_DIR/no_meta"
 STDOUT_DIR="$OUT_DIR/stdout"
@@ -120,11 +120,12 @@ TXT_ALIAS_MD="$NO_META_DIR/txt_plain_alias.md"
 echo "==> help and version expose current main cli product surface"
 run_and_capture "$HELP_STDOUT" run_markitdown_cli --help
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "--help should succeed"
-assert_contains "$HELP_STDOUT" 'markitdown-mb [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|xml|yaml|yml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf] [--debug] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] <input> [output]'
+assert_contains "$HELP_STDOUT" 'markitdown-mb [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|xml|yaml|yml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] <input> [output]'
 assert_contains "$HELP_STDOUT" '--pdf-cleanup none|conservative'
 assert_contains "$HELP_STDOUT" '--pdf-tables none|simple'
 assert_contains "$HELP_STDOUT" 'Explicit image `--ocr` may invoke local Tesseract; PDF OCR is not supported and scanned/image-only PDFs remain fail-closed.'
 assert_contains "$HELP_STDOUT" 'PDF cleanup and simple table reconstruction are explicit opt-in product options'
+assert_contains "$HELP_STDOUT" '`--rag` emits chunked retrieval JSON with the default internal chunking policy.'
 assert_contains "$HELP_STDOUT" 'Supported product formats: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, yml, html, htm, markdown, md, zip, epub, docx, xlsx, pptx, pdf'
 assert_contains "$HELP_STDOUT" 'fail closed'
 
@@ -170,15 +171,15 @@ assert_matches_expected "$JSONL_EXPECTED" "$JSONL_MD"
 assert_matches_expected "$NDJSON_EXPECTED" "$NDJSON_MD"
 assert_matches_expected "$XML_EXPECTED" "$XML_MD"
 assert_matches_expected "$YAML_EXPECTED" "$YAML_MD"
-assert_matches_expected "$ROOT/samples/main_process/html/expected/html_simple.md" "$HTML_MD"
+assert_matches_expected "$ROOT/samples/main_process/html/expected/markdown/html_simple.md" "$HTML_MD"
 assert_matches_expected "$MARKDOWN_EXPECTED" "$MARKDOWN_MD"
 assert_matches_expected "$MARKDOWN_DOT_EXPECTED" "$MARKDOWN_DOT_MD"
 assert_matches_expected "$ZIP_EXPECTED" "$ZIP_MD"
-assert_matches_expected "$ROOT/samples/main_process/epub/expected/epub_basic_package.md" "$EPUB_MD"
+assert_matches_expected "$ROOT/samples/main_process/epub/expected/markdown/epub_basic_package.md" "$EPUB_MD"
 assert_matches_expected "$DOCX_EXPECTED" "$DOCX_MD"
-assert_matches_expected "$ROOT/samples/main_process/xlsx/expected_next/sheet_simple.md" "$XLSX_MD"
-assert_matches_expected "$ROOT/samples/main_process/pptx/expected_next/pptx_hidden_slide_basic.md" "$NO_META_DIR/pptx_hidden_slide_basic.md"
-assert_matches_expected "$ROOT/samples/main_process/pdf/expected/root_native_text_baseline.md" "$NO_META_DIR/root_native_text_baseline.md"
+assert_matches_expected "$ROOT/samples/main_process/xlsx/expected/markdown/sheet_simple.md" "$XLSX_MD"
+assert_matches_expected "$ROOT/samples/main_process/pptx/expected/markdown/pptx_hidden_slide_basic.md" "$NO_META_DIR/pptx_hidden_slide_basic.md"
+assert_matches_expected "$ROOT/samples/main_process/pdf/expected/markdown/root_native_text_baseline.md" "$NO_META_DIR/root_native_text_baseline.md"
 assert_file_not_exists "$NO_META_DIR/metadata/txt_plain.metadata.json"
 
 echo "==> bare alias still maps to normal"
@@ -191,6 +192,12 @@ run_and_capture "$JSON_STDOUT" run_markitdown_cli --debug "$TXT_INPUT"
 assert_contains "$JSON_STDOUT" '"renderer_name": "DebugJsonRenderer"'
 assert_contains "$JSON_STDOUT" '"source_ref"'
 
+echo "==> rag json remains available on the current main cli"
+run_and_capture "$DOCX_ERR" run_markitdown_cli --rag "$DOCX_INPUT"
+[[ "$CAPTURED_STATUS" -eq 0 ]] || fail "--rag docx should succeed"
+assert_contains "$DOCX_ERR" '"output_format": "rag_json"'
+assert_contains "$DOCX_ERR" '"chunks"'
+
 echo "==> pdf OCR remains explicitly unsupported"
 run_and_capture "$PDF_ERR" run_markitdown_cli --ocr --ocr-lang eng "$PDF_INPUT"
 [[ "$CAPTURED_STATUS" -ne 0 ]] || fail "pdf --ocr should fail closed"
@@ -201,6 +208,6 @@ assert_contains "$PDF_ERR" 'scanned/image-only PDFs'
 
 echo "==> pdf product options are explicit opt-in and default markdown remains stable"
 run_markitdown_cli --pdf-cleanup conservative --pdf-tables simple "$PDF_INPUT" "$NO_META_DIR/root_native_text_baseline_optin.md"
-assert_matches_expected "$ROOT/samples/main_process/pdf/expected/root_native_text_baseline.md" "$NO_META_DIR/root_native_text_baseline_optin.md"
+assert_matches_expected "$ROOT/samples/main_process/pdf/expected/markdown/root_native_text_baseline.md" "$NO_META_DIR/root_native_text_baseline_optin.md"
 
 echo "CLI CONTRACT PASSED"

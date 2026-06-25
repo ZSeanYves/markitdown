@@ -6,9 +6,14 @@ import {
   "ZSeanYves/markitdown/formats/ocr",
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/rag",
 }
 
 // Values
+pub fn canonical_route_for_format(@input.DetectedFormat, ConvertOptions) -> CanonicalRoute
+
+pub fn canonical_route_name(CanonicalRoute) -> String
+
 pub fn convert_input(@input.InputSource, ConvertOptions) -> Result[ConvertResult, ConvertError]
 
 pub fn convert_input_with_image_ocr_provider(@input.InputSource, ConvertOptions, (@ocr.OcrProviderRequest) -> Result[@ocr.OcrProviderResult, @ocr.OcrProviderError]) -> Result[ConvertResult, ConvertError]
@@ -25,7 +30,7 @@ pub fn default_pdf_table_mode() -> PdfTableMode
 
 pub fn default_resource_limits() -> ResourceLimits
 
-pub fn make_convert_options(ConvertMode, OutputFormat, @input.DetectedFormat?, @parser.OcrOptions, ResourceLimits, pdf_cleanup_mode? : PdfCleanupMode, pdf_table_mode? : PdfTableMode) -> ConvertOptions
+pub fn make_convert_options(ConvertMode, OutputFormat, @input.DetectedFormat?, @parser.OcrOptions, ResourceLimits, pdf_cleanup_mode? : PdfCleanupMode, pdf_table_mode? : PdfTableMode, rag_options? : @rag.RagOptions) -> ConvertOptions
 
 pub fn make_resource_limits(Int, Int, Int, max_line_chars? : Int) -> ResourceLimits
 
@@ -37,9 +42,23 @@ pub fn pdf_table_mode_name(PdfTableMode) -> String
 
 pub fn pdf_table_promotion_target() -> PdfTableMode
 
+pub fn plan_route(@input.InputSource, @input.DetectedFormat, ConvertOptions) -> RouteDecision
+
+pub fn preflight_probe(@input.InputSource, @input.DetectedFormat, ConvertOptions) -> PreflightProbe
+
 // Errors
 
 // Types and methods
+pub(all) enum CanonicalRoute {
+  StreamingEvent
+  BlockStreaming
+  PackageSinglePass
+  PageSinglePass
+  DomAstModel
+  LayoutTwoStage
+  ContainerRecursive
+} derive(Eq)
+
 pub(all) enum ConvertError {
   DetectFailed(String)
   ParseFailed(String)
@@ -64,15 +83,21 @@ pub struct ConvertOptions {
   limits : ResourceLimits
   pdf_cleanup_mode : PdfCleanupMode
   pdf_table_mode : PdfTableMode
+  rag_options : @rag.RagOptions
 }
 
 pub struct ConvertResult {
   content : String
+  output_format : OutputFormat
   detected_format : @input.DetectedFormat
   parser_mode : @parser.ParserMode
   convert_mode : ConvertMode
+  metadata : Map[String, @core.JsonValue]
   diagnostics : @core.Diagnostics
   assets : Array[@core.AssetRef]
+  source_map : @core.SourceMap?
+  chunks : Array[@rag.RagChunk]?
+  debug_ir : @core.DocumentIR?
 }
 
 pub(all) enum OutputFormat {
@@ -92,11 +117,25 @@ pub(all) enum PdfTableMode {
   Simple
 } derive(Eq)
 
+pub struct PreflightProbe {
+  format : @input.DetectedFormat
+  selected_route : CanonicalRoute
+  reason : String
+  summary : String
+}
+
 pub struct ResourceLimits {
   max_rows : Int
   max_cols : Int
   max_cells : Int
   max_line_chars : Int
+}
+
+pub struct RouteDecision {
+  selected_route : CanonicalRoute
+  reason : String
+  probe_summary : String
+  same_mode_degradation : String?
 }
 
 // Type aliases

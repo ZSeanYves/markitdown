@@ -3,29 +3,44 @@ package "ZSeanYves/markitdown/render"
 
 import {
   "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/rag",
 }
 
 // Values
 pub fn debug_json_renderer() -> Renderer
 
-pub fn make_render_context(Bool) -> RenderContext
+pub fn make_render_context(Bool, rag_options? : @rag.RagOptions) -> RenderContext
 
 pub fn markdown_renderer() -> Renderer
+
+pub fn rag_json_renderer() -> Renderer
 
 pub fn render_debug_json_document(@core.DocumentIR) -> String
 
 pub fn render_markdown_document(@core.DocumentIR) -> String
 
+pub fn render_rag_json_document(@core.DocumentIR, RagRenderPayload) -> String
+
 // Errors
 
 // Types and methods
+type RagRenderPayload
+
 pub struct RenderContext {
   debug : Bool
+  rag_options : @rag.RagOptions
+}
+
+pub(all) enum RenderInput {
+  EventStream(Array[@core.CoreEvent])
+  BlockStream(Array[@core.CoreBlock])
+  Document(@core.DocumentIR)
 }
 
 pub struct RenderResult {
   content : String
   diagnostics : @core.Diagnostics
+  chunks : Array[@rag.RagChunk]?
 }
 
 pub struct Renderer {

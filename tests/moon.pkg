@@ -13,6 +13,7 @@ import {
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
   "ZSeanYves/markitdown/pipeline",
+  "ZSeanYves/markitdown/rag",
   "ZSeanYves/markitdown/render",
   "ZSeanYves/markitdown/runtime",
 } for "test"

@@ -3028,6 +3028,8 @@ fn pdf_annotation_from_object(
       bbox~,
       text~,
       title=pdf_extract_string_after(object.dict_text, "/T"),
+      subject=pdf_extract_string_after(object.dict_text, "/Subj"),
+      file_name=pdf_annotation_file_name(object.dict_text, object_index),
       name=pdf_extract_string_after(object.dict_text, "/NM"),
       modified_at=pdf_extract_string_after(object.dict_text, "/M"),
       action_kind=action.0,
@@ -3127,6 +3129,14 @@ fn pdf_native_backend_annotation_json(
     Some(value) => payload.set("title", @core.JsonValue::String(value))
     None => ()
   }
+  match annotation.subject {
+    Some(value) => payload.set("subject", @core.JsonValue::String(value))
+    None => ()
+  }
+  match annotation.file_name {
+    Some(value) => payload.set("file_name", @core.JsonValue::String(value))
+    None => ()
+  }
   match annotation.name {
     Some(value) => payload.set("name", @core.JsonValue::String(value))
     None => ()
@@ -3164,7 +3174,7 @@ fn pdf_native_backend_annotation_json(
   match annotation.object_id {
     Some(object_id) =>
       match object_index.get(object_id) {
-        Some(object) => {
+        Some(object) =>
           match pdf_extract_int_after(object.dict_text, "/F") {
             Some(value) => {
               payload.set("flags", @core.JsonValue::Number(value.to_string()))
@@ -3183,17 +3193,6 @@ fn pdf_native_backend_annotation_json(
             }
             None => ()
           }
-          match pdf_annotation_file_name(object.dict_text, object_index) {
-            Some(value) =>
-              payload.set("file_name", @core.JsonValue::String(value))
-            None => ()
-          }
-          match pdf_extract_string_after(object.dict_text, "/Subj") {
-            Some(value) if value.trim() != "" =>
-              payload.set("subject", @core.JsonValue::String(value))
-            _ => ()
-          }
-        }
         None => ()
       }
     None => ()

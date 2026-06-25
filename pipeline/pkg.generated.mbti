@@ -26,13 +26,29 @@ pub fn default_pass_pipeline() -> PassPipeline
 
 pub fn ir_input_to_document(@core.IRInput) -> @core.DocumentIR
 
-pub fn make_pass_context(Bool, String) -> PassContext
+pub fn make_pass_context(Bool, String, pdf_cleanup_enabled? : Bool) -> PassContext
+
+pub fn merge_text_line_pass() -> IRPass
 
 pub fn new_pass_pipeline(Array[IRPass]) -> PassPipeline
 
 pub fn normalize_text_pass() -> IRPass
 
 pub fn normalize_whitespace_pass() -> IRPass
+
+pub fn remove_header_footer_pass() -> IRPass
+
+pub fn resolve_asset_pass() -> IRPass
+
+pub fn resolve_caption_pass() -> IRPass
+
+pub fn resolve_heading_pass() -> IRPass
+
+pub fn resolve_list_pass() -> IRPass
+
+pub fn resolve_reading_order_pass() -> IRPass
+
+pub fn resolve_table_pass() -> IRPass
 
 pub fn run_pipeline(PassPipeline, @core.DocumentIR, PassContext) -> @core.DocumentIR
 
@@ -51,6 +67,7 @@ pub struct IRPass {
 pub struct PassContext {
   debug : Bool
   mode_name : String
+  pdf_cleanup_enabled : Bool
 }
 
 pub struct PassPipeline {

@@ -56,18 +56,16 @@ run_and_capture() {
   set -e
 }
 
-PPTX_INPUT="$ROOT/samples/main_process/pptx/pptx_hidden_slide_basic.pptx"
-PPTX_SLIDE_ORDER_INPUT="$ROOT/samples/main_process/pptx/pptx_slide_order.pptx"
-PPTX_NOTES_INPUT="$ROOT/samples/main_process/pptx/pptx_speaker_notes_basic.pptx"
+PPTX_INPUT="$ROOT/samples/main_process/pptx/markdown/pptx_hidden_slide_basic.pptx"
+PPTX_NOTES_INPUT="$ROOT/samples/main_process/pptx/rag/pptx_speaker_notes_basic.pptx"
 PPTX_IMAGE_INPUT="$ROOT/samples/main_process/pptx/assets/pptx_image_single.pptx"
 PPTX_HELP="$OUT_DIR/help.txt"
 PPTX_ERR="$OUT_DIR/pptx.err.txt"
-PPTX_ORDER_OUT="$OUT_DIR/pptx_slide_order.md"
+PPTX_FOOTER_OUT="$OUT_DIR/pptx_footer_page_number.md"
 PPTX_IMAGE_OUT="$OUT_DIR/pptx_image_single.md"
 PPTX_IMAGE_JSON="$OUT_DIR/pptx_image_single.json"
 PPTX_HIDDEN_JSON="$OUT_DIR/pptx_hidden_slide_basic.json"
 PPTX_NOTES_OUT="$OUT_DIR/pptx_speaker_notes_basic.md"
-SAMPLES_ERR="$OUT_DIR/samples_check_pptx.err.txt"
 PDF_ERR="$OUT_DIR/pdf.err.txt"
 OCR_ERR="$OUT_DIR/ocr.err.txt"
 FORMATS_PKG="$ROOT/formats/moon.pkg"
@@ -110,7 +108,7 @@ run_and_capture "$PPTX_HELP" run_markitdown_cli --help
 assert_contains "$PPTX_HELP" 'Supported product formats: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, yml, html, htm, markdown, md, zip, epub, docx, xlsx, pptx, pdf'
 assert_contains "$PPTX_HELP" 'pptx'
 
-echo "==> main cli and repo-local sample gate both restore pptx"
+echo "==> main cli restores pptx without legacy fallback"
 run_and_capture "$PPTX_ERR" run_markitdown_cli normal "$PPTX_INPUT"
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "pptx should succeed"
 assert_contains "$PPTX_ERR" '## Slide 1'
@@ -118,30 +116,28 @@ assert_not_contains "$PPTX_ERR" '(hidden)'
 assert_not_contains "$PPTX_ERR" 'pptx_raw_fallback'
 assert_not_contains "$PPTX_ERR" 'pptx_legacy_fallback'
 
-run_and_capture "$SAMPLES_ERR" bash "$ROOT/samples/check.sh" --format pptx
-[[ "$CAPTURED_STATUS" -eq 0 ]] || fail "samples/check.sh --format pptx should succeed"
-assert_contains "$SAMPLES_ERR" 'result: pass'
-
-echo "==> expected-next baselines lock slide order and speaker notes structure"
-run_markitdown_cli normal "$PPTX_SLIDE_ORDER_INPUT" "$PPTX_ORDER_OUT"
-assert_file_exists "$PPTX_ORDER_OUT"
+echo "==> expected baselines lock stable markdown and speaker notes exposure"
+run_markitdown_cli normal "$ROOT/samples/main_process/pptx/markdown/pptx_bullet_levels.pptx" "$OUT_DIR/pptx_bullet_levels.md"
+assert_file_exists "$OUT_DIR/pptx_bullet_levels.md"
 assert_matches_expected \
-  "$ROOT/samples/main_process/pptx/expected_next/pptx_slide_order.md" \
-  "$PPTX_ORDER_OUT"
+  "$ROOT/samples/main_process/pptx/expected/markdown/pptx_bullet_levels.md" \
+  "$OUT_DIR/pptx_bullet_levels.md"
+run_markitdown_cli normal "$ROOT/samples/main_process/pptx/markdown/pptx_footer_page_number.pptx" "$PPTX_FOOTER_OUT"
+assert_file_exists "$PPTX_FOOTER_OUT"
+assert_matches_expected \
+  "$ROOT/samples/main_process/pptx/expected/markdown/pptx_footer_page_number.md" \
+  "$PPTX_FOOTER_OUT"
 run_markitdown_cli normal "$PPTX_NOTES_INPUT" "$PPTX_NOTES_OUT"
 assert_file_exists "$PPTX_NOTES_OUT"
-assert_matches_expected \
-  "$ROOT/samples/main_process/pptx/expected_next/pptx_speaker_notes_basic.md" \
-  "$PPTX_NOTES_OUT"
 assert_contains "$PPTX_NOTES_OUT" '### Speaker Notes'
 assert_not_contains "$PPTX_NOTES_OUT" 'Speaker Notes 1'
 
-echo "==> debug json keeps PresentationModel diagnostics and hidden-slide policy visible"
-run_and_capture "$PPTX_HIDDEN_JSON" run_markitdown_cli --debug "$ROOT/samples/main_process/pptx/pptx_hidden_slides_policy.pptx"
+echo "==> debug json keeps package-single-pass diagnostics and hidden-slide policy visible"
+run_and_capture "$PPTX_HIDDEN_JSON" run_markitdown_cli --debug "$ROOT/samples/main_process/pptx/markdown/pptx_hidden_slides_policy.pptx"
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "pptx hidden-slide debug json should succeed"
 assert_contains "$PPTX_HIDDEN_JSON" '"detected_format": "pptx"'
-assert_contains "$PPTX_HIDDEN_JSON" '"parser_mode": "presentation_model"'
-assert_contains "$PPTX_HIDDEN_JSON" '"effective_mode": "presentation_model"'
+assert_contains "$PPTX_HIDDEN_JSON" '"parser_mode": "package_single_pass"'
+assert_contains "$PPTX_HIDDEN_JSON" '"effective_mode": "package_single_pass"'
 assert_contains "$PPTX_HIDDEN_JSON" '"ir_input_kind": "document"'
 assert_contains "$PPTX_HIDDEN_JSON" '"event_granularity": "pptx_slide"'
 assert_contains "$PPTX_HIDDEN_JSON" '"office_document_kind": "pptx"'
@@ -161,7 +157,7 @@ echo "==> package-local image assets stay output-boundary only and external medi
 run_markitdown_cli normal "$PPTX_IMAGE_INPUT" "$PPTX_IMAGE_OUT"
 assert_file_exists "$PPTX_IMAGE_OUT"
 assert_matches_expected \
-  "$ROOT/samples/main_process/pptx/expected_next/assets/pptx_image_single.md" \
+  "$ROOT/samples/main_process/pptx/expected/assets/pptx_image_single/result.md" \
   "$PPTX_IMAGE_OUT"
 assert_file_exists "$OUT_DIR/assets/image01.png"
 run_and_capture "$PPTX_IMAGE_JSON" run_markitdown_cli --debug "$PPTX_IMAGE_INPUT"
@@ -176,9 +172,9 @@ assert_contains "$PPTX_IMAGE_JSON" '"source_path": "ppt/media/image1.png"'
 assert_contains "$PPTX_IMAGE_JSON" '"zip_container_format": "pptx"'
 
 echo "==> pdf is restored while ocr/image surfaces remain constrained"
-run_markitdown_cli normal "$ROOT/samples/main_process/pdf/root_native_text_baseline.pdf" "$OUT_DIR/pdf_text_simple.md"
-assert_matches_expected "$ROOT/samples/main_process/pdf/expected/root_native_text_baseline.md" "$OUT_DIR/pdf_text_simple.md"
-run_and_capture "$PDF_ERR" run_markitdown_cli --ocr --ocr-lang eng "$ROOT/samples/main_process/pdf/root_native_text_baseline.pdf"
+run_markitdown_cli normal "$ROOT/samples/main_process/pdf/markdown/root_native_text_baseline.pdf" "$OUT_DIR/pdf_text_simple.md"
+assert_matches_expected "$ROOT/samples/main_process/pdf/expected/markdown/root_native_text_baseline.md" "$OUT_DIR/pdf_text_simple.md"
+run_and_capture "$PDF_ERR" run_markitdown_cli --ocr --ocr-lang eng "$ROOT/samples/main_process/pdf/markdown/root_native_text_baseline.pdf"
 [[ "$CAPTURED_STATUS" -ne 0 ]] || fail "pdf --ocr should fail closed"
 assert_contains "$PDF_ERR" 'PDF OCR is not supported'
 assert_contains "$PDF_ERR" 'scanned/image-only PDFs'

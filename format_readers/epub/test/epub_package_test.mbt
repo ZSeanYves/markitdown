@@ -296,7 +296,7 @@ fn minimal_opf(
 ///|
 test "epub package parses basic spine in OPF order" {
   let pkg = open_sample_package(
-    "samples/main_process/epub/epub_basic_spine.epub",
+    "samples/main_process/epub/assets/epub_basic_spine.epub",
   )
   assert_eq(pkg.rootfile_path, "OEBPS/content.opf")
   assert_eq(pkg.opf_dir, "OEBPS")
@@ -358,7 +358,7 @@ test "epub package parses basic spine in OPF order" {
 ///|
 test "epub package parses metadata basic" {
   let pkg = open_sample_package(
-    "samples/main_process/epub/metadata/epub_metadata_basic.epub",
+    "samples/main_process/epub/rag/epub_metadata_basic.epub",
   )
   if pkg.metadata.title != Some("EPUB Metadata Sample") {
     fail("expected EPUB title from OPF metadata")
@@ -381,7 +381,7 @@ test "epub package parses metadata basic" {
 ///|
 test "epub package parses linear no spine flag" {
   let pkg = open_sample_package(
-    "samples/main_process/epub/epub_linear_no_current_behavior.epub",
+    "samples/main_process/epub/markdown/epub_linear_no_current_behavior.epub",
   )
   assert_eq(pkg.spine.length(), 2)
   assert_eq(pkg.spine[0].linear, true)
@@ -501,7 +501,7 @@ test "epub package rejects duplicate manifest id" {
 ///|
 test "epub package detects nav cover and richer metadata" {
   let nav_pkg = open_sample_package(
-    "samples/main_process/epub/epub_nav_toc.epub",
+    "samples/main_process/epub/markdown/epub_nav_toc.epub",
   )
   match nav_pkg.nav_item {
     Some(item) => {
@@ -525,7 +525,7 @@ test "epub package detects nav cover and richer metadata" {
   assert_eq(nav_pkg.nav_points[0].href, "chapter.xhtml#section-1")
 
   let cover_pkg = open_sample_package(
-    "samples/main_process/epub/epub_cover_image.epub",
+    "samples/main_process/epub/assets/epub_cover_image.epub",
   )
   match cover_pkg.cover_item {
     Some(item) => {
@@ -728,7 +728,7 @@ test "epub package skips unsafe ncx href and keeps safe points" {
 ///|
 test "epub package inventory preserves deterministic manifest and part ordering" {
   let pkg = open_sample_package(
-    "samples/main_process/epub/epub_basic_package.epub",
+    "samples/main_process/epub/markdown/epub_basic_package.epub",
   )
   let inventory = @epub.inspect_epub_inventory(pkg)
   assert_eq(inventory.parts.length(), inventory.part_count)
@@ -749,7 +749,7 @@ test "epub package inventory preserves deterministic manifest and part ordering"
 ///|
 test "epub package metadata entries expose non-empty fields only" {
   let pkg = open_sample_package(
-    "samples/main_process/epub/metadata/epub_metadata_basic.epub",
+    "samples/main_process/epub/rag/epub_metadata_basic.epub",
   )
   let entries = @epub.list_epub_metadata(pkg)
   if entries.length() < 4 {

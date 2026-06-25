@@ -939,7 +939,14 @@ fn scale_coord(value : Int, num : Int, den : Int) -> Int {
   if den <= 0 {
     value
   } else {
-    value * num / den
+    let scaled = value.to_int64() * num.to_int64() / den.to_int64()
+    if scaled > 2147483647L {
+      2147483647
+    } else if scaled < -2147483648L {
+      -2147483648
+    } else {
+      scaled.to_int()
+    }
   }
 }
 

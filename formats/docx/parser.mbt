@@ -1,12 +1,12 @@
 ///|
 pub fn docx_parser_capability() -> @parser.ParserCapability {
   @parser.make_parser_capability(
-    @parser.ParserMode::DocumentModel,
+    @parser.ParserMode::PackageSinglePass,
     false,
     @parser.StreamingGranularity::DocxBlock,
     true,
-    false,
-    false,
+    true,
+    true,
     false,
     false,
     true,
@@ -28,7 +28,7 @@ pub fn docx_parser() -> @parser.Parser {
   let capability = docx_parser_capability()
   @parser.make_parser(
     "docx_parser",
-    @parser.ParserMode::DocumentModel,
+    @parser.ParserMode::PackageSinglePass,
     capability,
     fn(
       source : @input.InputSource,
@@ -47,12 +47,12 @@ fn parse_docx_document_result(
 ) -> Result[@parser.ParseResult, String] {
   let diagnostics = @light_common.empty_parser_diagnostics(
     "docx_parser",
-    @parser.ParserMode::DocumentModel,
+    @parser.ParserMode::PackageSinglePass,
     source,
     "docx",
   )
   diagnostics.metrics.set("parser_name", "docx_parser")
-  diagnostics.metrics.set("parser_mode", "document_model")
+  diagnostics.metrics.set("parser_mode", "package_single_pass")
   diagnostics.metrics.set(
     "input_kind",
     @light_common.input_kind_name(source.kind),
@@ -62,10 +62,10 @@ fn parse_docx_document_result(
     "requested_mode",
     @light_common.requested_mode_name(context),
   )
-  diagnostics.metrics.set("effective_mode", "document_model")
+  diagnostics.metrics.set("effective_mode", "package_single_pass")
   diagnostics.metrics.set("ir_input_kind", "document")
   diagnostics.metrics.set("event_granularity", "docx_block")
-  diagnostics.metrics.set("event_semantics", "document_model")
+  diagnostics.metrics.set("event_semantics", "package_single_pass")
   diagnostics.metrics.set("streaming_fallback", "false")
   diagnostics.metrics.set("office_document_kind", "docx")
   diagnostics.metrics.set("runtime_exposed", "true")
@@ -161,7 +161,7 @@ fn parse_docx_document_result(
   Ok(
     @parser.parse_result_with_document_capability(
       "docx_parser",
-      @parser.ParserMode::DocumentModel,
+      @parser.ParserMode::PackageSinglePass,
       final_document,
       diagnostics,
       capability,
@@ -238,7 +238,7 @@ fn malformed_docx_parse_result(
   ignore(source)
   @parser.parse_result_with_document_capability(
     "docx_parser",
-    @parser.ParserMode::DocumentModel,
+    @parser.ParserMode::PackageSinglePass,
     document,
     diagnostics,
     capability,

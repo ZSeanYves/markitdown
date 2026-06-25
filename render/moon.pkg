@@ -1,6 +1,7 @@
 import {
   "moonbitlang/core/string",
   "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/rag",
 }
 
 options(

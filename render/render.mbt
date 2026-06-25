@@ -1,12 +1,21 @@
 ///|
 pub struct RenderContext {
   debug : Bool
+  rag_options : @rag.RagOptions
+}
+
+///|
+pub(all) enum RenderInput {
+  EventStream(Array[@core.CoreEvent])
+  BlockStream(Array[@core.CoreBlock])
+  Document(@core.DocumentIR)
 }
 
 ///|
 pub struct RenderResult {
   content : String
   diagnostics : @core.Diagnostics
+  chunks : Array[@rag.RagChunk]?
 }
 
 ///|
@@ -16,8 +25,11 @@ pub struct Renderer {
 }
 
 ///|
-pub fn make_render_context(debug : Bool) -> RenderContext {
-  { debug, }
+pub fn make_render_context(
+  debug : Bool,
+  rag_options? : @rag.RagOptions = @rag.default_rag_options(),
+) -> RenderContext {
+  { debug, rag_options }
 }
 
 ///|
@@ -32,6 +44,7 @@ pub fn markdown_renderer() -> Renderer {
       {
         content: render_markdown_document(document),
         diagnostics: document.diagnostics,
+        chunks: None,
       }
     },
   }
@@ -49,6 +62,61 @@ pub fn debug_json_renderer() -> Renderer {
       {
         content: render_debug_json_document(document),
         diagnostics: document.diagnostics,
+        chunks: None,
+      }
+    },
+  }
+}
+
+///|
+pub fn rag_json_renderer() -> Renderer {
+  {
+    name: "RagJsonRenderer",
+    render: fn(
+      document : @core.DocumentIR,
+      context : RenderContext,
+    ) -> RenderResult {
+      document.diagnostics.metrics.set("renderer_name", "RagJsonRenderer")
+      let chunks = @rag.chunks_from_document(document, context.rag_options)
+      document.diagnostics.metrics.set(
+        "chunk_count",
+        chunks.length().to_string(),
+      )
+      document.diagnostics.metrics.set(
+        "chunk_text_total_chars",
+        @rag.rag_chunk_text_total_chars(chunks).to_string(),
+      )
+      document.diagnostics.metrics.set(
+        "metadata_chunk_emitted",
+        if chunks.any(chunk => chunk.kind == @rag.ChunkKind::Metadata) {
+          "true"
+        } else {
+          "false"
+        },
+      )
+      document.diagnostics.metrics.set(
+        "table_chunk_split_count",
+        chunk_kind_count(chunks, @rag.ChunkKind::Table).to_string(),
+      )
+      document.diagnostics.metrics.set(
+        "code_chunk_split_count",
+        chunk_kind_count(chunks, @rag.ChunkKind::Code).to_string(),
+      )
+      document.diagnostics.metrics.set(
+        "rag_chunk_size",
+        context.rag_options.chunk_size.to_string(),
+      )
+      document.diagnostics.metrics.set(
+        "rag_chunk_overlap",
+        context.rag_options.chunk_overlap.to_string(),
+      )
+      {
+        content: render_rag_json_document(
+          document,
+          rag_payload(document, context, chunks),
+        ),
+        diagnostics: document.diagnostics,
+        chunks: Some(chunks),
       }
     },
   }
@@ -108,6 +176,69 @@ pub fn render_debug_json_document(document : @core.DocumentIR) -> String {
     "\"diagnostics\": " + render_diagnostics_json(document.diagnostics),
   )
   @core.object_json(fields)
+}
+
+///|
+pub fn render_rag_json_document(
+  document : @core.DocumentIR,
+  payload : RagRenderPayload,
+) -> String {
+  let asset_items : Array[String] = []
+  for asset in document.assets {
+    asset_items.push(render_asset_json(asset))
+  }
+  let chunk_items : Array[String] = []
+  for chunk in payload.chunks {
+    chunk_items.push(render_rag_chunk_json(chunk))
+  }
+  let fields : Array[String] = []
+  fields.push("\"output_format\": " + @core.json_string("rag_json"))
+  fields.push(
+    "\"detected_format\": " +
+    @core.json_string_opt(document.diagnostics.detected_format),
+  )
+  fields.push(
+    "\"parser_mode\": " +
+    @core.json_string_opt(document.diagnostics.parser_mode),
+  )
+  fields.push(
+    "\"convert_mode\": " +
+    @core.json_string_opt(document.diagnostics.convert_mode),
+  )
+  fields.push(
+    "\"metadata\": " + render_document_metadata_json(document.metadata),
+  )
+  fields.push("\"assets\": " + @core.array_json(asset_items))
+  fields.push(
+    "\"diagnostics\": " + render_diagnostics_json(document.diagnostics),
+  )
+  fields.push(
+    "\"source_map\": " + render_source_map_json(payload.public_source_map),
+  )
+  fields.push("\"chunks\": " + @core.array_json(chunk_items))
+  @core.object_json(fields)
+}
+
+///|
+struct RagRenderPayload {
+  public_source_map : @core.SourceMap?
+  chunks : Array[@rag.RagChunk]
+}
+
+///|
+fn rag_payload(
+  document : @core.DocumentIR,
+  context : RenderContext,
+  chunks : Array[@rag.RagChunk],
+) -> RagRenderPayload {
+  {
+    public_source_map: if context.rag_options.preserve_source_ref {
+      document.source_map
+    } else {
+      None
+    },
+    chunks,
+  }
 }
 
 ///|
@@ -1083,6 +1214,52 @@ fn render_source_ref_json(source_ref : @core.SourceRef?) -> String {
 }
 
 ///|
+fn render_source_map_json(source_map : @core.SourceMap?) -> String {
+  match source_map {
+    None => "null"
+    Some(value) => {
+      let block_entries : Array[String] = []
+      for entry in value.block_entries {
+        block_entries.push(render_source_map_entry_json(entry))
+      }
+      let asset_entries : Array[String] = []
+      for entry in value.asset_entries {
+        asset_entries.push(render_source_map_entry_json(entry))
+      }
+      let fields : Array[String] = []
+      fields.push(
+        "\"document_ref\": " + render_source_ref_json(value.document_ref),
+      )
+      fields.push("\"block_entries\": " + @core.array_json(block_entries))
+      fields.push("\"asset_entries\": " + @core.array_json(asset_entries))
+      @core.object_json(fields)
+    }
+  }
+}
+
+///|
+fn render_source_map_entry_json(entry : @core.SourceMapEntry) -> String {
+  let refs : Array[String] = []
+  for source_ref in entry.refs {
+    refs.push(render_source_ref_json(Some(source_ref)))
+  }
+  let merged_from : Array[String] = []
+  for source_ref in entry.merged_from {
+    merged_from.push(render_source_ref_json(Some(source_ref)))
+  }
+  let fields : Array[String] = []
+  fields.push("\"primary_ref\": " + render_source_ref_json(entry.primary_ref))
+  fields.push("\"refs\": " + @core.array_json(refs))
+  fields.push("\"merged_from\": " + @core.array_json(merged_from))
+  fields.push(
+    "\"confidence\": " +
+    entry.confidence.map(value => value.to_string()).unwrap_or("null"),
+  )
+  fields.push("\"relation\": " + @core.json_string_opt(entry.relation))
+  @core.object_json(fields)
+}
+
+///|
 fn render_rich_inlines_json(rich_inlines : Array[@core.CoreInline]?) -> String {
   match rich_inlines {
     None => "null"
@@ -1127,6 +1304,75 @@ fn render_asset_json(asset : @core.AssetRef) -> String {
   }
   fields.push("\"attrs\": " + @core.object_json(attr_fields))
   @core.object_json(fields)
+}
+
+///|
+fn render_document_metadata_json(metadata : @core.DocumentMetadata) -> String {
+  let fields : Array[String] = []
+  let entries = metadata.to_array()
+  entries.sort_by(fn(a, b) { a.0[:].lexical_compare(b.0[:]) })
+  for entry in entries {
+    fields.push(@core.json_string(entry.0) + ": " + render_json_value(entry.1))
+  }
+  @core.object_json(fields)
+}
+
+///|
+fn render_json_value(value : @core.JsonValue) -> String {
+  match value {
+    @core.JsonValue::String(text) => @core.json_string(text)
+    @core.JsonValue::Number(text) => text
+    @core.JsonValue::Bool(flag) => if flag { "true" } else { "false" }
+    @core.JsonValue::Null => "null"
+    @core.JsonValue::Array(items) =>
+      @core.array_json(items.map(item => render_json_value(item)))
+    @core.JsonValue::Object(fields) => {
+      let pairs : Array[String] = []
+      let entries = fields.to_array()
+      entries.sort_by(fn(a, b) { a.0[:].lexical_compare(b.0[:]) })
+      for entry in entries {
+        pairs.push(
+          @core.json_string(entry.0) + ": " + render_json_value(entry.1),
+        )
+      }
+      @core.object_json(pairs)
+    }
+  }
+}
+
+///|
+fn render_rag_chunk_json(chunk : @rag.RagChunk) -> String {
+  let fields : Array[String] = []
+  fields.push("\"id\": " + @core.json_string(chunk.id))
+  fields.push(
+    "\"kind\": " + @core.json_string(@rag.chunk_kind_name(chunk.kind)),
+  )
+  fields.push("\"text\": " + @core.json_string(chunk.text))
+  fields.push(
+    "\"heading_path\": " + @core.string_array_json(chunk.heading_path),
+  )
+  let source_refs : Array[String] = []
+  for source_ref in chunk.source_refs {
+    source_refs.push(render_source_ref_json(Some(source_ref)))
+  }
+  fields.push("\"source_refs\": " + @core.array_json(source_refs))
+  fields.push("\"asset_refs\": " + @core.string_array_json(chunk.asset_refs))
+  fields.push("\"metadata\": " + render_document_metadata_json(chunk.metadata))
+  @core.object_json(fields)
+}
+
+///|
+fn chunk_kind_count(
+  chunks : Array[@rag.RagChunk],
+  kind : @rag.ChunkKind,
+) -> Int {
+  let mut count = 0
+  for chunk in chunks {
+    if chunk.kind == kind {
+      count += 1
+    }
+  }
+  count
 }
 
 ///|

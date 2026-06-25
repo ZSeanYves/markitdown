@@ -14,7 +14,7 @@ pub fn extract_pdf_native_document_from_path(String) -> Result[PdfNativeDocument
 
 pub fn make_pdf_bbox(Double, Double, Double, Double) -> PdfBBox
 
-pub fn make_pdf_native_annotation(Int, String, bbox? : PdfBBox?, text? : String?, title? : String?, name? : String?, modified_at? : String?, action_kind? : String?, target? : String?, destination? : PdfNativeDestination?, source_ref? : @core.SourceRef?, annotation_index? : Int?, object_id? : Int?) -> PdfNativeAnnotation
+pub fn make_pdf_native_annotation(Int, String, bbox? : PdfBBox?, text? : String?, title? : String?, subject? : String?, file_name? : String?, name? : String?, modified_at? : String?, action_kind? : String?, target? : String?, destination? : PdfNativeDestination?, source_ref? : @core.SourceRef?, annotation_index? : Int?, object_id? : Int?) -> PdfNativeAnnotation
 
 pub fn make_pdf_native_artifact_candidate(String, PdfBBox, source_ref? : @core.SourceRef?) -> PdfNativeArtifactCandidate
 
@@ -49,6 +49,10 @@ pub fn pdf_bbox_is_empty(PdfBBox) -> Bool
 pub fn pdf_bbox_right(PdfBBox) -> Double
 
 pub fn pdf_decode_gb2312_first_bytes(Array[Int]) -> PdfRawCjkDecodeResult
+
+pub fn pdf_native_appendix_blocks(Map[String, @core.JsonValue]) -> Array[@core.CoreBlock]
+
+pub fn pdf_native_document_to_blocks_with_policies(PdfNativeDocument, @parser.PdfHeaderFooterFilterPolicy) -> (Map[String, @core.JsonValue], Array[@core.CoreBlock], @core.Diagnostics)
 
 pub fn pdf_native_document_to_ir(PdfNativeDocument) -> @core.DocumentIR
 
@@ -86,6 +90,8 @@ pub struct PdfNativeAnnotation {
   bbox : PdfBBox?
   text : String?
   title : String?
+  subject : String?
+  file_name : String?
   name : String?
   modified_at : String?
   action_kind : String?

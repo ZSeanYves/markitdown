@@ -1,3 +1,0 @@
-Bad JS
-
-Bad Data

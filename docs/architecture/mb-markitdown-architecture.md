@@ -10,7 +10,7 @@
 
 mb-markitdown 的核心目标是：
 
-1. 将多种输入格式转换为 Markdown / JSON / RAG chunks / Debug IR。
+1. 将多种输入格式转换为 Markdown / Debug JSON / RAG chunks / Debug IR。
 2. 在速度、内存、结构保真、版面恢复之间提供明确模式选择。
 3. 不让所有格式强行使用同一种解析策略，而是根据格式天然结构选择最合适的 parser 形态。
 4. 所有 parser 最终进入统一 Core IR，所有 renderer 只消费 Core IR。
@@ -24,7 +24,7 @@ Source Format
   -> Core IR
   -> IR Passes
   -> Renderer
-  -> Markdown / JSON / Chunks / Debug Output
+  -> Markdown / Debug JSON / Chunks / Debug Output
 ```
 
 核心原则：
@@ -78,7 +78,7 @@ ConvertResult
 | CoreIRBuilder | 将 parser-native 输出统一成 Core IR | 不读取源文件 |
 | IR Pass Pipeline | 跨格式结构归一：标题、列表、表格、段落、阅读顺序、页眉页脚等 | 不依赖具体文件库 |
 | DocumentAssembler | 组装 section tree、reading order、caption binding、table continuation | 不处理源格式 I/O |
-| Renderer | 将 Core IR 表达为 Markdown / JSON / chunks | 不解析源文件，不重新猜测结构 |
+| Renderer | 将 Core IR 表达为 Markdown / Debug JSON / chunks | 不解析源文件，不重新猜测结构 |
 | ConvertResult | 返回最终内容、metadata、diagnostics、assets、source map | 不再修改结构 |
 
 ---
@@ -105,7 +105,7 @@ Parser -> ParseResult -> Core IR -> Renderer -> Markdown
 
 1. Markdown 表达能力有限，不能承载 layout、bbox、source map、confidence、asset relation。
 2. PDF、PPTX、XLSX 等格式需要先收集结构证据，再统一判断。
-3. RAG、debug、JSON 输出不应该反向从 Markdown 解析。
+3. RAG、debug JSON 输出不应该反向从 Markdown 解析。
 4. 直接拼 Markdown 会让后续优化不可控。
 
 ### 2.2 Parser 产出事实和候选信号，不做最终结论
@@ -307,7 +307,7 @@ warnings
 IR dump
 source map dump
 pass trace
-fallback trace
+route decision
 ```
 
 ---
@@ -351,8 +351,9 @@ ndjson
 srt
 webvtt
 mbox
-large xml
-large json stream
+超限 yaml
+超限 json
+超限 xml
 ```
 
 特点：
@@ -378,12 +379,11 @@ source
 典型粒度：
 
 ```text
+Markdown: block
+HTML: section / article / DOM subtree
 PDF: page
-PPTX: slide
 XLSX: sheet / row / table region
 EPUB: chapter
-DOCX: paragraph / table
-HTML: article / section / DOM subtree
 EML: MIME part
 ```
 
@@ -474,7 +474,7 @@ latex
 
 ```text
 小中型文件可以建 AST/DOM。
-大型 XML/JSON 应切换到 streaming-event。
+Markdown / HTML / YAML / JSON / XML 的超限分流由 convert 的 RoutePlanner 决定。
 Markdown 不建议纯 passthrough，默认应解析 AST，保留 heading、list、code、table、link、source line。
 ```
 
@@ -558,45 +558,45 @@ archive
 
 ```text
 linear / streaming:
-  txt     -> streaming-event
-  log     -> streaming-event
-  csv     -> streaming-event
-  tsv     -> streaming-event
-  jsonl   -> streaming-event
-  ndjson  -> streaming-event
-  srt     -> streaming-event
-  vtt     -> streaming-event
-  mbox    -> streaming-event
+  txt      -> streaming-event only
+  log      -> streaming-event only
+  csv      -> streaming-event only
+  tsv      -> streaming-event only
+  jsonl    -> streaming-event only
+  ndjson   -> streaming-event only
+  srt      -> streaming-event only
+  vtt      -> streaming-event only
+  mbox     -> streaming-event only
 
 tree / ast:
-  md       -> dom-ast-model
-  markdown -> dom-ast-model
-  json     -> dom-ast-model, large file fallback to streaming-event
-  yaml     -> dom-ast-model
-  yml      -> dom-ast-model
-  toml     -> dom-ast-model
-  xml      -> dom-ast-model, large file fallback to streaming-event
-  rst      -> dom-ast-model
-  adoc     -> dom-ast-model
-  tex      -> dom-ast-model
+  md        -> dom-ast-model, over-limit -> block-streaming
+  markdown  -> dom-ast-model, over-limit -> block-streaming
+  json      -> dom-ast-model, over-limit -> streaming-event
+  yaml      -> dom-ast-model, over-limit -> streaming-event
+  yml       -> dom-ast-model, over-limit -> streaming-event
+  toml      -> dom-ast-model
+  xml       -> dom-ast-model, over-limit -> streaming-event
+  rst       -> dom-ast-model
+  adoc      -> dom-ast-model
+  tex       -> dom-ast-model
 
 web / markup:
-  html     -> dom-ast-model + readability/hybrid strategy
-  htm      -> dom-ast-model + readability/hybrid strategy
+  html      -> dom-ast-model + readability/hybrid, over-limit -> block-streaming(section/subtree)
+  htm       -> dom-ast-model + readability/hybrid, over-limit -> block-streaming(section/subtree)
 
 package documents:
-  docx     -> package-single-pass
-  pptx     -> package-single-pass
-  xlsx     -> package-single-pass + sheet/row streaming
-  odt      -> package-single-pass
-  odp      -> package-single-pass
-  ods      -> package-single-pass
-  epub     -> package-single-pass + chapter blocks
+  docx      -> package-single-pass only
+  pptx      -> package-single-pass only
+  xlsx      -> package-single-pass, over-limit -> block-streaming(sheet/row/table-region)
+  odt       -> package-single-pass
+  odp       -> package-single-pass
+  ods       -> package-single-pass
+  epub      -> package-single-pass + chapter blocks
 
 paged documents:
-  pdf      -> page-single-pass
-  tiff     -> page-single-pass
-  tif      -> page-single-pass
+  pdf       -> page-single-pass; Accurate / explicit OCR -> layout-two-stage
+  tiff      -> page-single-pass
+  tif       -> page-single-pass
 
 image / OCR:
   png      -> layout-two-stage when OCR enabled; otherwise metadata/image asset only
@@ -615,20 +615,25 @@ media:
   mp4      -> media-pipeline
 
 containers:
-  zip      -> container-recursive
-  tar      -> container-recursive
+  zip       -> container-recursive only
+  tar       -> container-recursive
 ```
 
 ### 5.2 大文件策略升级/降级
 
 ```text
-large csv   -> streaming-event
-large jsonl -> streaming-event
-large json  -> streaming-event if parser supports event parsing
-large xml   -> streaming-event
-large xlsx  -> sheet/row streaming, avoid full workbook model
-complex pdf -> layout-two-stage only in Accurate mode
-scanned pdf -> page-single-pass + OCR/layout if enabled
+RoutePlanner 在 parser 前统一做 canonical route 选择。
+超限 markdown -> block-streaming
+超限 yaml     -> streaming-event
+超限 html     -> block-streaming(section/subtree)
+超限 json     -> streaming-event
+超限 xml      -> streaming-event
+超限 xlsx     -> block-streaming(sheet/row/table-region)
+复杂 pdf      -> Accurate 模式下 layout-two-stage
+扫描 pdf      -> 仅在显式 OCR / Accurate 语义下进入 layout-two-stage
+
+route 一旦选定，不允许跨模式 fallback。
+route 失败时只允许同模式内 degradation，例如 section 裁剪、row 窗口裁剪、table-region 裁剪。
 ```
 
 ---
@@ -674,11 +679,11 @@ log
 
 ```text
 pdf page
-pptx slide
 xlsx sheet / row / table region
 epub chapter
 eml mime part
 html section
+markdown block
 ```
 
 特点：
@@ -1047,7 +1052,10 @@ pub struct Diagnostics {
   asset_count : Int
 
   degraded_features : Array[String]
-  fallback_trace : Array[String]
+  selected_route : Option[String]
+  route_reason : Option[String]
+  route_probe_summary : Option[String]
+  same_mode_degradation : Array[String]
   pass_trace : Array[String]
 
   extra : Map[String, JsonValue]
@@ -1060,7 +1068,7 @@ pub struct Diagnostics {
 debug
 benchmark
 质量评估
-fallback 判断
+route 判断
 RAG 溯源
 用户提示
 回归测试
@@ -1188,7 +1196,7 @@ ParseResult.document
 ```text
 IRInput.EventStream
 IRInput.BlockStream
-IRInput.DocumentIR
+IRInput.Document(DocumentIR)
 ```
 
 ### 9.3 职责
@@ -1455,7 +1463,7 @@ Renderer 只消费 Core IR，不读取源格式。
 ```moonbit
 pub trait Renderer {
   fn name(Self) -> String
-  fn render(Self, ctx : RenderContext, input : IRInput) -> Result[RenderResult, RenderError]
+  fn render(Self, ctx : RenderContext, input : RenderInput) -> Result[RenderResult, RenderError]
 }
 ```
 
@@ -1525,7 +1533,9 @@ pub struct TableRenderOptions {
 超大表：stream rows，不聚合为 Markdown table
 ```
 
-### 11.5 JsonRenderer
+### 11.5 DebugJsonRenderer
+
+当前结构化调试输出固定由 `DebugJsonRenderer` 承担。
 
 输出完整结构：
 
@@ -1545,6 +1555,14 @@ debug
 integration
 RAG pipeline
 测试快照
+```
+
+当前说明：
+
+```text
+CLI 不提供独立 --json。
+当前正式公开的结构化输出是 DebugJson 与 RagJson。
+OutputFormat::Json 如保留在内部枚举中，也不构成独立公开产品语义。
 ```
 
 ### 11.6 RagRenderer
@@ -2363,7 +2381,7 @@ SourceRef(time range)
 3. MIME type
 4. 文件扩展名
 5. container internal inspection
-6. fallback text/binary heuristic
+6. text/binary heuristic
 ```
 
 ### 13.2 DetectedFormat
@@ -2404,7 +2422,7 @@ mimetype=application/epub+zip + META-INF/container.xml -> epub
 
 ---
 
-## 14. ParserRegistry 与 fallback
+## 14. ParserRegistry 与 RoutePlanner
 
 ### 14.1 ParserRegistry
 
@@ -2422,28 +2440,31 @@ capability match
 convert mode match
 resource limits match
 priority score
-fallback availability
+RoutePlanner selected_route
 ```
 
-### 14.2 fallback 策略
+### 14.2 canonical route 策略
 
 示例：
 
 ```text
-PDF accurate parser 失败 -> PDF balanced parser
-PDF text extraction 为空 -> OCR parser, if enabled
-HTML readability 失败 -> DOM parser
-XLSX full model 超限 -> row streaming parser
-JSON AST 超限 -> streaming JSON parser
-DOCX parser 失败 -> unzip text fallback
-unknown binary -> metadata only
-unknown text -> txt parser
+txt/csv/tsv/jsonl/ndjson -> streaming-event
+markdown -> dom-ast-model, over-limit -> block-streaming
+yaml/json/xml -> dom-ast-model, over-limit -> streaming-event
+html -> dom-ast-model + readability/hybrid, over-limit -> block-streaming(section/subtree)
+docx/pptx -> package-single-pass
+xlsx -> package-single-pass, over-limit -> block-streaming(sheet/row/table-region)
+pdf -> page-single-pass, Accurate / explicit OCR -> layout-two-stage
+zip -> container-recursive
 ```
 
 Diagnostics 中必须记录：
 
 ```text
-fallback_trace
+selected_route
+route_reason
+route_probe_summary
+same_mode_degradation
 warnings
 degraded_features
 ```
@@ -2456,19 +2477,22 @@ degraded_features
 pub struct ConvertOptions {
   mode : ConvertMode
   output_format : OutputFormat
-
-  include_metadata : Bool
-  include_assets : Bool
-  include_source_map : Bool
-  include_diagnostics : Bool
-
-  table_options : TableRenderOptions
-  image_options : ImageOptions
-  html_options : HtmlOptions
-  pdf_options : PdfOptions
-  rag_options : RagOptions
+  explicit_format : DetectedFormat?
+  ocr_options : OcrOptions
   limits : ResourceLimits
+  pdf_cleanup_mode : PdfCleanupMode
+  pdf_table_mode : PdfTableMode
+  rag_options : RagOptions
 }
+```
+
+当前职责边界：
+
+```text
+ConvertOptions 是 convert 层的执行编排配置。
+它负责选择转换模式、输出投影、输入解析入口、资源上限，以及当前已产品化的 PDF/RAG 选项。
+它不是覆盖全部 renderer 策略的总配置对象。
+未进入该结构的更宽 renderer 策略，不构成当前公开契约。
 ```
 
 ### 15.1 OutputFormat
@@ -2477,58 +2501,53 @@ pub struct ConvertOptions {
 pub enum OutputFormat {
   Markdown
   Json
-  Html
   RagJson
   DebugJson
 }
 ```
 
-### 15.2 ImageOptions
+当前产品语义：
+
+```text
+Markdown：默认公开输出
+DebugJson：当前唯一正式公开的结构化调试输出
+RagJson：当前正式公开的 RAG 输出
+Json：内部/兼容保留位，不单独作为公开产品语义；当前不提供独立 CLI surface
+```
+
+### 15.2 PdfCleanupMode
 
 ```moonbit
-pub struct ImageOptions {
-  strategy : ImageStrategy
-  export_dir : Option[String]
-  preserve_alt_text : Bool
-  include_caption : Bool
-}
-
-pub enum ImageStrategy {
-  Placeholder
-  Link
-  Export
-  Base64
-  Ignore
+pub enum PdfCleanupMode {
+  Disabled
+  Conservative
 }
 ```
 
-### 15.3 PdfOptions
+说明：
+
+```text
+当前只把 PDF 页眉页脚清理收口为这一个显式产品选项。
+更宽的 PDF 能力矩阵仍属于后续实现，不在现行 ConvertOptions 契约中展开。
+```
+
+### 15.3 PdfTableMode
 
 ```moonbit
-pub struct PdfOptions {
-  enable_ocr : Bool
-  enable_layout : Bool
-  enable_table_recognition : Bool
-  remove_header_footer : Bool
-  infer_reading_order : Bool
-  preserve_page_breaks : Bool
+pub enum PdfTableMode {
+  Disabled
+  Simple
 }
 ```
 
-### 15.4 HtmlOptions
+说明：
 
-```moonbit
-pub struct HtmlOptions {
-  strategy : HtmlStrategy
-  keep_links : Bool
-  keep_images : Bool
-  keep_tables : Bool
-  remove_scripts : Bool
-  remove_styles : Bool
-}
+```text
+当前只把 PDF 的简单表格重建收口为这一个显式产品选项。
+更复杂的表格识别与结构恢复仍属于后续实现，不在现行 ConvertOptions 契约中展开。
 ```
 
-### 15.5 RagOptions
+### 15.4 RagOptions
 
 ```moonbit
 pub struct RagOptions {
@@ -2959,6 +2978,7 @@ caption binding
 14. Renderer 不读取源格式。
 15. IR Pass 不依赖具体 parser 库。
 16. fallback 必须记录 diagnostics。
+16. RoutePlanner 必须记录 diagnostics，且禁止跨模式 fallback。
 17. 容器解析必须做安全限制。
 18. RAG chunk 必须保留 heading path 和 source refs。
 ```
@@ -2975,12 +2995,14 @@ mb-markitdown 的合理架构不是“所有格式统一扫描方式”，而是
 分页文档走 page-single-pass；
 markup/tree 文档走 dom-ast-model；
 复杂视觉文档走 layout-two-stage；
+markdown / html / xlsx 等分块友好格式在超限时走 block-streaming；
+所有分流都由 convert 的 RoutePlanner 决定，且不允许跨模式 fallback；
 容器文件走 container-recursive；
 媒体文件走 media-pipeline。
 
 所有 parser 输出 ParseResult；
 所有 ParseResult 进入 Core IR；
-所有 Markdown/JSON/RAG 输出由 Renderer 统一生成。
+所有 Markdown/Debug JSON/RAG 输出由 Renderer 统一生成。
 ```
 
 这套设计可以同时保留 MarkItDown 类工具的轻量速度优势，也给复杂 PDF、Office、HTML、EPUB、RAG 和 Debug 留出足够的结构空间。

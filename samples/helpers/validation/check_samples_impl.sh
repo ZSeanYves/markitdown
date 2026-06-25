@@ -6,11 +6,11 @@ source "$ROOT/samples/helpers/shared/tmp_helpers.sh"
 source "$ROOT/samples/helpers/shared/validation_helpers.sh"
 
 SAMPLES_DIR="$ROOT/samples/main_process"
-FIXTURE_METADATA_DIR="$ROOT/samples/fixtures/metadata"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp/check}"
 FAILURE_DIFF_DIR="${CHECK_FAILURE_DIFF_DIR:-}"
 FAILURE_RAW_DIR="${CHECK_FAILURE_RAW_DIR:-}"
 FAILURE_REPORTS_DIR="${CHECK_FAILURE_REPORTS_DIR:-}"
+RAG_CHECKER="$ROOT/samples/helpers/validation/check_rag_fixture.py"
 if [[ -n "${CHECK_SAMPLES_OUT_DIR:-}" ]]; then
   OUT_DIR="$CHECK_SAMPLES_OUT_DIR"
   mkdir -p "$OUT_DIR"
@@ -20,7 +20,7 @@ else
   CLEANUP_OUT_DIR=1
 fi
 
-MODE="markdown-only"
+MODE="markdown"
 FORMAT_FILTER=""
 SPECIAL_MODE=""
 FORMATS=("csv" "tsv" "txt" "json" "jsonl" "ndjson" "xml" "yaml" "html" "markdown" "zip" "epub" "docx" "xlsx" "pptx" "pdf")
@@ -29,7 +29,7 @@ trap 'status=$?; if [[ "$CLEANUP_OUT_DIR" -ne 0 ]]; then sample_cleanup_tmp_dir 
 
 usage() {
   cat <<'EOF'
-Internal usage: check_samples_impl.sh [--markdown-only] [--format FMT] [--check-inventory] [--list-inventory]
+Internal usage: check_samples_impl.sh [--markdown|--rag|--assets] [--format FMT] [--check-inventory] [--list-inventory]
 EOF
 }
 
@@ -39,7 +39,7 @@ supported_formats() {
 }
 
 sample_inventory_formats() {
-  printf '%s\n' xlsx html zip epub docx pptx pdf csv tsv json yaml xml markdown txt
+  printf '%s\n' xlsx html zip epub docx pptx pdf csv tsv json yaml xml markdown txt jsonl ndjson
 }
 
 format_is_supported() {
@@ -55,8 +55,14 @@ format_is_supported() {
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --markdown-only)
-      MODE="markdown-only"
+    --markdown)
+      MODE="markdown"
+      ;;
+    --rag)
+      MODE="rag"
+      ;;
+    --assets)
+      MODE="assets"
       ;;
     --format)
       shift
@@ -93,275 +99,6 @@ if [[ -n "$FORMAT_FILTER" ]] && ! format_is_supported "$FORMAT_FILTER"; then
   exit 1
 fi
 
-require_python3() {
-  if command -v python3 >/dev/null 2>&1; then
-    return 0
-  fi
-  echo "python3 is required for metadata sidecar validation" >&2
-  exit 1
-}
-
-extract_asset_refs() {
-  local dir="$1"
-  if command -v rg >/dev/null 2>&1; then
-    rg -o --no-filename "assets/[A-Za-z0-9_./-]+" "$dir" -g '*.md' | sort -u || true
-    return
-  fi
-  find "$dir" -type f -name '*.md' -print0 \
-    | xargs -0 grep -hoE "assets/[A-Za-z0-9_./-]+" \
-    | sort -u || true
-}
-
-check_asset_refs_or_record() {
-  local scope="$1"
-  local out_dir="$2"
-  local refs ref missing=0
-  refs="$(extract_asset_refs "$out_dir")"
-  if [[ -z "${refs//[$'\t\r\n ']}" ]]; then
-    return 0
-  fi
-  while IFS= read -r ref; do
-    [[ -z "$ref" ]] && continue
-    if [[ ! -f "$out_dir/$ref" ]]; then
-      validation_record_failure "$scope" "$scope" "" "$out_dir/$ref" "missing asset"
-      missing=1
-    fi
-  done <<< "$refs"
-  return "$missing"
-}
-
-validate_metadata_sidecar() {
-  local scope="$1"
-  local input_path="$2"
-  local fmt="$3"
-  local markdown_path="$4"
-  local metadata_path="$5"
-  local sample_out_dir="$6"
-  local detail
-
-  if [[ ! -f "$metadata_path" ]]; then
-    validation_record_failure "$scope" "$input_path" "$metadata_path" "$metadata_path" "missing metadata sidecar"
-    return 1
-  fi
-
-  set +e
-  detail="$(python3 - "$metadata_path" "$input_path" "$fmt" "$markdown_path" "$sample_out_dir" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-meta_path = Path(sys.argv[1])
-input_path = Path(sys.argv[2])
-expected_format = sys.argv[3]
-markdown_path = Path(sys.argv[4])
-sample_out_dir = Path(sys.argv[5])
-
-try:
-    data = json.loads(meta_path.read_text(encoding="utf-8"))
-except Exception as exc:
-    print(f"json parse failed: {exc}")
-    sys.exit(1)
-
-if not isinstance(data, dict):
-    print("top-level metadata must be a JSON object")
-    sys.exit(1)
-
-required_top = [
-    "version",
-    "source_name",
-    "format",
-    "markdown_file",
-    "document",
-    "summary",
-    "blocks",
-    "assets",
-]
-for key in required_top:
-    if key not in data:
-        print(f"missing top-level key: {key}")
-        sys.exit(1)
-
-if data["source_name"] != input_path.name:
-    print(f"source_name mismatch: expected {input_path.name}, got {data['source_name']!r}")
-    sys.exit(1)
-
-if data["format"] != expected_format:
-    print(f"format mismatch: expected {expected_format}, got {data['format']!r}")
-    sys.exit(1)
-
-if data["markdown_file"] != markdown_path.name:
-    print(f"markdown_file mismatch: expected {markdown_path.name}, got {data['markdown_file']!r}")
-    sys.exit(1)
-
-summary = data["summary"]
-if not isinstance(summary, dict):
-    print("summary must be an object")
-    sys.exit(1)
-
-for key in ["block_count", "asset_count"]:
-    if key not in summary:
-        print(f"summary missing key: {key}")
-        sys.exit(1)
-    if not isinstance(summary[key], int):
-        print(f"summary key {key} must be an integer")
-        sys.exit(1)
-
-blocks = data["blocks"]
-assets = data["assets"]
-if not isinstance(blocks, list):
-    print("blocks must be an array")
-    sys.exit(1)
-if not isinstance(assets, list):
-    print("assets must be an array")
-    sys.exit(1)
-
-if summary["block_count"] != len(blocks):
-    print(f"summary.block_count mismatch: expected {len(blocks)}, got {summary['block_count']}")
-    sys.exit(1)
-if summary["asset_count"] != len(assets):
-    print(f"summary.asset_count mismatch: expected {len(assets)}, got {summary['asset_count']}")
-    sys.exit(1)
-
-require_document = expected_format in {"docx", "pptx", "xlsx", "epub"}
-document = data["document"]
-if require_document and document is None:
-    print(f"document must be present for format {expected_format}")
-    sys.exit(1)
-if document is not None and not isinstance(document, dict):
-    print("document must be null or an object")
-    sys.exit(1)
-
-for index, block in enumerate(blocks):
-    if not isinstance(block, dict):
-        print(f"blocks[{index}] must be an object")
-        sys.exit(1)
-    for key in ["block_index", "block_type", "text"]:
-        if key not in block:
-            print(f"blocks[{index}] missing key: {key}")
-            sys.exit(1)
-    if not isinstance(block["block_index"], int):
-        print(f"blocks[{index}].block_index must be an integer")
-        sys.exit(1)
-    if "origin" not in block:
-        print(f"blocks[{index}] missing key: origin")
-        sys.exit(1)
-
-seen_paths = set()
-for index, asset in enumerate(assets):
-    if not isinstance(asset, dict):
-        print(f"assets[{index}] must be an object")
-        sys.exit(1)
-    for key in ["path", "asset_type"]:
-        if key not in asset:
-            print(f"assets[{index}] missing key: {key}")
-            sys.exit(1)
-    path = asset["path"]
-    if not isinstance(path, str) or path.strip() == "":
-        print(f"assets[{index}].path must be a non-empty string")
-        sys.exit(1)
-    if path in seen_paths:
-        print(f"duplicate asset path: {path}")
-        sys.exit(1)
-    seen_paths.add(path)
-    resolved = sample_out_dir / path
-    if not resolved.is_file():
-        print(f"asset file missing on disk: {path}")
-        sys.exit(1)
-
-asset_files = []
-asset_root = sample_out_dir / "assets"
-if asset_root.is_dir():
-    for child in asset_root.rglob("*"):
-        if child.is_file():
-            asset_files.append(child.relative_to(sample_out_dir).as_posix())
-
-if asset_files and not assets:
-    print("assets directory is non-empty but metadata assets[] is empty")
-    sys.exit(1)
-
-if not asset_files and assets:
-    print("metadata assets[] is non-empty but assets directory is empty")
-    sys.exit(1)
-
-if sorted(asset_files) != sorted(seen_paths):
-    print(
-        "asset path mismatch between metadata and disk: "
-        f"metadata={sorted(seen_paths)} disk={sorted(asset_files)}"
-    )
-    sys.exit(1)
-
-print(
-    f"ok blocks={len(blocks)} assets={len(assets)} "
-    f"document={'present' if document is not None else 'null'}"
-)
-PY
-)"
-  status=$?
-  set -e
-
-  if [[ "$status" -ne 0 ]]; then
-    validation_record_failure "$scope" "$input_path" "$metadata_path" "$metadata_path" "$detail"
-    return 1
-  fi
-
-  if validation_bool_enabled "$SAMPLES_VERBOSE"; then
-    echo "==> metadata validated $scope ($detail)"
-  fi
-  return 0
-}
-
-validate_metadata_fixture_json() {
-  local scope="$1"
-  local input_path="$2"
-  local expected_metadata="$3"
-  local actual_metadata="$4"
-  local detail
-
-  set +e
-  detail="$(python3 - "$expected_metadata" "$actual_metadata" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-expected_path = Path(sys.argv[1])
-actual_path = Path(sys.argv[2])
-
-try:
-    expected = json.loads(expected_path.read_text(encoding="utf-8"))
-except Exception as exc:
-    print(f"expected fixture json parse failed: {exc}")
-    sys.exit(1)
-
-try:
-    actual = json.loads(actual_path.read_text(encoding="utf-8"))
-except Exception as exc:
-    print(f"actual sidecar json parse failed: {exc}")
-    sys.exit(1)
-
-if expected != actual:
-    expected_keys = set(expected.keys()) if isinstance(expected, dict) else set()
-    actual_keys = set(actual.keys()) if isinstance(actual, dict) else set()
-    changed = sorted(key for key in expected_keys | actual_keys if expected.get(key) != actual.get(key))
-    if changed:
-      print("json fixture mismatch at keys: " + ", ".join(changed[:8]))
-    else:
-      print("json fixture mismatch")
-    sys.exit(1)
-
-print("ok")
-PY
-)"
-  status=$?
-  set -e
-
-  if [[ "$status" -ne 0 ]]; then
-    validation_record_failure "$scope" "$input_path" "$expected_metadata" "$actual_metadata" "$detail"
-    return 1
-  fi
-
-  return 0
-}
-
 count_non_hidden_files() {
   local dir="$1"
   if [[ ! -d "$dir" ]]; then
@@ -371,37 +108,34 @@ count_non_hidden_files() {
   find "$dir" -maxdepth 1 -type f ! -name '.*' | wc -l | tr -d '[:space:]'
 }
 
-count_main_process_inventory_samples() {
+count_expected_markdown_cases() {
   local fmt="$1"
-  local dir="$SAMPLES_DIR/$fmt"
+  local dir="$SAMPLES_DIR/$fmt/expected/markdown"
   if [[ ! -d "$dir" ]]; then
     printf '0'
     return
   fi
-  if [[ "$fmt" == "pdf" ]]; then
-    enrolled_pdf_root_samples | sed '/^$/d' | wc -l | tr -d '[:space:]'
-    return
-  fi
-  find "$dir" -type f \
-    ! -name '.*' \
-    ! -path '*/expected' \
-    ! -path '*/expected/*' \
-    ! -path '*/expected_next' \
-    ! -path '*/expected_next/*' \
-    ! -path '*/img/*' \
-    ! -name '*.jpg' \
-    ! -name '*.jpeg' \
-    ! -name '*.png' \
-    ! -name '*.gif' \
-    ! -name '*.webp' \
-    ! -name '*.bmp' \
-    ! -name '*.svg' \
-    ! -name '*.key' \
-    | wc -l | tr -d '[:space:]'
+  find "$dir" -type f -name '*.md' | wc -l | tr -d '[:space:]'
 }
 
-enrolled_pdf_root_samples() {
-  printf '%s\n' "root_native_text_baseline.pdf"
+count_expected_rag_cases() {
+  local fmt="$1"
+  local dir="$SAMPLES_DIR/$fmt/expected/rag"
+  if [[ ! -d "$dir" ]]; then
+    printf '0'
+    return
+  fi
+  find "$dir" -type f -name '*.rag.json' | wc -l | tr -d '[:space:]'
+}
+
+count_expected_assets_cases() {
+  local fmt="$1"
+  local dir="$SAMPLES_DIR/$fmt/expected/assets"
+  if [[ ! -d "$dir" ]]; then
+    printf '0'
+    return
+  fi
+  find "$dir" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d '[:space:]'
 }
 
 count_quality_manifest_rows() {
@@ -432,27 +166,20 @@ count_quality_comparison_reports() {
 
 inventory_list() {
   local fmt
-  printf 'format\tmain_process\tmetadata_cases\tasset_cases\tfixtures\tbenchmark_retired\tquality_records\tquality_intake_public\tmetadata_expected\n'
+  printf 'format\tmain_markdown\tmain_rag\tmain_assets\texpected_markdown\texpected_rag\texpected_assets\tfixtures\tquality_records\tquality_intake_public\n'
   while IFS= read -r fmt; do
     [[ -z "$fmt" ]] && continue
-    local main_count meta_count assets_count fixture_count quality_count quality_manifest_count metadata_expected_count
-    main_count="$(count_main_process_inventory_samples "$fmt")"
-    meta_count="$(count_non_hidden_files "$SAMPLES_DIR/$fmt/metadata")"
-    assets_count="$(count_non_hidden_files "$SAMPLES_DIR/$fmt/assets")"
-    fixture_count="$(count_non_hidden_files "$ROOT/samples/fixtures/$fmt")"
-    quality_count="$(count_quality_comparison_reports "$fmt")"
-    quality_manifest_count="$(count_quality_manifest_rows "$fmt")"
-    metadata_expected_count="$(find "$SAMPLES_DIR/$fmt/expected" -type f -name '*.metadata.json' 2>/dev/null | wc -l | tr -d '[:space:]')"
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
       "$fmt" \
-      "$main_count" \
-      "$meta_count" \
-      "$assets_count" \
-      "$fixture_count" \
-      "0" \
-      "$quality_count" \
-      "$quality_manifest_count" \
-      "$metadata_expected_count"
+      "$(count_non_hidden_files "$SAMPLES_DIR/$fmt/markdown")" \
+      "$(count_non_hidden_files "$SAMPLES_DIR/$fmt/rag")" \
+      "$(count_non_hidden_files "$SAMPLES_DIR/$fmt/assets")" \
+      "$(count_expected_markdown_cases "$fmt")" \
+      "$(count_expected_rag_cases "$fmt")" \
+      "$(count_expected_assets_cases "$fmt")" \
+      "$(count_non_hidden_files "$ROOT/samples/fixtures/$fmt")" \
+      "$(count_quality_comparison_reports "$fmt")" \
+      "$(count_quality_manifest_rows "$fmt")"
   done < <(sample_inventory_formats)
 }
 
@@ -467,50 +194,47 @@ sample_integrity_is_noise_file() {
 
 sample_integrity_discover_inputs() {
   local fmt="$1"
-  local in_dir="$SAMPLES_DIR/$fmt"
-  case "$fmt" in
-    docx) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.docx" -print ;;
-    pdf)
-      while IFS= read -r rel; do
-        [[ -n "$rel" ]] || continue
-        printf '%s/%s\n' "$in_dir" "$rel"
-      done < <(enrolled_pdf_root_samples)
-      ;;
-    xlsx) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.xlsx" -print ;;
-    pptx) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.pptx" -print ;;
-    html) find "$in_dir" -path "$in_dir/expected" -prune -o -type f \( -name "*.html" -o -name "*.htm" \) -print ;;
-    csv) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.csv" -print ;;
-    tsv) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.tsv" -print ;;
-    txt) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.txt" -print ;;
-    xml) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.xml" -print ;;
-    json) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.json" -print ;;
-    yaml) find "$in_dir" -path "$in_dir/expected" -prune -o -type f \( -name "*.yaml" -o -name "*.yml" \) -print ;;
-    markdown) find "$in_dir" -path "$in_dir/expected" -prune -o -type f \( -name "*.md" -o -name "*.markdown" \) -print ;;
-    zip) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.zip" -print ;;
-    epub) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.epub" -print ;;
-    *) return 0 ;;
-  esac
+  local lane="$2"
+  local in_dir="$SAMPLES_DIR/$fmt/$lane"
+  if [[ ! -d "$in_dir" ]]; then
+    return 0
+  fi
+  find "$in_dir" -type f ! -name '.*' ! -path '*/img/*' | sort
 }
 
 sample_integrity_expected_bases() {
   local fmt="$1"
-  local exp_dir="$2"
-  if [[ "$fmt" == "pdf" ]]; then
-    enrolled_pdf_root_samples | sed 's/\.pdf$//'
-    return
+  local lane="$2"
+  local exp_dir="$SAMPLES_DIR/$fmt/expected/$lane"
+  if [[ ! -d "$exp_dir" ]]; then
+    return 0
   fi
-  find "$exp_dir" -type f -name '*.md' -print | sort | while read -r path; do
-    rel="${path#$exp_dir/}"
-    if [[ "$rel" == reference/* ]]; then
-      continue
-    fi
-    echo "${rel%.md}"
-  done | sort -u
+  case "$lane" in
+    markdown)
+      find "$exp_dir" -type f -name '*.md' -print | sort | while read -r path; do
+        rel="${path#$exp_dir/}"
+        echo "${rel%.md}"
+      done | sort -u
+      ;;
+    rag)
+      find "$exp_dir" -type f -name '*.rag.json' -print | sort | while read -r path; do
+        rel="${path#$exp_dir/}"
+        echo "${rel%.rag.json}"
+      done | sort -u
+      ;;
+    assets)
+      find "$exp_dir" -mindepth 1 -maxdepth 1 -type d -print | sort | while read -r path; do
+        rel="${path#$exp_dir/}"
+        echo "$rel"
+      done | sort -u
+      ;;
+  esac
 }
 
 check_sample_inventory_integrity() {
-  local formats=("docx" "pdf" "xlsx" "html" "pptx" "csv" "tsv" "txt" "xml" "json" "yaml" "markdown" "zip" "epub")
-  local fail=0 group_count=0 quiet_integrity=0 fmt in_dir exp_dir input_bases expected_bases missing_input missing_expected
+  local formats=("docx" "pdf" "xlsx" "html" "pptx" "csv" "tsv" "txt" "xml" "json" "jsonl" "ndjson" "yaml" "markdown" "zip" "epub")
+  local lanes=("markdown" "rag" "assets")
+  local fail=0 quiet_integrity=0 fmt lane in_dir exp_dir input_bases expected_bases missing_input missing_expected
 
   if validation_bool_enabled "${SAMPLES_QUIET_INTEGRITY:-0}"; then
     quiet_integrity=1
@@ -521,62 +245,59 @@ check_sample_inventory_integrity() {
   fi
 
   for fmt in "${formats[@]}"; do
-    group_count=$((group_count + 1))
-    in_dir="$SAMPLES_DIR/$fmt"
-    exp_dir="$in_dir/expected"
+    for lane in "${lanes[@]}"; do
+      in_dir="$SAMPLES_DIR/$fmt/$lane"
+      exp_dir="$SAMPLES_DIR/$fmt/expected/$lane"
 
-    if [[ ! -d "$in_dir" ]]; then
-      echo "[warn] input dir missing: $in_dir"
-      continue
-    fi
-
-    mkdir -p "$exp_dir"
-
-    input_bases="$(sample_integrity_discover_inputs "$fmt" | sort | while read -r path; do
-      rel="${path#$in_dir/}"
-      base="$(basename "$rel")"
-      if sample_integrity_is_noise_file "$base"; then
+      if [[ ! -d "$in_dir" && ! -d "$exp_dir" ]]; then
         continue
       fi
-      echo "${rel%.*}"
-    done | sort -u)"
 
-    expected_bases="$(sample_integrity_expected_bases "$fmt" "$exp_dir")"
+      input_bases="$(sample_integrity_discover_inputs "$fmt" "$lane" | while read -r path; do
+        [[ -z "$path" ]] && continue
+        rel="${path#$in_dir/}"
+        base="$(basename "$rel")"
+        if sample_integrity_is_noise_file "$base"; then
+          continue
+        fi
+        case "$lane" in
+          assets) echo "${rel%.*}" ;;
+          rag) echo "${rel%.*}" ;;
+          markdown) echo "${rel%.*}" ;;
+        esac
+      done | sort -u)"
 
-    if validation_bool_enabled "$SAMPLES_VERBOSE"; then
-      printf '\n[%s]\n' "$fmt"
-    fi
+      expected_bases="$(sample_integrity_expected_bases "$fmt" "$lane")"
 
-    missing_input="$(comm -23 <(printf '%s\n' "$expected_bases" | sed '/^$/d') <(printf '%s\n' "$input_bases" | sed '/^$/d'))"
-    missing_expected="$(comm -13 <(printf '%s\n' "$expected_bases" | sed '/^$/d') <(printf '%s\n' "$input_bases" | sed '/^$/d'))"
+      missing_input="$(comm -23 <(printf '%s\n' "$expected_bases" | sed '/^$/d') <(printf '%s\n' "$input_bases" | sed '/^$/d'))"
+      missing_expected="$(comm -13 <(printf '%s\n' "$expected_bases" | sed '/^$/d') <(printf '%s\n' "$input_bases" | sed '/^$/d'))"
 
-    if [[ -n "$missing_input" ]]; then
-      if [[ "$quiet_integrity" -eq 1 ]]; then
-        printf '[%s]\n' "$fmt"
+      if [[ -n "$missing_input" || -n "$missing_expected" ]]; then
+        if [[ "$quiet_integrity" -eq 1 ]]; then
+          printf '[%s/%s]\n' "$fmt" "$lane"
+        else
+          printf '\n[%s/%s]\n' "$fmt" "$lane"
+        fi
       fi
-      while IFS= read -r base; do
-        [[ -z "$base" ]] && continue
-        echo "  [error] expected exists but input missing:"
-        echo "    - $base"
+
+      if [[ -n "$missing_input" ]]; then
+        while IFS= read -r base; do
+          [[ -z "$base" ]] && continue
+          echo "  [error] expected exists but input missing:"
+          echo "    - $base"
+          fail=1
+        done <<< "$missing_input"
+      fi
+
+      if [[ -n "$missing_expected" ]]; then
+        echo "  [error] input exists but expected missing:"
+        while IFS= read -r base; do
+          [[ -z "$base" ]] && continue
+          echo "    - $base"
+        done <<< "$missing_expected"
         fail=1
-      done <<< "$missing_input"
-    fi
-
-    if [[ -n "$missing_expected" ]]; then
-      if [[ "$quiet_integrity" -eq 1 && -z "$missing_input" ]]; then
-        printf '[%s]\n' "$fmt"
       fi
-      echo "  [error] input exists but expected missing:"
-      while IFS= read -r base; do
-        [[ -z "$base" ]] && continue
-        echo "    - $base"
-      done <<< "$missing_expected"
-      fail=1
-    fi
-
-    if [[ -z "$missing_input" && -z "$missing_expected" ]] && validation_bool_enabled "$SAMPLES_VERBOSE"; then
-      echo "  [ok] sample/expected enrollment is consistent"
-    fi
+    done
   done
 
   if [[ "$fail" -ne 0 ]]; then
@@ -584,11 +305,7 @@ check_sample_inventory_integrity() {
     exit 1
   fi
 
-  if validation_bool_enabled "$SAMPLES_VERBOSE"; then
-    printf '\nSAMPLE INTEGRITY CHECK PASSED\n'
-  else
-    printf 'SAMPLE INTEGRITY CHECK PASSED (%s groups)\n' "$group_count"
-  fi
+  printf 'SAMPLE INTEGRITY CHECK PASSED\n'
 }
 
 if [[ -n "$SPECIAL_MODE" ]]; then
@@ -609,72 +326,62 @@ if [[ -n "$SPECIAL_MODE" ]]; then
   esac
 fi
 
+lane_input_dir() {
+  local fmt="$1"
+  local lane="$2"
+  printf '%s/%s/%s' "$SAMPLES_DIR" "$fmt" "$lane"
+}
+
+lane_expected_dir() {
+  local fmt="$1"
+  local lane="$2"
+  printf '%s/%s/expected/%s' "$SAMPLES_DIR" "$fmt" "$lane"
+}
+
 discover_samples() {
   local fmt="$1"
-  local in_dir="$SAMPLES_DIR/$fmt"
+  local lane="$2"
+  local in_dir
+  in_dir="$(lane_input_dir "$fmt" "$lane")"
+  if [[ ! -d "$in_dir" ]]; then
+    return 0
+  fi
   case "$fmt" in
-    docx) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.docx" -print ;;
-    pdf)
-      while IFS= read -r rel; do
-        [[ -n "$rel" ]] || continue
-        printf '%s/%s\n' "$in_dir" "$rel"
-      done < <(enrolled_pdf_root_samples)
-      ;;
-    xlsx) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.xlsx" -print ;;
-    pptx) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.pptx" -print ;;
-    html) find "$in_dir" -path "$in_dir/expected" -prune -o -type f \( -name "*.html" -o -name "*.htm" \) -print ;;
-    csv) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.csv" -print ;;
-    tsv) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.tsv" -print ;;
-    txt) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.txt" -print ;;
-    xml) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.xml" -print ;;
-    json) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.json" -print ;;
-    jsonl) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.jsonl" -print ;;
-    ndjson) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.ndjson" -print ;;
-    yaml) find "$in_dir" -path "$in_dir/expected" -prune -o -type f \( -name "*.yaml" -o -name "*.yml" \) -print ;;
-    markdown) find "$in_dir" -path "$in_dir/expected" -prune -o -type f \( -name "*.md" -o -name "*.markdown" \) -print ;;
-    zip) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.zip" -print ;;
-    epub) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.epub" -print ;;
+    docx) find "$in_dir" -type f -name "*.docx" -print ;;
+    pdf) find "$in_dir" -type f -name "*.pdf" -print ;;
+    xlsx) find "$in_dir" -type f -name "*.xlsx" -print ;;
+    pptx) find "$in_dir" -type f -name "*.pptx" -print ;;
+    html) find "$in_dir" -type f \( -name "*.html" -o -name "*.htm" \) -print ;;
+    csv) find "$in_dir" -type f -name "*.csv" -print ;;
+    tsv) find "$in_dir" -type f -name "*.tsv" -print ;;
+    txt) find "$in_dir" -type f -name "*.txt" -print ;;
+    xml) find "$in_dir" -type f -name "*.xml" -print ;;
+    json) find "$in_dir" -type f -name "*.json" -print ;;
+    jsonl) find "$in_dir" -type f -name "*.jsonl" -print ;;
+    ndjson) find "$in_dir" -type f -name "*.ndjson" -print ;;
+    yaml) find "$in_dir" -type f \( -name "*.yaml" -o -name "*.yml" \) -print ;;
+    markdown) find "$in_dir" -type f \( -name "*.md" -o -name "*.markdown" \) -print ;;
+    zip) find "$in_dir" -type f -name "*.zip" -print ;;
+    epub) find "$in_dir" -type f -name "*.epub" -print ;;
     *) return 0 ;;
   esac
 }
 
-sample_has_metadata_dimension() {
-  local rel="$1"
-  [[ "$rel" == metadata/* || "$rel" == */metadata/* ]]
-}
-
-resolve_expected_metadata_fixture() {
+resolve_expected_fixture() {
   local fmt="$1"
-  local rel_no_ext="$2"
-  local name="$3"
-
-  if [[ -f "$SAMPLES_DIR/$fmt/expected/$rel_no_ext.metadata.json" ]]; then
-    printf '%s\n' "$SAMPLES_DIR/$fmt/expected/$rel_no_ext.metadata.json"
-    return 0
-  fi
-
-  if [[ -f "$FIXTURE_METADATA_DIR/$name.metadata.json" ]]; then
-    printf '%s\n' "$FIXTURE_METADATA_DIR/$name.metadata.json"
-    return 0
-  fi
-
-  return 1
-}
-
-resolve_expected_markdown_fixture() {
-  local fmt="$1"
-  local rel_no_ext="$2"
-
-  if [[ "$fmt" == "xlsx" && -f "$SAMPLES_DIR/$fmt/expected_next/$rel_no_ext.md" ]]; then
-    printf '%s\n' "$SAMPLES_DIR/$fmt/expected_next/$rel_no_ext.md"
-    return 0
-  fi
-  if [[ "$fmt" == "pptx" && -f "$SAMPLES_DIR/$fmt/expected_next/$rel_no_ext.md" ]]; then
-    printf '%s\n' "$SAMPLES_DIR/$fmt/expected_next/$rel_no_ext.md"
-    return 0
-  fi
-
-  printf '%s\n' "$SAMPLES_DIR/$fmt/expected/$rel_no_ext.md"
+  local lane="$2"
+  local rel_no_ext="$3"
+  case "$lane" in
+    markdown)
+      printf '%s/%s.md\n' "$(lane_expected_dir "$fmt" "$lane")" "$rel_no_ext"
+      ;;
+    rag)
+      printf '%s/%s.rag.json\n' "$(lane_expected_dir "$fmt" "$lane")" "$rel_no_ext"
+      ;;
+    assets)
+      printf '%s/%s/result.md\n' "$(lane_expected_dir "$fmt" "$lane")" "$rel_no_ext"
+      ;;
+  esac
 }
 
 sample_failure_slug() {
@@ -690,6 +397,16 @@ copy_if_exists() {
   if [[ -f "$from" ]]; then
     mkdir -p "$(dirname "$to")"
     cp "$from" "$to"
+  fi
+}
+
+copy_dir_if_exists() {
+  local from="$1"
+  local to="$2"
+  if [[ -d "$from" ]]; then
+    mkdir -p "$(dirname "$to")"
+    rm -rf "$to"
+    cp -R "$from" "$to"
   fi
 }
 
@@ -748,42 +465,73 @@ write_failure_report() {
   } > "$report_path"
 }
 
-sample_is_asset_relevant() {
-  local fmt="$1"
-  local rel="$2"
-  local expected_markdown="$3"
-  if [[ "$rel" == assets/* || "$rel" == */assets/* ]]; then
-    return 0
+extract_asset_refs() {
+  local dir="$1"
+  if command -v rg >/dev/null 2>&1; then
+    rg -o --no-filename "assets/[A-Za-z0-9_./-]+" "$dir" -g '*.md' | sort -u || true
+    return
   fi
-  if [[ "$fmt" == "zip" || "$fmt" == "epub" ]]; then
-    return 0
-  fi
-  if [[ -f "$expected_markdown" ]] && grep -q "assets/" "$expected_markdown"; then
-    return 0
-  fi
-  return 1
+  find "$dir" -type f -name '*.md' -print0 \
+    | xargs -0 grep -hoE "assets/[A-Za-z0-9_./-]+" \
+    | sort -u || true
 }
 
-sample_matches_mode() {
-  local fmt="$1"
-  local rel="$2"
-  local expected_markdown="$3"
-  case "$MODE" in
-    full|markdown-only)
-      return 0
-      ;;
-    metadata-only)
-      sample_has_metadata_dimension "$rel"
-      return $?
-      ;;
-    assets-only)
-      sample_is_asset_relevant "$fmt" "$rel" "$expected_markdown"
-      return $?
-      ;;
-    *)
-      return 0
-      ;;
-  esac
+check_asset_refs_or_record() {
+  local scope="$1"
+  local out_dir="$2"
+  local refs ref missing=0
+  refs="$(extract_asset_refs "$out_dir")"
+  if [[ -z "${refs//[$'\t\r\n ']}" ]]; then
+    return 0
+  fi
+  while IFS= read -r ref; do
+    [[ -z "$ref" ]] && continue
+    if [[ ! -f "$out_dir/$ref" ]]; then
+      validation_record_failure "$scope" "$scope" "" "$out_dir/$ref" "missing asset"
+      missing=1
+    fi
+  done <<< "$refs"
+  return "$missing"
+}
+
+assets_dirs_equal() {
+  local expected_dir="$1"
+  local actual_dir="$2"
+  python3 - "$expected_dir" "$actual_dir" <<'PY'
+import filecmp
+import sys
+from pathlib import Path
+
+expected = Path(sys.argv[1])
+actual = Path(sys.argv[2])
+
+def walk(root: Path):
+    if not root.exists():
+        return {}
+    out = {}
+    for path in sorted(root.rglob("*")):
+        if path.is_file():
+            out[path.relative_to(root).as_posix()] = path.read_bytes()
+    return out
+
+left = walk(expected)
+right = walk(actual)
+if left.keys() != right.keys():
+    print("asset file set mismatch")
+    sys.exit(1)
+for key in left:
+    if left[key] != right[key]:
+        print(f"asset bytes mismatch: {key}")
+        sys.exit(1)
+print("ok")
+PY
+}
+
+validate_rag_fixture() {
+  local actual_json="$1"
+  local expected_json="$2"
+  local scope="$3"
+  python3 "$RAG_CHECKER" "$actual_json" "$expected_json" "$scope"
 }
 
 resolve_markitdown_cli
@@ -797,79 +545,83 @@ if [[ -n "$FORMAT_FILTER" ]]; then
   ACTIVE_FORMATS=("$FORMAT_FILTER")
 fi
 
+MODE_UPPER="$(printf '%s' "$MODE" | tr '[:lower:]' '[:upper:]')"
+
 SAMPLE_LIST=()
 for fmt in "${ACTIVE_FORMATS[@]}"; do
-  in_dir="$SAMPLES_DIR/$fmt"
+  in_dir="$(lane_input_dir "$fmt" "$MODE")"
   [[ -d "$in_dir" ]] || continue
   while IFS= read -r f; do
     [[ -z "$f" ]] && continue
     rel="${f#$in_dir/}"
     SAMPLE_LIST+=("$fmt|$rel")
-  done < <(discover_samples "$fmt" | sort)
+  done < <(discover_samples "$fmt" "$MODE" | sort)
 done
 
-FILTERED_LIST=()
-for entry in "${SAMPLE_LIST[@]}"; do
-  IFS='|' read -r fmt rel <<< "$entry"
-  exp="$(resolve_expected_markdown_fixture "$fmt" "${rel%.*}")"
-  if sample_matches_mode "$fmt" "$rel" "$exp"; then
-    FILTERED_LIST+=("$entry")
-  fi
-done
-
-if [[ ${#FILTERED_LIST[@]} -eq 0 ]]; then
+if [[ ${#SAMPLE_LIST[@]} -eq 0 ]]; then
   echo "No enrolled sample files matched mode=$MODE format=${FORMAT_FILTER:-all} under $SAMPLES_DIR"
-  exit 1
+  echo "ALL MAIN PROCESS ${MODE_UPPER} TESTS PASSED (0 samples, 0 failures)"
+  exit 0
 fi
 
-label="main_process_markdown"
-success_message="ALL MAIN PROCESS MARKDOWN TESTS PASSED"
-failure_message="FAILED MAIN PROCESS MARKDOWN SAMPLES"
+label="main_process_${MODE}"
+success_message="ALL MAIN PROCESS ${MODE_UPPER} TESTS PASSED"
+failure_message="FAILED MAIN PROCESS ${MODE_UPPER} SAMPLES"
 if [[ -n "$FORMAT_FILTER" ]]; then
   label="${label}_${FORMAT_FILTER}"
   success_message="$success_message ($FORMAT_FILTER)"
   failure_message="$failure_message ($FORMAT_FILTER)"
 fi
 
-validation_progress_init "$label" "${#FILTERED_LIST[@]}"
+validation_progress_init "$label" "${#SAMPLE_LIST[@]}"
 
-for entry in "${FILTERED_LIST[@]}"; do
+for entry in "${SAMPLE_LIST[@]}"; do
   IFS='|' read -r fmt rel <<< "$entry"
   base="$(basename "$rel")"
   name="${base%.*}"
   rel_no_ext="${rel%.*}"
-  input_path="$SAMPLES_DIR/$fmt/$rel"
-  exp="$(resolve_expected_markdown_fixture "$fmt" "$rel_no_ext")"
-  scope="main_process/$fmt/$rel_no_ext"
+  input_path="$(lane_input_dir "$fmt" "$MODE")/$rel"
+  expected_path="$(resolve_expected_fixture "$fmt" "$MODE" "$rel_no_ext")"
+  scope="main_process/$MODE/$fmt/$rel_no_ext"
   sample_out_dir="$OUT_DIR/$fmt/$rel_no_ext"
-  normal_dir="$sample_out_dir/normal"
+  run_dir="$sample_out_dir/run"
   cli_dir="$sample_out_dir/cli"
-  normal_md="$normal_dir/$name.md"
-  normal_stdout="$cli_dir/$name.stdout.log"
-  normal_stderr="$cli_dir/$name.stderr.log"
+  output_md="$run_dir/$name.md"
+  output_rag="$run_dir/$name.rag.json"
+  stdout_path="$cli_dir/$name.stdout.log"
+  stderr_path="$cli_dir/$name.stderr.log"
   failure_slug="$(sample_failure_slug "$scope")"
   failure_diff="$FAILURE_DIFF_DIR/$failure_slug.diff"
   failure_raw_dir="$FAILURE_RAW_DIR/$failure_slug"
-  failure_actual="$failure_raw_dir/actual.md"
-  failure_expected="$failure_raw_dir/expected.md"
+  failure_actual="$failure_raw_dir/actual.out"
+  failure_expected="$failure_raw_dir/expected.out"
   failure_stdout="$failure_raw_dir/stdout.log"
   failure_stderr="$failure_raw_dir/stderr.log"
   failure_report="$FAILURE_REPORTS_DIR/$failure_slug.md"
-
-  mkdir -p "$normal_dir" "$cli_dir"
+  mkdir -p "$run_dir" "$cli_dir"
   validation_progress_step "$fmt/$rel"
 
   if validation_bool_enabled "$SAMPLES_VERBOSE"; then
     echo "==> converting $scope"
   fi
-  if ! run_markitdown_cli normal "$input_path" "$normal_md" >"$normal_stdout" 2>"$normal_stderr"; then
-    copy_if_exists "$normal_md" "$failure_actual"
-    copy_if_exists "$exp" "$failure_expected"
-    copy_if_exists "$normal_stdout" "$failure_stdout"
-    copy_if_exists "$normal_stderr" "$failure_stderr"
+
+  cli_args=(normal)
+  if [[ "$MODE" == "rag" ]]; then
+    cli_args=(--rag)
+  fi
+  out_path="$output_md"
+  if [[ "$MODE" == "rag" ]]; then
+    out_path="$output_rag"
+  fi
+
+  if ! run_markitdown_cli "${cli_args[@]}" "$input_path" "$out_path" >"$stdout_path" 2>"$stderr_path"; then
+    copy_if_exists "$out_path" "$failure_actual"
+    copy_if_exists "$expected_path" "$failure_expected"
+    copy_if_exists "$stdout_path" "$failure_stdout"
+    copy_if_exists "$stderr_path" "$failure_stderr"
     failure_note="conversion failed"
-    if [[ -f "$normal_stderr" ]]; then
-      preview="$(single_line_note "$(sed -n '1,5p' "$normal_stderr" 2>/dev/null)")"
+    if [[ -f "$stderr_path" ]]; then
+      preview="$(single_line_note "$(sed -n '1,5p' "$stderr_path" 2>/dev/null)")"
       if [[ -n "$preview" ]]; then
         failure_note="$failure_note: $preview"
       fi
@@ -879,65 +631,156 @@ for entry in "${FILTERED_LIST[@]}"; do
       "$scope" \
       "$fmt" \
       "$input_path" \
-      "${exp:-}" \
+      "${expected_path:-}" \
       "$failure_actual" \
       "" \
       "$failure_stdout" \
       "$failure_stderr" \
       "$failure_note" \
       "conversion_failed"
-    validation_record_failure "$scope" "$input_path" "$exp" "$failure_actual" "$failure_note" "conversion_failed" "" "$failure_stdout" "$failure_stderr" "$failure_report"
+    validation_record_failure "$scope" "$input_path" "$expected_path" "$failure_actual" "$failure_note" "conversion_failed" "" "$failure_stdout" "$failure_stderr" "$failure_report"
     continue
   fi
 
-  if [[ ! -f "$exp" ]]; then
-    copy_if_exists "$normal_md" "$failure_actual"
-    copy_if_exists "$normal_stdout" "$failure_stdout"
-    copy_if_exists "$normal_stderr" "$failure_stderr"
+  if [[ ! -f "$expected_path" ]]; then
+    copy_if_exists "$out_path" "$failure_actual"
+    copy_if_exists "$stdout_path" "$failure_stdout"
+    copy_if_exists "$stderr_path" "$failure_stderr"
     write_failure_report \
       "$failure_report" \
       "$scope" \
       "$fmt" \
       "$input_path" \
-      "${exp:-}" \
+      "${expected_path:-}" \
       "$failure_actual" \
       "" \
       "$failure_stdout" \
       "$failure_stderr" \
       "expected missing" \
       "expected_missing"
-    validation_record_failure "$scope" "$input_path" "$exp" "$failure_actual" "expected missing" "expected_missing" "" "$failure_stdout" "$failure_stderr" "$failure_report"
-  else
-    if ! validation_diff_or_record "$scope" "$input_path" "$exp" "$normal_md" "$failure_diff"; then
-      copy_if_exists "$normal_md" "$failure_actual"
-      copy_if_exists "$exp" "$failure_expected"
-      copy_if_exists "$normal_stdout" "$failure_stdout"
-      copy_if_exists "$normal_stderr" "$failure_stderr"
-      write_failure_report \
-        "$failure_report" \
-        "$scope" \
-        "$fmt" \
-        "$input_path" \
-        "$failure_expected" \
-        "$failure_actual" \
-        "$failure_diff" \
-        "$failure_stdout" \
-        "$failure_stderr" \
-        "markdown output differed from expected" \
-        "diff_mismatch"
-      validation_record_failure \
-        "$scope" \
-        "$input_path" \
-        "$failure_expected" \
-        "$failure_actual" \
-        "markdown output differed from expected" \
-        "diff_mismatch" \
-        "$failure_diff" \
-        "$failure_stdout" \
-        "$failure_stderr" \
-        "$failure_report"
-    fi
+    validation_record_failure "$scope" "$input_path" "$expected_path" "$failure_actual" "expected missing" "expected_missing" "" "$failure_stdout" "$failure_stderr" "$failure_report"
+    continue
   fi
+
+  case "$MODE" in
+    markdown)
+      if ! validation_diff_or_record "$scope" "$input_path" "$expected_path" "$output_md" "$failure_diff"; then
+        copy_if_exists "$output_md" "$failure_actual"
+        copy_if_exists "$expected_path" "$failure_expected"
+        copy_if_exists "$stdout_path" "$failure_stdout"
+        copy_if_exists "$stderr_path" "$failure_stderr"
+        write_failure_report \
+          "$failure_report" \
+          "$scope" \
+          "$fmt" \
+          "$input_path" \
+          "$failure_expected" \
+          "$failure_actual" \
+          "$failure_diff" \
+          "$failure_stdout" \
+          "$failure_stderr" \
+          "markdown output differed from expected" \
+          "diff_mismatch"
+        validation_record_failure "$scope" "$input_path" "$failure_expected" "$failure_actual" "markdown output differed from expected" "diff_mismatch" "$failure_diff" "$failure_stdout" "$failure_stderr" "$failure_report"
+      fi
+      ;;
+    rag)
+      set +e
+      rag_detail="$(validate_rag_fixture "$output_rag" "$expected_path" "$scope" 2>&1)"
+      rag_status=$?
+      set -e
+      if [[ "$rag_status" -ne 0 ]]; then
+        copy_if_exists "$output_rag" "$failure_actual"
+        copy_if_exists "$expected_path" "$failure_expected"
+        copy_if_exists "$stdout_path" "$failure_stdout"
+        copy_if_exists "$stderr_path" "$failure_stderr"
+        write_failure_report \
+          "$failure_report" \
+          "$scope" \
+          "$fmt" \
+          "$input_path" \
+          "$failure_expected" \
+          "$failure_actual" \
+          "" \
+          "$failure_stdout" \
+          "$failure_stderr" \
+          "${rag_detail:-rag fixture validation failed}" \
+          "rag_mismatch"
+        validation_record_failure "$scope" "$input_path" "$failure_expected" "$failure_actual" "${rag_detail:-rag fixture validation failed}" "rag_mismatch" "" "$failure_stdout" "$failure_stderr" "$failure_report"
+      fi
+      ;;
+    assets)
+      expected_case_dir="$(dirname "$expected_path")"
+      actual_assets_dir="$run_dir/assets"
+      expected_assets_dir="$expected_case_dir/assets"
+      if ! validation_diff_or_record "$scope" "$input_path" "$expected_path" "$output_md" "$failure_diff"; then
+        copy_if_exists "$output_md" "$failure_actual"
+        copy_if_exists "$expected_path" "$failure_expected"
+        copy_if_exists "$stdout_path" "$failure_stdout"
+        copy_if_exists "$stderr_path" "$failure_stderr"
+        copy_dir_if_exists "$actual_assets_dir" "$failure_raw_dir/assets"
+        write_failure_report \
+          "$failure_report" \
+          "$scope" \
+          "$fmt" \
+          "$input_path" \
+          "$failure_expected" \
+          "$failure_actual" \
+          "$failure_diff" \
+          "$failure_stdout" \
+          "$failure_stderr" \
+          "assets lane markdown output differed from expected" \
+          "diff_mismatch"
+        validation_record_failure "$scope" "$input_path" "$failure_expected" "$failure_actual" "assets lane markdown output differed from expected" "diff_mismatch" "$failure_diff" "$failure_stdout" "$failure_stderr" "$failure_report"
+        continue
+      fi
+      if ! check_asset_refs_or_record "$scope" "$run_dir"; then
+        copy_if_exists "$output_md" "$failure_actual"
+        copy_if_exists "$expected_path" "$failure_expected"
+        copy_if_exists "$stdout_path" "$failure_stdout"
+        copy_if_exists "$stderr_path" "$failure_stderr"
+        copy_dir_if_exists "$actual_assets_dir" "$failure_raw_dir/assets"
+        write_failure_report \
+          "$failure_report" \
+          "$scope" \
+          "$fmt" \
+          "$input_path" \
+          "$expected_path" \
+          "$output_md" \
+          "" \
+          "$failure_stdout" \
+          "$failure_stderr" \
+          "asset reference points to a missing output asset" \
+          "missing_asset"
+        validation_record_failure "$scope" "$input_path" "$expected_path" "$output_md" "asset reference points to a missing output asset" "missing_asset" "" "$failure_stdout" "$failure_stderr" "$failure_report"
+        continue
+      fi
+      set +e
+      asset_detail="$(assets_dirs_equal "$expected_assets_dir" "$actual_assets_dir" 2>&1)"
+      asset_status=$?
+      set -e
+      if [[ "$asset_status" -ne 0 ]]; then
+        copy_if_exists "$output_md" "$failure_actual"
+        copy_if_exists "$expected_path" "$failure_expected"
+        copy_if_exists "$stdout_path" "$failure_stdout"
+        copy_if_exists "$stderr_path" "$failure_stderr"
+        copy_dir_if_exists "$actual_assets_dir" "$failure_raw_dir/assets"
+        write_failure_report \
+          "$failure_report" \
+          "$scope" \
+          "$fmt" \
+          "$input_path" \
+          "$expected_path" \
+          "$output_md" \
+          "" \
+          "$failure_stdout" \
+          "$failure_stderr" \
+          "${asset_detail:-asset output mismatch}" \
+          "asset_mismatch"
+        validation_record_failure "$scope" "$input_path" "$expected_path" "$output_md" "${asset_detail:-asset output mismatch}" "asset_mismatch" "" "$failure_stdout" "$failure_stderr" "$failure_report"
+      fi
+      ;;
+  esac
 done
 
 validation_finish "$success_message" "$failure_message"

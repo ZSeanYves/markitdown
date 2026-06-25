@@ -148,6 +148,8 @@ pub struct PdfNativeAnnotation {
   bbox : PdfBBox?
   text : String?
   title : String?
+  subject : String?
+  file_name : String?
   name : String?
   modified_at : String?
   action_kind : String?
@@ -165,6 +167,8 @@ pub fn make_pdf_native_annotation(
   bbox? : PdfBBox? = None,
   text? : String? = None,
   title? : String? = None,
+  subject? : String? = None,
+  file_name? : String? = None,
   name? : String? = None,
   modified_at? : String? = None,
   action_kind? : String? = None,
@@ -180,6 +184,8 @@ pub fn make_pdf_native_annotation(
     bbox,
     text,
     title,
+    subject,
+    file_name,
     name,
     modified_at,
     action_kind,

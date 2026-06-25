@@ -56,8 +56,8 @@ run_and_capture() {
   set -e
 }
 
-XLSX_INPUT="$ROOT/samples/main_process/xlsx/sheet_simple.xlsx"
-XLSX_EXPECTED="$ROOT/samples/main_process/xlsx/expected_next/sheet_simple.md"
+XLSX_INPUT="$ROOT/samples/main_process/xlsx/markdown/sheet_simple.xlsx"
+XLSX_EXPECTED="$ROOT/samples/main_process/xlsx/expected/markdown/sheet_simple.md"
 XLSX_OUT="$OUT_DIR/sheet_simple.md"
 XLSX_JSON="$OUT_DIR/sheet_simple.json"
 XLSX_HIDDEN_JSON="$OUT_DIR/xlsx_hidden_sheets_policy.json"
@@ -94,18 +94,18 @@ run_and_capture "$XLSX_HELP" run_markitdown_cli --help
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "--help should succeed"
 assert_contains "$XLSX_HELP" 'Supported product formats: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, yml, html, htm, markdown, md, zip, epub, docx, xlsx, pptx, pdf'
 
-echo "==> main cli xlsx markdown output stays renderer-owned and expected-next locked"
+echo "==> main cli xlsx markdown output stays renderer-owned and expected locked"
 run_markitdown_cli normal "$XLSX_INPUT" "$XLSX_OUT"
 assert_file_exists "$XLSX_OUT"
 assert_matches_expected "$XLSX_EXPECTED" "$XLSX_OUT"
 assert_not_contains "$XLSX_OUT" 'xlsx_raw_fallback'
 assert_not_contains "$XLSX_OUT" 'xlsx_legacy_fallback'
 
-echo "==> xlsx debug json exposes workbook-model diagnostics and workbook part metadata"
+echo "==> xlsx debug json exposes package-single-pass diagnostics and workbook part metadata"
 run_and_capture "$XLSX_JSON" run_markitdown_cli --debug "$XLSX_INPUT"
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "xlsx debug json should succeed"
 assert_contains "$XLSX_JSON" '"detected_format": "xlsx"'
-assert_contains "$XLSX_JSON" '"effective_mode": "workbook_model"'
+assert_contains "$XLSX_JSON" '"effective_mode": "package_single_pass"'
 assert_contains "$XLSX_JSON" '"ir_input_kind": "document"'
 assert_contains "$XLSX_JSON" '"event_granularity": "xlsx_sheet"'
 assert_contains "$XLSX_JSON" '"office_document_kind": "xlsx"'
@@ -120,26 +120,26 @@ assert_not_contains "$XLSX_JSON" 'formula_evaluation_enabled'
 echo "==> hidden sheet policy stays diagnostics-first and formulas stay preserved without execution"
 run_and_capture \
   "$XLSX_HIDDEN_JSON" \
-  run_markitdown_cli --debug "$ROOT/samples/main_process/xlsx/xlsx_hidden_sheets_policy.xlsx"
+  run_markitdown_cli --debug "$ROOT/samples/main_process/xlsx/markdown/xlsx_hidden_sheets_policy.xlsx"
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "xlsx hidden-sheet debug json should succeed"
 assert_contains "$XLSX_HIDDEN_JSON" '"xlsx_hidden_sheet_count": "1"'
 assert_contains "$XLSX_HIDDEN_JSON" '"xlsx_very_hidden_sheet_count": "1"'
 assert_contains "$XLSX_HIDDEN_JSON" 'hidden xlsx sheet skipped: HiddenData'
 assert_contains "$XLSX_HIDDEN_JSON" 'very hidden xlsx sheet skipped: VeryHiddenAudit'
 run_markitdown_cli normal \
-  "$ROOT/samples/main_process/xlsx/xlsx_formula_missing_cache.xlsx" \
+  "$ROOT/samples/main_process/xlsx/markdown/xlsx_formula_missing_cache.xlsx" \
   "$XLSX_FORMULA_OUT"
 assert_matches_expected \
-  "$ROOT/samples/main_process/xlsx/expected_next/xlsx_formula_missing_cache.md" \
+  "$ROOT/samples/main_process/xlsx/expected/markdown/xlsx_formula_missing_cache.md" \
   "$XLSX_FORMULA_OUT"
 assert_not_contains "$XLSX_FORMULA_OUT" '| Missing numeric cache | 3 |'
 assert_contains "$XLSX_FORMULA_OUT" '| Missing numeric cache | =1+2 |'
 
 echo "==> pptx and pdf are restored on the main product cli"
-run_markitdown_cli normal "$ROOT/samples/main_process/pptx/pptx_hidden_slide_basic.pptx" "$OUT_DIR/pptx_hidden_slide_basic.md"
-assert_matches_expected "$ROOT/samples/main_process/pptx/expected_next/pptx_hidden_slide_basic.md" "$OUT_DIR/pptx_hidden_slide_basic.md"
+run_markitdown_cli normal "$ROOT/samples/main_process/pptx/markdown/pptx_bullet_levels.pptx" "$OUT_DIR/pptx_bullet_levels.md"
+assert_matches_expected "$ROOT/samples/main_process/pptx/expected/markdown/pptx_bullet_levels.md" "$OUT_DIR/pptx_bullet_levels.md"
 
-run_markitdown_cli normal "$ROOT/samples/main_process/pdf/root_native_text_baseline.pdf" "$OUT_DIR/pdf_text_simple.md"
-assert_matches_expected "$ROOT/samples/main_process/pdf/expected/root_native_text_baseline.md" "$OUT_DIR/pdf_text_simple.md"
+run_markitdown_cli normal "$ROOT/samples/main_process/pdf/markdown/root_native_text_baseline.pdf" "$OUT_DIR/pdf_text_simple.md"
+assert_matches_expected "$ROOT/samples/main_process/pdf/expected/markdown/root_native_text_baseline.md" "$OUT_DIR/pdf_text_simple.md"
 
 echo "XLSX CONTRACT PASSED"

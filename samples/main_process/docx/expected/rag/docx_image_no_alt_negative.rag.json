@@ -1,0 +1,53 @@
+{
+  "output_format": "rag_json",
+  "detected_format": "docx",
+  "parser_mode": "package_single_pass",
+  "convert_mode": "rag",
+  "diagnostics_contains": {
+    "parser_name": "docx_parser",
+    "metrics": {
+      "renderer_name": "RagJsonRenderer"
+    }
+  },
+  "source_map": "null",
+  "chunk_count": {
+    "min": 2
+  },
+  "chunks": [
+    {
+      "kind": "metadata",
+      "heading_path": [],
+      "source_ref_count": 0,
+      "asset_ref_count": 0,
+      "text_contains_all": [
+        "creator: Data\napplication: WPS Office_12.1.23540.23540_F1E327BC-269C-435d-A152-0"
+      ]
+    },
+    {
+      "kind": "image_caption",
+      "heading_path": [],
+      "source_ref_count": 1,
+      "asset_ref_count": 1,
+      "text_contains_all": [
+        "image"
+      ],
+      "location_contains": {
+        "container_paths": [
+          "samples/main_process/docx/rag/docx_image_no_alt_negative.docx"
+        ],
+        "entry_paths": [
+          "word/document.xml"
+        ]
+      }
+    }
+  ],
+  "metadata_contains": {
+    "application": "WPS Office_12.1.23540.23540_F1E327BC-269C-435d-A152-05C5408002CA",
+    "created": "2026-02-18T15:06:47Z",
+    "creator": "Data",
+    "last_modified_by": "时光",
+    "modified": "2026-02-18T15:10:04Z",
+    "pages": "2",
+    "words": "0"
+  }
+}

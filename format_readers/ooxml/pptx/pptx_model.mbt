@@ -187,7 +187,7 @@ fn group_reading_anchor(
       Some(hint) =>
         match best_hint {
           Some(current) =>
-            if hint.order_key.compare(current.order_key) < 0 {
+            if hint.order_key.lexical_compare(current.order_key) < 0 {
               best_hint = Some(hint)
               best_geometry = object_geometry(child)
             }
@@ -1093,7 +1093,7 @@ fn apply_caption_reading_hint(
   match obj {
     PptxObject::Shape(shape) =>
       match caption_pair_for_key(shape.source_key, pairs) {
-        Some(pair) =>
+        Some(pair) if caption_pair_is_semantic_for_reading(pair) =>
           PptxObject::Shape({
             shape_id: shape.shape_id,
             name: shape.name,
@@ -1116,7 +1116,7 @@ fn apply_caption_reading_hint(
             ),
             source_key: shape.source_key,
           })
-        None => PptxObject::Shape(shape)
+        _ => PptxObject::Shape(shape)
       }
     PptxObject::Group(group) =>
       PptxObject::Group({
@@ -1130,6 +1130,11 @@ fn apply_caption_reading_hint(
       })
     _ => obj
   }
+}
+
+///|
+fn caption_pair_is_semantic_for_reading(pair : PptxImageCaptionPair) -> Bool {
+  caption_prefix_score(pair.caption_text) > 0
 }
 
 ///|
