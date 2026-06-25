@@ -72,7 +72,7 @@ pub fn print_cli_usage() -> Unit {
   println(
     "  " +
     cli_product_name() +
-    " [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|xml|yaml|yml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf] [--json|--debug] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] <input> [output]",
+    " [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|xml|yaml|yml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf] [--debug] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] <input> [output]",
   )
   println("  " + cli_product_name() + " help | --help | -h")
   println("  " + cli_product_name() + " version | --version")
@@ -84,7 +84,7 @@ pub fn print_cli_usage() -> Unit {
     "All other formats fail closed until each format is migrated to the current main CLI.",
   )
   println(
-    "`--json` and `--debug` emit diagnostics through the current renderer debug JSON output.",
+    "`--debug` emits diagnostics through the current renderer debug JSON output.",
   )
   println(
     "Explicit image `--ocr` may invoke local Tesseract; PDF OCR is not supported and scanned/image-only PDFs remain fail-closed.",
@@ -607,7 +607,7 @@ fn parse_cli_options_from_index(
       i += 2
       continue
     }
-    if arg == "--json" || arg == "--debug" {
+    if arg == "--debug" {
       output_format = @convert.OutputFormat::DebugJson
       i += 1
       continue
@@ -678,7 +678,7 @@ fn parse_cli_options_from_index(
   }
   if positionals.length() < 1 || positionals.length() > 2 {
     return Err(
-      "usage: [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|xml|yaml|yml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf] [--json|--debug] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] <input> [output]",
+      "usage: [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|xml|yaml|yml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf] [--debug] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] <input> [output]",
     )
   }
   let explicit_format = match parse_explicit_format(explicit_format_raw) {

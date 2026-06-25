@@ -18,6 +18,51 @@ test "parse run request captures markitdown path" {
 }
 
 ///|
+test "output path helpers use .tmp bench run scoped roots" {
+  let run_id = "run-123"
+  assert_eq(run_root(run_id), ".tmp/bench/runs/run-123")
+  assert_eq(results_root(run_id), ".tmp/bench/runs/run-123/results")
+  assert_eq(reports_root(run_id), ".tmp/bench/runs/run-123/reports")
+  assert_eq(outputs_root(run_id), ".tmp/bench/runs/run-123/outputs")
+  assert_eq(
+    result_jsonl_path(run_id, "moonbit-cli", "smoke"),
+    ".tmp/bench/runs/run-123/results/run-123-moonbit-cli-smoke.jsonl",
+  )
+  assert_eq(
+    summary_json_path(run_id),
+    ".tmp/bench/runs/run-123/results/run-123-summary.json",
+  )
+  assert_eq(
+    report_markdown_path(run_id),
+    ".tmp/bench/runs/run-123/reports/run-123.md",
+  )
+  assert_eq(
+    selector_stats_path(run_id),
+    ".tmp/bench/runs/run-123/results/run-123-selector-stats.json",
+  )
+  assert_eq(
+    overhead_result_jsonl_path(run_id),
+    ".tmp/bench/runs/run-123/results/run-123-overhead.jsonl",
+  )
+  assert_eq(
+    overhead_report_markdown_path(run_id),
+    ".tmp/bench/runs/run-123/reports/run-123-overhead.md",
+  )
+  assert_eq(
+    tool_output_root(run_id, "moonbit-cli"),
+    ".tmp/bench/runs/run-123/outputs/moonbit-cli",
+  )
+  assert_eq(
+    output_markdown_path(run_id, "moonbit-cli", "txt_tiny_plain_v1", 0, 1),
+    ".tmp/bench/runs/run-123/outputs/moonbit-cli/txt_tiny_plain_v1.md",
+  )
+  assert_eq(
+    output_markdown_path(run_id, "moonbit-cli", "txt_tiny_plain_v1", 1, 3),
+    ".tmp/bench/runs/run-123/outputs/moonbit-cli/txt_tiny_plain_v1-repeat-2.md",
+  )
+}
+
+///|
 test "parse compare request captures markitdown path" {
   let request = parse_compare_request([
     "--tier", "smoke", "--limit", "2", "--markitdown-path", "/tmp/markitdown-bin",

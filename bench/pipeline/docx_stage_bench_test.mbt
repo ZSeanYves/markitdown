@@ -48,9 +48,7 @@ test "pipeline.docx.dvla_user_guide.stages" (b : @bench.T) {
   let ir_input = @stage.stage_parse_to_ir_input(parse_result)
   let built_document = @stage.stage_build_document(ir_input)
   let rendered = @stage.stage_render_markdown(
-    built_document,
-    renderer,
-    render_context,
+    built_document, renderer, render_context,
   )
   let package_report = @ox.inspect_ooxml_package(pkg)
 
@@ -151,9 +149,7 @@ test "pipeline.docx.dvla_user_guide.stages" (b : @bench.T) {
 
   b.bench(name=prefix + "render_markdown", fn() {
     let next = @stage.stage_render_markdown(
-      built_document,
-      renderer,
-      render_context,
+      built_document, renderer, render_context,
     )
     @shared.keep_int(b, next.content.length())
   })
@@ -188,6 +184,7 @@ test "pipeline.docx.dvla_user_guide.stages" (b : @bench.T) {
   @shared.keep_int(b, normalized_document.body.length())
 }
 
+///|
 fn open_docx_package_or_abort(
   bytes : Bytes,
   bench_id : String,
@@ -349,6 +346,7 @@ fn read_optional_docx_part_text_length(
   }
 }
 
+///|
 fn count_docx_style_lookup_hits(doc : @ddocx.DocxDocument) -> Int {
   let hits : Ref[Int] = { val: 0 }
   docx_for_each_paragraph(doc.body, fn(paragraph) {

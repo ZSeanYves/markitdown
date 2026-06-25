@@ -133,7 +133,7 @@ test -n "$RUNNER"
 
 "$RUNNER" diagnose-overhead --repeat 20
 
-"$RUNNER" report --input bench/runner/results/<run>.jsonl
+"$RUNNER" report --input .tmp/bench/runs/<run_id>/results/<run>.jsonl
 ```
 
 ## Dev Smoke Only
@@ -174,7 +174,7 @@ moon build cli --target native --release
 
 - 它在 `bench/runner` 进程内读取 input
 - 直接调用 `convert_input`
-- 默认 `--engine-output-mode file` 会把 Markdown 输出和本地 assets 写到 `.tmp/markitdown-bench-output/...`
+- 默认 `--engine-output-mode file` 会把 Markdown 输出和本地 assets 写到 `.tmp/bench/runs/<run-id>/outputs/...`
 - `--engine-output-mode memory` 只保留 Markdown 到内存，用于归因 output sink 成本
 - `--engine-output-mode none` 仍保留 render，只跳过最终 sink write，用于诊断归因，不代表用户可见产品路径
 - compare 的 canonical 默认仍然是 CLI `file` 和 engine `file`
@@ -302,8 +302,8 @@ moon run bench/runner -- diagnose-overhead --repeat 3
 
 它会输出：
 
-- `bench/runner/results/<run-id>-overhead.jsonl`
-- `bench/runner/reports/<run-id>-overhead.md`
+- `.tmp/bench/runs/<run-id>/results/<run-id>-overhead.jsonl`
+- `.tmp/bench/runs/<run-id>/reports/<run-id>-overhead.md`
 
 当 runner mode 不是 `release` 时，overhead report 会明确警告：
 
@@ -314,12 +314,12 @@ moon run bench/runner -- diagnose-overhead --repeat 3
 
 结果文件：
 
-- `bench/runner/results/<run-id>-moonbit-cli-<tier>.jsonl`
-- `bench/runner/results/<run-id>-moonbit-engine-<tier>.jsonl`
-- `bench/runner/results/<run-id>-markitdown-<tier>.jsonl`
-- `bench/runner/results/<run-id>-summary.json`
-- `bench/runner/results/<run-id>-selector-stats.json`
-- `bench/runner/results/<run-id>-overhead.jsonl`
+- `.tmp/bench/runs/<run-id>/results/<run-id>-moonbit-cli-<tier>.jsonl`
+- `.tmp/bench/runs/<run-id>/results/<run-id>-moonbit-engine-<tier>.jsonl`
+- `.tmp/bench/runs/<run-id>/results/<run-id>-markitdown-<tier>.jsonl`
+- `.tmp/bench/runs/<run-id>/results/<run-id>-summary.json`
+- `.tmp/bench/runs/<run-id>/results/<run-id>-selector-stats.json`
+- `.tmp/bench/runs/<run-id>/results/<run-id>-overhead.jsonl`
 
 其中 `selector-stats.json` 会记录本次选择的 `requested_tier`。summary / report 的
 顶层 corpus tier 会优先使用这个值，而不是从第一条结果行的 `enabled_tier`
@@ -327,20 +327,20 @@ moon run bench/runner -- diagnose-overhead --repeat 3
 
 报告文件：
 
-- `bench/runner/reports/<run-id>.md`
-- `bench/runner/reports/<run-id>-overhead.md`
+- `.tmp/bench/runs/<run-id>/reports/<run-id>.md`
+- `.tmp/bench/runs/<run-id>/reports/<run-id>-overhead.md`
 
 转换输出和临时 stdout/stderr：
 
-- `.tmp/markitdown-bench-output/<run-id>/<tool>/<bench_id>.md`
-- `.tmp/markitdown-bench-output/<run-id>/<tool>/<bench_id>.md.stdout`
-- `.tmp/markitdown-bench-output/<run-id>/<tool>/<bench_id>.md.stderr`
+- `.tmp/bench/runs/<run-id>/outputs/<tool>/<bench_id>.md`
+- `.tmp/bench/runs/<run-id>/outputs/<tool>/<bench_id>.md.stdout`
+- `.tmp/bench/runs/<run-id>/outputs/<tool>/<bench_id>.md.stderr`
 
 当 `repeat > 1` 时，输出文件会带 repeat suffix，例如：
 
-- `.tmp/markitdown-bench-output/<run-id>/<tool>/<bench_id>-repeat-1.md`
-- `.tmp/markitdown-bench-output/<run-id>/<tool>/<bench_id>-repeat-2.md.stdout`
-- `.tmp/markitdown-bench-output/<run-id>/<tool>/<bench_id>-repeat-3.md.stderr`
+- `.tmp/bench/runs/<run-id>/outputs/<tool>/<bench_id>-repeat-1.md`
+- `.tmp/bench/runs/<run-id>/outputs/<tool>/<bench_id>-repeat-2.md.stdout`
+- `.tmp/bench/runs/<run-id>/outputs/<tool>/<bench_id>-repeat-3.md.stderr`
 
 ## 报告结构
 

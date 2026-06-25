@@ -38,6 +38,7 @@ pub async fn run_overhead_diagnostics(
   request : @command.DiagnoseRequest,
 ) -> Json {
   ensure_bench_dirs()
+  ensure_bench_run_dirs(request.run_id)
   let results = collect_overhead_diagnostics(request)
   let result_path = @command.overhead_result_jsonl_path(request.run_id)
   write_overhead_jsonl(result_path, results)

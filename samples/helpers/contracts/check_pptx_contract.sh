@@ -137,7 +137,7 @@ assert_contains "$PPTX_NOTES_OUT" '### Speaker Notes'
 assert_not_contains "$PPTX_NOTES_OUT" 'Speaker Notes 1'
 
 echo "==> debug json keeps PresentationModel diagnostics and hidden-slide policy visible"
-run_and_capture "$PPTX_HIDDEN_JSON" run_markitdown_cli --json "$ROOT/samples/main_process/pptx/pptx_hidden_slides_policy.pptx"
+run_and_capture "$PPTX_HIDDEN_JSON" run_markitdown_cli --debug "$ROOT/samples/main_process/pptx/pptx_hidden_slides_policy.pptx"
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "pptx hidden-slide debug json should succeed"
 assert_contains "$PPTX_HIDDEN_JSON" '"detected_format": "pptx"'
 assert_contains "$PPTX_HIDDEN_JSON" '"parser_mode": "presentation_model"'
@@ -164,7 +164,7 @@ assert_matches_expected \
   "$ROOT/samples/main_process/pptx/expected_next/assets/pptx_image_single.md" \
   "$PPTX_IMAGE_OUT"
 assert_file_exists "$OUT_DIR/assets/image01.png"
-run_and_capture "$PPTX_IMAGE_JSON" run_markitdown_cli --json "$PPTX_IMAGE_INPUT"
+run_and_capture "$PPTX_IMAGE_JSON" run_markitdown_cli --debug "$PPTX_IMAGE_INPUT"
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "pptx image debug json should succeed"
 assert_contains "$PPTX_IMAGE_JSON" '"asset_count": "1"'
 assert_contains "$PPTX_IMAGE_JSON" '"media_asset_count": "1"'

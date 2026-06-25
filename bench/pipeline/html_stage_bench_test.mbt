@@ -26,9 +26,7 @@ test "pipeline.html.synthetic_articles.stages" (b : @bench.T) {
   let ir_input = @stage.stage_parse_to_ir_input(parse_result)
   let built_document = @stage.stage_build_document(ir_input)
   let rendered = @stage.stage_render_markdown(
-    built_document,
-    renderer,
-    render_context,
+    built_document, renderer, render_context,
   )
 
   b.bench(name="pipeline.html.synthetic_articles.input_read", fn() {
@@ -123,9 +121,7 @@ test "pipeline.html.synthetic_articles.stages" (b : @bench.T) {
 
   b.bench(name="pipeline.html.synthetic_articles.render_markdown", fn() {
     let next = @stage.stage_render_markdown(
-      built_document,
-      renderer,
-      render_context,
+      built_document, renderer, render_context,
     )
     @shared.keep_int(b, next.content.length())
   })
@@ -155,6 +151,7 @@ test "pipeline.html.synthetic_articles.stages" (b : @bench.T) {
   @shared.keep_int(b, lowered_document.blocks.length())
 }
 
+///|
 fn parse_html_document_or_abort(
   text : String,
   bench_id : String,

@@ -258,7 +258,7 @@ assert_path_not_exists "$OUT_DIR/assets/archive/site_page.html/image02.png"
 
 echo "==> zip unsupported inner office and pdf entries stay fail-closed"
 make_office_pdf_zip "$ZIP_OFFICE_PDF"
-run_and_capture "$ZIP_OFFICE_PDF_JSON" run_markitdown_cli --json "$ZIP_OFFICE_PDF"
+run_and_capture "$ZIP_OFFICE_PDF_JSON" run_markitdown_cli --debug "$ZIP_OFFICE_PDF"
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "zip office/pdf debug json should succeed"
 assert_contains "$ZIP_OFFICE_PDF_JSON" '"detected_format": "zip"'
 assert_contains "$ZIP_OFFICE_PDF_JSON" '"unsupported_entry_count": "4"'
@@ -272,7 +272,7 @@ assert_contains "$ZIP_OFFICE_PDF_OUT" "Skipped: unsupported file type: xlsx"
 
 echo "==> zip security boundaries keep unsafe and duplicate paths diagnosed"
 make_security_zip "$ZIP_SECURITY"
-run_and_capture "$ZIP_SECURITY_JSON" run_markitdown_cli --json "$ZIP_SECURITY"
+run_and_capture "$ZIP_SECURITY_JSON" run_markitdown_cli --debug "$ZIP_SECURITY"
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "zip security debug json should succeed"
 assert_contains "$ZIP_SECURITY_JSON" '"path_traversal_count": "4"'
 assert_contains "$ZIP_SECURITY_JSON" '"duplicate_path_count": "2"'
@@ -283,7 +283,7 @@ assert_occurrence_count "$ZIP_SECURITY_OUT" "Skipped: duplicate normalized entry
 echo "==> zip asset boundary keeps remote missing and traversal refs outside materialization"
 make_asset_zip "$ZIP_ASSET" "$ROOT/samples/main_process/html/assets/img/img_red.jpg"
 mkdir -p "$ZIP_ASSET_OUT_DIR"
-run_and_capture "$ZIP_ASSET_JSON" run_markitdown_cli --json "$ZIP_ASSET"
+run_and_capture "$ZIP_ASSET_JSON" run_markitdown_cli --debug "$ZIP_ASSET"
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "zip asset debug json should succeed"
 assert_contains "$ZIP_ASSET_JSON" 'zip asset entry missing for'
 assert_contains "$ZIP_ASSET_JSON" 'zip asset path rejected for entry'

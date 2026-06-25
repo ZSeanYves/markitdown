@@ -16,7 +16,7 @@ Modes:
 
 Groups:
   Root main CLI contracts:
-    cli, samples, zip, epub, docx, xlsx, pptx, batch, ocr fail-closed, pdf signal layer
+    cli, samples, quality, quality grouping, quality signal eval, zip, epub, docx, xlsx, pptx, ocr fail-closed, pdf signal layer
 EOF
 }
 
@@ -57,12 +57,14 @@ run_root_contracts() {
   section "root main cli and fail-closed contracts"
   run_contract "cli" "check_cli_contract.sh"
   run_contract "samples" "check_samples_check_contract.sh"
+  run_contract "quality" "check_quality_contract.sh"
+  run_contract "quality-grouping" "check_quality_grouping_contract.sh"
+  run_contract "quality-signal-eval" "check_quality_signal_eval_contract.sh"
   run_contract "zip" "check_zip_contract.sh"
   run_contract "epub" "check_epub_contract.sh"
   run_contract "docx" "check_docx_contract.sh"
   run_contract "xlsx" "check_xlsx_contract.sh"
   run_contract "pptx" "check_pptx_contract.sh"
-  run_contract "batch" "check_batch_contract.sh"
   run_contract "ocr" "check_ocr_contract.sh"
   run_contract "pdf-signal" "check_pdf_signal_contract.sh"
 }

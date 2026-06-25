@@ -59,9 +59,7 @@ test "pipeline.pptx.speaker_notes.stages" (b : @bench.T) {
   let ir_input = @stage.stage_parse_to_ir_input(parse_result)
   let built_document = @stage.stage_build_document(ir_input)
   let rendered = @stage.stage_render_markdown(
-    built_document,
-    renderer,
-    render_context,
+    built_document, renderer, render_context,
   )
   let package_report = @ox.inspect_ooxml_package(pkg)
   let package_validation = @ox.validate_ooxml_package(pkg)
@@ -183,9 +181,7 @@ test "pipeline.pptx.speaker_notes.stages" (b : @bench.T) {
 
   b.bench(name=prefix + "render_markdown", fn() {
     let next = @stage.stage_render_markdown(
-      built_document,
-      renderer,
-      render_context,
+      built_document, renderer, render_context,
     )
     @shared.keep_int(b, next.content.length())
   })
@@ -222,6 +218,7 @@ test "pipeline.pptx.speaker_notes.stages" (b : @bench.T) {
   @shared.keep_int(b, inspect_report.object_count)
 }
 
+///|
 fn open_pptx_package_or_abort(
   bytes : Bytes,
   bench_id : String,
@@ -380,6 +377,7 @@ fn normalize_pptx_source_or_abort(
   @dpptx.normalize_pptx_source(source)
 }
 
+///|
 fn count_pptx_shape_text_items(doc : @dpptx.PptxDocument) -> Int {
   let total : Ref[Int] = { val: 0 }
   for slide in doc.slides {

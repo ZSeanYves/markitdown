@@ -103,7 +103,7 @@ assert_not_contains "$DOCX_OUT" "docx_raw_fallback"
 assert_not_contains "$DOCX_OUT" "docx_legacy_fallback"
 
 echo "==> docx debug json exposes document-model diagnostics and office source refs"
-run_and_capture "$DOCX_JSON" run_markitdown_cli --json "$DOCX_INPUT"
+run_and_capture "$DOCX_JSON" run_markitdown_cli --debug "$DOCX_INPUT"
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "docx debug json should succeed"
 assert_contains "$DOCX_JSON" '"detected_format": "docx"'
 assert_contains "$DOCX_JSON" '"effective_mode": "document_model"'

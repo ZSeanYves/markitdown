@@ -102,7 +102,7 @@ assert_not_contains "$XLSX_OUT" 'xlsx_raw_fallback'
 assert_not_contains "$XLSX_OUT" 'xlsx_legacy_fallback'
 
 echo "==> xlsx debug json exposes workbook-model diagnostics and workbook part metadata"
-run_and_capture "$XLSX_JSON" run_markitdown_cli --json "$XLSX_INPUT"
+run_and_capture "$XLSX_JSON" run_markitdown_cli --debug "$XLSX_INPUT"
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "xlsx debug json should succeed"
 assert_contains "$XLSX_JSON" '"detected_format": "xlsx"'
 assert_contains "$XLSX_JSON" '"effective_mode": "workbook_model"'
@@ -120,7 +120,7 @@ assert_not_contains "$XLSX_JSON" 'formula_evaluation_enabled'
 echo "==> hidden sheet policy stays diagnostics-first and formulas stay preserved without execution"
 run_and_capture \
   "$XLSX_HIDDEN_JSON" \
-  run_markitdown_cli --json "$ROOT/samples/main_process/xlsx/xlsx_hidden_sheets_policy.xlsx"
+  run_markitdown_cli --debug "$ROOT/samples/main_process/xlsx/xlsx_hidden_sheets_policy.xlsx"
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "xlsx hidden-sheet debug json should succeed"
 assert_contains "$XLSX_HIDDEN_JSON" '"xlsx_hidden_sheet_count": "1"'
 assert_contains "$XLSX_HIDDEN_JSON" '"xlsx_very_hidden_sheet_count": "1"'

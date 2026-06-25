@@ -120,7 +120,7 @@ TXT_ALIAS_MD="$NO_META_DIR/txt_plain_alias.md"
 echo "==> help and version expose current main cli product surface"
 run_and_capture "$HELP_STDOUT" run_markitdown_cli --help
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "--help should succeed"
-assert_contains "$HELP_STDOUT" 'markitdown-mb [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|xml|yaml|yml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf] [--json|--debug] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] <input> [output]'
+assert_contains "$HELP_STDOUT" 'markitdown-mb [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|xml|yaml|yml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf] [--debug] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] <input> [output]'
 assert_contains "$HELP_STDOUT" '--pdf-cleanup none|conservative'
 assert_contains "$HELP_STDOUT" '--pdf-tables none|simple'
 assert_contains "$HELP_STDOUT" 'Explicit image `--ocr` may invoke local Tesseract; PDF OCR is not supported and scanned/image-only PDFs remain fail-closed.'
@@ -186,8 +186,8 @@ run_markitdown_cli "$TXT_INPUT" "$TXT_ALIAS_MD"
 assert_matches_expected "$TXT_EXPECTED" "$TXT_ALIAS_MD"
 
 echo "==> debug json remains available on the current main cli"
-run_and_capture "$JSON_STDOUT" run_markitdown_cli --json "$TXT_INPUT"
-[[ "$CAPTURED_STATUS" -eq 0 ]] || fail "--json txt should succeed"
+run_and_capture "$JSON_STDOUT" run_markitdown_cli --debug "$TXT_INPUT"
+[[ "$CAPTURED_STATUS" -eq 0 ]] || fail "--debug txt should succeed"
 assert_contains "$JSON_STDOUT" '"renderer_name": "DebugJsonRenderer"'
 assert_contains "$JSON_STDOUT" '"source_ref"'
 

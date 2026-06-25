@@ -1,6 +1,6 @@
 ///|
 fn test_tmp_output_path(name : String) -> String {
-  let base = ".tmp/markitdown-bench-test/native-measure"
+  let base = ".tmp/tests/bench/native-measure"
   ensure_test_dir_tree(base)
   base + "/" + name
 }

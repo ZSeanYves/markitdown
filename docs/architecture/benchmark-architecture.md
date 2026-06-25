@@ -1075,9 +1075,9 @@ unknown:
 生成文件默认不提交：
 
 ```text
-bench/runner/results/*.jsonl
-bench/runner/results/*.json
-bench/runner/reports/*.md
+.tmp/bench/**/*.jsonl
+.tmp/bench/**/*.json
+.tmp/bench/**/*.md
 ```
 
 允许提交：
@@ -1086,7 +1086,7 @@ bench/runner/reports/*.md
 schemas
 README
 baseline policy
-empty .gitkeep
+.tmp/ ignored output roots
 ```
 
 是否提交正式 release report 由单独 release 流程决定。
@@ -1482,8 +1482,6 @@ bench/runner/moon.pkg
 bench/runner/**/*.mbt
 bench/runner/**/*_stub.c
 bench/runner/schemas/*.json
-bench/runner/results/.gitkeep
-bench/runner/reports/.gitkeep
 ```
 
 README 更新：
@@ -1503,7 +1501,7 @@ RUNNER="$(find _build/native/release -type f \( -name 'runner.exe' -o -name 'run
 "$RUNNER" run --tool moonbit-cli --tier smoke --limit 3 --timeout-ms 60000
 "$RUNNER" run --tool markitdown --tier smoke --limit 3 --timeout-ms 60000 --markitdown-path /Users/winter/miniconda3/bin/markitdown
 "$RUNNER" compare --tier smoke --repeat 3 --timeout-ms 60000 --markitdown-path /Users/winter/miniconda3/bin/markitdown
-"$RUNNER" report --input bench/runner/results/<run>.jsonl
+"$RUNNER" report --input .tmp/bench/runs/<run_id>/results/<run>.jsonl
 ```
 
 ---
@@ -1550,8 +1548,8 @@ moon run bench/runner -- diagnose-overhead --repeat 3
 tier = smoke
 tool = moonbit-cli
 timeout = 60000ms
-result output = bench/runner/results/<run_id>.jsonl
-report output = bench/runner/reports/<run_id>.md
+result output = .tmp/bench/runs/<run_id>/results/<run_id>.jsonl
+report output = .tmp/bench/runs/<run_id>/reports/<run_id>.md
 ```
 
 ---

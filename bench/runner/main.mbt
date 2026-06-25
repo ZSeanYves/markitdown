@@ -89,7 +89,7 @@ fn print_main_help(runner : @command.RunnerContext) -> Unit {
     "  \"$RUNNER\" diagnose-overhead [--repeat 20] [--timeout-ms 60000|--timeout-sec 60] [--cli-output-mode file|stdout_capture] [--engine-output-mode file|memory|none]",
   )
   println(
-    "  \"$RUNNER\" report --input bench/runner/results/<run>.jsonl[,more.jsonl]",
+    "  \"$RUNNER\" report --input .tmp/bench/runs/<run_id>/results/<run>.jsonl[,more.jsonl]",
   )
   println("Dev smoke only:")
   println("  moon run bench/runner -- help")

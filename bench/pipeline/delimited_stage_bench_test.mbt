@@ -46,9 +46,7 @@ test "pipeline.delimited.stages" (b : @bench.T) {
     )
     let built_document = @stage.stage_build_document(ir_input)
     let rendered = @stage.stage_render_markdown(
-      built_document,
-      renderer,
-      render_context,
+      built_document, renderer, render_context,
     )
     let prefix = "pipeline.delimited." + row.bench_id + "."
 
@@ -126,9 +124,7 @@ test "pipeline.delimited.stages" (b : @bench.T) {
 
     b.bench(name=prefix + "render_markdown", fn() {
       let next = @stage.stage_render_markdown(
-        built_document,
-        renderer,
-        render_context,
+        built_document, renderer, render_context,
       )
       @shared.keep_int(b, next.content.length())
     })

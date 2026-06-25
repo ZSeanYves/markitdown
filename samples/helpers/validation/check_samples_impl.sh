@@ -8,6 +8,9 @@ source "$ROOT/samples/helpers/shared/validation_helpers.sh"
 SAMPLES_DIR="$ROOT/samples/main_process"
 FIXTURE_METADATA_DIR="$ROOT/samples/fixtures/metadata"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp/check}"
+FAILURE_DIFF_DIR="${CHECK_FAILURE_DIFF_DIR:-}"
+FAILURE_RAW_DIR="${CHECK_FAILURE_RAW_DIR:-}"
+FAILURE_REPORTS_DIR="${CHECK_FAILURE_REPORTS_DIR:-}"
 if [[ -n "${CHECK_SAMPLES_OUT_DIR:-}" ]]; then
   OUT_DIR="$CHECK_SAMPLES_OUT_DIR"
   mkdir -p "$OUT_DIR"
@@ -674,6 +677,77 @@ resolve_expected_markdown_fixture() {
   printf '%s\n' "$SAMPLES_DIR/$fmt/expected/$rel_no_ext.md"
 }
 
+sample_failure_slug() {
+  local scope="$1"
+  local slug
+  slug="$(printf '%s' "$scope" | tr '/: ' '___')"
+  printf '%s' "$slug"
+}
+
+copy_if_exists() {
+  local from="$1"
+  local to="$2"
+  if [[ -f "$from" ]]; then
+    mkdir -p "$(dirname "$to")"
+    cp "$from" "$to"
+  fi
+}
+
+single_line_note() {
+  local raw="${1-}"
+  raw="${raw//$'\r'/ }"
+  raw="${raw//$'\n'/ }"
+  raw="$(printf '%s' "$raw" | sed 's/[[:space:]]\+/ /g; s/^ //; s/ $//')"
+  printf '%s' "$raw"
+}
+
+write_failure_report() {
+  local report_path="$1"
+  local scope="$2"
+  local fmt="$3"
+  local input_path="$4"
+  local expected_path="$5"
+  local actual_path="$6"
+  local diff_path="$7"
+  local stdout_path="$8"
+  local stderr_path="$9"
+  local note="${10}"
+  local status_label="${11}"
+
+  mkdir -p "$(dirname "$report_path")"
+  {
+    echo "# Failure Report"
+    echo
+    echo "- Scope: $scope"
+    echo "- Format: $fmt"
+    echo "- Status: $status_label"
+    echo "- Input: $input_path"
+    if [[ -n "$expected_path" ]]; then
+      echo "- Expected: $expected_path"
+    fi
+    if [[ -n "$actual_path" ]]; then
+      echo "- Actual: $actual_path"
+    fi
+    if [[ -n "$diff_path" ]]; then
+      echo "- Diff: $diff_path"
+    fi
+    if [[ -n "$stdout_path" ]]; then
+      echo "- Stdout: $stdout_path"
+    fi
+    if [[ -n "$stderr_path" ]]; then
+      echo "- Stderr: $stderr_path"
+      if [[ -f "$stderr_path" ]]; then
+        local stderr_preview
+        stderr_preview="$(sed -n '1,5p' "$stderr_path" 2>/dev/null | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g; s/^ //; s/ $//')"
+        if [[ -n "$stderr_preview" ]]; then
+          echo "- Stderr preview: $stderr_preview"
+        fi
+      fi
+    fi
+    echo "- Note: $note"
+  } > "$report_path"
+}
+
 sample_is_asset_relevant() {
   local fmt="$1"
   local rel="$2"
@@ -769,24 +843,100 @@ for entry in "${FILTERED_LIST[@]}"; do
   scope="main_process/$fmt/$rel_no_ext"
   sample_out_dir="$OUT_DIR/$fmt/$rel_no_ext"
   normal_dir="$sample_out_dir/normal"
+  cli_dir="$sample_out_dir/cli"
   normal_md="$normal_dir/$name.md"
-  normal_diff="$normal_dir/$name.diff"
+  normal_stdout="$cli_dir/$name.stdout.log"
+  normal_stderr="$cli_dir/$name.stderr.log"
+  failure_slug="$(sample_failure_slug "$scope")"
+  failure_diff="$FAILURE_DIFF_DIR/$failure_slug.diff"
+  failure_raw_dir="$FAILURE_RAW_DIR/$failure_slug"
+  failure_actual="$failure_raw_dir/actual.md"
+  failure_expected="$failure_raw_dir/expected.md"
+  failure_stdout="$failure_raw_dir/stdout.log"
+  failure_stderr="$failure_raw_dir/stderr.log"
+  failure_report="$FAILURE_REPORTS_DIR/$failure_slug.md"
 
-  mkdir -p "$normal_dir"
+  mkdir -p "$normal_dir" "$cli_dir"
   validation_progress_step "$fmt/$rel"
 
   if validation_bool_enabled "$SAMPLES_VERBOSE"; then
     echo "==> converting $scope"
   fi
-  if ! run_markitdown_cli normal "$input_path" "$normal_md"; then
-    validation_record_failure "$scope" "$input_path" "$exp" "$normal_md" "conversion failed"
+  if ! run_markitdown_cli normal "$input_path" "$normal_md" >"$normal_stdout" 2>"$normal_stderr"; then
+    copy_if_exists "$normal_md" "$failure_actual"
+    copy_if_exists "$exp" "$failure_expected"
+    copy_if_exists "$normal_stdout" "$failure_stdout"
+    copy_if_exists "$normal_stderr" "$failure_stderr"
+    failure_note="conversion failed"
+    if [[ -f "$normal_stderr" ]]; then
+      preview="$(single_line_note "$(sed -n '1,5p' "$normal_stderr" 2>/dev/null)")"
+      if [[ -n "$preview" ]]; then
+        failure_note="$failure_note: $preview"
+      fi
+    fi
+    write_failure_report \
+      "$failure_report" \
+      "$scope" \
+      "$fmt" \
+      "$input_path" \
+      "${exp:-}" \
+      "$failure_actual" \
+      "" \
+      "$failure_stdout" \
+      "$failure_stderr" \
+      "$failure_note" \
+      "conversion_failed"
+    validation_record_failure "$scope" "$input_path" "$exp" "$failure_actual" "$failure_note" "conversion_failed" "" "$failure_stdout" "$failure_stderr" "$failure_report"
     continue
   fi
 
   if [[ ! -f "$exp" ]]; then
-    validation_record_failure "$scope" "$input_path" "$exp" "$normal_md" "expected missing"
+    copy_if_exists "$normal_md" "$failure_actual"
+    copy_if_exists "$normal_stdout" "$failure_stdout"
+    copy_if_exists "$normal_stderr" "$failure_stderr"
+    write_failure_report \
+      "$failure_report" \
+      "$scope" \
+      "$fmt" \
+      "$input_path" \
+      "${exp:-}" \
+      "$failure_actual" \
+      "" \
+      "$failure_stdout" \
+      "$failure_stderr" \
+      "expected missing" \
+      "expected_missing"
+    validation_record_failure "$scope" "$input_path" "$exp" "$failure_actual" "expected missing" "expected_missing" "" "$failure_stdout" "$failure_stderr" "$failure_report"
   else
-    validation_diff_or_record "$scope" "$input_path" "$exp" "$normal_md" "$normal_diff" || true
+    if ! validation_diff_or_record "$scope" "$input_path" "$exp" "$normal_md" "$failure_diff"; then
+      copy_if_exists "$normal_md" "$failure_actual"
+      copy_if_exists "$exp" "$failure_expected"
+      copy_if_exists "$normal_stdout" "$failure_stdout"
+      copy_if_exists "$normal_stderr" "$failure_stderr"
+      write_failure_report \
+        "$failure_report" \
+        "$scope" \
+        "$fmt" \
+        "$input_path" \
+        "$failure_expected" \
+        "$failure_actual" \
+        "$failure_diff" \
+        "$failure_stdout" \
+        "$failure_stderr" \
+        "markdown output differed from expected" \
+        "diff_mismatch"
+      validation_record_failure \
+        "$scope" \
+        "$input_path" \
+        "$failure_expected" \
+        "$failure_actual" \
+        "markdown output differed from expected" \
+        "diff_mismatch" \
+        "$failure_diff" \
+        "$failure_stdout" \
+        "$failure_stderr" \
+        "$failure_report"
+    fi
   fi
 done
 

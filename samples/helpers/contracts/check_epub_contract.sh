@@ -154,7 +154,7 @@ echo "==> epub reading order stays opf spine order"
 run_markitdown_cli normal "$EPUB_SPINE_INPUT" "$EPUB_SPINE_OUT"
 assert_file_exists "$EPUB_SPINE_OUT"
 assert_matches_expected "$EPUB_SPINE_EXPECTED" "$EPUB_SPINE_OUT"
-run_and_capture "$EPUB_SPINE_JSON" run_markitdown_cli --json "$EPUB_SPINE_INPUT"
+run_and_capture "$EPUB_SPINE_JSON" run_markitdown_cli --debug "$EPUB_SPINE_INPUT"
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "epub spine debug json should succeed"
 assert_contains "$EPUB_SPINE_JSON" '"event_granularity": "epub_spine_item"'
 assert_contains "$EPUB_SPINE_JSON" '"effective_mode": "container_recursive"'
@@ -166,7 +166,7 @@ echo "==> epub missing and unsupported spine items stay diagnosed"
 run_markitdown_cli normal "$EPUB_MISSING_INPUT" "$EPUB_MISSING_OUT"
 assert_file_exists "$EPUB_MISSING_OUT"
 assert_matches_expected "$EPUB_MISSING_EXPECTED" "$EPUB_MISSING_OUT"
-run_and_capture "$EPUB_MISSING_JSON" run_markitdown_cli --json "$EPUB_MISSING_INPUT"
+run_and_capture "$EPUB_MISSING_JSON" run_markitdown_cli --debug "$EPUB_MISSING_INPUT"
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "epub missing spine debug json should succeed"
 assert_contains "$EPUB_MISSING_JSON" '"missing_manifest_item_count": "1"'
 assert_contains "$EPUB_MISSING_JSON" '"missing_spine_item_count": "1"'
@@ -188,7 +188,7 @@ run_markitdown_cli normal "$EPUB_REMOTE_INPUT" "$EPUB_REMOTE_OUT"
 assert_file_exists "$EPUB_REMOTE_OUT"
 assert_matches_expected "$EPUB_REMOTE_EXPECTED" "$EPUB_REMOTE_OUT"
 assert_path_not_exists "$OUT_DIR/assets/archive/OPS_chapter.xhtml/image02.png"
-run_and_capture "$EPUB_REMOTE_JSON" run_markitdown_cli --json "$EPUB_REMOTE_INPUT"
+run_and_capture "$EPUB_REMOTE_JSON" run_markitdown_cli --debug "$EPUB_REMOTE_INPUT"
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "epub remote debug json should succeed"
 assert_contains "$EPUB_REMOTE_JSON" '"asset_count": "0"'
 assert_contains "$EPUB_REMOTE_JSON" 'html_remote_image_reference_only'

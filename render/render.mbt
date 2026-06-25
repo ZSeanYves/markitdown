@@ -337,8 +337,14 @@ fn render_markdown_table(block : @core.CoreBlock) -> String {
   out.write_char('\n')
   write_markdown_table_separator(out, width)
   for i in start..<rows.length() {
+    let row_cells = table_row_cells(rows[i])
+    let row_width = if row_cells.length() > width {
+      row_cells.length()
+    } else {
+      width
+    }
     out.write_char('\n')
-    write_markdown_table_row(out, table_row_cells(rows[i]), width)
+    write_markdown_table_row(out, row_cells, row_width)
   }
   out.to_string()
 }

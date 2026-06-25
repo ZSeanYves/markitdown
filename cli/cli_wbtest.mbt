@@ -1,6 +1,6 @@
 ///|
 fn test_tmp_root() -> String {
-  ".tmp/cli-tests"
+  ".tmp/tests/cli"
 }
 
 ///|
@@ -171,6 +171,20 @@ test "current main cli parses explicit OCR intent flags" {
       assert_true(opts.ocr_options.language == None)
     }
     Err(msg) => fail("expected --no-ocr to parse: " + msg)
+  }
+}
+
+///|
+test "current main cli keeps --debug and rejects retired --json alias" {
+  match parse_cli_options(["--debug", "tiny.txt"]) {
+    Ok(opts) =>
+      assert_true(opts.output_format == @convert.OutputFormat::DebugJson)
+    Err(msg) => fail("expected --debug to parse: " + msg)
+  }
+
+  match parse_cli_options(["--json", "tiny.txt"]) {
+    Err(msg) => assert_true(msg.contains("unsupported option: --json"))
+    Ok(_) => fail("expected retired --json alias to fail")
   }
 }
 

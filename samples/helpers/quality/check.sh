@@ -14,10 +14,15 @@ LOG_DIR="$OUT_ROOT/logs"
 DIFF_DIR="$OUT_ROOT/diff"
 RAW_DIR="$OUT_ROOT/raw"
 REPORTS_DIR="$OUT_ROOT/reports"
+ROW_REPORTS_DIR="$REPORTS_DIR/rows"
+NONPASS_INDEX_MD="$REPORTS_DIR/nonpass.md"
 OUTPUT_DIR="$RAW_DIR/outputs"
+QUALITY_SIGNAL_EVALUATOR="$ROOT/samples/helpers/quality/evaluate_signals.py"
 SUMMARY_TSV="$OUT_ROOT/summary.tsv"
 SUMMARY_MD="$OUT_ROOT/summary.md"
 ROWS_TSV="$OUT_ROOT/rows.tsv"
+ARTIFACT_PLAN_ROOT="$OUT_ROOT/artifact_plan"
+ARTIFACT_IDS_FILE="$ARTIFACT_PLAN_ROOT/artifact_ids.txt"
 SUMMARY_BY_FORMAT_TSV="$OUT_ROOT/summary.by_format.tsv"
 SUMMARY_BY_SOURCE_TSV="$OUT_ROOT/summary.by_source.tsv"
 SUMMARY_BY_TIER_TSV="$OUT_ROOT/summary.by_tier.tsv"
@@ -193,6 +198,7 @@ mkdir -p "$DIFF_DIR"
 mkdir -p "$LOG_DIR"
 mkdir -p "$RAW_DIR"
 mkdir -p "$REPORTS_DIR"
+mkdir -p "$ROW_REPORTS_DIR"
 
 trim_cr() {
   local value="${1-}"
@@ -673,6 +679,154 @@ profile_enabled_summary_value() {
   fi
 }
 
+signal_eval_runner_summary_value() {
+  printf '%s' "$QUALITY_SIGNAL_EVALUATOR"
+}
+
+artifact_groups_summary_value() {
+  printf '%s' "${ARTIFACT_GROUP_COUNT:-0}"
+}
+
+selected_rows_summary_value() {
+  printf '%s' "${SELECTED_ROW_COUNT:-0}"
+}
+
+executable_rows_summary_value() {
+  printf '%s' "${EXECUTABLE_ROW_COUNT:-0}"
+}
+
+skip_no_signals_summary_value() {
+  printf '%s' "${SKIPPED_NO_SIGNALS_COUNT:-0}"
+}
+
+python3_required() {
+  if command -v python3 >/dev/null 2>&1; then
+    return 0
+  fi
+  echo "python3 is required for quality signal evaluation" >&2
+  exit 1
+}
+
+artifact_safe_basename() {
+  local input_path="$1"
+  local base
+  base="$(basename "$input_path")"
+  base="${base%.*}"
+  base="$(printf '%s' "$base" | tr -c '[:alnum:]' '_')"
+  base="${base##_}"
+  base="${base%%_}"
+  if [[ -z "$base" ]]; then
+    base="artifact"
+  fi
+  printf '%s' "$base"
+}
+
+artifact_short_hash() {
+  local text="$1"
+  python3 - "$text" <<'PY'
+import hashlib
+import sys
+
+print(hashlib.sha1(sys.argv[1].encode("utf-8")).hexdigest()[:12])
+PY
+}
+
+artifact_id_from_key() {
+  local abs_path="$1"
+  local artifact_key="$2"
+  printf '%s__%s' "$(artifact_safe_basename "$abs_path")" "$(artifact_short_hash "$artifact_key")"
+}
+
+real_signal_count_from_expected() {
+  local expected_signals="${1-}"
+  python3 - "$expected_signals" <<'PY'
+import sys
+
+signals = [
+    part.strip()
+    for part in sys.argv[1].split(";")
+    if part.strip() and not part.strip().startswith("review_note:")
+]
+print(len(signals))
+PY
+}
+
+artifact_plan_init() {
+  mkdir -p "$ARTIFACT_PLAN_ROOT"
+  : > "$ARTIFACT_IDS_FILE"
+}
+
+artifact_plan_dir() {
+  local artifact_id="$1"
+  printf '%s/%s' "$ARTIFACT_PLAN_ROOT" "$artifact_id"
+}
+
+artifact_plan_rows_raw_path() {
+  local artifact_id="$1"
+  printf '%s/rows.raw.tsv' "$(artifact_plan_dir "$artifact_id")"
+}
+
+artifact_plan_abs_path_file() {
+  local artifact_id="$1"
+  printf '%s/abs_path.txt' "$(artifact_plan_dir "$artifact_id")"
+}
+
+artifact_plan_metadata_file() {
+  local artifact_id="$1"
+  printf '%s/metadata_enabled.txt' "$(artifact_plan_dir "$artifact_id")"
+}
+
+artifact_plan_rowcount_file() {
+  local artifact_id="$1"
+  printf '%s/row_count.txt' "$(artifact_plan_dir "$artifact_id")"
+}
+
+artifact_plan_register() {
+  local artifact_id="$1"
+  local abs_path="$2"
+  local metadata_enabled="$3"
+  local plan_dir
+  plan_dir="$(artifact_plan_dir "$artifact_id")"
+  if [[ ! -d "$plan_dir" ]]; then
+    mkdir -p "$plan_dir"
+    printf '%s\n' "$artifact_id" >> "$ARTIFACT_IDS_FILE"
+    printf '%s' "$abs_path" > "$(artifact_plan_abs_path_file "$artifact_id")"
+    printf '%s' "$metadata_enabled" > "$(artifact_plan_metadata_file "$artifact_id")"
+    printf '0' > "$(artifact_plan_rowcount_file "$artifact_id")"
+    : > "$(artifact_plan_rows_raw_path "$artifact_id")"
+    ARTIFACT_GROUP_COUNT=$((ARTIFACT_GROUP_COUNT + 1))
+  fi
+}
+
+artifact_plan_append_row() {
+  local artifact_id="$1"
+  local row="$2"
+  local rows_raw
+  rows_raw="$(artifact_plan_rows_raw_path "$artifact_id")"
+  printf '%s\n' "$row" >> "$rows_raw"
+  local rowcount_file
+  rowcount_file="$(artifact_plan_rowcount_file "$artifact_id")"
+  local count
+  count="$(cat "$rowcount_file")"
+  count=$((count + 1))
+  printf '%s' "$count" > "$rowcount_file"
+}
+
+artifact_plan_abs_path() {
+  local artifact_id="$1"
+  cat "$(artifact_plan_abs_path_file "$artifact_id")"
+}
+
+artifact_plan_row_count() {
+  local artifact_id="$1"
+  cat "$(artifact_plan_rowcount_file "$artifact_id")"
+}
+
+artifact_plan_rows_each() {
+  local artifact_id="$1"
+  cat "$(artifact_plan_rows_raw_path "$artifact_id")"
+}
+
 quality_runner_label() {
   if [[ "${CLI_RUNNER_NOTE:-}" == built\ native\ CLI* ]]; then
     printf 'built'
@@ -1109,6 +1263,88 @@ summary_add() {
   dashboard_add "$id" "$format" "$scope" "$source_id" "$quality_tier" "$status" "$passed_signals" "$total_signals" "$notes"
 }
 
+quality_status_generates_report() {
+  local status="$1"
+  case "$status" in
+    fail|expected_fail|unexpected_pass)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+quality_write_row_report() {
+  local id="$1"
+  local format="$2"
+  local source_scope="$3"
+  local source_id="$4"
+  local quality_tier="$5"
+  local status="$6"
+  local input_path="$7"
+  local output_md="$8"
+  local stdout_path="$9"
+  local stderr_path="${10}"
+  local passed_signals="${11}"
+  local total_signals="${12}"
+  local notes="${13}"
+  local failed_details="${14}"
+  local review_details="${15}"
+  local report_path="$ROW_REPORTS_DIR/$id.md"
+
+  {
+    echo "# Quality Row Report"
+    echo
+    echo "- ID: $id"
+    echo "- Format: $format"
+    echo "- Source scope: $source_scope"
+    echo "- Source ID: $source_id"
+    echo "- Tier: $quality_tier"
+    echo "- Status: $status"
+    echo "- Input: $input_path"
+    if [[ -n "$output_md" ]]; then
+      echo "- Output markdown: $output_md"
+    fi
+    if [[ -n "$stdout_path" ]]; then
+      echo "- Stdout log: $stdout_path"
+    fi
+    if [[ -n "$stderr_path" ]]; then
+      echo "- Stderr log: $stderr_path"
+    fi
+    echo "- Passed signals: $passed_signals"
+    echo "- Total signals: $total_signals"
+    echo "- Notes: $notes"
+    if [[ -n "$failed_details" ]]; then
+      echo "- Failed signals: $failed_details"
+    fi
+    if [[ -n "$review_details" ]]; then
+      echo "- Review notes: $review_details"
+    fi
+  } > "$report_path"
+}
+
+write_nonpass_index() {
+  {
+    echo "# Non-pass Rows"
+    echo
+    local found=0
+    local row
+    for row in "${SUMMARY_ROWS[@]-}"; do
+      [[ -z "$row" ]] && continue
+      IFS='|' read -r id format scope tier status passed_count total_count notes_out <<< "$row"
+      if ! quality_status_generates_report "$status"; then
+        continue
+      fi
+      found=1
+      echo "- [$id](rows/$id.md) ($format, $tier, $status): $notes_out"
+    done
+    if [[ "$found" -eq 0 ]]; then
+      echo "No executed non-pass rows."
+    fi
+  } > "$NONPASS_INDEX_MD"
+}
+
 write_dashboard_views() {
   mkdir -p "$OUT_ROOT"
   {
@@ -1134,6 +1370,7 @@ STATUSES = [
     "pass",
     "fail",
     "skip",
+    "skip_no_signals",
     "skip_license",
     "skip_missing_file",
     "expected_fail",
@@ -1191,50 +1428,52 @@ write_filtered(skipped_license_path, lambda row: row["status"] == "skip_license"
 PY
 }
 
-run_row() {
+decode_quality_row_field() {
+  local row="$1"
+  local field_index="$2"
+  python3 - "$row" "$field_index" <<'PY'
+import csv
+import io
+import sys
+
+row = next(csv.reader(io.StringIO(sys.argv[1]), delimiter="\t"))
+index = int(sys.argv[2])
+print(row[index] if index < len(row) else "")
+PY
+}
+
+quality_plan_row() {
   local row="$1"
   local row_start_ms=0
   if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
     row_start_ms="$(profile_now_ms)"
   fi
+
   local delimiter=$'\x1f'
   local converted="${row//$'\t'/$delimiter}"
   local source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes
   IFS="$delimiter" read -r source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes <<< "$converted"
 
-  local stage_start_ms=0
-  if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
-    stage_start_ms="$(profile_now_ms)"
-  fi
-  if [[ "$source_scope" == "external" ]]; then
-    if [[ "$license_review_status" != "approved" ]]; then
-      if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
-        profile_record "$id" "row_prepare" "$(( $(profile_now_ms) - stage_start_ms ))" "license_gate"
-        profile_record "$id" "row_total" "$(( $(profile_now_ms) - row_start_ms ))" "skip_license"
-      fi
-      summary_add "$id" "$format" "$source_scope" "$source_id" "$quality_tier" "skip_license" 0 0 "license_review_status=$license_review_status"
-      return
+  local real_signal_count
+  real_signal_count="$(real_signal_count_from_expected "$expected_signals")"
+
+  if [[ "$source_scope" == "external" && "$license_review_status" != "approved" ]]; then
+    summary_add "$id" "$format" "$source_scope" "$source_id" "$quality_tier" "skip_license" 0 0 "license_review_status=$license_review_status"
+    if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
+      profile_record "$id" "row_total" "$(( $(profile_now_ms) - row_start_ms ))" "skip_license"
     fi
+    validation_progress_step_status "skipped" "license $id"
+    return
   fi
 
   local abs_path="$path"
   if [[ "$source_scope" == "external" ]]; then
     if ! resolve_external_input_path "$path"; then
+      summary_add "$id" "$format" "$source_scope" "$source_id" "$quality_tier" "skip_missing_file" 0 0 "$(format_missing_external_note "$path")"
       if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
-        profile_record "$id" "row_prepare" "$(( $(profile_now_ms) - stage_start_ms ))" "missing_input"
-        profile_record "$id" "row_total" "$(( $(profile_now_ms) - row_start_ms ))" "missing_input"
+        profile_record "$id" "row_total" "$(( $(profile_now_ms) - row_start_ms ))" "skip_missing_file"
       fi
-      abs_path=""
-      summary_add \
-        "$id" \
-        "$format" \
-        "$source_scope" \
-        "$source_id" \
-        "$quality_tier" \
-        "skip_missing_file" \
-        0 \
-        0 \
-        "$(format_missing_external_note "$path")"
+      validation_progress_step_status "skipped" "$path"
       return
     fi
     abs_path="$RESOLVED_EXTERNAL_PATH"
@@ -1245,10 +1484,6 @@ run_row() {
   fi
 
   if [[ ! -f "$abs_path" ]]; then
-    if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
-      profile_record "$id" "row_prepare" "$(( $(profile_now_ms) - stage_start_ms ))" "missing_input"
-      profile_record "$id" "row_total" "$(( $(profile_now_ms) - row_start_ms ))" "missing_input"
-    fi
     case "$source_scope" in
       external)
         summary_add "$id" "$format" "$source_scope" "$source_id" "$quality_tier" "skip_missing_file" 0 0 "$(format_missing_external_note "$path")"
@@ -1260,17 +1495,170 @@ run_row() {
         summary_add "$id" "$format" "$source_scope" "$source_id" "$quality_tier" "fail" 0 0 "input file missing"
         ;;
     esac
+    if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
+      profile_record "$id" "row_total" "$(( $(profile_now_ms) - row_start_ms ))" "missing_input"
+    fi
+    validation_progress_step_status "skipped" "$path"
     return
   fi
 
-  local row_dir="$OUTPUT_DIR/$id"
-  rm -rf "$row_dir"
-  mkdir -p "$row_dir"
-  if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
-    profile_record "$id" "row_prepare" "$(( $(profile_now_ms) - stage_start_ms ))" "row_dir_ready"
+  if [[ "$real_signal_count" == "0" ]]; then
+    local note_text="no executable signals configured"
+    summary_add "$id" "$format" "$source_scope" "$source_id" "$quality_tier" "skip_no_signals" 0 0 "$note_text"
+    SKIPPED_NO_SIGNALS_COUNT=$((SKIPPED_NO_SIGNALS_COUNT + 1))
+    if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
+      profile_record "$id" "row_total" "$(( $(profile_now_ms) - row_start_ms ))" "skip_no_signals"
+    fi
+    validation_progress_step_status "skipped" "$path"
+    return
   fi
 
-  local output_md="$row_dir/$id.md"
+  local cli_extra_summary
+  cli_extra_summary="$(cli_extra_args_summary_value)"
+  local artifact_key="$abs_path"$'\x1f'"$(metadata_summary_value)"$'\x1f'"$cli_extra_summary"$'\x1f'"normal"
+  local artifact_id
+  artifact_id="$(artifact_id_from_key "$abs_path" "$artifact_key")"
+
+  artifact_plan_register "$artifact_id" "$abs_path" "$(metadata_summary_value)"
+  artifact_plan_append_row "$artifact_id" "$row"
+  EXECUTABLE_ROW_COUNT=$((EXECUTABLE_ROW_COUNT + 1))
+  validation_progress_step "$path"
+}
+
+quality_write_artifact_rows_tsv() {
+  local artifact_id="$1"
+  local rows_tsv="$2"
+  printf 'row_id\tformat\tsource_scope\tsource_id\tquality_tier\texpected_signals\n' > "$rows_tsv"
+  while IFS= read -r row || [[ -n "$row" ]]; do
+    [[ -n "$row" ]] || continue
+    local delimiter=$'\x1f'
+    local converted="${row//$'\t'/$delimiter}"
+    local source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes
+    IFS="$delimiter" read -r source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes <<< "$converted"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
+      "$id" \
+      "$format" \
+      "$source_scope" \
+      "$source_id" \
+      "$quality_tier" \
+      "$expected_signals" >> "$rows_tsv"
+  done < <(artifact_plan_rows_each "$artifact_id")
+}
+
+quality_run_signal_evaluator() {
+  local artifact_id="$1"
+  local output_md="$2"
+  local metadata_path="$3"
+  local artifact_dir="$4"
+  local rows_tsv="$5"
+  local results_tsv="$6"
+
+  python3_required
+  python3 "$QUALITY_SIGNAL_EVALUATOR" \
+    --markdown "$output_md" \
+    --metadata "$metadata_path" \
+    --artifact-dir "$artifact_dir" \
+    --metadata-enabled "$(metadata_summary_value)" \
+    --metadata-status "$METADATA_STATUS" \
+    --metadata-mode "$METADATA_MODE" \
+    --rows-tsv "$rows_tsv" \
+    --results-tsv "$results_tsv"
+}
+
+quality_result_field() {
+  local result_row="$1"
+  local field_index="$2"
+  python3 - "$result_row" "$field_index" <<'PY'
+import csv
+import io
+import sys
+
+row = next(csv.reader(io.StringIO(sys.argv[1]), delimiter="\t"))
+index = int(sys.argv[2])
+print(row[index] if index < len(row) else "")
+PY
+}
+
+quality_process_eval_results() {
+  local artifact_id="$1"
+  local abs_path="$2"
+  local output_md="$3"
+  local cli_stdout="$4"
+  local cli_stderr="$5"
+  local results_tsv="$6"
+  local artifact_row_id="artifact:$artifact_id"
+  local stage_start_ms=0
+  if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
+    stage_start_ms="$(profile_now_ms)"
+  fi
+
+  while IFS= read -r result_row || [[ -n "$result_row" ]]; do
+    [[ -n "$result_row" ]] || continue
+    local row_id format source_scope source_id quality_tier passed_signals total_signals failed_signals review_notes
+    row_id="$(quality_result_field "$result_row" 0)"
+    [[ "$row_id" == "row_id" ]] && continue
+    format="$(quality_result_field "$result_row" 1)"
+    source_scope="$(quality_result_field "$result_row" 2)"
+    source_id="$(quality_result_field "$result_row" 3)"
+    quality_tier="$(quality_result_field "$result_row" 4)"
+    passed_signals="$(quality_result_field "$result_row" 5)"
+    total_signals="$(quality_result_field "$result_row" 6)"
+    failed_signals="$(quality_result_field "$result_row" 7)"
+    review_notes="$(quality_result_field "$result_row" 8)"
+
+    local row_status="pass"
+    local note_text="all signals passed"
+    if [[ -n "$review_notes" ]]; then
+      note_text="$note_text; review: $review_notes"
+    fi
+
+    if [[ -n "$failed_signals" ]]; then
+      row_status="fail"
+      note_text="failed: $failed_signals"
+      if [[ -n "$review_notes" ]]; then
+        note_text="$note_text; review: $review_notes"
+      fi
+      if is_known_bad_tier "$quality_tier"; then
+        row_status="expected_fail"
+        note_text="expected fail: $failed_signals"
+        if [[ -n "$review_notes" ]]; then
+          note_text="$note_text; review: $review_notes"
+        fi
+      fi
+    elif is_known_bad_tier "$quality_tier"; then
+      row_status="unexpected_pass"
+      note_text="known_bad row passed all signals; possible fix candidate"
+      if [[ -n "$review_notes" ]]; then
+        note_text="$note_text; review: $review_notes"
+      fi
+    fi
+
+    summary_add "$row_id" "$format" "$source_scope" "$source_id" "$quality_tier" "$row_status" "$passed_signals" "$total_signals" "$note_text"
+    if quality_status_generates_report "$row_status"; then
+      quality_write_row_report "$row_id" "$format" "$source_scope" "$source_id" "$quality_tier" "$row_status" "$abs_path" "$output_md" "$cli_stdout" "$cli_stderr" "$passed_signals" "$total_signals" "$note_text" "$failed_signals" "$review_notes"
+    fi
+    if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
+      profile_record "$row_id" "row_total" 0 "$row_status"
+    fi
+  done < "$results_tsv"
+
+  if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
+    profile_record "$artifact_row_id" "signal_eval" "$(( $(profile_now_ms) - stage_start_ms ))" "rows=$(artifact_plan_row_count "$artifact_id")"
+  fi
+}
+
+quality_execute_artifact_group() {
+  local artifact_id="$1"
+  local abs_path
+  abs_path="$(artifact_plan_abs_path "$artifact_id")"
+  local artifact_dir="$OUTPUT_DIR/$artifact_id"
+  local artifact_row_id="artifact:$artifact_id"
+  rm -rf "$artifact_dir"
+  mkdir -p "$artifact_dir"
+
+  local output_md="$artifact_dir/result.md"
+  local cli_stdout="$artifact_dir/convert.stdout.log"
+  local cli_stderr="$artifact_dir/convert.stderr.log"
   local cli_args=("normal")
   if [[ "$METADATA_ENABLED" -ne 0 ]]; then
     cli_args+=("--with-metadata")
@@ -1279,136 +1667,52 @@ run_row() {
     cli_args+=("${CLI_EXTRA_ARGS[@]}")
   fi
   cli_args+=("$abs_path" "$output_md")
-  local cli_stdout="$row_dir/convert.stdout.log"
-  local cli_stderr="$row_dir/convert.stderr.log"
+
+  local stage_start_ms=0
   if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
     stage_start_ms="$(profile_now_ms)"
   fi
   if ! run_markitdown_cli "${cli_args[@]}" >"$cli_stdout" 2>"$cli_stderr"; then
-    local failure_status="fail"
     local failure_reason
     failure_reason="$(single_line_note "$(sed -n '1,5p' "$cli_stderr" 2>/dev/null)")"
-    local failure_note="cli conversion failed"
-    if [[ -n "$failure_reason" ]]; then
-      failure_note="$failure_note: $failure_reason"
-    fi
-    if is_known_bad_tier "$quality_tier"; then
-      failure_status="expected_fail"
-      failure_note="expected converter failure: $failure_note"
-    fi
     if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
-      profile_record "$id" "convert" "$(( $(profile_now_ms) - stage_start_ms ))" "cli_failed"
-      profile_record "$id" "row_total" "$(( $(profile_now_ms) - row_start_ms ))" "$failure_status"
+      profile_record "$artifact_row_id" "convert" "$(( $(profile_now_ms) - stage_start_ms ))" "cli_failed"
     fi
-    summary_add "$id" "$format" "$source_scope" "$source_id" "$quality_tier" "$failure_status" 0 0 "$failure_note"
+    while IFS= read -r row || [[ -n "$row" ]]; do
+      [[ -n "$row" ]] || continue
+      local delimiter=$'\x1f'
+      local converted="${row//$'\t'/$delimiter}"
+      local source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes
+      IFS="$delimiter" read -r source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes <<< "$converted"
+      local failure_status="fail"
+      local failure_note="cli conversion failed"
+      if [[ -n "$failure_reason" ]]; then
+        failure_note="$failure_note: $failure_reason"
+      fi
+      if is_known_bad_tier "$quality_tier"; then
+        failure_status="expected_fail"
+        failure_note="expected converter failure: $failure_note"
+      fi
+      summary_add "$id" "$format" "$source_scope" "$source_id" "$quality_tier" "$failure_status" 0 0 "$failure_note"
+      if quality_status_generates_report "$failure_status"; then
+        quality_write_row_report "$id" "$format" "$source_scope" "$source_id" "$quality_tier" "$failure_status" "$abs_path" "$output_md" "$cli_stdout" "$cli_stderr" 0 0 "$failure_note" "" ""
+      fi
+      if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
+        profile_record "$id" "row_total" 0 "$failure_status"
+      fi
+    done < <(artifact_plan_rows_each "$artifact_id")
     return
   fi
   if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
-    profile_record "$id" "convert" "$(( $(profile_now_ms) - stage_start_ms ))" "metadata=$(metadata_summary_value)"
-    stage_start_ms="$(profile_now_ms)"
+    profile_record "$artifact_row_id" "convert" "$(( $(profile_now_ms) - stage_start_ms ))" "metadata=$(metadata_summary_value)"
   fi
 
-  local metadata_path="$row_dir/metadata/$id.metadata.json"
-  local normalized_text
-  normalized_text="$(normalize_text "$output_md")"
-  local literal_text
-  literal_text="$(normalize_markdown_literal_text "$output_md")"
-  if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
-    profile_record "$id" "load_output" "$(( $(profile_now_ms) - stage_start_ms ))" "markdown_loaded"
-    stage_start_ms="$(profile_now_ms)"
-  fi
-
-  local total_signals=0
-  local passed_signals=0
-  local failed_details=()
-  local review_notes=()
-  local signal
-  IFS=';' read -r -a signals <<< "$expected_signals"
-  for signal in "${signals[@]}"; do
-    signal="$(printf '%s' "$signal" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
-    [[ -z "$signal" ]] && continue
-    if [[ "$signal" == review_note:* ]]; then
-      if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
-        profile_record "$id" "signal_start:$(profile_signal_stage_name "$signal")" 0 "$(profile_signal_notes "$signal" "review")"
-        profile_record "$id" "signal:$(profile_signal_stage_name "$signal")" 0 "$(profile_signal_notes "$signal" "review")"
-      fi
-      review_notes+=("${signal#review_note:}")
-      continue
-    fi
-    total_signals=$((total_signals + 1))
-    local signal_start_ms=0
-    if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
-      profile_record "$id" "signal_start:$(profile_signal_stage_name "$signal")" 0 "$(profile_signal_notes "$signal" "start")"
-      signal_start_ms="$(profile_now_ms)"
-    fi
-    if check_signal "$signal" "$output_md" "$metadata_path" "$row_dir" "$normalized_text" "$literal_text"; then
-      passed_signals=$((passed_signals + 1))
-      if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
-        profile_record "$id" "signal:$(profile_signal_stage_name "$signal")" "$(( $(profile_now_ms) - signal_start_ms ))" "$(profile_signal_notes "$signal" "pass")"
-      fi
-    else
-      failed_details+=("$signal")
-      if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
-        profile_record "$id" "signal:$(profile_signal_stage_name "$signal")" "$(( $(profile_now_ms) - signal_start_ms ))" "$(profile_signal_notes "$signal" "fail")"
-      fi
-    fi
-  done
-  if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
-    profile_record "$id" "signal_check" "$(( $(profile_now_ms) - stage_start_ms ))" "signals=$total_signals"
-    stage_start_ms="$(profile_now_ms)"
-  fi
-
-  if [[ "$total_signals" -eq 0 ]]; then
-    local note_text="no expected signals configured"
-    if [[ "${#review_notes[@]}" -gt 0 ]]; then
-      note_text="$note_text; review: ${review_notes[*]}"
-    fi
-    summary_add "$id" "$format" "$source_scope" "$source_id" "$quality_tier" "skip" 0 0 "$note_text"
-    if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
-      profile_record "$id" "summary_row_write" "$(( $(profile_now_ms) - stage_start_ms ))" "skip"
-      profile_record "$id" "row_total" "$(( $(profile_now_ms) - row_start_ms ))" "skip"
-    fi
-    return
-  fi
-
-  if [[ "${#failed_details[@]}" -gt 0 ]]; then
-    local note_text="failed: ${failed_details[*]}"
-    local row_status="fail"
-    if [[ "${#review_notes[@]}" -gt 0 ]]; then
-      note_text="$note_text; review: ${review_notes[*]}"
-    fi
-    if is_known_bad_tier "$quality_tier"; then
-      row_status="expected_fail"
-      note_text="expected fail: ${failed_details[*]}"
-      if [[ "${#review_notes[@]}" -gt 0 ]]; then
-        note_text="$note_text; review: ${review_notes[*]}"
-      fi
-    fi
-    summary_add "$id" "$format" "$source_scope" "$source_id" "$quality_tier" "$row_status" "$passed_signals" "$total_signals" "$note_text"
-    if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
-      profile_record "$id" "summary_row_write" "$(( $(profile_now_ms) - stage_start_ms ))" "$row_status"
-      profile_record "$id" "row_total" "$(( $(profile_now_ms) - row_start_ms ))" "$row_status"
-    fi
-    return
-  fi
-
-  local note_text="all signals passed"
-  local row_status="pass"
-  if [[ "${#review_notes[@]}" -gt 0 ]]; then
-    note_text="$note_text; review: ${review_notes[*]}"
-  fi
-  if is_known_bad_tier "$quality_tier"; then
-    row_status="unexpected_pass"
-    note_text="known_bad row passed all signals; possible fix candidate"
-    if [[ "${#review_notes[@]}" -gt 0 ]]; then
-      note_text="$note_text; review: ${review_notes[*]}"
-    fi
-  fi
-  summary_add "$id" "$format" "$source_scope" "$source_id" "$quality_tier" "$row_status" "$passed_signals" "$total_signals" "$note_text"
-  if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
-    profile_record "$id" "summary_row_write" "$(( $(profile_now_ms) - stage_start_ms ))" "$row_status"
-    profile_record "$id" "row_total" "$(( $(profile_now_ms) - row_start_ms ))" "$row_status"
-  fi
+  local metadata_path="$artifact_dir/metadata/result.metadata.json"
+  local rows_tsv="$artifact_dir/rows.tsv"
+  local results_tsv="$artifact_dir/results.tsv"
+  quality_write_artifact_rows_tsv "$artifact_id" "$rows_tsv"
+  quality_run_signal_evaluator "$artifact_id" "$output_md" "$metadata_path" "$artifact_dir" "$rows_tsv" "$results_tsv"
+  quality_process_eval_results "$artifact_id" "$abs_path" "$output_md" "$cli_stdout" "$cli_stderr" "$results_tsv"
 }
 
 write_summary() {
@@ -1418,10 +1722,11 @@ write_summary() {
   local skipped="$4"
   local skipped_license="$5"
   local skipped_missing_file="$6"
-  local expected_fail="$7"
-  local unexpected_pass="$8"
-  local no_manifest_rows="$9"
-  local no_matching_rows="${10}"
+  local skipped_no_signals="$7"
+  local expected_fail="$8"
+  local unexpected_pass="$9"
+  local no_manifest_rows="${10}"
+  local no_matching_rows="${11}"
   local summary_row_count="${#SUMMARY_ROWS[@]}"
 
   mkdir -p "$OUT_ROOT"
@@ -1440,6 +1745,11 @@ write_summary() {
     printf 'FILTER_SOURCE\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$FILTER_SOURCE")"
     printf 'FILTER_FORMAT\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$FILTER_FORMAT")"
     printf 'CLI_EXTRA_ARGS\t-\t-\t-\t-\t0\t0\t%s\n' "$(cli_extra_args_summary_value)"
+    printf 'SIGNAL_EVALUATOR\t-\t-\t-\t-\t0\t0\t%s\n' "$(signal_eval_runner_summary_value)"
+    printf 'SELECTED_ROWS\t-\t-\t-\t-\t0\t0\t%s\n' "$(selected_rows_summary_value)"
+    printf 'EXECUTABLE_ROWS\t-\t-\t-\t-\t0\t0\t%s\n' "$(executable_rows_summary_value)"
+    printf 'ARTIFACT_GROUPS\t-\t-\t-\t-\t0\t0\t%s\n' "$(artifact_groups_summary_value)"
+    printf 'SKIP_NO_SIGNALS\t-\t-\t-\t-\t%s\t-\tskipped because no real signals remained after removing review_note entries\n' "$skipped_no_signals"
     local row
     for row in "${SUMMARY_ROWS[@]-}"; do
       [[ -z "$row" ]] && continue
@@ -1451,6 +1761,7 @@ write_summary() {
     printf 'SKIPPED\t-\t-\t-\t-\t%s\t-\tskipped rows\n' "$skipped"
     printf 'SKIPPED_LICENSE\t-\t-\t-\t-\t%s\t-\tskipped because license_review_status was not approved\n' "$skipped_license"
     printf 'SKIPPED_MISSING_FILE\t-\t-\t-\t-\t%s\t-\tskipped because the local cache or private file was missing\n' "$skipped_missing_file"
+    printf 'SKIPPED_NO_SIGNALS\t-\t-\t-\t-\t%s\t-\tskipped because the row had no executable signals\n' "$skipped_no_signals"
     printf 'EXPECTED_FAIL\t-\t-\t-\t-\t%s\t-\tknown_bad rows that failed as expected\n' "$expected_fail"
     printf 'UNEXPECTED_PASS\t-\t-\t-\t-\t%s\t-\tknown_bad rows that passed all checks unexpectedly\n' "$unexpected_pass"
     printf 'NO_MANIFEST_ROWS\t-\t-\t-\t-\t%s\t-\t1 means no rows selected\n' "$no_manifest_rows"
@@ -1469,6 +1780,7 @@ write_summary() {
     echo "Metadata: $(if [[ "$METADATA_ENABLED" -ne 0 ]]; then printf 'enabled'; else printf 'disabled'; fi)"
     echo "Metadata status: $(metadata_status_summary_value)"
     echo "Metadata note: $(metadata_note_summary_value)"
+    echo "Signal evaluator: $(signal_eval_runner_summary_value)"
     echo "CLI extra args: $(cli_extra_args_summary_value)"
     echo
     echo "Filters:"
@@ -1476,16 +1788,27 @@ write_summary() {
     echo "- source: $(filter_summary_value "$FILTER_SOURCE")"
     echo "- format: $(filter_summary_value "$FILTER_FORMAT")"
     echo
+    echo "- selected_rows: $(selected_rows_summary_value)"
+    echo "- executable_rows: $(executable_rows_summary_value)"
+    echo "- artifact_groups: $(artifact_groups_summary_value)"
     echo "- total: $total"
     echo "- passed: $passed"
     echo "- failed: $failed"
     echo "- skipped: $skipped"
     echo "- skipped_license: $skipped_license"
     echo "- skipped_missing_file: $skipped_missing_file"
+    echo "- skip_no_signals: $skipped_no_signals"
     echo "- expected_fail: $expected_fail"
     echo "- unexpected_pass: $unexpected_pass"
     echo "- no_manifest_rows: $no_manifest_rows"
     echo "- no_matching_rows: $no_matching_rows"
+    echo
+    echo "## Artifact layout"
+    echo
+    echo "- Raw executed outputs: $RAW_DIR"
+    echo "- Non-pass index: $NONPASS_INDEX_MD"
+    echo "- Row reports: $ROW_REPORTS_DIR"
+    echo "- Workspace scratch: $CLI_TMP_ROOT"
     echo
     if [[ "$summary_row_count" -eq 0 && "$no_matching_rows" -ne 0 ]]; then
       echo "No manifest rows matched the active filters."
@@ -1500,6 +1823,14 @@ write_summary() {
         IFS='|' read -r id format scope tier status passed_count total_count notes_out <<< "$row"
         echo "| $id | $format | $scope | $tier | $status | $passed_count | $total_count | $notes_out |"
       done
+      echo
+      echo "## Non-pass Rows"
+      echo
+      if [[ "$failed" -eq 0 && "$expected_fail" -eq 0 && "$unexpected_pass" -eq 0 ]]; then
+        echo "No executed non-pass rows."
+      else
+        echo "- Index: $NONPASS_INDEX_MD"
+      fi
       echo
       echo "## Expected Failures"
       echo
@@ -1535,12 +1866,18 @@ write_summary() {
 SUMMARY_ROWS=()
 DASHBOARD_ROWS=()
 MANIFEST_ROWS=()
+FILTERED_ROWS=()
+SELECTED_ROW_COUNT=0
+EXECUTABLE_ROW_COUNT=0
+ARTIFACT_GROUP_COUNT=0
+SKIPPED_NO_SIGNALS_COUNT=0
+artifact_plan_init
 while IFS= read -r row; do
   [[ -n "$row" ]] && MANIFEST_ROWS+=("$row")
 done < <(collect_manifest_rows)
 
 if [[ "${#MANIFEST_ROWS[@]}" -eq 0 ]]; then
-  write_summary 0 0 0 0 0 0 0 0 1 0
+  write_summary 0 0 0 0 0 0 0 0 0 1 0
   validation_progress_init "quality" 0
   validation_progress_zero "no manifest rows"
   echo "QUALITY CHECK PASSED (no manifest rows selected)"
@@ -1549,15 +1886,15 @@ if [[ "${#MANIFEST_ROWS[@]}" -eq 0 ]]; then
   exit 0
 fi
 
-FILTERED_ROWS=()
 for row in "${MANIFEST_ROWS[@]}"; do
   if row_matches_filters "$row"; then
     FILTERED_ROWS+=("$row")
   fi
 done
+SELECTED_ROW_COUNT="${#FILTERED_ROWS[@]}"
 
 if [[ "${#FILTERED_ROWS[@]}" -eq 0 ]]; then
-  write_summary 0 0 0 0 0 0 0 0 0 1
+  write_summary 0 0 0 0 0 0 0 0 0 0 1
   validation_progress_init "quality" 0
   validation_progress_zero "no matching rows"
   echo "QUALITY CHECK PASSED (no rows matched filters)"
@@ -1590,14 +1927,13 @@ fi
 validation_progress_init "quality" "${#FILTERED_ROWS[@]}"
 
 for row in "${FILTERED_ROWS[@]}"; do
-  IFS=$'\t' read -r source_scope id format path source_type source_id license_status license_review_status _ <<< "$row"
-  if [[ "$source_scope" == "external" && "$license_review_status" != "approved" ]]; then
-    validation_progress_step_status "skipped" "license $id"
-  else
-    validation_progress_step "$path"
-  fi
-  run_row "$row"
+  quality_plan_row "$row"
 done
+
+while IFS= read -r artifact_id || [[ -n "$artifact_id" ]]; do
+  [[ -n "$artifact_id" ]] || continue
+  quality_execute_artifact_group "$artifact_id"
+done < "$ARTIFACT_IDS_FILE"
 
 validation_progress_done
 
@@ -1607,6 +1943,7 @@ failed_rows=0
 skipped_rows=0
 skipped_license_rows=0
 skipped_missing_file_rows=0
+skipped_no_signals_rows=0
 expected_fail_rows=0
 unexpected_pass_rows=0
 
@@ -1623,6 +1960,10 @@ for row in "${SUMMARY_ROWS[@]-}"; do
       ;;
     skip)
       skipped_rows=$((skipped_rows + 1))
+      ;;
+    skip_no_signals)
+      skipped_rows=$((skipped_rows + 1))
+      skipped_no_signals_rows=$((skipped_no_signals_rows + 1))
       ;;
     skip_license)
       skipped_rows=$((skipped_rows + 1))
@@ -1641,13 +1982,18 @@ for row in "${SUMMARY_ROWS[@]-}"; do
   esac
 done
 
-write_summary "$total_rows" "$passed_rows" "$failed_rows" "$skipped_rows" "$skipped_license_rows" "$skipped_missing_file_rows" "$expected_fail_rows" "$unexpected_pass_rows" 0 0
+write_summary "$total_rows" "$passed_rows" "$failed_rows" "$skipped_rows" "$skipped_license_rows" "$skipped_missing_file_rows" "$skipped_no_signals_rows" "$expected_fail_rows" "$unexpected_pass_rows" 0 0
+write_nonpass_index
 
 if [[ "$failed_rows" -ne 0 ]]; then
   echo "QUALITY CHECK FAILED"
   echo "quality_rows: $total_rows"
   echo "failed: $failed_rows"
   echo "skipped: $skipped_rows"
+  echo "skip_no_signals: $skipped_no_signals_rows"
+  echo "selected_rows: $SELECTED_ROW_COUNT"
+  echo "executable_rows: $EXECUTABLE_ROW_COUNT"
+  echo "artifact_groups: $ARTIFACT_GROUP_COUNT"
   echo "expected_fail: $expected_fail_rows"
   echo "quality_rows_manifest: $QUALITY_ROWS_MANIFEST"
   echo "quality_lab_path: $CORPUS_ROOT"
@@ -1666,6 +2012,10 @@ fi
 echo "quality_rows: $total_rows"
 echo "failed: $failed_rows"
 echo "skipped: $skipped_rows"
+echo "skip_no_signals: $skipped_no_signals_rows"
+echo "selected_rows: $SELECTED_ROW_COUNT"
+echo "executable_rows: $EXECUTABLE_ROW_COUNT"
+echo "artifact_groups: $ARTIFACT_GROUP_COUNT"
 echo "expected_fail: $expected_fail_rows"
 echo "quality_rows_manifest: $QUALITY_ROWS_MANIFEST"
 echo "quality_lab_path: $CORPUS_ROOT"

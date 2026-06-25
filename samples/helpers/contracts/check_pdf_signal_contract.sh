@@ -83,7 +83,7 @@ run_markitdown_cli normal "$ROOT_BASELINE_INPUT" "$ROOT_BASELINE_MD"
 assert_matches_expected "$ROOT_BASELINE_EXPECTED" "$ROOT_BASELINE_MD"
 
 echo "==> pdf signal native baseline debug json exposes current metadata-only signal metrics"
-run_markitdown_cli --json "$ROOT_BASELINE_INPUT" >"$ROOT_BASELINE_JSON"
+run_markitdown_cli --debug "$ROOT_BASELINE_INPUT" >"$ROOT_BASELINE_JSON"
 assert_contains "$ROOT_BASELINE_JSON" '"detected_format": "pdf"'
 assert_contains "$ROOT_BASELINE_JSON" '"product_path_enabled": "true"'
 assert_contains "$ROOT_BASELINE_JSON" '"runtime_exposed": "true"'
@@ -132,7 +132,7 @@ assert_not_contains "$ROOT_BASELINE_JSON" 'raster'
 
 echo "==> pdf signal link candidates remain metadata only"
 run_markitdown_cli normal "$LINK_INPUT" "$LINK_MD"
-run_markitdown_cli --json "$LINK_INPUT" >"$LINK_JSON"
+run_markitdown_cli --debug "$LINK_INPUT" >"$LINK_JSON"
 assert_contains "$LINK_MD" 'Visit the example website for details.'
 assert_not_contains "$LINK_MD" ']('
 assert_contains "$LINK_JSON" '"pdf_link_candidate_count": "1"'
@@ -142,7 +142,7 @@ assert_not_contains "$LINK_JSON" '"kind": "link"'
 
 echo "==> pdf signal header footer candidates remain metadata only"
 run_markitdown_cli normal "$HEADER_FOOTER_INPUT" "$HEADER_FOOTER_MD"
-run_markitdown_cli --json "$HEADER_FOOTER_INPUT" >"$HEADER_FOOTER_JSON"
+run_markitdown_cli --debug "$HEADER_FOOTER_INPUT" >"$HEADER_FOOTER_JSON"
 assert_fixed_count 3 'Sample Report - Internal Use Only' "$HEADER_FOOTER_MD"
 assert_fixed_count 3 'Confidential Footer - Do Not Distribute' "$HEADER_FOOTER_MD"
 assert_fixed_count 3 'The core text should be preserved while noisy repeat lines are filtered.' "$HEADER_FOOTER_MD"
@@ -159,7 +159,7 @@ assert_contains "$HEADER_FOOTER_JSON" '"pdf_cleanup_enabled": "false"'
 
 echo "==> pdf signal table candidates remain metadata only"
 run_markitdown_cli normal "$TABLE_INPUT" "$TABLE_MD"
-run_markitdown_cli --json "$TABLE_INPUT" >"$TABLE_JSON"
+run_markitdown_cli --debug "$TABLE_INPUT" >"$TABLE_JSON"
 assert_contains "$TABLE_MD" 'Product Region Status'
 assert_contains "$TABLE_MD" 'Alpha East Open'
 assert_contains "$TABLE_MD" 'Beta West Closed'
@@ -175,7 +175,7 @@ assert_contains "$TABLE_JSON" '"pdf_table_enabled": "false"'
 assert_not_contains "$TABLE_JSON" '"kind": "table"'
 
 echo "==> pdf signal product options stay explicit opt-in and expose future promotion path"
-run_markitdown_cli --json --pdf-cleanup conservative --pdf-tables simple "$TABLE_INPUT" >"$OUT_DIR/pdf_simple_table_like_optin.json"
+run_markitdown_cli --debug --pdf-cleanup conservative --pdf-tables simple "$TABLE_INPUT" >"$OUT_DIR/pdf_simple_table_like_optin.json"
 assert_contains "$OUT_DIR/pdf_simple_table_like_optin.json" '"pdf_cleanup_mode": "conservative"'
 assert_contains "$OUT_DIR/pdf_simple_table_like_optin.json" '"pdf_cleanup_enabled": "true"'
 assert_contains "$OUT_DIR/pdf_simple_table_like_optin.json" '"pdf_table_mode": "simple"'

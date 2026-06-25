@@ -41,9 +41,7 @@ test "pipeline.txt.stages" (b : @bench.T) {
     let ir_input = @stage.stage_parse_to_ir_input(parse_result)
     let built_document = @stage.stage_build_document(ir_input)
     let rendered = @stage.stage_render_markdown(
-      built_document,
-      renderer,
-      render_context,
+      built_document, renderer, render_context,
     )
     let prefix = "pipeline.txt." + row.bench_id + "."
 
@@ -111,9 +109,7 @@ test "pipeline.txt.stages" (b : @bench.T) {
 
     b.bench(name=prefix + "render_markdown", fn() {
       let next = @stage.stage_render_markdown(
-        built_document,
-        renderer,
-        render_context,
+        built_document, renderer, render_context,
       )
       @shared.keep_int(b, next.content.length())
     })

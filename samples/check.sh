@@ -30,6 +30,10 @@ Options:
 Default:
   Run markdown checks for the current main CLI gate only: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, and pdf.
   Other formats remain pending root-pipeline migration and fail closed here.
+
+Run artifacts:
+  Only failure artifacts are retained under the run directory.
+  `workspace/` is scratch-only and should not be used as the primary inspection surface.
 EOF
 }
 
@@ -172,10 +176,11 @@ DIFF_DIR="$CHECK_RUN_DIR/diff"
 WORKSPACE_DIR="$CHECK_RUN_DIR/workspace"
 RAW_DIR="$CHECK_RUN_DIR/raw"
 REPORTS_DIR="$CHECK_RUN_DIR/reports"
+FAILURE_REPORTS_DIR="$REPORTS_DIR/failures"
 SUMMARY_PATH="$CHECK_RUN_DIR/summary.tsv"
 SUMMARY_MD_PATH="$CHECK_RUN_DIR/summary.md"
 ENTRYPOINT_LOG="$LOG_DIR/entrypoint.log"
-mkdir -p "$LOG_DIR" "$DIFF_DIR" "$WORKSPACE_DIR" "$RAW_DIR" "$REPORTS_DIR"
+mkdir -p "$LOG_DIR" "$DIFF_DIR" "$WORKSPACE_DIR" "$RAW_DIR/failures" "$FAILURE_REPORTS_DIR"
 : > "$ENTRYPOINT_LOG"
 printf 'mode\tformat\tstatus\trunner\tchecks\tfailed\tlog_path\tnotes\n' > "$SUMMARY_PATH"
 
@@ -284,6 +289,9 @@ run_impl() {
   env \
     CHECK_SAMPLES_OUT_DIR="$mode_workspace/samples" \
     MARKITDOWN_CLI_TMP_DIR="$mode_workspace/cli" \
+    CHECK_FAILURE_DIFF_DIR="$DIFF_DIR" \
+    CHECK_FAILURE_RAW_DIR="$RAW_DIR/failures" \
+    CHECK_FAILURE_REPORTS_DIR="$FAILURE_REPORTS_DIR" \
     SAMPLES_KEEP_TMP=1 \
     MARKITDOWN_PROGRESS_FD=3 \
     "$SAMPLE_IMPL" "${args[@]}" 3>&1 >"$log_path" 2>&1
@@ -317,12 +325,46 @@ run_impl() {
   return "$status"
 }
 
+count_failure_reports() {
+  if [[ ! -d "$FAILURE_REPORTS_DIR" ]]; then
+    printf '0'
+    return 0
+  fi
+  find "$FAILURE_REPORTS_DIR" -maxdepth 1 -type f -name '*.md' | wc -l | tr -d '[:space:]'
+}
+
+write_failures_index() {
+  local report_count
+  report_count="$(count_failure_reports)"
+  if [[ "$report_count" == "0" ]]; then
+    rm -f "$REPORTS_DIR/failures.md"
+    return 0
+  fi
+  local index_path="$REPORTS_DIR/failures.md"
+  {
+    echo "# Failure Index"
+    echo
+    echo "- Failure reports: $report_count"
+    echo "- Diff directory: $(display_path "$DIFF_DIR")"
+    echo "- Failure raw artifacts: $(display_path "$RAW_DIR/failures")"
+    echo
+    local report
+    for report in $(find "$FAILURE_REPORTS_DIR" -maxdepth 1 -type f -name '*.md' | sort); do
+      local name
+      name="$(basename "$report" .md)"
+      echo "- [$name]($(display_path "$report"))"
+    done
+  } > "$index_path"
+}
+
 write_summary_md() {
   local status="$1"
   local finished_at="$2"
   local duration="$3"
   local result_word="PASS"
+  local failure_report_count
   [[ "$status" -eq 0 ]] || result_word="FAIL"
+  failure_report_count="$(count_failure_reports)"
   {
     echo "# Run summary"
     echo
@@ -336,7 +378,7 @@ write_summary_md() {
     echo
     echo "## What was checked"
     echo
-    echo "Repo-local samples/main_process markdown checks for the current root-pipeline main CLI surface: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, and pptx."
+    echo "Repo-local samples/main_process markdown checks for the current root-pipeline main CLI surface: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, and pdf."
     echo "Formats outside the current gate still remain pending root-pipeline migration and are not part of this check."
     echo
     echo "## Result"
@@ -350,9 +392,15 @@ write_summary_md() {
     echo "## Where to look next"
     echo
     echo "- Full log: $(display_path "$ENTRYPOINT_LOG")"
-    echo "- Diffs: $(display_path "$DIFF_DIR")"
-    echo "- Raw output: $(display_path "$RAW_DIR")"
-    echo "- Reports: $(display_path "$REPORTS_DIR")"
+    echo "- Workspace scratch: $(display_path "$WORKSPACE_DIR")"
+    if [[ "$failure_report_count" == "0" ]]; then
+      echo "- Failure artifacts: none"
+    else
+      echo "- Failure index: $(display_path "$REPORTS_DIR/failures.md")"
+      echo "- Failed diffs: $(display_path "$DIFF_DIR")"
+      echo "- Failed raw output: $(display_path "$RAW_DIR/failures")"
+      echo "- Failed reports: $(display_path "$FAILURE_REPORTS_DIR")"
+    fi
   } > "$SUMMARY_MD_PATH"
 }
 
@@ -381,6 +429,7 @@ fi
 FINISHED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 FINISH_SECONDS="$(date +%s)"
 DURATION_SECONDS=$((FINISH_SECONDS - START_SECONDS))
+write_failures_index
 write_summary_md "$overall_status" "$FINISHED_AT" "$DURATION_SECONDS"
 print_result "$overall_status"
 

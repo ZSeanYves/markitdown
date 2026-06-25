@@ -10,11 +10,11 @@ import {
   "moonbitlang/x/sys",
 }
 
+import {
+  "moonbitlang/async",
+} for "wbtest"
+
 options(
   "is-main": true,
   "preferred-target": "native",
 )
-
-import {
-  "moonbitlang/async",
-} for "wbtest"

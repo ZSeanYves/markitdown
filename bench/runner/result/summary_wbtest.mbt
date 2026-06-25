@@ -286,16 +286,32 @@ fn assert_optional_double_close(
 
 ///|
 fn summary_test_tmp_root() -> String {
-  ".tmp/markitdown-bench-test/summary"
+  ".tmp/tests/bench/summary"
 }
 
 ///|
 fn ensure_summary_test_dir(path : String) -> Unit {
-  if @fs.path_exists(path) {
+  let normalized = path.trim().to_owned()
+  if normalized == "" || normalized == "." || @fs.path_exists(normalized) {
     return
   }
-  @fs.create_dir(path) catch {
-    _ => ()
+  let parts = normalized.split("/")
+  let mut current = if normalized.has_prefix("/") { "/" } else { "" }
+  for raw in parts {
+    let part = raw.trim().to_owned()
+    if part == "" || part == "." {
+      continue
+    }
+    if current == "" || current == "/" {
+      current = if current == "/" { "/" + part } else { part }
+    } else {
+      current = current + "/" + part
+    }
+    if !@fs.path_exists(current) {
+      @fs.create_dir(current) catch {
+        _ => ()
+      }
+    }
   }
 }
 

@@ -7,7 +7,3 @@ target/
 markitdown-quality-lab/
 .codex
 .codex/
-bench/runner/results/*.json
-bench/runner/results/*.jsonl
-bench/runner/results/*-selector-stats.json
-bench/runner/reports/*.md

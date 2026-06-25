@@ -2,7 +2,7 @@
 
 ///|
 fn test_tmp_root() -> String {
-  ".tmp/pipeline-tests"
+  ".tmp/tests/pipeline"
 }
 
 ///|
@@ -2847,6 +2847,35 @@ test "html parser keeps renderer boundary for link image table and br semantics"
 }
 
 ///|
+test "docx merged table boundary keeps full body column count through product path" {
+  let parsed = default_registry_parse(
+    @input.input_from_path(
+      "samples/main_process/docx/docx_table_merged_cells_boundary.docx",
+    ),
+    @input.DetectedFormat::Docx,
+  )
+  let doc = parsed.document.unwrap_or(@core.empty_document_ir())
+  assert_true(doc.blocks.length() == 1)
+  let table = doc.blocks[0]
+  assert_true(table.kind == @core.BlockKind::Table)
+  assert_true(table.attrs.get("table_column_count") == Some("3"))
+  assert_eq(table.children.length(), 4)
+  assert_eq(table.children[0].children.length(), 2)
+  assert_eq(table.children[1].children.length(), 3)
+  assert_eq(table.children[2].children.length(), 3)
+  assert_eq(table.children[3].children.length(), 3)
+
+  let rendered = (@render.markdown_renderer().render)(
+    @core.document_from_blocks([table]),
+    @render.make_render_context(false),
+  )
+  assert_eq(
+    rendered.content,
+    "| Merged Head | Right |\n| --- | --- |\n| A | B | C |\n| Vert Start | Body 1 | Body 2 |\n|  | Tail 1 | Tail 2 |",
+  )
+}
+
+///|
 test "nested ordered list indentation remains parser-owned while renderer stays generic" {
   let html_mixed = default_registry_parse(
     @input.input_from_path(
@@ -3328,6 +3357,76 @@ test "renderer keeps plain exclamation while preserving inline link image and ma
     "Hello! See [spec](https://example.com/spec) and ![diagram](https://example.com/diagram.png) with \\[literal\\] \\<tag\\>",
   )
   assert_true(!rendered.content.contains("\\!"))
+}
+
+///|
+test "renderer keeps declared table width when header row is narrower than body rows" {
+  let table = @core.make_block(
+    @core.BlockKind::Table,
+    "table",
+    source_ref=@core.empty_source_ref(),
+  )
+  table.attrs.set("header_rows", "1")
+  table.attrs.set("table_column_count", "3")
+
+  let header = @core.make_block(
+    @core.BlockKind::TableRow,
+    "",
+    source_ref=@core.empty_source_ref(),
+  )
+  header.children.push(
+    @core.make_block(
+      @core.BlockKind::TableCell,
+      "Merged Head",
+      source_ref=@core.empty_source_ref(),
+    ),
+  )
+  header.children.push(
+    @core.make_block(
+      @core.BlockKind::TableCell,
+      "Right",
+      source_ref=@core.empty_source_ref(),
+    ),
+  )
+
+  let row = @core.make_block(
+    @core.BlockKind::TableRow,
+    "",
+    source_ref=@core.empty_source_ref(),
+  )
+  row.children.push(
+    @core.make_block(
+      @core.BlockKind::TableCell,
+      "A",
+      source_ref=@core.empty_source_ref(),
+    ),
+  )
+  row.children.push(
+    @core.make_block(
+      @core.BlockKind::TableCell,
+      "B",
+      source_ref=@core.empty_source_ref(),
+    ),
+  )
+  row.children.push(
+    @core.make_block(
+      @core.BlockKind::TableCell,
+      "C",
+      source_ref=@core.empty_source_ref(),
+    ),
+  )
+
+  table.children.push(header)
+  table.children.push(row)
+
+  let rendered = (@render.markdown_renderer().render)(
+    @core.document_from_blocks([table]),
+    @render.make_render_context(false),
+  )
+  assert_eq(
+    rendered.content,
+    "| Merged Head | Right |\n| --- | --- |\n| A | B | C |",
+  )
 }
 
 ///|

@@ -809,7 +809,8 @@ fn html_mark_skipped_blocks(
   }
   for block in semantic.blocks {
     let parent_in_nav_context = match block.parent_source_key {
-      Some(parent_key) => nav_context_by_block_key.get(parent_key).unwrap_or(false)
+      Some(parent_key) =>
+        nav_context_by_block_key.get(parent_key).unwrap_or(false)
       None => false
     }
     let in_nav_context = parent_in_nav_context || block.tag_name == "nav"
@@ -876,7 +877,7 @@ fn html_mark_block_subtree(
         skipped.set(child_key, true)
         html_mark_block_subtree(block_by_key, child_key, skipped)
       }
-      None => ()
+    None => ()
   }
 }
 

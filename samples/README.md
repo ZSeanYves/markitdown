@@ -51,6 +51,13 @@ bash samples/check_quality.sh
 bash samples/check_quality.sh --format pdf
 ```
 
+Run artifact policy:
+
+- `samples/check.sh` keeps only failure artifacts under each run directory.
+- `samples/check.sh` uses `workspace/` as scratch only.
+- `samples/check_quality.sh` keeps executed row outputs under `raw/outputs/`.
+- `samples/check_quality.sh` writes executed non-pass row reports under `reports/`.
+
 Contract aggregation:
 
 ```bash
@@ -124,7 +131,6 @@ The contract aggregator keeps the active shell guard surface in one place:
 - `check_docx_contract.sh`
 - `check_xlsx_contract.sh`
 - `check_pptx_contract.sh`
-- `check_batch_contract.sh`
 - `check_ocr_contract.sh`
 - `check_pdf_signal_contract.sh`
 

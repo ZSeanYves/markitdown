@@ -4,6 +4,7 @@ pub async fn run_tool(
   tool : @tools.BenchTool,
 ) -> String {
   ensure_bench_dirs()
+  ensure_bench_run_dirs(request.run_id)
   let select_request = @manifest.make_select_request(
     request.tier,
     request.format_filter,
@@ -101,6 +102,7 @@ pub async fn run_tool(
 ///|
 pub async fn run_compare(request : @command.CompareRequest) -> Json {
   ensure_bench_dirs()
+  ensure_bench_run_dirs(request.run_id)
   let select_request = @manifest.make_select_request(
     request.tier,
     request.format_filter,
@@ -214,9 +216,16 @@ pub fn measure_command(
 
 ///|
 async fn ensure_bench_dirs() -> Unit {
-  ensure_dir("bench/runner/results")
-  ensure_dir("bench/runner/reports")
-  ensure_dir(".tmp/markitdown-bench-output")
+  ensure_dir(".tmp/bench")
+  ensure_dir(".tmp/bench/runs")
+}
+
+///|
+async fn ensure_bench_run_dirs(run_id : String) -> Unit {
+  ensure_dir(@command.run_root(run_id))
+  ensure_dir(@command.results_root(run_id))
+  ensure_dir(@command.reports_root(run_id))
+  ensure_dir(@command.outputs_root(run_id))
 }
 
 ///|

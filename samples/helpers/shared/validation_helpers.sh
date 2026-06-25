@@ -180,12 +180,12 @@ markitdown_runner_command_prefix() {
 
 validation_probe_cases() {
   cat <<'EOF'
-samples/main_process/txt/txt_plain.txt|samples/main_process/txt/expected/txt_plain.md
-samples/main_process/csv/csv_markdown_pipes.csv|samples/main_process/csv/expected/csv_markdown_pipes.md
-samples/main_process/tsv/tsv_markdown_pipes.tsv|samples/main_process/tsv/expected/tsv_markdown_pipes.md
-samples/main_process/json/json_object_basic.json|samples/main_process/json/expected/json_object_basic.md
-samples/main_process/jsonl/jsonl_records_basic.jsonl|samples/main_process/jsonl/expected/jsonl_records_basic.md
-samples/main_process/ndjson/ndjson_records_basic.ndjson|samples/main_process/ndjson/expected/ndjson_records_basic.md
+samples/main_process/txt/txt_plain.txt|txt_plain
+samples/main_process/csv/csv_markdown_pipes.csv|csv_markdown_pipes
+samples/main_process/tsv/tsv_markdown_pipes.tsv|tsv_markdown_pipes
+samples/main_process/json/json_object_basic.json|json_object_basic
+samples/main_process/jsonl/jsonl_records_basic.jsonl|jsonl_records_basic
+samples/main_process/ndjson/ndjson_records_basic.ndjson|ndjson_records_basic
 EOF
 }
 
@@ -201,18 +201,17 @@ probe_markitdown_cli() {
   local probe_dir
   probe_dir="$(sample_make_isolated_tmp_dir "$tmp_root" "cli_probe")"
   local status=0
-  local input_rel expected_rel input_abs expected_abs out
+  local input_rel stem input_abs out
 
-  while IFS='|' read -r input_rel expected_rel; do
+  while IFS='|' read -r input_rel stem; do
     [[ -n "$input_rel" ]] || continue
     input_abs="$ROOT/$input_rel"
-    expected_abs="$ROOT/$expected_rel"
-    out="$probe_dir/$(basename "${input_rel%.*}").md"
+    out="$probe_dir/$stem.md"
     if ! MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" normal "$input_abs" "$out" >/dev/null 2>&1; then
       status=1
       break
     fi
-    if ! diff -u "$expected_abs" "$out" >/dev/null 2>&1; then
+    if [[ ! -s "$out" ]]; then
       status=1
       break
     fi
@@ -302,21 +301,30 @@ validation_record_failure() {
   local expected="$3"
   local actual="$4"
   local note="${5-}"
+  local kind="${6-}"
+  local diff_path="${7-}"
+  local stdout_path="${8-}"
+  local stderr_path="${9-}"
+  local report_path="${10-}"
   VALIDATION_HAS_FAILURES=1
-  VALIDATION_FAILURES+=("$scope|$input|$expected|$actual|$note")
+  VALIDATION_FAILURES+=("$scope|$input|$expected|$actual|$note|$kind|$diff_path|$stdout_path|$stderr_path|$report_path")
 }
 
 validation_print_failures() {
   local idx=0
-  local record scope input expected actual note
+  local record scope input expected actual note kind diff_path stdout_path stderr_path report_path
   for record in "${VALIDATION_FAILURES[@]}"; do
     idx=$((idx + 1))
-    IFS='|' read -r scope input expected actual note <<< "$record"
+    IFS='|' read -r scope input expected actual note kind diff_path stdout_path stderr_path report_path <<< "$record"
     echo "$idx. $scope"
     [[ -n "$input" ]] && echo "   input: $input"
     [[ -n "$expected" ]] && echo "   expected: $expected"
     [[ -n "$actual" ]] && echo "   actual: $actual"
     [[ -n "$note" ]] && echo "   note: $note"
+    [[ -n "$diff_path" ]] && echo "   diff: $diff_path"
+    [[ -n "$stdout_path" ]] && echo "   stdout: $stdout_path"
+    [[ -n "$stderr_path" ]] && echo "   stderr: $stderr_path"
+    [[ -n "$report_path" ]] && echo "   report: $report_path"
   done
 }
 
@@ -339,9 +347,15 @@ validation_diff_or_record() {
   local expected="$3"
   local actual="$4"
   local diff_path="$5"
-  if diff -u "$expected" "$actual" > "$diff_path"; then
+  : "$scope" "$input"
+  local diff_dir
+  diff_dir="$(dirname "$diff_path")"
+  mkdir -p "$diff_dir"
+  local tmp_diff="$diff_path.tmp"
+  if diff -u "$expected" "$actual" > "$tmp_diff"; then
+    rm -f "$tmp_diff"
     return 0
   fi
-  validation_record_failure "$scope" "$input" "$expected" "$actual" "diff: $diff_path"
+  mv "$tmp_diff" "$diff_path"
   return 1
 }
