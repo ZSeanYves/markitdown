@@ -1,0 +1,11 @@
+import {
+  "moonbitlang/core/bench",
+  "moonbitlang/core/string",
+  "moonbitlang/x/fs",
+  "ZSeanYves/markitdown/convert",
+  "ZSeanYves/markitdown/input",
+}
+
+options(
+  "preferred-target": "native",
+)

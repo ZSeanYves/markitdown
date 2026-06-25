@@ -340,7 +340,7 @@ fn assert_entry_readable(
 
 ///|
 test "zip reader can list and read docx core entry" {
-  let z = open_sample_zip("samples/main_process/docx/golden.docx")
+  let z = open_sample_zip("samples/main_process/docx/assets/golden.docx")
   let entries = @zip.list_entries(z)
   if entries.length() == 0 {
     fail("docx entries should not be empty")
@@ -350,7 +350,9 @@ test "zip reader can list and read docx core entry" {
 
 ///|
 test "zip reader can list and read xlsx core entry" {
-  let z = open_sample_zip("samples/main_process/xlsx/sheet_simple.xlsx")
+  let z = open_sample_zip(
+    "samples/main_process/xlsx/markdown/sheet_simple.xlsx",
+  )
   let entries = @zip.list_entries(z)
   if entries.length() == 0 {
     fail("xlsx entries should not be empty")
@@ -360,7 +362,7 @@ test "zip reader can list and read xlsx core entry" {
 
 ///|
 test "zip reader can list and read pptx core entry" {
-  let z = open_sample_zip("samples/main_process/pptx/pptx_simple.pptx")
+  let z = open_sample_zip("samples/main_process/pptx/rag/pptx_simple.pptx")
   let entries = @zip.list_entries(z)
   if entries.length() == 0 {
     fail("pptx entries should not be empty")
@@ -371,7 +373,7 @@ test "zip reader can list and read pptx core entry" {
 ///|
 test "zip inspect exposes entry structural facts" {
   let bytes = read_sample_bytes(
-    "samples/main_process/zip/zip_basic_structured.zip",
+    "samples/main_process/zip/markdown/zip_basic_structured.zip",
   )
   let entries = @zip.inspect_zip(bytes) catch {
     e => fail("inspect_zip failed: " + e.to_string())

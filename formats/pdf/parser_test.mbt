@@ -168,7 +168,7 @@ test "pdf native parser default product path can return document ir" {
     false,
   )
   let source = @input.input_from_path_with_format(
-    "samples/main_process/pdf/text_simple.pdf",
+    "samples/main_process/pdf/markdown/text_simple.pdf",
     Some(@input.DetectedFormat::Pdf),
   )
   let parsed = pdf_native_parser_result(source, context)
@@ -279,7 +279,7 @@ test "pdf native parser explicit disable policy stays fail closed" {
     @parser.PdfNativeRuntimePolicy::DisableTextRestore,
   )
   let source = @input.input_from_path_with_format(
-    "samples/main_process/pdf/text_simple.pdf",
+    "samples/main_process/pdf/markdown/text_simple.pdf",
     Some(@input.DetectedFormat::Pdf),
   )
   let parsed = pdf_native_parser_result(source, context)
@@ -529,7 +529,7 @@ test "pdf native parser internal policy scaffold stays disabled by default and d
     @parser.PdfTableReconstructionPolicy::InternalSimpleRowsOnly,
   )
   let source = @input.input_from_path_with_format(
-    "samples/main_process/pdf/root_native_text_baseline.pdf",
+    "samples/main_process/pdf/markdown/root_native_text_baseline.pdf",
     Some(@input.DetectedFormat::Pdf),
   )
   let parsed = pdf_native_parser_result(source, enabled_like_context)

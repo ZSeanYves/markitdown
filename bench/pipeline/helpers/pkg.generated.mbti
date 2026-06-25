@@ -1,0 +1,51 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/bench/pipeline/helpers"
+
+import {
+  "ZSeanYves/markitdown/bench/shared",
+  "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/pipeline",
+  "ZSeanYves/markitdown/render",
+}
+
+// Values
+pub fn default_stage_detector() -> @input.FormatDetector
+
+pub fn default_stage_pass_context() -> @pipeline.PassContext
+
+pub fn default_stage_registry() -> @parser.ParserRegistry
+
+pub fn default_stage_render_context() -> @render.RenderContext
+
+pub fn default_stage_renderer() -> @render.Renderer
+
+pub fn stage_binary_row(String) -> @shared.BenchManifestRow
+
+pub fn stage_build_document(@core.IRInput) -> @core.DocumentIR
+
+pub fn stage_ir_input_metric(@core.IRInput) -> Int
+
+pub fn stage_output_bytes(@render.RenderResult) -> Bytes
+
+pub fn stage_parse_context(@input.DetectedFormat) -> @parser.ParseContext
+
+pub fn stage_parse_result_metric(@parser.ParseResult) -> Int
+
+pub fn stage_parse_to_ir_input(@parser.ParseResult) -> @core.IRInput
+
+pub fn stage_registry_parse_or_abort(@parser.ParserRegistry, @input.InputSource, @parser.ParseContext, String, String) -> @parser.ParseResult
+
+pub fn stage_render_markdown(@core.DocumentIR, @render.Renderer, @render.RenderContext) -> @render.RenderResult
+
+pub fn stage_textlike_row(String) -> @shared.BenchManifestRow
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

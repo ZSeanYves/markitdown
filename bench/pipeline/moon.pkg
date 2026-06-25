@@ -1,0 +1,24 @@
+import {
+  "moonbitlang/core/bench",
+  "moonbitlang/core/encoding/utf8",
+  "ZSeanYves/markitdown/bench/pipeline/helpers" @stage,
+  "ZSeanYves/markitdown/bench/shared",
+  "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/convert",
+  "ZSeanYves/markitdown/format_readers/csv" @dcsv,
+  "ZSeanYves/markitdown/format_readers/html" @dhtml,
+  "ZSeanYves/markitdown/format_readers/ooxml/docx" @ddocx,
+  "ZSeanYves/markitdown/format_readers/ooxml/package" @ox,
+  "ZSeanYves/markitdown/format_readers/ooxml/pptx" @dpptx,
+  "ZSeanYves/markitdown/format_readers/text" @dtext,
+  "ZSeanYves/markitdown/formats/html" @fhtml,
+  "ZSeanYves/markitdown/formats/xlsx" @fxlsx,
+  "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/pipeline" @mdpipeline,
+  "ZSeanYves/markitdown/render",
+} for "test"
+
+options(
+  "preferred-target": "native",
+)

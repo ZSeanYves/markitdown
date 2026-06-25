@@ -16,20 +16,26 @@ fi
 
 usage() {
   cat <<'EOF'
-Usage: ./samples/check.sh [--markdown-only] [--format FMT] [--check-inventory] [--list-inventory]
+Usage: ./samples/check.sh [--markdown|--rag|--assets] [--format FMT] [--check-inventory] [--list-inventory]
 
 Runs repo-local samples/main_process regression checks.
 
 Options:
-  --markdown-only     Run only Markdown expected-output checks.
+  --markdown          Run only Markdown expected-output checks.
+  --rag               Run only RAG expected-output checks.
+  --assets            Run only light-asset expected-output checks.
   --format FMT        Restrict checks to one supported product format: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, pdf.
   --check-inventory   Run sample enrollment/integrity checks without conversion.
   --list-inventory    Print sample inventory counts in TSV form.
   -h, --help          Show this help.
 
 Default:
-  Run markdown checks for the current main CLI gate only: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, and pdf.
+  Run markdown, rag, and assets checks for the current main CLI gate: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, and pdf.
   Other formats remain pending root-pipeline migration and fail closed here.
+
+Run artifacts:
+  Only failure artifacts are retained under the run directory.
+  `workspace/` is scratch-only and should not be used as the primary inspection surface.
 EOF
 }
 
@@ -41,7 +47,7 @@ fail_usage() {
 
 set_only_mode() {
   if [[ -n "$ONLY_MODE" ]]; then
-    fail_usage "--markdown-only can be specified at most once"
+    fail_usage "choose only one of --markdown, --rag, or --assets"
   fi
   ONLY_MODE="$1"
 }
@@ -54,7 +60,7 @@ set_special_mode() {
 }
 
 deprecated_arg() {
-  fail_usage "$1 is deprecated; supported options are --markdown-only, --format FMT, --check-inventory, and --list-inventory"
+  fail_usage "$1 is deprecated; supported options are --markdown, --rag, --assets, --format FMT, --check-inventory, and --list-inventory"
 }
 
 supported_formats_compact() {
@@ -109,8 +115,14 @@ command_text() {
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --markdown-only)
-      set_only_mode "markdown-only"
+    --markdown)
+      set_only_mode "markdown"
+      ;;
+    --rag)
+      set_only_mode "rag"
+      ;;
+    --assets)
+      set_only_mode "assets"
       ;;
     --format)
       shift
@@ -140,7 +152,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -n "$SPECIAL_MODE" && -n "$ONLY_MODE" ]]; then
-  fail_usage "--markdown-only cannot be combined with --$SPECIAL_MODE"
+  fail_usage "--$ONLY_MODE cannot be combined with --$SPECIAL_MODE"
 fi
 if [[ -n "$SPECIAL_MODE" && -n "$FORMAT_FILTER" ]]; then
   fail_usage "--format cannot be combined with --$SPECIAL_MODE"
@@ -172,10 +184,11 @@ DIFF_DIR="$CHECK_RUN_DIR/diff"
 WORKSPACE_DIR="$CHECK_RUN_DIR/workspace"
 RAW_DIR="$CHECK_RUN_DIR/raw"
 REPORTS_DIR="$CHECK_RUN_DIR/reports"
+FAILURE_REPORTS_DIR="$REPORTS_DIR/failures"
 SUMMARY_PATH="$CHECK_RUN_DIR/summary.tsv"
 SUMMARY_MD_PATH="$CHECK_RUN_DIR/summary.md"
 ENTRYPOINT_LOG="$LOG_DIR/entrypoint.log"
-mkdir -p "$LOG_DIR" "$DIFF_DIR" "$WORKSPACE_DIR" "$RAW_DIR" "$REPORTS_DIR"
+mkdir -p "$LOG_DIR" "$DIFF_DIR" "$WORKSPACE_DIR" "$RAW_DIR/failures" "$FAILURE_REPORTS_DIR"
 : > "$ENTRYPOINT_LOG"
 printf 'mode\tformat\tstatus\trunner\tchecks\tfailed\tlog_path\tnotes\n' > "$SUMMARY_PATH"
 
@@ -188,7 +201,7 @@ SKIPPED_TOTAL=0
 
 mode_display() {
   local mode="$1"
-  printf '%s' "${mode%-only}"
+  printf '%s' "$mode"
 }
 
 format_display() {
@@ -284,6 +297,9 @@ run_impl() {
   env \
     CHECK_SAMPLES_OUT_DIR="$mode_workspace/samples" \
     MARKITDOWN_CLI_TMP_DIR="$mode_workspace/cli" \
+    CHECK_FAILURE_DIFF_DIR="$DIFF_DIR" \
+    CHECK_FAILURE_RAW_DIR="$RAW_DIR/failures" \
+    CHECK_FAILURE_REPORTS_DIR="$FAILURE_REPORTS_DIR" \
     SAMPLES_KEEP_TMP=1 \
     MARKITDOWN_PROGRESS_FD=3 \
     "$SAMPLE_IMPL" "${args[@]}" 3>&1 >"$log_path" 2>&1
@@ -303,13 +319,9 @@ run_impl() {
   if [[ "$status" -ne 0 ]]; then
     line_status="fail"
     notes="exit=$status"
-  elif grep -q "No asset regression coverage" "$log_path" 2>/dev/null; then
-    line_status="skip"
-    notes="no asset regression coverage"
-    SKIPPED_TOTAL=$((SKIPPED_TOTAL + 1))
   else
     line_status="pass"
-    notes="markdown=$([[ "$mode_short" == "markdown" ]] && printf '%s' "$checks" || printf '0') metadata=$([[ "$mode_short" == "metadata" ]] && printf '%s' "$checks" || printf '0') assets=$([[ "$mode_short" == "assets" ]] && printf '%s' "$checks" || printf '0')"
+    notes="lane=$mode_short checks=$checks failures=$failures"
   fi
 
   printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$mode_short" "$fmt" "$line_status" "$runner" "$checks" "$failures" "$(display_path "$log_path")" "$notes" >> "$SUMMARY_PATH"
@@ -317,12 +329,50 @@ run_impl() {
   return "$status"
 }
 
+count_failure_reports() {
+  if [[ ! -d "$FAILURE_REPORTS_DIR" ]]; then
+    printf '0'
+    return 0
+  fi
+  find "$FAILURE_REPORTS_DIR" -maxdepth 1 -type f -name '*.md' | wc -l | tr -d '[:space:]'
+}
+
+write_failures_index() {
+  local report_count
+  report_count="$(count_failure_reports)"
+  if [[ "$report_count" == "0" ]]; then
+    rm -f "$REPORTS_DIR/failures.md"
+    return 0
+  fi
+  local index_path="$REPORTS_DIR/failures.md"
+  {
+    echo "# Failure Index"
+    echo
+    echo "- Failure reports: $report_count"
+    echo "- Diff directory: $(display_path "$DIFF_DIR")"
+    echo "- Failure raw artifacts: $(display_path "$RAW_DIR/failures")"
+    echo
+    local report
+    for report in $(find "$FAILURE_REPORTS_DIR" -maxdepth 1 -type f -name '*.md' | sort); do
+      local name
+      name="$(basename "$report" .md)"
+      echo "- [$name]($(display_path "$report"))"
+    done
+  } > "$index_path"
+}
+
 write_summary_md() {
   local status="$1"
   local finished_at="$2"
   local duration="$3"
+  local lanes="markdown, rag, assets"
   local result_word="PASS"
+  local failure_report_count
   [[ "$status" -eq 0 ]] || result_word="FAIL"
+  failure_report_count="$(count_failure_reports)"
+  if [[ -n "$ONLY_MODE" ]]; then
+    lanes="$ONLY_MODE"
+  fi
   {
     echo "# Run summary"
     echo
@@ -336,7 +386,8 @@ write_summary_md() {
     echo
     echo "## What was checked"
     echo
-    echo "Repo-local samples/main_process markdown checks for the current root-pipeline main CLI surface: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, and pptx."
+    echo "Repo-local samples/main_process lane checks for the current root-pipeline main CLI surface: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, and pdf."
+    echo "Lanes: $lanes"
     echo "Formats outside the current gate still remain pending root-pipeline migration and are not part of this check."
     echo
     echo "## Result"
@@ -350,9 +401,15 @@ write_summary_md() {
     echo "## Where to look next"
     echo
     echo "- Full log: $(display_path "$ENTRYPOINT_LOG")"
-    echo "- Diffs: $(display_path "$DIFF_DIR")"
-    echo "- Raw output: $(display_path "$RAW_DIR")"
-    echo "- Reports: $(display_path "$REPORTS_DIR")"
+    echo "- Workspace scratch: $(display_path "$WORKSPACE_DIR")"
+    if [[ "$failure_report_count" == "0" ]]; then
+      echo "- Failure artifacts: none"
+    else
+      echo "- Failure index: $(display_path "$REPORTS_DIR/failures.md")"
+      echo "- Failed diffs: $(display_path "$DIFF_DIR")"
+      echo "- Failed raw output: $(display_path "$RAW_DIR/failures")"
+      echo "- Failed reports: $(display_path "$FAILURE_REPORTS_DIR")"
+    fi
   } > "$SUMMARY_MD_PATH"
 }
 
@@ -375,12 +432,15 @@ overall_status=0
 if [[ -n "$ONLY_MODE" ]]; then
   run_impl "$ONLY_MODE" || overall_status=$?
 else
-  run_impl "markdown-only" || overall_status=$?
+  run_impl "markdown" || overall_status=$?
+  run_impl "rag" || overall_status=$?
+  run_impl "assets" || overall_status=$?
 fi
 
 FINISHED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 FINISH_SECONDS="$(date +%s)"
 DURATION_SECONDS=$((FINISH_SECONDS - START_SECONDS))
+write_failures_index
 write_summary_md "$overall_status" "$FINISHED_AT" "$DURATION_SECONDS"
 print_result "$overall_status"
 

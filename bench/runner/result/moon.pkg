@@ -1,0 +1,16 @@
+import {
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+  "moonbitlang/core/string",
+  "moonbitlang/x/fs",
+  "ZSeanYves/markitdown/bench/runner/command",
+  "ZSeanYves/markitdown/bench/runner/manifest",
+  "ZSeanYves/markitdown/bench/runner/measure",
+  "ZSeanYves/markitdown/bench/runner/tools",
+}
+
+supported_targets = "native"
+
+options(
+  "preferred-target": "native",
+)

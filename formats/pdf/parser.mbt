@@ -209,15 +209,20 @@ fn pdf_native_parser_enabled_result(
 ) -> Result[@parser.ParseResult, @parser.ParseResult] {
   match extract_pdf_native_document(source) {
     Ok(native_document) => {
-      let document = pdf_native_document_to_ir_with_policies(
+      let lowered = pdf_native_document_to_blocks_with_policies(
         native_document,
         context.pdf_header_footer_filter_policy,
-        context.pdf_table_reconstruction_policy,
       )
+      let metadata = lowered.0
+      let blocks = lowered.1
+      let stream_diagnostics = lowered.2
+      let document = @core.document_from_blocks(blocks)
+      for entry in metadata.to_array() {
+        document.metadata.set(entry.0, entry.1)
+      }
+      document.blocks.append(pdf_native_appendix_blocks(document.metadata)[:])
       let diagnostics = pdf_native_enabled_success_diagnostics(
-        source,
-        context,
-        document.diagnostics,
+        source, context, stream_diagnostics,
       )
       let final_document = @core.document_with_diagnostics(
         document, diagnostics,
@@ -236,15 +241,14 @@ fn pdf_native_parser_enabled_result(
       let diagnostics = pdf_native_enabled_error_diagnostics(
         source, context, error,
       )
-      let document = @core.document_with_diagnostics(
-        @core.empty_document_ir(),
-        diagnostics,
-      )
       Err(
         @parser.parse_result_with_document_capability(
           pdf_native_parser_name(),
           @parser.ParserMode::PageSinglePass,
-          document,
+          @core.document_with_diagnostics(
+            @core.empty_document_ir(),
+            diagnostics,
+          ),
           diagnostics,
           capability,
         ),

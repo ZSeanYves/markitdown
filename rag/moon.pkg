@@ -1,0 +1,11 @@
+import {
+  "ZSeanYves/markitdown/core",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/string",
+  "moonbitlang/x/crypto",
+  "tonyfettes/encoding",
+}
+
+options(
+  "preferred-target": "native",
+)

@@ -1,0 +1,78 @@
+{
+  "output_format": "rag_json",
+  "detected_format": "xlsx",
+  "parser_mode": "package_single_pass",
+  "convert_mode": "rag",
+  "diagnostics_contains": {
+    "parser_name": "xlsx_parser",
+    "metrics": {
+      "renderer_name": "RagJsonRenderer"
+    }
+  },
+  "source_map": "null",
+  "chunk_count": {
+    "min": 2
+  },
+  "chunks": [
+    {
+      "kind": "table",
+      "heading_path": [
+        "MetaOne"
+      ],
+      "source_ref_count": 5,
+      "asset_ref_count": 0,
+      "text_contains_all": [
+        "| Name | Score |\n| Alice | 95 |"
+      ],
+      "location_contains": {
+        "cell_ranges": [
+          "A1:B2",
+          "A1",
+          "B1",
+          "A2",
+          "B2"
+        ],
+        "container_paths": [
+          "xlsx_metadata_multi_sheet.xlsx",
+          "MetaOne"
+        ],
+        "entry_paths": [
+          "xl/worksheets/sheet1.xml"
+        ],
+        "sheets": [
+          "MetaOne"
+        ]
+      }
+    },
+    {
+      "kind": "table",
+      "heading_path": [
+        "MetaTwo"
+      ],
+      "source_ref_count": 5,
+      "asset_ref_count": 0,
+      "text_contains_all": [
+        "| Key | Value |\n| beta | 2 |"
+      ],
+      "location_contains": {
+        "cell_ranges": [
+          "A1:B2",
+          "A1",
+          "B1",
+          "A2",
+          "B2"
+        ],
+        "container_paths": [
+          "xlsx_metadata_multi_sheet.xlsx",
+          "MetaTwo"
+        ],
+        "entry_paths": [
+          "xl/worksheets/sheet2.xml"
+        ],
+        "sheets": [
+          "MetaTwo"
+        ]
+      }
+    }
+  ]
+}

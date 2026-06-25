@@ -146,20 +146,20 @@ with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_STORED) as archive:
 PY
 }
 
-ZIP_INPUT="$ROOT/samples/main_process/zip/zip_basic_structured.zip"
-ZIP_EXPECTED="$ROOT/samples/main_process/zip/expected/zip_basic_structured.md"
+ZIP_INPUT="$ROOT/samples/main_process/zip/markdown/zip_basic_structured.zip"
+ZIP_EXPECTED="$ROOT/samples/main_process/zip/expected/markdown/zip_basic_structured.md"
 ZIP_OUT="$OUT_DIR/zip_basic_structured.md"
-ZIP_MIXED_INPUT="$ROOT/samples/main_process/zip/zip_mixed_supported_entries.zip"
-ZIP_MIXED_EXPECTED="$ROOT/samples/main_process/zip/expected/zip_mixed_supported_entries.md"
+ZIP_MIXED_INPUT="$ROOT/samples/main_process/zip/markdown/zip_mixed_supported_entries.zip"
+ZIP_MIXED_EXPECTED="$ROOT/samples/main_process/zip/expected/markdown/zip_mixed_supported_entries.md"
 ZIP_MIXED_OUT="$OUT_DIR/zip_mixed_supported_entries.md"
-ZIP_UNSUPPORTED_INPUT="$ROOT/samples/main_process/zip/zip_unsupported_entries.zip"
-ZIP_UNSUPPORTED_EXPECTED="$ROOT/samples/main_process/zip/expected/zip_unsupported_entries.md"
+ZIP_UNSUPPORTED_INPUT="$ROOT/samples/main_process/zip/markdown/zip_unsupported_entries.zip"
+ZIP_UNSUPPORTED_EXPECTED="$ROOT/samples/main_process/zip/expected/markdown/zip_unsupported_entries.md"
 ZIP_UNSUPPORTED_OUT="$OUT_DIR/zip_unsupported_entries.md"
-ZIP_NESTED_INPUT="$ROOT/samples/main_process/zip/zip_nested_archive_boundary.zip"
-ZIP_NESTED_EXPECTED="$ROOT/samples/main_process/zip/expected/zip_nested_archive_boundary.md"
+ZIP_NESTED_INPUT="$ROOT/samples/main_process/zip/markdown/zip_nested_archive_boundary.zip"
+ZIP_NESTED_EXPECTED="$ROOT/samples/main_process/zip/expected/markdown/zip_nested_archive_boundary.md"
 ZIP_NESTED_OUT="$OUT_DIR/zip_nested_archive_boundary.md"
-ZIP_HTML_INPUT="$ROOT/samples/main_process/zip/zip_html_local_image.zip"
-ZIP_HTML_EXPECTED="$ROOT/samples/main_process/zip/expected/zip_html_local_image.md"
+ZIP_HTML_INPUT="$ROOT/samples/main_process/zip/assets/zip_html_local_image.zip"
+ZIP_HTML_EXPECTED="$ROOT/samples/main_process/zip/expected/assets/zip_html_local_image/result.md"
 ZIP_HTML_OUT="$OUT_DIR/zip_html_local_image.md"
 ZIP_OFFICE_PDF="$OUT_DIR/zip_unsupported_office_pdf.zip"
 ZIP_OFFICE_PDF_OUT="$OUT_DIR/zip_unsupported_office_pdf.md"
@@ -258,7 +258,7 @@ assert_path_not_exists "$OUT_DIR/assets/archive/site_page.html/image02.png"
 
 echo "==> zip unsupported inner office and pdf entries stay fail-closed"
 make_office_pdf_zip "$ZIP_OFFICE_PDF"
-run_and_capture "$ZIP_OFFICE_PDF_JSON" run_markitdown_cli --json "$ZIP_OFFICE_PDF"
+run_and_capture "$ZIP_OFFICE_PDF_JSON" run_markitdown_cli --debug "$ZIP_OFFICE_PDF"
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "zip office/pdf debug json should succeed"
 assert_contains "$ZIP_OFFICE_PDF_JSON" '"detected_format": "zip"'
 assert_contains "$ZIP_OFFICE_PDF_JSON" '"unsupported_entry_count": "4"'
@@ -272,7 +272,7 @@ assert_contains "$ZIP_OFFICE_PDF_OUT" "Skipped: unsupported file type: xlsx"
 
 echo "==> zip security boundaries keep unsafe and duplicate paths diagnosed"
 make_security_zip "$ZIP_SECURITY"
-run_and_capture "$ZIP_SECURITY_JSON" run_markitdown_cli --json "$ZIP_SECURITY"
+run_and_capture "$ZIP_SECURITY_JSON" run_markitdown_cli --debug "$ZIP_SECURITY"
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "zip security debug json should succeed"
 assert_contains "$ZIP_SECURITY_JSON" '"path_traversal_count": "4"'
 assert_contains "$ZIP_SECURITY_JSON" '"duplicate_path_count": "2"'
@@ -283,7 +283,7 @@ assert_occurrence_count "$ZIP_SECURITY_OUT" "Skipped: duplicate normalized entry
 echo "==> zip asset boundary keeps remote missing and traversal refs outside materialization"
 make_asset_zip "$ZIP_ASSET" "$ROOT/samples/main_process/html/assets/img/img_red.jpg"
 mkdir -p "$ZIP_ASSET_OUT_DIR"
-run_and_capture "$ZIP_ASSET_JSON" run_markitdown_cli --json "$ZIP_ASSET"
+run_and_capture "$ZIP_ASSET_JSON" run_markitdown_cli --debug "$ZIP_ASSET"
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "zip asset debug json should succeed"
 assert_contains "$ZIP_ASSET_JSON" 'zip asset entry missing for'
 assert_contains "$ZIP_ASSET_JSON" 'zip asset path rejected for entry'

@@ -45,6 +45,34 @@ pub struct ConvertOptions {
   limits : ResourceLimits
   pdf_cleanup_mode : PdfCleanupMode
   pdf_table_mode : PdfTableMode
+  rag_options : @rag.RagOptions
+}
+
+///|
+pub(all) enum CanonicalRoute {
+  StreamingEvent
+  BlockStreaming
+  PackageSinglePass
+  PageSinglePass
+  DomAstModel
+  LayoutTwoStage
+  ContainerRecursive
+} derive(Eq)
+
+///|
+pub struct PreflightProbe {
+  format : @input.DetectedFormat
+  selected_route : CanonicalRoute
+  reason : String
+  summary : String
+}
+
+///|
+pub struct RouteDecision {
+  selected_route : CanonicalRoute
+  reason : String
+  probe_summary : String
+  same_mode_degradation : String?
 }
 
 ///|
@@ -74,11 +102,16 @@ pub impl Show for ConvertError with fn output(
 ///|
 pub struct ConvertResult {
   content : String
+  output_format : OutputFormat
   detected_format : @input.DetectedFormat
   parser_mode : @parser.ParserMode
   convert_mode : ConvertMode
+  metadata : @core.DocumentMetadata
   diagnostics : @core.Diagnostics
   assets : Array[@core.AssetRef]
+  source_map : @core.SourceMap?
+  chunks : Array[@rag.RagChunk]?
+  debug_ir : @core.DocumentIR?
 }
 
 ///|
@@ -106,6 +139,7 @@ pub fn default_convert_options() -> ConvertOptions {
     limits: default_resource_limits(),
     pdf_cleanup_mode: default_pdf_cleanup_mode(),
     pdf_table_mode: default_pdf_table_mode(),
+    rag_options: @rag.default_rag_options(),
   }
 }
 
@@ -118,6 +152,7 @@ pub fn make_convert_options(
   limits : ResourceLimits,
   pdf_cleanup_mode? : PdfCleanupMode = default_pdf_cleanup_mode(),
   pdf_table_mode? : PdfTableMode = default_pdf_table_mode(),
+  rag_options? : @rag.RagOptions = @rag.default_rag_options(),
 ) -> ConvertOptions {
   {
     mode,
@@ -127,6 +162,7 @@ pub fn make_convert_options(
     limits,
     pdf_cleanup_mode,
     pdf_table_mode,
+    rag_options,
   }
 }
 
@@ -195,6 +231,21 @@ pub fn convert_input_with_image_ocr_provider(
   let preparse_diagnostics = @core.empty_diagnostics()
   preparse_diagnostics.pass_trace.push("detect:" + detect_trace)
   preparse_diagnostics.pass_trace.push("registry:lookup")
+  let route_decision = plan_route(effective_source, detected.format, options)
+  preparse_diagnostics.metrics.set(
+    "selected_route",
+    canonical_route_name(route_decision.selected_route),
+  )
+  preparse_diagnostics.metrics.set("route_reason", route_decision.reason)
+  preparse_diagnostics.metrics.set(
+    "route_probe_summary",
+    route_decision.probe_summary,
+  )
+  match route_decision.same_mode_degradation {
+    Some(value) =>
+      preparse_diagnostics.metrics.set("same_mode_degradation", value)
+    None => ()
+  }
   let registry = @formats.builtin_registry()
   let parse_context = @parser.parse_context_with_limits(
     parse_context_with_product_pdf_modes(
@@ -227,6 +278,7 @@ pub fn convert_input_with_image_ocr_provider(
     @pipeline.make_pass_context(
       options.mode == ConvertMode::Debug,
       convert_mode_name(options.mode),
+      pdf_cleanup_enabled=options.pdf_cleanup_mode != PdfCleanupMode::Disabled,
     ),
   )
   let merged_diagnostics = @runtime.merge_diagnostics_unique(
@@ -264,15 +316,32 @@ pub fn convert_input_with_image_ocr_provider(
   document.diagnostics.pass_trace.push("render:" + renderer.name)
   let rendered = (renderer.render)(
     document,
-    @render.make_render_context(options.mode == ConvertMode::Debug),
+    @render.make_render_context(
+      options.mode == ConvertMode::Debug,
+      rag_options=options.rag_options,
+    ),
   )
   Ok({
     content: rendered.content,
+    output_format: options.output_format,
     detected_format: detected.format,
     parser_mode: parsed.mode,
     convert_mode: options.mode,
+    metadata: document.metadata,
     diagnostics: rendered.diagnostics,
     assets: document.assets,
+    source_map: if options.output_format == OutputFormat::RagJson &&
+      !options.rag_options.preserve_source_ref {
+      None
+    } else {
+      document.source_map
+    },
+    chunks: rendered.chunks,
+    debug_ir: if options.output_format == OutputFormat::DebugJson {
+      Some(document)
+    } else {
+      None
+    },
   })
 }
 
@@ -387,6 +456,101 @@ fn convert_mode_to_parser_mode(mode : ConvertMode) -> @parser.ParserMode? {
 }
 
 ///|
+pub fn preflight_probe(
+  _source : @input.InputSource,
+  format : @input.DetectedFormat,
+  options : ConvertOptions,
+) -> PreflightProbe {
+  let route = canonical_route_for_format(format, options)
+  {
+    format,
+    selected_route: route,
+    reason: route_reason_for_format(format, options, route),
+    summary: "phase1_probe:" +
+    @input.detected_format_name(format) +
+    ":" +
+    canonical_route_name(route),
+  }
+}
+
+///|
+pub fn plan_route(
+  source : @input.InputSource,
+  format : @input.DetectedFormat,
+  options : ConvertOptions,
+) -> RouteDecision {
+  let probe = preflight_probe(source, format, options)
+  {
+    selected_route: probe.selected_route,
+    reason: probe.reason,
+    probe_summary: probe.summary,
+    same_mode_degradation: None,
+  }
+}
+
+///|
+pub fn canonical_route_for_format(
+  format : @input.DetectedFormat,
+  options : ConvertOptions,
+) -> CanonicalRoute {
+  if options.mode == ConvertMode::Stream {
+    return CanonicalRoute::StreamingEvent
+  }
+  match format {
+    @input.DetectedFormat::Txt
+    | @input.DetectedFormat::Csv
+    | @input.DetectedFormat::Tsv
+    | @input.DetectedFormat::Jsonl
+    | @input.DetectedFormat::Ndjson => CanonicalRoute::StreamingEvent
+    @input.DetectedFormat::Markdown => CanonicalRoute::DomAstModel
+    @input.DetectedFormat::Json => CanonicalRoute::DomAstModel
+    @input.DetectedFormat::Yaml => CanonicalRoute::DomAstModel
+    @input.DetectedFormat::Xml => CanonicalRoute::DomAstModel
+    @input.DetectedFormat::Html => CanonicalRoute::DomAstModel
+    @input.DetectedFormat::Docx => CanonicalRoute::PackageSinglePass
+    @input.DetectedFormat::Pptx => CanonicalRoute::PackageSinglePass
+    @input.DetectedFormat::Xlsx => CanonicalRoute::PackageSinglePass
+    @input.DetectedFormat::Epub => CanonicalRoute::PackageSinglePass
+    @input.DetectedFormat::Pdf =>
+      if options.mode == ConvertMode::Accurate ||
+        options.ocr_options.intent == @parser.OcrIntent::Explicit {
+        CanonicalRoute::LayoutTwoStage
+      } else {
+        CanonicalRoute::PageSinglePass
+      }
+    @input.DetectedFormat::Zip => CanonicalRoute::ContainerRecursive
+    _ => CanonicalRoute::DomAstModel
+  }
+}
+
+///|
+pub fn canonical_route_name(route : CanonicalRoute) -> String {
+  match route {
+    CanonicalRoute::StreamingEvent => "streaming_event"
+    CanonicalRoute::BlockStreaming => "block_streaming"
+    CanonicalRoute::PackageSinglePass => "package_single_pass"
+    CanonicalRoute::PageSinglePass => "page_single_pass"
+    CanonicalRoute::DomAstModel => "dom_ast_model"
+    CanonicalRoute::LayoutTwoStage => "layout_two_stage"
+    CanonicalRoute::ContainerRecursive => "container_recursive"
+  }
+}
+
+///|
+fn route_reason_for_format(
+  format : @input.DetectedFormat,
+  options : ConvertOptions,
+  route : CanonicalRoute,
+) -> String {
+  if options.mode == ConvertMode::Stream {
+    return "explicit_stream_mode"
+  }
+  @input.detected_format_name(format) +
+  "_canonical_" +
+  canonical_route_name(route)
+}
+
+///|
 fn parse_context_with_product_pdf_modes(
   context : @parser.ParseContext,
   detected_format : @input.DetectedFormat,
@@ -439,6 +603,7 @@ fn finalize_image_convert_result(
     @pipeline.make_pass_context(
       options.mode == ConvertMode::Debug,
       convert_mode_name(options.mode),
+      pdf_cleanup_enabled=options.pdf_cleanup_mode != PdfCleanupMode::Disabled,
     ),
   )
   let merged_diagnostics = @runtime.merge_diagnostics_unique(
@@ -468,15 +633,32 @@ fn finalize_image_convert_result(
   document.diagnostics.pass_trace.push("render:" + renderer.name)
   let rendered = (renderer.render)(
     document,
-    @render.make_render_context(options.mode == ConvertMode::Debug),
+    @render.make_render_context(
+      options.mode == ConvertMode::Debug,
+      rag_options=options.rag_options,
+    ),
   )
   {
     content: rendered.content,
+    output_format: options.output_format,
     detected_format,
     parser_mode: parsed.mode,
     convert_mode: options.mode,
+    metadata: document.metadata,
     diagnostics: rendered.diagnostics,
     assets: document.assets,
+    source_map: if options.output_format == OutputFormat::RagJson &&
+      !options.rag_options.preserve_source_ref {
+      None
+    } else {
+      document.source_map
+    },
+    chunks: rendered.chunks,
+    debug_ir: if options.output_format == OutputFormat::DebugJson {
+      Some(document)
+    } else {
+      None
+    },
   }
 }
 
@@ -485,7 +667,7 @@ fn renderer_for_output(format : OutputFormat) -> @render.Renderer {
   match format {
     OutputFormat::Markdown => @render.markdown_renderer()
     OutputFormat::Json => @render.debug_json_renderer()
-    OutputFormat::RagJson => @render.debug_json_renderer()
+    OutputFormat::RagJson => @render.rag_json_renderer()
     OutputFormat::DebugJson => @render.debug_json_renderer()
   }
 }

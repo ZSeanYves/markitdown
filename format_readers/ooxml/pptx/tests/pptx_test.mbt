@@ -1200,3 +1200,51 @@ test "pptx E reading order policy uses placeholders geometry and grouping" {
   assert_true(saw_decorative)
   assert_true(saw_group_order)
 }
+
+///|
+test "pptx E reading order keeps large grouped coordinates in slide space" {
+  let slide = simple_slide(
+    "<p:sp><p:nvSpPr><p:cNvPr id=\"7\" name=\"TextBox 6\"/><p:cNvSpPr txBox=\"1\"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"5580112\" y=\"2924944\"/><a:ext cx=\"1005403\" cy=\"369332\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:solidFill><a:srgbClr val=\"D9D9D9\"/></a:solidFill></a:ln></p:spPr><p:txBody><a:bodyPr wrap=\"none\" rtlCol=\"0\"><a:spAutoFit/></a:bodyPr><a:lstStyle/><a:p><a:r><a:t>Test text</a:t></a:r></a:p></p:txBody></p:sp>" +
+    "<p:grpSp><p:nvGrpSpPr><p:cNvPr id=\"11\" name=\"Group 10\"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x=\"5580112\" y=\"3645024\"/><a:ext cx=\"1608659\" cy=\"1305436\"/><a:chOff x=\"5580112\" y=\"3645024\"/><a:chExt cx=\"1608659\" cy=\"1305436\"/></a:xfrm></p:grpSpPr>" +
+    "<p:sp><p:nvSpPr><p:cNvPr id=\"10\" name=\"TextBox 9\"/><p:cNvSpPr txBox=\"1\"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"5580112\" y=\"4581128\"/><a:ext cx=\"1608659\" cy=\"369332\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:solidFill><a:srgbClr val=\"D9D9D9\"/></a:solidFill></a:ln></p:spPr><p:txBody><a:bodyPr wrap=\"none\" rtlCol=\"0\"><a:spAutoFit/></a:bodyPr><a:lstStyle/><a:p><a:r><a:t>Group test text</a:t></a:r></a:p></p:txBody></p:sp>" +
+    "</p:grpSp>",
+  )
+  let doc = @pptx.parse_pptx_document_from_package(
+    one_slide_pkg(slide, "", "", []),
+  )
+  let slide0 = doc.slides[0]
+  let mut saw_test = false
+  let mut saw_group = false
+  let mut test_key = ""
+  let mut group_key = ""
+  for obj in slide0.objects {
+    match obj {
+      @pptx.PptxObject::Shape(shape) =>
+        if shape.name == Some("TextBox 6") {
+          saw_test = true
+          match shape.reading_order {
+            Some(hint) => test_key = hint.order_key
+            None => fail("expected reading order for test text")
+          }
+        }
+      @pptx.PptxObject::Group(group) =>
+        for child in group.children {
+          match child {
+            @pptx.PptxObject::Shape(shape) =>
+              if shape.name == Some("TextBox 9") {
+                saw_group = true
+                match shape.reading_order {
+                  Some(hint) => group_key = hint.order_key
+                  None => fail("expected reading order for grouped text")
+                }
+              }
+            _ => ()
+          }
+        }
+      _ => ()
+    }
+  }
+  assert_true(saw_test)
+  assert_true(saw_group)
+  assert_true(test_key.lexical_compare(group_key) < 0)
+}

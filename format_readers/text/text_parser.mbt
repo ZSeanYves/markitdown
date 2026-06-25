@@ -80,15 +80,18 @@ fn parse_text_document_with_profile(
   let mut saw_crlf = false
   let mut saw_cr = false
   let mut i = 0
+  let mut reuse_original_text = true
 
   if chars.length() > 0 && chars[0] == '\u{FEFF}' {
     i = 1
+    reuse_original_text = false
   }
 
   let newline_started = text_parse_profile_stage_started(profile)
   while i < chars.length() {
     let ch = chars[i]
     if ch == '\r' {
+      reuse_original_text = false
       if i + 1 < chars.length() && chars[i + 1] == '\n' {
         saw_crlf = true
         i += 2
@@ -150,7 +153,8 @@ fn parse_text_document_with_profile(
   )
 
   build_text_document_from_chars(
-    text, normalized_chars, newline_style, lines, paragraphs, profile,
+    text, normalized_chars, newline_style, lines, paragraphs, reuse_original_text,
+    profile,
   )
 }
 
@@ -210,6 +214,7 @@ fn parse_normalized_text_document_with_profile(
     TextNewlineStyle::LF,
     lines,
     paragraphs,
+    true,
     profile,
   )
 }
@@ -221,10 +226,11 @@ fn build_text_document_from_chars(
   newline_style : TextNewlineStyle,
   lines : Array[TextLine],
   paragraphs : Array[TextParagraph],
+  reuse_original_text : Bool,
   profile : TextParseProfileReport?,
 ) -> TextDocument {
   let build_started = text_parse_profile_stage_started(profile)
-  let normalized = if text_chars_equal_string(normalized_chars, original_text) {
+  let normalized = if reuse_original_text {
     original_text
   } else {
     String::from_array(normalized_chars)
@@ -247,20 +253,6 @@ fn build_text_document_from_chars(
     None => ()
   }
   doc
-}
-
-///|
-fn text_chars_equal_string(chars : Array[Char], text : String) -> Bool {
-  let original = text.to_array()
-  if chars.length() != original.length() {
-    return false
-  }
-  for i in 0..<chars.length() {
-    if chars[i] != original[i] {
-      return false
-    }
-  }
-  true
 }
 
 ///|

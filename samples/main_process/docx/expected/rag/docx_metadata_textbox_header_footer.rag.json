@@ -1,0 +1,70 @@
+{
+  "output_format": "rag_json",
+  "detected_format": "docx",
+  "parser_mode": "package_single_pass",
+  "convert_mode": "rag",
+  "diagnostics_contains": {
+    "parser_name": "docx_parser",
+    "metrics": {
+      "renderer_name": "RagJsonRenderer"
+    }
+  },
+  "source_map": "null",
+  "chunk_count": {
+    "min": 5
+  },
+  "chunks": [
+    {
+      "kind": "metadata",
+      "heading_path": [],
+      "source_ref_count": 0,
+      "asset_ref_count": 0,
+      "text_contains_all": [
+        "title: DOCX Metadata TextBox Header Footer\napplication: fixture"
+      ]
+    },
+    {
+      "kind": "text",
+      "heading_path": [],
+      "source_ref_count": 1,
+      "asset_ref_count": 0,
+      "text_contains_all": [
+        "Metadata body."
+      ],
+      "location_contains": {
+        "container_paths": [
+          "samples/main_process/docx/rag/docx_metadata_textbox_header_footer.docx"
+        ],
+        "entry_paths": [
+          "word/document.xml"
+        ]
+      }
+    },
+    {
+      "kind": "text",
+      "heading_path": [
+        "Headers",
+        "Header 1 Default"
+      ],
+      "source_ref_count": 1,
+      "asset_ref_count": 0,
+      "text_contains_all": [
+        "Meta Header\nHeader text box."
+      ],
+      "location_contains": {
+        "container_paths": [
+          "samples/main_process/docx/rag/docx_metadata_textbox_header_footer.docx"
+        ],
+        "entry_paths": [
+          "word/header1.xml"
+        ]
+      }
+    }
+  ],
+  "metadata_contains": {
+    "application": "fixture",
+    "pages": "1",
+    "title": "DOCX Metadata TextBox Header Footer",
+    "words": "0"
+  }
+}

@@ -139,7 +139,11 @@ fn child_document_from_parse_result(
 ) -> @core.DocumentIR {
   let mut document = @pipeline.build_document_with_default_pipeline(
     parse_result_to_ir_input(parsed),
-    @pipeline.make_pass_context(debug, parsed.mode |> @parser.mode_name),
+    @pipeline.make_pass_context(
+      debug,
+      parsed.mode |> @parser.mode_name,
+      pdf_cleanup_enabled=false,
+    ),
     trace_builder=false,
     trace_passes=false,
   )

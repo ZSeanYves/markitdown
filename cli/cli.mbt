@@ -10,9 +10,11 @@ pub struct CliOptions {
   output : String?
   explicit_format : @input.DetectedFormat?
   ocr_options : @parser.OcrOptions
+  convert_mode : @convert.ConvertMode
   output_format : @convert.OutputFormat
   pdf_cleanup_mode : @convert.PdfCleanupMode
   pdf_table_mode : @convert.PdfTableMode
+  rag_options : @rag.RagOptions
 }
 
 ///|
@@ -72,7 +74,7 @@ pub fn print_cli_usage() -> Unit {
   println(
     "  " +
     cli_product_name() +
-    " [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|xml|yaml|yml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf] [--json|--debug] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] <input> [output]",
+    " [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|xml|yaml|yml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] <input> [output]",
   )
   println("  " + cli_product_name() + " help | --help | -h")
   println("  " + cli_product_name() + " version | --version")
@@ -84,7 +86,10 @@ pub fn print_cli_usage() -> Unit {
     "All other formats fail closed until each format is migrated to the current main CLI.",
   )
   println(
-    "`--json` and `--debug` emit diagnostics through the current renderer debug JSON output.",
+    "`--debug` emits diagnostics through the current renderer debug JSON output.",
+  )
+  println(
+    "`--rag` emits chunked retrieval JSON with the default internal chunking policy.",
   )
   println(
     "Explicit image `--ocr` may invoke local Tesseract; PDF OCR is not supported and scanned/image-only PDFs remain fail-closed.",
@@ -191,18 +196,22 @@ pub fn make_cli_options(
   output : String?,
   explicit_format : @input.DetectedFormat?,
   ocr_options : @parser.OcrOptions,
+  convert_mode : @convert.ConvertMode,
   output_format : @convert.OutputFormat,
   pdf_cleanup_mode? : @convert.PdfCleanupMode = @convert.default_pdf_cleanup_mode(),
   pdf_table_mode? : @convert.PdfTableMode = @convert.default_pdf_table_mode(),
+  rag_options? : @rag.RagOptions = @rag.default_rag_options(),
 ) -> CliOptions {
   {
     input,
     output,
     explicit_format,
     ocr_options,
+    convert_mode,
     output_format,
     pdf_cleanup_mode,
     pdf_table_mode,
+    rag_options,
   }
 }
 
@@ -246,13 +255,14 @@ pub fn run_cli_with_image_ocr_provider(
     )
   }
   let convert_options = @convert.make_convert_options(
-    @convert.ConvertMode::Balanced,
+    opts.convert_mode,
     opts.output_format,
     opts.explicit_format,
     opts.ocr_options,
     @convert.default_resource_limits(),
     pdf_cleanup_mode=opts.pdf_cleanup_mode,
     pdf_table_mode=opts.pdf_table_mode,
+    rag_options=opts.rag_options,
   )
   let result = match
     @convert.convert_input_with_image_ocr_provider(
@@ -294,13 +304,14 @@ pub async fn run_cli_with_async_image_ocr_provider(
     )
   }
   let convert_options = @convert.make_convert_options(
-    @convert.ConvertMode::Balanced,
+    opts.convert_mode,
     opts.output_format,
     opts.explicit_format,
     opts.ocr_options,
     @convert.default_resource_limits(),
     pdf_cleanup_mode=opts.pdf_cleanup_mode,
     pdf_table_mode=opts.pdf_table_mode,
+    rag_options=opts.rag_options,
   )
   let result = if allow_explicit_image_ocr {
     match
@@ -408,17 +419,29 @@ pub fn normalize_cli_args_for_subcommand(args : Array[String]) -> Array[String] 
 }
 
 ///|
-pub async fn run_cli_app(raw_cli_args : Array[String]) -> Int {
-  let cli_args = normalize_cli_args_for_subcommand(
-    normalize_cli_args(raw_cli_args),
-  )
-  if cli_args.length() == 0 {
-    print_cli_help()
-    print_cli_usage()
-    return 0
+fn first_user_cli_arg(raw_cli_args : Array[String]) -> String? {
+  if raw_cli_args.length() <= 1 {
+    None
+  } else {
+    Some(raw_cli_args[1].trim().to_owned())
   }
+}
 
-  let first = cli_args[0].trim().to_owned().to_lower()
+///|
+fn is_convert_subcommand(name : String) -> Bool {
+  name == "convert" || name == "normal"
+}
+
+///|
+pub fn run_cli_app(raw_cli_args : Array[String]) -> Int {
+  let first = match first_user_cli_arg(raw_cli_args) {
+    Some(value) => value.to_lower()
+    None => {
+      print_cli_help()
+      print_cli_usage()
+      return 0
+    }
+  }
   if first == "help" || first == "--help" || first == "-h" {
     print_cli_help()
     print_cli_usage()
@@ -451,19 +474,23 @@ pub async fn run_cli_app(raw_cli_args : Array[String]) -> Int {
       "unsupported subcommand: bench moved to the dedicated bench package", true,
     )
   }
-  if first != "convert" && first != "normal" {
-    return exit_cli_error("unsupported subcommand", true)
-  }
 
-  let parsed_args : Array[String] = []
-  for i in 1..<cli_args.length() {
-    parsed_args.push(cli_args[i])
+  let cli_args = normalize_cli_args(raw_cli_args)
+  if cli_args.length() == 0 {
+    print_cli_help()
+    print_cli_usage()
+    return 0
   }
-  let opts = match parse_cli_options(parsed_args) {
+  let parsed = if is_convert_subcommand(first) {
+    parse_cli_options_from_index(cli_args, 1)
+  } else {
+    parse_cli_options(cli_args)
+  }
+  let opts = match parsed {
     Ok(value) => value
     Err(msg) => return exit_cli_error(msg, true)
   }
-  let rendered = match run_cli_async(opts) {
+  let rendered = match run_cli(opts) {
     Ok(value) => value
     Err(msg) => return exit_cli_error(msg, false)
   }
@@ -555,6 +582,14 @@ fn find_first_eq(s : String) -> Int? {
 
 ///|
 fn parse_cli_options(args : Array[String]) -> Result[CliOptions, String] {
+  parse_cli_options_from_index(args, 0)
+}
+
+///|
+fn parse_cli_options_from_index(
+  args : Array[String],
+  start_index : Int,
+) -> Result[CliOptions, String] {
   let positionals : Array[String] = []
   let mut explicit_format_raw : String? = None
   let mut ocr_enabled = false
@@ -562,8 +597,10 @@ fn parse_cli_options(args : Array[String]) -> Result[CliOptions, String] {
   let mut ocr_language : String? = None
   let mut pdf_cleanup_raw : String? = None
   let mut pdf_tables_raw : String? = None
+  let mut rag_enabled = false
+  let mut convert_mode = @convert.ConvertMode::Balanced
   let mut output_format = @convert.OutputFormat::Markdown
-  let mut i = 0
+  let mut i = start_index
 
   while i < args.length() {
     let arg = args[i].trim().to_owned()
@@ -583,8 +620,22 @@ fn parse_cli_options(args : Array[String]) -> Result[CliOptions, String] {
       i += 2
       continue
     }
-    if arg == "--json" || arg == "--debug" {
+    if arg == "--debug" {
+      if rag_enabled {
+        return Err("cannot combine --debug and --rag")
+      }
+      convert_mode = @convert.ConvertMode::Debug
       output_format = @convert.OutputFormat::DebugJson
+      i += 1
+      continue
+    }
+    if arg == "--rag" {
+      if output_format == @convert.OutputFormat::DebugJson {
+        return Err("cannot combine --debug and --rag")
+      }
+      rag_enabled = true
+      convert_mode = @convert.ConvertMode::Rag
+      output_format = @convert.OutputFormat::RagJson
       i += 1
       continue
     }
@@ -654,7 +705,7 @@ fn parse_cli_options(args : Array[String]) -> Result[CliOptions, String] {
   }
   if positionals.length() < 1 || positionals.length() > 2 {
     return Err(
-      "usage: [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|xml|yaml|yml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf] [--json|--debug] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] <input> [output]",
+      "usage: [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|xml|yaml|yml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] <input> [output]",
     )
   }
   let explicit_format = match parse_explicit_format(explicit_format_raw) {
@@ -687,9 +738,11 @@ fn parse_cli_options(args : Array[String]) -> Result[CliOptions, String] {
       output,
       explicit_format,
       ocr_options,
+      convert_mode,
       output_format,
       pdf_cleanup_mode~,
       pdf_table_mode~,
+      rag_options=@rag.default_rag_options(),
     ),
   )
 }

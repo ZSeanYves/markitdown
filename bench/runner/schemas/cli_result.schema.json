@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CLI Benchmark Result",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "repo_commit",
+    "runner_mode",
+    "canonical_performance",
+    "tool",
+    "bench_id",
+    "format",
+    "size_class",
+    "enabled_tier",
+    "rel_path",
+    "input_bytes",
+    "input_sha256",
+    "command_kind",
+    "command_display",
+    "repeat_index",
+    "repeat_count",
+    "exit_code",
+    "status",
+    "wall_ms",
+    "wall_us",
+    "stdout_bytes",
+    "stderr_bytes",
+    "output_bytes",
+    "timed_out"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer" },
+    "run_id": { "type": "string" },
+    "repo_commit": { "type": "string" },
+    "runner_mode": {
+      "type": ["string", "null"],
+      "description": "Invocation mode of the bench runner: release, dev_moon_run, or unknown."
+    },
+    "canonical_performance": {
+      "type": ["boolean", "null"],
+      "description": "True when the run is marked as canonical release-runner performance data."
+    },
+    "runner_path": {
+      "type": ["string", "null"],
+      "description": "Resolved runner executable path when known."
+    },
+    "tool": { "type": "string" },
+    "tool_version": { "type": ["string", "null"] },
+    "measurement_mode": {
+      "type": ["string", "null"],
+      "description": "How the benchmark was measured: process-cli for spawned tools or inprocess-engine for the MoonBit in-process engine baseline."
+    },
+    "output_write_mode": {
+      "type": ["string", "null"],
+      "description": "Observed output path mode for the measured row: file for canonical persisted output, stdout_capture for CLI attribution runs, and memory/none for engine-only diagnostic attribution modes."
+    },
+    "command_kind": { "type": "string" },
+    "command_display": { "type": "string" },
+    "bench_id": { "type": "string" },
+    "format": { "type": "string" },
+    "size_class": { "type": "string" },
+    "enabled_tier": { "type": "string" },
+    "bench_layers": { "type": "string" },
+    "tags": { "type": "string" },
+    "rel_path": { "type": "string" },
+    "input_bytes": { "type": "integer" },
+    "input_sha256": { "type": "string" },
+    "repeat_index": { "type": "integer" },
+    "repeat_count": { "type": "integer" },
+    "exit_code": { "type": "integer" },
+    "status": { "type": "string" },
+    "wall_ms": {
+      "type": "number",
+      "description": "Rounded wall-clock milliseconds for compatibility and human display."
+    },
+    "wall_us": {
+      "type": ["integer", "null"],
+      "description": "Preferred wall-clock measurement in microseconds used for speedup and fixed-overhead calculations."
+    },
+    "user_time_us": { "type": ["integer", "null"] },
+    "sys_time_us": { "type": ["integer", "null"] },
+    "peak_rss_kb": { "type": ["integer", "null"] },
+    "stdout_bytes": { "type": "integer" },
+    "stderr_bytes": { "type": "integer" },
+    "output_bytes": { "type": "integer" },
+    "stdout_excerpt": { "type": "string" },
+    "stderr_excerpt": { "type": "string" },
+    "timed_out": { "type": "boolean" },
+    "error": { "type": ["string", "null"] }
+  }
+}

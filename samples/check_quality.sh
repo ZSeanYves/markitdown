@@ -26,6 +26,9 @@ Default behavior:
   * does not fall back to repo-local quality rows
   * auto-detects whether the current main CLI supports `--with-metadata`
     and falls back to metadata-off when the option is still fail-closed
+  * keeps raw per-row outputs for executed rows under `raw/`
+  * writes non-pass per-row reports under `reports/`
+  * uses `workspace/` only as scratch CLI temp space
 
 Examples:
   ./samples/check_quality.sh
@@ -97,6 +100,10 @@ summary_value() {
 
 summary_total_value() {
   summary_value_col "$1" "$2" 6
+}
+
+summary_note_value() {
+  summary_value_col "$1" "$2" 7
 }
 
 runner_from_log() {
@@ -199,11 +206,19 @@ checked="0"
 failed="0"
 skipped="0"
 expected_fail="0"
+selected_rows="0"
+executable_rows="0"
+artifact_groups="0"
+skip_no_signals="0"
 if [[ -f "$SUMMARY_PATH" ]]; then
   rows="$(summary_total_value "TOTAL" "$SUMMARY_PATH")"
   failed="$(summary_value "FAILED" "$SUMMARY_PATH")"
   skipped="$(summary_value "SKIPPED" "$SUMMARY_PATH")"
   expected_fail="$(summary_value "EXPECTED_FAIL" "$SUMMARY_PATH")"
+  selected_rows="$(summary_note_value "SELECTED_ROWS" "$SUMMARY_PATH")"
+  executable_rows="$(summary_note_value "EXECUTABLE_ROWS" "$SUMMARY_PATH")"
+  artifact_groups="$(summary_note_value "ARTIFACT_GROUPS" "$SUMMARY_PATH")"
+  skip_no_signals="$(summary_value "SKIPPED_NO_SIGNALS" "$SUMMARY_PATH")"
 fi
 if [[ "$rows" =~ ^[0-9]+$ && "$skipped" =~ ^[0-9]+$ && "$rows" -ge "$skipped" ]]; then
   checked=$((rows - skipped))
@@ -245,17 +260,22 @@ fi
   echo
   echo "- Formats: $format_label"
   echo "- Rows: $rows"
+  echo "- Selected rows: $selected_rows"
+  echo "- Executable rows: $executable_rows"
+  echo "- Artifact groups: $artifact_groups"
   echo "- Checked: $checked"
   echo "- Skipped: $skipped"
+  echo "- Skip no signals: $skip_no_signals"
   echo "- Failed: $failed"
   echo "- Expected fail: $expected_fail"
   echo
   echo "## Where to look next"
   echo
   echo "- Full log: $(display_path "$RUN_LOG_PATH")"
-  echo "- Diffs: $(display_path "$DIFF_DIR")"
-  echo "- Raw output: $(display_path "$RAW_DIR")"
-  echo "- Reports: $(display_path "$REPORTS_DIR")"
+  echo "- Raw executed outputs: $(display_path "$RAW_DIR")"
+  echo "- Non-pass index: $(display_path "$REPORTS_DIR/nonpass.md")"
+  echo "- Row reports: $(display_path "$REPORTS_DIR/rows")"
+  echo "- Workspace scratch: $(display_path "$WORKSPACE_DIR")"
 } > "$SUMMARY_MD_PATH"
 
 if [[ "$status" -ne 0 ]]; then

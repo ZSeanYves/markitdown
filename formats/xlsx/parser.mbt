@@ -1,12 +1,12 @@
 ///|
 pub fn xlsx_parser_capability() -> @parser.ParserCapability {
   @parser.make_parser_capability(
-    @parser.ParserMode::WorkbookModel,
+    @parser.ParserMode::PackageSinglePass,
     false,
     @parser.StreamingGranularity::XlsxSheet,
     true,
-    false,
-    false,
+    true,
+    true,
     false,
     false,
     true,
@@ -28,7 +28,7 @@ pub fn xlsx_parser() -> @parser.Parser {
   let capability = xlsx_parser_capability()
   @parser.make_parser(
     "xlsx_parser",
-    @parser.ParserMode::WorkbookModel,
+    @parser.ParserMode::PackageSinglePass,
     capability,
     fn(
       source : @input.InputSource,
@@ -40,6 +40,55 @@ pub fn xlsx_parser() -> @parser.Parser {
 }
 
 ///|
+/// Benchmark-oriented helper that parses workbook-level OOXML structures and
+/// returns the included visible sheet count.
+pub fn xlsx_workbook_metric(source : @input.InputSource) -> Result[Int, String] {
+  let bytes = match @input.read_input_bytes(source) {
+    Ok(value) => value
+    Err(err) => return Err(err)
+  }
+  let pkg = try @ox.open_ooxml_package(bytes) |> Ok catch {
+    err => Err(err.to_string())
+  }
+  let pkg = match pkg {
+    Ok(value) => value
+    Err(err) => return Err(err)
+  }
+  let workbook = try
+    xlsx_parse_workbook(
+      pkg,
+      @core.empty_diagnostics(),
+      xlsx_benchmark_parse_context(),
+    )
+    |> Ok
+  catch {
+    err => Err(err.to_string())
+  }
+  match workbook {
+    Ok(value) => Ok(value.sheets.length())
+    Err(err) => Err(err)
+  }
+}
+
+///|
+/// Benchmark-oriented helper that parses workbook structures and returns the
+/// non-empty cell count of the first included sheet.
+pub fn xlsx_first_sheet_metric(
+  source : @input.InputSource,
+) -> Result[Int, String] {
+  let workbook = xlsx_workbook_from_source(source)
+  match workbook {
+    Ok(value) =>
+      if value.sheets.length() == 0 {
+        Ok(0)
+      } else {
+        Ok(value.sheets[0].non_empty_cell_count)
+      }
+    Err(err) => Err(err)
+  }
+}
+
+///|
 fn xlsx_parse_document_result(
   source : @input.InputSource,
   context : @parser.ParseContext,
@@ -47,7 +96,7 @@ fn xlsx_parse_document_result(
 ) -> Result[@parser.ParseResult, String] {
   let diagnostics = @light_common.empty_parser_diagnostics(
     "xlsx_parser",
-    @parser.ParserMode::WorkbookModel,
+    @parser.ParserMode::PackageSinglePass,
     source,
     "xlsx",
   )
@@ -120,12 +169,52 @@ fn xlsx_parse_document_result(
   Ok(
     @parser.parse_result_with_document_capability(
       "xlsx_parser",
-      @parser.ParserMode::WorkbookModel,
+      @parser.ParserMode::PackageSinglePass,
       final_document,
       diagnostics,
       capability,
     ),
   )
+}
+
+///|
+fn xlsx_benchmark_parse_context() -> @parser.ParseContext {
+  @parser.parse_context_with_limits(
+    @parser.new_parse_context(@input.DetectedFormat::Xlsx),
+    None,
+    Some(2000),
+    Some(50),
+    Some(100000),
+    Some(4000),
+    false,
+  )
+}
+
+///|
+fn xlsx_workbook_from_source(
+  source : @input.InputSource,
+) -> Result[XlsxWorkbook, String] {
+  let bytes = match @input.read_input_bytes(source) {
+    Ok(value) => value
+    Err(err) => return Err(err)
+  }
+  let pkg = try @ox.open_ooxml_package(bytes) |> Ok catch {
+    err => Err(err.to_string())
+  }
+  let pkg = match pkg {
+    Ok(value) => value
+    Err(err) => return Err(err)
+  }
+  try
+    xlsx_parse_workbook(
+      pkg,
+      @core.empty_diagnostics(),
+      xlsx_benchmark_parse_context(),
+    )
+    |> Ok
+  catch {
+    err => Err(err.to_string())
+  }
 }
 
 ///|
@@ -192,7 +281,7 @@ fn xlsx_malformed_parse_result(
   )
   @parser.parse_result_with_document_capability(
     "xlsx_parser",
-    @parser.ParserMode::WorkbookModel,
+    @parser.ParserMode::PackageSinglePass,
     document,
     diagnostics,
     capability,
@@ -290,7 +379,7 @@ fn xlsx_init_diagnostics(
   context : @parser.ParseContext,
 ) -> Unit {
   diagnostics.metrics.set("parser_name", "xlsx_parser")
-  diagnostics.metrics.set("parser_mode", "workbook_model")
+  diagnostics.metrics.set("parser_mode", "package_single_pass")
   diagnostics.metrics.set(
     "input_kind",
     @light_common.input_kind_name(source.kind),
@@ -300,10 +389,10 @@ fn xlsx_init_diagnostics(
     "requested_mode",
     @light_common.requested_mode_name(context),
   )
-  diagnostics.metrics.set("effective_mode", "workbook_model")
+  diagnostics.metrics.set("effective_mode", "package_single_pass")
   diagnostics.metrics.set("ir_input_kind", "document")
   diagnostics.metrics.set("event_granularity", "xlsx_sheet")
-  diagnostics.metrics.set("event_semantics", "document_model")
+  diagnostics.metrics.set("event_semantics", "package_single_pass")
   diagnostics.metrics.set("office_document_kind", "xlsx")
   diagnostics.metrics.set("runtime_exposed", "true")
   diagnostics.metrics.set("legacy_runtime_dependency", "none")
@@ -1820,15 +1909,29 @@ fn xlsx_fill_package_metrics(
   pkg : @ox.OoxmlPackage,
 ) -> Unit {
   let validation = @ox.validate_ooxml_package(pkg)
-  let inventory = @ox.inspect_ooxml_package(pkg).inventory
+  let inventory = @ox.inspect_ooxml_inventory(pkg)
+  let package_relationship_count = (@ox.read_package_relationships(pkg) catch {
+    _ => []
+  }).length()
+  let part_relationship_count = inventory.relationship_source_parts.fold(
+    init=0,
+    fn(acc, source_part) {
+      acc +
+      (@ox.read_part_relationships(pkg, source_part) catch { _ => [] }).length()
+    },
+  )
   diagnostics.metrics.set("ooxml_part_count", inventory.part_count.to_string())
   diagnostics.metrics.set(
     "relationship_count",
-    inventory.relationship_source_parts.length().to_string(),
+    (package_relationship_count + part_relationship_count).to_string(),
   )
   diagnostics.metrics.set(
     "content_type_count",
     inventory.content_type_entry_count.to_string(),
+  )
+  diagnostics.metrics.set(
+    "media_asset_count",
+    count_xlsx_media_parts(inventory.parts).to_string(),
   )
   diagnostics.metrics.set(
     "external_relationship_count",
@@ -1901,6 +2004,17 @@ fn xlsx_count_ole_parts(parts : Array[@ox.OoxmlPartInfo]) -> Int {
   for part in parts {
     if part.part_name.contains("/embeddings/") ||
       part.part_name.contains("oleObject") {
+      count += 1
+    }
+  }
+  count
+}
+
+///|
+fn count_xlsx_media_parts(parts : Array[@ox.OoxmlPartInfo]) -> Int {
+  let mut count = 0
+  for part in parts {
+    if part.part_name.has_prefix("xl/media/") && !part.part_name.has_suffix("/") {
       count += 1
     }
   }

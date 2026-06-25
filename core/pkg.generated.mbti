@@ -10,6 +10,8 @@ pub fn block_kind_name(BlockKind) -> String
 
 pub fn block_with_attr(CoreBlock, String, String) -> CoreBlock
 
+pub fn block_with_block_id(CoreBlock, String) -> CoreBlock
+
 pub fn block_with_children(CoreBlock, Array[CoreBlock]) -> CoreBlock
 
 pub fn block_with_rich_inlines(CoreBlock, Array[CoreInline]?) -> CoreBlock
@@ -42,6 +44,8 @@ pub fn diagnostics_with_parser(Diagnostics, String?, String?) -> Diagnostics
 
 pub fn document_from_blocks(Array[CoreBlock]) -> DocumentIR
 
+pub fn document_with_assembly(DocumentIR, DocumentAssembly?) -> DocumentIR
+
 pub fn document_with_assets(DocumentIR, Array[AssetRef]) -> DocumentIR
 
 pub fn document_with_blocks(DocumentIR, Array[CoreBlock]) -> DocumentIR
@@ -55,6 +59,8 @@ pub fn document_with_signals(DocumentIR, Array[CoreSignal]) -> DocumentIR
 pub fn document_with_source_map(DocumentIR, SourceMap?) -> DocumentIR
 
 pub fn empty_diagnostics() -> Diagnostics
+
+pub fn empty_document_assembly() -> DocumentAssembly
 
 pub fn empty_document_ir() -> DocumentIR
 
@@ -73,6 +79,8 @@ pub fn json_string_opt(String?) -> String
 pub fn make_asset_ref(AssetKind, String, source_ref? : SourceRef) -> AssetRef
 
 pub fn make_block(BlockKind, String, source_ref? : SourceRef) -> CoreBlock
+
+pub fn make_block_id(BlockKind, String, source_ref? : SourceRef?) -> String
 
 pub fn make_container_asset_plan(String, String, media_type? : String?, size? : Int?, copy_policy? : ContainerAssetCopyPolicy, source_ref? : SourceRef?) -> ContainerAssetPlan
 
@@ -133,6 +141,13 @@ pub fn string_array_json(Array[String]) -> String
 // Errors
 
 // Types and methods
+pub(all) struct AssetBinding {
+  asset_id : String
+  owner_block_id : String
+  relation : String
+  confidence : Int?
+}
+
 pub(all) enum AssetKind {
   Image
   Attachment
@@ -173,6 +188,13 @@ pub(all) enum BlockKind {
   BlockQuote
   Raw
 } derive(Eq)
+
+pub(all) struct CaptionBinding {
+  caption_block_id : String
+  target_block_id : String
+  relation : String
+  confidence : Int?
+}
 
 pub(all) enum ContainerAssetCopyPolicy {
   MaterializeAtOutputBoundary
@@ -257,6 +279,7 @@ pub(all) enum ContainerSecurityFinding {
 } derive(Eq)
 
 pub(all) struct CoreBlock {
+  block_id : String
   kind : BlockKind
   text : String
   rich_inlines : Array[CoreInline]?
@@ -302,6 +325,16 @@ pub(all) struct Diagnostics {
   metrics : Map[String, String]
 }
 
+pub(all) struct DocumentAssembly {
+  root_block_ids : Array[String]
+  sections : Array[SectionNode]
+  heading_paths : Map[String, Array[String]]
+  caption_bindings : Array[CaptionBinding]
+  table_continuations : Array[TableContinuation]
+  reading_order : Array[ReadingOrderEntry]
+  asset_bindings : Array[AssetBinding]
+}
+
 pub(all) struct DocumentIR {
   blocks : Array[CoreBlock]
   metadata : Map[String, JsonValue]
@@ -309,6 +342,7 @@ pub(all) struct DocumentIR {
   assets : Array[AssetRef]
   signals : Array[CoreSignal]
   source_map : SourceMap?
+  assembly : DocumentAssembly?
 }
 
 pub(all) enum EventKind {
@@ -351,6 +385,25 @@ pub(all) enum JsonValue {
   Bool(Bool)
   Null
 } derive(Eq)
+
+pub(all) struct ReadingOrderEntry {
+  block_id : String
+  ordinal : Int
+  page : Int?
+  slide : Int?
+  sheet : String?
+}
+
+pub(all) struct SectionNode {
+  section_id : String
+  heading_block_id : String?
+  title : String
+  level : Int
+  heading_path : Array[String]
+  child_section_ids : Array[String]
+  block_ids : Array[String]
+  source_ref : SourceRef?
+}
 
 pub(all) enum SignalType {
   HeadingCandidate
@@ -422,8 +475,19 @@ pub(all) struct StyleRef {
   attrs : Map[String, String]
 }
 
+pub(all) struct TableContinuation {
+  table_block_id : String
+  continues_from_block_id : String?
+  relation : String
+  confidence : Int?
+}
+
 // Type aliases
+pub type BlockId = String
+
 pub type DocumentMetadata = Map[String, JsonValue]
+
+pub type HeadingPath = Array[String]
 
 // Traits
 

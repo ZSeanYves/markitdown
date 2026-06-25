@@ -1,0 +1,32 @@
+{
+  "output_format": "rag_json",
+  "detected_format": "pdf",
+  "parser_mode": "page_single_pass",
+  "convert_mode": "rag",
+  "diagnostics_contains": {
+    "parser_name": "pdf_native_parser",
+    "metrics": {
+      "renderer_name": "RagJsonRenderer"
+    }
+  },
+  "source_map": "null",
+  "chunk_count": {
+    "min": 1
+  },
+  "chunks": [
+    {
+      "kind": "text",
+      "heading_path": [],
+      "source_ref_count": 1,
+      "asset_ref_count": 0,
+      "text_contains_all": [
+        "Visit the example website for details."
+      ],
+      "location_contains": {
+        "pages": [
+          "1"
+        ]
+      }
+    }
+  ]
+}

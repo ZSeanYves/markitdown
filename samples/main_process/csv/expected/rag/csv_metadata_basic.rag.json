@@ -1,0 +1,41 @@
+{
+  "output_format": "rag_json",
+  "detected_format": "csv",
+  "parser_mode": "streaming_event",
+  "convert_mode": "rag",
+  "diagnostics_contains": {
+    "parser_name": "csv_parser",
+    "metrics": {
+      "renderer_name": "RagJsonRenderer"
+    }
+  },
+  "source_map": "null",
+  "chunk_count": {
+    "min": 1
+  },
+  "chunks": [
+    {
+      "kind": "table",
+      "heading_path": [],
+      "source_ref_count": 10,
+      "asset_ref_count": 0,
+      "text_contains_all": [
+        "| Name | Role |\n| Alice | Engineer |\n| Bob | Designer |"
+      ],
+      "location_contains": {
+        "cell_ranges": [
+          "R1C1:R3C2",
+          "R1C1:R1C2",
+          "R1C1",
+          "R1C2",
+          "R2C1:R2C2",
+          "R2C1",
+          "R2C2",
+          "R3C1:R3C2",
+          "R3C1",
+          "R3C2"
+        ]
+      }
+    }
+  ]
+}

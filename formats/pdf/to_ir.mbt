@@ -198,6 +198,177 @@ pub fn pdf_native_document_to_ir_with_policies(
 }
 
 ///|
+pub fn pdf_native_document_to_blocks_with_policies(
+  doc : PdfNativeDocument,
+  header_footer_filter_policy : @parser.PdfHeaderFooterFilterPolicy,
+) -> (@core.DocumentMetadata, Array[@core.CoreBlock], @core.Diagnostics) {
+  let blocks : Array[@core.CoreBlock] = []
+  let link_candidates : Array[@core.JsonValue] = []
+  let annotation_items : Array[@core.JsonValue] = []
+  let form_field_items : Array[@core.JsonValue] = []
+  let outline_items : Array[@core.JsonValue] = []
+  let header_footer_candidates = pdf_native_header_footer_candidates(doc)
+  let table_candidates = pdf_native_table_candidates(
+    doc, header_footer_candidates,
+  )
+  let mut paragraph_count = 0
+  let mut image_candidate_count = 0
+  let mut table_candidate_count = 0
+  let mut artifact_candidate_count = 0
+  let mut annotation_count = 0
+  let mut destination_count = 0
+  for page in doc.pages {
+    image_candidate_count += page.image_candidates.length()
+    table_candidate_count += page.table_candidates.length()
+    artifact_candidate_count += page.artifact_candidates.length()
+    annotation_count += page.annotations.length()
+    destination_count += page.destinations.length()
+    let page_lines = pdf_native_page_blocks(
+      page, header_footer_candidates, header_footer_filter_policy,
+    )
+    blocks.append(page_lines[:])
+    paragraph_count += page_lines.length()
+    for link in page.link_candidates {
+      link_candidates.push(
+        pdf_native_link_candidate_json(link, page.geometry.page_no),
+      )
+    }
+    for annotation in page.annotations {
+      annotation_items.push(pdf_native_annotation_json(annotation))
+    }
+  }
+  for form_field in doc.form_fields {
+    form_field_items.push(pdf_native_form_field_json(form_field))
+  }
+  for outline_item in doc.outline_items {
+    outline_items.push(pdf_native_outline_item_json(outline_item))
+  }
+  let metadata : @core.DocumentMetadata = Map([])
+  for entry in doc.metadata.to_array() {
+    metadata.set(entry.0, entry.1)
+  }
+  metadata.set("format", @core.JsonValue::String("pdf"))
+  metadata.set(
+    "page_count",
+    @core.JsonValue::Number(doc.pages.length().to_string()),
+  )
+  metadata.set(
+    "pdf_native_bridge",
+    @core.JsonValue::String("product_block_stream"),
+  )
+  metadata.set(
+    "pdf_grouping_strategy",
+    @core.JsonValue::String("conservative_v1"),
+  )
+  metadata.set(
+    "pdf_grouping_paragraph_count",
+    @core.JsonValue::Number(paragraph_count.to_string()),
+  )
+  metadata.set(
+    "pdf_header_footer_candidate_strategy",
+    @core.JsonValue::String(header_footer_candidates.strategy),
+  )
+  metadata.set(
+    "pdf_header_candidate_count",
+    @core.JsonValue::Number(header_footer_candidates.header_count.to_string()),
+  )
+  metadata.set(
+    "pdf_footer_candidate_count",
+    @core.JsonValue::Number(header_footer_candidates.footer_count.to_string()),
+  )
+  metadata.set(
+    "pdf_header_footer_candidate_count",
+    @core.JsonValue::Number(
+      header_footer_candidates.candidates.length().to_string(),
+    ),
+  )
+  metadata.set(
+    "pdf_table_candidate_strategy",
+    @core.JsonValue::String(table_candidates.strategy),
+  )
+  metadata.set(
+    "pdf_table_candidate_count",
+    @core.JsonValue::Number(table_candidates.candidates.length().to_string()),
+  )
+  metadata.set(
+    "pdf_table_row_candidate_count",
+    @core.JsonValue::Number(table_candidates.row_count.to_string()),
+  )
+  metadata.set(
+    "pdf_link_candidate_count",
+    @core.JsonValue::Number(link_candidates.length().to_string()),
+  )
+  metadata.set(
+    "pdf_native_annotation_count",
+    @core.JsonValue::Number(annotation_count.to_string()),
+  )
+  metadata.set(
+    "pdf_native_form_field_count",
+    @core.JsonValue::Number(doc.form_fields.length().to_string()),
+  )
+  metadata.set(
+    "pdf_native_outline_count",
+    @core.JsonValue::Number(doc.outline_items.length().to_string()),
+  )
+  metadata.set(
+    "pdf_native_destination_count",
+    @core.JsonValue::Number(
+      (destination_count + doc.named_destinations.length()).to_string(),
+    ),
+  )
+  if header_footer_candidates.candidates.length() > 0 {
+    metadata.set(
+      "pdf_header_footer_candidates",
+      @core.JsonValue::Array(header_footer_candidates.candidates),
+    )
+  }
+  if table_candidates.candidates.length() > 0 {
+    metadata.set(
+      "pdf_table_candidates",
+      @core.JsonValue::Array(table_candidates.candidates),
+    )
+  }
+  if link_candidates.length() > 0 {
+    metadata.set("pdf_link_candidates", @core.JsonValue::Array(link_candidates))
+  }
+  if annotation_items.length() > 0 {
+    metadata.set(
+      "pdf_native_annotations",
+      @core.JsonValue::Array(annotation_items),
+    )
+  }
+  if form_field_items.length() > 0 {
+    metadata.set(
+      "pdf_native_form_fields",
+      @core.JsonValue::Array(form_field_items),
+    )
+  }
+  if outline_items.length() > 0 {
+    metadata.set(
+      "pdf_native_outline_items",
+      @core.JsonValue::Array(outline_items),
+    )
+  }
+  let diagnostics = pdf_native_stream_bridge_diagnostics(
+    doc.diagnostics,
+    blocks.length(),
+    paragraph_count,
+    link_candidates.length(),
+    annotation_count,
+    doc.form_fields.length(),
+    doc.outline_items.length(),
+    destination_count + doc.named_destinations.length(),
+    doc.pages.length(),
+    image_candidate_count,
+    table_candidate_count,
+    artifact_candidate_count,
+    header_footer_candidates,
+    table_candidates,
+  )
+  (metadata, blocks, diagnostics)
+}
+
+///|
 priv enum PdfNativeLoweringItem {
   Paragraph(String, @core.SourceRef)
   Table(@core.CoreBlock)
@@ -331,6 +502,50 @@ fn pdf_native_lowering_plan(
     table_reconstruction_skipped_reasons,
     table_reconstruction_source_refs,
   }
+}
+
+///|
+fn pdf_native_page_blocks(
+  page : PdfNativePage,
+  header_footer_candidates : PdfNativeHeaderFooterCandidateSummary,
+  header_footer_filter_policy : @parser.PdfHeaderFooterFilterPolicy,
+) -> Array[@core.CoreBlock] {
+  let blocks : Array[@core.CoreBlock] = []
+  let removal_candidates = pdf_native_header_footer_removal_candidates(
+    header_footer_candidates, header_footer_filter_policy,
+  )
+  for text_block_index in 0..<page.text_blocks.length() {
+    let block_index = text_block_index + 1
+    let text_block = page.text_blocks[text_block_index]
+    let merge_group = "page:" +
+      page.geometry.page_no.to_string() +
+      ":block:" +
+      block_index.to_string()
+    for line_index in 0..<text_block.lines.length() {
+      let line = text_block.lines[line_index]
+      let text = pdf_native_line_text(line)
+      if text == "" {
+        continue
+      }
+      let source_ref = pdf_native_line_candidate_source_ref(
+        page, text_block, block_index, line, line_index, merge_group,
+      )
+      let paragraph = @core.make_block(
+        @core.BlockKind::Paragraph,
+        text,
+        source_ref~,
+      )
+      if pdf_native_should_remove_text_block(
+          page, text_block, block_index, removal_candidates,
+        ) {
+        paragraph.signals.push(
+          @core.make_signal(@core.SignalType::HeaderFooterCandidate, 95),
+        )
+      }
+      blocks.push(paragraph)
+    }
+  }
+  blocks
 }
 
 ///|
@@ -610,6 +825,119 @@ fn pdf_native_bridge_diagnostics(
     if lowering.table_reconstruction_table_count == 0 {
       next.degraded_features.push("pdf_table_candidates_not_lowered")
     }
+  }
+  if artifact_candidate_count > 0 {
+    next.degraded_features.push("pdf_artifact_candidates_not_lowered")
+  }
+  next
+}
+
+///|
+fn pdf_native_stream_bridge_diagnostics(
+  diagnostics : @core.Diagnostics,
+  block_count : Int,
+  paragraph_count : Int,
+  link_count : Int,
+  annotation_count : Int,
+  form_field_count : Int,
+  outline_count : Int,
+  destination_count : Int,
+  page_count : Int,
+  image_candidate_count : Int,
+  table_candidate_count : Int,
+  artifact_candidate_count : Int,
+  header_footer_candidates : PdfNativeHeaderFooterCandidateSummary,
+  table_candidates : PdfNativeTableCandidateSummary,
+) -> @core.Diagnostics {
+  let next = { ..diagnostics }
+  next.pass_trace.push("pdf_native:to_block_stream")
+  next.metrics.set("ir_input_kind", "block_stream")
+  next.metrics.set("block_count", block_count.to_string())
+  next.metrics.set("paragraph_count", paragraph_count.to_string())
+  next.metrics.set("table_count", "0")
+  next.metrics.set("asset_count", "0")
+  next.metrics.set("signal_count", "0")
+  next.metrics.set("page_count", page_count.to_string())
+  next.metrics.set("link_count", link_count.to_string())
+  next.metrics.set("pdf_link_candidate_count", link_count.to_string())
+  next.metrics.set("pdf_native_annotation_count", annotation_count.to_string())
+  next.metrics.set("pdf_native_form_field_count", form_field_count.to_string())
+  next.metrics.set("pdf_native_outline_count", outline_count.to_string())
+  next.metrics.set(
+    "pdf_native_destination_count",
+    destination_count.to_string(),
+  )
+  next.metrics.set("pdf_grouping_strategy", "conservative_v1")
+  next.metrics.set("pdf_grouping_paragraph_count", paragraph_count.to_string())
+  next.metrics.set(
+    "pdf_header_footer_candidate_strategy",
+    header_footer_candidates.strategy,
+  )
+  next.metrics.set(
+    "pdf_header_candidate_count",
+    header_footer_candidates.header_count.to_string(),
+  )
+  next.metrics.set(
+    "pdf_footer_candidate_count",
+    header_footer_candidates.footer_count.to_string(),
+  )
+  next.metrics.set(
+    "pdf_header_footer_candidate_count",
+    header_footer_candidates.candidates.length().to_string(),
+  )
+  next.metrics.set("pdf_table_candidate_strategy", table_candidates.strategy)
+  next.metrics.set(
+    "pdf_table_candidate_count",
+    table_candidates.candidates.length().to_string(),
+  )
+  next.metrics.set(
+    "pdf_table_row_candidate_count",
+    table_candidates.row_count.to_string(),
+  )
+  next.metrics.set("image_candidate_count", image_candidate_count.to_string())
+  next.metrics.set("table_candidate_count", table_candidate_count.to_string())
+  next.metrics.set(
+    "artifact_candidate_count",
+    artifact_candidate_count.to_string(),
+  )
+  next.metrics.set("pdf_native_ir_bridge", "product_block_stream")
+  next.metrics.set("runtime_exposed", "true")
+  next.metrics.set("product_path_enabled", "true")
+  next.metrics.set("pdf_header_footer_removed_count", "0")
+  next.metrics.set("pdf_table_reconstruction_table_count", "0")
+  next.metrics.set("pdf_table_reconstruction_skipped_count", "0")
+  match header_footer_candidates.skipped_reason {
+    Some(reason) =>
+      next.metrics.set("pdf_header_footer_candidate_skipped", reason)
+    None => ()
+  }
+  match table_candidates.skipped_reason {
+    Some(reason) => next.metrics.set("pdf_table_candidate_skipped", reason)
+    None => ()
+  }
+  if link_count > 0 {
+    next.degraded_features.push("pdf_link_candidates_metadata_only")
+    next.fallback_trace.push(
+      "pdf native link annotations preserved as metadata only in product block stream",
+    )
+  }
+  if annotation_count > 0 {
+    next.degraded_features.push("pdf_annotation_candidates_metadata_only")
+  }
+  if form_field_count > 0 {
+    next.degraded_features.push("pdf_form_field_candidates_metadata_only")
+  }
+  if outline_count > 0 {
+    next.degraded_features.push("pdf_outline_candidates_metadata_only")
+  }
+  if destination_count > 0 {
+    next.degraded_features.push("pdf_destination_candidates_metadata_only")
+  }
+  if image_candidate_count > 0 {
+    next.degraded_features.push("pdf_image_candidates_not_lowered")
+  }
+  if table_candidate_count > 0 {
+    next.degraded_features.push("pdf_table_candidates_not_lowered")
   }
   if artifact_candidate_count > 0 {
     next.degraded_features.push("pdf_artifact_candidates_not_lowered")
@@ -1071,6 +1399,49 @@ fn pdf_native_line_preferred_source_ref(
       None
     }
   }
+}
+
+///|
+fn pdf_native_line_candidate_source_ref(
+  page : PdfNativePage,
+  text_block : PdfNativeTextBlock,
+  text_block_index : Int,
+  line : PdfNativeTextLine,
+  line_index : Int,
+  merge_group : String,
+) -> @core.SourceRef {
+  let base = match pdf_native_line_preferred_source_ref(line) {
+    Some(source_ref) => source_ref
+    None => pdf_native_line_base_source_ref(line)
+  }
+  let line_no = base.line_start.unwrap_or(line_index + 1)
+  let next = {
+    ..base,
+    format: Some(base.format.unwrap_or("pdf")),
+    page: Some(base.page.unwrap_or(page.geometry.page_no)),
+    bbox: pdf_native_effective_bbox(base.bbox, line.bbox),
+    line_start: Some(line_no),
+    line_end: Some(base.line_end.unwrap_or(line_no)),
+  }
+  if next.extra.get("page_no") == None {
+    next.extra.set("page_no", page.geometry.page_no.to_string())
+  }
+  next.extra.set("pdf_text_block_index", text_block_index.to_string())
+  next.extra.set("pdf_merge_group", merge_group)
+  next.extra.set("pdf_line_index", line_no.to_string())
+  next.extra.set(
+    "pdf_line_end_index",
+    next.line_end.unwrap_or(line_no).to_string(),
+  )
+  match text_block.reading_order_index {
+    Some(value) => next.extra.set("reading_order_index", value.to_string())
+    None =>
+      match line.reading_order_index {
+        Some(value) => next.extra.set("reading_order_index", value.to_string())
+        None => ()
+      }
+  }
+  next
 }
 
 ///|
@@ -2313,7 +2684,7 @@ fn pdf_native_link_page_no(
 }
 
 ///|
-fn pdf_native_appendix_blocks(
+pub fn pdf_native_appendix_blocks(
   metadata : Map[String, @core.JsonValue],
 ) -> Array[@core.CoreBlock] {
   let blocks : Array[@core.CoreBlock] = []
@@ -3070,6 +3441,14 @@ fn pdf_native_annotation_json(
   }
   match annotation.title {
     Some(value) => payload.set("title", @core.JsonValue::String(value))
+    None => ()
+  }
+  match annotation.subject {
+    Some(value) => payload.set("subject", @core.JsonValue::String(value))
+    None => ()
+  }
+  match annotation.file_name {
+    Some(value) => payload.set("file_name", @core.JsonValue::String(value))
     None => ()
   }
   match annotation.name {

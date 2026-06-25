@@ -1,0 +1,598 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<benchmarkCorpus>
+  <entry id="1" category="group-1" active=""'false'"">
+    <title>MoonBit XML benchmark row 1</title>
+    <summary>Deterministic UTF-8 文本 row 1 with nested structure.</summary>
+    <region>"'emea'"</region>
+    <score>29</score>
+    <link href="https://example.com/xml/1" />
+  </entry>
+  <entry id="2" category="group-2" active=""'true'"">
+    <title>MoonBit XML benchmark row 2</title>
+    <summary>Deterministic UTF-8 文本 row 2 with nested structure.</summary>
+    <region>"'amer'"</region>
+    <score>58</score>
+    <link href="https://example.com/xml/2" />
+  </entry>
+  <entry id="3" category="group-3" active=""'false'"">
+    <title>MoonBit XML benchmark row 3</title>
+    <summary>Deterministic UTF-8 文本 row 3 with nested structure.</summary>
+    <region>"'latam'"</region>
+    <score>87</score>
+    <link href="https://example.com/xml/3" />
+  </entry>
+  <entry id="4" category="group-4" active=""'true'"">
+    <title>MoonBit XML benchmark row 4</title>
+    <summary>Deterministic UTF-8 文本 row 4 with nested structure.</summary>
+    <region>"'apac'"</region>
+    <score>116</score>
+    <link href="https://example.com/xml/4" />
+  </entry>
+  <entry id="5" category="group-5" active=""'false'"">
+    <title>MoonBit XML benchmark row 5</title>
+    <summary>Deterministic UTF-8 文本 row 5 with nested structure.</summary>
+    <region>"'emea'"</region>
+    <score>145</score>
+    <link href="https://example.com/xml/5" />
+  </entry>
+  <entry id="6" category="group-6" active=""'true'"">
+    <title>MoonBit XML benchmark row 6</title>
+    <summary>Deterministic UTF-8 文本 row 6 with nested structure.</summary>
+    <region>"'amer'"</region>
+    <score>174</score>
+    <link href="https://example.com/xml/6" />
+  </entry>
+  <entry id="7" category="group-7" active=""'false'"">
+    <title>MoonBit XML benchmark row 7</title>
+    <summary>Deterministic UTF-8 文本 row 7 with nested structure.</summary>
+    <region>"'latam'"</region>
+    <score>203</score>
+    <link href="https://example.com/xml/7" />
+  </entry>
+  <entry id="8" category="group-8" active=""'true'"">
+    <title>MoonBit XML benchmark row 8</title>
+    <summary>Deterministic UTF-8 文本 row 8 with nested structure.</summary>
+    <region>"'apac'"</region>
+    <score>232</score>
+    <link href="https://example.com/xml/8" />
+  </entry>
+  <entry id="9" category="group-0" active=""'false'"">
+    <title>MoonBit XML benchmark row 9</title>
+    <summary>Deterministic UTF-8 文本 row 9 with nested structure.</summary>
+    <region>"'emea'"</region>
+    <score>261</score>
+    <link href="https://example.com/xml/9" />
+  </entry>
+  <entry id="10" category="group-1" active=""'true'"">
+    <title>MoonBit XML benchmark row 10</title>
+    <summary>Deterministic UTF-8 文本 row 10 with nested structure.</summary>
+    <region>"'amer'"</region>
+    <score>290</score>
+    <link href="https://example.com/xml/10" />
+  </entry>
+  <entry id="11" category="group-2" active=""'false'"">
+    <title>MoonBit XML benchmark row 11</title>
+    <summary>Deterministic UTF-8 文本 row 11 with nested structure.</summary>
+    <region>"'latam'"</region>
+    <score>319</score>
+    <link href="https://example.com/xml/11" />
+  </entry>
+  <entry id="12" category="group-3" active=""'true'"">
+    <title>MoonBit XML benchmark row 12</title>
+    <summary>Deterministic UTF-8 文本 row 12 with nested structure.</summary>
+    <region>"'apac'"</region>
+    <score>348</score>
+    <link href="https://example.com/xml/12" />
+  </entry>
+  <entry id="13" category="group-4" active=""'false'"">
+    <title>MoonBit XML benchmark row 13</title>
+    <summary>Deterministic UTF-8 文本 row 13 with nested structure.</summary>
+    <region>"'emea'"</region>
+    <score>377</score>
+    <link href="https://example.com/xml/13" />
+  </entry>
+  <entry id="14" category="group-5" active=""'true'"">
+    <title>MoonBit XML benchmark row 14</title>
+    <summary>Deterministic UTF-8 文本 row 14 with nested structure.</summary>
+    <region>"'amer'"</region>
+    <score>406</score>
+    <link href="https://example.com/xml/14" />
+  </entry>
+  <entry id="15" category="group-6" active=""'false'"">
+    <title>MoonBit XML benchmark row 15</title>
+    <summary>Deterministic UTF-8 文本 row 15 with nested structure.</summary>
+    <region>"'latam'"</region>
+    <score>435</score>
+    <link href="https://example.com/xml/15" />
+  </entry>
+  <entry id="16" category="group-7" active=""'true'"">
+    <title>MoonBit XML benchmark row 16</title>
+    <summary>Deterministic UTF-8 文本 row 16 with nested structure.</summary>
+    <region>"'apac'"</region>
+    <score>464</score>
+    <link href="https://example.com/xml/16" />
+  </entry>
+  <entry id="17" category="group-8" active=""'false'"">
+    <title>MoonBit XML benchmark row 17</title>
+    <summary>Deterministic UTF-8 文本 row 17 with nested structure.</summary>
+    <region>"'emea'"</region>
+    <score>493</score>
+    <link href="https://example.com/xml/17" />
+  </entry>
+  <entry id="18" category="group-0" active=""'true'"">
+    <title>MoonBit XML benchmark row 18</title>
+    <summary>Deterministic UTF-8 文本 row 18 with nested structure.</summary>
+    <region>"'amer'"</region>
+    <score>522</score>
+    <link href="https://example.com/xml/18" />
+  </entry>
+  <entry id="19" category="group-1" active=""'false'"">
+    <title>MoonBit XML benchmark row 19</title>
+    <summary>Deterministic UTF-8 文本 row 19 with nested structure.</summary>
+    <region>"'latam'"</region>
+    <score>551</score>
+    <link href="https://example.com/xml/19" />
+  </entry>
+  <entry id="20" category="group-2" active=""'true'"">
+    <title>MoonBit XML benchmark row 20</title>
+    <summary>Deterministic UTF-8 文本 row 20 with nested structure.</summary>
+    <region>"'apac'"</region>
+    <score>580</score>
+    <link href="https://example.com/xml/20" />
+  </entry>
+  <entry id="21" category="group-3" active=""'false'"">
+    <title>MoonBit XML benchmark row 21</title>
+    <summary>Deterministic UTF-8 文本 row 21 with nested structure.</summary>
+    <region>"'emea'"</region>
+    <score>609</score>
+    <link href="https://example.com/xml/21" />
+  </entry>
+  <entry id="22" category="group-4" active=""'true'"">
+    <title>MoonBit XML benchmark row 22</title>
+    <summary>Deterministic UTF-8 文本 row 22 with nested structure.</summary>
+    <region>"'amer'"</region>
+    <score>638</score>
+    <link href="https://example.com/xml/22" />
+  </entry>
+  <entry id="23" category="group-5" active=""'false'"">
+    <title>MoonBit XML benchmark row 23</title>
+    <summary>Deterministic UTF-8 文本 row 23 with nested structure.</summary>
+    <region>"'latam'"</region>
+    <score>667</score>
+    <link href="https://example.com/xml/23" />
+  </entry>
+  <entry id="24" category="group-6" active=""'true'"">
+    <title>MoonBit XML benchmark row 24</title>
+    <summary>Deterministic UTF-8 文本 row 24 with nested structure.</summary>
+    <region>"'apac'"</region>
+    <score>696</score>
+    <link href="https://example.com/xml/24" />
+  </entry>
+  <entry id="25" category="group-7" active=""'false'"">
+    <title>MoonBit XML benchmark row 25</title>
+    <summary>Deterministic UTF-8 文本 row 25 with nested structure.</summary>
+    <region>"'emea'"</region>
+    <score>725</score>
+    <link href="https://example.com/xml/25" />
+  </entry>
+  <entry id="26" category="group-8" active=""'true'"">
+    <title>MoonBit XML benchmark row 26</title>
+    <summary>Deterministic UTF-8 文本 row 26 with nested structure.</summary>
+    <region>"'amer'"</region>
+    <score>754</score>
+    <link href="https://example.com/xml/26" />
+  </entry>
+  <entry id="27" category="group-0" active=""'false'"">
+    <title>MoonBit XML benchmark row 27</title>
+    <summary>Deterministic UTF-8 文本 row 27 with nested structure.</summary>
+    <region>"'latam'"</region>
+    <score>783</score>
+    <link href="https://example.com/xml/27" />
+  </entry>
+  <entry id="28" category="group-1" active=""'true'"">
+    <title>MoonBit XML benchmark row 28</title>
+    <summary>Deterministic UTF-8 文本 row 28 with nested structure.</summary>
+    <region>"'apac'"</region>
+    <score>812</score>
+    <link href="https://example.com/xml/28" />
+  </entry>
+  <entry id="29" category="group-2" active=""'false'"">
+    <title>MoonBit XML benchmark row 29</title>
+    <summary>Deterministic UTF-8 文本 row 29 with nested structure.</summary>
+    <region>"'emea'"</region>
+    <score>841</score>
+    <link href="https://example.com/xml/29" />
+  </entry>
+  <entry id="30" category="group-3" active=""'true'"">
+    <title>MoonBit XML benchmark row 30</title>
+    <summary>Deterministic UTF-8 文本 row 30 with nested structure.</summary>
+    <region>"'amer'"</region>
+    <score>870</score>
+    <link href="https://example.com/xml/30" />
+  </entry>
+  <entry id="31" category="group-4" active=""'false'"">
+    <title>MoonBit XML benchmark row 31</title>
+    <summary>Deterministic UTF-8 文本 row 31 with nested structure.</summary>
+    <region>"'latam'"</region>
+    <score>899</score>
+    <link href="https://example.com/xml/31" />
+  </entry>
+  <entry id="32" category="group-5" active=""'true'"">
+    <title>MoonBit XML benchmark row 32</title>
+    <summary>Deterministic UTF-8 文本 row 32 with nested structure.</summary>
+    <region>"'apac'"</region>
+    <score>928</score>
+    <link href="https://example.com/xml/32" />
+  </entry>
+  <entry id="33" category="group-6" active=""'false'"">
+    <title>MoonBit XML benchmark row 33</title>
+    <summary>Deterministic UTF-8 文本 row 33 with nested structure.</summary>
+    <region>"'emea'"</region>
+    <score>957</score>
+    <link href="https://example.com/xml/33" />
+  </entry>
+  <entry id="34" category="group-7" active=""'true'"">
+    <title>MoonBit XML benchmark row 34</title>
+    <summary>Deterministic UTF-8 文本 row 34 with nested structure.</summary>
+    <region>"'amer'"</region>
+    <score>986</score>
+    <link href="https://example.com/xml/34" />
+  </entry>
+  <entry id="35" category="group-8" active=""'false'"">
+    <title>MoonBit XML benchmark row 35</title>
+    <summary>Deterministic UTF-8 文本 row 35 with nested structure.</summary>
+    <region>"'latam'"</region>
+    <score>1015</score>
+    <link href="https://example.com/xml/35" />
+  </entry>
+  <entry id="36" category="group-0" active=""'true'"">
+    <title>MoonBit XML benchmark row 36</title>
+    <summary>Deterministic UTF-8 文本 row 36 with nested structure.</summary>
+    <region>"'apac'"</region>
+    <score>1044</score>
+    <link href="https://example.com/xml/36" />
+  </entry>
+  <entry id="37" category="group-1" active=""'false'"">
+    <title>MoonBit XML benchmark row 37</title>
+    <summary>Deterministic UTF-8 文本 row 37 with nested structure.</summary>
+    <region>"'emea'"</region>
+    <score>1073</score>
+    <link href="https://example.com/xml/37" />
+  </entry>
+  <entry id="38" category="group-2" active=""'true'"">
+    <title>MoonBit XML benchmark row 38</title>
+    <summary>Deterministic UTF-8 文本 row 38 with nested structure.</summary>
+    <region>"'amer'"</region>
+    <score>1102</score>
+    <link href="https://example.com/xml/38" />
+  </entry>
+  <entry id="39" category="group-3" active=""'false'"">
+    <title>MoonBit XML benchmark row 39</title>
+    <summary>Deterministic UTF-8 文本 row 39 with nested structure.</summary>
+    <region>"'latam'"</region>
+    <score>1131</score>
+    <link href="https://example.com/xml/39" />
+  </entry>
+  <entry id="40" category="group-4" active=""'true'"">
+    <title>MoonBit XML benchmark row 40</title>
+    <summary>Deterministic UTF-8 文本 row 40 with nested structure.</summary>
+    <region>"'apac'"</region>
+    <score>1160</score>
+    <link href="https://example.com/xml/40" />
+  </entry>
+  <entry id="41" category="group-5" active=""'false'"">
+    <title>MoonBit XML benchmark row 41</title>
+    <summary>Deterministic UTF-8 文本 row 41 with nested structure.</summary>
+    <region>"'emea'"</region>
+    <score>1189</score>
+    <link href="https://example.com/xml/41" />
+  </entry>
+  <entry id="42" category="group-6" active=""'true'"">
+    <title>MoonBit XML benchmark row 42</title>
+    <summary>Deterministic UTF-8 文本 row 42 with nested structure.</summary>
+    <region>"'amer'"</region>
+    <score>1218</score>
+    <link href="https://example.com/xml/42" />
+  </entry>
+  <entry id="43" category="group-7" active=""'false'"">
+    <title>MoonBit XML benchmark row 43</title>
+    <summary>Deterministic UTF-8 文本 row 43 with nested structure.</summary>
+    <region>"'latam'"</region>
+    <score>1247</score>
+    <link href="https://example.com/xml/43" />
+  </entry>
+  <entry id="44" category="group-8" active=""'true'"">
+    <title>MoonBit XML benchmark row 44</title>
+    <summary>Deterministic UTF-8 文本 row 44 with nested structure.</summary>
+    <region>"'apac'"</region>
+    <score>1276</score>
+    <link href="https://example.com/xml/44" />
+  </entry>
+  <entry id="45" category="group-0" active=""'false'"">
+    <title>MoonBit XML benchmark row 45</title>
+    <summary>Deterministic UTF-8 文本 row 45 with nested structure.</summary>
+    <region>"'emea'"</region>
+    <score>1305</score>
+    <link href="https://example.com/xml/45" />
+  </entry>
+  <entry id="46" category="group-1" active=""'true'"">
+    <title>MoonBit XML benchmark row 46</title>
+    <summary>Deterministic UTF-8 文本 row 46 with nested structure.</summary>
+    <region>"'amer'"</region>
+    <score>1334</score>
+    <link href="https://example.com/xml/46" />
+  </entry>
+  <entry id="47" category="group-2" active=""'false'"">
+    <title>MoonBit XML benchmark row 47</title>
+    <summary>Deterministic UTF-8 文本 row 47 with nested structure.</summary>
+    <region>"'latam'"</region>
+    <score>1363</score>
+    <link href="https://example.com/xml/47" />
+  </entry>
+  <entry id="48" category="group-3" active=""'true'"">
+    <title>MoonBit XML benchmark row 48</title>
+    <summary>Deterministic UTF-8 文本 row 48 with nested structure.</summary>
+    <region>"'apac'"</region>
+    <score>1392</score>
+    <link href="https://example.com/xml/48" />
+  </entry>
+  <entry id="49" category="group-4" active=""'false'"">
+    <title>MoonBit XML benchmark row 49</title>
+    <summary>Deterministic UTF-8 文本 row 49 with nested structure.</summary>
+    <region>"'emea'"</region>
+    <score>1421</score>
+    <link href="https://example.com/xml/49" />
+  </entry>
+  <entry id="50" category="group-5" active=""'true'"">
+    <title>MoonBit XML benchmark row 50</title>
+    <summary>Deterministic UTF-8 文本 row 50 with nested structure.</summary>
+    <region>"'amer'"</region>
+    <score>1450</score>
+    <link href="https://example.com/xml/50" />
+  </entry>
+  <entry id="51" category="group-6" active=""'false'"">
+    <title>MoonBit XML benchmark row 51</title>
+    <summary>Deterministic UTF-8 文本 row 51 with nested structure.</summary>
+    <region>"'latam'"</region>
+    <score>1479</score>
+    <link href="https://example.com/xml/51" />
+  </entry>
+  <entry id="52" category="group-7" active=""'true'"">
+    <title>MoonBit XML benchmark row 52</title>
+    <summary>Deterministic UTF-8 文本 row 52 with nested structure.</summary>
+    <region>"'apac'"</region>
+    <score>1508</score>
+    <link href="https://example.com/xml/52" />
+  </entry>
+  <entry id="53" category="group-8" active=""'false'"">
+    <title>MoonBit XML benchmark row 53</title>
+    <summary>Deterministic UTF-8 文本 row 53 with nested structure.</summary>
+    <region>"'emea'"</region>
+    <score>1537</score>
+    <link href="https://example.com/xml/53" />
+  </entry>
+  <entry id="54" category="group-0" active=""'true'"">
+    <title>MoonBit XML benchmark row 54</title>
+    <summary>Deterministic UTF-8 文本 row 54 with nested structure.</summary>
+    <region>"'amer'"</region>
+    <score>1566</score>
+    <link href="https://example.com/xml/54" />
+  </entry>
+  <entry id="55" category="group-1" active=""'false'"">
+    <title>MoonBit XML benchmark row 55</title>
+    <summary>Deterministic UTF-8 文本 row 55 with nested structure.</summary>
+    <region>"'latam'"</region>
+    <score>1595</score>
+    <link href="https://example.com/xml/55" />
+  </entry>
+  <entry id="56" category="group-2" active=""'true'"">
+    <title>MoonBit XML benchmark row 56</title>
+    <summary>Deterministic UTF-8 文本 row 56 with nested structure.</summary>
+    <region>"'apac'"</region>
+    <score>1624</score>
+    <link href="https://example.com/xml/56" />
+  </entry>
+  <entry id="57" category="group-3" active=""'false'"">
+    <title>MoonBit XML benchmark row 57</title>
+    <summary>Deterministic UTF-8 文本 row 57 with nested structure.</summary>
+    <region>"'emea'"</region>
+    <score>1653</score>
+    <link href="https://example.com/xml/57" />
+  </entry>
+  <entry id="58" category="group-4" active=""'true'"">
+    <title>MoonBit XML benchmark row 58</title>
+    <summary>Deterministic UTF-8 文本 row 58 with nested structure.</summary>
+    <region>"'amer'"</region>
+    <score>1682</score>
+    <link href="https://example.com/xml/58" />
+  </entry>
+  <entry id="59" category="group-5" active=""'false'"">
+    <title>MoonBit XML benchmark row 59</title>
+    <summary>Deterministic UTF-8 文本 row 59 with nested structure.</summary>
+    <region>"'latam'"</region>
+    <score>1711</score>
+    <link href="https://example.com/xml/59" />
+  </entry>
+  <entry id="60" category="group-6" active=""'true'"">
+    <title>MoonBit XML benchmark row 60</title>
+    <summary>Deterministic UTF-8 文本 row 60 with nested structure.</summary>
+    <region>"'apac'"</region>
+    <score>1740</score>
+    <link href="https://example.com/xml/60" />
+  </entry>
+  <entry id="61" category="group-7" active=""'false'"">
+    <title>MoonBit XML benchmark row 61</title>
+    <summary>Deterministic UTF-8 文本 row 61 with nested structure.</summary>
+    <region>"'emea'"</region>
+    <score>1769</score>
+    <link href="https://example.com/xml/61" />
+  </entry>
+  <entry id="62" category="group-8" active=""'true'"">
+    <title>MoonBit XML benchmark row 62</title>
+    <summary>Deterministic UTF-8 文本 row 62 with nested structure.</summary>
+    <region>"'amer'"</region>
+    <score>1798</score>
+    <link href="https://example.com/xml/62" />
+  </entry>
+  <entry id="63" category="group-0" active=""'false'"">
+    <title>MoonBit XML benchmark row 63</title>
+    <summary>Deterministic UTF-8 文本 row 63 with nested structure.</summary>
+    <region>"'latam'"</region>
+    <score>1827</score>
+    <link href="https://example.com/xml/63" />
+  </entry>
+  <entry id="64" category="group-1" active=""'true'"">
+    <title>MoonBit XML benchmark row 64</title>
+    <summary>Deterministic UTF-8 文本 row 64 with nested structure.</summary>
+    <region>"'apac'"</region>
+    <score>1856</score>
+    <link href="https://example.com/xml/64" />
+  </entry>
+  <entry id="65" category="group-2" active=""'false'"">
+    <title>MoonBit XML benchmark row 65</title>
+    <summary>Deterministic UTF-8 文本 row 65 with nested structure.</summary>
+    <region>"'emea'"</region>
+    <score>1885</score>
+    <link href="https://example.com/xml/65" />
+  </entry>
+  <entry id="66" category="group-3" active=""'true'"">
+    <title>MoonBit XML benchmark row 66</title>
+    <summary>Deterministic UTF-8 文本 row 66 with nested structure.</summary>
+    <region>"'amer'"</region>
+    <score>1914</score>
+    <link href="https://example.com/xml/66" />
+  </entry>
+  <entry id="67" category="group-4" active=""'false'"">
+    <title>MoonBit XML benchmark row 67</title>
+    <summary>Deterministic UTF-8 文本 row 67 with nested structure.</summary>
+    <region>"'latam'"</region>
+    <score>1943</score>
+    <link href="https://example.com/xml/67" />
+  </entry>
+  <entry id="68" category="group-5" active=""'true'"">
+    <title>MoonBit XML benchmark row 68</title>
+    <summary>Deterministic UTF-8 文本 row 68 with nested structure.</summary>
+    <region>"'apac'"</region>
+    <score>1972</score>
+    <link href="https://example.com/xml/68" />
+  </entry>
+  <entry id="69" category="group-6" active=""'false'"">
+    <title>MoonBit XML benchmark row 69</title>
+    <summary>Deterministic UTF-8 文本 row 69 with nested structure.</summary>
+    <region>"'emea'"</region>
+    <score>2001</score>
+    <link href="https://example.com/xml/69" />
+  </entry>
+  <entry id="70" category="group-7" active=""'true'"">
+    <title>MoonBit XML benchmark row 70</title>
+    <summary>Deterministic UTF-8 文本 row 70 with nested structure.</summary>
+    <region>"'amer'"</region>
+    <score>2030</score>
+    <link href="https://example.com/xml/70" />
+  </entry>
+  <entry id="71" category="group-8" active=""'false'"">
+    <title>MoonBit XML benchmark row 71</title>
+    <summary>Deterministic UTF-8 文本 row 71 with nested structure.</summary>
+    <region>"'latam'"</region>
+    <score>2059</score>
+    <link href="https://example.com/xml/71" />
+  </entry>
+  <entry id="72" category="group-0" active=""'true'"">
+    <title>MoonBit XML benchmark row 72</title>
+    <summary>Deterministic UTF-8 文本 row 72 with nested structure.</summary>
+    <region>"'apac'"</region>
+    <score>2088</score>
+    <link href="https://example.com/xml/72" />
+  </entry>
+  <entry id="73" category="group-1" active=""'false'"">
+    <title>MoonBit XML benchmark row 73</title>
+    <summary>Deterministic UTF-8 文本 row 73 with nested structure.</summary>
+    <region>"'emea'"</region>
+    <score>2117</score>
+    <link href="https://example.com/xml/73" />
+  </entry>
+  <entry id="74" category="group-2" active=""'true'"">
+    <title>MoonBit XML benchmark row 74</title>
+    <summary>Deterministic UTF-8 文本 row 74 with nested structure.</summary>
+    <region>"'amer'"</region>
+    <score>2146</score>
+    <link href="https://example.com/xml/74" />
+  </entry>
+  <entry id="75" category="group-3" active=""'false'"">
+    <title>MoonBit XML benchmark row 75</title>
+    <summary>Deterministic UTF-8 文本 row 75 with nested structure.</summary>
+    <region>"'latam'"</region>
+    <score>2175</score>
+    <link href="https://example.com/xml/75" />
+  </entry>
+  <entry id="76" category="group-4" active=""'true'"">
+    <title>MoonBit XML benchmark row 76</title>
+    <summary>Deterministic UTF-8 文本 row 76 with nested structure.</summary>
+    <region>"'apac'"</region>
+    <score>2204</score>
+    <link href="https://example.com/xml/76" />
+  </entry>
+  <entry id="77" category="group-5" active=""'false'"">
+    <title>MoonBit XML benchmark row 77</title>
+    <summary>Deterministic UTF-8 文本 row 77 with nested structure.</summary>
+    <region>"'emea'"</region>
+    <score>2233</score>
+    <link href="https://example.com/xml/77" />
+  </entry>
+  <entry id="78" category="group-6" active=""'true'"">
+    <title>MoonBit XML benchmark row 78</title>
+    <summary>Deterministic UTF-8 文本 row 78 with nested structure.</summary>
+    <region>"'amer'"</region>
+    <score>2262</score>
+    <link href="https://example.com/xml/78" />
+  </entry>
+  <entry id="79" category="group-7" active=""'false'"">
+    <title>MoonBit XML benchmark row 79</title>
+    <summary>Deterministic UTF-8 文本 row 79 with nested structure.</summary>
+    <region>"'latam'"</region>
+    <score>2291</score>
+    <link href="https://example.com/xml/79" />
+  </entry>
+  <entry id="80" category="group-8" active=""'true'"">
+    <title>MoonBit XML benchmark row 80</title>
+    <summary>Deterministic UTF-8 文本 row 80 with nested structure.</summary>
+    <region>"'apac'"</region>
+    <score>2320</score>
+    <link href="https://example.com/xml/80" />
+  </entry>
+  <entry id="81" category="group-0" active=""'false'"">
+    <title>MoonBit XML benchmark row 81</title>
+    <summary>Deterministic UTF-8 文本 row 81 with nested structure.</summary>
+    <region>"'emea'"</region>
+    <score>2349</score>
+    <link href="https://example.com/xml/81" />
+  </entry>
+  <entry id="82" category="group-1" active=""'true'"">
+    <title>MoonBit XML benchmark row 82</title>
+    <summary>Deterministic UTF-8 文本 row 82 with nested structure.</summary>
+    <region>"'amer'"</region>
+    <score>2378</score>
+    <link href="https://example.com/xml/82" />
+  </entry>
+  <entry id="83" category="group-2" active=""'false'"">
+    <title>MoonBit XML benchmark row 83</title>
+    <summary>Deterministic UTF-8 文本 row 83 with nested structure.</summary>
+    <region>"'latam'"</region>
+    <score>2407</score>
+    <link href="https://example.com/xml/83" />
+  </entry>
+  <entry id="84" category="group-3" active=""'true'"">
+    <title>MoonBit XML benchmark row 84</title>
+    <summary>Deterministic UTF-8 文本 row 84 with nested structure.</summary>
+    <region>"'apac'"</region>
+    <score>2436</score>
+    <link href="https://example.com/xml/84" />
+  </entry>
+  <entry id="85" category="group-4" active=""'false'"">
+    <title>MoonBit XML benchmark row 85</title>
+    <summary>Deterministic UTF-8 文本 row 85 with nested structure.</summary>
+    <region>"'emea'"</region>
+    <score>2465</score>
+    <link href="https://example.com/xml/85" />
+  </entry>
+</benchmarkCorpus>

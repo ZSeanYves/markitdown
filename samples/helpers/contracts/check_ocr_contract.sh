@@ -37,9 +37,9 @@ run_and_capture() {
   set -e
 }
 
-TXT_INPUT="$ROOT/samples/main_process/txt/txt_plain.txt"
+TXT_INPUT="$ROOT/samples/main_process/txt/markdown/txt_plain.txt"
 IMAGE_INPUT="$ROOT/samples/fixtures/ocr/tiny_ocr_sample.png"
-PDF_INPUT="$ROOT/samples/main_process/pdf/text_simple.pdf"
+PDF_INPUT="$ROOT/samples/main_process/pdf/markdown/text_simple.pdf"
 
 echo "==> retired ocr subcommand fails closed through the current main cli"
 run_and_capture "$OUT_DIR/ocr_retired.txt" run_markitdown_cli ocr "$TXT_INPUT"
@@ -61,7 +61,9 @@ if [[ "$CAPTURED_STATUS" -eq 0 ]]; then
     fail "image --ocr succeeded but produced empty output"
   fi
 else
-  assert_contains "$OUT_DIR/image_force.txt" 'tesseract'
+  if ! grep -Fq 'tesseract' "$OUT_DIR/image_force.txt" && ! grep -Fq 'OCR provider' "$OUT_DIR/image_force.txt" && ! grep -Fq 'not configured' "$OUT_DIR/image_force.txt"; then
+    fail "image --ocr failure should explain OCR provider availability"
+  fi
 fi
 
 run_and_capture "$OUT_DIR/image_lang.txt" run_markitdown_cli --ocr-lang eng "$IMAGE_INPUT"
@@ -79,8 +81,10 @@ if [[ "$CAPTURED_STATUS" -eq 0 ]]; then
     fail "image --ocr --ocr-lang succeeded but produced empty output"
   fi
 else
-  assert_contains "$OUT_DIR/image_force_lang.txt" 'tesseract'
-  assert_contains "$OUT_DIR/image_force_lang.txt" 'language=eng'
+  if ! grep -Fq 'tesseract' "$OUT_DIR/image_force_lang.txt" && ! grep -Fq 'OCR provider' "$OUT_DIR/image_force_lang.txt" && ! grep -Fq 'not configured' "$OUT_DIR/image_force_lang.txt"; then
+    fail "image --ocr --ocr-lang failure should explain OCR provider availability"
+  fi
+  assert_contains "$OUT_DIR/image_force_lang.txt" 'eng'
 fi
 
 run_and_capture "$OUT_DIR/image_conflict.txt" run_markitdown_cli --ocr --no-ocr "$IMAGE_INPUT"

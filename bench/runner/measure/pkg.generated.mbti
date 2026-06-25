@@ -1,0 +1,58 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/bench/runner/measure"
+
+import {
+  "moonbitlang/core/bench",
+}
+
+// Values
+pub fn encode_c_path(String) -> Bytes
+
+pub fn encode_c_string_blob(Array[String]) -> Bytes
+
+pub fn make_native_measure_spec(Bytes, Int, Int, Bytes, Int, Int, String, String, String?, Int64) -> NativeMeasureSpec
+
+pub fn monotonic_elapsed_us(@bench.Timestamp) -> Double
+
+pub fn monotonic_start() -> @bench.Timestamp
+
+pub fn native_measure_command(NativeMeasureSpec) -> NativeMeasureResult
+
+// Errors
+
+// Types and methods
+pub struct NativeMeasureData {
+  exit_code : Int
+  timed_out : Bool
+  measurement_error : Bool
+  spawn_error : Int
+  wait_error : Int
+  signal : Int
+  wall_us : Int64
+  user_time_us : Int64
+  sys_time_us : Int64
+  peak_rss_kb : Int64
+} derive(Eq)
+
+pub struct NativeMeasureResult {
+  status : Int
+  data : NativeMeasureData
+} derive(Eq)
+
+pub struct NativeMeasureSpec {
+  argv_blob : Bytes
+  argv_blob_len : Int
+  argv_count : Int
+  env_blob : Bytes
+  env_blob_len : Int
+  env_count : Int
+  stdout_path : String
+  stderr_path : String
+  cwd : String?
+  timeout_ms : Int64
+} derive(Eq)
+
+// Type aliases
+
+// Traits
+

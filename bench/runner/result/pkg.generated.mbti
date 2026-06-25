@@ -1,0 +1,283 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/bench/runner/result"
+
+import {
+  "ZSeanYves/markitdown/bench/runner/command",
+  "ZSeanYves/markitdown/bench/runner/manifest",
+  "ZSeanYves/markitdown/bench/runner/measure",
+  "ZSeanYves/markitdown/bench/runner/tools",
+  "moonbitlang/core/json",
+}
+
+// Values
+pub fn canonical_runner_warnings(String, Bool, has_inprocess_engine? : Bool) -> Array[String]
+
+pub fn format_ms_from_us(Int64) -> String
+
+pub fn format_optional_int(Int?) -> String
+
+pub fn format_optional_int64(Int64?) -> String
+
+pub fn format_optional_percent(Double?) -> String
+
+pub fn format_optional_speedup(Double?) -> String
+
+pub fn format_wall_ms_from_us(Int64?) -> String
+
+pub fn format_wall_pair(Int64?, Int64?) -> String
+
+pub fn generate_report_from_request(ReportRequest) -> Json
+
+pub fn load_jsonl_results(String) -> Array[CliResult]
+
+pub fn make_cli_result(String, String, @command.RunnerContext, String, @tools.BenchTool, @manifest.BenchRow, @tools.ToolCommand, @measure.NativeMeasureResult, Int, Int, String, Int64, String, String, Int64, Int64, output_write_mode? : String?) -> CliResult
+
+pub fn make_inprocess_result(String, String, @command.RunnerContext, @tools.BenchTool, @manifest.BenchRow, String, Int, Int, Int64, Int64, status? : String, error? : String?, output_write_mode? : String?) -> CliResult
+
+pub fn make_report_request(Array[String], String?) -> ReportRequest
+
+pub fn make_unavailable_result(String, String, @command.RunnerContext, String, @tools.BenchTool, @manifest.BenchRow, Int, Int) -> CliResult
+
+pub fn native_measure_error(@measure.NativeMeasureData, Int, stderr_excerpt? : String) -> String?
+
+pub fn native_measure_status(@measure.NativeMeasureData) -> String
+
+pub fn parse_report_request(Array[String]) -> ReportRequest raise
+
+pub fn render_markdown_report(SummaryDocument) -> String
+
+pub fn rounded_wall_us_to_ms(Int64) -> Int64
+
+// Errors
+
+// Types and methods
+pub struct BenchComparison {
+  bench_id : String
+  format : String
+  size_class : String
+  input_bytes : Int
+  moonbit_run_count : Int
+  moonbit_engine_run_count : Int
+  markitdown_run_count : Int
+  moonbit_success_count : Int
+  moonbit_engine_success_count : Int
+  markitdown_success_count : Int
+  moonbit_status : String
+  moonbit_engine_status : String
+  markitdown_status : String
+  moonbit_median_wall_ms : Int64?
+  moonbit_engine_median_wall_ms : Int64?
+  markitdown_median_wall_ms : Int64?
+  moonbit_median_wall_us : Int64?
+  moonbit_engine_median_wall_us : Int64?
+  markitdown_median_wall_us : Int64?
+  moonbit_median_peak_rss_kb : Int64?
+  moonbit_engine_median_peak_rss_kb : Int64?
+  markitdown_median_peak_rss_kb : Int64?
+  moonbit_output_bytes : Int64?
+  moonbit_engine_output_bytes : Int64?
+  markitdown_output_bytes : Int64?
+  speedup : Double?
+  engine_speedup : Double?
+  fixed_overhead_ms : Int64?
+  fixed_overhead_us : Int64?
+  fixed_overhead_share : Double?
+  timing_precision : String
+} derive(Eq, ToJson, @json.FromJson)
+
+pub struct CliResult {
+  schema_version : Int
+  run_id : String
+  repo_commit : String
+  runner_mode : String?
+  canonical_performance : Bool?
+  runner_path : String?
+  tool : String
+  tool_version : String?
+  measurement_mode : String?
+  output_write_mode : String?
+  bench_id : String
+  format : String
+  size_class : String
+  enabled_tier : String
+  bench_layers : String
+  tags : String
+  rel_path : String
+  input_bytes : Int
+  input_sha256 : String
+  command_kind : String
+  command_display : String
+  repeat_index : Int
+  repeat_count : Int
+  exit_code : Int
+  status : String
+  timed_out : Bool
+  wall_ms : Int64
+  wall_us : Int64?
+  user_time_us : Int64?
+  sys_time_us : Int64?
+  peak_rss_kb : Int64?
+  stdout_bytes : Int64
+  stderr_bytes : Int64
+  output_bytes : Int64
+  stdout_excerpt : String
+  stderr_excerpt : String
+  error : String?
+} derive(Eq, ToJson, @json.FromJson)
+
+pub struct FormatComparison {
+  format : String
+  rows : Int
+  compared_rows : Int
+  engine_compared_rows : Int
+  fixed_overhead_rows : Int
+  moonbit_success_rows : Int
+  moonbit_engine_success_rows : Int
+  markitdown_success_rows : Int
+  moonbit_median_wall_ms : Int64?
+  moonbit_engine_median_wall_ms : Int64?
+  markitdown_median_wall_ms : Int64?
+  moonbit_median_wall_us : Int64?
+  moonbit_engine_median_wall_us : Int64?
+  markitdown_median_wall_us : Int64?
+  median_speedup : Double?
+  engine_median_speedup : Double?
+  median_fixed_overhead_ms : Int64?
+  median_fixed_overhead_us : Int64?
+  median_fixed_overhead_share : Double?
+  timing_precision : String
+  status : String
+} derive(Eq, ToJson, @json.FromJson)
+
+type LegacyCliResult derive(@json.FromJson)
+
+pub struct ReportRequest {
+  input_paths : Array[String]
+  selector_stats_path : String?
+} derive(Eq)
+
+pub struct SummaryComparison {
+  comparable_count : Int
+  engine_comparable_count : Int
+  fixed_overhead_count : Int
+  moonbit_total_wall_ms : Int64?
+  moonbit_engine_total_wall_ms : Int64?
+  markitdown_total_wall_ms : Int64?
+  moonbit_total_wall_us : Int64?
+  moonbit_engine_total_wall_us : Int64?
+  markitdown_total_wall_us : Int64?
+  ratio_markitdown_over_moonbit : Double?
+  ratio_markitdown_over_engine : Double?
+  ratio_cli_over_engine : Double?
+  median_speedup_overall : Double?
+  engine_median_speedup_overall : Double?
+  best_speedup : Double?
+  best_engine_speedup : Double?
+  worst_speedup : Double?
+  worst_engine_speedup : Double?
+  median_fixed_overhead_ms : Int64?
+  median_fixed_overhead_us : Int64?
+  median_fixed_overhead_share : Double?
+  timing_precision : String
+  rows : Array[BenchComparison]
+  by_format : Array[FormatComparison]
+} derive(Eq, ToJson, @json.FromJson)
+
+pub struct SummaryCorpus {
+  tier : String
+  selected_rows : Int
+  formats : Array[String]
+  skipped_by_reason : Map[String, Int]
+} derive(Eq, ToJson, @json.FromJson)
+
+pub struct SummaryDocument {
+  schema_version : Int
+  run_id : String
+  environment : SummaryEnvironment
+  corpus : SummaryCorpus
+  tools : Map[String, ToolSummary]
+  comparison : SummaryComparison
+  warnings : Array[String]
+} derive(Eq, ToJson, @json.FromJson)
+
+pub struct SummaryEnvironment {
+  git_commit : String
+  generated_at_epoch_ms : UInt64
+  moonbit_version : String
+  markitdown_info : String
+  runner_mode : String
+  canonical_performance : Bool
+  runner_path : String?
+} derive(Eq, ToJson, @json.FromJson)
+
+pub struct SummaryRunMetadata {
+  runner_mode : String
+  canonical_performance : Bool
+  runner_path : String?
+} derive(Eq, ToJson, @json.FromJson)
+
+pub struct ToolBenchAggregate {
+  bench_id : String
+  format : String
+  size_class : String
+  tool : String
+  tool_version : String?
+  measurement_mode : String?
+  output_write_mode : String?
+  rel_path : String
+  input_bytes : Int
+  run_count : Int
+  repeat_count : Int
+  success_count : Int
+  failed_count : Int
+  timeout_count : Int
+  unavailable_count : Int
+  measurement_error_count : Int
+  status : String
+  median_wall_ms : Int64?
+  min_wall_ms : Int64?
+  max_wall_ms : Int64?
+  median_wall_us : Int64?
+  min_wall_us : Int64?
+  max_wall_us : Int64?
+  wall_precision : String
+  median_peak_rss_kb : Int64?
+  peak_rss_max_kb : Int64?
+  median_output_bytes : Int64?
+  max_output_bytes : Int64?
+  total_output_bytes : Int64
+  error : String?
+} derive(Eq, ToJson, @json.FromJson)
+
+pub struct ToolSummary {
+  tool : String
+  measurement_mode : String?
+  output_write_mode : String?
+  total_files : Int
+  total_runs : Int
+  repeat_count : Int?
+  success_count : Int
+  failure_count : Int
+  timeout_count : Int
+  unavailable_count : Int
+  measurement_error_count : Int
+  median_wall_ms : Int64?
+  min_wall_ms : Int64?
+  max_wall_ms : Int64?
+  median_wall_us : Int64?
+  min_wall_us : Int64?
+  max_wall_us : Int64?
+  wall_precision : String
+  total_output_bytes : Int64
+  median_peak_rss_kb : Int64?
+  peak_rss_max_kb : Int64?
+  rows : Array[ToolBenchAggregate]
+  slowest : Array[ToolBenchAggregate]
+  highest_rss : Array[ToolBenchAggregate]
+  failures : Array[ToolBenchAggregate]
+} derive(Eq, ToJson, @json.FromJson)
+
+// Type aliases
+
+// Traits
+

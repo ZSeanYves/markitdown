@@ -1,3 +1,0 @@
-# Metadata Heading
-
-Body line.

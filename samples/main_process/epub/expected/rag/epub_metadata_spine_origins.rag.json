@@ -1,0 +1,56 @@
+{
+  "output_format": "rag_json",
+  "detected_format": "epub",
+  "parser_mode": "container_recursive",
+  "convert_mode": "rag",
+  "diagnostics_contains": {
+    "parser_name": "epub_container_parser",
+    "metrics": {
+      "renderer_name": "RagJsonRenderer"
+    }
+  },
+  "source_map": "null",
+  "chunk_count": {
+    "min": 2
+  },
+  "chunks": [
+    {
+      "kind": "text",
+      "heading_path": [
+        "Origin One"
+      ],
+      "source_ref_count": 1,
+      "asset_ref_count": 0,
+      "text_contains_all": [
+        "First spine origin block."
+      ],
+      "location_contains": {
+        "container_paths": [
+          "epub_metadata_spine_origins.epub"
+        ],
+        "entry_paths": [
+          "OPS/text/chapter-01.xhtml"
+        ]
+      }
+    },
+    {
+      "kind": "text",
+      "heading_path": [
+        "Origin Two"
+      ],
+      "source_ref_count": 1,
+      "asset_ref_count": 0,
+      "text_contains_all": [
+        "Second spine origin block."
+      ],
+      "location_contains": {
+        "container_paths": [
+          "epub_metadata_spine_origins.epub"
+        ],
+        "entry_paths": [
+          "OPS/text/chapter-02.xhtml"
+        ]
+      }
+    }
+  ]
+}

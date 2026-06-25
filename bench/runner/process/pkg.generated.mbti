@@ -1,0 +1,30 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/bench/runner/process"
+
+import {
+  "ZSeanYves/markitdown/bench/runner/command",
+  "ZSeanYves/markitdown/bench/runner/measure",
+  "ZSeanYves/markitdown/bench/runner/tools",
+  "moonbitlang/core/json",
+}
+
+// Values
+pub fn measure_command(@tools.ToolCommand, String, String) -> @measure.NativeMeasureResult
+
+pub async fn run_compare(@command.CompareRequest) -> Json
+
+pub async fn run_overhead_diagnostics(@command.DiagnoseRequest) -> Json
+
+pub async fn run_tool(@command.RunRequest, @tools.BenchTool) -> String
+
+// Errors
+
+// Types and methods
+type OverheadDiagnosticAggregate derive(Eq, ToJson, @json.FromJson)
+
+type OverheadDiagnosticResult derive(Eq, ToJson, @json.FromJson)
+
+// Type aliases
+
+// Traits
+

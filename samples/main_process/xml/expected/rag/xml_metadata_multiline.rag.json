@@ -1,0 +1,29 @@
+{
+  "output_format": "rag_json",
+  "detected_format": "xml",
+  "parser_mode": "dom_ast_model",
+  "convert_mode": "rag",
+  "diagnostics_contains": {
+    "parser_name": "xml_parser",
+    "metrics": {
+      "renderer_name": "RagJsonRenderer"
+    }
+  },
+  "source_map": "null",
+  "chunk_count": {
+    "min": 1
+  },
+  "chunks": [
+    {
+      "kind": "text",
+      "heading_path": [
+        "<root>"
+      ],
+      "source_ref_count": 1,
+      "asset_ref_count": 0,
+      "text_contains_all": [
+        "- item: Alpha\n- item: Beta"
+      ]
+    }
+  ]
+}

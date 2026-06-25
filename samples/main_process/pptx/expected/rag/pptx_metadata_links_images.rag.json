@@ -1,0 +1,77 @@
+{
+  "output_format": "rag_json",
+  "detected_format": "pptx",
+  "parser_mode": "package_single_pass",
+  "convert_mode": "rag",
+  "diagnostics_contains": {
+    "parser_name": "pptx_parser",
+    "metrics": {
+      "renderer_name": "RagJsonRenderer"
+    }
+  },
+  "source_map": "null",
+  "chunk_count": {
+    "min": 3
+  },
+  "chunks": [
+    {
+      "kind": "metadata",
+      "heading_path": [],
+      "source_ref_count": 0,
+      "asset_ref_count": 0,
+      "text_contains_all": [
+        "title: PPTX Links And Images\ncreator: markitdown-mb"
+      ]
+    },
+    {
+      "kind": "text",
+      "heading_path": [
+        "Slide 1",
+        "PPTX Links And Images"
+      ],
+      "source_ref_count": 1,
+      "asset_ref_count": 1,
+      "text_contains_all": [
+        "See reference (https://example.com/reference) before review."
+      ],
+      "location_contains": {
+        "container_paths": [
+          "samples/main_process/pptx/rag/pptx_metadata_links_images.pptx"
+        ],
+        "entry_paths": [
+          "ppt/slides/slide1.xml"
+        ],
+        "slides": [
+          "1"
+        ]
+      }
+    },
+    {
+      "kind": "image_caption",
+      "heading_path": [
+        "Slide 1",
+        "PPTX Links And Images"
+      ],
+      "source_ref_count": 1,
+      "asset_ref_count": 1,
+      "text_contains_all": [
+        "Figure alt text"
+      ],
+      "location_contains": {
+        "container_paths": [
+          "samples/main_process/pptx/rag/pptx_metadata_links_images.pptx"
+        ],
+        "entry_paths": [
+          "ppt/slides/slide1.xml"
+        ],
+        "slides": [
+          "1"
+        ]
+      }
+    }
+  ],
+  "metadata_contains": {
+    "creator": "markitdown-mb",
+    "title": "PPTX Links And Images"
+  }
+}

@@ -3,14 +3,11 @@ fn parse_source_layouts(
   ctx : PptxSourceParseContext,
 ) -> Array[PptxSourceLayout] raise {
   let out : Array[PptxSourceLayout] = []
-  let parts : Array[String] = []
-  for part in @ox.list_parts(ctx.pkg) {
-    if part.has_prefix("ppt/slideLayouts/") && part.has_suffix(".xml") {
-      parts.push(part)
-    }
-  }
-  parts.sort()
+  let parts = @ox.list_parts_by_prefix(ctx.pkg, "ppt/slideLayouts/")
   for part in parts {
+    if !part.has_suffix(".xml") {
+      continue
+    }
     let xml = match read_source_part_bytes(ctx, part) {
       Some(bytes) => bytes
       None => Bytes::from_array([])
@@ -31,14 +28,11 @@ fn parse_source_masters(
   ctx : PptxSourceParseContext,
 ) -> Array[PptxSourceMaster] raise {
   let out : Array[PptxSourceMaster] = []
-  let parts : Array[String] = []
-  for part in @ox.list_parts(ctx.pkg) {
-    if part.has_prefix("ppt/slideMasters/") && part.has_suffix(".xml") {
-      parts.push(part)
-    }
-  }
-  parts.sort()
+  let parts = @ox.list_parts_by_prefix(ctx.pkg, "ppt/slideMasters/")
   for part in parts {
+    if !part.has_suffix(".xml") {
+      continue
+    }
     let xml = match read_source_part_bytes(ctx, part) {
       Some(bytes) => bytes
       None => Bytes::from_array([])

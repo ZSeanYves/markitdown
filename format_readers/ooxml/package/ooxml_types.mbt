@@ -335,6 +335,8 @@ pub struct OoxmlPackage {
   content_types_override : Map[String, String]
   priv part_cache : OoxmlPartCache
   priv relationship_cache : OoxmlRelationshipCache
+  priv sorted_parts_cache : Ref[Array[String]?]
+  priv inventory_cache : Ref[OoxmlPackageInventory?]
 }
 
 ///|

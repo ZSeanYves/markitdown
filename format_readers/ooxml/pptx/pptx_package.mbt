@@ -9,6 +9,7 @@ priv struct PptxSourceParseContext {
   pkg : @ox.OoxmlPackage
   part_cache : Map[String, PptxSourcePartCache]
   rel_cache : Map[String, Array[PptxRelationshipV2]]
+  rel_by_id_cache : Map[String, Map[String, PptxRelationshipV2]]
   warnings : Array[PptxWarning]
   budget : PptxParseBudget
   total_source_nodes : Ref[Int]
@@ -26,6 +27,7 @@ fn new_pptx_source_parse_context(
     pkg,
     part_cache: Map([]),
     rel_cache: Map([]),
+    rel_by_id_cache: Map([]),
     warnings: [],
     budget,
     total_source_nodes: { val: 0 },
@@ -156,6 +158,7 @@ fn read_source_relationships(
   }
   let raw = @ox.read_part_relationships(ctx.pkg, source_part) catch { _ => [] }
   let out : Array[PptxRelationshipV2] = []
+  let by_id : Map[String, PptxRelationshipV2] = Map([])
   let mut count = 0
   for rel in raw {
     count += 1
@@ -175,9 +178,14 @@ fn read_source_relationships(
       }
       continue
     }
-    out.push(to_pptx_relationship(source_part, rel))
+    let converted = to_pptx_relationship(source_part, rel)
+    out.push(converted)
+    if !by_id.contains(converted.id) {
+      by_id.set(converted.id, converted)
+    }
   }
   ctx.rel_cache.set(source_part, out)
+  ctx.rel_by_id_cache.set(source_part, by_id)
   out
 }
 
@@ -187,12 +195,15 @@ fn find_source_relationship_by_id(
   source_part : String,
   rel_id : String,
 ) -> PptxRelationshipV2? {
-  for rel in read_source_relationships(ctx, source_part) {
-    if rel.id == rel_id {
-      return Some(rel)
-    }
+  match ctx.rel_by_id_cache.get(source_part) {
+    Some(by_id) => return by_id.get(rel_id)
+    None => ()
   }
-  None
+  ignore(read_source_relationships(ctx, source_part))
+  match ctx.rel_by_id_cache.get(source_part) {
+    Some(by_id) => by_id.get(rel_id)
+    None => None
+  }
 }
 
 ///|

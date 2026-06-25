@@ -1,0 +1,56 @@
+{
+  "output_format": "rag_json",
+  "detected_format": "zip",
+  "parser_mode": "container_recursive",
+  "convert_mode": "rag",
+  "diagnostics_contains": {
+    "parser_name": "zip_container_parser",
+    "metrics": {
+      "renderer_name": "RagJsonRenderer"
+    }
+  },
+  "source_map": "null",
+  "chunk_count": {
+    "min": 2
+  },
+  "chunks": [
+    {
+      "kind": "text",
+      "heading_path": [
+        "site/img/img_red.jpg"
+      ],
+      "source_ref_count": 1,
+      "asset_ref_count": 0,
+      "text_contains_all": [
+        "> Skipped: unsupported file type: jpg"
+      ],
+      "location_contains": {
+        "container_paths": [
+          "zip_metadata_assets.zip"
+        ],
+        "entry_paths": [
+          "site/img/img_red.jpg"
+        ]
+      }
+    },
+    {
+      "kind": "image_caption",
+      "heading_path": [
+        "site/page.html"
+      ],
+      "source_ref_count": 1,
+      "asset_ref_count": 1,
+      "text_contains_all": [
+        "Zip caption"
+      ],
+      "location_contains": {
+        "container_paths": [
+          "zip_metadata_assets.zip"
+        ],
+        "entry_paths": [
+          "site/page.html"
+        ]
+      }
+    }
+  ]
+}

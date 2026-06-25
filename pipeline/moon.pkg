@@ -1,4 +1,5 @@
 import {
+  "moonbitlang/core/string",
   "ZSeanYves/markitdown/core",
 }
 

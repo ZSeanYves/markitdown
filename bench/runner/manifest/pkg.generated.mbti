@@ -1,0 +1,78 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/bench/runner/manifest"
+
+import {
+  "moonbitlang/core/json",
+}
+
+// Values
+pub fn empty_selector_stats() -> SelectorStats
+
+pub fn ensure_bench_row_payload(BenchRow) -> Bool
+
+pub fn make_select_request(String, String?, Int?, SelectOutput, Bool) -> SelectRequest
+
+pub fn parse_manifest_line(String, Int) -> BenchRow
+
+pub fn parse_select_request(Array[String]) -> SelectRequest raise
+
+pub fn repo_rel_input_path(String) -> String
+
+pub fn select_rows(SelectRequest) -> Array[BenchRow]
+
+pub fn selector_rows_tsv(SelectRequest) -> Array[String]
+
+pub fn selector_stats_json(SelectRequest) -> Json
+
+pub fn should_skip_row(BenchRow, SelectRequest) -> String?
+
+pub fn validate_tier(String) -> Unit raise
+
+// Errors
+pub(all) suberror BenchCliError {
+  InvalidArgument(String)
+}
+pub impl Show for BenchCliError
+
+// Types and methods
+pub struct BenchRow {
+  bench_id : String
+  format : String
+  size_class : String
+  rel_path : String
+  source_kind : String
+  source_ref : String
+  input_bytes : Int
+  sha256 : String
+  enabled_tier : String
+  bench_layers : Array[String]
+  tags : Array[String]
+  review_status : String
+  notes : String
+  input_path : String
+} derive(Eq, ToJson, @json.FromJson)
+
+pub(all) enum SelectOutput {
+  Jsonl
+  Tsv
+} derive(Eq)
+
+pub struct SelectRequest {
+  tier : String
+  format_filter : String?
+  limit : Int?
+  output : SelectOutput
+  stats_only : Bool
+} derive(Eq)
+
+pub struct SelectorStats {
+  requested_tier : String?
+  selected_rows : Int
+  formats : Array[String]
+  skipped_by_reason : Map[String, Int]
+} derive(Eq, ToJson, @json.FromJson)
+
+// Type aliases
+
+// Traits
+

@@ -1,0 +1,67 @@
+{
+  "output_format": "rag_json",
+  "detected_format": "docx",
+  "parser_mode": "package_single_pass",
+  "convert_mode": "rag",
+  "diagnostics_contains": {
+    "parser_name": "docx_parser",
+    "metrics": {
+      "renderer_name": "RagJsonRenderer"
+    }
+  },
+  "source_map": "null",
+  "chunk_count": {
+    "min": 4
+  },
+  "chunks": [
+    {
+      "kind": "metadata",
+      "heading_path": [],
+      "source_ref_count": 0,
+      "asset_ref_count": 0,
+      "text_contains_all": [
+        "title: DOCX Notes Fixture\napplication: fixture"
+      ]
+    },
+    {
+      "kind": "text",
+      "heading_path": [],
+      "source_ref_count": 1,
+      "asset_ref_count": 0,
+      "text_contains_all": [
+        "Meta footnote[^1]\n\nMeta comment anchor [comment 1]"
+      ],
+      "location_contains": {
+        "container_paths": [
+          "samples/main_process/docx/rag/docx_notes_metadata.docx"
+        ],
+        "entry_paths": [
+          "word/document.xml"
+        ]
+      }
+    },
+    {
+      "kind": "text",
+      "heading_path": [
+        "Comments"
+      ],
+      "source_ref_count": 1,
+      "asset_ref_count": 0,
+      "text_contains_all": [
+        "1. Meta: Meta comment body."
+      ],
+      "location_contains": {
+        "container_paths": [
+          "samples/main_process/docx/rag/docx_notes_metadata.docx"
+        ],
+        "entry_paths": [
+          "word/comments.xml"
+        ]
+      }
+    }
+  ],
+  "metadata_contains": {
+    "application": "fixture",
+    "title": "DOCX Notes Fixture"
+  }
+}

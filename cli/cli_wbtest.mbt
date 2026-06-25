@@ -1,6 +1,6 @@
 ///|
 fn test_tmp_root() -> String {
-  ".tmp/cli-tests"
+  ".tmp/tests/cli"
 }
 
 ///|
@@ -65,9 +65,11 @@ fn cli_options(
     output,
     explicit_format,
     ocr_options,
+    @convert.ConvertMode::Balanced,
     output_format,
     pdf_cleanup_mode~,
     pdf_table_mode~,
+    rag_options=@rag.default_rag_options(),
   )
 }
 
@@ -175,6 +177,47 @@ test "current main cli parses explicit OCR intent flags" {
 }
 
 ///|
+test "current main cli keeps --debug and rejects retired --json alias" {
+  match parse_cli_options(["--debug", "tiny.txt"]) {
+    Ok(opts) => {
+      assert_true(opts.convert_mode == @convert.ConvertMode::Debug)
+      assert_true(opts.output_format == @convert.OutputFormat::DebugJson)
+    }
+    Err(msg) => fail("expected --debug to parse: " + msg)
+  }
+
+  match parse_cli_options(["--rag", "tiny.txt"]) {
+    Ok(opts) => {
+      assert_true(opts.convert_mode == @convert.ConvertMode::Rag)
+      assert_true(opts.output_format == @convert.OutputFormat::RagJson)
+      assert_eq(
+        opts.rag_options.chunk_size,
+        @rag.default_rag_options().chunk_size,
+      )
+      assert_eq(
+        opts.rag_options.chunk_overlap,
+        @rag.default_rag_options().chunk_overlap,
+      )
+      assert_true(opts.rag_options.preserve_heading_path)
+      assert_true(opts.rag_options.preserve_source_ref)
+      assert_true(opts.rag_options.split_tables)
+      assert_true(opts.rag_options.split_code_blocks)
+    }
+    Err(msg) => fail("expected --rag to parse: " + msg)
+  }
+
+  match parse_cli_options(["--debug", "--rag", "tiny.txt"]) {
+    Err(msg) => assert_true(msg.contains("cannot combine --debug and --rag"))
+    Ok(_) => fail("expected --debug and --rag to conflict")
+  }
+
+  match parse_cli_options(["--json", "tiny.txt"]) {
+    Err(msg) => assert_true(msg.contains("unsupported option: --json"))
+    Ok(_) => fail("expected retired --json alias to fail")
+  }
+}
+
+///|
 test "current main cli parses explicit PDF product option flags" {
   match
     parse_cli_options([
@@ -223,6 +266,32 @@ test "current main cli requires --ocr for --ocr-lang" {
   match parse_cli_options(["--ocr-lang", "eng", "tiny.png"]) {
     Err(msg) => assert_true(msg.contains("--ocr-lang requires --ocr"))
     Ok(_) => fail("expected --ocr-lang without --ocr to fail")
+  }
+}
+
+///|
+test "current main cli first user arg helper handles executable-prefixed argv" {
+  assert_true(first_user_cli_arg(["cli.exe"]) == None)
+  assert_true(first_user_cli_arg(["cli.exe", "help"]) == Some("help"))
+  assert_true(first_user_cli_arg(["cli.exe", "normal"]) == Some("normal"))
+}
+
+///|
+test "current main cli can parse options from either implicit or explicit convert position" {
+  match parse_cli_options_from_index(["demo.txt"], 0) {
+    Ok(opts) => {
+      assert_eq(opts.input, "demo.txt")
+      assert_true(opts.output == None)
+    }
+    Err(msg) => fail("expected implicit convert argv to parse: " + msg)
+  }
+
+  match parse_cli_options_from_index(["convert", "demo.txt", "out.md"], 1) {
+    Ok(opts) => {
+      assert_eq(opts.input, "demo.txt")
+      assert_true(opts.output == Some("out.md"))
+    }
+    Err(msg) => fail("expected explicit convert argv to parse: " + msg)
   }
 }
 
@@ -636,7 +705,7 @@ test "current main cli pdf debug json exposes header footer candidate diagnostic
   let rendered = match
     run_cli(
       cli_options(
-        "samples/main_process/pdf/text_simple.pdf",
+        "samples/main_process/pdf/markdown/text_simple.pdf",
         None,
         Some(@input.DetectedFormat::Pdf),
         @convert.OutputFormat::DebugJson,
@@ -678,7 +747,7 @@ test "current main cli pdf product options stay opt-in and only change diagnosti
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
 
-  let pdf_path = "samples/main_process/pdf/root_native_text_baseline.pdf"
+  let pdf_path = "samples/main_process/pdf/markdown/root_native_text_baseline.pdf"
   let baseline = match
     run_cli(
       cli_options(
@@ -805,7 +874,7 @@ test "current main cli converts zip through the root container pipeline and pers
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
 
-  let zip_input = "samples/main_process/zip/zip_html_local_image.zip"
+  let zip_input = "samples/main_process/zip/assets/zip_html_local_image.zip"
   let out_dir = root + "/out"
   let out_md = out_dir + "/archive.md"
   ensure_dir_tree(out_dir)
@@ -854,7 +923,7 @@ test "current main cli keeps epub local assets output boundary only and remote d
   let local_rendered = match
     run_cli(
       cli_options(
-        "samples/main_process/epub/epub_local_image_basic.epub",
+        "samples/main_process/epub/assets/epub_local_image_basic.epub",
         Some(local_md),
         Some(@input.DetectedFormat::Epub),
         @convert.OutputFormat::Markdown,
@@ -881,7 +950,7 @@ test "current main cli keeps epub local assets output boundary only and remote d
   let remote_rendered = match
     run_cli(
       cli_options(
-        "samples/main_process/epub/epub_remote_data_image_boundary.epub",
+        "samples/main_process/epub/markdown/epub_remote_data_image_boundary.epub",
         Some(remote_md),
         Some(@input.DetectedFormat::Epub),
         @convert.OutputFormat::Markdown,
@@ -911,7 +980,7 @@ test "current main cli restores docx xlsx pptx and native-text pdf" {
   let xlsx_path = root + "/sample.xlsx"
   let pdf_path = root + "/sample.pdf"
   let docx_bytes = @fs.read_file_to_bytes(
-    "samples/main_process/docx/docx_image_alt_title.docx",
+    "samples/main_process/docx/assets/docx_image_alt_title.docx",
   ) catch {
     e => fail("read docx sample failed: " + e.to_string())
   }
@@ -919,7 +988,7 @@ test "current main cli restores docx xlsx pptx and native-text pdf" {
     e => fail("write docx sample failed: " + e.to_string())
   }
   let pptx_bytes = @fs.read_file_to_bytes(
-    "samples/main_process/pptx/pptx_hidden_slide_basic.pptx",
+    "samples/main_process/pptx/markdown/pptx_hidden_slide_basic.pptx",
   ) catch {
     e => fail("read pptx sample failed: " + e.to_string())
   }
@@ -927,7 +996,7 @@ test "current main cli restores docx xlsx pptx and native-text pdf" {
     e => fail("write pptx sample failed: " + e.to_string())
   }
   let xlsx_bytes = @fs.read_file_to_bytes(
-    "samples/main_process/xlsx/sheet_simple.xlsx",
+    "samples/main_process/xlsx/markdown/sheet_simple.xlsx",
   ) catch {
     e => fail("read xlsx sample failed: " + e.to_string())
   }
@@ -935,7 +1004,7 @@ test "current main cli restores docx xlsx pptx and native-text pdf" {
     e => fail("write xlsx sample failed: " + e.to_string())
   }
   let pdf_bytes = @fs.read_file_to_bytes(
-    "samples/main_process/pdf/root_native_text_baseline.pdf",
+    "samples/main_process/pdf/markdown/root_native_text_baseline.pdf",
   ) catch {
     e => fail("read pdf sample failed: " + e.to_string())
   }
@@ -954,7 +1023,7 @@ test "current main cli restores docx xlsx pptx and native-text pdf" {
   )
   let epub = run_cli(
     cli_options(
-      "samples/main_process/epub/epub_basic_package.epub",
+      "samples/main_process/epub/markdown/epub_basic_package.epub",
       None,
       None,
       @convert.OutputFormat::Markdown,
@@ -999,7 +1068,7 @@ test "current main cli restores docx xlsx pptx and native-text pdf" {
       assert_eq(
         value.trim_end().to_owned(),
         read_utf8_text(
-          "samples/main_process/pdf/expected/root_native_text_baseline.md",
+          "samples/main_process/pdf/expected/markdown/root_native_text_baseline.md",
         )
         .trim_end()
         .to_owned(),

@@ -428,7 +428,7 @@ fn assert_core_readable(
 
 ///|
 test "ooxml package phase-1 works on docx sample" {
-  let pkg = open_sample_package("samples/main_process/docx/golden.docx")
+  let pkg = open_sample_package("samples/main_process/docx/assets/golden.docx")
 
   assert_core_readable(pkg, "word/document.xml")
 
@@ -447,7 +447,9 @@ test "ooxml package phase-1 works on docx sample" {
 
 ///|
 test "ooxml package phase-1 works on xlsx sample" {
-  let pkg = open_sample_package("samples/main_process/xlsx/sheet_simple.xlsx")
+  let pkg = open_sample_package(
+    "samples/main_process/xlsx/markdown/sheet_simple.xlsx",
+  )
 
   assert_core_readable(pkg, "xl/workbook.xml")
 
@@ -469,7 +471,9 @@ test "ooxml package phase-1 works on xlsx sample" {
 
 ///|
 test "ooxml package phase-1 works on pptx sample" {
-  let pkg = open_sample_package("samples/main_process/pptx/pptx_simple.pptx")
+  let pkg = open_sample_package(
+    "samples/main_process/pptx/rag/pptx_simple.pptx",
+  )
 
   assert_core_readable(pkg, "ppt/presentation.xml")
 
@@ -488,7 +492,7 @@ test "ooxml package phase-1 works on pptx sample" {
 
 ///|
 test "ooxml package phase-2 can list and query parts" {
-  let pkg = open_sample_package("samples/main_process/docx/golden.docx")
+  let pkg = open_sample_package("samples/main_process/docx/assets/golden.docx")
 
   let parts = @ox.list_parts(pkg)
   if parts.length() == 0 {
@@ -563,7 +567,9 @@ test "ooxml package phase-2 can find relationships by id and type" {
 
 ///|
 test "ooxml package phase-2 can list media assets" {
-  let pkg = open_sample_package("samples/main_process/pptx/pptx_simple.pptx")
+  let pkg = open_sample_package(
+    "samples/main_process/pptx/rag/pptx_simple.pptx",
+  )
 
   let assets = @ox.list_media_assets(pkg) catch {
     e => fail("list_media_assets failed: " + e.to_string())
@@ -582,7 +588,7 @@ test "ooxml package phase-2 can list media assets" {
 
 ///|
 test "ooxml package phase-2 can read document properties safely" {
-  let pkg = open_sample_package("samples/main_process/docx/golden.docx")
+  let pkg = open_sample_package("samples/main_process/docx/assets/golden.docx")
 
   let core = @ox.read_core_properties(pkg)
   let app = @ox.read_app_properties(pkg)
@@ -593,7 +599,7 @@ test "ooxml package phase-2 can read document properties safely" {
 
 ///|
 test "ooxml package phase-2 can read part text" {
-  let pkg = open_sample_package("samples/main_process/docx/golden.docx")
+  let pkg = open_sample_package("samples/main_process/docx/assets/golden.docx")
   let text = @ox.read_part_text(pkg, "word/document.xml") catch {
     e => fail("read_part_text failed: " + e.to_string())
   }
@@ -707,7 +713,7 @@ fn[T] ok_or_err_unit(
 
 ///|
 test "ooxml package phase-2.2 can dump docx sample" {
-  let pkg = open_sample_package("samples/main_process/docx/golden.docx")
+  let pkg = open_sample_package("samples/main_process/docx/assets/golden.docx")
   let dump = @ox.dump_ooxml_package(pkg)
 
   assert_dump_has_debug_sections(dump)
@@ -718,7 +724,9 @@ test "ooxml package phase-2.2 can dump docx sample" {
 
 ///|
 test "ooxml package phase-2.2 can dump pptx sample" {
-  let pkg = open_sample_package("samples/main_process/pptx/pptx_simple.pptx")
+  let pkg = open_sample_package(
+    "samples/main_process/pptx/rag/pptx_simple.pptx",
+  )
   let dump = @ox.dump_ooxml_package(pkg)
 
   assert_dump_has_debug_sections(dump)
@@ -729,7 +737,9 @@ test "ooxml package phase-2.2 can dump pptx sample" {
 
 ///|
 test "ooxml package phase-2.2 can dump xlsx sample" {
-  let pkg = open_sample_package("samples/main_process/xlsx/sheet_simple.xlsx")
+  let pkg = open_sample_package(
+    "samples/main_process/xlsx/markdown/sheet_simple.xlsx",
+  )
   let dump = @ox.dump_ooxml_package(pkg)
 
   assert_dump_has_debug_sections(dump)
@@ -741,7 +751,7 @@ test "ooxml package phase-2.2 can dump xlsx sample" {
 ///|
 test "ooxml package phase-2.2 dump handles missing media and docProps" {
   let pkg = open_sample_package(
-    "samples/main_process/docx/docx_blockquote_basic.docx",
+    "samples/main_process/docx/markdown/docx_blockquote_basic.docx",
   )
   let dump = @ox.dump_ooxml_package(pkg)
 
@@ -980,7 +990,7 @@ test "ooxml package inspect inventory is deterministic and structured" {
 
 ///|
 test "ooxml package can find part info and missing part info" {
-  let pkg = open_sample_package("samples/main_process/docx/golden.docx")
+  let pkg = open_sample_package("samples/main_process/docx/assets/golden.docx")
   let info = @ox.find_part_info(pkg, "word/document.xml") catch {
     e => fail("find_part_info failed: " + e.to_string())
   }
@@ -1008,7 +1018,7 @@ test "ooxml package can find part info and missing part info" {
 
 ///|
 test "ooxml package missing part read is classified" {
-  let pkg = open_sample_package("samples/main_process/docx/golden.docx")
+  let pkg = open_sample_package("samples/main_process/docx/assets/golden.docx")
   let result = ok_or_err_unit(
     try @ox.read_part_bytes(pkg, "word/missing.xml") |> Ok catch {
       e => Err(e)
@@ -1175,7 +1185,7 @@ test "ooxml strict validation reports unsafe relationship target" {
 
 ///|
 test "ooxml package classifies rooted and parent traversal part paths" {
-  let pkg = open_sample_package("samples/main_process/docx/golden.docx")
+  let pkg = open_sample_package("samples/main_process/docx/assets/golden.docx")
   let rooted = ok_or_err_unit(
     try @ox.read_part_bytes(pkg, "/../evil.xml") |> Ok catch {
       e => Err(e)

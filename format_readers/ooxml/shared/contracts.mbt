@@ -1,10 +1,6 @@
 ///|
 pub fn office_parser_modes() -> Array[@parser.ParserMode] {
-  [
-    @parser.ParserMode::DocumentModel,
-    @parser.ParserMode::PresentationModel,
-    @parser.ParserMode::WorkbookModel,
-  ]
+  [@parser.ParserMode::PackageSinglePass]
 }
 
 ///|
@@ -24,7 +20,7 @@ pub fn docx_contract_parser_name() -> String {
 
 ///|
 pub fn docx_contract_mode() -> @parser.ParserMode {
-  @parser.ParserMode::DocumentModel
+  @parser.ParserMode::PackageSinglePass
 }
 
 ///|
@@ -45,7 +41,7 @@ pub fn docx_contract_foundations() -> Array[String] {
 ///|
 pub fn docx_contract_guardrails() -> Array[String] {
   [
-    "DOCX is restored on the current main CLI", "DocumentModel / IRInput::Document / docx_block",
+    "DOCX is restored on the current main CLI", "PackageSinglePass / IRInput::Document / docx_block",
     "format_readers/ooxml/package + format_readers/ooxml/docx foundation", "no old core",
     "no legacy convert", "no markdown emitter", "no main CLI fallback", "assets stay output-boundary only",
   ]
@@ -58,7 +54,7 @@ pub fn pptx_contract_parser_name() -> String {
 
 ///|
 pub fn pptx_contract_mode() -> @parser.ParserMode {
-  @parser.ParserMode::PresentationModel
+  @parser.ParserMode::PackageSinglePass
 }
 
 ///|
@@ -84,7 +80,7 @@ pub fn pptx_contract_excluded_runtime_foundations() -> Array[String] {
 ///|
 pub fn pptx_contract_guardrails() -> Array[String] {
   [
-    "PPTX is restored on the current main CLI", "PresentationModel / IRInput::Document / pptx_slide",
+    "PPTX is restored on the current main CLI", "PackageSinglePass / IRInput::Document / pptx_slide",
     "format_readers/ooxml/package + format_readers/ooxml/pptx foundation", "no old core",
     "no legacy convert", "no markdown emitter", "no main CLI fallback", "slide order follows presentation.xml",
     "placeholder inheritance is slide -> layout -> master -> geometry inference",
@@ -158,7 +154,7 @@ pub fn xlsx_contract_parser_name() -> String {
 
 ///|
 pub fn xlsx_contract_mode() -> @parser.ParserMode {
-  @parser.ParserMode::WorkbookModel
+  @parser.ParserMode::PackageSinglePass
 }
 
 ///|
@@ -178,7 +174,7 @@ pub fn xlsx_contract_ir_input_kind() -> String {
 
 ///|
 pub fn xlsx_contract_large_ir_input_kind() -> String {
-  "event_stream"
+  "block_stream"
 }
 
 ///|
@@ -194,8 +190,8 @@ pub fn xlsx_contract_excluded_runtime_foundations() -> Array[String] {
 ///|
 pub fn xlsx_contract_guardrails() -> Array[String] {
   [
-    "XLSX is restored on the current main CLI", "WorkbookModel / IRInput::Document / xlsx_sheet",
-    "future large path = StreamingEvent / EventStream / xlsx_row", "format_readers/ooxml/shared now owns the shared XLSX semantic scaffold",
+    "XLSX is restored on the current main CLI", "PackageSinglePass / IRInput::Document / xlsx_sheet",
+    "future large path = BlockStreaming / BlockStream / xlsx_row", "format_readers/ooxml/shared now owns the shared XLSX semantic scaffold",
     "no old core", "no legacy convert", "no markdown emitter", "no main CLI fallback",
     "assets stay output-boundary only", "formulas are preserved and never executed",
     "external links are no-fetch",
@@ -223,7 +219,7 @@ pub fn xlsx_contract_formula_policy() -> Array[String] {
 pub fn xlsx_contract_sheet_policy() -> Array[String] {
   [
     "visible sheets are future first-scope input", "hidden sheets require explicit diagnostics policy",
-    "very hidden sheets require explicit diagnostics policy", "large sheets are bounded and defer to future xlsx_row streaming",
+    "very hidden sheets require explicit diagnostics policy", "large sheets are bounded and defer to future xlsx_row block streaming",
   ]
 }
 

@@ -1,0 +1,9 @@
+import {
+  "moonbitlang/core/env",
+  "moonbitlang/core/string",
+  "ZSeanYves/markitdown/bench/runner/manifest",
+}
+
+options(
+  "preferred-target": "native",
+)

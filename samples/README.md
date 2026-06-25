@@ -39,7 +39,7 @@ bash samples/check.sh --format docx
 bash samples/check.sh --format xlsx
 bash samples/check.sh --format pptx
 bash samples/check.sh --format pdf
-bash samples/check.sh --markdown-only
+bash samples/check.sh --markdown
 bash samples/check.sh --check-inventory
 bash samples/check.sh --list-inventory
 ```
@@ -50,6 +50,13 @@ External quality bridge:
 bash samples/check_quality.sh
 bash samples/check_quality.sh --format pdf
 ```
+
+Run artifact policy:
+
+- `samples/check.sh` keeps only failure artifacts under each run directory.
+- `samples/check.sh` uses `workspace/` as scratch only.
+- `samples/check_quality.sh` keeps executed row outputs under `raw/outputs/`.
+- `samples/check_quality.sh` writes executed non-pass row reports under `reports/`.
 
 Contract aggregation:
 
@@ -93,8 +100,8 @@ Current policy:
 
 ## Expected Output Policy
 
-- Most formats use `samples/main_process/<format>/expected/`.
-- `xlsx` and `pptx` use `expected_next/` because those directories are the
+- Most formats use `samples/main_process/<format>/expected/markdown/`, `expected/rag/`, and `expected/assets/`.
+- `xlsx` and `pptx` use `expected/markdown/` because those directories are the
   current product baselines for those formats.
 - `.tmp` output is disposable and must not become the only durable copy of a
   sample, manifest, or expected artifact.
@@ -124,7 +131,6 @@ The contract aggregator keeps the active shell guard surface in one place:
 - `check_docx_contract.sh`
 - `check_xlsx_contract.sh`
 - `check_pptx_contract.sh`
-- `check_batch_contract.sh`
 - `check_ocr_contract.sh`
 - `check_pdf_signal_contract.sh`
 

@@ -1,0 +1,16 @@
+import {
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/env",
+  "moonbitlang/core/string",
+  "moonbitlang/x/fs",
+  "ZSeanYves/markitdown/bench/runner/command",
+  "ZSeanYves/markitdown/bench/runner/measure",
+  "ZSeanYves/markitdown/bench/runner/manifest",
+}
+
+supported_targets = "native"
+
+options(
+  "preferred-target": "native",
+  "native-stub": [ "path_native_stub.c" ],
+)
