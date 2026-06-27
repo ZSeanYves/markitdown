@@ -24,12 +24,12 @@ fn csv_parser_capability() -> @parser.ParserCapability {
 }
 
 ///|
-pub fn csv_lite_parser() -> @parser.Parser {
+pub fn csv_parser() -> @parser.Parser {
   delimited_parser("csv_parser", @input.DetectedFormat::Csv, false)
 }
 
 ///|
-pub fn tsv_lite_parser() -> @parser.Parser {
+pub fn tsv_parser() -> @parser.Parser {
   delimited_parser("tsv_parser", @input.DetectedFormat::Tsv, true)
 }
 
@@ -52,7 +52,7 @@ fn delimited_parser(
         Ok(payload) => payload
         Err(err) => return Err(err)
       }
-      let diagnostics = @light_common.empty_parser_diagnostics(
+      let diagnostics = @parser_common.empty_parser_diagnostics(
         name,
         @parser.ParserMode::StreamingEvent,
         source,
@@ -87,19 +87,17 @@ fn delimited_parser(
       let raw_row_count = table_doc.rows.length()
       let raw_col_count = table_doc.column_count
       let raw_cell_count = raw_row_count * raw_col_count
-      let effective_row_count = @light_common.min_int(raw_row_count, max_rows)
-      let effective_col_count = @light_common.min_int(raw_col_count, max_cols)
+      let effective_row_count = @parser_common.min_int(raw_row_count, max_rows)
+      let effective_col_count = @parser_common.min_int(raw_col_count, max_cols)
       let delimiter_name = if is_tsv { "tab" } else { "comma" }
       diagnostics.metrics.set("parser_name", name)
       diagnostics.metrics.set("parser_mode", "streaming_event")
       diagnostics.metrics.set(
         "input_kind",
-        @light_common.input_kind_name(source.kind),
+        @parser_common.input_kind_name(source.kind),
       )
       diagnostics.metrics.set("detected_format", format_name)
-      @light_common.apply_readiness_metrics(
-        diagnostics, format_name, "near_ready",
-      )
+      @parser_common.apply_product_metrics(diagnostics, format_name)
       diagnostics.metrics.set("delimiter", delimiter_name)
       diagnostics.metrics.set("raw_row_count", raw_row_count.to_string())
       diagnostics.metrics.set("raw_column_count", raw_col_count.to_string())
@@ -147,7 +145,7 @@ fn delimited_parser(
       diagnostics.metrics.set("asset_count", "0")
       diagnostics.metrics.set(
         "requested_mode",
-        @light_common.requested_mode_name(context),
+        @parser_common.requested_mode_name(context),
       )
       diagnostics.metrics.set("effective_mode", "streaming_event")
       diagnostics.metrics.set("ir_input_kind", "event_stream")
@@ -164,7 +162,7 @@ fn delimited_parser(
       }
       diagnostics.metrics.set(
         "quoted_newline_observed",
-        @light_common.bool_string(inspect.multiline_field_count > 0),
+        @parser_common.bool_string(inspect.multiline_field_count > 0),
       )
       diagnostics.metrics.set(
         "quoted_delimiter_support",
@@ -208,7 +206,7 @@ fn delimited_parser(
       } else {
         max_cells / effective_col_count
       }
-      let allowed_rows = @light_common.min_int(
+      let allowed_rows = @parser_common.min_int(
         effective_row_count, max_rows_by_cells,
       )
       let truncated_row_count = raw_row_count - allowed_rows
@@ -217,15 +215,15 @@ fn delimited_parser(
         allowed_rows * effective_col_count
       diagnostics.metrics.set(
         "truncated_row_count",
-        @light_common.max_int(truncated_row_count, 0).to_string(),
+        @parser_common.max_int(truncated_row_count, 0).to_string(),
       )
       diagnostics.metrics.set(
         "truncated_column_count",
-        @light_common.max_int(truncated_col_count, 0).to_string(),
+        @parser_common.max_int(truncated_col_count, 0).to_string(),
       )
       diagnostics.metrics.set(
         "truncated_cell_count",
-        @light_common.max_int(truncated_cell_count, 0).to_string(),
+        @parser_common.max_int(truncated_cell_count, 0).to_string(),
       )
       if allowed_rows < effective_row_count {
         diagnostics.warnings.push(
@@ -341,7 +339,7 @@ fn malformed_delimited_parse_result(
     Some(source.source_name),
     Some(format_name),
     Some(1),
-    Some(@light_common.count_physical_lines(text)),
+    Some(@parser_common.count_physical_lines(text)),
   )
   let block = @core.make_block(@core.BlockKind::Raw, text, source_ref~)
   block.attrs.set("raw_kind", format_name + "_fallback")
@@ -355,10 +353,10 @@ fn malformed_delimited_parse_result(
   diagnostics.metrics.set("parser_mode", "streaming_event")
   diagnostics.metrics.set(
     "input_kind",
-    @light_common.input_kind_name(source.kind),
+    @parser_common.input_kind_name(source.kind),
   )
   diagnostics.metrics.set("detected_format", format_name)
-  @light_common.apply_readiness_metrics(diagnostics, format_name, "near_ready")
+  @parser_common.apply_product_metrics(diagnostics, format_name)
   diagnostics.metrics.set(
     "delimiter",
     if format == @input.DetectedFormat::Tsv {
@@ -382,7 +380,7 @@ fn malformed_delimited_parse_result(
   )
   diagnostics.metrics.set(
     "line_count",
-    @light_common.count_physical_lines(text).to_string(),
+    @parser_common.count_physical_lines(text).to_string(),
   )
   diagnostics.metrics.set("raw_row_count", "0")
   diagnostics.metrics.set("raw_column_count", "0")
@@ -398,7 +396,7 @@ fn malformed_delimited_parse_result(
   diagnostics.metrics.set("asset_count", "0")
   diagnostics.metrics.set(
     "requested_mode",
-    @light_common.requested_mode_name(context),
+    @parser_common.requested_mode_name(context),
   )
   diagnostics.metrics.set("effective_mode", "streaming_event")
   diagnostics.metrics.set("ir_input_kind", "document")

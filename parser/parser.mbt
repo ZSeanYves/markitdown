@@ -2,9 +2,6 @@
 pub(all) enum ParserMode {
   StreamingEvent
   BlockStreaming
-  DocumentModel
-  PresentationModel
-  WorkbookModel
   PackageSinglePass
   PageSinglePass
   DomAstModel
@@ -116,8 +113,10 @@ pub struct ParseResult {
   event_stream : Array[@core.CoreEvent]?
   block_stream : Array[@core.CoreBlock]?
   document : @core.DocumentIR?
-  container_manifest : @core.ContainerManifest?
-  container_plan : @core.ContainerPlan?
+  metadata : @core.DocumentMetadata
+  assets : Array[@core.AssetRef]
+  source_map : @core.SourceMap?
+  assembly : @core.DocumentAssembly?
   diagnostics : @core.Diagnostics
 }
 
@@ -448,9 +447,6 @@ pub fn mode_name(mode : ParserMode) -> String {
   match mode {
     ParserMode::StreamingEvent => "streaming_event"
     ParserMode::BlockStreaming => "block_streaming"
-    ParserMode::DocumentModel => "document_model"
-    ParserMode::PresentationModel => "presentation_model"
-    ParserMode::WorkbookModel => "workbook_model"
     ParserMode::PackageSinglePass => "package_single_pass"
     ParserMode::PageSinglePass => "page_single_pass"
     ParserMode::DomAstModel => "dom_ast_model"
@@ -474,8 +470,10 @@ pub fn parse_result_with_events(
     event_stream: Some(events),
     block_stream: None,
     document: None,
-    container_manifest: None,
-    container_plan: None,
+    metadata: Map([]),
+    assets: [],
+    source_map: None,
+    assembly: None,
     diagnostics,
   }
 }
@@ -487,6 +485,10 @@ pub fn parse_result_with_events_capability(
   events : Array[@core.CoreEvent],
   diagnostics : @core.Diagnostics,
   capability : ParserCapability,
+  metadata? : @core.DocumentMetadata = Map([]),
+  assets? : Array[@core.AssetRef] = [],
+  source_map? : @core.SourceMap? = None,
+  assembly? : @core.DocumentAssembly? = None,
 ) -> ParseResult {
   {
     parser_name,
@@ -495,8 +497,10 @@ pub fn parse_result_with_events_capability(
     event_stream: Some(events),
     block_stream: None,
     document: None,
-    container_manifest: None,
-    container_plan: None,
+    metadata,
+    assets,
+    source_map,
+    assembly,
     diagnostics,
   }
 }
@@ -515,8 +519,10 @@ pub fn parse_result_with_blocks(
     event_stream: None,
     block_stream: Some(blocks),
     document: None,
-    container_manifest: None,
-    container_plan: None,
+    metadata: Map([]),
+    assets: [],
+    source_map: None,
+    assembly: None,
     diagnostics,
   }
 }
@@ -528,6 +534,10 @@ pub fn parse_result_with_blocks_capability(
   blocks : Array[@core.CoreBlock],
   diagnostics : @core.Diagnostics,
   capability : ParserCapability,
+  metadata? : @core.DocumentMetadata = Map([]),
+  assets? : Array[@core.AssetRef] = [],
+  source_map? : @core.SourceMap? = None,
+  assembly? : @core.DocumentAssembly? = None,
 ) -> ParseResult {
   {
     parser_name,
@@ -536,8 +546,10 @@ pub fn parse_result_with_blocks_capability(
     event_stream: None,
     block_stream: Some(blocks),
     document: None,
-    container_manifest: None,
-    container_plan: None,
+    metadata,
+    assets,
+    source_map,
+    assembly,
     diagnostics,
   }
 }
@@ -556,8 +568,10 @@ pub fn parse_result_with_document(
     event_stream: None,
     block_stream: None,
     document: Some(document),
-    container_manifest: None,
-    container_plan: None,
+    metadata: document.metadata,
+    assets: document.assets,
+    source_map: document.source_map,
+    assembly: document.assembly,
     diagnostics,
   }
 }
@@ -577,48 +591,10 @@ pub fn parse_result_with_document_capability(
     event_stream: None,
     block_stream: None,
     document: Some(document),
-    container_manifest: None,
-    container_plan: None,
-    diagnostics,
-  }
-}
-
-///|
-pub fn parse_result_with_container_manifest(
-  parser_name : String,
-  manifest : @core.ContainerManifest,
-  diagnostics : @core.Diagnostics,
-  capability : ParserCapability,
-) -> ParseResult {
-  {
-    parser_name,
-    mode: ParserMode::ContainerRecursive,
-    capabilities: capability,
-    event_stream: None,
-    block_stream: None,
-    document: None,
-    container_manifest: Some(manifest),
-    container_plan: None,
-    diagnostics,
-  }
-}
-
-///|
-pub fn parse_result_with_container_plan(
-  parser_name : String,
-  plan : @core.ContainerPlan,
-  diagnostics : @core.Diagnostics,
-  capability : ParserCapability,
-) -> ParseResult {
-  {
-    parser_name,
-    mode: ParserMode::ContainerRecursive,
-    capabilities: capability,
-    event_stream: None,
-    block_stream: None,
-    document: None,
-    container_manifest: None,
-    container_plan: Some(plan),
+    metadata: document.metadata,
+    assets: document.assets,
+    source_map: document.source_map,
+    assembly: document.assembly,
     diagnostics,
   }
 }

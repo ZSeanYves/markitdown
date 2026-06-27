@@ -4,10 +4,12 @@ import {
   "ZSeanYves/markitdown/format_readers/ooxml/pptx" @pptxdoc,
   "ZSeanYves/markitdown/format_readers/ooxml/shared",
   "ZSeanYves/markitdown/core",
-  "ZSeanYves/markitdown/formats/light_common",
+  "ZSeanYves/markitdown/formats/parser_common",
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
 }
+
+supported_targets = "native"
 
 options(
   "preferred-target": "native",

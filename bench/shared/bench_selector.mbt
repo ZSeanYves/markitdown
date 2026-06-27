@@ -19,6 +19,16 @@ pub fn stress_rows() -> Array[BenchManifestRow] {
 }
 
 ///|
+pub fn select_rows_exact_tiers(
+  tiers : Array[BenchTier],
+) -> Array[BenchManifestRow] {
+  let allowed = tiers.map(tier => bench_tier_name(tier))
+  load_bench_manifest()
+  .filter(row => bench_row_is_default_candidate(row))
+  .filter(row => allowed.contains(row.enabled_tier.trim().to_lower().to_owned()))
+}
+
+///|
 pub fn select_rows(max_tier : BenchTier) -> Array[BenchManifestRow] {
   load_bench_manifest()
   .filter(row => bench_row_is_default_candidate(row))
@@ -58,6 +68,16 @@ pub fn select_rows_for_layer_and_formats(
   let rows = select_rows_for_layer(max_tier, layer)
   let wanted = formats.map(name => name.trim().to_lower())
   rows.filter(row => wanted.contains(row.format.trim().to_lower()))
+}
+
+///|
+pub fn bench_tier_name(tier : BenchTier) -> String {
+  match tier {
+    BenchTier::Smoke => "smoke"
+    BenchTier::Regular => "regular"
+    BenchTier::Release => "release"
+    BenchTier::Stress => "stress"
+  }
 }
 
 ///|

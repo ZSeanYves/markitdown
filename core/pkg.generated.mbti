@@ -18,7 +18,7 @@ pub fn block_with_rich_inlines(CoreBlock, Array[CoreInline]?) -> CoreBlock
 
 pub fn block_with_signals(CoreBlock, Array[CoreSignal]) -> CoreBlock
 
-pub fn container_asset_copy_policy_name(ContainerAssetCopyPolicy) -> String
+pub fn build_document_from_events(Array[CoreEvent]) -> DocumentIR
 
 pub fn container_entry_kind_name(ContainerEntryKind) -> String
 
@@ -33,6 +33,8 @@ pub fn diagnostics_add_fallback_trace(Diagnostics, String) -> Diagnostics
 pub fn diagnostics_add_metric(Diagnostics, String, String) -> Diagnostics
 
 pub fn diagnostics_add_pass_trace(Diagnostics, String) -> Diagnostics
+
+pub fn diagnostics_add_same_mode_degradation(Diagnostics, String) -> Diagnostics
 
 pub fn diagnostics_add_warning(Diagnostics, String) -> Diagnostics
 
@@ -82,15 +84,7 @@ pub fn make_block(BlockKind, String, source_ref? : SourceRef) -> CoreBlock
 
 pub fn make_block_id(BlockKind, String, source_ref? : SourceRef?) -> String
 
-pub fn make_container_asset_plan(String, String, media_type? : String?, size? : Int?, copy_policy? : ContainerAssetCopyPolicy, source_ref? : SourceRef?) -> ContainerAssetPlan
-
 pub fn make_container_entry(String, ContainerEntryKind, normalized_path? : String?, entry_index? : Int?, detected_format? : String?, media_type? : String?, compressed_size? : Int?, uncompressed_size? : Int?, is_encrypted? : Bool, compression_method? : String?, crc? : String?, source_ref? : SourceRef?, security_findings? : Array[ContainerSecurityFinding]) -> ContainerEntry
-
-pub fn make_container_inner_document(ContainerEntry, String, explicit_detected_format? : String?, inner_source_ref? : SourceRef?) -> ContainerInnerDocument
-
-pub fn make_container_manifest(String, Array[ContainerEntry], container_path? : String?, selected_entries? : Array[ContainerEntry], skipped_entries? : Array[ContainerEntry], diagnostics? : Diagnostics, source_ref? : SourceRef?) -> ContainerManifest
-
-pub fn make_container_plan(String, Array[ContainerEntry], Array[ContainerInnerDocument], Array[ContainerAssetPlan], container_path? : String?, skipped_entries? : Array[ContainerEntry], merged_blocks? : Array[CoreBlock], merged_assets? : Array[AssetRef], diagnostics? : Diagnostics, source_ref? : SourceRef?) -> ContainerPlan
 
 pub fn make_inline_code(String, source_ref? : SourceRef) -> CoreInline
 
@@ -196,21 +190,6 @@ pub(all) struct CaptionBinding {
   confidence : Int?
 }
 
-pub(all) enum ContainerAssetCopyPolicy {
-  MaterializeAtOutputBoundary
-  ReferenceOnly
-  RejectUnsafePath
-} derive(Eq)
-
-pub(all) struct ContainerAssetPlan {
-  entry_path : String
-  output_relative_path : String
-  media_type : String?
-  size : Int?
-  copy_policy : ContainerAssetCopyPolicy
-  source_ref : SourceRef?
-}
-
 pub(all) struct ContainerEntry {
   entry_path : String
   normalized_path : String?
@@ -235,36 +214,6 @@ pub(all) enum ContainerEntryKind {
   Unsupported
   Unsafe
 } derive(Eq)
-
-pub(all) struct ContainerInnerDocument {
-  entry : ContainerEntry
-  source_name : String
-  explicit_detected_format : String?
-  inner_source_ref : SourceRef?
-}
-
-pub(all) struct ContainerManifest {
-  container_format : String
-  container_path : String?
-  entries : Array[ContainerEntry]
-  selected_entries : Array[ContainerEntry]
-  skipped_entries : Array[ContainerEntry]
-  diagnostics : Diagnostics
-  source_ref : SourceRef?
-}
-
-pub(all) struct ContainerPlan {
-  container_format : String
-  container_path : String?
-  ordered_entries : Array[ContainerEntry]
-  inner_documents_to_convert : Array[ContainerInnerDocument]
-  assets_to_materialize : Array[ContainerAssetPlan]
-  skipped_entries : Array[ContainerEntry]
-  merged_blocks : Array[CoreBlock]
-  merged_assets : Array[AssetRef]
-  diagnostics : Diagnostics
-  source_ref : SourceRef?
-}
 
 pub(all) enum ContainerSecurityFinding {
   PathTraversal
@@ -320,6 +269,7 @@ pub(all) struct Diagnostics {
   warnings : Array[String]
   errors : Array[String]
   degraded_features : Array[String]
+  same_mode_degradation : Array[String]
   fallback_trace : Array[String]
   pass_trace : Array[String]
   metrics : Map[String, String]
@@ -365,8 +315,6 @@ pub(all) enum IRInput {
   EventStream(Array[CoreEvent])
   BlockStream(Array[CoreBlock])
   Document(DocumentIR)
-  ContainerManifest(ContainerManifest)
-  ContainerPlan(ContainerPlan)
 }
 
 pub(all) enum InlineKind {

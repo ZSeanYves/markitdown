@@ -23,18 +23,26 @@ pub fn moonbit_cli_tool() -> BenchTool {
     name: "moonbit-cli",
     tool_version: Some("markitdown-mb"),
     availability_note: Some(
-      "built CLI binary missing; run `moon build cli --target native --release`",
+      "release cli.exe missing; formal benchmark requires _build/native/release/build/cli/cli.exe",
     ),
     command_builder: fn(
-      row,
+      _row,
       output_path,
       timeout_ms,
       cli_output_mode,
       _engine_output_mode,
     ) {
-      build_moonbit_cli_command(
-        "moon", row, output_path, timeout_ms, cli_output_mode,
-      )
+      ignore(timeout_ms)
+      ignore(cli_output_mode)
+      {
+        program: built_path,
+        args: ["normal", "<input>", output_path],
+        cwd: None,
+        env: [],
+        timeout_ms,
+        command_kind: "cli-baseline",
+        command_display: built_path + " normal <input> " + output_path,
+      }
     },
   }
 }
@@ -47,37 +55,14 @@ fn build_moonbit_cli_command(
   timeout_ms : Int,
   cli_output_mode : @command.CliOutputMode,
 ) -> ToolCommand {
-  let is_built_binary = program != "moon"
-  let base_args = if is_built_binary {
-    ["normal", row.input_path]
-  } else {
-    [
-      "run",
-      "cli",
-      "--target",
-      "native",
-      "--release",
-      "--",
-      "normal",
-      row.input_path,
-    ]
-  }
-  let args = base_args.copy()
+  let args : Array[String] = ["normal", row.input_path]
   let command_display = match cli_output_mode {
     @command.CliOutputMode::File => {
       args.push(output_path)
-      if is_built_binary {
-        program + " normal " + row.input_path + " " + output_path
-      } else {
-        "moon run cli --target native --release -- normal <input> <output>"
-      }
+      program + " normal " + row.input_path + " " + output_path
     }
     @command.CliOutputMode::StdoutCapture =>
-      if is_built_binary {
-        program + " normal " + row.input_path
-      } else {
-        "moon run cli --target native --release -- normal <input>"
-      }
+      program + " normal " + row.input_path
   }
   {
     program,

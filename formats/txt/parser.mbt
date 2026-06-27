@@ -8,7 +8,7 @@ pub fn txt_parser() -> @parser.Parser {
       source : @input.InputSource,
       context : @parser.ParseContext,
     ) -> Result[@parser.ParseResult, String] {
-      let diagnostics = @light_common.empty_parser_diagnostics(
+      let diagnostics = @parser_common.empty_parser_diagnostics(
         "txt_parser",
         @parser.ParserMode::StreamingEvent,
         source,
@@ -66,10 +66,10 @@ pub fn txt_parser() -> @parser.Parser {
       diagnostics.metrics.set("parser_mode", "streaming_event")
       diagnostics.metrics.set(
         "input_kind",
-        @light_common.input_kind_name(source.kind),
+        @parser_common.input_kind_name(source.kind),
       )
       diagnostics.metrics.set("detected_format", "txt")
-      @light_common.apply_readiness_metrics(diagnostics, "txt", "near_ready")
+      @parser_common.apply_product_metrics(diagnostics, "txt")
       diagnostics.metrics.set("table_count", "0")
       diagnostics.metrics.set("image_count", "0")
       diagnostics.metrics.set("asset_count", "0")
@@ -94,7 +94,7 @@ pub fn txt_parser() -> @parser.Parser {
       )
       diagnostics.metrics.set(
         "is_empty",
-        @light_common.bool_string(inspect.is_empty),
+        @parser_common.bool_string(inspect.is_empty),
       )
       diagnostics.metrics.set("invalid_utf8_fallback", "false")
       diagnostics.metrics.set("long_line_count", long_line_count.to_string())
@@ -120,7 +120,7 @@ pub fn txt_parser() -> @parser.Parser {
         })
         diagnostics.metrics.set(
           "requested_mode",
-          @light_common.requested_mode_name(context),
+          @parser_common.requested_mode_name(context),
         )
         diagnostics.metrics.set("effective_mode", "streaming_event")
         diagnostics.metrics.set("ir_input_kind", "event_stream")
@@ -149,7 +149,7 @@ pub fn txt_parser() -> @parser.Parser {
       }
       diagnostics.metrics.set(
         "requested_mode",
-        @light_common.requested_mode_name(context),
+        @parser_common.requested_mode_name(context),
       )
       diagnostics.metrics.set("effective_mode", "streaming_event")
       diagnostics.metrics.set("ir_input_kind", "event_stream")
@@ -249,10 +249,10 @@ fn invalid_text_parse_result(
   diagnostics.metrics.set("parser_mode", "streaming_event")
   diagnostics.metrics.set(
     "input_kind",
-    @light_common.input_kind_name(source.kind),
+    @parser_common.input_kind_name(source.kind),
   )
   diagnostics.metrics.set("detected_format", "txt")
-  @light_common.apply_readiness_metrics(diagnostics, "txt", "near_ready")
+  @parser_common.apply_product_metrics(diagnostics, "txt")
   diagnostics.metrics.set("input_line_count", "0")
   diagnostics.metrics.set("line_count", "0")
   diagnostics.metrics.set("paragraph_count", "0")
@@ -269,7 +269,7 @@ fn invalid_text_parse_result(
   diagnostics.metrics.set("event_semantics", "line_event_stream")
   diagnostics.metrics.set(
     "requested_mode",
-    @light_common.requested_mode_name(context),
+    @parser_common.requested_mode_name(context),
   )
   diagnostics.metrics.set("effective_mode", "streaming_event")
   diagnostics.metrics.set("ir_input_kind", "event_stream")

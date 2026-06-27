@@ -1,12 +1,136 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "ZSeanYves/markitdown/bench/runner"
 
+import {
+  "ZSeanYves/markitdown/bench/runner/command",
+  "moonbitlang/core/json",
+}
+
 // Values
-pub async fn run_bench_cli(Array[String]) -> Int
+pub fn run_bench_cli(Array[String]) -> Int
+
+pub fn run_bench_v2_cli(Array[String], @command.RunnerContext) -> Int
 
 // Errors
+pub(all) suberror BenchV2Error {
+  InvalidArgument(String)
+  TrustFailure(String)
+  RuntimeFailure(String)
+}
+pub impl Show for BenchV2Error
 
 // Types and methods
+pub struct BinaryContract {
+  runner_path : String
+  cli_path : String
+  runner_release_ok : Bool
+  cli_release_ok : Bool
+  used_moon_delegate : Bool
+} derive(Eq)
+
+pub struct CaseAggregateV2 {
+  schema_version : Int
+  run_id : String
+  scenario_id : String
+  tool : String
+  bench_id : String
+  format : String
+  sample_count : Int
+  success_count : Int
+  median_wall_us : Int64?
+  min_wall_us : Int64?
+  max_wall_us : Int64?
+  comparable_status : String
+  route_coverage_status : String
+  expected_route : String?
+  actual_route : String?
+  route_provenance : Json
+} derive(Eq, ToJson, @json.FromJson)
+
+pub struct FormatSummaryV2 {
+  format : String
+  rows : Int
+  comparable_rows : Int
+  cli_geomean_speedup : Double?
+  engine_geomean_speedup : Double?
+  status : String
+} derive(Eq, ToJson, @json.FromJson)
+
+pub struct RunOptionsV2 {
+  preset : String?
+  scenario_id : String?
+  exact_tiers : Array[String]
+  bench_ids : Array[String]
+  format_filters : Array[String]
+  limit : Int?
+  repeat_count : Int
+  warmup_count : Int
+  timeout_ms : Int
+  markitdown_path : String?
+  baseline_run_id : String?
+} derive(Eq)
+
+pub struct RunSummaryV2 {
+  schema_version : Int
+  run_id : String
+  preset : String?
+  scenario_id : String
+  binary_only_contract : Json
+  trust_status : String
+  gate_summary : Json
+  route_coverage_summary : Json
+  diff_summary : Json?
+  tools : Array[ToolSummaryV2]
+  by_format : Array[FormatSummaryV2]
+} derive(Eq, ToJson, @json.FromJson)
+
+pub struct SampleRowV2 {
+  schema_version : Int
+  run_id : String
+  scenario_id : String
+  scenario_kind : String
+  official_membership : String
+  tool : String
+  measurement_mode : String
+  measurement_policy : String
+  repeat_index : Int
+  repeat_count : Int
+  warmup_count : Int
+  bench_id : String
+  format : String
+  size_class : String
+  enabled_tier : String
+  rel_path : String
+  input_bytes : Int
+  input_sha256 : String
+  status : String
+  exit_code : Int
+  timed_out : Bool
+  wall_us : Int64?
+  peak_rss_kb : Int64?
+  output_bytes : Int64
+  error : String?
+  route_provenance : Json
+  runner_artifact_identity : String
+  cli_artifact_path : String?
+} derive(Eq, ToJson, @json.FromJson)
+
+pub struct ScenarioSpecV2 {
+  scenario_id : String
+  scenario_kind : String
+  tool_names : Array[String]
+  exact_tiers : Array[String]
+  format_filters : Array[String]
+  official_membership : String
+  route_expectation : String
+} derive(Eq)
+
+pub struct ToolSummaryV2 {
+  tool : String
+  rows : Int
+  success_rows : Int
+  median_wall_us : Int64?
+} derive(Eq, ToJson, @json.FromJson)
 
 // Type aliases
 

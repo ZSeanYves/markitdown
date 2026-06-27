@@ -1,14 +1,31 @@
 import {
+  "moonbitlang/core/json",
   "ZSeanYves/markitdown/formats",
+  "ZSeanYves/markitdown/formats/html" @fhtml,
+  "ZSeanYves/markitdown/formats/json" @fjson,
+  "ZSeanYves/markitdown/formats/markdown" @fmarkdown,
   "ZSeanYves/markitdown/formats/ocr" @focr,
+  "ZSeanYves/markitdown/formats/xml" @fxml,
+  "ZSeanYves/markitdown/formats/yaml" @fyaml,
+  "ZSeanYves/markitdown/format_readers/html" @dhtml,
+  "ZSeanYves/markitdown/format_readers/json" @djson,
+  "ZSeanYves/markitdown/format_readers/markdown" @dmd,
+  "ZSeanYves/markitdown/format_readers/ooxml/package" @ox,
+  "ZSeanYves/markitdown/formats/xlsx" @dxlsx,
+  "ZSeanYves/markitdown/format_readers/xml" @dxml,
+  "ZSeanYves/markitdown/format_readers/xml_native" @dxml_native,
+  "ZSeanYves/markitdown/format_readers/yaml" @dyaml,
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
   "ZSeanYves/markitdown/pipeline",
+  "ZSeanYves/markitdown/product",
   "ZSeanYves/markitdown/rag",
   "ZSeanYves/markitdown/render",
   "ZSeanYves/markitdown/runtime",
 }
+
+supported_targets = "native"
 
 options(
   "preferred-target": "native",

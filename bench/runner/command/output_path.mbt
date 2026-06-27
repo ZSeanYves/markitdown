@@ -19,12 +19,41 @@ pub fn outputs_root(run_id : String) -> String {
 }
 
 ///|
+pub fn profiles_root() -> String {
+  ".tmp/bench/profiles"
+}
+
+///|
+pub fn profile_run_root(run_id : String) -> String {
+  profiles_root() + "/" + run_id
+}
+
+///|
+pub fn profile_results_root(run_id : String) -> String {
+  profile_run_root(run_id) + "/results"
+}
+
+///|
+pub fn profile_reports_root(run_id : String) -> String {
+  profile_run_root(run_id) + "/reports"
+}
+
+///|
 pub fn result_jsonl_path(
   run_id : String,
   tool_name : String,
   tier : String,
 ) -> String {
   results_root(run_id) + "/" + run_id + "-" + tool_name + "-" + tier + ".jsonl"
+}
+
+///|
+pub fn result_tier_label(tier : String, exact_tiers : Array[String]) -> String {
+  if exact_tiers.length() == 0 {
+    tier.trim().to_lower().to_owned()
+  } else {
+    "tiers-" + exact_tiers.map(t => t.trim().to_lower().to_owned()).join("-")
+  }
 }
 
 ///|
@@ -50,6 +79,27 @@ pub fn overhead_result_jsonl_path(run_id : String) -> String {
 ///|
 pub fn overhead_report_markdown_path(run_id : String) -> String {
   reports_root(run_id) + "/" + run_id + "-overhead.md"
+}
+
+///|
+pub fn profile_index_path(run_id : String) -> String {
+  profile_results_root(run_id) + "/" + run_id + "-index.json"
+}
+
+///|
+pub fn profile_bench_stdout_path(
+  run_id : String,
+  profile_key : String,
+) -> String {
+  profile_results_root(run_id) + "/" + profile_key + ".stdout.log"
+}
+
+///|
+pub fn profile_bench_stderr_path(
+  run_id : String,
+  profile_key : String,
+) -> String {
+  profile_results_root(run_id) + "/" + profile_key + ".stderr.log"
 }
 
 ///|

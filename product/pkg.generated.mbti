@@ -1,0 +1,71 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/product"
+
+import {
+  "ZSeanYves/markitdown/rag",
+}
+
+// Values
+pub fn convert_mode_name(ConvertMode) -> String
+
+pub fn debug_mode(ConvertMode) -> Bool
+
+pub fn default_pdf_cleanup_mode() -> PdfCleanupMode
+
+pub fn default_pdf_table_mode() -> PdfTableMode
+
+pub fn default_product_options() -> ProductOptions
+
+pub fn default_resource_limits() -> ResourceLimits
+
+pub fn make_product_options(ConvertMode, ResourceLimits, pdf_cleanup_mode? : PdfCleanupMode, pdf_table_mode? : PdfTableMode, rag_options? : @rag.RagOptions) -> ProductOptions
+
+pub fn make_resource_limits(Int, Int, Int, max_line_chars? : Int) -> ResourceLimits
+
+pub fn pdf_cleanup_enabled(ProductOptions) -> Bool
+
+pub fn pdf_cleanup_mode_name(PdfCleanupMode) -> String
+
+pub fn pdf_table_mode_name(PdfTableMode) -> String
+
+// Errors
+
+// Types and methods
+pub(all) enum ConvertMode {
+  Fast
+  Balanced
+  Accurate
+  Stream
+  Rag
+  Debug
+} derive(Eq)
+
+pub(all) enum PdfCleanupMode {
+  Disabled
+  Conservative
+} derive(Eq)
+
+pub(all) enum PdfTableMode {
+  Disabled
+  Simple
+} derive(Eq)
+
+pub struct ProductOptions {
+  mode : ConvertMode
+  limits : ResourceLimits
+  pdf_cleanup_mode : PdfCleanupMode
+  pdf_table_mode : PdfTableMode
+  rag_options : @rag.RagOptions
+}
+
+pub struct ResourceLimits {
+  max_rows : Int
+  max_cols : Int
+  max_cells : Int
+  max_line_chars : Int
+}
+
+// Type aliases
+
+// Traits
+

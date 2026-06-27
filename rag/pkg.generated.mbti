@@ -12,21 +12,11 @@ pub fn chunks_from_document(@core.DocumentIR, RagOptions) -> Array[RagChunk]
 
 pub fn default_rag_options() -> RagOptions
 
+pub fn make_rag_chunk(String, ChunkKind, String, Array[String], Array[@core.SourceRef], Array[String], Map[String, @core.JsonValue]) -> RagChunk
+
 pub fn make_rag_options(Int, Int, Bool, Bool, Bool, Bool) -> RagOptions
 
 pub fn normalize_rag_options(RagOptions) -> RagOptions
-
-pub fn rag_chunk_char_count(RagChunk) -> Int
-
-pub fn rag_chunk_overlap_or_default(Int) -> Int
-
-pub fn rag_chunk_size_or_default(Int) -> Int
-
-pub fn rag_chunk_text_total_chars(Array[RagChunk]) -> Int
-
-pub fn rag_location_metadata(Array[@core.SourceRef]) -> Map[String, @core.JsonValue]
-
-pub fn rag_metadata_fields(Int, String, Array[String], String, String?, Array[String], Array[@core.SourceRef], Array[String]) -> Map[String, @core.JsonValue]
 
 // Errors
 

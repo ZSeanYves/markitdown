@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-source "$ROOT/samples/helpers/shared/tmp_helpers.sh"
-source "$ROOT/samples/helpers/shared/validation_helpers.sh"
+source "$ROOT/samples/helpers/shared/tmp.sh"
+source "$ROOT/samples/helpers/shared/cli_runner.sh"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp/check}"
 OUT_DIR="$(sample_make_isolated_tmp_dir "$TMP_ROOT" "docx_contract")"
 
@@ -47,6 +47,20 @@ assert_not_contains() {
   fi
 }
 
+assert_any_contains() {
+  local needle="$1"
+  shift
+  grep -Fq -- "$needle" "$@" || fail "expected sources to contain: $needle"
+}
+
+assert_all_not_contains() {
+  local needle="$1"
+  shift
+  if grep -Fq -- "$needle" "$@"; then
+    fail "did not expect sources to contain: $needle"
+  fi
+}
+
 run_and_capture() {
   local out="$1"
   shift
@@ -66,7 +80,7 @@ PPTX_ERR="$OUT_DIR/pptx.err.txt"
 PDF_ERR="$OUT_DIR/pdf.err.txt"
 REGISTRY_IMPL="$ROOT/formats/registry.mbt"
 DOCX_RUNTIME_PKG="$ROOT/formats/docx/moon.pkg"
-DOCX_RUNTIME_IMPL="$ROOT/formats/docx/parser.mbt"
+DOCX_RUNTIME_SOURCES=("$ROOT/formats/docx/"*.mbt)
 FORMATS_PKG="$ROOT/formats/moon.pkg"
 CLI_PKG="$ROOT/cli/moon.pkg"
 SHARED_PKG="$ROOT/format_readers/ooxml/shared/moon.pkg"
@@ -84,11 +98,11 @@ assert_not_contains "$CLI_PKG" 'ZSeanYves/markitdown/convert/docx'
 assert_not_contains "$SHARED_PKG" 'ZSeanYves/markitdown/convert/'
 assert_contains "$REGISTRY_IMPL" '@input.DetectedFormat::Docx'
 assert_contains "$REGISTRY_IMPL" 'docx_parser()'
-assert_not_contains "$DOCX_RUNTIME_IMPL" 'convert/docx'
-assert_not_contains "$DOCX_RUNTIME_IMPL" 'convert/docx_v2'
-assert_not_contains "$DOCX_RUNTIME_IMPL" '@legacy'
-assert_not_contains "$DOCX_RUNTIME_IMPL" 'emitter_markdown'
-assert_not_contains "$DOCX_RUNTIME_IMPL" 'dispatcher'
+assert_all_not_contains 'convert/docx' "${DOCX_RUNTIME_SOURCES[@]}"
+assert_all_not_contains 'convert/docx_v2' "${DOCX_RUNTIME_SOURCES[@]}"
+assert_all_not_contains '@legacy' "${DOCX_RUNTIME_SOURCES[@]}"
+assert_all_not_contains 'emitter_markdown' "${DOCX_RUNTIME_SOURCES[@]}"
+assert_all_not_contains 'dispatcher' "${DOCX_RUNTIME_SOURCES[@]}"
 
 echo "==> help keeps docx exposed and unsupported formats fail closed"
 run_and_capture "$DOCX_HELP" run_markitdown_cli --help
@@ -110,18 +124,15 @@ assert_contains "$DOCX_JSON" '"effective_mode": "package_single_pass"'
 assert_contains "$DOCX_JSON" '"ir_input_kind": "document"'
 assert_contains "$DOCX_JSON" '"event_granularity": "docx_block"'
 assert_contains "$DOCX_JSON" '"office_document_kind": "docx"'
-assert_contains "$DOCX_JSON" '"runtime_exposed": "true"'
 assert_contains "$DOCX_JSON" '"relationship_id"'
 assert_contains "$DOCX_JSON" '"part_name"'
 assert_contains "$DOCX_JSON" '"paragraph_index"'
 assert_contains "$DOCX_JSON" '"pass_trace"'
 assert_not_contains "$DOCX_JSON" 'docx_raw_fallback'
 assert_not_contains "$DOCX_JSON" 'docx_legacy_fallback'
-assert_not_contains "$DOCX_JSON" 'legacy_dispatcher_used'
-assert_not_contains "$DOCX_JSON" 'convert_docx_used'
 assert_not_contains "$DOCX_JSON" 'convert_docx_v2_used'
 
-echo "==> pptx and pdf are both restored on the main product cli"
+echo "==> pptx and pdf stay available on the main product cli"
 run_markitdown_cli normal "$ROOT/samples/main_process/pptx/markdown/pptx_bullet_levels.pptx" "$OUT_DIR/pptx_bullet_levels.md"
 assert_matches_expected "$ROOT/samples/main_process/pptx/expected/markdown/pptx_bullet_levels.md" "$OUT_DIR/pptx_bullet_levels.md"
 

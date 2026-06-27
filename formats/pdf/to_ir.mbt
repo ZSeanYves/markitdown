@@ -753,7 +753,6 @@ fn pdf_native_bridge_diagnostics(
     artifact_candidate_count.to_string(),
   )
   next.metrics.set("pdf_native_ir_bridge", "unit_path")
-  next.metrics.set("runtime_exposed", "false")
   next.metrics.set("product_path_enabled", "false")
   next.metrics.set(
     "pdf_header_footer_removed_count",
@@ -901,7 +900,6 @@ fn pdf_native_stream_bridge_diagnostics(
     artifact_candidate_count.to_string(),
   )
   next.metrics.set("pdf_native_ir_bridge", "product_block_stream")
-  next.metrics.set("runtime_exposed", "true")
   next.metrics.set("product_path_enabled", "true")
   next.metrics.set("pdf_header_footer_removed_count", "0")
   next.metrics.set("pdf_table_reconstruction_table_count", "0")

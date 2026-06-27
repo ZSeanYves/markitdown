@@ -65,10 +65,26 @@ pub fn selector_stats_json(request : SelectRequest) -> Json {
         }
     }
   }
-  let formats = rows.map(row => row.format)
+  let formats = rows
+    .map(row => row.format.trim().to_lower().to_owned())
+    .filter(format => format != "")
   formats.sort()
+  formats.dedup()
   SelectorStats::{
-    requested_tier: Some(request.tier.trim().to_lower().to_owned()),
+    requested_tier: if request.exact_tiers.length() > 0 {
+      None
+    } else {
+      Some(request.tier.trim().to_lower().to_owned())
+    },
+    requested_tiers: request.exact_tiers.map(tier => {
+      tier.trim().to_lower().to_owned()
+    }),
+    tier_filter_mode: if request.exact_tiers.length() > 0 {
+      "exact"
+    } else {
+      "cumulative"
+    },
+    requested_bench_ids: request.bench_ids.copy(),
     selected_rows: rows.length(),
     formats,
     skipped_by_reason: skipped,
@@ -77,12 +93,7 @@ pub fn selector_stats_json(request : SelectRequest) -> Json {
 
 ///|
 pub fn empty_selector_stats() -> SelectorStats {
-  SelectorStats::{
-    requested_tier: None,
-    selected_rows: 0,
-    formats: [],
-    skipped_by_reason: {},
-  }
+  make_selector_stats(None, [], "cumulative", [], 0, [], {})
 }
 
 ///|
@@ -158,16 +169,28 @@ pub fn should_skip_row(row : BenchRow, request : SelectRequest) -> String? {
   if !tier_order().contains(enabled_tier) {
     return Some("unknown_tier")
   }
-  if tier_rank(enabled_tier) >
+  if request.exact_tiers.length() > 0 {
+    if !request.exact_tiers.any(tier => tier.trim().to_lower() == enabled_tier) {
+      return Some("tier_exact_excluded")
+    }
+  } else if tier_rank(enabled_tier) >
     tier_rank(request.tier.trim().to_lower().to_owned()) {
     return Some("tier_excluded")
+  }
+  if request.bench_ids.length() > 0 &&
+    !request.bench_ids.any(id => id.trim() == row.bench_id) {
+    return Some("bench_id_filtered")
   }
   if row.input_bytes <= 0 {
     return Some("zero_bytes")
   }
-  if request.format_filter is Some(format_filter) &&
-    row.format.trim().to_lower() != format_filter.trim().to_lower() {
-    return Some("format_filtered")
+  if request.format_filters.length() > 0 {
+    let row_format = row.format.trim().to_lower().to_owned()
+    if !request.format_filters.any(format_filter => {
+        format_filter.trim().to_lower() == row_format
+      }) {
+      return Some("format_filtered")
+    }
   }
   if row.rel_path.trim() == "" {
     return Some("missing_rel_path")

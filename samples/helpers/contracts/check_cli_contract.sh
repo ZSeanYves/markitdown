@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-source "$ROOT/samples/helpers/shared/tmp_helpers.sh"
-source "$ROOT/samples/helpers/shared/validation_helpers.sh"
+source "$ROOT/samples/helpers/shared/tmp.sh"
+source "$ROOT/samples/helpers/shared/cli_runner.sh"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp/check}"
 OUT_DIR="$(sample_make_isolated_tmp_dir "$TMP_ROOT" "cli_contract")"
 
@@ -117,7 +117,7 @@ CSV_MD="$NO_META_DIR/csv_basic.md"
 TSV_MD="$NO_META_DIR/tsv_basic.md"
 TXT_ALIAS_MD="$NO_META_DIR/txt_plain_alias.md"
 
-echo "==> help and version expose current main cli product surface"
+echo "==> help and version expose main cli product surface"
 run_and_capture "$HELP_STDOUT" run_markitdown_cli --help
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "--help should succeed"
 assert_contains "$HELP_STDOUT" 'markitdown-mb [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|xml|yaml|yml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] <input> [output]'
@@ -186,13 +186,13 @@ echo "==> bare alias still maps to normal"
 run_markitdown_cli "$TXT_INPUT" "$TXT_ALIAS_MD"
 assert_matches_expected "$TXT_EXPECTED" "$TXT_ALIAS_MD"
 
-echo "==> debug json remains available on the current main cli"
+echo "==> debug json remains available on the main cli"
 run_and_capture "$JSON_STDOUT" run_markitdown_cli --debug "$TXT_INPUT"
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "--debug txt should succeed"
 assert_contains "$JSON_STDOUT" '"renderer_name": "DebugJsonRenderer"'
 assert_contains "$JSON_STDOUT" '"source_ref"'
 
-echo "==> rag json remains available on the current main cli"
+echo "==> rag json remains available on the main cli"
 run_and_capture "$DOCX_ERR" run_markitdown_cli --rag "$DOCX_INPUT"
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "--rag docx should succeed"
 assert_contains "$DOCX_ERR" '"output_format": "rag_json"'

@@ -210,7 +210,6 @@ pub fn dump_properties_summary(pkg : OoxmlPackage) -> String {
 
 ///|
 fn build_package_inventory(pkg : OoxmlPackage) -> OoxmlPackageInventory {
-  let entries = @zip.list_entries(pkg.archive)
   let parts : Array[OoxmlPartInfo] = []
   let content_types : Array[OoxmlContentTypeInfo] = []
   let relationship_source_parts : Array[String] = []
@@ -237,7 +236,7 @@ fn build_package_inventory(pkg : OoxmlPackage) -> OoxmlPackageInventory {
       content_type: lookup_content_type(pkg, part) catch {
         _ => None
       },
-      size: part_size(entries, pkg, part),
+      size: part_size(pkg, part),
       is_relationships_part: is_relationships_part_name(part),
       has_relationships: has_relationships_part(pkg, part),
     })
@@ -385,20 +384,8 @@ fn is_relationships_part_name(part_name : String) -> Bool {
 }
 
 ///|
-fn part_size(
-  entries : Array[@zip.ZipEntryMeta],
-  pkg : OoxmlPackage,
-  part_name : String,
-) -> Int {
-  match pkg.part_index.get(part_name) {
-    Some(index) =>
-      if index >= 0 && index < entries.length() {
-        entries[index].uncompressed_size
-      } else {
-        0
-      }
-    None => 0
-  }
+fn part_size(pkg : OoxmlPackage, part_name : String) -> Int {
+  pkg.part_size_index.get(part_name).unwrap_or(0)
 }
 
 ///|

@@ -17,7 +17,7 @@
     {
       "kind": "text",
       "heading_path": [],
-      "source_ref_count": 2,
+      "source_ref_count": 3,
       "asset_ref_count": 0,
       "text_contains_all": [
         "# metadata heading second line\n\n1. ordered item"

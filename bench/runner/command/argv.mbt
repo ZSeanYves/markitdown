@@ -10,9 +10,12 @@ pub fn parse_run_request_with_context(
 ) -> RunRequest raise {
   let tool_name : Ref[String?] = Ref(None)
   let tier = Ref("smoke")
-  let format_filter : Ref[String?] = Ref(None)
+  let exact_tiers : Ref[Array[String]] = Ref([])
+  let bench_ids : Ref[Array[String]] = Ref([])
+  let format_filters : Ref[Array[String]] = Ref([])
   let limit : Ref[Int?] = Ref(None)
   let repeat_count = Ref(1)
+  let warmup_count = Ref(1)
   let timeout_sec : Ref[Int?] = Ref(None)
   let timeout_ms : Ref[Int?] = Ref(None)
   let markitdown_path : Ref[String?] = Ref(None)
@@ -33,9 +36,12 @@ pub fn parse_run_request_with_context(
             args,
             i.val,
             tier,
-            format_filter,
+            exact_tiers,
+            bench_ids,
+            format_filters,
             limit,
             repeat_count,
+            warmup_count,
             timeout_sec,
             timeout_ms,
             markitdown_path,
@@ -49,6 +55,7 @@ pub fn parse_run_request_with_context(
     }
   }
   @manifest.validate_tier(tier.val)
+  @manifest.validate_tiers(exact_tiers.val)
   let tool = match tool_name.val {
     Some(value) => value
     None => raise @manifest.InvalidArgument("missing --tool")
@@ -56,9 +63,12 @@ pub fn parse_run_request_with_context(
   make_run_request(
     tool,
     tier.val,
-    format_filter.val,
+    exact_tiers.val,
+    bench_ids.val,
+    format_filters.val,
     limit.val,
     repeat_count.val,
+    warmup_count.val,
     resolve_timeout_ms(timeout_sec.val, timeout_ms.val),
     markitdown_path.val,
     cli_output_mode.val,
@@ -75,14 +85,22 @@ pub fn parse_compare_request(args : Array[String]) -> CompareRequest raise {
 }
 
 ///|
+pub fn parse_profile_request(args : Array[String]) -> ProfileRequest raise {
+  parse_profile_request_with_context(args, default_runner_context())
+}
+
+///|
 pub fn parse_compare_request_with_context(
   args : Array[String],
   runner : RunnerContext,
 ) -> CompareRequest raise {
   let tier = Ref("smoke")
-  let format_filter : Ref[String?] = Ref(None)
+  let exact_tiers : Ref[Array[String]] = Ref([])
+  let bench_ids : Ref[Array[String]] = Ref([])
+  let format_filters : Ref[Array[String]] = Ref([])
   let limit : Ref[Int?] = Ref(None)
   let repeat_count = Ref(1)
+  let warmup_count = Ref(1)
   let timeout_sec : Ref[Int?] = Ref(None)
   let timeout_ms : Ref[Int?] = Ref(None)
   let markitdown_path : Ref[String?] = Ref(None)
@@ -96,9 +114,12 @@ pub fn parse_compare_request_with_context(
         args,
         i.val,
         tier,
-        format_filter,
+        exact_tiers,
+        bench_ids,
+        format_filters,
         limit,
         repeat_count,
+        warmup_count,
         timeout_sec,
         timeout_ms,
         markitdown_path,
@@ -111,15 +132,87 @@ pub fn parse_compare_request_with_context(
     }
   }
   @manifest.validate_tier(tier.val)
+  @manifest.validate_tiers(exact_tiers.val)
   make_compare_request(
     tier.val,
-    format_filter.val,
+    exact_tiers.val,
+    bench_ids.val,
+    format_filters.val,
     limit.val,
     repeat_count.val,
+    warmup_count.val,
     resolve_timeout_ms(timeout_sec.val, timeout_ms.val),
     markitdown_path.val,
     cli_output_mode.val,
     engine_output_mode.val,
+    default_run_id(args),
+    default_git_commit(),
+    runner,
+  )
+}
+
+///|
+pub fn parse_profile_request_with_context(
+  args : Array[String],
+  runner : RunnerContext,
+) -> ProfileRequest raise {
+  let profile_kind : Ref[String?] = Ref(None)
+  let exact_tiers : Ref[Array[String]] = Ref([])
+  let bench_ids : Ref[Array[String]] = Ref([])
+  let formats : Ref[Array[String]] = Ref([])
+  let i = Ref(0)
+  while i.val < args.length() {
+    let arg = args[i.val]
+    match arg {
+      "--kind" => {
+        ensure_next_arg(args, i.val, "--kind")
+        profile_kind.val = Some(
+          parse_non_empty_string(args[i.val + 1], "--kind"),
+        )
+        i.val += 2
+      }
+      _ =>
+        match
+          parse_profile_common_flag(
+            args,
+            i.val,
+            exact_tiers,
+            bench_ids,
+            formats,
+          ) {
+          Some(next) => i.val = next
+          None =>
+            raise @manifest.InvalidArgument(
+              "unsupported profile argument: " + arg,
+            )
+        }
+    }
+  }
+  let kind = match profile_kind.val {
+    Some(value) => value.trim().to_lower().to_owned()
+    None => "official-gate"
+  }
+  if kind != "official-gate" && kind != "single" {
+    raise @manifest.InvalidArgument(
+      "unsupported --kind value: " + kind + " (expected official-gate|single)",
+    )
+  }
+  @manifest.validate_tiers(exact_tiers.val)
+  if kind == "single" && bench_ids.val.length() == 0 {
+    raise @manifest.InvalidArgument(
+      "--kind single requires at least one --bench-id",
+    )
+  }
+  let effective_tiers = if exact_tiers.val.length() == 0 {
+    ["regular", "release", "stress"]
+  } else {
+    exact_tiers.val
+  }
+  make_profile_request(
+    kind,
+    effective_tiers,
+    bench_ids.val,
+    formats.val,
     default_run_id(args),
     default_git_commit(),
     runner,
@@ -137,6 +230,7 @@ pub fn parse_diagnose_request_with_context(
   runner : RunnerContext,
 ) -> DiagnoseRequest raise {
   let repeat_count = Ref(20)
+  let warmup_count = Ref(5)
   let timeout_sec : Ref[Int?] = Ref(None)
   let timeout_ms : Ref[Int?] = Ref(None)
   let cli_output_mode = Ref(default_cli_output_mode())
@@ -149,6 +243,7 @@ pub fn parse_diagnose_request_with_context(
         args,
         i.val,
         repeat_count,
+        warmup_count,
         timeout_sec,
         timeout_ms,
       ) {
@@ -170,6 +265,7 @@ pub fn parse_diagnose_request_with_context(
   }
   make_diagnose_request(
     repeat_count.val,
+    warmup_count.val,
     resolve_timeout_ms(timeout_sec.val, timeout_ms.val),
     cli_output_mode.val,
     engine_output_mode.val,

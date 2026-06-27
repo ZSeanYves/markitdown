@@ -15,7 +15,7 @@ pub fn run_tesseract_provider(
   }
   Err(
     OcrProviderError::NotConfigured(
-      "Tesseract OCR provider is not configured on the current root runtime." +
+      "Tesseract OCR provider is not configured on the this runtime." +
       language_note,
     ),
   )
@@ -30,8 +30,7 @@ pub async fn run_tesseract_provider_async(
       e =>
         return Err(
           OcrProviderError::ExecutionFailed(
-            "launch tesseract failed on the current root runtime: " +
-            e.to_string(),
+            "launch tesseract failed on the this runtime: " + e.to_string(),
           ),
         )
     }
@@ -41,7 +40,7 @@ pub async fn run_tesseract_provider_async(
           e =>
             return Err(
               OcrProviderError::OutputParseFailed(
-                "failed to decode Tesseract stdout as UTF-8 on the current root runtime: " +
+                "failed to decode Tesseract stdout as UTF-8 on the this runtime: " +
                 e.to_string(),
               ),
             )
@@ -50,7 +49,7 @@ pub async fn run_tesseract_provider_async(
           e =>
             return Err(
               OcrProviderError::OutputParseFailed(
-                "failed to decode Tesseract stderr as UTF-8 on the current root runtime: " +
+                "failed to decode Tesseract stderr as UTF-8 on the this runtime: " +
                 e.to_string(),
               ),
             )
@@ -128,7 +127,7 @@ fn finalize_tesseract_command_result(
         Err(other) =>
           Err(
             OcrProviderError::OutputParseFailed(
-              "Tesseract TSV parsing failed on the current root runtime: " +
+              "Tesseract TSV parsing failed on the this runtime: " +
               other.to_string(),
             ),
           )
@@ -149,15 +148,14 @@ fn finalize_tesseract_command_result(
         lowered.contains("no such file") {
         Err(
           OcrProviderError::CommandUnavailable(
-            "Tesseract OCR command is unavailable on the current root runtime: " +
+            "Tesseract OCR command is unavailable on the this runtime: " +
             raw_message,
           ),
         )
       } else {
         Err(
           OcrProviderError::ExecutionFailed(
-            "Tesseract OCR command failed on the current root runtime: " +
-            raw_message,
+            "Tesseract OCR command failed on the this runtime: " + raw_message,
           ),
         )
       }

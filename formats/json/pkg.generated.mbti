@@ -2,15 +2,18 @@
 package "ZSeanYves/markitdown/formats/json"
 
 import {
+  "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
 }
 
 // Values
-pub fn json_lite_parser() -> @parser.Parser
+pub fn json_parse_with_stream_document(@input.InputSource, @parser.ParseContext, String, @ZSeanYves/markitdown/format_readers/json.JsonStreamDocument) -> @parser.ParseResult
 
-pub fn jsonl_lite_parser() -> @parser.Parser
+pub fn json_parser() -> @parser.Parser
 
-pub fn ndjson_lite_parser() -> @parser.Parser
+pub fn jsonl_parser() -> @parser.Parser
+
+pub fn ndjson_parser() -> @parser.Parser
 
 // Errors
 

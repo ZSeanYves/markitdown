@@ -5,7 +5,16 @@ fn run_inprocess_engine_tool(
   rows : Array[@manifest.BenchRow],
   result_path : String,
 ) -> String {
+  let result_rows : Array[@result.CliResult] = []
   for row in rows {
+    for _ in 0..<request.warmup_count {
+      ignore(
+        @convert.convert_input(
+          @input.input_from_path(row.input_path),
+          @convert.default_convert_options(),
+        ),
+      )
+    }
     for repeat_index in 0..<request.repeat_count {
       let output_path = @command.output_markdown_path(
         request.run_id,
@@ -30,11 +39,13 @@ fn run_inprocess_engine_tool(
         Ok(value) => value
         Err(err) => {
           let wall_us = monotonic_elapsed_us_int64(started)
-          append_result_rows(result_path, [
+          result_rows.push(
             @result.make_inprocess_result(
               request.run_id,
               request.git_commit,
               request.runner,
+              request.warmup_count,
+              "row_major",
               tool,
               row,
               command.command_display,
@@ -48,7 +59,7 @@ fn run_inprocess_engine_tool(
                 @command.engine_output_mode_name(request.engine_output_mode),
               ),
             ),
-          ])
+          )
           continue
         }
       }
@@ -66,11 +77,13 @@ fn run_inprocess_engine_tool(
       let wall_us = monotonic_elapsed_us_int64(started)
       match finalized {
         Ok(output_bytes) =>
-          append_result_rows(result_path, [
+          result_rows.push(
             @result.make_inprocess_result(
               request.run_id,
               request.git_commit,
               request.runner,
+              request.warmup_count,
+              "row_major",
               tool,
               row,
               command.command_display,
@@ -82,13 +95,15 @@ fn run_inprocess_engine_tool(
                 @command.engine_output_mode_name(request.engine_output_mode),
               ),
             ),
-          ])
+          )
         Err(message) =>
-          append_result_rows(result_path, [
+          result_rows.push(
             @result.make_inprocess_result(
               request.run_id,
               request.git_commit,
               request.runner,
+              request.warmup_count,
+              "row_major",
               tool,
               row,
               command.command_display,
@@ -102,10 +117,11 @@ fn run_inprocess_engine_tool(
                 @command.engine_output_mode_name(request.engine_output_mode),
               ),
             ),
-          ])
+          )
       }
     }
   }
+  append_result_rows(result_path, result_rows)
   result_path
 }
 

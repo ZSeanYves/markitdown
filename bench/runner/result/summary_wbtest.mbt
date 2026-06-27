@@ -19,6 +19,11 @@ fn summary_test_result(
     runner_mode: Some("release"),
     canonical_performance: Some(true),
     runner_path: Some("_build/native/release/build/bench/runner/runner.exe"),
+    measurement_policy: Some(
+      "warmup=1;samples=" +
+      repeat_count.to_string() +
+      ";order=row_major_interleaved",
+    ),
     tool,
     tool_version: Some(tool + "-v"),
     measurement_mode: Some(
@@ -42,6 +47,7 @@ fn summary_test_result(
     command_display: tool + " <input> -o <output>",
     repeat_index,
     repeat_count,
+    warmup_count: 1,
     exit_code: if status == "ok" {
       0
     } else {
@@ -325,24 +331,51 @@ fn write_summary_test_jsonl(path : String, rows : Array[String]) -> Unit {
 
 ///|
 test "summary groups repeats into per-bench medians and speedups" {
-  let summary = summarize_rows(summary_test_rows(), None)
-  assert_eq(summary.schema_version, 4)
+  let summary = summarize_rows(
+    summary_test_rows().map(fn(row) { { ..row, enabled_tier: "regular" } }),
+    None,
+  )
+  assert_eq(summary.schema_version, 5)
   assert_eq(summary.environment.runner_mode, "release")
   assert_true(summary.environment.canonical_performance)
-  assert_eq(summary.corpus.tier, "smoke")
+  assert_eq(
+    summary.environment.measurement_policy,
+    "warmup=1;samples=3;order=row_major_interleaved",
+  )
+  assert_eq(summary.environment.machine_os, "unknown")
+  assert_eq(summary.environment.machine_arch, "unknown")
+  assert_true(summary.environment.hostname == None)
+  assert_eq(summary.corpus.tier, "regular")
+  assert_eq(summary.corpus.tier_filter_mode, "cumulative")
+  assert_eq(summary.corpus.exact_tiers.length(), 0)
+  assert_eq(summary.corpus.bench_ids.length(), 0)
   assert_true(summary.warnings.length() == 0)
   assert_eq(summary.comparison.comparable_count, 1)
   assert_eq(summary.comparison.engine_comparable_count, 2)
   assert_eq(summary.comparison.fixed_overhead_count, 1)
   assert_true(summary.comparison.median_speedup_overall == Some(5.5))
+  assert_true(summary.comparison.cli_geomean_speedup_overall == Some(5.5))
   assert_true(
     summary.comparison.engine_median_speedup_overall == Some(9.354103343465045),
+  )
+  assert_optional_double_close(
+    summary.comparison.engine_geomean_speedup_overall,
+    9.233545292173206,
   )
   assert_true(summary.comparison.best_speedup == Some(5.5))
   assert_true(summary.comparison.worst_speedup == Some(5.5))
   assert_true(summary.comparison.median_fixed_overhead_ms == Some(6L))
   assert_true(summary.comparison.median_fixed_overhead_us == Some(6000L))
   assert_eq(summary.comparison.timing_precision, "wall_us")
+  assert_eq(summary.comparison.official_gate.row_count, 2)
+  assert_eq(summary.comparison.official_gate.comparable_count, 1)
+  assert_eq(summary.comparison.official_gate.status, "partial")
+  assert_true(
+    summary.comparison.official_gate.excluded_rows_by_reason.get(
+      "moonbit_cli_non_ok",
+    ) ==
+    Some(1),
+  )
 
   let moonbit = summary.tools.get("moonbit-cli").unwrap()
   assert_eq(moonbit.total_files, 2)
@@ -390,8 +423,15 @@ test "summary groups repeats into per-bench medians and speedups" {
 
   let txt_format = find_format_comparison(summary.comparison.by_format, "txt")
   assert_eq(txt_format.format, "txt")
+  assert_eq(txt_format.official_gate_rows, 1)
+  assert_eq(txt_format.official_gate_comparable_rows, 1)
   assert_true(txt_format.median_speedup == Some(5.5))
+  assert_true(txt_format.cli_geomean_speedup == Some(5.5))
   assert_true(txt_format.engine_median_speedup == Some(7.857142857142857))
+  assert_optional_double_close(
+    txt_format.engine_geomean_speedup,
+    7.857142857142857,
+  )
   assert_true(txt_format.median_fixed_overhead_ms == Some(6L))
   assert_true(txt_format.median_fixed_overhead_us == Some(6000L))
   assert_eq(txt_format.timing_precision, "wall_us")
@@ -412,7 +452,42 @@ test "summary prefers requested selector tier over first row enabled tier" {
   let summary = summarize_rows(summary_test_rows(), Some(selector_stats_path))
   assert_eq(summary.corpus.tier, "regular")
   assert_eq(summary.corpus.selected_rows, 42)
-  assert_eq(summary.corpus.formats.length(), 3)
+  assert_eq(summary.corpus.formats.length(), 1)
+  assert_eq(summary.corpus.formats[0], "txt")
+}
+
+///|
+test "official gate rows require official tiers as well as official formats" {
+  let rows = [
+    summary_test_result(
+      "moonbit-cli",
+      "txt_smoke_alpha_v1",
+      "txt",
+      "small",
+      10L,
+      repeat_count=1,
+    ),
+    summary_test_result(
+      "markitdown",
+      "txt_smoke_alpha_v1",
+      "txt",
+      "small",
+      50L,
+      repeat_count=1,
+    ),
+    summary_test_result(
+      "moonbit-engine",
+      "txt_smoke_alpha_v1",
+      "txt",
+      "small",
+      9L,
+      repeat_count=1,
+    ),
+  ].map(fn(row) { { ..row, enabled_tier: "smoke" } })
+  let summary = summarize_rows(rows, None)
+  assert_eq(summary.comparison.official_gate.row_count, 0)
+  assert_eq(summary.comparison.official_gate.comparable_count, 0)
+  assert_eq(summary.comparison.official_gate.status, "empty")
 }
 
 ///|
@@ -421,6 +496,12 @@ test "summary markdown report includes speedup and hotspot sections" {
   let report = render_markdown_report(summary)
   assert_true(report.contains("runner mode"))
   assert_true(report.contains("canonical performance"))
+  assert_true(report.contains("measurement policy"))
+  assert_true(report.contains("machine os"))
+  assert_true(report.contains("machine arch"))
+  assert_true(report.contains("official gate status"))
+  assert_true(report.contains("CLI geomean speedup overall"))
+  assert_true(report.contains("Engine geomean speedup overall"))
   assert_true(report.contains("## Comparison Coverage"))
   assert_true(report.contains("## Speedup Summary"))
   assert_true(report.contains("## By Format"))
@@ -437,6 +518,22 @@ test "summary markdown report includes speedup and hotspot sections" {
   assert_true(report.contains("partial_success"))
   assert_true(report.contains("20.000 ms (20000 us)"))
   assert_true(report.contains("timing precision"))
+}
+
+///|
+test "summary keeps uniform measurement policy when all rows match" {
+  let rows = summary_test_rows().map(fn(row) {
+    {
+      ..row,
+      repeat_count: 3,
+      measurement_policy: Some("warmup=1;samples=3;order=row_major_interleaved"),
+    }
+  })
+  let summary = summarize_rows(rows, None)
+  assert_eq(
+    summary.environment.measurement_policy,
+    "warmup=1;samples=3;order=row_major_interleaved",
+  )
 }
 
 ///|

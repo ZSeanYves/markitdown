@@ -9,44 +9,20 @@
 /// Non-goal:
 /// - no DOCX/PPTX/XLSX final block recovery in this layer
 pub fn open_ooxml_package(bytes : Bytes) -> OoxmlPackage raise OoxmlError {
-  let archive = @zip.open_zip(bytes) catch {
-    e => raise ZipError(e.to_string())
-  }
   let part_cache = new_ooxml_part_cache()
   let relationship_cache = new_ooxml_relationship_cache()
+  let archive = ensure_archive(bytes)
 
-  let part_index : Map[String, Int] = Map([])
-  let entries = @zip.list_entries(archive)
-  let mut i = 0
-  while i < entries.length() {
-    let raw_name = entries[i].name
-    if raw_name == "" || raw_name == "[Content_Types].xml" {
-      part_index.set(raw_name, i)
-      i = i + 1
-      continue
-    }
-    if entries[i].is_directory || raw_name.has_suffix("/") {
-      i = i + 1
-      continue
-    }
-    let normalized = normalize_part_name(raw_name)
-    if part_index.contains(normalized) {
-      raise InvalidPartPath("normalized part collision: " + normalized)
-    }
-    part_index.set(normalized, i)
-    i = i + 1
-  }
+  let (part_index, part_size_index) = build_ooxml_part_index(archive)
 
-  let content_types_bytes = @zip.read_entry(archive, "[Content_Types].xml") catch {
-    @zip.EntryNotFound(path) => raise MissingPart(path)
-    e => raise ZipError(e.to_string())
-  }
-  let content_types_xml = bytes_to_xml_text(content_types_bytes)
-
-  let (defaults, overrides) = parse_content_types(content_types_xml)
+  let content_types_payload = read_archive_xml_payload_or_raise(
+    archive, "[Content_Types].xml",
+  )
+  let (defaults, overrides) = parse_content_types(content_types_payload.text)
   {
     archive,
     part_index,
+    part_size_index,
     content_types_default: defaults,
     content_types_override: overrides,
     part_cache,
@@ -54,6 +30,32 @@ pub fn open_ooxml_package(bytes : Bytes) -> OoxmlPackage raise OoxmlError {
     sorted_parts_cache: Ref(None),
     inventory_cache: Ref(None),
   }
+}
+
+///|
+fn build_ooxml_part_index(
+  archive : @zip.ZipArchive,
+) -> (Map[String, String], Map[String, Int]) raise OoxmlError {
+  let part_index : Map[String, String] = Map([])
+  let part_size_index : Map[String, Int] = Map([])
+  for entry in @zip.list_entries(archive) {
+    let raw_name = entry.name
+    if raw_name == "" || raw_name == "[Content_Types].xml" {
+      part_index.set(raw_name, raw_name)
+      part_size_index.set(raw_name, entry.uncompressed_size)
+      continue
+    }
+    if entry.is_directory || raw_name.has_suffix("/") {
+      continue
+    }
+    let normalized = normalize_part_name(raw_name)
+    if part_index.contains(normalized) {
+      raise InvalidPartPath("normalized part collision: " + normalized)
+    }
+    part_index.set(normalized, raw_name)
+    part_size_index.set(normalized, entry.uncompressed_size)
+  }
+  (part_index, part_size_index)
 }
 
 ///|
@@ -128,6 +130,19 @@ pub fn read_part_bytes(
 }
 
 ///|
+/// Read raw bytes for a package part without populating the package-local
+/// part cache. This is intended for one-shot large-part scans where cache
+/// reuse would only increase peak memory.
+pub fn read_part_bytes_transient(
+  pkg : OoxmlPackage,
+  part_name : String,
+) -> Bytes raise OoxmlError {
+  let normalized = normalize_part_name(part_name)
+  let raw_name = resolve_part_raw_name(pkg, normalized)
+  read_archive_entry_or_raise(pkg.archive, raw_name)
+}
+
+///|
 fn read_part_bytes_normalized(
   pkg : OoxmlPackage,
   normalized : String,
@@ -140,13 +155,54 @@ fn read_part_bytes_normalized(
     None => ()
   }
 
-  let bytes = @zip.read_entry(pkg.archive, normalized) catch {
-    @zip.EntryNotFound(path) => raise MissingPart(path)
-    e => raise ZipError(e.to_string())
-  }
+  let raw_name = resolve_part_raw_name(pkg, normalized)
+  let bytes = read_archive_entry_or_raise(pkg.archive, raw_name)
   pkg.part_cache.bytes_miss_count.val += 1
   pkg.part_cache.bytes_by_part.set(normalized, bytes)
   bytes
+}
+
+///|
+fn resolve_part_raw_name(
+  pkg : OoxmlPackage,
+  normalized : String,
+) -> String raise OoxmlError {
+  match pkg.part_index.get(normalized) {
+    Some(raw_name) => raw_name
+    None => raise MissingPart(normalized)
+  }
+}
+
+///|
+fn read_archive_entry_or_raise(
+  archive : @zip.ZipArchive,
+  path : String,
+) -> Bytes raise OoxmlError {
+  @zip.read_entry(archive, path) catch {
+    @zip.EntryNotFound(missing) => raise MissingPart(missing)
+    e => raise ZipError(e.to_string())
+  }
+}
+
+///|
+fn ensure_archive(archive_bytes : Bytes) -> @zip.ZipArchive raise OoxmlError {
+  @zip.open_zip(archive_bytes) catch {
+    e => raise ZipError(e.to_string())
+  }
+}
+
+///|
+fn read_archive_xml_payload_or_raise(
+  archive : @zip.ZipArchive,
+  path : String,
+) -> OoxmlXmlPartPayload raise OoxmlError {
+  let bytes = read_archive_entry_or_raise(archive, path)
+  {
+    part_name: path,
+    bytes,
+    text: bytes_to_xml_text(bytes),
+    structure_scan: @xml_native.native_xml_scan_structure_bytes(bytes),
+  }
 }
 
 ///|
@@ -173,6 +229,60 @@ pub fn read_part_text(
   pkg.part_cache.text_decode_count.val += 1
   pkg.part_cache.text_by_part.set(normalized, text)
   text
+}
+
+///|
+/// Read a package part as XML/text content without populating the package-local
+/// text/byte cache. This keeps large one-shot XML parts from remaining pinned
+/// in memory after the caller finishes scanning them.
+pub fn read_part_text_transient(
+  pkg : OoxmlPackage,
+  part_name : String,
+) -> String raise OoxmlError {
+  let bytes = read_part_bytes_transient(pkg, part_name)
+  bytes_to_xml_text(bytes)
+}
+
+///|
+pub fn read_xml_part_payload(
+  pkg : OoxmlPackage,
+  part_name : String,
+) -> OoxmlXmlPartPayload raise OoxmlError {
+  let normalized = normalize_part_name(part_name)
+  let bytes = read_part_bytes_normalized(pkg, normalized)
+  let text = match pkg.part_cache.text_by_part.get(normalized) {
+    Some(value) => {
+      pkg.part_cache.text_hit_count.val += 1
+      value
+    }
+    None => {
+      let decoded = bytes_to_xml_text(bytes)
+      pkg.part_cache.text_decode_count.val += 1
+      pkg.part_cache.text_by_part.set(normalized, decoded)
+      decoded
+    }
+  }
+  {
+    part_name: normalized,
+    bytes,
+    text,
+    structure_scan: @xml_native.native_xml_scan_structure_bytes(bytes),
+  }
+}
+
+///|
+pub fn read_xml_part_payload_transient(
+  pkg : OoxmlPackage,
+  part_name : String,
+) -> OoxmlXmlPartPayload raise OoxmlError {
+  let normalized = normalize_part_name(part_name)
+  let bytes = read_part_bytes_transient(pkg, normalized)
+  {
+    part_name: normalized,
+    text: bytes_to_xml_text(bytes),
+    structure_scan: @xml_native.native_xml_scan_structure_bytes(bytes),
+    bytes,
+  }
 }
 
 ///|

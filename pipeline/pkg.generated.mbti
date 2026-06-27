@@ -3,12 +3,12 @@ package "ZSeanYves/markitdown/pipeline"
 
 import {
   "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/product",
+  "moonbitlang/core/ref",
 }
 
 // Values
 pub fn assemble_section_tree_pass() -> IRPass
-
-pub fn blocks_to_event_stream(Array[@core.CoreBlock]) -> Array[@core.CoreEvent]
 
 pub fn build_document_from_events(Array[@core.CoreEvent]) -> @core.DocumentIR
 
@@ -27,6 +27,8 @@ pub fn default_pass_pipeline() -> PassPipeline
 pub fn ir_input_to_document(@core.IRInput) -> @core.DocumentIR
 
 pub fn make_pass_context(Bool, String, pdf_cleanup_enabled? : Bool) -> PassContext
+
+pub fn make_pass_context_with_product_options(@product.ConvertMode, @product.ProductOptions, diagnostics? : @core.Diagnostics, assets? : Array[@core.AssetRef], metadata? : Map[String, @core.JsonValue], source_map? : @core.SourceMap?, assembly? : @core.DocumentAssembly?) -> PassContext
 
 pub fn merge_text_line_pass() -> IRPass
 
@@ -50,7 +52,9 @@ pub fn resolve_reading_order_pass() -> IRPass
 
 pub fn resolve_table_pass() -> IRPass
 
-pub fn run_pipeline(PassPipeline, @core.DocumentIR, PassContext) -> @core.DocumentIR
+pub fn run_default_pipeline(@core.IRInput, PassContext, trace_passes? : Bool) -> Result[@core.IRInput, PassError]
+
+pub fn run_pipeline(PassPipeline, @core.IRInput, PassContext) -> Result[@core.IRInput, PassError]
 
 // Errors
 
@@ -61,13 +65,21 @@ pub struct CoreIRBuilder {
 
 pub struct IRPass {
   name : String
-  run : (@core.DocumentIR, PassContext) -> @core.DocumentIR
+  run : (PassContext, @core.IRInput) -> Result[@core.IRInput, PassError]
 }
 
 pub struct PassContext {
-  debug : Bool
-  mode_name : String
-  pdf_cleanup_enabled : Bool
+  mode : @product.ConvertMode
+  options : @product.ProductOptions
+  diagnostics : @ref.Ref[@core.Diagnostics]
+  assets : @ref.Ref[Array[@core.AssetRef]]
+  metadata : @ref.Ref[Map[String, @core.JsonValue]]
+  source_map : @ref.Ref[@core.SourceMap?]
+  assembly : @ref.Ref[@core.DocumentAssembly?]
+}
+
+pub struct PassError {
+  message : String
 }
 
 pub struct PassPipeline {

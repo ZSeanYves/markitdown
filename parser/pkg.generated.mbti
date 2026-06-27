@@ -45,11 +45,7 @@ pub fn parse_context_with_pdf_table_reconstruction_policy(ParseContext, PdfTable
 
 pub fn parse_result_with_blocks(String, ParserMode, Array[@core.CoreBlock], @core.Diagnostics) -> ParseResult
 
-pub fn parse_result_with_blocks_capability(String, ParserMode, Array[@core.CoreBlock], @core.Diagnostics, ParserCapability) -> ParseResult
-
-pub fn parse_result_with_container_manifest(String, @core.ContainerManifest, @core.Diagnostics, ParserCapability) -> ParseResult
-
-pub fn parse_result_with_container_plan(String, @core.ContainerPlan, @core.Diagnostics, ParserCapability) -> ParseResult
+pub fn parse_result_with_blocks_capability(String, ParserMode, Array[@core.CoreBlock], @core.Diagnostics, ParserCapability, metadata? : Map[String, @core.JsonValue], assets? : Array[@core.AssetRef], source_map? : @core.SourceMap?, assembly? : @core.DocumentAssembly?) -> ParseResult
 
 pub fn parse_result_with_document(String, ParserMode, @core.DocumentIR, @core.Diagnostics) -> ParseResult
 
@@ -57,7 +53,7 @@ pub fn parse_result_with_document_capability(String, ParserMode, @core.DocumentI
 
 pub fn parse_result_with_events(String, ParserMode, Array[@core.CoreEvent], @core.Diagnostics) -> ParseResult
 
-pub fn parse_result_with_events_capability(String, ParserMode, Array[@core.CoreEvent], @core.Diagnostics, ParserCapability) -> ParseResult
+pub fn parse_result_with_events_capability(String, ParserMode, Array[@core.CoreEvent], @core.Diagnostics, ParserCapability, metadata? : Map[String, @core.JsonValue], assets? : Array[@core.AssetRef], source_map? : @core.SourceMap?, assembly? : @core.DocumentAssembly?) -> ParseResult
 
 pub fn parser_capability(Bool, Bool, Bool) -> ParserCapability
 
@@ -110,8 +106,10 @@ pub struct ParseResult {
   event_stream : Array[@core.CoreEvent]?
   block_stream : Array[@core.CoreBlock]?
   document : @core.DocumentIR?
-  container_manifest : @core.ContainerManifest?
-  container_plan : @core.ContainerPlan?
+  metadata : Map[String, @core.JsonValue]
+  assets : Array[@core.AssetRef]
+  source_map : @core.SourceMap?
+  assembly : @core.DocumentAssembly?
   diagnostics : @core.Diagnostics
 }
 
@@ -147,9 +145,6 @@ pub struct ParserCapability {
 pub(all) enum ParserMode {
   StreamingEvent
   BlockStreaming
-  DocumentModel
-  PresentationModel
-  WorkbookModel
   PackageSinglePass
   PageSinglePass
   DomAstModel

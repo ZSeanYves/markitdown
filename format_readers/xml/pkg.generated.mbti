@@ -10,6 +10,8 @@ pub fn inspect_xml_document(XmlDocument) -> XmlInspectReport
 
 pub fn parse_xml_document(String) -> XmlDocument raise
 
+pub fn parse_xml_structure_tokens(String) -> Array[XmlToken] raise
+
 pub fn tokenize_xml_document(String) -> Array[XmlToken] raise
 
 pub fn validate_xml_document(XmlDocument) -> XmlValidationReport

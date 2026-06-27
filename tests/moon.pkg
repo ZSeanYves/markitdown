@@ -9,6 +9,11 @@ import {
   "ZSeanYves/markitdown/formats/docx" @fdocx,
   "ZSeanYves/markitdown/formats/ocr" @focr,
   "ZSeanYves/markitdown/formats/pdf" @formats,
+  "ZSeanYves/markitdown/formats/pptx" @fpptx,
+  "ZSeanYves/markitdown/formats/xlsx" @fxlsx,
+  "ZSeanYves/markitdown/format_readers/epub",
+  "ZSeanYves/markitdown/format_readers/ooxml/package" @ox,
+  "ZSeanYves/markitdown/format_readers/xml_native",
   "ZSeanYves/markitdown/format_readers/ooxml/shared",
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
@@ -17,6 +22,8 @@ import {
   "ZSeanYves/markitdown/render",
   "ZSeanYves/markitdown/runtime",
 } for "test"
+
+supported_targets = "native"
 
 options(
   "preferred-target": "native",

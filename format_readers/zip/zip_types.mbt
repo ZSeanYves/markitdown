@@ -48,6 +48,13 @@ pub struct ZipEntryMeta {
 }
 
 ///|
+pub struct ZipEntryDataSlice {
+  entry : ZipEntryMeta
+  data_start : Int
+  data_end : Int
+}
+
+///|
 pub struct ZipArchive {
   bytes : Bytes
   entries : Array[ZipEntryMeta]

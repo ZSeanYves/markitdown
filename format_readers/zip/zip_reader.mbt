@@ -126,11 +126,65 @@ pub fn read_entry(
   path : String,
   max_output_size? : Int = 128 * 1024 * 1024,
 ) -> Bytes raise ZipError {
+  let slice = read_entry_data_slice(archive, path)
+  let entry = slice.entry
+  let compressed = subview(
+    archive.bytes,
+    slice.data_start,
+    slice.data_end,
+    "entry data",
+  )
+
+  let decoded = decompress(
+    entry.compression_method,
+    compressed,
+    max_output_size~,
+  ) catch {
+    UnsupportedCompressionMethod(code) =>
+      raise UnsupportedCompressionMethod(code)
+    DecodeFailed(msg) =>
+      raise DecodeFailed("decode failed for `" + entry.name + "`: " + msg)
+    OutputTooLarge(max, actual) =>
+      raise InvalidStructure(
+        "decoded entry exceeds max_output_size: max=" +
+        max.to_string() +
+        ", actual=" +
+        actual.to_string(),
+      )
+  }
+
+  if decoded.length() != entry.uncompressed_size {
+    raise InvalidStructure(
+      "decoded size mismatch for entry: " +
+      entry.name +
+      " expected=" +
+      entry.uncompressed_size.to_string() +
+      " actual=" +
+      decoded.length().to_string(),
+    )
+  }
+
+  validate_crc32(decoded, entry)
+  decoded
+}
+
+///|
+pub fn read_entry_data_slice(
+  archive : ZipArchive,
+  path : String,
+) -> ZipEntryDataSlice raise ZipError {
   let entry = match archive.entry_index.get(path) {
     Some(idx) => archive.entries[idx]
     None => raise EntryNotFound(path)
   }
+  read_entry_data_slice_from_meta(archive, entry)
+}
 
+///|
+fn read_entry_data_slice_from_meta(
+  archive : ZipArchive,
+  entry : ZipEntryMeta,
+) -> ZipEntryDataSlice raise ZipError {
   validate_entry_supported_flags(entry.flags, entry.name)
 
   let local_offset = entry.local_header_offset
@@ -234,39 +288,140 @@ pub fn read_entry(
 
   let data_start = local_name_end + extra_len
   let data_end = data_start + entry.compressed_size
-  let compressed = subview(archive.bytes, data_start, data_end, "entry data")
-
-  let decoded = decompress(
-    entry.compression_method,
-    compressed,
-    max_output_size~,
-  ) catch {
-    UnsupportedCompressionMethod(code) =>
-      raise UnsupportedCompressionMethod(code)
-    DecodeFailed(msg) =>
-      raise DecodeFailed("decode failed for `" + entry.name + "`: " + msg)
-    OutputTooLarge(max, actual) =>
-      raise InvalidStructure(
-        "decoded entry exceeds max_output_size: max=" +
-        max.to_string() +
-        ", actual=" +
-        actual.to_string(),
-      )
+  if data_start < 0 ||
+    data_end < data_start ||
+    data_end > archive.bytes.length() {
+    raise UnexpectedEOF("entry data")
   }
+  { entry, data_start, data_end }
+}
 
-  if decoded.length() != entry.uncompressed_size {
-    raise InvalidStructure(
-      "decoded size mismatch for entry: " +
+///|
+pub fn visit_inflated_entry_chunks(
+  archive : ZipArchive,
+  path : String,
+  chunk_size? : Int = 64 * 1024,
+  on_chunk : (Bytes) -> Result[Unit, String],
+) -> Result[Unit, String] {
+  let slice = read_entry_data_slice(archive, path) catch {
+    err => return Err(err.to_string())
+  }
+  visit_inflated_entry_chunks_from_slice(
+    archive.bytes,
+    slice,
+    chunk_size~,
+    on_chunk,
+  )
+}
+
+///|
+pub fn visit_inflated_entry_chunks_from_slice(
+  archive_bytes : Bytes,
+  slice : ZipEntryDataSlice,
+  chunk_size? : Int = 64 * 1024,
+  on_chunk : (Bytes) -> Result[Unit, String],
+) -> Result[Unit, String] {
+  let chunk_size = if chunk_size <= 0 { 64 * 1024 } else { chunk_size }
+  let entry = slice.entry
+  let mut emitted_bytes = 0
+  let crc = @checksum.CRC32::new()
+  match entry.compression_method {
+    Store => {
+      let mut pos = slice.data_start
+      while pos < slice.data_end {
+        let end_ = (pos + chunk_size).min(slice.data_end)
+        let chunk = archive_bytes[pos:end_].to_owned()
+        emitted_bytes += chunk.length()
+        crc.update(chunk[:])
+        match on_chunk(chunk) {
+          Ok(_) => ()
+          Err(err) => return Err(err)
+        }
+        pos = end_
+      }
+    }
+    DeflateRaw => {
+      let inflater = @flate.Inflater::new()
+      let mut pos = slice.data_start
+      let mut done = false
+      while !done {
+        let feed_end = (pos + chunk_size).min(slice.data_end)
+        if pos < feed_end {
+          inflater.src(archive_bytes[pos:feed_end])
+          pos = feed_end
+        }
+        loop inflater.decode() {
+          Await =>
+            if pos >= slice.data_end {
+              return Err(
+                "zip decode failed for `" + entry.name + "`: unexpected EOF",
+              )
+            } else {
+              break
+            }
+          Data(out) => {
+            let chunk = out.to_owned()
+            emitted_bytes += chunk.length()
+            crc.update(chunk[:])
+            if emitted_bytes > entry.uncompressed_size {
+              return Err(
+                "invalid zip structure: decoded size overflow for entry: " +
+                entry.name +
+                " expected=" +
+                entry.uncompressed_size.to_string() +
+                " actual=" +
+                emitted_bytes.to_string(),
+              )
+            }
+            match on_chunk(chunk) {
+              Ok(_) => ()
+              Err(err) => return Err(err)
+            }
+            continue inflater.decode()
+          }
+          End => {
+            done = true
+            break
+          }
+          Error(err) =>
+            return Err(
+              "decode failed for `" + entry.name + "`: " + err.to_string(),
+            )
+        }
+      }
+      let remaining = inflater.remaining()
+      if remaining.length() > 0 {
+        return Err(
+          "invalid zip structure: decoded entry left trailing compressed bytes: " +
+          entry.name,
+        )
+      }
+    }
+    Unsupported(code) =>
+      return Err("unsupported compression method: " + code.to_string())
+  }
+  if emitted_bytes != entry.uncompressed_size {
+    return Err(
+      "invalid zip structure: decoded size mismatch for entry: " +
       entry.name +
       " expected=" +
       entry.uncompressed_size.to_string() +
       " actual=" +
-      decoded.length().to_string(),
+      emitted_bytes.to_string(),
     )
   }
-
-  validate_crc32(decoded, entry)
-  decoded
+  let actual_crc = crc.checksum().reinterpret_as_int()
+  if actual_crc != entry.crc32 {
+    return Err(
+      "invalid zip structure: crc32 mismatch for entry: " +
+      entry.name +
+      " expected=" +
+      entry.crc32.to_string() +
+      " actual=" +
+      actual_crc.to_string(),
+    )
+  }
+  Ok(())
 }
 
 ///|
@@ -695,6 +850,13 @@ fn build_zip_entry_info(meta : ZipEntryMeta) -> ZipEntryInfo {
     Some(v) => is_nested_archive_ext(v)
     None => false
   }
+  let compressed_size = meta.compressed_size
+  let is_encrypted = meta.is_encrypted
+  let flags = if is_encrypted {
+    meta.flags | GP_FLAG_ENCRYPTED
+  } else {
+    meta.flags
+  }
   {
     raw_name: meta.name,
     normalized_path,
@@ -702,12 +864,12 @@ fn build_zip_entry_info(meta : ZipEntryMeta) -> ZipEntryInfo {
     is_file: !meta.is_directory,
     extension: ext,
     compression_method: meta.compression_method,
-    compressed_size: meta.compressed_size,
+    compressed_size,
     uncompressed_size: meta.uncompressed_size,
     local_header_offset: meta.local_header_offset,
     crc32: meta.crc32,
-    flags: meta.flags,
-    is_encrypted: meta.is_encrypted,
+    flags,
+    is_encrypted,
     has_data_descriptor: meta.has_data_descriptor,
     uses_zip64: meta.uses_zip64,
     is_unsafe_path: normalized_path == None,

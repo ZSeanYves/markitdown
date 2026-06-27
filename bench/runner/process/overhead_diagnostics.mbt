@@ -507,7 +507,9 @@ fn find_bench_row_by_id(bench_id : String) -> @manifest.BenchRow {
   let rows = @manifest.select_rows(
     @manifest.make_select_request(
       "smoke",
-      None,
+      [],
+      [],
+      [],
       None,
       @manifest.SelectOutput::Jsonl,
       false,

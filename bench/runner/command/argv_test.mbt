@@ -13,6 +13,7 @@ test "parse run request captures markitdown path" {
   assert_eq(cli_output_mode_name(request.cli_output_mode), "file")
   assert_eq(engine_output_mode_name(request.engine_output_mode), "file")
   assert_eq(request.timeout_ms, 60000)
+  assert_eq(request.warmup_count, 1)
   assert_eq(request.runner.runner_mode, "unknown")
   assert_true(!request.runner.canonical_performance)
 }
@@ -24,9 +25,18 @@ test "output path helpers use .tmp bench run scoped roots" {
   assert_eq(results_root(run_id), ".tmp/bench/runs/run-123/results")
   assert_eq(reports_root(run_id), ".tmp/bench/runs/run-123/reports")
   assert_eq(outputs_root(run_id), ".tmp/bench/runs/run-123/outputs")
+  assert_eq(profiles_root(), ".tmp/bench/profiles")
+  assert_eq(profile_run_root(run_id), ".tmp/bench/profiles/run-123")
+  assert_eq(profile_results_root(run_id), ".tmp/bench/profiles/run-123/results")
+  assert_eq(profile_reports_root(run_id), ".tmp/bench/profiles/run-123/reports")
   assert_eq(
     result_jsonl_path(run_id, "moonbit-cli", "smoke"),
     ".tmp/bench/runs/run-123/results/run-123-moonbit-cli-smoke.jsonl",
+  )
+  assert_eq(result_tier_label("smoke", []), "smoke")
+  assert_eq(
+    result_tier_label("smoke", ["regular", "release", "stress"]),
+    "tiers-regular-release-stress",
   )
   assert_eq(
     summary_json_path(run_id),
@@ -47,6 +57,18 @@ test "output path helpers use .tmp bench run scoped roots" {
   assert_eq(
     overhead_report_markdown_path(run_id),
     ".tmp/bench/runs/run-123/reports/run-123-overhead.md",
+  )
+  assert_eq(
+    profile_index_path(run_id),
+    ".tmp/bench/profiles/run-123/results/run-123-index.json",
+  )
+  assert_eq(
+    profile_bench_stdout_path(run_id, "html"),
+    ".tmp/bench/profiles/run-123/results/html.stdout.log",
+  )
+  assert_eq(
+    profile_bench_stderr_path(run_id, "html"),
+    ".tmp/bench/profiles/run-123/results/html.stderr.log",
   )
   assert_eq(
     tool_output_root(run_id, "moonbit-cli"),
@@ -75,6 +97,7 @@ test "parse compare request captures markitdown path" {
   assert_eq(cli_output_mode_name(request.cli_output_mode), "file")
   assert_eq(engine_output_mode_name(request.engine_output_mode), "file")
   assert_eq(request.timeout_ms, 60000)
+  assert_eq(request.warmup_count, 1)
   assert_eq(request.runner.runner_mode, "unknown")
 }
 
@@ -84,6 +107,18 @@ test "parse run request captures repeat count" {
     err => fail("expected request to parse: " + err.to_string())
   }
   assert_eq(request.repeat_count, 3)
+  assert_eq(request.warmup_count, 1)
+}
+
+///|
+test "parse run request accepts warmup count" {
+  let request = parse_run_request([
+    "--tool", "moonbit-cli", "--repeat", "3", "--warmup", "2",
+  ]) catch {
+    err => fail("expected request to parse: " + err.to_string())
+  }
+  assert_eq(request.repeat_count, 3)
+  assert_eq(request.warmup_count, 2)
 }
 
 ///|
@@ -92,16 +127,20 @@ test "parse diagnose request defaults to twenty repeats" {
     err => fail("expected diagnose request to parse: " + err.to_string())
   }
   assert_eq(request.repeat_count, 20)
+  assert_eq(request.warmup_count, 5)
   assert_eq(request.timeout_ms, 60000)
   assert_eq(request.runner.runner_mode, "unknown")
 }
 
 ///|
 test "parse diagnose request accepts timeout ms alias" {
-  let request = parse_diagnose_request(["--repeat", "7", "--timeout-ms", "1234"]) catch {
+  let request = parse_diagnose_request([
+    "--repeat", "7", "--warmup", "3", "--timeout-ms", "1234",
+  ]) catch {
     err => fail("expected diagnose request to parse: " + err.to_string())
   }
   assert_eq(request.repeat_count, 7)
+  assert_eq(request.warmup_count, 3)
   assert_eq(request.timeout_ms, 1234)
 }
 
@@ -111,6 +150,7 @@ test "parse compare request defaults repeat count to one" {
     err => fail("expected compare request to parse: " + err.to_string())
   }
   assert_eq(request.repeat_count, 1)
+  assert_eq(request.warmup_count, 1)
 }
 
 ///|
@@ -172,7 +212,7 @@ test "parse compare request accepts common flags and keeps explicit runner conte
     err => fail("expected compare request to parse: " + err.to_string())
   }
   assert_eq(request.tier, "smoke")
-  assert_true(request.format_filter == Some("html"))
+  assert_true(request.format_filters == ["html"])
   assert_true(request.limit == Some(5))
   assert_eq(request.repeat_count, 4)
   assert_eq(request.timeout_ms, 60000)
@@ -182,6 +222,69 @@ test "parse compare request accepts common flags and keeps explicit runner conte
   assert_eq(request.runner.runner_mode, "release")
   assert_true(request.runner.canonical_performance)
   assert_true(request.runner.runner_path == context.runner_path)
+  assert_eq(request.warmup_count, 1)
+}
+
+///|
+test "parse compare request accepts exact tiers and bench ids" {
+  let request = parse_compare_request([
+    "--tiers", "regular,release,stress", "--bench-id", "html_large_wai_aria_v1,xlsx_large_myeb_2011_2022_v1",
+  ]) catch {
+    err =>
+      fail("expected exact-tier compare request to parse: " + err.to_string())
+  }
+  assert_eq(request.tier, "smoke")
+  assert_true(request.exact_tiers == ["regular", "release", "stress"])
+  assert_true(
+    request.bench_ids ==
+    ["html_large_wai_aria_v1", "xlsx_large_myeb_2011_2022_v1"],
+  )
+}
+
+///|
+test "parse compare request accepts csv format filters" {
+  let request = parse_compare_request([
+    "--tiers", "regular,release,stress", "--format", "xlsx,docx,pptx",
+  ]) catch {
+    err =>
+      fail("expected csv format compare request to parse: " + err.to_string())
+  }
+  assert_true(request.format_filters == ["xlsx", "docx", "pptx"])
+}
+
+///|
+test "parse run request accepts exact tiers and bench ids" {
+  let request = parse_run_request([
+    "--tool", "moonbit-cli", "--tiers", "regular,release", "--bench-id", "json_large_worldbank_population_v1",
+  ]) catch {
+    err => fail("expected exact-tier run request to parse: " + err.to_string())
+  }
+  assert_eq(request.tool_name, "moonbit-cli")
+  assert_true(request.exact_tiers == ["regular", "release"])
+  assert_true(request.bench_ids == ["json_large_worldbank_population_v1"])
+}
+
+///|
+test "parse profile request accepts filters" {
+  let request = parse_profile_request([
+    "--kind", "single", "--tiers", "regular,release", "--bench-id", "json_large_worldbank_population_v1",
+    "--format", "json,xml",
+  ]) catch {
+    err => fail("expected profile request to parse: " + err.to_string())
+  }
+  assert_eq(request.profile_kind, "single")
+  assert_true(request.exact_tiers == ["regular", "release"])
+  assert_true(request.bench_ids == ["json_large_worldbank_population_v1"])
+  assert_true(request.formats == ["json", "xml"])
+}
+
+///|
+test "parse profile request defaults to official gate tiers" {
+  let request = parse_profile_request([]) catch {
+    err => fail("expected profile request to parse: " + err.to_string())
+  }
+  assert_eq(request.profile_kind, "official-gate")
+  assert_true(request.exact_tiers == ["regular", "release", "stress"])
 }
 
 ///|

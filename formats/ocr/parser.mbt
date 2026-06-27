@@ -29,7 +29,7 @@ pub fn image_requires_explicit_ocr_message(
 ) -> String {
   "image OCR is not enabled for " +
   @input.detected_format_name(format) +
-  " inputs on the current root runtime; future support requires an explicit OCR path"
+  " inputs on the this runtime; future support requires an explicit OCR path"
 }
 
 ///|
@@ -50,7 +50,7 @@ pub fn image_ocr_provider_not_wired_message(
   }
   "OCR provider is not wired yet for " +
   @input.detected_format_name(format) +
-  " inputs on the current root runtime." +
+  " inputs on the this runtime." +
   language_note
 }
 
@@ -66,7 +66,7 @@ pub fn image_ocr_provider_error_message(
 pub fn image_ocr_disabled_message(format : @input.DetectedFormat) -> String {
   "image input conversion is not enabled for " +
   @input.detected_format_name(format) +
-  " inputs on the current root runtime; OCR is disabled"
+  " inputs on the this runtime; OCR is disabled"
 }
 
 ///|
@@ -154,7 +154,7 @@ pub fn image_ocr_fail_closed_diagnostics(
     fn(_request) {
       Err(
         OcrProviderError::NotConfigured(
-          "Tesseract OCR provider is not configured on the current root runtime.",
+          "Tesseract OCR provider is not configured on the this runtime.",
         ),
       )
     },
@@ -189,7 +189,7 @@ fn image_ocr_parser_parse(
               image_ocr_provider_error_message(
                 detected_format,
                 OcrProviderError::EmptyResult(
-                  "OCR provider produced an empty OCR model on the current root runtime.",
+                  "OCR provider produced an empty OCR model on the this runtime.",
                 ),
               ),
             )
@@ -242,7 +242,7 @@ async fn image_ocr_parser_parse_async(
               image_ocr_provider_error_message(
                 detected_format,
                 OcrProviderError::EmptyResult(
-                  "OCR provider produced an empty OCR model on the current root runtime.",
+                  "OCR provider produced an empty OCR model on the this runtime.",
                 ),
               ),
             )
@@ -294,7 +294,7 @@ fn image_ocr_parser_diagnostics(
         Ok(result) =>
           if result.pages.length() == 0 {
             let error = OcrProviderError::EmptyResult(
-              "OCR provider produced an empty OCR model on the current root runtime.",
+              "OCR provider produced an empty OCR model on the this runtime.",
             )
             diagnostics.metrics.set(
               "ocr_provider_status",

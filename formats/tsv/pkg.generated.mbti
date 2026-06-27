@@ -6,7 +6,7 @@ import {
 }
 
 // Values
-pub fn tsv_lite_parser() -> @parser.Parser
+pub fn tsv_parser() -> @parser.Parser
 
 // Errors
 

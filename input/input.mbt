@@ -140,6 +140,16 @@ pub fn with_explicit_format(
 }
 
 ///|
+pub fn with_text_payload(source : InputSource, text : String) -> InputSource {
+  { ..source, text: Some(text) }
+}
+
+///|
+pub fn with_bytes_payload(source : InputSource, bytes : Bytes) -> InputSource {
+  { ..source, bytes: Some(bytes) }
+}
+
+///|
 pub fn default_format_detector() -> FormatDetector {
   {
     detect: fn(source : InputSource) -> FormatDetectionResult {

@@ -45,6 +45,10 @@
       "type": ["string", "null"],
       "description": "Resolved runner executable path when known."
     },
+    "measurement_policy": {
+      "type": ["string", "null"],
+      "description": "Serialized measurement policy summary, currently capturing warmup count, sample count, and process order."
+    },
     "tool": { "type": "string" },
     "tool_version": { "type": ["string", "null"] },
     "measurement_mode": {
@@ -68,6 +72,10 @@
     "input_sha256": { "type": "string" },
     "repeat_index": { "type": "integer" },
     "repeat_count": { "type": "integer" },
+    "warmup_count": {
+      "type": "integer",
+      "description": "Number of warmup executions performed before measured repeats for this logical row."
+    },
     "exit_code": { "type": "integer" },
     "status": { "type": "string" },
     "wall_ms": {

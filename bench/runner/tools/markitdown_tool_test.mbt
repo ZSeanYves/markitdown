@@ -23,7 +23,9 @@ test "markitdown tool explicit path success records source" {
   let rows = @manifest.select_rows(
     @manifest.make_select_request(
       "smoke",
-      Some("txt"),
+      [],
+      [],
+      ["txt"],
       Some(1),
       @manifest.SelectOutput::Jsonl,
       false,

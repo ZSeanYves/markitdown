@@ -7,39 +7,10 @@ import {
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
   "ZSeanYves/markitdown/rag",
-  "moonbitlang/x/fs",
 }
 
 // Values
-pub fn cli_is_supported_format(@input.DetectedFormat) -> Bool
-
-pub fn cli_output_kind(Bool) -> @convert.OutputFormat
-
-pub fn cli_product_name() -> String
-
-pub fn cli_product_version() -> String
-
-pub fn cli_supported_formats() -> Array[String]
-
-pub fn cli_unsupported_format_message(String) -> String
-
-pub fn dirname_of_path(String) -> String
-
-pub fn ensure_dir_tree(String) -> Unit raise @fs.IOError
-
-pub fn make_cli_options(String, String?, @input.DetectedFormat?, @parser.OcrOptions, @convert.ConvertMode, @convert.OutputFormat, pdf_cleanup_mode? : @convert.PdfCleanupMode, pdf_table_mode? : @convert.PdfTableMode, rag_options? : @rag.RagOptions) -> CliOptions
-
-pub fn normalize_cli_args(Array[String]) -> Array[String]
-
-pub fn normalize_cli_args_for_subcommand(Array[String]) -> Array[String]
-
-pub fn parse_explicit_format(String?) -> Result[@input.DetectedFormat?, String]
-
-pub fn print_cli_help() -> Unit
-
-pub fn print_cli_usage() -> Unit
-
-pub fn print_cli_version() -> Unit
+pub fn make_cli_options(String, String?, String?, @input.DetectedFormat?, @parser.OcrOptions, @convert.ConvertMode, @convert.OutputFormat, pdf_cleanup_mode? : @convert.PdfCleanupMode, pdf_table_mode? : @convert.PdfTableMode, rag_options? : @rag.RagOptions) -> CliOptions
 
 pub fn run_cli(CliOptions) -> Result[String, String]
 
@@ -57,6 +28,7 @@ pub fn run_cli_with_image_ocr_provider(CliOptions, (@ocr.OcrProviderRequest) -> 
 pub struct CliOptions {
   input : String
   output : String?
+  provenance_output : String?
   explicit_format : @input.DetectedFormat?
   ocr_options : @parser.OcrOptions
   convert_mode : @convert.ConvertMode

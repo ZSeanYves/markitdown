@@ -14,11 +14,13 @@ pub fn detect_runner_context(Array[String]) -> RunnerContext
 
 pub fn engine_output_mode_name(EngineOutputMode) -> String
 
-pub fn make_compare_request(String, String?, Int?, Int, Int, String?, CliOutputMode, EngineOutputMode, String, String, RunnerContext) -> CompareRequest
+pub fn make_compare_request(String, Array[String], Array[String], Array[String], Int?, Int, Int, Int, String?, CliOutputMode, EngineOutputMode, String, String, RunnerContext) -> CompareRequest
 
-pub fn make_diagnose_request(Int, Int, CliOutputMode, EngineOutputMode, String, String, RunnerContext) -> DiagnoseRequest
+pub fn make_diagnose_request(Int, Int, Int, CliOutputMode, EngineOutputMode, String, String, RunnerContext) -> DiagnoseRequest
 
-pub fn make_run_request(String, String, String?, Int?, Int, Int, String?, CliOutputMode, EngineOutputMode, String, String, RunnerContext) -> RunRequest
+pub fn make_profile_request(String, Array[String], Array[String], Array[String], String, String, RunnerContext) -> ProfileRequest
+
+pub fn make_run_request(String, String, Array[String], Array[String], Array[String], Int?, Int, Int, Int, String?, CliOutputMode, EngineOutputMode, String, String, RunnerContext) -> RunRequest
 
 pub fn make_runner_context(String, String?) -> RunnerContext
 
@@ -42,15 +44,35 @@ pub fn parse_diagnose_request_with_context(Array[String], RunnerContext) -> Diag
 
 pub fn parse_engine_output_mode(String) -> EngineOutputMode raise
 
+pub fn parse_profile_request(Array[String]) -> ProfileRequest raise
+
+pub fn parse_profile_request_with_context(Array[String], RunnerContext) -> ProfileRequest raise
+
 pub fn parse_run_request(Array[String]) -> RunRequest raise
 
 pub fn parse_run_request_with_context(Array[String], RunnerContext) -> RunRequest raise
+
+pub fn profile_bench_stderr_path(String, String) -> String
+
+pub fn profile_bench_stdout_path(String, String) -> String
+
+pub fn profile_index_path(String) -> String
+
+pub fn profile_reports_root(String) -> String
+
+pub fn profile_results_root(String) -> String
+
+pub fn profile_run_root(String) -> String
+
+pub fn profiles_root() -> String
 
 pub fn report_markdown_path(String) -> String
 
 pub fn reports_root(String) -> String
 
 pub fn result_jsonl_path(String, String, String) -> String
+
+pub fn result_tier_label(String, Array[String]) -> String
 
 pub fn results_root(String) -> String
 
@@ -72,9 +94,12 @@ pub enum CliOutputMode {
 
 pub struct CompareRequest {
   tier : String
-  format_filter : String?
+  exact_tiers : Array[String]
+  bench_ids : Array[String]
+  format_filters : Array[String]
   limit : Int?
   repeat_count : Int
+  warmup_count : Int
   timeout_ms : Int
   markitdown_path : String?
   cli_output_mode : CliOutputMode
@@ -86,6 +111,7 @@ pub struct CompareRequest {
 
 pub struct DiagnoseRequest {
   repeat_count : Int
+  warmup_count : Int
   timeout_ms : Int
   cli_output_mode : CliOutputMode
   engine_output_mode : EngineOutputMode
@@ -100,12 +126,25 @@ pub enum EngineOutputMode {
   None
 } derive(Eq)
 
+pub struct ProfileRequest {
+  profile_kind : String
+  exact_tiers : Array[String]
+  bench_ids : Array[String]
+  formats : Array[String]
+  run_id : String
+  git_commit : String
+  runner : RunnerContext
+} derive(Eq)
+
 pub struct RunRequest {
   tool_name : String
   tier : String
-  format_filter : String?
+  exact_tiers : Array[String]
+  bench_ids : Array[String]
+  format_filters : Array[String]
   limit : Int?
   repeat_count : Int
+  warmup_count : Int
   timeout_ms : Int
   markitdown_path : String?
   cli_output_mode : CliOutputMode

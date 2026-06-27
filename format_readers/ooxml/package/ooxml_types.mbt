@@ -204,6 +204,14 @@ pub struct OoxmlPartInfo {
 }
 
 ///|
+pub struct OoxmlXmlPartPayload {
+  part_name : String
+  bytes : Bytes
+  text : String
+  structure_scan : @xml_native.NativeXmlStructureScan
+}
+
+///|
 pub struct OoxmlContentTypeInfo {
   kind : OoxmlContentTypeInfoKind
   extension : String?
@@ -330,7 +338,8 @@ pub struct OoxmlRelationshipCacheStats {
 /// per-package part / relationship cache.
 pub struct OoxmlPackage {
   archive : @zip.ZipArchive
-  part_index : Map[String, Int]
+  part_index : Map[String, String]
+  part_size_index : Map[String, Int]
   content_types_default : Map[String, String]
   content_types_override : Map[String, String]
   priv part_cache : OoxmlPartCache

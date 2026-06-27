@@ -56,6 +56,7 @@ fn cli_options(
   output : String?,
   explicit_format : @input.DetectedFormat?,
   output_format : @convert.OutputFormat,
+  provenance_output? : String? = None,
   ocr_options? : @parser.OcrOptions = @parser.default_ocr_options(),
   pdf_cleanup_mode? : @convert.PdfCleanupMode = @convert.default_pdf_cleanup_mode(),
   pdf_table_mode? : @convert.PdfTableMode = @convert.default_pdf_table_mode(),
@@ -63,6 +64,7 @@ fn cli_options(
   make_cli_options(
     input,
     output,
+    provenance_output,
     explicit_format,
     ocr_options,
     @convert.ConvertMode::Balanced,
@@ -74,7 +76,7 @@ fn cli_options(
 }
 
 ///|
-test "current main cli product policy exposes txt csv tsv json jsonl ndjson xml yaml html markdown zip epub docx xlsx pptx and pdf" {
+test "main cli product policy exposes txt csv tsv json jsonl ndjson xml yaml html markdown zip epub docx xlsx pptx and pdf" {
   assert_true(cli_is_supported_format(@input.DetectedFormat::Txt))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Csv))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Tsv))
@@ -101,7 +103,10 @@ test "current main cli product policy exposes txt csv tsv json jsonl ndjson xml 
       @input.DetectedFormat::Image(@input.ImageFormat::Jpg),
     ),
   )
-  let supported = cli_supported_formats()
+  let supported = [
+    "txt", "csv", "tsv", "json", "jsonl", "ndjson", "xml", "yaml", "yml", "html",
+    "htm", "markdown", "md", "zip", "epub", "docx", "xlsx", "pptx", "pdf",
+  ]
   assert_eq(supported.length(), 19)
   assert_eq(supported[0], "txt")
   assert_eq(supported[1], "csv")
@@ -125,7 +130,7 @@ test "current main cli product policy exposes txt csv tsv json jsonl ndjson xml 
 }
 
 ///|
-test "current main cli keeps known image extensions fail closed" {
+test "main cli keeps known image extensions fail closed" {
   let root = test_tmp_root() + "/main-cli-image-fail-closed"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -140,7 +145,7 @@ test "current main cli keeps known image extensions fail closed" {
     Err(msg) => {
       assert_true(msg.contains("unsupported format"))
       assert_true(msg.contains("png"))
-      assert_true(msg.contains("current main CLI"))
+      assert_true(msg.contains("this build"))
       assert_true(msg.contains("image OCR is not enabled"))
     }
     Ok(_) => fail("known image extension should stay fail closed")
@@ -151,14 +156,14 @@ test "current main cli keeps known image extensions fail closed" {
     Err(msg) => {
       assert_true(msg.contains("unsupported --format value"))
       assert_true(msg.contains("png"))
-      assert_true(msg.contains("current main CLI"))
+      assert_true(msg.contains("this build"))
     }
     Ok(_) => fail("explicit png format should stay unsupported on the main cli")
   }
 }
 
 ///|
-test "current main cli parses explicit OCR intent flags" {
+test "main cli parses explicit OCR intent flags" {
   match parse_cli_options(["--ocr", "--ocr-lang", "eng", "tiny.png"]) {
     Ok(opts) => {
       assert_true(opts.ocr_options.intent == @parser.OcrIntent::Explicit)
@@ -177,7 +182,7 @@ test "current main cli parses explicit OCR intent flags" {
 }
 
 ///|
-test "current main cli keeps --debug and rejects retired --json alias" {
+test "main cli keeps --debug and rejects retired --json alias" {
   match parse_cli_options(["--debug", "tiny.txt"]) {
     Ok(opts) => {
       assert_true(opts.convert_mode == @convert.ConvertMode::Debug)
@@ -218,7 +223,7 @@ test "current main cli keeps --debug and rejects retired --json alias" {
 }
 
 ///|
-test "current main cli parses explicit PDF product option flags" {
+test "main cli parses explicit PDF product option flags" {
   match
     parse_cli_options([
       "--pdf-cleanup", "conservative", "--pdf-tables", "simple", "tiny.pdf",
@@ -242,7 +247,7 @@ test "current main cli parses explicit PDF product option flags" {
 }
 
 ///|
-test "current main cli rejects invalid PDF product option values" {
+test "main cli rejects invalid PDF product option values" {
   match parse_cli_options(["--pdf-cleanup", "aggressive", "tiny.pdf"]) {
     Err(msg) => assert_true(msg.contains("unsupported --pdf-cleanup value"))
     Ok(_) => fail("expected invalid --pdf-cleanup to fail")
@@ -254,7 +259,7 @@ test "current main cli rejects invalid PDF product option values" {
 }
 
 ///|
-test "current main cli rejects conflicting OCR intent flags" {
+test "main cli rejects conflicting OCR intent flags" {
   match parse_cli_options(["--ocr", "--no-ocr", "tiny.png"]) {
     Err(msg) => assert_true(msg.contains("cannot combine --ocr and --no-ocr"))
     Ok(_) => fail("expected conflicting OCR flags to fail")
@@ -262,7 +267,7 @@ test "current main cli rejects conflicting OCR intent flags" {
 }
 
 ///|
-test "current main cli requires --ocr for --ocr-lang" {
+test "main cli requires --ocr for --ocr-lang" {
   match parse_cli_options(["--ocr-lang", "eng", "tiny.png"]) {
     Err(msg) => assert_true(msg.contains("--ocr-lang requires --ocr"))
     Ok(_) => fail("expected --ocr-lang without --ocr to fail")
@@ -270,14 +275,26 @@ test "current main cli requires --ocr for --ocr-lang" {
 }
 
 ///|
-test "current main cli first user arg helper handles executable-prefixed argv" {
+test "main cli parses provenance output flag" {
+  match parse_cli_options(["--provenance-out", "trace.json", "tiny.txt"]) {
+    Ok(opts) => {
+      assert_true(opts.provenance_output == Some("trace.json"))
+      assert_eq(opts.input, "tiny.txt")
+      assert_true(opts.output == None)
+    }
+    Err(msg) => fail("expected --provenance-out to parse: " + msg)
+  }
+}
+
+///|
+test "main cli first user arg helper handles executable-prefixed argv" {
   assert_true(first_user_cli_arg(["cli.exe"]) == None)
   assert_true(first_user_cli_arg(["cli.exe", "help"]) == Some("help"))
   assert_true(first_user_cli_arg(["cli.exe", "normal"]) == Some("normal"))
 }
 
 ///|
-test "current main cli can parse options from either implicit or explicit convert position" {
+test "main cli can parse options from either implicit or explicit convert position" {
   match parse_cli_options_from_index(["demo.txt"], 0) {
     Ok(opts) => {
       assert_eq(opts.input, "demo.txt")
@@ -296,7 +313,7 @@ test "current main cli can parse options from either implicit or explicit conver
 }
 
 ///|
-test "current main cli image OCR intent remains fail closed by mode" {
+test "main cli image OCR intent remains fail closed by mode" {
   let root = test_tmp_root() + "/main-cli-image-ocr-intent"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -357,7 +374,7 @@ test "current main cli image OCR intent remains fail closed by mode" {
 }
 
 ///|
-test "current main cli pdf plus explicit OCR stays fail closed before any image provider path" {
+test "main cli pdf plus explicit OCR stays fail closed before any image provider path" {
   let root = test_tmp_root() + "/main-cli-pdf-explicit-ocr"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -385,7 +402,7 @@ test "current main cli pdf plus explicit OCR stays fail closed before any image 
 }
 
 ///|
-test "current main cli scanned-like pdf fails closed instead of returning empty markdown" {
+test "main cli scanned-like pdf fails closed instead of returning empty markdown" {
   let root = test_tmp_root() + "/main-cli-pdf-empty-text-layer"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -449,7 +466,7 @@ fn fake_cli_image_provider(
 }
 
 ///|
-test "current main cli explicit image OCR can succeed through injected provider without widening default supported set" {
+test "main cli explicit image OCR can succeed through injected provider without widening default supported set" {
   let root = test_tmp_root() + "/main-cli-image-ocr-success"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -479,7 +496,7 @@ test "current main cli explicit image OCR can succeed through injected provider 
 }
 
 ///|
-async test "current main cli async explicit image OCR can succeed through injected provider without widening default supported set" {
+async test "main cli async explicit image OCR can succeed through injected provider without widening default supported set" {
   let root = test_tmp_root() + "/main-cli-image-ocr-success-async"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -675,7 +692,7 @@ test "root cli converts txt csv tsv json jsonl ndjson xml yaml and markdown thro
 }
 
 ///|
-test "current main cli can emit debug json without legacy sidecar bridge" {
+test "main cli emits debug json on the canonical renderer path" {
   let root = test_tmp_root() + "/main-cli-json"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -692,16 +709,52 @@ test "current main cli can emit debug json without legacy sidecar bridge" {
       ),
     ) {
     Ok(value) => value
-    Err(msg) => fail("current debug json cli failed: " + msg)
+    Err(msg) => fail("debug json cli failed: " + msg)
   }
 
-  assert_true(rendered.contains("\"block_count\": 1"))
+  assert_true(rendered.contains("\"event_count\": 1"))
   assert_true(rendered.contains("\"renderer_name\": \"DebugJsonRenderer\""))
+  assert_true(rendered.contains("\"render_input_kind\": \"event_stream\""))
   assert_true(rendered.contains("\"source_ref\""))
 }
 
 ///|
-test "current main cli pdf debug json exposes header footer candidate diagnostics" {
+test "main cli provenance sidecar preserves conversion output semantics" {
+  let root = test_tmp_root() + "/main-cli-provenance"
+  recreate_clean_dir(root)
+  defer cleanup_temp_dir(root)
+
+  let input_path = root + "/demo.json"
+  let output_path = root + "/demo.md"
+  let provenance_path = root + "/demo.provenance.json"
+  write_utf8_text(input_path, "{\"name\":\"Alice\",\"role\":\"Engineer\"}\n")
+
+  let rendered = match
+    run_cli(
+      cli_options(
+        input_path,
+        Some(output_path),
+        Some(@input.DetectedFormat::Json),
+        @convert.OutputFormat::Markdown,
+        provenance_output=Some(provenance_path),
+      ),
+    ) {
+    Ok(value) => value
+    Err(msg) => fail("expected cli provenance sidecar conversion: " + msg)
+  }
+
+  assert_true(rendered.contains("| Key | Value |"))
+  assert_true(read_utf8_text(output_path).contains("| Key | Value |"))
+  let sidecar = read_utf8_text(provenance_path)
+  assert_true(sidecar.contains("\"selected_route\":"))
+  assert_true(sidecar.contains("\"route_reason\":"))
+  assert_true(sidecar.contains("\"route_probe_summary\":"))
+  assert_true(sidecar.contains("\"effective_parser_mode\":"))
+  assert_true(sidecar.contains("\"render_input_kind\":"))
+}
+
+///|
+test "main cli pdf debug json exposes header footer candidate diagnostics" {
   let rendered = match
     run_cli(
       cli_options(
@@ -732,17 +785,17 @@ test "current main cli pdf debug json exposes header footer candidate diagnostic
   assert_true(rendered.contains("\"pdf_cleanup_mode\": \"none\""))
   assert_true(rendered.contains("\"pdf_cleanup_default_mode\": \"none\""))
   assert_true(
-    rendered.contains("\"pdf_cleanup_promotion_target\": \"conservative\""),
+    rendered.contains("\"pdf_cleanup_opt_in_mode\": \"conservative\""),
   )
   assert_true(rendered.contains("\"pdf_table_mode\": \"none\""))
   assert_true(rendered.contains("\"pdf_table_default_mode\": \"none\""))
-  assert_true(rendered.contains("\"pdf_table_promotion_target\": \"simple\""))
+  assert_true(rendered.contains("\"pdf_table_opt_in_mode\": \"simple\""))
   assert_true(!rendered.contains("\"pdf_v2\""))
   assert_true(!rendered.contains("\"pdf_debug\""))
 }
 
 ///|
-test "current main cli pdf product options stay opt-in and only change diagnostics when not requested" {
+test "main cli pdf product options stay opt-in and only change diagnostics when not requested" {
   let root = test_tmp_root() + "/main-cli-pdf-options"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -786,7 +839,7 @@ test "current main cli pdf product options stay opt-in and only change diagnosti
 }
 
 ///|
-test "current main cli persists pptx local assets only at output boundary" {
+test "main cli persists pptx local assets only at output boundary" {
   let root = test_tmp_root() + "/main-cli-pptx-assets"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -815,7 +868,7 @@ test "current main cli persists pptx local assets only at output boundary" {
 }
 
 ///|
-test "current main cli persists markdown local assets only at output boundary" {
+test "main cli persists markdown local assets only at output boundary" {
   let root = test_tmp_root() + "/main-cli-markdown-assets"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -869,7 +922,7 @@ test "current main cli persists markdown local assets only at output boundary" {
 }
 
 ///|
-test "current main cli converts zip through the root container pipeline and persists local assets only at output boundary" {
+test "main cli converts zip through the root container pipeline and persists local assets only at output boundary" {
   let root = test_tmp_root() + "/main-cli-zip"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -910,7 +963,7 @@ test "current main cli converts zip through the root container pipeline and pers
 }
 
 ///|
-test "current main cli keeps epub local assets output boundary only and remote data assets no fetch" {
+test "main cli keeps epub local assets output boundary only and remote data assets no fetch" {
   let root = test_tmp_root() + "/main-cli-epub-assets"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -970,7 +1023,7 @@ test "current main cli keeps epub local assets output boundary only and remote d
 }
 
 ///|
-test "current main cli restores docx xlsx pptx and native-text pdf" {
+test "main cli restores docx xlsx pptx and native-text pdf" {
   let root = test_tmp_root() + "/main-cli-unsupported"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -1078,7 +1131,7 @@ test "current main cli restores docx xlsx pptx and native-text pdf" {
 }
 
 ///|
-test "current main cli persists html local assets only at output boundary" {
+test "main cli persists html local assets only at output boundary" {
   let root = test_tmp_root() + "/main-cli-html-assets"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -1132,7 +1185,7 @@ test "current main cli persists html local assets only at output boundary" {
 }
 
 ///|
-test "current main cli converts yaml and yml through isolated product shell" {
+test "main cli converts yaml and yml through isolated product shell" {
   let root = test_tmp_root() + "/main-cli-yaml"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)

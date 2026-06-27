@@ -1,143 +1,8 @@
 ///|
-pub struct RenderContext {
-  debug : Bool
-  rag_options : @rag.RagOptions
-}
-
-///|
-pub(all) enum RenderInput {
-  EventStream(Array[@core.CoreEvent])
-  BlockStream(Array[@core.CoreBlock])
-  Document(@core.DocumentIR)
-}
-
-///|
-pub struct RenderResult {
-  content : String
-  diagnostics : @core.Diagnostics
-  chunks : Array[@rag.RagChunk]?
-}
-
-///|
-pub struct Renderer {
-  name : String
-  render : (@core.DocumentIR, RenderContext) -> RenderResult
-}
-
-///|
-pub fn make_render_context(
-  debug : Bool,
-  rag_options? : @rag.RagOptions = @rag.default_rag_options(),
-) -> RenderContext {
-  { debug, rag_options }
-}
-
-///|
-pub fn markdown_renderer() -> Renderer {
-  {
-    name: "MarkdownRenderer",
-    render: fn(
-      document : @core.DocumentIR,
-      _context : RenderContext,
-    ) -> RenderResult {
-      document.diagnostics.metrics.set("renderer_name", "MarkdownRenderer")
-      {
-        content: render_markdown_document(document),
-        diagnostics: document.diagnostics,
-        chunks: None,
-      }
-    },
-  }
-}
-
-///|
-pub fn debug_json_renderer() -> Renderer {
-  {
-    name: "DebugJsonRenderer",
-    render: fn(
-      document : @core.DocumentIR,
-      _context : RenderContext,
-    ) -> RenderResult {
-      document.diagnostics.metrics.set("renderer_name", "DebugJsonRenderer")
-      {
-        content: render_debug_json_document(document),
-        diagnostics: document.diagnostics,
-        chunks: None,
-      }
-    },
-  }
-}
-
-///|
-pub fn rag_json_renderer() -> Renderer {
-  {
-    name: "RagJsonRenderer",
-    render: fn(
-      document : @core.DocumentIR,
-      context : RenderContext,
-    ) -> RenderResult {
-      document.diagnostics.metrics.set("renderer_name", "RagJsonRenderer")
-      let chunks = @rag.chunks_from_document(document, context.rag_options)
-      document.diagnostics.metrics.set(
-        "chunk_count",
-        chunks.length().to_string(),
-      )
-      document.diagnostics.metrics.set(
-        "chunk_text_total_chars",
-        @rag.rag_chunk_text_total_chars(chunks).to_string(),
-      )
-      document.diagnostics.metrics.set(
-        "metadata_chunk_emitted",
-        if chunks.any(chunk => chunk.kind == @rag.ChunkKind::Metadata) {
-          "true"
-        } else {
-          "false"
-        },
-      )
-      document.diagnostics.metrics.set(
-        "table_chunk_split_count",
-        chunk_kind_count(chunks, @rag.ChunkKind::Table).to_string(),
-      )
-      document.diagnostics.metrics.set(
-        "code_chunk_split_count",
-        chunk_kind_count(chunks, @rag.ChunkKind::Code).to_string(),
-      )
-      document.diagnostics.metrics.set(
-        "rag_chunk_size",
-        context.rag_options.chunk_size.to_string(),
-      )
-      document.diagnostics.metrics.set(
-        "rag_chunk_overlap",
-        context.rag_options.chunk_overlap.to_string(),
-      )
-      {
-        content: render_rag_json_document(
-          document,
-          rag_payload(document, context, chunks),
-        ),
-        diagnostics: document.diagnostics,
-        chunks: Some(chunks),
-      }
-    },
-  }
-}
-
-///|
-pub fn render_markdown_document(document : @core.DocumentIR) -> String {
-  let parts : Array[String] = []
-  let mut prev_kind : @core.BlockKind? = None
-  for block in document.blocks {
-    let rendered = render_markdown_block(block)
-    if rendered.trim() != "" {
-      if parts.length() > 0 &&
-        markdown_needs_blank_line_between(prev_kind, block.kind) {
-        parts.push("")
-      }
-      parts.push(rendered)
-      prev_kind = Some(block.kind)
-    }
-  }
-  parts.join("\n")
+fn render_markdown_blocks(blocks : Array[@core.CoreBlock]) -> String {
+  let out = StringBuilder::new()
+  ignore(write_markdown_blocks_to(out, blocks))
+  out.to_string()
 }
 
 ///|
@@ -158,69 +23,66 @@ fn markdown_needs_blank_line_between(
 }
 
 ///|
-pub fn render_debug_json_document(document : @core.DocumentIR) -> String {
-  let block_items : Array[String] = []
-  for block in document.blocks {
-    block_items.push(render_block_json(block))
+fn write_markdown_blocks_to(
+  out : StringBuilder,
+  blocks : Array[@core.CoreBlock],
+) -> Bool {
+  let mut prev_kind : @core.BlockKind? = None
+  let mut wrote_any = false
+  for block in blocks {
+    let wrote_block = write_markdown_block_with_separator_to(
+      out, block, prev_kind, wrote_any,
+    )
+    if wrote_block {
+      prev_kind = Some(block.kind)
+      wrote_any = true
+    }
   }
-  let asset_items : Array[String] = []
-  for asset in document.assets {
-    asset_items.push(render_asset_json(asset))
-  }
-  let fields : Array[String] = []
-  fields.push("\"block_count\": " + document.blocks.length().to_string())
-  fields.push("\"blocks\": " + @core.array_json(block_items))
-  fields.push("\"asset_count\": " + document.assets.length().to_string())
-  fields.push("\"assets\": " + @core.array_json(asset_items))
-  fields.push(
-    "\"diagnostics\": " + render_diagnostics_json(document.diagnostics),
-  )
-  @core.object_json(fields)
+  wrote_any
 }
 
 ///|
-pub fn render_rag_json_document(
-  document : @core.DocumentIR,
-  payload : RagRenderPayload,
-) -> String {
-  let asset_items : Array[String] = []
-  for asset in document.assets {
-    asset_items.push(render_asset_json(asset))
+fn write_markdown_block_with_separator_to(
+  out : StringBuilder,
+  block : @core.CoreBlock,
+  prev_kind : @core.BlockKind?,
+  wrote_any : Bool,
+) -> Bool {
+  match markdown_direct_block_visibility(block) {
+    Some(false) => return false
+    Some(true) => {
+      if wrote_any {
+        if markdown_needs_blank_line_between(prev_kind, block.kind) {
+          out.write_char('\n')
+          out.write_char('\n')
+        } else {
+          out.write_char('\n')
+        }
+      }
+      write_markdown_block_direct_to(out, block)
+      return true
+    }
+    None => ()
   }
-  let chunk_items : Array[String] = []
-  for chunk in payload.chunks {
-    chunk_items.push(render_rag_chunk_json(chunk))
+  if !wrote_any {
+    return write_markdown_block_to(out, block)
   }
-  let fields : Array[String] = []
-  fields.push("\"output_format\": " + @core.json_string("rag_json"))
-  fields.push(
-    "\"detected_format\": " +
-    @core.json_string_opt(document.diagnostics.detected_format),
-  )
-  fields.push(
-    "\"parser_mode\": " +
-    @core.json_string_opt(document.diagnostics.parser_mode),
-  )
-  fields.push(
-    "\"convert_mode\": " +
-    @core.json_string_opt(document.diagnostics.convert_mode),
-  )
-  fields.push(
-    "\"metadata\": " + render_document_metadata_json(document.metadata),
-  )
-  fields.push("\"assets\": " + @core.array_json(asset_items))
-  fields.push(
-    "\"diagnostics\": " + render_diagnostics_json(document.diagnostics),
-  )
-  fields.push(
-    "\"source_map\": " + render_source_map_json(payload.public_source_map),
-  )
-  fields.push("\"chunks\": " + @core.array_json(chunk_items))
-  @core.object_json(fields)
+  let rendered = render_markdown_block(block)
+  if rendered.trim() == "" {
+    return false
+  }
+  if markdown_needs_blank_line_between(prev_kind, block.kind) {
+    out.write_char('\n')
+    out.write_char('\n')
+  } else {
+    out.write_char('\n')
+  }
+  out.write_string(rendered)
+  true
 }
 
 ///|
-struct RagRenderPayload {
+priv struct RagRenderPayload {
   public_source_map : @core.SourceMap?
   chunks : Array[@rag.RagChunk]
 }
@@ -234,6 +96,21 @@ fn rag_payload(
   {
     public_source_map: if context.rag_options.preserve_source_ref {
       document.source_map
+    } else {
+      None
+    },
+    chunks,
+  }
+}
+
+///|
+fn rag_payload_for_direct_input(
+  context : RenderContext,
+  chunks : Array[@rag.RagChunk],
+) -> RagRenderPayload {
+  {
+    public_source_map: if context.rag_options.preserve_source_ref {
+      context.source_map
     } else {
       None
     },
@@ -259,6 +136,244 @@ fn render_markdown_block(block : @core.CoreBlock) -> String {
       } else {
         block.text
       }
+  }
+}
+
+///|
+fn write_markdown_block_to(
+  out : StringBuilder,
+  block : @core.CoreBlock,
+) -> Bool {
+  match markdown_direct_block_visibility(block) {
+    Some(false) => false
+    Some(true) => {
+      write_markdown_block_direct_to(out, block)
+      true
+    }
+    None => {
+      let rendered = render_markdown_block(block)
+      if rendered.trim() == "" {
+        false
+      } else {
+        out.write_string(rendered)
+        true
+      }
+    }
+  }
+}
+
+///|
+fn markdown_direct_block_visibility(block : @core.CoreBlock) -> Bool? {
+  match block.kind {
+    @core.BlockKind::Heading =>
+      if !rich_inlines_present(block) {
+        Some(true)
+      } else {
+        None
+      }
+    @core.BlockKind::Paragraph =>
+      if block.attrs.get("note_definition_id") is None &&
+        !rich_inlines_present(block) {
+        Some(
+          block.attrs.get("literal") == Some("true") ||
+          literal_text_block(block) ||
+          block.text.trim() != "",
+        )
+      } else {
+        None
+      }
+    @core.BlockKind::Code => Some(true)
+    @core.BlockKind::Image => Some(true)
+    _ => None
+  }
+}
+
+///|
+fn write_markdown_block_direct_to(
+  out : StringBuilder,
+  block : @core.CoreBlock,
+) -> Unit {
+  match block.kind {
+    @core.BlockKind::Heading => write_markdown_heading_to(out, block)
+    @core.BlockKind::Paragraph => write_markdown_paragraph_to(out, block)
+    @core.BlockKind::Code => write_markdown_code_to(out, block)
+    @core.BlockKind::Image => write_markdown_image_to(out, block)
+    _ => ignore(write_markdown_block_to(out, block))
+  }
+}
+
+///|
+fn write_markdown_heading_to(
+  out : StringBuilder,
+  block : @core.CoreBlock,
+) -> Unit {
+  let level = clamp_heading_level(block.attrs.get("level").unwrap_or("1"))
+  out.write_string(repeat_char_string('#', level))
+  out.write_char(' ')
+  if block.attrs.get("literal") == Some("true") || literal_text_block(block) {
+    out.write_string(block.text.trim().to_owned())
+  } else {
+    write_escaped_markdown_inline_text_to(out, block.text.trim().to_owned())
+  }
+}
+
+///|
+fn write_markdown_paragraph_to(
+  out : StringBuilder,
+  block : @core.CoreBlock,
+) -> Unit {
+  if literal_text_block(block) || block.attrs.get("literal") == Some("true") {
+    out.write_string(block.text.trim().to_owned())
+    return
+  }
+  write_render_literal_markdown_lines_to(out, block.text)
+}
+
+///|
+fn write_render_literal_markdown_lines_to(
+  out : StringBuilder,
+  text : String,
+) -> Unit {
+  let lines = render_literal_markdown_lines(text)
+  let mut wrote_any = false
+  for line in lines {
+    if wrote_any {
+      out.write_char(' ')
+    }
+    out.write_string(line)
+    wrote_any = true
+  }
+}
+
+///|
+fn write_markdown_code_to(out : StringBuilder, block : @core.CoreBlock) -> Unit {
+  let info = block.attrs.get("info").unwrap_or("")
+  let fence = safe_code_fence(block.text)
+  out.write_string(fence)
+  if info != "" {
+    out.write_string(info)
+  }
+  out.write_char('\n')
+  out.write_string(block.text)
+  out.write_char('\n')
+  out.write_string(fence)
+}
+
+///|
+fn write_markdown_image_to(
+  out : StringBuilder,
+  block : @core.CoreBlock,
+) -> Unit {
+  let escape_mode = block.attrs.get("render_inline_escape_mode")
+  let path = block.attrs.get("path").unwrap_or("#")
+  out.write_string("![")
+  write_escaped_markdown_inline_text_for_format_to(
+    out,
+    block.attrs.get("alt").unwrap_or("image"),
+    escape_mode,
+  )
+  out.write_string("](")
+  out.write_string(path)
+  out.write_char(')')
+  match block.attrs.get("title") {
+    Some(title) =>
+      if title.trim() != "" {
+        out.write_char('\n')
+        out.write_char('*')
+        write_escaped_markdown_inline_text_for_format_to(
+          out,
+          title.trim().to_owned(),
+          escape_mode,
+        )
+        out.write_char('*')
+      }
+    None => ()
+  }
+  match block.attrs.get("caption") {
+    Some(caption) =>
+      if caption.trim() != "" {
+        out.write_char('\n')
+        if literal_text_block(block) {
+          out.write_string(caption.trim().to_owned())
+        } else {
+          out.write_string(
+            escape_markdown_inline_text(caption.trim().to_owned()),
+          )
+        }
+      }
+    None => ()
+  }
+}
+
+///|
+fn escape_markdown_inline_text(text : String) -> String {
+  let out = StringBuilder::new()
+  write_escaped_markdown_inline_text_to(out, text)
+  out.to_string()
+}
+
+///|
+fn write_escaped_markdown_inline_text_to(
+  out : StringBuilder,
+  text : String,
+) -> Unit {
+  for ch in text.to_array() {
+    let cp = ch.to_int()
+    if cp > 0xFFFF {
+      out.write_string("&")
+      out.write_char('#')
+      out.write_string(cp.to_string())
+      out.write_char(';')
+      continue
+    }
+    if markdown_punctuation_needs_escape(ch) {
+      out.write_char('\\')
+    }
+    out.write_char(ch)
+  }
+}
+
+///|
+fn escape_markdown_inline_text_for_format(
+  text : String,
+  escape_mode : String?,
+) -> String {
+  if escape_mode == Some("minimal") {
+    return escape_markdown_inline_text_html(text)
+  }
+  escape_markdown_inline_text(text)
+}
+
+///|
+fn write_escaped_markdown_inline_text_for_format_to(
+  out : StringBuilder,
+  text : String,
+  escape_mode : String?,
+) -> Unit {
+  if escape_mode == Some("minimal") {
+    write_escaped_markdown_inline_text_html_to(out, text)
+  } else {
+    write_escaped_markdown_inline_text_to(out, text)
+  }
+}
+
+///|
+fn escape_markdown_inline_text_html(text : String) -> String {
+  let out = StringBuilder::new()
+  write_escaped_markdown_inline_text_html_to(out, text)
+  out.to_string()
+}
+
+///|
+fn write_escaped_markdown_inline_text_html_to(
+  out : StringBuilder,
+  text : String,
+) -> Unit {
+  for ch in text.to_array() {
+    if ch == '\\' || ch == '`' {
+      out.write_char('\\')
+    }
+    out.write_char(ch)
   }
 }
 
@@ -419,24 +534,46 @@ fn list_item_indent_for_marker(
   ordered_indent_step : Int,
 ) -> String {
   let width = if ordered { depth * ordered_indent_step } else { depth * 2 }
-  Array::make(width, " ").join("")
+  repeat_char_string(' ', width)
 }
 
 ///|
 fn indent_rendered_block(text : String, depth : Int) -> String {
   let indent = list_item_indent_for_marker(depth, false, 2)
-  text
-  .split("\n")
-  .to_array()
-  .map(line => {
-    let owned = line.to_owned()
-    if owned.trim() == "" {
-      owned
-    } else {
-      indent + owned
+  let out = StringBuilder::new()
+  let chars = text.to_array()
+  let line : Array[Char] = []
+  let mut wrote_any = false
+  fn flush_line(
+    out : StringBuilder,
+    line : Array[Char],
+    indent : String,
+    wrote_any : Bool,
+  ) -> Bool {
+    let value = String::from_array(line)
+    if wrote_any {
+      out.write_char('\n')
     }
-  })
-  .join("\n")
+    if value.trim() == "" {
+      out.write_string(value)
+    } else {
+      out.write_string(indent)
+      out.write_string(value)
+    }
+    line.clear()
+    true
+  }
+  for ch in chars {
+    if ch == '\n' {
+      wrote_any = flush_line(out, line, indent, wrote_any)
+    } else {
+      line.push(ch)
+    }
+  }
+  if line.length() > 0 || !text.has_suffix("\n") {
+    ignore(flush_line(out, line, indent, wrote_any))
+  }
+  out.to_string()
 }
 
 ///|
@@ -805,6 +942,10 @@ fn widest_table_row_width_from_children(rows : Array[@core.CoreBlock]) -> Int {
 
 ///|
 fn table_row_width(row : @core.CoreBlock) -> Int {
+  match row.attrs.get("sparse_cell_columns") {
+    Some("true") => return sparse_table_row_width(row)
+    _ => ()
+  }
   if row.children.length() > 0 {
     return row.children.length()
   }
@@ -816,6 +957,10 @@ fn table_row_width(row : @core.CoreBlock) -> Int {
 
 ///|
 fn table_row_cells(row : @core.CoreBlock) -> Array[String] {
+  match row.attrs.get("sparse_cell_columns") {
+    Some("true") => return sparse_table_row_cells(row)
+    _ => ()
+  }
   if row.children.length() > 0 {
     return row.children.map(cell => {
       if rich_inlines_present(cell) {
@@ -829,6 +974,121 @@ fn table_row_cells(row : @core.CoreBlock) -> Array[String] {
     return []
   }
   row.text.split("|").map(part => part.trim().to_owned()).to_array()
+}
+
+///|
+fn sparse_table_row_width(row : @core.CoreBlock) -> Int {
+  if row.children.length() == 0 {
+    return sparse_table_declared_width(row)
+  }
+  let mut max_column = sparse_table_declared_width(row)
+  for cell in row.children {
+    let column = sparse_table_cell_column_index(cell)
+    if column > max_column {
+      max_column = column
+    }
+  }
+  max_column
+}
+
+///|
+fn sparse_table_row_cells(row : @core.CoreBlock) -> Array[String] {
+  let width = sparse_table_row_width(row)
+  if width <= 0 {
+    return []
+  }
+  let cells = Array::make(width, "")
+  if row.children.length() == 0 {
+    sparse_table_row_payload_fill(cells, sparse_table_row_payload(row))
+    return cells
+  }
+  for cell in row.children {
+    let column = sparse_table_cell_column_index(cell)
+    if column <= 0 || column > width {
+      continue
+    }
+    cells[column - 1] = if rich_inlines_present(cell) {
+      render_markdown_inline_text(cell)
+    } else {
+      cell.text
+    }
+  }
+  cells
+}
+
+///|
+fn sparse_table_row_payload(row : @core.CoreBlock) -> String {
+  row.attrs.get("sparse_row_payload").unwrap_or("")
+}
+
+///|
+fn sparse_table_declared_width(row : @core.CoreBlock) -> Int {
+  match row.attrs.get("declared_column_count") {
+    Some(raw) => @string.parse_int(raw.trim()) catch { _ => 0 }
+    None => 0
+  }
+}
+
+///|
+fn sparse_table_row_payload_fill(
+  cells : Array[String],
+  payload : String,
+) -> Unit {
+  if payload.trim() == "" {
+    return
+  }
+  for line in payload.split("\n").to_array() {
+    let entry = line.to_owned()
+    if entry == "" {
+      continue
+    }
+    let parts = entry.split("\t").to_array()
+    if parts.length() < 2 {
+      continue
+    }
+    let column = @string.parse_int(parts[0].trim()) catch { _ => 0 }
+    if column <= 0 || column > cells.length() {
+      continue
+    }
+    cells[column - 1] = xlsx_decode_sparse_row_cell(parts[1].to_owned())
+  }
+}
+
+///|
+fn xlsx_decode_sparse_row_cell(text : String) -> String {
+  let out : Array[Char] = []
+  let chars = text.to_array()
+  let mut i = 0
+  while i < chars.length() {
+    let ch = chars[i]
+    if ch == '\\' && i + 1 < chars.length() {
+      let next = chars[i + 1]
+      if next == 'n' {
+        out.push('\n')
+        i += 2
+        continue
+      } else if next == 't' {
+        out.push('\t')
+        i += 2
+        continue
+      } else if next == '\\' {
+        out.push('\\')
+        i += 2
+        continue
+      }
+    }
+    out.push(ch)
+    i += 1
+  }
+  String::from_array(out)
+}
+
+///|
+fn sparse_table_cell_column_index(cell : @core.CoreBlock) -> Int {
+  match cell.attrs.get("column_index") {
+    Some(raw) => @string.parse_int(raw.trim()) catch { _ => 0 }
+    None => 0
+  }
 }
 
 ///|
@@ -892,7 +1152,7 @@ fn safe_code_fence(text : String) -> String {
     }
   }
   let width = if max_run + 1 < 3 { 3 } else { max_run + 1 }
-  Array::make(width, "`").join("")
+  repeat_char_string('`', width)
 }
 
 ///|
@@ -910,7 +1170,19 @@ fn safe_inline_code_fence(text : String) -> String {
     }
   }
   let width = if max_run + 1 < 1 { 1 } else { max_run + 1 }
-  Array::make(width, "`").join("")
+  repeat_char_string('`', width)
+}
+
+///|
+fn repeat_char_string(ch : Char, width : Int) -> String {
+  if width <= 0 {
+    return ""
+  }
+  let out = StringBuilder::new()
+  for _ in 0..<width {
+    out.write_char(ch)
+  }
+  out.to_string()
 }
 
 ///|
@@ -1015,49 +1287,6 @@ fn is_ascii_digit(ch : Char) -> Bool {
 }
 
 ///|
-fn escape_markdown_inline_text(text : String) -> String {
-  let out = StringBuilder::new()
-  for ch in text.to_array() {
-    let cp = ch.to_int()
-    if cp > 0xFFFF {
-      out.write_string("&")
-      out.write_char('#')
-      out.write_string(cp.to_string())
-      out.write_char(';')
-      continue
-    }
-    if markdown_punctuation_needs_escape(ch) {
-      out.write_char('\\')
-    }
-    out.write_char(ch)
-  }
-  out.to_string()
-}
-
-///|
-fn escape_markdown_inline_text_for_format(
-  text : String,
-  escape_mode : String?,
-) -> String {
-  if escape_mode == Some("minimal") {
-    return escape_markdown_inline_text_html(text)
-  }
-  escape_markdown_inline_text(text)
-}
-
-///|
-fn escape_markdown_inline_text_html(text : String) -> String {
-  let out = StringBuilder::new()
-  for ch in text.to_array() {
-    if ch == '\\' || ch == '`' {
-      out.write_char('\\')
-    }
-    out.write_char(ch)
-  }
-  out.to_string()
-}
-
-///|
 fn escape_markdown_literal_tail(text : String) -> String {
   let out = StringBuilder::new()
   for ch in text.to_array() {
@@ -1075,6 +1304,540 @@ fn escape_markdown_literal_tail(text : String) -> String {
     out.write_char(ch)
   }
   out.to_string()
+}
+
+///|
+fn render_markdown_events(events : Array[@core.CoreEvent]) -> String {
+  if events.length() == 0 {
+    return ""
+  }
+  if generic_block_event_stream(events) {
+    return render_markdown_generic_block_events_direct(events)
+  }
+  if events[0].kind == @core.EventKind::TextLine ||
+    events[0].kind == @core.EventKind::BlankLine {
+    return render_markdown_line_events(events)
+  }
+  if event_stream_contains_table_rows(events) {
+    return render_markdown_mixed_table_events(events)
+  }
+  render_markdown_generic_events(events)
+}
+
+///|
+fn render_markdown_line_events(events : Array[@core.CoreEvent]) -> String {
+  let out = StringBuilder::new()
+  let current_lines : Array[String] = []
+  let mut wrote_paragraph = false
+  fn flush_paragraph(
+    out : StringBuilder,
+    current_lines : Array[String],
+    wrote_paragraph : Bool,
+  ) -> Bool {
+    if current_lines.length() == 0 {
+      return wrote_paragraph
+    }
+    if wrote_paragraph {
+      out.write_char('\n')
+      out.write_char('\n')
+    }
+    for index in 0..<current_lines.length() {
+      if index > 0 {
+        out.write_char(' ')
+      }
+      out.write_string(escape_markdown_inline_text(current_lines[index]))
+    }
+    current_lines.clear()
+    true
+  }
+  for event in events {
+    match event.kind {
+      @core.EventKind::TextLine =>
+        current_lines.push(event.text.trim().to_owned())
+      @core.EventKind::BlankLine =>
+        wrote_paragraph = flush_paragraph(out, current_lines, wrote_paragraph)
+      @core.EventKind::StartBlock(_) | @core.EventKind::EndBlock(_) => {
+        wrote_paragraph = flush_paragraph(out, current_lines, wrote_paragraph)
+        let rendered = render_markdown_generic_events([event])
+        if rendered.trim() != "" {
+          if wrote_paragraph {
+            out.write_char('\n')
+            out.write_char('\n')
+          }
+          out.write_string(rendered)
+          wrote_paragraph = true
+        }
+      }
+      _ => ()
+    }
+  }
+  ignore(flush_paragraph(out, current_lines, wrote_paragraph))
+  out.to_string()
+}
+
+///|
+fn render_markdown_simple_table_events(
+  events : Array[@core.CoreEvent],
+) -> String {
+  let rows : Array[Array[String]] = []
+  let current_row : Array[String] = []
+  for event in events {
+    match event.kind {
+      @core.EventKind::Cell => current_row.push(event.text)
+      @core.EventKind::RowBreak =>
+        if current_row.length() > 0 {
+          rows.push(current_row.copy())
+          current_row.clear()
+        }
+      _ => ()
+    }
+  }
+  if current_row.length() > 0 {
+    rows.push(current_row.copy())
+  }
+  if rows.length() == 0 {
+    return render_markdown_generic_events(events)
+  }
+  let width = widest_event_row_width(rows)
+  if width == 0 {
+    return render_markdown_generic_events(events)
+  }
+  let out = StringBuilder::new()
+  write_markdown_table_row_from_values(out, rows[0], width)
+  out.write_char('\n')
+  write_markdown_table_separator(out, width)
+  for i in 1..<rows.length() {
+    out.write_char('\n')
+    write_markdown_table_row_from_values(out, rows[i], width)
+  }
+  out.to_string()
+}
+
+///|
+fn render_markdown_mixed_table_events(
+  events : Array[@core.CoreEvent],
+) -> String {
+  let table_events : Array[@core.CoreEvent] = []
+  let generic_events : Array[@core.CoreEvent] = []
+  let mut in_generic_tail = false
+  for event in events {
+    if !in_generic_tail &&
+      (
+        event.kind == @core.EventKind::Cell ||
+        event.kind == @core.EventKind::RowBreak
+      ) {
+      table_events.push(event)
+    } else {
+      in_generic_tail = true
+      generic_events.push(event)
+    }
+  }
+  let parts : Array[String] = []
+  let table_part = render_markdown_simple_table_events(table_events)
+  if table_part.trim() != "" {
+    parts.push(table_part)
+  }
+  let generic_part = render_markdown_generic_events(generic_events)
+  if generic_part.trim() != "" {
+    parts.push(generic_part)
+  }
+  parts.join("\n\n")
+}
+
+///|
+fn event_stream_contains_table_rows(events : Array[@core.CoreEvent]) -> Bool {
+  for event in events {
+    if event.kind == @core.EventKind::RowBreak {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn generic_block_event_stream(events : Array[@core.CoreEvent]) -> Bool {
+  if events.length() == 0 {
+    return false
+  }
+  match events[0].source_ref {
+    Some(source_ref) =>
+      source_ref.extra.get("ir_event_encoding") == Some("generic_block")
+    None => false
+  }
+}
+
+///|
+fn generic_blocks_from_events(
+  events : Array[@core.CoreEvent],
+) -> Array[@core.CoreBlock] {
+  let cursor = { events, index: 0 }
+  let blocks : Array[@core.CoreBlock] = []
+  while cursor.index < cursor.events.length() {
+    match parse_generic_block_event(cursor) {
+      Some(block) => blocks.push(block)
+      None => cursor.index += 1
+    }
+  }
+  blocks
+}
+
+///|
+fn render_markdown_generic_block_events_direct(
+  events : Array[@core.CoreEvent],
+) -> String {
+  let cursor = { events, index: 0 }
+  let out = StringBuilder::new()
+  let mut prev_kind : @core.BlockKind? = None
+  let mut wrote_any = false
+  while cursor.index < cursor.events.length() {
+    match parse_generic_block_event(cursor) {
+      Some(block) => {
+        let wrote_block = write_markdown_block_with_separator_to(
+          out, block, prev_kind, wrote_any,
+        )
+        if wrote_block {
+          prev_kind = Some(block.kind)
+          wrote_any = true
+        }
+      }
+      None => cursor.index += 1
+    }
+  }
+  out.to_string()
+}
+
+///|
+priv struct GenericEventCursor {
+  events : Array[@core.CoreEvent]
+  mut index : Int
+}
+
+///|
+fn parse_generic_block_event(cursor : GenericEventCursor) -> @core.CoreBlock? {
+  if cursor.index >= cursor.events.length() {
+    return None
+  }
+  let start = cursor.events[cursor.index]
+  match start.kind {
+    @core.EventKind::StartBlock(kind) => {
+      let source_ref = start.source_ref.unwrap_or(@core.empty_source_ref())
+      cursor.index += 1
+      Some(
+        collect_generic_block_event_body(cursor, kind, start.text, source_ref),
+      )
+    }
+    _ => None
+  }
+}
+
+///|
+fn collect_generic_block_event_body(
+  cursor : GenericEventCursor,
+  kind : @core.BlockKind,
+  text : String,
+  source_ref : @core.SourceRef,
+) -> @core.CoreBlock {
+  let block = @core.make_block(
+    kind,
+    text,
+    source_ref=strip_generic_event_ref(source_ref),
+  )
+  let attrs = Map([], capacity=8)
+  for entry in source_ref.extra.to_array() {
+    if entry.0.has_prefix("ir_block_attr_") {
+      attrs.set(entry.0["ir_block_attr_".length():].to_owned(), entry.1)
+    }
+  }
+  let inlines : Array[@core.CoreInline] = []
+  let children : Array[@core.CoreBlock] = []
+  let table_cells : Array[String] = []
+  let table_cell_refs : Array[@core.SourceRef] = []
+  while cursor.index < cursor.events.length() {
+    let event = cursor.events[cursor.index]
+    match event.kind {
+      @core.EventKind::EndBlock(end_kind) => {
+        cursor.index += 1
+        if end_kind == kind {
+          let rich_inlines = if inlines.length() > 0 {
+            Some(inlines)
+          } else {
+            None
+          }
+          return { ..block, rich_inlines, children, attrs }
+        }
+      }
+      @core.EventKind::StartBlock(_) =>
+        match parse_generic_block_event(cursor) {
+          Some(child) => children.push(child)
+          None => cursor.index += 1
+        }
+      @core.EventKind::Text => {
+        let raw_event_ref = event.source_ref.unwrap_or(source_ref)
+        let event_ref = strip_generic_event_ref(raw_event_ref)
+        let inline_kind = generic_inline_kind_name(
+          raw_event_ref.extra.get("ir_inline_kind"),
+        )
+        let inline = match inline_kind {
+          Some(@core.InlineKind::LineBreak) =>
+            @core.make_inline_line_break(source_ref=event_ref)
+          Some(@core.InlineKind::Link) =>
+            @core.make_inline_link(
+              event.text,
+              raw_event_ref.extra.get("ir_inline_href").unwrap_or("#"),
+              title=raw_event_ref.extra.get("ir_inline_title"),
+              source_ref=event_ref,
+            )
+          Some(@core.InlineKind::Image) =>
+            @core.make_inline_image(
+              event.text,
+              raw_event_ref.extra.get("ir_inline_href").unwrap_or("#"),
+              title=raw_event_ref.extra.get("ir_inline_title"),
+              source_ref=event_ref,
+            )
+          Some(@core.InlineKind::Code) =>
+            @core.make_inline_code(event.text, source_ref=event_ref)
+          _ => @core.make_inline_text(event.text, source_ref=event_ref)
+        }
+        for entry in raw_event_ref.extra.to_array() {
+          if entry.0.has_prefix("ir_inline_attr_") {
+            inline.attrs.set(
+              entry.0["ir_inline_attr_".length():].to_owned(),
+              entry.1,
+            )
+          }
+        }
+        inlines.push(inline)
+        cursor.index += 1
+      }
+      @core.EventKind::Cell => {
+        table_cells.push(event.text)
+        table_cell_refs.push(
+          strip_generic_event_ref(event.source_ref.unwrap_or(source_ref)),
+        )
+        cursor.index += 1
+      }
+      @core.EventKind::RowBreak => {
+        let row_ref = strip_generic_event_ref(
+          event.source_ref.unwrap_or(source_ref),
+        )
+        let row = @core.make_block(
+          @core.BlockKind::TableRow,
+          table_cells.join(" | "),
+          source_ref=row_ref,
+        )
+        for index in 0..<table_cells.length() {
+          row.children.push(
+            @core.make_block(
+              @core.BlockKind::TableCell,
+              table_cells[index],
+              source_ref=if index < table_cell_refs.length() {
+                table_cell_refs[index]
+              } else {
+                row_ref
+              },
+            ),
+          )
+        }
+        children.push(row)
+        table_cells.clear()
+        table_cell_refs.clear()
+        cursor.index += 1
+      }
+      _ => cursor.index += 1
+    }
+  }
+  block
+}
+
+///|
+fn strip_generic_event_ref(source_ref : @core.SourceRef) -> @core.SourceRef {
+  let next = {
+    ..source_ref,
+    extra: Map([], capacity=source_ref.extra.length()),
+  }
+  for entry in source_ref.extra.to_array() {
+    if !entry.0.has_prefix("ir_") {
+      next.extra.set(entry.0, entry.1)
+    }
+  }
+  next
+}
+
+///|
+fn generic_inline_kind_name(kind : String?) -> @core.InlineKind? {
+  match kind {
+    Some("text") => Some(@core.InlineKind::Text)
+    Some("line_break") => Some(@core.InlineKind::LineBreak)
+    Some("link") => Some(@core.InlineKind::Link)
+    Some("image") => Some(@core.InlineKind::Image)
+    Some("code") => Some(@core.InlineKind::Code)
+    _ => None
+  }
+}
+
+///|
+fn widest_event_row_width(rows : Array[Array[String]]) -> Int {
+  let mut width = 0
+  for row in rows {
+    if row.length() > width {
+      width = row.length()
+    }
+  }
+  width
+}
+
+///|
+fn write_markdown_table_row_from_values(
+  out : StringBuilder,
+  row : Array[String],
+  width : Int,
+) -> Unit {
+  out.write_string("|")
+  for col in 0..<width {
+    let value = if col < row.length() { row[col] } else { "" }
+    out.write_string(" " + safe_markdown_table_cell(value) + " |")
+  }
+}
+
+///|
+fn render_markdown_generic_events(events : Array[@core.CoreEvent]) -> String {
+  let chunks : Array[String] = []
+  for event in events {
+    match event.kind {
+      @core.EventKind::StartBlock(@core.BlockKind::Code) => {
+        let code = @core.make_block(
+          @core.BlockKind::Code,
+          event.text,
+          source_ref=event.source_ref.unwrap_or(@core.empty_source_ref()),
+        )
+        match event.source_ref {
+          Some(source_ref) =>
+            match source_ref.extra.get("ir_block_attr_info") {
+              Some(info) => code.attrs.set("info", info)
+              None => ()
+            }
+          None => ()
+        }
+        chunks.push(render_markdown_code(code))
+      }
+      @core.EventKind::StartBlock(@core.BlockKind::Raw) => {
+        let raw = @core.make_block(
+          @core.BlockKind::Raw,
+          event.text,
+          source_ref=event.source_ref.unwrap_or(@core.empty_source_ref()),
+        )
+        raw.attrs.set("raw_kind", "text")
+        chunks.push(render_markdown_raw(raw))
+      }
+      @core.EventKind::Text =>
+        chunks.push(escape_markdown_inline_text(event.text))
+      _ => ()
+    }
+  }
+  chunks.join("\n\n")
+}
+
+///|
+fn render_debug_json_events(
+  events : Array[@core.CoreEvent],
+  diagnostics : @core.Diagnostics,
+) -> String {
+  let items : Array[String] = []
+  for event in events {
+    items.push(render_event_json(event))
+  }
+  let fields : Array[String] = []
+  fields.push("\"event_count\": " + events.length().to_string())
+  fields.push("\"events\": " + @core.array_json(items))
+  fields.push("\"diagnostics\": " + render_diagnostics_json(diagnostics))
+  @core.object_json(fields)
+}
+
+///|
+fn render_debug_json_blocks(
+  blocks : Array[@core.CoreBlock],
+  diagnostics : @core.Diagnostics,
+  context : RenderContext,
+) -> String {
+  let block_items : Array[String] = []
+  for block in blocks {
+    block_items.push(render_block_json(block))
+  }
+  let asset_items : Array[String] = []
+  let assets = context.assets.unwrap_or([])
+  for asset in assets {
+    asset_items.push(render_asset_json(asset))
+  }
+  let fields : Array[String] = []
+  fields.push("\"block_count\": " + blocks.length().to_string())
+  fields.push("\"blocks\": " + @core.array_json(block_items))
+  fields.push("\"asset_count\": " + assets.length().to_string())
+  fields.push("\"assets\": " + @core.array_json(asset_items))
+  fields.push("\"diagnostics\": " + render_diagnostics_json(diagnostics))
+  @core.object_json(fields)
+}
+
+///|
+fn render_event_json(event : @core.CoreEvent) -> String {
+  let fields : Array[String] = []
+  fields.push("\"kind\": " + @core.json_string(event_kind_name(event.kind)))
+  fields.push("\"text\": " + @core.json_string(event.text))
+  fields.push("\"source_ref\": " + render_source_ref_json(event.source_ref))
+  @core.object_json(fields)
+}
+
+///|
+fn event_kind_name(kind : @core.EventKind) -> String {
+  match kind {
+    @core.EventKind::StartDocument => "start_document"
+    @core.EventKind::EndDocument => "end_document"
+    @core.EventKind::StartBlock(block_kind) =>
+      "start_block:" + @core.block_kind_name(block_kind)
+    @core.EventKind::EndBlock(block_kind) =>
+      "end_block:" + @core.block_kind_name(block_kind)
+    @core.EventKind::Text => "text"
+    @core.EventKind::TextLine => "text_line"
+    @core.EventKind::BlankLine => "blank_line"
+    @core.EventKind::Cell => "cell"
+    @core.EventKind::RowBreak => "row_break"
+    @core.EventKind::StructureStart => "structure_start"
+    @core.EventKind::StructureEnd => "structure_end"
+    @core.EventKind::Key => "key"
+    @core.EventKind::Scalar => "scalar"
+  }
+}
+
+///|
+
+///|
+fn render_rag_json_events(
+  metadata : @core.DocumentMetadata,
+  payload : RagRenderPayload,
+  diagnostics : @core.Diagnostics,
+) -> String {
+  let chunk_items : Array[String] = []
+  for chunk in payload.chunks {
+    chunk_items.push(render_rag_chunk_json(chunk))
+  }
+  let fields : Array[String] = []
+  fields.push("\"output_format\": " + @core.json_string("rag_json"))
+  fields.push(
+    "\"detected_format\": " + @core.json_string_opt(diagnostics.detected_format),
+  )
+  fields.push(
+    "\"parser_mode\": " + @core.json_string_opt(diagnostics.parser_mode),
+  )
+  fields.push(
+    "\"convert_mode\": " + @core.json_string_opt(diagnostics.convert_mode),
+  )
+  fields.push("\"metadata\": " + render_document_metadata_json(metadata))
+  fields.push("\"assets\": []")
+  fields.push("\"diagnostics\": " + render_diagnostics_json(diagnostics))
+  fields.push(
+    "\"source_map\": " + render_source_map_json(payload.public_source_map),
+  )
+  fields.push("\"chunks\": " + @core.array_json(chunk_items))
+  @core.object_json(fields)
 }
 
 ///|
@@ -1406,6 +2169,10 @@ fn render_diagnostics_json(diagnostics : @core.Diagnostics) -> String {
   fields.push(
     "\"degraded_features\": " +
     @core.string_array_json(diagnostics.degraded_features),
+  )
+  fields.push(
+    "\"same_mode_degradation\": " +
+    @core.string_array_json(diagnostics.same_mode_degradation),
   )
   fields.push(
     "\"fallback_trace\": " + @core.string_array_json(diagnostics.fallback_trace),

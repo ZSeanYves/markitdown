@@ -83,6 +83,14 @@ pub struct EpubArchiveEntry {
 }
 
 ///|
+pub struct EpubXmlPartPayload {
+  path : String
+  bytes : Bytes
+  text : String
+  structure_scan : @xml_native.NativeXmlStructureScan
+}
+
+///|
 pub struct EpubRootfileInfo {
   full_path : String
   media_type : String?

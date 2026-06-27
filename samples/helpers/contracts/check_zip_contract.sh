@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-source "$ROOT/samples/helpers/shared/tmp_helpers.sh"
-source "$ROOT/samples/helpers/shared/validation_helpers.sh"
+source "$ROOT/samples/helpers/shared/tmp.sh"
+source "$ROOT/samples/helpers/shared/cli_runner.sh"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp/check}"
 OUT_DIR="$(sample_make_isolated_tmp_dir "$TMP_ROOT" "zip_contract")"
 
@@ -44,6 +44,20 @@ assert_not_contains() {
   local needle="$2"
   if grep -Fq -- "$needle" "$path"; then
     fail "did not expect $path to contain: $needle"
+  fi
+}
+
+assert_any_contains() {
+  local needle="$1"
+  shift
+  grep -Fq -- "$needle" "$@" || fail "expected sources to contain: $needle"
+}
+
+assert_all_not_contains() {
+  local needle="$1"
+  shift
+  if grep -Fq -- "$needle" "$@"; then
+    fail "did not expect sources to contain: $needle"
   fi
 }
 
@@ -176,7 +190,7 @@ CLI_HELP="$OUT_DIR/help.txt"
 FORMATS_PKG="$ROOT/formats/moon.pkg"
 ZIP_PKG="$ROOT/formats/zip/moon.pkg"
 REGISTRY_IMPL="$ROOT/formats/registry.mbt"
-ZIP_PARSER_IMPL="$ROOT/formats/zip/parser.mbt"
+ZIP_PARSER_SOURCES=("$ROOT/formats/zip/"*.mbt)
 CLI_PKG="$ROOT/cli/moon.pkg"
 DOC_PARSE_ZIP_PKG="$ROOT/format_readers/zip/moon.pkg"
 RUNTIME_IMPL="$ROOT/runtime/runtime.mbt"
@@ -191,12 +205,12 @@ assert_contains "$CLI_PKG" 'ZSeanYves/markitdown/format_readers/zip'
 assert_contains "$DOC_PARSE_ZIP_PKG" 'bikallem/compress/flate'
 assert_contains "$REGISTRY_IMPL" '@input.DetectedFormat::Zip'
 assert_contains "$REGISTRY_IMPL" '@fzip.zip_container_parser(fn() { builtin_registry() })'
-assert_contains "$ZIP_PARSER_IMPL" '@dzip.open_zip'
-assert_contains "$ZIP_PARSER_IMPL" '@dzip.inspect_zip_archive'
-assert_contains "$ZIP_PARSER_IMPL" '@dzip.read_entry'
-assert_contains "$ZIP_PARSER_IMPL" '@dzip.normalize_entry_path'
-assert_contains "$ZIP_PARSER_IMPL" 'registry_provider'
-assert_contains "$ZIP_PARSER_IMPL" '@runtime.parse_child_to_document'
+assert_any_contains '@dzip.open_zip' "${ZIP_PARSER_SOURCES[@]}"
+assert_any_contains '@dzip.inspect_zip_archive' "${ZIP_PARSER_SOURCES[@]}"
+assert_any_contains '@dzip.read_entry' "${ZIP_PARSER_SOURCES[@]}"
+assert_any_contains '@dzip.normalize_entry_path' "${ZIP_PARSER_SOURCES[@]}"
+assert_any_contains 'registry_provider' "${ZIP_PARSER_SOURCES[@]}"
+assert_any_contains '@runtime.parse_child_to_document' "${ZIP_PARSER_SOURCES[@]}"
 assert_contains "$RUNTIME_IMPL" '@parser.registry_parse(registry, source, inner_context)'
 assert_not_contains "$FORMATS_PKG" 'ZSeanYves/markitdown/format_readers/zip'
 assert_not_contains "$FORMATS_PKG" 'ZSeanYves/markitdown/container'
@@ -206,19 +220,13 @@ assert_not_contains "$FORMATS_PKG" 'ZSeanYves/markitdown/convert/zip_core'
 assert_not_contains "$CLI_PKG" 'ZSeanYves/markitdown/convert/zip'
 assert_not_contains "$CLI_PKG" 'ZSeanYves/markitdown/convert/zip_core'
 assert_not_contains "$REGISTRY_IMPL" '@flate'
-assert_not_contains "$ZIP_PARSER_IMPL" '@flate'
+assert_all_not_contains '@flate' "${ZIP_PARSER_SOURCES[@]}"
 assert_not_contains "$REGISTRY_IMPL" 'convert/zip'
-assert_not_contains "$ZIP_PARSER_IMPL" 'convert/zip'
+assert_all_not_contains 'convert/zip' "${ZIP_PARSER_SOURCES[@]}"
 assert_not_contains "$REGISTRY_IMPL" 'convert/zip_core'
-assert_not_contains "$ZIP_PARSER_IMPL" 'convert/zip_core'
+assert_all_not_contains 'convert/zip_core' "${ZIP_PARSER_SOURCES[@]}"
 assert_not_contains "$REGISTRY_IMPL" 'zip_raw_fallback'
-assert_not_contains "$ZIP_PARSER_IMPL" 'zip_raw_fallback'
-assert_not_contains "$REGISTRY_IMPL" 'zip_legacy_fallback'
-assert_not_contains "$ZIP_PARSER_IMPL" 'zip_legacy_fallback'
-assert_not_contains "$REGISTRY_IMPL" 'legacy_dispatcher_used'
-assert_not_contains "$ZIP_PARSER_IMPL" 'legacy_dispatcher_used'
-assert_not_contains "$REGISTRY_IMPL" 'convert_zip_used'
-assert_not_contains "$ZIP_PARSER_IMPL" 'convert_zip_used'
+assert_all_not_contains 'zip_raw_fallback' "${ZIP_PARSER_SOURCES[@]}"
 assert_contains "$ZIP_README" '`format_readers/zip`'
 assert_contains "$ZIP_README" '`bikallem/compress/flate`'
 

@@ -8,23 +8,37 @@ import {
 // Values
 pub fn builtin_registry() -> @parser.ParserRegistry
 
-pub fn docx_parser_contract() -> @parser.Parser
+pub fn docx_parser_contract_spec() -> ParserContractSpec
 
-pub fn docx_parser_contract_capability() -> @parser.ParserCapability
+pub fn make_parser_contract_spec(String, @parser.ParserMode, @parser.StreamingGranularity, String, Array[String], Array[String], Array[String], Array[String], Array[String], Array[String], large_route_granularity? : @parser.StreamingGranularity?, large_route_ir_input_kind? : String?) -> ParserContractSpec
 
-pub fn pptx_parser_contract() -> @parser.Parser
+pub fn office_parser_contract_specs() -> Array[ParserContractSpec]
 
-pub fn pptx_parser_contract_capability() -> @parser.ParserCapability
+pub fn parser_contract_spec_matches_parser(ParserContractSpec, @parser.Parser) -> Bool
+
+pub fn pptx_parser_contract_spec() -> ParserContractSpec
 
 pub fn register_builtin_parsers(@parser.ParserRegistry) -> Unit
 
-pub fn xlsx_parser_contract() -> @parser.Parser
-
-pub fn xlsx_parser_contract_capability() -> @parser.ParserCapability
+pub fn xlsx_parser_contract_spec() -> ParserContractSpec
 
 // Errors
 
 // Types and methods
+pub struct ParserContractSpec {
+  parser_name : String
+  parser_mode : @parser.ParserMode
+  streaming_granularity : @parser.StreamingGranularity
+  large_route_granularity : @parser.StreamingGranularity?
+  ir_input_kind : String
+  large_route_ir_input_kind : String?
+  required_metrics : Array[String]
+  required_source_ref_extra_keys : Array[String]
+  guardrails : Array[String]
+  policies : Array[String]
+  foundations : Array[String]
+  excluded_legacy_foundations : Array[String]
+}
 
 // Type aliases
 

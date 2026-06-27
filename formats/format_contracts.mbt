@@ -1,309 +1,155 @@
-// Contract-only helpers for root package ownership guards.
-// These helpers are intentionally not registered in `builtin_registry()`.
-
 ///|
-pub fn docx_parser_contract_capability() -> @parser.ParserCapability {
-  @parser.make_parser_capability(
-    @parser.ParserMode::PackageSinglePass,
-    false,
-    @parser.StreamingGranularity::DocxBlock,
-    true,
-    true,
-    true,
-    false,
-    false,
-    true,
-    true,
-    true,
-    false,
-    true,
-    true,
-    true,
-    true,
-    true,
-    true,
-    true,
-  )
+pub struct ParserContractSpec {
+  parser_name : String
+  parser_mode : @parser.ParserMode
+  streaming_granularity : @parser.StreamingGranularity
+  large_route_granularity : @parser.StreamingGranularity?
+  ir_input_kind : String
+  large_route_ir_input_kind : String?
+  required_metrics : Array[String]
+  required_source_ref_extra_keys : Array[String]
+  guardrails : Array[String]
+  policies : Array[String]
+  foundations : Array[String]
+  excluded_legacy_foundations : Array[String]
 }
 
 ///|
-pub fn docx_parser_contract() -> @parser.Parser {
-  let capability = docx_parser_contract_capability()
-  @parser.make_parser(
+pub fn parser_contract_spec_matches_parser(
+  spec : ParserContractSpec,
+  parser : @parser.Parser,
+) -> Bool {
+  if spec.parser_name != parser.name {
+    return false
+  }
+  if spec.parser_mode != parser.mode {
+    return false
+  }
+  let actual = parser.capability.streaming_granularity
+  if actual == spec.streaming_granularity {
+    return true
+  }
+  match spec.large_route_granularity {
+    Some(value) => actual == value
+    None => false
+  }
+}
+
+///|
+pub fn make_parser_contract_spec(
+  parser_name : String,
+  parser_mode : @parser.ParserMode,
+  streaming_granularity : @parser.StreamingGranularity,
+  ir_input_kind : String,
+  required_metrics : Array[String],
+  required_source_ref_extra_keys : Array[String],
+  guardrails : Array[String],
+  policies : Array[String],
+  foundations : Array[String],
+  excluded_legacy_foundations : Array[String],
+  large_route_granularity? : @parser.StreamingGranularity? = None,
+  large_route_ir_input_kind? : String? = None,
+) -> ParserContractSpec {
+  {
+    parser_name,
+    parser_mode,
+    streaming_granularity,
+    large_route_granularity,
+    ir_input_kind,
+    large_route_ir_input_kind,
+    required_metrics,
+    required_source_ref_extra_keys,
+    guardrails,
+    policies,
+    foundations,
+    excluded_legacy_foundations,
+  }
+}
+
+///|
+pub fn office_parser_contract_specs() -> Array[ParserContractSpec] {
+  [
+    docx_parser_contract_spec(),
+    pptx_parser_contract_spec(),
+    xlsx_parser_contract_spec(),
+  ]
+}
+
+///|
+pub fn docx_parser_contract_spec() -> ParserContractSpec {
+  make_parser_contract_spec(
     @shared.docx_contract_parser_name(),
     @shared.docx_contract_mode(),
-    capability,
-    fn(
-      source : @input.InputSource,
-      _context : @parser.ParseContext,
-    ) -> Result[@parser.ParseResult, String] {
-      let diagnostics = @core.diagnostics_with_input(
-        @core.diagnostics_with_parser(
-          @core.empty_diagnostics(),
-          Some(@shared.docx_contract_parser_name()),
-          Some(@parser.mode_name(@shared.docx_contract_mode())),
-        ),
-        Some(docx_contract_input_kind_name(source.kind)),
-        Some("docx"),
-      )
-      diagnostics.warnings.push(
-        "docx parser contract helper mirrors the DOCX product boundary without becoming the runtime parser",
-      )
-      diagnostics.degraded_features.push("docx_contract_helper_only")
-      diagnostics.metrics.set(
-        "parser_name",
-        @shared.docx_contract_parser_name(),
-      )
-      diagnostics.metrics.set("parser_mode", "package_single_pass")
-      diagnostics.metrics.set("effective_mode", "package_single_pass")
-      diagnostics.metrics.set("detected_format", "docx")
-      diagnostics.metrics.set("ir_input_kind", "document")
-      diagnostics.metrics.set("event_granularity", "docx_block")
-      diagnostics.metrics.set("office_document_kind", "docx")
-      diagnostics.metrics.set("legacy_runtime_dependency", "none")
-      diagnostics.metrics.set("legacy_convert_dependency", "none")
-      diagnostics.metrics.set("legacy_fallback", "forbidden")
-      diagnostics.metrics.set("runtime_exposed", "true")
-      Ok(
-        @parser.parse_result_with_document_capability(
-          @shared.docx_contract_parser_name(),
-          @shared.docx_contract_mode(),
-          @core.document_with_diagnostics(
-            @core.empty_document_ir(),
-            diagnostics,
-          ),
-          diagnostics,
-          capability,
-        ),
-      )
-    },
+    @shared.docx_contract_granularity(),
+    "document",
+    [
+      "parser_name", "parser_mode", "effective_mode", "detected_format", "ir_input_kind",
+      "event_granularity", "event_semantics", "office_document_kind", "block_count",
+      "asset_count", "ooxml_part_count", "relationship_count", "content_type_count",
+    ],
+    [
+      "part_name", "paragraph_index", "run_index", "relationship_id", "container_path",
+      "entry_path", "inner_path",
+    ],
+    @shared.docx_contract_guardrails(),
+    [],
+    @shared.docx_contract_foundations(),
+    ["old_core", "legacy_convert", "markdown_emitter", "main_cli_fallback"],
   )
 }
 
 ///|
-fn docx_contract_input_kind_name(kind : @input.InputKind) -> String {
-  match kind {
-    @input.InputKind::Path => "path"
-    @input.InputKind::Text => "text"
-    @input.InputKind::Bytes => "bytes"
-  }
-}
-
-///|
-pub fn pptx_parser_contract_capability() -> @parser.ParserCapability {
-  @parser.make_parser_capability(
-    @parser.ParserMode::PackageSinglePass,
-    false,
-    @parser.StreamingGranularity::PptxSlide,
-    true,
-    true,
-    true,
-    false,
-    false,
-    true,
-    true,
-    true,
-    true,
-    true,
-    true,
-    true,
-    true,
-    true,
-    true,
-    true,
-  )
-}
-
-///|
-pub fn pptx_parser_contract() -> @parser.Parser {
-  let capability = pptx_parser_contract_capability()
-  @parser.make_parser(
+pub fn pptx_parser_contract_spec() -> ParserContractSpec {
+  make_parser_contract_spec(
     @shared.pptx_contract_parser_name(),
     @shared.pptx_contract_mode(),
-    capability,
-    fn(
-      source : @input.InputSource,
-      _context : @parser.ParseContext,
-    ) -> Result[@parser.ParseResult, String] {
-      let diagnostics = @core.diagnostics_with_input(
-        @core.diagnostics_with_parser(
-          @core.empty_diagnostics(),
-          Some(@shared.pptx_contract_parser_name()),
-          Some(@parser.mode_name(@shared.pptx_contract_mode())),
-        ),
-        Some(pptx_contract_input_kind_name(source.kind)),
-        Some("pptx"),
-      )
-      diagnostics.warnings.push(
-        "pptx parser contract helper mirrors the PPTX product boundary without becoming the runtime parser",
-      )
-      diagnostics.degraded_features.push("pptx_contract_helper_only")
-      diagnostics.metrics.set(
-        "parser_name",
-        @shared.pptx_contract_parser_name(),
-      )
-      diagnostics.metrics.set("parser_mode", "package_single_pass")
-      diagnostics.metrics.set("effective_mode", "package_single_pass")
-      diagnostics.metrics.set("detected_format", "pptx")
-      diagnostics.metrics.set("ir_input_kind", "document")
-      diagnostics.metrics.set("event_granularity", "pptx_slide")
-      diagnostics.metrics.set("office_document_kind", "pptx")
-      diagnostics.metrics.set("legacy_runtime_dependency", "none")
-      diagnostics.metrics.set("legacy_convert_dependency", "none")
-      diagnostics.metrics.set("legacy_fallback", "forbidden")
-      diagnostics.metrics.set("runtime_exposed", "false")
-      diagnostics.metrics.set("resource_limit_hit", "false")
-      diagnostics.metrics.set("pptx_slide_count", "0")
-      diagnostics.metrics.set("pptx_hidden_slide_count", "0")
-      diagnostics.metrics.set("pptx_shape_count", "0")
-      diagnostics.metrics.set("pptx_text_box_count", "0")
-      diagnostics.metrics.set("pptx_placeholder_count", "0")
-      diagnostics.metrics.set("pptx_table_count", "0")
-      diagnostics.metrics.set("pptx_image_count", "0")
-      diagnostics.metrics.set("pptx_notes_count", "0")
-      diagnostics.metrics.set("pptx_layout_count", "0")
-      diagnostics.metrics.set("pptx_master_count", "0")
-      diagnostics.metrics.set("pptx_theme_count", "0")
-      diagnostics.metrics.set("pptx_resolved_placeholder_count", "0")
-      diagnostics.metrics.set("pptx_unresolved_placeholder_count", "0")
-      diagnostics.metrics.set("pptx_comment_count", "0")
-      diagnostics.metrics.set("pptx_external_media_count", "0")
-      diagnostics.metrics.set(
-        "pptx_reading_order_strategy", "placeholder_then_geometry",
-      )
-      diagnostics.metrics.set("fallback_count", "0")
-      diagnostics.metrics.set("warning_count", "1")
-      diagnostics.metrics.set("error_count", "0")
-      diagnostics.metrics.set("issue_count", "1")
-      Ok(
-        @parser.parse_result_with_document_capability(
-          @shared.pptx_contract_parser_name(),
-          @shared.pptx_contract_mode(),
-          @core.document_with_diagnostics(
-            @core.empty_document_ir(),
-            diagnostics,
-          ),
-          diagnostics,
-          capability,
-        ),
-      )
-    },
+    @shared.pptx_contract_granularity(),
+    "document",
+    [
+      "parser_name", "parser_mode", "effective_mode", "detected_format", "ir_input_kind",
+      "event_granularity", "event_semantics", "office_document_kind", "block_count",
+      "asset_count", "pptx_slide_count", "pptx_hidden_slide_count", "pptx_shape_count",
+      "pptx_notes_count", "pptx_comment_count", "pptx_reading_order_strategy",
+    ],
+    @shared.pptx_contract_source_ref_extra_keys(),
+    @shared.pptx_contract_guardrails(),
+    [
+      ..@shared.pptx_contract_slide_policy(),
+      ..@shared.pptx_contract_placeholder_policy(),
+      ..@shared.pptx_contract_reading_order_policy(),
+      ..@shared.pptx_contract_notes_policy(),
+      ..@shared.pptx_contract_relationship_policy(),
+      ..@shared.pptx_contract_asset_policy(),
+    ],
+    @shared.pptx_contract_foundations(),
+    @shared.pptx_contract_excluded_runtime_foundations(),
   )
 }
 
 ///|
-fn pptx_contract_input_kind_name(kind : @input.InputKind) -> String {
-  match kind {
-    @input.InputKind::Path => "path"
-    @input.InputKind::Text => "text"
-    @input.InputKind::Bytes => "bytes"
-  }
-}
-
-///|
-pub fn xlsx_parser_contract_capability() -> @parser.ParserCapability {
-  @parser.make_parser_capability(
-    @parser.ParserMode::PackageSinglePass,
-    false,
-    @parser.StreamingGranularity::XlsxSheet,
-    true,
-    true,
-    true,
-    false,
-    false,
-    true,
-    true,
-    true,
-    false,
-    true,
-    true,
-    true,
-    true,
-    true,
-    true,
-    true,
-  )
-}
-
-///|
-pub fn xlsx_parser_contract() -> @parser.Parser {
-  let capability = xlsx_parser_contract_capability()
-  @parser.make_parser(
+pub fn xlsx_parser_contract_spec() -> ParserContractSpec {
+  make_parser_contract_spec(
     @shared.xlsx_contract_parser_name(),
     @shared.xlsx_contract_mode(),
-    capability,
-    fn(
-      source : @input.InputSource,
-      _context : @parser.ParseContext,
-    ) -> Result[@parser.ParseResult, String] {
-      let diagnostics = @core.diagnostics_with_input(
-        @core.diagnostics_with_parser(
-          @core.empty_diagnostics(),
-          Some(@shared.xlsx_contract_parser_name()),
-          Some(@parser.mode_name(@shared.xlsx_contract_mode())),
-        ),
-        Some(xlsx_contract_input_kind_name(source.kind)),
-        Some("xlsx"),
-      )
-      diagnostics.warnings.push(
-        "xlsx parser contract helper mirrors the XLSX product boundary without becoming the runtime parser",
-      )
-      diagnostics.degraded_features.push("xlsx_contract_helper_only")
-      diagnostics.metrics.set(
-        "parser_name",
-        @shared.xlsx_contract_parser_name(),
-      )
-      diagnostics.metrics.set("parser_mode", "package_single_pass")
-      diagnostics.metrics.set("effective_mode", "package_single_pass")
-      diagnostics.metrics.set("detected_format", "xlsx")
-      diagnostics.metrics.set("ir_input_kind", "document")
-      diagnostics.metrics.set("event_granularity", "xlsx_sheet")
-      diagnostics.metrics.set("office_document_kind", "xlsx")
-      diagnostics.metrics.set("legacy_runtime_dependency", "none")
-      diagnostics.metrics.set("legacy_convert_dependency", "none")
-      diagnostics.metrics.set("legacy_fallback", "forbidden")
-      diagnostics.metrics.set("runtime_exposed", "true")
-      diagnostics.metrics.set("resource_limit_hit", "false")
-      diagnostics.metrics.set("external_link_count", "0")
-      diagnostics.metrics.set("xlsx_sheet_count", "0")
-      diagnostics.metrics.set("xlsx_hidden_sheet_count", "0")
-      diagnostics.metrics.set("xlsx_very_hidden_sheet_count", "0")
-      diagnostics.metrics.set("xlsx_row_count", "0")
-      diagnostics.metrics.set("xlsx_cell_count", "0")
-      diagnostics.metrics.set("xlsx_non_empty_cell_count", "0")
-      diagnostics.metrics.set("xlsx_merged_cell_count", "0")
-      diagnostics.metrics.set("xlsx_formula_count", "0")
-      diagnostics.metrics.set("xlsx_shared_formula_count", "0")
-      diagnostics.metrics.set("xlsx_array_formula_count", "0")
-      diagnostics.metrics.set("xlsx_shared_string_count", "0")
-      diagnostics.metrics.set("xlsx_style_count", "0")
-      diagnostics.metrics.set("xlsx_drawing_count", "0")
-      diagnostics.metrics.set("xlsx_image_count", "0")
-      diagnostics.metrics.set("fallback_count", "0")
-      diagnostics.metrics.set("warning_count", "1")
-      diagnostics.metrics.set("error_count", "0")
-      diagnostics.metrics.set("issue_count", "1")
-      Ok(
-        @parser.parse_result_with_document_capability(
-          @shared.xlsx_contract_parser_name(),
-          @shared.xlsx_contract_mode(),
-          @core.document_with_diagnostics(
-            @core.empty_document_ir(),
-            diagnostics,
-          ),
-          diagnostics,
-          capability,
-        ),
-      )
-    },
+    @shared.xlsx_contract_granularity(),
+    "document",
+    [
+      "parser_name", "parser_mode", "effective_mode", "detected_format", "ir_input_kind",
+      "event_granularity", "event_semantics", "office_document_kind", "block_count",
+      "asset_count", "xlsx_sheet_count", "xlsx_hidden_sheet_count", "xlsx_row_count",
+      "xlsx_cell_count", "xlsx_formula_count", "xlsx_workbook_part",
+    ],
+    @shared.xlsx_contract_source_ref_extra_keys(),
+    @shared.xlsx_contract_guardrails(),
+    [
+      ..@shared.xlsx_contract_formula_policy(),
+      ..@shared.xlsx_contract_sheet_policy(),
+      ..@shared.xlsx_contract_relationship_policy(),
+      ..@shared.xlsx_contract_asset_policy(),
+    ],
+    @shared.xlsx_contract_foundations(),
+    @shared.xlsx_contract_excluded_runtime_foundations(),
+    large_route_granularity=Some(@shared.xlsx_contract_large_granularity()),
+    large_route_ir_input_kind=Some(@shared.xlsx_contract_large_ir_input_kind()),
   )
-}
-
-///|
-fn xlsx_contract_input_kind_name(kind : @input.InputKind) -> String {
-  match kind {
-    @input.InputKind::Path => "path"
-    @input.InputKind::Text => "text"
-    @input.InputKind::Bytes => "bytes"
-  }
 }

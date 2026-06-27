@@ -8,6 +8,7 @@ const PRODUCT_VERSION : String = "0.3.4"
 pub struct CliOptions {
   input : String
   output : String?
+  provenance_output : String?
   explicit_format : @input.DetectedFormat?
   ocr_options : @parser.OcrOptions
   convert_mode : @convert.ConvertMode
@@ -18,7 +19,7 @@ pub struct CliOptions {
 }
 
 ///|
-pub fn cli_is_supported_format(format : @input.DetectedFormat) -> Bool {
+fn cli_is_supported_format(format : @input.DetectedFormat) -> Bool {
   match format {
     @input.DetectedFormat::Txt => true
     @input.DetectedFormat::Markdown => true
@@ -41,40 +42,32 @@ pub fn cli_is_supported_format(format : @input.DetectedFormat) -> Bool {
 }
 
 ///|
-pub fn cli_supported_formats() -> Array[String] {
-  [
-    "txt", "csv", "tsv", "json", "jsonl", "ndjson", "xml", "yaml", "yml", "html",
-    "htm", "markdown", "md", "zip", "epub", "docx", "xlsx", "pptx", "pdf",
-  ]
-}
-
-///|
-pub fn cli_product_name() -> String {
+fn cli_product_name() -> String {
   PRODUCT_NAME
 }
 
 ///|
-pub fn cli_product_version() -> String {
+fn cli_product_version() -> String {
   PRODUCT_VERSION
 }
 
 ///|
-pub fn print_cli_version() -> Unit {
+fn print_cli_version() -> Unit {
   println(cli_product_name() + " " + cli_product_version())
 }
 
 ///|
-pub fn print_cli_help() -> Unit {
-  println("Convert documents to Markdown through the current main CLI shell.")
+fn print_cli_help() -> Unit {
+  println("Convert documents to Markdown through the main CLI.")
 }
 
 ///|
-pub fn print_cli_usage() -> Unit {
+fn print_cli_usage() -> Unit {
   println("Usage:")
   println(
     "  " +
     cli_product_name() +
-    " [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|xml|yaml|yml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] <input> [output]",
+    " [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|xml|yaml|yml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]",
   )
   println("  " + cli_product_name() + " help | --help | -h")
   println("  " + cli_product_name() + " version | --version")
@@ -82,12 +75,8 @@ pub fn print_cli_usage() -> Unit {
   println(
     "Supported product formats: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, yml, html, htm, markdown, md, zip, epub, docx, xlsx, pptx, pdf",
   )
-  println(
-    "All other formats fail closed until each format is migrated to the current main CLI.",
-  )
-  println(
-    "`--debug` emits diagnostics through the current renderer debug JSON output.",
-  )
+  println("All other formats fail closed in this build.")
+  println("`--debug` emits diagnostics through the debug JSON renderer.")
   println(
     "`--rag` emits chunked retrieval JSON with the default internal chunking policy.",
   )
@@ -100,10 +89,8 @@ pub fn print_cli_usage() -> Unit {
 }
 
 ///|
-pub fn cli_unsupported_format_message(label : String) -> String {
-  "unsupported format: " +
-  label +
-  " is not migrated to the current main CLI yet"
+fn cli_unsupported_format_message(label : String) -> String {
+  "unsupported format in this build: " + label
 }
 
 ///|
@@ -132,7 +119,7 @@ fn cli_fail_closed_format_message(
 
 ///|
 fn cli_pdf_ocr_unsupported_message() -> String {
-  "PDF OCR is not supported on the current main CLI; native-text PDF restore is enabled, but scanned/image-only PDFs and PDF --ocr remain fail-closed."
+  "PDF OCR is not supported in this build; native-text PDF restore is enabled, but scanned/image-only PDFs and PDF --ocr remain fail-closed."
 }
 
 ///|
@@ -152,7 +139,7 @@ fn cli_image_explicit_ocr_message(
         @focr.image_ocr_provider_error_message(
           format,
           @focr.OcrProviderError::EmptyResult(
-            "OCR provider produced an empty OCR model on the current root runtime.",
+            "OCR provider produced an empty OCR model on the active runtime.",
           ),
         )
       } else {
@@ -194,6 +181,7 @@ fn cli_requested_format_label(opts : CliOptions) -> String {
 pub fn make_cli_options(
   input : String,
   output : String?,
+  provenance_output : String?,
   explicit_format : @input.DetectedFormat?,
   ocr_options : @parser.OcrOptions,
   convert_mode : @convert.ConvertMode,
@@ -205,6 +193,7 @@ pub fn make_cli_options(
   {
     input,
     output,
+    provenance_output,
     explicit_format,
     ocr_options,
     convert_mode,
@@ -264,8 +253,8 @@ pub fn run_cli_with_image_ocr_provider(
     pdf_table_mode=opts.pdf_table_mode,
     rag_options=opts.rag_options,
   )
-  let result = match
-    @convert.convert_input_with_image_ocr_provider(
+  let execution = match
+    @convert.convert_input_with_provenance_and_image_ocr_provider(
       @input.input_from_path(opts.input),
       convert_options,
       image_ocr_provider,
@@ -273,7 +262,10 @@ pub fn run_cli_with_image_ocr_provider(
     Ok(value) => value
     Err(err) => return Err(err.to_string())
   }
-  cli_render_convert_result(opts, result)
+  persist_cli_provenance(opts, execution.provenance) catch {
+    err => return Err("write provenance failed: " + err.to_string())
+  }
+  cli_render_convert_result(opts, execution.result)
 }
 
 ///|
@@ -313,18 +305,39 @@ pub async fn run_cli_with_async_image_ocr_provider(
     pdf_table_mode=opts.pdf_table_mode,
     rag_options=opts.rag_options,
   )
-  let result = if allow_explicit_image_ocr {
+  let execution = if allow_explicit_image_ocr {
     match
       @convert.convert_input_with_image_ocr_provider_async(
         @input.input_from_path(opts.input),
         convert_options,
         image_ocr_provider,
       ) {
-      Ok(value) => value
+      Ok(value) => {
+        let route_plan = @convert.make_route_plan(
+          cli_requested_format(opts),
+          "async_unavailable",
+          "async_path_does_not_serialize_provenance",
+          "route_probe:async_unavailable",
+          None,
+        )
+        let provenance = @convert.make_convert_provenance(
+          route_plan,
+          value.parser_mode,
+          value.diagnostics.metrics.get("ir_input_kind").unwrap_or("unknown"),
+          value.diagnostics.metrics
+          .get("builder_input_kind")
+          .unwrap_or("unknown"),
+          value.diagnostics.metrics
+          .get("render_input_kind")
+          .unwrap_or("unknown"),
+          "async_unavailable",
+        )
+        @convert.make_convert_execution(value, provenance)
+      }
       Err(err) => return Err(err.to_string())
     }
   } else {
-    let sync_result = @convert.convert_input(
+    let sync_result = @convert.convert_input_with_provenance(
       @input.input_from_path(opts.input),
       convert_options,
     )
@@ -333,7 +346,10 @@ pub async fn run_cli_with_async_image_ocr_provider(
       Err(err) => return Err(err.to_string())
     }
   }
-  cli_render_convert_result(opts, result)
+  persist_cli_provenance(opts, execution.provenance) catch {
+    err => return Err("write provenance failed: " + err.to_string())
+  }
+  cli_render_convert_result(opts, execution.result)
 }
 
 ///|
@@ -361,16 +377,7 @@ fn cli_render_convert_result(
 }
 
 ///|
-pub fn cli_output_kind(json_flag : Bool) -> @convert.OutputFormat {
-  if json_flag {
-    @convert.OutputFormat::DebugJson
-  } else {
-    @convert.OutputFormat::Markdown
-  }
-}
-
-///|
-pub fn parse_explicit_format(
+fn parse_explicit_format(
   raw : String?,
 ) -> Result[@input.DetectedFormat?, String] {
   match raw {
@@ -381,41 +388,14 @@ pub fn parse_explicit_format(
         Err("unsupported --format value: " + value)
       } else if !cli_is_supported_format(parsed) {
         Err(
-          "unsupported --format value: " +
-          @input.detected_format_name(parsed) +
-          " is not migrated to the current main CLI yet",
+          "unsupported --format value in this build: " +
+          @input.detected_format_name(parsed),
         )
       } else {
         Ok(Some(parsed))
       }
     }
   }
-}
-
-///|
-pub fn normalize_cli_args_for_subcommand(args : Array[String]) -> Array[String] {
-  if args.length() == 0 {
-    return []
-  }
-  let first = args[0].trim().to_owned().to_lower()
-  if first == "convert" ||
-    first == "normal" ||
-    first == "help" ||
-    first == "--help" ||
-    first == "-h" ||
-    first == "version" ||
-    first == "--version" ||
-    first == "batch" ||
-    first == "debug" ||
-    first == "ocr" ||
-    first == "bench" {
-    return args
-  }
-  let out : Array[String] = ["convert"]
-  for arg in args {
-    out.push(arg)
-  }
-  out
 }
 
 ///|
@@ -452,22 +432,16 @@ pub fn run_cli_app(raw_cli_args : Array[String]) -> Int {
     return 0
   }
   if first == "batch" {
-    return exit_cli_error(
-      "unsupported subcommand: batch is not migrated to the current main CLI yet",
-      true,
-    )
+    return exit_cli_error("unsupported subcommand in this build: batch", true)
   }
   if first == "debug" {
     return exit_cli_error(
-      "unsupported subcommand: debug moved to the dedicated debug package and is not exposed through the current main CLI product shell",
+      "unsupported subcommand in this build: debug moved to the dedicated debug package and is not exposed through the main product CLI",
       true,
     )
   }
   if first == "ocr" {
-    return exit_cli_error(
-      "unsupported subcommand: ocr is not migrated to the current main CLI yet",
-      true,
-    )
+    return exit_cli_error("unsupported subcommand in this build: ocr", true)
   }
   if first == "bench" {
     return exit_cli_error(
@@ -501,7 +475,7 @@ pub fn run_cli_app(raw_cli_args : Array[String]) -> Int {
 }
 
 ///|
-pub fn normalize_cli_args(args : Array[String]) -> Array[String] {
+fn normalize_cli_args(args : Array[String]) -> Array[String] {
   let out : Array[String] = []
   if args.length() <= 1 {
     return out
@@ -525,7 +499,7 @@ pub fn normalize_cli_args(args : Array[String]) -> Array[String] {
 }
 
 ///|
-pub fn dirname_of_path(path : String) -> String {
+fn dirname_of_path(path : String) -> String {
   let chars = path.to_array()
   let mut last = -1
   for i in 0..<chars.length() {
@@ -541,7 +515,7 @@ pub fn dirname_of_path(path : String) -> String {
 }
 
 ///|
-pub fn ensure_dir_tree(path : String) -> Unit raise @fs.IOError {
+fn ensure_dir_tree(path : String) -> Unit raise @fs.IOError {
   let normalized = path.trim().to_owned()
   if normalized == "" || normalized == "." {
     return
@@ -592,6 +566,7 @@ fn parse_cli_options_from_index(
 ) -> Result[CliOptions, String] {
   let positionals : Array[String] = []
   let mut explicit_format_raw : String? = None
+  let mut provenance_output : String? = None
   let mut ocr_enabled = false
   let mut ocr_disabled = false
   let mut ocr_language : String? = None
@@ -685,10 +660,20 @@ fn parse_cli_options_from_index(
       i += 2
       continue
     }
+    if arg == "--provenance-out" {
+      if i + 1 >= args.length() {
+        return Err("missing value for --provenance-out")
+      }
+      let value = args[i + 1].trim().to_owned()
+      if value == "" || value.has_prefix("-") {
+        return Err("missing value for --provenance-out")
+      }
+      provenance_output = Some(value)
+      i += 2
+      continue
+    }
     if arg == "--with-metadata" {
-      return Err(
-        "unsupported option: --with-metadata is not migrated to the current main CLI yet",
-      )
+      return Err("unsupported option in this build: --with-metadata")
     }
     if arg.has_prefix("-") {
       return Err("unsupported option: " + arg)
@@ -705,9 +690,10 @@ fn parse_cli_options_from_index(
   }
   if positionals.length() < 1 || positionals.length() > 2 {
     return Err(
-      "usage: [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|xml|yaml|yml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] <input> [output]",
+      "usage: [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|xml|yaml|yml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]",
     )
   }
+  let effective_positionals = positionals
   let explicit_format = match parse_explicit_format(explicit_format_raw) {
     Ok(value) => value
     Err(msg) => return Err(msg)
@@ -727,15 +713,16 @@ fn parse_cli_options_from_index(
     Ok(value) => value
     Err(msg) => return Err(msg)
   }
-  let output = if positionals.length() >= 2 {
-    Some(positionals[1])
+  let output = if effective_positionals.length() >= 2 {
+    Some(effective_positionals[1])
   } else {
     None
   }
   Ok(
     make_cli_options(
-      positionals[0],
+      effective_positionals[0],
       output,
+      provenance_output,
       explicit_format,
       ocr_options,
       convert_mode,
@@ -792,6 +779,26 @@ fn exit_cli_error(msg : String, usage : Bool) -> Int {
     print_cli_usage()
   }
   1
+}
+
+///|
+fn persist_cli_provenance(
+  opts : CliOptions,
+  provenance : @convert.ConvertProvenance,
+) -> Unit raise @fs.IOError {
+  match opts.provenance_output {
+    Some(path) => {
+      let parent = dirname_of_path(path)
+      ensure_dir_tree(parent)
+      @fs.write_string_to_file(
+        path,
+        @convert.convert_provenance_to_json(provenance).stringify(indent=2) +
+        "\n",
+        encoding="utf8",
+      )
+    }
+    None => ()
+  }
 }
 
 ///|

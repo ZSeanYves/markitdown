@@ -247,6 +247,28 @@ test "ooxml part cache reuses decoded text and feeds byte cache" {
 }
 
 ///|
+test "ooxml xml part payload reuses decoded text and exposes native scan" {
+  let pkg = cache_test_open_package()
+  let first = read_xml_part_payload(pkg, "word/document.xml") catch {
+    e => fail("first read_xml_part_payload failed: " + e.to_string())
+  }
+  let second = read_xml_part_payload(pkg, "/word/./document.xml") catch {
+    e => fail("second read_xml_part_payload failed: " + e.to_string())
+  }
+
+  assert_eq(first.text, second.text)
+  assert_true(first.bytes.length() > 0)
+  assert_true(first.structure_scan.status == @xml_native.NativeXmlStatus::Ok)
+  assert_true(first.structure_scan.element_count > 0)
+  let stats = inspect_ooxml_part_cache_stats(pkg)
+  assert_eq(stats.bytes_miss_count, 1)
+  assert_eq(stats.bytes_hit_count, 1)
+  assert_eq(stats.text_decode_count, 1)
+  assert_eq(stats.text_hit_count, 1)
+  assert_eq(stats.text_entry_count, 1)
+}
+
+///|
 test "ooxml part cache preserves missing part behavior" {
   let pkg = cache_test_open_package()
   let first = try read_part_bytes(pkg, "word/missing.xml") |> Ok catch {

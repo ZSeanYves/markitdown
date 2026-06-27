@@ -54,9 +54,9 @@ pub fn pdf_native_fail_closed_diagnostics(
     Some("pdf"),
   )
   diagnostics.warnings.push(pdf_native_fail_closed_message())
-  diagnostics.degraded_features.push("pdf_native_scaffold_only")
+  diagnostics.degraded_features.push("pdf_native_policy_gate")
   diagnostics.fallback_trace.push(
-    "pdf native parser scaffolded -> fail closed until text PDF restore lands",
+    "pdf native parser policy gate -> fail closed until text restore is enabled",
   )
   diagnostics.pass_trace.push("parse:pdf_native_parser")
   diagnostics.metrics.set("parser_name", pdf_native_parser_name())
@@ -116,19 +116,14 @@ pub fn pdf_native_fail_closed_diagnostics(
   )
   diagnostics.metrics.set("pdf_table_reconstruction_table_count", "0")
   diagnostics.metrics.set("fallback_reason", "pdf_native_restore_not_enabled")
-  diagnostics.metrics.set("fallback_reason_kind", "scaffold_only")
+  diagnostics.metrics.set("fallback_reason_kind", "parser_policy_gate")
   diagnostics.metrics.set("warning_count", "1")
   diagnostics.metrics.set("error_count", "0")
   diagnostics.metrics.set("fallback_count", "1")
-  diagnostics.metrics.set("runtime_exposed", "false")
   diagnostics.metrics.set("product_path_enabled", "false")
-  diagnostics.metrics.set("legacy_runtime_dependency", "none")
-  diagnostics.metrics.set("legacy_convert_dependency", "none")
-  diagnostics.metrics.set("legacy_fallback", "forbidden")
-  diagnostics.metrics.set("readiness_status", "scaffold_only")
   diagnostics.metrics.set("format_contract", "pdf")
-  diagnostics.metrics.set("migration_stage", "stage_c_pdf_policy_disabled")
   diagnostics.metrics.set("native_impl_location", "formats")
+  diagnostics.metrics.set("pdf_native_parser_gate", "disabled")
   diagnostics.metrics.set(
     "pdf_native_runtime_policy",
     @parser.pdf_native_runtime_policy_name(context.pdf_native_runtime_policy),
@@ -281,10 +276,7 @@ fn pdf_native_enabled_success_diagnostics(
   next.metrics.set("requested_mode", pdf_native_requested_mode_name(context))
   next.metrics.set("effective_mode", "page_single_pass")
   next.metrics.set("ir_input_kind", "document")
-  next.metrics.set("runtime_exposed", "true")
   next.metrics.set("product_path_enabled", "true")
-  next.metrics.set("readiness_status", "native_text_baseline")
-  next.metrics.set("migration_stage", "stage_c_pdf_native_text_baseline")
   next.metrics.set("format_contract", "pdf")
   next.metrics.set("native_impl_location", "formats")
   next.metrics.set("pdf_native_backend", "true")
@@ -384,11 +376,8 @@ fn pdf_native_enabled_error_diagnostics(
   diagnostics.metrics.set("ocr_used_pages", "0")
   diagnostics.metrics.set("model_used", "none")
   diagnostics.metrics.set("model_confidence", "0")
-  diagnostics.metrics.set("runtime_exposed", "true")
   diagnostics.metrics.set("product_path_enabled", "true")
-  diagnostics.metrics.set("readiness_status", "native_text_baseline")
   diagnostics.metrics.set("format_contract", "pdf")
-  diagnostics.metrics.set("migration_stage", "stage_c_pdf_native_text_baseline")
   diagnostics.metrics.set("native_impl_location", "formats")
   diagnostics.metrics.set("pdf_native_backend", "true")
   diagnostics.metrics.set("pdf_native_text_baseline", "true")

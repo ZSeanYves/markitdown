@@ -30,8 +30,8 @@ Options:
   -h, --help          Show this help.
 
 Default:
-  Run markdown, rag, and assets checks for the current main CLI gate: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, and pdf.
-  Other formats remain pending root-pipeline migration and fail closed here.
+  Run markdown, rag, and assets checks for the main CLI gate: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, and pdf.
+  Unsupported formats fail closed here.
 
 Run artifacts:
   Only failure artifacts are retained under the run directory.
@@ -86,9 +86,9 @@ format_is_supported() {
 
 fail_unsupported_format() {
   local format="$1"
-  echo "unsupported format for current main CLI gate: $format is not migrated to the current main CLI yet" >&2
+  echo "unsupported format for the main CLI gate in this build: $format" >&2
   echo "supported gate formats: $(supported_formats_display)" >&2
-  echo "broader format restoration is pending root-pipeline migration; no legacy fallback is used here" >&2
+  echo "unsupported formats fail closed; no alternate product route is available here" >&2
   exit 1
 }
 
@@ -386,9 +386,9 @@ write_summary_md() {
     echo
     echo "## What was checked"
     echo
-    echo "Repo-local samples/main_process lane checks for the current root-pipeline main CLI surface: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, and pdf."
+    echo "Repo-local samples/main_process lane checks for the main CLI gate: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, and pdf."
     echo "Lanes: $lanes"
-    echo "Formats outside the current gate still remain pending root-pipeline migration and are not part of this check."
+    echo "Formats outside the current gate fail closed and are not part of this check."
     echo
     echo "## Result"
     echo

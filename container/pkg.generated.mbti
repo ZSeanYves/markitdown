@@ -2,14 +2,21 @@
 package "ZSeanYves/markitdown/container"
 
 import {
-  "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/input",
 }
 
 // Values
+pub fn container_asset_copy_policy_materialize_at_output_boundary() -> ContainerAssetCopyPolicy
+
+pub fn container_asset_copy_policy_name(ContainerAssetCopyPolicy) -> String
+
+pub fn container_asset_copy_policy_reference_only() -> ContainerAssetCopyPolicy
+
+pub fn container_asset_copy_policy_reject_unsafe_path() -> ContainerAssetCopyPolicy
+
 pub fn container_asset_output_path_is_safe(String) -> Bool
 
-pub fn container_asset_plan_is_safe(@core.ContainerAssetPlan) -> Bool
+pub fn container_asset_relative_path_is_safe(String) -> Bool
 
 pub fn container_asset_write_guardrails() -> Array[String]
 
@@ -30,6 +37,11 @@ pub fn container_unsupported_inner_formats() -> Array[String]
 // Errors
 
 // Types and methods
+pub enum ContainerAssetCopyPolicy {
+  MaterializeAtOutputBoundary
+  ReferenceOnly
+  RejectUnsafePath
+} derive(Eq)
 
 // Type aliases
 

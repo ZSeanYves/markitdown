@@ -6,9 +6,13 @@ pub fn classify_yaml_error(YamlError) -> YamlErrorInfo
 
 pub fn inspect_yaml_document(YamlDocument) -> YamlInspectReport
 
+pub fn inspect_yaml_structure_events(Array[YamlStructureEvent]) -> YamlInspectReport
+
 pub fn parse_yaml_document(String) -> YamlDocument raise
 
 pub fn parse_yaml_structure_document(String) -> YamlStructureDocument raise
+
+pub fn parse_yaml_structure_events(String) -> Array[YamlStructureEvent] raise
 
 pub fn profile_yaml_document(String) -> YamlProfiledDocument raise
 

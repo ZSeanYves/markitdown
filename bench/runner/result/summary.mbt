@@ -3,6 +3,7 @@ pub struct ToolBenchAggregate {
   bench_id : String
   format : String
   size_class : String
+  enabled_tier : String
   tool : String
   tool_version : String?
   measurement_mode : String?
@@ -67,6 +68,8 @@ pub struct FormatComparison {
   rows : Int
   compared_rows : Int
   engine_compared_rows : Int
+  official_gate_rows : Int
+  official_gate_comparable_rows : Int
   fixed_overhead_rows : Int
   moonbit_success_rows : Int
   moonbit_engine_success_rows : Int
@@ -79,6 +82,8 @@ pub struct FormatComparison {
   markitdown_median_wall_us : Int64?
   median_speedup : Double?
   engine_median_speedup : Double?
+  cli_geomean_speedup : Double?
+  engine_geomean_speedup : Double?
   median_fixed_overhead_ms : Int64?
   median_fixed_overhead_us : Int64?
   median_fixed_overhead_share : Double?
@@ -91,6 +96,7 @@ pub struct BenchComparison {
   bench_id : String
   format : String
   size_class : String
+  enabled_tier : String
   input_bytes : Int
   moonbit_run_count : Int
   moonbit_engine_run_count : Int
@@ -130,20 +136,37 @@ pub struct SummaryEnvironment {
   runner_mode : String
   canonical_performance : Bool
   runner_path : String?
+  measurement_policy : String
+  machine_os : String
+  machine_arch : String
+  hostname : String?
 } derive(ToJson, FromJson, Eq)
 
 ///|
 pub struct SummaryCorpus {
   tier : String
+  exact_tiers : Array[String]
+  tier_filter_mode : String
+  bench_ids : Array[String]
   selected_rows : Int
   formats : Array[String]
   skipped_by_reason : Map[String, Int]
 } derive(ToJson, FromJson, Eq)
 
 ///|
+pub struct OfficialGateSummary {
+  row_count : Int
+  comparable_count : Int
+  status : String
+  excluded_rows_by_reason : Map[String, Int]
+} derive(ToJson, FromJson, Eq)
+
+///|
 pub struct SummaryComparison {
   comparable_count : Int
   engine_comparable_count : Int
+  cli_geomean_speedup_overall : Double?
+  engine_geomean_speedup_overall : Double?
   fixed_overhead_count : Int
   moonbit_total_wall_ms : Int64?
   moonbit_engine_total_wall_ms : Int64?
@@ -164,6 +187,7 @@ pub struct SummaryComparison {
   median_fixed_overhead_us : Int64?
   median_fixed_overhead_share : Double?
   timing_precision : String
+  official_gate : OfficialGateSummary
   rows : Array[BenchComparison]
   by_format : Array[FormatComparison]
 } derive(ToJson, FromJson, Eq)
@@ -198,6 +222,14 @@ priv struct WallStats {
 }
 
 ///|
+priv struct LegacySelectorStats {
+  requested_tier : String?
+  selected_rows : Int
+  formats : Array[String]
+  skipped_by_reason : Map[String, Int]
+} derive(FromJson)
+
+///|
 pub fn generate_report_from_request(request : ReportRequest) -> Json {
   let rows : Array[CliResult] = []
   for path in request.input_paths {
@@ -221,8 +253,18 @@ pub fn generate_report_from_request(request : ReportRequest) -> Json {
     err => abort("failed to write markdown report: " + err.to_string())
   }
   Json::object({
+    "run_id": summary.run_id.to_json(),
     "summary_json": summary_path.to_json(),
     "report_md": report_path.to_json(),
+    "selected_rows": summary.corpus.selected_rows.to_json(),
+    "requested_formats": summary.corpus.formats.to_json(),
+    "skipped_by_reason": summary.corpus.skipped_by_reason.to_json(),
+    "cli_geomean_speedup_overall": summary.comparison.cli_geomean_speedup_overall.to_json(),
+    "engine_geomean_speedup_overall": summary.comparison.engine_geomean_speedup_overall.to_json(),
+    "official_gate_row_count": summary.comparison.official_gate.row_count.to_json(),
+    "official_gate_comparable_count": summary.comparison.official_gate.comparable_count.to_json(),
+    "official_gate_status": summary.comparison.official_gate.status.to_json(),
+    "excluded_rows_by_reason": summary.comparison.official_gate.excluded_rows_by_reason.to_json(),
   })
 }
 
@@ -251,9 +293,9 @@ fn summarize_rows(
   }
   let selector_stats = load_selector_stats(selector_stats_path)
   let requested_tier = summary_corpus_tier(rows, selector_stats)
-  let comparison = summarize_comparison(tool_rows)
+  let comparison = summarize_comparison(tool_rows, selector_stats)
   {
-    schema_version: 4,
+    schema_version: 5,
     run_id: rows[0].run_id,
     environment: {
       git_commit: rows[0].repo_commit,
@@ -264,9 +306,20 @@ fn summarize_rows(
       runner_mode: summary_runner_mode(rows),
       canonical_performance: summary_canonical_performance(rows),
       runner_path: summary_runner_path(rows),
+      measurement_policy: summarize_measurement_policy(rows),
+      machine_os: @env.get_env_var("MARKITDOWN_BENCH_MACHINE_OS").unwrap_or(
+        "unknown",
+      ),
+      machine_arch: @env.get_env_var("MARKITDOWN_BENCH_MACHINE_ARCH").unwrap_or(
+        "unknown",
+      ),
+      hostname: @env.get_env_var("MARKITDOWN_BENCH_HOSTNAME"),
     },
     corpus: {
       tier: requested_tier,
+      exact_tiers: selector_stats.requested_tiers,
+      tier_filter_mode: selector_stats.tier_filter_mode,
+      bench_ids: selector_stats.requested_bench_ids,
       selected_rows: selector_stats.selected_rows,
       formats: selector_stats.formats,
       skipped_by_reason: selector_stats.skipped_by_reason,
@@ -282,10 +335,24 @@ fn summary_corpus_tier(
   rows : Array[CliResult],
   selector_stats : @manifest.SelectorStats,
 ) -> String {
+  if selector_stats.requested_tiers.length() > 0 {
+    return selector_stats.requested_tiers.join(",")
+  }
   match selector_stats.requested_tier {
     Some(tier) if tier.trim() != "" => tier
     _ => rows[0].enabled_tier
   }
+}
+
+///|
+fn summarize_measurement_policy(rows : Array[CliResult]) -> String {
+  let first = rows[0].measurement_policy.unwrap_or("unknown")
+  for row in rows {
+    if row.measurement_policy.unwrap_or("unknown") != first {
+      return "mixed"
+    }
+  }
+  first
 }
 
 ///|
@@ -375,6 +442,7 @@ fn summarize_tool_bench_row(rows : Array[CliResult]) -> ToolBenchAggregate {
     bench_id: rows[0].bench_id,
     format: rows[0].format,
     size_class: rows[0].size_class,
+    enabled_tier: rows[0].enabled_tier,
     tool: rows[0].tool,
     tool_version: rows[0].tool_version,
     measurement_mode: rows[0].measurement_mode,
@@ -412,6 +480,7 @@ fn summarize_tool_bench_row(rows : Array[CliResult]) -> ToolBenchAggregate {
 ///|
 fn summarize_comparison(
   tool_rows : Map[String, Array[ToolBenchAggregate]],
+  selector_stats : @manifest.SelectorStats,
 ) -> SummaryComparison {
   let moonbit_rows = tool_rows.get("moonbit-cli").unwrap_or([])
   let engine_rows = tool_rows.get("moonbit-engine").unwrap_or([])
@@ -474,9 +543,12 @@ fn summarize_comparison(
     .map(row => row.fixed_overhead_share.unwrap())
   fixed_share_values.sort_by(compare_double_asc)
   let precision = comparison_precision(rows)
+  let official_gate = summarize_official_gate(rows, selector_stats)
   {
     comparable_count: cli_comparable.length(),
     engine_comparable_count: engine_comparable.length(),
+    cli_geomean_speedup_overall: geomean_speedup(cli_speedup_values),
+    engine_geomean_speedup_overall: geomean_speedup(engine_speedup_values),
     fixed_overhead_count: fixed_rows.length(),
     moonbit_total_wall_ms: if cli_comparable.length() > 0 {
       Some(moon_total)
@@ -537,6 +609,7 @@ fn summarize_comparison(
     median_fixed_overhead_us: median_sorted_int64(fixed_overhead_us_values),
     median_fixed_overhead_share: median_sorted_double(fixed_share_values),
     timing_precision: precision,
+    official_gate,
     rows,
     by_format,
   }
@@ -568,6 +641,7 @@ fn summarize_bench_comparison(
     bench_id,
     format: metadata.format,
     size_class: metadata.size_class,
+    enabled_tier: metadata.enabled_tier,
     input_bytes: metadata.input_bytes,
     moonbit_run_count: moonbit.map(row => row.run_count).unwrap_or(0),
     moonbit_engine_run_count: engine.map(row => row.run_count).unwrap_or(0),
@@ -677,11 +751,17 @@ fn summarize_format_comparisons(
       .map(row => row.fixed_overhead_share.unwrap())
     fixed_share_values.sort_by(compare_double_asc)
     let precision = format_comparison_precision(format_rows)
+    let official_gate_rows = format_rows.filter(is_official_gate_row)
+    let official_gate_comparable = official_gate_rows.filter(row => {
+      row.speedup is Some(_)
+    })
     out.push({
       format: entry.0,
       rows: format_rows.length(),
       compared_rows: comparable.length(),
       engine_compared_rows: engine_comparable.length(),
+      official_gate_rows: official_gate_rows.length(),
+      official_gate_comparable_rows: official_gate_comparable.length(),
       fixed_overhead_rows: fixed_rows.length(),
       moonbit_success_rows: format_rows
       .filter(row => row.moonbit_status == "ok")
@@ -700,6 +780,8 @@ fn summarize_format_comparisons(
       markitdown_median_wall_us: median_sorted_int64(markitdown_values_us),
       median_speedup: median_sorted_double(speedups),
       engine_median_speedup: median_sorted_double(engine_speedups),
+      cli_geomean_speedup: geomean_speedup(speedups),
+      engine_geomean_speedup: geomean_speedup(engine_speedups),
       median_fixed_overhead_ms: median_sorted_int64(
         fixed_overhead_us_values.map(rounded_wall_us_to_ms),
       ),
@@ -743,6 +825,14 @@ pub fn render_markdown_report(summary : SummaryDocument) -> String {
     summary.environment.runner_path.unwrap_or("unknown") +
     "`",
   )
+  lines.push(
+    "- measurement policy: `" + summary.environment.measurement_policy + "`",
+  )
+  lines.push("- machine os: `" + summary.environment.machine_os + "`")
+  lines.push("- machine arch: `" + summary.environment.machine_arch + "`")
+  lines.push(
+    "- hostname: `" + summary.environment.hostname.unwrap_or("unknown") + "`",
+  )
   lines.push("")
   if summary.warnings.length() > 0 {
     lines.push("## Warnings")
@@ -753,6 +843,9 @@ pub fn render_markdown_report(summary : SummaryDocument) -> String {
   }
   lines.push("## Corpus")
   lines.push("- tier: `" + summary.corpus.tier + "`")
+  lines.push("- tier filter mode: `" + summary.corpus.tier_filter_mode + "`")
+  lines.push("- exact tiers: `" + summary.corpus.exact_tiers.join(", ") + "`")
+  lines.push("- bench ids: `" + summary.corpus.bench_ids.join(", ") + "`")
   lines.push(
     "- selected rows: `" + summary.corpus.selected_rows.to_string() + "`",
   )
@@ -820,6 +913,26 @@ pub fn render_markdown_report(summary : SummaryDocument) -> String {
     moonbit_non_ok_rows(summary.comparison.rows).length().to_string() +
     "`",
   )
+  lines.push(
+    "- official gate rows: `" +
+    summary.comparison.official_gate.row_count.to_string() +
+    "`",
+  )
+  lines.push(
+    "- official gate comparable rows: `" +
+    summary.comparison.official_gate.comparable_count.to_string() +
+    "`",
+  )
+  lines.push(
+    "- official gate status: `" + summary.comparison.official_gate.status + "`",
+  )
+  lines.push(
+    "- official gate excluded rows by reason: `" +
+    summary.comparison.official_gate.excluded_rows_by_reason
+    .to_json()
+    .stringify() +
+    "`",
+  )
   lines.push("")
   lines.push("## Tool Summary")
   lines.push(
@@ -865,6 +978,11 @@ pub fn render_markdown_report(summary : SummaryDocument) -> String {
     "`",
   )
   lines.push(
+    "- CLI geomean speedup overall: `" +
+    format_optional_speedup(summary.comparison.cli_geomean_speedup_overall) +
+    "`",
+  )
+  lines.push(
     "- CLI best speedup: `" +
     format_optional_speedup(summary.comparison.best_speedup) +
     "`",
@@ -882,6 +1000,11 @@ pub fn render_markdown_report(summary : SummaryDocument) -> String {
   lines.push(
     "- Engine median speedup overall: `" +
     format_optional_speedup(summary.comparison.engine_median_speedup_overall) +
+    "`",
+  )
+  lines.push(
+    "- Engine geomean speedup overall: `" +
+    format_optional_speedup(summary.comparison.engine_geomean_speedup_overall) +
     "`",
   )
   lines.push(
@@ -964,12 +1087,12 @@ pub fn render_markdown_report(summary : SummaryDocument) -> String {
   lines.push(
     markdown_table_row([
       "format", "rows", "cli compared", "engine compared", "cli ok", "engine ok",
-      "external ok", "cli median wall", "engine median wall", "markitdown median wall",
-      "cli speedup", "engine speedup", "fixed overhead", "fixed share", "precision",
-      "status",
+      "external ok", "official rows", "official comparable", "cli median wall", "engine median wall",
+      "markitdown median wall", "cli median speedup", "cli geomean speedup", "engine median speedup",
+      "engine geomean speedup", "fixed overhead", "fixed share", "precision", "status",
     ]),
   )
-  lines.push(markdown_table_separator(16))
+  lines.push(markdown_table_separator(18))
   for row in summary.comparison.by_format {
     lines.push(
       markdown_table_row([
@@ -980,6 +1103,8 @@ pub fn render_markdown_report(summary : SummaryDocument) -> String {
         row.moonbit_success_rows.to_string(),
         row.moonbit_engine_success_rows.to_string(),
         row.markitdown_success_rows.to_string(),
+        row.official_gate_rows.to_string(),
+        row.official_gate_comparable_rows.to_string(),
         format_wall_pair(row.moonbit_median_wall_ms, row.moonbit_median_wall_us),
         format_wall_pair(
           row.moonbit_engine_median_wall_ms,
@@ -990,7 +1115,9 @@ pub fn render_markdown_report(summary : SummaryDocument) -> String {
           row.markitdown_median_wall_us,
         ),
         format_optional_speedup(row.median_speedup),
+        format_optional_speedup(row.cli_geomean_speedup),
         format_optional_speedup(row.engine_median_speedup),
+        format_optional_speedup(row.engine_geomean_speedup),
         format_wall_pair(
           row.median_fixed_overhead_ms,
           row.median_fixed_overhead_us,
@@ -1570,6 +1697,7 @@ fn pick_tool_bench_metadata(
                 bench_id,
                 format: "unknown",
                 size_class: "unknown",
+                enabled_tier: "unknown",
                 tool: "missing",
                 tool_version: None,
                 measurement_mode: None,
@@ -1753,6 +1881,105 @@ fn comparison_status(total_rows : Int, compared_rows : Int) -> String {
   } else {
     "no_comparable"
   }
+}
+
+///|
+fn is_official_gate_format(format : String) -> Bool {
+  let normalized = format.trim().to_lower().to_owned()
+  [
+    "txt", "csv", "tsv", "json", "yaml", "xml", "markdown", "html", "zip", "epub",
+    "pdf", "docx", "pptx", "xlsx",
+  ].contains(normalized)
+}
+
+///|
+fn is_official_gate_tier(tier : String) -> Bool {
+  let normalized = tier.trim().to_lower().to_owned()
+  normalized == "regular" || normalized == "release" || normalized == "stress"
+}
+
+///|
+fn is_official_gate_row(row : BenchComparison) -> Bool {
+  is_official_gate_format(row.format) && is_official_gate_tier(row.enabled_tier)
+}
+
+///|
+fn summarize_official_gate(
+  rows : Array[BenchComparison],
+  selector_stats : @manifest.SelectorStats,
+) -> OfficialGateSummary {
+  let official_rows = rows.filter(is_official_gate_row)
+  let comparable = official_rows.filter(row => row.speedup is Some(_))
+  let excluded : Map[String, Int] = {}
+  for row in official_rows {
+    match official_gate_exclusion_reason(row) {
+      Some(reason) => increment_reason_count(excluded, reason)
+      None => ()
+    }
+  }
+  {
+    row_count: official_rows.length(),
+    comparable_count: comparable.length(),
+    status: official_gate_status(
+      selector_stats.selected_rows,
+      official_rows.length(),
+      comparable.length(),
+    ),
+    excluded_rows_by_reason: excluded,
+  }
+}
+
+///|
+fn official_gate_exclusion_reason(row : BenchComparison) -> String? {
+  if row.speedup is Some(_) {
+    return None
+  }
+  if row.markitdown_status != "ok" {
+    return Some("markitdown_non_ok")
+  }
+  if row.moonbit_status != "ok" {
+    return Some("moonbit_cli_non_ok")
+  }
+  if row.markitdown_median_wall_us is None || row.moonbit_median_wall_us is None {
+    return Some("missing_wall_us")
+  }
+  if row.moonbit_median_wall_us == Some(0L) {
+    return Some("zero_cli_wall_time")
+  }
+  Some("not_comparable")
+}
+
+///|
+fn official_gate_status(
+  selected_rows : Int,
+  official_rows : Int,
+  comparable_rows : Int,
+) -> String {
+  let scoped_rows = if selected_rows > 0 {
+    selected_rows
+  } else {
+    official_rows
+  }
+  if official_rows == 0 {
+    "empty"
+  } else if scoped_rows != official_rows {
+    "partial_scope"
+  } else if comparable_rows == official_rows {
+    "ok"
+  } else if comparable_rows > 0 {
+    "partial"
+  } else {
+    "no_comparable"
+  }
+}
+
+///|
+fn increment_reason_count(reasons : Map[String, Int], reason : String) -> Unit {
+  let next = match reasons.get(reason) {
+    Some(count) => count + 1
+    None => 1
+  }
+  reasons[reason] = next
 }
 
 ///|
@@ -2024,11 +2251,41 @@ fn load_selector_stats(path : String?) -> @manifest.SelectorStats {
         _ => return @manifest.empty_selector_stats()
       }
       (@json.from_json(json) : @manifest.SelectorStats) catch {
-        _ => @manifest.empty_selector_stats()
+        _ =>
+          legacy_selector_stats_to_current(
+            (@json.from_json(json) : LegacySelectorStats) catch {
+              _ => return @manifest.empty_selector_stats()
+            },
+          )
       }
     }
     None => @manifest.empty_selector_stats()
   }
+}
+
+///|
+fn legacy_selector_stats_to_current(
+  legacy : LegacySelectorStats,
+) -> @manifest.SelectorStats {
+  @manifest.make_selector_stats(
+    legacy.requested_tier,
+    [],
+    "cumulative",
+    [],
+    legacy.selected_rows,
+    normalize_selector_formats(legacy.formats),
+    legacy.skipped_by_reason,
+  )
+}
+
+///|
+fn normalize_selector_formats(formats : Array[String]) -> Array[String] {
+  let normalized = formats
+    .map(format => format.trim().to_lower().to_owned())
+    .filter(format => format != "")
+  normalized.sort()
+  normalized.dedup()
+  normalized
 }
 
 ///|
@@ -2055,6 +2312,21 @@ fn median_sorted_double(values : Array[Double]) -> Double? {
   } else {
     Some((values[middle - 1] + values[middle]) / 2.0)
   }
+}
+
+///|
+fn geomean_speedup(values : Array[Double]) -> Double? {
+  if values.length() == 0 {
+    return None
+  }
+  let positive = values.filter(value => value > 0.0)
+  if positive.length() == 0 {
+    return None
+  }
+  let total_ln = positive.fold(init=0.0, fn(acc, value) {
+    acc + @math.ln(value)
+  })
+  Some(@math.exp(total_ln / positive.length().to_double()))
 }
 
 ///|

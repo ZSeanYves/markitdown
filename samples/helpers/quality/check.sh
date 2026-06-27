@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-source "$ROOT/samples/helpers/shared/tmp_helpers.sh"
-source "$ROOT/samples/helpers/shared/validation_helpers.sh"
+source "$ROOT/samples/helpers/shared/tmp.sh"
+source "$ROOT/samples/helpers/shared/cli_runner.sh"
 
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
 QUALITY_TMP_ROOT="${QUALITY_TMP_ROOT:-$TMP_ROOT/quality}"
@@ -93,7 +93,7 @@ Filter semantics:
       MARKITDOWN_QUALITY_LAB/external_quality/MANIFEST.tsv
       markitdown-quality-lab/external_quality/MANIFEST.tsv
       ../markitdown-quality-lab/external_quality/MANIFEST.tsv
-  * metadata defaults to auto: this helper probes whether the current main CLI
+  * metadata defaults to auto: this helper probes whether the main CLI
     supports --with-metadata and falls back to metadata-off when it does not
   * --no-metadata forces metadata-off
   * --with-metadata forces metadata-on and fails early if unsupported
@@ -857,14 +857,14 @@ probe_with_metadata_support() {
 
   if ! run_markitdown_cli normal --with-metadata "$probe_input" "$probe_output" >/dev/null 2>"$probe_dir/probe.stderr"; then
     METADATA_STATUS="unsupported_option"
-    METADATA_NOTE="current main CLI rejects --with-metadata; external quality baseline falls back to metadata-off"
+    METADATA_NOTE="this build rejects --with-metadata; external quality baseline falls back to metadata-off"
     status=1
   elif [[ -f "$probe_metadata" ]]; then
     METADATA_STATUS="supported_sidecar"
-    METADATA_NOTE="current main CLI accepts --with-metadata and emits metadata sidecars"
+    METADATA_NOTE="this build accepts --with-metadata and emits metadata sidecars"
   else
     METADATA_STATUS="supported_without_sidecar"
-    METADATA_NOTE="current main CLI accepts --with-metadata but did not emit a metadata sidecar in the probe"
+    METADATA_NOTE="this build accepts --with-metadata but did not emit a metadata sidecar in the probe"
   fi
 
   rm -rf "$probe_dir"

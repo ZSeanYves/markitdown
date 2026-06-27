@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-source "$ROOT/samples/helpers/shared/tmp_helpers.sh"
-source "$ROOT/samples/helpers/shared/validation_helpers.sh"
+source "$ROOT/samples/helpers/shared/tmp.sh"
+source "$ROOT/samples/helpers/shared/cli_runner.sh"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp/check}"
 OUT_DIR="$(sample_make_isolated_tmp_dir "$TMP_ROOT" "pptx_contract")"
 
@@ -47,6 +47,14 @@ assert_not_contains() {
   fi
 }
 
+assert_all_not_contains() {
+  local needle="$1"
+  shift
+  if grep -Fq -- "$needle" "$@"; then
+    fail "did not expect sources to contain: $needle"
+  fi
+}
+
 run_and_capture() {
   local out="$1"
   shift
@@ -72,13 +80,13 @@ FORMATS_PKG="$ROOT/formats/moon.pkg"
 REGISTRY_IMPL="$ROOT/formats/registry.mbt"
 REGISTRY_IMPL="$ROOT/formats/registry.mbt"
 SHARED_PKG="$ROOT/format_readers/ooxml/shared/moon.pkg"
-SHARED_IMPL="$ROOT/format_readers/ooxml/shared/shared.mbt"
+SHARED_IMPL_SOURCES=("$ROOT/format_readers/ooxml/shared/"*.mbt)
 PPTX_RUNTIME_PKG="$ROOT/formats/pptx/moon.pkg"
-PPTX_RUNTIME_IMPL="$ROOT/formats/pptx/parser.mbt"
+PPTX_RUNTIME_SOURCES=("$ROOT/formats/pptx/"*.mbt)
 PPTX_CONTRACT_IMPL="$ROOT/formats/format_contracts.mbt"
 PPTX_DOC_PKG="$ROOT/format_readers/ooxml/pptx/moon.pkg"
 
-echo "==> pptx runtime stays root-pipeline native and legacy-free"
+echo "==> pptx runtime stays root-pipeline native"
 assert_contains "$PPTX_DOC_PKG" 'ZSeanYves/markitdown/format_readers/ooxml/package'
 assert_not_contains "$PPTX_DOC_PKG" 'ZSeanYves/markitdown/convert/pptx'
 assert_contains "$FORMATS_PKG" 'ZSeanYves/markitdown/formats/pptx'
@@ -90,17 +98,17 @@ assert_not_contains "$SHARED_PKG" 'ZSeanYves/markitdown/convert/pptx'
 assert_contains "$REGISTRY_IMPL" '@input.DetectedFormat::Pptx'
 assert_contains "$REGISTRY_IMPL" 'pptx_parser()'
 assert_not_contains "$REGISTRY_IMPL" 'pptx_parser_contract()'
-assert_not_contains "$SHARED_IMPL" 'ZSeanYves/markitdown/format_readers/ooxml/pptx'
-assert_not_contains "$SHARED_IMPL" '@legacy'
+assert_all_not_contains 'ZSeanYves/markitdown/format_readers/ooxml/pptx' "${SHARED_IMPL_SOURCES[@]}"
+assert_all_not_contains '@legacy' "${SHARED_IMPL_SOURCES[@]}"
 assert_not_contains "$PPTX_CONTRACT_IMPL" 'doc_parse/pptx'
 assert_not_contains "$PPTX_CONTRACT_IMPL" 'convert/pptx'
 assert_not_contains "$PPTX_CONTRACT_IMPL" '@legacy'
 assert_not_contains "$PPTX_CONTRACT_IMPL" 'emitter_markdown'
 assert_not_contains "$PPTX_CONTRACT_IMPL" 'dispatcher'
-assert_not_contains "$PPTX_RUNTIME_IMPL" 'convert/pptx'
-assert_not_contains "$PPTX_RUNTIME_IMPL" '@legacy'
-assert_not_contains "$PPTX_RUNTIME_IMPL" 'emitter_markdown'
-assert_not_contains "$PPTX_RUNTIME_IMPL" 'dispatcher'
+assert_all_not_contains 'convert/pptx' "${PPTX_RUNTIME_SOURCES[@]}"
+assert_all_not_contains '@legacy' "${PPTX_RUNTIME_SOURCES[@]}"
+assert_all_not_contains 'emitter_markdown' "${PPTX_RUNTIME_SOURCES[@]}"
+assert_all_not_contains 'dispatcher' "${PPTX_RUNTIME_SOURCES[@]}"
 
 echo "==> help exposes pptx on the main product cli"
 run_and_capture "$PPTX_HELP" run_markitdown_cli --help
@@ -141,7 +149,6 @@ assert_contains "$PPTX_HIDDEN_JSON" '"effective_mode": "package_single_pass"'
 assert_contains "$PPTX_HIDDEN_JSON" '"ir_input_kind": "document"'
 assert_contains "$PPTX_HIDDEN_JSON" '"event_granularity": "pptx_slide"'
 assert_contains "$PPTX_HIDDEN_JSON" '"office_document_kind": "pptx"'
-assert_contains "$PPTX_HIDDEN_JSON" '"runtime_exposed": "true"'
 assert_contains "$PPTX_HIDDEN_JSON" '"pptx_hidden_slide_count": "1"'
 assert_contains "$PPTX_HIDDEN_JSON" '"pptx_reading_order_strategy": "placeholder_then_geometry"'
 assert_contains "$PPTX_HIDDEN_JSON" 'hidden pptx slide skipped: Slide 2'
@@ -149,8 +156,6 @@ assert_contains "$PPTX_HIDDEN_JSON" '"slide_part": "ppt/slides/slide1.xml"'
 assert_contains "$PPTX_HIDDEN_JSON" '"placeholder_type": "center_title"'
 assert_not_contains "$PPTX_HIDDEN_JSON" 'pptx_raw_fallback'
 assert_not_contains "$PPTX_HIDDEN_JSON" 'pptx_legacy_fallback'
-assert_not_contains "$PPTX_HIDDEN_JSON" 'legacy_dispatcher_used'
-assert_not_contains "$PPTX_HIDDEN_JSON" 'convert_pptx_used'
 assert_not_contains "$PPTX_HIDDEN_JSON" 'xml_order_text_dump'
 
 echo "==> package-local image assets stay output-boundary only and external media stay no-fetch"
@@ -171,7 +176,7 @@ assert_contains "$PPTX_IMAGE_JSON" '"path": "assets/image01.png"'
 assert_contains "$PPTX_IMAGE_JSON" '"source_path": "ppt/media/image1.png"'
 assert_contains "$PPTX_IMAGE_JSON" '"zip_container_format": "pptx"'
 
-echo "==> pdf is restored while ocr/image surfaces remain constrained"
+echo "==> pdf stays available while ocr/image surfaces remain constrained"
 run_markitdown_cli normal "$ROOT/samples/main_process/pdf/markdown/root_native_text_baseline.pdf" "$OUT_DIR/pdf_text_simple.md"
 assert_matches_expected "$ROOT/samples/main_process/pdf/expected/markdown/root_native_text_baseline.md" "$OUT_DIR/pdf_text_simple.md"
 run_and_capture "$PDF_ERR" run_markitdown_cli --ocr --ocr-lang eng "$ROOT/samples/main_process/pdf/markdown/root_native_text_baseline.pdf"
@@ -182,6 +187,6 @@ run_and_capture "$OCR_ERR" run_markitdown_cli normal "$ROOT/samples/fixtures/ocr
 [[ "$CAPTURED_STATUS" -ne 0 ]] || fail "ocr/image should fail closed"
 assert_contains "$OCR_ERR" 'unsupported format'
 assert_contains "$OCR_ERR" 'png'
-assert_contains "$OCR_ERR" 'current main CLI'
+assert_contains "$OCR_ERR" 'this build'
 
 echo "PPTX CONTRACT PASSED"

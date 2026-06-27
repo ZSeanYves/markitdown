@@ -8,8 +8,9 @@ InputSource
   -> FormatDetector
   -> ParserRegistry
   -> ParseResult
-  -> runtime / Core IR builder
+  -> runtime / IRInput lowering
   -> pipeline passes
+  -> RenderInput
   -> Renderer
   -> Markdown / debug JSON
 ```
@@ -19,7 +20,7 @@ The canonical architecture reference is
 
 ## Supported Formats
 
-The current main CLI supports:
+The main CLI supports:
 
 - `txt`
 - `csv`
@@ -48,8 +49,8 @@ Current format policy:
 - `pdf --ocr` is not supported.
 - Image input is not part of the supported format list, but explicit image
   `--ocr` can use local Tesseract when requested.
-- Unsupported formats fail closed. The main CLI does not route them through a
-  hidden fallback path.
+- Unsupported formats fail closed. The main CLI does not route them through an
+  alternate product path.
 
 ## Quick Start
 
@@ -81,7 +82,7 @@ Native-text PDF example:
 | `parser` | `ParserMode`, `ParseContext`, `ParserRegistry`, `ParseResult` |
 | `format_readers` | low-level reader foundations that do not render Markdown |
 | `formats` | registry-facing parser layer for product formats |
-| `container` | shared container contracts and path-safety helpers |
+| `container` | shared container policy strings and path-safety helpers |
 | `runtime` | parse-result lowering and child-dispatch helpers |
 | `pipeline` | `CoreIRBuilder` and IR pass pipeline |
 | `render` | `Renderer` implementations such as Markdown and debug JSON |
@@ -92,7 +93,7 @@ Architecture rules:
 
 - `ParserRegistry` selects parsers; it does not render output.
 - Every parser returns `ParseResult`.
-- `Core IR` is the only renderer input.
+- `IRInput` and `RenderInput` are the stable cross-layer product shapes.
 - `Renderer` owns final Markdown formatting.
 - `format_readers` must not depend on `runtime`, `pipeline`, `render`, or
   `convert`.
@@ -110,6 +111,15 @@ moon test
 bash samples/check.sh
 bash samples/check.sh --check-inventory
 bash samples/helpers/contracts/check_root_contracts.sh
+```
+
+Benchmark validation now uses the binary-only `bench v2` runner:
+
+```bash
+moon build --target native --release --package ZSeanYves/markitdown/cli
+moon build --target native --release --package ZSeanYves/markitdown/bench/runner
+_build/native/release/build/bench/runner/runner.exe doctor
+_build/native/release/build/bench/runner/runner.exe run --preset official-internal --limit 3
 ```
 
 External quality validation:
@@ -131,7 +141,7 @@ bash samples/check_quality.sh --format pdf
 
 Implementation notes kept as stable user-facing facts:
 
-- EPUB restoration is implemented through `format_readers/epub` on top of `format_readers/zip`.
+- EPUB support is implemented through `format_readers/epub` on top of `format_readers/zip`.
 - ZIP archive reading continues to rely on `bikallem/compress/flate` inside
   `format_readers/zip`.
 

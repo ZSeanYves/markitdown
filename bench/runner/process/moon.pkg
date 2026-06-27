@@ -1,10 +1,12 @@
 import {
+  "moonbitlang/async/process" @aprocess,
   "moonbitlang/core/bench",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/async/fs" @asyncfs,
   "moonbitlang/async/os_error",
   "moonbitlang/core/env",
   "moonbitlang/core/json",
+  "ZSeanYves/markitdown/bench/shared",
   "moonbitlang/x/fs" @syncfs,
   "ZSeanYves/markitdown/bench/runner/command",
   "ZSeanYves/markitdown/bench/runner/manifest",

@@ -30,13 +30,13 @@ pub fn generate_report_from_request(ReportRequest) -> Json
 
 pub fn load_jsonl_results(String) -> Array[CliResult]
 
-pub fn make_cli_result(String, String, @command.RunnerContext, String, @tools.BenchTool, @manifest.BenchRow, @tools.ToolCommand, @measure.NativeMeasureResult, Int, Int, String, Int64, String, String, Int64, Int64, output_write_mode? : String?) -> CliResult
+pub fn make_cli_result(String, String, @command.RunnerContext, Int, String, String, @tools.BenchTool, @manifest.BenchRow, @tools.ToolCommand, @measure.NativeMeasureResult, Int, Int, String, Int64, String, String, Int64, Int64, output_write_mode? : String?) -> CliResult
 
-pub fn make_inprocess_result(String, String, @command.RunnerContext, @tools.BenchTool, @manifest.BenchRow, String, Int, Int, Int64, Int64, status? : String, error? : String?, output_write_mode? : String?) -> CliResult
+pub fn make_inprocess_result(String, String, @command.RunnerContext, Int, String, @tools.BenchTool, @manifest.BenchRow, String, Int, Int, Int64, Int64, status? : String, error? : String?, output_write_mode? : String?) -> CliResult
 
 pub fn make_report_request(Array[String], String?) -> ReportRequest
 
-pub fn make_unavailable_result(String, String, @command.RunnerContext, String, @tools.BenchTool, @manifest.BenchRow, Int, Int) -> CliResult
+pub fn make_unavailable_result(String, String, @command.RunnerContext, Int, String, String, @tools.BenchTool, @manifest.BenchRow, Int, Int) -> CliResult
 
 pub fn native_measure_error(@measure.NativeMeasureData, Int, stderr_excerpt? : String) -> String?
 
@@ -55,6 +55,7 @@ pub struct BenchComparison {
   bench_id : String
   format : String
   size_class : String
+  enabled_tier : String
   input_bytes : Int
   moonbit_run_count : Int
   moonbit_engine_run_count : Int
@@ -92,6 +93,7 @@ pub struct CliResult {
   runner_mode : String?
   canonical_performance : Bool?
   runner_path : String?
+  measurement_policy : String?
   tool : String
   tool_version : String?
   measurement_mode : String?
@@ -109,6 +111,7 @@ pub struct CliResult {
   command_display : String
   repeat_index : Int
   repeat_count : Int
+  warmup_count : Int
   exit_code : Int
   status : String
   timed_out : Bool
@@ -130,6 +133,8 @@ pub struct FormatComparison {
   rows : Int
   compared_rows : Int
   engine_compared_rows : Int
+  official_gate_rows : Int
+  official_gate_comparable_rows : Int
   fixed_overhead_rows : Int
   moonbit_success_rows : Int
   moonbit_engine_success_rows : Int
@@ -142,6 +147,8 @@ pub struct FormatComparison {
   markitdown_median_wall_us : Int64?
   median_speedup : Double?
   engine_median_speedup : Double?
+  cli_geomean_speedup : Double?
+  engine_geomean_speedup : Double?
   median_fixed_overhead_ms : Int64?
   median_fixed_overhead_us : Int64?
   median_fixed_overhead_share : Double?
@@ -151,6 +158,13 @@ pub struct FormatComparison {
 
 type LegacyCliResult derive(@json.FromJson)
 
+pub struct OfficialGateSummary {
+  row_count : Int
+  comparable_count : Int
+  status : String
+  excluded_rows_by_reason : Map[String, Int]
+} derive(Eq, ToJson, @json.FromJson)
+
 pub struct ReportRequest {
   input_paths : Array[String]
   selector_stats_path : String?
@@ -159,6 +173,8 @@ pub struct ReportRequest {
 pub struct SummaryComparison {
   comparable_count : Int
   engine_comparable_count : Int
+  cli_geomean_speedup_overall : Double?
+  engine_geomean_speedup_overall : Double?
   fixed_overhead_count : Int
   moonbit_total_wall_ms : Int64?
   moonbit_engine_total_wall_ms : Int64?
@@ -179,12 +195,16 @@ pub struct SummaryComparison {
   median_fixed_overhead_us : Int64?
   median_fixed_overhead_share : Double?
   timing_precision : String
+  official_gate : OfficialGateSummary
   rows : Array[BenchComparison]
   by_format : Array[FormatComparison]
 } derive(Eq, ToJson, @json.FromJson)
 
 pub struct SummaryCorpus {
   tier : String
+  exact_tiers : Array[String]
+  tier_filter_mode : String
+  bench_ids : Array[String]
   selected_rows : Int
   formats : Array[String]
   skipped_by_reason : Map[String, Int]
@@ -208,6 +228,10 @@ pub struct SummaryEnvironment {
   runner_mode : String
   canonical_performance : Bool
   runner_path : String?
+  measurement_policy : String
+  machine_os : String
+  machine_arch : String
+  hostname : String?
 } derive(Eq, ToJson, @json.FromJson)
 
 pub struct SummaryRunMetadata {
@@ -220,6 +244,7 @@ pub struct ToolBenchAggregate {
   bench_id : String
   format : String
   size_class : String
+  enabled_tier : String
   tool : String
   tool_version : String?
   measurement_mode : String?

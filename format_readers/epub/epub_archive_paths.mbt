@@ -4,8 +4,22 @@ fn read_required_xml_part(
   entry_index : Map[String, String],
   path : String,
 ) -> String raise EpubError {
+  read_required_xml_part_payload(archive, entry_index, path).text
+}
+
+///|
+fn read_required_xml_part_payload(
+  archive : @zip.ZipArchive,
+  entry_index : Map[String, String],
+  path : String,
+) -> EpubXmlPartPayload raise EpubError {
   let data = read_required_part_bytes(archive, entry_index, path)
-  bytes_to_xml_text(data, path)
+  {
+    path,
+    text: bytes_to_xml_text(data, path),
+    structure_scan: @xml_native.native_xml_scan_structure_bytes(data),
+    bytes: data,
+  }
 }
 
 ///|
@@ -18,10 +32,7 @@ fn read_required_part_bytes(
     Some(v) => v
     None => raise MissingPart(path)
   }
-  @zip.read_entry(archive, raw_path) catch {
-    @zip.EntryNotFound(_) => raise MissingPart(path)
-    e => raise ZipError(e.to_string())
-  }
+  read_archive_entry_bytes(archive, raw_path, path)
 }
 
 ///|
@@ -35,7 +46,10 @@ fn read_optional_text_part(
     None => return None
   }
 
-  let data = @zip.read_entry(archive, raw_path) catch { _ => return None }
+  let data = match read_archive_entry_bytes_optional(archive, raw_path) {
+    Some(bytes) => bytes
+    None => return None
+  }
   let text = @utf8.decode(data, ignore_bom=false) catch { _ => return None }
   let trimmed = text.trim().to_owned()
   if trimmed == "" {
@@ -43,6 +57,27 @@ fn read_optional_text_part(
   } else {
     Some(trimmed)
   }
+}
+
+///|
+fn read_archive_entry_bytes(
+  archive : @zip.ZipArchive,
+  raw_path : String,
+  logical_path : String,
+) -> Bytes raise EpubError {
+  @zip.read_entry(archive, raw_path) catch {
+    @zip.EntryNotFound(_) => raise MissingPart(logical_path)
+    e => raise ZipError(e.to_string())
+  }
+}
+
+///|
+fn read_archive_entry_bytes_optional(
+  archive : @zip.ZipArchive,
+  raw_path : String,
+) -> Bytes? {
+  let data = @zip.read_entry(archive, raw_path) catch { _ => return None }
+  Some(data)
 }
 
 ///|
@@ -135,43 +170,59 @@ fn plan_archive_entries(
   let entry_index : Map[String, String] = Map([])
 
   for meta in @zip.list_entries(archive) {
-    if meta.name.has_suffix("/") || meta.name.has_suffix("\\") {
-      continue
-    }
-
-    let normalized = match normalize_archive_entry_path(meta.name) {
-      Some(path) => path
-      None => continue
-    }
-
-    if is_hidden_or_macos_metadata(normalized) {
-      continue
-    }
-
-    match entry_index.get(normalized) {
-      Some(first_raw) =>
-        raise InvalidPackage(
-          "normalized path collision: " +
-          normalized +
-          " (" +
-          display_path(first_raw) +
-          " vs " +
-          display_path(meta.name) +
-          ")",
-        )
-      None => ()
-    }
-
-    entry_index.set(normalized, meta.name)
-    out.push({
-      raw_path: meta.name,
-      path: normalized,
-      uncompressed_size: meta.uncompressed_size,
-    })
+    append_archive_entry_plan(
+      out,
+      entry_index,
+      meta.name,
+      meta.is_directory,
+      meta.uncompressed_size,
+    )
   }
 
   out.sort_by(fn(a, b) { a.path[:].lexical_compare(b.path[:]) })
   (out, entry_index)
+}
+
+///|
+fn append_archive_entry_plan(
+  out : Array[EpubArchiveEntry],
+  entry_index : Map[String, String],
+  raw_name : String,
+  is_directory : Bool,
+  uncompressed_size : Int,
+) -> Unit raise EpubError {
+  if raw_name.has_suffix("/") || raw_name.has_suffix("\\") {
+    return
+  }
+  if is_directory {
+    return
+  }
+
+  let normalized = match normalize_archive_entry_path(raw_name) {
+    Some(path) => path
+    None => return
+  }
+
+  if is_hidden_or_macos_metadata(normalized) {
+    return
+  }
+
+  match entry_index.get(normalized) {
+    Some(first_raw) =>
+      raise InvalidPackage(
+        "normalized path collision: " +
+        normalized +
+        " (" +
+        display_path(first_raw) +
+        " vs " +
+        display_path(raw_name) +
+        ")",
+      )
+    None => ()
+  }
+
+  entry_index.set(normalized, raw_name)
+  out.push({ raw_path: raw_name, path: normalized, uncompressed_size })
 }
 
 ///|

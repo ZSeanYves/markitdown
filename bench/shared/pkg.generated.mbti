@@ -24,6 +24,8 @@ pub fn bench_row_text(BenchManifestRow) -> String
 
 pub fn bench_row_tier_rank(String) -> Int
 
+pub fn bench_tier_name(BenchTier) -> String
+
 pub fn keep_bytes_len(@bench.Bench, Bytes) -> Unit
 
 pub fn keep_int(@bench.Bench, Int) -> Unit
@@ -35,6 +37,18 @@ pub fn load_bench_manifest() -> Array[BenchManifestRow]
 pub fn micro_detector_smoke_rows() -> Array[BenchManifestRow]
 
 pub fn micro_textlike_smoke_rows() -> Array[BenchManifestRow]
+
+pub fn official_gate_main_formats() -> Array[String]
+
+pub fn official_gate_rows() -> Array[BenchManifestRow]
+
+pub fn official_gate_rows_for_format(String) -> Array[BenchManifestRow]
+
+pub fn official_gate_tiers() -> Array[BenchTier]
+
+pub fn pipeline_official_gate_binary_rows() -> Array[BenchManifestRow]
+
+pub fn pipeline_official_gate_textlike_rows() -> Array[BenchManifestRow]
 
 pub fn pipeline_smoke_binary_rows() -> Array[BenchManifestRow]
 
@@ -51,6 +65,8 @@ pub fn samples_bench_manifest_path() -> String
 pub fn samples_bench_root() -> String
 
 pub fn select_rows(BenchTier) -> Array[BenchManifestRow]
+
+pub fn select_rows_exact_tiers(Array[BenchTier]) -> Array[BenchManifestRow]
 
 pub fn select_rows_for_formats(BenchTier, Array[String]) -> Array[BenchManifestRow]
 

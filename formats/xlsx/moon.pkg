@@ -1,12 +1,17 @@
 import {
+  "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/string",
   "ZSeanYves/markitdown/format_readers/ooxml/package" @ox,
   "ZSeanYves/markitdown/format_readers/ooxml/shared",
+  "ZSeanYves/markitdown/format_readers/zip" @dzip,
+  "ZSeanYves/markitdown/format_readers/xml_native",
   "ZSeanYves/markitdown/core",
-  "ZSeanYves/markitdown/formats/light_common",
+  "ZSeanYves/markitdown/formats/parser_common",
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
 }
+
+supported_targets = "native"
 
 options(
   "preferred-target": "native",

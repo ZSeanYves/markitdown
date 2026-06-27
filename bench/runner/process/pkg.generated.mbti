@@ -15,6 +15,8 @@ pub async fn run_compare(@command.CompareRequest) -> Json
 
 pub async fn run_overhead_diagnostics(@command.DiagnoseRequest) -> Json
 
+pub async fn run_profile(@command.ProfileRequest) -> Json
+
 pub async fn run_tool(@command.RunRequest, @tools.BenchTool) -> String
 
 // Errors

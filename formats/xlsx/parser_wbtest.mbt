@@ -17,7 +17,7 @@ fn xlsx_wbtest_styles() -> XlsxStyles {
 ///|
 test "xlsx parser treats merge-only placeholder cells as an empty sheet" {
   let sheet_xml = "<worksheet><dimension ref=\"A1:C50000\"/><sheetData><row r=\"1\"><c r=\"A1\" s=\"1\"/><c r=\"B1\" s=\"1\"/><c r=\"C1\" s=\"1\"/></row><row r=\"50000\"><c r=\"A50000\" s=\"1\"/><c r=\"B50000\" s=\"1\"/><c r=\"C50000\" s=\"1\"/></row></sheetData><mergeCells count=\"1\"><mergeCell ref=\"A1:C50000\"/></mergeCells></worksheet>"
-  let cells = xlsx_parse_sheet_cells(
+  let parsed = xlsx_parse_sheet_xml(
     xlsx_wbtest_sheet_info(),
     sheet_xml,
     [],
@@ -26,7 +26,7 @@ test "xlsx parser treats merge-only placeholder cells as an empty sheet" {
   )
   let mut non_empty_cell_count = 0
   let mut formula_count = 0
-  for cell in cells {
+  for cell in parsed.cells {
     if cell.display_text.trim() != "" {
       non_empty_cell_count += 1
     }
@@ -35,12 +35,78 @@ test "xlsx parser treats merge-only placeholder cells as an empty sheet" {
       None => ()
     }
   }
-  assert_eq(cells.length(), 6)
+  assert_eq(parsed.cells.length(), 6)
   assert_eq(non_empty_cell_count, 0)
   assert_eq(formula_count, 0)
   assert_true(
     xlsx_sheet_is_effectively_empty(false, non_empty_cell_count, formula_count),
   )
+}
+
+///|
+test "xlsx parser shared sheet scan extracts dimension hidden rows merges and cells" {
+  let sheet_xml = "<worksheet><dimension ref=\"A1:B4\"/><sheetData><row r=\"1\"><c r=\"A1\" t=\"s\"><v>0</v></c></row><row r=\"2\" hidden=\"1\"><c r=\"B2\"><v>42</v></c></row><row r=\"4\"><c r=\"A4\"><f>SUM(A1:A3)</f><v>6</v></c></row></sheetData><mergeCells count=\"1\"><mergeCell ref=\"A1:B1\"/></mergeCells></worksheet>"
+  let parsed = xlsx_parse_sheet_xml(
+    xlsx_wbtest_sheet_info(),
+    sheet_xml,
+    ["Header"],
+    xlsx_wbtest_styles(),
+    false,
+  )
+  assert_true(parsed.dimension_ref == Some("A1:B4"))
+  assert_true(parsed.hidden_rows.get(2) == Some(true))
+  assert_eq(parsed.merged_ranges.length(), 1)
+  assert_eq(parsed.merged_ranges[0], "A1:B1")
+  assert_eq(parsed.cells.length(), 3)
+  assert_eq(parsed.cells[0].row_index, 1)
+  assert_eq(parsed.cells[0].column_index, 1)
+  assert_eq(parsed.cells[1].row_index, 2)
+  assert_eq(parsed.cells[1].column_index, 2)
+  assert_eq(parsed.cells[2].row_index, 4)
+  assert_eq(parsed.cells[2].column_index, 1)
+  assert_eq(parsed.cells[0].display_text, "Header")
+  assert_eq(parsed.cells[1].display_text, "42")
+  assert_true(parsed.cells[2].formula_text == Some("SUM(A1:A3)"))
+}
+
+///|
+test "xlsx native worksheet scan handles merge-only sparse sheets" {
+  let sheet_xml = "<worksheet><dimension ref=\"A1:C50000\"/><sheetData><row r=\"1\"><c r=\"A1\" s=\"1\"/><c r=\"B1\" s=\"1\"/><c r=\"C1\" s=\"1\"/></row><row r=\"50000\"><c r=\"A50000\" s=\"1\"/><c r=\"B50000\" s=\"1\"/><c r=\"C50000\" s=\"1\"/></row></sheetData><mergeCells count=\"1\"><mergeCell ref=\"A1:C50000\"/></mergeCells></worksheet>"
+  let scan = @xml_native.native_xlsx_scan_worksheet(sheet_xml)
+  assert_true(scan.status == @xml_native.NativeXmlStatus::Ok)
+  assert_true(scan.dimension_ref == Some("A1:C50000"))
+  assert_eq(scan.cells.length(), 6)
+  assert_eq(scan.merged_ranges.length(), 1)
+  assert_eq(scan.merged_ranges[0], "A1:C50000")
+}
+
+///|
+test "xlsx native worksheet scan keeps multiple merge ranges aligned" {
+  let sheet_xml = "<worksheet><dimension ref=\"A1:C50000\"/><sheetData><row r=\"1\"><c r=\"A1\" s=\"1\"/><c r=\"B1\" s=\"1\"/><c r=\"C1\" s=\"1\"/></row><row r=\"50000\"><c r=\"A50000\" s=\"1\"/><c r=\"B50000\" s=\"1\"/><c r=\"C50000\" s=\"1\"/></row></sheetData><mergeCells count=\"2\"><mergeCell ref=\"A1:C49999\"/><mergeCell ref=\"A50000:C50000\"/></mergeCells></worksheet>"
+  let scan = @xml_native.native_xlsx_scan_worksheet(sheet_xml)
+  assert_true(scan.status == @xml_native.NativeXmlStatus::Ok)
+  assert_eq(scan.merged_ranges.length(), 2)
+  assert_eq(scan.merged_ranges[0], "A1:C49999")
+  assert_eq(scan.merged_ranges[1], "A50000:C50000")
+}
+
+///|
+test "xlsx native worksheet scan keeps formula rows" {
+  let sheet_xml = "<worksheet><dimension ref=\"A1:B4\"/><sheetData><row r=\"1\"><c r=\"A1\" t=\"s\"><v>0</v></c></row><row r=\"2\" hidden=\"1\"><c r=\"B2\"><v>42</v></c></row><row r=\"4\"><c r=\"A4\"><f>SUM(A1:A3)</f><v>6</v></c></row></sheetData><mergeCells count=\"1\"><mergeCell ref=\"A1:B1\"/></mergeCells></worksheet>"
+  let scan = @xml_native.native_xlsx_scan_worksheet(sheet_xml)
+  assert_true(scan.dimension_ref == Some("A1:B4"))
+  assert_eq(scan.hidden_rows.length(), 1)
+  assert_eq(scan.hidden_rows[0], 2)
+  assert_eq(scan.merged_ranges.length(), 1)
+  assert_eq(scan.merged_ranges[0], "A1:B1")
+  assert_eq(scan.cells.length(), 3)
+  assert_eq(scan.cells[0].cell_ref, "A1")
+  assert_true(scan.cells[0].raw_value == Some("0"))
+  assert_eq(scan.cells[1].cell_ref, "B2")
+  assert_true(scan.cells[1].raw_value == Some("42"))
+  assert_eq(scan.cells[2].cell_ref, "A4")
+  assert_true(scan.cells[2].formula_text == Some("SUM(A1:A3)"))
+  assert_true(scan.cells[2].raw_value == Some("6"))
 }
 
 ///|

@@ -105,7 +105,8 @@ test "pdf native parser default policy exposes stable capability and diagnostics
     Some("pdf_native_restore_not_enabled"),
   )
   assert_true(
-    diagnostics.metrics.get("fallback_reason_kind") == Some("scaffold_only"),
+    diagnostics.metrics.get("fallback_reason_kind") ==
+    Some("parser_policy_gate"),
   )
   assert_true(
     diagnostics.metrics.get("pdf_native_runtime_policy") ==
@@ -131,7 +132,6 @@ test "pdf native parser default policy exposes stable capability and diagnostics
   assert_true(
     diagnostics.metrics.get("pdf_table_reconstruction_table_count") == Some("0"),
   )
-  assert_true(diagnostics.metrics.get("runtime_exposed") == Some("false"))
   assert_true(
     diagnostics.warnings.join("\n").contains("disabled by parser policy"),
   )
@@ -146,13 +146,13 @@ test "pdf native parser default policy exposes stable capability and diagnostics
   let document = parsed.document.unwrap_or(@core.empty_document_ir())
   assert_eq(document.blocks.length(), 0)
   assert_true(
-    document.diagnostics.metrics.get("readiness_status") ==
-    Some("scaffold_only"),
+    document.diagnostics.metrics.get("pdf_native_parser_gate") ==
+    Some("disabled"),
   )
 
   match (pdf_native_parser().parse)(source, disabled_context) {
     Err(msg) => assert_true(msg == pdf_native_fail_closed_message())
-    Ok(_) => fail("pdf scaffold parser should stay fail closed")
+    Ok(_) => fail("pdf parser should stay fail closed behind disable policy")
   }
 }
 
@@ -265,7 +265,8 @@ test "pdf native parser default product path can return document ir" {
       assert_true(ok_document.blocks.length() >= 3)
       assert_true(ok_document.diagnostics.metrics.get("renderer_name") == None)
       assert_true(
-        ok_document.diagnostics.metrics.get("runtime_exposed") == Some("true"),
+        ok_document.diagnostics.metrics.get("pdf_native_parser_gate") ==
+        Some("enabled"),
       )
     }
     Err(msg) => fail("default parser should allow product success path: " + msg)
@@ -506,7 +507,7 @@ test "pdf native parser keeps stable diagnostics tokens for empty text layer and
 }
 
 ///|
-test "pdf native parser internal policy scaffold stays disabled by default and does not change output" {
+test "pdf native parser internal policy stays disabled by default and does not change output" {
   let base_context = @parser.new_parse_context(@input.DetectedFormat::Pdf)
   assert_true(
     @parser.pdf_header_footer_filter_policy_name(

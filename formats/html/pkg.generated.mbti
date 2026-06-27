@@ -10,13 +10,15 @@ import {
 // Values
 pub fn html_document_to_ir(@input.InputSource, String) -> Result[(@core.DocumentIR, @core.Diagnostics), String]
 
-pub fn html_lite_parser() -> @parser.Parser
-
 pub fn html_lowering_block_metric(@input.InputSource, @ZSeanYves/markitdown/format_readers/html.HtmlDocument, @ZSeanYves/markitdown/format_readers/html.HtmlSemanticDocument) -> Int
 
 pub fn html_lowering_prepare_metric(@ZSeanYves/markitdown/format_readers/html.HtmlDocument, @ZSeanYves/markitdown/format_readers/html.HtmlSemanticDocument) -> Int
 
 pub fn html_lowering_top_level_block_metric(@ZSeanYves/markitdown/format_readers/html.HtmlDocument, @ZSeanYves/markitdown/format_readers/html.HtmlSemanticDocument) -> Int
+
+pub fn html_parse_with_token_events(@input.InputSource, @parser.ParseContext, String, Array[@ZSeanYves/markitdown/format_readers/html.HtmlTokenEvent]) -> @parser.ParseResult
+
+pub fn html_parser() -> @parser.Parser
 
 // Errors
 

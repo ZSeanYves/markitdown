@@ -109,6 +109,8 @@ pub fn office_source_ref_extra_keys() -> Array[String]
 
 pub fn office_streaming_granularities() -> Array[@parser.StreamingGranularity]
 
+pub fn parser_contract_required_foundation_exclusions() -> Array[String]
+
 pub fn pptx_contract_asset_policy() -> Array[String]
 
 pub fn pptx_contract_excluded_runtime_foundations() -> Array[String]

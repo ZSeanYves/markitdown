@@ -156,8 +156,8 @@ fn read_relationship_index_from_rels_part(
     None => ()
   }
 
-  let rels_xml = read_part_text(pkg, key)
-  let rels = parse_relationships_xml(rels_xml, source_part, key)
+  let rels_payload = read_xml_part_payload(pkg, key)
+  let rels = parse_relationships_xml(rels_payload.text, source_part, key)
   let index = build_ooxml_relationship_index(rels)
   pkg.relationship_cache.relationships_miss_count.val += 1
   pkg.relationship_cache.index_by_rels_part.set(key, index)

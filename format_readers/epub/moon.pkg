@@ -1,7 +1,10 @@
 import {
+  "ZSeanYves/markitdown/format_readers/xml_native",
   "ZSeanYves/markitdown/format_readers/zip",
   "moonbitlang/core/encoding/utf8",
 }
+
+supported_targets = "native"
 
 options(
   "preferred-target": "native",

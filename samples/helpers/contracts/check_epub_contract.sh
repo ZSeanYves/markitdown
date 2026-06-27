@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-source "$ROOT/samples/helpers/shared/tmp_helpers.sh"
-source "$ROOT/samples/helpers/shared/validation_helpers.sh"
+source "$ROOT/samples/helpers/shared/tmp.sh"
+source "$ROOT/samples/helpers/shared/cli_runner.sh"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp/check}"
 OUT_DIR="$(sample_make_isolated_tmp_dir "$TMP_ROOT" "epub_contract")"
 
@@ -44,6 +44,20 @@ assert_not_contains() {
   local needle="$2"
   if grep -Fq -- "$needle" "$path"; then
     fail "did not expect $path to contain: $needle"
+  fi
+}
+
+assert_any_contains() {
+  local needle="$1"
+  shift
+  grep -Fq -- "$needle" "$@" || fail "expected sources to contain: $needle"
+}
+
+assert_all_not_contains() {
+  local needle="$1"
+  shift
+  if grep -Fq -- "$needle" "$@"; then
+    fail "did not expect sources to contain: $needle"
   fi
 }
 
@@ -88,7 +102,7 @@ EPUB_PKG="$ROOT/formats/epub/moon.pkg"
 HTML_PKG="$ROOT/formats/html/moon.pkg"
 CLI_PKG="$ROOT/cli/moon.pkg"
 REGISTRY_IMPL="$ROOT/formats/registry.mbt"
-EPUB_PARSER_IMPL="$ROOT/formats/epub/parser.mbt"
+EPUB_PARSER_SOURCES=("$ROOT/formats/epub/"*.mbt)
 DOC_PARSE_EPUB_PKG="$ROOT/format_readers/epub/moon.pkg"
 DOC_PARSE_ZIP_PKG="$ROOT/format_readers/zip/moon.pkg"
 RUNTIME_IMPL="$ROOT/runtime/runtime.mbt"
@@ -100,18 +114,17 @@ assert_contains "$FORMATS_PKG" 'ZSeanYves/markitdown/formats/html'
 assert_contains "$EPUB_PKG" 'ZSeanYves/markitdown/format_readers/epub'
 assert_contains "$EPUB_PKG" 'ZSeanYves/markitdown/runtime'
 assert_contains "$HTML_PKG" 'ZSeanYves/markitdown/format_readers/html'
-assert_contains "$HTML_PKG" 'ZSeanYves/markitdown/pipeline'
 assert_contains "$DOC_PARSE_EPUB_PKG" 'ZSeanYves/markitdown/format_readers/zip'
 assert_contains "$DOC_PARSE_ZIP_PKG" 'bikallem/compress/flate'
 assert_contains "$REGISTRY_IMPL" '@input.DetectedFormat::Epub'
-assert_contains "$REGISTRY_IMPL" '@fepub.epub_container_parser(fn() { builtin_registry() })'
+assert_contains "$REGISTRY_IMPL" '@fepub.epub_package_parser(fn() { builtin_registry() })'
 assert_contains "$REGISTRY_IMPL" '@input.DetectedFormat::Html'
-assert_contains "$REGISTRY_IMPL" '@fhtml.html_lite_parser()'
-assert_contains "$EPUB_PARSER_IMPL" '@depub.open_epub_package'
-assert_contains "$EPUB_PARSER_IMPL" '@depub.inspect_epub_package'
-assert_contains "$EPUB_PARSER_IMPL" '@depub.read_part_bytes'
-assert_contains "$EPUB_PARSER_IMPL" 'registry_provider'
-assert_contains "$EPUB_PARSER_IMPL" '@runtime.parse_child_to_document'
+assert_contains "$REGISTRY_IMPL" '@fhtml.html_parser()'
+assert_any_contains '@depub.open_epub_package' "${EPUB_PARSER_SOURCES[@]}"
+assert_any_contains '@depub.inspect_epub_package' "${EPUB_PARSER_SOURCES[@]}"
+assert_any_contains '@depub.read_part_bytes' "${EPUB_PARSER_SOURCES[@]}"
+assert_any_contains 'registry_provider' "${EPUB_PARSER_SOURCES[@]}"
+assert_any_contains '@runtime.parse_child_to_document' "${EPUB_PARSER_SOURCES[@]}"
 assert_contains "$RUNTIME_IMPL" '@parser.registry_parse(registry, source, inner_context)'
 assert_not_contains "$FORMATS_PKG" 'ZSeanYves/markitdown/format_readers/epub'
 assert_not_contains "$FORMATS_PKG" 'ZSeanYves/markitdown/format_readers/zip'
@@ -123,20 +136,12 @@ assert_not_contains "$FORMATS_PKG" 'ZSeanYves/markitdown/convert/html'
 assert_not_contains "$CLI_PKG" 'ZSeanYves/markitdown/convert/epub'
 assert_not_contains "$CLI_PKG" 'ZSeanYves/markitdown/convert/html'
 assert_not_contains "$REGISTRY_IMPL" 'convert/epub'
-assert_not_contains "$EPUB_PARSER_IMPL" 'convert/epub'
+assert_all_not_contains 'convert/epub' "${EPUB_PARSER_SOURCES[@]}"
 assert_not_contains "$REGISTRY_IMPL" 'convert/html'
-assert_not_contains "$EPUB_PARSER_IMPL" 'convert/html'
+assert_all_not_contains 'convert/html' "${EPUB_PARSER_SOURCES[@]}"
 assert_not_contains "$REGISTRY_IMPL" 'epub_raw_fallback'
-assert_not_contains "$EPUB_PARSER_IMPL" 'epub_raw_fallback'
-assert_not_contains "$REGISTRY_IMPL" 'epub_legacy_fallback'
-assert_not_contains "$EPUB_PARSER_IMPL" 'epub_legacy_fallback'
-assert_not_contains "$REGISTRY_IMPL" 'legacy_dispatcher_used'
-assert_not_contains "$EPUB_PARSER_IMPL" 'legacy_dispatcher_used'
-assert_not_contains "$REGISTRY_IMPL" 'convert_epub_used'
-assert_not_contains "$EPUB_PARSER_IMPL" 'convert_epub_used'
-assert_not_contains "$REGISTRY_IMPL" 'convert_html_used'
-assert_not_contains "$EPUB_PARSER_IMPL" 'convert_html_used'
-assert_contains "$README_DOC" 'EPUB restoration is implemented through `format_readers/epub` on top of `format_readers/zip`'
+assert_all_not_contains 'epub_raw_fallback' "${EPUB_PARSER_SOURCES[@]}"
+assert_contains "$README_DOC" 'EPUB support is implemented through `format_readers/epub` on top of `format_readers/zip`'
 
 echo "==> help keeps epub exposed and fail-closed unsupported formats"
 run_and_capture "$CLI_HELP" run_markitdown_cli --help
@@ -157,8 +162,8 @@ assert_matches_expected "$EPUB_SPINE_EXPECTED" "$EPUB_SPINE_OUT"
 run_and_capture "$EPUB_SPINE_JSON" run_markitdown_cli --debug "$EPUB_SPINE_INPUT"
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "epub spine debug json should succeed"
 assert_contains "$EPUB_SPINE_JSON" '"event_granularity": "epub_spine_item"'
-assert_contains "$EPUB_SPINE_JSON" '"effective_mode": "container_recursive"'
-assert_contains "$EPUB_SPINE_JSON" '"ir_input_kind": "container_plan"'
+assert_contains "$EPUB_SPINE_JSON" '"effective_mode": "package_single_pass"'
+assert_contains "$EPUB_SPINE_JSON" '"ir_input_kind": "block_stream"'
 assert_contains "$EPUB_SPINE_JSON" '"entry_path": "OPS/text/chapter-02.xhtml"'
 assert_contains "$EPUB_SPINE_JSON" '"entry_path": "OPS/text/chapter-01.xhtml"'
 

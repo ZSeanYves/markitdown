@@ -6,6 +6,7 @@ pub struct CliResult {
   runner_mode : String?
   canonical_performance : Bool?
   runner_path : String?
+  measurement_policy : String?
   tool : String
   tool_version : String?
   measurement_mode : String?
@@ -23,6 +24,7 @@ pub struct CliResult {
   command_display : String
   repeat_index : Int
   repeat_count : Int
+  warmup_count : Int
   exit_code : Int
   status : String
   timed_out : Bool
@@ -44,6 +46,8 @@ pub fn make_cli_result(
   run_id : String,
   git_commit : String,
   runner : @command.RunnerContext,
+  warmup_count : Int,
+  process_order : String,
   tier : String,
   tool : @tools.BenchTool,
   row : @manifest.BenchRow,
@@ -71,6 +75,14 @@ pub fn make_cli_result(
     runner_mode: Some(runner.runner_mode),
     canonical_performance: Some(runner.canonical_performance),
     runner_path: runner.runner_path,
+    measurement_policy: Some(
+      "warmup=" +
+      warmup_count.to_string() +
+      ";samples=" +
+      repeat_count.to_string() +
+      ";process_order=" +
+      process_order,
+    ),
     tool: tool.name,
     tool_version: tool.tool_version,
     measurement_mode: Some("process-cli"),
@@ -88,6 +100,7 @@ pub fn make_cli_result(
     command_display: command.command_display,
     repeat_index,
     repeat_count,
+    warmup_count,
     exit_code: data.exit_code,
     status,
     timed_out: data.timed_out,
@@ -110,6 +123,8 @@ pub fn make_unavailable_result(
   run_id : String,
   git_commit : String,
   runner : @command.RunnerContext,
+  warmup_count : Int,
+  process_order : String,
   tier : String,
   tool : @tools.BenchTool,
   row : @manifest.BenchRow,
@@ -124,6 +139,14 @@ pub fn make_unavailable_result(
     runner_mode: Some(runner.runner_mode),
     canonical_performance: Some(runner.canonical_performance),
     runner_path: runner.runner_path,
+    measurement_policy: Some(
+      "warmup=" +
+      warmup_count.to_string() +
+      ";samples=" +
+      repeat_count.to_string() +
+      ";process_order=" +
+      process_order,
+    ),
     tool: tool.name,
     tool_version: tool.tool_version,
     measurement_mode: if tool.name == "moonbit-engine" {
@@ -145,6 +168,7 @@ pub fn make_unavailable_result(
     command_display: tool.name + " unavailable",
     repeat_index,
     repeat_count,
+    warmup_count,
     exit_code: 0,
     status: "unavailable",
     timed_out: false,
@@ -167,6 +191,8 @@ pub fn make_inprocess_result(
   run_id : String,
   git_commit : String,
   runner : @command.RunnerContext,
+  warmup_count : Int,
+  process_order : String,
   tool : @tools.BenchTool,
   row : @manifest.BenchRow,
   command_display : String,
@@ -186,6 +212,14 @@ pub fn make_inprocess_result(
     runner_mode: Some(runner.runner_mode),
     canonical_performance: Some(runner.canonical_performance),
     runner_path: runner.runner_path,
+    measurement_policy: Some(
+      "warmup=" +
+      warmup_count.to_string() +
+      ";samples=" +
+      repeat_count.to_string() +
+      ";process_order=" +
+      process_order,
+    ),
     tool: tool.name,
     tool_version: tool.tool_version,
     measurement_mode: Some("inprocess-engine"),
@@ -203,6 +237,7 @@ pub fn make_inprocess_result(
     command_display,
     repeat_index,
     repeat_count,
+    warmup_count,
     exit_code,
     status,
     timed_out: status == "timeout",

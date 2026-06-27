@@ -2,11 +2,13 @@ import {
   "ZSeanYves/markitdown/format_readers/zip" @dzip,
   "ZSeanYves/markitdown/container",
   "ZSeanYves/markitdown/core",
-  "ZSeanYves/markitdown/formats/light_common",
+  "ZSeanYves/markitdown/formats/parser_common",
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
   "ZSeanYves/markitdown/runtime",
 }
+
+supported_targets = "native"
 
 options(
   "preferred-target": "native",

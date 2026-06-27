@@ -2,6 +2,7 @@
 package "ZSeanYves/markitdown/format_readers/ooxml/package"
 
 import {
+  "ZSeanYves/markitdown/format_readers/xml_native",
   "ZSeanYves/markitdown/format_readers/zip",
 }
 
@@ -70,9 +71,17 @@ pub fn read_package_relationships(OoxmlPackage) -> Array[OoxmlRelationship] rais
 
 pub fn read_part_bytes(OoxmlPackage, String) -> Bytes raise OoxmlError
 
+pub fn read_part_bytes_transient(OoxmlPackage, String) -> Bytes raise OoxmlError
+
 pub fn read_part_relationships(OoxmlPackage, String) -> Array[OoxmlRelationship] raise OoxmlError
 
 pub fn read_part_text(OoxmlPackage, String) -> String raise OoxmlError
+
+pub fn read_part_text_transient(OoxmlPackage, String) -> String raise OoxmlError
+
+pub fn read_xml_part_payload(OoxmlPackage, String) -> OoxmlXmlPartPayload raise OoxmlError
+
+pub fn read_xml_part_payload_transient(OoxmlPackage, String) -> OoxmlXmlPartPayload raise OoxmlError
 
 pub fn resolve_relationship(OoxmlPackage, String, String) -> String raise OoxmlError
 
@@ -168,7 +177,8 @@ pub(all) enum OoxmlErrorKind {
 
 pub struct OoxmlPackage {
   archive : @zip.ZipArchive
-  part_index : Map[String, Int]
+  part_index : Map[String, String]
+  part_size_index : Map[String, Int]
   content_types_default : Map[String, String]
   content_types_override : Map[String, String]
   // private fields
@@ -291,6 +301,13 @@ pub(all) enum OoxmlValidationSeverity {
   Warning
   Error
 } derive(Eq)
+
+pub struct OoxmlXmlPartPayload {
+  part_name : String
+  bytes : Bytes
+  text : String
+  structure_scan : @xml_native.NativeXmlStructureScan
+}
 
 // Type aliases
 

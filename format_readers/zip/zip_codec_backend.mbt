@@ -1,6 +1,17 @@
 ///|
 fn decompress_deflate_raw_backend(compressed : Bytes) -> Bytes raise CodecError {
-  @flate.decompress(compressed) catch {
-    err => raise DecodeFailed(err.to_string())
+  let inflater = @flate.Inflater::new()
+  inflater.src(compressed[:])
+  let sink = @blit.Buffer::new(size_hint=(compressed.length() * 2).max(32768))
+  loop inflater.decode() {
+    Await =>
+      raise DecodeFailed("unexpected EOF while decoding raw deflate entry")
+    Data(chunk) => {
+      sink.write_bytesview(chunk)
+      continue inflater.decode()
+    }
+    End => break
+    Error(err) => raise DecodeFailed(err.to_string())
   }
+  sink.to_bytes()
 }

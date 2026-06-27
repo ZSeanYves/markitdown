@@ -2,9 +2,12 @@
 pub struct RunRequest {
   tool_name : String
   tier : String
-  format_filter : String?
+  exact_tiers : Array[String]
+  bench_ids : Array[String]
+  format_filters : Array[String]
   limit : Int?
   repeat_count : Int
+  warmup_count : Int
   timeout_ms : Int
   markitdown_path : String?
   cli_output_mode : CliOutputMode
@@ -17,9 +20,12 @@ pub struct RunRequest {
 ///|
 pub struct CompareRequest {
   tier : String
-  format_filter : String?
+  exact_tiers : Array[String]
+  bench_ids : Array[String]
+  format_filters : Array[String]
   limit : Int?
   repeat_count : Int
+  warmup_count : Int
   timeout_ms : Int
   markitdown_path : String?
   cli_output_mode : CliOutputMode
@@ -30,8 +36,20 @@ pub struct CompareRequest {
 } derive(Eq)
 
 ///|
+pub struct ProfileRequest {
+  profile_kind : String
+  exact_tiers : Array[String]
+  bench_ids : Array[String]
+  formats : Array[String]
+  run_id : String
+  git_commit : String
+  runner : RunnerContext
+} derive(Eq)
+
+///|
 pub struct DiagnoseRequest {
   repeat_count : Int
+  warmup_count : Int
   timeout_ms : Int
   cli_output_mode : CliOutputMode
   engine_output_mode : EngineOutputMode
@@ -113,9 +131,12 @@ pub fn parse_engine_output_mode(text : String) -> EngineOutputMode raise {
 pub fn make_run_request(
   tool_name : String,
   tier : String,
-  format_filter : String?,
+  exact_tiers : Array[String],
+  bench_ids : Array[String],
+  format_filters : Array[String],
   limit : Int?,
   repeat_count : Int,
+  warmup_count : Int,
   timeout_ms : Int,
   markitdown_path : String?,
   cli_output_mode : CliOutputMode,
@@ -127,9 +148,12 @@ pub fn make_run_request(
   {
     tool_name,
     tier,
-    format_filter,
+    exact_tiers,
+    bench_ids,
+    format_filters,
     limit,
     repeat_count,
+    warmup_count,
     timeout_ms,
     markitdown_path,
     cli_output_mode,
@@ -143,6 +167,7 @@ pub fn make_run_request(
 ///|
 pub fn make_diagnose_request(
   repeat_count : Int,
+  warmup_count : Int,
   timeout_ms : Int,
   cli_output_mode : CliOutputMode,
   engine_output_mode : EngineOutputMode,
@@ -152,6 +177,7 @@ pub fn make_diagnose_request(
 ) -> DiagnoseRequest {
   {
     repeat_count,
+    warmup_count,
     timeout_ms,
     cli_output_mode,
     engine_output_mode,
@@ -162,11 +188,27 @@ pub fn make_diagnose_request(
 }
 
 ///|
+pub fn make_profile_request(
+  profile_kind : String,
+  exact_tiers : Array[String],
+  bench_ids : Array[String],
+  formats : Array[String],
+  run_id : String,
+  git_commit : String,
+  runner : RunnerContext,
+) -> ProfileRequest {
+  { profile_kind, exact_tiers, bench_ids, formats, run_id, git_commit, runner }
+}
+
+///|
 pub fn make_compare_request(
   tier : String,
-  format_filter : String?,
+  exact_tiers : Array[String],
+  bench_ids : Array[String],
+  format_filters : Array[String],
   limit : Int?,
   repeat_count : Int,
+  warmup_count : Int,
   timeout_ms : Int,
   markitdown_path : String?,
   cli_output_mode : CliOutputMode,
@@ -177,9 +219,12 @@ pub fn make_compare_request(
 ) -> CompareRequest {
   {
     tier,
-    format_filter,
+    exact_tiers,
+    bench_ids,
+    format_filters,
     limit,
     repeat_count,
+    warmup_count,
     timeout_ms,
     markitdown_path,
     cli_output_mode,

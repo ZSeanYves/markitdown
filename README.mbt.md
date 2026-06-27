@@ -34,7 +34,7 @@ Key boundaries:
 
 ## Supported Main-CLI Formats
 
-The current main CLI supports:
+The main CLI supports:
 
 - `txt`, `csv`, `tsv`
 - `json`, `jsonl`, `ndjson`

@@ -1,0 +1,13 @@
+import {
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/string",
+}
+
+options(
+  "preferred-target": "native",
+  "native-stub": [ "xml_native_stub.c" ],
+  targets: {
+    "xml_native.mbt": [ "native" ],
+    "pkg.generated.mbti": [ "native" ],
+  },
+)

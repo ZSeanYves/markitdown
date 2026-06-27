@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-source "$ROOT/samples/helpers/shared/tmp_helpers.sh"
-source "$ROOT/samples/helpers/shared/validation_helpers.sh"
+source "$ROOT/samples/helpers/shared/tmp.sh"
+source "$ROOT/samples/helpers/shared/cli_runner.sh"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp/check}"
 OUT_DIR="$(sample_make_isolated_tmp_dir "$TMP_ROOT" "no_implicit_ocr_contract")"
 
@@ -41,17 +41,17 @@ TXT_INPUT="$ROOT/samples/main_process/txt/markdown/txt_plain.txt"
 IMAGE_INPUT="$ROOT/samples/fixtures/ocr/tiny_ocr_sample.png"
 PDF_INPUT="$ROOT/samples/main_process/pdf/markdown/text_simple.pdf"
 
-echo "==> retired ocr subcommand fails closed through the current main cli"
+echo "==> retired ocr subcommand fails closed through the main cli"
 run_and_capture "$OUT_DIR/ocr_retired.txt" run_markitdown_cli ocr "$TXT_INPUT"
 [[ "$CAPTURED_STATUS" -ne 0 ]] || fail "ocr subcommand should fail closed"
-assert_contains "$OUT_DIR/ocr_retired.txt" 'unsupported subcommand: ocr is not migrated to the current main CLI yet'
+assert_contains "$OUT_DIR/ocr_retired.txt" 'unsupported subcommand in this build: ocr'
 
-echo "==> image input is not exposed through the current main cli"
+echo "==> image input is not exposed through the main cli"
 run_and_capture "$OUT_DIR/image_auto.txt" run_markitdown_cli "$IMAGE_INPUT"
 [[ "$CAPTURED_STATUS" -ne 0 ]] || fail "image input should fail closed through main cli"
 assert_contains "$OUT_DIR/image_auto.txt" 'unsupported format'
 assert_contains "$OUT_DIR/image_auto.txt" 'png'
-assert_contains "$OUT_DIR/image_auto.txt" 'current main CLI'
+assert_contains "$OUT_DIR/image_auto.txt" 'this build'
 assert_contains "$OUT_DIR/image_auto.txt" 'image OCR is not enabled'
 
 echo "==> explicit ocr flags still parse, but required contract does not depend on local provider availability"

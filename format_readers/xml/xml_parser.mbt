@@ -10,6 +10,13 @@ pub fn parse_xml_document(text : String) -> XmlDocument raise {
 }
 
 ///|
+/// Tokenize XML and keep source-native structure tokens without constructing
+/// the source-native document tree.
+pub fn parse_xml_structure_tokens(text : String) -> Array[XmlToken] raise {
+  tokenize_xml_document(text)
+}
+
+///|
 fn count_xml_source_chars(text : String) -> Int {
   let mut count = 0
   for _ in text {

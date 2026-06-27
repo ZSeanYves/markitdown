@@ -3,9 +3,16 @@ import {
   "moonbitlang/x/sys",
   "ZSeanYves/markitdown/bench/runner/command",
   "ZSeanYves/markitdown/bench/runner/manifest",
-  "ZSeanYves/markitdown/bench/runner/process",
-  "ZSeanYves/markitdown/bench/runner/result",
   "ZSeanYves/markitdown/bench/runner/tools",
+  "ZSeanYves/markitdown/bench/runner/measure",
+  "ZSeanYves/markitdown/convert",
+  "ZSeanYves/markitdown/input",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+  "moonbitlang/core/math",
+  "moonbitlang/core/string",
+  "moonbitlang/x/fs",
 }
 
 supported_targets = "native"

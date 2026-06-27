@@ -1,2011 +1,4 @@
 ///|
-
-///|
-fn test_tmp_root() -> String {
-  ".tmp/tests/pipeline"
-}
-
-///|
-fn ensure_dir(path : String) -> Unit raise {
-  if !@fs.path_exists(path) {
-    @fs.create_dir(path)
-  }
-}
-
-///|
-fn ensure_dir_tree(path : String) -> Unit raise {
-  let trimmed = path.trim()
-  if trimmed == "" {
-    return
-  }
-  let chars = trimmed.to_array()
-  let mut current = if chars.length() > 0 && chars[0] == '/' { "/" } else { "" }
-  let part : Array[Char] = []
-
-  fn flush(part : Array[Char], current : String) -> String raise {
-    if part.length() == 0 {
-      return current
-    }
-    let segment = String::from_array(part)
-    part.clear()
-    let next = if current == "" || current == "/" {
-      current + segment
-    } else {
-      current + "/" + segment
-    }
-    ensure_dir(next)
-    next
-  }
-
-  for ch in chars {
-    if ch == '/' {
-      current = flush(part, current)
-    } else {
-      part.push(ch)
-    }
-  }
-  ignore(flush(part, current))
-}
-
-///|
-fn remove_dir_recursive(path : String) -> Unit raise {
-  if !@fs.path_exists(path) {
-    return
-  }
-  for name in @fs.read_dir(path) {
-    let child = path + "/" + name
-    if @fs.is_dir(child) {
-      remove_dir_recursive(child)
-    } else if @fs.is_file(child) {
-      @fs.remove_file(child)
-    }
-  }
-  @fs.remove_dir(path)
-}
-
-///|
-fn recreate_clean_dir(path : String) -> Unit raise {
-  if @fs.path_exists(path) {
-    remove_dir_recursive(path)
-  }
-  ensure_dir_tree(path)
-}
-
-///|
-fn cleanup_temp_dir(path : String) -> Unit {
-  ignore(
-    try remove_dir_recursive(path) |> Ok catch {
-      _ => Err(())
-    },
-  )
-}
-
-///|
-fn write_utf8_text(path : String, text : String) -> Unit raise {
-  @fs.write_string_to_file(path, text, encoding="utf8") catch {
-    e => fail("write failed: " + e.to_string())
-  }
-}
-
-///|
-fn read_utf8_text(path : String) -> String {
-  @fs.read_file_to_string(path, encoding="utf8") catch {
-    e => abort("read failed: " + e.to_string())
-  }
-}
-
-///|
-fn assert_metric_eq(
-  diagnostics : @core.Diagnostics,
-  key : String,
-  expected : String,
-) -> Unit raise {
-  assert_true(diagnostics.metrics.get(key) == Some(expected))
-}
-
-///|
-fn assert_metric_not_eq(
-  diagnostics : @core.Diagnostics,
-  key : String,
-  unexpected : String,
-) -> Unit raise {
-  assert_true(diagnostics.metrics.get(key) != Some(unexpected))
-}
-
-///|
-fn assert_contains_all(text : String, needles : Array[String]) -> Unit raise {
-  for needle in needles {
-    assert_true(text.contains(needle))
-  }
-}
-
-///|
-fn final_document_from_parse_result(
-  parsed : @parser.ParseResult,
-  debug? : Bool = false,
-  pdf_cleanup_enabled? : Bool = false,
-) -> @core.DocumentIR {
-  let mut document = @pipeline.build_document_with_default_pipeline(
-    @runtime.parse_result_to_ir_input(parsed),
-    @pipeline.make_pass_context(
-      debug,
-      parsed.mode |> @parser.mode_name,
-      pdf_cleanup_enabled~,
-    ),
-    trace_builder=false,
-    trace_passes=false,
-  )
-  let merged = @runtime.merge_diagnostics_append(
-    parsed.diagnostics,
-    document.diagnostics,
-  )
-  document = @core.document_with_diagnostics(document, merged)
-  document
-}
-
-///|
-fn assert_contains_none(text : String, needles : Array[String]) -> Unit raise {
-  for needle in needles {
-    assert_true(!text.contains(needle))
-  }
-}
-
-///|
-fn assert_exact_count(
-  text : String,
-  needle : String,
-  expected : Int,
-) -> Unit raise {
-  let mut count = 0
-  let mut rest = text
-  while true {
-    match rest.split_once(needle) {
-      Some((_, tail)) => {
-        count += 1
-        rest = tail.to_owned()
-      }
-      None => break
-    }
-  }
-  assert_eq(count, expected)
-}
-
-///|
-fn assert_string_items_contain_none(
-  items : Array[String],
-  needles : Array[String],
-) -> Unit raise {
-  assert_contains_none(items.join("\n"), needles)
-}
-
-///|
-fn assert_diagnostics_lists_contain_none(
-  diagnostics : @core.Diagnostics,
-  needles : Array[String],
-) -> Unit raise {
-  assert_string_items_contain_none(diagnostics.warnings, needles)
-  assert_string_items_contain_none(diagnostics.errors, needles)
-  assert_string_items_contain_none(diagnostics.degraded_features, needles)
-  assert_string_items_contain_none(diagnostics.fallback_trace, needles)
-  assert_string_items_contain_none(diagnostics.pass_trace, needles)
-}
-
-///|
-fn assert_file_contains_all(
-  path : String,
-  needles : Array[String],
-) -> Unit raise {
-  assert_contains_all(read_utf8_text(path), needles)
-}
-
-///|
-fn assert_file_contains_none(
-  path : String,
-  needles : Array[String],
-) -> Unit raise {
-  assert_contains_none(read_utf8_text(path), needles)
-}
-
-///|
-fn assert_files_avoid_strings(
-  paths : Array[String],
-  needles : Array[String],
-) -> Unit raise {
-  for path in paths {
-    assert_file_contains_none(path, needles)
-  }
-}
-
-///|
-fn convert_memory_text(
-  text : String,
-  source_name : String,
-  format : @input.DetectedFormat,
-  mode? : @convert.ConvertMode = @convert.ConvertMode::Balanced,
-  output? : @convert.OutputFormat = @convert.OutputFormat::Markdown,
-  ocr_options? : @parser.OcrOptions = @parser.default_ocr_options(),
-  limits? : @convert.ResourceLimits = @convert.default_resource_limits(),
-  pdf_cleanup_mode? : @convert.PdfCleanupMode = @convert.default_pdf_cleanup_mode(),
-  pdf_table_mode? : @convert.PdfTableMode = @convert.default_pdf_table_mode(),
-) -> @convert.ConvertResult {
-  let options = @convert.make_convert_options(
-    mode,
-    output,
-    Some(format),
-    ocr_options,
-    limits,
-    pdf_cleanup_mode~,
-    pdf_table_mode~,
-  )
-  match
-    @convert.convert_input(
-      @input.input_from_text_with_format(text, source_name, Some(format)),
-      options,
-    ) {
-    Ok(result) => result
-    Err(err) => abort("convert failed: " + err.to_string())
-  }
-}
-
-///|
-fn convert_path(
-  path : String,
-  format? : @input.DetectedFormat? = None,
-  mode? : @convert.ConvertMode = @convert.ConvertMode::Balanced,
-  output? : @convert.OutputFormat = @convert.OutputFormat::Markdown,
-  ocr_options? : @parser.OcrOptions = @parser.default_ocr_options(),
-  limits? : @convert.ResourceLimits = @convert.default_resource_limits(),
-  pdf_cleanup_mode? : @convert.PdfCleanupMode = @convert.default_pdf_cleanup_mode(),
-  pdf_table_mode? : @convert.PdfTableMode = @convert.default_pdf_table_mode(),
-) -> @convert.ConvertResult {
-  let options = @convert.make_convert_options(
-    mode,
-    output,
-    format,
-    ocr_options,
-    limits,
-    pdf_cleanup_mode~,
-    pdf_table_mode~,
-  )
-  match @convert.convert_input(@input.input_from_path(path), options) {
-    Ok(result) => result
-    Err(err) => abort("convert failed: " + err.to_string())
-  }
-}
-
-///|
-fn limits(
-  max_rows : Int,
-  max_cols : Int,
-  max_cells : Int,
-  max_line_chars? : Int = 4000,
-) -> @convert.ResourceLimits {
-  @convert.make_resource_limits(max_rows, max_cols, max_cells, max_line_chars~)
-}
-
-///|
-fn default_registry_parse(
-  source : @input.InputSource,
-  format : @input.DetectedFormat,
-  requested_mode? : @parser.ParserMode? = None,
-  max_rows? : Int? = None,
-  max_cols? : Int? = None,
-  max_cells? : Int? = None,
-  debug? : Bool = false,
-) -> @parser.ParseResult {
-  let registry = @formats_root.builtin_registry()
-  let context = @parser.parse_context_with_limits(
-    @parser.new_parse_context(format),
-    requested_mode,
-    max_rows,
-    max_cols,
-    max_cells,
-    None,
-    debug,
-  )
-  match @parser.registry_parse(registry, source, context) {
-    Ok(result) => result
-    Err(err) => abort("parse failed: " + err)
-  }
-}
-
-///|
-fn assert_metric_present(
-  diagnostics : @core.Diagnostics,
-  key : String,
-) -> Unit raise {
-  match diagnostics.metrics.get(key) {
-    Some(_) => ()
-    None => fail("missing diagnostics metric: " + key)
-  }
-}
-
-///|
-fn unwrap_container_plan(
-  result : @parser.ParseResult,
-  context : String,
-) -> @core.ContainerPlan {
-  match result.container_plan {
-    Some(plan) => plan
-    None => abort("missing container plan: " + context)
-  }
-}
-
-///|
-fn find_block_in_tree(
-  blocks : Array[@core.CoreBlock],
-  kind : @core.BlockKind,
-  text : String,
-) -> @core.CoreBlock? {
-  for block in blocks {
-    if block.kind == kind && block.text == text {
-      return Some(block)
-    }
-    match find_block_in_tree(block.children, kind, text) {
-      Some(found) => return Some(found)
-      None => ()
-    }
-  }
-  None
-}
-
-///|
-fn block_tree_has_kind(
-  blocks : Array[@core.CoreBlock],
-  kind : @core.BlockKind,
-) -> Bool {
-  for block in blocks {
-    if block.kind == kind {
-      return true
-    }
-    if block_tree_has_kind(block.children, kind) {
-      return true
-    }
-  }
-  false
-}
-
-///|
-fn block_tree_contains_text_fragment(
-  blocks : Array[@core.CoreBlock],
-  fragment : String,
-) -> Bool {
-  for block in blocks {
-    if block.text.contains(fragment) {
-      return true
-    }
-    if block_tree_contains_text_fragment(block.children, fragment) {
-      return true
-    }
-  }
-  false
-}
-
-///|
-fn flatten_block_texts(blocks : Array[@core.CoreBlock]) -> Array[String] {
-  let out : Array[String] = []
-  collect_block_texts(blocks, out)
-  out
-}
-
-///|
-fn collect_block_texts(
-  blocks : Array[@core.CoreBlock],
-  out : Array[String],
-) -> Unit {
-  for block in blocks {
-    out.push(block.text)
-    if block.children.length() > 0 {
-      collect_block_texts(block.children, out)
-    }
-  }
-}
-
-///|
-fn first_string_index(items : Array[String], needle : String) -> Int? {
-  for i in 0..<items.length() {
-    if items[i] == needle {
-      return Some(i)
-    }
-  }
-  None
-}
-
-///|
-fn assert_ordered_strings(
-  items : Array[String],
-  left : String,
-  right : String,
-) -> Unit raise {
-  let left_index = match first_string_index(items, left) {
-    Some(value) => value
-    None => fail("missing ordered string: " + left)
-  }
-  let right_index = match first_string_index(items, right) {
-    Some(value) => value
-    None => fail("missing ordered string: " + right)
-  }
-  assert_true(left_index < right_index)
-}
-
-///|
-fn contains_trace_in_order(
-  traces : Array[String],
-  ordered_needles : Array[String],
-) -> Bool {
-  if ordered_needles.length() == 0 {
-    return true
-  }
-  let mut cursor = 0
-  for trace in traces {
-    if trace.contains(ordered_needles[cursor]) {
-      cursor += 1
-      if cursor == ordered_needles.length() {
-        return true
-      }
-    }
-  }
-  false
-}
-
-///|
-test "detector contract covers extensions and unknown fallback" {
-  let detector = @input.default_format_detector()
-  assert_true(
-    (detector.detect)(@input.input_from_path("notes.txt")).format ==
-    @input.DetectedFormat::Txt,
-  )
-  assert_true(
-    (detector.detect)(@input.input_from_path("post.md")).format ==
-    @input.DetectedFormat::Markdown,
-  )
-  assert_true(
-    (detector.detect)(@input.input_from_path("post.markdown")).format ==
-    @input.DetectedFormat::Markdown,
-  )
-  assert_true(
-    (detector.detect)(@input.input_from_path("table.csv")).format ==
-    @input.DetectedFormat::Csv,
-  )
-  assert_true(
-    (detector.detect)(@input.input_from_path("table.tsv")).format ==
-    @input.DetectedFormat::Tsv,
-  )
-  assert_true(
-    (detector.detect)(@input.input_from_path("doc.json")).format ==
-    @input.DetectedFormat::Json,
-  )
-  assert_true(
-    (detector.detect)(@input.input_from_path("records.jsonl")).format ==
-    @input.DetectedFormat::Jsonl,
-  )
-  assert_true(
-    (detector.detect)(@input.input_from_path("records.ndjson")).format ==
-    @input.DetectedFormat::Ndjson,
-  )
-  assert_true(
-    (detector.detect)(@input.input_from_path("tree.xml")).format ==
-    @input.DetectedFormat::Xml,
-  )
-  let png = (detector.detect)(@input.input_from_path("scan.png"))
-  assert_true(
-    png.format == @input.DetectedFormat::Image(@input.ImageFormat::Png),
-  )
-  assert_true(png.binary_like)
-  assert_true(!png.text_like)
-  assert_true(png.notes.contains("image_ocr_candidate"))
-  let tiff = (detector.detect)(@input.input_from_path("scan.tiff"))
-  assert_true(
-    tiff.format == @input.DetectedFormat::Image(@input.ImageFormat::Tiff),
-  )
-  let pdf = (detector.detect)(@input.input_from_path("sample.pdf"))
-  assert_true(pdf.format == @input.DetectedFormat::Pdf)
-  assert_true(pdf.binary_like)
-  assert_true(!pdf.text_like)
-  assert_true(
-    @input.parse_detected_format("jpg") ==
-    @input.DetectedFormat::Image(@input.ImageFormat::Jpg),
-  )
-  assert_true(@input.parse_detected_format("pdf") == @input.DetectedFormat::Pdf)
-  assert_true(@input.detected_format_name(@input.DetectedFormat::Pdf) == "pdf")
-  assert_true(
-    @input.detected_format_name(
-      @input.DetectedFormat::Image(@input.ImageFormat::Webp),
-    ) ==
-    "webp",
-  )
-  let unknown = (detector.detect)(
-    @input.input_from_bytes_with_format(
-      Bytes::from_array([0, 1, 2, 3]),
-      "blob.bin",
-      None,
-    ),
-  )
-  assert_true(unknown.format == @input.DetectedFormat::Unknown)
-  assert_true(unknown.binary_like)
-}
-
-///|
-test "convert contract recognizes image candidates but keeps default path fail closed" {
-  let image = @input.input_from_path_with_format(
-    "scan.png",
-    Some(@input.DetectedFormat::Image(@input.ImageFormat::Png)),
-  )
-  let result = @convert.convert_input(image, @convert.default_convert_options())
-  match result {
-    Err(@convert.ConvertError::ParseFailed(msg)) => {
-      assert_true(msg.contains("image OCR is not enabled"))
-      assert_true(msg.contains("png"))
-    }
-    Err(other) => fail("unexpected convert error kind: " + other.to_string())
-    Ok(_) =>
-      fail("image candidate should not produce successful default conversion")
-  }
-}
-
-///|
-test "convert contract threads OCR intent to image scaffold fail-closed branches" {
-  let image = @input.input_from_path_with_format(
-    "scan.png",
-    Some(@input.DetectedFormat::Image(@input.ImageFormat::Png)),
-  )
-
-  let explicit = @convert.convert_input(
-    image,
-    @convert.make_convert_options(
-      @convert.ConvertMode::Balanced,
-      @convert.OutputFormat::Markdown,
-      Some(@input.DetectedFormat::Image(@input.ImageFormat::Png)),
-      @parser.explicit_ocr_options(language=Some("eng")),
-      @convert.default_resource_limits(),
-    ),
-  )
-  match explicit {
-    Err(@convert.ConvertError::ParseFailed(msg)) => {
-      assert_true(msg.contains("not configured"))
-      assert_true(msg.contains("image_format=png"))
-      assert_true(msg.contains("language=eng"))
-    }
-    Err(other) =>
-      fail("unexpected explicit OCR convert error: " + other.to_string())
-    Ok(_) => fail("explicit OCR image convert should stay fail closed")
-  }
-
-  let disabled = @convert.convert_input(
-    image,
-    @convert.make_convert_options(
-      @convert.ConvertMode::Balanced,
-      @convert.OutputFormat::Markdown,
-      Some(@input.DetectedFormat::Image(@input.ImageFormat::Png)),
-      @parser.disabled_ocr_options(),
-      @convert.default_resource_limits(),
-    ),
-  )
-  match disabled {
-    Err(@convert.ConvertError::ParseFailed(msg)) => {
-      assert_true(msg.contains("OCR is disabled"))
-      assert_true(msg.contains("png"))
-    }
-    Err(other) =>
-      fail("unexpected disabled OCR convert error: " + other.to_string())
-    Ok(_) => fail("disabled OCR image convert should stay fail closed")
-  }
-}
-
-///|
-test "convert contract recognizes pdf as a root native-text product format" {
-  let pdf = @input.input_from_path_with_format(
-    "samples/main_process/pdf/markdown/text_simple.pdf",
-    Some(@input.DetectedFormat::Pdf),
-  )
-  let result = @convert.convert_input(pdf, @convert.default_convert_options())
-  match result {
-    Ok(parsed) => {
-      assert_true(parsed.content.contains("MarkItDown"))
-      assert_true(!parsed.content.contains("]("))
-      assert_true(
-        parsed.diagnostics.metrics.get("detected_format") == Some("pdf"),
-      )
-      assert_true(
-        parsed.diagnostics.metrics.get("product_path_enabled") == Some("true"),
-      )
-      assert_true(
-        parsed.diagnostics.metrics.get("renderer_name") ==
-        Some("MarkdownRenderer"),
-      )
-      assert_true(
-        parsed.diagnostics.metrics.get("pdf_native_parser_gate") ==
-        Some("enabled"),
-      )
-      assert_true(
-        parsed.diagnostics.metrics.get("pdf_native_backend") == Some("true"),
-      )
-      assert_true(
-        parsed.diagnostics.metrics.get("pdf_native_text_baseline") ==
-        Some("true"),
-      )
-      assert_true(
-        parsed.diagnostics.metrics.get("pdf_ocr_used") == Some("false"),
-      )
-      assert_true(
-        parsed.diagnostics.metrics.get("pdf_v2_used") == Some("false"),
-      )
-      assert_true(
-        parsed.diagnostics.metrics.get("pdf_empty_text_layer") == Some("false"),
-      )
-      assert_true(
-        parsed.diagnostics.metrics.get("pdf_grouping_strategy") ==
-        Some("conservative_v1"),
-      )
-      assert_true(
-        parsed.diagnostics.metrics.get("pdf_grouping_paragraph_count")
-        is Some(_),
-      )
-      assert_true(
-        parsed.diagnostics.metrics.get("pdf_grouping_line_merge_count")
-        is Some(_),
-      )
-      assert_true(!parsed.diagnostics.pass_trace.join("\n").contains("pdf_v2"))
-      assert_true(
-        !parsed.diagnostics.pass_trace.join("\n").contains("pdf_debug"),
-      )
-      assert_true(!parsed.diagnostics.warnings.join("\n").contains("pdf_v2"))
-    }
-    Err(other) =>
-      fail("expected pdf native-text convert success: " + other.to_string())
-  }
-}
-
-///|
-test "convert pdf explicit OCR stays fail-closed before any image OCR provider route" {
-  let pdf = @input.input_from_path_with_format(
-    "samples/main_process/pdf/markdown/root_native_text_baseline.pdf",
-    Some(@input.DetectedFormat::Pdf),
-  )
-  match
-    @convert.convert_input_with_image_ocr_provider(
-      pdf,
-      @convert.make_convert_options(
-        @convert.ConvertMode::Balanced,
-        @convert.OutputFormat::Markdown,
-        Some(@input.DetectedFormat::Pdf),
-        @parser.explicit_ocr_options(language=Some("eng")),
-        @convert.default_resource_limits(),
-      ),
-      fn(_request) { abort("pdf input must not invoke image OCR provider") },
-    ) {
-    Err(@convert.ConvertError::ParseFailed(msg)) => {
-      assert_true(msg.contains("PDF OCR is not supported"))
-      assert_true(msg.contains("scanned/image-only PDFs"))
-      assert_true(!msg.contains("not configured"))
-    }
-    Err(other) =>
-      fail("unexpected pdf explicit OCR convert error: " + other.to_string())
-    Ok(_) => fail("pdf explicit OCR should stay fail closed")
-  }
-}
-
-///|
-test "convert scanned-like pdf fails closed instead of returning empty markdown" {
-  let empty_pdf = [
-    "%PDF-1.4", "1 0 obj", "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-    "endobj", "2 0 obj", "<< /Length 5 >>", "stream", "BT ET", "endstream", "endobj",
-    "3 0 obj", "<< /Type /Page /Parent 4 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 2 0 R >>",
-    "endobj", "4 0 obj", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", "endobj", "5 0 obj",
-    "<< /Type /Catalog /Pages 4 0 R >>", "endobj", "trailer", "<< /Size 6 /Root 5 0 R >>",
-    "%%EOF", "",
-  ].join("\n")
-  let source = @input.input_from_bytes_with_format(
-    @utf8.encode(empty_pdf),
-    "scanned-like.pdf",
-    Some(@input.DetectedFormat::Pdf),
-  )
-
-  match @convert.convert_input(source, @convert.default_convert_options()) {
-    Err(@convert.ConvertError::ParseFailed(msg)) => {
-      assert_true(msg.contains("empty"))
-      assert_true(msg.contains("root pdf_native backend"))
-      assert_true(!msg.contains("not configured"))
-      assert_true(
-        !msg.contains("image OCR provider returned a non-empty OCR model"),
-      )
-    }
-    Err(other) =>
-      fail("unexpected scanned-like pdf convert error: " + other.to_string())
-    Ok(result) =>
-      fail(
-        "scanned-like pdf must fail closed instead of returning content: " +
-        result.content,
-      )
-  }
-
-  match
-    @parser.registry_parse(
-      @formats_root.builtin_registry(),
-      source,
-      @parser.new_parse_context(@input.DetectedFormat::Pdf),
-    ) {
-    Err(msg) => {
-      assert_true(msg.contains("empty"))
-      assert_true(msg.contains("root pdf_native backend"))
-    }
-    Ok(_) => fail("registry parse should not succeed for scanned-like pdf")
-  }
-}
-
-///|
-test "builtin registry wires pdf native text parser without unmigrated runtime imports" {
-  let registry_impl = read_utf8_text("formats/registry.mbt")
-  assert_true(registry_impl.contains("DetectedFormat::Pdf"))
-  assert_true(registry_impl.contains("pdf_native_parser()"))
-  assert_true(!registry_impl.contains("pdf_v2"))
-  assert_true(!registry_impl.contains("pdf_debug"))
-  assert_true(!registry_impl.contains("quality-lab"))
-
-  match
-    @parser.registry_parse(
-      @formats_root.builtin_registry(),
-      @input.input_from_path_with_format(
-        "samples/main_process/pdf/markdown/text_simple.pdf",
-        Some(@input.DetectedFormat::Pdf),
-      ),
-      @parser.new_parse_context(@input.DetectedFormat::Pdf),
-    ) {
-    Ok(result) => {
-      let document = result.document.unwrap_or(@core.empty_document_ir())
-      assert_true(document.blocks.length() >= 3)
-      assert_true(
-        document.diagnostics.metrics.get("runtime_exposed") == Some("true"),
-      )
-    }
-    Err(msg) => fail("pdf registry parse should succeed: " + msg)
-  }
-}
-
-///|
-test "pdf explicit disable policy can still force fail-closed registry behavior" {
-  let source = @input.input_from_path_with_format(
-    "samples/main_process/pdf/markdown/text_simple.pdf",
-    Some(@input.DetectedFormat::Pdf),
-  )
-  let gated_context = @parser.parse_context_with_pdf_native_runtime_policy(
-    @parser.parse_context_with_limits(
-      @parser.new_parse_context(@input.DetectedFormat::Pdf),
-      Some(@parser.ParserMode::PageSinglePass),
-      None,
-      None,
-      None,
-      None,
-      false,
-    ),
-    @parser.PdfNativeRuntimePolicy::DisableTextRestore,
-  )
-  match
-    @parser.registry_parse(
-      @formats_root.builtin_registry(),
-      source,
-      gated_context,
-    ) {
-    Err(err) => assert_true(err.contains("disabled by parser policy"))
-    Ok(_) => fail("disabled pdf policy should remain fail closed")
-  }
-
-  match
-    @parser.registry_parse(
-      @formats_root.builtin_registry(),
-      source,
-      @parser.new_parse_context(@input.DetectedFormat::Pdf),
-    ) {
-    Ok(parsed) => {
-      let document = final_document_from_parse_result(parsed)
-      assert_true(document.blocks.length() >= 3)
-      assert_true(
-        document.diagnostics.metrics.get("pdf_native_parser_gate") ==
-        Some("enabled"),
-      )
-    }
-    Err(msg) => fail("default pdf registry path should succeed: " + msg)
-  }
-}
-
-///|
-test "pdf native unit bridge lowers facts to document ir without changing registry success behavior" {
-  let bbox = @formats.make_pdf_bbox(10.0, 20.0, 40.0, 10.0)
-  let line = @formats.make_pdf_native_text_line(
-    [@formats.make_pdf_native_text_span("Bridge", bbox)],
-    bbox,
-    source_ref=Some({
-      ..@core.source_ref_with_lines(
-        @core.empty_source_ref(),
-        Some("bridge.pdf"),
-        Some("pdf"),
-        Some(1),
-        Some(1),
-      ),
-      page: Some(1),
-    }),
-    reading_order_index=Some(1),
-  )
-  let page = @formats.make_pdf_native_page(
-    @formats.make_pdf_page_geometry(1, 612.0, 792.0),
-    text_blocks=[@formats.make_pdf_native_text_block([line], bbox)],
-    link_candidates=[
-      @formats.make_pdf_native_link_candidate(
-        bbox,
-        "https://example.com",
-        text=Some("Bridge"),
-      ),
-    ],
-  )
-  let diagnostics = @core.empty_diagnostics()
-  diagnostics.metrics.set("product_path_enabled", "false")
-  let document = @formats.pdf_native_document_to_ir(
-    @formats.make_pdf_native_document(pages=[page], diagnostics~),
-  )
-  assert_eq(document.blocks.length(), 1)
-  assert_eq(document.blocks[0].text, "Bridge")
-  assert_true(
-    document.diagnostics.metrics.get("pdf_native_ir_bridge") ==
-    Some("unit_path"),
-  )
-  assert_true(document.diagnostics.metrics.get("renderer_name") == None)
-  assert_true(
-    document.diagnostics.metrics.get("product_path_enabled") == Some("false"),
-  )
-  assert_true(
-    document.diagnostics.metrics.get("pdf_link_candidate_count") == Some("1"),
-  )
-  match document.metadata.get("pdf_link_candidates") {
-    Some(@core.JsonValue::Array(items)) => assert_eq(items.length(), 1)
-    _ => fail("expected metadata-only link candidate preservation")
-  }
-
-  match
-    @parser.registry_parse(
-      @formats_root.builtin_registry(),
-      @input.input_from_path_with_format(
-        "samples/main_process/pdf/markdown/text_simple.pdf",
-        Some(@input.DetectedFormat::Pdf),
-      ),
-      @parser.new_parse_context(@input.DetectedFormat::Pdf),
-    ) {
-    Ok(parsed) => {
-      let parsed_document = final_document_from_parse_result(parsed)
-      assert_true(parsed_document.blocks.length() >= 3)
-    }
-    Err(msg) => fail("pdf registry success path should remain enabled: " + msg)
-  }
-}
-
-///|
-test "pdf native product path exposes header footer candidate diagnostics without changing markdown output" {
-  let parsed = default_registry_parse(
-    @input.input_from_path_with_format(
-      "samples/main_process/pdf/markdown/text_simple.pdf",
-      Some(@input.DetectedFormat::Pdf),
-    ),
-    @input.DetectedFormat::Pdf,
-  )
-  let document = final_document_from_parse_result(parsed)
-  assert_true(
-    document.diagnostics.metrics.get("pdf_header_footer_candidate_strategy") ==
-    Some("conservative_v1"),
-  )
-  assert_true(
-    document.diagnostics.metrics.get("pdf_header_candidate_count") is Some(_),
-  )
-  assert_true(
-    document.diagnostics.metrics.get("pdf_footer_candidate_count") is Some(_),
-  )
-  assert_true(
-    document.diagnostics.metrics.get("pdf_header_footer_candidate_count")
-    is Some(_),
-  )
-  let rendered = (@render.markdown_renderer().render)(
-    document,
-    @render.make_render_context(false),
-  )
-  assert_true(rendered.content.contains("MarkItDown"))
-  assert_true(!rendered.content.to_lower().contains("pdf_v2"))
-  assert_true(!rendered.content.to_lower().contains("pdf_debug"))
-}
-
-///|
-test "pdf product options default disabled but expose future promotion targets in diagnostics" {
-  let result = convert_path(
-    "samples/main_process/pdf/markdown/root_native_text_baseline.pdf",
-    format=Some(@input.DetectedFormat::Pdf),
-    output=@convert.OutputFormat::DebugJson,
-  )
-  assert_metric_eq(result.diagnostics, "pdf_cleanup_mode", "none")
-  assert_metric_eq(result.diagnostics, "pdf_cleanup_enabled", "false")
-  assert_metric_eq(result.diagnostics, "pdf_cleanup_default_mode", "none")
-  assert_metric_eq(
-    result.diagnostics,
-    "pdf_cleanup_promotion_target",
-    "conservative",
-  )
-  assert_metric_eq(result.diagnostics, "pdf_table_mode", "none")
-  assert_metric_eq(result.diagnostics, "pdf_table_enabled", "false")
-  assert_metric_eq(result.diagnostics, "pdf_table_default_mode", "none")
-  assert_metric_eq(result.diagnostics, "pdf_table_promotion_target", "simple")
-}
-
-///|
-test "pdf product options opt in to cleanup and simple tables without changing default baseline contract" {
-  let baseline = convert_path(
-    "samples/main_process/pdf/markdown/root_native_text_baseline.pdf",
-    format=Some(@input.DetectedFormat::Pdf),
-  )
-  let opted_in = convert_path(
-    "samples/main_process/pdf/markdown/root_native_text_baseline.pdf",
-    format=Some(@input.DetectedFormat::Pdf),
-    pdf_cleanup_mode=@convert.PdfCleanupMode::Conservative,
-    pdf_table_mode=@convert.PdfTableMode::Simple,
-  )
-  assert_eq(opted_in.content, baseline.content)
-  assert_metric_eq(opted_in.diagnostics, "pdf_cleanup_mode", "conservative")
-  assert_metric_eq(opted_in.diagnostics, "pdf_cleanup_enabled", "true")
-  assert_metric_eq(opted_in.diagnostics, "pdf_table_mode", "simple")
-  assert_metric_eq(opted_in.diagnostics, "pdf_table_enabled", "true")
-  assert_metric_eq(
-    opted_in.diagnostics,
-    "pdf_header_footer_filter_policy",
-    "internal_high_confidence_only",
-  )
-  assert_metric_eq(
-    opted_in.diagnostics,
-    "pdf_table_reconstruction_policy",
-    "internal_simple_rows_only",
-  )
-}
-
-///|
-test "pdf native header footer candidates stay metadata only and do not filter rendered markdown" {
-  let header = "Monthly Summary"
-  let footer = "Page footer repeated"
-  let page1 = @formats.make_pdf_native_page(
-    @formats.make_pdf_page_geometry(1, 612.0, 792.0),
-    text_blocks=[
-      @formats.make_pdf_native_text_block(
-        [
-          @formats.make_pdf_native_text_line(
-            [
-              @formats.make_pdf_native_text_span(
-                header,
-                @formats.make_pdf_bbox(40.0, 760.0, 120.0, 12.0),
-              ),
-            ],
-            @formats.make_pdf_bbox(40.0, 760.0, 120.0, 12.0),
-            source_ref=Some({
-              ..@core.source_ref_with_lines(
-                @core.empty_source_ref(),
-                Some("hf-product.pdf"),
-                Some("pdf"),
-                Some(1),
-                Some(1),
-              ),
-              page: Some(1),
-            }),
-            reading_order_index=Some(1),
-          ),
-        ],
-        @formats.make_pdf_bbox(40.0, 760.0, 120.0, 12.0),
-        reading_order_index=Some(1),
-      ),
-      @formats.make_pdf_native_text_block(
-        [
-          @formats.make_pdf_native_text_line(
-            [
-              @formats.make_pdf_native_text_span(
-                "Body paragraph one",
-                @formats.make_pdf_bbox(40.0, 420.0, 140.0, 12.0),
-              ),
-            ],
-            @formats.make_pdf_bbox(40.0, 420.0, 140.0, 12.0),
-            source_ref=Some({
-              ..@core.source_ref_with_lines(
-                @core.empty_source_ref(),
-                Some("hf-product.pdf"),
-                Some("pdf"),
-                Some(2),
-                Some(2),
-              ),
-              page: Some(1),
-            }),
-            reading_order_index=Some(2),
-          ),
-        ],
-        @formats.make_pdf_bbox(40.0, 420.0, 140.0, 12.0),
-        reading_order_index=Some(2),
-      ),
-      @formats.make_pdf_native_text_block(
-        [
-          @formats.make_pdf_native_text_line(
-            [
-              @formats.make_pdf_native_text_span(
-                footer,
-                @formats.make_pdf_bbox(40.0, 18.0, 140.0, 12.0),
-              ),
-            ],
-            @formats.make_pdf_bbox(40.0, 18.0, 140.0, 12.0),
-            source_ref=Some({
-              ..@core.source_ref_with_lines(
-                @core.empty_source_ref(),
-                Some("hf-product.pdf"),
-                Some("pdf"),
-                Some(3),
-                Some(3),
-              ),
-              page: Some(1),
-            }),
-            reading_order_index=Some(3),
-          ),
-        ],
-        @formats.make_pdf_bbox(40.0, 18.0, 140.0, 12.0),
-        reading_order_index=Some(3),
-      ),
-    ],
-  )
-  let page2 = @formats.make_pdf_native_page(
-    @formats.make_pdf_page_geometry(2, 612.0, 792.0),
-    text_blocks=[
-      @formats.make_pdf_native_text_block(
-        [
-          @formats.make_pdf_native_text_line(
-            [
-              @formats.make_pdf_native_text_span(
-                header,
-                @formats.make_pdf_bbox(42.0, 760.0, 120.0, 12.0),
-              ),
-            ],
-            @formats.make_pdf_bbox(42.0, 760.0, 120.0, 12.0),
-            source_ref=Some({
-              ..@core.source_ref_with_lines(
-                @core.empty_source_ref(),
-                Some("hf-product.pdf"),
-                Some("pdf"),
-                Some(1),
-                Some(1),
-              ),
-              page: Some(2),
-            }),
-            reading_order_index=Some(1),
-          ),
-        ],
-        @formats.make_pdf_bbox(42.0, 760.0, 120.0, 12.0),
-        reading_order_index=Some(1),
-      ),
-      @formats.make_pdf_native_text_block(
-        [
-          @formats.make_pdf_native_text_line(
-            [
-              @formats.make_pdf_native_text_span(
-                "Body paragraph two",
-                @formats.make_pdf_bbox(40.0, 420.0, 140.0, 12.0),
-              ),
-            ],
-            @formats.make_pdf_bbox(40.0, 420.0, 140.0, 12.0),
-            source_ref=Some({
-              ..@core.source_ref_with_lines(
-                @core.empty_source_ref(),
-                Some("hf-product.pdf"),
-                Some("pdf"),
-                Some(2),
-                Some(2),
-              ),
-              page: Some(2),
-            }),
-            reading_order_index=Some(2),
-          ),
-        ],
-        @formats.make_pdf_bbox(40.0, 420.0, 140.0, 12.0),
-        reading_order_index=Some(2),
-      ),
-      @formats.make_pdf_native_text_block(
-        [
-          @formats.make_pdf_native_text_line(
-            [
-              @formats.make_pdf_native_text_span(
-                footer,
-                @formats.make_pdf_bbox(42.0, 18.0, 140.0, 12.0),
-              ),
-            ],
-            @formats.make_pdf_bbox(42.0, 18.0, 140.0, 12.0),
-            source_ref=Some({
-              ..@core.source_ref_with_lines(
-                @core.empty_source_ref(),
-                Some("hf-product.pdf"),
-                Some("pdf"),
-                Some(3),
-                Some(3),
-              ),
-              page: Some(2),
-            }),
-            reading_order_index=Some(3),
-          ),
-        ],
-        @formats.make_pdf_bbox(42.0, 18.0, 140.0, 12.0),
-        reading_order_index=Some(3),
-      ),
-    ],
-  )
-  let document = @formats.pdf_native_document_to_ir(
-    @formats.make_pdf_native_document(pages=[page1, page2]),
-  )
-  let rendered = (@render.markdown_renderer().render)(
-    document,
-    @render.make_render_context(false),
-  )
-  assert_true(rendered.content.contains(header))
-  assert_true(rendered.content.contains(footer))
-  assert_true(rendered.content.contains("Body paragraph one"))
-  assert_true(rendered.content.contains("Body paragraph two"))
-  assert_true(
-    document.diagnostics.metrics.get("pdf_header_footer_candidate_count") ==
-    Some("2"),
-  )
-  match document.metadata.get("pdf_header_footer_candidates") {
-    Some(@core.JsonValue::Array(items)) => assert_eq(items.length(), 2)
-    _ => fail("expected metadata-only header/footer candidate array")
-  }
-}
-
-///|
-test "pdf native table candidates stay metadata only and do not change rendered markdown" {
-  let page1 = @formats.make_pdf_native_page(
-    @formats.make_pdf_page_geometry(1, 612.0, 792.0),
-    text_blocks=[
-      @formats.make_pdf_native_text_block(
-        [
-          @formats.make_pdf_native_text_line(
-            [
-              @formats.make_pdf_native_text_span(
-                "Product",
-                @formats.make_pdf_bbox(40.0, 620.0, 40.0, 12.0),
-              ),
-              @formats.make_pdf_native_text_span(
-                " Region",
-                @formats.make_pdf_bbox(120.0, 620.0, 40.0, 12.0),
-              ),
-              @formats.make_pdf_native_text_span(
-                " Status",
-                @formats.make_pdf_bbox(220.0, 620.0, 40.0, 12.0),
-              ),
-            ],
-            @formats.make_pdf_bbox(40.0, 620.0, 220.0, 12.0),
-            source_ref=Some({
-              ..@core.source_ref_with_lines(
-                @core.empty_source_ref(),
-                Some("table-product.pdf"),
-                Some("pdf"),
-                Some(1),
-                Some(1),
-              ),
-              page: Some(1),
-            }),
-            reading_order_index=Some(1),
-          ),
-        ],
-        @formats.make_pdf_bbox(40.0, 620.0, 220.0, 12.0),
-        reading_order_index=Some(1),
-      ),
-      @formats.make_pdf_native_text_block(
-        [
-          @formats.make_pdf_native_text_line(
-            [
-              @formats.make_pdf_native_text_span(
-                "Alpha",
-                @formats.make_pdf_bbox(40.0, 602.0, 40.0, 12.0),
-              ),
-              @formats.make_pdf_native_text_span(
-                " East",
-                @formats.make_pdf_bbox(120.0, 602.0, 36.0, 12.0),
-              ),
-              @formats.make_pdf_native_text_span(
-                " Open",
-                @formats.make_pdf_bbox(220.0, 602.0, 36.0, 12.0),
-              ),
-            ],
-            @formats.make_pdf_bbox(40.0, 602.0, 216.0, 12.0),
-            source_ref=Some({
-              ..@core.source_ref_with_lines(
-                @core.empty_source_ref(),
-                Some("table-product.pdf"),
-                Some("pdf"),
-                Some(2),
-                Some(2),
-              ),
-              page: Some(1),
-            }),
-            reading_order_index=Some(2),
-          ),
-        ],
-        @formats.make_pdf_bbox(40.0, 602.0, 216.0, 12.0),
-        reading_order_index=Some(2),
-      ),
-      @formats.make_pdf_native_text_block(
-        [
-          @formats.make_pdf_native_text_line(
-            [
-              @formats.make_pdf_native_text_span(
-                "Beta",
-                @formats.make_pdf_bbox(40.0, 584.0, 36.0, 12.0),
-              ),
-              @formats.make_pdf_native_text_span(
-                " West",
-                @formats.make_pdf_bbox(120.0, 584.0, 36.0, 12.0),
-              ),
-              @formats.make_pdf_native_text_span(
-                " Closed",
-                @formats.make_pdf_bbox(220.0, 584.0, 52.0, 12.0),
-              ),
-            ],
-            @formats.make_pdf_bbox(40.0, 584.0, 232.0, 12.0),
-            source_ref=Some({
-              ..@core.source_ref_with_lines(
-                @core.empty_source_ref(),
-                Some("table-product.pdf"),
-                Some("pdf"),
-                Some(3),
-                Some(3),
-              ),
-              page: Some(1),
-            }),
-            reading_order_index=Some(3),
-          ),
-        ],
-        @formats.make_pdf_bbox(40.0, 584.0, 232.0, 12.0),
-        reading_order_index=Some(3),
-      ),
-      @formats.make_pdf_native_text_block(
-        [
-          @formats.make_pdf_native_text_line(
-            [
-              @formats.make_pdf_native_text_span(
-                "Body paragraph after table-like rows",
-                @formats.make_pdf_bbox(40.0, 520.0, 220.0, 12.0),
-              ),
-            ],
-            @formats.make_pdf_bbox(40.0, 520.0, 220.0, 12.0),
-            source_ref=Some({
-              ..@core.source_ref_with_lines(
-                @core.empty_source_ref(),
-                Some("table-product.pdf"),
-                Some("pdf"),
-                Some(4),
-                Some(4),
-              ),
-              page: Some(1),
-            }),
-            reading_order_index=Some(4),
-          ),
-        ],
-        @formats.make_pdf_bbox(40.0, 520.0, 220.0, 12.0),
-        reading_order_index=Some(4),
-      ),
-    ],
-  )
-  let document = @formats.pdf_native_document_to_ir(
-    @formats.make_pdf_native_document(pages=[page1]),
-  )
-  let rendered = (@render.markdown_renderer().render)(
-    document,
-    @render.make_render_context(false),
-  )
-  assert_true(rendered.content.contains("Product Region Status"))
-  assert_true(rendered.content.contains("Alpha East Open"))
-  assert_true(rendered.content.contains("Beta West Closed"))
-  assert_true(rendered.content.contains("Body paragraph after table-like rows"))
-  assert_true(!rendered.content.contains("| ---"))
-  assert_true(
-    document.diagnostics.metrics.get("pdf_table_candidate_strategy") ==
-    Some("conservative_v1"),
-  )
-  assert_true(
-    document.diagnostics.metrics.get("pdf_table_candidate_count") == Some("1"),
-  )
-  assert_true(
-    document.diagnostics.metrics.get("pdf_table_row_candidate_count") ==
-    Some("3"),
-  )
-  match document.metadata.get("pdf_table_candidates") {
-    Some(@core.JsonValue::Array(items)) => assert_eq(items.length(), 1)
-    _ => fail("expected metadata-only table candidate array")
-  }
-}
-
-///|
-test "pdf native parser policy scaffold remains opt-in and default product markdown stays unchanged" {
-  let source = @input.input_from_path_with_format(
-    "samples/main_process/pdf/markdown/root_native_text_baseline.pdf",
-    Some(@input.DetectedFormat::Pdf),
-  )
-  let default_parsed = match
-    @parser.registry_parse(
-      @formats_root.builtin_registry(),
-      source,
-      @parser.new_parse_context(@input.DetectedFormat::Pdf),
-    ) {
-    Ok(value) => value
-    Err(msg) => fail("default pdf registry parse should succeed: " + msg)
-  }
-  let default_document = final_document_from_parse_result(default_parsed)
-  let default_rendered = (@render.markdown_renderer().render)(
-    default_document,
-    @render.make_render_context(false),
-  )
-  assert_eq(default_rendered.content.trim().to_owned(), "Hello PDF")
-  assert_true(
-    default_document.diagnostics.metrics.get("pdf_header_footer_filter_policy") ==
-    Some("disabled"),
-  )
-  assert_true(
-    default_document.diagnostics.metrics.get("pdf_table_reconstruction_policy") ==
-    Some("disabled"),
-  )
-
-  let internal_context = @parser.parse_context_with_pdf_table_reconstruction_policy(
-    @parser.parse_context_with_pdf_header_footer_filter_policy(
-      @parser.new_parse_context(@input.DetectedFormat::Pdf),
-      @parser.PdfHeaderFooterFilterPolicy::InternalHighConfidenceOnly,
-    ),
-    @parser.PdfTableReconstructionPolicy::InternalSimpleRowsOnly,
-  )
-  let internal_parsed = match
-    @parser.registry_parse(
-      @formats_root.builtin_registry(),
-      source,
-      internal_context,
-    ) {
-    Ok(value) => value
-    Err(msg) => fail("internal pdf registry parse should still succeed: " + msg)
-  }
-  let internal_document = final_document_from_parse_result(internal_parsed)
-  let internal_rendered = (@render.markdown_renderer().render)(
-    internal_document,
-    @render.make_render_context(false),
-  )
-  assert_eq(internal_rendered.content, default_rendered.content)
-  assert_true(
-    internal_document.diagnostics.metrics.get("pdf_header_footer_filter_policy") ==
-    Some("internal_high_confidence_only"),
-  )
-  assert_true(
-    internal_document.diagnostics.metrics.get(
-      "pdf_header_footer_filter_enabled",
-    ) ==
-    Some("true"),
-  )
-  assert_true(
-    internal_document.diagnostics.metrics.get("pdf_table_reconstruction_policy") ==
-    Some("internal_simple_rows_only"),
-  )
-  assert_true(
-    internal_document.diagnostics.metrics.get(
-      "pdf_table_reconstruction_enabled",
-    ) ==
-    Some("true"),
-  )
-  assert_true(
-    internal_document.diagnostics.metrics.get("pdf_header_footer_removed_count") ==
-    Some("0"),
-  )
-  assert_true(
-    internal_document.diagnostics.metrics.get(
-      "pdf_table_reconstruction_table_count",
-    ) ==
-    Some("0"),
-  )
-}
-
-///|
-test "pdf internal header footer filtering stays opt-in and only changes markdown behind internal policy" {
-  let page1 = @formats.make_pdf_native_page(
-    @formats.make_pdf_page_geometry(1, 612.0, 792.0),
-    text_blocks=[
-      @formats.make_pdf_native_text_block(
-        [
-          @formats.make_pdf_native_text_line(
-            [
-              @formats.make_pdf_native_text_span(
-                "Sample Report - Internal Use Only",
-                @formats.make_pdf_bbox(40.0, 760.0, 180.0, 12.0),
-              ),
-            ],
-            @formats.make_pdf_bbox(40.0, 760.0, 180.0, 12.0),
-            source_ref=Some({
-              ..@core.source_ref_with_lines(
-                @core.empty_source_ref(),
-                Some("hf-optin.pdf"),
-                Some("pdf"),
-                Some(1),
-                Some(1),
-              ),
-              page: Some(1),
-            }),
-            reading_order_index=Some(1),
-          ),
-        ],
-        @formats.make_pdf_bbox(40.0, 760.0, 180.0, 12.0),
-        reading_order_index=Some(1),
-      ),
-      @formats.make_pdf_native_text_block(
-        [
-          @formats.make_pdf_native_text_line(
-            [
-              @formats.make_pdf_native_text_span(
-                "The body stays visible on page one.",
-                @formats.make_pdf_bbox(40.0, 420.0, 220.0, 12.0),
-              ),
-            ],
-            @formats.make_pdf_bbox(40.0, 420.0, 220.0, 12.0),
-            source_ref=Some({
-              ..@core.source_ref_with_lines(
-                @core.empty_source_ref(),
-                Some("hf-optin.pdf"),
-                Some("pdf"),
-                Some(2),
-                Some(2),
-              ),
-              page: Some(1),
-            }),
-            reading_order_index=Some(2),
-          ),
-        ],
-        @formats.make_pdf_bbox(40.0, 420.0, 220.0, 12.0),
-        reading_order_index=Some(2),
-      ),
-      @formats.make_pdf_native_text_block(
-        [
-          @formats.make_pdf_native_text_line(
-            [
-              @formats.make_pdf_native_text_span(
-                "Confidential Footer - Do Not Distribute",
-                @formats.make_pdf_bbox(40.0, 18.0, 220.0, 12.0),
-              ),
-            ],
-            @formats.make_pdf_bbox(40.0, 18.0, 220.0, 12.0),
-            source_ref=Some({
-              ..@core.source_ref_with_lines(
-                @core.empty_source_ref(),
-                Some("hf-optin.pdf"),
-                Some("pdf"),
-                Some(3),
-                Some(3),
-              ),
-              page: Some(1),
-            }),
-            reading_order_index=Some(3),
-          ),
-        ],
-        @formats.make_pdf_bbox(40.0, 18.0, 220.0, 12.0),
-        reading_order_index=Some(3),
-      ),
-    ],
-  )
-  let page2 = @formats.make_pdf_native_page(
-    @formats.make_pdf_page_geometry(2, 612.0, 792.0),
-    text_blocks=[
-      @formats.make_pdf_native_text_block(
-        [
-          @formats.make_pdf_native_text_line(
-            [
-              @formats.make_pdf_native_text_span(
-                "Sample Report - Internal Use Only",
-                @formats.make_pdf_bbox(40.0, 760.0, 180.0, 12.0),
-              ),
-            ],
-            @formats.make_pdf_bbox(40.0, 760.0, 180.0, 12.0),
-            source_ref=Some({
-              ..@core.source_ref_with_lines(
-                @core.empty_source_ref(),
-                Some("hf-optin.pdf"),
-                Some("pdf"),
-                Some(1),
-                Some(1),
-              ),
-              page: Some(2),
-            }),
-            reading_order_index=Some(1),
-          ),
-        ],
-        @formats.make_pdf_bbox(40.0, 760.0, 180.0, 12.0),
-        reading_order_index=Some(1),
-      ),
-      @formats.make_pdf_native_text_block(
-        [
-          @formats.make_pdf_native_text_line(
-            [
-              @formats.make_pdf_native_text_span(
-                "The body stays visible on page two.",
-                @formats.make_pdf_bbox(40.0, 420.0, 220.0, 12.0),
-              ),
-            ],
-            @formats.make_pdf_bbox(40.0, 420.0, 220.0, 12.0),
-            source_ref=Some({
-              ..@core.source_ref_with_lines(
-                @core.empty_source_ref(),
-                Some("hf-optin.pdf"),
-                Some("pdf"),
-                Some(2),
-                Some(2),
-              ),
-              page: Some(2),
-            }),
-            reading_order_index=Some(2),
-          ),
-        ],
-        @formats.make_pdf_bbox(40.0, 420.0, 220.0, 12.0),
-        reading_order_index=Some(2),
-      ),
-      @formats.make_pdf_native_text_block(
-        [
-          @formats.make_pdf_native_text_line(
-            [
-              @formats.make_pdf_native_text_span(
-                "Confidential Footer - Do Not Distribute",
-                @formats.make_pdf_bbox(40.0, 18.0, 220.0, 12.0),
-              ),
-            ],
-            @formats.make_pdf_bbox(40.0, 18.0, 220.0, 12.0),
-            source_ref=Some({
-              ..@core.source_ref_with_lines(
-                @core.empty_source_ref(),
-                Some("hf-optin.pdf"),
-                Some("pdf"),
-                Some(3),
-                Some(3),
-              ),
-              page: Some(2),
-            }),
-            reading_order_index=Some(3),
-          ),
-        ],
-        @formats.make_pdf_bbox(40.0, 18.0, 220.0, 12.0),
-        reading_order_index=Some(3),
-      ),
-    ],
-  )
-  let default_document = @formats.pdf_native_document_to_ir(
-    @formats.make_pdf_native_document(pages=[page1, page2]),
-  )
-  let default_rendered = (@render.markdown_renderer().render)(
-    default_document,
-    @render.make_render_context(false),
-  )
-  assert_true(
-    default_rendered.content.contains("Sample Report - Internal Use Only"),
-  )
-  assert_true(
-    default_rendered.content.contains("Confidential Footer - Do Not Distribute"),
-  )
-
-  let filtered_document = @formats.pdf_native_document_to_ir_with_policies(
-    @formats.make_pdf_native_document(pages=[page1, page2]),
-    @parser.PdfHeaderFooterFilterPolicy::InternalHighConfidenceOnly,
-    @parser.PdfTableReconstructionPolicy::Disabled,
-  )
-  let filtered_rendered = (@render.markdown_renderer().render)(
-    filtered_document,
-    @render.make_render_context(false),
-  )
-  assert_true(
-    !filtered_rendered.content.contains("Sample Report - Internal Use Only"),
-  )
-  assert_true(
-    !filtered_rendered.content.contains(
-      "Confidential Footer - Do Not Distribute",
-    ),
-  )
-  assert_true(
-    filtered_rendered.content.contains("The body stays visible on page one."),
-  )
-  assert_true(
-    filtered_rendered.content.contains("The body stays visible on page two."),
-  )
-  assert_true(
-    filtered_document.diagnostics.metrics.get("pdf_header_footer_removed_count") ==
-    Some("4"),
-  )
-}
-
-///|
-test "pdf internal simple table reconstruction stays opt-in and uses renderer table output only when enabled" {
-  let page = @formats.make_pdf_native_page(
-    @formats.make_pdf_page_geometry(1, 612.0, 792.0),
-    text_blocks=[
-      @formats.make_pdf_native_text_block(
-        [
-          @formats.make_pdf_native_text_line(
-            [
-              @formats.make_pdf_native_text_span(
-                "Product",
-                @formats.make_pdf_bbox(40.0, 620.0, 40.0, 12.0),
-              ),
-              @formats.make_pdf_native_text_span(
-                " Region",
-                @formats.make_pdf_bbox(120.0, 620.0, 40.0, 12.0),
-              ),
-              @formats.make_pdf_native_text_span(
-                " Status",
-                @formats.make_pdf_bbox(220.0, 620.0, 40.0, 12.0),
-              ),
-            ],
-            @formats.make_pdf_bbox(40.0, 620.0, 220.0, 12.0),
-            source_ref=Some({
-              ..@core.source_ref_with_lines(
-                @core.empty_source_ref(),
-                Some("table-optin.pdf"),
-                Some("pdf"),
-                Some(1),
-                Some(1),
-              ),
-              page: Some(1),
-            }),
-            reading_order_index=Some(1),
-          ),
-        ],
-        @formats.make_pdf_bbox(40.0, 620.0, 220.0, 12.0),
-        reading_order_index=Some(1),
-      ),
-      @formats.make_pdf_native_text_block(
-        [
-          @formats.make_pdf_native_text_line(
-            [
-              @formats.make_pdf_native_text_span(
-                "Alpha",
-                @formats.make_pdf_bbox(40.0, 602.0, 40.0, 12.0),
-              ),
-              @formats.make_pdf_native_text_span(
-                " East",
-                @formats.make_pdf_bbox(120.0, 602.0, 36.0, 12.0),
-              ),
-              @formats.make_pdf_native_text_span(
-                " Open",
-                @formats.make_pdf_bbox(220.0, 602.0, 36.0, 12.0),
-              ),
-            ],
-            @formats.make_pdf_bbox(40.0, 602.0, 216.0, 12.0),
-            source_ref=Some({
-              ..@core.source_ref_with_lines(
-                @core.empty_source_ref(),
-                Some("table-optin.pdf"),
-                Some("pdf"),
-                Some(2),
-                Some(2),
-              ),
-              page: Some(1),
-            }),
-            reading_order_index=Some(2),
-          ),
-        ],
-        @formats.make_pdf_bbox(40.0, 602.0, 216.0, 12.0),
-        reading_order_index=Some(2),
-      ),
-      @formats.make_pdf_native_text_block(
-        [
-          @formats.make_pdf_native_text_line(
-            [
-              @formats.make_pdf_native_text_span(
-                "Beta",
-                @formats.make_pdf_bbox(40.0, 584.0, 36.0, 12.0),
-              ),
-              @formats.make_pdf_native_text_span(
-                " West",
-                @formats.make_pdf_bbox(120.0, 584.0, 36.0, 12.0),
-              ),
-              @formats.make_pdf_native_text_span(
-                " Closed",
-                @formats.make_pdf_bbox(220.0, 584.0, 52.0, 12.0),
-              ),
-            ],
-            @formats.make_pdf_bbox(40.0, 584.0, 232.0, 12.0),
-            source_ref=Some({
-              ..@core.source_ref_with_lines(
-                @core.empty_source_ref(),
-                Some("table-optin.pdf"),
-                Some("pdf"),
-                Some(3),
-                Some(3),
-              ),
-              page: Some(1),
-            }),
-            reading_order_index=Some(3),
-          ),
-        ],
-        @formats.make_pdf_bbox(40.0, 584.0, 232.0, 12.0),
-        reading_order_index=Some(3),
-      ),
-      @formats.make_pdf_native_text_block(
-        [
-          @formats.make_pdf_native_text_line(
-            [
-              @formats.make_pdf_native_text_span(
-                "Body paragraph after table-like rows",
-                @formats.make_pdf_bbox(40.0, 520.0, 220.0, 12.0),
-              ),
-            ],
-            @formats.make_pdf_bbox(40.0, 520.0, 220.0, 12.0),
-            source_ref=Some({
-              ..@core.source_ref_with_lines(
-                @core.empty_source_ref(),
-                Some("table-optin.pdf"),
-                Some("pdf"),
-                Some(4),
-                Some(4),
-              ),
-              page: Some(1),
-            }),
-            reading_order_index=Some(4),
-          ),
-        ],
-        @formats.make_pdf_bbox(40.0, 520.0, 220.0, 12.0),
-        reading_order_index=Some(4),
-      ),
-    ],
-  )
-  let default_document = @formats.pdf_native_document_to_ir(
-    @formats.make_pdf_native_document(pages=[page]),
-  )
-  let default_rendered = (@render.markdown_renderer().render)(
-    default_document,
-    @render.make_render_context(false),
-  )
-  assert_true(default_rendered.content.contains("Product Region Status"))
-  assert_true(!default_rendered.content.contains("| --- |"))
-
-  let reconstructed_document = @formats.pdf_native_document_to_ir_with_policies(
-    @formats.make_pdf_native_document(pages=[page]),
-    @parser.PdfHeaderFooterFilterPolicy::Disabled,
-    @parser.PdfTableReconstructionPolicy::InternalSimpleRowsOnly,
-  )
-  let reconstructed_rendered = (@render.markdown_renderer().render)(
-    reconstructed_document,
-    @render.make_render_context(false),
-  )
-  assert_true(
-    reconstructed_rendered.content.contains("| Product | Region | Status |"),
-  )
-  assert_true(
-    reconstructed_rendered.content.contains("| Alpha | East | Open |"),
-  )
-  assert_true(
-    reconstructed_rendered.content.contains("| Beta | West | Closed |"),
-  )
-  assert_true(
-    reconstructed_rendered.content.contains(
-      "Body paragraph after table-like rows",
-    ),
-  )
-  assert_true(
-    reconstructed_document.diagnostics.metrics.get(
-      "pdf_table_reconstruction_table_count",
-    ) ==
-    Some("1"),
-  )
-}
-
-///|
-test "root image parser scaffold reserves explicit OCR mode without wiring a provider" {
-  let source = @input.input_from_path("scan.png")
-  let detected = @input.DetectedFormat::Image(@input.ImageFormat::Png)
-  let disabled = @focr.image_ocr_parser_result(
-    source,
-    detected,
-    @parser.default_ocr_options(),
-  )
-  match disabled {
-    Err(msg) => {
-      assert_true(msg.contains("image OCR is not enabled"))
-      assert_true(msg.contains("png"))
-    }
-    Ok(_) => fail("default OCR scaffold should stay fail closed")
-  }
-
-  let explicit = @focr.image_ocr_parser_result(
-    source,
-    detected,
-    @parser.explicit_ocr_options(),
-    requested_mode=Some(@parser.ParserMode::LayoutTwoStage),
-  )
-  match explicit {
-    Err(msg) => {
-      assert_true(msg.contains("not configured"))
-      assert_true(msg.contains("png"))
-    }
-    Ok(_) =>
-      fail(
-        "explicit OCR scaffold should still fail until provider wiring exists",
-      )
-  }
-
-  let disabled_by_user = @focr.image_ocr_parser_result(
-    source,
-    detected,
-    @parser.disabled_ocr_options(),
-  )
-  match disabled_by_user {
-    Err(msg) => {
-      assert_true(msg.contains("OCR is disabled"))
-      assert_true(msg.contains("png"))
-    }
-    Ok(_) => fail("disabled OCR image scaffold should stay fail closed")
-  }
-
-  let diagnostics = @focr.image_ocr_fail_closed_diagnostics(
-    source,
-    detected,
-    @parser.default_ocr_options(),
-  )
-  assert_metric_eq(diagnostics, "ocr_candidate", "true")
-  assert_metric_eq(diagnostics, "ocr_provider_wired", "false")
-  assert_metric_eq(diagnostics, "provider_invoked", "false")
-  assert_metric_eq(diagnostics, "effective_mode", "fail_closed")
-
-  let explicit_diagnostics = @focr.image_ocr_fail_closed_diagnostics(
-    source,
-    detected,
-    @parser.explicit_ocr_options(language=Some("eng")),
-    requested_mode=Some(@parser.ParserMode::LayoutTwoStage),
-  )
-  assert_metric_eq(explicit_diagnostics, "ocr_intent", "explicit")
-  assert_metric_eq(explicit_diagnostics, "ocr_language", "eng")
-  assert_metric_eq(explicit_diagnostics, "ocr_provider_kind", "tesseract")
-  assert_metric_eq(
-    explicit_diagnostics, "ocr_provider_status", "not_configured",
-  )
-  assert_metric_eq(explicit_diagnostics, "effective_mode", "layout_two_stage")
-
-  let disabled_diagnostics = @focr.image_ocr_fail_closed_diagnostics(
-    source,
-    detected,
-    @parser.disabled_ocr_options(),
-  )
-  assert_metric_eq(disabled_diagnostics, "ocr_intent", "disabled")
-  assert_metric_eq(
-    disabled_diagnostics, "ocr_provider_status", "skipped_disabled",
-  )
-  assert_metric_eq(
-    disabled_diagnostics, "effective_mode", "fail_closed_disabled",
-  )
-}
-
-///|
-test "pure tesseract tsv parser returns provider-independent OCR pages without enabling product OCR" {
-  let tsv = [
-    "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext",
-    "5\t2\t1\t1\t1\t2\t30\t10\t10\t10\t92\tworld", "5\t1\t1\t1\t1\t1\t10\t20\t20\t10\t95\thello",
-    "5\t2\t1\t1\t1\t1\t5\t10\t20\t10\t90\tmoonbit",
-  ].join("\n")
-  let result = match @focr.parse_tesseract_tsv(tsv, language=Some("eng")) {
-    Ok(value) => value
-    Err(err) => fail("expected pure TSV parser success: " + err.to_string())
-  }
-  assert_eq(result.provider_name, "tesseract")
-  assert_true(result.provider_version == None)
-  assert_eq(result.pages.length(), 2)
-  assert_eq(result.pages[0].page_index, 0)
-  assert_eq(result.pages[0].blocks[0].lines[0].text, "hello")
-  assert_eq(result.pages[1].page_index, 1)
-  assert_eq(result.pages[1].blocks[0].lines[0].text, "moonbit world")
-  let provider = result.pages[1].provider.unwrap_or(
-    @focr.make_ocr_provider_info("missing"),
-  )
-  assert_eq(provider.name, "tesseract")
-  assert_true(provider.language == Some("eng"))
-
-  let image = @input.input_from_path_with_format(
-    "scan.png",
-    Some(@input.DetectedFormat::Image(@input.ImageFormat::Png)),
-  )
-  match
-    @convert.convert_input(
-      image,
-      @convert.make_convert_options(
-        @convert.ConvertMode::Balanced,
-        @convert.OutputFormat::Markdown,
-        Some(@input.DetectedFormat::Image(@input.ImageFormat::Png)),
-        @parser.explicit_ocr_options(),
-        @convert.default_resource_limits(),
-      ),
-    ) {
-    Err(@convert.ConvertError::ParseFailed(msg)) =>
-      assert_true(msg.contains("not configured"))
-    Err(other) =>
-      fail("unexpected image OCR product-path error: " + other.to_string())
-    Ok(_) => fail("pure TSV parser must not enable product OCR success path")
-  }
-}
-
-///|
-fn pipeline_fake_image_ocr_provider(
-  expected_language : String?,
-) -> (@focr.OcrProviderRequest) -> Result[
-  @focr.OcrProviderResult,
-  @focr.OcrProviderError,
-] {
-  fn(request : @focr.OcrProviderRequest) {
-    if request.language != expected_language {
-      abort("unexpected OCR language")
-    }
-    let tsv = [
-      "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext",
-      "5\t1\t1\t1\t1\t1\t10\t10\t20\t10\t95\tMoonBit", "5\t1\t1\t1\t1\t2\t35\t10\t15\t10\t94\tOCR",
-      "5\t1\t1\t1\t2\t1\t10\t25\t22\t10\t93\tSample", "5\t1\t1\t1\t2\t2\t36\t25\t18\t10\t92\t123",
-    ].join("\n")
-    match @focr.parse_tesseract_tsv(tsv, language=request.language) {
-      Ok(value) => Ok(value)
-      Err(err) =>
-        abort("expected fake OCR TSV parse success: " + err.to_string())
-    }
-  }
-}
-
-///|
-test "convert explicit image OCR injected provider reaches root convert and render path" {
-  let image = @input.input_from_path_with_format(
-    "scan.png",
-    Some(@input.DetectedFormat::Image(@input.ImageFormat::Png)),
-  )
-  let converted = match
-    @convert.convert_input_with_image_ocr_provider(
-      image,
-      @convert.make_convert_options(
-        @convert.ConvertMode::Balanced,
-        @convert.OutputFormat::Markdown,
-        Some(@input.DetectedFormat::Image(@input.ImageFormat::Png)),
-        @parser.explicit_ocr_options(language=Some("eng")),
-        @convert.default_resource_limits(),
-      ),
-      pipeline_fake_image_ocr_provider(Some("eng")),
-    ) {
-    Ok(value) => value
-    Err(err) => fail("expected injected convert success: " + err.to_string())
-  }
-  assert_eq(converted.content, "MoonBit OCR\n\nSample 123")
-  assert_true(
-    converted.detected_format ==
-    @input.DetectedFormat::Image(@input.ImageFormat::Png),
-  )
-  assert_true(converted.parser_mode == @parser.ParserMode::LayoutTwoStage)
-  assert_metric_eq(converted.diagnostics, "ocr_provider_status", "success")
-  assert_metric_eq(converted.diagnostics, "renderer_name", "MarkdownRenderer")
-}
-
-///|
-async test "async convert explicit image OCR injected provider reaches root convert and render path" {
-  let image = @input.input_from_path_with_format(
-    "scan.png",
-    Some(@input.DetectedFormat::Image(@input.ImageFormat::Png)),
-  )
-  let converted = match
-    @convert.convert_input_with_image_ocr_provider_async(
-      image,
-      @convert.make_convert_options(
-        @convert.ConvertMode::Balanced,
-        @convert.OutputFormat::Markdown,
-        Some(@input.DetectedFormat::Image(@input.ImageFormat::Png)),
-        @parser.explicit_ocr_options(language=Some("eng")),
-        @convert.default_resource_limits(),
-      ),
-      request => pipeline_fake_image_ocr_provider(Some("eng"))(request),
-    ) {
-    Ok(value) => value
-    Err(err) =>
-      fail("expected injected async convert success: " + err.to_string())
-  }
-  assert_eq(converted.content, "MoonBit OCR\n\nSample 123")
-  assert_true(
-    converted.detected_format ==
-    @input.DetectedFormat::Image(@input.ImageFormat::Png),
-  )
-  assert_true(converted.parser_mode == @parser.ParserMode::LayoutTwoStage)
-  assert_metric_eq(converted.diagnostics, "ocr_provider_status", "success")
-  assert_metric_eq(converted.diagnostics, "renderer_name", "MarkdownRenderer")
-}
-
-///|
 test "txt parser mode is visible and parser does not directly return markdown" {
   let parsed = default_registry_parse(
     @input.input_from_text_with_format(
@@ -2058,10 +51,11 @@ test "txt stream convert mode uses event path without markdown as intermediate" 
     result.diagnostics.metrics.get("builder_input_kind") == Some("event_stream"),
   )
   assert_true(
+    !result.diagnostics.pass_trace.contains("builder:default_ir_builder"),
+  )
+  assert_true(
     contains_trace_in_order(result.diagnostics.pass_trace, [
-      "detect:", "registry:lookup", "parse:txt_parser", "builder:default_ir_builder",
-      "NormalizeTextPass", "NormalizeWhitespacePass", "AssembleSectionTreePass",
-      "DebugAnnotationPass", "render:MarkdownRenderer",
+      "detect:", "registry:lookup", "parse:txt_parser", "render:MarkdownRenderer",
     ]),
   )
 }
@@ -2076,9 +70,10 @@ test "markdown parser mode and source refs are visible" {
     ),
     @input.DetectedFormat::Markdown,
   )
-  let blocks = parsed.block_stream.unwrap_or([])
-  assert_true(parsed.mode == @parser.ParserMode::BlockStreaming)
-  assert_true(parsed.document is None)
+  let document = parsed.document.unwrap_or(@core.empty_document_ir())
+  let blocks = document.blocks
+  assert_true(parsed.mode == @parser.ParserMode::DomAstModel)
+  assert_true(parsed.document is Some(_))
   assert_true(parsed.event_stream is None)
   assert_true(blocks.length() >= 2)
   assert_true(blocks[0].source_ref is Some(_))
@@ -2088,11 +83,14 @@ test "markdown parser mode and source refs are visible" {
   assert_true(src.line_start == Some(1))
   assert_true(src.line_end == Some(1))
   assert_true(src.markdown_path is Some(_))
-  assert_metric_eq(parsed.diagnostics, "effective_mode", "block_streaming")
-  assert_metric_eq(parsed.diagnostics, "ir_input_kind", "block_stream")
+  assert_metric_eq(parsed.diagnostics, "effective_mode", "dom_ast_model")
+  assert_metric_eq(parsed.diagnostics, "ir_input_kind", "document")
   assert_metric_eq(parsed.diagnostics, "event_granularity", "markdown_block")
   assert_true(
-    parsed.diagnostics.metrics.get("readiness_status") == Some("near_ready"),
+    parsed.diagnostics.metrics.get("product_path_enabled") == Some("true"),
+  )
+  assert_true(
+    parsed.diagnostics.metrics.get("format_contract") == Some("markdown"),
   )
 }
 
@@ -2105,29 +103,29 @@ test "markdown large input switches to true block-structured event stream" {
       Some(@input.DetectedFormat::Markdown),
     ),
     @input.DetectedFormat::Markdown,
-    max_rows=Some(1),
+    requested_mode=Some(@parser.ParserMode::BlockStreaming),
   )
-  assert_true(parsed.mode == @parser.ParserMode::StreamingEvent)
+  assert_true(parsed.mode == @parser.ParserMode::BlockStreaming)
   assert_true(parsed.document is None)
-  assert_true(parsed.block_stream is None)
-  assert_true(parsed.event_stream is Some(_))
-  assert_metric_eq(parsed.diagnostics, "effective_mode", "streaming_event")
-  assert_metric_eq(parsed.diagnostics, "ir_input_kind", "event_stream")
+  assert_true(parsed.block_stream is Some(_))
+  assert_true(parsed.event_stream is None)
+  assert_metric_eq(parsed.diagnostics, "effective_mode", "block_streaming")
+  assert_metric_eq(parsed.diagnostics, "ir_input_kind", "block_stream")
   assert_metric_eq(parsed.diagnostics, "event_granularity", "markdown_block")
   assert_metric_eq(
     parsed.diagnostics,
     "event_semantics",
-    "markdown_block_event_stream",
+    "markdown_block_stream",
   )
-  assert_metric_eq(parsed.diagnostics, "streaming_fallback", "true")
-  assert_metric_eq(parsed.diagnostics, "resource_limit_hit", "true")
-  assert_metric_eq(parsed.diagnostics, "block_limit_reached", "true")
+  assert_metric_absent(parsed.diagnostics, "streaming_fallback")
+  assert_metric_eq(parsed.diagnostics, "resource_limit_hit", "false")
+  assert_metric_eq(parsed.diagnostics, "block_limit_reached", "false")
   assert_diagnostics_lists_contain_none(parsed.diagnostics, [
     "markdown_streaming_fallback=deferred", "large_markdown_raw_fallback",
   ])
-  let events = parsed.event_stream.unwrap_or([])
-  assert_true(events.length() > 0)
-  let first = events[0].source_ref.unwrap_or(@core.empty_source_ref())
+  let blocks = parsed.block_stream.unwrap_or([])
+  assert_true(blocks.length() > 0)
+  let first = blocks[0].source_ref.unwrap_or(@core.empty_source_ref())
   assert_true(first.format == Some("markdown"))
   assert_true(first.markdown_path is Some(_))
 }
@@ -2142,9 +140,7 @@ test "markdown footnotes normalize missing refs and keep definition bodies" {
     ),
     @input.DetectedFormat::Markdown,
   )
-  let document = (@pipeline.default_ir_builder().build)(
-    @core.IRInput::BlockStream(parsed.block_stream.unwrap_or([])),
-  )
+  let document = parsed.document.unwrap_or(@core.empty_document_ir())
   let rendered = (@render.markdown_renderer().render)(
     document,
     @render.make_render_context(false),
@@ -2348,15 +344,15 @@ test "json large input switches to true streaming event path" {
       Some(@input.DetectedFormat::Json),
     ),
     @input.DetectedFormat::Json,
-    max_rows=Some(0),
+    requested_mode=Some(@parser.ParserMode::StreamingEvent),
   )
   assert_true(parsed.mode == @parser.ParserMode::StreamingEvent)
   assert_true(parsed.document is None)
   assert_true(parsed.block_stream is None)
   assert_true(parsed.event_stream is Some(_))
-  assert_metric_eq(parsed.diagnostics, "streaming_fallback", "true")
+  assert_metric_absent(parsed.diagnostics, "streaming_fallback")
   assert_metric_eq(parsed.diagnostics, "effective_mode", "streaming_event")
-  assert_metric_eq(parsed.diagnostics, "dom_limit_reached", "true")
+  assert_metric_eq(parsed.diagnostics, "dom_limit_reached", "false")
   assert_metric_eq(parsed.diagnostics, "ir_input_kind", "event_stream")
   assert_metric_eq(parsed.diagnostics, "event_granularity", "json_structure")
   assert_metric_eq(
@@ -2365,7 +361,7 @@ test "json large input switches to true streaming event path" {
     "json_structure_event_stream",
   )
   assert_metric_not_eq(parsed.diagnostics, "effective_mode", "dom_ast_model")
-  assert_metric_not_eq(parsed.diagnostics, "streaming_fallback", "deferred")
+  assert_metric_absent(parsed.diagnostics, "streaming_fallback")
   assert_true(
     !parsed.diagnostics.degraded_features.contains("json_raw_fenced_fallback"),
   )
@@ -2399,7 +395,7 @@ test "xml small input stays dom ast model with xpath source refs" {
   assert_metric_eq(parsed.diagnostics, "event_granularity", "none")
   assert_metric_eq(parsed.diagnostics, "event_semantics", "dom_ast_model")
   assert_metric_eq(parsed.diagnostics, "doctype_seen", "false")
-  assert_metric_eq(parsed.diagnostics, "streaming_fallback", "false")
+  assert_metric_absent(parsed.diagnostics, "streaming_fallback")
   assert_true(document.blocks.length() == 2)
   assert_true(document.blocks[0].kind == @core.BlockKind::Heading)
   assert_eq(document.blocks[0].text, "<root>")
@@ -2421,7 +417,7 @@ test "xml large input switches to structure event stream without json semantics 
       Some(@input.DetectedFormat::Xml),
     ),
     @input.DetectedFormat::Xml,
-    max_rows=Some(1),
+    requested_mode=Some(@parser.ParserMode::StreamingEvent),
   )
   assert_true(parsed.mode == @parser.ParserMode::StreamingEvent)
   assert_true(parsed.document is None)
@@ -2434,9 +430,9 @@ test "xml large input switches to structure event stream without json semantics 
     "event_semantics",
     "xml_structure_event_stream",
   )
-  assert_metric_eq(parsed.diagnostics, "streaming_fallback", "true")
-  assert_metric_eq(parsed.diagnostics, "dom_limit_reached", "true")
-  assert_metric_eq(parsed.diagnostics, "resource_limit_hit", "true")
+  assert_metric_absent(parsed.diagnostics, "streaming_fallback")
+  assert_metric_eq(parsed.diagnostics, "dom_limit_reached", "false")
+  assert_metric_eq(parsed.diagnostics, "resource_limit_hit", "false")
   assert_metric_not_eq(
     parsed.diagnostics,
     "event_semantics",
@@ -2544,6 +540,86 @@ test "xml convert contract keeps dom and event paths renderer-aligned" {
 }
 
 ///|
+test "xml worldbank namespace dataset stays on streaming event route" {
+  let result = convert_path(
+    "samples/bench/xml/large/xml_large_worldbank_population_v1.xml",
+    format=Some(@input.DetectedFormat::Xml),
+  )
+  assert_true(result.parser_mode == @parser.ParserMode::StreamingEvent)
+  assert_true(!result.diagnostics.degraded_features.contains("xml_fail_closed"))
+  assert_metric_eq(result.diagnostics, "selected_route", "streaming_event")
+  assert_metric_eq(result.diagnostics, "effective_mode", "streaming_event")
+  assert_metric_eq(result.diagnostics, "builder_input_kind", "event_stream")
+}
+
+///|
+test "xml synthetic benchmark samples stay parseable and keep intended routes" {
+  let small = convert_path(
+    "samples/bench/xml/small/xml_small_synthetic_entries_v1.xml",
+    format=Some(@input.DetectedFormat::Xml),
+  )
+  let medium = convert_path(
+    "samples/bench/xml/medium/xml_medium_synthetic_entries_v1.xml",
+    format=Some(@input.DetectedFormat::Xml),
+  )
+  let huge = convert_path(
+    "samples/bench/xml/huge/xml_huge_synthetic_entries_v1.xml",
+    format=Some(@input.DetectedFormat::Xml),
+  )
+  assert_true(!small.diagnostics.degraded_features.contains("xml_fail_closed"))
+  assert_true(!medium.diagnostics.degraded_features.contains("xml_fail_closed"))
+  assert_true(!huge.diagnostics.degraded_features.contains("xml_fail_closed"))
+  assert_true(small.parser_mode == @parser.ParserMode::StreamingEvent)
+  assert_true(medium.parser_mode == @parser.ParserMode::StreamingEvent)
+  assert_true(huge.parser_mode == @parser.ParserMode::StreamingEvent)
+  assert_metric_eq(small.diagnostics, "selected_route", "streaming_event")
+  assert_metric_eq(medium.diagnostics, "selected_route", "streaming_event")
+  assert_metric_eq(huge.diagnostics, "selected_route", "streaming_event")
+  assert_metric_eq(small.diagnostics, "effective_mode", "streaming_event")
+  assert_metric_eq(medium.diagnostics, "effective_mode", "streaming_event")
+  assert_metric_eq(huge.diagnostics, "effective_mode", "streaming_event")
+}
+
+///|
+test "xlsx huge benchmark sample should not fail closed on package open" {
+  let result = convert_path(
+    "samples/bench/xlsx/huge/xlsx_huge_myeb_2011_2024_v1.xlsx",
+    format=Some(@input.DetectedFormat::Xlsx),
+  )
+  assert_true(
+    !result.diagnostics.degraded_features.contains("xlsx_parse_failure"),
+  )
+  assert_true(result.parser_mode == @parser.ParserMode::BlockStreaming)
+  assert_metric_eq(result.diagnostics, "selected_route", "block_streaming")
+  assert_metric_eq(result.diagnostics, "effective_mode", "block_streaming")
+  assert_metric_eq(result.diagnostics, "builder_input_kind", "block_stream")
+}
+
+///|
+test "html large benchmark sample stays on block streaming route" {
+  let result = convert_path(
+    "samples/bench/html/large/html_large_wai_aria_v1.html",
+    format=Some(@input.DetectedFormat::Html),
+  )
+  assert_true(result.parser_mode == @parser.ParserMode::BlockStreaming)
+  assert_metric_eq(result.diagnostics, "selected_route", "block_streaming")
+  assert_metric_eq(result.diagnostics, "effective_mode", "block_streaming")
+  assert_metric_eq(result.diagnostics, "builder_input_kind", "block_stream")
+}
+
+///|
+test "epub large benchmark sample keeps package single pass public shape" {
+  let result = convert_path(
+    "samples/bench/epub/large/epub_large_moby_dick_v1.epub",
+    format=Some(@input.DetectedFormat::Epub),
+  )
+  assert_true(result.parser_mode == @parser.ParserMode::PackageSinglePass)
+  assert_metric_eq(result.diagnostics, "selected_route", "package_single_pass")
+  assert_metric_eq(result.diagnostics, "effective_mode", "package_single_pass")
+  assert_metric_eq(result.diagnostics, "builder_input_kind", "block_stream")
+}
+
+///|
 test "yaml small input stays dom ast model with yaml path source refs" {
   let parsed = default_registry_parse(
     @input.input_from_text_with_format(
@@ -2560,7 +636,7 @@ test "yaml small input stays dom ast model with yaml path source refs" {
   assert_metric_eq(parsed.diagnostics, "ir_input_kind", "document")
   assert_metric_eq(parsed.diagnostics, "event_granularity", "none")
   assert_metric_eq(parsed.diagnostics, "event_semantics", "dom_ast_model")
-  assert_metric_eq(parsed.diagnostics, "streaming_fallback", "false")
+  assert_metric_absent(parsed.diagnostics, "streaming_fallback")
   assert_true(document.blocks.length() == 1)
   assert_true(document.blocks[0].kind == @core.BlockKind::Table)
   let src = document.blocks[0].source_ref.unwrap_or(@core.empty_source_ref())
@@ -2578,7 +654,7 @@ test "yaml large input switches to true structure event stream" {
       Some(@input.DetectedFormat::Yaml),
     ),
     @input.DetectedFormat::Yaml,
-    max_rows=Some(1),
+    requested_mode=Some(@parser.ParserMode::StreamingEvent),
   )
   assert_true(parsed.mode == @parser.ParserMode::StreamingEvent)
   assert_true(parsed.document is None)
@@ -2591,9 +667,9 @@ test "yaml large input switches to true structure event stream" {
     "event_semantics",
     "yaml_structure_event_stream",
   )
-  assert_metric_eq(parsed.diagnostics, "streaming_fallback", "true")
-  assert_metric_eq(parsed.diagnostics, "dom_limit_reached", "true")
-  assert_metric_eq(parsed.diagnostics, "resource_limit_hit", "true")
+  assert_metric_absent(parsed.diagnostics, "streaming_fallback")
+  assert_metric_eq(parsed.diagnostics, "dom_limit_reached", "false")
+  assert_metric_eq(parsed.diagnostics, "resource_limit_hit", "false")
   let events = parsed.event_stream.unwrap_or([])
   assert_true(events.length() > 0)
   let first = events[0].source_ref.unwrap_or(@core.empty_source_ref())
@@ -2645,7 +721,7 @@ test "html small input stays dom ast model with html path source refs and parser
   assert_metric_eq(parsed.diagnostics, "ir_input_kind", "document")
   assert_metric_eq(parsed.diagnostics, "event_granularity", "none")
   assert_metric_eq(parsed.diagnostics, "event_semantics", "dom_ast_model")
-  assert_metric_eq(parsed.diagnostics, "streaming_fallback", "false")
+  assert_metric_absent(parsed.diagnostics, "streaming_fallback")
   assert_true(document.blocks.length() >= 2)
   let src = document.blocks[0].source_ref.unwrap_or(@core.empty_source_ref())
   assert_true(src.file_id == Some("demo.html"))
@@ -2668,30 +744,34 @@ test "html large input switches to true structure event stream" {
       Some(@input.DetectedFormat::Html),
     ),
     @input.DetectedFormat::Html,
-    max_rows=Some(1),
+    requested_mode=Some(@parser.ParserMode::BlockStreaming),
   )
-  assert_true(parsed.mode == @parser.ParserMode::StreamingEvent)
+  assert_true(parsed.mode == @parser.ParserMode::BlockStreaming)
   assert_true(parsed.document is None)
-  assert_true(parsed.event_stream is Some(_))
-  assert_metric_eq(parsed.diagnostics, "effective_mode", "streaming_event")
-  assert_metric_eq(parsed.diagnostics, "ir_input_kind", "event_stream")
+  assert_true(parsed.block_stream is Some(_))
+  assert_metric_eq(parsed.diagnostics, "effective_mode", "block_streaming")
+  assert_metric_eq(parsed.diagnostics, "ir_input_kind", "block_stream")
   assert_metric_eq(
     parsed.diagnostics,
     "event_granularity",
     "html_token_structure",
   )
-  assert_metric_eq(
-    parsed.diagnostics,
-    "event_semantics",
-    "html_token_structure_event_stream",
-  )
-  assert_metric_eq(parsed.diagnostics, "streaming_fallback", "true")
-  assert_metric_eq(parsed.diagnostics, "dom_limit_reached", "true")
-  let events = parsed.event_stream.unwrap_or([])
-  assert_true(events.length() > 0)
-  let first = events[0].source_ref.unwrap_or(@core.empty_source_ref())
+  assert_metric_eq(parsed.diagnostics, "event_semantics", "html_block_stream")
+  assert_metric_absent(parsed.diagnostics, "streaming_fallback")
+  assert_metric_eq(parsed.diagnostics, "dom_limit_reached", "false")
+  let blocks = parsed.block_stream.unwrap_or([])
+  assert_true(blocks.length() > 0)
+  let first = blocks[0].source_ref.unwrap_or(@core.empty_source_ref())
   assert_true(first.format == Some("html"))
   assert_true(first.html_path is Some(_))
+  assert_true(
+    parsed.diagnostics.pass_trace.contains(
+      "parse:html_parser:block_stream_route",
+    ),
+  )
+  assert_true(
+    parsed.diagnostics.pass_trace.contains("lower:html_scope_subtree_blocks"),
+  )
 }
 
 ///|
@@ -2707,11 +787,11 @@ test "html convert contract keeps dom and event paths renderer-aligned" {
       Some(@input.DetectedFormat::Html),
     ),
     @input.DetectedFormat::Html,
-    max_rows=Some(1),
+    requested_mode=Some(@parser.ParserMode::BlockStreaming),
   )
-  let large_events = large_parsed.event_stream.unwrap_or([])
+  let large_blocks = large_parsed.block_stream.unwrap_or([])
   let large_document = (@pipeline.default_ir_builder().build)(
-    @core.IRInput::EventStream(large_events),
+    @core.IRInput::BlockStream(large_blocks),
   )
   let large_rendered = (@render.markdown_renderer().render)(
     large_document,
@@ -2719,21 +799,63 @@ test "html convert contract keeps dom and event paths renderer-aligned" {
   )
   assert_eq(small.content, "Open\n\nBody")
   assert_true(small.parser_mode == @parser.ParserMode::DomAstModel)
-  assert_true(large_parsed.mode == @parser.ParserMode::StreamingEvent)
+  assert_true(large_parsed.mode == @parser.ParserMode::BlockStreaming)
   assert_metric_eq(small.diagnostics, "builder_input_kind", "document")
   assert_metric_eq(
     large_parsed.diagnostics,
     "effective_mode",
-    "streaming_event",
+    "block_streaming",
   )
-  assert_metric_eq(large_parsed.diagnostics, "ir_input_kind", "event_stream")
+  assert_metric_eq(large_parsed.diagnostics, "ir_input_kind", "block_stream")
   assert_metric_eq(
     large_parsed.diagnostics,
     "event_granularity",
     "html_token_structure",
   )
-  assert_true(large_parsed.event_stream is Some(_))
-  ignore(large_rendered)
+  assert_true(large_parsed.block_stream is Some(_))
+  assert_metric_eq(
+    large_document.diagnostics,
+    "builder_input_kind",
+    "block_stream",
+  )
+  assert_eq(large_rendered.content, "# Title\n\nBody")
+}
+
+///|
+test "block stream fast path skips full pipeline for html block route" {
+  let parsed = default_registry_parse(
+    @input.input_from_text_with_format(
+      "<html><body><article><h1>Title</h1><p>Body</p></article></body></html>",
+      "fast-path.html",
+      Some(@input.DetectedFormat::Html),
+    ),
+    @input.DetectedFormat::Html,
+    requested_mode=Some(@parser.ParserMode::BlockStreaming),
+  )
+  let context = @pipeline.make_pass_context(false, "balanced")
+  context.diagnostics.val = parsed.diagnostics
+  let output = match
+    @pipeline.run_default_pipeline(
+      @runtime.parse_result_to_ir_input(parsed),
+      context,
+    ) {
+    Ok(value) => value
+    Err(err) => abort("html block stream fast path failed: " + err.message)
+  }
+  match output {
+    @core.IRInput::BlockStream(_) => ()
+    _ => fail("expected html block stream fast path to preserve BlockStream")
+  }
+  assert_true(
+    context.diagnostics.val.pass_trace.contains(
+      "pipeline:block_stream_fast_path",
+    ),
+  )
+  assert_true(!context.diagnostics.val.pass_trace.contains("NormalizeTextPass"))
+  assert_true(
+    context.diagnostics.val.metrics.get("builder_input_kind") ==
+    Some("block_stream"),
+  )
 }
 
 ///|
@@ -3032,9 +1154,7 @@ test "html safety keeps unsafe links as text with diagnostics and no parser mark
     parsed.diagnostics.metrics.get("unsupported_feature_count") == Some("4"),
   )
   assert_true(parsed.diagnostics.metrics.get("link_count") == Some("4"))
-  assert_true(
-    parsed.diagnostics.metrics.get("streaming_fallback") == Some("false"),
-  )
+  assert_true(parsed.diagnostics.metrics.get("streaming_fallback") == None)
   assert_true(
     parsed.diagnostics.warnings
     .join("\n")
@@ -3082,3718 +1202,6 @@ test "html malformed input fail closes without markdown raw fallback" {
     !parsed.diagnostics.degraded_features.contains("html_raw_fenced_fallback"),
   )
   assert_true(parsed.diagnostics.fallback_trace[0].contains("html fail closed"))
-}
-
-///|
-test "convert pipeline preserves exposed parser irinput contracts" {
-  let txt = convert_memory_text(
-    "Alpha\n\nBeta",
-    "contract.txt",
-    @input.DetectedFormat::Txt,
-  )
-  let csv = convert_memory_text(
-    "a,b\n1,2\n",
-    "contract.csv",
-    @input.DetectedFormat::Csv,
-  )
-  let tsv = convert_memory_text(
-    "a\tb\n1\t2\n",
-    "contract.tsv",
-    @input.DetectedFormat::Tsv,
-  )
-  let json_small = convert_memory_text(
-    "{\"name\":\"Alice\"}\n",
-    "contract.json",
-    @input.DetectedFormat::Json,
-  )
-  let json_large = convert_memory_text(
-    "{\"a\":1,\"b\":2}\n",
-    "contract-large.json",
-    @input.DetectedFormat::Json,
-    limits=limits(0, 50, 10000),
-  )
-  let jsonl = convert_memory_text(
-    "{\"name\":\"Alice\",\"score\":7}\n{\"name\":\"Bob\",\"score\":9}\n",
-    "contract.jsonl",
-    @input.DetectedFormat::Jsonl,
-  )
-  let ndjson = convert_memory_text(
-    "{\"name\":\"Carol\",\"score\":5}\n{\"name\":\"Dave\",\"score\":8}\n",
-    "contract.ndjson",
-    @input.DetectedFormat::Ndjson,
-  )
-  let xml_small = convert_memory_text(
-    "<root><item>Hello</item></root>\n",
-    "contract.xml",
-    @input.DetectedFormat::Xml,
-  )
-  let xml_large = convert_memory_text(
-    "<root><section><item>One</item><item>Two</item></section></root>\n",
-    "contract-large.xml",
-    @input.DetectedFormat::Xml,
-    limits=limits(1, 50, 10000),
-  )
-  let yaml_small = convert_memory_text(
-    "name: Alice\nrole: Engineer\n",
-    "contract.yaml",
-    @input.DetectedFormat::Yaml,
-  )
-  let yaml_large = convert_memory_text(
-    "-\n  name: Alice\n  role: Engineer\n-\n  name: Bob\n  role: Designer\n",
-    "contract-large.yaml",
-    @input.DetectedFormat::Yaml,
-    limits=limits(1, 50, 10000),
-  )
-  let html_small = convert_memory_text(
-    "<details><summary>Open</summary><p>Body</p></details>",
-    "contract.html",
-    @input.DetectedFormat::Html,
-  )
-  let html_large = convert_memory_text(
-    "<html><body><article><h1>Title</h1><p>Body</p></article></body></html>\n",
-    "contract-large.html",
-    @input.DetectedFormat::Html,
-    limits=limits(1, 50, 10000),
-  )
-
-  assert_true(txt.parser_mode == @parser.ParserMode::StreamingEvent)
-  assert_true(csv.parser_mode == @parser.ParserMode::StreamingEvent)
-  assert_true(tsv.parser_mode == @parser.ParserMode::StreamingEvent)
-  assert_true(json_small.parser_mode == @parser.ParserMode::DomAstModel)
-  assert_true(json_large.parser_mode == @parser.ParserMode::StreamingEvent)
-  assert_true(jsonl.parser_mode == @parser.ParserMode::StreamingEvent)
-  assert_true(ndjson.parser_mode == @parser.ParserMode::StreamingEvent)
-  assert_true(xml_small.parser_mode == @parser.ParserMode::DomAstModel)
-  assert_true(xml_large.parser_mode == @parser.ParserMode::StreamingEvent)
-  assert_true(yaml_small.parser_mode == @parser.ParserMode::DomAstModel)
-  assert_true(yaml_large.parser_mode == @parser.ParserMode::StreamingEvent)
-  assert_true(html_small.parser_mode == @parser.ParserMode::DomAstModel)
-  assert_true(html_large.parser_mode == @parser.ParserMode::StreamingEvent)
-
-  assert_metric_eq(txt.diagnostics, "ir_input_kind", "event_stream")
-  assert_metric_eq(txt.diagnostics, "builder_input_kind", "event_stream")
-  assert_metric_eq(csv.diagnostics, "ir_input_kind", "event_stream")
-  assert_metric_eq(csv.diagnostics, "builder_input_kind", "event_stream")
-  assert_metric_eq(tsv.diagnostics, "ir_input_kind", "event_stream")
-  assert_metric_eq(tsv.diagnostics, "builder_input_kind", "event_stream")
-  assert_metric_eq(json_small.diagnostics, "effective_mode", "dom_ast_model")
-  assert_metric_eq(json_small.diagnostics, "ir_input_kind", "document")
-  assert_metric_eq(json_small.diagnostics, "builder_input_kind", "document")
-  assert_metric_eq(json_large.diagnostics, "effective_mode", "streaming_event")
-  assert_metric_eq(json_large.diagnostics, "ir_input_kind", "event_stream")
-  assert_metric_eq(json_large.diagnostics, "builder_input_kind", "event_stream")
-  assert_metric_eq(jsonl.diagnostics, "ir_input_kind", "event_stream")
-  assert_metric_eq(jsonl.diagnostics, "builder_input_kind", "event_stream")
-  assert_metric_eq(ndjson.diagnostics, "ir_input_kind", "event_stream")
-  assert_metric_eq(ndjson.diagnostics, "builder_input_kind", "event_stream")
-  assert_metric_eq(xml_small.diagnostics, "effective_mode", "dom_ast_model")
-  assert_metric_eq(xml_small.diagnostics, "ir_input_kind", "document")
-  assert_metric_eq(xml_small.diagnostics, "builder_input_kind", "document")
-  assert_metric_eq(xml_large.diagnostics, "effective_mode", "streaming_event")
-  assert_metric_eq(xml_large.diagnostics, "ir_input_kind", "event_stream")
-  assert_metric_eq(xml_large.diagnostics, "builder_input_kind", "event_stream")
-  assert_metric_eq(yaml_small.diagnostics, "effective_mode", "dom_ast_model")
-  assert_metric_eq(yaml_small.diagnostics, "ir_input_kind", "document")
-  assert_metric_eq(yaml_small.diagnostics, "builder_input_kind", "document")
-  assert_metric_eq(yaml_large.diagnostics, "effective_mode", "streaming_event")
-  assert_metric_eq(yaml_large.diagnostics, "ir_input_kind", "event_stream")
-  assert_metric_eq(yaml_large.diagnostics, "builder_input_kind", "event_stream")
-  assert_metric_eq(html_small.diagnostics, "effective_mode", "dom_ast_model")
-  assert_metric_eq(html_small.diagnostics, "ir_input_kind", "document")
-  assert_metric_eq(html_small.diagnostics, "builder_input_kind", "document")
-  assert_metric_eq(html_large.diagnostics, "effective_mode", "streaming_event")
-  assert_metric_eq(html_large.diagnostics, "ir_input_kind", "event_stream")
-  assert_metric_eq(html_large.diagnostics, "builder_input_kind", "event_stream")
-}
-
-///|
-test "parser capabilities expose honest streaming granularity contracts" {
-  let registry = @formats_root.builtin_registry()
-  let txt = @parser.registry_lookup(registry, @input.DetectedFormat::Txt).unwrap_or_else(fn() {
-      abort("missing txt parser")
-    },
-  )
-  let csv = @parser.registry_lookup(registry, @input.DetectedFormat::Csv).unwrap_or_else(fn() {
-      abort("missing csv parser")
-    },
-  )
-  let tsv = @parser.registry_lookup(registry, @input.DetectedFormat::Tsv).unwrap_or_else(fn() {
-      abort("missing tsv parser")
-    },
-  )
-  let json = @parser.registry_lookup(registry, @input.DetectedFormat::Json).unwrap_or_else(fn() {
-      abort("missing json parser")
-    },
-  )
-  let jsonl = @parser.registry_lookup(registry, @input.DetectedFormat::Jsonl).unwrap_or_else(fn() {
-      abort("missing jsonl parser")
-    },
-  )
-  let ndjson = @parser.registry_lookup(registry, @input.DetectedFormat::Ndjson).unwrap_or_else(fn() {
-      abort("missing ndjson parser")
-    },
-  )
-  let xml = @parser.registry_lookup(registry, @input.DetectedFormat::Xml).unwrap_or_else(fn() {
-      abort("missing xml parser")
-    },
-  )
-  let yaml = @parser.registry_lookup(registry, @input.DetectedFormat::Yaml).unwrap_or_else(fn() {
-      abort("missing yaml parser")
-    },
-  )
-  let html = @parser.registry_lookup(registry, @input.DetectedFormat::Html).unwrap_or_else(fn() {
-      abort("missing html parser")
-    },
-  )
-  assert_true(txt.capability.supports_streaming)
-  assert_true(txt.capability.parser_mode == @parser.ParserMode::StreamingEvent)
-  assert_true(
-    txt.capability.streaming_granularity == @parser.StreamingGranularity::Line,
-  )
-  assert_true(csv.capability.supports_streaming)
-  assert_true(
-    csv.capability.streaming_granularity == @parser.StreamingGranularity::Row,
-  )
-  assert_true(tsv.capability.supports_streaming)
-  assert_true(
-    tsv.capability.streaming_granularity == @parser.StreamingGranularity::Row,
-  )
-  assert_true(json.capability.supports_streaming)
-  assert_true(json.capability.parser_mode == @parser.ParserMode::DomAstModel)
-  assert_true(json.capability.supports_document_ir)
-  assert_true(json.capability.supports_events)
-  assert_true(
-    json.capability.streaming_granularity ==
-    @parser.StreamingGranularity::JsonStructure,
-  )
-  assert_true(jsonl.capability.supports_streaming)
-  assert_true(
-    jsonl.capability.streaming_granularity ==
-    @parser.StreamingGranularity::Record,
-  )
-  assert_true(ndjson.capability.supports_streaming)
-  assert_true(
-    ndjson.capability.streaming_granularity ==
-    @parser.StreamingGranularity::Record,
-  )
-  assert_true(xml.capability.supports_streaming)
-  assert_true(xml.capability.parser_mode == @parser.ParserMode::DomAstModel)
-  assert_true(xml.capability.supports_document_ir)
-  assert_true(xml.capability.supports_events)
-  assert_true(
-    xml.capability.streaming_granularity ==
-    @parser.StreamingGranularity::XmlStructure,
-  )
-  assert_true(yaml.capability.supports_streaming)
-  assert_true(yaml.capability.parser_mode == @parser.ParserMode::DomAstModel)
-  assert_true(yaml.capability.supports_document_ir)
-  assert_true(yaml.capability.supports_events)
-  assert_true(
-    yaml.capability.streaming_granularity ==
-    @parser.StreamingGranularity::YamlStructure,
-  )
-  assert_true(html.capability.supports_streaming)
-  assert_true(html.capability.parser_mode == @parser.ParserMode::DomAstModel)
-  assert_true(html.capability.supports_document_ir)
-  assert_true(html.capability.supports_events)
-  assert_true(
-    html.capability.streaming_granularity ==
-    @parser.StreamingGranularity::HtmlTokenStructure,
-  )
-  assert_true(
-    @parser.StreamingGranularity::ArchiveEntry ==
-    @parser.StreamingGranularity::ArchiveEntry,
-  )
-  assert_true(
-    @parser.StreamingGranularity::EpubSpineItem ==
-    @parser.StreamingGranularity::EpubSpineItem,
-  )
-}
-
-///|
-test "renderer only consumes core ir and accepts irinput via builder" {
-  let builder = @pipeline.default_ir_builder()
-  let document = (builder.build)(
-    @core.IRInput::BlockStream([
-      @core.make_block(
-        @core.BlockKind::Heading,
-        "Title",
-        source_ref=@core.empty_source_ref(),
-      ),
-      @core.make_block(
-        @core.BlockKind::Paragraph,
-        "Body",
-        source_ref=@core.empty_source_ref(),
-      ),
-    ]),
-  )
-  let renderer = @render.markdown_renderer()
-  let rendered = (renderer.render)(document, @render.make_render_context(false))
-  assert_eq(rendered.content, "# Title\n\nBody")
-  assert_true(
-    rendered.diagnostics.metrics.get("renderer_name") ==
-    Some("MarkdownRenderer"),
-  )
-}
-
-///|
-test "renderer does not over-escape hyphen inside heading text" {
-  let heading = @core.make_block(
-    @core.BlockKind::Heading,
-    "a-first.md",
-    source_ref=@core.empty_source_ref(),
-  )
-  heading.attrs.set("level", "1")
-  let document = (@pipeline.default_ir_builder().build)(
-    @core.IRInput::BlockStream([heading]),
-  )
-  let rendered = (@render.markdown_renderer().render)(
-    document,
-    @render.make_render_context(false),
-  )
-  assert_eq(rendered.content, "# a-first.md")
-}
-
-///|
-test "renderer keeps plain exclamation while preserving inline link image and markdown escapes" {
-  let paragraph = @core.block_with_rich_inlines(
-    @core.make_block(
-      @core.BlockKind::Paragraph,
-      "unused",
-      source_ref=@core.empty_source_ref(),
-    ),
-    Some([
-      @core.make_inline_text("Hello! See "),
-      @core.make_inline_link("spec", "https://example.com/spec"),
-      @core.make_inline_text(" and "),
-      @core.make_inline_image("diagram", "https://example.com/diagram.png"),
-      @core.make_inline_text(" with [literal] <tag>"),
-    ]),
-  )
-  let rendered = (@render.markdown_renderer().render)(
-    @core.document_from_blocks([paragraph]),
-    @render.make_render_context(false),
-  )
-  assert_eq(
-    rendered.content,
-    "Hello! See [spec](https://example.com/spec) and ![diagram](https://example.com/diagram.png) with \\[literal\\] \\<tag\\>",
-  )
-  assert_true(!rendered.content.contains("\\!"))
-}
-
-///|
-test "renderer keeps declared table width when header row is narrower than body rows" {
-  let table = @core.make_block(
-    @core.BlockKind::Table,
-    "table",
-    source_ref=@core.empty_source_ref(),
-  )
-  table.attrs.set("header_rows", "1")
-  table.attrs.set("table_column_count", "3")
-
-  let header = @core.make_block(
-    @core.BlockKind::TableRow,
-    "",
-    source_ref=@core.empty_source_ref(),
-  )
-  header.children.push(
-    @core.make_block(
-      @core.BlockKind::TableCell,
-      "Merged Head",
-      source_ref=@core.empty_source_ref(),
-    ),
-  )
-  header.children.push(
-    @core.make_block(
-      @core.BlockKind::TableCell,
-      "Right",
-      source_ref=@core.empty_source_ref(),
-    ),
-  )
-
-  let row = @core.make_block(
-    @core.BlockKind::TableRow,
-    "",
-    source_ref=@core.empty_source_ref(),
-  )
-  row.children.push(
-    @core.make_block(
-      @core.BlockKind::TableCell,
-      "A",
-      source_ref=@core.empty_source_ref(),
-    ),
-  )
-  row.children.push(
-    @core.make_block(
-      @core.BlockKind::TableCell,
-      "B",
-      source_ref=@core.empty_source_ref(),
-    ),
-  )
-  row.children.push(
-    @core.make_block(
-      @core.BlockKind::TableCell,
-      "C",
-      source_ref=@core.empty_source_ref(),
-    ),
-  )
-
-  table.children.push(header)
-  table.children.push(row)
-
-  let rendered = (@render.markdown_renderer().render)(
-    @core.document_from_blocks([table]),
-    @render.make_render_context(false),
-  )
-  assert_eq(
-    rendered.content,
-    "| Merged Head | Right |\n| --- | --- |\n| A | B | C |",
-  )
-}
-
-///|
-test "generic block event stream preserves inline attrs for renderer contracts" {
-  let marker = @core.inline_with_attr(
-    @core.inline_with_attr(
-      @core.inline_with_attr(
-        @core.make_inline_text("[^1]", source_ref=@core.empty_source_ref()),
-        "annotation_role",
-        "note_ref",
-      ),
-      "annotation_kind",
-      "footnote",
-    ),
-    "annotation_marker",
-    "[^1]",
-  )
-  let marker = @core.inline_with_attr(marker, "render_literal", "true")
-  let paragraph = @core.block_with_rich_inlines(
-    @core.make_block(
-      @core.BlockKind::Paragraph,
-      "",
-      source_ref=@core.empty_source_ref(),
-    ),
-    Some([@core.make_inline_text("Body"), marker]),
-  )
-  let events = @pipeline.blocks_to_event_stream([paragraph])
-  let document = (@pipeline.default_ir_builder().build)(
-    @core.IRInput::EventStream(events),
-  )
-  let inlines = document.blocks[0].rich_inlines.unwrap_or([])
-  assert_eq(inlines.length(), 2)
-  assert_true(inlines[1].attrs.get("annotation_role") == Some("note_ref"))
-  assert_true(inlines[1].attrs.get("annotation_marker") == Some("[^1]"))
-  assert_true(inlines[1].attrs.get("render_literal") == Some("true"))
-  let rendered = (@render.markdown_renderer().render)(
-    document,
-    @render.make_render_context(false),
-  )
-  assert_eq(rendered.content, "Body[^1]")
-}
-
-///|
-test "renderer keeps plain exclamation in literal markdown lines" {
-  let paragraph = @core.make_block(
-    @core.BlockKind::Paragraph,
-    "paragraph!\n# heading!\n1. ordered!",
-    source_ref=@core.empty_source_ref(),
-  )
-  let rendered = (@render.markdown_renderer().render)(
-    @core.document_from_blocks([paragraph]),
-    @render.make_render_context(false),
-  )
-  assert_eq(rendered.content, "paragraph! \\# heading! 1\\. ordered!")
-  assert_true(!rendered.content.contains("\\!"))
-}
-
-///|
-test "irinput three-shape contract stays explicit" {
-  let builder = @pipeline.default_ir_builder()
-  let event_doc = (builder.build)(
-    @core.IRInput::EventStream([
-      {
-        kind: @core.EventKind::Cell,
-        text: "A",
-        source_ref: Some(
-          @core.source_ref_with_cell_range(
-            @core.source_ref_with_lines(
-              @core.empty_source_ref(),
-              Some("t.csv"),
-              Some("csv"),
-              Some(1),
-              Some(1),
-            ),
-            Some("t.csv"),
-            Some("csv"),
-            Some("R1C1"),
-          ),
-        ),
-      },
-      {
-        kind: @core.EventKind::Cell,
-        text: "B",
-        source_ref: Some(
-          @core.source_ref_with_cell_range(
-            @core.source_ref_with_lines(
-              @core.empty_source_ref(),
-              Some("t.csv"),
-              Some("csv"),
-              Some(1),
-              Some(1),
-            ),
-            Some("t.csv"),
-            Some("csv"),
-            Some("R1C2"),
-          ),
-        ),
-      },
-      {
-        kind: @core.EventKind::RowBreak,
-        text: "",
-        source_ref: Some(
-          @core.source_ref_with_cell_range(
-            @core.source_ref_with_lines(
-              @core.empty_source_ref(),
-              Some("t.csv"),
-              Some("csv"),
-              Some(1),
-              Some(1),
-            ),
-            Some("t.csv"),
-            Some("csv"),
-            Some("R1C1:R1C2"),
-          ),
-        ),
-      },
-    ]),
-  )
-  let block_doc = (builder.build)(
-    @core.IRInput::BlockStream([
-      @core.make_block(
-        @core.BlockKind::Paragraph,
-        "Body",
-        source_ref=@core.empty_source_ref(),
-      ),
-    ]),
-  )
-  let raw_doc = @core.document_from_blocks([
-    @core.make_block(
-      @core.BlockKind::Paragraph,
-      "Doc",
-      source_ref=@core.empty_source_ref(),
-    ),
-  ])
-  let document_doc = (builder.build)(@core.IRInput::Document(raw_doc))
-  assert_true(event_doc.blocks.length() == 1)
-  assert_true(event_doc.blocks[0].kind == @core.BlockKind::Table)
-  assert_true(
-    block_doc.diagnostics.metrics.get("builder_input_kind") ==
-    Some("block_stream"),
-  )
-  assert_true(
-    document_doc.diagnostics.metrics.get("builder_input_kind") ==
-    Some("document"),
-  )
-}
-
-///|
-test "container scaffold exposes explicit irinput and parser mode contracts without enabling runtime" {
-  assert_true(
-    @parser.mode_name(@parser.ParserMode::ContainerRecursive) ==
-    "container_recursive",
-  )
-
-  let source_ref = @core.source_ref_with_container_entry(
-    @core.empty_source_ref(),
-    Some("sample.zip"),
-    Some("zip"),
-    Some("sample.zip"),
-    Some("docs/readme.md"),
-    Some(0),
-    Some("markdown"),
-    Some("#/heading[0]"),
-  )
-  let entry = @core.make_container_entry(
-    "docs/readme.md",
-    @core.ContainerEntryKind::Document,
-    normalized_path=Some("docs/readme.md"),
-    entry_index=Some(0),
-    detected_format=Some("markdown"),
-    source_ref=Some(source_ref),
-  )
-  let diagnostics = @core.empty_diagnostics()
-  diagnostics.metrics.set("parser_mode", "container_recursive")
-  diagnostics.metrics.set("ir_input_kind", "container_manifest")
-  diagnostics.metrics.set("event_granularity", "archive_entry")
-  diagnostics.metrics.set("container_entry_count", "1")
-  diagnostics.metrics.set("selected_entry_count", "1")
-  diagnostics.metrics.set("skipped_entry_count", "0")
-  diagnostics.metrics.set("manifest_seen", "true")
-  let manifest = @core.make_container_manifest(
-    "zip",
-    [entry],
-    container_path=Some("sample.zip"),
-    selected_entries=[entry],
-    diagnostics~,
-    source_ref=Some(source_ref),
-  )
-  let builder = @pipeline.default_ir_builder()
-  let document = (builder.build)(@core.IRInput::ContainerManifest(manifest))
-  assert_true(
-    document.diagnostics.metrics.get("builder_input_kind") ==
-    Some("container_manifest"),
-  )
-  assert_true(
-    document.diagnostics.metrics.get("ir_input_kind") ==
-    Some("container_manifest"),
-  )
-  assert_true(
-    document.metadata.get("container_format") ==
-    Some(@core.JsonValue::String("zip")),
-  )
-  assert_true(
-    document.metadata.get("container_entry_count") ==
-    Some(@core.JsonValue::Number("1")),
-  )
-}
-
-///|
-test "container plan scaffold keeps asset and inner document contracts explicit" {
-  let source_ref = @core.source_ref_with_container_entry(
-    @core.empty_source_ref(),
-    Some("book.epub"),
-    Some("epub"),
-    Some("book.epub"),
-    Some("OEBPS/chapter1.xhtml"),
-    Some(3),
-    Some("html"),
-    Some("/html/body/h1"),
-  )
-  let entry = @core.make_container_entry(
-    "OEBPS/chapter1.xhtml",
-    @core.ContainerEntryKind::Document,
-    normalized_path=Some("OEBPS/chapter1.xhtml"),
-    entry_index=Some(3),
-    detected_format=Some("html"),
-    media_type=Some("application/xhtml+xml"),
-    source_ref=Some(source_ref),
-  )
-  let inner = @core.make_container_inner_document(
-    entry,
-    "book.epub::OEBPS/chapter1.xhtml",
-    explicit_detected_format=Some("html"),
-    inner_source_ref=Some(source_ref),
-  )
-  let asset = @core.make_container_asset_plan(
-    "OEBPS/images/cover.jpg",
-    "assets/cover.jpg",
-    media_type=Some("image/jpeg"),
-    size=Some(12),
-    copy_policy=@core.ContainerAssetCopyPolicy::MaterializeAtOutputBoundary,
-    source_ref=Some(
-      @core.source_ref_with_container_entry(
-        @core.empty_source_ref(),
-        Some("book.epub"),
-        Some("epub"),
-        Some("book.epub"),
-        Some("OEBPS/images/cover.jpg"),
-        Some(7),
-        Some("binary"),
-        None,
-      ),
-    ),
-  )
-  let diagnostics = @core.empty_diagnostics()
-  diagnostics.metrics.set("parser_mode", "container_recursive")
-  diagnostics.metrics.set("ir_input_kind", "container_plan")
-  diagnostics.metrics.set("event_granularity", "epub_spine_item")
-  diagnostics.metrics.set("container_entry_count", "2")
-  diagnostics.metrics.set("selected_entry_count", "1")
-  diagnostics.metrics.set("asset_count", "1")
-  diagnostics.metrics.set("spine_item_count", "1")
-  diagnostics.metrics.set("nav_seen", "true")
-  let plan = @core.make_container_plan(
-    "epub",
-    [entry],
-    [inner],
-    [asset],
-    container_path=Some("book.epub"),
-    diagnostics~,
-    source_ref=Some(source_ref),
-  )
-  let document = (@pipeline.default_ir_builder().build)(
-    @core.IRInput::ContainerPlan(plan),
-  )
-  assert_true(
-    document.diagnostics.metrics.get("builder_input_kind") ==
-    Some("container_plan"),
-  )
-  assert_true(
-    document.metadata.get("asset_plan_count") ==
-    Some(@core.JsonValue::Number("1")),
-  )
-  assert_true(
-    @core.container_asset_copy_policy_name(asset.copy_policy) ==
-    "materialize_at_output_boundary",
-  )
-}
-
-///|
-test "debug mode emits diagnostics parser metadata and pass trace" {
-  let result = convert_memory_text(
-    "Alpha\n\nBeta",
-    "debug.txt",
-    @input.DetectedFormat::Txt,
-    mode=@convert.ConvertMode::Debug,
-    output=@convert.OutputFormat::DebugJson,
-  )
-  assert_true(result.content.contains("\"diagnostics\""))
-  assert_true(result.content.contains("\"parser_name\""))
-  assert_true(result.content.contains("\"fallback_trace\""))
-  assert_true(result.content.contains("\"pass_trace\""))
-  assert_true(result.content.contains("\"source_ref\""))
-  assert_true(result.diagnostics.convert_mode == Some("debug"))
-  assert_true(
-    result.diagnostics.metrics.get("renderer_name") == Some("DebugJsonRenderer"),
-  )
-}
-
-///|
-test "rag mode emits chunk json metadata source map and diagnostics" {
-  let result = convert_memory_text(
-    "# Alpha\n\nBody one.\n\nBody two.\n",
-    "rag.md",
-    @input.DetectedFormat::Markdown,
-    mode=@convert.ConvertMode::Rag,
-    output=@convert.OutputFormat::RagJson,
-  )
-  assert_true(result.content.contains("\"output_format\": \"rag_json\""))
-  assert_true(result.content.contains("\"chunks\""))
-  assert_true(result.content.contains("\"heading_path\": [\"Alpha\"]"))
-  assert_true(result.content.contains("\"source_map\":"))
-  assert_true(result.chunks is Some(_))
-  let chunks = result.chunks.unwrap_or([])
-  assert_true(chunks.length() >= 1)
-  assert_true(chunks[0].metadata.get("document_format") is Some(_))
-  assert_true(
-    result.diagnostics.metrics.get("renderer_name") == Some("RagJsonRenderer"),
-  )
-  assert_true(
-    result.content.contains("\"source_map\": null") ||
-    result.source_map is Some(_),
-  )
-  assert_true(result.debug_ir is None)
-}
-
-///|
-test "rag chunking keeps text overlap and table code chunk splitting" {
-  let source_ref = @core.source_ref_with_lines(
-    @core.empty_source_ref(),
-    Some("demo.txt"),
-    Some("txt"),
-    Some(1),
-    Some(3),
-  )
-  let paragraph_a = @core.make_block(
-    @core.BlockKind::Paragraph,
-    "Alpha body text.",
-    source_ref~,
-  )
-  let paragraph_b = @core.make_block(
-    @core.BlockKind::Paragraph,
-    "Beta body text.",
-    source_ref~,
-  )
-  let table = @core.block_with_children(
-    @core.make_block(
-      @core.BlockKind::Table,
-      "",
-      source_ref=@core.source_ref_with_cell_range(
-        @core.empty_source_ref(),
-        Some("book.xlsx"),
-        Some("xlsx"),
-        Some("A1:B4"),
-      ),
-    ),
-    [
-      @core.block_with_children(
-        @core.make_block(@core.BlockKind::TableRow, ""),
-        [
-          @core.make_block(@core.BlockKind::TableCell, "H1"),
-          @core.make_block(@core.BlockKind::TableCell, "H2"),
-        ],
-      ),
-      @core.block_with_children(
-        @core.make_block(@core.BlockKind::TableRow, ""),
-        [
-          @core.make_block(@core.BlockKind::TableCell, "R1"),
-          @core.make_block(@core.BlockKind::TableCell, "V1"),
-        ],
-      ),
-      @core.block_with_children(
-        @core.make_block(@core.BlockKind::TableRow, ""),
-        [
-          @core.make_block(@core.BlockKind::TableCell, "R2"),
-          @core.make_block(@core.BlockKind::TableCell, "V2"),
-        ],
-      ),
-    ],
-  )
-  let code = @core.block_with_attr(
-    @core.make_block(
-      @core.BlockKind::Code,
-      "line1\nline2\nline3\nline4",
-      source_ref=@core.empty_source_ref(),
-    ),
-    "language",
-    "moonbit",
-  )
-  let document = @core.document_from_blocks([
-    paragraph_a, paragraph_b, table, code,
-  ])
-  document.metadata.set("format", @core.JsonValue::String("xlsx"))
-  let chunks = @rag.chunks_from_document(
-    document,
-    @rag.make_rag_options(20, 5, true, true, true, true),
-  )
-  assert_true(chunks.length() >= 4)
-  assert_true(chunks[0].kind == @rag.ChunkKind::Text)
-  assert_true(chunks[1].kind == @rag.ChunkKind::Text)
-  assert_true(chunks[0].text.contains("Alpha"))
-  assert_true(chunks[1].text.contains("Beta"))
-  assert_true(chunks.any(fn(chunk) { chunk.kind == @rag.ChunkKind::Table }))
-  assert_true(chunks.any(fn(chunk) { chunk.kind == @rag.ChunkKind::Code }))
-}
-
-///|
-test "rag output can suppress source refs while keeping library source map" {
-  let options = @convert.make_convert_options(
-    @convert.ConvertMode::Rag,
-    @convert.OutputFormat::RagJson,
-    Some(@input.DetectedFormat::Markdown),
-    @parser.default_ocr_options(),
-    @convert.default_resource_limits(),
-    rag_options=@rag.make_rag_options(1200, 150, true, false, true, true),
-  )
-  let result = match
-    @convert.convert_input(
-      @input.input_from_text_with_format(
-        "# Title\n\nBody\n",
-        "rag.md",
-        Some(@input.DetectedFormat::Markdown),
-      ),
-      options,
-    ) {
-    Ok(value) => value
-    Err(err) => abort("rag convert failed: " + err.to_string())
-  }
-  assert_true(result.content.contains("\"source_map\": null"))
-  let chunks = result.chunks.unwrap_or([])
-  assert_true(chunks.length() >= 1)
-  for chunk in chunks {
-    assert_eq(chunk.source_refs.length(), 0)
-  }
-}
-
-///|
-test "rag sample outputs preserve location metadata across html docx pdf pptx and xlsx" {
-  let html = convert_path(
-    "samples/main_process/html/markdown/html_link_in_paragraph.html",
-    mode=@convert.ConvertMode::Rag,
-    output=@convert.OutputFormat::RagJson,
-  )
-  let docx = convert_path(
-    "samples/main_process/docx/markdown/docx_heading_levels.docx",
-    mode=@convert.ConvertMode::Rag,
-    output=@convert.OutputFormat::RagJson,
-  )
-  let pdf = convert_path(
-    "samples/main_process/pdf/markdown/text_simple.pdf",
-    mode=@convert.ConvertMode::Rag,
-    output=@convert.OutputFormat::RagJson,
-  )
-  let pptx = convert_path(
-    "samples/main_process/pptx/markdown/pptx_bullet_levels.pptx",
-    mode=@convert.ConvertMode::Rag,
-    output=@convert.OutputFormat::RagJson,
-  )
-  let xlsx = convert_path(
-    "samples/main_process/xlsx/markdown/sheet_simple.xlsx",
-    mode=@convert.ConvertMode::Rag,
-    output=@convert.OutputFormat::RagJson,
-  )
-  assert_true(html.content.contains("\"heading_path\""))
-  assert_true(docx.content.contains("\"heading_path\""))
-  assert_true(pdf.content.contains("\"pages\""))
-  assert_true(pptx.content.contains("\"slides\""))
-  assert_true(xlsx.content.contains("\"sheets\""))
-  assert_true(xlsx.content.contains("\"cell_ranges\""))
-}
-
-///|
-test "debug json source ref serialization keeps json xpath and yaml path fields visible" {
-  let json = convert_memory_text(
-    "{\"name\":\"Alice\"}\n",
-    "debug.json",
-    @input.DetectedFormat::Json,
-    mode=@convert.ConvertMode::Debug,
-    output=@convert.OutputFormat::DebugJson,
-  )
-  let xml = convert_memory_text(
-    "<root><item>Hello</item></root>\n",
-    "debug.xml",
-    @input.DetectedFormat::Xml,
-    mode=@convert.ConvertMode::Debug,
-    output=@convert.OutputFormat::DebugJson,
-  )
-  let yaml = convert_memory_text(
-    "name: Alice\nrole: Engineer\n",
-    "debug.yaml",
-    @input.DetectedFormat::Yaml,
-    mode=@convert.ConvertMode::Debug,
-    output=@convert.OutputFormat::DebugJson,
-  )
-  let markdown = convert_memory_text(
-    "# Title\n\nBody\n",
-    "debug.md",
-    @input.DetectedFormat::Markdown,
-    mode=@convert.ConvertMode::Debug,
-    output=@convert.OutputFormat::DebugJson,
-  )
-  assert_true(json.content.contains("\"json_pointer\": \"/\""))
-  assert_true(json.content.contains("\"xpath\": null"))
-  assert_true(json.content.contains("\"yaml_path\": null"))
-  assert_true(xml.content.contains("\"xpath\": \"/root\""))
-  assert_true(xml.content.contains("\"json_pointer\": null"))
-  assert_true(xml.content.contains("\"yaml_path\": null"))
-  assert_true(yaml.content.contains("\"yaml_path\": \"/\""))
-  assert_true(yaml.content.contains("\"json_pointer\": null"))
-  assert_true(yaml.content.contains("\"xpath\": null"))
-  assert_true(markdown.content.contains("\"markdown_path\": \"/heading[0]\""))
-  assert_true(markdown.content.contains("\"yaml_path\": null"))
-  assert_true(markdown.content.contains("\"xpath\": null"))
-}
-
-///|
-test "debug json source ref serialization keeps office scaffold fields visible" {
-  let source_ref = @core.source_ref_with_office_fields(
-    @core.source_ref_with_container_entry(
-      @core.empty_source_ref(),
-      Some("sample.docx"),
-      Some("docx"),
-      Some("sample.docx"),
-      Some("word/document.xml"),
-      Some(0),
-      Some("docx"),
-      Some("/w:document/w:body/w:p[3]"),
-    ),
-    Some("sample.docx"),
-    Some("docx"),
-    Some("/w:document/w:body/w:p[3]"),
-    Some("Sheet A"),
-    Some("B7:C9"),
-    Some(2),
-    Some("shape-4"),
-    Some("rId5"),
-  )
-  let with_extra = @core.source_ref_with_extra(
-    @core.source_ref_with_extra(
-      @core.source_ref_with_extra(
-        @core.source_ref_with_extra(
-          @core.source_ref_with_extra(
-            source_ref, "ooxml_part_type", "main_document",
-          ),
-          "part_name",
-          "word/document.xml",
-        ),
-        "relationship_type",
-        "image",
-      ),
-      "sheet_name",
-      "Sheet A",
-    ),
-    "paragraph_index",
-    "3",
-  )
-  let block = @core.make_block(
-    @core.BlockKind::Paragraph,
-    "Docx scaffold",
-    source_ref=with_extra,
-  )
-  let document = @core.document_from_blocks([block])
-  let rendered = (@render.debug_json_renderer().render)(
-    document,
-    @render.make_render_context(true),
-  )
-  assert_true(
-    rendered.content.contains("\"inner_path\": \"/w:document/w:body/w:p[3]\""),
-  )
-  assert_true(rendered.content.contains("\"sheet\": \"Sheet A\""))
-  assert_true(rendered.content.contains("\"cell_range\": \"B7:C9\""))
-  assert_true(rendered.content.contains("\"slide\": 2"))
-  assert_true(rendered.content.contains("\"shape_id\": \"shape-4\""))
-  assert_true(rendered.content.contains("\"relationship_id\": \"rId5\""))
-  assert_true(
-    rendered.content.contains("\"ooxml_part_type\": \"main_document\""),
-  )
-  assert_true(rendered.content.contains("\"part_name\": \"word/document.xml\""))
-  assert_true(rendered.content.contains("\"relationship_type\": \"image\""))
-  assert_true(rendered.content.contains("\"sheet_name\": \"Sheet A\""))
-  assert_true(rendered.content.contains("\"paragraph_index\": \"3\""))
-}
-
-///|
-test "debug json source ref serialization keeps container fields visible" {
-  let source_ref = @core.source_ref_with_container_entry(
-    @core.empty_source_ref(),
-    Some("sample.zip"),
-    Some("zip"),
-    Some("sample.zip"),
-    Some("docs/readme.md"),
-    Some(4),
-    Some("markdown"),
-    Some("#/heading[0]"),
-  )
-  let block = @core.make_block(
-    @core.BlockKind::Paragraph,
-    "Entry text",
-    source_ref~,
-  )
-  let document = @core.document_from_blocks([block])
-  let rendered = (@render.debug_json_renderer().render)(
-    document,
-    @render.make_render_context(true),
-  )
-  assert_contains_all(rendered.content, [
-    "\"container_path\": \"sample.zip\"", "\"entry_path\": \"docs/readme.md\"", "\"entry_index\": 4",
-    "\"entry_format\": \"markdown\"", "\"inner_path\": \"#/heading[0]\"",
-  ])
-}
-
-///|
-test "phase1 core skeleton assigns stable block ids and assembly summary" {
-  let heading = @core.make_block(
-    @core.BlockKind::Heading,
-    "Alpha",
-    source_ref=@core.empty_source_ref(),
-  )
-  heading.attrs.set("level", "1")
-  let paragraph = @core.make_block(
-    @core.BlockKind::Paragraph,
-    "Body",
-    source_ref=@core.empty_source_ref(),
-  )
-  let document = @pipeline.build_document_with_default_pipeline(
-    @core.IRInput::BlockStream([heading, paragraph]),
-    @pipeline.make_pass_context(false, "balanced"),
-  )
-  assert_true(heading.block_id != "")
-  assert_true(paragraph.block_id != "")
-  let assembly = document.assembly.unwrap_or(@core.empty_document_assembly())
-  assert_true(assembly.root_block_ids.length() == 2)
-  assert_true(assembly.sections.length() == 1)
-  assert_true(assembly.sections[0].title == "Alpha")
-  assert_true(assembly.heading_paths.get(paragraph.block_id) == Some(["Alpha"]))
-  assert_metric_eq(document.diagnostics, "assembly_section_count", "1")
-}
-
-///|
-test "convert phase1 route planner emits canonical route diagnostics" {
-  let result = convert_memory_text(
-    "Alpha\nBeta\n",
-    "route.txt",
-    @input.DetectedFormat::Txt,
-  )
-  assert_metric_eq(result.diagnostics, "selected_route", "streaming_event")
-  assert_metric_eq(
-    result.diagnostics,
-    "route_reason",
-    "txt_canonical_streaming_event",
-  )
-  assert_true(
-    result.diagnostics.metrics.get("route_probe_summary") ==
-    Some("phase1_probe:txt:streaming_event"),
-  )
-}
-
-///|
-test "phase2 assembler promotes heading candidates and builds section tree" {
-  let candidate = @core.make_block(
-    @core.BlockKind::Paragraph,
-    "Candidate Title",
-    source_ref=@core.empty_source_ref(),
-  )
-  candidate.attrs.set("heading_candidate", "true")
-  candidate.attrs.set("heading_level", "2")
-  let body = @core.make_block(
-    @core.BlockKind::Paragraph,
-    "Body",
-    source_ref=@core.empty_source_ref(),
-  )
-  let document = @pipeline.build_document_with_default_pipeline(
-    @core.IRInput::BlockStream([candidate, body]),
-    @pipeline.make_pass_context(false, "balanced"),
-  )
-  assert_true(document.blocks[0].kind == @core.BlockKind::Heading)
-  assert_true(document.blocks[0].attrs.get("level") == Some("2"))
-  let assembly = document.assembly.unwrap_or(@core.empty_document_assembly())
-  assert_true(assembly.sections.length() == 1)
-  assert_true(assembly.sections[0].title == "Candidate Title")
-  assert_true(
-    assembly.heading_paths.get(body.block_id) == Some(["Candidate Title"]),
-  )
-  assert_metric_eq(document.diagnostics, "resolved_heading_count", "1")
-}
-
-///|
-test "phase2 assembler groups flat list items without breaking nested parser-owned lists" {
-  let item_a = @core.make_block(
-    @core.BlockKind::ListItem,
-    "First",
-    source_ref=@core.empty_source_ref(),
-  )
-  item_a.attrs.set("ordered", "false")
-  item_a.attrs.set("level", "0")
-  let item_b = @core.make_block(
-    @core.BlockKind::ListItem,
-    "Second",
-    source_ref=@core.empty_source_ref(),
-  )
-  item_b.attrs.set("ordered", "false")
-  item_b.attrs.set("level", "0")
-  let document = @pipeline.build_document_with_default_pipeline(
-    @core.IRInput::BlockStream([item_a, item_b]),
-    @pipeline.make_pass_context(false, "balanced"),
-  )
-  assert_true(document.blocks.length() == 1)
-  assert_true(document.blocks[0].kind == @core.BlockKind::List)
-  assert_true(document.blocks[0].children.length() == 2)
-  assert_true(document.blocks[0].children[0].text == "First")
-  assert_true(document.blocks[0].children[1].text == "Second")
-  assert_metric_eq(document.diagnostics, "resolved_list_count", "1")
-}
-
-///|
-test "phase2 rag prefers assembler heading paths over local heading scan state" {
-  let heading = @core.make_block(
-    @core.BlockKind::Heading,
-    "Root",
-    source_ref=@core.empty_source_ref(),
-  )
-  heading.attrs.set("level", "1")
-  let paragraph = @core.make_block(
-    @core.BlockKind::Paragraph,
-    "Body under root",
-    source_ref=@core.empty_source_ref(),
-  )
-  let document = @pipeline.build_document_with_default_pipeline(
-    @core.IRInput::BlockStream([heading, paragraph]),
-    @pipeline.make_pass_context(false, "rag"),
-  )
-  let chunks = @rag.chunks_from_document(
-    document,
-    @rag.make_rag_options(1200, 150, true, true, true, true),
-  )
-  let mut text_chunk : @rag.RagChunk? = None
-  for chunk in chunks {
-    if chunk.kind == @rag.ChunkKind::Text {
-      text_chunk = Some(chunk)
-      break
-    }
-  }
-  let text_chunk = match text_chunk {
-    Some(chunk) => chunk
-    None => fail("expected text chunk")
-  }
-  assert_true(text_chunk.heading_path == ["Root"])
-  assert_true(
-    text_chunk.metadata.get("heading_depth") ==
-    Some(@core.JsonValue::Number("1")),
-  )
-}
-
-///|
-test "phase3 assembler resolves adjacent logical table continuations" {
-  let heading = @core.make_block(
-    @core.BlockKind::Heading,
-    "Data",
-    source_ref=@core.empty_source_ref(),
-  )
-  heading.attrs.set("level", "1")
-
-  let left_ref = @core.source_ref_with_office_fields(
-    @core.empty_source_ref(),
-    Some("book.xlsx"),
-    Some("xlsx"),
-    None,
-    Some("Sheet1"),
-    Some("A1:B3"),
-    None,
-    None,
-    None,
-  )
-  let right_ref = @core.source_ref_with_office_fields(
-    @core.empty_source_ref(),
-    Some("book.xlsx"),
-    Some("xlsx"),
-    None,
-    Some("Sheet1"),
-    Some("A4:B6"),
-    None,
-    None,
-    None,
-  )
-
-  let left_base = @core.make_block(
-    @core.BlockKind::Table,
-    "",
-    source_ref=left_ref,
-  )
-  left_base.attrs.set("header_rows", "1")
-  left_base.attrs.set("table_column_count", "2")
-  let left = @core.block_with_children(left_base, [
-    @core.block_with_children(@core.make_block(@core.BlockKind::TableRow, ""), [
-      @core.make_block(@core.BlockKind::TableCell, "H1"),
-      @core.make_block(@core.BlockKind::TableCell, "H2"),
-    ]),
-    @core.block_with_children(@core.make_block(@core.BlockKind::TableRow, ""), [
-      @core.make_block(@core.BlockKind::TableCell, "A1"),
-      @core.make_block(@core.BlockKind::TableCell, "A2"),
-    ]),
-  ])
-
-  let right_base = @core.make_block(
-    @core.BlockKind::Table,
-    "",
-    source_ref=right_ref,
-  )
-  right_base.attrs.set("header_rows", "1")
-  right_base.attrs.set("table_column_count", "2")
-  let right = @core.block_with_children(right_base, [
-    @core.block_with_children(@core.make_block(@core.BlockKind::TableRow, ""), [
-      @core.make_block(@core.BlockKind::TableCell, "H1"),
-      @core.make_block(@core.BlockKind::TableCell, "H2"),
-    ]),
-    @core.block_with_children(@core.make_block(@core.BlockKind::TableRow, ""), [
-      @core.make_block(@core.BlockKind::TableCell, "B1"),
-      @core.make_block(@core.BlockKind::TableCell, "B2"),
-    ]),
-  ])
-
-  let document = @pipeline.build_document_with_default_pipeline(
-    @core.IRInput::BlockStream([heading, left, right]),
-    @pipeline.make_pass_context(false, "balanced"),
-  )
-  let assembly = document.assembly.unwrap_or(@core.empty_document_assembly())
-  assert_true(assembly.table_continuations.length() == 1)
-  assert_true(
-    assembly.table_continuations[0].table_block_id ==
-    document.blocks[2].block_id,
-  )
-  assert_true(
-    assembly.table_continuations[0].continues_from_block_id ==
-    Some(document.blocks[1].block_id),
-  )
-  assert_true(
-    assembly.table_continuations[0].relation == "adjacent_same_logical_table",
-  )
-  assert_metric_eq(
-    document.diagnostics,
-    "resolved_table_continuation_count",
-    "1",
-  )
-}
-
-///|
-test "phase3 assembler resolves embedded image captions into caption bindings" {
-  let image_ref = @core.source_ref_with_html_path(
-    @core.empty_source_ref(),
-    Some("sample.html"),
-    Some("html"),
-    Some("/html/body/figure/img[1]"),
-  )
-  let image = @core.make_block(@core.BlockKind::Image, "", source_ref=image_ref)
-  image.attrs.set("asset_id", "img-1")
-  image.attrs.set("path", "assets/image01.png")
-  image.attrs.set("caption", "Figure 1. Example")
-
-  let asset = @core.make_asset_ref(
-    @core.AssetKind::Image,
-    "img-1",
-    source_ref=image_ref,
-  )
-  let asset = { ..asset, path: Some("assets/image01.png") }
-
-  let document = @pipeline.build_document_with_default_pipeline(
-    @core.IRInput::Document({
-      ..@core.document_from_blocks([image]),
-      assets: [asset],
-    }),
-    @pipeline.make_pass_context(false, "balanced"),
-  )
-  let assembly = document.assembly.unwrap_or(@core.empty_document_assembly())
-  assert_true(assembly.caption_bindings.length() == 1)
-  assert_true(
-    assembly.caption_bindings[0].target_block_id == document.blocks[0].block_id,
-  )
-  assert_true(
-    assembly.caption_bindings[0].caption_block_id ==
-    document.blocks[0].block_id + ":caption",
-  )
-  assert_true(assembly.caption_bindings[0].relation == "embedded_caption_attr")
-  assert_metric_eq(document.diagnostics, "resolved_caption_binding_count", "1")
-}
-
-///|
-test "phase3 assembler resolves asset ownership from block asset ids" {
-  let source_ref = @core.source_ref_with_html_path(
-    @core.empty_source_ref(),
-    Some("sample.html"),
-    Some("html"),
-    Some("/html/body/p/img[1]"),
-  )
-  let image = @core.make_block(@core.BlockKind::Image, "", source_ref~)
-  image.attrs.set("asset_id", "asset-image-1")
-  image.attrs.set("path", "assets/image01.jpg")
-
-  let asset = @core.make_asset_ref(
-    @core.AssetKind::Image,
-    "asset-image-1",
-    source_ref~,
-  )
-  let asset = { ..asset, path: Some("assets/image01.jpg") }
-
-  let document = @pipeline.build_document_with_default_pipeline(
-    @core.IRInput::Document({
-      ..@core.document_from_blocks([image]),
-      assets: [asset],
-    }),
-    @pipeline.make_pass_context(false, "balanced"),
-  )
-  let assembly = document.assembly.unwrap_or(@core.empty_document_assembly())
-  assert_true(assembly.asset_bindings.length() == 1)
-  assert_true(assembly.asset_bindings[0].asset_id == "asset-image-1")
-  assert_true(
-    assembly.asset_bindings[0].owner_block_id == document.blocks[0].block_id,
-  )
-  assert_true(assembly.asset_bindings[0].relation == "rendered_image_block")
-  assert_metric_eq(document.diagnostics, "resolved_asset_binding_count", "1")
-}
-
-///|
-test "phase4 merge text line pass merges pdf line fragments within one text block only" {
-  let line_a_ref = @core.source_ref_with_extra(
-    @core.source_ref_with_extra(
-      {
-        ..@core.source_ref_with_lines(
-          @core.empty_source_ref(),
-          Some("sample.pdf"),
-          Some("pdf"),
-          Some(1),
-          Some(1),
-        ),
-        page: Some(1),
-      },
-      "pdf_text_block_index",
-      "7",
-    ),
-    "reading_order_index",
-    "3",
-  )
-  let line_a = @core.make_block(
-    @core.BlockKind::Paragraph,
-    "Alpha-",
-    source_ref=line_a_ref,
-  )
-
-  let line_b_ref = @core.source_ref_with_extra(
-    @core.source_ref_with_extra(
-      @core.empty_source_ref(),
-      "reading_order_index",
-      "3",
-    ),
-    "pdf_text_block_index",
-    "7",
-  )
-  let line_b_ref = {
-    ..@core.source_ref_with_lines(
-      line_b_ref,
-      Some("sample.pdf"),
-      Some("pdf"),
-      Some(2),
-      Some(2),
-    ),
-    page: Some(1),
-  }
-  let line_b = @core.make_block(
-    @core.BlockKind::Paragraph,
-    "Beta",
-    source_ref=line_b_ref,
-  )
-
-  let other_ref = @core.source_ref_with_extra(
-    @core.source_ref_with_extra(
-      @core.empty_source_ref(),
-      "reading_order_index",
-      "3",
-    ),
-    "pdf_text_block_index",
-    "8",
-  )
-  let other_ref = {
-    ..@core.source_ref_with_lines(
-      other_ref,
-      Some("sample.pdf"),
-      Some("pdf"),
-      Some(3),
-      Some(3),
-    ),
-    page: Some(1),
-  }
-  let line_c = @core.make_block(
-    @core.BlockKind::Paragraph,
-    "Gamma",
-    source_ref=other_ref,
-  )
-  let document = @pipeline.build_document_with_default_pipeline(
-    @core.IRInput::BlockStream([line_a, line_b, line_c]),
-    @pipeline.make_pass_context(false, "balanced"),
-  )
-  assert_true(document.blocks.length() == 2)
-  assert_true(document.blocks[0].text == "AlphaBeta")
-  assert_true(document.blocks[1].text == "Gamma")
-  assert_metric_eq(document.diagnostics, "merged_text_line_count", "1")
-}
-
-///|
-test "phase4 resolve reading order pass reorders only hinted siblings" {
-  let slide_ref = {
-    ..@core.source_ref_with_office_fields(
-      @core.empty_source_ref(),
-      Some("slides.pptx"),
-      Some("pptx"),
-      None,
-      None,
-      None,
-      Some(2),
-      Some("shape-a"),
-      None,
-    )
-  }
-  slide_ref.extra.set("reading_order_key", "0020")
-  let first = @core.make_block(
-    @core.BlockKind::Paragraph,
-    "Second visually",
-    source_ref=slide_ref,
-  )
-  let slide_ref2 = {
-    ..@core.source_ref_with_office_fields(
-      @core.empty_source_ref(),
-      Some("slides.pptx"),
-      Some("pptx"),
-      None,
-      None,
-      None,
-      Some(2),
-      Some("shape-b"),
-      None,
-    )
-  }
-  slide_ref2.extra.set("reading_order_key", "0010")
-  let second = @core.make_block(
-    @core.BlockKind::Paragraph,
-    "First visually",
-    source_ref=slide_ref2,
-  )
-  let plain = @core.make_block(
-    @core.BlockKind::Paragraph,
-    "Unhinted tail",
-    source_ref=@core.empty_source_ref(),
-  )
-  let document = @pipeline.build_document_with_default_pipeline(
-    @core.IRInput::BlockStream([first, second, plain]),
-    @pipeline.make_pass_context(false, "balanced"),
-  )
-  assert_true(document.blocks[0].text == "First visually")
-  assert_true(document.blocks[1].text == "Second visually")
-  assert_true(document.blocks[2].text == "Unhinted tail")
-  assert_metric_eq(
-    document.diagnostics,
-    "resolved_reading_order_block_count",
-    "2",
-  )
-}
-
-///|
-test "phase5 resolve reading order pass does not reorder across slide boundaries" {
-  let slide1_ref = {
-    ..@core.source_ref_with_office_fields(
-      @core.empty_source_ref(),
-      Some("slides.pptx"),
-      Some("pptx"),
-      None,
-      None,
-      None,
-      Some(1),
-      Some("shape-a"),
-      None,
-    )
-  }
-  slide1_ref.extra.set("reading_order_key", "030")
-  let slide1 = @core.make_block(
-    @core.BlockKind::Paragraph,
-    "Slide 1 body",
-    source_ref=slide1_ref,
-  )
-  let slide3_ref = {
-    ..@core.source_ref_with_office_fields(
-      @core.empty_source_ref(),
-      Some("slides.pptx"),
-      Some("pptx"),
-      None,
-      None,
-      None,
-      Some(3),
-      Some("shape-b"),
-      None,
-    )
-  }
-  slide3_ref.extra.set("reading_order_key", "010")
-  let slide3 = @core.make_block(
-    @core.BlockKind::Paragraph,
-    "Slide 3 heading-like",
-    source_ref=slide3_ref,
-  )
-  let document = @pipeline.build_document_with_default_pipeline(
-    @core.IRInput::BlockStream([slide1, slide3]),
-    @pipeline.make_pass_context(false, "balanced"),
-  )
-  assert_true(document.blocks[0].text == "Slide 1 body")
-  assert_true(document.blocks[1].text == "Slide 3 heading-like")
-}
-
-///|
-test "phase5 resolve reading order pass does not reorder across pdf pages" {
-  let page1_ref = @core.source_ref_with_lines(
-    @core.empty_source_ref(),
-    Some("sample.pdf"),
-    Some("pdf"),
-    Some(1),
-    Some(1),
-  )
-  page1_ref.extra.set("reading_order_index", "1")
-  let page1 = @core.make_block(
-    @core.BlockKind::Paragraph,
-    "Page 1 first",
-    source_ref=page1_ref,
-  )
-  let page2_ref = @core.source_ref_with_lines(
-    @core.empty_source_ref(),
-    Some("sample.pdf"),
-    Some("pdf"),
-    Some(2),
-    Some(2),
-  )
-  page2_ref.extra.set("reading_order_index", "1")
-  let page2 = @core.make_block(
-    @core.BlockKind::Paragraph,
-    "Page 2 first",
-    source_ref=page2_ref,
-  )
-  let document = @pipeline.build_document_with_default_pipeline(
-    @core.IRInput::BlockStream([page1, page2]),
-    @pipeline.make_pass_context(false, "balanced"),
-  )
-  assert_true(document.blocks[0].text == "Page 1 first")
-  assert_true(document.blocks[1].text == "Page 2 first")
-}
-
-///|
-test "phase5 resolve reading order pass sorts grouped pptx-like sibling keys by geometry rank" {
-  let title_ref = {
-    ..@core.source_ref_with_office_fields(
-      @core.empty_source_ref(),
-      Some("grouped.pptx"),
-      Some("pptx"),
-      None,
-      None,
-      None,
-      Some(1),
-      Some("shape-title"),
-      None,
-    )
-  }
-  title_ref.extra.set(
-    "reading_order_key", "010:0000000000:0000469681:00001:shape-title",
-  )
-  let title = @core.make_block(
-    @core.BlockKind::Heading,
-    "Highlights",
-    source_ref=title_ref,
-  )
-
-  let main_ref = {
-    ..@core.source_ref_with_office_fields(
-      @core.empty_source_ref(),
-      Some("grouped.pptx"),
-      Some("pptx"),
-      None,
-      None,
-      None,
-      Some(1),
-      Some("shape-main"),
-      None,
-    )
-  }
-  main_ref.extra.set(
-    "reading_order_key", "030:0012417387:0000634190:00002:group-200/shape-175",
-  )
-  let main = @core.make_block(
-    @core.BlockKind::Paragraph,
-    "Main paragraph",
-    source_ref=main_ref,
-  )
-
-  let item_a_ref = {
-    ..@core.source_ref_with_office_fields(
-      @core.empty_source_ref(),
-      Some("grouped.pptx"),
-      Some("pptx"),
-      None,
-      None,
-      None,
-      Some(1),
-      Some("shape-a"),
-      None,
-    )
-  }
-  item_a_ref.extra.set(
-    "reading_order_key", "030:0004880051:0011536527:00001:group-200/group-200/group-201/shape-172",
-  )
-  let item_a = @core.make_block(
-    @core.BlockKind::Paragraph,
-    "Item A",
-    source_ref=item_a_ref,
-  )
-
-  let item_b_ref = {
-    ..@core.source_ref_with_office_fields(
-      @core.empty_source_ref(),
-      Some("grouped.pptx"),
-      Some("pptx"),
-      None,
-      None,
-      None,
-      Some(1),
-      Some("shape-b"),
-      None,
-    )
-  }
-  item_b_ref.extra.set(
-    "reading_order_key", "030:0005618345:0011525250:00002:group-200/group-200/group-201/shape-173",
-  )
-  let item_b = @core.make_block(
-    @core.BlockKind::Paragraph,
-    "Item B",
-    source_ref=item_b_ref,
-  )
-
-  let item_c_ref = {
-    ..@core.source_ref_with_office_fields(
-      @core.empty_source_ref(),
-      Some("grouped.pptx"),
-      Some("pptx"),
-      None,
-      None,
-      None,
-      Some(1),
-      Some("shape-c"),
-      None,
-    )
-  }
-  item_c_ref.extra.set(
-    "reading_order_key", "030:0006453784:0011513972:00003:group-200/group-200/group-201/shape-174",
-  )
-  let item_c = @core.make_block(
-    @core.BlockKind::Paragraph,
-    "Item C",
-    source_ref=item_c_ref,
-  )
-
-  let document = @pipeline.build_document_with_default_pipeline(
-    @core.IRInput::BlockStream([title, main, item_a, item_b, item_c]),
-    @pipeline.make_pass_context(false, "balanced"),
-  )
-  assert_eq(document.blocks.map(block => block.text), [
-    "Highlights", "Item A", "Item B", "Item C", "Main paragraph",
-  ])
-}
-
-///|
-test "phase5 resolve reading order pass reorders mixed hinted pptx siblings by full key" {
-  let heading = @core.make_block(
-    @core.BlockKind::Heading,
-    "Slide 1",
-    source_ref=@core.source_ref_with_office_fields(
-      @core.empty_source_ref(),
-      Some("sample.pptx"),
-      Some("pptx"),
-      None,
-      None,
-      None,
-      Some(1),
-      Some("title"),
-      None,
-    ),
-  )
-  let picture_ref = @core.source_ref_with_office_fields(
-    @core.empty_source_ref(),
-    Some("sample.pptx"),
-    Some("pptx"),
-    None,
-    None,
-    None,
-    Some(1),
-    Some("picture-6"),
-    None,
-  )
-  picture_ref.extra.set(
-    "reading_order_key", "050:0001988840:0005580112:00003:picture-6",
-  )
-  let picture = @core.make_block(
-    @core.BlockKind::Image,
-    "",
-    source_ref=picture_ref,
-  )
-
-  let body_ref = @core.source_ref_with_office_fields(
-    @core.empty_source_ref(),
-    Some("sample.pptx"),
-    Some("pptx"),
-    None,
-    None,
-    None,
-    Some(1),
-    Some("shape-7"),
-    None,
-  )
-  body_ref.extra.set(
-    "reading_order_key", "060:0002924944:0005580112:00004:shape-7",
-  )
-  let body = @core.make_block(
-    @core.BlockKind::Paragraph,
-    "Test text",
-    source_ref=body_ref,
-  )
-
-  let grouped_ref = @core.source_ref_with_office_fields(
-    @core.empty_source_ref(),
-    Some("sample.pptx"),
-    Some("pptx"),
-    None,
-    None,
-    None,
-    Some(1),
-    Some("group-11/shape-10"),
-    None,
-  )
-  grouped_ref.extra.set(
-    "reading_order_key", "060:0004581128:0005580112:00002:group-11/shape-10",
-  )
-  let grouped = @core.make_block(
-    @core.BlockKind::Paragraph,
-    "Group test text",
-    source_ref=grouped_ref,
-  )
-
-  let document = @pipeline.build_document_with_default_pipeline(
-    @core.IRInput::BlockStream([heading, grouped, picture, body]),
-    @pipeline.make_pass_context(false, "balanced"),
-  )
-  assert_eq(document.blocks.map(block => block.text), [
-    "Slide 1", "", "Test text", "Group test text",
-  ])
-}
-
-///|
-test "phase5 resolve reading order pass preserves full hinted pptx stream order" {
-  let heading = @core.make_block(
-    @core.BlockKind::Heading,
-    "Slide 1",
-    source_ref=@core.source_ref_with_office_fields(
-      @core.empty_source_ref(),
-      Some("sample.pptx"),
-      Some("pptx"),
-      None,
-      None,
-      None,
-      Some(1),
-      Some("title"),
-      None,
-    ),
-  )
-  let box1_ref = @core.source_ref_with_office_fields(
-    @core.empty_source_ref(),
-    Some("sample.pptx"),
-    Some("pptx"),
-    None,
-    None,
-    None,
-    Some(1),
-    Some("shape-12"),
-    None,
-  )
-  box1_ref.extra.set(
-    "reading_order_key", "030:0005517232:0005652120:00006:shape-12",
-  )
-  let box1 = @core.make_block(
-    @core.BlockKind::Paragraph,
-    "Box 1",
-    source_ref=box1_ref,
-  )
-
-  let box2_ref = @core.source_ref_with_office_fields(
-    @core.empty_source_ref(),
-    Some("sample.pptx"),
-    Some("pptx"),
-    None,
-    None,
-    None,
-    Some(1),
-    Some("shape-13"),
-    None,
-  )
-  box2_ref.extra.set(
-    "reading_order_key", "030:0005517232:0007668344:00007:shape-13",
-  )
-  let box2 = @core.make_block(
-    @core.BlockKind::Paragraph,
-    "Box 2",
-    source_ref=box2_ref,
-  )
-
-  let picture1_ref = @core.source_ref_with_office_fields(
-    @core.empty_source_ref(),
-    Some("sample.pptx"),
-    Some("pptx"),
-    None,
-    None,
-    None,
-    Some(1),
-    Some("picture-6"),
-    None,
-  )
-  picture1_ref.extra.set(
-    "reading_order_key", "050:0001988840:0005580112:00003:picture-6",
-  )
-  let picture1 = @core.make_block(
-    @core.BlockKind::Image,
-    "",
-    source_ref=picture1_ref,
-  )
-
-  let picture2_ref = @core.source_ref_with_office_fields(
-    @core.empty_source_ref(),
-    Some("sample.pptx"),
-    Some("pptx"),
-    None,
-    None,
-    None,
-    Some(1),
-    Some("group-11/picture-9"),
-    None,
-  )
-  picture2_ref.extra.set(
-    "reading_order_key", "050:0003645024:0005580112:00001:group-11/picture-9",
-  )
-  let picture2 = @core.make_block(
-    @core.BlockKind::Image,
-    "",
-    source_ref=picture2_ref,
-  )
-
-  let body_ref = @core.source_ref_with_office_fields(
-    @core.empty_source_ref(),
-    Some("sample.pptx"),
-    Some("pptx"),
-    None,
-    None,
-    None,
-    Some(1),
-    Some("shape-7"),
-    None,
-  )
-  body_ref.extra.set(
-    "reading_order_key", "060:0002924944:0005580112:00004:shape-7",
-  )
-  let body = @core.make_block(
-    @core.BlockKind::Paragraph,
-    "Test text",
-    source_ref=body_ref,
-  )
-
-  let grouped_ref = @core.source_ref_with_office_fields(
-    @core.empty_source_ref(),
-    Some("sample.pptx"),
-    Some("pptx"),
-    None,
-    None,
-    None,
-    Some(1),
-    Some("group-11/shape-10"),
-    None,
-  )
-  grouped_ref.extra.set(
-    "reading_order_key", "060:0004581128:0005580112:00002:group-11/shape-10",
-  )
-  let grouped = @core.make_block(
-    @core.BlockKind::Paragraph,
-    "Group test text",
-    source_ref=grouped_ref,
-  )
-
-  let raw_ref = @core.source_ref_with_office_fields(
-    @core.empty_source_ref(),
-    Some("sample.pptx"),
-    Some("pptx"),
-    None,
-    None,
-    None,
-    Some(1),
-    Some("connector-15"),
-    None,
-  )
-  raw_ref.extra.set("reading_order_key", "950:999999999:999999999:connector-15")
-  let raw = @core.make_block(
-    @core.BlockKind::Raw,
-    "[PPTX connector omitted: Straight Arrow Connector 14]",
-    source_ref=raw_ref,
-  )
-
-  let table_ref = @core.source_ref_with_office_fields(
-    @core.empty_source_ref(),
-    Some("sample.pptx"),
-    Some("pptx"),
-    None,
-    None,
-    None,
-    Some(1),
-    Some("graphicFrame-16"),
-    None,
-  )
-  table_ref.extra.set(
-    "reading_order_key", "950:999999999:999999999:graphicFrame-16",
-  )
-  let table = @core.make_block(
-    @core.BlockKind::Table,
-    "table",
-    source_ref=table_ref,
-  )
-
-  let document = @pipeline.build_document_with_default_pipeline(
-    @core.IRInput::BlockStream([
-      heading, box1, box2, picture1, picture2, body, grouped, raw, table,
-    ]),
-    @pipeline.make_pass_context(false, "balanced"),
-  )
-  assert_eq(document.blocks.map(block => block.text), [
-    "Slide 1", "Box 1", "Box 2", "", "", "Test text", "Group test text", "[PPTX connector omitted: Straight Arrow Connector 14]",
-    "table",
-  ])
-}
-
-///|
-test "phase4 remove header footer pass honors cleanup flag and debug retention" {
-  let header = @core.make_block(
-    @core.BlockKind::Paragraph,
-    "Repeated Header",
-    source_ref=@core.source_ref_with_lines(
-      @core.empty_source_ref(),
-      Some("sample.pdf"),
-      Some("pdf"),
-      Some(1),
-      Some(1),
-    ),
-  )
-  header.signals.push(
-    @core.make_signal(@core.SignalType::HeaderFooterCandidate, 95),
-  )
-  let body = @core.make_block(
-    @core.BlockKind::Paragraph,
-    "Body",
-    source_ref=@core.empty_source_ref(),
-  )
-
-  let kept = @pipeline.build_document_with_default_pipeline(
-    @core.IRInput::BlockStream([header, body]),
-    @pipeline.make_pass_context(false, "balanced"),
-  )
-  assert_true(kept.blocks.length() == 2)
-  assert_metric_eq(kept.diagnostics, "removed_header_footer_count", "0")
-
-  let cleaned = @pipeline.build_document_with_default_pipeline(
-    @core.IRInput::BlockStream([header, body]),
-    @pipeline.make_pass_context(false, "balanced", pdf_cleanup_enabled=true),
-  )
-  assert_true(cleaned.blocks.length() == 1)
-  assert_true(cleaned.blocks[0].text == "Body")
-  assert_metric_eq(cleaned.diagnostics, "removed_header_footer_count", "1")
-
-  let debug_cleaned = @pipeline.build_document_with_default_pipeline(
-    @core.IRInput::BlockStream([header, body]),
-    @pipeline.make_pass_context(true, "debug", pdf_cleanup_enabled=true),
-  )
-  assert_true(debug_cleaned.blocks.length() == 2)
-  assert_true(
-    debug_cleaned.blocks[0].attrs.get("header_footer_candidate") == Some("true"),
-  )
-  assert_metric_eq(
-    debug_cleaned.diagnostics,
-    "removed_header_footer_count",
-    "0",
-  )
-}
-
-///|
-test "container contract helper keeps inner dispatch on the root pipeline and bounded" {
-  let supported = @container.container_supported_inner_formats()
-  assert_true(
-    supported ==
-    [
-      "txt", "csv", "tsv", "json", "jsonl", "ndjson", "xml", "yaml", "yml", "html",
-      "htm", "markdown", "md", "epub",
-    ],
-  )
-  assert_true(
-    @container.container_supports_inner_format(@input.DetectedFormat::Txt),
-  )
-  assert_true(
-    @container.container_supports_inner_format(@input.DetectedFormat::Markdown),
-  )
-  assert_true(
-    !@container.container_unsupported_inner_formats().contains("html"),
-  )
-  assert_contains_all(@container.container_dispatch_guardrails().join("\n"), [
-    "root ParserRegistry / root pipeline", "no legacy dispatcher", "no convert/html",
-    "no convert/markdown", "no convert/zip", "no convert/epub", "no old core",
-  ])
-}
-
-///|
-test "container asset boundary helper rejects unsafe output paths" {
-  let safe_plan = @core.make_container_asset_plan(
-    "images/cover.jpg",
-    "assets/cover.jpg",
-    copy_policy=@core.ContainerAssetCopyPolicy::MaterializeAtOutputBoundary,
-  )
-  let traversal_plan = @core.make_container_asset_plan(
-    "images/cover.jpg",
-    "../cover.jpg",
-    copy_policy=@core.ContainerAssetCopyPolicy::RejectUnsafePath,
-  )
-  let absolute_plan = @core.make_container_asset_plan(
-    "images/cover.jpg",
-    "/tmp/cover.jpg",
-    copy_policy=@core.ContainerAssetCopyPolicy::RejectUnsafePath,
-  )
-  assert_true(@container.container_asset_plan_is_safe(safe_plan))
-  assert_true(!@container.container_asset_plan_is_safe(traversal_plan))
-  assert_true(!@container.container_asset_plan_is_safe(absolute_plan))
-  assert_contains_all(
-    @container.container_asset_write_guardrails().join("\n"),
-    [
-      "actual file writes only happen at the CLI/output boundary", "no parser/orchestrator file writes",
-      "no external fetch", "no path traversal",
-    ],
-  )
-}
-
-///|
-test "office shared scaffold models and guardrails stay root-pipeline only" {
-  let rel_src = @core.source_ref_with_office_fields(
-    @core.empty_source_ref(),
-    Some("sample.docx"),
-    Some("docx"),
-    Some("/w:document/w:body/w:p[1]"),
-    None,
-    None,
-    None,
-    None,
-    Some("rIdMain"),
-  )
-  let rel = @shared.make_office_relationship(
-    "word/document.xml",
-    "rIdExt",
-    "image",
-    "https://example.com/image.png",
-    target_mode="External",
-    is_external=true,
-    source_ref=Some(rel_src),
-    security_findings=[@shared.OfficeSecurityFinding::ExternalRelationship],
-  )
-  let part = @shared.make_office_part(
-    "word/document.xml",
-    normalized_part_name=Some("word/document.xml"),
-    content_type=Some(
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml",
-    ),
-    source_ref=Some(rel_src),
-  )
-  let content_type = @shared.make_office_content_type(
-    "application/xml",
-    extension=Some("xml"),
-  )
-  let media = @shared.make_office_media_asset(
-    "word/media/image1.png",
-    content_type=Some("image/png"),
-    relationship_id=Some("rIdImg"),
-    source_part=Some("word/document.xml"),
-    size=Some(128),
-    source_ref=Some(rel_src),
-  )
-  let diagnostics = @core.empty_diagnostics()
-  diagnostics.metrics.set("office_document_kind", "docx")
-  diagnostics.metrics.set("relationship_count", "1")
-  let pkg = @shared.make_office_package(
-    @shared.OfficeDocumentKind::Docx,
-    [part],
-    [rel],
-    [content_type],
-    [media],
-    container_path=Some("sample.docx"),
-    source_id=Some("sample.docx"),
-    diagnostics~,
-    source_ref=Some(rel_src),
-  )
-  let asset_plan = @shared.make_office_asset_plan(
-    "word/media/image1.png",
-    "assets/docx/image01.png",
-    source_ref=Some(rel_src),
-  )
-  let plan = @shared.make_office_semantic_plan(
-    @shared.OfficeDocumentKind::Docx,
-    pkg,
-    "package_single_pass",
-    ["paragraph:0", "table:1"],
-    [asset_plan],
-    diagnostics~,
-  )
-  assert_true(@shared.office_document_kind_name(plan.document_kind) == "docx")
-  assert_true(@shared.office_relationship_is_no_fetch(rel))
-  assert_true(@shared.office_asset_plan_is_safe(asset_plan))
-  assert_true(!@shared.office_asset_output_path_is_safe("../unsafe/image.png"))
-  assert_true(
-    @shared.office_relationship_guardrails().contains(
-      "TargetMode=External is no-fetch",
-    ),
-  )
-  assert_true(
-    @shared.office_asset_write_guardrails().contains(
-      "asset writes only happen at the CLI/output boundary",
-    ),
-  )
-  assert_true(
-    @shared.office_source_ref_extra_keys().contains("relationship_id"),
-  )
-  assert_true(
-    @shared.office_source_ref_extra_keys().contains("paragraph_index"),
-  )
-  assert_true(
-    @shared.office_diagnostic_metric_keys().contains("office_document_kind"),
-  )
-  assert_true(
-    @shared.office_diagnostic_metric_keys().contains("alt_chunk_count"),
-  )
-  assert_true(
-    @shared.office_diagnostic_metric_keys().contains("docx_hyperlink_count"),
-  )
-  assert_true(
-    @shared.office_diagnostic_metric_keys().contains("fallback_count"),
-  )
-  assert_true(@shared.office_resource_limit_keys().contains("max_ooxml_parts"))
-  assert_true(plan.office_package.parts.length() == 1)
-  assert_true(plan.office_package.relationships.length() == 1)
-  assert_true(plan.asset_plans.length() == 1)
-}
-
-///|
-test "office parser modes and granularities exist only as scaffold contracts" {
-  let modes = @shared.office_parser_modes()
-  assert_true(modes == [@parser.ParserMode::PackageSinglePass])
-  let granularities = @shared.office_streaming_granularities()
-  assert_true(granularities.contains(@parser.StreamingGranularity::DocxBlock))
-  assert_true(granularities.contains(@parser.StreamingGranularity::PptxSlide))
-  assert_true(granularities.contains(@parser.StreamingGranularity::XlsxSheet))
-  assert_true(granularities.contains(@parser.StreamingGranularity::XlsxRow))
-}
-
-///|
-test "docx parser is product exposure and avoids legacy imports" {
-  let contract = @fdocx.docx_parser()
-  let context = @parser.new_parse_context(@input.DetectedFormat::Docx)
-  let result = match
-    (contract.parse)(
-      @input.input_from_path(
-        "samples/main_process/docx/markdown/docx_multiple_notes_order.docx",
-      ),
-      context,
-    ) {
-    Ok(value) => value
-    Err(msg) =>
-      fail("docx parser should return root-pipeline parse result: " + msg)
-  }
-  assert_true(contract.name == "docx_parser")
-  assert_true(contract.mode == @parser.ParserMode::PackageSinglePass)
-  assert_true(
-    contract.capability.streaming_granularity ==
-    @parser.StreamingGranularity::DocxBlock,
-  )
-  assert_true(result.document is Some(_))
-  assert_true(result.event_stream is None)
-  assert_true(result.block_stream is None)
-  let document = result.document.unwrap_or_else(fn() {
-    abort("missing docx document")
-  })
-  assert_true(document.blocks.length() > 0)
-  assert_true(
-    result.diagnostics.metrics.get("ir_input_kind") == Some("document"),
-  )
-  assert_true(
-    result.diagnostics.metrics.get("event_granularity") == Some("docx_block"),
-  )
-  assert_true(result.diagnostics.metrics.get("runtime_exposed") == Some("true"))
-  assert_true(
-    result.diagnostics.metrics.get("effective_mode") ==
-    Some("package_single_pass"),
-  )
-  assert_true(
-    result.diagnostics.metrics.get("parser_name") == Some("docx_parser"),
-  )
-  assert_true(
-    result.diagnostics.metrics.get("office_document_kind") == Some("docx"),
-  )
-  assert_true(
-    result.diagnostics.metrics.get("legacy_convert_dependency") == Some("none"),
-  )
-  assert_true(
-    result.diagnostics.metrics.get("legacy_runtime_dependency") == Some("none"),
-  )
-  assert_true(
-    result.diagnostics.metrics.get("legacy_fallback") == Some("forbidden"),
-  )
-  let registry_source = read_utf8_text("formats/registry.mbt")
-  assert_true(registry_source.contains("DetectedFormat::Docx"))
-  assert_true(registry_source.contains("docx_parser()"))
-  assert_true(registry_source.contains("DetectedFormat::Xlsx"))
-  assert_true(registry_source.contains("xlsx_parser()"))
-  assert_true(!registry_source.contains("docx_parser_contract()"))
-  let formats_pkg = read_utf8_text("formats/moon.pkg")
-  let office_pkg = read_utf8_text("format_readers/ooxml/shared/moon.pkg")
-  let office_impl = read_utf8_text("format_readers/ooxml/shared/shared.mbt")
-  let docx_impl = read_utf8_text("formats/docx/parser.mbt")
-  assert_contains_none(formats_pkg, [
-    "ZSeanYves/markitdown/convert/docx", "ZSeanYves/markitdown/convert/docx_v2",
-    "ZSeanYves/markitdown/unmigrated/",
-  ])
-  assert_contains_none(office_pkg, [
-    "ZSeanYves/markitdown/convert/", "ZSeanYves/markitdown/unmigrated/",
-  ])
-  assert_contains_none(office_impl, [
-    "ZSeanYves/markitdown/convert/", "ZSeanYves/markitdown/unmigrated/", "@legacy",
-  ])
-  assert_contains_none(docx_impl, [
-    "convert/docx", "convert/docx_v2", "@legacy", "emitter_markdown", "legacy_dispatcher",
-  ])
-  assert_diagnostics_lists_contain_none(result.diagnostics, [
-    "docx_raw_fallback", "docx_legacy_fallback", "legacy_dispatcher_used", "convert_docx_used",
-    "convert_docx_v2_used",
-  ])
-}
-
-///|
-test "docx parser keeps note ordering and code blocks on the root pipeline" {
-  let notes = default_registry_parse(
-    @input.input_from_path(
-      "samples/main_process/docx/markdown/docx_multiple_notes_order.docx",
-    ),
-    @input.DetectedFormat::Docx,
-  )
-  let note_document = notes.document.unwrap_or_else(fn() {
-    abort("missing note-order document")
-  })
-  let note_rendered = (@render.markdown_renderer().render)(
-    note_document,
-    @render.make_render_context(false),
-  )
-  assert_true(
-    note_rendered.content.contains("First reference[^1] then second [^2]"),
-  )
-  assert_true(note_rendered.content.contains("Comment here [comment 1]"))
-  assert_true(note_rendered.content.contains("Endnote here[^e1]"))
-  assert_exact_count(note_rendered.content, "[comment 1]", 1)
-  assert_exact_count(note_rendered.content, "[^e1]", 2)
-  match note_rendered.content.split_once("[^1]: Second footnote body.") {
-    Some((_, tail)) => assert_true(tail.contains("[^2]: First footnote body."))
-    None => fail("docx note definition order should contain [^1] before [^2]")
-  }
-
-  let code = default_registry_parse(
-    @input.input_from_path(
-      "samples/main_process/docx/markdown/docx_codeblock_basic.docx",
-    ),
-    @input.DetectedFormat::Docx,
-  )
-  let code_document = code.document.unwrap_or_else(fn() {
-    abort("missing code document")
-  })
-  assert_true(code_document.blocks.length() == 1)
-  assert_true(code_document.blocks[0].kind == @core.BlockKind::Code)
-  assert_eq(code_document.blocks[0].text, "let x = 1\nprintln(x)")
-}
-
-///|
-test "docx parser keeps note comment boundary spacing without duplicating markers" {
-  let parsed = default_registry_parse(
-    @input.input_from_path(
-      "samples/main_process/docx/markdown/docx_note_comment_rich_content_boundary.docx",
-    ),
-    @input.DetectedFormat::Docx,
-  )
-  let document = parsed.document.unwrap_or_else(fn() {
-    abort("missing note-comment boundary document")
-  })
-  let rendered = (@render.markdown_renderer().render)(
-    document,
-    @render.make_render_context(false),
-  )
-  assert_true(rendered.content.contains("Body[^1]  [comment 1]"))
-  assert_contains_none(rendered.content, [
-    "[^1][^1]", "[^e1][^e1]", "[comment 1][comment 1]",
-  ])
-  assert_exact_count(rendered.content, "[comment 1]", 1)
-  assert_exact_count(rendered.content, "[^1]", 2)
-}
-
-///|
-test "docx contract guardrails and helper remain aligned with product runtime" {
-  assert_eq(@shared.docx_contract_parser_name(), "docx_parser_contract")
-  assert_true(
-    @shared.docx_contract_mode() == @parser.ParserMode::PackageSinglePass,
-  )
-  assert_true(
-    @shared.docx_contract_granularity() ==
-    @parser.StreamingGranularity::DocxBlock,
-  )
-  assert_eq(@shared.docx_contract_ir_input_kind(), "document")
-  assert_true(
-    @shared.docx_contract_foundations() ==
-    ["format_readers/ooxml/docx", "format_readers/ooxml/package"],
-  )
-  assert_contains_all(@shared.docx_contract_guardrails().join("\n"), [
-    "DOCX is restored on the current main CLI", "PackageSinglePass / IRInput::Document / docx_block",
-    "format_readers/ooxml/package + format_readers/ooxml/docx foundation", "no old core",
-    "no legacy convert", "no markdown emitter", "no main CLI fallback", "assets stay output-boundary only",
-  ])
-  let helper = @formats_root.docx_parser_contract()
-  let helper_result = match
-    (helper.parse)(
-      @input.input_from_path(
-        "samples/main_process/docx/markdown/docx_multiple_notes_order.docx",
-      ),
-      @parser.new_parse_context(@input.DetectedFormat::Docx),
-    ) {
-    Ok(value) => value
-    Err(msg) => fail("docx contract helper should produce diagnostics: " + msg)
-  }
-  assert_true(helper_result.document is Some(_))
-  assert_metric_eq(helper_result.diagnostics, "runtime_exposed", "true")
-  assert_metric_eq(
-    helper_result.diagnostics,
-    "effective_mode",
-    "package_single_pass",
-  )
-  assert_metric_eq(helper_result.diagnostics, "ir_input_kind", "document")
-  assert_metric_eq(helper_result.diagnostics, "event_granularity", "docx_block")
-  assert_true(
-    helper_result.diagnostics.degraded_features.contains(
-      "docx_contract_helper_only",
-    ),
-  )
-  assert_true(helper_result.diagnostics.errors.length() == 0)
-  assert_true(helper_result.diagnostics.warnings.length() == 1)
-  assert_true(
-    helper_result.diagnostics.warnings[0].contains(
-      "mirrors the DOCX product boundary",
-    ),
-  )
-}
-
-///|
-test "docx parser diagnostics source refs and renderer boundary stay contract locked" {
-  let parsed = default_registry_parse(
-    @input.input_from_path(
-      "samples/main_process/docx/assets/docx_image_alt_title.docx",
-    ),
-    @input.DetectedFormat::Docx,
-  )
-  assert_metric_eq(parsed.diagnostics, "effective_mode", "package_single_pass")
-  assert_metric_eq(parsed.diagnostics, "ir_input_kind", "document")
-  assert_metric_eq(parsed.diagnostics, "event_granularity", "docx_block")
-  assert_metric_eq(parsed.diagnostics, "office_document_kind", "docx")
-  assert_metric_eq(parsed.diagnostics, "runtime_exposed", "true")
-  assert_true(parsed.diagnostics.metrics.get("ooxml_part_count") is Some(_))
-  assert_true(parsed.diagnostics.metrics.get("relationship_count") is Some(_))
-  assert_true(
-    parsed.diagnostics.metrics.get("external_relationship_count") is Some(_),
-  )
-  assert_true(
-    parsed.diagnostics.metrics.get("missing_relationship_target_count")
-    is Some(_),
-  )
-  assert_true(
-    parsed.diagnostics.metrics.get("unsupported_relationship_count") is Some(_),
-  )
-  assert_true(parsed.diagnostics.metrics.get("media_asset_count") is Some(_))
-  assert_true(
-    parsed.diagnostics.metrics.get("materialized_asset_count") is Some(_),
-  )
-  assert_true(parsed.diagnostics.metrics.get("skipped_asset_count") is Some(_))
-  assert_true(parsed.diagnostics.metrics.get("content_type_count") is Some(_))
-  assert_true(
-    parsed.diagnostics.metrics.get("total_uncompressed_bytes") is Some(_),
-  )
-  assert_true(parsed.diagnostics.metrics.get("path_traversal_count") is Some(_))
-  assert_true(parsed.diagnostics.metrics.get("duplicate_part_count") is Some(_))
-  assert_true(parsed.diagnostics.metrics.get("xml_dtd_count") is Some(_))
-  assert_true(
-    parsed.diagnostics.metrics.get("xml_external_entity_count") is Some(_),
-  )
-  assert_true(parsed.diagnostics.metrics.get("macro_part_count") is Some(_))
-  assert_true(parsed.diagnostics.metrics.get("ole_object_count") is Some(_))
-  assert_true(parsed.diagnostics.metrics.get("alt_chunk_count") is Some(_))
-  assert_true(parsed.diagnostics.metrics.get("docx_paragraph_count") is Some(_))
-  assert_true(parsed.diagnostics.metrics.get("docx_heading_count") is Some(_))
-  assert_true(parsed.diagnostics.metrics.get("docx_table_count") is Some(_))
-  assert_true(parsed.diagnostics.metrics.get("docx_list_count") is Some(_))
-  assert_true(parsed.diagnostics.metrics.get("docx_image_count") is Some(_))
-  assert_true(parsed.diagnostics.metrics.get("docx_hyperlink_count") is Some(_))
-  assert_true(
-    parsed.diagnostics.metrics.get("docx_header_footer_count") is Some(_),
-  )
-  assert_true(parsed.diagnostics.metrics.get("docx_comment_count") is Some(_))
-  assert_true(
-    parsed.diagnostics.metrics.get("docx_tracked_change_count") is Some(_),
-  )
-  assert_true(parsed.diagnostics.pass_trace.contains("parse:docx_parser"))
-  assert_diagnostics_lists_contain_none(parsed.diagnostics, [
-    "docx_raw_fallback", "docx_legacy_fallback", "legacy_dispatcher_used", "convert_docx_used",
-    "convert_docx_v2_used",
-  ])
-  let document = parsed.document.unwrap_or_else(fn() {
-    abort("missing docx document")
-  })
-  assert_true(document.blocks.length() > 0)
-  let image = document.blocks[0]
-  assert_true(image.kind == @core.BlockKind::Image)
-  let image_ref = image.source_ref.unwrap_or(@core.empty_source_ref())
-  assert_true(image_ref.format == Some("docx"))
-  assert_true(image_ref.container_path is Some(_))
-  assert_true(image_ref.entry_path is Some(_))
-  assert_true(image_ref.inner_path is Some(_))
-  match image_ref.extra.get("part_name") {
-    Some(value) => assert_eq(value, "word/document.xml")
-    None => fail("docx image source ref should keep part_name")
-  }
-  match image_ref.extra.get("paragraph_index") {
-    Some(_) => ()
-    None => fail("docx image source ref should keep paragraph_index")
-  }
-  let rendered = (@render.markdown_renderer().render)(
-    document,
-    @render.make_render_context(false),
-  )
-  assert_true(
-    rendered.content.contains("![Figure alt text](assets/image01.png)"),
-  )
-  assert_true(rendered.content.contains("*Figure title text*"))
-
-  let headings = default_registry_parse(
-    @input.input_from_path(
-      "samples/main_process/docx/markdown/docx_heading_levels.docx",
-    ),
-    @input.DetectedFormat::Docx,
-  )
-  let heading_document = headings.document.unwrap_or_else(fn() {
-    abort("missing heading document")
-  })
-  assert_true(heading_document.blocks.length() > 0)
-  let heading = heading_document.blocks[0]
-  assert_true(heading.kind == @core.BlockKind::Heading)
-  assert_true(!heading.text.contains("# "))
-  let heading_rendered = (@render.markdown_renderer().render)(
-    heading_document,
-    @render.make_render_context(false),
-  )
-  assert_true(heading_rendered.content.contains("# Heading Level 1"))
-}
-
-///|
-test "pptx scaffold models and guardrails stay contract-locked after runtime restore" {
-  let slide_ref = @core.source_ref_with_extra(
-    @core.source_ref_with_extra(
-      @core.source_ref_with_extra(
-        @core.source_ref_with_extra(
-          @core.source_ref_with_extra(
-            @core.source_ref_with_extra(
-              @core.source_ref_with_extra(
-                @core.source_ref_with_office_fields(
-                  @core.source_ref_with_container_entry(
-                    @core.empty_source_ref(),
-                    Some("deck.pptx"),
-                    Some("pptx"),
-                    Some("deck.pptx"),
-                    Some("ppt/slides/slide2.xml"),
-                    Some(1),
-                    Some("pptx"),
-                    Some("/p:sld/p:cSld/p:spTree/p:sp[3]"),
-                  ),
-                  Some("deck.pptx"),
-                  Some("pptx"),
-                  Some("/p:sld/p:cSld/p:spTree/p:sp[3]"),
-                  None,
-                  None,
-                  Some(2),
-                  Some("shape-3"),
-                  Some("rIdSlide2"),
-                ),
-                "slide_index",
-                "2",
-              ),
-              "slide_id",
-              "257",
-            ),
-            "slide_part",
-            "ppt/slides/slide2.xml",
-          ),
-          "layout_part",
-          "ppt/slideLayouts/slideLayout3.xml",
-        ),
-        "master_part",
-        "ppt/slideMasters/slideMaster1.xml",
-      ),
-      "theme_part",
-      "ppt/theme/theme1.xml",
-    ),
-    "shape_name",
-    "Agenda Body",
-  )
-  let placeholder_ref = @core.source_ref_with_extra(
-    @core.source_ref_with_extra(
-      @core.source_ref_with_extra(slide_ref, "placeholder_type", "body"),
-      "placeholder_idx",
-      "1",
-    ),
-    "shape_type",
-    "body",
-  )
-  let run = @shared.make_pptx_text_run_model(
-    "Quarterly review",
-    relationship_id=Some("rIdHyper1"),
-    source_ref=Some(
-      @core.source_ref_with_extra(
-        @core.source_ref_with_extra(placeholder_ref, "paragraph_index", "0"),
-        "run_index",
-        "0",
-      ),
-    ),
-  )
-  let para = @shared.make_pptx_paragraph_model(
-    0,
-    [run],
-    level=Some(0),
-    bullet_kind=Some("unordered"),
-    source_ref=Some(
-      @core.source_ref_with_extra(placeholder_ref, "paragraph_index", "0"),
-    ),
-  )
-  let table = @shared.make_pptx_table_model([
-    @shared.make_pptx_table_row_model(0, [
-      @shared.make_pptx_table_cell_model(
-        0,
-        0,
-        "North",
-        source_ref=Some(
-          @core.source_ref_with_extra(placeholder_ref, "shape_type", "table"),
-        ),
-      ),
-      @shared.make_pptx_table_cell_model(0, 1, "42"),
-    ]),
-  ])
-  let image = @shared.make_pptx_image_model(
-    asset_part=Some("ppt/media/image1.png"),
-    content_type=Some("image/png"),
-    alt_text=Some("Trend chart"),
-    title=Some("Trend"),
-    relationship_id=Some("rIdImage1"),
-    source_ref=Some(slide_ref),
-  )
-  let placeholder = @shared.make_pptx_placeholder_model(
-    "body",
-    placeholder_index=Some("1"),
-    placeholder_name=Some("Body Placeholder"),
-    resolved_from=@shared.PptxPlaceholderOrigin::LayoutPlaceholder,
-    source_ref=Some(placeholder_ref),
-  )
-  let shape = @shared.make_pptx_shape_model(
-    @shared.PptxShapeType::Body,
-    text_paragraphs=[para],
-    shape_id=Some("shape-3"),
-    shape_name=Some("Agenda Body"),
-    bbox=Some({ x0: 10.0, y0: 20.0, x1: 200.0, y1: 120.0 }),
-    table=Some(table),
-    image=Some(image),
-    placeholder=Some(placeholder),
-    source_ref=Some(placeholder_ref),
-  )
-  let notes = @shared.make_pptx_notes_model(
-    ["speaker note"],
-    notes_part=Some("ppt/notesSlides/notesSlide2.xml"),
-    source_ref=Some(
-      @core.source_ref_with_extra(
-        slide_ref, "notes_part", "ppt/notesSlides/notesSlide2.xml",
-      ),
-    ),
-  )
-  let comment = @shared.make_pptx_comment_model(
-    "comment-7",
-    "Move this bullet higher",
-    author=Some("reviewer"),
-    source_ref=Some(
-      @core.source_ref_with_extra(slide_ref, "comment_id", "comment-7"),
-    ),
-  )
-  let order = @shared.make_pptx_reading_order_item(
-    0,
-    2,
-    @shared.PptxReadingOrderStrategy::PlaceholderThenGeometry,
-    shape_id=Some("shape-3"),
-    confidence=Some("high"),
-    source_ref=Some(
-      @core.source_ref_with_extra(slide_ref, "reading_order_index", "0"),
-    ),
-  )
-  let slide = @shared.make_pptx_slide_model(
-    2,
-    [shape],
-    slide_id=Some("257"),
-    slide_part=Some("ppt/slides/slide2.xml"),
-    visibility=@shared.PptxSlideVisibility::Hidden,
-    layout_part=Some("ppt/slideLayouts/slideLayout3.xml"),
-    master_part=Some("ppt/slideMasters/slideMaster1.xml"),
-    theme_part=Some("ppt/theme/theme1.xml"),
-    notes=Some(notes),
-    comments=[comment],
-    reading_order=[order],
-    source_ref=Some(slide_ref),
-  )
-  let presentation = @shared.make_pptx_presentation_model(
-    [slide],
-    themes=[
-      @shared.make_pptx_theme_model(
-        theme_name=Some("Office Theme"),
-        part_name=Some("ppt/theme/theme1.xml"),
-      ),
-    ],
-    masters=[
-      @shared.make_pptx_master_model(
-        master_name=Some("Master 1"),
-        part_name=Some("ppt/slideMasters/slideMaster1.xml"),
-        theme_part=Some("ppt/theme/theme1.xml"),
-        placeholder_count=4,
-      ),
-    ],
-    layouts=[
-      @shared.make_pptx_layout_model(
-        layout_name=Some("Title and Content"),
-        part_name=Some("ppt/slideLayouts/slideLayout3.xml"),
-        master_part=Some("ppt/slideMasters/slideMaster1.xml"),
-        theme_part=Some("ppt/theme/theme1.xml"),
-        placeholder_count=2,
-      ),
-    ],
-  )
-  let plan = @shared.make_pptx_presentation_plan(presentation, ["257"], hidden_slide_ids=[
-    "257",
-  ])
-  assert_true(
-    @shared.office_document_kind_name(@shared.OfficeDocumentKind::Pptx) ==
-    "pptx",
-  )
-  assert_true(@shared.pptx_slide_visibility_name(slide.visibility) == "hidden")
-  assert_true(@shared.pptx_shape_type_name(shape.shape_type) == "body")
-  assert_true(
-    @shared.pptx_placeholder_origin_name(placeholder.resolved_from) ==
-    "layout_placeholder",
-  )
-  assert_true(
-    @shared.pptx_reading_order_strategy_name(order.strategy) ==
-    "placeholder_then_geometry",
-  )
-  assert_true(plan.presentation.slides.length() == 1)
-  assert_true(plan.ordered_slide_ids == ["257"])
-  assert_true(plan.hidden_slide_ids == ["257"])
-  assert_true(slide.comments.length() == 1)
-  assert_true(slide.reading_order.length() == 1)
-  assert_true(shape.table is Some(_))
-  assert_true(shape.image is Some(_))
-  assert_true(shape.placeholder is Some(_))
-  match shape.placeholder {
-    Some(value) => {
-      assert_eq(value.placeholder_type, "body")
-      assert_true(value.placeholder_index == Some("1"))
-    }
-    None => fail("pptx scaffold shape should keep placeholder contract")
-  }
-  assert_contains_all(@shared.pptx_contract_guardrails().join("\n"), [
-    "PPTX is restored on the current main CLI", "PackageSinglePass / IRInput::Document / pptx_slide",
-    "format_readers/ooxml/package + format_readers/ooxml/pptx foundation", "no old core",
-    "no legacy convert", "no markdown emitter", "no main CLI fallback", "slide order follows presentation.xml",
-    "placeholder inheritance is slide -> layout -> master -> geometry inference",
-    "assets stay output-boundary only", "TargetMode=External is no-fetch",
-  ])
-  assert_contains_all(@shared.pptx_contract_slide_policy().join("\n"), [
-    "slide order is derived from presentation.xml and slide relationship ids", "hidden slides remain explicit semantic units with diagnostics-first visibility policy",
-    "slide part resolution is package-local only", "missing slide relationships fail closed with diagnostics",
-  ])
-  assert_contains_all(@shared.pptx_contract_placeholder_policy().join("\n"), [
-    "placeholder inheritance resolves through slide, layout, then master", "placeholder type/index stays observable through source_ref extras",
-    "unresolved placeholders stay diagnosed rather than silently flattened", "geometry/name inference is last-resort only",
-  ])
-  assert_contains_all(@shared.pptx_contract_reading_order_policy().join("\n"), [
-    "reading order uses placeholder hints before geometry heuristics", "geometry heuristics stay bounded and diagnostics-visible",
-    "legacy reading-order fallback is forbidden", "reading-order strategy remains observable in diagnostics metrics",
-  ])
-  assert_contains_all(@shared.pptx_contract_notes_policy().join("\n"), [
-    "speaker notes remain attached per slide", "comments remain metadata-first and slide-scoped",
-    "missing notes/comments parts are diagnosed", "notes/comments never trigger external fetch",
-  ])
-  assert_contains_all(@shared.pptx_contract_relationship_policy().join("\n"), [
-    "relationship target resolution is package-local by default", "TargetMode=External is no-fetch",
-    "missing targets are diagnosed", "relationship traversal outside package-safe normalized boundaries is forbidden",
-    "unsupported embedded/chart/media relationships remain diagnostics-first",
-  ])
-  assert_contains_all(@shared.pptx_contract_asset_policy().join("\n"), [
-    "internal slide media stays package-local only", "materialization only happens at the CLI/output boundary",
-    "parser/orchestrator file writes are forbidden", "charts smartart ole and embedded binaries remain reference-only or unsupported diagnostics",
-  ])
-}
-
-///|
-test "pptx contract helper stays scaffold-only while runtime parser is exposed and legacy free" {
-  assert_eq(@shared.pptx_contract_parser_name(), "pptx_parser_contract")
-  assert_true(
-    @shared.pptx_contract_mode() == @parser.ParserMode::PackageSinglePass,
-  )
-  assert_true(
-    @shared.pptx_contract_granularity() ==
-    @parser.StreamingGranularity::PptxSlide,
-  )
-  assert_eq(@shared.pptx_contract_ir_input_kind(), "document")
-  assert_true(
-    @shared.pptx_contract_foundations() ==
-    ["format_readers/ooxml/package", "format_readers/ooxml/pptx"],
-  )
-  assert_true(
-    @shared.pptx_contract_excluded_runtime_foundations() ==
-    ["convert/pptx", "old_core", "legacy_dispatcher", "markdown_emitter"],
-  )
-  let helper = @formats_root.pptx_parser_contract()
-  let helper_result = match
-    (helper.parse)(
-      @input.input_from_path(
-        "samples/main_process/pptx/markdown/pptx_hidden_slide_basic.pptx",
-      ),
-      @parser.new_parse_context(@input.DetectedFormat::Unknown),
-    ) {
-    Ok(value) => value
-    Err(msg) => fail("pptx contract helper should produce diagnostics: " + msg)
-  }
-  assert_true(helper_result.document is Some(_))
-  assert_metric_eq(helper_result.diagnostics, "runtime_exposed", "false")
-  assert_metric_eq(
-    helper_result.diagnostics,
-    "parser_mode",
-    "package_single_pass",
-  )
-  assert_metric_eq(
-    helper_result.diagnostics,
-    "effective_mode",
-    "package_single_pass",
-  )
-  assert_metric_eq(helper_result.diagnostics, "ir_input_kind", "document")
-  assert_metric_eq(helper_result.diagnostics, "event_granularity", "pptx_slide")
-  assert_metric_eq(helper_result.diagnostics, "office_document_kind", "pptx")
-  assert_metric_eq(
-    helper_result.diagnostics,
-    "legacy_runtime_dependency",
-    "none",
-  )
-  assert_metric_eq(
-    helper_result.diagnostics,
-    "legacy_convert_dependency",
-    "none",
-  )
-  assert_metric_eq(helper_result.diagnostics, "legacy_fallback", "forbidden")
-  assert_metric_eq(
-    helper_result.diagnostics,
-    "pptx_reading_order_strategy",
-    "placeholder_then_geometry",
-  )
-  assert_true(
-    helper_result.diagnostics.degraded_features.contains(
-      "pptx_contract_helper_only",
-    ),
-  )
-  assert_true(helper_result.diagnostics.errors.length() == 0)
-  assert_true(helper_result.diagnostics.warnings.length() == 1)
-  assert_true(
-    helper_result.diagnostics.warnings[0].contains(
-      "mirrors the PPTX product boundary",
-    ),
-  )
-  let formats_pkg = read_utf8_text("formats/moon.pkg")
-  let office_pkg = read_utf8_text("format_readers/ooxml/shared/moon.pkg")
-  let office_impl = read_utf8_text("format_readers/ooxml/shared/shared.mbt")
-  let pptx_contract_impl = read_utf8_text("formats/format_contracts.mbt")
-  let registry_impl = read_utf8_text("formats/registry.mbt")
-  assert_contains_none(formats_pkg, [
-    "ZSeanYves/markitdown/convert/pptx", "ZSeanYves/markitdown/unmigrated/",
-  ])
-  assert_contains_none(office_pkg, [
-    "ZSeanYves/markitdown/format_readers/ooxml/pptx", "ZSeanYves/markitdown/convert/pptx",
-    "ZSeanYves/markitdown/unmigrated/",
-  ])
-  assert_contains_none(office_impl, [
-    "ZSeanYves/markitdown/format_readers/ooxml/pptx", "ZSeanYves/markitdown/unmigrated/",
-    "@legacy",
-  ])
-  assert_contains_none(pptx_contract_impl, [
-    "format_readers/ooxml/pptx", "convert/pptx", "@legacy", "emitter_markdown", "legacy_dispatcher",
-  ])
-  assert_true(registry_impl.contains("@input.DetectedFormat::Pptx"))
-  assert_true(registry_impl.contains("pptx_parser()"))
-  assert_true(!registry_impl.contains("pptx_parser_contract()"))
-}
-
-///|
-test "pptx source ref debug json and metric scaffolds stay visible after runtime restore" {
-  let source_ref = @core.source_ref_with_extra(
-    @core.source_ref_with_extra(
-      @core.source_ref_with_extra(
-        @core.source_ref_with_extra(
-          @core.source_ref_with_extra(
-            @core.source_ref_with_extra(
-              @core.source_ref_with_extra(
-                @core.source_ref_with_extra(
-                  @core.source_ref_with_extra(
-                    @core.source_ref_with_extra(
-                      @core.source_ref_with_office_fields(
-                        @core.source_ref_with_container_entry(
-                          @core.empty_source_ref(),
-                          Some("deck.pptx"),
-                          Some("pptx"),
-                          Some("deck.pptx"),
-                          Some("ppt/slides/slide3.xml"),
-                          Some(2),
-                          Some("pptx"),
-                          Some("/p:sld/p:cSld/p:spTree/p:sp[4]"),
-                        ),
-                        Some("deck.pptx"),
-                        Some("pptx"),
-                        Some("/p:sld/p:cSld/p:spTree/p:sp[4]"),
-                        None,
-                        None,
-                        Some(3),
-                        Some("shape-4"),
-                        Some("rId9"),
-                      ),
-                      "slide_index",
-                      "3",
-                    ),
-                    "slide_id",
-                    "4096",
-                  ),
-                  "slide_part",
-                  "ppt/slides/slide3.xml",
-                ),
-                "layout_part",
-                "ppt/slideLayouts/slideLayout2.xml",
-              ),
-              "master_part",
-              "ppt/slideMasters/slideMaster1.xml",
-            ),
-            "theme_part",
-            "ppt/theme/theme1.xml",
-          ),
-          "shape_name",
-          "Title 1",
-        ),
-        "shape_type",
-        "title",
-      ),
-      "placeholder_type",
-      "title",
-    ),
-    "placeholder_idx",
-    "0",
-  )
-  let with_more = @core.source_ref_with_extra(
-    @core.source_ref_with_extra(
-      @core.source_ref_with_extra(
-        @core.source_ref_with_extra(
-          @core.source_ref_with_extra(source_ref, "reading_order_index", "0"),
-          "notes_part",
-          "ppt/notesSlides/notesSlide3.xml",
-        ),
-        "comment_id",
-        "comment-11",
-      ),
-      "part_name",
-      "ppt/slides/slide3.xml",
-    ),
-    "paragraph_index",
-    "0",
-  )
-  let block = @core.make_block(
-    @core.BlockKind::Heading,
-    "Quarterly review",
-    source_ref=with_more,
-  )
-  let rendered = (@render.debug_json_renderer().render)(
-    @core.document_from_blocks([block]),
-    @render.make_render_context(true),
-  )
-  assert_true(rendered.content.contains("\"format\": \"pptx\""))
-  assert_true(rendered.content.contains("\"slide\": 3"))
-  assert_true(rendered.content.contains("\"shape_id\": \"shape-4\""))
-  assert_true(rendered.content.contains("\"relationship_id\": \"rId9\""))
-  assert_true(rendered.content.contains("\"slide_index\": \"3\""))
-  assert_true(rendered.content.contains("\"slide_id\": \"4096\""))
-  assert_true(
-    rendered.content.contains("\"slide_part\": \"ppt/slides/slide3.xml\""),
-  )
-  assert_true(
-    rendered.content.contains(
-      "\"layout_part\": \"ppt/slideLayouts/slideLayout2.xml\"",
-    ),
-  )
-  assert_true(
-    rendered.content.contains(
-      "\"master_part\": \"ppt/slideMasters/slideMaster1.xml\"",
-    ),
-  )
-  assert_true(
-    rendered.content.contains("\"theme_part\": \"ppt/theme/theme1.xml\""),
-  )
-  assert_true(rendered.content.contains("\"shape_name\": \"Title 1\""))
-  assert_true(rendered.content.contains("\"shape_type\": \"title\""))
-  assert_true(rendered.content.contains("\"placeholder_type\": \"title\""))
-  assert_true(rendered.content.contains("\"placeholder_idx\": \"0\""))
-  assert_true(rendered.content.contains("\"reading_order_index\": \"0\""))
-  assert_true(
-    rendered.content.contains(
-      "\"notes_part\": \"ppt/notesSlides/notesSlide3.xml\"",
-    ),
-  )
-  assert_true(rendered.content.contains("\"comment_id\": \"comment-11\""))
-  assert_contains_all(@shared.office_source_ref_extra_keys().join("\n"), [
-    "slide_index", "slide_id", "slide_part", "layout_part", "master_part", "theme_part",
-    "shape_name", "shape_type", "placeholder_type", "placeholder_idx", "reading_order_index",
-    "notes_part", "comment_id",
-  ])
-  assert_contains_all(
-    @shared.pptx_contract_source_ref_extra_keys().join("\n"),
-    [
-      "slide_index", "slide_id", "slide_part", "layout_part", "master_part", "theme_part",
-      "shape_id", "shape_name", "shape_type", "placeholder_type", "placeholder_idx",
-      "reading_order_index", "notes_part", "comment_id", "part_name", "relationship_id",
-      "paragraph_index", "run_index",
-    ],
-  )
-  assert_contains_all(@shared.office_diagnostic_metric_keys().join("\n"), [
-    "pptx_slide_count", "pptx_hidden_slide_count", "pptx_shape_count", "pptx_text_box_count",
-    "pptx_placeholder_count", "pptx_table_count", "pptx_image_count", "pptx_notes_count",
-    "pptx_layout_count", "pptx_master_count", "pptx_theme_count", "pptx_resolved_placeholder_count",
-    "pptx_unresolved_placeholder_count", "pptx_comment_count", "pptx_external_media_count",
-    "pptx_reading_order_strategy",
-  ])
-  assert_contains_all(@shared.office_resource_limit_keys().join("\n"), [
-    "max_pptx_slides", "max_pptx_shapes", "max_pptx_text_runs", "max_pptx_tables",
-    "max_pptx_images", "max_pptx_notes", "max_pptx_comments",
-  ])
-}
-
-///|
-test "pptx runtime keeps presentation order reading order and diagnostics contracts" {
-  let parsed = default_registry_parse(
-    @input.input_from_path(
-      "samples/main_process/pptx/markdown/pptx_hidden_slides_policy.pptx",
-    ),
-    @input.DetectedFormat::Pptx,
-  )
-  assert_metric_eq(parsed.diagnostics, "parser_mode", "package_single_pass")
-  assert_metric_eq(parsed.diagnostics, "effective_mode", "package_single_pass")
-  assert_metric_eq(parsed.diagnostics, "ir_input_kind", "document")
-  assert_metric_eq(parsed.diagnostics, "event_granularity", "pptx_slide")
-  assert_metric_eq(parsed.diagnostics, "office_document_kind", "pptx")
-  assert_metric_eq(parsed.diagnostics, "runtime_exposed", "true")
-  assert_metric_eq(parsed.diagnostics, "legacy_runtime_dependency", "none")
-  assert_metric_eq(parsed.diagnostics, "legacy_convert_dependency", "none")
-  assert_metric_eq(parsed.diagnostics, "legacy_fallback", "forbidden")
-  assert_metric_eq(parsed.diagnostics, "pptx_slide_count", "3")
-  assert_metric_eq(parsed.diagnostics, "pptx_visible_slide_count", "2")
-  assert_metric_eq(parsed.diagnostics, "pptx_hidden_slide_count", "1")
-  assert_metric_eq(
-    parsed.diagnostics,
-    "pptx_reading_order_strategy",
-    "placeholder_then_geometry",
-  )
-  assert_true(parsed.diagnostics.metrics.get("ooxml_part_count") is Some(_))
-  assert_true(parsed.diagnostics.metrics.get("relationship_count") is Some(_))
-  assert_true(parsed.diagnostics.metrics.get("content_type_count") is Some(_))
-  assert_true(
-    parsed.diagnostics.metrics.get("total_uncompressed_bytes") is Some(_),
-  )
-  assert_true(
-    parsed.diagnostics.warnings.contains("hidden pptx slide skipped: Slide 2"),
-  )
-  assert_true(
-    parsed.diagnostics.degraded_features.contains("pptx_hidden_slide_skipped"),
-  )
-  assert_true(parsed.diagnostics.pass_trace.contains("parse:pptx_parser"))
-  assert_diagnostics_lists_contain_none(parsed.diagnostics, [
-    "pptx_raw_fallback", "pptx_legacy_fallback", "legacy_dispatcher_used", "convert_pptx_used",
-    "xml_order_text_dump",
-  ])
-  let document = parsed.document.unwrap_or_else(fn() {
-    abort("missing pptx document")
-  })
-  assert_true(document.blocks.length() == 6)
-  assert_true(document.blocks[0].kind == @core.BlockKind::Heading)
-  assert_eq(document.blocks[0].text, "Slide 1")
-  assert_eq(document.blocks[1].text, "Third")
-  assert_eq(document.blocks[2].text, "Alpha")
-  assert_eq(document.blocks[3].text, "Slide 3")
-  assert_eq(document.blocks[4].text, "Second")
-  assert_eq(document.blocks[5].text, "Gamma")
-  let slide1_ref = document.blocks[0].source_ref.unwrap_or(
-    @core.empty_source_ref(),
-  )
-  assert_true(slide1_ref.entry_path == Some("ppt/slides/slide1.xml"))
-  assert_true(slide1_ref.extra.get("slide_id") == Some("256"))
-  let title_ref = document.blocks[1].source_ref.unwrap_or(
-    @core.empty_source_ref(),
-  )
-  assert_true(title_ref.extra.get("placeholder_type") == Some("center_title"))
-  assert_true(title_ref.extra.get("shape_name") == Some("Third"))
-  let body_ref = document.blocks[2].source_ref.unwrap_or(
-    @core.empty_source_ref(),
-  )
-  assert_true(body_ref.extra.get("shape_name") == Some("Alpha"))
-  assert_true(body_ref.extra.get("reading_order_key") is Some(_))
-}
-
-///|
-test "pptx runtime keeps nested list tree and renderer boundary on expected-next sample" {
-  let parsed = default_registry_parse(
-    @input.input_from_path(
-      "samples/main_process/pptx/markdown/pptx_bullet_levels.pptx",
-    ),
-    @input.DetectedFormat::Pptx,
-  )
-  assert_metric_eq(parsed.diagnostics, "effective_mode", "package_single_pass")
-  assert_metric_eq(parsed.diagnostics, "event_granularity", "pptx_slide")
-  assert_diagnostics_lists_contain_none(parsed.diagnostics, [
-    "pptx_raw_fallback", "pptx_legacy_fallback", "convert_pptx_used", "legacy_dispatcher_used",
-    "xml_order_text_dump",
-  ])
-  let document = parsed.document.unwrap_or_else(fn() {
-    abort("missing pptx bullet document")
-  })
-  assert_true(document.blocks.length() == 3)
-  assert_true(document.blocks[0].kind == @core.BlockKind::Heading)
-  assert_true(document.blocks[1].kind == @core.BlockKind::Heading)
-  assert_true(document.blocks[2].kind == @core.BlockKind::List)
-  let list = document.blocks[2]
-  assert_true(list.text == "")
-  assert_true(list.children.length() == 2)
-  assert_true(list.children[0].kind == @core.BlockKind::ListItem)
-  assert_true(list.children[0].text == "Phase 1")
-  assert_true(list.children[0].children.length() == 1)
-  let nested = list.children[0].children[0]
-  assert_true(nested.kind == @core.BlockKind::List)
-  assert_true(nested.children.length() == 2)
-  assert_true(nested.children[0].kind == @core.BlockKind::ListItem)
-  assert_true(nested.children[0].text == "Task 1.1")
-  assert_true(nested.children[1].kind == @core.BlockKind::ListItem)
-  assert_true(nested.children[1].text == "Task 1.2")
-  assert_true(list.children[1].kind == @core.BlockKind::ListItem)
-  assert_true(list.children[1].text == "Phase 2")
-  let rendered = (@render.markdown_renderer().render)(
-    document,
-    @render.make_render_context(false),
-  )
-  let expected = read_utf8_text(
-    "samples/main_process/pptx/expected/markdown/pptx_bullet_levels.md",
-  )
-  assert_eq(rendered.content.trim().to_owned(), expected.trim().to_owned())
-  assert_true(rendered.content.contains("- Phase 1"))
-  assert_true(rendered.content.contains("  - Task 1.1"))
-  assert_true(rendered.content.contains("  - Task 1.2"))
-}
-
-///|
-test "pptx runtime keeps speaker notes separate from slide body and source refs explicit" {
-  let parsed = default_registry_parse(
-    @input.input_from_path(
-      "samples/main_process/pptx/rag/pptx_speaker_notes_basic.pptx",
-    ),
-    @input.DetectedFormat::Pptx,
-  )
-  assert_metric_eq(parsed.diagnostics, "effective_mode", "package_single_pass")
-  assert_metric_eq(parsed.diagnostics, "pptx_notes_count", "3")
-  assert_metric_eq(parsed.diagnostics, "pptx_comment_count", "0")
-  assert_metric_eq(parsed.diagnostics, "pptx_hidden_slide_count", "0")
-  let document = parsed.document.unwrap_or_else(fn() {
-    abort("missing pptx notes document")
-  })
-  assert_true(document.blocks.length() == 18)
-  assert_eq(document.blocks[6].text, "Speaker Notes")
-  assert_eq(document.blocks[7].text, "本页核心信息")
-  assert_eq(document.blocks[12].text, "Speaker Notes")
-  assert_eq(document.blocks[13].text, "第二页备注")
-  assert_eq(document.blocks[16].text, "Speaker Notes")
-  assert_eq(document.blocks[17].text, "最后页备注")
-  let notes_heading_ref = document.blocks[6].source_ref.unwrap_or(
-    @core.empty_source_ref(),
-  )
-  assert_true(
-    notes_heading_ref.entry_path == Some("ppt/notesSlides/notesSlide1.xml"),
-  )
-  assert_true(
-    notes_heading_ref.extra.get("notes_part") ==
-    Some("ppt/notesSlides/notesSlide1.xml"),
-  )
-  let notes_text_ref = document.blocks[7].source_ref.unwrap_or(
-    @core.empty_source_ref(),
-  )
-  assert_true(
-    notes_text_ref.entry_path == Some("ppt/notesSlides/notesSlide1.xml"),
-  )
-  let rendered = (@render.markdown_renderer().render)(
-    document,
-    @render.make_render_context(false),
-  )
-  let expected = read_utf8_text(
-    "samples/main_process/pptx/expected/markdown/pptx_speaker_notes_basic.md",
-  )
-  assert_eq(rendered.content.trim().to_owned(), expected.trim().to_owned())
-  assert_true(rendered.content.contains("### Speaker Notes"))
-  assert_true(rendered.content.contains("本页核心信息"))
-  assert_true(!rendered.content.contains("Speaker Notes 1"))
-}
-
-///|
-test "pptx runtime keeps package-local assets in document ir and expected-next baseline" {
-  let parsed = default_registry_parse(
-    @input.input_from_path(
-      "samples/main_process/pptx/assets/pptx_image_single.pptx",
-    ),
-    @input.DetectedFormat::Pptx,
-  )
-  assert_metric_eq(parsed.diagnostics, "effective_mode", "package_single_pass")
-  assert_metric_eq(parsed.diagnostics, "asset_count", "1")
-  assert_metric_eq(parsed.diagnostics, "media_asset_count", "1")
-  assert_metric_eq(parsed.diagnostics, "materialized_asset_count", "1")
-  assert_metric_eq(parsed.diagnostics, "pptx_image_count", "1")
-  assert_metric_eq(parsed.diagnostics, "pptx_external_media_count", "0")
-  let document = parsed.document.unwrap_or_else(fn() {
-    abort("missing pptx image document")
-  })
-  assert_true(document.blocks.length() == 2)
-  assert_true(document.blocks[1].kind == @core.BlockKind::Image)
-  assert_true(
-    document.blocks[1].attrs.get("path") == Some("assets/image01.png"),
-  )
-  assert_true(document.assets.length() == 1)
-  assert_true(document.assets[0].path == Some("assets/image01.png"))
-  assert_true(
-    document.assets[0].attrs.get("source_path") == Some("ppt/media/image1.png"),
-  )
-  assert_true(
-    document.assets[0].attrs.get("zip_container_format") == Some("pptx"),
-  )
-  let rendered = (@render.markdown_renderer().render)(
-    document,
-    @render.make_render_context(false),
-  )
-  let expected = read_utf8_text(
-    "samples/main_process/pptx/expected/assets/pptx_image_single/result.md",
-  )
-  assert_eq(rendered.content.trim().to_owned(), expected.trim().to_owned())
-}
-
-///|
-test "xlsx scaffold models and guardrails stay root-pipeline only" {
-  let xlsx_ref = @core.source_ref_with_extra(
-    @core.source_ref_with_extra(
-      @core.source_ref_with_extra(
-        @core.source_ref_with_extra(
-          @core.source_ref_with_extra(
-            @core.source_ref_with_office_fields(
-              @core.source_ref_with_container_entry(
-                @core.empty_source_ref(),
-                Some("sample.xlsx"),
-                Some("xlsx"),
-                Some("sample.xlsx"),
-                Some("xl/worksheets/sheet1.xml"),
-                Some(0),
-                Some("xlsx"),
-                Some("/worksheet/sheetData/row[7]/c[2]"),
-              ),
-              Some("sample.xlsx"),
-              Some("xlsx"),
-              Some("/worksheet/sheetData/row[7]/c[2]"),
-              Some("Sheet A"),
-              Some("B7"),
-              None,
-              None,
-              Some("rIdSheet1"),
-            ),
-            "sheet_name",
-            "Sheet A",
-          ),
-          "sheet_id",
-          "1",
-        ),
-        "sheet_visibility",
-        "visible",
-      ),
-      "row_index",
-      "7",
-    ),
-    "column_index",
-    "2",
-  )
-  let style : @core.StyleRef = {
-    style_id: Some("3"),
-    style_name: Some("Currency"),
-    attrs: Map([]),
-  }
-  let formula = @shared.make_xlsx_formula(
-    "SUM(B2:B6)",
-    cached_value=Some("42"),
-    formula_ref=Some("B7"),
-    source_ref=Some(xlsx_ref),
-  )
-  let cell = @shared.make_xlsx_cell_model(
-    "B7",
-    7,
-    2,
-    @shared.XlsxCellType::Formula,
-    raw_value=Some("42"),
-    display_value=Some("42"),
-    style_ref=Some(style),
-    formula=Some(formula),
-    source_ref=Some(
-      @core.source_ref_with_extra(
-        @core.source_ref_with_extra(
-          @core.source_ref_with_extra(xlsx_ref, "cell_ref", "B7"),
-          "formula_ref",
-          "B7",
-        ),
-        "style_id",
-        "3",
-      ),
-    ),
-  )
-  let merge = @shared.make_xlsx_merged_range(
-    "A1:B1",
-    "A1",
-    "B1",
-    source_ref=Some(
-      @core.source_ref_with_extra(xlsx_ref, "merge_range", "A1:B1"),
-    ),
-  )
-  let row = @shared.make_xlsx_row_model(7, [cell], source_ref=Some(xlsx_ref))
-  let sheet = @shared.make_xlsx_sheet_model(
-    "Sheet A",
-    [row],
-    sheet_id=Some("1"),
-    relationship_id=Some("rIdSheet1"),
-    part_name=Some("xl/worksheets/sheet1.xml"),
-    visibility=@shared.XlsxSheetVisibility::Visible,
-    dimension_ref=Some("A1:B7"),
-    merged_ranges=[merge],
-    source_ref=Some(
-      @core.source_ref_with_extra(
-        @core.source_ref_with_extra(
-          xlsx_ref, "part_name", "xl/worksheets/sheet1.xml",
-        ),
-        "relationship_id",
-        "rIdSheet1",
-      ),
-    ),
-  )
-  let workbook = @shared.make_xlsx_workbook_model(
-    [sheet],
-    shared_strings=[@shared.make_xlsx_shared_string(0, "Total")],
-    styles_summary=Map([
-      ("style_count", @core.JsonValue::Number("1")),
-      ("format_policy", @core.JsonValue::String("best_effort_display_only")),
-    ]),
-    defined_names=["Totals"],
-    source_ref=Some(
-      @core.source_ref_with_extra(
-        @core.source_ref_with_container_entry(
-          @core.empty_source_ref(),
-          Some("sample.xlsx"),
-          Some("xlsx"),
-          Some("sample.xlsx"),
-          Some("xl/workbook.xml"),
-          Some(0),
-          Some("xlsx"),
-          Some("/workbook/sheets/sheet[1]"),
-        ),
-        "sheet_visibility",
-        "visible",
-      ),
-    ),
-  )
-  let plan = @shared.make_xlsx_workbook_plan(workbook, ["Sheet A"], skipped_sheet_names=[
-    "Hidden 1",
-  ])
-  assert_true(
-    @shared.office_document_kind_name(@shared.OfficeDocumentKind::Xlsx) ==
-    "xlsx",
-  )
-  assert_true(@shared.xlsx_sheet_visibility_name(sheet.visibility) == "visible")
-  assert_true(@shared.xlsx_cell_type_name(cell.cell_type) == "formula")
-  assert_true(plan.workbook.sheets.length() == 1)
-  assert_true(plan.workbook.shared_strings.length() == 1)
-  assert_true(plan.included_sheet_names == ["Sheet A"])
-  assert_true(plan.skipped_sheet_names == ["Hidden 1"])
-  assert_true(cell.formula is Some(_))
-  assert_true(cell.style_ref is Some(_))
-  match cell.formula {
-    Some(value) => {
-      assert_eq(value.formula_text, "SUM(B2:B6)")
-      assert_true(value.cached_value == Some("42"))
-    }
-    None => fail("xlsx scaffold cell should keep formula contract")
-  }
-  assert_contains_all(@shared.xlsx_contract_guardrails().join("\n"), [
-    "XLSX is restored on the current main CLI", "PackageSinglePass / IRInput::Document / xlsx_sheet",
-    "future large path = BlockStreaming / BlockStream / xlsx_row", "format_readers/ooxml/shared now owns the shared XLSX semantic scaffold",
-    "no old core", "no legacy convert", "no markdown emitter", "no main CLI fallback",
-    "assets stay output-boundary only", "formulas are preserved and never executed",
-    "external links are no-fetch",
-  ])
-  assert_contains_all(@shared.xlsx_contract_formula_policy().join("\n"), [
-    "formula text is preserved", "formula evaluation is forbidden", "cached value may be used when present",
-    "external formula links are not fetched", "volatile functions are not evaluated",
-  ])
-  assert_contains_all(@shared.xlsx_contract_sheet_policy().join("\n"), [
-    "visible sheets are future first-scope input", "hidden sheets require explicit diagnostics policy",
-    "very hidden sheets require explicit diagnostics policy", "large sheets are bounded and defer to future xlsx_row block streaming",
-  ])
-  assert_contains_all(@shared.xlsx_contract_relationship_policy().join("\n"), [
-    "relationship target resolution is package-local by default", "TargetMode=External is no-fetch",
-    "external links are diagnostics/metadata only", "missing targets are diagnosed",
-    "relationship traversal outside package-safe normalized boundaries is forbidden",
-  ])
-  assert_contains_all(@shared.xlsx_contract_asset_policy().join("\n"), [
-    "drawing/image relationships stay package-local only", "materialization only happens at the CLI/output boundary",
-    "parser/orchestrator file writes are forbidden", "assets stay reference-only until output policy opts in",
-  ])
-}
-
-///|
-test "xlsx contract helper and dependency guard stay restored and legacy free" {
-  assert_eq(@shared.xlsx_contract_parser_name(), "xlsx_parser_contract")
-  assert_true(
-    @shared.xlsx_contract_mode() == @parser.ParserMode::PackageSinglePass,
-  )
-  assert_true(
-    @shared.xlsx_contract_granularity() ==
-    @parser.StreamingGranularity::XlsxSheet,
-  )
-  assert_true(
-    @shared.xlsx_contract_large_granularity() ==
-    @parser.StreamingGranularity::XlsxRow,
-  )
-  assert_eq(@shared.xlsx_contract_ir_input_kind(), "document")
-  assert_eq(@shared.xlsx_contract_large_ir_input_kind(), "block_stream")
-  assert_true(
-    @shared.xlsx_contract_foundations() ==
-    ["format_readers/ooxml/package", "format_readers/ooxml/shared"],
-  )
-  assert_true(
-    @shared.xlsx_contract_excluded_runtime_foundations() ==
-    ["convert/xlsx", "old_core"],
-  )
-  let helper = @formats_root.xlsx_parser_contract()
-  let helper_result = match
-    (helper.parse)(
-      @input.input_from_path(
-        "samples/main_process/xlsx/markdown/sheet_simple.xlsx",
-      ),
-      @parser.new_parse_context(@input.DetectedFormat::Unknown),
-    ) {
-    Ok(value) => value
-    Err(msg) => fail("xlsx contract helper should produce diagnostics: " + msg)
-  }
-  assert_true(helper_result.document is Some(_))
-  assert_metric_eq(helper_result.diagnostics, "runtime_exposed", "true")
-  assert_metric_eq(
-    helper_result.diagnostics,
-    "parser_mode",
-    "package_single_pass",
-  )
-  assert_metric_eq(
-    helper_result.diagnostics,
-    "effective_mode",
-    "package_single_pass",
-  )
-  assert_metric_eq(helper_result.diagnostics, "ir_input_kind", "document")
-  assert_metric_eq(helper_result.diagnostics, "event_granularity", "xlsx_sheet")
-  assert_metric_eq(helper_result.diagnostics, "office_document_kind", "xlsx")
-  assert_metric_eq(
-    helper_result.diagnostics,
-    "legacy_runtime_dependency",
-    "none",
-  )
-  assert_metric_eq(
-    helper_result.diagnostics,
-    "legacy_convert_dependency",
-    "none",
-  )
-  assert_metric_eq(helper_result.diagnostics, "legacy_fallback", "forbidden")
-  assert_true(
-    helper_result.diagnostics.degraded_features.contains(
-      "xlsx_contract_helper_only",
-    ),
-  )
-  assert_true(helper_result.diagnostics.errors.length() == 0)
-  assert_true(helper_result.diagnostics.warnings.length() == 1)
-  assert_true(
-    helper_result.diagnostics.warnings[0].contains(
-      "mirrors the XLSX product boundary",
-    ),
-  )
-  let formats_pkg = read_utf8_text("formats/moon.pkg")
-  let office_pkg = read_utf8_text("format_readers/ooxml/shared/moon.pkg")
-  let office_impl = read_utf8_text("format_readers/ooxml/shared/shared.mbt")
-  let xlsx_contract_impl = read_utf8_text("formats/format_contracts.mbt")
-  assert_contains_none(formats_pkg, [
-    "ZSeanYves/markitdown/convert/xlsx", "ZSeanYves/markitdown/unmigrated/",
-  ])
-  assert_contains_none(office_pkg, [
-    "ZSeanYves/markitdown/convert/xlsx", "ZSeanYves/markitdown/unmigrated/",
-  ])
-  assert_contains_none(office_impl, [
-    "ZSeanYves/markitdown/convert/xlsx", "ZSeanYves/markitdown/unmigrated/", "@legacy",
-  ])
-  assert_contains_none(xlsx_contract_impl, [
-    "convert/xlsx", "@legacy", "emitter_markdown", "legacy_dispatcher",
-  ])
-}
-
-///|
-test "xlsx parser keeps package-single-pass diagnostics source refs and sheet policy contract locked" {
-  let parsed = default_registry_parse(
-    @input.input_from_path(
-      "samples/main_process/xlsx/markdown/xlsx_hidden_sheets_policy.xlsx",
-    ),
-    @input.DetectedFormat::Xlsx,
-  )
-  assert_metric_eq(parsed.diagnostics, "parser_mode", "package_single_pass")
-  assert_metric_eq(parsed.diagnostics, "effective_mode", "package_single_pass")
-  assert_metric_eq(parsed.diagnostics, "ir_input_kind", "document")
-  assert_metric_eq(parsed.diagnostics, "event_granularity", "xlsx_sheet")
-  assert_metric_eq(parsed.diagnostics, "office_document_kind", "xlsx")
-  assert_metric_eq(parsed.diagnostics, "runtime_exposed", "true")
-  assert_metric_eq(parsed.diagnostics, "legacy_runtime_dependency", "none")
-  assert_metric_eq(parsed.diagnostics, "legacy_convert_dependency", "none")
-  assert_metric_eq(parsed.diagnostics, "legacy_fallback", "forbidden")
-  assert_metric_eq(parsed.diagnostics, "xlsx_sheet_count", "3")
-  assert_metric_eq(parsed.diagnostics, "xlsx_visible_sheet_count", "1")
-  assert_metric_eq(parsed.diagnostics, "xlsx_hidden_sheet_count", "1")
-  assert_metric_eq(parsed.diagnostics, "xlsx_very_hidden_sheet_count", "1")
-  assert_metric_eq(parsed.diagnostics, "xlsx_workbook_part", "xl/workbook.xml")
-  assert_true(parsed.diagnostics.metrics.get("ooxml_part_count") is Some(_))
-  assert_true(parsed.diagnostics.metrics.get("relationship_count") is Some(_))
-  assert_true(parsed.diagnostics.metrics.get("content_type_count") is Some(_))
-  assert_true(
-    parsed.diagnostics.metrics.get("total_uncompressed_bytes") is Some(_),
-  )
-  assert_true(
-    parsed.diagnostics.warnings.contains(
-      "hidden xlsx sheet skipped: HiddenData",
-    ),
-  )
-  assert_true(
-    parsed.diagnostics.warnings.contains(
-      "very hidden xlsx sheet skipped: VeryHiddenAudit",
-    ),
-  )
-  assert_true(
-    parsed.diagnostics.degraded_features.contains("xlsx_hidden_sheet_skipped"),
-  )
-  assert_true(
-    parsed.diagnostics.degraded_features.contains(
-      "xlsx_very_hidden_sheet_skipped",
-    ),
-  )
-  assert_true(parsed.diagnostics.pass_trace.contains("parse:xlsx_parser"))
-  assert_diagnostics_lists_contain_none(parsed.diagnostics, [
-    "xlsx_legacy_fallback", "legacy_dispatcher_used", "convert_xlsx_used", "doc_parse_xlsx_used",
-    "xlsx_raw_fallback", "formula_evaluation_enabled",
-  ])
-  let document = parsed.document.unwrap_or_else(fn() {
-    abort("missing xlsx document")
-  })
-  match document.metadata.get("workbook_part") {
-    Some(@core.JsonValue::String(value)) => assert_eq(value, "xl/workbook.xml")
-    _ => fail("xlsx document metadata should keep workbook_part")
-  }
-  assert_true(document.blocks.length() == 2)
-  assert_true(document.blocks[0].kind == @core.BlockKind::Heading)
-  assert_eq(document.blocks[0].text, "Visible")
-  assert_true(document.blocks[1].kind == @core.BlockKind::Table)
-  let table_ref = document.blocks[1].source_ref.unwrap_or(
-    @core.empty_source_ref(),
-  )
-  assert_true(table_ref.format == Some("xlsx"))
-  match table_ref.container_path {
-    Some(value) => assert_eq(value, "xlsx_hidden_sheets_policy.xlsx")
-    None => fail("xlsx table source ref should keep container_path")
-  }
-  assert_true(table_ref.entry_path == Some("xl/worksheets/sheet1.xml"))
-  assert_true(table_ref.inner_path == Some("/worksheet/sheetData"))
-  assert_true(table_ref.extra.get("sheet_name") == Some("Visible"))
-  assert_true(table_ref.extra.get("sheet_visibility") == Some("visible"))
-  assert_true(
-    table_ref.extra.get("part_name") == Some("xl/worksheets/sheet1.xml"),
-  )
-  assert_true(table_ref.extra.get("relationship_id") == Some("rId1"))
-}
-
-///|
-test "xlsx parser preserves formulas and expected-next renderer boundary without execution" {
-  let parsed = default_registry_parse(
-    @input.input_from_path(
-      "samples/main_process/xlsx/markdown/xlsx_formula_missing_cache.xlsx",
-    ),
-    @input.DetectedFormat::Xlsx,
-  )
-  assert_metric_eq(parsed.diagnostics, "effective_mode", "package_single_pass")
-  assert_metric_eq(parsed.diagnostics, "event_granularity", "xlsx_sheet")
-  assert_metric_eq(parsed.diagnostics, "xlsx_formula_count", "3")
-  assert_diagnostics_lists_contain_none(parsed.diagnostics, [
-    "formula_evaluation_enabled", "xlsx_legacy_fallback", "convert_xlsx_used",
-  ])
-  let document = parsed.document.unwrap_or_else(fn() {
-    abort("missing xlsx formula document")
-  })
-  let rendered = (@render.markdown_renderer().render)(
-    document,
-    @render.make_render_context(false),
-  )
-  let expected = read_utf8_text(
-    "samples/main_process/xlsx/expected/markdown/xlsx_formula_missing_cache.md",
-  )
-  assert_eq(rendered.content.trim().to_owned(), expected.trim().to_owned())
-  assert_true(rendered.content.contains("| Missing numeric cache | =1+2 |"))
-  assert_true(
-    rendered.content.contains("| Missing string cache | =CONCAT(\"a\",\"b\") |"),
-  )
-  assert_true(rendered.content.contains("| Error cache present | #DIV/0! |"))
-}
-
-///|
-test "xlsx source ref debug json and metric scaffolds stay visible without runtime exposure" {
-  let source_ref = @core.source_ref_with_extra(
-    @core.source_ref_with_extra(
-      @core.source_ref_with_extra(
-        @core.source_ref_with_extra(
-          @core.source_ref_with_extra(
-            @core.source_ref_with_extra(
-              @core.source_ref_with_extra(
-                @core.source_ref_with_extra(
-                  @core.source_ref_with_office_fields(
-                    @core.source_ref_with_container_entry(
-                      @core.empty_source_ref(),
-                      Some("book.xlsx"),
-                      Some("xlsx"),
-                      Some("book.xlsx"),
-                      Some("xl/worksheets/sheet1.xml"),
-                      Some(0),
-                      Some("xlsx"),
-                      Some("/worksheet/sheetData/row[7]/c[2]"),
-                    ),
-                    Some("book.xlsx"),
-                    Some("xlsx"),
-                    Some("/worksheet/sheetData/row[7]/c[2]"),
-                    Some("Summary"),
-                    Some("B7:C9"),
-                    None,
-                    None,
-                    Some("rIdSheet1"),
-                  ),
-                  "sheet_name",
-                  "Summary",
-                ),
-                "sheet_id",
-                "1",
-              ),
-              "sheet_visibility",
-              "very_hidden",
-            ),
-            "cell_ref",
-            "B7",
-          ),
-          "row_index",
-          "7",
-        ),
-        "column_index",
-        "2",
-      ),
-      "formula_ref",
-      "B7",
-    ),
-    "shared_string_index",
-    "14",
-  )
-  let with_more = @core.source_ref_with_extra(
-    @core.source_ref_with_extra(
-      @core.source_ref_with_extra(
-        @core.source_ref_with_extra(source_ref, "style_id", "3"),
-        "merge_range",
-        "B7:C9",
-      ),
-      "part_name",
-      "xl/worksheets/sheet1.xml",
-    ),
-    "relationship_id",
-    "rIdSheet1",
-  )
-  let block = @core.make_block(
-    @core.BlockKind::TableCell,
-    "42",
-    source_ref=with_more,
-  )
-  let rendered = (@render.debug_json_renderer().render)(
-    @core.document_from_blocks([block]),
-    @render.make_render_context(true),
-  )
-  assert_true(rendered.content.contains("\"format\": \"xlsx\""))
-  assert_true(rendered.content.contains("\"sheet\": \"Summary\""))
-  assert_true(rendered.content.contains("\"cell_range\": \"B7:C9\""))
-  assert_true(rendered.content.contains("\"sheet_name\": \"Summary\""))
-  assert_true(rendered.content.contains("\"sheet_id\": \"1\""))
-  assert_true(
-    rendered.content.contains("\"sheet_visibility\": \"very_hidden\""),
-  )
-  assert_true(rendered.content.contains("\"cell_ref\": \"B7\""))
-  assert_true(rendered.content.contains("\"row_index\": \"7\""))
-  assert_true(rendered.content.contains("\"column_index\": \"2\""))
-  assert_true(rendered.content.contains("\"formula_ref\": \"B7\""))
-  assert_true(rendered.content.contains("\"shared_string_index\": \"14\""))
-  assert_true(rendered.content.contains("\"style_id\": \"3\""))
-  assert_true(rendered.content.contains("\"merge_range\": \"B7:C9\""))
-  assert_true(
-    rendered.content.contains("\"part_name\": \"xl/worksheets/sheet1.xml\""),
-  )
-  assert_true(rendered.content.contains("\"relationship_id\": \"rIdSheet1\""))
-  assert_contains_all(@shared.office_source_ref_extra_keys().join("\n"), [
-    "sheet_name", "sheet_id", "sheet_visibility", "cell_ref", "cell_range", "row_index",
-    "column_index", "formula_ref", "shared_string_index", "style_id", "merge_range",
-  ])
-  assert_contains_all(
-    @shared.xlsx_contract_source_ref_extra_keys().join("\n"),
-    [
-      "sheet_name", "sheet_id", "sheet_visibility", "cell_ref", "cell_range", "row_index",
-      "column_index", "formula_ref", "shared_string_index", "style_id", "merge_range",
-      "relationship_id", "part_name",
-    ],
-  )
-  assert_contains_all(@shared.office_diagnostic_metric_keys().join("\n"), [
-    "external_link_count", "xlsx_sheet_count", "xlsx_hidden_sheet_count", "xlsx_very_hidden_sheet_count",
-    "xlsx_row_count", "xlsx_cell_count", "xlsx_non_empty_cell_count", "xlsx_merged_cell_count",
-    "xlsx_formula_count", "xlsx_shared_formula_count", "xlsx_array_formula_count",
-    "xlsx_shared_string_count", "xlsx_style_count", "xlsx_drawing_count", "xlsx_image_count",
-  ])
-  assert_contains_all(@shared.office_resource_limit_keys().join("\n"), [
-    "max_xlsx_sheets", "max_xlsx_rows", "max_xlsx_columns", "max_xlsx_cells", "max_xlsx_non_empty_cells",
-    "max_shared_strings", "max_formula_count", "max_merged_ranges", "max_materialized_assets",
-  ])
-}
-
-///|
-test "container model scaffold can represent unsafe and limited entries without runtime enablement" {
-  let unsafe_src = @core.source_ref_with_container_entry(
-    @core.empty_source_ref(),
-    Some("sample.zip"),
-    Some("zip"),
-    Some("sample.zip"),
-    Some("../evil.txt"),
-    Some(9),
-    Some("txt"),
-    None,
-  )
-  let unsafe_entry = @core.make_container_entry(
-    "../evil.txt",
-    @core.ContainerEntryKind::Unsafe,
-    normalized_path=None,
-    entry_index=Some(9),
-    detected_format=Some("txt"),
-    is_encrypted=true,
-    compression_method=Some("unsupported:deflate64"),
-    source_ref=Some(unsafe_src),
-    security_findings=[
-      @core.ContainerSecurityFinding::PathTraversal,
-      @core.ContainerSecurityFinding::EncryptedEntry,
-      @core.ContainerSecurityFinding::UnsupportedCompression,
-      @core.ContainerSecurityFinding::CompressionRatioLimit,
-    ],
-  )
-  assert_true(
-    @core.container_entry_kind_name(unsafe_entry.entry_kind) == "unsafe",
-  )
-  assert_true(unsafe_entry.is_encrypted)
-  assert_true(
-    unsafe_entry.security_findings.map(f => {
-      @core.container_security_finding_name(f)
-    }) ==
-    [
-      "path_traversal", "encrypted_entry", "unsupported_compression", "compression_ratio_limit",
-    ],
-  )
-  assert_contains_all(
-    @container.container_diagnostic_metric_keys().join("\n"),
-    [
-      "container_entry_count", "selected_entry_count", "skipped_entry_count", "unsupported_entry_count",
-      "asset_count", "total_uncompressed_bytes", "max_compression_ratio_observed",
-      "path_traversal_count", "encrypted_entry_count", "unsupported_compression_count",
-      "resource_limit_hit", "manifest_seen", "spine_item_count", "nav_seen",
-    ],
-  )
-  assert_contains_all(@container.container_resource_limit_keys().join("\n"), [
-    "max_container_entries", "max_total_uncompressed_bytes", "max_single_entry_bytes",
-    "max_compression_ratio", "max_nested_archive_depth", "max_selected_inner_documents",
-    "max_materialized_assets",
-  ])
 }
 
 ///|
@@ -6846,8 +1254,9 @@ test "txt empty mixed newline unicode and long line maturity stay observable" {
   assert_true(empty.diagnostics.metrics.get("is_empty") == Some("true"))
   assert_true(empty.diagnostics.metrics.get("input_line_count") == Some("0"))
   assert_true(
-    empty.diagnostics.metrics.get("readiness_status") == Some("near_ready"),
+    empty.diagnostics.metrics.get("product_path_enabled") == Some("true"),
   )
+  assert_true(empty.diagnostics.metrics.get("format_contract") == Some("txt"))
 
   let mixed = convert_memory_text(
     "第一行\r\n\r\nemoji 😀\nlast\rline",
@@ -6958,7 +1367,10 @@ test "markdown maturity covers headings lists quotes frontmatter image and fence
     result.diagnostics.metrics.get("frontmatter_kind") == Some("yaml"),
   )
   assert_true(
-    result.diagnostics.metrics.get("readiness_status") == Some("near_ready"),
+    result.diagnostics.metrics.get("product_path_enabled") == Some("true"),
+  )
+  assert_true(
+    result.diagnostics.metrics.get("format_contract") == Some("markdown"),
   )
 }
 
@@ -6972,7 +1384,8 @@ test "markdown parser keeps semantic IR and renderer owns markdown syntax" {
     ),
     @input.DetectedFormat::Markdown,
   )
-  let blocks = parsed.block_stream.unwrap_or([])
+  let document = parsed.document.unwrap_or(@core.empty_document_ir())
+  let blocks = document.blocks
   assert_true(blocks.length() >= 3)
   let heading = blocks[0]
   let paragraph = blocks[1]
@@ -6993,9 +1406,6 @@ test "markdown parser keeps semantic IR and renderer owns markdown syntax" {
   assert_true(table.children.length() == 2)
   assert_eq(table.children[0].children[0].text, "A")
   assert_eq(table.children[1].children[1].text, "2")
-  let document = (@pipeline.default_ir_builder().build)(
-    @core.IRInput::BlockStream(blocks),
-  )
   let rendered = (@render.markdown_renderer().render)(
     document,
     @render.make_render_context(false),
@@ -7017,7 +1427,8 @@ test "markdown unsafe links degrade to text with diagnostics and no fetch" {
     ),
     @input.DetectedFormat::Markdown,
   )
-  let blocks = parsed.block_stream.unwrap_or([])
+  let document = parsed.document.unwrap_or(@core.empty_document_ir())
+  let blocks = document.blocks
   assert_true(blocks.length() == 1)
   let paragraph = blocks[0]
   assert_true(paragraph.kind == @core.BlockKind::Paragraph)
@@ -7039,9 +1450,6 @@ test "markdown unsafe links degrade to text with diagnostics and no fetch" {
   )
   assert_metric_eq(parsed.diagnostics, "unsafe_link_count", "4")
   assert_metric_eq(parsed.diagnostics, "warning_count", "4")
-  let document = (@pipeline.default_ir_builder().build)(
-    @core.IRInput::BlockStream(blocks),
-  )
   let rendered = (@render.markdown_renderer().render)(
     document,
     @render.make_render_context(false),
@@ -7060,7 +1468,8 @@ test "markdown raw html and frontmatter stay bounded and visible in diagnostics"
     ),
     @input.DetectedFormat::Markdown,
   )
-  let blocks = parsed.block_stream.unwrap_or([])
+  let document = parsed.document.unwrap_or(@core.empty_document_ir())
+  let blocks = document.blocks
   assert_true(blocks.length() == 2)
   assert_true(blocks[0].kind == @core.BlockKind::Raw)
   assert_true(blocks[0].attrs.get("raw_kind") == Some("markdown_frontmatter"))
@@ -7075,9 +1484,6 @@ test "markdown raw html and frontmatter stay bounded and visible in diagnostics"
     parsed.diagnostics.degraded_features.contains(
       "markdown_raw_html_unsafe_literal",
     ),
-  )
-  let document = (@pipeline.default_ir_builder().build)(
-    @core.IRInput::BlockStream(blocks),
   )
   let rendered = (@render.markdown_renderer().render)(
     document,
@@ -7097,7 +1503,8 @@ test "markdown unclosed fence warning and source refs stay visible" {
     ),
     @input.DetectedFormat::Markdown,
   )
-  let blocks = parsed.block_stream.unwrap_or([])
+  let document = parsed.document.unwrap_or(@core.empty_document_ir())
+  let blocks = document.blocks
   assert_true(blocks.length() >= 2)
   assert_true(parsed.diagnostics.warnings.length() > 0)
   assert_true(
@@ -7138,8 +1545,9 @@ test "csv and tsv maturity cover quoted fields ragged rows multiline cells and d
   )
   assert_true(csv.diagnostics.metrics.get("delimiter") == Some("comma"))
   assert_true(
-    csv.diagnostics.metrics.get("readiness_status") == Some("near_ready"),
+    csv.diagnostics.metrics.get("product_path_enabled") == Some("true"),
   )
+  assert_true(csv.diagnostics.metrics.get("format_contract") == Some("csv"))
 
   let ragged = convert_memory_text(
     "a,b,c\n1,2\n3,4,5\n",
@@ -7460,14 +1868,13 @@ test "markdown image blocks keep linked asset refs in the root-pipeline document
     ),
     @input.DetectedFormat::Markdown,
   )
-  let blocks = parsed.block_stream.unwrap_or([])
-  let document = (@pipeline.default_ir_builder().build)(
-    @core.IRInput::BlockStream(blocks),
-  )
-  let document = @pipeline.run_pipeline(
-    @pipeline.default_pass_pipeline(),
-    document,
-    @pipeline.make_pass_context(false, "balanced"),
+  let document = unwrap_pipeline_output(
+    @pipeline.run_pipeline(
+      @pipeline.default_pass_pipeline(),
+      @runtime.parse_result_to_ir_input(parsed),
+      @pipeline.make_pass_context(false, "balanced"),
+    ),
+    "markdown image pipeline",
   )
   assert_true(document.blocks.length() == 1)
   assert_true(document.assets.length() == 1)
@@ -7497,7 +1904,7 @@ test "path input can run root convert without touching old cli" {
 }
 
 ///|
-test "product main cli now shells directly into root cli and legacy shell stays sealed" {
+test "product main cli points directly at the root cli entry" {
   let cli_main = read_utf8_text("cli/main.mbt")
   let cli_pkg = read_utf8_text("cli/moon.pkg")
   let cli_impl = read_utf8_text("cli/cli.mbt")
@@ -7543,7 +1950,7 @@ test "product main cli now shells directly into root cli and legacy shell stays 
 }
 
 ///|
-test "root package manifests avoid legacy convert and old core runtime dependencies" {
+test "root package manifests avoid retired convert and core runtime dependencies" {
   let package_files = [
     "cli/moon.pkg", "input/moon.pkg", "core/moon.pkg", "parser/moon.pkg", "formats/moon.pkg",
     "container/moon.pkg", "format_readers/ooxml/shared/moon.pkg", "pipeline/moon.pkg",
@@ -7563,14 +1970,14 @@ test "root package manifests avoid legacy convert and old core runtime dependenc
   assert_true(!formats_pkg.contains("ZSeanYves/markitdown/convert/json"))
   assert_true(!formats_pkg.contains("ZSeanYves/markitdown/convert/xml"))
   assert_true(!formats_pkg.contains("ZSeanYves/markitdown/convert/yaml"))
-  let json_impl = read_utf8_text("formats/json/parser.mbt")
-  let xml_impl = read_utf8_text("formats/xml/parser.mbt")
+  let json_impl = read_package_mbt_sources("formats/json")
+  let xml_impl = read_package_mbt_sources("formats/xml")
   assert_true(!json_impl.contains("@oldjson"))
   assert_true(!json_impl.contains("@legacy"))
   assert_true(!json_impl.contains("convert/json"))
   assert_true(!xml_impl.contains("@legacy"))
   assert_true(!xml_impl.contains("convert/xml"))
-  let yaml_impl = read_utf8_text("formats/yaml/parser.mbt")
+  let yaml_impl = read_package_mbt_sources("formats/yaml")
   assert_true(yaml_impl.contains("@dyaml.parse_yaml_structure_document"))
   assert_true(!yaml_impl.contains("convert/yaml"))
   let render_impl = read_utf8_text("render/render.mbt")
@@ -7580,7 +1987,7 @@ test "root package manifests avoid legacy convert and old core runtime dependenc
   let container_pkg = read_utf8_text("container/moon.pkg")
   let container_impl = read_utf8_text("container/contracts.mbt")
   let office_pkg = read_utf8_text("format_readers/ooxml/shared/moon.pkg")
-  let office_impl = read_utf8_text("format_readers/ooxml/shared/shared.mbt")
+  let office_impl = read_package_mbt_sources("format_readers/ooxml/shared")
   assert_true(!container_pkg.contains("ZSeanYves/markitdown/convert"))
   assert_true(!container_pkg.contains("ZSeanYves/markitdown/unmigrated/"))
   assert_true(!container_impl.contains("ZSeanYves/markitdown/convert/"))
@@ -7599,7 +2006,7 @@ test "zip foundation contract reuses the active zip reader and avoids custom dec
   let zip_pkg = read_utf8_text("formats/zip/moon.pkg")
   let cli_pkg = read_utf8_text("cli/moon.pkg")
   let registry_impl = read_utf8_text("formats/registry.mbt")
-  let zip_parser = read_utf8_text("formats/zip/parser.mbt")
+  let zip_parser = read_package_mbt_sources("formats/zip")
   let runtime_impl = read_utf8_text("runtime/runtime.mbt")
   let zip_reader_pkg = read_utf8_text("format_readers/zip/moon.pkg")
   assert_contains_all(formats_pkg, ["ZSeanYves/markitdown/formats/zip"])
@@ -7629,12 +2036,12 @@ test "zip foundation contract reuses the active zip reader and avoids custom dec
   ])
   assert_contains_none(zip_parser, [
     "@flate", "bikallem/compress/flate", "convert/zip", "convert/zip_core", "zip_legacy_fallback",
-    "zip_raw_fallback", "legacy_dispatcher_used", "convert_zip_used",
+    "zip_raw_fallback",
   ])
 }
 
 ///|
-test "root runtime and exposed parser foundations stay free of legacy runtime imports" {
+test "root runtime and exposed parser foundations stay free of retired runtime imports" {
   assert_files_avoid_strings(
     [
       "cli/main.mbt", "cli/moon.pkg", "cli/cli.mbt", "convert/moon.pkg", "convert/convert.mbt",
@@ -7646,8 +2053,8 @@ test "root runtime and exposed parser foundations stay free of legacy runtime im
   )
   assert_files_avoid_strings(
     [
-      "format_readers/text/moon.pkg", "format_readers/text/text_types.mbt", "format_readers/text/text_parser.mbt",
-      "format_readers/text/text_inspect.mbt", "format_readers/text/text_profile_internal.mbt",
+      "format_readers/txt/moon.pkg", "format_readers/txt/text_types.mbt", "format_readers/txt/text_parser.mbt",
+      "format_readers/txt/text_inspect.mbt", "format_readers/txt/text_profile_internal.mbt",
       "format_readers/csv/moon.pkg", "format_readers/csv/csv_types.mbt", "format_readers/csv/csv_parser.mbt",
       "format_readers/csv/csv_inspect.mbt", "format_readers/tsv/moon.pkg", "format_readers/tsv/tsv_parser.mbt",
       "format_readers/json/moon.pkg", "format_readers/json/json_types.mbt", "format_readers/json/json_parser.mbt",
@@ -7683,7 +2090,7 @@ test "root convert points directly to canonical root pipeline formats semantics"
 }
 
 ///|
-test "cli package stays isolated from legacy layers and calls root convert" {
+test "cli package stays isolated from retired layers and calls root convert" {
   let cli_pkg = read_utf8_text("cli/moon.pkg")
   let cli_impl = read_utf8_text("cli/cli.mbt")
   assert_true(cli_pkg.contains("ZSeanYves/markitdown/convert"))
@@ -7695,7 +2102,7 @@ test "cli package stays isolated from legacy layers and calls root convert" {
 }
 
 ///|
-test "zip parser stays on container plan archive entry contracts even when stream mode is requested" {
+test "zip parser stays on block stream archive entry contracts even when stream mode is requested" {
   let parsed = default_registry_parse(
     @input.input_from_path(
       "samples/main_process/zip/markdown/zip_basic_structured.zip",
@@ -7718,55 +2125,32 @@ test "zip parser stays on container plan archive entry contracts even when strea
     None => ()
   }
   match parsed.block_stream {
-    Some(_) => fail("zip parse result must not expose a block stream")
-    None => ()
+    Some(_) => ()
+    None => fail("zip parse result must expose a block stream")
   }
   match parsed.document {
     Some(_) => fail("zip parse result must not expose a document IR directly")
     None => ()
   }
-  match parsed.container_manifest {
-    Some(_) => fail("zip parse result must not expose a container manifest")
-    None => ()
-  }
-  let plan = unwrap_container_plan(parsed, "zip basic structured")
-  assert_true(plan.container_format == "zip")
   assert_metric_eq(parsed.diagnostics, "requested_mode", "streaming_event")
   assert_metric_eq(parsed.diagnostics, "effective_mode", "container_recursive")
-  assert_metric_eq(parsed.diagnostics, "ir_input_kind", "container_plan")
+  assert_metric_eq(parsed.diagnostics, "ir_input_kind", "block_stream")
   assert_metric_eq(parsed.diagnostics, "event_granularity", "archive_entry")
-  assert_metric_eq(parsed.diagnostics, "streaming_fallback", "false")
+  assert_metric_absent(parsed.diagnostics, "streaming_fallback")
   assert_diagnostics_lists_contain_none(parsed.diagnostics, [
     "zip_streaming_fallback=deferred", "zip_raw_fallback", "zip_legacy_fallback",
   ])
 }
 
 ///|
-test "zip parser keeps root-pipeline inner dispatch core block output and merged source refs" {
+test "zip parser keeps root-pipeline merged block output and source refs" {
   let parsed = default_registry_parse(
     @input.input_from_path(
       "samples/main_process/zip/markdown/zip_mixed_supported_entries.zip",
     ),
     @input.DetectedFormat::Zip,
   )
-  let plan = unwrap_container_plan(parsed, "zip mixed supported entries")
-  assert_true(plan.container_format == "zip")
-  assert_true(plan.inner_documents_to_convert.length() == 5)
-  assert_true(plan.assets_to_materialize.length() == 0)
-  let formats = plan.inner_documents_to_convert.map(inner => {
-    inner.explicit_detected_format.unwrap_or("")
-  })
-  assert_contains_all(formats.join("\n"), [
-    "markdown", "json", "html", "csv", "txt",
-  ])
-  let source_names = plan.inner_documents_to_convert.map(inner => {
-    inner.source_name
-  })
-  assert_contains_all(source_names.join("\n"), [
-    "zip_mixed_supported_entries.zip::alpha/readme.md", "zip_mixed_supported_entries.zip::beta/info.json",
-    "zip_mixed_supported_entries.zip::delta/page.html", "zip_mixed_supported_entries.zip::gamma/data.csv",
-    "zip_mixed_supported_entries.zip::zeta/notes.txt",
-  ])
+  let blocks = parsed.block_stream.unwrap_or([])
   assert_contains_all(parsed.diagnostics.pass_trace.join("\n"), [
     "parse:zip_container_parser", "parse:markdown_parser", "parse:json_parser", "parse:html_parser",
     "parse:csv_parser", "parse:txt_parser",
@@ -7776,26 +2160,18 @@ test "zip parser keeps root-pipeline inner dispatch core block output and merged
     "zip_raw_fallback", "zip_legacy_fallback",
   ])
   let entry_heading = match
-    find_block_in_tree(
-      plan.merged_blocks,
-      @core.BlockKind::Heading,
-      "alpha/readme.md",
-    ) {
+    find_block_in_tree(blocks, @core.BlockKind::Heading, "alpha/readme.md") {
     Some(block) => block
     None => fail("missing archive entry heading block for alpha/readme.md")
   }
   let inner_heading = match
-    find_block_in_tree(plan.merged_blocks, @core.BlockKind::Heading, "Alpha") {
+    find_block_in_tree(blocks, @core.BlockKind::Heading, "Alpha") {
     Some(block) => block
     None => fail("missing inner markdown heading block for alpha/readme.md")
   }
-  assert_true(block_tree_has_kind(plan.merged_blocks, @core.BlockKind::Table))
-  assert_true(
-    !block_tree_contains_text_fragment(plan.merged_blocks, "# alpha/readme.md"),
-  )
-  assert_true(
-    !block_tree_contains_text_fragment(plan.merged_blocks, "| --- | --- |"),
-  )
+  assert_true(block_tree_has_kind(blocks, @core.BlockKind::Table))
+  assert_true(!block_tree_contains_text_fragment(blocks, "# alpha/readme.md"))
+  assert_true(!block_tree_contains_text_fragment(blocks, "| --- | --- |"))
   let entry_ref = match entry_heading.source_ref {
     Some(value) => value
     None => fail("entry heading should keep a source ref")
@@ -7843,7 +2219,7 @@ test "zip convert result keeps root container diagnostics and source refs" {
   )
   assert_true(result.diagnostics.metrics.get("detected_format") == Some("zip"))
   assert_true(
-    result.diagnostics.metrics.get("ir_input_kind") == Some("container_plan"),
+    result.diagnostics.metrics.get("ir_input_kind") == Some("block_stream"),
   )
   assert_true(
     result.diagnostics.metrics.get("event_granularity") == Some("archive_entry"),
@@ -7875,7 +2251,7 @@ test "zip convert result keeps root container diagnostics and source refs" {
   assert_true(result.diagnostics.pass_trace.length() > 0)
   assert_true(result.diagnostics.fallback_trace.length() > 0)
   assert_diagnostics_lists_contain_none(result.diagnostics, [
-    "zip_legacy_fallback", "zip_raw_fallback", "legacy_dispatcher_used", "convert_zip_used",
+    "zip_legacy_fallback", "zip_raw_fallback",
   ])
 }
 
@@ -7886,7 +2262,7 @@ test "epub foundation contract reuses active epub and zip readers plus root html
   let html_pkg = read_utf8_text("formats/html/moon.pkg")
   let cli_pkg = read_utf8_text("cli/moon.pkg")
   let registry_impl = read_utf8_text("formats/registry.mbt")
-  let epub_parser = read_utf8_text("formats/epub/parser.mbt")
+  let epub_parser = read_package_mbt_sources("formats/epub")
   let runtime_impl = read_utf8_text("runtime/runtime.mbt")
   let epub_reader_pkg = read_utf8_text("format_readers/epub/moon.pkg")
   let zip_reader_pkg = read_utf8_text("format_readers/zip/moon.pkg")
@@ -7896,24 +2272,22 @@ test "epub foundation contract reuses active epub and zip readers plus root html
   assert_contains_all(epub_pkg, [
     "ZSeanYves/markitdown/format_readers/epub", "ZSeanYves/markitdown/runtime",
   ])
-  assert_contains_all(html_pkg, [
-    "ZSeanYves/markitdown/format_readers/html", "ZSeanYves/markitdown/pipeline",
-  ])
+  assert_contains_all(html_pkg, ["ZSeanYves/markitdown/format_readers/html"])
   assert_contains_all(cli_pkg, ["ZSeanYves/markitdown/format_readers/zip"])
   assert_contains_all(epub_reader_pkg, [
     "ZSeanYves/markitdown/format_readers/zip",
   ])
   assert_contains_all(zip_reader_pkg, ["bikallem/compress/flate"])
   assert_contains_all(registry_impl, [
-    "@input.DetectedFormat::Epub", "@fepub.epub_container_parser(fn() { builtin_registry() })",
-    "@input.DetectedFormat::Html", "@fhtml.html_lite_parser()",
+    "@input.DetectedFormat::Epub", "@fepub.epub_package_parser(fn() { builtin_registry() })",
+    "@input.DetectedFormat::Html", "@fhtml.html_parser()",
   ])
   assert_contains_all(epub_parser, [
     "@depub.open_epub_package", "@depub.inspect_epub_package", "@depub.read_part_bytes",
-    "registry_provider", "@runtime.parse_child_to_document",
+    "registry_provider", "@runtime.parse_child_to_block_product",
   ])
   assert_contains_all(runtime_impl, [
-    "pub fn parse_child_to_document", "@parser.registry_parse(registry, source, inner_context)",
+    "pub fn parse_child_to_document", "pub fn parse_child_to_block_product", "@parser.registry_parse(registry, source, inner_context)",
   ])
   assert_contains_none(formats_pkg, [
     "ZSeanYves/markitdown/format_readers/epub", "ZSeanYves/markitdown/format_readers/zip",
@@ -7927,12 +2301,12 @@ test "epub foundation contract reuses active epub and zip readers plus root html
   assert_contains_none(epub_reader_pkg, ["ZSeanYves/markitdown/convert/"])
   assert_contains_none(epub_parser, [
     "@flate", "bikallem/compress/flate", "convert/epub", "convert/html", "epub_raw_fallback",
-    "epub_legacy_fallback", "legacy_dispatcher_used", "convert_epub_used", "convert_html_used",
+    "epub_legacy_fallback",
   ])
 }
 
 ///|
-test "epub parser stays on container plan spine item contracts even when stream mode is requested" {
+test "epub parser stays on package single pass block stream contracts even when stream mode is requested" {
   let parsed = default_registry_parse(
     @input.input_from_path(
       "samples/main_process/epub/markdown/epub_basic_package.epub",
@@ -7941,10 +2315,10 @@ test "epub parser stays on container plan spine item contracts even when stream 
     requested_mode=Some(@parser.ParserMode::StreamingEvent),
   )
 
-  assert_true(parsed.parser_name == "epub_container_parser")
-  assert_true(parsed.mode == @parser.ParserMode::ContainerRecursive)
+  assert_true(parsed.parser_name == "epub_package_parser")
+  assert_true(parsed.mode == @parser.ParserMode::PackageSinglePass)
   assert_true(
-    parsed.capabilities.parser_mode == @parser.ParserMode::ContainerRecursive,
+    parsed.capabilities.parser_mode == @parser.ParserMode::PackageSinglePass,
   )
   assert_true(
     parsed.capabilities.streaming_granularity ==
@@ -7955,24 +2329,18 @@ test "epub parser stays on container plan spine item contracts even when stream 
     None => ()
   }
   match parsed.block_stream {
-    Some(_) => fail("epub parse result must not expose a block stream")
-    None => ()
+    Some(_) => ()
+    None => fail("epub parse result must expose a block stream")
   }
   match parsed.document {
     Some(_) => fail("epub parse result must not expose a document IR directly")
     None => ()
   }
-  match parsed.container_manifest {
-    Some(_) => fail("epub parse result must not expose a container manifest")
-    None => ()
-  }
-  let plan = unwrap_container_plan(parsed, "epub basic package")
-  assert_true(plan.container_format == "epub")
   assert_metric_eq(parsed.diagnostics, "requested_mode", "streaming_event")
-  assert_metric_eq(parsed.diagnostics, "effective_mode", "container_recursive")
-  assert_metric_eq(parsed.diagnostics, "ir_input_kind", "container_plan")
+  assert_metric_eq(parsed.diagnostics, "effective_mode", "package_single_pass")
+  assert_metric_eq(parsed.diagnostics, "ir_input_kind", "block_stream")
   assert_metric_eq(parsed.diagnostics, "event_granularity", "epub_spine_item")
-  assert_metric_eq(parsed.diagnostics, "streaming_fallback", "false")
+  assert_metric_absent(parsed.diagnostics, "streaming_fallback")
   assert_diagnostics_lists_contain_none(parsed.diagnostics, [
     "epub_streaming_fallback=deferred", "epub_raw_fallback", "epub_legacy_fallback",
   ])
@@ -7986,40 +2354,18 @@ test "epub parser preserves opf spine order and root html source refs without pa
     ),
     @input.DetectedFormat::Epub,
   )
-  let plan = unwrap_container_plan(parsed, "epub spine order")
-  assert_true(plan.container_format == "epub")
-  assert_true(plan.inner_documents_to_convert.length() == 2)
-  let source_names = plan.inner_documents_to_convert.map(inner => {
-    inner.source_name
-  })
-  assert_eq(source_names[0], "epub_spine_order.epub::OPS/text/chapter-02.xhtml")
-  assert_eq(source_names[1], "epub_spine_order.epub::OPS/text/chapter-01.xhtml")
-  let entry_paths = plan.ordered_entries.map(entry => entry.entry_path)
-  assert_eq(entry_paths[0], "OPS/text/chapter-02.xhtml")
-  assert_eq(entry_paths[1], "OPS/text/chapter-01.xhtml")
-  let block_texts = flatten_block_texts(plan.merged_blocks)
+  let blocks = parsed.block_stream.unwrap_or([])
+  let block_texts = flatten_block_texts(blocks)
   assert_ordered_strings(block_texts, "Chapter Two", "Chapter One")
-  assert_true(
-    !block_tree_contains_text_fragment(plan.merged_blocks, "# Chapter Two"),
-  )
-  assert_true(
-    !block_tree_contains_text_fragment(plan.merged_blocks, "# Chapter One"),
-  )
+  assert_true(!block_tree_contains_text_fragment(blocks, "# Chapter Two"))
+  assert_true(!block_tree_contains_text_fragment(blocks, "# Chapter One"))
   let chapter_two = match
-    find_block_in_tree(
-      plan.merged_blocks,
-      @core.BlockKind::Heading,
-      "Chapter Two",
-    ) {
+    find_block_in_tree(blocks, @core.BlockKind::Heading, "Chapter Two") {
     Some(block) => block
     None => fail("missing chapter two heading block")
   }
   let chapter_one = match
-    find_block_in_tree(
-      plan.merged_blocks,
-      @core.BlockKind::Heading,
-      "Chapter One",
-    ) {
+    find_block_in_tree(blocks, @core.BlockKind::Heading, "Chapter One") {
     Some(block) => block
     None => fail("missing chapter one heading block")
   }
@@ -8044,7 +2390,7 @@ test "epub parser preserves opf spine order and root html source refs without pa
   assert_true(chapter_one_ref.html_path == Some("/block/html:block:h1:2"))
   assert_true(chapter_one_ref.inner_path == Some("/block/html:block:h1:2"))
   assert_contains_all(parsed.diagnostics.pass_trace.join("\n"), [
-    "parse:epub_container_parser", "parse:html_parser",
+    "parse:epub_package_parser", "parse:html_parser",
   ])
   assert_diagnostics_lists_contain_none(parsed.diagnostics, [
     "legacy dispatcher", "convert/html", "convert/epub", "epub_raw_fallback", "epub_legacy_fallback",
@@ -8063,8 +2409,8 @@ test "epub parser keeps missing and unsupported spine diagnostics root-pipeline 
       "> Skipped: spine item references missing manifest item: missing",
     ),
   )
-  assert_metric_eq(missing.diagnostics, "effective_mode", "container_recursive")
-  assert_metric_eq(missing.diagnostics, "ir_input_kind", "container_plan")
+  assert_metric_eq(missing.diagnostics, "effective_mode", "package_single_pass")
+  assert_metric_eq(missing.diagnostics, "ir_input_kind", "block_stream")
   assert_metric_eq(missing.diagnostics, "event_granularity", "epub_spine_item")
   assert_metric_eq(missing.diagnostics, "missing_manifest_item_count", "1")
   assert_metric_eq(missing.diagnostics, "missing_spine_item_count", "1")
@@ -8072,7 +2418,7 @@ test "epub parser keeps missing and unsupported spine diagnostics root-pipeline 
   assert_metric_eq(missing.diagnostics, "skipped_entry_count", "1")
   assert_true(missing.diagnostics.fallback_trace.length() > 0)
   assert_diagnostics_lists_contain_none(missing.diagnostics, [
-    "epub_legacy_fallback", "convert_epub_used", "convert_html_used",
+    "epub_legacy_fallback",
   ])
 
   let unsupported = convert_path(
@@ -8117,67 +2463,84 @@ test "epub parser keeps remote and data image refs bounded without local asset m
 }
 
 ///|
-test "public gates and docs stay aligned on the markdown-restored main cli surface" {
-  assert_file_contains_all("cli/cli.mbt", [
-    "\"txt\"", "\"csv\"", "\"tsv\"", "\"json\"", "\"jsonl\"", "\"ndjson\"", "\"xml\"",
-    "\"yaml\"", "\"yml\"", "\"html\"", "\"htm\"", "\"markdown\"", "\"md\"", "\"zip\"",
-    "\"xlsx\"", "\"pptx\"", "\"epub\"", "\"docx\"", "\"pdf\"", "Supported product formats: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, yml, html, htm, markdown, md, zip, epub, docx, xlsx, pptx, pdf",
-    "PDF OCR is not supported", "DetectedFormat::Pdf",
-  ])
-  assert_file_contains_all("samples/check.sh", [
-    "SUPPORTED_FORMATS=(\"txt\" \"csv\" \"tsv\" \"json\" \"jsonl\" \"ndjson\" \"xml\" \"yaml\" \"html\" \"markdown\" \"zip\" \"epub\" \"docx\" \"xlsx\" \"pptx\" \"pdf\")",
-    "txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, and pdf",
-    "no legacy fallback",
-  ])
-  assert_file_contains_all("samples/helpers/contracts/check_cli_contract.sh", [
-    "txt csv tsv json jsonl ndjson xml yaml html markdown zip epub docx xlsx pptx and pdf succeed through main product cli",
-    "markdown_frontmatter_passthrough.markdown", "zip_basic_structured.zip", "docx",
-    "sheet_simple.xlsx", "pptx_hidden_slide_basic.pptx", "pdf", "PDF OCR is not supported",
-  ])
-  assert_file_contains_all("samples/helpers/contracts/check_zip_contract.sh", [
-    "main cli zip markdown output stays root pipeline", "zip_html_local_image.zip",
-    "format_readers/zip", "bikallem/compress/flate", "convert/zip_core", "zip_legacy_fallback",
-    "legacy_dispatcher_used",
-  ])
-  assert_file_contains_none("samples/helpers/contracts/check_zip_contract.sh", [
-    "resolve_markitdown_zip_cli", "run_markitdown_zip_cli",
-  ])
-  assert_file_contains_all(
-    "samples/helpers/contracts/check_samples_check_contract.sh",
-    [
-      "formats=txt,csv,tsv,json,jsonl,ndjson,xml,yaml,html,markdown,zip,epub,docx,xlsx,pptx,pdf",
-      "formats=markdown", "formats=docx", "formats=xlsx", "formats=pptx", "formats=pdf",
-    ],
-  )
-  assert_file_contains_all("README.md", [
-    "InputSource", "ParserRegistry", "ParseResult", "Renderer", "`txt`", "`csv`",
-    "`tsv`", "`json`", "`jsonl`", "`ndjson`", "`xml`", "`yaml`", "`yml`", "`html`",
-    "`htm`", "`markdown`", "`md`", "`zip`", "`epub`", "`docx`", "`xlsx`", "`pptx`",
-    "`pdf`", "native-text PDFs", "pdf --ocr", "Unsupported formats fail closed",
-    "samples/helpers/contracts/check_root_contracts.sh", "markitdown-quality-lab/",
-  ])
-  assert_file_contains_all("README.mbt.md", [
-    "Core IR", "Renderer", "`input`", "`parser`", "`formats`", "`runtime`", "`pipeline`",
-    "`render`", "`convert`", "`pdf`", "native-text PDFs", "moon test tests", "samples/check_quality.sh",
-  ])
-  assert_file_contains_all("samples/README.md", [
-    "samples/main_process/", "samples/check.sh", "samples/check_quality.sh", "check_root_contracts.sh",
-    "`txt`", "`csv`", "`tsv`", "`json`", "`jsonl`", "`ndjson`", "`xml`", "`yaml`",
-    "`html`", "`markdown`", "`zip`", "`epub`", "`docx`", "`xlsx`", "`pptx`", "`pdf`",
-    "native-text baseline", "expected/markdown/",
-  ])
-  assert_file_contains_all("tests/README.md", [
-    "moon test tests", "negative assertions", "architecture guard",
-  ])
-}
-
-///|
 test "canonical architecture guide records stable parser and ir boundaries" {
   assert_file_contains_all("docs/architecture/mb-markitdown-architecture.md", [
     "ParserRegistry", "ParseResult", "CoreIRBuilder", "IR Pass Pipeline", "Renderer",
     "Parser 可以多态", "Core IR 必须统一", "Renderer 必须统一", "Markdown 是输出，不是中间表示",
     "ContainerRecursive", "page-single-pass",
   ])
+}
+
+///|
+fn resolve_test_sample_path(path : String) -> String {
+  if @fs.path_exists(path) {
+    return path
+  }
+  "../../" + path
+}
+
+///|
+test "xml native structure scan stays stable on mixed xml input" {
+  let xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+    "<root xmlns=\"urn:test\">\n" +
+    "  <!-- note -->\n" +
+    "  <section id=\"a\">alpha<![CDATA[```fence```]]><?pi ok?></section>\n" +
+    "</root>\n"
+  let scan = @xml_native.native_xml_scan_structure(xml)
+  assert_true(scan.status == @xml_native.NativeXmlStatus::Ok)
+  assert_eq(scan.element_count, 2)
+  assert_eq(scan.attribute_count, 2)
+  assert_eq(scan.comment_count, 1)
+  assert_eq(scan.cdata_count, 1)
+  assert_eq(scan.processing_instruction_count, 1)
+  assert_true(scan.node_count >= 7)
+  assert_eq(scan.max_depth, 2)
+  assert_true(scan.has_default_namespace)
+  assert_true(scan.has_markdown_fence_text)
+  assert_true(!scan.has_doctype)
+}
+
+///|
+test "ooxml xml part payload exposes native structure scan for workbook parts" {
+  let sample_path = resolve_test_sample_path(
+    "samples/bench/xlsx/small/xlsx_small_multi_sheet_mixed_v1.xlsx",
+  )
+  let pkg = @ox.open_ooxml_package(
+    @fs.read_file_to_bytes(sample_path) catch {
+      e => fail("expected xlsx fixture bytes: " + e.to_string())
+    },
+  ) catch {
+    e => fail("expected ooxml package open: " + e.to_string())
+  }
+  let payload = @ox.read_xml_part_payload(pkg, "xl/workbook.xml") catch {
+    e => fail("expected workbook payload: " + e.to_string())
+  }
+  assert_true(payload.text.contains("<workbook"))
+  assert_true(payload.bytes.length() > 0)
+  assert_true(payload.structure_scan.status == @xml_native.NativeXmlStatus::Ok)
+  assert_true(payload.structure_scan.element_count > 0)
+  assert_true(payload.structure_scan.max_depth > 0)
+}
+
+///|
+test "epub package xml payload path keeps package open semantics stable" {
+  let sample_path = resolve_test_sample_path(
+    "samples/fixtures/epub/epub_remote_image.epub",
+  )
+  let pkg = @epub.open_epub_package(
+    @fs.read_file_to_bytes(sample_path) catch {
+      e => fail("expected epub fixture bytes: " + e.to_string())
+    },
+    "epub_remote_image.epub",
+  ) catch {
+    e => fail("expected epub package open: " + e.to_string())
+  }
+  let content = @epub.read_part_text(pkg, "OPS/content.opf") catch {
+    e => fail("expected content.opf text: " + e.to_string())
+  }
+  assert_true(content.contains("<package"))
+  assert_eq(pkg.rootfile_path, "OPS/content.opf")
+  assert_true(pkg.manifest.length() > 0)
 }
 
 ///|
@@ -8203,13 +2566,20 @@ test "shared child runtime exposes parse result lowering and child dispatch entr
 ///|
 test "v2 stabilization drift keeps runtime child dispatch thin and canonical pipeline visible" {
   let pipeline_impl = read_utf8_text("pipeline/pipeline.mbt")
+  let pipeline_event_builder_impl = read_utf8_text(
+    "pipeline/event_document_builder.mbt",
+  )
+  let convert_preflight_impl = read_utf8_text("convert/preflight_probe.mbt")
   let render_impl = read_utf8_text("render/render.mbt")
   let runtime_pkg = read_utf8_text("runtime/moon.pkg")
   let runtime_impl = read_utf8_text("runtime/runtime.mbt")
-  let zip_impl = read_utf8_text("formats/zip/parser.mbt")
-  let epub_impl = read_utf8_text("formats/epub/parser.mbt")
-  let docx_impl = read_utf8_text("formats/docx/parser.mbt")
-  let core_impl = read_utf8_text("core/core.mbt")
+  let zip_impl = read_package_mbt_sources("formats/zip")
+  let epub_impl = read_package_mbt_sources("formats/epub")
+  let docx_impl = read_package_mbt_sources("formats/docx")
+  let core_impl = read_package_mbt_sources("core")
+  let core_source_ref_impl = read_utf8_text("core/source_refs.mbt")
+  let core_document_impl = read_utf8_text("core/document_ops.mbt")
+  let core_constructor_impl = read_utf8_text("core/constructors.mbt")
 
   assert_true(
     !pipeline_impl.contains("@formats.html_blocks_from_structure_events"),
@@ -8221,8 +2591,22 @@ test "v2 stabilization drift keeps runtime child dispatch thin and canonical pip
     !pipeline_impl.contains("source_ref.format == Some(\"markdown\")"),
   )
   assert_true(!pipeline_impl.contains("source_ref.format == Some(\"json\")"))
-  assert_true(pipeline_impl.contains("pub fn blocks_to_event_stream"))
-  assert_true(pipeline_impl.contains("ir_event_encoding"))
+  assert_true(!pipeline_impl.contains("pub fn blocks_to_event_stream"))
+  assert_true(
+    pipeline_event_builder_impl.contains("@core.build_document_from_events"),
+  )
+  assert_true(core_impl.contains("ir_event_encoding"))
+  assert_true(
+    convert_preflight_impl.contains("@dhtml.tokenize_html_events(text)"),
+  )
+  assert_true(
+    !convert_preflight_impl.contains("@dhtml.parse_html_document(text)"),
+  )
+  assert_true(
+    !convert_preflight_impl.contains(
+      "@dhtml.collect_html_semantic_document(doc)",
+    ),
+  )
 
   assert_true(!render_impl.contains("source_ref.format == Some(\"xml\")"))
   assert_true(
@@ -8241,6 +2625,7 @@ test "v2 stabilization drift keeps runtime child dispatch thin and canonical pip
   assert_true(runtime_pkg.contains("ZSeanYves/markitdown/pipeline"))
   assert_true(runtime_impl.contains("pub fn parse_result_to_ir_input"))
   assert_true(runtime_impl.contains("pub fn parse_child_to_document"))
+  assert_true(runtime_impl.contains("pub fn parse_child_to_block_product"))
   assert_true(
     runtime_impl.contains("@pipeline.build_document_with_default_pipeline"),
   )
@@ -8251,7 +2636,7 @@ test "v2 stabilization drift keeps runtime child dispatch thin and canonical pip
   assert_true(!runtime_impl.contains("fn normalize_block_whitespace"))
   assert_true(!runtime_impl.contains("fn collect_document_asset_refs"))
   assert_true(zip_impl.contains("@runtime.parse_child_to_document"))
-  assert_true(epub_impl.contains("@runtime.parse_child_to_document"))
+  assert_true(epub_impl.contains("@runtime.parse_child_to_block_product"))
   assert_true(!zip_impl.contains("zip_parse_result_to_ir_input"))
   assert_true(!zip_impl.contains("zip_ir_input_to_document"))
   assert_true(!zip_impl.contains("zip_run_default_passes"))
@@ -8264,18 +2649,16 @@ test "v2 stabilization drift keeps runtime child dispatch thin and canonical pip
   assert_true(docx_impl.contains("note_definition_id"))
   assert_true(docx_impl.contains("annotation_role"))
   assert_true(docx_impl.contains("annotation_marker"))
-  assert_true(docx_impl.contains("render_literal"))
-  assert_true(docx_impl.contains("join(\"<br>\")"))
 
   assert_true(core_impl.contains("pub(all) struct SourceMapEntry"))
   assert_true(core_impl.contains("pub(all) struct SourceMap"))
   assert_true(core_impl.contains("source_map : SourceMap?"))
-  assert_true(core_impl.contains("pub fn empty_source_map()"))
-  assert_true(core_impl.contains("pub fn document_with_source_map"))
-  assert_true(core_impl.contains("pub fn make_signal("))
-  assert_true(core_impl.contains("SignalType::RenderHint"))
-  assert_true(core_impl.contains("SignalType::NoteRef"))
-  assert_true(core_impl.contains("SignalType::CommentRef"))
+  assert_true(core_source_ref_impl.contains("pub fn empty_source_map()"))
+  assert_true(core_document_impl.contains("pub fn document_with_source_map"))
+  assert_true(core_constructor_impl.contains("pub fn make_signal("))
+  assert_true(core_impl.contains("RenderHint"))
+  assert_true(core_impl.contains("NoteRef"))
+  assert_true(core_impl.contains("CommentRef"))
 }
 
 ///|

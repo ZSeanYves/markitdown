@@ -2,11 +2,14 @@
 package "ZSeanYves/markitdown/formats/markdown"
 
 import {
+  "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
 }
 
 // Values
-pub fn markdown_lite_parser() -> @parser.Parser
+pub fn markdown_parse_with_scanned_document(@input.InputSource, @parser.ParseContext, @ZSeanYves/markitdown/format_readers/markdown.MarkdownDocument, @ZSeanYves/markitdown/format_readers/markdown.MarkdownInspectReport) -> @parser.ParseResult
+
+pub fn markdown_parser() -> @parser.Parser
 
 // Errors
 

@@ -10,11 +10,15 @@ pub fn empty_selector_stats() -> SelectorStats
 
 pub fn ensure_bench_row_payload(BenchRow) -> Bool
 
-pub fn make_select_request(String, String?, Int?, SelectOutput, Bool) -> SelectRequest
+pub fn make_select_request(String, Array[String], Array[String], Array[String], Int?, SelectOutput, Bool) -> SelectRequest
+
+pub fn make_selector_stats(String?, Array[String], String, Array[String], Int, Array[String], Map[String, Int]) -> SelectorStats
 
 pub fn parse_manifest_line(String, Int) -> BenchRow
 
 pub fn parse_select_request(Array[String]) -> SelectRequest raise
+
+pub fn parse_tier_list(String, String) -> Array[String] raise
 
 pub fn repo_rel_input_path(String) -> String
 
@@ -27,6 +31,8 @@ pub fn selector_stats_json(SelectRequest) -> Json
 pub fn should_skip_row(BenchRow, SelectRequest) -> String?
 
 pub fn validate_tier(String) -> Unit raise
+
+pub fn validate_tiers(Array[String]) -> Unit raise
 
 // Errors
 pub(all) suberror BenchCliError {
@@ -59,7 +65,9 @@ pub(all) enum SelectOutput {
 
 pub struct SelectRequest {
   tier : String
-  format_filter : String?
+  exact_tiers : Array[String]
+  bench_ids : Array[String]
+  format_filters : Array[String]
   limit : Int?
   output : SelectOutput
   stats_only : Bool
@@ -67,6 +75,9 @@ pub struct SelectRequest {
 
 pub struct SelectorStats {
   requested_tier : String?
+  requested_tiers : Array[String]
+  tier_filter_mode : String
+  requested_bench_ids : Array[String]
   selected_rows : Int
   formats : Array[String]
   skipped_by_reason : Map[String, Int]

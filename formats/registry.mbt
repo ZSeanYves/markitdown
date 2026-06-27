@@ -8,47 +8,47 @@ pub fn register_builtin_parsers(registry : @parser.ParserRegistry) -> Unit {
   @parser.registry_register(
     registry,
     @input.DetectedFormat::Markdown,
-    @fmarkdown.markdown_lite_parser(),
+    @fmarkdown.markdown_parser(),
   )
   @parser.registry_register(
     registry,
     @input.DetectedFormat::Csv,
-    @fcsv.csv_lite_parser(),
+    @fcsv.csv_parser(),
   )
   @parser.registry_register(
     registry,
     @input.DetectedFormat::Tsv,
-    @ftsv.tsv_lite_parser(),
+    @ftsv.tsv_parser(),
   )
   @parser.registry_register(
     registry,
     @input.DetectedFormat::Json,
-    @fjson.json_lite_parser(),
+    @fjson.json_parser(),
   )
   @parser.registry_register(
     registry,
     @input.DetectedFormat::Jsonl,
-    @fjson.jsonl_lite_parser(),
+    @fjson.jsonl_parser(),
   )
   @parser.registry_register(
     registry,
     @input.DetectedFormat::Ndjson,
-    @fjson.ndjson_lite_parser(),
+    @fjson.ndjson_parser(),
   )
   @parser.registry_register(
     registry,
     @input.DetectedFormat::Xml,
-    @fxml.xml_lite_parser(),
+    @fxml.xml_parser(),
   )
   @parser.registry_register(
     registry,
     @input.DetectedFormat::Yaml,
-    @fyaml.yaml_lite_parser(),
+    @fyaml.yaml_parser(),
   )
   @parser.registry_register(
     registry,
     @input.DetectedFormat::Html,
-    @fhtml.html_lite_parser(),
+    @fhtml.html_parser(),
   )
   @parser.registry_register(
     registry,
@@ -58,7 +58,7 @@ pub fn register_builtin_parsers(registry : @parser.ParserRegistry) -> Unit {
   @parser.registry_register(
     registry,
     @input.DetectedFormat::Epub,
-    @fepub.epub_container_parser(fn() { builtin_registry() }),
+    @fepub.epub_package_parser(fn() { builtin_registry() }),
   )
   @parser.registry_register(
     registry,
