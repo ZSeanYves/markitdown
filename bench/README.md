@@ -26,8 +26,16 @@ moon build --target native --release --package ZSeanYves/markitdown/bench/runner
 先做契约检查：
 
 ```bash
+git clone git@github.com:ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab
 _build/native/release/build/bench/runner/runner.exe doctor
 ```
+
+请把 `markitdown-quality-lab` 下载到主仓目录下。
+
+语料发现规则：
+
+- 优先使用 `MARKITDOWN_BENCH_ROOT`
+- 否则使用 repo-root `markitdown-quality-lab/external_bench/`
 
 ## 常用命令
 

@@ -13,7 +13,7 @@ import {
   "ZSeanYves/markitdown/formats/xlsx" @fxlsx,
   "ZSeanYves/markitdown/format_readers/epub",
   "ZSeanYves/markitdown/format_readers/ooxml/package" @ox,
-  "ZSeanYves/markitdown/format_readers/xml_native",
+  "ZSeanYves/markitdown/format_readers/xml",
   "ZSeanYves/markitdown/format_readers/ooxml/shared",
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",

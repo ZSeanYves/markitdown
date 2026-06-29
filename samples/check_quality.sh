@@ -36,6 +36,7 @@ Examples:
 
 If the external quality corpus is not present, clone it with:
   git clone git@github.com:ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab
+Place `markitdown-quality-lab` under the main repo root.
 EOF
 }
 
@@ -68,6 +69,7 @@ print_missing_corpus() {
   echo "* missing: $(display_path "$missing_path")" >&2
   echo "* clone/place markitdown-quality-lab in the repo root" >&2
   echo "* clone: git clone git@github.com:ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab" >&2
+  echo "* place it under the main repo root: ./markitdown-quality-lab" >&2
   echo "* local-only validation: bash samples/check.sh" >&2
 }
 

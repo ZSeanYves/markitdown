@@ -247,7 +247,7 @@ test "ooxml part cache reuses decoded text and feeds byte cache" {
 }
 
 ///|
-test "ooxml xml part payload reuses decoded text and exposes native scan" {
+test "ooxml xml part payload reuses decoded text and exposes structure scan" {
   let pkg = cache_test_open_package()
   let first = read_xml_part_payload(pkg, "word/document.xml") catch {
     e => fail("first read_xml_part_payload failed: " + e.to_string())
@@ -258,7 +258,9 @@ test "ooxml xml part payload reuses decoded text and exposes native scan" {
 
   assert_eq(first.text, second.text)
   assert_true(first.bytes.length() > 0)
-  assert_true(first.structure_scan.status == @xml_native.NativeXmlStatus::Ok)
+  assert_true(
+    first.structure_scan.status == @xml.XmlStructureScanStatus::Success,
+  )
   assert_true(first.structure_scan.element_count > 0)
   let stats = inspect_ooxml_part_cache_stats(pkg)
   assert_eq(stats.bytes_miss_count, 1)

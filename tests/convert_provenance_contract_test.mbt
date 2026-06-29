@@ -1,16 +1,31 @@
 ///|
-test "convert provenance reports markdown huge block route" {
-  let source = @input.input_from_path(
-    "samples/bench/markdown/huge/markdown_huge_synthetic_book_v1.md",
+fn convert_with_provenance(
+  source : @input.InputSource,
+  format : @input.DetectedFormat,
+  limits : @convert.ResourceLimits,
+) -> @convert.ConvertExecution raise {
+  let options = @convert.make_convert_options(
+    @convert.ConvertMode::Balanced,
+    @convert.OutputFormat::Markdown,
+    Some(format),
+    @parser.default_ocr_options(),
+    limits,
   )
-  let execution = match
-    @convert.convert_input_with_provenance(
-      source,
-      @convert.default_convert_options(),
-    ) {
+  match @convert.convert_input_with_provenance(source, options) {
     Ok(value) => value
-    Err(err) => fail("expected markdown huge provenance: " + err.to_string())
+    Err(err) => fail("expected convert provenance: " + err.to_string())
   }
+}
+
+///|
+test "convert provenance reports markdown huge block route" {
+  let execution = convert_with_provenance(
+    @input.input_from_path(
+      "samples/main_process/markdown/markdown/markdown_basic_heading_paragraph.md",
+    ),
+    @input.DetectedFormat::Markdown,
+    @convert.make_resource_limits(1, 1, 10000),
+  )
   assert_eq(execution.provenance.route_plan.selected_route, "block_streaming")
   assert_eq(
     @parser.mode_name(execution.provenance.effective_parser_mode),
@@ -24,17 +39,13 @@ test "convert provenance reports markdown huge block route" {
 
 ///|
 test "convert provenance reports json large streaming route" {
-  let source = @input.input_from_path(
-    "samples/bench/json/large/json_large_worldbank_population_v1.json",
+  let execution = convert_with_provenance(
+    @input.input_from_path(
+      "samples/main_process/json/markdown/large_array_streaming.json",
+    ),
+    @input.DetectedFormat::Json,
+    @convert.make_resource_limits(1, 50, 10000),
   )
-  let execution = match
-    @convert.convert_input_with_provenance(
-      source,
-      @convert.default_convert_options(),
-    ) {
-    Ok(value) => value
-    Err(err) => fail("expected json large provenance: " + err.to_string())
-  }
   assert_eq(execution.provenance.route_plan.selected_route, "streaming_event")
   assert_eq(
     @parser.mode_name(execution.provenance.effective_parser_mode),
@@ -45,17 +56,13 @@ test "convert provenance reports json large streaming route" {
 
 ///|
 test "convert provenance reports zip container route" {
-  let source = @input.input_from_path(
-    "samples/bench/zip/small/zip_small_html_local_image_v1.zip",
+  let execution = convert_with_provenance(
+    @input.input_from_path(
+      "samples/main_process/zip/markdown/zip_assets_namespace.zip",
+    ),
+    @input.DetectedFormat::Zip,
+    @convert.default_resource_limits(),
   )
-  let execution = match
-    @convert.convert_input_with_provenance(
-      source,
-      @convert.default_convert_options(),
-    ) {
-    Ok(value) => value
-    Err(err) => fail("expected zip provenance: " + err.to_string())
-  }
   assert_eq(
     execution.provenance.route_plan.selected_route,
     "container_recursive",
@@ -72,17 +79,13 @@ test "convert provenance reports zip container route" {
 
 ///|
 test "convert provenance reports xlsx huge block streaming route fidelity" {
-  let source = @input.input_from_path(
-    "samples/bench/xlsx/huge/xlsx_huge_myeb_2011_2024_v1.xlsx",
+  let execution = convert_with_provenance(
+    @input.input_from_path(
+      "samples/main_process/xlsx/markdown/sheet_simple.xlsx",
+    ),
+    @input.DetectedFormat::Xlsx,
+    @convert.make_resource_limits(1, 1, 1),
   )
-  let execution = match
-    @convert.convert_input_with_provenance(
-      source,
-      @convert.default_convert_options(),
-    ) {
-    Ok(value) => value
-    Err(err) => fail("expected xlsx huge provenance: " + err.to_string())
-  }
   assert_eq(execution.provenance.route_plan.selected_route, "block_streaming")
   assert_eq(
     @parser.mode_name(execution.provenance.effective_parser_mode),
@@ -96,17 +99,11 @@ test "convert provenance reports xlsx huge block streaming route fidelity" {
 
 ///|
 test "convert provenance reports xml synthetic medium streaming route fidelity" {
-  let source = @input.input_from_path(
-    "samples/bench/xml/medium/xml_medium_synthetic_entries_v1.xml",
+  let execution = convert_with_provenance(
+    @input.input_from_path("samples/main_process/xml/markdown/xml_nested.xml"),
+    @input.DetectedFormat::Xml,
+    @convert.make_resource_limits(1, 50, 10000, max_line_chars=8),
   )
-  let execution = match
-    @convert.convert_input_with_provenance(
-      source,
-      @convert.default_convert_options(),
-    ) {
-    Ok(value) => value
-    Err(err) => fail("expected xml medium provenance: " + err.to_string())
-  }
   assert_eq(execution.provenance.route_plan.selected_route, "streaming_event")
   assert_eq(
     @parser.mode_name(execution.provenance.effective_parser_mode),
@@ -120,17 +117,13 @@ test "convert provenance reports xml synthetic medium streaming route fidelity" 
 
 ///|
 test "convert provenance reports html large block streaming route fidelity" {
-  let source = @input.input_from_path(
-    "samples/bench/html/large/html_large_wai_aria_v1.html",
+  let execution = convert_with_provenance(
+    @input.input_from_path(
+      "samples/main_process/html/markdown/html_semantic_sectioning.html",
+    ),
+    @input.DetectedFormat::Html,
+    @convert.make_resource_limits(1, 50, 100000),
   )
-  let execution = match
-    @convert.convert_input_with_provenance(
-      source,
-      @convert.default_convert_options(),
-    ) {
-    Ok(value) => value
-    Err(err) => fail("expected html large provenance: " + err.to_string())
-  }
   assert_eq(execution.provenance.route_plan.selected_route, "block_streaming")
   assert_eq(
     @parser.mode_name(execution.provenance.effective_parser_mode),

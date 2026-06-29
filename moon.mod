@@ -1,6 +1,6 @@
 name = "ZSeanYves/markitdown"
 
-version = "0.4.0"
+version = "0.4.1"
 
 import {
   "bikallem/blit@0.2.2",
@@ -37,3 +37,7 @@ keywords = [
 description = "A MoonBit-native document-to-Markdown converter with multi-format parsing, metadata, assets, batch conversion, and validation tooling"
 
 preferred_target = "native"
+
+options(
+  exclude: [ "markitdown-quality-lab/**" ],
+)

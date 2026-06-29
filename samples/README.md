@@ -7,7 +7,8 @@
 - 主回归：验证产品默认转换链路是否稳定。
 - 质量回归：验证外部质量语料上的输出质量是否满足预期。
 
-`samples/bench/` 只用于 benchmark 语料，不负责功能回归；性能使用方式见 [bench/README.md](/Users/winter/Documents/Moonbit/markitdown/bench/README.md)。
+仓库内只保留轻量功能样例，用于主回归和单元级功能覆盖。
+如果要验证真实转换质量或 benchmark 性能，请先把 `markitdown-quality-lab/` 下载到主仓目录下。性能使用方式见 [bench/README.md](/Users/winter/Documents/Moonbit/markitdown/bench/README.md)。
 
 ## 主回归
 
@@ -76,6 +77,8 @@
 git clone git@github.com:ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab
 ```
 
+请把 `markitdown-quality-lab` 下载到主仓目录下。
+
 常用命令：
 
 ```bash
@@ -96,6 +99,7 @@ git clone git@github.com:ZSeanYves/markitdown-quality-lab.git markitdown-quality
 - 这套回归面向外部质量语料，不替代主回归。
 - 脚本会自动探测当前 CLI 是否支持 `--with-metadata`，不支持时按 fail-closed 规则回退到 metadata-off。
 - `workspace/` 同样只作为临时目录。
+- benchmark 语料与质量语料是两回事；正式 `bench v2` 使用主仓目录下的 `markitdown-quality-lab/external_bench/`。
 
 ## 覆盖范围
 

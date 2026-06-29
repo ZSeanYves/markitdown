@@ -12,6 +12,10 @@ pub fn parse_xml_document(String) -> XmlDocument raise
 
 pub fn parse_xml_structure_tokens(String) -> Array[XmlToken] raise
 
+pub fn scan_xml_structure(String) -> XmlStructureScan
+
+pub fn scan_xml_structure_bytes(Bytes) -> XmlStructureScan
+
 pub fn tokenize_xml_document(String) -> Array[XmlToken] raise
 
 pub fn validate_xml_document(XmlDocument) -> XmlValidationReport
@@ -112,6 +116,29 @@ pub struct XmlSourceSpan {
   line_start : Int
   line_end : Int
 }
+
+pub struct XmlStructureScan {
+  status : XmlStructureScanStatus
+  node_count : Int
+  element_count : Int
+  attribute_count : Int
+  text_node_count : Int
+  comment_count : Int
+  cdata_count : Int
+  processing_instruction_count : Int
+  max_depth : Int
+  has_doctype : Bool
+  has_unsupported_doctype : Bool
+  has_complex_mixed_content : Bool
+  has_markdown_fence_text : Bool
+  has_default_namespace : Bool
+  error_code : Int
+}
+
+pub(all) enum XmlStructureScanStatus {
+  Success
+  ParseFailed
+} derive(Eq)
 
 pub struct XmlText {
   text : String

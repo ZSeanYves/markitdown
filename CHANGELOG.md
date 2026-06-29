@@ -8,9 +8,12 @@
 * optional external quality runs through `bash ./samples/check_quality.sh`
 * repo-root `markitdown-quality-lab/` remains the optional home for:
   * external corpus payloads
+  * benchmark payloads and `bench v2` sample manifests
   * tracked local/full quality rows
   * PDF layout classifier training/eval/model/report assets
   * generator scripts that do not belong in runtime
+* `samples/bench/` no longer serves as an in-repo benchmark fallback; formal
+  benchmark inputs now live in the external lab repo
 
 ### Validation baseline
 
@@ -33,6 +36,12 @@
   note bodies across Markdown, DOCX, EPUB, and resolved PDF note cases
 * `samples/check.sh` remains the main repo-local validation entrypoint, and
   `samples/check_quality.sh` remains the optional external-quality entrypoint
+* benchmark sample payloads moved out of the main repo into
+  `markitdown-quality-lab`, keeping runtime validation lightweight while leaving
+  formal bench runs on the external corpus path
+* XML structure scan and OOXML/XLSX preflight probing now use the shared
+  pure-MoonBit XML path instead of the retired `format_readers/xml_native` FFI
+  layer, fixing cross-system environment compatibility issues in native CI
 * active package docs and test guards now describe the stable
   `format_readers -> formats -> runtime/pipeline/render` architecture without
   transitional cleanup bookkeeping

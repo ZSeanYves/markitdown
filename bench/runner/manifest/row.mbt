@@ -45,6 +45,41 @@ pub struct SelectRequest {
 } derive(Eq)
 
 ///|
+pub fn make_bench_row(
+  bench_id : String,
+  format : String,
+  size_class : String,
+  rel_path : String,
+  source_kind : String,
+  source_ref : String,
+  input_bytes : Int,
+  sha256 : String,
+  enabled_tier : String,
+  bench_layers : Array[String],
+  tags : Array[String],
+  review_status : String,
+  notes : String,
+  input_path : String,
+) -> BenchRow {
+  {
+    bench_id,
+    format,
+    size_class,
+    rel_path,
+    source_kind,
+    source_ref,
+    input_bytes,
+    sha256,
+    enabled_tier,
+    bench_layers,
+    tags,
+    review_status,
+    notes,
+    input_path,
+  }
+}
+
+///|
 pub fn make_selector_stats(
   requested_tier : String?,
   requested_tiers : Array[String],

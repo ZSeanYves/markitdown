@@ -201,7 +201,7 @@ fn read_archive_xml_payload_or_raise(
     part_name: path,
     bytes,
     text: bytes_to_xml_text(bytes),
-    structure_scan: @xml_native.native_xml_scan_structure_bytes(bytes),
+    structure_scan: @xml.scan_xml_structure_bytes(bytes),
   }
 }
 
@@ -266,7 +266,7 @@ pub fn read_xml_part_payload(
     part_name: normalized,
     bytes,
     text,
-    structure_scan: @xml_native.native_xml_scan_structure_bytes(bytes),
+    structure_scan: @xml.scan_xml_structure_bytes(bytes),
   }
 }
 
@@ -280,7 +280,7 @@ pub fn read_xml_part_payload_transient(
   {
     part_name: normalized,
     text: bytes_to_xml_text(bytes),
-    structure_scan: @xml_native.native_xml_scan_structure_bytes(bytes),
+    structure_scan: @xml.scan_xml_structure_bytes(bytes),
     bytes,
   }
 }

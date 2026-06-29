@@ -17,7 +17,7 @@ fn read_required_xml_part_payload(
   {
     path,
     text: bytes_to_xml_text(data, path),
-    structure_scan: @xml_native.native_xml_scan_structure_bytes(data),
+    structure_scan: @xml.scan_xml_structure_bytes(data),
     bytes: data,
   }
 }

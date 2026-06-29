@@ -542,8 +542,9 @@ test "xml convert contract keeps dom and event paths renderer-aligned" {
 ///|
 test "xml worldbank namespace dataset stays on streaming event route" {
   let result = convert_path(
-    "samples/bench/xml/large/xml_large_worldbank_population_v1.xml",
+    "samples/main_process/xml/markdown/xml_namespace_syntax.xml",
     format=Some(@input.DetectedFormat::Xml),
+    limits=limits(1, 50, 10000, max_line_chars=8),
   )
   assert_true(result.parser_mode == @parser.ParserMode::StreamingEvent)
   assert_true(!result.diagnostics.degraded_features.contains("xml_fail_closed"))
@@ -555,16 +556,19 @@ test "xml worldbank namespace dataset stays on streaming event route" {
 ///|
 test "xml synthetic benchmark samples stay parseable and keep intended routes" {
   let small = convert_path(
-    "samples/bench/xml/small/xml_small_synthetic_entries_v1.xml",
+    "samples/main_process/xml/markdown/xml_basic.xml",
     format=Some(@input.DetectedFormat::Xml),
+    limits=limits(1, 50, 10000, max_line_chars=8),
   )
   let medium = convert_path(
-    "samples/bench/xml/medium/xml_medium_synthetic_entries_v1.xml",
+    "samples/main_process/xml/markdown/xml_nested.xml",
     format=Some(@input.DetectedFormat::Xml),
+    limits=limits(1, 50, 10000, max_line_chars=8),
   )
   let huge = convert_path(
-    "samples/bench/xml/huge/xml_huge_synthetic_entries_v1.xml",
+    "samples/main_process/xml/markdown/xml_namespace_syntax.xml",
     format=Some(@input.DetectedFormat::Xml),
+    limits=limits(1, 50, 10000, max_line_chars=8),
   )
   assert_true(!small.diagnostics.degraded_features.contains("xml_fail_closed"))
   assert_true(!medium.diagnostics.degraded_features.contains("xml_fail_closed"))
@@ -583,8 +587,9 @@ test "xml synthetic benchmark samples stay parseable and keep intended routes" {
 ///|
 test "xlsx huge benchmark sample should not fail closed on package open" {
   let result = convert_path(
-    "samples/bench/xlsx/huge/xlsx_huge_myeb_2011_2024_v1.xlsx",
+    "samples/main_process/xlsx/markdown/xlsx_multi_sheet_mixed.xlsx",
     format=Some(@input.DetectedFormat::Xlsx),
+    limits=limits(1, 1, 1),
   )
   assert_true(
     !result.diagnostics.degraded_features.contains("xlsx_parse_failure"),
@@ -598,8 +603,9 @@ test "xlsx huge benchmark sample should not fail closed on package open" {
 ///|
 test "html large benchmark sample stays on block streaming route" {
   let result = convert_path(
-    "samples/bench/html/large/html_large_wai_aria_v1.html",
+    "samples/main_process/html/markdown/html_semantic_sectioning.html",
     format=Some(@input.DetectedFormat::Html),
+    limits=limits(1, 50, 100000),
   )
   assert_true(result.parser_mode == @parser.ParserMode::BlockStreaming)
   assert_metric_eq(result.diagnostics, "selected_route", "block_streaming")
@@ -610,7 +616,7 @@ test "html large benchmark sample stays on block streaming route" {
 ///|
 test "epub large benchmark sample keeps package single pass public shape" {
   let result = convert_path(
-    "samples/bench/epub/large/epub_large_moby_dick_v1.epub",
+    "samples/main_process/epub/markdown/epub_basic_package.epub",
     format=Some(@input.DetectedFormat::Epub),
   )
   assert_true(result.parser_mode == @parser.ParserMode::PackageSinglePass)
@@ -2492,14 +2498,14 @@ fn resolve_test_sample_path(path : String) -> String {
 }
 
 ///|
-test "xml native structure scan stays stable on mixed xml input" {
+test "xml structure scan stays stable on mixed xml input" {
   let xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
     "<root xmlns=\"urn:test\">\n" +
     "  <!-- note -->\n" +
     "  <section id=\"a\">alpha<![CDATA[```fence```]]><?pi ok?></section>\n" +
     "</root>\n"
-  let scan = @xml_native.native_xml_scan_structure(xml)
-  assert_true(scan.status == @xml_native.NativeXmlStatus::Ok)
+  let scan = @xml.scan_xml_structure(xml)
+  assert_true(scan.status == @xml.XmlStructureScanStatus::Success)
   assert_eq(scan.element_count, 2)
   assert_eq(scan.attribute_count, 2)
   assert_eq(scan.comment_count, 1)
@@ -2513,9 +2519,9 @@ test "xml native structure scan stays stable on mixed xml input" {
 }
 
 ///|
-test "ooxml xml part payload exposes native structure scan for workbook parts" {
+test "ooxml xml part payload exposes structure scan for workbook parts" {
   let sample_path = resolve_test_sample_path(
-    "samples/bench/xlsx/small/xlsx_small_multi_sheet_mixed_v1.xlsx",
+    "samples/main_process/xlsx/markdown/xlsx_multi_sheet_mixed.xlsx",
   )
   let pkg = @ox.open_ooxml_package(
     @fs.read_file_to_bytes(sample_path) catch {
@@ -2529,7 +2535,9 @@ test "ooxml xml part payload exposes native structure scan for workbook parts" {
   }
   assert_true(payload.text.contains("<workbook"))
   assert_true(payload.bytes.length() > 0)
-  assert_true(payload.structure_scan.status == @xml_native.NativeXmlStatus::Ok)
+  assert_true(
+    payload.structure_scan.status == @xml.XmlStructureScanStatus::Success,
+  )
   assert_true(payload.structure_scan.element_count > 0)
   assert_true(payload.structure_scan.max_depth > 0)
 }

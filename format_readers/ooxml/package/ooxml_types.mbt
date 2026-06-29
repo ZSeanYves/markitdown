@@ -208,7 +208,7 @@ pub struct OoxmlXmlPartPayload {
   part_name : String
   bytes : Bytes
   text : String
-  structure_scan : @xml_native.NativeXmlStructureScan
+  structure_scan : @xml.XmlStructureScan
 }
 
 ///|

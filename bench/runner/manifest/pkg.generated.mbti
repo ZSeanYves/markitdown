@@ -10,6 +10,8 @@ pub fn empty_selector_stats() -> SelectorStats
 
 pub fn ensure_bench_row_payload(BenchRow) -> Bool
 
+pub fn make_bench_row(String, String, String, String, String, String, Int, String, String, Array[String], Array[String], String, String, String) -> BenchRow
+
 pub fn make_select_request(String, Array[String], Array[String], Array[String], Int?, SelectOutput, Bool) -> SelectRequest
 
 pub fn make_selector_stats(String?, Array[String], String, Array[String], Int, Array[String], Map[String, Int]) -> SelectorStats

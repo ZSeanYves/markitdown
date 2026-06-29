@@ -300,12 +300,10 @@ fn xml_preflight_probe(
         artifact=None,
       )
   }
-  let native_scan = @dxml_native.native_xml_scan_structure_bytes(bytes)
-  let native_summary = if native_scan.status == @dxml_native.NativeXmlStatus::Ok {
-    Some({
-      node_count: native_scan.node_count,
-      max_depth: native_scan.max_depth,
-    })
+  let xml_scan = @dxml.scan_xml_structure_bytes(bytes)
+  let native_summary = if xml_scan.status ==
+    @dxml.XmlStructureScanStatus::Success {
+    Some({ node_count: xml_scan.node_count, max_depth: xml_scan.max_depth })
   } else {
     None
   }
@@ -368,7 +366,7 @@ fn xml_preflight_probe(
         text.length().to_string() +
         "/limit=" +
         options.limits.max_line_chars.to_string(),
-        "probe=xml_native_structure",
+        "probe=xml_structure_scan",
         "route=" + canonical_route_name(route),
       ]
     None =>

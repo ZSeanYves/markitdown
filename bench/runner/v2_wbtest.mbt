@@ -181,7 +181,7 @@ fn sample_v2_row(
     format,
     size_class: "large",
     enabled_tier: "regular",
-    rel_path: "samples/bench/" + format + "/" + bench_id,
+    rel_path: format + "/large/" + bench_id,
     input_bytes: 1024,
     input_sha256: "sha",
     status: "ok",

@@ -13,7 +13,6 @@ import {
   "ZSeanYves/markitdown/format_readers/ooxml/package" @ox,
   "ZSeanYves/markitdown/formats/xlsx" @dxlsx,
   "ZSeanYves/markitdown/format_readers/xml" @dxml,
-  "ZSeanYves/markitdown/format_readers/xml_native" @dxml_native,
   "ZSeanYves/markitdown/format_readers/yaml" @dyaml,
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/input",

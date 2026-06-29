@@ -3,8 +3,6 @@ import {
   "moonbitlang/core/string",
   "ZSeanYves/markitdown/format_readers/ooxml/package" @ox,
   "ZSeanYves/markitdown/format_readers/ooxml/shared",
-  "ZSeanYves/markitdown/format_readers/zip" @dzip,
-  "ZSeanYves/markitdown/format_readers/xml_native",
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/formats/parser_common",
   "ZSeanYves/markitdown/input",

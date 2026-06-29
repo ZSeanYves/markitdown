@@ -89,4 +89,7 @@ bash samples/helpers/contracts/check_root_contracts.sh
 - `Core IR` is the stable interchange point between parsing and rendering.
 - `samples/check.sh` is the main repo-local regression entrypoint.
 - `samples/check_quality.sh` is the external quality bridge and expects the
-  optional repo-root `markitdown-quality-lab/`.
+  local repo-root `markitdown-quality-lab/`.
+- repo-local samples are only for lightweight functional coverage.
+- quality validation and `bench v2` both require the local
+  `markitdown-quality-lab/` corpus repo.

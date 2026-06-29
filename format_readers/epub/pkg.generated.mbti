@@ -2,7 +2,7 @@
 package "ZSeanYves/markitdown/format_readers/epub"
 
 import {
-  "ZSeanYves/markitdown/format_readers/xml_native",
+  "ZSeanYves/markitdown/format_readers/xml",
   "ZSeanYves/markitdown/format_readers/zip",
 }
 
@@ -272,7 +272,7 @@ pub struct EpubXmlPartPayload {
   path : String
   bytes : Bytes
   text : String
-  structure_scan : @xml_native.NativeXmlStructureScan
+  structure_scan : @xml.XmlStructureScan
 }
 
 // Type aliases

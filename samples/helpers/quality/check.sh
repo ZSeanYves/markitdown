@@ -86,13 +86,11 @@ Filter semantics:
       MARKITDOWN_QUALITY_CORPUS
       MARKITDOWN_QUALITY_LAB/external_quality
       markitdown-quality-lab/external_quality
-      ../markitdown-quality-lab/external_quality
   * quality manifest discovery checks, in order:
       --lab-manifest
       MARKITDOWN_QUALITY_MANIFEST
       MARKITDOWN_QUALITY_LAB/external_quality/MANIFEST.tsv
       markitdown-quality-lab/external_quality/MANIFEST.tsv
-      ../markitdown-quality-lab/external_quality/MANIFEST.tsv
   * metadata defaults to auto: this helper probes whether the main CLI
     supports --with-metadata and falls back to metadata-off when it does not
   * --no-metadata forces metadata-off
@@ -238,7 +236,6 @@ detect_corpus_root() {
     add_corpus_root_candidate "MARKITDOWN_QUALITY_LAB/external_quality" "${MARKITDOWN_QUALITY_LAB%/}/external_quality"
   fi
   add_corpus_root_candidate "repo-local quality lab" "$ROOT/markitdown-quality-lab/external_quality"
-  add_corpus_root_candidate "sibling quality lab" "$ROOT/../markitdown-quality-lab/external_quality"
 
   local i
   for i in "${!CORPUS_ROOT_CANDIDATES[@]}"; do
@@ -278,9 +275,6 @@ detect_quality_rows_manifest() {
   add_quality_rows_manifest_candidate \
     "repo-local external_quality manifest" \
     "$ROOT/markitdown-quality-lab/external_quality/MANIFEST.tsv"
-  add_quality_rows_manifest_candidate \
-    "sibling external_quality manifest" \
-    "$ROOT/../markitdown-quality-lab/external_quality/MANIFEST.tsv"
 
   local i
   for i in "${!QUALITY_ROWS_MANIFEST_CANDIDATES[@]}"; do
@@ -333,7 +327,6 @@ resolve_external_input_path() {
   else
     local repo_candidate="$ROOT/$path"
     local repo_quality_lab_candidate="$ROOT/markitdown-quality-lab/$path"
-    local sibling_quality_lab_candidate="$ROOT/../markitdown-quality-lab/$path"
     local relative_suffix=""
     if [[ "$path" == external_quality/* ]]; then
       relative_suffix="${path#external_quality/}"
@@ -361,12 +354,6 @@ resolve_external_input_path() {
     append_unique_path "$repo_quality_lab_candidate"
     if [[ -f "$repo_quality_lab_candidate" ]]; then
       RESOLVED_EXTERNAL_PATH="$repo_quality_lab_candidate"
-      return 0
-    fi
-
-    append_unique_path "$sibling_quality_lab_candidate"
-    if [[ -f "$sibling_quality_lab_candidate" ]]; then
-      RESOLVED_EXTERNAL_PATH="$sibling_quality_lab_candidate"
       return 0
     fi
   fi

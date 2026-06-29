@@ -185,14 +185,16 @@ Architectural constraints:
 
 ## Samples And Quality Lab
 
-- `samples/main_process/` contains repo-local regression samples and expected outputs.
+- `samples/main_process/` contains lightweight repo-local regression samples and expected outputs.
 - `samples/check.sh` is the primary sample regression entrypoint.
 - `samples/helpers/contracts/check_root_contracts.sh` is the aggregated contract entrypoint.
-- `markitdown-quality-lab/` is an optional external quality corpus repository used only by `samples/check_quality.sh`.
+- `markitdown-quality-lab/` is the local external corpus repository for quality and benchmark validation.
 
 The following implementation notes remain stable user-facing facts:
 
 - EPUB support is implemented through `format_readers/epub` on top of `format_readers/zip`.
 - ZIP archive reading continues to rely on `bikallem/compress/flate` inside `format_readers/zip`.
 
-The repository is self-contained for normal build, test, and repo-local regression validation. `markitdown-quality-lab/` is only required for additional external quality validation.
+The repository is self-contained for build, unit tests, and repo-local functional regression coverage through lightweight samples.
+If you want to validate real conversion quality or benchmark performance, prepare the local `markitdown-quality-lab/` repo first and place it under the main repo root.
+Formal `bench v2` reads `markitdown-quality-lab/external_bench/` by default, or `MARKITDOWN_BENCH_ROOT` when set explicitly.

@@ -256,9 +256,6 @@ fn xlsx_init_diagnostics(
   diagnostics.metrics.set("office_document_kind", "xlsx")
   diagnostics.metrics.set("product_path_enabled", "true")
   diagnostics.metrics.set("format_family", "office")
-  diagnostics.metrics.set("native_surface", "xml_native")
-  diagnostics.metrics.set("native_backend", "expat")
-  diagnostics.metrics.set("native_path", "accelerated")
   diagnostics.metrics.set("resource_limit_hit", "false")
   diagnostics.metrics.set("media_asset_count", "0")
   diagnostics.metrics.set("materialized_asset_count", "0")
@@ -440,20 +437,9 @@ fn xlsx_load_workbook_shared_state(
 ) -> XlsxWorkbookSharedState raise @ox.OoxmlError {
   let workbook_part = xlsx_resolve_workbook_part(pkg)
   let workbook_payload = @ox.read_xml_part_payload(pkg, workbook_part)
-  let workbook_scan = @xml_native.native_xlsx_scan_workbook_bytes(
-    workbook_payload.bytes,
-  )
-  let rels = @ox.read_part_relationships(pkg, workbook_part)
   let shared_strings = if @ox.has_part(pkg, "xl/sharedStrings.xml") {
     let shared_payload = @ox.read_xml_part_payload(pkg, "xl/sharedStrings.xml")
-    let scan = @xml_native.native_xlsx_scan_shared_strings_bytes(
-      shared_payload.bytes,
-    )
-    if scan.status == @xml_native.NativeXmlStatus::Ok {
-      scan.items
-    } else {
-      xlsx_parse_shared_strings(shared_payload.text)
-    }
+    xlsx_parse_shared_strings(shared_payload.text)
   } else {
     []
   }
@@ -463,17 +449,12 @@ fn xlsx_load_workbook_shared_state(
   } else {
     { xf_numfmts: [], custom_numfmts: Map([]) }
   }
-  let uses_date_1904 = if workbook_scan.status ==
-    @xml_native.NativeXmlStatus::Ok {
-    workbook_scan.uses_date_1904
-  } else {
-    xlsx_workbook_uses_date_1904(workbook_payload.text)
-  }
-  let sheet_infos = if workbook_scan.status == @xml_native.NativeXmlStatus::Ok {
-    xlsx_native_sheet_infos(rels, workbook_scan.sheets)
-  } else {
-    xlsx_parse_sheet_infos(pkg, workbook_part, workbook_payload.text)
-  }
+  let uses_date_1904 = xlsx_workbook_uses_date_1904(workbook_payload.text)
+  let sheet_infos = xlsx_parse_sheet_infos(
+    pkg,
+    workbook_part,
+    workbook_payload.text,
+  )
   { workbook_part, sheet_infos, shared_strings, styles, uses_date_1904 }
 }
 
@@ -691,31 +672,6 @@ fn xlsx_parse_sheet_visibility(text : String) -> @shared.XlsxSheetVisibility {
   } else {
     @shared.XlsxSheetVisibility::Visible
   }
-}
-
-///|
-fn xlsx_native_sheet_infos(
-  rels : Array[@ox.OoxmlRelationship],
-  sheets : Array[@xml_native.NativeXlsxWorkbookSheet],
-) -> Array[XlsxSheetInfo] {
-  let out : Array[XlsxSheetInfo] = []
-  for sheet in sheets {
-    if sheet.relationship_id == "" {
-      continue
-    }
-    match xlsx_find_relationship_by_id(rels, sheet.relationship_id) {
-      Some(rel) =>
-        out.push({
-          sheet_name: sheet.name,
-          sheet_id: sheet.sheet_id,
-          relationship_id: sheet.relationship_id,
-          part_name: rel.resolved_target,
-          visibility: xlsx_parse_sheet_visibility(sheet.state.unwrap_or("")),
-        })
-      None => ()
-    }
-  }
-  out
 }
 
 ///|
@@ -1037,37 +993,24 @@ fn xlsx_parse_sheet_xml_bytes_streaming(
   shared_strings : Array[String],
   styles : XlsxStyles,
   uses_date_1904 : Bool,
-  max_rows : Int,
-  max_cols : Int,
-  max_cells : Int,
+  _max_rows : Int,
+  _max_cols : Int,
+  _max_cells : Int,
   build_cell_source_refs? : Bool = true,
 ) -> Result[XlsxParsedSheetXml, String] {
-  let part_name = sheet_info.part_name
-  let raw_name = match pkg.part_index.get(part_name) {
-    Some(value) => value
-    None => part_name
+  let sheet_xml_bytes = try
+    @ox.read_part_bytes_transient(pkg, sheet_info.part_name) |> Ok
+  catch {
+    err => Err(err.to_string())
   }
-  let scan = @xml_native.native_xlsx_scan_worksheet_with_chunk_feeder(
-    max_rows,
-    max_cols,
-    max_cells,
-    fn(feed_chunk) {
-      @dzip.visit_inflated_entry_chunks(
-        pkg.archive,
-        raw_name,
-        chunk_size=64 * 1024,
-        fn(chunk : Bytes) { feed_chunk(chunk) },
-      )
-    },
-  )
-  let scan = match scan {
+  let sheet_xml_bytes = match sheet_xml_bytes {
     Ok(value) => value
     Err(err) => return Err(err)
   }
   Ok(
-    xlsx_parsed_sheet_from_native_scan(
+    xlsx_parse_sheet_xml_bytes(
       sheet_info,
-      scan,
+      sheet_xml_bytes,
       shared_strings,
       styles,
       uses_date_1904,

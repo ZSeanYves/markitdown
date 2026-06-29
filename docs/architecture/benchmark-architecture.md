@@ -33,7 +33,7 @@
 
 `bench v2` 只有三层事实源：
 
-1. `samples/bench/MANIFEST.tsv`
+1. `<bench-root>/MANIFEST.tsv`
    只负责 corpus identity。
 2. `bench/config/policy.json`
    负责 scenario、preset、tool matrix、row policy。
@@ -72,6 +72,11 @@ scenario x row x tool
 - `diagnostic.xlsx`
 - `diagnostic.epub`
 - `diagnostic.zip`
+
+`<bench-root>` 解析顺序固定为：
+
+- `MARKITDOWN_BENCH_ROOT`
+- repo-root `markitdown-quality-lab/external_bench/`
 
 ## 4. Route Fidelity Contract
 

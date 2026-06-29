@@ -31,39 +31,6 @@ fn xlsx_parse_dimension_ref(sheet_xml : String) -> String? {
 }
 
 ///|
-fn xlsx_parse_sheet_xml(
-  sheet_info : XlsxSheetInfo,
-  sheet_xml : String,
-  shared_strings : Array[String],
-  styles : XlsxStyles,
-  uses_date_1904 : Bool,
-  build_cell_source_refs? : Bool = true,
-  cell_window_bounds? : (Int, Int, Int, Int)? = None,
-) -> XlsxParsedSheetXml {
-  let scan = @xml_native.native_xlsx_scan_worksheet(sheet_xml)
-  if scan.status == @xml_native.NativeXmlStatus::Ok {
-    return xlsx_parsed_sheet_from_native_scan(
-      sheet_info,
-      scan,
-      shared_strings,
-      styles,
-      uses_date_1904,
-      build_cell_source_refs~,
-      cell_window_bounds~,
-    )
-  }
-  xlsx_parse_sheet_xml_reference(
-    sheet_info,
-    sheet_xml,
-    shared_strings,
-    styles,
-    uses_date_1904,
-    build_cell_source_refs~,
-    cell_window_bounds~,
-  )
-}
-
-///|
 fn xlsx_parse_sheet_xml_bytes(
   sheet_info : XlsxSheetInfo,
   sheet_xml_bytes : Bytes,
@@ -73,18 +40,6 @@ fn xlsx_parse_sheet_xml_bytes(
   build_cell_source_refs? : Bool = true,
   cell_window_bounds? : (Int, Int, Int, Int)? = None,
 ) -> XlsxParsedSheetXml {
-  let scan = @xml_native.native_xlsx_scan_worksheet_bytes(sheet_xml_bytes)
-  if scan.status == @xml_native.NativeXmlStatus::Ok {
-    return xlsx_parsed_sheet_from_native_scan(
-      sheet_info,
-      scan,
-      shared_strings,
-      styles,
-      uses_date_1904,
-      build_cell_source_refs~,
-      cell_window_bounds~,
-    )
-  }
   xlsx_parse_sheet_xml_reference(
     sheet_info,
     xlsx_decode_sheet_xml(sheet_xml_bytes),
@@ -113,85 +68,6 @@ fn xlsx_decode_sheet_xml(sheet_xml_bytes : Bytes) -> String {
 }
 
 ///|
-fn xlsx_parsed_sheet_from_native_scan(
-  sheet_info : XlsxSheetInfo,
-  scan : @xml_native.NativeXlsxWorksheetScan,
-  shared_strings : Array[String],
-  styles : XlsxStyles,
-  uses_date_1904 : Bool,
-  build_cell_source_refs? : Bool = true,
-  cell_window_bounds? : (Int, Int, Int, Int)? = None,
-) -> XlsxParsedSheetXml {
-  let hidden_rows : Map[Int, Bool] = Map([])
-  let merged_ranges : Array[String] = []
-  let cells : Array[XlsxCell] = []
-  for row_index in scan.hidden_rows {
-    hidden_rows.set(row_index, true)
-  }
-  for range_ref in scan.merged_ranges {
-    if range_ref != "" && xlsx_parse_range_ref(range_ref) is Some(_) {
-      merged_ranges.push(range_ref)
-    }
-  }
-  for cell in scan.cells {
-    if cell.row_index <= 0 || cell.column_index <= 0 {
-      continue
-    }
-    if xlsx_cell_outside_window(
-        cell.row_index,
-        cell.column_index,
-        cell_window_bounds,
-      ) {
-      continue
-    }
-    let style_index = match cell.style_id {
-      Some(value) => xlsx_parse_int(value)
-      None => -1
-    }
-    let formula_text = match cell.formula_text {
-      Some(value) => if value == "" { None } else { Some(value) }
-      None => None
-    }
-    let (display_text, _, shared_string_index) = xlsx_resolve_cell_display(
-      cell.cell_type,
-      cell.raw_value,
-      cell.inline_text,
-      formula_text,
-      style_index,
-      shared_strings,
-      styles,
-      uses_date_1904,
-    )
-    let formula_kind = cell.formula_kind.unwrap_or("")
-    cells.push({
-      row_index: cell.row_index,
-      column_index: cell.column_index,
-      display_text,
-      formula_text,
-      is_shared_formula: formula_kind == "shared",
-      is_array_formula: formula_kind == "array",
-      source_ref: if build_cell_source_refs {
-        Some(
-          xlsx_cell_source_ref(
-            sheet_info,
-            cell.cell_ref,
-            cell.row_index,
-            cell.column_index,
-            formula_text,
-            cell.style_id,
-            shared_string_index,
-            None,
-          ),
-        )
-      } else {
-        None
-      },
-    })
-  }
-  { dimension_ref: scan.dimension_ref, hidden_rows, merged_ranges, cells }
-}
-
-///|
 fn xlsx_parse_sheet_xml_reference(
   sheet_info : XlsxSheetInfo,
   sheet_xml : String,
@@ -207,7 +83,6 @@ fn xlsx_parse_sheet_xml_reference(
   let mut pos = 0
   let n = sheet_xml.length()
   let mut dimension_ref : String? = None
-  let mut active_row_index = 0
   let mut active_row_hidden = false
   let sheet_data_end_len = "</sheetData>".length()
   while pos < n {
@@ -248,7 +123,6 @@ fn xlsx_parse_sheet_xml_reference(
               None => break
             }
           }
-          active_row_index = row_index
           active_row_hidden = row_index > 0 &&
             xlsx_get_attr_range(sheet_xml, pos, end1, "hidden").unwrap_or("") ==
             "1"
@@ -318,9 +192,6 @@ fn xlsx_parse_sheet_xml_reference(
           }
           pos = next_pos
           if row_index <= 0 || column_index <= 0 {
-            continue
-          }
-          if active_row_hidden && row_index == active_row_index {
             continue
           }
           if xlsx_cell_outside_window(
@@ -1006,45 +877,6 @@ fn xlsx_effective_bounds(
       }
       (min_row, min_col, max_row, max_col, clipped, false)
     }
-  }
-}
-
-///|
-fn xlsx_clip_bounds_from_dimension(
-  dimension_ref : String?,
-  max_rows : Int,
-  max_cols : Int,
-  max_cells : Int,
-) -> (Int, Int, Int, Int)? {
-  match dimension_ref {
-    Some(value) =>
-      match xlsx_parse_range_ref(value) {
-        Some((min_row, min_col, max_row0, max_col0)) => {
-          let mut max_row = max_row0
-          let mut max_col = max_col0
-          if max_row - min_row + 1 > max_rows {
-            max_row = min_row + max_rows - 1
-          }
-          if max_col - min_col + 1 > max_cols {
-            max_col = min_col + max_cols - 1
-          }
-          let width = max_col - min_col + 1
-          if width > 0 && max_cells > 0 {
-            let max_rows_by_cells = if max_cells / width > 0 {
-              max_cells / width
-            } else {
-              1
-            }
-            let effective_rows = max_row - min_row + 1
-            if effective_rows > max_rows_by_cells {
-              max_row = min_row + max_rows_by_cells - 1
-            }
-          }
-          Some((min_row, min_col, max_row, max_col))
-        }
-        None => None
-      }
-    None => None
   }
 }
 

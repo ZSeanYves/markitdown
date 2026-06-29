@@ -350,43 +350,42 @@ pub fn visit_inflated_entry_chunks_from_slice(
           inflater.src(archive_bytes[pos:feed_end])
           pos = feed_end
         }
-        loop inflater.decode() {
-          Await =>
-            if pos >= slice.data_end {
+        let mut needs_more_input = false
+        while !done && !needs_more_input {
+          match inflater.decode() {
+            Await =>
+              if pos >= slice.data_end {
+                return Err(
+                  "zip decode failed for `" + entry.name + "`: unexpected EOF",
+                )
+              } else {
+                needs_more_input = true
+              }
+            Data(out) => {
+              let chunk = out.to_owned()
+              emitted_bytes += chunk.length()
+              crc.update(chunk[:])
+              if emitted_bytes > entry.uncompressed_size {
+                return Err(
+                  "invalid zip structure: decoded size overflow for entry: " +
+                  entry.name +
+                  " expected=" +
+                  entry.uncompressed_size.to_string() +
+                  " actual=" +
+                  emitted_bytes.to_string(),
+                )
+              }
+              match on_chunk(chunk) {
+                Ok(_) => ()
+                Err(err) => return Err(err)
+              }
+            }
+            End => done = true
+            Error(err) =>
               return Err(
-                "zip decode failed for `" + entry.name + "`: unexpected EOF",
+                "decode failed for `" + entry.name + "`: " + err.to_string(),
               )
-            } else {
-              break
-            }
-          Data(out) => {
-            let chunk = out.to_owned()
-            emitted_bytes += chunk.length()
-            crc.update(chunk[:])
-            if emitted_bytes > entry.uncompressed_size {
-              return Err(
-                "invalid zip structure: decoded size overflow for entry: " +
-                entry.name +
-                " expected=" +
-                entry.uncompressed_size.to_string() +
-                " actual=" +
-                emitted_bytes.to_string(),
-              )
-            }
-            match on_chunk(chunk) {
-              Ok(_) => ()
-              Err(err) => return Err(err)
-            }
-            continue inflater.decode()
           }
-          End => {
-            done = true
-            break
-          }
-          Error(err) =>
-            return Err(
-              "decode failed for `" + entry.name + "`: " + err.to_string(),
-            )
         }
       }
       let remaining = inflater.remaining()

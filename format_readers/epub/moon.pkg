@@ -1,5 +1,5 @@
 import {
-  "ZSeanYves/markitdown/format_readers/xml_native",
+  "ZSeanYves/markitdown/format_readers/xml",
   "ZSeanYves/markitdown/format_readers/zip",
   "moonbitlang/core/encoding/utf8",
 }
