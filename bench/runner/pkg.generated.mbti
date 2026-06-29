@@ -35,15 +35,25 @@ pub struct CaseAggregateV2 {
   tool : String
   bench_id : String
   format : String
+  size_class : String
+  input_bytes : Int
   sample_count : Int
   success_count : Int
   median_wall_us : Int64?
   min_wall_us : Int64?
   max_wall_us : Int64?
+  median_output_bytes : Int64?
+  output_density : Double?
   comparable_status : String
   route_coverage_status : String
+  semantic_coverage : String
+  render_path : String
+  trust_status : String
+  trust_failure_reason : String
   expected_route : String?
   actual_route : String?
+  route_fidelity_status : String?
+  provenance_complete : Bool
   route_provenance : Json
 } derive(Eq, ToJson, @json.FromJson)
 
@@ -74,12 +84,14 @@ pub struct RunSummaryV2 {
   schema_version : Int
   run_id : String
   preset : String?
-  scenario_id : String
+  scenario_ids : Array[String]
   binary_only_contract : Json
   trust_status : String
   gate_summary : Json
   route_coverage_summary : Json
+  truth_summary : Json
   diff_summary : Json?
+  scenarios : Array[ScenarioSummaryV2]
   tools : Array[ToolSummaryV2]
   by_format : Array[FormatSummaryV2]
 } derive(Eq, ToJson, @json.FromJson)
@@ -124,6 +136,16 @@ pub struct ScenarioSpecV2 {
   official_membership : String
   route_expectation : String
 } derive(Eq)
+
+pub struct ScenarioSummaryV2 {
+  scenario_id : String
+  scenario_kind : String
+  official_membership : String
+  selected_rows : Int
+  comparable_rows : Int
+  trust_status : String
+  gate_status : String
+} derive(Eq, ToJson, @json.FromJson)
 
 pub struct ToolSummaryV2 {
   tool : String

@@ -12,6 +12,12 @@ pub fn tokenize_html_events(text : String) -> Array[HtmlTokenEvent] raise {
 }
 
 ///|
+/// Return the source string used for token event offsets.
+pub fn normalize_html_token_source(text : String) -> String {
+  normalize_html_source(text)
+}
+
+///|
 fn tokenize_normalized_html_document(
   normalized : String,
 ) -> Array[HtmlToken] raise {

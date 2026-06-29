@@ -35,6 +35,17 @@ pub struct ScenarioSpecV2 {
 } derive(Eq)
 
 ///|
+pub struct ScenarioSummaryV2 {
+  scenario_id : String
+  scenario_kind : String
+  official_membership : String
+  selected_rows : Int
+  comparable_rows : Int
+  trust_status : String
+  gate_status : String
+} derive(ToJson, FromJson, Eq)
+
+///|
 pub struct RunOptionsV2 {
   preset : String?
   scenario_id : String?
@@ -89,15 +100,25 @@ pub struct CaseAggregateV2 {
   tool : String
   bench_id : String
   format : String
+  size_class : String
+  input_bytes : Int
   sample_count : Int
   success_count : Int
   median_wall_us : Int64?
   min_wall_us : Int64?
   max_wall_us : Int64?
+  median_output_bytes : Int64?
+  output_density : Double?
   comparable_status : String
   route_coverage_status : String
+  semantic_coverage : String
+  render_path : String
+  trust_status : String
+  trust_failure_reason : String
   expected_route : String?
   actual_route : String?
+  route_fidelity_status : String?
+  provenance_complete : Bool
   route_provenance : Json
 } derive(ToJson, FromJson, Eq)
 
@@ -124,12 +145,14 @@ pub struct RunSummaryV2 {
   schema_version : Int
   run_id : String
   preset : String?
-  scenario_id : String
+  scenario_ids : Array[String]
   binary_only_contract : Json
   trust_status : String
   gate_summary : Json
   route_coverage_summary : Json
+  truth_summary : Json
   diff_summary : Json?
+  scenarios : Array[ScenarioSummaryV2]
   tools : Array[ToolSummaryV2]
   by_format : Array[FormatSummaryV2]
 } derive(ToJson, FromJson, Eq)
@@ -317,12 +340,12 @@ fn run_command_v2(args : Array[String], runner : @command.RunnerContext) -> Int 
     return 1
   }
   let effective_opts = apply_policy_defaults_v2(opts, policy.unwrap())
-  let scenario = resolve_scenario_v2(effective_opts, policy.unwrap())
+  let scenarios = resolve_scenarios_v2(effective_opts, policy.unwrap())
   let run_id = make_run_id_v2(args)
   let payload = unwrap_or_report(
     execute_run_v2(
       run_id,
-      scenario,
+      scenarios,
       effective_opts,
       contract.unwrap(),
       policy.unwrap(),
@@ -524,16 +547,16 @@ fn parse_non_negative_int_v2(text : String, flag : String) -> Int raise {
 }
 
 ///|
-fn resolve_scenario_v2(
+fn resolve_scenarios_v2(
   opts : RunOptionsV2,
   policy : BenchPolicyV2,
-) -> ScenarioSpecV2 {
+) -> Array[ScenarioSpecV2] {
   let scenarios = policy_scenarios_v2(policy)
   match opts.scenario_id {
-    Some(wanted) => find_scenario_or_abort(scenarios, wanted)
+    Some(wanted) => [find_scenario_or_abort(scenarios, wanted)]
     None =>
       match opts.preset {
-        Some(name) => resolve_preset_scenario_v2(name, scenarios, policy)
+        Some(name) => resolve_preset_scenarios_v2(name, scenarios, policy)
         None => abort("run requires --preset or --scenario")
       }
   }
@@ -553,18 +576,22 @@ fn find_scenario_or_abort(
 }
 
 ///|
-fn resolve_preset_scenario_v2(
+fn resolve_preset_scenarios_v2(
   preset_name : String,
   scenarios : Array[ScenarioSpecV2],
   policy : BenchPolicyV2,
-) -> ScenarioSpecV2 {
+) -> Array[ScenarioSpecV2] {
   match policy.presets.get(preset_name) {
-    Some(preset) =>
+    Some(preset) => {
       if preset.scenario_ids.length() == 0 {
         abort("preset has no scenario_ids: " + preset_name)
-      } else {
-        find_scenario_or_abort(scenarios, preset.scenario_ids[0])
       }
+      let out : Array[ScenarioSpecV2] = []
+      for scenario_id in preset.scenario_ids {
+        out.push(find_scenario_or_abort(scenarios, scenario_id))
+      }
+      out
+    }
     None => abort("unknown preset: " + preset_name)
   }
 }
@@ -612,7 +639,7 @@ fn release_binary_contract(
 ///|
 fn execute_run_v2(
   run_id : String,
-  scenario : ScenarioSpecV2,
+  scenarios : Array[ScenarioSpecV2],
   opts : RunOptionsV2,
   contract : BinaryContract,
   policy : BenchPolicyV2,
@@ -621,8 +648,8 @@ fn execute_run_v2(
     err =>
       return Err(RuntimeFailure("init run dirs failed: " + err.to_string()))
   }
-  if scenario.scenario_kind == "doctor" {
-    let summary = summarize_doctor_run(run_id, scenario, opts, contract)
+  if scenarios.length() == 1 && scenarios[0].scenario_kind == "doctor" {
+    let summary = summarize_doctor_run(run_id, scenarios[0], opts, contract)
     write_summary_and_report_v2(run_id, summary) catch {
       err =>
         return Err(
@@ -638,10 +665,15 @@ fn execute_run_v2(
       }),
     )
   }
-  let rows = select_rows_v2(scenario, opts)
-  let samples = match run_samples_v2(run_id, scenario, rows, opts, contract) {
-    Ok(value) => value
-    Err(err) => return Err(err)
+  let samples : Array[SampleRowV2] = []
+  for scenario in scenarios {
+    let rows = select_rows_v2(scenario, opts)
+    let scenario_samples = match
+      run_samples_v2(run_id, scenario, rows, opts, contract) {
+      Ok(value) => value
+      Err(err) => return Err(err)
+    }
+    samples.append(scenario_samples)
   }
   write_jsonl_v2(
     samples_jsonl_path(run_id),
@@ -650,16 +682,17 @@ fn execute_run_v2(
     err =>
       return Err(RuntimeFailure("write samples failed: " + err.to_string()))
   }
-  let cases = aggregate_cases_v2(run_id, samples, scenario, policy)
+  let cases = aggregate_cases_v2(run_id, samples, scenarios, policy)
   write_jsonl_v2(cases_jsonl_path(run_id), cases.map(item => item.to_json())) catch {
     err => return Err(RuntimeFailure("write cases failed: " + err.to_string()))
   }
   let summary = summarize_run_v2(
     run_id,
-    scenario,
+    scenarios,
     samples,
     cases,
     contract,
+    opts.preset,
     opts.baseline_run_id,
   )
   write_summary_and_report_v2(run_id, summary) catch {
@@ -753,11 +786,22 @@ fn run_process_samples_v2(
   let out : Array[SampleRowV2] = []
   let provenance_path = provenance_output_path_v2(
     run_id,
+    scenario.scenario_id,
     tool.name,
     row.bench_id,
   )
-  let stdout_path = stdout_output_path_v2(run_id, tool.name, row.bench_id)
-  let stderr_path = stderr_output_path_v2(run_id, tool.name, row.bench_id)
+  let stdout_path = stdout_output_path_v2(
+    run_id,
+    scenario.scenario_id,
+    tool.name,
+    row.bench_id,
+  )
+  let stderr_path = stderr_output_path_v2(
+    run_id,
+    scenario.scenario_id,
+    tool.name,
+    row.bench_id,
+  )
   ensure_parent_dir_v2(provenance_path) catch {
     _ => ()
   }
@@ -769,17 +813,18 @@ fn run_process_samples_v2(
   }
   for _ in 0..<opts.warmup_count {
     if tool.is_available() {
-      let warmup_path = output_path_v2(run_id, tool.name, row.bench_id, 0, 1)
+      let warmup_path = output_path_v2(
+        run_id,
+        scenario.scenario_id,
+        tool.name,
+        row.bench_id,
+        0,
+        1,
+      )
       ensure_parent_dir_v2(warmup_path) catch {
         _ => ()
       }
-      let warmup = tool.build_command(
-        row,
-        warmup_path,
-        opts.timeout_ms,
-        @command.default_cli_output_mode(),
-        @command.default_engine_output_mode(),
-      )
+      let warmup = tool.build_command(row, warmup_path, opts.timeout_ms)
       let command = cli_command_with_provenance_v2(
         warmup,
         tool.name,
@@ -791,6 +836,7 @@ fn run_process_samples_v2(
   for repeat_index in 0..<opts.repeat_count {
     let output_path = output_path_v2(
       run_id,
+      scenario.scenario_id,
       tool.name,
       row.bench_id,
       repeat_index,
@@ -799,13 +845,7 @@ fn run_process_samples_v2(
     ensure_parent_dir_v2(output_path) catch {
       _ => ()
     }
-    let base = tool.build_command(
-      row,
-      output_path,
-      opts.timeout_ms,
-      @command.default_cli_output_mode(),
-      @command.default_engine_output_mode(),
-    )
+    let base = tool.build_command(row, output_path, opts.timeout_ms)
     let command = cli_command_with_provenance_v2(
       base,
       tool.name,
@@ -1018,9 +1058,10 @@ fn native_measure_command_v2(
 fn aggregate_cases_v2(
   run_id : String,
   samples : Array[SampleRowV2],
-  scenario : ScenarioSpecV2,
+  scenarios : Array[ScenarioSpecV2],
   policy : BenchPolicyV2,
 ) -> Array[CaseAggregateV2] {
+  let scenario_map = scenario_map_v2(scenarios)
   let groups : Map[String, Array[SampleRowV2]] = {}
   for sample in samples {
     let key = sample.scenario_id + "|" + sample.tool + "|" + sample.bench_id
@@ -1040,8 +1081,28 @@ fn aggregate_cases_v2(
     let ok_rows = rows.filter(item => item.status == "ok")
     let walls = ok_rows.map(item => item.wall_us.unwrap_or(0L))
     walls.sort()
+    let output_values = ok_rows.map(item => item.output_bytes)
+    output_values.sort()
+    let scenario = scenario_map
+      .get(first.scenario_id)
+      .unwrap_or_else(fn() {
+        abort("missing scenario metadata for " + first.scenario_id)
+      })
     let expected_route = expected_route_for_case_v2(first, scenario, policy)
     let actual_route = actual_route_name_v2(first.route_provenance)
+    let route_fidelity_status = route_fidelity_status_v2(first.route_provenance)
+    let provenance_complete = route_provenance_complete_v2(
+      first.route_provenance,
+    )
+    let median_output = median_sorted_int64_v2(output_values)
+    let density = output_density_v2(median_output, first.input_bytes)
+    let semantic_coverage = semantic_coverage_v2(first, median_output, density)
+    let coverage_status = route_coverage_status_v2(
+      first.tool,
+      first.route_provenance,
+      expected_route,
+      actual_route,
+    )
     out.push({
       schema_version: 2,
       run_id,
@@ -1049,11 +1110,15 @@ fn aggregate_cases_v2(
       tool: first.tool,
       bench_id: first.bench_id,
       format: first.format,
+      size_class: first.size_class,
+      input_bytes: first.input_bytes,
       sample_count: rows.length(),
       success_count: ok_rows.length(),
       median_wall_us: median_sorted_int64_v2(walls),
       min_wall_us: first_sorted_int64_v2(walls),
       max_wall_us: last_sorted_int64_v2(walls),
+      median_output_bytes: median_output,
+      output_density: density,
       comparable_status: if ok_rows.length() == rows.length() {
         "comparable"
       } else if ok_rows.length() == 0 {
@@ -1061,14 +1126,27 @@ fn aggregate_cases_v2(
       } else {
         "partial"
       },
-      route_coverage_status: route_coverage_status_v2(
+      route_coverage_status: coverage_status,
+      semantic_coverage,
+      render_path: render_path_v2(first.route_provenance),
+      trust_status: case_trust_status_v2(
         first.tool,
-        first.route_provenance,
-        expected_route,
-        actual_route,
+        coverage_status,
+        semantic_coverage,
+        route_fidelity_status,
+        provenance_complete,
+      ),
+      trust_failure_reason: case_trust_failure_reason_v2(
+        first.tool,
+        coverage_status,
+        semantic_coverage,
+        route_fidelity_status,
+        provenance_complete,
       ),
       expected_route,
       actual_route,
+      route_fidelity_status,
+      provenance_complete,
       route_provenance: first.route_provenance,
     })
   }
@@ -1078,26 +1156,20 @@ fn aggregate_cases_v2(
 ///|
 fn summarize_run_v2(
   run_id : String,
-  scenario : ScenarioSpecV2,
+  scenarios : Array[ScenarioSpecV2],
   samples : Array[SampleRowV2],
   cases : Array[CaseAggregateV2],
   contract : BinaryContract,
+  preset : String?,
   baseline_run_id : String?,
 ) -> RunSummaryV2 {
   ignore(samples)
+  let scenario_summaries = summarize_scenarios_v2(scenarios, cases)
   {
     schema_version: 2,
     run_id,
-    preset: if scenario.official_membership == "official-internal" {
-      Some("official-internal")
-    } else if scenario.official_membership == "official-compare" {
-      Some("official-compare")
-    } else if scenario.scenario_kind == "doctor" {
-      Some("doctor")
-    } else {
-      None
-    },
-    scenario_id: scenario.scenario_id,
+    preset,
+    scenario_ids: scenarios.map(item => item.scenario_id),
     binary_only_contract: Json::object({
       "runner_path": contract.runner_path.to_json(),
       "cli_path": contract.cli_path.to_json(),
@@ -1106,10 +1178,7 @@ fn summarize_run_v2(
       "used_moon_delegate": contract.used_moon_delegate.to_json(),
     }),
     trust_status: if cases
-      .filter(item => {
-        item.route_coverage_status == "missing" ||
-        item.route_coverage_status == "mismatch"
-      })
+      .filter(item => item.trust_status == "failed")
       .length() ==
       0 {
       "trusted"
@@ -1134,10 +1203,41 @@ fn summarize_run_v2(
       .filter(item => item.route_coverage_status == "missing")
       .length()
       .to_json(),
+      "not_applicable_cases": cases
+      .filter(item => item.route_coverage_status == "not_applicable")
+      .length()
+      .to_json(),
+    }),
+    truth_summary: Json::object({
+      "trusted_cases": cases
+      .filter(item => item.trust_status == "trusted")
+      .length()
+      .to_json(),
+      "failed_cases": cases
+      .filter(item => item.trust_status == "failed")
+      .length()
+      .to_json(),
+      "low_density_cases": cases
+      .filter(item => item.semantic_coverage == "low_density_untrusted")
+      .length()
+      .to_json(),
+      "missing_provenance_cases": cases
+      .filter(item => item.trust_failure_reason == "missing_provenance")
+      .length()
+      .to_json(),
+      "route_mismatch_cases": cases
+      .filter(item => item.trust_failure_reason == "route_mismatch")
+      .length()
+      .to_json(),
+      "fidelity_mismatch_cases": cases
+      .filter(item => item.trust_failure_reason == "fidelity_mismatch")
+      .length()
+      .to_json(),
     }),
     diff_summary: baseline_run_id.map(id => {
       Json::object({ "baseline_run_id": id.to_json() })
     }),
+    scenarios: scenario_summaries,
     tools: summarize_tools_v2(cases),
     by_format: summarize_formats_v2(cases),
   }
@@ -1155,7 +1255,7 @@ fn summarize_doctor_run(
     schema_version: 2,
     run_id,
     preset: Some("doctor"),
-    scenario_id: scenario.scenario_id,
+    scenario_ids: [scenario.scenario_id],
     binary_only_contract: Json::object({
       "runner_path": contract.runner_path.to_json(),
       "cli_path": contract.cli_path.to_json(),
@@ -1168,10 +1268,52 @@ fn summarize_doctor_run(
     route_coverage_summary: Json::object({
       "status": "not_applicable".to_json(),
     }),
+    truth_summary: Json::object({ "status": "not_applicable".to_json() }),
     diff_summary: None,
+    scenarios: [
+      {
+        scenario_id: scenario.scenario_id,
+        scenario_kind: scenario.scenario_kind,
+        official_membership: scenario.official_membership,
+        selected_rows: 0,
+        comparable_rows: 0,
+        trust_status: "trusted",
+        gate_status: "ok",
+      },
+    ],
     tools: [],
     by_format: [],
   }
+}
+
+///|
+fn summarize_scenarios_v2(
+  scenarios : Array[ScenarioSpecV2],
+  cases : Array[CaseAggregateV2],
+) -> Array[ScenarioSummaryV2] {
+  let out : Array[ScenarioSummaryV2] = []
+  for scenario in scenarios {
+    let scenario_cases = cases.filter(item => {
+      item.scenario_id == scenario.scenario_id
+    })
+    out.push({
+      scenario_id: scenario.scenario_id,
+      scenario_kind: scenario.scenario_kind,
+      official_membership: scenario.official_membership,
+      selected_rows: bench_row_count_v2(scenario_cases),
+      comparable_rows: comparable_row_count_v2(scenario_cases),
+      trust_status: if scenario_cases
+        .filter(item => item.trust_status == "failed")
+        .length() ==
+        0 {
+        "trusted"
+      } else {
+        "failed"
+      },
+      gate_status: gate_status_v2(scenario_cases),
+    })
+  }
+  out
 }
 
 ///|
@@ -1333,28 +1475,46 @@ fn regenerate_report_v2(
   run_id : String,
   baseline_run_id : String?,
 ) -> Result[RunSummaryV2, BenchV2Error] {
-  let content = @fs.read_file_to_string(
-    summary_json_path_v2(run_id),
-    encoding="utf8",
-  ) catch {
-    err => return Err(RuntimeFailure("read summary failed: " + err.to_string()))
+  let policy = match load_policy_v2() {
+    Ok(value) => value
+    Err(err) => return Err(err)
   }
-  let json = @json.parse(content) catch {
+  let samples = match
+    load_sample_rows_v2(samples_jsonl_path(run_id), "sample") {
+    Ok(value) => value
+    Err(err) => return Err(err)
+  }
+  let run_scenarios = scenario_specs_for_run_v2(samples, policy)
+  let cases = aggregate_cases_v2(run_id, samples, run_scenarios, policy)
+  write_jsonl_v2(cases_jsonl_path(run_id), cases.map(item => item.to_json())) catch {
     err =>
-      return Err(RuntimeFailure("parse summary failed: " + err.to_string()))
+      return Err(RuntimeFailure("rewrite cases failed: " + err.to_string()))
   }
-  let summary = (@json.from_json(json) : RunSummaryV2) catch {
-    err =>
-      return Err(RuntimeFailure("decode summary failed: " + err.to_string()))
+  let previous = match load_summary_v2(run_id) {
+    Ok(value) => value
+    Err(err) => return Err(err)
   }
-  let next = if baseline_run_id is Some(id) {
-    {
-      ..summary,
-      diff_summary: Some(Json::object({ "baseline_run_id": id.to_json() })),
-    }
-  } else {
-    summary
+  let contract = match
+    binary_contract_from_summary_v2(previous.binary_only_contract) {
+    Ok(value) => value
+    Err(err) => return Err(err)
   }
+  let baseline = match baseline_run_id {
+    Some(value) => Some(value)
+    None =>
+      previous.diff_summary.bind(fn(diff) {
+        json_optional_string_field_v2(diff, "baseline_run_id")
+      })
+  }
+  let next = summarize_run_v2(
+    run_id,
+    run_scenarios,
+    samples,
+    cases,
+    contract,
+    previous.preset,
+    baseline,
+  )
   write_summary_and_report_v2(run_id, next) catch {
     err =>
       return Err(RuntimeFailure("rewrite report failed: " + err.to_string()))
@@ -1385,14 +1545,32 @@ fn render_markdown_report_v2(summary : RunSummaryV2) -> String {
     "# Bench v2 Report",
     "",
     "- run_id: `" + summary.run_id + "`",
-    "- scenario: `" + summary.scenario_id + "`",
+    "- preset: `" + summary.preset.unwrap_or("n/a") + "`",
+    "- scenarios: `" + summary.scenario_ids.join(", ") + "`",
     "- trust_status: `" + summary.trust_status + "`",
     "- gate_status: `" +
     json_string_field_v2(summary.gate_summary, "status") +
     "`",
     "",
-    "## Tools",
+    "## Scenarios",
   ]
+  for scenario in summary.scenarios {
+    lines.push(
+      "- `" +
+      scenario.scenario_id +
+      "` selected=`" +
+      scenario.selected_rows.to_string() +
+      "` comparable=`" +
+      scenario.comparable_rows.to_string() +
+      "` trust=`" +
+      scenario.trust_status +
+      "` gate=`" +
+      scenario.gate_status +
+      "`",
+    )
+  }
+  lines.push("")
+  lines.push("## Tools")
   for tool in summary.tools {
     lines.push(
       "- `" +
@@ -1415,6 +1593,25 @@ fn render_markdown_report_v2(summary : RunSummaryV2) -> String {
     json_int_field_v2(summary.route_coverage_summary, "mismatch_cases").to_string() +
     "` missing_cases=`" +
     json_int_field_v2(summary.route_coverage_summary, "missing_cases").to_string() +
+    "` not_applicable_cases=`" +
+    json_int_field_v2(summary.route_coverage_summary, "not_applicable_cases").to_string() +
+    "`",
+  )
+  lines.push("")
+  lines.push("## Truth Guard")
+  lines.push(
+    "- trusted_cases=`" +
+    json_int_field_v2(summary.truth_summary, "trusted_cases").to_string() +
+    "` failed_cases=`" +
+    json_int_field_v2(summary.truth_summary, "failed_cases").to_string() +
+    "` low_density_cases=`" +
+    json_int_field_v2(summary.truth_summary, "low_density_cases").to_string() +
+    "` missing_provenance_cases=`" +
+    json_int_field_v2(summary.truth_summary, "missing_provenance_cases").to_string() +
+    "` route_mismatch_cases=`" +
+    json_int_field_v2(summary.truth_summary, "route_mismatch_cases").to_string() +
+    "` fidelity_mismatch_cases=`" +
+    json_int_field_v2(summary.truth_summary, "fidelity_mismatch_cases").to_string() +
     "`",
   )
   lines.push("")
@@ -1598,6 +1795,7 @@ fn report_markdown_path_v2(run_id : String) -> String {
 ///|
 fn output_path_v2(
   run_id : String,
+  scenario_id : String,
   tool_name : String,
   bench_id : String,
   repeat_index : Int,
@@ -1608,16 +1806,26 @@ fn output_path_v2(
   } else {
     "-repeat-" + (repeat_index + 1).to_string() + ".md"
   }
-  outputs_root_v2(run_id) + "/" + tool_name + "/" + bench_id + suffix
+  outputs_root_v2(run_id) +
+  "/" +
+  scenario_path_token_v2(scenario_id) +
+  "/" +
+  tool_name +
+  "/" +
+  bench_id +
+  suffix
 }
 
 ///|
 fn provenance_output_path_v2(
   run_id : String,
+  scenario_id : String,
   tool_name : String,
   bench_id : String,
 ) -> String {
   outputs_root_v2(run_id) +
+  "/" +
+  scenario_path_token_v2(scenario_id) +
   "/" +
   tool_name +
   "/" +
@@ -1628,19 +1836,35 @@ fn provenance_output_path_v2(
 ///|
 fn stdout_output_path_v2(
   run_id : String,
+  scenario_id : String,
   tool_name : String,
   bench_id : String,
 ) -> String {
-  outputs_root_v2(run_id) + "/" + tool_name + "/" + bench_id + ".stdout.log"
+  outputs_root_v2(run_id) +
+  "/" +
+  scenario_path_token_v2(scenario_id) +
+  "/" +
+  tool_name +
+  "/" +
+  bench_id +
+  ".stdout.log"
 }
 
 ///|
 fn stderr_output_path_v2(
   run_id : String,
+  scenario_id : String,
   tool_name : String,
   bench_id : String,
 ) -> String {
-  outputs_root_v2(run_id) + "/" + tool_name + "/" + bench_id + ".stderr.log"
+  outputs_root_v2(run_id) +
+  "/" +
+  scenario_path_token_v2(scenario_id) +
+  "/" +
+  tool_name +
+  "/" +
+  bench_id +
+  ".stderr.log"
 }
 
 ///|
@@ -1668,14 +1892,21 @@ fn read_json_or_default_v2(path : String, fallback : Json) -> Json {
 ///|
 fn route_provenance_complete_v2(json : Json) -> Bool {
   match json {
-    Json::Object(map) =>
-      match map.get("route_plan") {
+    Json::Object(map) => {
+      let route_plan_ok = match map.get("route_plan") {
         Some(Json::Object(route_plan)) =>
           route_plan.get("selected_route") is Some(_) &&
           route_plan.get("route_reason") is Some(_) &&
           route_plan.get("route_probe_summary") is Some(_)
         _ => false
       }
+      route_plan_ok &&
+      map.get("effective_parser_mode") is Some(_) &&
+      map.get("parse_result_kind") is Some(_) &&
+      map.get("pipeline_output_kind") is Some(_) &&
+      map.get("render_input_kind") is Some(_) &&
+      map.get("route_fidelity_status") is Some(_)
+    }
     _ => false
   }
 }
@@ -1924,15 +2155,12 @@ fn actual_route_name_v2(route_provenance : Json) -> String? {
 ///|
 fn route_coverage_status_v2(
   tool_name : String,
-  route_provenance : Json,
+  _route_provenance : Json,
   expected_route : String?,
   actual_route : String?,
 ) -> String {
   if tool_name != "moonbit-cli" && tool_name != "moonbit-engine" {
     return "not_applicable"
-  }
-  if !route_provenance_complete_v2(route_provenance) {
-    return "missing"
   }
   match expected_route {
     Some(expected) =>
@@ -1942,6 +2170,291 @@ fn route_coverage_status_v2(
         "mismatch"
       }
     None => "covered"
+  }
+}
+
+///|
+fn output_density_v2(output_bytes : Int64?, input_bytes : Int) -> Double? {
+  match output_bytes {
+    Some(value) =>
+      if input_bytes > 0 {
+        Some(value.to_double() / input_bytes.to_double())
+      } else {
+        None
+      }
+    None => None
+  }
+}
+
+///|
+fn semantic_coverage_v2(
+  sample : SampleRowV2,
+  output_bytes : Int64?,
+  density : Double?,
+) -> String {
+  if sample.tool != "moonbit-cli" && sample.tool != "moonbit-engine" {
+    return "not_applicable"
+  }
+  if sample.status != "ok" {
+    return "not_applicable"
+  }
+  if !structured_text_format_requires_density_guard_v2(sample.format) {
+    return "ok"
+  }
+  if sample.size_class != "large" && sample.size_class != "huge" {
+    return "ok"
+  }
+  let bytes = output_bytes.unwrap_or(0L)
+  let ratio = density.unwrap_or(0.0)
+  if bytes < 256L && ratio < 0.001 {
+    "low_density_untrusted"
+  } else {
+    "ok"
+  }
+}
+
+///|
+fn structured_text_format_requires_density_guard_v2(format : String) -> Bool {
+  format == "json" || format == "yaml" || format == "xml"
+}
+
+///|
+fn render_path_v2(route_provenance : Json) -> String {
+  match route_provenance {
+    Json::Object(map) =>
+      match map.get("render_input_kind") {
+        Some(Json::String(value)) => value
+        _ => "unknown"
+      }
+    _ => "unknown"
+  }
+}
+
+///|
+fn case_trust_status_v2(
+  tool_name : String,
+  route_coverage_status : String,
+  semantic_coverage : String,
+  route_fidelity_status : String?,
+  provenance_complete : Bool,
+) -> String {
+  if case_trust_failure_reason_v2(
+      tool_name, route_coverage_status, semantic_coverage, route_fidelity_status,
+      provenance_complete,
+    ) !=
+    "none" {
+    "failed"
+  } else {
+    "trusted"
+  }
+}
+
+///|
+fn case_trust_failure_reason_v2(
+  tool_name : String,
+  route_coverage_status : String,
+  semantic_coverage : String,
+  route_fidelity_status : String?,
+  provenance_complete : Bool,
+) -> String {
+  if tool_name == "moonbit-cli" || tool_name == "moonbit-engine" {
+    if !provenance_complete {
+      return "missing_provenance"
+    }
+    if route_fidelity_status != Some("matched") {
+      return "fidelity_mismatch"
+    }
+    if route_coverage_status == "mismatch" {
+      return "route_mismatch"
+    }
+  }
+  if semantic_coverage == "low_density_untrusted" {
+    return "low_density_untrusted"
+  }
+  "none"
+}
+
+///|
+fn route_fidelity_status_v2(route_provenance : Json) -> String? {
+  json_optional_string_field_v2(route_provenance, "route_fidelity_status")
+}
+
+///|
+fn scenario_map_v2(
+  scenarios : Array[ScenarioSpecV2],
+) -> Map[String, ScenarioSpecV2] {
+  let out : Map[String, ScenarioSpecV2] = {}
+  for scenario in scenarios {
+    out[scenario.scenario_id] = scenario
+  }
+  out
+}
+
+///|
+fn scenario_specs_for_run_v2(
+  samples : Array[SampleRowV2],
+  policy : BenchPolicyV2,
+) -> Array[ScenarioSpecV2] {
+  let catalog = scenario_map_v2(policy_scenarios_v2(policy))
+  let out : Array[ScenarioSpecV2] = []
+  for sample in samples {
+    let key = sample.scenario_id
+    if out.any(fn(item) { item.scenario_id == key }) {
+      continue
+    }
+    match catalog.get(key) {
+      Some(scenario) => out.push(scenario)
+      None => abort("unknown scenario recorded in run: " + key)
+    }
+  }
+  out
+}
+
+///|
+fn scenario_path_token_v2(scenario_id : String) -> String {
+  let chars = scenario_id.to_array()
+  let out : Array[Char] = []
+  for char in chars {
+    if (char >= 'a' && char <= 'z') ||
+      (char >= 'A' && char <= 'Z') ||
+      (char >= '0' && char <= '9') ||
+      char == '-' ||
+      char == '_' {
+      out.push(char)
+    } else {
+      out.push('_')
+    }
+  }
+  String::from_array(out)
+}
+
+///|
+fn load_summary_v2(run_id : String) -> Result[RunSummaryV2, BenchV2Error] {
+  let content = @fs.read_file_to_string(
+    summary_json_path_v2(run_id),
+    encoding="utf8",
+  ) catch {
+    err => return Err(RuntimeFailure("read summary failed: " + err.to_string()))
+  }
+  let json = @json.parse(content) catch {
+    err =>
+      return Err(RuntimeFailure("parse summary failed: " + err.to_string()))
+  }
+  let summary = (@json.from_json(json) : RunSummaryV2) catch {
+    err =>
+      return Err(RuntimeFailure("decode summary failed: " + err.to_string()))
+  }
+  Ok(summary)
+}
+
+///|
+fn binary_contract_from_summary_v2(
+  json : Json,
+) -> Result[BinaryContract, BenchV2Error] {
+  match json {
+    Json::Object(map) => {
+      let runner_path = json_string_required_from_json_v2(
+        map, "runner_path", "binary_only_contract",
+      )
+      let cli_path = json_string_required_from_json_v2(
+        map, "cli_path", "binary_only_contract",
+      )
+      let runner_release_ok = json_bool_required_from_json_v2(
+        map, "runner_release_ok", "binary_only_contract",
+      )
+      let cli_release_ok = json_bool_required_from_json_v2(
+        map, "cli_release_ok", "binary_only_contract",
+      )
+      let used_moon_delegate = json_bool_required_from_json_v2(
+        map, "used_moon_delegate", "binary_only_contract",
+      )
+      Ok({
+        runner_path,
+        cli_path,
+        runner_release_ok,
+        cli_release_ok,
+        used_moon_delegate,
+      })
+    }
+    _ =>
+      Err(
+        RuntimeFailure("binary_only_contract must decode from summary object"),
+      )
+  }
+}
+
+///|
+fn load_sample_rows_v2(
+  path : String,
+  label : String,
+) -> Result[Array[SampleRowV2], BenchV2Error] {
+  let content = @fs.read_file_to_string(path, encoding="utf8") catch {
+    err =>
+      return Err(
+        RuntimeFailure("read " + label + " jsonl failed: " + err.to_string()),
+      )
+  }
+  let out : Array[SampleRowV2] = []
+  for line in content.split("\n") {
+    let trimmed = line.trim().to_owned()
+    if trimmed == "" {
+      continue
+    }
+    let json = @json.parse(trimmed) catch {
+      err =>
+        return Err(
+          RuntimeFailure(
+            "parse " + label + " jsonl row failed: " + err.to_string(),
+          ),
+        )
+    }
+    let row = (@json.from_json(json) : SampleRowV2) catch {
+      err =>
+        return Err(
+          RuntimeFailure(
+            "decode " + label + " jsonl row failed: " + err.to_string(),
+          ),
+        )
+    }
+    out.push(row)
+  }
+  Ok(out)
+}
+
+///|
+fn json_optional_string_field_v2(json : Json, key : String) -> String? {
+  match json {
+    Json::Object(map) =>
+      match map.get(key) {
+        Some(Json::String(value)) => Some(value)
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn json_string_required_from_json_v2(
+  json : Map[String, Json],
+  key : String,
+  label : String,
+) -> String {
+  match json.get(key) {
+    Some(Json::String(value)) => value
+    _ => abort(label + " missing string field `" + key + "`")
+  }
+}
+
+///|
+fn json_bool_required_from_json_v2(
+  json : Map[String, Json],
+  key : String,
+  label : String,
+) -> Bool {
+  match json.get(key) {
+    Some(Json::True) => true
+    Some(Json::False) => false
+    _ => abort(label + " missing bool field `" + key + "`")
   }
 }
 

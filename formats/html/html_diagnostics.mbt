@@ -168,15 +168,40 @@ priv struct HtmlScopePlan {
 }
 
 ///|
+priv struct HtmlTokenBlockState {
+  blocks : Array[@core.CoreBlock]
+  mut text : StringBuilder
+  mut text_start_line : Int
+  mut text_end_line : Int
+  mut text_kind : @core.BlockKind
+  mut heading_level : Int
+  mut in_pre : Bool
+  mut text_has_content : Bool
+  mut skip_depth : Int
+  mut list_depth : Int
+  mut quote_depth : Int
+}
+
+///|
 fn html_lower_block_stream_document(
   source : @input.InputSource,
   text : String,
   diagnostics : @core.Diagnostics,
 ) -> HtmlLoweringResult {
-  let scope_plans = html_block_scope_plans(text)
-  html_lower_block_stream_document_with_scope_plans(
-    source, text, diagnostics, scope_plans,
-  )
+  let events = try @dhtml.tokenize_html_events(text) |> Ok catch {
+    _ => Err(())
+  }
+  match events {
+    Ok(stream) =>
+      html_lower_block_stream_document_from_events(
+        source, text, diagnostics, stream,
+      )
+    Err(_) => {
+      diagnostics.metrics.set("html_block_stream_reparse", "false")
+      diagnostics.metrics.set("html_block_stream_token_path", "unavailable")
+      { blocks: [], metadata: Map([]), assets: [] }
+    }
+  }
 }
 
 ///|
@@ -188,7 +213,7 @@ fn html_lower_block_stream_document_from_events(
 ) -> HtmlLoweringResult {
   let scope_plans = html_block_scope_plans_from_events(text, events)
   html_lower_block_stream_document_with_scope_plans(
-    source, text, diagnostics, scope_plans,
+    source, text, diagnostics, events, scope_plans,
   )
 }
 
@@ -197,62 +222,364 @@ fn html_lower_block_stream_document_with_scope_plans(
   source : @input.InputSource,
   text : String,
   diagnostics : @core.Diagnostics,
+  events : Array[@dhtml.HtmlTokenEvent],
   scope_plans : Array[HtmlScopePlan],
 ) -> HtmlLoweringResult {
   let metadata : @core.DocumentMetadata = Map([])
   let blocks : Array[@core.CoreBlock] = []
-  let state = { assets: [] }
   diagnostics.metrics.set("scope_plan_count", scope_plans.length().to_string())
+  diagnostics.metrics.set("html_block_stream_reparse", "false")
+  diagnostics.metrics.set("html_block_stream_token_path", "true")
+  let scope_labels : Array[String] = []
+  let text_chars = text.to_array()
+  let mut event_index = 0
 
   for plan in scope_plans {
-    let scope_text = html_scope_slice(text, plan)
-    if scope_text.trim() == "" {
+    scope_labels.push(plan.label)
+    let result = html_lower_scope_events_to_blocks(
+      source, text_chars, events, plan, event_index,
+    )
+    blocks.append(result.0[:])
+    event_index = result.1
+  }
+  diagnostics.metrics.set("scope_plan_labels", scope_labels.join(","))
+
+  { blocks, metadata, assets: [] }
+}
+
+///|
+fn html_lower_scope_events_to_blocks(
+  source : @input.InputSource,
+  text_chars : Array[Char],
+  events : Array[@dhtml.HtmlTokenEvent],
+  plan : HtmlScopePlan,
+  start_index : Int,
+) -> (Array[@core.CoreBlock], Int) {
+  let state = {
+    blocks: [],
+    text: StringBuilder::new(),
+    text_start_line: 0,
+    text_end_line: 0,
+    text_kind: @core.BlockKind::Paragraph,
+    heading_level: 0,
+    in_pre: false,
+    text_has_content: false,
+    skip_depth: 0,
+    list_depth: 0,
+    quote_depth: 0,
+  }
+  let mut i = start_index
+  while i < events.length() && events[i].source_end <= plan.source_start {
+    i += 1
+  }
+  while i < events.length() {
+    let event = events[i]
+    if event.source_start >= plan.source_end {
+      break
+    }
+    if event.source_end <= plan.source_start ||
+      event.source_start >= plan.source_end {
+      i += 1
       continue
     }
-    let parsed = try @dhtml.parse_html_document(scope_text) |> Ok catch {
-      _ => Err(())
+    html_token_lower_event(state, source, text_chars, event)
+    i += 1
+  }
+  html_token_flush_text_block(state, source)
+  (state.blocks, i)
+}
+
+///|
+fn html_token_lower_event(
+  state : HtmlTokenBlockState,
+  source : @input.InputSource,
+  text_chars : Array[Char],
+  event : @dhtml.HtmlTokenEvent,
+) -> Unit {
+  if state.skip_depth > 0 {
+    if event.kind == @dhtml.HtmlTokenEventKind::StartTag && !event.self_closing {
+      state.skip_depth += 1
+    } else if event.kind == @dhtml.HtmlTokenEventKind::EndTag {
+      state.skip_depth -= 1
     }
-    match parsed {
-      Ok(doc) => {
-        let semantic = @dhtml.collect_html_semantic_document(doc)
-        let dom_index = html_dom_lowering_index(doc)
-        let lowering_index = html_lowering_index(semantic, dom_index.nav_spans)
-        let top_blocks = html_collect_top_level_blocks(semantic, lowering_index)
-        let scoped_source = @input.input_from_text_with_format(
-          scope_text,
-          source.source_name,
-          Some(@input.DetectedFormat::Html),
-        )
-        let lowered = html_lower_blocks_from_prepared(
-          state,
-          semantic,
-          scoped_source,
-          dom_index.block_elements,
-          lowering_index,
-          top_blocks,
-        )
-        blocks.append(lowered[:])
-        match html_primary_title(semantic) {
-          Some(title) =>
-            if title.trim() != "" && metadata.get("title") is None {
-              metadata.set("title", @core.JsonValue::String(title))
-            }
-          None => ()
-        }
+    return
+  }
+  match event.kind {
+    @dhtml.HtmlTokenEventKind::Text =>
+      html_token_append_text(state, text_chars, event)
+    @dhtml.HtmlTokenEventKind::StartTag =>
+      html_token_start_tag(state, source, event)
+    @dhtml.HtmlTokenEventKind::EndTag =>
+      html_token_end_tag(state, source, event)
+    @dhtml.HtmlTokenEventKind::Comment | @dhtml.HtmlTokenEventKind::Doctype =>
+      ()
+  }
+}
+
+///|
+fn html_token_start_tag(
+  state : HtmlTokenBlockState,
+  source : @input.InputSource,
+  event : @dhtml.HtmlTokenEvent,
+) -> Unit {
+  let tag = event.tag_name.to_lower()
+  if html_scope_event_should_skip(event) || html_token_skip_tag(tag) {
+    if !event.self_closing {
+      state.skip_depth = 1
+    }
+    return
+  }
+  let heading = html_heading_level(tag)
+  if heading > 0 {
+    html_token_flush_text_block(state, source)
+    state.text_kind = @core.BlockKind::Heading
+    state.heading_level = heading
+    state.text_start_line = event.span.line_start
+    state.text_end_line = event.span.line_end
+    return
+  }
+  if tag == "p" ||
+    tag == "section" ||
+    tag == "article" ||
+    tag == "main" ||
+    tag == "div" ||
+    tag == "header" {
+    html_token_flush_text_block(state, source)
+    state.text_kind = @core.BlockKind::Paragraph
+    state.text_start_line = event.span.line_start
+    state.text_end_line = event.span.line_end
+  } else if tag == "br" {
+    state.text.write_char('\n')
+  } else if tag == "pre" {
+    html_token_flush_text_block(state, source)
+    state.in_pre = true
+    state.text_kind = @core.BlockKind::Code
+    state.text_start_line = event.span.line_start
+    state.text_end_line = event.span.line_end
+  } else if tag == "li" {
+    html_token_flush_text_block(state, source)
+    state.text_kind = @core.BlockKind::ListItem
+    state.text_start_line = event.span.line_start
+    state.text_end_line = event.span.line_end
+  } else if tag == "ul" || tag == "ol" {
+    state.list_depth += 1
+  } else if tag == "blockquote" {
+    html_token_flush_text_block(state, source)
+    state.quote_depth += 1
+    state.text_kind = @core.BlockKind::BlockQuote
+    state.text_start_line = event.span.line_start
+    state.text_end_line = event.span.line_end
+  } else if tag == "hr" {
+    html_token_flush_text_block(state, source)
+    let block = @core.make_block(
+      @core.BlockKind::Raw,
+      "---",
+      source_ref=html_token_source_ref(source, event, "/html_token/hr"),
+    )
+    block.attrs.set("raw_kind", "markdown")
+    state.blocks.push(block)
+  } else if tag == "img" {
+    html_token_flush_text_block(state, source)
+    let image = @core.make_block(
+      @core.BlockKind::Image,
+      "",
+      source_ref=html_token_source_ref(source, event, "/html_token/img"),
+    )
+    image.attrs.set(
+      "alt",
+      @dhtml.html_token_event_attr_value(event, "alt").unwrap_or("image"),
+    )
+    image.attrs.set(
+      "path",
+      @dhtml.html_token_event_attr_value(event, "src").unwrap_or("#"),
+    )
+    image.attrs.set("render_inline_escape_mode", "minimal")
+    state.blocks.push(image)
+  }
+}
+
+///|
+fn html_token_end_tag(
+  state : HtmlTokenBlockState,
+  source : @input.InputSource,
+  event : @dhtml.HtmlTokenEvent,
+) -> Unit {
+  let tag = event.tag_name.to_lower()
+  if html_heading_level(tag) > 0 ||
+    tag == "p" ||
+    tag == "li" ||
+    tag == "pre" ||
+    tag == "blockquote" ||
+    tag == "section" ||
+    tag == "article" ||
+    tag == "main" {
+    state.text_end_line = event.span.line_end
+    html_token_flush_text_block(state, source)
+    state.text_kind = @core.BlockKind::Paragraph
+    state.heading_level = 0
+    if tag == "pre" {
+      state.in_pre = false
+    }
+    if tag == "blockquote" && state.quote_depth > 0 {
+      state.quote_depth -= 1
+    }
+  } else if (tag == "ul" || tag == "ol") && state.list_depth > 0 {
+    state.list_depth -= 1
+  }
+}
+
+///|
+fn html_token_append_text(
+  state : HtmlTokenBlockState,
+  text_chars : Array[Char],
+  event : @dhtml.HtmlTokenEvent,
+) -> Unit {
+  let raw = html_scope_event_text(text_chars, event)
+  let text = if state.in_pre { raw } else { html_compact_token_text(raw) }
+  if text.trim() == "" {
+    return
+  }
+  if state.text_start_line == 0 {
+    state.text_start_line = event.span.line_start
+  }
+  state.text_end_line = event.span.line_end
+  if state.text_has_content && !state.in_pre {
+    state.text.write_char(' ')
+  }
+  state.text.write_string(text)
+  state.text_has_content = true
+}
+
+///|
+fn html_token_flush_text_block(
+  state : HtmlTokenBlockState,
+  source : @input.InputSource,
+) -> Unit {
+  let text = if state.in_pre {
+    state.text.to_string()
+  } else {
+    state.text.to_string().trim().to_owned()
+  }
+  if text == "" {
+    state.text = StringBuilder::new()
+    state.text_has_content = false
+    return
+  }
+  let source_ref = html_token_lines_source_ref(
+    source,
+    state.text_start_line,
+    state.text_end_line,
+    "/html_token/block[" + state.blocks.length().to_string() + "]",
+  )
+  let block = @core.make_block(state.text_kind, text, source_ref~)
+  if state.text_kind == @core.BlockKind::Heading {
+    block.attrs.set(
+      "level",
+      if state.heading_level <= 0 {
+        "1"
+      } else {
+        state.heading_level.to_string()
+      },
+    )
+    block.attrs.set("render_inline_escape_mode", "minimal")
+  } else if state.text_kind == @core.BlockKind::ListItem {
+    block.attrs.set("ordered", "false")
+    block.attrs.set("render_inline_escape_mode", "minimal")
+  } else if state.text_kind == @core.BlockKind::Paragraph ||
+    state.text_kind == @core.BlockKind::BlockQuote {
+    block.attrs.set("render_inline_escape_mode", "minimal")
+  } else if state.text_kind == @core.BlockKind::Code {
+    block.attrs.set("info", "")
+  }
+  state.blocks.push(block)
+  state.text = StringBuilder::new()
+  state.text_has_content = false
+  state.text_start_line = 0
+  state.text_end_line = 0
+}
+
+///|
+fn html_scope_event_text(
+  text_chars : Array[Char],
+  event : @dhtml.HtmlTokenEvent,
+) -> String {
+  let start = if event.source_start < 0 { 0 } else { event.source_start }
+  let end0 = if event.source_end > text_chars.length() {
+    text_chars.length()
+  } else {
+    event.source_end
+  }
+  if end0 <= start {
+    return ""
+  }
+  @dhtml.decode_html_entities(
+    String::from_array(text_chars[start:end0].to_owned()),
+  )
+}
+
+///|
+fn html_compact_token_text(text : String) -> String {
+  let out = StringBuilder::new()
+  let mut pending_space = false
+  let mut wrote_non_space = false
+  for ch in text.to_array() {
+    if html_ascii_space_like(ch) {
+      pending_space = true
+    } else {
+      if pending_space && wrote_non_space {
+        out.write_char(' ')
       }
-      Err(_) => {
-        diagnostics.warnings.push(
-          "html scope parse skipped during block stream: " + plan.label,
-        )
-        diagnostics.degraded_features.push("html_scope_parse_skipped")
-        diagnostics.same_mode_degradation.push(
-          "html_scope_parse_skipped:" + plan.label,
-        )
-      }
+      out.write_char(ch)
+      wrote_non_space = true
+      pending_space = false
     }
   }
+  out.to_string().trim().to_owned()
+}
 
-  { blocks, metadata, assets: state.assets }
+///|
+fn html_token_skip_tag(tag : String) -> Bool {
+  tag == "script" ||
+  tag == "style" ||
+  tag == "template" ||
+  tag == "noscript" ||
+  tag == "svg" ||
+  tag == "math"
+}
+
+///|
+fn html_token_source_ref(
+  source : @input.InputSource,
+  event : @dhtml.HtmlTokenEvent,
+  html_path : String,
+) -> @core.SourceRef {
+  html_token_lines_source_ref(
+    source,
+    event.span.line_start,
+    event.span.line_end,
+    html_path,
+  )
+}
+
+///|
+fn html_token_lines_source_ref(
+  source : @input.InputSource,
+  line_start : Int,
+  line_end : Int,
+  html_path : String,
+) -> @core.SourceRef {
+  @core.source_ref_with_html_path(
+    @core.source_ref_with_lines(
+      @core.empty_source_ref(),
+      Some(source.source_name),
+      Some("html"),
+      Some(if line_start <= 0 { 1 } else { line_start }),
+      Some(if line_end <= 0 { line_start } else { line_end }),
+    ),
+    Some(source.source_name),
+    Some("html"),
+    Some(html_path),
+  )
 }
 
 ///|
@@ -468,18 +795,6 @@ fn html_dom_attr_token_contains(
 }
 
 ///|
-fn html_block_scope_plans(text : String) -> Array[HtmlScopePlan] {
-  let events = try @dhtml.tokenize_html_events(text) |> Ok catch {
-    _ => Err(())
-  }
-  match events {
-    Ok(stream) => html_block_scope_plans_from_events(text, stream)
-    Err(_) =>
-      [{ source_start: 0, source_end: text.length(), label: "document" }]
-  }
-}
-
-///|
 fn html_block_scope_plans_from_events(
   text : String,
   events : Array[@dhtml.HtmlTokenEvent],
@@ -654,21 +969,6 @@ fn html_scope_event_should_skip(event : @dhtml.HtmlTokenEvent) -> Bool {
   class_name.contains("nav") ||
   class_name.contains("menu") ||
   role_name.contains("navigation")
-}
-
-///|
-fn html_scope_slice(text : String, plan : HtmlScopePlan) -> String {
-  let start = if plan.source_start < 0 { 0 } else { plan.source_start }
-  let end0 = if plan.source_end > text.length() {
-    text.length()
-  } else {
-    plan.source_end
-  }
-  if end0 <= start {
-    ""
-  } else {
-    text[start:end0].to_owned()
-  }
 }
 
 ///|

@@ -465,15 +465,15 @@ fn parse_with_route_probe_artifact(
       } else {
         None
       }
-    Some(RouteProbeArtifact::HtmlEvents(events)) =>
+    Some(RouteProbeArtifact::HtmlEvents(normalized_text, events)) =>
       if format == @input.DetectedFormat::Html &&
         context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
-        let text = match source.text {
-          Some(value) => value
-          None => return None
-        }
         Some(
-          Ok(@fhtml.html_parse_with_token_events(source, context, text, events)),
+          Ok(
+            @fhtml.html_parse_with_token_events(
+              source, context, normalized_text, events,
+            ),
+          ),
         )
       } else {
         None

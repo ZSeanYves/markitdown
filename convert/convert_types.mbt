@@ -215,7 +215,7 @@ priv struct RouteDecision {
 ///|
 priv enum RouteProbeArtifact {
   MarkdownScan(@dmd.MarkdownDocument, @dmd.MarkdownInspectReport)
-  HtmlEvents(Array[@dhtml.HtmlTokenEvent])
+  HtmlEvents(String, Array[@dhtml.HtmlTokenEvent])
   JsonStream(@djson.JsonStreamDocument)
   XmlTokens(Array[@dxml.XmlToken])
   XlsxPackage(@ox.OoxmlPackage)

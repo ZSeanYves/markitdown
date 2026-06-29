@@ -33,13 +33,7 @@ test "markitdown tool explicit path success records source" {
   )
   assert_eq(rows.length(), 1)
   let row = rows[0]
-  let command = tool.build_command(
-    row,
-    "/tmp/out.md",
-    60,
-    @command.default_cli_output_mode(),
-    @command.default_engine_output_mode(),
-  )
+  let command = tool.build_command(row, "/tmp/out.md", 60)
   assert_eq(command.program, "/bin/sh")
   assert_true(command.args == [row.input_path, "-o", "/tmp/out.md"])
 }

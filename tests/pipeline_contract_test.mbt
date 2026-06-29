@@ -759,6 +759,8 @@ test "html large input switches to true structure event stream" {
   assert_metric_eq(parsed.diagnostics, "event_semantics", "html_block_stream")
   assert_metric_absent(parsed.diagnostics, "streaming_fallback")
   assert_metric_eq(parsed.diagnostics, "dom_limit_reached", "false")
+  assert_metric_eq(parsed.diagnostics, "html_block_stream_reparse", "false")
+  assert_metric_eq(parsed.diagnostics, "html_block_stream_token_path", "true")
   let blocks = parsed.block_stream.unwrap_or([])
   assert_true(blocks.length() > 0)
   let first = blocks[0].source_ref.unwrap_or(@core.empty_source_ref())
@@ -811,6 +813,16 @@ test "html convert contract keeps dom and event paths renderer-aligned" {
     large_parsed.diagnostics,
     "event_granularity",
     "html_token_structure",
+  )
+  assert_metric_eq(
+    large_parsed.diagnostics,
+    "html_block_stream_reparse",
+    "false",
+  )
+  assert_metric_eq(
+    large_parsed.diagnostics,
+    "html_block_stream_token_path",
+    "true",
   )
   assert_true(large_parsed.block_stream is Some(_))
   assert_metric_eq(

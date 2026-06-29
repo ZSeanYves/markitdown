@@ -1,5 +1,5 @@
 ///|
-async fn main {
+fn main {
   let status = run_bench_cli(@sys.get_cli_args())
   if status != 0 {
     @sys.exit(status)

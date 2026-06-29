@@ -141,3 +141,36 @@ test "convert provenance reports html large block streaming route fidelity" {
   assert_eq(execution.provenance.render_input_kind, "block_stream")
   assert_eq(execution.provenance.route_fidelity_status, "matched")
 }
+
+///|
+test "convert provenance keeps html block token offsets source-aligned" {
+  let text = "\u{FEFF}<html>\r\n<body>\r\n<section><h1>A &amp; B</h1>\r\n<p>First &lt; second.</p></section>\r\n</body></html>"
+  let source = @input.input_from_text_with_format(
+    text,
+    "offset.html",
+    Some(@input.DetectedFormat::Html),
+  )
+  let options = @convert.make_convert_options(
+    @convert.ConvertMode::Balanced,
+    @convert.OutputFormat::Markdown,
+    Some(@input.DetectedFormat::Html),
+    @parser.default_ocr_options(),
+    @convert.make_resource_limits(1, 50, 100000, max_line_chars=8),
+  )
+  let execution = match
+    @convert.convert_input_with_provenance(source, options) {
+    Ok(value) => value
+    Err(err) => fail("expected html offset provenance: " + err.to_string())
+  }
+  assert_eq(execution.provenance.route_plan.selected_route, "block_streaming")
+  assert_eq(
+    @parser.mode_name(execution.provenance.effective_parser_mode),
+    "block_streaming",
+  )
+  assert_eq(execution.provenance.parse_result_kind, "block_stream")
+  assert_eq(execution.provenance.pipeline_output_kind, "block_stream")
+  assert_eq(execution.provenance.render_input_kind, "block_stream")
+  assert_eq(execution.provenance.route_fidelity_status, "matched")
+  assert_true(execution.result.content.contains("# A & B"))
+  assert_true(execution.result.content.contains("First \\< second."))
+}

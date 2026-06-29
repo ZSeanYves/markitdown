@@ -331,7 +331,11 @@ fn json_append_value_events(
               next.source.byte_end,
             )
             cursor.index += 1
-            let value_text = json_stream_scalar_or_summary_text(cursor, source)
+            let value_text = json_stream_scalar_or_summary_text(
+              cursor,
+              source,
+              pointer=next.pointer,
+            )
             rows.push([key, value_text.0])
             row_refs.push(
               merge_stream_bytes_into_source_ref(key_ref, value_text.1),
@@ -431,6 +435,16 @@ fn json_stream_scalar_or_summary_text(
   source : @input.InputSource,
   pointer? : String = "/",
 ) -> (String, @core.SourceRef) {
+  json_stream_value_preview_text(cursor, source, pointer, 2)
+}
+
+///|
+fn json_stream_value_preview_text(
+  cursor : JsonStreamCursor,
+  source : @input.InputSource,
+  pointer : String,
+  preview_depth : Int,
+) -> (String, @core.SourceRef) {
   let event = cursor.events[cursor.index]
   match event.kind {
     @djson.JsonStreamEventKind::StringValue
@@ -439,7 +453,7 @@ fn json_stream_scalar_or_summary_text(
     | @djson.JsonStreamEventKind::NullValue => {
       cursor.index += 1
       (
-        json_stream_scalar_text(event),
+        json_clip_preview_text(json_stream_scalar_text(event), 96),
         json_stream_source_ref(
           source,
           pointer,
@@ -449,109 +463,10 @@ fn json_stream_scalar_or_summary_text(
         ),
       )
     }
-    @djson.JsonStreamEventKind::ObjectStart => {
-      let start = event
-      let mut depth = 0
-      let mut count = 0
-      while cursor.index < cursor.events.length() {
-        let next = cursor.events[cursor.index]
-        match next.kind {
-          @djson.JsonStreamEventKind::ObjectStart => {
-            depth += 1
-            if depth > 1 {
-              count += 1
-            }
-          }
-          @djson.JsonStreamEventKind::ObjectEnd => {
-            depth -= 1
-            if depth == 0 {
-              let end_ref = json_stream_source_ref(
-                source,
-                pointer,
-                next.source.line,
-                next.source.byte_start,
-                next.source.byte_end,
-              )
-              cursor.index += 1
-              return (
-                "{...}",
-                merge_stream_bytes_into_source_ref(
-                  json_stream_source_ref(
-                    source,
-                    pointer,
-                    start.source.line,
-                    start.source.byte_start,
-                    start.source.byte_end,
-                  ),
-                  end_ref,
-                ),
-              )
-            }
-          }
-          _ => ()
-        }
-        cursor.index += 1
-      }
-      ignore(count)
-      (
-        "{...}",
-        json_stream_source_ref(
-          source,
-          pointer,
-          start.source.line,
-          start.source.byte_start,
-          start.source.byte_end,
-        ),
-      )
-    }
-    @djson.JsonStreamEventKind::ArrayStart => {
-      let start = event
-      let mut depth = 0
-      while cursor.index < cursor.events.length() {
-        let next = cursor.events[cursor.index]
-        match next.kind {
-          @djson.JsonStreamEventKind::ArrayStart => depth += 1
-          @djson.JsonStreamEventKind::ArrayEnd => {
-            depth -= 1
-            if depth == 0 {
-              let end_ref = json_stream_source_ref(
-                source,
-                pointer,
-                next.source.line,
-                next.source.byte_start,
-                next.source.byte_end,
-              )
-              cursor.index += 1
-              return (
-                "[...]",
-                merge_stream_bytes_into_source_ref(
-                  json_stream_source_ref(
-                    source,
-                    pointer,
-                    start.source.line,
-                    start.source.byte_start,
-                    start.source.byte_end,
-                  ),
-                  end_ref,
-                ),
-              )
-            }
-          }
-          _ => ()
-        }
-        cursor.index += 1
-      }
-      (
-        "[...]",
-        json_stream_source_ref(
-          source,
-          pointer,
-          start.source.line,
-          start.source.byte_start,
-          start.source.byte_end,
-        ),
-      )
-    }
+    @djson.JsonStreamEventKind::ObjectStart =>
+      json_stream_object_preview_text(cursor, source, pointer, preview_depth)
+    @djson.JsonStreamEventKind::ArrayStart =>
+      json_stream_array_preview_text(cursor, source, pointer, preview_depth)
     _ => {
       cursor.index += 1
       (
@@ -569,6 +484,182 @@ fn json_stream_scalar_or_summary_text(
 }
 
 ///|
+fn json_stream_object_preview_text(
+  cursor : JsonStreamCursor,
+  source : @input.InputSource,
+  pointer : String,
+  preview_depth : Int,
+) -> (String, @core.SourceRef) {
+  let start = cursor.events[cursor.index]
+  let root_depth = start.depth
+  let member_depth = root_depth + 1
+  let start_ref = json_stream_source_ref(
+    source,
+    pointer,
+    start.source.line,
+    start.source.byte_start,
+    start.source.byte_end,
+  )
+  let mut end_ref = start_ref
+  let mut member_count = 0
+  let samples : Array[String] = []
+  cursor.index += 1
+  while cursor.index < cursor.events.length() {
+    let next = cursor.events[cursor.index]
+    match next.kind {
+      @djson.JsonStreamEventKind::Key =>
+        if next.depth == member_depth {
+          member_count += 1
+          let key = next.text.unwrap_or("")
+          cursor.index += 1
+          if samples.length() < json_preview_member_limit(preview_depth) &&
+            cursor.index < cursor.events.length() {
+            let value = json_stream_value_preview_text(
+              cursor,
+              source,
+              next.pointer,
+              preview_depth - 1,
+            )
+            samples.push(json_clip_preview_text(key, 48) + ": " + value.0)
+            end_ref = value.1
+          } else if cursor.index < cursor.events.length() {
+            let value = json_stream_value_preview_text(
+              cursor,
+              source,
+              next.pointer,
+              0,
+            )
+            end_ref = value.1
+          }
+          continue
+        }
+      @djson.JsonStreamEventKind::ObjectEnd =>
+        if next.depth == root_depth {
+          end_ref = json_stream_source_ref(
+            source,
+            pointer,
+            next.source.line,
+            next.source.byte_start,
+            next.source.byte_end,
+          )
+          cursor.index += 1
+          return (
+            json_object_summary_text(member_count, samples),
+            merge_stream_bytes_into_source_ref(start_ref, end_ref),
+          )
+        }
+      _ => ()
+    }
+    cursor.index += 1
+  }
+  (
+    json_object_summary_text(member_count, samples),
+    merge_stream_bytes_into_source_ref(start_ref, end_ref),
+  )
+}
+
+///|
+fn json_stream_array_preview_text(
+  cursor : JsonStreamCursor,
+  source : @input.InputSource,
+  pointer : String,
+  preview_depth : Int,
+) -> (String, @core.SourceRef) {
+  let start = cursor.events[cursor.index]
+  let root_depth = start.depth
+  let item_depth = root_depth + 1
+  let start_ref = json_stream_source_ref(
+    source,
+    pointer,
+    start.source.line,
+    start.source.byte_start,
+    start.source.byte_end,
+  )
+  let mut end_ref = start_ref
+  let mut item_count = 0
+  let sample_values : Array[String] = []
+  cursor.index += 1
+  while cursor.index < cursor.events.length() {
+    let next = cursor.events[cursor.index]
+    match next.kind {
+      @djson.JsonStreamEventKind::ArrayEnd =>
+        if next.depth == root_depth {
+          end_ref = json_stream_source_ref(
+            source,
+            pointer,
+            next.source.line,
+            next.source.byte_start,
+            next.source.byte_end,
+          )
+          cursor.index += 1
+          return (
+            json_array_summary_text(item_count, sample_values),
+            merge_stream_bytes_into_source_ref(start_ref, end_ref),
+          )
+        }
+      _ =>
+        if next.depth == item_depth {
+          item_count += 1
+          let value = json_stream_value_preview_text(
+            cursor,
+            source,
+            next.pointer,
+            if sample_values.length() < json_preview_sample_limit(preview_depth) {
+              preview_depth - 1
+            } else {
+              0
+            },
+          )
+          if sample_values.length() < json_preview_sample_limit(preview_depth) {
+            sample_values.push(value.0)
+          }
+          end_ref = value.1
+          continue
+        }
+    }
+    cursor.index += 1
+  }
+  (
+    json_array_summary_text(item_count, sample_values),
+    merge_stream_bytes_into_source_ref(start_ref, end_ref),
+  )
+}
+
+///|
+fn json_preview_member_limit(preview_depth : Int) -> Int {
+  if preview_depth <= 0 {
+    0
+  } else {
+    8
+  }
+}
+
+///|
+fn json_preview_sample_limit(preview_depth : Int) -> Int {
+  if preview_depth <= 0 {
+    0
+  } else if preview_depth == 1 {
+    16
+  } else {
+    96
+  }
+}
+
+///|
+fn json_clip_preview_text(text : String, max_chars : Int) -> String {
+  let normalized = text
+    .replace(old="\n", new=" ")
+    .replace(old="\r", new=" ")
+    .trim()
+    .to_owned()
+  if normalized.length() <= max_chars {
+    normalized
+  } else {
+    normalized[:max_chars].to_owned() + "..."
+  }
+}
+
+///|
 fn json_stream_scalar_text(event : @djson.JsonStreamEvent) -> String {
   match event.kind {
     @djson.JsonStreamEventKind::StringValue
@@ -577,6 +668,56 @@ fn json_stream_scalar_text(event : @djson.JsonStreamEvent) -> String {
     @djson.JsonStreamEventKind::NullValue => "null"
     _ => ""
   }
+}
+
+///|
+fn json_object_summary_text(
+  member_count : Int,
+  sample_keys : Array[String],
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("{ ")
+  out.write_string(member_count.to_string())
+  out.write_string(" keys")
+  if sample_keys.length() > 0 {
+    out.write_string(": ")
+    for i in 0..<sample_keys.length() {
+      if i > 0 {
+        out.write_string(", ")
+      }
+      out.write_string(sample_keys[i])
+    }
+    if member_count > sample_keys.length() {
+      out.write_string(", ...")
+    }
+  }
+  out.write_string(" }")
+  out.to_string()
+}
+
+///|
+fn json_array_summary_text(
+  item_count : Int,
+  sample_values : Array[String],
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("[ ")
+  out.write_string(item_count.to_string())
+  out.write_string(" items")
+  if sample_values.length() > 0 {
+    out.write_string(": ")
+    for i in 0..<sample_values.length() {
+      if i > 0 {
+        out.write_string(", ")
+      }
+      out.write_string(sample_values[i])
+    }
+    if item_count > sample_values.length() {
+      out.write_string(", ...")
+    }
+  }
+  out.write_string(" ]")
+  out.to_string()
 }
 
 ///|

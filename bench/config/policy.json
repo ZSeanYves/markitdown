@@ -1,6 +1,5 @@
 {
   "defaults": {
-    "output_mode": "file",
     "repeat_count": 3,
     "warmup_count": 1,
     "timeout_ms": 60000,
@@ -13,9 +12,16 @@
   },
   "gate_presets": {
     "official-internal": {
-      "scenario_ids": ["product.official_internal"],
+      "scenario_ids": [
+        "product.official_internal",
+        "diagnostic.markdown",
+        "diagnostic.html",
+        "diagnostic.xml",
+        "diagnostic.xlsx",
+        "diagnostic.epub",
+        "diagnostic.zip"
+      ],
       "tiers": ["regular", "release", "stress"],
-      "tool_set": "official-internal",
       "repeat_count": 3,
       "warmup_count": 1,
       "timeout_ms": 60000
@@ -23,7 +29,6 @@
     "official-compare": {
       "scenario_ids": ["compare.official_compare"],
       "tiers": ["regular", "release", "stress"],
-      "tool_set": "official-compare",
       "repeat_count": 3,
       "warmup_count": 1,
       "timeout_ms": 60000
@@ -31,7 +36,6 @@
     "doctor": {
       "scenario_ids": ["doctor.binary_contract"],
       "tiers": ["smoke"],
-      "tool_set": "doctor",
       "repeat_count": 20,
       "warmup_count": 5,
       "timeout_ms": 60000
@@ -45,10 +49,8 @@
       "row_selector": {
         "tiers": ["regular", "release", "stress"]
       },
-      "effective_convert_options": {},
       "route_expectation": "product_default",
-      "measurement_policy": "row_major_interleaved",
-      "diagnostic_stage_set": "none",
+      "measurement_policy": "runner_generated",
       "official_membership": "official-internal"
     },
     {
@@ -58,10 +60,8 @@
       "row_selector": {
         "tiers": ["regular", "release", "stress"]
       },
-      "effective_convert_options": {},
       "route_expectation": "product_default",
-      "measurement_policy": "row_major_interleaved",
-      "diagnostic_stage_set": "none",
+      "measurement_policy": "runner_generated",
       "official_membership": "official-compare"
     },
     {
@@ -71,49 +71,8 @@
       "row_selector": {
         "tiers": ["smoke"]
       },
-      "effective_convert_options": {},
       "route_expectation": "not_applicable",
-      "measurement_policy": "doctor_repeat",
-      "diagnostic_stage_set": "none",
-      "official_membership": "none"
-    },
-    {
-      "scenario_id": "inner_loop.detect_format",
-      "scenario_kind": "inner_loop_ref",
-      "tool_set": "official-internal",
-      "row_selector": {
-        "tiers": ["smoke"]
-      },
-      "effective_convert_options": {},
-      "route_expectation": "not_applicable",
-      "measurement_policy": "inprocess_inner_loop",
-      "diagnostic_stage_set": "none",
-      "official_membership": "none"
-    },
-    {
-      "scenario_id": "inner_loop.read_textlike",
-      "scenario_kind": "inner_loop_ref",
-      "tool_set": "official-internal",
-      "row_selector": {
-        "tiers": ["smoke"]
-      },
-      "effective_convert_options": {},
-      "route_expectation": "not_applicable",
-      "measurement_policy": "inprocess_inner_loop",
-      "diagnostic_stage_set": "none",
-      "official_membership": "none"
-    },
-    {
-      "scenario_id": "inner_loop.render_synthetic_document",
-      "scenario_kind": "inner_loop_ref",
-      "tool_set": "official-internal",
-      "row_selector": {
-        "tiers": ["smoke"]
-      },
-      "effective_convert_options": {},
-      "route_expectation": "not_applicable",
-      "measurement_policy": "inprocess_inner_loop",
-      "diagnostic_stage_set": "none",
+      "measurement_policy": "runner_generated",
       "official_membership": "none"
     },
     {
@@ -123,10 +82,8 @@
       "row_selector": {
         "formats": ["markdown"]
       },
-      "effective_convert_options": {},
       "route_expectation": "product_default",
-      "measurement_policy": "diagnostic_stage_row",
-      "diagnostic_stage_set": "markdown",
+      "measurement_policy": "runner_generated",
       "official_membership": "none"
     },
     {
@@ -136,10 +93,8 @@
       "row_selector": {
         "formats": ["html"]
       },
-      "effective_convert_options": {},
       "route_expectation": "product_default",
-      "measurement_policy": "diagnostic_stage_row",
-      "diagnostic_stage_set": "html",
+      "measurement_policy": "runner_generated",
       "official_membership": "none"
     },
     {
@@ -149,10 +104,8 @@
       "row_selector": {
         "formats": ["xml"]
       },
-      "effective_convert_options": {},
       "route_expectation": "product_default",
-      "measurement_policy": "diagnostic_stage_row",
-      "diagnostic_stage_set": "xml",
+      "measurement_policy": "runner_generated",
       "official_membership": "none"
     },
     {
@@ -162,10 +115,8 @@
       "row_selector": {
         "formats": ["xlsx"]
       },
-      "effective_convert_options": {},
       "route_expectation": "product_default",
-      "measurement_policy": "diagnostic_stage_row",
-      "diagnostic_stage_set": "xlsx",
+      "measurement_policy": "runner_generated",
       "official_membership": "none"
     },
     {
@@ -175,10 +126,8 @@
       "row_selector": {
         "formats": ["epub"]
       },
-      "effective_convert_options": {},
       "route_expectation": "product_default",
-      "measurement_policy": "diagnostic_stage_row",
-      "diagnostic_stage_set": "epub",
+      "measurement_policy": "runner_generated",
       "official_membership": "none"
     },
     {
@@ -188,10 +137,8 @@
       "row_selector": {
         "formats": ["zip"]
       },
-      "effective_convert_options": {},
       "route_expectation": "product_default",
-      "measurement_policy": "diagnostic_stage_row",
-      "diagnostic_stage_set": "zip",
+      "measurement_policy": "runner_generated",
       "official_membership": "none"
     }
   ],

@@ -9,6 +9,8 @@ The canonical architecture reference is
 - Product overview: [README.md](./README.md)
 - Architecture book:
   [docs/architecture/mb-markitdown-architecture.md](./docs/architecture/mb-markitdown-architecture.md)
+- Capability boundaries:
+  [docs/capabilities-and-limitations.md](./docs/capabilities-and-limitations.md)
 - Repo-local samples: [samples/README.md](./samples/README.md)
 - Test package notes: [tests/README.md](./tests/README.md)
 

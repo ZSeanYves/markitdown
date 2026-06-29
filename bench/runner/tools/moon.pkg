@@ -3,7 +3,6 @@ import {
   "moonbitlang/core/env",
   "moonbitlang/core/string",
   "moonbitlang/x/fs",
-  "ZSeanYves/markitdown/bench/runner/command",
   "ZSeanYves/markitdown/bench/runner/measure",
   "ZSeanYves/markitdown/bench/runner/manifest",
 }

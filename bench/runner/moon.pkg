@@ -1,5 +1,4 @@
 import {
-  "moonbitlang/async",
   "moonbitlang/x/sys",
   "ZSeanYves/markitdown/bench/runner/command",
   "ZSeanYves/markitdown/bench/runner/manifest",

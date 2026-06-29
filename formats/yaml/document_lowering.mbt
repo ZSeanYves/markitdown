@@ -645,6 +645,16 @@ fn yaml_event_value_summary(
   source : @input.InputSource,
   path : String,
 ) -> (String, @core.SourceRef) {
+  yaml_event_value_preview(cursor, source, path, 2)
+}
+
+///|
+fn yaml_event_value_preview(
+  cursor : YamlEventCursor,
+  source : @input.InputSource,
+  path : String,
+  preview_depth : Int,
+) -> (String, @core.SourceRef) {
   let event = cursor.events[cursor.index]
   match event.kind {
     @dyaml.YamlStructureEventKind::StringValue
@@ -652,7 +662,7 @@ fn yaml_event_value_summary(
     | @dyaml.YamlStructureEventKind::NullValue => {
       cursor.index += 1
       (
-        event.text.unwrap_or(""),
+        yaml_clip_preview_text(event.text.unwrap_or(""), 96),
         yaml_event_source_ref(
           source,
           path,
@@ -661,68 +671,10 @@ fn yaml_event_value_summary(
         ),
       )
     }
-    @dyaml.YamlStructureEventKind::MappingStart => {
-      let start = event.source
-      let mut depth = 0
-      while cursor.index < cursor.events.length() {
-        let next = cursor.events[cursor.index]
-        match next.kind {
-          @dyaml.YamlStructureEventKind::MappingStart => depth += 1
-          @dyaml.YamlStructureEventKind::MappingEnd => {
-            depth -= 1
-            if depth == 0 {
-              cursor.index += 1
-              return (
-                "{...}",
-                yaml_event_source_ref(
-                  source,
-                  path,
-                  start.line_start,
-                  next.source.line_end,
-                ),
-              )
-            }
-          }
-          _ => ()
-        }
-        cursor.index += 1
-      }
-      (
-        "{...}",
-        yaml_event_source_ref(source, path, start.line_start, start.line_end),
-      )
-    }
-    @dyaml.YamlStructureEventKind::SequenceStart => {
-      let start = event.source
-      let mut depth = 0
-      while cursor.index < cursor.events.length() {
-        let next = cursor.events[cursor.index]
-        match next.kind {
-          @dyaml.YamlStructureEventKind::SequenceStart => depth += 1
-          @dyaml.YamlStructureEventKind::SequenceEnd => {
-            depth -= 1
-            if depth == 0 {
-              cursor.index += 1
-              return (
-                "[...]",
-                yaml_event_source_ref(
-                  source,
-                  path,
-                  start.line_start,
-                  next.source.line_end,
-                ),
-              )
-            }
-          }
-          _ => ()
-        }
-        cursor.index += 1
-      }
-      (
-        "[...]",
-        yaml_event_source_ref(source, path, start.line_start, start.line_end),
-      )
-    }
+    @dyaml.YamlStructureEventKind::MappingStart =>
+      yaml_event_mapping_preview(cursor, source, path, preview_depth)
+    @dyaml.YamlStructureEventKind::SequenceStart =>
+      yaml_event_sequence_preview(cursor, source, path, preview_depth)
     _ => {
       cursor.index += 1
       (
@@ -736,6 +688,118 @@ fn yaml_event_value_summary(
       )
     }
   }
+}
+
+///|
+fn yaml_event_mapping_preview(
+  cursor : YamlEventCursor,
+  source : @input.InputSource,
+  path : String,
+  preview_depth : Int,
+) -> (String, @core.SourceRef) {
+  let start = cursor.events[cursor.index].source
+  let root_depth = start.depth
+  let member_depth = root_depth + 1
+  let mut member_count = 0
+  let samples : Array[String] = []
+  let mut end_line = start.line_end
+  cursor.index += 1
+  while cursor.index < cursor.events.length() {
+    let next = cursor.events[cursor.index]
+    match next.kind {
+      @dyaml.YamlStructureEventKind::Key =>
+        if next.source.depth == member_depth {
+          member_count += 1
+          let key = next.text.unwrap_or("")
+          let member_path = next.source.path
+          cursor.index += 1
+          if samples.length() < yaml_preview_member_limit(preview_depth) &&
+            cursor.index < cursor.events.length() {
+            let value = yaml_event_value_preview(
+              cursor,
+              source,
+              member_path,
+              preview_depth - 1,
+            )
+            samples.push(yaml_clip_preview_text(key, 48) + ": " + value.0)
+            end_line = value.1.line_end.unwrap_or(end_line)
+          } else if cursor.index < cursor.events.length() {
+            let value = yaml_event_value_preview(cursor, source, member_path, 0)
+            end_line = value.1.line_end.unwrap_or(end_line)
+          }
+          continue
+        }
+      @dyaml.YamlStructureEventKind::MappingEnd =>
+        if next.source.depth == root_depth {
+          end_line = next.source.line_end
+          cursor.index += 1
+          return (
+            yaml_mapping_summary_text(member_count, samples),
+            yaml_event_source_ref(source, path, start.line_start, end_line),
+          )
+        }
+      _ => ()
+    }
+    cursor.index += 1
+  }
+  (
+    yaml_mapping_summary_text(member_count, samples),
+    yaml_event_source_ref(source, path, start.line_start, end_line),
+  )
+}
+
+///|
+fn yaml_event_sequence_preview(
+  cursor : YamlEventCursor,
+  source : @input.InputSource,
+  path : String,
+  preview_depth : Int,
+) -> (String, @core.SourceRef) {
+  let start = cursor.events[cursor.index].source
+  let root_depth = start.depth
+  let item_depth = root_depth + 1
+  let mut item_count = 0
+  let sample_values : Array[String] = []
+  let mut end_line = start.line_end
+  cursor.index += 1
+  while cursor.index < cursor.events.length() {
+    let next = cursor.events[cursor.index]
+    match next.kind {
+      @dyaml.YamlStructureEventKind::SequenceEnd =>
+        if next.source.depth == root_depth {
+          end_line = next.source.line_end
+          cursor.index += 1
+          return (
+            yaml_sequence_summary_text(item_count, sample_values),
+            yaml_event_source_ref(source, path, start.line_start, end_line),
+          )
+        }
+      _ =>
+        if next.source.depth == item_depth {
+          item_count += 1
+          let value = yaml_event_value_preview(
+            cursor,
+            source,
+            next.source.path,
+            if sample_values.length() < yaml_preview_sample_limit(preview_depth) {
+              preview_depth - 1
+            } else {
+              0
+            },
+          )
+          if sample_values.length() < yaml_preview_sample_limit(preview_depth) {
+            sample_values.push(value.0)
+          }
+          end_line = value.1.line_end.unwrap_or(end_line)
+          continue
+        }
+    }
+    cursor.index += 1
+  }
+  (
+    yaml_sequence_summary_text(item_count, sample_values),
+    yaml_event_source_ref(source, path, start.line_start, end_line),
+  )
 }
 
 ///|
@@ -787,6 +851,90 @@ fn yaml_collect_mapping_row(
     }
   }
   None
+}
+
+///|
+fn yaml_mapping_summary_text(
+  member_count : Int,
+  samples : Array[String],
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("{ ")
+  out.write_string(member_count.to_string())
+  out.write_string(" keys")
+  if samples.length() > 0 {
+    out.write_string(": ")
+    for i in 0..<samples.length() {
+      if i > 0 {
+        out.write_string(", ")
+      }
+      out.write_string(samples[i])
+    }
+    if member_count > samples.length() {
+      out.write_string(", ...")
+    }
+  }
+  out.write_string(" }")
+  out.to_string()
+}
+
+///|
+fn yaml_sequence_summary_text(
+  item_count : Int,
+  sample_values : Array[String],
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("[ ")
+  out.write_string(item_count.to_string())
+  out.write_string(" items")
+  if sample_values.length() > 0 {
+    out.write_string(": ")
+    for i in 0..<sample_values.length() {
+      if i > 0 {
+        out.write_string(", ")
+      }
+      out.write_string(sample_values[i])
+    }
+    if item_count > sample_values.length() {
+      out.write_string(", ...")
+    }
+  }
+  out.write_string(" ]")
+  out.to_string()
+}
+
+///|
+fn yaml_preview_member_limit(preview_depth : Int) -> Int {
+  if preview_depth <= 0 {
+    0
+  } else {
+    8
+  }
+}
+
+///|
+fn yaml_preview_sample_limit(preview_depth : Int) -> Int {
+  if preview_depth <= 0 {
+    0
+  } else if preview_depth == 1 {
+    16
+  } else {
+    96
+  }
+}
+
+///|
+fn yaml_clip_preview_text(text : String, max_chars : Int) -> String {
+  let normalized = text
+    .replace(old="\n", new=" ")
+    .replace(old="\r", new=" ")
+    .trim()
+    .to_owned()
+  if normalized.length() <= max_chars {
+    normalized
+  } else {
+    normalized[:max_chars].to_owned() + "..."
+  }
 }
 
 ///|

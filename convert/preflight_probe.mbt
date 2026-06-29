@@ -536,12 +536,13 @@ fn html_preflight_probe(
         artifact=None,
       )
   }
+  let normalized_text = @dhtml.normalize_html_token_source(text)
   let scanned = try @dhtml.tokenize_html_events(text) |> Ok catch {
     _ => Err(())
   }
   let route = match scanned {
     Ok(events) => {
-      let probe = html_probe_summary_from_events(text, events)
+      let probe = html_probe_summary_from_events(normalized_text, events)
       if probe_limit_reached(probe.node_count, options.limits.max_cells) ||
         probe_limit_reached(probe.token_count, options.limits.max_cells) ||
         probe_limit_reached(probe.block_scope_count, options.limits.max_rows) ||
@@ -565,7 +566,7 @@ fn html_preflight_probe(
   }
   let parts = match scanned {
     Ok(events) => {
-      let probe = html_probe_summary_from_events(text, events)
+      let probe = html_probe_summary_from_events(normalized_text, events)
       [
         "nodes=" +
         probe.node_count.to_string() +
@@ -605,7 +606,7 @@ fn html_preflight_probe(
     prepared_source,
     artifact=match scanned {
       Ok(events) if route == CanonicalRoute::BlockStreaming =>
-        Some(RouteProbeArtifact::HtmlEvents(events))
+        Some(RouteProbeArtifact::HtmlEvents(normalized_text, events))
       _ => None
     },
   )

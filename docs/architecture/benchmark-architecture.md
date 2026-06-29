@@ -67,10 +67,11 @@ scenario x row x tool
 当前内建诊断 / 参考 scenario：
 
 - `diagnostic.markdown`
+- `diagnostic.html`
+- `diagnostic.xml`
+- `diagnostic.xlsx`
+- `diagnostic.epub`
 - `diagnostic.zip`
-- `inner_loop.detect_format`
-- `inner_loop.read_textlike`
-- `inner_loop.render_synthetic_document`
 
 ## 4. Route Fidelity Contract
 
@@ -97,6 +98,8 @@ scenario x row x tool
 - `route_fidelity_status`
 
 MoonBit 正式 benchmark 行若缺少这些字段，不是 warning，而是 trust failure。
+同样，若 `route_fidelity_status != matched`，或 `expected_route != actual_route`，
+也必须直接视为 trust failure。
 
 ## 5. Measurement Rules
 
@@ -134,6 +137,8 @@ MoonBit 正式 benchmark 行若缺少这些字段，不是 warning，而是 trus
 - `trust_status`
 - gate summary
 - route coverage summary
+- truth summary
+- per-scenario summary
 - baseline diff（如提供）
 
 ## 7. Official Views

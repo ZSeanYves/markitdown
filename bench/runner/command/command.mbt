@@ -1,236 +1,35 @@
 ///|
-pub struct RunRequest {
-  tool_name : String
-  tier : String
-  exact_tiers : Array[String]
-  bench_ids : Array[String]
-  format_filters : Array[String]
-  limit : Int?
-  repeat_count : Int
-  warmup_count : Int
-  timeout_ms : Int
-  markitdown_path : String?
-  cli_output_mode : CliOutputMode
-  engine_output_mode : EngineOutputMode
-  run_id : String
-  git_commit : String
-  runner : RunnerContext
+pub struct RunnerContext {
+  runner_mode : String
+  canonical_performance : Bool
+  runner_path : String?
 } derive(Eq)
 
 ///|
-pub struct CompareRequest {
-  tier : String
-  exact_tiers : Array[String]
-  bench_ids : Array[String]
-  format_filters : Array[String]
-  limit : Int?
-  repeat_count : Int
-  warmup_count : Int
-  timeout_ms : Int
-  markitdown_path : String?
-  cli_output_mode : CliOutputMode
-  engine_output_mode : EngineOutputMode
-  run_id : String
-  git_commit : String
-  runner : RunnerContext
-} derive(Eq)
-
-///|
-pub struct ProfileRequest {
-  profile_kind : String
-  exact_tiers : Array[String]
-  bench_ids : Array[String]
-  formats : Array[String]
-  run_id : String
-  git_commit : String
-  runner : RunnerContext
-} derive(Eq)
-
-///|
-pub struct DiagnoseRequest {
-  repeat_count : Int
-  warmup_count : Int
-  timeout_ms : Int
-  cli_output_mode : CliOutputMode
-  engine_output_mode : EngineOutputMode
-  run_id : String
-  git_commit : String
-  runner : RunnerContext
-} derive(Eq)
-
-///|
-pub enum CliOutputMode {
-  File
-  StdoutCapture
-} derive(Eq)
-
-///|
-pub enum EngineOutputMode {
-  File
-  Memory
-  None
-} derive(Eq)
-
-///|
-pub fn default_cli_output_mode() -> CliOutputMode {
-  CliOutputMode::File
+pub fn default_runner_context() -> RunnerContext {
+  make_runner_context("unknown", None)
 }
 
 ///|
-pub fn default_engine_output_mode() -> EngineOutputMode {
-  EngineOutputMode::File
-}
-
-///|
-pub fn cli_output_mode_name(mode : CliOutputMode) -> String {
-  match mode {
-    CliOutputMode::File => "file"
-    CliOutputMode::StdoutCapture => "stdout_capture"
-  }
-}
-
-///|
-pub fn engine_output_mode_name(mode : EngineOutputMode) -> String {
-  match mode {
-    EngineOutputMode::File => "file"
-    EngineOutputMode::Memory => "memory"
-    EngineOutputMode::None => "none"
-  }
-}
-
-///|
-pub fn parse_cli_output_mode(text : String) -> CliOutputMode raise {
-  match text.trim().to_lower() {
-    "file" => CliOutputMode::File
-    "stdout_capture" => CliOutputMode::StdoutCapture
-    value =>
-      raise @manifest.InvalidArgument(
-        "unsupported --cli-output-mode value: " +
-        value.to_owned() +
-        " (expected file|stdout_capture)",
-      )
-  }
-}
-
-///|
-pub fn parse_engine_output_mode(text : String) -> EngineOutputMode raise {
-  match text.trim().to_lower() {
-    "file" => EngineOutputMode::File
-    "memory" => EngineOutputMode::Memory
-    "none" => EngineOutputMode::None
-    value =>
-      raise @manifest.InvalidArgument(
-        "unsupported --engine-output-mode value: " +
-        value.to_owned() +
-        " (expected file|memory|none)",
-      )
-  }
-}
-
-///|
-pub fn make_run_request(
-  tool_name : String,
-  tier : String,
-  exact_tiers : Array[String],
-  bench_ids : Array[String],
-  format_filters : Array[String],
-  limit : Int?,
-  repeat_count : Int,
-  warmup_count : Int,
-  timeout_ms : Int,
-  markitdown_path : String?,
-  cli_output_mode : CliOutputMode,
-  engine_output_mode : EngineOutputMode,
-  run_id : String,
-  git_commit : String,
-  runner : RunnerContext,
-) -> RunRequest {
+pub fn make_runner_context(
+  runner_mode : String,
+  runner_path : String?,
+) -> RunnerContext {
+  let normalized_mode = normalize_runner_mode(runner_mode)
   {
-    tool_name,
-    tier,
-    exact_tiers,
-    bench_ids,
-    format_filters,
-    limit,
-    repeat_count,
-    warmup_count,
-    timeout_ms,
-    markitdown_path,
-    cli_output_mode,
-    engine_output_mode,
-    run_id,
-    git_commit,
-    runner,
+    runner_mode: normalized_mode,
+    canonical_performance: normalized_mode == "release",
+    runner_path,
   }
 }
 
 ///|
-pub fn make_diagnose_request(
-  repeat_count : Int,
-  warmup_count : Int,
-  timeout_ms : Int,
-  cli_output_mode : CliOutputMode,
-  engine_output_mode : EngineOutputMode,
-  run_id : String,
-  git_commit : String,
-  runner : RunnerContext,
-) -> DiagnoseRequest {
-  {
-    repeat_count,
-    warmup_count,
-    timeout_ms,
-    cli_output_mode,
-    engine_output_mode,
-    run_id,
-    git_commit,
-    runner,
-  }
-}
-
-///|
-pub fn make_profile_request(
-  profile_kind : String,
-  exact_tiers : Array[String],
-  bench_ids : Array[String],
-  formats : Array[String],
-  run_id : String,
-  git_commit : String,
-  runner : RunnerContext,
-) -> ProfileRequest {
-  { profile_kind, exact_tiers, bench_ids, formats, run_id, git_commit, runner }
-}
-
-///|
-pub fn make_compare_request(
-  tier : String,
-  exact_tiers : Array[String],
-  bench_ids : Array[String],
-  format_filters : Array[String],
-  limit : Int?,
-  repeat_count : Int,
-  warmup_count : Int,
-  timeout_ms : Int,
-  markitdown_path : String?,
-  cli_output_mode : CliOutputMode,
-  engine_output_mode : EngineOutputMode,
-  run_id : String,
-  git_commit : String,
-  runner : RunnerContext,
-) -> CompareRequest {
-  {
-    tier,
-    exact_tiers,
-    bench_ids,
-    format_filters,
-    limit,
-    repeat_count,
-    warmup_count,
-    timeout_ms,
-    markitdown_path,
-    cli_output_mode,
-    engine_output_mode,
-    run_id,
-    git_commit,
-    runner,
+fn normalize_runner_mode(mode : String) -> String {
+  let normalized = mode.trim().to_owned()
+  match normalized {
+    "release" => "release"
+    "dev_moon_run" => "dev_moon_run"
+    "unknown" => "unknown"
+    _ => "unknown"
   }
 }

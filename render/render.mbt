@@ -692,6 +692,15 @@ fn render_markdown_image(block : @core.CoreBlock) -> String {
 ///|
 fn safe_markdown_table_cell(text : String) -> String {
   let out = StringBuilder::new()
+  write_safe_markdown_table_cell_to(out, text)
+  out.to_string().trim().to_owned()
+}
+
+///|
+fn write_safe_markdown_table_cell_to(
+  out : StringBuilder,
+  text : String,
+) -> Unit {
   let mut pending_spaces = StringBuilder::new()
   let mut skip_leading_spaces_after_break = false
   for ch in text.to_array() {
@@ -726,7 +735,6 @@ fn safe_markdown_table_cell(text : String) -> String {
   if pending != "" {
     out.write_string(pending)
   }
-  out.to_string().trim().to_owned()
 }
 
 ///|
@@ -1311,74 +1319,86 @@ fn render_markdown_events(events : Array[@core.CoreEvent]) -> String {
   if events.length() == 0 {
     return ""
   }
+  let out = StringBuilder::new()
   if generic_block_event_stream(events) {
-    return render_markdown_generic_block_events_direct(events)
+    write_markdown_generic_block_events_direct_to(out, events)
+    return out.to_string()
   }
   if events[0].kind == @core.EventKind::TextLine ||
     events[0].kind == @core.EventKind::BlankLine {
-    return render_markdown_line_events(events)
+    write_markdown_line_events_to(out, events)
+    return out.to_string()
   }
   if event_stream_contains_table_rows(events) {
-    return render_markdown_mixed_table_events(events)
+    write_markdown_mixed_table_events_to(out, events)
+    return out.to_string()
   }
-  render_markdown_generic_events(events)
+  write_markdown_generic_events_to(out, events)
+  out.to_string()
 }
 
 ///|
-fn render_markdown_line_events(events : Array[@core.CoreEvent]) -> String {
-  let out = StringBuilder::new()
+fn write_markdown_line_events_to(
+  out : StringBuilder,
+  events : Array[@core.CoreEvent],
+) -> Unit {
   let current_lines : Array[String] = []
   let mut wrote_paragraph = false
-  fn flush_paragraph(
-    out : StringBuilder,
-    current_lines : Array[String],
-    wrote_paragraph : Bool,
-  ) -> Bool {
-    if current_lines.length() == 0 {
-      return wrote_paragraph
-    }
-    if wrote_paragraph {
-      out.write_char('\n')
-      out.write_char('\n')
-    }
-    for index in 0..<current_lines.length() {
-      if index > 0 {
-        out.write_char(' ')
-      }
-      out.write_string(escape_markdown_inline_text(current_lines[index]))
-    }
-    current_lines.clear()
-    true
-  }
   for event in events {
     match event.kind {
       @core.EventKind::TextLine =>
         current_lines.push(event.text.trim().to_owned())
       @core.EventKind::BlankLine =>
-        wrote_paragraph = flush_paragraph(out, current_lines, wrote_paragraph)
+        wrote_paragraph = write_markdown_line_paragraph_to(
+          out, current_lines, wrote_paragraph,
+        )
       @core.EventKind::StartBlock(_) | @core.EventKind::EndBlock(_) => {
-        wrote_paragraph = flush_paragraph(out, current_lines, wrote_paragraph)
-        let rendered = render_markdown_generic_events([event])
-        if rendered.trim() != "" {
+        wrote_paragraph = write_markdown_line_paragraph_to(
+          out, current_lines, wrote_paragraph,
+        )
+        if markdown_generic_event_visible(event) {
           if wrote_paragraph {
             out.write_char('\n')
             out.write_char('\n')
           }
-          out.write_string(rendered)
+          write_markdown_generic_event_to(out, event)
           wrote_paragraph = true
         }
       }
       _ => ()
     }
   }
-  ignore(flush_paragraph(out, current_lines, wrote_paragraph))
-  out.to_string()
+  ignore(write_markdown_line_paragraph_to(out, current_lines, wrote_paragraph))
 }
 
 ///|
-fn render_markdown_simple_table_events(
+fn write_markdown_line_paragraph_to(
+  out : StringBuilder,
+  current_lines : Array[String],
+  wrote_paragraph : Bool,
+) -> Bool {
+  if current_lines.length() == 0 {
+    return wrote_paragraph
+  }
+  if wrote_paragraph {
+    out.write_char('\n')
+    out.write_char('\n')
+  }
+  for index in 0..<current_lines.length() {
+    if index > 0 {
+      out.write_char(' ')
+    }
+    write_escaped_markdown_inline_text_to(out, current_lines[index])
+  }
+  current_lines.clear()
+  true
+}
+
+///|
+fn write_markdown_simple_table_events_to(
+  out : StringBuilder,
   events : Array[@core.CoreEvent],
-) -> String {
+) -> Bool {
   let rows : Array[Array[String]] = []
   let current_row : Array[String] = []
   for event in events {
@@ -1396,13 +1416,12 @@ fn render_markdown_simple_table_events(
     rows.push(current_row.copy())
   }
   if rows.length() == 0 {
-    return render_markdown_generic_events(events)
+    return false
   }
   let width = widest_event_row_width(rows)
   if width == 0 {
-    return render_markdown_generic_events(events)
+    return false
   }
-  let out = StringBuilder::new()
   write_markdown_table_row_from_values(out, rows[0], width)
   out.write_char('\n')
   write_markdown_table_separator(out, width)
@@ -1410,13 +1429,14 @@ fn render_markdown_simple_table_events(
     out.write_char('\n')
     write_markdown_table_row_from_values(out, rows[i], width)
   }
-  out.to_string()
+  true
 }
 
 ///|
-fn render_markdown_mixed_table_events(
+fn write_markdown_mixed_table_events_to(
+  out : StringBuilder,
   events : Array[@core.CoreEvent],
-) -> String {
+) -> Unit {
   let table_events : Array[@core.CoreEvent] = []
   let generic_events : Array[@core.CoreEvent] = []
   let mut in_generic_tail = false
@@ -1432,16 +1452,15 @@ fn render_markdown_mixed_table_events(
       generic_events.push(event)
     }
   }
-  let parts : Array[String] = []
-  let table_part = render_markdown_simple_table_events(table_events)
-  if table_part.trim() != "" {
-    parts.push(table_part)
+  let wrote_table = write_markdown_simple_table_events_to(out, table_events)
+  let wrote_generic = markdown_generic_events_visible(generic_events)
+  if wrote_table && wrote_generic {
+    out.write_char('\n')
+    out.write_char('\n')
   }
-  let generic_part = render_markdown_generic_events(generic_events)
-  if generic_part.trim() != "" {
-    parts.push(generic_part)
+  if wrote_generic {
+    write_markdown_generic_events_to(out, generic_events)
   }
-  parts.join("\n\n")
 }
 
 ///|
@@ -1482,11 +1501,11 @@ fn generic_blocks_from_events(
 }
 
 ///|
-fn render_markdown_generic_block_events_direct(
+fn write_markdown_generic_block_events_direct_to(
+  out : StringBuilder,
   events : Array[@core.CoreEvent],
-) -> String {
+) -> Unit {
   let cursor = { events, index: 0 }
-  let out = StringBuilder::new()
   let mut prev_kind : @core.BlockKind? = None
   let mut wrote_any = false
   while cursor.index < cursor.events.length() {
@@ -1503,7 +1522,6 @@ fn render_markdown_generic_block_events_direct(
       None => cursor.index += 1
     }
   }
-  out.to_string()
 }
 
 ///|
@@ -1695,46 +1713,86 @@ fn write_markdown_table_row_from_values(
   out.write_string("|")
   for col in 0..<width {
     let value = if col < row.length() { row[col] } else { "" }
-    out.write_string(" " + safe_markdown_table_cell(value) + " |")
+    out.write_char(' ')
+    write_safe_markdown_table_cell_to(out, value)
+    out.write_string(" |")
   }
 }
 
 ///|
-fn render_markdown_generic_events(events : Array[@core.CoreEvent]) -> String {
-  let chunks : Array[String] = []
+fn write_markdown_generic_events_to(
+  out : StringBuilder,
+  events : Array[@core.CoreEvent],
+) -> Unit {
+  let mut wrote_any = false
   for event in events {
-    match event.kind {
-      @core.EventKind::StartBlock(@core.BlockKind::Code) => {
-        let code = @core.make_block(
-          @core.BlockKind::Code,
-          event.text,
-          source_ref=event.source_ref.unwrap_or(@core.empty_source_ref()),
-        )
-        match event.source_ref {
-          Some(source_ref) =>
-            match source_ref.extra.get("ir_block_attr_info") {
-              Some(info) => code.attrs.set("info", info)
-              None => ()
-            }
-          None => ()
-        }
-        chunks.push(render_markdown_code(code))
-      }
-      @core.EventKind::StartBlock(@core.BlockKind::Raw) => {
-        let raw = @core.make_block(
-          @core.BlockKind::Raw,
-          event.text,
-          source_ref=event.source_ref.unwrap_or(@core.empty_source_ref()),
-        )
-        raw.attrs.set("raw_kind", "text")
-        chunks.push(render_markdown_raw(raw))
-      }
-      @core.EventKind::Text =>
-        chunks.push(escape_markdown_inline_text(event.text))
-      _ => ()
+    if !markdown_generic_event_visible(event) {
+      continue
+    }
+    if wrote_any {
+      out.write_char('\n')
+      out.write_char('\n')
+    }
+    write_markdown_generic_event_to(out, event)
+    wrote_any = true
+  }
+}
+
+///|
+fn markdown_generic_events_visible(events : Array[@core.CoreEvent]) -> Bool {
+  for event in events {
+    if markdown_generic_event_visible(event) {
+      return true
     }
   }
-  chunks.join("\n\n")
+  false
+}
+
+///|
+fn markdown_generic_event_visible(event : @core.CoreEvent) -> Bool {
+  match event.kind {
+    @core.EventKind::StartBlock(@core.BlockKind::Code)
+    | @core.EventKind::StartBlock(@core.BlockKind::Raw)
+    | @core.EventKind::Text => event.text.trim() != ""
+    _ => false
+  }
+}
+
+///|
+fn write_markdown_generic_event_to(
+  out : StringBuilder,
+  event : @core.CoreEvent,
+) -> Unit {
+  match event.kind {
+    @core.EventKind::StartBlock(@core.BlockKind::Code) => {
+      let code = @core.make_block(
+        @core.BlockKind::Code,
+        event.text,
+        source_ref=event.source_ref.unwrap_or(@core.empty_source_ref()),
+      )
+      match event.source_ref {
+        Some(source_ref) =>
+          match source_ref.extra.get("ir_block_attr_info") {
+            Some(info) => code.attrs.set("info", info)
+            None => ()
+          }
+        None => ()
+      }
+      write_markdown_code_to(out, code)
+    }
+    @core.EventKind::StartBlock(@core.BlockKind::Raw) => {
+      let raw = @core.make_block(
+        @core.BlockKind::Raw,
+        event.text,
+        source_ref=event.source_ref.unwrap_or(@core.empty_source_ref()),
+      )
+      raw.attrs.set("raw_kind", "text")
+      out.write_string(render_markdown_raw(raw))
+    }
+    @core.EventKind::Text =>
+      write_escaped_markdown_inline_text_to(out, event.text)
+    _ => ()
+  }
 }
 
 ///|
