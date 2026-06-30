@@ -5,6 +5,7 @@ import {
   "ZSeanYves/markitdown/formats/json" @fjson,
   "ZSeanYves/markitdown/formats/markdown" @fmarkdown,
   "ZSeanYves/markitdown/formats/ocr" @focr,
+  "ZSeanYves/markitdown/formats/pdf" @fpdf,
   "ZSeanYves/markitdown/formats/xml" @fxml,
   "ZSeanYves/markitdown/formats/yaml" @fyaml,
   "ZSeanYves/markitdown/format_readers/html" @dhtml,

@@ -23,10 +23,11 @@
 - Markdown 结果回归
 - RAG 结果回归
 - Assets 结果回归
+- 显式 OCR lane 回归
 
 支持格式：
 
-`txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, pdf`
+`txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, pdf, ocr`
 
 常用命令：
 
@@ -42,7 +43,8 @@
 
 目录约定：
 
-- `samples/main_process/<format>/markdown/`：输入样本
+- `samples/main_process/<format>/markdown/`：默认产品路径输入样本
+- `samples/main_process/pdf/ocr/`：需要显式 `--ocr` 的 PDF OCR 输入样本
 - `samples/main_process/<format>/expected/`：Markdown 期望结果
 - `samples/main_process/<format>/rag/`：RAG 期望结果
 - `samples/main_process/<format>/assets/`：轻量资源输出期望
@@ -59,6 +61,8 @@
 
 - 这套回归只测产品默认路径。
 - 不支持的格式在这里会直接 fail closed，不会偷偷切换到其它路线。
+- `ocr` gate 覆盖正式支持的直接图片 OCR 输入：`png/jpg/jpeg/bmp/webp/tif/tiff`。
+- `pdf/ocr` lane 覆盖显式 `pdf --ocr` 产品路径，不改变默认 `pdf` native-text gate。
 - `workspace/` 只是临时工作目录，不作为主要排查入口。
 
 ## 质量回归

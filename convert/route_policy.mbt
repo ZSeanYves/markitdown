@@ -122,6 +122,19 @@ fn route_reason_for_format(
   if options.mode == ConvertMode::Stream {
     return "explicit_stream_mode"
   }
+  if format == @input.DetectedFormat::Pdf {
+    if route == CanonicalRoute::LayoutTwoStage &&
+      options.ocr_options.intent == @parser.OcrIntent::Explicit {
+      return "pdf_explicit_ocr_layout_two_stage"
+    }
+    if route == CanonicalRoute::LayoutTwoStage &&
+      options.mode == ConvertMode::Accurate {
+      return "pdf_accurate_layout_two_stage"
+    }
+    if route == CanonicalRoute::PageSinglePass {
+      return "pdf_canonical_page_single_pass"
+    }
+  }
   @input.detected_format_name(format) +
   "_canonical_" +
   canonical_route_name(route)

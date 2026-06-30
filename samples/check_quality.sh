@@ -14,7 +14,7 @@ fi
 
 usage() {
   cat <<'EOF'
-Usage: ./samples/check_quality.sh [--format FORMAT] [--help]
+Usage: ./samples/check_quality.sh [--format FORMAT] [--id ROW_ID] [--source SOURCE_ID] [--help]
 
 Run the external quality validation entrypoint.
 
@@ -33,6 +33,7 @@ Default behavior:
 Examples:
   ./samples/check_quality.sh
   ./samples/check_quality.sh --format pdf
+  ./samples/check_quality.sh --format pdf --source markitdown_repo_pdf_samples
 
 If the external quality corpus is not present, clone it with:
   git clone git@github.com:ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab
@@ -122,6 +123,7 @@ runner_from_log() {
 }
 
 FILTER_FORMAT=""
+declare -a EXTRA_RUNNER_ARGS=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -133,6 +135,19 @@ while [[ $# -gt 0 ]]; do
       }
       FILTER_FORMAT="$2"
       shift 2
+      ;;
+    --id|--source|--cli-arg)
+      [[ $# -ge 2 ]] || {
+        echo "missing value for $1" >&2
+        usage >&2
+        exit 1
+      }
+      EXTRA_RUNNER_ARGS+=("$1" "$2")
+      shift 2
+      ;;
+    --list|--profile|--no-metadata|--with-metadata)
+      EXTRA_RUNNER_ARGS+=("$1")
+      shift
       ;;
     -h|--help)
       usage
@@ -185,6 +200,9 @@ declare -a runner_args=(
 )
 if [[ -n "$FILTER_FORMAT" ]]; then
   runner_args+=(--format "$FILTER_FORMAT")
+fi
+if ((${#EXTRA_RUNNER_ARGS[@]} > 0)); then
+  runner_args+=("${EXTRA_RUNNER_ARGS[@]}")
 fi
 
 mkdir -p "$LOG_DIR" "$DIFF_DIR" "$WORKSPACE_DIR" "$RAW_DIR" "$REPORTS_DIR"

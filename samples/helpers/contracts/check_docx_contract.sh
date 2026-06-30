@@ -107,7 +107,7 @@ assert_all_not_contains 'dispatcher' "${DOCX_RUNTIME_SOURCES[@]}"
 echo "==> help keeps docx exposed and unsupported formats fail closed"
 run_and_capture "$DOCX_HELP" run_markitdown_cli --help
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "--help should succeed"
-assert_contains "$DOCX_HELP" "Supported product formats: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, yml, html, htm, markdown, md, zip, epub, docx, xlsx, pptx, pdf"
+assert_contains "$DOCX_HELP" "Supported product formats: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, yml, html, htm, markdown, md, zip, epub, docx, xlsx, pptx, pdf, png, jpg, jpeg, bmp, webp, tif, tiff"
 
 echo "==> main cli docx markdown output stays renderer-owned and root-pipeline native"
 run_markitdown_cli normal "$DOCX_INPUT" "$DOCX_OUT"

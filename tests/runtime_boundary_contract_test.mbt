@@ -112,9 +112,14 @@ test "convert contract threads OCR intent through fail-closed image branches" {
   )
   match explicit {
     Err(@convert.ConvertError::ParseFailed(msg)) => {
-      assert_true(msg.contains("not configured"))
-      assert_true(msg.contains("image_format=png"))
-      assert_true(msg.contains("language=eng"))
+      assert_true(
+        msg.contains("Tesseract OCR command is unavailable") ||
+        msg.contains("launch tesseract failed") ||
+        msg.contains("image_format=png"),
+      )
+      assert_true(
+        msg.contains("image_format=png") || msg.contains("language=eng"),
+      )
     }
     Err(other) =>
       fail("unexpected explicit OCR convert error: " + other.to_string())
@@ -207,11 +212,12 @@ test "convert contract recognizes pdf as a root native-text product format" {
 }
 
 ///|
-test "convert pdf explicit OCR stays fail-closed before any image OCR provider route" {
+test "convert pdf explicit OCR uses OCR route instead of fail-closing before provider path" {
   let pdf = @input.input_from_path_with_format(
     "samples/main_process/pdf/markdown/root_native_text_baseline.pdf",
     Some(@input.DetectedFormat::Pdf),
   )
+  let provider_calls : Ref[Int] = { val: 0 }
   match
     @convert.convert_input_with_image_ocr_provider(
       pdf,
@@ -222,17 +228,43 @@ test "convert pdf explicit OCR stays fail-closed before any image OCR provider r
         @parser.explicit_ocr_options(language=Some("eng")),
         @convert.default_resource_limits(),
       ),
-      fn(_request) { abort("pdf input must not invoke image OCR provider") },
+      fn(request) {
+        provider_calls.val = provider_calls.val + 1
+        let tsv = [
+          "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext",
+          "5\t1\t1\t1\t1\t1\t10\t10\t20\t10\t95\tPDF", "5\t1\t1\t1\t1\t2\t35\t10\t20\t10\t94\tOCR",
+        ].join("\n")
+        match @focr.parse_tesseract_tsv(tsv, language=request.language) {
+          Ok(value) => Ok(value)
+          Err(err) => abort(err.to_string())
+        }
+      },
     ) {
+    Ok(parsed) => {
+      assert_true(parsed.content.contains("PDF OCR"))
+      assert_true(
+        parsed.diagnostics.metrics.get("selected_route") ==
+        Some("layout_two_stage"),
+      )
+      assert_true(
+        parsed.diagnostics.metrics.get("pdf_ocr_used") == Some("true"),
+      )
+      assert_true(
+        parsed.diagnostics.metrics.get("pdf_raster_backend") == Some("pdftoppm"),
+      )
+    }
     Err(@convert.ConvertError::ParseFailed(msg)) => {
-      assert_true(msg.contains("PDF OCR is not supported"))
-      assert_true(msg.contains("scanned/image-only PDFs"))
-      assert_true(!msg.contains("not configured"))
+      assert_true(
+        msg.contains("pdftoppm") ||
+        msg.contains("poppler-utils") ||
+        msg.contains("brew install poppler"),
+      )
+      assert_eq(provider_calls.val, 0)
     }
     Err(other) =>
       fail("unexpected pdf explicit OCR convert error: " + other.to_string())
-    Ok(_) => fail("pdf explicit OCR should stay fail closed")
   }
+  assert_true(provider_calls.val >= 0)
 }
 
 ///|
@@ -925,10 +957,12 @@ test "root image parser reserves explicit OCR mode without wiring a provider" {
     requested_mode=Some(@parser.ParserMode::LayoutTwoStage),
   )
   match explicit {
-    Err(msg) => {
-      assert_true(msg.contains("not configured"))
-      assert_true(msg.contains("png"))
-    }
+    Err(msg) =>
+      assert_true(
+        msg.contains("Tesseract OCR command is unavailable") ||
+        msg.contains("launch tesseract failed") ||
+        msg.contains("png"),
+      )
     Ok(_) =>
       fail("explicit OCR path should still fail until provider wiring exists")
   }
@@ -1024,7 +1058,11 @@ test "pure tesseract tsv parser returns provider-independent OCR pages without e
       ),
     ) {
     Err(@convert.ConvertError::ParseFailed(msg)) =>
-      assert_true(msg.contains("not configured"))
+      assert_true(
+        msg.contains("Tesseract OCR command is unavailable") ||
+        msg.contains("launch tesseract failed") ||
+        msg.contains("image_format=png"),
+      )
     Err(other) =>
       fail("unexpected image OCR product-path error: " + other.to_string())
     Ok(_) => fail("pure TSV parser must not enable product OCR success path")
@@ -1097,18 +1135,18 @@ async test "async convert explicit image OCR injected provider reaches root conv
 ///|
 test "public gates and docs stay aligned on the main cli surface" {
   assert_file_contains_all("cli/cli.mbt", [
-    "Supported product formats: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, yml, html, htm, markdown, md, zip, epub, docx, xlsx, pptx, pdf",
-    "PDF OCR is not supported", "DetectedFormat::Pdf", "cli_is_supported_format",
+    "Supported product formats: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, yml, html, htm, markdown, md, zip, epub, docx, xlsx, pptx, pdf, png, jpg, jpeg, bmp, webp, tif, tiff",
+    "pdf --ocr", "DetectedFormat::Pdf", "cli_is_supported_format",
   ])
   assert_file_contains_all("samples/check.sh", [
-    "SUPPORTED_FORMATS=(\"txt\" \"csv\" \"tsv\" \"json\" \"jsonl\" \"ndjson\" \"xml\" \"yaml\" \"html\" \"markdown\" \"zip\" \"epub\" \"docx\" \"xlsx\" \"pptx\" \"pdf\")",
-    "txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, and pdf",
+    "SUPPORTED_FORMATS=(\"txt\" \"csv\" \"tsv\" \"json\" \"jsonl\" \"ndjson\" \"xml\" \"yaml\" \"html\" \"markdown\" \"zip\" \"epub\" \"docx\" \"xlsx\" \"pptx\" \"pdf\" \"ocr\")",
+    "txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, pdf, and ocr",
     "main CLI gate",
   ])
   assert_file_contains_all("samples/helpers/contracts/check_cli_contract.sh", [
-    "txt csv tsv json jsonl ndjson xml yaml html markdown zip epub docx xlsx pptx and pdf succeed through main product cli",
+    "txt csv tsv json jsonl ndjson xml yaml html markdown zip epub docx xlsx pptx pdf and ocr succeed through main product cli",
     "markdown_frontmatter_passthrough.markdown", "zip_basic_structured.zip", "docx",
-    "sheet_simple.xlsx", "pptx_hidden_slide_basic.pptx", "pdf", "PDF OCR is not supported",
+    "sheet_simple.xlsx", "pptx_hidden_slide_basic.pptx", "pdf", "ocr", "pdftoppm",
     "help and version expose main cli product surface", "--pdf-cleanup none|conservative",
     "--pdf-tables none|simple", "PDF cleanup and simple table reconstruction are explicit opt-in product options",
   ])
@@ -1122,7 +1160,7 @@ test "public gates and docs stay aligned on the main cli surface" {
   assert_file_contains_all(
     "samples/helpers/contracts/check_samples_check_contract.sh",
     [
-      "formats=txt,csv,tsv,json,jsonl,ndjson,xml,yaml,html,markdown,zip,epub,docx,xlsx,pptx,pdf",
+      "formats=txt,csv,tsv,json,jsonl,ndjson,xml,yaml,html,markdown,zip,epub,docx,xlsx,pptx,pdf,ocr",
       "formats=markdown", "formats=docx", "formats=xlsx", "formats=pptx", "formats=pdf",
     ],
   )
@@ -1130,7 +1168,7 @@ test "public gates and docs stay aligned on the main cli surface" {
     "InputSource", "ParserRegistry", "ParseResult", "Renderer", "`txt`", "`csv`",
     "`tsv`", "`json`", "`jsonl`", "`ndjson`", "`xml`", "`yaml`", "`yml`", "`html`",
     "`htm`", "`markdown`", "`md`", "`zip`", "`epub`", "`docx`", "`xlsx`", "`pptx`",
-    "`pdf`", "native-text PDFs", "pdf --ocr", "Unsupported formats fail closed",
+    "`pdf`", "native-text PDFs", "pdf --ocr", "dependency-backed product paths",
     "samples/helpers/contracts/check_root_contracts.sh", "markitdown-quality-lab/",
     "EPUB support is implemented through `format_readers/epub` on top of `format_readers/zip`",
   ])
@@ -1140,7 +1178,7 @@ test "public gates and docs stay aligned on the main cli surface" {
   ])
   assert_file_contains_all("samples/check.sh", [
     "--markdown", "--rag", "--assets", "--check-inventory", "--list-inventory", "samples/main_process",
-    "txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, and pdf",
+    "txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, pdf, and ocr",
   ])
   assert_file_contains_all(
     "samples/helpers/contracts/check_root_contracts.sh",

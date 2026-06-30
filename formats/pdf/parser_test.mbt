@@ -564,6 +564,92 @@ test "pdf native parser internal policy stays disabled by default and does not c
 }
 
 ///|
+fn sample_pdf_ocr_context() -> @parser.ParseContext {
+  @parser.parse_context_with_limits(
+    @parser.parse_context_with_ocr_options(
+      @parser.new_parse_context(@input.DetectedFormat::Pdf),
+      @parser.explicit_ocr_options(language=Some("eng")),
+    ),
+    Some(@parser.ParserMode::LayoutTwoStage),
+    None,
+    None,
+    None,
+    None,
+    false,
+  )
+}
+
+///|
+test "pdf OCR route converts a scanned single-page sample through the real raster path" {
+  let source = @input.input_from_path_with_format(
+    "samples/main_process/pdf/ocr/pdf_ocr_single_page.pdf",
+    Some(@input.DetectedFormat::Pdf),
+  )
+  let parsed = match pdf_ocr_parser_result(source, sample_pdf_ocr_context()) {
+    Ok(value) => value
+    Err(err) => fail("expected real pdf OCR parser success: " + err)
+  }
+  assert_true(parsed.mode == @parser.ParserMode::LayoutTwoStage)
+  assert_true(parsed.parser_name == pdf_ocr_parser_name())
+  let document = parsed.document.unwrap_or(@core.empty_document_ir())
+  assert_eq(document.blocks.length(), 2)
+  assert_eq(document.blocks[0].text, "MoonBit OCR")
+  assert_eq(document.blocks[1].text, "Sample 123")
+  assert_true(document.diagnostics.metrics.get("pdf_ocr_used") == Some("true"))
+  assert_true(
+    document.diagnostics.metrics.get("pdf_raster_backend") == Some("pdftoppm"),
+  )
+  assert_true(document.diagnostics.metrics.get("page_count") == Some("1"))
+  assert_true(document.diagnostics.metrics.get("ocr_used_pages") == Some("1"))
+  assert_true(
+    document.diagnostics.metrics.get("pdf_raster_page_failure_count") ==
+    Some("0"),
+  )
+  assert_true(
+    document.diagnostics.metrics.get("pdf_native_text_baseline") ==
+    Some("false"),
+  )
+  assert_true(
+    document.diagnostics.pass_trace.contains("pdf_ocr:layout_two_stage"),
+  )
+}
+
+///|
+test "pdf OCR route aggregates multi-page scanned samples without native-text fallback" {
+  let source = @input.input_from_path_with_format(
+    "samples/main_process/pdf/ocr/pdf_ocr_two_page.pdf",
+    Some(@input.DetectedFormat::Pdf),
+  )
+  let parsed = match pdf_ocr_parser_result(source, sample_pdf_ocr_context()) {
+    Ok(value) => value
+    Err(err) => fail("expected real multi-page pdf OCR parser success: " + err)
+  }
+  let document = parsed.document.unwrap_or(@core.empty_document_ir())
+  assert_eq(document.blocks.length(), 4)
+  assert_eq(document.blocks[0].text, "MoonBit OCR")
+  assert_eq(document.blocks[1].text, "Sample 123")
+  assert_eq(document.blocks[2].text, "MoonBit OCR")
+  assert_eq(document.blocks[3].text, "Sample 123")
+  assert_true(document.diagnostics.metrics.get("page_count") == Some("2"))
+  assert_true(document.diagnostics.metrics.get("ocr_used_pages") == Some("2"))
+  assert_true(
+    document.diagnostics.metrics.get("pdf_raster_page_success_count") ==
+    Some("2"),
+  )
+  assert_true(document.diagnostics.metrics.get("pdf_ocr_used") == Some("true"))
+  assert_true(
+    !document.diagnostics.degraded_features.contains(
+      "pdf_raster_partial_failure",
+    ),
+  )
+  assert_true(
+    !document.diagnostics.degraded_features.contains(
+      "pdf_ocr_partial_page_failure",
+    ),
+  )
+}
+
+///|
 test "pdf native parser internal header footer filtering removes repeated high confidence lines only when enabled" {
   let header = "Monthly Summary"
   let footer = "Page footer repeated"

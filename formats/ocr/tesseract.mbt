@@ -2,23 +2,7 @@
 pub fn run_tesseract_provider(
   request : OcrProviderRequest,
 ) -> Result[OcrProviderResult, OcrProviderError] {
-  let language_note = match request.language {
-    Some(language) => {
-      let trimmed = language.trim().to_owned()
-      if trimmed == "" {
-        ""
-      } else {
-        " language=" + trimmed
-      }
-    }
-    None => ""
-  }
-  Err(
-    OcrProviderError::NotConfigured(
-      "Tesseract OCR provider is not configured on the this runtime." +
-      language_note,
-    ),
-  )
+  run_tesseract_provider_with_command(request, collect_tesseract_output)
 }
 
 ///|
@@ -26,37 +10,7 @@ pub async fn run_tesseract_provider_async(
   request : OcrProviderRequest,
 ) -> Result[OcrProviderResult, OcrProviderError] {
   run_tesseract_provider_with_async_command(request, (cmd, args) => {
-    let delegated = @process.collect_output(cmd, args) catch {
-      e =>
-        return Err(
-          OcrProviderError::ExecutionFailed(
-            "launch tesseract failed on the this runtime: " + e.to_string(),
-          ),
-        )
-    }
-    match delegated {
-      (code, stdout, stderr) => {
-        let stdout_text = stdout.text() catch {
-          e =>
-            return Err(
-              OcrProviderError::OutputParseFailed(
-                "failed to decode Tesseract stdout as UTF-8 on the this runtime: " +
-                e.to_string(),
-              ),
-            )
-        }
-        let stderr_text = stderr.text() catch {
-          e =>
-            return Err(
-              OcrProviderError::OutputParseFailed(
-                "failed to decode Tesseract stderr as UTF-8 on the this runtime: " +
-                e.to_string(),
-              ),
-            )
-        }
-        Ok((code, stdout_text, stderr_text))
-      }
-    }
+    collect_tesseract_output(cmd, args)
   })
 }
 
@@ -160,5 +114,77 @@ fn finalize_tesseract_command_result(
         )
       }
     }
+  }
+}
+
+///|
+#warnings("-deprecated")
+fn collect_tesseract_output(
+  cmd : String,
+  args : Array[String],
+) -> Result[(Int, String, String), OcrProviderError] {
+  let collected : Ref[Result[(Int, String, String), OcrProviderError]?] = {
+    val: None,
+  }
+  @async.with_event_loop(_group => {
+    let delegated = @process.collect_output(cmd, args) catch {
+      e => {
+        collected.val = Some(
+          Err(
+            OcrProviderError::ExecutionFailed(
+              "launch tesseract failed on the this runtime: " + e.to_string(),
+            ),
+          ),
+        )
+        return
+      }
+    }
+    match delegated {
+      (code, stdout, stderr) => {
+        let stdout_text = stdout.text() catch {
+          e => {
+            collected.val = Some(
+              Err(
+                OcrProviderError::OutputParseFailed(
+                  "failed to decode Tesseract stdout as UTF-8 on the this runtime: " +
+                  e.to_string(),
+                ),
+              ),
+            )
+            return
+          }
+        }
+        let stderr_text = stderr.text() catch {
+          e => {
+            collected.val = Some(
+              Err(
+                OcrProviderError::OutputParseFailed(
+                  "failed to decode Tesseract stderr as UTF-8 on the this runtime: " +
+                  e.to_string(),
+                ),
+              ),
+            )
+            return
+          }
+        }
+        collected.val = Some(Ok((code, stdout_text, stderr_text)))
+      }
+    }
+  }) catch {
+    e =>
+      return Err(
+        OcrProviderError::ExecutionFailed(
+          "launch tesseract failed on the this runtime: " + e.to_string(),
+        ),
+      )
+  }
+  match collected.val {
+    Some(result) => result
+    None =>
+      Err(
+        OcrProviderError::ExecutionFailed(
+          "launch tesseract failed on the this runtime: event loop returned no result",
+        ),
+      )
   }
 }

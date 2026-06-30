@@ -19,6 +19,16 @@ count_expected_markdown_cases() {
   find "$dir" -type f -name '*.md' | wc -l | tr -d '[:space:]'
 }
 
+count_expected_ocr_cases() {
+  local fmt="$1"
+  local dir="$SAMPLES_DIR/$fmt/expected/ocr"
+  if [[ ! -d "$dir" ]]; then
+    printf '0'
+    return
+  fi
+  find "$dir" -type f -name '*.md' | wc -l | tr -d '[:space:]'
+}
+
 count_expected_rag_cases() {
   local fmt="$1"
   local dir="$SAMPLES_DIR/$fmt/expected/rag"
@@ -67,17 +77,19 @@ count_quality_comparison_reports() {
 
 inventory_list() {
   local fmt
-  printf 'format\tmain_markdown\tmain_rag\tmain_assets\texpected_markdown\texpected_rag\texpected_assets\tfixtures\tquality_records\tquality_intake_public\n'
+  printf 'format\tmain_markdown\tmain_rag\tmain_assets\tmain_ocr\texpected_markdown\texpected_rag\texpected_assets\texpected_ocr\tfixtures\tquality_records\tquality_intake_public\n'
   while IFS= read -r fmt; do
     [[ -z "$fmt" ]] && continue
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
       "$fmt" \
       "$(count_non_hidden_files "$SAMPLES_DIR/$fmt/markdown")" \
       "$(count_non_hidden_files "$SAMPLES_DIR/$fmt/rag")" \
       "$(count_non_hidden_files "$SAMPLES_DIR/$fmt/assets")" \
+      "$(count_non_hidden_files "$SAMPLES_DIR/$fmt/ocr")" \
       "$(count_expected_markdown_cases "$fmt")" \
       "$(count_expected_rag_cases "$fmt")" \
       "$(count_expected_assets_cases "$fmt")" \
+      "$(count_expected_ocr_cases "$fmt")" \
       "$(count_non_hidden_files "$ROOT/samples/fixtures/$fmt")" \
       "$(count_quality_comparison_reports "$fmt")" \
       "$(count_quality_manifest_rows "$fmt")"
@@ -133,8 +145,8 @@ sample_integrity_expected_bases() {
 }
 
 check_sample_inventory_integrity() {
-  local formats=("docx" "pdf" "xlsx" "html" "pptx" "csv" "tsv" "txt" "xml" "json" "jsonl" "ndjson" "yaml" "markdown" "zip" "epub")
-  local lanes=("markdown" "rag" "assets")
+  local formats=("docx" "pdf" "xlsx" "html" "pptx" "ocr" "csv" "tsv" "txt" "xml" "json" "jsonl" "ndjson" "yaml" "markdown" "zip" "epub")
+  local lanes=("markdown" "rag" "assets" "ocr")
   local fail=0 quiet_integrity=0 fmt lane in_dir exp_dir input_bases expected_bases missing_input missing_expected
 
   if validation_bool_enabled "${SAMPLES_QUIET_INTEGRITY:-0}"; then
@@ -161,11 +173,7 @@ check_sample_inventory_integrity() {
         if sample_integrity_is_noise_file "$base"; then
           continue
         fi
-        case "$lane" in
-          assets) echo "${rel%.*}" ;;
-          rag) echo "${rel%.*}" ;;
-          markdown) echo "${rel%.*}" ;;
-        esac
+        echo "${rel%.*}"
       done | sort -u)"
 
       expected_bases="$(sample_integrity_expected_bases "$fmt" "$lane")"

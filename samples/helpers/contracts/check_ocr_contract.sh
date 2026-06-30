@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 source "$ROOT/samples/helpers/shared/tmp.sh"
 source "$ROOT/samples/helpers/shared/cli_runner.sh"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp/check}"
-OUT_DIR="$(sample_make_isolated_tmp_dir "$TMP_ROOT" "no_implicit_ocr_contract")"
+OUT_DIR="$(sample_make_isolated_tmp_dir "$TMP_ROOT" "direct_image_ocr_contract")"
 
 trap 'status=$?; sample_cleanup_tmp_dir "$OUT_DIR"; exit "$status"' EXIT
 
@@ -46,55 +46,38 @@ run_and_capture "$OUT_DIR/ocr_retired.txt" run_markitdown_cli ocr "$TXT_INPUT"
 [[ "$CAPTURED_STATUS" -ne 0 ]] || fail "ocr subcommand should fail closed"
 assert_contains "$OUT_DIR/ocr_retired.txt" 'unsupported subcommand in this build: ocr'
 
-echo "==> image input is not exposed through the main cli"
+echo "==> direct image input is formally exposed through the main cli"
 run_and_capture "$OUT_DIR/image_auto.txt" run_markitdown_cli "$IMAGE_INPUT"
-[[ "$CAPTURED_STATUS" -ne 0 ]] || fail "image input should fail closed through main cli"
-assert_contains "$OUT_DIR/image_auto.txt" 'unsupported format'
-assert_contains "$OUT_DIR/image_auto.txt" 'png'
-assert_contains "$OUT_DIR/image_auto.txt" 'this build'
-assert_contains "$OUT_DIR/image_auto.txt" 'image OCR is not enabled'
+[[ "$CAPTURED_STATUS" -eq 0 ]] || fail "image input should succeed through main cli"
+assert_contains "$OUT_DIR/image_auto.txt" 'MoonBit OCR'
+assert_contains "$OUT_DIR/image_auto.txt" 'Sample 123'
 
-echo "==> explicit ocr flags still parse, but required contract does not depend on local provider availability"
+echo "==> explicit ocr flags remain accepted"
 run_and_capture "$OUT_DIR/image_force.txt" run_markitdown_cli --ocr "$IMAGE_INPUT"
-if [[ "$CAPTURED_STATUS" -eq 0 ]]; then
-  if [[ ! -s "$OUT_DIR/image_force.txt" ]]; then
-    fail "image --ocr succeeded but produced empty output"
-  fi
-else
-  if ! grep -Fq 'tesseract' "$OUT_DIR/image_force.txt" && ! grep -Fq 'OCR provider' "$OUT_DIR/image_force.txt" && ! grep -Fq 'not configured' "$OUT_DIR/image_force.txt"; then
-    fail "image --ocr failure should explain OCR provider availability"
-  fi
-fi
+[[ "$CAPTURED_STATUS" -eq 0 ]] || fail "image --ocr should succeed"
+assert_contains "$OUT_DIR/image_force.txt" 'MoonBit OCR'
 
 run_and_capture "$OUT_DIR/image_lang.txt" run_markitdown_cli --ocr-lang eng "$IMAGE_INPUT"
-[[ "$CAPTURED_STATUS" -ne 0 ]] || fail "image --ocr-lang should fail closed through main cli"
-assert_contains "$OUT_DIR/image_lang.txt" '--ocr-lang requires --ocr'
+[[ "$CAPTURED_STATUS" -eq 0 ]] || fail "image --ocr-lang should succeed for direct image input"
+assert_contains "$OUT_DIR/image_lang.txt" 'MoonBit OCR'
 
 run_and_capture "$OUT_DIR/image_no_ocr.txt" run_markitdown_cli --no-ocr "$IMAGE_INPUT"
 [[ "$CAPTURED_STATUS" -ne 0 ]] || fail "image --no-ocr should fail closed through main cli"
-assert_contains "$OUT_DIR/image_no_ocr.txt" 'unsupported format'
+assert_contains "$OUT_DIR/image_no_ocr.txt" 'image input conversion is not enabled'
 assert_contains "$OUT_DIR/image_no_ocr.txt" 'OCR is disabled'
 
 run_and_capture "$OUT_DIR/image_force_lang.txt" run_markitdown_cli --ocr --ocr-lang eng "$IMAGE_INPUT"
-if [[ "$CAPTURED_STATUS" -eq 0 ]]; then
-  if [[ ! -s "$OUT_DIR/image_force_lang.txt" ]]; then
-    fail "image --ocr --ocr-lang succeeded but produced empty output"
-  fi
-else
-  if ! grep -Fq 'tesseract' "$OUT_DIR/image_force_lang.txt" && ! grep -Fq 'OCR provider' "$OUT_DIR/image_force_lang.txt" && ! grep -Fq 'not configured' "$OUT_DIR/image_force_lang.txt"; then
-    fail "image --ocr --ocr-lang failure should explain OCR provider availability"
-  fi
-  assert_contains "$OUT_DIR/image_force_lang.txt" 'eng'
-fi
+[[ "$CAPTURED_STATUS" -eq 0 ]] || fail "image --ocr --ocr-lang should succeed"
+assert_contains "$OUT_DIR/image_force_lang.txt" 'MoonBit OCR'
 
 run_and_capture "$OUT_DIR/image_conflict.txt" run_markitdown_cli --ocr --no-ocr "$IMAGE_INPUT"
 [[ "$CAPTURED_STATUS" -ne 0 ]] || fail "image --ocr --no-ocr should fail closed through main cli"
 assert_contains "$OUT_DIR/image_conflict.txt" 'cannot combine --ocr and --no-ocr'
 
-echo "==> pdf ocr flags also stay fail-closed"
+echo "==> pdf ocr flags use the dependency-backed pdf OCR route"
 run_and_capture "$OUT_DIR/pdf_force.txt" run_markitdown_cli --ocr --ocr-lang eng "$PDF_INPUT"
-[[ "$CAPTURED_STATUS" -ne 0 ]] || fail "pdf --ocr should fail closed through main cli"
-assert_contains "$OUT_DIR/pdf_force.txt" 'PDF OCR is not supported'
-assert_contains "$OUT_DIR/pdf_force.txt" 'scanned/image-only PDFs'
+if [[ "$CAPTURED_STATUS" -ne 0 ]]; then
+  assert_contains "$OUT_DIR/pdf_force.txt" 'pdftoppm'
+fi
 
-echo "NO IMPLICIT OCR CONTRACT PASSED"
+echo "DIRECT IMAGE OCR CONTRACT PASSED"

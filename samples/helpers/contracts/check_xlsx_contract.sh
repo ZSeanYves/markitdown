@@ -100,7 +100,7 @@ assert_all_not_contains 'dispatcher' "${XLSX_RUNTIME_SOURCES[@]}"
 echo "==> help keeps xlsx exposed and unsupported formats fail closed"
 run_and_capture "$XLSX_HELP" run_markitdown_cli --help
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "--help should succeed"
-assert_contains "$XLSX_HELP" 'Supported product formats: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, yml, html, htm, markdown, md, zip, epub, docx, xlsx, pptx, pdf'
+assert_contains "$XLSX_HELP" 'Supported product formats: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, yml, html, htm, markdown, md, zip, epub, docx, xlsx, pptx, pdf, png, jpg, jpeg, bmp, webp, tif, tiff'
 
 echo "==> main cli xlsx markdown output stays renderer-owned and expected locked"
 run_markitdown_cli normal "$XLSX_INPUT" "$XLSX_OUT"

@@ -43,14 +43,14 @@ The main CLI supports:
 - `xml`, `yaml`, `html`, `markdown`
 - `zip`, `epub`
 - `docx`, `xlsx`, `pptx`
-- `pdf` for native-text PDFs
+- `pdf` with native-text PDFs by default, plus explicit/Accurate OCR support
+- `png`, `jpg`, `jpeg`, `bmp`, `webp`, `tif`, `tiff`
 
 Fail-closed boundaries:
 
-- scanned or image-only PDFs
-- `pdf --ocr`
+- scanned or image-only PDFs without explicit OCR
 - unsupported formats
-- default image inputs without explicit `--ocr`
+- direct image inputs only when OCR is explicitly disabled with `--no-ocr`
 
 ## Core Commands
 

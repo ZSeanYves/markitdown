@@ -37,13 +37,12 @@
 | Web / markup | `html`, `htm`, `markdown`, `md` | 正式支持 |
 | Containers | `zip`, `epub` | 正式支持 |
 | Office | `docx`, `xlsx`, `pptx` | 正式支持 |
-| PDF | `pdf` | 正式支持，当前仅 native-text PDF |
+| PDF | `pdf` | 正式支持；默认 native-text，显式/Accurate 可走 OCR |
+| Image OCR | `png`, `jpg`, `jpeg`, `bmp`, `webp`, `tif`, `tiff` | 正式支持 |
 
-明确不属于当前正式支持矩阵的输入：
+明确不属于当前默认主路径矩阵的输入：
 
-- 扫描版 / 图片型 PDF
-- `pdf --ocr`
-- 默认图片输入
+- 未显式启用 OCR 的扫描版 / 图片型 PDF
 - 其它未列出格式
 
 ## 3. 能力总览
@@ -62,7 +61,7 @@
 | `docx` | `package_single_pass` | Office 文档主块、链接、图片、debug source refs、RAG | 不承诺覆盖 Word 全部高级版式语义 |
 | `xlsx` | `package_single_pass` | sheet 读取、表格型输出、hidden sheet policy、公式缓存保留、debug | 不执行公式，不做 Excel 计算引擎 |
 | `pptx` | `package_single_pass` | slide 顺序、列表、图片、speaker notes、hidden slide policy、debug | 不做完整演示视觉布局重建 |
-| `pdf` | `page_single_pass` | native-text 提取、基础清理、显式 opt-in cleanup/table signals、RAG、debug | 扫描 PDF、`pdf --ocr`、layout-two-stage 仍未开放 |
+| `pdf` | `page_single_pass` 或 `layout_two_stage` | native-text 提取、显式/Accurate OCR、基础清理、显式 opt-in cleanup/table signals、RAG、debug | OCR 路线当前不承诺复杂 layout 恢复 |
 
 ## 4. 逐格式能力
 
@@ -357,15 +356,15 @@
 
 当前明确缺失：
 
-- 扫描版 / 图片型 PDF
-- `pdf --ocr`
-- layout-two-stage 正式产品路径
+- 默认自动扫描 PDF OCR 升级
+- OCR 路线下的复杂 layout/model 恢复
 - 深度版面分析模型
 
 当前边界行为：
 
-- scanned-like PDF 当前 fail closed
-- `pdf --ocr` 当前 fail closed，并且不会进入 OCR provider 成功路径
+- scanned-like PDF 在未显式启用 OCR 时当前 fail closed
+- `pdf --ocr` 与 `Accurate`-mode PDF OCR 依赖本地 `pdftoppm` + `tesseract`
+- 缺失依赖时返回明确运行时错误与安装提示
 
 性能事实：
 
@@ -378,24 +377,34 @@
 
 产品事实：
 
-- 图片 OCR 需要显式 `--ocr`
+- 直接图片输入正式支持，并默认启用 OCR
+- `--no-ocr` 可显式关闭直接图片 OCR
 - 语言参数使用 `--ocr-lang <LANG>`
-- `pdf --ocr` 当前不开放
-- 扫描版 / 图片型 PDF 当前不进入正式产品路径
-- 默认图片输入仍然 fail closed
+- `pdf --ocr` 与 `Accurate`-mode PDF OCR 当前正式支持
+- 扫描版 / 图片型 PDF 当前需要显式 OCR 路线
+- 当前图片 OCR 输出以文本段落恢复为主，不承诺复杂版面重建
+- 当前 PDF OCR 也是 OCR-only 路线，不承诺复杂版面重建
 
 macOS / Homebrew 安装：
 
 ```bash
+brew install poppler
 brew install tesseract
 brew install tesseract-lang
+```
+
+Ubuntu：
+
+```bash
+sudo apt install poppler-utils tesseract-ocr
 ```
 
 说明：
 
 - `brew install tesseract` 默认只带 `eng`, `osd`, `snum`
 - 需要更多语言时再安装 `tesseract-lang`
-- 当前依赖的是本地可执行 `tesseract`，不是云端模型
+- 当前依赖的是本地可执行 `pdftoppm` 与 `tesseract`，不是云端模型
+- 本项目不内置、不打包、不分发这两个第三方二进制
 
 ## 6. v2 架构收益
 

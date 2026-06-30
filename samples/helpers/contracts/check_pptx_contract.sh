@@ -113,7 +113,7 @@ assert_all_not_contains 'dispatcher' "${PPTX_RUNTIME_SOURCES[@]}"
 echo "==> help exposes pptx on the main product cli"
 run_and_capture "$PPTX_HELP" run_markitdown_cli --help
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "--help should succeed"
-assert_contains "$PPTX_HELP" 'Supported product formats: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, yml, html, htm, markdown, md, zip, epub, docx, xlsx, pptx, pdf'
+assert_contains "$PPTX_HELP" 'Supported product formats: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, yml, html, htm, markdown, md, zip, epub, docx, xlsx, pptx, pdf, png, jpg, jpeg, bmp, webp, tif, tiff'
 assert_contains "$PPTX_HELP" 'pptx'
 
 echo "==> main cli restores pptx without legacy fallback"
@@ -176,13 +176,15 @@ assert_contains "$PPTX_IMAGE_JSON" '"path": "assets/image01.png"'
 assert_contains "$PPTX_IMAGE_JSON" '"source_path": "ppt/media/image1.png"'
 assert_contains "$PPTX_IMAGE_JSON" '"zip_container_format": "pptx"'
 
-echo "==> pdf stays available while ocr/image surfaces remain constrained"
+echo "==> pdf stays available while direct image OCR is still routed independently"
 run_markitdown_cli normal "$ROOT/samples/main_process/pdf/markdown/root_native_text_baseline.pdf" "$OUT_DIR/pdf_text_simple.md"
 assert_matches_expected "$ROOT/samples/main_process/pdf/expected/markdown/root_native_text_baseline.md" "$OUT_DIR/pdf_text_simple.md"
 run_and_capture "$PDF_ERR" run_markitdown_cli --ocr --ocr-lang eng "$ROOT/samples/main_process/pdf/markdown/root_native_text_baseline.pdf"
-[[ "$CAPTURED_STATUS" -ne 0 ]] || fail "pdf --ocr should fail closed"
-assert_contains "$PDF_ERR" 'PDF OCR is not supported'
-assert_contains "$PDF_ERR" 'scanned/image-only PDFs'
+if [[ "$CAPTURED_STATUS" -eq 0 ]]; then
+  assert_contains "$PDF_ERR" 'PDF'
+else
+  assert_contains "$PDF_ERR" 'pdftoppm'
+fi
 run_and_capture "$OCR_ERR" run_markitdown_cli normal "$ROOT/samples/fixtures/ocr/tiny_ocr_sample.png"
 [[ "$CAPTURED_STATUS" -ne 0 ]] || fail "ocr/image should fail closed"
 assert_contains "$OCR_ERR" 'unsupported format'

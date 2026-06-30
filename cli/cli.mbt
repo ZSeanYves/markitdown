@@ -37,6 +37,7 @@ fn cli_is_supported_format(format : @input.DetectedFormat) -> Bool {
     @input.DetectedFormat::Docx => true
     @input.DetectedFormat::Pptx => true
     @input.DetectedFormat::Xlsx => true
+    @input.DetectedFormat::Image(_) => true
     _ => false
   }
 }
@@ -67,13 +68,13 @@ fn print_cli_usage() -> Unit {
   println(
     "  " +
     cli_product_name() +
-    " [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|xml|yaml|yml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]",
+    " [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|xml|yaml|yml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf|png|jpg|jpeg|bmp|webp|tif|tiff] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]",
   )
   println("  " + cli_product_name() + " help | --help | -h")
   println("  " + cli_product_name() + " version | --version")
   println("")
   println(
-    "Supported product formats: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, yml, html, htm, markdown, md, zip, epub, docx, xlsx, pptx, pdf",
+    "Supported product formats: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, yml, html, htm, markdown, md, zip, epub, docx, xlsx, pptx, pdf, png, jpg, jpeg, bmp, webp, tif, tiff",
   )
   println("All other formats fail closed in this build.")
   println("`--debug` emits diagnostics through the debug JSON renderer.")
@@ -81,7 +82,7 @@ fn print_cli_usage() -> Unit {
     "`--rag` emits chunked retrieval JSON with the default internal chunking policy.",
   )
   println(
-    "Explicit image `--ocr` may invoke local Tesseract; PDF OCR is not supported and scanned/image-only PDFs remain fail-closed.",
+    "Direct image input uses local Tesseract OCR by default; `--no-ocr` disables it. `pdf --ocr` and Accurate-mode PDF OCR use local `pdftoppm` + Tesseract and require local installation.",
   )
   println(
     "PDF cleanup and simple table reconstruction are explicit opt-in product options for native-text PDFs; current defaults stay conservative and disabled.",
@@ -100,9 +101,10 @@ fn cli_fail_closed_format_message(
   label : String,
   ocr_options : @parser.OcrOptions,
 ) -> String {
-  let base = cli_unsupported_format_message(label)
   if format == @input.DetectedFormat::Pdf {
-    base + "\n" + @fpdf.pdf_native_fail_closed_message()
+    cli_unsupported_format_message(label) +
+    "\n" +
+    @fpdf.pdf_native_fail_closed_message()
   } else if @input.detected_format_is_image_candidate(format) {
     let detail = match ocr_options.intent {
       @parser.OcrIntent::Explicit =>
@@ -111,15 +113,10 @@ fn cli_fail_closed_format_message(
       @parser.OcrIntent::Auto =>
         @focr.image_requires_explicit_ocr_message(format)
     }
-    base + "\n" + detail
+    detail
   } else {
-    base
+    cli_unsupported_format_message(label)
   }
-}
-
-///|
-fn cli_pdf_ocr_unsupported_message() -> String {
-  "PDF OCR is not supported in this build; native-text PDF restore is enabled, but scanned/image-only PDFs and PDF --ocr remain fail-closed."
 }
 
 ///|
@@ -178,6 +175,40 @@ fn cli_requested_format_label(opts : CliOptions) -> String {
 }
 
 ///|
+fn cli_requested_format_from_input(
+  input_path : String,
+  explicit_format : @input.DetectedFormat?,
+) -> @input.DetectedFormat {
+  match explicit_format {
+    Some(format) => format
+    None =>
+      match path_extension_label(input_path) {
+        Some(label) => @input.parse_detected_format(label)
+        None => {
+          let detector = @input.default_format_detector()
+          let detected = (detector.detect)(@input.input_from_path(input_path))
+          detected.format
+        }
+      }
+  }
+}
+
+///|
+fn cli_default_ocr_options(
+  input_path : String,
+  explicit_format : @input.DetectedFormat?,
+) -> @parser.OcrOptions {
+  let requested_format = cli_requested_format_from_input(
+    input_path, explicit_format,
+  )
+  if @input.detected_format_is_image_candidate(requested_format) {
+    @parser.explicit_ocr_options()
+  } else {
+    @parser.default_ocr_options()
+  }
+}
+
+///|
 pub fn make_cli_options(
   input : String,
   output : String?,
@@ -225,15 +256,7 @@ pub fn run_cli_with_image_ocr_provider(
   ],
 ) -> Result[String, String] {
   let requested_format = cli_requested_format(opts)
-  if requested_format == @input.DetectedFormat::Pdf &&
-    opts.ocr_options.intent == @parser.OcrIntent::Explicit {
-    return Err(cli_pdf_ocr_unsupported_message())
-  }
-  let allow_explicit_image_ocr = @input.detected_format_is_image_candidate(
-      requested_format,
-    ) &&
-    opts.ocr_options.intent == @parser.OcrIntent::Explicit
-  if !cli_is_supported_format(requested_format) && !allow_explicit_image_ocr {
+  if !cli_is_supported_format(requested_format) {
     return Err(
       cli_fail_closed_format_message(
         opts.input,
@@ -277,15 +300,7 @@ pub async fn run_cli_with_async_image_ocr_provider(
   ],
 ) -> Result[String, String] {
   let requested_format = cli_requested_format(opts)
-  if requested_format == @input.DetectedFormat::Pdf &&
-    opts.ocr_options.intent == @parser.OcrIntent::Explicit {
-    return Err(cli_pdf_ocr_unsupported_message())
-  }
-  let allow_explicit_image_ocr = @input.detected_format_is_image_candidate(
-      requested_format,
-    ) &&
-    opts.ocr_options.intent == @parser.OcrIntent::Explicit
-  if !cli_is_supported_format(requested_format) && !allow_explicit_image_ocr {
+  if !cli_is_supported_format(requested_format) {
     return Err(
       cli_fail_closed_format_message(
         opts.input,
@@ -305,7 +320,11 @@ pub async fn run_cli_with_async_image_ocr_provider(
     pdf_table_mode=opts.pdf_table_mode,
     rag_options=opts.rag_options,
   )
-  let execution = if allow_explicit_image_ocr {
+  let allow_image_ocr = @input.detected_format_is_image_candidate(
+      requested_format,
+    ) &&
+    opts.ocr_options.intent == @parser.OcrIntent::Explicit
+  let execution = if allow_image_ocr {
     match
       @convert.convert_input_with_image_ocr_provider_async(
         @input.input_from_path(opts.input),
@@ -685,12 +704,9 @@ fn parse_cli_options_from_index(
   if ocr_enabled && ocr_disabled {
     return Err("cannot combine --ocr and --no-ocr")
   }
-  if ocr_language is Some(_) && !ocr_enabled {
-    return Err("--ocr-lang requires --ocr")
-  }
   if positionals.length() < 1 || positionals.length() > 2 {
     return Err(
-      "usage: [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|xml|yaml|yml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]",
+      "usage: [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|xml|yaml|yml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf|png|jpg|jpeg|bmp|webp|tif|tiff] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]",
     )
   }
   let effective_positionals = positionals
@@ -698,12 +714,31 @@ fn parse_cli_options_from_index(
     Ok(value) => value
     Err(msg) => return Err(msg)
   }
+  let requested_format = cli_requested_format_from_input(
+    effective_positionals[0],
+    explicit_format,
+  )
+  if ocr_language is Some(_) &&
+    !ocr_enabled &&
+    !@input.detected_format_is_image_candidate(requested_format) &&
+    !(requested_format == @input.DetectedFormat::Pdf &&
+    convert_mode == @convert.ConvertMode::Accurate) {
+    return Err(
+      "--ocr-lang requires --ocr, Accurate-mode PDF input, or direct image input",
+    )
+  }
   let ocr_options = if ocr_enabled {
     @parser.explicit_ocr_options(language=ocr_language)
   } else if ocr_disabled {
     @parser.disabled_ocr_options()
   } else {
-    @parser.default_ocr_options()
+    match
+      cli_default_ocr_options(effective_positionals[0], explicit_format).intent {
+      @parser.OcrIntent::Explicit =>
+        @parser.explicit_ocr_options(language=ocr_language)
+      @parser.OcrIntent::Disabled => @parser.disabled_ocr_options()
+      @parser.OcrIntent::Auto => @parser.default_ocr_options()
+    }
   }
   let pdf_cleanup_mode = match parse_pdf_cleanup_mode(pdf_cleanup_raw) {
     Ok(value) => value

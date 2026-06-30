@@ -717,6 +717,15 @@ fn canonical_preflight_probe(
 }
 
 ///|
+fn input_source_kind_name(source : @input.InputSource) -> String {
+  match source.kind {
+    @input.InputKind::Path => "path"
+    @input.InputKind::Text => "text"
+    @input.InputKind::Bytes => "bytes"
+  }
+}
+
+///|
 fn preflight_probe(
   source : @input.InputSource,
   format : @input.DetectedFormat,
@@ -742,6 +751,28 @@ fn preflight_probe(
     @input.DetectedFormat::Xml => xml_preflight_probe(source, format, options)
     @input.DetectedFormat::Html => html_preflight_probe(source, format, options)
     @input.DetectedFormat::Xlsx => xlsx_preflight_probe(source, format, options)
+    @input.DetectedFormat::Pdf => {
+      let route = canonical_route_for_format(format, options)
+      let raster_backend = if route == CanonicalRoute::LayoutTwoStage {
+        "pdftoppm"
+      } else {
+        "none"
+      }
+      canonical_preflight_probe(
+        format,
+        route,
+        route_reason_for_format(format, options, route),
+        "pdf",
+        [
+          "ocr_intent=" + @parser.ocr_intent_name(options.ocr_options.intent),
+          "convert_mode=" + convert_mode_name(options.mode),
+          "raster_backend=" + raster_backend,
+          "pdf_source_kind=" + input_source_kind_name(source),
+        ],
+        source,
+        artifact=None,
+      )
+    }
     _ => {
       let route = canonical_route_for_format(format, options)
       canonical_preflight_probe(

@@ -76,7 +76,7 @@ fn cli_options(
 }
 
 ///|
-test "main cli product policy exposes txt csv tsv json jsonl ndjson xml yaml html markdown zip epub docx xlsx pptx and pdf" {
+test "main cli product policy exposes txt csv tsv json jsonl ndjson xml yaml html markdown zip epub docx xlsx pptx pdf and direct image OCR formats" {
   assert_true(cli_is_supported_format(@input.DetectedFormat::Txt))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Csv))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Tsv))
@@ -94,20 +94,46 @@ test "main cli product policy exposes txt csv tsv json jsonl ndjson xml yaml htm
   assert_true(cli_is_supported_format(@input.DetectedFormat::Pptx))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Pdf))
   assert_true(
-    !cli_is_supported_format(
+    cli_is_supported_format(
       @input.DetectedFormat::Image(@input.ImageFormat::Png),
     ),
   )
   assert_true(
-    !cli_is_supported_format(
+    cli_is_supported_format(
       @input.DetectedFormat::Image(@input.ImageFormat::Jpg),
+    ),
+  )
+  assert_true(
+    cli_is_supported_format(
+      @input.DetectedFormat::Image(@input.ImageFormat::Jpeg),
+    ),
+  )
+  assert_true(
+    cli_is_supported_format(
+      @input.DetectedFormat::Image(@input.ImageFormat::Bmp),
+    ),
+  )
+  assert_true(
+    cli_is_supported_format(
+      @input.DetectedFormat::Image(@input.ImageFormat::Webp),
+    ),
+  )
+  assert_true(
+    cli_is_supported_format(
+      @input.DetectedFormat::Image(@input.ImageFormat::Tif),
+    ),
+  )
+  assert_true(
+    cli_is_supported_format(
+      @input.DetectedFormat::Image(@input.ImageFormat::Tiff),
     ),
   )
   let supported = [
     "txt", "csv", "tsv", "json", "jsonl", "ndjson", "xml", "yaml", "yml", "html",
-    "htm", "markdown", "md", "zip", "epub", "docx", "xlsx", "pptx", "pdf",
+    "htm", "markdown", "md", "zip", "epub", "docx", "xlsx", "pptx", "pdf", "png",
+    "jpg", "jpeg", "bmp", "webp", "tif", "tiff",
   ]
-  assert_eq(supported.length(), 19)
+  assert_eq(supported.length(), 26)
   assert_eq(supported[0], "txt")
   assert_eq(supported[1], "csv")
   assert_eq(supported[2], "tsv")
@@ -127,10 +153,17 @@ test "main cli product policy exposes txt csv tsv json jsonl ndjson xml yaml htm
   assert_eq(supported[16], "xlsx")
   assert_eq(supported[17], "pptx")
   assert_eq(supported[18], "pdf")
+  assert_eq(supported[19], "png")
+  assert_eq(supported[20], "jpg")
+  assert_eq(supported[21], "jpeg")
+  assert_eq(supported[22], "bmp")
+  assert_eq(supported[23], "webp")
+  assert_eq(supported[24], "tif")
+  assert_eq(supported[25], "tiff")
 }
 
 ///|
-test "main cli keeps known image extensions fail closed" {
+test "main cli accepts known image extensions as supported formats" {
   let root = test_tmp_root() + "/main-cli-image-fail-closed"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -138,27 +171,14 @@ test "main cli keeps known image extensions fail closed" {
   let png_path = root + "/tiny.png"
   write_utf8_text(png_path, "not-a-real-image")
 
-  let result = run_cli(
-    cli_options(png_path, None, None, @convert.OutputFormat::Markdown),
-  )
-  match result {
-    Err(msg) => {
-      assert_true(msg.contains("unsupported format"))
-      assert_true(msg.contains("png"))
-      assert_true(msg.contains("this build"))
-      assert_true(msg.contains("image OCR is not enabled"))
-    }
-    Ok(_) => fail("known image extension should stay fail closed")
-  }
-
   let explicit = parse_explicit_format(Some("png"))
   match explicit {
-    Err(msg) => {
-      assert_true(msg.contains("unsupported --format value"))
-      assert_true(msg.contains("png"))
-      assert_true(msg.contains("this build"))
-    }
-    Ok(_) => fail("explicit png format should stay unsupported on the main cli")
+    Ok(Some(format)) =>
+      assert_true(
+        format == @input.DetectedFormat::Image(@input.ImageFormat::Png),
+      )
+    Ok(None) => fail("expected explicit png format to parse")
+    Err(msg) => fail("expected explicit png format to stay supported: " + msg)
   }
 }
 
@@ -178,6 +198,22 @@ test "main cli parses explicit OCR intent flags" {
       assert_true(opts.ocr_options.language == None)
     }
     Err(msg) => fail("expected --no-ocr to parse: " + msg)
+  }
+
+  match parse_cli_options(["tiny.png"]) {
+    Ok(opts) => {
+      assert_true(opts.ocr_options.intent == @parser.OcrIntent::Explicit)
+      assert_true(opts.ocr_options.language == None)
+    }
+    Err(msg) => fail("expected direct image input to default to OCR: " + msg)
+  }
+
+  match parse_cli_options(["--ocr-lang", "eng", "tiny.png"]) {
+    Ok(opts) => {
+      assert_true(opts.ocr_options.intent == @parser.OcrIntent::Explicit)
+      assert_true(opts.ocr_options.language == Some("eng"))
+    }
+    Err(msg) => fail("expected direct image input to accept --ocr-lang: " + msg)
   }
 }
 
@@ -269,8 +305,29 @@ test "main cli rejects conflicting OCR intent flags" {
 ///|
 test "main cli requires --ocr for --ocr-lang" {
   match parse_cli_options(["--ocr-lang", "eng", "tiny.png"]) {
-    Err(msg) => assert_true(msg.contains("--ocr-lang requires --ocr"))
-    Ok(_) => fail("expected --ocr-lang without --ocr to fail")
+    Ok(opts) => {
+      assert_true(opts.ocr_options.intent == @parser.OcrIntent::Explicit)
+      assert_true(opts.ocr_options.language == Some("eng"))
+    }
+    Err(msg) => fail("expected direct image --ocr-lang to parse: " + msg)
+  }
+
+  match parse_cli_options(["--ocr-lang", "eng", "tiny.txt"]) {
+    Err(msg) =>
+      assert_true(
+        msg.contains(
+          "--ocr-lang requires --ocr, Accurate-mode PDF input, or direct image input",
+        ),
+      )
+    Ok(_) => fail("expected non-image --ocr-lang without --ocr to fail")
+  }
+
+  match parse_cli_options(["--ocr-lang", "eng", "--ocr", "tiny.pdf"]) {
+    Ok(opts) => {
+      assert_true(opts.ocr_options.intent == @parser.OcrIntent::Explicit)
+      assert_true(opts.ocr_options.language == Some("eng"))
+    }
+    Err(msg) => fail("expected pdf --ocr-lang with --ocr to parse: " + msg)
   }
 }
 
@@ -331,10 +388,12 @@ test "main cli image OCR intent remains fail closed by mode" {
         ocr_options=@parser.explicit_ocr_options(),
       ),
     ) {
-    Err(msg) => {
-      assert_true(msg.contains("not configured"))
-      assert_true(msg.contains("image_format=png"))
-    }
+    Err(msg) =>
+      assert_true(
+        msg.contains("Tesseract OCR command is unavailable") ||
+        msg.contains("launch tesseract failed") ||
+        msg.contains("image_format=png"),
+      )
     Ok(_) => fail("expected explicit OCR image path to fail closed")
   }
 
@@ -348,10 +407,12 @@ test "main cli image OCR intent remains fail closed by mode" {
         ocr_options=@parser.explicit_ocr_options(language=Some("eng")),
       ),
     ) {
-    Err(msg) => {
-      assert_true(msg.contains("not configured"))
-      assert_true(msg.contains("language=eng"))
-    }
+    Err(msg) =>
+      assert_true(
+        msg.contains("language=eng") ||
+        msg.contains("image_format=png") ||
+        msg.contains("Tesseract OCR command"),
+      )
     Ok(_) => fail("expected explicit OCR image/lang path to fail closed")
   }
 
@@ -366,7 +427,7 @@ test "main cli image OCR intent remains fail closed by mode" {
       ),
     ) {
     Err(msg) => {
-      assert_true(msg.contains("unsupported format"))
+      assert_true(msg.contains("image input conversion is not enabled"))
       assert_true(msg.contains("OCR is disabled"))
     }
     Ok(_) => fail("expected disabled OCR image path to fail closed")
@@ -374,7 +435,7 @@ test "main cli image OCR intent remains fail closed by mode" {
 }
 
 ///|
-test "main cli pdf plus explicit OCR stays fail closed before any image provider path" {
+test "main cli pdf plus explicit OCR enters OCR route or returns explicit dependency guidance" {
   let root = test_tmp_root() + "/main-cli-pdf-explicit-ocr"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -391,13 +452,24 @@ test "main cli pdf plus explicit OCR stays fail closed before any image provider
         @convert.OutputFormat::Markdown,
         ocr_options=@parser.explicit_ocr_options(language=Some("eng")),
       ),
-      fn(_request) { abort("pdf path must not invoke image OCR provider") },
+      fn(request) {
+        let tsv = [
+          "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext",
+          "5\t1\t1\t1\t1\t1\t10\t10\t20\t10\t95\tPDF", "5\t1\t1\t1\t1\t2\t35\t10\t20\t10\t94\tOCR",
+        ].join("\n")
+        match @focr.parse_tesseract_tsv(tsv, language=request.language) {
+          Ok(value) => Ok(value)
+          Err(err) => abort(err.to_string())
+        }
+      },
     ) {
-    Err(msg) => {
-      assert_true(msg.contains("PDF OCR is not supported"))
-      assert_true(msg.contains("scanned/image-only PDFs"))
-    }
-    Ok(_) => fail("pdf plus explicit OCR should stay fail closed")
+    Ok(content) => assert_true(content.contains("PDF OCR"))
+    Err(msg) =>
+      assert_true(
+        msg.contains("pdftoppm") ||
+        msg.contains("poppler-utils") ||
+        msg.contains("brew install poppler"),
+      )
   }
 }
 
@@ -466,7 +538,7 @@ fn fake_cli_image_provider(
 }
 
 ///|
-test "main cli explicit image OCR can succeed through injected provider without widening default supported set" {
+test "main cli direct image OCR can succeed through injected provider as a supported product path" {
   let root = test_tmp_root() + "/main-cli-image-ocr-success"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -489,14 +561,14 @@ test "main cli explicit image OCR can succeed through injected provider without 
     Err(msg) => fail("expected injected cli OCR success: " + msg)
   }
   assert_true(
-    !cli_is_supported_format(
+    cli_is_supported_format(
       @input.DetectedFormat::Image(@input.ImageFormat::Png),
     ),
   )
 }
 
 ///|
-async test "main cli async explicit image OCR can succeed through injected provider without widening default supported set" {
+async test "main cli async direct image OCR can succeed through injected provider" {
   let root = test_tmp_root() + "/main-cli-image-ocr-success-async"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -519,7 +591,7 @@ async test "main cli async explicit image OCR can succeed through injected provi
     Err(msg) => fail("expected injected async cli OCR success: " + msg)
   }
   assert_true(
-    !cli_is_supported_format(
+    cli_is_supported_format(
       @input.DetectedFormat::Image(@input.ImageFormat::Png),
     ),
   )

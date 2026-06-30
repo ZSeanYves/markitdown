@@ -6,6 +6,17 @@ lane_input_dir() {
   printf '%s/%s/%s' "$SAMPLES_DIR" "$fmt" "$lane"
 }
 
+sample_lane_cli_args() {
+  local fmt="$1"
+  local lane="$2"
+  local rel="$3"
+  if [[ "$fmt" == "pdf" && "$lane" == "ocr" ]]; then
+    printf '%s\n' "--ocr"
+    return 0
+  fi
+  return 0
+}
+
 lane_expected_dir() {
   local fmt="$1"
   local lane="$2"
@@ -37,6 +48,7 @@ discover_samples() {
     markdown) find "$in_dir" -type f \( -name "*.md" -o -name "*.markdown" \) -print ;;
     zip) find "$in_dir" -type f -name "*.zip" -print ;;
     epub) find "$in_dir" -type f -name "*.epub" -print ;;
+    ocr) find "$in_dir" -type f \( -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" -o -name "*.bmp" -o -name "*.webp" -o -name "*.tif" -o -name "*.tiff" \) -print ;;
     *) return 0 ;;
   esac
 }
@@ -47,6 +59,9 @@ resolve_expected_fixture() {
   local rel_no_ext="$3"
   case "$lane" in
     markdown)
+      printf '%s/%s.md\n' "$(lane_expected_dir "$fmt" "$lane")" "$rel_no_ext"
+      ;;
+    ocr)
       printf '%s/%s.md\n' "$(lane_expected_dir "$fmt" "$lane")" "$rel_no_ext"
       ;;
     rag)

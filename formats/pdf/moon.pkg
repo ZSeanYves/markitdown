@@ -1,9 +1,14 @@
 import {
+  "moonbitlang/async",
+  "moonbitlang/async/process",
+  "moonbitlang/core/env",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/string",
+  "moonbitlang/x/fs",
   "tonyfettes/encoding",
   "ZSeanYves/markitdown/format_readers/pdf_native" @dpdfnative,
   "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/formats/ocr" @focr,
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
 }

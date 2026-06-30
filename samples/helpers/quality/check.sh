@@ -646,6 +646,47 @@ cli_extra_args_summary_value() {
   printf '%s' "$joined"
 }
 
+quality_row_cli_flags() {
+  local format="$1"
+  local features="${2-}"
+  local flags=()
+  local feature
+  IFS=';' read -r -a feature_parts <<< "$features"
+  for feature in "${feature_parts[@]}"; do
+    feature="${feature#"${feature%%[![:space:]]*}"}"
+    feature="${feature%"${feature##*[![:space:]]}"}"
+    [[ -z "$feature" ]] && continue
+    case "$feature" in
+      pdf_ocr)
+        if [[ "$format" == "pdf" ]]; then
+          flags+=("--ocr")
+        fi
+        ;;
+      ocr_lang:*)
+        flags+=("--ocr-lang" "${feature#ocr_lang:}")
+        ;;
+    esac
+  done
+  printf '%s\n' "${flags[@]}"
+}
+
+quality_artifact_cli_args_summary() {
+  local cli_args_file="$1"
+  if [[ ! -f "$cli_args_file" ]]; then
+    printf '*'
+    return
+  fi
+  python3 - "$cli_args_file" <<'PY'
+from pathlib import Path
+import shlex
+import sys
+
+path = Path(sys.argv[1])
+args = [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+print("*" if not args else " ".join(shlex.quote(arg) for arg in args))
+PY
+}
+
 is_known_bad_tier() {
   local quality_tier="${1-}"
   [[ "$quality_tier" == "known_bad" ]]
@@ -763,6 +804,11 @@ artifact_plan_metadata_file() {
   printf '%s/metadata_enabled.txt' "$(artifact_plan_dir "$artifact_id")"
 }
 
+artifact_plan_cli_args_file() {
+  local artifact_id="$1"
+  printf '%s/cli_args.txt' "$(artifact_plan_dir "$artifact_id")"
+}
+
 artifact_plan_rowcount_file() {
   local artifact_id="$1"
   printf '%s/row_count.txt' "$(artifact_plan_dir "$artifact_id")"
@@ -772,6 +818,7 @@ artifact_plan_register() {
   local artifact_id="$1"
   local abs_path="$2"
   local metadata_enabled="$3"
+  local cli_args_summary="${4-}"
   local plan_dir
   plan_dir="$(artifact_plan_dir "$artifact_id")"
   if [[ ! -d "$plan_dir" ]]; then
@@ -781,6 +828,10 @@ artifact_plan_register() {
     printf '%s' "$metadata_enabled" > "$(artifact_plan_metadata_file "$artifact_id")"
     printf '0' > "$(artifact_plan_rowcount_file "$artifact_id")"
     : > "$(artifact_plan_rows_raw_path "$artifact_id")"
+    : > "$(artifact_plan_cli_args_file "$artifact_id")"
+    if [[ -n "$cli_args_summary" ]]; then
+      printf '%s\n' "$cli_args_summary" > "$(artifact_plan_cli_args_file "$artifact_id")"
+    fi
     ARTIFACT_GROUP_COUNT=$((ARTIFACT_GROUP_COUNT + 1))
   fi
 }
@@ -812,6 +863,11 @@ artifact_plan_row_count() {
 artifact_plan_rows_each() {
   local artifact_id="$1"
   cat "$(artifact_plan_rows_raw_path "$artifact_id")"
+}
+
+artifact_plan_cli_args_each() {
+  local artifact_id="$1"
+  cat "$(artifact_plan_cli_args_file "$artifact_id")"
 }
 
 quality_runner_label() {
@@ -1500,13 +1556,29 @@ quality_plan_row() {
     return
   fi
 
-  local cli_extra_summary
-  cli_extra_summary="$(cli_extra_args_summary_value)"
+  local row_cli_args=()
+  while IFS= read -r cli_arg; do
+    [[ -z "$cli_arg" ]] && continue
+    row_cli_args+=("$cli_arg")
+  done < <(quality_row_cli_flags "$format" "$features")
+
+  local combined_cli_args=()
+  if [[ "${#CLI_EXTRA_ARGS[@]}" -ne 0 ]]; then
+    combined_cli_args+=("${CLI_EXTRA_ARGS[@]}")
+  fi
+  if [[ "${#row_cli_args[@]}" -ne 0 ]]; then
+    combined_cli_args+=("${row_cli_args[@]}")
+  fi
+
+  local cli_extra_summary="*"
+  if [[ "${#combined_cli_args[@]}" -ne 0 ]]; then
+    cli_extra_summary="$(printf '%s\n' "${combined_cli_args[@]}")"
+  fi
   local artifact_key="$abs_path"$'\x1f'"$(metadata_summary_value)"$'\x1f'"$cli_extra_summary"$'\x1f'"normal"
   local artifact_id
   artifact_id="$(artifact_id_from_key "$abs_path" "$artifact_key")"
 
-  artifact_plan_register "$artifact_id" "$abs_path" "$(metadata_summary_value)"
+  artifact_plan_register "$artifact_id" "$abs_path" "$(metadata_summary_value)" "$cli_extra_summary"
   artifact_plan_append_row "$artifact_id" "$row"
   EXECUTABLE_ROW_COUNT=$((EXECUTABLE_ROW_COUNT + 1))
   validation_progress_step "$path"
@@ -1650,9 +1722,10 @@ quality_execute_artifact_group() {
   if [[ "$METADATA_ENABLED" -ne 0 ]]; then
     cli_args+=("--with-metadata")
   fi
-  if [[ "${#CLI_EXTRA_ARGS[@]}" -ne 0 ]]; then
-    cli_args+=("${CLI_EXTRA_ARGS[@]}")
-  fi
+  while IFS= read -r cli_arg; do
+    [[ -z "$cli_arg" ]] && continue
+    cli_args+=("$cli_arg")
+  done < <(artifact_plan_cli_args_each "$artifact_id")
   cli_args+=("$abs_path" "$output_md")
 
   local stage_start_ms=0

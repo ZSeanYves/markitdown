@@ -26,13 +26,13 @@ fi
 MODE="markdown"
 FORMAT_FILTER=""
 SPECIAL_MODE=""
-FORMATS=("csv" "tsv" "txt" "json" "jsonl" "ndjson" "xml" "yaml" "html" "markdown" "zip" "epub" "docx" "xlsx" "pptx" "pdf")
+FORMATS=("csv" "tsv" "txt" "json" "jsonl" "ndjson" "xml" "yaml" "html" "markdown" "zip" "epub" "docx" "xlsx" "pptx" "pdf" "ocr")
 
 trap 'status=$?; if [[ "$CLEANUP_OUT_DIR" -ne 0 ]]; then sample_cleanup_tmp_dir "$OUT_DIR"; fi; exit "$status"' EXIT
 
 usage() {
   cat <<'EOF'
-Internal usage: check_samples_impl.sh [--markdown|--rag|--assets] [--format FMT] [--check-inventory] [--list-inventory]
+Internal usage: check_samples_impl.sh [--markdown|--rag|--assets|--ocr] [--format FMT] [--check-inventory] [--list-inventory]
 EOF
 }
 
@@ -42,7 +42,7 @@ supported_formats() {
 }
 
 sample_inventory_formats() {
-  printf '%s\n' xlsx html zip epub docx pptx pdf csv tsv json yaml xml markdown txt jsonl ndjson
+  printf '%s\n' xlsx html zip epub docx pptx pdf ocr csv tsv json yaml xml markdown txt jsonl ndjson
 }
 
 format_is_supported() {
@@ -59,13 +59,16 @@ format_is_supported() {
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --markdown)
-      MODE="markdown"
+MODE="markdown"
       ;;
     --rag)
       MODE="rag"
       ;;
     --assets)
       MODE="assets"
+      ;;
+    --ocr)
+      MODE="ocr"
       ;;
     --format)
       shift
@@ -192,6 +195,10 @@ for entry in "${SAMPLE_LIST[@]}"; do
   fi
 
   cli_args=(normal)
+  while IFS= read -r extra_arg; do
+    [[ -z "$extra_arg" ]] && continue
+    cli_args+=("$extra_arg")
+  done < <(sample_lane_cli_args "$fmt" "$MODE" "$rel")
   if [[ "$MODE" == "rag" ]]; then
     cli_args=(--rag)
   fi

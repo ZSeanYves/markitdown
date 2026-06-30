@@ -23,14 +23,6 @@ pub fn plan_input(
   if detected.format == @input.DetectedFormat::Unknown {
     return Err(ConvertError::DetectFailed("unknown format"))
   }
-  if detected.format == @input.DetectedFormat::Pdf &&
-    options.ocr_options.intent == @parser.OcrIntent::Explicit {
-    return Err(
-      ConvertError::ParseFailed(
-        "PDF OCR is not supported on the this runtime; native-text PDF restore is enabled, but scanned/image-only PDFs and PDF --ocr remain fail-closed.",
-      ),
-    )
-  }
   if @input.detected_format_is_image_candidate(detected.format) {
     let requested_mode = match options.ocr_options.intent {
       @parser.OcrIntent::Explicit => Some(@parser.ParserMode::LayoutTwoStage)
@@ -118,14 +110,6 @@ fn convert_input_with_image_ocr_provider_and_provenance(
   if detected.format == @input.DetectedFormat::Unknown {
     return Err(ConvertError::DetectFailed("unknown format"))
   }
-  if detected.format == @input.DetectedFormat::Pdf &&
-    options.ocr_options.intent == @parser.OcrIntent::Explicit {
-    return Err(
-      ConvertError::ParseFailed(
-        "PDF OCR is not supported on the this runtime; native-text PDF restore is enabled, but scanned/image-only PDFs and PDF --ocr remain fail-closed.",
-      ),
-    )
-  }
   if @input.detected_format_is_image_candidate(detected.format) {
     let requested_mode = match options.ocr_options.intent {
       @parser.OcrIntent::Explicit => Some(@parser.ParserMode::LayoutTwoStage)
@@ -166,7 +150,6 @@ fn convert_input_with_image_ocr_provider_and_provenance(
   let detect_trace = format_detection_trace(detected)
   let route_decision = plan_route(effective_source, detected.format, options)
   let prepared_source = route_decision.prepared_source
-  let registry = @formats.builtin_registry()
   let requested_mode = requested_parser_mode_for_route(
     detected.format,
     options,
@@ -188,20 +171,34 @@ fn convert_input_with_image_ocr_provider_and_provenance(
     Some(options.limits.max_line_chars),
     options.mode == ConvertMode::Debug,
   )
-  let parsed = match
-    parse_with_route_probe_artifact(
-      prepared_source,
-      detected.format,
-      parse_context,
-      route_decision.probe_artifact,
-    ) {
-    Some(Ok(result)) => result
-    Some(Err(err)) => return Err(ConvertError::ParseFailed(err))
-    None =>
-      match @parser.registry_parse(registry, prepared_source, parse_context) {
-        Ok(result) => result
-        Err(err) => return Err(ConvertError::ParseFailed(err))
-      }
+  let parsed = if detected.format == @input.DetectedFormat::Pdf &&
+    requested_mode == Some(@parser.ParserMode::LayoutTwoStage) {
+    match
+      @fpdf.pdf_ocr_parser_result(
+        prepared_source,
+        parse_context,
+        image_ocr_provider~,
+      ) {
+      Ok(result) => result
+      Err(err) => return Err(ConvertError::ParseFailed(err))
+    }
+  } else {
+    let registry = @formats.builtin_registry()
+    match
+      parse_with_route_probe_artifact(
+        prepared_source,
+        detected.format,
+        parse_context,
+        route_decision.probe_artifact,
+      ) {
+      Some(Ok(result)) => result
+      Some(Err(err)) => return Err(ConvertError::ParseFailed(err))
+      None =>
+        match @parser.registry_parse(registry, prepared_source, parse_context) {
+          Ok(result) => result
+          Err(err) => return Err(ConvertError::ParseFailed(err))
+        }
+    }
   }
   let diagnostics = inject_preparse_diagnostics(
     parsed.diagnostics,
@@ -244,14 +241,6 @@ pub async fn convert_input_with_image_ocr_provider_async(
   if detected.format == @input.DetectedFormat::Unknown {
     return Err(ConvertError::DetectFailed("unknown format"))
   }
-  if detected.format == @input.DetectedFormat::Pdf &&
-    options.ocr_options.intent == @parser.OcrIntent::Explicit {
-    return Err(
-      ConvertError::ParseFailed(
-        "PDF OCR is not supported on the this runtime; native-text PDF restore is enabled, but scanned/image-only PDFs and PDF --ocr remain fail-closed.",
-      ),
-    )
-  }
   if @input.detected_format_is_image_candidate(detected.format) {
     let requested_mode = match options.ocr_options.intent {
       @parser.OcrIntent::Explicit => Some(@parser.ParserMode::LayoutTwoStage)
@@ -277,7 +266,23 @@ pub async fn convert_input_with_image_ocr_provider_async(
       ),
     )
   }
-  convert_input(effective_source, { ..options, explicit_format: None })
+  if detected.format == @input.DetectedFormat::Pdf &&
+    (
+      options.mode == ConvertMode::Accurate ||
+      options.ocr_options.intent == @parser.OcrIntent::Explicit
+    ) {
+    match
+      convert_input_with_provenance_and_image_ocr_provider(
+        effective_source,
+        { ..options, explicit_format: None },
+        @focr.run_tesseract_provider,
+      ) {
+      Ok(execution) => Ok(execution.result)
+      Err(err) => Err(err)
+    }
+  } else {
+    convert_input(effective_source, { ..options, explicit_format: None })
+  }
 }
 
 ///|

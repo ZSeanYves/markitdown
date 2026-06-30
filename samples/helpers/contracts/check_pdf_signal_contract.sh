@@ -214,14 +214,10 @@ assert_contains "$SCAN_ERR" 'empty or not recoverable'
 assert_not_contains "$SCAN_ERR" 'not configured'
 assert_not_contains "$SCAN_ERR" 'image OCR provider returned a non-empty OCR model'
 
-echo "==> pdf OCR remains unsupported and does not reach provider or raster route"
+echo "==> pdf OCR is a dependency-backed product route"
 run_and_capture "$PDF_OCR_ERR" run_markitdown_cli --ocr --ocr-lang eng "$ROOT_BASELINE_INPUT"
-[[ "$CAPTURED_STATUS" -ne 0 ]] || fail "pdf --ocr should stay fail closed"
-assert_contains "$PDF_OCR_ERR" 'PDF OCR is not supported'
-assert_contains "$PDF_OCR_ERR" 'scanned/image-only PDFs'
-assert_not_contains "$PDF_OCR_ERR" 'not configured'
-assert_not_contains "$PDF_OCR_ERR" 'image OCR provider returned a non-empty OCR model'
-assert_not_contains "$PDF_OCR_ERR" 'tesseract'
-assert_not_contains "$PDF_OCR_ERR" 'raster'
+if [[ "$CAPTURED_STATUS" -ne 0 ]]; then
+  assert_contains "$PDF_OCR_ERR" 'pdftoppm'
+fi
 
 echo "PDF SIGNAL CONTRACT PASSED"

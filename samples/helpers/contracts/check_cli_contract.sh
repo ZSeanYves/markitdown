@@ -81,6 +81,8 @@ XML_INPUT="$ROOT/samples/main_process/xml/markdown/xml_basic.xml"
 XML_EXPECTED="$ROOT/samples/main_process/xml/expected/markdown/xml_basic.md"
 YAML_INPUT="$ROOT/samples/main_process/yaml/markdown/yaml_mapping_basic.yaml"
 YAML_EXPECTED="$ROOT/samples/main_process/yaml/expected/markdown/yaml_mapping_basic.md"
+OCR_INPUT="$ROOT/samples/main_process/ocr/markdown/ocr_tiny_png.png"
+OCR_EXPECTED="$ROOT/samples/main_process/ocr/expected/markdown/ocr_tiny_png.md"
 MARKDOWN_EXPECTED="$ROOT/samples/main_process/markdown/expected/markdown/markdown_basic_heading_paragraph.md"
 MARKDOWN_DOT_EXPECTED="$ROOT/samples/main_process/markdown/expected/markdown/markdown_frontmatter_passthrough.md"
 
@@ -111,6 +113,7 @@ ZIP_MD="$NO_META_DIR/zip_basic_structured.md"
 EPUB_MD="$NO_META_DIR/epub_basic_package.md"
 DOCX_MD="$NO_META_DIR/docx_image_alt_title_basic.md"
 XLSX_MD="$NO_META_DIR/sheet_simple.md"
+OCR_MD="$NO_META_DIR/ocr_tiny_png.md"
 
 TXT_MD="$NO_META_DIR/txt_plain.md"
 CSV_MD="$NO_META_DIR/csv_basic.md"
@@ -120,13 +123,13 @@ TXT_ALIAS_MD="$NO_META_DIR/txt_plain_alias.md"
 echo "==> help and version expose main cli product surface"
 run_and_capture "$HELP_STDOUT" run_markitdown_cli --help
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "--help should succeed"
-assert_contains "$HELP_STDOUT" 'markitdown-mb [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|xml|yaml|yml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] <input> [output]'
+assert_contains "$HELP_STDOUT" 'markitdown-mb [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|xml|yaml|yml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf|png|jpg|jpeg|bmp|webp|tif|tiff] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]'
 assert_contains "$HELP_STDOUT" '--pdf-cleanup none|conservative'
 assert_contains "$HELP_STDOUT" '--pdf-tables none|simple'
-assert_contains "$HELP_STDOUT" 'Explicit image `--ocr` may invoke local Tesseract; PDF OCR is not supported and scanned/image-only PDFs remain fail-closed.'
+assert_contains "$HELP_STDOUT" 'Direct image input uses local Tesseract OCR by default; `--no-ocr` disables it. `pdf --ocr` and Accurate-mode PDF OCR use local `pdftoppm` + Tesseract and require local installation.'
 assert_contains "$HELP_STDOUT" 'PDF cleanup and simple table reconstruction are explicit opt-in product options'
 assert_contains "$HELP_STDOUT" '`--rag` emits chunked retrieval JSON with the default internal chunking policy.'
-assert_contains "$HELP_STDOUT" 'Supported product formats: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, yml, html, htm, markdown, md, zip, epub, docx, xlsx, pptx, pdf'
+assert_contains "$HELP_STDOUT" 'Supported product formats: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, yml, html, htm, markdown, md, zip, epub, docx, xlsx, pptx, pdf, png, jpg, jpeg, bmp, webp, tif, tiff'
 assert_contains "$HELP_STDOUT" 'fail closed'
 
 run_and_capture "$HELP_ALIAS_STDOUT" run_markitdown_cli help
@@ -145,7 +148,7 @@ run_and_capture "$VERSION_ALIAS_STDOUT" run_markitdown_cli version
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "version alias should succeed"
 assert_matches_expected "$VERSION_STDOUT" "$VERSION_ALIAS_STDOUT"
 
-echo "==> txt csv tsv json jsonl ndjson xml yaml html markdown zip epub docx xlsx pptx and pdf succeed through main product cli"
+echo "==> txt csv tsv json jsonl ndjson xml yaml html markdown zip epub docx xlsx pptx pdf and ocr succeed through main product cli"
 run_markitdown_cli normal "$TXT_INPUT" "$TXT_MD"
 run_markitdown_cli normal "$CSV_INPUT" "$CSV_MD"
 run_markitdown_cli normal "$TSV_INPUT" "$TSV_MD"
@@ -163,6 +166,7 @@ run_markitdown_cli normal "$DOCX_INPUT" "$DOCX_MD"
 run_markitdown_cli normal "$XLSX_INPUT" "$XLSX_MD"
 run_markitdown_cli normal "$PPTX_INPUT" "$NO_META_DIR/pptx_hidden_slide_basic.md"
 run_markitdown_cli normal "$PDF_INPUT" "$NO_META_DIR/root_native_text_baseline.md"
+run_markitdown_cli normal "$OCR_INPUT" "$OCR_MD"
 assert_matches_expected "$TXT_EXPECTED" "$TXT_MD"
 assert_matches_expected "$CSV_EXPECTED" "$CSV_MD"
 assert_matches_expected "$TSV_EXPECTED" "$TSV_MD"
@@ -180,6 +184,7 @@ assert_matches_expected "$DOCX_EXPECTED" "$DOCX_MD"
 assert_matches_expected "$ROOT/samples/main_process/xlsx/expected/markdown/sheet_simple.md" "$XLSX_MD"
 assert_matches_expected "$ROOT/samples/main_process/pptx/expected/markdown/pptx_hidden_slide_basic.md" "$NO_META_DIR/pptx_hidden_slide_basic.md"
 assert_matches_expected "$ROOT/samples/main_process/pdf/expected/markdown/root_native_text_baseline.md" "$NO_META_DIR/root_native_text_baseline.md"
+assert_matches_expected "$OCR_EXPECTED" "$OCR_MD"
 assert_file_not_exists "$NO_META_DIR/metadata/txt_plain.metadata.json"
 
 echo "==> bare alias still maps to normal"
@@ -198,13 +203,13 @@ run_and_capture "$DOCX_ERR" run_markitdown_cli --rag "$DOCX_INPUT"
 assert_contains "$DOCX_ERR" '"output_format": "rag_json"'
 assert_contains "$DOCX_ERR" '"chunks"'
 
-echo "==> pdf OCR remains explicitly unsupported"
+echo "==> pdf OCR is a dependency-backed product path"
 run_and_capture "$PDF_ERR" run_markitdown_cli --ocr --ocr-lang eng "$PDF_INPUT"
-[[ "$CAPTURED_STATUS" -ne 0 ]] || fail "pdf --ocr should fail closed"
-assert_contains "$PDF_ERR" 'PDF OCR is not supported'
-assert_contains "$PDF_ERR" 'scanned/image-only PDFs'
-! grep -Fq 'image OCR provider returned a non-empty OCR model' "$PDF_ERR" || fail "pdf --ocr must not enter the image OCR provider success path"
-! grep -Fq 'not configured' "$PDF_ERR" || fail "pdf --ocr must fail before image OCR provider configuration checks"
+if [[ "$CAPTURED_STATUS" -eq 0 ]]; then
+  assert_contains "$PDF_ERR" 'PDF'
+else
+  assert_contains "$PDF_ERR" 'pdftoppm'
+fi
 
 echo "==> pdf product options are explicit opt-in and default markdown remains stable"
 run_markitdown_cli --pdf-cleanup conservative --pdf-tables simple "$PDF_INPUT" "$NO_META_DIR/root_native_text_baseline_optin.md"

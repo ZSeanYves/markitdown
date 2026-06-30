@@ -1,0 +1,34 @@
+{
+  "output_format": "rag_json",
+  "detected_format": "bmp",
+  "parser_mode": "layout_two_stage",
+  "convert_mode": "rag",
+  "diagnostics_contains": {
+    "parser_name": "image_ocr_parser",
+    "metrics": {
+      "renderer_name": "RagJsonRenderer",
+      "ocr_provider_status": "success",
+      "image_format": "bmp"
+    }
+  },
+  "source_map": "null",
+  "chunk_count": {
+    "min": 1
+  },
+  "chunks": [
+    {
+      "kind": "text",
+      "heading_path": [],
+      "source_ref_count": 2,
+      "asset_ref_count": 0,
+      "text_contains_all": [
+        "MoonBit OCR\n\nSample 123"
+      ],
+      "location_contains": {
+        "pages": [
+          "1"
+        ]
+      }
+    }
+  ]
+}

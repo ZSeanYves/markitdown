@@ -16,7 +16,7 @@ Modes:
 
 Groups:
   Root main CLI contracts:
-    cli, samples, quality, quality grouping, quality signal eval, zip, epub, docx, xlsx, pptx, ocr fail-closed, pdf signal layer
+    cli, samples, quality, quality grouping, quality signal eval, zip, epub, docx, xlsx, pptx, direct image ocr, pdf signal layer
 EOF
 }
 

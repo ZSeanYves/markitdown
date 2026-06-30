@@ -132,10 +132,10 @@ test "tesseract provider shell remains fail-closed even when TSV parser exists" 
     language=Some("eng"),
   )
   match run_tesseract_provider(request) {
-    Err(OcrProviderError::NotConfigured(msg)) => {
-      assert_true(msg.contains("not configured"))
-      assert_true(msg.contains("language=eng"))
-    }
+    Err(OcrProviderError::CommandUnavailable(msg)) =>
+      assert_true(msg.contains("scan.png") || msg.contains("tesseract"))
+    Err(OcrProviderError::ExecutionFailed(msg)) =>
+      assert_true(msg.contains("scan.png") || msg.contains("tesseract"))
     Err(other) => fail("unexpected provider shell error: " + other.to_string())
     Ok(_) => fail("provider shell should remain fail-closed")
   }

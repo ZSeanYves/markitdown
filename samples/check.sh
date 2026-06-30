@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SAMPLE_IMPL="$ROOT/samples/helpers/validation/check_samples_impl.sh"
 CHECK_TMP_ROOT="${MARKITDOWN_CHECK_TMP_ROOT:-$ROOT/.tmp/check}"
-SUPPORTED_FORMATS=("txt" "csv" "tsv" "json" "jsonl" "ndjson" "xml" "yaml" "html" "markdown" "zip" "epub" "docx" "xlsx" "pptx" "pdf")
+SUPPORTED_FORMATS=("txt" "csv" "tsv" "json" "jsonl" "ndjson" "xml" "yaml" "html" "markdown" "zip" "epub" "docx" "xlsx" "pptx" "pdf" "ocr")
 
 ONLY_MODE=""
 FORMAT_FILTER=""
@@ -16,7 +16,7 @@ fi
 
 usage() {
   cat <<'EOF'
-Usage: ./samples/check.sh [--markdown|--rag|--assets] [--format FMT] [--check-inventory] [--list-inventory]
+Usage: ./samples/check.sh [--markdown|--rag|--assets|--ocr] [--format FMT] [--check-inventory] [--list-inventory]
 
 Runs repo-local samples/main_process regression checks.
 
@@ -24,13 +24,14 @@ Options:
   --markdown          Run only Markdown expected-output checks.
   --rag               Run only RAG expected-output checks.
   --assets            Run only light-asset expected-output checks.
-  --format FMT        Restrict checks to one supported product format: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, pdf.
+  --ocr               Run only explicit OCR-lane expected-output checks.
+  --format FMT        Restrict checks to one supported product format: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, pdf, ocr.
   --check-inventory   Run sample enrollment/integrity checks without conversion.
   --list-inventory    Print sample inventory counts in TSV form.
   -h, --help          Show this help.
 
 Default:
-  Run markdown, rag, and assets checks for the main CLI gate: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, and pdf.
+  Run markdown, rag, assets, and explicit OCR-lane checks for the main CLI gate: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, pdf, and ocr.
   Unsupported formats fail closed here.
 
 Run artifacts:
@@ -123,6 +124,9 @@ while [[ $# -gt 0 ]]; do
       ;;
     --assets)
       set_only_mode "assets"
+      ;;
+    --ocr)
+      set_only_mode "ocr"
       ;;
     --format)
       shift
@@ -365,7 +369,7 @@ write_summary_md() {
   local status="$1"
   local finished_at="$2"
   local duration="$3"
-  local lanes="markdown, rag, assets"
+  local lanes="markdown, rag, assets, ocr"
   local result_word="PASS"
   local failure_report_count
   [[ "$status" -eq 0 ]] || result_word="FAIL"
@@ -386,7 +390,7 @@ write_summary_md() {
     echo
     echo "## What was checked"
     echo
-    echo "Repo-local samples/main_process lane checks for the main CLI gate: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, and pdf."
+    echo "Repo-local samples/main_process lane checks for the main CLI gate: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, pdf, and ocr."
     echo "Lanes: $lanes"
     echo "Formats outside the current gate fail closed and are not part of this check."
     echo
@@ -435,6 +439,7 @@ else
   run_impl "markdown" || overall_status=$?
   run_impl "rag" || overall_status=$?
   run_impl "assets" || overall_status=$?
+  run_impl "ocr" || overall_status=$?
 fi
 
 FINISHED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"

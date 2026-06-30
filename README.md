@@ -1,6 +1,6 @@
 # markitdown-mb
 
-`markitdown-mb` is a MoonBit-first document-to-Markdown tool designed for engineering-grade workloads.
+`markitdown-mb` is a MoonBit document-to-Markdown tool designed for engineering-grade workloads.
 
 The project was originally inspired by Microsoft's MarkItDown: convert common document formats into stable, consumable Markdown. The current implementation follows that goal, but places stronger emphasis on a unified product path, verifiable benchmarking, and fail-closed product boundaries.
 
@@ -66,13 +66,20 @@ The main CLI currently supports:
 - `xlsx`
 - `pptx`
 - `pdf`
+- `png`
+- `jpg`
+- `jpeg`
+- `bmp`
+- `webp`
+- `tif`
+- `tiff`
 
 Current format policy:
 
-- `pdf` is officially supported only for native-text PDFs.
-- Scanned or image-only PDFs still fail closed.
-- `pdf --ocr` is not supported.
-- Default image input is not part of the formal support matrix, but explicit image `--ocr` can use local Tesseract.
+- `pdf` is officially supported for native-text PDFs by default.
+- `pdf --ocr` and `Accurate`-mode PDF OCR are officially supported through local `pdftoppm` + `tesseract`.
+- Scanned or image-only PDFs still require the explicit PDF OCR route.
+- Direct image input is officially supported through local Tesseract OCR.
 - Unsupported formats fail closed.
 
 For more detailed capability coverage, limitations, OCR boundaries, and container semantics, see [docs/capabilities-and-limitations.md](./docs/capabilities-and-limitations.md).
@@ -110,16 +117,28 @@ Current OCR support is based on local `Tesseract` and does not depend on a cloud
 macOS / Homebrew:
 
 ```bash
+brew install poppler
 brew install tesseract
 brew install tesseract-lang
 ```
 
+Ubuntu:
+
+```bash
+sudo apt install poppler-utils tesseract-ocr
+sudo apt install tesseract-ocr-eng
+# install extra language packs as needed, for example:
+# sudo apt install tesseract-ocr-chi-sim tesseract-ocr-jpn
+```
+
 Current boundaries:
 
-- `--ocr` is available only for the explicit image OCR boundary.
-- `--ocr-lang <LANG>` can be used to specify language.
-- `pdf --ocr` is not currently enabled.
-- Scanned/image-only PDFs remain fail-closed.
+- Direct image input uses OCR by default.
+- `--no-ocr` disables direct-image OCR explicitly.
+- `--ocr-lang <LANG>` can be used to specify language for direct image input and explicit PDF OCR.
+- `pdf --ocr` and `Accurate`-mode PDF OCR are dependency-backed product paths.
+- PDF OCR in this release is OCR-only and does not promise complex layout reconstruction.
+- This project depends on locally installed `pdftoppm` and `tesseract`; it does not bundle or redistribute either binary.
 
 ## Reproducibility Guide
 
