@@ -1,0 +1,201 @@
+{
+  "defaults": {
+    "repeat_count": 3,
+    "warmup_count": 1,
+    "timeout_ms": 60000,
+    "tiers": ["regular", "release", "stress"]
+  },
+  "tool_matrix": {
+    "official-internal": ["moonbit-cli", "moonbit-engine"],
+    "official-compare": ["moonbit-cli", "moonbit-engine", "markitdown"],
+    "doctor": ["moonbit-cli", "moonbit-engine", "markitdown"]
+  },
+  "gate_presets": {
+    "official-internal": {
+      "scenario_ids": [
+        "product.official_internal",
+        "diagnostic.markdown",
+        "diagnostic.html",
+        "diagnostic.xml",
+        "diagnostic.xlsx",
+        "diagnostic.epub",
+        "diagnostic.zip"
+      ],
+      "tiers": ["regular", "release", "stress"],
+      "repeat_count": 3,
+      "warmup_count": 1,
+      "timeout_ms": 60000
+    },
+    "official-compare": {
+      "scenario_ids": ["compare.official_compare"],
+      "tiers": ["regular", "release", "stress"],
+      "repeat_count": 3,
+      "warmup_count": 1,
+      "timeout_ms": 60000
+    },
+    "doctor": {
+      "scenario_ids": ["doctor.binary_contract"],
+      "tiers": ["smoke"],
+      "repeat_count": 20,
+      "warmup_count": 5,
+      "timeout_ms": 60000
+    }
+  },
+  "scenarios": [
+    {
+      "scenario_id": "product.official_internal",
+      "scenario_kind": "product",
+      "tool_set": "official-internal",
+      "row_selector": {
+        "tiers": ["regular", "release", "stress"]
+      },
+      "route_expectation": "product_default",
+      "measurement_policy": "runner_generated",
+      "official_membership": "official-internal"
+    },
+    {
+      "scenario_id": "compare.official_compare",
+      "scenario_kind": "compare",
+      "tool_set": "official-compare",
+      "row_selector": {
+        "tiers": ["regular", "release", "stress"]
+      },
+      "route_expectation": "product_default",
+      "measurement_policy": "runner_generated",
+      "official_membership": "official-compare"
+    },
+    {
+      "scenario_id": "doctor.binary_contract",
+      "scenario_kind": "doctor",
+      "tool_set": "doctor",
+      "row_selector": {
+        "tiers": ["smoke"]
+      },
+      "route_expectation": "not_applicable",
+      "measurement_policy": "runner_generated",
+      "official_membership": "none"
+    },
+    {
+      "scenario_id": "diagnostic.markdown",
+      "scenario_kind": "diagnostic",
+      "tool_set": "official-internal",
+      "row_selector": {
+        "formats": ["markdown"]
+      },
+      "route_expectation": "product_default",
+      "measurement_policy": "runner_generated",
+      "official_membership": "none"
+    },
+    {
+      "scenario_id": "diagnostic.html",
+      "scenario_kind": "diagnostic",
+      "tool_set": "official-internal",
+      "row_selector": {
+        "formats": ["html"]
+      },
+      "route_expectation": "product_default",
+      "measurement_policy": "runner_generated",
+      "official_membership": "none"
+    },
+    {
+      "scenario_id": "diagnostic.xml",
+      "scenario_kind": "diagnostic",
+      "tool_set": "official-internal",
+      "row_selector": {
+        "formats": ["xml"]
+      },
+      "route_expectation": "product_default",
+      "measurement_policy": "runner_generated",
+      "official_membership": "none"
+    },
+    {
+      "scenario_id": "diagnostic.xlsx",
+      "scenario_kind": "diagnostic",
+      "tool_set": "official-internal",
+      "row_selector": {
+        "formats": ["xlsx"]
+      },
+      "route_expectation": "product_default",
+      "measurement_policy": "runner_generated",
+      "official_membership": "none"
+    },
+    {
+      "scenario_id": "diagnostic.epub",
+      "scenario_kind": "diagnostic",
+      "tool_set": "official-internal",
+      "row_selector": {
+        "formats": ["epub"]
+      },
+      "route_expectation": "product_default",
+      "measurement_policy": "runner_generated",
+      "official_membership": "none"
+    },
+    {
+      "scenario_id": "diagnostic.zip",
+      "scenario_kind": "diagnostic",
+      "tool_set": "official-internal",
+      "row_selector": {
+        "formats": ["zip"]
+      },
+      "route_expectation": "product_default",
+      "measurement_policy": "runner_generated",
+      "official_membership": "none"
+    }
+  ],
+  "row_overrides": {
+    "markdown_medium_daringfireball_article_v1": {
+      "route_expectation": "block_streaming"
+    },
+    "markdown_large_commonmark_spec_v1": {
+      "route_expectation": "block_streaming"
+    },
+    "markdown_huge_synthetic_book_v1": {
+      "route_expectation": "block_streaming"
+    },
+    "html_medium_wcag22_v1": {
+      "route_expectation": "block_streaming"
+    },
+    "html_large_wai_aria_v1": {
+      "route_expectation": "block_streaming"
+    },
+    "html_huge_synthetic_articles_v1": {
+      "route_expectation": "block_streaming"
+    },
+    "json_large_openalex_work_v1": {
+      "route_expectation": "streaming_event"
+    },
+    "json_huge_synthetic_events_v1": {
+      "route_expectation": "streaming_event"
+    },
+    "yaml_large_kubernetes_openapi_v1": {
+      "route_expectation": "streaming_event"
+    },
+    "yaml_huge_synthetic_catalog_v1": {
+      "route_expectation": "streaming_event"
+    },
+    "xml_medium_synthetic_entries_v1": {
+      "route_expectation": "streaming_event"
+    },
+    "xml_large_worldbank_population_v1": {
+      "route_expectation": "streaming_event"
+    },
+    "xml_huge_synthetic_entries_v1": {
+      "route_expectation": "streaming_event"
+    },
+    "xlsx_medium_financial_sample_v1": {
+      "route_expectation": "block_streaming"
+    },
+    "xlsx_large_government_tables_v1": {
+      "route_expectation": "block_streaming"
+    },
+    "xlsx_huge_myeb_2011_2024_v1": {
+      "route_expectation": "block_streaming"
+    },
+    "epub_medium_alice_v1": {
+      "route_expectation": "package_single_pass"
+    },
+    "epub_large_moby_dick_v1": {
+      "route_expectation": "package_single_pass"
+    }
+  }
+}

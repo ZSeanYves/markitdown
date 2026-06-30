@@ -30,7 +30,11 @@ pub fn read_input_bytes(InputSource) -> Result[Bytes, String]
 
 pub fn read_input_text(InputSource) -> Result[String, String]
 
+pub fn with_bytes_payload(InputSource, Bytes) -> InputSource
+
 pub fn with_explicit_format(InputSource, DetectedFormat?) -> InputSource
+
+pub fn with_text_payload(InputSource, String) -> InputSource
 
 // Errors
 

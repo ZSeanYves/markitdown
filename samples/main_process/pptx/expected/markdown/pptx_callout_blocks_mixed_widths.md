@@ -2,14 +2,14 @@
 
 ### Callout Mixed Widths
 
-Wide
-
 Narrow
 
-Medium
+Compact summary
+
+Wide
 
 This description intentionally spans wider width
 
-Compact summary
+Medium
 
 Balanced note

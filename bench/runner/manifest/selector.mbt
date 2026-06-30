@@ -2,19 +2,37 @@
 const MANIFEST_HEADER : String = "bench_id\tformat\tsize_class\trel_path\tsource_kind\tsource_ref\tbytes\tsha256\tenabled_tier\tbench_layers\ttags\treview_status\tnotes"
 
 ///|
-const SAMPLES_BENCH_ROOT : String = "samples/bench"
+const EXTERNAL_BENCH_SUFFIX : String = "external_bench"
 
 ///|
-const MANIFEST_PATH : String = "samples/bench/MANIFEST.tsv"
+fn bench_root() -> String {
+  match normalized_env_var("MARKITDOWN_BENCH_ROOT") {
+    Some(path) => path
+    None =>
+      match discover_external_bench_root() {
+        Some(path) => path
+        None => abort(missing_external_bench_message())
+      }
+  }
+}
+
+///|
+fn manifest_path() -> String {
+  bench_root() + "/MANIFEST.tsv"
+}
 
 ///|
 pub fn select_rows(request : SelectRequest) -> Array[BenchRow] {
-  let content = @fs.read_file_to_string(MANIFEST_PATH, encoding="utf8") catch {
-    err => abort("bench manifest read failed: " + err.to_string())
+  let manifest_path = manifest_path()
+  let content = @fs.read_file_to_string(manifest_path, encoding="utf8") catch {
+    err =>
+      abort(
+        "bench manifest read failed: " + manifest_path + " : " + err.to_string(),
+      )
   }
   let lines = content.split("\n").to_array()
   if lines.length() == 0 || lines[0].trim_end() != MANIFEST_HEADER {
-    abort("unexpected bench manifest header: " + MANIFEST_PATH)
+    abort("unexpected bench manifest header: " + manifest_path)
   }
   let rows : Array[BenchRow] = []
   let selected = Ref(0)
@@ -38,12 +56,16 @@ pub fn select_rows(request : SelectRequest) -> Array[BenchRow] {
 
 ///|
 pub fn selector_stats_json(request : SelectRequest) -> Json {
-  let content = @fs.read_file_to_string(MANIFEST_PATH, encoding="utf8") catch {
-    err => abort("bench manifest read failed: " + err.to_string())
+  let manifest_path = manifest_path()
+  let content = @fs.read_file_to_string(manifest_path, encoding="utf8") catch {
+    err =>
+      abort(
+        "bench manifest read failed: " + manifest_path + " : " + err.to_string(),
+      )
   }
   let lines = content.split("\n").to_array()
   if lines.length() == 0 || lines[0].trim_end() != MANIFEST_HEADER {
-    abort("unexpected bench manifest header: " + MANIFEST_PATH)
+    abort("unexpected bench manifest header: " + manifest_path)
   }
   let skipped : Map[String, Int] = {}
   let rows : Array[BenchRow] = []
@@ -65,10 +87,26 @@ pub fn selector_stats_json(request : SelectRequest) -> Json {
         }
     }
   }
-  let formats = rows.map(row => row.format)
+  let formats = rows
+    .map(row => row.format.trim().to_lower().to_owned())
+    .filter(format => format != "")
   formats.sort()
+  formats.dedup()
   SelectorStats::{
-    requested_tier: Some(request.tier.trim().to_lower().to_owned()),
+    requested_tier: if request.exact_tiers.length() > 0 {
+      None
+    } else {
+      Some(request.tier.trim().to_lower().to_owned())
+    },
+    requested_tiers: request.exact_tiers.map(tier => {
+      tier.trim().to_lower().to_owned()
+    }),
+    tier_filter_mode: if request.exact_tiers.length() > 0 {
+      "exact"
+    } else {
+      "cumulative"
+    },
+    requested_bench_ids: request.bench_ids.copy(),
     selected_rows: rows.length(),
     formats,
     skipped_by_reason: skipped,
@@ -77,12 +115,7 @@ pub fn selector_stats_json(request : SelectRequest) -> Json {
 
 ///|
 pub fn empty_selector_stats() -> SelectorStats {
-  SelectorStats::{
-    requested_tier: None,
-    selected_rows: 0,
-    formats: [],
-    skipped_by_reason: {},
-  }
+  make_selector_stats(None, [], "cumulative", [], 0, [], {})
 }
 
 ///|
@@ -110,7 +143,7 @@ pub fn selector_rows_tsv(request : SelectRequest) -> Array[String] {
 
 ///|
 pub fn repo_rel_input_path(rel_path : String) -> String {
-  SAMPLES_BENCH_ROOT + "/" + rel_path
+  bench_root() + "/" + rel_path
 }
 
 ///|
@@ -158,16 +191,28 @@ pub fn should_skip_row(row : BenchRow, request : SelectRequest) -> String? {
   if !tier_order().contains(enabled_tier) {
     return Some("unknown_tier")
   }
-  if tier_rank(enabled_tier) >
+  if request.exact_tiers.length() > 0 {
+    if !request.exact_tiers.any(tier => tier.trim().to_lower() == enabled_tier) {
+      return Some("tier_exact_excluded")
+    }
+  } else if tier_rank(enabled_tier) >
     tier_rank(request.tier.trim().to_lower().to_owned()) {
     return Some("tier_excluded")
+  }
+  if request.bench_ids.length() > 0 &&
+    !request.bench_ids.any(id => id.trim() == row.bench_id) {
+    return Some("bench_id_filtered")
   }
   if row.input_bytes <= 0 {
     return Some("zero_bytes")
   }
-  if request.format_filter is Some(format_filter) &&
-    row.format.trim().to_lower() != format_filter.trim().to_lower() {
-    return Some("format_filtered")
+  if request.format_filters.length() > 0 {
+    let row_format = row.format.trim().to_lower().to_owned()
+    if !request.format_filters.any(format_filter => {
+        format_filter.trim().to_lower() == row_format
+      }) {
+      return Some("format_filtered")
+    }
   }
   if row.rel_path.trim() == "" {
     return Some("missing_rel_path")
@@ -224,4 +269,40 @@ fn increment_skip_reason(skipped : Map[String, Int], reason : String) -> Unit {
     None => 1
   }
   skipped[reason] = next
+}
+
+///|
+fn normalized_env_var(name : String) -> String? {
+  match @env.get_env_var(name) {
+    Some(value) => {
+      let trimmed = value.trim().to_owned()
+      if trimmed == "" {
+        None
+      } else {
+        Some(trimmed)
+      }
+    }
+    None => None
+  }
+}
+
+///|
+fn discover_external_bench_root() -> String? {
+  let candidates = ["markitdown-quality-lab/" + EXTERNAL_BENCH_SUFFIX]
+  for candidate in candidates {
+    if @fs.path_exists(candidate + "/MANIFEST.tsv") {
+      return Some(candidate)
+    }
+  }
+  None
+}
+
+///|
+fn missing_external_bench_message() -> String {
+  [
+    "benchmark corpus not found", "expected one of:", "  - $MARKITDOWN_BENCH_ROOT/MANIFEST.tsv",
+    "  - ./markitdown-quality-lab/external_bench/MANIFEST.tsv", "download the external corpus into the main repo root first:",
+    "  git clone git@github.com:ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab",
+    "  # expected location: ./markitdown-quality-lab", "or set MARKITDOWN_BENCH_ROOT=/absolute/path/to/markitdown-quality-lab/external_bench",
+  ].join("\n")
 }

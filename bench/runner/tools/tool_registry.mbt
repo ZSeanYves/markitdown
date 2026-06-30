@@ -14,13 +14,7 @@ pub struct BenchTool {
   name : String
   tool_version : String?
   availability_note : String?
-  command_builder : (
-    @manifest.BenchRow,
-    String,
-    Int,
-    @command.CliOutputMode,
-    @command.EngineOutputMode,
-  ) -> ToolCommand
+  command_builder : (@manifest.BenchRow, String, Int) -> ToolCommand
 }
 
 ///|
@@ -39,12 +33,8 @@ pub fn BenchTool::build_command(
   row : @manifest.BenchRow,
   output_path : String,
   timeout_ms : Int,
-  cli_output_mode : @command.CliOutputMode,
-  engine_output_mode : @command.EngineOutputMode,
 ) -> ToolCommand {
-  (self.command_builder)(
-    row, output_path, timeout_ms, cli_output_mode, engine_output_mode,
-  )
+  (self.command_builder)(row, output_path, timeout_ms)
 }
 
 ///|

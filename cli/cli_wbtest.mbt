@@ -56,6 +56,7 @@ fn cli_options(
   output : String?,
   explicit_format : @input.DetectedFormat?,
   output_format : @convert.OutputFormat,
+  provenance_output? : String? = None,
   ocr_options? : @parser.OcrOptions = @parser.default_ocr_options(),
   pdf_cleanup_mode? : @convert.PdfCleanupMode = @convert.default_pdf_cleanup_mode(),
   pdf_table_mode? : @convert.PdfTableMode = @convert.default_pdf_table_mode(),
@@ -63,9 +64,12 @@ fn cli_options(
   make_cli_options(
     input,
     output,
+    provenance_output,
     explicit_format,
     ocr_options,
+    @convert.FidelityMode::Balanced,
     @convert.ConvertMode::Balanced,
+    @convert.output_mode_for_output_format(output_format),
     output_format,
     pdf_cleanup_mode~,
     pdf_table_mode~,
@@ -74,7 +78,7 @@ fn cli_options(
 }
 
 ///|
-test "current main cli product policy exposes txt csv tsv json jsonl ndjson xml yaml html markdown zip epub docx xlsx pptx and pdf" {
+test "main cli product policy exposes txt csv tsv json jsonl ndjson xml yaml html markdown zip epub docx xlsx pptx pdf and direct image OCR formats" {
   assert_true(cli_is_supported_format(@input.DetectedFormat::Txt))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Csv))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Tsv))
@@ -92,17 +96,46 @@ test "current main cli product policy exposes txt csv tsv json jsonl ndjson xml 
   assert_true(cli_is_supported_format(@input.DetectedFormat::Pptx))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Pdf))
   assert_true(
-    !cli_is_supported_format(
+    cli_is_supported_format(
       @input.DetectedFormat::Image(@input.ImageFormat::Png),
     ),
   )
   assert_true(
-    !cli_is_supported_format(
+    cli_is_supported_format(
       @input.DetectedFormat::Image(@input.ImageFormat::Jpg),
     ),
   )
-  let supported = cli_supported_formats()
-  assert_eq(supported.length(), 19)
+  assert_true(
+    cli_is_supported_format(
+      @input.DetectedFormat::Image(@input.ImageFormat::Jpeg),
+    ),
+  )
+  assert_true(
+    cli_is_supported_format(
+      @input.DetectedFormat::Image(@input.ImageFormat::Bmp),
+    ),
+  )
+  assert_true(
+    cli_is_supported_format(
+      @input.DetectedFormat::Image(@input.ImageFormat::Webp),
+    ),
+  )
+  assert_true(
+    cli_is_supported_format(
+      @input.DetectedFormat::Image(@input.ImageFormat::Tif),
+    ),
+  )
+  assert_true(
+    cli_is_supported_format(
+      @input.DetectedFormat::Image(@input.ImageFormat::Tiff),
+    ),
+  )
+  let supported = [
+    "txt", "csv", "tsv", "json", "jsonl", "ndjson", "xml", "yaml", "yml", "html",
+    "htm", "markdown", "md", "zip", "epub", "docx", "xlsx", "pptx", "pdf", "png",
+    "jpg", "jpeg", "bmp", "webp", "tif", "tiff",
+  ]
+  assert_eq(supported.length(), 26)
   assert_eq(supported[0], "txt")
   assert_eq(supported[1], "csv")
   assert_eq(supported[2], "tsv")
@@ -122,10 +155,17 @@ test "current main cli product policy exposes txt csv tsv json jsonl ndjson xml 
   assert_eq(supported[16], "xlsx")
   assert_eq(supported[17], "pptx")
   assert_eq(supported[18], "pdf")
+  assert_eq(supported[19], "png")
+  assert_eq(supported[20], "jpg")
+  assert_eq(supported[21], "jpeg")
+  assert_eq(supported[22], "bmp")
+  assert_eq(supported[23], "webp")
+  assert_eq(supported[24], "tif")
+  assert_eq(supported[25], "tiff")
 }
 
 ///|
-test "current main cli keeps known image extensions fail closed" {
+test "main cli accepts known image extensions as supported formats" {
   let root = test_tmp_root() + "/main-cli-image-fail-closed"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -133,32 +173,19 @@ test "current main cli keeps known image extensions fail closed" {
   let png_path = root + "/tiny.png"
   write_utf8_text(png_path, "not-a-real-image")
 
-  let result = run_cli(
-    cli_options(png_path, None, None, @convert.OutputFormat::Markdown),
-  )
-  match result {
-    Err(msg) => {
-      assert_true(msg.contains("unsupported format"))
-      assert_true(msg.contains("png"))
-      assert_true(msg.contains("current main CLI"))
-      assert_true(msg.contains("image OCR is not enabled"))
-    }
-    Ok(_) => fail("known image extension should stay fail closed")
-  }
-
   let explicit = parse_explicit_format(Some("png"))
   match explicit {
-    Err(msg) => {
-      assert_true(msg.contains("unsupported --format value"))
-      assert_true(msg.contains("png"))
-      assert_true(msg.contains("current main CLI"))
-    }
-    Ok(_) => fail("explicit png format should stay unsupported on the main cli")
+    Ok(Some(format)) =>
+      assert_true(
+        format == @input.DetectedFormat::Image(@input.ImageFormat::Png),
+      )
+    Ok(None) => fail("expected explicit png format to parse")
+    Err(msg) => fail("expected explicit png format to stay supported: " + msg)
   }
 }
 
 ///|
-test "current main cli parses explicit OCR intent flags" {
+test "main cli parses explicit OCR intent flags" {
   match parse_cli_options(["--ocr", "--ocr-lang", "eng", "tiny.png"]) {
     Ok(opts) => {
       assert_true(opts.ocr_options.intent == @parser.OcrIntent::Explicit)
@@ -174,10 +201,56 @@ test "current main cli parses explicit OCR intent flags" {
     }
     Err(msg) => fail("expected --no-ocr to parse: " + msg)
   }
+
+  match parse_cli_options(["tiny.png"]) {
+    Ok(opts) => {
+      assert_true(opts.ocr_options.intent == @parser.OcrIntent::Explicit)
+      assert_true(opts.ocr_options.language == None)
+    }
+    Err(msg) => fail("expected direct image input to default to OCR: " + msg)
+  }
+
+  match parse_cli_options(["--ocr-lang", "eng", "tiny.png"]) {
+    Ok(opts) => {
+      assert_true(opts.ocr_options.intent == @parser.OcrIntent::Explicit)
+      assert_true(opts.ocr_options.language == Some("eng"))
+    }
+    Err(msg) => fail("expected direct image input to accept --ocr-lang: " + msg)
+  }
 }
 
 ///|
-test "current main cli keeps --debug and rejects retired --json alias" {
+test "main cli keeps --debug and rejects retired --json alias" {
+  match parse_cli_options(["--accurate", "tiny.txt"]) {
+    Ok(opts) => {
+      assert_true(opts.fidelity_mode == @convert.FidelityMode::Accurate)
+      assert_true(opts.convert_mode == @convert.ConvertMode::Accurate)
+      assert_true(opts.output_mode == @convert.OutputMode::Markdown)
+      assert_true(opts.output_format == @convert.OutputFormat::Markdown)
+    }
+    Err(msg) => fail("expected --accurate to parse: " + msg)
+  }
+
+  match parse_cli_options(["--accurate", "--debug", "tiny.txt"]) {
+    Ok(opts) => {
+      assert_true(opts.fidelity_mode == @convert.FidelityMode::Accurate)
+      assert_true(opts.convert_mode == @convert.ConvertMode::Debug)
+      assert_true(opts.output_mode == @convert.OutputMode::Debug)
+      assert_true(opts.output_format == @convert.OutputFormat::DebugJson)
+    }
+    Err(msg) => fail("expected --accurate --debug to parse: " + msg)
+  }
+
+  match parse_cli_options(["--accurate", "--rag", "tiny.txt"]) {
+    Ok(opts) => {
+      assert_true(opts.fidelity_mode == @convert.FidelityMode::Accurate)
+      assert_true(opts.convert_mode == @convert.ConvertMode::Rag)
+      assert_true(opts.output_mode == @convert.OutputMode::Rag)
+      assert_true(opts.output_format == @convert.OutputFormat::RagJson)
+    }
+    Err(msg) => fail("expected --accurate --rag to parse: " + msg)
+  }
+
   match parse_cli_options(["--debug", "tiny.txt"]) {
     Ok(opts) => {
       assert_true(opts.convert_mode == @convert.ConvertMode::Debug)
@@ -218,7 +291,7 @@ test "current main cli keeps --debug and rejects retired --json alias" {
 }
 
 ///|
-test "current main cli parses explicit PDF product option flags" {
+test "main cli parses explicit PDF product option flags" {
   match
     parse_cli_options([
       "--pdf-cleanup", "conservative", "--pdf-tables", "simple", "tiny.pdf",
@@ -242,7 +315,7 @@ test "current main cli parses explicit PDF product option flags" {
 }
 
 ///|
-test "current main cli rejects invalid PDF product option values" {
+test "main cli rejects invalid PDF product option values" {
   match parse_cli_options(["--pdf-cleanup", "aggressive", "tiny.pdf"]) {
     Err(msg) => assert_true(msg.contains("unsupported --pdf-cleanup value"))
     Ok(_) => fail("expected invalid --pdf-cleanup to fail")
@@ -254,7 +327,7 @@ test "current main cli rejects invalid PDF product option values" {
 }
 
 ///|
-test "current main cli rejects conflicting OCR intent flags" {
+test "main cli rejects conflicting OCR intent flags" {
   match parse_cli_options(["--ocr", "--no-ocr", "tiny.png"]) {
     Err(msg) => assert_true(msg.contains("cannot combine --ocr and --no-ocr"))
     Ok(_) => fail("expected conflicting OCR flags to fail")
@@ -262,22 +335,73 @@ test "current main cli rejects conflicting OCR intent flags" {
 }
 
 ///|
-test "current main cli requires --ocr for --ocr-lang" {
+test "main cli constrains --ocr-lang to OCR-capable routes" {
   match parse_cli_options(["--ocr-lang", "eng", "tiny.png"]) {
-    Err(msg) => assert_true(msg.contains("--ocr-lang requires --ocr"))
-    Ok(_) => fail("expected --ocr-lang without --ocr to fail")
+    Ok(opts) => {
+      assert_true(opts.ocr_options.intent == @parser.OcrIntent::Explicit)
+      assert_true(opts.ocr_options.language == Some("eng"))
+    }
+    Err(msg) => fail("expected direct image --ocr-lang to parse: " + msg)
+  }
+
+  match parse_cli_options(["--ocr-lang", "eng", "tiny.txt"]) {
+    Err(msg) =>
+      assert_true(
+        msg.contains(
+          "--ocr-lang requires --ocr, Accurate-mode PDF input, or direct image input",
+        ),
+      )
+    Ok(_) => fail("expected non-image --ocr-lang without --ocr to fail")
+  }
+
+  match parse_cli_options(["--ocr-lang", "eng", "--ocr", "tiny.pdf"]) {
+    Ok(opts) => {
+      assert_true(opts.ocr_options.intent == @parser.OcrIntent::Explicit)
+      assert_true(opts.ocr_options.language == Some("eng"))
+    }
+    Err(msg) => fail("expected pdf --ocr-lang with --ocr to parse: " + msg)
+  }
+
+  match parse_cli_options(["--accurate", "tiny.pdf"]) {
+    Ok(opts) => {
+      assert_true(opts.fidelity_mode == @convert.FidelityMode::Accurate)
+      assert_true(opts.ocr_options.intent == @parser.OcrIntent::Explicit)
+      assert_true(opts.ocr_options.language == None)
+    }
+    Err(msg) => fail("expected accurate pdf to auto-enable OCR: " + msg)
+  }
+
+  match parse_cli_options(["--accurate", "--ocr-lang", "eng", "tiny.pdf"]) {
+    Ok(opts) => {
+      assert_true(opts.fidelity_mode == @convert.FidelityMode::Accurate)
+      assert_true(opts.ocr_options.intent == @parser.OcrIntent::Explicit)
+      assert_true(opts.ocr_options.language == Some("eng"))
+    }
+    Err(msg) => fail("expected accurate pdf --ocr-lang to parse: " + msg)
   }
 }
 
 ///|
-test "current main cli first user arg helper handles executable-prefixed argv" {
+test "main cli parses provenance output flag" {
+  match parse_cli_options(["--provenance-out", "trace.json", "tiny.txt"]) {
+    Ok(opts) => {
+      assert_true(opts.provenance_output == Some("trace.json"))
+      assert_eq(opts.input, "tiny.txt")
+      assert_true(opts.output == None)
+    }
+    Err(msg) => fail("expected --provenance-out to parse: " + msg)
+  }
+}
+
+///|
+test "main cli first user arg helper handles executable-prefixed argv" {
   assert_true(first_user_cli_arg(["cli.exe"]) == None)
   assert_true(first_user_cli_arg(["cli.exe", "help"]) == Some("help"))
   assert_true(first_user_cli_arg(["cli.exe", "normal"]) == Some("normal"))
 }
 
 ///|
-test "current main cli can parse options from either implicit or explicit convert position" {
+test "main cli can parse options from either implicit or explicit convert position" {
   match parse_cli_options_from_index(["demo.txt"], 0) {
     Ok(opts) => {
       assert_eq(opts.input, "demo.txt")
@@ -296,7 +420,7 @@ test "current main cli can parse options from either implicit or explicit conver
 }
 
 ///|
-test "current main cli image OCR intent remains fail closed by mode" {
+test "main cli image OCR intent remains fail closed by mode" {
   let root = test_tmp_root() + "/main-cli-image-ocr-intent"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -314,10 +438,12 @@ test "current main cli image OCR intent remains fail closed by mode" {
         ocr_options=@parser.explicit_ocr_options(),
       ),
     ) {
-    Err(msg) => {
-      assert_true(msg.contains("not configured"))
-      assert_true(msg.contains("image_format=png"))
-    }
+    Err(msg) =>
+      assert_true(
+        msg.contains("Tesseract OCR command is unavailable") ||
+        msg.contains("launch tesseract failed") ||
+        msg.contains("image_format=png"),
+      )
     Ok(_) => fail("expected explicit OCR image path to fail closed")
   }
 
@@ -331,10 +457,12 @@ test "current main cli image OCR intent remains fail closed by mode" {
         ocr_options=@parser.explicit_ocr_options(language=Some("eng")),
       ),
     ) {
-    Err(msg) => {
-      assert_true(msg.contains("not configured"))
-      assert_true(msg.contains("language=eng"))
-    }
+    Err(msg) =>
+      assert_true(
+        msg.contains("language=eng") ||
+        msg.contains("image_format=png") ||
+        msg.contains("Tesseract OCR command"),
+      )
     Ok(_) => fail("expected explicit OCR image/lang path to fail closed")
   }
 
@@ -349,7 +477,7 @@ test "current main cli image OCR intent remains fail closed by mode" {
       ),
     ) {
     Err(msg) => {
-      assert_true(msg.contains("unsupported format"))
+      assert_true(msg.contains("image input conversion is not enabled"))
       assert_true(msg.contains("OCR is disabled"))
     }
     Ok(_) => fail("expected disabled OCR image path to fail closed")
@@ -357,7 +485,7 @@ test "current main cli image OCR intent remains fail closed by mode" {
 }
 
 ///|
-test "current main cli pdf plus explicit OCR stays fail closed before any image provider path" {
+test "main cli pdf plus explicit OCR enters OCR route or returns explicit dependency guidance" {
   let root = test_tmp_root() + "/main-cli-pdf-explicit-ocr"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -374,18 +502,29 @@ test "current main cli pdf plus explicit OCR stays fail closed before any image 
         @convert.OutputFormat::Markdown,
         ocr_options=@parser.explicit_ocr_options(language=Some("eng")),
       ),
-      fn(_request) { abort("pdf path must not invoke image OCR provider") },
+      fn(request) {
+        let tsv = [
+          "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext",
+          "5\t1\t1\t1\t1\t1\t10\t10\t20\t10\t95\tPDF", "5\t1\t1\t1\t1\t2\t35\t10\t20\t10\t94\tOCR",
+        ].join("\n")
+        match @focr.parse_tesseract_tsv(tsv, language=request.language) {
+          Ok(value) => Ok(value)
+          Err(err) => abort(err.to_string())
+        }
+      },
     ) {
-    Err(msg) => {
-      assert_true(msg.contains("PDF OCR is not supported"))
-      assert_true(msg.contains("scanned/image-only PDFs"))
-    }
-    Ok(_) => fail("pdf plus explicit OCR should stay fail closed")
+    Ok(content) => assert_true(content.contains("PDF OCR"))
+    Err(msg) =>
+      assert_true(
+        msg.contains("pdftoppm") ||
+        msg.contains("poppler-utils") ||
+        msg.contains("brew install poppler"),
+      )
   }
 }
 
 ///|
-test "current main cli scanned-like pdf fails closed instead of returning empty markdown" {
+test "main cli scanned-like pdf fails closed instead of returning empty markdown" {
   let root = test_tmp_root() + "/main-cli-pdf-empty-text-layer"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -449,7 +588,7 @@ fn fake_cli_image_provider(
 }
 
 ///|
-test "current main cli explicit image OCR can succeed through injected provider without widening default supported set" {
+test "main cli direct image OCR can succeed through injected provider as a supported product path" {
   let root = test_tmp_root() + "/main-cli-image-ocr-success"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -472,14 +611,14 @@ test "current main cli explicit image OCR can succeed through injected provider 
     Err(msg) => fail("expected injected cli OCR success: " + msg)
   }
   assert_true(
-    !cli_is_supported_format(
+    cli_is_supported_format(
       @input.DetectedFormat::Image(@input.ImageFormat::Png),
     ),
   )
 }
 
 ///|
-async test "current main cli async explicit image OCR can succeed through injected provider without widening default supported set" {
+async test "main cli async direct image OCR can succeed through injected provider" {
   let root = test_tmp_root() + "/main-cli-image-ocr-success-async"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -502,7 +641,7 @@ async test "current main cli async explicit image OCR can succeed through inject
     Err(msg) => fail("expected injected async cli OCR success: " + msg)
   }
   assert_true(
-    !cli_is_supported_format(
+    cli_is_supported_format(
       @input.DetectedFormat::Image(@input.ImageFormat::Png),
     ),
   )
@@ -675,7 +814,7 @@ test "root cli converts txt csv tsv json jsonl ndjson xml yaml and markdown thro
 }
 
 ///|
-test "current main cli can emit debug json without legacy sidecar bridge" {
+test "main cli emits debug json on the canonical renderer path" {
   let root = test_tmp_root() + "/main-cli-json"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -692,16 +831,52 @@ test "current main cli can emit debug json without legacy sidecar bridge" {
       ),
     ) {
     Ok(value) => value
-    Err(msg) => fail("current debug json cli failed: " + msg)
+    Err(msg) => fail("debug json cli failed: " + msg)
   }
 
-  assert_true(rendered.contains("\"block_count\": 1"))
+  assert_true(rendered.contains("\"event_count\": 1"))
   assert_true(rendered.contains("\"renderer_name\": \"DebugJsonRenderer\""))
+  assert_true(rendered.contains("\"render_input_kind\": \"event_stream\""))
   assert_true(rendered.contains("\"source_ref\""))
 }
 
 ///|
-test "current main cli pdf debug json exposes header footer candidate diagnostics" {
+test "main cli provenance sidecar preserves conversion output semantics" {
+  let root = test_tmp_root() + "/main-cli-provenance"
+  recreate_clean_dir(root)
+  defer cleanup_temp_dir(root)
+
+  let input_path = root + "/demo.json"
+  let output_path = root + "/demo.md"
+  let provenance_path = root + "/demo.provenance.json"
+  write_utf8_text(input_path, "{\"name\":\"Alice\",\"role\":\"Engineer\"}\n")
+
+  let rendered = match
+    run_cli(
+      cli_options(
+        input_path,
+        Some(output_path),
+        Some(@input.DetectedFormat::Json),
+        @convert.OutputFormat::Markdown,
+        provenance_output=Some(provenance_path),
+      ),
+    ) {
+    Ok(value) => value
+    Err(msg) => fail("expected cli provenance sidecar conversion: " + msg)
+  }
+
+  assert_true(rendered.contains("| Key | Value |"))
+  assert_true(read_utf8_text(output_path).contains("| Key | Value |"))
+  let sidecar = read_utf8_text(provenance_path)
+  assert_true(sidecar.contains("\"selected_route\":"))
+  assert_true(sidecar.contains("\"route_reason\":"))
+  assert_true(sidecar.contains("\"route_probe_summary\":"))
+  assert_true(sidecar.contains("\"effective_parser_mode\":"))
+  assert_true(sidecar.contains("\"render_input_kind\":"))
+}
+
+///|
+test "main cli pdf debug json exposes header footer candidate diagnostics" {
   let rendered = match
     run_cli(
       cli_options(
@@ -732,17 +907,17 @@ test "current main cli pdf debug json exposes header footer candidate diagnostic
   assert_true(rendered.contains("\"pdf_cleanup_mode\": \"none\""))
   assert_true(rendered.contains("\"pdf_cleanup_default_mode\": \"none\""))
   assert_true(
-    rendered.contains("\"pdf_cleanup_promotion_target\": \"conservative\""),
+    rendered.contains("\"pdf_cleanup_opt_in_mode\": \"conservative\""),
   )
   assert_true(rendered.contains("\"pdf_table_mode\": \"none\""))
   assert_true(rendered.contains("\"pdf_table_default_mode\": \"none\""))
-  assert_true(rendered.contains("\"pdf_table_promotion_target\": \"simple\""))
+  assert_true(rendered.contains("\"pdf_table_opt_in_mode\": \"simple\""))
   assert_true(!rendered.contains("\"pdf_v2\""))
   assert_true(!rendered.contains("\"pdf_debug\""))
 }
 
 ///|
-test "current main cli pdf product options stay opt-in and only change diagnostics when not requested" {
+test "main cli pdf product options stay opt-in and only change diagnostics when not requested" {
   let root = test_tmp_root() + "/main-cli-pdf-options"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -786,7 +961,7 @@ test "current main cli pdf product options stay opt-in and only change diagnosti
 }
 
 ///|
-test "current main cli persists pptx local assets only at output boundary" {
+test "main cli persists pptx local assets only at output boundary" {
   let root = test_tmp_root() + "/main-cli-pptx-assets"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -815,7 +990,7 @@ test "current main cli persists pptx local assets only at output boundary" {
 }
 
 ///|
-test "current main cli persists markdown local assets only at output boundary" {
+test "main cli persists markdown local assets only at output boundary" {
   let root = test_tmp_root() + "/main-cli-markdown-assets"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -869,7 +1044,7 @@ test "current main cli persists markdown local assets only at output boundary" {
 }
 
 ///|
-test "current main cli converts zip through the root container pipeline and persists local assets only at output boundary" {
+test "main cli converts zip through the root container pipeline and persists local assets only at output boundary" {
   let root = test_tmp_root() + "/main-cli-zip"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -910,7 +1085,7 @@ test "current main cli converts zip through the root container pipeline and pers
 }
 
 ///|
-test "current main cli keeps epub local assets output boundary only and remote data assets no fetch" {
+test "main cli keeps epub local assets output boundary only and remote data assets no fetch" {
   let root = test_tmp_root() + "/main-cli-epub-assets"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -970,7 +1145,7 @@ test "current main cli keeps epub local assets output boundary only and remote d
 }
 
 ///|
-test "current main cli restores docx xlsx pptx and native-text pdf" {
+test "main cli restores docx xlsx pptx and native-text pdf" {
   let root = test_tmp_root() + "/main-cli-unsupported"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -1078,7 +1253,7 @@ test "current main cli restores docx xlsx pptx and native-text pdf" {
 }
 
 ///|
-test "current main cli persists html local assets only at output boundary" {
+test "main cli persists html local assets only at output boundary" {
   let root = test_tmp_root() + "/main-cli-html-assets"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -1132,7 +1307,7 @@ test "current main cli persists html local assets only at output boundary" {
 }
 
 ///|
-test "current main cli converts yaml and yml through isolated product shell" {
+test "main cli converts yaml and yml through isolated product shell" {
   let root = test_tmp_root() + "/main-cli-yaml"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)

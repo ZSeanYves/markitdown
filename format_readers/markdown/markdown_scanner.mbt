@@ -88,10 +88,9 @@ fn scan_markdown_document_with_profile(
   let scan_started = markdown_parse_profile_stage_started(profile)
   while i < lines.length() {
     let line = lines[i]
-    let trimmed = line.trimmed
     let line_no = i + 1
 
-    if trimmed == "" {
+    if markdown_line_is_blank(line) {
       blocks.push({
         kind: MarkdownBlockKind::BlankLine,
         line_start: line_no,
@@ -253,31 +252,66 @@ fn scan_markdown_document_with_profile(
 
 ///|
 fn count_markdown_source_chars(text : String) -> Int {
-  let mut count = 0
-  for _ in text {
-    count += 1
-  }
-  count
+  text.length()
 }
 
 ///|
 priv struct MarkdownLineView {
   raw : String
-  trimmed : String
-  left_trimmed : String
+  left_trim_index : Int
+  trimmed_end_index : Int
 }
 
 ///|
 fn build_markdown_line_views(lines : Array[String]) -> Array[MarkdownLineView] {
   let out : Array[MarkdownLineView] = []
   for line in lines {
-    out.push({
-      raw: line,
-      trimmed: line.trim().to_owned(),
-      left_trimmed: trim_markdown_left(line),
-    })
+    let (left_trim_index, trimmed_end_index) = markdown_trim_bounds(line)
+    out.push({ raw: line, left_trim_index, trimmed_end_index })
   }
   out
+}
+
+///|
+fn markdown_trim_bounds(line : String) -> (Int, Int) {
+  let chars = line.to_array()
+  let mut start = 0
+  let mut end = chars.length()
+  while start < end && markdown_char_is_inline_space(chars[start]) {
+    start += 1
+  }
+  while end > start && markdown_char_is_inline_space(chars[end - 1]) {
+    end -= 1
+  }
+  (start, end)
+}
+
+///|
+fn markdown_char_is_inline_space(ch : Char) -> Bool {
+  ch == ' ' || ch == '\t'
+}
+
+///|
+fn markdown_line_is_blank(line : MarkdownLineView) -> Bool {
+  line.left_trim_index >= line.trimmed_end_index
+}
+
+///|
+fn markdown_line_trimmed(line : MarkdownLineView) -> String {
+  if markdown_line_is_blank(line) {
+    ""
+  } else {
+    line.raw[line.left_trim_index:line.trimmed_end_index].to_owned()
+  }
+}
+
+///|
+fn markdown_line_left_trimmed(line : MarkdownLineView) -> String {
+  if line.left_trim_index == 0 {
+    line.raw
+  } else {
+    line.raw[line.left_trim_index:].to_owned()
+  }
 }
 
 ///|
@@ -338,7 +372,7 @@ fn consume_markdown_frontmatter(
     return None
   }
 
-  let marker = lines[0].trimmed
+  let marker = markdown_line_trimmed(lines[0])
   let kind = match marker {
     "---" => Some(MarkdownFrontmatterKind::Yaml)
     "+++" => Some(MarkdownFrontmatterKind::Toml)
@@ -352,7 +386,7 @@ fn consume_markdown_frontmatter(
       let issues : Array[MarkdownValidationIssue] = []
       let mut i = 1
       while i < lines.length() {
-        if lines[i].trimmed == marker {
+        if markdown_line_trimmed(lines[i]) == marker {
           return Some(
             (
               {
@@ -399,25 +433,26 @@ fn consume_markdown_frontmatter(
 fn parse_markdown_fence_open(
   line : MarkdownLineView,
 ) -> MarkdownFencedCodeInfo? {
-  let chars = line.left_trimmed.to_array()
-  if chars.length() < 3 {
+  let chars = line.raw.to_array()
+  let start = line.left_trim_index
+  if chars.length() - start < 3 {
     return None
   }
 
-  let fence_char = chars[0]
+  let fence_char = chars[start]
   if !(fence_char == '`' || fence_char == '~') {
     return None
   }
 
   let mut i = 0
-  while i < chars.length() && chars[i] == fence_char {
+  while start + i < chars.length() && chars[start + i] == fence_char {
     i += 1
   }
   if i < 3 {
     return None
   }
 
-  let info = line.left_trimmed[i:].trim().to_owned()
+  let info = markdown_trimmed_substring(line.raw, start + i, chars.length())
   Some({
     fence_char,
     fence_length: i,
@@ -436,17 +471,19 @@ fn is_markdown_fence_close(
   fence_char : Char,
   fence_length : Int,
 ) -> Bool {
-  let chars = line.left_trimmed.to_array()
-  if chars.length() < fence_length {
+  let chars = line.raw.to_array()
+  let start = line.left_trim_index
+  if chars.length() - start < fence_length {
     return false
   }
 
   let mut i = 0
-  while i < chars.length() && chars[i] == fence_char {
+  while start + i < chars.length() && chars[start + i] == fence_char {
     i += 1
   }
 
-  i >= fence_length && line.left_trimmed[i:].trim() == ""
+  i >= fence_length &&
+  markdown_trimmed_substring(line.raw, start + i, chars.length()) == ""
 }
 
 ///|
@@ -457,27 +494,31 @@ fn can_start_setext_heading(
   if index + 1 >= lines.length() {
     return false
   }
-  lines[index].trimmed != "" &&
+  !markdown_line_is_blank(lines[index]) &&
   classify_markdown_line_kind(lines[index]) == MarkdownBlockKind::ParagraphLike &&
   is_markdown_setext_underline(lines[index + 1])
 }
 
 ///|
 fn is_markdown_setext_underline(line : MarkdownLineView) -> Bool {
-  let chars = line.trimmed.to_array()
-  if chars.length() < 3 {
+  let chars = line.raw.to_array()
+  let start = line.left_trim_index
+  let end = line.trimmed_end_index
+  if end - start < 3 {
     return false
   }
 
-  let marker = chars[0]
+  let marker = chars[start]
   if !(marker == '=' || marker == '-') {
     return false
   }
 
-  for ch in chars {
-    if ch != marker {
+  let mut i = start
+  while i < end {
+    if chars[i] != marker {
       return false
     }
+    i += 1
   }
   true
 }
@@ -507,7 +548,7 @@ fn should_end_markdown_paragraph(
   index : Int,
 ) -> Bool {
   let line = lines[index]
-  if line.trimmed == "" {
+  if markdown_line_is_blank(line) {
     return true
   }
   match parse_markdown_fence_open(line) {
@@ -524,30 +565,34 @@ fn should_end_markdown_paragraph(
 
 ///|
 fn is_markdown_atx_heading(line : MarkdownLineView) -> Bool {
-  let chars = line.left_trimmed.to_array()
-  if chars.length() == 0 || chars[0] != '#' {
+  let chars = line.raw.to_array()
+  let start = line.left_trim_index
+  if start >= chars.length() || chars[start] != '#' {
     return false
   }
 
   let mut i = 0
-  while i < chars.length() && chars[i] == '#' {
+  while start + i < chars.length() && chars[start + i] == '#' {
     i += 1
   }
   if i == 0 || i > 6 {
     return false
   }
-  i == chars.length() || chars[i] == ' ' || chars[i] == '\t'
+  start + i == chars.length() ||
+  chars[start + i] == ' ' ||
+  chars[start + i] == '\t'
 }
 
 ///|
 fn is_markdown_list_item(line : MarkdownLineView) -> Bool {
-  if line.left_trimmed.has_prefix("- ") ||
-    line.left_trimmed.has_prefix("* ") ||
-    line.left_trimmed.has_prefix("+ ") {
+  let left_trimmed = markdown_line_left_trimmed(line)
+  if left_trimmed.has_prefix("- ") ||
+    left_trimmed.has_prefix("* ") ||
+    left_trimmed.has_prefix("+ ") {
     return true
   }
 
-  let chars = line.left_trimmed.to_array()
+  let chars = left_trimmed.to_array()
   let mut i = 0
   while i < chars.length() && chars[i] >= '0' && chars[i] <= '9' {
     i += 1
@@ -561,7 +606,8 @@ fn is_markdown_list_item(line : MarkdownLineView) -> Bool {
 
 ///|
 fn is_markdown_blockquote(line : MarkdownLineView) -> Bool {
-  line.left_trimmed.has_prefix(">")
+  let chars = line.raw.to_array()
+  line.left_trim_index < chars.length() && chars[line.left_trim_index] == '>'
 }
 
 ///|
@@ -586,20 +632,21 @@ fn is_markdown_thematic_break(line : MarkdownLineView) -> Bool {
 
 ///|
 fn is_markdown_table_like_row(line : MarkdownLineView) -> Bool {
-  line.trimmed != "" && line.trimmed.contains("|")
+  !markdown_line_is_blank(line) && line.raw.contains("|")
 }
 
 ///|
 fn is_markdown_html_block_candidate(line : MarkdownLineView) -> Bool {
-  if !line.left_trimmed.has_prefix("<") {
+  let chars = line.raw.to_array()
+  let start = line.left_trim_index
+  if start >= chars.length() || chars[start] != '<' {
     return false
   }
-  let chars = line.left_trimmed.to_array()
-  if chars.length() < 2 {
+  if start + 1 >= chars.length() {
     return false
   }
 
-  let next = chars[1]
+  let next = chars[start + 1]
   (next >= 'A' && next <= 'Z') ||
   (next >= 'a' && next <= 'z') ||
   next == '/' ||
@@ -608,11 +655,24 @@ fn is_markdown_html_block_candidate(line : MarkdownLineView) -> Bool {
 }
 
 ///|
-fn trim_markdown_left(line : String) -> String {
-  let chars = line.to_array()
-  let mut i = 0
-  while i < chars.length() && (chars[i] == ' ' || chars[i] == '\t') {
-    i += 1
+fn markdown_trimmed_substring(text : String, start : Int, end : Int) -> String {
+  if start >= end {
+    return ""
   }
-  line[i:].to_owned()
+  let chars = text.to_array()
+  let mut next_start = start
+  let mut next_end = end
+  while next_start < next_end &&
+        markdown_char_is_inline_space(chars[next_start]) {
+    next_start += 1
+  }
+  while next_end > next_start &&
+        markdown_char_is_inline_space(chars[next_end - 1]) {
+    next_end -= 1
+  }
+  if next_start >= next_end {
+    ""
+  } else {
+    text[next_start:next_end].to_owned()
+  }
 }

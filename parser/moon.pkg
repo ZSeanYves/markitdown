@@ -1,6 +1,7 @@
 import {
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/product",
 }
 
 options(

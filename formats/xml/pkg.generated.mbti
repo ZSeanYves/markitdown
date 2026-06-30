@@ -2,11 +2,16 @@
 package "ZSeanYves/markitdown/formats/xml"
 
 import {
+  "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
 }
 
 // Values
-pub fn xml_lite_parser() -> @parser.Parser
+pub fn read_xml_input_text(@input.InputSource) -> Result[String, String]
+
+pub fn xml_parse_with_structure_tokens(@input.InputSource, @parser.ParseContext, String, Array[@ZSeanYves/markitdown/format_readers/xml.XmlToken]) -> @parser.ParseResult
+
+pub fn xml_parser() -> @parser.Parser
 
 // Errors
 

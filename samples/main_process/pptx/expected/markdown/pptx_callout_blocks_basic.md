@@ -2,14 +2,14 @@
 
 ### Release Notes
 
-Export
-
 Security
-
-Sharing
-
-Markdown and PDF output
 
 Secure by default
 
+Sharing
+
 Team access controls
+
+Export
+
+Markdown and PDF output

@@ -23,7 +23,7 @@
       "source_ref_count": 1,
       "asset_ref_count": 0,
       "text_contains_all": [
-        "Signal\n\nNoise\n\nSignal detail\n\nNoise detail\n\nStandalone\n\nFooter note: validate bo"
+        "Signal\n\nSignal detail\n\nNoise\n\nNoise detail\n\nStandalone\n\nFooter note: validate boundary handling."
       ],
       "location_contains": {
         "container_paths": [

@@ -1,19 +1,26 @@
 {
   "output_format": "rag_json",
   "detected_format": "epub",
-  "parser_mode": "container_recursive",
+  "parser_mode": "package_single_pass",
   "convert_mode": "rag",
   "diagnostics_contains": {
-    "parser_name": "epub_container_parser",
+    "parser_name": "epub_package_parser",
     "metrics": {
       "renderer_name": "RagJsonRenderer"
     }
   },
-  "source_map": "null",
+  "source_map": "required",
   "chunk_count": {
     "min": 2
   },
   "chunks": [
+    {
+      "kind": "metadata",
+      "heading_path": [],
+      "source_ref_count": 0,
+      "asset_ref_count": 0,
+      "text_contains_all": []
+    },
     {
       "kind": "text",
       "heading_path": [

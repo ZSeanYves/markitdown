@@ -3,6 +3,7 @@ import {
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
   "ZSeanYves/markitdown/pipeline",
+  "ZSeanYves/markitdown/product",
 }
 
 options(

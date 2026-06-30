@@ -44,23 +44,19 @@ printf 'fake' > "$ARTIFACT_DIR/assets/pic.png"
 cat >"$ROWS_TSV" <<'EOF'
 row_id	format	source_scope	source_id	quality_tier	expected_signals
 row_exact	txt	external	source	gate	exact_count:Alpha=3;min_count:Beta=1;max_count:Gamma=1;contains_all:Alpha|Beta;order:Alpha|Gamma
-row_negative	txt	external	source	gate	not_contains:Delta;table_marker;image_ref;link_ref;metadata_file;asset_count_min:1;line_fragmentation_max:10
+row_negative	txt	external	source	gate	not_contains:Delta;table_marker;image_ref;link_ref;asset_count_min:1;line_fragmentation_max:10
 row_long_token	txt	external	source	gate	max_long_token_len:20
 EOF
 
 python3 "$ROOT/samples/helpers/quality/evaluate_signals.py" \
   --markdown "$MARKDOWN" \
-  --metadata "$METADATA" \
   --artifact-dir "$ARTIFACT_DIR" \
-  --metadata-enabled true \
-  --metadata-status supported_sidecar \
-  --metadata-mode auto \
   --rows-tsv "$ROWS_TSV" \
   --results-tsv "$RESULTS_TSV"
 
 [[ -f "$RESULTS_TSV" ]] || fail "missing results.tsv"
 assert_contains "$RESULTS_TSV" $'row_exact\ttxt\texternal\tsource\tgate\t5\t5\t\t'
-assert_contains "$RESULTS_TSV" $'row_negative\ttxt\texternal\tsource\tgate\t7\t7\t\t'
+assert_contains "$RESULTS_TSV" $'row_negative\ttxt\texternal\tsource\tgate\t6\t6\t\t'
 assert_contains "$RESULTS_TSV" $'row_long_token\ttxt\texternal\tsource\tgate\t0\t1\tmax_long_token_len:20\t'
 
 echo "QUALITY SIGNAL EVAL CONTRACT PASSED"

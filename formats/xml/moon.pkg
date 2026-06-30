@@ -2,10 +2,9 @@ import {
   "moonbitlang/core/encoding/utf8",
   "ZSeanYves/markitdown/format_readers/xml" @dxml,
   "ZSeanYves/markitdown/core",
-  "ZSeanYves/markitdown/formats/light_common",
+  "ZSeanYves/markitdown/formats/parser_common",
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
-  "ZSeanYves/markitdown/pipeline",
 }
 
 options(

@@ -14,8 +14,13 @@ pub fn office_streaming_granularities() -> Array[@parser.StreamingGranularity] {
 }
 
 ///|
+pub fn parser_contract_required_foundation_exclusions() -> Array[String] {
+  ["old_core", "legacy_convert", "markdown_emitter", "main_cli_fallback"]
+}
+
+///|
 pub fn docx_contract_parser_name() -> String {
-  "docx_parser_contract"
+  "docx_parser"
 }
 
 ///|
@@ -41,15 +46,15 @@ pub fn docx_contract_foundations() -> Array[String] {
 ///|
 pub fn docx_contract_guardrails() -> Array[String] {
   [
-    "DOCX is restored on the current main CLI", "PackageSinglePass / IRInput::Document / docx_block",
-    "format_readers/ooxml/package + format_readers/ooxml/docx foundation", "no old core",
-    "no legacy convert", "no markdown emitter", "no main CLI fallback", "assets stay output-boundary only",
+    "DOCX is supported on the main CLI", "PackageSinglePass / IRInput::Document / docx_block",
+    "format_readers/ooxml/package + format_readers/ooxml/docx foundation", "document rendering stays in the shared renderer layer",
+    "assets stay output-boundary only",
   ]
 }
 
 ///|
 pub fn pptx_contract_parser_name() -> String {
-  "pptx_parser_contract"
+  "pptx_parser"
 }
 
 ///|
@@ -74,16 +79,15 @@ pub fn pptx_contract_foundations() -> Array[String] {
 
 ///|
 pub fn pptx_contract_excluded_runtime_foundations() -> Array[String] {
-  ["convert/pptx", "old_core", "legacy_dispatcher", "markdown_emitter"]
+  ["convert/pptx", ..parser_contract_required_foundation_exclusions()]
 }
 
 ///|
 pub fn pptx_contract_guardrails() -> Array[String] {
   [
-    "PPTX is restored on the current main CLI", "PackageSinglePass / IRInput::Document / pptx_slide",
-    "format_readers/ooxml/package + format_readers/ooxml/pptx foundation", "no old core",
-    "no legacy convert", "no markdown emitter", "no main CLI fallback", "slide order follows presentation.xml",
-    "placeholder inheritance is slide -> layout -> master -> geometry inference",
+    "PPTX is supported on the main CLI", "PackageSinglePass / IRInput::Document / pptx_slide",
+    "format_readers/ooxml/package + format_readers/ooxml/pptx foundation", "document rendering stays in the shared renderer layer",
+    "slide order follows presentation.xml", "placeholder inheritance is slide -> layout -> master -> geometry inference",
     "assets stay output-boundary only", "TargetMode=External is no-fetch",
   ]
 }
@@ -149,7 +153,7 @@ pub fn pptx_contract_asset_policy() -> Array[String] {
 
 ///|
 pub fn xlsx_contract_parser_name() -> String {
-  "xlsx_parser_contract"
+  "xlsx_parser"
 }
 
 ///|
@@ -190,11 +194,10 @@ pub fn xlsx_contract_excluded_runtime_foundations() -> Array[String] {
 ///|
 pub fn xlsx_contract_guardrails() -> Array[String] {
   [
-    "XLSX is restored on the current main CLI", "PackageSinglePass / IRInput::Document / xlsx_sheet",
-    "future large path = BlockStreaming / BlockStream / xlsx_row", "format_readers/ooxml/shared now owns the shared XLSX semantic scaffold",
-    "no old core", "no legacy convert", "no markdown emitter", "no main CLI fallback",
-    "assets stay output-boundary only", "formulas are preserved and never executed",
-    "external links are no-fetch",
+    "XLSX is supported on the main CLI", "PackageSinglePass / IRInput::Document / xlsx_sheet",
+    "large path = BlockStreaming / BlockStream / xlsx_row", "format_readers/ooxml/shared owns the shared XLSX semantic layer",
+    "document rendering stays in the shared renderer layer", "assets stay output-boundary only",
+    "formulas are preserved and never executed", "external links are no-fetch",
   ]
 }
 
@@ -219,7 +222,7 @@ pub fn xlsx_contract_formula_policy() -> Array[String] {
 pub fn xlsx_contract_sheet_policy() -> Array[String] {
   [
     "visible sheets are future first-scope input", "hidden sheets require explicit diagnostics policy",
-    "very hidden sheets require explicit diagnostics policy", "large sheets are bounded and defer to future xlsx_row block streaming",
+    "very hidden sheets require explicit diagnostics policy", "large sheets are bounded and defer to xlsx_row block streaming",
   ]
 }
 

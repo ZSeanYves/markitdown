@@ -26,13 +26,7 @@ pub fn markitdown_tool(explicit_path? : String? = None) -> BenchTool {
         name: "markitdown",
         tool_version: Some(version),
         availability_note: None,
-        command_builder: fn(
-          row,
-          output_path,
-          timeout_ms,
-          _cli_output_mode,
-          _engine_output_mode,
-        ) {
+        command_builder: fn(row, output_path, timeout_ms) {
           {
             program,
             args: [row.input_path, "-o", output_path],
@@ -51,13 +45,7 @@ pub fn markitdown_tool(explicit_path? : String? = None) -> BenchTool {
         name: "markitdown",
         tool_version: None,
         availability_note: Some(note),
-        command_builder: fn(
-          _row,
-          output_path,
-          timeout_ms,
-          _cli_output_mode,
-          _engine_output_mode,
-        ) {
+        command_builder: fn(_row, output_path, timeout_ms) {
           {
             program,
             args: ["<input>", "-o", output_path],

@@ -1,7 +1,6 @@
 import {
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/string",
-  "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/formats/epub" @fepub,
   "ZSeanYves/markitdown/formats/csv" @fcsv,
   "ZSeanYves/markitdown/formats/docx" @fdocx,
@@ -21,6 +20,8 @@ import {
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
 }
+
+supported_targets = "native"
 
 options(
   "preferred-target": "native",

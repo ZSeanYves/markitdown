@@ -9,7 +9,7 @@
       "renderer_name": "RagJsonRenderer"
     }
   },
-  "source_map": "null",
+  "source_map": "required",
   "chunk_count": {
     "min": 4
   },

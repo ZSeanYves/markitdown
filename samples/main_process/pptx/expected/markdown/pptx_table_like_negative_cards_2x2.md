@@ -4,16 +4,16 @@
 
 Search
 
-Vision
-
 Fast retrieval
+
+Vision
 
 Image parsing
 
 Speech
 
-Agents
-
 Audio input
+
+Agents
 
 Task execution

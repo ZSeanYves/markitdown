@@ -1,7 +1,7 @@
 {
   "output_format": "rag_json",
   "detected_format": "markdown",
-  "parser_mode": "block_streaming",
+  "parser_mode": "dom_ast_model",
   "convert_mode": "rag",
   "diagnostics_contains": {
     "parser_name": "markdown_parser",

@@ -684,6 +684,8 @@ pub struct DocxSourceTextBox {
 
 pub struct DocxSourceTextBoxRef {
   anchor_id : String?
+  doc_pr_id : String?
+  shape_id : String?
   owner_part : String
   source_key : DocxSourceKey
 }
@@ -822,6 +824,8 @@ pub struct DocxTextBox {
 
 pub struct DocxTextBoxRef {
   anchor_id : String?
+  doc_pr_id : String?
+  shape_id : String?
   owner_part : String
   source_key : DocxSourceKey
 }

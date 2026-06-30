@@ -44,6 +44,10 @@ pub fn make_ocr_provider_result(Array[OcrPageModel], String, provider_version? :
 
 pub fn make_ocr_word(Int, String, bbox? : @core.BBox?, confidence? : Double?) -> OcrWord
 
+pub fn ocr_base_diagnostics(String, @input.InputSource, @input.DetectedFormat, @parser.OcrOptions, @parser.ParserMode?) -> @core.Diagnostics
+
+pub fn ocr_blocks_from_pages(@input.InputSource, @input.DetectedFormat, Array[OcrPageModel]) -> Array[@core.CoreBlock]
+
 pub fn ocr_document_page_count(OcrDocumentModel) -> Int
 
 pub fn ocr_image_parser_capability() -> @parser.ParserCapability
@@ -52,6 +56,10 @@ pub fn ocr_options_from_parse_context(@parser.ParseContext) -> @parser.OcrOption
 
 pub fn ocr_page_block_count(OcrPageModel) -> Int
 
+pub fn ocr_page_blocks_from_page(@input.InputSource, @input.DetectedFormat, Int, OcrPageModel) -> Array[@core.CoreBlock]
+
+pub fn ocr_parse_result_from_provider_result(String, @parser.ParserCapability, @input.InputSource, @input.DetectedFormat, @parser.OcrOptions, OcrProviderResult, (@input.InputSource, @input.DetectedFormat, @parser.OcrOptions, OcrProviderResult, Int) -> @core.Diagnostics) -> @parser.ParseResult
+
 pub fn ocr_provider_error_status(OcrProviderError) -> OcrProviderStatus
 
 pub fn ocr_provider_kind_name(OcrProviderKind) -> String
@@ -59,6 +67,8 @@ pub fn ocr_provider_kind_name(OcrProviderKind) -> String
 pub fn ocr_provider_language_label(String?) -> String
 
 pub fn ocr_provider_status_name(OcrProviderStatus) -> String
+
+pub fn ocr_source_ref(@input.InputSource, @input.DetectedFormat, Int, Int, Int, @core.BBox?) -> @core.SourceRef
 
 pub fn parse_tesseract_tsv(String, language? : String?) -> Result[OcrProviderResult, OcrProviderError]
 

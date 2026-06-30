@@ -2,6 +2,7 @@
 package "ZSeanYves/markitdown/formats/xlsx"
 
 import {
+  "ZSeanYves/markitdown/format_readers/ooxml/package",
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
 }
@@ -9,15 +10,32 @@ import {
 // Values
 pub fn xlsx_first_sheet_metric(@input.InputSource) -> Result[Int, String]
 
+pub fn xlsx_parse_with_package(@input.InputSource, @parser.ParseContext, @package.OoxmlPackage) -> @parser.ParseResult
+
 pub fn xlsx_parser() -> @parser.Parser
 
 pub fn xlsx_parser_capability() -> @parser.ParserCapability
+
+pub fn xlsx_preflight_summary(@input.InputSource) -> Result[XlsxPreflightSummary, String]
+
+pub fn xlsx_preflight_summary_with_package(@package.OoxmlPackage) -> Result[XlsxPreflightSummary, String]
+
+pub fn xlsx_route_preflight_summary_with_package(@package.OoxmlPackage, Int, Int, Int) -> Result[XlsxPreflightSummary, String]
 
 pub fn xlsx_workbook_metric(@input.InputSource) -> Result[Int, String]
 
 // Errors
 
 // Types and methods
+pub struct XlsxPreflightSummary {
+  sheet_count : Int
+  visible_sheet_count : Int
+  hidden_sheet_count : Int
+  very_hidden_sheet_count : Int
+  max_sheet_rows : Int
+  max_sheet_cols : Int
+  estimated_cells : Int
+}
 
 // Type aliases
 

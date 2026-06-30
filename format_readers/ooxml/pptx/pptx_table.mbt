@@ -109,6 +109,18 @@ fn parse_table_row(
                 )
               None => None
             }
+            let row_span = match read_attr_value_in_tag_bytes(tag, "rowSpan") {
+              Some(v) =>
+                Some(
+                  bounded_table_row_span(
+                    ctx,
+                    part_name,
+                    key,
+                    parse_int_or_zero(Some(v)),
+                  ),
+                )
+              None => None
+            }
             let span = grid_span.unwrap_or(1)
             if col_index > ctx.budget.max_table_row_output_cells - span ||
               output_cell_count.val > ctx.budget.max_table_output_cells - span {
@@ -157,7 +169,7 @@ fn parse_table_row(
               column_index: col_index,
               paragraphs,
               grid_span,
-              row_span: None,
+              row_span,
               merge_hint,
               source_key: pptx_source_key(part_name, key),
             })
@@ -195,6 +207,30 @@ fn bounded_table_grid_span(
       None,
       None,
       "pptx table gridSpan truncated at hard cap: " +
+      ctx.budget.max_table_grid_span.to_string(),
+    )
+    ctx.budget.max_table_grid_span
+  } else {
+    span
+  }
+}
+
+///|
+fn bounded_table_row_span(
+  ctx : PptxSourceParseContext,
+  part_name : String,
+  node_key : String,
+  raw_span : Int,
+) -> Int {
+  let span = if raw_span < 1 { 1 } else { raw_span }
+  if span > ctx.budget.max_table_grid_span {
+    push_over_budget_warning(
+      ctx,
+      part_name,
+      node_key,
+      None,
+      None,
+      "pptx table rowSpan truncated at hard cap: " +
       ctx.budget.max_table_grid_span.to_string(),
     )
     ctx.budget.max_table_grid_span

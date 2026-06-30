@@ -15,14 +15,14 @@
   },
   "chunks": [
     {
-      "kind": "text",
+      "kind": "image_caption",
       "heading_path": [
         "Slide 1"
       ],
       "source_ref_count": 1,
       "asset_ref_count": 1,
       "text_contains_all": [
-        "Revenue trend chart"
+        "slide-1-image-1"
       ],
       "location_contains": {
         "container_paths": [
@@ -37,14 +37,14 @@
       }
     },
     {
-      "kind": "image_caption",
+      "kind": "text",
       "heading_path": [
         "Slide 1"
       ],
       "source_ref_count": 1,
       "asset_ref_count": 1,
       "text_contains_all": [
-        "slide-1-image-1"
+        "Revenue trend chart"
       ],
       "location_contains": {
         "container_paths": [

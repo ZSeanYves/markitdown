@@ -162,7 +162,7 @@ fn docx_model_textboxes(
 ) -> Array[DocxTextBox] {
   let out : Array[DocxTextBox] = []
   for textbox in source {
-    out.push({
+    let candidate : DocxTextBox = {
       anchor_id: textbox.anchor_id,
       owner_part: textbox.owner_part,
       relationship_id: textbox.relationship_id,
@@ -174,9 +174,165 @@ fn docx_model_textboxes(
       doc_pr_name: textbox.doc_pr_name,
       descr: textbox.descr,
       title: textbox.title,
-    })
+    }
+    let mut merged = false
+    for i in 0..<out.length() {
+      if docx_textboxes_are_equivalent(out[i], candidate) {
+        out[i] = docx_merge_textboxes(out[i], candidate)
+        merged = true
+        break
+      }
+    }
+    if !merged {
+      out.push(candidate)
+    }
   }
   out
+}
+
+///|
+fn docx_textboxes_are_equivalent(
+  left : DocxTextBox,
+  right : DocxTextBox,
+) -> Bool {
+  if left.owner_part != right.owner_part {
+    return false
+  }
+  if left.doc_pr_id is Some(_) &&
+    left.doc_pr_id == right.doc_pr_id &&
+    docx_textbox_blocks_text_signature(left.blocks) ==
+    docx_textbox_blocks_text_signature(right.blocks) {
+    return true
+  }
+  if left.shape_id is Some(_) &&
+    left.shape_id == right.shape_id &&
+    docx_textbox_blocks_text_signature(left.blocks) ==
+    docx_textbox_blocks_text_signature(right.blocks) {
+    return true
+  }
+  if docx_textbox_doc_pr_name_matches_shape_id(left, right) &&
+    docx_textbox_blocks_text_signature(left.blocks) ==
+    docx_textbox_blocks_text_signature(right.blocks) {
+    return true
+  }
+  if docx_textbox_doc_pr_name_matches_shape_id(right, left) &&
+    docx_textbox_blocks_text_signature(left.blocks) ==
+    docx_textbox_blocks_text_signature(right.blocks) {
+    return true
+  }
+  if left.source_key.block_index == right.source_key.block_index &&
+    docx_textbox_blocks_text_signature(left.blocks) ==
+    docx_textbox_blocks_text_signature(right.blocks) {
+    let left_has_doc_pr = left.doc_pr_id is Some(_)
+    let right_has_doc_pr = right.doc_pr_id is Some(_)
+    let left_has_shape = left.shape_id is Some(_)
+    let right_has_shape = right.shape_id is Some(_)
+    if (left_has_doc_pr && right_has_shape) ||
+      (left_has_shape && right_has_doc_pr) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn docx_textbox_doc_pr_name_matches_shape_id(
+  doc_pr_side : DocxTextBox,
+  shape_side : DocxTextBox,
+) -> Bool {
+  match doc_pr_side.doc_pr_name {
+    Some(name) => shape_side.shape_id == Some(name)
+    None => false
+  }
+}
+
+///|
+fn docx_merge_textboxes(left : DocxTextBox, right : DocxTextBox) -> DocxTextBox {
+  {
+    ..left,
+    relationship_id: docx_prefer_some_string(
+      left.relationship_id,
+      right.relationship_id,
+    ),
+    part_name: if left.part_name.length() <= right.part_name.length() {
+      left.part_name
+    } else {
+      right.part_name
+    },
+    blocks: if docx_textbox_blocks_text_signature(left.blocks) != "" {
+      left.blocks
+    } else {
+      right.blocks
+    },
+    source_key: if left.source_key.block_index <= right.source_key.block_index {
+      left.source_key
+    } else {
+      right.source_key
+    },
+    shape_id: docx_prefer_some_string(left.shape_id, right.shape_id),
+    doc_pr_id: docx_prefer_some_string(left.doc_pr_id, right.doc_pr_id),
+    doc_pr_name: docx_prefer_some_string(left.doc_pr_name, right.doc_pr_name),
+    descr: docx_prefer_some_string(left.descr, right.descr),
+    title: docx_prefer_some_string(left.title, right.title),
+  }
+}
+
+///|
+fn docx_prefer_some_string(primary : String?, secondary : String?) -> String? {
+  match primary {
+    Some(value) => if value.trim() != "" { Some(value) } else { secondary }
+    None => secondary
+  }
+}
+
+///|
+fn docx_textbox_blocks_text_signature(blocks : Array[DocxBlock]) -> String {
+  let parts : Array[String] = []
+  for block in blocks {
+    match block {
+      DocxBlock::Paragraph(p) => {
+        let text = p.text.trim().to_owned()
+        if text != "" {
+          parts.push(text)
+        }
+      }
+      DocxBlock::ContentControl(control) => {
+        let text = control.text.trim().to_owned()
+        if text != "" {
+          parts.push(text)
+        } else {
+          let nested = docx_textbox_blocks_text_signature(control.blocks)
+          if nested != "" {
+            parts.push(nested)
+          }
+        }
+      }
+      DocxBlock::Table(table) => {
+        let nested = docx_textbox_table_text_signature(table)
+        if nested != "" {
+          parts.push(nested)
+        }
+      }
+      DocxBlock::TablePlaceholder(_)
+      | DocxBlock::StructuralMarker(_)
+      | DocxBlock::Unsupported(_) => ()
+    }
+  }
+  parts.join("\n")
+}
+
+///|
+fn docx_textbox_table_text_signature(table : DocxTable) -> String {
+  let parts : Array[String] = []
+  for row in table.rows {
+    for cell in row.cells {
+      let nested = docx_textbox_blocks_text_signature(cell.blocks)
+      if nested != "" {
+        parts.push(nested)
+      }
+    }
+  }
+  parts.join("\n")
 }
 
 ///|
@@ -396,6 +552,8 @@ fn docx_model_inlines(
         out.push(
           DocxInline::TextBoxRef({
             anchor_id: docx_resolve_textbox_ref(textbox_ref, textboxes),
+            doc_pr_id: textbox_ref.doc_pr_id,
+            shape_id: textbox_ref.shape_id,
             owner_part: textbox_ref.owner_part,
             source_key: textbox_ref.source_key,
           }),
@@ -422,6 +580,8 @@ fn docx_model_inlines(
               Some(textbox_ref) =>
                 Some({
                   anchor_id: docx_resolve_textbox_ref(textbox_ref, textboxes),
+                  doc_pr_id: textbox_ref.doc_pr_id,
+                  shape_id: textbox_ref.shape_id,
                   owner_part: textbox_ref.owner_part,
                   source_key: textbox_ref.source_key,
                 })
@@ -454,6 +614,8 @@ fn docx_model_inlines(
               Some(textbox_ref) =>
                 Some({
                   anchor_id: docx_resolve_textbox_ref(textbox_ref, textboxes),
+                  doc_pr_id: textbox_ref.doc_pr_id,
+                  shape_id: textbox_ref.shape_id,
                   owner_part: textbox_ref.owner_part,
                   source_key: textbox_ref.source_key,
                 })
@@ -714,6 +876,32 @@ fn docx_resolve_textbox_ref(
     Some(value) => return Some(value)
     None => ()
   }
+  match textbox_ref.doc_pr_id {
+    Some(doc_pr_id) =>
+      match
+        docx_resolve_textbox_ref_by_doc_pr_id(
+          textbox_ref.owner_part,
+          doc_pr_id,
+          textboxes,
+        ) {
+        Some(anchor_id) => return Some(anchor_id)
+        None => ()
+      }
+    None => ()
+  }
+  match textbox_ref.shape_id {
+    Some(shape_id) =>
+      match
+        docx_resolve_textbox_ref_by_shape_id(
+          textbox_ref.owner_part,
+          shape_id,
+          textboxes,
+        ) {
+        Some(anchor_id) => return Some(anchor_id)
+        None => ()
+      }
+    None => ()
+  }
   let mut candidate : String? = None
   for textbox in textboxes {
     if textbox.owner_part != textbox_ref.owner_part {
@@ -724,6 +912,50 @@ fn docx_resolve_textbox_ref(
         Some(_) => return None
         None => candidate = Some(textbox.anchor_id)
       }
+    }
+  }
+  candidate
+}
+
+///|
+fn docx_resolve_textbox_ref_by_doc_pr_id(
+  owner_part : String,
+  doc_pr_id : String,
+  textboxes : Array[DocxTextBox],
+) -> String? {
+  let mut candidate : String? = None
+  for textbox in textboxes {
+    if textbox.owner_part != owner_part {
+      continue
+    }
+    if textbox.doc_pr_id != Some(doc_pr_id) {
+      continue
+    }
+    match candidate {
+      Some(_) => return None
+      None => candidate = Some(textbox.anchor_id)
+    }
+  }
+  candidate
+}
+
+///|
+fn docx_resolve_textbox_ref_by_shape_id(
+  owner_part : String,
+  shape_id : String,
+  textboxes : Array[DocxTextBox],
+) -> String? {
+  let mut candidate : String? = None
+  for textbox in textboxes {
+    if textbox.owner_part != owner_part {
+      continue
+    }
+    if textbox.shape_id != Some(shape_id) {
+      continue
+    }
+    match candidate {
+      Some(_) => return None
+      None => candidate = Some(textbox.anchor_id)
     }
   }
   candidate

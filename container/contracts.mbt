@@ -1,4 +1,38 @@
 ///|
+pub enum ContainerAssetCopyPolicy {
+  MaterializeAtOutputBoundary
+  ReferenceOnly
+  RejectUnsafePath
+} derive(Eq)
+
+///|
+pub fn container_asset_copy_policy_name(
+  policy : ContainerAssetCopyPolicy,
+) -> String {
+  match policy {
+    ContainerAssetCopyPolicy::MaterializeAtOutputBoundary =>
+      "materialize_at_output_boundary"
+    ContainerAssetCopyPolicy::ReferenceOnly => "reference_only"
+    ContainerAssetCopyPolicy::RejectUnsafePath => "reject_unsafe_path"
+  }
+}
+
+///|
+pub fn container_asset_copy_policy_materialize_at_output_boundary() -> ContainerAssetCopyPolicy {
+  ContainerAssetCopyPolicy::MaterializeAtOutputBoundary
+}
+
+///|
+pub fn container_asset_copy_policy_reference_only() -> ContainerAssetCopyPolicy {
+  ContainerAssetCopyPolicy::ReferenceOnly
+}
+
+///|
+pub fn container_asset_copy_policy_reject_unsafe_path() -> ContainerAssetCopyPolicy {
+  ContainerAssetCopyPolicy::RejectUnsafePath
+}
+
+///|
 pub fn container_supported_inner_formats() -> Array[String] {
   [
     "txt", "csv", "tsv", "json", "jsonl", "ndjson", "xml", "yaml", "yml", "html",
@@ -33,15 +67,15 @@ pub fn container_supports_inner_format(format : @input.DetectedFormat) -> Bool {
 pub fn container_dispatch_guardrails() -> Array[String] {
   [
     "inner document dispatch must go through the root ParserRegistry / root pipeline",
-    "no legacy dispatcher", "no convert/html", "no convert/markdown", "no convert/zip",
-    "no convert/epub", "no old core", "no nested archive recursion by default",
+    "container parsing stays inside the canonical product path", "no format-specific side dispatcher",
+    "no nested archive recursion by default",
   ]
 }
 
 ///|
 pub fn container_asset_write_guardrails() -> Array[String] {
   [
-    "asset plans are carried in root-pipeline contracts", "actual file writes only happen at the CLI/output boundary",
+    "asset references stay data-only inside parse and render stages", "actual file writes only happen at the CLI/output boundary",
     "no parser/orchestrator file writes", "no external fetch", "no path traversal",
   ]
 }
@@ -98,6 +132,6 @@ pub fn container_asset_output_path_is_safe(path : String) -> Bool {
 }
 
 ///|
-pub fn container_asset_plan_is_safe(plan : @core.ContainerAssetPlan) -> Bool {
-  container_asset_output_path_is_safe(plan.output_relative_path)
+pub fn container_asset_relative_path_is_safe(path : String) -> Bool {
+  container_asset_output_path_is_safe(path)
 }

@@ -3,11 +3,16 @@ package "ZSeanYves/markitdown/formats/pdf"
 
 import {
   "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/formats/ocr",
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
 }
 
 // Values
+pub fn build_pdftoppm_png_command(String, String) -> (String, Array[String])
+
+pub fn cleanup_pdf_ocr_temp_dir(String) -> Unit
+
 pub fn extract_pdf_native_document(@input.InputSource) -> Result[PdfNativeDocument, PdfNativeError]
 
 pub fn extract_pdf_native_document_from_path(String) -> Result[PdfNativeDocument, PdfNativeError]
@@ -70,9 +75,33 @@ pub fn pdf_native_parser_name() -> String
 
 pub fn pdf_native_parser_result(@input.InputSource, @parser.ParseContext) -> @parser.ParseResult
 
+pub fn pdf_ocr_layout_capability() -> @parser.ParserCapability
+
+pub fn pdf_ocr_parser() -> @parser.Parser
+
+pub fn pdf_ocr_parser_capability() -> @parser.ParserCapability
+
+pub fn pdf_ocr_parser_name() -> String
+
+pub fn pdf_ocr_parser_result(@input.InputSource, @parser.ParseContext, image_ocr_provider? : (@ocr.OcrProviderRequest) -> Result[@ocr.OcrProviderResult, @ocr.OcrProviderError], rasterizer? : (@input.InputSource) -> Result[(PdfRasterResult, String), PdfRasterizerError]) -> Result[@parser.ParseResult, String]
+
+pub fn pdf_raster_backend_install_hint() -> String
+
+pub fn pdf_raster_provider_error_message(PdfRasterizerError) -> String
+
+pub fn pdf_rasterizer_error_status(PdfRasterizerError) -> PdfRasterizerStatus
+
+pub fn pdf_rasterizer_kind_name(PdfRasterizerKind) -> String
+
+pub fn pdf_rasterizer_status_name(PdfRasterizerStatus) -> String
+
 pub fn pdf_raw_cjk_decode_result_is_confident_gb2312(PdfRawCjkDecodeResult) -> Bool
 
 pub fn pdf_union_bbox(PdfBBox, PdfBBox) -> PdfBBox
+
+pub fn rasterize_pdf_with_pdftoppm(@input.InputSource, (String, Array[String]) -> Result[(Int, String, String), PdfRasterizerError]) -> Result[(PdfRasterResult, String), PdfRasterizerError]
+
+pub fn rasterize_pdf_with_pdftoppm_default(@input.InputSource) -> Result[(PdfRasterResult, String), PdfRasterizerError]
 
 // Errors
 
@@ -232,6 +261,39 @@ pub struct PdfPageGeometry {
   rotation_degrees : Int
   crop_box : PdfBBox?
 }
+
+pub struct PdfRasterPageArtifact {
+  page_index : Int
+  image_path : String?
+  success : Bool
+  diagnostics : Array[String]
+}
+
+pub struct PdfRasterResult {
+  backend_name : String
+  page_count : Int
+  pages : Array[PdfRasterPageArtifact]
+  diagnostics : Array[String]
+}
+
+pub(all) enum PdfRasterizerError {
+  CommandUnavailable(String)
+  ExecutionFailed(String)
+  OutputParseFailed(String)
+  EmptyResult(String)
+} derive(Eq)
+pub impl Show for PdfRasterizerError
+
+pub(all) enum PdfRasterizerKind {
+  PdfToPpm
+} derive(Eq)
+
+pub(all) enum PdfRasterizerStatus {
+  CommandUnavailable
+  ExecutionFailed
+  OutputParseFailed
+  EmptyResult
+} derive(Eq)
 
 pub(all) struct PdfRawCjkDecodeResult {
   text : String

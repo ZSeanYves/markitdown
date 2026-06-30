@@ -1,140 +1,127 @@
 # Samples
 
-`samples/` contains repo-local regression data and the public validation
-entrypoints for the active product pipeline.
+`samples/` 是仓库内回归样本与验证入口。
 
-## Directory Roles
+这里主要有两类回归：
 
-| Path | Role |
-| --- | --- |
-| `samples/main_process/` | tracked product samples plus expected Markdown, metadata, and asset outputs |
-| `samples/fixtures/` | small fixtures for lower-layer or fail-closed checks |
-| `samples/helpers/validation/` | internal implementation for repo-local sample runs |
-| `samples/helpers/shared/` | shared shell helpers for temp dirs, runner discovery, and validation output |
-| `samples/helpers/contracts/` | focused shell contract gates plus a one-shot aggregator |
-| `samples/helpers/quality/` | internal implementation for the external quality bridge |
+- 主回归：验证产品默认转换链路是否稳定。
+- 质量回归：验证外部质量语料上的输出质量是否满足预期。
 
-Large external corpora do not live here. They live in
-`markitdown-quality-lab/`.
+仓库内只保留轻量功能样例，用于主回归和单元级功能覆盖。
+如果要验证真实转换质量或 benchmark 性能，请先把 `markitdown-quality-lab/` 下载到主仓目录下。性能使用方式见 [bench/README.md](/Users/winter/Documents/Moonbit/markitdown/bench/README.md)。
 
-## Public Entrypoints
+## 主回归
 
-Repo-local sample validation:
+主回归入口：
 
 ```bash
-bash samples/check.sh
-bash samples/check.sh --format txt
-bash samples/check.sh --format csv
-bash samples/check.sh --format tsv
-bash samples/check.sh --format json
-bash samples/check.sh --format jsonl
-bash samples/check.sh --format ndjson
-bash samples/check.sh --format xml
-bash samples/check.sh --format yaml
-bash samples/check.sh --format html
-bash samples/check.sh --format markdown
-bash samples/check.sh --format zip
-bash samples/check.sh --format epub
-bash samples/check.sh --format docx
-bash samples/check.sh --format xlsx
-bash samples/check.sh --format pptx
-bash samples/check.sh --format pdf
-bash samples/check.sh --markdown
-bash samples/check.sh --check-inventory
-bash samples/check.sh --list-inventory
+./samples/check.sh
 ```
 
-External quality bridge:
+默认会对主产品格式同时执行：
+
+- Markdown 结果回归
+- RAG 结果回归
+- Assets 结果回归
+- 显式 OCR lane 回归
+
+支持格式：
+
+`txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, pdf, ocr`
+
+常用命令：
 
 ```bash
-bash samples/check_quality.sh
-bash samples/check_quality.sh --format pdf
+./samples/check.sh
+./samples/check.sh --format pdf
+./samples/check.sh --markdown --format docx
+./samples/check.sh --rag --format html
+./samples/check.sh --assets --format epub
+./samples/check.sh --check-inventory
+./samples/check.sh --list-inventory
 ```
 
-Run artifact policy:
+目录约定：
 
-- `samples/check.sh` keeps only failure artifacts under each run directory.
-- `samples/check.sh` uses `workspace/` as scratch only.
-- `samples/check_quality.sh` keeps executed row outputs under `raw/outputs/`.
-- `samples/check_quality.sh` writes executed non-pass row reports under `reports/`.
+- `samples/main_process/<format>/markdown/`：默认产品路径输入样本
+- `samples/main_process/pdf/ocr/`：PDF Accurate / OCR 路线输入样本
+- `samples/main_process/<format>/expected/`：Markdown 期望结果
+- `samples/main_process/<format>/rag/`：RAG 期望结果
+- `samples/main_process/<format>/assets/`：轻量资源输出期望
 
-Contract aggregation:
+运行产物位于 `.tmp/check/runs/<run_id>/`，重点看：
+
+- `summary.md`
+- `summary.tsv`
+- `reports/failures/`
+- `diff/`
+- `raw/`
+
+说明：
+
+- 这套回归只测产品默认路径。
+- 不支持的格式在这里会直接 fail closed，不会偷偷切换到其它路线。
+- `ocr` gate 覆盖正式支持的直接图片 OCR 输入：`png/jpg/jpeg/bmp/webp/tif/tiff`。
+- `pdf/ocr` lane 覆盖 `pdf --accurate` 与显式 `pdf --ocr` 的 OCR-only 产品路径，不改变默认 `pdf` native-text gate。
+- `workspace/` 只是临时工作目录，不作为主要排查入口。
+
+## 质量回归
+
+质量回归入口：
 
 ```bash
-bash samples/helpers/contracts/check_root_contracts.sh
+./samples/check_quality.sh
 ```
 
-Implementation notes:
+这套回归只使用外部质量语料 `markitdown-quality-lab`，不回退到仓库内样本。
 
-- `zip` is backed by `format_readers/zip`.
-- The ZIP reader keeps `bikallem/compress/flate` inside the lower-level reader
-  package.
+准备语料：
 
-## Current Gate Scope
-
-The repo-local main CLI gate covers:
-
-- `txt`
-- `csv`
-- `tsv`
-- `json`
-- `jsonl`
-- `ndjson`
-- `xml`
-- `yaml`
-- `html`
-- `markdown`
-- `zip`
-- `epub`
-- `docx`
-- `xlsx`
-- `pptx`
-- `pdf`
-
-Current policy:
-
-- `pdf` coverage is limited to the native-text baseline.
-- Scanned or image-only PDFs still fail closed.
-- `pdf --ocr` still fails closed.
-- Unsupported formats fail closed.
-
-## Expected Output Policy
-
-- Most formats use `samples/main_process/<format>/expected/markdown/`, `expected/rag/`, and `expected/assets/`.
-- `xlsx` and `pptx` use `expected/markdown/` because those directories are the
-  current product baselines for those formats.
-- `.tmp` output is disposable and must not become the only durable copy of a
-  sample, manifest, or expected artifact.
-
-## Quality Lab
-
-`samples/check_quality.sh` reads only the external corpus from
-`markitdown-quality-lab/external_quality/`.
-
-Expected paths:
-
-```text
-markitdown-quality-lab/external_quality/
-markitdown-quality-lab/external_quality/MANIFEST.tsv
+```bash
+git clone git@github.com:ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab
 ```
 
-Repo-local samples are not used as external quality rows.
+请把 `markitdown-quality-lab` 下载到主仓目录下。
 
-## Contract Gates
+常用命令：
 
-The contract aggregator keeps the active shell guard surface in one place:
+```bash
+./samples/check_quality.sh
+./samples/check_quality.sh --format pdf
+```
 
-- `check_cli_contract.sh`
-- `check_samples_check_contract.sh`
-- `check_zip_contract.sh`
-- `check_epub_contract.sh`
-- `check_docx_contract.sh`
-- `check_xlsx_contract.sh`
-- `check_pptx_contract.sh`
-- `check_ocr_contract.sh`
-- `check_pdf_signal_contract.sh`
+运行产物位于 `.tmp/quality/runs/<run_id>/`，重点看：
 
-Use the focused scripts when you need format-specific failure localization.
+- `summary.md`
+- `summary.tsv`
+- `reports/`
+- `diff/`
+- `raw/`
 
-See:
-  [docs/architecture/mb-markitdown-architecture.md](../docs/architecture/mb-markitdown-architecture.md)
+说明：
+
+- 这套回归面向外部质量语料，不替代主回归。
+- `workspace/` 同样只作为临时目录。
+- benchmark 语料与质量语料是两回事；正式 `bench v2` 使用主仓目录下的 `markitdown-quality-lab/external_bench/`。
+- ZIP 相关样例与主链实现建立在 `format_readers/zip` 之上，底层解压继续依赖 `bikallem/compress/flate`。
+
+## 覆盖范围
+
+主回归覆盖：
+
+- 主产品支持格式的默认转换链路
+- Markdown 输出稳定性
+- RAG 输出结构与内容契约
+- 轻量 assets 输出契约
+- 样本清单完整性与 enrollment 完整性
+
+质量回归覆盖：
+
+- 外部质量语料上的实际输出质量
+- 不同格式质量信号的通过、失败与跳过情况
+- 外部语料与当前 CLI 能力边界的匹配情况
+
+简化理解：
+
+- 要看“产品主链路有没有回归”，跑 `./samples/check.sh`
+- 要看“真实质量语料表现怎么样”，跑 `./samples/check_quality.sh`

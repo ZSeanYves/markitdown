@@ -1,15 +1,15 @@
 ///|
-fn markdown_lite_parser_capability() -> @parser.ParserCapability {
+fn markdown_parser_capability() -> @parser.ParserCapability {
   @parser.make_parser_capability(
-    @parser.ParserMode::BlockStreaming,
+    @parser.ParserMode::DomAstModel,
     true,
     @parser.StreamingGranularity::MarkdownBlock,
     false,
     true,
     false,
-    true,
-    true,
     false,
+    true,
+    true,
     true,
     true,
     false,
@@ -24,11 +24,11 @@ fn markdown_lite_parser_capability() -> @parser.ParserCapability {
 }
 
 ///|
-pub fn markdown_lite_parser() -> @parser.Parser {
+pub fn markdown_parser() -> @parser.Parser {
   @parser.make_parser(
     "markdown_parser",
-    @parser.ParserMode::BlockStreaming,
-    markdown_lite_parser_capability(),
+    @parser.ParserMode::DomAstModel,
+    markdown_parser_capability(),
     fn(
       source : @input.InputSource,
       context : @parser.ParseContext,
@@ -40,33 +40,38 @@ pub fn markdown_lite_parser() -> @parser.Parser {
       let scanned = @dmd.scan_markdown_document(text)
       let inspect = @dmd.inspect_markdown_document(scanned)
       let validation = @dmd.validate_markdown_document(scanned)
-      let diagnostics = @light_common.empty_parser_diagnostics(
+      let diagnostics = @parser_common.empty_parser_diagnostics(
         "markdown_parser",
-        @parser.ParserMode::BlockStreaming,
+        @parser.ParserMode::DomAstModel,
         source,
         "markdown",
       )
       diagnostics.metrics.set("parser_name", "markdown_parser")
-      diagnostics.metrics.set("parser_mode", "block_streaming")
+      diagnostics.metrics.set("parser_mode", "dom_ast_model")
       diagnostics.metrics.set(
         "input_kind",
-        @light_common.input_kind_name(source.kind),
+        @parser_common.input_kind_name(source.kind),
       )
       diagnostics.metrics.set("detected_format", "markdown")
       diagnostics.metrics.set(
         "requested_mode",
-        @light_common.requested_mode_name(context),
+        @parser_common.requested_mode_name(context),
       )
-      diagnostics.metrics.set("effective_mode", "block_streaming")
-      diagnostics.metrics.set("ir_input_kind", "block_stream")
+      let requested_blocks = context.requested_mode ==
+        Some(@parser.ParserMode::BlockStreaming)
+      markdown_set_route_metrics(diagnostics, requested_blocks)
       diagnostics.metrics.set("event_granularity", "markdown_block")
-      diagnostics.metrics.set("event_semantics", "markdown_block_stream")
-      diagnostics.metrics.set("streaming_fallback", "false")
+      diagnostics.metrics.set(
+        "event_semantics",
+        if requested_blocks {
+          "markdown_block_stream"
+        } else {
+          "dom_ast_model"
+        },
+      )
       diagnostics.metrics.set("resource_limit_hit", "false")
       diagnostics.metrics.set("block_limit_reached", "false")
-      @light_common.apply_readiness_metrics(
-        diagnostics, "markdown", "near_ready",
-      )
+      @parser_common.apply_product_metrics(diagnostics, "markdown")
       diagnostics.metrics.set("line_count", inspect.line_count.to_string())
       diagnostics.metrics.set(
         "block_inventory_count",
@@ -114,15 +119,15 @@ pub fn markdown_lite_parser() -> @parser.Parser {
       )
       diagnostics.metrics.set(
         "frontmatter_seen",
-        @light_common.bool_string(inspect.has_frontmatter),
+        @parser_common.bool_string(inspect.has_frontmatter),
       )
       diagnostics.metrics.set(
         "has_frontmatter",
-        @light_common.bool_string(inspect.has_frontmatter),
+        @parser_common.bool_string(inspect.has_frontmatter),
       )
       diagnostics.metrics.set(
         "is_empty",
-        @light_common.bool_string(inspect.is_empty),
+        @parser_common.bool_string(inspect.is_empty),
       )
       diagnostics.metrics.set(
         "warning_count",
@@ -139,105 +144,26 @@ pub fn markdown_lite_parser() -> @parser.Parser {
           markdown_validation_issue_feature(validation_issue),
         )
       }
-      let lowered = markdown_blocks_from_scanned_document(
-        scanned, source, diagnostics,
+      let blocks = markdown_lowered_blocks_for_mode(
+        scanned, source, diagnostics, requested_blocks,
       )
-      let blocks = markdown_annotate_paths(lowered)
-      let report = markdown_block_report(blocks)
-      diagnostics.metrics.set("block_count", blocks.length().to_string())
-      diagnostics.metrics.set(
-        "paragraph_count",
-        report.paragraph_count.to_string(),
-      )
-      diagnostics.metrics.set("list_count", report.list_count.to_string())
-      diagnostics.metrics.set("table_count", report.table_count.to_string())
-      diagnostics.metrics.set(
-        "code_block_count",
-        report.code_block_count.to_string(),
-      )
-      diagnostics.metrics.set(
-        "blockquote_count",
-        report.blockquote_count.to_string(),
-      )
-      diagnostics.metrics.set("link_count", report.link_count.to_string())
-      diagnostics.metrics.set("image_count", report.image_count.to_string())
-      diagnostics.metrics.set(
-        "raw_html_count",
-        report.raw_html_count.to_string(),
-      )
-      diagnostics.metrics.set(
-        "unsafe_link_count",
-        report.unsafe_link_count.to_string(),
-      )
-      diagnostics.metrics.set(
-        "unsafe_html_count",
-        report.unsafe_html_count.to_string(),
-      )
-      diagnostics.metrics.set(
-        "max_list_depth_observed",
-        report.max_list_depth.to_string(),
-      )
-      diagnostics.metrics.set("asset_count", report.asset_count.to_string())
-      diagnostics.metrics.set(
-        "degraded_feature_count",
-        diagnostics.degraded_features.length().to_string(),
-      )
-      diagnostics.metrics.set(
-        "fallback_count",
-        diagnostics.fallback_trace.length().to_string(),
-      )
-      diagnostics.metrics.set(
-        "warning_count",
-        diagnostics.warnings.length().to_string(),
-      )
-      diagnostics.metrics.set(
-        "error_count",
-        diagnostics.errors.length().to_string(),
-      )
-      diagnostics.metrics.set(
-        "issue_count",
-        (diagnostics.warnings.length() + diagnostics.errors.length()).to_string(),
-      )
-      let large_mode = markdown_block_limit_reached(
-        context, inspect, text, report,
-      )
-      if large_mode {
-        let events = @pipeline.blocks_to_event_stream(blocks)
-        diagnostics.metrics.set("parser_mode", "streaming_event")
-        diagnostics.metrics.set("effective_mode", "streaming_event")
-        diagnostics.metrics.set("ir_input_kind", "event_stream")
-        diagnostics.metrics.set("event_granularity", "markdown_block")
-        diagnostics.metrics.set(
-          "event_semantics", "markdown_block_event_stream",
-        )
-        diagnostics.metrics.set("streaming_fallback", "true")
-        diagnostics.metrics.set("resource_limit_hit", "true")
-        diagnostics.metrics.set("block_limit_reached", "true")
-        diagnostics.metrics.set("event_count", events.length().to_string())
-        diagnostics.pass_trace.push("parse:markdown_parser")
-        return Ok(
-          @parser.parse_result_with_events_capability(
-            "markdown_parser",
-            @parser.ParserMode::StreamingEvent,
-            events,
-            diagnostics,
-            markdown_lite_parser_capability(),
-          ),
-        )
+      if requested_blocks {
+        Ok(markdown_block_stream_parse_result(blocks, diagnostics))
+      } else {
+        Ok(markdown_document_parse_result(blocks, diagnostics))
       }
-      diagnostics.metrics.set("event_count", "0")
-      diagnostics.pass_trace.push("parse:markdown_parser")
-      Ok(
-        @parser.parse_result_with_blocks_capability(
-          "markdown_parser",
-          @parser.ParserMode::BlockStreaming,
-          blocks,
-          diagnostics,
-          markdown_lite_parser_capability(),
-        ),
-      )
     },
   )
+}
+
+///|
+pub fn markdown_parse_with_scanned_document(
+  source : @input.InputSource,
+  context : @parser.ParseContext,
+  scanned : @dmd.MarkdownDocument,
+  inspect : @dmd.MarkdownInspectReport,
+) -> @parser.ParseResult {
+  markdown_parse_result_from_scanned(source, context, scanned, inspect)
 }
 
 ///|
@@ -252,6 +178,204 @@ fn markdown_group_key(block : @dmd.MarkdownBlock) -> String {
     @dmd.MarkdownBlockKind::BlockQuote => "blockquote"
     _ => "single:" + markdown_block_kind_name(block.kind)
   }
+}
+
+///|
+fn markdown_parse_result_from_scanned(
+  source : @input.InputSource,
+  context : @parser.ParseContext,
+  scanned : @dmd.MarkdownDocument,
+  inspect : @dmd.MarkdownInspectReport,
+) -> @parser.ParseResult {
+  let diagnostics = @parser_common.empty_parser_diagnostics(
+    "markdown_parser",
+    @parser.ParserMode::DomAstModel,
+    source,
+    "markdown",
+  )
+  diagnostics.metrics.set("parser_name", "markdown_parser")
+  diagnostics.metrics.set("parser_mode", "dom_ast_model")
+  diagnostics.metrics.set(
+    "input_kind",
+    @parser_common.input_kind_name(source.kind),
+  )
+  diagnostics.metrics.set("detected_format", "markdown")
+  diagnostics.metrics.set(
+    "requested_mode",
+    @parser_common.requested_mode_name(context),
+  )
+  let requested_blocks = context.requested_mode ==
+    Some(@parser.ParserMode::BlockStreaming)
+  markdown_set_route_metrics(diagnostics, requested_blocks)
+  diagnostics.metrics.set("event_granularity", "markdown_block")
+  diagnostics.metrics.set(
+    "event_semantics",
+    if requested_blocks {
+      "markdown_block_stream"
+    } else {
+      "dom_ast_model"
+    },
+  )
+  diagnostics.metrics.set("resource_limit_hit", "false")
+  diagnostics.metrics.set("block_limit_reached", "false")
+  @parser_common.apply_product_metrics(diagnostics, "markdown")
+  markdown_apply_scan_metrics(diagnostics, inspect)
+  markdown_apply_validation_issues(diagnostics, scanned.issues)
+  let blocks = markdown_lowered_blocks_for_mode(
+    scanned, source, diagnostics, requested_blocks,
+  )
+  if requested_blocks {
+    markdown_block_stream_parse_result(blocks, diagnostics)
+  } else {
+    markdown_document_parse_result(blocks, diagnostics)
+  }
+}
+
+///|
+fn markdown_set_route_metrics(
+  diagnostics : @core.Diagnostics,
+  requested_blocks : Bool,
+) -> Unit {
+  diagnostics.metrics.set(
+    "effective_mode",
+    if requested_blocks {
+      "block_streaming"
+    } else {
+      "dom_ast_model"
+    },
+  )
+  diagnostics.metrics.set(
+    "ir_input_kind",
+    if requested_blocks {
+      "block_stream"
+    } else {
+      "document"
+    },
+  )
+}
+
+///|
+fn markdown_lowered_blocks_for_mode(
+  scanned : @dmd.MarkdownDocument,
+  source : @input.InputSource,
+  diagnostics : @core.Diagnostics,
+  block_stream_mode : Bool,
+) -> Array[@core.CoreBlock] {
+  let lowering_mode = if block_stream_mode {
+    MarkdownLoweringMode::BlockStreamingLight
+  } else {
+    MarkdownLoweringMode::DomAstLight
+  }
+  let lowered = markdown_blocks_from_scanned_document(
+    scanned, source, diagnostics, lowering_mode,
+  )
+  let (blocks, report) = markdown_annotate_paths_and_report(lowered)
+  markdown_apply_block_report_metrics(diagnostics, report, blocks.length())
+  if block_stream_mode {
+    diagnostics.degraded_features.push("markdown_block_stream_light_lowering")
+    diagnostics.same_mode_degradation.push(
+      "markdown_block_stream_literal_preservation",
+    )
+    diagnostics.fallback_trace.push(
+      "markdown block streaming -> same-mode light lowering",
+    )
+    diagnostics.metrics.set("markdown_lowering_mode", "block_stream_light")
+  } else {
+    diagnostics.metrics.set("markdown_lowering_mode", "dom_ast_light")
+  }
+  diagnostics.metrics.set(
+    "degraded_feature_count",
+    diagnostics.degraded_features.length().to_string(),
+  )
+  diagnostics.metrics.set(
+    "fallback_count",
+    diagnostics.fallback_trace.length().to_string(),
+  )
+  diagnostics.metrics.set(
+    "warning_count",
+    diagnostics.warnings.length().to_string(),
+  )
+  diagnostics.metrics.set(
+    "error_count",
+    diagnostics.errors.length().to_string(),
+  )
+  diagnostics.metrics.set(
+    "issue_count",
+    (diagnostics.warnings.length() + diagnostics.errors.length()).to_string(),
+  )
+  diagnostics.metrics.set("resource_limit_hit", "false")
+  diagnostics.metrics.set("block_limit_reached", "false")
+  blocks
+}
+
+///|
+fn markdown_apply_block_report_metrics(
+  diagnostics : @core.Diagnostics,
+  report : MarkdownBlockReport,
+  block_count : Int,
+) -> Unit {
+  diagnostics.metrics.set("block_count", block_count.to_string())
+  diagnostics.metrics.set("paragraph_count", report.paragraph_count.to_string())
+  diagnostics.metrics.set("list_count", report.list_count.to_string())
+  diagnostics.metrics.set("table_count", report.table_count.to_string())
+  diagnostics.metrics.set(
+    "code_block_count",
+    report.code_block_count.to_string(),
+  )
+  diagnostics.metrics.set(
+    "blockquote_count",
+    report.blockquote_count.to_string(),
+  )
+  diagnostics.metrics.set("link_count", report.link_count.to_string())
+  diagnostics.metrics.set("image_count", report.image_count.to_string())
+  diagnostics.metrics.set("raw_html_count", report.raw_html_count.to_string())
+  diagnostics.metrics.set(
+    "unsafe_link_count",
+    report.unsafe_link_count.to_string(),
+  )
+  diagnostics.metrics.set(
+    "unsafe_html_count",
+    report.unsafe_html_count.to_string(),
+  )
+  diagnostics.metrics.set(
+    "max_list_depth_observed",
+    report.max_list_depth.to_string(),
+  )
+  diagnostics.metrics.set("asset_count", report.asset_count.to_string())
+}
+
+///|
+fn markdown_block_stream_parse_result(
+  blocks : Array[@core.CoreBlock],
+  diagnostics : @core.Diagnostics,
+) -> @parser.ParseResult {
+  diagnostics.metrics.set("event_count", "0")
+  diagnostics.pass_trace.push("parse:markdown_parser")
+  @parser.parse_result_with_blocks_capability(
+    "markdown_parser",
+    @parser.ParserMode::BlockStreaming,
+    blocks,
+    diagnostics,
+    markdown_parser_capability(),
+  )
+}
+
+///|
+fn markdown_document_parse_result(
+  blocks : Array[@core.CoreBlock],
+  diagnostics : @core.Diagnostics,
+) -> @parser.ParseResult {
+  diagnostics.metrics.set("event_count", "0")
+  diagnostics.pass_trace.push("parse:markdown_parser")
+  let document = @core.document_from_blocks(blocks)
+  let final_document = @core.document_with_diagnostics(document, diagnostics)
+  @parser.parse_result_with_document_capability(
+    "markdown_parser",
+    @parser.ParserMode::DomAstModel,
+    final_document,
+    diagnostics,
+    markdown_parser_capability(),
+  )
 }
 
 ///|
@@ -300,14 +424,27 @@ priv enum MarkdownLoweringItem {
 }
 
 ///|
+priv enum MarkdownLoweringMode {
+  DomAstLight
+  BlockStreamingLight
+} derive(Eq)
+
+///|
 fn markdown_blocks_from_scanned_document(
   scanned : @dmd.MarkdownDocument,
   source : @input.InputSource,
   diagnostics : @core.Diagnostics,
+  lowering_mode : MarkdownLoweringMode,
 ) -> Array[@core.CoreBlock] {
   let blocks : Array[@core.CoreBlock] = []
   let image_asset_index : Ref[Int] = { val: 0 }
-  let defined_footnotes = markdown_collect_defined_footnotes(scanned.blocks)
+  let defined_footnotes = if lowering_mode ==
+    MarkdownLoweringMode::BlockStreamingLight &&
+    !markdown_blocks_may_define_footnotes(scanned.blocks) {
+    Map([])
+  } else {
+    markdown_collect_defined_footnotes(scanned.blocks)
+  }
   match scanned.frontmatter {
     Some(value) => {
       blocks.push(markdown_frontmatter_block(value, source))
@@ -317,7 +454,7 @@ fn markdown_blocks_from_scanned_document(
       )
       diagnostics.metrics.set(
         "frontmatter_closed",
-        @light_common.bool_string(value.closed),
+        @parser_common.bool_string(value.closed),
       )
       if !value.closed {
         diagnostics.degraded_features.push("markdown_frontmatter_unclosed")
@@ -328,20 +465,121 @@ fn markdown_blocks_from_scanned_document(
       diagnostics.metrics.set("frontmatter_closed", "false")
     }
   }
-  let lowered_items = markdown_prepare_lowering_items(
-    scanned.blocks,
-    defined_footnotes,
-  )
-  let block_groups = group_markdown_lowering_items(lowered_items)
-  for group in block_groups {
-    for
-      block in markdown_group_to_core_blocks_next(
-        group, source, diagnostics, image_asset_index, defined_footnotes,
-      ) {
-      blocks.push(block)
+  if lowering_mode == MarkdownLoweringMode::BlockStreamingLight {
+    let block_groups = markdown_group_scanned_blocks(scanned.blocks)
+    for group in block_groups {
+      for
+        block in markdown_scanned_group_to_core_blocks_next(
+          group, source, diagnostics, image_asset_index, defined_footnotes, lowering_mode,
+        ) {
+        blocks.push(block)
+      }
+    }
+  } else {
+    let lowered_items = markdown_prepare_lowering_items(
+      scanned.blocks,
+      defined_footnotes,
+    )
+    let block_groups = group_markdown_lowering_items(lowered_items)
+    for group in block_groups {
+      for
+        block in markdown_group_to_core_blocks_next(
+          group, source, diagnostics, image_asset_index, defined_footnotes, lowering_mode,
+        ) {
+        blocks.push(block)
+      }
     }
   }
   blocks
+}
+
+///|
+fn markdown_apply_scan_metrics(
+  diagnostics : @core.Diagnostics,
+  inspect : @dmd.MarkdownInspectReport,
+) -> Unit {
+  diagnostics.metrics.set("line_count", inspect.line_count.to_string())
+  diagnostics.metrics.set(
+    "block_inventory_count",
+    inspect.block_count.to_string(),
+  )
+  diagnostics.metrics.set(
+    "blank_line_count",
+    inspect.blank_line_count.to_string(),
+  )
+  diagnostics.metrics.set("heading_count", inspect.heading_count.to_string())
+  diagnostics.metrics.set(
+    "fenced_code_count",
+    inspect.fenced_code_count.to_string(),
+  )
+  diagnostics.metrics.set(
+    "unclosed_fence_count",
+    inspect.unclosed_fence_count.to_string(),
+  )
+  diagnostics.metrics.set(
+    "list_item_count",
+    inspect.list_item_count.to_string(),
+  )
+  diagnostics.metrics.set(
+    "blockquote_count",
+    inspect.blockquote_count.to_string(),
+  )
+  diagnostics.metrics.set(
+    "table_like_row_count",
+    inspect.table_like_row_count.to_string(),
+  )
+  diagnostics.metrics.set(
+    "thematic_break_count",
+    inspect.thematic_break_count.to_string(),
+  )
+  diagnostics.metrics.set(
+    "html_block_candidate_count",
+    inspect.html_block_candidate_count.to_string(),
+  )
+  diagnostics.metrics.set(
+    "frontmatter_count",
+    inspect.frontmatter_count.to_string(),
+  )
+  diagnostics.metrics.set(
+    "frontmatter_seen",
+    @parser_common.bool_string(inspect.has_frontmatter),
+  )
+  diagnostics.metrics.set(
+    "has_frontmatter",
+    @parser_common.bool_string(inspect.has_frontmatter),
+  )
+  diagnostics.metrics.set(
+    "is_empty",
+    @parser_common.bool_string(inspect.is_empty),
+  )
+}
+
+///|
+fn markdown_apply_validation_issues(
+  diagnostics : @core.Diagnostics,
+  issues : Array[@dmd.MarkdownValidationIssue],
+) -> Unit {
+  let mut warning_count = 0
+  let mut error_count = 0
+  for validation_issue in issues {
+    diagnostics.warnings.push(validation_issue.message)
+    diagnostics.fallback_trace.push(
+      markdown_validation_issue_trace(validation_issue),
+    )
+    diagnostics.degraded_features.push(
+      markdown_validation_issue_feature(validation_issue),
+    )
+    match validation_issue.severity {
+      @dmd.MarkdownValidationSeverity::Warning => warning_count += 1
+      @dmd.MarkdownValidationSeverity::Error => error_count += 1
+    }
+  }
+  diagnostics.metrics.set("warning_count", warning_count.to_string())
+  diagnostics.metrics.set("error_count", error_count.to_string())
+  diagnostics.metrics.set(
+    "issue_count",
+    (warning_count + error_count).to_string(),
+  )
 }
 
 ///|
@@ -355,6 +593,105 @@ fn markdown_collect_defined_footnotes(
     }
   }
   out
+}
+
+///|
+fn markdown_blocks_may_define_footnotes(
+  blocks : Array[@dmd.MarkdownBlock],
+) -> Bool {
+  for block in blocks {
+    if block.raw_text.contains("[^") && block.raw_text.contains("]:") {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn markdown_group_scanned_blocks(
+  blocks : Array[@dmd.MarkdownBlock],
+) -> Array[Array[@dmd.MarkdownBlock]] {
+  let groups : Array[Array[@dmd.MarkdownBlock]] = []
+  let current : Array[@dmd.MarkdownBlock] = []
+  let mut current_key = ""
+
+  fn flush_group(
+    groups : Array[Array[@dmd.MarkdownBlock]],
+    current : Array[@dmd.MarkdownBlock],
+    current_key : String,
+  ) -> String {
+    if current.length() == 0 {
+      return current_key
+    }
+    let snapshot : Array[@dmd.MarkdownBlock] = []
+    snapshot.append(current[:])
+    groups.push(snapshot)
+    current.clear()
+    ""
+  }
+
+  for block in blocks {
+    if block.kind == @dmd.MarkdownBlockKind::BlankLine {
+      current_key = flush_group(groups, current, current_key)
+      continue
+    }
+    let next_key = markdown_group_key(block)
+    if current.length() > 0 && next_key != current_key {
+      current_key = flush_group(groups, current, current_key)
+    }
+    current.push(block)
+    current_key = next_key
+  }
+  ignore(flush_group(groups, current, current_key))
+  groups
+}
+
+///|
+fn markdown_scanned_group_to_core_blocks_next(
+  group : Array[@dmd.MarkdownBlock],
+  source : @input.InputSource,
+  diagnostics : @core.Diagnostics,
+  image_asset_index : Ref[Int],
+  defined_footnotes : Map[String, Bool],
+  lowering_mode : MarkdownLoweringMode,
+) -> Array[@core.CoreBlock] {
+  if group.length() == 0 {
+    return []
+  }
+  let first_block = group[0]
+  match first_block.kind {
+    @dmd.MarkdownBlockKind::ListItem =>
+      [
+        markdown_list_group_to_block_next(
+          group, source, diagnostics, image_asset_index, lowering_mode,
+        ),
+      ]
+    @dmd.MarkdownBlockKind::BlockQuote =>
+      [
+        markdown_blockquote_group_to_block_next(
+          group, source, diagnostics, image_asset_index, lowering_mode,
+        ),
+      ]
+    @dmd.MarkdownBlockKind::HtmlBlockCandidate =>
+      [
+        markdown_html_group_to_block_next(
+          group, source, diagnostics, lowering_mode,
+        ),
+      ]
+    @dmd.MarkdownBlockKind::TableLikeRow =>
+      [
+        markdown_table_group_to_block_next(
+          group, source, diagnostics, lowering_mode,
+        ),
+      ]
+    _ =>
+      [
+        markdown_single_block_to_core_block_next(
+          first_block, source, diagnostics, image_asset_index, defined_footnotes,
+          lowering_mode,
+        ),
+      ]
+  }
 }
 
 ///|
@@ -487,7 +824,7 @@ fn markdown_frontmatter_block(
     "frontmatter_kind",
     markdown_frontmatter_kind_name(value.kind),
   )
-  block.attrs.set("closed", @light_common.bool_string(value.closed))
+  block.attrs.set("closed", @parser_common.bool_string(value.closed))
   block
 }
 
@@ -498,6 +835,7 @@ fn markdown_group_to_core_blocks_next(
   diagnostics : @core.Diagnostics,
   image_asset_index : Ref[Int],
   defined_footnotes : Map[String, Bool],
+  lowering_mode : MarkdownLoweringMode,
 ) -> Array[@core.CoreBlock] {
   if group.length() == 0 {
     return []
@@ -506,7 +844,7 @@ fn markdown_group_to_core_blocks_next(
   match first {
     MarkdownLoweringItem::FootnoteDefinition(_, _) =>
       markdown_footnote_group_to_core_blocks_next(
-        group, source, diagnostics, image_asset_index, defined_footnotes,
+        group, source, diagnostics, image_asset_index, defined_footnotes, lowering_mode,
       )
     MarkdownLoweringItem::Scanned(first_block) => {
       let scanned_group = group.map(item => markdown_lowering_item_block(item))
@@ -514,31 +852,32 @@ fn markdown_group_to_core_blocks_next(
         @dmd.MarkdownBlockKind::ListItem =>
           [
             markdown_list_group_to_block_next(
-              scanned_group, source, diagnostics, image_asset_index,
+              scanned_group, source, diagnostics, image_asset_index, lowering_mode,
             ),
           ]
         @dmd.MarkdownBlockKind::BlockQuote =>
           [
             markdown_blockquote_group_to_block_next(
-              scanned_group, source, diagnostics, image_asset_index,
+              scanned_group, source, diagnostics, image_asset_index, lowering_mode,
             ),
           ]
         @dmd.MarkdownBlockKind::HtmlBlockCandidate =>
           [
             markdown_html_group_to_block_next(
-              scanned_group, source, diagnostics,
+              scanned_group, source, diagnostics, lowering_mode,
             ),
           ]
         @dmd.MarkdownBlockKind::TableLikeRow =>
           [
             markdown_table_group_to_block_next(
-              scanned_group, source, diagnostics,
+              scanned_group, source, diagnostics, lowering_mode,
             ),
           ]
         _ =>
           [
             markdown_single_block_to_core_block_next(
               first_block, source, diagnostics, image_asset_index, defined_footnotes,
+              lowering_mode,
             ),
           ]
       }
@@ -563,6 +902,7 @@ fn markdown_footnote_group_to_core_blocks_next(
   diagnostics : @core.Diagnostics,
   image_asset_index : Ref[Int],
   defined_footnotes : Map[String, Bool],
+  lowering_mode : MarkdownLoweringMode,
 ) -> Array[@core.CoreBlock] {
   ignore(diagnostics)
   ignore(image_asset_index)
@@ -578,7 +918,7 @@ fn markdown_footnote_group_to_core_blocks_next(
       MarkdownLoweringItem::Scanned(block) =>
         out.push(
           markdown_single_block_to_core_block_next(
-            block, source, diagnostics, image_asset_index, defined_footnotes,
+            block, source, diagnostics, image_asset_index, defined_footnotes, lowering_mode,
           ),
         )
     }
@@ -646,6 +986,7 @@ fn markdown_single_block_to_core_block_next(
   diagnostics : @core.Diagnostics,
   image_asset_index : Ref[Int],
   defined_footnotes : Map[String, Bool],
+  lowering_mode : MarkdownLoweringMode,
 ) -> @core.CoreBlock {
   let source_ref = markdown_source_ref(block, source)
   match block.kind {
@@ -685,7 +1026,7 @@ fn markdown_single_block_to_core_block_next(
             Some(lang) => code.attrs.set("info", lang.trim().to_owned())
             None => ()
           }
-          code.attrs.set("closed", @light_common.bool_string(info.closed))
+          code.attrs.set("closed", @parser_common.bool_string(info.closed))
         }
         None => ()
       }
@@ -701,12 +1042,14 @@ fn markdown_single_block_to_core_block_next(
       raw
     }
     @dmd.MarkdownBlockKind::HtmlBlockCandidate =>
-      markdown_html_literal_block(block, source_ref, diagnostics)
+      markdown_html_literal_block(block, source_ref, diagnostics, lowering_mode)
     @dmd.MarkdownBlockKind::TableLikeRow =>
-      markdown_table_literal_block(block, source_ref, diagnostics)
+      markdown_table_literal_block(
+        block, source_ref, diagnostics, lowering_mode,
+      )
     @dmd.MarkdownBlockKind::ParagraphLike =>
       markdown_paragraph_block(
-        block, source_ref, diagnostics, image_asset_index, defined_footnotes,
+        block, source_ref, diagnostics, image_asset_index, defined_footnotes, lowering_mode,
       )
     @dmd.MarkdownBlockKind::Other =>
       markdown_literal_block(block.raw_text, source_ref, "markdown_literal")
@@ -730,11 +1073,18 @@ fn markdown_html_group_to_block_next(
   group : Array[@dmd.MarkdownBlock],
   source : @input.InputSource,
   diagnostics : @core.Diagnostics,
+  lowering_mode : MarkdownLoweringMode,
 ) -> @core.CoreBlock {
   let source_ref = markdown_group_source_ref(
     group, source, "/markdown_html_literal[0]",
   )
   let text = group.map(block => block.raw_text).join("\n")
+  if lowering_mode == MarkdownLoweringMode::BlockStreamingLight {
+    diagnostics.same_mode_degradation.push(
+      "markdown_block_stream_html_literal_preserved",
+    )
+    return markdown_literal_block(text, source_ref, "markdown_literal")
+  }
   let raw = markdown_literal_block(text, source_ref, "markdown_html_literal")
   if markdown_html_contains_unsafe_tag(text) {
     diagnostics.warnings.push("unsafe raw html preserved as literal text")
@@ -752,7 +1102,18 @@ fn markdown_html_literal_block(
   block : @dmd.MarkdownBlock,
   source_ref : @core.SourceRef,
   diagnostics : @core.Diagnostics,
+  lowering_mode : MarkdownLoweringMode,
 ) -> @core.CoreBlock {
+  if lowering_mode == MarkdownLoweringMode::BlockStreamingLight {
+    diagnostics.same_mode_degradation.push(
+      "markdown_block_stream_html_literal_preserved",
+    )
+    return markdown_literal_block(
+      block.raw_text,
+      source_ref,
+      "markdown_literal",
+    )
+  }
   let raw = markdown_literal_block(
     block.raw_text,
     source_ref,
@@ -774,8 +1135,19 @@ fn markdown_table_group_to_block_next(
   group : Array[@dmd.MarkdownBlock],
   source : @input.InputSource,
   diagnostics : @core.Diagnostics,
+  lowering_mode : MarkdownLoweringMode,
 ) -> @core.CoreBlock {
   let source_ref = markdown_group_source_ref(group, source, "/table[0]")
+  if lowering_mode == MarkdownLoweringMode::BlockStreamingLight {
+    diagnostics.same_mode_degradation.push(
+      "markdown_block_stream_table_literal_preserved",
+    )
+    return markdown_literal_block(
+      group.map(block => block.raw_text).join("\n"),
+      source_ref,
+      "markdown_literal",
+    )
+  }
   let lines = group
     .map(block => block.raw_text.trim().to_owned())
     .filter(line => line != "")
@@ -802,7 +1174,18 @@ fn markdown_table_literal_block(
   block : @dmd.MarkdownBlock,
   source_ref : @core.SourceRef,
   diagnostics : @core.Diagnostics,
+  lowering_mode : MarkdownLoweringMode,
 ) -> @core.CoreBlock {
+  if lowering_mode == MarkdownLoweringMode::BlockStreamingLight {
+    diagnostics.same_mode_degradation.push(
+      "markdown_block_stream_table_literal_preserved",
+    )
+    return markdown_literal_block(
+      block.raw_text,
+      source_ref,
+      "markdown_literal",
+    )
+  }
   let lines = block.raw_text
     .split("\n")
     .to_array()
@@ -895,15 +1278,29 @@ fn markdown_paragraph_block(
   diagnostics : @core.Diagnostics,
   image_asset_index : Ref[Int],
   defined_footnotes : Map[String, Bool],
+  lowering_mode : MarkdownLoweringMode,
 ) -> @core.CoreBlock {
-  let normalized = markdown_normalize_footnote_references(
-    block.raw_text,
-    defined_footnotes,
-  )
+  if lowering_mode == MarkdownLoweringMode::BlockStreamingLight {
+    return markdown_block_stream_paragraph_block(
+      block, source_ref, diagnostics, defined_footnotes,
+    )
+  }
+  let normalized = if markdown_may_have_footnote_reference(block.raw_text) {
+    markdown_normalize_footnote_references(block.raw_text, defined_footnotes)
+  } else {
+    block.raw_text
+  }
   let trimmed = normalized.trim().to_owned()
   if markdown_requires_literal_paragraph(normalized) {
     diagnostics.degraded_features.push("markdown_literal_paragraph_preserved")
     return markdown_literal_block(normalized, source_ref, "markdown_literal")
+  }
+  if !markdown_may_have_rich_inline_markup(normalized) {
+    return @core.make_block(
+      @core.BlockKind::Paragraph,
+      markdown_plain_paragraph_text(normalized),
+      source_ref~,
+    )
   }
   match
     markdown_image_block_or_inline(normalized, source_ref, image_asset_index) {
@@ -935,7 +1332,67 @@ fn markdown_paragraph_block(
 
 ///|
 fn markdown_plain_paragraph_text(text : String) -> String {
-  text.split("\n").to_array().map(line => line.trim().to_owned()).join(" ")
+  let lines = text.split("\n").to_array()
+  let out = StringBuilder::new()
+  let mut wrote = false
+  for line in lines {
+    let trimmed = line.trim().to_owned()
+    if trimmed == "" {
+      continue
+    }
+    if wrote {
+      out.write_char(' ')
+    }
+    out.write_string(trimmed)
+    wrote = true
+  }
+  out.to_string()
+}
+
+///|
+fn markdown_block_stream_paragraph_block(
+  block : @dmd.MarkdownBlock,
+  source_ref : @core.SourceRef,
+  diagnostics : @core.Diagnostics,
+  defined_footnotes : Map[String, Bool],
+) -> @core.CoreBlock {
+  let normalized = if markdown_may_have_footnote_reference(block.raw_text) {
+    diagnostics.same_mode_degradation.push(
+      "markdown_block_stream_footnote_reference_preserved",
+    )
+    markdown_normalize_footnote_references(block.raw_text, defined_footnotes)
+  } else {
+    block.raw_text
+  }
+  if markdown_requires_literal_paragraph(normalized) {
+    diagnostics.degraded_features.push("markdown_literal_paragraph_preserved")
+    return markdown_literal_block(normalized, source_ref, "markdown_literal")
+  }
+  if markdown_plain_block_stream_paragraph_candidate(normalized) {
+    let paragraph = @core.make_block(
+      @core.BlockKind::Paragraph,
+      markdown_plain_paragraph_text(normalized),
+      source_ref~,
+    )
+    paragraph.attrs.set("literal", "true")
+    paragraph
+  } else {
+    diagnostics.same_mode_degradation.push(
+      "markdown_block_stream_literal_paragraph_preserved",
+    )
+    markdown_literal_block(normalized, source_ref, "markdown_literal")
+  }
+}
+
+///|
+fn markdown_plain_block_stream_paragraph_candidate(text : String) -> Bool {
+  !(text.contains("[") ||
+  text.contains("]") ||
+  text.contains("!") ||
+  text.contains("`") ||
+  text.contains("|") ||
+  text.contains("<") ||
+  text.contains(">"))
 }
 
 ///|
@@ -988,14 +1445,25 @@ fn markdown_list_group_to_block_next(
   source : @input.InputSource,
   diagnostics : @core.Diagnostics,
   image_asset_index : Ref[Int],
+  lowering_mode : MarkdownLoweringMode,
 ) -> @core.CoreBlock {
   ignore(diagnostics)
   ignore(image_asset_index)
+  if lowering_mode == MarkdownLoweringMode::BlockStreamingLight {
+    diagnostics.same_mode_degradation.push(
+      "markdown_block_stream_list_literal_preserved",
+    )
+    return markdown_literal_block(
+      group.map(block => block.raw_text).join("\n"),
+      markdown_group_source_ref(group, source, "/list[0]"),
+      "markdown_literal",
+    )
+  }
   let source_ref = markdown_group_source_ref(group, source, "/list[0]")
   let root = @core.make_block(@core.BlockKind::List, "", source_ref~)
   root.attrs.set(
     "ordered",
-    @light_common.bool_string(markdown_list_is_ordered(group[0].raw_text)),
+    @parser_common.bool_string(markdown_list_is_ordered(group[0].raw_text)),
   )
   let stack : Array[(Int, @core.CoreBlock, @core.CoreBlock)] = []
   for block in group {
@@ -1007,7 +1475,7 @@ fn markdown_list_group_to_block_next(
     )
     item.attrs.set(
       "ordered",
-      @light_common.bool_string(markdown_list_is_ordered(block.raw_text)),
+      @parser_common.bool_string(markdown_list_is_ordered(block.raw_text)),
     )
     while stack.length() > 0 && indent < stack[stack.length() - 1].0 {
       ignore(stack.pop())
@@ -1068,9 +1536,20 @@ fn markdown_blockquote_group_to_block_next(
   source : @input.InputSource,
   diagnostics : @core.Diagnostics,
   image_asset_index : Ref[Int],
+  lowering_mode : MarkdownLoweringMode,
 ) -> @core.CoreBlock {
   ignore(diagnostics)
   ignore(image_asset_index)
+  if lowering_mode == MarkdownLoweringMode::BlockStreamingLight {
+    diagnostics.same_mode_degradation.push(
+      "markdown_block_stream_blockquote_literal_preserved",
+    )
+    return markdown_literal_block(
+      group.map(block => block.raw_text).join("\n"),
+      markdown_group_source_ref(group, source, "/blockquote[0]"),
+      "markdown_literal",
+    )
+  }
   let source_ref = markdown_group_source_ref(group, source, "/blockquote[0]")
   let lines : Array[String] = []
   for block in group {
@@ -1364,6 +1843,9 @@ fn markdown_normalize_footnote_references(
   text : String,
   defined_footnotes : Map[String, Bool],
 ) -> String {
+  if !markdown_may_have_footnote_reference(text) {
+    return text
+  }
   let chars = text.to_array()
   let out = StringBuilder::new()
   let mut i = 0
@@ -1389,6 +1871,16 @@ fn markdown_normalize_footnote_references(
     i += 1
   }
   out.to_string()
+}
+
+///|
+fn markdown_may_have_footnote_reference(text : String) -> Bool {
+  text.contains("[^")
+}
+
+///|
+fn markdown_may_have_rich_inline_markup(text : String) -> Bool {
+  text.contains("[") || text.contains("!") || text.contains("`")
 }
 
 ///|
@@ -1597,9 +2089,9 @@ fn markdown_source_ref_with_path(
 }
 
 ///|
-fn markdown_annotate_paths(
+fn markdown_annotate_paths_and_report(
   blocks : Array[@core.CoreBlock],
-) -> Array[@core.CoreBlock] {
+) -> (Array[@core.CoreBlock], MarkdownBlockReport) {
   let heading_index : Ref[Int] = { val: 0 }
   let paragraph_index : Ref[Int] = { val: 0 }
   let list_index : Ref[Int] = { val: 0 }
@@ -1607,12 +2099,16 @@ fn markdown_annotate_paths(
   let code_index : Ref[Int] = { val: 0 }
   let quote_index : Ref[Int] = { val: 0 }
   let raw_index : Ref[Int] = { val: 0 }
-  blocks.map(block => {
-    markdown_annotate_single_block_path(
-      block, heading_index, paragraph_index, list_index, table_index, code_index,
-      quote_index, raw_index, "/",
-    )
-  })
+  let report = markdown_new_block_report_accumulator()
+  (
+    blocks.map(block => {
+      markdown_annotate_single_block_path(
+        block, heading_index, paragraph_index, list_index, table_index, code_index,
+        quote_index, raw_index, "/", report, 0,
+      )
+    }),
+    markdown_block_report_from_accumulator(report),
+  )
 }
 
 ///|
@@ -1626,6 +2122,8 @@ fn markdown_annotate_single_block_path(
   quote_index : Ref[Int],
   raw_index : Ref[Int],
   prefix : String,
+  report : MarkdownBlockReportAccumulator,
+  list_depth : Int,
 ) -> @core.CoreBlock {
   let source_ref = block.source_ref.unwrap_or(@core.empty_source_ref())
   let path = if source_ref.markdown_path is Some(_) {
@@ -1642,6 +2140,7 @@ fn markdown_annotate_single_block_path(
     source_ref.format,
     Some(path),
   )
+  markdown_accumulate_single_block_report(block, report, list_depth)
   let children = if block.children.length() > 0 {
     let child_prefix = path
     let out : Array[@core.CoreBlock] = []
@@ -1655,39 +2154,138 @@ fn markdown_annotate_single_block_path(
         child_ref.format,
         Some(child_path),
       )
-      let nested_children = if child.children.length() > 0 {
-        let nested_children : Array[@core.CoreBlock] = []
-        for j in 0..<child.children.length() {
-          let nested = child.children[j]
-          let nested_ref = nested.source_ref.unwrap_or(@core.empty_source_ref())
-          let nested_block = {
-            ..nested,
-            source_ref: Some(
-              @core.source_ref_with_markdown_path(
-                nested_ref,
-                nested_ref.file_id,
-                nested_ref.format,
-                Some(child_path + "/list[" + j.to_string() + "]"),
-              ),
-            ),
-          }
-          nested_children.push(nested_block)
-        }
-        nested_children
-      } else {
-        child.children
-      }
-      out.push({
-        ..child,
-        source_ref: Some(child_source_ref),
-        children: nested_children,
-      })
+      let annotated_child = markdown_annotate_single_block_path(
+        { ..child, source_ref: Some(child_source_ref) },
+        heading_index,
+        paragraph_index,
+        list_index,
+        table_index,
+        code_index,
+        quote_index,
+        raw_index,
+        child_path + "/",
+        report,
+        if block.kind == @core.BlockKind::List {
+          list_depth + 1
+        } else {
+          list_depth
+        },
+      )
+      out.push(annotated_child)
     }
     out
   } else {
     block.children
   }
   { ..block, source_ref: Some(next_source_ref), children }
+}
+
+///|
+priv struct MarkdownBlockReportAccumulator {
+  paragraph_count : Ref[Int]
+  list_count : Ref[Int]
+  table_count : Ref[Int]
+  code_block_count : Ref[Int]
+  blockquote_count : Ref[Int]
+  link_count : Ref[Int]
+  image_count : Ref[Int]
+  raw_html_count : Ref[Int]
+  unsafe_link_count : Ref[Int]
+  unsafe_html_count : Ref[Int]
+  asset_count : Ref[Int]
+  max_list_depth : Ref[Int]
+}
+
+///|
+fn markdown_new_block_report_accumulator() -> MarkdownBlockReportAccumulator {
+  {
+    paragraph_count: { val: 0 },
+    list_count: { val: 0 },
+    table_count: { val: 0 },
+    code_block_count: { val: 0 },
+    blockquote_count: { val: 0 },
+    link_count: { val: 0 },
+    image_count: { val: 0 },
+    raw_html_count: { val: 0 },
+    unsafe_link_count: { val: 0 },
+    unsafe_html_count: { val: 0 },
+    asset_count: { val: 0 },
+    max_list_depth: { val: 0 },
+  }
+}
+
+///|
+fn markdown_block_report_from_accumulator(
+  report : MarkdownBlockReportAccumulator,
+) -> MarkdownBlockReport {
+  {
+    paragraph_count: report.paragraph_count.val,
+    list_count: report.list_count.val,
+    table_count: report.table_count.val,
+    code_block_count: report.code_block_count.val,
+    blockquote_count: report.blockquote_count.val,
+    link_count: report.link_count.val,
+    image_count: report.image_count.val,
+    raw_html_count: report.raw_html_count.val,
+    unsafe_link_count: report.unsafe_link_count.val,
+    unsafe_html_count: report.unsafe_html_count.val,
+    asset_count: report.asset_count.val,
+    max_list_depth: report.max_list_depth.val,
+  }
+}
+
+///|
+fn markdown_accumulate_single_block_report(
+  block : @core.CoreBlock,
+  report : MarkdownBlockReportAccumulator,
+  list_depth : Int,
+) -> Unit {
+  match block.kind {
+    @core.BlockKind::Paragraph => report.paragraph_count.val += 1
+    @core.BlockKind::List => {
+      report.list_count.val += 1
+      if list_depth + 1 > report.max_list_depth.val {
+        report.max_list_depth.val = list_depth + 1
+      }
+    }
+    @core.BlockKind::Table => report.table_count.val += 1
+    @core.BlockKind::Code => report.code_block_count.val += 1
+    @core.BlockKind::BlockQuote => report.blockquote_count.val += 1
+    @core.BlockKind::Image => {
+      report.image_count.val += 1
+      report.asset_count.val += 1
+    }
+    @core.BlockKind::Raw =>
+      if block.attrs.get("raw_kind") == Some("markdown_html_literal") {
+        report.raw_html_count.val += 1
+        if block.attrs.get("unsafe_html") == Some("true") {
+          report.unsafe_html_count.val += 1
+        }
+      }
+    _ => ()
+  }
+  match block.rich_inlines {
+    Some(inlines) =>
+      for inline in inlines {
+        match inline.kind {
+          @core.InlineKind::Link => report.link_count.val += 1
+          @core.InlineKind::Image => {
+            report.image_count.val += 1
+            report.asset_count.val += 1
+          }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match block.attrs.get("unsafe_link_count") {
+    Some("1") => report.unsafe_link_count.val += 1
+    Some("2") => report.unsafe_link_count.val += 2
+    Some("3") => report.unsafe_link_count.val += 3
+    Some("4") => report.unsafe_link_count.val += 4
+    Some("5") => report.unsafe_link_count.val += 5
+    _ => ()
+  }
 }
 
 ///|
@@ -1749,148 +2347,6 @@ fn markdown_generated_path_for_block(
 }
 
 ///|
-fn markdown_block_report(
-  blocks : Array[@core.CoreBlock],
-) -> MarkdownBlockReport {
-  let paragraph_count : Ref[Int] = { val: 0 }
-  let list_count : Ref[Int] = { val: 0 }
-  let table_count : Ref[Int] = { val: 0 }
-  let code_block_count : Ref[Int] = { val: 0 }
-  let blockquote_count : Ref[Int] = { val: 0 }
-  let link_count : Ref[Int] = { val: 0 }
-  let image_count : Ref[Int] = { val: 0 }
-  let raw_html_count : Ref[Int] = { val: 0 }
-  let unsafe_link_count : Ref[Int] = { val: 0 }
-  let unsafe_html_count : Ref[Int] = { val: 0 }
-  let asset_count : Ref[Int] = { val: 0 }
-  let max_list_depth : Ref[Int] = { val: 0 }
-  markdown_accumulate_block_report(
-    blocks, paragraph_count, list_count, table_count, code_block_count, blockquote_count,
-    link_count, image_count, raw_html_count, unsafe_link_count, unsafe_html_count,
-    asset_count, max_list_depth, 0,
-  )
-  {
-    paragraph_count: paragraph_count.val,
-    list_count: list_count.val,
-    table_count: table_count.val,
-    code_block_count: code_block_count.val,
-    blockquote_count: blockquote_count.val,
-    link_count: link_count.val,
-    image_count: image_count.val,
-    raw_html_count: raw_html_count.val,
-    unsafe_link_count: unsafe_link_count.val,
-    unsafe_html_count: unsafe_html_count.val,
-    asset_count: asset_count.val,
-    max_list_depth: max_list_depth.val,
-  }
-}
-
-///|
-fn markdown_accumulate_block_report(
-  blocks : Array[@core.CoreBlock],
-  paragraph_count : Ref[Int],
-  list_count : Ref[Int],
-  table_count : Ref[Int],
-  code_block_count : Ref[Int],
-  blockquote_count : Ref[Int],
-  link_count : Ref[Int],
-  image_count : Ref[Int],
-  raw_html_count : Ref[Int],
-  unsafe_link_count : Ref[Int],
-  unsafe_html_count : Ref[Int],
-  asset_count : Ref[Int],
-  max_list_depth : Ref[Int],
-  list_depth : Int,
-) -> Unit {
-  for block in blocks {
-    match block.kind {
-      @core.BlockKind::Paragraph => paragraph_count.val += 1
-      @core.BlockKind::List => {
-        list_count.val += 1
-        if list_depth + 1 > max_list_depth.val {
-          max_list_depth.val = list_depth + 1
-        }
-      }
-      @core.BlockKind::Table => table_count.val += 1
-      @core.BlockKind::Code => code_block_count.val += 1
-      @core.BlockKind::BlockQuote => blockquote_count.val += 1
-      @core.BlockKind::Image => {
-        image_count.val += 1
-        asset_count.val += 1
-      }
-      @core.BlockKind::Raw =>
-        if block.attrs.get("raw_kind") == Some("markdown_html_literal") {
-          raw_html_count.val += 1
-          if block.attrs.get("unsafe_html") == Some("true") {
-            unsafe_html_count.val += 1
-          }
-        }
-      _ => ()
-    }
-    match block.rich_inlines {
-      Some(inlines) =>
-        for inline in inlines {
-          match inline.kind {
-            @core.InlineKind::Link => link_count.val += 1
-            @core.InlineKind::Image => {
-              image_count.val += 1
-              asset_count.val += 1
-            }
-            _ => ()
-          }
-        }
-      None => ()
-    }
-    if block.attrs.get("unsafe_link_count") == Some("1") {
-      unsafe_link_count.val += 1
-    } else if block.attrs.get("unsafe_link_count") == Some("2") {
-      unsafe_link_count.val += 2
-    } else if block.attrs.get("unsafe_link_count") == Some("3") {
-      unsafe_link_count.val += 3
-    } else if block.attrs.get("unsafe_link_count") == Some("4") {
-      unsafe_link_count.val += 4
-    } else if block.attrs.get("unsafe_link_count") == Some("5") {
-      unsafe_link_count.val += 5
-    }
-    if block.children.length() > 0 {
-      markdown_accumulate_block_report(
-        block.children,
-        paragraph_count,
-        list_count,
-        table_count,
-        code_block_count,
-        blockquote_count,
-        link_count,
-        image_count,
-        raw_html_count,
-        unsafe_link_count,
-        unsafe_html_count,
-        asset_count,
-        max_list_depth,
-        if block.kind == @core.BlockKind::List {
-          list_depth + 1
-        } else {
-          list_depth
-        },
-      )
-    }
-  }
-}
-
-///|
-fn markdown_block_limit_reached(
-  context : @parser.ParseContext,
-  inspect : @dmd.MarkdownInspectReport,
-  text : String,
-  report : MarkdownBlockReport,
-) -> Bool {
-  let block_limit = context.max_rows.unwrap_or(200)
-  let char_limit = context.max_line_chars.unwrap_or(4000)
-  let list_limit = context.max_cols.unwrap_or(50)
-  inspect.block_count > block_limit ||
-  text.length() > char_limit ||
-  report.max_list_depth > list_limit
-}
 
 ///|
 fn markdown_source_ref(
@@ -1945,7 +2401,7 @@ fn markdown_heading_level(text : String) -> Int {
   while level < chars.length() && chars[level] == '#' {
     level += 1
   }
-  @light_common.clamp_int(level, 1, 6)
+  @parser_common.clamp_int(level, 1, 6)
 }
 
 ///|

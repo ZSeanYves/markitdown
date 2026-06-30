@@ -2,14 +2,14 @@
 
 ### Callout Row Jitter
 
-Title3
-
 Title1
-
-Title2
-
-Desc3
 
 Desc1
 
+Title2
+
 Desc2
+
+Title3
+
+Desc3

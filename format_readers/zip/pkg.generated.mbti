@@ -28,7 +28,13 @@ pub fn open_zip(Bytes) -> ZipArchive raise ZipError
 
 pub fn read_entry(ZipArchive, String, max_output_size? : Int) -> Bytes raise ZipError
 
+pub fn read_entry_data_slice(ZipArchive, String) -> ZipEntryDataSlice raise ZipError
+
 pub fn validate_zip_archive(ZipArchive) -> ZipValidationReport
+
+pub fn visit_inflated_entry_chunks(ZipArchive, String, chunk_size? : Int, (Bytes) -> Result[Unit, String]) -> Result[Unit, String]
+
+pub fn visit_inflated_entry_chunks_from_slice(Bytes, ZipEntryDataSlice, chunk_size? : Int, (Bytes) -> Result[Unit, String]) -> Result[Unit, String]
 
 // Errors
 pub(all) suberror CodecError {
@@ -91,6 +97,12 @@ pub struct ZipArchiveInventory {
   total_compressed_size : Int
   has_unsafe_paths : Bool
   has_duplicate_normalized_paths : Bool
+}
+
+pub struct ZipEntryDataSlice {
+  entry : ZipEntryMeta
+  data_start : Int
+  data_end : Int
 }
 
 pub struct ZipEntryInfo {

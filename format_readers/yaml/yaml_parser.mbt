@@ -37,6 +37,28 @@ pub fn parse_yaml_structure_document(
 }
 
 ///|
+/// Parse a YAML-subset document into deterministic structure events without
+/// constructing the source-native document tree.
+pub fn parse_yaml_structure_events(
+  text : String,
+) -> Array[YamlStructureEvent] raise {
+  let lines = prepare_yaml_lines(text, None)
+  if lines.length() == 0 {
+    return []
+  }
+  let events : Array[YamlStructureEvent] = []
+  let cursor = { lines, pos: 0 }
+  yaml_stream_append_block_events(events, cursor, lines[0].indent, "/", 0)
+  if cursor.pos < lines.length() {
+    raise ParseError(
+      "unexpected trailing content at line " +
+      lines[cursor.pos].line_no.to_string(),
+    )
+  }
+  events
+}
+
+///|
 /// Benchmark-oriented profiled parse helper used for internal hotspot
 /// attribution.
 ///
@@ -92,6 +114,12 @@ priv struct YamlLine {
   indent : Int
   content : String
   line_no : Int
+}
+
+///|
+priv struct YamlStreamCursor {
+  lines : Array[YamlLine]
+  mut pos : Int
 }
 
 ///|
@@ -1315,4 +1343,483 @@ fn yaml_member_path(parent : String, key : String) -> String {
 ///|
 fn yaml_index_path(parent : String, index : Int) -> String {
   parent + "[" + index.to_string() + "]"
+}
+
+///|
+fn yaml_stream_append_block_events(
+  events : Array[YamlStructureEvent],
+  cursor : YamlStreamCursor,
+  indent : Int,
+  path : String,
+  depth : Int,
+) -> Unit raise {
+  if cursor.pos >= cursor.lines.length() {
+    raise ParseError("unexpected end of input")
+  }
+  let line = cursor.lines[cursor.pos]
+  if line.indent != indent {
+    raise ParseError(
+      "unexpected indentation at line " + line.line_no.to_string(),
+    )
+  }
+  if is_sequence_item(line.content) {
+    yaml_stream_append_sequence_events(events, cursor, indent, path, depth)
+    return
+  }
+  if line.content.has_prefix("[") || line.content.has_prefix("{") {
+    let value = parse_scalar_trimmed(line.content, line.line_no, None)
+    yaml_stream_append_scalar_events(
+      events,
+      value,
+      line.line_no,
+      line.line_no,
+      path,
+      depth,
+    )
+    cursor.pos += 1
+    return
+  }
+  match split_mapping_entry(line.content) {
+    Some(_) =>
+      yaml_stream_append_mapping_events(events, cursor, indent, path, depth)
+    None => {
+      let value = parse_scalar_trimmed(line.content, line.line_no, None)
+      yaml_stream_append_scalar_events(
+        events,
+        value,
+        line.line_no,
+        line.line_no,
+        path,
+        depth,
+      )
+      cursor.pos += 1
+    }
+  }
+}
+
+///|
+fn yaml_stream_append_mapping_events(
+  events : Array[YamlStructureEvent],
+  cursor : YamlStreamCursor,
+  indent : Int,
+  path : String,
+  depth : Int,
+) -> Unit raise {
+  let start_line = cursor.lines[cursor.pos].line_no
+  events.push({
+    kind: YamlStructureEventKind::MappingStart,
+    text: None,
+    source: { line_start: start_line, line_end: start_line, path, depth },
+  })
+  let start_index = events.length() - 1
+  let mut end_line = start_line
+  while cursor.pos < cursor.lines.length() {
+    let line = cursor.lines[cursor.pos]
+    if line.indent < indent {
+      break
+    }
+    if line.indent > indent {
+      raise ParseError(
+        "unexpected indentation at line " + line.line_no.to_string(),
+      )
+    }
+    let (raw_key, raw_value) = match split_mapping_entry(line.content) {
+      Some(parts) => parts
+      None =>
+        raise ParseError(
+          "expected mapping entry at line " + line.line_no.to_string(),
+        )
+    }
+    let key = parse_key_text(raw_key, line.line_no)
+    let member_path = yaml_member_path(path, key)
+    events.push({
+      kind: YamlStructureEventKind::Key,
+      text: Some(key),
+      source: {
+        line_start: line.line_no,
+        line_end: line.line_no,
+        path: member_path,
+        depth: depth + 1,
+      },
+    })
+    cursor.pos += 1
+    if raw_value != "" {
+      let value = parse_scalar_trimmed(raw_value, line.line_no, None)
+      yaml_stream_append_scalar_events(
+        events,
+        value,
+        line.line_no,
+        line.line_no,
+        member_path,
+        depth + 1,
+      )
+      end_line = line.line_no
+      continue
+    }
+    if cursor.pos < cursor.lines.length() {
+      let next = cursor.lines[cursor.pos]
+      let has_sequence_child_at_same_indent = next.indent == indent &&
+        is_sequence_item(next.content)
+      if next.indent > indent || has_sequence_child_at_same_indent {
+        let child_indent = next.indent
+        yaml_stream_append_block_events(
+          events,
+          cursor,
+          child_indent,
+          member_path,
+          depth + 1,
+        )
+        end_line = yaml_stream_last_line(events, end_line)
+        continue
+      }
+    }
+    events.push({
+      kind: YamlStructureEventKind::NullValue,
+      text: Some("null"),
+      source: {
+        line_start: line.line_no,
+        line_end: line.line_no,
+        path: member_path,
+        depth: depth + 1,
+      },
+    })
+    end_line = line.line_no
+  }
+  events.push({
+    kind: YamlStructureEventKind::MappingEnd,
+    text: None,
+    source: { line_start: start_line, line_end: end_line, path, depth },
+  })
+  events[start_index] = {
+    ..events[start_index],
+    source: { ..events[start_index].source, line_end: end_line },
+  }
+}
+
+///|
+fn yaml_stream_append_sequence_events(
+  events : Array[YamlStructureEvent],
+  cursor : YamlStreamCursor,
+  indent : Int,
+  path : String,
+  depth : Int,
+) -> Unit raise {
+  let start_line = cursor.lines[cursor.pos].line_no
+  events.push({
+    kind: YamlStructureEventKind::SequenceStart,
+    text: None,
+    source: { line_start: start_line, line_end: start_line, path, depth },
+  })
+  let start_index = events.length() - 1
+  let mut end_line = start_line
+  let mut item_index = 0
+  while cursor.pos < cursor.lines.length() {
+    let line = cursor.lines[cursor.pos]
+    if line.indent < indent {
+      break
+    }
+    if line.indent > indent {
+      raise ParseError(
+        "unexpected indentation at line " + line.line_no.to_string(),
+      )
+    }
+    if !is_sequence_item(line.content) {
+      break
+    }
+    let rest = sequence_item_rest(line.content)
+    let item_path = yaml_index_path(path, item_index)
+    if rest == "" {
+      cursor.pos += 1
+      if cursor.pos < cursor.lines.length() &&
+        cursor.lines[cursor.pos].indent > indent {
+        let child_indent = cursor.lines[cursor.pos].indent
+        yaml_stream_append_block_events(
+          events,
+          cursor,
+          child_indent,
+          item_path,
+          depth + 1,
+        )
+        end_line = yaml_stream_last_line(events, line.line_no)
+      } else {
+        events.push({
+          kind: YamlStructureEventKind::NullValue,
+          text: Some("null"),
+          source: {
+            line_start: line.line_no,
+            line_end: line.line_no,
+            path: item_path,
+            depth: depth + 1,
+          },
+        })
+        end_line = line.line_no
+      }
+      item_index += 1
+      continue
+    }
+    if rest.has_prefix("[") || rest.has_prefix("{") {
+      let value = parse_scalar_trimmed(rest, line.line_no, None)
+      yaml_stream_append_scalar_events(
+        events,
+        value,
+        line.line_no,
+        line.line_no,
+        item_path,
+        depth + 1,
+      )
+      cursor.pos += 1
+      end_line = line.line_no
+      item_index += 1
+      continue
+    }
+    match split_mapping_entry(rest) {
+      Some((raw_key, raw_value)) => {
+        let key = parse_key_text(raw_key, line.line_no)
+        events.push({
+          kind: YamlStructureEventKind::MappingStart,
+          text: None,
+          source: {
+            line_start: line.line_no,
+            line_end: line.line_no,
+            path: item_path,
+            depth: depth + 1,
+          },
+        })
+        let item_start_index = events.length() - 1
+        events.push({
+          kind: YamlStructureEventKind::Key,
+          text: Some(key),
+          source: {
+            line_start: line.line_no,
+            line_end: line.line_no,
+            path: yaml_member_path(item_path, key),
+            depth: depth + 2,
+          },
+        })
+        cursor.pos += 1
+        if raw_value != "" {
+          let value = parse_scalar_trimmed(raw_value, line.line_no, None)
+          yaml_stream_append_scalar_events(
+            events,
+            value,
+            line.line_no,
+            line.line_no,
+            yaml_member_path(item_path, key),
+            depth + 2,
+          )
+          end_line = line.line_no
+        } else if cursor.pos < cursor.lines.length() &&
+          cursor.lines[cursor.pos].indent > indent {
+          let child_indent = cursor.lines[cursor.pos].indent
+          yaml_stream_append_block_events(
+            events,
+            cursor,
+            child_indent,
+            yaml_member_path(item_path, key),
+            depth + 2,
+          )
+          end_line = yaml_stream_last_line(events, line.line_no)
+        } else {
+          events.push({
+            kind: YamlStructureEventKind::NullValue,
+            text: Some("null"),
+            source: {
+              line_start: line.line_no,
+              line_end: line.line_no,
+              path: yaml_member_path(item_path, key),
+              depth: depth + 2,
+            },
+          })
+          end_line = line.line_no
+        }
+        if cursor.pos < cursor.lines.length() &&
+          cursor.lines[cursor.pos].indent > indent {
+          yaml_stream_append_mapping_continuation_events(
+            events,
+            cursor,
+            cursor.lines[cursor.pos].indent,
+            item_path,
+            depth + 1,
+          )
+          end_line = yaml_stream_last_line(events, end_line)
+        }
+        events.push({
+          kind: YamlStructureEventKind::MappingEnd,
+          text: None,
+          source: {
+            line_start: line.line_no,
+            line_end: end_line,
+            path: item_path,
+            depth: depth + 1,
+          },
+        })
+        events[item_start_index] = {
+          ..events[item_start_index],
+          source: { ..events[item_start_index].source, line_end: end_line },
+        }
+      }
+      None => {
+        let value = parse_scalar_trimmed(rest, line.line_no, None)
+        yaml_stream_append_scalar_events(
+          events,
+          value,
+          line.line_no,
+          line.line_no,
+          item_path,
+          depth + 1,
+        )
+        cursor.pos += 1
+        end_line = line.line_no
+      }
+    }
+    item_index += 1
+  }
+  events.push({
+    kind: YamlStructureEventKind::SequenceEnd,
+    text: None,
+    source: { line_start: start_line, line_end: end_line, path, depth },
+  })
+  events[start_index] = {
+    ..events[start_index],
+    source: { ..events[start_index].source, line_end: end_line },
+  }
+}
+
+///|
+fn yaml_stream_append_mapping_continuation_events(
+  events : Array[YamlStructureEvent],
+  cursor : YamlStreamCursor,
+  indent : Int,
+  path : String,
+  depth : Int,
+) -> Unit raise {
+  while cursor.pos < cursor.lines.length() {
+    let line = cursor.lines[cursor.pos]
+    if line.indent < indent {
+      break
+    }
+    if line.indent > indent {
+      raise ParseError(
+        "unexpected indentation at line " + line.line_no.to_string(),
+      )
+    }
+    let (raw_key, raw_value) = match split_mapping_entry(line.content) {
+      Some(parts) => parts
+      None =>
+        raise ParseError(
+          "expected mapping entry at line " + line.line_no.to_string(),
+        )
+    }
+    let key = parse_key_text(raw_key, line.line_no)
+    let member_path = yaml_member_path(path, key)
+    events.push({
+      kind: YamlStructureEventKind::Key,
+      text: Some(key),
+      source: {
+        line_start: line.line_no,
+        line_end: line.line_no,
+        path: member_path,
+        depth: depth + 1,
+      },
+    })
+    cursor.pos += 1
+    if raw_value != "" {
+      let value = parse_scalar_trimmed(raw_value, line.line_no, None)
+      yaml_stream_append_scalar_events(
+        events,
+        value,
+        line.line_no,
+        line.line_no,
+        member_path,
+        depth + 1,
+      )
+      continue
+    }
+    if cursor.pos < cursor.lines.length() {
+      let next = cursor.lines[cursor.pos]
+      let has_sequence_child_at_same_indent = next.indent == indent &&
+        is_sequence_item(next.content)
+      if next.indent > indent || has_sequence_child_at_same_indent {
+        yaml_stream_append_block_events(
+          events,
+          cursor,
+          next.indent,
+          member_path,
+          depth + 1,
+        )
+        continue
+      }
+    }
+    events.push({
+      kind: YamlStructureEventKind::NullValue,
+      text: Some("null"),
+      source: {
+        line_start: line.line_no,
+        line_end: line.line_no,
+        path: member_path,
+        depth: depth + 1,
+      },
+    })
+  }
+}
+
+///|
+fn yaml_stream_append_scalar_events(
+  events : Array[YamlStructureEvent],
+  value : YamlValue,
+  line_start : Int,
+  line_end : Int,
+  path : String,
+  depth : Int,
+) -> Unit {
+  match value {
+    YamlValue::Mapping(members) =>
+      append_yaml_structure_events(
+        events,
+        YamlValue::Mapping(members),
+        line_start,
+        line_end,
+        path,
+        depth,
+      )
+    YamlValue::Sequence(values) =>
+      append_yaml_structure_events(
+        events,
+        YamlValue::Sequence(values),
+        line_start,
+        line_end,
+        path,
+        depth,
+      )
+    YamlValue::String(text) =>
+      events.push({
+        kind: YamlStructureEventKind::StringValue,
+        text: Some(text),
+        source: { line_start, line_end, path, depth },
+      })
+    YamlValue::Bool(flag) =>
+      events.push({
+        kind: YamlStructureEventKind::BoolValue,
+        text: Some(if flag { "true" } else { "false" }),
+        source: { line_start, line_end, path, depth },
+      })
+    YamlValue::Null =>
+      events.push({
+        kind: YamlStructureEventKind::NullValue,
+        text: Some("null"),
+        source: { line_start, line_end, path, depth },
+      })
+  }
+}
+
+///|
+fn yaml_stream_last_line(
+  events : Array[YamlStructureEvent],
+  fallback : Int,
+) -> Int {
+  if events.length() == 0 {
+    fallback
+  } else {
+    events[events.length() - 1].source.line_end
+  }
 }

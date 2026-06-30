@@ -216,7 +216,6 @@ pub fn extract_pdf_native_document(
   diagnostics.metrics.set("native_backend", "root_minimal")
   diagnostics.metrics.set("supports_flate_text_streams", "true")
   diagnostics.metrics.set("supports_tounicode", "true")
-  diagnostics.metrics.set("runtime_exposed", "false")
   diagnostics.metrics.set("product_path_enabled", "false")
   diagnostics.metrics.set("ocr_used_pages", "0")
   diagnostics.metrics.set("scanned_page_ratio", "0")

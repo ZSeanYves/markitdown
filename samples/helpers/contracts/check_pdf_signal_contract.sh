@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-source "$ROOT/samples/helpers/shared/tmp_helpers.sh"
-source "$ROOT/samples/helpers/shared/validation_helpers.sh"
+source "$ROOT/samples/helpers/shared/tmp.sh"
+source "$ROOT/samples/helpers/shared/cli_runner.sh"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp/check}"
 OUT_DIR="$(sample_make_isolated_tmp_dir "$TMP_ROOT" "pdf_signal_contract")"
 
@@ -86,7 +86,6 @@ echo "==> pdf signal native baseline debug json exposes current metadata-only si
 run_markitdown_cli --debug "$ROOT_BASELINE_INPUT" >"$ROOT_BASELINE_JSON"
 assert_contains "$ROOT_BASELINE_JSON" '"detected_format": "pdf"'
 assert_contains "$ROOT_BASELINE_JSON" '"product_path_enabled": "true"'
-assert_contains "$ROOT_BASELINE_JSON" '"runtime_exposed": "true"'
 assert_contains "$ROOT_BASELINE_JSON" '"renderer_name": "DebugJsonRenderer"'
 assert_contains "$ROOT_BASELINE_JSON" '"pdf_native_backend": "true"'
 assert_contains "$ROOT_BASELINE_JSON" '"pdf_native_text_baseline": "true"'
@@ -110,7 +109,7 @@ assert_contains "$ROOT_BASELINE_JSON" '"pdf_header_footer_removed_count": "0"'
 assert_contains "$ROOT_BASELINE_JSON" '"pdf_cleanup_mode": "none"'
 assert_contains "$ROOT_BASELINE_JSON" '"pdf_cleanup_enabled": "false"'
 assert_contains "$ROOT_BASELINE_JSON" '"pdf_cleanup_default_mode": "none"'
-assert_contains "$ROOT_BASELINE_JSON" '"pdf_cleanup_promotion_target": "conservative"'
+assert_contains "$ROOT_BASELINE_JSON" '"pdf_cleanup_opt_in_mode": "conservative"'
 assert_contains "$ROOT_BASELINE_JSON" '"pdf_table_candidate_strategy": "conservative_v1"'
 assert_contains "$ROOT_BASELINE_JSON" '"pdf_table_candidate_count": "0"'
 assert_contains "$ROOT_BASELINE_JSON" '"pdf_table_row_candidate_count": "0"'
@@ -120,7 +119,7 @@ assert_contains "$ROOT_BASELINE_JSON" '"pdf_table_reconstruction_table_count": "
 assert_contains "$ROOT_BASELINE_JSON" '"pdf_table_mode": "none"'
 assert_contains "$ROOT_BASELINE_JSON" '"pdf_table_enabled": "false"'
 assert_contains "$ROOT_BASELINE_JSON" '"pdf_table_default_mode": "none"'
-assert_contains "$ROOT_BASELINE_JSON" '"pdf_table_promotion_target": "simple"'
+assert_contains "$ROOT_BASELINE_JSON" '"pdf_table_opt_in_mode": "simple"'
 assert_not_contains "$ROOT_BASELINE_JSON" '"pdf_v2"'
 assert_not_contains "$ROOT_BASELINE_JSON" '"pdf_debug"'
 assert_not_contains "$ROOT_BASELINE_JSON" 'DocLayNet'
@@ -128,7 +127,8 @@ assert_not_contains "$ROOT_BASELINE_JSON" 'layout_model'
 assert_not_contains "$ROOT_BASELINE_JSON" 'quality-lab'
 assert_not_contains "$ROOT_BASELINE_JSON" 'tesseract'
 assert_not_contains "$ROOT_BASELINE_JSON" 'ocrmypdf'
-assert_not_contains "$ROOT_BASELINE_JSON" 'raster'
+assert_not_contains "$ROOT_BASELINE_JSON" '"pdf_raster_backend"'
+assert_not_contains "$ROOT_BASELINE_JSON" 'raster_backend=pdftoppm'
 
 echo "==> pdf signal link candidates remain metadata only"
 run_markitdown_cli normal "$LINK_INPUT" "$LINK_MD"
@@ -180,8 +180,8 @@ assert_contains "$OUT_DIR/pdf_simple_table_like_optin.json" '"pdf_cleanup_mode":
 assert_contains "$OUT_DIR/pdf_simple_table_like_optin.json" '"pdf_cleanup_enabled": "true"'
 assert_contains "$OUT_DIR/pdf_simple_table_like_optin.json" '"pdf_table_mode": "simple"'
 assert_contains "$OUT_DIR/pdf_simple_table_like_optin.json" '"pdf_table_enabled": "true"'
-assert_contains "$OUT_DIR/pdf_simple_table_like_optin.json" '"pdf_cleanup_promotion_target": "conservative"'
-assert_contains "$OUT_DIR/pdf_simple_table_like_optin.json" '"pdf_table_promotion_target": "simple"'
+assert_contains "$OUT_DIR/pdf_simple_table_like_optin.json" '"pdf_cleanup_opt_in_mode": "conservative"'
+assert_contains "$OUT_DIR/pdf_simple_table_like_optin.json" '"pdf_table_opt_in_mode": "simple"'
 
 cat >"$SCAN_INPUT" <<'EOF'
 %PDF-1.4
@@ -215,14 +215,10 @@ assert_contains "$SCAN_ERR" 'empty or not recoverable'
 assert_not_contains "$SCAN_ERR" 'not configured'
 assert_not_contains "$SCAN_ERR" 'image OCR provider returned a non-empty OCR model'
 
-echo "==> pdf OCR remains unsupported and does not reach provider or raster route"
+echo "==> pdf OCR is a dependency-backed product route"
 run_and_capture "$PDF_OCR_ERR" run_markitdown_cli --ocr --ocr-lang eng "$ROOT_BASELINE_INPUT"
-[[ "$CAPTURED_STATUS" -ne 0 ]] || fail "pdf --ocr should stay fail closed"
-assert_contains "$PDF_OCR_ERR" 'PDF OCR is not supported'
-assert_contains "$PDF_OCR_ERR" 'scanned/image-only PDFs'
-assert_not_contains "$PDF_OCR_ERR" 'not configured'
-assert_not_contains "$PDF_OCR_ERR" 'image OCR provider returned a non-empty OCR model'
-assert_not_contains "$PDF_OCR_ERR" 'tesseract'
-assert_not_contains "$PDF_OCR_ERR" 'raster'
+if [[ "$CAPTURED_STATUS" -ne 0 ]]; then
+  assert_contains "$PDF_OCR_ERR" 'pdftoppm'
+fi
 
 echo "PDF SIGNAL CONTRACT PASSED"

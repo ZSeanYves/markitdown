@@ -32,6 +32,8 @@ pub fn inspect_html_document(HtmlDocument) -> HtmlInspectReport
 
 pub fn inspect_html_semantic_document(HtmlSemanticDocument) -> HtmlSemanticInspectReport
 
+pub fn normalize_html_token_source(String) -> String
+
 pub fn parse_html_document(String) -> HtmlDocument raise
 
 pub fn tokenize_html_document(String) -> Array[HtmlToken] raise

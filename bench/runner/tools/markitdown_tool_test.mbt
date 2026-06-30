@@ -20,24 +20,23 @@ test "markitdown tool explicit path success records source" {
   let tool = markitdown_tool(explicit_path=Some("/bin/sh"))
   assert_true(tool.is_available())
   assert_true(tool.tool_version == Some("path=/bin/sh;source=explicit_arg"))
-  let rows = @manifest.select_rows(
-    @manifest.make_select_request(
-      "smoke",
-      Some("txt"),
-      Some(1),
-      @manifest.SelectOutput::Jsonl,
-      false,
-    ),
+  let row = @manifest.make_bench_row(
+    "txt_tiny_plain_v1",
+    "txt",
+    "tiny",
+    "txt/tiny/txt_tiny_plain_v1.txt",
+    "copied_from_samples",
+    "samples/main_process/txt/txt_plain.txt",
+    17,
+    "sha",
+    "smoke",
+    ["micro", "pipeline", "product"],
+    ["repo-sample", "text", "baseline"],
+    "accepted",
+    "synthetic test row",
+    "/tmp/txt_tiny_plain_v1.txt",
   )
-  assert_eq(rows.length(), 1)
-  let row = rows[0]
-  let command = tool.build_command(
-    row,
-    "/tmp/out.md",
-    60,
-    @command.default_cli_output_mode(),
-    @command.default_engine_output_mode(),
-  )
+  let command = tool.build_command(row, "/tmp/out.md", 60)
   assert_eq(command.program, "/bin/sh")
   assert_true(command.args == [row.input_path, "-o", "/tmp/out.md"])
 }

@@ -2,11 +2,14 @@
 package "ZSeanYves/markitdown/formats/yaml"
 
 import {
+  "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
 }
 
 // Values
-pub fn yaml_lite_parser() -> @parser.Parser
+pub fn yaml_parse_with_structure_events(@input.InputSource, @parser.ParseContext, String, @ZSeanYves/markitdown/format_readers/yaml.YamlInspectReport, Array[@ZSeanYves/markitdown/format_readers/yaml.YamlStructureEvent]) -> @parser.ParseResult
+
+pub fn yaml_parser() -> @parser.Parser
 
 // Errors
 

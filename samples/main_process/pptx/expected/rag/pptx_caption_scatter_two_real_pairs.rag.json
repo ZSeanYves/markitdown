@@ -23,7 +23,7 @@
       "source_ref_count": 1,
       "asset_ref_count": 0,
       "text_contains_all": [
-        "Alpha\n\nBeta\n\nAlpha detail\n\nBeta detail\n\nOrphan tag\n\nLoose note"
+        "Alpha\n\nAlpha detail\n\nBeta\n\nBeta detail\n\nOrphan tag\n\nLoose note"
       ],
       "location_contains": {
         "container_paths": [

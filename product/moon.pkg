@@ -1,0 +1,7 @@
+import {
+  "ZSeanYves/markitdown/rag",
+}
+
+options(
+  "preferred-target": "native",
+)

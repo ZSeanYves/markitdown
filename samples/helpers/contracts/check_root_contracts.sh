@@ -16,7 +16,7 @@ Modes:
 
 Groups:
   Root main CLI contracts:
-    cli, samples, quality, quality grouping, quality signal eval, zip, epub, docx, xlsx, pptx, ocr fail-closed, pdf signal layer
+    cli, samples, quality, quality grouping, quality signal eval, zip, epub, docx, xlsx, pptx, direct image ocr, pdf signal layer
 EOF
 }
 
@@ -34,7 +34,7 @@ run_contract() {
 assert_absent_dir() {
   local path="$1"
   [[ ! -e "$ROOT/$path" ]] || {
-    echo "[fail] legacy root must be absent: $path" >&2
+    echo "[fail] retired root must be absent: $path" >&2
     exit 1
   }
 }
@@ -48,7 +48,7 @@ assert_present_dir() {
 }
 
 run_root_contracts() {
-  section "legacy roots retired"
+  section "retired roots absent"
   assert_absent_dir "office"
   assert_absent_dir "office_shared"
   assert_absent_dir "doc_parse"

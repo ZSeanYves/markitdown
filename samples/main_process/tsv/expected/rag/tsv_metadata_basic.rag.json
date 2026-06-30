@@ -17,23 +17,22 @@
     {
       "kind": "table",
       "heading_path": [],
-      "source_ref_count": 10,
+      "source_ref_count": 9,
       "asset_ref_count": 0,
       "text_contains_all": [
-        "| Name | Role |\n| Alice | Engineer |\n| Bob | Designer |"
+        "| Name | Role |\n| --- | --- |\n| Alice | Engineer |\n| Bob | Designer |"
       ],
       "location_contains": {
         "cell_ranges": [
-          "R1C1:R3C2",
-          "R1C1:R1C2",
           "R1C1",
           "R1C2",
-          "R2C1:R2C2",
+          "R1C1:R1C2",
           "R2C1",
           "R2C2",
-          "R3C1:R3C2",
+          "R2C1:R2C2",
           "R3C1",
-          "R3C2"
+          "R3C2",
+          "R3C1:R3C2"
         ]
       }
     }

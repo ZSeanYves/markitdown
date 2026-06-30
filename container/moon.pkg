@@ -1,5 +1,4 @@
 import {
-  "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/input",
 }
 

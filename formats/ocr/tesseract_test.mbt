@@ -1,24 +1,6 @@
 ///|
 
 ///|
-test "tesseract provider default shell remains explicit fail-closed not configured" {
-  let request = make_ocr_provider_request(
-    "scan.png",
-    OcrProviderKind::Tesseract,
-    language=Some("eng"),
-  )
-  let result = run_tesseract_provider(request)
-  match result {
-    Err(OcrProviderError::NotConfigured(msg)) => {
-      assert_true(msg.contains("Tesseract OCR provider is not configured"))
-      assert_true(msg.contains("language=eng"))
-    }
-    Err(other) => fail("unexpected provider shell error: " + other.to_string())
-    Ok(_) => fail("tesseract provider shell should stay fail closed")
-  }
-}
-
-///|
 test "tesseract command builder keeps explicit-only argv shape and language passthrough" {
   let request = make_ocr_provider_request(
     "samples/fixtures/ocr/tiny_ocr_sample.png",

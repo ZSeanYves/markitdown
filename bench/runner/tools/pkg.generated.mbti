@@ -2,7 +2,6 @@
 package "ZSeanYves/markitdown/bench/runner/tools"
 
 import {
-  "ZSeanYves/markitdown/bench/runner/command",
   "ZSeanYves/markitdown/bench/runner/manifest",
 }
 
@@ -32,9 +31,9 @@ pub struct BenchTool {
   name : String
   tool_version : String?
   availability_note : String?
-  command_builder : (@manifest.BenchRow, String, Int, @command.CliOutputMode, @command.EngineOutputMode) -> ToolCommand
+  command_builder : (@manifest.BenchRow, String, Int) -> ToolCommand
 }
-pub fn BenchTool::build_command(Self, @manifest.BenchRow, String, Int, @command.CliOutputMode, @command.EngineOutputMode) -> ToolCommand
+pub fn BenchTool::build_command(Self, @manifest.BenchRow, String, Int) -> ToolCommand
 pub fn BenchTool::is_available(Self) -> Bool
 
 pub struct MarkItDownResolution {

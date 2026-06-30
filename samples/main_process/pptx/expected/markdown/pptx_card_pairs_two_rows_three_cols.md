@@ -4,24 +4,24 @@
 
 Search
 
-Vision
-
-Speech
-
 Fast retrieval
 
+Vision
+
 Image parsing
+
+Speech
 
 Audio input
 
 Agents
 
-Memory
-
-Planning
-
 Task execution
 
+Memory
+
 Session state
+
+Planning
 
 Multi-step reasoning

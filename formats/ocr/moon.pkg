@@ -1,5 +1,6 @@
 import {
   "moonbitlang/async/process",
+  "moonbitlang/async",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/string",
   "ZSeanYves/markitdown/core",

@@ -3,10 +3,7 @@ pub fn open_epub_package(
   bytes : Bytes,
   source_name : String,
 ) -> EpubPackage raise EpubError {
-  let archive = @zip.open_zip(bytes) catch {
-    e => raise ZipError(e.to_string())
-  }
-
+  let archive = open_epub_archive(bytes)
   let (entries, entry_index) = plan_archive_entries(archive)
 
   if entry_index.contains("META-INF/encryption.xml") {
@@ -14,15 +11,17 @@ pub fn open_epub_package(
   }
 
   let mimetype = read_optional_text_part(archive, entry_index, "mimetype")
-  let container_xml = read_required_xml_part(
+  let container_payload = read_required_xml_part_payload(
     archive, entry_index, "META-INF/container.xml",
   )
-  let rootfiles = parse_container_rootfiles(container_xml, entry_index)
+  let rootfiles = parse_container_rootfiles(container_payload.text, entry_index)
   let rootfile_path = select_primary_rootfile(rootfiles)
-  let opf_xml = read_required_xml_part(archive, entry_index, rootfile_path)
+  let opf_payload = read_required_xml_part_payload(
+    archive, entry_index, rootfile_path,
+  )
   let opf_dir = dirname_of_part(rootfile_path)
-  let metadata = parse_opf_metadata(opf_xml)
-  let manifest = parse_opf_manifest(opf_xml, opf_dir)
+  let metadata = parse_opf_metadata(opf_payload.text)
+  let manifest = parse_opf_manifest(opf_payload.text, opf_dir)
   let manifest_by_id : Map[String, EpubManifestItem] = Map([])
   for item in manifest {
     if manifest_by_id.contains(item.id) {
@@ -30,34 +29,49 @@ pub fn open_epub_package(
     }
     manifest_by_id.set(item.id, item)
   }
-  let spine = parse_opf_spine(opf_xml, manifest_by_id)
+  let spine = parse_opf_spine(opf_payload.text, manifest_by_id)
   if spine.length() == 0 {
     raise InvalidXml("missing spine itemref")
   }
   let nav_document_item = find_nav_item(manifest)
-  let ncx_item = find_ncx_nav_item(opf_xml, manifest_by_id)
+  let ncx_item = find_ncx_nav_item(opf_payload.text, manifest_by_id)
   let nav_item = match nav_document_item {
     Some(item) => Some(item)
     None => ncx_item
   }
-  let guide_cover_path = find_guide_cover_path(opf_xml, opf_dir)
+  let guide_cover_path = find_guide_cover_path(opf_payload.text, opf_dir)
   let cover_item = find_cover_item(
-    opf_xml, manifest_by_id, manifest, guide_cover_path,
+    opf_payload.text,
+    manifest_by_id,
+    manifest,
+    guide_cover_path,
   )
   let cover_candidates = collect_cover_candidates(
-    opf_xml, manifest_by_id, manifest, guide_cover_path, cover_item,
+    opf_payload.text,
+    manifest_by_id,
+    manifest,
+    guide_cover_path,
+    cover_item,
   )
   let nav_points = match nav_item {
     Some(item) =>
       try {
         if manifest_item_is_ncx(item) {
           parse_ncx_nav_points(
-            read_required_xml_part(archive, entry_index, item.resolved_path),
+            read_required_xml_part_payload(
+              archive,
+              entry_index,
+              item.resolved_path,
+            ).text,
             item.resolved_path,
           )
         } else {
           parse_nav_points(
-            read_required_xml_part(archive, entry_index, item.resolved_path),
+            read_required_xml_part_payload(
+              archive,
+              entry_index,
+              item.resolved_path,
+            ).text,
           )
         }
       } catch {
@@ -85,6 +99,13 @@ pub fn open_epub_package(
     guide_cover_path,
     cover_candidates,
     nav_points,
+  }
+}
+
+///|
+fn open_epub_archive(bytes : Bytes) -> @zip.ZipArchive raise EpubError {
+  @zip.open_zip(bytes) catch {
+    e => raise ZipError(e.to_string())
   }
 }
 

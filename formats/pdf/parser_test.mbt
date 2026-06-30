@@ -105,7 +105,8 @@ test "pdf native parser default policy exposes stable capability and diagnostics
     Some("pdf_native_restore_not_enabled"),
   )
   assert_true(
-    diagnostics.metrics.get("fallback_reason_kind") == Some("scaffold_only"),
+    diagnostics.metrics.get("fallback_reason_kind") ==
+    Some("parser_policy_gate"),
   )
   assert_true(
     diagnostics.metrics.get("pdf_native_runtime_policy") ==
@@ -131,7 +132,6 @@ test "pdf native parser default policy exposes stable capability and diagnostics
   assert_true(
     diagnostics.metrics.get("pdf_table_reconstruction_table_count") == Some("0"),
   )
-  assert_true(diagnostics.metrics.get("runtime_exposed") == Some("false"))
   assert_true(
     diagnostics.warnings.join("\n").contains("disabled by parser policy"),
   )
@@ -146,13 +146,13 @@ test "pdf native parser default policy exposes stable capability and diagnostics
   let document = parsed.document.unwrap_or(@core.empty_document_ir())
   assert_eq(document.blocks.length(), 0)
   assert_true(
-    document.diagnostics.metrics.get("readiness_status") ==
-    Some("scaffold_only"),
+    document.diagnostics.metrics.get("pdf_native_parser_gate") ==
+    Some("disabled"),
   )
 
   match (pdf_native_parser().parse)(source, disabled_context) {
     Err(msg) => assert_true(msg == pdf_native_fail_closed_message())
-    Ok(_) => fail("pdf scaffold parser should stay fail closed")
+    Ok(_) => fail("pdf parser should stay fail closed behind disable policy")
   }
 }
 
@@ -265,7 +265,8 @@ test "pdf native parser default product path can return document ir" {
       assert_true(ok_document.blocks.length() >= 3)
       assert_true(ok_document.diagnostics.metrics.get("renderer_name") == None)
       assert_true(
-        ok_document.diagnostics.metrics.get("runtime_exposed") == Some("true"),
+        ok_document.diagnostics.metrics.get("pdf_native_parser_gate") ==
+        Some("enabled"),
       )
     }
     Err(msg) => fail("default parser should allow product success path: " + msg)
@@ -506,7 +507,7 @@ test "pdf native parser keeps stable diagnostics tokens for empty text layer and
 }
 
 ///|
-test "pdf native parser internal policy scaffold stays disabled by default and does not change output" {
+test "pdf native parser internal policy stays disabled by default and does not change output" {
   let base_context = @parser.new_parse_context(@input.DetectedFormat::Pdf)
   assert_true(
     @parser.pdf_header_footer_filter_policy_name(
@@ -559,6 +560,134 @@ test "pdf native parser internal policy scaffold stays disabled by default and d
   assert_true(
     document.diagnostics.metrics.get("pdf_table_reconstruction_table_count") ==
     Some("0"),
+  )
+}
+
+///|
+fn sample_pdf_ocr_context() -> @parser.ParseContext {
+  @parser.parse_context_with_limits(
+    @parser.parse_context_with_ocr_options(
+      @parser.new_parse_context(@input.DetectedFormat::Pdf),
+      @parser.explicit_ocr_options(language=Some("eng")),
+    ),
+    Some(@parser.ParserMode::LayoutTwoStage),
+    None,
+    None,
+    None,
+    None,
+    false,
+  )
+}
+
+///|
+fn sample_pdf_accurate_ocr_context() -> @parser.ParseContext {
+  @parser.parse_context_with_limits(
+    @parser.parse_context_with_product_modes(
+      @parser.parse_context_with_ocr_options(
+        @parser.new_parse_context(@input.DetectedFormat::Pdf),
+        @parser.default_ocr_options(),
+      ),
+      @product.FidelityMode::Accurate,
+      @product.OutputMode::Markdown,
+    ),
+    Some(@parser.ParserMode::LayoutTwoStage),
+    None,
+    None,
+    None,
+    None,
+    false,
+  )
+}
+
+///|
+test "pdf OCR route converts a scanned single-page sample through the real raster path" {
+  let source = @input.input_from_path_with_format(
+    "samples/main_process/pdf/ocr/pdf_ocr_single_page.pdf",
+    Some(@input.DetectedFormat::Pdf),
+  )
+  let parsed = match pdf_ocr_parser_result(source, sample_pdf_ocr_context()) {
+    Ok(value) => value
+    Err(err) => fail("expected real pdf OCR parser success: " + err)
+  }
+  assert_true(parsed.mode == @parser.ParserMode::LayoutTwoStage)
+  assert_true(parsed.parser_name == pdf_ocr_parser_name())
+  let document = parsed.document.unwrap_or(@core.empty_document_ir())
+  assert_eq(document.blocks.length(), 2)
+  assert_eq(document.blocks[0].text, "MoonBit OCR")
+  assert_eq(document.blocks[1].text, "Sample 123")
+  assert_true(document.diagnostics.metrics.get("pdf_ocr_used") == Some("true"))
+  assert_true(
+    document.diagnostics.metrics.get("pdf_raster_backend") == Some("pdftoppm"),
+  )
+  assert_true(document.diagnostics.metrics.get("page_count") == Some("1"))
+  assert_true(document.diagnostics.metrics.get("ocr_used_pages") == Some("1"))
+  assert_true(
+    document.diagnostics.metrics.get("pdf_raster_page_failure_count") ==
+    Some("0"),
+  )
+  assert_true(
+    document.diagnostics.metrics.get("pdf_native_text_baseline") ==
+    Some("false"),
+  )
+  assert_true(
+    document.diagnostics.pass_trace.contains("pdf_ocr:layout_two_stage"),
+  )
+}
+
+///|
+test "pdf OCR route aggregates multi-page scanned samples without native-text fallback" {
+  let source = @input.input_from_path_with_format(
+    "samples/main_process/pdf/ocr/pdf_ocr_two_page.pdf",
+    Some(@input.DetectedFormat::Pdf),
+  )
+  let parsed = match pdf_ocr_parser_result(source, sample_pdf_ocr_context()) {
+    Ok(value) => value
+    Err(err) => fail("expected real multi-page pdf OCR parser success: " + err)
+  }
+  let document = parsed.document.unwrap_or(@core.empty_document_ir())
+  assert_eq(document.blocks.length(), 4)
+  assert_eq(document.blocks[0].text, "MoonBit OCR")
+  assert_eq(document.blocks[1].text, "Sample 123")
+  assert_eq(document.blocks[2].text, "MoonBit OCR")
+  assert_eq(document.blocks[3].text, "Sample 123")
+  assert_true(document.diagnostics.metrics.get("page_count") == Some("2"))
+  assert_true(document.diagnostics.metrics.get("ocr_used_pages") == Some("2"))
+  assert_true(
+    document.diagnostics.metrics.get("pdf_raster_page_success_count") ==
+    Some("2"),
+  )
+  assert_true(document.diagnostics.metrics.get("pdf_ocr_used") == Some("true"))
+  assert_true(
+    !document.diagnostics.degraded_features.contains(
+      "pdf_raster_partial_failure",
+    ),
+  )
+  assert_true(
+    !document.diagnostics.degraded_features.contains(
+      "pdf_ocr_partial_page_failure",
+    ),
+  )
+}
+
+///|
+test "pdf OCR parser accepts accurate fidelity as the formal product entry" {
+  let source = @input.input_from_path_with_format(
+    "samples/main_process/pdf/ocr/pdf_ocr_single_page.pdf",
+    Some(@input.DetectedFormat::Pdf),
+  )
+  let parsed = match
+    pdf_ocr_parser_result(source, sample_pdf_accurate_ocr_context()) {
+    Ok(value) => value
+    Err(err) => fail("expected accurate pdf OCR parser success: " + err)
+  }
+  assert_true(parsed.mode == @parser.ParserMode::LayoutTwoStage)
+  let document = parsed.document.unwrap_or(@core.empty_document_ir())
+  assert_eq(document.blocks.length(), 2)
+  assert_eq(document.blocks[0].text, "MoonBit OCR")
+  assert_eq(document.blocks[1].text, "Sample 123")
+  assert_true(document.diagnostics.metrics.get("pdf_ocr_used") == Some("true"))
+  assert_true(
+    document.diagnostics.metrics.get("pdf_raster_backend") == Some("pdftoppm"),
   )
 }
 

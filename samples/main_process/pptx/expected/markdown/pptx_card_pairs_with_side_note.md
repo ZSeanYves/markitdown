@@ -4,17 +4,17 @@
 
 Cloud
 
-On-prem
-
 Managed hosting
+
+On-prem
 
 Customer environment
 
 Hybrid
 
-Edge
-
 Split workloads
+
+Edge
 
 Low-latency inference
 

@@ -1,7 +1,9 @@
 ///|
 pub fn parse_select_request(args : Array[String]) -> SelectRequest raise {
   let tier = Ref("smoke")
-  let format_filter : Ref[String?] = Ref(None)
+  let exact_tiers : Ref[Array[String]] = Ref([])
+  let bench_ids : Ref[Array[String]] = Ref([])
+  let format_filters : Ref[Array[String]] = Ref([])
   let limit : Ref[Int?] = Ref(None)
   let output = Ref(SelectOutput::Jsonl)
   let stats_only = Ref(false)
@@ -14,9 +16,19 @@ pub fn parse_select_request(args : Array[String]) -> SelectRequest raise {
         tier.val = args[i.val + 1]
         i.val += 2
       }
+      "--tiers" => {
+        ensure_next_arg(args, i.val, "--tiers")
+        exact_tiers.val = parse_tier_list(args[i.val + 1], "--tiers")
+        i.val += 2
+      }
+      "--bench-id" => {
+        ensure_next_arg(args, i.val, "--bench-id")
+        bench_ids.val = parse_non_empty_csv(args[i.val + 1], "--bench-id")
+        i.val += 2
+      }
       "--format" => {
         ensure_next_arg(args, i.val, "--format")
-        format_filter.val = Some(args[i.val + 1])
+        format_filters.val = parse_non_empty_csv(args[i.val + 1], "--format")
         i.val += 2
       }
       "--limit" => {
@@ -37,9 +49,12 @@ pub fn parse_select_request(args : Array[String]) -> SelectRequest raise {
     }
   }
   validate_tier(tier.val)
+  validate_tiers(exact_tiers.val)
   make_select_request(
     tier.val,
-    format_filter.val,
+    exact_tiers.val,
+    bench_ids.val,
+    format_filters.val,
     limit.val,
     output.val,
     stats_only.val,
@@ -49,12 +64,14 @@ pub fn parse_select_request(args : Array[String]) -> SelectRequest raise {
 ///|
 pub fn make_select_request(
   tier : String,
-  format_filter : String?,
+  exact_tiers : Array[String],
+  bench_ids : Array[String],
+  format_filters : Array[String],
   limit : Int?,
   output : SelectOutput,
   stats_only : Bool,
 ) -> SelectRequest {
-  { tier, format_filter, limit, output, stats_only }
+  { tier, exact_tiers, bench_ids, format_filters, limit, output, stats_only }
 }
 
 ///|
@@ -96,4 +113,35 @@ pub fn validate_tier(tier : String) -> Unit raise {
     "smoke" | "regular" | "release" | "stress" => ()
     _ => raise InvalidArgument("unsupported tier: " + tier)
   }
+}
+
+///|
+pub fn validate_tiers(tiers : Array[String]) -> Unit raise {
+  for tier in tiers {
+    validate_tier(tier)
+  }
+}
+
+///|
+pub fn parse_tier_list(text : String, flag : String) -> Array[String] raise {
+  let tiers = parse_non_empty_csv(text, flag).map(tier => {
+    tier.trim().to_lower().to_owned()
+  })
+  if tiers.length() == 0 {
+    raise InvalidArgument("empty value is not allowed for " + flag)
+  }
+  tiers
+}
+
+///|
+fn parse_non_empty_csv(text : String, flag : String) -> Array[String] raise {
+  let out = text
+    .split(",")
+    .to_array()
+    .map(part => part.trim().to_owned())
+    .filter(part => part != "")
+  if out.length() == 0 {
+    raise InvalidArgument("empty value is not allowed for " + flag)
+  }
+  out
 }

@@ -13,7 +13,7 @@ mb-markitdown 的核心目标是：
 1. 将多种输入格式转换为 Markdown / Debug JSON / RAG chunks / Debug IR。
 2. 在速度、内存、结构保真、版面恢复之间提供明确模式选择。
 3. 不让所有格式强行使用同一种解析策略，而是根据格式天然结构选择最合适的 parser 形态。
-4. 所有 parser 最终进入统一 Core IR，所有 renderer 只消费 Core IR。
+4. 所有 parser 最终进入统一的 `ParseResult / IRInput` 产品契约，renderer 统一消费 `RenderInput`。
 5. 支持 source map、diagnostics、assets、metadata，方便调试、溯源、RAG 引用和后续质量评估。
 
 本项目不是单纯的“文件转 Markdown 字符串工具”，而应该是：
@@ -21,8 +21,9 @@ mb-markitdown 的核心目标是：
 ```text
 Source Format
   -> Parser Native Signals
-  -> Core IR
+  -> ParseResult / IRInput
   -> IR Passes
+  -> RenderInput
   -> Renderer
   -> Markdown / Debug JSON / Chunks / Debug Output
 ```
@@ -31,7 +32,7 @@ Source Format
 
 ```text
 Parser 可以多态
-Core IR 必须统一
+IRInput / RenderInput 契约必须统一
 Renderer 必须统一
 SourceMap 必须统一
 Diagnostics 必须统一
@@ -98,7 +99,7 @@ HTML Parser -> Markdown
 正确设计：
 
 ```text
-Parser -> ParseResult -> Core IR -> Renderer -> Markdown
+Parser -> ParseResult -> IRInput -> Pipeline -> RenderInput -> Renderer -> Markdown
 ```
 
 原因：
@@ -747,15 +748,15 @@ asset: img_000001 / attach_000002
 ```moonbit
 pub struct ParseResult {
   parser_name : String
-  parser_mode : ParserMode
-  input_kind : String
-
-  events : Option[EventStream]
-  blocks : Option[BlockStream]
-  document : Option[DocumentIR]
-
-  metadata : Map[String, JsonValue]
+  mode : ParserMode
+  capabilities : ParserCapability
+  event_stream : Array[CoreEvent]?
+  block_stream : Array[CoreBlock]?
+  document : DocumentIR?
+  metadata : DocumentMetadata
   assets : Array[AssetRef]
+  source_map : SourceMap?
+  assembly : DocumentAssembly?
   diagnostics : Diagnostics
 }
 ```
@@ -763,7 +764,7 @@ pub struct ParseResult {
 约束：
 
 ```text
-events / blocks / document 至少存在一个。
+event_stream / block_stream / document 公开结果必须且只应暴露一种主形态。
 Parser 不直接返回 Markdown。
 Parser 不负责最终标题层级、最终阅读顺序、最终 Markdown 表格策略。
 ```
@@ -1186,8 +1187,8 @@ CoreIRBuilder 负责把不同 parser 的输出统一到 Core IR。
 ### 9.1 输入
 
 ```text
-ParseResult.events
-ParseResult.blocks
+ParseResult.event_stream
+ParseResult.block_stream
 ParseResult.document
 ```
 
@@ -1241,9 +1242,12 @@ pub trait IRPass {
 ```moonbit
 pub struct PassContext {
   mode : ConvertMode
-  options : ConvertOptions
-  diagnostics : Diagnostics
-  assets : AssetStore
+  options : ProductOptions
+  diagnostics : Ref[Diagnostics]
+  assets : Ref[Array[AssetRef]]
+  metadata : Ref[DocumentMetadata]
+  source_map : Ref[SourceMap?]
+  assembly : Ref[DocumentAssembly?]
 }
 ```
 
@@ -1261,8 +1265,7 @@ pub struct PassContext {
 9. ResolveCaptionPass
 10. ResolveAssetPass
 11. AssembleSectionTreePass
-12. ChunkingPass, only Rag mode
-13. DebugAnnotationPass, only Debug mode
+12. DebugAnnotationPass
 ```
 
 ### 10.4 NormalizeTextPass
@@ -1434,12 +1437,12 @@ PDF/OCR 需要统计推断。
 ```text
 根据 heading level 构建 section tree
 为每个 block 添加 heading path
-为 RAG chunk 做上下文准备
+为 renderer / RAG chunking 提供 assembly 语义
 ```
 
-### 10.15 ChunkingPass
+### 10.15 RAG Chunking Projection
 
-只在 RAG 模式启用。
+当前实现中，RAG chunking 不作为 IR pass 回写 Core IR；它是 renderer 前后的纯投影过程。
 
 职责：
 
@@ -1452,29 +1455,58 @@ PDF/OCR 需要统计推断。
 避免跨语义边界硬切
 ```
 
+说明：
+
+```text
+DocumentIR 路径由 RagJsonRenderer 直接消费 document + assembly 生成 chunks。
+BlockStream / EventStream 路径由 RagJsonRenderer 的 direct-input 分支生成 chunks。
+因此 RAG 是产品能力，但不是当前 pipeline 中的独立 IRPass。
+```
+
 ---
 
 ## 11. Renderer 设计
 
-Renderer 只消费 Core IR，不读取源格式。
+Renderer 不读取源格式；它消费 convert + pipeline 产出的 RenderInput / Context。
 
 ### 11.1 Renderer trait
 
 ```moonbit
-pub trait Renderer {
-  fn name(Self) -> String
-  fn render(Self, ctx : RenderContext, input : RenderInput) -> Result[RenderResult, RenderError]
+pub struct Renderer {
+  name : String
+  render : (DocumentIR, RenderContext) -> RenderResult
+  render_input : (RenderInput, RenderContext) -> RenderResult
 }
+```
+
+说明：
+
+```text
+当前实现保留双入口：
+1. render(DocumentIR, ctx) 处理完整 document 路径
+2. render_input(RenderInput, ctx) 处理 EventStream / BlockStream / direct Document 路径
+convert 统一决定进入哪个入口；renderer 本身不负责 route 选择。
 ```
 
 ### 11.2 RenderContext
 
 ```moonbit
 pub struct RenderContext {
-  options : ConvertOptions
-  assets : AssetStore
-  diagnostics : Diagnostics
+  debug : Bool
+  rag_options : RagOptions
+  base_diagnostics : Diagnostics?
+  metadata : DocumentMetadata?
+  source_map : SourceMap?
+  assets : Array[AssetRef]?
+  assembly : DocumentAssembly?
 }
+```
+
+说明：
+
+```text
+RenderContext 承载渲染时所需的稳定产品上下文。
+它不是 parser/convert 的总配置镜像，而是 render 阶段真正消费的最小闭包。
 ```
 
 ### 11.3 MarkdownRenderer
@@ -2977,10 +3009,10 @@ caption binding
 13. OCR/layout/table recognition 属于 Accurate 模式，不默认开启。
 14. Renderer 不读取源格式。
 15. IR Pass 不依赖具体 parser 库。
-16. fallback 必须记录 diagnostics。
-16. RoutePlanner 必须记录 diagnostics，且禁止跨模式 fallback。
-17. 容器解析必须做安全限制。
-18. RAG chunk 必须保留 heading path 和 source refs。
+16. RoutePlanner 必须记录 diagnostics，并写明 selected_route / route_reason / route_probe_summary。
+17. 仅允许同模式内 degradation；degradation 必须记录 diagnostics，且禁止跨模式 fallback。
+18. 容器解析必须做安全限制。
+19. RAG chunk 必须保留 heading path 和 source refs。
 ```
 
 ---
@@ -3001,7 +3033,7 @@ markdown / html / xlsx 等分块友好格式在超限时走 block-streaming；
 媒体文件走 media-pipeline。
 
 所有 parser 输出 ParseResult；
-所有 ParseResult 进入 Core IR；
+所有 ParseResult 先收敛到公开三态 IRInput，并经 pipeline 进入 RenderInput；
 所有 Markdown/Debug JSON/RAG 输出由 Renderer 统一生成。
 ```
 
