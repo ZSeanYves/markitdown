@@ -600,14 +600,141 @@ fn sample_pdf_accurate_ocr_context() -> @parser.ParseContext {
 }
 
 ///|
-test "pdf OCR route converts a scanned single-page sample through the real raster path" {
+fn pdf_test_ensure_dir(path : String) -> Unit raise {
+  if !@fs.path_exists(path) {
+    @fs.create_dir(path)
+  }
+}
+
+///|
+fn pdf_test_ensure_dir_tree(path : String) -> Unit raise {
+  let trimmed = path.trim()
+  if trimmed == "" {
+    return
+  }
+  let chars = trimmed.to_array()
+  let mut current = if chars.length() > 0 && chars[0] == '/' { "/" } else { "" }
+  let part : Array[Char] = []
+
+  fn flush(part : Array[Char], current : String) -> String raise {
+    if part.length() == 0 {
+      return current
+    }
+    let segment = String::from_array(part)
+    part.clear()
+    let next = if current == "" || current == "/" {
+      current + segment
+    } else {
+      current + "/" + segment
+    }
+    pdf_test_ensure_dir(next)
+    next
+  }
+
+  for ch in chars {
+    if ch == '/' {
+      current = flush(part, current)
+    } else {
+      part.push(ch)
+    }
+  }
+  ignore(flush(part, current))
+}
+
+///|
+fn fake_pdf_ocr_page(language : String?, label : String) -> @focr.OcrPageModel {
+  let tsv = [
+    "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext",
+    "5\t1\t1\t1\t1\t1\t10\t10\t20\t10\t95\t" + label,
+    "5\t1\t1\t1\t1\t2\t35\t10\t20\t10\t94\tOCR",
+    "5\t1\t1\t1\t2\t1\t10\t25\t22\t10\t93\tSample",
+    "5\t1\t1\t1\t2\t2\t36\t25\t18\t10\t92\t123",
+  ].join("\n")
+  let parsed = match @focr.parse_tesseract_tsv(tsv, language~) {
+    Ok(value) => value
+    Err(err) => abort("expected fake PDF OCR TSV parse success: " + err.to_string())
+  }
+  parsed.pages[0]
+}
+
+///|
+fn fake_pdf_ocr_provider(
+  expected_language : String?,
+) -> (@focr.OcrProviderRequest) -> Result[@focr.OcrProviderResult, @focr.OcrProviderError] {
+  fn(request : @focr.OcrProviderRequest) {
+    if request.provider_kind != @focr.OcrProviderKind::Tesseract {
+      abort("unexpected PDF OCR provider kind")
+    }
+    if request.language != expected_language {
+      abort("unexpected PDF OCR language")
+    }
+    let label = if request.image_path.contains("page-2") {
+      "Second"
+    } else {
+      "MoonBit"
+    }
+    Ok(
+      @focr.make_ocr_provider_result(
+        [fake_pdf_ocr_page(request.language, label)],
+        "tesseract",
+      ),
+    )
+  }
+}
+
+///|
+fn fake_pdf_rasterizer(
+  page_count : Int,
+) -> (@input.InputSource) -> Result[(PdfRasterResult, String), PdfRasterizerError] {
+  fn(source : @input.InputSource) {
+    rasterize_pdf_with_pdftoppm(
+      source,
+      fn(_cmd : String, args : Array[String]) {
+        let output_prefix = args[2]
+        let parts = output_prefix.split("/").to_array().map(fn(part) {
+          part.to_owned()
+        })
+        let output_dir = parts[:parts.length() - 1].join("/")
+        pdf_test_ensure_dir_tree(output_dir) catch {
+          e =>
+            return Err(
+              PdfRasterizerError::ExecutionFailed(
+                "failed to create fake raster output dir: " + e.to_string(),
+              ),
+            )
+        }
+        for i in 0..<page_count {
+          let page_name = output_dir + "/page-" + (i + 1).to_string() + ".png"
+          @fs.write_bytes_to_file(page_name, Bytes::from_array([])) catch {
+            e =>
+              return Err(
+                PdfRasterizerError::ExecutionFailed(
+                  "failed to create fake raster page: " + e.to_string(),
+                ),
+              )
+          }
+        }
+        Ok((0, "", ""))
+      },
+    )
+  }
+}
+
+///|
+test "pdf OCR route converts a scanned single-page sample through injected raster and OCR contracts" {
   let source = @input.input_from_path_with_format(
     "samples/main_process/pdf/ocr/pdf_ocr_single_page.pdf",
     Some(@input.DetectedFormat::Pdf),
   )
-  let parsed = match pdf_ocr_parser_result(source, sample_pdf_ocr_context()) {
+  let parsed = match
+    pdf_ocr_parser_result(
+      source,
+      sample_pdf_ocr_context(),
+      image_ocr_provider=fake_pdf_ocr_provider(Some("eng")),
+      rasterizer=fake_pdf_rasterizer(1),
+    ) {
     Ok(value) => value
-    Err(err) => fail("expected real pdf OCR parser success: " + err)
+    Err(err) => fail("expected injected pdf OCR parser success: " + err)
   }
   assert_true(parsed.mode == @parser.ParserMode::LayoutTwoStage)
   assert_true(parsed.parser_name == pdf_ocr_parser_name())
@@ -640,15 +767,21 @@ test "pdf OCR route aggregates multi-page scanned samples without native-text fa
     "samples/main_process/pdf/ocr/pdf_ocr_two_page.pdf",
     Some(@input.DetectedFormat::Pdf),
   )
-  let parsed = match pdf_ocr_parser_result(source, sample_pdf_ocr_context()) {
+  let parsed = match
+    pdf_ocr_parser_result(
+      source,
+      sample_pdf_ocr_context(),
+      image_ocr_provider=fake_pdf_ocr_provider(Some("eng")),
+      rasterizer=fake_pdf_rasterizer(2),
+    ) {
     Ok(value) => value
-    Err(err) => fail("expected real multi-page pdf OCR parser success: " + err)
+    Err(err) => fail("expected injected multi-page pdf OCR parser success: " + err)
   }
   let document = parsed.document.unwrap_or(@core.empty_document_ir())
   assert_eq(document.blocks.length(), 4)
   assert_eq(document.blocks[0].text, "MoonBit OCR")
   assert_eq(document.blocks[1].text, "Sample 123")
-  assert_eq(document.blocks[2].text, "MoonBit OCR")
+  assert_eq(document.blocks[2].text, "Second OCR")
   assert_eq(document.blocks[3].text, "Sample 123")
   assert_true(document.diagnostics.metrics.get("page_count") == Some("2"))
   assert_true(document.diagnostics.metrics.get("ocr_used_pages") == Some("2"))
@@ -676,7 +809,12 @@ test "pdf OCR parser accepts accurate fidelity as the formal product entry" {
     Some(@input.DetectedFormat::Pdf),
   )
   let parsed = match
-    pdf_ocr_parser_result(source, sample_pdf_accurate_ocr_context()) {
+    pdf_ocr_parser_result(
+      source,
+      sample_pdf_accurate_ocr_context(),
+      image_ocr_provider=fake_pdf_ocr_provider(None),
+      rasterizer=fake_pdf_rasterizer(1),
+    ) {
     Ok(value) => value
     Err(err) => fail("expected accurate pdf OCR parser success: " + err)
   }

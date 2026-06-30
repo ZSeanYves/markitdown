@@ -579,7 +579,7 @@ test "pptx balanced fidelity avoids accurate-only callout reading-order promotio
 test "pptx accurate fidelity upgrades merged tables to html span rendering" {
   let registry = @formats_root.builtin_registry()
   let source = @input.input_from_path(
-    "markitdown-quality-lab/external_quality/pptx/python-pptx/tbl-cell.pptx",
+    "samples/fixtures/office_contracts/pptx/tbl-cell.pptx",
   )
   let balanced = match
     @parser.registry_parse(
@@ -673,7 +673,7 @@ test "pptx accurate fidelity summarizes grouped decorative shapes instead of emi
     @parser.registry_parse(
       @formats_root.builtin_registry(),
       @input.input_from_path(
-        "markitdown-quality-lab/external_quality/pptx/python-pptx/shp-groupshape.pptx",
+        "samples/fixtures/office_contracts/pptx/shp-groupshape.pptx",
       ),
       @parser.parse_context_with_product_modes(
         @parser.new_parse_context(@input.DetectedFormat::Pptx),
@@ -709,7 +709,7 @@ test "pptx accurate fidelity promotes center title placeholders to heading block
     @parser.registry_parse(
       @formats_root.builtin_registry(),
       @input.input_from_path(
-        "markitdown-quality-lab/external_quality/pptx/openxml-sdk/Presentation.pptx",
+        "samples/fixtures/office_contracts/pptx/Presentation.pptx",
       ),
       @parser.parse_context_with_product_modes(
         @parser.new_parse_context(@input.DetectedFormat::Pptx),
@@ -733,7 +733,7 @@ test "pptx accurate fidelity folds decorative slide noise into a single summary 
     @parser.registry_parse(
       @formats_root.builtin_registry(),
       @input.input_from_path(
-        "markitdown-quality-lab/external_quality/pptx/python-pptx/shp-shapes.pptx",
+        "samples/fixtures/office_contracts/pptx/shp-shapes.pptx",
       ),
       @parser.parse_context_with_product_modes(
         @parser.new_parse_context(@input.DetectedFormat::Pptx),

@@ -184,7 +184,7 @@ test "docx accurate fidelity restores alternate-content textbox text into Comple
     @product.FidelityMode::Accurate,
     @product.OutputMode::Markdown,
   )
-  let path = "markitdown-quality-lab/external_quality/docx/openxml-sdk/Complex01.docx"
+  let path = "samples/fixtures/office_contracts/docx/Complex01.docx"
   let balanced = match
     @parser.registry_parse(
       registry,

@@ -212,7 +212,7 @@ test "xlsx accurate fidelity restores hidden grouped rows in external quality sa
     @parser.registry_parse(
       registry,
       @input.input_from_path(
-        "markitdown-quality-lab/external_quality/xlsx/apache-poi/GroupTest.xlsx",
+        "samples/fixtures/office_contracts/xlsx/GroupTest.xlsx",
       ),
       @parser.parse_context_with_product_modes(
         @parser.new_parse_context(@input.DetectedFormat::Xlsx),
@@ -227,7 +227,7 @@ test "xlsx accurate fidelity restores hidden grouped rows in external quality sa
     @parser.registry_parse(
       registry,
       @input.input_from_path(
-        "markitdown-quality-lab/external_quality/xlsx/apache-poi/GroupTest.xlsx",
+        "samples/fixtures/office_contracts/xlsx/GroupTest.xlsx",
       ),
       @parser.parse_context_with_product_modes(
         @parser.new_parse_context(@input.DetectedFormat::Xlsx),
@@ -288,7 +288,7 @@ test "xlsx accurate fidelity upgrades merged-range workbook to html table spans"
     @parser.registry_parse(
       registry,
       @input.input_from_path(
-        "markitdown-quality-lab/external_quality/xlsx/xlsxwriter/generated/merge1.xlsx",
+        "samples/fixtures/office_contracts/xlsx/merge1.xlsx",
       ),
       @parser.parse_context_with_product_modes(
         @parser.new_parse_context(@input.DetectedFormat::Xlsx),
@@ -303,7 +303,7 @@ test "xlsx accurate fidelity upgrades merged-range workbook to html table spans"
     @parser.registry_parse(
       registry,
       @input.input_from_path(
-        "markitdown-quality-lab/external_quality/xlsx/xlsxwriter/generated/merge1.xlsx",
+        "samples/fixtures/office_contracts/xlsx/merge1.xlsx",
       ),
       @parser.parse_context_with_product_modes(
         @parser.new_parse_context(@input.DetectedFormat::Xlsx),
@@ -340,7 +340,7 @@ test "xlsx sheet hyperlinks render as markdown links without fetching targets" {
     @parser.registry_parse(
       registry,
       @input.input_from_path(
-        "markitdown-quality-lab/external_quality/xlsx/apache-poi/sharedhyperlink.xlsx",
+        "samples/fixtures/office_contracts/xlsx/sharedhyperlink.xlsx",
       ),
       @parser.parse_context_with_product_modes(
         @parser.new_parse_context(@input.DetectedFormat::Xlsx),
@@ -372,7 +372,7 @@ test "xlsx formal table parts split disjoint sheet tables into separate markdown
     @parser.registry_parse(
       registry,
       @input.input_from_path(
-        "markitdown-quality-lab/external_quality/xlsx/apache-poi/ExcelTables.xlsx",
+        "samples/fixtures/office_contracts/xlsx/ExcelTables.xlsx",
       ),
       @parser.parse_context_with_product_modes(
         @parser.new_parse_context(@input.DetectedFormat::Xlsx),
