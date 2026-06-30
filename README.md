@@ -173,6 +173,9 @@ The current Office product routes stay architecture-stable:
 
 Daily regression validation:
 
+Note:
+Before running sample validation, make sure the local environment already has the OCR runtime dependencies and PDF raster backend installed. In practice, `samples/check.sh` expects local `tesseract` and `pdftoppm`; otherwise OCR and PDF OCR sample lanes will fail.
+
 ```bash
 moon fmt
 moon info
