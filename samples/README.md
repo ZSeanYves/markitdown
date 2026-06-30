@@ -44,7 +44,7 @@
 目录约定：
 
 - `samples/main_process/<format>/markdown/`：默认产品路径输入样本
-- `samples/main_process/pdf/ocr/`：需要显式 `--ocr` 的 PDF OCR 输入样本
+- `samples/main_process/pdf/ocr/`：PDF Accurate / OCR 路线输入样本
 - `samples/main_process/<format>/expected/`：Markdown 期望结果
 - `samples/main_process/<format>/rag/`：RAG 期望结果
 - `samples/main_process/<format>/assets/`：轻量资源输出期望
@@ -62,7 +62,7 @@
 - 这套回归只测产品默认路径。
 - 不支持的格式在这里会直接 fail closed，不会偷偷切换到其它路线。
 - `ocr` gate 覆盖正式支持的直接图片 OCR 输入：`png/jpg/jpeg/bmp/webp/tif/tiff`。
-- `pdf/ocr` lane 覆盖显式 `pdf --ocr` 产品路径，不改变默认 `pdf` native-text gate。
+- `pdf/ocr` lane 覆盖 `pdf --accurate` 与显式 `pdf --ocr` 的 OCR-only 产品路径，不改变默认 `pdf` native-text gate。
 - `workspace/` 只是临时工作目录，不作为主要排查入口。
 
 ## 质量回归
@@ -101,9 +101,9 @@ git clone git@github.com:ZSeanYves/markitdown-quality-lab.git markitdown-quality
 说明：
 
 - 这套回归面向外部质量语料，不替代主回归。
-- 脚本会自动探测当前 CLI 是否支持 `--with-metadata`，不支持时按 fail-closed 规则回退到 metadata-off。
 - `workspace/` 同样只作为临时目录。
 - benchmark 语料与质量语料是两回事；正式 `bench v2` 使用主仓目录下的 `markitdown-quality-lab/external_bench/`。
+- ZIP 相关样例与主链实现建立在 `format_readers/zip` 之上，底层解压继续依赖 `bikallem/compress/flate`。
 
 ## 覆盖范围
 

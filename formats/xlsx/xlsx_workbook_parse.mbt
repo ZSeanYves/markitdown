@@ -129,6 +129,8 @@ priv struct XlsxCell {
   row_index : Int
   column_index : Int
   display_text : String
+  hyperlink_target : String?
+  hyperlink_relationship_id : String?
   formula_text : String?
   is_shared_formula : Bool
   is_array_formula : Bool
@@ -143,12 +145,23 @@ priv struct XlsxComment {
 }
 
 ///|
+priv struct XlsxSheetTable {
+  table_name : String?
+  display_name : String?
+  range_ref : String
+  part_name : String
+  relationship_id : String
+  column_names : Array[String]
+}
+
+///|
 priv struct XlsxSheet {
   sheet_name : String
   sheet_id : String?
   relationship_id : String
   part_name : String
   visibility : @shared.XlsxSheetVisibility
+  include_hidden_rows : Bool
   dimension_ref : String?
   min_row : Int
   min_col : Int
@@ -158,6 +171,7 @@ priv struct XlsxSheet {
   hidden_rows : Map[Int, Bool]
   merged_lookup : Map[String, String]
   merged_ranges : Array[String]
+  include_merge_layout : Bool
   row_count : Int
   cell_count : Int
   non_empty_cell_count : Int
@@ -168,7 +182,18 @@ priv struct XlsxSheet {
   image_count : Int
   external_link_count : Int
   comments : Array[XlsxComment]
+  tables : Array[XlsxSheetTable]
   is_empty : Bool
+}
+
+///|
+priv struct XlsxSheetHyperlink {
+  row_start : Int
+  column_start : Int
+  row_end : Int
+  column_end : Int
+  target : String?
+  relationship_id : String?
 }
 
 ///|
@@ -178,6 +203,7 @@ priv struct XlsxParsedSheetView {
   relationship_id : String
   part_name : String
   visibility : @shared.XlsxSheetVisibility
+  include_hidden_rows : Bool
   dimension_ref : String?
   min_row : Int
   min_col : Int
@@ -185,6 +211,7 @@ priv struct XlsxParsedSheetView {
   max_col : Int
   hidden_rows : Map[Int, Bool]
   merged_ranges : Array[String]
+  include_merge_layout : Bool
   row_count : Int
   cell_count : Int
   non_empty_cell_count : Int
@@ -195,6 +222,7 @@ priv struct XlsxParsedSheetView {
   image_count : Int
   external_link_count : Int
   comments : Array[XlsxComment]
+  tables : Array[XlsxSheetTable]
   is_empty : Bool
   cells : Array[XlsxCell]
   first_cell_index : Int
@@ -338,6 +366,12 @@ fn xlsx_parse_workbook(
   let max_cols = context.max_cols.unwrap_or(50)
   let max_cells = context.max_cells.unwrap_or(100000)
   let max_sheets = 200
+  let include_hidden_sheets = context.fidelity_mode ==
+    @product.FidelityMode::Accurate
+  let include_hidden_rows = context.fidelity_mode ==
+    @product.FidelityMode::Accurate
+  let include_merge_layout = context.fidelity_mode ==
+    @product.FidelityMode::Accurate
 
   let included_sheets : Array[XlsxSheet] = []
   let effective_sheet_infos = if shared.sheet_infos.length() > max_sheets {
@@ -375,6 +409,8 @@ fn xlsx_parse_workbook(
           shared.shared_strings,
           shared.styles,
           shared.uses_date_1904,
+          include_hidden_rows,
+          include_merge_layout,
           max_rows,
           max_cols,
           max_cells,
@@ -394,17 +430,71 @@ fn xlsx_parse_workbook(
       }
       @shared.XlsxSheetVisibility::Hidden => {
         hidden_sheet_count += 1
-        diagnostics.warnings.push(
-          "hidden xlsx sheet skipped: " + sheet_info.sheet_name,
-        )
-        diagnostics.degraded_features.push("xlsx_hidden_sheet_skipped")
+        if include_hidden_sheets {
+          let sheet = xlsx_parse_sheet(
+            pkg,
+            sheet_info,
+            shared.shared_strings,
+            shared.styles,
+            shared.uses_date_1904,
+            include_hidden_sheets,
+            include_merge_layout,
+            max_rows,
+            max_cols,
+            max_cells,
+            diagnostics,
+          )
+          row_count += sheet.row_count
+          cell_count += sheet.cell_count
+          non_empty_cell_count += sheet.non_empty_cell_count
+          merged_cell_count += xlsx_merged_cell_area(sheet.merged_ranges)
+          formula_count += sheet.formula_count
+          shared_formula_count += sheet.shared_formula_count
+          array_formula_count += sheet.array_formula_count
+          drawing_count += sheet.drawing_count
+          image_count += sheet.image_count
+          external_link_count += sheet.external_link_count
+          included_sheets.push(sheet)
+        } else {
+          diagnostics.warnings.push(
+            "hidden xlsx sheet skipped: " + sheet_info.sheet_name,
+          )
+          diagnostics.degraded_features.push("xlsx_hidden_sheet_skipped")
+        }
       }
       @shared.XlsxSheetVisibility::VeryHidden => {
         very_hidden_sheet_count += 1
-        diagnostics.warnings.push(
-          "very hidden xlsx sheet skipped: " + sheet_info.sheet_name,
-        )
-        diagnostics.degraded_features.push("xlsx_very_hidden_sheet_skipped")
+        if include_hidden_sheets {
+          let sheet = xlsx_parse_sheet(
+            pkg,
+            sheet_info,
+            shared.shared_strings,
+            shared.styles,
+            shared.uses_date_1904,
+            include_hidden_sheets,
+            include_merge_layout,
+            max_rows,
+            max_cols,
+            max_cells,
+            diagnostics,
+          )
+          row_count += sheet.row_count
+          cell_count += sheet.cell_count
+          non_empty_cell_count += sheet.non_empty_cell_count
+          merged_cell_count += xlsx_merged_cell_area(sheet.merged_ranges)
+          formula_count += sheet.formula_count
+          shared_formula_count += sheet.shared_formula_count
+          array_formula_count += sheet.array_formula_count
+          drawing_count += sheet.drawing_count
+          image_count += sheet.image_count
+          external_link_count += sheet.external_link_count
+          included_sheets.push(sheet)
+        } else {
+          diagnostics.warnings.push(
+            "very hidden xlsx sheet skipped: " + sheet_info.sheet_name,
+          )
+          diagnostics.degraded_features.push("xlsx_very_hidden_sheet_skipped")
+        }
       }
     }
   }
@@ -694,6 +784,8 @@ fn xlsx_parse_sheet(
   shared_strings : Array[String],
   styles : XlsxStyles,
   uses_date_1904 : Bool,
+  include_hidden_rows : Bool,
+  include_merge_layout : Bool,
   max_rows : Int,
   max_cols : Int,
   max_cells : Int,
@@ -706,6 +798,8 @@ fn xlsx_parse_sheet(
     shared_strings,
     styles,
     uses_date_1904,
+    include_hidden_rows,
+    include_merge_layout,
     max_rows,
     max_cols,
     max_cells,
@@ -727,6 +821,7 @@ fn xlsx_parse_sheet(
     relationship_id: view.relationship_id,
     part_name: view.part_name,
     visibility: view.visibility,
+    include_hidden_rows: view.include_hidden_rows,
     dimension_ref: view.dimension_ref,
     min_row: view.min_row,
     min_col: view.min_col,
@@ -736,6 +831,7 @@ fn xlsx_parse_sheet(
     hidden_rows: view.hidden_rows,
     merged_lookup,
     merged_ranges: view.merged_ranges,
+    include_merge_layout: view.include_merge_layout,
     row_count: view.row_count,
     cell_count: view.cell_count,
     non_empty_cell_count: view.non_empty_cell_count,
@@ -746,6 +842,7 @@ fn xlsx_parse_sheet(
     image_count: view.image_count,
     external_link_count: view.external_link_count,
     comments: view.comments,
+    tables: view.tables,
     is_empty: view.is_empty,
   }
 }
@@ -757,6 +854,8 @@ fn xlsx_parse_sheet_view(
   shared_strings : Array[String],
   styles : XlsxStyles,
   uses_date_1904 : Bool,
+  include_hidden_rows : Bool,
+  include_merge_layout : Bool,
   max_rows : Int,
   max_cols : Int,
   max_cells : Int,
@@ -769,6 +868,7 @@ fn xlsx_parse_sheet_view(
   let mut image_count = 0
   let mut external_link_count = 0
   let comments : Array[XlsxComment] = []
+  let tables : Array[XlsxSheetTable] = []
   for rel in relationships {
     if rel.target_mode == @ox.OoxmlTargetMode::External {
       external_link_count += 1
@@ -801,6 +901,12 @@ fn xlsx_parse_sheet_view(
       diagnostics.degraded_features.push("xlsx_image_deferred")
     } else if rel.rel_type.contains("/comments") {
       comments.append(xlsx_parse_comments_part(pkg, rel.resolved_target)[:])
+    } else if rel.rel_type.has_suffix("/table") ||
+      rel.rel_type.contains("relationships/table") {
+      match xlsx_parse_table_definition(pkg, rel) {
+        Some(table) => tables.push(table)
+        None => ()
+      }
     } else if rel.rel_type.contains("/chart") || rel.rel_type.contains("/pivot") {
       diagnostics.warnings.push(
         "xlsx unsupported relationship kept as diagnostics only: " +
@@ -837,6 +943,7 @@ fn xlsx_parse_sheet_view(
           shared_strings,
           styles,
           uses_date_1904,
+          relationships,
           build_cell_source_refs~,
           cell_window_bounds=None,
         )
@@ -853,16 +960,19 @@ fn xlsx_parse_sheet_view(
       shared_strings,
       styles,
       uses_date_1904,
+      relationships,
       build_cell_source_refs~,
       cell_window_bounds=None,
     )
   }
+  let include_hidden_rows = include_hidden_rows
   let dimension_ref = parsed_sheet_xml.dimension_ref
   let merged_ranges = parsed_sheet_xml.merged_ranges
   let hidden_rows = parsed_sheet_xml.hidden_rows
   let parsed_cells = parsed_sheet_xml.cells
   let bounds = xlsx_effective_bounds(
-    dimension_ref, parsed_cells, hidden_rows, max_rows, max_cols, max_cells,
+    dimension_ref, parsed_cells, hidden_rows, include_hidden_rows, max_rows, max_cols,
+    max_cells,
   )
   let (min_row, min_col, max_row, max_col, clipped, is_empty) = bounds
   if clipped {
@@ -887,7 +997,7 @@ fn xlsx_parse_sheet_view(
   let mut cell_index = 0
   for cell in parsed_cells {
     if is_empty ||
-      xlsx_row_is_hidden(hidden_rows, cell.row_index) ||
+      (!include_hidden_rows && xlsx_row_is_hidden(hidden_rows, cell.row_index)) ||
       cell.row_index < min_row ||
       cell.row_index > max_row ||
       cell.column_index < min_col ||
@@ -930,6 +1040,7 @@ fn xlsx_parse_sheet_view(
     relationship_id: sheet_info.relationship_id,
     part_name: sheet_info.part_name,
     visibility: sheet_info.visibility,
+    include_hidden_rows,
     dimension_ref,
     min_row,
     min_col,
@@ -937,10 +1048,13 @@ fn xlsx_parse_sheet_view(
     max_col,
     hidden_rows,
     merged_ranges: filtered_ranges,
+    include_merge_layout,
     row_count: if effective_is_empty {
       0
     } else {
-      xlsx_visible_row_count(hidden_rows, min_row, max_row)
+      xlsx_effective_row_count(
+        hidden_rows, include_hidden_rows, min_row, max_row,
+      )
     },
     cell_count: if effective_is_empty {
       0
@@ -971,6 +1085,7 @@ fn xlsx_parse_sheet_view(
     image_count,
     external_link_count,
     comments,
+    tables,
     is_empty: effective_is_empty,
     cells: parsed_cells,
     first_cell_index: if effective_is_empty || first_cell_index < 0 {
@@ -1014,10 +1129,75 @@ fn xlsx_parse_sheet_xml_bytes_streaming(
       shared_strings,
       styles,
       uses_date_1904,
+      @ox.read_part_relationships(pkg, sheet_info.part_name) catch {
+        _ => []
+      },
       build_cell_source_refs~,
       cell_window_bounds=None,
     ),
   )
+}
+
+///|
+fn xlsx_parse_table_definition(
+  pkg : @ox.OoxmlPackage,
+  rel : @ox.OoxmlRelationship,
+) -> XlsxSheetTable? raise @ox.OoxmlError {
+  let xml = @ox.read_part_text_transient(pkg, rel.resolved_target)
+  let tag0 = xlsx_find_sub(xml, "<table", 0)
+  let (range_ref, table_name, display_name) = match tag0 {
+    Some(start0) =>
+      match xlsx_find_sub(xml, ">", start0) {
+        Some(end1) =>
+          (
+            xlsx_get_attr_range(xml, start0, end1, "ref").unwrap_or(""),
+            xlsx_get_attr_range(xml, start0, end1, "name"),
+            xlsx_get_attr_range(xml, start0, end1, "displayName"),
+          )
+        None => ("", None, None)
+      }
+    None => ("", None, None)
+  }
+  if range_ref == "" || xlsx_parse_range_ref(range_ref) is None {
+    return None
+  }
+  let column_names : Array[String] = []
+  let mut pos = 0
+  while true {
+    let start0 = xlsx_find_sub(xml, "<tableColumn", pos)
+    match start0 {
+      None => break
+      Some(start) => {
+        let next_ch = if start + 12 < xml.length() {
+          xlsx_sheet_char_at(xml, start + 12)
+        } else {
+          '>'
+        }
+        if !xlsx_is_xml_name_boundary(next_ch) {
+          pos = start + 12
+          continue
+        }
+        match xlsx_find_sub(xml, ">", start) {
+          Some(end1) => {
+            match xlsx_get_attr_range(xml, start, end1, "name") {
+              Some(name) => column_names.push(xlsx_xml_unescape(name))
+              None => ()
+            }
+            pos = end1 + 1
+          }
+          None => break
+        }
+      }
+    }
+  }
+  Some({
+    table_name,
+    display_name,
+    range_ref,
+    part_name: rel.resolved_target,
+    relationship_id: rel.id,
+    column_names,
+  })
 }
 
 ///|

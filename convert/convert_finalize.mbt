@@ -130,6 +130,14 @@ fn finalize_pipeline_convert_execution(
     convert_mode_name(options.mode),
   )
   pipeline_diagnostics.metrics.set(
+    "fidelity_mode",
+    fidelity_mode_name(options.fidelity_mode),
+  )
+  pipeline_diagnostics.metrics.set(
+    "output_mode",
+    output_mode_name(options.output_mode),
+  )
+  pipeline_diagnostics.metrics.set(
     "detected_format",
     @input.detected_format_name(detected_format),
   )
@@ -142,12 +150,16 @@ fn finalize_pipeline_convert_execution(
     ),
     Some(parsed.mode |> @parser.mode_name),
     Some(convert_mode_name(options.mode)),
+    fidelity_mode=Some(fidelity_mode_name(options.fidelity_mode)),
+    output_mode=Some(output_mode_name(options.output_mode)),
   )
   apply_pdf_product_option_metrics(final_diagnostics, detected_format, options)
   final_diagnostics.pass_trace.push("render:" + renderer.name)
   let render_input = ir_input_to_render_input(pipeline_result)
   let render_context = @render.make_render_context(
-    @product.debug_mode(product_options.mode),
+    @product.debug_output_mode(product_options.output_mode),
+    fidelity_mode=product_options.fidelity_mode,
+    output_mode=product_options.output_mode,
     rag_options=options.rag_options,
     base_diagnostics=Some(final_diagnostics),
     metadata=Some(pass_context.metadata.val),
@@ -172,6 +184,8 @@ fn finalize_pipeline_convert_execution(
   let result : ConvertResult = {
     content: rendered.content,
     output_format: options.output_format,
+    fidelity_mode: options.fidelity_mode,
+    output_mode: options.output_mode,
     detected_format,
     parser_mode: parsed.mode,
     convert_mode: options.mode,
@@ -192,6 +206,8 @@ fn finalize_pipeline_convert_execution(
   let render_kind = render_input_kind_name(render_input)
   let provenance : ConvertProvenance = {
     route_plan,
+    fidelity_mode: options.fidelity_mode,
+    output_mode: options.output_mode,
     effective_parser_mode: parsed.mode,
     parse_result_kind: parse_kind,
     pipeline_output_kind: pipeline_kind,

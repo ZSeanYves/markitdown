@@ -352,6 +352,14 @@ fn xlsx_parse_document_result_from_package(
   xlsx_init_diagnostics(diagnostics, source, context)
 
   xlsx_fill_package_metrics(diagnostics, pkg)
+  diagnostics.metrics.set(
+    "fidelity_mode",
+    @product.fidelity_mode_name(context.fidelity_mode),
+  )
+  diagnostics.metrics.set(
+    "output_mode",
+    @product.output_mode_name(context.output_mode),
+  )
   let requested_blocks = context.requested_mode ==
     Some(@parser.ParserMode::BlockStreaming)
   if requested_blocks {

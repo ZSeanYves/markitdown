@@ -40,7 +40,7 @@ pub fn diagnostics_add_warning(Diagnostics, String) -> Diagnostics
 
 pub fn diagnostics_with_input(Diagnostics, String?, String?) -> Diagnostics
 
-pub fn diagnostics_with_mode(Diagnostics, String?, String?) -> Diagnostics
+pub fn diagnostics_with_mode(Diagnostics, String?, String?, fidelity_mode? : String?, output_mode? : String?) -> Diagnostics
 
 pub fn diagnostics_with_parser(Diagnostics, String?, String?) -> Diagnostics
 
@@ -264,6 +264,8 @@ pub(all) struct Diagnostics {
   parser_name : String?
   parser_mode : String?
   convert_mode : String?
+  fidelity_mode : String?
+  output_mode : String?
   input_kind : String?
   detected_format : String?
   warnings : Array[String]

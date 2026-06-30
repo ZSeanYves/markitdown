@@ -158,7 +158,11 @@ fn convert_input_with_image_ocr_provider_and_provenance(
   let parse_context = @parser.parse_context_with_limits(
     parse_context_with_product_pdf_modes(
       @parser.parse_context_with_ocr_options(
-        @parser.new_parse_context(detected.format),
+        @parser.parse_context_with_product_modes(
+          @parser.new_parse_context(detected.format),
+          options.fidelity_mode,
+          options.output_mode,
+        ),
         options.ocr_options,
       ),
       detected.format,
@@ -169,7 +173,7 @@ fn convert_input_with_image_ocr_provider_and_provenance(
     Some(options.limits.max_cols),
     Some(options.limits.max_cells),
     Some(options.limits.max_line_chars),
-    options.mode == ConvertMode::Debug,
+    options.output_mode == OutputMode::Debug,
   )
   let parsed = if detected.format == @input.DetectedFormat::Pdf &&
     requested_mode == Some(@parser.ParserMode::LayoutTwoStage) {
@@ -268,7 +272,7 @@ pub async fn convert_input_with_image_ocr_provider_async(
   }
   if detected.format == @input.DetectedFormat::Pdf &&
     (
-      options.mode == ConvertMode::Accurate ||
+      options.fidelity_mode == FidelityMode::Accurate ||
       options.ocr_options.intent == @parser.OcrIntent::Explicit
     ) {
     match
@@ -386,6 +390,8 @@ pub fn route_plan_to_json(route_plan : RoutePlan) -> Json {
 pub fn convert_provenance_to_json(provenance : ConvertProvenance) -> Json {
   Json::object({
     "route_plan": route_plan_to_json(provenance.route_plan),
+    "fidelity_mode": fidelity_mode_name(provenance.fidelity_mode).to_json(),
+    "output_mode": output_mode_name(provenance.output_mode).to_json(),
     "effective_parser_mode": @parser.mode_name(provenance.effective_parser_mode).to_json(),
     "parse_result_kind": provenance.parse_result_kind.to_json(),
     "pipeline_output_kind": provenance.pipeline_output_kind.to_json(),

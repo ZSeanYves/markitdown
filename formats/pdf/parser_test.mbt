@@ -580,6 +580,26 @@ fn sample_pdf_ocr_context() -> @parser.ParseContext {
 }
 
 ///|
+fn sample_pdf_accurate_ocr_context() -> @parser.ParseContext {
+  @parser.parse_context_with_limits(
+    @parser.parse_context_with_product_modes(
+      @parser.parse_context_with_ocr_options(
+        @parser.new_parse_context(@input.DetectedFormat::Pdf),
+        @parser.default_ocr_options(),
+      ),
+      @product.FidelityMode::Accurate,
+      @product.OutputMode::Markdown,
+    ),
+    Some(@parser.ParserMode::LayoutTwoStage),
+    None,
+    None,
+    None,
+    None,
+    false,
+  )
+}
+
+///|
 test "pdf OCR route converts a scanned single-page sample through the real raster path" {
   let source = @input.input_from_path_with_format(
     "samples/main_process/pdf/ocr/pdf_ocr_single_page.pdf",
@@ -646,6 +666,28 @@ test "pdf OCR route aggregates multi-page scanned samples without native-text fa
     !document.diagnostics.degraded_features.contains(
       "pdf_ocr_partial_page_failure",
     ),
+  )
+}
+
+///|
+test "pdf OCR parser accepts accurate fidelity as the formal product entry" {
+  let source = @input.input_from_path_with_format(
+    "samples/main_process/pdf/ocr/pdf_ocr_single_page.pdf",
+    Some(@input.DetectedFormat::Pdf),
+  )
+  let parsed = match
+    pdf_ocr_parser_result(source, sample_pdf_accurate_ocr_context()) {
+    Ok(value) => value
+    Err(err) => fail("expected accurate pdf OCR parser success: " + err)
+  }
+  assert_true(parsed.mode == @parser.ParserMode::LayoutTwoStage)
+  let document = parsed.document.unwrap_or(@core.empty_document_ir())
+  assert_eq(document.blocks.length(), 2)
+  assert_eq(document.blocks[0].text, "MoonBit OCR")
+  assert_eq(document.blocks[1].text, "Sample 123")
+  assert_true(document.diagnostics.metrics.get("pdf_ocr_used") == Some("true"))
+  assert_true(
+    document.diagnostics.metrics.get("pdf_raster_backend") == Some("pdftoppm"),
   )
 }
 

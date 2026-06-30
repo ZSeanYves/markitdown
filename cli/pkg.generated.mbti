@@ -6,11 +6,12 @@ import {
   "ZSeanYves/markitdown/formats/ocr",
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/product",
   "ZSeanYves/markitdown/rag",
 }
 
 // Values
-pub fn make_cli_options(String, String?, String?, @input.DetectedFormat?, @parser.OcrOptions, @convert.ConvertMode, @convert.OutputFormat, pdf_cleanup_mode? : @convert.PdfCleanupMode, pdf_table_mode? : @convert.PdfTableMode, rag_options? : @rag.RagOptions) -> CliOptions
+pub fn make_cli_options(String, String?, String?, @input.DetectedFormat?, @parser.OcrOptions, @product.FidelityMode, @convert.ConvertMode, @product.OutputMode, @convert.OutputFormat, pdf_cleanup_mode? : @convert.PdfCleanupMode, pdf_table_mode? : @convert.PdfTableMode, rag_options? : @rag.RagOptions) -> CliOptions
 
 pub fn run_cli(CliOptions) -> Result[String, String]
 
@@ -31,7 +32,9 @@ pub struct CliOptions {
   provenance_output : String?
   explicit_format : @input.DetectedFormat?
   ocr_options : @parser.OcrOptions
+  fidelity_mode : @product.FidelityMode
   convert_mode : @convert.ConvertMode
+  output_mode : @product.OutputMode
   output_format : @convert.OutputFormat
   pdf_cleanup_mode : @convert.PdfCleanupMode
   pdf_table_mode : @convert.PdfTableMode

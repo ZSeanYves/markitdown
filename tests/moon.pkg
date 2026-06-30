@@ -18,6 +18,7 @@ import {
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
   "ZSeanYves/markitdown/pipeline",
+  "ZSeanYves/markitdown/product",
   "ZSeanYves/markitdown/rag",
   "ZSeanYves/markitdown/render",
   "ZSeanYves/markitdown/runtime",

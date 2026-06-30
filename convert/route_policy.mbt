@@ -89,7 +89,7 @@ fn canonical_route_for_format(
     @input.DetectedFormat::Xlsx => CanonicalRoute::PackageSinglePass
     @input.DetectedFormat::Epub => CanonicalRoute::PackageSinglePass
     @input.DetectedFormat::Pdf =>
-      if options.mode == ConvertMode::Accurate ||
+      if options.fidelity_mode == FidelityMode::Accurate ||
         options.ocr_options.intent == @parser.OcrIntent::Explicit {
         CanonicalRoute::LayoutTwoStage
       } else {
@@ -128,7 +128,7 @@ fn route_reason_for_format(
       return "pdf_explicit_ocr_layout_two_stage"
     }
     if route == CanonicalRoute::LayoutTwoStage &&
-      options.mode == ConvertMode::Accurate {
+      options.fidelity_mode == FidelityMode::Accurate {
       return "pdf_accurate_layout_two_stage"
     }
     if route == CanonicalRoute::PageSinglePass {

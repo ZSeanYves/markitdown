@@ -4,18 +4,18 @@
 
 Plan
 
-Scale
-
 Starter tier
+
+Scale
 
 Team rollout
 
 Observe
 
-Optimize
-
-beta
-
 Track quality
 
+Optimize
+
 Tune latency
+
+beta

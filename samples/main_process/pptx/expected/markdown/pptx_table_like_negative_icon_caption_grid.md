@@ -6,6 +6,6 @@ Fast setup
 
 Secure by default
 
-Easy export
-
 Team sharing
+
+Easy export

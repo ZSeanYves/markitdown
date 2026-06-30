@@ -4,6 +4,7 @@ package "ZSeanYves/markitdown/parser"
 import {
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/product",
 }
 
 // Values
@@ -42,6 +43,8 @@ pub fn parse_context_with_pdf_header_footer_filter_policy(ParseContext, PdfHeade
 pub fn parse_context_with_pdf_native_runtime_policy(ParseContext, PdfNativeRuntimePolicy) -> ParseContext
 
 pub fn parse_context_with_pdf_table_reconstruction_policy(ParseContext, PdfTableReconstructionPolicy) -> ParseContext
+
+pub fn parse_context_with_product_modes(ParseContext, @product.FidelityMode, @product.OutputMode) -> ParseContext
 
 pub fn parse_result_with_blocks(String, ParserMode, Array[@core.CoreBlock], @core.Diagnostics) -> ParseResult
 
@@ -88,6 +91,8 @@ pub struct OcrOptions {
 pub struct ParseContext {
   detected_format : @input.DetectedFormat
   requested_mode : ParserMode?
+  fidelity_mode : @product.FidelityMode
+  output_mode : @product.OutputMode
   ocr_options : OcrOptions
   pdf_native_runtime_policy : PdfNativeRuntimePolicy
   pdf_header_footer_filter_policy : PdfHeaderFooterFilterPolicy

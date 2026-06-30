@@ -502,7 +502,80 @@ test "pptx M11 graphic frames produce typed refs and warnings" {
     }
   }
   assert_true(saw_missing_rel_warning)
-  assert_true(unsupported_warnings >= 4)
+  assert_true(unsupported_warnings >= 3)
+}
+
+///|
+fn chart_external_data_warning_pkg(
+  chart_xml : String,
+) -> @ox.OoxmlPackage raise {
+  build_store_zip([
+    (
+      "[Content_Types].xml",
+      content_types(
+        "<Override PartName=\"/ppt/charts/chart1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.drawingml.chart+xml\"/>",
+      ),
+    ),
+    (
+      "_rels/.rels",
+      rels(
+        "<Relationship Id=\"rIdMain\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"ppt/presentation.xml\"/>",
+      ),
+    ),
+    (
+      "ppt/presentation.xml", "<p:presentation xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:sldIdLst><p:sldId id=\"256\" r:id=\"rId1\"/></p:sldIdLst></p:presentation>",
+    ),
+    (
+      "ppt/_rels/presentation.xml.rels",
+      rels(
+        "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide\" Target=\"slides/slide1.xml\"/>",
+      ),
+    ),
+    (
+      "ppt/slides/slide1.xml", "<p:sld xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:c=\"http://schemas.openxmlformats.org/drawingml/2006/chart\" xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id=\"1\" name=\"\"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/><p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id=\"2\" name=\"Chart\"/></p:nvGraphicFramePr><a:graphic><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/chart\"><c:chart r:id=\"rIdChart\"/></a:graphicData></a:graphic></p:graphicFrame></p:spTree></p:cSld></p:sld>",
+    ),
+    (
+      "ppt/slides/_rels/slide1.xml.rels",
+      rels(
+        "<Relationship Id=\"rIdChart\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart\" Target=\"../charts/chart1.xml\"/>",
+      ),
+    ),
+    ("ppt/charts/chart1.xml", chart_xml),
+  ])
+  |> @ox.open_ooxml_package
+}
+
+///|
+test "pptx chart externalData warning only remains when cache is not renderable" {
+  let cache_ok_xml = "<c:chartSpace xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:c=\"http://schemas.openxmlformats.org/drawingml/2006/chart\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    "<c:chart><c:plotArea><c:barChart><c:ser><c:tx><c:strRef><c:strCache><c:pt idx=\"0\"><c:v>Series A</c:v></c:pt></c:strCache></c:strRef></c:tx>" +
+    "<c:cat><c:strRef><c:strCache><c:pt idx=\"0\"><c:v>Q1</c:v></c:pt></c:strCache></c:strRef></c:cat>" +
+    "<c:val><c:numRef><c:numCache><c:pt idx=\"0\"><c:v>42</c:v></c:pt></c:numCache></c:numRef></c:val>" +
+    "</c:ser></c:barChart></c:plotArea><c:externalData r:id=\"rIdWorkbook\"/></c:chart></c:chartSpace>"
+  let cache_missing_xml = "<c:chartSpace xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:c=\"http://schemas.openxmlformats.org/drawingml/2006/chart\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    "<c:chart><c:plotArea><c:barChart/></c:plotArea><c:externalData r:id=\"rIdWorkbook\"/></c:chart></c:chartSpace>"
+
+  let cache_ok = @pptx.parse_pptx_document_from_package(
+    chart_external_data_warning_pkg(cache_ok_xml),
+  )
+  let cache_missing = @pptx.parse_pptx_document_from_package(
+    chart_external_data_warning_pkg(cache_missing_xml),
+  )
+
+  let mut cache_ok_warning = false
+  for warning in cache_ok.warnings {
+    if warning.message.contains("unsupported chart external workbook data") {
+      cache_ok_warning = true
+    }
+  }
+  let mut cache_missing_warning = false
+  for warning in cache_missing.warnings {
+    if warning.message.contains("unsupported chart external workbook data") {
+      cache_missing_warning = true
+    }
+  }
+  assert_true(!cache_ok_warning)
+  assert_true(cache_missing_warning)
 }
 
 ///|
@@ -877,6 +950,38 @@ fn table_frame_xml(row_xml : String) -> String {
 }
 
 ///|
+fn table_hyperlink_pkg() -> @ox.OoxmlPackage raise {
+  build_store_zip([
+    ("[Content_Types].xml", content_types("")),
+    (
+      "_rels/.rels",
+      rels(
+        "<Relationship Id=\"rIdMain\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"ppt/presentation.xml\"/>",
+      ),
+    ),
+    (
+      "ppt/presentation.xml", "<p:presentation xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:sldIdLst><p:sldId id=\"256\" r:id=\"rId1\"/></p:sldIdLst></p:presentation>",
+    ),
+    (
+      "ppt/_rels/presentation.xml.rels",
+      rels(
+        "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide\" Target=\"slides/slide1.xml\"/>",
+      ),
+    ),
+    (
+      "ppt/slides/slide1.xml", "<p:sld xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id=\"1\" name=\"\"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/><p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id=\"5\" name=\"Table\"/></p:nvGraphicFramePr><a:graphic><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/table\"><a:tbl><a:tr><a:tc><a:txBody><a:p><a:r><a:rPr><a:hlinkClick r:id=\"rIdLink\"/></a:rPr><a:t>Spec</a:t></a:r></a:p></a:txBody><a:tcPr/></a:tc></a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame></p:spTree></p:cSld></p:sld>",
+    ),
+    (
+      "ppt/slides/_rels/slide1.xml.rels",
+      rels(
+        "<Relationship Id=\"rIdLink\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink\" Target=\"https://example.com/spec\" TargetMode=\"External\"/>",
+      ),
+    ),
+  ])
+  |> @ox.open_ooxml_package
+}
+
+///|
 test "pptx A image caption pairs preserve image metadata" {
   let slide = simple_slide(
     picture_shape(
@@ -1028,6 +1133,57 @@ test "pptx parser bounds table row and output cell span expansion" {
     }
   }
   assert_true(saw_budget_warning)
+}
+
+///|
+test "pptx parser preserves table merge spans and continuation hints" {
+  let table_xml = "<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id=\"5\" name=\"Table\"/></p:nvGraphicFramePr><a:graphic><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/table\"><a:tbl><a:tr><a:tc rowSpan=\"2\" gridSpan=\"2\"><a:txBody><a:p><a:r><a:t>Merged</a:t></a:r></a:p></a:txBody></a:tc><a:tc rowSpan=\"2\" hMerge=\"1\"><a:txBody><a:p/></a:txBody></a:tc><a:tc><a:txBody><a:p><a:r><a:t>Tail</a:t></a:r></a:p></a:txBody></a:tc></a:tr><a:tr><a:tc gridSpan=\"2\" vMerge=\"1\"><a:txBody><a:p/></a:txBody></a:tc><a:tc hMerge=\"1\" vMerge=\"1\"><a:txBody><a:p/></a:txBody></a:tc><a:tc><a:txBody><a:p><a:r><a:t>Tail 2</a:t></a:r></a:p></a:txBody></a:tc></a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame>"
+  let doc = @pptx.parse_pptx_document_from_package(
+    one_slide_pkg(simple_slide(table_xml), "", "", []),
+  )
+  let mut saw_table = false
+  for obj in doc.slides[0].objects {
+    match obj {
+      @pptx.PptxObject::Table(table) => {
+        saw_table = true
+        let top_left = table.rows[0].cells[0]
+        assert_true(top_left.grid_span == Some(2))
+        assert_true(top_left.row_span == Some(2))
+        assert_true(top_left.merge_hint == None)
+        let top_continuation = table.rows[0].cells[1]
+        assert_true(top_continuation.row_span == Some(2))
+        assert_true(top_continuation.merge_hint == Some("hMerge"))
+        let lower_continuation = table.rows[1].cells[0]
+        assert_true(lower_continuation.grid_span == Some(2))
+        assert_true(lower_continuation.merge_hint == Some("vMerge"))
+      }
+      _ => ()
+    }
+  }
+  assert_true(saw_table)
+}
+
+///|
+test "pptx parser keeps hyperlink facts inside table cells" {
+  let doc = @pptx.parse_pptx_document_from_package(table_hyperlink_pkg())
+  let mut saw_table = false
+  for obj in doc.slides[0].objects {
+    match obj {
+      @pptx.PptxObject::Table(table) => {
+        saw_table = true
+        let para = table.rows[0].cells[0].paragraphs[0]
+        match para.runs[0].inlines[0] {
+          @pptx.PptxInline::Hyperlink(link, text) => {
+            assert_true(text == "Spec")
+            assert_true(link.target == Some("https://example.com/spec"))
+          }
+          _ => fail("expected hyperlink inline inside pptx table cell")
+        }
+      }
+      _ => ()
+    }
+  }
+  assert_true(saw_table)
 }
 
 ///|

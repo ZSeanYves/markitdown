@@ -76,6 +76,7 @@ PPTX_HIDDEN_JSON="$OUT_DIR/pptx_hidden_slide_basic.json"
 PPTX_NOTES_OUT="$OUT_DIR/pptx_speaker_notes_basic.md"
 PDF_ERR="$OUT_DIR/pdf.err.txt"
 OCR_ERR="$OUT_DIR/ocr.err.txt"
+OCR_NO_OCR_ERR="$OUT_DIR/ocr.no_ocr.err.txt"
 FORMATS_PKG="$ROOT/formats/moon.pkg"
 REGISTRY_IMPL="$ROOT/formats/registry.mbt"
 REGISTRY_IMPL="$ROOT/formats/registry.mbt"
@@ -176,7 +177,7 @@ assert_contains "$PPTX_IMAGE_JSON" '"path": "assets/image01.png"'
 assert_contains "$PPTX_IMAGE_JSON" '"source_path": "ppt/media/image1.png"'
 assert_contains "$PPTX_IMAGE_JSON" '"zip_container_format": "pptx"'
 
-echo "==> pdf stays available while direct image OCR is still routed independently"
+echo "==> pdf stays available while direct image OCR remains a separate formal product path"
 run_markitdown_cli normal "$ROOT/samples/main_process/pdf/markdown/root_native_text_baseline.pdf" "$OUT_DIR/pdf_text_simple.md"
 assert_matches_expected "$ROOT/samples/main_process/pdf/expected/markdown/root_native_text_baseline.md" "$OUT_DIR/pdf_text_simple.md"
 run_and_capture "$PDF_ERR" run_markitdown_cli --ocr --ocr-lang eng "$ROOT/samples/main_process/pdf/markdown/root_native_text_baseline.pdf"
@@ -186,9 +187,12 @@ else
   assert_contains "$PDF_ERR" 'pdftoppm'
 fi
 run_and_capture "$OCR_ERR" run_markitdown_cli normal "$ROOT/samples/fixtures/ocr/tiny_ocr_sample.png"
-[[ "$CAPTURED_STATUS" -ne 0 ]] || fail "ocr/image should fail closed"
-assert_contains "$OCR_ERR" 'unsupported format'
-assert_contains "$OCR_ERR" 'png'
-assert_contains "$OCR_ERR" 'this build'
+[[ "$CAPTURED_STATUS" -eq 0 ]] || fail "direct image OCR should succeed through the main cli"
+assert_contains "$OCR_ERR" 'MoonBit OCR'
+assert_contains "$OCR_ERR" 'Sample 123'
+run_and_capture "$OCR_NO_OCR_ERR" run_markitdown_cli --no-ocr "$ROOT/samples/fixtures/ocr/tiny_ocr_sample.png"
+[[ "$CAPTURED_STATUS" -ne 0 ]] || fail "direct image OCR should fail closed when --no-ocr is explicit"
+assert_contains "$OCR_NO_OCR_ERR" 'image input conversion is not enabled'
+assert_contains "$OCR_NO_OCR_ERR" 'OCR is disabled'
 
 echo "PPTX CONTRACT PASSED"

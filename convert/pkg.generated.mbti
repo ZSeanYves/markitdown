@@ -6,6 +6,7 @@ import {
   "ZSeanYves/markitdown/formats/ocr",
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/product",
   "ZSeanYves/markitdown/rag",
 }
 
@@ -32,15 +33,27 @@ pub fn default_pdf_table_mode() -> PdfTableMode
 
 pub fn default_resource_limits() -> ResourceLimits
 
+pub fn derived_convert_mode(@product.FidelityMode, @product.OutputMode) -> ConvertMode
+
+pub fn fidelity_mode_for_convert_mode(ConvertMode) -> @product.FidelityMode
+
+pub fn fidelity_mode_name(@product.FidelityMode) -> String
+
 pub fn make_convert_execution(ConvertResult, ConvertProvenance) -> ConvertExecution
 
-pub fn make_convert_options(ConvertMode, OutputFormat, @input.DetectedFormat?, @parser.OcrOptions, ResourceLimits, pdf_cleanup_mode? : PdfCleanupMode, pdf_table_mode? : PdfTableMode, rag_options? : @rag.RagOptions) -> ConvertOptions
+pub fn make_convert_options(ConvertMode, OutputFormat, @input.DetectedFormat?, @parser.OcrOptions, ResourceLimits, fidelity_mode? : @product.FidelityMode, output_mode? : @product.OutputMode, pdf_cleanup_mode? : PdfCleanupMode, pdf_table_mode? : PdfTableMode, rag_options? : @rag.RagOptions) -> ConvertOptions
 
-pub fn make_convert_provenance(RoutePlan, @parser.ParserMode, String, String, String, String) -> ConvertProvenance
+pub fn make_convert_provenance(RoutePlan, @product.FidelityMode, @product.OutputMode, @parser.ParserMode, String, String, String, String) -> ConvertProvenance
 
 pub fn make_resource_limits(Int, Int, Int, max_line_chars? : Int) -> ResourceLimits
 
 pub fn make_route_plan(@input.DetectedFormat, String, String, String, @parser.ParserMode?) -> RoutePlan
+
+pub fn output_mode_for_convert_mode(ConvertMode) -> @product.OutputMode
+
+pub fn output_mode_for_output_format(OutputFormat) -> @product.OutputMode
+
+pub fn output_mode_name(@product.OutputMode) -> String
 
 pub fn pdf_cleanup_mode_name(PdfCleanupMode) -> String
 
@@ -76,6 +89,8 @@ pub(all) enum ConvertMode {
 
 pub struct ConvertOptions {
   mode : ConvertMode
+  fidelity_mode : @product.FidelityMode
+  output_mode : @product.OutputMode
   output_format : OutputFormat
   explicit_format : @input.DetectedFormat?
   ocr_options : @parser.OcrOptions
@@ -87,6 +102,8 @@ pub struct ConvertOptions {
 
 pub struct ConvertProvenance {
   route_plan : RoutePlan
+  fidelity_mode : @product.FidelityMode
+  output_mode : @product.OutputMode
   effective_parser_mode : @parser.ParserMode
   parse_result_kind : String
   pipeline_output_kind : String
@@ -97,6 +114,8 @@ pub struct ConvertProvenance {
 pub struct ConvertResult {
   content : String
   output_format : OutputFormat
+  fidelity_mode : @product.FidelityMode
+  output_mode : @product.OutputMode
   detected_format : @input.DetectedFormat
   parser_mode : @parser.ParserMode
   convert_mode : ConvertMode
@@ -141,6 +160,9 @@ pub struct RoutePlan {
 }
 
 // Type aliases
+pub using @product {type FidelityMode}
+
+pub using @product {type OutputMode}
 
 // Traits
 

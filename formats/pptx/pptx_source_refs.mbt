@@ -61,8 +61,11 @@ fn pptx_append_document_warnings(
     source_ref=@core.empty_source_ref(),
   )
   heading.attrs.set("level", "2")
-  blocks.push(heading)
+  let warning_blocks : Array[@core.CoreBlock] = []
   for warning in state.presentation.warnings {
+    if pptx_warning_already_represented_in_markdown(state, warning) {
+      continue
+    }
     let source_ref = match warning.source_span {
       Some(span) =>
         @core.source_ref_with_extra(
@@ -79,8 +82,31 @@ fn pptx_append_document_warnings(
     )
     block.attrs.set("ordered", "false")
     block.attrs.set("level", "0")
+    warning_blocks.push(block)
+  }
+  if warning_blocks.length() == 0 {
+    return
+  }
+  blocks.push(heading)
+  for block in warning_blocks {
     blocks.push(block)
   }
+}
+
+///|
+fn pptx_warning_already_represented_in_markdown(
+  state : PptxState,
+  warning : @pptxdoc.PptxWarning,
+) -> Bool {
+  if state.fidelity_mode != @product.FidelityMode::Accurate {
+    return false
+  }
+  if warning.kind != @pptxdoc.PptxWarningKind::UnsupportedObject {
+    return false
+  }
+  let message = warning.message
+  message.has_prefix("unsupported graphic frame:") ||
+  message.has_prefix("unsupported slide object:")
 }
 
 ///|
@@ -165,6 +191,7 @@ fn pptx_shape_source_ref(
   slide : @pptxdoc.PptxSlide,
   shape : @pptxdoc.PptxShape,
   source_key : @pptxdoc.PptxSourceKey?,
+  include_reading_order_hint : Bool,
 ) -> @core.SourceRef {
   let base = pptx_slide_source_ref(source, slide, source_key, shape.shape_id)
   let base = match shape.name {
@@ -183,6 +210,9 @@ fn pptx_shape_source_ref(
   let base = match pptx_placeholder_index(shape) {
     Some(index) => @core.source_ref_with_extra(base, "placeholder_idx", index)
     None => base
+  }
+  if !include_reading_order_hint {
+    return base
   }
   match shape.reading_order {
     Some(order) =>
@@ -235,6 +265,7 @@ fn pptx_picture_source_ref(
   source : @input.InputSource,
   slide : @pptxdoc.PptxSlide,
   pic : @pptxdoc.PptxPicture,
+  include_reading_order_hint : Bool,
 ) -> @core.SourceRef {
   let base = pptx_slide_source_ref(
     source,
@@ -247,7 +278,43 @@ fn pptx_picture_source_ref(
     None => base
   }
   let base = @core.source_ref_with_extra(base, "shape_type", "picture")
+  if !include_reading_order_hint {
+    return base
+  }
   match pic.reading_order {
+    Some(order) =>
+      @core.source_ref_with_extra(base, "reading_order_key", order.order_key)
+    None => base
+  }
+}
+
+///|
+fn pptx_group_source_ref(
+  source : @input.InputSource,
+  slide : @pptxdoc.PptxSlide,
+  group : @pptxdoc.PptxGroupShape,
+  include_reading_order_hint : Bool,
+) -> @core.SourceRef {
+  let base = pptx_slide_source_ref(
+    source,
+    slide,
+    Some(group.source_key),
+    group.shape_id,
+  )
+  let base = match group.name {
+    Some(name) => @core.source_ref_with_extra(base, "shape_name", name)
+    None => base
+  }
+  let base = @core.source_ref_with_extra(base, "shape_type", "group")
+  let base = @core.source_ref_with_extra(
+    base,
+    "group_child_count",
+    group.children.length().to_string(),
+  )
+  if !include_reading_order_hint {
+    return base
+  }
+  match group.reading_order {
     Some(order) =>
       @core.source_ref_with_extra(base, "reading_order_key", order.order_key)
     None => base
@@ -259,12 +326,16 @@ fn pptx_table_source_ref(
   source : @input.InputSource,
   slide : @pptxdoc.PptxSlide,
   table : @pptxdoc.PptxTable,
+  include_reading_order_hint : Bool,
 ) -> @core.SourceRef {
   let base = @core.source_ref_with_extra(
     pptx_slide_source_ref(source, slide, Some(table.source_key), None),
     "shape_type",
     "table",
   )
+  if !include_reading_order_hint {
+    return base
+  }
   match pptx_slide_reading_order_key(slide, table.source_key) {
     Some(order_key) =>
       @core.source_ref_with_extra(base, "reading_order_key", order_key)
@@ -324,16 +395,20 @@ fn pptx_raw_placeholder_block(
   raw_kind : String,
 ) -> @core.CoreBlock {
   let source_ref0 = pptx_slide_source_ref(state.source, slide, source_key, None)
-  let source_ref0 = match source_key {
-    Some(key) =>
-      match pptx_slide_reading_order_key(slide, key) {
-        Some(order_key) =>
-          @core.source_ref_with_extra(
-            source_ref0, "reading_order_key", order_key,
-          )
-        None => source_ref0
-      }
-    None => source_ref0
+  let source_ref0 = if pptx_include_block_reading_order_hint(state) {
+    match source_key {
+      Some(key) =>
+        match pptx_slide_reading_order_key(slide, key) {
+          Some(order_key) =>
+            @core.source_ref_with_extra(
+              source_ref0, "reading_order_key", order_key,
+            )
+          None => source_ref0
+        }
+      None => source_ref0
+    }
+  } else {
+    source_ref0
   }
   let source_ref = match relationship_id {
     Some(rid) =>
@@ -351,6 +426,11 @@ fn pptx_opt_suffix(value : String?) -> String {
     Some(text) => ": " + text
     None => ""
   }
+}
+
+///|
+fn pptx_include_block_reading_order_hint(state : PptxState) -> Bool {
+  state.fidelity_mode == @product.FidelityMode::Accurate
 }
 
 ///|

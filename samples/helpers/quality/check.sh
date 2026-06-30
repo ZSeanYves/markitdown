@@ -33,10 +33,6 @@ FILTER_ID=""
 FILTER_SOURCE=""
 FILTER_FORMAT=""
 LIST_ONLY=0
-METADATA_MODE="auto"
-METADATA_ENABLED=0
-METADATA_STATUS="unresolved"
-METADATA_NOTE=""
 PROFILE_ENABLED=0
 PROFILE_TSV="$OUT_ROOT/profile.tsv"
 CORPUS_ROOT_OVERRIDE=""
@@ -62,8 +58,6 @@ usage: ./samples/helpers/quality/check.sh [internal/debug args]
 
 Internal/debug options:
   --list          list manifest rows after filters, without running conversion
-  --no-metadata   force conversion without metadata sidecars
-  --with-metadata force conversion with --with-metadata and fail if unsupported
   --profile       write per-row timing diagnostics to a run-local profile.tsv
   --cli-arg ARG   append one extra CLI arg to every conversion command
 
@@ -91,10 +85,6 @@ Filter semantics:
       MARKITDOWN_QUALITY_MANIFEST
       MARKITDOWN_QUALITY_LAB/external_quality/MANIFEST.tsv
       markitdown-quality-lab/external_quality/MANIFEST.tsv
-  * metadata defaults to auto: this helper probes whether the main CLI
-    supports --with-metadata and falls back to metadata-off when it does not
-  * --no-metadata forces metadata-off
-  * --with-metadata forces metadata-on and fails early if unsupported
   * --profile is diagnostic-only and does not change pass/fail semantics
 
 Notes:
@@ -159,12 +149,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     --list)
       LIST_ONLY=1
-      ;;
-    --no-metadata)
-      METADATA_MODE="off"
-      ;;
-    --with-metadata)
-      METADATA_MODE="on"
       ;;
     --cli-arg)
       [[ $# -ge 2 ]] || {
@@ -609,26 +593,6 @@ filter_summary_value() {
   fi
 }
 
-metadata_summary_value() {
-  if [[ "$METADATA_ENABLED" -ne 0 ]]; then
-    printf 'true'
-  else
-    printf 'false'
-  fi
-}
-
-metadata_mode_summary_value() {
-  printf '%s' "$METADATA_MODE"
-}
-
-metadata_status_summary_value() {
-  printf '%s' "$METADATA_STATUS"
-}
-
-metadata_note_summary_value() {
-  printf '%s' "$(filter_summary_value "$METADATA_NOTE")"
-}
-
 cli_extra_args_summary_value() {
   if [[ "${#CLI_EXTRA_ARGS[@]}" -eq 0 ]]; then
     printf '*'
@@ -657,6 +621,9 @@ quality_row_cli_flags() {
     feature="${feature%"${feature##*[![:space:]]}"}"
     [[ -z "$feature" ]] && continue
     case "$feature" in
+      accurate)
+        flags+=("--accurate")
+        ;;
       pdf_ocr)
         if [[ "$format" == "pdf" ]]; then
           flags+=("--ocr")
@@ -667,6 +634,9 @@ quality_row_cli_flags() {
         ;;
     esac
   done
+  if [[ "${#flags[@]}" -eq 0 ]]; then
+    return
+  fi
   printf '%s\n' "${flags[@]}"
 }
 
@@ -773,7 +743,8 @@ import sys
 signals = [
     part.strip()
     for part in sys.argv[1].split(";")
-    if part.strip() and not part.strip().startswith("review_note:")
+    if part.strip()
+    and not part.strip().startswith("review_note:")
 ]
 print(len(signals))
 PY
@@ -799,11 +770,6 @@ artifact_plan_abs_path_file() {
   printf '%s/abs_path.txt' "$(artifact_plan_dir "$artifact_id")"
 }
 
-artifact_plan_metadata_file() {
-  local artifact_id="$1"
-  printf '%s/metadata_enabled.txt' "$(artifact_plan_dir "$artifact_id")"
-}
-
 artifact_plan_cli_args_file() {
   local artifact_id="$1"
   printf '%s/cli_args.txt' "$(artifact_plan_dir "$artifact_id")"
@@ -817,15 +783,13 @@ artifact_plan_rowcount_file() {
 artifact_plan_register() {
   local artifact_id="$1"
   local abs_path="$2"
-  local metadata_enabled="$3"
-  local cli_args_summary="${4-}"
+  local cli_args_summary="${3-}"
   local plan_dir
   plan_dir="$(artifact_plan_dir "$artifact_id")"
   if [[ ! -d "$plan_dir" ]]; then
     mkdir -p "$plan_dir"
     printf '%s\n' "$artifact_id" >> "$ARTIFACT_IDS_FILE"
     printf '%s' "$abs_path" > "$(artifact_plan_abs_path_file "$artifact_id")"
-    printf '%s' "$metadata_enabled" > "$(artifact_plan_metadata_file "$artifact_id")"
     printf '0' > "$(artifact_plan_rowcount_file "$artifact_id")"
     : > "$(artifact_plan_rows_raw_path "$artifact_id")"
     : > "$(artifact_plan_cli_args_file "$artifact_id")"
@@ -884,64 +848,6 @@ quality_runner_label() {
       ;;
     *)
       printf 'none'
-      ;;
-  esac
-}
-
-probe_with_metadata_support() {
-  local probe_tmp_root
-  probe_tmp_root="$(validation_cli_tmp_root)"
-  local probe_dir
-  probe_dir="$(sample_make_isolated_tmp_dir "$probe_tmp_root" "quality_metadata_probe")"
-  local probe_output="$probe_dir/txt_plain.md"
-  local probe_metadata="$probe_dir/metadata/txt_plain.metadata.json"
-  local probe_input="$ROOT/samples/main_process/txt/markdown/txt_plain.txt"
-  local status=0
-
-  if ! run_markitdown_cli normal --with-metadata "$probe_input" "$probe_output" >/dev/null 2>"$probe_dir/probe.stderr"; then
-    METADATA_STATUS="unsupported_option"
-    METADATA_NOTE="this build rejects --with-metadata; external quality baseline falls back to metadata-off"
-    status=1
-  elif [[ -f "$probe_metadata" ]]; then
-    METADATA_STATUS="supported_sidecar"
-    METADATA_NOTE="this build accepts --with-metadata and emits metadata sidecars"
-  else
-    METADATA_STATUS="supported_without_sidecar"
-    METADATA_NOTE="this build accepts --with-metadata but did not emit a metadata sidecar in the probe"
-  fi
-
-  rm -rf "$probe_dir"
-  return "$status"
-}
-
-resolve_quality_metadata_mode() {
-  case "$METADATA_MODE" in
-    off)
-      METADATA_ENABLED=0
-      METADATA_STATUS="forced_off"
-      METADATA_NOTE="metadata sidecars disabled by quality runner flag"
-      return 0
-      ;;
-    on)
-      if probe_with_metadata_support; then
-        METADATA_ENABLED=1
-        return 0
-      fi
-      echo "quality metadata probe failed while --with-metadata was forced" >&2
-      echo "note: $METADATA_NOTE" >&2
-      return 1
-      ;;
-    auto)
-      if probe_with_metadata_support; then
-        METADATA_ENABLED=1
-      else
-        METADATA_ENABLED=0
-      fi
-      return 0
-      ;;
-    *)
-      echo "unknown metadata mode: $METADATA_MODE" >&2
-      return 1
       ;;
   esac
 }
@@ -1012,9 +918,6 @@ profile_signal_stage_name() {
       ;;
     link_ref)
       printf 'link_ref'
-      ;;
-    metadata_file)
-      printf 'metadata_file'
       ;;
     review_note:*)
       printf 'review_note'
@@ -1180,9 +1083,7 @@ if not ok:
 check_signal() {
   local signal="$1"
   local markdown_path="$2"
-  local metadata_path="$3"
   local output_dir="$4"
-  local normalized_text="$5"
   local literal_text="$6"
 
   case "$signal" in
@@ -1231,13 +1132,6 @@ check_signal() {
       ;;
     link_ref)
       grep -Eq '\[[^]]+\]\([^)]*\)' "$markdown_path"
-      ;;
-    metadata_file)
-      if [[ "$METADATA_ENABLED" -eq 0 ]]; then
-        [[ "$METADATA_STATUS" == "unsupported_option" || "$METADATA_MODE" == "off" ]]
-      else
-        [[ -f "$metadata_path" ]]
-      fi
       ;;
     asset_count_min:*)
       local min_count="${signal#asset_count_min:}"
@@ -1574,11 +1468,15 @@ quality_plan_row() {
   if [[ "${#combined_cli_args[@]}" -ne 0 ]]; then
     cli_extra_summary="$(printf '%s\n' "${combined_cli_args[@]}")"
   fi
-  local artifact_key="$abs_path"$'\x1f'"$(metadata_summary_value)"$'\x1f'"$cli_extra_summary"$'\x1f'"normal"
+  local cli_args_payload=""
+  if [[ "${#combined_cli_args[@]}" -ne 0 ]]; then
+    cli_args_payload="$cli_extra_summary"
+  fi
+  local artifact_key="$abs_path"$'\x1f'"$cli_extra_summary"$'\x1f'"normal"
   local artifact_id
   artifact_id="$(artifact_id_from_key "$abs_path" "$artifact_key")"
 
-  artifact_plan_register "$artifact_id" "$abs_path" "$(metadata_summary_value)" "$cli_extra_summary"
+  artifact_plan_register "$artifact_id" "$abs_path" "$cli_args_payload"
   artifact_plan_append_row "$artifact_id" "$row"
   EXECUTABLE_ROW_COUNT=$((EXECUTABLE_ROW_COUNT + 1))
   validation_progress_step "$path"
@@ -1607,19 +1505,15 @@ quality_write_artifact_rows_tsv() {
 quality_run_signal_evaluator() {
   local artifact_id="$1"
   local output_md="$2"
-  local metadata_path="$3"
-  local artifact_dir="$4"
-  local rows_tsv="$5"
-  local results_tsv="$6"
+  local artifact_dir="$3"
+  local rows_tsv="$4"
+  local results_tsv="$5"
+  local _artifact_id="$artifact_id"
 
   python3_required
   python3 "$QUALITY_SIGNAL_EVALUATOR" \
     --markdown "$output_md" \
-    --metadata "$metadata_path" \
     --artifact-dir "$artifact_dir" \
-    --metadata-enabled "$(metadata_summary_value)" \
-    --metadata-status "$METADATA_STATUS" \
-    --metadata-mode "$METADATA_MODE" \
     --rows-tsv "$rows_tsv" \
     --results-tsv "$results_tsv"
 }
@@ -1719,9 +1613,6 @@ quality_execute_artifact_group() {
   local cli_stdout="$artifact_dir/convert.stdout.log"
   local cli_stderr="$artifact_dir/convert.stderr.log"
   local cli_args=("normal")
-  if [[ "$METADATA_ENABLED" -ne 0 ]]; then
-    cli_args+=("--with-metadata")
-  fi
   while IFS= read -r cli_arg; do
     [[ -z "$cli_arg" ]] && continue
     cli_args+=("$cli_arg")
@@ -1764,14 +1655,13 @@ quality_execute_artifact_group() {
     return
   fi
   if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
-    profile_record "$artifact_row_id" "convert" "$(( $(profile_now_ms) - stage_start_ms ))" "metadata=$(metadata_summary_value)"
+    profile_record "$artifact_row_id" "convert" "$(( $(profile_now_ms) - stage_start_ms ))" "ok"
   fi
 
-  local metadata_path="$artifact_dir/metadata/result.metadata.json"
   local rows_tsv="$artifact_dir/rows.tsv"
   local results_tsv="$artifact_dir/results.tsv"
   quality_write_artifact_rows_tsv "$artifact_id" "$rows_tsv"
-  quality_run_signal_evaluator "$artifact_id" "$output_md" "$metadata_path" "$artifact_dir" "$rows_tsv" "$results_tsv"
+  quality_run_signal_evaluator "$artifact_id" "$output_md" "$artifact_dir" "$rows_tsv" "$results_tsv"
   quality_process_eval_results "$artifact_id" "$abs_path" "$output_md" "$cli_stdout" "$cli_stderr" "$results_tsv"
 }
 
@@ -1793,10 +1683,6 @@ write_summary() {
   {
     printf 'id\tformat\tscope\tquality_tier\tstatus\tpassed_signals\ttotal_signals\tnotes\n'
     printf 'PROFILE_ENABLED\t-\t-\t-\t-\t0\t0\t%s\n' "$(profile_enabled_summary_value)"
-    printf 'METADATA_MODE\t-\t-\t-\t-\t0\t0\t%s\n' "$(metadata_mode_summary_value)"
-    printf 'METADATA_ENABLED\t-\t-\t-\t-\t0\t0\t%s\n' "$(metadata_summary_value)"
-    printf 'METADATA_STATUS\t-\t-\t-\t-\t0\t0\t%s\n' "$(metadata_status_summary_value)"
-    printf 'METADATA_NOTE\t-\t-\t-\t-\t0\t0\t%s\n' "$(metadata_note_summary_value)"
     printf 'CORPUS_ROOT\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$CORPUS_ROOT")"
     printf 'CORPUS_ROOT_SOURCE\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$CORPUS_ROOT_SOURCE")"
     printf 'QUALITY_ROWS_MANIFEST\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$QUALITY_ROWS_MANIFEST")"
@@ -1836,10 +1722,6 @@ write_summary() {
       echo "Profile path: $PROFILE_TSV"
     fi
     echo
-    echo "Metadata mode: $(metadata_mode_summary_value)"
-    echo "Metadata: $(if [[ "$METADATA_ENABLED" -ne 0 ]]; then printf 'enabled'; else printf 'disabled'; fi)"
-    echo "Metadata status: $(metadata_status_summary_value)"
-    echo "Metadata note: $(metadata_note_summary_value)"
     echo "Signal evaluator: $(signal_eval_runner_summary_value)"
     echo "CLI extra args: $(cli_extra_args_summary_value)"
     echo
@@ -1970,15 +1852,9 @@ fi
 
 profile_init
 resolve_markitdown_cli
-resolve_quality_metadata_mode
 echo "runner: $(quality_runner_label)"
 if [[ -n "${CLI_RUNNER_NOTE:-}" ]]; then
   echo "runner-note: $CLI_RUNNER_NOTE"
-fi
-echo "metadata-mode: $(metadata_mode_summary_value)"
-echo "metadata-status: $(metadata_status_summary_value)"
-if [[ -n "$METADATA_NOTE" ]]; then
-  echo "metadata-note: $METADATA_NOTE"
 fi
 if [[ "${#CLI_EXTRA_ARGS[@]}" -ne 0 ]]; then
   echo "cli-extra-args: $(cli_extra_args_summary_value)"

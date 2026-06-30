@@ -17,23 +17,37 @@
 
 ### Validation baseline
 
-* `moon test`: `1579 passed`
-* `./samples/check.sh`: 9 stages passed, including `444` markdown / `85`
-  metadata / `90` assets / `0` failures
+* `moon test`: `591 passed`
+* `./samples/check.sh`: root sample regression passed with `460` checked / `0`
+  skipped / `0` failed
 * public-only quality: `24 rows / 0 skipped / 0 expected_fail`
 * full quality remains external-corpus scoped and depends on the checked-out
   `markitdown-quality-lab` manifest
-* focused PDF quality: `79 rows / 0 failed / 1 skipped / 0 expected_fail`
+* focused PDF quality: `80 rows / 72 checked / 8 skipped / 0 failed`
 
 ### User-visible updates
 
-* PDF native text recovery improved paragraph soft merge, superscript-style note
-  marker attachment, numbered-heading promotion, and two-column negative guards
-* PDF annotation links can upgrade a high-confidence URI annotation into
-  Markdown link syntax when the visible label is unique within the merged text
-  block, while duplicate-label or invisible-only annotations stay conservative
-* shared note IR now supports normalized Markdown footnote refs and resolved
-  note bodies across Markdown, DOCX, EPUB, and resolved PDF note cases
+* direct image OCR is now a formal main-CLI product path for
+  `png/jpg/jpeg/bmp/webp/tif/tiff`; image input uses local Tesseract OCR by
+  default, `--no-ocr` explicitly disables it, and `--ocr-lang` is accepted for
+  direct image input without requiring explicit `--ocr`
+* PDF OCR is now formally promoted through the main product surface:
+  `pdf --accurate` automatically enters the current OCR-only PDF route, while
+  explicit `pdf --ocr` remains supported through local `pdftoppm` +
+  `tesseract`; default native-text PDF behavior remains unchanged
+* the CLI mode system now exposes fidelity and output as separate dimensions:
+  default balanced Markdown, `--accurate`, `--debug`, `--rag`, and supported
+  combinations such as `--accurate --debug` and `--accurate --rag`
+* DOCX / PPTX / XLSX accurate-fidelity behavior was strengthened without
+  changing package ownership or route contracts; current repo-local baselines
+  were updated to match the improved Office output and RAG behavior
+* OCR and PDF OCR runtime diagnostics, route facts, and dependency-backed
+  product messages were tightened so missing `tesseract` / `pdftoppm` now fail
+  clearly at runtime instead of silently falling back to unsupported-format
+  behavior
+* sample fixtures and contract checks were expanded and refreshed across OCR,
+  PDF OCR, ZIP / EPUB / PPTX boundary cases, and release-facing CLI docs so the
+  published command surface is now executable and regression-guarded end to end
 * `samples/check.sh` remains the main repo-local validation entrypoint, and
   `samples/check_quality.sh` remains the optional external-quality entrypoint
 * benchmark sample payloads moved out of the main repo into
@@ -49,14 +63,16 @@
 ### Architecture notes
 
 * normal runtime does not read quality-lab assets or model JSON
-* OCR remains explicit-only
+* direct image OCR is now part of the formal main CLI surface; PDF OCR remains
+  dependency-backed and OCR-only in this release
 * retired `doc_parse` and `office` roots in favor of `format_readers`
 * repo-tracked PDF fixtures required by `moon test` stay in the main repo
 
 ### Current caution notes
 
 * `0 expected_fail` is not a blanket format-completeness claim
-* OCR/scanned behavior remains explicit-only
+* PDF OCR in this release is still OCR-only and does not yet promise future
+  model/layout recovery
 * PDF footnote body association is still future work; PDF note output remains
   marker-only unless a resolved body exists
 * broader HTML conservative noteref inference remains future work beyond the

@@ -220,7 +220,22 @@ probe_markitdown_cli() {
   if [[ "$status" -eq 0 ]]; then
     local help_out
     help_out="$(MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" --help 2>&1)" || status=1
-    if [[ "$status" -eq 0 ]] && ! grep -Fq -- 'Supported product formats: txt, csv, tsv, json, jsonl, ndjson, xml' <<<"$help_out"; then
+    if [[ "$status" -eq 0 ]]; then
+      if ! grep -Fq -- 'Supported product formats: txt, csv, tsv, json, jsonl, ndjson, xml' <<<"$help_out"; then
+        status=1
+      elif ! grep -Fq -- '--accurate' <<<"$help_out"; then
+        status=1
+      fi
+    fi
+  fi
+
+  if [[ "$status" -eq 0 ]]; then
+    local accurate_input="$ROOT/samples/main_process/txt/markdown/txt_plain.txt"
+    local accurate_output="$probe_dir/accurate/txt_plain.md"
+    mkdir -p "$probe_dir/accurate"
+    if ! MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" normal --accurate "$accurate_input" "$accurate_output" >/dev/null 2>&1; then
+      status=1
+    elif [[ ! -s "$accurate_output" ]]; then
       status=1
     fi
   fi

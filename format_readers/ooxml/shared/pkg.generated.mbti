@@ -57,7 +57,7 @@ pub fn make_pptx_shape_model(PptxShapeType, text_paragraphs? : Array[PptxParagra
 
 pub fn make_pptx_slide_model(Int, Array[PptxShapeModel], slide_id? : String?, slide_part? : String?, visibility? : PptxSlideVisibility, layout_part? : String?, master_part? : String?, theme_part? : String?, notes? : PptxNotesModel?, comments? : Array[PptxCommentModel], reading_order? : Array[PptxReadingOrderItem], source_ref? : @core.SourceRef?, diagnostics? : @core.Diagnostics) -> PptxSlideModel
 
-pub fn make_pptx_table_cell_model(Int, Int, String, row_span? : Int?, column_span? : Int?, source_ref? : @core.SourceRef?) -> PptxTableCellModel
+pub fn make_pptx_table_cell_model(Int, Int, String, rich_runs? : Array[PptxTextRunModel], row_span? : Int?, column_span? : Int?, source_ref? : @core.SourceRef?) -> PptxTableCellModel
 
 pub fn make_pptx_table_model(Array[PptxTableRowModel], source_ref? : @core.SourceRef?) -> PptxTableModel
 
@@ -426,6 +426,7 @@ pub struct PptxTableCellModel {
   row_index : Int
   column_index : Int
   text : String
+  rich_runs : Array[PptxTextRunModel]
   row_span : Int?
   column_span : Int?
   source_ref : @core.SourceRef?

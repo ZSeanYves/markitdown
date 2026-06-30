@@ -12,6 +12,42 @@ fn docx_prefixed_rich_inlines(
 }
 
 ///|
+fn docx_should_inline_textboxes_in_place(state : DocxLoweringState) -> Bool {
+  state.fidelity_mode == @product.FidelityMode::Accurate
+}
+
+///|
+fn docx_find_textbox_by_anchor(
+  state : DocxLoweringState,
+  anchor_id : String,
+) -> @ddocx.DocxTextBox? {
+  for textbox in state.docx.textboxes {
+    if textbox.anchor_id == anchor_id {
+      return Some(textbox)
+    }
+  }
+  None
+}
+
+///|
+fn docx_mark_textbox_consumed(
+  state : DocxLoweringState,
+  anchor_id : String,
+) -> Unit {
+  if anchor_id.trim() != "" {
+    state.consumed_textbox_anchors.set(anchor_id, true)
+  }
+}
+
+///|
+fn docx_textbox_is_consumed(
+  state : DocxLoweringState,
+  anchor_id : String,
+) -> Bool {
+  state.consumed_textbox_anchors.get(anchor_id) == Some(true)
+}
+
+///|
 fn docx_collect_comment_inline_images(
   blocks : Array[@core.CoreBlock],
 ) -> Array[@core.CoreBlock] {
@@ -315,6 +351,10 @@ fn docx_part_body_has_visible_textboxes(
   body : @ddocx.DocxPartBody,
 ) -> Bool {
   for textbox in state.docx.textboxes {
+    if docx_should_inline_textboxes_in_place(state) &&
+      docx_textbox_is_consumed(state, textbox.anchor_id) {
+      continue
+    }
     if textbox.owner_part != body.part_name {
       continue
     }
@@ -335,6 +375,10 @@ fn docx_textbox_blocks_for_body(
 ) -> Array[@core.CoreBlock] {
   let blocks : Array[@core.CoreBlock] = []
   for textbox in state.docx.textboxes {
+    if docx_should_inline_textboxes_in_place(state) &&
+      docx_textbox_is_consumed(state, textbox.anchor_id) {
+      continue
+    }
     if textbox.owner_part != body.part_name {
       continue
     }
@@ -343,6 +387,9 @@ fn docx_textbox_blocks_for_body(
     }
     if !docx_blocks_have_visible_content(textbox.blocks) {
       continue
+    }
+    if docx_should_inline_textboxes_in_place(state) {
+      docx_mark_textbox_consumed(state, textbox.anchor_id)
     }
     lower_docx_blocks(state, blocks, textbox.blocks)
   }
@@ -356,6 +403,10 @@ fn append_docx_textboxes_blocks(
 ) -> Unit {
   let visible : Array[@ddocx.DocxTextBox] = []
   for textbox in state.docx.textboxes {
+    if docx_should_inline_textboxes_in_place(state) &&
+      docx_textbox_is_consumed(state, textbox.anchor_id) {
+      continue
+    }
     if docx_blocks_have_visible_content(textbox.blocks) {
       visible.push(textbox)
     }

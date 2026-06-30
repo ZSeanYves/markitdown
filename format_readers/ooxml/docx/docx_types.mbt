@@ -310,6 +310,8 @@ pub struct DocxSourceMediaRef {
 ///|
 pub struct DocxSourceTextBoxRef {
   anchor_id : String?
+  doc_pr_id : String?
+  shape_id : String?
   owner_part : String
   source_key : DocxSourceKey
 }
@@ -635,6 +637,8 @@ pub struct DocxMediaRef {
 ///|
 pub struct DocxTextBoxRef {
   anchor_id : String?
+  doc_pr_id : String?
+  shape_id : String?
   owner_part : String
   source_key : DocxSourceKey
 }

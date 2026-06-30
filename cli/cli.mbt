@@ -2,7 +2,7 @@
 const PRODUCT_NAME : String = "markitdown-mb"
 
 ///|
-const PRODUCT_VERSION : String = "0.3.4"
+const PRODUCT_VERSION : String = "0.4.2"
 
 ///|
 pub struct CliOptions {
@@ -11,7 +11,9 @@ pub struct CliOptions {
   provenance_output : String?
   explicit_format : @input.DetectedFormat?
   ocr_options : @parser.OcrOptions
+  fidelity_mode : @convert.FidelityMode
   convert_mode : @convert.ConvertMode
+  output_mode : @convert.OutputMode
   output_format : @convert.OutputFormat
   pdf_cleanup_mode : @convert.PdfCleanupMode
   pdf_table_mode : @convert.PdfTableMode
@@ -68,7 +70,7 @@ fn print_cli_usage() -> Unit {
   println(
     "  " +
     cli_product_name() +
-    " [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|xml|yaml|yml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf|png|jpg|jpeg|bmp|webp|tif|tiff] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]",
+    " [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|xml|yaml|yml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf|png|jpg|jpeg|bmp|webp|tif|tiff] [--accurate] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]",
   )
   println("  " + cli_product_name() + " help | --help | -h")
   println("  " + cli_product_name() + " version | --version")
@@ -77,12 +79,15 @@ fn print_cli_usage() -> Unit {
     "Supported product formats: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, yml, html, htm, markdown, md, zip, epub, docx, xlsx, pptx, pdf, png, jpg, jpeg, bmp, webp, tif, tiff",
   )
   println("All other formats fail closed in this build.")
+  println(
+    "`--accurate` upgrades fidelity while preserving the selected output mode.",
+  )
   println("`--debug` emits diagnostics through the debug JSON renderer.")
   println(
     "`--rag` emits chunked retrieval JSON with the default internal chunking policy.",
   )
   println(
-    "Direct image input uses local Tesseract OCR by default; `--no-ocr` disables it. `pdf --ocr` and Accurate-mode PDF OCR use local `pdftoppm` + Tesseract and require local installation.",
+    "Direct image input uses local Tesseract OCR by default; `--no-ocr` disables it. `pdf --accurate` automatically enters the current OCR-only PDF path, while explicit `pdf --ocr` remains supported; both use local `pdftoppm` + Tesseract and require local installation.",
   )
   println(
     "PDF cleanup and simple table reconstruction are explicit opt-in product options for native-text PDFs; current defaults stay conservative and disabled.",
@@ -209,13 +214,48 @@ fn cli_default_ocr_options(
 }
 
 ///|
+fn cli_effective_ocr_options(
+  input_path : String,
+  explicit_format : @input.DetectedFormat?,
+  fidelity_mode : @convert.FidelityMode,
+  ocr_enabled : Bool,
+  ocr_disabled : Bool,
+  ocr_language : String?,
+) -> @parser.OcrOptions {
+  let requested_format = cli_requested_format_from_input(
+    input_path, explicit_format,
+  )
+  if ocr_enabled {
+    return @parser.explicit_ocr_options(language=ocr_language)
+  }
+  if ocr_disabled {
+    return @parser.disabled_ocr_options()
+  }
+  if @input.detected_format_is_image_candidate(requested_format) {
+    return @parser.explicit_ocr_options(language=ocr_language)
+  }
+  if requested_format == @input.DetectedFormat::Pdf &&
+    fidelity_mode == @convert.FidelityMode::Accurate {
+    return @parser.explicit_ocr_options(language=ocr_language)
+  }
+  match cli_default_ocr_options(input_path, explicit_format).intent {
+    @parser.OcrIntent::Explicit =>
+      @parser.explicit_ocr_options(language=ocr_language)
+    @parser.OcrIntent::Disabled => @parser.disabled_ocr_options()
+    @parser.OcrIntent::Auto => @parser.default_ocr_options()
+  }
+}
+
+///|
 pub fn make_cli_options(
   input : String,
   output : String?,
   provenance_output : String?,
   explicit_format : @input.DetectedFormat?,
   ocr_options : @parser.OcrOptions,
+  fidelity_mode : @convert.FidelityMode,
   convert_mode : @convert.ConvertMode,
+  output_mode : @convert.OutputMode,
   output_format : @convert.OutputFormat,
   pdf_cleanup_mode? : @convert.PdfCleanupMode = @convert.default_pdf_cleanup_mode(),
   pdf_table_mode? : @convert.PdfTableMode = @convert.default_pdf_table_mode(),
@@ -227,7 +267,9 @@ pub fn make_cli_options(
     provenance_output,
     explicit_format,
     ocr_options,
+    fidelity_mode,
     convert_mode,
+    output_mode,
     output_format,
     pdf_cleanup_mode,
     pdf_table_mode,
@@ -272,6 +314,8 @@ pub fn run_cli_with_image_ocr_provider(
     opts.explicit_format,
     opts.ocr_options,
     @convert.default_resource_limits(),
+    fidelity_mode=opts.fidelity_mode,
+    output_mode=opts.output_mode,
     pdf_cleanup_mode=opts.pdf_cleanup_mode,
     pdf_table_mode=opts.pdf_table_mode,
     rag_options=opts.rag_options,
@@ -316,6 +360,8 @@ pub async fn run_cli_with_async_image_ocr_provider(
     opts.explicit_format,
     opts.ocr_options,
     @convert.default_resource_limits(),
+    fidelity_mode=opts.fidelity_mode,
+    output_mode=opts.output_mode,
     pdf_cleanup_mode=opts.pdf_cleanup_mode,
     pdf_table_mode=opts.pdf_table_mode,
     rag_options=opts.rag_options,
@@ -341,6 +387,8 @@ pub async fn run_cli_with_async_image_ocr_provider(
         )
         let provenance = @convert.make_convert_provenance(
           route_plan,
+          value.fidelity_mode,
+          value.output_mode,
           value.parser_mode,
           value.diagnostics.metrics.get("ir_input_kind").unwrap_or("unknown"),
           value.diagnostics.metrics
@@ -591,8 +639,9 @@ fn parse_cli_options_from_index(
   let mut ocr_language : String? = None
   let mut pdf_cleanup_raw : String? = None
   let mut pdf_tables_raw : String? = None
-  let mut rag_enabled = false
+  let mut fidelity_mode = @convert.FidelityMode::Balanced
   let mut convert_mode = @convert.ConvertMode::Balanced
+  let mut output_mode = @convert.OutputMode::Markdown
   let mut output_format = @convert.OutputFormat::Markdown
   let mut i = start_index
 
@@ -614,11 +663,18 @@ fn parse_cli_options_from_index(
       i += 2
       continue
     }
+    if arg == "--accurate" {
+      fidelity_mode = @convert.FidelityMode::Accurate
+      convert_mode = @convert.derived_convert_mode(fidelity_mode, output_mode)
+      i += 1
+      continue
+    }
     if arg == "--debug" {
-      if rag_enabled {
+      if output_mode == @convert.OutputMode::Rag {
         return Err("cannot combine --debug and --rag")
       }
-      convert_mode = @convert.ConvertMode::Debug
+      output_mode = @convert.OutputMode::Debug
+      convert_mode = @convert.derived_convert_mode(fidelity_mode, output_mode)
       output_format = @convert.OutputFormat::DebugJson
       i += 1
       continue
@@ -627,8 +683,8 @@ fn parse_cli_options_from_index(
       if output_format == @convert.OutputFormat::DebugJson {
         return Err("cannot combine --debug and --rag")
       }
-      rag_enabled = true
-      convert_mode = @convert.ConvertMode::Rag
+      output_mode = @convert.OutputMode::Rag
+      convert_mode = @convert.derived_convert_mode(fidelity_mode, output_mode)
       output_format = @convert.OutputFormat::RagJson
       i += 1
       continue
@@ -691,9 +747,6 @@ fn parse_cli_options_from_index(
       i += 2
       continue
     }
-    if arg == "--with-metadata" {
-      return Err("unsupported option in this build: --with-metadata")
-    }
     if arg.has_prefix("-") {
       return Err("unsupported option: " + arg)
     }
@@ -706,7 +759,7 @@ fn parse_cli_options_from_index(
   }
   if positionals.length() < 1 || positionals.length() > 2 {
     return Err(
-      "usage: [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|xml|yaml|yml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf|png|jpg|jpeg|bmp|webp|tif|tiff] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]",
+      "usage: [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|xml|yaml|yml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf|png|jpg|jpeg|bmp|webp|tif|tiff] [--accurate] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]",
     )
   }
   let effective_positionals = positionals
@@ -722,24 +775,19 @@ fn parse_cli_options_from_index(
     !ocr_enabled &&
     !@input.detected_format_is_image_candidate(requested_format) &&
     !(requested_format == @input.DetectedFormat::Pdf &&
-    convert_mode == @convert.ConvertMode::Accurate) {
+    fidelity_mode == @convert.FidelityMode::Accurate) {
     return Err(
       "--ocr-lang requires --ocr, Accurate-mode PDF input, or direct image input",
     )
   }
-  let ocr_options = if ocr_enabled {
-    @parser.explicit_ocr_options(language=ocr_language)
-  } else if ocr_disabled {
-    @parser.disabled_ocr_options()
-  } else {
-    match
-      cli_default_ocr_options(effective_positionals[0], explicit_format).intent {
-      @parser.OcrIntent::Explicit =>
-        @parser.explicit_ocr_options(language=ocr_language)
-      @parser.OcrIntent::Disabled => @parser.disabled_ocr_options()
-      @parser.OcrIntent::Auto => @parser.default_ocr_options()
-    }
-  }
+  let ocr_options = cli_effective_ocr_options(
+    effective_positionals[0],
+    explicit_format,
+    fidelity_mode,
+    ocr_enabled,
+    ocr_disabled,
+    ocr_language,
+  )
   let pdf_cleanup_mode = match parse_pdf_cleanup_mode(pdf_cleanup_raw) {
     Ok(value) => value
     Err(msg) => return Err(msg)
@@ -760,7 +808,9 @@ fn parse_cli_options_from_index(
       provenance_output,
       explicit_format,
       ocr_options,
+      fidelity_mode,
       convert_mode,
+      output_mode,
       output_format,
       pdf_cleanup_mode~,
       pdf_table_mode~,

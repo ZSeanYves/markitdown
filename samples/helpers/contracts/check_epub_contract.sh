@@ -124,7 +124,7 @@ assert_any_contains '@depub.open_epub_package' "${EPUB_PARSER_SOURCES[@]}"
 assert_any_contains '@depub.inspect_epub_package' "${EPUB_PARSER_SOURCES[@]}"
 assert_any_contains '@depub.read_part_bytes' "${EPUB_PARSER_SOURCES[@]}"
 assert_any_contains 'registry_provider' "${EPUB_PARSER_SOURCES[@]}"
-assert_any_contains '@runtime.parse_child_to_document' "${EPUB_PARSER_SOURCES[@]}"
+assert_any_contains '@runtime.parse_child_to_block_product' "${EPUB_PARSER_SOURCES[@]}"
 assert_contains "$RUNTIME_IMPL" '@parser.registry_parse(registry, source, inner_context)'
 assert_not_contains "$FORMATS_PKG" 'ZSeanYves/markitdown/format_readers/epub'
 assert_not_contains "$FORMATS_PKG" 'ZSeanYves/markitdown/format_readers/zip'

@@ -127,7 +127,8 @@ assert_not_contains "$ROOT_BASELINE_JSON" 'layout_model'
 assert_not_contains "$ROOT_BASELINE_JSON" 'quality-lab'
 assert_not_contains "$ROOT_BASELINE_JSON" 'tesseract'
 assert_not_contains "$ROOT_BASELINE_JSON" 'ocrmypdf'
-assert_not_contains "$ROOT_BASELINE_JSON" 'raster'
+assert_not_contains "$ROOT_BASELINE_JSON" '"pdf_raster_backend"'
+assert_not_contains "$ROOT_BASELINE_JSON" 'raster_backend=pdftoppm'
 
 echo "==> pdf signal link candidates remain metadata only"
 run_markitdown_cli normal "$LINK_INPUT" "$LINK_MD"

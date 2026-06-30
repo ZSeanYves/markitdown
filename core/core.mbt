@@ -287,6 +287,8 @@ pub(all) struct Diagnostics {
   parser_name : String?
   parser_mode : String?
   convert_mode : String?
+  fidelity_mode : String?
+  output_mode : String?
   input_kind : String?
   detected_format : String?
   warnings : Array[String]

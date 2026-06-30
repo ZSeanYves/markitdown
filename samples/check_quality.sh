@@ -24,8 +24,6 @@ Default behavior:
       markitdown-quality-lab/external_quality/
       markitdown-quality-lab/external_quality/MANIFEST.tsv
   * does not fall back to repo-local quality rows
-  * auto-detects whether the main CLI in this build supports `--with-metadata`
-    and falls back to metadata-off when the option is still fail-closed
   * keeps raw per-row outputs for executed rows under `raw/`
   * writes non-pass per-row reports under `reports/`
   * uses `workspace/` only as scratch CLI temp space
@@ -145,7 +143,7 @@ while [[ $# -gt 0 ]]; do
       EXTRA_RUNNER_ARGS+=("$1" "$2")
       shift 2
       ;;
-    --list|--profile|--no-metadata|--with-metadata)
+    --list|--profile)
       EXTRA_RUNNER_ARGS+=("$1")
       shift
       ;;

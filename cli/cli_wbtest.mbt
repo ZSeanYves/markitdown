@@ -67,7 +67,9 @@ fn cli_options(
     provenance_output,
     explicit_format,
     ocr_options,
+    @convert.FidelityMode::Balanced,
     @convert.ConvertMode::Balanced,
+    @convert.output_mode_for_output_format(output_format),
     output_format,
     pdf_cleanup_mode~,
     pdf_table_mode~,
@@ -219,6 +221,36 @@ test "main cli parses explicit OCR intent flags" {
 
 ///|
 test "main cli keeps --debug and rejects retired --json alias" {
+  match parse_cli_options(["--accurate", "tiny.txt"]) {
+    Ok(opts) => {
+      assert_true(opts.fidelity_mode == @convert.FidelityMode::Accurate)
+      assert_true(opts.convert_mode == @convert.ConvertMode::Accurate)
+      assert_true(opts.output_mode == @convert.OutputMode::Markdown)
+      assert_true(opts.output_format == @convert.OutputFormat::Markdown)
+    }
+    Err(msg) => fail("expected --accurate to parse: " + msg)
+  }
+
+  match parse_cli_options(["--accurate", "--debug", "tiny.txt"]) {
+    Ok(opts) => {
+      assert_true(opts.fidelity_mode == @convert.FidelityMode::Accurate)
+      assert_true(opts.convert_mode == @convert.ConvertMode::Debug)
+      assert_true(opts.output_mode == @convert.OutputMode::Debug)
+      assert_true(opts.output_format == @convert.OutputFormat::DebugJson)
+    }
+    Err(msg) => fail("expected --accurate --debug to parse: " + msg)
+  }
+
+  match parse_cli_options(["--accurate", "--rag", "tiny.txt"]) {
+    Ok(opts) => {
+      assert_true(opts.fidelity_mode == @convert.FidelityMode::Accurate)
+      assert_true(opts.convert_mode == @convert.ConvertMode::Rag)
+      assert_true(opts.output_mode == @convert.OutputMode::Rag)
+      assert_true(opts.output_format == @convert.OutputFormat::RagJson)
+    }
+    Err(msg) => fail("expected --accurate --rag to parse: " + msg)
+  }
+
   match parse_cli_options(["--debug", "tiny.txt"]) {
     Ok(opts) => {
       assert_true(opts.convert_mode == @convert.ConvertMode::Debug)
@@ -303,7 +335,7 @@ test "main cli rejects conflicting OCR intent flags" {
 }
 
 ///|
-test "main cli requires --ocr for --ocr-lang" {
+test "main cli constrains --ocr-lang to OCR-capable routes" {
   match parse_cli_options(["--ocr-lang", "eng", "tiny.png"]) {
     Ok(opts) => {
       assert_true(opts.ocr_options.intent == @parser.OcrIntent::Explicit)
@@ -328,6 +360,24 @@ test "main cli requires --ocr for --ocr-lang" {
       assert_true(opts.ocr_options.language == Some("eng"))
     }
     Err(msg) => fail("expected pdf --ocr-lang with --ocr to parse: " + msg)
+  }
+
+  match parse_cli_options(["--accurate", "tiny.pdf"]) {
+    Ok(opts) => {
+      assert_true(opts.fidelity_mode == @convert.FidelityMode::Accurate)
+      assert_true(opts.ocr_options.intent == @parser.OcrIntent::Explicit)
+      assert_true(opts.ocr_options.language == None)
+    }
+    Err(msg) => fail("expected accurate pdf to auto-enable OCR: " + msg)
+  }
+
+  match parse_cli_options(["--accurate", "--ocr-lang", "eng", "tiny.pdf"]) {
+    Ok(opts) => {
+      assert_true(opts.fidelity_mode == @convert.FidelityMode::Accurate)
+      assert_true(opts.ocr_options.intent == @parser.OcrIntent::Explicit)
+      assert_true(opts.ocr_options.language == Some("eng"))
+    }
+    Err(msg) => fail("expected accurate pdf --ocr-lang to parse: " + msg)
   }
 }
 

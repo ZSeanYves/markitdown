@@ -11,11 +11,7 @@ from pathlib import Path
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--markdown", required=True)
-    parser.add_argument("--metadata", required=True)
     parser.add_argument("--artifact-dir", required=True)
-    parser.add_argument("--metadata-enabled", required=True)
-    parser.add_argument("--metadata-status", required=True)
-    parser.add_argument("--metadata-mode", required=True)
     parser.add_argument("--rows-tsv", required=True)
     parser.add_argument("--results-tsv", required=True)
     return parser.parse_args()
@@ -40,10 +36,6 @@ def normalized_text_without_asset_urls(text: str) -> str:
     return text
 
 
-def parse_bool(raw: str) -> bool:
-    return raw.lower() in {"1", "true", "yes", "on"}
-
-
 def count_assets_on_disk(artifact_dir: Path) -> int:
     asset_root = artifact_dir / "assets"
     if not asset_root.is_dir():
@@ -58,10 +50,6 @@ class Snapshot:
     literal_text: str
     token_text: str
     lines: list[str]
-    metadata_exists: bool
-    metadata_enabled: bool
-    metadata_status: str
-    metadata_mode: str
     asset_count: int
 
 
@@ -107,10 +95,6 @@ class Evaluator:
             return re.search(r"!\[[^]]*\]\([^)]*\)", self.snapshot.markdown_text) is not None
         if signal == "link_ref":
             return re.search(r"\[[^]]+\]\([^)]*\)", self.snapshot.markdown_text) is not None
-        if signal == "metadata_file":
-            if not self.snapshot.metadata_enabled:
-                return self.snapshot.metadata_status == "unsupported_option" or self.snapshot.metadata_mode == "off"
-            return self.snapshot.metadata_exists
         if signal.startswith("asset_count_min:"):
             limit = int(signal[len("asset_count_min:") :])
             return self.snapshot.asset_count >= limit
@@ -172,10 +156,6 @@ def load_snapshot(args: argparse.Namespace) -> Snapshot:
         literal_text=literal_text,
         token_text=normalized_text_without_asset_urls(markdown_text),
         lines=markdown_text.split("\n"),
-        metadata_exists=Path(args.metadata).is_file(),
-        metadata_enabled=parse_bool(args.metadata_enabled),
-        metadata_status=args.metadata_status,
-        metadata_mode=args.metadata_mode,
         asset_count=count_assets_on_disk(Path(args.artifact_dir)),
     )
 

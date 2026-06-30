@@ -307,11 +307,20 @@ pub fn make_pptx_table_cell_model(
   row_index : Int,
   column_index : Int,
   text : String,
+  rich_runs? : Array[PptxTextRunModel] = [],
   row_span? : Int? = None,
   column_span? : Int? = None,
   source_ref? : @core.SourceRef? = None,
 ) -> PptxTableCellModel {
-  { row_index, column_index, text, row_span, column_span, source_ref }
+  {
+    row_index,
+    column_index,
+    text,
+    rich_runs,
+    row_span,
+    column_span,
+    source_ref,
+  }
 }
 
 ///|

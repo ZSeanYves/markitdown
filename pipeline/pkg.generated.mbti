@@ -70,6 +70,8 @@ pub struct IRPass {
 
 pub struct PassContext {
   mode : @product.ConvertMode
+  fidelity_mode : @product.FidelityMode
+  output_mode : @product.OutputMode
   options : @product.ProductOptions
   diagnostics : @ref.Ref[@core.Diagnostics]
   assets : @ref.Ref[Array[@core.AssetRef]]

@@ -37,12 +37,12 @@
 | Web / markup | `html`, `htm`, `markdown`, `md` | 正式支持 |
 | Containers | `zip`, `epub` | 正式支持 |
 | Office | `docx`, `xlsx`, `pptx` | 正式支持 |
-| PDF | `pdf` | 正式支持；默认 native-text，显式/Accurate 可走 OCR |
+| PDF | `pdf` | 正式支持；默认 native-text，`--accurate` 或显式 `--ocr` 可走 OCR |
 | Image OCR | `png`, `jpg`, `jpeg`, `bmp`, `webp`, `tif`, `tiff` | 正式支持 |
 
 明确不属于当前默认主路径矩阵的输入：
 
-- 未显式启用 OCR 的扫描版 / 图片型 PDF
+- 未启用 `--accurate` 或显式 `--ocr` 的扫描版 / 图片型 PDF
 - 其它未列出格式
 
 ## 3. 能力总览
@@ -61,7 +61,7 @@
 | `docx` | `package_single_pass` | Office 文档主块、链接、图片、debug source refs、RAG | 不承诺覆盖 Word 全部高级版式语义 |
 | `xlsx` | `package_single_pass` | sheet 读取、表格型输出、hidden sheet policy、公式缓存保留、debug | 不执行公式，不做 Excel 计算引擎 |
 | `pptx` | `package_single_pass` | slide 顺序、列表、图片、speaker notes、hidden slide policy、debug | 不做完整演示视觉布局重建 |
-| `pdf` | `page_single_pass` 或 `layout_two_stage` | native-text 提取、显式/Accurate OCR、基础清理、显式 opt-in cleanup/table signals、RAG、debug | OCR 路线当前不承诺复杂 layout 恢复 |
+| `pdf` | `page_single_pass` 或 `layout_two_stage` | native-text 提取、`--accurate` / `--ocr` OCR、基础清理、显式 opt-in cleanup/table signals、RAG、debug | OCR 路线当前不承诺复杂 layout 恢复 |
 
 ## 4. 逐格式能力
 
@@ -340,8 +340,9 @@
 
 当前状态：
 
-- 正式支持，但仅限 native-text PDF
-- 当前主路径仍是 `page_single_pass`
+- 正式支持
+- 默认主路径是 `page_single_pass`
+- `pdf --accurate` 与显式 `pdf --ocr` 会进入当前 OCR-only 的 `layout_two_stage`
 
 已验证能力：
 
@@ -362,8 +363,8 @@
 
 当前边界行为：
 
-- scanned-like PDF 在未显式启用 OCR 时当前 fail closed
-- `pdf --ocr` 与 `Accurate`-mode PDF OCR 依赖本地 `pdftoppm` + `tesseract`
+- scanned-like PDF 在未启用 `--accurate` 或显式 `--ocr` 时当前 fail closed
+- `pdf --accurate` 与显式 `pdf --ocr` 依赖本地 `pdftoppm` + `tesseract`
 - 缺失依赖时返回明确运行时错误与安装提示
 
 性能事实：
@@ -380,8 +381,8 @@
 - 直接图片输入正式支持，并默认启用 OCR
 - `--no-ocr` 可显式关闭直接图片 OCR
 - 语言参数使用 `--ocr-lang <LANG>`
-- `pdf --ocr` 与 `Accurate`-mode PDF OCR 当前正式支持
-- 扫描版 / 图片型 PDF 当前需要显式 OCR 路线
+- `pdf --accurate` 当前会自动进入 PDF OCR；显式 `pdf --ocr` 继续正式支持
+- 扫描版 / 图片型 PDF 当前需要 `--accurate` 或显式 `--ocr`
 - 当前图片 OCR 输出以文本段落恢复为主，不承诺复杂版面重建
 - 当前 PDF OCR 也是 OCR-only 路线，不承诺复杂版面重建
 
@@ -397,6 +398,7 @@ Ubuntu：
 
 ```bash
 sudo apt install poppler-utils tesseract-ocr
+sudo apt install tesseract-ocr-eng
 ```
 
 说明：
@@ -458,10 +460,8 @@ sudo apt install poppler-utils tesseract-ocr
 
 以下能力不在当前正式承诺范围内：
 
-- 扫描 PDF OCR
-- `pdf --ocr`
 - 云 OCR / 大模型 OCR
-- 自动 metadata sidecar 的正式产品承诺
+- OCR 路线下的复杂 layout/model 恢复
 - benchmark-only fast path
 - 隐藏 alternate route
 - 为了追求 benchmark 数字而牺牲主链语义

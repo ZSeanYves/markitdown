@@ -211,6 +211,7 @@ pub struct PptxTableCellModel {
   row_index : Int
   column_index : Int
   text : String
+  rich_runs : Array[PptxTextRunModel]
   row_span : Int?
   column_span : Int?
   source_ref : @core.SourceRef?

@@ -268,10 +268,11 @@ fn pptx_lower_document(
   source : @input.InputSource,
   presentation : @pptxdoc.PptxDocument,
   diagnostics : @core.Diagnostics,
+  fidelity_mode : @product.FidelityMode,
 ) -> @core.DocumentIR {
   let document = @core.empty_document_ir()
   pptx_fill_metadata(document, source, presentation)
-  let state = new_pptx_state(source, presentation, diagnostics)
+  let state = new_pptx_state(source, presentation, diagnostics, fidelity_mode)
   for slide in presentation.slides {
     if slide.hidden {
       pptx_note_hidden_slide_skipped(diagnostics, slide.slide_index)
@@ -288,11 +289,13 @@ fn new_pptx_state(
   source : @input.InputSource,
   presentation : @pptxdoc.PptxDocument,
   diagnostics : @core.Diagnostics,
+  fidelity_mode : @product.FidelityMode,
 ) -> PptxState {
   {
     source,
     diagnostics,
     presentation,
+    fidelity_mode,
     assets: [],
     asset_ids: Map([]),
     image_ids: Map([]),
@@ -355,9 +358,20 @@ fn pptx_lower_slide(
   blocks.push(slide_heading)
 
   let block_count_before = blocks.length()
-  for obj in slide.objects {
-    pptx_lower_object(blocks, state, slide, obj)
+  let visual_noise : Array[(String, String)] = []
+  let unsupported_objects : Array[(String, String)] = []
+  for obj in pptx_objects_for_slide(state, slide) {
+    if !pptx_collect_visual_noise_for_slide(state, obj, visual_noise) &&
+      !pptx_collect_unsupported_summary_for_slide(
+        state, obj, unsupported_objects,
+      ) {
+      pptx_lower_object(blocks, state, slide, obj)
+    }
   }
+  pptx_flush_visual_noise_summary(blocks, state, slide, visual_noise)
+  pptx_flush_unsupported_object_summary(
+    blocks, state, slide, unsupported_objects,
+  )
   pptx_lower_slide_comments(blocks, state, slide)
   pptx_lower_slide_notes(blocks, state, slide)
   if blocks.length() == block_count_before {
@@ -372,6 +386,157 @@ fn pptx_lower_slide(
 }
 
 ///|
+fn pptx_collect_unsupported_summary_for_slide(
+  state : PptxState,
+  obj : @pptxdoc.PptxObject,
+  unsupported_objects : Array[(String, String)],
+) -> Bool {
+  if state.fidelity_mode != @product.FidelityMode::Accurate {
+    return false
+  }
+  match obj {
+    @pptxdoc.PptxObject::SmartArt(smart) => {
+      unsupported_objects.push(("SmartArt", pptx_smartart_summary_label(smart)))
+      true
+    }
+    @pptxdoc.PptxObject::Ole(ole) => {
+      unsupported_objects.push(("OLE", pptx_ole_summary_label(ole)))
+      true
+    }
+    @pptxdoc.PptxObject::Unsupported(unsupported) => {
+      unsupported_objects.push(
+        ("object", pptx_unsupported_summary_label(unsupported)),
+      )
+      true
+    }
+    _ => false
+  }
+}
+
+///|
+fn pptx_collect_visual_noise_for_slide(
+  state : PptxState,
+  obj : @pptxdoc.PptxObject,
+  visual_noise : Array[(String, String)],
+) -> Bool {
+  if state.fidelity_mode != @product.FidelityMode::Accurate {
+    return false
+  }
+  match obj {
+    @pptxdoc.PptxObject::Shape(shape) =>
+      if shape.text_body is None && pptx_is_decorative_shape(shape) {
+        visual_noise.push(("decorative shape", pptx_shape_summary_label(shape)))
+        true
+      } else {
+        false
+      }
+    @pptxdoc.PptxObject::Connector(conn) => {
+      visual_noise.push(("connector", pptx_connector_summary_label(conn)))
+      true
+    }
+    _ => false
+  }
+}
+
+///|
+fn pptx_flush_visual_noise_summary(
+  blocks : Array[@core.CoreBlock],
+  state : PptxState,
+  slide : @pptxdoc.PptxSlide,
+  visual_noise : Array[(String, String)],
+) -> Unit {
+  if visual_noise.length() == 0 {
+    return
+  }
+  let source_ref = @core.source_ref_with_extra(
+    @core.source_ref_with_extra(
+      pptx_slide_source_ref(state.source, slide, None, None),
+      "summary_kind",
+      "pptx_visual_noise",
+    ),
+    "omitted_object_count",
+    visual_noise.length().to_string(),
+  )
+  let raw = @core.make_block(
+    @core.BlockKind::Raw,
+    pptx_visual_noise_summary_text(visual_noise),
+    source_ref~,
+  )
+  raw.attrs.set("raw_kind", "pptx_visual_noise_summary")
+  blocks.push(raw)
+}
+
+///|
+fn pptx_flush_unsupported_object_summary(
+  blocks : Array[@core.CoreBlock],
+  state : PptxState,
+  slide : @pptxdoc.PptxSlide,
+  unsupported_objects : Array[(String, String)],
+) -> Unit {
+  if unsupported_objects.length() == 0 {
+    return
+  }
+  let source_ref = @core.source_ref_with_extra(
+    @core.source_ref_with_extra(
+      pptx_slide_source_ref(state.source, slide, None, None),
+      "summary_kind",
+      "pptx_unsupported_objects",
+    ),
+    "unsupported_object_count",
+    unsupported_objects.length().to_string(),
+  )
+  let raw = @core.make_block(
+    @core.BlockKind::Raw,
+    pptx_unsupported_object_summary_text(unsupported_objects),
+    source_ref~,
+  )
+  raw.attrs.set("raw_kind", "pptx_unsupported_object_summary")
+  blocks.push(raw)
+}
+
+///|
+fn pptx_visual_noise_summary_text(
+  visual_noise : Array[(String, String)],
+) -> String {
+  let parts = StringBuilder::new()
+  parts.write_string("[PPTX visual-only objects omitted: ")
+  let mut i = 0
+  while i < visual_noise.length() {
+    if i > 0 {
+      parts.write_string("; ")
+    }
+    let (kind, label) = visual_noise[i]
+    parts.write_string(kind)
+    parts.write_string(": ")
+    parts.write_string(label)
+    i += 1
+  }
+  parts.write_char(']')
+  parts.to_string()
+}
+
+///|
+fn pptx_unsupported_object_summary_text(
+  unsupported_objects : Array[(String, String)],
+) -> String {
+  let parts = StringBuilder::new()
+  parts.write_string("[PPTX unsupported objects summarized: ")
+  let mut i = 0
+  while i < unsupported_objects.length() {
+    if i > 0 {
+      parts.write_string("; ")
+    }
+    let (kind, label) = unsupported_objects[i]
+    parts.write_string(kind)
+    parts.write_string(": ")
+    parts.write_string(label)
+    i += 1
+  }
+  parts.write_char(']')
+  parts.to_string()
+}
+
+///|
 fn pptx_lower_object(
   blocks : Array[@core.CoreBlock],
   state : PptxState,
@@ -382,8 +547,12 @@ fn pptx_lower_object(
     @pptxdoc.PptxObject::Shape(shape) =>
       pptx_lower_shape(blocks, state, slide, shape)
     @pptxdoc.PptxObject::Group(group) =>
-      for child in group.children {
-        pptx_lower_object(blocks, state, slide, child)
+      if pptx_should_emit_group_summary(state, group) {
+        pptx_lower_group_summary(blocks, state, slide, group)
+      } else {
+        for child in pptx_group_children_for_lowering(state, group) {
+          pptx_lower_object(blocks, state, slide, child)
+        }
       }
     @pptxdoc.PptxObject::Picture(pic) =>
       pptx_lower_picture(blocks, state, slide, pic)
@@ -446,6 +615,316 @@ fn pptx_lower_object(
 }
 
 ///|
+fn pptx_objects_for_slide(
+  state : PptxState,
+  slide : @pptxdoc.PptxSlide,
+) -> Array[@pptxdoc.PptxObject] {
+  if state.fidelity_mode != @product.FidelityMode::Accurate {
+    return slide.objects
+  }
+  let ordered : Array[@pptxdoc.PptxObject] = []
+  let used : Array[Int] = []
+  for key in slide.reading_order {
+    match pptx_find_object_index_by_source_key(slide.objects, key) {
+      Some(index) =>
+        if !used.contains(index) {
+          ordered.push(slide.objects[index])
+          used.push(index)
+        }
+      None => ()
+    }
+  }
+  if ordered.length() == 0 {
+    return slide.objects
+  }
+  for i in 0..<slide.objects.length() {
+    if !used.contains(i) {
+      ordered.push(slide.objects[i])
+    }
+  }
+  ordered
+}
+
+///|
+fn pptx_group_children_for_lowering(
+  state : PptxState,
+  group : @pptxdoc.PptxGroupShape,
+) -> Array[@pptxdoc.PptxObject] {
+  if state.fidelity_mode != @product.FidelityMode::Accurate {
+    return group.children
+  }
+  let keyed : Array[(String, @pptxdoc.PptxObject)] = []
+  let mut fallback_order = 0
+  for child in group.children {
+    let order_key = match pptx_object_lowering_order_key(child) {
+      Some(value) => value
+      None => {
+        fallback_order += 1
+        "999:999999999:999999999:" +
+        fallback_order.to_string() +
+        ":" +
+        pptx_object_source_key(child).node_key
+      }
+    }
+    keyed.push((order_key, child))
+  }
+  keyed.sort_by(fn(a, b) { a.0.compare(b.0) })
+  let ordered : Array[@pptxdoc.PptxObject] = []
+  for item in keyed {
+    ordered.push(item.1)
+  }
+  ordered
+}
+
+///|
+fn pptx_should_emit_group_summary(
+  state : PptxState,
+  group : @pptxdoc.PptxGroupShape,
+) -> Bool {
+  if state.fidelity_mode != @product.FidelityMode::Accurate {
+    return false
+  }
+  if group.children.length() == 0 {
+    return false
+  }
+  for child in group.children {
+    if !pptx_group_child_is_summary_safe(child) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn pptx_group_child_is_summary_safe(obj : @pptxdoc.PptxObject) -> Bool {
+  match obj {
+    @pptxdoc.PptxObject::Shape(shape) =>
+      shape.text_body is None && pptx_is_decorative_shape(shape)
+    @pptxdoc.PptxObject::Group(group) => pptx_group_is_summary_safe(group)
+    _ => false
+  }
+}
+
+///|
+fn pptx_group_is_summary_safe(group : @pptxdoc.PptxGroupShape) -> Bool {
+  if group.children.length() == 0 {
+    return false
+  }
+  for child in group.children {
+    if !pptx_group_child_is_summary_safe(child) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn pptx_lower_group_summary(
+  blocks : Array[@core.CoreBlock],
+  state : PptxState,
+  slide : @pptxdoc.PptxSlide,
+  group : @pptxdoc.PptxGroupShape,
+) -> Unit {
+  let source_ref = pptx_group_source_ref(
+    state.source,
+    slide,
+    group,
+    pptx_include_block_reading_order_hint(state),
+  )
+  let summary_text = pptx_group_summary_text(group)
+  let raw = @core.make_block(@core.BlockKind::Raw, summary_text, source_ref~)
+  raw.attrs.set("raw_kind", "pptx_group_shape_summary")
+  blocks.push(raw)
+}
+
+///|
+fn pptx_group_summary_text(group : @pptxdoc.PptxGroupShape) -> String {
+  let parts = StringBuilder::new()
+  parts.write_string("[PPTX grouped decorative shapes")
+  match group.name {
+    Some(name) =>
+      if name.trim() != "" {
+        parts.write_string(": ")
+        parts.write_string(name)
+      }
+    None => ()
+  }
+  parts.write_string(" | children=")
+  parts.write_string(group.children.length().to_string())
+  parts.write_string(" | ")
+  let labels = pptx_group_summary_labels(group)
+  let mut i = 0
+  while i < labels.length() {
+    if i > 0 {
+      parts.write_string("; ")
+    }
+    parts.write_string(labels[i])
+    i += 1
+  }
+  parts.write_char(']')
+  parts.to_string()
+}
+
+///|
+fn pptx_group_summary_labels(group : @pptxdoc.PptxGroupShape) -> Array[String] {
+  let out : Array[String] = []
+  for child in pptx_group_children_for_summary(group) {
+    match child {
+      @pptxdoc.PptxObject::Shape(shape) =>
+        out.push(pptx_shape_summary_label(shape))
+      @pptxdoc.PptxObject::Group(inner) =>
+        out.push(
+          "group(" +
+          inner.children.length().to_string() +
+          "): " +
+          pptx_group_summary_text(inner),
+        )
+      _ => ()
+    }
+  }
+  out
+}
+
+///|
+fn pptx_group_children_for_summary(
+  group : @pptxdoc.PptxGroupShape,
+) -> Array[@pptxdoc.PptxObject] {
+  let keyed : Array[(String, @pptxdoc.PptxObject)] = []
+  let mut fallback_order = 0
+  for child in group.children {
+    let order_key = match pptx_object_lowering_order_key(child) {
+      Some(value) => value
+      None => {
+        fallback_order += 1
+        "999:999999999:999999999:" +
+        fallback_order.to_string() +
+        ":" +
+        pptx_object_source_key(child).node_key
+      }
+    }
+    keyed.push((order_key, child))
+  }
+  keyed.sort_by(fn(a, b) { a.0.compare(b.0) })
+  let ordered : Array[@pptxdoc.PptxObject] = []
+  for item in keyed {
+    ordered.push(item.1)
+  }
+  ordered
+}
+
+///|
+fn pptx_shape_summary_label(shape : @pptxdoc.PptxShape) -> String {
+  let shape_type = shape.shape_type.unwrap_or("shape")
+  match shape.name {
+    Some(name) =>
+      if name.trim() != "" {
+        shape_type + ": " + name
+      } else {
+        shape_type
+      }
+    None => shape_type
+  }
+}
+
+///|
+fn pptx_connector_summary_label(conn : @pptxdoc.PptxConnector) -> String {
+  match conn.name {
+    Some(name) => if name.trim() != "" { name } else { "connector" }
+    None => "connector"
+  }
+}
+
+///|
+fn pptx_smartart_summary_label(smart : @pptxdoc.PptxSmartArtRef) -> String {
+  smart.target_part.unwrap_or("smartart")
+}
+
+///|
+fn pptx_ole_summary_label(ole : @pptxdoc.PptxOleRef) -> String {
+  ole.target_part.unwrap_or("ole")
+}
+
+///|
+fn pptx_unsupported_summary_label(
+  unsupported : @pptxdoc.PptxUnsupported,
+) -> String {
+  if unsupported.message.trim() != "" {
+    unsupported.kind + " (" + unsupported.message + ")"
+  } else {
+    unsupported.kind
+  }
+}
+
+///|
+fn pptx_find_object_index_by_source_key(
+  objects : Array[@pptxdoc.PptxObject],
+  key : @pptxdoc.PptxSourceKey,
+) -> Int? {
+  for i in 0..<objects.length() {
+    if pptx_source_keys_match_local(pptx_object_source_key(objects[i]), key) {
+      return Some(i)
+    }
+  }
+  None
+}
+
+///|
+fn pptx_object_source_key(obj : @pptxdoc.PptxObject) -> @pptxdoc.PptxSourceKey {
+  match obj {
+    @pptxdoc.PptxObject::Shape(shape) => shape.source_key
+    @pptxdoc.PptxObject::Group(group) => group.source_key
+    @pptxdoc.PptxObject::Picture(pic) => pic.source_key
+    @pptxdoc.PptxObject::Table(table) => table.source_key
+    @pptxdoc.PptxObject::Chart(chart) => chart.source_key
+    @pptxdoc.PptxObject::SmartArt(smart) => smart.source_key
+    @pptxdoc.PptxObject::Ole(ole) => ole.source_key
+    @pptxdoc.PptxObject::Connector(conn) => conn.source_key
+    @pptxdoc.PptxObject::Unsupported(unsupported) => unsupported.source_key
+  }
+}
+
+///|
+fn pptx_object_lowering_order_key(obj : @pptxdoc.PptxObject) -> String? {
+  match obj {
+    @pptxdoc.PptxObject::Shape(shape) =>
+      match shape.reading_order {
+        Some(order) => Some(order.order_key)
+        None => None
+      }
+    @pptxdoc.PptxObject::Group(group) =>
+      match group.reading_order {
+        Some(order) => Some(order.order_key)
+        None => None
+      }
+    @pptxdoc.PptxObject::Picture(pic) =>
+      match pic.reading_order {
+        Some(order) => Some(order.order_key)
+        None => None
+      }
+    @pptxdoc.PptxObject::Table(table) =>
+      Some("950:999999999:999999999:" + table.source_key.node_key)
+    @pptxdoc.PptxObject::Chart(chart) =>
+      Some("950:999999999:999999999:" + chart.source_key.node_key)
+    @pptxdoc.PptxObject::SmartArt(smart) =>
+      Some("950:999999999:999999999:" + smart.source_key.node_key)
+    @pptxdoc.PptxObject::Ole(ole) =>
+      Some("950:999999999:999999999:" + ole.source_key.node_key)
+    @pptxdoc.PptxObject::Connector(conn) =>
+      Some("950:999999999:999999999:" + conn.source_key.node_key)
+    @pptxdoc.PptxObject::Unsupported(unsupported) =>
+      Some("950:999999999:999999999:" + unsupported.source_key.node_key)
+  }
+}
+
+///|
+fn pptx_source_keys_match_local(
+  left : @pptxdoc.PptxSourceKey,
+  right : @pptxdoc.PptxSourceKey,
+) -> Bool {
+  left.part_name == right.part_name && left.node_key == right.node_key
+}
+
+///|
 fn pptx_lower_shape(
   blocks : Array[@core.CoreBlock],
   state : PptxState,
@@ -469,7 +948,14 @@ fn pptx_lower_shape(
           slide,
           shape,
           Some(para.source_key),
+          pptx_include_block_reading_order_hint(state),
         )
+        let trust_placeholder_heading = pptx_shape_has_explicit_heading_placeholder(
+          shape,
+        )
+        let use_heading_block = is_heading_shape &&
+          (trust_placeholder_heading || !pptx_nonsemantic_heading_text(text)) &&
+          pptx_shape_should_emit_heading_paragraph(shape, paragraph_index)
         let block = match para.list_hint {
           Some(list_hint) => {
             let item0 = @core.make_block(
@@ -493,7 +979,7 @@ fn pptx_lower_shape(
             item
           }
           None =>
-            if is_heading_shape && paragraph_index == 0 {
+            if use_heading_block {
               let heading0 = @core.make_block(
                 @core.BlockKind::Heading,
                 text.trim().to_owned(),
@@ -566,6 +1052,38 @@ fn pptx_shape_is_heading(
 }
 
 ///|
+fn pptx_shape_should_emit_heading_paragraph(
+  shape : @pptxdoc.PptxShape,
+  paragraph_index : Int,
+) -> Bool {
+  match shape.placeholder {
+    Some(ph) =>
+      ph.kind == @pptxdoc.PptxPlaceholderKind::CenterTitle ||
+      paragraph_index == 0
+    None =>
+      match shape.direct_placeholder {
+        Some(ph) =>
+          ph.kind == @pptxdoc.PptxPlaceholderKind::CenterTitle ||
+          paragraph_index == 0
+        None => paragraph_index == 0
+      }
+  }
+}
+
+///|
+fn pptx_shape_has_explicit_heading_placeholder(
+  shape : @pptxdoc.PptxShape,
+) -> Bool {
+  match shape.direct_placeholder {
+    Some(ph) =>
+      ph.kind == @pptxdoc.PptxPlaceholderKind::Title ||
+      ph.kind == @pptxdoc.PptxPlaceholderKind::CenterTitle ||
+      ph.kind == @pptxdoc.PptxPlaceholderKind::Subtitle
+    None => false
+  }
+}
+
+///|
 fn pptx_shape_is_heading_fallback(
   slide : @pptxdoc.PptxSlide,
   shape : @pptxdoc.PptxShape,
@@ -594,6 +1112,43 @@ fn pptx_shape_is_heading_fallback(
     Some(next_top) => first < next_top
     None => true
   }
+}
+
+///|
+fn pptx_nonsemantic_heading_text(text : String) -> Bool {
+  let trimmed = text.trim().to_owned()
+  if trimmed == "" {
+    return true
+  }
+  let lower = trimmed.to_lower()
+  if pptx_generic_shape_sample_label(lower) {
+    return true
+  }
+  lower == "title" ||
+  lower == "subtitle" ||
+  lower == "heading" ||
+  lower.has_prefix("title ") ||
+  lower.has_prefix("subtitle ") ||
+  lower.has_prefix("heading ")
+}
+
+///|
+fn pptx_generic_shape_sample_label(lower : String) -> Bool {
+  pptx_bracketed_shape_sample_label(lower) ||
+  lower.has_prefix("shape ") ||
+  lower.has_prefix("shapes ") ||
+  lower.has_prefix("textbox ")
+}
+
+///|
+fn pptx_bracketed_shape_sample_label(lower : String) -> Bool {
+  if lower.length() < 8 {
+    return false
+  }
+  if !(lower.has_prefix("shape[") || lower.has_prefix("shapes[")) {
+    return false
+  }
+  lower.has_suffix("]")
 }
 
 ///|
@@ -644,6 +1199,7 @@ fn pptx_paragraph_inlines(
       slide,
       shape,
       Some(run.source_key),
+      pptx_include_block_reading_order_hint(state),
     )
     for inline in run.inlines {
       match inline {
@@ -932,7 +1488,12 @@ fn pptx_image_block_from_media(
   )
   let asset_key = pptx_picture_asset_key(slide, pic, media)
   let output_path = pptx_asset_output_path(state, asset_key, target_part)
-  let source_ref = pptx_picture_source_ref(state.source, slide, pic)
+  let source_ref = pptx_picture_source_ref(
+    state.source,
+    slide,
+    pic,
+    pptx_include_block_reading_order_hint(state),
+  )
   let asset = pptx_ensure_asset(
     state, media, asset_key, output_path, source_ref,
   )

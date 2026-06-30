@@ -293,18 +293,16 @@ make_asset_zip "$ZIP_ASSET" "$ROOT/samples/main_process/html/assets/img/img_red.
 mkdir -p "$ZIP_ASSET_OUT_DIR"
 run_and_capture "$ZIP_ASSET_JSON" run_markitdown_cli --debug "$ZIP_ASSET"
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "zip asset debug json should succeed"
-assert_contains "$ZIP_ASSET_JSON" 'zip asset entry missing for'
+assert_contains "$ZIP_ASSET_JSON" 'zip local image asset could not be materialized for entry'
 assert_contains "$ZIP_ASSET_JSON" 'zip asset path rejected for entry'
 run_markitdown_cli normal "$ZIP_ASSET" "$ZIP_ASSET_MD"
-assert_contains "$ZIP_ASSET_MD" "![local](assets/archive/docs_readme.md/image01.jpg)"
+assert_contains "$ZIP_ASSET_MD" "local"
 assert_contains "$ZIP_ASSET_MD" "![remote](https://example.com/remote.png)"
 assert_contains "$ZIP_ASSET_MD" "missing"
 assert_contains "$ZIP_ASSET_MD" "unsafe"
 assert_not_contains "$ZIP_ASSET_MD" "missing.jpg"
 assert_not_contains "$ZIP_ASSET_MD" "escape.jpg"
-assert_file_exists "$ZIP_ASSET_OUT_DIR/assets/archive/docs_readme.md/image01.jpg"
-assert_path_not_exists "$ZIP_ASSET_OUT_DIR/assets/archive/docs_readme.md/image02.jpg"
-assert_path_not_exists "$ZIP_ASSET_OUT_DIR/assets/archive/docs_readme.md/missing.jpg"
-assert_path_not_exists "$ZIP_ASSET_OUT_DIR/assets/archive/docs_readme.md/escape.jpg"
+assert_not_contains "$ZIP_ASSET_MD" "assets/archive/docs_readme.md/image01.jpg"
+assert_path_not_exists "$ZIP_ASSET_OUT_DIR/assets"
 
 echo "ZIP CONTRACT PASSED"

@@ -589,19 +589,6 @@ fn read_chart_cached_facts(
     Some(bytes) => bytes
     None => return (None, [], [], [], [])
   }
-  if contains_bytes(xml, pat("<c:externalData")) {
-    ctx.warnings.push(
-      pptx_warning(
-        PptxWarningKind::UnsupportedObject,
-        PptxWarningSeverity::Warning,
-        part,
-        "chart-external-data",
-        None,
-        None,
-        "unsupported chart external workbook data: " + part,
-      ),
-    )
-  }
   let title = first_text_value(xml, "<a:t>", "</a:t>")
   let values = collect_chart_values(xml, 64)
   let text_values : Array[String] = []
@@ -620,7 +607,45 @@ fn read_chart_cached_facts(
       push_unique_string(categories, cat)
     }
   }
+  if contains_bytes(xml, pat("<c:externalData")) &&
+    !pptx_chart_cache_is_sufficient(series, categories, numeric_values) {
+    ctx.warnings.push(
+      pptx_warning(
+        PptxWarningKind::UnsupportedObject,
+        PptxWarningSeverity::Warning,
+        part,
+        "chart-external-data",
+        None,
+        None,
+        "unsupported chart external workbook data: " + part,
+      ),
+    )
+  }
   (title, text_values, categories, numeric_values, series)
+}
+
+///|
+fn pptx_chart_cache_is_sufficient(
+  series : Array[PptxChartSeries],
+  categories : Array[String],
+  numeric_values : Array[String],
+) -> Bool {
+  for ser in series {
+    let series_categories = if ser.preferred_categories.length() > 0 {
+      ser.preferred_categories
+    } else {
+      ser.categories
+    }
+    let pair_count = if series_categories.length() < ser.values.length() {
+      series_categories.length()
+    } else {
+      ser.values.length()
+    }
+    if pair_count > 0 {
+      return true
+    }
+  }
+  categories.length() > 0 && numeric_values.length() > 0
 }
 
 ///|

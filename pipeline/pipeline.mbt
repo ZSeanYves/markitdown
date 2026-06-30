@@ -16,6 +16,8 @@ fn pass_error(message : String) -> PassError {
 ///|
 pub struct PassContext {
   mode : @product.ConvertMode
+  fidelity_mode : @product.FidelityMode
+  output_mode : @product.OutputMode
   options : @product.ProductOptions
   diagnostics : Ref[@core.Diagnostics]
   assets : Ref[Array[@core.AssetRef]]
@@ -47,6 +49,8 @@ fn make_product_pass_context(
 ) -> PassContext {
   {
     mode,
+    fidelity_mode: options.fidelity_mode,
+    output_mode: options.output_mode,
     options,
     diagnostics: Ref(diagnostics),
     assets: Ref(assets),

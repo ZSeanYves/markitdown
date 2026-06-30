@@ -4,12 +4,12 @@
 
 Search
 
-Vision
-
-Agents
-
 Fast retrieval
 
+Vision
+
 Image parsing
+
+Agents
 
 Task execution

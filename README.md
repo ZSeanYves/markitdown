@@ -77,8 +77,8 @@ The main CLI currently supports:
 Current format policy:
 
 - `pdf` is officially supported for native-text PDFs by default.
-- `pdf --ocr` and `Accurate`-mode PDF OCR are officially supported through local `pdftoppm` + `tesseract`.
-- Scanned or image-only PDFs still require the explicit PDF OCR route.
+- `pdf --accurate` automatically enters the current OCR-only PDF path; explicit `pdf --ocr` remains supported through local `pdftoppm` + `tesseract`.
+- Scanned or image-only PDFs should currently use `--accurate` or explicit `--ocr`.
 - Direct image input is officially supported through local Tesseract OCR.
 - Unsupported formats fail closed.
 
@@ -102,6 +102,18 @@ Minimal conversion example:
 
 ```bash
 ./_build/native/debug/build/cli/cli.exe normal samples/main_process/txt/markdown/txt_plain.txt .tmp/manual/out.md
+```
+
+Accurate fidelity example:
+
+```bash
+./_build/native/debug/build/cli/cli.exe normal --accurate samples/main_process/docx/markdown/docx_heading_levels.docx .tmp/manual/docx-accurate.md
+```
+
+Accurate plus RAG output example:
+
+```bash
+./_build/native/debug/build/cli/cli.exe normal --accurate --rag samples/main_process/pptx/markdown/pptx_bullet_levels.pptx .tmp/manual/pptx-accurate.rag.json
 ```
 
 Native-text PDF example:
@@ -135,10 +147,27 @@ Current boundaries:
 
 - Direct image input uses OCR by default.
 - `--no-ocr` disables direct-image OCR explicitly.
-- `--ocr-lang <LANG>` can be used to specify language for direct image input and explicit PDF OCR.
-- `pdf --ocr` and `Accurate`-mode PDF OCR are dependency-backed product paths.
+- `--ocr-lang <LANG>` can be used to specify language for direct image input and Accurate-mode PDF OCR.
+- `pdf --accurate` automatically enters the dependency-backed PDF OCR path; `pdf --ocr` remains an explicit confirmation path.
+- Both PDF OCR entries are dependency-backed product paths.
 - PDF OCR in this release is OCR-only and does not promise complex layout reconstruction.
 - This project depends on locally installed `pdftoppm` and `tesseract`; it does not bundle or redistribute either binary.
+
+## Fidelity And Output Modes
+
+The main CLI now exposes fidelity and output as separate product dimensions:
+
+- default: balanced fidelity + Markdown output
+- `--accurate`: accurate fidelity + Markdown output
+- `--debug`: debug JSON output
+- `--rag`: RAG JSON output
+- supported combinations include `--accurate --debug` and `--accurate --rag`
+
+The current Office product routes stay architecture-stable:
+
+- `docx`, `pptx`, `xlsx` remain package-single-pass parsers
+- `--accurate` enables higher-fidelity behavior inside those existing Office routes
+- `pdf` remains native-text by default and switches to OCR layout-two-stage under `--accurate`; explicit `--ocr` remains supported
 
 ## Reproducibility Guide
 

@@ -135,6 +135,108 @@ test "docx parser preserves note ordering code blocks and comment spacing" {
 }
 
 ///|
+test "docx accurate fidelity inlines anchored textboxes into body order" {
+  let registry = @formats_root.builtin_registry()
+  let context = @parser.parse_context_with_product_modes(
+    @parser.new_parse_context(@input.DetectedFormat::Docx),
+    @product.FidelityMode::Accurate,
+    @product.OutputMode::Markdown,
+  )
+  let result = match
+    @parser.registry_parse(
+      registry,
+      @input.input_from_path(
+        "samples/main_process/docx/markdown/docx_textbox_basic.docx",
+      ),
+      context,
+    ) {
+    Ok(value) => value
+    Err(err) => fail("accurate docx parse failed: " + err)
+  }
+  assert_metric_eq(result.diagnostics, "fidelity_mode", "accurate")
+  let document = result.document.unwrap_or_else(fn() {
+    abort("missing accurate docx document")
+  })
+  let rendered = (@render.markdown_renderer().render)(
+    document,
+    @render.make_render_context(
+      false,
+      fidelity_mode=@product.FidelityMode::Accurate,
+      output_mode=@product.OutputMode::Markdown,
+    ),
+  )
+  assert_true(
+    rendered.content.contains("Body before.\n\nText box body.\n\nBody after."),
+  )
+  assert_true(!rendered.content.contains("## Text Boxes"))
+}
+
+///|
+test "docx accurate fidelity restores alternate-content textbox text into Complex01 body" {
+  let registry = @formats_root.builtin_registry()
+  let balanced_context = @parser.parse_context_with_product_modes(
+    @parser.new_parse_context(@input.DetectedFormat::Docx),
+    @product.FidelityMode::Balanced,
+    @product.OutputMode::Markdown,
+  )
+  let accurate_context = @parser.parse_context_with_product_modes(
+    @parser.new_parse_context(@input.DetectedFormat::Docx),
+    @product.FidelityMode::Accurate,
+    @product.OutputMode::Markdown,
+  )
+  let path = "markitdown-quality-lab/external_quality/docx/openxml-sdk/Complex01.docx"
+  let balanced = match
+    @parser.registry_parse(
+      registry,
+      @input.input_from_path(path),
+      balanced_context,
+    ) {
+    Ok(value) => value
+    Err(err) => fail("balanced Complex01 docx parse failed: " + err)
+  }
+  let accurate = match
+    @parser.registry_parse(
+      registry,
+      @input.input_from_path(path),
+      accurate_context,
+    ) {
+    Ok(value) => value
+    Err(err) => fail("accurate Complex01 docx parse failed: " + err)
+  }
+  let balanced_rendered = (@render.markdown_renderer().render)(
+    balanced.document.unwrap_or_else(fn() {
+      abort("missing balanced Complex01 document")
+    }),
+    @render.make_render_context(
+      false,
+      fidelity_mode=@product.FidelityMode::Balanced,
+      output_mode=@product.OutputMode::Markdown,
+    ),
+  )
+  let accurate_rendered = (@render.markdown_renderer().render)(
+    accurate.document.unwrap_or_else(fn() {
+      abort("missing accurate Complex01 document")
+    }),
+    @render.make_render_context(
+      false,
+      fidelity_mode=@product.FidelityMode::Accurate,
+      output_mode=@product.OutputMode::Markdown,
+    ),
+  )
+  assert_true(
+    !balanced_rendered.content.contains(
+      "Eric White<br>This is my interesting abstract.",
+    ),
+  )
+  assert_true(
+    accurate_rendered.content.contains(
+      "Eric White<br>This is my interesting abstract.",
+    ),
+  )
+  assert_true(!accurate_rendered.content.contains("## Text Boxes"))
+}
+
+///|
 test "docx parser keeps diagnostics source refs and renderer boundary contract locked" {
   let parsed = default_registry_parse(
     @input.input_from_path(

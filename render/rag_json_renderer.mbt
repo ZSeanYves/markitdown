@@ -169,6 +169,14 @@ fn render_rag_json_document(
     @core.json_string_opt(document.diagnostics.convert_mode),
   )
   fields.push(
+    "\"fidelity_mode\": " +
+    @core.json_string_opt(document.diagnostics.fidelity_mode),
+  )
+  fields.push(
+    "\"output_mode\": " +
+    @core.json_string_opt(document.diagnostics.output_mode),
+  )
+  fields.push(
     "\"metadata\": " + render_document_metadata_json(document.metadata),
   )
   fields.push("\"assets\": " + @core.array_json(asset_items))

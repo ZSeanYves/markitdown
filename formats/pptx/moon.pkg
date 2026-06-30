@@ -7,6 +7,7 @@ import {
   "ZSeanYves/markitdown/formats/parser_common",
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/product",
 }
 
 supported_targets = "native"

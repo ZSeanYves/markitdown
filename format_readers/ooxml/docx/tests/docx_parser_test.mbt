@@ -1544,6 +1544,124 @@ test "docx parses vml textbox shape as textbox anchor not image" {
 }
 
 ///|
+test "docx resolves textbox ref by drawing docPr id when block index is ambiguous" {
+  let pkg = generated_docx_package(
+    "<w:p>" +
+    "<w:r><w:drawing><wp:inline xmlns:wp=\"http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing\">" +
+    "<wp:docPr id=\"41\" name=\"Text Box A\"/>" +
+    "<a:graphic xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\">" +
+    "<a:graphicData uri=\"http://schemas.microsoft.com/office/word/2010/wordprocessingShape\">" +
+    "<wps:wsp xmlns:wps=\"http://schemas.microsoft.com/office/word/2010/wordprocessingShape\">" +
+    "<wps:txbx><w:txbxContent><w:p><w:r><w:t>Alpha textbox</w:t></w:r></w:p></w:txbxContent></wps:txbx>" +
+    "</wps:wsp></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>" +
+    "<w:r><w:drawing><wp:inline xmlns:wp=\"http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing\">" +
+    "<wp:docPr id=\"42\" name=\"Text Box B\"/>" +
+    "<a:graphic xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\">" +
+    "<a:graphicData uri=\"http://schemas.microsoft.com/office/word/2010/wordprocessingShape\">" +
+    "<wps:wsp xmlns:wps=\"http://schemas.microsoft.com/office/word/2010/wordprocessingShape\">" +
+    "<wps:txbx><w:txbxContent><w:p><w:r><w:t>Beta textbox</w:t></w:r></w:p></w:txbxContent></wps:txbx>" +
+    "</wps:wsp></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>" +
+    "</w:p>",
+  )
+  let doc = @docx.parse_docx_document_from_package(pkg)
+  assert_eq(doc.textboxes.length(), 2)
+  match doc.body[0] {
+    @docx.DocxBlock::Paragraph(p) => {
+      let refs : Array[String] = []
+      for inline in p.inlines {
+        match inline {
+          @docx.DocxInline::Drawing(drawing) =>
+            match drawing.text_box_ref {
+              Some(textbox_ref) =>
+                refs.push(textbox_ref.anchor_id.unwrap_or("<none>"))
+              None => ()
+            }
+          _ => ()
+        }
+      }
+      assert_eq(refs.length(), 2)
+      assert_true(refs[0] == "word/document.xml#textbox:0")
+      assert_true(refs[1] == "word/document.xml#textbox:1")
+    }
+    _ => fail("expected paragraph")
+  }
+}
+
+///|
+test "docx keeps distinct textbox entries when identity evidence differs" {
+  let pkg = generated_docx_package(
+    "<w:p><w:r><w:drawing><wp:inline xmlns:wp=\"http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing\">" +
+    "<wp:docPr id=\"77\" name=\"Dedup box\"/>" +
+    "<a:graphic xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\">" +
+    "<a:graphicData uri=\"http://schemas.microsoft.com/office/word/2010/wordprocessingShape\">" +
+    "<wps:wsp xmlns:wps=\"http://schemas.microsoft.com/office/word/2010/wordprocessingShape\">" +
+    "<wps:txbx><w:txbxContent><w:p><w:r><w:t>Dedup body</w:t></w:r></w:p></w:txbxContent></wps:txbx>" +
+    "</wps:wsp></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>" +
+    "<w:r><w:pict><v:shape xmlns:v=\"urn:schemas-microsoft-com:vml\" id=\"shape1\" style=\"width:1in\">" +
+    "<w:txbxContent><w:p><w:r><w:t>Dedup body</w:t></w:r></w:p></w:txbxContent>" +
+    "</v:shape></w:pict></w:r></w:p>",
+  )
+  let doc = @docx.parse_docx_document_from_package(pkg)
+  assert_eq(doc.textboxes.length(), 2)
+}
+
+///|
+test "docx parses vml rect textbox identity and merges alternate textbox entries" {
+  let pkg = generated_docx_package(
+    "<w:p><w:r><mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\">" +
+    "<mc:Choice Requires=\"wps\"><w:drawing><wp:inline xmlns:wp=\"http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing\">" +
+    "<wp:docPr id=\"88\" name=\"Rectangle 467\"/>" +
+    "<a:graphic xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\">" +
+    "<a:graphicData uri=\"http://schemas.microsoft.com/office/word/2010/wordprocessingShape\">" +
+    "<wps:wsp xmlns:wps=\"http://schemas.microsoft.com/office/word/2010/wordprocessingShape\">" +
+    "<wps:txbx><w:txbxContent><w:p><w:r><w:t>Merged body</w:t></w:r></w:p></w:txbxContent></wps:txbx>" +
+    "</wps:wsp></a:graphicData></a:graphic></wp:inline></w:drawing></mc:Choice>" +
+    "<mc:Fallback><w:pict><v:rect xmlns:v=\"urn:schemas-microsoft-com:vml\" id=\"Rectangle 467\" style=\"width:1in\">" +
+    "<v:textbox><w:txbxContent><w:p><w:r><w:t>Merged body</w:t></w:r></w:p></w:txbxContent></v:textbox>" +
+    "</v:rect></w:pict></mc:Fallback></mc:AlternateContent></w:r></w:p>",
+  )
+  let doc = @docx.parse_docx_document_from_package(pkg)
+  assert_eq(doc.textboxes.length(), 1)
+  assert_true(doc.textboxes[0].shape_id == Some("Rectangle 467"))
+  assert_true(doc.textboxes[0].doc_pr_name == Some("Rectangle 467"))
+  match doc.body[0] {
+    @docx.DocxBlock::Paragraph(p) =>
+      match p.inlines[0] {
+        @docx.DocxInline::Drawing(drawing) =>
+          match drawing.text_box_ref {
+            Some(textbox_ref) =>
+              assert_true(textbox_ref.doc_pr_id == Some("88"))
+            None => fail("expected textbox ref inline")
+          }
+        _ => fail("expected drawing inline")
+      }
+    _ => fail("expected paragraph")
+  }
+  let fallback_doc = @docx.parse_docx_document_from_package(
+    generated_docx_package(
+      "<w:p><w:r><w:pict><v:rect xmlns:v=\"urn:schemas-microsoft-com:vml\" id=\"Rect Only\" style=\"width:1in\">" +
+      "<v:textbox><w:txbxContent><w:p><w:r><w:t>Rect only body</w:t></w:r></w:p></w:txbxContent></v:textbox>" +
+      "</v:rect></w:pict></w:r></w:p>",
+    ),
+  )
+  assert_eq(fallback_doc.textboxes.length(), 1)
+  assert_true(fallback_doc.textboxes[0].shape_id == Some("Rect Only"))
+  match fallback_doc.body[0] {
+    @docx.DocxBlock::Paragraph(p) =>
+      match p.inlines[0] {
+        @docx.DocxInline::Shape(shape) =>
+          match shape.text_box_ref {
+            Some(textbox_ref) =>
+              assert_true(textbox_ref.shape_id == Some("Rect Only"))
+            None => fail("expected textbox ref inline")
+          }
+        _ => fail("expected shape inline")
+      }
+    _ => fail("expected paragraph")
+  }
+}
+
+///|
 test "docx missing media relationship is explicit warning" {
   let pkg = generated_docx_package(
     "<w:p><w:r>" +

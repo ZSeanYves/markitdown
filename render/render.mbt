@@ -583,6 +583,10 @@ fn render_markdown_table(block : @core.CoreBlock) -> String {
       @core.block_with_attr(block, "raw_kind", "empty_table_fallback"),
     )
   }
+  if block.attrs.get("render_html_table") == Some("true") &&
+    markdown_table_has_spans(block.children) {
+    return render_markdown_html_table(block)
+  }
   let rows = block.children
   let width = table_render_width_from_children(block, rows)
   if width == 0 {
@@ -613,6 +617,124 @@ fn render_markdown_table(block : @core.CoreBlock) -> String {
     }
     out.write_char('\n')
     write_markdown_table_row(out, row_cells, row_width)
+  }
+  out.to_string()
+}
+
+///|
+fn markdown_table_has_spans(rows : Array[@core.CoreBlock]) -> Bool {
+  for row in rows {
+    for cell in row.children {
+      if cell.attrs.get("rowspan") is Some(_) ||
+        cell.attrs.get("colspan") is Some(_) {
+        return true
+      }
+    }
+  }
+  false
+}
+
+///|
+fn render_markdown_html_table(block : @core.CoreBlock) -> String {
+  let rows = block.children
+  let header_rows = @string.parse_int(
+    block.attrs.get("header_rows").unwrap_or("1"),
+  ) catch {
+    _ => 1
+  }
+  let out = StringBuilder::new()
+  out.write_string("<table>\n")
+  for index in 0..<rows.length() {
+    let row = rows[index]
+    let tag = if header_rows > 0 && index < header_rows { "th" } else { "td" }
+    out.write_string("<tr>")
+    for cell in row.children {
+      out.write_string("<")
+      out.write_string(tag)
+      markdown_write_html_table_cell_attrs(out, cell)
+      out.write_string(">")
+      out.write_string(
+        markdown_escape_html_text(markdown_table_cell_text(cell)),
+      )
+      out.write_string("</")
+      out.write_string(tag)
+      out.write_string(">")
+    }
+    out.write_string("</tr>")
+    if index + 1 < rows.length() {
+      out.write_char('\n')
+    }
+  }
+  out.write_string("\n</table>")
+  out.to_string()
+}
+
+///|
+fn markdown_write_html_table_cell_attrs(
+  out : StringBuilder,
+  cell : @core.CoreBlock,
+) -> Unit {
+  match cell.attrs.get("rowspan") {
+    Some(value) =>
+      if value.trim() != "" && value != "1" {
+        out.write_string(" rowspan=\"")
+        out.write_string(markdown_escape_html_attr(value))
+        out.write_char('"')
+      }
+    None => ()
+  }
+  match cell.attrs.get("colspan") {
+    Some(value) =>
+      if value.trim() != "" && value != "1" {
+        out.write_string(" colspan=\"")
+        out.write_string(markdown_escape_html_attr(value))
+        out.write_char('"')
+      }
+    None => ()
+  }
+}
+
+///|
+fn markdown_table_cell_text(cell : @core.CoreBlock) -> String {
+  if rich_inlines_present(cell) {
+    render_markdown_inline_text(cell)
+  } else {
+    cell.text
+  }
+}
+
+///|
+fn markdown_escape_html_text(text : String) -> String {
+  let out = StringBuilder::new()
+  for ch in text.to_array() {
+    if ch == '&' {
+      out.write_string("&amp;")
+    } else if ch == '<' {
+      out.write_string("&lt;")
+    } else if ch == '>' {
+      out.write_string("&gt;")
+    } else {
+      out.write_char(ch)
+    }
+  }
+  out.to_string()
+}
+
+///|
+fn markdown_escape_html_attr(text : String) -> String {
+  let out = StringBuilder::new()
+  for ch in text.to_array() {
+    if ch == '&' {
+      out.write_string("&amp;")
+    } else if ch == '<' {
+      out.write_string("&lt;")
+    } else if ch == '>' {
+      out.write_string("&gt;")
+    } else if ch == '"' {
+      out.write_string("&quot;")
+    } else {
+      out.write_char(ch)
+    }
   }
   out.to_string()
 }
@@ -1888,6 +2010,12 @@ fn render_rag_json_events(
   fields.push(
     "\"convert_mode\": " + @core.json_string_opt(diagnostics.convert_mode),
   )
+  fields.push(
+    "\"fidelity_mode\": " + @core.json_string_opt(diagnostics.fidelity_mode),
+  )
+  fields.push(
+    "\"output_mode\": " + @core.json_string_opt(diagnostics.output_mode),
+  )
   fields.push("\"metadata\": " + render_document_metadata_json(metadata))
   fields.push("\"assets\": []")
   fields.push("\"diagnostics\": " + render_diagnostics_json(diagnostics))
@@ -2215,6 +2343,12 @@ fn render_diagnostics_json(diagnostics : @core.Diagnostics) -> String {
   )
   fields.push(
     "\"convert_mode\": " + @core.json_string_opt(diagnostics.convert_mode),
+  )
+  fields.push(
+    "\"fidelity_mode\": " + @core.json_string_opt(diagnostics.fidelity_mode),
+  )
+  fields.push(
+    "\"output_mode\": " + @core.json_string_opt(diagnostics.output_mode),
   )
   fields.push(
     "\"input_kind\": " + @core.json_string_opt(diagnostics.input_kind),

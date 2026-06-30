@@ -6,9 +6,13 @@ import {
 }
 
 // Values
+pub fn convert_mode_from_modes(FidelityMode, OutputMode) -> ConvertMode
+
 pub fn convert_mode_name(ConvertMode) -> String
 
 pub fn debug_mode(ConvertMode) -> Bool
+
+pub fn debug_output_mode(OutputMode) -> Bool
 
 pub fn default_pdf_cleanup_mode() -> PdfCleanupMode
 
@@ -18,9 +22,17 @@ pub fn default_product_options() -> ProductOptions
 
 pub fn default_resource_limits() -> ResourceLimits
 
-pub fn make_product_options(ConvertMode, ResourceLimits, pdf_cleanup_mode? : PdfCleanupMode, pdf_table_mode? : PdfTableMode, rag_options? : @rag.RagOptions) -> ProductOptions
+pub fn fidelity_mode_for_convert_mode(ConvertMode) -> FidelityMode
+
+pub fn fidelity_mode_name(FidelityMode) -> String
+
+pub fn make_product_options(ConvertMode, ResourceLimits, fidelity_mode? : FidelityMode, output_mode? : OutputMode, pdf_cleanup_mode? : PdfCleanupMode, pdf_table_mode? : PdfTableMode, rag_options? : @rag.RagOptions) -> ProductOptions
 
 pub fn make_resource_limits(Int, Int, Int, max_line_chars? : Int) -> ResourceLimits
+
+pub fn output_mode_for_convert_mode(ConvertMode) -> OutputMode
+
+pub fn output_mode_name(OutputMode) -> String
 
 pub fn pdf_cleanup_enabled(ProductOptions) -> Bool
 
@@ -40,6 +52,17 @@ pub(all) enum ConvertMode {
   Debug
 } derive(Eq)
 
+pub(all) enum FidelityMode {
+  Balanced
+  Accurate
+} derive(Eq)
+
+pub(all) enum OutputMode {
+  Markdown
+  Debug
+  Rag
+} derive(Eq)
+
 pub(all) enum PdfCleanupMode {
   Disabled
   Conservative
@@ -52,6 +75,8 @@ pub(all) enum PdfTableMode {
 
 pub struct ProductOptions {
   mode : ConvertMode
+  fidelity_mode : FidelityMode
+  output_mode : OutputMode
   limits : ResourceLimits
   pdf_cleanup_mode : PdfCleanupMode
   pdf_table_mode : PdfTableMode

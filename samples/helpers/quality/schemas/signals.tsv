@@ -10,7 +10,6 @@ heading_marker	prefix	<text>	output markdown must contain a heading line with th
 table_marker	flag		output markdown should contain a markdown table marker
 image_ref	flag		output markdown should contain at least one local markdown image reference
 link_ref	flag		output markdown should contain at least one markdown link
-metadata_file	flag		`normal --with-metadata` should emit a metadata sidecar
 asset_count_min	prefix	<n>	materialized asset file count should be at least the given integer
 order	prefix	<a>|<b>|<c>	the listed text fragments should appear in the given order
 line_fragmentation_max	prefix	<n>	count short non-empty lines and require the count to stay within the integer threshold

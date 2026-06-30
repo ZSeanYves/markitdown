@@ -1284,9 +1284,7 @@ fn parse_docx_textboxes_in_part(
               warnings,
             ),
             source_key: key,
-            shape_id: read_docx_non_empty_attr_in_first_tag(
-              anchor_xml, "v:shape", "id",
-            ),
+            shape_id: docx_textbox_anchor_shape_id(anchor_xml),
             doc_pr_id: read_docx_non_empty_attr_in_first_tag(
               anchor_xml, "wp:docPr", "id",
             ),
@@ -1353,12 +1351,23 @@ fn docx_textbox_anchor_title(anchor_xml : String) -> String? {
   match read_docx_non_empty_attr_in_first_tag(anchor_xml, "wp:docPr", "title") {
     Some(value) => Some(value)
     None =>
-      match
-        read_docx_non_empty_attr_in_first_tag(anchor_xml, "v:shape", "title") {
+      match docx_textbox_anchor_vml_attr(anchor_xml, "title") {
         Some(value) => Some(value)
-        None =>
-          read_docx_non_empty_attr_in_first_tag(anchor_xml, "v:shape", "alt")
+        None => docx_textbox_anchor_vml_attr(anchor_xml, "alt")
       }
+  }
+}
+
+///|
+fn docx_textbox_anchor_shape_id(anchor_xml : String) -> String? {
+  docx_textbox_anchor_vml_attr(anchor_xml, "id")
+}
+
+///|
+fn docx_textbox_anchor_vml_attr(anchor_xml : String, attr : String) -> String? {
+  match read_docx_non_empty_attr_in_first_tag(anchor_xml, "v:shape", attr) {
+    Some(value) => Some(value)
+    None => read_docx_non_empty_attr_in_first_tag(anchor_xml, "v:rect", attr)
   }
 }
 
@@ -2637,6 +2646,23 @@ fn parse_docx_run_inlines(
         Some(end_exclusive) => i = end_exclusive
         None => break
       }
+    } else if is_docx_start_tag_at(xml, start, "mc:AlternateContent") {
+      match find_docx_element_end(xml, start, "mc:AlternateContent") {
+        Some(end_exclusive) => {
+          let alt_key = docx_child_source_key(
+            run_key, "alternate", inline_index,
+          )
+          let alt_inlines = parse_docx_alternate_content_inlines(
+            xml, start, end_exclusive, alt_key, relationships, pkg, warnings,
+          )
+          if alt_inlines.length() > 0 {
+            inlines.append(alt_inlines[:])
+            inline_index += alt_inlines.length()
+          }
+          i = end_exclusive
+        }
+        None => break
+      }
     } else if is_docx_start_tag_at(xml, start, "w:drawing") {
       match find_docx_element_end(xml, start, "w:drawing") {
         Some(end_exclusive) => {
@@ -2680,6 +2706,8 @@ fn parse_docx_run_inlines(
           inlines.push(
             DocxSourceInline::TextBoxRef({
               anchor_id: None,
+              doc_pr_id: None,
+              shape_id: None,
               owner_part: textbox_key.part_name,
               source_key: textbox_key,
             }),
@@ -2901,6 +2929,48 @@ fn parse_docx_run_inlines(
     }
   }
   inlines
+}
+
+///|
+fn parse_docx_alternate_content_inlines(
+  xml : String,
+  start : Int,
+  end_exclusive : Int,
+  key : DocxSourceKey,
+  relationships : Array[@ox.OoxmlRelationship],
+  pkg : @ox.OoxmlPackage?,
+  warnings : Array[DocxSourceWarning],
+) -> Array[DocxSourceInline] {
+  let inner = docx_inner_xml_for_element(
+    xml, start, end_exclusive, "mc:AlternateContent",
+  )
+  let chosen = match find_docx_start_tag_from(inner, 0, "mc:Choice") {
+    Some(choice_start) =>
+      match find_docx_element_end(inner, choice_start, "mc:Choice") {
+        Some(choice_end) =>
+          docx_inner_xml_for_element(
+            inner, choice_start, choice_end, "mc:Choice",
+          )
+        None => ""
+      }
+    None =>
+      match find_docx_start_tag_from(inner, 0, "mc:Fallback") {
+        Some(fallback_start) =>
+          match find_docx_element_end(inner, fallback_start, "mc:Fallback") {
+            Some(fallback_end) =>
+              docx_inner_xml_for_element(
+                inner, fallback_start, fallback_end, "mc:Fallback",
+              )
+            None => ""
+          }
+        None => ""
+      }
+  }
+  if chosen == "" {
+    []
+  } else {
+    parse_docx_run_inlines(chosen, key, relationships, pkg, warnings)
+  }
 }
 
 ///|
@@ -3198,7 +3268,7 @@ fn parse_docx_shape_anchor(
     anchor_id: key.part_name + "#" + key.node_key,
     owner_part: key.part_name,
     source_key: key,
-    shape_id: read_docx_non_empty_attr_in_first_tag(source_xml, "v:shape", "id"),
+    shape_id: docx_textbox_anchor_shape_id(source_xml),
     shape_type: read_docx_non_empty_attr_in_first_tag(
       source_xml, "v:shape", "type",
     ),
@@ -3218,7 +3288,15 @@ fn docx_textbox_ref_in_anchor(
 ) -> DocxSourceTextBoxRef? {
   match find_docx_start_tag_from(source_xml, 0, "w:txbxContent") {
     Some(_) =>
-      Some({ anchor_id: None, owner_part: key.part_name, source_key: key })
+      Some({
+        anchor_id: None,
+        doc_pr_id: read_docx_non_empty_attr_in_first_tag(
+          source_xml, "wp:docPr", "id",
+        ),
+        shape_id: docx_textbox_anchor_shape_id(source_xml),
+        owner_part: key.part_name,
+        source_key: key,
+      })
     None => None
   }
 }

@@ -15,16 +15,30 @@ fn pptx_table_block(
   if !pptx_table_has_visible_cells(table) {
     return None
   }
-  let source_ref = pptx_table_source_ref(state.source, slide, table)
+  let source_ref = pptx_table_source_ref(
+    state.source,
+    slide,
+    table,
+    pptx_include_block_reading_order_hint(state),
+  )
   let block = @core.make_block(@core.BlockKind::Table, "table", source_ref~)
   block.attrs.set("header_rows", "1")
   block.attrs.set(
     "table_column_count",
     pptx_table_column_count(table).to_string(),
   )
+  let span_aware = pptx_table_use_span_rendering(state, table)
+  if span_aware {
+    block.attrs.set("render_html_table", "true")
+  }
   for row in table.rows {
     let row_ref = @core.source_ref_with_extra(
-      pptx_table_source_ref(state.source, slide, table),
+      pptx_table_source_ref(
+        state.source,
+        slide,
+        table,
+        pptx_include_block_reading_order_hint(state),
+      ),
       "row_index",
       row.row_index.to_string(),
     )
@@ -34,9 +48,17 @@ fn pptx_table_block(
       source_ref=row_ref,
     )
     for cell in row.cells {
+      if span_aware && pptx_should_skip_merged_placeholder_cell(cell) {
+        continue
+      }
       let cell_ref = @core.source_ref_with_extra(
         @core.source_ref_with_extra(
-          pptx_table_source_ref(state.source, slide, table),
+          pptx_table_source_ref(
+            state.source,
+            slide,
+            table,
+            pptx_include_block_reading_order_hint(state),
+          ),
           "row_index",
           cell.row_index.to_string(),
         ),
@@ -48,9 +70,15 @@ fn pptx_table_block(
         pptx_table_cell_text(cell),
         source_ref=cell_ref,
       )
+      let cell_block = pptx_apply_table_cell_rich_inlines(
+        cell_block, state, slide, cell,
+      )
+      if span_aware {
+        pptx_apply_table_span_attrs(cell_block, cell)
+      }
       row_block.children.push(cell_block)
       let grid_span = cell.grid_span.unwrap_or(1)
-      if grid_span > 1 {
+      if !span_aware && grid_span > 1 {
         for _ in 1..<grid_span {
           row_block.children.push(
             @core.make_block(
@@ -71,7 +99,8 @@ fn pptx_table_block(
 fn pptx_table_has_visible_cells(table : @pptxdoc.PptxTable) -> Bool {
   for row in table.rows {
     for cell in row.cells {
-      if pptx_table_cell_text(cell).trim() != "" {
+      if !pptx_should_skip_merged_placeholder_cell(cell) &&
+        pptx_table_cell_text(cell).trim() != "" {
         return true
       }
     }
@@ -104,6 +133,149 @@ fn pptx_table_cell_text(cell : @pptxdoc.PptxTableCell) -> String {
     }
   }
   parts.join("<br>")
+}
+
+///|
+fn pptx_apply_table_cell_rich_inlines(
+  cell_block : @core.CoreBlock,
+  state : PptxState,
+  slide : @pptxdoc.PptxSlide,
+  cell : @pptxdoc.PptxTableCell,
+) -> @core.CoreBlock {
+  let rich : Array[@core.CoreInline] = []
+  let mut first_para = true
+  for para in cell.paragraphs {
+    if !first_para {
+      rich.push(@core.make_inline_line_break())
+    }
+    first_para = false
+    rich.append(pptx_table_cell_paragraph_inlines(state, slide, para)[:])
+  }
+  if rich.length() == 0 {
+    cell_block
+  } else {
+    @core.block_with_rich_inlines(cell_block, Some(rich))
+  }
+}
+
+///|
+fn pptx_table_cell_paragraph_inlines(
+  state : PptxState,
+  slide : @pptxdoc.PptxSlide,
+  para : @pptxdoc.PptxParagraph,
+) -> Array[@core.CoreInline] {
+  let out : Array[@core.CoreInline] = []
+  for run in para.runs {
+    let run_ref = pptx_slide_source_ref(
+      state.source,
+      slide,
+      Some(run.source_key),
+      None,
+    )
+    for inline in run.inlines {
+      match inline {
+        @pptxdoc.PptxInline::Text(text) =>
+          out.push(
+            @core.make_inline_text(
+              pptx_normalize_text_fragment(text),
+              source_ref=run_ref,
+            ),
+          )
+        @pptxdoc.PptxInline::Break =>
+          out.push(@core.make_inline_line_break(source_ref=run_ref))
+        @pptxdoc.PptxInline::Field(text) =>
+          out.push(
+            @core.make_inline_text(
+              pptx_normalize_text_fragment(text),
+              source_ref=run_ref,
+            ),
+          )
+        @pptxdoc.PptxInline::Hyperlink(link, text) =>
+          match link.target {
+            Some(target) =>
+              out.push(
+                @core.make_inline_link(
+                  pptx_normalize_text_fragment(text),
+                  target,
+                  source_ref=@core.source_ref_with_extra(
+                    run_ref,
+                    "hyperlink_target_mode",
+                    if link.is_external {
+                      "external"
+                    } else {
+                      "internal"
+                    },
+                  ),
+                ),
+              )
+            None =>
+              out.push(
+                @core.make_inline_text(
+                  pptx_normalize_text_fragment(text),
+                  source_ref=run_ref,
+                ),
+              )
+          }
+        @pptxdoc.PptxInline::Unsupported(unsupported) =>
+          out.push(
+            @core.make_inline_text(
+              "[Unsupported PPTX inline: " + unsupported.kind + "]",
+              source_ref=run_ref,
+            ),
+          )
+      }
+    }
+  }
+  pptx_compact_text_inlines(out)
+}
+
+///|
+fn pptx_table_use_span_rendering(
+  state : PptxState,
+  table : @pptxdoc.PptxTable,
+) -> Bool {
+  if state.fidelity_mode != @product.FidelityMode::Accurate {
+    return false
+  }
+  for row in table.rows {
+    for cell in row.cells {
+      if pptx_table_cell_has_span(cell) ||
+        pptx_should_skip_merged_placeholder_cell(cell) {
+        return true
+      }
+    }
+  }
+  false
+}
+
+///|
+fn pptx_table_cell_has_span(cell : @pptxdoc.PptxTableCell) -> Bool {
+  cell.grid_span.unwrap_or(1) > 1 || cell.row_span.unwrap_or(1) > 1
+}
+
+///|
+fn pptx_should_skip_merged_placeholder_cell(
+  cell : @pptxdoc.PptxTableCell,
+) -> Bool {
+  match cell.merge_hint {
+    Some(hint) => hint == "hMerge" || hint == "vMerge"
+    None => false
+  }
+}
+
+///|
+fn pptx_apply_table_span_attrs(
+  cell_block : @core.CoreBlock,
+  cell : @pptxdoc.PptxTableCell,
+) -> Unit {
+  let rowspan = cell.row_span.unwrap_or(1)
+  let colspan = cell.grid_span.unwrap_or(1)
+  if rowspan > 1 {
+    cell_block.attrs.set("rowspan", rowspan.to_string())
+  }
+  if colspan > 1 {
+    cell_block.attrs.set("colspan", colspan.to_string())
+  }
 }
 
 ///|
@@ -161,13 +333,18 @@ fn pptx_chart_title_block(
 ) -> @core.CoreBlock? {
   match chart.title {
     Some(title) =>
-      if title.trim() == "" {
+      if title.trim() == "" || pptx_nonsemantic_heading_text(title) {
         None
       } else {
         let block = @core.make_block(
           @core.BlockKind::Heading,
           title,
-          source_ref=pptx_chart_source_ref(state.source, slide, chart),
+          source_ref=pptx_chart_source_ref(
+            state.source,
+            slide,
+            chart,
+            pptx_include_block_reading_order_hint(state),
+          ),
         )
         block.attrs.set("level", "3")
         Some(block)
@@ -232,7 +409,12 @@ fn pptx_chart_series_table_block(
   if categories.length() == 0 {
     return None
   }
-  let source_ref = pptx_chart_source_ref(state.source, slide, chart)
+  let source_ref = pptx_chart_source_ref(
+    state.source,
+    slide,
+    chart,
+    pptx_include_block_reading_order_hint(state),
+  )
   let block = @core.make_block(@core.BlockKind::Table, "table", source_ref~)
   block.attrs.set("header_rows", "1")
   block.attrs.set(
@@ -377,7 +559,12 @@ fn pptx_chart_series_list_blocks(
     let heading = @core.make_block(
       @core.BlockKind::Heading,
       series.name.unwrap_or("Series " + (series_index + 1).to_string()),
-      source_ref=pptx_chart_source_ref(state.source, slide, chart),
+      source_ref=pptx_chart_source_ref(
+        state.source,
+        slide,
+        chart,
+        pptx_include_block_reading_order_hint(state),
+      ),
     )
     heading.attrs.set("level", "3")
     out.push(heading)
@@ -389,7 +576,12 @@ fn pptx_chart_series_list_blocks(
         pptx_chart_display_value(series.values[item_index]),
         source_ref=@core.source_ref_with_extra(
           @core.source_ref_with_extra(
-            pptx_chart_source_ref(state.source, slide, chart),
+            pptx_chart_source_ref(
+              state.source,
+              slide,
+              chart,
+              pptx_include_block_reading_order_hint(state),
+            ),
             "series_index",
             series_index.to_string(),
           ),
@@ -434,7 +626,12 @@ fn pptx_chart_category_value_table_block(
   if row_count == 0 {
     return None
   }
-  let source_ref = pptx_chart_source_ref(state.source, slide, chart)
+  let source_ref = pptx_chart_source_ref(
+    state.source,
+    slide,
+    chart,
+    pptx_include_block_reading_order_hint(state),
+  )
   let block = @core.make_block(@core.BlockKind::Table, "table", source_ref~)
   block.attrs.set("header_rows", "1")
   block.attrs.set("table_column_count", "2")
@@ -541,7 +738,12 @@ fn pptx_chart_missing_cache_block(
   let raw = @core.make_block(
     @core.BlockKind::Raw,
     "[Chart data not embedded in chart cache]",
-    source_ref=pptx_chart_source_ref(state.source, slide, chart),
+    source_ref=pptx_chart_source_ref(
+      state.source,
+      slide,
+      chart,
+      pptx_include_block_reading_order_hint(state),
+    ),
   )
   raw.attrs.set("raw_kind", "pptx_chart_cache_missing")
   Some(raw)
@@ -583,6 +785,7 @@ fn pptx_chart_source_ref(
   source : @input.InputSource,
   slide : @pptxdoc.PptxSlide,
   chart : @pptxdoc.PptxChartRef,
+  include_reading_order_hint : Bool,
 ) -> @core.SourceRef {
   let base = pptx_slide_source_ref(
     source,
@@ -593,6 +796,9 @@ fn pptx_chart_source_ref(
   let base = match chart.target_part {
     Some(part) => @core.source_ref_with_extra(base, "part_name", part)
     None => base
+  }
+  if !include_reading_order_hint {
+    return base
   }
   match pptx_slide_reading_order_key(slide, chart.source_key) {
     Some(order_key) =>

@@ -4,6 +4,8 @@ pub fn empty_diagnostics() -> Diagnostics {
     parser_name: None,
     parser_mode: None,
     convert_mode: None,
+    fidelity_mode: None,
+    output_mode: None,
     input_kind: None,
     detected_format: None,
     warnings: [],
@@ -30,8 +32,10 @@ pub fn diagnostics_with_mode(
   diagnostics : Diagnostics,
   parser_mode : String?,
   convert_mode : String?,
+  fidelity_mode? : String? = None,
+  output_mode? : String? = None,
 ) -> Diagnostics {
-  { ..diagnostics, parser_mode, convert_mode }
+  { ..diagnostics, parser_mode, convert_mode, fidelity_mode, output_mode }
 }
 
 ///|

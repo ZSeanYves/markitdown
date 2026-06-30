@@ -35,6 +35,14 @@ test "convert provenance reports markdown huge block route" {
     execution.provenance.pipeline_output_kind == "block_stream" ||
     execution.provenance.pipeline_output_kind == "document",
   )
+  assert_eq(
+    @convert.fidelity_mode_name(execution.provenance.fidelity_mode),
+    "balanced",
+  )
+  assert_eq(
+    @convert.output_mode_name(execution.provenance.output_mode),
+    "markdown",
+  )
 }
 
 ///|
@@ -52,6 +60,14 @@ test "convert provenance reports json large streaming route" {
     "streaming_event",
   )
   assert_eq(execution.provenance.parse_result_kind, "event_stream")
+  assert_eq(
+    @convert.fidelity_mode_name(execution.provenance.fidelity_mode),
+    "balanced",
+  )
+  assert_eq(
+    @convert.output_mode_name(execution.provenance.output_mode),
+    "markdown",
+  )
 }
 
 ///|
@@ -75,6 +91,14 @@ test "convert provenance reports zip container route" {
     execution.provenance.pipeline_output_kind == "block_stream" ||
     execution.provenance.pipeline_output_kind == "document",
   )
+  assert_eq(
+    @convert.fidelity_mode_name(execution.provenance.fidelity_mode),
+    "balanced",
+  )
+  assert_eq(
+    @convert.output_mode_name(execution.provenance.output_mode),
+    "markdown",
+  )
 }
 
 ///|
@@ -95,6 +119,14 @@ test "convert provenance reports xlsx huge block streaming route fidelity" {
   assert_eq(execution.provenance.pipeline_output_kind, "block_stream")
   assert_eq(execution.provenance.render_input_kind, "block_stream")
   assert_eq(execution.provenance.route_fidelity_status, "matched")
+  assert_eq(
+    @convert.fidelity_mode_name(execution.provenance.fidelity_mode),
+    "balanced",
+  )
+  assert_eq(
+    @convert.output_mode_name(execution.provenance.output_mode),
+    "markdown",
+  )
 }
 
 ///|
@@ -113,6 +145,14 @@ test "convert provenance reports xml synthetic medium streaming route fidelity" 
   assert_eq(execution.provenance.pipeline_output_kind, "event_stream")
   assert_eq(execution.provenance.render_input_kind, "event_stream")
   assert_eq(execution.provenance.route_fidelity_status, "matched")
+  assert_eq(
+    @convert.fidelity_mode_name(execution.provenance.fidelity_mode),
+    "balanced",
+  )
+  assert_eq(
+    @convert.output_mode_name(execution.provenance.output_mode),
+    "markdown",
+  )
 }
 
 ///|
@@ -133,6 +173,14 @@ test "convert provenance reports html large block streaming route fidelity" {
   assert_eq(execution.provenance.pipeline_output_kind, "block_stream")
   assert_eq(execution.provenance.render_input_kind, "block_stream")
   assert_eq(execution.provenance.route_fidelity_status, "matched")
+  assert_eq(
+    @convert.fidelity_mode_name(execution.provenance.fidelity_mode),
+    "balanced",
+  )
+  assert_eq(
+    @convert.output_mode_name(execution.provenance.output_mode),
+    "markdown",
+  )
 }
 
 ///|

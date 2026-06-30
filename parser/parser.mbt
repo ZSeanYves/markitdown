@@ -63,6 +63,8 @@ pub struct ParserCapability {
 pub struct ParseContext {
   detected_format : @input.DetectedFormat
   requested_mode : ParserMode?
+  fidelity_mode : @product.FidelityMode
+  output_mode : @product.OutputMode
   ocr_options : OcrOptions
   pdf_native_runtime_policy : PdfNativeRuntimePolicy
   pdf_header_footer_filter_policy : PdfHeaderFooterFilterPolicy
@@ -263,6 +265,8 @@ pub fn new_parse_context(
   {
     detected_format,
     requested_mode: None,
+    fidelity_mode: @product.FidelityMode::Balanced,
+    output_mode: @product.OutputMode::Markdown,
     ocr_options: default_ocr_options(),
     pdf_native_runtime_policy: default_pdf_native_runtime_policy(),
     pdf_header_footer_filter_policy: default_pdf_header_footer_filter_policy(),
@@ -311,6 +315,15 @@ pub fn parse_context_with_ocr_options(
   ocr_options : OcrOptions,
 ) -> ParseContext {
   { ..context, ocr_options, }
+}
+
+///|
+pub fn parse_context_with_product_modes(
+  context : ParseContext,
+  fidelity_mode : @product.FidelityMode,
+  output_mode : @product.OutputMode,
+) -> ParseContext {
+  { ..context, fidelity_mode, output_mode }
 }
 
 ///|

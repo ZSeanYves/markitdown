@@ -140,6 +140,56 @@ test "renderer keeps declared table width when header row is narrower than body 
 }
 
 ///|
+test "renderer upgrades span-aware accurate tables to html table output" {
+  let table = @core.make_block(
+    @core.BlockKind::Table,
+    "table",
+    source_ref=@core.empty_source_ref(),
+  )
+  table.attrs.set("header_rows", "1")
+  table.attrs.set("table_column_count", "3")
+  table.attrs.set("render_html_table", "true")
+
+  let header = @core.make_block(
+    @core.BlockKind::TableRow,
+    "",
+    source_ref=@core.empty_source_ref(),
+  )
+  let merged = @core.make_block(
+    @core.BlockKind::TableCell,
+    "Merged Range",
+    source_ref=@core.empty_source_ref(),
+  )
+  merged.attrs.set("colspan", "3")
+  header.children.push(merged)
+
+  let body = @core.make_block(
+    @core.BlockKind::TableRow,
+    "",
+    source_ref=@core.empty_source_ref(),
+  )
+  body.children.push(
+    @core.make_block(
+      @core.BlockKind::TableCell,
+      "Tail",
+      source_ref=@core.empty_source_ref(),
+    ),
+  )
+
+  table.children.push(header)
+  table.children.push(body)
+
+  let rendered = (@render.markdown_renderer().render)(
+    @core.document_from_blocks([table]),
+    @render.make_render_context(false),
+  )
+  assert_eq(
+    rendered.content,
+    "<table>\n<tr><th colspan=\"3\">Merged Range</th></tr>\n<tr><td>Tail</td></tr>\n</table>",
+  )
+}
+
+///|
 test "generic block event stream preserves inline attrs for renderer contracts" {
   let source_ref = @core.empty_source_ref()
   let block_ref = @core.source_ref_with_extra(

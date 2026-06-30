@@ -4,16 +4,16 @@
 
 Cloud
 
-Hybrid
-
 Managed hosting
-
-Split workloads
 
 On-prem
 
-Edge
-
 Customer environment
+
+Hybrid
+
+Split workloads
+
+Edge
 
 Low-latency inference

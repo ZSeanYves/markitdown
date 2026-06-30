@@ -37,6 +37,7 @@ fn xlsx_parse_sheet_xml_bytes(
   shared_strings : Array[String],
   styles : XlsxStyles,
   uses_date_1904 : Bool,
+  relationships : Array[@ox.OoxmlRelationship],
   build_cell_source_refs? : Bool = true,
   cell_window_bounds? : (Int, Int, Int, Int)? = None,
 ) -> XlsxParsedSheetXml {
@@ -46,6 +47,7 @@ fn xlsx_parse_sheet_xml_bytes(
     shared_strings,
     styles,
     uses_date_1904,
+    relationships,
     build_cell_source_refs~,
     cell_window_bounds~,
   )
@@ -74,11 +76,13 @@ fn xlsx_parse_sheet_xml_reference(
   shared_strings : Array[String],
   styles : XlsxStyles,
   uses_date_1904 : Bool,
+  relationships : Array[@ox.OoxmlRelationship],
   build_cell_source_refs? : Bool = true,
   cell_window_bounds? : (Int, Int, Int, Int)? = None,
 ) -> XlsxParsedSheetXml {
   let hidden_rows : Map[Int, Bool] = Map([])
   let merged_ranges : Array[String] = []
+  let hyperlinks = xlsx_parse_sheet_hyperlinks(sheet_xml, relationships)
   let cells : Array[XlsxCell] = []
   let mut pos = 0
   let n = sheet_xml.length()
@@ -222,6 +226,9 @@ fn xlsx_parse_sheet_xml_reference(
             cell_type, raw_value, inline_text, formula_text, style_index, shared_strings,
             styles, uses_date_1904,
           )
+          let (hyperlink_target, hyperlink_relationship_id) = xlsx_lookup_sheet_hyperlink(
+            hyperlinks, row_index, column_index,
+          )
           let formula_kind = match formula_info {
             Some(info) => info.formula_type.unwrap_or("")
             None => ""
@@ -230,6 +237,8 @@ fn xlsx_parse_sheet_xml_reference(
             row_index,
             column_index,
             display_text,
+            hyperlink_target,
+            hyperlink_relationship_id,
             formula_text,
             is_shared_formula: formula_kind == "shared",
             is_array_formula: formula_kind == "array",
@@ -257,6 +266,91 @@ fn xlsx_parse_sheet_xml_reference(
     pos += 1
   }
   { dimension_ref, hidden_rows, merged_ranges, cells }
+}
+
+///|
+fn xlsx_parse_sheet_hyperlinks(
+  sheet_xml : String,
+  relationships : Array[@ox.OoxmlRelationship],
+) -> Array[XlsxSheetHyperlink] {
+  let out : Array[XlsxSheetHyperlink] = []
+  let mut pos = 0
+  let n = sheet_xml.length()
+  while pos < n {
+    let start0 = xlsx_find_sub(sheet_xml, "<hyperlink", pos)
+    match start0 {
+      None => break
+      Some(start) => {
+        let next_ch = if start + 10 < n {
+          xlsx_sheet_char_at(sheet_xml, start + 10)
+        } else {
+          '>'
+        }
+        if !xlsx_is_xml_name_boundary(next_ch) {
+          pos = start + 10
+          continue
+        }
+        match xlsx_find_tag_end(sheet_xml, start, n) {
+          None => break
+          Some(end1) => {
+            let ref_value = xlsx_get_attr_range(sheet_xml, start, end1, "ref").unwrap_or(
+              "",
+            )
+            let rel_id = xlsx_get_attr_range(sheet_xml, start, end1, "r:id")
+            match xlsx_parse_range_ref(ref_value) {
+              Some((r1, c1, r2, c2)) => {
+                let target = match rel_id {
+                  Some(id) => xlsx_find_relationship_target(relationships, id)
+                  None => None
+                }
+                out.push({
+                  row_start: r1,
+                  column_start: c1,
+                  row_end: r2,
+                  column_end: c2,
+                  target,
+                  relationship_id: rel_id,
+                })
+              }
+              None => ()
+            }
+            pos = end1 + 1
+          }
+        }
+      }
+    }
+  }
+  out
+}
+
+///|
+fn xlsx_find_relationship_target(
+  relationships : Array[@ox.OoxmlRelationship],
+  rel_id : String,
+) -> String? {
+  for rel in relationships {
+    if rel.id == rel_id {
+      return Some(rel.resolved_target)
+    }
+  }
+  None
+}
+
+///|
+fn xlsx_lookup_sheet_hyperlink(
+  hyperlinks : Array[XlsxSheetHyperlink],
+  row_index : Int,
+  column_index : Int,
+) -> (String?, String?) {
+  for hyperlink in hyperlinks {
+    if row_index >= hyperlink.row_start &&
+      row_index <= hyperlink.row_end &&
+      column_index >= hyperlink.column_start &&
+      column_index <= hyperlink.column_end {
+      return (hyperlink.target, hyperlink.relationship_id)
+    }
+  }
+  (None, None)
 }
 
 ///|
@@ -830,17 +924,23 @@ fn xlsx_effective_bounds(
   dimension_ref : String?,
   cells : Array[XlsxCell],
   hidden_rows : Map[Int, Bool],
+  include_hidden_rows : Bool,
   max_rows : Int,
   max_cols : Int,
   max_cells : Int,
 ) -> (Int, Int, Int, Int, Bool, Bool) {
   let base_bounds = match
-    xlsx_bounds_from_visible_cells(cells, hidden_rows, true) {
+    xlsx_bounds_from_visible_cells(
+      cells, hidden_rows, include_hidden_rows, true,
+    ) {
     Some(bounds) => Some(bounds)
     None =>
       match dimension_ref {
         Some(value) => xlsx_parse_range_ref(value)
-        None => xlsx_bounds_from_visible_cells(cells, hidden_rows, false)
+        None =>
+          xlsx_bounds_from_visible_cells(
+            cells, hidden_rows, include_hidden_rows, false,
+          )
       }
   }
   match base_bounds {
@@ -893,6 +993,7 @@ fn xlsx_sheet_is_effectively_empty(
 fn xlsx_bounds_from_visible_cells(
   cells : Array[XlsxCell],
   hidden_rows : Map[Int, Bool],
+  include_hidden_rows : Bool,
   semantic_only : Bool,
 ) -> (Int, Int, Int, Int)? {
   let mut found = false
@@ -901,7 +1002,7 @@ fn xlsx_bounds_from_visible_cells(
   let mut max_row = 0
   let mut max_col = 0
   for cell in cells {
-    if xlsx_row_is_hidden(hidden_rows, cell.row_index) {
+    if !include_hidden_rows && xlsx_row_is_hidden(hidden_rows, cell.row_index) {
       continue
     }
     if semantic_only && !xlsx_cell_has_semantic_content(cell) {
@@ -966,6 +1067,24 @@ fn xlsx_visible_row_count(
     row += 1
   }
   count
+}
+
+///|
+fn xlsx_effective_row_count(
+  hidden_rows : Map[Int, Bool],
+  include_hidden_rows : Bool,
+  min_row : Int,
+  max_row : Int,
+) -> Int {
+  if include_hidden_rows {
+    if min_row > max_row {
+      0
+    } else {
+      max_row - min_row + 1
+    }
+  } else {
+    xlsx_visible_row_count(hidden_rows, min_row, max_row)
+  }
 }
 
 ///|

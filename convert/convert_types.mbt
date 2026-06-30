@@ -9,6 +9,12 @@ pub(all) enum ConvertMode {
 } derive(Eq)
 
 ///|
+pub type FidelityMode = @product.FidelityMode
+
+///|
+pub type OutputMode = @product.OutputMode
+
+///|
 fn product_convert_mode(mode : ConvertMode) -> @product.ConvertMode {
   match mode {
     ConvertMode::Fast => @product.ConvertMode::Fast
@@ -89,6 +95,8 @@ fn product_pdf_table_mode(mode : PdfTableMode) -> @product.PdfTableMode {
 ///|
 pub struct ConvertOptions {
   mode : ConvertMode
+  fidelity_mode : FidelityMode
+  output_mode : OutputMode
   output_format : OutputFormat
   explicit_format : @input.DetectedFormat?
   ocr_options : @parser.OcrOptions
@@ -127,6 +135,8 @@ pub fn make_route_plan(
 ///|
 pub struct ConvertProvenance {
   route_plan : RoutePlan
+  fidelity_mode : FidelityMode
+  output_mode : OutputMode
   effective_parser_mode : @parser.ParserMode
   parse_result_kind : String
   pipeline_output_kind : String
@@ -137,6 +147,8 @@ pub struct ConvertProvenance {
 ///|
 pub fn make_convert_provenance(
   route_plan : RoutePlan,
+  fidelity_mode : FidelityMode,
+  output_mode : OutputMode,
   effective_parser_mode : @parser.ParserMode,
   parse_result_kind : String,
   pipeline_output_kind : String,
@@ -145,6 +157,8 @@ pub fn make_convert_provenance(
 ) -> ConvertProvenance {
   {
     route_plan,
+    fidelity_mode,
+    output_mode,
     effective_parser_mode,
     parse_result_kind,
     pipeline_output_kind,
@@ -174,6 +188,8 @@ fn product_options_from_convert_options(
   @product.make_product_options(
     product_convert_mode(options.mode),
     product_resource_limits(options.limits),
+    fidelity_mode=options.fidelity_mode,
+    output_mode=options.output_mode,
     pdf_cleanup_mode=product_pdf_cleanup_mode(options.pdf_cleanup_mode),
     pdf_table_mode=product_pdf_table_mode(options.pdf_table_mode),
     rag_options=options.rag_options,
@@ -250,6 +266,8 @@ pub impl Show for ConvertError with fn output(
 pub struct ConvertResult {
   content : String
   output_format : OutputFormat
+  fidelity_mode : FidelityMode
+  output_mode : OutputMode
   detected_format : @input.DetectedFormat
   parser_mode : @parser.ParserMode
   convert_mode : ConvertMode
@@ -288,6 +306,8 @@ pub fn default_convert_options() -> ConvertOptions {
   let product_options = @product.default_product_options()
   {
     mode: ConvertMode::Balanced,
+    fidelity_mode: FidelityMode::Balanced,
+    output_mode: OutputMode::Markdown,
     output_format: OutputFormat::Markdown,
     explicit_format: None,
     ocr_options: @parser.default_ocr_options(),
@@ -305,12 +325,16 @@ pub fn make_convert_options(
   explicit_format : @input.DetectedFormat?,
   ocr_options : @parser.OcrOptions,
   limits : ResourceLimits,
+  fidelity_mode? : FidelityMode = fidelity_mode_for_convert_mode(mode),
+  output_mode? : OutputMode = output_mode_for_output_format(output_format),
   pdf_cleanup_mode? : PdfCleanupMode = default_pdf_cleanup_mode(),
   pdf_table_mode? : PdfTableMode = default_pdf_table_mode(),
   rag_options? : @rag.RagOptions = @rag.default_rag_options(),
 ) -> ConvertOptions {
   {
     mode,
+    fidelity_mode,
+    output_mode,
     output_format,
     explicit_format,
     ocr_options,
@@ -324,6 +348,51 @@ pub fn make_convert_options(
 ///|
 pub fn convert_mode_name(mode : ConvertMode) -> String {
   @product.convert_mode_name(product_convert_mode(mode))
+}
+
+///|
+pub fn fidelity_mode_for_convert_mode(mode : ConvertMode) -> FidelityMode {
+  @product.fidelity_mode_for_convert_mode(product_convert_mode(mode))
+}
+
+///|
+pub fn fidelity_mode_name(mode : FidelityMode) -> String {
+  @product.fidelity_mode_name(mode)
+}
+
+///|
+pub fn output_mode_for_convert_mode(mode : ConvertMode) -> OutputMode {
+  @product.output_mode_for_convert_mode(product_convert_mode(mode))
+}
+
+///|
+pub fn output_mode_for_output_format(format : OutputFormat) -> OutputMode {
+  match format {
+    OutputFormat::DebugJson => OutputMode::Debug
+    OutputFormat::RagJson => OutputMode::Rag
+    _ => OutputMode::Markdown
+  }
+}
+
+///|
+pub fn output_mode_name(mode : OutputMode) -> String {
+  @product.output_mode_name(mode)
+}
+
+///|
+pub fn derived_convert_mode(
+  fidelity_mode : FidelityMode,
+  output_mode : OutputMode,
+) -> ConvertMode {
+  match output_mode {
+    OutputMode::Debug => ConvertMode::Debug
+    OutputMode::Rag => ConvertMode::Rag
+    OutputMode::Markdown =>
+      match fidelity_mode {
+        FidelityMode::Accurate => ConvertMode::Accurate
+        FidelityMode::Balanced => ConvertMode::Balanced
+      }
+  }
 }
 
 ///|

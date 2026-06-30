@@ -3,13 +3,14 @@ package "ZSeanYves/markitdown/render"
 
 import {
   "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/product",
   "ZSeanYves/markitdown/rag",
 }
 
 // Values
 pub fn debug_json_renderer() -> Renderer
 
-pub fn make_render_context(Bool, rag_options? : @rag.RagOptions, base_diagnostics? : @core.Diagnostics?, metadata? : Map[String, @core.JsonValue]?, source_map? : @core.SourceMap?, assets? : Array[@core.AssetRef]?, assembly? : @core.DocumentAssembly?) -> RenderContext
+pub fn make_render_context(Bool, fidelity_mode? : @product.FidelityMode, output_mode? : @product.OutputMode, rag_options? : @rag.RagOptions, base_diagnostics? : @core.Diagnostics?, metadata? : Map[String, @core.JsonValue]?, source_map? : @core.SourceMap?, assets? : Array[@core.AssetRef]?, assembly? : @core.DocumentAssembly?) -> RenderContext
 
 pub fn markdown_renderer() -> Renderer
 
@@ -20,6 +21,8 @@ pub fn rag_json_renderer() -> Renderer
 // Types and methods
 pub struct RenderContext {
   debug : Bool
+  fidelity_mode : @product.FidelityMode
+  output_mode : @product.OutputMode
   rag_options : @rag.RagOptions
   base_diagnostics : @core.Diagnostics?
   metadata : Map[String, @core.JsonValue]?

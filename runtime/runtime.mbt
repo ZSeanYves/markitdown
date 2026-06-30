@@ -49,7 +49,11 @@ pub fn parse_child_to_block_product(
   context : @parser.ParseContext,
 ) -> Result[ChildBlockProduct, String] {
   let inner_context = @parser.parse_context_with_limits(
-    @parser.new_parse_context(format),
+    @parser.parse_context_with_product_modes(
+      @parser.new_parse_context(format),
+      context.fidelity_mode,
+      context.output_mode,
+    ),
     context.requested_mode,
     context.max_rows,
     context.max_cols,
@@ -114,7 +118,11 @@ pub fn parse_child_to_document(
   context : @parser.ParseContext,
 ) -> Result[@core.DocumentIR, String] {
   let inner_context = @parser.parse_context_with_limits(
-    @parser.new_parse_context(format),
+    @parser.parse_context_with_product_modes(
+      @parser.new_parse_context(format),
+      context.fidelity_mode,
+      context.output_mode,
+    ),
     context.requested_mode,
     context.max_rows,
     context.max_cols,
@@ -155,6 +163,18 @@ fn merge_diagnostics(
     ..left,
     parser_name,
     parser_mode,
+    convert_mode: match right.convert_mode {
+      Some(value) => Some(value)
+      None => left.convert_mode
+    },
+    fidelity_mode: match right.fidelity_mode {
+      Some(value) => Some(value)
+      None => left.fidelity_mode
+    },
+    output_mode: match right.output_mode {
+      Some(value) => Some(value)
+      None => left.output_mode
+    },
     input_kind,
     detected_format,
     warnings: merge_string_items(left.warnings, right.warnings, dedupe),

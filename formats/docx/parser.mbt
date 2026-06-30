@@ -62,6 +62,14 @@ fn parse_docx_document_result(
     "requested_mode",
     @parser_common.requested_mode_name(context),
   )
+  diagnostics.metrics.set(
+    "fidelity_mode",
+    @product.fidelity_mode_name(context.fidelity_mode),
+  )
+  diagnostics.metrics.set(
+    "output_mode",
+    @product.output_mode_name(context.output_mode),
+  )
   diagnostics.metrics.set("effective_mode", "package_single_pass")
   diagnostics.metrics.set("ir_input_kind", "document")
   diagnostics.metrics.set("event_granularity", "docx_block")
@@ -131,7 +139,13 @@ fn parse_docx_document_result(
   }
 
   fill_docx_package_metrics(diagnostics, pkg)
-  let document = lower_docx_document_ir(source, docx, pkg, diagnostics)
+  let document = lower_docx_document_ir(
+    source,
+    docx,
+    pkg,
+    diagnostics,
+    context.fidelity_mode,
+  )
   diagnostics.metrics.set("block_count", document.blocks.length().to_string())
   diagnostics.metrics.set("asset_count", document.assets.length().to_string())
   diagnostics.metrics.set(

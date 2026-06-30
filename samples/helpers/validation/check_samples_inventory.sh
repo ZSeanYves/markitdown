@@ -141,6 +141,12 @@ sample_integrity_expected_bases() {
         echo "$rel"
       done | sort -u
       ;;
+    ocr)
+      find "$exp_dir" -type f -name '*.md' -print | sort | while read -r path; do
+        rel="${path#$exp_dir/}"
+        echo "${rel%.md}"
+      done | sort -u
+      ;;
   esac
 }
 

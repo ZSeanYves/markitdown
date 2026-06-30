@@ -1,6 +1,8 @@
 ///|
 pub struct RenderContext {
   debug : Bool
+  fidelity_mode : @product.FidelityMode
+  output_mode : @product.OutputMode
   rag_options : @rag.RagOptions
   base_diagnostics : @core.Diagnostics?
   metadata : @core.DocumentMetadata?
@@ -33,6 +35,8 @@ pub struct Renderer {
 ///|
 pub fn make_render_context(
   debug : Bool,
+  fidelity_mode? : @product.FidelityMode = @product.FidelityMode::Balanced,
+  output_mode? : @product.OutputMode = @product.OutputMode::Markdown,
   rag_options? : @rag.RagOptions = @rag.default_rag_options(),
   base_diagnostics? : @core.Diagnostics? = None,
   metadata? : @core.DocumentMetadata? = None,
@@ -42,6 +46,8 @@ pub fn make_render_context(
 ) -> RenderContext {
   {
     debug,
+    fidelity_mode,
+    output_mode,
     rag_options,
     base_diagnostics,
     metadata,

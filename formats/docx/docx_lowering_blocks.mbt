@@ -4,10 +4,13 @@ fn lower_docx_document_ir(
   docx : @ddocx.DocxDocument,
   pkg : @ox.OoxmlPackage,
   diagnostics : @core.Diagnostics,
+  fidelity_mode : @product.FidelityMode,
 ) -> @core.DocumentIR {
   let document = @core.empty_document_ir()
   fill_docx_metadata(document.metadata, docx)
-  let state = new_docx_lowering_state(source, docx, pkg, document, diagnostics)
+  let state = new_docx_lowering_state(
+    source, docx, pkg, document, diagnostics, fidelity_mode,
+  )
   lower_docx_blocks(state, document.blocks, docx.body)
   append_docx_comments_blocks(state, document.blocks)
   append_docx_part_body_blocks(
@@ -34,6 +37,7 @@ priv struct DocxLoweringState {
   source : @input.InputSource
   docx : @ddocx.DocxDocument
   diagnostics : @core.Diagnostics
+  fidelity_mode : @product.FidelityMode
   assets : Array[@core.AssetRef]
   asset_ids : Map[String, String]
   footnote_labels : Map[String, String]
@@ -42,6 +46,8 @@ priv struct DocxLoweringState {
   footnotes_by_id : Map[String, @ddocx.DocxNote]
   endnotes_by_id : Map[String, @ddocx.DocxNote]
   comments_by_id : Map[String, @ddocx.DocxComment]
+  consumed_textbox_anchors : Map[String, Bool]
+  expanding_textbox_anchors : Array[String]
 }
 
 ///|
@@ -74,6 +80,7 @@ fn new_docx_lowering_state(
   _pkg : @ox.OoxmlPackage,
   _document : @core.DocumentIR,
   diagnostics : @core.Diagnostics,
+  fidelity_mode : @product.FidelityMode,
 ) -> DocxLoweringState {
   let footnote_labels : Map[String, String] = Map([])
   let endnote_labels : Map[String, String] = Map([])
@@ -83,6 +90,8 @@ fn new_docx_lowering_state(
   let footnotes_by_id : Map[String, @ddocx.DocxNote] = Map([])
   let endnotes_by_id : Map[String, @ddocx.DocxNote] = Map([])
   let comments_by_id : Map[String, @ddocx.DocxComment] = Map([])
+  let consumed_textbox_anchors : Map[String, Bool] = Map([])
+  let expanding_textbox_anchors : Array[String] = []
 
   for note in docx.footnotes {
     if !footnotes_by_id.contains(note.note_id) {
@@ -129,6 +138,7 @@ fn new_docx_lowering_state(
     source,
     docx,
     diagnostics,
+    fidelity_mode,
     assets,
     asset_ids,
     footnote_labels,
@@ -137,6 +147,8 @@ fn new_docx_lowering_state(
     footnotes_by_id,
     endnotes_by_id,
     comments_by_id,
+    consumed_textbox_anchors,
+    expanding_textbox_anchors,
   }
 }
 
@@ -835,10 +847,6 @@ fn lower_docx_inlines(
     None,
     None,
   )
-  let mut has_link = false
-  let mut image_count = 0
-  let mut hyperlink_count = 0
-  let mut tracked_change_count = 0
   let mut pending_space_before_comment = false
 
   fn append_plain_and_rich(
@@ -853,6 +861,106 @@ fn lower_docx_inlines(
     plain.write_string(text)
     rich_inlines.push(@core.make_inline_text(text, source_ref~))
   }
+
+  fn append_nested_inline_lowering(
+    plain : StringBuilder,
+    rich_inlines : Array[@core.CoreInline],
+    nested : DocxInlineLowering,
+    has_link : Ref[Bool],
+    image_count : Ref[Int],
+    hyperlink_count : Ref[Int],
+    tracked_change_count : Ref[Int],
+  ) -> Unit {
+    if nested.plain_text != "" {
+      plain.write_string(nested.plain_text)
+    }
+    if nested.rich_inlines.length() > 0 {
+      rich_inlines.append(nested.rich_inlines[:])
+    }
+    has_link.val = has_link.val || nested.has_link
+    image_count.val += nested.image_count
+    hyperlink_count.val += nested.hyperlink_count
+    tracked_change_count.val += nested.tracked_change_count
+  }
+
+  fn append_textbox_inline_if_available(
+    state : DocxLoweringState,
+    anchor_id : String?,
+    plain : StringBuilder,
+    rich_inlines : Array[@core.CoreInline],
+    has_link : Ref[Bool],
+    image_count : Ref[Int],
+    hyperlink_count : Ref[Int],
+    tracked_change_count : Ref[Int],
+  ) -> Bool {
+    if state.fidelity_mode != @product.FidelityMode::Accurate {
+      return false
+    }
+    let resolved_anchor_id = match anchor_id {
+      Some(value) => value.trim().to_owned()
+      None => return false
+    }
+    if resolved_anchor_id == "" {
+      return false
+    }
+    if state.expanding_textbox_anchors.contains(resolved_anchor_id) {
+      return false
+    }
+    let textbox = match docx_find_textbox_by_anchor(state, resolved_anchor_id) {
+      Some(value) => value
+      None => return false
+    }
+    let nested_blocks : Array[@core.CoreBlock] = []
+    state.expanding_textbox_anchors.push(resolved_anchor_id)
+    lower_docx_blocks(state, nested_blocks, textbox.blocks)
+    ignore(state.expanding_textbox_anchors.pop())
+    let flattened = match
+      docx_flatten_blocks_to_paragraph_like(
+        state,
+        nested_blocks,
+        textbox.source_key,
+      ) {
+      Some(value) => value
+      None => return false
+    }
+    if flattened.text.trim() == "" {
+      return false
+    }
+    let existing = plain.to_string()
+    if existing.trim() != "" && !existing.has_suffix("\n") {
+      plain.write_string("\n")
+      rich_inlines.push(
+        @core.make_inline_line_break(source_ref=inline_source_ref),
+      )
+    }
+    let nested = lower_docx_inlines(
+      state,
+      [@ddocx.DocxInline::Text(flattened.text)],
+      textbox.source_key,
+    )
+    let lowered = match flattened.rich_inlines {
+      Some(_) =>
+        {
+          rich_inlines: flattened.rich_inlines.unwrap_or([]),
+          plain_text: flattened.text,
+          has_link: nested.has_link,
+          image_count: nested.image_count,
+          hyperlink_count: nested.hyperlink_count,
+          tracked_change_count: nested.tracked_change_count,
+        }
+      None => nested
+    }
+    docx_mark_textbox_consumed(state, resolved_anchor_id)
+    append_nested_inline_lowering(
+      plain, rich_inlines, lowered, has_link, image_count, hyperlink_count, tracked_change_count,
+    )
+    true
+  }
+
+  let has_link_ref : Ref[Bool] = { val: false }
+  let image_count_ref : Ref[Int] = { val: 0 }
+  let hyperlink_count_ref : Ref[Int] = { val: 0 }
+  let tracked_change_count_ref : Ref[Int] = { val: 0 }
 
   for inline in inlines {
     match inline {
@@ -891,8 +999,8 @@ fn lower_docx_inlines(
               rich_inlines.push(
                 @core.make_inline_link(link.text, target, source_ref~),
               )
-              has_link = true
-              hyperlink_count += 1
+              has_link_ref.val = true
+              hyperlink_count_ref.val += 1
             } else {
               rich_inlines.push(@core.make_inline_text(link.text, source_ref~))
             }
@@ -901,7 +1009,7 @@ fn lower_docx_inlines(
         }
       }
       @ddocx.DocxInline::Media(media) =>
-        image_count += lower_docx_media_inline(
+        image_count_ref.val += lower_docx_media_inline(
           state,
           rich_inlines,
           plain,
@@ -922,19 +1030,33 @@ fn lower_docx_inlines(
             )
           None => 0
         }
-        image_count += media_count
+        image_count_ref.val += media_count
+        if media_count == 0 &&
+          append_textbox_inline_if_available(
+            state,
+            match drawing.text_box_ref {
+              Some(textbox_ref) => textbox_ref.anchor_id
+              None => None
+            },
+            plain,
+            rich_inlines,
+            has_link_ref,
+            image_count_ref,
+            hyperlink_count_ref,
+            tracked_change_count_ref,
+          ) {
+          continue
+        }
         if media_count == 0 && drawing.child_inlines.length() > 0 {
           let child = lower_docx_inlines(
             state,
             drawing.child_inlines,
             drawing.source_key,
           )
-          plain.write_string(child.plain_text)
-          rich_inlines.append(child.rich_inlines[:])
-          has_link = has_link || child.has_link
-          hyperlink_count += child.hyperlink_count
-          image_count += child.image_count
-          tracked_change_count += child.tracked_change_count
+          append_nested_inline_lowering(
+            plain, rich_inlines, child, has_link_ref, image_count_ref, hyperlink_count_ref,
+            tracked_change_count_ref,
+          )
         }
       }
       @ddocx.DocxInline::Shape(shape) => {
@@ -950,19 +1072,33 @@ fn lower_docx_inlines(
             )
           None => 0
         }
-        image_count += media_count
+        image_count_ref.val += media_count
+        if media_count == 0 &&
+          append_textbox_inline_if_available(
+            state,
+            match shape.text_box_ref {
+              Some(textbox_ref) => textbox_ref.anchor_id
+              None => None
+            },
+            plain,
+            rich_inlines,
+            has_link_ref,
+            image_count_ref,
+            hyperlink_count_ref,
+            tracked_change_count_ref,
+          ) {
+          continue
+        }
         if media_count == 0 && shape.child_inlines.length() > 0 {
           let child = lower_docx_inlines(
             state,
             shape.child_inlines,
             shape.source_key,
           )
-          plain.write_string(child.plain_text)
-          rich_inlines.append(child.rich_inlines[:])
-          has_link = has_link || child.has_link
-          hyperlink_count += child.hyperlink_count
-          image_count += child.image_count
-          tracked_change_count += child.tracked_change_count
+          append_nested_inline_lowering(
+            plain, rich_inlines, child, has_link_ref, image_count_ref, hyperlink_count_ref,
+            tracked_change_count_ref,
+          )
         }
       }
       @ddocx.DocxInline::ContentControl(control) =>
@@ -972,12 +1108,10 @@ fn lower_docx_inlines(
             control.inlines,
             control.source_key,
           )
-          plain.write_string(child.plain_text)
-          rich_inlines.append(child.rich_inlines[:])
-          has_link = has_link || child.has_link
-          hyperlink_count += child.hyperlink_count
-          image_count += child.image_count
-          tracked_change_count += child.tracked_change_count
+          append_nested_inline_lowering(
+            plain, rich_inlines, child, has_link_ref, image_count_ref, hyperlink_count_ref,
+            tracked_change_count_ref,
+          )
         } else if control.text.trim() != "" {
           append_plain_and_rich(
             plain,
@@ -1002,7 +1136,7 @@ fn lower_docx_inlines(
         )
       @ddocx.DocxInline::Bookmark(_) => ()
       @ddocx.DocxInline::TrackedChange(change) => {
-        tracked_change_count += 1
+        tracked_change_count_ref.val += 1
         let text = render_docx_tracked_change_text(change)
         append_plain_and_rich(
           plain,
@@ -1017,12 +1151,10 @@ fn lower_docx_inlines(
           smart_tag.child_inlines,
           smart_tag.source_key,
         )
-        plain.write_string(child.plain_text)
-        rich_inlines.append(child.rich_inlines[:])
-        has_link = has_link || child.has_link
-        hyperlink_count += child.hyperlink_count
-        image_count += child.image_count
-        tracked_change_count += child.tracked_change_count
+        append_nested_inline_lowering(
+          plain, rich_inlines, child, has_link_ref, image_count_ref, hyperlink_count_ref,
+          tracked_change_count_ref,
+        )
       }
       @ddocx.DocxInline::Symbol(symbol) =>
         append_plain_and_rich(
@@ -1093,7 +1225,19 @@ fn lower_docx_inlines(
         pending_space_before_comment = false
       }
       @ddocx.DocxInline::StructuralMarker(_) => ()
-      @ddocx.DocxInline::TextBoxRef(_) => ()
+      @ddocx.DocxInline::TextBoxRef(textbox_ref) =>
+        ignore(
+          append_textbox_inline_if_available(
+            state,
+            textbox_ref.anchor_id,
+            plain,
+            rich_inlines,
+            has_link_ref,
+            image_count_ref,
+            hyperlink_count_ref,
+            tracked_change_count_ref,
+          ),
+        )
       @ddocx.DocxInline::UnsupportedInline(_) =>
         append_plain_and_rich(
           plain, rich_inlines, "[unsupported DOCX inline]", inline_source_ref,
@@ -1108,16 +1252,16 @@ fn lower_docx_inlines(
   )
   state.diagnostics.metrics.set(
     "docx_hyperlink_count",
-    (current_hyperlink_count + hyperlink_count).to_string(),
+    (current_hyperlink_count + hyperlink_count_ref.val).to_string(),
   )
   let normalized_rich_inlines = normalize_docx_marker_rich_inlines(rich_inlines)
   {
     rich_inlines: normalized_rich_inlines,
     plain_text: normalize_docx_ref_marker_spacing(plain.to_string()),
-    has_link,
-    image_count,
-    hyperlink_count,
-    tracked_change_count,
+    has_link: has_link_ref.val,
+    image_count: image_count_ref.val,
+    hyperlink_count: hyperlink_count_ref.val,
+    tracked_change_count: tracked_change_count_ref.val,
   }
 }
 

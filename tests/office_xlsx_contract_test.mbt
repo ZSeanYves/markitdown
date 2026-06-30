@@ -164,6 +164,246 @@ test "xlsx parser keeps package-single-pass route diagnostics and source refs st
 }
 
 ///|
+test "xlsx accurate fidelity includes hidden sheets instead of skipping them" {
+  let registry = @formats_root.builtin_registry()
+  let context = @parser.parse_context_with_product_modes(
+    @parser.new_parse_context(@input.DetectedFormat::Xlsx),
+    @product.FidelityMode::Accurate,
+    @product.OutputMode::Markdown,
+  )
+  let result = match
+    @parser.registry_parse(
+      registry,
+      @input.input_from_path(
+        "samples/main_process/xlsx/markdown/xlsx_hidden_sheets_policy.xlsx",
+      ),
+      context,
+    ) {
+    Ok(value) => value
+    Err(err) => fail("accurate xlsx parse failed: " + err)
+  }
+  assert_metric_eq(result.diagnostics, "fidelity_mode", "accurate")
+  assert_diagnostics_lists_contain_none(result.diagnostics, [
+    "xlsx_hidden_sheet_skipped", "xlsx_very_hidden_sheet_skipped",
+  ])
+  let document = result.document.unwrap_or_else(fn() {
+    abort("missing accurate xlsx document")
+  })
+  assert_true(document.blocks.length() == 6)
+  assert_eq(document.blocks[0].text, "Visible")
+  assert_eq(document.blocks[2].text, "HiddenData")
+  assert_eq(document.blocks[4].text, "VeryHiddenAudit")
+  let hidden_ref = document.blocks[2].source_ref.unwrap_or(
+    @core.empty_source_ref(),
+  )
+  let very_hidden_ref = document.blocks[4].source_ref.unwrap_or(
+    @core.empty_source_ref(),
+  )
+  assert_true(hidden_ref.extra.get("sheet_visibility") == Some("hidden"))
+  assert_true(
+    very_hidden_ref.extra.get("sheet_visibility") == Some("very_hidden"),
+  )
+}
+
+///|
+test "xlsx accurate fidelity restores hidden grouped rows in external quality sample" {
+  let registry = @formats_root.builtin_registry()
+  let balanced = match
+    @parser.registry_parse(
+      registry,
+      @input.input_from_path(
+        "markitdown-quality-lab/external_quality/xlsx/apache-poi/GroupTest.xlsx",
+      ),
+      @parser.parse_context_with_product_modes(
+        @parser.new_parse_context(@input.DetectedFormat::Xlsx),
+        @product.FidelityMode::Balanced,
+        @product.OutputMode::Markdown,
+      ),
+    ) {
+    Ok(value) => value
+    Err(err) => fail("balanced xlsx parse failed: " + err)
+  }
+  let accurate = match
+    @parser.registry_parse(
+      registry,
+      @input.input_from_path(
+        "markitdown-quality-lab/external_quality/xlsx/apache-poi/GroupTest.xlsx",
+      ),
+      @parser.parse_context_with_product_modes(
+        @parser.new_parse_context(@input.DetectedFormat::Xlsx),
+        @product.FidelityMode::Accurate,
+        @product.OutputMode::Markdown,
+      ),
+    ) {
+    Ok(value) => value
+    Err(err) => fail("accurate xlsx parse failed: " + err)
+  }
+  let balanced_document = balanced.document.unwrap_or_else(fn() {
+    abort("missing balanced xlsx document")
+  })
+  let accurate_document = accurate.document.unwrap_or_else(fn() {
+    abort("missing accurate xlsx document")
+  })
+  let balanced_markdown = (@render.markdown_renderer().render)(
+      balanced_document,
+      @render.make_render_context(false),
+    ).content
+  let accurate_markdown = (@render.markdown_renderer().render)(
+      accurate_document,
+      @render.make_render_context(false),
+    ).content
+  let balanced_inner_rows = balanced_markdown
+    .split("| inner |")
+    .to_array()
+    .length() -
+    1
+  let accurate_inner_rows = accurate_markdown
+    .split("| inner |")
+    .to_array()
+    .length() -
+    1
+  let balanced_collapsed_rows = balanced_markdown
+    .split("| collapsed |")
+    .to_array()
+    .length() -
+    1
+  let accurate_collapsed_rows = accurate_markdown
+    .split("| collapsed |")
+    .to_array()
+    .length() -
+    1
+  assert_true(balanced_markdown != accurate_markdown)
+  assert_eq(balanced_inner_rows, 2)
+  assert_eq(accurate_inner_rows, 10)
+  assert_eq(balanced_collapsed_rows, 4)
+  assert_eq(accurate_collapsed_rows, 8)
+  assert_metric_eq(balanced.diagnostics, "xlsx_row_count", "19")
+  assert_metric_eq(accurate.diagnostics, "xlsx_row_count", "32")
+}
+
+///|
+test "xlsx accurate fidelity upgrades merged-range workbook to html table spans" {
+  let registry = @formats_root.builtin_registry()
+  let balanced = match
+    @parser.registry_parse(
+      registry,
+      @input.input_from_path(
+        "markitdown-quality-lab/external_quality/xlsx/xlsxwriter/generated/merge1.xlsx",
+      ),
+      @parser.parse_context_with_product_modes(
+        @parser.new_parse_context(@input.DetectedFormat::Xlsx),
+        @product.FidelityMode::Balanced,
+        @product.OutputMode::Markdown,
+      ),
+    ) {
+    Ok(value) => value
+    Err(err) => fail("balanced merge1 parse failed: " + err)
+  }
+  let accurate = match
+    @parser.registry_parse(
+      registry,
+      @input.input_from_path(
+        "markitdown-quality-lab/external_quality/xlsx/xlsxwriter/generated/merge1.xlsx",
+      ),
+      @parser.parse_context_with_product_modes(
+        @parser.new_parse_context(@input.DetectedFormat::Xlsx),
+        @product.FidelityMode::Accurate,
+        @product.OutputMode::Markdown,
+      ),
+    ) {
+    Ok(value) => value
+    Err(err) => fail("accurate merge1 parse failed: " + err)
+  }
+  let balanced_markdown = (@render.markdown_renderer().render)(
+      balanced.document.unwrap_or_else(fn() {
+        abort("missing balanced merge1 document")
+      }),
+      @render.make_render_context(false),
+    ).content
+  let accurate_markdown = (@render.markdown_renderer().render)(
+      accurate.document.unwrap_or_else(fn() {
+        abort("missing accurate merge1 document")
+      }),
+      @render.make_render_context(false),
+    ).content
+  assert_true(!balanced_markdown.contains("<table>"))
+  assert_true(accurate_markdown.contains("<table>"))
+  assert_true(accurate_markdown.contains("colspan=\"3\""))
+  assert_true(accurate_markdown.contains("rowspan=\"2\""))
+  assert_true(accurate_markdown.contains("Merged Range"))
+}
+
+///|
+test "xlsx sheet hyperlinks render as markdown links without fetching targets" {
+  let registry = @formats_root.builtin_registry()
+  let parsed = match
+    @parser.registry_parse(
+      registry,
+      @input.input_from_path(
+        "markitdown-quality-lab/external_quality/xlsx/apache-poi/sharedhyperlink.xlsx",
+      ),
+      @parser.parse_context_with_product_modes(
+        @parser.new_parse_context(@input.DetectedFormat::Xlsx),
+        @product.FidelityMode::Accurate,
+        @product.OutputMode::Markdown,
+      ),
+    ) {
+    Ok(value) => value
+    Err(err) => fail("sharedhyperlink parse failed: " + err)
+  }
+  let markdown = (@render.markdown_renderer().render)(
+      parsed.document.unwrap_or_else(fn() {
+        abort("missing sharedhyperlink document")
+      }),
+      @render.make_render_context(false),
+    ).content
+  assert_true(
+    markdown.contains("[http://www.apache.org](http://www.apache.org/)"),
+  )
+  assert_true(
+    parsed.diagnostics.degraded_features.contains("xlsx_external_link_deferred"),
+  )
+}
+
+///|
+test "xlsx formal table parts split disjoint sheet tables into separate markdown tables" {
+  let registry = @formats_root.builtin_registry()
+  let parsed = match
+    @parser.registry_parse(
+      registry,
+      @input.input_from_path(
+        "markitdown-quality-lab/external_quality/xlsx/apache-poi/ExcelTables.xlsx",
+      ),
+      @parser.parse_context_with_product_modes(
+        @parser.new_parse_context(@input.DetectedFormat::Xlsx),
+        @product.FidelityMode::Accurate,
+        @product.OutputMode::Markdown,
+      ),
+    ) {
+    Ok(value) => value
+    Err(err) => fail("ExcelTables parse failed: " + err)
+  }
+  let markdown = (@render.markdown_renderer().render)(
+      parsed.document.unwrap_or_else(fn() {
+        abort("missing ExcelTables document")
+      }),
+      @render.make_render_context(false),
+    ).content
+  let table_count = markdown
+    .split("| Name | Age | AgeGroup |")
+    .to_array()
+    .length() -
+    1
+  assert_true(markdown.contains("### TableName"))
+  assert_eq(table_count, 2)
+  assert_true(
+    !markdown.contains(
+      "| Name | Age | AgeGroup |  |  |  | Name | Age | AgeGroup |",
+    ),
+  )
+}
+
+///|
 test "xlsx convert and parser large routes stay on block streaming" {
   let converted = convert_path(
     "samples/main_process/xlsx/markdown/sheet_simple.xlsx",
