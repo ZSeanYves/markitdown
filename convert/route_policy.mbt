@@ -31,6 +31,14 @@ fn requested_parser_mode_for_route(
         @input.DetectedFormat::Markdown =>
           Some(@parser.ParserMode::BlockStreaming)
         @input.DetectedFormat::Html => Some(@parser.ParserMode::BlockStreaming)
+        @input.DetectedFormat::Ipynb =>
+          Some(
+            if route_decision.selected_route == CanonicalRoute::BlockStreaming {
+              @parser.ParserMode::BlockStreaming
+            } else {
+              @parser.ParserMode::DomAstModel
+            },
+          )
         _ => parser_mode_for_route(route_decision.selected_route)
       }
     _ => parser_mode_for_route(route_decision.selected_route)
@@ -62,8 +70,10 @@ fn canonical_route_for_format(
 ) -> CanonicalRoute {
   if options.mode == ConvertMode::Stream {
     match format {
+      @input.DetectedFormat::Toml => return CanonicalRoute::DomAstModel
       @input.DetectedFormat::Markdown => return CanonicalRoute::BlockStreaming
       @input.DetectedFormat::Html => return CanonicalRoute::BlockStreaming
+      @input.DetectedFormat::Ipynb => return CanonicalRoute::DomAstModel
       @input.DetectedFormat::Docx => return CanonicalRoute::PackageSinglePass
       @input.DetectedFormat::Pptx => return CanonicalRoute::PackageSinglePass
       @input.DetectedFormat::Xlsx => return CanonicalRoute::PackageSinglePass
@@ -81,7 +91,9 @@ fn canonical_route_for_format(
     | @input.DetectedFormat::Ndjson => CanonicalRoute::StreamingEvent
     @input.DetectedFormat::Markdown => CanonicalRoute::DomAstModel
     @input.DetectedFormat::Json => CanonicalRoute::DomAstModel
+    @input.DetectedFormat::Ipynb => CanonicalRoute::DomAstModel
     @input.DetectedFormat::Yaml => CanonicalRoute::DomAstModel
+    @input.DetectedFormat::Toml => CanonicalRoute::DomAstModel
     @input.DetectedFormat::Xml => CanonicalRoute::DomAstModel
     @input.DetectedFormat::Html => CanonicalRoute::DomAstModel
     @input.DetectedFormat::Docx => CanonicalRoute::PackageSinglePass

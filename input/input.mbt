@@ -25,8 +25,10 @@ pub(all) enum DetectedFormat {
   Json
   Jsonl
   Ndjson
+  Ipynb
   Xml
   Yaml
+  Toml
   Html
   Zip
   Epub
@@ -216,6 +218,20 @@ pub fn detect_format(source : InputSource) -> FormatDetectionResult {
   }
   let text_like = bytes_look_text_like(bytes)
   let binary_like = !text_like && bytes.length() > 0
+  if text_like {
+    match detect_ipynb_from_text_bytes(bytes) {
+      Some(notes) =>
+        return {
+          format: DetectedFormat::Ipynb,
+          used_explicit_format: false,
+          used_extension: false,
+          text_like: true,
+          binary_like: false,
+          notes,
+        }
+      None => ()
+    }
+  }
   let heuristic_format = if text_like {
     DetectedFormat::Txt
   } else {
@@ -251,8 +267,10 @@ pub fn detected_format_name(format : DetectedFormat) -> String {
     DetectedFormat::Json => "json"
     DetectedFormat::Jsonl => "jsonl"
     DetectedFormat::Ndjson => "ndjson"
+    DetectedFormat::Ipynb => "ipynb"
     DetectedFormat::Xml => "xml"
     DetectedFormat::Yaml => "yaml"
+    DetectedFormat::Toml => "toml"
     DetectedFormat::Html => "html"
     DetectedFormat::Zip => "zip"
     DetectedFormat::Epub => "epub"
@@ -276,9 +294,11 @@ pub fn parse_detected_format(name : String) -> DetectedFormat {
     "json" => DetectedFormat::Json
     "jsonl" => DetectedFormat::Jsonl
     "ndjson" => DetectedFormat::Ndjson
+    "ipynb" => DetectedFormat::Ipynb
     "xml" => DetectedFormat::Xml
     "yaml" => DetectedFormat::Yaml
     "yml" => DetectedFormat::Yaml
+    "toml" => DetectedFormat::Toml
     "html" => DetectedFormat::Html
     "htm" => DetectedFormat::Html
     "zip" => DetectedFormat::Zip
@@ -448,4 +468,25 @@ fn looks_like_magic_bytes_todo(bytes : Bytes) -> Bool {
     return true
   }
   false
+}
+
+///|
+fn detect_ipynb_from_text_bytes(bytes : Bytes) -> Array[String]? {
+  let text = try @utf8.decode(bytes, ignore_bom=false) |> Ok catch {
+    _ => Err(())
+  }
+  let text = match text {
+    Ok(value) => value
+    Err(_) => return None
+  }
+  if !text.contains("\"nbformat\"") || !text.contains("\"cells\"") {
+    return None
+  }
+  let lowered = text.to_lower()
+  if lowered.contains("\"cells\"") &&
+    lowered.contains("\"cell_type\"") &&
+    lowered.contains("\"nbformat\"") {
+    return Some(["content_notebook_json"])
+  }
+  None
 }

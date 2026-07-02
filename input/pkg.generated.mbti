@@ -47,8 +47,10 @@ pub(all) enum DetectedFormat {
   Json
   Jsonl
   Ndjson
+  Ipynb
   Xml
   Yaml
+  Toml
   Html
   Zip
   Epub

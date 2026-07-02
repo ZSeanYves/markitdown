@@ -1,0 +1,84 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/format_readers/toml"
+
+// Values
+pub fn classify_toml_error(TomlError) -> TomlErrorInfo
+
+pub fn inspect_toml_document(TomlDocument) -> TomlInspectReport
+
+pub fn parse_toml_document(String) -> TomlDocument raise
+
+// Errors
+pub(all) suberror TomlError {
+  ParseError(String)
+}
+pub impl Show for TomlError
+
+// Types and methods
+pub struct TomlDocument {
+  root_members : Array[TomlMember]
+  tables : Array[TomlTable]
+}
+
+pub struct TomlErrorInfo {
+  kind : TomlErrorKind
+  detail : String
+}
+
+pub(all) enum TomlErrorKind {
+  UnexpectedEnd
+  TrailingContent
+  ExpectedToken
+  InvalidHeader
+  InvalidKey
+  DuplicateKey
+  InvalidString
+  InvalidEscape
+  InvalidValue
+  UnsupportedFeature
+  Unknown
+} derive(Eq)
+
+pub struct TomlInspectReport {
+  node_count : Int
+  scalar_count : Int
+  array_count : Int
+  table_like_count : Int
+  table_count : Int
+  max_depth : Int
+  root_kind : String
+}
+
+pub struct TomlMember {
+  key : String
+  segments : Array[String]
+  path : String
+  value : TomlValue
+  line_start : Int
+  line_end : Int
+}
+
+pub struct TomlTable {
+  path : String
+  segments : Array[String]
+  members : Array[TomlMember]
+  line_start : Int
+  mut line_end : Int
+  is_array_item : Bool
+}
+
+pub(all) enum TomlValue {
+  Table(Array[TomlMember])
+  Array(Array[TomlValue])
+  String(String)
+  Integer(String)
+  Float(String)
+  Bool(Bool)
+  Datetime(String)
+  InlineTable(Array[TomlMember])
+}
+
+// Type aliases
+
+// Traits
+

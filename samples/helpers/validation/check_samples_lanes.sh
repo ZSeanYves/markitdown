@@ -44,7 +44,9 @@ discover_samples() {
     json) find "$in_dir" -type f -name "*.json" -print ;;
     jsonl) find "$in_dir" -type f -name "*.jsonl" -print ;;
     ndjson) find "$in_dir" -type f -name "*.ndjson" -print ;;
+    ipynb) find "$in_dir" -type f -name "*.ipynb" -print ;;
     yaml) find "$in_dir" -type f \( -name "*.yaml" -o -name "*.yml" \) -print ;;
+    toml) find "$in_dir" -type f -name "*.toml" -print ;;
     markdown) find "$in_dir" -type f \( -name "*.md" -o -name "*.markdown" \) -print ;;
     zip) find "$in_dir" -type f -name "*.zip" -print ;;
     epub) find "$in_dir" -type f -name "*.epub" -print ;;

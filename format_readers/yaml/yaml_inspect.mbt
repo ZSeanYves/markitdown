@@ -71,6 +71,12 @@ pub fn inspect_yaml_structure_events(
           root_kind = Some("string")
         }
       }
+      YamlStructureEventKind::NumberValue => {
+        scalar_count += 1
+        if root_kind is None {
+          root_kind = Some("number")
+        }
+      }
       YamlStructureEventKind::BoolValue => {
         scalar_count += 1
         if root_kind is None {
@@ -147,7 +153,10 @@ fn inspect_yaml_value(value : YamlValue, depth : Int) -> YamlInspectStats {
       }
       { node_count, mapping_count, sequence_count, scalar_count, max_depth }
     }
-    YamlValue::String(_) | YamlValue::Bool(_) | YamlValue::Null =>
+    YamlValue::String(_)
+    | YamlValue::Number(_)
+    | YamlValue::Bool(_)
+    | YamlValue::Null =>
       {
         node_count: 1,
         mapping_count: 0,

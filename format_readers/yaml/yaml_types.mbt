@@ -12,6 +12,7 @@ pub(all) enum YamlValue {
   Mapping(Array[YamlMember])
   Sequence(Array[YamlValue])
   String(String)
+  Number(String)
   Bool(Bool)
   Null
 }
@@ -25,6 +26,7 @@ pub(all) enum YamlStructureEventKind {
   SequenceEnd
   Key
   StringValue
+  NumberValue
   BoolValue
   NullValue
 }

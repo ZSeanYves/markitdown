@@ -1135,16 +1135,16 @@ async test "async convert explicit image OCR injected provider reaches root conv
 ///|
 test "public gates and docs stay aligned on the main cli surface" {
   assert_file_contains_all("cli/cli.mbt", [
-    "Supported product formats: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, yml, html, htm, markdown, md, zip, epub, docx, xlsx, pptx, pdf, png, jpg, jpeg, bmp, webp, tif, tiff",
+    "Supported product formats: txt, csv, tsv, json, jsonl, ndjson, ipynb, xml, yaml, yml, toml, html, htm, markdown, md, zip, epub, docx, xlsx, pptx, pdf, png, jpg, jpeg, bmp, webp, tif, tiff",
     "pdf --ocr", "DetectedFormat::Pdf", "cli_is_supported_format",
   ])
   assert_file_contains_all("samples/check.sh", [
-    "SUPPORTED_FORMATS=(\"txt\" \"csv\" \"tsv\" \"json\" \"jsonl\" \"ndjson\" \"xml\" \"yaml\" \"html\" \"markdown\" \"zip\" \"epub\" \"docx\" \"xlsx\" \"pptx\" \"pdf\" \"ocr\")",
-    "txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, pdf, and ocr",
+    "SUPPORTED_FORMATS=(\"txt\" \"csv\" \"tsv\" \"json\" \"jsonl\" \"ndjson\" \"ipynb\" \"xml\" \"yaml\" \"toml\" \"html\" \"markdown\" \"zip\" \"epub\" \"docx\" \"xlsx\" \"pptx\" \"pdf\" \"ocr\")",
+    "txt, csv, tsv, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, zip, epub, docx, xlsx, pptx, pdf, and ocr",
     "main CLI gate",
   ])
   assert_file_contains_all("samples/helpers/contracts/check_cli_contract.sh", [
-    "txt csv tsv json jsonl ndjson xml yaml html markdown zip epub docx xlsx pptx pdf and ocr succeed through main product cli",
+    "txt csv tsv json jsonl ndjson ipynb xml yaml toml html markdown zip epub docx xlsx pptx pdf and ocr succeed through main product cli",
     "markdown_frontmatter_passthrough.markdown", "zip_basic_structured.zip", "docx",
     "sheet_simple.xlsx", "pptx_hidden_slide_basic.pptx", "pdf", "ocr", "pdftoppm",
     "help and version expose main cli product surface", "--pdf-cleanup none|conservative",
@@ -1160,15 +1160,15 @@ test "public gates and docs stay aligned on the main cli surface" {
   assert_file_contains_all(
     "samples/helpers/contracts/check_samples_check_contract.sh",
     [
-      "formats=txt,csv,tsv,json,jsonl,ndjson,xml,yaml,html,markdown,zip,epub,docx,xlsx,pptx,pdf,ocr",
+      "formats=txt,csv,tsv,json,jsonl,ndjson,ipynb,xml,yaml,toml,html,markdown,zip,epub,docx,xlsx,pptx,pdf,ocr",
       "formats=markdown", "formats=docx", "formats=xlsx", "formats=pptx", "formats=pdf",
     ],
   )
   assert_file_contains_all("README.md", [
     "InputSource", "ParserRegistry", "ParseResult", "Renderer", "`txt`", "`csv`",
-    "`tsv`", "`json`", "`jsonl`", "`ndjson`", "`xml`", "`yaml`", "`yml`", "`html`",
-    "`htm`", "`markdown`", "`md`", "`zip`", "`epub`", "`docx`", "`xlsx`", "`pptx`",
-    "`pdf`", "native-text PDFs", "pdf --ocr", "dependency-backed product paths",
+    "`tsv`", "`json`", "`jsonl`", "`ndjson`", "`ipynb`", "`xml`", "`yaml`", "`yml`",
+    "`html`", "`htm`", "`markdown`", "`md`", "`zip`", "`epub`", "`docx`", "`xlsx`",
+    "`pptx`", "`pdf`", "native-text PDFs", "pdf --ocr", "dependency-backed product paths",
     "samples/helpers/contracts/check_root_contracts.sh", "markitdown-quality-lab/",
     "EPUB support is implemented through `format_readers/epub` on top of `format_readers/zip`",
   ])
@@ -1178,7 +1178,7 @@ test "public gates and docs stay aligned on the main cli surface" {
   ])
   assert_file_contains_all("samples/check.sh", [
     "--markdown", "--rag", "--assets", "--check-inventory", "--list-inventory", "samples/main_process",
-    "txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, pdf, and ocr",
+    "txt, csv, tsv, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, zip, epub, docx, xlsx, pptx, pdf, and ocr",
   ])
   assert_file_contains_all(
     "samples/helpers/contracts/check_root_contracts.sh",

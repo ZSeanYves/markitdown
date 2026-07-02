@@ -53,9 +53,11 @@ The main CLI currently supports:
 - `json`
 - `jsonl`
 - `ndjson`
+- `ipynb`
 - `xml`
 - `yaml`
 - `yml`
+- `toml`
 - `html`
 - `htm`
 - `markdown`

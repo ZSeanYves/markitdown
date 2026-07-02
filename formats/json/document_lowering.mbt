@@ -126,7 +126,7 @@ fn lower_line_delimited_json_events(
   text : String,
   source : @input.InputSource,
   context : @parser.ParseContext,
-) -> Result[(Array[@core.CoreEvent], Int, Int, Int, Int, Int), String] {
+) -> Result[(Array[@core.CoreEvent], Int, Int, Int, Int, Int, Int), String] {
   let lines = text.split("\n").to_array()
   let events : Array[@core.CoreEvent] = []
   let object_rows : Array[Array[String]] = []
@@ -135,13 +135,17 @@ fn lower_line_delimited_json_events(
   let mut scalar_count = 0
   let mut max_depth = 0
   let mut record_index = 0
+  let mut blank_line_count = 0
   let max_rows = context.max_rows.unwrap_or(200)
   let mut header_keys : Array[String]? = None
   let record_line_numbers : Array[Int] = []
   let record_pointers : Array[String] = []
   for i in 0..<lines.length() {
-    let raw_line = lines[i].trim().to_owned()
+    let raw_line = normalize_line_delimited_json_record(lines[i].to_owned())
+      .trim()
+      .to_owned()
     if raw_line == "" {
+      blank_line_count += 1
       continue
     }
     if record_index >= max_rows {
@@ -227,6 +231,7 @@ fn lower_line_delimited_json_events(
       Ok(
         (
           table_events, record_index, object_count, array_count, scalar_count, max_depth,
+          blank_line_count,
         ),
       )
     }
@@ -234,8 +239,29 @@ fn lower_line_delimited_json_events(
       Ok(
         (
           events, record_index, object_count, array_count, scalar_count, max_depth,
+          blank_line_count,
         ),
       )
+  }
+}
+
+///|
+fn normalize_line_delimited_json_record(line : String) -> String {
+  let chars = line.to_array()
+  if chars.length() == 0 {
+    return line
+  }
+  let mut start = 0
+  if chars[start] == '\u{001E}' {
+    start += 1
+  }
+  if start < chars.length() && chars[start] == '\u{FEFF}' {
+    start += 1
+  }
+  if start == 0 {
+    line
+  } else {
+    String::from_array(chars[start:])
   }
 }
 

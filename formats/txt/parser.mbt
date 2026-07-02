@@ -209,17 +209,54 @@ fn open_text_document(
     Ok(payload) => payload
     Err(err) => return Err(err)
   }
-  let decoded = try @utf8.decode(bytes, ignore_bom=false) |> Ok catch {
-    _ => Err("Utf8DecodeFailed(invalid utf8)")
+  let text = match decode_txt_input_bytes(bytes) {
+    Ok(payload) => payload
+    Err(err) => return Err(err)
   }
-  match decoded {
-    Ok(text) =>
-      Ok(
-        @dtext.parse_text_document_from_normalized_text(
-          normalize_txt_text(text),
-        ),
-      )
-    Err(err) => Err(err)
+  Ok(@dtext.parse_text_document_from_normalized_text(normalize_txt_text(text)))
+}
+
+///|
+fn decode_txt_input_bytes(bytes : Bytes) -> Result[String, String] {
+  match decode_utf16_text_bytes(bytes) {
+    Some(text) => Ok(text)
+    None =>
+      try @utf8.decode(bytes, ignore_bom=false) |> Ok catch {
+        _ => Err("Utf8DecodeFailed(invalid utf8)")
+      }
+  }
+}
+
+///|
+fn decode_utf16_text_bytes(bytes : Bytes) -> String? {
+  let arr = bytes.to_array()
+  if arr.length() < 2 {
+    return None
+  }
+  let first = arr[0].to_int()
+  let second = arr[1].to_int()
+  if first == 0xFF && second == 0xFE {
+    let decoded = @encoding.decode(bytes, encoding=@encoding.UTF16LE) catch {
+      _ => return None
+    }
+    return Some(strip_leading_bom(decoded))
+  }
+  if first == 0xFE && second == 0xFF {
+    let decoded = @encoding.decode(bytes, encoding=@encoding.UTF16BE) catch {
+      _ => return None
+    }
+    return Some(strip_leading_bom(decoded))
+  }
+  None
+}
+
+///|
+fn strip_leading_bom(text : String) -> String {
+  let chars = text.to_array()
+  if chars.length() > 0 && chars[0] == '\u{FEFF}' {
+    String::from_array(chars[1:])
+  } else {
+    text
   }
 }
 

@@ -1,6 +1,7 @@
 import {
-  "moonbitlang/core/env",
+  "tonyfettes/encoding",
   "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/env",
 }
 
 options(

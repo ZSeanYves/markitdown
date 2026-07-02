@@ -232,6 +232,7 @@ priv struct RouteDecision {
 priv enum RouteProbeArtifact {
   MarkdownScan(@dmd.MarkdownDocument, @dmd.MarkdownInspectReport)
   HtmlEvents(String, Array[@dhtml.HtmlTokenEvent])
+  IpynbNotebook(@dipynb.IpynbNotebook, @dipynb.IpynbInspectReport)
   JsonStream(@djson.JsonStreamDocument)
   XmlTokens(Array[@dxml.XmlToken])
   XlsxPackage(@ox.OoxmlPackage)

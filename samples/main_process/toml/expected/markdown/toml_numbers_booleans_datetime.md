@@ -1,0 +1,6 @@
+| Key | Value |
+| --- | --- |
+| int_value | 42 |
+| float_value | 3.14 |
+| enabled | false |
+| release_at | 2026-07-01T09:30:00Z |

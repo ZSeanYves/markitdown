@@ -342,6 +342,14 @@ fn markdown_apply_block_report_metrics(
     report.max_list_depth.to_string(),
   )
   diagnostics.metrics.set("asset_count", report.asset_count.to_string())
+  diagnostics.metrics.set(
+    "footnote_definition_count",
+    report.footnote_definition_count.to_string(),
+  )
+  diagnostics.metrics.set(
+    "footnote_reference_count",
+    report.footnote_reference_count.to_string(),
+  )
 }
 
 ///|
@@ -409,6 +417,8 @@ priv struct MarkdownBlockReport {
   unsafe_html_count : Int
   asset_count : Int
   max_list_depth : Int
+  footnote_definition_count : Int
+  footnote_reference_count : Int
 }
 
 ///|
@@ -976,7 +986,7 @@ fn markdown_footnote_definition_block(
     Some(head.line_start),
     Some(last_line),
   )
-  markdown_literal_block(normalized, source_ref, "markdown_literal")
+  markdown_literal_block(normalized, source_ref, "markdown_footnote_definition")
 }
 
 ///|
@@ -2194,6 +2204,8 @@ priv struct MarkdownBlockReportAccumulator {
   unsafe_html_count : Ref[Int]
   asset_count : Ref[Int]
   max_list_depth : Ref[Int]
+  footnote_definition_count : Ref[Int]
+  footnote_reference_count : Ref[Int]
 }
 
 ///|
@@ -2211,6 +2223,8 @@ fn markdown_new_block_report_accumulator() -> MarkdownBlockReportAccumulator {
     unsafe_html_count: { val: 0 },
     asset_count: { val: 0 },
     max_list_depth: { val: 0 },
+    footnote_definition_count: { val: 0 },
+    footnote_reference_count: { val: 0 },
   }
 }
 
@@ -2231,6 +2245,8 @@ fn markdown_block_report_from_accumulator(
     unsafe_html_count: report.unsafe_html_count.val,
     asset_count: report.asset_count.val,
     max_list_depth: report.max_list_depth.val,
+    footnote_definition_count: report.footnote_definition_count.val,
+    footnote_reference_count: report.footnote_reference_count.val,
   }
 }
 
@@ -2261,6 +2277,9 @@ fn markdown_accumulate_single_block_report(
         if block.attrs.get("unsafe_html") == Some("true") {
           report.unsafe_html_count.val += 1
         }
+      } else if block.attrs.get("raw_kind") ==
+        Some("markdown_footnote_definition") {
+        report.footnote_definition_count.val += 1
       }
     _ => ()
   }
@@ -2273,6 +2292,11 @@ fn markdown_accumulate_single_block_report(
             report.image_count.val += 1
             report.asset_count.val += 1
           }
+          @core.InlineKind::Text =>
+            if inline.attrs.get("annotation_kind") == Some("footnote") &&
+              inline.attrs.get("annotation_role") == Some("note_ref") {
+              report.footnote_reference_count.val += 1
+            }
           _ => ()
         }
       }

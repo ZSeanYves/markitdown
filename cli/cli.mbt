@@ -30,8 +30,10 @@ fn cli_is_supported_format(format : @input.DetectedFormat) -> Bool {
     @input.DetectedFormat::Json => true
     @input.DetectedFormat::Jsonl => true
     @input.DetectedFormat::Ndjson => true
+    @input.DetectedFormat::Ipynb => true
     @input.DetectedFormat::Xml => true
     @input.DetectedFormat::Yaml => true
+    @input.DetectedFormat::Toml => true
     @input.DetectedFormat::Html => true
     @input.DetectedFormat::Zip => true
     @input.DetectedFormat::Epub => true
@@ -70,13 +72,13 @@ fn print_cli_usage() -> Unit {
   println(
     "  " +
     cli_product_name() +
-    " [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|xml|yaml|yml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf|png|jpg|jpeg|bmp|webp|tif|tiff] [--accurate] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]",
+    " [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf|png|jpg|jpeg|bmp|webp|tif|tiff] [--accurate] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]",
   )
   println("  " + cli_product_name() + " help | --help | -h")
   println("  " + cli_product_name() + " version | --version")
   println("")
   println(
-    "Supported product formats: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, yml, html, htm, markdown, md, zip, epub, docx, xlsx, pptx, pdf, png, jpg, jpeg, bmp, webp, tif, tiff",
+    "Supported product formats: txt, csv, tsv, json, jsonl, ndjson, ipynb, xml, yaml, yml, toml, html, htm, markdown, md, zip, epub, docx, xlsx, pptx, pdf, png, jpg, jpeg, bmp, webp, tif, tiff",
   )
   println("All other formats fail closed in this build.")
   println(
@@ -948,6 +950,9 @@ fn persist_cli_assets(
     if persist_zip_backed_asset(zip_archive, output_dir, rel_path, asset) {
       continue
     }
+    if persist_inline_asset(output_dir, rel_path, asset) {
+      continue
+    }
     match asset.attrs.get("source_path") {
       Some(source_rel) => {
         let src = join_dir_path(input_dir, source_rel)
@@ -962,6 +967,42 @@ fn persist_cli_assets(
       None => ()
     }
   }
+}
+
+///|
+fn persist_inline_asset(
+  output_dir : String,
+  rel_path : String,
+  asset : @core.AssetRef,
+) -> Bool raise @fs.IOError {
+  let inline_kind = match asset.attrs.get("inline_payload_kind") {
+    Some(value) => value
+    None => return false
+  }
+  let data = match inline_kind {
+    "base64" =>
+      match asset.attrs.get("inline_payload") {
+        Some(payload) =>
+          try @base64.decode(payload, url_safe=false) |> Some catch {
+            _ => None
+          }
+        None => None
+      }
+    "utf8" =>
+      match asset.attrs.get("inline_payload") {
+        Some(payload) => Some(@utf8.encode(payload))
+        None => None
+      }
+    _ => None
+  }
+  let bytes = match data {
+    Some(value) => value
+    None => return false
+  }
+  let dst = join_dir_path(output_dir, rel_path)
+  ensure_dir_tree(dirname_of_path(dst))
+  @fs.write_bytes_to_file(dst, bytes)
+  true
 }
 
 ///|

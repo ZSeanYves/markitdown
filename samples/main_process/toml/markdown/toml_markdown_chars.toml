@@ -1,0 +1,3 @@
+pipe = "x|y"
+stars = "**bold**"
+ticks = "`code`"

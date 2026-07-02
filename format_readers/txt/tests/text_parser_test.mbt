@@ -60,3 +60,15 @@ test "text open bytes fails closed on invalid utf8" {
   )
   assert_true(info.kind == @txt.TextErrorKind::Utf8DecodeFailed)
 }
+
+///|
+test "text open bytes decodes utf16 with bom" {
+  let bytes : Array[Byte] = [
+    255, 254, 97, 0, 108, 0, 112, 0, 104, 0, 97, 0, 9, 0, 98, 0, 101, 0, 116, 0,
+    97, 0, 10, 0, 49, 0, 9, 0, 50, 0, 10, 0,
+  ]
+  let doc = @txt.open_text_document(Bytes::from_array(bytes))
+  assert_eq(doc.lines.length(), 2)
+  assert_eq(doc.lines[0].text, "alpha\tbeta")
+  assert_eq(doc.lines[1].text, "1\t2")
+}

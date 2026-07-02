@@ -48,7 +48,7 @@ fn delimited_parser(
       context : @parser.ParseContext,
     ) -> Result[@parser.ParseResult, String] {
       let format_name = @input.detected_format_name(format)
-      let text = match @input.read_input_text(source) {
+      let text = match read_delimited_input_text(source) {
         Ok(payload) => payload
         Err(err) => return Err(err)
       }
@@ -114,6 +114,10 @@ fn delimited_parser(
       diagnostics.metrics.set(
         "empty_cell_count",
         inspect.empty_cell_count.to_string(),
+      )
+      diagnostics.metrics.set(
+        "blank_row_count",
+        inspect.blank_row_count.to_string(),
       )
       diagnostics.metrics.set(
         "ragged_row_count",
@@ -320,6 +324,53 @@ fn delimited_parser(
       )
     },
   )
+}
+
+///|
+fn read_delimited_input_text(
+  source : @input.InputSource,
+) -> Result[String, String] {
+  let bytes = match @input.read_input_bytes(source) {
+    Ok(payload) => payload
+    Err(err) => return Err(err)
+  }
+  match decode_utf16_text_bytes(bytes) {
+    Some(text) => Ok(text)
+    None => @input.read_input_text(source)
+  }
+}
+
+///|
+fn decode_utf16_text_bytes(bytes : Bytes) -> String? {
+  let arr = bytes.to_array()
+  if arr.length() < 2 {
+    return None
+  }
+  let first = arr[0].to_int()
+  let second = arr[1].to_int()
+  if first == 0xFF && second == 0xFE {
+    let decoded = @encoding.decode(bytes, encoding=@encoding.UTF16LE) catch {
+      _ => return None
+    }
+    return Some(strip_leading_bom(decoded))
+  }
+  if first == 0xFE && second == 0xFF {
+    let decoded = @encoding.decode(bytes, encoding=@encoding.UTF16BE) catch {
+      _ => return None
+    }
+    return Some(strip_leading_bom(decoded))
+  }
+  None
+}
+
+///|
+fn strip_leading_bom(text : String) -> String {
+  let chars = text.to_array()
+  if chars.length() > 0 && chars[0] == '\u{FEFF}' {
+    String::from_array(chars[1:])
+  } else {
+    text
+  }
 }
 
 ///|

@@ -151,7 +151,7 @@ sample_integrity_expected_bases() {
 }
 
 check_sample_inventory_integrity() {
-  local formats=("docx" "pdf" "xlsx" "html" "pptx" "ocr" "csv" "tsv" "txt" "xml" "json" "jsonl" "ndjson" "yaml" "markdown" "zip" "epub")
+  local formats=("docx" "pdf" "xlsx" "html" "pptx" "ocr" "csv" "tsv" "txt" "xml" "json" "jsonl" "ndjson" "yaml" "toml" "markdown" "zip" "epub")
   local lanes=("markdown" "rag" "assets" "ocr")
   local fail=0 quiet_integrity=0 fmt lane in_dir exp_dir input_bases expected_bases missing_input missing_expected
 

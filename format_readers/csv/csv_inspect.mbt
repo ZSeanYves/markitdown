@@ -2,6 +2,7 @@
 /// Summarize structure for a parsed CSV document.
 pub fn inspect_csv_document(doc : CsvDocument) -> CsvInspectReport {
   let mut empty_cell_count = 0
+  let mut blank_row_count = 0
   let mut ragged_row_count = 0
   let mut multiline_row_count = 0
   let mut multiline_field_count = 0
@@ -15,6 +16,9 @@ pub fn inspect_csv_document(doc : CsvDocument) -> CsvInspectReport {
     }
     if row.original_field_count > max_field_count {
       max_field_count = row.original_field_count
+    }
+    if csv_inspect_row_is_blank(row.fields) {
+      blank_row_count += 1
     }
     if row.original_field_count != doc.column_count {
       ragged_row_count += 1
@@ -40,10 +44,21 @@ pub fn inspect_csv_document(doc : CsvDocument) -> CsvInspectReport {
     min_field_count,
     max_field_count,
     empty_cell_count,
+    blank_row_count,
     ragged_row_count,
     multiline_row_count,
     multiline_field_count,
   }
+}
+
+///|
+fn csv_inspect_row_is_blank(fields : Array[String]) -> Bool {
+  for field in fields {
+    if field != "" {
+      return false
+    }
+  }
+  true
 }
 
 ///|

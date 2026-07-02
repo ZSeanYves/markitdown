@@ -87,6 +87,14 @@ fn yaml_value_to_blocks(
           source_ref=yaml_source_ref(source, path),
         ),
       ]
+    @dyaml.YamlValue::Number(text) =>
+      [
+        @core.make_block(
+          @core.BlockKind::Paragraph,
+          text,
+          source_ref=yaml_source_ref(source, path),
+        ),
+      ]
     @dyaml.YamlValue::Bool(value) =>
       [
         @core.make_block(
@@ -232,6 +240,7 @@ fn yaml_array_of_scalars(values : Array[@dyaml.YamlValue]) -> Bool {
   for value in values {
     match value {
       @dyaml.YamlValue::String(_)
+      | @dyaml.YamlValue::Number(_)
       | @dyaml.YamlValue::Bool(_)
       | @dyaml.YamlValue::Null => ()
       _ => return false
@@ -244,6 +253,7 @@ fn yaml_array_of_scalars(values : Array[@dyaml.YamlValue]) -> Bool {
 fn yaml_value_cell(value : @dyaml.YamlValue) -> String {
   match value {
     @dyaml.YamlValue::String(text) => text
+    @dyaml.YamlValue::Number(text) => text
     @dyaml.YamlValue::Bool(value) => if value { "true" } else { "false" }
     @dyaml.YamlValue::Null => "null"
     _ => yaml_stringify_inline(value)
@@ -282,6 +292,7 @@ fn yaml_stringify_inline(value : @dyaml.YamlValue) -> String {
       } else {
         text
       }
+    @dyaml.YamlValue::Number(text) => text
     @dyaml.YamlValue::Bool(value) => if value { "true" } else { "false" }
     @dyaml.YamlValue::Null => "null"
   }
@@ -296,6 +307,7 @@ fn yaml_stringify_block(value : @dyaml.YamlValue, indent : Int) -> String {
       for entry in members {
         match entry.value {
           @dyaml.YamlValue::String(_)
+          | @dyaml.YamlValue::Number(_)
           | @dyaml.YamlValue::Bool(_)
           | @dyaml.YamlValue::Null =>
             lines.push(
@@ -317,6 +329,7 @@ fn yaml_stringify_block(value : @dyaml.YamlValue, indent : Int) -> String {
       for item in values {
         match item {
           @dyaml.YamlValue::String(_)
+          | @dyaml.YamlValue::Number(_)
           | @dyaml.YamlValue::Bool(_)
           | @dyaml.YamlValue::Null =>
             lines.push(prefix + "- " + yaml_stringify_inline(item))
@@ -347,7 +360,8 @@ fn yaml_needs_quotes(text : String) -> Bool {
     text == "true" ||
     text == "false" ||
     text == "null" ||
-    text == "~" {
+    text == "~" ||
+    yaml_scalar_text_looks_numeric(text) {
     return true
   }
   if text.has_prefix("-") {
@@ -372,6 +386,38 @@ fn yaml_needs_quotes(text : String) -> Bool {
     }
   }
   false
+}
+
+///|
+fn yaml_scalar_text_looks_numeric(text : String) -> Bool {
+  if text == "" {
+    return false
+  }
+  let chars = text.to_array()
+  let mut i = 0
+  if chars[0] == '-' || chars[0] == '+' {
+    if chars.length() == 1 {
+      return false
+    }
+    i = 1
+  }
+  let mut saw_digit = false
+  let mut saw_dot = false
+  while i < chars.length() {
+    let ch = chars[i]
+    if ch >= '0' && ch <= '9' {
+      saw_digit = true
+      i += 1
+      continue
+    }
+    if ch == '.' && !saw_dot {
+      saw_dot = true
+      i += 1
+      continue
+    }
+    return false
+  }
+  saw_digit
 }
 
 ///|
@@ -619,6 +665,7 @@ fn yaml_append_value_events(
       }
     }
     @dyaml.YamlStructureEventKind::StringValue
+    | @dyaml.YamlStructureEventKind::NumberValue
     | @dyaml.YamlStructureEventKind::BoolValue
     | @dyaml.YamlStructureEventKind::NullValue => {
       yaml_append_paragraph_events(
@@ -658,6 +705,7 @@ fn yaml_event_value_preview(
   let event = cursor.events[cursor.index]
   match event.kind {
     @dyaml.YamlStructureEventKind::StringValue
+    | @dyaml.YamlStructureEventKind::NumberValue
     | @dyaml.YamlStructureEventKind::BoolValue
     | @dyaml.YamlStructureEventKind::NullValue => {
       cursor.index += 1

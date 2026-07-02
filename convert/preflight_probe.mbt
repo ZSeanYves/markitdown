@@ -264,6 +264,128 @@ fn yaml_preflight_probe(
 }
 
 ///|
+fn toml_preflight_probe(
+  source : @input.InputSource,
+  format : @input.DetectedFormat,
+  options : ConvertOptions,
+) -> PreflightProbe {
+  let (text, prepared_source) = read_probe_text(source)
+  let text = match text {
+    Some(value) => value
+    None =>
+      return canonical_preflight_probe(
+        format,
+        CanonicalRoute::DomAstModel,
+        "toml_probe_unavailable",
+        "toml",
+        ["unavailable"],
+        source,
+        artifact=None,
+      )
+  }
+  canonical_preflight_probe(
+    format,
+    CanonicalRoute::DomAstModel,
+    "toml_dom_ast_model_canonical",
+    "toml",
+    [
+      "chars=" + text.length().to_string(),
+      "lines=" + @parser_common.count_physical_lines(text).to_string(),
+      "max_rows=" + options.limits.max_rows.to_string(),
+      "max_cells=" + options.limits.max_cells.to_string(),
+      "route=dom_ast_model",
+    ],
+    prepared_source,
+    artifact=None,
+  )
+}
+
+///|
+fn ipynb_preflight_probe(
+  source : @input.InputSource,
+  format : @input.DetectedFormat,
+  options : ConvertOptions,
+) -> PreflightProbe {
+  let (text, prepared_source) = read_probe_text(source)
+  let text = match text {
+    Some(value) => value
+    None =>
+      return canonical_preflight_probe(
+        format,
+        CanonicalRoute::DomAstModel,
+        "ipynb_probe_unavailable",
+        "ipynb",
+        ["unavailable"],
+        source,
+        artifact=None,
+      )
+  }
+  let parsed = try @dipynb.parse_ipynb_notebook(text) |> Ok catch {
+    _ => Err(())
+  }
+  let route = match parsed {
+    Ok(notebook) => {
+      let inspect = @dipynb.inspect_ipynb_notebook(notebook)
+      let structural_budget = inspect.cell_count +
+        inspect.output_count +
+        inspect.attachment_count
+      if probe_limit_reached(inspect.cell_count, options.limits.max_rows) ||
+        probe_limit_reached(structural_budget, options.limits.max_cells) ||
+        probe_limit_reached(text.length(), options.limits.max_line_chars) {
+        CanonicalRoute::BlockStreaming
+      } else {
+        CanonicalRoute::DomAstModel
+      }
+    }
+    Err(_) => CanonicalRoute::DomAstModel
+  }
+  let reason = if route == CanonicalRoute::BlockStreaming {
+    "ipynb_over_limit_block_streaming"
+  } else {
+    "ipynb_within_dom_budget"
+  }
+  let parts = match parsed {
+    Ok(notebook) => {
+      let inspect = @dipynb.inspect_ipynb_notebook(notebook)
+      [
+        "cells=" +
+        inspect.cell_count.to_string() +
+        "/limit=" +
+        options.limits.max_rows.to_string(),
+        "groups=" +
+        (inspect.cell_count + inspect.output_count + inspect.attachment_count).to_string() +
+        "/limit=" +
+        options.limits.max_cells.to_string(),
+        "chars=" +
+        text.length().to_string() +
+        "/limit=" +
+        options.limits.max_line_chars.to_string(),
+        "route=" + canonical_route_name(route),
+      ]
+    }
+    Err(_) => ["parse_failed", "route=" + canonical_route_name(route)]
+  }
+  canonical_preflight_probe(
+    format,
+    route,
+    reason,
+    "ipynb",
+    parts,
+    prepared_source,
+    artifact=match parsed {
+      Ok(notebook) =>
+        Some(
+          RouteProbeArtifact::IpynbNotebook(
+            notebook,
+            @dipynb.inspect_ipynb_notebook(notebook),
+          ),
+        )
+      Err(_) => None
+    },
+  )
+}
+
+///|
 fn xml_preflight_probe(
   source : @input.InputSource,
   format : @input.DetectedFormat,
@@ -731,7 +853,8 @@ fn preflight_probe(
   format : @input.DetectedFormat,
   options : ConvertOptions,
 ) -> PreflightProbe {
-  if options.mode == ConvertMode::Stream {
+  if options.mode == ConvertMode::Stream &&
+    format != @input.DetectedFormat::Ipynb {
     let route = canonical_route_for_format(format, options)
     return canonical_preflight_probe(
       format,
@@ -747,7 +870,10 @@ fn preflight_probe(
     @input.DetectedFormat::Markdown =>
       markdown_preflight_probe(source, format, options)
     @input.DetectedFormat::Json => json_preflight_probe(source, format, options)
+    @input.DetectedFormat::Ipynb =>
+      ipynb_preflight_probe(source, format, options)
     @input.DetectedFormat::Yaml => yaml_preflight_probe(source, format, options)
+    @input.DetectedFormat::Toml => toml_preflight_probe(source, format, options)
     @input.DetectedFormat::Xml => xml_preflight_probe(source, format, options)
     @input.DetectedFormat::Html => html_preflight_probe(source, format, options)
     @input.DetectedFormat::Xlsx => xlsx_preflight_probe(source, format, options)

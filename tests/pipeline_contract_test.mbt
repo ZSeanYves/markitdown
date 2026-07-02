@@ -156,6 +156,12 @@ test "markdown footnotes normalize missing refs and keep definition bodies" {
       "[^e]: 1.  The top couple half figure, contrary sides and hands across with bottom couple,",
     ),
   )
+  assert_metric_eq(parsed.diagnostics, "footnote_definition_count", "3")
+  assert_metric_eq(parsed.diagnostics, "footnote_reference_count", "1")
+  assert_true(
+    document.blocks[1].attrs.get("raw_kind") ==
+    Some("markdown_footnote_definition"),
+  )
 }
 
 ///|
@@ -336,6 +342,63 @@ test "ndjson invalid input falls back with line-aware diagnostics" {
 }
 
 ///|
+test "jsonl and ndjson blank lines stay observable without becoming silent records" {
+  let jsonl = default_registry_parse(
+    @input.input_from_text_with_format(
+      "{\"name\":\"Alice\"}\n\n{\"name\":\"Bob\"}\n",
+      "blank-lines.jsonl",
+      Some(@input.DetectedFormat::Jsonl),
+    ),
+    @input.DetectedFormat::Jsonl,
+  )
+  let ndjson = default_registry_parse(
+    @input.input_from_text_with_format(
+      "{\"name\":\"Carol\"}\n\n{\"name\":\"Dave\"}\n",
+      "blank-lines.ndjson",
+      Some(@input.DetectedFormat::Ndjson),
+    ),
+    @input.DetectedFormat::Ndjson,
+  )
+  assert_metric_eq(jsonl.diagnostics, "record_count", "2")
+  assert_metric_eq(jsonl.diagnostics, "blank_line_count", "2")
+  assert_metric_eq(jsonl.diagnostics, "warning_count", "1")
+  assert_true(
+    jsonl.diagnostics.degraded_features.contains("jsonl_blank_line_skipped"),
+  )
+  assert_true(
+    jsonl.diagnostics.warnings[0].contains("blank jsonl line(s) skipped: 2"),
+  )
+  assert_metric_eq(ndjson.diagnostics, "record_count", "2")
+  assert_metric_eq(ndjson.diagnostics, "blank_line_count", "2")
+  assert_metric_eq(ndjson.diagnostics, "warning_count", "1")
+  assert_true(
+    ndjson.diagnostics.degraded_features.contains("ndjson_blank_line_skipped"),
+  )
+  assert_true(
+    ndjson.diagnostics.warnings[0].contains("blank ndjson line(s) skipped: 2"),
+  )
+}
+
+///|
+test "jsonl and ndjson normalize record bom and text sequence prefixes" {
+  let jsonl = convert_memory_text(
+    "\u{FEFF}{\"a\":1}\n\u{001E}{\"b\":2}\n",
+    "normalized.jsonl",
+    @input.DetectedFormat::Jsonl,
+  )
+  let ndjson = convert_memory_text(
+    "\u{001E}{\"name\":\"Alice\",\"score\":7}\n\u{FEFF}{\"name\":\"Bob\",\"score\":9}\n",
+    "normalized.ndjson",
+    @input.DetectedFormat::Ndjson,
+  )
+  assert_true(jsonl.content.contains("| a |"))
+  assert_true(jsonl.content.contains("```jsonl\n{\"b\":2}\n```"))
+  assert_true(ndjson.content.contains("| name | score |"))
+  assert_true(ndjson.content.contains("| Alice | 7 |"))
+  assert_true(ndjson.content.contains("| Bob | 9 |"))
+}
+
+///|
 test "json large input switches to true streaming event path" {
   let parsed = default_registry_parse(
     @input.input_from_text_with_format(
@@ -468,6 +531,29 @@ test "xml fail closed paths preserve fenced raw output and diagnostics" {
   assert_true(entity.content.contains("&custom;"))
   assert_true(entity.content.contains("&#169;"))
   assert_true(entity.diagnostics.degraded_features.contains("xml_fail_closed"))
+}
+
+///|
+test "xml numeric entities lower through product path while unknown entities still fail closed" {
+  let numeric = convert_memory_text(
+    "<root>&#169; &#x41; &#X4F60;</root>",
+    "numeric-entities.xml",
+    @input.DetectedFormat::Xml,
+  )
+  assert_eq(numeric.content, "# <root>\n\n- © A 你")
+  assert_metric_eq(numeric.diagnostics, "format_contract", "xml")
+  assert_true(
+    !numeric.diagnostics.degraded_features.contains("xml_fail_closed"),
+  )
+
+  let unknown = convert_memory_text(
+    "<root>&writer;</root>",
+    "unknown-entity.xml",
+    @input.DetectedFormat::Xml,
+  )
+  assert_true(unknown.content.contains("```xml"))
+  assert_true(unknown.content.contains("&writer;"))
+  assert_true(unknown.diagnostics.degraded_features.contains("xml_fail_closed"))
 }
 
 ///|
@@ -924,6 +1010,35 @@ test "html parser contract preserves semantic behavior clusters and asset persis
 }
 
 ///|
+test "html figure keeps visible caption when image stays non-materialized" {
+  let remote = convert_memory_text(
+    "<article><figure><img src='https://example.com/a.png' alt='Remote'><figcaption>Caption text</figcaption></figure></article>",
+    "figure-remote.html",
+    @input.DetectedFormat::Html,
+  )
+  assert_eq(remote.content, "Caption text")
+  assert_true(
+    remote.diagnostics.degraded_features.contains(
+      "html_remote_image_reference_only",
+    ),
+  )
+  assert_metric_eq(remote.diagnostics, "asset_count", "0")
+
+  let data = convert_memory_text(
+    "<article><figure><img src='data:image/png;base64,abc' alt='Inline'><figcaption>Inline caption</figcaption></figure></article>",
+    "figure-data.html",
+    @input.DetectedFormat::Html,
+  )
+  assert_true(data.content.contains("\\[inline data\\]"))
+  assert_true(data.content.contains("Inline caption"))
+  assert_true(
+    data.diagnostics.degraded_features.contains(
+      "html_data_image_reference_only",
+    ),
+  )
+}
+
+///|
 test "html parser keeps renderer boundary for link image table and br semantics" {
   let linked = default_registry_parse(
     @input.input_from_path(
@@ -1331,6 +1446,36 @@ test "txt invalid utf8 bytes fail closed with diagnostics and raw fallback" {
 }
 
 ///|
+test "txt utf16 bom bytes decode through shared text input path" {
+  let bytes : Array[Byte] = [
+    255, 254, 67, 0, 111, 0, 117, 0, 110, 0, 116, 0, 114, 0, 121, 0, 9, 0, 86, 0,
+    97, 0, 108, 0, 117, 0, 101, 0, 10, 0, 77, 0, 111, 0, 111, 0, 110, 0, 66, 0, 105,
+    0, 116, 0, 9, 0, 52, 0, 50, 0, 10, 0,
+  ]
+  let options = @convert.make_convert_options(
+    @convert.ConvertMode::Balanced,
+    @convert.OutputFormat::Markdown,
+    Some(@input.DetectedFormat::Txt),
+    @parser.default_ocr_options(),
+    @convert.default_resource_limits(),
+  )
+  let source = @input.input_from_bytes_with_format(
+    Bytes::from_array(bytes),
+    "utf16.txt",
+    Some(@input.DetectedFormat::Txt),
+  )
+  let result = match @convert.convert_input(source, options) {
+    Ok(value) => value
+    Err(err) => fail("convert failed: " + err.to_string())
+  }
+  assert_true(result.content.contains("Country\tValue"))
+  assert_true(result.content.contains("MoonBit\t42"))
+  assert_true(
+    result.diagnostics.metrics.get("invalid_utf8_fallback") == Some("false"),
+  )
+}
+
+///|
 test "resource limits contract degrades csv instead of silently expanding" {
   let result = convert_memory_text(
     "a,b,c\n1,2,3\n4,5,6\n",
@@ -1595,6 +1740,16 @@ test "csv and tsv maturity cover quoted fields ragged rows multiline cells and d
     tsv.diagnostics.metrics.get("quoted_delimiter_support") ==
     Some("quoted_tab"),
   )
+
+  let blank_rows = convert_memory_text(
+    "a,b\n\n1,2\n",
+    "blank-rows.csv",
+    @input.DetectedFormat::Csv,
+  )
+  assert_true(blank_rows.content.contains("| a | b |"))
+  assert_true(blank_rows.content.contains("| 1 | 2 |"))
+  assert_metric_eq(blank_rows.diagnostics, "blank_row_count", "0")
+  assert_metric_eq(blank_rows.diagnostics, "line_count", "3")
 }
 
 ///|
@@ -1814,6 +1969,236 @@ test "structured text parsers keep semantic values and renderer owns markdown fo
 }
 
 ///|
+test "toml product path keeps array tables semantic and malformed fallback explicit" {
+  let semantic = default_registry_parse(
+    @input.input_from_path(
+      "samples/main_process/toml/markdown/toml_array_of_tables_table.toml",
+    ),
+    @input.DetectedFormat::Toml,
+  )
+  let malformed = default_registry_parse(
+    @input.input_from_path(
+      "samples/main_process/toml/markdown/toml_malformed_current_fallback.toml",
+    ),
+    @input.DetectedFormat::Toml,
+  )
+  let semantic_doc = semantic.document.unwrap_or(@core.empty_document_ir())
+  let malformed_doc = malformed.document.unwrap_or(@core.empty_document_ir())
+  assert_true(semantic_doc.blocks.length() >= 2)
+  assert_true(semantic_doc.blocks[0].kind == @core.BlockKind::Heading)
+  assert_true(semantic_doc.blocks[1].kind == @core.BlockKind::Table)
+  assert_eq(semantic_doc.blocks[1].children[1].children[0].text, "Hammer")
+  assert_true(
+    !semantic.diagnostics.degraded_features.contains("toml_raw_fenced_fallback"),
+  )
+  assert_metric_eq(semantic.diagnostics, "effective_mode", "dom_ast_model")
+  assert_metric_eq(semantic.diagnostics, "ir_input_kind", "document")
+  assert_true(malformed_doc.blocks.length() == 1)
+  assert_true(malformed_doc.blocks[0].kind == @core.BlockKind::Code)
+  assert_true(
+    malformed.diagnostics.degraded_features.contains("toml_raw_fenced_fallback"),
+  )
+  assert_true(malformed.diagnostics.warnings.length() > 0)
+  assert_metric_eq(malformed.diagnostics, "syntax_error_count", "1")
+}
+
+///|
+test "ipynb product path keeps notebook semantics assets and malformed fallback explicit" {
+  let semantic = default_registry_parse(
+    @input.input_from_text_with_format(
+      "{\n" +
+      "  \"nbformat\": 4,\n" +
+      "  \"nbformat_minor\": 5,\n" +
+      "  \"metadata\": {\n" +
+      "    \"kernelspec\": {\"name\": \"python3\", \"display_name\": \"Python 3\"},\n" +
+      "    \"language_info\": {\"name\": \"python\", \"version\": \"3.11\"}\n" +
+      "  },\n" +
+      "  \"cells\": [\n" +
+      "    {\n" +
+      "      \"cell_type\": \"markdown\",\n" +
+      "      \"id\": \"m1\",\n" +
+      "      \"attachments\": {\n" +
+      "        \"dot.png\": {\n" +
+      "          \"image/png\": \"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7Z0MsAAAAASUVORK5CYII=\"\n" +
+      "        }\n" +
+      "      },\n" +
+      "      \"source\": [\"![dot](attachment:dot.png)\\n\"]\n" +
+      "    },\n" +
+      "    {\n" +
+      "      \"cell_type\": \"code\",\n" +
+      "      \"id\": \"c1\",\n" +
+      "      \"execution_count\": 1,\n" +
+      "      \"source\": \"display('ok')\\n\",\n" +
+      "      \"outputs\": [\n" +
+      "        {\n" +
+      "          \"output_type\": \"display_data\",\n" +
+      "          \"data\": {\n" +
+      "            \"image/png\": \"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7Z0MsAAAAASUVORK5CYII=\",\n" +
+      "            \"text/plain\": [\"<Image>\\n\"]\n" +
+      "          }\n" +
+      "        }\n" +
+      "      ]\n" +
+      "    }\n" +
+      "  ]\n" +
+      "}\n",
+      "semantic.ipynb",
+      Some(@input.DetectedFormat::Ipynb),
+    ),
+    @input.DetectedFormat::Ipynb,
+  )
+  let malformed = default_registry_parse(
+    @input.input_from_text_with_format(
+      "{\"nbformat\":4,\"cells\":\"oops\"}\n",
+      "malformed.ipynb",
+      Some(@input.DetectedFormat::Ipynb),
+    ),
+    @input.DetectedFormat::Ipynb,
+  )
+  let semantic_doc = semantic.document.unwrap_or(@core.empty_document_ir())
+  let malformed_doc = malformed.document.unwrap_or(@core.empty_document_ir())
+  let semantic_texts = flatten_block_texts(semantic_doc.blocks)
+  assert_true(semantic_doc.blocks.length() >= 5)
+  assert_true(semantic_doc.assets.length() == 2)
+  assert_true(semantic_texts.contains("[Cell 1 | markdown]"))
+  assert_true(semantic_texts.contains("[Cell 2 | code | execution=1]"))
+  assert_true(
+    semantic_texts.contains("[Output 2.1 | display_data | image/png]"),
+  )
+  let attachment_asset = semantic_doc.assets[0]
+  assert_true(
+    attachment_asset.path == Some("assets/ipynb-cell01-attachment-dot-png.png"),
+  )
+  assert_true(
+    attachment_asset.attrs.get("inline_payload_kind") == Some("base64"),
+  )
+  assert_true(
+    semantic_doc.assets
+    .map(fn(asset) { asset.path.unwrap_or("") })
+    .contains("assets/ipynb-cell02-output01.png"),
+  )
+  assert_metric_eq(semantic.diagnostics, "effective_mode", "dom_ast_model")
+  assert_metric_eq(semantic.diagnostics, "ir_input_kind", "document")
+  assert_metric_eq(semantic.diagnostics, "asset_count", "2")
+  assert_true(
+    !semantic.diagnostics.degraded_features.contains(
+      "ipynb_raw_fenced_fallback",
+    ),
+  )
+  assert_true(malformed_doc.blocks.length() == 1)
+  assert_true(malformed_doc.blocks[0].kind == @core.BlockKind::Code)
+  assert_true(
+    malformed.diagnostics.degraded_features.contains(
+      "ipynb_raw_fenced_fallback",
+    ),
+  )
+  assert_true(malformed.diagnostics.warnings.length() > 0)
+  assert_metric_eq(malformed.diagnostics, "syntax_error_count", "1")
+}
+
+///|
+test "ipynb html output without visible html lowering falls back to fenced html" {
+  let semantic = default_registry_parse(
+    @input.input_from_text_with_format(
+      "{\n" +
+      "  \"nbformat\": 4,\n" +
+      "  \"nbformat_minor\": 5,\n" +
+      "  \"metadata\": {\"language_info\": {\"name\": \"python\"}},\n" +
+      "  \"cells\": [\n" +
+      "    {\n" +
+      "      \"cell_type\": \"code\",\n" +
+      "      \"execution_count\": 3,\n" +
+      "      \"source\": \"display(HTML('<script>console.log(1)</script>'))\\n\",\n" +
+      "      \"outputs\": [\n" +
+      "        {\n" +
+      "          \"output_type\": \"execute_result\",\n" +
+      "          \"execution_count\": 3,\n" +
+      "          \"data\": {\n" +
+      "            \"text/html\": [\"<script>console.log(1)</script>\\n\"],\n" +
+      "            \"text/plain\": [\"<IPython.core.display.HTML object>\\n\"]\n" +
+      "          }\n" +
+      "        }\n" +
+      "      ]\n" +
+      "    }\n" +
+      "  ]\n" +
+      "}\n",
+      "html-output.ipynb",
+      Some(@input.DetectedFormat::Ipynb),
+    ),
+    @input.DetectedFormat::Ipynb,
+  )
+  let semantic_doc = semantic.document.unwrap_or(@core.empty_document_ir())
+  let semantic_texts = flatten_block_texts(semantic_doc.blocks)
+  let html_blocks = semantic_doc.blocks.filter(fn(block) {
+    block.kind == @core.BlockKind::Code &&
+    block.attrs.get("info") == Some("html")
+  })
+  assert_true(
+    semantic_texts.contains("[Output 1.1 | execute_result | text/html]"),
+  )
+  assert_true(html_blocks.length() == 1)
+  assert_true(html_blocks[0].text.contains("<script>console.log(1)</script>"))
+  assert_true(
+    semantic.diagnostics.degraded_features.contains(
+      "ipynb_html_output_empty_visible_payload",
+    ),
+  )
+}
+
+///|
+test "ipynb javascript mime output is preferred over plain object repr" {
+  let semantic = default_registry_parse(
+    @input.input_from_text_with_format(
+      "{\n" +
+      "  \"nbformat\": 4,\n" +
+      "  \"nbformat_minor\": 5,\n" +
+      "  \"metadata\": {\"language_info\": {\"name\": \"python\"}},\n" +
+      "  \"cells\": [\n" +
+      "    {\n" +
+      "      \"cell_type\": \"code\",\n" +
+      "      \"execution_count\": 7,\n" +
+      "      \"source\": \"%%javascript\\nconsole.log('hi')\\n\",\n" +
+      "      \"outputs\": [\n" +
+      "        {\n" +
+      "          \"output_type\": \"display_data\",\n" +
+      "          \"data\": {\n" +
+      "            \"application/javascript\": [\"console.log(\\\"hi\\\");\"],\n" +
+      "            \"text/plain\": [\"<IPython.core.display.Javascript object>\\n\"]\n" +
+      "          }\n" +
+      "        }\n" +
+      "      ]\n" +
+      "    }\n" +
+      "  ]\n" +
+      "}\n",
+      "javascript-output.ipynb",
+      Some(@input.DetectedFormat::Ipynb),
+    ),
+    @input.DetectedFormat::Ipynb,
+  )
+  let semantic_doc = semantic.document.unwrap_or(@core.empty_document_ir())
+  let semantic_texts = flatten_block_texts(semantic_doc.blocks)
+  let js_blocks = semantic_doc.blocks.filter(fn(block) {
+    block.kind == @core.BlockKind::Code &&
+    block.attrs.get("info") == Some("javascript")
+  })
+  let output_js_blocks = js_blocks.filter(fn(block) {
+    let source_ref = block.source_ref.unwrap_or(@core.empty_source_ref())
+    source_ref.extra.get("ipynb_output_kind") == Some("display_data")
+  })
+  assert_true(
+    semantic_texts.contains(
+      "[Output 1.1 | display_data | application/javascript]",
+    ),
+  )
+  assert_true(output_js_blocks.length() == 1)
+  assert_true(output_js_blocks[0].text.contains("console.log(\"hi\");"))
+  assert_true(
+    !flatten_block_texts([output_js_blocks[0]]).contains(
+      "<IPython.core.display.Javascript object>",
+    ),
+  )
+}
+
+///|
 test "tsv resource limits contract also degrades with diagnostics" {
   let result = convert_memory_text(
     "a\tb\tc\n1\t2\t3\n4\t5\t6\n",
@@ -1980,19 +2365,25 @@ test "root package manifests avoid retired convert and core runtime dependencies
   }
   let formats_pkg = read_utf8_text("formats/moon.pkg")
   let json_pkg = read_utf8_text("formats/json/moon.pkg")
+  let toml_pkg = read_utf8_text("formats/toml/moon.pkg")
   let xml_pkg = read_utf8_text("formats/xml/moon.pkg")
   let yaml_pkg = read_utf8_text("formats/yaml/moon.pkg")
   assert_true(json_pkg.contains("ZSeanYves/markitdown/format_readers/json"))
+  assert_true(toml_pkg.contains("ZSeanYves/markitdown/format_readers/toml"))
   assert_true(xml_pkg.contains("ZSeanYves/markitdown/format_readers/xml"))
   assert_true(yaml_pkg.contains("ZSeanYves/markitdown/format_readers/yaml"))
   assert_true(!formats_pkg.contains("ZSeanYves/markitdown/convert/json"))
+  assert_true(!formats_pkg.contains("ZSeanYves/markitdown/convert/toml"))
   assert_true(!formats_pkg.contains("ZSeanYves/markitdown/convert/xml"))
   assert_true(!formats_pkg.contains("ZSeanYves/markitdown/convert/yaml"))
   let json_impl = read_package_mbt_sources("formats/json")
+  let toml_impl = read_package_mbt_sources("formats/toml")
   let xml_impl = read_package_mbt_sources("formats/xml")
   assert_true(!json_impl.contains("@oldjson"))
   assert_true(!json_impl.contains("@legacy"))
   assert_true(!json_impl.contains("convert/json"))
+  assert_true(!toml_impl.contains("@legacy"))
+  assert_true(!toml_impl.contains("convert/toml"))
   assert_true(!xml_impl.contains("@legacy"))
   assert_true(!xml_impl.contains("convert/xml"))
   let yaml_impl = read_package_mbt_sources("formats/yaml")
@@ -2077,11 +2468,13 @@ test "root runtime and exposed parser foundations stay free of retired runtime i
       "format_readers/csv/csv_inspect.mbt", "format_readers/tsv/moon.pkg", "format_readers/tsv/tsv_parser.mbt",
       "format_readers/json/moon.pkg", "format_readers/json/json_types.mbt", "format_readers/json/json_parser.mbt",
       "format_readers/json/json_inspect.mbt", "format_readers/json/json_profile_internal.mbt",
-      "format_readers/xml/moon.pkg", "format_readers/xml/xml_types.mbt", "format_readers/xml/xml_tokenizer.mbt",
-      "format_readers/xml/xml_parser.mbt", "format_readers/xml/xml_inspect.mbt",
-      "format_readers/yaml/moon.pkg", "format_readers/yaml/yaml_types.mbt", "format_readers/yaml/yaml_parser.mbt",
-      "format_readers/yaml/yaml_inspect.mbt", "format_readers/yaml/yaml_profile_internal.mbt",
-      "format_readers/html/moon.pkg", "format_readers/html/html_types.mbt", "format_readers/html/html_guards.mbt",
+      "format_readers/toml/moon.pkg", "format_readers/toml/toml_types.mbt", "format_readers/toml/toml_parser.mbt",
+      "format_readers/toml/toml_inspect.mbt", "format_readers/xml/moon.pkg", "format_readers/xml/xml_types.mbt",
+      "format_readers/xml/xml_tokenizer.mbt", "format_readers/xml/xml_parser.mbt",
+      "format_readers/xml/xml_inspect.mbt", "format_readers/yaml/moon.pkg", "format_readers/yaml/yaml_types.mbt",
+      "format_readers/yaml/yaml_parser.mbt", "format_readers/yaml/yaml_inspect.mbt",
+      "format_readers/yaml/yaml_profile_internal.mbt", "format_readers/html/moon.pkg",
+      "format_readers/html/html_types.mbt", "format_readers/html/html_guards.mbt",
       "format_readers/html/html_tokenizer.mbt", "format_readers/html/html_semantic.mbt",
       "format_readers/html/html_parser.mbt", "format_readers/html/html_inspect.mbt",
       "format_readers/zip/moon.pkg", "format_readers/zip/zip_types.mbt", "format_readers/zip/zip_codec.mbt",

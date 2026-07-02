@@ -78,13 +78,14 @@ fn cli_options(
 }
 
 ///|
-test "main cli product policy exposes txt csv tsv json jsonl ndjson xml yaml html markdown zip epub docx xlsx pptx pdf and direct image OCR formats" {
+test "main cli product policy exposes txt csv tsv json jsonl ndjson ipynb xml yaml html markdown zip epub docx xlsx pptx pdf and direct image OCR formats" {
   assert_true(cli_is_supported_format(@input.DetectedFormat::Txt))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Csv))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Tsv))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Json))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Jsonl))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Ndjson))
+  assert_true(cli_is_supported_format(@input.DetectedFormat::Ipynb))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Xml))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Yaml))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Html))
@@ -131,37 +132,38 @@ test "main cli product policy exposes txt csv tsv json jsonl ndjson xml yaml htm
     ),
   )
   let supported = [
-    "txt", "csv", "tsv", "json", "jsonl", "ndjson", "xml", "yaml", "yml", "html",
-    "htm", "markdown", "md", "zip", "epub", "docx", "xlsx", "pptx", "pdf", "png",
-    "jpg", "jpeg", "bmp", "webp", "tif", "tiff",
+    "txt", "csv", "tsv", "json", "jsonl", "ndjson", "ipynb", "xml", "yaml", "yml",
+    "html", "htm", "markdown", "md", "zip", "epub", "docx", "xlsx", "pptx", "pdf",
+    "png", "jpg", "jpeg", "bmp", "webp", "tif", "tiff",
   ]
-  assert_eq(supported.length(), 26)
+  assert_eq(supported.length(), 27)
   assert_eq(supported[0], "txt")
   assert_eq(supported[1], "csv")
   assert_eq(supported[2], "tsv")
   assert_eq(supported[3], "json")
   assert_eq(supported[4], "jsonl")
   assert_eq(supported[5], "ndjson")
-  assert_eq(supported[6], "xml")
-  assert_eq(supported[7], "yaml")
-  assert_eq(supported[8], "yml")
-  assert_eq(supported[9], "html")
-  assert_eq(supported[10], "htm")
-  assert_eq(supported[11], "markdown")
-  assert_eq(supported[12], "md")
-  assert_eq(supported[13], "zip")
-  assert_eq(supported[14], "epub")
-  assert_eq(supported[15], "docx")
-  assert_eq(supported[16], "xlsx")
-  assert_eq(supported[17], "pptx")
-  assert_eq(supported[18], "pdf")
-  assert_eq(supported[19], "png")
-  assert_eq(supported[20], "jpg")
-  assert_eq(supported[21], "jpeg")
-  assert_eq(supported[22], "bmp")
-  assert_eq(supported[23], "webp")
-  assert_eq(supported[24], "tif")
-  assert_eq(supported[25], "tiff")
+  assert_eq(supported[6], "ipynb")
+  assert_eq(supported[7], "xml")
+  assert_eq(supported[8], "yaml")
+  assert_eq(supported[9], "yml")
+  assert_eq(supported[10], "html")
+  assert_eq(supported[11], "htm")
+  assert_eq(supported[12], "markdown")
+  assert_eq(supported[13], "md")
+  assert_eq(supported[14], "zip")
+  assert_eq(supported[15], "epub")
+  assert_eq(supported[16], "docx")
+  assert_eq(supported[17], "xlsx")
+  assert_eq(supported[18], "pptx")
+  assert_eq(supported[19], "pdf")
+  assert_eq(supported[20], "png")
+  assert_eq(supported[21], "jpg")
+  assert_eq(supported[22], "jpeg")
+  assert_eq(supported[23], "bmp")
+  assert_eq(supported[24], "webp")
+  assert_eq(supported[25], "tif")
+  assert_eq(supported[26], "tiff")
 }
 
 ///|
@@ -1082,6 +1084,83 @@ test "main cli converts zip through the root container pipeline and persists loc
   assert_true(
     !@fs.path_exists(out_dir + "/assets/archive/site_page.html/image02.png"),
   )
+}
+
+///|
+test "main cli persists ipynb inline image assets at output boundary" {
+  let root = test_tmp_root() + "/main-cli-ipynb-assets"
+  recreate_clean_dir(root)
+  defer cleanup_temp_dir(root)
+
+  let input_path = root + "/sample.ipynb"
+  let out_dir = root + "/out"
+  let output_path = out_dir + "/sample.md"
+  ensure_dir_tree(out_dir)
+  write_utf8_text(
+    input_path,
+    "{\n" +
+    "  \"nbformat\": 4,\n" +
+    "  \"nbformat_minor\": 5,\n" +
+    "  \"metadata\": {\"language_info\": {\"name\": \"python\"}},\n" +
+    "  \"cells\": [\n" +
+    "    {\n" +
+    "      \"cell_type\": \"markdown\",\n" +
+    "      \"attachments\": {\n" +
+    "        \"dot.png\": {\n" +
+    "          \"image/png\": \"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7Z0MsAAAAASUVORK5CYII=\"\n" +
+    "        }\n" +
+    "      },\n" +
+    "      \"source\": [\"![dot](attachment:dot.png)\\n\"]\n" +
+    "    },\n" +
+    "    {\n" +
+    "      \"cell_type\": \"code\",\n" +
+    "      \"execution_count\": 1,\n" +
+    "      \"source\": \"display('ok')\\n\",\n" +
+    "      \"outputs\": [\n" +
+    "        {\n" +
+    "          \"output_type\": \"display_data\",\n" +
+    "          \"data\": {\n" +
+    "            \"image/png\": \"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7Z0MsAAAAASUVORK5CYII=\",\n" +
+    "            \"text/plain\": [\"<Image>\\n\"]\n" +
+    "          }\n" +
+    "        }\n" +
+    "      ]\n" +
+    "    }\n" +
+    "  ]\n" +
+    "}\n",
+  )
+
+  let rendered = match
+    run_cli(
+      cli_options(
+        input_path,
+        Some(output_path),
+        Some(@input.DetectedFormat::Ipynb),
+        @convert.OutputFormat::Markdown,
+      ),
+    ) {
+    Ok(value) => value
+    Err(msg) => fail("current ipynb cli asset persistence failed: " + msg)
+  }
+
+  assert_true(
+    rendered.contains("![notebook image](assets/ipynb-cell02-output01.png)"),
+  )
+  let persisted_markdown = read_utf8_text(output_path)
+  assert_true(
+    persisted_markdown.contains(
+      "![dot](assets/ipynb-cell01-attachment-dot-png.png)",
+    ),
+  )
+  assert_true(
+    persisted_markdown.contains(
+      "![notebook image](assets/ipynb-cell02-output01.png)",
+    ),
+  )
+  assert_true(
+    @fs.path_exists(out_dir + "/assets/ipynb-cell01-attachment-dot-png.png"),
+  )
+  assert_true(@fs.path_exists(out_dir + "/assets/ipynb-cell02-output01.png"))
 }
 
 ///|

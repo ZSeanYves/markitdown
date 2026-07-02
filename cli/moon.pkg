@@ -1,4 +1,6 @@
 import {
+  "moonbitlang/core/string",
+  "moonbitlang/core/encoding/utf8",
   "ZSeanYves/markitdown/convert",
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/format_readers/zip" @dzip,
@@ -7,6 +9,7 @@ import {
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
   "ZSeanYves/markitdown/rag",
+  "moonbitlang/x/codec/base64",
   "moonbitlang/x/fs",
   "moonbitlang/x/sys",
 }

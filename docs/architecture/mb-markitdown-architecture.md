@@ -198,7 +198,7 @@ pub enum ConvertMode {
 适合：
 
 ```text
-txt、csv、jsonl、markdown、普通 html、普通 docx、简单 pdf
+txt、csv、jsonl、markdown、toml、普通 html、普通 docx、简单 pdf
 ```
 
 ### 3.2 Balanced
@@ -220,7 +220,7 @@ txt、csv、jsonl、markdown、普通 html、普通 docx、简单 pdf
 适合：
 
 ```text
-PDF 文本层、Office 文档、HTML、EPUB
+PDF 文本层、Office 文档、HTML、EPUB、常规 ipynb notebook
 ```
 
 ### 3.3 Accurate
@@ -236,6 +236,16 @@ PDF 文本层、Office 文档、HTML、EPUB
 可启用公式/图注/图片区域识别
 可启用跨页表格合并
 输出更丰富 diagnostics 和 source map
+```
+
+架构边界：
+
+```text
+当前 Accurate 的主要正式覆盖面仍然是复杂 PDF / OCR / layout-two-stage。
+但 Accurate 也可以覆盖“已结构化文本格式中的高保真语义恢复”。
+这类增强不一定意味着切换 parser route，也可以是在同一 canonical route 内增加更强语义 pass。
+Markdown 是当前最明确的非 PDF 扩展对象：目标是在既有 route 内提升 heading/list/code/table/link/image/frontmatter/source line/raw HTML boundary/footnote 等语义保真。
+在 convert/route_policy.mbt 与具体 parser 未产品化前，这仍然是扩展路线，不是当前 mode 承诺。
 ```
 
 适合：
@@ -259,7 +269,7 @@ PDF 文本层、Office 文档、HTML、EPUB
 适合：
 
 ```text
-txt、log、csv、tsv、jsonl、ndjson、srt、vtt、mbox、大型 xml/json
+txt、log、csv、tsv、jsonl、ndjson、srt、vtt、mbox、大型 xml/json、超限 ipynb
 ```
 
 ### 3.5 Rag
@@ -274,6 +284,7 @@ chunks
 source map
 heading path
 page / slide / sheet / cell location
+notebook cell / output location
 metadata
 table chunks
 asset references
@@ -386,6 +397,7 @@ PDF: page
 XLSX: sheet / row / table region
 EPUB: chapter
 EML: MIME part
+IPYNB: notebook cell / output group
 ```
 
 ### 4.3 package-single-pass
@@ -466,6 +478,7 @@ xml
 json
 yaml
 toml
+ipynb
 rst
 asciidoc
 latex
@@ -476,7 +489,10 @@ latex
 ```text
 小中型文件可以建 AST/DOM。
 Markdown / HTML / YAML / JSON / XML 的超限分流由 convert 的 RoutePlanner 决定。
-Markdown 不建议纯 passthrough，默认应解析 AST，保留 heading、list、code、table、link、source line。
+TOML 的规划中实现优先保持单一 `dom-ast-model` route，不为了配置文件格式引入额外 parser mode。
+IPYNB 的规划中实现默认走 `dom-ast-model`，仅在 notebook 过大时按 cell / output group 降到 `block-streaming`。
+Markdown 当前走 dom-ast-model canonical route，并在超限或 Stream 请求下切到 block-streaming。
+Markdown 当前实现是轻量 block inventory + lowering，目标逐步靠近更完整语义解析，而不是已经产品化的完整 Markdown AST parser。
 ```
 
 ### 4.6 layout-two-stage
@@ -531,6 +547,8 @@ mp4
 video
 ```
 
+音频扩展设计另见：[audio-media-pipeline-architecture.md](./audio-media-pipeline-architecture.md)。
+
 ### 4.8 container-recursive
 
 适合容器文件。
@@ -557,6 +575,13 @@ archive
 
 ### 5.1 默认策略表
 
+说明：
+
+```text
+下表同时描述当前主架构事实与已经确定的扩展设计。
+未进入 capabilities 文档的格式，不等同于当前已经产品化的正式支持。
+```
+
 ```text
 linear / streaming:
   txt      -> streaming-event only
@@ -576,6 +601,7 @@ tree / ast:
   yaml      -> dom-ast-model, over-limit -> streaming-event
   yml       -> dom-ast-model, over-limit -> streaming-event
   toml      -> dom-ast-model
+  ipynb     -> dom-ast-model, over-limit -> block-streaming(cell/output-group)
   xml       -> dom-ast-model, over-limit -> streaming-event
   rst       -> dom-ast-model
   adoc      -> dom-ast-model
@@ -624,14 +650,19 @@ containers:
 
 ```text
 RoutePlanner 在 parser 前统一做 canonical route 选择。
-超限 markdown -> block-streaming
+markdown 默认 -> dom-ast-model
+超限 markdown / Stream markdown -> block-streaming
 超限 yaml     -> streaming-event
 超限 html     -> block-streaming(section/subtree)
 超限 json     -> streaming-event
 超限 xml      -> streaming-event
+超限 ipynb    -> block-streaming(cell/output-group)
 超限 xlsx     -> block-streaming(sheet/row/table-region)
 复杂 pdf      -> Accurate 模式下 layout-two-stage
 扫描 pdf      -> 仅在显式 OCR / Accurate 语义下进入 layout-two-stage
+
+Markdown Accurate 当前属于“同 route 增强”，不是“跨 route 切换”。
+也就是说，当前 `--accurate` 不会让 Markdown 切换到独立 parser mode 或独立 canonical route。
 
 route 一旦选定，不允许跨模式 fallback。
 route 失败时只允许同模式内 degradation，例如 section 裁剪、row 窗口裁剪、table-region 裁剪。
@@ -706,6 +737,7 @@ markdown
 html
 epub
 pdf accurate mode
+ipynb small/medium
 json/yaml/toml small file
 ```
 
@@ -943,7 +975,11 @@ pub struct SourceRef {
 | CSV | row / column range，放 extra 或 cell_range |
 | JSON | json_pointer |
 | YAML | yaml_path + line range |
+| TOML | dotted path + line range，优先放 extra 或复用 yaml_path-like 表达 |
+| IPYNB | json_pointer + `extra.cell_index/cell_kind/output_index` |
 | EML | email_part |
+
+对于 `toml` 与 `ipynb` 这类规划中的扩展格式，优先复用现有 `json_pointer / yaml_path / extra` 承载来源定位；只有当这些格式进入稳定公开契约后，才考虑是否把专属字段提升为 Core `SourceRef` 的显式一等字段。
 
 ### 7.7 LayoutBox
 
@@ -1607,6 +1643,7 @@ chunk text
 heading path
 source refs
 page/slide/sheet/cell location
+notebook cell/output location
 asset refs
 metadata
 ```
@@ -1619,6 +1656,16 @@ table_chunk
 image_caption_chunk
 code_chunk
 metadata_chunk
+```
+
+对于 `ipynb` 这类 notebook 格式，不额外发明新的公开 chunk 类型：
+
+```text
+markdown cell -> text_chunk
+code cell -> code_chunk
+tabular output -> table_chunk
+image/display output -> image_caption_chunk 或 asset refs
+notebook-level facts -> metadata_chunk
 ```
 
 ---
@@ -1765,6 +1812,7 @@ ParserMode：`dom-ast-model`
 配置文件为主
 需要保留 path 和行号
 YAML 可能多文档
+TOML 更强调单文档配置、dotted key 和 table / array-of-tables 语义
 ```
 
 ### 输出
@@ -1782,6 +1830,30 @@ SourceRef(yaml_path + line_range)
 尽量保留 comments，若 parser 支持
 多文档 YAML 可以按 document block 输出
 不要把 YAML 全部强行转成普通段落
+```
+
+### TOML 融入主架构的扩展设计
+
+TOML 不需要新 parser mode；建议直接复用现有 `dom-ast-model -> DocumentIR -> Renderer` 主链。
+
+推荐策略：
+
+```text
+顶层 table -> section / key-value group
+dotted key -> 路径化 key-value block
+array-of-tables -> repeated section 或 table-like repeated object blocks
+inline table -> 小型 object block
+multiline basic/literal string -> paragraph 或 fenced text/code，保留换行
+date/time/number/bool -> typed scalar，优先保留原值与最小必要规范化
+```
+
+边界说明：
+
+```text
+TOML 当前应按“结构化配置文本”设计，而不是按 Markdown 段落文本设计
+不承诺编辑器级 comment round-trip
+不引入独立 Accurate route
+如后续需要更强保真，也优先在同一 dom-ast-model route 内增强 typed scalar / source refs / diagnostics
 ```
 
 ---
@@ -1817,29 +1889,33 @@ SourceRef(xpath)
 
 ## 12.6 Markdown Parser
 
-ParserMode：`dom-ast-model`
+ParserMode：默认 `dom-ast-model`；`Stream` 或超限时切 `block-streaming`
 
 ### 输入特征
 
 ```text
 已经是目标近似格式
-但仍应解析 AST，便于 source map、RAG、debug、normalize
+但仍应进入统一 parser / IR / render 主链，便于 source map、RAG、debug、diagnostics
 ```
 
-### 扫描策略
+### 当前实现
 
 ```text
-parse markdown AST
-保留 heading/list/code/table/link/image/front matter
-保留 line range
+canonical route 仍是 dom-ast-model
+Stream 或超限时走 block-streaming
+当前 parser 本质上是轻量扫描器 + lowering
+它会优先建立高频 block inventory，再补足 table/link/image/frontmatter/raw HTML/footnote 等语义
+这还不是一个完整 Markdown AST parser，也不承诺覆盖全部方言
 ```
 
-### 模式
+### Accurate 扩展路线
 
 ```text
-passthrough: 原样返回，最快
-ast-light: 默认，构建 Core IR
-ast-normalize: 统一 Markdown 风格后输出
+当前不新增 Markdown 专属 canonical route
+当前不让 Accurate 把 Markdown 切换到独立 parser mode
+Accurate 可以在同一 route 内逐步增加更强语义 pass、归一化、source refs 和 diagnostics
+优先增强范围：heading / list / code / table / link / image / frontmatter / source line / raw HTML boundary / footnote
+只有当 convert/route_policy.mbt 与 formats/markdown/parser.mbt 的稳定行为真正升级后，才应把它写成已产品化 mode 行为
 ```
 
 ### 输出
@@ -1852,6 +1928,7 @@ CodeBlock
 TableBlock
 ImageBlock
 SourceRef(line_range)
+并保留逐步扩展到更强语义恢复的空间
 ```
 
 ---
@@ -2403,6 +2480,89 @@ SourceRef(time range)
 
 ---
 
+## 12.17 IPYNB / Notebook Parser（扩展设计）
+
+ParserMode：默认 `dom-ast-model`；超限 notebook 规划中切到 `block-streaming`
+
+### 设计定位
+
+`ipynb` 不是普通 JSON 文本，也不是 package 文档。它更接近“有顺序的结构化 notebook 容器”：
+
+```text
+top-level notebook metadata
+ordered cells
+markdown / code / raw cell kinds
+rich outputs
+attachments / display_data
+language and kernel hints
+```
+
+因此建议：
+
+```text
+默认复用现有 dom-ast-model canonical route
+大 notebook 再按 cell / output group 降级到 block-streaming
+不新增专属 parser mode
+不改写现有 RoutePlanner 的基本分流原则
+```
+
+### 输入特征
+
+```text
+本质上是 JSON 文档
+但核心语义不在任意键值，而在有序 cells 与 output boundary
+markdown cell 可复用 Markdown lowering
+code cell output 需要做类型化降落，而不是单纯 fenced json
+```
+
+### 扫描策略
+
+```text
+解析顶层 notebook JSON
+保留 nbformat / language_info / kernelspec 等 notebook-level facts
+按 cells 顺序逐个 lowering
+markdown cell 进入 Markdown-like block lowering
+code cell 进入 CodeBlock，并按 output 类型派发 text/table/image/raw
+raw cell 保守降为 RawBlock 或 fenced raw text
+attachment / display_data 优先转 AssetRef + source refs
+```
+
+### 输出
+
+```text
+小中 notebook -> DocumentIR
+大 notebook -> BlockStream(cell/output-group)
+Markdown-derived HeadingBlock / ParagraphBlock / ListBlock / TableBlock
+CodeBlock
+OutputBlock（在当前 CoreBlock 体系内优先映射为 Table / Raw / Image / Paragraph，而不是先新增专属 block kind）
+AssetRef
+SourceRef(json_pointer + extra cell markers)
+```
+
+### Markdown / RAG 策略
+
+```text
+markdown cell：复用现有 Markdown route 的 lowering 语义
+code cell：以 fenced code 为主，并保留 language hint
+stdout / stderr：优先 fenced text 或 RawBlock
+tabular output：优先 TableBlock，小样本输出 Markdown table，大样本可降级
+text/html output：只在安全边界内做受控 HTML lowering；否则保留 raw snippet
+image/png / image/jpeg：转 AssetRef，并由 renderer 决定输出占位或引用
+RAG chunking：默认不跨 cell 粗暴合并；优先保留 cell 级 chunk boundary
+```
+
+### 边界说明
+
+```text
+不执行 notebook
+不重算 code output
+不依赖 cell 之间隐藏运行时状态恢复
+不因为 ipynb 引入新的 public OutputFormat
+Accurate 当前也不应让 ipynb 切换到新的 parser route；后续若做高保真增强，优先仍在同 route 内增加 output normalization / diagnostics / source refs
+```
+
+---
+
 ## 13. FormatDetector 设计
 
 ### 13.1 检测顺序
@@ -2452,6 +2612,20 @@ ZIP 内部判断：
 mimetype=application/epub+zip + META-INF/container.xml -> epub
 ```
 
+### 13.5 TOML / IPYNB 扩展检测
+
+```text
+toml:
+  优先使用 .toml 扩展名或 application/toml
+  在扩展名缺失但用户显式指定时，允许用基础 grammar probe 辅助确认
+  不建议把普通 ini/conf 轻易误判成 toml
+
+ipynb:
+  优先使用 .ipynb 扩展名或 notebook 相关 MIME
+  若扩展名丢失但内容是 JSON，可在顶层存在 nbformat + cells 数组时升级识别为 ipynb
+  一旦识别为 ipynb，就不应再按普通 json 的“无序键值文档”策略处理
+```
+
 ---
 
 ## 14. ParserRegistry 与 RoutePlanner
@@ -2483,6 +2657,8 @@ RoutePlanner selected_route
 txt/csv/tsv/jsonl/ndjson -> streaming-event
 markdown -> dom-ast-model, over-limit -> block-streaming
 yaml/json/xml -> dom-ast-model, over-limit -> streaming-event
+toml -> dom-ast-model
+ipynb -> dom-ast-model, over-limit -> block-streaming(cell/output-group)
 html -> dom-ast-model + readability/hybrid, over-limit -> block-streaming(section/subtree)
 docx/pptx -> package-single-pass
 xlsx -> package-single-pass, over-limit -> block-streaming(sheet/row/table-region)
@@ -2800,11 +2976,17 @@ src/
         jsonl_parser.mbt
       yaml/
         yaml_parser.mbt
+      toml/
+        toml_parser.mbt
       markdown/
         markdown_parser.mbt
       html/
         html_parser.mbt
         readability.mbt
+      ipynb/
+        notebook_parser.mbt
+        cell_lowering.mbt
+        output_lowering.mbt
       epub/
         epub_parser.mbt
       office/
@@ -2897,6 +3079,8 @@ PDF table-heavy page
 EPUB spine order
 CSV huge file
 JSONL huge file
+TOML dotted keys / array-of-tables / multiline strings
+IPYNB markdown+code cells / display_data / attachments / oversized notebook degradation
 ```
 
 ### 20.5 性能测试
@@ -2947,6 +3131,13 @@ pdf text-layer
 ```
 
 目标：完成主格式的 parser -> Core IR -> Markdown。
+
+补充说明：
+
+```text
+在当前主格式已经稳定的前提下，TOML 与 IPYNB 是最适合接入的下一批扩展格式：
+它们都可以复用既有 structured-text / notebook lowering 主链，而不需要推翻现有 parser mode 体系。
+```
 
 ### Phase 3：IR Pass 完善
 
@@ -3013,6 +3204,8 @@ caption binding
 17. 仅允许同模式内 degradation；degradation 必须记录 diagnostics，且禁止跨模式 fallback。
 18. 容器解析必须做安全限制。
 19. RAG chunk 必须保留 heading path 和 source refs。
+20. TOML / IPYNB 等新增格式应优先复用现有 dom-ast-model / block-streaming，而不是为了单一格式发明新 parser mode。
+21. IPYNB 不执行 cell，不重算 output；只消费文件中已有 notebook 事实。
 ```
 
 ---

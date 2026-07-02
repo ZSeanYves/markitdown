@@ -84,6 +84,9 @@ test "csv parse options stay header-neutral and can preserve blank rows" {
   assert_eq(issues.length(), 2)
   assert_eq(issues[0].row_index, 2)
   assert_eq(issues[1].row_index, 4)
+
+  let report = @csv.inspect_csv_document(doc)
+  assert_eq(report.blank_row_count, 1)
 }
 
 ///|

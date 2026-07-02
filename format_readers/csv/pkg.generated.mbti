@@ -57,6 +57,7 @@ pub struct CsvInspectReport {
   min_field_count : Int
   max_field_count : Int
   empty_cell_count : Int
+  blank_row_count : Int
   ragged_row_count : Int
   multiline_row_count : Int
   multiline_field_count : Int

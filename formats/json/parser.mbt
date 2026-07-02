@@ -444,13 +444,24 @@ fn parse_line_delimited_json_result(
     format_name, text, source, context,
   )
   match result {
-    Ok((events, row_count, object_count, array_count, scalar_count, max_depth)) => {
+    Ok(
+      (
+        events,
+        row_count,
+        object_count,
+        array_count,
+        scalar_count,
+        max_depth,
+        blank_line_count,
+      )
+    ) => {
       diagnostics.metrics.set("record_count", row_count.to_string())
       diagnostics.metrics.set("row_count", row_count.to_string())
       diagnostics.metrics.set("object_count", object_count.to_string())
       diagnostics.metrics.set("array_count", array_count.to_string())
       diagnostics.metrics.set("scalar_count", scalar_count.to_string())
       diagnostics.metrics.set("max_depth_observed", max_depth.to_string())
+      diagnostics.metrics.set("blank_line_count", blank_line_count.to_string())
       diagnostics.metrics.set("invalid_record_count", "0")
       diagnostics.metrics.set(
         "table_count",
@@ -461,6 +472,22 @@ fn parse_line_delimited_json_result(
       diagnostics.metrics.set("block_count", row_count.to_string())
       diagnostics.metrics.set("event_count", events.length().to_string())
       diagnostics.metrics.set("record_count_emitted", row_count.to_string())
+      if blank_line_count > 0 {
+        diagnostics.warnings.push(
+          "blank " +
+          format_name +
+          " line(s) skipped: " +
+          blank_line_count.to_string(),
+        )
+        diagnostics.degraded_features.push(format_name + "_blank_line_skipped")
+        diagnostics.fallback_trace.push(
+          format_name + " blank line -> skip empty record",
+        )
+      }
+      diagnostics.metrics.set(
+        "warning_count",
+        diagnostics.warnings.length().to_string(),
+      )
       diagnostics.metrics.set(
         "degraded_feature_count",
         diagnostics.degraded_features.length().to_string(),

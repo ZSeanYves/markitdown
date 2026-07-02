@@ -221,7 +221,7 @@ probe_markitdown_cli() {
     local help_out
     help_out="$(MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" --help 2>&1)" || status=1
     if [[ "$status" -eq 0 ]]; then
-      if ! grep -Fq -- 'Supported product formats: txt, csv, tsv, json, jsonl, ndjson, xml' <<<"$help_out"; then
+      if ! grep -Fq -- 'Supported product formats: txt, csv, tsv, json, jsonl, ndjson, ipynb, xml' <<<"$help_out"; then
         status=1
       elif ! grep -Fq -- '--accurate' <<<"$help_out"; then
         status=1

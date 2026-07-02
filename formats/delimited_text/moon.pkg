@@ -1,4 +1,5 @@
 import {
+  "tonyfettes/encoding",
   "ZSeanYves/markitdown/format_readers/csv" @dcsv,
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/formats/parser_common",

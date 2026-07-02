@@ -81,6 +81,10 @@ XML_INPUT="$ROOT/samples/main_process/xml/markdown/xml_basic.xml"
 XML_EXPECTED="$ROOT/samples/main_process/xml/expected/markdown/xml_basic.md"
 YAML_INPUT="$ROOT/samples/main_process/yaml/markdown/yaml_mapping_basic.yaml"
 YAML_EXPECTED="$ROOT/samples/main_process/yaml/expected/markdown/yaml_mapping_basic.md"
+TOML_INPUT="$ROOT/samples/main_process/toml/markdown/toml_object_basic.toml"
+TOML_EXPECTED="$ROOT/samples/main_process/toml/expected/markdown/toml_object_basic.md"
+IPYNB_INPUT="$ROOT/samples/main_process/ipynb/markdown/ipynb_markdown_basic.ipynb"
+IPYNB_EXPECTED="$ROOT/samples/main_process/ipynb/expected/markdown/ipynb_markdown_basic.md"
 OCR_INPUT="$ROOT/samples/main_process/ocr/markdown/ocr_tiny_png.png"
 OCR_EXPECTED="$ROOT/samples/main_process/ocr/expected/markdown/ocr_tiny_png.md"
 MARKDOWN_EXPECTED="$ROOT/samples/main_process/markdown/expected/markdown/markdown_basic_heading_paragraph.md"
@@ -106,6 +110,8 @@ JSONL_MD="$NO_META_DIR/jsonl_records_basic.md"
 NDJSON_MD="$NO_META_DIR/ndjson_records_basic.md"
 XML_MD="$NO_META_DIR/xml_basic.md"
 YAML_MD="$NO_META_DIR/yaml_mapping_basic.md"
+TOML_MD="$NO_META_DIR/toml_object_basic.md"
+IPYNB_MD="$NO_META_DIR/ipynb_markdown_basic.md"
 HTML_MD="$NO_META_DIR/html_simple.md"
 MARKDOWN_MD="$NO_META_DIR/markdown_basic_heading_paragraph.md"
 MARKDOWN_DOT_MD="$NO_META_DIR/markdown_frontmatter_passthrough.md"
@@ -123,13 +129,13 @@ TXT_ALIAS_MD="$NO_META_DIR/txt_plain_alias.md"
 echo "==> help and version expose main cli product surface"
 run_and_capture "$HELP_STDOUT" run_markitdown_cli --help
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "--help should succeed"
-assert_contains "$HELP_STDOUT" 'markitdown-mb [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|xml|yaml|yml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf|png|jpg|jpeg|bmp|webp|tif|tiff] [--accurate] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]'
+assert_contains "$HELP_STDOUT" 'markitdown-mb [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf|png|jpg|jpeg|bmp|webp|tif|tiff] [--accurate] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]'
 assert_contains "$HELP_STDOUT" '--pdf-cleanup none|conservative'
 assert_contains "$HELP_STDOUT" '--pdf-tables none|simple'
 assert_contains "$HELP_STDOUT" 'Direct image input uses local Tesseract OCR by default; `--no-ocr` disables it. `pdf --accurate` automatically enters the current OCR-only PDF path, while explicit `pdf --ocr` remains supported; both use local `pdftoppm` + Tesseract and require local installation.'
 assert_contains "$HELP_STDOUT" 'PDF cleanup and simple table reconstruction are explicit opt-in product options'
 assert_contains "$HELP_STDOUT" '`--rag` emits chunked retrieval JSON with the default internal chunking policy.'
-assert_contains "$HELP_STDOUT" 'Supported product formats: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, yml, html, htm, markdown, md, zip, epub, docx, xlsx, pptx, pdf, png, jpg, jpeg, bmp, webp, tif, tiff'
+assert_contains "$HELP_STDOUT" 'Supported product formats: txt, csv, tsv, json, jsonl, ndjson, ipynb, xml, yaml, yml, toml, html, htm, markdown, md, zip, epub, docx, xlsx, pptx, pdf, png, jpg, jpeg, bmp, webp, tif, tiff'
 assert_contains "$HELP_STDOUT" 'fail closed'
 
 run_and_capture "$HELP_ALIAS_STDOUT" run_markitdown_cli help
@@ -148,15 +154,17 @@ run_and_capture "$VERSION_ALIAS_STDOUT" run_markitdown_cli version
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "version alias should succeed"
 assert_matches_expected "$VERSION_STDOUT" "$VERSION_ALIAS_STDOUT"
 
-echo "==> txt csv tsv json jsonl ndjson xml yaml html markdown zip epub docx xlsx pptx pdf and ocr succeed through main product cli"
+echo "==> txt csv tsv json jsonl ndjson ipynb xml yaml toml html markdown zip epub docx xlsx pptx pdf and ocr succeed through main product cli"
 run_markitdown_cli normal "$TXT_INPUT" "$TXT_MD"
 run_markitdown_cli normal "$CSV_INPUT" "$CSV_MD"
 run_markitdown_cli normal "$TSV_INPUT" "$TSV_MD"
 run_markitdown_cli normal "$JSON_INPUT" "$JSON_MD"
 run_markitdown_cli normal "$JSONL_INPUT" "$JSONL_MD"
 run_markitdown_cli normal "$NDJSON_INPUT" "$NDJSON_MD"
+run_markitdown_cli normal "$IPYNB_INPUT" "$IPYNB_MD"
 run_markitdown_cli normal "$XML_INPUT" "$XML_MD"
 run_markitdown_cli normal "$YAML_INPUT" "$YAML_MD"
+run_markitdown_cli normal "$TOML_INPUT" "$TOML_MD"
 run_markitdown_cli normal "$HTML_INPUT" "$HTML_MD"
 run_markitdown_cli normal "$MARKDOWN_INPUT" "$MARKDOWN_MD"
 run_markitdown_cli normal "$MARKDOWN_DOT_INPUT" "$MARKDOWN_DOT_MD"
@@ -173,8 +181,10 @@ assert_matches_expected "$TSV_EXPECTED" "$TSV_MD"
 assert_matches_expected "$JSON_EXPECTED" "$JSON_MD"
 assert_matches_expected "$JSONL_EXPECTED" "$JSONL_MD"
 assert_matches_expected "$NDJSON_EXPECTED" "$NDJSON_MD"
+assert_matches_expected "$IPYNB_EXPECTED" "$IPYNB_MD"
 assert_matches_expected "$XML_EXPECTED" "$XML_MD"
 assert_matches_expected "$YAML_EXPECTED" "$YAML_MD"
+assert_matches_expected "$TOML_EXPECTED" "$TOML_MD"
 assert_matches_expected "$ROOT/samples/main_process/html/expected/markdown/html_simple.md" "$HTML_MD"
 assert_matches_expected "$MARKDOWN_EXPECTED" "$MARKDOWN_MD"
 assert_matches_expected "$MARKDOWN_DOT_EXPECTED" "$MARKDOWN_DOT_MD"

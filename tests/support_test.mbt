@@ -536,6 +536,8 @@ fn streaming_granularity_name_local(
     @parser.StreamingGranularity::XlsxRow => "xlsx_row"
     @parser.StreamingGranularity::ArchiveEntry => "archive_entry"
     @parser.StreamingGranularity::EpubSpineItem => "epub_spine_item"
+    @parser.StreamingGranularity::NotebookCellOutputGroup =>
+      "notebook_cell_output_group"
     @parser.StreamingGranularity::Block => "block"
     @parser.StreamingGranularity::Page => "page"
     @parser.StreamingGranularity::Slide => "slide"

@@ -35,8 +35,8 @@ pub fn container_asset_copy_policy_reject_unsafe_path() -> ContainerAssetCopyPol
 ///|
 pub fn container_supported_inner_formats() -> Array[String] {
   [
-    "txt", "csv", "tsv", "json", "jsonl", "ndjson", "xml", "yaml", "yml", "html",
-    "htm", "markdown", "md", "epub",
+    "txt", "csv", "tsv", "json", "jsonl", "ndjson", "xml", "yaml", "yml", "toml",
+    "html", "htm", "markdown", "md", "epub",
   ]
 }
 
@@ -57,6 +57,7 @@ pub fn container_supports_inner_format(format : @input.DetectedFormat) -> Bool {
     @input.DetectedFormat::Ndjson => true
     @input.DetectedFormat::Xml => true
     @input.DetectedFormat::Yaml => true
+    @input.DetectedFormat::Toml => true
     @input.DetectedFormat::Html => true
     @input.DetectedFormat::Epub => true
     _ => false

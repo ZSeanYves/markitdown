@@ -1,0 +1,15 @@
+import {
+  "moonbitlang/core/string",
+  "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/formats/html" @fhtml,
+  "ZSeanYves/markitdown/formats/json" @fjson,
+  "ZSeanYves/markitdown/formats/markdown" @fmarkdown,
+  "ZSeanYves/markitdown/formats/parser_common",
+  "ZSeanYves/markitdown/format_readers/ipynb" @dipynb,
+  "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/parser",
+}
+
+options(
+  "preferred-target": "native",
+)

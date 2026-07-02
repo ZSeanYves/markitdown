@@ -26,7 +26,7 @@ fi
 MODE="markdown"
 FORMAT_FILTER=""
 SPECIAL_MODE=""
-FORMATS=("csv" "tsv" "txt" "json" "jsonl" "ndjson" "xml" "yaml" "html" "markdown" "zip" "epub" "docx" "xlsx" "pptx" "pdf" "ocr")
+FORMATS=("csv" "tsv" "txt" "json" "jsonl" "ndjson" "ipynb" "xml" "yaml" "toml" "html" "markdown" "zip" "epub" "docx" "xlsx" "pptx" "pdf" "ocr")
 
 trap 'status=$?; if [[ "$CLEANUP_OUT_DIR" -ne 0 ]]; then sample_cleanup_tmp_dir "$OUT_DIR"; fi; exit "$status"' EXIT
 
@@ -42,7 +42,7 @@ supported_formats() {
 }
 
 sample_inventory_formats() {
-  printf '%s\n' xlsx html zip epub docx pptx pdf ocr csv tsv json yaml xml markdown txt jsonl ndjson
+  printf '%s\n' xlsx html zip epub docx pptx pdf ocr csv tsv json jsonl ndjson ipynb yaml toml xml markdown txt
 }
 
 format_is_supported() {

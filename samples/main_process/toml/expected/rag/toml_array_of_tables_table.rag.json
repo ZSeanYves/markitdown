@@ -1,0 +1,31 @@
+{
+  "output_format": "rag_json",
+  "detected_format": "toml",
+  "parser_mode": "dom_ast_model",
+  "convert_mode": "rag",
+  "diagnostics_contains": {
+    "parser_name": "toml_parser",
+    "metrics": {
+      "renderer_name": "RagJsonRenderer"
+    }
+  },
+  "source_map": "null",
+  "chunk_count": {
+    "min": 1
+  },
+  "chunks": [
+    {
+      "kind": "table",
+      "heading_path": [
+        "products"
+      ],
+      "source_ref_count": 1,
+      "asset_ref_count": 0,
+      "text_contains_all": [
+        "| name | sku |",
+        "| Hammer | 738594937 |",
+        "| Nail | 284758393 |"
+      ]
+    }
+  ]
+}

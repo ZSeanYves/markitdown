@@ -652,7 +652,8 @@ fn fake_pdf_ocr_page(language : String?, label : String) -> @focr.OcrPageModel {
   ].join("\n")
   let parsed = match @focr.parse_tesseract_tsv(tsv, language~) {
     Ok(value) => value
-    Err(err) => abort("expected fake PDF OCR TSV parse success: " + err.to_string())
+    Err(err) =>
+      abort("expected fake PDF OCR TSV parse success: " + err.to_string())
   }
   parsed.pages[0]
 }
@@ -660,7 +661,10 @@ fn fake_pdf_ocr_page(language : String?, label : String) -> @focr.OcrPageModel {
 ///|
 fn fake_pdf_ocr_provider(
   expected_language : String?,
-) -> (@focr.OcrProviderRequest) -> Result[@focr.OcrProviderResult, @focr.OcrProviderError] {
+) -> (@focr.OcrProviderRequest) -> Result[
+  @focr.OcrProviderResult,
+  @focr.OcrProviderError,
+] {
   fn(request : @focr.OcrProviderRequest) {
     if request.provider_kind != @focr.OcrProviderKind::Tesseract {
       abort("unexpected PDF OCR provider kind")
@@ -685,38 +689,42 @@ fn fake_pdf_ocr_provider(
 ///|
 fn fake_pdf_rasterizer(
   page_count : Int,
-) -> (@input.InputSource) -> Result[(PdfRasterResult, String), PdfRasterizerError] {
+) -> (@input.InputSource) -> Result[
+  (PdfRasterResult, String),
+  PdfRasterizerError,
+] {
   fn(source : @input.InputSource) {
-    rasterize_pdf_with_pdftoppm(
-      source,
-      fn(_cmd : String, args : Array[String]) {
-        let output_prefix = args[2]
-        let parts = output_prefix.split("/").to_array().map(fn(part) {
-          part.to_owned()
-        })
-        let output_dir = parts[:parts.length() - 1].join("/")
-        pdf_test_ensure_dir_tree(output_dir) catch {
+    rasterize_pdf_with_pdftoppm(source, fn(
+      _cmd : String,
+      args : Array[String],
+    ) {
+      let output_prefix = args[2]
+      let parts = output_prefix
+        .split("/")
+        .to_array()
+        .map(fn(part) { part.to_owned() })
+      let output_dir = parts[:parts.length() - 1].join("/")
+      pdf_test_ensure_dir_tree(output_dir) catch {
+        e =>
+          return Err(
+            PdfRasterizerError::ExecutionFailed(
+              "failed to create fake raster output dir: " + e.to_string(),
+            ),
+          )
+      }
+      for i in 0..<page_count {
+        let page_name = output_dir + "/page-" + (i + 1).to_string() + ".png"
+        @fs.write_bytes_to_file(page_name, Bytes::from_array([])) catch {
           e =>
             return Err(
               PdfRasterizerError::ExecutionFailed(
-                "failed to create fake raster output dir: " + e.to_string(),
+                "failed to create fake raster page: " + e.to_string(),
               ),
             )
         }
-        for i in 0..<page_count {
-          let page_name = output_dir + "/page-" + (i + 1).to_string() + ".png"
-          @fs.write_bytes_to_file(page_name, Bytes::from_array([])) catch {
-            e =>
-              return Err(
-                PdfRasterizerError::ExecutionFailed(
-                  "failed to create fake raster page: " + e.to_string(),
-                ),
-              )
-          }
-        }
-        Ok((0, "", ""))
-      },
-    )
+      }
+      Ok((0, "", ""))
+    })
   }
 }
 
@@ -775,7 +783,8 @@ test "pdf OCR route aggregates multi-page scanned samples without native-text fa
       rasterizer=fake_pdf_rasterizer(2),
     ) {
     Ok(value) => value
-    Err(err) => fail("expected injected multi-page pdf OCR parser success: " + err)
+    Err(err) =>
+      fail("expected injected multi-page pdf OCR parser success: " + err)
   }
   let document = parsed.document.unwrap_or(@core.empty_document_ir())
   assert_eq(document.blocks.length(), 4)

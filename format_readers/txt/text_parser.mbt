@@ -1,8 +1,12 @@
 ///|
 /// Decode UTF-8 bytes and parse them into a normalized text document.
 pub fn open_text_document(bytes : Bytes) -> TextDocument raise {
-  let decoded = @utf8.decode(bytes, ignore_bom=false) catch {
-    _ => raise TextError::Utf8DecodeFailed("invalid utf8")
+  let decoded = match decode_utf16_text_bytes(bytes) {
+    Some(text) => text
+    None =>
+      @utf8.decode(bytes, ignore_bom=false) catch {
+        _ => raise TextError::Utf8DecodeFailed("invalid utf8")
+      }
   }
   let doc = parse_text_document(decoded)
   {
@@ -11,6 +15,37 @@ pub fn open_text_document(bytes : Bytes) -> TextDocument raise {
     newline_style: doc.newline_style,
     lines: doc.lines,
     paragraphs: doc.paragraphs,
+  }
+}
+
+///|
+fn decode_utf16_text_bytes(bytes : Bytes) -> String? {
+  let raw = bytes.to_array()
+  if raw.length() < 2 {
+    return None
+  }
+  if raw[0].to_int() == 0xFF && raw[1].to_int() == 0xFE {
+    let decoded = @encoding.decode(bytes, encoding=@encoding.UTF16LE) catch {
+      _ => return None
+    }
+    return Some(strip_leading_bom(decoded))
+  }
+  if raw[0].to_int() == 0xFE && raw[1].to_int() == 0xFF {
+    let decoded = @encoding.decode(bytes, encoding=@encoding.UTF16BE) catch {
+      _ => return None
+    }
+    return Some(strip_leading_bom(decoded))
+  }
+  None
+}
+
+///|
+fn strip_leading_bom(text : String) -> String {
+  let chars = text.to_array()
+  if chars.length() > 0 && chars[0] == '\u{FEFF}' {
+    String::from_array(chars[1:])
+  } else {
+    text
   }
 }
 

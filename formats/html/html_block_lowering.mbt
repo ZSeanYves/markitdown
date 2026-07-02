@@ -900,35 +900,35 @@ fn html_figure_blocks(
                   |> with_html_image_attrs(image_block),
                 ]
               }
-              None =>
-                if image.kind == @dhtml.HtmlImageKind::Remote {
-                  []
-                } else {
+              None => {
+                let out : Array[@core.CoreBlock] = []
+                if image.kind != @dhtml.HtmlImageKind::Remote {
                   let label = html_image_placeholder_text(
                     image.kind,
                     image.alt.unwrap_or("image").trim().to_owned(),
                   )
-                  let out : Array[@core.CoreBlock] = [
+                  out.push(
                     @core.make_block(
                       @core.BlockKind::Paragraph,
                       label,
                       source_ref=html_block_source_ref(source, block),
                     ),
-                  ]
-                  match figure.caption_text_preview {
-                    Some(caption) if caption.trim() != "" =>
-                      out.push(
-                        @core.make_block(
-                          @core.BlockKind::Paragraph,
-                          caption.trim().to_owned(),
-                          source_ref=html_block_source_ref(source, block),
-                        ),
-                      )
-                    None => ()
-                    _ => ()
-                  }
-                  out
+                  )
                 }
+                match figure.caption_text_preview {
+                  Some(caption) if caption.trim() != "" =>
+                    out.push(
+                      @core.make_block(
+                        @core.BlockKind::Paragraph,
+                        caption.trim().to_owned(),
+                        source_ref=html_block_source_ref(source, block),
+                      ),
+                    )
+                  None => ()
+                  _ => ()
+                }
+                out
+              }
             }
           None => []
         }

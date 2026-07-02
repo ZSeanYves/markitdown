@@ -16,7 +16,7 @@ test "canonical architecture guide remains the single docs source of truth" {
 
 ///|
 test "format packages keep per-format ownership without root facades" {
-  for dir in ["txt", "csv", "tsv", "json", "yaml", "xml", "markdown"] {
+  for dir in ["txt", "csv", "tsv", "json", "yaml", "toml", "xml", "markdown"] {
     assert_true(@fs.path_exists("formats/" + dir + "/moon.pkg"))
     assert_true(@fs.path_exists("formats/" + dir + "/parser.mbt"))
   }
@@ -27,10 +27,10 @@ test "format packages keep per-format ownership without root facades" {
   for
     path in [
       "formats/txt_parser.mbt", "formats/csv_parser.mbt", "formats/tsv_parser.mbt",
-      "formats/json_parser.mbt", "formats/yaml_parser.mbt", "formats/xml_parser.mbt",
-      "formats/markdown_parser.mbt", "formats/zip_parser.mbt", "formats/epub_parser.mbt",
-      "formats/html_parser.mbt", "formats/docx_parser.mbt", "formats/pptx_parser.mbt",
-      "formats/xlsx_parser.mbt",
+      "formats/json_parser.mbt", "formats/yaml_parser.mbt", "formats/toml_parser.mbt",
+      "formats/xml_parser.mbt", "formats/markdown_parser.mbt", "formats/zip_parser.mbt",
+      "formats/epub_parser.mbt", "formats/html_parser.mbt", "formats/docx_parser.mbt",
+      "formats/pptx_parser.mbt", "formats/xlsx_parser.mbt",
     ] {
     assert_true(!@fs.path_exists(path))
   }

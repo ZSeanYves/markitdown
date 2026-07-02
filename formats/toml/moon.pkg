@@ -1,0 +1,11 @@
+import {
+  "ZSeanYves/markitdown/format_readers/toml" @dtoml,
+  "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/formats/parser_common",
+  "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/parser",
+}
+
+options(
+  "preferred-target": "native",
+)

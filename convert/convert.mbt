@@ -489,6 +489,22 @@ fn parse_with_route_probe_artifact(
       } else {
         None
       }
+    Some(RouteProbeArtifact::IpynbNotebook(notebook, inspect)) =>
+      if format == @input.DetectedFormat::Ipynb {
+        let text = match source.text {
+          Some(value) => value
+          None => return None
+        }
+        Some(
+          Ok(
+            @fipynb.ipynb_parse_with_preparsed_notebook(
+              source, context, text, notebook, inspect,
+            ),
+          ),
+        )
+      } else {
+        None
+      }
     Some(RouteProbeArtifact::JsonStream(stream)) =>
       if format == @input.DetectedFormat::Json &&
         context.requested_mode == Some(@parser.ParserMode::StreamingEvent) {

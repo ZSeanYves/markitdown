@@ -33,7 +33,7 @@
 | --- | --- | --- |
 | Plain text | `txt` | 正式支持 |
 | Delimited text | `csv`, `tsv` | 正式支持 |
-| Structured text | `json`, `jsonl`, `ndjson`, `xml`, `yaml`, `yml` | 正式支持 |
+| Structured text | `json`, `jsonl`, `ndjson`, `ipynb`, `xml`, `yaml`, `yml`, `toml` | 正式支持 |
 | Web / markup | `html`, `htm`, `markdown`, `md` | 正式支持 |
 | Containers | `zip`, `epub` | 正式支持 |
 | Office | `docx`, `xlsx`, `pptx` | 正式支持 |
@@ -52,9 +52,11 @@
 | `txt` | `streaming_event` | 段落、基础文本输出、RAG、debug、bench | 富语义来源天然有限 |
 | `csv` / `tsv` | `streaming_event` | 表格型输出、RAG、debug、bench | 不做 Excel 级公式 / 样式语义 |
 | `json` / `jsonl` / `ndjson` | `dom_ast_model` 或 `streaming_event` | 小中样本结构化输出、大样本 streaming、RAG、debug | 不追求完整 JSON editor 语义 |
+| `ipynb` | `dom_ast_model`，超限或 `Stream` 时 `block_streaming` | markdown/code/raw cell、typed outputs、RAG、debug、assets、source refs | 不执行 notebook，不恢复隐藏运行时状态，不运行 widget / JS runtime |
+| `toml` | `dom_ast_model` | table / key-value / array-of-tables 输出、RAG、debug | 不承诺 editor 级 round-trip 或 comment-preserving |
 | `xml` | `streaming_event` | 结构化输出、streaming、RAG、debug | 不做完整 schema-aware 语义 |
 | `yaml` | `document` | 映射 / 列表 / 表格型输出、RAG、debug | 不承诺覆盖全部 YAML 高阶方言 |
-| `markdown` | `block_streaming` | Markdown 读取、frontmatter passthrough、debug、RAG | 不承诺成为 CommonMark 全功能编辑器 |
+| `markdown` | `dom_ast_model`，超限或 `Stream` 时 `block_streaming` | Markdown 读取、基础结构输出、frontmatter passthrough、debug、RAG | 不承诺成为 CommonMark 全功能编辑器 |
 | `html` | `block_streaming` | 标题、段落、列表、表格、图片、链接、RAG、assets | 不做浏览器级视觉布局恢复 |
 | `zip` | `package_single_pass` | 容器扫描、路径安全、子文档派发、assets | 不做任意二进制内容解释 |
 | `epub` | `package_single_pass` | OPF/spine 顺序、章节派发、局部资源 materialization、RAG | 不做远程资源抓取，不做阅读器级完整语义 |
@@ -131,7 +133,33 @@
 - 通用 JSON 查询语言
 - 所有 schema 的强语义解释
 
-### 4.4 XML
+### 4.4 IPYNB
+
+当前状态：
+
+- 正式支持
+- 默认走 `dom_ast_model`
+- `Stream` 或超限时走 `block_streaming`
+
+已验证能力：
+
+- notebook summary table
+- markdown / code / raw cell 显式边界输出
+- stream / display_data / execute_result / error 等 typed outputs 的可见降落
+- image output 与 markdown attachment 的 assets 落盘
+- RAG / debug / source refs / diagnostics
+
+当前 mode 事实：
+
+- 当前 `--accurate` 不会让 `ipynb` 切换到新的 parser route
+- `ipynb` 不会退化成普通 `json` 的无序键值文档策略
+
+当前不承诺：
+
+- notebook 执行、output 重算、kernel 状态恢复
+- widget / JavaScript runtime 富交互恢复
+
+### 4.5 XML
 
 当前状态：
 
@@ -149,7 +177,7 @@
 - 全量 schema-aware 语义恢复
 - 专用行业 XML 标准的深度业务解释
 
-### 4.5 YAML / YML
+### 4.6 YAML / YML
 
 当前状态：
 
@@ -168,12 +196,32 @@
 - 覆盖 YAML 所有边缘语法与方言
 - 复杂 anchor / alias 的产品级富语义展开承诺
 
-### 4.6 Markdown
+### 4.7 TOML
 
 当前状态：
 
 - 正式支持
-- 走 block-streaming 主链
+- 走 `dom_ast_model` 主路径
+
+已验证能力：
+
+- 顶层 key-value / named table / dotted key
+- array、array-of-tables、inline table
+- multiline string、RAG 输出、debug diagnostics
+- malformed 输入会降级为 raw fenced toml block，并显式打 warning / fallback 标记
+
+当前不承诺：
+
+- editor 级 comment-preserving / round-trip
+- 超出当前主回归范围的 TOML 方言级扩展
+
+### 4.8 Markdown
+
+当前状态：
+
+- 正式支持
+- 默认走 `dom_ast_model`
+- `Stream` 或超限时走 `block_streaming`
 
 已验证能力：
 
@@ -182,12 +230,17 @@
 - debug diagnostics
 - RAG 输出
 
+当前 mode 事实：
+
+- 当前 `--accurate` 不会让 Markdown 切换到新的 parser route
+- Markdown Accurate 增强属于规划中的同 route 语义扩展，不是当前正式承诺能力
+
 当前不承诺：
 
 - 作为完整 Markdown 编辑器或 AST 工具链替代品
 - 覆盖所有方言扩展
 
-### 4.7 HTML
+### 4.9 HTML
 
 当前状态：
 

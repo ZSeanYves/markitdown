@@ -52,6 +52,40 @@ test "convert pipeline preserves parser irinput contracts" {
     "contract.yaml",
     @input.DetectedFormat::Yaml,
   )
+  let toml_small = convert_memory_text(
+    "name = \"Alice\"\nrole = \"Engineer\"\n",
+    "contract.toml",
+    @input.DetectedFormat::Toml,
+  )
+  let ipynb_small = convert_memory_text(
+    "{\n" +
+    "  \"nbformat\": 4,\n" +
+    "  \"nbformat_minor\": 5,\n" +
+    "  \"metadata\": {\"language_info\": {\"name\": \"python\"}},\n" +
+    "  \"cells\": [\n" +
+    "    {\"cell_type\": \"markdown\", \"source\": [\"# Title\\n\", \"Body\\n\"]},\n" +
+    "    {\"cell_type\": \"code\", \"execution_count\": 1, \"source\": \"print(1)\\n\", \"outputs\": [{\"output_type\": \"stream\", \"name\": \"stdout\", \"text\": [\"1\\\\n\"]}]}\n" +
+    "  ]\n" +
+    "}\n",
+    "contract.ipynb",
+    @input.DetectedFormat::Ipynb,
+  )
+  let ipynb_large = convert_memory_text(
+    "{\n" +
+    "  \"nbformat\": 4,\n" +
+    "  \"nbformat_minor\": 5,\n" +
+    "  \"metadata\": {\"language_info\": {\"name\": \"python\"}},\n" +
+    "  \"cells\": [\n" +
+    "    {\"cell_type\": \"markdown\", \"source\": [\"# A\\n\"]},\n" +
+    "    {\"cell_type\": \"code\", \"execution_count\": 1, \"source\": \"print(1)\\n\", \"outputs\": [{\"output_type\": \"stream\", \"name\": \"stdout\", \"text\": [\"1\\\\n\"]}]},\n" +
+    "    {\"cell_type\": \"code\", \"execution_count\": 2, \"source\": \"print(2)\\n\", \"outputs\": [{\"output_type\": \"stream\", \"name\": \"stdout\", \"text\": [\"2\\\\n\"]}]}\n" +
+    "  ]\n" +
+    "}\n",
+    "contract-large.ipynb",
+    @input.DetectedFormat::Ipynb,
+    mode=@convert.ConvertMode::Stream,
+    limits=limits(1, 50, 4),
+  )
   let yaml_large = convert_memory_text(
     "-\n  name: Alice\n  role: Engineer\n-\n  name: Bob\n  role: Designer\n",
     "contract-large.yaml",
@@ -80,7 +114,10 @@ test "convert pipeline preserves parser irinput contracts" {
   assert_true(xml_small.parser_mode == @parser.ParserMode::DomAstModel)
   assert_true(xml_large.parser_mode == @parser.ParserMode::StreamingEvent)
   assert_true(yaml_small.parser_mode == @parser.ParserMode::DomAstModel)
+  assert_true(toml_small.parser_mode == @parser.ParserMode::DomAstModel)
+  assert_true(ipynb_small.parser_mode == @parser.ParserMode::DomAstModel)
   assert_true(yaml_large.parser_mode == @parser.ParserMode::StreamingEvent)
+  assert_true(ipynb_large.parser_mode == @parser.ParserMode::BlockStreaming)
   assert_true(html_small.parser_mode == @parser.ParserMode::DomAstModel)
   assert_true(html_large.parser_mode == @parser.ParserMode::BlockStreaming)
 
@@ -109,9 +146,22 @@ test "convert pipeline preserves parser irinput contracts" {
   assert_metric_eq(yaml_small.diagnostics, "effective_mode", "dom_ast_model")
   assert_metric_eq(yaml_small.diagnostics, "ir_input_kind", "document")
   assert_metric_eq(yaml_small.diagnostics, "builder_input_kind", "document")
+  assert_metric_eq(toml_small.diagnostics, "effective_mode", "dom_ast_model")
+  assert_metric_eq(toml_small.diagnostics, "ir_input_kind", "document")
+  assert_metric_eq(toml_small.diagnostics, "builder_input_kind", "document")
+  assert_metric_eq(ipynb_small.diagnostics, "effective_mode", "dom_ast_model")
+  assert_metric_eq(ipynb_small.diagnostics, "ir_input_kind", "document")
+  assert_metric_eq(ipynb_small.diagnostics, "builder_input_kind", "document")
   assert_metric_eq(yaml_large.diagnostics, "effective_mode", "streaming_event")
   assert_metric_eq(yaml_large.diagnostics, "ir_input_kind", "event_stream")
   assert_metric_eq(yaml_large.diagnostics, "builder_input_kind", "event_stream")
+  assert_metric_eq(ipynb_large.diagnostics, "effective_mode", "block_streaming")
+  assert_metric_eq(ipynb_large.diagnostics, "ir_input_kind", "block_stream")
+  assert_metric_eq(
+    ipynb_large.diagnostics,
+    "builder_input_kind",
+    "block_stream",
+  )
   assert_metric_eq(html_small.diagnostics, "effective_mode", "dom_ast_model")
   assert_metric_eq(html_small.diagnostics, "ir_input_kind", "document")
   assert_metric_eq(html_small.diagnostics, "builder_input_kind", "document")
@@ -153,6 +203,14 @@ test "parser capabilities expose honest streaming granularity contracts" {
   )
   let yaml = @parser.registry_lookup(registry, @input.DetectedFormat::Yaml).unwrap_or_else(fn() {
       abort("missing yaml parser")
+    },
+  )
+  let toml = @parser.registry_lookup(registry, @input.DetectedFormat::Toml).unwrap_or_else(fn() {
+      abort("missing toml parser")
+    },
+  )
+  let ipynb = @parser.registry_lookup(registry, @input.DetectedFormat::Ipynb).unwrap_or_else(fn() {
+      abort("missing ipynb parser")
     },
   )
   let html = @parser.registry_lookup(registry, @input.DetectedFormat::Html).unwrap_or_else(fn() {
@@ -205,6 +263,23 @@ test "parser capabilities expose honest streaming granularity contracts" {
   assert_true(
     yaml.capability.streaming_granularity ==
     @parser.StreamingGranularity::YamlStructure,
+  )
+  assert_true(!toml.capability.supports_streaming)
+  assert_true(toml.capability.parser_mode == @parser.ParserMode::DomAstModel)
+  assert_true(toml.capability.supports_document_ir)
+  assert_true(!toml.capability.supports_events)
+  assert_true(!toml.capability.supports_blocks)
+  assert_true(
+    toml.capability.streaming_granularity == @parser.StreamingGranularity::None,
+  )
+  assert_true(ipynb.capability.supports_streaming)
+  assert_true(ipynb.capability.supports_blocks)
+  assert_true(ipynb.capability.supports_document_ir)
+  assert_true(!ipynb.capability.supports_events)
+  assert_true(ipynb.capability.parser_mode == @parser.ParserMode::DomAstModel)
+  assert_true(
+    ipynb.capability.streaming_granularity ==
+    @parser.StreamingGranularity::NotebookCellOutputGroup,
   )
   assert_true(html.capability.supports_streaming)
   assert_true(html.capability.parser_mode == @parser.ParserMode::BlockStreaming)

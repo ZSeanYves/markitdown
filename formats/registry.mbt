@@ -37,6 +37,11 @@ pub fn register_builtin_parsers(registry : @parser.ParserRegistry) -> Unit {
   )
   @parser.registry_register(
     registry,
+    @input.DetectedFormat::Ipynb,
+    @fipynb.ipynb_parser(),
+  )
+  @parser.registry_register(
+    registry,
     @input.DetectedFormat::Xml,
     @fxml.xml_parser(),
   )
@@ -44,6 +49,11 @@ pub fn register_builtin_parsers(registry : @parser.ParserRegistry) -> Unit {
     registry,
     @input.DetectedFormat::Yaml,
     @fyaml.yaml_parser(),
+  )
+  @parser.registry_register(
+    registry,
+    @input.DetectedFormat::Toml,
+    @ftoml.toml_parser(),
   )
   @parser.registry_register(
     registry,

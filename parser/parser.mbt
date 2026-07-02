@@ -17,6 +17,7 @@ pub(all) enum StreamingGranularity {
   Record
   Row
   JsonStructure
+  NotebookCellOutputGroup
   XmlStructure
   YamlStructure
   HtmlTokenStructure
