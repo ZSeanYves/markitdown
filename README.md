@@ -62,8 +62,19 @@ The main CLI currently supports:
 - `htm`
 - `markdown`
 - `md`
+- `eml`
+- `srt`
+- `vtt`
+- `tex`
+- `latex`
+- `rst`
+- `adoc`
+- `asciidoc`
 - `zip`
 - `epub`
+- `odt`
+- `ods`
+- `odp`
 - `docx`
 - `xlsx`
 - `pptx`
@@ -167,7 +178,7 @@ The main CLI now exposes fidelity and output as separate product dimensions:
 
 The current Office product routes stay architecture-stable:
 
-- `docx`, `pptx`, `xlsx` remain package-single-pass parsers
+- `odt`, `ods`, `odp`, `docx`, `pptx`, `xlsx` remain package-single-pass parsers by default
 - `--accurate` enables higher-fidelity behavior inside those existing Office routes
 - `pdf` remains native-text by default and switches to OCR layout-two-stage under `--accurate`; explicit `--ocr` remains supported
 

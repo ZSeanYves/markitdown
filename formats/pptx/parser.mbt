@@ -64,7 +64,7 @@ fn parse_pptx_document_result(
   context : @parser.ParseContext,
   capability : @parser.ParserCapability,
 ) -> Result[@parser.ParseResult, String] {
-  let diagnostics = @parser_common.empty_parser_diagnostics(
+  let diagnostics = @fshared.empty_parser_diagnostics(
     "pptx_parser",
     @parser.ParserMode::PackageSinglePass,
     source,
@@ -160,14 +160,11 @@ fn pptx_init_diagnostics(
 ) -> Unit {
   diagnostics.metrics.set("parser_name", "pptx_parser")
   diagnostics.metrics.set("parser_mode", "package_single_pass")
-  diagnostics.metrics.set(
-    "input_kind",
-    @parser_common.input_kind_name(source.kind),
-  )
+  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
   diagnostics.metrics.set("detected_format", "pptx")
   diagnostics.metrics.set(
     "requested_mode",
-    @parser_common.requested_mode_name(context),
+    @fshared.requested_mode_name(context),
   )
   diagnostics.metrics.set(
     "fidelity_mode",
@@ -218,7 +215,7 @@ fn pptx_init_diagnostics(
     ),
   )
   diagnostics.metrics.set("native_impl_location", "formats/pptx")
-  @parser_common.apply_product_metrics(diagnostics, "pptx")
+  @fshared.apply_product_metrics(diagnostics, "pptx")
   diagnostics.metrics.set("format_family", "office")
   diagnostics.metrics.set("max_pptx_slides", "2000")
   diagnostics.metrics.set("max_pptx_shapes", "20000")

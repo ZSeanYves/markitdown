@@ -9,6 +9,8 @@ pub fn empty_source_ref() -> SourceRef {
     line_end: None,
     byte_start: None,
     byte_end: None,
+    time_start: None,
+    time_end: None,
     xpath: None,
     json_pointer: None,
     yaml_path: None,
@@ -181,6 +183,17 @@ pub fn source_ref_with_bytes(
   byte_end : Int?,
 ) -> SourceRef {
   { ..source_ref, file_id, format, byte_start, byte_end }
+}
+
+///|
+pub fn source_ref_with_time_range(
+  source_ref : SourceRef,
+  file_id : String?,
+  format : String?,
+  time_start : String?,
+  time_end : String?,
+) -> SourceRef {
+  { ..source_ref, file_id, format, time_start, time_end }
 }
 
 ///|

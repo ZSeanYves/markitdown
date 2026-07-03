@@ -1,17 +1,9 @@
 ///|
 fn toml_parser_capability() -> @parser.ParserCapability {
-  @parser.make_parser_capability(
-    @parser.ParserMode::DomAstModel,
-    false,
+  @parser.dom_ast_parser_capability(
     @parser.StreamingGranularity::None,
     false,
-    true,
     false,
-    false,
-    false,
-    true,
-    true,
-    true,
     false,
     true,
     false,
@@ -47,28 +39,25 @@ fn parse_toml_document_result(
     Ok(payload) => payload
     Err(err) => return Err(err)
   }
-  let diagnostics = @parser_common.empty_parser_diagnostics(
+  let diagnostics = @fshared.empty_parser_diagnostics(
     "toml_parser",
     @parser.ParserMode::DomAstModel,
     source,
     "toml",
   )
-  diagnostics.metrics.set("parser_name", "toml_parser")
-  diagnostics.metrics.set("parser_mode", "dom_ast_model")
-  diagnostics.metrics.set(
-    "input_kind",
-    @parser_common.input_kind_name(source.kind),
+  @fshared.init_parser_route_metrics_with_granularity(
+    diagnostics,
+    source,
+    context,
+    "toml",
+    "toml_parser",
+    @parser.ParserMode::DomAstModel,
+    @parser.ParserMode::DomAstModel,
+    "document",
+    @parser.StreamingGranularity::None,
+    "dom_ast_model",
   )
-  diagnostics.metrics.set("detected_format", "toml")
-  diagnostics.metrics.set(
-    "requested_mode",
-    @parser_common.requested_mode_name(context),
-  )
-  diagnostics.metrics.set("effective_mode", "dom_ast_model")
-  diagnostics.metrics.set("ir_input_kind", "document")
-  diagnostics.metrics.set("event_granularity", "none")
-  diagnostics.metrics.set("event_semantics", "dom_ast_model")
-  @parser_common.apply_product_metrics(diagnostics, "toml")
+  @fshared.apply_product_metrics(diagnostics, "toml")
   let parsed = try @dtoml.parse_toml_document(text) |> Ok catch {
     e => Err(e.to_string())
   }

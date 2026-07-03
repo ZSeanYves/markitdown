@@ -6,10 +6,7 @@ fn yaml_fill_common_metrics(
   event_count : Int,
 ) -> Unit {
   diagnostics.metrics.set("root_kind", inspect.root_kind.unwrap_or("none"))
-  diagnostics.metrics.set(
-    "is_empty",
-    @parser_common.bool_string(inspect.is_empty),
-  )
+  diagnostics.metrics.set("is_empty", @fshared.bool_string(inspect.is_empty))
   diagnostics.metrics.set("mapping_count", inspect.mapping_count.to_string())
   diagnostics.metrics.set("sequence_count", inspect.sequence_count.to_string())
   diagnostics.metrics.set("scalar_count", inspect.scalar_count.to_string())
@@ -26,7 +23,7 @@ fn yaml_fill_common_metrics(
   )
   diagnostics.metrics.set(
     "line_count",
-    @parser_common.count_physical_lines(text).to_string(),
+    @fshared.count_physical_lines(text).to_string(),
   )
   diagnostics.metrics.set("char_count", text.length().to_string())
   diagnostics.metrics.set("image_count", "0")
@@ -1222,7 +1219,7 @@ fn yaml_malformed_parse_result(
     Some(source.source_name),
     Some("yaml"),
     Some(1),
-    Some(@parser_common.count_physical_lines(text)),
+    Some(@fshared.count_physical_lines(text)),
   )
   let block = @core.make_block(@core.BlockKind::Raw, text, source_ref~)
   block.attrs.set("raw_kind", "yaml_fail_closed")
@@ -1232,10 +1229,7 @@ fn yaml_malformed_parse_result(
   diagnostics.fallback_trace.push("yaml parse failed -> raw block fallback")
   diagnostics.metrics.set("parser_name", "yaml_parser")
   diagnostics.metrics.set("parser_mode", "dom_ast_model")
-  diagnostics.metrics.set(
-    "input_kind",
-    @parser_common.input_kind_name(source.kind),
-  )
+  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
   diagnostics.metrics.set("detected_format", "yaml")
   diagnostics.metrics.set("requested_mode", "default")
   diagnostics.metrics.set("effective_mode", "dom_ast_model")
@@ -1245,14 +1239,11 @@ fn yaml_malformed_parse_result(
   diagnostics.metrics.set("resource_limit_hit", "false")
   diagnostics.metrics.set("dom_limit_reached", "false")
   diagnostics.metrics.set("root_kind", "none")
-  diagnostics.metrics.set(
-    "is_empty",
-    @parser_common.bool_string(text.trim() == ""),
-  )
+  diagnostics.metrics.set("is_empty", @fshared.bool_string(text.trim() == ""))
   diagnostics.metrics.set("syntax_error_count", "1")
   diagnostics.metrics.set(
     "line_count",
-    @parser_common.count_physical_lines(text).to_string(),
+    @fshared.count_physical_lines(text).to_string(),
   )
   diagnostics.metrics.set("char_count", text.length().to_string())
   diagnostics.metrics.set("mapping_count", "0")

@@ -97,6 +97,7 @@ pub struct ConvertOptions {
   mode : ConvertMode
   fidelity_mode : FidelityMode
   output_mode : OutputMode
+  stream_requested : Bool
   output_format : OutputFormat
   explicit_format : @input.DetectedFormat?
   ocr_options : @parser.OcrOptions
@@ -190,6 +191,7 @@ fn product_options_from_convert_options(
     product_resource_limits(options.limits),
     fidelity_mode=options.fidelity_mode,
     output_mode=options.output_mode,
+    stream_requested=options.stream_requested,
     pdf_cleanup_mode=product_pdf_cleanup_mode(options.pdf_cleanup_mode),
     pdf_table_mode=product_pdf_table_mode(options.pdf_table_mode),
     rag_options=options.rag_options,
@@ -197,15 +199,7 @@ fn product_options_from_convert_options(
 }
 
 ///|
-priv enum CanonicalRoute {
-  StreamingEvent
-  BlockStreaming
-  PackageSinglePass
-  PageSinglePass
-  DomAstModel
-  LayoutTwoStage
-  ContainerRecursive
-} derive(Eq)
+type CanonicalRoute = @formats.FormatRoute
 
 ///|
 priv struct PreflightProbe {
@@ -309,6 +303,7 @@ pub fn default_convert_options() -> ConvertOptions {
     mode: ConvertMode::Balanced,
     fidelity_mode: FidelityMode::Balanced,
     output_mode: OutputMode::Markdown,
+    stream_requested: false,
     output_format: OutputFormat::Markdown,
     explicit_format: None,
     ocr_options: @parser.default_ocr_options(),
@@ -328,6 +323,7 @@ pub fn make_convert_options(
   limits : ResourceLimits,
   fidelity_mode? : FidelityMode = fidelity_mode_for_convert_mode(mode),
   output_mode? : OutputMode = output_mode_for_output_format(output_format),
+  stream_requested? : Bool = mode == ConvertMode::Stream,
   pdf_cleanup_mode? : PdfCleanupMode = default_pdf_cleanup_mode(),
   pdf_table_mode? : PdfTableMode = default_pdf_table_mode(),
   rag_options? : @rag.RagOptions = @rag.default_rag_options(),
@@ -336,6 +332,7 @@ pub fn make_convert_options(
     mode,
     fidelity_mode,
     output_mode,
+    stream_requested,
     output_format,
     explicit_format,
     ocr_options,

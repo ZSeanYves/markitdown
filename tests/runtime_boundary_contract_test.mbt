@@ -22,6 +22,14 @@ test "detector contract covers extensions and unknown fallback" {
     @input.DetectedFormat::Tsv,
   )
   assert_true(
+    (detector.detect)(@input.input_from_path("captions.srt")).format ==
+    @input.DetectedFormat::Srt,
+  )
+  assert_true(
+    (detector.detect)(@input.input_from_path("captions.vtt")).format ==
+    @input.DetectedFormat::Vtt,
+  )
+  assert_true(
     (detector.detect)(@input.input_from_path("doc.json")).format ==
     @input.DetectedFormat::Json,
   )
@@ -36,6 +44,34 @@ test "detector contract covers extensions and unknown fallback" {
   assert_true(
     (detector.detect)(@input.input_from_path("tree.xml")).format ==
     @input.DetectedFormat::Xml,
+  )
+  assert_true(
+    (detector.detect)(@input.input_from_path("paper.tex")).format ==
+    @input.DetectedFormat::Tex,
+  )
+  assert_true(
+    (detector.detect)(@input.input_from_path("guide.rst")).format ==
+    @input.DetectedFormat::Rst,
+  )
+  assert_true(
+    (detector.detect)(@input.input_from_path("book.adoc")).format ==
+    @input.DetectedFormat::Asciidoc,
+  )
+  assert_true(
+    (detector.detect)(@input.input_from_path("mail.eml")).format ==
+    @input.DetectedFormat::Eml,
+  )
+  assert_true(
+    (detector.detect)(@input.input_from_path("writer.odt")).format ==
+    @input.DetectedFormat::Odt,
+  )
+  assert_true(
+    (detector.detect)(@input.input_from_path("sheet.ods")).format ==
+    @input.DetectedFormat::Ods,
+  )
+  assert_true(
+    (detector.detect)(@input.input_from_path("slides.odp")).format ==
+    @input.DetectedFormat::Odp,
   )
   let png = (detector.detect)(@input.input_from_path("scan.png"))
   assert_true(
@@ -56,8 +92,15 @@ test "detector contract covers extensions and unknown fallback" {
     @input.parse_detected_format("jpg") ==
     @input.DetectedFormat::Image(@input.ImageFormat::Jpg),
   )
+  assert_true(
+    @input.parse_detected_format("latex") == @input.DetectedFormat::Tex,
+  )
+  assert_true(
+    @input.parse_detected_format("adoc") == @input.DetectedFormat::Asciidoc,
+  )
   assert_true(@input.parse_detected_format("pdf") == @input.DetectedFormat::Pdf)
   assert_true(@input.detected_format_name(@input.DetectedFormat::Pdf) == "pdf")
+  assert_true(@input.detected_format_name(@input.DetectedFormat::Eml) == "eml")
   assert_true(
     @input.detected_format_name(
       @input.DetectedFormat::Image(@input.ImageFormat::Webp),
@@ -73,6 +116,130 @@ test "detector contract covers extensions and unknown fallback" {
   )
   assert_true(unknown.format == @input.DetectedFormat::Unknown)
   assert_true(unknown.binary_like)
+}
+
+///|
+test "detector contract covers mime, magic bytes, and container inspection" {
+  let detector = @input.default_format_detector()
+
+  let toml_mime = (detector.detect)(
+    @input.with_mime_type(
+      @input.input_from_text(
+        "[tool.demo]\nname = 'markitdown'\n",
+        source_name="config",
+      ),
+      Some("application/toml"),
+    ),
+  )
+  assert_true(toml_mime.format == @input.DetectedFormat::Toml)
+  assert_true(toml_mime.notes.contains("mime_type"))
+
+  let vtt_mime = (detector.detect)(
+    @input.with_mime_type(
+      @input.input_from_text(
+        "WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nHello\n",
+        source_name="captions",
+      ),
+      Some("text/vtt"),
+    ),
+  )
+  assert_true(vtt_mime.format == @input.DetectedFormat::Vtt)
+  assert_true(vtt_mime.notes.contains("mime_type"))
+
+  let eml_mime = (detector.detect)(
+    @input.with_mime_type(
+      @input.input_from_text(
+        "From: demo@example.com\nSubject: Hello\n\nBody\n",
+        source_name="mail",
+      ),
+      Some("message/rfc822"),
+    ),
+  )
+  assert_true(eml_mime.format == @input.DetectedFormat::Eml)
+  assert_true(eml_mime.notes.contains("mime_type"))
+
+  let odt_mime = (detector.detect)(
+    @input.with_mime_type(
+      @input.input_from_bytes(Bytes::from_array([]), source_name="doc"),
+      Some("application/vnd.oasis.opendocument.text"),
+    ),
+  )
+  assert_true(odt_mime.format == @input.DetectedFormat::Odt)
+  assert_true(odt_mime.notes.contains("mime_type"))
+
+  let ipynb_mime = (detector.detect)(
+    @input.with_mime_type(
+      @input.input_from_text(
+        "{\"nbformat\":4,\"cells\":[]}",
+        source_name="notebook",
+      ),
+      Some("application/x-ipynb+json"),
+    ),
+  )
+  assert_true(ipynb_mime.format == @input.DetectedFormat::Ipynb)
+  assert_true(ipynb_mime.notes.contains("mime_type"))
+
+  let ipynb_content = (detector.detect)(
+    @input.input_from_text(
+      "{\"nbformat\":4,\"nbformat_minor\":5,\"cells\":[{\"cell_type\":\"markdown\",\"source\":[\"# hi\"]}]}",
+      source_name="mystery",
+    ),
+  )
+  assert_true(ipynb_content.format == @input.DetectedFormat::Ipynb)
+  assert_true(ipynb_content.notes.contains("content_notebook_json"))
+
+  let pdf_magic = (detector.detect)(
+    @input.input_from_bytes(
+      Bytes::from_array([37, 80, 68, 70, 45, 49, 46, 55]),
+      source_name="blob",
+    ),
+  )
+  assert_true(pdf_magic.format == @input.DetectedFormat::Pdf)
+  assert_true(pdf_magic.notes.contains("magic_bytes"))
+
+  let png_magic = (detector.detect)(
+    @input.input_from_bytes(
+      Bytes::from_array([137, 80, 78, 71, 13, 10, 26, 10]),
+      source_name="blob",
+    ),
+  )
+  assert_true(
+    png_magic.format == @input.DetectedFormat::Image(@input.ImageFormat::Png),
+  )
+  assert_true(png_magic.notes.contains("image_ocr_candidate"))
+
+  let docx_bytes = @fs.read_file_to_bytes(
+    "samples/main_process/docx/assets/golden.docx",
+  ) catch {
+    e => fail("failed to read docx sample: " + e.to_string())
+  }
+  let docx_detected = (detector.detect)(
+    @input.input_from_bytes(docx_bytes, source_name="office-blob"),
+  )
+  assert_true(docx_detected.format == @input.DetectedFormat::Docx)
+  assert_true(docx_detected.notes.contains("container_inspection"))
+
+  let epub_bytes = @fs.read_file_to_bytes(
+    "samples/main_process/epub/markdown/epub_basic_package.epub",
+  ) catch {
+    e => fail("failed to read epub sample: " + e.to_string())
+  }
+  let epub_detected = (detector.detect)(
+    @input.input_from_bytes(epub_bytes, source_name="book-blob"),
+  )
+  assert_true(epub_detected.format == @input.DetectedFormat::Epub)
+  assert_true(epub_detected.notes.contains("container_inspection"))
+
+  let zip_bytes = @fs.read_file_to_bytes(
+    "samples/main_process/zip/markdown/zip_basic_structured.zip",
+  ) catch {
+    e => fail("failed to read zip sample: " + e.to_string())
+  }
+  let zip_detected = (detector.detect)(
+    @input.input_from_bytes(zip_bytes, source_name="archive-blob"),
+  )
+  assert_true(zip_detected.format == @input.DetectedFormat::Zip)
+  assert_true(zip_detected.notes.contains("zip_signature"))
 }
 
 ///|
@@ -1135,16 +1302,16 @@ async test "async convert explicit image OCR injected provider reaches root conv
 ///|
 test "public gates and docs stay aligned on the main cli surface" {
   assert_file_contains_all("cli/cli.mbt", [
-    "Supported product formats: txt, csv, tsv, json, jsonl, ndjson, ipynb, xml, yaml, yml, toml, html, htm, markdown, md, zip, epub, docx, xlsx, pptx, pdf, png, jpg, jpeg, bmp, webp, tif, tiff",
+    "Supported product formats: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, yml, toml, html, htm, markdown, md, eml, tex, latex, rst, adoc, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, png, jpg, jpeg, bmp, webp, tif, tiff",
     "pdf --ocr", "DetectedFormat::Pdf", "cli_is_supported_format",
   ])
   assert_file_contains_all("samples/check.sh", [
-    "SUPPORTED_FORMATS=(\"txt\" \"csv\" \"tsv\" \"json\" \"jsonl\" \"ndjson\" \"ipynb\" \"xml\" \"yaml\" \"toml\" \"html\" \"markdown\" \"zip\" \"epub\" \"docx\" \"xlsx\" \"pptx\" \"pdf\" \"ocr\")",
-    "txt, csv, tsv, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, zip, epub, docx, xlsx, pptx, pdf, and ocr",
+    "SUPPORTED_FORMATS=(\"txt\" \"csv\" \"tsv\" \"srt\" \"vtt\" \"json\" \"jsonl\" \"ndjson\" \"ipynb\" \"xml\" \"yaml\" \"toml\" \"html\" \"markdown\" \"eml\" \"tex\" \"rst\" \"asciidoc\" \"zip\" \"epub\" \"odt\" \"ods\" \"odp\" \"docx\" \"xlsx\" \"pptx\" \"pdf\" \"ocr\")",
+    "txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, eml, tex, rst, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, and ocr",
     "main CLI gate",
   ])
   assert_file_contains_all("samples/helpers/contracts/check_cli_contract.sh", [
-    "txt csv tsv json jsonl ndjson ipynb xml yaml toml html markdown zip epub docx xlsx pptx pdf and ocr succeed through main product cli",
+    "txt csv tsv json jsonl ndjson ipynb xml yaml toml html markdown zip epub odt ods odp docx xlsx pptx pdf and ocr succeed through main product cli",
     "markdown_frontmatter_passthrough.markdown", "zip_basic_structured.zip", "docx",
     "sheet_simple.xlsx", "pptx_hidden_slide_basic.pptx", "pdf", "ocr", "pdftoppm",
     "help and version expose main cli product surface", "--pdf-cleanup none|conservative",
@@ -1160,17 +1327,17 @@ test "public gates and docs stay aligned on the main cli surface" {
   assert_file_contains_all(
     "samples/helpers/contracts/check_samples_check_contract.sh",
     [
-      "formats=txt,csv,tsv,json,jsonl,ndjson,ipynb,xml,yaml,toml,html,markdown,zip,epub,docx,xlsx,pptx,pdf,ocr",
+      "formats=txt,csv,tsv,srt,vtt,json,jsonl,ndjson,ipynb,xml,yaml,toml,html,markdown,eml,tex,rst,asciidoc,zip,epub,odt,ods,odp,docx,xlsx,pptx,pdf,ocr",
       "formats=markdown", "formats=docx", "formats=xlsx", "formats=pptx", "formats=pdf",
     ],
   )
   assert_file_contains_all("README.md", [
     "InputSource", "ParserRegistry", "ParseResult", "Renderer", "`txt`", "`csv`",
     "`tsv`", "`json`", "`jsonl`", "`ndjson`", "`ipynb`", "`xml`", "`yaml`", "`yml`",
-    "`html`", "`htm`", "`markdown`", "`md`", "`zip`", "`epub`", "`docx`", "`xlsx`",
-    "`pptx`", "`pdf`", "native-text PDFs", "pdf --ocr", "dependency-backed product paths",
-    "samples/helpers/contracts/check_root_contracts.sh", "markitdown-quality-lab/",
-    "EPUB support is implemented through `format_readers/epub` on top of `format_readers/zip`",
+    "`html`", "`htm`", "`markdown`", "`md`", "`zip`", "`epub`", "`odt`", "`ods`",
+    "`odp`", "`docx`", "`xlsx`", "`pptx`", "`pdf`", "native-text PDFs", "pdf --ocr",
+    "dependency-backed product paths", "samples/helpers/contracts/check_root_contracts.sh",
+    "markitdown-quality-lab/", "EPUB support is implemented through `format_readers/epub` on top of `format_readers/zip`",
   ])
   assert_file_contains_all("README.mbt.md", [
     "Core IR", "Renderer", "`input`", "`parser`", "`formats`", "`runtime`", "`pipeline`",
@@ -1178,7 +1345,7 @@ test "public gates and docs stay aligned on the main cli surface" {
   ])
   assert_file_contains_all("samples/check.sh", [
     "--markdown", "--rag", "--assets", "--check-inventory", "--list-inventory", "samples/main_process",
-    "txt, csv, tsv, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, zip, epub, docx, xlsx, pptx, pdf, and ocr",
+    "txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, eml, tex, rst, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, and ocr",
   ])
   assert_file_contains_all(
     "samples/helpers/contracts/check_root_contracts.sh",

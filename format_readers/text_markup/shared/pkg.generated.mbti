@@ -1,0 +1,85 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/format_readers/text_markup/shared"
+
+// Values
+pub fn inspect_text_markup_document(TextMarkupDocument, String) -> TextMarkupInspectReport
+
+pub fn parse_asciidoc_document(String) -> TextMarkupDocument
+
+pub fn parse_rst_document(String) -> TextMarkupDocument
+
+pub fn parse_tex_document(String) -> TextMarkupDocument
+
+pub fn parse_text_markup_inlines(String, TextMarkupFormat) -> Array[TextMarkupInline]
+
+pub fn parse_text_markup_table(TextMarkupBlock, TextMarkupFormat) -> TextMarkupTable?
+
+// Errors
+
+// Types and methods
+pub struct TextMarkupBlock {
+  kind : TextMarkupBlockKind
+  text : String
+  level : Int
+  ordered : Bool
+  line_start : Int
+  line_end : Int
+  meta : Map[String, String]
+}
+
+pub(all) enum TextMarkupBlockKind {
+  Heading
+  Paragraph
+  ListItem
+  Code
+  Table
+  BlockQuote
+  NoteDefinition
+  Raw
+} derive(Eq)
+
+pub struct TextMarkupDocument {
+  format : TextMarkupFormat
+  blocks : Array[TextMarkupBlock]
+}
+
+pub(all) enum TextMarkupFormat {
+  Tex
+  Rst
+  Asciidoc
+} derive(Eq)
+
+pub struct TextMarkupInline {
+  kind : TextMarkupInlineKind
+  text : String
+  href : String?
+}
+
+pub(all) enum TextMarkupInlineKind {
+  Text
+  Link
+  Code
+} derive(Eq)
+
+pub struct TextMarkupInspectReport {
+  block_count : Int
+  heading_count : Int
+  list_item_count : Int
+  code_count : Int
+  table_count : Int
+  blockquote_count : Int
+  raw_count : Int
+  paragraph_count : Int
+  line_count : Int
+  char_count : Int
+}
+
+pub struct TextMarkupTable {
+  header : Array[String]
+  rows : Array[Array[String]]
+}
+
+// Type aliases
+
+// Traits
+

@@ -3,6 +3,7 @@ import {
   "moonbitlang/core/encoding/utf8",
   "ZSeanYves/markitdown/convert",
   "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/formats",
   "ZSeanYves/markitdown/format_readers/zip" @dzip,
   "ZSeanYves/markitdown/formats/ocr" @focr,
   "ZSeanYves/markitdown/formats/pdf" @fpdf,
@@ -23,4 +24,5 @@ supported_targets = "native"
 options(
   "is-main": true,
   "preferred-target": "native",
+  "native-stub": [ "stderr_native_stub.c" ],
 )

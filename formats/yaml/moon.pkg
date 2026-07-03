@@ -1,7 +1,7 @@
 import {
   "ZSeanYves/markitdown/format_readers/yaml" @dyaml,
   "ZSeanYves/markitdown/core",
-  "ZSeanYves/markitdown/formats/parser_common",
+  "ZSeanYves/markitdown/formats/shared" @fshared,
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
 }

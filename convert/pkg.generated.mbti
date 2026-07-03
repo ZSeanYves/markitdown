@@ -41,7 +41,7 @@ pub fn fidelity_mode_name(@product.FidelityMode) -> String
 
 pub fn make_convert_execution(ConvertResult, ConvertProvenance) -> ConvertExecution
 
-pub fn make_convert_options(ConvertMode, OutputFormat, @input.DetectedFormat?, @parser.OcrOptions, ResourceLimits, fidelity_mode? : @product.FidelityMode, output_mode? : @product.OutputMode, pdf_cleanup_mode? : PdfCleanupMode, pdf_table_mode? : PdfTableMode, rag_options? : @rag.RagOptions) -> ConvertOptions
+pub fn make_convert_options(ConvertMode, OutputFormat, @input.DetectedFormat?, @parser.OcrOptions, ResourceLimits, fidelity_mode? : @product.FidelityMode, output_mode? : @product.OutputMode, stream_requested? : Bool, pdf_cleanup_mode? : PdfCleanupMode, pdf_table_mode? : PdfTableMode, rag_options? : @rag.RagOptions) -> ConvertOptions
 
 pub fn make_convert_provenance(RoutePlan, @product.FidelityMode, @product.OutputMode, @parser.ParserMode, String, String, String, String) -> ConvertProvenance
 
@@ -91,6 +91,7 @@ pub struct ConvertOptions {
   mode : ConvertMode
   fidelity_mode : @product.FidelityMode
   output_mode : @product.OutputMode
+  stream_requested : Bool
   output_format : OutputFormat
   explicit_format : @input.DetectedFormat?
   ocr_options : @parser.OcrOptions

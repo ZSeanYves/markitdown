@@ -1,0 +1,18 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/formats/asciidoc"
+
+import {
+  "ZSeanYves/markitdown/parser",
+}
+
+// Values
+pub fn asciidoc_parser() -> @parser.Parser
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

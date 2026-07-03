@@ -8,6 +8,10 @@ import {
 }
 
 // Values
+pub fn block_stream_parser_capability(StreamingGranularity, Bool, Bool, Bool, Bool, Bool, Bool, Bool) -> ParserCapability
+
+pub fn container_recursive_parser_capability(StreamingGranularity, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool) -> ParserCapability
+
 pub fn default_ocr_options() -> OcrOptions
 
 pub fn default_parser_capability() -> ParserCapability
@@ -19,6 +23,8 @@ pub fn default_pdf_native_runtime_policy() -> PdfNativeRuntimePolicy
 pub fn default_pdf_table_reconstruction_policy() -> PdfTableReconstructionPolicy
 
 pub fn disabled_ocr_options(language? : String?) -> OcrOptions
+
+pub fn dom_ast_parser_capability(StreamingGranularity, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool) -> ParserCapability
 
 pub fn empty_registry() -> ParserRegistry
 
@@ -33,6 +39,8 @@ pub fn mode_name(ParserMode) -> String
 pub fn new_parse_context(@input.DetectedFormat) -> ParseContext
 
 pub fn ocr_intent_name(OcrIntent) -> String
+
+pub fn package_with_block_route_parser_capability(StreamingGranularity, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool) -> ParserCapability
 
 pub fn parse_context_with_limits(ParseContext, ParserMode?, Int?, Int?, Int?, Int?, Bool) -> ParseContext
 
@@ -73,6 +81,10 @@ pub fn registry_lookup(ParserRegistry, @input.DetectedFormat) -> Parser?
 pub fn registry_parse(ParserRegistry, @input.InputSource, ParseContext) -> Result[ParseResult, String]
 
 pub fn registry_register(ParserRegistry, @input.DetectedFormat, Parser) -> Unit
+
+pub fn streaming_event_parser_capability(StreamingGranularity, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool) -> ParserCapability
+
+pub fn streaming_granularity_name(StreamingGranularity) -> String
 
 // Errors
 

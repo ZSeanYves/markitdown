@@ -1,18 +1,10 @@
 ///|
 fn ipynb_parser_capability() -> @parser.ParserCapability {
-  @parser.make_parser_capability(
-    @parser.ParserMode::DomAstModel,
-    true,
+  @parser.dom_ast_parser_capability(
     @parser.StreamingGranularity::NotebookCellOutputGroup,
-    false,
     true,
     false,
-    false,
     true,
-    true,
-    true,
-    true,
-    false,
     true,
     true,
     true,
@@ -100,7 +92,7 @@ fn ipynb_base_diagnostics(
   source : @input.InputSource,
   context : @parser.ParseContext,
 ) -> @core.Diagnostics {
-  let diagnostics = @parser_common.empty_parser_diagnostics(
+  let diagnostics = @fshared.empty_parser_diagnostics(
     "ipynb_parser",
     @parser.ParserMode::DomAstModel,
     source,
@@ -108,14 +100,11 @@ fn ipynb_base_diagnostics(
   )
   diagnostics.metrics.set("parser_name", "ipynb_parser")
   diagnostics.metrics.set("parser_mode", "dom_ast_model")
-  diagnostics.metrics.set(
-    "input_kind",
-    @parser_common.input_kind_name(source.kind),
-  )
+  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
   diagnostics.metrics.set("detected_format", "ipynb")
   diagnostics.metrics.set(
     "requested_mode",
-    @parser_common.requested_mode_name(context),
+    @fshared.requested_mode_name(context),
   )
   diagnostics.metrics.set(
     "effective_mode",
@@ -149,7 +138,8 @@ fn ipynb_base_diagnostics(
       "dom_ast_model"
     },
   )
-  @parser_common.apply_product_metrics(diagnostics, "ipynb")
+  @fshared.apply_product_metrics(diagnostics, "ipynb")
+  diagnostics.metrics.set("ipynb_output_selected_mime", "none")
   diagnostics
 }
 
@@ -212,7 +202,7 @@ fn ipynb_fill_metrics(
   )
   diagnostics.metrics.set(
     "line_count",
-    @parser_common.count_physical_lines(text).to_string(),
+    @fshared.count_physical_lines(text).to_string(),
   )
   diagnostics.metrics.set("char_count", text.length().to_string())
   diagnostics.metrics.set("syntax_error_count", "0")
@@ -551,11 +541,13 @@ fn lower_ipynb_mime_entries(
 ) -> Array[@core.CoreBlock] {
   let preferred = ipynb_preferred_mime_entry(entries)
   match preferred {
-    Some(entry) =>
+    Some(entry) => {
+      diagnostics.metrics.set("ipynb_output_selected_mime", entry.mime_type)
       lower_ipynb_mime_entry(
         entry, source, cell, output_json_pointer, output_index, output_kind, diagnostics,
         document,
       )
+    }
     None => []
   }
 }
@@ -659,12 +651,16 @@ fn lower_ipynb_mime_entry(
   if entry.mime_type == "application/javascript" ||
     entry.mime_type == "text/javascript" {
     match entry.text {
-      Some(text) =>
+      Some(text) => {
+        diagnostics.degraded_features.push(
+          "ipynb_javascript_output_raw_fallback",
+        )
         return [
           ipynb_fenced_text_block(
             text, source, cell, output_index, output_kind, "javascript",
           ),
         ]
+      }
       None => ()
     }
   }
@@ -691,7 +687,10 @@ fn lower_ipynb_mime_entry(
             })
           None => ()
         }
-      Err(_) => ()
+      Err(_) =>
+        diagnostics.degraded_features.push(
+          "ipynb_structured_json_output_raw_fallback",
+        )
     }
   }
   if entry.mime_type == "text/plain" {
@@ -709,7 +708,13 @@ fn lower_ipynb_mime_entry(
   diagnostics.warnings.push(
     "ipynb output MIME " + entry.mime_type + " fell back to raw fenced block",
   )
-  diagnostics.degraded_features.push("ipynb_output_unknown_mime_raw_fallback")
+  if entry.mime_type == "application/json" || entry.mime_type.contains("+json") {
+    diagnostics.degraded_features.push(
+      "ipynb_structured_json_output_raw_fallback",
+    )
+  } else {
+    diagnostics.degraded_features.push("ipynb_output_unknown_mime_raw_fallback")
+  }
   [
     ipynb_fenced_text_block(
       fallback_text,
@@ -1144,7 +1149,7 @@ fn ipynb_malformed_parse_result(
       Some(source.source_name),
       Some("ipynb"),
       Some(1),
-      Some(@parser_common.count_physical_lines(text)),
+      Some(@fshared.count_physical_lines(text)),
     ),
   )
   block.attrs.set("info", "json")
@@ -1169,7 +1174,7 @@ fn ipynb_malformed_parse_result(
   diagnostics.metrics.set("max_output_text_chars", "0")
   diagnostics.metrics.set(
     "line_count",
-    @parser_common.count_physical_lines(text).to_string(),
+    @fshared.count_physical_lines(text).to_string(),
   )
   diagnostics.metrics.set("char_count", text.length().to_string())
   diagnostics.metrics.set("syntax_error_count", "1")
@@ -1493,8 +1498,7 @@ fn ipynb_preferred_mime_entry(
 ) -> @dipynb.IpynbMimeEntry? {
   let order = [
     "image/png", "image/jpeg", "image/gif", "image/svg+xml", "text/markdown", "text/html",
-    "application/javascript", "text/javascript", "application/json", "text/plain",
-    "text/latex",
+    "application/javascript", "text/javascript", "application/json",
   ]
   for target in order {
     for entry in entries {
@@ -1506,6 +1510,13 @@ fn ipynb_preferred_mime_entry(
   for entry in entries {
     if entry.mime_type.contains("+json") {
       return Some(entry)
+    }
+  }
+  for target in ["text/plain", "text/latex"] {
+    for entry in entries {
+      if entry.mime_type == target {
+        return Some(entry)
+      }
     }
   }
   if entries.length() == 0 {

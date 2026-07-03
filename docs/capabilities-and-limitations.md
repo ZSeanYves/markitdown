@@ -32,11 +32,13 @@
 | 格式族 | 扩展名 / 入口 | 当前正式状态 |
 | --- | --- | --- |
 | Plain text | `txt` | 正式支持 |
+| Subtitles | `srt`, `vtt` | 正式支持 |
 | Delimited text | `csv`, `tsv` | 正式支持 |
 | Structured text | `json`, `jsonl`, `ndjson`, `ipynb`, `xml`, `yaml`, `yml`, `toml` | 正式支持 |
-| Web / markup | `html`, `htm`, `markdown`, `md` | 正式支持 |
+| Web / markup | `html`, `htm`, `markdown`, `md`, `rst`, `adoc`, `asciidoc`, `tex`, `latex` | 正式支持 |
+| Mail | `eml` | 正式支持 |
 | Containers | `zip`, `epub` | 正式支持 |
-| Office | `docx`, `xlsx`, `pptx` | 正式支持 |
+| Office | `odt`, `ods`, `odp`, `docx`, `xlsx`, `pptx` | 正式支持 |
 | PDF | `pdf` | 正式支持；默认 native-text，`--accurate` 或显式 `--ocr` 可走 OCR |
 | Image OCR | `png`, `jpg`, `jpeg`, `bmp`, `webp`, `tif`, `tiff` | 正式支持 |
 
@@ -50,18 +52,25 @@
 | 格式 | 当前主路径 | 已正式支持 | 当前缺失 / 不承诺 |
 | --- | --- | --- | --- |
 | `txt` | `streaming_event` | 段落、基础文本输出、RAG、debug、bench | 富语义来源天然有限 |
+| `srt` / `vtt` | `streaming_event` | cue time range、multiline caption、first-class `SourceRef.time_start/time_end`、WebVTT note/style/region degrade、RAG、debug | 不做播放器级渲染、CSS 解释、字幕样式执行 |
 | `csv` / `tsv` | `streaming_event` | 表格型输出、RAG、debug、bench | 不做 Excel 级公式 / 样式语义 |
-| `json` / `jsonl` / `ndjson` | `dom_ast_model` 或 `streaming_event` | 小中样本结构化输出、大样本 streaming、RAG、debug | 不追求完整 JSON editor 语义 |
-| `ipynb` | `dom_ast_model`，超限或 `Stream` 时 `block_streaming` | markdown/code/raw cell、typed outputs、RAG、debug、assets、source refs | 不执行 notebook，不恢复隐藏运行时状态，不运行 widget / JS runtime |
+| `json` | `dom_ast_model`，超限或显式 `--stream` 时 `streaming_event` | 小中样本结构化输出、大样本 structure-event streaming、RAG、debug | 不追求完整 JSON editor 语义 |
+| `jsonl` / `ndjson` | `streaming_event` | line-delimited record 输出、RAG、debug | 不做完整 document tree 语义 |
+| `ipynb` | `dom_ast_model`，超限或显式 `--stream` 时 `block_streaming` | markdown/code/raw cell、typed outputs、multi-MIME selection、RAG、debug、assets、source refs | 不执行 notebook，不恢复隐藏运行时状态，不运行 widget / JS runtime |
 | `toml` | `dom_ast_model` | table / key-value / array-of-tables 输出、RAG、debug | 不承诺 editor 级 round-trip 或 comment-preserving |
-| `xml` | `streaming_event` | 结构化输出、streaming、RAG、debug | 不做完整 schema-aware 语义 |
-| `yaml` | `document` | 映射 / 列表 / 表格型输出、RAG、debug | 不承诺覆盖全部 YAML 高阶方言 |
-| `markdown` | `dom_ast_model`，超限或 `Stream` 时 `block_streaming` | Markdown 读取、基础结构输出、frontmatter passthrough、debug、RAG | 不承诺成为 CommonMark 全功能编辑器 |
-| `html` | `block_streaming` | 标题、段落、列表、表格、图片、链接、RAG、assets | 不做浏览器级视觉布局恢复 |
-| `zip` | `package_single_pass` | 容器扫描、路径安全、子文档派发、assets | 不做任意二进制内容解释 |
-| `epub` | `package_single_pass` | OPF/spine 顺序、章节派发、局部资源 materialization、RAG | 不做远程资源抓取，不做阅读器级完整语义 |
+| `xml` | `dom_ast_model`，超限时 `streaming_event` | 结构化输出、streaming、RAG、debug | 不做完整 schema-aware 语义 |
+| `yaml` | `dom_ast_model`，超限时 `streaming_event` | 映射 / 列表 / 表格型输出、RAG、debug | 不承诺覆盖全部 YAML 高阶方言 |
+| `markdown` | `dom_ast_model`，超限或显式 `--stream` 时 `block_streaming` | Markdown 读取、基础结构输出、frontmatter passthrough、debug、RAG | 不承诺成为 CommonMark 全功能编辑器 |
+| `rst` / `asciidoc` / `tex` | `dom_ast_model` | typed semantic inventory、heading / paragraph / list / common table / common link/code / include-or-directive-or-environment boundary / RAG / debug | 不承诺完整方言编辑器、复杂 directive/macro/include 执行 |
+| `html` | `dom_ast_model`，超限或显式 `--stream` 时 `block_streaming(HtmlTokenStructure)` | readability/hybrid content-root 选择、boilerplate suppression、标题/段落/列表/表格/图片/链接、RAG、assets | 不做浏览器级视觉布局恢复 |
+| `eml` | `block_streaming(Message)` | headers summary、body selection、受控 `text/html`、nested message、typed attachment dispatch、inline image assets、RAG、debug | 不承诺无限递归附件展开，不做邮件客户端级完整行为恢复 |
+| `zip` | `container_recursive` | 容器扫描、路径安全、子文档派发、assets | 不做任意二进制内容解释 |
+| `epub` | 默认 `package_single_pass`，显式 `--stream` 时 `container_recursive` | OPF/spine 顺序、章节派发、局部资源 materialization、RAG | 不做远程资源抓取，不做阅读器级完整语义 |
+| `odt` | 默认 `package_single_pass`，显式 `--stream` 时 `block_streaming` | ODT 主块、表格、图片、hyperlink、footnote/endnote、comment appendix、RAG、debug source refs、assets | 不承诺完整样式 round-trip、批注/修订/宏执行 |
+| `ods` | 默认 `package_single_pass`，显式 `--stream` 时 `block_streaming` | sheet 读取、表格型输出、RAG、debug source refs、hidden sheet 可见性统计 | 不执行公式，不承诺完整样式/批注/嵌入对象恢复 |
+| `odp` | 默认 `package_single_pass`，显式 `--stream` 时 `block_streaming` | slide 顺序、文本块、表格、图片、speaker-note-like notes、RAG、debug source refs、assets | 不承诺完整视觉布局重建、动画/脚本执行、样式 round-trip |
 | `docx` | `package_single_pass` | Office 文档主块、链接、图片、debug source refs、RAG | 不承诺覆盖 Word 全部高级版式语义 |
-| `xlsx` | `package_single_pass` | sheet 读取、表格型输出、hidden sheet policy、公式缓存保留、debug | 不执行公式，不做 Excel 计算引擎 |
+| `xlsx` | 默认 `package_single_pass`，超限或显式 `--stream` 时 `block_streaming` | sheet 读取、表格型输出、hidden sheet policy、公式缓存保留、debug | 不执行公式，不做 Excel 计算引擎 |
 | `pptx` | `package_single_pass` | slide 顺序、列表、图片、speaker notes、hidden slide policy、debug | 不做完整演示视觉布局重建 |
 | `pdf` | `page_single_pass` 或 `layout_two_stage` | native-text 提取、`--accurate` / `--ocr` OCR、基础清理、显式 opt-in cleanup/table signals、RAG、debug | OCR 路线当前不承诺复杂 layout 恢复 |
 
@@ -86,7 +95,30 @@
 - 富版式恢复
 - 外部文档元数据推断
 
-### 4.2 CSV / TSV
+### 4.2 SRT / VTT
+
+当前状态：
+
+- 正式支持
+- 固定走 `streaming_event`
+- 显式 `--stream` 不会切到新 route，因为它本身就是 canonical streaming 路径
+
+已验证能力：
+
+- SubRip / WebVTT cue 时间范围输出
+- cue source refs 现在正式保留 `time_start` / `time_end`
+- multiline caption 文本保留
+- WebVTT `NOTE` / `STYLE` / `REGION` 受控 degrade 为 raw subtitle blocks
+- RAG 输出、debug diagnostics、基础 line-range source refs
+- malformed 输入会在同一 `streaming_event` route 内 fail closed，不跨模式降到 document parser
+
+当前不承诺：
+
+- 播放器级 CSS / region / positioning 解释
+- 完整字幕样式系统恢复
+- 富媒体轨道、音视频同步执行语义
+
+### 4.3 CSV / TSV
 
 当前状态：
 
@@ -105,7 +137,7 @@
 - Excel 公式执行
 - 单元格样式、批注、图表这类工作簿级语义
 
-### 4.3 JSON / JSONL / NDJSON
+### 4.4 JSON / JSONL / NDJSON
 
 当前状态：
 
@@ -133,19 +165,21 @@
 - 通用 JSON 查询语言
 - 所有 schema 的强语义解释
 
-### 4.4 IPYNB
+### 4.5 IPYNB
 
 当前状态：
 
 - 正式支持
 - 默认走 `dom_ast_model`
-- `Stream` 或超限时走 `block_streaming`
+- 显式 `--stream` 或超限时走 `block_streaming`
 
 已验证能力：
 
 - notebook summary table
 - markdown / code / raw cell 显式边界输出
 - stream / display_data / execute_result / error 等 typed outputs 的可见降落
+- `application/javascript` / `text/javascript` 走显式 degrade 的 raw fenced javascript 路径
+- `application/json` 与 `application/*+json` 优先走结构化 JSON lowering
 - image output 与 markdown attachment 的 assets 落盘
 - RAG / debug / source refs / diagnostics
 
@@ -159,12 +193,13 @@
 - notebook 执行、output 重算、kernel 状态恢复
 - widget / JavaScript runtime 富交互恢复
 
-### 4.5 XML
+### 4.6 XML
 
 当前状态：
 
 - 正式支持
-- 默认走 streaming/event 主链
+- 默认走 `dom_ast_model`
+- 超限时切到 `streaming_event`
 
 已验证能力：
 
@@ -177,12 +212,13 @@
 - 全量 schema-aware 语义恢复
 - 专用行业 XML 标准的深度业务解释
 
-### 4.6 YAML / YML
+### 4.7 YAML / YML
 
 当前状态：
 
 - 正式支持
-- 走 document 语义路径
+- 默认走 `dom_ast_model`
+- 超限时切到 `streaming_event`
 
 已验证能力：
 
@@ -196,7 +232,7 @@
 - 覆盖 YAML 所有边缘语法与方言
 - 复杂 anchor / alias 的产品级富语义展开承诺
 
-### 4.7 TOML
+### 4.8 TOML
 
 当前状态：
 
@@ -215,13 +251,13 @@
 - editor 级 comment-preserving / round-trip
 - 超出当前主回归范围的 TOML 方言级扩展
 
-### 4.8 Markdown
+### 4.9 Markdown
 
 当前状态：
 
 - 正式支持
 - 默认走 `dom_ast_model`
-- `Stream` 或超限时走 `block_streaming`
+- 显式 `--stream` 或超限时走 `block_streaming`
 
 已验证能力：
 
@@ -240,17 +276,42 @@
 - 作为完整 Markdown 编辑器或 AST 工具链替代品
 - 覆盖所有方言扩展
 
-### 4.9 HTML
+### 4.10 RST / AsciiDoc / TEX
 
 当前状态：
 
 - 正式支持
-- 走 block-streaming 主链
+- 默认走 `dom_ast_model`
+- 显式 `--stream` 当前只会诚实 warning 后回退到 canonical route，不切独立 streaming parser
 
 已验证能力：
 
-- 标题、段落、列表
-- 基础表格
+- heading / paragraph / list 基础语义
+- 高频表格现在正式进入 `Table IR`
+- 常见 link / inline code 进入 rich inlines
+- RST / AsciiDoc admonition 与 TeX quote environment 保守进入 block quote 边界
+- include / directive / environment boundary 已进入 typed lowering 或显式 degraded boundary
+- RAG 输出、debug diagnostics、line-range source refs
+
+当前不承诺：
+
+- 完整方言编辑器能力
+- 复杂 directive / include / macro / environment 执行
+- 所有表格方言与交叉引用系统的完整语义恢复
+
+### 4.11 HTML
+
+当前状态：
+
+- 正式支持
+- 默认走 `dom_ast_model`
+- 显式 `--stream` 或超限时走 `block_streaming`
+
+已验证能力：
+
+- `main/article/body/fragment` content-root 选择
+- `nav/footer/hidden/script/style/template/repeated boilerplate` 抑制
+- 标题、段落、列表、基础表格
 - 图片与链接
 - RAG 输出
 - assets materialization
@@ -261,12 +322,76 @@
 - 完整视觉阅读顺序重建
 - JS 执行后的动态页面语义
 
-### 4.8 ZIP
+### 4.12 ODT
 
 当前状态：
 
 - 正式支持
-- 走 `package_single_pass`
+- 默认走 `package_single_pass`
+- 显式 `--stream` 时走 `block_streaming`
+
+已验证能力：
+
+- `content.xml` 主块扫描
+- heading / paragraph / list / table / image 基础语义恢复
+- hyperlink、footnote / endnote、comment appendix
+- notebook 以外的常规图片 assets materialization
+- RAG 输出、debug diagnostics、source refs
+
+当前不承诺：
+
+- 完整 ODF 样式系统、批注、修订、脚注等高级语义全覆盖
+- 宏执行、嵌入对象执行
+- 与 `docx` 全高级能力逐项等价
+
+### 4.13 ODS
+
+当前状态：
+
+- 正式支持
+- 默认走 `package_single_pass`
+- 显式 `--stream` 时走 `block_streaming`
+
+已验证能力：
+
+- `content.xml` 工作表扫描
+- visible sheet heading + 表格型输出
+- 行级 block-streaming
+- RAG 输出、debug diagnostics、sheet source refs
+
+当前不承诺：
+
+- 公式执行或重算
+- 完整 ODF 样式系统、批注、嵌入对象语义恢复
+- 与 `xlsx` 全高级能力逐项等价
+
+### 4.14 ODP
+
+当前状态：
+
+- 正式支持
+- 默认走 `package_single_pass`
+- 显式 `--stream` 时走 `block_streaming`
+
+已验证能力：
+
+- `content.xml` slide 顺序扫描
+- heading / paragraph / list / table / image / notes 基础语义恢复
+- 本地图片 assets materialization
+- RAG 输出、debug diagnostics、slide source refs
+
+当前不承诺：
+
+- 完整视觉布局、动画与过渡恢复
+- 宏执行、脚本执行、嵌入对象执行
+- 与 `pptx` 全高级能力逐项等价
+
+### 4.15 ZIP
+
+当前状态：
+
+- 正式支持
+- 走 `container_recursive`
 
 已验证能力：
 
@@ -286,12 +411,13 @@
 - 对任意二进制成员做智能识别
 - 远程抓取或执行容器内外部引用
 
-### 4.9 EPUB
+### 4.16 EPUB
 
 当前状态：
 
 - 正式支持
-- 走 `package_single_pass`
+- 默认走 `package_single_pass`
+- 显式 `--stream` 时走 `container_recursive`
 
 已验证能力：
 
@@ -311,7 +437,7 @@
 - 远程资源下载
 - 任意脚本或外链内容执行
 
-### 4.10 DOCX
+### 4.17 DOCX
 
 当前状态：
 
@@ -342,12 +468,13 @@
 - Word 全部高级版式能力
 - 复杂浮动布局、修订、宏、嵌入对象的完整产品语义恢复
 
-### 4.11 XLSX
+### 4.18 XLSX
 
 当前状态：
 
 - 正式支持
-- 走 `package_single_pass`
+- 默认走 `package_single_pass`
+- 超限或显式 `--stream` 时走 `block_streaming`
 
 已验证能力：
 
@@ -368,7 +495,7 @@
 - 完整工作簿计算引擎
 - 图表、数据透视、宏等完整 Office 交互语义恢复
 
-### 4.12 PPTX
+### 4.19 PPTX
 
 当前状态：
 
@@ -389,7 +516,7 @@
 - 完整视觉布局重建
 - 演示动画、切换效果、复杂 SmartArt 的完整产品语义
 
-### 4.13 PDF
+### 4.20 PDF
 
 当前状态：
 

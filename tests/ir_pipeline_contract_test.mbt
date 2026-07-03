@@ -57,6 +57,31 @@ test "convert pipeline preserves parser irinput contracts" {
     "contract.toml",
     @input.DetectedFormat::Toml,
   )
+  let srt_small = convert_memory_text(
+    "1\n00:00:00,000 --> 00:00:01,000\nHello\n",
+    "contract.srt",
+    @input.DetectedFormat::Srt,
+  )
+  let vtt_small = convert_memory_text(
+    "WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nHello\n",
+    "contract.vtt",
+    @input.DetectedFormat::Vtt,
+  )
+  let tex_small = convert_memory_text(
+    "\\section{Title}\n\nBody\n",
+    "contract.tex",
+    @input.DetectedFormat::Tex,
+  )
+  let rst_small = convert_memory_text(
+    "Title\n=====\n\nBody\n",
+    "contract.rst",
+    @input.DetectedFormat::Rst,
+  )
+  let asciidoc_small = convert_memory_text(
+    "= Title\n\nBody\n",
+    "contract.adoc",
+    @input.DetectedFormat::Asciidoc,
+  )
   let ipynb_small = convert_memory_text(
     "{\n" +
     "  \"nbformat\": 4,\n" +
@@ -103,6 +128,19 @@ test "convert pipeline preserves parser irinput contracts" {
     @input.DetectedFormat::Html,
     limits=limits(1, 50, 10000),
   )
+  let eml_small = convert_memory_text(
+    "From: Alice <alice@example.com>\n" +
+    "To: Bob <bob@example.com>\n" +
+    "Subject: Contract Mail\n" +
+    "MIME-Version: 1.0\n" +
+    "Content-Type: multipart/alternative; boundary=\"alt\"\n\n" +
+    "--alt\n" +
+    "Content-Type: text/plain; charset=\"utf-8\"\n\n" +
+    "Hello from eml.\n" +
+    "--alt--\n",
+    "contract.eml",
+    @input.DetectedFormat::Eml,
+  )
 
   assert_true(txt.parser_mode == @parser.ParserMode::StreamingEvent)
   assert_true(csv.parser_mode == @parser.ParserMode::StreamingEvent)
@@ -115,11 +153,17 @@ test "convert pipeline preserves parser irinput contracts" {
   assert_true(xml_large.parser_mode == @parser.ParserMode::StreamingEvent)
   assert_true(yaml_small.parser_mode == @parser.ParserMode::DomAstModel)
   assert_true(toml_small.parser_mode == @parser.ParserMode::DomAstModel)
+  assert_true(srt_small.parser_mode == @parser.ParserMode::StreamingEvent)
+  assert_true(vtt_small.parser_mode == @parser.ParserMode::StreamingEvent)
+  assert_true(tex_small.parser_mode == @parser.ParserMode::DomAstModel)
+  assert_true(rst_small.parser_mode == @parser.ParserMode::DomAstModel)
+  assert_true(asciidoc_small.parser_mode == @parser.ParserMode::DomAstModel)
   assert_true(ipynb_small.parser_mode == @parser.ParserMode::DomAstModel)
   assert_true(yaml_large.parser_mode == @parser.ParserMode::StreamingEvent)
   assert_true(ipynb_large.parser_mode == @parser.ParserMode::BlockStreaming)
   assert_true(html_small.parser_mode == @parser.ParserMode::DomAstModel)
   assert_true(html_large.parser_mode == @parser.ParserMode::BlockStreaming)
+  assert_true(eml_small.parser_mode == @parser.ParserMode::BlockStreaming)
 
   assert_metric_eq(txt.diagnostics, "ir_input_kind", "event_stream")
   assert_metric_eq(txt.diagnostics, "builder_input_kind", "event_stream")
@@ -149,6 +193,25 @@ test "convert pipeline preserves parser irinput contracts" {
   assert_metric_eq(toml_small.diagnostics, "effective_mode", "dom_ast_model")
   assert_metric_eq(toml_small.diagnostics, "ir_input_kind", "document")
   assert_metric_eq(toml_small.diagnostics, "builder_input_kind", "document")
+  assert_metric_eq(srt_small.diagnostics, "effective_mode", "streaming_event")
+  assert_metric_eq(srt_small.diagnostics, "ir_input_kind", "event_stream")
+  assert_metric_eq(srt_small.diagnostics, "builder_input_kind", "event_stream")
+  assert_metric_eq(vtt_small.diagnostics, "effective_mode", "streaming_event")
+  assert_metric_eq(vtt_small.diagnostics, "ir_input_kind", "event_stream")
+  assert_metric_eq(vtt_small.diagnostics, "builder_input_kind", "event_stream")
+  assert_metric_eq(tex_small.diagnostics, "effective_mode", "dom_ast_model")
+  assert_metric_eq(tex_small.diagnostics, "ir_input_kind", "document")
+  assert_metric_eq(tex_small.diagnostics, "builder_input_kind", "document")
+  assert_metric_eq(rst_small.diagnostics, "effective_mode", "dom_ast_model")
+  assert_metric_eq(rst_small.diagnostics, "ir_input_kind", "document")
+  assert_metric_eq(rst_small.diagnostics, "builder_input_kind", "document")
+  assert_metric_eq(
+    asciidoc_small.diagnostics,
+    "effective_mode",
+    "dom_ast_model",
+  )
+  assert_metric_eq(asciidoc_small.diagnostics, "ir_input_kind", "document")
+  assert_metric_eq(asciidoc_small.diagnostics, "builder_input_kind", "document")
   assert_metric_eq(ipynb_small.diagnostics, "effective_mode", "dom_ast_model")
   assert_metric_eq(ipynb_small.diagnostics, "ir_input_kind", "document")
   assert_metric_eq(ipynb_small.diagnostics, "builder_input_kind", "document")
@@ -168,6 +231,9 @@ test "convert pipeline preserves parser irinput contracts" {
   assert_metric_eq(html_large.diagnostics, "effective_mode", "block_streaming")
   assert_metric_eq(html_large.diagnostics, "ir_input_kind", "block_stream")
   assert_metric_eq(html_large.diagnostics, "builder_input_kind", "block_stream")
+  assert_metric_eq(eml_small.diagnostics, "effective_mode", "block_streaming")
+  assert_metric_eq(eml_small.diagnostics, "ir_input_kind", "block_stream")
+  assert_metric_eq(eml_small.diagnostics, "builder_input_kind", "block_stream")
 }
 
 ///|
@@ -209,12 +275,56 @@ test "parser capabilities expose honest streaming granularity contracts" {
       abort("missing toml parser")
     },
   )
+  let srt = @parser.registry_lookup(registry, @input.DetectedFormat::Srt).unwrap_or_else(fn() {
+      abort("missing srt parser")
+    },
+  )
+  let vtt = @parser.registry_lookup(registry, @input.DetectedFormat::Vtt).unwrap_or_else(fn() {
+      abort("missing vtt parser")
+    },
+  )
+  let tex = @parser.registry_lookup(registry, @input.DetectedFormat::Tex).unwrap_or_else(fn() {
+      abort("missing tex parser")
+    },
+  )
+  let rst = @parser.registry_lookup(registry, @input.DetectedFormat::Rst).unwrap_or_else(fn() {
+      abort("missing rst parser")
+    },
+  )
+  let asciidoc = @parser.registry_lookup(
+    registry,
+    @input.DetectedFormat::Asciidoc,
+  ).unwrap_or_else(fn() { abort("missing asciidoc parser") })
   let ipynb = @parser.registry_lookup(registry, @input.DetectedFormat::Ipynb).unwrap_or_else(fn() {
       abort("missing ipynb parser")
     },
   )
   let html = @parser.registry_lookup(registry, @input.DetectedFormat::Html).unwrap_or_else(fn() {
       abort("missing html parser")
+    },
+  )
+  let eml = @parser.registry_lookup(registry, @input.DetectedFormat::Eml).unwrap_or_else(fn() {
+      abort("missing eml parser")
+    },
+  )
+  let odt = @parser.registry_lookup(registry, @input.DetectedFormat::Odt).unwrap_or_else(fn() {
+      abort("missing odt parser")
+    },
+  )
+  let ods = @parser.registry_lookup(registry, @input.DetectedFormat::Ods).unwrap_or_else(fn() {
+      abort("missing ods parser")
+    },
+  )
+  let odp = @parser.registry_lookup(registry, @input.DetectedFormat::Odp).unwrap_or_else(fn() {
+      abort("missing odp parser")
+    },
+  )
+  let zip = @parser.registry_lookup(registry, @input.DetectedFormat::Zip).unwrap_or_else(fn() {
+      abort("missing zip parser")
+    },
+  )
+  let epub = @parser.registry_lookup(registry, @input.DetectedFormat::Epub).unwrap_or_else(fn() {
+      abort("missing epub parser")
     },
   )
   assert_true(txt.capability.supports_streaming)
@@ -272,6 +382,41 @@ test "parser capabilities expose honest streaming granularity contracts" {
   assert_true(
     toml.capability.streaming_granularity == @parser.StreamingGranularity::None,
   )
+  assert_true(srt.capability.supports_streaming)
+  assert_true(srt.capability.supports_events)
+  assert_true(!srt.capability.supports_document_ir)
+  assert_true(srt.capability.parser_mode == @parser.ParserMode::StreamingEvent)
+  assert_true(
+    srt.capability.streaming_granularity == @parser.StreamingGranularity::Record,
+  )
+  assert_true(vtt.capability.supports_streaming)
+  assert_true(vtt.capability.supports_events)
+  assert_true(!vtt.capability.supports_document_ir)
+  assert_true(vtt.capability.parser_mode == @parser.ParserMode::StreamingEvent)
+  assert_true(
+    vtt.capability.streaming_granularity == @parser.StreamingGranularity::Record,
+  )
+  assert_true(!tex.capability.supports_streaming)
+  assert_true(tex.capability.supports_document_ir)
+  assert_true(tex.capability.parser_mode == @parser.ParserMode::DomAstModel)
+  assert_true(
+    tex.capability.streaming_granularity == @parser.StreamingGranularity::None,
+  )
+  assert_true(!rst.capability.supports_streaming)
+  assert_true(rst.capability.supports_document_ir)
+  assert_true(rst.capability.parser_mode == @parser.ParserMode::DomAstModel)
+  assert_true(
+    rst.capability.streaming_granularity == @parser.StreamingGranularity::None,
+  )
+  assert_true(!asciidoc.capability.supports_streaming)
+  assert_true(asciidoc.capability.supports_document_ir)
+  assert_true(
+    asciidoc.capability.parser_mode == @parser.ParserMode::DomAstModel,
+  )
+  assert_true(
+    asciidoc.capability.streaming_granularity ==
+    @parser.StreamingGranularity::None,
+  )
   assert_true(ipynb.capability.supports_streaming)
   assert_true(ipynb.capability.supports_blocks)
   assert_true(ipynb.capability.supports_document_ir)
@@ -282,13 +427,70 @@ test "parser capabilities expose honest streaming granularity contracts" {
     @parser.StreamingGranularity::NotebookCellOutputGroup,
   )
   assert_true(html.capability.supports_streaming)
-  assert_true(html.capability.parser_mode == @parser.ParserMode::BlockStreaming)
+  assert_true(html.capability.parser_mode == @parser.ParserMode::DomAstModel)
   assert_true(html.capability.supports_document_ir)
   assert_true(html.capability.supports_blocks)
   assert_true(!html.capability.supports_events)
   assert_true(
     html.capability.streaming_granularity ==
     @parser.StreamingGranularity::HtmlTokenStructure,
+  )
+  assert_true(eml.capability.supports_streaming)
+  assert_true(eml.capability.supports_blocks)
+  assert_true(eml.capability.supports_document_ir)
+  assert_true(!eml.capability.supports_events)
+  assert_true(eml.capability.parser_mode == @parser.ParserMode::BlockStreaming)
+  assert_true(
+    eml.capability.streaming_granularity ==
+    @parser.StreamingGranularity::Message,
+  )
+  assert_true(odt.capability.supports_streaming)
+  assert_true(odt.capability.supports_blocks)
+  assert_true(odt.capability.supports_document_ir)
+  assert_true(!odt.capability.supports_events)
+  assert_true(
+    odt.capability.parser_mode == @parser.ParserMode::PackageSinglePass,
+  )
+  assert_true(
+    odt.capability.streaming_granularity == @parser.StreamingGranularity::Block,
+  )
+  assert_true(ods.capability.supports_streaming)
+  assert_true(ods.capability.supports_blocks)
+  assert_true(ods.capability.supports_document_ir)
+  assert_true(!ods.capability.supports_events)
+  assert_true(
+    ods.capability.parser_mode == @parser.ParserMode::PackageSinglePass,
+  )
+  assert_true(
+    ods.capability.streaming_granularity == @parser.StreamingGranularity::Row,
+  )
+  assert_true(odp.capability.supports_streaming)
+  assert_true(odp.capability.supports_blocks)
+  assert_true(odp.capability.supports_document_ir)
+  assert_true(!odp.capability.supports_events)
+  assert_true(
+    odp.capability.parser_mode == @parser.ParserMode::PackageSinglePass,
+  )
+  assert_true(
+    odp.capability.streaming_granularity == @parser.StreamingGranularity::Slide,
+  )
+  assert_true(zip.capability.supports_streaming)
+  assert_true(zip.capability.supports_blocks)
+  assert_true(
+    zip.capability.parser_mode == @parser.ParserMode::ContainerRecursive,
+  )
+  assert_true(
+    zip.capability.streaming_granularity ==
+    @parser.StreamingGranularity::ArchiveEntry,
+  )
+  assert_true(epub.capability.supports_streaming)
+  assert_true(epub.capability.supports_blocks)
+  assert_true(
+    epub.capability.parser_mode == @parser.ParserMode::PackageSinglePass,
+  )
+  assert_true(
+    epub.capability.streaming_granularity ==
+    @parser.StreamingGranularity::EpubSpineItem,
   )
   assert_true(
     @parser.StreamingGranularity::ArchiveEntry ==

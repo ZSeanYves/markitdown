@@ -1,16 +1,11 @@
 ///|
+fn explicit_stream_supported_for_format(format : @input.DetectedFormat) -> Bool {
+  @formats.explicit_stream_supported_for_format(format)
+}
+
+///|
 fn parser_mode_for_route(route : CanonicalRoute) -> @parser.ParserMode? {
-  match route {
-    CanonicalRoute::StreamingEvent => Some(@parser.ParserMode::StreamingEvent)
-    CanonicalRoute::BlockStreaming => Some(@parser.ParserMode::BlockStreaming)
-    CanonicalRoute::PackageSinglePass =>
-      Some(@parser.ParserMode::PackageSinglePass)
-    CanonicalRoute::PageSinglePass => Some(@parser.ParserMode::PageSinglePass)
-    CanonicalRoute::DomAstModel => Some(@parser.ParserMode::DomAstModel)
-    CanonicalRoute::LayoutTwoStage => Some(@parser.ParserMode::LayoutTwoStage)
-    CanonicalRoute::ContainerRecursive =>
-      Some(@parser.ParserMode::ContainerRecursive)
-  }
+  Some(@formats.parser_mode_for_route(route))
 }
 
 ///|
@@ -19,29 +14,24 @@ fn requested_parser_mode_for_route(
   options : ConvertOptions,
   route_decision : RouteDecision,
 ) -> @parser.ParserMode? {
-  match options.mode {
-    ConvertMode::Stream =>
-      match format {
-        @input.DetectedFormat::Txt
-        | @input.DetectedFormat::Csv
-        | @input.DetectedFormat::Tsv
-        | @input.DetectedFormat::Jsonl
-        | @input.DetectedFormat::Ndjson =>
-          Some(@parser.ParserMode::StreamingEvent)
-        @input.DetectedFormat::Markdown =>
-          Some(@parser.ParserMode::BlockStreaming)
-        @input.DetectedFormat::Html => Some(@parser.ParserMode::BlockStreaming)
-        @input.DetectedFormat::Ipynb =>
-          Some(
-            if route_decision.selected_route == CanonicalRoute::BlockStreaming {
-              @parser.ParserMode::BlockStreaming
-            } else {
-              @parser.ParserMode::DomAstModel
-            },
-          )
-        _ => parser_mode_for_route(route_decision.selected_route)
-      }
-    _ => parser_mode_for_route(route_decision.selected_route)
+  if options.stream_requested && !explicit_stream_supported_for_format(format) {
+    parser_mode_for_route(route_decision.selected_route)
+  } else if options.stream_requested {
+    let profile = @formats.format_route_profile(format)
+    match profile.explicit_stream_route {
+      Some(route) =>
+        if route == route_decision.selected_route {
+          match profile.large_route_parser_mode {
+            Some(mode) => Some(mode)
+            None => parser_mode_for_route(route)
+          }
+        } else {
+          parser_mode_for_route(route_decision.selected_route)
+        }
+      None => parser_mode_for_route(route_decision.selected_route)
+    }
+  } else {
+    parser_mode_for_route(route_decision.selected_route)
   }
 }
 
@@ -57,7 +47,12 @@ fn plan_route(
     reason: probe.reason,
     probe_summary_format: probe.summary_format,
     probe_summary_parts: probe.summary_parts,
-    same_mode_degradation: [],
+    same_mode_degradation: if options.stream_requested &&
+      !explicit_stream_supported_for_format(format) {
+      ["explicit_stream_unsupported_fell_back"]
+    } else {
+      []
+    },
     prepared_source: probe.prepared_source,
     probe_artifact: probe.probe_artifact,
   }
@@ -68,38 +63,14 @@ fn canonical_route_for_format(
   format : @input.DetectedFormat,
   options : ConvertOptions,
 ) -> CanonicalRoute {
-  if options.mode == ConvertMode::Stream {
-    match format {
-      @input.DetectedFormat::Toml => return CanonicalRoute::DomAstModel
-      @input.DetectedFormat::Markdown => return CanonicalRoute::BlockStreaming
-      @input.DetectedFormat::Html => return CanonicalRoute::BlockStreaming
-      @input.DetectedFormat::Ipynb => return CanonicalRoute::DomAstModel
-      @input.DetectedFormat::Docx => return CanonicalRoute::PackageSinglePass
-      @input.DetectedFormat::Pptx => return CanonicalRoute::PackageSinglePass
-      @input.DetectedFormat::Xlsx => return CanonicalRoute::PackageSinglePass
-      @input.DetectedFormat::Epub => return CanonicalRoute::ContainerRecursive
-      @input.DetectedFormat::Zip => return CanonicalRoute::ContainerRecursive
-      @input.DetectedFormat::Pdf => return CanonicalRoute::PageSinglePass
-      _ => return CanonicalRoute::StreamingEvent
+  let profile = @formats.format_route_profile(format)
+  if options.stream_requested {
+    match profile.explicit_stream_route {
+      Some(route) => return route
+      None => return profile.canonical_route
     }
   }
   match format {
-    @input.DetectedFormat::Txt
-    | @input.DetectedFormat::Csv
-    | @input.DetectedFormat::Tsv
-    | @input.DetectedFormat::Jsonl
-    | @input.DetectedFormat::Ndjson => CanonicalRoute::StreamingEvent
-    @input.DetectedFormat::Markdown => CanonicalRoute::DomAstModel
-    @input.DetectedFormat::Json => CanonicalRoute::DomAstModel
-    @input.DetectedFormat::Ipynb => CanonicalRoute::DomAstModel
-    @input.DetectedFormat::Yaml => CanonicalRoute::DomAstModel
-    @input.DetectedFormat::Toml => CanonicalRoute::DomAstModel
-    @input.DetectedFormat::Xml => CanonicalRoute::DomAstModel
-    @input.DetectedFormat::Html => CanonicalRoute::DomAstModel
-    @input.DetectedFormat::Docx => CanonicalRoute::PackageSinglePass
-    @input.DetectedFormat::Pptx => CanonicalRoute::PackageSinglePass
-    @input.DetectedFormat::Xlsx => CanonicalRoute::PackageSinglePass
-    @input.DetectedFormat::Epub => CanonicalRoute::PackageSinglePass
     @input.DetectedFormat::Pdf =>
       if options.fidelity_mode == FidelityMode::Accurate ||
         options.ocr_options.intent == @parser.OcrIntent::Explicit {
@@ -107,22 +78,13 @@ fn canonical_route_for_format(
       } else {
         CanonicalRoute::PageSinglePass
       }
-    @input.DetectedFormat::Zip => CanonicalRoute::ContainerRecursive
-    _ => CanonicalRoute::DomAstModel
+    _ => profile.canonical_route
   }
 }
 
 ///|
 fn canonical_route_name(route : CanonicalRoute) -> String {
-  match route {
-    CanonicalRoute::StreamingEvent => "streaming_event"
-    CanonicalRoute::BlockStreaming => "block_streaming"
-    CanonicalRoute::PackageSinglePass => "package_single_pass"
-    CanonicalRoute::PageSinglePass => "page_single_pass"
-    CanonicalRoute::DomAstModel => "dom_ast_model"
-    CanonicalRoute::LayoutTwoStage => "layout_two_stage"
-    CanonicalRoute::ContainerRecursive => "container_recursive"
-  }
+  @formats.route_name(route)
 }
 
 ///|
@@ -131,7 +93,10 @@ fn route_reason_for_format(
   options : ConvertOptions,
   route : CanonicalRoute,
 ) -> String {
-  if options.mode == ConvertMode::Stream {
+  if options.stream_requested && !explicit_stream_supported_for_format(format) {
+    return "explicit_stream_unsupported_fell_back"
+  }
+  if options.stream_requested {
     return "explicit_stream_mode"
   }
   if format == @input.DetectedFormat::Pdf {

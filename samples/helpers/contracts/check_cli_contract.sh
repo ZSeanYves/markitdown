@@ -129,13 +129,13 @@ TXT_ALIAS_MD="$NO_META_DIR/txt_plain_alias.md"
 echo "==> help and version expose main cli product surface"
 run_and_capture "$HELP_STDOUT" run_markitdown_cli --help
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "--help should succeed"
-assert_contains "$HELP_STDOUT" 'markitdown-mb [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf|png|jpg|jpeg|bmp|webp|tif|tiff] [--accurate] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]'
+assert_contains "$HELP_STDOUT" 'markitdown-mb [convert|normal] [--format txt|csv|tsv|srt|vtt|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|eml|tex|latex|rst|adoc|asciidoc|zip|epub|odt|ods|odp|docx|xlsx|pptx|pdf|png|jpg|jpeg|bmp|webp|tif|tiff] [--accurate] [--stream] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]'
 assert_contains "$HELP_STDOUT" '--pdf-cleanup none|conservative'
 assert_contains "$HELP_STDOUT" '--pdf-tables none|simple'
 assert_contains "$HELP_STDOUT" 'Direct image input uses local Tesseract OCR by default; `--no-ocr` disables it. `pdf --accurate` automatically enters the current OCR-only PDF path, while explicit `pdf --ocr` remains supported; both use local `pdftoppm` + Tesseract and require local installation.'
 assert_contains "$HELP_STDOUT" 'PDF cleanup and simple table reconstruction are explicit opt-in product options'
 assert_contains "$HELP_STDOUT" '`--rag` emits chunked retrieval JSON with the default internal chunking policy.'
-assert_contains "$HELP_STDOUT" 'Supported product formats: txt, csv, tsv, json, jsonl, ndjson, ipynb, xml, yaml, yml, toml, html, htm, markdown, md, zip, epub, docx, xlsx, pptx, pdf, png, jpg, jpeg, bmp, webp, tif, tiff'
+assert_contains "$HELP_STDOUT" 'Supported product formats: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, yml, toml, html, htm, markdown, md, eml, tex, latex, rst, adoc, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, png, jpg, jpeg, bmp, webp, tif, tiff'
 assert_contains "$HELP_STDOUT" 'fail closed'
 
 run_and_capture "$HELP_ALIAS_STDOUT" run_markitdown_cli help
@@ -154,7 +154,7 @@ run_and_capture "$VERSION_ALIAS_STDOUT" run_markitdown_cli version
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "version alias should succeed"
 assert_matches_expected "$VERSION_STDOUT" "$VERSION_ALIAS_STDOUT"
 
-echo "==> txt csv tsv json jsonl ndjson ipynb xml yaml toml html markdown zip epub docx xlsx pptx pdf and ocr succeed through main product cli"
+echo "==> txt csv tsv json jsonl ndjson ipynb xml yaml toml html markdown zip epub odt ods odp docx xlsx pptx pdf and ocr succeed through main product cli"
 run_markitdown_cli normal "$TXT_INPUT" "$TXT_MD"
 run_markitdown_cli normal "$CSV_INPUT" "$CSV_MD"
 run_markitdown_cli normal "$TSV_INPUT" "$TSV_MD"

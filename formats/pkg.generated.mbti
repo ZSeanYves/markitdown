@@ -2,29 +2,144 @@
 package "ZSeanYves/markitdown/formats"
 
 import {
+  "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
 }
 
 // Values
+pub fn asciidoc_parser_contract_spec() -> ParserContractSpec
+
+pub fn block_stream_parser_contract_spec(String, @input.DetectedFormat, Array[String], Array[String], Array[String], required_source_ref_extra_keys? : Array[String], policies? : Array[String]) -> ParserContractSpec
+
 pub fn builtin_registry() -> @parser.ParserRegistry
+
+pub fn canonical_route_for_format(@input.DetectedFormat) -> FormatRoute
+
+pub fn cli_supported_for_format(@input.DetectedFormat) -> Bool
+
+pub fn container_parser_contract_spec(String, @input.DetectedFormat, Array[String], Array[String], Array[String], policies? : Array[String]) -> ParserContractSpec
+
+pub fn contract_profile_matches_spec(@input.DetectedFormat, ParserContractSpec) -> Bool
+
+pub fn csv_parser_contract_spec() -> ParserContractSpec
 
 pub fn docx_parser_contract_spec() -> ParserContractSpec
 
-pub fn make_parser_contract_spec(String, @parser.ParserMode, @parser.StreamingGranularity, String, Array[String], Array[String], Array[String], Array[String], Array[String], Array[String], large_route_granularity? : @parser.StreamingGranularity?, large_route_ir_input_kind? : String?) -> ParserContractSpec
+pub fn dom_ast_parser_contract_spec(String, @input.DetectedFormat, Array[String], Array[String], Array[String], required_source_ref_extra_keys? : Array[String], policies? : Array[String]) -> ParserContractSpec
+
+pub fn eml_parser_contract_spec() -> ParserContractSpec
+
+pub fn epub_parser_contract_spec() -> ParserContractSpec
+
+pub fn explicit_stream_route_for_format(@input.DetectedFormat) -> FormatRoute?
+
+pub fn explicit_stream_supported_for_format(@input.DetectedFormat) -> Bool
+
+pub fn format_route_profile(@input.DetectedFormat) -> FormatRouteProfile
+
+pub fn html_parser_contract_spec() -> ParserContractSpec
+
+pub fn image_ocr_parser_contract_spec() -> ParserContractSpec
+
+pub fn ipynb_parser_contract_spec() -> ParserContractSpec
+
+pub fn json_parser_contract_spec() -> ParserContractSpec
+
+pub fn jsonl_parser_contract_spec() -> ParserContractSpec
+
+pub fn line_event_parser_contract_spec(String, @input.DetectedFormat, Array[String]) -> ParserContractSpec
+
+pub fn make_parser_contract_spec(String, @parser.ParserMode, @parser.StreamingGranularity, String, Array[String], Array[String], Array[String], Array[String], Array[String], Array[String], Array[String], large_route_granularity? : @parser.StreamingGranularity?, large_route_ir_input_kind? : String?) -> ParserContractSpec
+
+pub fn markdown_parser_contract_spec() -> ParserContractSpec
+
+pub fn ndjson_parser_contract_spec() -> ParserContractSpec
+
+pub fn odp_parser_contract_spec() -> ParserContractSpec
+
+pub fn ods_parser_contract_spec() -> ParserContractSpec
+
+pub fn odt_parser_contract_spec() -> ParserContractSpec
 
 pub fn office_parser_contract_specs() -> Array[ParserContractSpec]
 
+pub fn over_limit_route_for_format(@input.DetectedFormat) -> FormatRoute?
+
+pub fn package_with_block_large_route_contract_spec(String, @input.DetectedFormat, Array[String], Array[String], Array[String], required_source_ref_extra_keys? : Array[String], policies? : Array[String]) -> ParserContractSpec
+
+pub fn page_single_pass_parser_contract_spec(String, @input.DetectedFormat, Array[String], Array[String], Array[String], policies? : Array[String]) -> ParserContractSpec
+
 pub fn parser_contract_spec_matches_parser(ParserContractSpec, @parser.Parser) -> Bool
+
+pub fn parser_mode_for_route(FormatRoute) -> @parser.ParserMode
+
+pub fn pdf_native_parser_contract_spec() -> ParserContractSpec
 
 pub fn pptx_parser_contract_spec() -> ParserContractSpec
 
+pub fn product_parser_contract_spec_by_format(@input.DetectedFormat) -> ParserContractSpec?
+
+pub fn product_parser_contract_specs() -> Array[ParserContractSpec]
+
+pub fn record_event_parser_contract_spec(String, @input.DetectedFormat, Array[String], Array[String], Array[String], Array[String], policies? : Array[String]) -> ParserContractSpec
+
 pub fn register_builtin_parsers(@parser.ParserRegistry) -> Unit
 
+pub fn route_name(FormatRoute) -> String
+
+pub fn row_event_parser_contract_spec(String, @input.DetectedFormat, Array[String]) -> ParserContractSpec
+
+pub fn rst_parser_contract_spec() -> ParserContractSpec
+
+pub fn srt_parser_contract_spec() -> ParserContractSpec
+
+pub fn tex_parser_contract_spec() -> ParserContractSpec
+
+pub fn toml_parser_contract_spec() -> ParserContractSpec
+
+pub fn tsv_parser_contract_spec() -> ParserContractSpec
+
+pub fn txt_parser_contract_spec() -> ParserContractSpec
+
+pub fn vtt_parser_contract_spec() -> ParserContractSpec
+
 pub fn xlsx_parser_contract_spec() -> ParserContractSpec
+
+pub fn xml_parser_contract_spec() -> ParserContractSpec
+
+pub fn yaml_parser_contract_spec() -> ParserContractSpec
+
+pub fn zip_parser_contract_spec() -> ParserContractSpec
 
 // Errors
 
 // Types and methods
+pub(all) enum FormatRoute {
+  StreamingEvent
+  BlockStreaming
+  PackageSinglePass
+  PageSinglePass
+  DomAstModel
+  LayoutTwoStage
+  ContainerRecursive
+} derive(Eq)
+
+pub struct FormatRouteProfile {
+  format : @input.DetectedFormat
+  cli_supported : Bool
+  canonical_route : FormatRoute
+  explicit_stream_supported : Bool
+  explicit_stream_route : FormatRoute?
+  over_limit_route : FormatRoute?
+  canonical_parser_mode : @parser.ParserMode
+  capability_granularity : @parser.StreamingGranularity
+  large_route_parser_mode : @parser.ParserMode?
+  large_route_granularity : @parser.StreamingGranularity?
+  canonical_ir_input_kind : String
+  large_route_ir_input_kind : String?
+  current_state_label : String
+}
+
 pub struct ParserContractSpec {
   parser_name : String
   parser_mode : @parser.ParserMode
@@ -33,6 +148,7 @@ pub struct ParserContractSpec {
   ir_input_kind : String
   large_route_ir_input_kind : String?
   required_metrics : Array[String]
+  required_source_ref_fields : Array[String]
   required_source_ref_extra_keys : Array[String]
   guardrails : Array[String]
   policies : Array[String]

@@ -70,6 +70,7 @@ fn cli_options(
     @convert.FidelityMode::Balanced,
     @convert.ConvertMode::Balanced,
     @convert.output_mode_for_output_format(output_format),
+    false,
     output_format,
     pdf_cleanup_mode~,
     pdf_table_mode~,
@@ -78,20 +79,30 @@ fn cli_options(
 }
 
 ///|
-test "main cli product policy exposes txt csv tsv json jsonl ndjson ipynb xml yaml html markdown zip epub docx xlsx pptx pdf and direct image OCR formats" {
+test "main cli product policy exposes text, notebook, markup, container, office, pdf, and image formats" {
   assert_true(cli_is_supported_format(@input.DetectedFormat::Txt))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Csv))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Tsv))
+  assert_true(cli_is_supported_format(@input.DetectedFormat::Srt))
+  assert_true(cli_is_supported_format(@input.DetectedFormat::Vtt))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Json))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Jsonl))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Ndjson))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Ipynb))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Xml))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Yaml))
+  assert_true(cli_is_supported_format(@input.DetectedFormat::Toml))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Html))
+  assert_true(cli_is_supported_format(@input.DetectedFormat::Eml))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Markdown))
+  assert_true(cli_is_supported_format(@input.DetectedFormat::Tex))
+  assert_true(cli_is_supported_format(@input.DetectedFormat::Rst))
+  assert_true(cli_is_supported_format(@input.DetectedFormat::Asciidoc))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Zip))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Epub))
+  assert_true(cli_is_supported_format(@input.DetectedFormat::Odt))
+  assert_true(cli_is_supported_format(@input.DetectedFormat::Ods))
+  assert_true(cli_is_supported_format(@input.DetectedFormat::Odp))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Docx))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Xlsx))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Pptx))
@@ -131,39 +142,50 @@ test "main cli product policy exposes txt csv tsv json jsonl ndjson ipynb xml ya
       @input.DetectedFormat::Image(@input.ImageFormat::Tiff),
     ),
   )
+  assert_true(!cli_is_supported_format(@input.DetectedFormat::Unknown))
   let supported = [
-    "txt", "csv", "tsv", "json", "jsonl", "ndjson", "ipynb", "xml", "yaml", "yml",
-    "html", "htm", "markdown", "md", "zip", "epub", "docx", "xlsx", "pptx", "pdf",
-    "png", "jpg", "jpeg", "bmp", "webp", "tif", "tiff",
+    "txt", "csv", "tsv", "srt", "vtt", "json", "jsonl", "ndjson", "ipynb", "xml",
+    "yaml", "yml", "toml", "html", "htm", "markdown", "md", "eml", "tex", "latex",
+    "rst", "adoc", "asciidoc", "zip", "epub", "docx", "xlsx", "pptx", "pdf", "png",
+    "jpg", "jpeg", "bmp", "webp", "tif", "tiff",
   ]
-  assert_eq(supported.length(), 27)
+  assert_eq(supported.length(), 36)
   assert_eq(supported[0], "txt")
   assert_eq(supported[1], "csv")
   assert_eq(supported[2], "tsv")
-  assert_eq(supported[3], "json")
-  assert_eq(supported[4], "jsonl")
-  assert_eq(supported[5], "ndjson")
-  assert_eq(supported[6], "ipynb")
-  assert_eq(supported[7], "xml")
-  assert_eq(supported[8], "yaml")
-  assert_eq(supported[9], "yml")
-  assert_eq(supported[10], "html")
-  assert_eq(supported[11], "htm")
-  assert_eq(supported[12], "markdown")
-  assert_eq(supported[13], "md")
-  assert_eq(supported[14], "zip")
-  assert_eq(supported[15], "epub")
-  assert_eq(supported[16], "docx")
-  assert_eq(supported[17], "xlsx")
-  assert_eq(supported[18], "pptx")
-  assert_eq(supported[19], "pdf")
-  assert_eq(supported[20], "png")
-  assert_eq(supported[21], "jpg")
-  assert_eq(supported[22], "jpeg")
-  assert_eq(supported[23], "bmp")
-  assert_eq(supported[24], "webp")
-  assert_eq(supported[25], "tif")
-  assert_eq(supported[26], "tiff")
+  assert_eq(supported[3], "srt")
+  assert_eq(supported[4], "vtt")
+  assert_eq(supported[5], "json")
+  assert_eq(supported[6], "jsonl")
+  assert_eq(supported[7], "ndjson")
+  assert_eq(supported[8], "ipynb")
+  assert_eq(supported[9], "xml")
+  assert_eq(supported[10], "yaml")
+  assert_eq(supported[11], "yml")
+  assert_eq(supported[12], "toml")
+  assert_eq(supported[13], "html")
+  assert_eq(supported[14], "htm")
+  assert_eq(supported[15], "markdown")
+  assert_eq(supported[16], "md")
+  assert_eq(supported[17], "eml")
+  assert_eq(supported[18], "tex")
+  assert_eq(supported[19], "latex")
+  assert_eq(supported[20], "rst")
+  assert_eq(supported[21], "adoc")
+  assert_eq(supported[22], "asciidoc")
+  assert_eq(supported[23], "zip")
+  assert_eq(supported[24], "epub")
+  assert_eq(supported[25], "docx")
+  assert_eq(supported[26], "xlsx")
+  assert_eq(supported[27], "pptx")
+  assert_eq(supported[28], "pdf")
+  assert_eq(supported[29], "png")
+  assert_eq(supported[30], "jpg")
+  assert_eq(supported[31], "jpeg")
+  assert_eq(supported[32], "bmp")
+  assert_eq(supported[33], "webp")
+  assert_eq(supported[34], "tif")
+  assert_eq(supported[35], "tiff")
 }
 
 ///|
@@ -256,6 +278,7 @@ test "main cli keeps --debug and rejects retired --json alias" {
   match parse_cli_options(["--debug", "tiny.txt"]) {
     Ok(opts) => {
       assert_true(opts.convert_mode == @convert.ConvertMode::Debug)
+      assert_true(!opts.stream_requested)
       assert_true(opts.output_format == @convert.OutputFormat::DebugJson)
     }
     Err(msg) => fail("expected --debug to parse: " + msg)
@@ -284,6 +307,42 @@ test "main cli keeps --debug and rejects retired --json alias" {
   match parse_cli_options(["--debug", "--rag", "tiny.txt"]) {
     Err(msg) => assert_true(msg.contains("cannot combine --debug and --rag"))
     Ok(_) => fail("expected --debug and --rag to conflict")
+  }
+
+  match parse_cli_options(["--stream", "tiny.txt"]) {
+    Ok(opts) => {
+      assert_true(opts.stream_requested)
+      assert_true(opts.convert_mode == @convert.ConvertMode::Balanced)
+      assert_true(opts.output_mode == @convert.OutputMode::Markdown)
+      assert_true(opts.output_format == @convert.OutputFormat::Markdown)
+    }
+    Err(msg) => fail("expected --stream to parse: " + msg)
+  }
+
+  match parse_cli_options(["--stream", "--debug", "tiny.txt"]) {
+    Ok(opts) => {
+      assert_true(opts.stream_requested)
+      assert_true(opts.convert_mode == @convert.ConvertMode::Debug)
+      assert_true(opts.output_mode == @convert.OutputMode::Debug)
+      assert_true(opts.output_format == @convert.OutputFormat::DebugJson)
+    }
+    Err(msg) => fail("expected --stream --debug to parse: " + msg)
+  }
+
+  match parse_cli_options(["--stream", "--rag", "tiny.txt"]) {
+    Ok(opts) => {
+      assert_true(opts.stream_requested)
+      assert_true(opts.convert_mode == @convert.ConvertMode::Rag)
+      assert_true(opts.output_mode == @convert.OutputMode::Rag)
+      assert_true(opts.output_format == @convert.OutputFormat::RagJson)
+    }
+    Err(msg) => fail("expected --stream --rag to parse: " + msg)
+  }
+
+  match parse_cli_options(["--stream", "--accurate", "tiny.txt"]) {
+    Err(msg) =>
+      assert_true(msg.contains("cannot combine --stream and --accurate"))
+    Ok(_) => fail("expected --stream and --accurate to conflict")
   }
 
   match parse_cli_options(["--json", "tiny.txt"]) {
@@ -878,6 +937,14 @@ test "main cli provenance sidecar preserves conversion output semantics" {
 }
 
 ///|
+test "main cli stream warning message stays stable for unsupported explicit stream fallback" {
+  assert_eq(
+    cli_explicit_stream_warning_message(@input.DetectedFormat::Toml),
+    "warning: explicit --stream is not productized for `toml` yet; falling back to the canonical route",
+  )
+}
+
+///|
 test "main cli pdf debug json exposes header footer candidate diagnostics" {
   let rendered = match
     run_cli(
@@ -1161,6 +1228,62 @@ test "main cli persists ipynb inline image assets at output boundary" {
     @fs.path_exists(out_dir + "/assets/ipynb-cell01-attachment-dot-png.png"),
   )
   assert_true(@fs.path_exists(out_dir + "/assets/ipynb-cell02-output01.png"))
+}
+
+///|
+test "main cli persists odt local assets only at output boundary" {
+  let root = test_tmp_root() + "/main-cli-odt-assets"
+  recreate_clean_dir(root)
+  defer cleanup_temp_dir(root)
+
+  let out_dir = root + "/out"
+  let out_path = out_dir + "/odt_basic_assets.md"
+  ensure_dir_tree(out_dir)
+  let persisted = match
+    run_cli(
+      cli_options(
+        "samples/main_process/odt/assets/odt_basic_assets.odt",
+        Some(out_path),
+        Some(@input.DetectedFormat::Odt),
+        @convert.OutputFormat::Markdown,
+      ),
+    ) {
+    Ok(value) => value
+    Err(msg) => fail("odt local asset cli failed: " + msg)
+  }
+  assert_true(persisted.contains("![red-dot](assets/odt-red.png)"))
+  let persisted_markdown = read_utf8_text(out_path)
+  assert_true(persisted_markdown.contains("![red-dot](assets/odt-red.png)"))
+  assert_true(@fs.path_exists(out_dir + "/assets/odt-red.png"))
+}
+
+///|
+test "main cli persists odp local assets only at output boundary" {
+  let root = test_tmp_root() + "/main-cli-odp-assets"
+  recreate_clean_dir(root)
+  defer cleanup_temp_dir(root)
+
+  let out_dir = root + "/out"
+  let out_path = out_dir + "/odp_basic_assets.md"
+  ensure_dir_tree(out_dir)
+  let persisted = match
+    run_cli(
+      cli_options(
+        "samples/main_process/odp/assets/odp_basic_assets.odp",
+        Some(out_path),
+        Some(@input.DetectedFormat::Odp),
+        @convert.OutputFormat::Markdown,
+      ),
+    ) {
+    Ok(value) => value
+    Err(msg) => fail("odp local asset cli failed: " + msg)
+  }
+  assert_true(persisted.contains("![red-dot](assets/odp-slide1-red.png)"))
+  let persisted_markdown = read_utf8_text(out_path)
+  assert_true(
+    persisted_markdown.contains("![red-dot](assets/odp-slide1-red.png)"),
+  )
+  assert_true(@fs.path_exists(out_dir + "/assets/odp-slide1-red.png"))
 }
 
 ///|

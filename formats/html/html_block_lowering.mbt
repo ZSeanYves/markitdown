@@ -125,7 +125,8 @@ fn html_noise_should_skip(noise : @dhtml.HtmlNoiseCandidateFact) -> Bool {
       @dhtml.HtmlNoiseCandidateReason::NavLike
       | @dhtml.HtmlNoiseCandidateReason::FooterLike
       | @dhtml.HtmlNoiseCandidateReason::Hiddenish
-      | @dhtml.HtmlNoiseCandidateReason::ScriptStyleTemplate => return true
+      | @dhtml.HtmlNoiseCandidateReason::ScriptStyleTemplate
+      | @dhtml.HtmlNoiseCandidateReason::RepeatedBoilerplate => return true
       _ => ()
     }
   }
@@ -216,7 +217,7 @@ fn html_heading_blocks(
     text,
     source_ref=html_block_source_ref(source, block),
   )
-  heading.attrs.set("level", @parser_common.clamp_int(level, 1, 6).to_string())
+  heading.attrs.set("level", @fshared.clamp_int(level, 1, 6).to_string())
   heading.attrs.set("literal", "true")
   heading.attrs.set("render_inline_escape_mode", "minimal")
   [@core.block_with_rich_inlines(heading, Some(inlines))]
@@ -261,7 +262,7 @@ fn html_list_container_blocks(
     Some(fact) =>
       list.attrs.set(
         "ordered",
-        @parser_common.bool_string(fact.kind == @dhtml.HtmlListKind::Ordered),
+        @fshared.bool_string(fact.kind == @dhtml.HtmlListKind::Ordered),
       )
     None => ()
   }
@@ -346,7 +347,7 @@ fn html_list_item_blocks(
   }
   let text = html_render_plain_inlines(primary_inlines).trim().to_owned()
   let item = @core.make_block(@core.BlockKind::ListItem, text, source_ref~)
-  item.attrs.set("ordered", @parser_common.bool_string(ordered))
+  item.attrs.set("ordered", @fshared.bool_string(ordered))
   if ordered {
     item.attrs.set("ordered_indent_step", "3")
   }
@@ -449,7 +450,7 @@ fn html_list_item_blocks_from_dom(
     None => ""
   }
   let item = @core.make_block(@core.BlockKind::ListItem, root_text, source_ref~)
-  item.attrs.set("ordered", @parser_common.bool_string(ordered))
+  item.attrs.set("ordered", @fshared.bool_string(ordered))
   if ordered {
     item.attrs.set("ordered_indent_step", "3")
   }

@@ -4,7 +4,7 @@
   "parser_mode": "package_single_pass",
   "convert_mode": "rag",
   "diagnostics_contains": {
-    "parser_name": "epub_package_parser",
+    "parser_name": "epub_parser",
     "metrics": {
       "renderer_name": "RagJsonRenderer"
     }

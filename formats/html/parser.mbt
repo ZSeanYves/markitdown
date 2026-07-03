@@ -1,18 +1,10 @@
 ///|
 fn html_parser_capability() -> @parser.ParserCapability {
-  @parser.make_parser_capability(
-    @parser.ParserMode::BlockStreaming,
-    true,
+  @parser.dom_ast_parser_capability(
     @parser.StreamingGranularity::HtmlTokenStructure,
-    false,
     true,
     false,
-    false,
     true,
-    true,
-    true,
-    true,
-    false,
     true,
     true,
     true,
@@ -54,7 +46,7 @@ pub fn html_document_to_ir(
   source : @input.InputSource,
   text : String,
 ) -> Result[(@core.DocumentIR, @core.Diagnostics), String] {
-  let diagnostics = @parser_common.empty_parser_diagnostics(
+  let diagnostics = @fshared.empty_parser_diagnostics(
     "html_parser",
     @parser.ParserMode::DomAstModel,
     source,
@@ -62,10 +54,7 @@ pub fn html_document_to_ir(
   )
   diagnostics.metrics.set("parser_name", "html_parser")
   diagnostics.metrics.set("parser_mode", "dom_ast_model")
-  diagnostics.metrics.set(
-    "input_kind",
-    @parser_common.input_kind_name(source.kind),
-  )
+  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
   diagnostics.metrics.set("detected_format", "html")
   diagnostics.metrics.set("requested_mode", "default")
   diagnostics.metrics.set("effective_mode", "dom_ast_model")
@@ -74,7 +63,7 @@ pub fn html_document_to_ir(
   diagnostics.metrics.set("event_semantics", "dom_ast_model")
   diagnostics.metrics.set("resource_limit_hit", "false")
   diagnostics.metrics.set("dom_limit_reached", "false")
-  @parser_common.apply_product_metrics(diagnostics, "html")
+  @fshared.apply_product_metrics(diagnostics, "html")
 
   let parsed = try @dhtml.parse_html_document(text) |> Ok catch {
     e => Err(e.to_string())
@@ -91,6 +80,7 @@ pub fn html_document_to_ir(
         inspect,
         validation,
         semantic_report,
+        semantic,
         text,
         0,
         false,
@@ -174,7 +164,7 @@ fn parse_html_document_result(
   }
   match parsed {
     Err(err) => {
-      let diagnostics = @parser_common.empty_parser_diagnostics(
+      let diagnostics = @fshared.empty_parser_diagnostics(
         "html_parser",
         @parser.ParserMode::DomAstModel,
         source,
@@ -183,7 +173,7 @@ fn parse_html_document_result(
       return Ok(malformed_html_parse_result(source, text, diagnostics, err))
     }
     Ok(doc) => {
-      let diagnostics = @parser_common.empty_parser_diagnostics(
+      let diagnostics = @fshared.empty_parser_diagnostics(
         "html_parser",
         @parser.ParserMode::DomAstModel,
         source,
@@ -193,15 +183,15 @@ fn parse_html_document_result(
       diagnostics.metrics.set("parser_mode", "dom_ast_model")
       diagnostics.metrics.set(
         "input_kind",
-        @parser_common.input_kind_name(source.kind),
+        @fshared.input_kind_name(source.kind),
       )
       diagnostics.metrics.set("detected_format", "html")
       diagnostics.metrics.set(
         "requested_mode",
-        @parser_common.requested_mode_name(context),
+        @fshared.requested_mode_name(context),
       )
       diagnostics.metrics.set("ir_input_kind", "document")
-      @parser_common.apply_product_metrics(diagnostics, "html")
+      @fshared.apply_product_metrics(diagnostics, "html")
 
       let inspect = @dhtml.inspect_html_document(doc)
       let validation = @dhtml.validate_html_document(doc)
@@ -213,6 +203,7 @@ fn parse_html_document_result(
         inspect,
         validation,
         semantic_report,
+        semantic,
         text,
         0,
         false,
@@ -277,7 +268,7 @@ fn html_block_stream_diagnostics(
   source : @input.InputSource,
   context : @parser.ParseContext,
 ) -> @core.Diagnostics {
-  let diagnostics = @parser_common.empty_parser_diagnostics(
+  let diagnostics = @fshared.empty_parser_diagnostics(
     "html_parser",
     @parser.ParserMode::BlockStreaming,
     source,
@@ -285,14 +276,11 @@ fn html_block_stream_diagnostics(
   )
   diagnostics.metrics.set("parser_name", "html_parser")
   diagnostics.metrics.set("parser_mode", "block_streaming")
-  diagnostics.metrics.set(
-    "input_kind",
-    @parser_common.input_kind_name(source.kind),
-  )
+  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
   diagnostics.metrics.set("detected_format", "html")
   diagnostics.metrics.set(
     "requested_mode",
-    @parser_common.requested_mode_name(context),
+    @fshared.requested_mode_name(context),
   )
   diagnostics.metrics.set("effective_mode", "block_streaming")
   diagnostics.metrics.set("ir_input_kind", "block_stream")
@@ -300,7 +288,7 @@ fn html_block_stream_diagnostics(
   diagnostics.metrics.set("event_semantics", "html_block_stream")
   diagnostics.metrics.set("resource_limit_hit", "false")
   diagnostics.metrics.set("dom_limit_reached", "false")
-  @parser_common.apply_product_metrics(diagnostics, "html")
+  @fshared.apply_product_metrics(diagnostics, "html")
   diagnostics
 }
 
@@ -334,7 +322,7 @@ fn html_block_stream_parse_result_from_lowered(
   )
   diagnostics.metrics.set(
     "line_count",
-    @parser_common.count_physical_lines(text).to_string(),
+    @fshared.count_physical_lines(text).to_string(),
   )
   diagnostics.metrics.set("char_count", text.length().to_string())
   diagnostics.pass_trace.push("parse:html_parser:block_stream_route")

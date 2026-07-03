@@ -1,0 +1,29 @@
+{
+  "output_format": "rag_json",
+  "detected_format": "tex",
+  "parser_mode": "dom_ast_model",
+  "convert_mode": "rag",
+  "diagnostics_contains": {
+      "parser_name": "tex_parser",
+      "metrics": {
+        "effective_mode": "dom_ast_model",
+        "ir_input_kind": "document",
+        "raw_count": "1",
+        "format_detector_notes": "extension"
+      }
+  },
+  "source_map": "null",
+  "chunk_count": {
+    "min": 1
+  },
+  "chunks": [
+    {
+      "kind": "text",
+      "text_contains_all": [
+        "Include: shared.tex",
+        "> Theorem",
+        "Important statement."
+      ]
+    }
+  ]
+}

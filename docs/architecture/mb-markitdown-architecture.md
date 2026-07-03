@@ -489,10 +489,13 @@ latex
 ```text
 小中型文件可以建 AST/DOM。
 Markdown / HTML / YAML / JSON / XML 的超限分流由 convert 的 RoutePlanner 决定。
-TOML 的规划中实现优先保持单一 `dom-ast-model` route，不为了配置文件格式引入额外 parser mode。
-IPYNB 的规划中实现默认走 `dom-ast-model`，仅在 notebook 过大时按 cell / output group 降到 `block-streaming`。
-Markdown 当前走 dom-ast-model canonical route，并在超限或 Stream 请求下切到 block-streaming。
+TOML 当前保持单一 `dom-ast-model` route，不为了配置文件格式引入额外 parser mode。
+IPYNB 当前默认走 `dom-ast-model`，仅在 notebook 过大或显式 `--stream` 请求下按 cell / output group 降到 `block-streaming`。
+Markdown 当前走 dom-ast-model canonical route，并在超限或显式 `--stream` 请求下切到 block-streaming。
 Markdown 当前实现是轻量 block inventory + lowering，目标逐步靠近更完整语义解析，而不是已经产品化的完整 Markdown AST parser。
+RST / AsciiDoc / TeX 当前也走 `dom-ast-model`，但实现形态是“轻量 block inventory + typed semantic lowering”，不是完整编辑器级 AST。
+它们当前已产品化的高频能力包括 heading / paragraph / list / common table / common link and inline code / admonition-or-quote boundary / include-or-directive-or-environment boundary。
+复杂 directive / include / macro / environment 继续按 degrade / raw boundary 处理，不引入专属 parser mode。
 ```
 
 ### 4.6 layout-two-stage
@@ -578,7 +581,7 @@ archive
 说明：
 
 ```text
-下表同时描述当前主架构事实与已经确定的扩展设计。
+下表同时描述当前主架构事实，以及少量已确认但尚未产品化的扩展方向。
 未进入 capabilities 文档的格式，不等同于当前已经产品化的正式支持。
 ```
 
@@ -597,28 +600,28 @@ linear / streaming:
 tree / ast:
   md        -> dom-ast-model, over-limit -> block-streaming
   markdown  -> dom-ast-model, over-limit -> block-streaming
-  json      -> dom-ast-model, over-limit -> streaming-event
-  yaml      -> dom-ast-model, over-limit -> streaming-event
+  json      -> dom-ast-model, over-limit -> streaming-event; explicit --stream -> streaming-event
+  yaml      -> dom-ast-model, over-limit -> streaming-event; explicit --stream -> streaming-event
   yml       -> dom-ast-model, over-limit -> streaming-event
   toml      -> dom-ast-model
-  ipynb     -> dom-ast-model, over-limit -> block-streaming(cell/output-group)
-  xml       -> dom-ast-model, over-limit -> streaming-event
+  ipynb     -> dom-ast-model, over-limit / explicit --stream -> block-streaming(cell/output-group)
+  xml       -> dom-ast-model, over-limit -> streaming-event; explicit --stream -> streaming-event
   rst       -> dom-ast-model
   adoc      -> dom-ast-model
   tex       -> dom-ast-model
 
 web / markup:
-  html      -> dom-ast-model + readability/hybrid, over-limit -> block-streaming(section/subtree)
-  htm       -> dom-ast-model + readability/hybrid, over-limit -> block-streaming(section/subtree)
+  html      -> dom-ast-model + readability/hybrid, over-limit / explicit --stream -> block-streaming(html-token-structure)
+  htm       -> dom-ast-model + readability/hybrid, over-limit / explicit --stream -> block-streaming(html-token-structure)
 
 package documents:
   docx      -> package-single-pass only
   pptx      -> package-single-pass only
-  xlsx      -> package-single-pass, over-limit -> block-streaming(sheet/row/table-region)
-  odt       -> package-single-pass
-  odp       -> package-single-pass
-  ods       -> package-single-pass
-  epub      -> package-single-pass + chapter blocks
+  xlsx      -> package-single-pass, over-limit / explicit --stream -> block-streaming(sheet/row/table-region)
+  odt       -> package-single-pass, explicit --stream -> block-streaming(block)
+  odp       -> package-single-pass, explicit --stream -> block-streaming(slide)
+  ods       -> package-single-pass, explicit --stream -> block-streaming(row)
+  epub      -> package-single-pass + chapter blocks; explicit --stream -> container-recursive
 
 paged documents:
   pdf       -> page-single-pass; Accurate / explicit OCR -> layout-two-stage
@@ -651,13 +654,15 @@ containers:
 ```text
 RoutePlanner 在 parser 前统一做 canonical route 选择。
 markdown 默认 -> dom-ast-model
-超限 markdown / Stream markdown -> block-streaming
+超限 markdown / explicit --stream markdown -> block-streaming
 超限 yaml     -> streaming-event
-超限 html     -> block-streaming(section/subtree)
-超限 json     -> streaming-event
-超限 xml      -> streaming-event
-超限 ipynb    -> block-streaming(cell/output-group)
-超限 xlsx     -> block-streaming(sheet/row/table-region)
+超限 html / explicit --stream html -> block-streaming(section/subtree)
+超限 json / explicit --stream json -> streaming-event
+超限 xml / explicit --stream xml -> streaming-event
+超限 ipynb / explicit --stream ipynb -> block-streaming(cell/output-group)
+超限 xlsx / explicit --stream xlsx -> block-streaming(sheet/row/table-region)
+显式 --stream ods -> block-streaming(row)
+显式 --stream odp -> block-streaming(slide)
 复杂 pdf      -> Accurate 模式下 layout-two-stage
 扫描 pdf      -> 仅在显式 OCR / Accurate 语义下进入 layout-two-stage
 
@@ -942,6 +947,8 @@ pub struct SourceRef {
   line_end : Option[Int]
   byte_start : Option[Int]
   byte_end : Option[Int]
+  time_start : Option[String]
+  time_end : Option[String]
 
   xpath : Option[String]
   json_pointer : Option[String]
@@ -972,6 +979,7 @@ pub struct SourceRef {
 | EPUB | chapter_href + xpath |
 | Markdown | line_start + line_end |
 | TXT | line range / byte range |
+| SRT / VTT | line range + time_start + time_end |
 | CSV | row / column range，放 extra 或 cell_range |
 | JSON | json_pointer |
 | YAML | yaml_path + line range |
@@ -979,7 +987,7 @@ pub struct SourceRef {
 | IPYNB | json_pointer + `extra.cell_index/cell_kind/output_index` |
 | EML | email_part |
 
-对于 `toml` 与 `ipynb` 这类规划中的扩展格式，优先复用现有 `json_pointer / yaml_path / extra` 承载来源定位；只有当这些格式进入稳定公开契约后，才考虑是否把专属字段提升为 Core `SourceRef` 的显式一等字段。
+对于 `toml` 与 `ipynb` 这类当前已正式支持、但仍在持续收紧契约的格式，优先复用现有 `json_pointer / yaml_path / extra` 承载来源定位；只有当这些格式的专属来源字段需要跨更多格式复用时，才考虑是否把它们提升为 Core `SourceRef` 的显式一等字段。
 
 ### 7.7 LayoutBox
 
@@ -1832,11 +1840,11 @@ SourceRef(yaml_path + line_range)
 不要把 YAML 全部强行转成普通段落
 ```
 
-### TOML 融入主架构的扩展设计
+### TOML 融入主架构的当前实现
 
-TOML 不需要新 parser mode；建议直接复用现有 `dom-ast-model -> DocumentIR -> Renderer` 主链。
+TOML 不需要新 parser mode；当前直接复用现有 `dom-ast-model -> DocumentIR -> Renderer` 主链。
 
-推荐策略：
+当前策略：
 
 ```text
 顶层 table -> section / key-value group
@@ -1847,7 +1855,7 @@ multiline basic/literal string -> paragraph 或 fenced text/code，保留换行
 date/time/number/bool -> typed scalar，优先保留原值与最小必要规范化
 ```
 
-边界说明：
+当前边界：
 
 ```text
 TOML 当前应按“结构化配置文本”设计，而不是按 Markdown 段落文本设计
@@ -1889,7 +1897,7 @@ SourceRef(xpath)
 
 ## 12.6 Markdown Parser
 
-ParserMode：默认 `dom-ast-model`；`Stream` 或超限时切 `block-streaming`
+ParserMode：默认 `dom-ast-model`；显式 `--stream` 或超限时切 `block-streaming`
 
 ### 输入特征
 
@@ -1902,7 +1910,7 @@ ParserMode：默认 `dom-ast-model`；`Stream` 或超限时切 `block-streaming`
 
 ```text
 canonical route 仍是 dom-ast-model
-Stream 或超限时走 block-streaming
+显式 `--stream` 或超限时走 block-streaming
 当前 parser 本质上是轻量扫描器 + lowering
 它会优先建立高频 block inventory，再补足 table/link/image/frontmatter/raw HTML/footnote 等语义
 这还不是一个完整 Markdown AST parser，也不承诺覆盖全部方言
@@ -1976,13 +1984,13 @@ pub enum HtmlStrategy {
 适合新闻、博客、普通网页
 ```
 
-### Hybrid 默认
+### Hybrid 默认 / 当前产品化路径
 
 ```text
-优先 article/main
-否则 body
-过滤明显噪声
-保留正文结构
+优先 article/main 作为 content root
+否则 body / fragment
+过滤 nav、footer、hidden、script、style、template、repeated boilerplate
+保留正文结构，并尽量不误杀正文外但仍有价值的 note / figure / table
 ```
 
 ### 输出
@@ -2002,7 +2010,7 @@ SourceRef(xpath)
 
 ## 12.8 EPUB Parser
 
-ParserMode：`package-single-pass` + `chapter block-streaming`
+ParserMode：默认 `package-single-pass`；显式 `--stream` 时 `container-recursive`；公开输出仍是 spine-item block stream
 
 ### 输入特征
 
@@ -2378,18 +2386,22 @@ ParserMode：`block-streaming` / MIME tree
 
 ```text
 headers
-text/plain part
-text/html part
-attachments
-inline images
+explicit MIME parts
+nested message/rfc822
+text/plain and text/html bodies
+attachments and inline images
 ```
 
 策略：
 
 ```text
-优先 text/plain
-否则 text/html -> HTML parser
-附件可递归 parser
+先稳定输出 headers summary table
+每个 MIME part 边界显式可见
+multipart/alternative 做稳定 body selection，默认 text/plain 优先，其次受控 text/html
+multipart/related 允许 CID rewrite，把 html body 中的 cid: 资源回绑到 inline assets
+text/plain 直接降正文块；text/html 走受控 HTML lowering
+message/rfc822 允许递归解码并继续按 child message 下降
+可识别文本类附件递归回统一 registry；超预算或未知类型保守降为 attachment summary / asset
 ```
 
 ### MBOX
@@ -2480,9 +2492,9 @@ SourceRef(time range)
 
 ---
 
-## 12.17 IPYNB / Notebook Parser（扩展设计）
+## 12.17 IPYNB / Notebook Parser
 
-ParserMode：默认 `dom-ast-model`；超限 notebook 规划中切到 `block-streaming`
+ParserMode：默认 `dom-ast-model`；显式 `--stream` 或超限 notebook 切到 `block-streaming`
 
 ### 设计定位
 
@@ -2497,11 +2509,11 @@ attachments / display_data
 language and kernel hints
 ```
 
-因此建议：
+当前产品策略：
 
 ```text
 默认复用现有 dom-ast-model canonical route
-大 notebook 再按 cell / output group 降级到 block-streaming
+大 notebook 或显式 `--stream` 请求再按 cell / output group 降级到 block-streaming
 不新增专属 parser mode
 不改写现有 RoutePlanner 的基本分流原则
 ```
@@ -2547,6 +2559,8 @@ code cell：以 fenced code 为主，并保留 language hint
 stdout / stderr：优先 fenced text 或 RawBlock
 tabular output：优先 TableBlock，小样本输出 Markdown table，大样本可降级
 text/html output：只在安全边界内做受控 HTML lowering；否则保留 raw snippet
+application/javascript / text/javascript：保守降为 raw fenced javascript，并显式记录 degraded diagnostics
+application/json 与 application/*+json：优先走结构化 JSON lowering；失败时回退 raw fenced json
 image/png / image/jpeg：转 AssetRef，并由 renderer 决定输出占位或引用
 RAG chunking：默认不跨 cell 粗暴合并；优先保留 cell 级 chunk boundary
 ```
@@ -2569,11 +2583,11 @@ Accurate 当前也不应让 ipynb 切换到新的 parser route；后续若做高
 
 ```text
 1. 用户显式指定 format
-2. magic bytes / signature
-3. MIME type
-4. 文件扩展名
+2. MIME type
+3. 文件扩展名
+4. magic bytes / signature
 5. container internal inspection
-6. text/binary heuristic
+6. text/binary heuristic 与内容探测
 ```
 
 ### 13.2 DetectedFormat
@@ -2612,7 +2626,7 @@ ZIP 内部判断：
 mimetype=application/epub+zip + META-INF/container.xml -> epub
 ```
 
-### 13.5 TOML / IPYNB 扩展检测
+### 13.5 TOML / IPYNB 检测
 
 ```text
 toml:
@@ -2655,15 +2669,16 @@ RoutePlanner selected_route
 
 ```text
 txt/csv/tsv/jsonl/ndjson -> streaming-event
-markdown -> dom-ast-model, over-limit -> block-streaming
-yaml/json/xml -> dom-ast-model, over-limit -> streaming-event
+markdown -> dom-ast-model, over-limit / explicit --stream -> block-streaming
+yaml/json/xml -> dom-ast-model, over-limit / explicit --stream -> streaming-event
 toml -> dom-ast-model
-ipynb -> dom-ast-model, over-limit -> block-streaming(cell/output-group)
-html -> dom-ast-model + readability/hybrid, over-limit -> block-streaming(section/subtree)
+ipynb -> dom-ast-model, over-limit / explicit --stream -> block-streaming(cell/output-group)
+html -> dom-ast-model + readability/hybrid, over-limit / explicit --stream -> block-streaming(section/subtree)
 docx/pptx -> package-single-pass
-xlsx -> package-single-pass, over-limit -> block-streaming(sheet/row/table-region)
+xlsx -> package-single-pass, over-limit / explicit --stream -> block-streaming(sheet/row/table-region)
 pdf -> page-single-pass, Accurate / explicit OCR -> layout-two-stage
 zip -> container-recursive
+epub -> package-single-pass, explicit --stream -> container-recursive
 ```
 
 Diagnostics 中必须记录：
@@ -3135,8 +3150,8 @@ pdf text-layer
 补充说明：
 
 ```text
-在当前主格式已经稳定的前提下，TOML 与 IPYNB 是最适合接入的下一批扩展格式：
-它们都可以复用既有 structured-text / notebook lowering 主链，而不需要推翻现有 parser mode 体系。
+在当前主格式已经稳定的前提下，TOML 与 IPYNB 已经进入正式支持矩阵，并且也是最适合继续做质量补强的一批结构化格式：
+它们都复用既有 structured-text / notebook lowering 主链，而不需要推翻现有 parser mode 体系。
 ```
 
 ### Phase 3：IR Pass 完善

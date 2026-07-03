@@ -14,6 +14,7 @@ pub struct CliOptions {
   fidelity_mode : @convert.FidelityMode
   convert_mode : @convert.ConvertMode
   output_mode : @convert.OutputMode
+  stream_requested : Bool
   output_format : @convert.OutputFormat
   pdf_cleanup_mode : @convert.PdfCleanupMode
   pdf_table_mode : @convert.PdfTableMode
@@ -22,28 +23,7 @@ pub struct CliOptions {
 
 ///|
 fn cli_is_supported_format(format : @input.DetectedFormat) -> Bool {
-  match format {
-    @input.DetectedFormat::Txt => true
-    @input.DetectedFormat::Markdown => true
-    @input.DetectedFormat::Csv => true
-    @input.DetectedFormat::Tsv => true
-    @input.DetectedFormat::Json => true
-    @input.DetectedFormat::Jsonl => true
-    @input.DetectedFormat::Ndjson => true
-    @input.DetectedFormat::Ipynb => true
-    @input.DetectedFormat::Xml => true
-    @input.DetectedFormat::Yaml => true
-    @input.DetectedFormat::Toml => true
-    @input.DetectedFormat::Html => true
-    @input.DetectedFormat::Zip => true
-    @input.DetectedFormat::Epub => true
-    @input.DetectedFormat::Pdf => true
-    @input.DetectedFormat::Docx => true
-    @input.DetectedFormat::Pptx => true
-    @input.DetectedFormat::Xlsx => true
-    @input.DetectedFormat::Image(_) => true
-    _ => false
-  }
+  @formats.cli_supported_for_format(format)
 }
 
 ///|
@@ -62,6 +42,27 @@ fn print_cli_version() -> Unit {
 }
 
 ///|
+#cfg(not(target="native"))
+fn cli_write_stderr(_message : String) -> Unit {
+  println(_message)
+}
+
+///|
+#cfg(target="native")
+#borrow(payload)
+extern "C" fn cli_write_stderr_ffi(payload : Bytes, payload_len : Int) = "markitdown_cli_write_stderr"
+
+///|
+#cfg(target="native")
+fn cli_write_stderr(message : String) -> Unit {
+  let payload = @utf8.encode(message)
+  if payload.length() == 0 {
+    return
+  }
+  cli_write_stderr_ffi(payload, payload.length())
+}
+
+///|
 fn print_cli_help() -> Unit {
   println("Convert documents to Markdown through the main CLI.")
 }
@@ -72,17 +73,20 @@ fn print_cli_usage() -> Unit {
   println(
     "  " +
     cli_product_name() +
-    " [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf|png|jpg|jpeg|bmp|webp|tif|tiff] [--accurate] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]",
+    " [convert|normal] [--format txt|csv|tsv|srt|vtt|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|eml|tex|latex|rst|adoc|asciidoc|zip|epub|odt|ods|odp|docx|xlsx|pptx|pdf|png|jpg|jpeg|bmp|webp|tif|tiff] [--accurate] [--stream] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]",
   )
   println("  " + cli_product_name() + " help | --help | -h")
   println("  " + cli_product_name() + " version | --version")
   println("")
   println(
-    "Supported product formats: txt, csv, tsv, json, jsonl, ndjson, ipynb, xml, yaml, yml, toml, html, htm, markdown, md, zip, epub, docx, xlsx, pptx, pdf, png, jpg, jpeg, bmp, webp, tif, tiff",
+    "Supported product formats: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, yml, toml, html, htm, markdown, md, eml, tex, latex, rst, adoc, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, png, jpg, jpeg, bmp, webp, tif, tiff",
   )
   println("All other formats fail closed in this build.")
   println(
     "`--accurate` upgrades fidelity while preserving the selected output mode.",
+  )
+  println(
+    "`--stream` explicitly requests a format's streaming or block-streaming route when the active parser supports one.",
   )
   println("`--debug` emits diagnostics through the debug JSON renderer.")
   println(
@@ -201,6 +205,31 @@ fn cli_requested_format_from_input(
 }
 
 ///|
+fn cli_explicit_stream_warning_message(
+  requested_format : @input.DetectedFormat,
+) -> String {
+  "warning: explicit --stream is not productized for `" +
+  @input.detected_format_name(requested_format) +
+  "` yet; falling back to the canonical route"
+}
+
+///|
+fn cli_emit_stream_warning_if_needed(
+  opts : CliOptions,
+  requested_format : @input.DetectedFormat,
+  execution : @convert.ConvertExecution,
+) -> Unit {
+  if !opts.stream_requested {
+    return
+  }
+  if execution.provenance.route_plan.route_reason !=
+    "explicit_stream_unsupported_fell_back" {
+    return
+  }
+  cli_write_stderr(cli_explicit_stream_warning_message(requested_format) + "\n")
+}
+
+///|
 fn cli_default_ocr_options(
   input_path : String,
   explicit_format : @input.DetectedFormat?,
@@ -258,6 +287,7 @@ pub fn make_cli_options(
   fidelity_mode : @convert.FidelityMode,
   convert_mode : @convert.ConvertMode,
   output_mode : @convert.OutputMode,
+  stream_requested : Bool,
   output_format : @convert.OutputFormat,
   pdf_cleanup_mode? : @convert.PdfCleanupMode = @convert.default_pdf_cleanup_mode(),
   pdf_table_mode? : @convert.PdfTableMode = @convert.default_pdf_table_mode(),
@@ -272,6 +302,7 @@ pub fn make_cli_options(
     fidelity_mode,
     convert_mode,
     output_mode,
+    stream_requested,
     output_format,
     pdf_cleanup_mode,
     pdf_table_mode,
@@ -318,6 +349,7 @@ pub fn run_cli_with_image_ocr_provider(
     @convert.default_resource_limits(),
     fidelity_mode=opts.fidelity_mode,
     output_mode=opts.output_mode,
+    stream_requested=opts.stream_requested,
     pdf_cleanup_mode=opts.pdf_cleanup_mode,
     pdf_table_mode=opts.pdf_table_mode,
     rag_options=opts.rag_options,
@@ -334,6 +366,7 @@ pub fn run_cli_with_image_ocr_provider(
   persist_cli_provenance(opts, execution.provenance) catch {
     err => return Err("write provenance failed: " + err.to_string())
   }
+  cli_emit_stream_warning_if_needed(opts, requested_format, execution)
   cli_render_convert_result(opts, execution.result)
 }
 
@@ -364,6 +397,7 @@ pub async fn run_cli_with_async_image_ocr_provider(
     @convert.default_resource_limits(),
     fidelity_mode=opts.fidelity_mode,
     output_mode=opts.output_mode,
+    stream_requested=opts.stream_requested,
     pdf_cleanup_mode=opts.pdf_cleanup_mode,
     pdf_table_mode=opts.pdf_table_mode,
     rag_options=opts.rag_options,
@@ -418,6 +452,7 @@ pub async fn run_cli_with_async_image_ocr_provider(
   persist_cli_provenance(opts, execution.provenance) catch {
     err => return Err("write provenance failed: " + err.to_string())
   }
+  cli_emit_stream_warning_if_needed(opts, requested_format, execution)
   cli_render_convert_result(opts, execution.result)
 }
 
@@ -644,6 +679,7 @@ fn parse_cli_options_from_index(
   let mut fidelity_mode = @convert.FidelityMode::Balanced
   let mut convert_mode = @convert.ConvertMode::Balanced
   let mut output_mode = @convert.OutputMode::Markdown
+  let mut stream_requested = false
   let mut output_format = @convert.OutputFormat::Markdown
   let mut i = start_index
 
@@ -666,7 +702,19 @@ fn parse_cli_options_from_index(
       continue
     }
     if arg == "--accurate" {
+      if stream_requested {
+        return Err("cannot combine --stream and --accurate")
+      }
       fidelity_mode = @convert.FidelityMode::Accurate
+      convert_mode = @convert.derived_convert_mode(fidelity_mode, output_mode)
+      i += 1
+      continue
+    }
+    if arg == "--stream" {
+      if fidelity_mode == @convert.FidelityMode::Accurate {
+        return Err("cannot combine --stream and --accurate")
+      }
+      stream_requested = true
       convert_mode = @convert.derived_convert_mode(fidelity_mode, output_mode)
       i += 1
       continue
@@ -761,7 +809,7 @@ fn parse_cli_options_from_index(
   }
   if positionals.length() < 1 || positionals.length() > 2 {
     return Err(
-      "usage: [convert|normal] [--format txt|csv|tsv|json|jsonl|ndjson|xml|yaml|yml|html|htm|markdown|md|zip|epub|docx|xlsx|pptx|pdf|png|jpg|jpeg|bmp|webp|tif|tiff] [--accurate] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]",
+      "usage: [convert|normal] [--format txt|csv|tsv|srt|vtt|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|eml|tex|latex|rst|adoc|asciidoc|zip|epub|odt|ods|odp|docx|xlsx|pptx|pdf|png|jpg|jpeg|bmp|webp|tif|tiff] [--accurate] [--stream] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]",
     )
   }
   let effective_positionals = positionals
@@ -813,6 +861,7 @@ fn parse_cli_options_from_index(
       fidelity_mode,
       convert_mode,
       output_mode,
+      stream_requested,
       output_format,
       pdf_cleanup_mode~,
       pdf_table_mode~,

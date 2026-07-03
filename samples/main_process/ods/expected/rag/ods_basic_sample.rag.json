@@ -1,0 +1,62 @@
+{
+  "output_format": "rag_json",
+  "detected_format": "ods",
+  "parser_mode": "package_single_pass",
+  "convert_mode": "rag",
+  "metadata_contains": {
+    "format": "ods",
+    "title": "ODS Sample",
+    "subject": "Regression Fixture",
+    "language": "en"
+  },
+  "diagnostics_contains": {
+    "parser_name": "ods_parser",
+    "metrics": {
+      "selected_route": "package_single_pass",
+      "effective_mode": "package_single_pass",
+      "builder_input_kind": "document",
+      "sheet_count": "2",
+      "visible_sheet_count": "1",
+      "hidden_sheet_count": "1"
+    }
+  },
+  "source_map": "required",
+  "chunk_count": {
+    "exact": 2
+  },
+  "chunks": [
+    {
+      "kind": "metadata",
+      "heading_path": [],
+      "source_ref_count": 0,
+      "asset_ref_count": 0,
+      "text_contains_all": [
+        "title: ODS Sample",
+        "subject: Regression Fixture"
+      ]
+    },
+    {
+      "kind": "table",
+      "heading_path": [
+        "Budget"
+      ],
+      "source_ref_count": 1,
+      "asset_ref_count": 0,
+      "text_contains_all": [
+        "| Item | Value |",
+        "| Alpha | 42 |"
+      ],
+      "location_contains": {
+        "container_paths": [
+          "ods_basic_sample.ods"
+        ],
+        "entry_paths": [
+          "content.xml"
+        ],
+        "sheets": [
+          "Budget"
+        ]
+      }
+    }
+  ]
+}

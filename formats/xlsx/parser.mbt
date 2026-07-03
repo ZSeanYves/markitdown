@@ -343,7 +343,7 @@ fn xlsx_parse_document_result_from_package(
   capability : @parser.ParserCapability,
   pkg : @ox.OoxmlPackage,
 ) -> @parser.ParseResult {
-  let diagnostics = @parser_common.empty_parser_diagnostics(
+  let diagnostics = @fshared.empty_parser_diagnostics(
     "xlsx_parser",
     @parser.ParserMode::PackageSinglePass,
     source,
@@ -533,7 +533,7 @@ fn xlsx_open_package_failed_result(
   capability : @parser.ParserCapability,
   err : String,
 ) -> @parser.ParseResult {
-  let diagnostics = @parser_common.empty_parser_diagnostics(
+  let diagnostics = @fshared.empty_parser_diagnostics(
     "xlsx_parser",
     @parser.ParserMode::PackageSinglePass,
     source,

@@ -343,10 +343,7 @@ fn lower_docx_blocks(
           @core.empty_source_ref(),
         ),
       )
-      list_block.attrs.set(
-        "ordered",
-        @parser_common.bool_string(current.ordered),
-      )
+      list_block.attrs.set("ordered", @fshared.bool_string(current.ordered))
       list_block.children.append(current.items[:])
       match list_stack.last() {
         Some(parent) =>
@@ -518,7 +515,7 @@ fn lower_docx_paragraph_block(
       } else {
         item0
       }
-      item.attrs.set("ordered", @parser_common.bool_string(ordered))
+      item.attrs.set("ordered", @fshared.bool_string(ordered))
       if ordered {
         item.attrs.set("stable_ordered_marker", "true")
       }

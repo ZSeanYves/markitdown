@@ -268,14 +268,11 @@ fn xlsx_init_diagnostics(
 ) -> Unit {
   diagnostics.metrics.set("parser_name", "xlsx_parser")
   diagnostics.metrics.set("parser_mode", "package_single_pass")
-  diagnostics.metrics.set(
-    "input_kind",
-    @parser_common.input_kind_name(source.kind),
-  )
+  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
   diagnostics.metrics.set("detected_format", "xlsx")
   diagnostics.metrics.set(
     "requested_mode",
-    @parser_common.requested_mode_name(context),
+    @fshared.requested_mode_name(context),
   )
   diagnostics.metrics.set("effective_mode", "package_single_pass")
   diagnostics.metrics.set("ir_input_kind", "document")
@@ -352,7 +349,7 @@ fn xlsx_init_diagnostics(
   )
   diagnostics.metrics.set("max_materialized_assets", "0")
   diagnostics.metrics.set("native_impl_location", "formats/xlsx")
-  @parser_common.apply_product_metrics(diagnostics, "xlsx")
+  @fshared.apply_product_metrics(diagnostics, "xlsx")
 }
 
 ///|

@@ -941,7 +941,7 @@ fn malformed_json_parse_result(
     Some(source.source_name),
     Some(format_name),
     Some(1),
-    Some(@parser_common.count_physical_lines(text)),
+    Some(@fshared.count_physical_lines(text)),
   )
   let block = @core.make_block(@core.BlockKind::Code, text, source_ref~)
   block.attrs.set("info", format_name)
@@ -955,10 +955,7 @@ fn malformed_json_parse_result(
     "parser_mode",
     @parser.mode_name(capability.parser_mode),
   )
-  diagnostics.metrics.set(
-    "input_kind",
-    @parser_common.input_kind_name(source.kind),
-  )
+  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
   diagnostics.metrics.set("detected_format", format_name)
   diagnostics.metrics.set("json_valid", "false")
   diagnostics.metrics.set("record_count", "0")
@@ -1172,7 +1169,7 @@ fn table_events_from_rows(
 
 ///|
 fn count_json_tables(document : @core.DocumentIR) -> Int {
-  @parser_common.count_blocks_by_kind(document.blocks, @core.BlockKind::Table)
+  @fshared.count_blocks_by_kind(document.blocks, @core.BlockKind::Table)
 }
 
 ///|

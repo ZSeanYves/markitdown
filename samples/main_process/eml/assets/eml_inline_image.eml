@@ -1,0 +1,20 @@
+From: Asset Sender <assets@example.com>
+To: Asset Receiver <receiver@example.com>
+Subject: Inline Image
+Date: Tue, 02 Jul 2026 10:20:00 +0800
+Message-ID: <inline-image@example.com>
+MIME-Version: 1.0
+Content-Type: multipart/related; boundary="rel-1"
+
+--rel-1
+Content-Type: text/plain; charset="utf-8"
+
+See the inline image below.
+--rel-1
+Content-Type: image/png; name="dot.png"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline; filename="dot.png"
+Content-ID: <dot-1>
+
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7Z0MsAAAAASUVORK5CYII=
+--rel-1--

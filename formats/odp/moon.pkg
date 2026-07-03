@@ -1,0 +1,15 @@
+import {
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/x/codec/base64",
+  "ZSeanYves/markitdown/format_readers/odf/odp" @dodf,
+  "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/formats/shared" @fshared,
+  "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/parser",
+}
+
+supported_targets = "native"
+
+options(
+  "preferred-target": "native",
+)

@@ -7,6 +7,16 @@ pub fn register_builtin_parsers(registry : @parser.ParserRegistry) -> Unit {
   )
   @parser.registry_register(
     registry,
+    @input.DetectedFormat::Srt,
+    @fsrt.srt_parser(),
+  )
+  @parser.registry_register(
+    registry,
+    @input.DetectedFormat::Vtt,
+    @fvtt.vtt_parser(),
+  )
+  @parser.registry_register(
+    registry,
     @input.DetectedFormat::Markdown,
     @fmarkdown.markdown_parser(),
   )
@@ -57,8 +67,28 @@ pub fn register_builtin_parsers(registry : @parser.ParserRegistry) -> Unit {
   )
   @parser.registry_register(
     registry,
+    @input.DetectedFormat::Tex,
+    @ftex.tex_parser(),
+  )
+  @parser.registry_register(
+    registry,
+    @input.DetectedFormat::Rst,
+    @frst.rst_parser(),
+  )
+  @parser.registry_register(
+    registry,
+    @input.DetectedFormat::Asciidoc,
+    @fasciidoc.asciidoc_parser(),
+  )
+  @parser.registry_register(
+    registry,
     @input.DetectedFormat::Html,
     @fhtml.html_parser(),
+  )
+  @parser.registry_register(
+    registry,
+    @input.DetectedFormat::Eml,
+    @feml.eml_parser_with_registry(fn() { builtin_registry() }),
   )
   @parser.registry_register(
     registry,
@@ -68,7 +98,22 @@ pub fn register_builtin_parsers(registry : @parser.ParserRegistry) -> Unit {
   @parser.registry_register(
     registry,
     @input.DetectedFormat::Epub,
-    @fepub.epub_package_parser(fn() { builtin_registry() }),
+    @fepub.epub_parser(fn() { builtin_registry() }),
+  )
+  @parser.registry_register(
+    registry,
+    @input.DetectedFormat::Odt,
+    @fodt.odt_parser(),
+  )
+  @parser.registry_register(
+    registry,
+    @input.DetectedFormat::Ods,
+    @fods.ods_parser(),
+  )
+  @parser.registry_register(
+    registry,
+    @input.DetectedFormat::Odp,
+    @fodp.odp_parser(),
   )
   @parser.registry_register(
     registry,

@@ -11,6 +11,7 @@ CLI_PACKAGE="cli"
 CLI_MODULE_ROOT=""
 CLI_NATIVE_BUILD_ATTEMPTED=0
 CLI_NATIVE_BUILD_ATTEMPTED_PACKAGE=""
+CLI_STALENESS_SENTINEL=""
 
 runner_class_for_kind() {
   case "${1-}" in
@@ -77,7 +78,11 @@ resolve_markitdown_package_cli() {
 
   if build_markitdown_cli_native_once "$package"; then
     if resolve_probe_validated_native_cli_with_retries "$package" 25; then
-      CLI_RUNNER_NOTE="built native CLI once via moon build $package --target native"
+      if [[ -n "$CLI_STALENESS_SENTINEL" ]]; then
+        CLI_RUNNER_NOTE="rebuilt stale native CLI because $(basename "$CLI_STALENESS_SENTINEL") was newer than the binary"
+      else
+        CLI_RUNNER_NOTE="built native CLI once via moon build $package --target native"
+      fi
       return 0
     fi
   fi
@@ -125,12 +130,41 @@ $CLI_MODULE_ROOT/target/native/release/build/$package/$package
 EOF
 }
 
+native_cli_staleness_sentinel() {
+  local package="${1-}"
+  case "$package" in
+    cli)
+      printf '%s' "$ROOT/cli/cli.mbt"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+native_cli_is_fresh_enough() {
+  local candidate="${1-}"
+  local package="${2-}"
+  local sentinel
+  sentinel="$(native_cli_staleness_sentinel "$package")" || return 0
+  [[ -f "$candidate" && -f "$sentinel" ]] || return 0
+  if [[ "$candidate" -nt "$sentinel" ]]; then
+    CLI_STALENESS_SENTINEL=""
+    return 0
+  fi
+  CLI_STALENESS_SENTINEL="$sentinel"
+  return 1
+}
+
 resolve_probe_validated_native_cli() {
   local package="${1-}"
   local candidate
   while IFS= read -r candidate; do
     [[ -n "$candidate" ]] || continue
     [[ -x "$candidate" ]] || continue
+    if ! native_cli_is_fresh_enough "$candidate" "$package"; then
+      continue
+    fi
     if probe_markitdown_cli "$package" "$candidate"; then
       CLI_RUNNER_KIND="prebuilt-native"
       CLI_BIN="$candidate"
@@ -221,7 +255,9 @@ probe_markitdown_cli() {
     local help_out
     help_out="$(MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" --help 2>&1)" || status=1
     if [[ "$status" -eq 0 ]]; then
-      if ! grep -Fq -- 'Supported product formats: txt, csv, tsv, json, jsonl, ndjson, ipynb, xml' <<<"$help_out"; then
+      if ! grep -Fq -- 'Supported product formats: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml' <<<"$help_out"; then
+        status=1
+      elif ! grep -Fq -- 'odt' <<<"$help_out"; then
         status=1
       elif ! grep -Fq -- '--accurate' <<<"$help_out"; then
         status=1
@@ -300,14 +336,15 @@ validation_progress_zero() {
 }
 
 validation_progress_done() {
+  local status="${1:-done}"
   if [[ "${VALIDATION_TOTAL:-0}" -eq 0 ]]; then
     return
   fi
   if validation_bool_enabled "$SAMPLES_VERBOSE"; then
-    echo "progress: $VALIDATION_CURRENT/$VALIDATION_TOTAL done"
+    echo "progress: $VALIDATION_CURRENT/$VALIDATION_TOTAL $status"
     return
   fi
-  sample_progress_finish "$VALIDATION_CURRENT" "$VALIDATION_TOTAL" "done"
+  sample_progress_finish "$VALIDATION_CURRENT" "$VALIDATION_TOTAL" "$status"
 }
 
 validation_record_failure() {

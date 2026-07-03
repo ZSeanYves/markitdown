@@ -1,0 +1,78 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/formats/shared"
+
+import {
+  "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/parser",
+}
+
+// Values
+pub fn apply_product_metrics(@core.Diagnostics, String) -> Unit
+
+pub fn bool_string(Bool) -> String
+
+pub fn clamp_int(Int, Int, Int) -> Int
+
+pub fn count_blocks_by_kind(Array[@core.CoreBlock], @core.BlockKind) -> Int
+
+pub fn count_physical_lines(String) -> Int
+
+pub fn csv_parser() -> @parser.Parser
+
+pub fn empty_parser_diagnostics(String, @parser.ParserMode, @input.InputSource, String) -> @core.Diagnostics
+
+pub fn init_parser_count_metrics(@core.Diagnostics, warning_count? : String, degraded_feature_count? : String, fallback_count? : String, asset_count? : String) -> Unit
+
+pub fn init_parser_product_mode_metrics(@core.Diagnostics, @parser.ParseContext) -> Unit
+
+pub fn init_parser_route_metrics(@core.Diagnostics, @input.InputSource, @parser.ParseContext, String, String, @parser.ParserMode, @parser.ParserMode, String, String, String) -> Unit
+
+pub fn init_parser_route_metrics_with_granularity(@core.Diagnostics, @input.InputSource, @parser.ParseContext, String, String, @parser.ParserMode, @parser.ParserMode, String, @parser.StreamingGranularity, String) -> Unit
+
+pub fn input_kind_name(@input.InputKind) -> String
+
+pub fn lower_text_markup_document(@ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupDocument, @input.InputSource, @core.Diagnostics, TextMarkupHooks) -> @core.DocumentIR
+
+pub fn make_text_markup_hooks(String, String, @ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupFormat, (String) -> @ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupDocument, (@ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupBlock, String) -> String, (@ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupBlock, @core.SourceRef, String) -> @core.CoreBlock?) -> TextMarkupHooks
+
+pub fn max_int(Int, Int) -> Int
+
+pub fn min_int(Int, Int) -> Int
+
+pub fn parse_text_markup_result(@input.InputSource, @parser.ParseContext, TextMarkupHooks) -> Result[@parser.ParseResult, String]
+
+pub fn refresh_parser_count_metrics(@core.Diagnostics, String) -> Unit
+
+pub fn requested_mode_name(@parser.ParseContext) -> String
+
+pub fn text_markup_block_with_inlines(@core.CoreBlock, String, @ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupFormat) -> @core.CoreBlock
+
+pub fn text_markup_inlines(String, @ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupFormat) -> Array[@core.CoreInline]
+
+pub fn text_markup_parser_capability() -> @parser.ParserCapability
+
+pub fn text_markup_source_ref(@input.InputSource, String, Int, Int) -> @core.SourceRef
+
+pub fn text_markup_table_block(@ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupTable, @core.SourceRef, String, @ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupFormat) -> @core.CoreBlock
+
+pub fn text_markup_table_row(Array[String], @core.SourceRef, @ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupFormat) -> @core.CoreBlock
+
+pub fn tsv_parser() -> @parser.Parser
+
+// Errors
+
+// Types and methods
+pub struct TextMarkupHooks {
+  parser_name : String
+  format_name : String
+  format : @ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupFormat
+  parse_document : (String) -> @ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupDocument
+  quote_text : (@ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupBlock, String) -> String
+  semantic_raw_block : (@ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupBlock, @core.SourceRef, String) -> @core.CoreBlock?
+}
+
+// Type aliases
+
+// Traits
+

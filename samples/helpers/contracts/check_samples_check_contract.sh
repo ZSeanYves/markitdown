@@ -8,7 +8,7 @@ OUT_DIR="$(mktemp -d "$TMP_ROOT/check_contract.XXXXXX")"
 trap 'status=$?; rm -rf "$OUT_DIR"; exit "$status"' EXIT
 
 # Architecture/doc guard anchors:
-# formats=txt,csv,tsv,json,jsonl,ndjson,ipynb,xml,yaml,toml,html,markdown,zip,epub,docx,xlsx,pptx,pdf,ocr
+# formats=txt,csv,tsv,srt,vtt,json,jsonl,ndjson,ipynb,xml,yaml,toml,html,markdown,eml,tex,rst,asciidoc,zip,epub,odt,ods,odp,docx,xlsx,pptx,pdf,ocr
 # formats=markdown
 # formats=docx
 # formats=xlsx

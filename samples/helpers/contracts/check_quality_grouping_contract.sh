@@ -22,6 +22,8 @@ QUALITY_ROOT="$OUT_DIR/external_quality"
 mkdir -p "$QUALITY_ROOT/shared"
 printf 'shared input\n' > "$QUALITY_ROOT/shared/shared.txt"
 printf 'fail input\n' > "$QUALITY_ROOT/shared/fail.txt"
+printf 'pngish\n' > "$QUALITY_ROOT/shared/shared.png"
+printf 'msgish\n' > "$QUALITY_ROOT/shared/shared.msg"
 
 MANIFEST="$QUALITY_ROOT/MANIFEST.tsv"
 cat >"$MANIFEST" <<'EOF'
@@ -32,6 +34,8 @@ dup_row_b	txt	external_quality/shared/shared.txt	file	contract_source	ok	approve
 accurate_row	txt	external_quality/shared/shared.txt	file	contract_source	ok	approved	public	small	test;accurate	contains:Alpha	gate			accurate flag row
 fail_row	txt	external_quality/shared/fail.txt	file	contract_source	ok	approved	public	small	test	contains:ignored	gate			shared failure row
 fail_known_bad	txt	external_quality/shared/fail.txt	file	contract_source	ok	approved	public	small	test	contains:ignored	known_bad			shared failure known bad
+ocr_row	ocr	external_quality/shared/shared.png	file	contract_source	ok	approved	public	small	test	contains:Alpha	gate			ocr pseudo-format row
+eml_row	eml	external_quality/shared/shared.msg	file	contract_source	ok	approved	public	small	test	contains:Alpha	gate			eml alias row
 EOF
 
 STUB_LOG="$OUT_DIR/stub.log"
@@ -54,6 +58,9 @@ if [[ "$mode" == "normal" ]]; then
     case "${1-}" in
       --accurate)
         shift
+        ;;
+      --format)
+        shift 2
         ;;
       *)
         break
@@ -114,22 +121,24 @@ NONPASS_MD="$RUN_DIR/reports/nonpass.md"
 [[ -d "$ROW_REPORTS" ]] || fail "missing row reports dir"
 
 assert_contains "$RUN_LOG" "skip_no_signals: 1"
-assert_contains "$RUN_LOG" "selected_rows: 6"
-assert_contains "$RUN_LOG" "executable_rows: 5"
-assert_contains "$RUN_LOG" "artifact_groups: 3"
+assert_contains "$RUN_LOG" "selected_rows: 8"
+assert_contains "$RUN_LOG" "executable_rows: 7"
+assert_contains "$RUN_LOG" "artifact_groups: 5"
 assert_contains "$SUMMARY_TSV" $'blank_row\ttxt\texternal\tgate\tskip_no_signals\t0\t0\tno executable signals configured'
 assert_contains "$SUMMARY_TSV" $'dup_row_a\ttxt\texternal\tgate\tpass\t2\t2\tall signals passed'
 assert_contains "$SUMMARY_TSV" $'dup_row_b\ttxt\texternal\treference\tpass\t1\t1\tall signals passed'
 assert_contains "$SUMMARY_TSV" $'accurate_row\ttxt\texternal\tgate\tpass\t1\t1\tall signals passed'
 assert_contains "$SUMMARY_TSV" $'fail_row\ttxt\texternal\tgate\tfail\t0\t0\tcli conversion failed: stub forced failure'
 assert_contains "$SUMMARY_TSV" $'fail_known_bad\ttxt\texternal\tknown_bad\texpected_fail\t0\t0\texpected converter failure: cli conversion failed: stub forced failure'
+assert_contains "$SUMMARY_TSV" $'ocr_row\tocr\texternal\tgate\tpass\t1\t1\tall signals passed'
+assert_contains "$SUMMARY_TSV" $'eml_row\teml\texternal\tgate\tpass\t1\t1\tall signals passed'
 assert_contains "$SUMMARY_TSV" $'SKIPPED_NO_SIGNALS\t-\t-\t-\t-\t1\t-\tskipped because the row had no executable signals'
-assert_contains "$SUMMARY_TSV" $'SELECTED_ROWS\t-\t-\t-\t-\t0\t0\t6'
-assert_contains "$SUMMARY_TSV" $'EXECUTABLE_ROWS\t-\t-\t-\t-\t0\t0\t5'
-assert_contains "$SUMMARY_TSV" $'ARTIFACT_GROUPS\t-\t-\t-\t-\t0\t0\t3'
-assert_contains "$SUMMARY_MD" "- selected_rows: 6"
-assert_contains "$SUMMARY_MD" "- executable_rows: 5"
-assert_contains "$SUMMARY_MD" "- artifact_groups: 3"
+assert_contains "$SUMMARY_TSV" $'SELECTED_ROWS\t-\t-\t-\t-\t0\t0\t8'
+assert_contains "$SUMMARY_TSV" $'EXECUTABLE_ROWS\t-\t-\t-\t-\t0\t0\t7'
+assert_contains "$SUMMARY_TSV" $'ARTIFACT_GROUPS\t-\t-\t-\t-\t0\t0\t5'
+assert_contains "$SUMMARY_MD" "- selected_rows: 8"
+assert_contains "$SUMMARY_MD" "- executable_rows: 7"
+assert_contains "$SUMMARY_MD" "- artifact_groups: 5"
 assert_contains "$SUMMARY_MD" "- skip_no_signals: 1"
 assert_contains "$NONPASS_MD" "fail_row"
 assert_contains "$NONPASS_MD" "fail_known_bad"
@@ -138,10 +147,15 @@ assert_contains "$NONPASS_MD" "fail_known_bad"
 [[ -f "$ROW_REPORTS/fail_known_bad.md" ]] || fail "expected fail_known_bad report"
 
 call_count="$(wc -l < "$STUB_LOG" | tr -d '[:space:]')"
-[[ "$call_count" == "3" ]] || fail "expected 3 stub invocations (artifact groups only), got $call_count"
+[[ "$call_count" == "5" ]] || fail "expected 5 stub invocations (artifact groups only), got $call_count"
 grep -F -- '--accurate' "$STUB_LOG" >/dev/null || fail "expected one grouped conversion to include --accurate"
+if grep -F -- '--format ocr' "$STUB_LOG" >/dev/null; then
+  fail "ocr pseudo-format row must not pass unsupported --format ocr to the CLI"
+fi
+grep -F -- '--format eml' "$STUB_LOG" >/dev/null || fail "expected eml alias row to pass --format eml"
+grep -F -- '--format png' "$STUB_LOG" >/dev/null || fail "expected ocr pseudo-format row to pass an image format"
 
 shared_artifact_md_count="$(find "$RUN_DIR/raw/outputs" -mindepth 2 -type f -name 'result.md' | wc -l | tr -d '[:space:]')"
-[[ "$shared_artifact_md_count" == "2" ]] || fail "expected exactly two successful shared artifact markdown files (balanced + accurate), got $shared_artifact_md_count"
+[[ "$shared_artifact_md_count" == "4" ]] || fail "expected exactly four successful shared artifact markdown files (balanced + accurate + ocr artifact + eml alias artifact), got $shared_artifact_md_count"
 
 echo "QUALITY GROUPING CONTRACT PASSED"

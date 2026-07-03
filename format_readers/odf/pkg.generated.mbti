@@ -1,0 +1,81 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/format_readers/odf"
+
+import {
+  "ZSeanYves/markitdown/format_readers/odf/shared",
+}
+
+// Values
+pub fn inspect_odp_document(@shared.OdpDocument) -> @shared.OdpInspectReport
+
+pub fn inspect_ods_document(@shared.OdsDocument) -> @shared.OdsInspectReport
+
+pub fn inspect_odt_document(@shared.OdtDocument) -> @shared.OdtInspectReport
+
+pub fn inspect_odt_package(Bytes) -> @shared.OdfPackageInfo raise
+
+pub fn open_odp_document(Bytes) -> @shared.OdpDocument raise
+
+pub fn open_ods_document(Bytes) -> @shared.OdsDocument raise
+
+pub fn open_odt_document(Bytes) -> @shared.OdtDocument raise
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+pub using @shared {type OdfDocumentKind}
+
+pub using @shared {type OdfError}
+
+pub using @shared {type OdfMetadataSummary}
+
+pub using @shared {type OdfPackageInfo}
+
+pub using @shared {type OdpBlockKind}
+
+pub using @shared {type OdpDocument}
+
+pub using @shared {type OdpImageRef}
+
+pub using @shared {type OdpInspectReport}
+
+pub using @shared {type OdpSlide}
+
+pub using @shared {type OdpSlideBlock}
+
+pub using @shared {type OdpTableCell}
+
+pub using @shared {type OdpTableRow}
+
+pub using @shared {type OdsCell}
+
+pub using @shared {type OdsDocument}
+
+pub using @shared {type OdsInspectReport}
+
+pub using @shared {type OdsRow}
+
+pub using @shared {type OdsSheet}
+
+pub using @shared {type OdtBlock}
+
+pub using @shared {type OdtBlockKind}
+
+pub using @shared {type OdtDocument}
+
+pub using @shared {type OdtImageRef}
+
+pub using @shared {type OdtInline}
+
+pub using @shared {type OdtInspectReport}
+
+pub using @shared {type OdtNote}
+
+pub using @shared {type OdtTableCell}
+
+pub using @shared {type OdtTableRow}
+
+// Traits
+

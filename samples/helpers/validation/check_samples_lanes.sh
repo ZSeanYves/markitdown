@@ -36,10 +36,16 @@ discover_samples() {
     pdf) find "$in_dir" -type f -name "*.pdf" -print ;;
     xlsx) find "$in_dir" -type f -name "*.xlsx" -print ;;
     pptx) find "$in_dir" -type f -name "*.pptx" -print ;;
+    odt) find "$in_dir" -type f -name "*.odt" -print ;;
+    ods) find "$in_dir" -type f -name "*.ods" -print ;;
+    odp) find "$in_dir" -type f -name "*.odp" -print ;;
+    eml) find "$in_dir" -type f -name "*.eml" -print ;;
     html) find "$in_dir" -type f \( -name "*.html" -o -name "*.htm" \) -print ;;
     csv) find "$in_dir" -type f -name "*.csv" -print ;;
     tsv) find "$in_dir" -type f -name "*.tsv" -print ;;
     txt) find "$in_dir" -type f -name "*.txt" -print ;;
+    srt) find "$in_dir" -type f -name "*.srt" -print ;;
+    vtt) find "$in_dir" -type f -name "*.vtt" -print ;;
     xml) find "$in_dir" -type f -name "*.xml" -print ;;
     json) find "$in_dir" -type f -name "*.json" -print ;;
     jsonl) find "$in_dir" -type f -name "*.jsonl" -print ;;
@@ -48,6 +54,9 @@ discover_samples() {
     yaml) find "$in_dir" -type f \( -name "*.yaml" -o -name "*.yml" \) -print ;;
     toml) find "$in_dir" -type f -name "*.toml" -print ;;
     markdown) find "$in_dir" -type f \( -name "*.md" -o -name "*.markdown" \) -print ;;
+    tex) find "$in_dir" -type f -name "*.tex" -print ;;
+    rst) find "$in_dir" -type f -name "*.rst" -print ;;
+    asciidoc) find "$in_dir" -type f \( -name "*.adoc" -o -name "*.asciidoc" \) -print ;;
     zip) find "$in_dir" -type f -name "*.zip" -print ;;
     epub) find "$in_dir" -type f -name "*.epub" -print ;;
     ocr) find "$in_dir" -type f \( -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" -o -name "*.bmp" -o -name "*.webp" -o -name "*.tif" -o -name "*.tiff" \) -print ;;

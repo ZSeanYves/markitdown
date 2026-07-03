@@ -34,6 +34,8 @@ pub fn with_bytes_payload(InputSource, Bytes) -> InputSource
 
 pub fn with_explicit_format(InputSource, DetectedFormat?) -> InputSource
 
+pub fn with_mime_type(InputSource, String?) -> InputSource
+
 pub fn with_text_payload(InputSource, String) -> InputSource
 
 // Errors
@@ -44,6 +46,8 @@ pub(all) enum DetectedFormat {
   Markdown
   Csv
   Tsv
+  Srt
+  Vtt
   Json
   Jsonl
   Ndjson
@@ -52,8 +56,15 @@ pub(all) enum DetectedFormat {
   Yaml
   Toml
   Html
+  Tex
+  Rst
+  Asciidoc
+  Eml
   Zip
   Epub
+  Odt
+  Ods
+  Odp
   Pdf
   Docx
   Pptx
@@ -97,6 +108,7 @@ pub struct InputSource {
   path : String?
   text : String?
   bytes : Bytes?
+  mime_type : String?
   explicit_format : DetectedFormat?
 }
 

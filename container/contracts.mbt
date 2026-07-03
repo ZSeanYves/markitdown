@@ -35,8 +35,9 @@ pub fn container_asset_copy_policy_reject_unsafe_path() -> ContainerAssetCopyPol
 ///|
 pub fn container_supported_inner_formats() -> Array[String] {
   [
-    "txt", "csv", "tsv", "json", "jsonl", "ndjson", "xml", "yaml", "yml", "toml",
-    "html", "htm", "markdown", "md", "epub",
+    "txt", "csv", "tsv", "srt", "vtt", "json", "jsonl", "ndjson", "ipynb", "xml",
+    "yaml", "yml", "toml", "html", "htm", "markdown", "md", "tex", "latex", "rst",
+    "adoc", "asciidoc", "eml", "epub", "odt", "ods", "odp",
   ]
 }
 
@@ -52,14 +53,24 @@ pub fn container_supports_inner_format(format : @input.DetectedFormat) -> Bool {
     @input.DetectedFormat::Markdown => true
     @input.DetectedFormat::Csv => true
     @input.DetectedFormat::Tsv => true
+    @input.DetectedFormat::Srt => true
+    @input.DetectedFormat::Vtt => true
     @input.DetectedFormat::Json => true
     @input.DetectedFormat::Jsonl => true
     @input.DetectedFormat::Ndjson => true
+    @input.DetectedFormat::Ipynb => true
     @input.DetectedFormat::Xml => true
     @input.DetectedFormat::Yaml => true
     @input.DetectedFormat::Toml => true
     @input.DetectedFormat::Html => true
+    @input.DetectedFormat::Tex => true
+    @input.DetectedFormat::Rst => true
+    @input.DetectedFormat::Asciidoc => true
+    @input.DetectedFormat::Eml => true
     @input.DetectedFormat::Epub => true
+    @input.DetectedFormat::Odt => true
+    @input.DetectedFormat::Ods => true
+    @input.DetectedFormat::Odp => true
     _ => false
   }
 }

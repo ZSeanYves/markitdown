@@ -40,6 +40,28 @@ fn read_probe_bytes(
 }
 
 ///|
+fn explicit_stream_route_or(
+  format : @input.DetectedFormat,
+  fallback : CanonicalRoute,
+) -> CanonicalRoute {
+  match @formats.explicit_stream_route_for_format(format) {
+    Some(route) => route
+    None => fallback
+  }
+}
+
+///|
+fn over_limit_route_or(
+  format : @input.DetectedFormat,
+  fallback : CanonicalRoute,
+) -> CanonicalRoute {
+  match @formats.over_limit_route_for_format(format) {
+    Some(route) => route
+    None => fallback
+  }
+}
+
+///|
 fn markdown_preflight_probe(
   source : @input.InputSource,
   format : @input.DetectedFormat,
@@ -65,14 +87,18 @@ fn markdown_preflight_probe(
   let char_limit = options.limits.max_line_chars
   let list_limit = options.limits.max_cols
   let list_pressure = inspect.list_item_count > list_limit
-  let route = if probe_limit_reached(inspect.block_count, block_limit) ||
+  let route = if options.stream_requested {
+    explicit_stream_route_or(format, CanonicalRoute::BlockStreaming)
+  } else if probe_limit_reached(inspect.block_count, block_limit) ||
     probe_limit_reached(text.length(), char_limit) ||
     list_pressure {
-    CanonicalRoute::BlockStreaming
+    over_limit_route_or(format, CanonicalRoute::BlockStreaming)
   } else {
     CanonicalRoute::DomAstModel
   }
-  let reason = if route == CanonicalRoute::BlockStreaming {
+  let reason = if options.stream_requested {
+    "explicit_stream_mode"
+  } else if route == CanonicalRoute::BlockStreaming {
     "markdown_over_limit_block_streaming"
   } else {
     "markdown_within_dom_budget"
@@ -122,26 +148,32 @@ fn json_preflight_probe(
   let streamed = try @djson.parse_json_stream(text) |> Ok catch {
     _ => Err(())
   }
-  let route = match streamed {
-    Ok(stream) =>
-      if probe_limit_reached(
-          stream.summary.object_count,
-          options.limits.max_rows,
-        ) ||
-        probe_limit_reached(stream.summary.max_depth, options.limits.max_rows) ||
-        probe_limit_reached(
-          stream.summary.object_count +
-          stream.summary.array_count +
-          stream.summary.scalar_count,
-          options.limits.max_cells,
-        ) {
-        CanonicalRoute::StreamingEvent
-      } else {
-        CanonicalRoute::DomAstModel
-      }
-    Err(_) => CanonicalRoute::DomAstModel
+  let route = if options.stream_requested {
+    explicit_stream_route_or(format, CanonicalRoute::StreamingEvent)
+  } else {
+    match streamed {
+      Ok(stream) =>
+        if probe_limit_reached(
+            stream.summary.object_count,
+            options.limits.max_rows,
+          ) ||
+          probe_limit_reached(stream.summary.max_depth, options.limits.max_rows) ||
+          probe_limit_reached(
+            stream.summary.object_count +
+            stream.summary.array_count +
+            stream.summary.scalar_count,
+            options.limits.max_cells,
+          ) {
+          over_limit_route_or(format, CanonicalRoute::StreamingEvent)
+        } else {
+          CanonicalRoute::DomAstModel
+        }
+      Err(_) => CanonicalRoute::DomAstModel
+    }
   }
-  let reason = if route == CanonicalRoute::StreamingEvent {
+  let reason = if options.stream_requested {
+    "explicit_stream_mode"
+  } else if route == CanonicalRoute::StreamingEvent {
     "json_over_limit_streaming_event"
   } else {
     "json_within_dom_budget"
@@ -205,23 +237,29 @@ fn yaml_preflight_probe(
   let parsed = try @dyaml.parse_yaml_structure_events(text) |> Ok catch {
     _ => Err(())
   }
-  let route = match parsed {
-    Ok(events) => {
-      let inspect = @dyaml.inspect_yaml_structure_events(events)
-      let text_budget = inspect.scalar_count +
-        inspect.mapping_count +
-        inspect.sequence_count
-      if probe_limit_reached(inspect.node_count, options.limits.max_cells) ||
-        probe_limit_reached(inspect.max_depth, options.limits.max_rows) ||
-        text_budget > options.limits.max_cells / 8 {
-        CanonicalRoute::StreamingEvent
-      } else {
-        CanonicalRoute::DomAstModel
+  let route = if options.stream_requested {
+    explicit_stream_route_or(format, CanonicalRoute::StreamingEvent)
+  } else {
+    match parsed {
+      Ok(events) => {
+        let inspect = @dyaml.inspect_yaml_structure_events(events)
+        let text_budget = inspect.scalar_count +
+          inspect.mapping_count +
+          inspect.sequence_count
+        if probe_limit_reached(inspect.node_count, options.limits.max_cells) ||
+          probe_limit_reached(inspect.max_depth, options.limits.max_rows) ||
+          text_budget > options.limits.max_cells / 8 {
+          over_limit_route_or(format, CanonicalRoute::StreamingEvent)
+        } else {
+          CanonicalRoute::DomAstModel
+        }
       }
+      Err(_) => CanonicalRoute::DomAstModel
     }
-    Err(_) => CanonicalRoute::DomAstModel
   }
-  let reason = if route == CanonicalRoute::StreamingEvent {
+  let reason = if options.stream_requested {
+    "explicit_stream_mode"
+  } else if route == CanonicalRoute::StreamingEvent {
     "yaml_over_limit_streaming_event"
   } else {
     "yaml_within_dom_budget"
@@ -283,17 +321,18 @@ fn toml_preflight_probe(
         artifact=None,
       )
   }
+  let route = CanonicalRoute::DomAstModel
   canonical_preflight_probe(
     format,
-    CanonicalRoute::DomAstModel,
-    "toml_dom_ast_model_canonical",
+    route,
+    route_reason_for_format(format, options, route),
     "toml",
     [
       "chars=" + text.length().to_string(),
-      "lines=" + @parser_common.count_physical_lines(text).to_string(),
+      "lines=" + @fshared.count_physical_lines(text).to_string(),
       "max_rows=" + options.limits.max_rows.to_string(),
       "max_cells=" + options.limits.max_cells.to_string(),
-      "route=dom_ast_model",
+      "route=" + canonical_route_name(route),
     ],
     prepared_source,
     artifact=None,
@@ -323,23 +362,29 @@ fn ipynb_preflight_probe(
   let parsed = try @dipynb.parse_ipynb_notebook(text) |> Ok catch {
     _ => Err(())
   }
-  let route = match parsed {
-    Ok(notebook) => {
-      let inspect = @dipynb.inspect_ipynb_notebook(notebook)
-      let structural_budget = inspect.cell_count +
-        inspect.output_count +
-        inspect.attachment_count
-      if probe_limit_reached(inspect.cell_count, options.limits.max_rows) ||
-        probe_limit_reached(structural_budget, options.limits.max_cells) ||
-        probe_limit_reached(text.length(), options.limits.max_line_chars) {
-        CanonicalRoute::BlockStreaming
-      } else {
-        CanonicalRoute::DomAstModel
+  let route = if options.stream_requested {
+    explicit_stream_route_or(format, CanonicalRoute::BlockStreaming)
+  } else {
+    match parsed {
+      Ok(notebook) => {
+        let inspect = @dipynb.inspect_ipynb_notebook(notebook)
+        let structural_budget = inspect.cell_count +
+          inspect.output_count +
+          inspect.attachment_count
+        if probe_limit_reached(inspect.cell_count, options.limits.max_rows) ||
+          probe_limit_reached(structural_budget, options.limits.max_cells) ||
+          probe_limit_reached(text.length(), options.limits.max_line_chars) {
+          over_limit_route_or(format, CanonicalRoute::BlockStreaming)
+        } else {
+          CanonicalRoute::DomAstModel
+        }
       }
+      Err(_) => CanonicalRoute::DomAstModel
     }
-    Err(_) => CanonicalRoute::DomAstModel
   }
-  let reason = if route == CanonicalRoute::BlockStreaming {
+  let reason = if options.stream_requested {
+    "explicit_stream_mode"
+  } else if route == CanonicalRoute::BlockStreaming {
     "ipynb_over_limit_block_streaming"
   } else {
     "ipynb_within_dom_budget"
@@ -432,43 +477,52 @@ fn xml_preflight_probe(
   let parsed = try @dxml.parse_xml_structure_tokens(text) |> Ok catch {
     _ => Err(())
   }
-  let route = match parsed {
-    Ok(tokens) => {
-      let inspect = match native_summary {
-        Some(summary) => summary
-        None => xml_stream_probe_summary_from_tokens(tokens)
+  let route = if options.stream_requested {
+    explicit_stream_route_or(format, CanonicalRoute::StreamingEvent)
+  } else {
+    match parsed {
+      Ok(tokens) => {
+        let inspect = match native_summary {
+          Some(summary) => summary
+          None => xml_stream_probe_summary_from_tokens(tokens)
+        }
+        if probe_limit_reached(inspect.node_count, options.limits.max_cells) ||
+          probe_limit_reached(inspect.max_depth, options.limits.max_rows) ||
+          (
+            probe_limit_reached(
+              text.length(),
+              options.limits.max_line_chars * 6,
+            ) &&
+            inspect.node_count > options.limits.max_rows / 5
+          ) {
+          over_limit_route_or(format, CanonicalRoute::StreamingEvent)
+        } else {
+          CanonicalRoute::DomAstModel
+        }
       }
-      if probe_limit_reached(inspect.node_count, options.limits.max_cells) ||
-        probe_limit_reached(inspect.max_depth, options.limits.max_rows) ||
-        (
-          probe_limit_reached(text.length(), options.limits.max_line_chars * 6) &&
-          inspect.node_count > options.limits.max_rows / 5
-        ) {
-        CanonicalRoute::StreamingEvent
-      } else {
-        CanonicalRoute::DomAstModel
-      }
+      Err(_) =>
+        match native_summary {
+          Some(inspect) =>
+            if probe_limit_reached(inspect.node_count, options.limits.max_cells) ||
+              probe_limit_reached(inspect.max_depth, options.limits.max_rows) ||
+              (
+                probe_limit_reached(
+                  text.length(),
+                  options.limits.max_line_chars * 6,
+                ) &&
+                inspect.node_count > options.limits.max_rows / 5
+              ) {
+              over_limit_route_or(format, CanonicalRoute::StreamingEvent)
+            } else {
+              CanonicalRoute::DomAstModel
+            }
+          None => CanonicalRoute::DomAstModel
+        }
     }
-    Err(_) =>
-      match native_summary {
-        Some(inspect) =>
-          if probe_limit_reached(inspect.node_count, options.limits.max_cells) ||
-            probe_limit_reached(inspect.max_depth, options.limits.max_rows) ||
-            (
-              probe_limit_reached(
-                text.length(),
-                options.limits.max_line_chars * 6,
-              ) &&
-              inspect.node_count > options.limits.max_rows / 5
-            ) {
-            CanonicalRoute::StreamingEvent
-          } else {
-            CanonicalRoute::DomAstModel
-          }
-        None => CanonicalRoute::DomAstModel
-      }
   }
-  let reason = if route == CanonicalRoute::StreamingEvent {
+  let reason = if options.stream_requested {
+    "explicit_stream_mode"
+  } else if route == CanonicalRoute::StreamingEvent {
     "xml_over_limit_streaming_event"
   } else {
     "xml_within_dom_budget"
@@ -660,26 +714,32 @@ fn html_preflight_probe(
   let scanned = try @dhtml.tokenize_html_events(text) |> Ok catch {
     _ => Err(())
   }
-  let route = match scanned {
-    Ok(events) => {
-      let probe = html_probe_summary_from_events(normalized_text, events)
-      if probe_limit_reached(probe.node_count, options.limits.max_cells) ||
-        probe_limit_reached(probe.token_count, options.limits.max_cells) ||
-        probe_limit_reached(probe.block_scope_count, options.limits.max_rows) ||
-        probe_limit_reached(probe.max_depth, options.limits.max_rows) ||
-        probe.structural_scope_count > options.limits.max_rows / 4 ||
-        (
-          probe.char_count > options.limits.max_line_chars * 64 &&
-          probe.structural_scope_count > 0
-        ) {
-        CanonicalRoute::BlockStreaming
-      } else {
-        CanonicalRoute::DomAstModel
+  let route = if options.stream_requested {
+    explicit_stream_route_or(format, CanonicalRoute::BlockStreaming)
+  } else {
+    match scanned {
+      Ok(events) => {
+        let probe = html_probe_summary_from_events(normalized_text, events)
+        if probe_limit_reached(probe.node_count, options.limits.max_cells) ||
+          probe_limit_reached(probe.token_count, options.limits.max_cells) ||
+          probe_limit_reached(probe.block_scope_count, options.limits.max_rows) ||
+          probe_limit_reached(probe.max_depth, options.limits.max_rows) ||
+          probe.structural_scope_count > options.limits.max_rows / 4 ||
+          (
+            probe.char_count > options.limits.max_line_chars * 64 &&
+            probe.structural_scope_count > 0
+          ) {
+          over_limit_route_or(format, CanonicalRoute::BlockStreaming)
+        } else {
+          CanonicalRoute::DomAstModel
+        }
       }
+      Err(_) => CanonicalRoute::DomAstModel
     }
-    Err(_) => CanonicalRoute::DomAstModel
   }
-  let reason = if route == CanonicalRoute::BlockStreaming {
+  let reason = if options.stream_requested {
+    "explicit_stream_mode"
+  } else if route == CanonicalRoute::BlockStreaming {
     "html_over_limit_block_streaming"
   } else {
     "html_within_dom_budget"
@@ -763,19 +823,25 @@ fn xlsx_preflight_probe(
       )
     Err(err) => Err(err)
   }
-  let route = match summary {
-    Ok(probe) =>
-      if probe.visible_sheet_count > options.limits.max_rows ||
-        probe.max_sheet_rows > options.limits.max_rows ||
-        probe.max_sheet_cols > options.limits.max_cols ||
-        probe.estimated_cells > options.limits.max_cells {
-        CanonicalRoute::BlockStreaming
-      } else {
-        CanonicalRoute::PackageSinglePass
-      }
-    Err(_) => CanonicalRoute::PackageSinglePass
+  let route = if options.stream_requested {
+    explicit_stream_route_or(format, CanonicalRoute::BlockStreaming)
+  } else {
+    match summary {
+      Ok(probe) =>
+        if probe.visible_sheet_count > options.limits.max_rows ||
+          probe.max_sheet_rows > options.limits.max_rows ||
+          probe.max_sheet_cols > options.limits.max_cols ||
+          probe.estimated_cells > options.limits.max_cells {
+          over_limit_route_or(format, CanonicalRoute::BlockStreaming)
+        } else {
+          CanonicalRoute::PackageSinglePass
+        }
+      Err(_) => CanonicalRoute::PackageSinglePass
+    }
   }
-  let reason = if route == CanonicalRoute::BlockStreaming {
+  let reason = if options.stream_requested {
+    "explicit_stream_mode"
+  } else if route == CanonicalRoute::BlockStreaming {
     "xlsx_over_limit_block_streaming"
   } else {
     "xlsx_within_package_budget"
@@ -853,19 +919,6 @@ fn preflight_probe(
   format : @input.DetectedFormat,
   options : ConvertOptions,
 ) -> PreflightProbe {
-  if options.mode == ConvertMode::Stream &&
-    format != @input.DetectedFormat::Ipynb {
-    let route = canonical_route_for_format(format, options)
-    return canonical_preflight_probe(
-      format,
-      route,
-      "explicit_stream_mode",
-      @input.detected_format_name(format),
-      ["explicit_stream", canonical_route_name(route)],
-      source,
-      artifact=None,
-    )
-  }
   match format {
     @input.DetectedFormat::Markdown =>
       markdown_preflight_probe(source, format, options)

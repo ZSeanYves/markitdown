@@ -640,6 +640,33 @@ quality_row_cli_flags() {
   printf '%s\n' "${flags[@]}"
 }
 
+quality_cli_image_format_from_path() {
+  local abs_path="$1"
+  local lower="${abs_path##*.}"
+  lower="$(printf '%s' "$lower" | tr '[:upper:]' '[:lower:]')"
+  case "$lower" in
+    png|jpg|jpeg|bmp|webp|tif|tiff)
+      printf '%s' "$lower"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+quality_cli_format_value() {
+  local format="$1"
+  local abs_path="$2"
+  case "$format" in
+    ocr)
+      quality_cli_image_format_from_path "$abs_path"
+      ;;
+    *)
+      printf '%s' "$format"
+      ;;
+  esac
+}
+
 quality_artifact_cli_args_summary() {
   local cli_args_file="$1"
   if [[ ! -f "$cli_args_file" ]]; then
@@ -1451,6 +1478,11 @@ quality_plan_row() {
   fi
 
   local row_cli_args=()
+  local cli_format=""
+  cli_format="$(quality_cli_format_value "$format" "$abs_path" || true)"
+  if [[ -n "$cli_format" ]]; then
+    row_cli_args+=("--format" "$cli_format")
+  fi
   while IFS= read -r cli_arg; do
     [[ -z "$cli_arg" ]] && continue
     row_cli_args+=("$cli_arg")
@@ -1502,6 +1534,20 @@ quality_write_artifact_rows_tsv() {
   done < <(artifact_plan_rows_each "$artifact_id")
 }
 
+quality_artifact_progress_label() {
+  local artifact_id="$1"
+  local abs_path="$2"
+  local filename
+  filename="$(basename "$abs_path")"
+  local row_count
+  row_count="$(artifact_plan_row_count "$artifact_id")"
+  if [[ "$row_count" =~ ^[0-9]+$ && "$row_count" -gt 1 ]]; then
+    printf '%s (%s rows)' "$filename" "$row_count"
+    return
+  fi
+  printf '%s' "$filename"
+}
+
 quality_run_signal_evaluator() {
   local artifact_id="$1"
   local output_md="$2"
@@ -1516,20 +1562,6 @@ quality_run_signal_evaluator() {
     --artifact-dir "$artifact_dir" \
     --rows-tsv "$rows_tsv" \
     --results-tsv "$results_tsv"
-}
-
-quality_result_field() {
-  local result_row="$1"
-  local field_index="$2"
-  python3 - "$result_row" "$field_index" <<'PY'
-import csv
-import io
-import sys
-
-row = next(csv.reader(io.StringIO(sys.argv[1]), delimiter="\t"))
-index = int(sys.argv[2])
-print(row[index] if index < len(row) else "")
-PY
 }
 
 quality_process_eval_results() {
@@ -1547,17 +1579,11 @@ quality_process_eval_results() {
 
   while IFS= read -r result_row || [[ -n "$result_row" ]]; do
     [[ -n "$result_row" ]] || continue
+    local delimiter=$'\x1f'
+    local converted="${result_row//$'\t'/$delimiter}"
     local row_id format source_scope source_id quality_tier passed_signals total_signals failed_signals review_notes
-    row_id="$(quality_result_field "$result_row" 0)"
+    IFS="$delimiter" read -r row_id format source_scope source_id quality_tier passed_signals total_signals failed_signals review_notes _ <<< "$converted"
     [[ "$row_id" == "row_id" ]] && continue
-    format="$(quality_result_field "$result_row" 1)"
-    source_scope="$(quality_result_field "$result_row" 2)"
-    source_id="$(quality_result_field "$result_row" 3)"
-    quality_tier="$(quality_result_field "$result_row" 4)"
-    passed_signals="$(quality_result_field "$result_row" 5)"
-    total_signals="$(quality_result_field "$result_row" 6)"
-    failed_signals="$(quality_result_field "$result_row" 7)"
-    review_notes="$(quality_result_field "$result_row" 8)"
 
     local row_status="pass"
     local note_text="all signals passed"
@@ -1865,11 +1891,21 @@ validation_progress_init "quality" "${#FILTERED_ROWS[@]}"
 for row in "${FILTERED_ROWS[@]}"; do
   quality_plan_row "$row"
 done
+validation_progress_done "planned"
 
-while IFS= read -r artifact_id || [[ -n "$artifact_id" ]]; do
-  [[ -n "$artifact_id" ]] || continue
-  quality_execute_artifact_group "$artifact_id"
-done < "$ARTIFACT_IDS_FILE"
+if [[ "$ARTIFACT_GROUP_COUNT" -gt 0 ]]; then
+  validation_progress_init "quality" "$ARTIFACT_GROUP_COUNT"
+  while IFS= read -r artifact_id || [[ -n "$artifact_id" ]]; do
+    [[ -n "$artifact_id" ]] || continue
+    artifact_abs_path="$(artifact_plan_abs_path "$artifact_id")"
+    artifact_progress_label="$(
+      quality_artifact_progress_label "$artifact_id" "$artifact_abs_path"
+    )"
+    validation_progress_render "$VALIDATION_CURRENT" "$VALIDATION_TOTAL" "running" "$artifact_progress_label"
+    quality_execute_artifact_group "$artifact_id"
+    validation_progress_step_status "done" "$artifact_progress_label"
+  done < "$ARTIFACT_IDS_FILE"
+fi
 
 validation_progress_done
 

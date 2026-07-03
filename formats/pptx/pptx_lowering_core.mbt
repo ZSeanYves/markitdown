@@ -1390,7 +1390,7 @@ fn pptx_flush_lists(
       "",
       source_ref=current.items[0].source_ref.unwrap_or(@core.empty_source_ref()),
     )
-    list_block.attrs.set("ordered", @parser_common.bool_string(current.ordered))
+    list_block.attrs.set("ordered", @fshared.bool_string(current.ordered))
     list_block.children.append(current.items[:])
     match list_stack.last() {
       Some(parent) =>

@@ -62,6 +62,14 @@ The main CLI currently supports:
 - `htm`
 - `markdown`
 - `md`
+- `eml`
+- `srt`
+- `vtt`
+- `tex`
+- `latex`
+- `rst`
+- `adoc`
+- `asciidoc`
 - `zip`
 - `epub`
 - `docx`

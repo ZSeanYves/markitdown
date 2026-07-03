@@ -1,0 +1,9 @@
+import {
+  "moonbitlang/core/encoding/ascii",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/x/codec/base64",
+}
+
+options(
+  "preferred-target": "native",
+)

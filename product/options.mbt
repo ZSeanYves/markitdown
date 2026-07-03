@@ -46,6 +46,7 @@ pub struct ProductOptions {
   mode : ConvertMode
   fidelity_mode : FidelityMode
   output_mode : OutputMode
+  stream_requested : Bool
   limits : ResourceLimits
   pdf_cleanup_mode : PdfCleanupMode
   pdf_table_mode : PdfTableMode
@@ -83,6 +84,7 @@ pub fn default_product_options() -> ProductOptions {
     mode: ConvertMode::Balanced,
     fidelity_mode: FidelityMode::Balanced,
     output_mode: OutputMode::Markdown,
+    stream_requested: false,
     limits: default_resource_limits(),
     pdf_cleanup_mode: default_pdf_cleanup_mode(),
     pdf_table_mode: default_pdf_table_mode(),
@@ -96,6 +98,7 @@ pub fn make_product_options(
   limits : ResourceLimits,
   fidelity_mode? : FidelityMode = fidelity_mode_for_convert_mode(mode),
   output_mode? : OutputMode = output_mode_for_convert_mode(mode),
+  stream_requested? : Bool = mode == ConvertMode::Stream,
   pdf_cleanup_mode? : PdfCleanupMode = default_pdf_cleanup_mode(),
   pdf_table_mode? : PdfTableMode = default_pdf_table_mode(),
   rag_options? : @rag.RagOptions = @rag.default_rag_options(),
@@ -104,6 +107,7 @@ pub fn make_product_options(
     mode,
     fidelity_mode,
     output_mode,
+    stream_requested,
     limits,
     pdf_cleanup_mode,
     pdf_table_mode,

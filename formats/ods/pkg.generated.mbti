@@ -1,0 +1,20 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/formats/ods"
+
+import {
+  "ZSeanYves/markitdown/parser",
+}
+
+// Values
+pub fn ods_parser() -> @parser.Parser
+
+pub fn ods_parser_capability() -> @parser.ParserCapability
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

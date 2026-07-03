@@ -1,0 +1,20 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/formats/odp"
+
+import {
+  "ZSeanYves/markitdown/parser",
+}
+
+// Values
+pub fn odp_parser() -> @parser.Parser
+
+pub fn odp_parser_capability() -> @parser.ParserCapability
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

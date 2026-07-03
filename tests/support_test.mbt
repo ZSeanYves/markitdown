@@ -280,6 +280,7 @@ fn convert_memory_text(
     Some(format),
     ocr_options,
     limits,
+    stream_requested=mode == @convert.ConvertMode::Stream,
     pdf_cleanup_mode~,
     pdf_table_mode~,
   )
@@ -310,6 +311,7 @@ fn convert_path(
     format,
     ocr_options,
     limits,
+    stream_requested=mode == @convert.ConvertMode::Stream,
     pdf_cleanup_mode~,
     pdf_table_mode~,
   )
@@ -572,12 +574,322 @@ fn assert_parse_result_matches_contract_spec(
   }
   assert_metric_pair("parser_name", spec.parser_name)
   assert_metric_pair("parser_mode", @parser.mode_name(spec.parser_mode))
+  let actual_shape = @runtime.parse_result_to_ir_input(result)
+  let actual_ir_input_kind = match actual_shape {
+    @core.IRInput::Document(_) => "document"
+    @core.IRInput::BlockStream(_) => "block_stream"
+    @core.IRInput::EventStream(_) => "event_stream"
+  }
+  let expected_ir_input_kind = if actual_ir_input_kind == spec.ir_input_kind {
+    spec.ir_input_kind
+  } else {
+    match spec.large_route_ir_input_kind {
+      Some(value) if value == actual_ir_input_kind => value
+      _ =>
+        fail(
+          "contract ir_input_kind mismatch: expected " +
+          spec.ir_input_kind +
+          " or " +
+          spec.large_route_ir_input_kind.unwrap_or("none") +
+          ", got " +
+          actual_ir_input_kind,
+        )
+    }
+  }
+  let expected_granularity = if expected_ir_input_kind == spec.ir_input_kind {
+    spec.streaming_granularity
+  } else {
+    spec.large_route_granularity.unwrap_or(spec.streaming_granularity)
+  }
   assert_metric_pair(
     "event_granularity",
-    streaming_granularity_name_local(spec.streaming_granularity),
+    streaming_granularity_name_local(expected_granularity),
   )
-  assert_metric_pair("ir_input_kind", spec.ir_input_kind)
+  assert_metric_pair("ir_input_kind", expected_ir_input_kind)
+  match actual_shape {
+    @core.IRInput::Document(_) => {
+      assert_true(result.document is Some(_))
+      assert_true(result.block_stream is None)
+      assert_true(result.event_stream is None)
+    }
+    @core.IRInput::BlockStream(_) => {
+      assert_true(result.document is None)
+      assert_true(result.block_stream is Some(_))
+      assert_true(result.event_stream is None)
+    }
+    @core.IRInput::EventStream(_) => {
+      assert_true(result.document is None)
+      assert_true(result.block_stream is None)
+      assert_true(result.event_stream is Some(_))
+    }
+  }
   for key in spec.required_metrics {
     assert_metric_present(result.diagnostics, key)
+  }
+}
+
+///|
+fn assert_contract_spec_matches_parser_capability(
+  spec : @formats_root.ParserContractSpec,
+  parser : @parser.Parser,
+) -> Unit raise {
+  assert_true(parser.capability.parser_mode == parser.mode)
+  let expected_streaming = parser.mode == @parser.ParserMode::StreamingEvent ||
+    parser.mode == @parser.ParserMode::BlockStreaming ||
+    parser.mode == @parser.ParserMode::ContainerRecursive ||
+    spec.large_route_granularity is Some(_)
+  assert_true(parser.capability.supports_streaming == expected_streaming)
+  assert_true(
+    parser.capability.streaming_granularity == spec.streaming_granularity ||
+    parser.capability.streaming_granularity ==
+    spec.large_route_granularity.unwrap_or(spec.streaming_granularity),
+  )
+  match spec.ir_input_kind {
+    "document" =>
+      assert_true(
+        parser.capability.supports_document_ir ||
+        spec.large_route_ir_input_kind is Some("document"),
+      )
+    "block_stream" =>
+      assert_true(
+        parser.capability.supports_blocks ||
+        spec.large_route_ir_input_kind is Some("block_stream"),
+      )
+    "event_stream" =>
+      assert_true(
+        parser.capability.supports_events ||
+        spec.large_route_ir_input_kind is Some("event_stream"),
+      )
+    _ => ()
+  }
+}
+
+///|
+fn source_ref_matches_contract_spec(
+  source_ref : @core.SourceRef,
+  spec : @formats_root.ParserContractSpec,
+  allow_relaxed_extra_keys? : Bool = false,
+  allow_relaxed_fields? : Bool = false,
+) -> Bool {
+  for key in spec.required_source_ref_fields {
+    if allow_relaxed_fields {
+      break
+    }
+    let present = match key {
+      "file_id" => source_ref.file_id is Some(_)
+      "format" => source_ref.format is Some(_)
+      "page" => source_ref.page is Some(_)
+      "bbox" => source_ref.bbox is Some(_)
+      "line_start" => source_ref.line_start is Some(_)
+      "line_end" => source_ref.line_end is Some(_)
+      "byte_start" => source_ref.byte_start is Some(_)
+      "byte_end" => source_ref.byte_end is Some(_)
+      "time_start" => source_ref.time_start is Some(_)
+      "time_end" => source_ref.time_end is Some(_)
+      "xpath" => source_ref.xpath is Some(_)
+      "json_pointer" => source_ref.json_pointer is Some(_)
+      "yaml_path" => source_ref.yaml_path is Some(_)
+      "html_path" => source_ref.html_path is Some(_)
+      "markdown_path" => source_ref.markdown_path is Some(_)
+      "container_path" => source_ref.container_path is Some(_)
+      "entry_path" => source_ref.entry_path is Some(_)
+      "entry_index" => source_ref.entry_index is Some(_)
+      "entry_format" => source_ref.entry_format is Some(_)
+      "inner_path" => source_ref.inner_path is Some(_)
+      "sheet" => source_ref.sheet is Some(_)
+      "cell_range" => source_ref.cell_range is Some(_)
+      "slide" => source_ref.slide is Some(_)
+      "shape_id" => source_ref.shape_id is Some(_)
+      "relationship_id" => source_ref.relationship_id is Some(_)
+      "chapter_href" => source_ref.chapter_href is Some(_)
+      _ => false
+    }
+    if !present {
+      return false
+    }
+  }
+  for key in spec.required_source_ref_extra_keys {
+    if allow_relaxed_extra_keys {
+      break
+    }
+    if source_ref.extra.get(key) == None {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn assert_source_ref_field_present(
+  source_ref : @core.SourceRef,
+  key : String,
+) -> Unit raise {
+  let present = match key {
+    "file_id" => source_ref.file_id is Some(_)
+    "format" => source_ref.format is Some(_)
+    "page" => source_ref.page is Some(_)
+    "bbox" => source_ref.bbox is Some(_)
+    "line_start" => source_ref.line_start is Some(_)
+    "line_end" => source_ref.line_end is Some(_)
+    "byte_start" => source_ref.byte_start is Some(_)
+    "byte_end" => source_ref.byte_end is Some(_)
+    "time_start" => source_ref.time_start is Some(_)
+    "time_end" => source_ref.time_end is Some(_)
+    "xpath" => source_ref.xpath is Some(_)
+    "json_pointer" => source_ref.json_pointer is Some(_)
+    "yaml_path" => source_ref.yaml_path is Some(_)
+    "html_path" => source_ref.html_path is Some(_)
+    "markdown_path" => source_ref.markdown_path is Some(_)
+    "container_path" => source_ref.container_path is Some(_)
+    "entry_path" => source_ref.entry_path is Some(_)
+    "entry_index" => source_ref.entry_index is Some(_)
+    "entry_format" => source_ref.entry_format is Some(_)
+    "inner_path" => source_ref.inner_path is Some(_)
+    "sheet" => source_ref.sheet is Some(_)
+    "cell_range" => source_ref.cell_range is Some(_)
+    "slide" => source_ref.slide is Some(_)
+    "shape_id" => source_ref.shape_id is Some(_)
+    "relationship_id" => source_ref.relationship_id is Some(_)
+    "chapter_href" => source_ref.chapter_href is Some(_)
+    _ => false
+  }
+  if !present {
+    fail("missing source_ref field: " + key)
+  }
+}
+
+///|
+fn assert_parse_result_source_refs_match_contract_spec(
+  result : @parser.ParseResult,
+  spec : @formats_root.ParserContractSpec,
+  allow_relaxed_extra_keys? : Bool = false,
+  allow_relaxed_fields? : Bool = false,
+) -> Unit raise {
+  if spec.required_source_ref_fields.length() == 0 &&
+    spec.required_source_ref_extra_keys.length() == 0 {
+    return
+  }
+  let source_ref = match
+    first_matching_source_ref_in_parse_result(
+      result,
+      spec,
+      allow_relaxed_extra_keys~,
+      allow_relaxed_fields~,
+    ) {
+    Some(value) => value
+    None =>
+      fail(
+        "expected parse result source_ref matching contract for " +
+        spec.parser_name +
+        " fields=" +
+        spec.required_source_ref_fields.join(",") +
+        " extra=" +
+        spec.required_source_ref_extra_keys.join(","),
+      )
+  }
+  for key in spec.required_source_ref_fields {
+    if allow_relaxed_fields {
+      continue
+    }
+    assert_source_ref_field_present(source_ref, key)
+  }
+  for key in spec.required_source_ref_extra_keys {
+    if allow_relaxed_extra_keys {
+      continue
+    }
+    match source_ref.extra.get(key) {
+      Some(_) => ()
+      None => fail("missing source_ref extra key: " + key)
+    }
+  }
+}
+
+///|
+fn first_matching_source_ref_in_blocks(
+  blocks : Array[@core.CoreBlock],
+  spec : @formats_root.ParserContractSpec,
+  allow_relaxed_extra_keys? : Bool = false,
+  allow_relaxed_fields? : Bool = false,
+) -> @core.SourceRef? {
+  for block in blocks {
+    match block.source_ref {
+      Some(source_ref) =>
+        if source_ref_matches_contract_spec(
+            source_ref,
+            spec,
+            allow_relaxed_extra_keys~,
+            allow_relaxed_fields~,
+          ) {
+          return Some(source_ref)
+        }
+      None => ()
+    }
+    match
+      first_matching_source_ref_in_blocks(
+        block.children,
+        spec,
+        allow_relaxed_extra_keys~,
+        allow_relaxed_fields~,
+      ) {
+      Some(source_ref) => return Some(source_ref)
+      None => ()
+    }
+  }
+  None
+}
+
+///|
+fn first_matching_source_ref_in_events(
+  events : Array[@core.CoreEvent],
+  spec : @formats_root.ParserContractSpec,
+  allow_relaxed_extra_keys? : Bool = false,
+  allow_relaxed_fields? : Bool = false,
+) -> @core.SourceRef? {
+  for event in events {
+    match event.source_ref {
+      Some(source_ref) =>
+        if source_ref_matches_contract_spec(
+            source_ref,
+            spec,
+            allow_relaxed_extra_keys~,
+            allow_relaxed_fields~,
+          ) {
+          return Some(source_ref)
+        }
+      None => ()
+    }
+  }
+  None
+}
+
+///|
+fn first_matching_source_ref_in_parse_result(
+  result : @parser.ParseResult,
+  spec : @formats_root.ParserContractSpec,
+  allow_relaxed_extra_keys? : Bool = false,
+  allow_relaxed_fields? : Bool = false,
+) -> @core.SourceRef? {
+  match @runtime.parse_result_to_ir_input(result) {
+    @core.IRInput::Document(document) =>
+      first_matching_source_ref_in_blocks(
+        document.blocks,
+        spec,
+        allow_relaxed_extra_keys~,
+        allow_relaxed_fields~,
+      )
+    @core.IRInput::BlockStream(blocks) =>
+      first_matching_source_ref_in_blocks(
+        blocks,
+        spec,
+        allow_relaxed_extra_keys~,
+        allow_relaxed_fields~,
+      )
+    @core.IRInput::EventStream(events) =>
+      first_matching_source_ref_in_events(
+        events,
+        spec,
+        allow_relaxed_extra_keys~,
+        allow_relaxed_fields~,
+      )
   }
 }

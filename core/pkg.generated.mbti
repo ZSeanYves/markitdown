@@ -128,6 +128,8 @@ pub fn source_ref_with_markdown_path(SourceRef, String?, String?, String?) -> So
 
 pub fn source_ref_with_office_fields(SourceRef, String?, String?, String?, String?, String?, Int?, String?, String?) -> SourceRef
 
+pub fn source_ref_with_time_range(SourceRef, String?, String?, String?, String?) -> SourceRef
+
 pub fn source_ref_with_yaml_path(SourceRef, String?, String?, String?) -> SourceRef
 
 pub fn string_array_json(Array[String]) -> String
@@ -400,6 +402,8 @@ pub(all) struct SourceRef {
   line_end : Int?
   byte_start : Int?
   byte_end : Int?
+  time_start : String?
+  time_end : String?
   xpath : String?
   json_pointer : String?
   yaml_path : String?

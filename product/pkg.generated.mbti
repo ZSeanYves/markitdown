@@ -26,7 +26,7 @@ pub fn fidelity_mode_for_convert_mode(ConvertMode) -> FidelityMode
 
 pub fn fidelity_mode_name(FidelityMode) -> String
 
-pub fn make_product_options(ConvertMode, ResourceLimits, fidelity_mode? : FidelityMode, output_mode? : OutputMode, pdf_cleanup_mode? : PdfCleanupMode, pdf_table_mode? : PdfTableMode, rag_options? : @rag.RagOptions) -> ProductOptions
+pub fn make_product_options(ConvertMode, ResourceLimits, fidelity_mode? : FidelityMode, output_mode? : OutputMode, stream_requested? : Bool, pdf_cleanup_mode? : PdfCleanupMode, pdf_table_mode? : PdfTableMode, rag_options? : @rag.RagOptions) -> ProductOptions
 
 pub fn make_resource_limits(Int, Int, Int, max_line_chars? : Int) -> ResourceLimits
 
@@ -77,6 +77,7 @@ pub struct ProductOptions {
   mode : ConvertMode
   fidelity_mode : FidelityMode
   output_mode : OutputMode
+  stream_requested : Bool
   limits : ResourceLimits
   pdf_cleanup_mode : PdfCleanupMode
   pdf_table_mode : PdfTableMode

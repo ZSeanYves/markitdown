@@ -16,7 +16,11 @@ test "canonical architecture guide remains the single docs source of truth" {
 
 ///|
 test "format packages keep per-format ownership without root facades" {
-  for dir in ["txt", "csv", "tsv", "json", "yaml", "toml", "xml", "markdown"] {
+  for
+    dir in [
+      "txt", "csv", "tsv", "json", "yaml", "toml", "xml", "markdown", "srt", "vtt",
+      "tex", "rst", "asciidoc", "eml", "odt", "ods", "odp",
+    ] {
     assert_true(@fs.path_exists("formats/" + dir + "/moon.pkg"))
     assert_true(@fs.path_exists("formats/" + dir + "/parser.mbt"))
   }
@@ -28,7 +32,10 @@ test "format packages keep per-format ownership without root facades" {
     path in [
       "formats/txt_parser.mbt", "formats/csv_parser.mbt", "formats/tsv_parser.mbt",
       "formats/json_parser.mbt", "formats/yaml_parser.mbt", "formats/toml_parser.mbt",
-      "formats/xml_parser.mbt", "formats/markdown_parser.mbt", "formats/zip_parser.mbt",
+      "formats/xml_parser.mbt", "formats/markdown_parser.mbt", "formats/srt_parser.mbt",
+      "formats/vtt_parser.mbt", "formats/tex_parser.mbt", "formats/rst_parser.mbt",
+      "formats/asciidoc_parser.mbt", "formats/eml_parser.mbt", "formats/odt_parser.mbt",
+      "formats/ods_parser.mbt", "formats/odp_parser.mbt", "formats/zip_parser.mbt",
       "formats/epub_parser.mbt", "formats/html_parser.mbt", "formats/docx_parser.mbt",
       "formats/pptx_parser.mbt", "formats/xlsx_parser.mbt",
     ] {
@@ -40,8 +47,18 @@ test "format packages keep per-format ownership without root facades" {
 test "root format contracts stay declarative and registry stays runtime only" {
   assert_true(@fs.path_exists("formats/format_contracts.mbt"))
   assert_file_contains_all("formats/format_contracts.mbt", [
-    "pub struct ParserContractSpec", "pub fn docx_parser_contract_spec()", "pub fn pptx_parser_contract_spec()",
-    "pub fn xlsx_parser_contract_spec()",
+    "pub struct ParserContractSpec", "pub fn product_parser_contract_specs()", "pub fn product_parser_contract_spec_by_format(",
+    "pub fn txt_parser_contract_spec()", "pub fn csv_parser_contract_spec()", "pub fn tsv_parser_contract_spec()",
+    "pub fn json_parser_contract_spec()", "pub fn jsonl_parser_contract_spec()",
+    "pub fn ndjson_parser_contract_spec()", "pub fn xml_parser_contract_spec()",
+    "pub fn yaml_parser_contract_spec()", "pub fn toml_parser_contract_spec()", "pub fn markdown_parser_contract_spec()",
+    "pub fn html_parser_contract_spec()", "pub fn ipynb_parser_contract_spec()",
+    "pub fn srt_parser_contract_spec()", "pub fn vtt_parser_contract_spec()", "pub fn tex_parser_contract_spec()",
+    "pub fn rst_parser_contract_spec()", "pub fn asciidoc_parser_contract_spec()",
+    "pub fn eml_parser_contract_spec()", "pub fn zip_parser_contract_spec()", "pub fn epub_parser_contract_spec()",
+    "pub fn odt_parser_contract_spec()", "pub fn ods_parser_contract_spec()", "pub fn odp_parser_contract_spec()",
+    "pub fn docx_parser_contract_spec()", "pub fn pptx_parser_contract_spec()", "pub fn xlsx_parser_contract_spec()",
+    "pub fn pdf_native_parser_contract_spec()", "pub fn image_ocr_parser_contract_spec()",
   ])
   assert_file_contains_none("formats/format_contracts.mbt", [
     "pub fn docx_parser_contract()", "pub fn pptx_parser_contract()", "pub fn xlsx_parser_contract()",

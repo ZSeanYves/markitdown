@@ -1,0 +1,39 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/format_readers/text_markup/tex"
+
+import {
+  "ZSeanYves/markitdown/format_readers/text_markup/shared",
+}
+
+// Values
+pub fn inspect_text_markup_document(@shared.TextMarkupDocument, String) -> @shared.TextMarkupInspectReport
+
+pub fn parse_tex_document(String) -> @shared.TextMarkupDocument
+
+pub fn parse_text_markup_inlines(String, @shared.TextMarkupFormat) -> Array[@shared.TextMarkupInline]
+
+pub fn parse_text_markup_table(@shared.TextMarkupBlock, @shared.TextMarkupFormat) -> @shared.TextMarkupTable?
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+pub using @shared {type TextMarkupBlock}
+
+pub using @shared {type TextMarkupBlockKind}
+
+pub using @shared {type TextMarkupDocument}
+
+pub using @shared {type TextMarkupFormat}
+
+pub using @shared {type TextMarkupInline}
+
+pub using @shared {type TextMarkupInlineKind}
+
+pub using @shared {type TextMarkupInspectReport}
+
+pub using @shared {type TextMarkupTable}
+
+// Traits
+

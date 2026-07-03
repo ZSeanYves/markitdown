@@ -22,8 +22,9 @@ test "container contracts keep inner dispatch on the root pipeline and bounded" 
   assert_true(
     supported ==
     [
-      "txt", "csv", "tsv", "json", "jsonl", "ndjson", "xml", "yaml", "yml", "toml",
-      "html", "htm", "markdown", "md", "epub",
+      "txt", "csv", "tsv", "srt", "vtt", "json", "jsonl", "ndjson", "ipynb", "xml",
+      "yaml", "yml", "toml", "html", "htm", "markdown", "md", "tex", "latex", "rst",
+      "adoc", "asciidoc", "eml", "epub", "odt", "ods", "odp",
     ],
   )
   assert_true(
@@ -34,6 +35,15 @@ test "container contracts keep inner dispatch on the root pipeline and bounded" 
   )
   assert_true(
     @container.container_supports_inner_format(@input.DetectedFormat::Toml),
+  )
+  assert_true(
+    @container.container_supports_inner_format(@input.DetectedFormat::Ipynb),
+  )
+  assert_true(
+    @container.container_supports_inner_format(@input.DetectedFormat::Srt),
+  )
+  assert_true(
+    @container.container_supports_inner_format(@input.DetectedFormat::Tex),
   )
   assert_true(
     !@container.container_unsupported_inner_formats().contains("html"),

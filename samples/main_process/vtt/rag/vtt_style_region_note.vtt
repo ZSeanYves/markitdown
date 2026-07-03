@@ -1,0 +1,15 @@
+WEBVTT
+
+NOTE metadata
+Kept as note
+
+STYLE
+::cue { color: lime; }
+
+REGION
+id:main
+lines:3
+
+intro
+00:00:00.000 --> 00:00:01.500 align:start position:10%
+Hello VTT.

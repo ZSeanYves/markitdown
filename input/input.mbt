@@ -22,6 +22,8 @@ pub(all) enum DetectedFormat {
   Markdown
   Csv
   Tsv
+  Srt
+  Vtt
   Json
   Jsonl
   Ndjson
@@ -30,8 +32,15 @@ pub(all) enum DetectedFormat {
   Yaml
   Toml
   Html
+  Tex
+  Rst
+  Asciidoc
+  Eml
   Zip
   Epub
+  Odt
+  Ods
+  Odp
   Pdf
   Docx
   Pptx
@@ -47,6 +56,7 @@ pub struct InputSource {
   path : String?
   text : String?
   bytes : Bytes?
+  mime_type : String?
   explicit_format : DetectedFormat?
 }
 
@@ -81,6 +91,7 @@ pub fn input_from_path_with_format(
     path: Some(path),
     text: None,
     bytes: None,
+    mime_type: None,
     explicit_format,
   }
 }
@@ -105,6 +116,7 @@ pub fn input_from_text_with_format(
     path: None,
     text: Some(text),
     bytes: None,
+    mime_type: None,
     explicit_format,
   }
 }
@@ -129,6 +141,7 @@ pub fn input_from_bytes_with_format(
     path: None,
     text: None,
     bytes: Some(bytes),
+    mime_type: None,
     explicit_format,
   }
 }
@@ -139,6 +152,11 @@ pub fn with_explicit_format(
   explicit_format : DetectedFormat?,
 ) -> InputSource {
   { ..source, explicit_format, }
+}
+
+///|
+pub fn with_mime_type(source : InputSource, mime_type : String?) -> InputSource {
+  { ..source, mime_type, }
 }
 
 ///|
@@ -171,6 +189,19 @@ pub fn detect_format(source : InputSource) -> FormatDetectionResult {
         text_like: !detected_format_is_binary_like(format),
         binary_like: detected_format_is_binary_like(format),
         notes: detected_format_detection_notes(format, false),
+      }
+    None => ()
+  }
+
+  match detect_format_from_mime(source.mime_type) {
+    Some((format, notes)) =>
+      return {
+        format,
+        used_explicit_format: false,
+        used_extension: false,
+        text_like: !detected_format_is_binary_like(format),
+        binary_like: detected_format_is_binary_like(format),
+        notes,
       }
     None => ()
   }
@@ -216,6 +247,18 @@ pub fn detect_format(source : InputSource) -> FormatDetectionResult {
     Ok(payload) => payload
     Err(_) => Bytes::from_array([])
   }
+  match detect_format_from_magic_or_container(bytes) {
+    Some((format, notes)) =>
+      return {
+        format,
+        used_explicit_format: false,
+        used_extension: false,
+        text_like: !detected_format_is_binary_like(format),
+        binary_like: detected_format_is_binary_like(format),
+        notes,
+      }
+    None => ()
+  }
   let text_like = bytes_look_text_like(bytes)
   let binary_like = !text_like && bytes.length() > 0
   if text_like {
@@ -244,9 +287,6 @@ pub fn detect_format(source : InputSource) -> FormatDetectionResult {
   if binary_like {
     notes.push("binary_heuristic")
   }
-  if looks_like_magic_bytes_todo(bytes) {
-    notes.push("todo_magic_bytes")
-  }
   {
     format: heuristic_format,
     used_explicit_format: false,
@@ -264,6 +304,8 @@ pub fn detected_format_name(format : DetectedFormat) -> String {
     DetectedFormat::Markdown => "markdown"
     DetectedFormat::Csv => "csv"
     DetectedFormat::Tsv => "tsv"
+    DetectedFormat::Srt => "srt"
+    DetectedFormat::Vtt => "vtt"
     DetectedFormat::Json => "json"
     DetectedFormat::Jsonl => "jsonl"
     DetectedFormat::Ndjson => "ndjson"
@@ -272,8 +314,15 @@ pub fn detected_format_name(format : DetectedFormat) -> String {
     DetectedFormat::Yaml => "yaml"
     DetectedFormat::Toml => "toml"
     DetectedFormat::Html => "html"
+    DetectedFormat::Tex => "tex"
+    DetectedFormat::Rst => "rst"
+    DetectedFormat::Asciidoc => "asciidoc"
+    DetectedFormat::Eml => "eml"
     DetectedFormat::Zip => "zip"
     DetectedFormat::Epub => "epub"
+    DetectedFormat::Odt => "odt"
+    DetectedFormat::Ods => "ods"
+    DetectedFormat::Odp => "odp"
     DetectedFormat::Pdf => "pdf"
     DetectedFormat::Docx => "docx"
     DetectedFormat::Pptx => "pptx"
@@ -291,6 +340,8 @@ pub fn parse_detected_format(name : String) -> DetectedFormat {
     "markdown" => DetectedFormat::Markdown
     "csv" => DetectedFormat::Csv
     "tsv" => DetectedFormat::Tsv
+    "srt" => DetectedFormat::Srt
+    "vtt" => DetectedFormat::Vtt
     "json" => DetectedFormat::Json
     "jsonl" => DetectedFormat::Jsonl
     "ndjson" => DetectedFormat::Ndjson
@@ -301,8 +352,17 @@ pub fn parse_detected_format(name : String) -> DetectedFormat {
     "toml" => DetectedFormat::Toml
     "html" => DetectedFormat::Html
     "htm" => DetectedFormat::Html
+    "tex" => DetectedFormat::Tex
+    "latex" => DetectedFormat::Tex
+    "rst" => DetectedFormat::Rst
+    "adoc" => DetectedFormat::Asciidoc
+    "asciidoc" => DetectedFormat::Asciidoc
+    "eml" => DetectedFormat::Eml
     "zip" => DetectedFormat::Zip
     "epub" => DetectedFormat::Epub
+    "odt" => DetectedFormat::Odt
+    "ods" => DetectedFormat::Ods
+    "odp" => DetectedFormat::Odp
     "pdf" => DetectedFormat::Pdf
     "docx" => DetectedFormat::Docx
     "pptx" => DetectedFormat::Pptx
@@ -406,6 +466,12 @@ fn format_from_extension(path : String) -> DetectedFormat {
 fn detected_format_is_binary_like(format : DetectedFormat) -> Bool {
   match format {
     DetectedFormat::Pdf
+    | DetectedFormat::Eml
+    | DetectedFormat::Zip
+    | DetectedFormat::Epub
+    | DetectedFormat::Odt
+    | DetectedFormat::Ods
+    | DetectedFormat::Odp
     | DetectedFormat::Docx
     | DetectedFormat::Pptx
     | DetectedFormat::Xlsx
@@ -451,23 +517,342 @@ fn bytes_look_text_like(bytes : Bytes) -> Bool {
 }
 
 ///|
-fn looks_like_magic_bytes_todo(bytes : Bytes) -> Bool {
+fn detect_format_from_mime(
+  mime_type : String?,
+) -> (DetectedFormat, Array[String])? {
+  let lowered = match mime_type {
+    Some(value) => value.trim().to_lower()
+    None => return None
+  }
+  if lowered == "" {
+    return None
+  }
+  let notes = ["mime_type"]
+  match lowered {
+    "text/plain" => Some((DetectedFormat::Txt, notes))
+    "text/markdown" | "text/x-markdown" =>
+      Some((DetectedFormat::Markdown, notes))
+    "text/csv" => Some((DetectedFormat::Csv, notes))
+    "text/tab-separated-values" => Some((DetectedFormat::Tsv, notes))
+    "application/x-subrip" | "text/srt" => Some((DetectedFormat::Srt, notes))
+    "text/vtt" => Some((DetectedFormat::Vtt, notes))
+    "application/json" | "text/json" => Some((DetectedFormat::Json, notes))
+    "application/x-ipynb+json"
+    | "application/x-jupyter-notebook+json"
+    | "application/vnd.jupyter"
+    | "application/vnd.jupyter.cells" => Some((DetectedFormat::Ipynb, notes))
+    "application/xml" | "text/xml" => Some((DetectedFormat::Xml, notes))
+    "application/yaml" | "application/x-yaml" | "text/yaml" | "text/x-yaml" =>
+      Some((DetectedFormat::Yaml, notes))
+    "application/toml" | "text/toml" | "text/x-toml" =>
+      Some((DetectedFormat::Toml, notes))
+    "text/html" | "application/html" => Some((DetectedFormat::Html, notes))
+    "application/x-tex" | "text/x-tex" => Some((DetectedFormat::Tex, notes))
+    "text/x-rst" | "text/prs.fallenstein.rst" =>
+      Some((DetectedFormat::Rst, notes))
+    "text/asciidoc" | "text/x-asciidoc" =>
+      Some((DetectedFormat::Asciidoc, notes))
+    "message/rfc822" | "text/rfc822-headers" =>
+      Some((DetectedFormat::Eml, notes))
+    "application/zip" => Some((DetectedFormat::Zip, notes))
+    "application/epub+zip" => Some((DetectedFormat::Epub, notes))
+    "application/vnd.oasis.opendocument.text" =>
+      Some((DetectedFormat::Odt, notes))
+    "application/vnd.oasis.opendocument.spreadsheet" =>
+      Some((DetectedFormat::Ods, notes))
+    "application/vnd.oasis.opendocument.presentation" =>
+      Some((DetectedFormat::Odp, notes))
+    "application/pdf" => Some((DetectedFormat::Pdf, notes))
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document" =>
+      Some((DetectedFormat::Docx, notes))
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation" =>
+      Some((DetectedFormat::Pptx, notes))
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" =>
+      Some((DetectedFormat::Xlsx, notes))
+    "image/png" =>
+      Some((DetectedFormat::Image(ImageFormat::Png), notes_with_image(notes)))
+    "image/jpeg" =>
+      Some((DetectedFormat::Image(ImageFormat::Jpeg), notes_with_image(notes)))
+    "image/bmp" =>
+      Some((DetectedFormat::Image(ImageFormat::Bmp), notes_with_image(notes)))
+    "image/webp" =>
+      Some((DetectedFormat::Image(ImageFormat::Webp), notes_with_image(notes)))
+    "image/tiff" =>
+      Some((DetectedFormat::Image(ImageFormat::Tiff), notes_with_image(notes)))
+    _ => None
+  }
+}
+
+///|
+fn detect_format_from_magic_or_container(
+  bytes : Bytes,
+) -> (DetectedFormat, Array[String])? {
   let arr = bytes.to_array()
   if arr.length() >= 4 &&
-    arr[0].to_int() == 0x50 &&
-    arr[1].to_int() == 0x4B &&
-    arr[2].to_int() == 0x03 &&
-    arr[3].to_int() == 0x04 {
-    return true
+    byte_to_int(arr[0]) == 0x50 &&
+    byte_to_int(arr[1]) == 0x4B &&
+    byte_to_int(arr[2]) == 0x03 &&
+    byte_to_int(arr[3]) == 0x04 {
+    return detect_container_format_from_zip(bytes)
   }
   if arr.length() >= 4 &&
-    arr[0].to_int() == 0x25 &&
-    arr[1].to_int() == 0x50 &&
-    arr[2].to_int() == 0x44 &&
-    arr[3].to_int() == 0x46 {
-    return true
+    byte_to_int(arr[0]) == 0x25 &&
+    byte_to_int(arr[1]) == 0x50 &&
+    byte_to_int(arr[2]) == 0x44 &&
+    byte_to_int(arr[3]) == 0x46 {
+    return Some((DetectedFormat::Pdf, ["magic_bytes", "pdf_signature"]))
   }
-  false
+  if arr.length() >= 4 &&
+    byte_to_int(arr[0]) == 0x89 &&
+    byte_to_int(arr[1]) == 0x50 &&
+    byte_to_int(arr[2]) == 0x4E &&
+    byte_to_int(arr[3]) == 0x47 {
+    return Some(
+      (
+        DetectedFormat::Image(ImageFormat::Png),
+        ["magic_bytes", "png_signature", "image_ocr_candidate"],
+      ),
+    )
+  }
+  if arr.length() >= 3 &&
+    byte_to_int(arr[0]) == 0xFF &&
+    byte_to_int(arr[1]) == 0xD8 &&
+    byte_to_int(arr[2]) == 0xFF {
+    return Some(
+      (
+        DetectedFormat::Image(ImageFormat::Jpeg),
+        ["magic_bytes", "jpeg_signature", "image_ocr_candidate"],
+      ),
+    )
+  }
+  if arr.length() >= 4 &&
+    byte_to_int(arr[0]) == 0x42 &&
+    byte_to_int(arr[1]) == 0x4D {
+    return Some(
+      (
+        DetectedFormat::Image(ImageFormat::Bmp),
+        ["magic_bytes", "bmp_signature", "image_ocr_candidate"],
+      ),
+    )
+  }
+  if arr.length() >= 4 &&
+    byte_to_int(arr[0]) == 0x52 &&
+    byte_to_int(arr[1]) == 0x49 &&
+    byte_to_int(arr[2]) == 0x46 &&
+    byte_to_int(arr[3]) == 0x46 &&
+    arr.length() >= 12 &&
+    bytes_prefix_ascii(arr, 8, 4) == "WEBP" {
+    return Some(
+      (
+        DetectedFormat::Image(ImageFormat::Webp),
+        ["magic_bytes", "webp_signature", "image_ocr_candidate"],
+      ),
+    )
+  }
+  if arr.length() >= 4 &&
+    (
+      (
+        byte_to_int(arr[0]) == 0x49 &&
+        byte_to_int(arr[1]) == 0x49 &&
+        byte_to_int(arr[2]) == 0x2A &&
+        byte_to_int(arr[3]) == 0x00
+      ) ||
+      (
+        byte_to_int(arr[0]) == 0x4D &&
+        byte_to_int(arr[1]) == 0x4D &&
+        byte_to_int(arr[2]) == 0x00 &&
+        byte_to_int(arr[3]) == 0x2A
+      )
+    ) {
+    return Some(
+      (
+        DetectedFormat::Image(ImageFormat::Tiff),
+        ["magic_bytes", "tiff_signature", "image_ocr_candidate"],
+      ),
+    )
+  }
+  match detect_format_from_text_magic(bytes) {
+    Some(result) => return Some(result)
+    None => ()
+  }
+  None
+}
+
+///|
+fn detect_format_from_text_magic(
+  bytes : Bytes,
+) -> (DetectedFormat, Array[String])? {
+  let text = decode_utf8_trimmed(bytes)
+  let text = match text {
+    Some(value) => value
+    None => return None
+  }
+  if text == "" {
+    return None
+  }
+  if text.has_prefix("WEBVTT") {
+    return Some((DetectedFormat::Vtt, ["magic_text", "webvtt_signature"]))
+  }
+  if detect_eml_text_signature(text) {
+    return Some((DetectedFormat::Eml, ["magic_text", "rfc822_headers"]))
+  }
+  if detect_rst_text_signature(text) {
+    return Some((DetectedFormat::Rst, ["magic_text", "rst_signature"]))
+  }
+  if detect_asciidoc_text_signature(text) {
+    return Some(
+      (DetectedFormat::Asciidoc, ["magic_text", "asciidoc_signature"]),
+    )
+  }
+  if detect_tex_text_signature(text) {
+    return Some((DetectedFormat::Tex, ["magic_text", "tex_signature"]))
+  }
+  if detect_srt_text_signature(text) {
+    return Some((DetectedFormat::Srt, ["magic_text", "subrip_signature"]))
+  }
+  None
+}
+
+///|
+fn detect_container_format_from_zip(
+  bytes : Bytes,
+) -> (DetectedFormat, Array[String])? {
+  let archive = try @zip.open_zip(bytes) |> Ok catch {
+    _ => Err(())
+  }
+  let archive = match archive {
+    Ok(value) => value
+    Err(_) =>
+      return Some((DetectedFormat::Zip, ["magic_bytes", "zip_signature"]))
+  }
+  if @zip.has_entry(archive, "[Content_Types].xml") {
+    if @zip.has_entry(archive, "word/document.xml") {
+      return Some(
+        (
+          DetectedFormat::Docx,
+          ["magic_bytes", "zip_signature", "container_inspection", "ooxml_docx"],
+        ),
+      )
+    }
+    if @zip.has_entry(archive, "ppt/presentation.xml") {
+      return Some(
+        (
+          DetectedFormat::Pptx,
+          ["magic_bytes", "zip_signature", "container_inspection", "ooxml_pptx"],
+        ),
+      )
+    }
+    if @zip.has_entry(archive, "xl/workbook.xml") {
+      return Some(
+        (
+          DetectedFormat::Xlsx,
+          ["magic_bytes", "zip_signature", "container_inspection", "ooxml_xlsx"],
+        ),
+      )
+    }
+  }
+  if @zip.has_entry(archive, "META-INF/container.xml") {
+    let mimetype = try @zip.read_entry(archive, "mimetype") |> Ok catch {
+      _ => Err(())
+    }
+    match mimetype {
+      Ok(payload) =>
+        match decode_utf8_trimmed(payload) {
+          Some(value) if value == "application/epub+zip" =>
+            return Some(
+              (
+                DetectedFormat::Epub,
+                [
+                  "magic_bytes", "zip_signature", "container_inspection", "epub_container",
+                ],
+              ),
+            )
+          _ => ()
+        }
+      Err(_) => ()
+    }
+  }
+  if @zip.has_entry(archive, "META-INF/manifest.xml") &&
+    @zip.has_entry(archive, "content.xml") {
+    let mimetype = try @zip.read_entry(archive, "mimetype") |> Ok catch {
+      _ => Err(())
+    }
+    match mimetype {
+      Ok(payload) =>
+        match decode_utf8_trimmed(payload) {
+          Some("application/vnd.oasis.opendocument.text") =>
+            return Some(
+              (
+                DetectedFormat::Odt,
+                [
+                  "magic_bytes", "zip_signature", "container_inspection", "odf_odt",
+                ],
+              ),
+            )
+          Some("application/vnd.oasis.opendocument.spreadsheet") =>
+            return Some(
+              (
+                DetectedFormat::Ods,
+                [
+                  "magic_bytes", "zip_signature", "container_inspection", "odf_ods",
+                ],
+              ),
+            )
+          Some("application/vnd.oasis.opendocument.presentation") =>
+            return Some(
+              (
+                DetectedFormat::Odp,
+                [
+                  "magic_bytes", "zip_signature", "container_inspection", "odf_odp",
+                ],
+              ),
+            )
+          _ => ()
+        }
+      Err(_) => ()
+    }
+  }
+  Some((DetectedFormat::Zip, ["magic_bytes", "zip_signature"]))
+}
+
+///|
+fn notes_with_image(notes : Array[String]) -> Array[String] {
+  let out : Array[String] = []
+  for note in notes {
+    out.push(note)
+  }
+  out.push("image_ocr_candidate")
+  out
+}
+
+///|
+fn decode_utf8_trimmed(bytes : Bytes) -> String? {
+  try @utf8.decode(bytes, ignore_bom=false).trim().to_owned() |> Some catch {
+    _ => None
+  }
+}
+
+///|
+fn bytes_prefix_ascii(arr : Array[Byte], start : Int, length : Int) -> String {
+  let chars : Array[Char] = []
+  let end_index = start + length
+  if arr.length() < end_index {
+    return ""
+  }
+  for i in start..<end_index {
+    chars.push(Int::unsafe_to_char(byte_to_int(arr[i])))
+  }
+  String::from_array(chars)
+}
+
+///|
+fn byte_to_int(b : Byte) -> Int {
+  let v = b.to_int()
+  if v >= 0 {
+    v
+  } else {
+    v + 256
+  }
 }
 
 ///|
@@ -489,4 +874,89 @@ fn detect_ipynb_from_text_bytes(bytes : Bytes) -> Array[String]? {
     return Some(["content_notebook_json"])
   }
   None
+}
+
+///|
+fn detect_eml_text_signature(text : String) -> Bool {
+  let lowered = text.to_lower()
+  (lowered.contains("\nfrom:") || lowered.has_prefix("from:")) &&
+  (
+    lowered.contains("\nsubject:") ||
+    lowered.has_prefix("subject:") ||
+    lowered.contains("\nmime-version:") ||
+    lowered.contains("\ncontent-type:")
+  ) &&
+  lowered.contains("\n\n")
+}
+
+///|
+fn detect_rst_text_signature(text : String) -> Bool {
+  let lines = text.split("\n").to_array()
+  if lines.length() < 2 {
+    return false
+  }
+  let next = lines[1].trim().to_owned()
+  if next.length() < 3 {
+    return false
+  }
+  let chars = next.to_array()
+  let marker = chars[0]
+  if marker != '=' &&
+    marker != '-' &&
+    marker != '~' &&
+    marker != '^' &&
+    marker != '"' {
+    return false
+  }
+  for ch in chars {
+    if ch != marker {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn detect_asciidoc_text_signature(text : String) -> Bool {
+  let trimmed = text.trim_start()
+  trimmed.has_prefix("= ") ||
+  trimmed.has_prefix("[source") ||
+  trimmed.has_prefix(":toc:") ||
+  trimmed.contains("\n== ")
+}
+
+///|
+fn detect_tex_text_signature(text : String) -> Bool {
+  let trimmed = text.trim_start()
+  trimmed.has_prefix("\\documentclass") ||
+  trimmed.has_prefix("\\begin{document}") ||
+  trimmed.contains("\\section{") ||
+  trimmed.contains("\\subsection{")
+}
+
+///|
+fn detect_srt_text_signature(text : String) -> Bool {
+  let lines = text.split("\n").to_array()
+  if lines.length() < 2 {
+    return false
+  }
+  let first = lines[0].trim().to_owned()
+  let second = lines[1].trim().to_owned()
+  (first == "" || ascii_digits_only(first)) &&
+  second.contains(" --> ") &&
+  second.contains(":")
+}
+
+///|
+fn ascii_digits_only(text : String) -> Bool {
+  let trimmed = text.trim().to_owned()
+  if trimmed == "" {
+    return false
+  }
+  for ch in trimmed {
+    if ch < '0' || ch > '9' {
+      return false
+    }
+  }
+  true
 }

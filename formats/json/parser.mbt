@@ -1,20 +1,12 @@
 ///|
 fn json_parser_capability() -> @parser.ParserCapability {
-  @parser.make_parser_capability(
-    @parser.ParserMode::DomAstModel,
-    true,
+  @parser.dom_ast_parser_capability(
     @parser.StreamingGranularity::JsonStructure,
-    false,
-    true,
-    false,
-    true,
-    false,
-    true,
     true,
     true,
     false,
     true,
-    false,
+    true,
     true,
     true,
     true,
@@ -25,19 +17,9 @@ fn json_parser_capability() -> @parser.ParserCapability {
 
 ///|
 fn jsonl_parser_capability() -> @parser.ParserCapability {
-  @parser.make_parser_capability(
-    @parser.ParserMode::StreamingEvent,
-    true,
+  @parser.streaming_event_parser_capability(
     @parser.StreamingGranularity::Record,
-    false,
     true,
-    false,
-    true,
-    false,
-    true,
-    true,
-    true,
-    false,
     true,
     false,
     true,
@@ -50,18 +32,8 @@ fn jsonl_parser_capability() -> @parser.ParserCapability {
 
 ///|
 fn ndjson_parser_capability() -> @parser.ParserCapability {
-  @parser.make_parser_capability(
-    @parser.ParserMode::StreamingEvent,
-    true,
+  @parser.streaming_event_parser_capability(
     @parser.StreamingGranularity::Record,
-    false,
-    true,
-    false,
-    true,
-    false,
-    false,
-    true,
-    true,
     false,
     true,
     false,
@@ -144,25 +116,25 @@ pub fn json_parse_with_stream_document(
   text : String,
   stream : @djson.JsonStreamDocument,
 ) -> @parser.ParseResult {
-  let diagnostics = @parser_common.empty_parser_diagnostics(
+  let diagnostics = @fshared.empty_parser_diagnostics(
     "json_parser",
     @parser.ParserMode::DomAstModel,
     source,
     "json",
   )
-  diagnostics.metrics.set("parser_name", "json_parser")
-  diagnostics.metrics.set("parser_mode", "dom_ast_model")
-  diagnostics.metrics.set(
-    "input_kind",
-    @parser_common.input_kind_name(source.kind),
+  @fshared.init_parser_route_metrics_with_granularity(
+    diagnostics,
+    source,
+    context,
+    "json",
+    "json_parser",
+    @parser.ParserMode::DomAstModel,
+    @parser.ParserMode::StreamingEvent,
+    "event_stream",
+    @parser.StreamingGranularity::JsonStructure,
+    "json_structure_event_stream",
   )
-  diagnostics.metrics.set("detected_format", "json")
-  diagnostics.metrics.set(
-    "requested_mode",
-    @parser_common.requested_mode_name(context),
-  )
-  diagnostics.metrics.set("ir_input_kind", "event_stream")
-  @parser_common.apply_product_metrics(diagnostics, "json")
+  @fshared.apply_product_metrics(diagnostics, "json")
   let events = json_generic_block_events_from_stream(stream, source)
   diagnostics.metrics.set("parser_mode", "streaming_event")
   diagnostics.metrics.set("effective_mode", "streaming_event")
@@ -189,22 +161,13 @@ pub fn json_parse_with_stream_document(
   diagnostics.metrics.set("asset_count", "0")
   diagnostics.metrics.set("block_count", count_event_blocks(events).to_string())
   diagnostics.metrics.set("event_count", events.length().to_string())
-  diagnostics.metrics.set("event_granularity", "json_structure")
-  diagnostics.metrics.set("event_semantics", "json_structure_event_stream")
   diagnostics.metrics.set(
     "json_token_count",
     stream.summary.token_count.to_string(),
   )
   diagnostics.metrics.set("syntax_error_count", "0")
   diagnostics.metrics.set("char_count", text.length().to_string())
-  diagnostics.metrics.set(
-    "degraded_feature_count",
-    diagnostics.degraded_features.length().to_string(),
-  )
-  diagnostics.metrics.set(
-    "fallback_count",
-    diagnostics.fallback_trace.length().to_string(),
-  )
+  @fshared.refresh_parser_count_metrics(diagnostics, "event_stream")
   diagnostics.pass_trace.push("parse:json_parser")
   @parser.parse_result_with_events_capability(
     "json_parser",
@@ -224,34 +187,43 @@ fn parse_json_document_result(
     Ok(payload) => payload
     Err(err) => return Err(err)
   }
-  let diagnostics = @parser_common.empty_parser_diagnostics(
+  let diagnostics = @fshared.empty_parser_diagnostics(
     "json_parser",
     @parser.ParserMode::DomAstModel,
     source,
     "json",
   )
-  diagnostics.metrics.set("parser_name", "json_parser")
-  diagnostics.metrics.set("parser_mode", "dom_ast_model")
-  diagnostics.metrics.set(
-    "input_kind",
-    @parser_common.input_kind_name(source.kind),
-  )
-  diagnostics.metrics.set("detected_format", "json")
-  diagnostics.metrics.set(
-    "requested_mode",
-    @parser_common.requested_mode_name(context),
-  )
   let requested_streaming = context.requested_mode ==
     Some(@parser.ParserMode::StreamingEvent)
-  diagnostics.metrics.set(
-    "ir_input_kind",
+  @fshared.init_parser_route_metrics_with_granularity(
+    diagnostics,
+    source,
+    context,
+    "json",
+    "json_parser",
+    @parser.ParserMode::DomAstModel,
+    if requested_streaming {
+      @parser.ParserMode::StreamingEvent
+    } else {
+      @parser.ParserMode::DomAstModel
+    },
     if requested_streaming {
       "event_stream"
     } else {
       "document"
     },
+    if requested_streaming {
+      @parser.StreamingGranularity::JsonStructure
+    } else {
+      @parser.StreamingGranularity::None
+    },
+    if requested_streaming {
+      "json_structure_event_stream"
+    } else {
+      "dom_ast_model"
+    },
   )
-  @parser_common.apply_product_metrics(diagnostics, "json")
+  @fshared.apply_product_metrics(diagnostics, "json")
   if requested_streaming {
     let streamed = try @djson.parse_json_stream(text) |> Ok catch {
       e => Err(e.to_string())
@@ -293,23 +265,12 @@ fn parse_json_document_result(
           count_event_blocks(events).to_string(),
         )
         diagnostics.metrics.set("event_count", events.length().to_string())
-        diagnostics.metrics.set("event_granularity", "json_structure")
-        diagnostics.metrics.set(
-          "event_semantics", "json_structure_event_stream",
-        )
         diagnostics.metrics.set(
           "json_token_count",
           stream.summary.token_count.to_string(),
         )
         diagnostics.metrics.set("syntax_error_count", "0")
-        diagnostics.metrics.set(
-          "degraded_feature_count",
-          diagnostics.degraded_features.length().to_string(),
-        )
-        diagnostics.metrics.set(
-          "fallback_count",
-          diagnostics.fallback_trace.length().to_string(),
-        )
+        @fshared.refresh_parser_count_metrics(diagnostics, "event_stream")
         diagnostics.pass_trace.push("parse:json_parser")
         return Ok(
           @parser.parse_result_with_events_capability(
@@ -366,18 +327,9 @@ fn parse_json_document_result(
         document.blocks.length().to_string(),
       )
       diagnostics.metrics.set("event_count", "0")
-      diagnostics.metrics.set("event_granularity", "none")
-      diagnostics.metrics.set("event_semantics", "dom_ast_model")
       diagnostics.metrics.set("json_token_count", "0")
       diagnostics.metrics.set("syntax_error_count", "0")
-      diagnostics.metrics.set(
-        "degraded_feature_count",
-        diagnostics.degraded_features.length().to_string(),
-      )
-      diagnostics.metrics.set(
-        "fallback_count",
-        diagnostics.fallback_trace.length().to_string(),
-      )
+      @fshared.refresh_parser_count_metrics(diagnostics, "document")
       diagnostics.pass_trace.push("parse:json_parser")
       let final_document = @core.document_with_diagnostics(
         document, diagnostics,
@@ -418,28 +370,25 @@ fn parse_line_delimited_json_result(
     Ok(payload) => payload
     Err(err) => return Err(err)
   }
-  let diagnostics = @parser_common.empty_parser_diagnostics(
+  let diagnostics = @fshared.empty_parser_diagnostics(
     parser_name,
     @parser.ParserMode::StreamingEvent,
     source,
     format_name,
   )
-  diagnostics.metrics.set("parser_name", parser_name)
-  diagnostics.metrics.set("parser_mode", "streaming_event")
-  diagnostics.metrics.set(
-    "input_kind",
-    @parser_common.input_kind_name(source.kind),
+  @fshared.init_parser_route_metrics_with_granularity(
+    diagnostics,
+    source,
+    context,
+    format_name,
+    parser_name,
+    @parser.ParserMode::StreamingEvent,
+    @parser.ParserMode::StreamingEvent,
+    "event_stream",
+    @parser.StreamingGranularity::Record,
+    "record_event_stream",
   )
-  diagnostics.metrics.set("detected_format", format_name)
-  diagnostics.metrics.set(
-    "requested_mode",
-    @parser_common.requested_mode_name(context),
-  )
-  diagnostics.metrics.set("effective_mode", "streaming_event")
-  diagnostics.metrics.set("ir_input_kind", "event_stream")
-  diagnostics.metrics.set("event_granularity", "record")
-  diagnostics.metrics.set("event_semantics", "record_event_stream")
-  @parser_common.apply_product_metrics(diagnostics, format_name)
+  @fshared.apply_product_metrics(diagnostics, format_name)
   let result = lower_line_delimited_json_events(
     format_name, text, source, context,
   )
@@ -484,18 +433,7 @@ fn parse_line_delimited_json_result(
           format_name + " blank line -> skip empty record",
         )
       }
-      diagnostics.metrics.set(
-        "warning_count",
-        diagnostics.warnings.length().to_string(),
-      )
-      diagnostics.metrics.set(
-        "degraded_feature_count",
-        diagnostics.degraded_features.length().to_string(),
-      )
-      diagnostics.metrics.set(
-        "fallback_count",
-        diagnostics.fallback_trace.length().to_string(),
-      )
+      @fshared.refresh_parser_count_metrics(diagnostics, "event_stream")
       diagnostics.pass_trace.push("parse:" + parser_name)
       Ok(
         @parser.parse_result_with_events_capability(

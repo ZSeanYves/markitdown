@@ -1,0 +1,34 @@
+{
+  "output_format": "rag_json",
+  "detected_format": "rst",
+  "parser_mode": "dom_ast_model",
+  "convert_mode": "rag",
+  "diagnostics_contains": {
+    "parser_name": "rst_parser",
+    "metrics": {
+      "effective_mode": "dom_ast_model",
+      "ir_input_kind": "document",
+      "table_count": "1",
+      "blockquote_count": "1"
+    }
+  },
+  "source_map": "null",
+  "chunk_count": {
+    "min": 2
+  },
+  "chunks": [
+    {
+      "kind": "text",
+      "text_contains_all": [
+        "Pay attention."
+      ]
+    },
+    {
+      "kind": "table",
+      "text_contains_all": [
+        "| Name | Value |",
+        "| Alpha | 42 |"
+      ]
+    }
+  ]
+}

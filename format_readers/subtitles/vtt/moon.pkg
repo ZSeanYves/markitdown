@@ -1,0 +1,7 @@
+import {
+  "ZSeanYves/markitdown/format_readers/subtitles/shared",
+}
+
+options(
+  "preferred-target": "native",
+)

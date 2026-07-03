@@ -40,16 +40,16 @@ fn xml_fill_stream_metrics(
   diagnostics.metrics.set("syntax_error_count", "0")
   diagnostics.metrics.set(
     "doctype_seen",
-    @parser_common.bool_string(summary.has_doctype),
+    @fshared.bool_string(summary.has_doctype),
   )
   diagnostics.metrics.set("external_entity_seen", "false")
   diagnostics.metrics.set(
     "custom_entity_seen",
-    @parser_common.bool_string(summary.has_unsupported_doctype),
+    @fshared.bool_string(summary.has_unsupported_doctype),
   )
   diagnostics.metrics.set(
     "line_count",
-    @parser_common.count_physical_lines(text).to_string(),
+    @fshared.count_physical_lines(text).to_string(),
   )
   diagnostics.metrics.set("char_count", text.length().to_string())
   diagnostics.metrics.set("table_count", "0")
@@ -101,21 +101,18 @@ fn xml_fill_common_metrics(
   )
   diagnostics.metrics.set("max_depth_observed", inspect.max_depth.to_string())
   diagnostics.metrics.set("syntax_error_count", "0")
-  diagnostics.metrics.set(
-    "doctype_seen",
-    @parser_common.bool_string(doc.has_doctype),
-  )
+  diagnostics.metrics.set("doctype_seen", @fshared.bool_string(doc.has_doctype))
   diagnostics.metrics.set(
     "external_entity_seen",
-    @parser_common.bool_string(xml_doctype_contains_external_entity(doc)),
+    @fshared.bool_string(xml_doctype_contains_external_entity(doc)),
   )
   diagnostics.metrics.set(
     "custom_entity_seen",
-    @parser_common.bool_string(doc.has_unsupported_doctype),
+    @fshared.bool_string(doc.has_unsupported_doctype),
   )
   diagnostics.metrics.set(
     "line_count",
-    @parser_common.count_physical_lines(text).to_string(),
+    @fshared.count_physical_lines(text).to_string(),
   )
   diagnostics.metrics.set("char_count", text.length().to_string())
   diagnostics.metrics.set("table_count", "0")
@@ -917,7 +914,7 @@ fn malformed_xml_parse_result(
     Some(source.source_name),
     Some("xml"),
     Some(1),
-    Some(@parser_common.count_physical_lines(text)),
+    Some(@fshared.count_physical_lines(text)),
   )
   let block = @core.make_block(@core.BlockKind::Raw, text, source_ref~)
   block.attrs.set("raw_kind", "xml_fail_closed")
@@ -927,10 +924,7 @@ fn malformed_xml_parse_result(
   diagnostics.fallback_trace.push("xml parse failed closed: " + info.detail)
   diagnostics.metrics.set("parser_name", "xml_parser")
   diagnostics.metrics.set("parser_mode", "dom_ast_model")
-  diagnostics.metrics.set(
-    "input_kind",
-    @parser_common.input_kind_name(source.kind),
-  )
+  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
   diagnostics.metrics.set("detected_format", "xml")
   diagnostics.metrics.set("effective_mode", "dom_ast_model")
   diagnostics.metrics.set("ir_input_kind", "document")
@@ -948,15 +942,15 @@ fn malformed_xml_parse_result(
   diagnostics.metrics.set("syntax_error_count", "1")
   diagnostics.metrics.set(
     "doctype_seen",
-    @parser_common.bool_string(text.contains("<!DOCTYPE")),
+    @fshared.bool_string(text.contains("<!DOCTYPE")),
   )
   diagnostics.metrics.set(
     "external_entity_seen",
-    @parser_common.bool_string(text.contains("SYSTEM")),
+    @fshared.bool_string(text.contains("SYSTEM")),
   )
   diagnostics.metrics.set(
     "custom_entity_seen",
-    @parser_common.bool_string(text.contains("<!ENTITY")),
+    @fshared.bool_string(text.contains("<!ENTITY")),
   )
   diagnostics.metrics.set("validation_issue_count", "0")
   diagnostics.metrics.set(
@@ -969,7 +963,7 @@ fn malformed_xml_parse_result(
   )
   diagnostics.metrics.set(
     "line_count",
-    @parser_common.count_physical_lines(text).to_string(),
+    @fshared.count_physical_lines(text).to_string(),
   )
   diagnostics.metrics.set("char_count", text.length().to_string())
   diagnostics.metrics.set("table_count", "0")
@@ -1016,7 +1010,7 @@ fn malformed_xml_text_parse_result(
     Some(source.source_name),
     Some("xml"),
     Some(1),
-    Some(@parser_common.count_physical_lines(text)),
+    Some(@fshared.count_physical_lines(text)),
   )
   let block = @core.make_block(@core.BlockKind::Raw, text, source_ref~)
   block.attrs.set("raw_kind", "xml_fail_closed")
@@ -1026,10 +1020,7 @@ fn malformed_xml_text_parse_result(
   diagnostics.fallback_trace.push("xml fail closed: " + detail)
   diagnostics.metrics.set("parser_name", "xml_parser")
   diagnostics.metrics.set("parser_mode", "dom_ast_model")
-  diagnostics.metrics.set(
-    "input_kind",
-    @parser_common.input_kind_name(source.kind),
-  )
+  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
   diagnostics.metrics.set("detected_format", "xml")
   diagnostics.metrics.set("effective_mode", "dom_ast_model")
   diagnostics.metrics.set("ir_input_kind", "document")
@@ -1047,15 +1038,15 @@ fn malformed_xml_text_parse_result(
   diagnostics.metrics.set("syntax_error_count", "0")
   diagnostics.metrics.set(
     "doctype_seen",
-    @parser_common.bool_string(text.contains("<!DOCTYPE")),
+    @fshared.bool_string(text.contains("<!DOCTYPE")),
   )
   diagnostics.metrics.set(
     "external_entity_seen",
-    @parser_common.bool_string(text.contains("SYSTEM")),
+    @fshared.bool_string(text.contains("SYSTEM")),
   )
   diagnostics.metrics.set(
     "custom_entity_seen",
-    @parser_common.bool_string(text.contains("<!ENTITY") || text.contains("&")),
+    @fshared.bool_string(text.contains("<!ENTITY") || text.contains("&")),
   )
   diagnostics.metrics.set("validation_issue_count", "0")
   diagnostics.metrics.set(
@@ -1068,7 +1059,7 @@ fn malformed_xml_text_parse_result(
   )
   diagnostics.metrics.set(
     "line_count",
-    @parser_common.count_physical_lines(text).to_string(),
+    @fshared.count_physical_lines(text).to_string(),
   )
   diagnostics.metrics.set("char_count", text.length().to_string())
   diagnostics.metrics.set("table_count", "0")

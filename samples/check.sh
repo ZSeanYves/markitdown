@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SAMPLE_IMPL="$ROOT/samples/helpers/validation/check_samples_impl.sh"
 CHECK_TMP_ROOT="${MARKITDOWN_CHECK_TMP_ROOT:-$ROOT/.tmp/check}"
-SUPPORTED_FORMATS=("txt" "csv" "tsv" "json" "jsonl" "ndjson" "ipynb" "xml" "yaml" "toml" "html" "markdown" "zip" "epub" "docx" "xlsx" "pptx" "pdf" "ocr")
+SUPPORTED_FORMATS=("txt" "csv" "tsv" "srt" "vtt" "json" "jsonl" "ndjson" "ipynb" "xml" "yaml" "toml" "html" "markdown" "eml" "tex" "rst" "asciidoc" "zip" "epub" "odt" "ods" "odp" "docx" "xlsx" "pptx" "pdf" "ocr")
 
 ONLY_MODE=""
 FORMAT_FILTER=""
@@ -25,13 +25,13 @@ Options:
   --rag               Run only RAG expected-output checks.
   --assets            Run only light-asset expected-output checks.
   --ocr               Run only explicit OCR-lane expected-output checks.
-  --format FMT        Restrict checks to one supported product format: txt, csv, tsv, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, zip, epub, docx, xlsx, pptx, pdf, ocr.
+  --format FMT        Restrict checks to one supported product format: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, eml, tex, rst, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, ocr.
   --check-inventory   Run sample enrollment/integrity checks without conversion.
   --list-inventory    Print sample inventory counts in TSV form.
   -h, --help          Show this help.
 
 Default:
-  Run markdown, rag, assets, and explicit OCR-lane checks for the main CLI gate: txt, csv, tsv, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, zip, epub, docx, xlsx, pptx, pdf, and ocr.
+  Run markdown, rag, assets, and explicit OCR-lane checks for the main CLI gate: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, eml, tex, rst, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, and ocr.
   Unsupported formats fail closed here.
 
 Run artifacts:
@@ -239,6 +239,8 @@ runner_from_log() {
   local log_path="$1"
   if grep -q "runner-note: built native" "$log_path" 2>/dev/null; then
     printf 'built'
+  elif grep -q "runner-note: rebuilt stale native" "$log_path" 2>/dev/null; then
+    printf 'built'
   elif grep -q "runner: prebuilt-native\\|runner: override" "$log_path" 2>/dev/null; then
     printf 'prebuilt'
   elif grep -q "runner: moon-run" "$log_path" 2>/dev/null; then
@@ -390,7 +392,7 @@ write_summary_md() {
     echo
     echo "## What was checked"
     echo
-    echo "Repo-local samples/main_process lane checks for the main CLI gate: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, pdf, and ocr."
+    echo "Repo-local samples/main_process lane checks for the main CLI gate: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, and ocr."
     echo "Lanes: $lanes"
     echo "Formats outside the current gate fail closed and are not part of this check."
     echo

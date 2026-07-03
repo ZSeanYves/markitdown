@@ -3,6 +3,7 @@ fn convert_with_provenance(
   source : @input.InputSource,
   format : @input.DetectedFormat,
   limits : @convert.ResourceLimits,
+  stream_requested? : Bool = false,
 ) -> @convert.ConvertExecution raise {
   let options = @convert.make_convert_options(
     @convert.ConvertMode::Balanced,
@@ -10,6 +11,7 @@ fn convert_with_provenance(
     Some(format),
     @parser.default_ocr_options(),
     limits,
+    stream_requested~,
   )
   match @convert.convert_input_with_provenance(source, options) {
     Ok(value) => value
@@ -181,6 +183,184 @@ test "convert provenance reports html large block streaming route fidelity" {
     @convert.output_mode_name(execution.provenance.output_mode),
     "markdown",
   )
+}
+
+///|
+test "convert provenance reports html explicit stream route fidelity" {
+  let execution = convert_with_provenance(
+    @input.input_from_path(
+      "samples/main_process/html/markdown/html_semantic_sectioning.html",
+    ),
+    @input.DetectedFormat::Html,
+    @convert.default_resource_limits(),
+    stream_requested=true,
+  )
+  assert_eq(execution.provenance.route_plan.selected_route, "block_streaming")
+  assert_eq(
+    execution.provenance.route_plan.route_reason,
+    "explicit_stream_mode",
+  )
+  assert_eq(
+    @parser.mode_name(execution.provenance.effective_parser_mode),
+    "block_streaming",
+  )
+  assert_eq(execution.provenance.parse_result_kind, "block_stream")
+  assert_eq(execution.provenance.pipeline_output_kind, "block_stream")
+  assert_eq(execution.provenance.render_input_kind, "block_stream")
+  assert_eq(execution.provenance.route_fidelity_status, "matched")
+}
+
+///|
+test "convert provenance reports epub explicit stream container route fidelity" {
+  let execution = convert_with_provenance(
+    @input.input_from_path(
+      "samples/main_process/epub/markdown/epub_basic_package.epub",
+    ),
+    @input.DetectedFormat::Epub,
+    @convert.default_resource_limits(),
+    stream_requested=true,
+  )
+  assert_eq(
+    execution.provenance.route_plan.selected_route,
+    "container_recursive",
+  )
+  assert_eq(
+    execution.provenance.route_plan.route_reason,
+    "explicit_stream_mode",
+  )
+  assert_eq(
+    @parser.mode_name(execution.provenance.effective_parser_mode),
+    "container_recursive",
+  )
+  assert_eq(execution.provenance.parse_result_kind, "block_stream")
+  assert_eq(execution.provenance.pipeline_output_kind, "block_stream")
+  assert_eq(execution.provenance.render_input_kind, "block_stream")
+  assert_eq(execution.provenance.route_fidelity_status, "matched")
+}
+
+///|
+test "convert provenance reports xlsx explicit stream route fidelity" {
+  let execution = convert_with_provenance(
+    @input.input_from_path(
+      "samples/main_process/xlsx/markdown/sheet_simple.xlsx",
+    ),
+    @input.DetectedFormat::Xlsx,
+    @convert.default_resource_limits(),
+    stream_requested=true,
+  )
+  assert_eq(execution.provenance.route_plan.selected_route, "block_streaming")
+  assert_eq(
+    execution.provenance.route_plan.route_reason,
+    "explicit_stream_mode",
+  )
+  assert_eq(
+    @parser.mode_name(execution.provenance.effective_parser_mode),
+    "block_streaming",
+  )
+  assert_eq(execution.provenance.parse_result_kind, "block_stream")
+  assert_eq(execution.provenance.pipeline_output_kind, "block_stream")
+  assert_eq(execution.provenance.render_input_kind, "block_stream")
+  assert_eq(execution.provenance.route_fidelity_status, "matched")
+}
+
+///|
+test "convert provenance reports odt explicit stream route fidelity" {
+  let execution = convert_with_provenance(
+    @input.input_from_path(
+      "samples/main_process/odt/markdown/odt_basic_sample.odt",
+    ),
+    @input.DetectedFormat::Odt,
+    @convert.default_resource_limits(),
+    stream_requested=true,
+  )
+  assert_eq(execution.provenance.route_plan.selected_route, "block_streaming")
+  assert_eq(
+    execution.provenance.route_plan.route_reason,
+    "explicit_stream_mode",
+  )
+  assert_eq(
+    @parser.mode_name(execution.provenance.effective_parser_mode),
+    "block_streaming",
+  )
+  assert_eq(execution.provenance.parse_result_kind, "block_stream")
+  assert_eq(execution.provenance.pipeline_output_kind, "block_stream")
+  assert_eq(execution.provenance.render_input_kind, "block_stream")
+  assert_eq(execution.provenance.route_fidelity_status, "matched")
+}
+
+///|
+test "convert provenance reports ods explicit stream route fidelity" {
+  let execution = convert_with_provenance(
+    @input.input_from_path(
+      "samples/main_process/ods/markdown/ods_basic_sample.ods",
+    ),
+    @input.DetectedFormat::Ods,
+    @convert.default_resource_limits(),
+    stream_requested=true,
+  )
+  assert_eq(execution.provenance.route_plan.selected_route, "block_streaming")
+  assert_eq(
+    execution.provenance.route_plan.route_reason,
+    "explicit_stream_mode",
+  )
+  assert_eq(
+    @parser.mode_name(execution.provenance.effective_parser_mode),
+    "block_streaming",
+  )
+  assert_eq(execution.provenance.parse_result_kind, "block_stream")
+  assert_eq(execution.provenance.pipeline_output_kind, "block_stream")
+  assert_eq(execution.provenance.render_input_kind, "block_stream")
+  assert_eq(execution.provenance.route_fidelity_status, "matched")
+}
+
+///|
+test "convert provenance reports odp explicit stream route fidelity" {
+  let execution = convert_with_provenance(
+    @input.input_from_path(
+      "samples/main_process/odp/markdown/odp_basic_sample.odp",
+    ),
+    @input.DetectedFormat::Odp,
+    @convert.default_resource_limits(),
+    stream_requested=true,
+  )
+  assert_eq(execution.provenance.route_plan.selected_route, "block_streaming")
+  assert_eq(
+    execution.provenance.route_plan.route_reason,
+    "explicit_stream_mode",
+  )
+  assert_eq(
+    @parser.mode_name(execution.provenance.effective_parser_mode),
+    "block_streaming",
+  )
+  assert_eq(execution.provenance.parse_result_kind, "block_stream")
+  assert_eq(execution.provenance.pipeline_output_kind, "block_stream")
+  assert_eq(execution.provenance.render_input_kind, "block_stream")
+  assert_eq(execution.provenance.route_fidelity_status, "matched")
+}
+
+///|
+test "convert provenance reports toml explicit stream fallback honestly" {
+  let execution = convert_with_provenance(
+    @input.input_from_path(
+      "samples/main_process/toml/markdown/toml_object_basic.toml",
+    ),
+    @input.DetectedFormat::Toml,
+    @convert.default_resource_limits(),
+    stream_requested=true,
+  )
+  assert_eq(execution.provenance.route_plan.selected_route, "dom_ast_model")
+  assert_eq(
+    execution.provenance.route_plan.route_reason,
+    "explicit_stream_unsupported_fell_back",
+  )
+  assert_eq(
+    @parser.mode_name(execution.provenance.effective_parser_mode),
+    "dom_ast_model",
+  )
+  assert_eq(execution.provenance.parse_result_kind, "document")
+  assert_eq(execution.provenance.pipeline_output_kind, "document")
+  assert_eq(execution.provenance.render_input_kind, "document")
+  assert_eq(execution.provenance.route_fidelity_status, "matched")
 }
 
 ///|

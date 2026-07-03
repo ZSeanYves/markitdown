@@ -250,6 +250,185 @@ pub fn make_parser_capability(
 }
 
 ///|
+pub fn dom_ast_parser_capability(
+  streaming_granularity : StreamingGranularity,
+  supports_streaming : Bool,
+  supports_events : Bool,
+  supports_blocks : Bool,
+  produces_tables : Bool,
+  produces_images : Bool,
+  produces_metadata : Bool,
+  produces_source_map : Bool,
+  can_be_lossless : Bool,
+  can_preserve_order : Bool,
+  can_preserve_styles : Bool,
+) -> ParserCapability {
+  make_parser_capability(
+    ParserMode::DomAstModel,
+    supports_streaming,
+    streaming_granularity,
+    false,
+    true,
+    false,
+    supports_events,
+    supports_blocks,
+    true,
+    true,
+    true,
+    false,
+    produces_tables,
+    produces_images,
+    produces_metadata,
+    produces_source_map,
+    can_be_lossless,
+    can_preserve_order,
+    can_preserve_styles,
+  )
+}
+
+///|
+pub fn block_stream_parser_capability(
+  streaming_granularity : StreamingGranularity,
+  produces_tables : Bool,
+  produces_images : Bool,
+  produces_metadata : Bool,
+  produces_source_map : Bool,
+  can_be_lossless : Bool,
+  can_preserve_order : Bool,
+  can_preserve_styles : Bool,
+) -> ParserCapability {
+  make_parser_capability(
+    ParserMode::BlockStreaming,
+    true,
+    streaming_granularity,
+    false,
+    true,
+    false,
+    false,
+    true,
+    true,
+    true,
+    true,
+    false,
+    produces_tables,
+    produces_images,
+    produces_metadata,
+    produces_source_map,
+    can_be_lossless,
+    can_preserve_order,
+    can_preserve_styles,
+  )
+}
+
+///|
+pub fn streaming_event_parser_capability(
+  streaming_granularity : StreamingGranularity,
+  supports_document_ir : Bool,
+  produces_tables : Bool,
+  produces_images : Bool,
+  produces_metadata : Bool,
+  produces_source_map : Bool,
+  can_be_lossless : Bool,
+  can_preserve_order : Bool,
+  can_preserve_styles : Bool,
+) -> ParserCapability {
+  make_parser_capability(
+    ParserMode::StreamingEvent,
+    true,
+    streaming_granularity,
+    false,
+    true,
+    false,
+    true,
+    false,
+    supports_document_ir,
+    true,
+    true,
+    false,
+    produces_tables,
+    produces_images,
+    produces_metadata,
+    produces_source_map,
+    can_be_lossless,
+    can_preserve_order,
+    can_preserve_styles,
+  )
+}
+
+///|
+pub fn package_with_block_route_parser_capability(
+  streaming_granularity : StreamingGranularity,
+  requires_random_access : Bool,
+  source_single_pass_preferred : Bool,
+  source_single_pass_strict : Bool,
+  produces_tables : Bool,
+  produces_images : Bool,
+  produces_metadata : Bool,
+  produces_source_map : Bool,
+  can_be_lossless : Bool,
+  can_preserve_order : Bool,
+  can_preserve_styles : Bool,
+) -> ParserCapability {
+  make_parser_capability(
+    ParserMode::PackageSinglePass,
+    true,
+    streaming_granularity,
+    requires_random_access,
+    source_single_pass_preferred,
+    source_single_pass_strict,
+    false,
+    true,
+    true,
+    true,
+    true,
+    false,
+    produces_tables,
+    produces_images,
+    produces_metadata,
+    produces_source_map,
+    can_be_lossless,
+    can_preserve_order,
+    can_preserve_styles,
+  )
+}
+
+///|
+pub fn container_recursive_parser_capability(
+  streaming_granularity : StreamingGranularity,
+  requires_random_access : Bool,
+  source_single_pass_preferred : Bool,
+  produces_tables : Bool,
+  produces_images : Bool,
+  produces_metadata : Bool,
+  produces_source_map : Bool,
+  can_be_lossless : Bool,
+  can_preserve_order : Bool,
+  can_preserve_styles : Bool,
+) -> ParserCapability {
+  make_parser_capability(
+    ParserMode::ContainerRecursive,
+    true,
+    streaming_granularity,
+    requires_random_access,
+    source_single_pass_preferred,
+    false,
+    false,
+    true,
+    true,
+    true,
+    true,
+    false,
+    produces_tables,
+    produces_images,
+    produces_metadata,
+    produces_source_map,
+    can_be_lossless,
+    can_preserve_order,
+    can_preserve_styles,
+  )
+}
+
+///|
 pub fn make_parser(
   name : String,
   mode : ParserMode,
@@ -471,6 +650,36 @@ pub fn mode_name(mode : ParserMode) -> String {
 }
 
 ///|
+pub fn streaming_granularity_name(granularity : StreamingGranularity) -> String {
+  match granularity {
+    StreamingGranularity::Byte => "byte"
+    StreamingGranularity::Line => "line"
+    StreamingGranularity::Record => "record"
+    StreamingGranularity::Row => "row"
+    StreamingGranularity::JsonStructure => "json_structure"
+    StreamingGranularity::NotebookCellOutputGroup =>
+      "notebook_cell_output_group"
+    StreamingGranularity::XmlStructure => "xml_structure"
+    StreamingGranularity::YamlStructure => "yaml_structure"
+    StreamingGranularity::HtmlTokenStructure => "html_token_structure"
+    StreamingGranularity::MarkdownBlock => "markdown_block"
+    StreamingGranularity::DocxBlock => "docx_block"
+    StreamingGranularity::PptxSlide => "pptx_slide"
+    StreamingGranularity::XlsxSheet => "xlsx_sheet"
+    StreamingGranularity::XlsxRow => "xlsx_row"
+    StreamingGranularity::ArchiveEntry => "archive_entry"
+    StreamingGranularity::EpubSpineItem => "epub_spine_item"
+    StreamingGranularity::Block => "block"
+    StreamingGranularity::Page => "page"
+    StreamingGranularity::Slide => "slide"
+    StreamingGranularity::Sheet => "sheet"
+    StreamingGranularity::Chapter => "chapter"
+    StreamingGranularity::Message => "message"
+    StreamingGranularity::None => "none"
+  }
+}
+
+///|
 pub fn parse_result_with_events(
   parser_name : String,
   mode : ParserMode,
@@ -504,6 +713,9 @@ pub fn parse_result_with_events_capability(
   source_map? : @core.SourceMap? = None,
   assembly? : @core.DocumentAssembly? = None,
 ) -> ParseResult {
+  if diagnostics.metrics.get("builder_input_kind") == None {
+    diagnostics.metrics.set("builder_input_kind", "event_stream")
+  }
   {
     parser_name,
     mode,
@@ -553,6 +765,9 @@ pub fn parse_result_with_blocks_capability(
   source_map? : @core.SourceMap? = None,
   assembly? : @core.DocumentAssembly? = None,
 ) -> ParseResult {
+  if diagnostics.metrics.get("builder_input_kind") == None {
+    diagnostics.metrics.set("builder_input_kind", "block_stream")
+  }
   {
     parser_name,
     mode,
@@ -598,6 +813,9 @@ pub fn parse_result_with_document_capability(
   diagnostics : @core.Diagnostics,
   capability : ParserCapability,
 ) -> ParseResult {
+  if diagnostics.metrics.get("builder_input_kind") == None {
+    diagnostics.metrics.set("builder_input_kind", "document")
+  }
   {
     parser_name,
     mode,

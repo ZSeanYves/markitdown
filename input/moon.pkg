@@ -1,6 +1,7 @@
 import {
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/x/fs",
+  "ZSeanYves/markitdown/format_readers/zip",
 }
 
 options(

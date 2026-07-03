@@ -1,18 +1,10 @@
 ///|
 fn markdown_parser_capability() -> @parser.ParserCapability {
-  @parser.make_parser_capability(
-    @parser.ParserMode::DomAstModel,
-    true,
+  @parser.dom_ast_parser_capability(
     @parser.StreamingGranularity::MarkdownBlock,
-    false,
     true,
     false,
-    false,
     true,
-    true,
-    true,
-    true,
-    false,
     true,
     true,
     true,
@@ -40,7 +32,7 @@ pub fn markdown_parser() -> @parser.Parser {
       let scanned = @dmd.scan_markdown_document(text)
       let inspect = @dmd.inspect_markdown_document(scanned)
       let validation = @dmd.validate_markdown_document(scanned)
-      let diagnostics = @parser_common.empty_parser_diagnostics(
+      let diagnostics = @fshared.empty_parser_diagnostics(
         "markdown_parser",
         @parser.ParserMode::DomAstModel,
         source,
@@ -50,12 +42,12 @@ pub fn markdown_parser() -> @parser.Parser {
       diagnostics.metrics.set("parser_mode", "dom_ast_model")
       diagnostics.metrics.set(
         "input_kind",
-        @parser_common.input_kind_name(source.kind),
+        @fshared.input_kind_name(source.kind),
       )
       diagnostics.metrics.set("detected_format", "markdown")
       diagnostics.metrics.set(
         "requested_mode",
-        @parser_common.requested_mode_name(context),
+        @fshared.requested_mode_name(context),
       )
       let requested_blocks = context.requested_mode ==
         Some(@parser.ParserMode::BlockStreaming)
@@ -71,7 +63,7 @@ pub fn markdown_parser() -> @parser.Parser {
       )
       diagnostics.metrics.set("resource_limit_hit", "false")
       diagnostics.metrics.set("block_limit_reached", "false")
-      @parser_common.apply_product_metrics(diagnostics, "markdown")
+      @fshared.apply_product_metrics(diagnostics, "markdown")
       diagnostics.metrics.set("line_count", inspect.line_count.to_string())
       diagnostics.metrics.set(
         "block_inventory_count",
@@ -119,15 +111,15 @@ pub fn markdown_parser() -> @parser.Parser {
       )
       diagnostics.metrics.set(
         "frontmatter_seen",
-        @parser_common.bool_string(inspect.has_frontmatter),
+        @fshared.bool_string(inspect.has_frontmatter),
       )
       diagnostics.metrics.set(
         "has_frontmatter",
-        @parser_common.bool_string(inspect.has_frontmatter),
+        @fshared.bool_string(inspect.has_frontmatter),
       )
       diagnostics.metrics.set(
         "is_empty",
-        @parser_common.bool_string(inspect.is_empty),
+        @fshared.bool_string(inspect.is_empty),
       )
       diagnostics.metrics.set(
         "warning_count",
@@ -187,7 +179,7 @@ fn markdown_parse_result_from_scanned(
   scanned : @dmd.MarkdownDocument,
   inspect : @dmd.MarkdownInspectReport,
 ) -> @parser.ParseResult {
-  let diagnostics = @parser_common.empty_parser_diagnostics(
+  let diagnostics = @fshared.empty_parser_diagnostics(
     "markdown_parser",
     @parser.ParserMode::DomAstModel,
     source,
@@ -195,14 +187,11 @@ fn markdown_parse_result_from_scanned(
   )
   diagnostics.metrics.set("parser_name", "markdown_parser")
   diagnostics.metrics.set("parser_mode", "dom_ast_model")
-  diagnostics.metrics.set(
-    "input_kind",
-    @parser_common.input_kind_name(source.kind),
-  )
+  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
   diagnostics.metrics.set("detected_format", "markdown")
   diagnostics.metrics.set(
     "requested_mode",
-    @parser_common.requested_mode_name(context),
+    @fshared.requested_mode_name(context),
   )
   let requested_blocks = context.requested_mode ==
     Some(@parser.ParserMode::BlockStreaming)
@@ -218,7 +207,7 @@ fn markdown_parse_result_from_scanned(
   )
   diagnostics.metrics.set("resource_limit_hit", "false")
   diagnostics.metrics.set("block_limit_reached", "false")
-  @parser_common.apply_product_metrics(diagnostics, "markdown")
+  @fshared.apply_product_metrics(diagnostics, "markdown")
   markdown_apply_scan_metrics(diagnostics, inspect)
   markdown_apply_validation_issues(diagnostics, scanned.issues)
   let blocks = markdown_lowered_blocks_for_mode(
@@ -464,7 +453,7 @@ fn markdown_blocks_from_scanned_document(
       )
       diagnostics.metrics.set(
         "frontmatter_closed",
-        @parser_common.bool_string(value.closed),
+        @fshared.bool_string(value.closed),
       )
       if !value.closed {
         diagnostics.degraded_features.push("markdown_frontmatter_unclosed")
@@ -552,16 +541,13 @@ fn markdown_apply_scan_metrics(
   )
   diagnostics.metrics.set(
     "frontmatter_seen",
-    @parser_common.bool_string(inspect.has_frontmatter),
+    @fshared.bool_string(inspect.has_frontmatter),
   )
   diagnostics.metrics.set(
     "has_frontmatter",
-    @parser_common.bool_string(inspect.has_frontmatter),
+    @fshared.bool_string(inspect.has_frontmatter),
   )
-  diagnostics.metrics.set(
-    "is_empty",
-    @parser_common.bool_string(inspect.is_empty),
-  )
+  diagnostics.metrics.set("is_empty", @fshared.bool_string(inspect.is_empty))
 }
 
 ///|
@@ -834,7 +820,7 @@ fn markdown_frontmatter_block(
     "frontmatter_kind",
     markdown_frontmatter_kind_name(value.kind),
   )
-  block.attrs.set("closed", @parser_common.bool_string(value.closed))
+  block.attrs.set("closed", @fshared.bool_string(value.closed))
   block
 }
 
@@ -1036,7 +1022,7 @@ fn markdown_single_block_to_core_block_next(
             Some(lang) => code.attrs.set("info", lang.trim().to_owned())
             None => ()
           }
-          code.attrs.set("closed", @parser_common.bool_string(info.closed))
+          code.attrs.set("closed", @fshared.bool_string(info.closed))
         }
         None => ()
       }
@@ -1473,7 +1459,7 @@ fn markdown_list_group_to_block_next(
   let root = @core.make_block(@core.BlockKind::List, "", source_ref~)
   root.attrs.set(
     "ordered",
-    @parser_common.bool_string(markdown_list_is_ordered(group[0].raw_text)),
+    @fshared.bool_string(markdown_list_is_ordered(group[0].raw_text)),
   )
   let stack : Array[(Int, @core.CoreBlock, @core.CoreBlock)] = []
   for block in group {
@@ -1485,7 +1471,7 @@ fn markdown_list_group_to_block_next(
     )
     item.attrs.set(
       "ordered",
-      @parser_common.bool_string(markdown_list_is_ordered(block.raw_text)),
+      @fshared.bool_string(markdown_list_is_ordered(block.raw_text)),
     )
     while stack.length() > 0 && indent < stack[stack.length() - 1].0 {
       ignore(stack.pop())
@@ -2425,7 +2411,7 @@ fn markdown_heading_level(text : String) -> Int {
   while level < chars.length() && chars[level] == '#' {
     level += 1
   }
-  @parser_common.clamp_int(level, 1, 6)
+  @fshared.clamp_int(level, 1, 6)
 }
 
 ///|

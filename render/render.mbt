@@ -1039,6 +1039,7 @@ fn render_markdown_raw(block : @core.CoreBlock) -> String {
   let raw_kind = block.attrs.get("raw_kind").unwrap_or("text")
   if raw_kind == "markdown_html_literal" ||
     raw_kind == "markdown_literal" ||
+    raw_kind == "markdown_footnote_definition" ||
     raw_kind == "markdown_thematic_break" ||
     raw_kind == "markdown_table_literal" {
     return block.text

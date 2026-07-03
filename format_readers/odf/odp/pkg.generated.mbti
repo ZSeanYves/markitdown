@@ -1,0 +1,43 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/format_readers/odf/odp"
+
+import {
+  "ZSeanYves/markitdown/format_readers/odf/shared",
+}
+
+// Values
+pub fn inspect_odp_document(@shared.OdpDocument) -> @shared.OdpInspectReport
+
+pub fn open_odp_document(Bytes) -> @shared.OdpDocument raise
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+pub using @shared {type OdfDocumentKind}
+
+pub using @shared {type OdfError}
+
+pub using @shared {type OdfMetadataSummary}
+
+pub using @shared {type OdfPackageInfo}
+
+pub using @shared {type OdpBlockKind}
+
+pub using @shared {type OdpDocument}
+
+pub using @shared {type OdpImageRef}
+
+pub using @shared {type OdpInspectReport}
+
+pub using @shared {type OdpSlide}
+
+pub using @shared {type OdpSlideBlock}
+
+pub using @shared {type OdpTableCell}
+
+pub using @shared {type OdpTableRow}
+
+// Traits
+

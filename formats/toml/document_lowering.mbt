@@ -10,7 +10,7 @@ fn fill_toml_metrics(
   diagnostics.metrics.set("block_count", document.blocks.length().to_string())
   diagnostics.metrics.set(
     "line_count",
-    @parser_common.count_physical_lines(text).to_string(),
+    @fshared.count_physical_lines(text).to_string(),
   )
   diagnostics.metrics.set("char_count", text.length().to_string())
   diagnostics.metrics.set("node_count", inspect.node_count.to_string())
@@ -481,7 +481,7 @@ fn toml_malformed_parse_result(
     source,
     "/",
     Some(1),
-    Some(@parser_common.count_physical_lines(text)),
+    Some(@fshared.count_physical_lines(text)),
     "toml",
   )
   diagnostics.warnings.push("toml parse warning: " + err)
@@ -492,7 +492,7 @@ fn toml_malformed_parse_result(
   diagnostics.metrics.set("block_count", "1")
   diagnostics.metrics.set(
     "line_count",
-    @parser_common.count_physical_lines(text).to_string(),
+    @fshared.count_physical_lines(text).to_string(),
   )
   diagnostics.metrics.set("char_count", text.length().to_string())
   diagnostics.metrics.set("node_count", "0")

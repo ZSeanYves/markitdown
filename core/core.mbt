@@ -189,6 +189,8 @@ pub(all) struct SourceRef {
   line_end : Int?
   byte_start : Int?
   byte_end : Int?
+  time_start : String?
+  time_end : String?
   xpath : String?
   json_pointer : String?
   yaml_path : String?

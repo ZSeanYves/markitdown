@@ -1,0 +1,52 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/format_readers/subtitles/shared"
+
+// Values
+pub fn inspect_subtitle_document(SubtitleDocument) -> SubtitleInspectReport
+
+pub fn parse_srt_document(String) -> SubtitleDocument raise
+
+pub fn parse_vtt_document(String) -> SubtitleDocument raise
+
+// Errors
+
+// Types and methods
+pub struct SubtitleCue {
+  index : Int
+  identifier : String?
+  time_range : String
+  time_start : String?
+  time_end : String?
+  text_lines : Array[String]
+  note_kind : String?
+  note_payload : String?
+  cue_settings : String?
+  line_start : Int
+  line_end : Int
+}
+
+pub struct SubtitleDocument {
+  format : SubtitleFormat
+  cues : Array[SubtitleCue]
+}
+
+pub(all) enum SubtitleFormat {
+  Srt
+  Vtt
+} derive(Eq)
+
+pub struct SubtitleInspectReport {
+  cue_count : Int
+  note_count : Int
+  style_count : Int
+  region_count : Int
+  multiline_cue_count : Int
+  blank_line_count : Int
+  char_count : Int
+  max_lines_per_cue : Int
+}
+
+// Type aliases
+
+// Traits
+
