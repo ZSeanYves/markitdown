@@ -194,47 +194,47 @@ fn contract_matrix_source(format : @input.DetectedFormat) -> @input.InputSource 
       )
     @input.DetectedFormat::Zip =>
       @input.input_from_path_with_format(
-        "samples/main_process/zip/markdown/zip_basic_structured.zip",
+        "samples/fixtures/contracts/zip/zip_basic_structured.zip",
         Some(format),
       )
     @input.DetectedFormat::Epub =>
       @input.input_from_path_with_format(
-        "samples/main_process/epub/markdown/epub_basic_package.epub",
+        "samples/fixtures/contracts/epub/epub_basic_package.epub",
         Some(format),
       )
     @input.DetectedFormat::Odt =>
       @input.input_from_path_with_format(
-        "samples/main_process/odt/markdown/odt_basic_sample.odt",
+        "samples/fixtures/contracts/odt/odt_basic_sample.odt",
         Some(format),
       )
     @input.DetectedFormat::Ods =>
       @input.input_from_path_with_format(
-        "samples/main_process/ods/markdown/ods_basic_sample.ods",
+        "samples/fixtures/contracts/ods/ods_basic_sample.ods",
         Some(format),
       )
     @input.DetectedFormat::Odp =>
       @input.input_from_path_with_format(
-        "samples/main_process/odp/markdown/odp_basic_sample.odp",
+        "samples/fixtures/contracts/odp/odp_basic_sample.odp",
         Some(format),
       )
     @input.DetectedFormat::Docx =>
       @input.input_from_path_with_format(
-        "samples/main_process/docx/markdown/docx_paragraph_linebreak.docx",
+        "samples/fixtures/contracts/docx/docx_paragraph_linebreak.docx",
         Some(format),
       )
     @input.DetectedFormat::Pptx =>
       @input.input_from_path_with_format(
-        "samples/main_process/pptx/markdown/pptx_link_basic.pptx",
+        "samples/fixtures/contracts/pptx/pptx_link_basic.pptx",
         Some(format),
       )
     @input.DetectedFormat::Xlsx =>
       @input.input_from_path_with_format(
-        "samples/main_process/xlsx/markdown/sheet_simple.xlsx",
+        "samples/fixtures/contracts/xlsx/sheet_simple.xlsx",
         Some(format),
       )
     @input.DetectedFormat::Pdf =>
       @input.input_from_path_with_format(
-        "samples/main_process/pdf/markdown/text_simple.pdf",
+        "samples/fixtures/contracts/pdf/text_simple.pdf",
         Some(format),
       )
     @input.DetectedFormat::Image(image_format) =>

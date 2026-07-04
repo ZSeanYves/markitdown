@@ -31,6 +31,35 @@ assert_not_exists() {
   [[ ! -e "$path" ]] || fail "expected path to be absent: $path"
 }
 
+LAB_ROOT="$OUT_DIR/markitdown-quality-lab"
+MAIN_ROOT="$LAB_ROOT/external_main_process"
+mkdir -p "$MAIN_ROOT/txt/markdown" "$MAIN_ROOT/txt/rag" "$MAIN_ROOT/txt/expected/markdown" "$MAIN_ROOT/txt/expected/rag"
+
+cp "$ROOT/samples/fixtures/contracts/txt/txt_plain.txt" "$MAIN_ROOT/txt/markdown/txt_plain.txt"
+cp "$ROOT/samples/fixtures/contracts/txt/txt_plain.txt" "$MAIN_ROOT/txt/rag/txt_plain.txt"
+cp "$ROOT/samples/fixtures/contracts/txt/txt_plain.expected.md" "$MAIN_ROOT/txt/expected/markdown/txt_plain.md"
+cat >"$MAIN_ROOT/txt/expected/rag/txt_plain.rag.json" <<'EOF'
+{
+  "output_format": "rag_json",
+  "detected_format": "txt",
+  "parser_mode": "streaming_event",
+  "convert_mode": "balanced",
+  "chunk_count": { "exact": 1 },
+  "chunks": [
+    {
+      "kind": "text",
+      "text_contains_all": ["Alpha Beta"]
+    }
+  ]
+}
+EOF
+
+cat >"$MAIN_ROOT/MANIFEST.tsv" <<'EOF'
+id	format	lane	input_path	expected_path	notes
+txt_markdown_txt_plain	txt	markdown	txt/markdown/txt_plain.txt	txt/expected/markdown/txt_plain.md	contract markdown sample
+txt_rag_txt_plain	txt	rag	txt/rag/txt_plain.txt	txt/expected/rag/txt_plain.rag.json	contract rag sample
+EOF
+
 RUN_LOG="$OUT_DIR/run.log"
 DIFF_LOG="$OUT_DIR/diff.log"
 FAIL_LOG="$OUT_DIR/fail.log"
@@ -38,6 +67,7 @@ FAIL_LOG="$OUT_DIR/fail.log"
 (
   cd "$ROOT"
   MARKITDOWN_CLI="$ROOT/_build/native/debug/build/cli/cli.exe" \
+  MARKITDOWN_QUALITY_LAB="$LAB_ROOT" \
   ./samples/check.sh --format txt
 ) >"$RUN_LOG" 2>&1
 
@@ -59,8 +89,8 @@ ASSETS_LOG="$ROOT/$RUN_DIR/logs/assets.entrypoint.log"
 [[ -f "$RAG_LOG" ]] || fail "missing rag entrypoint log"
 [[ -f "$ASSETS_LOG" ]] || fail "missing assets entrypoint log"
 
-assert_contains "$SUMMARY_TSV" $'markdown\ttxt\tpass\tprebuilt\t'
-assert_contains "$SUMMARY_TSV" $'rag\ttxt\tpass\tprebuilt\t2\t0\t'
+assert_contains "$SUMMARY_TSV" $'markdown\ttxt\tpass\tprebuilt\t1\t0\t'
+assert_contains "$SUMMARY_TSV" $'rag\ttxt\tpass\tprebuilt\t1\t0\t'
 assert_contains "$SUMMARY_TSV" $'assets\ttxt\tpass\tprebuilt\t0\t0\t'
 assert_contains "$SUMMARY_MD" "Runner: prebuilt"
 assert_contains "$SUMMARY_MD" "Lanes: markdown, rag, assets"
@@ -68,9 +98,9 @@ assert_contains "$SUMMARY_MD" "- Formats: txt"
 assert_contains "$SUMMARY_MD" "- Failed: 0"
 assert_contains "$SUMMARY_MD" "- Workspace scratch:"
 assert_contains "$SUMMARY_MD" "- Failure artifacts: none"
-assert_contains "$MARKDOWN_LOG" "ALL MAIN PROCESS MARKDOWN TESTS PASSED (txt)"
-assert_contains "$RAG_LOG" "ALL MAIN PROCESS RAG TESTS PASSED (txt) (2 samples, 0 failures)"
-assert_contains "$ASSETS_LOG" "ALL MAIN PROCESS ASSETS TESTS PASSED (0 samples, 0 failures)"
+assert_contains "$MARKDOWN_LOG" "ALL EXTERNAL MAIN MARKDOWN TESTS PASSED (txt)"
+assert_contains "$RAG_LOG" "ALL EXTERNAL MAIN RAG TESTS PASSED (txt) (1 samples, 0 failures)"
+assert_contains "$ASSETS_LOG" "ALL EXTERNAL MAIN ASSETS TESTS PASSED (0 samples, 0 failures)"
 assert_not_exists "$ROOT/$RUN_DIR/reports/failures.md"
 
 DIFF_RUN_DIR_REL="test-diff-$$"
@@ -94,6 +124,7 @@ set +e
 (
   cd "$ROOT"
   MARKITDOWN_CLI="$WRAPPER" \
+  MARKITDOWN_QUALITY_LAB="$LAB_ROOT" \
   CHECK_RUN_ID="$DIFF_RUN_DIR_REL" \
   ./samples/check.sh --format txt
 ) >"$DIFF_LOG" 2>&1
@@ -103,10 +134,10 @@ set -e
 
 DIFF_SUMMARY_MD="$DIFF_RUN_DIR/summary.md"
 DIFF_FAILURE_INDEX="$DIFF_RUN_DIR/reports/failures.md"
-DIFF_REPORT="$DIFF_RUN_DIR/reports/failures/main_process_markdown_txt_txt_plain.md"
-DIFF_FILE="$DIFF_RUN_DIR/diff/main_process_markdown_txt_txt_plain.diff"
-DIFF_ACTUAL="$DIFF_RUN_DIR/raw/failures/main_process_markdown_txt_txt_plain/actual.out"
-DIFF_EXPECTED="$DIFF_RUN_DIR/raw/failures/main_process_markdown_txt_txt_plain/expected.out"
+DIFF_REPORT="$DIFF_RUN_DIR/reports/failures/external_main_markdown_txt_txt_markdown_txt_plain.md"
+DIFF_FILE="$DIFF_RUN_DIR/diff/external_main_markdown_txt_txt_markdown_txt_plain.diff"
+DIFF_ACTUAL="$DIFF_RUN_DIR/raw/failures/external_main_markdown_txt_txt_markdown_txt_plain/actual.out"
+DIFF_EXPECTED="$DIFF_RUN_DIR/raw/failures/external_main_markdown_txt_txt_markdown_txt_plain/expected.out"
 
 [[ -f "$DIFF_SUMMARY_MD" ]] || fail "missing diff failure summary.md"
 [[ -f "$DIFF_FAILURE_INDEX" ]] || fail "missing diff failure index"
@@ -117,7 +148,7 @@ DIFF_EXPECTED="$DIFF_RUN_DIR/raw/failures/main_process_markdown_txt_txt_plain/ex
 assert_contains "$DIFF_LOG" "result: fail"
 assert_contains "$DIFF_SUMMARY_MD" "- Failure index:"
 assert_contains "$DIFF_SUMMARY_MD" "- Failed diffs:"
-assert_contains "$DIFF_FAILURE_INDEX" "main_process_markdown_txt_txt_plain"
+assert_contains "$DIFF_FAILURE_INDEX" "external_main_markdown_txt_txt_markdown_txt_plain"
 assert_contains "$DIFF_REPORT" "diff_mismatch"
 
 FAIL_RUN_DIR_REL="test-failure-$$"
@@ -139,6 +170,7 @@ set +e
 (
   cd "$ROOT"
   MARKITDOWN_CLI="$WRAPPER" \
+  MARKITDOWN_QUALITY_LAB="$LAB_ROOT" \
   CHECK_RUN_ID="$FAIL_RUN_DIR_REL" \
   ./samples/check.sh --format txt
 ) >"$FAIL_LOG" 2>&1
@@ -148,8 +180,8 @@ set -e
 
 FAIL_SUMMARY_MD="$FAIL_RUN_DIR/summary.md"
 FAIL_FAILURE_INDEX="$FAIL_RUN_DIR/reports/failures.md"
-FAIL_REPORT="$FAIL_RUN_DIR/reports/failures/main_process_markdown_txt_txt_plain.md"
-FAIL_STDERR="$FAIL_RUN_DIR/raw/failures/main_process_markdown_txt_txt_plain/stderr.log"
+FAIL_REPORT="$FAIL_RUN_DIR/reports/failures/external_main_markdown_txt_txt_markdown_txt_plain.md"
+FAIL_STDERR="$FAIL_RUN_DIR/raw/failures/external_main_markdown_txt_txt_markdown_txt_plain/stderr.log"
 
 [[ -f "$FAIL_SUMMARY_MD" ]] || fail "missing failure summary.md"
 [[ -f "$FAIL_FAILURE_INDEX" ]] || fail "missing failure index"
@@ -157,7 +189,7 @@ FAIL_STDERR="$FAIL_RUN_DIR/raw/failures/main_process_markdown_txt_txt_plain/stde
 [[ -f "$FAIL_STDERR" ]] || fail "missing failure stderr log"
 assert_contains "$FAIL_SUMMARY_MD" "- Failure index:"
 assert_contains "$FAIL_SUMMARY_MD" "- Failed raw output:"
-assert_contains "$FAIL_FAILURE_INDEX" "main_process_markdown_txt_txt_plain"
+assert_contains "$FAIL_FAILURE_INDEX" "external_main_markdown_txt_txt_markdown_txt_plain"
 assert_contains "$FAIL_REPORT" "conversion_failed"
 assert_contains "$FAIL_STDERR" "forced contract failure"
 

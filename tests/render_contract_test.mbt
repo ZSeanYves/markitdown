@@ -460,27 +460,27 @@ test "rag true stream preserves structural heading paths for json yaml and xml" 
 ///|
 test "rag sample outputs preserve location metadata across html docx pdf pptx and xlsx" {
   let html = convert_path(
-    "samples/main_process/html/markdown/html_link_in_paragraph.html",
+    "samples/fixtures/contracts/html/html_link_in_paragraph.html",
     mode=@convert.ConvertMode::Balanced,
     output=@convert.OutputFormat::RagJson,
   )
   let docx = convert_path(
-    "samples/main_process/docx/markdown/docx_heading_levels.docx",
+    "samples/fixtures/contracts/docx/docx_heading_levels.docx",
     mode=@convert.ConvertMode::Balanced,
     output=@convert.OutputFormat::RagJson,
   )
   let pdf = convert_path(
-    "samples/main_process/pdf/markdown/text_simple.pdf",
+    "samples/fixtures/contracts/pdf/text_simple.pdf",
     mode=@convert.ConvertMode::Balanced,
     output=@convert.OutputFormat::RagJson,
   )
   let pptx = convert_path(
-    "samples/main_process/pptx/markdown/pptx_bullet_levels.pptx",
+    "samples/fixtures/contracts/pptx/pptx_bullet_levels.pptx",
     mode=@convert.ConvertMode::Balanced,
     output=@convert.OutputFormat::RagJson,
   )
   let xlsx = convert_path(
-    "samples/main_process/xlsx/markdown/sheet_simple.xlsx",
+    "samples/fixtures/contracts/xlsx/sheet_simple.xlsx",
     mode=@convert.ConvertMode::Balanced,
     output=@convert.OutputFormat::RagJson,
   )
@@ -496,7 +496,7 @@ test "rag sample outputs preserve location metadata across html docx pdf pptx an
 test "xlsx block stream sparse rows preserve markdown table shape" {
   let parsed = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/xlsx/markdown/sheet_simple.xlsx",
+      "samples/fixtures/contracts/xlsx/sheet_simple.xlsx",
     ),
     @input.DetectedFormat::Xlsx,
     requested_mode=Some(@parser.ParserMode::BlockStreaming),
@@ -513,7 +513,7 @@ test "xlsx block stream sparse rows preserve markdown table shape" {
     @render.make_render_context(false),
   )
   let expected = read_utf8_text(
-    "samples/main_process/xlsx/expected/markdown/sheet_simple.md",
+    "samples/fixtures/contracts/xlsx/sheet_simple.expected.md",
   )
   assert_eq(rendered.content.trim().to_owned(), expected.trim().to_owned())
 }

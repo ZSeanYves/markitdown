@@ -1,5 +1,0 @@
-- alpha
-
-quoted
-
-gamma

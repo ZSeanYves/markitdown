@@ -706,7 +706,7 @@ sudo apt install tesseract-ocr-eng
 
 ```bash
 moon build cli --target native
-./_build/native/debug/build/cli/cli.exe normal samples/main_process/txt/markdown/txt_plain.txt .tmp/manual/out.md
+./_build/native/debug/build/cli/cli.exe normal samples/fixtures/contracts/txt/txt_plain.txt .tmp/manual/out.md
 ```
 
 主回归：

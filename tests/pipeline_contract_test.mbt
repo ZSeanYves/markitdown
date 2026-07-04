@@ -628,7 +628,7 @@ test "xml convert contract keeps dom and event paths renderer-aligned" {
 ///|
 test "xml worldbank namespace dataset stays on streaming event route" {
   let result = convert_path(
-    "samples/main_process/xml/markdown/xml_namespace_syntax.xml",
+    "samples/fixtures/contracts/xml/xml_namespace_syntax.xml",
     format=Some(@input.DetectedFormat::Xml),
     limits=limits(1, 50, 10000, max_line_chars=8),
   )
@@ -642,17 +642,17 @@ test "xml worldbank namespace dataset stays on streaming event route" {
 ///|
 test "xml synthetic benchmark samples stay parseable and keep intended routes" {
   let small = convert_path(
-    "samples/main_process/xml/markdown/xml_basic.xml",
+    "samples/fixtures/contracts/xml/xml_basic.xml",
     format=Some(@input.DetectedFormat::Xml),
     limits=limits(1, 50, 10000, max_line_chars=8),
   )
   let medium = convert_path(
-    "samples/main_process/xml/markdown/xml_nested.xml",
+    "samples/fixtures/contracts/xml/xml_nested.xml",
     format=Some(@input.DetectedFormat::Xml),
     limits=limits(1, 50, 10000, max_line_chars=8),
   )
   let huge = convert_path(
-    "samples/main_process/xml/markdown/xml_namespace_syntax.xml",
+    "samples/fixtures/contracts/xml/xml_namespace_syntax.xml",
     format=Some(@input.DetectedFormat::Xml),
     limits=limits(1, 50, 10000, max_line_chars=8),
   )
@@ -673,7 +673,7 @@ test "xml synthetic benchmark samples stay parseable and keep intended routes" {
 ///|
 test "xlsx huge benchmark sample should not fail closed on package open" {
   let result = convert_path(
-    "samples/main_process/xlsx/markdown/xlsx_multi_sheet_mixed.xlsx",
+    "samples/fixtures/contracts/xlsx/xlsx_multi_sheet_mixed.xlsx",
     format=Some(@input.DetectedFormat::Xlsx),
     limits=limits(1, 1, 1),
   )
@@ -689,7 +689,7 @@ test "xlsx huge benchmark sample should not fail closed on package open" {
 ///|
 test "html large benchmark sample stays on block streaming route" {
   let result = convert_path(
-    "samples/main_process/html/markdown/html_semantic_sectioning.html",
+    "samples/fixtures/contracts/html/html_semantic_sectioning.html",
     format=Some(@input.DetectedFormat::Html),
     limits=limits(1, 50, 100000),
   )
@@ -702,7 +702,7 @@ test "html large benchmark sample stays on block streaming route" {
 ///|
 test "epub large benchmark sample keeps package single pass public shape" {
   let result = convert_path(
-    "samples/main_process/epub/markdown/epub_basic_package.epub",
+    "samples/fixtures/contracts/epub/epub_basic_package.epub",
     format=Some(@input.DetectedFormat::Epub),
   )
   assert_true(result.parser_mode == @parser.ParserMode::PackageSinglePass)
@@ -714,7 +714,7 @@ test "epub large benchmark sample keeps package single pass public shape" {
 ///|
 test "odt default route keeps package single pass public shape" {
   let result = convert_path(
-    "samples/main_process/odt/markdown/odt_basic_sample.odt",
+    "samples/fixtures/contracts/odt/odt_basic_sample.odt",
     format=Some(@input.DetectedFormat::Odt),
   )
   assert_true(result.parser_mode == @parser.ParserMode::PackageSinglePass)
@@ -745,7 +745,7 @@ test "odt hyperlink and note semantics stay visible on package route" {
 ///|
 test "odt explicit stream route switches to block streaming" {
   let result = convert_path(
-    "samples/main_process/odt/markdown/odt_basic_sample.odt",
+    "samples/fixtures/contracts/odt/odt_basic_sample.odt",
     format=Some(@input.DetectedFormat::Odt),
     mode=@convert.ConvertMode::Stream,
   )
@@ -759,7 +759,7 @@ test "odt explicit stream route switches to block streaming" {
 ///|
 test "ods default route keeps package single pass public shape" {
   let result = convert_path(
-    "samples/main_process/ods/markdown/ods_basic_sample.ods",
+    "samples/fixtures/contracts/ods/ods_basic_sample.ods",
     format=Some(@input.DetectedFormat::Ods),
   )
   assert_true(result.parser_mode == @parser.ParserMode::PackageSinglePass)
@@ -773,7 +773,7 @@ test "ods default route keeps package single pass public shape" {
 ///|
 test "ods explicit stream route switches to block streaming" {
   let result = convert_path(
-    "samples/main_process/ods/markdown/ods_basic_sample.ods",
+    "samples/fixtures/contracts/ods/ods_basic_sample.ods",
     format=Some(@input.DetectedFormat::Ods),
     mode=@convert.ConvertMode::Stream,
   )
@@ -787,7 +787,7 @@ test "ods explicit stream route switches to block streaming" {
 ///|
 test "odp default route keeps package single pass public shape" {
   let result = convert_path(
-    "samples/main_process/odp/markdown/odp_basic_sample.odp",
+    "samples/fixtures/contracts/odp/odp_basic_sample.odp",
     format=Some(@input.DetectedFormat::Odp),
   )
   assert_true(result.parser_mode == @parser.ParserMode::PackageSinglePass)
@@ -801,7 +801,7 @@ test "odp default route keeps package single pass public shape" {
 ///|
 test "odp explicit stream route switches to block streaming" {
   let result = convert_path(
-    "samples/main_process/odp/markdown/odp_basic_sample.odp",
+    "samples/fixtures/contracts/odp/odp_basic_sample.odp",
     format=Some(@input.DetectedFormat::Odp),
     mode=@convert.ConvertMode::Stream,
   )
@@ -972,7 +972,7 @@ test "html large input switches to true structure event stream" {
 ///|
 test "html convert contract keeps dom and event paths renderer-aligned" {
   let small = convert_path(
-    "samples/main_process/html/markdown/html_details_summary.html",
+    "samples/fixtures/contracts/html/html_details_summary.html",
     format=Some(@input.DetectedFormat::Html),
   )
   let large_parsed = default_registry_parse(
@@ -1066,31 +1066,31 @@ test "block stream fast path skips full pipeline for html block route" {
 ///|
 test "html parser contract preserves semantic behavior clusters and asset persistence" {
   let details = convert_path(
-    "samples/main_process/html/markdown/html_details_summary.html",
+    "samples/fixtures/contracts/html/html_details_summary.html",
     format=Some(@input.DetectedFormat::Html),
   )
   let nav = convert_path(
-    "samples/main_process/html/markdown/html_semantic_containers.html",
+    "samples/fixtures/contracts/html/html_semantic_containers.html",
     format=Some(@input.DetectedFormat::Html),
   )
   let list_quote = convert_path(
-    "samples/main_process/html/markdown/html_listitem_with_blockquote.html",
+    "samples/fixtures/contracts/html/html_listitem_with_blockquote.html",
     format=Some(@input.DetectedFormat::Html),
   )
   let blockquote = convert_path(
-    "samples/main_process/html/markdown/html_blockquote_mixed_text_and_paragraph.html",
+    "samples/fixtures/contracts/html/html_blockquote_mixed_text_and_paragraph.html",
     format=Some(@input.DetectedFormat::Html),
   )
   let table = convert_path(
-    "samples/main_process/html/markdown/html_br_table.html",
+    "samples/fixtures/contracts/html/html_br_table.html",
     format=Some(@input.DetectedFormat::Html),
   )
   let entities = convert_path(
-    "samples/main_process/html/markdown/html_entities.html",
+    "samples/fixtures/contracts/html/html_entities.html",
     format=Some(@input.DetectedFormat::Html),
   )
   let assets = convert_path(
-    "samples/main_process/html/assets/html_img_single.html",
+    "samples/fixtures/contracts/html/html_img_single.html",
     format=Some(@input.DetectedFormat::Html),
   )
   assert_eq(details.content, "Open\n\nBody")
@@ -1143,7 +1143,7 @@ test "html figure keeps visible caption when image stays non-materialized" {
 test "html parser keeps renderer boundary for link image table and br semantics" {
   let linked = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/html/markdown/html_link_in_paragraph.html",
+      "samples/fixtures/contracts/html/html_link_in_paragraph.html",
     ),
     @input.DetectedFormat::Html,
   )
@@ -1171,7 +1171,7 @@ test "html parser keeps renderer boundary for link image table and br semantics"
 
   let table = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/html/markdown/html_br_table.html",
+      "samples/fixtures/contracts/html/html_br_table.html",
     ),
     @input.DetectedFormat::Html,
   )
@@ -1200,7 +1200,7 @@ test "html parser keeps renderer boundary for link image table and br semantics"
 
   let imaged = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/html/assets/html_img_single.html",
+      "samples/fixtures/contracts/html/html_img_single.html",
     ),
     @input.DetectedFormat::Html,
   )
@@ -1228,7 +1228,7 @@ test "html parser keeps renderer boundary for link image table and br semantics"
 test "docx merged table boundary keeps full body column count through product path" {
   let parsed = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/docx/markdown/docx_table_merged_cells_boundary.docx",
+      "samples/fixtures/contracts/docx/docx_table_merged_cells_boundary.docx",
     ),
     @input.DetectedFormat::Docx,
   )
@@ -1257,7 +1257,7 @@ test "docx merged table boundary keeps full body column count through product pa
 test "nested ordered list indentation remains parser-owned while renderer stays generic" {
   let html_mixed = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/html/markdown/html_nested_list_mixed.html",
+      "samples/fixtures/contracts/html/html_nested_list_mixed.html",
     ),
     @input.DetectedFormat::Html,
   )
@@ -1286,13 +1286,13 @@ test "nested ordered list indentation remains parser-owned while renderer stays 
     @render.make_render_context(false),
   )
   let html_mixed_expected = read_utf8_text(
-    "samples/main_process/html/expected/markdown/html_nested_list_mixed.md",
+    "samples/fixtures/contracts/html/html_nested_list_mixed.expected.md",
   )
   let html_deep_expected = read_utf8_text(
-    "samples/main_process/html/expected/markdown/html_nested_lists_deep.md",
+    "samples/fixtures/contracts/html/html_nested_lists_deep.expected.md",
   )
   let docx_mixed_expected = read_utf8_text(
-    "samples/main_process/docx/expected/markdown/docx_nested_lists_mixed.md",
+    "samples/fixtures/contracts/docx/docx_nested_lists_mixed.expected.md",
   )
   assert_eq(
     html_mixed_rendered.content.trim().to_owned(),
@@ -1300,7 +1300,7 @@ test "nested ordered list indentation remains parser-owned while renderer stays 
   )
 
   let html_deep = convert_path(
-    "samples/main_process/html/markdown/html_nested_lists_deep.html",
+    "samples/fixtures/contracts/html/html_nested_lists_deep.html",
     format=Some(@input.DetectedFormat::Html),
   )
   assert_eq(
@@ -1309,7 +1309,7 @@ test "nested ordered list indentation remains parser-owned while renderer stays 
   )
 
   let docx_mixed = convert_path(
-    "samples/main_process/docx/markdown/docx_nested_lists_mixed.docx",
+    "samples/fixtures/contracts/docx/docx_nested_lists_mixed.docx",
     format=Some(@input.DetectedFormat::Docx),
   )
   assert_eq(
@@ -1396,7 +1396,7 @@ test "html product path keeps full safe external href" {
 test "html safety keeps unsafe links as text with diagnostics and no parser markdown fallback" {
   let parsed = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/html/markdown/html_link_unsafe_javascript.html",
+      "samples/fixtures/contracts/html/html_link_unsafe_javascript.html",
     ),
     @input.DetectedFormat::Html,
   )
@@ -2097,13 +2097,13 @@ test "structured text parsers keep semantic values and renderer owns markdown fo
 test "toml product path keeps array tables semantic and malformed fallback explicit" {
   let semantic = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/toml/markdown/toml_array_of_tables_table.toml",
+      "samples/fixtures/contracts/toml/toml_array_of_tables_table.toml",
     ),
     @input.DetectedFormat::Toml,
   )
   let malformed = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/toml/markdown/toml_malformed_current_fallback.toml",
+      "samples/fixtures/contracts/toml/toml_malformed_current_fallback.toml",
     ),
     @input.DetectedFormat::Toml,
   )
@@ -2889,7 +2889,7 @@ test "product main cli points directly at the root cli entry" {
   assert_true(cli_impl.contains("@convert.convert_input"))
   assert_true(convert_pkg.contains("ZSeanYves/markitdown/formats"))
   assert_true(tests_pkg.contains("ZSeanYves/markitdown/convert"))
-  assert_true(contract_script.contains("check_pdf_signal_contract.sh"))
+  assert_true(contract_script.contains("check_quality_signal_eval_contract.sh"))
   assert_true(
     sample_gate.contains("samples/helpers/validation/check_samples_impl.sh"),
   )
@@ -2905,7 +2905,7 @@ test "product main cli points directly at the root cli entry" {
   assert_files_avoid_strings(
     [
       "cli/moon.pkg", "cli/cli.mbt", "convert/moon.pkg", "convert/convert.mbt", "tests/moon.pkg",
-      "samples/check.sh", "samples/helpers/contracts/check_root_contracts.sh", "samples/helpers/contracts/check_pdf_signal_contract.sh",
+      "samples/check.sh", "samples/helpers/contracts/check_root_contracts.sh",
       "samples/helpers/validation/check_samples_impl.sh",
     ],
     [
@@ -3079,7 +3079,7 @@ test "cli package stays isolated from retired layers and calls root convert" {
 test "zip parser stays on block stream archive entry contracts even when stream mode is requested" {
   let parsed = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/zip/markdown/zip_basic_structured.zip",
+      "samples/fixtures/contracts/zip/zip_basic_structured.zip",
     ),
     @input.DetectedFormat::Zip,
     requested_mode=Some(@parser.ParserMode::StreamingEvent),
@@ -3120,7 +3120,7 @@ test "zip parser stays on block stream archive entry contracts even when stream 
 test "zip parser keeps root-pipeline merged block output and source refs" {
   let parsed = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/zip/markdown/zip_mixed_supported_entries.zip",
+      "samples/fixtures/contracts/zip/zip_mixed_supported_entries.zip",
     ),
     @input.DetectedFormat::Zip,
   )
@@ -3172,7 +3172,7 @@ test "zip parser keeps root-pipeline merged block output and source refs" {
 ///|
 test "zip convert result keeps root container diagnostics and source refs" {
   let result = convert_path(
-    "samples/main_process/zip/markdown/zip_basic_structured.zip",
+    "samples/fixtures/contracts/zip/zip_basic_structured.zip",
     format=Some(@input.DetectedFormat::Zip),
   )
   assert_true(result.content.contains("# data/person.json"))
@@ -3283,7 +3283,7 @@ test "epub foundation contract reuses active epub and zip readers plus root html
 test "epub parser switches to container recursive block stream contracts when explicitly requested" {
   let parsed = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/epub/markdown/epub_basic_package.epub",
+      "samples/fixtures/contracts/epub/epub_basic_package.epub",
     ),
     @input.DetectedFormat::Epub,
     requested_mode=Some(@parser.ParserMode::ContainerRecursive),
@@ -3325,7 +3325,7 @@ test "epub parser switches to container recursive block stream contracts when ex
 test "epub parser preserves opf spine order and root html source refs without parser markdown emission" {
   let parsed = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/epub/markdown/epub_spine_order.epub",
+      "samples/fixtures/contracts/epub/epub_spine_order.epub",
     ),
     @input.DetectedFormat::Epub,
   )
@@ -3375,7 +3375,7 @@ test "epub parser preserves opf spine order and root html source refs without pa
 ///|
 test "epub parser keeps missing and unsupported spine diagnostics root-pipeline and renderer owned" {
   let missing = convert_path(
-    "samples/main_process/epub/markdown/epub_spine_missing_item_boundary.epub",
+    "samples/fixtures/contracts/epub/epub_spine_missing_item_boundary.epub",
     format=Some(@input.DetectedFormat::Epub),
   )
   assert_true(missing.content.contains("# (missing manifest item #0: missing)"))
@@ -3397,7 +3397,7 @@ test "epub parser keeps missing and unsupported spine diagnostics root-pipeline 
   ])
 
   let unsupported = convert_path(
-    "samples/main_process/epub/markdown/epub_unsupported_spine_warning.epub",
+    "samples/fixtures/contracts/epub/epub_unsupported_spine_warning.epub",
     format=Some(@input.DetectedFormat::Epub),
   )
   assert_true(unsupported.content.contains("# OPS/chapter.xhtml"))
@@ -3419,7 +3419,7 @@ test "epub parser keeps missing and unsupported spine diagnostics root-pipeline 
 ///|
 test "epub parser keeps remote and data image refs bounded without local asset materialization" {
   let remote_json = convert_path(
-    "samples/main_process/epub/markdown/epub_remote_data_image_boundary.epub",
+    "samples/fixtures/contracts/epub/epub_remote_data_image_boundary.epub",
     format=Some(@input.DetectedFormat::Epub),
     output=@convert.OutputFormat::DebugJson,
   )
@@ -3478,7 +3478,7 @@ test "xml structure scan stays stable on mixed xml input" {
 ///|
 test "ooxml xml part payload exposes structure scan for workbook parts" {
   let sample_path = resolve_test_sample_path(
-    "samples/main_process/xlsx/markdown/xlsx_multi_sheet_mixed.xlsx",
+    "samples/fixtures/contracts/xlsx/xlsx_multi_sheet_mixed.xlsx",
   )
   let pkg = @ox.open_ooxml_package(
     @fs.read_file_to_bytes(sample_path) catch {

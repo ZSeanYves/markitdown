@@ -1,8 +1,0 @@
-[[products]]
-name = "Hammer"
-sku = 738594937
-tags = ["steel", "tool"]
-
-[[products]]
-name = "Nail"
-color = "silver"

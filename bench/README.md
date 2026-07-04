@@ -30,12 +30,12 @@ git clone git@github.com:ZSeanYves/markitdown-quality-lab.git markitdown-quality
 _build/native/release/build/bench/runner/runner.exe doctor
 ```
 
-请把 `markitdown-quality-lab` 下载到主仓目录下。
+正式放置位置是主仓根目录下的 `./markitdown-quality-lab`。
 
 语料发现规则：
 
-- 优先使用 `MARKITDOWN_BENCH_ROOT`
-- 否则使用 repo-root `markitdown-quality-lab/external_bench/`
+- 默认使用 repo-root `./markitdown-quality-lab/external_bench/`
+- `MARKITDOWN_BENCH_ROOT` 仅作为显式 override
 
 ## 常用命令
 

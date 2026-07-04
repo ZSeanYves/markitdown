@@ -1,5 +1,0 @@
-| Key | Value |
-| --- | --- |
-| title | Hello: world |
-| author | O'Reilly |
-| code | 007 |

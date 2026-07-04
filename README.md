@@ -114,25 +114,25 @@ Show help:
 Minimal conversion example:
 
 ```bash
-./_build/native/debug/build/cli/cli.exe normal samples/main_process/txt/markdown/txt_plain.txt .tmp/manual/out.md
+./_build/native/debug/build/cli/cli.exe normal samples/fixtures/contracts/txt/txt_plain.txt .tmp/manual/out.md
 ```
 
 Accurate fidelity example:
 
 ```bash
-./_build/native/debug/build/cli/cli.exe normal --accurate samples/main_process/docx/markdown/docx_heading_levels.docx .tmp/manual/docx-accurate.md
+./_build/native/debug/build/cli/cli.exe normal --accurate samples/fixtures/contracts/docx/docx_heading_levels.docx .tmp/manual/docx-accurate.md
 ```
 
 Accurate plus RAG output example:
 
 ```bash
-./_build/native/debug/build/cli/cli.exe normal --accurate --rag samples/main_process/pptx/markdown/pptx_bullet_levels.pptx .tmp/manual/pptx-accurate.rag.json
+./_build/native/debug/build/cli/cli.exe normal --accurate --rag samples/fixtures/contracts/pptx/pptx_bullet_levels.pptx .tmp/manual/pptx-accurate.rag.json
 ```
 
 Native-text PDF example:
 
 ```bash
-./_build/native/debug/build/cli/cli.exe normal samples/main_process/pdf/markdown/root_native_text_baseline.pdf .tmp/manual/pdf.md
+./_build/native/debug/build/cli/cli.exe normal samples/fixtures/contracts/pdf/root_native_text_baseline.pdf .tmp/manual/pdf.md
 ```
 
 ## OCR
@@ -249,10 +249,11 @@ Architectural constraints:
 
 ## Samples And Quality Lab
 
-- `samples/main_process/` contains lightweight repo-local regression samples and expected outputs.
+- `samples/fixtures/contracts/` contains the minimal offline fixtures used by repo-local tests and retained shell contracts.
+- `samples/check.sh` runs the external main regression corpus from `markitdown-quality-lab/external_main_process/`.
 - `samples/check.sh` is the primary sample regression entrypoint.
 - `samples/helpers/contracts/check_root_contracts.sh` is the aggregated contract entrypoint.
-- `markitdown-quality-lab/` is the local external corpus repository for quality and benchmark validation.
+- `./markitdown-quality-lab/` is the official external corpus repository location for quality and benchmark validation.
 
 The following implementation notes remain stable user-facing facts:
 
@@ -260,5 +261,5 @@ The following implementation notes remain stable user-facing facts:
 - ZIP archive reading continues to rely on `bikallem/compress/flate` inside `format_readers/zip`.
 
 The repository is self-contained for build, unit tests, and repo-local functional regression coverage through lightweight samples.
-If you want to validate real conversion quality or benchmark performance, prepare the local `markitdown-quality-lab/` repo first and place it under the main repo root.
-Formal `bench v2` reads `markitdown-quality-lab/external_bench/` by default, or `MARKITDOWN_BENCH_ROOT` when set explicitly.
+If you want to validate real conversion quality or benchmark performance, prepare `./markitdown-quality-lab/` under the main repo root first.
+Formal `bench v2` reads `./markitdown-quality-lab/external_bench/` by default; `MARKITDOWN_BENCH_ROOT` is an explicit override.

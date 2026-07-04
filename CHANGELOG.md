@@ -6,7 +6,7 @@
 
 * main-repo runtime, `moon test`, and `./samples/check.sh` remain self-contained
 * optional external quality runs through `bash ./samples/check_quality.sh`
-* repo-root `markitdown-quality-lab/` remains the optional home for:
+* repo-root `./markitdown-quality-lab/` is the official home for:
   * external corpus payloads
   * benchmark payloads and `bench v2` sample manifests
   * tracked local/full quality rows

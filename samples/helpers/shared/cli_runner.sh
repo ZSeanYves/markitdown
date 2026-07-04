@@ -186,6 +186,8 @@ native_cli_has_newer_source() {
     local newer_file=""
     newer_file="$(find "$root_path" -type f \
       \( -name '*.mbt' -o -name 'moon.pkg' -o -name 'moon.pkg.json' -o -name '*.c' \) \
+      ! -name '*_test.mbt' \
+      ! -name '*_wbtest.mbt' \
       -newer "$candidate" -print -quit 2>/dev/null || true)"
     if [[ -n "$newer_file" ]]; then
       CLI_STALENESS_SENTINEL="$newer_file"
@@ -270,12 +272,12 @@ markitdown_runner_command_prefix() {
 
 validation_probe_cases() {
   cat <<'EOF'
-samples/main_process/txt/markdown/txt_plain.txt|txt_plain
-samples/main_process/csv/markdown/csv_markdown_pipes.csv|csv_markdown_pipes
-samples/main_process/tsv/markdown/tsv_markdown_pipes.tsv|tsv_markdown_pipes
-samples/main_process/json/markdown/json_object_basic.json|json_object_basic
-samples/main_process/jsonl/markdown/jsonl_records_basic.jsonl|jsonl_records_basic
-samples/main_process/ndjson/markdown/ndjson_records_basic.ndjson|ndjson_records_basic
+samples/fixtures/contracts/txt/txt_plain.txt|txt_plain
+samples/fixtures/contracts/csv/csv_markdown_pipes.csv|csv_markdown_pipes
+samples/fixtures/contracts/tsv/tsv_markdown_pipes.tsv|tsv_markdown_pipes
+samples/fixtures/contracts/json/json_object_basic.json|json_object_basic
+samples/fixtures/contracts/jsonl/jsonl_records_basic.jsonl|jsonl_records_basic
+samples/fixtures/contracts/ndjson/ndjson_records_basic.ndjson|ndjson_records_basic
 EOF
 }
 
@@ -322,7 +324,7 @@ probe_markitdown_cli() {
   fi
 
   if [[ "$status" -eq 0 ]]; then
-    local accurate_input="$ROOT/samples/main_process/txt/markdown/txt_plain.txt"
+    local accurate_input="$ROOT/samples/fixtures/contracts/txt/txt_plain.txt"
     local accurate_output="$probe_dir/accurate/txt_plain.md"
     mkdir -p "$probe_dir/accurate"
     if ! MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" normal --accurate "$accurate_input" "$accurate_output" >/dev/null 2>&1; then
@@ -334,7 +336,7 @@ probe_markitdown_cli() {
 
   if [[ "$status" -eq 0 ]]; then
     local contract_dir="$probe_dir/contract"
-    local contract_input="$ROOT/samples/main_process/txt/markdown/txt_plain.txt"
+    local contract_input="$ROOT/samples/fixtures/contracts/txt/txt_plain.txt"
     local contract_output="$contract_dir/txt_plain.md"
     mkdir -p "$contract_dir"
     if ! MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" normal "$contract_input" "$contract_output" >/dev/null 2>&1; then

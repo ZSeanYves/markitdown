@@ -209,7 +209,7 @@ test "detector contract covers mime, magic bytes, and container inspection" {
   assert_true(png_magic.notes.contains("image_ocr_candidate"))
 
   let docx_bytes = @fs.read_file_to_bytes(
-    "samples/main_process/docx/assets/golden.docx",
+    "samples/fixtures/contracts/docx/golden.docx",
   ) catch {
     e => fail("failed to read docx sample: " + e.to_string())
   }
@@ -220,7 +220,7 @@ test "detector contract covers mime, magic bytes, and container inspection" {
   assert_true(docx_detected.notes.contains("container_inspection"))
 
   let epub_bytes = @fs.read_file_to_bytes(
-    "samples/main_process/epub/markdown/epub_basic_package.epub",
+    "samples/fixtures/contracts/epub/epub_basic_package.epub",
   ) catch {
     e => fail("failed to read epub sample: " + e.to_string())
   }
@@ -231,7 +231,7 @@ test "detector contract covers mime, magic bytes, and container inspection" {
   assert_true(epub_detected.notes.contains("container_inspection"))
 
   let zip_bytes = @fs.read_file_to_bytes(
-    "samples/main_process/zip/markdown/zip_basic_structured.zip",
+    "samples/fixtures/contracts/zip/zip_basic_structured.zip",
   ) catch {
     e => fail("failed to read zip sample: " + e.to_string())
   }
@@ -317,7 +317,7 @@ test "convert contract threads OCR intent through fail-closed image branches" {
 ///|
 test "convert contract recognizes pdf as a root native-text product format" {
   let pdf = @input.input_from_path_with_format(
-    "samples/main_process/pdf/markdown/text_simple.pdf",
+    "samples/fixtures/contracts/pdf/text_simple.pdf",
     Some(@input.DetectedFormat::Pdf),
   )
   let result = @convert.convert_input(pdf, @convert.default_convert_options())
@@ -381,7 +381,7 @@ test "convert contract recognizes pdf as a root native-text product format" {
 ///|
 test "convert pdf explicit OCR uses OCR route instead of fail-closing before provider path" {
   let pdf = @input.input_from_path_with_format(
-    "samples/main_process/pdf/markdown/root_native_text_baseline.pdf",
+    "samples/fixtures/contracts/pdf/root_native_text_baseline.pdf",
     Some(@input.DetectedFormat::Pdf),
   )
   let provider_calls : Ref[Int] = { val: 0 }
@@ -495,7 +495,7 @@ test "builtin registry wires pdf native text parser through the active registry"
     @parser.registry_parse(
       @formats_root.builtin_registry(),
       @input.input_from_path_with_format(
-        "samples/main_process/pdf/markdown/text_simple.pdf",
+        "samples/fixtures/contracts/pdf/text_simple.pdf",
         Some(@input.DetectedFormat::Pdf),
       ),
       @parser.new_parse_context(@input.DetectedFormat::Pdf),
@@ -515,7 +515,7 @@ test "builtin registry wires pdf native text parser through the active registry"
 ///|
 test "pdf explicit disable policy can still force fail-closed registry behavior" {
   let source = @input.input_from_path_with_format(
-    "samples/main_process/pdf/markdown/text_simple.pdf",
+    "samples/fixtures/contracts/pdf/text_simple.pdf",
     Some(@input.DetectedFormat::Pdf),
   )
   let gated_context = @parser.parse_context_with_pdf_native_runtime_policy(
@@ -614,7 +614,7 @@ test "pdf native unit bridge lowers facts to document ir without changing regist
     @parser.registry_parse(
       @formats_root.builtin_registry(),
       @input.input_from_path_with_format(
-        "samples/main_process/pdf/markdown/text_simple.pdf",
+        "samples/fixtures/contracts/pdf/text_simple.pdf",
         Some(@input.DetectedFormat::Pdf),
       ),
       @parser.new_parse_context(@input.DetectedFormat::Pdf),
@@ -632,7 +632,7 @@ test "pdf native unit bridge lowers facts to document ir without changing regist
 ///|
 test "pdf native parser internal policy stays opt-in and default product markdown stays unchanged" {
   let source = @input.input_from_path_with_format(
-    "samples/main_process/pdf/markdown/root_native_text_baseline.pdf",
+    "samples/fixtures/contracts/pdf/root_native_text_baseline.pdf",
     Some(@input.DetectedFormat::Pdf),
   )
   let default_parsed = match
@@ -1317,13 +1317,6 @@ test "public gates and docs stay aligned on the main cli surface" {
     "help and version expose main cli product surface", "--pdf-cleanup none|conservative",
     "--pdf-tables none|simple", "PDF cleanup and simple table reconstruction are explicit opt-in product options",
   ])
-  assert_file_contains_all("samples/helpers/contracts/check_zip_contract.sh", [
-    "main cli zip markdown output stays root pipeline", "zip_html_local_image.zip",
-    "format_readers/zip", "bikallem/compress/flate",
-  ])
-  assert_file_contains_none("samples/helpers/contracts/check_zip_contract.sh", [
-    "resolve_markitdown_zip_cli", "run_markitdown_zip_cli",
-  ])
   assert_file_contains_all(
     "samples/helpers/contracts/check_samples_check_contract.sh",
     [
@@ -1344,13 +1337,15 @@ test "public gates and docs stay aligned on the main cli surface" {
     "`render`", "`convert`", "`pdf`", "native-text PDFs", "moon test tests", "samples/check_quality.sh",
   ])
   assert_file_contains_all("samples/check.sh", [
-    "--markdown", "--rag", "--assets", "--check-inventory", "--list-inventory", "samples/main_process",
+    "--markdown", "--rag", "--assets", "--check-inventory", "--list-inventory",
+    "external_main_process",
     "txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, eml, tex, rst, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, and ocr",
   ])
   assert_file_contains_all(
     "samples/helpers/contracts/check_root_contracts.sh",
     [
       "check_cli_contract.sh", "check_samples_check_contract.sh", "check_quality_contract.sh",
+      "check_quality_grouping_contract.sh", "check_quality_signal_eval_contract.sh",
     ],
   )
 }

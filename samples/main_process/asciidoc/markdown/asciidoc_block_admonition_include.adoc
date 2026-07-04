@@ -1,8 +1,0 @@
-= Overview
-
-[WARNING]
-====
-Keep this visible.
-====
-
-include::shared.adoc[]

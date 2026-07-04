@@ -19,10 +19,10 @@ Usage: ./samples/check_quality.sh [--format FORMAT] [--id ROW_ID] [--source SOUR
 Run the external quality validation entrypoint.
 
 Default behavior:
-  * runs only the external quality corpus from markitdown-quality-lab
+  * runs only the external quality corpus from ./markitdown-quality-lab
   * expects:
-      markitdown-quality-lab/external_quality/
-      markitdown-quality-lab/external_quality/MANIFEST.tsv
+      ./markitdown-quality-lab/external_quality/
+      ./markitdown-quality-lab/external_quality/MANIFEST.tsv
   * does not fall back to repo-local quality rows
   * keeps raw per-row outputs for executed rows under `raw/`
   * writes non-pass per-row reports under `reports/`
@@ -35,7 +35,7 @@ Examples:
 
 If the external quality corpus is not present, clone it with:
   git clone git@github.com:ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab
-Place `markitdown-quality-lab` under the main repo root.
+The official location is `./markitdown-quality-lab` under the main repo root.
 EOF
 }
 
@@ -66,9 +66,9 @@ print_missing_corpus() {
   echo >&2
   echo "* expected: $(display_path "$QUALITY_CORPUS_ROOT")/" >&2
   echo "* missing: $(display_path "$missing_path")" >&2
-  echo "* clone/place markitdown-quality-lab in the repo root" >&2
+  echo "* place markitdown-quality-lab at the official repo-root location" >&2
   echo "* clone: git clone git@github.com:ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab" >&2
-  echo "* place it under the main repo root: ./markitdown-quality-lab" >&2
+  echo "* official location: ./markitdown-quality-lab" >&2
   echo "* local-only validation: bash samples/check.sh" >&2
 }
 
@@ -272,7 +272,7 @@ fi
   echo
   echo "## What was checked"
   echo
-  echo "External quality rows from markitdown-quality-lab. These rows are an external signal and no repo-local quality corpus fallback is used."
+  echo "External quality rows from ./markitdown-quality-lab. These rows are an external signal and no repo-local quality corpus fallback is used."
   echo
   echo "## Result"
   echo

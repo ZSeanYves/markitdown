@@ -1,4 +1,0 @@
-| Key | Value |
-| --- | --- |
-| point | { x = 1, y = 2 } |
-| owner | { name = Ada, active = true } |

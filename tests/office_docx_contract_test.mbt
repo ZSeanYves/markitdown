@@ -29,7 +29,7 @@ test "docx parser is runtime-owned and avoids retired boundaries" {
   let result = match
     (parser.parse)(
       @input.input_from_path(
-        "samples/main_process/docx/markdown/docx_multiple_notes_order.docx",
+        "samples/fixtures/contracts/docx/docx_multiple_notes_order.docx",
       ),
       context,
     ) {
@@ -77,7 +77,7 @@ test "docx parser is runtime-owned and avoids retired boundaries" {
 test "docx parser preserves note ordering code blocks and comment spacing" {
   let notes = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/docx/markdown/docx_multiple_notes_order.docx",
+      "samples/fixtures/contracts/docx/docx_multiple_notes_order.docx",
     ),
     @input.DetectedFormat::Docx,
   )
@@ -102,7 +102,7 @@ test "docx parser preserves note ordering code blocks and comment spacing" {
 
   let code = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/docx/markdown/docx_codeblock_basic.docx",
+      "samples/fixtures/contracts/docx/docx_codeblock_basic.docx",
     ),
     @input.DetectedFormat::Docx,
   )
@@ -115,7 +115,7 @@ test "docx parser preserves note ordering code blocks and comment spacing" {
 
   let boundary = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/docx/markdown/docx_note_comment_rich_content_boundary.docx",
+      "samples/fixtures/contracts/docx/docx_note_comment_rich_content_boundary.docx",
     ),
     @input.DetectedFormat::Docx,
   )
@@ -146,7 +146,7 @@ test "docx accurate fidelity inlines anchored textboxes into body order" {
     @parser.registry_parse(
       registry,
       @input.input_from_path(
-        "samples/main_process/docx/markdown/docx_textbox_basic.docx",
+        "samples/fixtures/contracts/docx/docx_textbox_basic.docx",
       ),
       context,
     ) {
@@ -184,7 +184,7 @@ test "docx accurate fidelity restores alternate-content textbox text into Comple
     @product.FidelityMode::Accurate,
     @product.OutputMode::Markdown,
   )
-  let path = "samples/fixtures/office_contracts/docx/Complex01.docx"
+  let path = "samples/fixtures/contracts/docx/Complex01.docx"
   let balanced = match
     @parser.registry_parse(
       registry,
@@ -240,7 +240,7 @@ test "docx accurate fidelity restores alternate-content textbox text into Comple
 test "docx parser keeps diagnostics source refs and renderer boundary contract locked" {
   let parsed = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/docx/assets/docx_image_alt_title.docx",
+      "samples/fixtures/contracts/docx/docx_image_alt_title.docx",
     ),
     @input.DetectedFormat::Docx,
   )
@@ -270,7 +270,7 @@ test "docx parser keeps diagnostics source refs and renderer boundary contract l
 
   let headings = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/docx/markdown/docx_heading_levels.docx",
+      "samples/fixtures/contracts/docx/docx_heading_levels.docx",
     ),
     @input.DetectedFormat::Docx,
   )

@@ -1,5 +1,0 @@
-| Key | Value |
-| --- | --- |
-| name | Alice |
-| profile | {team: Search, flags: [owner, reviewer]} |
-| active | true |

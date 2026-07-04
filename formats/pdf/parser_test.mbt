@@ -168,7 +168,7 @@ test "pdf native parser default product path can return document ir" {
     false,
   )
   let source = @input.input_from_path_with_format(
-    "samples/main_process/pdf/markdown/text_simple.pdf",
+    "samples/fixtures/contracts/pdf/text_simple.pdf",
     Some(@input.DetectedFormat::Pdf),
   )
   let parsed = pdf_native_parser_result(source, context)
@@ -280,7 +280,7 @@ test "pdf native parser explicit disable policy stays fail closed" {
     @parser.PdfNativeRuntimePolicy::DisableTextRestore,
   )
   let source = @input.input_from_path_with_format(
-    "samples/main_process/pdf/markdown/text_simple.pdf",
+    "samples/fixtures/contracts/pdf/text_simple.pdf",
     Some(@input.DetectedFormat::Pdf),
   )
   let parsed = pdf_native_parser_result(source, context)
@@ -530,7 +530,7 @@ test "pdf native parser internal policy stays disabled by default and does not c
     @parser.PdfTableReconstructionPolicy::InternalSimpleRowsOnly,
   )
   let source = @input.input_from_path_with_format(
-    "samples/main_process/pdf/markdown/root_native_text_baseline.pdf",
+    "samples/fixtures/contracts/pdf/root_native_text_baseline.pdf",
     Some(@input.DetectedFormat::Pdf),
   )
   let parsed = pdf_native_parser_result(source, enabled_like_context)
@@ -731,7 +731,7 @@ fn fake_pdf_rasterizer(
 ///|
 test "pdf OCR route converts a scanned single-page sample through injected raster and OCR contracts" {
   let source = @input.input_from_path_with_format(
-    "samples/main_process/pdf/ocr/pdf_ocr_single_page.pdf",
+    "samples/fixtures/contracts/pdf/pdf_ocr_single_page.pdf",
     Some(@input.DetectedFormat::Pdf),
   )
   let parsed = match
@@ -772,7 +772,7 @@ test "pdf OCR route converts a scanned single-page sample through injected raste
 ///|
 test "pdf OCR route aggregates multi-page scanned samples without native-text fallback" {
   let source = @input.input_from_path_with_format(
-    "samples/main_process/pdf/ocr/pdf_ocr_two_page.pdf",
+    "samples/fixtures/contracts/pdf/pdf_ocr_two_page.pdf",
     Some(@input.DetectedFormat::Pdf),
   )
   let parsed = match
@@ -814,7 +814,7 @@ test "pdf OCR route aggregates multi-page scanned samples without native-text fa
 ///|
 test "pdf OCR parser accepts accurate fidelity as the formal product entry" {
   let source = @input.input_from_path_with_format(
-    "samples/main_process/pdf/ocr/pdf_ocr_single_page.pdf",
+    "samples/fixtures/contracts/pdf/pdf_ocr_single_page.pdf",
     Some(@input.DetectedFormat::Pdf),
   )
   let parsed = match

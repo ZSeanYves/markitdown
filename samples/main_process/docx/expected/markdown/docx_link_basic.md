@@ -1,1 +1,0 @@
-[OpenAI](https://openai.com)

@@ -9,7 +9,9 @@ source "$ROOT/samples/helpers/validation/check_samples_lanes.sh"
 source "$ROOT/samples/helpers/validation/check_samples_failures.sh"
 source "$ROOT/samples/helpers/validation/check_samples_rag_assets.sh"
 
-SAMPLES_DIR="$ROOT/samples/main_process"
+QUALITY_LAB_ROOT="${MARKITDOWN_QUALITY_LAB:-$ROOT/markitdown-quality-lab}"
+MAIN_CORPUS_ROOT="${MARKITDOWN_MAIN_CORPUS_ROOT:-$QUALITY_LAB_ROOT/external_main_process}"
+MAIN_MANIFEST="${MARKITDOWN_MAIN_MANIFEST:-$MAIN_CORPUS_ROOT/MANIFEST.tsv}"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp/check}"
 FAILURE_DIFF_DIR="${CHECK_FAILURE_DIFF_DIR:-}"
 FAILURE_RAW_DIR="${CHECK_FAILURE_RAW_DIR:-}"
@@ -19,7 +21,7 @@ if [[ -n "${CHECK_SAMPLES_OUT_DIR:-}" ]]; then
   mkdir -p "$OUT_DIR"
   CLEANUP_OUT_DIR=0
 else
-  OUT_DIR="$(sample_make_isolated_tmp_dir "$TMP_ROOT" "main_process")"
+  OUT_DIR="$(sample_make_isolated_tmp_dir "$TMP_ROOT" "external_main_process")"
   CLEANUP_OUT_DIR=1
 fi
 
@@ -41,10 +43,6 @@ supported_formats() {
   echo "${FORMATS[*]}"
 }
 
-sample_inventory_formats() {
-  printf '%s\n' xlsx html zip epub odt ods odp docx pptx pdf ocr csv tsv srt vtt json jsonl ndjson ipynb yaml toml xml markdown eml tex rst asciidoc txt
-}
-
 format_is_supported() {
   local target="$1"
   local fmt
@@ -56,10 +54,33 @@ format_is_supported() {
   return 1
 }
 
+require_external_main_corpus() {
+  if [[ ! -d "$QUALITY_LAB_ROOT" ]]; then
+    echo "external main corpus lab root missing: $QUALITY_LAB_ROOT" >&2
+    return 1
+  fi
+  if [[ ! -d "$MAIN_CORPUS_ROOT" ]]; then
+    echo "external main corpus root missing: $MAIN_CORPUS_ROOT" >&2
+    return 1
+  fi
+  if [[ ! -f "$MAIN_MANIFEST" ]]; then
+    echo "external main manifest missing: $MAIN_MANIFEST" >&2
+    return 1
+  fi
+}
+
+load_sample_rows() {
+  local lane="$1"
+  local fmt_filter="$2"
+  manifest_inventory_rows | awk -F '\t' -v lane="$lane" -v fmt="$fmt_filter" '
+    $3 == lane && (fmt == "" || $2 == fmt) { print }
+  '
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --markdown)
-MODE="markdown"
+      MODE="markdown"
       ;;
     --rag)
       MODE="rag"
@@ -105,6 +126,8 @@ if [[ -n "$FORMAT_FILTER" ]] && ! format_is_supported "$FORMAT_FILTER"; then
   exit 1
 fi
 
+require_external_main_corpus
+
 if [[ -n "$SPECIAL_MODE" ]]; then
   if [[ -n "$FORMAT_FILTER" ]]; then
     echo "--format cannot be combined with --$SPECIAL_MODE" >&2
@@ -129,50 +152,39 @@ if [[ -n "${CLI_RUNNER_NOTE:-}" ]]; then
   echo "runner-note: $CLI_RUNNER_NOTE"
 fi
 
-ACTIVE_FORMATS=("${FORMATS[@]}")
-if [[ -n "$FORMAT_FILTER" ]]; then
-  ACTIVE_FORMATS=("$FORMAT_FILTER")
-fi
-
 MODE_UPPER="$(printf '%s' "$MODE" | tr '[:lower:]' '[:upper:]')"
 
-SAMPLE_LIST=()
-for fmt in "${ACTIVE_FORMATS[@]}"; do
-  in_dir="$(lane_input_dir "$fmt" "$MODE")"
-  [[ -d "$in_dir" ]] || continue
-  while IFS= read -r f; do
-    [[ -z "$f" ]] && continue
-    rel="${f#$in_dir/}"
-    SAMPLE_LIST+=("$fmt|$rel")
-  done < <(discover_samples "$fmt" "$MODE" | sort)
-done
+SAMPLE_ROWS=()
+while IFS= read -r sample_row; do
+  [[ -z "$sample_row" ]] && continue
+  SAMPLE_ROWS+=("$sample_row")
+done < <(load_sample_rows "$MODE" "$FORMAT_FILTER")
 
-if [[ ${#SAMPLE_LIST[@]} -eq 0 ]]; then
-  echo "No enrolled sample files matched mode=$MODE format=${FORMAT_FILTER:-all} under $SAMPLES_DIR"
-  echo "ALL MAIN PROCESS ${MODE_UPPER} TESTS PASSED (0 samples, 0 failures)"
+if [[ ${#SAMPLE_ROWS[@]} -eq 0 ]]; then
+  echo "No enrolled sample rows matched mode=$MODE format=${FORMAT_FILTER:-all} under $MAIN_MANIFEST"
+  echo "ALL EXTERNAL MAIN ${MODE_UPPER} TESTS PASSED (0 samples, 0 failures)"
   exit 0
 fi
 
-label="main_process_${MODE}"
-success_message="ALL MAIN PROCESS ${MODE_UPPER} TESTS PASSED"
-failure_message="FAILED MAIN PROCESS ${MODE_UPPER} SAMPLES"
+label="external_main_${MODE}"
+success_message="ALL EXTERNAL MAIN ${MODE_UPPER} TESTS PASSED"
+failure_message="FAILED EXTERNAL MAIN ${MODE_UPPER} SAMPLES"
 if [[ -n "$FORMAT_FILTER" ]]; then
   label="${label}_${FORMAT_FILTER}"
   success_message="$success_message ($FORMAT_FILTER)"
   failure_message="$failure_message ($FORMAT_FILTER)"
 fi
 
-validation_progress_init "$label" "${#SAMPLE_LIST[@]}"
+validation_progress_init "$label" "${#SAMPLE_ROWS[@]}"
 
-for entry in "${SAMPLE_LIST[@]}"; do
-  IFS='|' read -r fmt rel <<< "$entry"
-  base="$(basename "$rel")"
+for row in "${SAMPLE_ROWS[@]}"; do
+  IFS=$'\t' read -r sample_id fmt lane input_rel expected_rel _notes <<< "$row"
+  input_path="$MAIN_CORPUS_ROOT/$input_rel"
+  expected_path="$(expected_output_path "$lane" "$expected_rel")"
+  base="$(basename "$input_rel")"
   name="${base%.*}"
-  rel_no_ext="${rel%.*}"
-  input_path="$(lane_input_dir "$fmt" "$MODE")/$rel"
-  expected_path="$(resolve_expected_fixture "$fmt" "$MODE" "$rel_no_ext")"
-  scope="main_process/$MODE/$fmt/$rel_no_ext"
-  sample_out_dir="$OUT_DIR/$fmt/$rel_no_ext"
+  scope="external_main/$lane/$fmt/$sample_id"
+  sample_out_dir="$OUT_DIR/$fmt/$sample_id"
   run_dir="$sample_out_dir/run"
   cli_dir="$sample_out_dir/cli"
   output_md="$run_dir/$name.md"
@@ -188,7 +200,7 @@ for entry in "${SAMPLE_LIST[@]}"; do
   failure_stderr="$failure_raw_dir/stderr.log"
   failure_report="$FAILURE_REPORTS_DIR/$failure_slug.md"
   mkdir -p "$run_dir" "$cli_dir"
-  validation_progress_step "$fmt/$rel"
+  validation_progress_step "$fmt/$sample_id"
 
   if validation_bool_enabled "$SAMPLES_VERBOSE"; then
     echo "==> converting $scope"
@@ -198,12 +210,12 @@ for entry in "${SAMPLE_LIST[@]}"; do
   while IFS= read -r extra_arg; do
     [[ -z "$extra_arg" ]] && continue
     cli_args+=("$extra_arg")
-  done < <(sample_lane_cli_args "$fmt" "$MODE" "$rel")
-  if [[ "$MODE" == "rag" ]]; then
+  done < <(sample_lane_cli_args "$fmt" "$lane" "$input_rel")
+  if [[ "$lane" == "rag" ]]; then
     cli_args=(--rag)
   fi
   out_path="$output_md"
-  if [[ "$MODE" == "rag" ]]; then
+  if [[ "$lane" == "rag" ]]; then
     out_path="$output_rag"
   fi
 
@@ -235,7 +247,7 @@ for entry in "${SAMPLE_LIST[@]}"; do
     continue
   fi
 
-  if [[ ! -f "$expected_path" ]]; then
+  if [[ ! -e "$expected_path" ]]; then
     copy_if_exists "$out_path" "$failure_actual"
     copy_if_exists "$stdout_path" "$failure_stdout"
     copy_if_exists "$stderr_path" "$failure_stderr"
@@ -255,8 +267,8 @@ for entry in "${SAMPLE_LIST[@]}"; do
     continue
   fi
 
-  case "$MODE" in
-    markdown)
+  case "$lane" in
+    markdown|ocr)
       if ! validation_diff_or_record "$scope" "$input_path" "$expected_path" "$output_md" "$failure_diff"; then
         copy_if_exists "$output_md" "$failure_actual"
         copy_if_exists "$expected_path" "$failure_expected"
@@ -272,9 +284,9 @@ for entry in "${SAMPLE_LIST[@]}"; do
           "$failure_diff" \
           "$failure_stdout" \
           "$failure_stderr" \
-          "markdown output differed from expected" \
+          "$lane output differed from expected" \
           "diff_mismatch"
-        validation_record_failure "$scope" "$input_path" "$failure_expected" "$failure_actual" "markdown output differed from expected" "diff_mismatch" "$failure_diff" "$failure_stdout" "$failure_stderr" "$failure_report"
+        validation_record_failure "$scope" "$input_path" "$failure_expected" "$failure_actual" "$lane output differed from expected" "diff_mismatch" "$failure_diff" "$failure_stdout" "$failure_stderr" "$failure_report"
       fi
       ;;
     rag)
@@ -303,12 +315,12 @@ for entry in "${SAMPLE_LIST[@]}"; do
       fi
       ;;
     assets)
-      expected_case_dir="$(dirname "$expected_path")"
       actual_assets_dir="$run_dir/assets"
-      expected_assets_dir="$expected_case_dir/assets"
-      if ! validation_diff_or_record "$scope" "$input_path" "$expected_path" "$output_md" "$failure_diff"; then
+      expected_assets_dir="$expected_path/assets"
+      expected_markdown_path="$expected_path/result.md"
+      if ! validation_diff_or_record "$scope" "$input_path" "$expected_markdown_path" "$output_md" "$failure_diff"; then
         copy_if_exists "$output_md" "$failure_actual"
-        copy_if_exists "$expected_path" "$failure_expected"
+        copy_if_exists "$expected_markdown_path" "$failure_expected"
         copy_if_exists "$stdout_path" "$failure_stdout"
         copy_if_exists "$stderr_path" "$failure_stderr"
         copy_dir_if_exists "$actual_assets_dir" "$failure_raw_dir/assets"
@@ -329,7 +341,7 @@ for entry in "${SAMPLE_LIST[@]}"; do
       fi
       if ! check_asset_refs_or_record "$scope" "$run_dir"; then
         copy_if_exists "$output_md" "$failure_actual"
-        copy_if_exists "$expected_path" "$failure_expected"
+        copy_if_exists "$expected_markdown_path" "$failure_expected"
         copy_if_exists "$stdout_path" "$failure_stdout"
         copy_if_exists "$stderr_path" "$failure_stderr"
         copy_dir_if_exists "$actual_assets_dir" "$failure_raw_dir/assets"
@@ -338,14 +350,14 @@ for entry in "${SAMPLE_LIST[@]}"; do
           "$scope" \
           "$fmt" \
           "$input_path" \
-          "$expected_path" \
+          "$expected_markdown_path" \
           "$output_md" \
           "" \
           "$failure_stdout" \
           "$failure_stderr" \
           "asset reference points to a missing output asset" \
           "missing_asset"
-        validation_record_failure "$scope" "$input_path" "$expected_path" "$output_md" "asset reference points to a missing output asset" "missing_asset" "" "$failure_stdout" "$failure_stderr" "$failure_report"
+        validation_record_failure "$scope" "$input_path" "$expected_markdown_path" "$output_md" "asset reference points to a missing output asset" "missing_asset" "" "$failure_stdout" "$failure_stderr" "$failure_report"
         continue
       fi
       set +e
@@ -354,7 +366,7 @@ for entry in "${SAMPLE_LIST[@]}"; do
       set -e
       if [[ "$asset_status" -ne 0 ]]; then
         copy_if_exists "$output_md" "$failure_actual"
-        copy_if_exists "$expected_path" "$failure_expected"
+        copy_if_exists "$expected_markdown_path" "$failure_expected"
         copy_if_exists "$stdout_path" "$failure_stdout"
         copy_if_exists "$stderr_path" "$failure_stderr"
         copy_dir_if_exists "$actual_assets_dir" "$failure_raw_dir/assets"
@@ -363,14 +375,14 @@ for entry in "${SAMPLE_LIST[@]}"; do
           "$scope" \
           "$fmt" \
           "$input_path" \
-          "$expected_path" \
+          "$expected_markdown_path" \
           "$output_md" \
           "" \
           "$failure_stdout" \
           "$failure_stderr" \
           "${asset_detail:-asset output mismatch}" \
           "asset_mismatch"
-        validation_record_failure "$scope" "$input_path" "$expected_path" "$output_md" "${asset_detail:-asset output mismatch}" "asset_mismatch" "" "$failure_stdout" "$failure_stderr" "$failure_report"
+        validation_record_failure "$scope" "$input_path" "$expected_markdown_path" "$output_md" "${asset_detail:-asset output mismatch}" "asset_mismatch" "" "$failure_stdout" "$failure_stderr" "$failure_report"
       fi
       ;;
   esac

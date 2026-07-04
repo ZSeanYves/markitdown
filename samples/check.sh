@@ -18,7 +18,7 @@ usage() {
   cat <<'EOF'
 Usage: ./samples/check.sh [--markdown|--rag|--assets|--ocr] [--format FMT] [--check-inventory] [--list-inventory]
 
-Runs repo-local samples/main_process regression checks.
+Runs external main regression checks from ./markitdown-quality-lab/external_main_process.
 
 Options:
   --markdown          Run only Markdown expected-output checks.
@@ -31,7 +31,7 @@ Options:
   -h, --help          Show this help.
 
 Default:
-  Run markdown, rag, assets, and explicit OCR-lane checks for the main CLI gate: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, eml, tex, rst, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, and ocr.
+  Run markdown, rag, assets, and explicit OCR-lane checks for the external main CLI gate: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, eml, tex, rst, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, and ocr.
   Unsupported formats fail closed here.
 
 Run artifacts:
@@ -392,7 +392,7 @@ write_summary_md() {
     echo
     echo "## What was checked"
     echo
-    echo "Repo-local samples/main_process lane checks for the main CLI gate: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, and ocr."
+    echo "External main manifest lane checks for the main CLI gate: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, eml, tex, rst, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, and ocr."
     echo "Lanes: $lanes"
     echo "Formats outside the current gate fail closed and are not part of this check."
     echo

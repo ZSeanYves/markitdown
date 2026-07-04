@@ -1,6 +1,0 @@
-```eml
-From Broken Example
-This is not a valid RFC 822 header block.
-
-Body that should fall back to a fenced raw eml block.
-```

@@ -382,7 +382,7 @@ test "pptx shared contracts keep placeholder reading-order and notes policies ex
 test "pptx parser keeps diagnostics source refs and runtime behavior contract locked" {
   let parsed = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/pptx/markdown/pptx_hidden_slides_policy.pptx",
+      "samples/fixtures/contracts/pptx/pptx_hidden_slides_policy.pptx",
     ),
     @input.DetectedFormat::Pptx,
   )
@@ -408,7 +408,7 @@ test "pptx parser keeps diagnostics source refs and runtime behavior contract lo
 test "pptx parser keeps nested lists speaker notes and asset boundaries stable" {
   let bullets = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/pptx/markdown/pptx_bullet_levels.pptx",
+      "samples/fixtures/contracts/pptx/pptx_bullet_levels.pptx",
     ),
     @input.DetectedFormat::Pptx,
   )
@@ -421,7 +421,7 @@ test "pptx parser keeps nested lists speaker notes and asset boundaries stable" 
     @render.make_render_context(false),
   )
   let expected_bullets = read_utf8_text(
-    "samples/main_process/pptx/expected/markdown/pptx_bullet_levels.md",
+    "samples/fixtures/contracts/pptx/pptx_bullet_levels.expected.md",
   )
   assert_eq(
     rendered_bullets.content.trim().to_owned(),
@@ -430,7 +430,7 @@ test "pptx parser keeps nested lists speaker notes and asset boundaries stable" 
 
   let notes = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/pptx/rag/pptx_speaker_notes_basic.pptx",
+      "samples/fixtures/contracts/pptx/pptx_speaker_notes_basic.pptx",
     ),
     @input.DetectedFormat::Pptx,
   )
@@ -442,7 +442,7 @@ test "pptx parser keeps nested lists speaker notes and asset boundaries stable" 
 
   let assets = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/pptx/assets/pptx_image_single.pptx",
+      "samples/fixtures/contracts/pptx/pptx_image_single.pptx",
     ),
     @input.DetectedFormat::Pptx,
   )
@@ -456,7 +456,7 @@ test "pptx parser keeps nested lists speaker notes and asset boundaries stable" 
     @render.make_render_context(false),
   )
   let expected_assets = read_utf8_text(
-    "samples/main_process/pptx/expected/assets/pptx_image_single/result.md",
+    "samples/fixtures/contracts/pptx/pptx_image_single.result.md",
   )
   assert_eq(
     rendered_assets.content.trim().to_owned(),
@@ -476,7 +476,7 @@ test "pptx accurate fidelity respects reading-order-driven grouped lowering" {
     @parser.registry_parse(
       registry,
       @input.input_from_path(
-        "samples/main_process/pptx/markdown/pptx_reading_order_geometry.pptx",
+        "samples/fixtures/contracts/pptx/pptx_reading_order_geometry.pptx",
       ),
       context,
     ) {
@@ -496,7 +496,7 @@ test "pptx accurate fidelity respects reading-order-driven grouped lowering" {
     ),
   )
   let expected = read_utf8_text(
-    "samples/main_process/pptx/expected/markdown/pptx_reading_order_geometry.md",
+    "samples/fixtures/contracts/pptx/pptx_reading_order_geometry.expected.md",
   )
   assert_eq(rendered.content.trim().to_owned(), expected.trim().to_owned())
 }
@@ -505,7 +505,7 @@ test "pptx accurate fidelity respects reading-order-driven grouped lowering" {
 test "pptx balanced fidelity avoids accurate-only callout reading-order promotion" {
   let registry = @formats_root.builtin_registry()
   let source = @input.input_from_path(
-    "samples/main_process/pptx/markdown/pptx_callout_blocks_basic.pptx",
+    "samples/fixtures/contracts/pptx/pptx_callout_blocks_basic.pptx",
   )
   let balanced = match
     @parser.registry_parse(
@@ -579,7 +579,7 @@ test "pptx balanced fidelity avoids accurate-only callout reading-order promotio
 test "pptx accurate fidelity upgrades merged tables to html span rendering" {
   let registry = @formats_root.builtin_registry()
   let source = @input.input_from_path(
-    "samples/fixtures/office_contracts/pptx/tbl-cell.pptx",
+    "samples/fixtures/contracts/pptx/tbl-cell.pptx",
   )
   let balanced = match
     @parser.registry_parse(
@@ -673,7 +673,7 @@ test "pptx accurate fidelity summarizes grouped decorative shapes instead of emi
     @parser.registry_parse(
       @formats_root.builtin_registry(),
       @input.input_from_path(
-        "samples/fixtures/office_contracts/pptx/shp-groupshape.pptx",
+        "samples/fixtures/contracts/pptx/shp-groupshape.pptx",
       ),
       @parser.parse_context_with_product_modes(
         @parser.new_parse_context(@input.DetectedFormat::Pptx),
@@ -709,7 +709,7 @@ test "pptx accurate fidelity promotes center title placeholders to heading block
     @parser.registry_parse(
       @formats_root.builtin_registry(),
       @input.input_from_path(
-        "samples/fixtures/office_contracts/pptx/Presentation.pptx",
+        "samples/fixtures/contracts/pptx/Presentation.pptx",
       ),
       @parser.parse_context_with_product_modes(
         @parser.new_parse_context(@input.DetectedFormat::Pptx),
@@ -733,7 +733,7 @@ test "pptx accurate fidelity folds decorative slide noise into a single summary 
     @parser.registry_parse(
       @formats_root.builtin_registry(),
       @input.input_from_path(
-        "samples/fixtures/office_contracts/pptx/shp-shapes.pptx",
+        "samples/fixtures/contracts/pptx/shp-shapes.pptx",
       ),
       @parser.parse_context_with_product_modes(
         @parser.new_parse_context(@input.DetectedFormat::Pptx),

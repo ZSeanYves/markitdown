@@ -23,7 +23,7 @@ fn convert_with_provenance(
 test "convert provenance reports markdown huge block route" {
   let execution = convert_with_provenance(
     @input.input_from_path(
-      "samples/main_process/markdown/markdown/markdown_basic_heading_paragraph.md",
+      "samples/fixtures/contracts/markdown/markdown_basic_heading_paragraph.md",
     ),
     @input.DetectedFormat::Markdown,
     @convert.make_resource_limits(1, 1, 10000),
@@ -51,7 +51,7 @@ test "convert provenance reports markdown huge block route" {
 test "convert provenance reports json large streaming route" {
   let execution = convert_with_provenance(
     @input.input_from_path(
-      "samples/main_process/json/markdown/large_array_streaming.json",
+      "samples/fixtures/contracts/json/large_array_streaming.json",
     ),
     @input.DetectedFormat::Json,
     @convert.make_resource_limits(1, 50, 10000),
@@ -76,7 +76,7 @@ test "convert provenance reports json large streaming route" {
 test "convert provenance reports zip container route" {
   let execution = convert_with_provenance(
     @input.input_from_path(
-      "samples/main_process/zip/markdown/zip_assets_namespace.zip",
+      "samples/fixtures/contracts/zip/zip_assets_namespace.zip",
     ),
     @input.DetectedFormat::Zip,
     @convert.default_resource_limits(),
@@ -107,7 +107,7 @@ test "convert provenance reports zip container route" {
 test "convert provenance reports xlsx huge block streaming route fidelity" {
   let execution = convert_with_provenance(
     @input.input_from_path(
-      "samples/main_process/xlsx/markdown/sheet_simple.xlsx",
+      "samples/fixtures/contracts/xlsx/sheet_simple.xlsx",
     ),
     @input.DetectedFormat::Xlsx,
     @convert.make_resource_limits(1, 1, 1),
@@ -143,7 +143,7 @@ test "convert provenance reports xlsx huge block streaming route fidelity" {
 ///|
 test "convert provenance reports xml synthetic medium streaming route fidelity" {
   let execution = convert_with_provenance(
-    @input.input_from_path("samples/main_process/xml/markdown/xml_nested.xml"),
+    @input.input_from_path("samples/fixtures/contracts/xml/xml_nested.xml"),
     @input.DetectedFormat::Xml,
     @convert.make_resource_limits(1, 50, 10000, max_line_chars=8),
   )
@@ -170,7 +170,7 @@ test "convert provenance reports xml synthetic medium streaming route fidelity" 
 test "convert provenance reports html large block streaming route fidelity" {
   let execution = convert_with_provenance(
     @input.input_from_path(
-      "samples/main_process/html/markdown/html_semantic_sectioning.html",
+      "samples/fixtures/contracts/html/html_semantic_sectioning.html",
     ),
     @input.DetectedFormat::Html,
     @convert.make_resource_limits(1, 50, 100000),
@@ -198,7 +198,7 @@ test "convert provenance reports html large block streaming route fidelity" {
 test "convert provenance reports html explicit stream route fidelity" {
   let execution = convert_with_provenance(
     @input.input_from_path(
-      "samples/main_process/html/markdown/html_semantic_sectioning.html",
+      "samples/fixtures/contracts/html/html_semantic_sectioning.html",
     ),
     @input.DetectedFormat::Html,
     @convert.default_resource_limits(),
@@ -224,7 +224,7 @@ test "convert provenance reports html explicit stream route fidelity" {
 test "convert provenance reports medium adaptive profile without route switch" {
   let execution = convert_with_provenance(
     @input.input_from_path(
-      "markitdown-quality-lab/external_quality/ods/odf-toolkit/MergedCells.ods",
+      "samples/fixtures/contracts/ods/MergedCells.ods",
     ),
     @input.DetectedFormat::Ods,
     @convert.make_resource_limits(10, 10, 1000),
@@ -248,7 +248,7 @@ test "convert provenance reports medium adaptive profile without route switch" {
 test "convert provenance reports epub explicit stream container route fidelity" {
   let execution = convert_with_provenance(
     @input.input_from_path(
-      "samples/main_process/epub/markdown/epub_basic_package.epub",
+      "samples/fixtures/contracts/epub/epub_basic_package.epub",
     ),
     @input.DetectedFormat::Epub,
     @convert.default_resource_limits(),
@@ -276,7 +276,7 @@ test "convert provenance reports epub explicit stream container route fidelity" 
 test "convert provenance reports xlsx explicit stream route fidelity" {
   let execution = convert_with_provenance(
     @input.input_from_path(
-      "samples/main_process/xlsx/markdown/sheet_simple.xlsx",
+      "samples/fixtures/contracts/xlsx/sheet_simple.xlsx",
     ),
     @input.DetectedFormat::Xlsx,
     @convert.default_resource_limits(),
@@ -301,7 +301,7 @@ test "convert provenance reports xlsx explicit stream route fidelity" {
 test "convert provenance reports odt explicit stream route fidelity" {
   let execution = convert_with_provenance(
     @input.input_from_path(
-      "samples/main_process/odt/markdown/odt_basic_sample.odt",
+      "samples/fixtures/contracts/odt/odt_basic_sample.odt",
     ),
     @input.DetectedFormat::Odt,
     @convert.default_resource_limits(),
@@ -326,7 +326,7 @@ test "convert provenance reports odt explicit stream route fidelity" {
 test "convert provenance reports ods explicit stream route fidelity" {
   let execution = convert_with_provenance(
     @input.input_from_path(
-      "samples/main_process/ods/markdown/ods_basic_sample.ods",
+      "samples/fixtures/contracts/ods/ods_basic_sample.ods",
     ),
     @input.DetectedFormat::Ods,
     @convert.default_resource_limits(),
@@ -351,7 +351,7 @@ test "convert provenance reports ods explicit stream route fidelity" {
 test "convert provenance reports odp explicit stream route fidelity" {
   let execution = convert_with_provenance(
     @input.input_from_path(
-      "samples/main_process/odp/markdown/odp_basic_sample.odp",
+      "samples/fixtures/contracts/odp/odp_basic_sample.odp",
     ),
     @input.DetectedFormat::Odp,
     @convert.default_resource_limits(),
@@ -376,7 +376,7 @@ test "convert provenance reports odp explicit stream route fidelity" {
 test "convert provenance reports toml explicit stream fallback honestly" {
   let execution = convert_with_provenance(
     @input.input_from_path(
-      "samples/main_process/toml/markdown/toml_object_basic.toml",
+      "samples/fixtures/contracts/toml/toml_object_basic.toml",
     ),
     @input.DetectedFormat::Toml,
     @convert.default_resource_limits(),
@@ -433,7 +433,7 @@ test "convert provenance keeps html block token offsets source-aligned" {
 ///|
 test "route planner keeps explicit stream fallback honest for toml" {
   let source = @input.input_from_path(
-    "samples/main_process/toml/markdown/toml_object_basic.toml",
+    "samples/fixtures/contracts/toml/toml_object_basic.toml",
   )
   let options = @convert.make_convert_options(
     @convert.ConvertMode::Balanced,
@@ -458,7 +458,7 @@ test "route planner keeps explicit stream fallback honest for toml" {
 ///|
 test "route planner keeps pdf accurate and explicit ocr routes stable" {
   let source = @input.input_from_path(
-    "samples/main_process/pdf/markdown/text_basic.pdf",
+    "samples/fixtures/contracts/pdf/text_simple.pdf",
   )
   let accurate_options = @convert.make_convert_options(
     @convert.ConvertMode::Accurate,
@@ -501,7 +501,7 @@ test "route planner keeps pdf accurate and explicit ocr routes stable" {
 ///|
 test "route planner resolves lowering profile by runtime precedence" {
   let markdown_source = @input.input_from_path(
-    "samples/main_process/markdown/markdown/markdown_basic_heading_paragraph.md",
+    "samples/fixtures/contracts/markdown/markdown_basic_heading_paragraph.md",
   )
   let markdown_options = @convert.make_convert_options(
     @convert.ConvertMode::Balanced,
@@ -523,7 +523,7 @@ test "route planner resolves lowering profile by runtime precedence" {
   )
 
   let html_source = @input.input_from_path(
-    "samples/main_process/html/markdown/html_semantic_sectioning.html",
+    "samples/fixtures/contracts/html/html_semantic_sectioning.html",
   )
   let html_options = @convert.make_convert_options(
     @convert.ConvertMode::Stream,
@@ -543,7 +543,7 @@ test "route planner resolves lowering profile by runtime precedence" {
   )
 
   let docx_source = @input.input_from_path(
-    "samples/main_process/docx/markdown/docx_textbox_basic.docx",
+    "samples/fixtures/contracts/docx/docx_textbox_basic.docx",
   )
   let docx_options = @convert.make_convert_options(
     @convert.ConvertMode::Accurate,

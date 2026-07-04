@@ -1,5 +1,0 @@
-title = "Config"
-
-[database]
-server = "db.local"
-port = 5432

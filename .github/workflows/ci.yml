@@ -9,8 +9,8 @@ permissions:
   contents: read
 
 jobs:
-  validate:
-    name: validate (${{ matrix.os }})
+  core-validate:
+    name: core-validate (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -47,16 +47,86 @@ jobs:
       - name: Test
         run: moon test
 
-      - name: Install sample validation OCR dependencies (Ubuntu)
+  external-main-regression:
+    name: external-main-regression (${{ matrix.os }})
+    needs: core-validate
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Checkout quality lab
+        uses: actions/checkout@v5
+        with:
+          repository: ZSeanYves/markitdown-quality-lab
+          path: markitdown-quality-lab
+
+      - name: Install MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: Update MoonBit registry
+        run: moon update
+
+      - name: Build native CLI
+        run: moon build --target native
+
+      - name: Install OCR dependencies (Ubuntu)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y poppler-utils tesseract-ocr tesseract-ocr-eng
 
-      - name: Install sample validation OCR dependencies (macOS)
+      - name: Install OCR dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
           brew install poppler tesseract
 
-      - name: Sample validation
+      - name: External main regression
         run: ./samples/check.sh
+
+  external-quality-regression:
+    name: external-quality-regression
+    needs: core-validate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Checkout quality lab
+        uses: actions/checkout@v5
+        with:
+          repository: ZSeanYves/markitdown-quality-lab
+          path: markitdown-quality-lab
+
+      - name: Install MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: Update MoonBit registry
+        run: moon update
+
+      - name: Build native CLI
+        run: moon build --target native
+
+      - name: Install OCR dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils tesseract-ocr tesseract-ocr-eng
+
+      - name: External quality regression
+        run: ./samples/check_quality.sh

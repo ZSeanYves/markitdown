@@ -73,10 +73,13 @@ scenario x row x tool
 - `diagnostic.epub`
 - `diagnostic.zip`
 
-`<bench-root>` 解析顺序固定为：
+`<bench-root>` 的正式默认位置固定为：
+
+- repo-root `./markitdown-quality-lab/external_bench/`
+
+只有在显式 override 时才使用：
 
 - `MARKITDOWN_BENCH_ROOT`
-- repo-root `markitdown-quality-lab/external_bench/`
 
 ## 4. Route Fidelity Contract
 

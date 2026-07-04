@@ -1,68 +1,38 @@
 #!/usr/bin/env bash
 
-count_non_hidden_files() {
-  local dir="$1"
+manifest_inventory_rows() {
+  if [[ ! -f "$MAIN_MANIFEST" ]]; then
+    return 0
+  fi
+  awk -F '\t' '
+    NR == 1 { next }
+    /^[[:space:]]*$/ { next }
+    /^[[:space:]]*#/ { next }
+    { print }
+  ' "$MAIN_MANIFEST"
+}
+
+manifest_formats() {
+  manifest_inventory_rows | awk -F '\t' '{ print $2 }' | sort -u
+}
+
+manifest_count_rows() {
+  local fmt="$1"
+  local lane="$2"
+  manifest_inventory_rows | awk -F '\t' -v fmt="$fmt" -v lane="$lane" '
+    $2 == fmt && $3 == lane { count++ }
+    END { print count + 0 }
+  '
+}
+
+count_contract_fixtures() {
+  local fmt="$1"
+  local dir="$ROOT/samples/fixtures/contracts/$fmt"
   if [[ ! -d "$dir" ]]; then
     printf '0'
     return
   fi
   find "$dir" -maxdepth 1 -type f ! -name '.*' | wc -l | tr -d '[:space:]'
-}
-
-count_expected_markdown_cases() {
-  local fmt="$1"
-  local dir="$SAMPLES_DIR/$fmt/expected/markdown"
-  if [[ ! -d "$dir" ]]; then
-    printf '0'
-    return
-  fi
-  find "$dir" -type f -name '*.md' | wc -l | tr -d '[:space:]'
-}
-
-count_expected_ocr_cases() {
-  local fmt="$1"
-  local dir="$SAMPLES_DIR/$fmt/expected/ocr"
-  if [[ ! -d "$dir" ]]; then
-    printf '0'
-    return
-  fi
-  find "$dir" -type f -name '*.md' | wc -l | tr -d '[:space:]'
-}
-
-count_expected_rag_cases() {
-  local fmt="$1"
-  local dir="$SAMPLES_DIR/$fmt/expected/rag"
-  if [[ ! -d "$dir" ]]; then
-    printf '0'
-    return
-  fi
-  find "$dir" -type f -name '*.rag.json' | wc -l | tr -d '[:space:]'
-}
-
-count_expected_assets_cases() {
-  local fmt="$1"
-  local dir="$SAMPLES_DIR/$fmt/expected/assets"
-  if [[ ! -d "$dir" ]]; then
-    printf '0'
-    return
-  fi
-  find "$dir" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d '[:space:]'
-}
-
-count_quality_manifest_rows() {
-  local fmt="$1"
-  local manifest="$ROOT/samples/helpers/quality/manifest.tsv"
-  if [[ ! -f "$manifest" ]]; then
-    printf '0'
-    return
-  fi
-  awk -F '\t' -v fmt="$fmt" '
-    NR == 1 { next }
-    /^[[:space:]]*$/ { next }
-    /^[[:space:]]*#/ { next }
-    $2 == fmt { count++ }
-    END { print count + 0 }
-  ' "$manifest"
 }
 
 count_quality_comparison_reports() {
@@ -77,143 +47,92 @@ count_quality_comparison_reports() {
 
 inventory_list() {
   local fmt
-  printf 'format\tmain_markdown\tmain_rag\tmain_assets\tmain_ocr\texpected_markdown\texpected_rag\texpected_assets\texpected_ocr\tfixtures\tquality_records\tquality_intake_public\n'
+  printf 'format\tmain_markdown\tmain_rag\tmain_assets\tmain_ocr\tfixtures\tquality_records\n'
   while IFS= read -r fmt; do
     [[ -z "$fmt" ]] && continue
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
       "$fmt" \
-      "$(count_non_hidden_files "$SAMPLES_DIR/$fmt/markdown")" \
-      "$(count_non_hidden_files "$SAMPLES_DIR/$fmt/rag")" \
-      "$(count_non_hidden_files "$SAMPLES_DIR/$fmt/assets")" \
-      "$(count_non_hidden_files "$SAMPLES_DIR/$fmt/ocr")" \
-      "$(count_expected_markdown_cases "$fmt")" \
-      "$(count_expected_rag_cases "$fmt")" \
-      "$(count_expected_assets_cases "$fmt")" \
-      "$(count_expected_ocr_cases "$fmt")" \
-      "$(count_non_hidden_files "$ROOT/samples/fixtures/$fmt")" \
-      "$(count_quality_comparison_reports "$fmt")" \
-      "$(count_quality_manifest_rows "$fmt")"
-  done < <(sample_inventory_formats)
+      "$(manifest_count_rows "$fmt" "markdown")" \
+      "$(manifest_count_rows "$fmt" "rag")" \
+      "$(manifest_count_rows "$fmt" "assets")" \
+      "$(manifest_count_rows "$fmt" "ocr")" \
+      "$(count_contract_fixtures "$fmt")" \
+      "$(count_quality_comparison_reports "$fmt")"
+  done < <(manifest_formats)
 }
 
-sample_integrity_is_noise_file() {
-  local base="$1"
-  [[ "$base" == .* ]] && return 0
-  [[ "$base" == *~ ]] && return 0
-  [[ "$base" == *.swp ]] && return 0
-  [[ "$base" == *.tmp ]] && return 0
-  return 1
-}
-
-sample_integrity_discover_inputs() {
-  local fmt="$1"
-  local lane="$2"
-  local in_dir="$SAMPLES_DIR/$fmt/$lane"
-  if [[ ! -d "$in_dir" ]]; then
-    return 0
-  fi
-  find "$in_dir" -type f ! -name '.*' ! -path '*/img/*' | sort
-}
-
-sample_integrity_expected_bases() {
-  local fmt="$1"
-  local lane="$2"
-  local exp_dir="$SAMPLES_DIR/$fmt/expected/$lane"
-  if [[ ! -d "$exp_dir" ]]; then
-    return 0
-  fi
+manifest_expected_exists() {
+  local lane="$1"
+  local expected_path="$2"
   case "$lane" in
-    markdown)
-      find "$exp_dir" -type f -name '*.md' -print | sort | while read -r path; do
-        rel="${path#$exp_dir/}"
-        echo "${rel%.md}"
-      done | sort -u
-      ;;
-    rag)
-      find "$exp_dir" -type f -name '*.rag.json' -print | sort | while read -r path; do
-        rel="${path#$exp_dir/}"
-        echo "${rel%.rag.json}"
-      done | sort -u
-      ;;
     assets)
-      find "$exp_dir" -mindepth 1 -maxdepth 1 -type d -print | sort | while read -r path; do
-        rel="${path#$exp_dir/}"
-        echo "$rel"
-      done | sort -u
+      [[ -d "$MAIN_CORPUS_ROOT/$expected_path" ]]
       ;;
-    ocr)
-      find "$exp_dir" -type f -name '*.md' -print | sort | while read -r path; do
-        rel="${path#$exp_dir/}"
-        echo "${rel%.md}"
-      done | sort -u
+    *)
+      [[ -f "$MAIN_CORPUS_ROOT/$expected_path" ]]
       ;;
   esac
 }
 
+sample_integrity_is_noise_path() {
+  local rel="$1"
+  [[ "$rel" == .* ]] && return 0
+  [[ "$rel" == *"/."* ]] && return 0
+  [[ "$rel" == *~ ]] && return 0
+  [[ "$rel" == *.swp ]] && return 0
+  [[ "$rel" == *.tmp ]] && return 0
+  return 1
+}
+
 check_sample_inventory_integrity() {
-  local formats=("docx" "pdf" "xlsx" "html" "pptx" "ocr" "csv" "tsv" "txt" "srt" "vtt" "xml" "json" "jsonl" "ndjson" "ipynb" "yaml" "toml" "markdown" "tex" "rst" "asciidoc" "eml" "zip" "epub" "odt" "ods" "odp")
-  local lanes=("markdown" "rag" "assets" "ocr")
-  local fail=0 quiet_integrity=0 fmt lane in_dir exp_dir input_bases expected_bases missing_input missing_expected
-
-  if validation_bool_enabled "${SAMPLES_QUIET_INTEGRITY:-0}"; then
-    quiet_integrity=1
+  local fail=0
+  local seen_ids=""
+  local line_no=1
+  local row
+  if [[ ! -f "$MAIN_MANIFEST" ]]; then
+    echo "missing manifest: $MAIN_MANIFEST" >&2
+    exit 1
   fi
 
-  if [[ "$quiet_integrity" -eq 0 ]]; then
-    echo "==> sample integrity check"
-  fi
+  echo "==> sample integrity check"
 
-  for fmt in "${formats[@]}"; do
-    for lane in "${lanes[@]}"; do
-      in_dir="$SAMPLES_DIR/$fmt/$lane"
-      exp_dir="$SAMPLES_DIR/$fmt/expected/$lane"
-
-      if [[ ! -d "$in_dir" && ! -d "$exp_dir" ]]; then
-        continue
-      fi
-
-      input_bases="$(sample_integrity_discover_inputs "$fmt" "$lane" | while read -r path; do
-        [[ -z "$path" ]] && continue
-        rel="${path#$in_dir/}"
-        base="$(basename "$rel")"
-        if sample_integrity_is_noise_file "$base"; then
-          continue
-        fi
-        echo "${rel%.*}"
-      done | sort -u)"
-
-      expected_bases="$(sample_integrity_expected_bases "$fmt" "$lane")"
-
-      missing_input="$(comm -23 <(printf '%s\n' "$expected_bases" | sed '/^$/d') <(printf '%s\n' "$input_bases" | sed '/^$/d'))"
-      missing_expected="$(comm -13 <(printf '%s\n' "$expected_bases" | sed '/^$/d') <(printf '%s\n' "$input_bases" | sed '/^$/d'))"
-
-      if [[ -n "$missing_input" || -n "$missing_expected" ]]; then
-        if [[ "$quiet_integrity" -eq 1 ]]; then
-          printf '[%s/%s]\n' "$fmt" "$lane"
-        else
-          printf '\n[%s/%s]\n' "$fmt" "$lane"
-        fi
-      fi
-
-      if [[ -n "$missing_input" ]]; then
-        while IFS= read -r base; do
-          [[ -z "$base" ]] && continue
-          echo "  [error] expected exists but input missing:"
-          echo "    - $base"
-          fail=1
-        done <<< "$missing_input"
-      fi
-
-      if [[ -n "$missing_expected" ]]; then
-        echo "  [error] input exists but expected missing:"
-        while IFS= read -r base; do
-          [[ -z "$base" ]] && continue
-          echo "    - $base"
-        done <<< "$missing_expected"
+  while IFS= read -r row; do
+    line_no=$((line_no + 1))
+    [[ -z "$row" ]] && continue
+    [[ "$row" =~ ^[[:space:]]*# ]] && continue
+    IFS=$'\t' read -r id fmt lane input_path expected_path notes <<< "$row"
+    if [[ -z "$id" || -z "$fmt" || -z "$lane" || -z "$input_path" || -z "$expected_path" ]]; then
+      echo "[error] malformed manifest row at line $line_no" >&2
+      fail=1
+      continue
+    fi
+    if sample_integrity_is_noise_path "$input_path"; then
+      echo "[error] noisy input path enrolled at line $line_no: $input_path" >&2
+      fail=1
+    fi
+    case "$lane" in
+      markdown|rag|assets|ocr)
+        ;;
+      *)
+        echo "[error] unsupported lane at line $line_no: $lane" >&2
         fail=1
-      fi
-    done
-  done
+        ;;
+    esac
+    if [[ "$seen_ids" == *$'\n'"$id"$'\n'* ]]; then
+      echo "[error] duplicate manifest id: $id" >&2
+      fail=1
+    else
+      seen_ids+=$'\n'"$id"$'\n'
+    fi
+    if [[ ! -f "$MAIN_CORPUS_ROOT/$input_path" ]]; then
+      echo "[error] manifest input missing: $input_path" >&2
+      fail=1
+    fi
+    if ! manifest_expected_exists "$lane" "$expected_path"; then
+      echo "[error] manifest expected missing: $expected_path" >&2
+      fail=1
+    fi
+  done < <(manifest_inventory_rows)
 
   if [[ "$fail" -ne 0 ]]; then
     printf '\nSAMPLE INTEGRITY CHECK FAILED\n'

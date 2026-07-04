@@ -580,7 +580,7 @@ if [[ -z "$QUALITY_ROWS_MANIFEST" ]]; then
   for local_manifest_idx in "${!QUALITY_ROWS_MANIFEST_CANDIDATES[@]}"; do
     echo "tried: ${QUALITY_ROWS_MANIFEST_CANDIDATE_LABELS[$local_manifest_idx]} -> ${QUALITY_ROWS_MANIFEST_CANDIDATES[$local_manifest_idx]}" >&2
   done
-  echo "hint: clone/place markitdown-quality-lab in the repo root, pass --lab-manifest, or set MARKITDOWN_QUALITY_MANIFEST / MARKITDOWN_QUALITY_LAB" >&2
+  echo "hint: place the external lab at ./markitdown-quality-lab, pass --lab-manifest, or set MARKITDOWN_QUALITY_MANIFEST / MARKITDOWN_QUALITY_LAB" >&2
   exit 1
 fi
 

@@ -1,1 +1,0 @@
-Keep &unknown; literal.

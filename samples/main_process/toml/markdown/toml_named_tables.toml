@@ -1,9 +1,0 @@
-title = "Config"
-
-[database]
-server = "db.local"
-port = 5432
-
-[database.replica]
-server = "db-replica.local"
-role = "read"

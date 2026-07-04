@@ -1,5 +1,0 @@
-| Key | Value |
-| --- | --- |
-| name | Alice |
-| profile | {"team":"Search","level":3} |
-| tags | ["owner","reviewer"] |

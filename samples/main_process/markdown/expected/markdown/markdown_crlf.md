@@ -1,3 +1,0 @@
-# CRLF Heading
-
-CRLF paragraph.

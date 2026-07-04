@@ -8,7 +8,7 @@
 - 质量回归：验证外部质量语料上的输出质量是否满足预期。
 
 仓库内只保留轻量功能样例，用于主回归和单元级功能覆盖。
-如果要验证真实转换质量或 benchmark 性能，请先把 `markitdown-quality-lab/` 下载到主仓目录下。性能使用方式见 [bench/README.md](/Users/winter/Documents/Moonbit/markitdown/bench/README.md)。
+如果要验证真实转换质量或 benchmark 性能，请先把 `./markitdown-quality-lab/` 放到主仓目录下。性能使用方式见 [bench/README.md](/Users/winter/Documents/Moonbit/markitdown/bench/README.md)。
 
 当前 `rst / asciidoc / tex` 主回归除了基础 heading / paragraph / code / table 之外，还覆盖一组更偏 canonical semantic inventory 的轻量样例，用于验证 field-or-attribute metadata、definition-like inventory、quote/admonition/include、以及 tex metadata/environment 的稳定输出。
 
@@ -45,11 +45,11 @@
 
 目录约定：
 
-- `samples/main_process/<format>/markdown/`：默认产品路径输入样本
-- `samples/main_process/pdf/ocr/`：PDF Accurate / OCR 路线输入样本
-- `samples/main_process/<format>/expected/`：Markdown 期望结果
-- `samples/main_process/<format>/rag/`：RAG 期望结果
-- `samples/main_process/<format>/assets/`：轻量资源输出期望
+- `samples/fixtures/contracts/<format>/`：主仓离线 test 与保留 shell contract 需要的最小夹具
+- `samples/fixtures/boundaries/<format>/`：高价值 malformed / fail-closed / safety 边界夹具
+- `markitdown-quality-lab/external_main_process/<format>/<lane>/`：外仓主回归输入语料
+- `markitdown-quality-lab/external_main_process/<format>/expected/<lane>/`：外仓主回归期望结果
+- `markitdown-quality-lab/external_main_process/MANIFEST.tsv`：主回归唯一 enrollment 清单
 
 运行产物位于 `.tmp/check/runs/<run_id>/`，重点看：
 
@@ -61,7 +61,7 @@
 
 说明：
 
-- 这套回归只测产品默认路径。
+- 这套回归只测外仓主语料上的产品默认路径。
 - 不支持的格式在这里会直接 fail closed，不会偷偷切换到其它路线。
 - `ocr` gate 覆盖正式支持的直接图片 OCR 输入：`png/jpg/jpeg/bmp/webp/tif/tiff`。
 - `pdf/ocr` lane 覆盖 `pdf --accurate` 与显式 `pdf --ocr` 的 OCR-only 产品路径，不改变默认 `pdf` native-text gate。
@@ -75,7 +75,7 @@
 ./samples/check_quality.sh
 ```
 
-这套回归只使用外部质量语料 `markitdown-quality-lab`，不回退到仓库内样本。
+这套回归只使用主仓根目录下的外部质量语料 `./markitdown-quality-lab`，不回退到仓库内样本。
 
 准备语料：
 
@@ -83,7 +83,7 @@
 git clone git@github.com:ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab
 ```
 
-请把 `markitdown-quality-lab` 下载到主仓目录下。
+正式放置位置是主仓根目录下的 `./markitdown-quality-lab`。
 
 常用命令：
 
@@ -104,7 +104,7 @@ git clone git@github.com:ZSeanYves/markitdown-quality-lab.git markitdown-quality
 
 - 这套回归面向外部质量语料，不替代主回归。
 - `workspace/` 同样只作为临时目录。
-- benchmark 语料与质量语料是两回事；正式 `bench v2` 使用主仓目录下的 `markitdown-quality-lab/external_bench/`。
+- benchmark 语料与质量语料是两回事；正式 `bench v2` 默认使用主仓目录下的 `./markitdown-quality-lab/external_bench/`。
 - ZIP 相关样例与主链实现建立在 `format_readers/zip` 之上，底层解压继续依赖 `bikallem/compress/flate`。
 
 ## 覆盖范围
