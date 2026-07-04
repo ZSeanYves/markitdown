@@ -2,13 +2,14 @@
   "output_format": "rag_json",
   "detected_format": "tex",
   "parser_mode": "dom_ast_model",
-  "convert_mode": "rag",
+  "convert_mode": "balanced",
+  "output_mode": "rag",
   "diagnostics_contains": {
       "parser_name": "tex_parser",
       "metrics": {
         "effective_mode": "dom_ast_model",
         "ir_input_kind": "document",
-        "raw_count": "1",
+        "raw_count": "0",
         "format_detector_notes": "extension"
       }
   },
@@ -21,7 +22,7 @@
       "kind": "text",
       "text_contains_all": [
         "Include: shared.tex",
-        "> Theorem",
+        "> Environment: Theorem",
         "Important statement."
       ]
     }

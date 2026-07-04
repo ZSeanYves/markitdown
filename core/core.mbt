@@ -297,6 +297,7 @@ pub(all) struct Diagnostics {
   errors : Array[String]
   degraded_features : Array[String]
   same_mode_degradation : Array[String]
+  same_mode_strategy_switches : Array[String]
   fallback_trace : Array[String]
   pass_trace : Array[String]
   metrics : Map[String, String]

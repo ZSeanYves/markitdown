@@ -21,6 +21,8 @@ pub struct OdtPreflightSummary {
   heading_count : Int
   table_count : Int
   image_count : Int
+  note_count : Int
+  comment_count : Int
   max_heading_level : Int
 }
 

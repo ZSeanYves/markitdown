@@ -274,12 +274,14 @@ fn convert_memory_text(
   pdf_cleanup_mode? : @convert.PdfCleanupMode = @convert.default_pdf_cleanup_mode(),
   pdf_table_mode? : @convert.PdfTableMode = @convert.default_pdf_table_mode(),
 ) -> @convert.ConvertResult {
+  let output_mode = @convert.output_mode_for_output_format(output)
   let options = @convert.make_convert_options(
     mode,
     output,
     Some(format),
     ocr_options,
     limits,
+    output_mode~,
     stream_requested=mode == @convert.ConvertMode::Stream,
     pdf_cleanup_mode~,
     pdf_table_mode~,
@@ -305,12 +307,14 @@ fn convert_path(
   pdf_cleanup_mode? : @convert.PdfCleanupMode = @convert.default_pdf_cleanup_mode(),
   pdf_table_mode? : @convert.PdfTableMode = @convert.default_pdf_table_mode(),
 ) -> @convert.ConvertResult {
+  let output_mode = @convert.output_mode_for_output_format(output)
   let options = @convert.make_convert_options(
     mode,
     output,
     format,
     ocr_options,
     limits,
+    output_mode~,
     stream_requested=mode == @convert.ConvertMode::Stream,
     pdf_cleanup_mode~,
     pdf_table_mode~,

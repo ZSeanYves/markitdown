@@ -14,6 +14,7 @@ import {
   "ZSeanYves/markitdown/format_readers/ipynb" @dipynb,
   "ZSeanYves/markitdown/format_readers/json" @djson,
   "ZSeanYves/markitdown/format_readers/markdown" @dmd,
+  "ZSeanYves/markitdown/format_readers/odf" @dodf,
   "ZSeanYves/markitdown/format_readers/ooxml/package" @ox,
   "ZSeanYves/markitdown/formats/xlsx" @dxlsx,
   "ZSeanYves/markitdown/format_readers/xml" @dxml,

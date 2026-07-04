@@ -10,6 +10,8 @@
 仓库内只保留轻量功能样例，用于主回归和单元级功能覆盖。
 如果要验证真实转换质量或 benchmark 性能，请先把 `markitdown-quality-lab/` 下载到主仓目录下。性能使用方式见 [bench/README.md](/Users/winter/Documents/Moonbit/markitdown/bench/README.md)。
 
+当前 `rst / asciidoc / tex` 主回归除了基础 heading / paragraph / code / table 之外，还覆盖一组更偏 canonical semantic inventory 的轻量样例，用于验证 field-or-attribute metadata、definition-like inventory、quote/admonition/include、以及 tex metadata/environment 的稳定输出。
+
 ## 主回归
 
 主回归入口：

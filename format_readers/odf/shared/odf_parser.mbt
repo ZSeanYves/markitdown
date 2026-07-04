@@ -262,6 +262,7 @@ fn odf_visit_text_element(
           xml_path: "/" + element.name,
           line_start: Some(element.span.line_start),
           line_end: Some(element.span.line_end),
+          attrs: Map([]),
         })
       }
     }
@@ -338,6 +339,7 @@ fn odf_heading_block(
     xml_path: "/text:h",
     line_start: Some(element.span.line_start),
     line_end: Some(element.span.line_end),
+    attrs: Map([]),
   }
 }
 
@@ -371,6 +373,7 @@ fn odf_paragraph_block(
     xml_path: "/text:p",
     line_start: Some(element.span.line_start),
     line_end: Some(element.span.line_end),
+    attrs: Map([]),
   }
 }
 
@@ -409,6 +412,7 @@ fn odf_visit_list(
               xml_path: "/text:list/text:list-item",
               line_start: Some(item.span.line_start),
               line_end: Some(item.span.line_end),
+              attrs: Map([]),
             })
           }
           for nested in item.children {
@@ -467,6 +471,7 @@ fn odf_table_block(
     xml_path: "/table:table",
     line_start: Some(element.span.line_start),
     line_end: Some(element.span.line_end),
+    attrs: Map([]),
   }
 }
 
@@ -502,6 +507,7 @@ fn odf_visit_frame(
                 xml_path: "/draw:frame/draw:image",
                 line_start: Some(image.span.line_start),
                 line_end: Some(image.span.line_end),
+                attrs: Map([]),
               })
             }
             None => ()
@@ -558,14 +564,8 @@ fn odf_extract_sheet(sheet : @dxml.XmlElement) -> OdsSheet {
         if row.name == "table:table-row" {
           let repeat = odf_repeated_count(row, "table:number-rows-repeated")
           let extracted = odf_extract_sheet_row(row, row_index)
-          row_index += 1
           rows.push(extracted)
-          if repeat > 1 && extracted.cells.length() > 0 {
-            for _ in 1..<repeat {
-              rows.push({ ..extracted, row_index, })
-              row_index += 1
-            }
-          }
+          row_index += repeat
         }
       _ => ()
     }
@@ -576,6 +576,11 @@ fn odf_extract_sheet(sheet : @dxml.XmlElement) -> OdsSheet {
 ///|
 fn odf_extract_sheet_row(row : @dxml.XmlElement, row_index : Int) -> OdsRow {
   let cells : Array[OdsCell] = []
+  let hidden = match odf_attr(row, "table:visibility") {
+    Some(value) => value.trim().to_lower() == "collapse"
+    None => false
+  }
+  let repeat_count = odf_repeated_count(row, "table:number-rows-repeated")
   for child in row.children {
     match child {
       Element(cell) =>
@@ -584,24 +589,39 @@ fn odf_extract_sheet_row(row : @dxml.XmlElement, row_index : Int) -> OdsRow {
           let repeat = odf_repeated_count(cell, "table:number-columns-repeated")
           let text = odf_collect_text(cell).trim().to_owned()
           let formula = odf_attr(cell, "table:formula")
-          let next : OdsCell = { text, formula, covered: false }
+          let col_span = odf_attr(cell, "table:number-columns-spanned")
+            .map(raw => @string.parse_int(raw.trim()) catch { _ => 1 })
+            .unwrap_or(1)
+          let row_span = odf_attr(cell, "table:number-rows-spanned")
+            .map(raw => @string.parse_int(raw.trim()) catch { _ => 1 })
+            .unwrap_or(1)
+          let next : OdsCell = {
+            text,
+            formula,
+            covered: false,
+            col_span,
+            row_span,
+            repeat_count: repeat,
+          }
           let cell_to_store : OdsCell = if cell.name ==
             "table:covered-table-cell" {
-            { text: "", formula: None, covered: true }
+            {
+              text: "",
+              formula: None,
+              covered: true,
+              col_span: 1,
+              row_span: 1,
+              repeat_count: repeat,
+            }
           } else {
             next
           }
           cells.push(cell_to_store)
-          if repeat > 1 {
-            for _ in 1..<repeat {
-              cells.push(cell_to_store)
-            }
-          }
         }
       _ => ()
     }
   }
-  { cells, row_index }
+  { cells, row_index, hidden, repeat_count }
 }
 
 ///|
@@ -689,6 +709,10 @@ fn odf_extract_slide(
               xml_path: "/presentation:notes",
               line_start: Some(node.span.line_start),
               line_end: Some(node.span.line_end),
+              attrs: Map([
+                ("notes_kind", "slide_notes"),
+                ("slide_local", "true"),
+              ]),
             })
           }
         } else {
@@ -703,6 +727,7 @@ fn odf_extract_slide(
               xml_path: "/" + node.name,
               line_start: Some(node.span.line_start),
               line_end: Some(node.span.line_end),
+              attrs: Map([("slide_local", "true")]),
             })
           }
         }
@@ -721,6 +746,7 @@ fn odf_extract_slide(
           xml_path: "/draw:page",
           line_start: Some(page.span.line_start),
           line_end: Some(page.span.line_end),
+          attrs: Map([("slide_local", "true")]),
         })
       }
     None => ()
@@ -768,6 +794,10 @@ fn odf_extract_slide_frame(
                 xml_path: "/draw:frame/draw:image",
                 line_start: Some(node.span.line_start),
                 line_end: Some(node.span.line_end),
+                attrs: Map([
+                  ("slide_local", "true"),
+                  ("asset_summary_ready", "true"),
+                ]),
               })
             }
             None => ()
@@ -784,6 +814,7 @@ fn odf_extract_slide_frame(
               xml_path: "/" + node.name,
               line_start: Some(node.span.line_start),
               line_end: Some(node.span.line_end),
+              attrs: Map([("slide_local", "true")]),
             })
           }
         }
@@ -812,6 +843,7 @@ fn odf_collect_slide_text_blocks(
             xml_path: "/draw:frame/draw:text-box/text:h",
             line_start: Some(node.span.line_start),
             line_end: Some(node.span.line_end),
+            attrs: Map([("slide_local", "true")]),
           })
         } else if node.name == "text:p" {
           let text = odf_collect_text(node).trim().to_owned()
@@ -825,6 +857,7 @@ fn odf_collect_slide_text_blocks(
               xml_path: "/draw:frame/draw:text-box/text:p",
               line_start: Some(node.span.line_start),
               line_end: Some(node.span.line_end),
+              attrs: Map([("slide_local", "true")]),
             })
           }
         } else if node.name == "text:list" {
@@ -841,6 +874,7 @@ fn odf_collect_slide_text_blocks(
               xml_path: "/" + node.name,
               line_start: Some(node.span.line_start),
               line_end: Some(node.span.line_end),
+              attrs: Map([("slide_local", "true")]),
             })
           }
         }
@@ -870,6 +904,7 @@ fn odf_collect_slide_list_items(
               xml_path: "/draw:frame/draw:text-box/text:list/text:list-item",
               line_start: Some(item.span.line_start),
               line_end: Some(item.span.line_end),
+              attrs: Map([("slide_local", "true")]),
             })
           }
         }
@@ -914,6 +949,7 @@ fn odf_odp_table_block(
     xml_path: "/draw:frame/table:table",
     line_start: Some(element.span.line_start),
     line_end: Some(element.span.line_end),
+    attrs: Map([("slide_local", "true")]),
   }
 }
 
@@ -1127,7 +1163,7 @@ fn odf_extract_note(element : @dxml.XmlElement) -> OdtNote? {
   } else {
     "[^" + citation + "]"
   }
-  Some({ id, kind, citation: marker, body })
+  Some({ id, kind, citation: marker, body, author: None })
 }
 
 ///|

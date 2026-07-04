@@ -71,7 +71,7 @@ fn parse_ods_document_result(
   let inspect = @dodf.inspect_ods_document(document)
   ods_fill_metrics(diagnostics, document, inspect, bytes)
   if context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
-    let lowered = ods_lower_block_stream_document(source, document)
+    let lowered = ods_lower_block_stream_document(source, document, context)
     diagnostics.metrics.set("parser_mode", "block_streaming")
     diagnostics.metrics.set("effective_mode", "block_streaming")
     diagnostics.metrics.set("ir_input_kind", "block_stream")
@@ -95,7 +95,7 @@ fn parse_ods_document_result(
       ),
     )
   }
-  let lowered = ods_lower_document_ir(source, document)
+  let lowered = ods_lower_document_ir(source, document, context)
   diagnostics.metrics.set("parser_mode", "package_single_pass")
   diagnostics.metrics.set("effective_mode", "package_single_pass")
   diagnostics.metrics.set("ir_input_kind", "document")
@@ -150,8 +150,10 @@ fn ods_init_diagnostics(
   diagnostics.metrics.set("row_count", "0")
   diagnostics.metrics.set("non_empty_row_count", "0")
   diagnostics.metrics.set("cell_count", "0")
+  diagnostics.metrics.set("used_cell_count", "0")
   diagnostics.metrics.set("max_sheet_rows", "0")
   diagnostics.metrics.set("max_sheet_cols", "0")
+  diagnostics.metrics.set("max_used_cols", "0")
   @fshared.apply_product_metrics(diagnostics, "ods")
 }
 
@@ -192,8 +194,21 @@ fn ods_fill_metrics(
     inspect.non_empty_row_count.to_string(),
   )
   diagnostics.metrics.set("cell_count", inspect.cell_count.to_string())
+  diagnostics.metrics.set(
+    "used_cell_count",
+    inspect.used_cell_count.to_string(),
+  )
+  diagnostics.metrics.set(
+    "hidden_row_count",
+    inspect.hidden_row_count.to_string(),
+  )
+  diagnostics.metrics.set(
+    "covered_cell_count",
+    inspect.covered_cell_count.to_string(),
+  )
   diagnostics.metrics.set("max_sheet_rows", inspect.max_sheet_rows.to_string())
   diagnostics.metrics.set("max_sheet_cols", inspect.max_sheet_cols.to_string())
+  diagnostics.metrics.set("max_used_cols", inspect.max_used_cols.to_string())
 }
 
 ///|
@@ -207,8 +222,9 @@ priv struct OdsLoweredProduct {
 fn ods_lower_document_ir(
   source : @input.InputSource,
   document : @dodf.OdsDocument,
+  context : @parser.ParseContext,
 ) -> @core.DocumentIR {
-  let lowered = ods_lower_common(source, document, false)
+  let lowered = ods_lower_common(source, document, false, context)
   @core.document_with_source_map(
     @core.document_with_metadata(
       @core.document_with_blocks(@core.empty_document_ir(), lowered.blocks),
@@ -222,8 +238,9 @@ fn ods_lower_document_ir(
 fn ods_lower_block_stream_document(
   source : @input.InputSource,
   document : @dodf.OdsDocument,
+  context : @parser.ParseContext,
 ) -> OdsLoweredProduct {
-  ods_lower_common(source, document, true)
+  ods_lower_common(source, document, true, context)
 }
 
 ///|
@@ -231,17 +248,35 @@ fn ods_lower_common(
   source : @input.InputSource,
   document : @dodf.OdsDocument,
   stream : Bool,
+  context : @parser.ParseContext,
 ) -> OdsLoweredProduct {
   let blocks : Array[@core.CoreBlock] = []
   let metadata = ods_metadata(document)
   let source_map = @core.empty_source_map()
+  let accurate_semantic = context.lowering_profile ==
+    @product.LoweringProfile::AccurateSemantic
+  let include_hidden_sheets = accurate_semantic &&
+    @product.accurate_feature_enabled(
+      context.accurate_features,
+      @product.AccurateFeature::OdsHiddenSheets,
+    )
+  let include_hidden_rows = accurate_semantic &&
+    @product.accurate_feature_enabled(
+      context.accurate_features,
+      @product.AccurateFeature::OdsHiddenRows,
+    )
+  let include_covered_spans = accurate_semantic &&
+    @product.accurate_feature_enabled(
+      context.accurate_features,
+      @product.AccurateFeature::OdsCoveredCellSpans,
+    )
   for sheet in document.sheets {
-    if !sheet.visible {
+    if !sheet.visible && !include_hidden_sheets {
       continue
     }
     let visible_rows : Array[@dodf.OdsRow] = []
     for row in sheet.rows {
-      if ods_row_has_visible_content(row) {
+      if ods_row_has_visible_content(row, include_hidden_rows) {
         visible_rows.push(row)
       }
     }
@@ -262,7 +297,7 @@ fn ods_lower_common(
     blocks.push(heading)
     if stream {
       for row in sheet.rows {
-        if !ods_row_has_visible_content(row) {
+        if !ods_row_has_visible_content(row, include_hidden_rows) {
           continue
         }
         let row_ref = ods_sheet_source_ref(
@@ -281,7 +316,7 @@ fn ods_lower_common(
           "",
           source_ref=row_ref,
         )
-        for cell in row.cells {
+        for cell in ods_effective_row_cells(row) {
           row_block.children.push(
             @core.make_block(
               @core.BlockKind::TableCell,
@@ -293,6 +328,7 @@ fn ods_lower_common(
         table.children.push(row_block)
         table.attrs.set("sheet", sheet.name)
         table.attrs.set("row_index", row.row_index.to_string())
+        table.attrs.set("render_table_mode", "sparse")
         blocks.push(table)
         source_map.block_entries.push(
           @core.make_source_map_entry(primary_ref=Some(row_ref), refs=[row_ref]),
@@ -305,6 +341,12 @@ fn ods_lower_common(
         "table",
         source_ref=table_ref,
       )
+      if include_covered_spans && ods_sheet_has_span_cells(sheet) {
+        table.attrs.set("render_html_table", "true")
+      }
+      if context.lowering_profile == @product.LoweringProfile::LargeAdaptive {
+        table.attrs.set("render_table_mode", "sparse")
+      }
       for row in visible_rows {
         let row_ref = ods_sheet_source_ref(
           source,
@@ -317,8 +359,11 @@ fn ods_lower_common(
           "",
           source_ref=row_ref,
         )
-        for cell in row.cells {
-          if cell.covered && cell.text == "" && cell.formula is None {
+        for cell in ods_effective_row_cells(row) {
+          if cell.covered &&
+            cell.text == "" &&
+            cell.formula is None &&
+            !include_covered_spans {
             continue
           }
           let cell_block = @core.make_block(
@@ -326,6 +371,17 @@ fn ods_lower_common(
             cell.text,
             source_ref=row_ref,
           )
+          if include_covered_spans && !cell.covered {
+            if cell.row_span > 1 {
+              cell_block.attrs.set("rowspan", cell.row_span.to_string())
+            }
+            if cell.col_span > 1 {
+              cell_block.attrs.set("colspan", cell.col_span.to_string())
+            }
+          }
+          if include_covered_spans && cell.covered {
+            cell_block.attrs.set("covered_cell", "true")
+          }
           match cell.formula {
             Some(value) => cell_block.attrs.set("formula", value)
             None => ()
@@ -486,11 +542,84 @@ fn ods_fallback_source_ref(source : @input.InputSource) -> @core.SourceRef {
 }
 
 ///|
-fn ods_row_has_visible_content(row : @dodf.OdsRow) -> Bool {
+fn ods_row_has_visible_content(
+  row : @dodf.OdsRow,
+  include_hidden_rows : Bool,
+) -> Bool {
+  if row.hidden && !include_hidden_rows {
+    return false
+  }
   for cell in row.cells {
     if cell.text != "" || cell.formula is Some(_) {
       return true
     }
   }
   false
+}
+
+///|
+priv struct OdsEffectiveCell {
+  text : String
+  formula : String?
+  covered : Bool
+  col_span : Int
+  row_span : Int
+}
+
+///|
+fn ods_effective_row_cells(row : @dodf.OdsRow) -> Array[OdsEffectiveCell] {
+  let expanded : Array[OdsEffectiveCell] = []
+  let last_used_index = ods_last_used_cell_index(row)
+  if last_used_index < 0 {
+    return expanded
+  }
+  let mut flat_index = 0
+  for cell in row.cells {
+    let repeat = if cell.repeat_count > 0 { cell.repeat_count } else { 1 }
+    for _ in 0..<repeat {
+      if flat_index > last_used_index {
+        return expanded
+      }
+      expanded.push({
+        text: cell.text,
+        formula: cell.formula,
+        covered: cell.covered,
+        col_span: cell.col_span,
+        row_span: cell.row_span,
+      })
+      flat_index += 1
+    }
+  }
+  expanded
+}
+
+///|
+fn ods_sheet_has_span_cells(sheet : @dodf.OdsSheet) -> Bool {
+  for row in sheet.rows {
+    for cell in row.cells {
+      if cell.col_span > 1 || cell.row_span > 1 {
+        return true
+      }
+    }
+  }
+  false
+}
+
+///|
+fn ods_last_used_cell_index(row : @dodf.OdsRow) -> Int {
+  let mut flat_index = 0
+  let mut last_used_index = -1
+  for cell in row.cells {
+    let repeat = if cell.repeat_count > 0 { cell.repeat_count } else { 1 }
+    let is_used = !cell.covered && (cell.text != "" || cell.formula is Some(_))
+    if is_used {
+      let width = if cell.col_span > 1 { cell.col_span } else { 1 }
+      let used_end = flat_index + width - 1
+      if used_end > last_used_index {
+        last_used_index = used_end
+      }
+    }
+    flat_index += repeat
+  }
+  last_used_index
 }

@@ -1,0 +1,39 @@
+{
+  "output_format": "rag_json",
+  "detected_format": "tex",
+  "parser_mode": "dom_ast_model",
+  "convert_mode": "balanced",
+  "output_mode": "rag",
+  "diagnostics_contains": {
+    "parser_name": "tex_parser",
+    "metrics": {
+      "renderer_name": "RagJsonRenderer",
+      "effective_mode": "dom_ast_model",
+      "ir_input_kind": "document",
+      "table_count": "1",
+      "blockquote_count": "1",
+      "raw_count": "0"
+    }
+  },
+  "source_map": "null",
+  "chunk_count": {
+    "min": 2
+  },
+  "chunks": [
+    {
+      "kind": "table",
+      "text_contains_all": [
+        "| Field | Value |",
+        "| title | Demo |",
+        "| author | Tester |"
+      ]
+    },
+    {
+      "kind": "text",
+      "text_contains_all": [
+        "> Environment: Remark",
+        "> Helpful note."
+      ]
+    }
+  ]
+}

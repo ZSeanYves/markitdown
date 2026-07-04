@@ -10,6 +10,89 @@ pub(all) enum FormatRoute {
 } derive(Eq)
 
 ///|
+pub struct StrategyRouteSpec {
+  route : FormatRoute
+  parser_mode : @parser.ParserMode
+  granularity : @parser.StreamingGranularity
+  ir_input_kind : String
+}
+
+///|
+fn make_strategy_route_spec(
+  route : FormatRoute,
+  parser_mode : @parser.ParserMode,
+  granularity : @parser.StreamingGranularity,
+  ir_input_kind : String,
+) -> StrategyRouteSpec {
+  { route, parser_mode, granularity, ir_input_kind }
+}
+
+///|
+pub struct ModeStrategyPolicy {
+  canonical : StrategyRouteSpec
+  explicit_stream_supported : Bool
+  explicit_stream : StrategyRouteSpec?
+  soft_limit_thresholds : Array[(@product.ProbeSignalKind, Int)]
+  hard_limit_thresholds : Array[(@product.ProbeSignalKind, Int)]
+  soft_limit_render_profile : @product.RenderProfile?
+  hard_limit_route : StrategyRouteSpec?
+  lowering_profile : @product.LoweringProfile
+  render_profile : @product.RenderProfile
+  accurate_features : Array[@product.AccurateFeature]
+  current_state_label : String
+}
+
+///|
+fn make_mode_strategy_policy(
+  canonical : StrategyRouteSpec,
+  explicit_stream_supported : Bool,
+  lowering_profile : @product.LoweringProfile,
+  render_profile : @product.RenderProfile,
+  current_state_label : String,
+  explicit_stream? : StrategyRouteSpec? = None,
+  soft_limit_thresholds? : Array[(@product.ProbeSignalKind, Int)] = [],
+  hard_limit_thresholds? : Array[(@product.ProbeSignalKind, Int)] = [],
+  soft_limit_render_profile? : @product.RenderProfile? = None,
+  hard_limit_route? : StrategyRouteSpec? = None,
+  accurate_features? : Array[@product.AccurateFeature] = [],
+) -> ModeStrategyPolicy {
+  {
+    canonical,
+    explicit_stream_supported,
+    explicit_stream,
+    soft_limit_thresholds,
+    hard_limit_thresholds,
+    soft_limit_render_profile,
+    hard_limit_route,
+    lowering_profile,
+    render_profile,
+    accurate_features,
+    current_state_label,
+  }
+}
+
+///|
+pub struct FormatStrategyPolicy {
+  format : @input.DetectedFormat
+  cli_supported : Bool
+  balanced : ModeStrategyPolicy
+  accurate : ModeStrategyPolicy
+  stream : ModeStrategyPolicy
+}
+
+///|
+fn mode_strategy_for(
+  policy : FormatStrategyPolicy,
+  mode : @product.ConvertMode,
+) -> ModeStrategyPolicy {
+  match mode {
+    @product.ConvertMode::Balanced => policy.balanced
+    @product.ConvertMode::Accurate => policy.accurate
+    @product.ConvertMode::Stream => policy.stream
+  }
+}
+
+///|
 pub struct FormatRouteProfile {
   format : @input.DetectedFormat
   cli_supported : Bool
@@ -458,6 +541,276 @@ pub fn format_route_profile(
         "unknown fallback dom-ast",
       )
   }
+}
+
+///|
+fn default_render_profile_for_route(
+  format : @input.DetectedFormat,
+  route : FormatRoute,
+) -> @product.RenderProfile {
+  match route {
+    FormatRoute::StreamingEvent => @product.RenderProfile::RecordBatchMarkdown
+    FormatRoute::BlockStreaming =>
+      match format {
+        @input.DetectedFormat::Csv
+        | @input.DetectedFormat::Tsv
+        | @input.DetectedFormat::Xlsx
+        | @input.DetectedFormat::Ods =>
+          @product.RenderProfile::SparseTableMarkdown
+        _ => @product.RenderProfile::SectionFlushMarkdown
+      }
+    FormatRoute::ContainerRecursive =>
+      match format {
+        @input.DetectedFormat::Zip => @product.RenderProfile::DefaultMarkdown
+        _ => @product.RenderProfile::AssetManifestFirst
+      }
+    FormatRoute::PageSinglePass | FormatRoute::LayoutTwoStage =>
+      @product.RenderProfile::PageWindowMarkdown
+    _ => @product.RenderProfile::DefaultMarkdown
+  }
+}
+
+///|
+fn soft_limit_thresholds_for_format(
+  format : @input.DetectedFormat,
+) -> Array[(@product.ProbeSignalKind, Int)] {
+  match format {
+    @input.DetectedFormat::Markdown => []
+    @input.DetectedFormat::Json => []
+    @input.DetectedFormat::Yaml => []
+    @input.DetectedFormat::Ipynb =>
+      [
+        (@product.ProbeSignalKind::BlockCount, 800),
+        (@product.ProbeSignalKind::OutputCount, 5000),
+        (@product.ProbeSignalKind::CharCount, 200000),
+      ]
+    @input.DetectedFormat::Xml => []
+    @input.DetectedFormat::Html => []
+    @input.DetectedFormat::Xlsx => []
+    @input.DetectedFormat::Odt =>
+      [
+        (@product.ProbeSignalKind::BlockCount, 4),
+        (@product.ProbeSignalKind::NoteCount, 1),
+        (@product.ProbeSignalKind::CommentCount, 1),
+      ]
+    @input.DetectedFormat::Ods =>
+      [
+        (@product.ProbeSignalKind::RowCount, 2),
+        (@product.ProbeSignalKind::CellEstimate, 20),
+        (@product.ProbeSignalKind::CoveredCellCount, 1),
+      ]
+    @input.DetectedFormat::Odp =>
+      [
+        (@product.ProbeSignalKind::SlideCount, 2),
+        (@product.ProbeSignalKind::BlockCount, 4),
+        (@product.ProbeSignalKind::NoteCount, 1),
+      ]
+    _ => []
+  }
+}
+
+///|
+fn hard_limit_thresholds_for_format(
+  format : @input.DetectedFormat,
+) -> Array[(@product.ProbeSignalKind, Int)] {
+  match format {
+    @input.DetectedFormat::Markdown =>
+      [
+        (@product.ProbeSignalKind::BlockCount, 0),
+        (@product.ProbeSignalKind::CharCount, 0),
+      ]
+    @input.DetectedFormat::Json =>
+      [
+        (@product.ProbeSignalKind::NodeCount, 0),
+        (@product.ProbeSignalKind::MaxDepth, 0),
+      ]
+    @input.DetectedFormat::Yaml =>
+      [
+        (@product.ProbeSignalKind::NodeCount, 0),
+        (@product.ProbeSignalKind::MaxDepth, 0),
+      ]
+    @input.DetectedFormat::Ipynb =>
+      [
+        (@product.ProbeSignalKind::BlockCount, 2000),
+        (@product.ProbeSignalKind::OutputCount, 10000),
+        (@product.ProbeSignalKind::AttachmentCount, 1000),
+      ]
+    @input.DetectedFormat::Xml =>
+      [
+        (@product.ProbeSignalKind::NodeCount, 0),
+        (@product.ProbeSignalKind::MaxDepth, 0),
+        (@product.ProbeSignalKind::CharCount, 0),
+      ]
+    @input.DetectedFormat::Html =>
+      [
+        (@product.ProbeSignalKind::BlockCount, 0),
+        (@product.ProbeSignalKind::MaxDepth, 0),
+        (@product.ProbeSignalKind::CharCount, 0),
+      ]
+    @input.DetectedFormat::Xlsx =>
+      [
+        (@product.ProbeSignalKind::RowCount, 0),
+        (@product.ProbeSignalKind::CellEstimate, 0),
+      ]
+    @input.DetectedFormat::Odt =>
+      [
+        (@product.ProbeSignalKind::BlockCount, 8),
+        (@product.ProbeSignalKind::NoteCount, 4),
+        (@product.ProbeSignalKind::CommentCount, 4),
+      ]
+    @input.DetectedFormat::Ods =>
+      [
+        (@product.ProbeSignalKind::RowCount, 4),
+        (@product.ProbeSignalKind::CellEstimate, 40),
+      ]
+    @input.DetectedFormat::Odp =>
+      [
+        (@product.ProbeSignalKind::SlideCount, 4),
+        (@product.ProbeSignalKind::BlockCount, 8),
+      ]
+    _ => []
+  }
+}
+
+///|
+fn accurate_features_for_format(
+  format : @input.DetectedFormat,
+) -> Array[@product.AccurateFeature] {
+  @product.accurate_features_for_detected_format(format)
+}
+
+///|
+fn route_spec_from_profile(
+  route : FormatRoute,
+  parser_mode : @parser.ParserMode,
+  granularity : @parser.StreamingGranularity,
+  ir_input_kind : String,
+) -> StrategyRouteSpec {
+  make_strategy_route_spec(route, parser_mode, granularity, ir_input_kind)
+}
+
+///|
+pub fn format_strategy_policy(
+  format : @input.DetectedFormat,
+) -> FormatStrategyPolicy {
+  let profile = format_route_profile(format)
+  let canonical = route_spec_from_profile(
+    profile.canonical_route,
+    profile.canonical_parser_mode,
+    profile.capability_granularity,
+    profile.canonical_ir_input_kind,
+  )
+  let large_parser_mode = match profile.large_route_parser_mode {
+    Some(mode) => mode
+    None =>
+      parser_mode_for_route(
+        profile.over_limit_route.unwrap_or(profile.canonical_route),
+      )
+  }
+  let large_granularity = profile.large_route_granularity.unwrap_or(
+    profile.capability_granularity,
+  )
+  let large_ir_input_kind = profile.large_route_ir_input_kind.unwrap_or(
+    profile.canonical_ir_input_kind,
+  )
+  let explicit_stream = match profile.explicit_stream_route {
+    Some(route) =>
+      if route == profile.canonical_route {
+        Some(canonical)
+      } else {
+        Some(
+          route_spec_from_profile(
+            route,
+            match profile.large_route_parser_mode {
+              Some(mode) => mode
+              None => parser_mode_for_route(route)
+            },
+            large_granularity,
+            large_ir_input_kind,
+          ),
+        )
+      }
+    None => None
+  }
+  let hard_limit_route = match profile.over_limit_route {
+    Some(route) =>
+      Some(
+        route_spec_from_profile(
+          route, large_parser_mode, large_granularity, large_ir_input_kind,
+        ),
+      )
+    None => None
+  }
+  let accurate_canonical = match format {
+    @input.DetectedFormat::Pdf =>
+      route_spec_from_profile(
+        FormatRoute::LayoutTwoStage,
+        @parser.ParserMode::LayoutTwoStage,
+        @parser.StreamingGranularity::Page,
+        "document",
+      )
+    @input.DetectedFormat::Image(_) =>
+      route_spec_from_profile(
+        FormatRoute::LayoutTwoStage,
+        @parser.ParserMode::LayoutTwoStage,
+        @parser.StreamingGranularity::Page,
+        "document",
+      )
+    _ => canonical
+  }
+  let stream_canonical = match explicit_stream {
+    Some(spec) => spec
+    None => canonical
+  }
+  let balanced = make_mode_strategy_policy(
+    canonical,
+    profile.explicit_stream_supported,
+    @product.LoweringProfile::Canonical,
+    default_render_profile_for_route(format, canonical.route),
+    profile.current_state_label,
+    explicit_stream~,
+    soft_limit_thresholds=soft_limit_thresholds_for_format(format),
+    hard_limit_thresholds=hard_limit_thresholds_for_format(format),
+    soft_limit_render_profile=match hard_limit_route {
+      Some(route) => Some(default_render_profile_for_route(format, route.route))
+      None => None
+    },
+    hard_limit_route~,
+  )
+  let accurate = make_mode_strategy_policy(
+    accurate_canonical,
+    false,
+    @product.LoweringProfile::AccurateSemantic,
+    default_render_profile_for_route(format, accurate_canonical.route),
+    profile.current_state_label + " accurate",
+    soft_limit_thresholds=soft_limit_thresholds_for_format(format),
+    hard_limit_thresholds=hard_limit_thresholds_for_format(format),
+    hard_limit_route=match hard_limit_route {
+      Some(route) if route.route != accurate_canonical.route => Some(route)
+      _ => None
+    },
+    accurate_features=accurate_features_for_format(format),
+  )
+  let stream = make_mode_strategy_policy(
+    stream_canonical,
+    profile.explicit_stream_supported,
+    @product.LoweringProfile::StreamCanonical,
+    default_render_profile_for_route(format, stream_canonical.route),
+    profile.current_state_label + " stream",
+    explicit_stream~,
+    soft_limit_thresholds=soft_limit_thresholds_for_format(format),
+    hard_limit_thresholds=hard_limit_thresholds_for_format(format),
+    hard_limit_route~,
+  )
+  { format, cli_supported: profile.cli_supported, balanced, accurate, stream }
+}
+
+///|
+pub fn format_mode_strategy_policy(
+  format : @input.DetectedFormat,
+  mode : @product.ConvertMode,
+) -> ModeStrategyPolicy {
+  mode_strategy_for(format_strategy_policy(format), mode)
 }
 
 ///|

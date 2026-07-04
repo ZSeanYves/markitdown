@@ -258,7 +258,7 @@ test "main cli keeps --debug and rejects retired --json alias" {
   match parse_cli_options(["--accurate", "--debug", "tiny.txt"]) {
     Ok(opts) => {
       assert_true(opts.fidelity_mode == @convert.FidelityMode::Accurate)
-      assert_true(opts.convert_mode == @convert.ConvertMode::Debug)
+      assert_true(opts.convert_mode == @convert.ConvertMode::Accurate)
       assert_true(opts.output_mode == @convert.OutputMode::Debug)
       assert_true(opts.output_format == @convert.OutputFormat::DebugJson)
     }
@@ -268,7 +268,7 @@ test "main cli keeps --debug and rejects retired --json alias" {
   match parse_cli_options(["--accurate", "--rag", "tiny.txt"]) {
     Ok(opts) => {
       assert_true(opts.fidelity_mode == @convert.FidelityMode::Accurate)
-      assert_true(opts.convert_mode == @convert.ConvertMode::Rag)
+      assert_true(opts.convert_mode == @convert.ConvertMode::Accurate)
       assert_true(opts.output_mode == @convert.OutputMode::Rag)
       assert_true(opts.output_format == @convert.OutputFormat::RagJson)
     }
@@ -277,8 +277,9 @@ test "main cli keeps --debug and rejects retired --json alias" {
 
   match parse_cli_options(["--debug", "tiny.txt"]) {
     Ok(opts) => {
-      assert_true(opts.convert_mode == @convert.ConvertMode::Debug)
+      assert_true(opts.convert_mode == @convert.ConvertMode::Balanced)
       assert_true(!opts.stream_requested)
+      assert_true(opts.output_mode == @convert.OutputMode::Debug)
       assert_true(opts.output_format == @convert.OutputFormat::DebugJson)
     }
     Err(msg) => fail("expected --debug to parse: " + msg)
@@ -286,7 +287,8 @@ test "main cli keeps --debug and rejects retired --json alias" {
 
   match parse_cli_options(["--rag", "tiny.txt"]) {
     Ok(opts) => {
-      assert_true(opts.convert_mode == @convert.ConvertMode::Rag)
+      assert_true(opts.convert_mode == @convert.ConvertMode::Balanced)
+      assert_true(opts.output_mode == @convert.OutputMode::Rag)
       assert_true(opts.output_format == @convert.OutputFormat::RagJson)
       assert_eq(
         opts.rag_options.chunk_size,
@@ -312,7 +314,7 @@ test "main cli keeps --debug and rejects retired --json alias" {
   match parse_cli_options(["--stream", "tiny.txt"]) {
     Ok(opts) => {
       assert_true(opts.stream_requested)
-      assert_true(opts.convert_mode == @convert.ConvertMode::Balanced)
+      assert_true(opts.convert_mode == @convert.ConvertMode::Stream)
       assert_true(opts.output_mode == @convert.OutputMode::Markdown)
       assert_true(opts.output_format == @convert.OutputFormat::Markdown)
     }
@@ -322,7 +324,7 @@ test "main cli keeps --debug and rejects retired --json alias" {
   match parse_cli_options(["--stream", "--debug", "tiny.txt"]) {
     Ok(opts) => {
       assert_true(opts.stream_requested)
-      assert_true(opts.convert_mode == @convert.ConvertMode::Debug)
+      assert_true(opts.convert_mode == @convert.ConvertMode::Stream)
       assert_true(opts.output_mode == @convert.OutputMode::Debug)
       assert_true(opts.output_format == @convert.OutputFormat::DebugJson)
     }
@@ -332,7 +334,7 @@ test "main cli keeps --debug and rejects retired --json alias" {
   match parse_cli_options(["--stream", "--rag", "tiny.txt"]) {
     Ok(opts) => {
       assert_true(opts.stream_requested)
-      assert_true(opts.convert_mode == @convert.ConvertMode::Rag)
+      assert_true(opts.convert_mode == @convert.ConvertMode::Stream)
       assert_true(opts.output_mode == @convert.OutputMode::Rag)
       assert_true(opts.output_format == @convert.OutputFormat::RagJson)
     }

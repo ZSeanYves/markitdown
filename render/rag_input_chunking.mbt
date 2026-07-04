@@ -1,4 +1,24 @@
 ///|
+fn chunks_from_document(
+  document : @core.DocumentIR,
+  options : @rag.RagOptions,
+  record_batching? : Bool = false,
+) -> Array[@rag.RagChunk] {
+  if record_batching {
+    return batched_chunks_from_blocks(
+      document.blocks,
+      document.metadata,
+      document.diagnostics,
+      document.assets,
+      document.source_map,
+      document.assembly,
+      options,
+    )
+  }
+  @rag.chunks_from_document(document, options)
+}
+
+///|
 fn chunks_from_blocks(
   blocks : Array[@core.CoreBlock],
   metadata : @core.DocumentMetadata,
@@ -7,7 +27,13 @@ fn chunks_from_blocks(
   source_map : @core.SourceMap?,
   assembly : @core.DocumentAssembly?,
   options : @rag.RagOptions,
+  record_batching? : Bool = false,
 ) -> Array[@rag.RagChunk] {
+  if record_batching {
+    return batched_chunks_from_blocks(
+      blocks, metadata, diagnostics, assets, source_map, assembly, options,
+    )
+  }
   let document = {
     ..@core.empty_document_ir(),
     blocks,
@@ -29,13 +55,20 @@ fn chunks_from_events(
   source_map : @core.SourceMap?,
   assembly : @core.DocumentAssembly?,
   options : @rag.RagOptions,
+  record_batching? : Bool = false,
 ) -> Array[@rag.RagChunk] {
   if events.length() == 0 {
     return []
   }
   if events[0].kind == @core.EventKind::TextLine ||
     events[0].kind == @core.EventKind::BlankLine {
-    return rag_text_chunks_from_events(events, metadata, diagnostics, options)
+    return rag_text_chunks_from_events(
+      events,
+      metadata,
+      diagnostics,
+      options,
+      record_batching~,
+    )
   }
   if generic_block_event_stream(events) {
     let blocks = generic_blocks_from_events(events)
@@ -51,12 +84,25 @@ fn chunks_from_events(
       source_map,
       Some(next_assembly),
       options,
+      record_batching~,
     )
   }
   if event_stream_contains_table_rows(events) {
-    return rag_table_chunks_from_events(events, metadata, diagnostics, options)
+    return rag_table_chunks_from_events(
+      events,
+      metadata,
+      diagnostics,
+      options,
+      record_batching~,
+    )
   }
-  rag_text_chunks_from_generic_events(events, metadata, diagnostics, options)
+  rag_text_chunks_from_generic_events(
+    events,
+    metadata,
+    diagnostics,
+    options,
+    record_batching~,
+  )
 }
 
 ///|
@@ -91,7 +137,13 @@ fn rag_text_chunks_from_events(
   metadata : @core.DocumentMetadata,
   diagnostics : @core.Diagnostics,
   options : @rag.RagOptions,
+  record_batching? : Bool = false,
 ) -> Array[@rag.RagChunk] {
+  if record_batching {
+    return batched_text_chunks_from_events(
+      events, metadata, diagnostics, options,
+    )
+  }
   let refs : Array[@core.SourceRef] = []
   let parts : Array[String] = []
   let current_lines : Array[String] = []
@@ -168,7 +220,13 @@ fn rag_table_chunks_from_events(
   metadata : @core.DocumentMetadata,
   diagnostics : @core.Diagnostics,
   options : @rag.RagOptions,
+  record_batching? : Bool = false,
 ) -> Array[@rag.RagChunk] {
+  if record_batching {
+    return batched_table_chunks_from_events(
+      events, metadata, diagnostics, options,
+    )
+  }
   let rows : Array[Array[String]] = []
   let refs : Array[@core.SourceRef] = []
   let current_row : Array[String] = []
@@ -229,7 +287,13 @@ fn rag_text_chunks_from_generic_events(
   metadata : @core.DocumentMetadata,
   diagnostics : @core.Diagnostics,
   options : @rag.RagOptions,
+  record_batching? : Bool = false,
 ) -> Array[@rag.RagChunk] {
+  if record_batching {
+    return batched_generic_chunks_from_events(
+      events, metadata, diagnostics, options,
+    )
+  }
   let refs : Array[@core.SourceRef] = []
   let texts : Array[String] = []
   let mut chunk_kind = @rag.ChunkKind::Raw
@@ -266,6 +330,431 @@ fn rag_text_chunks_from_generic_events(
       diagnostics,
     ),
   ]
+}
+
+///|
+fn batched_chunks_from_blocks(
+  blocks : Array[@core.CoreBlock],
+  metadata : @core.DocumentMetadata,
+  diagnostics : @core.Diagnostics,
+  assets : Array[@core.AssetRef],
+  source_map : @core.SourceMap?,
+  assembly : @core.DocumentAssembly?,
+  options : @rag.RagOptions,
+) -> Array[@rag.RagChunk] {
+  if blocks.length() == 0 {
+    return []
+  }
+  let batched : Array[@rag.RagChunk] = []
+  let mut ordinal = 0
+  for batch in block_batches(blocks) {
+    let document = {
+      ..@core.empty_document_ir(),
+      blocks: batch,
+      metadata,
+      diagnostics,
+      assets,
+      source_map,
+      assembly,
+    }
+    let chunks = @rag.chunks_from_document(document, options)
+    for chunk in chunks {
+      batched.push(
+        rag_chunk_with_batch_metadata(
+          rag_chunk_with_ordinal(chunk, ordinal),
+          ordinal,
+        ),
+      )
+      ordinal += 1
+    }
+  }
+  batched
+}
+
+///|
+fn batched_text_chunks_from_events(
+  events : Array[@core.CoreEvent],
+  metadata : @core.DocumentMetadata,
+  diagnostics : @core.Diagnostics,
+  options : @rag.RagOptions,
+) -> Array[@rag.RagChunk] {
+  let batches = text_event_batches(events)
+  if batches.length() <= 1 {
+    let chunks = rag_text_chunks_from_events(
+      events,
+      metadata,
+      diagnostics,
+      options,
+      record_batching=false,
+    )
+    if chunks.length() == 0 {
+      return []
+    }
+    return [
+      rag_chunk_with_batch_metadata(rag_chunk_with_ordinal(chunks[0], 0), 0),
+    ]
+  }
+  let out : Array[@rag.RagChunk] = []
+  let mut ordinal = 0
+  for batch in batches {
+    let refs : Array[@core.SourceRef] = []
+    let parts : Array[String] = []
+    let current_lines : Array[String] = []
+    fn flush_paragraph(
+      parts : Array[String],
+      current_lines : Array[String],
+    ) -> Unit {
+      if current_lines.length() == 0 {
+        return
+      }
+      if parts.length() > 0 {
+        parts.push("")
+      }
+      parts.push(current_lines.join(" "))
+      current_lines.clear()
+    }
+    for event in batch {
+      match event.kind {
+        @core.EventKind::TextLine =>
+          current_lines.push(event.text.trim().to_owned())
+        @core.EventKind::BlankLine => flush_paragraph(parts, current_lines)
+        _ => ()
+      }
+    }
+    flush_paragraph(parts, current_lines)
+    let text = parts.join("\n")
+    if text == "" {
+      continue
+    }
+    for event in batch {
+      append_unique_source_ref(
+        refs,
+        event.source_ref,
+        options.preserve_source_ref,
+      )
+    }
+    out.push(
+      rag_chunk_with_batch_metadata(
+        make_event_rag_chunk(
+          @rag.ChunkKind::Text,
+          ordinal,
+          text,
+          refs,
+          [],
+          metadata,
+          diagnostics,
+        ),
+        ordinal,
+      ),
+    )
+    ordinal += 1
+  }
+  out
+}
+
+///|
+fn batched_table_chunks_from_events(
+  events : Array[@core.CoreEvent],
+  metadata : @core.DocumentMetadata,
+  diagnostics : @core.Diagnostics,
+  options : @rag.RagOptions,
+) -> Array[@rag.RagChunk] {
+  let rows : Array[(Array[String], Array[@core.SourceRef])] = []
+  let current_row : Array[String] = []
+  let current_refs : Array[@core.SourceRef] = []
+  for event in events {
+    match event.kind {
+      @core.EventKind::Cell => {
+        current_row.push(event.text)
+        append_unique_source_ref(
+          current_refs,
+          event.source_ref,
+          options.preserve_source_ref,
+        )
+      }
+      @core.EventKind::RowBreak =>
+        if current_row.length() > 0 {
+          rows.push((current_row.copy(), current_refs.copy()))
+          current_row.clear()
+          current_refs.clear()
+        }
+      _ => ()
+    }
+  }
+  if current_row.length() > 0 {
+    rows.push((current_row.copy(), current_refs.copy()))
+  }
+  if rows.length() == 0 {
+    return []
+  }
+  let batches = row_batches(rows)
+  if batches.length() <= 1 {
+    let chunks = rag_table_chunks_from_events(
+      events,
+      metadata,
+      diagnostics,
+      options,
+      record_batching=false,
+    )
+    if chunks.length() == 0 {
+      return []
+    }
+    return [
+      rag_chunk_with_batch_metadata(rag_chunk_with_ordinal(chunks[0], 0), 0),
+    ]
+  }
+  let width = widest_event_row_width(rows.map(entry => entry.0))
+  let out : Array[@rag.RagChunk] = []
+  let mut ordinal = 0
+  for batch in batches {
+    let buffer = StringBuilder::new()
+    let refs : Array[@core.SourceRef] = []
+    for index in 0..<batch.length() {
+      if index > 0 {
+        buffer.write_char('\n')
+      }
+      if index == 0 {
+        write_markdown_table_row_from_values(buffer, batch[index].0, width)
+        buffer.write_char('\n')
+        write_markdown_table_separator(buffer, width)
+      } else {
+        write_markdown_table_row_from_values(buffer, batch[index].0, width)
+      }
+      append_unique_source_refs(refs, batch[index].1)
+    }
+    out.push(
+      rag_chunk_with_batch_metadata(
+        make_event_rag_chunk(
+          @rag.ChunkKind::Table,
+          ordinal,
+          buffer.to_string(),
+          refs,
+          [],
+          metadata,
+          diagnostics,
+        ),
+        ordinal,
+      ),
+    )
+    ordinal += 1
+  }
+  out
+}
+
+///|
+fn batched_generic_chunks_from_events(
+  events : Array[@core.CoreEvent],
+  metadata : @core.DocumentMetadata,
+  diagnostics : @core.Diagnostics,
+  options : @rag.RagOptions,
+) -> Array[@rag.RagChunk] {
+  let out : Array[@rag.RagChunk] = []
+  let mut ordinal = 0
+  for batch in generic_event_batches(events) {
+    let refs : Array[@core.SourceRef] = []
+    let texts : Array[String] = []
+    let mut chunk_kind = @rag.ChunkKind::Raw
+    for event in batch {
+      append_unique_source_ref(
+        refs,
+        event.source_ref,
+        options.preserve_source_ref,
+      )
+      match event.kind {
+        @core.EventKind::StartBlock(@core.BlockKind::Code) => {
+          chunk_kind = @rag.ChunkKind::Code
+          texts.push(event.text)
+        }
+        @core.EventKind::StartBlock(@core.BlockKind::Raw) => {
+          chunk_kind = @rag.ChunkKind::Raw
+          texts.push(event.text)
+        }
+        @core.EventKind::Text => texts.push(event.text)
+        _ => ()
+      }
+    }
+    if texts.length() == 0 {
+      continue
+    }
+    out.push(
+      rag_chunk_with_batch_metadata(
+        make_event_rag_chunk(
+          chunk_kind,
+          ordinal,
+          texts.join("\n"),
+          refs,
+          [],
+          metadata,
+          diagnostics,
+        ),
+        ordinal,
+      ),
+    )
+    ordinal += 1
+  }
+  out
+}
+
+///|
+fn block_batches(
+  blocks : Array[@core.CoreBlock],
+) -> Array[Array[@core.CoreBlock]] {
+  let batches : Array[Array[@core.CoreBlock]] = []
+  let current : Array[@core.CoreBlock] = []
+  let mut current_group = ""
+  for block in blocks {
+    let group = block.attrs
+      .get("render_window_group")
+      .unwrap_or(block.attrs.get("render_boundary_key").unwrap_or(""))
+    if current.length() > 0 && group != "" && group != current_group {
+      batches.push(current.copy())
+      current.clear()
+    }
+    current.push(block)
+    if group != "" {
+      current_group = group
+    }
+  }
+  if current.length() > 0 {
+    batches.push(current.copy())
+  }
+  if batches.length() == 0 {
+    [blocks]
+  } else {
+    batches
+  }
+}
+
+///|
+fn text_event_batches(
+  events : Array[@core.CoreEvent],
+) -> Array[Array[@core.CoreEvent]] {
+  ignore(events)
+  [events]
+}
+
+///|
+fn row_batches(
+  rows : Array[(Array[String], Array[@core.SourceRef])],
+) -> Array[Array[(Array[String], Array[@core.SourceRef])]] {
+  let batches : Array[Array[(Array[String], Array[@core.SourceRef])]] = []
+  let current : Array[(Array[String], Array[@core.SourceRef])] = []
+  let mut current_size = 0
+  for row in rows {
+    let next_size = row.0.join(" ").length()
+    if current.length() > 0 && current_size + next_size > 600 {
+      batches.push(current.copy())
+      current.clear()
+      current_size = 0
+    }
+    current.push(row)
+    current_size += next_size
+  }
+  if current.length() > 0 {
+    batches.push(current.copy())
+  }
+  if batches.length() == 0 {
+    [rows]
+  } else {
+    batches
+  }
+}
+
+///|
+fn generic_event_batches(
+  events : Array[@core.CoreEvent],
+) -> Array[Array[@core.CoreEvent]] {
+  let batches : Array[Array[@core.CoreEvent]] = []
+  let current : Array[@core.CoreEvent] = []
+  let mut depth = 0
+  for event in events {
+    current.push(event)
+    match event.kind {
+      @core.EventKind::StartBlock(_) => depth += 1
+      @core.EventKind::EndBlock(_) => {
+        depth -= 1
+        if depth <= 0 {
+          batches.push(current.copy())
+          current.clear()
+          depth = 0
+        }
+      }
+      _ => ()
+    }
+  }
+  if current.length() > 0 {
+    batches.push(current.copy())
+  }
+  if batches.length() == 0 {
+    [events]
+  } else {
+    batches
+  }
+}
+
+///|
+fn append_unique_source_refs(
+  target : Array[@core.SourceRef],
+  refs : Array[@core.SourceRef],
+) -> Unit {
+  for source_ref in refs {
+    if !target.any(existing => source_ref_eq(existing, source_ref)) {
+      target.push(source_ref)
+    }
+  }
+}
+
+///|
+fn rag_chunk_with_batch_metadata(
+  chunk : @rag.RagChunk,
+  batch_ordinal : Int,
+) -> @rag.RagChunk {
+  let metadata = chunk.metadata
+  metadata.set(
+    "batch_ordinal",
+    @core.JsonValue::Number(batch_ordinal.to_string()),
+  )
+  metadata.set("record_batch_profile", @core.JsonValue::Bool(true))
+  @rag.make_rag_chunk(
+    chunk.id,
+    chunk.kind,
+    chunk.text,
+    chunk.heading_path.copy(),
+    chunk.source_refs.copy(),
+    chunk.asset_refs.copy(),
+    metadata,
+  )
+}
+
+///|
+fn rag_chunk_with_ordinal(
+  chunk : @rag.RagChunk,
+  ordinal : Int,
+) -> @rag.RagChunk {
+  let metadata = chunk.metadata
+  metadata.set("ordinal", @core.JsonValue::Number(ordinal.to_string()))
+  @rag.make_rag_chunk(
+    rag_chunk_id_with_ordinal(chunk.id, ordinal),
+    chunk.kind,
+    chunk.text,
+    chunk.heading_path.copy(),
+    chunk.source_refs.copy(),
+    chunk.asset_refs.copy(),
+    metadata,
+  )
+}
+
+///|
+fn rag_chunk_id_with_ordinal(id : String, ordinal : Int) -> String {
+  match id.split_once("-") {
+    Some((prefix, suffix)) =>
+      match suffix.split_once("-") {
+        Some((_, tail)) =>
+          prefix.to_owned() + "-" + ordinal.to_string() + "-" + tail.to_owned()
+        None => id
+      }
+    None => id
+  }
 }
 
 ///|

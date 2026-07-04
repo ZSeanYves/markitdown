@@ -4,11 +4,15 @@ pub fn markdown_renderer() -> Renderer {
     name: "MarkdownRenderer",
     render: fn(
       document : @core.DocumentIR,
-      _context : RenderContext,
+      context : RenderContext,
     ) -> RenderResult {
       document.diagnostics.metrics.set("renderer_name", "MarkdownRenderer")
+      document.diagnostics.metrics.set(
+        "applied_render_profile",
+        @product.render_profile_name(context.render_profile),
+      )
       {
-        content: render_markdown_document(document),
+        content: render_markdown_document(profiled_document(document, context)),
         diagnostics: document.diagnostics,
         chunks: None,
       }
@@ -31,16 +35,29 @@ fn render_markdown_input(
   match input {
     RenderInput::Document(document) => (renderer.render)(document, context)
     RenderInput::BlockStream(blocks) => {
-      let diagnostics = block_stream_input_diagnostics(context, blocks)
+      let profiled = profiled_blocks(blocks, context)
+      let diagnostics = block_stream_input_diagnostics(context, profiled)
       diagnostics.metrics.set("renderer_name", "MarkdownRenderer")
-      { content: render_markdown_blocks(blocks), diagnostics, chunks: None }
+      diagnostics.metrics.set(
+        "applied_render_profile",
+        @product.render_profile_name(context.render_profile),
+      )
+      { content: render_markdown_blocks(profiled), diagnostics, chunks: None }
     }
     RenderInput::EventStream(events) => {
       let diagnostics = stream_input_diagnostics(
         context, events, "event_stream",
       )
       diagnostics.metrics.set("renderer_name", "MarkdownRenderer")
-      { content: render_markdown_events(events), diagnostics, chunks: None }
+      diagnostics.metrics.set(
+        "applied_render_profile",
+        @product.render_profile_name(context.render_profile),
+      )
+      {
+        content: render_markdown_events(profiled_events(events, context)),
+        diagnostics,
+        chunks: None,
+      }
     }
   }
 }

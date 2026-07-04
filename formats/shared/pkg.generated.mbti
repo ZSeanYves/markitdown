@@ -34,7 +34,7 @@ pub fn input_kind_name(@input.InputKind) -> String
 
 pub fn lower_text_markup_document(@ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupDocument, @input.InputSource, @core.Diagnostics, TextMarkupHooks) -> @core.DocumentIR
 
-pub fn make_text_markup_hooks(String, String, @ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupFormat, (String) -> @ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupDocument, (@ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupBlock, String) -> String, (@ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupBlock, @core.SourceRef, String) -> @core.CoreBlock?) -> TextMarkupHooks
+pub fn make_text_markup_hooks(String, String, @ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupFormat, (String) -> @ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupDocument, (@ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupBlock, String) -> String, (@ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupBlock, @core.SourceRef, String) -> @core.CoreBlock?, (@ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupBlock, @core.SourceRef, String) -> @core.CoreBlock?) -> TextMarkupHooks
 
 pub fn max_int(Int, Int) -> Int
 
@@ -69,6 +69,7 @@ pub struct TextMarkupHooks {
   format : @ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupFormat
   parse_document : (String) -> @ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupDocument
   quote_text : (@ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupBlock, String) -> String
+  semantic_block : (@ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupBlock, @core.SourceRef, String) -> @core.CoreBlock?
   semantic_raw_block : (@ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupBlock, @core.SourceRef, String) -> @core.CoreBlock?
 }
 

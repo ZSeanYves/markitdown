@@ -1,0 +1,45 @@
+{
+  "output_format": "rag_json",
+  "detected_format": "rst",
+  "parser_mode": "dom_ast_model",
+  "convert_mode": "balanced",
+  "output_mode": "rag",
+  "diagnostics_contains": {
+    "parser_name": "rst_parser",
+    "metrics": {
+      "renderer_name": "RagJsonRenderer",
+      "effective_mode": "dom_ast_model",
+      "ir_input_kind": "document",
+      "table_count": "2",
+      "raw_count": "0"
+    }
+  },
+  "source_map": "null",
+  "chunk_count": {
+    "min": 3
+  },
+  "chunks": [
+    {
+      "kind": "table",
+      "text_contains_all": [
+        "| Field | Value |",
+        "| Author | Ada Lovelace |",
+        "| Version | 1.0 |"
+      ]
+    },
+    {
+      "kind": "table",
+      "text_contains_all": [
+        "| Term | Definition |",
+        "| Term | Definition body |"
+      ]
+    },
+    {
+      "kind": "text",
+      "text_contains_all": [
+        "Directive: Rubric",
+        "API Notes"
+      ]
+    }
+  ]
+}

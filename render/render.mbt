@@ -2088,6 +2088,7 @@ fn render_block_json(block : @core.CoreBlock) -> String {
     "\"kind\": " + @core.json_string(@core.block_kind_name(block.kind)),
   )
   fields.push("\"text\": " + @core.json_string(block.text))
+  fields.push("\"attrs\": " + render_string_map_json(block.attrs))
   fields.push(
     "\"rich_inlines\": " + render_rich_inlines_json(block.rich_inlines),
   )
@@ -2097,6 +2098,17 @@ fn render_block_json(block : @core.CoreBlock) -> String {
     child_items.push(render_block_json(child))
   }
   fields.push("\"children\": " + @core.array_json(child_items))
+  @core.object_json(fields)
+}
+
+///|
+fn render_string_map_json(entries : Map[String, String]) -> String {
+  let fields : Array[String] = []
+  let items = entries.to_array()
+  items.sort_by(fn(a, b) { a.0[:].lexical_compare(b.0[:]) })
+  for entry in items {
+    fields.push(@core.json_string(entry.0) + ": " + @core.json_string(entry.1))
+  }
   @core.object_json(fields)
 }
 
@@ -2366,6 +2378,10 @@ fn render_diagnostics_json(diagnostics : @core.Diagnostics) -> String {
   fields.push(
     "\"same_mode_degradation\": " +
     @core.string_array_json(diagnostics.same_mode_degradation),
+  )
+  fields.push(
+    "\"same_mode_strategy_switches\": " +
+    @core.string_array_json(diagnostics.same_mode_strategy_switches),
   )
   fields.push(
     "\"fallback_trace\": " + @core.string_array_json(diagnostics.fallback_trace),

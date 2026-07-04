@@ -363,12 +363,23 @@ fn xlsx_parse_workbook(
   let max_cols = context.max_cols.unwrap_or(50)
   let max_cells = context.max_cells.unwrap_or(100000)
   let max_sheets = 200
-  let include_hidden_sheets = context.fidelity_mode ==
-    @product.FidelityMode::Accurate
-  let include_hidden_rows = context.fidelity_mode ==
-    @product.FidelityMode::Accurate
-  let include_merge_layout = context.fidelity_mode ==
-    @product.FidelityMode::Accurate
+  let accurate_semantic = context.lowering_profile ==
+    @product.LoweringProfile::AccurateSemantic
+  let include_hidden_sheets = accurate_semantic &&
+    @product.accurate_feature_enabled(
+      context.accurate_features,
+      @product.AccurateFeature::XlsxHiddenSheets,
+    )
+  let include_hidden_rows = accurate_semantic &&
+    @product.accurate_feature_enabled(
+      context.accurate_features,
+      @product.AccurateFeature::XlsxHiddenRows,
+    )
+  let include_merge_layout = accurate_semantic &&
+    @product.accurate_feature_enabled(
+      context.accurate_features,
+      @product.AccurateFeature::XlsxMergedSpans,
+    )
 
   let included_sheets : Array[XlsxSheet] = []
   let effective_sheet_infos = if shared.sheet_infos.length() > max_sheets {

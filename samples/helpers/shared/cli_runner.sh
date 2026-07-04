@@ -142,17 +142,73 @@ native_cli_staleness_sentinel() {
   esac
 }
 
+native_cli_source_roots() {
+  local package="${1-}"
+  case "$package" in
+    cli)
+      cat <<EOF
+$ROOT/cli
+$ROOT/container
+$ROOT/convert
+$ROOT/core
+$ROOT/format_readers
+$ROOT/formats
+$ROOT/input
+$ROOT/parser
+$ROOT/pipeline
+$ROOT/product
+$ROOT/rag
+$ROOT/render
+$ROOT/runtime
+$ROOT/moon.mod.json
+EOF
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+native_cli_has_newer_source() {
+  local candidate="${1-}"
+  local package="${2-}"
+  local root_path
+  while IFS= read -r root_path; do
+    [[ -n "$root_path" ]] || continue
+    if [[ -f "$root_path" ]]; then
+      if [[ "$root_path" -nt "$candidate" ]]; then
+        CLI_STALENESS_SENTINEL="$root_path"
+        return 0
+      fi
+      continue
+    fi
+    [[ -d "$root_path" ]] || continue
+    local newer_file=""
+    newer_file="$(find "$root_path" -type f \
+      \( -name '*.mbt' -o -name 'moon.pkg' -o -name 'moon.pkg.json' -o -name '*.c' \) \
+      -newer "$candidate" -print -quit 2>/dev/null || true)"
+    if [[ -n "$newer_file" ]]; then
+      CLI_STALENESS_SENTINEL="$newer_file"
+      return 0
+    fi
+  done < <(native_cli_source_roots "$package")
+  return 1
+}
+
 native_cli_is_fresh_enough() {
   local candidate="${1-}"
   local package="${2-}"
-  local sentinel
-  sentinel="$(native_cli_staleness_sentinel "$package")" || return 0
-  [[ -f "$candidate" && -f "$sentinel" ]] || return 0
-  if [[ "$candidate" -nt "$sentinel" ]]; then
+  local sentinel=""
+  sentinel="$(native_cli_staleness_sentinel "$package" 2>/dev/null || true)"
+  [[ -f "$candidate" ]] || return 1
+  if [[ -n "$sentinel" && -f "$sentinel" && "$candidate" -nt "$sentinel" ]] && \
+    ! native_cli_has_newer_source "$candidate" "$package"; then
     CLI_STALENESS_SENTINEL=""
     return 0
   fi
-  CLI_STALENESS_SENTINEL="$sentinel"
+  if [[ -z "$CLI_STALENESS_SENTINEL" && -n "$sentinel" ]]; then
+    CLI_STALENESS_SENTINEL="$sentinel"
+  fi
   return 1
 }
 

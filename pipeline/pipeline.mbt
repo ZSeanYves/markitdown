@@ -18,6 +18,10 @@ pub struct PassContext {
   mode : @product.ConvertMode
   fidelity_mode : @product.FidelityMode
   output_mode : @product.OutputMode
+  execution_profile : @product.ExecutionProfile
+  lowering_profile : @product.LoweringProfile
+  render_profile : @product.RenderProfile
+  accurate_features : @product.AccurateFeatureProfile
   options : @product.ProductOptions
   diagnostics : Ref[@core.Diagnostics]
   assets : Ref[Array[@core.AssetRef]]
@@ -41,6 +45,10 @@ pub struct PassPipeline {
 fn make_product_pass_context(
   mode : @product.ConvertMode,
   options : @product.ProductOptions,
+  execution_profile? : @product.ExecutionProfile = @product.ExecutionProfile::Standard,
+  lowering_profile? : @product.LoweringProfile = @product.LoweringProfile::Canonical,
+  render_profile? : @product.RenderProfile = @product.RenderProfile::DefaultMarkdown,
+  accurate_features? : @product.AccurateFeatureProfile = @product.empty_accurate_feature_profile(),
   diagnostics? : @core.Diagnostics = @core.empty_diagnostics(),
   assets? : Array[@core.AssetRef] = [],
   metadata? : @core.DocumentMetadata = Map([]),
@@ -51,6 +59,10 @@ fn make_product_pass_context(
     mode,
     fidelity_mode: options.fidelity_mode,
     output_mode: options.output_mode,
+    execution_profile,
+    lowering_profile,
+    render_profile,
+    accurate_features,
     options,
     diagnostics: Ref(diagnostics),
     assets: Ref(assets),
@@ -67,21 +79,18 @@ pub fn make_pass_context(
   pdf_cleanup_enabled? : Bool = false,
 ) -> PassContext {
   let mode = match mode_name {
-    "debug" => @product.ConvertMode::Debug
-    "rag" => @product.ConvertMode::Rag
     "stream" => @product.ConvertMode::Stream
     "accurate" => @product.ConvertMode::Accurate
-    "fast" => @product.ConvertMode::Fast
-    _ =>
-      if debug {
-        @product.ConvertMode::Debug
-      } else {
-        @product.ConvertMode::Balanced
-      }
+    _ => @product.ConvertMode::Balanced
   }
   let options = @product.make_product_options(
     mode,
     @product.default_resource_limits(),
+    output_mode=if debug {
+      @product.OutputMode::Debug
+    } else {
+      @product.OutputMode::Markdown
+    },
     pdf_cleanup_mode=if pdf_cleanup_enabled {
       @product.PdfCleanupMode::Conservative
     } else {
@@ -95,6 +104,10 @@ pub fn make_pass_context(
 pub fn make_pass_context_with_product_options(
   mode : @product.ConvertMode,
   options : @product.ProductOptions,
+  execution_profile? : @product.ExecutionProfile = @product.ExecutionProfile::Standard,
+  lowering_profile? : @product.LoweringProfile = @product.LoweringProfile::Canonical,
+  render_profile? : @product.RenderProfile = @product.RenderProfile::DefaultMarkdown,
+  accurate_features? : @product.AccurateFeatureProfile = @product.empty_accurate_feature_profile(),
   diagnostics? : @core.Diagnostics = @core.empty_diagnostics(),
   assets? : Array[@core.AssetRef] = [],
   metadata? : @core.DocumentMetadata = Map([]),
@@ -104,6 +117,10 @@ pub fn make_pass_context_with_product_options(
   make_product_pass_context(
     mode,
     options,
+    execution_profile~,
+    lowering_profile~,
+    render_profile~,
+    accurate_features~,
     diagnostics~,
     assets~,
     metadata~,
@@ -195,6 +212,7 @@ pub fn default_pass_pipeline() -> PassPipeline {
     resolve_caption_pass(),
     resolve_asset_pass(),
     assemble_section_tree_pass(),
+    resolve_render_hints_pass(),
     debug_annotation_pass(),
   ])
 }
@@ -305,7 +323,7 @@ fn event_stream_fast_path_pass_names() -> Array[String] {
     "NormalizeTextPass", "NormalizeWhitespacePass", "MergeTextLinePass", "ResolveReadingOrderPass",
     "RemoveHeaderFooterPass", "ResolveHeadingPass", "ResolveListPass", "CollectAssetRefsPass",
     "ResolveTablePass", "ResolveCaptionPass", "ResolveAssetPass", "AssembleSectionTreePass",
-    "DebugAnnotationPass",
+    "ResolveRenderHintsPass", "DebugAnnotationPass",
   ]
 }
 

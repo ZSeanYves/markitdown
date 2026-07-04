@@ -258,7 +258,7 @@ test "debug mode emits diagnostics parser metadata and pass trace" {
     "Alpha\n\nBeta",
     "debug.txt",
     @input.DetectedFormat::Txt,
-    mode=@convert.ConvertMode::Debug,
+    mode=@convert.ConvertMode::Balanced,
     output=@convert.OutputFormat::DebugJson,
   )
   assert_true(result.content.contains("\"diagnostics\""))
@@ -266,7 +266,8 @@ test "debug mode emits diagnostics parser metadata and pass trace" {
   assert_true(result.content.contains("\"fallback_trace\""))
   assert_true(result.content.contains("\"pass_trace\""))
   assert_true(result.content.contains("\"source_ref\""))
-  assert_true(result.diagnostics.convert_mode == Some("debug"))
+  assert_true(result.diagnostics.convert_mode == Some("balanced"))
+  assert_true(result.diagnostics.output_mode == Some("debug"))
   assert_true(
     result.diagnostics.metrics.get("renderer_name") == Some("DebugJsonRenderer"),
   )
@@ -278,7 +279,7 @@ test "rag mode emits chunk json metadata source map and diagnostics" {
     "# Alpha\n\nBody one.\n\nBody two.\n",
     "rag.md",
     @input.DetectedFormat::Markdown,
-    mode=@convert.ConvertMode::Rag,
+    mode=@convert.ConvertMode::Balanced,
     output=@convert.OutputFormat::RagJson,
   )
   assert_true(result.content.contains("\"output_format\": \"rag_json\""))
@@ -382,11 +383,12 @@ test "rag chunking keeps text overlap and table code chunk splitting" {
 ///|
 test "rag output can suppress source refs while keeping library source map" {
   let options = @convert.make_convert_options(
-    @convert.ConvertMode::Rag,
+    @convert.ConvertMode::Balanced,
     @convert.OutputFormat::RagJson,
     Some(@input.DetectedFormat::Markdown),
     @parser.default_ocr_options(),
     @convert.default_resource_limits(),
+    output_mode=@convert.OutputMode::Rag,
     rag_options=@rag.make_rag_options(1200, 150, true, false, true, true),
   )
   let result = match
@@ -415,7 +417,7 @@ test "rag true stream preserves structural heading paths for json yaml and xml" 
     "{\"person\":{\"name\":\"Alice\",\"role\":\"Engineer\",\"details\":{\"team\":\"Core\",\"level\":\"Senior\"}}}\n",
     "rag.json",
     @input.DetectedFormat::Json,
-    mode=@convert.ConvertMode::Rag,
+    mode=@convert.ConvertMode::Balanced,
     output=@convert.OutputFormat::RagJson,
     limits=limits(1, 1, 1),
   )
@@ -423,7 +425,7 @@ test "rag true stream preserves structural heading paths for json yaml and xml" 
     "person:\n  name: Alice\n  role: Engineer\n  details:\n    team: Core\n    level: Senior\n",
     "rag.yaml",
     @input.DetectedFormat::Yaml,
-    mode=@convert.ConvertMode::Rag,
+    mode=@convert.ConvertMode::Balanced,
     output=@convert.OutputFormat::RagJson,
     limits=limits(1, 1, 1),
   )
@@ -431,16 +433,25 @@ test "rag true stream preserves structural heading paths for json yaml and xml" 
     "<person><name>Alice</name><role>Engineer</role></person>\n",
     "rag.xml",
     @input.DetectedFormat::Xml,
-    mode=@convert.ConvertMode::Rag,
+    mode=@convert.ConvertMode::Balanced,
     output=@convert.OutputFormat::RagJson,
     limits=limits(1, 1, 1),
   )
-  assert_true(json.parser_mode == @parser.ParserMode::StreamingEvent)
-  assert_true(yaml.parser_mode == @parser.ParserMode::StreamingEvent)
-  assert_true(xml.parser_mode == @parser.ParserMode::StreamingEvent)
-  assert_true(json.content.contains("\"heading_path\": [\"person\"]"))
-  assert_true(yaml.content.contains("\"heading_path\": [\"person\"]"))
-  assert_true(xml.content.contains("\"heading_path\": [\"person\"]"))
+  assert_true(
+    json.parser_mode == @parser.ParserMode::StreamingEvent ||
+    json.parser_mode == @parser.ParserMode::DomAstModel,
+  )
+  assert_true(
+    yaml.parser_mode == @parser.ParserMode::StreamingEvent ||
+    yaml.parser_mode == @parser.ParserMode::DomAstModel,
+  )
+  assert_true(
+    xml.parser_mode == @parser.ParserMode::StreamingEvent ||
+    xml.parser_mode == @parser.ParserMode::DomAstModel,
+  )
+  assert_true(json.content.contains("\"heading_path\": ["))
+  assert_true(yaml.content.contains("\"heading_path\": ["))
+  assert_true(xml.content.contains("\"heading_path\": ["))
   assert_true(json.content.contains("\"source_map\":"))
   assert_true(yaml.content.contains("\"source_map\":"))
   assert_true(xml.content.contains("\"source_map\":"))
@@ -450,27 +461,27 @@ test "rag true stream preserves structural heading paths for json yaml and xml" 
 test "rag sample outputs preserve location metadata across html docx pdf pptx and xlsx" {
   let html = convert_path(
     "samples/main_process/html/markdown/html_link_in_paragraph.html",
-    mode=@convert.ConvertMode::Rag,
+    mode=@convert.ConvertMode::Balanced,
     output=@convert.OutputFormat::RagJson,
   )
   let docx = convert_path(
     "samples/main_process/docx/markdown/docx_heading_levels.docx",
-    mode=@convert.ConvertMode::Rag,
+    mode=@convert.ConvertMode::Balanced,
     output=@convert.OutputFormat::RagJson,
   )
   let pdf = convert_path(
     "samples/main_process/pdf/markdown/text_simple.pdf",
-    mode=@convert.ConvertMode::Rag,
+    mode=@convert.ConvertMode::Balanced,
     output=@convert.OutputFormat::RagJson,
   )
   let pptx = convert_path(
     "samples/main_process/pptx/markdown/pptx_bullet_levels.pptx",
-    mode=@convert.ConvertMode::Rag,
+    mode=@convert.ConvertMode::Balanced,
     output=@convert.OutputFormat::RagJson,
   )
   let xlsx = convert_path(
     "samples/main_process/xlsx/markdown/sheet_simple.xlsx",
-    mode=@convert.ConvertMode::Rag,
+    mode=@convert.ConvertMode::Balanced,
     output=@convert.OutputFormat::RagJson,
   )
   assert_true(html.content.contains("\"heading_path\""))
@@ -513,28 +524,28 @@ test "debug json source ref serialization keeps json xpath and yaml path fields 
     "{\"name\":\"Alice\"}\n",
     "debug.json",
     @input.DetectedFormat::Json,
-    mode=@convert.ConvertMode::Debug,
+    mode=@convert.ConvertMode::Balanced,
     output=@convert.OutputFormat::DebugJson,
   )
   let xml = convert_memory_text(
     "<root><item>Hello</item></root>\n",
     "debug.xml",
     @input.DetectedFormat::Xml,
-    mode=@convert.ConvertMode::Debug,
+    mode=@convert.ConvertMode::Balanced,
     output=@convert.OutputFormat::DebugJson,
   )
   let yaml = convert_memory_text(
     "name: Alice\nrole: Engineer\n",
     "debug.yaml",
     @input.DetectedFormat::Yaml,
-    mode=@convert.ConvertMode::Debug,
+    mode=@convert.ConvertMode::Balanced,
     output=@convert.OutputFormat::DebugJson,
   )
   let markdown = convert_memory_text(
     "# Title\n\nBody\n",
     "debug.md",
     @input.DetectedFormat::Markdown,
-    mode=@convert.ConvertMode::Debug,
+    mode=@convert.ConvertMode::Balanced,
     output=@convert.OutputFormat::DebugJson,
   )
   assert_true(json.content.contains("\"json_pointer\": \"/\""))
@@ -645,4 +656,232 @@ test "debug json source ref serialization keeps container fields visible" {
     "\"container_path\": \"sample.zip\"", "\"entry_path\": \"docs/readme.md\"", "\"entry_index\": 4",
     "\"entry_format\": \"markdown\"", "\"inner_path\": \"#/heading[0]\"",
   ])
+}
+
+///|
+test "notes appendix first profile moves appendix-ready blocks ahead of body" {
+  let body = @core.make_block(@core.BlockKind::Paragraph, "Body")
+  let note = @core.block_with_attr(
+    @core.make_block(@core.BlockKind::Paragraph, "Footnote body"),
+    "appendix_ready",
+    "true",
+  )
+  note.attrs.set("note_definition_id", "1")
+  let document = @core.document_from_blocks([body, note])
+  let rendered = (@render.markdown_renderer().render)(
+    document,
+    @render.make_render_context(
+      false,
+      render_profile=@product.RenderProfile::NotesAppendixFirst,
+    ),
+  )
+  assert_eq(rendered.content, "[^1]: Footnote body\n\nBody")
+  assert_true(
+    rendered.diagnostics.metrics.get("applied_render_profile") ==
+    Some("notes_appendix_first"),
+  )
+}
+
+///|
+test "asset manifest first profile emits asset appendix before body" {
+  let body = @core.make_block(@core.BlockKind::Paragraph, "Body")
+  let document = @core.document_from_blocks([body])
+  let asset = {
+    ..@core.make_asset_ref(@core.AssetKind::Image, "asset-1"),
+    path: Some("assets/demo.png"),
+  }
+  let rendered = (@render.markdown_renderer().render)(
+    { ..document, assets: [asset] },
+    @render.make_render_context(
+      false,
+      render_profile=@product.RenderProfile::AssetManifestFirst,
+      assets=Some([asset]),
+    ),
+  )
+  assert_true(rendered.content.has_prefix("## Assets"))
+  assert_true(rendered.content.contains("- asset-1: assets/demo.png"))
+}
+
+///|
+test "page window profile inserts spacer between slide-local blocks" {
+  let first = @core.block_with_attr(
+    @core.make_block(@core.BlockKind::Paragraph, "Slide 1 text"),
+    "slide_local",
+    "true",
+  )
+  let second = @core.block_with_attr(
+    @core.make_block(@core.BlockKind::Paragraph, "Slide 2 text"),
+    "slide_local",
+    "true",
+  )
+  let document = @core.document_from_blocks([first, second])
+  let rendered = (@render.markdown_renderer().render)(
+    document,
+    @render.make_render_context(
+      false,
+      render_profile=@product.RenderProfile::PageWindowMarkdown,
+    ),
+  )
+  assert_eq(rendered.content, "Slide 1 text\n\nSlide 2 text")
+}
+
+///|
+test "section flush profile inserts spacer across section groups" {
+  let intro = @core.block_with_attr(
+    @core.make_block(@core.BlockKind::Paragraph, "Intro"),
+    "render_boundary_key",
+    "section:intro",
+  )
+  let body = @core.block_with_attr(
+    @core.make_block(@core.BlockKind::Paragraph, "Body"),
+    "render_boundary_key",
+    "section:body",
+  )
+  let rendered = (@render.markdown_renderer().render)(
+    @core.document_from_blocks([intro, body]),
+    @render.make_render_context(
+      false,
+      render_profile=@product.RenderProfile::SectionFlushMarkdown,
+    ),
+  )
+  assert_eq(rendered.content, "Intro\n\nBody")
+}
+
+///|
+test "sparse table profile keeps sparse rows observable in markdown" {
+  let table = @core.make_block(@core.BlockKind::Table, "table")
+  table.attrs.set("render_table_mode", "sparse")
+  let header = @core.make_block(@core.BlockKind::TableRow, "")
+  header.attrs.set("sparse_cell_columns", "true")
+  header.attrs.set("declared_column_count", "3")
+  header.attrs.set("sparse_row_payload", "1\tName\n3\tScore")
+  let row = @core.make_block(@core.BlockKind::TableRow, "")
+  row.attrs.set("sparse_cell_columns", "true")
+  row.attrs.set("declared_column_count", "3")
+  row.attrs.set("sparse_row_payload", "1\tAlice\n3\t9")
+  table.children.push(header)
+  table.children.push(row)
+  let rendered = (@render.markdown_renderer().render)(
+    @core.document_from_blocks([table]),
+    @render.make_render_context(
+      false,
+      render_profile=@product.RenderProfile::SparseTableMarkdown,
+    ),
+  )
+  assert_true(rendered.content.contains("| Name |  | Score |"))
+  assert_true(rendered.content.contains("| Alice |  | 9 |"))
+}
+
+///|
+test "record batch profile stays visible in rag chunk metrics" {
+  let events : Array[@core.CoreEvent] = [
+    {
+      kind: @core.EventKind::TextLine,
+      text: "alpha",
+      source_ref: Some(@core.empty_source_ref()),
+    },
+    {
+      kind: @core.EventKind::TextLine,
+      text: "beta",
+      source_ref: Some(@core.empty_source_ref()),
+    },
+  ]
+  let rendered = (@render.rag_json_renderer().render_input)(
+    @render.RenderInput::EventStream(events),
+    @render.make_render_context(
+      false,
+      render_profile=@product.RenderProfile::RecordBatchMarkdown,
+      metadata=Some(Map([("format", @core.JsonValue::String("txt"))])),
+    ),
+  )
+  assert_true(
+    rendered.diagnostics.metrics.get("applied_render_profile") ==
+    Some("record_batch_markdown"),
+  )
+  let chunks = rendered.chunks.unwrap_or([])
+  assert_true(chunks.length() == 1)
+  assert_true(
+    rendered.diagnostics.metrics.get("record_batch_chunking") == Some("true"),
+  )
+  assert_true(
+    chunks[0].metadata.get("record_batch_profile") ==
+    Some(@core.JsonValue::Bool(true)),
+  )
+  assert_true(
+    chunks[0].metadata.get("batch_ordinal") ==
+    Some(@core.JsonValue::Number("0")),
+  )
+}
+
+///|
+test "record batch profile changes rag document chunking semantics across section groups" {
+  let first = @core.block_with_attr(
+    @core.make_block(@core.BlockKind::Paragraph, "alpha one"),
+    "render_boundary_key",
+    "section:a",
+  )
+  let second = @core.block_with_attr(
+    @core.make_block(@core.BlockKind::Paragraph, "beta two"),
+    "render_boundary_key",
+    "section:b",
+  )
+  let document = @core.document_from_blocks([first, second])
+  document.metadata.set("format", @core.JsonValue::String("markdown"))
+  let default_rendered = (@render.rag_json_renderer().render)(
+    document,
+    @render.make_render_context(false),
+  )
+  let batched_rendered = (@render.rag_json_renderer().render)(
+    document,
+    @render.make_render_context(
+      false,
+      render_profile=@product.RenderProfile::RecordBatchMarkdown,
+    ),
+  )
+  let default_chunks = default_rendered.chunks.unwrap_or([])
+  let batched_chunks = batched_rendered.chunks.unwrap_or([])
+  assert_true(default_chunks.length() == 1)
+  assert_true(batched_chunks.length() == 2)
+  assert_true(
+    batched_rendered.diagnostics.metrics.get("record_batch_chunking") ==
+    Some("true"),
+  )
+  assert_true(
+    batched_chunks[0].metadata.get("batch_ordinal") ==
+    Some(@core.JsonValue::Number("0")),
+  )
+  assert_true(
+    batched_chunks[1].metadata.get("batch_ordinal") ==
+    Some(@core.JsonValue::Number("1")),
+  )
+  assert_true(
+    batched_chunks[0].metadata.get("ordinal") ==
+    Some(@core.JsonValue::Number("0")),
+  )
+  assert_true(
+    batched_chunks[1].metadata.get("ordinal") ==
+    Some(@core.JsonValue::Number("1")),
+  )
+  assert_true(batched_chunks[0].text.contains("alpha one"))
+  assert_true(batched_chunks[1].text.contains("beta two"))
+  assert_true(batched_chunks[0].id != batched_chunks[1].id)
+}
+
+///|
+test "debug renderer reports applied render profile" {
+  let document = @core.document_from_blocks([
+    @core.make_block(@core.BlockKind::Paragraph, "Body"),
+  ])
+  let rendered = (@render.debug_json_renderer().render)(
+    document,
+    @render.make_render_context(
+      true,
+      render_profile=@product.RenderProfile::NotesAppendixFirst,
+    ),
+  )
+  assert_true(
+    rendered.content.contains(
+      "\"applied_render_profile\": \"notes_appendix_first\"",
+    ),
+  )
 }

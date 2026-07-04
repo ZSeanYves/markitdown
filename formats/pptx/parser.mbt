@@ -44,7 +44,8 @@ priv struct PptxState {
   source : @input.InputSource
   diagnostics : @core.Diagnostics
   presentation : @pptxdoc.PptxDocument
-  fidelity_mode : @product.FidelityMode
+  lowering_profile : @product.LoweringProfile
+  accurate_features : @product.AccurateFeatureProfile
   assets : Array[@core.AssetRef]
   asset_ids : Map[String, String]
   image_ids : Map[String, String]
@@ -111,12 +112,7 @@ fn parse_pptx_document_result(
   }
 
   pptx_fill_package_metrics(diagnostics, pkg, presentation)
-  let document = pptx_lower_document(
-    source,
-    presentation,
-    diagnostics,
-    context.fidelity_mode,
-  )
+  let document = pptx_lower_document(source, presentation, diagnostics, context)
   diagnostics.metrics.set("block_count", document.blocks.length().to_string())
   diagnostics.metrics.set("asset_count", document.assets.length().to_string())
   diagnostics.metrics.set(

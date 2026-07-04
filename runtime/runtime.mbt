@@ -48,19 +48,8 @@ pub fn parse_child_to_block_product(
   format : @input.DetectedFormat,
   context : @parser.ParseContext,
 ) -> Result[ChildBlockProduct, String] {
-  let inner_context = @parser.parse_context_with_limits(
-    @parser.parse_context_with_product_modes(
-      @parser.new_parse_context(format),
-      context.fidelity_mode,
-      context.output_mode,
-    ),
-    context.requested_mode,
-    context.max_rows,
-    context.max_cols,
-    context.max_cells,
-    context.max_line_chars,
-    context.debug,
-  )
+  let inner_context = child_parse_context(format, context)
+  let product_options = child_product_options(context)
   let parsed = match @parser.registry_parse(registry, source, inner_context) {
     Ok(value) => value
     Err(err) => return Err(err)
@@ -78,24 +67,16 @@ pub fn parse_child_to_block_product(
         Some(blocks) =>
           Ok({ blocks, assets: parsed.assets, diagnostics: parsed.diagnostics })
         None => {
-          let product_options = @product.make_product_options(
-            if context.debug {
-              @product.ConvertMode::Debug
-            } else {
-              @product.ConvertMode::Balanced
-            },
-            @product.default_resource_limits(),
-          )
           let built = @pipeline.build_document_with_default_pipeline(
             parse_result_to_ir_input(parsed),
-            @pipeline.make_pass_context_with_product_options(
-              product_options.mode,
+            child_pass_context(
               product_options,
-              diagnostics=parsed.diagnostics,
-              assets=parsed.assets,
-              metadata=parsed.metadata,
-              source_map=parsed.source_map,
-              assembly=parsed.assembly,
+              context,
+              parsed.diagnostics,
+              parsed.assets,
+              parsed.metadata,
+              parsed.source_map,
+              parsed.assembly,
             ),
             trace_builder=false,
             trace_passes=false,
@@ -117,11 +98,42 @@ pub fn parse_child_to_document(
   format : @input.DetectedFormat,
   context : @parser.ParseContext,
 ) -> Result[@core.DocumentIR, String] {
-  let inner_context = @parser.parse_context_with_limits(
-    @parser.parse_context_with_product_modes(
-      @parser.new_parse_context(format),
-      context.fidelity_mode,
-      context.output_mode,
+  let inner_context = child_parse_context(format, context)
+  let parsed = match @parser.registry_parse(registry, source, inner_context) {
+    Ok(value) => value
+    Err(err) => return Err(err)
+  }
+  Ok(child_document_from_parse_result(parsed, context))
+}
+
+///|
+fn child_parse_context(
+  format : @input.DetectedFormat,
+  context : @parser.ParseContext,
+) -> @parser.ParseContext {
+  @parser.parse_context_with_limits(
+    @parser.parse_context_with_pdf_table_reconstruction_policy(
+      @parser.parse_context_with_pdf_header_footer_filter_policy(
+        @parser.parse_context_with_pdf_native_runtime_policy(
+          @parser.parse_context_with_ocr_options(
+            @parser.parse_context_with_execution_profiles(
+              @parser.parse_context_with_product_modes(
+                @parser.new_parse_context(format),
+                context.fidelity_mode,
+                context.output_mode,
+              ),
+              context.execution_profile,
+              context.lowering_profile,
+              context.render_profile,
+              context.accurate_features,
+            ),
+            context.ocr_options,
+          ),
+          context.pdf_native_runtime_policy,
+        ),
+        context.pdf_header_footer_filter_policy,
+      ),
+      context.pdf_table_reconstruction_policy,
     ),
     context.requested_mode,
     context.max_rows,
@@ -130,11 +142,70 @@ pub fn parse_child_to_document(
     context.max_line_chars,
     context.debug,
   )
-  let parsed = match @parser.registry_parse(registry, source, inner_context) {
-    Ok(value) => value
-    Err(err) => return Err(err)
-  }
-  Ok(child_document_from_parse_result(parsed, context.debug))
+}
+
+///|
+fn child_product_options(
+  context : @parser.ParseContext,
+) -> @product.ProductOptions {
+  @product.make_product_options(
+    if context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
+      @product.ConvertMode::Stream
+    } else {
+      match context.fidelity_mode {
+        @product.FidelityMode::Accurate => @product.ConvertMode::Accurate
+        @product.FidelityMode::Balanced => @product.ConvertMode::Balanced
+      }
+    },
+    @product.make_resource_limits(
+      context.max_rows.unwrap_or(2000),
+      context.max_cols.unwrap_or(50),
+      context.max_cells.unwrap_or(100000),
+      max_line_chars=context.max_line_chars.unwrap_or(4000),
+    ),
+    fidelity_mode=context.fidelity_mode,
+    output_mode=context.output_mode,
+    stream_requested=context.requested_mode ==
+      Some(@parser.ParserMode::BlockStreaming) ||
+      context.requested_mode == Some(@parser.ParserMode::StreamingEvent),
+    pdf_cleanup_mode=if context.pdf_header_footer_filter_policy ==
+      @parser.PdfHeaderFooterFilterPolicy::Disabled {
+      @product.PdfCleanupMode::Disabled
+    } else {
+      @product.PdfCleanupMode::Conservative
+    },
+    pdf_table_mode=if context.pdf_table_reconstruction_policy ==
+      @parser.PdfTableReconstructionPolicy::Disabled {
+      @product.PdfTableMode::Disabled
+    } else {
+      @product.PdfTableMode::Simple
+    },
+  )
+}
+
+///|
+fn child_pass_context(
+  product_options : @product.ProductOptions,
+  context : @parser.ParseContext,
+  parsed_diagnostics : @core.Diagnostics,
+  assets : Array[@core.AssetRef],
+  metadata : @core.DocumentMetadata,
+  source_map : @core.SourceMap?,
+  assembly : @core.DocumentAssembly?,
+) -> @pipeline.PassContext {
+  @pipeline.make_pass_context_with_product_options(
+    product_options.mode,
+    product_options,
+    execution_profile=context.execution_profile,
+    lowering_profile=context.lowering_profile,
+    render_profile=context.render_profile,
+    accurate_features=context.accurate_features,
+    diagnostics=parsed_diagnostics,
+    assets~,
+    metadata~,
+    source_map~,
+    assembly~,
+  )
 }
 
 ///|
@@ -189,6 +260,11 @@ fn merge_diagnostics(
       right.same_mode_degradation,
       dedupe,
     ),
+    same_mode_strategy_switches: merge_string_items(
+      left.same_mode_strategy_switches,
+      right.same_mode_strategy_switches,
+      dedupe,
+    ),
     fallback_trace: merge_string_items(
       left.fallback_trace,
       right.fallback_trace,
@@ -228,29 +304,22 @@ fn merge_string_items(
 ///|
 fn child_document_from_parse_result(
   parsed : @parser.ParseResult,
-  debug : Bool,
+  context : @parser.ParseContext,
 ) -> @core.DocumentIR {
   let mut document = match parsed.document {
     Some(existing) => existing
     None => {
-      let product_options = @product.make_product_options(
-        if debug {
-          @product.ConvertMode::Debug
-        } else {
-          @product.ConvertMode::Balanced
-        },
-        @product.default_resource_limits(),
-      )
+      let product_options = child_product_options(context)
       let built = @pipeline.build_document_with_default_pipeline(
         parse_result_to_ir_input(parsed),
-        @pipeline.make_pass_context_with_product_options(
-          product_options.mode,
+        child_pass_context(
           product_options,
-          diagnostics=parsed.diagnostics,
-          assets=parsed.assets,
-          metadata=parsed.metadata,
-          source_map=parsed.source_map,
-          assembly=parsed.assembly,
+          context,
+          parsed.diagnostics,
+          parsed.assets,
+          parsed.metadata,
+          parsed.source_map,
+          parsed.assembly,
         ),
         trace_builder=false,
         trace_passes=false,

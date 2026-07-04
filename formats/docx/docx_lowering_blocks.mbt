@@ -4,12 +4,12 @@ fn lower_docx_document_ir(
   docx : @ddocx.DocxDocument,
   pkg : @ox.OoxmlPackage,
   diagnostics : @core.Diagnostics,
-  fidelity_mode : @product.FidelityMode,
+  context : @parser.ParseContext,
 ) -> @core.DocumentIR {
   let document = @core.empty_document_ir()
   fill_docx_metadata(document.metadata, docx)
   let state = new_docx_lowering_state(
-    source, docx, pkg, document, diagnostics, fidelity_mode,
+    source, docx, pkg, document, diagnostics, context,
   )
   lower_docx_blocks(state, document.blocks, docx.body)
   append_docx_comments_blocks(state, document.blocks)
@@ -37,7 +37,8 @@ priv struct DocxLoweringState {
   source : @input.InputSource
   docx : @ddocx.DocxDocument
   diagnostics : @core.Diagnostics
-  fidelity_mode : @product.FidelityMode
+  lowering_profile : @product.LoweringProfile
+  accurate_features : @product.AccurateFeatureProfile
   assets : Array[@core.AssetRef]
   asset_ids : Map[String, String]
   footnote_labels : Map[String, String]
@@ -80,7 +81,7 @@ fn new_docx_lowering_state(
   _pkg : @ox.OoxmlPackage,
   _document : @core.DocumentIR,
   diagnostics : @core.Diagnostics,
-  fidelity_mode : @product.FidelityMode,
+  context : @parser.ParseContext,
 ) -> DocxLoweringState {
   let footnote_labels : Map[String, String] = Map([])
   let endnote_labels : Map[String, String] = Map([])
@@ -138,7 +139,8 @@ fn new_docx_lowering_state(
     source,
     docx,
     diagnostics,
-    fidelity_mode,
+    lowering_profile: context.lowering_profile,
+    accurate_features: context.accurate_features,
     assets,
     asset_ids,
     footnote_labels,
@@ -890,7 +892,10 @@ fn lower_docx_inlines(
     hyperlink_count : Ref[Int],
     tracked_change_count : Ref[Int],
   ) -> Bool {
-    if state.fidelity_mode != @product.FidelityMode::Accurate {
+    if !@product.accurate_feature_enabled(
+        state.accurate_features,
+        @product.AccurateFeature::DocxTextboxInline,
+      ) {
       return false
     }
     let resolved_anchor_id = match anchor_id {

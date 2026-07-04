@@ -16,7 +16,7 @@ fn debug_annotation_input(
   context : PassContext,
   input : @core.IRInput,
 ) -> @core.IRInput {
-  if !@product.debug_mode(context.mode) {
+  if !@product.debug_output_mode(context.output_mode) {
     return input
   }
   context.diagnostics.val.metrics.set("debug_annotation", "enabled")

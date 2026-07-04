@@ -268,11 +268,11 @@ fn pptx_lower_document(
   source : @input.InputSource,
   presentation : @pptxdoc.PptxDocument,
   diagnostics : @core.Diagnostics,
-  fidelity_mode : @product.FidelityMode,
+  context : @parser.ParseContext,
 ) -> @core.DocumentIR {
   let document = @core.empty_document_ir()
   pptx_fill_metadata(document, source, presentation)
-  let state = new_pptx_state(source, presentation, diagnostics, fidelity_mode)
+  let state = new_pptx_state(source, presentation, diagnostics, context)
   for slide in presentation.slides {
     if slide.hidden {
       pptx_note_hidden_slide_skipped(diagnostics, slide.slide_index)
@@ -289,19 +289,31 @@ fn new_pptx_state(
   source : @input.InputSource,
   presentation : @pptxdoc.PptxDocument,
   diagnostics : @core.Diagnostics,
-  fidelity_mode : @product.FidelityMode,
+  context : @parser.ParseContext,
 ) -> PptxState {
   {
     source,
     diagnostics,
     presentation,
-    fidelity_mode,
+    lowering_profile: context.lowering_profile,
+    accurate_features: context.accurate_features,
     assets: [],
     asset_ids: Map([]),
     image_ids: Map([]),
     slide_image_counts: Map([]),
     chart_fallback_emitted: { val: false },
   }
+}
+
+///|
+fn pptx_feature_enabled(
+  state : PptxState,
+  feature : @product.AccurateFeature,
+) -> Bool {
+  if state.lowering_profile != @product.LoweringProfile::AccurateSemantic {
+    return false
+  }
+  @product.accurate_feature_enabled(state.accurate_features, feature)
 }
 
 ///|
@@ -391,7 +403,7 @@ fn pptx_collect_unsupported_summary_for_slide(
   obj : @pptxdoc.PptxObject,
   unsupported_objects : Array[(String, String)],
 ) -> Bool {
-  if state.fidelity_mode != @product.FidelityMode::Accurate {
+  if !pptx_feature_enabled(state, @product.AccurateFeature::PptxGroupSummary) {
     return false
   }
   match obj {
@@ -419,7 +431,7 @@ fn pptx_collect_visual_noise_for_slide(
   obj : @pptxdoc.PptxObject,
   visual_noise : Array[(String, String)],
 ) -> Bool {
-  if state.fidelity_mode != @product.FidelityMode::Accurate {
+  if !pptx_feature_enabled(state, @product.AccurateFeature::PptxGroupSummary) {
     return false
   }
   match obj {
@@ -619,7 +631,7 @@ fn pptx_objects_for_slide(
   state : PptxState,
   slide : @pptxdoc.PptxSlide,
 ) -> Array[@pptxdoc.PptxObject] {
-  if state.fidelity_mode != @product.FidelityMode::Accurate {
+  if !pptx_feature_enabled(state, @product.AccurateFeature::PptxReadingOrder) {
     return slide.objects
   }
   let ordered : Array[@pptxdoc.PptxObject] = []
@@ -650,7 +662,7 @@ fn pptx_group_children_for_lowering(
   state : PptxState,
   group : @pptxdoc.PptxGroupShape,
 ) -> Array[@pptxdoc.PptxObject] {
-  if state.fidelity_mode != @product.FidelityMode::Accurate {
+  if !pptx_feature_enabled(state, @product.AccurateFeature::PptxReadingOrder) {
     return group.children
   }
   let keyed : Array[(String, @pptxdoc.PptxObject)] = []
@@ -681,7 +693,7 @@ fn pptx_should_emit_group_summary(
   state : PptxState,
   group : @pptxdoc.PptxGroupShape,
 ) -> Bool {
-  if state.fidelity_mode != @product.FidelityMode::Accurate {
+  if !pptx_feature_enabled(state, @product.AccurateFeature::PptxGroupSummary) {
     return false
   }
   if group.children.length() == 0 {

@@ -7,12 +7,22 @@ pub fn rag_json_renderer() -> Renderer {
       context : RenderContext,
     ) -> RenderResult {
       document.diagnostics.metrics.set("renderer_name", "RagJsonRenderer")
-      let chunks = @rag.chunks_from_document(document, context.rag_options)
+      document.diagnostics.metrics.set(
+        "applied_render_profile",
+        @product.render_profile_name(context.render_profile),
+      )
+      let profiled = profiled_document(document, context)
+      let chunks = chunks_from_document(
+        profiled,
+        context.rag_options,
+        record_batching=context.render_profile ==
+          @product.RenderProfile::RecordBatchMarkdown,
+      )
       apply_rag_chunk_metrics(document.diagnostics, chunks, context)
       {
         content: render_rag_json_document(
-          document,
-          rag_payload(document, context, chunks),
+          profiled,
+          rag_payload(profiled, context, chunks),
         ),
         diagnostics: document.diagnostics,
         chunks: Some(chunks),
@@ -36,8 +46,13 @@ fn render_rag_json_input(
   match input {
     RenderInput::Document(document) => (renderer.render)(document, context)
     RenderInput::BlockStream(blocks) => {
-      let diagnostics = block_stream_input_diagnostics(context, blocks)
+      let profiled = profiled_blocks(blocks, context)
+      let diagnostics = block_stream_input_diagnostics(context, profiled)
       diagnostics.metrics.set("renderer_name", "RagJsonRenderer")
+      diagnostics.metrics.set(
+        "applied_render_profile",
+        @product.render_profile_name(context.render_profile),
+      )
       let metadata : @core.DocumentMetadata = match context.metadata {
         Some(value) => value
         None => Map([])
@@ -50,13 +65,15 @@ fn render_rag_json_input(
         None => ()
       }
       let chunks = chunks_from_blocks(
-        blocks,
+        profiled,
         metadata,
         diagnostics,
         context.assets.unwrap_or([]),
         context.source_map,
         context.assembly,
         context.rag_options,
+        record_batching=context.render_profile ==
+          @product.RenderProfile::RecordBatchMarkdown,
       )
       apply_rag_chunk_metrics(diagnostics, chunks, context)
       {
@@ -74,6 +91,10 @@ fn render_rag_json_input(
         context, events, "event_stream",
       )
       diagnostics.metrics.set("renderer_name", "RagJsonRenderer")
+      diagnostics.metrics.set(
+        "applied_render_profile",
+        @product.render_profile_name(context.render_profile),
+      )
       let metadata : @core.DocumentMetadata = match context.metadata {
         Some(value) => value
         None => Map([])
@@ -82,13 +103,15 @@ fn render_rag_json_input(
         metadata, events, diagnostics,
       )
       let chunks = chunks_from_events(
-        events,
+        profiled_events(events, context),
         normalized_metadata,
         diagnostics,
         context.assets.unwrap_or([]),
         context.source_map,
         context.assembly,
         context.rag_options,
+        record_batching=context.render_profile ==
+          @product.RenderProfile::RecordBatchMarkdown,
       )
       apply_rag_chunk_metrics(diagnostics, chunks, context)
       {
@@ -138,6 +161,14 @@ fn apply_rag_chunk_metrics(
   diagnostics.metrics.set(
     "rag_chunk_overlap",
     context.rag_options.chunk_overlap.to_string(),
+  )
+  diagnostics.metrics.set(
+    "record_batch_chunking",
+    if context.render_profile == @product.RenderProfile::RecordBatchMarkdown {
+      "true"
+    } else {
+      "false"
+    },
   )
 }
 

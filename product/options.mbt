@@ -1,11 +1,8 @@
 ///|
 pub(all) enum ConvertMode {
-  Fast
   Balanced
   Accurate
   Stream
-  Rag
-  Debug
 } derive(Eq)
 
 ///|
@@ -20,6 +17,182 @@ pub(all) enum OutputMode {
   Debug
   Rag
 } derive(Eq)
+
+///|
+pub(all) enum ExecutionProfile {
+  Standard
+  MediumAdaptive
+  LargeAdaptive
+} derive(Eq)
+
+///|
+pub(all) enum LoweringProfile {
+  Canonical
+  AccurateSemantic
+  StreamCanonical
+  LargeAdaptive
+} derive(Eq)
+
+///|
+pub(all) enum RenderProfile {
+  DefaultMarkdown
+  SectionFlushMarkdown
+  SparseTableMarkdown
+  NotesAppendixFirst
+  AssetManifestFirst
+  PageWindowMarkdown
+  RecordBatchMarkdown
+} derive(Eq)
+
+///|
+pub(all) enum ProbeSignalKind {
+  CharCount
+  LineCount
+  BlockCount
+  ListItemCount
+  NodeCount
+  MaxDepth
+  RowCount
+  ColCount
+  CellCount
+  CellEstimate
+  OutputCount
+  AttachmentCount
+  AssetCount
+  EntryCount
+  PageCount
+  SlideCount
+  SheetCount
+  ScalarCount
+  ObjectCount
+  ArrayCount
+  HiddenRowCount
+  HiddenSheetCount
+  CoveredCellCount
+  NoteCount
+  CommentCount
+} derive(Eq)
+
+///|
+pub(all) enum AccurateFeature {
+  PdfPageAppendix
+  PdfWindowedAssembly
+  DocxTextboxInline
+  DocxAlternateContentRestore
+  DocxNotesAppendix
+  XlsxHiddenSheets
+  XlsxHiddenRows
+  XlsxMergedSpans
+  PptxReadingOrder
+  PptxGroupSummary
+  PptxHiddenSlideSemantics
+  PptxNotesAppendix
+  OdtRichNotes
+  OdtCommentsAppendix
+  OdsHiddenSheets
+  OdsHiddenRows
+  OdsCoveredCellSpans
+  OdpNotesAppendix
+  OdpSlideSummary
+} derive(Eq)
+
+///|
+pub struct AccurateFeatureProfile {
+  features : Array[AccurateFeature]
+}
+
+///|
+pub fn empty_accurate_feature_profile() -> AccurateFeatureProfile {
+  { features: [] }
+}
+
+///|
+pub fn make_accurate_feature_profile(
+  features : Array[AccurateFeature],
+) -> AccurateFeatureProfile {
+  { features, }
+}
+
+///|
+pub fn accurate_feature_name(feature : AccurateFeature) -> String {
+  match feature {
+    AccurateFeature::PdfPageAppendix => "pdf_page_appendix"
+    AccurateFeature::PdfWindowedAssembly => "pdf_windowed_assembly"
+    AccurateFeature::DocxTextboxInline => "docx_textbox_inline"
+    AccurateFeature::DocxAlternateContentRestore =>
+      "docx_alternate_content_restore"
+    AccurateFeature::DocxNotesAppendix => "docx_notes_appendix"
+    AccurateFeature::XlsxHiddenSheets => "xlsx_hidden_sheets"
+    AccurateFeature::XlsxHiddenRows => "xlsx_hidden_rows"
+    AccurateFeature::XlsxMergedSpans => "xlsx_merged_spans"
+    AccurateFeature::PptxReadingOrder => "pptx_reading_order"
+    AccurateFeature::PptxGroupSummary => "pptx_group_summary"
+    AccurateFeature::PptxHiddenSlideSemantics => "pptx_hidden_slide_semantics"
+    AccurateFeature::PptxNotesAppendix => "pptx_notes_appendix"
+    AccurateFeature::OdtRichNotes => "odt_rich_notes"
+    AccurateFeature::OdtCommentsAppendix => "odt_comments_appendix"
+    AccurateFeature::OdsHiddenSheets => "ods_hidden_sheets"
+    AccurateFeature::OdsHiddenRows => "ods_hidden_rows"
+    AccurateFeature::OdsCoveredCellSpans => "ods_covered_cell_spans"
+    AccurateFeature::OdpNotesAppendix => "odp_notes_appendix"
+    AccurateFeature::OdpSlideSummary => "odp_slide_summary"
+  }
+}
+
+///|
+pub fn accurate_feature_profile_names(
+  profile : AccurateFeatureProfile,
+) -> Array[String] {
+  profile.features.map(accurate_feature_name)
+}
+
+///|
+pub fn accurate_feature_enabled(
+  profile : AccurateFeatureProfile,
+  feature : AccurateFeature,
+) -> Bool {
+  profile.features.contains(feature)
+}
+
+///|
+pub fn accurate_features_for_detected_format(
+  format : @input.DetectedFormat,
+) -> Array[AccurateFeature] {
+  match format {
+    @input.DetectedFormat::Pdf =>
+      [AccurateFeature::PdfPageAppendix, AccurateFeature::PdfWindowedAssembly]
+    @input.DetectedFormat::Docx =>
+      [
+        AccurateFeature::DocxTextboxInline,
+        AccurateFeature::DocxAlternateContentRestore,
+        AccurateFeature::DocxNotesAppendix,
+      ]
+    @input.DetectedFormat::Xlsx =>
+      [
+        AccurateFeature::XlsxHiddenSheets,
+        AccurateFeature::XlsxHiddenRows,
+        AccurateFeature::XlsxMergedSpans,
+      ]
+    @input.DetectedFormat::Pptx =>
+      [
+        AccurateFeature::PptxReadingOrder,
+        AccurateFeature::PptxGroupSummary,
+        AccurateFeature::PptxHiddenSlideSemantics,
+        AccurateFeature::PptxNotesAppendix,
+      ]
+    @input.DetectedFormat::Odt =>
+      [AccurateFeature::OdtRichNotes, AccurateFeature::OdtCommentsAppendix]
+    @input.DetectedFormat::Ods =>
+      [
+        AccurateFeature::OdsHiddenSheets,
+        AccurateFeature::OdsHiddenRows,
+        AccurateFeature::OdsCoveredCellSpans,
+      ]
+    @input.DetectedFormat::Odp =>
+      [AccurateFeature::OdpNotesAppendix, AccurateFeature::OdpSlideSummary]
+    _ => []
+  }
+}
 
 ///|
 pub struct ResourceLimits {
@@ -97,7 +270,7 @@ pub fn make_product_options(
   mode : ConvertMode,
   limits : ResourceLimits,
   fidelity_mode? : FidelityMode = fidelity_mode_for_convert_mode(mode),
-  output_mode? : OutputMode = output_mode_for_convert_mode(mode),
+  output_mode? : OutputMode = OutputMode::Markdown,
   stream_requested? : Bool = mode == ConvertMode::Stream,
   pdf_cleanup_mode? : PdfCleanupMode = default_pdf_cleanup_mode(),
   pdf_table_mode? : PdfTableMode = default_pdf_table_mode(),
@@ -118,12 +291,9 @@ pub fn make_product_options(
 ///|
 pub fn convert_mode_name(mode : ConvertMode) -> String {
   match mode {
-    ConvertMode::Fast => "fast"
     ConvertMode::Balanced => "balanced"
     ConvertMode::Accurate => "accurate"
     ConvertMode::Stream => "stream"
-    ConvertMode::Rag => "rag"
-    ConvertMode::Debug => "debug"
   }
 }
 
@@ -137,26 +307,22 @@ pub fn fidelity_mode_for_convert_mode(mode : ConvertMode) -> FidelityMode {
 
 ///|
 pub fn output_mode_for_convert_mode(mode : ConvertMode) -> OutputMode {
-  match mode {
-    ConvertMode::Debug => OutputMode::Debug
-    ConvertMode::Rag => OutputMode::Rag
-    _ => OutputMode::Markdown
-  }
+  ignore(mode)
+  OutputMode::Markdown
 }
 
 ///|
 pub fn convert_mode_from_modes(
   fidelity_mode : FidelityMode,
-  output_mode : OutputMode,
+  stream_requested : Bool,
 ) -> ConvertMode {
-  match output_mode {
-    OutputMode::Debug => ConvertMode::Debug
-    OutputMode::Rag => ConvertMode::Rag
-    OutputMode::Markdown =>
-      match fidelity_mode {
-        FidelityMode::Accurate => ConvertMode::Accurate
-        FidelityMode::Balanced => ConvertMode::Balanced
-      }
+  if stream_requested {
+    ConvertMode::Stream
+  } else {
+    match fidelity_mode {
+      FidelityMode::Accurate => ConvertMode::Accurate
+      FidelityMode::Balanced => ConvertMode::Balanced
+    }
   }
 }
 
@@ -178,6 +344,38 @@ pub fn output_mode_name(mode : OutputMode) -> String {
 }
 
 ///|
+pub fn execution_profile_name(profile : ExecutionProfile) -> String {
+  match profile {
+    ExecutionProfile::Standard => "standard"
+    ExecutionProfile::MediumAdaptive => "medium_adaptive"
+    ExecutionProfile::LargeAdaptive => "large_adaptive"
+  }
+}
+
+///|
+pub fn lowering_profile_name(profile : LoweringProfile) -> String {
+  match profile {
+    LoweringProfile::Canonical => "canonical"
+    LoweringProfile::AccurateSemantic => "accurate_semantic"
+    LoweringProfile::StreamCanonical => "stream_canonical"
+    LoweringProfile::LargeAdaptive => "large_adaptive"
+  }
+}
+
+///|
+pub fn render_profile_name(profile : RenderProfile) -> String {
+  match profile {
+    RenderProfile::DefaultMarkdown => "default_markdown"
+    RenderProfile::SectionFlushMarkdown => "section_flush_markdown"
+    RenderProfile::SparseTableMarkdown => "sparse_table_markdown"
+    RenderProfile::NotesAppendixFirst => "notes_appendix_first"
+    RenderProfile::AssetManifestFirst => "asset_manifest_first"
+    RenderProfile::PageWindowMarkdown => "page_window_markdown"
+    RenderProfile::RecordBatchMarkdown => "record_batch_markdown"
+  }
+}
+
+///|
 pub fn pdf_cleanup_mode_name(mode : PdfCleanupMode) -> String {
   match mode {
     PdfCleanupMode::Disabled => "none"
@@ -191,11 +389,6 @@ pub fn pdf_table_mode_name(mode : PdfTableMode) -> String {
     PdfTableMode::Disabled => "none"
     PdfTableMode::Simple => "simple"
   }
-}
-
-///|
-pub fn debug_mode(mode : ConvertMode) -> Bool {
-  mode == ConvertMode::Debug
 }
 
 ///|

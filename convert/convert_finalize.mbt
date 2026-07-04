@@ -1,114 +1,34 @@
 ///|
-fn parse_context_with_product_pdf_modes(
-  context : @parser.ParseContext,
-  detected_format : @input.DetectedFormat,
-  options : ConvertOptions,
-) -> @parser.ParseContext {
-  if detected_format != @input.DetectedFormat::Pdf {
-    return context
-  }
-  @parser.parse_context_with_pdf_table_reconstruction_policy(
-    @parser.parse_context_with_pdf_header_footer_filter_policy(
-      context,
-      pdf_cleanup_mode_to_filter_policy(options.pdf_cleanup_mode),
-    ),
-    pdf_table_mode_to_reconstruction_policy(options.pdf_table_mode),
-  )
-}
-
-///|
-fn pdf_cleanup_mode_to_filter_policy(
-  mode : PdfCleanupMode,
-) -> @parser.PdfHeaderFooterFilterPolicy {
-  match mode {
-    PdfCleanupMode::Disabled => @parser.PdfHeaderFooterFilterPolicy::Disabled
-    PdfCleanupMode::Conservative =>
-      @parser.PdfHeaderFooterFilterPolicy::InternalHighConfidenceOnly
-  }
-}
-
-///|
-fn pdf_table_mode_to_reconstruction_policy(
-  mode : PdfTableMode,
-) -> @parser.PdfTableReconstructionPolicy {
-  match mode {
-    PdfTableMode::Disabled => @parser.PdfTableReconstructionPolicy::Disabled
-    PdfTableMode::Simple =>
-      @parser.PdfTableReconstructionPolicy::InternalSimpleRowsOnly
-  }
-}
-
-///|
-fn finalize_image_convert_result(
-  source : @input.InputSource,
-  detected_format : @input.DetectedFormat,
-  options : ConvertOptions,
-  parsed : @parser.ParseResult,
-) -> ConvertResult {
-  finalize_pipeline_convert_result(
-    source,
-    detected_format,
-    options,
-    parsed,
-    parsed.diagnostics,
-  )
-}
-
-///|
-fn finalize_image_convert_execution(
-  source : @input.InputSource,
-  detected_format : @input.DetectedFormat,
-  options : ConvertOptions,
-  parsed : @parser.ParseResult,
-  route_plan : RoutePlan,
-) -> ConvertExecution {
-  finalize_pipeline_convert_execution(
-    source,
-    detected_format,
-    options,
-    parsed,
-    parsed.diagnostics,
-    route_plan,
-  )
-}
-
-///|
-fn finalize_pipeline_convert_result(
-  source : @input.InputSource,
-  detected_format : @input.DetectedFormat,
-  options : ConvertOptions,
-  parsed : @parser.ParseResult,
-  diagnostics : @core.Diagnostics,
-) -> ConvertResult {
-  finalize_pipeline_convert_execution(
-    source,
-    detected_format,
-    options,
-    parsed,
-    diagnostics,
-    {
-      detected_format,
-      selected_route: "unknown",
-      route_reason: "legacy_finalize_without_route_plan",
-      route_probe_summary: "route_probe:unknown",
-      requested_parser_mode: None,
-    },
-  ).result
-}
-
-///|
 fn finalize_pipeline_convert_execution(
   source : @input.InputSource,
   detected_format : @input.DetectedFormat,
   options : ConvertOptions,
   parsed : @parser.ParseResult,
   diagnostics : @core.Diagnostics,
-  route_plan : RoutePlan,
+  execution_plan : ResolvedExecutionPlan,
 ) -> ConvertExecution {
-  let product_options = product_options_from_convert_options(options)
+  let route_plan = route_plan_from_execution_plan(execution_plan)
+  let effective_options = {
+    ..options,
+    mode: execution_plan.mode,
+    fidelity_mode: execution_plan.fidelity_mode,
+    output_mode: execution_plan.output_mode,
+    stream_requested: execution_plan.stream_requested,
+    output_format: execution_plan.output_format,
+    ocr_options: execution_plan.ocr_options,
+    limits: execution_plan.limits,
+    pdf_cleanup_mode: execution_plan.pdf_cleanup_mode,
+    pdf_table_mode: execution_plan.pdf_table_mode,
+    rag_options: execution_plan.rag_options,
+  }
+  let product_options = product_options_from_convert_options(effective_options)
   let pass_context = @pipeline.make_pass_context_with_product_options(
     product_options.mode,
     product_options,
+    execution_profile=execution_plan.execution_profile,
+    lowering_profile=execution_plan.lowering_profile,
+    render_profile=execution_plan.render_profile,
+    accurate_features=execution_plan.accurate_feature_profile,
     diagnostics~,
     assets=parsed.assets,
     metadata=parsed.metadata,
@@ -127,15 +47,15 @@ fn finalize_pipeline_convert_execution(
   let pipeline_diagnostics = pass_context.diagnostics.val
   pipeline_diagnostics.metrics.set(
     "convert_mode",
-    convert_mode_name(options.mode),
+    convert_mode_name(effective_options.mode),
   )
   pipeline_diagnostics.metrics.set(
     "fidelity_mode",
-    fidelity_mode_name(options.fidelity_mode),
+    fidelity_mode_name(effective_options.fidelity_mode),
   )
   pipeline_diagnostics.metrics.set(
     "output_mode",
-    output_mode_name(options.output_mode),
+    output_mode_name(effective_options.output_mode),
   )
   pipeline_diagnostics.metrics.set(
     "detected_format",
@@ -149,18 +69,23 @@ fn finalize_pipeline_convert_execution(
       Some(@input.detected_format_name(detected_format)),
     ),
     Some(parsed.mode |> @parser.mode_name),
-    Some(convert_mode_name(options.mode)),
-    fidelity_mode=Some(fidelity_mode_name(options.fidelity_mode)),
-    output_mode=Some(output_mode_name(options.output_mode)),
+    Some(convert_mode_name(effective_options.mode)),
+    fidelity_mode=Some(fidelity_mode_name(effective_options.fidelity_mode)),
+    output_mode=Some(output_mode_name(effective_options.output_mode)),
   )
-  apply_pdf_product_option_metrics(final_diagnostics, detected_format, options)
+  apply_pdf_product_option_metrics(
+    final_diagnostics, detected_format, effective_options,
+  )
   final_diagnostics.pass_trace.push("render:" + renderer.name)
   let render_input = ir_input_to_render_input(pipeline_result)
   let render_context = @render.make_render_context(
     @product.debug_output_mode(product_options.output_mode),
     fidelity_mode=product_options.fidelity_mode,
     output_mode=product_options.output_mode,
-    rag_options=options.rag_options,
+    execution_profile=execution_plan.execution_profile,
+    render_profile=execution_plan.render_profile,
+    accurate_features=execution_plan.accurate_feature_profile,
+    rag_options=execution_plan.rag_options,
     base_diagnostics=Some(final_diagnostics),
     metadata=Some(pass_context.metadata.val),
     source_map=pass_context.source_map.val,
@@ -183,31 +108,46 @@ fn finalize_pipeline_convert_execution(
   }
   let result : ConvertResult = {
     content: rendered.content,
-    output_format: options.output_format,
-    fidelity_mode: options.fidelity_mode,
-    output_mode: options.output_mode,
+    output_format: effective_options.output_format,
+    fidelity_mode: effective_options.fidelity_mode,
+    output_mode: effective_options.output_mode,
     detected_format,
     parser_mode: parsed.mode,
-    convert_mode: options.mode,
+    convert_mode: effective_options.mode,
     metadata: pass_context.metadata.val,
     diagnostics: rendered.diagnostics,
     assets: pass_context.assets.val,
-    source_map: if options.output_format == OutputFormat::RagJson &&
-      !options.rag_options.preserve_source_ref {
+    source_map: if effective_options.output_format == OutputFormat::RagJson &&
+      !execution_plan.rag_options.preserve_source_ref {
       None
     } else {
       pass_context.source_map.val
     },
     chunks: rendered.chunks,
-    debug_ir: debug_ir_for_render_input(options.output_format, render_input),
+    debug_ir: debug_ir_for_render_input(
+      effective_options.output_format,
+      render_input,
+    ),
   }
   let parse_kind = parse_result_kind(parsed)
   let pipeline_kind = ir_input_kind_name(pipeline_result)
   let render_kind = render_input_kind_name(render_input)
+  let expected_render_kind = match execution_plan.render_path_kind {
+    RenderPathKind::Document => "document"
+    RenderPathKind::BlockStream => "block_stream"
+    RenderPathKind::EventStream => "event_stream"
+  }
   let provenance : ConvertProvenance = {
     route_plan,
-    fidelity_mode: options.fidelity_mode,
-    output_mode: options.output_mode,
+    fidelity_mode: effective_options.fidelity_mode,
+    output_mode: effective_options.output_mode,
+    execution_profile: execution_plan.execution_profile,
+    execution_profile_reason: execution_plan.execution_profile_reason,
+    lowering_profile: execution_plan.lowering_profile,
+    render_profile: execution_plan.render_profile,
+    profile_trigger_signals: execution_plan.profile_trigger_signals.map(signal => {
+      probe_signal_kind_name(signal.kind) + "=" + signal.observed.to_string()
+    }),
     effective_parser_mode: parsed.mode,
     parse_result_kind: parse_kind,
     pipeline_output_kind: pipeline_kind,
@@ -217,8 +157,12 @@ fn finalize_pipeline_convert_execution(
       parsed.mode,
       parse_kind,
       pipeline_kind,
-      render_kind,
+      expected_render_kind,
     ),
+    applied_accurate_features: @product.accurate_feature_profile_names(
+      execution_plan.accurate_feature_profile,
+    ),
+    same_mode_strategy_switches: execution_plan.same_mode_strategy_switches,
   }
   { result, provenance }
 }
@@ -252,7 +196,6 @@ fn debug_ir_for_render_input(
 fn renderer_for_output(format : OutputFormat) -> @render.Renderer {
   match format {
     OutputFormat::Markdown => @render.markdown_renderer()
-    OutputFormat::Json => @render.debug_json_renderer()
     OutputFormat::RagJson => @render.rag_json_renderer()
     OutputFormat::DebugJson => @render.debug_json_renderer()
   }

@@ -57,6 +57,8 @@ pub struct OdtPreflightSummary {
   heading_count : Int
   table_count : Int
   image_count : Int
+  note_count : Int
+  comment_count : Int
   max_heading_level : Int
 }
 
@@ -97,7 +99,7 @@ fn parse_odt_document_result(
   let inspect = @dodf.inspect_odt_document(document)
   odt_fill_metrics(diagnostics, document, inspect, bytes)
   if context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
-    let lowered = odt_lower_block_stream_document(source, document)
+    let lowered = odt_lower_block_stream_document(source, document, context)
     diagnostics.metrics.set("parser_mode", "block_streaming")
     diagnostics.metrics.set("effective_mode", "block_streaming")
     diagnostics.metrics.set("ir_input_kind", "block_stream")
@@ -122,7 +124,7 @@ fn parse_odt_document_result(
       ),
     )
   }
-  let lowered = odt_lower_document_ir(source, document)
+  let lowered = odt_lower_document_ir(source, document, context)
   diagnostics.metrics.set("parser_mode", "package_single_pass")
   diagnostics.metrics.set("effective_mode", "package_single_pass")
   diagnostics.metrics.set("ir_input_kind", "document")
@@ -223,6 +225,8 @@ fn odt_fill_metrics(
   )
   diagnostics.metrics.set("table_count", inspect.table_count.to_string())
   diagnostics.metrics.set("image_count", inspect.image_count.to_string())
+  diagnostics.metrics.set("note_count", inspect.note_count.to_string())
+  diagnostics.metrics.set("comment_count", inspect.comment_count.to_string())
   diagnostics.metrics.set(
     "max_heading_level",
     inspect.max_heading_level.to_string(),
@@ -233,9 +237,10 @@ fn odt_fill_metrics(
 fn odt_lower_document_ir(
   source : @input.InputSource,
   document : @dodf.OdtDocument,
+  context : @parser.ParseContext,
 ) -> @core.DocumentIR {
   let metadata = odt_metadata(source, document)
-  let lowered = odt_lower_common(source, document)
+  let lowered = odt_lower_common(source, document, context)
   @core.document_with_source_map(
     @core.document_with_assets(
       @core.document_with_metadata(
@@ -252,9 +257,10 @@ fn odt_lower_document_ir(
 fn odt_lower_block_stream_document(
   source : @input.InputSource,
   document : @dodf.OdtDocument,
+  context : @parser.ParseContext,
 ) -> @core.DocumentIR {
   let metadata = odt_metadata(source, document)
-  let lowered = odt_lower_common(source, document)
+  let lowered = odt_lower_common(source, document, context)
   @core.document_with_source_map(
     @core.document_with_assets(
       @core.document_with_metadata(
@@ -278,12 +284,14 @@ priv struct OdtLoweredProduct {
 priv struct PendingOdtNote {
   id : String
   kind : String
+  note_id : String
   marker : String
   body : String
 }
 
 ///|
 priv struct PendingOdtComment {
+  comment_id : String
   marker : String
   body : String
 }
@@ -292,6 +300,7 @@ priv struct PendingOdtComment {
 fn odt_lower_common(
   source : @input.InputSource,
   document : @dodf.OdtDocument,
+  context : @parser.ParseContext,
 ) -> OdtLoweredProduct {
   let blocks : Array[@core.CoreBlock] = []
   let assets : Array[@core.AssetRef] = []
@@ -301,13 +310,13 @@ fn odt_lower_common(
   let appended_comment_ids : Array[String] = []
   let pending_comments : Array[PendingOdtComment] = []
   for block in document.blocks {
-    let lowered = odt_lower_block(source, block, assets, source_map)
+    let lowered = odt_lower_block(source, block, assets, source_map, context)
     blocks.push(lowered)
     odt_collect_notes(block, appended_note_ids, pending_notes)
     odt_collect_comments(block, appended_comment_ids, pending_comments)
   }
   for note in pending_notes {
-    let note_block = odt_note_definition_block(source, note)
+    let note_block = odt_note_definition_block(source, note, context)
     blocks.push(note_block)
     let note_ref = note_block.source_ref.unwrap_or(@core.empty_source_ref())
     source_map.block_entries.push(
@@ -328,6 +337,15 @@ fn odt_lower_common(
       source_ref=heading_ref,
     )
     heading.attrs.set("level", "2")
+    heading.attrs.set("appendix_kind", "comments")
+    heading.attrs.set("appendix_ready", "true")
+    if context.lowering_profile == @product.LoweringProfile::AccurateSemantic &&
+      @product.accurate_feature_enabled(
+        context.accurate_features,
+        @product.AccurateFeature::OdtCommentsAppendix,
+      ) {
+      heading.attrs.set("render_appendix_group", "comments")
+    }
     blocks.push(heading)
     source_map.block_entries.push(
       @core.make_source_map_entry(primary_ref=Some(heading_ref), refs=[
@@ -335,7 +353,7 @@ fn odt_lower_common(
       ]),
     )
     for comment in pending_comments {
-      let comment_block = odt_comment_definition_block(source, comment)
+      let comment_block = odt_comment_definition_block(source, comment, context)
       blocks.push(comment_block)
       let comment_ref = comment_block.source_ref.unwrap_or(
         @core.empty_source_ref(),
@@ -356,6 +374,7 @@ fn odt_lower_block(
   block : @dodf.OdtBlock,
   assets : Array[@core.AssetRef],
   source_map : @core.SourceMap,
+  context : @parser.ParseContext,
 ) -> @core.CoreBlock {
   let source_ref = odt_source_ref(source, block)
   let lowered = match block.kind {
@@ -399,13 +418,18 @@ fn odt_lower_block(
         source_ref,
       )
     @dodf.OdtBlockKind::NoteDefinition =>
-      odt_note_definition_block(source, {
-        id: "1",
-        kind: "footnote",
-        marker: "[^1]",
-        body: block.text,
-      })
-    @dodf.OdtBlockKind::Table => odt_table_block(block, source_ref)
+      odt_note_definition_block(
+        source,
+        {
+          id: "1",
+          kind: "footnote",
+          note_id: "note-1",
+          marker: "[^1]",
+          body: block.text,
+        },
+        context,
+      )
+    @dodf.OdtBlockKind::Table => odt_table_block(block, source_ref, context)
     @dodf.OdtBlockKind::Image =>
       odt_image_block(source, block, assets, source_ref)
   }
@@ -445,6 +469,9 @@ fn odt_rich_inlines(
           let next = @core.inline_with_attr(next, "annotation_role", "note_ref")
           let next = @core.inline_with_attr(next, "annotation_kind", "comment")
           let next = @core.inline_with_attr(next, "annotation_id", note_id)
+          let next = @core.inline_with_attr(
+            next, "annotation_target_id", note_id,
+          )
           out.push(@core.inline_with_attr(next, "annotation_marker", marker))
           continue
         }
@@ -452,6 +479,7 @@ fn odt_rich_inlines(
         let next = @core.inline_with_attr(next, "annotation_role", "note_ref")
         let next = @core.inline_with_attr(next, "annotation_kind", kind)
         let next = @core.inline_with_attr(next, "annotation_id", note_id)
+        let next = @core.inline_with_attr(next, "annotation_target_id", note_id)
         out.push(@core.inline_with_attr(next, "annotation_marker", marker))
       }
       None =>
@@ -508,6 +536,7 @@ fn odt_collect_comments(
           !appended_comment_ids.contains(note_id) {
           appended_comment_ids.push(note_id)
           pending_comments.push({
+            comment_id: note_id,
             marker: inline.note_marker.unwrap_or("[comment 1]"),
             body: inline.note_body.unwrap_or(inline.text),
           })
@@ -530,7 +559,13 @@ fn odt_note_from_inline(
       let marker = inline.note_marker.unwrap_or("[^1]")
       let kind = inline.note_kind.unwrap_or("footnote")
       let body = inline.note_body.unwrap_or(marker)
-      return Some({ id: odt_note_definition_label(marker), kind, marker, body })
+      return Some({
+        id: odt_note_definition_label(marker),
+        kind,
+        note_id,
+        marker,
+        body,
+      })
     }
   }
   None
@@ -550,6 +585,7 @@ fn odt_note_definition_label(marker : String) -> String {
 fn odt_note_definition_block(
   source : @input.InputSource,
   note : PendingOdtNote,
+  context : @parser.ParseContext,
 ) -> @core.CoreBlock {
   let source_ref = @core.source_ref_with_lines(
     @core.empty_source_ref(),
@@ -564,8 +600,21 @@ fn odt_note_definition_block(
     source_ref~,
   )
   let block = @core.block_with_attr(block, "note_definition_id", note.id)
+  let block = @core.block_with_attr(
+    block,
+    "annotation_definition_id",
+    note.note_id,
+  )
   let block = @core.block_with_attr(block, "note_definition_kind", note.kind)
   let block = @core.block_with_attr(block, "annotation_marker", note.marker)
+  let block = @core.block_with_attr(block, "appendix_ready", "true")
+  if context.lowering_profile == @product.LoweringProfile::AccurateSemantic &&
+    @product.accurate_feature_enabled(
+      context.accurate_features,
+      @product.AccurateFeature::OdtRichNotes,
+    ) {
+    block.attrs.set("render_appendix_group", "notes")
+  }
   @core.block_with_rich_inlines(
     block,
     Some([@core.make_inline_text(note.body, source_ref~)]),
@@ -576,6 +625,7 @@ fn odt_note_definition_block(
 fn odt_comment_definition_block(
   source : @input.InputSource,
   comment : PendingOdtComment,
+  context : @parser.ParseContext,
 ) -> @core.CoreBlock {
   let source_ref = @core.source_ref_with_lines(
     @core.empty_source_ref(),
@@ -592,6 +642,18 @@ fn odt_comment_definition_block(
   item.attrs.set("ordered", "true")
   item.attrs.set("level", "0")
   item.attrs.set("stable_ordered_marker", "true")
+  item.attrs.set("appendix_kind", "comments")
+  item.attrs.set("appendix_ready", "true")
+  item.attrs.set("annotation_definition_id", comment.comment_id)
+  item.attrs.set("annotation_kind", "comment")
+  item.attrs.set("annotation_marker", comment.marker)
+  if context.lowering_profile == @product.LoweringProfile::AccurateSemantic &&
+    @product.accurate_feature_enabled(
+      context.accurate_features,
+      @product.AccurateFeature::OdtCommentsAppendix,
+    ) {
+    item.attrs.set("render_appendix_group", "comments")
+  }
   @core.block_with_rich_inlines(
     item,
     Some([
@@ -609,8 +671,12 @@ fn odt_comment_definition_block(
 fn odt_table_block(
   block : @dodf.OdtBlock,
   source_ref : @core.SourceRef,
+  context : @parser.ParseContext,
 ) -> @core.CoreBlock {
   let table = @core.make_block(@core.BlockKind::Table, "table", source_ref~)
+  if context.lowering_profile == @product.LoweringProfile::LargeAdaptive {
+    table.attrs.set("render_table_mode", "sparse")
+  }
   for row_value in block.rows {
     let row = @core.make_block(@core.BlockKind::TableRow, "", source_ref~)
     for cell_value in row_value.cells {
@@ -771,6 +837,8 @@ fn odt_preflight_summary_from_document(
     heading_count: inspect.heading_count,
     table_count: inspect.table_count,
     image_count: inspect.image_count,
+    note_count: inspect.note_count,
+    comment_count: inspect.comment_count,
     max_heading_level: inspect.max_heading_level,
   }
 }

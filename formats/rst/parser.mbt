@@ -21,6 +21,7 @@ fn rst_hooks() -> @fshared.TextMarkupHooks {
     @dmark.TextMarkupFormat::Rst,
     fn(text : String) { @dmark.parse_rst_document(text) },
     rst_semantic_quote_text,
+    rst_semantic_block,
     rst_semantic_raw_block,
   )
 }
@@ -93,6 +94,67 @@ fn rst_semantic_raw_block(
       )
     }
     None => None
+  }
+}
+
+///|
+fn rst_semantic_block(
+  block : @dmark.TextMarkupBlock,
+  source_ref : @core.SourceRef,
+  _format_name : String,
+) -> @core.CoreBlock? {
+  match block.meta.get("semantic_kind") {
+    Some("include") => {
+      let target = block.meta.get("include_target").unwrap_or(block.text)
+      let text = if block.text.has_prefix("include: ") {
+        "Include: " + block.text["include: ".length():].to_owned()
+      } else {
+        "Include: " + target
+      }
+      let paragraph = @core.make_block(
+        @core.BlockKind::Paragraph,
+        text,
+        source_ref~,
+      )
+      paragraph.attrs.set("literal", "true")
+      paragraph.attrs.set("semantic_label", "Include")
+      paragraph.attrs.set("semantic_family", "rst")
+      paragraph.attrs.set("semantic_display", "include")
+      Some(
+        @fshared.text_markup_block_with_inlines(
+          paragraph,
+          text,
+          @dmark.TextMarkupFormat::Rst,
+        ),
+      )
+    }
+    Some("directive") => {
+      let kind = block.meta.get("directive_kind").unwrap_or("directive")
+      let display = text_markup_display_label(kind)
+      let text = if block.text.trim() == "" || block.text.trim() == kind.trim() {
+        "Directive: " + display
+      } else {
+        "Directive: " + display + "\n" + block.text
+      }
+      let paragraph = @core.make_block(
+        @core.BlockKind::Paragraph,
+        text,
+        source_ref~,
+      )
+      paragraph.attrs.set("literal", "true")
+      paragraph.attrs.set("semantic_label", "Directive")
+      paragraph.attrs.set("semantic_family", "rst")
+      paragraph.attrs.set("semantic_display", display)
+      Some(
+        @fshared.text_markup_block_with_inlines(
+          paragraph,
+          text,
+          @dmark.TextMarkupFormat::Rst,
+        ),
+      )
+    }
+    None => None
+    Some(_) => None
   }
 }
 

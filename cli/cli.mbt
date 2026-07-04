@@ -83,14 +83,14 @@ fn print_cli_usage() -> Unit {
   )
   println("All other formats fail closed in this build.")
   println(
-    "`--accurate` upgrades fidelity while preserving the selected output mode.",
+    "`--accurate` selects the Accurate strategy mode while preserving the selected output view.",
   )
   println(
-    "`--stream` explicitly requests a format's streaming or block-streaming route when the active parser supports one.",
+    "`--stream` selects the Stream strategy mode and explicitly requests a format's streaming or block-streaming route when the active parser supports one.",
   )
-  println("`--debug` emits diagnostics through the debug JSON renderer.")
+  println("`--debug` switches the output view to debug JSON.")
   println(
-    "`--rag` emits chunked retrieval JSON with the default internal chunking policy.",
+    "`--rag` switches the output view to chunked retrieval JSON with the default internal chunking policy.",
   )
   println(
     "Direct image input uses local Tesseract OCR by default; `--no-ocr` disables it. `pdf --accurate` automatically enters the current OCR-only PDF path, while explicit `pdf --ocr` remains supported; both use local `pdftoppm` + Tesseract and require local installation.",
@@ -406,37 +406,21 @@ pub async fn run_cli_with_async_image_ocr_provider(
       requested_format,
     ) &&
     opts.ocr_options.intent == @parser.OcrIntent::Explicit
-  let execution = if allow_image_ocr {
-    match
-      @convert.convert_input_with_image_ocr_provider_async(
-        @input.input_from_path(opts.input),
-        convert_options,
-        image_ocr_provider,
-      ) {
-      Ok(value) => {
-        let route_plan = @convert.make_route_plan(
-          cli_requested_format(opts),
-          "async_unavailable",
-          "async_path_does_not_serialize_provenance",
-          "route_probe:async_unavailable",
-          None,
-        )
-        let provenance = @convert.make_convert_provenance(
-          route_plan,
-          value.fidelity_mode,
-          value.output_mode,
-          value.parser_mode,
-          value.diagnostics.metrics.get("ir_input_kind").unwrap_or("unknown"),
-          value.diagnostics.metrics
-          .get("builder_input_kind")
-          .unwrap_or("unknown"),
-          value.diagnostics.metrics
-          .get("render_input_kind")
-          .unwrap_or("unknown"),
-          "async_unavailable",
-        )
-        @convert.make_convert_execution(value, provenance)
-      }
+  let execution = if allow_image_ocr ||
+    (
+      requested_format == @input.DetectedFormat::Pdf &&
+      (
+        opts.fidelity_mode == @product.FidelityMode::Accurate ||
+        opts.ocr_options.intent == @parser.OcrIntent::Explicit
+      )
+    ) {
+    let async_result = @convert.convert_input_with_provenance_and_image_ocr_provider_async(
+      @input.input_from_path(opts.input),
+      convert_options,
+      image_ocr_provider,
+    )
+    match async_result {
+      Ok(value) => value
       Err(err) => return Err(err.to_string())
     }
   } else {
@@ -706,7 +690,9 @@ fn parse_cli_options_from_index(
         return Err("cannot combine --stream and --accurate")
       }
       fidelity_mode = @convert.FidelityMode::Accurate
-      convert_mode = @convert.derived_convert_mode(fidelity_mode, output_mode)
+      convert_mode = @convert.derived_convert_mode(
+        fidelity_mode, stream_requested,
+      )
       i += 1
       continue
     }
@@ -715,7 +701,9 @@ fn parse_cli_options_from_index(
         return Err("cannot combine --stream and --accurate")
       }
       stream_requested = true
-      convert_mode = @convert.derived_convert_mode(fidelity_mode, output_mode)
+      convert_mode = @convert.derived_convert_mode(
+        fidelity_mode, stream_requested,
+      )
       i += 1
       continue
     }
@@ -724,7 +712,9 @@ fn parse_cli_options_from_index(
         return Err("cannot combine --debug and --rag")
       }
       output_mode = @convert.OutputMode::Debug
-      convert_mode = @convert.derived_convert_mode(fidelity_mode, output_mode)
+      convert_mode = @convert.derived_convert_mode(
+        fidelity_mode, stream_requested,
+      )
       output_format = @convert.OutputFormat::DebugJson
       i += 1
       continue
@@ -734,7 +724,9 @@ fn parse_cli_options_from_index(
         return Err("cannot combine --debug and --rag")
       }
       output_mode = @convert.OutputMode::Rag
-      convert_mode = @convert.derived_convert_mode(fidelity_mode, output_mode)
+      convert_mode = @convert.derived_convert_mode(
+        fidelity_mode, stream_requested,
+      )
       output_format = @convert.OutputFormat::RagJson
       i += 1
       continue

@@ -4,6 +4,7 @@ import {
   "ZSeanYves/markitdown/formats/shared" @fshared,
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/product",
 }
 
 supported_targets = "native"

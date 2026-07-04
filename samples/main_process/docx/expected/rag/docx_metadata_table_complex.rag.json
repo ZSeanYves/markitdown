@@ -2,7 +2,8 @@
   "output_format": "rag_json",
   "detected_format": "docx",
   "parser_mode": "package_single_pass",
-  "convert_mode": "rag",
+  "convert_mode": "balanced",
+  "output_mode": "rag",
   "diagnostics_contains": {
     "parser_name": "docx_parser",
     "metrics": {

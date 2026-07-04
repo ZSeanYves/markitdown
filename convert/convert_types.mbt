@@ -1,11 +1,8 @@
 ///|
 pub(all) enum ConvertMode {
-  Fast
   Balanced
   Accurate
   Stream
-  Rag
-  Debug
 } derive(Eq)
 
 ///|
@@ -17,22 +14,65 @@ pub type OutputMode = @product.OutputMode
 ///|
 fn product_convert_mode(mode : ConvertMode) -> @product.ConvertMode {
   match mode {
-    ConvertMode::Fast => @product.ConvertMode::Fast
     ConvertMode::Balanced => @product.ConvertMode::Balanced
     ConvertMode::Accurate => @product.ConvertMode::Accurate
     ConvertMode::Stream => @product.ConvertMode::Stream
-    ConvertMode::Rag => @product.ConvertMode::Rag
-    ConvertMode::Debug => @product.ConvertMode::Debug
   }
 }
 
 ///|
 pub(all) enum OutputFormat {
   Markdown
-  Json
   RagJson
   DebugJson
 } derive(Eq)
+
+///|
+pub type ExecutionProfile = @product.ExecutionProfile
+
+///|
+pub type LoweringProfile = @product.LoweringProfile
+
+///|
+pub type RenderProfile = @product.RenderProfile
+
+///|
+pub type ProbeSignalKind = @product.ProbeSignalKind
+
+///|
+pub type AccurateFeature = @product.AccurateFeature
+
+///|
+pub type AccurateFeatureProfile = @product.AccurateFeatureProfile
+
+///|
+pub struct ProbeSignal {
+  kind : ProbeSignalKind
+  observed : Int
+  limit : Int?
+  note : String?
+}
+
+///|
+pub fn make_probe_signal(
+  kind : ProbeSignalKind,
+  observed : Int,
+  limit? : Int? = None,
+  note? : String? = None,
+) -> ProbeSignal {
+  { kind, observed, limit, note }
+}
+
+///|
+pub struct ProbeFailure {
+  stage : String
+  detail : String
+}
+
+///|
+pub fn make_probe_failure(stage : String, detail : String) -> ProbeFailure {
+  { stage, detail }
+}
 
 ///|
 pub struct ResourceLimits {
@@ -138,11 +178,18 @@ pub struct ConvertProvenance {
   route_plan : RoutePlan
   fidelity_mode : FidelityMode
   output_mode : OutputMode
+  execution_profile : ExecutionProfile
+  execution_profile_reason : String
+  lowering_profile : LoweringProfile
+  render_profile : RenderProfile
+  profile_trigger_signals : Array[String]
   effective_parser_mode : @parser.ParserMode
   parse_result_kind : String
   pipeline_output_kind : String
   render_input_kind : String
   route_fidelity_status : String
+  applied_accurate_features : Array[String]
+  same_mode_strategy_switches : Array[String]
 }
 
 ///|
@@ -150,21 +197,35 @@ pub fn make_convert_provenance(
   route_plan : RoutePlan,
   fidelity_mode : FidelityMode,
   output_mode : OutputMode,
+  execution_profile : ExecutionProfile,
+  execution_profile_reason : String,
+  lowering_profile : LoweringProfile,
+  render_profile : RenderProfile,
+  profile_trigger_signals : Array[String],
   effective_parser_mode : @parser.ParserMode,
   parse_result_kind : String,
   pipeline_output_kind : String,
   render_input_kind : String,
   route_fidelity_status : String,
+  applied_accurate_features : Array[String],
+  same_mode_strategy_switches : Array[String],
 ) -> ConvertProvenance {
   {
     route_plan,
     fidelity_mode,
     output_mode,
+    execution_profile,
+    execution_profile_reason,
+    lowering_profile,
+    render_profile,
+    profile_trigger_signals,
     effective_parser_mode,
     parse_result_kind,
     pipeline_output_kind,
     render_input_kind,
     route_fidelity_status,
+    applied_accurate_features,
+    same_mode_strategy_switches,
   }
 }
 
@@ -202,24 +263,69 @@ fn product_options_from_convert_options(
 type CanonicalRoute = @formats.FormatRoute
 
 ///|
-priv struct PreflightProbe {
-  selected_route : CanonicalRoute
-  reason : String
+priv struct ProbeOutcome {
+  probe_signals : Array[ProbeSignal]
+  probe_failures : Array[ProbeFailure]
   summary_format : String
   summary_parts : Array[String]
   prepared_source : @input.InputSource
-  probe_artifact : RouteProbeArtifact?
+  probe_artifacts : Array[RouteProbeArtifact]
 }
 
 ///|
-priv struct RouteDecision {
+priv struct ExecutionIntent {
+  strategy_mode : ConvertMode
+  fidelity_mode : FidelityMode
+  output_mode : OutputMode
+  stream_requested : Bool
+  output_format : OutputFormat
+  ocr_options : @parser.OcrOptions
+  limits : ResourceLimits
+  pdf_cleanup_mode : PdfCleanupMode
+  pdf_table_mode : PdfTableMode
+  rag_options : @rag.RagOptions
+}
+
+///|
+priv enum RenderPathKind {
+  Document
+  BlockStream
+  EventStream
+}
+
+///|
+priv struct ResolvedExecutionPlan {
+  detected_format : @input.DetectedFormat
+  mode : ConvertMode
+  fidelity_mode : FidelityMode
+  output_mode : OutputMode
+  stream_requested : Bool
+  output_format : OutputFormat
+  ocr_options : @parser.OcrOptions
+  limits : ResourceLimits
+  pdf_cleanup_mode : PdfCleanupMode
+  pdf_table_mode : PdfTableMode
+  rag_options : @rag.RagOptions
   selected_route : CanonicalRoute
+  execution_profile : ExecutionProfile
+  execution_profile_reason : String
+  lowering_profile : LoweringProfile
+  render_profile : RenderProfile
+  accurate_feature_profile : AccurateFeatureProfile
+  requested_parser_mode : @parser.ParserMode?
+  pdf_native_runtime_policy : @parser.PdfNativeRuntimePolicy
+  pdf_header_footer_filter_policy : @parser.PdfHeaderFooterFilterPolicy
+  pdf_table_reconstruction_policy : @parser.PdfTableReconstructionPolicy
+  render_path_kind : RenderPathKind
   reason : String
+  probe_signals : Array[ProbeSignal]
+  profile_trigger_signals : Array[ProbeSignal]
+  probe_failures : Array[ProbeFailure]
   probe_summary_format : String
   probe_summary_parts : Array[String]
-  same_mode_degradation : Array[String]
+  same_mode_strategy_switches : Array[String]
   prepared_source : @input.InputSource
-  probe_artifact : RouteProbeArtifact?
+  probe_artifacts : Array[RouteProbeArtifact]
 }
 
 ///|
@@ -380,16 +486,15 @@ pub fn output_mode_name(mode : OutputMode) -> String {
 ///|
 pub fn derived_convert_mode(
   fidelity_mode : FidelityMode,
-  output_mode : OutputMode,
+  stream_requested : Bool,
 ) -> ConvertMode {
-  match output_mode {
-    OutputMode::Debug => ConvertMode::Debug
-    OutputMode::Rag => ConvertMode::Rag
-    OutputMode::Markdown =>
-      match fidelity_mode {
-        FidelityMode::Accurate => ConvertMode::Accurate
-        FidelityMode::Balanced => ConvertMode::Balanced
-      }
+  if stream_requested {
+    ConvertMode::Stream
+  } else {
+    match fidelity_mode {
+      FidelityMode::Accurate => ConvertMode::Accurate
+      FidelityMode::Balanced => ConvertMode::Balanced
+    }
   }
 }
 

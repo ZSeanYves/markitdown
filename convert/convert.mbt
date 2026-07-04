@@ -14,40 +14,11 @@ pub fn plan_input(
   source : @input.InputSource,
   options : ConvertOptions,
 ) -> Result[RoutePlan, ConvertError] {
-  let effective_source = match options.explicit_format {
-    Some(format) => @input.with_explicit_format(source, Some(format))
-    None => source
+  match detect_and_resolve_execution_plan(source, options) {
+    Ok((_effective_source, _detected, execution_plan)) =>
+      Ok(route_plan_from_execution_plan(execution_plan))
+    Err(err) => Err(err)
   }
-  let detector = @input.default_format_detector()
-  let detected = (detector.detect)(effective_source)
-  if detected.format == @input.DetectedFormat::Unknown {
-    return Err(ConvertError::DetectFailed("unknown format"))
-  }
-  if @input.detected_format_is_image_candidate(detected.format) {
-    let requested_mode = match options.ocr_options.intent {
-      @parser.OcrIntent::Explicit => Some(@parser.ParserMode::LayoutTwoStage)
-      _ => None
-    }
-    return Ok({
-      detected_format: detected.format,
-      selected_route: "layout_two_stage",
-      route_reason: if requested_mode is Some(_) {
-        "image_explicit_ocr_layout_two_stage"
-      } else {
-        "image_auto_or_disabled_layout_two_stage"
-      },
-      route_probe_summary: "route_probe:image:ocr_intent=" +
-      ocr_intent_name(options.ocr_options.intent),
-      requested_parser_mode: requested_mode,
-    })
-  }
-  let route_decision = plan_route(effective_source, detected.format, options)
-  let requested_mode = requested_parser_mode_for_route(
-    detected.format,
-    options,
-    route_decision,
-  )
-  Ok(route_plan_from_decision(detected.format, route_decision, requested_mode))
 }
 
 ///|
@@ -101,81 +72,31 @@ fn convert_input_with_image_ocr_provider_and_provenance(
     @focr.OcrProviderError,
   ],
 ) -> Result[ConvertExecution, ConvertError] {
-  let effective_source = match options.explicit_format {
-    Some(format) => @input.with_explicit_format(source, Some(format))
-    None => source
+  let (effective_source, detected, execution_plan) = match
+    detect_and_resolve_execution_plan(source, options) {
+    Ok(value) => value
+    Err(err) => return Err(err)
   }
-  let detector = @input.default_format_detector()
-  let detected = (detector.detect)(effective_source)
-  if detected.format == @input.DetectedFormat::Unknown {
-    return Err(ConvertError::DetectFailed("unknown format"))
-  }
-  if @input.detected_format_is_image_candidate(detected.format) {
-    let requested_mode = match options.ocr_options.intent {
-      @parser.OcrIntent::Explicit => Some(@parser.ParserMode::LayoutTwoStage)
-      _ => None
-    }
-    let parsed = match
+  let detect_trace = format_detection_trace(detected)
+  let prepared_source = execution_plan.prepared_source
+  let requested_mode = execution_plan.requested_parser_mode
+  let parse_context = parse_context_from_execution_plan(
+    detected.format,
+    execution_plan,
+  )
+  let parsed = if @input.detected_format_is_image_candidate(detected.format) {
+    match
       @focr.image_ocr_parser_result_with_provider(
-        effective_source,
+        prepared_source,
         detected.format,
-        options.ocr_options,
+        execution_plan.ocr_options,
         image_ocr_provider,
         requested_mode~,
       ) {
-      Ok(value) => value
+      Ok(result) => result
       Err(err) => return Err(ConvertError::ParseFailed(err))
     }
-    let route_plan : RoutePlan = {
-      detected_format: detected.format,
-      selected_route: "layout_two_stage",
-      route_reason: if requested_mode is Some(_) {
-        "image_explicit_ocr_layout_two_stage"
-      } else {
-        "image_auto_or_disabled_layout_two_stage"
-      },
-      route_probe_summary: "route_probe:image:ocr_intent=" +
-      ocr_intent_name(options.ocr_options.intent),
-      requested_parser_mode: requested_mode,
-    }
-    let execution = finalize_image_convert_execution(
-      effective_source,
-      detected.format,
-      options,
-      parsed,
-      route_plan,
-    )
-    return Ok(execution)
-  }
-  let detect_trace = format_detection_trace(detected)
-  let route_decision = plan_route(effective_source, detected.format, options)
-  let prepared_source = route_decision.prepared_source
-  let requested_mode = requested_parser_mode_for_route(
-    detected.format,
-    options,
-    route_decision,
-  )
-  let parse_context = @parser.parse_context_with_limits(
-    parse_context_with_product_pdf_modes(
-      @parser.parse_context_with_ocr_options(
-        @parser.parse_context_with_product_modes(
-          @parser.new_parse_context(detected.format),
-          options.fidelity_mode,
-          options.output_mode,
-        ),
-        options.ocr_options,
-      ),
-      detected.format,
-      options,
-    ),
-    requested_mode,
-    Some(options.limits.max_rows),
-    Some(options.limits.max_cols),
-    Some(options.limits.max_cells),
-    Some(options.limits.max_line_chars),
-    options.output_mode == OutputMode::Debug,
-  )
-  let parsed = if detected.format == @input.DetectedFormat::Pdf &&
+  } else if detected.format == @input.DetectedFormat::Pdf &&
     requested_mode == Some(@parser.ParserMode::LayoutTwoStage) {
     match
       @fpdf.pdf_ocr_parser_result(
@@ -193,7 +114,7 @@ fn convert_input_with_image_ocr_provider_and_provenance(
         prepared_source,
         detected.format,
         parse_context,
-        route_decision.probe_artifact,
+        execution_plan.probe_artifacts,
       ) {
       Some(Ok(result)) => result
       Some(Err(err)) => return Err(ConvertError::ParseFailed(err))
@@ -207,13 +128,8 @@ fn convert_input_with_image_ocr_provider_and_provenance(
   let diagnostics = inject_preparse_diagnostics(
     parsed.diagnostics,
     detect_trace,
-    route_decision,
+    execution_plan,
     detected,
-  )
-  let route_plan = route_plan_from_decision(
-    detected.format,
-    route_decision,
-    requested_mode,
   )
   Ok(
     finalize_pipeline_convert_execution(
@@ -222,8 +138,46 @@ fn convert_input_with_image_ocr_provider_and_provenance(
       options,
       parsed,
       diagnostics,
-      route_plan,
+      execution_plan,
     ),
+  )
+}
+
+///|
+fn parse_context_from_execution_plan(
+  detected_format : @input.DetectedFormat,
+  execution_plan : ResolvedExecutionPlan,
+) -> @parser.ParseContext {
+  @parser.parse_context_with_limits(
+    @parser.parse_context_with_pdf_table_reconstruction_policy(
+      @parser.parse_context_with_pdf_header_footer_filter_policy(
+        @parser.parse_context_with_pdf_native_runtime_policy(
+          @parser.parse_context_with_ocr_options(
+            @parser.parse_context_with_execution_profiles(
+              @parser.parse_context_with_product_modes(
+                @parser.new_parse_context(detected_format),
+                execution_plan.fidelity_mode,
+                execution_plan.output_mode,
+              ),
+              execution_plan.execution_profile,
+              execution_plan.lowering_profile,
+              execution_plan.render_profile,
+              execution_plan.accurate_feature_profile,
+            ),
+            execution_plan.ocr_options,
+          ),
+          execution_plan.pdf_native_runtime_policy,
+        ),
+        execution_plan.pdf_header_footer_filter_policy,
+      ),
+      execution_plan.pdf_table_reconstruction_policy,
+    ),
+    execution_plan.requested_parser_mode,
+    Some(execution_plan.limits.max_rows),
+    Some(execution_plan.limits.max_cols),
+    Some(execution_plan.limits.max_cells),
+    Some(execution_plan.limits.max_line_chars),
+    execution_plan.output_mode == OutputMode::Debug,
   )
 }
 
@@ -236,74 +190,95 @@ pub async fn convert_input_with_image_ocr_provider_async(
     @focr.OcrProviderError,
   ],
 ) -> Result[ConvertResult, ConvertError] {
-  let effective_source = match options.explicit_format {
-    Some(format) => @input.with_explicit_format(source, Some(format))
-    None => source
+  match
+    convert_input_with_provenance_and_image_ocr_provider_async(
+      source, options, image_ocr_provider,
+    ) {
+    Ok(execution) => Ok(execution.result)
+    Err(err) => Err(err)
   }
-  let detector = @input.default_format_detector()
-  let detected = (detector.detect)(effective_source)
-  if detected.format == @input.DetectedFormat::Unknown {
-    return Err(ConvertError::DetectFailed("unknown format"))
-  }
-  if @input.detected_format_is_image_candidate(detected.format) {
-    let requested_mode = match options.ocr_options.intent {
-      @parser.OcrIntent::Explicit => Some(@parser.ParserMode::LayoutTwoStage)
-      _ => None
-    }
-    let parsed = match
-      @focr.image_ocr_parser_result_with_async_provider(
-        effective_source,
-        detected.format,
-        options.ocr_options,
-        image_ocr_provider,
-        requested_mode~,
-      ) {
-      Ok(value) => value
-      Err(err) => return Err(ConvertError::ParseFailed(err))
-    }
-    return Ok(
-      finalize_image_convert_result(
-        effective_source,
-        detected.format,
-        options,
-        parsed,
-      ),
-    )
+}
+
+///|
+pub async fn convert_input_with_provenance_and_image_ocr_provider_async(
+  source : @input.InputSource,
+  options : ConvertOptions,
+  image_ocr_provider : async (@focr.OcrProviderRequest) -> Result[
+    @focr.OcrProviderResult,
+    @focr.OcrProviderError,
+  ],
+) -> Result[ConvertExecution, ConvertError] {
+  let (effective_source, detected, execution_plan) = match
+    detect_and_resolve_execution_plan(source, options) {
+    Ok(value) => value
+    Err(err) => return Err(err)
   }
   if detected.format == @input.DetectedFormat::Pdf &&
-    (
-      options.fidelity_mode == FidelityMode::Accurate ||
-      options.ocr_options.intent == @parser.OcrIntent::Explicit
-    ) {
+    execution_plan.requested_parser_mode ==
+    Some(@parser.ParserMode::LayoutTwoStage) {
     match
       convert_input_with_provenance_and_image_ocr_provider(
         effective_source,
         { ..options, explicit_format: None },
         @focr.run_tesseract_provider,
       ) {
-      Ok(execution) => Ok(execution.result)
+      Ok(execution) => Ok(execution)
       Err(err) => Err(err)
     }
+  } else if @input.detected_format_is_image_candidate(detected.format) {
+    let parsed = match
+      @focr.image_ocr_parser_result_with_async_provider(
+        execution_plan.prepared_source,
+        detected.format,
+        execution_plan.ocr_options,
+        image_ocr_provider,
+        requested_mode=execution_plan.requested_parser_mode,
+      ) {
+      Ok(value) => value
+      Err(err) => return Err(ConvertError::ParseFailed(err))
+    }
+    let diagnostics = inject_preparse_diagnostics(
+      parsed.diagnostics,
+      format_detection_trace(detected),
+      execution_plan,
+      detected,
+    )
+    Ok(
+      finalize_pipeline_convert_execution(
+        effective_source,
+        detected.format,
+        options,
+        parsed,
+        diagnostics,
+        execution_plan,
+      ),
+    )
   } else {
-    convert_input(effective_source, { ..options, explicit_format: None })
+    match
+      convert_input_with_provenance_and_image_ocr_provider(
+        effective_source,
+        { ..options, explicit_format: None },
+        @focr.run_tesseract_provider,
+      ) {
+      Ok(execution) => Ok(execution)
+      Err(err) => Err(err)
+    }
   }
 }
 
 ///|
-fn route_plan_from_decision(
-  detected_format : @input.DetectedFormat,
-  route_decision : RouteDecision,
-  requested_mode : @parser.ParserMode?,
+fn route_plan_from_execution_plan(
+  execution_plan : ResolvedExecutionPlan,
 ) -> RoutePlan {
   {
-    detected_format,
-    selected_route: canonical_route_name(route_decision.selected_route),
-    route_reason: route_decision.reason,
+    detected_format: execution_plan.detected_format,
+    selected_route: canonical_route_name(execution_plan.selected_route),
+    route_reason: execution_plan.reason,
     route_probe_summary: format_route_probe_summary(
-      route_decision.probe_summary_format,
-      route_decision.probe_summary_parts,
+      execution_plan.probe_summary_format,
+      execution_plan.probe_summary_parts,
     ),
-    requested_parser_mode: requested_mode,
+    requested_parser_mode: execution_plan.requested_parser_mode,
   }
 }
 
@@ -365,15 +340,6 @@ fn route_fidelity_status(
 }
 
 ///|
-fn ocr_intent_name(intent : @parser.OcrIntent) -> String {
-  match intent {
-    @parser.OcrIntent::Disabled => "disabled"
-    @parser.OcrIntent::Auto => "auto"
-    @parser.OcrIntent::Explicit => "explicit"
-  }
-}
-
-///|
 pub fn route_plan_to_json(route_plan : RoutePlan) -> Json {
   Json::object({
     "detected_format": @input.detected_format_name(route_plan.detected_format).to_json(),
@@ -392,11 +358,22 @@ pub fn convert_provenance_to_json(provenance : ConvertProvenance) -> Json {
     "route_plan": route_plan_to_json(provenance.route_plan),
     "fidelity_mode": fidelity_mode_name(provenance.fidelity_mode).to_json(),
     "output_mode": output_mode_name(provenance.output_mode).to_json(),
+    "execution_profile": @product.execution_profile_name(
+      provenance.execution_profile,
+    ).to_json(),
+    "execution_profile_reason": provenance.execution_profile_reason.to_json(),
+    "lowering_profile": @product.lowering_profile_name(
+      provenance.lowering_profile,
+    ).to_json(),
+    "render_profile": @product.render_profile_name(provenance.render_profile).to_json(),
+    "profile_trigger_signals": provenance.profile_trigger_signals.to_json(),
     "effective_parser_mode": @parser.mode_name(provenance.effective_parser_mode).to_json(),
     "parse_result_kind": provenance.parse_result_kind.to_json(),
     "pipeline_output_kind": provenance.pipeline_output_kind.to_json(),
     "render_input_kind": provenance.render_input_kind.to_json(),
     "route_fidelity_status": provenance.route_fidelity_status.to_json(),
+    "applied_accurate_features": provenance.applied_accurate_features.to_json(),
+    "same_mode_strategy_switches": provenance.same_mode_strategy_switches.to_json(),
   })
 }
 
@@ -404,7 +381,7 @@ pub fn convert_provenance_to_json(provenance : ConvertProvenance) -> Json {
 fn inject_preparse_diagnostics(
   diagnostics : @core.Diagnostics,
   detect_trace : String,
-  route_decision : RouteDecision,
+  execution_plan : ResolvedExecutionPlan,
   detected : @input.FormatDetectionResult,
 ) -> @core.Diagnostics {
   let next = diagnostics
@@ -416,25 +393,76 @@ fn inject_preparse_diagnostics(
   next.pass_trace.append(existing_trace[:])
   next.metrics.set(
     "selected_route",
-    canonical_route_name(route_decision.selected_route),
+    canonical_route_name(execution_plan.selected_route),
   )
-  next.metrics.set("route_reason", route_decision.reason)
+  next.metrics.set("route_reason", execution_plan.reason)
   next.metrics.set(
     "route_probe_summary",
     format_route_probe_summary(
-      route_decision.probe_summary_format,
-      route_decision.probe_summary_parts,
+      execution_plan.probe_summary_format,
+      execution_plan.probe_summary_parts,
     ),
   )
+  next.metrics.set(
+    "requested_convert_mode",
+    convert_mode_name(execution_plan.mode),
+  )
+  next.metrics.set(
+    "execution_profile",
+    @product.execution_profile_name(execution_plan.execution_profile),
+  )
+  next.metrics.set(
+    "execution_profile_reason",
+    execution_plan.execution_profile_reason,
+  )
+  next.metrics.set(
+    "applied_render_profile",
+    @product.render_profile_name(execution_plan.render_profile),
+  )
+  next.metrics.set(
+    "applied_accurate_features",
+    @product.accurate_feature_profile_names(
+      execution_plan.accurate_feature_profile,
+    ).join("|"),
+  )
+  next.metrics.set(
+    "probe_signal_count",
+    execution_plan.probe_signals.length().to_string(),
+  )
+  next.metrics.set(
+    "probe_failure_count",
+    execution_plan.probe_failures.length().to_string(),
+  )
+  if execution_plan.probe_signals.length() > 0 {
+    next.metrics.set(
+      "probe_signals",
+      probe_signals_metric(execution_plan.probe_signals),
+    )
+  }
+  if execution_plan.profile_trigger_signals.length() > 0 {
+    next.metrics.set(
+      "profile_trigger_signals",
+      probe_signals_metric(execution_plan.profile_trigger_signals),
+    )
+  }
+  if execution_plan.probe_failures.length() > 0 {
+    next.metrics.set(
+      "probe_failures",
+      probe_failures_metric(execution_plan.probe_failures),
+    )
+  }
   if detected.notes.length() > 0 {
     next.metrics.set(
       "format_detector_notes",
       format_detector_notes(detected.notes),
     )
   }
-  for degradation in route_decision.same_mode_degradation {
-    if !next.same_mode_degradation.contains(degradation) {
-      next.same_mode_degradation.push(degradation)
+  for strategy_switch in execution_plan.same_mode_strategy_switches {
+    if !next.same_mode_strategy_switches.contains(strategy_switch) {
+      next.same_mode_strategy_switches.push(strategy_switch)
+    }
+    if !next.same_mode_degradation.contains(strategy_switch) {
+      next.same_mode_degradation.push(strategy_switch)
     }
   }
   next
@@ -457,109 +485,182 @@ fn format_detector_notes(notes : Array[String]) -> String {
 }
 
 ///|
+fn probe_signal_kind_name(kind : ProbeSignalKind) -> String {
+  match kind {
+    ProbeSignalKind::CharCount => "char_count"
+    ProbeSignalKind::LineCount => "line_count"
+    ProbeSignalKind::BlockCount => "block_count"
+    ProbeSignalKind::ListItemCount => "list_item_count"
+    ProbeSignalKind::NodeCount => "node_count"
+    ProbeSignalKind::MaxDepth => "max_depth"
+    ProbeSignalKind::RowCount => "row_count"
+    ProbeSignalKind::ColCount => "col_count"
+    ProbeSignalKind::CellCount => "cell_count"
+    ProbeSignalKind::CellEstimate => "cell_estimate"
+    ProbeSignalKind::OutputCount => "output_count"
+    ProbeSignalKind::AttachmentCount => "attachment_count"
+    ProbeSignalKind::AssetCount => "asset_count"
+    ProbeSignalKind::EntryCount => "entry_count"
+    ProbeSignalKind::PageCount => "page_count"
+    ProbeSignalKind::SlideCount => "slide_count"
+    ProbeSignalKind::SheetCount => "sheet_count"
+    ProbeSignalKind::ScalarCount => "scalar_count"
+    ProbeSignalKind::ObjectCount => "object_count"
+    ProbeSignalKind::ArrayCount => "array_count"
+    ProbeSignalKind::HiddenRowCount => "hidden_row_count"
+    ProbeSignalKind::HiddenSheetCount => "hidden_sheet_count"
+    ProbeSignalKind::CoveredCellCount => "covered_cell_count"
+    ProbeSignalKind::NoteCount => "note_count"
+    ProbeSignalKind::CommentCount => "comment_count"
+  }
+}
+
+///|
+fn probe_signals_metric(signals : Array[ProbeSignal]) -> String {
+  if signals.length() == 0 {
+    return ""
+  }
+  let parts : Array[String] = []
+  for signal in signals {
+    let base = probe_signal_kind_name(signal.kind) +
+      "=" +
+      signal.observed.to_string()
+    let with_limit = match signal.limit {
+      Some(limit) => base + "/limit=" + limit.to_string()
+      None => base
+    }
+    let entry = match signal.note {
+      Some(note) => with_limit + "/note=" + note
+      None => with_limit
+    }
+    parts.push(entry)
+  }
+  parts.join("|")
+}
+
+///|
+fn probe_failures_metric(failures : Array[ProbeFailure]) -> String {
+  if failures.length() == 0 {
+    return ""
+  }
+  let parts : Array[String] = []
+  for failure in failures {
+    parts.push(failure.stage + ":" + failure.detail)
+  }
+  parts.join("|")
+}
+
+///|
 fn parse_with_route_probe_artifact(
   source : @input.InputSource,
   format : @input.DetectedFormat,
   context : @parser.ParseContext,
-  artifact : RouteProbeArtifact?,
+  artifacts : Array[RouteProbeArtifact],
 ) -> Result[@parser.ParseResult, String]? {
-  match artifact {
-    Some(RouteProbeArtifact::MarkdownScan(scanned, inspect)) =>
-      if format == @input.DetectedFormat::Markdown {
-        Some(
-          Ok(
-            @fmarkdown.markdown_parse_with_scanned_document(
-              source, context, scanned, inspect,
+  for artifact in artifacts {
+    let matched = match artifact {
+      RouteProbeArtifact::MarkdownScan(scanned, inspect) =>
+        if format == @input.DetectedFormat::Markdown {
+          Some(
+            Ok(
+              @fmarkdown.markdown_parse_with_scanned_document(
+                source, context, scanned, inspect,
+              ),
             ),
-          ),
-        )
-      } else {
-        None
-      }
-    Some(RouteProbeArtifact::HtmlEvents(normalized_text, events)) =>
-      if format == @input.DetectedFormat::Html &&
-        context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
-        Some(
-          Ok(
-            @fhtml.html_parse_with_token_events(
-              source, context, normalized_text, events,
-            ),
-          ),
-        )
-      } else {
-        None
-      }
-    Some(RouteProbeArtifact::IpynbNotebook(notebook, inspect)) =>
-      if format == @input.DetectedFormat::Ipynb {
-        let text = match source.text {
-          Some(value) => value
-          None => return None
+          )
+        } else {
+          None
         }
-        Some(
-          Ok(
-            @fipynb.ipynb_parse_with_preparsed_notebook(
-              source, context, text, notebook, inspect,
+      RouteProbeArtifact::HtmlEvents(normalized_text, events) =>
+        if format == @input.DetectedFormat::Html &&
+          context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
+          Some(
+            Ok(
+              @fhtml.html_parse_with_token_events(
+                source, context, normalized_text, events,
+              ),
             ),
-          ),
-        )
-      } else {
-        None
-      }
-    Some(RouteProbeArtifact::JsonStream(stream)) =>
-      if format == @input.DetectedFormat::Json &&
-        context.requested_mode == Some(@parser.ParserMode::StreamingEvent) {
-        let text = match source.text {
-          Some(value) => value
-          None => return None
+          )
+        } else {
+          None
         }
-        Some(
-          Ok(
-            @fjson.json_parse_with_stream_document(
-              source, context, text, stream,
+      RouteProbeArtifact::IpynbNotebook(notebook, inspect) =>
+        if format == @input.DetectedFormat::Ipynb {
+          let text = match source.text {
+            Some(value) => value
+            None => return None
+          }
+          Some(
+            Ok(
+              @fipynb.ipynb_parse_with_preparsed_notebook(
+                source, context, text, notebook, inspect,
+              ),
             ),
-          ),
-        )
-      } else {
-        None
-      }
-    Some(RouteProbeArtifact::XmlTokens(tokens)) =>
-      if format == @input.DetectedFormat::Xml &&
-        context.requested_mode == Some(@parser.ParserMode::StreamingEvent) {
-        let text = match @fxml.read_xml_input_text(source) {
-          Ok(value) => value
-          Err(err) => return Some(Err(err))
+          )
+        } else {
+          None
         }
-        Some(
-          Ok(
-            @fxml.xml_parse_with_structure_tokens(source, context, text, tokens),
-          ),
-        )
-      } else {
-        None
-      }
-    Some(RouteProbeArtifact::XlsxPackage(pkg)) =>
-      if format == @input.DetectedFormat::Xlsx {
-        Some(Ok(@dxlsx.xlsx_parse_with_package(source, context, pkg)))
-      } else {
-        None
-      }
-    Some(RouteProbeArtifact::YamlEvents(events, inspect)) =>
-      if format == @input.DetectedFormat::Yaml &&
-        context.requested_mode == Some(@parser.ParserMode::StreamingEvent) {
-        let text = match source.text {
-          Some(value) => value
-          None => return None
-        }
-        Some(
-          Ok(
-            @fyaml.yaml_parse_with_structure_events(
-              source, context, text, inspect, events,
+      RouteProbeArtifact::JsonStream(stream) =>
+        if format == @input.DetectedFormat::Json &&
+          context.requested_mode == Some(@parser.ParserMode::StreamingEvent) {
+          let text = match source.text {
+            Some(value) => value
+            None => return None
+          }
+          Some(
+            Ok(
+              @fjson.json_parse_with_stream_document(
+                source, context, text, stream,
+              ),
             ),
-          ),
-        )
-      } else {
-        None
-      }
-    _ => None
+          )
+        } else {
+          None
+        }
+      RouteProbeArtifact::XmlTokens(tokens) =>
+        if format == @input.DetectedFormat::Xml &&
+          context.requested_mode == Some(@parser.ParserMode::StreamingEvent) {
+          let text = match @fxml.read_xml_input_text(source) {
+            Ok(value) => value
+            Err(err) => return Some(Err(err))
+          }
+          Some(
+            Ok(
+              @fxml.xml_parse_with_structure_tokens(
+                source, context, text, tokens,
+              ),
+            ),
+          )
+        } else {
+          None
+        }
+      RouteProbeArtifact::XlsxPackage(pkg) =>
+        if format == @input.DetectedFormat::Xlsx {
+          Some(Ok(@dxlsx.xlsx_parse_with_package(source, context, pkg)))
+        } else {
+          None
+        }
+      RouteProbeArtifact::YamlEvents(events, inspect) =>
+        if format == @input.DetectedFormat::Yaml &&
+          context.requested_mode == Some(@parser.ParserMode::StreamingEvent) {
+          let text = match source.text {
+            Some(value) => value
+            None => return None
+          }
+          Some(
+            Ok(
+              @fyaml.yaml_parse_with_structure_events(
+                source, context, text, inspect, events,
+              ),
+            ),
+          )
+        } else {
+          None
+        }
+    }
+    if matched is Some(_) {
+      return matched
+    }
   }
+  None
 }

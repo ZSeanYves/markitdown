@@ -136,13 +136,7 @@ fn parse_docx_document_result(
   }
 
   fill_docx_package_metrics(diagnostics, pkg)
-  let document = lower_docx_document_ir(
-    source,
-    docx,
-    pkg,
-    diagnostics,
-    context.fidelity_mode,
-  )
+  let document = lower_docx_document_ir(source, docx, pkg, diagnostics, context)
   diagnostics.metrics.set("block_count", document.blocks.length().to_string())
   diagnostics.metrics.set("asset_count", document.assets.length().to_string())
   diagnostics.metrics.set(

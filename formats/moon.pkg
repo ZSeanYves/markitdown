@@ -31,6 +31,7 @@ import {
   "ZSeanYves/markitdown/format_readers/ooxml/shared",
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/product",
 }
 
 supported_targets = "native"

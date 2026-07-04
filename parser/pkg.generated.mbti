@@ -42,6 +42,8 @@ pub fn ocr_intent_name(OcrIntent) -> String
 
 pub fn package_with_block_route_parser_capability(StreamingGranularity, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool) -> ParserCapability
 
+pub fn parse_context_with_execution_profiles(ParseContext, @product.ExecutionProfile, @product.LoweringProfile, @product.RenderProfile, @product.AccurateFeatureProfile) -> ParseContext
+
 pub fn parse_context_with_limits(ParseContext, ParserMode?, Int?, Int?, Int?, Int?, Bool) -> ParseContext
 
 pub fn parse_context_with_ocr_options(ParseContext, OcrOptions) -> ParseContext
@@ -105,6 +107,10 @@ pub struct ParseContext {
   requested_mode : ParserMode?
   fidelity_mode : @product.FidelityMode
   output_mode : @product.OutputMode
+  execution_profile : @product.ExecutionProfile
+  lowering_profile : @product.LoweringProfile
+  render_profile : @product.RenderProfile
+  accurate_features : @product.AccurateFeatureProfile
   ocr_options : OcrOptions
   pdf_native_runtime_policy : PdfNativeRuntimePolicy
   pdf_header_footer_filter_policy : PdfHeaderFooterFilterPolicy

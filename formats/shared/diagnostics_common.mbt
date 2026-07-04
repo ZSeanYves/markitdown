@@ -106,6 +106,28 @@ pub fn init_parser_product_mode_metrics(
     "output_mode",
     @product.output_mode_name(context.output_mode),
   )
+  diagnostics.metrics.set(
+    "execution_profile",
+    @product.execution_profile_name(context.execution_profile),
+  )
+  diagnostics.metrics.set(
+    "lowering_profile",
+    @product.lowering_profile_name(context.lowering_profile),
+  )
+  diagnostics.metrics.set(
+    "render_profile",
+    @product.render_profile_name(context.render_profile),
+  )
+  diagnostics.metrics.set(
+    "accurate_feature_count",
+    context.accurate_features.features.length().to_string(),
+  )
+  diagnostics.metrics.set(
+    "applied_accurate_features",
+    context.accurate_features.features
+    .map(@product.accurate_feature_name)
+    .join("|"),
+  )
 }
 
 ///|

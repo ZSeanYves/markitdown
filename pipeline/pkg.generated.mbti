@@ -28,7 +28,7 @@ pub fn ir_input_to_document(@core.IRInput) -> @core.DocumentIR
 
 pub fn make_pass_context(Bool, String, pdf_cleanup_enabled? : Bool) -> PassContext
 
-pub fn make_pass_context_with_product_options(@product.ConvertMode, @product.ProductOptions, diagnostics? : @core.Diagnostics, assets? : Array[@core.AssetRef], metadata? : Map[String, @core.JsonValue], source_map? : @core.SourceMap?, assembly? : @core.DocumentAssembly?) -> PassContext
+pub fn make_pass_context_with_product_options(@product.ConvertMode, @product.ProductOptions, execution_profile? : @product.ExecutionProfile, lowering_profile? : @product.LoweringProfile, render_profile? : @product.RenderProfile, accurate_features? : @product.AccurateFeatureProfile, diagnostics? : @core.Diagnostics, assets? : Array[@core.AssetRef], metadata? : Map[String, @core.JsonValue], source_map? : @core.SourceMap?, assembly? : @core.DocumentAssembly?) -> PassContext
 
 pub fn merge_text_line_pass() -> IRPass
 
@@ -49,6 +49,8 @@ pub fn resolve_heading_pass() -> IRPass
 pub fn resolve_list_pass() -> IRPass
 
 pub fn resolve_reading_order_pass() -> IRPass
+
+pub fn resolve_render_hints_pass() -> IRPass
 
 pub fn resolve_table_pass() -> IRPass
 
@@ -72,6 +74,10 @@ pub struct PassContext {
   mode : @product.ConvertMode
   fidelity_mode : @product.FidelityMode
   output_mode : @product.OutputMode
+  execution_profile : @product.ExecutionProfile
+  lowering_profile : @product.LoweringProfile
+  render_profile : @product.RenderProfile
+  accurate_features : @product.AccurateFeatureProfile
   options : @product.ProductOptions
   diagnostics : @ref.Ref[@core.Diagnostics]
   assets : @ref.Ref[Array[@core.AssetRef]]

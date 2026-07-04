@@ -13,7 +13,13 @@ fn docx_prefixed_rich_inlines(
 
 ///|
 fn docx_should_inline_textboxes_in_place(state : DocxLoweringState) -> Bool {
-  state.fidelity_mode == @product.FidelityMode::Accurate
+  if state.lowering_profile != @product.LoweringProfile::AccurateSemantic {
+    return false
+  }
+  @product.accurate_feature_enabled(
+    state.accurate_features,
+    @product.AccurateFeature::DocxTextboxInline,
+  )
 }
 
 ///|

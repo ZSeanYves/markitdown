@@ -61,6 +61,7 @@ pub struct OdtNote {
   kind : String
   citation : String
   body : String
+  author : String?
 }
 
 ///|
@@ -90,6 +91,7 @@ pub struct OdtBlock {
   xml_path : String
   line_start : Int?
   line_end : Int?
+  attrs : Map[String, String]
 }
 
 ///|
@@ -110,6 +112,8 @@ pub struct OdtInspectReport {
   raw_block_count : Int
   table_count : Int
   image_count : Int
+  note_count : Int
+  comment_count : Int
   max_heading_level : Int
 }
 
@@ -118,12 +122,17 @@ pub struct OdsCell {
   text : String
   formula : String?
   covered : Bool
+  col_span : Int
+  row_span : Int
+  repeat_count : Int
 }
 
 ///|
 pub struct OdsRow {
   cells : Array[OdsCell]
   row_index : Int
+  hidden : Bool
+  repeat_count : Int
 }
 
 ///|
@@ -148,8 +157,12 @@ pub struct OdsInspectReport {
   row_count : Int
   non_empty_row_count : Int
   cell_count : Int
+  used_cell_count : Int
+  hidden_row_count : Int
+  covered_cell_count : Int
   max_sheet_rows : Int
   max_sheet_cols : Int
+  max_used_cols : Int
 }
 
 ///|
@@ -191,6 +204,7 @@ pub struct OdpSlideBlock {
   xml_path : String
   line_start : Int?
   line_end : Int?
+  attrs : Map[String, String]
 }
 
 ///|

@@ -180,7 +180,7 @@ fn assemble_section_tree_input(
         "assembly_heading_path_count",
         assembly.heading_paths.length().to_string(),
       )
-      if @product.debug_mode(context.mode) {
+      if @product.debug_output_mode(context.output_mode) {
         next.diagnostics.metrics.set("assembly_debug_mode", "true")
       }
       @core.IRInput::Document(sync_document_to_context(context, next))
@@ -203,7 +203,7 @@ fn assemble_section_tree_input(
         "assembly_heading_path_count",
         assembly.heading_paths.length().to_string(),
       )
-      if @product.debug_mode(context.mode) {
+      if @product.debug_output_mode(context.output_mode) {
         context.diagnostics.val.metrics.set("assembly_debug_mode", "true")
       }
       @core.IRInput::BlockStream(blocks)

@@ -32,6 +32,12 @@ pub fn inspect_text_markup_document(
       TextMarkupBlockKind::Code => code_count += 1
       TextMarkupBlockKind::Table => table_count += 1
       TextMarkupBlockKind::BlockQuote => blockquote_count += 1
+      TextMarkupBlockKind::Semantic =>
+        if text_markup_semantic_counts_as_quote(block) {
+          blockquote_count += 1
+        } else {
+          paragraph_count += 1
+        }
       TextMarkupBlockKind::NoteDefinition => paragraph_count += 1
       TextMarkupBlockKind::Raw => raw_count += 1
       TextMarkupBlockKind::Paragraph => paragraph_count += 1
@@ -48,6 +54,33 @@ pub fn inspect_text_markup_document(
     paragraph_count,
     line_count: count_markup_lines(original_text),
     char_count: original_text.length(),
+  }
+}
+
+///|
+fn text_markup_semantic_counts_as_quote(block : TextMarkupBlock) -> Bool {
+  match block.meta.get("semantic_kind") {
+    Some("quote") => true
+    Some("admonition") => true
+    Some("environment") => true
+    _ =>
+      block.meta.contains("quote_kind") ||
+      block.meta
+      .get("directive_kind")
+      .map(kind => {
+        let lowered = kind.to_lower()
+        lowered == "note" ||
+        lowered == "warning" ||
+        lowered == "tip" ||
+        lowered == "important" ||
+        lowered == "caution" ||
+        lowered == "attention" ||
+        lowered == "danger" ||
+        lowered == "error" ||
+        lowered == "hint" ||
+        lowered == "admonition"
+      })
+      .unwrap_or(false)
   }
 }
 
@@ -1048,6 +1081,8 @@ fn detect_rst_directive_block(
         TextMarkupBlockKind::Raw
       } else if rst_directive_is_code(directive) && content.length() > 0 {
         TextMarkupBlockKind::Code
+      } else if rst_directive_is_semantic(directive) {
+        TextMarkupBlockKind::Semantic
       } else {
         TextMarkupBlockKind::Raw
       }
@@ -1068,6 +1103,14 @@ fn detect_rst_directive_block(
               "include: " + inline_value
             } else {
               "include: " + inline_value + "\n" + (options + content).join("\n")
+            }
+          } else if block_kind == TextMarkupBlockKind::Semantic {
+            meta.set("semantic_kind", "directive")
+            meta.set("degraded_feature", "directive_semantic_boundary")
+            if payload.length() == 0 {
+              directive
+            } else {
+              payload.join("\n")
             }
           } else {
             meta.set("degraded_feature", "directive_semantic_boundary")
@@ -1122,7 +1165,7 @@ fn detect_rst_include_directive(
   Some(
     (
       {
-        kind: TextMarkupBlockKind::Raw,
+        kind: TextMarkupBlockKind::Semantic,
         text: if options.length() == 0 {
           "include: " + target
         } else {
@@ -1136,6 +1179,7 @@ fn detect_rst_include_directive(
           ("directive_kind", "include"),
           ("directive_family", "rst"),
           ("include_target", target),
+          ("semantic_kind", "include"),
           ("degraded_feature", "include_directive_boundary"),
         ]),
       },
@@ -1205,7 +1249,7 @@ fn detect_asciidoc_include_directive(
         return Some(
           (
             {
-              kind: TextMarkupBlockKind::Raw,
+              kind: TextMarkupBlockKind::Semantic,
               text: if attrs == "" {
                 "include: " + target
               } else {
@@ -1219,6 +1263,7 @@ fn detect_asciidoc_include_directive(
                 ("directive_kind", "include"),
                 ("directive_family", "asciidoc"),
                 ("include_target", target),
+                ("semantic_kind", "include"),
                 ("degraded_feature", "include_directive_boundary"),
               ]),
             },
@@ -1325,7 +1370,7 @@ fn detect_asciidoc_quote_block(
   Some(
     (
       {
-        kind: TextMarkupBlockKind::BlockQuote,
+        kind: TextMarkupBlockKind::Semantic,
         text: body.join("\n").trim().to_owned(),
         level: 0,
         ordered: false,
@@ -1338,6 +1383,7 @@ fn detect_asciidoc_quote_block(
         meta: Map([
           ("quote_kind", "asciidoc_quote_block"),
           ("quote_label", quote_label),
+          ("semantic_kind", "quote"),
           ("degraded_feature", "quote_block_boundary"),
         ]),
       },
@@ -1377,7 +1423,7 @@ fn detect_asciidoc_block_admonition(
   Some(
     (
       {
-        kind: TextMarkupBlockKind::BlockQuote,
+        kind: TextMarkupBlockKind::Semantic,
         text: body.join("\n").trim().to_owned(),
         level: 0,
         ordered: false,
@@ -1390,6 +1436,7 @@ fn detect_asciidoc_block_admonition(
         meta: Map([
           ("quote_kind", "asciidoc_admonition_block"),
           ("quote_label", label),
+          ("semantic_kind", "admonition"),
           ("degraded_feature", "admonition_block_boundary"),
         ]),
       },
@@ -1458,7 +1505,7 @@ fn detect_tex_include_directive(
       return Some(
         (
           {
-            kind: TextMarkupBlockKind::Raw,
+            kind: TextMarkupBlockKind::Semantic,
             text: "include: " + target,
             level: 0,
             ordered: false,
@@ -1468,6 +1515,7 @@ fn detect_tex_include_directive(
               ("directive_kind", "include"),
               ("directive_family", "tex"),
               ("include_target", target),
+              ("semantic_kind", "include"),
               ("degraded_feature", "include_directive_boundary"),
             ]),
           },
@@ -1515,17 +1563,19 @@ fn detect_tex_environment_block(
       } else if tex_environment_is_theorem_like(env) {
         meta.set("quote_kind", "tex_semantic_environment")
         meta.set("quote_label", env)
+        meta.set("semantic_kind", "environment")
         meta.set("degraded_feature", "environment_semantic_boundary")
-        TextMarkupBlockKind::BlockQuote
+        TextMarkupBlockKind::Semantic
       } else {
+        meta.set("semantic_kind", "environment")
         meta.set("degraded_feature", "environment_semantic_boundary")
-        TextMarkupBlockKind::Raw
+        TextMarkupBlockKind::Semantic
       }
       Some(
         (
           {
             kind: block_kind,
-            text: if block_kind == TextMarkupBlockKind::Raw {
+            text: if block_kind == TextMarkupBlockKind::Semantic {
               if body.length() == 0 {
                 env
               } else {
@@ -2019,6 +2069,21 @@ fn rst_directive_is_code(name : String) -> Bool {
   lowered == "code-block" ||
   lowered == "sourcecode" ||
   lowered == "parsed-literal"
+}
+
+///|
+fn rst_directive_is_semantic(name : String) -> Bool {
+  let lowered = name.to_lower()
+  lowered == "include" ||
+  lowered == "literalinclude" ||
+  lowered == "contents" ||
+  lowered == "topic" ||
+  lowered == "sidebar" ||
+  lowered == "rubric" ||
+  lowered == "epigraph" ||
+  lowered == "highlights" ||
+  lowered == "pull-quote" ||
+  lowered == "container"
 }
 
 ///|

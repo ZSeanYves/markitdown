@@ -1,118 +1,456 @@
 ///|
-fn explicit_stream_supported_for_format(format : @input.DetectedFormat) -> Bool {
-  @formats.explicit_stream_supported_for_format(format)
-}
-
-///|
-fn parser_mode_for_route(route : CanonicalRoute) -> @parser.ParserMode? {
-  Some(@formats.parser_mode_for_route(route))
-}
-
-///|
-fn requested_parser_mode_for_route(
-  format : @input.DetectedFormat,
-  options : ConvertOptions,
-  route_decision : RouteDecision,
-) -> @parser.ParserMode? {
-  if options.stream_requested && !explicit_stream_supported_for_format(format) {
-    parser_mode_for_route(route_decision.selected_route)
-  } else if options.stream_requested {
-    let profile = @formats.format_route_profile(format)
-    match profile.explicit_stream_route {
-      Some(route) =>
-        if route == route_decision.selected_route {
-          match profile.large_route_parser_mode {
-            Some(mode) => Some(mode)
-            None => parser_mode_for_route(route)
-          }
-        } else {
-          parser_mode_for_route(route_decision.selected_route)
-        }
-      None => parser_mode_for_route(route_decision.selected_route)
-    }
-  } else {
-    parser_mode_for_route(route_decision.selected_route)
-  }
-}
-
-///|
-fn plan_route(
-  source : @input.InputSource,
-  format : @input.DetectedFormat,
-  options : ConvertOptions,
-) -> RouteDecision {
-  let probe = preflight_probe(source, format, options)
-  {
-    selected_route: probe.selected_route,
-    reason: probe.reason,
-    probe_summary_format: probe.summary_format,
-    probe_summary_parts: probe.summary_parts,
-    same_mode_degradation: if options.stream_requested &&
-      !explicit_stream_supported_for_format(format) {
-      ["explicit_stream_unsupported_fell_back"]
-    } else {
-      []
-    },
-    prepared_source: probe.prepared_source,
-    probe_artifact: probe.probe_artifact,
-  }
-}
-
-///|
-fn canonical_route_for_format(
-  format : @input.DetectedFormat,
-  options : ConvertOptions,
-) -> CanonicalRoute {
-  let profile = @formats.format_route_profile(format)
-  if options.stream_requested {
-    match profile.explicit_stream_route {
-      Some(route) => return route
-      None => return profile.canonical_route
-    }
-  }
-  match format {
-    @input.DetectedFormat::Pdf =>
-      if options.fidelity_mode == FidelityMode::Accurate ||
-        options.ocr_options.intent == @parser.OcrIntent::Explicit {
-        CanonicalRoute::LayoutTwoStage
-      } else {
-        CanonicalRoute::PageSinglePass
-      }
-    _ => profile.canonical_route
-  }
-}
-
-///|
 fn canonical_route_name(route : CanonicalRoute) -> String {
   @formats.route_name(route)
 }
 
 ///|
-fn route_reason_for_format(
-  format : @input.DetectedFormat,
+fn detect_effective_source(
+  source : @input.InputSource,
   options : ConvertOptions,
-  route : CanonicalRoute,
+) -> @input.InputSource {
+  match options.explicit_format {
+    Some(format) => @input.with_explicit_format(source, Some(format))
+    None => source
+  }
+}
+
+///|
+fn detect_input(
+  source : @input.InputSource,
+  options : ConvertOptions,
+) -> Result[(@input.InputSource, @input.FormatDetectionResult), ConvertError] {
+  let effective_source = detect_effective_source(source, options)
+  let detector = @input.default_format_detector()
+  let detected = (detector.detect)(effective_source)
+  if detected.format == @input.DetectedFormat::Unknown {
+    Err(ConvertError::DetectFailed("unknown format"))
+  } else {
+    Ok((effective_source, detected))
+  }
+}
+
+///|
+fn product_convert_mode_for_strategy(
+  mode : ConvertMode,
+) -> @product.ConvertMode {
+  match mode {
+    ConvertMode::Balanced => @product.ConvertMode::Balanced
+    ConvertMode::Accurate => @product.ConvertMode::Accurate
+    ConvertMode::Stream => @product.ConvertMode::Stream
+  }
+}
+
+///|
+fn execution_intent(options : ConvertOptions) -> ExecutionIntent {
+  {
+    strategy_mode: options.mode,
+    fidelity_mode: options.fidelity_mode,
+    output_mode: options.output_mode,
+    stream_requested: options.stream_requested,
+    output_format: options.output_format,
+    ocr_options: options.ocr_options,
+    limits: options.limits,
+    pdf_cleanup_mode: options.pdf_cleanup_mode,
+    pdf_table_mode: options.pdf_table_mode,
+    rag_options: options.rag_options,
+  }
+}
+
+///|
+fn pdf_header_footer_filter_policy_from_mode(
+  mode : PdfCleanupMode,
+) -> @parser.PdfHeaderFooterFilterPolicy {
+  match mode {
+    PdfCleanupMode::Disabled => @parser.PdfHeaderFooterFilterPolicy::Disabled
+    PdfCleanupMode::Conservative =>
+      @parser.PdfHeaderFooterFilterPolicy::InternalHighConfidenceOnly
+  }
+}
+
+///|
+fn pdf_table_reconstruction_policy_from_mode(
+  mode : PdfTableMode,
+) -> @parser.PdfTableReconstructionPolicy {
+  match mode {
+    PdfTableMode::Disabled => @parser.PdfTableReconstructionPolicy::Disabled
+    PdfTableMode::Simple =>
+      @parser.PdfTableReconstructionPolicy::InternalSimpleRowsOnly
+  }
+}
+
+///|
+fn render_path_kind_for_route(route : CanonicalRoute) -> RenderPathKind {
+  match route {
+    CanonicalRoute::StreamingEvent => RenderPathKind::EventStream
+    CanonicalRoute::BlockStreaming => RenderPathKind::BlockStream
+    CanonicalRoute::ContainerRecursive => RenderPathKind::BlockStream
+    _ => RenderPathKind::Document
+  }
+}
+
+///|
+fn route_expects_stream_render(route : CanonicalRoute) -> Bool {
+  match route {
+    CanonicalRoute::StreamingEvent => true
+    CanonicalRoute::BlockStreaming => true
+    CanonicalRoute::ContainerRecursive => true
+    _ => false
+  }
+}
+
+///|
+fn strategy_route_parser_mode(
+  route : @formats.StrategyRouteSpec,
+) -> @parser.ParserMode? {
+  Some(route.parser_mode)
+}
+
+///|
+fn matching_probe_signal(
+  signals : Array[ProbeSignal],
+  kind : ProbeSignalKind,
+) -> ProbeSignal? {
+  for signal in signals {
+    if signal.kind == kind {
+      return Some(signal)
+    }
+  }
+  None
+}
+
+///|
+fn exceeded_threshold_signals(
+  signals : Array[ProbeSignal],
+  thresholds : Array[(ProbeSignalKind, Int)],
+) -> Array[ProbeSignal] {
+  let matched : Array[ProbeSignal] = []
+  for threshold in thresholds {
+    match matching_probe_signal(signals, threshold.0) {
+      Some(signal) =>
+        match resolved_threshold_limit(signal, threshold.1) {
+          Some(limit) =>
+            if signal.observed > limit {
+              matched.push({ ..signal, limit: Some(limit) })
+            }
+          None => ()
+        }
+      None => ()
+    }
+  }
+  matched
+}
+
+///|
+fn resolved_threshold_limit(
+  signal : ProbeSignal,
+  configured_limit : Int,
+) -> Int? {
+  if configured_limit > 0 {
+    Some(configured_limit)
+  } else if configured_limit == 0 {
+    signal.limit
+  } else {
+    None
+  }
+}
+
+///|
+fn strategy_switches_for_plan(
+  detected_format : @input.DetectedFormat,
+  intent : ExecutionIntent,
+  selected : @formats.StrategyRouteSpec,
+  mode_policy : @formats.ModeStrategyPolicy,
+  explicit_stream_fell_back : Bool,
+  execution_profile : ExecutionProfile,
+) -> Array[String] {
+  let switches : Array[String] = []
+  if explicit_stream_fell_back {
+    switches.push("explicit_stream_unsupported_fell_back")
+  }
+  if execution_profile == ExecutionProfile::MediumAdaptive {
+    switches.push(
+      @input.detected_format_name(detected_format) + "_medium_adaptive_profile",
+    )
+  }
+  if mode_policy.hard_limit_route is Some(route) &&
+    route.route == selected.route &&
+    mode_policy.canonical.route != selected.route {
+    switches.push(
+      @input.detected_format_name(detected_format) +
+      "_hard_limit_" +
+      canonical_route_name(selected.route),
+    )
+  }
+  if intent.stream_requested && route_expects_stream_render(selected.route) {
+    switches.push(
+      @input.detected_format_name(detected_format) + "_stream_render_profile",
+    )
+  }
+  switches
+}
+
+///|
+fn route_reason_for_plan(
+  detected_format : @input.DetectedFormat,
+  intent : ExecutionIntent,
+  selected : @formats.StrategyRouteSpec,
+  mode_policy : @formats.ModeStrategyPolicy,
+  explicit_stream_fell_back : Bool,
+  hard_triggered : Bool,
 ) -> String {
-  if options.stream_requested && !explicit_stream_supported_for_format(format) {
+  if explicit_stream_fell_back {
     return "explicit_stream_unsupported_fell_back"
   }
-  if options.stream_requested {
+  if intent.stream_requested && mode_policy.explicit_stream_supported {
     return "explicit_stream_mode"
   }
-  if format == @input.DetectedFormat::Pdf {
-    if route == CanonicalRoute::LayoutTwoStage &&
-      options.ocr_options.intent == @parser.OcrIntent::Explicit {
-      return "pdf_explicit_ocr_layout_two_stage"
-    }
-    if route == CanonicalRoute::LayoutTwoStage &&
-      options.fidelity_mode == FidelityMode::Accurate {
-      return "pdf_accurate_layout_two_stage"
-    }
-    if route == CanonicalRoute::PageSinglePass {
-      return "pdf_canonical_page_single_pass"
+  if detected_format == @input.DetectedFormat::Pdf &&
+    selected.route == CanonicalRoute::LayoutTwoStage &&
+    intent.ocr_options.intent == @parser.OcrIntent::Explicit {
+    return "pdf_explicit_ocr_layout_two_stage"
+  }
+  if detected_format == @input.DetectedFormat::Pdf &&
+    selected.route == CanonicalRoute::LayoutTwoStage &&
+    intent.fidelity_mode == FidelityMode::Accurate {
+    return "pdf_accurate_layout_two_stage"
+  }
+  if detected_format == @input.DetectedFormat::Pdf &&
+    selected.route == CanonicalRoute::PageSinglePass {
+    return "pdf_canonical_page_single_pass"
+  }
+  if hard_triggered {
+    return @input.detected_format_name(detected_format) +
+      "_over_limit_" +
+      canonical_route_name(selected.route)
+  }
+  @input.detected_format_name(detected_format) +
+  "_canonical_" +
+  canonical_route_name(selected.route)
+}
+
+///|
+fn effective_execution_profile(
+  selected : @formats.StrategyRouteSpec,
+  mode_policy : @formats.ModeStrategyPolicy,
+  soft_trigger_signals : Array[ProbeSignal],
+  hard_trigger_signals : Array[ProbeSignal],
+) -> ExecutionProfile {
+  ignore(selected)
+  if mode_policy.hard_limit_route is Some(route) &&
+    route.route == selected.route &&
+    hard_trigger_signals.length() > 0 {
+    ExecutionProfile::LargeAdaptive
+  } else if hard_trigger_signals.length() > 0 {
+    ExecutionProfile::LargeAdaptive
+  } else if soft_trigger_signals.length() > 0 {
+    ExecutionProfile::MediumAdaptive
+  } else {
+    ExecutionProfile::Standard
+  }
+}
+
+///|
+fn effective_render_profile(
+  selected : @formats.StrategyRouteSpec,
+  mode_policy : @formats.ModeStrategyPolicy,
+  execution_profile : ExecutionProfile,
+) -> RenderProfile {
+  match execution_profile {
+    ExecutionProfile::MediumAdaptive =>
+      mode_policy.soft_limit_render_profile.unwrap_or(
+        mode_policy.render_profile,
+      )
+    ExecutionProfile::LargeAdaptive =>
+      if route_expects_stream_render(selected.route) {
+        mode_policy.soft_limit_render_profile.unwrap_or(
+          mode_policy.render_profile,
+        )
+      } else {
+        mode_policy.render_profile
+      }
+    ExecutionProfile::Standard => mode_policy.render_profile
+  }
+}
+
+///|
+fn effective_lowering_profile(
+  selected : @formats.StrategyRouteSpec,
+  intent : ExecutionIntent,
+  execution_profile : ExecutionProfile,
+) -> LoweringProfile {
+  if execution_profile == ExecutionProfile::LargeAdaptive {
+    return LoweringProfile::LargeAdaptive
+  }
+  if intent.fidelity_mode == FidelityMode::Accurate {
+    return LoweringProfile::AccurateSemantic
+  }
+  if intent.stream_requested || route_expects_stream_render(selected.route) {
+    return LoweringProfile::StreamCanonical
+  }
+  LoweringProfile::Canonical
+}
+
+///|
+fn accurate_feature_profile_for_mode_policy(
+  mode_policy : @formats.ModeStrategyPolicy,
+) -> AccurateFeatureProfile {
+  @product.make_accurate_feature_profile(mode_policy.accurate_features.copy())
+}
+
+///|
+fn select_strategy_route(
+  detected_format : @input.DetectedFormat,
+  intent : ExecutionIntent,
+  policy : @formats.FormatStrategyPolicy,
+  mode_policy : @formats.ModeStrategyPolicy,
+  hard_trigger_signals : Array[ProbeSignal],
+) -> (@formats.StrategyRouteSpec, Bool, Bool) {
+  if detected_format == @input.DetectedFormat::Pdf &&
+    intent.ocr_options.intent == @parser.OcrIntent::Explicit {
+    return (policy.accurate.canonical, false, false)
+  }
+  if detected_format == @input.DetectedFormat::Pdf &&
+    intent.fidelity_mode == FidelityMode::Accurate {
+    return (policy.accurate.canonical, false, false)
+  }
+  let explicit_stream_fell_back = intent.stream_requested &&
+    !mode_policy.explicit_stream_supported
+  if explicit_stream_fell_back {
+    return (mode_policy.canonical, true, false)
+  }
+  if intent.stream_requested {
+    return (
+      mode_policy.explicit_stream.unwrap_or(mode_policy.canonical),
+      false,
+      false,
+    )
+  }
+  if hard_trigger_signals.length() > 0 {
+    match mode_policy.hard_limit_route {
+      Some(route) => return (route, false, true)
+      None => ()
     }
   }
-  @input.detected_format_name(format) +
-  "_canonical_" +
-  canonical_route_name(route)
+  ignore(detected_format)
+  (mode_policy.canonical, false, false)
+}
+
+///|
+fn resolve_execution_plan(
+  source : @input.InputSource,
+  detected_format : @input.DetectedFormat,
+  options : ConvertOptions,
+) -> ResolvedExecutionPlan {
+  let intent = execution_intent(options)
+  let probe = preflight_probe(source, detected_format, options)
+  let policy = @formats.format_strategy_policy(detected_format)
+  let mode_policy = @formats.format_mode_strategy_policy(
+    detected_format,
+    product_convert_mode_for_strategy(intent.strategy_mode),
+  )
+  let hard_trigger_signals = exceeded_threshold_signals(
+    probe.probe_signals,
+    mode_policy.hard_limit_thresholds,
+  )
+  let soft_trigger_signals = exceeded_threshold_signals(
+    probe.probe_signals,
+    mode_policy.soft_limit_thresholds,
+  )
+  let (selected, explicit_stream_fell_back, used_hard_limit) = select_strategy_route(
+    detected_format, intent, policy, mode_policy, hard_trigger_signals,
+  )
+  let execution_profile = effective_execution_profile(
+    selected, mode_policy, soft_trigger_signals, hard_trigger_signals,
+  )
+  let render_profile = effective_render_profile(
+    selected, mode_policy, execution_profile,
+  )
+  let lowering_profile = effective_lowering_profile(
+    selected, intent, execution_profile,
+  )
+  let accurate_feature_profile = accurate_feature_profile_for_mode_policy(
+    mode_policy,
+  )
+  let switches = strategy_switches_for_plan(
+    detected_format, intent, selected, mode_policy, explicit_stream_fell_back, execution_profile,
+  )
+  let strategy_mode = if intent.stream_requested &&
+    mode_policy.explicit_stream_supported &&
+    selected.route == mode_policy.canonical.route &&
+    policy.stream.canonical.route == selected.route {
+    ConvertMode::Stream
+  } else {
+    intent.strategy_mode
+  }
+  {
+    detected_format,
+    mode: strategy_mode,
+    fidelity_mode: intent.fidelity_mode,
+    output_mode: intent.output_mode,
+    stream_requested: intent.stream_requested,
+    output_format: intent.output_format,
+    ocr_options: intent.ocr_options,
+    limits: intent.limits,
+    pdf_cleanup_mode: intent.pdf_cleanup_mode,
+    pdf_table_mode: intent.pdf_table_mode,
+    rag_options: intent.rag_options,
+    selected_route: selected.route,
+    execution_profile,
+    execution_profile_reason: if used_hard_limit {
+      "hard_limit_threshold"
+    } else if soft_trigger_signals.length() > 0 {
+      "soft_limit_threshold"
+    } else {
+      "canonical_threshold_window"
+    },
+    lowering_profile,
+    render_profile,
+    accurate_feature_profile,
+    requested_parser_mode: strategy_route_parser_mode(selected),
+    pdf_native_runtime_policy: @parser.default_pdf_native_runtime_policy(),
+    pdf_header_footer_filter_policy: pdf_header_footer_filter_policy_from_mode(
+      intent.pdf_cleanup_mode,
+    ),
+    pdf_table_reconstruction_policy: pdf_table_reconstruction_policy_from_mode(
+      intent.pdf_table_mode,
+    ),
+    render_path_kind: render_path_kind_for_route(selected.route),
+    reason: route_reason_for_plan(
+      detected_format, intent, selected, mode_policy, explicit_stream_fell_back,
+      used_hard_limit,
+    ),
+    probe_signals: probe.probe_signals,
+    profile_trigger_signals: if used_hard_limit {
+      hard_trigger_signals
+    } else {
+      soft_trigger_signals
+    },
+    probe_failures: probe.probe_failures,
+    probe_summary_format: probe.summary_format,
+    probe_summary_parts: probe.summary_parts,
+    same_mode_strategy_switches: switches,
+    prepared_source: probe.prepared_source,
+    probe_artifacts: probe.probe_artifacts,
+  }
+}
+
+///|
+fn detect_and_resolve_execution_plan(
+  source : @input.InputSource,
+  options : ConvertOptions,
+) -> Result[
+  (@input.InputSource, @input.FormatDetectionResult, ResolvedExecutionPlan),
+  ConvertError,
+] {
+  match detect_input(source, options) {
+    Ok((effective_source, detected)) =>
+      Ok(
+        (
+          effective_source,
+          detected,
+          resolve_execution_plan(effective_source, detected.format, options),
+        ),
+      )
+    Err(err) => Err(err)
+  }
 }

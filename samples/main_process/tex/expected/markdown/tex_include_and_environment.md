@@ -2,5 +2,5 @@
 
 Include: shared.tex
 
-> Theorem
+> Environment: Theorem
 Important statement.

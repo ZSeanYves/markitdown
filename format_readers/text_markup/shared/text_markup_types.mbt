@@ -14,6 +14,7 @@ pub(all) enum TextMarkupBlockKind {
   Table
   BlockQuote
   NoteDefinition
+  Semantic
   Raw
 } derive(Eq)
 

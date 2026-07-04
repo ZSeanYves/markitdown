@@ -4,6 +4,7 @@ package "ZSeanYves/markitdown/formats"
 import {
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/product",
 }
 
 // Values
@@ -35,7 +36,11 @@ pub fn explicit_stream_route_for_format(@input.DetectedFormat) -> FormatRoute?
 
 pub fn explicit_stream_supported_for_format(@input.DetectedFormat) -> Bool
 
+pub fn format_mode_strategy_policy(@input.DetectedFormat, @product.ConvertMode) -> ModeStrategyPolicy
+
 pub fn format_route_profile(@input.DetectedFormat) -> FormatRouteProfile
+
+pub fn format_strategy_policy(@input.DetectedFormat) -> FormatStrategyPolicy
 
 pub fn html_parser_contract_spec() -> ParserContractSpec
 
@@ -140,6 +145,28 @@ pub struct FormatRouteProfile {
   current_state_label : String
 }
 
+pub struct FormatStrategyPolicy {
+  format : @input.DetectedFormat
+  cli_supported : Bool
+  balanced : ModeStrategyPolicy
+  accurate : ModeStrategyPolicy
+  stream : ModeStrategyPolicy
+}
+
+pub struct ModeStrategyPolicy {
+  canonical : StrategyRouteSpec
+  explicit_stream_supported : Bool
+  explicit_stream : StrategyRouteSpec?
+  soft_limit_thresholds : Array[(@product.ProbeSignalKind, Int)]
+  hard_limit_thresholds : Array[(@product.ProbeSignalKind, Int)]
+  soft_limit_render_profile : @product.RenderProfile?
+  hard_limit_route : StrategyRouteSpec?
+  lowering_profile : @product.LoweringProfile
+  render_profile : @product.RenderProfile
+  accurate_features : Array[@product.AccurateFeature]
+  current_state_label : String
+}
+
 pub struct ParserContractSpec {
   parser_name : String
   parser_mode : @parser.ParserMode
@@ -154,6 +181,13 @@ pub struct ParserContractSpec {
   policies : Array[String]
   foundations : Array[String]
   excluded_legacy_foundations : Array[String]
+}
+
+pub struct StrategyRouteSpec {
+  route : FormatRoute
+  parser_mode : @parser.ParserMode
+  granularity : @parser.StreamingGranularity
+  ir_input_kind : String
 }
 
 // Type aliases

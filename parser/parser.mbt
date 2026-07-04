@@ -66,6 +66,10 @@ pub struct ParseContext {
   requested_mode : ParserMode?
   fidelity_mode : @product.FidelityMode
   output_mode : @product.OutputMode
+  execution_profile : @product.ExecutionProfile
+  lowering_profile : @product.LoweringProfile
+  render_profile : @product.RenderProfile
+  accurate_features : @product.AccurateFeatureProfile
   ocr_options : OcrOptions
   pdf_native_runtime_policy : PdfNativeRuntimePolicy
   pdf_header_footer_filter_policy : PdfHeaderFooterFilterPolicy
@@ -447,6 +451,10 @@ pub fn new_parse_context(
     requested_mode: None,
     fidelity_mode: @product.FidelityMode::Balanced,
     output_mode: @product.OutputMode::Markdown,
+    execution_profile: @product.ExecutionProfile::Standard,
+    lowering_profile: @product.LoweringProfile::Canonical,
+    render_profile: @product.RenderProfile::DefaultMarkdown,
+    accurate_features: @product.empty_accurate_feature_profile(),
     ocr_options: default_ocr_options(),
     pdf_native_runtime_policy: default_pdf_native_runtime_policy(),
     pdf_header_footer_filter_policy: default_pdf_header_footer_filter_policy(),
@@ -503,7 +511,41 @@ pub fn parse_context_with_product_modes(
   fidelity_mode : @product.FidelityMode,
   output_mode : @product.OutputMode,
 ) -> ParseContext {
-  { ..context, fidelity_mode, output_mode }
+  let accurate_features = if fidelity_mode == @product.FidelityMode::Accurate {
+    @product.make_accurate_feature_profile(
+      @product.accurate_features_for_detected_format(context.detected_format).copy(),
+    )
+  } else {
+    @product.empty_accurate_feature_profile()
+  }
+  {
+    ..context,
+    fidelity_mode,
+    output_mode,
+    lowering_profile: if fidelity_mode == @product.FidelityMode::Accurate {
+      @product.LoweringProfile::AccurateSemantic
+    } else {
+      context.lowering_profile
+    },
+    accurate_features,
+  }
+}
+
+///|
+pub fn parse_context_with_execution_profiles(
+  context : ParseContext,
+  execution_profile : @product.ExecutionProfile,
+  lowering_profile : @product.LoweringProfile,
+  render_profile : @product.RenderProfile,
+  accurate_features : @product.AccurateFeatureProfile,
+) -> ParseContext {
+  {
+    ..context,
+    execution_profile,
+    lowering_profile,
+    render_profile,
+    accurate_features,
+  }
 }
 
 ///|

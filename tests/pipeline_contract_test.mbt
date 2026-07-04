@@ -2560,7 +2560,7 @@ test "text markup complex directives includes and environments stay explicit" {
   assert_true(asciidoc.content.contains("Read carefully."))
   assert_true(asciidoc.content.contains("Include: shared.adoc"))
   assert_true(tex.content.contains("Include: shared.tex"))
-  assert_true(tex.content.contains("> Theorem"))
+  assert_true(tex.content.contains("> Environment: Theorem"))
   assert_true(tex.content.contains("Statement."))
   assert_true(
     tex.diagnostics.degraded_features.contains("tex_include_directive_boundary"),
@@ -2618,7 +2618,7 @@ test "text markup complex semantic blocks keep typed lowering while preserving d
   assert_true(
     tex.diagnostics.degraded_features.contains("tex_math_environment_boundary"),
   )
-  assert_true(tex.content.contains("> Lemma"))
+  assert_true(tex.content.contains("> Environment: Lemma"))
   assert_true(tex.content.contains("A useful fact."))
 }
 
@@ -3497,6 +3497,186 @@ test "ooxml xml part payload exposes structure scan for workbook parts" {
   )
   assert_true(payload.structure_scan.element_count > 0)
   assert_true(payload.structure_scan.max_depth > 0)
+}
+
+///|
+test "ods merged cells fixture preserves covered-cell diagnostics" {
+  let result = convert_path(
+    "markitdown-quality-lab/external_quality/ods/odf-toolkit/MergedCells.ods",
+    format=Some(@input.DetectedFormat::Ods),
+  )
+  let covered_cell_count = @string.parse_int(
+    result.diagnostics.metrics.get("covered_cell_count").unwrap_or("0"),
+  ) catch {
+    _ => 0
+  }
+  assert_metric_eq(result.diagnostics, "detected_format", "ods")
+  assert_true(covered_cell_count > 0)
+  assert_true(result.content.contains("# Sheet1"))
+}
+
+///|
+test "odt annotation fixture keeps appendix signals visible" {
+  let result = convert_path(
+    "markitdown-quality-lab/external_quality/odt/odf-toolkit/_annotation.odt",
+    format=Some(@input.DetectedFormat::Odt),
+  )
+  let comment_count = @string.parse_int(
+    result.diagnostics.metrics.get("comment_count").unwrap_or("0"),
+  ) catch {
+    _ => 0
+  }
+  assert_true(result.content.contains("## Comments"))
+  assert_true(result.content.contains("[comment 32]"))
+  assert_true(comment_count > 0)
+}
+
+///|
+test "odp presentation fixture keeps notes and slide-local diagnostics visible" {
+  let result = convert_path(
+    "markitdown-quality-lab/external_quality/odp/odf-toolkit/Presentation1.odp",
+    format=Some(@input.DetectedFormat::Odp),
+  )
+  let notes_count = @string.parse_int(
+    result.diagnostics.metrics.get("notes_count").unwrap_or("0"),
+  ) catch {
+    _ => 0
+  }
+  assert_true(result.content.contains("[Slide 1]"))
+  assert_true(notes_count >= 0)
+}
+
+///|
+test "odt accurate fidelity exposes appendix render hints for notes and comments" {
+  let registry = @formats_root.builtin_registry()
+  let context = @parser.parse_context_with_product_modes(
+    @parser.new_parse_context(@input.DetectedFormat::Odt),
+    @product.FidelityMode::Accurate,
+    @product.OutputMode::Markdown,
+  )
+  let result = match
+    @parser.registry_parse(
+      registry,
+      @input.input_from_path(
+        "markitdown-quality-lab/external_quality/odt/odf-toolkit/_annotation.odt",
+      ),
+      context,
+    ) {
+    Ok(value) => value
+    Err(err) => fail("accurate odt parse failed: " + err)
+  }
+  let document = result.document.unwrap_or_else(fn() {
+    abort("missing accurate odt document")
+  })
+  let comment_blocks = document.blocks.filter(fn(block) {
+    block.attrs.get("render_appendix_group") == Some("comments")
+  })
+  assert_true(comment_blocks.length() > 0)
+  let note_refs : Array[String] = []
+  let note_definitions : Array[String] = []
+  for block in document.blocks {
+    match block.rich_inlines {
+      Some(inlines) =>
+        for inline in inlines {
+          if inline.attrs.get("annotation_role") == Some("note_ref") {
+            match inline.attrs.get("annotation_target_id") {
+              Some(target) => note_refs.push(target)
+              None => ()
+            }
+          }
+        }
+      None => ()
+    }
+    match block.attrs.get("annotation_definition_id") {
+      Some(target) => note_definitions.push(target)
+      None => ()
+    }
+  }
+  assert_true(note_refs.length() > 0)
+  assert_true(note_definitions.length() > 0)
+  assert_true(note_refs.any(fn(target) { note_definitions.contains(target) }))
+}
+
+///|
+test "ods accurate fidelity restores hidden structures and covered cell hints" {
+  let registry = @formats_root.builtin_registry()
+  let context = @parser.parse_context_with_product_modes(
+    @parser.new_parse_context(@input.DetectedFormat::Ods),
+    @product.FidelityMode::Accurate,
+    @product.OutputMode::Markdown,
+  )
+  let result = match
+    @parser.registry_parse(
+      registry,
+      @input.input_from_path(
+        "markitdown-quality-lab/external_quality/ods/odf-toolkit/MergedCells.ods",
+      ),
+      context,
+    ) {
+    Ok(value) => value
+    Err(err) => fail("accurate ods parse failed: " + err)
+  }
+  let document = result.document.unwrap_or_else(fn() {
+    abort("missing accurate ods document")
+  })
+  let tables = document.blocks.filter(fn(block) {
+    block.kind == @core.BlockKind::Table
+  })
+  let has_covered_cell = tables.any(fn(table) {
+    table.children.any(fn(row) {
+      row.children.any(fn(cell) {
+        cell.attrs.get("covered_cell") == Some("true")
+      })
+    })
+  })
+  let has_spans = tables.any(fn(table) {
+    table.attrs.get("render_html_table") == Some("true") &&
+    table.children.any(fn(row) {
+      row.children.any(fn(cell) {
+        cell.attrs.get("rowspan") is Some(_) ||
+        cell.attrs.get("colspan") is Some(_)
+      })
+    })
+  })
+  assert_true(has_covered_cell)
+  assert_true(has_spans)
+  assert_true(
+    result.diagnostics.metrics.get("covered_cell_count").unwrap_or("0") != "0",
+  )
+}
+
+///|
+test "odp accurate fidelity exposes notes appendix and slide window hints" {
+  let registry = @formats_root.builtin_registry()
+  let context = @parser.parse_context_with_product_modes(
+    @parser.new_parse_context(@input.DetectedFormat::Odp),
+    @product.FidelityMode::Accurate,
+    @product.OutputMode::Markdown,
+  )
+  let result = match
+    @parser.registry_parse(
+      registry,
+      @input.input_from_path(
+        "markitdown-quality-lab/external_quality/odp/odf-toolkit/Presentation1.odp",
+      ),
+      context,
+    ) {
+    Ok(value) => value
+    Err(err) => fail("accurate odp parse failed: " + err)
+  }
+  let document = result.document.unwrap_or_else(fn() {
+    abort("missing accurate odp document")
+  })
+  let slide_local_windowed = document.blocks.filter(fn(block) {
+    block.attrs.get("slide_local") == Some("true") &&
+    block.attrs.get("render_window_group") is Some(_)
+  })
+  let slide_labels = document.blocks.filter(fn(block) {
+    block.text.has_prefix("[Slide ") &&
+    block.attrs.get("render_window_group") is Some(_)
+  })
+  assert_true(slide_local_windowed.length() > 0)
+  assert_true(slide_labels.length() > 0)
 }
 
 ///|

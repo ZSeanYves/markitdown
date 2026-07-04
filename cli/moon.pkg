@@ -9,6 +9,7 @@ import {
   "ZSeanYves/markitdown/formats/pdf" @fpdf,
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/product",
   "ZSeanYves/markitdown/rag",
   "moonbitlang/x/codec/base64",
   "moonbitlang/x/fs",

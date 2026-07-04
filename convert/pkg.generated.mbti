@@ -21,6 +21,8 @@ pub fn convert_input_with_provenance(@input.InputSource, ConvertOptions) -> Resu
 
 pub fn convert_input_with_provenance_and_image_ocr_provider(@input.InputSource, ConvertOptions, (@ocr.OcrProviderRequest) -> Result[@ocr.OcrProviderResult, @ocr.OcrProviderError]) -> Result[ConvertExecution, ConvertError]
 
+pub async fn convert_input_with_provenance_and_image_ocr_provider_async(@input.InputSource, ConvertOptions, async (@ocr.OcrProviderRequest) -> Result[@ocr.OcrProviderResult, @ocr.OcrProviderError]) -> Result[ConvertExecution, ConvertError]
+
 pub fn convert_mode_name(ConvertMode) -> String
 
 pub fn convert_provenance_to_json(ConvertProvenance) -> Json
@@ -33,7 +35,7 @@ pub fn default_pdf_table_mode() -> PdfTableMode
 
 pub fn default_resource_limits() -> ResourceLimits
 
-pub fn derived_convert_mode(@product.FidelityMode, @product.OutputMode) -> ConvertMode
+pub fn derived_convert_mode(@product.FidelityMode, Bool) -> ConvertMode
 
 pub fn fidelity_mode_for_convert_mode(ConvertMode) -> @product.FidelityMode
 
@@ -43,7 +45,11 @@ pub fn make_convert_execution(ConvertResult, ConvertProvenance) -> ConvertExecut
 
 pub fn make_convert_options(ConvertMode, OutputFormat, @input.DetectedFormat?, @parser.OcrOptions, ResourceLimits, fidelity_mode? : @product.FidelityMode, output_mode? : @product.OutputMode, stream_requested? : Bool, pdf_cleanup_mode? : PdfCleanupMode, pdf_table_mode? : PdfTableMode, rag_options? : @rag.RagOptions) -> ConvertOptions
 
-pub fn make_convert_provenance(RoutePlan, @product.FidelityMode, @product.OutputMode, @parser.ParserMode, String, String, String, String) -> ConvertProvenance
+pub fn make_convert_provenance(RoutePlan, @product.FidelityMode, @product.OutputMode, @product.ExecutionProfile, String, @product.LoweringProfile, @product.RenderProfile, Array[String], @parser.ParserMode, String, String, String, String, Array[String], Array[String]) -> ConvertProvenance
+
+pub fn make_probe_failure(String, String) -> ProbeFailure
+
+pub fn make_probe_signal(@product.ProbeSignalKind, Int, limit? : Int?, note? : String?) -> ProbeSignal
 
 pub fn make_resource_limits(Int, Int, Int, max_line_chars? : Int) -> ResourceLimits
 
@@ -79,12 +85,9 @@ pub struct ConvertExecution {
 }
 
 pub(all) enum ConvertMode {
-  Fast
   Balanced
   Accurate
   Stream
-  Rag
-  Debug
 } derive(Eq)
 
 pub struct ConvertOptions {
@@ -105,11 +108,18 @@ pub struct ConvertProvenance {
   route_plan : RoutePlan
   fidelity_mode : @product.FidelityMode
   output_mode : @product.OutputMode
+  execution_profile : @product.ExecutionProfile
+  execution_profile_reason : String
+  lowering_profile : @product.LoweringProfile
+  render_profile : @product.RenderProfile
+  profile_trigger_signals : Array[String]
   effective_parser_mode : @parser.ParserMode
   parse_result_kind : String
   pipeline_output_kind : String
   render_input_kind : String
   route_fidelity_status : String
+  applied_accurate_features : Array[String]
+  same_mode_strategy_switches : Array[String]
 }
 
 pub struct ConvertResult {
@@ -130,7 +140,6 @@ pub struct ConvertResult {
 
 pub(all) enum OutputFormat {
   Markdown
-  Json
   RagJson
   DebugJson
 } derive(Eq)
@@ -144,6 +153,18 @@ pub(all) enum PdfTableMode {
   Disabled
   Simple
 } derive(Eq)
+
+pub struct ProbeFailure {
+  stage : String
+  detail : String
+}
+
+pub struct ProbeSignal {
+  kind : @product.ProbeSignalKind
+  observed : Int
+  limit : Int?
+  note : String?
+}
 
 pub struct ResourceLimits {
   max_rows : Int
@@ -161,9 +182,21 @@ pub struct RoutePlan {
 }
 
 // Type aliases
+pub using @product {type AccurateFeature}
+
+pub using @product {type AccurateFeatureProfile}
+
+pub using @product {type ExecutionProfile}
+
 pub using @product {type FidelityMode}
 
+pub using @product {type LoweringProfile}
+
 pub using @product {type OutputMode}
+
+pub using @product {type ProbeSignalKind}
+
+pub using @product {type RenderProfile}
 
 // Traits
 

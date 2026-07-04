@@ -12,6 +12,7 @@ pub fn empty_diagnostics() -> Diagnostics {
     errors: [],
     degraded_features: [],
     same_mode_degradation: [],
+    same_mode_strategy_switches: [],
     fallback_trace: [],
     pass_trace: [],
     metrics: Map([]),
@@ -95,6 +96,16 @@ pub fn diagnostics_add_same_mode_degradation(
 ) -> Diagnostics {
   let next = { ..diagnostics }
   next.same_mode_degradation.push(degradation)
+  next
+}
+
+///|
+pub fn diagnostics_add_same_mode_strategy_switch(
+  diagnostics : Diagnostics,
+  strategy_switch : String,
+) -> Diagnostics {
+  let next = { ..diagnostics }
+  next.same_mode_strategy_switches.push(strategy_switch)
   next
 }
 

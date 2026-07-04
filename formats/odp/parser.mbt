@@ -71,7 +71,7 @@ fn parse_odp_document_result(
   let inspect = @dodf.inspect_odp_document(document)
   odp_fill_metrics(diagnostics, document, inspect, bytes)
   if context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
-    let lowered = odp_lower_block_stream_document(source, document)
+    let lowered = odp_lower_block_stream_document(source, document, context)
     diagnostics.metrics.set("parser_mode", "block_streaming")
     diagnostics.metrics.set("effective_mode", "block_streaming")
     diagnostics.metrics.set("ir_input_kind", "block_stream")
@@ -96,7 +96,7 @@ fn parse_odp_document_result(
       ),
     )
   }
-  let lowered = odp_lower_document_ir(source, document)
+  let lowered = odp_lower_document_ir(source, document, context)
   diagnostics.metrics.set("parser_mode", "package_single_pass")
   diagnostics.metrics.set("effective_mode", "package_single_pass")
   diagnostics.metrics.set("ir_input_kind", "document")
@@ -209,8 +209,9 @@ priv struct OdpLoweredProduct {
 fn odp_lower_document_ir(
   source : @input.InputSource,
   document : @dodf.OdpDocument,
+  context : @parser.ParseContext,
 ) -> @core.DocumentIR {
-  let lowered = odp_lower_common(source, document)
+  let lowered = odp_lower_common(source, document, context)
   @core.document_with_source_map(
     @core.document_with_assets(
       @core.document_with_metadata(
@@ -227,14 +228,16 @@ fn odp_lower_document_ir(
 fn odp_lower_block_stream_document(
   source : @input.InputSource,
   document : @dodf.OdpDocument,
+  context : @parser.ParseContext,
 ) -> OdpLoweredProduct {
-  odp_lower_common(source, document)
+  odp_lower_common(source, document, context)
 }
 
 ///|
 fn odp_lower_common(
   source : @input.InputSource,
   document : @dodf.OdpDocument,
+  context : @parser.ParseContext,
 ) -> OdpLoweredProduct {
   let blocks : Array[@core.CoreBlock] = []
   let assets : Array[@core.AssetRef] = []
@@ -247,13 +250,25 @@ fn odp_lower_common(
       "[Slide " + (slide.index + 1).to_string() + "]",
       source_ref=label_ref,
     )
+    label.attrs.set("literal", "true")
+    label.attrs.set("slide_local", "true")
+    if context.lowering_profile == @product.LoweringProfile::AccurateSemantic &&
+      @product.accurate_feature_enabled(
+        context.accurate_features,
+        @product.AccurateFeature::OdpSlideSummary,
+      ) {
+      label.attrs.set(
+        "render_window_group",
+        "slide:" + (slide.index + 1).to_string(),
+      )
+    }
     source_map.block_entries.push(
       @core.make_source_map_entry(primary_ref=Some(label_ref), refs=[label_ref]),
     )
     blocks.push(label)
     for block in slide.blocks {
       let lowered = odp_lower_block(
-        source, document, slide, block, assets, source_map,
+        source, document, slide, block, assets, source_map, context,
       )
       blocks.push(lowered)
     }
@@ -269,6 +284,7 @@ fn odp_lower_block(
   block : @dodf.OdpSlideBlock,
   assets : Array[@core.AssetRef],
   source_map : @core.SourceMap,
+  context : @parser.ParseContext,
 ) -> @core.CoreBlock {
   let source_ref = odp_block_source_ref(source, document, slide, block)
   let lowered = match block.kind {
@@ -285,13 +301,42 @@ fn odp_lower_block(
         source_ref~,
       )
       note.attrs.set("info", "notes")
+      for entry in block.attrs.to_array() {
+        note.attrs.set(entry.0, entry.1)
+      }
+      if context.lowering_profile == @product.LoweringProfile::AccurateSemantic &&
+        @product.accurate_feature_enabled(
+          context.accurate_features,
+          @product.AccurateFeature::OdpNotesAppendix,
+        ) {
+        note.attrs.set("render_appendix_group", "notes")
+      }
       note
     }
-    @dodf.OdpBlockKind::Raw =>
-      @core.make_block(@core.BlockKind::Raw, block.text, source_ref~)
+    @dodf.OdpBlockKind::Raw => {
+      let raw = @core.make_block(@core.BlockKind::Raw, block.text, source_ref~)
+      for entry in block.attrs.to_array() {
+        raw.attrs.set(entry.0, entry.1)
+      }
+      raw
+    }
     @dodf.OdpBlockKind::Table => odp_table_block(block, source_ref)
     @dodf.OdpBlockKind::Image =>
       odp_image_block(source, slide, block, assets, source_ref)
+  }
+  for entry in block.attrs.to_array() {
+    lowered.attrs.set(entry.0, entry.1)
+  }
+  if context.lowering_profile == @product.LoweringProfile::AccurateSemantic &&
+    @product.accurate_feature_enabled(
+      context.accurate_features,
+      @product.AccurateFeature::OdpSlideSummary,
+    ) &&
+    lowered.attrs.get("slide_local") == Some("true") {
+    lowered.attrs.set(
+      "render_window_group",
+      "slide:" + (slide.index + 1).to_string(),
+    )
   }
   source_map.block_entries.push(
     @core.make_source_map_entry(primary_ref=Some(source_ref), refs=[source_ref]),

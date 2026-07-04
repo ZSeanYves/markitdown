@@ -3,6 +3,9 @@ pub struct RenderContext {
   debug : Bool
   fidelity_mode : @product.FidelityMode
   output_mode : @product.OutputMode
+  execution_profile : @product.ExecutionProfile
+  render_profile : @product.RenderProfile
+  accurate_features : @product.AccurateFeatureProfile
   rag_options : @rag.RagOptions
   base_diagnostics : @core.Diagnostics?
   metadata : @core.DocumentMetadata?
@@ -37,6 +40,9 @@ pub fn make_render_context(
   debug : Bool,
   fidelity_mode? : @product.FidelityMode = @product.FidelityMode::Balanced,
   output_mode? : @product.OutputMode = @product.OutputMode::Markdown,
+  execution_profile? : @product.ExecutionProfile = @product.ExecutionProfile::Standard,
+  render_profile? : @product.RenderProfile = @product.RenderProfile::DefaultMarkdown,
+  accurate_features? : @product.AccurateFeatureProfile = @product.empty_accurate_feature_profile(),
   rag_options? : @rag.RagOptions = @rag.default_rag_options(),
   base_diagnostics? : @core.Diagnostics? = None,
   metadata? : @core.DocumentMetadata? = None,
@@ -48,6 +54,9 @@ pub fn make_render_context(
     debug,
     fidelity_mode,
     output_mode,
+    execution_profile,
+    render_profile,
+    accurate_features,
     rag_options,
     base_diagnostics,
     metadata,

@@ -5,6 +5,7 @@ pub struct TextMarkupHooks {
   format : @dmark.TextMarkupFormat
   parse_document : (String) -> @dmark.TextMarkupDocument
   quote_text : (@dmark.TextMarkupBlock, String) -> String
+  semantic_block : (@dmark.TextMarkupBlock, @core.SourceRef, String) -> @core.CoreBlock?
   semantic_raw_block : (@dmark.TextMarkupBlock, @core.SourceRef, String) -> @core.CoreBlock?
 }
 
@@ -15,6 +16,7 @@ pub fn make_text_markup_hooks(
   format : @dmark.TextMarkupFormat,
   parse_document : (String) -> @dmark.TextMarkupDocument,
   quote_text : (@dmark.TextMarkupBlock, String) -> String,
+  semantic_block : (@dmark.TextMarkupBlock, @core.SourceRef, String) -> @core.CoreBlock?,
   semantic_raw_block : (@dmark.TextMarkupBlock, @core.SourceRef, String) -> @core.CoreBlock?,
 ) -> TextMarkupHooks {
   {
@@ -23,6 +25,7 @@ pub fn make_text_markup_hooks(
     format,
     parse_document,
     quote_text,
+    semantic_block,
     semantic_raw_block,
   }
 }
@@ -320,6 +323,36 @@ pub fn lower_text_markup_document(
           text_markup_block_with_inlines(quote, quote_text, hooks.format),
         )
       }
+      @dmark.TextMarkupBlockKind::Semantic =>
+        match (hooks.semantic_block)(block, source_ref, hooks.format_name) {
+          Some(semantic) => {
+            text_markup_apply_semantic_attrs(
+              semantic,
+              block,
+              diagnostics,
+              hooks.format_name,
+            )
+            document.blocks.push(semantic)
+          }
+          None => {
+            let text = (hooks.quote_text)(block, hooks.format_name)
+            let semantic = @core.make_block(
+              @core.BlockKind::Paragraph,
+              text,
+              source_ref~,
+            )
+            semantic.attrs.set("literal", "true")
+            text_markup_apply_semantic_attrs(
+              semantic,
+              block,
+              diagnostics,
+              hooks.format_name,
+            )
+            document.blocks.push(
+              text_markup_block_with_inlines(semantic, text, hooks.format),
+            )
+          }
+        }
       @dmark.TextMarkupBlockKind::Raw => {
         match (hooks.semantic_raw_block)(block, source_ref, hooks.format_name) {
           Some(semantic) => {
@@ -391,6 +424,37 @@ pub fn lower_text_markup_document(
     )
   }
   document
+}
+
+///|
+fn text_markup_apply_semantic_attrs(
+  semantic : @core.CoreBlock,
+  block : @dmark.TextMarkupBlock,
+  diagnostics : @core.Diagnostics,
+  format_name : String,
+) -> Unit {
+  semantic.attrs.set("text_markup_semantic", "true")
+  match block.meta.get("semantic_kind") {
+    Some(kind) => semantic.attrs.set("semantic_kind", kind)
+    None => ()
+  }
+  if block.meta.get("semantic_kind") == Some("include") {
+    semantic.attrs.set("render_boundary", "semantic")
+    semantic.attrs.set(
+      "render_boundary_key",
+      format_name + ":include:" + block.line_start.to_string(),
+    )
+  }
+  for entry in block.meta.to_array() {
+    semantic.attrs.set(entry.0, entry.1)
+    if entry.0 == "degraded_feature" {
+      diagnostics.degraded_features.push(format_name + "_" + entry.1)
+    }
+  }
+  diagnostics.warnings.push(format_name + " canonical semantic block activated")
+  diagnostics.fallback_trace.push(
+    format_name + " semantic boundary -> canonical semantic block",
+  )
 }
 
 ///|

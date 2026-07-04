@@ -21,6 +21,7 @@ fn asciidoc_hooks() -> @fshared.TextMarkupHooks {
     @dmark.TextMarkupFormat::Asciidoc,
     fn(text : String) { @dmark.parse_asciidoc_document(text) },
     asciidoc_semantic_quote_text,
+    asciidoc_semantic_block,
     asciidoc_semantic_raw_block,
   )
 }
@@ -84,5 +85,85 @@ fn asciidoc_semantic_raw_block(
       )
     }
     None => None
+  }
+}
+
+///|
+fn asciidoc_semantic_block(
+  block : @dmark.TextMarkupBlock,
+  source_ref : @core.SourceRef,
+  _format_name : String,
+) -> @core.CoreBlock? {
+  match block.meta.get("semantic_kind") {
+    Some("include") => {
+      let target = block.meta.get("include_target").unwrap_or(block.text)
+      let text = if block.text.has_prefix("include: ") {
+        "Include: " + block.text["include: ".length():].to_owned()
+      } else {
+        "Include: " + target
+      }
+      let paragraph = @core.make_block(
+        @core.BlockKind::Paragraph,
+        text,
+        source_ref~,
+      )
+      paragraph.attrs.set("literal", "true")
+      paragraph.attrs.set("semantic_label", "Include")
+      paragraph.attrs.set("semantic_family", "asciidoc")
+      paragraph.attrs.set("semantic_display", "include")
+      Some(
+        @fshared.text_markup_block_with_inlines(
+          paragraph,
+          text,
+          @dmark.TextMarkupFormat::Asciidoc,
+        ),
+      )
+    }
+    Some("quote") => {
+      let text = asciidoc_semantic_quote_text(block, "asciidoc")
+      let quote = @core.make_block(
+        @core.BlockKind::BlockQuote,
+        text,
+        source_ref~,
+      )
+      quote.attrs.set("literal", "true")
+      quote.attrs.set("semantic_label", "Quote")
+      quote.attrs.set("semantic_family", "asciidoc")
+      quote.attrs.set(
+        "semantic_display",
+        block.meta.get("quote_label").unwrap_or("QUOTE"),
+      )
+      Some(
+        @fshared.text_markup_block_with_inlines(
+          quote,
+          text,
+          @dmark.TextMarkupFormat::Asciidoc,
+        ),
+      )
+    }
+    Some("admonition") => {
+      let text = asciidoc_semantic_quote_text(block, "asciidoc")
+      let quote = @core.make_block(
+        @core.BlockKind::BlockQuote,
+        text,
+        source_ref~,
+      )
+      quote.attrs.set("literal", "true")
+      quote.attrs.set("semantic_label", "Admonition")
+      quote.attrs.set("semantic_family", "asciidoc")
+      quote.attrs.set(
+        "semantic_display",
+        block.meta.get("quote_label").unwrap_or("NOTE"),
+      )
+      Some(
+        @fshared.text_markup_block_with_inlines(
+          quote,
+          text,
+          @dmark.TextMarkupFormat::Asciidoc,
+        ),
+      )
+    }
+    None => None
+    Some(_) => None
   }
 }

@@ -243,8 +243,8 @@ pub fn pdf_ocr_parser_result(
   ] = rasterize_pdf_with_pdftoppm_default,
 ) -> Result[@parser.ParseResult, String] {
   let options = context.ocr_options
-  let accurate_pdf_ocr = context.fidelity_mode ==
-    @product.FidelityMode::Accurate
+  let accurate_pdf_ocr = context.lowering_profile ==
+    @product.LoweringProfile::AccurateSemantic
   if options.intent != @parser.OcrIntent::Explicit && !accurate_pdf_ocr {
     return Err(
       "pdf OCR requires explicit OCR intent on this runtime; requested=" +

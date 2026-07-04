@@ -74,6 +74,57 @@
 | `pptx` | `package_single_pass` | slide 顺序、列表、图片、speaker notes、hidden slide policy、debug | 不做完整演示视觉布局重建 |
 | `pdf` | `page_single_pass` 或 `layout_two_stage` | native-text 提取、`--accurate` / `--ocr` OCR、基础清理、显式 opt-in cleanup/table signals、RAG、debug | OCR 路线当前不承诺复杂 layout 恢复 |
 
+## 3.1 当前成熟度再审计
+
+本轮再审计按 5 个维度判断格式成熟度：
+
+- 主链稳定度
+- 高频结构的 typed canonical 表达深度
+- Stream / 大文件策略是否清晰
+- diagnostics / provenance 是否完整可解释
+- 主回归与质量回归的覆盖信心
+
+档位定义固定为：
+
+- `实验中`：主链或回归信心还不够，不能作为正式长期承诺
+- `可用`：主链稳定可用，但语义深度、质量信心或可解释性仍偏薄
+- `成熟`：canonical 主链稳定，高频结构已有 typed 表达，回归与诊断足以长期维护
+- `强成熟`：在“成熟”之上，还具备更深的 accurate/profile/route 能力，或复杂格式下的长期回归信心明显更强
+
+当前正式支持矩阵中，没有单列为 `实验中` 的输入；实验性只存在于尚未公开承诺的局部增强和后续规划中。
+
+| 格式 | 当前档位 | 再审计结论 |
+| --- | --- | --- |
+| `txt` | `成熟` | 轻量 `streaming_event` 主链稳定，RAG/debug/bench 完整，但语义天然简单 |
+| `srt` / `vtt` | `成熟` | cue 时间与 source ref 语义稳定，streaming 路线长期可维护 |
+| `csv` / `tsv` | `成熟` | 表格型 streaming 主链稳定，产品边界明确，不承诺工作簿级语义 |
+| `json` | `强成熟` | `dom_ast_model` 与 `streaming_event` 双路径稳定，same-mode route 切换、provenance 与高压样本信心都较强 |
+| `jsonl` / `ndjson` | `成熟` | line-delimited record 主链清晰，RAG/debug 契约稳定 |
+| `ipynb` | `成熟` | cell/output/assets/source refs 都有 typed 支撑，block-streaming 回退明确，但不做 notebook execution |
+| `toml` | `成熟` | canonical DOM 路线与 malformed degrade 语义稳定，边界清楚 |
+| `xml` | `成熟` | DOM 与 streaming 两条 canonical 路线稳定，诊断与大文件策略明确 |
+| `yaml` | `成熟` | mapping/list/table 类输出稳定，超限切换明确，但不宣称覆盖全部方言 |
+| `markdown` | `成熟` | 读取、frontmatter、RAG/debug 与 stream fallback 已收敛，属于稳定 canonical 格式 |
+| `rst` / `asciidoc` / `tex` | `成熟` | 共享 `text_markup` canonical 主链已具备 typed semantic inventory、专门 contract tests、专门主回归样例，当前正式结论已升级为“成熟 canonical 格式” |
+| `html` | `强成熟` | content-root 选择、boilerplate suppression、block-streaming、assets 与质量回归都比较扎实 |
+| `eml` | `成熟` | message/body/attachment 主链稳定，typed attachment dispatch 与受控 HTML lowering 边界清晰 |
+| `zip` | `成熟` | 容器递归、路径安全、子文档派发与 assets 契约稳定 |
+| `epub` | `成熟` | package/spine canonical 主链稳定，显式 stream 的 `container_recursive` 边界明确 |
+| `odt` | `成熟` | package 主链、notes/comments appendix、source refs 与 Accurate 第一二批增强已形成长期可维护基础 |
+| `ods` | `成熟` | hidden sheet/row、covered-cell/span-aware table hints 与大表策略已收敛到统一主链 |
+| `odp` | `成熟` | slide-local organization、notes appendix、window hints 已稳定进入统一 planner/lowering/render 主链 |
+| `docx` | `强成熟` | package canonical、textbox/alternate content Accurate 能力、source refs 与主回归/质量回归信心都较强 |
+| `xlsx` | `强成熟` | hidden sheet/row、merged span、sparse/large route、Accurate 语义恢复都已形成强主链能力 |
+| `pptx` | `强成熟` | slide/notes、reading-order-like 语义、group/decorative summary 与诊断解释能力较强 |
+| `pdf` | `强成熟` | native-text 主路径与 `--accurate` / `--ocr` OCR 路线分工清晰，planner/provenance/回归口径都已收敛；边界是 OCR 路线仍不宣称复杂 layout intelligence |
+| 直接图片 OCR | `可用` | 产品路径正式可用，但质量强依赖外部 OCR 提供者与版面复杂度，当前承诺仍以文本恢复为主 |
+
+本轮正式更新的重点结论是：
+
+- `rst / asciidoc / tex` 不再应表述为“typed inventory 可用但仍偏薄”的格式
+- 它们现在应被正式归类为 `成熟`，且类别是“成熟 canonical 格式”
+- 这个结论建立在共享 semantic model、专门 contract suite、主回归样例和 markdown/rag/debug 三条输出面的可观察语义之上
+
 ## 4. 逐格式能力
 
 ### 4.1 TXT
@@ -281,22 +332,25 @@
 当前状态：
 
 - 正式支持
+- 当前正式档位是 `成熟 canonical 格式`
 - 默认走 `dom_ast_model`
 - 显式 `--stream` 当前只会诚实 warning 后回退到 canonical route，不切独立 streaming parser
 
 已验证能力：
 
-- heading / paragraph / list 基础语义
-- 高频表格现在正式进入 `Table IR`
-- 常见 link / inline code 进入 rich inlines
-- RST / AsciiDoc admonition 与 TeX quote environment 保守进入 block quote 边界
-- include / directive / environment boundary 已进入 typed lowering 或显式 degraded boundary
-- RAG 输出、debug diagnostics、line-range source refs
+- 共享 `text_markup` 主链已经形成稳定 canonical 语义层
+- heading / paragraph / list / code / common table / common link 进入统一 typed lowering
+- `rst` 的 field-list、definition-list、common directive、include boundary 已进入稳定 canonical inventory
+- `asciidoc` 的 admonition、quote、listing/source、attribute-like metadata、include boundary 已进入稳定 canonical inventory
+- `tex` 的 sectioning、itemize/enumerate、verbatim/listing、tabular、theorem-or-quote-like environment、include boundary 已进入稳定 canonical inventory
+- markdown / RAG / debug 三条输出都能稳定观察到 semantic attrs、boundary、source refs 与 diagnostics
+- repo 内已有专门 contract tests 与专门主回归样例覆盖 canonical semantic inventory
 
 当前不承诺：
 
 - 完整方言编辑器能力
 - 复杂 directive / include / macro / environment 执行
+- Accurate/layout-intelligence 风格的高保真恢复
 - 所有表格方言与交叉引用系统的完整语义恢复
 
 ### 4.11 HTML

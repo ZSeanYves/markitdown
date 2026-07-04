@@ -1,734 +1,759 @@
 # 格式能力档位与执行策略架构书
 
-> 建议路径：`docs/architecture/format-mode-and-execution-profile-architecture.md`
+> 路径：`docs/architecture/format-mode-and-execution-profile-architecture.md`
 >
-> 本文是 [`docs/architecture/mb-markitdown-architecture.md`](./mb-markitdown-architecture.md) 的补充设计书，不替代主架构书。
+> 本文是 [`docs/architecture/mb-markitdown-architecture.md`](./mb-markitdown-architecture.md) 的补充设计书。
 >
-> 本文不重定义 `Balanced / Accurate / Stream` 的用户语义，只补充两件事：
->
-> 1. 各格式在不同 mode 下应该覆盖到什么能力
-> 2. 同一 mode 内，面对中大文件时如何自动切换执行策略与渲染策略以提升性能
+> 主架构书定义统一主链 `input -> parser -> pipeline -> render`。
+> 本文定义 mode、route、probe、planner、profile、render path 的稳定抽象与演进约束。
+
+建议阅读顺序：
+
+1. 先读主架构书，理解统一主链和通用边界。
+2. 再读本文，理解 mode、route、planner、profile 的稳定契约。
+3. 最后读 `docs/capabilities-and-limitations.md`，理解当前正式承诺的能力范围。
 
 ---
 
-## 0. 不冲突约束
+## 0. 文档定位
 
-本文与主架构书、`docs/capabilities-and-limitations.md` 的关系必须满足以下约束：
+本文是规范性架构文档，不是实现说明、阶段总结或回归记录。
 
-1. `Balanced / Accurate / Stream` 仍然是用户可见 mode，不允许因为文件大小自动互相切换。
-2. 自动切换只发生在同一 mode 内部，切的是 execution profile，而不是 mode。
-3. `pdf` 不因为“文件大”自动升级到 OCR 或 layout-heavy 路线；`Accurate` 和显式 OCR 仍然是单独决策。
-4. 当前 capabilities 文档里尚未正式承诺的能力，在本文中只能写成“目标覆盖”或“扩展路线”，不能表述成“当前已正式支持”。
-5. 主架构书定义的统一主链 `input -> parser -> pipeline -> render` 不变，本文只细化 RoutePlanner、Lowering、Renderer 的策略选择层。
+它回答的是下面几类问题：
+
+1. 用户侧 mode 到底表达什么。
+2. route、profile、render path 应当如何被统一建模。
+3. planner 在什么边界内有权做自动切换。
+4. 各格式应如何进入统一策略表，而不是继续长出入口旁路。
+5. renderer、diagnostics、provenance 该依赖什么稳定契约。
+
+因此本文的使用原则是：
+
+1. 抽象先于实现。
+2. 契约先于阶段性便利。
+3. 实现若与本文偏移，应视为待收敛技术债，而不是反向修改本文去迁就实现。
+4. `docs/capabilities-and-limitations.md` 负责回答“当前正式支持什么”；本文负责回答“这些能力必须如何被组织和约束”。
+
+### 0.1 产品定位
+
+本文服务的产品定位是：
+
+- 一个面向多格式文档转换的、轻量成熟化的转换链
+
+这里的“轻量成熟化”有三层含义：
+
+1. 优先做高置信、可解释、可回归验证的结构恢复。
+2. 不以沉重模型、隐式执行或不可控旁路作为默认产品前提。
+3. 用统一 planner、统一 profile、统一 renderer 契约支撑长期迭代，而不是靠单格式特例堆能力。
+
+这意味着本项目既不是：
+
+1. 追求极限版面智能的重型文档 AI 平台
+2. 追求完整编辑器语义的全功能 AST 工具链
+3. 只输出字符串、缺乏 provenance 的一次性脚本
+
+### 0.2 术语约定
+
+为避免文档与实现长期漂移，本文固定使用以下术语：
+
+1. `mode`：
+   用户可见的核心策略模式。
+2. `route`：
+   parser / runtime 的主执行路线。
+3. `profile`：
+   在既定 route 上调节资源、lowering 或 render 行为的运行时策略。
+4. `planner`：
+   唯一负责冻结执行计划的决策层。
+5. `canonical`：
+   某格式在某 mode 下的默认正式路线，不等于“唯一实现”。
+6. `same-mode adaptive switch`：
+   不切 mode，只切 route/profile/render path 的自适应切换。
 
 ---
 
-## 1. 设计目标
+## 1. 不冲突约束
 
-本项目的目标不是做一个“全格式全保真编辑器”，而是做一条轻量、成熟、可扩展的转换链。
+本文与主架构书共同满足以下不变约束：
 
-这里的“轻量成熟化”具体指：
-
-1. 默认 `Balanced` 要覆盖大多数用户真正需要消费的结构语义。
-2. `Accurate` 只承接那些明显更重、明显更贵、但价值足够高的语义恢复。
-3. `Stream` 只在天然适合流式的格式上暴露为正式能力，不为了“形式统一”强行给每个格式都加 `--stream`。
-4. 中大文件优化优先通过“同 mode 内的执行策略切换”解决，而不是把用户悄悄切到另一个 mode。
-5. 性能优化必须 fail-closed、可诊断、可解释，不能靠隐藏 fallback 掩盖能力边界。
-
----
-
-## 2. 市场成熟实现给出的启发
-
-业界成熟实现对我们的启发大致一致：
-
-1. Pandoc 代表的是“markup / structured text 走 AST，再由 writer 输出”的路线，适合 Markdown、HTML、LaTeX、docx 这类文本与半结构化文档。
-2. Apache Tika 代表的是“统一检测入口 + 专用 parser + 提取优先”的路线，说明广格式支持并不等于所有格式都追求同样深度的结构恢复。
-3. Unstructured 把 PDF / image 的 `fast / hi_res / ocr_only / auto` 明确区分，说明“能力档位”和“底层策略”本来就应该是两个层次。
-4. openpyxl 为超大 XLSX 提供 read-only / optimized modes，说明电子表格类格式天生需要“同格式内的轻重执行档位”。
-
-对 mb-markitdown 来说，合理借鉴是：
-
-1. 文本/markup 格式优先 AST 或 block/event lowering。
-2. Office / container / paged document 维持专用 parser，不强行塞进一个万能 DOM。
-3. 大文件优化优先做 route / lowering / render profile 的切换。
-4. 真正 layout-heavy 的恢复只进入 `Accurate`，不污染默认 `Balanced`。
+1. 用户可见核心策略模式只有 `Balanced / Accurate / Stream`。
+2. `Rag / Debug` 是输出形态，不是核心策略模式。
+3. 自动切换只允许发生在同一策略模式内部，切换对象是 route、profile、render path，而不是 mode。
+4. `pdf` 不因文件大自动升级到 OCR 或重布局路线；进入 `layout_two_stage` 只能由 `Accurate` 或显式 OCR 语义触发。
+5. parser 不直接生成 Markdown；renderer 不自行越权修改 route、profile 或 mode。
+6. 所有正式入口都应复用统一主链：`detect -> probe -> planner -> parser -> pipeline -> renderer`。
+7. 任何格式若进入正式支持矩阵，必须进入统一策略表与统一执行计划模型。
+8. diagnostics 与 provenance 必须能解释每次 route/profile 决策，而不是只暴露最终输出。
 
 ---
 
-## 3. 当前实现里的 Mode、Route 与 Render 关系
+## 2. 设计目标
 
-这份补充架构必须先贴当前实现，而不是只写理想模型。
+本文约束下的执行策略体系，必须同时满足以下目标：
 
-### 3.1 当前代码里的 mode 不是单一轴
+1. 冻结外部契约：
+   `ConvertMode`、CLI 语义、输出形态和主要诊断面应保持稳定。
+2. 统一内部决策：
+   不能让 route、profile、accurate、render path 分散在入口、parser、finalize 三处各判一套。
+3. 允许同模式自适应：
+   在不切 mode 的前提下，允许中大文件切换 route、profile、windowing 或 flushing 策略。
+4. 支持格式扩展：
+   新格式接入应主要新增策略表、probe signals、lowering hints 和 tests，而不是复制一条新主链。
+5. 保持可解释性：
+   任何自动切换都必须能由 probe signals、route reason、profile reason 和 strategy switches 解释。
+6. 保持诚实边界：
+   不支持的 stream、accurate 或 adaptive 能力，必须 fail closed 或显式 fallback，不得伪造支持。
 
-当前实现里用户可见的 `ConvertMode` 是：
+### 2.1 读者最先应该记住的四条规则
 
-```moonbit
-pub enum ConvertMode {
-  Fast
-  Balanced
-  Accurate
-  Stream
-  Rag
-  Debug
-}
-```
+如果只记住本文四件事，应当是：
 
-但在真正执行时，核心决策不是只看 `ConvertMode`，而是看三个字段：
+1. 用户只选 `Balanced / Accurate / Stream`，不会直接选择 parser mode。
+2. planner 是唯一选路者，probe 只提供证据。
+3. 自动切换只允许发生在同 mode 内部。
+4. renderer 只能消费计划和 hints，不能反向决定策略。
 
-```moonbit
-pub struct ConvertOptions {
-  mode : ConvertMode
-  fidelity_mode : FidelityMode
-  output_mode : OutputMode
-  stream_requested : Bool
-  ...
-}
-```
+---
 
-也就是说，当前产品语义其实已经被拆成了三层：
+## 3. 稳定抽象
 
-1. `fidelity_mode`：`Balanced` 或 `Accurate`
-2. `output_mode`：`Markdown`、`Debug`、`Rag`
-3. `stream_requested`：是否显式请求流式 route
+### 3.1 User Mode
 
-### 3.2 当前 `ConvertMode` 到执行语义的映射
+`User Mode` 是用户可见的策略选择，负责表达“转换哲学”，而不是直接绑定 parser 实现。
 
-当前默认映射关系是：
+它只回答一件事：
 
-| ConvertMode | fidelity_mode | output_mode | stream_requested |
-| --- | --- | --- | --- |
-| `Fast` | `Balanced` | `Markdown` | `false` |
-| `Balanced` | `Balanced` | `Markdown` | `false` |
-| `Accurate` | `Accurate` | `Markdown` | `false` |
-| `Stream` | `Balanced` | `Markdown` | `true` |
-| `Rag` | `Balanced` | `Rag` | `false` |
-| `Debug` | `Balanced` | `Debug` | `false` |
+- 系统应该优先追求什么样的转换行为。
 
-这里有两个必须说清的事实：
+它不直接回答：
 
-1. 当前 `Stream` 不是“第三种 fidelity”，它默认仍然是 `Balanced fidelity + Markdown output + stream_requested=true`。
-2. 当前 `Rag` 和 `Debug` 也不是 parser route，它们主要改变的是输出模式与 renderer。
+- 必须使用哪一种 parser mode
+- 是否一定构建完整 `DocumentIR`
+- 是否一定走某个特定 renderer
 
-因此本文后续提到的“mode”，应优先理解成：
+### 3.2 Output View
 
-1. `Balanced fidelity`
-2. `Accurate fidelity`
-3. `显式 stream 请求`
+`Output View` 是用户可见的输出视图。
 
-而不是把 `Stream` 当成与 `Balanced`、`Accurate` 完全同型的一条独立 fidelity 轴。
+它回答的是：
 
-### 3.3 当前 route 决策的真实边界
+- 同一份内部结果如何被投影为 Markdown、RAG、Debug 或兼容 JSON
 
-当前 route 决策来自三类信号：
+它不改变：
 
-1. `stream_requested`
-2. `fidelity_mode`
-3. `preflight probe` 的 over-limit 探针
+- 核心策略模式
+- planner 对 route/profile 的选择原则
+- parser / pipeline 的职责边界
 
-现状可以概括为：
+### 3.3 ExecutionIntent
 
-1. `stream_requested=true` 时，优先尝试切到该格式的 `explicit_stream_route`。
-2. 如果格式不支持显式 stream，则保留 canonical route，并写入 `explicit_stream_unsupported_fell_back`。
-3. `fidelity_mode=Accurate` 当前只会正式改变少数格式行为，最明确的是 `pdf -> layout_two_stage OCR route`，以及 `docx/xlsx/pptx` 内部的更高保真 lowering。
-4. over-limit 自动切换只在少数已接入 preflight probe 的格式上存在，不是全格式统一能力。
+`ExecutionIntent` 是从公开输入规整得到的内部意图对象。
 
-### 3.4 当前自动切换已经落地的格式
+它的职责是：
 
-当前 `convert/preflight_probe.mbt` 已正式接入 over-limit 探针的格式有：
+1. 把 mode、output view、stream 请求位、OCR 需求、资源限制等外部输入做无副作用归一化。
+2. 消除不同入口对同一含义的重复表达。
+3. 为 planner 提供统一输入面。
 
-1. `markdown`
-2. `json`
-3. `ipynb`
-4. `yaml`
-5. `toml`
-6. `xml`
-7. `html`
-8. `xlsx`
-9. `pdf`
+`ExecutionIntent` 不做 route 决策，也不直接承载格式私有执行细节。
 
-其中真正会因为 over-limit 自动改 route 的是：
+### 3.4 ProbeOutcome
 
-| 格式 | canonical | over-limit 自动切换 |
-| --- | --- | --- |
-| `markdown` | `dom_ast_model` | `block_streaming` |
-| `json` | `dom_ast_model` | `streaming_event` |
-| `ipynb` | `dom_ast_model` | `block_streaming` |
-| `yaml` | `dom_ast_model` | `streaming_event` |
-| `xml` | `dom_ast_model` | `streaming_event` |
-| `html` | `dom_ast_model` | `block_streaming` |
-| `xlsx` | `package_single_pass` | `block_streaming` |
+`ProbeOutcome` 是探针层产物，职责是提供结构化证据，而不是提前做决策。
 
-当前接了 preflight 但不会因为 over-limit 改 route 的有：
+它必须能够承载至少四类信息：
+
+1. `probe_signals`：
+   例如 `char_count`、`row_count`、`sheet_count`、`page_count`、`token_count`。
+2. `prepared_source`：
+   供后续 parser 复用的预处理输入。
+3. `probe_artifacts`：
+   可复用的 cheap artifact，如 token inventory、轻量 notebook model、JSON stream document。
+4. `probe_failures` 与摘要：
+   表达探针过程中发生的受控失败与退路说明。
+
+Probe 的边界是严格的：
+
+1. probe 可以判断“有什么信号”。
+2. probe 不可以冻结 `selected_route`。
+3. probe 不可以自行决定 `route_reason`。
+4. probe 不可以在入口层偷偷实现第二套 planner。
+
+### 3.5 ResolvedExecutionPlan
+
+`ResolvedExecutionPlan` 是唯一执行真相源。
+
+一旦 planner 冻结该计划，后续 parser、pipeline、renderer、finalize、provenance 都只消费这份计划，而不再重复做高层策略判断。
+
+一份完整计划至少应包含：
+
+1. 检测结果：
+   `detected_format`
+2. 用户策略：
+   `strategy_mode`、`output_view`、`stream_requested`
+3. 执行决策：
+   `selected_route`、`requested_parser_mode`、`render_path_kind`
+4. profile 决策：
+   `execution_profile`、`lowering_profile`、`render_profile`
+5. fidelity / accurate 决策：
+   `accurate_feature_profile` 或等价 typed feature set
+6. 解释面：
+   `route_reason`、`execution_profile_reason`、`same_mode_strategy_switches`
+7. 证据面：
+   `probe_signals`、`probe_failures`、`probe_artifacts`、`prepared_source`
+
+### 3.6 FormatStrategyPolicy
+
+`FormatStrategyPolicy` 是按格式组织的单一策略表。
+
+它必须覆盖所有正式支持格式，并按核心策略模式显式建模：
+
+1. `Balanced policy`
+2. `Accurate policy`
+3. `Stream policy`
+
+每个策略项至少需要表达以下信息：
+
+1. canonical route
+2. explicit stream support 与 explicit stream route
+3. soft-limit / hard-limit 阈值
+4. route-level accurate upgrades
+5. execution / lowering / render profile
+6. profile 切换时允许的 same-mode strategy switches
+
+统一策略表的意义不是“所有格式立刻拥有同样多的能力”，而是：
+
+- 所有格式都进入同一套决策语言
+- 所有差异都经由同一 planner 和同一 provenance 解释
+
+---
+
+## 4. 用户模式契约
+
+### 4.1 Balanced
+
+`Balanced` 是默认策略模式。
+
+它的契约是：
+
+1. 优先选择成熟、稳定、成本可控的 canonical 路线。
+2. 允许高置信的语义恢复。
+3. 不以隐式重型推断、隐式 OCR、隐式深布局分析换取“看起来更聪明”的输出。
+4. 允许在同 mode 内根据 probe signals 切换到更适合的大文件 route/profile。
+
+`Balanced` 不是“最低能力模式”，而是：
+
+- 面向长期默认产品行为的主模式。
+
+### 4.2 Accurate
+
+`Accurate` 是质量优先模式。
+
+它的契约是：
+
+1. 可以触发 route-level upgrade，例如 OCR / layout 路线。
+2. 也可以在不换 route 的前提下，启用更高保真的语义恢复。
+3. 只允许启用“有底层结构信号支撑、可解释、可回归验证”的增强。
+4. 不允许把猜测式布局、猜测式宏执行、不可验证的补全写成架构承诺。
+
+`Accurate` 的能力应优先通过 typed hooks / semantic feature profile 表达，而不是散落的裸 `fidelity_mode == Accurate` 判断。
+
+### 4.3 Stream
+
+`Stream` 是显式低峰值策略模式。
+
+它的契约是：
+
+1. 优先选择流式友好的 route、lowering、render path 和 flushing 策略。
+2. 若格式声明了显式 stream route，则应优先使用该 route。
+3. 若格式没有独立 stream route，则应优先使用同 mode 下最流式友好的 profile。
+4. 若格式不支持真正的 stream 能力，系统必须显式说明 fallback，而不是假装已经进入流式实现。
+
+`Stream` 不意味着：
+
+1. 所有格式都必须拥有独立 streaming parser。
+2. 所有 route 都必须放弃 `DocumentIR`。
+3. renderer 可以绕过 planner 自行决定批量输出。
+
+### 4.4 模式共同边界
+
+以下约束适用于全部模式：
+
+1. mode 决定策略，不直接决定 parser mode。
+2. mode 决定质量/峰值取向，不直接决定输出视图。
+3. 自动切换只能发生在 mode 内部。
+4. mode 切换必须由用户显式请求，而不是 probe 或 parser 自主升级。
+
+---
+
+## 5. 输出形态契约
+
+输出形态是与 mode 正交的第二维度。
+
+公开输出形态包括：
+
+1. `Markdown`
+2. `RagJson`
+3. `DebugJson`
+
+其约束为：
+
+1. `Markdown` 是标准人类可读输出。
+2. `RagJson` 是面向 chunk、source ref、diagnostics 的结构化投影。
+3. `DebugJson` 是面向内部观察与契约验证的结构化投影。
+
+因此：
+
+1. `--rag`、`--debug` 切的是输出视图，不是 mode。
+2. 同一输入在 `Balanced / Accurate / Stream` 下，即使都输出 `RagJson` 或 `DebugJson`，也允许得到不同结果。
+
+---
+
+## 6. Route 与 Planner 契约
+
+### 6.1 Route 族
+
+统一 route 词汇表应维持稳定，至少包括：
+
+1. `StreamingEvent`
+2. `BlockStreaming`
+3. `PackageSinglePass`
+4. `PageSinglePass`
+5. `DomAstModel`
+6. `LayoutTwoStage`
+7. `ContainerRecursive`
+
+Route 是 planner、parser、render path 的共享语言。
+
+新增 route 必须满足：
+
+1. 能清楚定义输入粒度和资源画像。
+2. 能映射到明确的 parser/runtime 边界。
+3. 能被 diagnostics / provenance 解释。
+
+### 6.2 Planner 决策顺序
+
+planner 的规范顺序应固定为：
+
+1. detect format
+2. normalize intent
+3. run probe
+4. load `FormatStrategyPolicy`
+5. resolve route-level fidelity / accurate upgrades
+6. resolve explicit stream
+7. evaluate hard thresholds
+8. evaluate soft thresholds
+9. freeze `ResolvedExecutionPlan`
+
+这个顺序的意义是：
+
+1. planner 是唯一决策者。
+2. probe 只提供证据。
+3. route、profile、render path 必须一起冻结，避免双轨生效。
+
+### 6.3 入口统一约束
+
+sync convert、async convert、plan_input、image OCR、pdf OCR 等入口必须共享同一 planner 语义。
+
+允许不同入口有不同 runtime backend，但不允许：
+
+1. 入口手工拼接第二套 route plan
+2. finalize 侧重新猜 route
+3. 某个格式只在某个入口下走特殊旁路
+
+---
+
+## 7. Profile 体系
+
+### 7.1 ExecutionProfile
+
+`ExecutionProfile` 表达的是同 route 内或同 mode 内的资源/规模执行画像。
+
+它应至少包含：
+
+1. `Standard`
+2. `MediumAdaptive`
+3. `LargeAdaptive`
+
+其契约是：
+
+1. `Standard`：
+   采用默认 canonical 成本模型。
+2. `MediumAdaptive`：
+   命中 soft-limit 后生效；优先调节 buffering、windowing、flush granularity、sparse strategy，而不是优先换 mode。
+3. `LargeAdaptive`：
+   命中 hard-limit 后生效；允许切换到更适合的大文件 route，或者在原 route 内启用大文件 lowering/render 策略。
+
+soft/hard 阈值必须按格式显式声明，而不是依赖全局固定比例。
+
+### 7.2 LoweringProfile
+
+`LoweringProfile` 决定 parser / lowering / pass pipeline 如何把源结构收口为可渲染 IR。
+
+它应至少包括：
+
+1. `Canonical`
+2. `AccurateSemantic`
+3. `StreamCanonical`
+4. `LargeAdaptive`
+
+其职责分工为：
+
+1. `Canonical`：
+   默认 canonical 语义恢复。
+2. `AccurateSemantic`：
+   高保真语义恢复，但前提是底层信号可解释。
+3. `StreamCanonical`：
+   偏向低峰值、边界稳定、批量 flush 友好的 lowering。
+4. `LargeAdaptive`：
+   面向大文件的窗口化、稀疏化、渐进化语义收口。
+
+`LoweringProfile` 是结构性分发开关；
+`accurate_feature_profile` 则是语义能力开关。
+两者不应相互替代。
+
+### 7.3 RenderProfile
+
+`RenderProfile` 决定 renderer 如何组织顺序、分段、附录、窗口和批量输出。
+
+公开变体应包括：
+
+1. `DefaultMarkdown`
+2. `SectionFlushMarkdown`
+3. `SparseTableMarkdown`
+4. `NotesAppendixFirst`
+5. `AssetManifestFirst`
+6. `PageWindowMarkdown`
+7. `RecordBatchMarkdown`
+
+其职责边界如下：
+
+1. `DefaultMarkdown`：
+   默认顺序与默认分段。
+2. `SectionFlushMarkdown`：
+   按 section / slide / sheet / chapter 边界组织输出。
+3. `SparseTableMarkdown`：
+   优先保留稀疏表语义，而不是强制稠密化。
+4. `NotesAppendixFirst`：
+   将 notes / comments / appendix 类块统一组织到附录区。
+5. `AssetManifestFirst`：
+   先输出资产清单，再输出正文内容。
+6. `PageWindowMarkdown`：
+   以 page / slide / window 为主要聚合边界。
+7. `RecordBatchMarkdown`：
+   按 record batch / event batch flush，避免一次性 materialize 超大流。
+
+所有 renderer 必须共享同一 `RenderProfile` 语义：
+
+1. Markdown renderer 体现文本顺序与组织差异。
+2. RAG renderer 体现 chunk 边界与窗口差异。
+3. Debug renderer 体现 profile、生效 hints 与重排结果。
+
+---
+
+## 8. Stream 支持策略
+
+stream 能力应按格式类型分层设计，而不是一刀切。
+
+### 8.1 天然 streaming canonical
+
+以下格式族天然适合以 streaming 作为 canonical 路线：
+
+1. 线性文本：
+   `txt`
+2. 线性表格：
+   `csv`、`tsv`
+3. 线性记录：
+   `jsonl`、`ndjson`
+4. 线性字幕：
+   `srt`、`vtt`
+
+对这类格式，`Balanced` 与 `Stream` 可能共享同一路线，但仍是两种不同的策略语义。
+
+### 8.2 显式 stream 路线
+
+以下格式族适合采用 “canonical document route + explicit stream route”：
+
+1. 结构化文本：
+   `json`、`xml`、`yaml`
+2. 标记文本：
+   `markdown`、`html`
+3. notebook / sheet / package 的可分块格式：
+   `ipynb`、`xlsx`、`odt`、`ods`、`odp`
+4. package / chapter / container 可顺序派发格式：
+   `epub`
+
+对这类格式，stream 语义应由 planner 明确触发，不允许 parser 自行切换。
+
+### 8.3 canonical only
+
+以下格式族可以保持 canonical only，而不为“看起来完整”强行承诺 stream：
 
 1. `toml`
-2. `pdf`
+2. `rst`
+3. `asciidoc`
+4. `tex`
+5. `docx`
+6. `pptx`
 
-其中：
+若用户显式请求 stream，而该格式无可靠 stream 实现，则系统必须：
 
-1. `toml` 当前 probe 主要用于记录与暴露预算，不做大文件 route 切换。
-2. `pdf` 当前 route 仍由 `fidelity_mode` 与显式 OCR 决定，不由“文件大”决定。
+1. 诚实给出 unsupported / fell-back 解释
+2. 保留 canonical route
+3. 不得伪造“已经进入真正流式路径”的诊断
 
-### 3.5 Stream 当前不只是 route，也会进入流式 render path
+### 8.4 paged / OCR 格式
 
-当前实现里，`RenderInput` 有三种：
+以下格式不应被建模为 stream 优先：
 
-```moonbit
-RenderInput::Document
-RenderInput::BlockStream
-RenderInput::EventStream
-```
+1. `pdf`
+2. 直接图片 OCR
 
-当 parser / pipeline 最终产物是 `BlockStream` 或 `EventStream` 时：
+它们的主要维度是：
 
-1. `finalize_pipeline_convert_execution` 不会强行 materialize 成 `Document`
-2. renderer 会走 `render_input(...)`
-3. diagnostics 会记录 `stream_render_path=true`
-4. provenance 会记录 `render_input_kind=block_stream` 或 `event_stream`
+- page/layout/OCR
 
-这意味着当前的“流式”至少有三层含义：
+而不是：
 
-1. 显式请求流式 route
-2. parser / pipeline 保持 `BlockStream` 或 `EventStream`
-3. renderer 直接消费 stream-like input，而不是先转完整 document
-
-因此本文后面谈 `Stream` 时，必须同时区分：
-
-1. `stream_requested`
-2. `selected_route`
-3. `render_input_kind`
+- event / record streaming
 
 ---
 
-## 4. 现状约束下的 Mode 契约
+## 9. same-mode 自适应策略
 
-### 4.1 Balanced fidelity
+自动切换的核心原则是：
 
-当前 `Balanced` 的真实语义是：
+1. 用户 mode 固定。
+2. route/profile 可以在 mode 内部切换。
+3. 所有切换都必须由 probe signals 与策略表解释。
 
-1. `fidelity_mode=Balanced`
-2. 默认 `output_mode=Markdown`
-3. 默认 `stream_requested=false`
+### 9.1 soft-limit
 
-它代表的是主产品默认路径，而不是“绝不允许 block/event route”。
+命中 soft-limit 时，应优先：
 
-因为当前实现里：
+1. 切换 `ExecutionProfile`
+2. 切换 `LoweringProfile`
+3. 切换 `RenderProfile`
+4. 调整 windowing / buffering / sparse strategy
 
-1. `Balanced` 也会在 over-limit 时自动切到 `block_streaming` 或 `streaming_event`
-2. `Balanced` 也可以通过 `stream_requested=true` 显式请求流式 route
+soft-limit 不应优先触发 mode 切换，也不应无解释地直接跳到重型路线。
 
-所以 `Balanced` 更准确的定义应该是：
+### 9.2 hard-limit
 
-1. 默认不开 OCR-heavy / layout-heavy / high-cost semantic recovery
-2. 允许同 fidelity 内的 route 自适应与流式 render path
+命中 hard-limit 时，planner 可以：
 
-### 4.2 Accurate fidelity
+1. 切换到策略表声明的 `hard_limit_route`
+2. 保持原 route，但进入 `LargeAdaptive`
 
-当前 `Accurate` 的真实语义是：
+具体采用哪种方式，由格式策略声明，而不是入口处硬编码。
 
-1. `fidelity_mode=Accurate`
-2. 默认 `output_mode=Markdown`
-3. 默认 `stream_requested=false`
+### 9.3 禁止切换
 
-当前正式生效最明确的地方有：
+以下切换在架构上禁止：
 
-1. `pdf` 会切到 `layout_two_stage` OCR 路线
-2. `docx` 会开启更高保真 textbox / alternate content 相关恢复
-3. `xlsx` 会开启 hidden rows / hidden sheets / merged span 等更高保真恢复
-4. `pptx` 会开启 reading order、grouped shapes、merged span table 等更高保真恢复
-
-因此本文里凡是“Accurate 应覆盖”的条目，都要区分：
-
-1. 当前已在实现里生效
-2. 当前只是建议的目标覆盖
-
-### 4.3 Stream mode
-
-当前 `ConvertMode::Stream` 的真实语义不是“独立 fidelity”，而是：
-
-1. `fidelity_mode=Balanced`
-2. `output_mode=Markdown`
-3. `stream_requested=true`
-
-因此，当前 `Stream mode` 更准确的定义是：
-
-1. 显式请求优先走 `explicit_stream_route`
-2. 若 route 产出 `BlockStream` / `EventStream`，则 renderer 走流式 render path
-3. 若格式不支持显式 stream，则诚实回退到 canonical route，并保留 `stream_requested` 的诊断痕迹
-
-这也是为什么本文不应把 `Stream` 写成“任何格式都能变流式”的承诺。
+1. 因文件大把 `Balanced pdf` 自动切到 OCR
+2. 因文件大把 `Stream` 自动升级为 `Accurate`
+3. 在 finalize 阶段重新决定 route
+4. 通过 renderer 反向推断 planner 应该如何选路
 
 ---
 
-## 5. Stream 的正式语义与当前边界
+## 10. 格式策略目录
 
-### 5.1 Stream 不是自动切 mode
+本节给出按格式族组织的规范性策略目录。
+它描述的是“应如何被设计”，而不是“代码今天恰好长什么样”。
 
-当前和未来都应坚持：
-
-1. `Stream` 不因为文件大小自动触发。
-2. `Stream` 是用户显式请求的语义。
-3. over-limit 自动切换与 `Stream mode` 不是一回事。
-
-### 5.2 Stream 的三种结果
-
-当前代码里，显式 `Stream` 请求可能出现三种结果：
-
-1. 显式 stream route 成功：
-   - 例如 `html -> block_streaming`
-   - `xlsx -> block_streaming`
-   - `epub -> container_recursive`
-2. 格式天生就是 streaming/block-like canonical：
-   - 例如 `txt/csv/srt/vtt/jsonl/ndjson/eml/zip`
-   - 这时 `Stream` 不是换路，而是显式确认本来就适合流式
-3. 显式 stream 不支持，诚实 fallback：
-   - 例如当前 `toml`
-   - route reason 应为 `explicit_stream_unsupported_fell_back`
-
-### 5.3 Stream 与流式 render path 的关系
-
-当前实现里，不是只有 `ConvertMode::Stream` 才会走流式 render path。
-
-只要最终 `render_input_kind` 是：
-
-1. `block_stream`
-2. `event_stream`
-
-renderer 就会直接消费该输入，并写入：
-
-1. `stream_render_path=true`
-2. `render_input_kind=block_stream/event_stream`
-
-这意味着：
-
-1. `Balanced + over-limit route switch` 也可能进入流式 render path
-2. `Stream mode` 只是更积极地请求这种路径
-
-### 5.4 当前建议正式支持 `Stream` 的格式
-
-结合现有实现，当前适合把 `Stream` 视为正式产品能力的格式是：
-
-| 格式 | 当前实现状态 | 说明 |
-| --- | --- | --- |
-| `txt` | 已稳定 | canonical 就是 `streaming_event` |
-| `csv` / `tsv` | 已稳定 | canonical 就是 `streaming_event` |
-| `srt` / `vtt` | 已稳定 | canonical 就是 `streaming_event` |
-| `jsonl` / `ndjson` | 已稳定 | canonical 就是 `streaming_event` |
-| `json` | 已稳定 | explicit stream / over-limit 都走 `streaming_event` |
-| `xml` | 已稳定 | explicit stream / over-limit 都走 `streaming_event` |
-| `yaml` | 已稳定 | explicit stream / over-limit 都走 `streaming_event` |
-| `html` | 已稳定 | explicit stream / over-limit 都走 `block_streaming` |
-| `markdown` | 已稳定 | explicit stream / over-limit 都走 `block_streaming` |
-| `ipynb` | 已稳定 | explicit stream / over-limit 都走 `block_streaming` |
-| `eml` | 已稳定 | canonical 就是 `block_streaming` |
-| `zip` | 已稳定 | canonical 就是 `container_recursive` |
-| `epub` | 已稳定 | explicit stream 走 `container_recursive` |
-| `odt` / `ods` / `odp` | 已稳定 | explicit stream 走 `block_streaming` |
-| `xlsx` | 已稳定 | explicit stream / over-limit 都走 `block_streaming` |
-
-### 5.5 当前不应承诺显式 Stream 的格式
-
-结合现有实现与产品语义，当前不应把显式 `Stream` 写成正式承诺能力的格式是：
-
-| 格式 | 当前状态 | 原因 |
-| --- | --- | --- |
-| `toml` | 已显式 fallback | 代码已明确不支持 explicit stream |
-| `rst` / `asciidoc` / `tex` | canonical only | 当前没有 explicit stream route |
-| `docx` | canonical only | 当前没有 explicit stream route |
-| `pptx` | canonical only | 当前没有 explicit stream route |
-| `pdf` | canonical/accurate only | `Stream` 容易与 OCR/layout 语义混淆 |
-| `image OCR` | layout route only | 流式价值和产品语义都不稳定 |
+| 格式族 | Balanced 契约 | Accurate 契约 | Stream 契约 | 自适应说明 |
+| --- | --- | --- | --- | --- |
+| `txt/csv/tsv/srt/vtt/jsonl/ndjson` | 以天然 streaming canonical 为主 | 仅允许高置信同 route 增强，不引入重型第二路线 | 与 canonical 共享 route，但使用更强 flush / batch 语义 | 主要体现为 batching、windowing、render batching |
+| `json/xml/yaml` | 默认保留 canonical 结构恢复 | 允许同 route 的高保真语义恢复 | 支持显式 stream 或超限切到 `streaming_event` | 中大文件可走 same-mode route switch |
+| `markdown` | 默认 `dom_ast_model` canonical | Accurate 属于同 route 语义增强，不引入独立 route | 支持显式 stream 或超限切 `block_streaming` | 自适应重点是 section/block flush |
+| `rst/asciidoc/tex` | 默认 `dom_ast_model` canonical，强调 typed semantic inventory | Accurate 只允许高置信 same-route semantic restoration | 默认不承诺独立 stream route | 不以 macro/directive execution 换取“高保真” |
+| `toml` | 默认 `dom_ast_model` canonical | 允许 typed scalar / source / diagnostics 增强 | 默认不承诺 stream | 优先保持结构化配置文本语义 |
+| `html` | 默认 canonical 内容抽取与结构恢复 | 可增强高置信内容根选择与结构语义 | 支持显式 stream 或超限 `block_streaming` | 自适应重点是 subtree/section 粒度 |
+| `ipynb` | 默认 notebook-aware canonical | 可增强 outputs/source refs/attachments 等高置信语义 | 支持显式 stream 或超限 `block_streaming` | 自适应重点是 cell/output-group 粒度 |
+| `eml` | 以 MIME-aware `block_streaming` 为主 | 允许更强 body/attachment 语义恢复 | `Stream` 与 canonical 共享 route，但使用流式友好 render/profile | 不承诺无限递归展开 |
+| `zip` | 以 `container_recursive` 为主 | Accurate 不应发明二进制解释语义 | `Stream` 共享容器递归语义 | 自适应重点是容器条目粒度 |
+| `epub` | 默认 `package_single_pass` | 可增强章节/notes/资源关系恢复 | 支持显式 stream 到 `container_recursive` | 自适应重点是 chapter/window 粒度 |
+| `odt/ods/odp` | 默认 `package_single_pass` | 允许 notes/span/visibility/window 等高置信恢复 | 可声明显式 `block_streaming` 路线 | 自适应重点是块、行、slide 粒度 |
+| `docx/xlsx/pptx` | 默认 `package_single_pass` | 允许 textbox/hidden/merged/notes/order 等高置信恢复 | 仅对明确声明的格式开放 stream 路线 | 自适应重点是 sheet/row/table-region/page-window |
+| `pdf` | 默认 `page_single_pass` | 允许 route-level OCR/layout upgrade 和高置信页级恢复 | 不承诺显式 stream route | 禁止按文件大小自动升级 OCR |
+| 直接图片 OCR | 以 `layout_two_stage` 为主 | Accurate 仍应以 typed OCR/layout features 表达 | 不承诺 stream | 主要维度是 OCR/layout，不是 streaming |
 
 ---
 
-## 6. 中大文件自适应策略总则
+## 11. Normalize Hints 与 Renderer 边界
 
-### 6.1 总原则
+为了让 renderer 可长期维护，格式特有语义必须优先收口为规范化 hints，而不是长期暴露格式私有字段。
 
-中大文件自适应只允许做下面三种事：
+规范化 hints 至少包括：
 
-1. 切同 mode 内的大文件 route。
-2. 切同 mode 内的 lowering profile。
-3. 切同 mode 内的 render profile。
+1. `render_boundary`
+2. `render_boundary_key`
+3. `render_appendix_group`
+4. `render_table_mode`
+5. `render_window_group`
 
-不允许做的事：
+边界如下：
 
-1. 因为文件大而自动从 `Balanced` 切到 `Accurate`。
-2. 因为文件大而自动打开 OCR。
-3. 因为文件大而自动把 `Stream` 冒充成 `Balanced` 或 `Accurate`。
-
-### 6.2 当前已存在的自动切换
-
-当前仓库里已经正式存在的 over-limit 自动切换只有以下几组：
-
-1. `markdown : dom_ast_model -> block_streaming`
-2. `json : dom_ast_model -> streaming_event`
-3. `ipynb : dom_ast_model -> block_streaming`
-4. `yaml : dom_ast_model -> streaming_event`
-5. `xml : dom_ast_model -> streaming_event`
-6. `html : dom_ast_model -> block_streaming`
-7. `xlsx : package_single_pass -> block_streaming`
-
-当前没有 over-limit 自动切换、只保留 canonical route 的包括：
-
-1. `toml`
-2. `pdf`
-3. `docx`
-4. `pptx`
-5. `rst`
-6. `asciidoc`
-7. `tex`
-8. `eml`
-9. `zip`
-10. `epub`
-11. `odt`
-12. `ods`
-13. `odp`
-
-因此本文后续提到的“中大文件自适应”要分成两类：
-
-1. 当前已经实现的 route-level auto switch
-2. 未来建议新增的 same-mode render/lowering profile
-
-### 6.3 两级阈值是建议，不是当前全量现实
-
-`soft_limit / hard_limit` 目前更适合作为下一步统一化设计，而不是描述为当前全仓库已落地事实。
-
-当前现实是：
-
-1. 现有 preflight 主要偏向“是否 over-limit 从而切 route”
-2. 还没有统一的 `MediumAdaptive` / `LargeAdaptive` 公共结构
-3. 大部分格式还没有独立的 `soft_limit render profile`
-
-因此本文建议保留两级阈值设计，但必须视为“推荐演进方向”。
-
-建议定义：
-
-1. `soft_limit`：优先切 render / lowering profile，不切 mode
-2. `hard_limit`：必要时切到该格式已定义的大文件 route
-
-### 6.4 推荐的两级阈值用途
-
-`soft_limit` 适合未来切渲染策略：
-
-1. Markdown table 改成 sparse table markdown。
-2. notes / comments 从 inline 改成 appendix。
-3. assets 从 eager materialize 改成 manifest-first。
-4. section / slide / chapter 改成更快的 flush 策略。
-
-`hard_limit` 适合未来切 route 或 lowering：
-
-1. `dom_ast_model -> streaming_event`
-2. `dom_ast_model -> block_streaming`
-3. `package_single_pass -> block_streaming`
-4. `package_single_pass -> container_recursive`
-
-### 6.5 预探针信号
-
-建议统一预探针信号：
-
-| 信号 | 典型格式 |
-| --- | --- |
-| `char_count` | txt, markdown, html, yaml, toml |
-| `block_count` | markdown, html, ipynb, odt, docx |
-| `node_count` / `token_count` | json, xml, yaml, html |
-| `row_count` / `col_count` / `estimated_cells` | csv, tsv, xlsx, ods |
-| `page_count` | pdf, tiff |
-| `slide_count` | pptx, odp |
-| `sheet_count` | xlsx, ods |
-| `entry_count` / `decoded_size` | zip, epub |
-| `asset_count` / `attachment_count` | eml, epub, html, office |
-
-### 6.6 决策顺序
-
-建议顺序：
-
-1. 先根据 `fidelity_mode / output_mode / stream_requested` 确认能力上界。
-2. 再根据 format 查当前 `FormatRouteProfile`。
-3. 再跑已有的 cheap probe。
-4. 先应用当前已经存在的 explicit-stream / over-limit route 规则。
-5. 后续若引入 `FormatStrategyPolicy`，再叠加 `soft_limit` render/lowering profile。
-6. parser / lowering / renderer 只消费决策，不自行越权切 mode。
+1. parser / lowering / pass pipeline 负责生成 hints。
+2. renderer 只消费 plan、profile 和 hints。
+3. renderer 不直接依赖 `docx`、`odt`、`tex` 等格式私有字段作为长期契约。
+4. debug 输出必须能观察到这些 hints，便于后续扩展与契约测试。
 
 ---
 
-## 7. 每个格式族的目标覆盖
+## 12. diagnostics 与 provenance 契约
 
-以下各表描述的是“轻量成熟化转换链”的目标覆盖。
+diagnostics / provenance 的职责不是“锦上添花”，而是：
 
-阅读方式如下：
+- 解释 planner 与 renderer 决策。
 
-1. `Balanced 应覆盖` 与 `Accurate 应覆盖` 是产品目标边界。
-2. `中大文件自动策略` 里会明确区分“当前已实现”与“建议演进”。
-3. 如果某项与 `docs/capabilities-and-limitations.md` 尚未对齐到正式承诺，应视为规划，不应写进对外能力宣称。
+稳定公开的解释面应至少包括：
 
-### 7.1 Plain text / Delimited / Subtitle
+1. `selected_route`
+2. `route_reason`
+3. `requested_mode`
+4. `effective_mode`
+5. `execution_profile`
+6. `execution_profile_reason`
+7. `lowering_profile`
+8. `render_profile`
+9. `render_input_kind`
+10. `route_fidelity_status`
+11. `same_mode_strategy_switches`
+12. `probe_signals`
+13. `probe_failures`
 
-| 格式 | Balanced 应覆盖 | Accurate 应覆盖 | 中大文件自动策略 |
-| --- | --- | --- | --- |
-| `txt` | 段落切分、空行边界、基础 source refs、长行受控截断 | 预格式化段落识别、缩进代码块保留、行号更细粒度保留；不需要独立重 route | 当前 canonical 已是 `streaming_event`，renderer 可直接走 stream render path；未来可补 line truncation / chunk flush profile |
-| `csv` / `tsv` | header 推断、稳定 markdown table、列裁剪诊断、RAG 友好行块 | 更稳的 multiline cell / quoting 边界、source refs 到行列；通常不需要更重 parser | 当前 canonical 已是 `streaming_event`；未来建议补 `soft_limit -> sparse table renderer`，而不是切 mode |
-| `srt` / `vtt` | cue 顺序、时间范围、multiline caption、NOTE/STYLE/REGION 受控 degrade | speaker / inline style boundary 更细 source refs；不需要独立 route | 当前 canonical 已是 `streaming_event`，无额外 over-limit route；未来只需 chunk flush |
+兼容字段可以存在，但不应取代主解释面。
+例如：
 
-设计结论：
-
-1. 这组格式的 `Accurate` 多数是“更细来源保真”，不是“更重结构推理”。
-2. 这组格式的性能优化主要靠局部截断、区域 flush、稀疏渲染，不需要复杂 route 切换。
-
-### 7.2 Structured text
-
-| 格式 | Balanced 应覆盖 | Accurate 应覆盖 | 中大文件自动策略 |
-| --- | --- | --- | --- |
-| `json` | key/value 结构、数组/对象层次、基础 path-like source refs、人类可读 markdown | 更稳的 raw boundary 保留、大对象折叠策略、schema hint appendix；不做 editor 级 round-trip | 当前已实现 `hard_limit -> streaming_event`；未来建议补 `soft_limit` summary/appendix renderer |
-| `jsonl` / `ndjson` | 一行一记录、稳定 record 输出、RAG 友好 | shared schema 摘要、字段稀疏统计；通常不需要重 route | 当前 canonical 已是 `streaming_event`；未来只需 record batch / flush profile |
-| `xml` | 元素/属性/文本边界、常见结构树、基础 xpath-like refs | 命名空间、mixed-content 边界更稳、raw fragment appendix；不做完整 schema engine | 当前已实现 `hard_limit -> streaming_event`；未来建议补轻量 summary renderer |
-| `yaml` | mapping/list/标量结构、常见表格化输出、基础 path refs | anchors/aliases 的显式降级说明、frontmatter-like 保真；不承诺方言全覆盖 | 当前已实现 `hard_limit -> streaming_event`；未来建议补 summary renderer |
-| `toml` | key/value、table、array-of-tables、dotted key | multiline string 边界更稳、raw toml fallback 更清晰；通常 Accurate 与 Balanced 差距很小 | 当前没有 over-limit route，explicit stream 也会诚实 fallback；后续如需优化，应优先补轻量 renderer 而不是公开 stream |
-| `ipynb` | cell 顺序、markdown/code/raw、typed outputs、attachments、图片 assets | cell metadata appendix、隐藏输出/错误输出更细恢复、多 MIME 更稳择优 | 当前已实现 `hard_limit -> block_streaming(cell/output-group)`；未来建议补 `soft_limit` output-cap / attachment-cap renderer |
-
-设计结论：
-
-1. `json/xml/yaml` 的 Accurate 重点是“保真与边界更稳”，不是模型推理。
-2. `ipynb` 是最值得做中大文件自适应的 structured text，因为 output 和 attachment 很容易放大体积。
-3. `toml` 不值得为了形式统一硬做 `Stream`。
-
-### 7.3 Markdown / Web / Markup
-
-| 格式 | Balanced 应覆盖 | Accurate 应覆盖 | 中大文件自动策略 |
-| --- | --- | --- | --- |
-| `markdown` | 标题、列表、代码块、表格、引用、链接、图片、frontmatter、raw HTML boundary | footnote、reference link、task list、tight/loose list、definition-like block、source line refs；仍应同 route 增强 | 当前已实现 `hard_limit -> block_streaming(markdown-block)`；未来建议补 `soft_limit -> section flush renderer` |
-| `html` | content root 选择、boilerplate suppression、标题/段落/列表/表格/图片/链接 | figure/caption 绑定、details/summary、表格结构保真、DOM path refs、受控 raw appendix | 当前已实现 `hard_limit -> block_streaming(html-token-structure)`；未来建议补 `soft_limit -> subtree flush` |
-| `rst` | heading、paragraph、list、common table、code、link、directive boundary | footnote、definition list、admonition-like block、raw directive appendix；不执行 include | 当前 canonical only；如需优化，建议先做 canonical route 内 section flush，不急着公开 stream |
-| `asciidoc` | 标题、段落、列表、代码块、常见表格、image/link、macro boundary | callout、admonition、xref boundary 更稳；不执行 include/macro | 当前 canonical only；建议先深化 typed lowering |
-| `tex` | section、paragraph、list、common table、code-ish verbatim、label/ref boundary | 常见 equation / theorem / environment 边界 appendix、引用标签更稳；不做完整 TeX engine | 当前 canonical only；建议先深化 typed lowering |
-
-设计结论：
-
-1. 这组格式最接近 Pandoc 风格能力边界，核心是 typed lowering，不是视觉还原。
-2. `markdown` 与 `html` 最值得做“同 mode 内的大文件 profile 切换”。
-3. `rst/asciidoc/tex` 更适合先把 canonical route 做深，再决定是否需要大文件 profile。
-
-### 7.4 Mail / Container
-
-| 格式 | Balanced 应覆盖 | Accurate 应覆盖 | 中大文件自动策略 |
-| --- | --- | --- | --- |
-| `eml` | header summary、body selection、nested message boundary、attachment manifest、inline image asset | CID 绑定、quoted reply boundary、calendar / invite 附件显式分类、nested message appendix | 当前 canonical 已是 `block_streaming`；未来建议补 attachment-manifest-first 和 body windowing profile |
-| `zip` | 安全遍历、子文档派发、路径保真、受控 assets | nested container provenance、重复路径冲突诊断、二进制 entry manifest | 当前 canonical 已是 `container_recursive`；未来建议补 manifest-first，限制 inline child materialization |
-| `epub` | spine 顺序、章节文本、导航提示、图片 assets | footnote/backlink、figure/caption、章节级 source refs、TOC appendix | 当前 explicit stream 已走 `container_recursive`，默认仍是 `package_single_pass`；未来建议补 `soft_limit` chapter summary / asset-manifest |
-
-设计结论：
-
-1. 容器类的性能关键不是“能不能 parse”，而是“要不要全部展开”。
-2. `manifest-first` 应成为容器类中大文件的标准渲染策略。
-
-### 7.5 ODF / OOXML Office
-
-| 格式 | Balanced 应覆盖 | Accurate 应覆盖 | 中大文件自动策略 |
-| --- | --- | --- | --- |
-| `odt` | heading/paragraph/list/table/link/image/footnote、基础 comment appendix | text box、annotation anchor、tracked-change appendix、页眉页脚噪声过滤增强 | 当前 explicit stream 已切 `block_streaming(block)`，但尚无 over-limit auto switch；未来建议补 `soft_limit` comments/notes appendix-first |
-| `ods` | visible sheet、cached value、hyperlink、基础 table 输出、sheet 统计 | hidden row/sheet 恢复、merge span table、comment appendix、sheet metadata 更细保真 | 当前 explicit stream 已切 `block_streaming(row)`，但尚无 over-limit auto switch；未来建议补 sparse sheet renderer |
-| `odp` | slide 顺序、title/body text、table、image、notes | grouped shape summary、reading order、merged table span、hidden slide appendix | 当前 explicit stream 已切 `block_streaming(slide)`，但尚无 over-limit auto switch；未来建议补 notes/asset appendix-first |
-| `docx` | heading/paragraph/list/table/link/inline image/footnote/endnote、基础注释附录 | textbox、anchored/floating text、alternate content、merged table span、tracked-change appendix | 当前只有 canonical `package_single_pass`，无 explicit stream / over-limit route；未来如需优化，建议先做 same-mode appendix-first/profile 化 |
-| `xlsx` | visible sheet、cached formulas、formal table、hyperlink、comments appendix、稀疏 sheet 友好输出 | hidden rows/sheets 恢复、merged span html table、grouped rows、sheet-level provenance 更细恢复 | 当前已实现 explicit stream 与 over-limit 都切 `block_streaming(row/table-region)`；未来建议再补 `soft_limit` sparse-table / appendix-first |
-| `pptx` | slide 顺序、title/body bullets、image、speaker notes、链接、基础隐藏页策略 | reading-order grouping、textbox/shape text 恢复、merged span table、decorative group summary、标题提升 | 当前只有 canonical `package_single_pass`，无 explicit stream / over-limit route；未来如需优化，建议先做 slide-local flush/profile 化 |
-
-设计结论：
-
-1. Office 家族里最值得优先做大文件 profile 的是 `xlsx`，其次是 `ods/odt/odp`。
-2. `docx/pptx` 的核心价值仍然是语义完整性，内部可以做 medium profile，但不宜把 profile 直接包装成用户可见 `Stream`。
-3. `merged span table`、隐藏内容恢复、floating content 恢复应明确属于 `Accurate`。
-
-### 7.6 PDF / OCR
-
-| 格式 | Balanced 应覆盖 | Accurate 应覆盖 | 中大文件自动策略 |
-| --- | --- | --- | --- |
-| `pdf` | native-text 提取、基础阅读顺序、段落/列表/标题 heuristics、受控表格 signal、RAG/source refs | OCR、layout-two-stage、多栏重排、跨页表格、caption/figure 绑定、form-like key-value 恢复 | 当前 route 只由 fidelity/explicit OCR 决定，不因 over-limit 自动改 route；未来建议补 page-window assembler / merge-budget profile |
-| `image OCR` | 文字段落恢复、基础行块顺序、bbox/source refs | 更稳的区域组合、多栏/表格弱恢复、diagnostics 更丰富；仍不默认视觉大模型 | 当前走 layout route，不做显式 stream；未来可考虑 page-window flush，但不应和 `Stream mode` 混同 |
-
-设计结论：
-
-1. `pdf` 的性能策略应该是 page-window 与 merge-budget 管控，而不是偷偷升级 OCR。
-2. `Accurate` 在 `pdf / image OCR` 上依然是最值得投入的重能力模式。
+- `same_mode_degradation` 可以作为兼容镜像保留，但长期主解释字段应是 `same_mode_strategy_switches`。
 
 ---
 
-## 8. 哪些能力应留在 Balanced，哪些应进入 Accurate
+## 13. Accurate 能力边界
 
-### 8.1 应稳定放在 Balanced 的能力
+`Accurate` 不是“允许任何更重的代码路径”，而是受约束的高保真能力面。
 
-这些能力对“成熟默认转换”是刚需，而且通常不需要高成本：
+其准入原则必须固定为：
 
-1. heading / paragraph / list / code / link / image 的基础恢复。
-2. 小中型常见表格输出。
-3. source refs、diagnostics、degraded_features。
-4. 容器/附件/图片的 manifest 或 placeholder。
-5. notebook cell、mail part、slide、sheet、chapter 这类天然块边界的稳定输出。
+1. 有底层结构信号支撑
+2. 语义可解释
+3. 回归可验证
+4. 能进入统一 hooks / profiles / hints 主链
 
-### 8.2 应明确放进 Accurate 的能力
+### 13.1 允许进入 Accurate 的能力
 
-这些能力价值很高，但对成本、稳定性、全局上下文依赖都更大：
+允许进入 Accurate 的典型能力包括：
 
-1. OCR 与 layout-heavy 路线。
-2. 隐藏 sheet / hidden row / floating text / alternate content / grouped shape 恢复。
-3. merged table span、复杂表格跨块或跨页组装。
-4. 更激进的阅读顺序重排。
-5. 需要大范围回看和跨 block 证据合并的推理。
+1. paged / OCR 文档的 route-level OCR or layout upgrade
+2. Office / ODF 文档的 hidden / notes / textbox / merged span / appendix / slide-window 等高置信恢复
+3. markdown / rst / asciidoc / tex 等文本格式的 same-route semantic strengthening
 
-### 8.3 对轻量目标不值得优先做成 Accurate 差异的格式
+### 13.2 不允许进入 Accurate 的能力
 
-这些格式可以允许 `Accurate == Balanced + richer diagnostics/source refs`：
+以下能力不应被写成 Accurate 承诺：
 
-1. `txt`
-2. `csv`
-3. `tsv`
-4. `srt`
-5. `vtt`
-6. `jsonl`
-7. `ndjson`
-8. `toml`
+1. 无证据的阅读顺序猜测
+2. 无证据的复杂布局智能
+3. directive / macro / script / notebook execution
+4. 需要执行外部依赖或外部运行时才能成立的语义补全
 
-原因很简单：
+### 13.3 Accurate 的实现原则
 
-1. 这些格式本身结构简单。
-2. 用户通常不期待“模型级增强”。
-3. 真正的产品价值在稳定、快、低内存，而不是做出巨大的 mode 差异。
+Accurate 差异应优先通过：
 
----
+1. `accurate_feature_profile`
+2. `LoweringProfile::AccurateSemantic`
+3. 规范化 render hints
 
-## 9. 渲染策略切换目录
+而不是通过：
 
-为了让“中大文件优化”真正落地，建议把 render profile 做成正式概念。
-
-### 9.1 建议 render profile
-
-```moonbit
-pub enum RenderProfile {
-  DefaultMarkdown
-  SectionFlushMarkdown
-  SparseTableMarkdown
-  HtmlSpanTable
-  NotesAppendixFirst
-  AssetManifestFirst
-  PageWindowMarkdown
-  RecordBatchMarkdown
-}
-```
-
-### 9.2 各 render profile 的典型用途
-
-| Render Profile | 适用格式 | 价值 |
-| --- | --- | --- |
-| `DefaultMarkdown` | 全格式 | 默认输出 |
-| `SectionFlushMarkdown` | markdown, html, rst-like, odt | 降低全局组装峰值 |
-| `SparseTableMarkdown` | csv, tsv, xlsx, ods | 降低大表 materialize 成本 |
-| `HtmlSpanTable` | xlsx accurate, pptx accurate, ods accurate | 保 merged span 语义 |
-| `NotesAppendixFirst` | docx, pptx, odt, odp, eml, ipynb | 避免把辅助内容挤进正文主路径 |
-| `AssetManifestFirst` | zip, epub, html, eml | 避免中大文件资产爆炸 |
-| `PageWindowMarkdown` | pdf, tiff OCR | 降低跨页全局缓存压力 |
-| `RecordBatchMarkdown` | jsonl, ndjson, txt | 低峰值持续输出 |
-
-### 9.3 切换原则
-
-1. `soft_limit` 优先切 render profile。
-2. 只有 render profile 仍不够时，才切 `LargeAdaptive` route。
-3. 渲染策略切换必须在 diagnostics 中可见，例如：
-   - `render_profile=sparse_table_markdown`
-   - `same_mode_strategy_switch=xlsx_soft_limit_sparse_renderer`
-   - `same_mode_strategy_switch=pdf_page_window_flush`
+1. 入口层特判
+2. finalize 侧补判
+3. 散落的裸 `fidelity_mode == Accurate`
 
 ---
 
-## 10. 建议的数据结构落点
+## 14. 格式成熟标准
 
-当前仓库已经有：
+架构层只定义成熟度标准，不在此文档中给出实现期的逐项评分。
 
-1. `formats/profile.mbt` 负责 route profile。
-2. `convert/preflight_probe.mbt` 负责 over-limit 探针。
-3. `convert/route_policy.mbt` 负责 route 选择。
+### 14.1 可用
 
-建议新增一层而不是推翻现有结构：
+一个格式可以被称为 `可用`，当且仅当：
 
-### 10.1 StrategyPolicy
+1. 它进入统一主链
+2. 有稳定 canonical route
+3. 有基本 diagnostics / provenance
+4. 有最小回归样例
 
-```moonbit
-pub struct FormatStrategyPolicy {
-  format : @input.DetectedFormat
-  mode : ConvertMode
-  supports_explicit_stream : Bool
-  soft_limit_strategy : String?
-  hard_limit_route : FormatRoute?
-  hard_limit_lowering_profile : String?
-  soft_limit_render_profile : String?
-  hard_limit_render_profile : String?
-}
-```
+### 14.2 成熟
 
-### 10.2 策略输出
+一个格式可以被称为 `成熟`，当且仅当：
 
-在 `PreflightProbe` 或 `RouteDecision` 上新增：
+1. 高频结构已有 typed canonical 表达
+2. 大文件或 stream 边界清晰且诚实
+3. diagnostics / provenance 足以解释策略切换
+4. 有专门 contract tests 或稳定质量回归支撑长期维护
 
-1. `execution_profile`
-2. `lowering_profile`
-3. `render_profile`
-4. `same_mode_strategy_switches`
+### 14.3 强成熟
 
-### 10.3 renderer 边界
+一个格式可以被称为 `强成熟`，当且仅当：
 
-renderer 不应自行决定切 profile。
+1. 在 `成熟` 基础上
+2. 还具备更深的 accurate/profile/runtime 能力
+3. 并且这些能力已进入统一 plan-driven 主链，而不是依赖旁路
 
-正确顺序是：
-
-1. preflight 决定 profile
-2. parser / lowering 接收 profile
-3. renderer 仅执行 profile
-
-这样可以保证：
-
-1. 同一输入的策略可复现。
-2. benchmark 能比较 profile 差异。
-3. diagnostics 能解释为什么变快、代价是什么。
+具体某个格式当前属于哪一档，由 `docs/capabilities-and-limitations.md` 给出公开判断。
 
 ---
 
-## 11. 推荐优先级
+## 15. 演进规则
 
-### 11.1 第一优先级
+新增格式或新增能力时，必须遵守以下规则：
 
-这些最符合“轻量成熟化转换链”的短中期目标：
+1. 新格式必须先进入 `FormatStrategyPolicy`，再进入产品矩阵。
+2. 新 route 必须先定义资源画像、render path 和 provenance 解释，再允许使用。
+3. 新 profile 必须同时在 Markdown、RAG、Debug 至少一个输出面具备可验证行为。
+4. 新 Accurate 能力必须先收口为 typed hooks / feature profile / normalized hints。
+5. 若某项能力无法通过 `ResolvedExecutionPlan`、diagnostics、provenance 解释清楚，则不应进入正式主链。
 
-1. `markdown` 的 `soft_limit -> section flush`，`hard_limit -> block_streaming`
-2. `html` 的 `soft_limit -> subtree flush`，`hard_limit -> block_streaming`
-3. `ipynb` 的 output/attachment cap profile
-4. `xlsx` 的 `soft_limit sparse renderer` 与 `hard_limit row/table-region route`
-5. `ods/odt/odp` 对齐 `xlsx` 的 package-to-block 大文件 profile
-6. `epub/zip/eml` 的 manifest-first profile
-7. `pdf` 的 page-window assembler profile
+### 15.1 需要架构评审的变更
 
-### 11.2 第二优先级
+以下变更不应作为普通实现细节直接落地，而应先过架构评审：
 
-这些值得做，但应晚于上面一批：
+1. 新增或删除公开 `ConvertMode`
+2. 新增 route 类型
+3. 改变 planner 决策顺序
+4. 让某个入口绕开统一 planner
+5. 引入新的 renderer 长期契约字段
+6. 让格式私有字段直接成为 renderer 的长期依赖
+7. 把猜测式能力写入 Accurate 或 Balanced 默认行为
 
-1. `docx` medium profile
-2. `pptx` medium profile
-3. `rst/asciidoc/tex` 的 section flush
-4. `json/xml/yaml` 的 appendix-first summary renderer
+### 15.2 允许快速迭代的变更
 
-### 11.3 暂不优先
+以下变更通常可以在不改主抽象的前提下快速迭代：
 
-1. 给 `toml` 做显式 `Stream`
-2. 给 `pdf` 做自动 OCR 升级
-3. 给所有格式统一一套“大文件模式”名字但没有真实差异
+1. 新增 probe signals
+2. 调整单格式 soft/hard 阈值
+3. 新增或细化 accurate feature
+4. 新增 normalized render hints
+5. 扩展 contract tests、sample fixtures、quality fixtures
+6. 提升某格式在既有 route 内的 typed semantic inventory
 
 ---
 
-## 12. 一句话结论
+## 16. 结论
 
-对 mb-markitdown 来说，正确的策略不是“让 `Balanced / Accurate / Stream` 自动互切”，而是：
+本补充架构书的核心立场只有一句话：
 
-1. 把 mode 稳定为用户语义契约。
-2. 把中大文件优化下沉为同 mode 内的 execution profile。
-3. 优先切 render profile，再切 large route。
-4. 让 `Balanced` 覆盖成熟默认语义，让 `Accurate` 承接高成本高价值恢复。
-5. 让 `xlsx/html/markdown/ipynb/epub/ods/odt/odp/pdf` 成为大文件自适应的主战场。
+- `mode / route / probe / planner / profile / render path` 必须先成为稳定抽象，再成为可扩展实现。
 
-这样既不破坏主架构书中 mode 的边界，也能把“像 xlsx 一样按文件规模切执行/渲染策略”的思路推广成统一产品能力。
+对一个长期维护的开源项目而言，真正要保护的不是“今天这段代码怎么写”，而是：
+
+1. 用户模式语义是否稳定
+2. planner 是否真正掌权
+3. 自动切换是否诚实且可解释
+4. 新格式能否以统一方式接入
+5. renderer、diagnostics、provenance 是否围绕同一套长期契约演进

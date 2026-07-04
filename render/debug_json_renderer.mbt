@@ -4,11 +4,17 @@ pub fn debug_json_renderer() -> Renderer {
     name: "DebugJsonRenderer",
     render: fn(
       document : @core.DocumentIR,
-      _context : RenderContext,
+      context : RenderContext,
     ) -> RenderResult {
       document.diagnostics.metrics.set("renderer_name", "DebugJsonRenderer")
+      document.diagnostics.metrics.set(
+        "applied_render_profile",
+        @product.render_profile_name(context.render_profile),
+      )
       {
-        content: render_debug_json_document(document),
+        content: render_debug_json_document(
+          profiled_document(document, context),
+        ),
         diagnostics: document.diagnostics,
         chunks: None,
       }
@@ -31,10 +37,15 @@ fn render_debug_json_input(
   match input {
     RenderInput::Document(document) => (renderer.render)(document, context)
     RenderInput::BlockStream(blocks) => {
-      let diagnostics = block_stream_input_diagnostics(context, blocks)
+      let profiled = profiled_blocks(blocks, context)
+      let diagnostics = block_stream_input_diagnostics(context, profiled)
       diagnostics.metrics.set("renderer_name", "DebugJsonRenderer")
+      diagnostics.metrics.set(
+        "applied_render_profile",
+        @product.render_profile_name(context.render_profile),
+      )
       {
-        content: render_debug_json_blocks(blocks, diagnostics, context),
+        content: render_debug_json_blocks(profiled, diagnostics, context),
         diagnostics,
         chunks: None,
       }
@@ -44,8 +55,15 @@ fn render_debug_json_input(
         context, events, "event_stream",
       )
       diagnostics.metrics.set("renderer_name", "DebugJsonRenderer")
+      diagnostics.metrics.set(
+        "applied_render_profile",
+        @product.render_profile_name(context.render_profile),
+      )
       {
-        content: render_debug_json_events(events, diagnostics),
+        content: render_debug_json_events(
+          profiled_events(events, context),
+          diagnostics,
+        ),
         diagnostics,
         chunks: None,
       }

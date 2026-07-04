@@ -36,6 +36,8 @@ pub fn diagnostics_add_pass_trace(Diagnostics, String) -> Diagnostics
 
 pub fn diagnostics_add_same_mode_degradation(Diagnostics, String) -> Diagnostics
 
+pub fn diagnostics_add_same_mode_strategy_switch(Diagnostics, String) -> Diagnostics
+
 pub fn diagnostics_add_warning(Diagnostics, String) -> Diagnostics
 
 pub fn diagnostics_with_input(Diagnostics, String?, String?) -> Diagnostics
@@ -274,6 +276,7 @@ pub(all) struct Diagnostics {
   errors : Array[String]
   degraded_features : Array[String]
   same_mode_degradation : Array[String]
+  same_mode_strategy_switches : Array[String]
   fallback_trace : Array[String]
   pass_trace : Array[String]
   metrics : Map[String, String]

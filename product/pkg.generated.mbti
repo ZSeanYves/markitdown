@@ -2,15 +2,22 @@
 package "ZSeanYves/markitdown/product"
 
 import {
+  "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/rag",
 }
 
 // Values
-pub fn convert_mode_from_modes(FidelityMode, OutputMode) -> ConvertMode
+pub fn accurate_feature_enabled(AccurateFeatureProfile, AccurateFeature) -> Bool
+
+pub fn accurate_feature_name(AccurateFeature) -> String
+
+pub fn accurate_feature_profile_names(AccurateFeatureProfile) -> Array[String]
+
+pub fn accurate_features_for_detected_format(@input.DetectedFormat) -> Array[AccurateFeature]
+
+pub fn convert_mode_from_modes(FidelityMode, Bool) -> ConvertMode
 
 pub fn convert_mode_name(ConvertMode) -> String
-
-pub fn debug_mode(ConvertMode) -> Bool
 
 pub fn debug_output_mode(OutputMode) -> Bool
 
@@ -22,9 +29,17 @@ pub fn default_product_options() -> ProductOptions
 
 pub fn default_resource_limits() -> ResourceLimits
 
+pub fn empty_accurate_feature_profile() -> AccurateFeatureProfile
+
+pub fn execution_profile_name(ExecutionProfile) -> String
+
 pub fn fidelity_mode_for_convert_mode(ConvertMode) -> FidelityMode
 
 pub fn fidelity_mode_name(FidelityMode) -> String
+
+pub fn lowering_profile_name(LoweringProfile) -> String
+
+pub fn make_accurate_feature_profile(Array[AccurateFeature]) -> AccurateFeatureProfile
 
 pub fn make_product_options(ConvertMode, ResourceLimits, fidelity_mode? : FidelityMode, output_mode? : OutputMode, stream_requested? : Bool, pdf_cleanup_mode? : PdfCleanupMode, pdf_table_mode? : PdfTableMode, rag_options? : @rag.RagOptions) -> ProductOptions
 
@@ -40,21 +55,59 @@ pub fn pdf_cleanup_mode_name(PdfCleanupMode) -> String
 
 pub fn pdf_table_mode_name(PdfTableMode) -> String
 
+pub fn render_profile_name(RenderProfile) -> String
+
 // Errors
 
 // Types and methods
+pub(all) enum AccurateFeature {
+  PdfPageAppendix
+  PdfWindowedAssembly
+  DocxTextboxInline
+  DocxAlternateContentRestore
+  DocxNotesAppendix
+  XlsxHiddenSheets
+  XlsxHiddenRows
+  XlsxMergedSpans
+  PptxReadingOrder
+  PptxGroupSummary
+  PptxHiddenSlideSemantics
+  PptxNotesAppendix
+  OdtRichNotes
+  OdtCommentsAppendix
+  OdsHiddenSheets
+  OdsHiddenRows
+  OdsCoveredCellSpans
+  OdpNotesAppendix
+  OdpSlideSummary
+} derive(Eq)
+
+pub struct AccurateFeatureProfile {
+  features : Array[AccurateFeature]
+}
+
 pub(all) enum ConvertMode {
-  Fast
   Balanced
   Accurate
   Stream
-  Rag
-  Debug
+} derive(Eq)
+
+pub(all) enum ExecutionProfile {
+  Standard
+  MediumAdaptive
+  LargeAdaptive
 } derive(Eq)
 
 pub(all) enum FidelityMode {
   Balanced
   Accurate
+} derive(Eq)
+
+pub(all) enum LoweringProfile {
+  Canonical
+  AccurateSemantic
+  StreamCanonical
+  LargeAdaptive
 } derive(Eq)
 
 pub(all) enum OutputMode {
@@ -73,6 +126,34 @@ pub(all) enum PdfTableMode {
   Simple
 } derive(Eq)
 
+pub(all) enum ProbeSignalKind {
+  CharCount
+  LineCount
+  BlockCount
+  ListItemCount
+  NodeCount
+  MaxDepth
+  RowCount
+  ColCount
+  CellCount
+  CellEstimate
+  OutputCount
+  AttachmentCount
+  AssetCount
+  EntryCount
+  PageCount
+  SlideCount
+  SheetCount
+  ScalarCount
+  ObjectCount
+  ArrayCount
+  HiddenRowCount
+  HiddenSheetCount
+  CoveredCellCount
+  NoteCount
+  CommentCount
+} derive(Eq)
+
 pub struct ProductOptions {
   mode : ConvertMode
   fidelity_mode : FidelityMode
@@ -83,6 +164,16 @@ pub struct ProductOptions {
   pdf_table_mode : PdfTableMode
   rag_options : @rag.RagOptions
 }
+
+pub(all) enum RenderProfile {
+  DefaultMarkdown
+  SectionFlushMarkdown
+  SparseTableMarkdown
+  NotesAppendixFirst
+  AssetManifestFirst
+  PageWindowMarkdown
+  RecordBatchMarkdown
+} derive(Eq)
 
 pub struct ResourceLimits {
   max_rows : Int
