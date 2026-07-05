@@ -1,0 +1,20 @@
+import {
+  "moonbitlang/async/process",
+  "moonbitlang/async",
+  "moonbitlang/core/env",
+  "moonbitlang/core/string",
+  "ZSeanYves/markitdown/format_readers/json" @djson,
+  "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/formats/shared" @fshared,
+  "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/product",
+}
+
+import {
+  "moonbitlang/core/env",
+} for "test"
+
+options(
+  "preferred-target": "native",
+)

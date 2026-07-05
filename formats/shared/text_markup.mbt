@@ -127,6 +127,7 @@ pub fn parse_text_markup_result_with_preparsed_document(
   diagnostics.metrics.set("line_count", inspect.line_count.to_string())
   diagnostics.metrics.set("char_count", inspect.char_count.to_string())
   diagnostics.metrics.set("asset_count", "0")
+  mark_structured_document_profile(diagnostics)
   diagnostics.metrics.set(
     "warning_count",
     diagnostics.warnings.length().to_string(),
@@ -518,6 +519,9 @@ pub fn text_markup_inlines(
   text : String,
   format : @dmark.TextMarkupFormat,
 ) -> Array[@core.CoreInline] {
+  if !text_markup_might_have_inline_markup(text, format) {
+    return []
+  }
   let out : Array[@core.CoreInline] = []
   for inline in @dmark.parse_text_markup_inlines(text, format) {
     match inline.kind {
@@ -530,6 +534,23 @@ pub fn text_markup_inlines(
     }
   }
   out
+}
+
+///|
+fn text_markup_might_have_inline_markup(
+  text : String,
+  format : @dmark.TextMarkupFormat,
+) -> Bool {
+  if text.contains("`") {
+    return true
+  }
+  match format {
+    @dmark.TextMarkupFormat::Rst =>
+      text.contains("<") && text.contains(">") && text.contains("`")
+    @dmark.TextMarkupFormat::Asciidoc => text.contains("link:")
+    @dmark.TextMarkupFormat::Tex =>
+      text.contains("\\href{") || text.contains("\\texttt{")
+  }
 }
 
 ///|

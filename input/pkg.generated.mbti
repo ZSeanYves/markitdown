@@ -2,6 +2,8 @@
 package "ZSeanYves/markitdown/input"
 
 // Values
+pub fn audio_format_name(AudioFormat) -> String
+
 pub fn default_format_detector() -> FormatDetector
 
 pub fn detect_format(InputSource) -> FormatDetectionResult
@@ -41,6 +43,12 @@ pub fn with_text_payload(InputSource, String) -> InputSource
 // Errors
 
 // Types and methods
+pub(all) enum AudioFormat {
+  Wav
+  Mp3
+  M4a
+} derive(Eq)
+
 pub(all) enum DetectedFormat {
   Txt
   Markdown
@@ -69,6 +77,7 @@ pub(all) enum DetectedFormat {
   Docx
   Pptx
   Xlsx
+  Audio(AudioFormat)
   Image(ImageFormat)
   Unknown
 } derive(Eq)

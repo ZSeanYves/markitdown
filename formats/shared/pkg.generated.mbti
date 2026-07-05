@@ -22,6 +22,14 @@ pub fn csv_parser() -> @parser.Parser
 
 pub fn empty_parser_diagnostics(String, @parser.ParserMode, @input.InputSource, String) -> @core.Diagnostics
 
+pub fn indexed_table_cell_path(String, Int) -> String
+
+pub fn indexed_table_cell_span(Int, Int) -> String
+
+pub fn indexed_table_row_path(String, Int) -> String
+
+pub fn indexed_table_row_span(Int, Int) -> String
+
 pub fn init_parser_count_metrics(@core.Diagnostics, warning_count? : String, degraded_feature_count? : String, fallback_count? : String, asset_count? : String) -> Unit
 
 pub fn init_parser_product_mode_metrics(@core.Diagnostics, @parser.ParseContext) -> Unit
@@ -32,9 +40,17 @@ pub fn init_parser_route_metrics_with_granularity(@core.Diagnostics, @input.Inpu
 
 pub fn input_kind_name(@input.InputKind) -> String
 
+pub fn key_position_index(Array[String]) -> Map[String, Int]
+
+pub fn keys_match_position_index(Array[String], Map[String, Int], Array[String]) -> Bool
+
 pub fn lower_text_markup_document(@ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupDocument, @input.InputSource, @core.Diagnostics, TextMarkupHooks) -> @core.DocumentIR
 
+pub fn make_indexed_table_block(Array[Array[String]], @core.SourceRef, (Int, Array[String]) -> @core.SourceRef, (Int, Int) -> @core.SourceRef) -> @core.CoreBlock
+
 pub fn make_text_markup_hooks(String, String, @ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupFormat, (String) -> @ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupDocument, (@ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupBlock, String) -> String, (@ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupBlock, @core.SourceRef, String) -> @core.CoreBlock?, (@ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupBlock, @core.SourceRef, String) -> @core.CoreBlock?) -> TextMarkupHooks
+
+pub fn mark_structured_document_profile(@core.Diagnostics) -> Unit
 
 pub fn max_int(Int, Int) -> Int
 
@@ -43,6 +59,8 @@ pub fn min_int(Int, Int) -> Int
 pub fn parse_text_markup_result(@input.InputSource, @parser.ParseContext, TextMarkupHooks) -> Result[@parser.ParseResult, String]
 
 pub fn parse_text_markup_result_with_preparsed_document(@input.InputSource, @parser.ParseContext, String, @ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupDocument, @ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupInspectReport, TextMarkupHooks, diagnostics? : @core.Diagnostics) -> @parser.ParseResult
+
+pub fn projected_row_from_key_index(Array[String], Map[String, Int], (Int) -> String) -> Array[String]
 
 pub fn refresh_parser_count_metrics(@core.Diagnostics, String) -> Unit
 

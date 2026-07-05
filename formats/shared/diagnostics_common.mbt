@@ -182,6 +182,13 @@ pub fn apply_product_metrics(
 }
 
 ///|
+pub fn mark_structured_document_profile(
+  diagnostics : @core.Diagnostics,
+) -> Unit {
+  diagnostics.metrics.set("structured_document_profile", "pipeline_ready")
+}
+
+///|
 pub fn count_blocks_by_kind(
   blocks : Array[@core.CoreBlock],
   kind : @core.BlockKind,

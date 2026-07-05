@@ -132,11 +132,6 @@ fn finalize_pipeline_convert_execution(
   let parse_kind = parse_result_kind(parsed)
   let pipeline_kind = ir_input_kind_name(pipeline_result)
   let render_kind = render_input_kind_name(render_input)
-  let expected_render_kind = match execution_plan.render_path_kind {
-    RenderPathKind::Document => "document"
-    RenderPathKind::BlockStream => "block_stream"
-    RenderPathKind::EventStream => "event_stream"
-  }
   let provenance : ConvertProvenance = {
     route_plan,
     fidelity_mode: effective_options.fidelity_mode,
@@ -157,7 +152,7 @@ fn finalize_pipeline_convert_execution(
       parsed.mode,
       parse_kind,
       pipeline_kind,
-      expected_render_kind,
+      render_kind,
     ),
     applied_accurate_features: @product.accurate_feature_profile_names(
       execution_plan.accurate_feature_profile,
@@ -181,6 +176,30 @@ fn finalize_pipeline_convert_execution(
     ),
     ocr_provider_resolved_kind: execution_plan.ocr_provider_resolved_kind.map(kind => {
       @focr.ocr_provider_kind_name(kind)
+    }),
+    audio_backend_transport: parsed.metadata
+    .get("audio_backend_transport")
+    .map(value => {
+      match value {
+        @core.JsonValue::String(text) => text
+        _ => execution_plan.audio_backend_transport.unwrap_or("")
+      }
+    }),
+    audio_backend_name: parsed.metadata
+    .get("audio_backend_name")
+    .map(value => {
+      match value {
+        @core.JsonValue::String(text) => text
+        _ => execution_plan.audio_backend_name.unwrap_or("")
+      }
+    }),
+    audio_backend_version: parsed.metadata
+    .get("audio_backend_version")
+    .map(value => {
+      match value {
+        @core.JsonValue::String(text) => text
+        _ => execution_plan.audio_backend_version.unwrap_or("")
+      }
     }),
   }
   { result, provenance }

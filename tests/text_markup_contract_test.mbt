@@ -108,3 +108,38 @@ test "tex canonical semantic blocks expose environment inventory and debug attrs
     "\"include_target\": \"shared.tex\"",
   ])
 }
+
+///|
+test "tex nested list environments preserve ordered state without backward rescans" {
+  let parsed = default_registry_parse(
+    @input.input_from_text_with_format(
+      "\\begin{enumerate}\n\\item One\n\\begin{itemize}\n\\item Nested bullet\n\\end{itemize}\n\\item Two\n\\end{enumerate}\n",
+      "lists.tex",
+      Some(@input.DetectedFormat::Tex),
+    ),
+    @input.DetectedFormat::Tex,
+  )
+  let document = parsed.document.unwrap_or(@core.empty_document_ir())
+  assert_true(document.blocks.length() >= 1)
+  let ordered_flags : Array[String] = []
+  collect_list_item_ordered_flags(document.blocks, ordered_flags)
+  assert_true(ordered_flags.length() == 3)
+  assert_true(ordered_flags[0] == "true")
+  assert_true(ordered_flags[1] == "false")
+  assert_true(ordered_flags[2] == "true")
+}
+
+///|
+fn collect_list_item_ordered_flags(
+  blocks : Array[@core.CoreBlock],
+  out : Array[String],
+) -> Unit {
+  for block in blocks {
+    if block.kind == @core.BlockKind::ListItem {
+      out.push(block.attrs.get("ordered").unwrap_or(""))
+    }
+    if block.children.length() > 0 {
+      collect_list_item_ordered_flags(block.children, out)
+    }
+  }
+}

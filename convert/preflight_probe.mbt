@@ -315,6 +315,23 @@ fn text_markup_preflight_probe(
 }
 
 ///|
+fn audio_preflight_probe(
+  source : @input.InputSource,
+  format : @input.DetectedFormat,
+) -> ProbeOutcome {
+  let format_name = @input.detected_format_name(format)
+  let artifact = make_audio_probe_artifact(format_name, probe_notes=[
+    @formats.route_name(@formats.canonical_route_for_format(format)),
+  ])
+  probe_outcome(
+    format_name,
+    [@formats.route_name(@formats.canonical_route_for_format(format))],
+    source,
+    probe_artifacts=[RouteProbeArtifact::AudioProbe(artifact)],
+  )
+}
+
+///|
 fn ipynb_preflight_probe(
   source : @input.InputSource,
   options : ConvertOptions,
@@ -882,6 +899,7 @@ fn preflight_probe(
     @input.DetectedFormat::Rst => text_markup_preflight_probe(source, format)
     @input.DetectedFormat::Asciidoc =>
       text_markup_preflight_probe(source, format)
+    @input.DetectedFormat::Audio(_) => audio_preflight_probe(source, format)
     @input.DetectedFormat::Xml => xml_preflight_probe(source, options)
     @input.DetectedFormat::Html => html_preflight_probe(source, options)
     @input.DetectedFormat::Xlsx => xlsx_preflight_probe(source, options)

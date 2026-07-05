@@ -142,6 +142,7 @@ pub fn product_parser_contract_specs() -> Array[ParserContractSpec] {
     pptx_parser_contract_spec(),
     xlsx_parser_contract_spec(),
     pdf_native_parser_contract_spec(),
+    audio_parser_contract_spec(),
     image_ocr_parser_contract_spec(),
   ]
 }
@@ -178,6 +179,7 @@ pub fn product_parser_contract_spec_by_format(
     @input.DetectedFormat::Pptx => Some(pptx_parser_contract_spec())
     @input.DetectedFormat::Xlsx => Some(xlsx_parser_contract_spec())
     @input.DetectedFormat::Pdf => Some(pdf_native_parser_contract_spec())
+    @input.DetectedFormat::Audio(_) => Some(audio_parser_contract_spec())
     @input.DetectedFormat::Image(_) => Some(image_ocr_parser_contract_spec())
     @input.DetectedFormat::Unknown => None
   }
@@ -971,6 +973,31 @@ pub fn image_ocr_parser_contract_spec() -> ParserContractSpec {
     ],
     [],
     ["formats/ocr"],
+    @shared.parser_contract_required_foundation_exclusions(),
+  )
+}
+
+///|
+pub fn audio_parser_contract_spec() -> ParserContractSpec {
+  make_parser_contract_spec(
+    "audio_parser",
+    @parser.ParserMode::MediaPipeline,
+    @parser.StreamingGranularity::None,
+    "document",
+    [
+      "parser_name", "parser_mode", "effective_mode", "detected_format", "ir_input_kind",
+      "builder_input_kind", "event_granularity", "event_semantics", "audio_backend_transport",
+      "audio_backend_name", "audio_backend_version", "audio_duration_ms", "audio_sample_rate_hz",
+      "audio_channel_count", "audio_codec", "audio_language", "audio_segment_count",
+      "block_count", "warning_count", "degraded_feature_count", "fallback_count",
+    ],
+    ["time_start", "time_end"],
+    ["audio_segment_id", "audio_start_ms", "audio_end_ms"],
+    [
+      "audio media pipeline stays transcript-only in P0", "segment time boundaries are first-class source ref fields and chunking anchors",
+    ],
+    ["accurate audio intentionally degrades to balanced backend during P0"],
+    ["formats/audio"],
     @shared.parser_contract_required_foundation_exclusions(),
   )
 }

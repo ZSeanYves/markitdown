@@ -10,6 +10,8 @@ import {
 // Values
 pub fn asciidoc_parser_contract_spec() -> ParserContractSpec
 
+pub fn audio_parser_contract_spec() -> ParserContractSpec
+
 pub fn block_stream_parser_contract_spec(String, @input.DetectedFormat, Array[String], Array[String], Array[String], required_source_ref_extra_keys? : Array[String], policies? : Array[String]) -> ParserContractSpec
 
 pub fn builtin_registry() -> @parser.ParserRegistry
@@ -126,6 +128,7 @@ pub(all) enum FormatRoute {
   PageSinglePass
   DomAstModel
   LayoutTwoStage
+  MediaPipeline
   ContainerRecursive
 } derive(Eq)
 

@@ -122,6 +122,21 @@ pub fn register_builtin_parsers(registry : @parser.ParserRegistry) -> Unit {
   )
   @parser.registry_register(
     registry,
+    @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
+    @faudio.audio_parser(),
+  )
+  @parser.registry_register(
+    registry,
+    @input.DetectedFormat::Audio(@input.AudioFormat::Mp3),
+    @faudio.audio_parser(),
+  )
+  @parser.registry_register(
+    registry,
+    @input.DetectedFormat::Audio(@input.AudioFormat::M4a),
+    @faudio.audio_parser(),
+  )
+  @parser.registry_register(
+    registry,
     @input.DetectedFormat::Docx,
     @fdocx.docx_parser(),
   )

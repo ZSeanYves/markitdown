@@ -10,6 +10,7 @@ import {
   "ZSeanYves/markitdown/formats/ods" @fods,
   "ZSeanYves/markitdown/formats/odt" @fodt,
   "ZSeanYves/markitdown/formats/asciidoc" @fasciidoc,
+  "ZSeanYves/markitdown/formats/audio" @faudio,
   "ZSeanYves/markitdown/formats/shared" @fshared,
   "ZSeanYves/markitdown/formats/pdf" @fpdf,
   "ZSeanYves/markitdown/formats/rst" @frst,

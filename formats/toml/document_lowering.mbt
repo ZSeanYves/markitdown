@@ -49,17 +49,22 @@ fn lower_toml_document(
     document.blocks.append(root_blocks[:])
   }
 
-  let array_base_paths : Map[String, Bool] = Map([])
+  let array_table_groups = toml_group_array_tables(doc.tables)
+  let emitted_array_base_paths : Map[String, Bool] = Map([])
   for table in doc.tables {
     if table.is_array_item {
       let base_path = toml_array_base_path(table.path)
-      if array_base_paths.contains(base_path) {
+      if emitted_array_base_paths.contains(base_path) {
         continue
       }
-      array_base_paths.set(base_path, true)
-      document.blocks.append(
-        lower_toml_array_of_tables_group(doc.tables, source, base_path)[:],
-      )
+      emitted_array_base_paths.set(base_path, true)
+      match array_table_groups.get(base_path) {
+        Some(grouped) =>
+          document.blocks.append(
+            lower_toml_array_of_tables_group(grouped, source, base_path)[:],
+          )
+        None => ()
+      }
       continue
     }
     document.blocks.push(
@@ -243,12 +248,11 @@ fn lower_toml_array_value(
 
 ///|
 fn lower_toml_array_of_tables_group(
-  tables : Array[@dtoml.TomlTable],
+  grouped : Array[@dtoml.TomlTable],
   source : @input.InputSource,
   base_path : String,
 ) -> Array[@core.CoreBlock] {
   let out : Array[@core.CoreBlock] = []
-  let grouped = toml_collect_array_tables(tables, base_path)
   if grouped.length() == 0 {
     return out
   }
@@ -359,46 +363,18 @@ fn toml_table_block_from_rows(
   line_start : Int?,
   line_end : Int?,
 ) -> @core.CoreBlock {
-  let table = @core.make_block(
-    @core.BlockKind::Table,
-    "table",
-    source_ref=toml_source_ref_from_path(source, path, line_start, line_end),
+  let table_ref = toml_source_ref_from_path(source, path, line_start, line_end)
+  @fshared.make_indexed_table_block(
+    rows,
+    table_ref,
+    fn(row_index, row_values) {
+      ignore(row_values)
+      toml_table_row_source_ref(table_ref, path, row_index)
+    },
+    fn(row_index, col_index) {
+      toml_table_cell_source_ref(table_ref, path, row_index, col_index)
+    },
   )
-  table.attrs.set("header_rows", "1")
-  for row_index in 0..<rows.length() {
-    let row_values = rows[row_index]
-    let row = @core.make_block(
-      @core.BlockKind::TableRow,
-      row_values.join(" | "),
-      source_ref=toml_source_ref_from_path(
-        source,
-        path + "/row[" + row_index.to_string() + "]",
-        line_start,
-        line_end,
-      ),
-    )
-    for col_index in 0..<row_values.length() {
-      row.children.push(
-        @core.make_block(
-          @core.BlockKind::TableCell,
-          row_values[col_index],
-          source_ref=toml_source_ref_from_path(
-            source,
-            path +
-            "/row[" +
-            row_index.to_string() +
-            "]/col[" +
-            col_index.to_string() +
-            "]",
-            line_start,
-            line_end,
-          ),
-        ),
-      )
-    }
-    table.children.push(row)
-  }
-  table
 }
 
 ///|
@@ -440,6 +416,36 @@ fn toml_source_ref_from_path(
     line_end,
   )
   @core.source_ref_with_extra(base, "toml_path", path)
+}
+
+///|
+fn toml_table_row_source_ref(
+  table_ref : @core.SourceRef,
+  table_path : String,
+  row_index : Int,
+) -> @core.SourceRef {
+  @core.source_ref_with_extra(
+    table_ref,
+    "toml_path",
+    @fshared.indexed_table_row_path(table_path, row_index),
+  )
+}
+
+///|
+fn toml_table_cell_source_ref(
+  table_ref : @core.SourceRef,
+  table_path : String,
+  row_index : Int,
+  col_index : Int,
+) -> @core.SourceRef {
+  @core.source_ref_with_extra(
+    table_ref,
+    "toml_path",
+    @fshared.indexed_table_cell_path(
+      @fshared.indexed_table_row_path(table_path, row_index),
+      col_index,
+    ),
+  )
 }
 
 ///|
@@ -598,6 +604,8 @@ fn toml_inline_table_array_rows(
 ) -> Array[Array[String]]? {
   let rows : Array[Array[String]] = []
   let mut keys : Array[String] = []
+  let key_index : Map[String, Int] = Map([])
+  let mut has_key_index = false
   for i in 0..<values.length() {
     let entries = match values[i] {
       @dtoml.TomlValue::InlineTable(items) => items
@@ -607,15 +615,16 @@ fn toml_inline_table_array_rows(
     let next_keys = entries.map(fn(item) { item.key })
     if i == 0 {
       keys = next_keys
+      for entry in @fshared.key_position_index(keys).to_array() {
+        key_index.set(entry.0, entry.1)
+      }
+      has_key_index = true
       rows.push(keys)
-    } else if !toml_same_key_set(keys, next_keys) {
+    } else if !has_key_index ||
+      !@fshared.keys_match_position_index(keys, key_index, next_keys) {
       return None
     }
-    let row : Array[String] = []
-    for key in keys {
-      row.push(toml_member_value_cell(entries, key))
-    }
-    rows.push(row)
+    rows.push(toml_member_row(entries, keys))
   }
   if rows.length() == 0 {
     None
@@ -629,11 +638,18 @@ fn toml_array_tables_shared_keys(
   tables : Array[@dtoml.TomlTable],
 ) -> Array[String]? {
   let mut keys : Array[String] = []
+  let key_index : Map[String, Int] = Map([])
+  let mut has_key_index = false
   for i in 0..<tables.length() {
     let next_keys = tables[i].members.map(fn(item) { item.key })
     if i == 0 {
       keys = next_keys
-    } else if !toml_same_key_set(keys, next_keys) {
+      for entry in @fshared.key_position_index(keys).to_array() {
+        key_index.set(entry.0, entry.1)
+      }
+      has_key_index = true
+    } else if !has_key_index ||
+      !@fshared.keys_match_position_index(keys, key_index, next_keys) {
       return None
     }
   }
@@ -653,111 +669,43 @@ fn toml_table_block_from_array_tables(
   line_start : Int?,
   line_end : Int?,
 ) -> @core.CoreBlock {
-  let table = @core.make_block(
-    @core.BlockKind::Table,
-    "table",
-    source_ref=toml_source_ref_from_path(source, path, line_start, line_end),
-  )
-  table.attrs.set("header_rows", "1")
-  let header_row_path = path + "/row[0]"
-  let header = @core.make_block(
-    @core.BlockKind::TableRow,
-    "",
-    source_ref=toml_source_ref_from_path(
-      source, header_row_path, line_start, line_end,
-    ),
-  )
-  for col_index in 0..<keys.length() {
-    header.children.push(
-      @core.make_block(
-        @core.BlockKind::TableCell,
-        keys[col_index],
-        source_ref=toml_source_ref_from_path(
-          source,
-          header_row_path + "/col[" + col_index.to_string() + "]",
-          line_start,
-          line_end,
-        ),
-      ),
-    )
-  }
-  table.children.push(header)
+  let rows : Array[Array[String]] = [keys]
   for table_index in 0..<tables.length() {
-    let row_path = path + "/row[" + (table_index + 1).to_string() + "]"
-    let entry_index : Map[String, Int] = Map([])
-    let members = tables[table_index].members
-    for member_index in 0..<members.length() {
-      entry_index[members[member_index].key] = member_index
-    }
-    let row = @core.make_block(
-      @core.BlockKind::TableRow,
-      "",
-      source_ref=toml_source_ref_from_path(
-        source, row_path, line_start, line_end,
-      ),
-    )
-    for col_index in 0..<keys.length() {
-      let key = keys[col_index]
-      let cell_text = match entry_index.get(key) {
-        Some(member_index) => toml_value_cell(members[member_index].value)
-        None => ""
-      }
-      row.children.push(
-        @core.make_block(
-          @core.BlockKind::TableCell,
-          cell_text,
-          source_ref=toml_source_ref_from_path(
-            source,
-            row_path + "/col[" + col_index.to_string() + "]",
-            line_start,
-            line_end,
-          ),
-        ),
-      )
-    }
-    table.children.push(row)
+    rows.push(toml_member_row(tables[table_index].members, keys))
   }
-  table
+  toml_table_block_from_rows(rows, source, path, line_start, line_end)
 }
 
 ///|
-fn toml_member_value_cell(
+fn toml_member_row(
   entries : Array[@dtoml.TomlMember],
-  key : String,
-) -> String {
-  for entry in entries {
-    if entry.key == key {
-      return toml_value_cell(entry.value)
-    }
+  keys : Array[String],
+) -> Array[String] {
+  let entry_index : Map[String, Int] = Map([])
+  for i in 0..<entries.length() {
+    entry_index.set(entries[i].key, i)
   }
-  ""
+  @fshared.projected_row_from_key_index(keys, entry_index, fn(index) {
+    toml_value_cell(entries[index].value)
+  })
 }
 
 ///|
-fn toml_same_key_set(left : Array[String], right : Array[String]) -> Bool {
-  if left.length() != right.length() {
-    return false
-  }
-  for key in left {
-    if !right.contains(key) {
-      return false
-    }
-  }
-  true
-}
-
-///|
-fn toml_collect_array_tables(
+fn toml_group_array_tables(
   tables : Array[@dtoml.TomlTable],
-  base_path : String,
-) -> Array[@dtoml.TomlTable] {
-  let out : Array[@dtoml.TomlTable] = []
+) -> Map[String, Array[@dtoml.TomlTable]] {
+  let groups : Map[String, Array[@dtoml.TomlTable]] = Map([])
   for table in tables {
-    if table.is_array_item && toml_array_base_path(table.path) == base_path {
-      out.push(table)
+    if !table.is_array_item {
+      continue
+    }
+    let base_path = toml_array_base_path(table.path)
+    match groups.get(base_path) {
+      Some(existing) => existing.push(table)
+      None => groups.set(base_path, [table])
     }
   }
-  out
+  groups
 }
 
 ///|

@@ -79,6 +79,9 @@ The main CLI currently supports:
 - `xlsx`
 - `pptx`
 - `pdf`
+- `wav`
+- `mp3`
+- `m4a`
 - `png`
 - `jpg`
 - `jpeg`
@@ -90,6 +93,8 @@ The main CLI currently supports:
 Current format policy:
 
 - `pdf` is officially supported for native-text PDFs by default.
+- Root local audio input is officially supported for `wav`, `mp3`, and `m4a` through the media pipeline transcript bridge.
+- Audio P0 currently supports only pre-recorded single-file transcription and does not support streaming media or video containers.
 - Single-file `pdf --accurate` now defaults to `--pdf-ocr auto-scanned`; scanned-like PDFs enter the Paddle-backed OCR route and fail closed with install guidance when Paddle is unavailable.
 - `pdf --ocr` remains supported as a compatibility alias for `pdf --pdf-ocr explicit`.
 - Scanned or image-only PDFs should currently use `--ocr` or `--pdf-ocr auto-scanned`.
@@ -215,6 +220,44 @@ Current payload contract:
       ]
     }
   ]
+}
+```
+
+## Audio Bridge
+
+### MARKITDOWN_AUDIO_TRANSCRIBE_CMD
+
+`MARKITDOWN_AUDIO_TRANSCRIBE_CMD` enables the audio transcript bridge for root local `wav`, `mp3`, and `m4a` inputs.
+
+- The command is invoked as `<adapter_cmd> <audio_path> --format <wav|mp3|m4a> [--lang <LANG>]`.
+- `markitdown-mb` expects the adapter to print a single JSON object to stdout.
+- Non-zero exit codes are treated as execution failures.
+- Zero exit plus malformed JSON, empty `segments`, malformed timestamps, or all-empty transcript text are treated as fail-closed errors.
+
+Current payload contract:
+
+```json
+{
+  "provider_name": "mock_audio_bridge",
+  "provider_version": "p0",
+  "metadata": {
+    "duration_ms": 7200,
+    "sample_rate_hz": 16000,
+    "channel_count": 1,
+    "codec": "wav",
+    "language": "eng"
+  },
+  "segments": [
+    {
+      "segment_id": "seg-1",
+      "start_ms": 0,
+      "end_ms": 3200,
+      "text": "hello",
+      "confidence": 0.98,
+      "language": "eng"
+    }
+  ],
+  "diagnostics": ["adapter=sample"]
 }
 ```
 

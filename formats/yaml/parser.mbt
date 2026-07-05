@@ -145,6 +145,7 @@ fn parse_yaml_document_result(
         "block_count",
         document.blocks.length().to_string(),
       )
+      @fshared.mark_structured_document_profile(diagnostics)
       diagnostics.pass_trace.push("parse:yaml_parser")
       let final_document = @core.document_with_diagnostics(
         document, diagnostics,

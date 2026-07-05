@@ -6,6 +6,7 @@ pub(all) enum FormatRoute {
   PageSinglePass
   DomAstModel
   LayoutTwoStage
+  MediaPipeline
   ContainerRecursive
 } derive(Eq)
 
@@ -518,6 +519,17 @@ pub fn format_route_profile(
         large_route_granularity=Some(@parser.StreamingGranularity::XlsxRow),
         large_route_ir_input_kind=Some("block_stream"),
       )
+    @input.DetectedFormat::Audio(_) =>
+      make_format_route_profile(
+        format,
+        true,
+        FormatRoute::MediaPipeline,
+        false,
+        @parser.ParserMode::MediaPipeline,
+        @parser.StreamingGranularity::None,
+        "document",
+        @input.detected_format_name(format) + " canonical media pipeline",
+      )
     @input.DetectedFormat::Image(_) =>
       make_format_route_profile(
         format,
@@ -855,6 +867,7 @@ pub fn parser_mode_for_route(route : FormatRoute) -> @parser.ParserMode {
     FormatRoute::PageSinglePass => @parser.ParserMode::PageSinglePass
     FormatRoute::DomAstModel => @parser.ParserMode::DomAstModel
     FormatRoute::LayoutTwoStage => @parser.ParserMode::LayoutTwoStage
+    FormatRoute::MediaPipeline => @parser.ParserMode::MediaPipeline
     FormatRoute::ContainerRecursive => @parser.ParserMode::ContainerRecursive
   }
 }
@@ -868,6 +881,7 @@ pub fn route_name(route : FormatRoute) -> String {
     FormatRoute::PageSinglePass => "page_single_pass"
     FormatRoute::DomAstModel => "dom_ast_model"
     FormatRoute::LayoutTwoStage => "layout_two_stage"
+    FormatRoute::MediaPipeline => "media_pipeline"
     FormatRoute::ContainerRecursive => "container_recursive"
   }
 }

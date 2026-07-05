@@ -52,6 +52,38 @@ pub type OcrProviderKind = @focr.OcrProviderKind
 pub type OcrProviderSelectionTarget = @focr.OcrProviderSelectionTarget
 
 ///|
+pub struct AudioProbeArtifact {
+  format : String
+  codec : String?
+  duration_ms : Int?
+  sample_rate_hz : Int?
+  channel_count : Int?
+  language : String?
+  probe_notes : Array[String]
+}
+
+///|
+pub fn make_audio_probe_artifact(
+  format : String,
+  codec? : String? = None,
+  duration_ms? : Int? = None,
+  sample_rate_hz? : Int? = None,
+  channel_count? : Int? = None,
+  language? : String? = None,
+  probe_notes? : Array[String] = [],
+) -> AudioProbeArtifact {
+  {
+    format,
+    codec,
+    duration_ms,
+    sample_rate_hz,
+    channel_count,
+    language,
+    probe_notes,
+  }
+}
+
+///|
 pub struct ProbeSignal {
   kind : ProbeSignalKind
   observed : Int
@@ -217,6 +249,9 @@ pub struct ConvertProvenance {
   ocr_provider_selection_target : String?
   ocr_provider_requested_kind : String?
   ocr_provider_resolved_kind : String?
+  audio_backend_transport : String?
+  audio_backend_name : String?
+  audio_backend_version : String?
 }
 
 ///|
@@ -239,6 +274,9 @@ pub fn make_convert_provenance(
   ocr_provider_selection_target? : String? = None,
   ocr_provider_requested_kind? : String? = None,
   ocr_provider_resolved_kind? : String? = None,
+  audio_backend_transport? : String? = None,
+  audio_backend_name? : String? = None,
+  audio_backend_version? : String? = None,
 ) -> ConvertProvenance {
   {
     route_plan,
@@ -259,6 +297,9 @@ pub fn make_convert_provenance(
     ocr_provider_selection_target,
     ocr_provider_requested_kind,
     ocr_provider_resolved_kind,
+    audio_backend_transport,
+    audio_backend_name,
+    audio_backend_version,
   }
 }
 
@@ -322,13 +363,6 @@ priv struct ExecutionIntent {
 }
 
 ///|
-priv enum RenderPathKind {
-  Document
-  BlockStream
-  EventStream
-}
-
-///|
 priv struct ResolvedExecutionPlan {
   detected_format : @input.DetectedFormat
   mode : ConvertMode
@@ -352,7 +386,6 @@ priv struct ResolvedExecutionPlan {
   pdf_native_runtime_policy : @parser.PdfNativeRuntimePolicy
   pdf_header_footer_filter_policy : @parser.PdfHeaderFooterFilterPolicy
   pdf_table_reconstruction_policy : @parser.PdfTableReconstructionPolicy
-  render_path_kind : RenderPathKind
   reason : String
   probe_signals : Array[ProbeSignal]
   profile_trigger_signals : Array[ProbeSignal]
@@ -363,6 +396,9 @@ priv struct ResolvedExecutionPlan {
   ocr_provider_selection_target : OcrProviderSelectionTarget?
   ocr_provider_requested_kind : OcrProviderKind?
   ocr_provider_resolved_kind : OcrProviderKind?
+  audio_backend_transport : String?
+  audio_backend_name : String?
+  audio_backend_version : String?
   prepared_source : @input.InputSource
   probe_artifacts : Array[RouteProbeArtifact]
 }
@@ -381,6 +417,7 @@ priv enum RouteProbeArtifact {
   OdpDocument(@dodf.OdpDocument, @dodf.OdpInspectReport)
   XlsxPackage(@ox.OoxmlPackage)
   YamlEvents(Array[@dyaml.YamlStructureEvent], @dyaml.YamlInspectReport)
+  AudioProbe(AudioProbeArtifact)
 }
 
 ///|

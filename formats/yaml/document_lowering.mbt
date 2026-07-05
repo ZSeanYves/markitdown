@@ -161,6 +161,8 @@ fn yaml_array_object_rows(
   values : Array[@dyaml.YamlValue],
 ) -> Array[Array[String]]? {
   let mut keys : Array[String] = []
+  let key_index : Map[String, Int] = Map([])
+  let mut has_key_index = false
   let rows : Array[Array[String]] = []
   for i in 0..<values.length() {
     match values[i] {
@@ -168,8 +170,13 @@ fn yaml_array_object_rows(
         let member_keys = members.map(fn(entry) { entry.key })
         if i == 0 {
           keys = member_keys
+          for entry in @fshared.key_position_index(keys).to_array() {
+            key_index.set(entry.0, entry.1)
+          }
+          has_key_index = true
           rows.push(keys)
-        } else if !yaml_same_key_set(keys, member_keys) {
+        } else if !has_key_index ||
+          !@fshared.keys_match_position_index(keys, key_index, member_keys) {
           return None
         }
         rows.push(yaml_members_to_row(members, keys))
@@ -189,47 +196,13 @@ fn yaml_members_to_row(
   members : Array[@dyaml.YamlMember],
   keys : Array[String],
 ) -> Array[String] {
-  let row : Array[String] = []
-  for key in keys {
-    row.push(yaml_member_value_cell(members, key))
+  let member_index : Map[String, Int] = Map([])
+  for i in 0..<members.length() {
+    member_index.set(members[i].key, i)
   }
-  row
-}
-
-///|
-fn yaml_member_value_cell(
-  members : Array[@dyaml.YamlMember],
-  key : String,
-) -> String {
-  for entry in members {
-    if entry.key == key {
-      return yaml_value_cell(entry.value)
-    }
-  }
-  ""
-}
-
-///|
-fn yaml_same_key_set(a : Array[String], b : Array[String]) -> Bool {
-  if a.length() != b.length() {
-    return false
-  }
-  for key in a {
-    if !yaml_contains_key(b, key) {
-      return false
-    }
-  }
-  true
-}
-
-///|
-fn yaml_contains_key(keys : Array[String], target : String) -> Bool {
-  for key in keys {
-    if key == target {
-      return true
-    }
-  }
-  false
+  @fshared.projected_row_from_key_index(keys, member_index, fn(index) {
+    yaml_value_cell(members[index].value)
+  })
 }
 
 ///|
@@ -455,40 +428,30 @@ fn yaml_table_block_from_rows(
   source : @input.InputSource,
   path : String,
 ) -> @core.CoreBlock {
-  let table = @core.make_block(
-    @core.BlockKind::Table,
-    "table",
-    source_ref=yaml_source_ref(source, path),
-  )
-  table.attrs.set("header_rows", "1")
-  for row_index in 0..<rows.length() {
-    let row_values = rows[row_index]
-    let row_path = if row_index == 0 {
-      path + "/header"
-    } else {
-      yaml_join_index(path, row_index - 1)
-    }
-    let row_ref = yaml_source_ref(source, row_path)
-    let row = @core.make_block(
-      @core.BlockKind::TableRow,
-      row_values.join(" | "),
-      source_ref=row_ref,
-    )
-    for col_index in 0..<row_values.length() {
-      row.children.push(
-        @core.make_block(
-          @core.BlockKind::TableCell,
-          row_values[col_index],
-          source_ref=yaml_source_ref(
-            source,
-            row_path + "/col[" + col_index.to_string() + "]",
-          ),
-        ),
+  @fshared.make_indexed_table_block(
+    rows,
+    yaml_source_ref(source, path),
+    fn(row_index, row_values) {
+      ignore(row_values)
+      let row_path = if row_index == 0 {
+        path + "/header"
+      } else {
+        yaml_join_index(path, row_index - 1)
+      }
+      yaml_source_ref(source, row_path)
+    },
+    fn(row_index, col_index) {
+      let row_path = if row_index == 0 {
+        path + "/header"
+      } else {
+        yaml_join_index(path, row_index - 1)
+      }
+      yaml_source_ref(
+        source,
+        @fshared.indexed_table_cell_path(row_path, col_index),
       )
-    }
-    table.children.push(row)
-  }
-  table
+    },
+  )
 }
 
 ///|
@@ -594,6 +557,8 @@ fn yaml_append_value_events(
       let table_rows : Array[Array[String]] = []
       let table_refs : Array[@core.SourceRef] = []
       let mut header_keys : Array[String]? = None
+      let header_key_index : Map[String, Int] = Map([])
+      let mut has_header_key_index = false
       let mut can_render_table = true
       let mut item_index = 0
       while cursor.index < cursor.events.length() {
@@ -630,11 +595,21 @@ fn yaml_append_value_events(
                   consumed_as_table_row = true
                   match header_keys {
                     Some(keys) =>
-                      if !yaml_same_key_set(keys, value.0) {
+                      if !has_header_key_index ||
+                        !@fshared.keys_match_position_index(
+                          keys,
+                          header_key_index,
+                          value.0,
+                        ) {
                         can_render_table = false
                       }
                     None => {
                       header_keys = Some(value.0)
+                      for
+                        entry in @fshared.key_position_index(value.0).to_array() {
+                        header_key_index.set(entry.0, entry.1)
+                      }
+                      has_header_key_index = true
                       table_rows.push(value.0)
                     }
                   }

@@ -72,6 +72,7 @@ pub struct EmlAttachment {
   content_id : String?
   location : String?
   transfer_encoding : EmlTransferEncoding
+  payload_decoded : Bool
   bytes : Bytes?
   decoded_text : String?
   raw_text : String

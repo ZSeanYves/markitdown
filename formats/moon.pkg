@@ -6,6 +6,7 @@ import {
   "ZSeanYves/markitdown/formats/docx" @fdocx,
   "ZSeanYves/markitdown/formats/eml" @feml,
   "ZSeanYves/markitdown/formats/asciidoc" @fasciidoc,
+  "ZSeanYves/markitdown/formats/audio" @faudio,
   "ZSeanYves/markitdown/formats/html" @fhtml,
   "ZSeanYves/markitdown/formats/ipynb" @fipynb,
   "ZSeanYves/markitdown/formats/json" @fjson,

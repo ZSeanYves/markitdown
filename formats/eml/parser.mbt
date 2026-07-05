@@ -11,6 +11,12 @@ const EML_MAX_MATERIALIZED_ASSETS : Int = 64
 const EML_MAX_INLINE_BINARY_BYTES : Int = 32768
 
 ///|
+const EML_MAX_INLINE_BASE64_RAW_CHARS_UPPER_BOUND : Int = 44864
+
+///|
+const EML_MAX_INLINE_BASE64_RAW_CHARS_LOWER_BOUND : Int = 43776
+
+///|
 pub fn eml_parser() -> @parser.Parser {
   eml_parser_with_registry(fn() { @parser.empty_registry() })
 }
@@ -503,6 +509,9 @@ fn lower_eml_attachment(
   let blocks : Array[@core.CoreBlock] = []
   if eml_attachment_is_inline_image(attachment) &&
     document.assets.length() < EML_MAX_MATERIALIZED_ASSETS {
+    let materialized = eml_materialize_attachment_payload(
+      attachment, false, true,
+    )
     let asset_id = eml_attachment_asset_path(part, attachment)
     let source_ref = eml_attachment_source_ref(source, part, attachment)
     let asset = @core.make_asset_ref(
@@ -515,7 +524,7 @@ fn lower_eml_attachment(
       path: Some(asset_id),
       mime_type: Some(attachment.mime_type),
     }
-    eml_attach_inline_payload(next_asset, attachment)
+    eml_attach_inline_payload(next_asset, materialized)
     document.assets.push(next_asset)
     let image = @core.make_block(@core.BlockKind::Image, "", source_ref~)
     image.attrs.set("asset_id", asset_id)
@@ -531,70 +540,165 @@ fn lower_eml_attachment(
   }
 
   match eml_attachment_detected_format(attachment) {
-    Some(format) if attachment.decoded_text is Some(text) => {
-      let child_blocks = eml_lower_typed_text_payload(
-        text, format, part, source, context, registry, diagnostics,
-      )
-      if child_blocks.length() > 0 {
-        blocks.append(child_blocks[:])
-        return blocks
-      }
-    }
-    Some(format) if attachment.bytes is Some(bytes) => {
-      let inner = @input.input_from_bytes_with_format(
-        bytes,
-        attachment.file_name.unwrap_or(source.source_name + ".child"),
-        Some(format),
-      )
-      let child = match
-        @runtime.parse_child_to_block_product(registry, inner, format, context) {
-        Ok(value) => value
-        Err(_) => {
-          diagnostics.warnings.push(
-            "eml attachment parse fallback for " +
-            attachment.file_name.unwrap_or(attachment.mime_type),
-          )
-          diagnostics.degraded_features.push("eml_attachment_raw_fallback")
-          return eml_attachment_summary_blocks(attachment, part, source)
+    Some(format) =>
+      if eml_detected_format_prefers_text_payload(format) {
+        let materialized = eml_materialize_attachment_payload(
+          attachment, true, false,
+        )
+        match materialized.decoded_text {
+          Some(text) => {
+            let child_blocks = eml_lower_typed_text_payload(
+              text, format, part, source, context, registry, diagnostics,
+            )
+            if child_blocks.length() > 0 {
+              blocks.append(child_blocks[:])
+              return blocks
+            }
+          }
+          None => ()
+        }
+      } else {
+        let materialized = eml_materialize_attachment_payload(
+          attachment, false, true,
+        )
+        match materialized.bytes {
+          Some(bytes) => {
+            let inner = @input.input_from_bytes_with_format(
+              bytes,
+              attachment.file_name.unwrap_or(source.source_name + ".child"),
+              Some(format),
+            )
+            let child = match
+              @runtime.parse_child_to_block_product(
+                registry, inner, format, context,
+              ) {
+              Ok(value) => value
+              Err(_) => {
+                diagnostics.warnings.push(
+                  "eml attachment parse fallback for " +
+                  attachment.file_name.unwrap_or(attachment.mime_type),
+                )
+                diagnostics.degraded_features.push(
+                  "eml_attachment_raw_fallback",
+                )
+                return eml_attachment_summary_blocks(attachment, part, source)
+              }
+            }
+            eml_absorb_child_diagnostics(diagnostics, child.diagnostics)
+            eml_increment_metric(
+              diagnostics, "recursive_attachment_dispatch_count",
+            )
+            let child_rewrites = eml_rewrite_child_assets(
+              child.assets,
+              part,
+              rewrites,
+              document,
+              diagnostics,
+            )
+            return eml_rewrite_child_blocks(
+              child.blocks,
+              child_rewrites,
+              part,
+              diagnostics,
+            )
+          }
+          None => ()
         }
       }
-      eml_absorb_child_diagnostics(diagnostics, child.diagnostics)
-      eml_increment_metric(diagnostics, "recursive_attachment_dispatch_count")
-      let child_rewrites = eml_rewrite_child_assets(
-        child.assets,
-        part,
-        rewrites,
-        document,
-        diagnostics,
-      )
-      return eml_rewrite_child_blocks(
-        child.blocks,
-        child_rewrites,
-        part,
-        diagnostics,
-      )
-    }
     _ => ()
   }
 
   if document.assets.length() < EML_MAX_MATERIALIZED_ASSETS &&
-    attachment.bytes is Some(_) {
-    let asset_id = eml_attachment_asset_path(part, attachment)
-    let source_ref = eml_attachment_source_ref(source, part, attachment)
-    let asset = @core.make_asset_ref(
-      @core.AssetKind::Attachment,
-      asset_id,
-      source_ref~,
+    eml_should_materialize_attachment_asset(attachment) {
+    let materialized = eml_materialize_attachment_payload(
+      attachment, false, true,
     )
-    let next_asset = {
-      ..asset,
-      path: Some(asset_id),
-      mime_type: Some(attachment.mime_type),
+    if materialized.bytes is Some(_) {
+      let asset_id = eml_attachment_asset_path(part, attachment)
+      let source_ref = eml_attachment_source_ref(source, part, attachment)
+      let asset = @core.make_asset_ref(
+        @core.AssetKind::Attachment,
+        asset_id,
+        source_ref~,
+      )
+      let next_asset = {
+        ..asset,
+        path: Some(asset_id),
+        mime_type: Some(attachment.mime_type),
+      }
+      eml_attach_inline_payload(next_asset, materialized)
+      document.assets.push(next_asset)
     }
-    eml_attach_inline_payload(next_asset, attachment)
-    document.assets.push(next_asset)
   }
   eml_attachment_summary_blocks(attachment, part, source)
+}
+
+///|
+fn eml_detected_format_prefers_text_payload(
+  format : @input.DetectedFormat,
+) -> Bool {
+  match format {
+    @input.DetectedFormat::Txt
+    | @input.DetectedFormat::Markdown
+    | @input.DetectedFormat::Json
+    | @input.DetectedFormat::Xml
+    | @input.DetectedFormat::Yaml
+    | @input.DetectedFormat::Toml
+    | @input.DetectedFormat::Html
+    | @input.DetectedFormat::Eml
+    | @input.DetectedFormat::Ipynb => true
+    _ => false
+  }
+}
+
+///|
+fn eml_should_materialize_attachment_asset(
+  attachment : @deml.EmlAttachment,
+) -> Bool {
+  if attachment.bytes is Some(_) {
+    return true
+  }
+  match attachment.transfer_encoding {
+    @deml.EmlTransferEncoding::Base64 => {
+      if attachment.raw_text.length() >
+        EML_MAX_INLINE_BASE64_RAW_CHARS_UPPER_BOUND {
+        return false
+      }
+      if attachment.raw_text.length() <=
+        EML_MAX_INLINE_BASE64_RAW_CHARS_LOWER_BOUND {
+        return true
+      }
+      eml_base64_body_within_inline_limit(
+        attachment.raw_text,
+        eml_max_inline_binary_base64_chars(),
+      )
+    }
+    @deml.EmlTransferEncoding::QuotedPrintable
+    | @deml.EmlTransferEncoding::SevenBit
+    | @deml.EmlTransferEncoding::EightBit
+    | @deml.EmlTransferEncoding::Binary
+    | @deml.EmlTransferEncoding::Other(_) =>
+      attachment.raw_text.length() <= EML_MAX_INLINE_BINARY_BYTES
+  }
+}
+
+///|
+fn eml_max_inline_binary_base64_chars() -> Int {
+  (EML_MAX_INLINE_BINARY_BYTES + 2) / 3 * 4
+}
+
+///|
+fn eml_base64_body_within_inline_limit(raw : String, max_chars : Int) -> Bool {
+  let mut compact_len = 0
+  for ch in raw {
+    if ch != '\n' && ch != '\r' && ch != ' ' && ch != '\t' {
+      compact_len += 1
+      if compact_len > max_chars {
+        return false
+      }
+    }
+  }
+  true
 }
 
 ///|
@@ -749,13 +853,14 @@ fn eml_materialize_inline_attachment_asset(
   owner_part : @deml.EmlPart,
   document : @core.DocumentIR,
 ) -> Unit {
+  let materialized = eml_materialize_attachment_payload(attachment, false, true)
   let asset_path = eml_attachment_asset_path(owner_part, attachment)
   let existing = document.assets.any(fn(asset) {
     asset.path == Some(asset_path)
   })
   if existing ||
     document.assets.length() >= EML_MAX_MATERIALIZED_ASSETS ||
-    attachment.bytes is None {
+    materialized.bytes is None {
     return
   }
   let asset = @core.make_asset_ref(@core.AssetKind::Image, asset_path)
@@ -764,8 +869,17 @@ fn eml_materialize_inline_attachment_asset(
     path: Some(asset_path),
     mime_type: Some(attachment.mime_type),
   }
-  eml_attach_inline_payload(next_asset, attachment)
+  eml_attach_inline_payload(next_asset, materialized)
   document.assets.push(next_asset)
+}
+
+///|
+fn eml_materialize_attachment_payload(
+  attachment : @deml.EmlAttachment,
+  want_text : Bool,
+  want_bytes : Bool,
+) -> @deml.EmlAttachment {
+  @deml.materialize_attachment_payload(attachment, want_text, want_bytes)
 }
 
 ///|

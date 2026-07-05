@@ -89,8 +89,32 @@ test "detector contract covers extensions and unknown fallback" {
   assert_true(pdf.binary_like)
   assert_true(!pdf.text_like)
   assert_true(
+    (detector.detect)(@input.input_from_path("voice.wav")).format ==
+    @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
+  )
+  assert_true(
+    (detector.detect)(@input.input_from_path("voice.mp3")).format ==
+    @input.DetectedFormat::Audio(@input.AudioFormat::Mp3),
+  )
+  assert_true(
+    (detector.detect)(@input.input_from_path("voice.m4a")).format ==
+    @input.DetectedFormat::Audio(@input.AudioFormat::M4a),
+  )
+  assert_true(
     @input.parse_detected_format("jpg") ==
     @input.DetectedFormat::Image(@input.ImageFormat::Jpg),
+  )
+  assert_true(
+    @input.parse_detected_format("wav") ==
+    @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
+  )
+  assert_true(
+    @input.parse_detected_format("mp3") ==
+    @input.DetectedFormat::Audio(@input.AudioFormat::Mp3),
+  )
+  assert_true(
+    @input.parse_detected_format("m4a") ==
+    @input.DetectedFormat::Audio(@input.AudioFormat::M4a),
   )
   assert_true(
     @input.parse_detected_format("latex") == @input.DetectedFormat::Tex,
@@ -101,6 +125,12 @@ test "detector contract covers extensions and unknown fallback" {
   assert_true(@input.parse_detected_format("pdf") == @input.DetectedFormat::Pdf)
   assert_true(@input.detected_format_name(@input.DetectedFormat::Pdf) == "pdf")
   assert_true(@input.detected_format_name(@input.DetectedFormat::Eml) == "eml")
+  assert_true(
+    @input.detected_format_name(
+      @input.DetectedFormat::Audio(@input.AudioFormat::Mp3),
+    ) ==
+    "mp3",
+  )
   assert_true(
     @input.detected_format_name(
       @input.DetectedFormat::Image(@input.ImageFormat::Webp),
@@ -196,6 +226,39 @@ test "detector contract covers mime, magic bytes, and container inspection" {
   )
   assert_true(pdf_magic.format == @input.DetectedFormat::Pdf)
   assert_true(pdf_magic.notes.contains("magic_bytes"))
+
+  let wav_magic = (detector.detect)(
+    @input.input_from_bytes(
+      Bytes::from_array([82, 73, 70, 70, 0, 0, 0, 0, 87, 65, 86, 69]),
+      source_name="blob",
+    ),
+  )
+  assert_true(
+    wav_magic.format == @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
+  )
+  assert_true(wav_magic.notes.contains("magic_bytes"))
+
+  let mp3_magic = (detector.detect)(
+    @input.input_from_bytes(
+      Bytes::from_array([73, 68, 51, 4, 0, 0]),
+      source_name="blob",
+    ),
+  )
+  assert_true(
+    mp3_magic.format == @input.DetectedFormat::Audio(@input.AudioFormat::Mp3),
+  )
+  assert_true(mp3_magic.notes.contains("magic_bytes"))
+
+  let m4a_mime = (detector.detect)(
+    @input.with_mime_type(
+      @input.input_from_bytes(Bytes::from_array([]), source_name="audio"),
+      Some("audio/mp4"),
+    ),
+  )
+  assert_true(
+    m4a_mime.format == @input.DetectedFormat::Audio(@input.AudioFormat::M4a),
+  )
+  assert_true(m4a_mime.notes.contains("mime_type"))
 
   let png_magic = (detector.detect)(
     @input.input_from_bytes(
@@ -1332,17 +1395,17 @@ async test "async convert explicit image OCR injected provider reaches root conv
 ///|
 test "public gates and docs stay aligned on the main cli surface" {
   assert_file_contains_all("cli/cli.mbt", [
-    "Supported product formats: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, yml, toml, html, htm, markdown, md, eml, tex, latex, rst, adoc, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, png, jpg, jpeg, bmp, webp, tif, tiff",
+    "Supported product formats: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, yml, toml, html, htm, markdown, md, eml, tex, latex, rst, adoc, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, wav, mp3, m4a, png, jpg, jpeg, bmp, webp, tif, tiff",
     "--pdf-ocr explicit|auto-scanned", "`pdf --accurate` defaults to `auto-scanned`",
     "DetectedFormat::Pdf", "cli_is_supported_format",
   ])
   assert_file_contains_all("samples/check.sh", [
-    "SUPPORTED_FORMATS=(\"txt\" \"csv\" \"tsv\" \"srt\" \"vtt\" \"json\" \"jsonl\" \"ndjson\" \"ipynb\" \"xml\" \"yaml\" \"toml\" \"html\" \"markdown\" \"eml\" \"tex\" \"rst\" \"asciidoc\" \"zip\" \"epub\" \"odt\" \"ods\" \"odp\" \"docx\" \"xlsx\" \"pptx\" \"pdf\" \"ocr\")",
-    "txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, eml, tex, rst, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, and ocr",
+    "SUPPORTED_FORMATS=(\"txt\" \"csv\" \"tsv\" \"srt\" \"vtt\" \"json\" \"jsonl\" \"ndjson\" \"ipynb\" \"xml\" \"yaml\" \"toml\" \"html\" \"markdown\" \"eml\" \"tex\" \"rst\" \"asciidoc\" \"zip\" \"epub\" \"odt\" \"ods\" \"odp\" \"docx\" \"xlsx\" \"pptx\" \"pdf\" \"wav\" \"mp3\" \"m4a\" \"ocr\")",
+    "txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, eml, tex, rst, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, wav, mp3, m4a, and ocr",
     "main CLI gate",
   ])
   assert_file_contains_all("samples/helpers/contracts/check_cli_contract.sh", [
-    "txt csv tsv json jsonl ndjson ipynb xml yaml toml html markdown zip epub odt ods odp docx xlsx pptx pdf and ocr succeed through main product cli",
+    "txt csv tsv json jsonl ndjson ipynb xml yaml toml html markdown zip epub odt ods odp docx xlsx pptx pdf wav mp3 m4a and ocr succeed through main product cli",
     "markdown_frontmatter_passthrough.markdown", "zip_basic_structured.zip", "docx",
     "sheet_simple.xlsx", "pptx_hidden_slide_basic.pptx", "pdf", "ocr", "pdftoppm",
     "help and version expose main cli product surface", "--pdf-cleanup none|conservative",
@@ -1351,7 +1414,7 @@ test "public gates and docs stay aligned on the main cli surface" {
   assert_file_contains_all(
     "samples/helpers/contracts/check_samples_check_contract.sh",
     [
-      "formats=txt,csv,tsv,srt,vtt,json,jsonl,ndjson,ipynb,xml,yaml,toml,html,markdown,eml,tex,rst,asciidoc,zip,epub,odt,ods,odp,docx,xlsx,pptx,pdf,ocr",
+      "formats=txt,csv,tsv,srt,vtt,json,jsonl,ndjson,ipynb,xml,yaml,toml,html,markdown,eml,tex,rst,asciidoc,zip,epub,odt,ods,odp,docx,xlsx,pptx,pdf,wav,mp3,m4a,ocr",
       "formats=markdown", "formats=docx", "formats=xlsx", "formats=pptx", "formats=pdf",
     ],
   )
@@ -1369,7 +1432,7 @@ test "public gates and docs stay aligned on the main cli surface" {
   ])
   assert_file_contains_all("samples/check.sh", [
     "--markdown", "--rag", "--assets", "--check-inventory", "--list-inventory", "external_main_process",
-    "txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, eml, tex, rst, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, and ocr",
+    "txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, eml, tex, rst, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, wav, mp3, m4a, and ocr",
   ])
   assert_file_contains_all(
     "samples/helpers/contracts/check_root_contracts.sh",

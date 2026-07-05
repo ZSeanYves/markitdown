@@ -80,16 +80,6 @@ fn pdf_table_reconstruction_policy_from_mode(
 }
 
 ///|
-fn render_path_kind_for_route(route : CanonicalRoute) -> RenderPathKind {
-  match route {
-    CanonicalRoute::StreamingEvent => RenderPathKind::EventStream
-    CanonicalRoute::BlockStreaming => RenderPathKind::BlockStream
-    CanonicalRoute::ContainerRecursive => RenderPathKind::BlockStream
-    _ => RenderPathKind::Document
-  }
-}
-
-///|
 fn route_expects_stream_render(route : CanonicalRoute) -> Bool {
   match route {
     CanonicalRoute::StreamingEvent => true
@@ -411,6 +401,16 @@ fn resolve_execution_plan(
   } else {
     intent.strategy_mode
   }
+  let (audio_backend_transport, audio_backend_name, audio_backend_version) = match
+    detected_format {
+    @input.DetectedFormat::Audio(_) =>
+      (
+        Some(@faudio.audio_backend_transport_name()),
+        Some("adapter_command"),
+        None,
+      )
+    _ => (None, None, None)
+  }
   {
     detected_format,
     mode: strategy_mode,
@@ -444,7 +444,6 @@ fn resolve_execution_plan(
     pdf_table_reconstruction_policy: pdf_table_reconstruction_policy_from_mode(
       intent.pdf_table_mode,
     ),
-    render_path_kind: render_path_kind_for_route(selected.route),
     reason: route_reason_for_plan(
       detected_format, intent, selected, mode_policy, explicit_stream_fell_back,
       used_hard_limit,
@@ -462,6 +461,9 @@ fn resolve_execution_plan(
     ocr_provider_selection_target: ocr_provider_target,
     ocr_provider_requested_kind,
     ocr_provider_resolved_kind,
+    audio_backend_transport,
+    audio_backend_name,
+    audio_backend_version,
     prepared_source: probe.prepared_source,
     probe_artifacts: probe.probe_artifacts,
   }

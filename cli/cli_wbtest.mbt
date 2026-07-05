@@ -111,6 +111,21 @@ test "main cli product policy exposes text, notebook, markup, container, office,
   assert_true(cli_is_supported_format(@input.DetectedFormat::Pdf))
   assert_true(
     cli_is_supported_format(
+      @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
+    ),
+  )
+  assert_true(
+    cli_is_supported_format(
+      @input.DetectedFormat::Audio(@input.AudioFormat::Mp3),
+    ),
+  )
+  assert_true(
+    cli_is_supported_format(
+      @input.DetectedFormat::Audio(@input.AudioFormat::M4a),
+    ),
+  )
+  assert_true(
+    cli_is_supported_format(
       @input.DetectedFormat::Image(@input.ImageFormat::Png),
     ),
   )
@@ -148,10 +163,10 @@ test "main cli product policy exposes text, notebook, markup, container, office,
   let supported = [
     "txt", "csv", "tsv", "srt", "vtt", "json", "jsonl", "ndjson", "ipynb", "xml",
     "yaml", "yml", "toml", "html", "htm", "markdown", "md", "eml", "tex", "latex",
-    "rst", "adoc", "asciidoc", "zip", "epub", "docx", "xlsx", "pptx", "pdf", "png",
-    "jpg", "jpeg", "bmp", "webp", "tif", "tiff",
+    "rst", "adoc", "asciidoc", "zip", "epub", "docx", "xlsx", "pptx", "pdf", "wav",
+    "mp3", "m4a", "png", "jpg", "jpeg", "bmp", "webp", "tif", "tiff",
   ]
-  assert_eq(supported.length(), 36)
+  assert_eq(supported.length(), 39)
   assert_eq(supported[0], "txt")
   assert_eq(supported[1], "csv")
   assert_eq(supported[2], "tsv")
@@ -181,13 +196,16 @@ test "main cli product policy exposes text, notebook, markup, container, office,
   assert_eq(supported[26], "xlsx")
   assert_eq(supported[27], "pptx")
   assert_eq(supported[28], "pdf")
-  assert_eq(supported[29], "png")
-  assert_eq(supported[30], "jpg")
-  assert_eq(supported[31], "jpeg")
-  assert_eq(supported[32], "bmp")
-  assert_eq(supported[33], "webp")
-  assert_eq(supported[34], "tif")
-  assert_eq(supported[35], "tiff")
+  assert_eq(supported[29], "wav")
+  assert_eq(supported[30], "mp3")
+  assert_eq(supported[31], "m4a")
+  assert_eq(supported[32], "png")
+  assert_eq(supported[33], "jpg")
+  assert_eq(supported[34], "jpeg")
+  assert_eq(supported[35], "bmp")
+  assert_eq(supported[36], "webp")
+  assert_eq(supported[37], "tif")
+  assert_eq(supported[38], "tiff")
 }
 
 ///|
@@ -1032,6 +1050,9 @@ test "main cli provenance sidecar preserves conversion output semantics" {
   assert_true(sidecar.contains("\"ocr_provider_selection_target\":"))
   assert_true(sidecar.contains("\"ocr_provider_requested_kind\":"))
   assert_true(sidecar.contains("\"ocr_provider_resolved_kind\":"))
+  assert_true(sidecar.contains("\"audio_backend_transport\":"))
+  assert_true(sidecar.contains("\"audio_backend_name\":"))
+  assert_true(sidecar.contains("\"audio_backend_version\":"))
   assert_true(!sidecar.contains("\"ocr_provider_fallback\":"))
   assert_true(!sidecar.contains("\"dependency_diagnostics\":"))
 }

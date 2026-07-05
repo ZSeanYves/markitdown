@@ -728,11 +728,11 @@ test "odt default route keeps package single pass public shape" {
 ///|
 test "odt hyperlink and note semantics stay visible on package route" {
   let link = convert_path(
-    "markitdown-quality-lab/external_quality/odt/odf-toolkit/Hyperlink-AOO401.odt",
+    "samples/fixtures/contracts/odt/Hyperlink-AOO401.odt",
     format=Some(@input.DetectedFormat::Odt),
   )
   let notes = convert_path(
-    "markitdown-quality-lab/external_quality/odt/odf-toolkit/footnote.odt",
+    "samples/fixtures/contracts/odt/footnote.odt",
     format=Some(@input.DetectedFormat::Odt),
   )
   assert_true(link.content.contains("[llo Wor](http://www.heise.de/)"))
@@ -1060,6 +1060,165 @@ test "block stream fast path skips full pipeline for html block route" {
   assert_true(
     context.diagnostics.val.metrics.get("builder_input_kind") ==
     Some("block_stream"),
+  )
+}
+
+///|
+test "structured document fast path skips normalization passes for toml route" {
+  let parsed = default_registry_parse(
+    @input.input_from_path(
+      "samples/fixtures/contracts/toml/toml_array_of_tables_table.toml",
+    ),
+    @input.DetectedFormat::Toml,
+  )
+  assert_metric_eq(
+    parsed.diagnostics,
+    "structured_document_profile",
+    "pipeline_ready",
+  )
+  let context = @pipeline.make_pass_context(false, "balanced")
+  context.diagnostics.val = parsed.diagnostics
+  let output = match
+    @pipeline.run_default_pipeline(
+      @runtime.parse_result_to_ir_input(parsed),
+      context,
+    ) {
+    Ok(value) => value
+    Err(err) => abort("structured document fast path failed: " + err.message)
+  }
+  let document = match output {
+    @core.IRInput::Document(document) => document
+    _ => abort("expected structured document fast path to preserve Document")
+  }
+  assert_true(
+    context.diagnostics.val.pass_trace.contains(
+      "pipeline:structured_document_fast_path",
+    ),
+  )
+  assert_true(context.diagnostics.val.pass_trace.contains("NormalizeTextPass"))
+  assert_true(
+    context.diagnostics.val.pass_trace.contains("NormalizeWhitespacePass"),
+  )
+  assert_true(
+    !context.diagnostics.val.pass_trace.contains("ResolveHeadingPass"),
+  )
+  assert_true(
+    context.diagnostics.val.pass_trace.contains("AssembleSectionTreePass"),
+  )
+  assert_true(
+    context.diagnostics.val.pass_trace.contains("ResolveRenderHintsPass"),
+  )
+  assert_true(
+    context.diagnostics.val.metrics.get("pipeline_profile") ==
+    Some("structured_document"),
+  )
+  assert_true(
+    context.diagnostics.val.metrics.get("builder_input_kind") ==
+    Some("document"),
+  )
+  assert_true(document.assembly is Some(_))
+}
+
+///|
+test "structured text document fast path still assembles heading render hints" {
+  let parsed = default_registry_parse(
+    @input.input_from_text_with_format(
+      "= Title\n\nParagraph under title.\n",
+      "fast-path.adoc",
+      Some(@input.DetectedFormat::Asciidoc),
+    ),
+    @input.DetectedFormat::Asciidoc,
+  )
+  assert_metric_eq(
+    parsed.diagnostics,
+    "structured_document_profile",
+    "pipeline_ready",
+  )
+  let context = @pipeline.make_pass_context(false, "balanced")
+  context.diagnostics.val = parsed.diagnostics
+  let output = match
+    @pipeline.run_default_pipeline(
+      @runtime.parse_result_to_ir_input(parsed),
+      context,
+    ) {
+    Ok(value) => value
+    Err(err) => abort("structured text fast path failed: " + err.message)
+  }
+  let document = match output {
+    @core.IRInput::Document(document) => document
+    _ => abort("expected structured text route to preserve Document")
+  }
+  assert_true(
+    context.diagnostics.val.pass_trace.contains(
+      "pipeline:structured_document_fast_path",
+    ),
+  )
+  assert_true(document.assembly is Some(_))
+  let assembly = document.assembly.unwrap_or(@core.empty_document_assembly())
+  assert_true(document.blocks.length() >= 2)
+  let heading = document.blocks[0]
+  let paragraph = document.blocks[1]
+  assert_true(heading.kind == @core.BlockKind::Heading)
+  assert_true(
+    heading.attrs.get("render_boundary_key") == Some(heading.block_id),
+  )
+  assert_true(assembly.heading_paths.get(paragraph.block_id) == Some(["Title"]))
+  assert_true(paragraph.attrs.get("render_boundary_key") == Some("Title"))
+}
+
+///|
+test "structured text document fast path skips empty asset passes for asset-free docs" {
+  let parsed = default_registry_parse(
+    @input.input_from_text_with_format(
+      "\\section{Overview}\n\nAlpha paragraph.\n",
+      "asset-free.tex",
+      Some(@input.DetectedFormat::Tex),
+    ),
+    @input.DetectedFormat::Tex,
+  )
+  assert_metric_eq(
+    parsed.diagnostics,
+    "structured_document_profile",
+    "pipeline_ready",
+  )
+  let context = @pipeline.make_pass_context(false, "balanced")
+  context.diagnostics.val = parsed.diagnostics
+  let output = match
+    @pipeline.run_default_pipeline(
+      @runtime.parse_result_to_ir_input(parsed),
+      context,
+    ) {
+    Ok(value) => value
+    Err(err) => abort("structured text fast path failed: " + err.message)
+  }
+  let document = match output {
+    @core.IRInput::Document(document) => document
+    _ => abort("expected structured text route to preserve Document")
+  }
+  assert_true(
+    context.diagnostics.val.pass_trace.contains(
+      "pipeline:structured_document_fast_path",
+    ),
+  )
+  assert_true(
+    !context.diagnostics.val.pass_trace.contains("CollectAssetRefsPass"),
+  )
+  assert_true(
+    !context.diagnostics.val.pass_trace.contains("ResolveCaptionPass"),
+  )
+  assert_true(!context.diagnostics.val.pass_trace.contains("ResolveAssetPass"))
+  assert_true(document.assembly is Some(_))
+  assert_true(
+    context.diagnostics.val.metrics.get("resolved_table_continuation_count") ==
+    Some("0"),
+  )
+  assert_true(
+    context.diagnostics.val.metrics.get("resolved_caption_binding_count") ==
+    Some("0"),
+  )
+  assert_true(
+    context.diagnostics.val.metrics.get("resolved_asset_binding_count") ==
+    Some("0"),
   )
 }
 
@@ -3499,7 +3658,7 @@ test "ooxml xml part payload exposes structure scan for workbook parts" {
 ///|
 test "ods merged cells fixture preserves covered-cell diagnostics" {
   let result = convert_path(
-    "markitdown-quality-lab/external_quality/ods/odf-toolkit/MergedCells.ods",
+    "samples/fixtures/contracts/ods/MergedCells.ods",
     format=Some(@input.DetectedFormat::Ods),
   )
   let covered_cell_count = @string.parse_int(
@@ -3515,7 +3674,7 @@ test "ods merged cells fixture preserves covered-cell diagnostics" {
 ///|
 test "odt annotation fixture keeps appendix signals visible" {
   let result = convert_path(
-    "markitdown-quality-lab/external_quality/odt/odf-toolkit/_annotation.odt",
+    "samples/fixtures/contracts/odt/_annotation.odt",
     format=Some(@input.DetectedFormat::Odt),
   )
   let comment_count = @string.parse_int(
@@ -3531,7 +3690,7 @@ test "odt annotation fixture keeps appendix signals visible" {
 ///|
 test "odp presentation fixture keeps notes and slide-local diagnostics visible" {
   let result = convert_path(
-    "markitdown-quality-lab/external_quality/odp/odf-toolkit/Presentation1.odp",
+    "samples/fixtures/contracts/odp/Presentation1.odp",
     format=Some(@input.DetectedFormat::Odp),
   )
   let notes_count = @string.parse_int(
@@ -3554,9 +3713,7 @@ test "odt accurate fidelity exposes appendix render hints for notes and comments
   let result = match
     @parser.registry_parse(
       registry,
-      @input.input_from_path(
-        "markitdown-quality-lab/external_quality/odt/odf-toolkit/_annotation.odt",
-      ),
+      @input.input_from_path("samples/fixtures/contracts/odt/_annotation.odt"),
       context,
     ) {
     Ok(value) => value
@@ -3605,9 +3762,7 @@ test "ods accurate fidelity restores hidden structures and covered cell hints" {
   let result = match
     @parser.registry_parse(
       registry,
-      @input.input_from_path(
-        "markitdown-quality-lab/external_quality/ods/odf-toolkit/MergedCells.ods",
-      ),
+      @input.input_from_path("samples/fixtures/contracts/ods/MergedCells.ods"),
       context,
     ) {
     Ok(value) => value
@@ -3653,9 +3808,7 @@ test "odp accurate fidelity exposes notes appendix and slide window hints" {
   let result = match
     @parser.registry_parse(
       registry,
-      @input.input_from_path(
-        "markitdown-quality-lab/external_quality/odp/odf-toolkit/Presentation1.odp",
-      ),
+      @input.input_from_path("samples/fixtures/contracts/odp/Presentation1.odp"),
       context,
     ) {
     Ok(value) => value

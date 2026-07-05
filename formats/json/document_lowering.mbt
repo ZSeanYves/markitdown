@@ -180,7 +180,11 @@ fn lower_line_delimited_json_events(
       @djson.JsonValue::Object(members) => {
         let keys = members.map(fn(m) { m.key })
         match header_keys {
-          Some(existing) if !same_key_set(existing, keys) =>
+          Some(existing) if !@fshared.keys_match_position_index(
+              existing,
+              @fshared.key_position_index(existing),
+              keys,
+            ) =>
             events.push({
               kind: @core.EventKind::StartBlock(@core.BlockKind::Code),
               text: raw_line,
@@ -1035,60 +1039,51 @@ fn table_block_from_rows(
   format_name : String,
   pointer : String,
 ) -> @core.CoreBlock {
-  let table = @core.make_block(
-    @core.BlockKind::Table,
-    "table",
-    source_ref=json_pointer_source_ref(source, format_name, pointer),
-  )
-  table.attrs.set("header_rows", "1")
-  for row_index in 0..<rows.length() {
-    let row_values = rows[row_index]
-    let row_ref = @core.source_ref_with_cell_range(
-      @core.source_ref_with_lines(
-        json_pointer_source_ref(source, format_name, pointer),
+  @fshared.make_indexed_table_block(
+    rows,
+    json_pointer_source_ref(source, format_name, pointer),
+    fn(row_index, row_values) {
+      @core.source_ref_with_cell_range(
+        @core.source_ref_with_lines(
+          json_pointer_source_ref(source, format_name, pointer),
+          Some(source.source_name),
+          Some(format_name),
+          Some(row_index + 1),
+          Some(row_index + 1),
+        ),
         Some(source.source_name),
         Some(format_name),
-        Some(row_index + 1),
-        Some(row_index + 1),
-      ),
-      Some(source.source_name),
-      Some(format_name),
-      Some(
-        "R" +
-        (row_index + 1).to_string() +
-        "C1:R" +
-        (row_index + 1).to_string() +
-        "C" +
-        row_values.length().to_string(),
-      ),
-    )
-    let row = @core.make_block(
-      @core.BlockKind::TableRow,
-      row_values.join(" | "),
-      source_ref=row_ref,
-    )
-    for col_index in 0..<row_values.length() {
-      row.children.push(
-        @core.make_block(
-          @core.BlockKind::TableCell,
-          row_values[col_index],
-          source_ref=@core.source_ref_with_cell_range(
-            row_ref,
-            Some(source.source_name),
-            Some(format_name),
-            Some(
-              "R" +
-              (row_index + 1).to_string() +
-              "C" +
-              (col_index + 1).to_string(),
-            ),
+        Some(
+          @fshared.indexed_table_row_span(row_index + 1, row_values.length()),
+        ),
+      )
+    },
+    fn(row_index, col_index) {
+      let row_ref = @core.source_ref_with_cell_range(
+        @core.source_ref_with_lines(
+          json_pointer_source_ref(source, format_name, pointer),
+          Some(source.source_name),
+          Some(format_name),
+          Some(row_index + 1),
+          Some(row_index + 1),
+        ),
+        Some(source.source_name),
+        Some(format_name),
+        Some(
+          @fshared.indexed_table_row_span(
+            row_index + 1,
+            rows[row_index].length(),
           ),
         ),
       )
-    }
-    table.children.push(row)
-  }
-  table
+      @core.source_ref_with_cell_range(
+        row_ref,
+        Some(source.source_name),
+        Some(format_name),
+        Some(@fshared.indexed_table_cell_span(row_index + 1, col_index + 1)),
+      )
+    },
+  )
 }
 
 ///|
@@ -1177,6 +1172,8 @@ fn json_array_object_rows(
   values : Array[@djson.JsonValue],
 ) -> Array[Array[String]]? {
   let mut keys : Array[String] = []
+  let key_index : Map[String, Int] = Map([])
+  let mut has_key_index = false
   let rows : Array[Array[String]] = []
   for i in 0..<values.length() {
     match values[i] {
@@ -1184,8 +1181,13 @@ fn json_array_object_rows(
         let member_keys = members.map(fn(entry) { entry.key })
         if i == 0 {
           keys = member_keys
+          for entry in @fshared.key_position_index(keys).to_array() {
+            key_index.set(entry.0, entry.1)
+          }
+          has_key_index = true
           rows.push(keys)
-        } else if !same_key_set(keys, member_keys) {
+        } else if !has_key_index ||
+          !@fshared.keys_match_position_index(keys, key_index, member_keys) {
           return None
         }
         rows.push(json_members_to_row(members, keys))
@@ -1205,24 +1207,13 @@ fn json_members_to_row(
   members : Array[@djson.JsonMember],
   keys : Array[String],
 ) -> Array[String] {
-  let row : Array[String] = []
-  for key in keys {
-    row.push(json_member_value_cell(members, key))
+  let member_index : Map[String, Int] = Map([])
+  for i in 0..<members.length() {
+    member_index.set(members[i].key, i)
   }
-  row
-}
-
-///|
-fn json_member_value_cell(
-  members : Array[@djson.JsonMember],
-  key : String,
-) -> String {
-  for entry in members {
-    if entry.key == key {
-      return json_value_cell(entry.value)
-    }
-  }
-  ""
+  @fshared.projected_row_from_key_index(keys, member_index, fn(index) {
+    json_value_cell(members[index].value)
+  })
 }
 
 ///|
@@ -1295,29 +1286,6 @@ fn json_code_block(
     block.attrs.set("info", format_name)
   }
   block
-}
-
-///|
-fn same_key_set(a : Array[String], b : Array[String]) -> Bool {
-  if a.length() != b.length() {
-    return false
-  }
-  for value in a {
-    if !contains_string(b, value) {
-      return false
-    }
-  }
-  true
-}
-
-///|
-fn contains_string(items : Array[String], target : String) -> Bool {
-  for item in items {
-    if item == target {
-      return true
-    }
-  }
-  false
 }
 
 ///|

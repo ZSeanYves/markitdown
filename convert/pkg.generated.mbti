@@ -43,11 +43,13 @@ pub fn fidelity_mode_for_convert_mode(ConvertMode) -> @product.FidelityMode
 
 pub fn fidelity_mode_name(@product.FidelityMode) -> String
 
+pub fn make_audio_probe_artifact(String, codec? : String?, duration_ms? : Int?, sample_rate_hz? : Int?, channel_count? : Int?, language? : String?, probe_notes? : Array[String]) -> AudioProbeArtifact
+
 pub fn make_convert_execution(ConvertResult, ConvertProvenance) -> ConvertExecution
 
 pub fn make_convert_options(ConvertMode, OutputFormat, @input.DetectedFormat?, @parser.OcrOptions, ResourceLimits, fidelity_mode? : @product.FidelityMode, output_mode? : @product.OutputMode, stream_requested? : Bool, pdf_ocr_policy? : @product.PdfOcrPolicy, pdf_cleanup_mode? : PdfCleanupMode, pdf_table_mode? : PdfTableMode, rag_options? : @rag.RagOptions) -> ConvertOptions
 
-pub fn make_convert_provenance(RoutePlan, @product.FidelityMode, @product.OutputMode, @product.ExecutionProfile, String, @product.LoweringProfile, @product.RenderProfile, Array[String], @parser.ParserMode, String, String, String, String, Array[String], Array[String], ocr_provider_selection_target? : String?, ocr_provider_requested_kind? : String?, ocr_provider_resolved_kind? : String?) -> ConvertProvenance
+pub fn make_convert_provenance(RoutePlan, @product.FidelityMode, @product.OutputMode, @product.ExecutionProfile, String, @product.LoweringProfile, @product.RenderProfile, Array[String], @parser.ParserMode, String, String, String, String, Array[String], Array[String], ocr_provider_selection_target? : String?, ocr_provider_requested_kind? : String?, ocr_provider_resolved_kind? : String?, audio_backend_transport? : String?, audio_backend_name? : String?, audio_backend_version? : String?) -> ConvertProvenance
 
 pub fn make_probe_failure(String, String) -> ProbeFailure
 
@@ -76,6 +78,16 @@ pub fn route_plan_to_json(RoutePlan) -> Json
 // Errors
 
 // Types and methods
+pub struct AudioProbeArtifact {
+  format : String
+  codec : String?
+  duration_ms : Int?
+  sample_rate_hz : Int?
+  channel_count : Int?
+  language : String?
+  probe_notes : Array[String]
+}
+
 pub(all) enum ConvertError {
   DetectFailed(String)
   ParseFailed(String)
@@ -128,6 +140,9 @@ pub struct ConvertProvenance {
   ocr_provider_selection_target : String?
   ocr_provider_requested_kind : String?
   ocr_provider_resolved_kind : String?
+  audio_backend_transport : String?
+  audio_backend_name : String?
+  audio_backend_version : String?
 }
 
 pub struct ConvertResult {

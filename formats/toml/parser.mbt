@@ -114,6 +114,7 @@ pub fn toml_parse_with_preparsed_document(
   @fshared.apply_product_metrics(diagnostics, "toml")
   let document = lower_toml_document(doc, source)
   fill_toml_metrics(diagnostics, inspect, text, document)
+  @fshared.mark_structured_document_profile(diagnostics)
   diagnostics.pass_trace.push("parse:toml_parser")
   let final_document = @core.document_with_diagnostics(document, diagnostics)
   @parser.parse_result_with_document_capability(

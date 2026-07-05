@@ -400,6 +400,9 @@ pub fn convert_provenance_to_json(provenance : ConvertProvenance) -> Json {
     "ocr_provider_selection_target": provenance.ocr_provider_selection_target.to_json(),
     "ocr_provider_requested_kind": provenance.ocr_provider_requested_kind.to_json(),
     "ocr_provider_resolved_kind": provenance.ocr_provider_resolved_kind.to_json(),
+    "audio_backend_transport": provenance.audio_backend_transport.to_json(),
+    "audio_backend_name": provenance.audio_backend_name.to_json(),
+    "audio_backend_version": provenance.audio_backend_version.to_json(),
   })
 }
 
@@ -795,6 +798,7 @@ fn parse_with_route_probe_artifact(
         } else {
           None
         }
+      RouteProbeArtifact::AudioProbe(_artifact) => None
     }
     if matched is Some(_) {
       return matched

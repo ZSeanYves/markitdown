@@ -241,6 +241,67 @@ test "convert provenance reports html explicit stream route fidelity" {
 }
 
 ///|
+test "convert provenance reports audio canonical media pipeline and honest fallbacks" {
+  @env.set_env_var(
+    "MARKITDOWN_AUDIO_TRANSCRIBE_CMD", "python3 samples/helpers/audio_transcribe_bridge.py",
+  )
+  defer @env.unset_env_var("MARKITDOWN_AUDIO_TRANSCRIBE_CMD")
+
+  let balanced = convert_with_provenance(
+    @input.input_from_path("samples/fixtures/contracts/audio/contract.wav"),
+    @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
+    @convert.default_resource_limits(),
+  )
+  assert_eq(balanced.provenance.route_plan.selected_route, "media_pipeline")
+  assert_eq(
+    balanced.provenance.route_plan.route_reason,
+    "wav_canonical_media_pipeline",
+  )
+  assert_eq(
+    @parser.mode_name(balanced.provenance.effective_parser_mode),
+    "media_pipeline",
+  )
+  assert_true(
+    balanced.provenance.audio_backend_transport == Some("command_bridge"),
+  )
+  assert_true(balanced.provenance.audio_backend_name is Some(_))
+
+  let stream = convert_with_provenance(
+    @input.input_from_path("samples/fixtures/contracts/audio/contract.mp3"),
+    @input.DetectedFormat::Audio(@input.AudioFormat::Mp3),
+    @convert.default_resource_limits(),
+    stream_requested=true,
+  )
+  assert_eq(stream.provenance.route_plan.selected_route, "media_pipeline")
+  assert_eq(
+    stream.provenance.route_plan.route_reason,
+    "explicit_stream_unsupported_fell_back",
+  )
+
+  let accurate_options = @convert.make_convert_options(
+    @convert.ConvertMode::Accurate,
+    @convert.OutputFormat::Markdown,
+    Some(@input.DetectedFormat::Audio(@input.AudioFormat::M4a)),
+    @parser.explicit_ocr_options(language=Some("eng")),
+    @convert.default_resource_limits(),
+  )
+  let accurate = match
+    @convert.convert_input_with_provenance(
+      @input.input_from_path("samples/fixtures/contracts/audio/contract.m4a"),
+      accurate_options,
+    ) {
+    Ok(value) => value
+    Err(err) => fail("expected accurate audio provenance: " + err.to_string())
+  }
+  assert_eq(accurate.provenance.route_plan.selected_route, "media_pipeline")
+  assert_true(
+    accurate.result.diagnostics.same_mode_degradation.contains(
+      "audio_accurate_same_as_balanced_p0",
+    ),
+  )
+}
+
+///|
 test "convert provenance reports medium adaptive profile without route switch" {
   let execution = convert_with_provenance(
     @input.input_from_path("samples/fixtures/contracts/ods/MergedCells.ods"),

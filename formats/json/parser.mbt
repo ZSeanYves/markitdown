@@ -329,6 +329,7 @@ fn parse_json_document_result(
       diagnostics.metrics.set("event_count", "0")
       diagnostics.metrics.set("json_token_count", "0")
       diagnostics.metrics.set("syntax_error_count", "0")
+      @fshared.mark_structured_document_profile(diagnostics)
       @fshared.refresh_parser_count_metrics(diagnostics, "document")
       diagnostics.pass_trace.push("parse:json_parser")
       let final_document = @core.document_with_diagnostics(

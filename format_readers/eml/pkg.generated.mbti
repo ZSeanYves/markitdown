@@ -4,6 +4,8 @@ package "ZSeanYves/markitdown/format_readers/eml"
 // Values
 pub fn inspect_eml_message(EmlMessage) -> EmlInspectReport
 
+pub fn materialize_attachment_payload(EmlAttachment, Bool, Bool) -> EmlAttachment
+
 pub fn parse_eml_message(String) -> EmlMessage raise
 
 // Errors
@@ -20,6 +22,7 @@ pub struct EmlAttachment {
   content_id : String?
   location : String?
   transfer_encoding : EmlTransferEncoding
+  payload_decoded : Bool
   bytes : Bytes?
   decoded_text : String?
   raw_text : String

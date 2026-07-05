@@ -153,15 +153,15 @@ fn eml_lower_entity_body(
       }),
     }
   } else {
-    let decoded = eml_decode_body_text(
-      body_text,
-      part.summary.transfer_encoding,
-      part.summary.charset,
-    )
-    let attachment = eml_maybe_attachment(part, body_text, decoded)
+    let attachment = eml_maybe_attachment(part, body_text)
     match attachment {
       Some(value) => { ..part, attachments: [value] }
       None => {
+        let decoded = eml_decode_body_text(
+          body_text,
+          part.summary.transfer_encoding,
+          part.summary.charset,
+        )
         let body = {
           text: decoded.0,
           decoded: decoded.1,
@@ -174,11 +174,7 @@ fn eml_lower_entity_body(
 }
 
 ///|
-fn eml_maybe_attachment(
-  part : EmlPart,
-  body_text : String,
-  decoded : (String, Bool, Bytes?),
-) -> EmlAttachment? {
+fn eml_maybe_attachment(part : EmlPart, body_text : String) -> EmlAttachment? {
   let is_inline = part.summary.disposition == Some(EmlDispositionKind::Inline)
   let explicit_attachment = part.summary.disposition ==
     Some(EmlDispositionKind::Attachment)
@@ -197,15 +193,54 @@ fn eml_maybe_attachment(
     content_id: part.summary.content_id,
     location: part.summary.location,
     transfer_encoding: part.summary.transfer_encoding,
-    bytes: decoded.2,
-    decoded_text: if eml_is_textual_mime(part.summary.mime_type) {
-      Some(decoded.0)
-    } else {
-      None
-    },
+    payload_decoded: false,
+    bytes: None,
+    decoded_text: None,
     raw_text: body_text,
     summary: part.summary,
   })
+}
+
+///|
+pub fn materialize_attachment_payload(
+  attachment : EmlAttachment,
+  want_text : Bool,
+  want_bytes : Bool,
+) -> EmlAttachment {
+  if !want_text && !want_bytes {
+    return attachment
+  }
+  if attachment.payload_decoded &&
+    (!want_text || attachment.decoded_text is Some(_)) &&
+    (!want_bytes || attachment.bytes is Some(_)) {
+    return attachment
+  }
+  let decoded = eml_decode_body_text(
+    attachment.raw_text,
+    attachment.transfer_encoding,
+    attachment.summary.charset,
+  )
+  {
+    file_name: attachment.file_name,
+    mime_type: attachment.mime_type,
+    disposition: attachment.disposition,
+    content_id: attachment.content_id,
+    location: attachment.location,
+    transfer_encoding: attachment.transfer_encoding,
+    payload_decoded: decoded.1,
+    bytes: if want_bytes {
+      decoded.2
+    } else {
+      attachment.bytes
+    },
+    decoded_text: if want_text {
+      Some(decoded.0)
+    } else {
+      attachment.decoded_text
+    },
+    raw_text: attachment.raw_text,
+    summary: attachment.summary,
+  }
 }
 
 ///|

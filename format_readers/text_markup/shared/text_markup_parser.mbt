@@ -93,105 +93,196 @@ fn parse_markup_document(
     .split("\n")
     .to_array()
     .map(line => line.to_owned())
+  let context = make_markup_parse_context(lines, format)
   let blocks : Array[TextMarkupBlock] = []
   let mut i = 0
   while i < lines.length() {
-    let semantic_line = markup_semantic_line(lines[i], format)
-    let trimmed = semantic_line.trim().to_owned()
-    if trimmed == "" {
-      i += 1
-      continue
-    }
-    match detect_heading(lines, i, format) {
-      Some(block) => {
-        blocks.push(block.0)
-        i = block.1
-        continue
+    match classify_markup_line(context, i) {
+      MarkupLineClass::Blank(next) => i = next
+      MarkupLineClass::Block(block, next) => {
+        blocks.push(block)
+        i = next
       }
-      None => ()
-    }
-    match detect_block_quote(lines, i, format) {
-      Some(block) => {
-        blocks.push(block.0)
-        i = block.1
-        continue
+      MarkupLineClass::ParagraphLine(line_text) => {
+        let para_lines : Array[String] = [line_text]
+        let start = i + 1
+        i += 1
+        while i < lines.length() {
+          match classify_markup_line(context, i) {
+            MarkupLineClass::ParagraphLine(next_line) => {
+              para_lines.push(next_line)
+              i += 1
+            }
+            _ => break
+          }
+        }
+        blocks.push({
+          kind: TextMarkupBlockKind::Paragraph,
+          text: para_lines.join(" "),
+          level: 0,
+          ordered: false,
+          line_start: start,
+          line_end: i,
+          meta: Map([]),
+        })
       }
-      None => ()
-    }
-    match detect_code_block(lines, i, format) {
-      Some(block) => {
-        blocks.push(block.0)
-        i = block.1
-        continue
-      }
-      None => ()
-    }
-    match detect_structured_semantic_block(lines, i, format) {
-      Some(block) => {
-        blocks.push(block.0)
-        i = block.1
-        continue
-      }
-      None => ()
-    }
-    match detect_list_item(lines, i, format) {
-      Some(block) => {
-        blocks.push(block.0)
-        i = block.1
-        continue
-      }
-      None => ()
-    }
-    match detect_table_block(lines, i, format) {
-      Some(block) => {
-        blocks.push(block.0)
-        i = block.1
-        continue
-      }
-      None => ()
-    }
-    match detect_raw_boundary(lines, i, format) {
-      Some(block) => {
-        blocks.push(block.0)
-        i = block.1
-        continue
-      }
-      None => ()
-    }
-    let para_lines : Array[String] = []
-    let start = i + 1
-    while i < lines.length() && lines[i].trim() != "" {
-      let semantic_line = markup_semantic_line(lines[i], format)
-      if semantic_line.trim() == "" {
-        break
-      }
-      if detect_heading(lines, i, format) is Some(_) ||
-        detect_code_block(lines, i, format) is Some(_) ||
-        detect_structured_semantic_block(lines, i, format) is Some(_) ||
-        detect_list_item(lines, i, format) is Some(_) ||
-        detect_table_block(lines, i, format) is Some(_) ||
-        detect_block_quote(lines, i, format) is Some(_) ||
-        detect_raw_boundary(lines, i, format) is Some(_) {
-        break
-      }
-      para_lines.push(semantic_line.trim().to_owned())
-      i += 1
-    }
-    if para_lines.length() > 0 {
-      blocks.push({
-        kind: TextMarkupBlockKind::Paragraph,
-        text: para_lines.join(" "),
-        level: 0,
-        ordered: false,
-        line_start: start,
-        line_end: i,
-        meta: Map([]),
-      })
-    } else {
-      i += 1
     }
   }
   { format, blocks }
+}
+
+///|
+priv struct MarkupParseContext {
+  lines : Array[String]
+  format : TextMarkupFormat
+  semantic_lines : Array[String]
+  tex_item_ordered_before_line : Array[Bool]
+}
+
+///|
+fn make_markup_parse_context(
+  lines : Array[String],
+  format : TextMarkupFormat,
+) -> MarkupParseContext {
+  let semantic_lines = build_markup_semantic_lines(lines, format)
+  let tex_item_ordered_before_line = build_tex_item_ordered_before_line(
+    semantic_lines, format,
+  )
+  { lines, format, semantic_lines, tex_item_ordered_before_line }
+}
+
+///|
+fn build_markup_semantic_lines(
+  lines : Array[String],
+  format : TextMarkupFormat,
+) -> Array[String] {
+  let semantic_lines : Array[String] = []
+  for line in lines {
+    semantic_lines.push(markup_semantic_line(line, format))
+  }
+  semantic_lines
+}
+
+///|
+fn build_tex_item_ordered_before_line(
+  semantic_lines : Array[String],
+  format : TextMarkupFormat,
+) -> Array[Bool] {
+  let states : Array[Bool] = []
+  if format != TextMarkupFormat::Tex {
+    for _ in semantic_lines {
+      states.push(false)
+    }
+    return states
+  }
+  let stack : Array[Bool] = []
+  for semantic_line in semantic_lines {
+    let trimmed = semantic_line.trim().to_owned()
+    states.push(tex_list_stack_top_is_enumerate(stack))
+    match trimmed {
+      "\\begin{itemize}" => stack.push(false)
+      "\\begin{enumerate}" => stack.push(true)
+      "\\end{itemize}" => if stack.length() > 0 { ignore(stack.pop()) }
+      "\\end{enumerate}" => if stack.length() > 0 { ignore(stack.pop()) }
+      _ => ()
+    }
+  }
+  states
+}
+
+///|
+fn tex_list_stack_top_is_enumerate(stack : Array[Bool]) -> Bool {
+  if stack.length() == 0 {
+    return false
+  }
+  stack[stack.length() - 1]
+}
+
+///|
+priv enum MarkupLineClass {
+  Blank(Int)
+  ParagraphLine(String)
+  Block(TextMarkupBlock, Int)
+}
+
+///|
+fn classify_markup_line(
+  context : MarkupParseContext,
+  index : Int,
+) -> MarkupLineClass {
+  let semantic_line = context.semantic_lines[index]
+  let trimmed = semantic_line.trim().to_owned()
+  if trimmed == "" {
+    return MarkupLineClass::Blank(index + 1)
+  }
+  if !text_markup_line_can_start_block(trimmed, context.format) {
+    return MarkupLineClass::ParagraphLine(trimmed)
+  }
+  match detect_heading(context.lines, index, context.format) {
+    Some((block, next)) => return MarkupLineClass::Block(block, next)
+    None => ()
+  }
+  match detect_block_quote(context.lines, index, context.format) {
+    Some((block, next)) => return MarkupLineClass::Block(block, next)
+    None => ()
+  }
+  match detect_code_block(context.lines, index, context.format) {
+    Some((block, next)) => return MarkupLineClass::Block(block, next)
+    None => ()
+  }
+  match detect_structured_semantic_block(context.lines, index, context.format) {
+    Some((block, next)) => return MarkupLineClass::Block(block, next)
+    None => ()
+  }
+  match detect_list_item(context, index) {
+    Some((block, next)) => return MarkupLineClass::Block(block, next)
+    None => ()
+  }
+  match detect_table_block(context.lines, index, context.format) {
+    Some((block, next)) => return MarkupLineClass::Block(block, next)
+    None => ()
+  }
+  match detect_raw_boundary(context.lines, index, context.format) {
+    Some((block, next)) => return MarkupLineClass::Block(block, next)
+    None => ()
+  }
+  MarkupLineClass::ParagraphLine(trimmed)
+}
+
+///|
+fn text_markup_line_can_start_block(
+  trimmed : String,
+  format : TextMarkupFormat,
+) -> Bool {
+  if trimmed == "" {
+    return false
+  }
+  let chars = trimmed.to_array()
+  let first = chars[0]
+  match format {
+    TextMarkupFormat::Tex =>
+      first == '\\' ||
+      first == '%' ||
+      first == '[' ||
+      first == '{' ||
+      first == ']' ||
+      first == '}'
+    TextMarkupFormat::Asciidoc =>
+      first == '=' ||
+      first == '[' ||
+      first == ':' ||
+      first == '|' ||
+      first == '.' ||
+      first == '-' ||
+      first == '/' ||
+      first == 'N' ||
+      first == 'T' ||
+      first == 'W' ||
+      first == 'I' ||
+      first == 'C' ||
+      first == 'i'
+    TextMarkupFormat::Rst => true
+  }
 }
 
 ///|
@@ -476,14 +567,13 @@ fn detect_code_block(
 
 ///|
 fn detect_list_item(
-  lines : Array[String],
+  context : MarkupParseContext,
   index : Int,
-  format : TextMarkupFormat,
 ) -> (TextMarkupBlock, Int)? {
-  let trimmed = markup_semantic_line(lines[index], format).trim().to_owned()
-  match format {
+  let trimmed = context.semantic_lines[index].trim().to_owned()
+  match context.format {
     TextMarkupFormat::Tex =>
-      match detect_tex_item(lines, index) {
+      match detect_tex_item(context, index) {
         Some(block) => return Some(block)
         None => ()
       }
@@ -1620,10 +1710,10 @@ fn tex_parse_begin_environment(line : String) -> (String, String)? {
 
 ///|
 fn detect_tex_item(
-  lines : Array[String],
+  context : MarkupParseContext,
   index : Int,
 ) -> (TextMarkupBlock, Int)? {
-  let trimmed = tex_strip_trailing_comment(lines[index].trim().to_owned())
+  let trimmed = context.semantic_lines[index].trim().to_owned()
   if !trimmed.has_prefix("\\item") {
     return None
   }
@@ -1633,8 +1723,8 @@ fn detect_tex_item(
     body.push(inline)
   }
   let mut i = index + 1
-  while i < lines.length() {
-    let next = tex_strip_trailing_comment(lines[i].trim().to_owned())
+  while i < context.lines.length() {
+    let next = context.semantic_lines[i].trim().to_owned()
     if next == "" ||
       next.has_prefix("\\item") ||
       next == "\\end{itemize}" ||
@@ -1653,7 +1743,7 @@ fn detect_tex_item(
         kind: TextMarkupBlockKind::ListItem,
         text: body.join(" "),
         level: 0,
-        ordered: tex_item_is_ordered(lines, index),
+        ordered: context.tex_item_ordered_before_line[index],
         line_start: index + 1,
         line_end: i,
         meta: Map([("list_kind", "tex_environment_item")]),
@@ -2020,35 +2110,6 @@ fn tex_parse_metadata_command(line : String) -> (String, String)? {
 }
 
 ///|
-fn tex_item_is_ordered(lines : Array[String], index : Int) -> Bool {
-  let mut enumerate_depth = 0
-  let mut itemize_depth = 0
-  let mut i = index
-  while i > 0 {
-    i -= 1
-    let trimmed = tex_strip_trailing_comment(lines[i].trim().to_owned())
-    match trimmed {
-      "\\end{enumerate}" => enumerate_depth += 1
-      "\\begin{enumerate}" =>
-        if enumerate_depth == 0 {
-          return true
-        } else {
-          enumerate_depth -= 1
-        }
-      "\\end{itemize}" => itemize_depth += 1
-      "\\begin{itemize}" =>
-        if itemize_depth == 0 {
-          return false
-        } else {
-          itemize_depth -= 1
-        }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
 fn rst_directive_is_blockquote(name : String) -> Bool {
   let lowered = name.to_lower()
   lowered == "attention" ||
@@ -2294,12 +2355,11 @@ fn parse_rst_inlines(text : String) -> Array[TextMarkupInline] {
   let out : Array[TextMarkupInline] = []
   let chars = text.to_array()
   let mut i = 0
-  let mut buffer = ""
+  let buffer : Array[Char] = []
   while i < chars.length() {
     match rst_consume_literal(chars, i) {
       Some((body, next)) => {
-        flush_inline_text(out, buffer)
-        buffer = ""
+        flush_inline_text_chars(out, buffer)
         out.push({ kind: TextMarkupInlineKind::Code, text: body, href: None })
         i = next
         continue
@@ -2309,8 +2369,7 @@ fn parse_rst_inlines(text : String) -> Array[TextMarkupInline] {
     if chars[i] == '`' {
       match rst_consume_named_link(chars, i) {
         Some((label, href, next)) => {
-          flush_inline_text(out, buffer)
-          buffer = ""
+          flush_inline_text_chars(out, buffer)
           out.push({
             kind: TextMarkupInlineKind::Link,
             text: label,
@@ -2325,8 +2384,7 @@ fn parse_rst_inlines(text : String) -> Array[TextMarkupInline] {
     if chars[i] == '`' {
       match consume_delimited(chars, i, '`', '`') {
         Some((body, next)) => {
-          flush_inline_text(out, buffer)
-          buffer = ""
+          flush_inline_text_chars(out, buffer)
           out.push({ kind: TextMarkupInlineKind::Code, text: body, href: None })
           i = next
           continue
@@ -2334,10 +2392,10 @@ fn parse_rst_inlines(text : String) -> Array[TextMarkupInline] {
         None => ()
       }
     }
-    buffer = buffer + chars[i].to_string()
+    buffer.push(chars[i])
     i += 1
   }
-  flush_inline_text(out, buffer)
+  flush_inline_text_chars(out, buffer)
   out
 }
 
@@ -2346,13 +2404,12 @@ fn parse_asciidoc_inlines(text : String) -> Array[TextMarkupInline] {
   let out : Array[TextMarkupInline] = []
   let chars = text.to_array()
   let mut i = 0
-  let mut buffer = ""
+  let buffer : Array[Char] = []
   while i < chars.length() {
     if chars[i] == '`' {
       match consume_delimited(chars, i, '`', '`') {
         Some((body, next)) => {
-          flush_inline_text(out, buffer)
-          buffer = ""
+          flush_inline_text_chars(out, buffer)
           out.push({ kind: TextMarkupInlineKind::Code, text: body, href: None })
           i = next
           continue
@@ -2362,8 +2419,7 @@ fn parse_asciidoc_inlines(text : String) -> Array[TextMarkupInline] {
     }
     match asciidoc_consume_link(chars, i) {
       Some((label, href, next)) => {
-        flush_inline_text(out, buffer)
-        buffer = ""
+        flush_inline_text_chars(out, buffer)
         out.push({
           kind: TextMarkupInlineKind::Link,
           text: label,
@@ -2374,10 +2430,10 @@ fn parse_asciidoc_inlines(text : String) -> Array[TextMarkupInline] {
       }
       None => ()
     }
-    buffer = buffer + chars[i].to_string()
+    buffer.push(chars[i])
     i += 1
   }
-  flush_inline_text(out, buffer)
+  flush_inline_text_chars(out, buffer)
   out
 }
 
@@ -2386,12 +2442,11 @@ fn parse_tex_inlines(text : String) -> Array[TextMarkupInline] {
   let out : Array[TextMarkupInline] = []
   let chars = text.to_array()
   let mut i = 0
-  let mut buffer = ""
+  let buffer : Array[Char] = []
   while i < chars.length() {
     match tex_consume_link(chars, i) {
       Some((label, href, next)) => {
-        flush_inline_text(out, buffer)
-        buffer = ""
+        flush_inline_text_chars(out, buffer)
         out.push({
           kind: TextMarkupInlineKind::Link,
           text: label,
@@ -2404,27 +2459,34 @@ fn parse_tex_inlines(text : String) -> Array[TextMarkupInline] {
     }
     match tex_consume_inline_code(chars, i) {
       Some((body, next)) => {
-        flush_inline_text(out, buffer)
-        buffer = ""
+        flush_inline_text_chars(out, buffer)
         out.push({ kind: TextMarkupInlineKind::Code, text: body, href: None })
         i = next
         continue
       }
       None => ()
     }
-    buffer = buffer + chars[i].to_string()
+    buffer.push(chars[i])
     i += 1
   }
-  flush_inline_text(out, buffer)
+  flush_inline_text_chars(out, buffer)
   out
 }
 
 ///|
-fn flush_inline_text(out : Array[TextMarkupInline], text : String) -> Unit {
-  if text == "" {
+fn flush_inline_text_chars(
+  out : Array[TextMarkupInline],
+  chars : Array[Char],
+) -> Unit {
+  if chars.length() == 0 {
     return
   }
-  out.push({ kind: TextMarkupInlineKind::Text, text, href: None })
+  out.push({
+    kind: TextMarkupInlineKind::Text,
+    text: String::from_array(chars[:]),
+    href: None,
+  })
+  chars.clear()
 }
 
 ///|
@@ -2517,57 +2579,87 @@ fn asciidoc_consume_link(
   chars : Array[Char],
   start : Int,
 ) -> (String, String, Int)? {
-  let text = String::from_array(chars[start:])
-  let prefix = "link:"
-  if !text.has_prefix(prefix) {
+  if !chars_match_literal(chars, start, "link:") {
     return None
   }
-  let body = text[prefix.length():]
-  match body.split_once("[") {
-    Some((href, rest)) =>
-      match rest.split_once("]") {
-        Some((label, _tail)) => {
-          let consumed = prefix.length() + href.length() + label.length() + 2
-          Some((label.to_owned(), href.to_owned(), start + consumed))
-        }
-        None => None
-      }
-    None => None
+  let mut i = start + 5
+  let href : Array[Char] = []
+  while i < chars.length() && chars[i] != '[' {
+    href.push(chars[i])
+    i += 1
   }
+  if i >= chars.length() || chars[i] != '[' {
+    return None
+  }
+  i += 1
+  let label : Array[Char] = []
+  while i < chars.length() && chars[i] != ']' {
+    label.push(chars[i])
+    i += 1
+  }
+  if i >= chars.length() || chars[i] != ']' {
+    return None
+  }
+  Some((String::from_array(label), String::from_array(href), i + 1))
 }
 
 ///|
 fn tex_consume_link(chars : Array[Char], start : Int) -> (String, String, Int)? {
-  let text = String::from_array(chars[start:])
-  let prefix = "\\href{"
-  if !text.has_prefix(prefix) {
+  if !chars_match_literal(chars, start, "\\href{") {
     return None
   }
-  let after_href = text[prefix.length():]
-  match after_href.split_once("}{") {
-    Some((href, rest)) =>
-      match rest.split_once("}") {
-        Some((label, _tail)) => {
-          let consumed = prefix.length() + href.length() + label.length() + 3
-          Some((label.to_owned(), href.to_owned(), start + consumed))
-        }
-        None => None
-      }
-    None => None
+  let mut i = start + 6
+  let href : Array[Char] = []
+  while i < chars.length() && chars[i] != '}' {
+    href.push(chars[i])
+    i += 1
   }
+  if i + 1 >= chars.length() || chars[i] != '}' || chars[i + 1] != '{' {
+    return None
+  }
+  i += 2
+  let label : Array[Char] = []
+  while i < chars.length() && chars[i] != '}' {
+    label.push(chars[i])
+    i += 1
+  }
+  if i >= chars.length() || chars[i] != '}' {
+    return None
+  }
+  Some((String::from_array(label), String::from_array(href), i + 1))
 }
 
 ///|
 fn tex_consume_inline_code(chars : Array[Char], start : Int) -> (String, Int)? {
-  let text = String::from_array(chars[start:])
-  let prefix = "\\texttt{"
-  if !text.has_prefix(prefix) {
+  if !chars_match_literal(chars, start, "\\texttt{") {
     return None
   }
-  let body = text[prefix.length():]
-  match body.split_once("}") {
-    Some((inner, _)) =>
-      Some((inner.to_owned(), start + prefix.length() + inner.length() + 1))
-    None => None
+  let mut i = start + 8
+  let body : Array[Char] = []
+  while i < chars.length() && chars[i] != '}' {
+    body.push(chars[i])
+    i += 1
   }
+  if i >= chars.length() || chars[i] != '}' {
+    return None
+  }
+  Some((String::from_array(body), i + 1))
+}
+
+///|
+fn chars_match_literal(
+  chars : Array[Char],
+  start : Int,
+  literal : String,
+) -> Bool {
+  let needle = literal.to_array()
+  if start + needle.length() > chars.length() {
+    return false
+  }
+  for i in 0..<needle.length() {
+    if chars[start + i] != needle[i] {
+      return false
+    }
+  }
+  true
 }

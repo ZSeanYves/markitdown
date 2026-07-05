@@ -17,6 +17,13 @@ pub(all) enum ImageFormat {
 } derive(Eq)
 
 ///|
+pub(all) enum AudioFormat {
+  Wav
+  Mp3
+  M4a
+} derive(Eq)
+
+///|
 pub(all) enum DetectedFormat {
   Txt
   Markdown
@@ -45,6 +52,7 @@ pub(all) enum DetectedFormat {
   Docx
   Pptx
   Xlsx
+  Audio(AudioFormat)
   Image(ImageFormat)
   Unknown
 } derive(Eq)
@@ -327,6 +335,7 @@ pub fn detected_format_name(format : DetectedFormat) -> String {
     DetectedFormat::Docx => "docx"
     DetectedFormat::Pptx => "pptx"
     DetectedFormat::Xlsx => "xlsx"
+    DetectedFormat::Audio(kind) => audio_format_name(kind)
     DetectedFormat::Image(kind) => image_format_name(kind)
     DetectedFormat::Unknown => "unknown"
   }
@@ -367,6 +376,9 @@ pub fn parse_detected_format(name : String) -> DetectedFormat {
     "docx" => DetectedFormat::Docx
     "pptx" => DetectedFormat::Pptx
     "xlsx" => DetectedFormat::Xlsx
+    "wav" => DetectedFormat::Audio(AudioFormat::Wav)
+    "mp3" => DetectedFormat::Audio(AudioFormat::Mp3)
+    "m4a" => DetectedFormat::Audio(AudioFormat::M4a)
     "png" => DetectedFormat::Image(ImageFormat::Png)
     "jpg" => DetectedFormat::Image(ImageFormat::Jpg)
     "jpeg" => DetectedFormat::Image(ImageFormat::Jpeg)
@@ -375,6 +387,15 @@ pub fn parse_detected_format(name : String) -> DetectedFormat {
     "tif" => DetectedFormat::Image(ImageFormat::Tif)
     "tiff" => DetectedFormat::Image(ImageFormat::Tiff)
     _ => DetectedFormat::Unknown
+  }
+}
+
+///|
+pub fn audio_format_name(format : AudioFormat) -> String {
+  match format {
+    AudioFormat::Wav => "wav"
+    AudioFormat::Mp3 => "mp3"
+    AudioFormat::M4a => "m4a"
   }
 }
 
@@ -475,6 +496,7 @@ fn detected_format_is_binary_like(format : DetectedFormat) -> Bool {
     | DetectedFormat::Docx
     | DetectedFormat::Pptx
     | DetectedFormat::Xlsx
+    | DetectedFormat::Audio(_)
     | DetectedFormat::Image(_) => true
     _ => false
   }
@@ -569,6 +591,12 @@ fn detect_format_from_mime(
       Some((DetectedFormat::Pptx, notes))
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" =>
       Some((DetectedFormat::Xlsx, notes))
+    "audio/wav" | "audio/wave" | "audio/x-wav" =>
+      Some((DetectedFormat::Audio(AudioFormat::Wav), notes))
+    "audio/mpeg" | "audio/mp3" =>
+      Some((DetectedFormat::Audio(AudioFormat::Mp3), notes))
+    "audio/mp4" | "audio/m4a" | "audio/x-m4a" =>
+      Some((DetectedFormat::Audio(AudioFormat::M4a), notes))
     "image/png" =>
       Some((DetectedFormat::Image(ImageFormat::Png), notes_with_image(notes)))
     "image/jpeg" =>
@@ -601,6 +629,40 @@ fn detect_format_from_magic_or_container(
     byte_to_int(arr[2]) == 0x44 &&
     byte_to_int(arr[3]) == 0x46 {
     return Some((DetectedFormat::Pdf, ["magic_bytes", "pdf_signature"]))
+  }
+  if arr.length() >= 12 &&
+    byte_to_int(arr[0]) == 0x52 &&
+    byte_to_int(arr[1]) == 0x49 &&
+    byte_to_int(arr[2]) == 0x46 &&
+    byte_to_int(arr[3]) == 0x46 &&
+    bytes_prefix_ascii(arr, 8, 4) == "WAVE" {
+    return Some(
+      (
+        DetectedFormat::Audio(AudioFormat::Wav),
+        ["magic_bytes", "riff_signature", "wave_signature"],
+      ),
+    )
+  }
+  if arr.length() >= 3 &&
+    byte_to_int(arr[0]) == 0x49 &&
+    byte_to_int(arr[1]) == 0x44 &&
+    byte_to_int(arr[2]) == 0x33 {
+    return Some(
+      (
+        DetectedFormat::Audio(AudioFormat::Mp3),
+        ["magic_bytes", "id3_signature"],
+      ),
+    )
+  }
+  if arr.length() >= 2 &&
+    byte_to_int(arr[0]) == 0xFF &&
+    (byte_to_int(arr[1]) & 0xE0) == 0xE0 {
+    return Some(
+      (
+        DetectedFormat::Audio(AudioFormat::Mp3),
+        ["magic_bytes", "mpeg_frame_sync"],
+      ),
+    )
   }
   if arr.length() >= 4 &&
     byte_to_int(arr[0]) == 0x89 &&

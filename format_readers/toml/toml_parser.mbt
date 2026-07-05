@@ -41,7 +41,11 @@ priv struct TomlParser {
   mut pos : Int
   mut line : Int
   root_members : Array[TomlMember]
+  root_member_keys : Map[String, Bool]
   tables : Array[TomlTable]
+  table_index_by_path : Map[String, Int]
+  table_member_keys : Map[String, Map[String, Bool]]
+  array_item_count_by_base_path : Map[String, Int]
   mut current_table_path : String
   mut current_table_segments : Array[String]
 }
@@ -53,7 +57,11 @@ fn new_toml_parser(text : String) -> TomlParser {
     pos: 0,
     line: 1,
     root_members: [],
+    root_member_keys: Map([]),
     tables: [],
+    table_index_by_path: Map([]),
+    table_member_keys: Map([]),
+    array_item_count_by_base_path: Map([]),
     current_table_path: "/",
     current_table_segments: [],
   }
@@ -89,16 +97,12 @@ fn TomlParser::parse_table_header(self : TomlParser) -> Unit raise {
   self.skip_inline_comment_then_line_end()
   let table_path = toml_segments_to_path(segments)
   if is_array {
-    let mut last_index = -1
-    for i in 0..<self.tables.length() {
-      let table = self.tables[i]
-      if table.is_array_item && toml_array_base_path(table.path) == table_path {
-        last_index = i
-      }
-    }
-    let item_index = last_index + 1
+    let item_index = self.array_item_count_by_base_path
+      .get(table_path)
+      .unwrap_or(0)
     let indexed_path = table_path + "[" + item_index.to_string() + "]"
-    let indexed_segments = toml_path_to_segments(indexed_path)
+    let indexed_segments = toml_append_array_item_segment(segments, item_index)
+    let next_index = self.tables.length()
     self.tables.push({
       path: indexed_path,
       segments: indexed_segments,
@@ -107,21 +111,26 @@ fn TomlParser::parse_table_header(self : TomlParser) -> Unit raise {
       line_end: start_line,
       is_array_item: true,
     })
+    self.table_index_by_path.set(indexed_path, next_index)
+    self.array_item_count_by_base_path.set(table_path, item_index + 1)
     self.current_table_path = indexed_path
     self.current_table_segments = indexed_segments
     return
   }
 
-  for table in self.tables {
-    if table.path == table_path && !table.is_array_item {
-      raise ParseError(
-        "duplicate key table at line " +
-        start_line.to_string() +
-        ": " +
-        table_path,
-      )
-    }
+  match self.table_index_by_path.get(table_path) {
+    Some(index) =>
+      if !self.tables[index].is_array_item {
+        raise ParseError(
+          "duplicate key table at line " +
+          start_line.to_string() +
+          ": " +
+          table_path,
+        )
+      }
+    None => ()
   }
+  let next_index = self.tables.length()
   self.tables.push({
     path: table_path,
     segments,
@@ -130,8 +139,9 @@ fn TomlParser::parse_table_header(self : TomlParser) -> Unit raise {
     line_end: start_line,
     is_array_item: false,
   })
+  self.table_index_by_path.set(table_path, next_index)
   self.current_table_path = table_path
-  self.current_table_segments = toml_path_to_segments(table_path)
+  self.current_table_segments = segments
 }
 
 ///|
@@ -191,7 +201,7 @@ fn TomlParser::insert_member(
   entry : TomlMember,
 ) -> Unit raise {
   if target_path == "/" {
-    if toml_members_have_key(self.root_members, entry.key) {
+    if self.root_member_keys.contains(entry.key) {
       raise ParseError(
         "duplicate key at line " +
         entry.line_start.to_string() +
@@ -200,10 +210,12 @@ fn TomlParser::insert_member(
       )
     }
     self.root_members.push(entry)
+    self.root_member_keys.set(entry.key, true)
     return
   }
   let target_index = self.find_or_create_table(target_path)
-  if toml_members_have_key(self.tables[target_index].members, entry.key) {
+  let table_keys = self.ensure_table_member_keys(target_path)
+  if table_keys.contains(entry.key) {
     raise ParseError(
       "duplicate key at line " +
       entry.line_start.to_string() +
@@ -212,6 +224,7 @@ fn TomlParser::insert_member(
     )
   }
   self.tables[target_index].members.push(entry)
+  table_keys.set(entry.key, true)
   if entry.line_end > self.tables[target_index].line_end {
     self.tables[target_index].line_end = entry.line_end
   }
@@ -222,21 +235,39 @@ fn TomlParser::find_or_create_table(
   self : TomlParser,
   target_path : String,
 ) -> Int {
-  for i in 0..<self.tables.length() {
-    if self.tables[i].path == target_path {
-      return i
+  match self.table_index_by_path.get(target_path) {
+    Some(index) => index
+    None => {
+      let segments = toml_path_to_segments(target_path)
+      let next_index = self.tables.length()
+      self.tables.push({
+        path: target_path,
+        segments,
+        members: [],
+        line_start: self.line,
+        line_end: self.line,
+        is_array_item: false,
+      })
+      self.table_index_by_path.set(target_path, next_index)
+      self.table_member_keys.set(target_path, Map([]))
+      next_index
     }
   }
-  let segments = toml_path_to_segments(target_path)
-  self.tables.push({
-    path: target_path,
-    segments,
-    members: [],
-    line_start: self.line,
-    line_end: self.line,
-    is_array_item: false,
-  })
-  self.tables.length() - 1
+}
+
+///|
+fn TomlParser::ensure_table_member_keys(
+  self : TomlParser,
+  target_path : String,
+) -> Map[String, Bool] {
+  match self.table_member_keys.get(target_path) {
+    Some(keys) => keys
+    None => {
+      let keys : Map[String, Bool] = Map([])
+      self.table_member_keys.set(target_path, keys)
+      keys
+    }
+  }
 }
 
 ///|
@@ -363,6 +394,7 @@ fn TomlParser::parse_inline_table(
   self : TomlParser,
 ) -> (Array[TomlMember], Int) raise {
   let members : Array[TomlMember] = []
+  let member_keys : Map[String, Bool] = Map([])
   let start_line = self.line
   self.expect_char('{')
   self.skip_spaces()
@@ -376,19 +408,21 @@ fn TomlParser::parse_inline_table(
     self.skip_spaces()
     let value = self.parse_value()
     let member_path = toml_segments_to_path(key_segments)
-    if toml_members_have_key(members, key_segments[key_segments.length() - 1]) {
+    let member_key = key_segments[key_segments.length() - 1]
+    if member_keys.contains(member_key) {
       raise ParseError(
         "duplicate key at line " + start_line.to_string() + ": " + member_path,
       )
     }
     members.push({
-      key: key_segments[key_segments.length() - 1],
+      key: member_key,
       segments: key_segments,
       path: member_path,
       value: value.0,
       line_start: start_line,
       line_end: value.1,
     })
+    member_keys.set(member_key, true)
     self.skip_spaces()
     if self.consume_char(',') {
       self.skip_spaces()
@@ -1075,16 +1109,6 @@ fn toml_slice_chars(chars : Array[Char], start : Int, end_ : Int) -> String {
 }
 
 ///|
-fn toml_members_have_key(members : Array[TomlMember], key : String) -> Bool {
-  for entry in members {
-    if entry.key == key {
-      return true
-    }
-  }
-  false
-}
-
-///|
 fn toml_segments_to_path(segments : Array[String]) -> String {
   if segments.length() == 0 {
     return "/"
@@ -1108,11 +1132,17 @@ fn toml_path_to_segments(path : String) -> Array[String] {
 }
 
 ///|
-fn toml_array_base_path(path : String) -> String {
-  match path.split_once("[") {
-    Some((head, _)) => head.to_owned()
-    None => path
+fn toml_append_array_item_segment(
+  segments : Array[String],
+  item_index : Int,
+) -> Array[String] {
+  let out = segments.copy()
+  if out.length() == 0 {
+    return out
   }
+  let last_index = out.length() - 1
+  out[last_index] = out[last_index] + "[" + item_index.to_string() + "]"
+  out
 }
 
 ///|

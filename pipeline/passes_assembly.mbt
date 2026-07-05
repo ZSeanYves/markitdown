@@ -21,12 +21,14 @@ fn assemble_document_sections(
   }
   let heading_stack : Array[(Int, String)] = []
   let current_section_ids : Array[String] = []
+  let section_index_by_id : Map[String, Int] = Map([])
 
   fn visit(
     blocks : Array[@core.CoreBlock],
     assembly : @core.DocumentAssembly,
     heading_stack : Array[(Int, String)],
     current_section_ids : Array[String],
+    section_index_by_id : Map[String, Int],
     ordinal : Int,
   ) -> Int {
     let mut local_ordinal = ordinal
@@ -52,7 +54,9 @@ fn assemble_document_sections(
           block_ids: [block.block_id],
           source_ref: block.source_ref,
         }
+        let section_index = assembly.sections.length()
         assembly.sections.push(section)
+        section_index_by_id.set(section.section_id, section_index)
         if current_section_ids.length() >= level {
           while current_section_ids.length() >= level {
             ignore(current_section_ids.pop())
@@ -61,12 +65,22 @@ fn assemble_document_sections(
         if current_section_ids.length() > 0 {
           let parent_index = current_section_ids.length() - 1
           let parent_id = current_section_ids[parent_index]
-          append_child_section_id(assembly, parent_id, section.section_id)
+          append_child_section_id(
+            assembly,
+            section_index_by_id,
+            parent_id,
+            section.section_id,
+          )
         }
         current_section_ids.push(section.section_id)
       } else if current_section_ids.length() > 0 {
         let current_id = current_section_ids[current_section_ids.length() - 1]
-        append_section_block_id(assembly, current_id, block.block_id)
+        append_section_block_id(
+          assembly,
+          section_index_by_id,
+          current_id,
+          block.block_id,
+        )
         if heading_stack.length() > 0 {
           assembly.heading_paths.set(
             block.block_id,
@@ -80,6 +94,7 @@ fn assemble_document_sections(
           assembly,
           heading_stack,
           current_section_ids,
+          section_index_by_id,
           local_ordinal,
         )
       }
@@ -87,7 +102,12 @@ fn assemble_document_sections(
     local_ordinal
   }
 
-  ignore(visit(blocks, assembly, heading_stack, current_section_ids, 0))
+  ignore(
+    visit(
+      blocks, assembly, heading_stack, current_section_ids, section_index_by_id,
+      0,
+    ),
+  )
   assembly
 }
 
@@ -109,32 +129,26 @@ fn assemble_document_sections_from_prior(
 ///|
 fn append_child_section_id(
   assembly : @core.DocumentAssembly,
+  section_index_by_id : Map[String, Int],
   parent_id : String,
   child_id : String,
 ) -> Unit {
-  for section in assembly.sections {
-    if section.section_id == parent_id {
-      if !section.child_section_ids.contains(child_id) {
-        section.child_section_ids.push(child_id)
-      }
-      return
-    }
+  match section_index_by_id.get(parent_id) {
+    Some(index) => assembly.sections[index].child_section_ids.push(child_id)
+    None => ()
   }
 }
 
 ///|
 fn append_section_block_id(
   assembly : @core.DocumentAssembly,
+  section_index_by_id : Map[String, Int],
   section_id : String,
   block_id : String,
 ) -> Unit {
-  for section in assembly.sections {
-    if section.section_id == section_id {
-      if !section.block_ids.contains(block_id) {
-        section.block_ids.push(block_id)
-      }
-      return
-    }
+  match section_index_by_id.get(section_id) {
+    Some(index) => assembly.sections[index].block_ids.push(block_id)
+    None => ()
   }
 }
 

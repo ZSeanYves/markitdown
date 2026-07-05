@@ -253,7 +253,7 @@ test "bench engine options enable product-default direct image OCR and explicit 
     ["ocr"],
     "reviewed",
     "",
-    "markitdown-quality-lab/external_bench/ocr/medium/ocr_medium_self_multi_column_v1.png",
+    "samples/fixtures/contracts/ocr/ocr_medium_self_multi_column_v1.png",
   )
   let options = bench_convert_options_for_row_v2(row)
   assert_true(
@@ -279,7 +279,7 @@ test "bench engine options fall back to detected image format for logical ocr ro
     ["ocr"],
     "reviewed",
     "",
-    "markitdown-quality-lab/external_bench/ocr/large/ocr_large_commons_typewriter_photo_v1.jpg",
+    "samples/fixtures/contracts/ocr/ocr_large_commons_typewriter_photo_v1.jpg",
   )
   let options = bench_convert_options_for_row_v2(row)
   assert_true(

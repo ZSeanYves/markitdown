@@ -40,11 +40,13 @@
 | Containers | `zip`, `epub` | 正式支持 |
 | Office | `odt`, `ods`, `odp`, `docx`, `xlsx`, `pptx` | 正式支持 |
 | PDF | `pdf` | 正式支持；默认 native-text，`--pdf-ocr explicit|auto-scanned` 走 Balanced PDF OCR，`--accurate` 默认 `auto_scanned` 并在命中 scanned-like 时走 Accurate PDF OCR |
+| Audio | `wav`, `mp3`, `m4a` | 正式支持；P0 为 root local audio file 的 transcript-only media pipeline |
 | Image OCR | `png`, `jpg`, `jpeg`, `bmp`, `webp`, `tif`, `tiff` | 正式支持 |
 
 明确不属于当前默认主路径矩阵的输入：
 
 - 未启用 `--ocr` 或 `--pdf-ocr auto-scanned` 的扫描版 / 图片型 PDF
+- `mp4` / video / 流式音频 / subtitle sidecar / 容器内递归音频派发
 - 其它未列出格式
 
 ## 3. 能力总览
@@ -117,6 +119,7 @@
 | `xlsx` | `强成熟` | hidden sheet/row、merged span、sparse/large route、Accurate 语义恢复都已形成强主链能力 |
 | `pptx` | `强成熟` | slide/notes、reading-order-like 语义、group/decorative summary 与诊断解释能力较强 |
 | `pdf` | `强成熟` | native-text 主路径、Balanced PDF OCR 与 Accurate PDF OCR 分工清晰，planner/provenance/回归口径都已收敛；边界是 OCR 路线仍不宣称复杂 layout intelligence |
+| `wav` / `mp3` / `m4a` | `可用` | transcript-only media pipeline 已正式接入主链，Markdown/RAG/debug/provenance 可观察性完整；但当前仍是 P0 轻量实现，不承诺流式、多轨视图、视频容器或 diarization 能力 |
 | 直接图片 OCR | `可用` | 产品路径正式可用，但质量强依赖外部 OCR 提供者与版面复杂度，当前承诺仍以文本恢复为主 |
 
 本轮正式更新的重点结论是：

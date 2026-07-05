@@ -26,10 +26,11 @@ pub fn normalize_whitespace_pass() -> IRPass {
 
 ///|
 fn normalize_block_text(block : @core.CoreBlock) -> @core.CoreBlock {
-  @core.block_with_children(
+  let next = @core.block_with_children(
     { ..block, text: block.text.trim().to_owned() },
     block.children.map(child => normalize_block_text(child)),
   )
+  next
 }
 
 ///|
@@ -41,10 +42,11 @@ fn normalize_block_whitespace(block : @core.CoreBlock) -> @core.CoreBlock {
     | @core.BlockKind::TableCell => block.text
     _ => collapse_whitespace(block.text)
   }
-  @core.block_with_children(
+  let next = @core.block_with_children(
     { ..block, text: next_text },
     block.children.map(child => normalize_block_whitespace(child)),
   )
+  next
 }
 
 ///|
@@ -100,3 +102,5 @@ fn collapse_whitespace(text : String) -> String {
   }
   String::from_array(out).trim().to_owned()
 }
+
+///|

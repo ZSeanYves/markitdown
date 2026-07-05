@@ -9,6 +9,8 @@ fn rag_location_metadata(
   let entry_paths : Array[String] = []
   let container_paths : Array[String] = []
   let chapter_hrefs : Array[String] = []
+  let time_starts : Array[String] = []
+  let time_ends : Array[String] = []
   for source_ref in source_refs {
     append_unique_optional_string(
       pages,
@@ -23,6 +25,8 @@ fn rag_location_metadata(
     append_unique_optional_string(entry_paths, source_ref.entry_path)
     append_unique_optional_string(container_paths, source_ref.container_path)
     append_unique_optional_string(chapter_hrefs, source_ref.chapter_href)
+    append_unique_optional_string(time_starts, source_ref.time_start)
+    append_unique_optional_string(time_ends, source_ref.time_end)
   }
   let metadata : Map[String, @core.JsonValue] = Map([])
   if pages.length() > 0 {
@@ -45,6 +49,12 @@ fn rag_location_metadata(
   }
   if chapter_hrefs.length() > 0 {
     metadata.set("chapter_hrefs", string_json_array(chapter_hrefs))
+  }
+  if time_starts.length() > 0 {
+    metadata.set("time_starts", string_json_array(time_starts))
+  }
+  if time_ends.length() > 0 {
+    metadata.set("time_ends", string_json_array(time_ends))
   }
   metadata
 }
@@ -217,6 +227,8 @@ fn source_ref_signature(source_ref : @core.SourceRef) -> String {
     source_ref.chapter_href.unwrap_or(""),
     source_ref.line_start.map(i => i.to_string()).unwrap_or(""),
     source_ref.line_end.map(i => i.to_string()).unwrap_or(""),
+    source_ref.time_start.unwrap_or(""),
+    source_ref.time_end.unwrap_or(""),
   ].join("|")
 }
 

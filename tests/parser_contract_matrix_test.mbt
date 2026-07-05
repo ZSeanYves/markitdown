@@ -34,6 +34,9 @@ fn contract_matrix_cases() -> Array[ContractMatrixCase] {
     @input.DetectedFormat::Pptx,
     @input.DetectedFormat::Xlsx,
     @input.DetectedFormat::Pdf,
+    @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
+    @input.DetectedFormat::Audio(@input.AudioFormat::Mp3),
+    @input.DetectedFormat::Audio(@input.AudioFormat::M4a),
   ]
   formats.map(fn(format) {
     let spec = @formats_root.product_parser_contract_spec_by_format(format).unwrap_or_else(fn() {
@@ -237,6 +240,12 @@ fn contract_matrix_source(format : @input.DetectedFormat) -> @input.InputSource 
         "samples/fixtures/contracts/pdf/text_simple.pdf",
         Some(format),
       )
+    @input.DetectedFormat::Audio(audio_format) =>
+      @input.input_from_path_with_format(
+        "samples/fixtures/contracts/audio/contract." +
+        @input.audio_format_name(audio_format),
+        Some(@input.DetectedFormat::Audio(audio_format)),
+      )
     @input.DetectedFormat::Image(image_format) =>
       @input.input_from_bytes_with_format(
         Bytes::from_array([137, 80, 78, 71, 13, 10, 26, 10]),
@@ -254,6 +263,11 @@ fn contract_matrix_context(
   format : @input.DetectedFormat,
 ) -> @parser.ParseContext {
   match format {
+    @input.DetectedFormat::Audio(_) =>
+      @parser.parse_context_with_ocr_options(
+        @parser.new_parse_context(format),
+        @parser.explicit_ocr_options(language=Some("eng")),
+      )
     @input.DetectedFormat::Image(image_format) =>
       @parser.parse_context_with_ocr_options(
         @parser.new_parse_context(@input.DetectedFormat::Image(image_format)),
@@ -267,7 +281,7 @@ fn contract_matrix_context(
 test "product parser contract specs stay registered and capability-honest" {
   let registry = @formats_root.builtin_registry()
   let specs = @formats_root.product_parser_contract_specs()
-  assert_true(specs.length() >= 28)
+  assert_true(specs.length() >= 29)
   for item in contract_matrix_cases() {
     let format = item.format
     let spec = item.spec
@@ -312,6 +326,10 @@ test "product parser contract specs stay registered and capability-honest" {
 ///|
 test "product parser contract specs cover canonical parse results and source refs" {
   let registry = @formats_root.builtin_registry()
+  @env.set_env_var(
+    "MARKITDOWN_AUDIO_TRANSCRIBE_CMD", "python3 samples/helpers/audio_transcribe_bridge.py",
+  )
+  defer @env.unset_env_var("MARKITDOWN_AUDIO_TRANSCRIBE_CMD")
   for item in contract_matrix_cases() {
     let format = item.format
     let spec = item.spec
