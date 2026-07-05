@@ -8,13 +8,17 @@ pub fn rst_parser() -> @parser.Parser {
       source : @input.InputSource,
       context : @parser.ParseContext,
     ) -> Result[@parser.ParseResult, String] {
-      @fshared.parse_text_markup_result(source, context, rst_hooks())
+      @fshared.parse_text_markup_result(
+        source,
+        context,
+        rst_text_markup_hooks(),
+      )
     },
   )
 }
 
 ///|
-fn rst_hooks() -> @fshared.TextMarkupHooks {
+pub fn rst_text_markup_hooks() -> @fshared.TextMarkupHooks {
   @fshared.make_text_markup_hooks(
     "rst_parser",
     "rst",

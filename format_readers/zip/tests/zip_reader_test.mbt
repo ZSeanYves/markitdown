@@ -350,9 +350,7 @@ test "zip reader can list and read docx core entry" {
 
 ///|
 test "zip reader can list and read xlsx core entry" {
-  let z = open_sample_zip(
-    "samples/fixtures/contracts/xlsx/sheet_simple.xlsx",
-  )
+  let z = open_sample_zip("samples/fixtures/contracts/xlsx/sheet_simple.xlsx")
   let entries = @zip.list_entries(z)
   if entries.length() == 0 {
     fail("xlsx entries should not be empty")

@@ -63,6 +63,36 @@ pub fn parse_text_markup_result(
     source,
     hooks.format_name,
   )
+  let doc = (hooks.parse_document)(text)
+  let inspect = @dmark.inspect_text_markup_document(doc, text)
+  Ok(
+    parse_text_markup_result_with_preparsed_document(
+      source,
+      context,
+      text,
+      doc,
+      inspect,
+      hooks,
+      diagnostics~,
+    ),
+  )
+}
+
+///|
+pub fn parse_text_markup_result_with_preparsed_document(
+  source : @input.InputSource,
+  context : @parser.ParseContext,
+  _text : String,
+  doc : @dmark.TextMarkupDocument,
+  inspect : @dmark.TextMarkupInspectReport,
+  hooks : TextMarkupHooks,
+  diagnostics? : @core.Diagnostics = empty_parser_diagnostics(
+    hooks.parser_name,
+    @parser.ParserMode::DomAstModel,
+    source,
+    hooks.format_name,
+  ),
+) -> @parser.ParseResult {
   init_parser_route_metrics(
     diagnostics,
     source,
@@ -76,8 +106,6 @@ pub fn parse_text_markup_result(
     "dom_ast_model",
   )
   apply_product_metrics(diagnostics, hooks.format_name)
-  let doc = (hooks.parse_document)(text)
-  let inspect = @dmark.inspect_text_markup_document(doc, text)
   let document = lower_text_markup_document(doc, source, diagnostics, hooks)
   diagnostics.metrics.set("block_count", inspect.block_count.to_string())
   diagnostics.metrics.set("heading_count", inspect.heading_count.to_string())
@@ -113,14 +141,12 @@ pub fn parse_text_markup_result(
   )
   diagnostics.pass_trace.push("parse:" + hooks.parser_name)
   let final_document = @core.document_with_diagnostics(document, diagnostics)
-  Ok(
-    @parser.parse_result_with_document_capability(
-      hooks.parser_name,
-      @parser.ParserMode::DomAstModel,
-      final_document,
-      diagnostics,
-      text_markup_parser_capability(),
-    ),
+  @parser.parse_result_with_document_capability(
+    hooks.parser_name,
+    @parser.ParserMode::DomAstModel,
+    final_document,
+    diagnostics,
+    text_markup_parser_capability(),
   )
 }
 

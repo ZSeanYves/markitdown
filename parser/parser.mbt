@@ -71,6 +71,7 @@ pub struct ParseContext {
   render_profile : @product.RenderProfile
   accurate_features : @product.AccurateFeatureProfile
   ocr_options : OcrOptions
+  pdf_ocr_policy : PdfOcrPolicy
   pdf_native_runtime_policy : PdfNativeRuntimePolicy
   pdf_header_footer_filter_policy : PdfHeaderFooterFilterPolicy
   pdf_table_reconstruction_policy : PdfTableReconstructionPolicy
@@ -87,6 +88,9 @@ pub(all) enum OcrIntent {
   Auto
   Explicit
 } derive(Eq)
+
+///|
+pub type PdfOcrPolicy = @product.PdfOcrPolicy
 
 ///|
 pub(all) enum PdfNativeRuntimePolicy {
@@ -456,6 +460,7 @@ pub fn new_parse_context(
     render_profile: @product.RenderProfile::DefaultMarkdown,
     accurate_features: @product.empty_accurate_feature_profile(),
     ocr_options: default_ocr_options(),
+    pdf_ocr_policy: default_pdf_ocr_policy(),
     pdf_native_runtime_policy: default_pdf_native_runtime_policy(),
     pdf_header_footer_filter_policy: default_pdf_header_footer_filter_policy(),
     pdf_table_reconstruction_policy: default_pdf_table_reconstruction_policy(),
@@ -475,6 +480,11 @@ pub fn default_ocr_options() -> OcrOptions {
 ///|
 pub fn default_pdf_native_runtime_policy() -> PdfNativeRuntimePolicy {
   PdfNativeRuntimePolicy::EnableTextRestore
+}
+
+///|
+pub fn default_pdf_ocr_policy() -> PdfOcrPolicy {
+  @product.default_pdf_ocr_policy()
 }
 
 ///|
@@ -503,6 +513,14 @@ pub fn parse_context_with_ocr_options(
   ocr_options : OcrOptions,
 ) -> ParseContext {
   { ..context, ocr_options, }
+}
+
+///|
+pub fn parse_context_with_pdf_ocr_policy(
+  context : ParseContext,
+  pdf_ocr_policy : PdfOcrPolicy,
+) -> ParseContext {
+  { ..context, pdf_ocr_policy, }
 }
 
 ///|
@@ -610,6 +628,11 @@ pub fn pdf_native_runtime_policy_name(
     PdfNativeRuntimePolicy::DisableTextRestore => "disable_text_restore"
     PdfNativeRuntimePolicy::EnableTextRestore => "enable_text_restore"
   }
+}
+
+///|
+pub fn pdf_ocr_policy_name(policy : PdfOcrPolicy) -> String {
+  @product.pdf_ocr_policy_name(policy)
 }
 
 ///|

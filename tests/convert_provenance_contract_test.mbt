@@ -20,6 +20,28 @@ fn convert_with_provenance(
 }
 
 ///|
+fn convert_with_provenance_and_image_ocr_provider(
+  source : @input.InputSource,
+  options : @convert.ConvertOptions,
+  provider : (@focr.OcrProviderRequest) -> Result[
+    @focr.OcrProviderResult,
+    @focr.OcrProviderError,
+  ],
+) -> @convert.ConvertExecution raise {
+  match
+    @convert.convert_input_with_provenance_and_image_ocr_provider(
+      source, options, provider,
+    ) {
+    Ok(value) => value
+    Err(err) =>
+      fail(
+        "expected convert provenance with injected OCR provider: " +
+        err.to_string(),
+      )
+  }
+}
+
+///|
 test "convert provenance reports markdown huge block route" {
   let execution = convert_with_provenance(
     @input.input_from_path(
@@ -106,9 +128,7 @@ test "convert provenance reports zip container route" {
 ///|
 test "convert provenance reports xlsx huge block streaming route fidelity" {
   let execution = convert_with_provenance(
-    @input.input_from_path(
-      "samples/fixtures/contracts/xlsx/sheet_simple.xlsx",
-    ),
+    @input.input_from_path("samples/fixtures/contracts/xlsx/sheet_simple.xlsx"),
     @input.DetectedFormat::Xlsx,
     @convert.make_resource_limits(1, 1, 1),
   )
@@ -223,9 +243,7 @@ test "convert provenance reports html explicit stream route fidelity" {
 ///|
 test "convert provenance reports medium adaptive profile without route switch" {
   let execution = convert_with_provenance(
-    @input.input_from_path(
-      "samples/fixtures/contracts/ods/MergedCells.ods",
-    ),
+    @input.input_from_path("samples/fixtures/contracts/ods/MergedCells.ods"),
     @input.DetectedFormat::Ods,
     @convert.make_resource_limits(10, 10, 1000),
   )
@@ -275,9 +293,7 @@ test "convert provenance reports epub explicit stream container route fidelity" 
 ///|
 test "convert provenance reports xlsx explicit stream route fidelity" {
   let execution = convert_with_provenance(
-    @input.input_from_path(
-      "samples/fixtures/contracts/xlsx/sheet_simple.xlsx",
-    ),
+    @input.input_from_path("samples/fixtures/contracts/xlsx/sheet_simple.xlsx"),
     @input.DetectedFormat::Xlsx,
     @convert.default_resource_limits(),
     stream_requested=true,
@@ -471,12 +487,15 @@ test "route planner keeps pdf accurate and explicit ocr routes stable" {
     Ok(value) => value
     Err(err) => fail("expected pdf accurate route plan: " + err.to_string())
   }
-  assert_eq(accurate_plan.selected_route, "layout_two_stage")
-  assert_eq(accurate_plan.route_reason, "pdf_accurate_layout_two_stage")
+  assert_eq(accurate_plan.selected_route, "page_single_pass")
+  assert_eq(accurate_plan.route_reason, "pdf_canonical_page_single_pass")
   assert_true(
     accurate_plan.requested_parser_mode.map(mode => @parser.mode_name(mode)) ==
-    Some("layout_two_stage"),
+    Some("page_single_pass"),
   )
+  assert_true(accurate_plan.ocr_provider_selection_target == None)
+  assert_true(accurate_plan.ocr_provider_requested_kind == None)
+  assert_true(accurate_plan.ocr_provider_resolved_kind == None)
 
   let explicit_ocr_options = @convert.make_convert_options(
     @convert.ConvertMode::Balanced,
@@ -484,6 +503,7 @@ test "route planner keeps pdf accurate and explicit ocr routes stable" {
     Some(@input.DetectedFormat::Pdf),
     @parser.explicit_ocr_options(),
     @convert.default_resource_limits(),
+    pdf_ocr_policy=@convert.PdfOcrPolicy::Explicit,
   )
   let explicit_ocr_plan = match
     @convert.plan_input(source, explicit_ocr_options) {
@@ -496,6 +516,13 @@ test "route planner keeps pdf accurate and explicit ocr routes stable" {
     explicit_ocr_plan.requested_parser_mode.map(mode => @parser.mode_name(mode)) ==
     Some("layout_two_stage"),
   )
+  assert_true(
+    explicit_ocr_plan.ocr_provider_selection_target == Some("pdf_balanced"),
+  )
+  assert_true(
+    explicit_ocr_plan.ocr_provider_requested_kind == Some("tesseract"),
+  )
+  assert_true(explicit_ocr_plan.ocr_provider_resolved_kind == Some("tesseract"))
 }
 
 ///|
@@ -561,4 +588,58 @@ test "route planner resolves lowering profile by runtime precedence" {
     @product.lowering_profile_name(docx_execution.provenance.lowering_profile),
     "accurate_semantic",
   )
+}
+
+///|
+test "convert provenance carries accurate image OCR provider selection explicitly" {
+  let tsv = [
+    "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext",
+    "5\t1\t1\t1\t1\t1\t10\t10\t20\t10\t95\tMoonBit", "5\t1\t1\t1\t1\t2\t35\t10\t15\t10\t94\tOCR",
+  ].join("\n")
+  let provider = fn(request : @focr.OcrProviderRequest) {
+    if request.provider_kind != @focr.OcrProviderKind::PaddleOcr {
+      abort("expected convert accurate image OCR to request PaddleOCR")
+    }
+    match @focr.parse_tesseract_tsv(tsv, language=request.language) {
+      Ok(result) => Ok(result)
+      Err(err) =>
+        abort("expected injected OCR TSV parse success: " + err.to_string())
+    }
+  }
+  let execution = convert_with_provenance_and_image_ocr_provider(
+    @input.input_from_path_with_format(
+      "scan.png",
+      Some(@input.DetectedFormat::Image(@input.ImageFormat::Png)),
+    ),
+    @convert.make_convert_options(
+      @convert.ConvertMode::Balanced,
+      @convert.OutputFormat::Markdown,
+      Some(@input.DetectedFormat::Image(@input.ImageFormat::Png)),
+      @parser.explicit_ocr_options(language=Some("eng")),
+      @convert.default_resource_limits(),
+      fidelity_mode=@convert.FidelityMode::Accurate,
+    ),
+    provider,
+  )
+  assert_true(
+    execution.provenance.ocr_provider_selection_target ==
+    Some("direct_image_accurate"),
+  )
+  assert_true(
+    execution.provenance.ocr_provider_requested_kind == Some("paddle_ocr"),
+  )
+  assert_true(
+    execution.provenance.ocr_provider_resolved_kind == Some("paddle_ocr"),
+  )
+  let json = @convert.convert_provenance_to_json(execution.provenance).stringify(
+    indent=2,
+  )
+  assert_true(json.contains("\"ocr_provider_selection_target\""))
+  assert_true(json.contains("direct_image_accurate"))
+  assert_true(json.contains("\"ocr_provider_requested_kind\""))
+  assert_true(json.contains("paddle_ocr"))
+  assert_true(json.contains("\"ocr_provider_resolved_kind\""))
+  assert_true(json.contains("paddle_ocr"))
+  assert_true(!json.contains("\"ocr_provider_fallback\""))
+  assert_true(!json.contains("\"dependency_diagnostics\""))
 }

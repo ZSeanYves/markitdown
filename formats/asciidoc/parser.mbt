@@ -8,13 +8,17 @@ pub fn asciidoc_parser() -> @parser.Parser {
       source : @input.InputSource,
       context : @parser.ParseContext,
     ) -> Result[@parser.ParseResult, String] {
-      @fshared.parse_text_markup_result(source, context, asciidoc_hooks())
+      @fshared.parse_text_markup_result(
+        source,
+        context,
+        asciidoc_text_markup_hooks(),
+      )
     },
   )
 }
 
 ///|
-fn asciidoc_hooks() -> @fshared.TextMarkupHooks {
+pub fn asciidoc_text_markup_hooks() -> @fshared.TextMarkupHooks {
   @fshared.make_text_markup_hooks(
     "asciidoc_parser",
     "asciidoc",

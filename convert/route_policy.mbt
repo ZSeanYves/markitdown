@@ -50,6 +50,7 @@ fn execution_intent(options : ConvertOptions) -> ExecutionIntent {
     output_format: options.output_format,
     ocr_options: options.ocr_options,
     limits: options.limits,
+    pdf_ocr_policy: options.pdf_ocr_policy,
     pdf_cleanup_mode: options.pdf_cleanup_mode,
     pdf_table_mode: options.pdf_table_mode,
     rag_options: options.rag_options,
@@ -141,6 +142,14 @@ fn exceeded_threshold_signals(
 }
 
 ///|
+fn scanned_page_signal(signals : Array[ProbeSignal]) -> ProbeSignal? {
+  match matching_probe_signal(signals, ProbeSignalKind::ScannedPageCount) {
+    Some(signal) if signal.observed > 0 => Some(signal)
+    _ => None
+  }
+}
+
+///|
 fn resolved_threshold_limit(
   signal : ProbeSignal,
   configured_limit : Int,
@@ -206,13 +215,13 @@ fn route_reason_for_plan(
   }
   if detected_format == @input.DetectedFormat::Pdf &&
     selected.route == CanonicalRoute::LayoutTwoStage &&
-    intent.ocr_options.intent == @parser.OcrIntent::Explicit {
+    intent.pdf_ocr_policy == PdfOcrPolicy::Explicit {
     return "pdf_explicit_ocr_layout_two_stage"
   }
   if detected_format == @input.DetectedFormat::Pdf &&
     selected.route == CanonicalRoute::LayoutTwoStage &&
-    intent.fidelity_mode == FidelityMode::Accurate {
-    return "pdf_accurate_layout_two_stage"
+    intent.pdf_ocr_policy == PdfOcrPolicy::AutoScanned {
+    return "pdf_scanned_like_auto_upgrade"
   }
   if detected_format == @input.DetectedFormat::Pdf &&
     selected.route == CanonicalRoute::PageSinglePass {
@@ -306,12 +315,16 @@ fn select_strategy_route(
   hard_trigger_signals : Array[ProbeSignal],
 ) -> (@formats.StrategyRouteSpec, Bool, Bool) {
   if detected_format == @input.DetectedFormat::Pdf &&
-    intent.ocr_options.intent == @parser.OcrIntent::Explicit {
+    intent.pdf_ocr_policy == PdfOcrPolicy::Explicit {
     return (policy.accurate.canonical, false, false)
   }
   if detected_format == @input.DetectedFormat::Pdf &&
-    intent.fidelity_mode == FidelityMode::Accurate {
+    intent.pdf_ocr_policy == PdfOcrPolicy::AutoScanned &&
+    scanned_page_signal(hard_trigger_signals) is Some(_) {
     return (policy.accurate.canonical, false, false)
+  }
+  if detected_format == @input.DetectedFormat::Pdf {
+    return (policy.balanced.canonical, false, false)
   }
   let explicit_stream_fell_back = intent.stream_requested &&
     !mode_policy.explicit_stream_supported
@@ -356,8 +369,13 @@ fn resolve_execution_plan(
     probe.probe_signals,
     mode_policy.soft_limit_thresholds,
   )
+  let pdf_scanned_signal = scanned_page_signal(probe.probe_signals)
+  let route_probe_signals = match (detected_format, pdf_scanned_signal) {
+    (@input.DetectedFormat::Pdf, Some(signal)) => [signal]
+    _ => hard_trigger_signals
+  }
   let (selected, explicit_stream_fell_back, used_hard_limit) = select_strategy_route(
-    detected_format, intent, policy, mode_policy, hard_trigger_signals,
+    detected_format, intent, policy, mode_policy, route_probe_signals,
   )
   let execution_profile = effective_execution_profile(
     selected, mode_policy, soft_trigger_signals, hard_trigger_signals,
@@ -374,6 +392,17 @@ fn resolve_execution_plan(
   let switches = strategy_switches_for_plan(
     detected_format, intent, selected, mode_policy, explicit_stream_fell_back, execution_profile,
   )
+  let ocr_provider_target = ocr_provider_target_for_plan(
+    detected_format,
+    intent.fidelity_mode,
+    strategy_route_parser_mode(selected),
+  )
+  let ocr_provider_requested_kind = ocr_provider_target.map(target => {
+    @focr.default_ocr_provider_kind_for_target(target)
+  })
+  let ocr_provider_resolved_kind = ocr_provider_target.map(target => {
+    @focr.resolved_ocr_provider_kind_for_target(target)
+  })
   let strategy_mode = if intent.stream_requested &&
     mode_policy.explicit_stream_supported &&
     selected.route == mode_policy.canonical.route &&
@@ -391,6 +420,7 @@ fn resolve_execution_plan(
     output_format: intent.output_format,
     ocr_options: intent.ocr_options,
     limits: intent.limits,
+    pdf_ocr_policy: intent.pdf_ocr_policy,
     pdf_cleanup_mode: intent.pdf_cleanup_mode,
     pdf_table_mode: intent.pdf_table_mode,
     rag_options: intent.rag_options,
@@ -429,9 +459,40 @@ fn resolve_execution_plan(
     probe_summary_format: probe.summary_format,
     probe_summary_parts: probe.summary_parts,
     same_mode_strategy_switches: switches,
+    ocr_provider_selection_target: ocr_provider_target,
+    ocr_provider_requested_kind,
+    ocr_provider_resolved_kind,
     prepared_source: probe.prepared_source,
     probe_artifacts: probe.probe_artifacts,
   }
+}
+
+///|
+fn ocr_provider_target_for_plan(
+  detected_format : @input.DetectedFormat,
+  fidelity_mode : FidelityMode,
+  requested_parser_mode : @parser.ParserMode?,
+) -> @focr.OcrProviderSelectionTarget? {
+  if @input.detected_format_is_image_candidate(detected_format) {
+    return Some(
+      if fidelity_mode == FidelityMode::Accurate {
+        @focr.OcrProviderSelectionTarget::DirectImageAccurate
+      } else {
+        @focr.OcrProviderSelectionTarget::DirectImageBalanced
+      },
+    )
+  }
+  if detected_format == @input.DetectedFormat::Pdf &&
+    requested_parser_mode == Some(@parser.ParserMode::LayoutTwoStage) {
+    return Some(
+      if fidelity_mode == FidelityMode::Accurate {
+        @focr.OcrProviderSelectionTarget::PdfAccurate
+      } else {
+        @focr.OcrProviderSelectionTarget::PdfBalanced
+      },
+    )
+  }
+  None
 }
 
 ///|

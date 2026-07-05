@@ -6,6 +6,7 @@ import {
   "ZSeanYves/markitdown/bench/runner/measure",
   "ZSeanYves/markitdown/convert",
   "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/parser",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/env",
   "moonbitlang/core/json",

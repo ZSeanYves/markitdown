@@ -920,7 +920,7 @@ fn run_engine_samples_v2(
 ) -> Array[SampleRowV2] {
   let out : Array[SampleRowV2] = []
   let source = @input.input_from_path(row.input_path)
-  let options = @convert.default_convert_options()
+  let options = bench_convert_options_for_row_v2(row)
   for _ in 0..<opts.warmup_count {
     ignore(@convert.convert_input_with_provenance(source, options))
   }
@@ -996,6 +996,33 @@ fn run_engine_samples_v2(
     }
   }
   out
+}
+
+///|
+fn bench_convert_options_for_row_v2(
+  row : @manifest.BenchRow,
+) -> @convert.ConvertOptions {
+  let source = @input.input_from_path(row.input_path)
+  let declared_format = @input.parse_detected_format(row.format)
+  let detected_format = if declared_format != @input.DetectedFormat::Unknown {
+    declared_format
+  } else {
+    (@input.default_format_detector().detect)(source).format
+  }
+  let ocr_options = if @input.detected_format_is_image_candidate(
+      detected_format,
+    ) {
+    @parser.explicit_ocr_options()
+  } else {
+    @parser.default_ocr_options()
+  }
+  @convert.make_convert_options(
+    @convert.ConvertMode::Balanced,
+    @convert.OutputFormat::Markdown,
+    Some(detected_format),
+    ocr_options,
+    @convert.default_resource_limits(),
+  )
 }
 
 ///|

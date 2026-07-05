@@ -211,9 +211,7 @@ test "xlsx accurate fidelity restores hidden grouped rows in external quality sa
   let balanced = match
     @parser.registry_parse(
       registry,
-      @input.input_from_path(
-        "samples/fixtures/contracts/xlsx/GroupTest.xlsx",
-      ),
+      @input.input_from_path("samples/fixtures/contracts/xlsx/GroupTest.xlsx"),
       @parser.parse_context_with_product_modes(
         @parser.new_parse_context(@input.DetectedFormat::Xlsx),
         @product.FidelityMode::Balanced,
@@ -226,9 +224,7 @@ test "xlsx accurate fidelity restores hidden grouped rows in external quality sa
   let accurate = match
     @parser.registry_parse(
       registry,
-      @input.input_from_path(
-        "samples/fixtures/contracts/xlsx/GroupTest.xlsx",
-      ),
+      @input.input_from_path("samples/fixtures/contracts/xlsx/GroupTest.xlsx"),
       @parser.parse_context_with_product_modes(
         @parser.new_parse_context(@input.DetectedFormat::Xlsx),
         @product.FidelityMode::Accurate,
@@ -287,9 +283,7 @@ test "xlsx accurate fidelity upgrades merged-range workbook to html table spans"
   let balanced = match
     @parser.registry_parse(
       registry,
-      @input.input_from_path(
-        "samples/fixtures/contracts/xlsx/merge1.xlsx",
-      ),
+      @input.input_from_path("samples/fixtures/contracts/xlsx/merge1.xlsx"),
       @parser.parse_context_with_product_modes(
         @parser.new_parse_context(@input.DetectedFormat::Xlsx),
         @product.FidelityMode::Balanced,
@@ -302,9 +296,7 @@ test "xlsx accurate fidelity upgrades merged-range workbook to html table spans"
   let accurate = match
     @parser.registry_parse(
       registry,
-      @input.input_from_path(
-        "samples/fixtures/contracts/xlsx/merge1.xlsx",
-      ),
+      @input.input_from_path("samples/fixtures/contracts/xlsx/merge1.xlsx"),
       @parser.parse_context_with_product_modes(
         @parser.new_parse_context(@input.DetectedFormat::Xlsx),
         @product.FidelityMode::Accurate,
@@ -371,9 +363,7 @@ test "xlsx formal table parts split disjoint sheet tables into separate markdown
   let parsed = match
     @parser.registry_parse(
       registry,
-      @input.input_from_path(
-        "samples/fixtures/contracts/xlsx/ExcelTables.xlsx",
-      ),
+      @input.input_from_path("samples/fixtures/contracts/xlsx/ExcelTables.xlsx"),
       @parser.parse_context_with_product_modes(
         @parser.new_parse_context(@input.DetectedFormat::Xlsx),
         @product.FidelityMode::Accurate,
@@ -421,9 +411,7 @@ test "xlsx convert and parser large routes stay on block streaming" {
   assert_metric_eq(converted.diagnostics, "event_granularity", "xlsx_row")
 
   let parsed = default_registry_parse(
-    @input.input_from_path(
-      "samples/fixtures/contracts/xlsx/sheet_simple.xlsx",
-    ),
+    @input.input_from_path("samples/fixtures/contracts/xlsx/sheet_simple.xlsx"),
     @input.DetectedFormat::Xlsx,
     requested_mode=Some(@parser.ParserMode::BlockStreaming),
   )

@@ -21,6 +21,11 @@ pub fn string_array_json(values : Array[String]) -> String {
 }
 
 ///|
+pub fn string_array_json_opt(values : Array[String]) -> String {
+  string_array_json(values)
+}
+
+///|
 pub fn object_json(fields : Array[String]) -> String {
   "{" + fields.join(", ") + "}"
 }

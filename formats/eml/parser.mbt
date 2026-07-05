@@ -8,6 +8,9 @@ const EML_MAX_RECURSIVE_CHILDREN : Int = 64
 const EML_MAX_MATERIALIZED_ASSETS : Int = 64
 
 ///|
+const EML_MAX_INLINE_BINARY_BYTES : Int = 32768
+
+///|
 pub fn eml_parser() -> @parser.Parser {
   eml_parser_with_registry(fn() { @parser.empty_registry() })
 }
@@ -1214,9 +1217,11 @@ fn eml_attach_inline_payload(
         )
         asset.attrs.set("inline_payload_kind", "utf8")
         asset.attrs.set("inline_payload", text)
-      } else {
+      } else if bytes.length() <= EML_MAX_INLINE_BINARY_BYTES {
         asset.attrs.set("inline_payload_kind", "base64")
         asset.attrs.set("inline_payload", @base64.encode(bytes, url_safe=false))
+      } else {
+        ()
       }
     None =>
       match attachment.decoded_text {

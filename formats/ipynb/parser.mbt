@@ -412,7 +412,7 @@ fn lower_ipynb_cell(
 fn lower_ipynb_markdown_cell(
   cell : @dipynb.IpynbCell,
   source : @input.InputSource,
-  diagnostics : @core.Diagnostics,
+  _diagnostics : @core.Diagnostics,
 ) -> Array[@core.CoreBlock] {
   let rewritten = ipynb_rewrite_attachment_refs(cell.source, cell)
   let parse_source = @input.input_from_text_with_format(
@@ -420,33 +420,25 @@ fn lower_ipynb_markdown_cell(
     source.source_name,
     Some(@input.DetectedFormat::Markdown),
   )
-  let parser = @fmarkdown.markdown_parser()
-  let result = (parser.parse)(
-    parse_source,
-    @parser.new_parse_context(@input.DetectedFormat::Markdown),
+  let scanned = @dmd.scan_markdown_document(rewritten)
+  let markdown_source_ref = ipynb_source_ref(
+    source,
+    cell.json_pointer + "/source",
+    Some(cell.index),
+    Some(ipynb_cell_kind_name(cell.kind)),
+    cell.cell_id,
+    None,
+    cell.execution_count,
+    None,
+    None,
+    None,
   )
-  match result {
-    Ok(parsed) =>
-      match parsed.document {
-        Some(doc) => {
-          let blocks : Array[@core.CoreBlock] = []
-          for block in doc.blocks {
-            blocks.push(ipynb_rebind_markdown_block(block, source, cell))
-          }
-          blocks
-        }
-        None => [ipynb_raw_block(rewritten, source, cell)]
-      }
-    Err(_) => {
-      diagnostics.warnings.push(
-        "ipynb markdown cell " +
-        (cell.index + 1).to_string() +
-        " fell back to raw markdown text",
-      )
-      diagnostics.degraded_features.push("ipynb_markdown_cell_raw_fallback")
-      [ipynb_raw_block(rewritten, source, cell)]
-    }
-  }
+  let markdown_blocks = @fmarkdown.markdown_blocks_from_scanned_document_light_with_source_ref(
+    parse_source,
+    scanned,
+    Some(markdown_source_ref),
+  )
+  markdown_blocks.map(block => ipynb_finalize_markdown_block(block, cell))
 }
 
 ///|
@@ -578,23 +570,21 @@ fn lower_ipynb_mime_entry(
           source.source_name,
           Some(@input.DetectedFormat::Markdown),
         )
-        let parser = @fmarkdown.markdown_parser()
-        let result = (parser.parse)(
+        let scanned = @dmd.scan_markdown_document(text)
+        let parsed = @fmarkdown.markdown_parse_with_scanned_document(
           parse_source,
           @parser.new_parse_context(@input.DetectedFormat::Markdown),
+          scanned,
+          @dmd.inspect_markdown_document(scanned),
         )
-        match result {
-          Ok(parsed) =>
-            match parsed.document {
-              Some(doc) =>
-                return doc.blocks.map(block => {
-                  ipynb_rebind_output_block_source_ref(
-                    block, source, cell, output_json_pointer, output_index, output_kind,
-                  )
-                })
-              None => ()
-            }
-          Err(_) => ()
+        match parsed.document {
+          Some(doc) =>
+            return doc.blocks.map(block => {
+              ipynb_rebind_output_block_source_ref(
+                block, source, cell, output_json_pointer, output_index, output_kind,
+              )
+            })
+          None => ()
         }
       }
       None => ()
@@ -1370,41 +1360,12 @@ fn ipynb_inline_payload(entry : @dipynb.IpynbMimeEntry) -> (String, String)? {
 }
 
 ///|
-fn ipynb_rebind_block_source_ref(
+fn ipynb_finalize_markdown_block(
   block : @core.CoreBlock,
-  source : @input.InputSource,
   cell : @dipynb.IpynbCell,
 ) -> @core.CoreBlock {
-  let rebound_ref = ipynb_source_ref(
-    source,
-    cell.json_pointer + "/source",
-    Some(cell.index),
-    Some(ipynb_cell_kind_name(cell.kind)),
-    cell.cell_id,
-    None,
-    cell.execution_count,
-    None,
-    None,
-    None,
-  )
-  let children : Array[@core.CoreBlock] = []
-  if block.children.length() > 0 {
-    for child in block.children {
-      children.push(ipynb_rebind_block_source_ref(child, source, cell))
-    }
-  }
-  { ..block, source_ref: Some(rebound_ref), children }
-}
-
-///|
-fn ipynb_rebind_markdown_block(
-  block : @core.CoreBlock,
-  source : @input.InputSource,
-  cell : @dipynb.IpynbCell,
-) -> @core.CoreBlock {
-  let rebound = ipynb_rebind_block_source_ref(block, source, cell)
-  if rebound.kind == @core.BlockKind::Image {
-    let next = { ..rebound }
+  if block.kind == @core.BlockKind::Image {
+    let next = { ..block }
     let alt = next.attrs.get("alt").unwrap_or("").trim().to_owned()
     match ipynb_attachment_for_alt(cell.attachments, alt) {
       Some(attachment) => {
@@ -1415,7 +1376,7 @@ fn ipynb_rebind_markdown_block(
     }
     next
   } else {
-    rebound
+    block
   }
 }
 
@@ -1440,15 +1401,16 @@ fn ipynb_rebind_output_block_source_ref(
     None,
     None,
   )
+  if block.children.length() == 0 {
+    return { ..block, source_ref: Some(rebound_ref) }
+  }
   let children : Array[@core.CoreBlock] = []
-  if block.children.length() > 0 {
-    for child in block.children {
-      children.push(
-        ipynb_rebind_output_block_source_ref(
-          child, source, cell, output_json_pointer, output_index, output_kind,
-        ),
-      )
-    }
+  for child in block.children {
+    children.push(
+      ipynb_rebind_output_block_source_ref(
+        child, source, cell, output_json_pointer, output_index, output_kind,
+      ),
+    )
   }
   { ..block, source_ref: Some(rebound_ref), children }
 }

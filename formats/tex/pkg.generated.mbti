@@ -2,11 +2,14 @@
 package "ZSeanYves/markitdown/formats/tex"
 
 import {
+  "ZSeanYves/markitdown/formats/shared",
   "ZSeanYves/markitdown/parser",
 }
 
 // Values
 pub fn tex_parser() -> @parser.Parser
+
+pub fn tex_text_markup_hooks() -> @shared.TextMarkupHooks
 
 // Errors
 

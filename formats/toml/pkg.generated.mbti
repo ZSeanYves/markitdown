@@ -2,10 +2,13 @@
 package "ZSeanYves/markitdown/formats/toml"
 
 import {
+  "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
 }
 
 // Values
+pub fn toml_parse_with_preparsed_document(@input.InputSource, @parser.ParseContext, String, @ZSeanYves/markitdown/format_readers/toml.TomlDocument, @ZSeanYves/markitdown/format_readers/toml.TomlInspectReport) -> @parser.ParseResult
+
 pub fn toml_parser() -> @parser.Parser
 
 // Errors

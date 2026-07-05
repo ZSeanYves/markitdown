@@ -369,6 +369,28 @@ pub fn pdf_native_document_to_blocks_with_policies(
 }
 
 ///|
+pub fn pdf_native_page_to_paragraph_blocks(
+  page : PdfNativePage,
+) -> Array[@core.CoreBlock] {
+  let blocks : Array[@core.CoreBlock] = []
+  for text_block_index in 0..<page.text_blocks.length() {
+    let block_index = text_block_index + 1
+    let text_block = page.text_blocks[text_block_index]
+    let paragraph = pdf_native_text_block_paragraph(
+      page, text_block, block_index,
+    )
+    match paragraph {
+      Some((text, source_ref)) =>
+        blocks.push(
+          @core.make_block(@core.BlockKind::Paragraph, text, source_ref~),
+        )
+      None => ()
+    }
+  }
+  blocks
+}
+
+///|
 priv enum PdfNativeLoweringItem {
   Paragraph(String, @core.SourceRef)
   Table(@core.CoreBlock)

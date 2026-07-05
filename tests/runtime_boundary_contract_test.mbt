@@ -282,6 +282,7 @@ test "convert contract threads OCR intent through fail-closed image branches" {
       assert_true(
         msg.contains("Tesseract OCR command is unavailable") ||
         msg.contains("launch tesseract failed") ||
+        msg.contains("Missing dependency: Tesseract OCR") ||
         msg.contains("image_format=png"),
       )
       assert_true(
@@ -394,6 +395,7 @@ test "convert pdf explicit OCR uses OCR route instead of fail-closing before pro
         Some(@input.DetectedFormat::Pdf),
         @parser.explicit_ocr_options(language=Some("eng")),
         @convert.default_resource_limits(),
+        pdf_ocr_policy=@convert.PdfOcrPolicy::Explicit,
       ),
       fn(request) {
         provider_calls.val = provider_calls.val + 1
@@ -424,7 +426,8 @@ test "convert pdf explicit OCR uses OCR route instead of fail-closing before pro
       assert_true(
         msg.contains("pdftoppm") ||
         msg.contains("poppler-utils") ||
-        msg.contains("brew install poppler"),
+        msg.contains("brew install poppler") ||
+        msg.contains("Missing dependency: pdftoppm / Poppler"),
       )
       assert_eq(provider_calls.val, 0)
     }
@@ -1171,6 +1174,28 @@ test "root image parser reserves explicit OCR mode without wiring a provider" {
   )
   assert_metric_eq(explicit_diagnostics, "effective_mode", "layout_two_stage")
 
+  let accurate_target_diagnostics = @focr.image_ocr_fail_closed_diagnostics_for_target(
+    source,
+    detected,
+    @parser.explicit_ocr_options(language=Some("eng")),
+    @focr.OcrProviderSelectionTarget::DirectImageAccurate,
+    requested_mode=Some(@parser.ParserMode::LayoutTwoStage),
+  )
+  assert_metric_eq(
+    accurate_target_diagnostics, "ocr_provider_selection_target", "direct_image_accurate",
+  )
+  assert_metric_eq(
+    accurate_target_diagnostics, "ocr_provider_requested_kind", "paddle_ocr",
+  )
+  assert_metric_eq(
+    accurate_target_diagnostics, "ocr_provider_kind", "paddle_ocr",
+  )
+  assert_eq(accurate_target_diagnostics.dependency_diagnostics.length(), 1)
+  assert_eq(
+    accurate_target_diagnostics.dependency_diagnostics[0].kind,
+    "paddle_ocr_bridge",
+  )
+
   let disabled_diagnostics = @focr.image_ocr_fail_closed_diagnostics(
     source,
     detected,
@@ -1264,6 +1289,11 @@ test "convert explicit image OCR injected provider reaches root convert and rend
   )
   assert_true(converted.parser_mode == @parser.ParserMode::LayoutTwoStage)
   assert_metric_eq(converted.diagnostics, "ocr_provider_status", "success")
+  assert_metric_eq(
+    converted.diagnostics,
+    "ocr_provider_selection_target",
+    "direct_image_balanced",
+  )
   assert_metric_eq(converted.diagnostics, "renderer_name", "MarkdownRenderer")
 }
 
@@ -1303,7 +1333,8 @@ async test "async convert explicit image OCR injected provider reaches root conv
 test "public gates and docs stay aligned on the main cli surface" {
   assert_file_contains_all("cli/cli.mbt", [
     "Supported product formats: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, yml, toml, html, htm, markdown, md, eml, tex, latex, rst, adoc, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, png, jpg, jpeg, bmp, webp, tif, tiff",
-    "pdf --ocr", "DetectedFormat::Pdf", "cli_is_supported_format",
+    "--pdf-ocr explicit|auto-scanned", "`pdf --accurate` defaults to `auto-scanned`",
+    "DetectedFormat::Pdf", "cli_is_supported_format",
   ])
   assert_file_contains_all("samples/check.sh", [
     "SUPPORTED_FORMATS=(\"txt\" \"csv\" \"tsv\" \"srt\" \"vtt\" \"json\" \"jsonl\" \"ndjson\" \"ipynb\" \"xml\" \"yaml\" \"toml\" \"html\" \"markdown\" \"eml\" \"tex\" \"rst\" \"asciidoc\" \"zip\" \"epub\" \"odt\" \"ods\" \"odp\" \"docx\" \"xlsx\" \"pptx\" \"pdf\" \"ocr\")",
@@ -1329,7 +1360,7 @@ test "public gates and docs stay aligned on the main cli surface" {
     "`tsv`", "`json`", "`jsonl`", "`ndjson`", "`ipynb`", "`xml`", "`yaml`", "`yml`",
     "`html`", "`htm`", "`markdown`", "`md`", "`zip`", "`epub`", "`odt`", "`ods`",
     "`odp`", "`docx`", "`xlsx`", "`pptx`", "`pdf`", "native-text PDFs", "pdf --ocr",
-    "dependency-backed product paths", "samples/helpers/contracts/check_root_contracts.sh",
+    "Missing dependencies fail closed with install guidance", "samples/helpers/contracts/check_root_contracts.sh",
     "markitdown-quality-lab/", "EPUB support is implemented through `format_readers/epub` on top of `format_readers/zip`",
   ])
   assert_file_contains_all("README.mbt.md", [
@@ -1337,8 +1368,7 @@ test "public gates and docs stay aligned on the main cli surface" {
     "`render`", "`convert`", "`pdf`", "native-text PDFs", "moon test tests", "samples/check_quality.sh",
   ])
   assert_file_contains_all("samples/check.sh", [
-    "--markdown", "--rag", "--assets", "--check-inventory", "--list-inventory",
-    "external_main_process",
+    "--markdown", "--rag", "--assets", "--check-inventory", "--list-inventory", "external_main_process",
     "txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, eml, tex, rst, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, and ocr",
   ])
   assert_file_contains_all(

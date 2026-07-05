@@ -15,9 +15,10 @@ fn fake_ocr_page(language : String?) -> OcrPageModel {
 ///|
 fn fake_success_provider(
   expected_language : String?,
+  expected_provider_kind? : OcrProviderKind = OcrProviderKind::Tesseract,
 ) -> (OcrProviderRequest) -> Result[OcrProviderResult, OcrProviderError] {
   fn(request : OcrProviderRequest) {
-    if request.provider_kind != OcrProviderKind::Tesseract {
+    if request.provider_kind != expected_provider_kind {
       abort("unexpected provider kind")
     }
     if !request.image_path.contains("scan.png") {
@@ -26,7 +27,12 @@ fn fake_success_provider(
     if request.language != expected_language {
       abort("unexpected OCR language")
     }
-    Ok(make_ocr_provider_result([fake_ocr_page(request.language)], "tesseract"))
+    Ok(
+      make_ocr_provider_result(
+        [fake_ocr_page(request.language)],
+        ocr_provider_kind_name(request.provider_kind),
+      ),
+    )
   }
 }
 
@@ -189,4 +195,38 @@ test "image OCR parser splits wide OCR lines into reading-order-aware paragraph 
   )
   assert_true(left_ref.extra.get("reading_order_key") is Some(_))
   assert_true(right_ref.extra.get("reading_order_key") is Some(_))
+}
+
+///|
+test "image OCR accurate target records provider fallback while preserving shared OCR lowering" {
+  let source = @input.input_from_path("scan.png")
+  let detected = @input.DetectedFormat::Image(@input.ImageFormat::Png)
+  let parsed = match
+    image_ocr_parser_result_with_provider_target(
+      source,
+      detected,
+      @parser.explicit_ocr_options(language=Some("eng")),
+      OcrProviderSelectionTarget::DirectImageAccurate,
+      fake_success_provider(
+        Some("eng"),
+        expected_provider_kind=OcrProviderKind::PaddleOcr,
+      ),
+      requested_mode=Some(@parser.ParserMode::LayoutTwoStage),
+    ) {
+    Ok(value) => value
+    Err(msg) => fail("expected accurate-target OCR parser success: " + msg)
+  }
+  let document = parsed.document.unwrap_or(@core.empty_document_ir())
+  assert_eq(document.blocks.length(), 2)
+  assert_true(
+    parsed.diagnostics.metrics.get("ocr_provider_selection_target") ==
+    Some("direct_image_accurate"),
+  )
+  assert_true(
+    parsed.diagnostics.metrics.get("ocr_provider_requested_kind") ==
+    Some("paddle_ocr"),
+  )
+  assert_true(
+    parsed.diagnostics.metrics.get("ocr_provider_kind") == Some("paddle_ocr"),
+  )
 }

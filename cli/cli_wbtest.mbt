@@ -58,6 +58,7 @@ fn cli_options(
   output_format : @convert.OutputFormat,
   provenance_output? : String? = None,
   ocr_options? : @parser.OcrOptions = @parser.default_ocr_options(),
+  pdf_ocr_policy? : @convert.PdfOcrPolicy = @convert.default_pdf_ocr_policy(),
   pdf_cleanup_mode? : @convert.PdfCleanupMode = @convert.default_pdf_cleanup_mode(),
   pdf_table_mode? : @convert.PdfTableMode = @convert.default_pdf_table_mode(),
 ) -> CliOptions {
@@ -67,6 +68,7 @@ fn cli_options(
     provenance_output,
     explicit_format,
     ocr_options,
+    pdf_ocr_policy,
     @convert.FidelityMode::Balanced,
     @convert.ConvertMode::Balanced,
     @convert.output_mode_for_output_format(output_format),
@@ -411,7 +413,7 @@ test "main cli constrains --ocr-lang to OCR-capable routes" {
     Err(msg) =>
       assert_true(
         msg.contains(
-          "--ocr-lang requires --ocr, Accurate-mode PDF input, or direct image input",
+          "--ocr-lang requires --ocr, direct image input, or PDF OCR via `--ocr` / `--pdf-ocr`",
         ),
       )
     Ok(_) => fail("expected non-image --ocr-lang without --ocr to fail")
@@ -419,6 +421,7 @@ test "main cli constrains --ocr-lang to OCR-capable routes" {
 
   match parse_cli_options(["--ocr-lang", "eng", "--ocr", "tiny.pdf"]) {
     Ok(opts) => {
+      assert_true(opts.pdf_ocr_policy == @convert.PdfOcrPolicy::Explicit)
       assert_true(opts.ocr_options.intent == @parser.OcrIntent::Explicit)
       assert_true(opts.ocr_options.language == Some("eng"))
     }
@@ -428,19 +431,23 @@ test "main cli constrains --ocr-lang to OCR-capable routes" {
   match parse_cli_options(["--accurate", "tiny.pdf"]) {
     Ok(opts) => {
       assert_true(opts.fidelity_mode == @convert.FidelityMode::Accurate)
-      assert_true(opts.ocr_options.intent == @parser.OcrIntent::Explicit)
-      assert_true(opts.ocr_options.language == None)
+      assert_true(opts.pdf_ocr_policy == @convert.PdfOcrPolicy::AutoScanned)
+      assert_true(opts.input == "tiny.pdf")
     }
-    Err(msg) => fail("expected accurate pdf to auto-enable OCR: " + msg)
+    Err(msg) => fail("expected single-file pdf --accurate to parse: " + msg)
   }
 
-  match parse_cli_options(["--accurate", "--ocr-lang", "eng", "tiny.pdf"]) {
+  match
+    parse_cli_options([
+      "--pdf-ocr", "auto-scanned", "--ocr-lang", "eng", "tiny.pdf",
+    ]) {
     Ok(opts) => {
-      assert_true(opts.fidelity_mode == @convert.FidelityMode::Accurate)
+      assert_true(opts.pdf_ocr_policy == @convert.PdfOcrPolicy::AutoScanned)
       assert_true(opts.ocr_options.intent == @parser.OcrIntent::Explicit)
       assert_true(opts.ocr_options.language == Some("eng"))
     }
-    Err(msg) => fail("expected accurate pdf --ocr-lang to parse: " + msg)
+    Err(msg) =>
+      fail("expected pdf --pdf-ocr auto-scanned --ocr-lang to parse: " + msg)
   }
 }
 
@@ -454,6 +461,48 @@ test "main cli parses provenance output flag" {
     }
     Err(msg) => fail("expected --provenance-out to parse: " + msg)
   }
+}
+
+///|
+test "main cli batch writes manifest for single markdown input" {
+  let root = test_tmp_root() + "/main-cli-batch-single"
+  recreate_clean_dir(root)
+  defer cleanup_temp_dir(root)
+
+  let input_path = root + "/note.md"
+  let out_dir = root + "/out"
+  write_utf8_text(input_path, "# Title\n\nhello batch\n")
+
+  let exit_code = run_cli_app(["markitdown-mb", "batch", input_path, out_dir])
+  assert_eq(exit_code, 0)
+  assert_true(@fs.path_exists(out_dir + "/manifest.json"))
+  assert_true(@fs.path_exists(out_dir + "/note.md.md"))
+  let manifest = read_utf8_text(out_dir + "/manifest.json")
+  assert_true(manifest.contains("\"status\": \"success\""))
+  assert_true(manifest.contains("\"relative_path\": \"note.md\""))
+}
+
+///|
+test "main cli batch accurate keeps pdf tasks in the manifest instead of prefiltering them" {
+  let root = test_tmp_root() + "/main-cli-batch-accurate"
+  recreate_clean_dir(root)
+  defer cleanup_temp_dir(root)
+
+  let input_dir = root + "/in"
+  let out_dir = root + "/out"
+  ensure_dir_tree(input_dir)
+  write_utf8_text(input_dir + "/note.md", "# Title\n\nok\n")
+  write_utf8_text(input_dir + "/scan.pdf", "%PDF-1.4 fake")
+
+  let exit_code = run_cli_app([
+    "markitdown-mb", "batch", "--accurate", input_dir, out_dir,
+  ])
+  assert_eq(exit_code, 0)
+  let manifest = read_utf8_text(out_dir + "/manifest.json")
+  assert_true(manifest.contains("\"relative_path\": \"note.md\""))
+  assert_true(manifest.contains("\"relative_path\": \"scan.pdf\""))
+  assert_true(!manifest.contains("\"dependency_diagnostics\":"))
+  assert_true(@fs.path_exists(out_dir + "/note.md.md"))
 }
 
 ///|
@@ -505,6 +554,7 @@ test "main cli image OCR intent remains fail closed by mode" {
       assert_true(
         msg.contains("Tesseract OCR command is unavailable") ||
         msg.contains("launch tesseract failed") ||
+        msg.contains("Missing dependency: Tesseract OCR") ||
         msg.contains("image_format=png"),
       )
     Ok(_) => fail("expected explicit OCR image path to fail closed")
@@ -524,7 +574,8 @@ test "main cli image OCR intent remains fail closed by mode" {
       assert_true(
         msg.contains("language=eng") ||
         msg.contains("image_format=png") ||
-        msg.contains("Tesseract OCR command"),
+        msg.contains("Tesseract OCR command") ||
+        msg.contains("brew install tesseract"),
       )
     Ok(_) => fail("expected explicit OCR image/lang path to fail closed")
   }
@@ -564,6 +615,7 @@ test "main cli pdf plus explicit OCR enters OCR route or returns explicit depend
         None,
         @convert.OutputFormat::Markdown,
         ocr_options=@parser.explicit_ocr_options(language=Some("eng")),
+        pdf_ocr_policy=@convert.PdfOcrPolicy::Explicit,
       ),
       fn(request) {
         let tsv = [
@@ -581,8 +633,49 @@ test "main cli pdf plus explicit OCR enters OCR route or returns explicit depend
       assert_true(
         msg.contains("pdftoppm") ||
         msg.contains("poppler-utils") ||
-        msg.contains("brew install poppler"),
+        msg.contains("brew install poppler") ||
+        msg.contains("Missing dependency: pdftoppm / Poppler"),
       )
+  }
+}
+
+///|
+test "main cli pdf accurate enters OCR route or returns dependency guidance" {
+  let pdf_path = "samples/fixtures/contracts/pdf/root_native_text_baseline.pdf"
+
+  match
+    run_cli(
+      make_cli_options(
+        pdf_path,
+        None,
+        None,
+        None,
+        @parser.default_ocr_options(),
+        @convert.default_pdf_ocr_policy(),
+        @convert.FidelityMode::Accurate,
+        @convert.ConvertMode::Balanced,
+        @convert.output_mode_for_output_format(@convert.OutputFormat::Markdown),
+        false,
+        @convert.OutputFormat::Markdown,
+        pdf_cleanup_mode=@convert.default_pdf_cleanup_mode(),
+        pdf_table_mode=@convert.default_pdf_table_mode(),
+        rag_options=@rag.default_rag_options(),
+      ),
+    ) {
+    Ok(content) => assert_true(content.trim() != "")
+    Err(msg) => {
+      assert_true(
+        msg.contains("Missing dependency: pdftoppm / Poppler") ||
+        msg.contains("brew install poppler") ||
+        msg.contains("Missing dependency: PaddleOCR bridge") ||
+        msg.contains("MARKITDOWN_PADDLE_OCR_CMD"),
+      )
+      assert_true(
+        msg.contains("poppler-utils") ||
+        msg.contains("samples/helpers/paddle_ocr_bridge.py") ||
+        msg.contains("pip install paddlepaddle paddleocr"),
+      )
+    }
   }
 }
 
@@ -936,6 +1029,11 @@ test "main cli provenance sidecar preserves conversion output semantics" {
   assert_true(sidecar.contains("\"route_probe_summary\":"))
   assert_true(sidecar.contains("\"effective_parser_mode\":"))
   assert_true(sidecar.contains("\"render_input_kind\":"))
+  assert_true(sidecar.contains("\"ocr_provider_selection_target\":"))
+  assert_true(sidecar.contains("\"ocr_provider_requested_kind\":"))
+  assert_true(sidecar.contains("\"ocr_provider_resolved_kind\":"))
+  assert_true(!sidecar.contains("\"ocr_provider_fallback\":"))
+  assert_true(!sidecar.contains("\"dependency_diagnostics\":"))
 }
 
 ///|

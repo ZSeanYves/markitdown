@@ -732,9 +732,7 @@ test "pptx accurate fidelity folds decorative slide noise into a single summary 
   let parsed = match
     @parser.registry_parse(
       @formats_root.builtin_registry(),
-      @input.input_from_path(
-        "samples/fixtures/contracts/pptx/shp-shapes.pptx",
-      ),
+      @input.input_from_path("samples/fixtures/contracts/pptx/shp-shapes.pptx"),
       @parser.parse_context_with_product_modes(
         @parser.new_parse_context(@input.DetectedFormat::Pptx),
         @product.FidelityMode::Accurate,

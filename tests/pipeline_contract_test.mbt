@@ -1170,9 +1170,7 @@ test "html parser keeps renderer boundary for link image table and br semantics"
   assert_contains_none(paragraph.text, ["[the docs](", "<a "])
 
   let table = default_registry_parse(
-    @input.input_from_path(
-      "samples/fixtures/contracts/html/html_br_table.html",
-    ),
+    @input.input_from_path("samples/fixtures/contracts/html/html_br_table.html"),
     @input.DetectedFormat::Html,
   )
   let table_doc = table.document.unwrap_or(@core.empty_document_ir())
@@ -2905,8 +2903,7 @@ test "product main cli points directly at the root cli entry" {
   assert_files_avoid_strings(
     [
       "cli/moon.pkg", "cli/cli.mbt", "convert/moon.pkg", "convert/convert.mbt", "tests/moon.pkg",
-      "samples/check.sh", "samples/helpers/contracts/check_root_contracts.sh",
-      "samples/helpers/validation/check_samples_impl.sh",
+      "samples/check.sh", "samples/helpers/contracts/check_root_contracts.sh", "samples/helpers/validation/check_samples_impl.sh",
     ],
     [
       "ZSeanYves/markitdown/unmigrated/", "ZSeanYves/markitdown/cli_support", "ZSeanYves/markitdown/adapters",

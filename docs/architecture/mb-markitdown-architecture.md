@@ -8,7 +8,8 @@
 
 1. 本文定义统一主链、通用 IR、parser / pipeline / renderer 的总边界。
 2. [`format-mode-and-execution-profile-architecture.md`](./format-mode-and-execution-profile-architecture.md) 定义 mode、route、planner、profile 的策略契约。
-3. [`../capabilities-and-limitations.md`](../capabilities-and-limitations.md) 定义当前正式承诺的能力矩阵与成熟度结论。
+3. [`ocr-and-pdf-ocr-architecture.md`](./ocr-and-pdf-ocr-architecture.md) 定义 OCR、PDF OCR、layout provider、触发规则与 provider 选择。
+4. [`../capabilities-and-limitations.md`](../capabilities-and-limitations.md) 定义当前正式承诺的能力矩阵与成熟度结论。
 
 ---
 
@@ -637,8 +638,8 @@ markdown 默认 -> dom-ast-model
 超限 xlsx / explicit --stream xlsx -> block-streaming(sheet/row/table-region)
 显式 --stream ods -> block-streaming(row)
 显式 --stream odp -> block-streaming(slide)
-复杂 pdf      -> Accurate 模式下 layout-two-stage
-扫描 pdf      -> 仅在显式 OCR / Accurate 语义下进入 layout-two-stage
+复杂 pdf      -> 允许在 Accurate 下结合 `pdf_ocr_policy` 进入 layout-two-stage
+扫描 pdf      -> 仅在 `pdf_ocr_policy` 与 scanned-like probe 支撑下进入 layout-two-stage
 
 Markdown Accurate 应优先属于“同 route 增强”，而不是“跨 route 切换”。
 类似地，文本型 canonical 格式的高保真扩展也应优先走 same-route semantic strengthening。
@@ -2269,19 +2270,22 @@ reading order
 标题候选
 caption 候选
 简单表格候选
-不 OCR
+默认不 OCR
+允许在显式 `pdf_ocr_policy` 下进入扫描件判定与按页 OCR
 不表格结构识别
 ```
 
 ### Accurate PDF
 
 ```text
-OCR
-layout detection
-table structure recognition
-formula/code/image region
-multi-column reading order
-cross-page table merge
+允许 route-level OCR / layout upgrade
+默认 `pdf_ocr_policy` 可设为 auto_scanned
+优先 scanned-like probe 与按页混合组装
+可启用 layout detection
+可启用 table structure recognition
+可启用 formula/code/image region
+可启用 multi-column reading order
+可启用 cross-page table merge
 ```
 
 ### Parser 输出事实
@@ -2340,7 +2344,9 @@ AssetRef
 
 ```text
 OCR 默认不应强制启用
-准确模式开启 OCR/layout
+准确模式不等于无条件整页 OCR
+PDF OCR 应由独立 `pdf_ocr_policy` 与 scanned-like probe 决定
+page OCR 与 PDF 内嵌图片 OCR 必须分离建模
 OCR 结果必须带 confidence
 ```
 

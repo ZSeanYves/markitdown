@@ -27,7 +27,7 @@ pub fn convert_input_with_provenance(
   options : ConvertOptions,
 ) -> Result[ConvertExecution, ConvertError] {
   convert_input_with_provenance_and_image_ocr_provider(
-    source, options, @focr.run_tesseract_provider,
+    source, options, @focr.run_ocr_provider,
   )
 }
 
@@ -86,10 +86,13 @@ fn convert_input_with_image_ocr_provider_and_provenance(
   )
   let parsed = if @input.detected_format_is_image_candidate(detected.format) {
     match
-      @focr.image_ocr_parser_result_with_provider(
+      @focr.image_ocr_parser_result_with_provider_target(
         prepared_source,
         detected.format,
         execution_plan.ocr_options,
+        @focr.image_ocr_selection_target_for_accuracy(
+          execution_plan.fidelity_mode == FidelityMode::Accurate,
+        ),
         image_ocr_provider,
         requested_mode~,
       ) {
@@ -152,19 +155,22 @@ fn parse_context_from_execution_plan(
     @parser.parse_context_with_pdf_table_reconstruction_policy(
       @parser.parse_context_with_pdf_header_footer_filter_policy(
         @parser.parse_context_with_pdf_native_runtime_policy(
-          @parser.parse_context_with_ocr_options(
-            @parser.parse_context_with_execution_profiles(
-              @parser.parse_context_with_product_modes(
-                @parser.new_parse_context(detected_format),
-                execution_plan.fidelity_mode,
-                execution_plan.output_mode,
+          @parser.parse_context_with_pdf_ocr_policy(
+            @parser.parse_context_with_ocr_options(
+              @parser.parse_context_with_execution_profiles(
+                @parser.parse_context_with_product_modes(
+                  @parser.new_parse_context(detected_format),
+                  execution_plan.fidelity_mode,
+                  execution_plan.output_mode,
+                ),
+                execution_plan.execution_profile,
+                execution_plan.lowering_profile,
+                execution_plan.render_profile,
+                execution_plan.accurate_feature_profile,
               ),
-              execution_plan.execution_profile,
-              execution_plan.lowering_profile,
-              execution_plan.render_profile,
-              execution_plan.accurate_feature_profile,
+              execution_plan.ocr_options,
             ),
-            execution_plan.ocr_options,
+            execution_plan.pdf_ocr_policy,
           ),
           execution_plan.pdf_native_runtime_policy,
         ),
@@ -220,17 +226,20 @@ pub async fn convert_input_with_provenance_and_image_ocr_provider_async(
       convert_input_with_provenance_and_image_ocr_provider(
         effective_source,
         { ..options, explicit_format: None },
-        @focr.run_tesseract_provider,
+        @focr.run_ocr_provider,
       ) {
       Ok(execution) => Ok(execution)
       Err(err) => Err(err)
     }
   } else if @input.detected_format_is_image_candidate(detected.format) {
     let parsed = match
-      @focr.image_ocr_parser_result_with_async_provider(
+      @focr.image_ocr_parser_result_with_async_provider_target(
         execution_plan.prepared_source,
         detected.format,
         execution_plan.ocr_options,
+        @focr.image_ocr_selection_target_for_accuracy(
+          execution_plan.fidelity_mode == FidelityMode::Accurate,
+        ),
         image_ocr_provider,
         requested_mode=execution_plan.requested_parser_mode,
       ) {
@@ -258,7 +267,7 @@ pub async fn convert_input_with_provenance_and_image_ocr_provider_async(
       convert_input_with_provenance_and_image_ocr_provider(
         effective_source,
         { ..options, explicit_format: None },
-        @focr.run_tesseract_provider,
+        @focr.run_ocr_provider,
       ) {
       Ok(execution) => Ok(execution)
       Err(err) => Err(err)
@@ -279,6 +288,17 @@ fn route_plan_from_execution_plan(
       execution_plan.probe_summary_parts,
     ),
     requested_parser_mode: execution_plan.requested_parser_mode,
+    ocr_provider_selection_target: execution_plan.ocr_provider_selection_target.map(target => {
+        @focr.ocr_provider_selection_target_name(target)
+      },
+    ),
+    ocr_provider_requested_kind: execution_plan.ocr_provider_requested_kind.map(kind => {
+        @focr.ocr_provider_kind_name(kind)
+      },
+    ),
+    ocr_provider_resolved_kind: execution_plan.ocr_provider_resolved_kind.map(kind => {
+      @focr.ocr_provider_kind_name(kind)
+    }),
   }
 }
 
@@ -349,6 +369,9 @@ pub fn route_plan_to_json(route_plan : RoutePlan) -> Json {
     "requested_parser_mode": route_plan.requested_parser_mode
     .map(mode => @parser.mode_name(mode))
     .to_json(),
+    "ocr_provider_selection_target": route_plan.ocr_provider_selection_target.to_json(),
+    "ocr_provider_requested_kind": route_plan.ocr_provider_requested_kind.to_json(),
+    "ocr_provider_resolved_kind": route_plan.ocr_provider_resolved_kind.to_json(),
   })
 }
 
@@ -374,6 +397,9 @@ pub fn convert_provenance_to_json(provenance : ConvertProvenance) -> Json {
     "route_fidelity_status": provenance.route_fidelity_status.to_json(),
     "applied_accurate_features": provenance.applied_accurate_features.to_json(),
     "same_mode_strategy_switches": provenance.same_mode_strategy_switches.to_json(),
+    "ocr_provider_selection_target": provenance.ocr_provider_selection_target.to_json(),
+    "ocr_provider_requested_kind": provenance.ocr_provider_requested_kind.to_json(),
+    "ocr_provider_resolved_kind": provenance.ocr_provider_resolved_kind.to_json(),
   })
 }
 
@@ -512,6 +538,8 @@ fn probe_signal_kind_name(kind : ProbeSignalKind) -> String {
     ProbeSignalKind::CoveredCellCount => "covered_cell_count"
     ProbeSignalKind::NoteCount => "note_count"
     ProbeSignalKind::CommentCount => "comment_count"
+    ProbeSignalKind::ScannedPageCount => "scanned_page_count"
+    ProbeSignalKind::NativeTextPageCount => "native_text_page_count"
   }
 }
 
@@ -617,6 +645,80 @@ fn parse_with_route_probe_artifact(
         } else {
           None
         }
+      RouteProbeArtifact::TextMarkupDocument(document, inspect) =>
+        match format {
+          @input.DetectedFormat::Tex => {
+            let text = match source.text {
+              Some(value) => value
+              None => return None
+            }
+            Some(
+              Ok(
+                @fshared.parse_text_markup_result_with_preparsed_document(
+                  source,
+                  context,
+                  text,
+                  document,
+                  inspect,
+                  @ftex.tex_text_markup_hooks(),
+                ),
+              ),
+            )
+          }
+          @input.DetectedFormat::Rst => {
+            let text = match source.text {
+              Some(value) => value
+              None => return None
+            }
+            Some(
+              Ok(
+                @fshared.parse_text_markup_result_with_preparsed_document(
+                  source,
+                  context,
+                  text,
+                  document,
+                  inspect,
+                  @frst.rst_text_markup_hooks(),
+                ),
+              ),
+            )
+          }
+          @input.DetectedFormat::Asciidoc => {
+            let text = match source.text {
+              Some(value) => value
+              None => return None
+            }
+            Some(
+              Ok(
+                @fshared.parse_text_markup_result_with_preparsed_document(
+                  source,
+                  context,
+                  text,
+                  document,
+                  inspect,
+                  @fasciidoc.asciidoc_text_markup_hooks(),
+                ),
+              ),
+            )
+          }
+          _ => None
+        }
+      RouteProbeArtifact::TomlDocument(document, inspect) =>
+        if format == @input.DetectedFormat::Toml {
+          let text = match source.text {
+            Some(value) => value
+            None => return None
+          }
+          Some(
+            Ok(
+              @ftoml.toml_parse_with_preparsed_document(
+                source, context, text, document, inspect,
+              ),
+            ),
+          )
+        } else {
+          None
+        }
       RouteProbeArtifact::XmlTokens(tokens) =>
         if format == @input.DetectedFormat::Xml &&
           context.requested_mode == Some(@parser.ParserMode::StreamingEvent) {
@@ -628,6 +730,42 @@ fn parse_with_route_probe_artifact(
             Ok(
               @fxml.xml_parse_with_structure_tokens(
                 source, context, text, tokens,
+              ),
+            ),
+          )
+        } else {
+          None
+        }
+      RouteProbeArtifact::OdtDocument(document, inspect) =>
+        if format == @input.DetectedFormat::Odt {
+          Some(
+            Ok(
+              @fodt.odt_parse_with_open_document(
+                source, context, document, inspect,
+              ),
+            ),
+          )
+        } else {
+          None
+        }
+      RouteProbeArtifact::OdsDocument(document, inspect) =>
+        if format == @input.DetectedFormat::Ods {
+          Some(
+            Ok(
+              @fods.ods_parse_with_open_document(
+                source, context, document, inspect,
+              ),
+            ),
+          )
+        } else {
+          None
+        }
+      RouteProbeArtifact::OdpDocument(document, inspect) =>
+        if format == @input.DetectedFormat::Odp {
+          Some(
+            Ok(
+              @fodp.odp_parse_with_open_document(
+                source, context, document, inspect,
               ),
             ),
           )

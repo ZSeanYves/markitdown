@@ -2,11 +2,16 @@
 package "ZSeanYves/markitdown/formats/markdown"
 
 import {
+  "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
 }
 
 // Values
+pub fn markdown_blocks_from_scanned_document_light(@input.InputSource, @ZSeanYves/markitdown/format_readers/markdown.MarkdownDocument) -> Array[@core.CoreBlock]
+
+pub fn markdown_blocks_from_scanned_document_light_with_source_ref(@input.InputSource, @ZSeanYves/markitdown/format_readers/markdown.MarkdownDocument, @core.SourceRef?) -> Array[@core.CoreBlock]
+
 pub fn markdown_parse_with_scanned_document(@input.InputSource, @parser.ParseContext, @ZSeanYves/markitdown/format_readers/markdown.MarkdownDocument, @ZSeanYves/markitdown/format_readers/markdown.MarkdownInspectReport) -> @parser.ParseResult
 
 pub fn markdown_parser() -> @parser.Parser

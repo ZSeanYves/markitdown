@@ -8,13 +8,17 @@ pub fn tex_parser() -> @parser.Parser {
       source : @input.InputSource,
       context : @parser.ParseContext,
     ) -> Result[@parser.ParseResult, String] {
-      @fshared.parse_text_markup_result(source, context, tex_hooks())
+      @fshared.parse_text_markup_result(
+        source,
+        context,
+        tex_text_markup_hooks(),
+      )
     },
   )
 }
 
 ///|
-fn tex_hooks() -> @fshared.TextMarkupHooks {
+pub fn tex_text_markup_hooks() -> @fshared.TextMarkupHooks {
   @fshared.make_text_markup_hooks(
     "tex_parser",
     "tex",

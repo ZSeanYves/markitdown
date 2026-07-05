@@ -46,6 +46,12 @@ pub type AccurateFeature = @product.AccurateFeature
 pub type AccurateFeatureProfile = @product.AccurateFeatureProfile
 
 ///|
+pub type OcrProviderKind = @focr.OcrProviderKind
+
+///|
+pub type OcrProviderSelectionTarget = @focr.OcrProviderSelectionTarget
+
+///|
 pub struct ProbeSignal {
   kind : ProbeSignalKind
   observed : Int
@@ -133,6 +139,14 @@ fn product_pdf_table_mode(mode : PdfTableMode) -> @product.PdfTableMode {
 }
 
 ///|
+pub type PdfOcrPolicy = @product.PdfOcrPolicy
+
+///|
+fn product_pdf_ocr_policy(policy : PdfOcrPolicy) -> @product.PdfOcrPolicy {
+  policy
+}
+
+///|
 pub struct ConvertOptions {
   mode : ConvertMode
   fidelity_mode : FidelityMode
@@ -142,6 +156,7 @@ pub struct ConvertOptions {
   explicit_format : @input.DetectedFormat?
   ocr_options : @parser.OcrOptions
   limits : ResourceLimits
+  pdf_ocr_policy : PdfOcrPolicy
   pdf_cleanup_mode : PdfCleanupMode
   pdf_table_mode : PdfTableMode
   rag_options : @rag.RagOptions
@@ -154,6 +169,9 @@ pub struct RoutePlan {
   route_reason : String
   route_probe_summary : String
   requested_parser_mode : @parser.ParserMode?
+  ocr_provider_selection_target : String?
+  ocr_provider_requested_kind : String?
+  ocr_provider_resolved_kind : String?
 }
 
 ///|
@@ -163,6 +181,9 @@ pub fn make_route_plan(
   route_reason : String,
   route_probe_summary : String,
   requested_parser_mode : @parser.ParserMode?,
+  ocr_provider_selection_target? : String? = None,
+  ocr_provider_requested_kind? : String? = None,
+  ocr_provider_resolved_kind? : String? = None,
 ) -> RoutePlan {
   {
     detected_format,
@@ -170,6 +191,9 @@ pub fn make_route_plan(
     route_reason,
     route_probe_summary,
     requested_parser_mode,
+    ocr_provider_selection_target,
+    ocr_provider_requested_kind,
+    ocr_provider_resolved_kind,
   }
 }
 
@@ -190,6 +214,9 @@ pub struct ConvertProvenance {
   route_fidelity_status : String
   applied_accurate_features : Array[String]
   same_mode_strategy_switches : Array[String]
+  ocr_provider_selection_target : String?
+  ocr_provider_requested_kind : String?
+  ocr_provider_resolved_kind : String?
 }
 
 ///|
@@ -209,6 +236,9 @@ pub fn make_convert_provenance(
   route_fidelity_status : String,
   applied_accurate_features : Array[String],
   same_mode_strategy_switches : Array[String],
+  ocr_provider_selection_target? : String? = None,
+  ocr_provider_requested_kind? : String? = None,
+  ocr_provider_resolved_kind? : String? = None,
 ) -> ConvertProvenance {
   {
     route_plan,
@@ -226,6 +256,9 @@ pub fn make_convert_provenance(
     route_fidelity_status,
     applied_accurate_features,
     same_mode_strategy_switches,
+    ocr_provider_selection_target,
+    ocr_provider_requested_kind,
+    ocr_provider_resolved_kind,
   }
 }
 
@@ -253,6 +286,7 @@ fn product_options_from_convert_options(
     fidelity_mode=options.fidelity_mode,
     output_mode=options.output_mode,
     stream_requested=options.stream_requested,
+    pdf_ocr_policy=product_pdf_ocr_policy(options.pdf_ocr_policy),
     pdf_cleanup_mode=product_pdf_cleanup_mode(options.pdf_cleanup_mode),
     pdf_table_mode=product_pdf_table_mode(options.pdf_table_mode),
     rag_options=options.rag_options,
@@ -281,6 +315,7 @@ priv struct ExecutionIntent {
   output_format : OutputFormat
   ocr_options : @parser.OcrOptions
   limits : ResourceLimits
+  pdf_ocr_policy : PdfOcrPolicy
   pdf_cleanup_mode : PdfCleanupMode
   pdf_table_mode : PdfTableMode
   rag_options : @rag.RagOptions
@@ -303,6 +338,7 @@ priv struct ResolvedExecutionPlan {
   output_format : OutputFormat
   ocr_options : @parser.OcrOptions
   limits : ResourceLimits
+  pdf_ocr_policy : PdfOcrPolicy
   pdf_cleanup_mode : PdfCleanupMode
   pdf_table_mode : PdfTableMode
   rag_options : @rag.RagOptions
@@ -324,6 +360,9 @@ priv struct ResolvedExecutionPlan {
   probe_summary_format : String
   probe_summary_parts : Array[String]
   same_mode_strategy_switches : Array[String]
+  ocr_provider_selection_target : OcrProviderSelectionTarget?
+  ocr_provider_requested_kind : OcrProviderKind?
+  ocr_provider_resolved_kind : OcrProviderKind?
   prepared_source : @input.InputSource
   probe_artifacts : Array[RouteProbeArtifact]
 }
@@ -334,7 +373,12 @@ priv enum RouteProbeArtifact {
   HtmlEvents(String, Array[@dhtml.HtmlTokenEvent])
   IpynbNotebook(@dipynb.IpynbNotebook, @dipynb.IpynbInspectReport)
   JsonStream(@djson.JsonStreamDocument)
+  TextMarkupDocument(@dtext.TextMarkupDocument, @dtext.TextMarkupInspectReport)
+  TomlDocument(@dtoml.TomlDocument, @dtoml.TomlInspectReport)
   XmlTokens(Array[@dxml.XmlToken])
+  OdtDocument(@dodf.OdtDocument, @dodf.OdtInspectReport)
+  OdsDocument(@dodf.OdsDocument, @dodf.OdsInspectReport)
+  OdpDocument(@dodf.OdpDocument, @dodf.OdpInspectReport)
   XlsxPackage(@ox.OoxmlPackage)
   YamlEvents(Array[@dyaml.YamlStructureEvent], @dyaml.YamlInspectReport)
 }
@@ -414,6 +458,7 @@ pub fn default_convert_options() -> ConvertOptions {
     explicit_format: None,
     ocr_options: @parser.default_ocr_options(),
     limits: resource_limits_from_product(product_options.limits),
+    pdf_ocr_policy: @product.default_pdf_ocr_policy(),
     pdf_cleanup_mode: default_pdf_cleanup_mode(),
     pdf_table_mode: default_pdf_table_mode(),
     rag_options: product_options.rag_options,
@@ -430,6 +475,7 @@ pub fn make_convert_options(
   fidelity_mode? : FidelityMode = fidelity_mode_for_convert_mode(mode),
   output_mode? : OutputMode = output_mode_for_output_format(output_format),
   stream_requested? : Bool = mode == ConvertMode::Stream,
+  pdf_ocr_policy? : PdfOcrPolicy = @product.default_pdf_ocr_policy(),
   pdf_cleanup_mode? : PdfCleanupMode = default_pdf_cleanup_mode(),
   pdf_table_mode? : PdfTableMode = default_pdf_table_mode(),
   rag_options? : @rag.RagOptions = @rag.default_rag_options(),
@@ -443,6 +489,7 @@ pub fn make_convert_options(
     explicit_format,
     ocr_options,
     limits,
+    pdf_ocr_policy,
     pdf_cleanup_mode,
     pdf_table_mode,
     rag_options,
@@ -509,6 +556,11 @@ pub fn default_pdf_table_mode() -> PdfTableMode {
 }
 
 ///|
+pub fn default_pdf_ocr_policy() -> PdfOcrPolicy {
+  @product.default_pdf_ocr_policy()
+}
+
+///|
 fn pdf_cleanup_opt_in_mode() -> PdfCleanupMode {
   PdfCleanupMode::Conservative
 }
@@ -526,4 +578,9 @@ pub fn pdf_cleanup_mode_name(mode : PdfCleanupMode) -> String {
 ///|
 pub fn pdf_table_mode_name(mode : PdfTableMode) -> String {
   @product.pdf_table_mode_name(product_pdf_table_mode(mode))
+}
+
+///|
+pub fn pdf_ocr_policy_name(policy : PdfOcrPolicy) -> String {
+  @product.pdf_ocr_policy_name(policy)
 }

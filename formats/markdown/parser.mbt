@@ -159,6 +159,39 @@ pub fn markdown_parse_with_scanned_document(
 }
 
 ///|
+pub fn markdown_blocks_from_scanned_document_light(
+  source : @input.InputSource,
+  scanned : @dmd.MarkdownDocument,
+) -> Array[@core.CoreBlock] {
+  markdown_blocks_from_scanned_document_light_with_source_ref(
+    source,
+    scanned,
+    None,
+  )
+}
+
+///|
+pub fn markdown_blocks_from_scanned_document_light_with_source_ref(
+  source : @input.InputSource,
+  scanned : @dmd.MarkdownDocument,
+  base_source_ref : @core.SourceRef?,
+) -> Array[@core.CoreBlock] {
+  let diagnostics = @fshared.empty_parser_diagnostics(
+    "markdown_parser",
+    @parser.ParserMode::DomAstModel,
+    source,
+    "markdown",
+  )
+  markdown_blocks_from_scanned_document(
+    scanned,
+    source,
+    diagnostics,
+    MarkdownLoweringMode::DomAstLight,
+    base_source_ref~,
+  )
+}
+
+///|
 fn markdown_group_key(block : @dmd.MarkdownBlock) -> String {
   match block.kind {
     @dmd.MarkdownBlockKind::ListItem =>
@@ -434,6 +467,7 @@ fn markdown_blocks_from_scanned_document(
   source : @input.InputSource,
   diagnostics : @core.Diagnostics,
   lowering_mode : MarkdownLoweringMode,
+  base_source_ref? : @core.SourceRef? = None,
 ) -> Array[@core.CoreBlock] {
   let blocks : Array[@core.CoreBlock] = []
   let image_asset_index : Ref[Int] = { val: 0 }
@@ -446,7 +480,7 @@ fn markdown_blocks_from_scanned_document(
   }
   match scanned.frontmatter {
     Some(value) => {
-      blocks.push(markdown_frontmatter_block(value, source))
+      blocks.push(markdown_frontmatter_block(value, source, base_source_ref~))
       diagnostics.metrics.set(
         "frontmatter_kind",
         markdown_frontmatter_kind_name(value.kind),
@@ -469,7 +503,13 @@ fn markdown_blocks_from_scanned_document(
     for group in block_groups {
       for
         block in markdown_scanned_group_to_core_blocks_next(
-          group, source, diagnostics, image_asset_index, defined_footnotes, lowering_mode,
+          group,
+          source,
+          diagnostics,
+          image_asset_index,
+          defined_footnotes,
+          lowering_mode,
+          base_source_ref~,
         ) {
         blocks.push(block)
       }
@@ -483,7 +523,13 @@ fn markdown_blocks_from_scanned_document(
     for group in block_groups {
       for
         block in markdown_group_to_core_blocks_next(
-          group, source, diagnostics, image_asset_index, defined_footnotes, lowering_mode,
+          group,
+          source,
+          diagnostics,
+          image_asset_index,
+          defined_footnotes,
+          lowering_mode,
+          base_source_ref~,
         ) {
         blocks.push(block)
       }
@@ -650,6 +696,7 @@ fn markdown_scanned_group_to_core_blocks_next(
   image_asset_index : Ref[Int],
   defined_footnotes : Map[String, Bool],
   lowering_mode : MarkdownLoweringMode,
+  base_source_ref? : @core.SourceRef? = None,
 ) -> Array[@core.CoreBlock] {
   if group.length() == 0 {
     return []
@@ -659,32 +706,55 @@ fn markdown_scanned_group_to_core_blocks_next(
     @dmd.MarkdownBlockKind::ListItem =>
       [
         markdown_list_group_to_block_next(
-          group, source, diagnostics, image_asset_index, lowering_mode,
+          group,
+          source,
+          diagnostics,
+          image_asset_index,
+          lowering_mode,
+          base_source_ref~,
         ),
       ]
     @dmd.MarkdownBlockKind::BlockQuote =>
       [
         markdown_blockquote_group_to_block_next(
-          group, source, diagnostics, image_asset_index, lowering_mode,
+          group,
+          source,
+          diagnostics,
+          image_asset_index,
+          lowering_mode,
+          base_source_ref~,
         ),
       ]
     @dmd.MarkdownBlockKind::HtmlBlockCandidate =>
       [
         markdown_html_group_to_block_next(
-          group, source, diagnostics, lowering_mode,
+          group,
+          source,
+          diagnostics,
+          lowering_mode,
+          base_source_ref~,
         ),
       ]
     @dmd.MarkdownBlockKind::TableLikeRow =>
       [
         markdown_table_group_to_block_next(
-          group, source, diagnostics, lowering_mode,
+          group,
+          source,
+          diagnostics,
+          lowering_mode,
+          base_source_ref~,
         ),
       ]
     _ =>
       [
         markdown_single_block_to_core_block_next(
-          first_block, source, diagnostics, image_asset_index, defined_footnotes,
+          first_block,
+          source,
+          diagnostics,
+          image_asset_index,
+          defined_footnotes,
           lowering_mode,
+          base_source_ref~,
         ),
       ]
   }
@@ -801,12 +871,15 @@ fn markdown_lowering_item_group_key(item : MarkdownLoweringItem) -> String {
 fn markdown_frontmatter_block(
   value : @dmd.MarkdownFrontmatter,
   source : @input.InputSource,
+  base_source_ref? : @core.SourceRef? = None,
 ) -> @core.CoreBlock {
   let source_ref = markdown_source_ref_with_path(
-    Some(source.source_name),
-    Some("markdown"),
-    value.line_start,
-    value.line_end,
+    markdown_source_ref_from_lines(
+      source,
+      value.line_start,
+      value.line_end,
+      base_source_ref~,
+    ),
     "/frontmatter",
   )
   let block = @core.make_block(@core.BlockKind::Raw, value.content, source_ref~)
@@ -832,6 +905,7 @@ fn markdown_group_to_core_blocks_next(
   image_asset_index : Ref[Int],
   defined_footnotes : Map[String, Bool],
   lowering_mode : MarkdownLoweringMode,
+  base_source_ref? : @core.SourceRef? = None,
 ) -> Array[@core.CoreBlock] {
   if group.length() == 0 {
     return []
@@ -840,7 +914,13 @@ fn markdown_group_to_core_blocks_next(
   match first {
     MarkdownLoweringItem::FootnoteDefinition(_, _) =>
       markdown_footnote_group_to_core_blocks_next(
-        group, source, diagnostics, image_asset_index, defined_footnotes, lowering_mode,
+        group,
+        source,
+        diagnostics,
+        image_asset_index,
+        defined_footnotes,
+        lowering_mode,
+        base_source_ref~,
       )
     MarkdownLoweringItem::Scanned(first_block) => {
       let scanned_group = group.map(item => markdown_lowering_item_block(item))
@@ -848,32 +928,55 @@ fn markdown_group_to_core_blocks_next(
         @dmd.MarkdownBlockKind::ListItem =>
           [
             markdown_list_group_to_block_next(
-              scanned_group, source, diagnostics, image_asset_index, lowering_mode,
+              scanned_group,
+              source,
+              diagnostics,
+              image_asset_index,
+              lowering_mode,
+              base_source_ref~,
             ),
           ]
         @dmd.MarkdownBlockKind::BlockQuote =>
           [
             markdown_blockquote_group_to_block_next(
-              scanned_group, source, diagnostics, image_asset_index, lowering_mode,
+              scanned_group,
+              source,
+              diagnostics,
+              image_asset_index,
+              lowering_mode,
+              base_source_ref~,
             ),
           ]
         @dmd.MarkdownBlockKind::HtmlBlockCandidate =>
           [
             markdown_html_group_to_block_next(
-              scanned_group, source, diagnostics, lowering_mode,
+              scanned_group,
+              source,
+              diagnostics,
+              lowering_mode,
+              base_source_ref~,
             ),
           ]
         @dmd.MarkdownBlockKind::TableLikeRow =>
           [
             markdown_table_group_to_block_next(
-              scanned_group, source, diagnostics, lowering_mode,
+              scanned_group,
+              source,
+              diagnostics,
+              lowering_mode,
+              base_source_ref~,
             ),
           ]
         _ =>
           [
             markdown_single_block_to_core_block_next(
-              first_block, source, diagnostics, image_asset_index, defined_footnotes,
+              first_block,
+              source,
+              diagnostics,
+              image_asset_index,
+              defined_footnotes,
               lowering_mode,
+              base_source_ref~,
             ),
           ]
       }
@@ -899,6 +1002,7 @@ fn markdown_footnote_group_to_core_blocks_next(
   image_asset_index : Ref[Int],
   defined_footnotes : Map[String, Bool],
   lowering_mode : MarkdownLoweringMode,
+  base_source_ref? : @core.SourceRef? = None,
 ) -> Array[@core.CoreBlock] {
   ignore(diagnostics)
   ignore(image_asset_index)
@@ -908,13 +1012,23 @@ fn markdown_footnote_group_to_core_blocks_next(
       MarkdownLoweringItem::FootnoteDefinition(head, continuation) =>
         out.push(
           markdown_footnote_definition_block(
-            head, continuation, source, defined_footnotes,
+            head,
+            continuation,
+            source,
+            defined_footnotes,
+            base_source_ref~,
           ),
         )
       MarkdownLoweringItem::Scanned(block) =>
         out.push(
           markdown_single_block_to_core_block_next(
-            block, source, diagnostics, image_asset_index, defined_footnotes, lowering_mode,
+            block,
+            source,
+            diagnostics,
+            image_asset_index,
+            defined_footnotes,
+            lowering_mode,
+            base_source_ref~,
           ),
         )
     }
@@ -928,6 +1042,7 @@ fn markdown_footnote_definition_block(
   continuation : Array[@dmd.MarkdownBlock],
   source : @input.InputSource,
   defined_footnotes : Map[String, Bool],
+  base_source_ref? : @core.SourceRef? = None,
 ) -> @core.CoreBlock {
   let (label, body) = match markdown_footnote_definition_head(head) {
     Some(value) => value
@@ -965,12 +1080,11 @@ fn markdown_footnote_definition_block(
   } else {
     head.line_end
   }
-  let source_ref = @core.source_ref_with_lines(
-    @core.empty_source_ref(),
-    Some(source.source_name),
-    Some("markdown"),
-    Some(head.line_start),
-    Some(last_line),
+  let source_ref = markdown_source_ref_from_lines(
+    source,
+    head.line_start,
+    last_line,
+    base_source_ref~,
   )
   markdown_literal_block(normalized, source_ref, "markdown_footnote_definition")
 }
@@ -983,8 +1097,9 @@ fn markdown_single_block_to_core_block_next(
   image_asset_index : Ref[Int],
   defined_footnotes : Map[String, Bool],
   lowering_mode : MarkdownLoweringMode,
+  base_source_ref? : @core.SourceRef? = None,
 ) -> @core.CoreBlock {
-  let source_ref = markdown_source_ref(block, source)
+  let source_ref = markdown_source_ref(block, source, base_source_ref~)
   match block.kind {
     @dmd.MarkdownBlockKind::HeadingAtx => {
       let heading = @core.make_block(
@@ -1070,9 +1185,13 @@ fn markdown_html_group_to_block_next(
   source : @input.InputSource,
   diagnostics : @core.Diagnostics,
   lowering_mode : MarkdownLoweringMode,
+  base_source_ref? : @core.SourceRef? = None,
 ) -> @core.CoreBlock {
   let source_ref = markdown_group_source_ref(
-    group, source, "/markdown_html_literal[0]",
+    group,
+    source,
+    "/markdown_html_literal[0]",
+    base_source_ref~,
   )
   let text = group.map(block => block.raw_text).join("\n")
   if lowering_mode == MarkdownLoweringMode::BlockStreamingLight {
@@ -1132,8 +1251,14 @@ fn markdown_table_group_to_block_next(
   source : @input.InputSource,
   diagnostics : @core.Diagnostics,
   lowering_mode : MarkdownLoweringMode,
+  base_source_ref? : @core.SourceRef? = None,
 ) -> @core.CoreBlock {
-  let source_ref = markdown_group_source_ref(group, source, "/table[0]")
+  let source_ref = markdown_group_source_ref(
+    group,
+    source,
+    "/table[0]",
+    base_source_ref~,
+  )
   if lowering_mode == MarkdownLoweringMode::BlockStreamingLight {
     diagnostics.same_mode_degradation.push(
       "markdown_block_stream_table_literal_preserved",
@@ -1442,6 +1567,7 @@ fn markdown_list_group_to_block_next(
   diagnostics : @core.Diagnostics,
   image_asset_index : Ref[Int],
   lowering_mode : MarkdownLoweringMode,
+  base_source_ref? : @core.SourceRef? = None,
 ) -> @core.CoreBlock {
   ignore(diagnostics)
   ignore(image_asset_index)
@@ -1451,11 +1577,16 @@ fn markdown_list_group_to_block_next(
     )
     return markdown_literal_block(
       group.map(block => block.raw_text).join("\n"),
-      markdown_group_source_ref(group, source, "/list[0]"),
+      markdown_group_source_ref(group, source, "/list[0]", base_source_ref~),
       "markdown_literal",
     )
   }
-  let source_ref = markdown_group_source_ref(group, source, "/list[0]")
+  let source_ref = markdown_group_source_ref(
+    group,
+    source,
+    "/list[0]",
+    base_source_ref~,
+  )
   let root = @core.make_block(@core.BlockKind::List, "", source_ref~)
   root.attrs.set(
     "ordered",
@@ -1467,7 +1598,7 @@ fn markdown_list_group_to_block_next(
     let item = @core.make_block(
       @core.BlockKind::ListItem,
       strip_markdown_list_marker(block.raw_text),
-      source_ref=markdown_source_ref(block, source),
+      source_ref=markdown_source_ref(block, source, base_source_ref~),
     )
     item.attrs.set(
       "ordered",
@@ -1506,12 +1637,15 @@ fn markdown_group_source_ref(
   group : Array[@dmd.MarkdownBlock],
   source : @input.InputSource,
   path : String,
+  base_source_ref? : @core.SourceRef? = None,
 ) -> @core.SourceRef {
   markdown_source_ref_with_path(
-    Some(source.source_name),
-    Some("markdown"),
-    group[0].line_start,
-    group[group.length() - 1].line_end,
+    markdown_source_ref_from_lines(
+      source,
+      group[0].line_start,
+      group[group.length() - 1].line_end,
+      base_source_ref~,
+    ),
     path,
   )
 }
@@ -1533,6 +1667,7 @@ fn markdown_blockquote_group_to_block_next(
   diagnostics : @core.Diagnostics,
   image_asset_index : Ref[Int],
   lowering_mode : MarkdownLoweringMode,
+  base_source_ref? : @core.SourceRef? = None,
 ) -> @core.CoreBlock {
   ignore(diagnostics)
   ignore(image_asset_index)
@@ -1542,11 +1677,21 @@ fn markdown_blockquote_group_to_block_next(
     )
     return markdown_literal_block(
       group.map(block => block.raw_text).join("\n"),
-      markdown_group_source_ref(group, source, "/blockquote[0]"),
+      markdown_group_source_ref(
+        group,
+        source,
+        "/blockquote[0]",
+        base_source_ref~,
+      ),
       "markdown_literal",
     )
   }
-  let source_ref = markdown_group_source_ref(group, source, "/blockquote[0]")
+  let source_ref = markdown_group_source_ref(
+    group,
+    source,
+    "/blockquote[0]",
+    base_source_ref~,
+  )
   let lines : Array[String] = []
   for block in group {
     lines.push(strip_markdown_blockquote(block.raw_text))
@@ -2064,24 +2209,42 @@ fn markdown_html_contains_unsafe_tag(text : String) -> Bool {
 
 ///|
 fn markdown_source_ref_with_path(
-  file_id : String?,
-  format : String?,
-  line_start : Int,
-  line_end : Int,
+  source_ref : @core.SourceRef,
   markdown_path : String,
 ) -> @core.SourceRef {
   @core.source_ref_with_markdown_path(
-    @core.source_ref_with_lines(
-      @core.empty_source_ref(),
-      file_id,
-      format,
-      Some(line_start),
-      Some(line_end),
-    ),
-    file_id,
-    format,
+    source_ref,
+    source_ref.file_id,
+    source_ref.format,
     Some(markdown_path),
   )
+}
+
+///|
+fn markdown_source_ref_from_lines(
+  source : @input.InputSource,
+  line_start : Int,
+  line_end : Int,
+  base_source_ref? : @core.SourceRef? = None,
+) -> @core.SourceRef {
+  match base_source_ref {
+    Some(base) =>
+      @core.source_ref_with_lines(
+        base,
+        base.file_id,
+        base.format,
+        Some(line_start),
+        Some(line_end),
+      )
+    None =>
+      @core.source_ref_with_lines(
+        @core.empty_source_ref(),
+        Some(source.source_name),
+        Some("markdown"),
+        Some(line_start),
+        Some(line_end),
+      )
+  }
 }
 
 ///|
@@ -2362,13 +2525,13 @@ fn markdown_generated_path_for_block(
 fn markdown_source_ref(
   block : @dmd.MarkdownBlock,
   source : @input.InputSource,
+  base_source_ref? : @core.SourceRef? = None,
 ) -> @core.SourceRef {
-  @core.source_ref_with_lines(
-    @core.empty_source_ref(),
-    Some(source.source_name),
-    Some("markdown"),
-    Some(block.line_start),
-    Some(block.line_end),
+  markdown_source_ref_from_lines(
+    source,
+    block.line_start,
+    block.line_end,
+    base_source_ref~,
   )
 }
 

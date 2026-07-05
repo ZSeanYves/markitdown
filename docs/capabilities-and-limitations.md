@@ -39,12 +39,12 @@
 | Mail | `eml` | 正式支持 |
 | Containers | `zip`, `epub` | 正式支持 |
 | Office | `odt`, `ods`, `odp`, `docx`, `xlsx`, `pptx` | 正式支持 |
-| PDF | `pdf` | 正式支持；默认 native-text，`--accurate` 或显式 `--ocr` 可走 OCR |
+| PDF | `pdf` | 正式支持；默认 native-text，`--pdf-ocr explicit|auto-scanned` 走 Balanced PDF OCR，`--accurate` 默认 `auto_scanned` 并在命中 scanned-like 时走 Accurate PDF OCR |
 | Image OCR | `png`, `jpg`, `jpeg`, `bmp`, `webp`, `tif`, `tiff` | 正式支持 |
 
 明确不属于当前默认主路径矩阵的输入：
 
-- 未启用 `--accurate` 或显式 `--ocr` 的扫描版 / 图片型 PDF
+- 未启用 `--ocr` 或 `--pdf-ocr auto-scanned` 的扫描版 / 图片型 PDF
 - 其它未列出格式
 
 ## 3. 能力总览
@@ -72,7 +72,7 @@
 | `docx` | `package_single_pass` | Office 文档主块、链接、图片、debug source refs、RAG | 不承诺覆盖 Word 全部高级版式语义 |
 | `xlsx` | 默认 `package_single_pass`，超限或显式 `--stream` 时 `block_streaming` | sheet 读取、表格型输出、hidden sheet policy、公式缓存保留、debug | 不执行公式，不做 Excel 计算引擎 |
 | `pptx` | `package_single_pass` | slide 顺序、列表、图片、speaker notes、hidden slide policy、debug | 不做完整演示视觉布局重建 |
-| `pdf` | `page_single_pass` 或 `layout_two_stage` | native-text 提取、`--accurate` / `--ocr` OCR、基础清理、显式 opt-in cleanup/table signals、RAG、debug | OCR 路线当前不承诺复杂 layout 恢复 |
+| `pdf` | `page_single_pass` 或 `layout_two_stage` | native-text 提取、Balanced/Accurate PDF OCR、基础清理、显式 opt-in cleanup/table signals、RAG、debug | OCR 路线当前不承诺复杂 layout intelligence；复杂表格/深度结构仍不属于 Balanced 契约 |
 
 ## 3.1 当前成熟度再审计
 
@@ -116,7 +116,7 @@
 | `docx` | `强成熟` | package canonical、textbox/alternate content Accurate 能力、source refs 与主回归/质量回归信心都较强 |
 | `xlsx` | `强成熟` | hidden sheet/row、merged span、sparse/large route、Accurate 语义恢复都已形成强主链能力 |
 | `pptx` | `强成熟` | slide/notes、reading-order-like 语义、group/decorative summary 与诊断解释能力较强 |
-| `pdf` | `强成熟` | native-text 主路径与 `--accurate` / `--ocr` OCR 路线分工清晰，planner/provenance/回归口径都已收敛；边界是 OCR 路线仍不宣称复杂 layout intelligence |
+| `pdf` | `强成熟` | native-text 主路径、Balanced PDF OCR 与 Accurate PDF OCR 分工清晰，planner/provenance/回归口径都已收敛；边界是 OCR 路线仍不宣称复杂 layout intelligence |
 | 直接图片 OCR | `可用` | 产品路径正式可用，但质量强依赖外部 OCR 提供者与版面复杂度，当前承诺仍以文本恢复为主 |
 
 本轮正式更新的重点结论是：
@@ -576,7 +576,8 @@
 
 - 正式支持
 - 默认主路径是 `page_single_pass`
-- `pdf --accurate` 与显式 `pdf --ocr` 会进入当前 OCR-only 的 `layout_two_stage`
+- `pdf --pdf-ocr explicit|auto-scanned` 会进入 Balanced PDF OCR 的 `layout_two_stage`
+- `pdf --accurate` 默认先做 scanned-like probe，命中时进入 Paddle-backed Accurate PDF OCR 的 `layout_two_stage`
 
 已验证能力：
 
@@ -591,15 +592,15 @@
 
 当前明确缺失：
 
-- 默认自动扫描 PDF OCR 升级
 - OCR 路线下的复杂 layout/model 恢复
 - 深度版面分析模型
 
 当前边界行为：
 
-- scanned-like PDF 在未启用 `--accurate` 或显式 `--ocr` 时当前 fail closed
-- `pdf --accurate` 与显式 `pdf --ocr` 依赖本地 `pdftoppm` + `tesseract`
-- 缺失依赖时返回明确运行时错误与安装提示
+- scanned-like PDF 在未启用 `--ocr` 或 `--pdf-ocr auto-scanned` 时当前 fail closed
+- Balanced PDF OCR 依赖本地 `pdftoppm` + `tesseract`
+- Accurate PDF OCR 依赖本地 `pdftoppm` + Paddle bridge
+- 缺失依赖时返回 fail-closed 的诊断卡片，不做静默 provider fallback
 
 性能事实：
 
@@ -608,17 +609,23 @@
 
 ## 5. OCR 现状
 
-当前 OCR 只依托本地 `Tesseract` 命令行提供者。
+当前 OCR 已拆成两条正式 provider 路线：
+
+- Balanced OCR / Balanced PDF OCR：本地 `Tesseract`
+- Accurate OCR / Accurate PDF OCR：外部 `PaddleOCR` bridge
 
 产品事实：
 
 - 直接图片输入正式支持，并默认启用 OCR
 - `--no-ocr` 可显式关闭直接图片 OCR
 - 语言参数使用 `--ocr-lang <LANG>`
-- `pdf --accurate` 当前会自动进入 PDF OCR；显式 `pdf --ocr` 继续正式支持
-- 扫描版 / 图片型 PDF 当前需要 `--accurate` 或显式 `--ocr`
-- 当前图片 OCR 输出以文本段落恢复为主，不承诺复杂版面重建
-- 当前 PDF OCR 也是 OCR-only 路线，不承诺复杂版面重建
+- 直接图片 `Balanced` 默认走 `Tesseract`，直接图片 `Accurate` 走 Paddle bridge
+- `pdf --ocr` 继续作为 `pdf --pdf-ocr explicit` 的兼容别名
+- `pdf --pdf-ocr explicit|auto-scanned` 走 Balanced PDF OCR
+- `pdf --accurate` 默认走 `auto_scanned`，仅对命中 scanned-like 的 PDF 进入 Accurate PDF OCR
+- 扫描版 / 图片型 PDF 当前需要 `--ocr`、`--pdf-ocr auto-scanned`，或直接使用 `--accurate`
+- 当前 Balanced OCR 输出以文本段落、reading order、基础块级布局恢复为主，不承诺复杂表格/深度版面重建
+- 当前 Accurate OCR / Accurate PDF OCR 已接入 Paddle bridge，但仍通过同一套共享 OCR lowering 收敛，不做静默 fallback
 
 macOS / Homebrew 安装：
 
@@ -626,6 +633,9 @@ macOS / Homebrew 安装：
 brew install poppler
 brew install tesseract
 brew install tesseract-lang
+python3 -m pip install paddlepaddle paddleocr
+chmod +x samples/helpers/paddle_ocr_bridge.py
+export MARKITDOWN_PADDLE_OCR_CMD="$PWD/samples/helpers/paddle_ocr_bridge.py"
 ```
 
 Ubuntu：
@@ -633,14 +643,18 @@ Ubuntu：
 ```bash
 sudo apt install poppler-utils tesseract-ocr
 sudo apt install tesseract-ocr-eng
+python3 -m pip install paddlepaddle paddleocr
+chmod +x samples/helpers/paddle_ocr_bridge.py
+export MARKITDOWN_PADDLE_OCR_CMD="$PWD/samples/helpers/paddle_ocr_bridge.py"
 ```
 
 说明：
 
 - `brew install tesseract` 默认只带 `eng`, `osd`, `snum`
 - 需要更多语言时再安装 `tesseract-lang`
-- 当前依赖的是本地可执行 `pdftoppm` 与 `tesseract`，不是云端模型
-- 本项目不内置、不打包、不分发这两个第三方二进制
+- Ubuntu 可按需安装额外语言包，例如 `tesseract-ocr-chi-sim` 或 `tesseract-ocr-jpn`
+- 当前依赖的是本地可执行 `pdftoppm`、`tesseract` 与外部 Paddle bridge，不是云端模型
+- 本项目不内置、不打包、不分发这些第三方二进制或 Python 运行时
 
 ## 6. v2 架构收益
 
@@ -696,6 +710,7 @@ sudo apt install tesseract-ocr-eng
 
 - 云 OCR / 大模型 OCR
 - OCR 路线下的复杂 layout/model 恢复
+- provider 自动下载或静默 fallback
 - benchmark-only fast path
 - 隐藏 alternate route
 - 为了追求 benchmark 数字而牺牲主链语义

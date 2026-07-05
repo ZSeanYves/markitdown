@@ -97,6 +97,25 @@ fn parse_odt_document_result(
       )
   }
   let inspect = @dodf.inspect_odt_document(document)
+  Ok(odt_parse_with_open_document(source, context, document, inspect))
+}
+
+///|
+pub fn odt_parse_with_open_document(
+  source : @input.InputSource,
+  context : @parser.ParseContext,
+  document : @dodf.OdtDocument,
+  inspect : @dodf.OdtInspectReport,
+) -> @parser.ParseResult {
+  let capability = odt_parser_capability()
+  let diagnostics = @fshared.empty_parser_diagnostics(
+    ODT_PARSER_NAME,
+    @parser.ParserMode::PackageSinglePass,
+    source,
+    "odt",
+  )
+  odt_init_diagnostics(diagnostics, source, context)
+  let bytes = source.bytes.unwrap_or(Bytes::from_array([]))
   odt_fill_metrics(diagnostics, document, inspect, bytes)
   if context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
     let lowered = odt_lower_block_stream_document(source, document, context)
@@ -111,17 +130,15 @@ fn parse_odt_document_result(
     diagnostics.pass_trace.push("parse:odt_parser:block_stream_route")
     diagnostics.pass_trace.push("lower:odt_block_stream")
     diagnostics.pass_trace.push("parse:odt_parser")
-    return Ok(
-      @parser.parse_result_with_blocks_capability(
-        ODT_PARSER_NAME,
-        @parser.ParserMode::BlockStreaming,
-        lowered.blocks,
-        diagnostics,
-        capability,
-        metadata=lowered.metadata,
-        assets=lowered.assets,
-        source_map=lowered.source_map,
-      ),
+    return @parser.parse_result_with_blocks_capability(
+      ODT_PARSER_NAME,
+      @parser.ParserMode::BlockStreaming,
+      lowered.blocks,
+      diagnostics,
+      capability,
+      metadata=lowered.metadata,
+      assets=lowered.assets,
+      source_map=lowered.source_map,
     )
   }
   let lowered = odt_lower_document_ir(source, document, context)
@@ -136,14 +153,12 @@ fn parse_odt_document_result(
   diagnostics.pass_trace.push("parse:odt_parser:package_single_pass")
   diagnostics.pass_trace.push("parse:odt_parser")
   let final_document = @core.document_with_diagnostics(lowered, diagnostics)
-  Ok(
-    @parser.parse_result_with_document_capability(
-      ODT_PARSER_NAME,
-      @parser.ParserMode::PackageSinglePass,
-      final_document,
-      diagnostics,
-      capability,
-    ),
+  @parser.parse_result_with_document_capability(
+    ODT_PARSER_NAME,
+    @parser.ParserMode::PackageSinglePass,
+    final_document,
+    diagnostics,
+    capability,
   )
 }
 

@@ -67,6 +67,8 @@ pub fn pdf_native_fail_closed_diagnostics(@input.InputSource, @parser.ParseConte
 
 pub fn pdf_native_fail_closed_message() -> String
 
+pub fn pdf_native_page_to_paragraph_blocks(PdfNativePage) -> Array[@core.CoreBlock]
+
 pub fn pdf_native_parser() -> @parser.Parser
 
 pub fn pdf_native_parser_capability() -> @parser.ParserCapability
@@ -84,6 +86,8 @@ pub fn pdf_ocr_parser_capability() -> @parser.ParserCapability
 pub fn pdf_ocr_parser_name() -> String
 
 pub fn pdf_ocr_parser_result(@input.InputSource, @parser.ParseContext, image_ocr_provider? : (@ocr.OcrProviderRequest) -> Result[@ocr.OcrProviderResult, @ocr.OcrProviderError], rasterizer? : (@input.InputSource) -> Result[(PdfRasterResult, String), PdfRasterizerError]) -> Result[@parser.ParseResult, String]
+
+pub fn pdf_raster_backend_dependency_diagnostic() -> @core.DependencyDiagnostic
 
 pub fn pdf_raster_backend_install_hint() -> String
 

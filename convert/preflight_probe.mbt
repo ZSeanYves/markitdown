@@ -92,6 +92,8 @@ fn signal_summary_lines(signals : Array[ProbeSignal]) -> Array[String] {
       ProbeSignalKind::CoveredCellCount => "covered_cells"
       ProbeSignalKind::NoteCount => "notes"
       ProbeSignalKind::CommentCount => "comments"
+      ProbeSignalKind::ScannedPageCount => "scanned_pages"
+      ProbeSignalKind::NativeTextPageCount => "native_text_pages"
     }
     parts.push(probe_summary_line(label, signal.observed, signal.limit))
   }
@@ -248,6 +250,13 @@ fn toml_preflight_probe(
     Some(value) => value
     None => return unavailable_probe("toml", source)
   }
+  let parsed = try @dtoml.parse_toml_document(text) |> Ok catch {
+    _ => Err(())
+  }
+  let inspect = match parsed {
+    Ok(doc) => Some((doc, @dtoml.inspect_toml_document(doc)))
+    Err(_) => None
+  }
   let signals = [
     make_probe_signal(ProbeSignalKind::CharCount, text.length()),
     make_probe_signal(
@@ -260,6 +269,48 @@ fn toml_preflight_probe(
     signal_summary_lines(signals),
     prepared_source,
     probe_signals=signals,
+    probe_artifacts=match inspect {
+      Some((doc, report)) => [RouteProbeArtifact::TomlDocument(doc, report)]
+      None => []
+    },
+  )
+}
+
+///|
+fn text_markup_preflight_probe(
+  source : @input.InputSource,
+  format : @input.DetectedFormat,
+) -> ProbeOutcome {
+  let (text, prepared_source) = read_probe_text(source)
+  let text = match text {
+    Some(value) => value
+    None =>
+      return unavailable_probe(
+        @input.detected_format_name(format),
+        prepared_source,
+      )
+  }
+  let doc = match format {
+    @input.DetectedFormat::Tex => @dtext.parse_tex_document(text)
+    @input.DetectedFormat::Rst => @dtext.parse_rst_document(text)
+    @input.DetectedFormat::Asciidoc => @dtext.parse_asciidoc_document(text)
+    _ => abort("unsupported text markup preflight format")
+  }
+  let inspect = @dtext.inspect_text_markup_document(doc, text)
+  let signals = [
+    make_probe_signal(ProbeSignalKind::BlockCount, inspect.block_count),
+    make_probe_signal(
+      ProbeSignalKind::LineCount,
+      @fshared.count_physical_lines(text),
+    ),
+    make_probe_signal(ProbeSignalKind::CharCount, text.length()),
+  ]
+  probe_outcome(
+    @input.detected_format_name(format),
+    signal_summary_lines(signals),
+    prepared_source,
+    probe_signals=signals,
+    probe_artifacts=[RouteProbeArtifact::TextMarkupDocument(doc, inspect)],
   )
 }
 
@@ -632,6 +683,7 @@ fn odt_preflight_probe(
         ],
         prepared_source,
         probe_signals=signals,
+        probe_artifacts=[RouteProbeArtifact::OdtDocument(doc, inspect)],
       )
     }
     Err(_) =>
@@ -692,6 +744,7 @@ fn ods_preflight_probe(
         ],
         prepared_source,
         probe_signals=signals,
+        probe_artifacts=[RouteProbeArtifact::OdsDocument(doc, inspect)],
       )
     }
     Err(_) =>
@@ -728,6 +781,7 @@ fn odp_preflight_probe(
         signal_summary_lines(signals),
         prepared_source,
         probe_signals=signals,
+        probe_artifacts=[RouteProbeArtifact::OdpDocument(doc, inspect)],
       )
     }
     Err(_) =>
@@ -742,18 +796,62 @@ fn pdf_preflight_probe(
   source : @input.InputSource,
   options : ConvertOptions,
 ) -> ProbeOutcome {
-  let signals = [
-    make_probe_signal(
-      ProbeSignalKind::PageCount,
-      0,
-      note=Some(@parser.ocr_intent_name(options.ocr_options.intent)),
-    ),
-  ]
-  let summary = [
-    "ocr_intent=" + @parser.ocr_intent_name(options.ocr_options.intent),
-    "convert_mode=" + convert_mode_name(options.mode),
-  ]
-  probe_outcome("pdf", summary, source, probe_signals=signals)
+  let native = @fpdf.extract_pdf_native_document(source)
+  match native {
+    Ok(document) => {
+      let mut native_text_pages = 0
+      let mut scanned_pages = 0
+      for page in document.pages {
+        let mut span_count = 0
+        for block in page.text_blocks {
+          for line in block.lines {
+            span_count += line.spans.length()
+          }
+        }
+        if span_count > 0 {
+          native_text_pages += 1
+        } else {
+          scanned_pages += 1
+        }
+      }
+      let signals = [
+        make_probe_signal(ProbeSignalKind::PageCount, document.pages.length()),
+        make_probe_signal(
+          ProbeSignalKind::NativeTextPageCount,
+          native_text_pages,
+        ),
+        make_probe_signal(
+          ProbeSignalKind::ScannedPageCount,
+          scanned_pages,
+          note=Some(pdf_ocr_policy_name(options.pdf_ocr_policy)),
+        ),
+      ]
+      let summary = [
+        "pdf_ocr_policy=" + pdf_ocr_policy_name(options.pdf_ocr_policy),
+        "convert_mode=" + convert_mode_name(options.mode),
+        "native_text_pages=" + native_text_pages.to_string(),
+        "scanned_pages=" + scanned_pages.to_string(),
+      ]
+      probe_outcome("pdf", summary, source, probe_signals=signals)
+    }
+    Err(_error) => {
+      let signals = [
+        make_probe_signal(
+          ProbeSignalKind::PageCount,
+          0,
+          note=Some(pdf_ocr_policy_name(options.pdf_ocr_policy)),
+        ),
+      ]
+      let summary = [
+        "pdf_ocr_policy=" + pdf_ocr_policy_name(options.pdf_ocr_policy),
+        "convert_mode=" + convert_mode_name(options.mode),
+        "native_probe=failed",
+      ]
+      probe_outcome("pdf", summary, source, probe_signals=signals, probe_failures=[
+        make_probe_failure("pdf", "native_probe_failed"),
+      ])
+    }
+  }
 }
 
 ///|
@@ -780,6 +878,10 @@ fn preflight_probe(
     @input.DetectedFormat::Ipynb => ipynb_preflight_probe(source, options)
     @input.DetectedFormat::Yaml => yaml_preflight_probe(source, options)
     @input.DetectedFormat::Toml => toml_preflight_probe(source, options)
+    @input.DetectedFormat::Tex => text_markup_preflight_probe(source, format)
+    @input.DetectedFormat::Rst => text_markup_preflight_probe(source, format)
+    @input.DetectedFormat::Asciidoc =>
+      text_markup_preflight_probe(source, format)
     @input.DetectedFormat::Xml => xml_preflight_probe(source, options)
     @input.DetectedFormat::Html => html_preflight_probe(source, options)
     @input.DetectedFormat::Xlsx => xlsx_preflight_probe(source, options)

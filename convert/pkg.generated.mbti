@@ -31,6 +31,8 @@ pub fn default_convert_options() -> ConvertOptions
 
 pub fn default_pdf_cleanup_mode() -> PdfCleanupMode
 
+pub fn default_pdf_ocr_policy() -> @product.PdfOcrPolicy
+
 pub fn default_pdf_table_mode() -> PdfTableMode
 
 pub fn default_resource_limits() -> ResourceLimits
@@ -43,9 +45,9 @@ pub fn fidelity_mode_name(@product.FidelityMode) -> String
 
 pub fn make_convert_execution(ConvertResult, ConvertProvenance) -> ConvertExecution
 
-pub fn make_convert_options(ConvertMode, OutputFormat, @input.DetectedFormat?, @parser.OcrOptions, ResourceLimits, fidelity_mode? : @product.FidelityMode, output_mode? : @product.OutputMode, stream_requested? : Bool, pdf_cleanup_mode? : PdfCleanupMode, pdf_table_mode? : PdfTableMode, rag_options? : @rag.RagOptions) -> ConvertOptions
+pub fn make_convert_options(ConvertMode, OutputFormat, @input.DetectedFormat?, @parser.OcrOptions, ResourceLimits, fidelity_mode? : @product.FidelityMode, output_mode? : @product.OutputMode, stream_requested? : Bool, pdf_ocr_policy? : @product.PdfOcrPolicy, pdf_cleanup_mode? : PdfCleanupMode, pdf_table_mode? : PdfTableMode, rag_options? : @rag.RagOptions) -> ConvertOptions
 
-pub fn make_convert_provenance(RoutePlan, @product.FidelityMode, @product.OutputMode, @product.ExecutionProfile, String, @product.LoweringProfile, @product.RenderProfile, Array[String], @parser.ParserMode, String, String, String, String, Array[String], Array[String]) -> ConvertProvenance
+pub fn make_convert_provenance(RoutePlan, @product.FidelityMode, @product.OutputMode, @product.ExecutionProfile, String, @product.LoweringProfile, @product.RenderProfile, Array[String], @parser.ParserMode, String, String, String, String, Array[String], Array[String], ocr_provider_selection_target? : String?, ocr_provider_requested_kind? : String?, ocr_provider_resolved_kind? : String?) -> ConvertProvenance
 
 pub fn make_probe_failure(String, String) -> ProbeFailure
 
@@ -53,7 +55,7 @@ pub fn make_probe_signal(@product.ProbeSignalKind, Int, limit? : Int?, note? : S
 
 pub fn make_resource_limits(Int, Int, Int, max_line_chars? : Int) -> ResourceLimits
 
-pub fn make_route_plan(@input.DetectedFormat, String, String, String, @parser.ParserMode?) -> RoutePlan
+pub fn make_route_plan(@input.DetectedFormat, String, String, String, @parser.ParserMode?, ocr_provider_selection_target? : String?, ocr_provider_requested_kind? : String?, ocr_provider_resolved_kind? : String?) -> RoutePlan
 
 pub fn output_mode_for_convert_mode(ConvertMode) -> @product.OutputMode
 
@@ -62,6 +64,8 @@ pub fn output_mode_for_output_format(OutputFormat) -> @product.OutputMode
 pub fn output_mode_name(@product.OutputMode) -> String
 
 pub fn pdf_cleanup_mode_name(PdfCleanupMode) -> String
+
+pub fn pdf_ocr_policy_name(@product.PdfOcrPolicy) -> String
 
 pub fn pdf_table_mode_name(PdfTableMode) -> String
 
@@ -99,6 +103,7 @@ pub struct ConvertOptions {
   explicit_format : @input.DetectedFormat?
   ocr_options : @parser.OcrOptions
   limits : ResourceLimits
+  pdf_ocr_policy : @product.PdfOcrPolicy
   pdf_cleanup_mode : PdfCleanupMode
   pdf_table_mode : PdfTableMode
   rag_options : @rag.RagOptions
@@ -120,6 +125,9 @@ pub struct ConvertProvenance {
   route_fidelity_status : String
   applied_accurate_features : Array[String]
   same_mode_strategy_switches : Array[String]
+  ocr_provider_selection_target : String?
+  ocr_provider_requested_kind : String?
+  ocr_provider_resolved_kind : String?
 }
 
 pub struct ConvertResult {
@@ -179,6 +187,9 @@ pub struct RoutePlan {
   route_reason : String
   route_probe_summary : String
   requested_parser_mode : @parser.ParserMode?
+  ocr_provider_selection_target : String?
+  ocr_provider_requested_kind : String?
+  ocr_provider_resolved_kind : String?
 }
 
 // Type aliases
@@ -192,7 +203,13 @@ pub using @product {type FidelityMode}
 
 pub using @product {type LoweringProfile}
 
+pub using @ocr {type OcrProviderKind}
+
+pub using @ocr {type OcrProviderSelectionTarget}
+
 pub using @product {type OutputMode}
+
+pub using @product {type PdfOcrPolicy}
 
 pub using @product {type ProbeSignalKind}
 

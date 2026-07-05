@@ -162,7 +162,26 @@ fn finalize_pipeline_convert_execution(
     applied_accurate_features: @product.accurate_feature_profile_names(
       execution_plan.accurate_feature_profile,
     ),
-    same_mode_strategy_switches: execution_plan.same_mode_strategy_switches,
+    same_mode_strategy_switches: {
+      let switches = execution_plan.same_mode_strategy_switches.copy()
+      for strategy_switch in diagnostics.same_mode_strategy_switches {
+        if !switches.contains(strategy_switch) {
+          switches.push(strategy_switch)
+        }
+      }
+      switches
+    },
+    ocr_provider_selection_target: execution_plan.ocr_provider_selection_target.map(target => {
+        @focr.ocr_provider_selection_target_name(target)
+      },
+    ),
+    ocr_provider_requested_kind: execution_plan.ocr_provider_requested_kind.map(kind => {
+        @focr.ocr_provider_kind_name(kind)
+      },
+    ),
+    ocr_provider_resolved_kind: execution_plan.ocr_provider_resolved_kind.map(kind => {
+      @focr.ocr_provider_kind_name(kind)
+    }),
   }
   { result, provenance }
 }

@@ -103,13 +103,18 @@ fn finalize_tesseract_command_result(
         Err(
           OcrProviderError::CommandUnavailable(
             "Tesseract OCR command is unavailable on the this runtime: " +
-            raw_message,
+            raw_message +
+            "\n\n" +
+            tesseract_ocr_install_hint(),
           ),
         )
       } else {
         Err(
           OcrProviderError::ExecutionFailed(
-            "Tesseract OCR command failed on the this runtime: " + raw_message,
+            "Tesseract OCR command failed on the this runtime: " +
+            raw_message +
+            "\n\n" +
+            tesseract_ocr_install_hint(),
           ),
         )
       }
@@ -132,7 +137,10 @@ fn collect_tesseract_output(
         collected.val = Some(
           Err(
             OcrProviderError::ExecutionFailed(
-              "launch tesseract failed on the this runtime: " + e.to_string(),
+              "launch tesseract failed on the this runtime: " +
+              e.to_string() +
+              "\n\n" +
+              tesseract_ocr_install_hint(),
             ),
           ),
         )
@@ -174,7 +182,10 @@ fn collect_tesseract_output(
     e =>
       return Err(
         OcrProviderError::ExecutionFailed(
-          "launch tesseract failed on the this runtime: " + e.to_string(),
+          "launch tesseract failed on the this runtime: " +
+          e.to_string() +
+          "\n\n" +
+          tesseract_ocr_install_hint(),
         ),
       )
   }
@@ -183,7 +194,8 @@ fn collect_tesseract_output(
     None =>
       Err(
         OcrProviderError::ExecutionFailed(
-          "launch tesseract failed on the this runtime: event loop returned no result",
+          "launch tesseract failed on the this runtime: event loop returned no result\n\n" +
+          tesseract_ocr_install_hint(),
         ),
       )
   }

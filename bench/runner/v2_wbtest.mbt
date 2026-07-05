@@ -228,6 +228,65 @@ test "policy preset expands all configured scenario ids" {
   assert_true(
     scenarios.any(fn(item) { item.scenario_id == "diagnostic.markdown" }),
   )
+  assert_true(scenarios.any(fn(item) { item.scenario_id == "diagnostic.srt" }))
+  assert_true(
+    scenarios.any(fn(item) { item.scenario_id == "diagnostic.jsonl" }),
+  )
+  assert_true(
+    scenarios.any(fn(item) { item.scenario_id == "diagnostic.asciidoc" }),
+  )
+}
+
+///|
+test "bench engine options enable product-default direct image OCR and explicit format binding" {
+  let row = @manifest.make_bench_row(
+    "ocr_medium_self_multi_column_v1",
+    "png",
+    "regular",
+    "ocr/medium/ocr_medium_self_multi_column_v1.png",
+    "copied_from_external_quality",
+    "local",
+    1024,
+    "sha",
+    "regular",
+    ["external_bench"],
+    ["ocr"],
+    "reviewed",
+    "",
+    "markitdown-quality-lab/external_bench/ocr/medium/ocr_medium_self_multi_column_v1.png",
+  )
+  let options = bench_convert_options_for_row_v2(row)
+  assert_true(
+    options.explicit_format ==
+    Some(@input.DetectedFormat::Image(@input.ImageFormat::Png)),
+  )
+  assert_true(options.ocr_options.intent == @parser.OcrIntent::Explicit)
+}
+
+///|
+test "bench engine options fall back to detected image format for logical ocr rows" {
+  let row = @manifest.make_bench_row(
+    "ocr_large_commons_typewriter_photo_v1",
+    "ocr",
+    "regular",
+    "ocr/large/ocr_large_commons_typewriter_photo_v1.jpg",
+    "copied_from_external_quality",
+    "local",
+    1024,
+    "sha",
+    "regular",
+    ["external_bench"],
+    ["ocr"],
+    "reviewed",
+    "",
+    "markitdown-quality-lab/external_bench/ocr/large/ocr_large_commons_typewriter_photo_v1.jpg",
+  )
+  let options = bench_convert_options_for_row_v2(row)
+  assert_true(
+    options.explicit_format ==
+    Some(@input.DetectedFormat::Image(@input.ImageFormat::Jpg)),
+  )
+  assert_true(options.ocr_options.intent == @parser.OcrIntent::Explicit)
 }
 
 ///|

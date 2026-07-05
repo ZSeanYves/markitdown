@@ -81,7 +81,28 @@ pub fn pdf_rasterizer_error_status(
 
 ///|
 pub fn pdf_raster_backend_install_hint() -> String {
-  "install pdftoppm via `brew install poppler` on macOS or `sudo apt install poppler-utils` on Ubuntu."
+  @focr.dependency_diagnostic_card(
+    "Missing dependency: pdftoppm / Poppler",
+    "PDF OCR requires the local `pdftoppm` raster backend before any OCR provider can run.",
+    ["brew install poppler"],
+    ["sudo apt install poppler-utils"],
+    footer=Some(
+      "This dependency is required for both Balanced PDF OCR and Accurate PDF OCR.",
+    ),
+  )
+}
+
+///|
+pub fn pdf_raster_backend_dependency_diagnostic() -> @core.DependencyDiagnostic {
+  @focr.dependency_diagnostic_entry(
+    "Missing dependency: pdftoppm / Poppler",
+    "PDF OCR requires the local `pdftoppm` raster backend before any OCR provider can run.",
+    ["brew install poppler"],
+    ["sudo apt install poppler-utils"],
+    footer=Some(
+      "This dependency is required for both Balanced PDF OCR and Accurate PDF OCR.",
+    ),
+  )
 }
 
 ///|

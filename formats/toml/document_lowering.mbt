@@ -252,31 +252,24 @@ fn lower_toml_array_of_tables_group(
   if grouped.length() == 0 {
     return out
   }
+  let start_line = Some(grouped[0].line_start)
+  let end_line = Some(grouped[grouped.length() - 1].line_end)
+  let base_level = toml_heading_level_for_path(base_path)
   out.push(
     toml_heading_block(
       toml_display_path(base_path),
-      toml_heading_level_for_path(base_path),
-      toml_source_ref_from_path(
-        source,
-        base_path,
-        Some(grouped[0].line_start),
-        Some(grouped[grouped.length() - 1].line_end),
-      ),
+      base_level,
+      toml_source_ref_from_path(source, base_path, start_line, end_line),
     ),
   )
-  match toml_array_tables_as_rows(grouped) {
-    Some(rows) =>
+  match toml_array_tables_shared_keys(grouped) {
+    Some(keys) =>
       out.push(
-        toml_table_block_from_rows(
-          rows,
-          source,
-          base_path,
-          Some(grouped[0].line_start),
-          Some(grouped[grouped.length() - 1].line_end),
+        toml_table_block_from_array_tables(
+          grouped, keys, source, base_path, start_line, end_line,
         ),
       )
-    None => {
-      let base_level = toml_heading_level_for_path(base_path)
+    None =>
       for i in 0..<grouped.length() {
         let table = grouped[i]
         out.push(
@@ -303,7 +296,6 @@ fn lower_toml_array_of_tables_group(
         )
         out.append(child_blocks[:])
       }
-    }
   }
   out
 }
@@ -633,30 +625,99 @@ fn toml_inline_table_array_rows(
 }
 
 ///|
-fn toml_array_tables_as_rows(
+fn toml_array_tables_shared_keys(
   tables : Array[@dtoml.TomlTable],
-) -> Array[Array[String]]? {
-  let rows : Array[Array[String]] = []
+) -> Array[String]? {
   let mut keys : Array[String] = []
   for i in 0..<tables.length() {
     let next_keys = tables[i].members.map(fn(item) { item.key })
     if i == 0 {
       keys = next_keys
-      rows.push(keys)
     } else if !toml_same_key_set(keys, next_keys) {
       return None
     }
-    let row : Array[String] = []
-    for key in keys {
-      row.push(toml_member_value_cell(tables[i].members, key))
-    }
-    rows.push(row)
   }
-  if rows.length() == 0 {
+  if keys.length() == 0 {
     None
   } else {
-    Some(rows)
+    Some(keys)
   }
+}
+
+///|
+fn toml_table_block_from_array_tables(
+  tables : Array[@dtoml.TomlTable],
+  keys : Array[String],
+  source : @input.InputSource,
+  path : String,
+  line_start : Int?,
+  line_end : Int?,
+) -> @core.CoreBlock {
+  let table = @core.make_block(
+    @core.BlockKind::Table,
+    "table",
+    source_ref=toml_source_ref_from_path(source, path, line_start, line_end),
+  )
+  table.attrs.set("header_rows", "1")
+  let header_row_path = path + "/row[0]"
+  let header = @core.make_block(
+    @core.BlockKind::TableRow,
+    "",
+    source_ref=toml_source_ref_from_path(
+      source, header_row_path, line_start, line_end,
+    ),
+  )
+  for col_index in 0..<keys.length() {
+    header.children.push(
+      @core.make_block(
+        @core.BlockKind::TableCell,
+        keys[col_index],
+        source_ref=toml_source_ref_from_path(
+          source,
+          header_row_path + "/col[" + col_index.to_string() + "]",
+          line_start,
+          line_end,
+        ),
+      ),
+    )
+  }
+  table.children.push(header)
+  for table_index in 0..<tables.length() {
+    let row_path = path + "/row[" + (table_index + 1).to_string() + "]"
+    let entry_index : Map[String, Int] = Map([])
+    let members = tables[table_index].members
+    for member_index in 0..<members.length() {
+      entry_index[members[member_index].key] = member_index
+    }
+    let row = @core.make_block(
+      @core.BlockKind::TableRow,
+      "",
+      source_ref=toml_source_ref_from_path(
+        source, row_path, line_start, line_end,
+      ),
+    )
+    for col_index in 0..<keys.length() {
+      let key = keys[col_index]
+      let cell_text = match entry_index.get(key) {
+        Some(member_index) => toml_value_cell(members[member_index].value)
+        None => ""
+      }
+      row.children.push(
+        @core.make_block(
+          @core.BlockKind::TableCell,
+          cell_text,
+          source_ref=toml_source_ref_from_path(
+            source,
+            row_path + "/col[" + col_index.to_string() + "]",
+            line_start,
+            line_end,
+          ),
+        ),
+      )
+    }
+    table.children.push(row)
+  }
+  table
 }
 
 ///|

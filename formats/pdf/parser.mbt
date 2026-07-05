@@ -236,20 +236,35 @@ pub fn pdf_ocr_parser_result(
   image_ocr_provider? : (@focr.OcrProviderRequest) -> Result[
     @focr.OcrProviderResult,
     @focr.OcrProviderError,
-  ] = @focr.run_tesseract_provider,
+  ] = @focr.run_ocr_provider,
   rasterizer? : (@input.InputSource) -> Result[
     (PdfRasterResult, String),
     PdfRasterizerError,
   ] = rasterize_pdf_with_pdftoppm_default,
 ) -> Result[@parser.ParseResult, String] {
   let options = context.ocr_options
-  let accurate_pdf_ocr = context.lowering_profile ==
-    @product.LoweringProfile::AccurateSemantic
-  if options.intent != @parser.OcrIntent::Explicit && !accurate_pdf_ocr {
+  let provider_target = match context.fidelity_mode {
+    @product.FidelityMode::Accurate =>
+      @focr.OcrProviderSelectionTarget::PdfAccurate
+    _ => @focr.OcrProviderSelectionTarget::PdfBalanced
+  }
+  let provider_kind = @focr.resolved_ocr_provider_kind_for_target(
+    provider_target,
+  )
+  if context.pdf_ocr_policy == @parser.PdfOcrPolicy::Disabled {
     return Err(
-      "pdf OCR requires explicit OCR intent on this runtime; requested=" +
-      @parser.ocr_intent_name(options.intent),
+      "pdf OCR requires --ocr or --pdf-ocr on this runtime; requested_policy=" +
+      @parser.pdf_ocr_policy_name(context.pdf_ocr_policy),
     )
+  }
+  let native_document = if context.pdf_ocr_policy ==
+    @parser.PdfOcrPolicy::AutoScanned {
+    match extract_pdf_native_document(source) {
+      Ok(document) => Some(document)
+      Err(_) => None
+    }
+  } else {
+    None
   }
   let rasterized = match rasterizer(source) {
     Ok(value) => value
@@ -264,12 +279,24 @@ pub fn pdf_ocr_parser_result(
   let mut raster_failure_count = 0
   let mut ocr_failure_count = 0
   let mut ocr_success_count = 0
+  let mut native_text_page_count = 0
+  let fatal_dependency_errors : Array[String] = []
+  let fatal_dependency_diagnostics : Array[@core.DependencyDiagnostic] = []
   for page in raster_result.pages {
+    let page_index = page.page_index + 1
+    if native_document is Some(document) &&
+      context.pdf_ocr_policy == @parser.PdfOcrPolicy::AutoScanned &&
+      page_index <= document.pages.length() &&
+      pdf_native_page_has_text(document.pages[page.page_index]) {
+      native_text_page_count += 1
+      blocks.append(
+        pdf_native_page_to_paragraph_blocks(document.pages[page.page_index])[:],
+      )
+      continue
+    }
     if !page.success {
       raster_failure_count += 1
-      warnings.push(
-        "pdf_raster_page_failed:index=" + (page.page_index + 1).to_string(),
-      )
+      warnings.push("pdf_raster_page_failed:index=" + page_index.to_string())
       continue
     }
     let image_path = match page.image_path {
@@ -277,31 +304,28 @@ pub fn pdf_ocr_parser_result(
       None => {
         raster_failure_count += 1
         warnings.push(
-          "pdf_raster_page_missing_image:index=" +
-          (page.page_index + 1).to_string(),
+          "pdf_raster_page_missing_image:index=" + page_index.to_string(),
         )
         continue
       }
     }
     let request = @focr.make_ocr_provider_request(
       image_path,
-      @focr.OcrProviderKind::Tesseract,
+      provider_kind,
       language=options.language,
     )
     match image_ocr_provider(request) {
       Ok(result) =>
         if result.pages.length() == 0 {
           ocr_failure_count += 1
-          warnings.push(
-            "pdf_ocr_page_empty:index=" + (page.page_index + 1).to_string(),
-          )
+          warnings.push("pdf_ocr_page_empty:index=" + page_index.to_string())
         } else {
           for model in result.pages {
             blocks.append(
               @focr.ocr_page_blocks_from_page(
                 source,
                 @input.DetectedFormat::Pdf,
-                page.page_index + 1,
+                page_index,
                 model,
               )[:],
             )
@@ -310,9 +334,24 @@ pub fn pdf_ocr_parser_result(
         }
       Err(error) => {
         ocr_failure_count += 1
+        match error {
+          @focr.OcrProviderError::NotConfigured(message) => {
+            fatal_dependency_errors.push(message)
+            fatal_dependency_diagnostics.push(
+              @focr.ocr_dependency_diagnostic_for_target(provider_target),
+            )
+          }
+          @focr.OcrProviderError::CommandUnavailable(message) => {
+            fatal_dependency_errors.push(message)
+            fatal_dependency_diagnostics.push(
+              @focr.ocr_dependency_diagnostic_for_target(provider_target),
+            )
+          }
+          _ => ()
+        }
         warnings.push(
           "pdf_ocr_page_failed:index=" +
-          (page.page_index + 1).to_string() +
+          page_index.to_string() +
           " reason=" +
           error.to_string(),
         )
@@ -321,6 +360,9 @@ pub fn pdf_ocr_parser_result(
   }
 
   if blocks.length() == 0 {
+    if fatal_dependency_errors.length() > 0 {
+      return Err(fatal_dependency_errors[0])
+    }
     return Err(
       "PDF OCR produced no successful pages on this runtime. " +
       pdf_raster_backend_install_hint(),
@@ -332,12 +374,31 @@ pub fn pdf_ocr_parser_result(
     @input.DetectedFormat::Pdf,
     options,
     Some(@parser.ParserMode::LayoutTwoStage),
+    provider_target,
   )
+  diagnostics.dependency_diagnostics.append(fatal_dependency_diagnostics[:])
   diagnostics.metrics.set("input_kind", pdf_native_input_kind_name(source.kind))
   diagnostics.metrics.set("ocr_provider_wired", "true")
   diagnostics.metrics.set("provider_invoked", "true")
   diagnostics.metrics.set("ocr_provider_status", "success")
-  diagnostics.metrics.set("ocr_provider_name", "tesseract")
+  diagnostics.metrics.set(
+    "ocr_provider_selection_target",
+    @focr.ocr_provider_selection_target_name(provider_target),
+  )
+  diagnostics.metrics.set(
+    "ocr_provider_requested_kind",
+    @focr.ocr_provider_kind_name(
+      @focr.default_ocr_provider_kind_for_target(provider_target),
+    ),
+  )
+  diagnostics.metrics.set(
+    "ocr_provider_kind",
+    @focr.ocr_provider_kind_name(provider_kind),
+  )
+  diagnostics.metrics.set(
+    "ocr_provider_name",
+    @focr.ocr_provider_kind_name(provider_kind),
+  )
   diagnostics.metrics.set("ocr_provider_version", "unknown")
   diagnostics.metrics.set("block_count", blocks.length().to_string())
   diagnostics.metrics.set("image_count", "0")
@@ -357,11 +418,56 @@ pub fn pdf_ocr_parser_result(
       (ocr_success_count.to_double() / raster_result.page_count.to_double()).to_string()
     },
   )
-  diagnostics.metrics.set("pdf_native_backend", "false")
-  diagnostics.metrics.set("pdf_native_text_baseline", "false")
+  diagnostics.metrics.set(
+    "native_text_page_count",
+    native_text_page_count.to_string(),
+  )
+  diagnostics.metrics.set(
+    "pdf_native_backend",
+    if native_text_page_count > 0 {
+      "true"
+    } else {
+      "false"
+    },
+  )
+  diagnostics.metrics.set(
+    "pdf_native_text_baseline",
+    if native_text_page_count > 0 {
+      "true"
+    } else {
+      "false"
+    },
+  )
   diagnostics.metrics.set("pdf_ocr_used", "true")
+  diagnostics.metrics.set(
+    "pdf_ocr_policy",
+    @parser.pdf_ocr_policy_name(context.pdf_ocr_policy),
+  )
+  diagnostics.metrics.set(
+    "pdf_ocr_trigger",
+    if context.pdf_ocr_policy == @parser.PdfOcrPolicy::AutoScanned {
+      "auto_scanned"
+    } else {
+      "explicit"
+    },
+  )
+  diagnostics.metrics.set(
+    "mixed_page_route",
+    if native_text_page_count > 0 && ocr_success_count > 0 {
+      "true"
+    } else {
+      "false"
+    },
+  )
   diagnostics.metrics.set("pdf_v2_used", "false")
-  diagnostics.metrics.set("pdf_empty_text_layer", "false")
+  diagnostics.metrics.set(
+    "pdf_empty_text_layer",
+    if native_text_page_count == 0 && ocr_success_count > 0 {
+      "true"
+    } else {
+      "false"
+    },
+  )
   diagnostics.metrics.set("product_path_enabled", "true")
   diagnostics.metrics.set("format_contract", "pdf")
   diagnostics.metrics.set("native_impl_location", "formats")
@@ -422,12 +528,17 @@ pub fn pdf_ocr_parser_result(
   }
   diagnostics.pass_trace.push("parse:pdf_ocr_parser")
   diagnostics.pass_trace.push("pdf_ocr:layout_two_stage")
+  if context.pdf_ocr_policy == @parser.PdfOcrPolicy::AutoScanned {
+    diagnostics.pass_trace.push("pdf_ocr:auto_scanned_hybrid")
+  } else {
+    diagnostics.pass_trace.push("pdf_ocr:explicit_full_document")
+  }
 
   let document = @core.document_from_blocks(blocks)
   document.metadata.set("pdf_ocr_used", @core.JsonValue::Bool(true))
   document.metadata.set(
     "pdf_native_text_baseline",
-    @core.JsonValue::Bool(false),
+    @core.JsonValue::Bool(native_text_page_count > 0),
   )
   document.metadata.set("pdf_v2_used", @core.JsonValue::Bool(false))
   document.metadata.set(
@@ -445,6 +556,10 @@ pub fn pdf_ocr_parser_result(
   document.metadata.set(
     "ocr_used_pages",
     @core.JsonValue::Number(ocr_success_count.to_string()),
+  )
+  document.metadata.set(
+    "native_text_page_count",
+    @core.JsonValue::Number(native_text_page_count.to_string()),
   )
   document.metadata.set(
     "pdf_raster_page_success_count",
@@ -481,6 +596,18 @@ pub fn pdf_ocr_parser() -> @parser.Parser {
       pdf_ocr_parser_result(source, context)
     },
   )
+}
+
+///|
+fn pdf_native_page_has_text(page : PdfNativePage) -> Bool {
+  for block in page.text_blocks {
+    for line in block.lines {
+      if line.spans.length() > 0 {
+        return true
+      }
+    }
+  }
+  false
 }
 
 ///|

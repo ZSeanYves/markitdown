@@ -71,6 +71,8 @@ pub(all) enum ProbeSignalKind {
   CoveredCellCount
   NoteCount
   CommentCount
+  ScannedPageCount
+  NativeTextPageCount
 } derive(Eq)
 
 ///|
@@ -215,12 +217,20 @@ pub(all) enum PdfTableMode {
 } derive(Eq)
 
 ///|
+pub(all) enum PdfOcrPolicy {
+  Disabled
+  Explicit
+  AutoScanned
+} derive(Eq)
+
+///|
 pub struct ProductOptions {
   mode : ConvertMode
   fidelity_mode : FidelityMode
   output_mode : OutputMode
   stream_requested : Bool
   limits : ResourceLimits
+  pdf_ocr_policy : PdfOcrPolicy
   pdf_cleanup_mode : PdfCleanupMode
   pdf_table_mode : PdfTableMode
   rag_options : @rag.RagOptions
@@ -252,6 +262,11 @@ pub fn default_pdf_table_mode() -> PdfTableMode {
 }
 
 ///|
+pub fn default_pdf_ocr_policy() -> PdfOcrPolicy {
+  PdfOcrPolicy::Disabled
+}
+
+///|
 pub fn default_product_options() -> ProductOptions {
   {
     mode: ConvertMode::Balanced,
@@ -259,6 +274,7 @@ pub fn default_product_options() -> ProductOptions {
     output_mode: OutputMode::Markdown,
     stream_requested: false,
     limits: default_resource_limits(),
+    pdf_ocr_policy: default_pdf_ocr_policy(),
     pdf_cleanup_mode: default_pdf_cleanup_mode(),
     pdf_table_mode: default_pdf_table_mode(),
     rag_options: @rag.default_rag_options(),
@@ -272,6 +288,7 @@ pub fn make_product_options(
   fidelity_mode? : FidelityMode = fidelity_mode_for_convert_mode(mode),
   output_mode? : OutputMode = OutputMode::Markdown,
   stream_requested? : Bool = mode == ConvertMode::Stream,
+  pdf_ocr_policy? : PdfOcrPolicy = default_pdf_ocr_policy(),
   pdf_cleanup_mode? : PdfCleanupMode = default_pdf_cleanup_mode(),
   pdf_table_mode? : PdfTableMode = default_pdf_table_mode(),
   rag_options? : @rag.RagOptions = @rag.default_rag_options(),
@@ -282,6 +299,7 @@ pub fn make_product_options(
     output_mode,
     stream_requested,
     limits,
+    pdf_ocr_policy,
     pdf_cleanup_mode,
     pdf_table_mode,
     rag_options,
@@ -388,6 +406,15 @@ pub fn pdf_table_mode_name(mode : PdfTableMode) -> String {
   match mode {
     PdfTableMode::Disabled => "none"
     PdfTableMode::Simple => "simple"
+  }
+}
+
+///|
+pub fn pdf_ocr_policy_name(policy : PdfOcrPolicy) -> String {
+  match policy {
+    PdfOcrPolicy::Disabled => "disabled"
+    PdfOcrPolicy::Explicit => "explicit"
+    PdfOcrPolicy::AutoScanned => "auto_scanned"
   }
 }
 

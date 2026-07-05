@@ -495,9 +495,7 @@ test "rag sample outputs preserve location metadata across html docx pdf pptx an
 ///|
 test "xlsx block stream sparse rows preserve markdown table shape" {
   let parsed = default_registry_parse(
-    @input.input_from_path(
-      "samples/fixtures/contracts/xlsx/sheet_simple.xlsx",
-    ),
+    @input.input_from_path("samples/fixtures/contracts/xlsx/sheet_simple.xlsx"),
     @input.DetectedFormat::Xlsx,
     requested_mode=Some(@parser.ParserMode::BlockStreaming),
   )

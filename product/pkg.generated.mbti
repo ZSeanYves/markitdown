@@ -23,6 +23,8 @@ pub fn debug_output_mode(OutputMode) -> Bool
 
 pub fn default_pdf_cleanup_mode() -> PdfCleanupMode
 
+pub fn default_pdf_ocr_policy() -> PdfOcrPolicy
+
 pub fn default_pdf_table_mode() -> PdfTableMode
 
 pub fn default_product_options() -> ProductOptions
@@ -41,7 +43,7 @@ pub fn lowering_profile_name(LoweringProfile) -> String
 
 pub fn make_accurate_feature_profile(Array[AccurateFeature]) -> AccurateFeatureProfile
 
-pub fn make_product_options(ConvertMode, ResourceLimits, fidelity_mode? : FidelityMode, output_mode? : OutputMode, stream_requested? : Bool, pdf_cleanup_mode? : PdfCleanupMode, pdf_table_mode? : PdfTableMode, rag_options? : @rag.RagOptions) -> ProductOptions
+pub fn make_product_options(ConvertMode, ResourceLimits, fidelity_mode? : FidelityMode, output_mode? : OutputMode, stream_requested? : Bool, pdf_ocr_policy? : PdfOcrPolicy, pdf_cleanup_mode? : PdfCleanupMode, pdf_table_mode? : PdfTableMode, rag_options? : @rag.RagOptions) -> ProductOptions
 
 pub fn make_resource_limits(Int, Int, Int, max_line_chars? : Int) -> ResourceLimits
 
@@ -52,6 +54,8 @@ pub fn output_mode_name(OutputMode) -> String
 pub fn pdf_cleanup_enabled(ProductOptions) -> Bool
 
 pub fn pdf_cleanup_mode_name(PdfCleanupMode) -> String
+
+pub fn pdf_ocr_policy_name(PdfOcrPolicy) -> String
 
 pub fn pdf_table_mode_name(PdfTableMode) -> String
 
@@ -121,6 +125,12 @@ pub(all) enum PdfCleanupMode {
   Conservative
 } derive(Eq)
 
+pub(all) enum PdfOcrPolicy {
+  Disabled
+  Explicit
+  AutoScanned
+} derive(Eq)
+
 pub(all) enum PdfTableMode {
   Disabled
   Simple
@@ -152,6 +162,8 @@ pub(all) enum ProbeSignalKind {
   CoveredCellCount
   NoteCount
   CommentCount
+  ScannedPageCount
+  NativeTextPageCount
 } derive(Eq)
 
 pub struct ProductOptions {
@@ -160,6 +172,7 @@ pub struct ProductOptions {
   output_mode : OutputMode
   stream_requested : Bool
   limits : ResourceLimits
+  pdf_ocr_policy : PdfOcrPolicy
   pdf_cleanup_mode : PdfCleanupMode
   pdf_table_mode : PdfTableMode
   rag_options : @rag.RagOptions

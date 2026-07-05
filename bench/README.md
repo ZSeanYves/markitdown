@@ -72,7 +72,7 @@ _build/native/release/build/bench/runner/runner.exe doctor
 
 | preset | scenarios | tools | 用途 |
 | --- | --- | --- | --- |
-| `official-internal` | `product.official_internal` + `diagnostic.markdown/html/xml/xlsx/epub/zip` | `moonbit-cli`, `moonbit-engine` | 内部性能、路径证明、重点格式诊断 |
+| `official-internal` | `product.official_internal` + `diagnostic.markdown/html/xml/xlsx/epub/zip/ipynb/toml/odt/ods/odp/ocr` | `moonbit-cli`, `moonbit-engine` | 内部性能、路径证明、重点格式诊断 |
 | `official-compare` | `compare.official_compare` | `moonbit-cli`, `moonbit-engine`, `markitdown` | 外部性能对标 |
 | `doctor` | `doctor.binary_contract` | `moonbit-cli`, `moonbit-engine`, `markitdown` | 二进制契约检查 |
 
@@ -87,6 +87,12 @@ _build/native/release/build/bench/runner/runner.exe doctor
 - `diagnostic.xlsx`
 - `diagnostic.epub`
 - `diagnostic.zip`
+- `diagnostic.ipynb`
+- `diagnostic.toml`
+- `diagnostic.odt`
+- `diagnostic.ods`
+- `diagnostic.odp`
+- `diagnostic.ocr`
 
 默认参数：
 
@@ -105,17 +111,31 @@ _build/native/release/build/bench/runner/runner.exe doctor
 - `txt`
 - `csv`
 - `tsv`
+- `srt`
+- `vtt`
 - `json`
+- `jsonl`
+- `ndjson`
+- `ipynb`
 - `yaml`
+- `toml`
 - `xml`
 - `markdown`
 - `html`
+- `eml`
+- `tex`
+- `rst`
+- `asciidoc`
 - `zip`
 - `epub`
+- `odt`
+- `ods`
+- `odp`
 - `pdf`
 - `docx`
 - `pptx`
 - `xlsx`
+- `ocr`
 
 口径分工：
 

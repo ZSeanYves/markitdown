@@ -8,7 +8,17 @@ import {
 }
 
 // Values
+pub fn build_paddle_ocr_command(OcrProviderRequest) -> Result[(String, Array[String]), OcrProviderError]
+
+pub fn build_paddle_ocr_command_with_adapter(OcrProviderRequest, String) -> Result[(String, Array[String]), OcrProviderError]
+
 pub fn build_tesseract_tsv_command(OcrProviderRequest) -> (String, Array[String])
+
+pub fn default_ocr_provider_kind_for_target(OcrProviderSelectionTarget) -> OcrProviderKind
+
+pub fn dependency_diagnostic_card(String, String, Array[String], Array[String], footer? : String?) -> String
+
+pub fn dependency_diagnostic_entry(String, String, Array[String], Array[String], footer? : String?) -> @core.DependencyDiagnostic
 
 pub fn empty_ocr_document_model(provider? : OcrProviderInfo?, diagnostics? : Array[String]) -> OcrDocumentModel
 
@@ -18,17 +28,25 @@ pub fn image_ocr_disabled_message(@input.DetectedFormat) -> String
 
 pub fn image_ocr_fail_closed_diagnostics(@input.InputSource, @input.DetectedFormat, @parser.OcrOptions, requested_mode? : @parser.ParserMode?) -> @core.Diagnostics
 
+pub fn image_ocr_fail_closed_diagnostics_for_target(@input.InputSource, @input.DetectedFormat, @parser.OcrOptions, OcrProviderSelectionTarget, requested_mode? : @parser.ParserMode?) -> @core.Diagnostics
+
 pub fn image_ocr_parser() -> @parser.Parser
 
 pub fn image_ocr_parser_result(@input.InputSource, @input.DetectedFormat, @parser.OcrOptions, requested_mode? : @parser.ParserMode?) -> Result[@parser.ParseResult, String]
 
 pub async fn image_ocr_parser_result_with_async_provider(@input.InputSource, @input.DetectedFormat, @parser.OcrOptions, async (OcrProviderRequest) -> Result[OcrProviderResult, OcrProviderError], requested_mode? : @parser.ParserMode?) -> Result[@parser.ParseResult, String]
 
+pub async fn image_ocr_parser_result_with_async_provider_target(@input.InputSource, @input.DetectedFormat, @parser.OcrOptions, OcrProviderSelectionTarget, async (OcrProviderRequest) -> Result[OcrProviderResult, OcrProviderError], requested_mode? : @parser.ParserMode?) -> Result[@parser.ParseResult, String]
+
 pub fn image_ocr_parser_result_with_provider(@input.InputSource, @input.DetectedFormat, @parser.OcrOptions, (OcrProviderRequest) -> Result[OcrProviderResult, OcrProviderError], requested_mode? : @parser.ParserMode?) -> Result[@parser.ParseResult, String]
+
+pub fn image_ocr_parser_result_with_provider_target(@input.InputSource, @input.DetectedFormat, @parser.OcrOptions, OcrProviderSelectionTarget, (OcrProviderRequest) -> Result[OcrProviderResult, OcrProviderError], requested_mode? : @parser.ParserMode?) -> Result[@parser.ParseResult, String]
 
 pub fn image_ocr_provider_error_message(@input.DetectedFormat, OcrProviderError) -> String
 
 pub fn image_ocr_provider_not_wired_message(@input.DetectedFormat, @parser.OcrOptions) -> String
+
+pub fn image_ocr_selection_target_for_accuracy(Bool) -> OcrProviderSelectionTarget
 
 pub fn image_requires_explicit_ocr_message(@input.DetectedFormat) -> String
 
@@ -44,9 +62,13 @@ pub fn make_ocr_provider_result(Array[OcrPageModel], String, provider_version? :
 
 pub fn make_ocr_word(Int, String, bbox? : @core.BBox?, confidence? : Double?) -> OcrWord
 
-pub fn ocr_base_diagnostics(String, @input.InputSource, @input.DetectedFormat, @parser.OcrOptions, @parser.ParserMode?) -> @core.Diagnostics
+pub fn ocr_base_diagnostics(String, @input.InputSource, @input.DetectedFormat, @parser.OcrOptions, @parser.ParserMode?, OcrProviderSelectionTarget) -> @core.Diagnostics
 
 pub fn ocr_blocks_from_pages(@input.InputSource, @input.DetectedFormat, Array[OcrPageModel]) -> Array[@core.CoreBlock]
+
+pub fn ocr_dependency_diagnostic_for_kind(OcrProviderKind) -> @core.DependencyDiagnostic
+
+pub fn ocr_dependency_diagnostic_for_target(OcrProviderSelectionTarget) -> @core.DependencyDiagnostic
 
 pub fn ocr_document_page_count(OcrDocumentModel) -> Int
 
@@ -62,17 +84,53 @@ pub fn ocr_parse_result_from_provider_result(String, @parser.ParserCapability, @
 
 pub fn ocr_provider_error_status(OcrProviderError) -> OcrProviderStatus
 
+pub fn ocr_provider_fallback_for_target(OcrProviderSelectionTarget) -> (OcrProviderKind, OcrProviderKind)?
+
 pub fn ocr_provider_kind_name(OcrProviderKind) -> String
 
 pub fn ocr_provider_language_label(String?) -> String
 
+pub fn ocr_provider_selection_target_name(OcrProviderSelectionTarget) -> String
+
 pub fn ocr_provider_status_name(OcrProviderStatus) -> String
 
+pub fn ocr_provider_target_requires_fallback(OcrProviderSelectionTarget) -> Bool
+
 pub fn ocr_source_ref(@input.InputSource, @input.DetectedFormat, Int, Int, Int, @core.BBox?) -> @core.SourceRef
+
+pub fn paddle_ocr_command_env_var() -> String
+
+pub fn paddle_ocr_dependency_diagnostic() -> @core.DependencyDiagnostic
+
+pub fn paddle_ocr_install_hint() -> String
+
+pub fn paddle_ocr_not_configured_message() -> String
+
+pub fn paddle_ocr_runtime_available() -> Bool
+
+pub fn parse_paddle_ocr_bridge_payload(String) -> Result[OcrProviderResult, OcrProviderError]
 
 pub fn parse_tesseract_tsv(String, language? : String?) -> Result[OcrProviderResult, OcrProviderError]
 
 pub fn parse_tesseract_tsv_pages(String, language? : String?) -> Result[Array[OcrPageModel], OcrProviderError]
+
+pub fn resolved_ocr_provider_kind_for_target(OcrProviderSelectionTarget) -> OcrProviderKind
+
+pub fn run_ocr_provider(OcrProviderRequest) -> Result[OcrProviderResult, OcrProviderError]
+
+pub async fn run_ocr_provider_async(OcrProviderRequest) -> Result[OcrProviderResult, OcrProviderError]
+
+pub fn run_paddle_ocr_provider(OcrProviderRequest) -> Result[OcrProviderResult, OcrProviderError]
+
+pub async fn run_paddle_ocr_provider_async(OcrProviderRequest) -> Result[OcrProviderResult, OcrProviderError]
+
+pub async fn run_paddle_ocr_provider_with_async_command(OcrProviderRequest, async (String, Array[String]) -> Result[(Int, String, String), OcrProviderError]) -> Result[OcrProviderResult, OcrProviderError]
+
+pub async fn run_paddle_ocr_provider_with_async_command_with_adapter(OcrProviderRequest, String, async (String, Array[String]) -> Result[(Int, String, String), OcrProviderError]) -> Result[OcrProviderResult, OcrProviderError]
+
+pub fn run_paddle_ocr_provider_with_command(OcrProviderRequest, (String, Array[String]) -> Result[(Int, String, String), OcrProviderError]) -> Result[OcrProviderResult, OcrProviderError]
+
+pub fn run_paddle_ocr_provider_with_command_with_adapter(OcrProviderRequest, String, (String, Array[String]) -> Result[(Int, String, String), OcrProviderError]) -> Result[OcrProviderResult, OcrProviderError]
 
 pub fn run_tesseract_provider(OcrProviderRequest) -> Result[OcrProviderResult, OcrProviderError]
 
@@ -81,6 +139,10 @@ pub async fn run_tesseract_provider_async(OcrProviderRequest) -> Result[OcrProvi
 pub async fn run_tesseract_provider_with_async_command(OcrProviderRequest, async (String, Array[String]) -> Result[(Int, String, String), OcrProviderError]) -> Result[OcrProviderResult, OcrProviderError]
 
 pub fn run_tesseract_provider_with_command(OcrProviderRequest, (String, Array[String]) -> Result[(Int, String, String), OcrProviderError]) -> Result[OcrProviderResult, OcrProviderError]
+
+pub fn tesseract_ocr_dependency_diagnostic() -> @core.DependencyDiagnostic
+
+pub fn tesseract_ocr_install_hint() -> String
 
 // Errors
 
@@ -133,6 +195,7 @@ pub struct OcrProviderInfo {
 
 pub(all) enum OcrProviderKind {
   Tesseract
+  PaddleOcr
 } derive(Eq)
 
 pub struct OcrProviderRequest {
@@ -147,6 +210,13 @@ pub struct OcrProviderResult {
   provider_version : String?
   diagnostics : Array[String]
 }
+
+pub(all) enum OcrProviderSelectionTarget {
+  DirectImageBalanced
+  DirectImageAccurate
+  PdfBalanced
+  PdfAccurate
+} derive(Eq)
 
 pub(all) enum OcrProviderStatus {
   NotConfigured

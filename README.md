@@ -90,8 +90,9 @@ The main CLI currently supports:
 Current format policy:
 
 - `pdf` is officially supported for native-text PDFs by default.
-- `pdf --accurate` automatically enters the current OCR-only PDF path; explicit `pdf --ocr` remains supported through local `pdftoppm` + `tesseract`.
-- Scanned or image-only PDFs should currently use `--accurate` or explicit `--ocr`.
+- Single-file `pdf --accurate` now defaults to `--pdf-ocr auto-scanned`; scanned-like PDFs enter the Paddle-backed OCR route and fail closed with install guidance when Paddle is unavailable.
+- `pdf --ocr` remains supported as a compatibility alias for `pdf --pdf-ocr explicit`.
+- Scanned or image-only PDFs should currently use `--ocr` or `--pdf-ocr auto-scanned`.
 - Direct image input is officially supported through local Tesseract OCR.
 - Unsupported formats fail closed.
 
@@ -160,11 +161,71 @@ Current boundaries:
 
 - Direct image input uses OCR by default.
 - `--no-ocr` disables direct-image OCR explicitly.
-- `--ocr-lang <LANG>` can be used to specify language for direct image input and Accurate-mode PDF OCR.
-- `pdf --accurate` automatically enters the dependency-backed PDF OCR path; `pdf --ocr` remains an explicit confirmation path.
-- Both PDF OCR entries are dependency-backed product paths.
-- PDF OCR in this release is OCR-only and does not promise complex layout reconstruction.
-- This project depends on locally installed `pdftoppm` and `tesseract`; it does not bundle or redistribute either binary.
+- `--ocr-lang <LANG>` can be used to specify language for direct image input and PDF OCR routes triggered by `--ocr` / `--pdf-ocr`.
+- Balanced PDF OCR is entered through `--ocr` or `--pdf-ocr explicit|auto-scanned`.
+- Accurate PDF OCR is entered through `pdf --accurate`, which defaults to `auto-scanned` instead of whole-document OCR.
+- `--pdf-ocr auto-scanned` keeps native-text pages on the native route and only OCRs scanned-like pages.
+- Balanced OCR and Balanced PDF OCR require local `tesseract`.
+- Accurate OCR and Accurate PDF OCR require a Paddle-backed bridge configured through `MARKITDOWN_PADDLE_OCR_CMD`.
+- PDF OCR in both modes also requires local `pdftoppm`.
+- Missing dependencies fail closed with install guidance; the product does not silently fall back across OCR providers.
+- This project does not bundle or redistribute `pdftoppm`, `tesseract`, or the Paddle Python runtime.
+
+### MARKITDOWN_PADDLE_OCR_CMD
+
+`MARKITDOWN_PADDLE_OCR_CMD` is an optional runtime hook for the Paddle-backed OCR provider bridge.
+
+- The command is invoked as `<adapter_cmd> <image_path> [--lang <LANG>]`.
+- `markitdown-mb` expects the adapter to print a single JSON object to stdout.
+- Non-zero exit codes are treated as provider execution failures.
+- Zero exit plus malformed JSON is treated as an `output_parse_failed` provider error.
+
+Current payload contract:
+
+```json
+{
+  "provider_name": "paddle_ocr",
+  "provider_version": "3.0.0",
+  "diagnostics": ["adapter=sample"],
+  "pages": [
+    {
+      "page_index": 0,
+      "width": 1000,
+      "height": 2000,
+      "language": "eng",
+      "diagnostics": ["page=0"],
+      "blocks": [
+        {
+          "block_index": 0,
+          "bbox": { "x0": 10, "y0": 20, "x1": 300, "y1": 120 },
+          "confidence": 0.97,
+          "lines": [
+            {
+              "line_index": 0,
+              "text": "MoonBit OCR",
+              "bbox": { "x0": 10, "y0": 20, "x1": 280, "y1": 60 },
+              "confidence": 0.98,
+              "words": [
+                { "word_index": 0, "text": "MoonBit" },
+                { "word_index": 1, "text": "OCR" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+Reference bridge:
+
+```bash
+chmod +x samples/helpers/paddle_ocr_bridge.py
+export MARKITDOWN_PADDLE_OCR_CMD="$PWD/samples/helpers/paddle_ocr_bridge.py"
+```
+
+The sample bridge expects a Python runtime with `paddleocr` installed. If Pillow is available, it also fills `width` and `height`.
 
 ## Fidelity And Output Modes
 
@@ -180,7 +241,7 @@ The current Office product routes stay architecture-stable:
 
 - `odt`, `ods`, `odp`, `docx`, `pptx`, `xlsx` remain package-single-pass parsers by default
 - `--accurate` enables higher-fidelity behavior inside those existing Office routes
-- `pdf` remains native-text by default and switches to OCR layout-two-stage under `--accurate`; explicit `--ocr` remains supported
+- `pdf` remains native-text by default and only enters OCR through `--ocr` / `--pdf-ocr explicit|auto-scanned`
 
 ## Reproducibility Guide
 

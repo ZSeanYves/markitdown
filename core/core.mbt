@@ -301,6 +301,25 @@ pub(all) struct Diagnostics {
   fallback_trace : Array[String]
   pass_trace : Array[String]
   metrics : Map[String, String]
+  dependency_diagnostics : Array[DependencyDiagnostic]
+}
+
+///|
+pub(all) enum DependencyDiagnosticStatus {
+  Missing
+  Available
+  Degraded
+} derive(Eq)
+
+///|
+pub(all) struct DependencyDiagnostic {
+  kind : String
+  title : String
+  summary : String
+  status : DependencyDiagnosticStatus
+  macos_commands : Array[String]
+  ubuntu_commands : Array[String]
+  footer : String?
 }
 
 ///|

@@ -20,6 +20,8 @@ pub fn default_pdf_header_footer_filter_policy() -> PdfHeaderFooterFilterPolicy
 
 pub fn default_pdf_native_runtime_policy() -> PdfNativeRuntimePolicy
 
+pub fn default_pdf_ocr_policy() -> @product.PdfOcrPolicy
+
 pub fn default_pdf_table_reconstruction_policy() -> PdfTableReconstructionPolicy
 
 pub fn disabled_ocr_options(language? : String?) -> OcrOptions
@@ -52,6 +54,8 @@ pub fn parse_context_with_pdf_header_footer_filter_policy(ParseContext, PdfHeade
 
 pub fn parse_context_with_pdf_native_runtime_policy(ParseContext, PdfNativeRuntimePolicy) -> ParseContext
 
+pub fn parse_context_with_pdf_ocr_policy(ParseContext, @product.PdfOcrPolicy) -> ParseContext
+
 pub fn parse_context_with_pdf_table_reconstruction_policy(ParseContext, PdfTableReconstructionPolicy) -> ParseContext
 
 pub fn parse_context_with_product_modes(ParseContext, @product.FidelityMode, @product.OutputMode) -> ParseContext
@@ -73,6 +77,8 @@ pub fn parser_capability(Bool, Bool, Bool) -> ParserCapability
 pub fn pdf_header_footer_filter_policy_name(PdfHeaderFooterFilterPolicy) -> String
 
 pub fn pdf_native_runtime_policy_name(PdfNativeRuntimePolicy) -> String
+
+pub fn pdf_ocr_policy_name(@product.PdfOcrPolicy) -> String
 
 pub fn pdf_table_reconstruction_policy_name(PdfTableReconstructionPolicy) -> String
 
@@ -112,6 +118,7 @@ pub struct ParseContext {
   render_profile : @product.RenderProfile
   accurate_features : @product.AccurateFeatureProfile
   ocr_options : OcrOptions
+  pdf_ocr_policy : @product.PdfOcrPolicy
   pdf_native_runtime_policy : PdfNativeRuntimePolicy
   pdf_header_footer_filter_policy : PdfHeaderFooterFilterPolicy
   pdf_table_reconstruction_policy : PdfTableReconstructionPolicy
@@ -222,6 +229,7 @@ pub(all) enum StreamingGranularity {
 } derive(Eq)
 
 // Type aliases
+pub using @product {type PdfOcrPolicy}
 
 // Traits
 

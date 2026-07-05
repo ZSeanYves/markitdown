@@ -16,6 +16,7 @@ pub fn empty_diagnostics() -> Diagnostics {
     fallback_trace: [],
     pass_trace: [],
     metrics: Map([]),
+    dependency_diagnostics: [],
   }
 }
 
@@ -126,5 +127,39 @@ pub fn diagnostics_add_pass_trace(
 ) -> Diagnostics {
   let next = { ..diagnostics }
   next.pass_trace.push(trace)
+  next
+}
+
+///|
+pub fn dependency_diagnostic_status_name(
+  status : DependencyDiagnosticStatus,
+) -> String {
+  match status {
+    DependencyDiagnosticStatus::Missing => "missing"
+    DependencyDiagnosticStatus::Available => "available"
+    DependencyDiagnosticStatus::Degraded => "degraded"
+  }
+}
+
+///|
+pub fn make_dependency_diagnostic(
+  kind : String,
+  title : String,
+  summary : String,
+  status : DependencyDiagnosticStatus,
+  macos_commands : Array[String],
+  ubuntu_commands : Array[String],
+  footer? : String? = None,
+) -> DependencyDiagnostic {
+  { kind, title, summary, status, macos_commands, ubuntu_commands, footer }
+}
+
+///|
+pub fn diagnostics_add_dependency_diagnostic(
+  diagnostics : Diagnostics,
+  dependency : DependencyDiagnostic,
+) -> Diagnostics {
+  let next = { ..diagnostics }
+  next.dependency_diagnostics.push(dependency)
   next
 }

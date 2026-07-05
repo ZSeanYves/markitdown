@@ -63,6 +63,21 @@ pub fn image_ocr_provider_error_message(
 }
 
 ///|
+fn image_provider_not_configured_error_for_target(
+  target : OcrProviderSelectionTarget,
+) -> OcrProviderError {
+  match resolved_ocr_provider_kind_for_target(target) {
+    OcrProviderKind::Tesseract =>
+      OcrProviderError::NotConfigured(
+        "Tesseract OCR provider is not configured on this runtime.\n\n" +
+        tesseract_ocr_install_hint(),
+      )
+    OcrProviderKind::PaddleOcr =>
+      OcrProviderError::NotConfigured(paddle_ocr_not_configured_message())
+  }
+}
+
+///|
 pub fn image_ocr_disabled_message(format : @input.DetectedFormat) -> String {
   "image input conversion is not enabled for " +
   @input.detected_format_name(format) +
@@ -92,7 +107,10 @@ pub fn image_ocr_parser() -> @parser.Parser {
         context.detected_format,
         options,
         context.requested_mode,
-        run_tesseract_provider,
+        image_ocr_selection_target_for_accuracy(
+          context.accurate_features.features.length() > 0,
+        ),
+        run_ocr_provider,
       )
     },
   )
@@ -106,7 +124,12 @@ pub fn image_ocr_parser_result(
   requested_mode? : @parser.ParserMode? = None,
 ) -> Result[@parser.ParseResult, String] {
   image_ocr_parser_parse(
-    source, detected_format, options, requested_mode, run_tesseract_provider,
+    source,
+    detected_format,
+    options,
+    requested_mode,
+    OcrProviderSelectionTarget::DirectImageBalanced,
+    run_ocr_provider,
   )
 }
 
@@ -119,7 +142,26 @@ pub fn image_ocr_parser_result_with_provider(
   requested_mode? : @parser.ParserMode? = None,
 ) -> Result[@parser.ParseResult, String] {
   image_ocr_parser_parse(
-    source, detected_format, options, requested_mode, provider,
+    source,
+    detected_format,
+    options,
+    requested_mode,
+    OcrProviderSelectionTarget::DirectImageBalanced,
+    provider,
+  )
+}
+
+///|
+pub fn image_ocr_parser_result_with_provider_target(
+  source : @input.InputSource,
+  detected_format : @input.DetectedFormat,
+  options : @parser.OcrOptions,
+  target : OcrProviderSelectionTarget,
+  provider : (OcrProviderRequest) -> Result[OcrProviderResult, OcrProviderError],
+  requested_mode? : @parser.ParserMode? = None,
+) -> Result[@parser.ParseResult, String] {
+  image_ocr_parser_parse(
+    source, detected_format, options, requested_mode, target, provider,
   )
 }
 
@@ -135,7 +177,29 @@ pub async fn image_ocr_parser_result_with_async_provider(
   requested_mode? : @parser.ParserMode? = None,
 ) -> Result[@parser.ParseResult, String] {
   image_ocr_parser_parse_async(
-    source, detected_format, options, requested_mode, provider,
+    source,
+    detected_format,
+    options,
+    requested_mode,
+    OcrProviderSelectionTarget::DirectImageBalanced,
+    provider,
+  )
+}
+
+///|
+pub async fn image_ocr_parser_result_with_async_provider_target(
+  source : @input.InputSource,
+  detected_format : @input.DetectedFormat,
+  options : @parser.OcrOptions,
+  target : OcrProviderSelectionTarget,
+  provider : async (OcrProviderRequest) -> Result[
+    OcrProviderResult,
+    OcrProviderError,
+  ],
+  requested_mode? : @parser.ParserMode? = None,
+) -> Result[@parser.ParseResult, String] {
+  image_ocr_parser_parse_async(
+    source, detected_format, options, requested_mode, target, provider,
   )
 }
 
@@ -146,18 +210,30 @@ pub fn image_ocr_fail_closed_diagnostics(
   options : @parser.OcrOptions,
   requested_mode? : @parser.ParserMode? = None,
 ) -> @core.Diagnostics {
+  image_ocr_fail_closed_diagnostics_for_target(
+    source,
+    detected_format,
+    options,
+    OcrProviderSelectionTarget::DirectImageBalanced,
+    requested_mode~,
+  )
+}
+
+///|
+pub fn image_ocr_fail_closed_diagnostics_for_target(
+  source : @input.InputSource,
+  detected_format : @input.DetectedFormat,
+  options : @parser.OcrOptions,
+  target : OcrProviderSelectionTarget,
+  requested_mode? : @parser.ParserMode? = None,
+) -> @core.Diagnostics {
   image_ocr_parser_diagnostics(
     source,
     detected_format,
     options,
     requested_mode,
-    fn(_request) {
-      Err(
-        OcrProviderError::NotConfigured(
-          "Tesseract OCR provider is not configured on the this runtime.",
-        ),
-      )
-    },
+    target,
+    fn(_request) { Err(image_provider_not_configured_error_for_target(target)) },
   )
 }
 
@@ -167,6 +243,7 @@ fn image_ocr_parser_parse(
   detected_format : @input.DetectedFormat,
   options : @parser.OcrOptions,
   _requested_mode : @parser.ParserMode?,
+  target : OcrProviderSelectionTarget,
   provider : (OcrProviderRequest) -> Result[OcrProviderResult, OcrProviderError],
 ) -> Result[@parser.ParseResult, String] {
   if !@input.detected_format_is_image_candidate(detected_format) {
@@ -177,9 +254,10 @@ fn image_ocr_parser_parse(
   }
   match options.intent {
     @parser.OcrIntent::Explicit => {
+      let provider_kind = resolved_ocr_provider_kind_for_target(target)
       let request = make_ocr_provider_request(
         image_source_path(source),
-        OcrProviderKind::Tesseract,
+        provider_kind,
         language=options.language,
       )
       match provider(request) {
@@ -196,7 +274,11 @@ fn image_ocr_parser_parse(
           } else {
             Ok(
               image_ocr_parse_result_from_provider_result(
-                source, detected_format, options, result,
+                source,
+                detected_format,
+                options,
+                result,
+                target~,
               ),
             )
           }
@@ -217,6 +299,7 @@ async fn image_ocr_parser_parse_async(
   detected_format : @input.DetectedFormat,
   options : @parser.OcrOptions,
   _requested_mode : @parser.ParserMode?,
+  target : OcrProviderSelectionTarget,
   provider : async (OcrProviderRequest) -> Result[
     OcrProviderResult,
     OcrProviderError,
@@ -230,9 +313,10 @@ async fn image_ocr_parser_parse_async(
   }
   match options.intent {
     @parser.OcrIntent::Explicit => {
+      let provider_kind = resolved_ocr_provider_kind_for_target(target)
       let request = make_ocr_provider_request(
         image_source_path(source),
-        OcrProviderKind::Tesseract,
+        provider_kind,
         language=options.language,
       )
       match provider(request) {
@@ -249,7 +333,11 @@ async fn image_ocr_parser_parse_async(
           } else {
             Ok(
               image_ocr_parse_result_from_provider_result(
-                source, detected_format, options, result,
+                source,
+                detected_format,
+                options,
+                result,
+                target~,
               ),
             )
           }
@@ -270,16 +358,18 @@ fn image_ocr_parser_diagnostics(
   detected_format : @input.DetectedFormat,
   options : @parser.OcrOptions,
   requested_mode : @parser.ParserMode?,
+  target : OcrProviderSelectionTarget,
   provider : (OcrProviderRequest) -> Result[OcrProviderResult, OcrProviderError],
 ) -> @core.Diagnostics {
   let diagnostics = image_ocr_base_diagnostics(
-    source, detected_format, options, requested_mode,
+    source, detected_format, options, requested_mode, target,
   )
   match options.intent {
     @parser.OcrIntent::Explicit => {
+      let provider_kind = resolved_ocr_provider_kind_for_target(target)
       let request = make_ocr_provider_request(
         image_source_path(source),
-        OcrProviderKind::Tesseract,
+        provider_kind,
         language=options.language,
       )
       diagnostics.metrics.set(
@@ -290,6 +380,7 @@ fn image_ocr_parser_diagnostics(
         "ocr_provider_request_language",
         ocr_provider_language_label(request.language),
       )
+      image_ocr_record_provider_resolution(diagnostics, target)
       match provider(request) {
         Ok(result) =>
           if result.pages.length() == 0 {
@@ -334,6 +425,17 @@ fn image_ocr_parser_diagnostics(
             "ocr_provider_status",
             ocr_provider_status_name(ocr_provider_error_status(error)),
           )
+          match error {
+            OcrProviderError::NotConfigured(_) =>
+              diagnostics.dependency_diagnostics.push(
+                ocr_dependency_diagnostic_for_target(target),
+              )
+            OcrProviderError::CommandUnavailable(_) =>
+              diagnostics.dependency_diagnostics.push(
+                ocr_dependency_diagnostic_for_target(target),
+              )
+            _ => ()
+          }
           diagnostics.warnings.push(
             image_ocr_provider_error_message(detected_format, error),
           )
@@ -430,6 +532,7 @@ fn image_ocr_parse_result_from_provider_result(
   detected_format : @input.DetectedFormat,
   options : @parser.OcrOptions,
   result : OcrProviderResult,
+  target? : OcrProviderSelectionTarget = OcrProviderSelectionTarget::DirectImageBalanced,
 ) -> @parser.ParseResult {
   ocr_parse_result_from_provider_result(
     "image_ocr_parser",
@@ -438,7 +541,16 @@ fn image_ocr_parse_result_from_provider_result(
     detected_format,
     options,
     result,
-    image_ocr_success_diagnostics,
+    (source, detected_format, options, result, block_count) => {
+      image_ocr_success_diagnostics(
+        source,
+        detected_format,
+        options,
+        result,
+        block_count,
+        target~,
+      )
+    },
   )
 }
 
@@ -1374,12 +1486,14 @@ fn image_ocr_success_diagnostics(
   options : @parser.OcrOptions,
   result : OcrProviderResult,
   block_count : Int,
+  target? : OcrProviderSelectionTarget = OcrProviderSelectionTarget::DirectImageBalanced,
 ) -> @core.Diagnostics {
   let diagnostics = image_ocr_base_diagnostics(
     source,
     detected_format,
     options,
     Some(@parser.ParserMode::LayoutTwoStage),
+    target,
   )
   diagnostics.metrics.set("ocr_provider_wired", "true")
   diagnostics.metrics.set("provider_invoked", "true")
@@ -1411,9 +1525,10 @@ fn image_ocr_base_diagnostics(
   detected_format : @input.DetectedFormat,
   options : @parser.OcrOptions,
   requested_mode : @parser.ParserMode?,
+  target : OcrProviderSelectionTarget,
 ) -> @core.Diagnostics {
   ocr_base_diagnostics(
-    "image_ocr_parser", source, detected_format, options, requested_mode,
+    "image_ocr_parser", source, detected_format, options, requested_mode, target,
   )
 }
 
@@ -1424,6 +1539,7 @@ pub fn ocr_base_diagnostics(
   detected_format : @input.DetectedFormat,
   options : @parser.OcrOptions,
   requested_mode : @parser.ParserMode?,
+  target : OcrProviderSelectionTarget,
 ) -> @core.Diagnostics {
   let diagnostics = @core.diagnostics_with_input(
     @core.diagnostics_with_parser(
@@ -1442,7 +1558,18 @@ pub fn ocr_base_diagnostics(
   )
   diagnostics.metrics.set("ocr_candidate", "true")
   diagnostics.metrics.set("ocr_provider_wired", "false")
-  diagnostics.metrics.set("ocr_provider_kind", "tesseract")
+  diagnostics.metrics.set(
+    "ocr_provider_requested_kind",
+    ocr_provider_kind_name(default_ocr_provider_kind_for_target(target)),
+  )
+  diagnostics.metrics.set(
+    "ocr_provider_kind",
+    ocr_provider_kind_name(resolved_ocr_provider_kind_for_target(target)),
+  )
+  diagnostics.metrics.set(
+    "ocr_provider_selection_target",
+    ocr_provider_selection_target_name(target),
+  )
   diagnostics.metrics.set("ocr_intent", @parser.ocr_intent_name(options.intent))
   diagnostics.metrics.set(
     "ocr_explicit_requested",
@@ -1483,7 +1610,28 @@ pub fn ocr_base_diagnostics(
       @parser.OcrIntent::Auto => "fail_closed"
     },
   )
+  image_ocr_record_provider_resolution(diagnostics, target)
   diagnostics
+}
+
+///|
+pub fn image_ocr_selection_target_for_accuracy(
+  accurate_enabled : Bool,
+) -> OcrProviderSelectionTarget {
+  if accurate_enabled {
+    OcrProviderSelectionTarget::DirectImageAccurate
+  } else {
+    OcrProviderSelectionTarget::DirectImageBalanced
+  }
+}
+
+///|
+fn image_ocr_record_provider_resolution(
+  diagnostics : @core.Diagnostics,
+  target : OcrProviderSelectionTarget,
+) -> Unit {
+  ignore(diagnostics)
+  ignore(target)
 }
 
 ///|

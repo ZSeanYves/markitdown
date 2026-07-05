@@ -2,10 +2,14 @@
 package "ZSeanYves/markitdown/formats/ods"
 
 import {
+  "ZSeanYves/markitdown/format_readers/odf/shared",
+  "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
 }
 
 // Values
+pub fn ods_parse_with_open_document(@input.InputSource, @parser.ParseContext, @shared.OdsDocument, @shared.OdsInspectReport) -> @parser.ParseResult
+
 pub fn ods_parser() -> @parser.Parser
 
 pub fn ods_parser_capability() -> @parser.ParserCapability

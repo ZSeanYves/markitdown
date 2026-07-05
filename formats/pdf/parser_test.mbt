@@ -566,9 +566,12 @@ test "pdf native parser internal policy stays disabled by default and does not c
 ///|
 fn sample_pdf_ocr_context() -> @parser.ParseContext {
   @parser.parse_context_with_limits(
-    @parser.parse_context_with_ocr_options(
-      @parser.new_parse_context(@input.DetectedFormat::Pdf),
-      @parser.explicit_ocr_options(language=Some("eng")),
+    @parser.parse_context_with_pdf_ocr_policy(
+      @parser.parse_context_with_ocr_options(
+        @parser.new_parse_context(@input.DetectedFormat::Pdf),
+        @parser.explicit_ocr_options(language=Some("eng")),
+      ),
+      @parser.PdfOcrPolicy::Explicit,
     ),
     Some(@parser.ParserMode::LayoutTwoStage),
     None,
@@ -582,13 +585,16 @@ fn sample_pdf_ocr_context() -> @parser.ParseContext {
 ///|
 fn sample_pdf_accurate_ocr_context() -> @parser.ParseContext {
   @parser.parse_context_with_limits(
-    @parser.parse_context_with_product_modes(
-      @parser.parse_context_with_ocr_options(
-        @parser.new_parse_context(@input.DetectedFormat::Pdf),
-        @parser.default_ocr_options(),
+    @parser.parse_context_with_pdf_ocr_policy(
+      @parser.parse_context_with_product_modes(
+        @parser.parse_context_with_ocr_options(
+          @parser.new_parse_context(@input.DetectedFormat::Pdf),
+          @parser.default_ocr_options(),
+        ),
+        @product.FidelityMode::Accurate,
+        @product.OutputMode::Markdown,
       ),
-      @product.FidelityMode::Accurate,
-      @product.OutputMode::Markdown,
+      @parser.PdfOcrPolicy::AutoScanned,
     ),
     Some(@parser.ParserMode::LayoutTwoStage),
     None,
@@ -661,12 +667,13 @@ fn fake_pdf_ocr_page(language : String?, label : String) -> @focr.OcrPageModel {
 ///|
 fn fake_pdf_ocr_provider(
   expected_language : String?,
+  expected_provider_kind? : @focr.OcrProviderKind = @focr.OcrProviderKind::Tesseract,
 ) -> (@focr.OcrProviderRequest) -> Result[
   @focr.OcrProviderResult,
   @focr.OcrProviderError,
 ] {
   fn(request : @focr.OcrProviderRequest) {
-    if request.provider_kind != @focr.OcrProviderKind::Tesseract {
+    if request.provider_kind != expected_provider_kind {
       abort("unexpected PDF OCR provider kind")
     }
     if request.language != expected_language {
@@ -680,7 +687,7 @@ fn fake_pdf_ocr_provider(
     Ok(
       @focr.make_ocr_provider_result(
         [fake_pdf_ocr_page(request.language, label)],
-        "tesseract",
+        @focr.ocr_provider_kind_name(request.provider_kind),
       ),
     )
   }
@@ -812,7 +819,7 @@ test "pdf OCR route aggregates multi-page scanned samples without native-text fa
 }
 
 ///|
-test "pdf OCR parser accepts accurate fidelity as the formal product entry" {
+test "pdf OCR parser requires explicit pdf OCR policy even under accurate fidelity" {
   let source = @input.input_from_path_with_format(
     "samples/fixtures/contracts/pdf/pdf_ocr_single_page.pdf",
     Some(@input.DetectedFormat::Pdf),
@@ -821,11 +828,15 @@ test "pdf OCR parser accepts accurate fidelity as the formal product entry" {
     pdf_ocr_parser_result(
       source,
       sample_pdf_accurate_ocr_context(),
-      image_ocr_provider=fake_pdf_ocr_provider(None),
+      image_ocr_provider=fake_pdf_ocr_provider(
+        None,
+        expected_provider_kind=@focr.OcrProviderKind::PaddleOcr,
+      ),
       rasterizer=fake_pdf_rasterizer(1),
     ) {
     Ok(value) => value
-    Err(err) => fail("expected accurate pdf OCR parser success: " + err)
+    Err(err) =>
+      fail("expected explicit pdf OCR policy to override accurate gate: " + err)
   }
   assert_true(parsed.mode == @parser.ParserMode::LayoutTwoStage)
   let document = parsed.document.unwrap_or(@core.empty_document_ir())
@@ -835,6 +846,23 @@ test "pdf OCR parser accepts accurate fidelity as the formal product entry" {
   assert_true(document.diagnostics.metrics.get("pdf_ocr_used") == Some("true"))
   assert_true(
     document.diagnostics.metrics.get("pdf_raster_backend") == Some("pdftoppm"),
+  )
+  assert_true(
+    document.diagnostics.metrics.get("ocr_provider_selection_target") ==
+    Some("pdf_accurate"),
+  )
+  assert_true(
+    document.diagnostics.metrics.get("ocr_provider_requested_kind") ==
+    Some("paddle_ocr"),
+  )
+  assert_true(
+    document.diagnostics.metrics.get("ocr_provider_kind") == Some("paddle_ocr"),
+  )
+  assert_true(
+    document.diagnostics.metrics.get("pdf_ocr_policy") == Some("auto_scanned"),
+  )
+  assert_true(
+    document.diagnostics.metrics.get("pdf_ocr_trigger") == Some("auto_scanned"),
   )
 }
 

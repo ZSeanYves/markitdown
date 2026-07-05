@@ -11,6 +11,7 @@ pub struct CliOptions {
   provenance_output : String?
   explicit_format : @input.DetectedFormat?
   ocr_options : @parser.OcrOptions
+  pdf_ocr_policy : @convert.PdfOcrPolicy
   fidelity_mode : @convert.FidelityMode
   convert_mode : @convert.ConvertMode
   output_mode : @convert.OutputMode
@@ -19,6 +20,60 @@ pub struct CliOptions {
   pdf_cleanup_mode : @convert.PdfCleanupMode
   pdf_table_mode : @convert.PdfTableMode
   rag_options : @rag.RagOptions
+}
+
+///|
+pub(all) enum BatchTaskStatus {
+  Success
+  Failed
+  Skipped
+} derive(Eq)
+
+///|
+struct BatchTaskResult {
+  input_path : String
+  relative_path : String
+  status : BatchTaskStatus
+  detected_format : String
+  convert_mode : String
+  fidelity_mode : String
+  output_mode : String
+  output_path : String?
+  selected_route : String?
+  parser_mode : String?
+  route_reason : String?
+  warning_count : Int
+  degraded_features : Array[String]
+  error : String?
+}
+
+///|
+fn batch_task_status_name(status : BatchTaskStatus) -> String {
+  match status {
+    BatchTaskStatus::Success => "success"
+    BatchTaskStatus::Failed => "failed"
+    BatchTaskStatus::Skipped => "skipped"
+  }
+}
+
+///|
+fn batch_task_result_to_json(entry : BatchTaskResult) -> Json {
+  Json::object({
+    "input_path": entry.input_path.to_json(),
+    "relative_path": entry.relative_path.to_json(),
+    "status": batch_task_status_name(entry.status).to_json(),
+    "detected_format": entry.detected_format.to_json(),
+    "convert_mode": entry.convert_mode.to_json(),
+    "fidelity_mode": entry.fidelity_mode.to_json(),
+    "output_mode": entry.output_mode.to_json(),
+    "output_path": entry.output_path.to_json(),
+    "selected_route": entry.selected_route.to_json(),
+    "parser_mode": entry.parser_mode.to_json(),
+    "route_reason": entry.route_reason.to_json(),
+    "warning_count": entry.warning_count.to_json(),
+    "degraded_features": entry.degraded_features.to_json(),
+    "error": entry.error.to_json(),
+  })
 }
 
 ///|
@@ -73,7 +128,12 @@ fn print_cli_usage() -> Unit {
   println(
     "  " +
     cli_product_name() +
-    " [convert|normal] [--format txt|csv|tsv|srt|vtt|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|eml|tex|latex|rst|adoc|asciidoc|zip|epub|odt|ods|odp|docx|xlsx|pptx|pdf|png|jpg|jpeg|bmp|webp|tif|tiff] [--accurate] [--stream] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]",
+    " [convert|normal] [--format txt|csv|tsv|srt|vtt|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|eml|tex|latex|rst|adoc|asciidoc|zip|epub|odt|ods|odp|docx|xlsx|pptx|pdf|png|jpg|jpeg|bmp|webp|tif|tiff] [--accurate] [--stream] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-ocr explicit|auto-scanned] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]",
+  )
+  println(
+    "  " +
+    cli_product_name() +
+    " batch [--format txt|csv|tsv|srt|vtt|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|eml|tex|latex|rst|adoc|asciidoc|zip|epub|odt|ods|odp|docx|xlsx|pptx|pdf|png|jpg|jpeg|bmp|webp|tif|tiff] [--accurate] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-ocr explicit|auto-scanned] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] <input> <output_dir>",
   )
   println("  " + cli_product_name() + " help | --help | -h")
   println("  " + cli_product_name() + " version | --version")
@@ -93,7 +153,10 @@ fn print_cli_usage() -> Unit {
     "`--rag` switches the output view to chunked retrieval JSON with the default internal chunking policy.",
   )
   println(
-    "Direct image input uses local Tesseract OCR by default; `--no-ocr` disables it. `pdf --accurate` automatically enters the current OCR-only PDF path, while explicit `pdf --ocr` remains supported; both use local `pdftoppm` + Tesseract and require local installation.",
+    "Direct image input uses local Tesseract OCR by default; `--no-ocr` disables it. PDF OCR is controlled by `--pdf-ocr explicit|auto-scanned`; `--ocr` remains a compatibility alias for `pdf --pdf-ocr explicit`. `pdf --accurate` defaults to `auto-scanned` and enters the Paddle-backed OCR route only when scanned-like probe evidence upgrades the PDF.",
+  )
+  println(
+    "Optional Paddle runtime bridging for OCR providers is configured through `MARKITDOWN_PADDLE_OCR_CMD`; the adapter command receives `<image_path> [--lang <LANG>]` and must print the JSON payload expected by the current OCR provider bridge.",
   )
   println(
     "PDF cleanup and simple table reconstruction are explicit opt-in product options for native-text PDFs; current defaults stay conservative and disabled.",
@@ -111,6 +174,7 @@ fn cli_fail_closed_format_message(
   format : @input.DetectedFormat,
   label : String,
   ocr_options : @parser.OcrOptions,
+  fidelity_mode : @convert.FidelityMode,
 ) -> String {
   if format == @input.DetectedFormat::Pdf {
     cli_unsupported_format_message(label) +
@@ -119,7 +183,9 @@ fn cli_fail_closed_format_message(
   } else if @input.detected_format_is_image_candidate(format) {
     let detail = match ocr_options.intent {
       @parser.OcrIntent::Explicit =>
-        cli_image_explicit_ocr_message(input_path, format, ocr_options)
+        cli_image_explicit_ocr_message(
+          input_path, format, ocr_options, fidelity_mode,
+        )
       @parser.OcrIntent::Disabled => @focr.image_ocr_disabled_message(format)
       @parser.OcrIntent::Auto =>
         @focr.image_requires_explicit_ocr_message(format)
@@ -135,13 +201,17 @@ fn cli_image_explicit_ocr_message(
   input_path : String,
   format : @input.DetectedFormat,
   ocr_options : @parser.OcrOptions,
+  fidelity_mode : @convert.FidelityMode,
 ) -> String {
+  let target = @focr.image_ocr_selection_target_for_accuracy(
+    fidelity_mode == @convert.FidelityMode::Accurate,
+  )
   let request = @focr.make_ocr_provider_request(
     input_path,
-    @focr.OcrProviderKind::Tesseract,
+    @focr.resolved_ocr_provider_kind_for_target(target),
     language=ocr_options.language,
   )
-  match @focr.run_tesseract_provider(request) {
+  match @focr.run_ocr_provider(request) {
     Ok(result) =>
       if result.pages.length() == 0 {
         @focr.image_ocr_provider_error_message(
@@ -248,6 +318,7 @@ fn cli_default_ocr_options(
 fn cli_effective_ocr_options(
   input_path : String,
   explicit_format : @input.DetectedFormat?,
+  pdf_ocr_policy : @convert.PdfOcrPolicy,
   fidelity_mode : @convert.FidelityMode,
   ocr_enabled : Bool,
   ocr_disabled : Bool,
@@ -266,7 +337,10 @@ fn cli_effective_ocr_options(
     return @parser.explicit_ocr_options(language=ocr_language)
   }
   if requested_format == @input.DetectedFormat::Pdf &&
-    fidelity_mode == @convert.FidelityMode::Accurate {
+    (
+      pdf_ocr_policy != @convert.PdfOcrPolicy::Disabled ||
+      fidelity_mode == @convert.FidelityMode::Accurate
+    ) {
     return @parser.explicit_ocr_options(language=ocr_language)
   }
   match cli_default_ocr_options(input_path, explicit_format).intent {
@@ -278,12 +352,43 @@ fn cli_effective_ocr_options(
 }
 
 ///|
+fn cli_effective_pdf_ocr_policy(
+  input_path : String,
+  explicit_format : @input.DetectedFormat?,
+  ocr_enabled : Bool,
+  ocr_disabled : Bool,
+  fidelity_mode : @convert.FidelityMode,
+  pdf_ocr_policy : @convert.PdfOcrPolicy,
+) -> @convert.PdfOcrPolicy {
+  let requested_format = cli_requested_format_from_input(
+    input_path, explicit_format,
+  )
+  if requested_format != @input.DetectedFormat::Pdf {
+    return @convert.default_pdf_ocr_policy()
+  }
+  if ocr_disabled {
+    return @convert.PdfOcrPolicy::Disabled
+  }
+  if pdf_ocr_policy != @convert.PdfOcrPolicy::Disabled {
+    return pdf_ocr_policy
+  }
+  if fidelity_mode == @convert.FidelityMode::Accurate {
+    return @convert.PdfOcrPolicy::AutoScanned
+  }
+  if ocr_enabled {
+    return @convert.PdfOcrPolicy::Explicit
+  }
+  @convert.PdfOcrPolicy::Disabled
+}
+
+///|
 pub fn make_cli_options(
   input : String,
   output : String?,
   provenance_output : String?,
   explicit_format : @input.DetectedFormat?,
   ocr_options : @parser.OcrOptions,
+  pdf_ocr_policy : @convert.PdfOcrPolicy,
   fidelity_mode : @convert.FidelityMode,
   convert_mode : @convert.ConvertMode,
   output_mode : @convert.OutputMode,
@@ -299,6 +404,7 @@ pub fn make_cli_options(
     provenance_output,
     explicit_format,
     ocr_options,
+    pdf_ocr_policy,
     fidelity_mode,
     convert_mode,
     output_mode,
@@ -312,14 +418,12 @@ pub fn make_cli_options(
 
 ///|
 pub fn run_cli(opts : CliOptions) -> Result[String, String] {
-  run_cli_with_image_ocr_provider(opts, @focr.run_tesseract_provider)
+  run_cli_with_image_ocr_provider(opts, @focr.run_ocr_provider)
 }
 
 ///|
 pub async fn run_cli_async(opts : CliOptions) -> Result[String, String] {
-  run_cli_with_async_image_ocr_provider(
-    opts, @focr.run_tesseract_provider_async,
-  )
+  run_cli_with_async_image_ocr_provider(opts, @focr.run_ocr_provider_async)
 }
 
 ///|
@@ -338,6 +442,7 @@ pub fn run_cli_with_image_ocr_provider(
         requested_format,
         cli_requested_format_label(opts),
         opts.ocr_options,
+        opts.fidelity_mode,
       ),
     )
   }
@@ -350,6 +455,7 @@ pub fn run_cli_with_image_ocr_provider(
     fidelity_mode=opts.fidelity_mode,
     output_mode=opts.output_mode,
     stream_requested=opts.stream_requested,
+    pdf_ocr_policy=opts.pdf_ocr_policy,
     pdf_cleanup_mode=opts.pdf_cleanup_mode,
     pdf_table_mode=opts.pdf_table_mode,
     rag_options=opts.rag_options,
@@ -386,6 +492,7 @@ pub async fn run_cli_with_async_image_ocr_provider(
         requested_format,
         cli_requested_format_label(opts),
         opts.ocr_options,
+        opts.fidelity_mode,
       ),
     )
   }
@@ -398,6 +505,7 @@ pub async fn run_cli_with_async_image_ocr_provider(
     fidelity_mode=opts.fidelity_mode,
     output_mode=opts.output_mode,
     stream_requested=opts.stream_requested,
+    pdf_ocr_policy=opts.pdf_ocr_policy,
     pdf_cleanup_mode=opts.pdf_cleanup_mode,
     pdf_table_mode=opts.pdf_table_mode,
     rag_options=opts.rag_options,
@@ -409,10 +517,7 @@ pub async fn run_cli_with_async_image_ocr_provider(
   let execution = if allow_image_ocr ||
     (
       requested_format == @input.DetectedFormat::Pdf &&
-      (
-        opts.fidelity_mode == @product.FidelityMode::Accurate ||
-        opts.ocr_options.intent == @parser.OcrIntent::Explicit
-      )
+      opts.pdf_ocr_policy != @convert.PdfOcrPolicy::Disabled
     ) {
     let async_result = @convert.convert_input_with_provenance_and_image_ocr_provider_async(
       @input.input_from_path(opts.input),
@@ -501,6 +606,11 @@ fn is_convert_subcommand(name : String) -> Bool {
 }
 
 ///|
+fn is_batch_subcommand(name : String) -> Bool {
+  name == "batch"
+}
+
+///|
 pub fn run_cli_app(raw_cli_args : Array[String]) -> Int {
   let first = match first_user_cli_arg(raw_cli_args) {
     Some(value) => value.to_lower()
@@ -518,9 +628,6 @@ pub fn run_cli_app(raw_cli_args : Array[String]) -> Int {
   if first == "version" || first == "--version" {
     print_cli_version()
     return 0
-  }
-  if first == "batch" {
-    return exit_cli_error("unsupported subcommand in this build: batch", true)
   }
   if first == "debug" {
     return exit_cli_error(
@@ -542,6 +649,9 @@ pub fn run_cli_app(raw_cli_args : Array[String]) -> Int {
     print_cli_help()
     print_cli_usage()
     return 0
+  }
+  if is_batch_subcommand(first) {
+    return run_batch_cli_app(cli_args)
   }
   let parsed = if is_convert_subcommand(first) {
     parse_cli_options_from_index(cli_args, 1)
@@ -658,6 +768,7 @@ fn parse_cli_options_from_index(
   let mut ocr_enabled = false
   let mut ocr_disabled = false
   let mut ocr_language : String? = None
+  let mut pdf_ocr_raw : String? = None
   let mut pdf_cleanup_raw : String? = None
   let mut pdf_tables_raw : String? = None
   let mut fidelity_mode = @convert.FidelityMode::Balanced
@@ -753,6 +864,18 @@ fn parse_cli_options_from_index(
       i += 2
       continue
     }
+    if arg == "--pdf-ocr" {
+      if i + 1 >= args.length() {
+        return Err("missing value for --pdf-ocr")
+      }
+      let value = args[i + 1].trim().to_owned().to_lower()
+      if value == "" || value.has_prefix("-") {
+        return Err("missing value for --pdf-ocr")
+      }
+      pdf_ocr_raw = Some(value)
+      i += 2
+      continue
+    }
     if arg == "--pdf-cleanup" {
       if i + 1 >= args.length() {
         return Err("missing value for --pdf-cleanup")
@@ -801,7 +924,7 @@ fn parse_cli_options_from_index(
   }
   if positionals.length() < 1 || positionals.length() > 2 {
     return Err(
-      "usage: [convert|normal] [--format txt|csv|tsv|srt|vtt|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|eml|tex|latex|rst|adoc|asciidoc|zip|epub|odt|ods|odp|docx|xlsx|pptx|pdf|png|jpg|jpeg|bmp|webp|tif|tiff] [--accurate] [--stream] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]",
+      "usage: [convert|normal] [--format txt|csv|tsv|srt|vtt|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|eml|tex|latex|rst|adoc|asciidoc|zip|epub|odt|ods|odp|docx|xlsx|pptx|pdf|png|jpg|jpeg|bmp|webp|tif|tiff] [--accurate] [--stream] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-ocr explicit|auto-scanned] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]",
     )
   }
   let effective_positionals = positionals
@@ -813,18 +936,31 @@ fn parse_cli_options_from_index(
     effective_positionals[0],
     explicit_format,
   )
+  let parsed_pdf_ocr_policy = match parse_pdf_ocr_policy(pdf_ocr_raw) {
+    Ok(value) => value
+    Err(msg) => return Err(msg)
+  }
+  let effective_pdf_ocr_policy = cli_effective_pdf_ocr_policy(
+    effective_positionals[0],
+    explicit_format,
+    ocr_enabled,
+    ocr_disabled,
+    fidelity_mode,
+    parsed_pdf_ocr_policy,
+  )
   if ocr_language is Some(_) &&
     !ocr_enabled &&
     !@input.detected_format_is_image_candidate(requested_format) &&
     !(requested_format == @input.DetectedFormat::Pdf &&
-    fidelity_mode == @convert.FidelityMode::Accurate) {
+    effective_pdf_ocr_policy != @convert.PdfOcrPolicy::Disabled) {
     return Err(
-      "--ocr-lang requires --ocr, Accurate-mode PDF input, or direct image input",
+      "--ocr-lang requires --ocr, direct image input, or PDF OCR via `--ocr` / `--pdf-ocr`",
     )
   }
   let ocr_options = cli_effective_ocr_options(
     effective_positionals[0],
     explicit_format,
+    effective_pdf_ocr_policy,
     fidelity_mode,
     ocr_enabled,
     ocr_disabled,
@@ -850,6 +986,7 @@ fn parse_cli_options_from_index(
       provenance_output,
       explicit_format,
       ocr_options,
+      effective_pdf_ocr_policy,
       fidelity_mode,
       convert_mode,
       output_mode,
@@ -860,6 +997,25 @@ fn parse_cli_options_from_index(
       rag_options=@rag.default_rag_options(),
     ),
   )
+}
+
+///|
+fn parse_pdf_ocr_policy(raw : String?) -> Result[@convert.PdfOcrPolicy, String] {
+  match raw {
+    None => Ok(@convert.default_pdf_ocr_policy())
+    Some(value) =>
+      if value == "explicit" {
+        Ok(@convert.PdfOcrPolicy::Explicit)
+      } else if value == "auto-scanned" {
+        Ok(@convert.PdfOcrPolicy::AutoScanned)
+      } else {
+        Err(
+          "unsupported --pdf-ocr value: " +
+          value +
+          " (expected explicit|auto-scanned)",
+        )
+      }
+  }
 }
 
 ///|
@@ -926,6 +1082,266 @@ fn persist_cli_provenance(
       )
     }
     None => ()
+  }
+}
+
+///|
+fn run_batch_cli_app(cli_args : Array[String]) -> Int {
+  let parsed = parse_batch_cli_options(cli_args, 1)
+  let (opts, output_dir) = match parsed {
+    Ok(value) => value
+    Err(msg) => return exit_cli_error(msg, true)
+  }
+  let input_path = opts.input
+  let tasks = if fs_is_dir(input_path) {
+    collect_batch_input_paths(input_path, input_path)
+  } else if @fs.path_exists(input_path) {
+    [input_path]
+  } else {
+    return exit_cli_error("batch input path not found: " + input_path, false)
+  }
+  ensure_dir_tree(output_dir) catch {
+    err =>
+      return exit_cli_error(
+        "create batch output dir failed: " + err.to_string(),
+        false,
+      )
+  }
+  let results : Array[BatchTaskResult] = []
+  for task_input in tasks {
+    let relative_path = batch_relative_path(input_path, task_input)
+    let result = run_single_batch_task(
+      opts, output_dir, task_input, relative_path,
+    )
+    results.push(result)
+  }
+  let manifest_path = output_dir + "/manifest.json"
+  let manifest = Json::object({
+    "task_count": results.length().to_json(),
+    "results": results.map(batch_task_result_to_json).to_json(),
+  })
+  @fs.write_string_to_file(
+    manifest_path,
+    manifest.stringify(indent=2) + "\n",
+    encoding="utf8",
+  ) catch {
+    err =>
+      return exit_cli_error(
+        "write batch manifest failed: " + err.to_string(),
+        false,
+      )
+  }
+  0
+}
+
+///|
+fn parse_batch_cli_options(
+  args : Array[String],
+  start_index : Int,
+) -> Result[(CliOptions, String), String] {
+  let parsed = parse_cli_options_from_index(args, start_index)
+  let opts = match parsed {
+    Ok(value) => value
+    Err(msg) => return Err(msg)
+  }
+  if opts.output is None {
+    return Err("batch requires <input> <output_dir>")
+  }
+  match opts.output {
+    Some(output_dir) => Ok(({ ..opts, output: None }, output_dir))
+    None => Err("batch requires <input> <output_dir>")
+  }
+}
+
+///|
+fn collect_batch_input_paths(root : String, path : String) -> Array[String] {
+  ignore(root)
+  if fs_is_file(path) {
+    return [path]
+  }
+  let collected : Array[String] = []
+  for name in fs_read_dir(path) {
+    let child = join_dir_path(path, name)
+    if fs_is_dir(child) {
+      collected.append(collect_batch_input_paths(root, child)[:])
+    } else if fs_is_file(child) {
+      collected.push(child)
+    }
+  }
+  collected
+}
+
+///|
+fn batch_relative_path(root_input : String, path : String) -> String {
+  if root_input == path {
+    return basename_of_path(path)
+  }
+  if !fs_is_dir(root_input) {
+    return basename_of_path(path)
+  }
+  let prefix = if root_input.has_suffix("/") {
+    root_input
+  } else {
+    root_input + "/"
+  }
+  if path.has_prefix(prefix) {
+    path[prefix.length():].to_owned()
+  } else {
+    basename_of_path(path)
+  }
+}
+
+///|
+fn fs_is_dir(path : String) -> Bool {
+  @fs.is_dir(path) catch {
+    _ => false
+  }
+}
+
+///|
+fn fs_is_file(path : String) -> Bool {
+  @fs.is_file(path) catch {
+    _ => false
+  }
+}
+
+///|
+fn fs_read_dir(path : String) -> Array[String] {
+  @fs.read_dir(path) catch {
+    _ => []
+  }
+}
+
+///|
+fn basename_of_path(path : String) -> String {
+  let normalized = path.trim().to_owned()
+  let chars = normalized.to_array()
+  let mut last = -1
+  for i in 0..<chars.length() {
+    if chars[i] == '/' || chars[i] == '\\' {
+      last = i
+    }
+  }
+  if last < 0 {
+    normalized
+  } else {
+    normalized[last + 1:].to_owned()
+  }
+}
+
+///|
+fn batch_output_suffix(output_format : @convert.OutputFormat) -> String {
+  match output_format {
+    @convert.OutputFormat::Markdown => ".md"
+    @convert.OutputFormat::DebugJson => ".debug.json"
+    @convert.OutputFormat::RagJson => ".rag.json"
+  }
+}
+
+///|
+fn batch_output_path(
+  output_dir : String,
+  relative_path : String,
+  output_format : @convert.OutputFormat,
+) -> String {
+  join_dir_path(output_dir, relative_path) + batch_output_suffix(output_format)
+}
+
+///|
+fn run_single_batch_task(
+  base_opts : CliOptions,
+  output_dir : String,
+  task_input : String,
+  relative_path : String,
+) -> BatchTaskResult {
+  let requested_format = cli_requested_format_from_input(
+    task_input,
+    base_opts.explicit_format,
+  )
+  let output_path = batch_output_path(
+    output_dir,
+    relative_path,
+    base_opts.output_format,
+  )
+  let opts = { ..base_opts, input: task_input, output: Some(output_path) }
+  let convert_options = @convert.make_convert_options(
+    opts.convert_mode,
+    opts.output_format,
+    opts.explicit_format,
+    opts.ocr_options,
+    @convert.default_resource_limits(),
+    fidelity_mode=opts.fidelity_mode,
+    output_mode=opts.output_mode,
+    stream_requested=opts.stream_requested,
+    pdf_ocr_policy=opts.pdf_ocr_policy,
+    pdf_cleanup_mode=opts.pdf_cleanup_mode,
+    pdf_table_mode=opts.pdf_table_mode,
+    rag_options=opts.rag_options,
+  )
+  match
+    @convert.convert_input_with_provenance_and_image_ocr_provider(
+      @input.input_from_path(task_input),
+      convert_options,
+      @focr.run_ocr_provider,
+    ) {
+    Ok(execution) =>
+      match cli_render_convert_result(opts, execution.result) {
+        Ok(_) =>
+          {
+            input_path: task_input,
+            relative_path,
+            status: BatchTaskStatus::Success,
+            detected_format: @input.detected_format_name(requested_format),
+            convert_mode: @convert.convert_mode_name(
+              execution.result.convert_mode,
+            ),
+            fidelity_mode: @convert.fidelity_mode_name(
+              execution.result.fidelity_mode,
+            ),
+            output_mode: @convert.output_mode_name(execution.result.output_mode),
+            output_path: Some(output_path),
+            selected_route: Some(execution.provenance.route_plan.selected_route),
+            parser_mode: Some(@parser.mode_name(execution.result.parser_mode)),
+            route_reason: Some(execution.provenance.route_plan.route_reason),
+            warning_count: execution.result.diagnostics.warnings.length(),
+            degraded_features: execution.result.diagnostics.degraded_features.copy(),
+            error: None,
+          }
+        Err(msg) =>
+          {
+            input_path: task_input,
+            relative_path,
+            status: BatchTaskStatus::Failed,
+            detected_format: @input.detected_format_name(requested_format),
+            convert_mode: @convert.convert_mode_name(opts.convert_mode),
+            fidelity_mode: @convert.fidelity_mode_name(opts.fidelity_mode),
+            output_mode: @convert.output_mode_name(opts.output_mode),
+            output_path: Some(output_path),
+            selected_route: Some(execution.provenance.route_plan.selected_route),
+            parser_mode: Some(@parser.mode_name(execution.result.parser_mode)),
+            route_reason: Some(execution.provenance.route_plan.route_reason),
+            warning_count: execution.result.diagnostics.warnings.length(),
+            degraded_features: execution.result.diagnostics.degraded_features.copy(),
+            error: Some(msg),
+          }
+      }
+    Err(err) =>
+      {
+        input_path: task_input,
+        relative_path,
+        status: BatchTaskStatus::Failed,
+        detected_format: @input.detected_format_name(requested_format),
+        convert_mode: @convert.convert_mode_name(opts.convert_mode),
+        fidelity_mode: @convert.fidelity_mode_name(opts.fidelity_mode),
+        output_mode: @convert.output_mode_name(opts.output_mode),
+        output_path: None,
+        selected_route: None,
+        parser_mode: None,
+        route_reason: None,
+        warning_count: 0,
+        degraded_features: [],
+        error: Some(err.to_string()),
+      }
   }
 }
 

@@ -1,8 +1,10 @@
 import {
   "moonbitlang/async/process",
   "moonbitlang/async",
+  "moonbitlang/core/env",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/string",
+  "ZSeanYves/markitdown/format_readers/json" @djson,
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",

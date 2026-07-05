@@ -69,6 +69,25 @@ fn parse_ods_document_result(
       )
   }
   let inspect = @dodf.inspect_ods_document(document)
+  Ok(ods_parse_with_open_document(source, context, document, inspect))
+}
+
+///|
+pub fn ods_parse_with_open_document(
+  source : @input.InputSource,
+  context : @parser.ParseContext,
+  document : @dodf.OdsDocument,
+  inspect : @dodf.OdsInspectReport,
+) -> @parser.ParseResult {
+  let capability = ods_parser_capability()
+  let diagnostics = @fshared.empty_parser_diagnostics(
+    ODS_PARSER_NAME,
+    @parser.ParserMode::PackageSinglePass,
+    source,
+    "ods",
+  )
+  ods_init_diagnostics(diagnostics, source, context)
+  let bytes = source.bytes.unwrap_or(Bytes::from_array([]))
   ods_fill_metrics(diagnostics, document, inspect, bytes)
   if context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
     let lowered = ods_lower_block_stream_document(source, document, context)
@@ -83,16 +102,14 @@ fn parse_ods_document_result(
     diagnostics.pass_trace.push("parse:ods_parser:block_stream_route")
     diagnostics.pass_trace.push("lower:ods_block_stream")
     diagnostics.pass_trace.push("parse:ods_parser")
-    return Ok(
-      @parser.parse_result_with_blocks_capability(
-        ODS_PARSER_NAME,
-        @parser.ParserMode::BlockStreaming,
-        lowered.blocks,
-        diagnostics,
-        capability,
-        metadata=lowered.metadata,
-        source_map=Some(lowered.source_map),
-      ),
+    return @parser.parse_result_with_blocks_capability(
+      ODS_PARSER_NAME,
+      @parser.ParserMode::BlockStreaming,
+      lowered.blocks,
+      diagnostics,
+      capability,
+      metadata=lowered.metadata,
+      source_map=Some(lowered.source_map),
     )
   }
   let lowered = ods_lower_document_ir(source, document, context)
@@ -107,14 +124,12 @@ fn parse_ods_document_result(
   diagnostics.pass_trace.push("parse:ods_parser:package_single_pass")
   diagnostics.pass_trace.push("parse:ods_parser")
   let final_document = @core.document_with_diagnostics(lowered, diagnostics)
-  Ok(
-    @parser.parse_result_with_document_capability(
-      ODS_PARSER_NAME,
-      @parser.ParserMode::PackageSinglePass,
-      final_document,
-      diagnostics,
-      capability,
-    ),
+  @parser.parse_result_with_document_capability(
+    ODS_PARSER_NAME,
+    @parser.ParserMode::PackageSinglePass,
+    final_document,
+    diagnostics,
+    capability,
   )
 }
 

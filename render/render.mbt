@@ -2389,6 +2389,36 @@ fn render_diagnostics_json(diagnostics : @core.Diagnostics) -> String {
   fields.push(
     "\"pass_trace\": " + @core.string_array_json(diagnostics.pass_trace),
   )
+  let dependency_items : Array[String] = []
+  for dependency in diagnostics.dependency_diagnostics {
+    let dependency_fields : Array[String] = []
+    dependency_fields.push("\"kind\": " + @core.json_string(dependency.kind))
+    dependency_fields.push("\"title\": " + @core.json_string(dependency.title))
+    dependency_fields.push(
+      "\"summary\": " + @core.json_string(dependency.summary),
+    )
+    dependency_fields.push(
+      "\"status\": " +
+      @core.json_string(
+        @core.dependency_diagnostic_status_name(dependency.status),
+      ),
+    )
+    dependency_fields.push(
+      "\"macos_commands\": " +
+      @core.string_array_json(dependency.macos_commands),
+    )
+    dependency_fields.push(
+      "\"ubuntu_commands\": " +
+      @core.string_array_json(dependency.ubuntu_commands),
+    )
+    dependency_fields.push(
+      "\"footer\": " + @core.json_string_opt(dependency.footer),
+    )
+    dependency_items.push(@core.object_json(dependency_fields))
+  }
+  fields.push(
+    "\"dependency_diagnostics\": " + @core.array_json(dependency_items),
+  )
   fields.push("\"metrics\": " + @core.object_json(metric_fields))
   @core.object_json(fields)
 }

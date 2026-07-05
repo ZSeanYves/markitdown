@@ -11,7 +11,8 @@
 
 1. 先读主架构书，理解统一主链和通用边界。
 2. 再读本文，理解 mode、route、planner、profile 的稳定契约。
-3. 最后读 `docs/capabilities-and-limitations.md`，理解当前正式承诺的能力范围。
+3. 再读 [`ocr-and-pdf-ocr-architecture.md`](./ocr-and-pdf-ocr-architecture.md)，理解 OCR / PDF OCR / provider 的专项规则。
+4. 最后读 `docs/capabilities-and-limitations.md`，理解当前正式承诺的能力范围。
 
 ---
 
@@ -78,7 +79,7 @@
 1. 用户可见核心策略模式只有 `Balanced / Accurate / Stream`。
 2. `Rag / Debug` 是输出形态，不是核心策略模式。
 3. 自动切换只允许发生在同一策略模式内部，切换对象是 route、profile、render path，而不是 mode。
-4. `pdf` 不因文件大自动升级到 OCR 或重布局路线；进入 `layout_two_stage` 只能由 `Accurate` 或显式 OCR 语义触发。
+4. `pdf` 不因文件大自动升级到 OCR 或重布局路线；进入 `layout_two_stage` 只能由独立的 `pdf_ocr_policy`、显式 OCR 确认或 scanned-like probe 支撑的策略决定。
 5. parser 不直接生成 Markdown；renderer 不自行越权修改 route、profile 或 mode。
 6. 所有正式入口都应复用统一主链：`detect -> probe -> planner -> parser -> pipeline -> renderer`。
 7. 任何格式若进入正式支持矩阵，必须进入统一策略表与统一执行计划模型。
@@ -576,7 +577,7 @@ soft-limit 不应优先触发 mode 切换，也不应无解释地直接跳到重
 | `epub` | 默认 `package_single_pass` | 可增强章节/notes/资源关系恢复 | 支持显式 stream 到 `container_recursive` | 自适应重点是 chapter/window 粒度 |
 | `odt/ods/odp` | 默认 `package_single_pass` | 允许 notes/span/visibility/window 等高置信恢复 | 可声明显式 `block_streaming` 路线 | 自适应重点是块、行、slide 粒度 |
 | `docx/xlsx/pptx` | 默认 `package_single_pass` | 允许 textbox/hidden/merged/notes/order 等高置信恢复 | 仅对明确声明的格式开放 stream 路线 | 自适应重点是 sheet/row/table-region/page-window |
-| `pdf` | 默认 `page_single_pass` | 允许 route-level OCR/layout upgrade 和高置信页级恢复 | 不承诺显式 stream route | 禁止按文件大小自动升级 OCR |
+| `pdf` | 默认 `page_single_pass` | 允许 route-level OCR/layout upgrade、高置信页级恢复与 page-level hybrid assembly | 不承诺显式 stream route | 禁止按文件大小自动升级 OCR；OCR 触发应由 `pdf_ocr_policy` 与 probe 决定 |
 | 直接图片 OCR | 以 `layout_two_stage` 为主 | Accurate 仍应以 typed OCR/layout features 表达 | 不承诺 stream | 主要维度是 OCR/layout，不是 streaming |
 
 ---
