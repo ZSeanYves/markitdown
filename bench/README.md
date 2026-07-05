@@ -1,54 +1,77 @@
-# Benchmark Harness v2
+# Benchmark Guide
 
-`bench v2` 是仓库里唯一正式 benchmark 入口。
+`bench` is the only formal benchmark entry point in this repository.
 
-它只做一件事：用 release binary 测真实产品路径，并把结果和可信度一起落盘。
+It does one job: run release binaries against the real product path and persist performance, trust, and comparability together.
 
-## 约束
+## Ground Rules
 
-- 不使用 `moon bench`
-- 不使用 `moon run`
-- runner 必须是 release:
+- Do not use `moon bench`
+- Do not use `moon run`
+- The runner must be the release binary:
   `_build/native/release/build/bench/runner/runner.exe`
-- CLI 必须是 release:
+- The CLI must be the release binary:
   `_build/native/release/build/cli/cli.exe`
-- `official-*` 只测产品默认路径
+- `official-*` presets only measure formal product-default paths
 
-## 准备
+## Before You Start
 
-先构建 release binary：
+Build the release binaries first:
 
 ```bash
 moon build --target native --release --package ZSeanYves/markitdown/cli
 moon build --target native --release --package ZSeanYves/markitdown/bench/runner
 ```
 
-先做契约检查：
+Run the contract check first:
 
 ```bash
-git clone git@github.com:ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab
+git clone https://github.com/ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab
 _build/native/release/build/bench/runner/runner.exe doctor
 ```
 
-正式放置位置是主仓根目录下的 `./markitdown-quality-lab`。
+The official corpus location is `./markitdown-quality-lab` under the main repository root.
 
-语料发现规则：
+Corpus discovery rules:
 
-- 默认使用 repo-root `./markitdown-quality-lab/external_bench/`
-- `MARKITDOWN_BENCH_ROOT` 仅作为显式 override
+- by default:
+  `./markitdown-quality-lab/external_bench/`
+- `MARKITDOWN_BENCH_ROOT` is only an explicit override
 
-## 常用命令
+## Common Commands
 
-| 用途 | 命令 |
-| --- | --- |
-| 查看场景 | `_build/native/release/build/bench/runner/runner.exe catalog scenarios` |
-| 查看正式语料 | `_build/native/release/build/bench/runner/runner.exe catalog rows --tiers regular,release,stress` |
-| 跑内部正式口径 | `_build/native/release/build/bench/runner/runner.exe run --preset official-internal` |
-| 跑外部对标 | `_build/native/release/build/bench/runner/runner.exe run --preset official-compare --markitdown-path /path/to/markitdown` |
-| 按场景定向跑 | `_build/native/release/build/bench/runner/runner.exe run --scenario diagnostic.html --bench-id html_huge_synthetic_articles_v1` |
-| 重生成报告 | `_build/native/release/build/bench/runner/runner.exe report --run <run_id> [--baseline <run_id>]` |
+Use the release runner path shown below as one full command prefix:
 
-常用参数：
+```bash
+RUNNER="_build/native/release/build/bench/runner/runner.exe"
+```
+
+Then run the common operations like this:
+
+```bash
+"$RUNNER" catalog scenarios
+"$RUNNER" catalog rows --tiers regular,release,stress
+"$RUNNER" run --preset official-internal
+"$RUNNER" run --preset official-compare
+"$RUNNER" run --scenario diagnostic.html --bench-id html_huge_synthetic_articles_v1
+"$RUNNER" report --run <run_id> [--baseline <run_id>]
+```
+
+Important copy-paste note:
+
+- `official-internal` and `official-compare` are values passed to `--preset`
+- they are not standalone shell commands
+- if you run `"$RUNNER" run --preset` by itself, the runner will correctly fail with `missing value for --preset`
+- `official-compare` resolves the baseline `markitdown` CLI from `--markitdown-path`, then `MARKITDOWN_BIN`, then `PATH`
+
+If you need to point at a specific `markitdown` binary, use either form below:
+
+```bash
+MARKITDOWN_BIN="/absolute/path/to/markitdown" "$RUNNER" run --preset official-compare
+"$RUNNER" run --preset official-compare --markitdown-path /absolute/path/to/markitdown
+```
+
+Common flags:
 
 - `--preset <name>`
 - `--scenario <scenario_id>`
@@ -62,21 +85,21 @@ _build/native/release/build/bench/runner/runner.exe doctor
 - `--markitdown-path <path>`
 - `--baseline <run_id>`
 
-说明：
+Notes:
 
-- `--preset` 和 `--scenario` 二选一
-- `run --preset ...` 会展开 preset 下全部 `scenario_ids`
-- 一个 run 可以包含多个 scenario
+- `--preset` and `--scenario` are mutually exclusive
+- `run --preset ...` expands all `scenario_ids` inside that preset
+- one run may contain multiple scenarios
 
-## Preset
+## Presets
 
-| preset | scenarios | tools | 用途 |
+| preset | scenarios | tools | purpose |
 | --- | --- | --- | --- |
-| `official-internal` | `product.official_internal` + `diagnostic.markdown/html/xml/xlsx/epub/zip/ipynb/toml/odt/ods/odp/ocr` | `moonbit-cli`, `moonbit-engine` | 内部性能、路径证明、重点格式诊断 |
-| `official-compare` | `compare.official_compare` | `moonbit-cli`, `moonbit-engine`, `markitdown` | 外部性能对标 |
-| `doctor` | `doctor.binary_contract` | `moonbit-cli`, `moonbit-engine`, `markitdown` | 二进制契约检查 |
+| `official-internal` | `product.official_internal` + `diagnostic.markdown/html/xml/xlsx/epub/zip/ipynb/toml/odt/ods/odp/ocr` | `moonbit-cli`, `moonbit-engine` | internal performance, route proof, targeted format diagnostics |
+| `official-compare` | `compare.official_compare` | `moonbit-cli`, `moonbit-engine`, `markitdown` | external performance comparison |
+| `doctor` | `doctor.binary_contract` | `moonbit-cli`, `moonbit-engine`, `markitdown` | binary contract verification |
 
-当前场景：
+Current scenarios:
 
 - `product.official_internal`
 - `compare.official_compare`
@@ -94,7 +117,7 @@ _build/native/release/build/bench/runner/runner.exe doctor
 - `diagnostic.odp`
 - `diagnostic.ocr`
 
-默认参数：
+Default parameters:
 
 - official presets:
   `tiers=regular,release,stress`
@@ -104,9 +127,9 @@ _build/native/release/build/bench/runner/runner.exe doctor
 - order:
   `row_major_interleaved`
 
-## 覆盖范围
+## Coverage
 
-当前正式覆盖这些格式：
+Formal coverage currently includes:
 
 - `txt`
 - `csv`
@@ -137,16 +160,16 @@ _build/native/release/build/bench/runner/runner.exe doctor
 - `xlsx`
 - `ocr`
 
-口径分工：
+Role split:
 
 - `official-internal`
-  产品口径 + CLI/engine 对照 + 路径证明
+  product view + CLI/engine comparison + route proof
 - `official-compare`
-  用同一批正式语料做三方性能对比
+  three-way performance comparison on the same formal corpus
 - `diagnostic.*`
-  重点格式诊断
+  targeted format diagnostics
 
-`catalog rows` 返回的语料字段包括：
+`catalog rows` returns fields such as:
 
 - `bench_id`
 - `format`
@@ -159,110 +182,65 @@ _build/native/release/build/bench/runner/runner.exe doctor
 - `source_kind`
 - `source_ref`
 
-## 输出
+## Output Layout
 
-每次 run 固定写到：
+Each run writes to:
 
 ```text
-.tmp/bench/v2/runs/<run_id>/
+.tmp/bench/runs/<run_id>/
 ```
 
-主要文件：
+Main files:
 
 - `results/samples.jsonl`
-  原始 sample 数据
+  raw per-sample data
 - `results/cases.jsonl`
-  聚合后的 case 数据
+  aggregated case-level data
 - `results/summary.json`
-  最重要的机器可读结果
+  main machine-readable result
 - `reports/report.md`
-  最重要的人读结果
+  main human-readable result
 
-## 结果怎么看
+## How To Read Results
 
-先看 `summary.json`：
+Start with `summary.json`:
 
 - `trust_status`
-  这轮 run 是否可信
+  whether this run is trustworthy
 - `gate_summary`
-  这轮 run 是否形成可比集
+  whether a comparable set was formed
 - `route_coverage_summary`
-  预期 route 是否覆盖到
+  whether expected routes were actually covered
 - `truth_summary`
-  为什么可信，或为什么失败
+  why the run is trusted, or why it failed
 - `tools`
-  每个工具的行数、成功数、中位数
+  row count, success count, and medians for each tool
 - `by_format`
-  每个格式的可比覆盖和 speedup
+  comparable coverage and speedup by format
 
-对 `official-compare`，重点看：
+For `official-compare`, focus on:
 
 - `cli_geomean_speedup`
 - `engine_geomean_speedup`
 
-含义都是 `markitdown 时间 / MoonBit 时间`，数值越大说明 MoonBit 越快。
+Both mean:
+`markitdown time / MoonBit time`
 
-## 可信度规则
+Higher means the MoonBit implementation is faster.
 
-以下任一条件不满足，MoonBit case 直接判为 `trust_status=failed`：
+## Trust Rules
 
-- runner 不是 release `runner.exe`
-- CLI 不是 release `cli.exe`
-- 调度链使用 `moon` 转调
-- MoonBit 行缺失完整 provenance
+If any of the following fail, a MoonBit case is marked `trust_status=failed`:
+
+- the runner is not the release `runner.exe`
+- the CLI is not the release `cli.exe`
+- the dispatch path uses `moon` as an extra trampoline
+- the MoonBit row is missing full provenance
 - `route_fidelity_status != matched`
 - `expected_route != actual_route`
-- 结构化大样本命中 low-density guard
+- a large structured row triggers the low-density guard
 
-MoonBit provenance 至少要求：
+Minimum required MoonBit provenance:
 
 - `route_plan.selected_route`
 - `route_plan.route_reason`
-- `route_plan.route_probe_summary`
-- `effective_parser_mode`
-- `parse_result_kind`
-- `pipeline_output_kind`
-- `render_input_kind`
-- `route_fidelity_status`
-
-说明：
-
-- `route_coverage_status` 只回答是否覆盖到预期 route
-- `trust_status` 还会综合 provenance completeness、fidelity 和 semantic density
-- `markitdown` 不参与 MoonBit 的 provenance trust 判定
-
-## 官方口径
-
-`official-internal` 用来看 MoonBit 内部性能、CLI / engine 一致性，以及 route coverage / fidelity 是否成立。
-
-`official-compare` 用来看 MoonBit 对 `markitdown` 的速度对标。它可能因为外部工具失败而出现 `gate_status=partial`。
-
-也就是说，`trust_status=trusted` 只代表 MoonBit 路径证明成立；compare 是否完整，还要看 `gate_summary` 和 `by_format[].status`。
-
-## 示例
-
-完整 `official-internal`：
-
-- run id: `run-1782735690781-26`
-- `selected_rows=52`
-- `comparable_rows=52`
-- `trust_status=trusted`
-
-完整 `official-compare`：
-
-- run id: `run-1782730945277-57`
-- `trust_status=trusted`
-- `selected_rows=36`
-- `comparable_rows=27`
-- `gate_status=partial`
-- overall CLI speedup vs markitdown: `11.10x`
-- overall engine speedup vs markitdown: `13.95x`
-
-## 不再支持
-
-当前 v2 不再支持：
-
-- policy 驱动的 convert options 实验
-- `inner_loop.*` benchmark
-- 旧 compare/profile/overhead/inprocess 链
-- legacy result protocol 兼容

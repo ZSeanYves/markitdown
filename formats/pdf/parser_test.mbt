@@ -196,7 +196,10 @@ test "pdf native parser default product path can return document ir" {
     document.diagnostics.metrics.get("pdf_native_text_baseline") == Some("true"),
   )
   assert_true(document.diagnostics.metrics.get("pdf_ocr_used") == Some("false"))
-  assert_true(document.diagnostics.metrics.get("pdf_v2_used") == Some("false"))
+  assert_true(
+    document.diagnostics.metrics.get("pdf_canonical_pipeline_used") ==
+    Some("false"),
+  )
   assert_true(
     document.diagnostics.metrics.get("pdf_empty_text_layer") == Some("false"),
   )
@@ -246,7 +249,8 @@ test "pdf native parser default product path can return document ir" {
     document.metadata.get("pdf_ocr_used") == Some(@core.JsonValue::Bool(false)),
   )
   assert_true(
-    document.metadata.get("pdf_v2_used") == Some(@core.JsonValue::Bool(false)),
+    document.metadata.get("pdf_canonical_pipeline_used") ==
+    Some(@core.JsonValue::Bool(false)),
   )
   assert_true(
     document.metadata.get("pdf_grouping_strategy") ==
@@ -333,7 +337,10 @@ test "pdf native parser preserves backend error taxonomy on product path" {
     document.diagnostics.metrics.get("pdf_native_text_baseline") == Some("true"),
   )
   assert_true(document.diagnostics.metrics.get("pdf_ocr_used") == Some("false"))
-  assert_true(document.diagnostics.metrics.get("pdf_v2_used") == Some("false"))
+  assert_true(
+    document.diagnostics.metrics.get("pdf_canonical_pipeline_used") ==
+    Some("false"),
+  )
   assert_true(
     document.diagnostics.metrics.get("pdf_empty_text_layer") == Some("false"),
   )
@@ -383,7 +390,7 @@ test "pdf native unit ir bridge lowers parser-owned facts without direct markdow
   assert_eq(document.blocks.length(), 1)
   assert_eq(document.blocks[0].text, "Bridge line")
   assert_true(
-    document.diagnostics.metrics.get("pdf_native_ir_bridge") ==
+    document.diagnostics.metrics.get("pdf_native_ir_projection") ==
     Some("unit_path"),
   )
   assert_true(document.diagnostics.metrics.get("renderer_name") == None)
@@ -433,7 +440,8 @@ test "pdf native parser keeps stable diagnostics tokens for empty text layer and
     empty_document.diagnostics.metrics.get("pdf_ocr_used") == Some("false"),
   )
   assert_true(
-    empty_document.diagnostics.metrics.get("pdf_v2_used") == Some("false"),
+    empty_document.diagnostics.metrics.get("pdf_canonical_pipeline_used") ==
+    Some("false"),
   )
   assert_true(
     empty_document.diagnostics.metrics.get("pdf_header_footer_filter_policy") ==

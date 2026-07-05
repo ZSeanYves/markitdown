@@ -71,7 +71,7 @@ pub fn audio_parser_result(
 
 ///|
 /// Parse one audio input with an injected transcript runtime, mainly for tests
-/// and adapter boundaries.
+/// and runtime boundary coverage.
 pub fn audio_parser_result_with_runtime(
   source : @input.InputSource,
   detected_format : @input.DetectedFormat,
@@ -163,13 +163,6 @@ fn audio_parse_result_from_transcript(
   diagnostics.metrics.set("table_count", "0")
   diagnostics.metrics.set("image_count", "0")
   diagnostics.metrics.set("asset_count", "0")
-
-  if context.fidelity_mode == @product.FidelityMode::Accurate {
-    diagnostics.warnings.push(
-      "accurate audio mode falls back to the balanced media pipeline backend in P0",
-    )
-    diagnostics.same_mode_degradation.push("audio_accurate_same_as_balanced_p0")
-  }
 
   let non_empty_segment_count = transcript.segments
     .filter(segment => segment.text.trim() != "")

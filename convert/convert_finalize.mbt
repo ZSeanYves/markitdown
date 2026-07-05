@@ -201,6 +201,7 @@ fn finalize_pipeline_convert_execution(
         _ => execution_plan.audio_backend_version.unwrap_or("")
       }
     }),
+    requested_fidelity_mode: Some(execution_plan.requested_fidelity_mode),
   }
   { result, provenance }
 }

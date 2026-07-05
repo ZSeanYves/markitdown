@@ -1,46 +1,48 @@
-# mb-markitdown 完整架构书
+# The mb-markitdown Architecture Guide
 
-> 建议路径：`docs/architecture/mb-markitdown-architecture.md`  
-> 适用项目：`mb-markitdown` / MoonBit 实现的 MarkItDown-like 文档转换工具  
-> 版本定位：架构设计文档，不绑定某个具体 parser 库；MoonBit 类型示例为接近实现的设计草案。
+> Recommended path: `docs/architecture/mb-markitdown-architecture.md`  
+> Project scope: `mb-markitdown`, a MoonBit implementation inspired by MarkItDown  
+> Document type: normative architecture guide, not tied to one parser library or one temporary implementation stage
 
-文档分工：
+Document split:
 
-1. 本文定义统一主链、通用 IR、parser / pipeline / renderer 的总边界。
-2. [`format-mode-and-execution-profile-architecture.md`](./format-mode-and-execution-profile-architecture.md) 定义 mode、route、planner、profile 的策略契约。
-3. [`ocr-and-pdf-ocr-architecture.md`](./ocr-and-pdf-ocr-architecture.md) 定义 OCR、PDF OCR、layout provider、触发规则与 provider 选择。
-4. [`../capabilities-and-limitations.md`](../capabilities-and-limitations.md) 定义当前正式承诺的能力矩阵与成熟度结论。
+1. This document defines the unified main chain and the global parser, pipeline, IR, and renderer boundaries.
+2. [format-mode-and-execution-profile-architecture.md](./format-mode-and-execution-profile-architecture.md) defines the stable contracts for mode, route, planner, and profile.
+3. [ocr-and-pdf-ocr-architecture.md](./ocr-and-pdf-ocr-architecture.md) defines OCR, PDF OCR, layout-provider integration, and trigger rules.
+4. [../capabilities-and-limitations.md](../capabilities-and-limitations.md) defines the current public support matrix and maturity conclusions.
 
 ---
 
-## 0. 架构目标
+## 0. Architecture Goal
 
-mb-markitdown 的核心目标是：
+The core goal of `mb-markitdown` is straightforward:
 
-1. 将多种输入格式转换为 Markdown / Debug JSON / RAG chunks / Debug IR。
-2. 在速度、内存、结构保真、版面恢复之间提供明确模式选择。
-3. 不让所有格式强行使用同一种解析策略，而是根据格式天然结构选择最合适的 parser 形态。
-4. 所有 parser 最终进入统一的 `ParseResult / IRInput` 产品契约，renderer 统一消费 `RenderInput`。
-5. 支持 source map、diagnostics、assets、metadata，方便调试、溯源、RAG 引用和后续质量评估。
+1. Convert many document and media inputs into Markdown, debug JSON, RAG chunks, and debug-oriented IR views.
+2. Offer explicit trade-offs across speed, memory, structural fidelity, and recovery depth.
+3. Avoid forcing every format into the same parser shape when their natural structures are different.
+4. Converge all parser outputs into one product contract so that all formal entry points stay on one long-term main chain.
+5. Preserve source maps, diagnostics, assets, and metadata so the result is traceable, debuggable, and benchmarkable.
 
-产品定位必须明确为：
+This project should be understood as:
 
-- 一个适合长期维护迭代的、轻量成熟化的文档转换开源项目
+- a maintainable long-term open-source conversion project
+- strong on complex formats and engineering-grade workloads
+- explicit about route fidelity, provenance, and fail-closed boundaries
 
-因此本架构默认追求的不是：
+This project is not trying to become:
 
-1. 每个格式都做到编辑器级完整语义
-2. 每个复杂文档都默认走重型 layout intelligence
-3. 为个别样例最优而牺牲统一主链和长期可解释性
+1. a full editor-grade semantic model for every format
+2. a layout-intelligence-heavy AI platform by default
+3. a loose collection of per-format Markdown shortcuts
 
-而是：
+Instead, the architecture aims to keep these long-term properties stable:
 
-1. 让多数正式格式进入统一主链
-2. 让高频结构进入 typed canonical 表达
-3. 让 route/profile/render 决策长期可解释
-4. 让新格式、新语义、新 profile 能在统一框架中持续演进
+1. most formal formats enter one unified main chain
+2. common high-value structure becomes typed canonical data
+3. route, profile, and render decisions remain explainable over time
+4. new formats and new semantics can evolve inside one planner and one renderer contract
 
-本项目不是单纯的“文件转 Markdown 字符串工具”，而应该是：
+The product should be read as:
 
 ```text
 Source Format
@@ -52,67 +54,65 @@ Source Format
   -> Markdown / Debug JSON / Chunks / Debug Output
 ```
 
-核心原则：
+Core principles:
 
 ```text
-Parser 可以多态
-IRInput / RenderInput 契约必须统一
-Renderer 必须统一
-SourceMap 必须统一
-Diagnostics 必须统一
-Markdown 是输出，不是中间表示
+Parsers can be polymorphic.
+Core IR must stay unified.
+Renderer must stay unified.
+SourceMap must stay unified.
+Diagnostics must stay unified.
+Markdown is an output, not the intermediate representation.
+```
+
+Legacy anchor notes that remain intentionally stable:
+
+```text
+ContainerRecursive remains a stable container-boundary concept.
+page-single-pass remains valid shorthand for source-single-pass parser expectations.
 ```
 
 ---
 
-## 1. 总体分层
+## 1. Global Layering
 
-### 1.1 总体 pipeline
+### 1.1 End-to-End Pipeline
 
 ```text
 InputSource
-  ↓
-FormatDetector
-  ↓
-ParserRegistry
-  ↓
-Parser
-  ↓
-ParseResult
-  ↓
-CoreIRBuilder
-  ↓
-IR Pass Pipeline
-  ↓
-DocumentAssembler
-  ↓
-Renderer
-  ↓
-ConvertResult
+  -> FormatDetector
+  -> ParserRegistry
+  -> Parser
+  -> ParseResult
+  -> CoreIRBuilder
+  -> IR Pass Pipeline
+  -> DocumentAssembler
+  -> Renderer
+  -> ConvertResult
 ```
 
-### 1.2 每层职责
+### 1.2 Layer Responsibility
 
-| 层级 | 核心职责 | 不应该做什么 |
-|---|---|---|
-| InputSource | 抽象文件、bytes、stream、URL、本地路径、容器 entry | 不识别复杂格式语义 |
-| FormatDetector | 识别扩展名、MIME、magic bytes、container 内部类型 | 不解析完整文档 |
-| ParserRegistry | 根据格式、模式、能力选择 parser | 不参与具体解析 |
-| Parser | 读取源格式，产出事实、block、signal、asset、metadata、source map | 不直接生成 Markdown，不做最终标题/阅读顺序决策 |
-| ParseResult | 统一包装 parser 输出 | 不承载渲染策略 |
-| CoreIRBuilder | 将 parser-native 输出统一成 Core IR | 不读取源文件 |
-| IR Pass Pipeline | 跨格式结构归一：标题、列表、表格、段落、阅读顺序、页眉页脚等 | 不依赖具体文件库 |
-| DocumentAssembler | 组装 section tree、reading order、caption binding、table continuation | 不处理源格式 I/O |
-| Renderer | 将 Core IR 表达为 Markdown / Debug JSON / chunks | 不解析源文件，不重新猜测结构 |
-| ConvertResult | 返回最终内容、metadata、diagnostics、assets、source map | 不再修改结构 |
+| Layer | Primary responsibility | What it should not do |
+| --- | --- | --- |
+| `InputSource` | abstract file, bytes, stream, URL, local path, or container entry | not responsible for format semantics |
+| `FormatDetector` | detect extension, MIME, magic bytes, and container-internal format | not responsible for full parsing |
+| `ParserRegistry` | choose the parser based on format, mode, route, and capability policy | not responsible for parsing content itself |
+| `Parser` | read source format and produce facts, blocks, signals, metadata, assets, source refs, and diagnostics | should not directly emit final Markdown or finalize high-level layout conclusions |
+| `ParseResult` | unify parser output into one product boundary | should not carry renderer decisions |
+| `CoreIRBuilder` | normalize parser-native output into unified core structures | should not read source files directly |
+| `IR Pass Pipeline` | do cross-format normalization such as heading, list, table, reading order, and cleanup passes | should not depend on format-specific file libraries |
+| `DocumentAssembler` | assemble sections, reading order, table continuation, notes, and captions | should not perform source-format I/O |
+| `Renderer` | project the unified representation into Markdown, debug JSON, and chunk views | should not parse source formats or change planner decisions |
+| `ConvertResult` | return final content, metadata, diagnostics, assets, and source maps | should not mutate structure again |
 
 ---
 
-## 2. 关键架构边界
+## 2. Hard Architecture Boundaries
 
-### 2.1 Parser 不生成 Markdown
+### 2.1 Parser Does Not Generate Markdown
 
-错误设计：
+This is the wrong design:
 
 ```text
 DOCX Parser -> Markdown
@@ -120,60 +120,60 @@ PDF Parser  -> Markdown
 HTML Parser -> Markdown
 ```
 
-正确设计：
+This is the correct design:
 
 ```text
 Parser -> ParseResult -> IRInput -> Pipeline -> RenderInput -> Renderer -> Markdown
 ```
 
-原因：
+Why this matters:
 
-1. Markdown 表达能力有限，不能承载 layout、bbox、source map、confidence、asset relation。
-2. PDF、PPTX、XLSX 等格式需要先收集结构证据，再统一判断。
-3. RAG、debug JSON 输出不应该反向从 Markdown 解析。
-4. 直接拼 Markdown 会让后续优化不可控。
+1. Markdown cannot carry enough information for layout, confidence, bbox, source refs, or asset relationships.
+2. Formats like PDF, PPTX, and XLSX need structure evidence before a renderer should decide how to express them.
+3. RAG and debug views should not have to reconstruct truth by reparsing Markdown.
+4. Direct Markdown concatenation makes later optimization and route reasoning much harder.
 
-### 2.2 Parser 产出事实和候选信号，不做最终结论
+### 2.2 Parser Produces Facts and Candidate Signals, Not Final Product Truth
 
-Parser 应产出：
-
-```text
-事实：text、style、bbox、page、row、cell、relationship、xpath
-候选：heading_candidate、list_candidate、table_candidate、caption_candidate
-资源：image、attachment、chart、media
-溯源：SourceRef
-诊断：Diagnostics
-```
-
-Parser 不应过早决定：
+A parser should produce things like:
 
 ```text
-这个一定是二级标题
-这个一定是正文段落
-这个一定不是页眉
-这个表格一定要渲染为 Markdown table
+facts: text, style, bbox, page, row, cell, relationship, xpath
+candidates: heading_candidate, list_candidate, table_candidate, caption_candidate
+resources: image, attachment, chart, media
+provenance: SourceRef
+diagnostics: Diagnostics
 ```
 
-这些决策应交给 IR Pass 和 Renderer。
-
-### 2.3 source single-pass 不等于全流程 single-pass
-
-推荐定义：
+A parser should not prematurely decide:
 
 ```text
-源格式主结构尽量只扫描一次。
-Core IR 可以多轮 pass。
-Renderer 最后统一输出。
+this must be a level-2 heading
+this must be body text
+this must not be a header
+this table must be rendered as a Markdown table
 ```
 
-也就是：
+Those decisions belong to IR passes and the renderer.
+
+### 2.3 Source Single-Pass Does Not Mean Whole-Process Single-Pass
+
+Recommended definition:
+
+```text
+The source structure should ideally be scanned once.
+Core IR may go through multiple passes.
+The renderer stays unified at the end.
+```
+
+In short:
 
 ```text
 No repeated source traversal.
 Multiple IR passes are allowed.
 ```
 
-对 PDF / DOCX / PPTX / XLSX / HTML 这类格式，parser 层可以只做一次主扫描；但进入 Core IR 后，可以执行多轮轻量 pass，例如：
+For PDF, DOCX, PPTX, XLSX, HTML, and other richer formats, the parser can stay source-single-pass while the core IR still runs multiple lightweight passes such as:
 
 ```text
 NormalizeWhitespacePass
@@ -190,10 +190,9 @@ AssembleSectionTreePass
 
 ## 3. Convert Mode
 
-用户侧只应暴露少量清晰、长期稳定的核心策略模式。
+The user-facing strategy surface should stay small and stable:
 
 ```moonbit
-// MoonBit 风格草案，具体语法按项目当前 MoonBit 版本调整
 pub enum ConvertMode {
   Balanced
   Accurate
@@ -203,3021 +202,450 @@ pub enum ConvertMode {
 
 ### 3.1 Balanced
 
-目标：作为默认产品模式，在结构质量、运行成本、可维护性之间达成稳定平衡。
+`Balanced` is the default product mode.
 
-行为：
+Its contract:
 
-```text
-启用轻量 reading order
-启用标题推断
-启用页眉页脚过滤
-启用段落合并
-启用列表修正
-启用表格清理
-不默认 OCR，不默认深度模型
-```
+1. prefer mature, stable, cost-controlled canonical routes
+2. allow strong semantic recovery when it is supported by structure signals
+3. avoid implicit OCR, implicit heavy models, or implicit deep layout upgrades
+4. allow same-mode route and profile switching when the format policy supports it
 
-架构约束：
+`Balanced` is not:
 
-```text
-Balanced 是默认主模式，不是“低配模式”
-Balanced 可以拥有高置信语义恢复
-Balanced 允许 same-mode route/profile 自适应
-Balanced 不得隐式升级为 OCR 或重布局路线
-```
-
-适用类型：
-
-```text
-PDF 文本层、Office 文档、HTML、EPUB、常规 ipynb notebook
-```
+- a low-end mode
+- a degraded mode
+- a hidden alias for "cheap parsing only"
 
 ### 3.2 Accurate
 
-目标：在统一主链内提供受约束的高保真能力。
+`Accurate` is the quality-priority mode.
 
-行为：
+Its contract:
 
-```text
-可启用 OCR
-可启用 layout detection
-可启用 table structure recognition
-可启用公式/图注/图片区域识别
-可启用跨页表格合并
-输出更丰富 diagnostics 和 source map
-```
-
-架构边界：
-
-```text
-Accurate 可以触发 route-level upgrade，也可以只做 same-route semantic strengthening
-Accurate 只承诺高置信、可解释、可回归验证的增强
-Accurate 不承诺宏执行、脚本执行、猜测式布局智能
-Accurate 的格式差异应优先沉淀为 typed hooks / semantic profiles
-```
-
-适用类型：
-
-```text
-复杂 PDF、扫描件、财报、论文、表单、多栏排版、表格密集文档
-```
+1. it may trigger route-level upgrades such as OCR or layout-oriented routes
+2. it may also stay on the same route and enable stronger semantic recovery there
+3. enhancements must remain explainable, typed, testable, and regression-friendly
+4. it does not promise speculative layout intelligence, macro execution, or unverifiable reconstruction
 
 ### 3.3 Stream
 
-目标：低内存和可持续输出。
+`Stream` is the low-peak-resource mode.
 
-行为：
+Its contract:
 
-```text
-优先 EventStream / BlockStream
-避免构建完整 DocumentIR
-适合超大线性文件
-```
+1. prefer lower-peak routes, profiles, and flushing behavior where supported
+2. keep the same product semantics surface, but with more resource-aware execution
+3. not every format is required to have a separate stream-native route
+4. unsupported stream requests must fail closed or fall back honestly with a clear warning
 
-适合：
+### 3.4 RAG and Debug Are Output Views, Not Modes
 
-```text
-txt、log、csv、tsv、jsonl、ndjson、srt、vtt、mbox、大型 xml/json、超限 ipynb
-```
+`RagJson` and `DebugJson` are output projections.
 
-### 3.4 Rag / Debug 输出形态
+They should not be treated as separate strategy modes.
 
-`Rag`、`Debug` 应被建模为输出形态，而不是核心转换模式。
+That means:
 
-也就是说：
-
-```text
-核心策略模式决定“怎么转”
-输出形态决定“转成什么视图”
-```
-
-公开输出形态包括：
-
-```text
-Markdown
-RagJson
-DebugJson
-```
+1. mode chooses the conversion philosophy
+2. route and profile choose the runtime path
+3. output view chooses how the result is projected
 
 ---
 
-## 4. Parser Mode
+## 4. Parser Modes
 
-mb-markitdown 不要求所有 parser 使用同一种扫描策略。每个 parser 声明自己的 `ParserMode`。
+The system can internally use several parser shapes as long as they still converge back into the same product contract.
 
-```moonbit
-pub enum ParserMode {
-  StreamingEvent
-  BlockStreaming
-  PackageSinglePass
-  PageSinglePass
-  DomAstModel
-  LayoutTwoStage
-  MediaPipeline
-  ContainerRecursive
-}
-```
+### 4.1 `streaming_event`
 
-### 4.1 streaming-event
+Best for naturally sequential formats such as:
 
-适合天然线性、可能很大的格式。
+- `txt`
+- `srt`
+- `vtt`
+- `csv`
+- `tsv`
+- large `jsonl` / `ndjson`
 
-```text
-source stream
-  -> event stream
-  -> renderer / IR consumer
-```
+Typical traits:
 
-适用格式：
+- low peak memory
+- naturally ordered event production
+- easy chunk-friendly projection
 
-```text
-txt
-log
-csv
-tsv
-jsonl
-ndjson
-srt
-webvtt
-mbox
-超限 yaml
-超限 json
-超限 xml
-```
+### 4.2 `block_streaming`
 
-特点：
+Best for formats where the parser can produce stable block units without building a full in-memory document model.
 
-```text
-低内存
-可边读边处理
-不默认构建完整 DocumentIR
-适合超大文件
-```
+Typical use:
 
-### 4.2 block-streaming
+- explicit stream paths for some markup inputs
+- large worksheet-like or notebook-like formats
+- formats with natural section or row windows
 
-适合可以按自然单元分块的格式。
+### 4.3 `package_single_pass`
 
-```text
-source
-  -> block / page / slide / sheet / chapter / message
-  -> BlockIR
-  -> assembler
-```
+Best for package-based formats such as:
 
-典型粒度：
+- `docx`
+- `xlsx`
+- `pptx`
+- `odt`
+- `ods`
+- `odp`
+- `epub`
 
-```text
-Markdown: block
-HTML: section / article / DOM subtree
-PDF: page
-XLSX: sheet / row / table region
-EPUB: chapter
-EML: MIME part
-IPYNB: notebook cell / output group
-```
+Typical traits:
 
-### 4.3 package-single-pass
+- scan relevant package parts once
+- collect typed facts and source refs
+- avoid format-specific Markdown emitters
 
-适合 zip/package 型文档。
+### 4.4 `page_single_pass`
 
-```text
-package
-  -> metadata / relationships / styles / manifest / assets
-  -> main content scan
-  -> Core IR
-```
+Best for born-digital PDF or other page-oriented formats where page-level source scanning remains the formal main path.
 
-适用格式：
+### 4.5 `dom_ast_model`
 
-```text
-docx
-pptx
-xlsx
-odt
-ods
-odp
-epub
-```
+Best for formats that benefit from a stable tree model:
 
-原则：
+- `json`
+- `xml`
+- `yaml`
+- `toml`
+- `markdown`
+- `html`
+- `ipynb`
+- text-markup families such as `rst`, `asciidoc`, and `tex`
 
-```text
-可以预读 styles、relationships、manifest、metadata。
-正文主结构尽量只扫描一次。
-后续多轮处理只发生在 Core IR 上，不重复遍历源格式。
-```
+### 4.6 `layout_two_stage`
 
-### 4.4 page-single-pass
+Reserved for OCR- or layout-heavy routes, especially:
 
-适合分页文档。
+- accurate PDF OCR
+- direct image OCR
+- page-level OCR and layout recovery
 
-```text
-document
-  -> page iterator
-  -> text/image/vector/layout primitives
-  -> page IR
-  -> document assembler
-```
+### 4.7 `media_pipeline`
 
-适用格式：
+Reserved for media transcript flows such as:
 
-```text
-pdf
-tiff
-multi-page image
-```
+- `wav`
+- `mp3`
+- `m4a`
 
-特点：
+Audio-specific architecture is defined in [audio-media-pipeline-architecture.md](./audio-media-pipeline-architecture.md).
 
-```text
-不追求 byte-level 真流式
-按 page 处理
-保留 bbox、font、page number、image region、layout signal
-```
+### 4.8 `container_recursive`
 
-### 4.5 dom-ast-model
+Best for containers that dispatch supported child inputs back into the unified main chain:
 
-适合 markup/tree 型格式。
-
-```text
-source
-  -> AST / DOM
-  -> Core IR
-```
-
-适用格式：
-
-```text
-markdown
-html
-xml
-json
-yaml
-toml
-ipynb
-rst
-asciidoc
-latex
-```
-
-原则：
-
-```text
-小中型文件可以建 AST/DOM。
-超限分流由统一 RoutePlanner 决定，而不是 parser 自主决定
-TOML 这类结构化配置文本可以长期保持单一 `dom-ast-model`
-Markdown 适合 canonical DOM 路线，并在需要时切到 block-oriented stream route
-RST / AsciiDoc / TeX 适合共享 `dom-ast-model + typed semantic lowering` 主线，而不是强行引入编辑器级 AST 或专属 parser mode
-复杂 directive / include / macro / environment 在缺乏高置信信号时应按 degrade / raw boundary 诚实处理
-```
-
-### 4.6 layout-two-stage
-
-适合复杂视觉文档和高保真模式。
-
-```text
-stage 1: extract primitives
-stage 2: layout / OCR / reading order / table recognition
-```
-
-适用格式：
-
-```text
-complex pdf
-scanned pdf
-image document
-financial report
-form
-academic paper
-multi-column document
-table-heavy pdf
-```
-
-特点：
-
-```text
-高质量
-高成本
-不默认启用
-由 mode=Accurate 或显式参数开启
-```
-
-### 4.7 media-pipeline
-
-适合音频、视频类文件。
-
-```text
-media
-  -> metadata
-  -> transcript optional
-  -> segment IR
-```
-
-适用格式：
-
-```text
-mp3
-wav
-m4a
-mp4
-video
-```
-
-音频扩展设计另见：[audio-media-pipeline-architecture.md](./audio-media-pipeline-architecture.md)。
-
-### 4.8 container-recursive
-
-适合容器文件。
-
-```text
-container
-  -> entries
-  -> dispatch child parser
-  -> merge result
-```
-
-适用格式：
-
-```text
-zip
-tar
-directory
-archive
-```
+- `zip`
+- explicit stream-style `epub`
 
 ---
 
-## 5. 默认格式策略
+## 5. Default Format Strategy
 
-### 5.1 默认策略表
+The formal product should keep one strategy table, not many entry-specific shortcuts.
 
-说明：
+At a high level:
 
-```text
-下表描述的是架构推荐的默认策略目录，而不是实现清单或测试通过清单。
-是否属于当前正式支持矩阵，以 capabilities 文档为准。
-是否需要 same-mode adaptive route/profile，由 RoutePlanner 与格式策略表统一决定。
-```
+- text, subtitle, and delimited formats prefer `streaming_event`
+- tree-shaped structured text prefers `dom_ast_model`
+- package formats prefer `package_single_pass`
+- born-digital PDF prefers `page_single_pass`
+- OCR-heavy routes prefer `layout_two_stage`
+- audio prefers `media_pipeline`
+- recursive containers prefer `container_recursive`
 
-```text
-linear / streaming:
-  txt      -> streaming-event only
-  log      -> streaming-event only
-  csv      -> streaming-event only
-  tsv      -> streaming-event only
-  jsonl    -> streaming-event only
-  ndjson   -> streaming-event only
-  srt      -> streaming-event only
-  vtt      -> streaming-event only
-  mbox     -> streaming-event only
-
-tree / ast:
-  md        -> dom-ast-model, over-limit -> block-streaming
-  markdown  -> dom-ast-model, over-limit -> block-streaming
-  json      -> dom-ast-model, over-limit -> streaming-event; explicit --stream -> streaming-event
-  yaml      -> dom-ast-model, over-limit -> streaming-event; explicit --stream -> streaming-event
-  yml       -> dom-ast-model, over-limit -> streaming-event
-  toml      -> dom-ast-model
-  ipynb     -> dom-ast-model, over-limit / explicit --stream -> block-streaming(cell/output-group)
-  xml       -> dom-ast-model, over-limit -> streaming-event; explicit --stream -> streaming-event
-  rst       -> dom-ast-model
-  adoc      -> dom-ast-model
-  tex       -> dom-ast-model
-
-web / markup:
-  html      -> dom-ast-model + readability/hybrid, over-limit / explicit --stream -> block-streaming(html-token-structure)
-  htm       -> dom-ast-model + readability/hybrid, over-limit / explicit --stream -> block-streaming(html-token-structure)
-
-package documents:
-  docx      -> package-single-pass only
-  pptx      -> package-single-pass only
-  xlsx      -> package-single-pass, over-limit / explicit --stream -> block-streaming(sheet/row/table-region)
-  odt       -> package-single-pass, explicit --stream -> block-streaming(block)
-  odp       -> package-single-pass, explicit --stream -> block-streaming(slide)
-  ods       -> package-single-pass, explicit --stream -> block-streaming(row)
-  epub      -> package-single-pass + chapter blocks; explicit --stream -> container-recursive
-
-paged documents:
-  pdf       -> page-single-pass; Accurate / explicit OCR -> layout-two-stage
-  tiff      -> page-single-pass
-  tif       -> page-single-pass
-
-image / OCR:
-  png      -> layout-two-stage when OCR enabled; otherwise metadata/image asset only
-  jpg      -> layout-two-stage when OCR enabled; otherwise metadata/image asset only
-  jpeg     -> layout-two-stage when OCR enabled; otherwise metadata/image asset only
-  webp     -> layout-two-stage when OCR enabled; otherwise metadata/image asset only
-
-email:
-  eml      -> block-streaming / MIME tree
-  msg      -> block-streaming / library model
-
-media:
-  mp3      -> media-pipeline
-  wav      -> media-pipeline
-  m4a      -> media-pipeline
-  mp4      -> media-pipeline
-
-containers:
-  zip       -> container-recursive only
-  tar       -> container-recursive
-```
-
-### 5.2 大文件策略升级/降级
-
-```text
-RoutePlanner 在 parser 前统一做 canonical route 选择。
-markdown 默认 -> dom-ast-model
-超限 markdown / explicit --stream markdown -> block-streaming
-超限 yaml     -> streaming-event
-超限 html / explicit --stream html -> block-streaming(section/subtree)
-超限 json / explicit --stream json -> streaming-event
-超限 xml / explicit --stream xml -> streaming-event
-超限 ipynb / explicit --stream ipynb -> block-streaming(cell/output-group)
-超限 xlsx / explicit --stream xlsx -> block-streaming(sheet/row/table-region)
-显式 --stream ods -> block-streaming(row)
-显式 --stream odp -> block-streaming(slide)
-复杂 pdf      -> 允许在 Accurate 下结合 `pdf_ocr_policy` 进入 layout-two-stage
-扫描 pdf      -> 仅在 `pdf_ocr_policy` 与 scanned-like probe 支撑下进入 layout-two-stage
-
-Markdown Accurate 应优先属于“同 route 增强”，而不是“跨 route 切换”。
-类似地，文本型 canonical 格式的高保真扩展也应优先走 same-route semantic strengthening。
-
-route 一旦选定，不允许跨模式 fallback。
-route 失败时只允许同模式内 degradation，例如 section 裁剪、row 窗口裁剪、table-region 裁剪。
-```
+Large-file adaptation is allowed, but only through the planner and only inside the same mode unless the format policy explicitly allows a route-level accurate upgrade.
 
 ---
 
-## 6. Core IR 总体设计
+## 6. Core IR Design
 
-Core IR 应同时支持三种输入形态：
+The internal representation should allow multiple parser shapes to converge into one stable downstream contract.
 
-```moonbit
-pub enum IRInput {
-  EventStream(EventStream)
-  BlockStream(BlockStream)
-  Document(DocumentIR)
-}
-```
+Recommended conceptual layers:
 
-### 6.1 EventStream
+1. event-like data for streaming parsers
+2. block-like data for block-oriented lowering
+3. a document-level assembled representation for rendering and chunk projection
 
-适合：
-
-```text
-txt
-csv
-jsonl
-srt
-vtt
-mbox
-log
-```
-
-特点：
-
-```text
-低内存
-顺序消费
-可直接进入 streaming renderer
-不保证完整 document tree
-```
-
-### 6.2 BlockStream
-
-适合：
-
-```text
-pdf page
-xlsx sheet / row / table region
-epub chapter
-eml mime part
-html section
-markdown block
-```
-
-特点：
-
-```text
-分块构建
-可以局部 buffering
-可以逐块执行 pass
-可以最终组装 DocumentIR
-```
-
-### 6.3 DocumentIR
-
-适合：
-
-```text
-docx
-markdown
-html
-epub
-pdf accurate mode
-ipynb small/medium
-json/yaml/toml small file
-```
-
-特点：
-
-```text
-完整结构
-适合多轮 pass
-适合 RAG chunking
-适合 debug dump
-```
+That does not mean every format must always build the heaviest document model up front. It means the renderer and provenance system should still be able to consume a unified shape.
 
 ---
 
-## 7. 核心类型设计
-
-下面是建议的核心类型。MoonBit 项目中可以按照当前语言版本调整具体语法和包路径。
-
-### 7.1 SourceId / BlockId / AssetId
-
-建议所有 id 使用轻量字符串封装，避免混用。
-
-```moonbit
-pub type SourceId String
-pub type BlockId String
-pub type AssetId String
-pub type ParserName String
-```
-
-ID 推荐生成规则：
-
-```text
-file: hash/path/session id
-block: b_000001 / page_1_b_0003 / slide_2_shape_5
-asset: img_000001 / attach_000002
-```
-
-### 7.2 ParseResult
-
-```moonbit
-pub struct ParseResult {
-  parser_name : String
-  mode : ParserMode
-  capabilities : ParserCapability
-  event_stream : Array[CoreEvent]?
-  block_stream : Array[CoreBlock]?
-  document : DocumentIR?
-  metadata : DocumentMetadata
-  assets : Array[AssetRef]
-  source_map : SourceMap?
-  assembly : DocumentAssembly?
-  diagnostics : Diagnostics
-}
-```
-
-约束：
-
-```text
-event_stream / block_stream / document 公开结果必须且只应暴露一种主形态。
-Parser 不直接返回 Markdown。
-Parser 不负责最终标题层级、最终阅读顺序、最终 Markdown 表格策略。
-```
-
-### 7.3 DocumentIR
-
-```moonbit
-pub struct DocumentIR {
-  id : String
-  source : SourceRef
-  metadata : DocumentMetadata
-
-  blocks : Array[CoreBlock]
-  assets : Array[AssetRef]
-  diagnostics : Diagnostics
-
-  sections : Array[SectionRef]
-  source_map : SourceMap
-}
-```
-
-说明：
-
-```text
-blocks 是文档主内容顺序。
-sections 是可选的标题树/章节树索引。
-assets 是全局资源表。
-source_map 用于从 block 回源。
-metadata 保存文件级信息。
-```
-
-### 7.4 CoreBlock
-
-```moonbit
-pub struct CoreBlock {
-  id : String
-  kind : BlockKind
-
-  text : Option[String]
-  children : Array[CoreBlock]
-
-  source : Option[SourceRef]
-  assets : Array[AssetId]
-  signals : Array[CoreSignal]
-
-  style : Option[StyleRef]
-  layout : Option[LayoutBox]
-  metadata : Map[String, JsonValue]
-}
-```
-
-推荐 `BlockKind`：
-
-```moonbit
-pub enum BlockKind {
-  Document
-  Section
-  Heading
-  Paragraph
-  List
-  ListItem
-  Table
-  TableRow
-  TableCell
-  Image
-  Code
-  BlockQuote
-  Formula
-  Page
-  Slide
-  Sheet
-  Chapter
-  Email
-  Attachment
-  Metadata
-  Raw
-}
-```
-
-### 7.5 CoreSignal
-
-```moonbit
-pub struct CoreSignal {
-  signal_type : SignalType
-  confidence : Double
-  value : JsonValue
-  reason : Array[String]
-  source : Option[SourceRef]
-}
-```
-
-推荐 `SignalType`：
-
-```moonbit
-pub enum SignalType {
-  HeadingCandidate
-  ListCandidate
-  TableCandidate
-  CaptionCandidate
-  HeaderFooterCandidate
-  PageBreak
-  SectionBreak
-  ReadingOrderHint
-  FontSignal
-  LayoutSignal
-  StyleSignal
-  OcrSignal
-  TableContinuationCandidate
-  ArtifactCandidate
-  LanguageHint
-  CodeLanguageHint
-}
-```
-
-使用原则：
-
-```text
-Parser 可以强信号，也可以弱信号。
-信号不等于最终 block kind。
-IR Pass 根据多个 signal 和上下文做最终判断。
-```
-
-示例：
-
-```text
-TextBlock("Abstract")
-  signal: HeadingCandidate(level_hint=1, confidence=0.83)
-  signal: FontSignal(size=16, bold=true)
-  source: PDF page 1 bbox(...)
-```
-
-### 7.6 SourceRef
-
-```moonbit
-pub struct SourceRef {
-  file_id : String
-  format : String
-
-  page : Option[Int]
-  bbox : Option[BBox]
-
-  line_start : Option[Int]
-  line_end : Option[Int]
-  byte_start : Option[Int]
-  byte_end : Option[Int]
-  time_start : Option[String]
-  time_end : Option[String]
-
-  xpath : Option[String]
-  json_pointer : Option[String]
-  yaml_path : Option[String]
-
-  sheet : Option[String]
-  cell_range : Option[String]
-
-  slide : Option[Int]
-  shape_id : Option[String]
-
-  chapter_href : Option[String]
-  email_part : Option[String]
-
-  extra : Map[String, JsonValue]
-}
-```
-
-格式映射：
-
-| 格式 | SourceRef 字段 |
-|---|---|
-| PDF | page + bbox |
-| DOCX | paragraph index / run index / relationship id |
-| PPTX | slide + shape_id + bbox |
-| XLSX | sheet + cell_range |
-| HTML | xpath / css selector |
-| EPUB | chapter_href + xpath |
-| Markdown | line_start + line_end |
-| TXT | line range / byte range |
-| SRT / VTT | line range + time_start + time_end |
-| CSV | row / column range，放 extra 或 cell_range |
-| JSON | json_pointer |
-| YAML | yaml_path + line range |
-| TOML | dotted path + line range，优先放 extra 或复用 yaml_path-like 表达 |
-| IPYNB | json_pointer + `extra.cell_index/cell_kind/output_index` |
-| EML | email_part |
-
-对于 `toml` 与 `ipynb` 这类当前已正式支持、但仍在持续收紧契约的格式，优先复用现有 `json_pointer / yaml_path / extra` 承载来源定位；只有当这些格式的专属来源字段需要跨更多格式复用时，才考虑是否把它们提升为 Core `SourceRef` 的显式一等字段。
-
-### 7.7 LayoutBox
-
-```moonbit
-pub struct BBox {
-  x0 : Double
-  y0 : Double
-  x1 : Double
-  y1 : Double
-}
-
-pub struct LayoutBox {
-  page : Option[Int]
-  bbox : Option[BBox]
-  rotation : Double
-  z_index : Option[Int]
-  writing_mode : Option[String]
-}
-```
-
-使用场景：
-
-```text
-PDF text span
-PDF image region
-PPTX shape
-HTML visual layout optional
-OCR region
-```
-
-### 7.8 StyleRef
-
-```moonbit
-pub struct StyleRef {
-  style_id : Option[String]
-  style_name : Option[String]
-  font_name : Option[String]
-  font_size : Option[Double]
-  bold : Option[Bool]
-  italic : Option[Bool]
-  underline : Option[Bool]
-  color : Option[String]
-  extra : Map[String, JsonValue]
-}
-```
-
-注意：
-
-```text
-StyleRef 记录源格式事实。
-是否转为 heading/list/code 由 pass 决定。
-```
-
-### 7.9 AssetRef
-
-```moonbit
-pub struct AssetRef {
-  id : String
-  kind : AssetKind
-  mime_type : Option[String]
-  filename : Option[String]
-  uri : Option[String]
-  data_ref : Option[String]
-  alt_text : Option[String]
-  caption : Option[String]
-  source : Option[SourceRef]
-  metadata : Map[String, JsonValue]
-}
-
-pub enum AssetKind {
-  Image
-  Attachment
-  Audio
-  Video
-  EmbeddedFile
-  Thumbnail
-  Chart
-  Unknown
-}
-```
-
-原则：
-
-```text
-Parser 提取 asset metadata 和关系。
-是否导出到本地、base64、链接、占位符，由 renderer/options 决定。
-```
-
-### 7.10 Diagnostics
-
-```moonbit
-pub struct Diagnostics {
-  warnings : Array[String]
-  errors : Array[String]
-
-  source_size : Option[Int64]
-  parser_time_ms : Option[Int64]
-  total_time_ms : Option[Int64]
-
-  page_count : Option[Int]
-  slide_count : Option[Int]
-  sheet_count : Option[Int]
-
-  block_count : Int
-  table_count : Int
-  image_count : Int
-  asset_count : Int
-
-  degraded_features : Array[String]
-  selected_route : Option[String]
-  route_reason : Option[String]
-  route_probe_summary : Option[String]
-  same_mode_degradation : Array[String]
-  pass_trace : Array[String]
-
-  extra : Map[String, JsonValue]
-}
-```
-
-用途：
-
-```text
-debug
-benchmark
-质量评估
-route 判断
-RAG 溯源
-用户提示
-回归测试
-```
+## 7. Key Type Families
+
+At the architecture level, the most important type families are:
+
+- `SourceId`, `BlockId`, `AssetId`
+- `ParseResult`
+- `DocumentIR`
+- `CoreBlock`
+- `CoreSignal`
+- `SourceRef`
+- `LayoutBox`
+- `StyleRef`
+- `AssetRef`
+- `Diagnostics`
+
+The exact field layout can continue evolving, but the product-level responsibilities should stay stable:
+
+1. represent structure
+2. preserve provenance
+3. record diagnostics
+4. expose enough typed data for Markdown, debug, and RAG projections
 
 ---
 
-## 8. Parser 接口设计
+## 8. Parser Interface
 
-### 8.1 ParserCapability
+Every parser should feel format-native internally, but conform to the same outward boundary.
 
-每个 parser 必须声明能力，而不是让外层猜。
+The parser contract should make room for:
 
-```moonbit
-pub struct ParserCapability {
-  parser_mode : ParserMode
+- parser capability declaration
+- parse context
+- resource limits
+- prepared source reuse from probe
+- diagnostics and provenance
 
-  supports_streaming : Bool
-  streaming_granularity : StreamingGranularity
-
-  requires_random_access : Bool
-  source_single_pass_preferred : Bool
-  source_single_pass_strict : Bool
-
-  produces_text : Bool
-  produces_structure : Bool
-  produces_layout : Bool
-  produces_tables : Bool
-  produces_images : Bool
-  produces_metadata : Bool
-  produces_source_map : Bool
-
-  can_be_lossless : Bool
-  can_preserve_order : Bool
-  can_preserve_styles : Bool
-}
-
-pub enum StreamingGranularity {
-  Byte
-  Line
-  Record
-  Row
-  Block
-  Page
-  Slide
-  Sheet
-  Chapter
-  Message
-  None
-}
-```
-
-### 8.2 Parser trait
-
-```moonbit
-pub trait Parser {
-  fn name(Self) -> String
-  fn capability(Self) -> ParserCapability
-  fn can_parse(Self, source : InputSource, detected : DetectedFormat) -> Bool
-  fn parse(Self, ctx : ParseContext, source : InputSource) -> Result[ParseResult, ParseError]
-}
-```
-
-对于可流式 parser，可单独实现：
-
-```moonbit
-pub trait StreamingParser {
-  fn parse_events(Self, ctx : ParseContext, source : InputSource) -> Result[EventStream, ParseError]
-}
-```
-
-对于分块 parser：
-
-```moonbit
-pub trait BlockParser {
-  fn parse_blocks(Self, ctx : ParseContext, source : InputSource) -> Result[BlockStream, ParseError]
-}
-```
-
-### 8.3 ParseContext
-
-```moonbit
-pub struct ParseContext {
-  options : ConvertOptions
-  detected_format : DetectedFormat
-  source_id : String
-  asset_store : AssetStore
-  diagnostics : Diagnostics
-  limits : ResourceLimits
-}
-```
-
-### 8.4 ResourceLimits
-
-```moonbit
-pub struct ResourceLimits {
-  max_file_size : Option[Int64]
-  max_memory_mb : Option[Int]
-  max_pages : Option[Int]
-  max_rows : Option[Int]
-  max_cols : Option[Int]
-  max_cells : Option[Int]
-  max_depth : Option[Int]
-  max_assets : Option[Int]
-  timeout_ms : Option[Int64]
-}
-```
+The parser should never silently change the high-level route chosen by the planner.
 
 ---
 
 ## 9. CoreIRBuilder
 
-CoreIRBuilder 负责把不同 parser 的输出统一到 Core IR。
+`CoreIRBuilder` exists so that parser-specific output can converge into one cross-format representation.
 
-### 9.1 输入
+It should:
 
-```text
-ParseResult.event_stream
-ParseResult.block_stream
-ParseResult.document
-```
+1. normalize parser-native facts into shared structures
+2. preserve source refs and diagnostics
+3. expose enough typed detail for IR passes
 
-### 9.2 输出
+It should not:
 
-```text
-IRInput.EventStream
-IRInput.BlockStream
-IRInput.Document(DocumentIR)
-```
-
-### 9.3 职责
-
-```text
-统一 block kind
-统一 source ref
-统一 asset ref
-统一 metadata key
-统一 diagnostics
-将 parser-native signal 映射为 CoreSignal
-将 parser-native style 映射为 StyleRef
-将 parser-native layout 映射为 LayoutBox
-```
-
-### 9.4 不负责
-
-```text
-不读取源文件
-不做最终 Markdown 渲染
-不做高成本 OCR/layout 模型推理
-不处理最终表格输出策略
-```
+1. reopen the source input
+2. redo parser-owned format detection
+3. replace planner decisions with hidden policy logic
 
 ---
 
 ## 10. IR Pass Pipeline
 
-IR Pass 是 mb-markitdown 质量提升的核心。
+The IR pass layer is where cross-format normalization happens.
 
-### 10.1 Pass 接口
+Recommended pass families include:
 
-```moonbit
-pub trait IRPass {
-  fn name(Self) -> String
-  fn run(Self, ctx : PassContext, input : IRInput) -> Result[IRInput, PassError]
-}
-```
+- text normalization
+- whitespace normalization
+- line merge
+- reading-order resolution
+- header/footer suppression
+- heading resolution
+- list resolution
+- table resolution
+- caption resolution
+- asset binding
+- section-tree assembly
+- RAG chunk projection
 
-### 10.2 PassContext
-
-```moonbit
-pub struct PassContext {
-  mode : ConvertMode
-  options : ProductOptions
-  diagnostics : Ref[Diagnostics]
-  assets : Ref[Array[AssetRef]]
-  metadata : Ref[DocumentMetadata]
-  source_map : Ref[SourceMap?]
-  assembly : Ref[DocumentAssembly?]
-}
-```
-
-### 10.3 推荐 Pass 顺序
-
-```text
-1. NormalizeTextPass
-2. NormalizeWhitespacePass
-3. MergeTextLinePass
-4. ResolveReadingOrderPass
-5. RemoveHeaderFooterPass
-6. ResolveHeadingPass
-7. ResolveListPass
-8. ResolveTablePass
-9. ResolveCaptionPass
-10. ResolveAssetPass
-11. AssembleSectionTreePass
-12. DebugAnnotationPass
-```
-
-### 10.4 NormalizeTextPass
-
-职责：
-
-```text
-统一换行
-处理控制字符
-处理 Unicode 空白
-处理软连字符
-可选繁简/全半角 normalization，但默认不要强改内容
-```
-
-### 10.5 NormalizeWhitespacePass
-
-职责：
-
-```text
-合并多余空白
-保留 code block 内空白
-保留 table cell 内必要空白
-避免破坏 Markdown 语义
-```
-
-### 10.6 MergeTextLinePass
-
-主要用于 PDF/OCR。
-
-职责：
-
-```text
-TextSpan -> TextLine
-TextLine -> Paragraph candidate
-处理断行
-处理 hyphenation
-处理多栏场景下的行合并限制
-```
-
-### 10.7 ResolveReadingOrderPass
-
-主要用于 PDF/PPTX/OCR。
-
-输入信号：
-
-```text
-bbox
-page
-z_index
-font size
-block distance
-column detection
-parser reading_order_hint
-```
-
-输出：
-
-```text
-blocks 按阅读顺序重排
-添加 reading_order metadata
-```
-
-### 10.8 RemoveHeaderFooterPass
-
-主要用于 PDF/OCR。
-
-策略：
-
-```text
-跨页重复文本检测
-页面顶部/底部位置检测
-字号/位置稳定性检测
-页码模式检测
-```
-
-输出：
-
-```text
-删除或标记 header/footer candidate
-Debug 输出保留并注释这些决策
-```
-
-### 10.9 ResolveHeadingPass
-
-输入信号：
-
-```text
-style_name
-font_size
-bold
-vertical_gap
-numbering pattern
-HTML h1-h6
-Markdown heading AST
-DOCX paragraph style
-PDF heading_candidate
-```
-
-输出：
-
-```text
-CoreBlock.kind = Heading
-metadata.level = 1..6
-```
-
-原则：
-
-```text
-结构化格式优先信任源语义。
-PDF/OCR 需要统计推断。
-不要让单一 font size 决定标题。
-```
-
-### 10.10 ResolveListPass
-
-职责：
-
-```text
-识别有序/无序列表
-修正嵌套层级
-合并连续 list item
-处理 DOCX numbering
-处理 Markdown/HTML 原生 list
-处理 PDF 中的 bullet/number pattern
-```
-
-### 10.11 ResolveTablePass
-
-职责：
-
-```text
-统一 table / row / cell
-处理 merged cells
-处理 header row
-识别大表
-识别跨页表格候选
-选择 table logical model，不选择最终 Markdown 表达
-```
-
-注意：最终 table 输出由 renderer 根据 `table_strategy` 决定。
-
-### 10.12 ResolveCaptionPass
-
-职责：
-
-```text
-识别 figure/table caption
-绑定 caption -> asset/table
-处理 “Figure 1”, “Table 2”, “图 3”, “表 4” 等模式
-结合位置关系和文本模式
-```
-
-### 10.13 ResolveAssetPass
-
-职责：
-
-```text
-统一 asset id
-处理图片 alt text
-处理 embedded image relation
-处理附件递归解析结果
-处理 asset export policy
-```
-
-### 10.14 AssembleSectionTreePass
-
-职责：
-
-```text
-根据 heading level 构建 section tree
-为每个 block 添加 heading path
-为 renderer / RAG chunking 提供 assembly 语义
-```
-
-### 10.15 RAG Chunking Projection
-
-RAG chunking 不应作为 IR pass 回写 Core IR；它应是 renderer 前后的纯投影过程。
-
-职责：
-
-```text
-按 heading path 切块
-按 token/字符长度切块
-表格独立切块
-图片/图注绑定切块
-保留 source map
-避免跨语义边界硬切
-```
-
-说明：
-
-```text
-DocumentIR 路径由 RagJsonRenderer 直接消费 document + assembly 生成 chunks。
-BlockStream / EventStream 路径由 RagJsonRenderer 的 direct-input 分支生成 chunks。
-因此 RAG 是产品能力，但不是独立的 Core IRPass。
-```
+Not every format needs every pass, but the architecture should keep one pass vocabulary instead of many per-format render shortcuts.
 
 ---
 
-## 11. Renderer 设计
+## 11. Renderer Design
 
-Renderer 不读取源格式；它消费 convert + pipeline 产出的 RenderInput / Context。
+The renderer remains the final owner of Markdown output.
 
-### 11.1 Renderer trait
+That means:
 
-```moonbit
-pub struct Renderer {
-  name : String
-  render : (DocumentIR, RenderContext) -> RenderResult
-  render_input : (RenderInput, RenderContext) -> RenderResult
-}
-```
+1. parsers do not directly generate final Markdown
+2. the pipeline does not directly generate final Markdown
+3. the renderer consumes unified structures and stable hints
 
-说明：
+At minimum the renderer family should cover:
 
-```text
-renderer 保留双入口：
-1. render(DocumentIR, ctx) 处理完整 document 路径
-2. render_input(RenderInput, ctx) 处理 EventStream / BlockStream / direct Document 路径
-convert 统一决定进入哪个入口；renderer 本身不负责 route 选择。
-```
+- `MarkdownRenderer`
+- `DebugJsonRenderer`
+- `RagRenderer`
 
-### 11.2 RenderContext
-
-```moonbit
-pub struct RenderContext {
-  debug : Bool
-  rag_options : RagOptions
-  base_diagnostics : Diagnostics?
-  metadata : DocumentMetadata?
-  source_map : SourceMap?
-  assets : Array[AssetRef]?
-  assembly : DocumentAssembly?
-}
-```
-
-说明：
-
-```text
-RenderContext 承载渲染时所需的稳定产品上下文。
-它不是 parser/convert 的总配置镜像，而是 render 阶段真正消费的最小闭包。
-```
-
-### 11.3 MarkdownRenderer
-
-渲染规则：
-
-| CoreBlock | Markdown 输出 |
-|---|---|
-| Heading | `#` 到 `######` |
-| Paragraph | 普通段落 |
-| List / ListItem | `-` 或 `1.` |
-| Table small | Markdown table |
-| Table large | fenced csv / html table / sample / summary |
-| Image | `![alt](asset_uri)` |
-| Code | fenced code |
-| BlockQuote | `>` |
-| Formula | `$...$` 或 fenced math |
-| PageBreak | HTML comment / horizontal rule / page marker |
-| Slide | section heading |
-| Sheet | section heading + table |
-| Chapter | section heading |
-| Email | header block + body |
-
-### 11.4 表格渲染策略
-
-```moonbit
-pub enum TableStrategy {
-  Auto
-  Markdown
-  Html
-  CsvFenced
-  Sample
-  Summary
-}
-```
-
-保护参数：
-
-```moonbit
-pub struct TableRenderOptions {
-  strategy : TableStrategy
-  max_rows : Int
-  max_cols : Int
-  max_cells : Int
-  include_formula : Bool
-  include_hidden : Bool
-}
-```
-
-默认建议：
-
-```text
-小表：Markdown table
-中表：HTML table 或 fenced csv
-大表：summary + sample
-超大表：stream rows，不聚合为 Markdown table
-```
-
-### 11.5 DebugJsonRenderer
-
-结构化调试输出应由 `DebugJsonRenderer` 承担。
-
-输出完整结构：
-
-```text
-document metadata
-blocks
-signals
-source refs
-assets
-diagnostics
-```
-
-适合：
-
-```text
-debug
-integration
-RAG pipeline
-测试快照
-```
-
-公开边界：
-
-```text
-CLI 不提供独立 --json。
-正式公开的结构化输出是 DebugJson 与 RagJson。
-```
-
-### 11.6 RagRenderer
-
-输出：
-
-```text
-chunks
-chunk text
-heading path
-source refs
-page/slide/sheet/cell location
-notebook cell/output location
-asset refs
-metadata
-```
-
-推荐 chunk 类型：
-
-```text
-text_chunk
-table_chunk
-image_caption_chunk
-code_chunk
-metadata_chunk
-```
-
-对于 `ipynb` 这类 notebook 格式，不额外发明新的公开 chunk 类型：
-
-```text
-markdown cell -> text_chunk
-code cell -> code_chunk
-tabular output -> table_chunk
-image/display output -> image_caption_chunk 或 asset refs
-notebook-level facts -> metadata_chunk
-```
+The renderer may use format-aware hints. It must not secretly re-plan the route.
 
 ---
 
-## 12. 各格式 Parser 详细设计
+## 12. Format Parser Guidance
 
-## 12.1 TXT / LOG Parser
+This section is intentionally high-level. Detailed per-format behavior belongs in package code, package README files, focused architecture notes, and capability documents.
 
-ParserMode：`streaming-event`
+Still, the project should continue following these stable expectations:
 
-### 输入特征
+- text-like sequential formats stay cheap and stream-friendly
+- structured text formats preserve typed structure when it is cheap and stable to do so
+- package formats preserve package-native source refs and assets
+- PDF preserves page-level provenance and route honesty
+- OCR routes preserve provider, dependency, and fallback diagnostics
+- audio routes preserve transcript timing and backend provenance
 
-```text
-天然线性
-可能极大
-结构弱
-编码不确定
-```
+More detailed OCR and audio rules live in:
 
-### 扫描策略
-
-```text
-按 byte/line 流式读取
-编码检测
-换行规范化
-可选 paragraph grouping
-```
-
-### 输出
-
-```text
-LineEvent
-ParagraphEvent
-RawBlock
-SourceRef(line_range / byte_range)
-```
-
-### 注意事项
-
-```text
-LOG 默认可渲染为 fenced code
-普通 TXT 默认按段落渲染
-超长行需要截断或 hard wrap 策略
-不要默认完整读入内存
-```
+- [ocr-and-pdf-ocr-architecture.md](./ocr-and-pdf-ocr-architecture.md)
+- [audio-media-pipeline-architecture.md](./audio-media-pipeline-architecture.md)
 
 ---
 
-## 12.2 CSV / TSV Parser
+## 13. Format Detection
 
-ParserMode：`streaming-event`
+`FormatDetector` should stay lightweight and deterministic.
 
-### 输入特征
+It is responsible for:
 
-```text
-天然二维表
-可能极大
-Markdown table 对大表不友好
-```
+1. extension- and MIME-based detection
+2. magic-byte checks where needed
+3. distinguishing package families such as OOXML and EPUB
+4. recognizing explicit format families like `ipynb` and `toml` when the policy allows it
 
-### 扫描策略
-
-```text
-行级 streaming
-delimiter sniffing
-header detection
-row count / col count guard
-cell escaping
-```
-
-### 输出
-
-```text
-TableStartEvent
-TableRowEvent
-TableCellEvent
-TableEndEvent
-或 RowRecordEvent
-```
-
-### Renderer 策略
-
-```text
-小表 -> Markdown table
-中表 -> fenced csv
-大表 -> summary + sample
-RAG -> row group chunks
-```
-
-### 必须支持的限制
-
-```text
-max_rows
-max_cols
-max_cells
-max_cell_chars
-```
+It is not responsible for deep semantic parsing.
 
 ---
 
-## 12.3 JSON / JSONL Parser
+## 14. ParserRegistry and RoutePlanner
 
-### JSONL
+`ParserRegistry` and the planner should stay separate:
 
-ParserMode：`streaming-event`
+- registry maps route and format to parser implementation
+- planner chooses route, profile, and render-path intent
 
-```text
-一行一个 record
-适合超大数据
-输出 RecordEvent
-```
+This separation matters because:
 
-### JSON
-
-ParserMode：默认 `dom-ast-model`，大文件切换 `streaming-event`
-
-### 输出
-
-```text
-ObjectBlock
-ArrayBlock
-KeyValueBlock
-RawJsonBlock
-SourceRef(json_pointer)
-```
-
-### Markdown 策略
-
-```text
-配置类 JSON -> key-value sections
-数据类 JSON -> fenced json / sample
-复杂嵌套 -> summary + raw fenced json
-```
-
----
-
-## 12.4 YAML / TOML Parser
-
-ParserMode：`dom-ast-model`
-
-### 输入特征
-
-```text
-配置文件为主
-需要保留 path 和行号
-YAML 可能多文档
-TOML 更强调单文档配置、dotted key 和 table / array-of-tables 语义
-```
-
-### 输出
-
-```text
-KeyValueBlock
-ObjectBlock
-ArrayBlock
-SourceRef(yaml_path + line_range)
-```
-
-### 注意事项
-
-```text
-尽量保留 comments，若 parser 支持
-多文档 YAML 可以按 document block 输出
-不要把 YAML 全部强行转成普通段落
-```
-
-### TOML 融入主架构的建议形态
-
-TOML 不需要新 parser mode；应直接复用 `dom-ast-model -> DocumentIR -> Renderer` 主链。
-
-建议策略：
-
-```text
-顶层 table -> section / key-value group
-dotted key -> 路径化 key-value block
-array-of-tables -> repeated section 或 table-like repeated object blocks
-inline table -> 小型 object block
-multiline basic/literal string -> paragraph 或 fenced text/code，保留换行
-date/time/number/bool -> typed scalar，优先保留原值与最小必要规范化
-```
-
-边界：
-
-```text
-TOML 应按“结构化配置文本”设计，而不是按 Markdown 段落文本设计
-不承诺编辑器级 comment round-trip
-不引入独立 Accurate route
-如后续需要更强保真，也优先在同一 dom-ast-model route 内增强 typed scalar / source refs / diagnostics
-```
-
----
-
-## 12.5 XML Parser
-
-ParserMode：小文件 `dom-ast-model`，大文件 `streaming-event`
-
-### 扫描策略
-
-```text
-小 XML -> DOM/AST
-大 XML -> event/iter parser
-```
-
-### 输出
-
-```text
-ElementBlock
-TextBlock
-Attribute metadata
-SourceRef(xpath)
-```
-
-### Markdown 策略
-
-```text
-文档型 XML -> heading/paragraph/list/table
-数据型 XML -> fenced xml / summary / key-value
-```
-
----
-
-## 12.6 Markdown Parser
-
-ParserMode：默认 `dom-ast-model`；显式 `--stream` 或超限时切 `block-streaming`
-
-### 输入特征
-
-```text
-已经是目标近似格式
-但仍应进入统一 parser / IR / render 主链，便于 source map、RAG、debug、diagnostics
-```
-
-### 推荐实现形态
-
-```text
-canonical route 仍是 dom-ast-model
-显式 `--stream` 或超限时走 block-streaming
-parser 应优先采用轻量扫描器 + lowering
-它会优先建立高频 block inventory，再补足 table/link/image/frontmatter/raw HTML/footnote 等语义
-这还不是一个完整 Markdown AST parser，也不承诺覆盖全部方言
-```
-
-### Accurate 扩展路线
-
-```text
-不新增 Markdown 专属 canonical route
-不让 Accurate 把 Markdown 切换到独立 parser mode
-Accurate 可以在同一 route 内逐步增加更强语义 pass、归一化、source refs 和 diagnostics
-优先增强范围：heading / list / code / table / link / image / frontmatter / source line / raw HTML boundary / footnote
-只有当这种行为形成稳定契约后，才应被写入能力文档作为公开承诺
-```
-
-### 输出
-
-```text
-HeadingBlock
-ParagraphBlock
-ListBlock
-CodeBlock
-TableBlock
-ImageBlock
-SourceRef(line_range)
-并保留逐步扩展到更强语义恢复的空间
-```
-
----
-
-## 12.7 HTML Parser
-
-ParserMode：`dom-ast-model` + optional block streaming
-
-### 输入特征
-
-HTML 可能是：
-
-```text
-文章网页
-文档站
-Office 导出 HTML
-邮件 HTML
-爬虫噪声页面
-SPA 导出的 fragment
-```
-
-### 策略选项
-
-```moonbit
-pub enum HtmlStrategy {
-  Dom
-  Readability
-  Hybrid
-}
-```
-
-### Dom 模式
-
-```text
-尊重 DOM 结构
-保留 h1-h6、p、ul、ol、table、pre、code、blockquote、img、a
-适合干净文档站和导出 HTML
-```
-
-### Readability 模式
-
-```text
-抽正文
-过滤 nav、footer、aside、script、style、广告区
-适合新闻、博客、普通网页
-```
-
-### Hybrid 默认 / 当前产品化路径
-
-```text
-优先 article/main 作为 content root
-否则 body / fragment
-过滤 nav、footer、hidden、script、style、template、repeated boilerplate
-保留正文结构，并尽量不误杀正文外但仍有价值的 note / figure / table
-```
-
-### 输出
-
-```text
-HeadingBlock
-ParagraphBlock
-ListBlock
-TableBlock
-CodeBlock
-ImageBlock
-Link metadata
-SourceRef(xpath)
-```
-
----
-
-## 12.8 EPUB Parser
-
-ParserMode：默认 `package-single-pass`；显式 `--stream` 时 `container-recursive`；公开输出仍是 spine-item block stream
-
-### 输入特征
-
-EPUB 本质：
-
-```text
-zip
-  OPF package
-  manifest
-  spine reading order
-  XHTML chapters
-  assets
-  metadata
-```
-
-### 扫描策略
-
-```text
-读取 container.xml
-读取 OPF metadata / manifest / spine
-按 spine 顺序解析 chapter XHTML
-chapter 内复用 HTML parser
-```
-
-### 输出
-
-```text
-DocumentIR
-ChapterBlock
-HeadingBlock
-ParagraphBlock
-ImageBlock
-AssetRef
-SourceRef(chapter_href + xpath)
-```
-
-### 注意事项
-
-```text
-不要按 zip entry 顺序拼接
-必须按 spine 顺序
-必须保留 chapter href
-```
-
----
-
-## 12.9 DOCX Parser
-
-ParserMode：`package-single-pass`
-
-### 输入特征
-
-DOCX 是结构文档，不是纯视觉文档。
-
-### 需要读取的 parts
-
-```text
-[Content_Types].xml
-_rels/.rels
-word/document.xml
-word/styles.xml
-word/numbering.xml
-word/_rels/document.xml.rels
-word/footnotes.xml
-word/endnotes.xml
-word/comments.xml
-word/header*.xml
-word/footer*.xml
-word/media/*
-word/charts/* optional
-```
-
-### 扫描策略
-
-```text
-预读 relationships / styles / numbering
-主扫描 document.xml
-遇到 paragraph/table/image/hyperlink/footnote ref 生成 block 或 signal
-```
-
-### 输出 block
-
-```text
-ParagraphBlock
-Run fragments
-TableBlock
-ImageBlock
-FootnoteRefBlock
-EndnoteRefBlock
-CommentRef metadata
-PageBreak signal
-SectionBreak signal
-```
-
-### 必须保留信号
-
-```text
-paragraph style id/name
-run style
-bold/italic/underline
-numbering id / level
-hyperlink rel id
-drawing/image rel id
-table grid
-merged cell
-footnote/endnote ref
-comment ref
-section break
-page break
-```
-
-### 判断原则
-
-```text
-Heading style 是强 heading signal
-Numbering 是强 list signal
-字体变大只是弱 heading signal
-DOCX 不需要像 PDF 那样过度推断
-```
-
----
-
-## 12.10 PPTX Parser
-
-ParserMode：`package-single-pass` + slide block
-
-### 输入特征
-
-PPTX 的自然单位是 slide，不是 paragraph。
-
-### 需要读取的 parts
-
-```text
-ppt/presentation.xml
-ppt/slides/slide*.xml
-ppt/slides/_rels/slide*.xml.rels
-ppt/slideLayouts/*
-ppt/slideMasters/*
-ppt/notesSlides/*
-ppt/media/*
-ppt/charts/* optional
-```
-
-### 扫描策略
-
-```text
-读取 presentation slide order
-按 slide 顺序解析
-解析 placeholders、shapes、text boxes、tables、images、notes
-```
-
-### 输出
-
-```text
-SlideBlock
-ShapeBlock
-TextBoxBlock
-TableBlock
-ImageBlock
-SpeakerNotesBlock
-```
-
-### 必须保留
-
-```text
-slide_no
-shape_id
-placeholder_type
-z_order
-bbox
-alt_text
-speaker notes
-image relationships
-table cells
-```
-
-### Markdown 渲染建议
-
-```markdown
-# Slide 3: Title
-
-- bullet
-- bullet
-
-![alt](asset_uri)
-
-> Speaker notes: ...
-```
-
----
-
-## 12.11 XLSX Parser
-
-ParserMode：`package-single-pass` + sheet/row streaming
-
-### 输入特征
-
-XLSX 容易内存爆炸，大表不适合 Markdown table。
-
-### 需要读取的 parts
-
-```text
-xl/workbook.xml
-xl/worksheets/sheet*.xml
-xl/sharedStrings.xml
-xl/styles.xml
-xl/_rels/workbook.xml.rels
-xl/tables/table*.xml optional
-xl/charts/* optional
-```
-
-### 扫描策略
-
-```text
-预读 workbook / sheets / shared strings / styles
-按 sheet 读取
-按 row/cell streaming
-识别 used range
-识别 table region
-```
-
-### 输出
-
-```text
-Workbook metadata
-SheetBlock
-TableRegionBlock
-RowBlock
-CellBlock
-Formula metadata
-MergedCell metadata
-```
-
-### 表格输出策略
-
-```text
-小表 -> Markdown table
-中表 -> HTML table / fenced csv
-大表 -> summary + sample
-超大表 -> streaming rows，避免完整聚合
-```
-
-### 必须支持参数
-
-```text
-max_rows
-max_cols
-max_cells
-include_formulas
-include_hidden_sheets
-include_hidden_rows
-include_hidden_cols
-```
-
----
-
-## 12.12 PDF Parser
-
-ParserMode：默认 `page-single-pass`，复杂/扫描件 `layout-two-stage`
-
-### 输入特征
-
-PDF 是显示格式，不是语义格式。它经常缺少：
-
-```text
-真实段落
-真实标题
-真实表格结构
-真实阅读顺序
-真实列表语义
-```
-
-### Balanced PDF
-
-```text
-文本层抽取
-按 page 处理
-简单坐标排序
-简单段落合并
-TextSpan -> Line -> Block
-reading order
-页眉页脚检测
-标题候选
-caption 候选
-简单表格候选
-默认不 OCR
-允许在显式 `pdf_ocr_policy` 下进入扫描件判定与按页 OCR
-不表格结构识别
-```
-
-### Accurate PDF
-
-```text
-允许 route-level OCR / layout upgrade
-默认 `pdf_ocr_policy` 可设为 auto_scanned
-优先 scanned-like probe 与按页混合组装
-可启用 layout detection
-可启用 table structure recognition
-可启用 formula/code/image region
-可启用 multi-column reading order
-可启用 cross-page table merge
-```
-
-### Parser 输出事实
-
-```text
-PageBlock
-TextSpan
-TextLine candidate
-TextBlock candidate
-ImageRegion
-VectorRegion optional
-TableCandidate optional
-FontSignal
-LayoutSignal
-SourceRef(page + bbox)
-```
-
-### 不应直接输出
-
-```text
-最终 Heading
-最终 Paragraph
-最终 Markdown Table
-最终阅读顺序结论
-```
-
-这些交给 IR Pass。
-
----
-
-## 12.13 图片 / 扫描件 Parser
-
-ParserMode：`layout-two-stage` when OCR enabled
-
-### 模式
-
-```text
-metadata_only
-ocr
-ocr_layout
-vlm_caption optional
-```
-
-### 输出
-
-```text
-ImageDocumentIR
-Image metadata
-OcrTextBlock
-LayoutRegion
-SourceRef(bbox)
-AssetRef
-```
-
-### 注意事项
-
-```text
-OCR 默认不应强制启用
-准确模式不等于无条件整页 OCR
-PDF OCR 应由独立 `pdf_ocr_policy` 与 scanned-like probe 决定
-page OCR 与 PDF 内嵌图片 OCR 必须分离建模
-OCR 结果必须带 confidence
-```
-
----
-
-## 12.14 Email Parser：EML / MSG / MBOX
-
-### EML
-
-ParserMode：`block-streaming` / MIME tree
-
-```text
-headers
-explicit MIME parts
-nested message/rfc822
-text/plain and text/html bodies
-attachments and inline images
-```
-
-策略：
-
-```text
-先稳定输出 headers summary table
-每个 MIME part 边界显式可见
-multipart/alternative 做稳定 body selection，默认 text/plain 优先，其次受控 text/html
-multipart/related 允许 CID rewrite，把 html body 中的 cid: 资源回绑到 inline assets
-text/plain 直接降正文块；text/html 走受控 HTML lowering
-message/rfc822 允许递归解码并继续按 child message 下降
-可识别文本类附件递归回统一 registry；超预算或未知类型保守降为 attachment summary / asset
-```
-
-### MBOX
-
-ParserMode：`streaming-event`
-
-```text
-一封邮件一个 MessageBlock
-适合大 mailbox
-```
-
-### MSG
-
-ParserMode：`block-streaming` / library model
-
-```text
-复合二进制格式
-通常依赖专门库
-不追求真流式
-```
-
----
-
-## 12.15 Archive Parser：ZIP / TAR / Directory
-
-ParserMode：`container-recursive`
-
-### 扫描策略
-
-```text
-列出 entries
-过滤目录和危险路径
-对每个 entry 调 FormatDetector
-分发子 parser
-合并结果
-```
-
-### 安全要求
-
-```text
-防 zip slip
-限制最大 entry 数
-限制递归深度
-限制总解压大小
-限制单文件大小
-```
-
-### 输出
-
-```text
-ContainerBlock
-EntryBlock
-Child ConvertResult / Child DocumentIR
-```
-
----
-
-## 12.16 Audio / Video / Subtitle Parser
-
-### SRT / VTT
-
-ParserMode：`streaming-event`
-
-```text
-cue -> TranscriptEvent
-SourceRef(time range / line range)
-```
-
-### Audio / Video
-
-ParserMode：`media-pipeline`
-
-```text
-metadata
-duration
-chapters
-transcript optional
-segments
-```
-
-输出：
-
-```text
-MediaBlock
-TranscriptSegmentBlock
-SourceRef(time range)
-```
-
----
-
-## 12.17 IPYNB / Notebook Parser
-
-ParserMode：默认 `dom-ast-model`；显式 `--stream` 或超限 notebook 切到 `block-streaming`
-
-### 设计定位
-
-`ipynb` 不是普通 JSON 文本，也不是 package 文档。它更接近“有顺序的结构化 notebook 容器”：
-
-```text
-top-level notebook metadata
-ordered cells
-markdown / code / raw cell kinds
-rich outputs
-attachments / display_data
-language and kernel hints
-```
-
-当前产品策略：
-
-```text
-默认复用现有 dom-ast-model canonical route
-大 notebook 或显式 `--stream` 请求再按 cell / output group 降级到 block-streaming
-不新增专属 parser mode
-不改写现有 RoutePlanner 的基本分流原则
-```
-
-### 输入特征
-
-```text
-本质上是 JSON 文档
-但核心语义不在任意键值，而在有序 cells 与 output boundary
-markdown cell 可复用 Markdown lowering
-code cell output 需要做类型化降落，而不是单纯 fenced json
-```
-
-### 扫描策略
-
-```text
-解析顶层 notebook JSON
-保留 nbformat / language_info / kernelspec 等 notebook-level facts
-按 cells 顺序逐个 lowering
-markdown cell 进入 Markdown-like block lowering
-code cell 进入 CodeBlock，并按 output 类型派发 text/table/image/raw
-raw cell 保守降为 RawBlock 或 fenced raw text
-attachment / display_data 优先转 AssetRef + source refs
-```
-
-### 输出
-
-```text
-小中 notebook -> DocumentIR
-大 notebook -> BlockStream(cell/output-group)
-Markdown-derived HeadingBlock / ParagraphBlock / ListBlock / TableBlock
-CodeBlock
-OutputBlock（在当前 CoreBlock 体系内优先映射为 Table / Raw / Image / Paragraph，而不是先新增专属 block kind）
-AssetRef
-SourceRef(json_pointer + extra cell markers)
-```
-
-### Markdown / RAG 策略
-
-```text
-markdown cell：复用现有 Markdown route 的 lowering 语义
-code cell：以 fenced code 为主，并保留 language hint
-stdout / stderr：优先 fenced text 或 RawBlock
-tabular output：优先 TableBlock，小样本输出 Markdown table，大样本可降级
-text/html output：只在安全边界内做受控 HTML lowering；否则保留 raw snippet
-application/javascript / text/javascript：保守降为 raw fenced javascript，并显式记录 degraded diagnostics
-application/json 与 application/*+json：优先走结构化 JSON lowering；失败时回退 raw fenced json
-image/png / image/jpeg：转 AssetRef，并由 renderer 决定输出占位或引用
-RAG chunking：默认不跨 cell 粗暴合并；优先保留 cell 级 chunk boundary
-```
-
-### 边界说明
-
-```text
-不执行 notebook
-不重算 code output
-不依赖 cell 之间隐藏运行时状态恢复
-不因为 ipynb 引入新的 public OutputFormat
-Accurate 当前也不应让 ipynb 切换到新的 parser route；后续若做高保真增强，优先仍在同 route 内增加 output normalization / diagnostics / source refs
-```
-
----
-
-## 13. FormatDetector 设计
-
-### 13.1 检测顺序
-
-```text
-1. 用户显式指定 format
-2. MIME type
-3. 文件扩展名
-4. magic bytes / signature
-5. container internal inspection
-6. text/binary heuristic 与内容探测
-```
-
-### 13.2 DetectedFormat
-
-```moonbit
-pub struct DetectedFormat {
-  extension : Option[String]
-  mime : Option[String]
-  format : String
-  confidence : Double
-  is_container : Bool
-  is_binary : Bool
-  reason : Array[String]
-}
-```
-
-### 13.3 常见 magic bytes
-
-```text
-PDF: %PDF-
-ZIP/OOXML/EPUB: PK\x03\x04
-PNG: \x89PNG
-JPEG: FF D8 FF
-GIF: GIF87a / GIF89a
-TIFF: II*\x00 / MM\x00*
-```
-
-### 13.4 OOXML/EPUB 区分
-
-ZIP 内部判断：
-
-```text
-[Content_Types].xml + word/document.xml -> docx
-[Content_Types].xml + ppt/presentation.xml -> pptx
-[Content_Types].xml + xl/workbook.xml -> xlsx
-mimetype=application/epub+zip + META-INF/container.xml -> epub
-```
-
-### 13.5 TOML / IPYNB 检测
-
-```text
-toml:
-  优先使用 .toml 扩展名或 application/toml
-  在扩展名缺失但用户显式指定时，允许用基础 grammar probe 辅助确认
-  不建议把普通 ini/conf 轻易误判成 toml
-
-ipynb:
-  优先使用 .ipynb 扩展名或 notebook 相关 MIME
-  若扩展名丢失但内容是 JSON，可在顶层存在 nbformat + cells 数组时升级识别为 ipynb
-  一旦识别为 ipynb，就不应再按普通 json 的“无序键值文档”策略处理
-```
-
----
-
-## 14. ParserRegistry 与 RoutePlanner
-
-### 14.1 ParserRegistry
-
-```moonbit
-pub struct ParserRegistry {
-  parsers : Array[Parser]
-}
-```
-
-选择逻辑：
-
-```text
-format match
-capability match
-convert mode match
-resource limits match
-priority score
-RoutePlanner selected_route
-```
-
-### 14.2 canonical route 策略
-
-示例：
-
-```text
-txt/csv/tsv/jsonl/ndjson -> streaming-event
-markdown -> dom-ast-model, over-limit / explicit --stream -> block-streaming
-yaml/json/xml -> dom-ast-model, over-limit / explicit --stream -> streaming-event
-toml -> dom-ast-model
-ipynb -> dom-ast-model, over-limit / explicit --stream -> block-streaming(cell/output-group)
-html -> dom-ast-model + readability/hybrid, over-limit / explicit --stream -> block-streaming(section/subtree)
-docx/pptx -> package-single-pass
-xlsx -> package-single-pass, over-limit / explicit --stream -> block-streaming(sheet/row/table-region)
-pdf -> page-single-pass, Accurate / explicit OCR -> layout-two-stage
-zip -> container-recursive
-epub -> package-single-pass, explicit --stream -> container-recursive
-```
-
-Diagnostics 中必须记录：
-
-```text
-selected_route
-route_reason
-route_probe_summary
-same_mode_degradation
-warnings
-degraded_features
-```
+1. registry is runtime wiring
+2. planner is product policy
+3. provenance should describe policy decisions, not just implementation calls
 
 ---
 
 ## 15. ConvertOptions
 
-```moonbit
-pub struct ConvertOptions {
-  mode : ConvertMode
-  fidelity_mode : FidelityMode
-  output_mode : OutputMode
-  stream_requested : Bool
-  output_format : OutputFormat
-  explicit_format : DetectedFormat?
-  ocr_options : OcrOptions
-  limits : ResourceLimits
-  pdf_cleanup_mode : PdfCleanupMode
-  pdf_table_mode : PdfTableMode
-  rag_options : RagOptions
-}
-```
+Public options can continue evolving, but they should keep one stable intent surface:
 
-职责边界：
+- output format
+- mode
+- stream request
+- PDF OCR policy
+- cleanup and table hints
+- RAG options
+- resource and dependency-related toggles where explicitly supported
 
-```text
-ConvertOptions 是 convert 层的执行编排配置。
-它负责选择转换模式、输出投影、输入解析入口、资源上限，以及公开暴露的 PDF/RAG 选项。
-它不是覆盖全部 renderer 策略的总配置对象。
-未进入该结构的更宽 renderer 策略，不构成公开契约。
-```
-
-### 15.1 OutputFormat
-
-```moonbit
-pub enum OutputFormat {
-  Markdown
-  RagJson
-  DebugJson
-}
-```
-
-产品语义：
-
-```text
-Markdown：默认公开输出
-DebugJson：正式公开的结构化调试输出
-RagJson：正式公开的 RAG 输出
-```
-
-### 15.2 PdfCleanupMode
-
-```moonbit
-pub enum PdfCleanupMode {
-  Disabled
-  Conservative
-}
-```
-
-说明：
-
-```text
-只把 PDF 页眉页脚清理收口为这一个显式产品选项。
-更宽的 PDF 能力矩阵仍属于后续实现，不在现行 ConvertOptions 契约中展开。
-```
-
-### 15.3 PdfTableMode
-
-```moonbit
-pub enum PdfTableMode {
-  Disabled
-  Simple
-}
-```
-
-说明：
-
-```text
-只把 PDF 的简单表格重建收口为这一个显式产品选项。
-更复杂的表格识别与结构恢复仍属于后续实现，不在现行 ConvertOptions 契约中展开。
-```
-
-### 15.4 RagOptions
-
-```moonbit
-pub struct RagOptions {
-  chunk_size : Int
-  chunk_overlap : Int
-  preserve_heading_path : Bool
-  preserve_source_ref : Bool
-  split_tables : Bool
-  split_code_blocks : Bool
-}
-```
+The system should continue normalizing them into one internal `ExecutionIntent`.
 
 ---
 
 ## 16. ConvertResult
 
-```moonbit
-pub struct ConvertResult {
-  content : String
-  output_format : OutputFormat
+`ConvertResult` should remain the single user-facing result boundary.
 
-  metadata : Map[String, JsonValue]
-  assets : Array[AssetRef]
-  diagnostics : Diagnostics
-  source_map : Option[SourceMap]
+It should expose:
 
-  chunks : Option[Array[RagChunk]]
-  debug_ir : Option[DocumentIR]
-}
-```
+- rendered content
+- metadata
+- diagnostics
+- assets
+- provenance and source-map-facing information
 
-### 16.1 RagChunk
-
-```moonbit
-pub struct RagChunk {
-  id : String
-  kind : ChunkKind
-  text : String
-  heading_path : Array[String]
-  source_refs : Array[SourceRef]
-  asset_refs : Array[AssetId]
-  metadata : Map[String, JsonValue]
-}
-
-pub enum ChunkKind {
-  Text
-  Table
-  Code
-  ImageCaption
-  Metadata
-  Raw
-}
-```
+RAG chunk output should be treated as a first-class projection, not as an afterthought.
 
 ---
 
-## 17. 错误处理策略
+## 17. Error Handling
 
-### 17.1 错误类型
+The project should keep a fail-closed bias.
 
-```moonbit
-pub enum ConvertError {
-  UnsupportedFormat(String)
-  DetectionFailed(String)
-  ParseFailed(String)
-  ResourceLimitExceeded(String)
-  RendererFailed(String)
-  IoError(String)
-  SecurityError(String)
-}
-```
+That means:
 
-### 17.2 可恢复错误
+1. unsupported capabilities should not silently pretend to succeed
+2. missing external dependencies should become explicit diagnostics
+3. planner fallback should be honest and explainable
+4. OCR/provider fallback should stay explicit and provenance-visible
 
-可恢复错误不应直接中断整个转换：
-
-```text
-单张图片读取失败
-单个附件解析失败
-单页 PDF 解析失败
-某个表格结构恢复失败
-OCR 某页失败
-```
-
-处理方式：
-
-```text
-记录 warning
-标记 degraded_features
-继续转换其余内容
-```
-
-### 17.3 不可恢复错误
-
-```text
-文件不存在
-权限失败
-格式完全不支持
-容器安全检查失败
-超出硬性资源限制
-```
-
-处理方式：
-
-```text
-返回 ConvertError
-保留 diagnostics
-```
+Recoverable errors can degrade into controlled output. Unsupported or unsafe behavior should remain closed by default.
 
 ---
 
-## 18. 资源与安全策略
+## 18. Resource and Safety Policy
 
-### 18.1 资源限制
+The architecture should continue protecting:
 
-必须支持：
+- memory ceilings
+- oversized input behavior
+- container path safety
+- HTML safety boundaries
+- OCR and image-processing safety boundaries
 
-```text
-max_file_size
-max_memory_mb
-max_pages
-max_rows
-max_cols
-max_cells
-max_assets
-max_recursion_depth
-timeout_ms
-```
-
-### 18.2 容器安全
-
-对 ZIP/TAR：
-
-```text
-禁止绝对路径
-禁止 ../ 路径穿越
-限制 entry 数
-限制总解压大小
-限制递归层级
-检测压缩炸弹风险
-```
-
-### 18.3 HTML 安全
-
-```text
-不执行 script
-不加载远程资源，除非显式允许
-过滤危险 URI scheme
-```
-
-### 18.4 图片/OCR 安全
-
-```text
-限制像素数
-限制页数
-限制 OCR 时间
-限制临时文件大小
-```
+These are product concerns, not optional extras.
 
 ---
 
-## 19. 模块目录建议
+## 19. Module and Ownership Direction
 
-```text
-src/
-  markitdown/
-    mod.mbt
+The repository should continue preferring:
 
-    input/
-      source.mbt
-      detector.mbt
-      mime.mbt
-      magic.mbt
+- per-format package ownership
+- runtime registry wiring
+- one renderer stack
+- one pipeline stack
+- one documented architecture source of truth
 
-    core/
-      ir/
-        block.mbt
-        document.mbt
-        event.mbt
-        signal.mbt
-        source_ref.mbt
-        asset.mbt
-        diagnostics.mbt
-        metadata.mbt
-      pass/
-        pass.mbt
-        normalize_text.mbt
-        whitespace.mbt
-        merge_lines.mbt
-        reading_order.mbt
-        header_footer.mbt
-        heading.mbt
-        list.mbt
-        table.mbt
-        caption.mbt
-        section_tree.mbt
-        chunking.mbt
-      render/
-        renderer.mbt
-        markdown.mbt
-        json.mbt
-        rag.mbt
-        debug.mbt
-
-    parser/
-      parser.mbt
-      registry.mbt
-      capability.mbt
-      result.mbt
-
-      text/
-        text_parser.mbt
-        log_parser.mbt
-      csv/
-        csv_parser.mbt
-      json/
-        json_parser.mbt
-        jsonl_parser.mbt
-      yaml/
-        yaml_parser.mbt
-      toml/
-        toml_parser.mbt
-      markdown/
-        markdown_parser.mbt
-      html/
-        html_parser.mbt
-        readability.mbt
-      ipynb/
-        notebook_parser.mbt
-        cell_lowering.mbt
-        output_lowering.mbt
-      epub/
-        epub_parser.mbt
-      office/
-        ooxml_package.mbt
-        docx_parser.mbt
-        pptx_parser.mbt
-        xlsx_parser.mbt
-      pdf/
-        pdf_parser.mbt
-        pdf_page.mbt
-        pdf_layout.mbt
-      image/
-        image_parser.mbt
-        ocr.mbt
-      email/
-        eml_parser.mbt
-        mbox_parser.mbt
-        msg_parser.mbt
-      archive/
-        archive_parser.mbt
-      media/
-        subtitle_parser.mbt
-        media_parser.mbt
-
-    convert/
-      options.mbt
-      converter.mbt
-      result.mbt
-      pipeline.mbt
-
-    util/
-      id.mbt
-      limits.mbt
-      json_value.mbt
-      error.mbt
-```
+The codebase should avoid rebuilding historical root-level facades once a package already has clear ownership.
 
 ---
 
-## 20. 测试策略
+## 20. Testing Strategy
 
-### 20.1 单元测试
+Formal validation should keep covering:
 
-```text
-FormatDetector test
-ParserCapability test
-CoreIRBuilder test
-每个 IR Pass test
-Renderer test
-```
+1. unit tests
+2. fixture-based regression
+3. snapshot or golden output tests where appropriate
+4. planner and provenance contract tests
+5. benchmark and quality-regression entry points
 
-### 20.2 fixture 测试
-
-每种格式至少准备：
-
-```text
-empty file
-small normal file
-large file
-unicode file
-malformed file
-file with images
-file with tables
-file with nested structure
-```
-
-### 20.3 golden snapshot
-
-对每个 fixture 保存：
-
-```text
-expected markdown
-expected json ir optional
-expected diagnostics subset
-```
-
-### 20.4 parser regression
-
-尤其需要覆盖：
-
-```text
-DOCX numbering
-DOCX merged table cells
-PPTX speaker notes
-XLSX large sheet
-HTML noisy page
-PDF two columns
-PDF repeated header/footer
-PDF table-heavy page
-EPUB spine order
-CSV huge file
-JSONL huge file
-TOML dotted keys / array-of-tables / multiline strings
-IPYNB markdown+code cells / display_data / attachments / oversized notebook degradation
-```
-
-### 20.5 性能测试
-
-指标：
-
-```text
-parser time
-render time
-total time
-peak memory
-output size
-block count
-table count
-asset count
-```
+Document contracts matter too. Architecture docs are part of the long-term maintenance surface, not decoration.
 
 ---
 
-## 21. 推荐落地路线
+## 21. Recommended Delivery Path
 
-### Phase 1：核心骨架
+The long-term delivery order still makes sense as:
 
-```text
-InputSource
-FormatDetector
-Parser trait
-ParseResult
-CoreBlock / SourceRef / AssetRef / Diagnostics
-MarkdownRenderer
-ConvertOptions / ConvertResult
-```
+1. core skeleton and contracts
+2. main format integration
+3. stronger IR passes
+4. stable RAG and debug projections
+5. constrained high-fidelity capabilities such as accurate OCR and better structured recovery
 
-目标：让现有 parser 都能接入统一 pipeline。
-
-### Phase 2：主格式接入
-
-```text
-text
-csv
-json/jsonl
-markdown
-html
-docx
-pptx
-xlsx
-pdf text-layer
-```
-
-目标：完成主格式的 parser -> Core IR -> Markdown。
-
-补充说明：
-
-```text
-在当前主格式已经稳定的前提下，TOML 与 IPYNB 已经进入正式支持矩阵，并且也是最适合继续做质量补强的一批结构化格式：
-它们都复用既有 structured-text / notebook lowering 主链，而不需要推翻现有 parser mode 体系。
-```
-
-### Phase 3：IR Pass 完善
-
-```text
-NormalizeWhitespacePass
-ResolveHeadingPass
-ResolveListPass
-ResolveTablePass
-ResolveReadingOrderPass
-RemoveHeaderFooterPass
-AssembleSectionTreePass
-```
-
-目标：提升 Markdown 结构质量。
-
-### Phase 4：RAG / Debug 输出
-
-```text
-RagRenderer
-ChunkingPass
-DebugJsonRenderer
-IR dump
-source map export
-```
-
-目标：支持知识库和 parser 开发。
-
-### Phase 5：高保真能力
-
-```text
-PDF layout
-OCR
-table structure recognition
-image OCR
-cross-page table merge
-caption binding
-```
-
-目标：覆盖复杂 PDF、扫描件和财报论文类文档。
+The important part is not the exact phase names. The important part is keeping one architecture language while the implementation grows.
 
 ---
 
-## 22. 最终架构约束清单
+## 22. Final Constraint Checklist
 
-必须遵守：
+The architecture should keep these constraints stable:
 
-```text
-1. Parser 不直接生成 Markdown。
-2. Markdown 不是中间表示。
-3. Parser 可以多态，Core IR 必须统一。
-4. 所有复杂格式必须带 SourceRef。
-5. 所有 parser 必须返回 Diagnostics。
-6. 大文件格式优先 streaming 或 block-streaming。
-7. PDF 不追求 byte-level 真流式，默认 page-level。
-8. XLSX 不默认全量 workbook model，大表必须受 limits 保护。
-9. HTML 默认 hybrid，不应机械 DOM 全量转 Markdown。
-10. EPUB 必须按 spine 顺序，而不是 zip entry 顺序。
-11. DOCX 应信任源结构，不要像 PDF 一样过度推断。
-12. PPTX 应按 slide 建模，不要强行当长文档。
-13. OCR/layout/table recognition 属于 Accurate 模式，不默认开启。
-14. Renderer 不读取源格式。
-15. IR Pass 不依赖具体 parser 库。
-16. RoutePlanner 必须记录 diagnostics，并写明 selected_route / route_reason / route_probe_summary。
-17. 仅允许同模式内 degradation；degradation 必须记录 diagnostics，且禁止跨模式 fallback。
-18. 容器解析必须做安全限制。
-19. RAG chunk 必须保留 heading path 和 source refs。
-20. TOML / IPYNB 等新增格式应优先复用现有 dom-ast-model / block-streaming，而不是为了单一格式发明新 parser mode。
-21. IPYNB 不执行 cell，不重算 output；只消费文件中已有 notebook 事实。
-```
+1. Parsers can be polymorphic.
+2. Core IR must stay unified.
+3. Renderer must stay unified.
+4. Markdown is an output, not the intermediate representation.
+5. All formal entry points should reuse the same planner-driven main chain.
+6. Provenance and diagnostics should explain route and capability behavior.
+7. Unsupported behavior should fail closed or fall back honestly with explicit warnings.
 
 ---
 
-## 23. 一句话总结
+## 23. One-Sentence Summary
 
-mb-markitdown 的合理架构不是“所有格式统一扫描方式”，而是：
-
-```text
-线性大文件走 streaming-event；
-压缩包文档走 package-single-pass；
-分页文档走 page-single-pass；
-markup/tree 文档走 dom-ast-model；
-复杂视觉文档走 layout-two-stage；
-markdown / html / xlsx 等分块友好格式在超限时走 block-streaming；
-所有分流都由 convert 的 RoutePlanner 决定，且不允许跨模式 fallback；
-容器文件走 container-recursive；
-媒体文件走 media-pipeline。
-
-所有 parser 输出 ParseResult；
-所有 ParseResult 先收敛到公开三态 IRInput，并经 pipeline 进入 RenderInput；
-所有 Markdown/Debug JSON/RAG 输出由 Renderer 统一生成。
-```
-
-这套设计可以同时保留 MarkItDown 类工具的轻量速度优势，也给复杂 PDF、Office、HTML、EPUB、RAG 和 Debug 留出足够的结构空间。
+`mb-markitdown` is most successful when it behaves like a single long-term product path with many format-native parsers, one unified core model, one renderer contract, and one honest provenance story.

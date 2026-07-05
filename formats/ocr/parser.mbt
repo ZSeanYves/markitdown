@@ -78,6 +78,67 @@ fn image_provider_not_configured_error_for_target(
 }
 
 ///|
+fn image_ocr_provider_should_fallback(error : OcrProviderError) -> Bool {
+  match ocr_provider_error_status(error) {
+    OcrProviderStatus::NotConfigured => true
+    OcrProviderStatus::CommandUnavailable => true
+    _ => false
+  }
+}
+
+///|
+fn image_ocr_provider_fallback_note(
+  from_kind : OcrProviderKind,
+  to_kind : OcrProviderKind,
+) -> String {
+  "image_ocr_provider_fallback from=" +
+  ocr_provider_kind_name(from_kind) +
+  " to=" +
+  ocr_provider_kind_name(to_kind)
+}
+
+///|
+fn image_ocr_result_with_fallback_note(
+  result : OcrProviderResult,
+  from_kind : OcrProviderKind,
+  to_kind : OcrProviderKind,
+) -> OcrProviderResult {
+  let diagnostics = result.diagnostics.copy()
+  diagnostics.push(image_ocr_provider_fallback_note(from_kind, to_kind))
+  { ..result, diagnostics, }
+}
+
+///|
+fn image_ocr_parse_success_result(
+  source : @input.InputSource,
+  detected_format : @input.DetectedFormat,
+  options : @parser.OcrOptions,
+  result : OcrProviderResult,
+  target : OcrProviderSelectionTarget,
+) -> Result[@parser.ParseResult, String] {
+  if result.pages.length() == 0 {
+    Err(
+      image_ocr_provider_error_message(
+        detected_format,
+        OcrProviderError::EmptyResult(
+          "OCR provider produced an empty OCR model on the this runtime.",
+        ),
+      ),
+    )
+  } else {
+    Ok(
+      image_ocr_parse_result_from_provider_result(
+        source,
+        detected_format,
+        options,
+        result,
+        target~,
+      ),
+    )
+  }
+}
+
+///|
 pub fn image_ocr_disabled_message(format : @input.DetectedFormat) -> String {
   "image input conversion is not enabled for " +
   @input.detected_format_name(format) +
@@ -262,28 +323,40 @@ fn image_ocr_parser_parse(
       )
       match provider(request) {
         Ok(result) =>
-          if result.pages.length() == 0 {
-            Err(
-              image_ocr_provider_error_message(
-                detected_format,
-                OcrProviderError::EmptyResult(
-                  "OCR provider produced an empty OCR model on the this runtime.",
-                ),
-              ),
-            )
-          } else {
-            Ok(
-              image_ocr_parse_result_from_provider_result(
-                source,
-                detected_format,
-                options,
-                result,
-                target~,
-              ),
-            )
-          }
+          image_ocr_parse_success_result(
+            source, detected_format, options, result, target,
+          )
         Err(error) =>
-          Err(image_ocr_provider_error_message(detected_format, error))
+          match ocr_provider_fallback_for_target(target) {
+            Some(fallback) if image_ocr_provider_should_fallback(error) => {
+              let fallback_request = make_ocr_provider_request(
+                image_source_path(source),
+                fallback.1,
+                language=options.language,
+              )
+              match provider(fallback_request) {
+                Ok(result) =>
+                  image_ocr_parse_success_result(
+                    source,
+                    detected_format,
+                    options,
+                    image_ocr_result_with_fallback_note(
+                      result,
+                      fallback.0,
+                      fallback.1,
+                    ),
+                    target,
+                  )
+                Err(fallback_error) =>
+                  Err(
+                    image_ocr_provider_error_message(
+                      detected_format, fallback_error,
+                    ),
+                  )
+              }
+            }
+            _ => Err(image_ocr_provider_error_message(detected_format, error))
+          }
       }
     }
     @parser.OcrIntent::Disabled =>
@@ -321,28 +394,40 @@ async fn image_ocr_parser_parse_async(
       )
       match provider(request) {
         Ok(result) =>
-          if result.pages.length() == 0 {
-            Err(
-              image_ocr_provider_error_message(
-                detected_format,
-                OcrProviderError::EmptyResult(
-                  "OCR provider produced an empty OCR model on the this runtime.",
-                ),
-              ),
-            )
-          } else {
-            Ok(
-              image_ocr_parse_result_from_provider_result(
-                source,
-                detected_format,
-                options,
-                result,
-                target~,
-              ),
-            )
-          }
+          image_ocr_parse_success_result(
+            source, detected_format, options, result, target,
+          )
         Err(error) =>
-          Err(image_ocr_provider_error_message(detected_format, error))
+          match ocr_provider_fallback_for_target(target) {
+            Some(fallback) if image_ocr_provider_should_fallback(error) => {
+              let fallback_request = make_ocr_provider_request(
+                image_source_path(source),
+                fallback.1,
+                language=options.language,
+              )
+              match provider(fallback_request) {
+                Ok(result) =>
+                  image_ocr_parse_success_result(
+                    source,
+                    detected_format,
+                    options,
+                    image_ocr_result_with_fallback_note(
+                      result,
+                      fallback.0,
+                      fallback.1,
+                    ),
+                    target,
+                  )
+                Err(fallback_error) =>
+                  Err(
+                    image_ocr_provider_error_message(
+                      detected_format, fallback_error,
+                    ),
+                  )
+              }
+            }
+            _ => Err(image_ocr_provider_error_message(detected_format, error))
+          }
       }
     }
     @parser.OcrIntent::Disabled =>

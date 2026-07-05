@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SAMPLE_IMPL="$ROOT/samples/helpers/validation/check_samples_impl.sh"
+source "$ROOT/samples/helpers/shared/cli_runner.sh"
 CHECK_TMP_ROOT="${MARKITDOWN_CHECK_TMP_ROOT:-$ROOT/.tmp/check}"
 SUPPORTED_FORMATS=("txt" "csv" "tsv" "srt" "vtt" "json" "jsonl" "ndjson" "ipynb" "xml" "yaml" "toml" "html" "markdown" "eml" "tex" "rst" "asciidoc" "zip" "epub" "odt" "ods" "odp" "docx" "xlsx" "pptx" "pdf" "wav" "mp3" "m4a" "ocr")
 
@@ -176,6 +177,11 @@ if [[ "$SPECIAL_MODE" == "list-inventory" ]]; then
   exit 0
 fi
 
+resolve_markitdown_cli
+if [[ "${CLI_RUNNER_KIND:-}" == "prebuilt-native" || "${CLI_RUNNER_KIND:-}" == "override" ]]; then
+  SHARED_CLI_BIN="$CLI_BIN"
+fi
+
 RUN_STAMP="$(date +%Y%m%d-%H%M%S)"
 RUN_LABEL="all"
 if [[ -n "$FORMAT_FILTER" ]]; then
@@ -237,11 +243,7 @@ update_runner_label() {
 
 runner_from_log() {
   local log_path="$1"
-  if grep -q "runner-note: built native" "$log_path" 2>/dev/null; then
-    printf 'built'
-  elif grep -q "runner-note: rebuilt stale native" "$log_path" 2>/dev/null; then
-    printf 'built'
-  elif grep -q "runner: prebuilt-native\\|runner: override" "$log_path" 2>/dev/null; then
+  if grep -q "runner: prebuilt-native\\|runner: override" "$log_path" 2>/dev/null; then
     printf 'prebuilt'
   elif grep -q "runner: moon-run" "$log_path" 2>/dev/null; then
     printf 'moon-run'
@@ -299,16 +301,21 @@ run_impl() {
     echo "log: $(display_path "$log_path")"
   } >> "$ENTRYPOINT_LOG"
 
+  local -a env_args=(
+    CHECK_SAMPLES_OUT_DIR="$mode_workspace/samples"
+    MARKITDOWN_CLI_TMP_DIR="$mode_workspace/cli"
+    CHECK_FAILURE_DIFF_DIR="$DIFF_DIR"
+    CHECK_FAILURE_RAW_DIR="$RAW_DIR/failures"
+    CHECK_FAILURE_REPORTS_DIR="$FAILURE_REPORTS_DIR"
+    SAMPLES_KEEP_TMP=1
+    MARKITDOWN_PROGRESS_FD=3
+  )
+  if [[ -n "$SHARED_CLI_BIN" ]]; then
+    env_args+=(MARKITDOWN_CLI="$SHARED_CLI_BIN")
+  fi
+
   set +e
-  env \
-    CHECK_SAMPLES_OUT_DIR="$mode_workspace/samples" \
-    MARKITDOWN_CLI_TMP_DIR="$mode_workspace/cli" \
-    CHECK_FAILURE_DIFF_DIR="$DIFF_DIR" \
-    CHECK_FAILURE_RAW_DIR="$RAW_DIR/failures" \
-    CHECK_FAILURE_REPORTS_DIR="$FAILURE_REPORTS_DIR" \
-    SAMPLES_KEEP_TMP=1 \
-    MARKITDOWN_PROGRESS_FD=3 \
-    "$SAMPLE_IMPL" "${args[@]}" 3>&1 >"$log_path" 2>&1
+  env "${env_args[@]}" "$SAMPLE_IMPL" "${args[@]}" 3>&1 >"$log_path" 2>&1
   local status=$?
   set -e
 

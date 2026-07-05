@@ -41,10 +41,9 @@ pub fn keys_match_position_index(
   if schema_keys.length() != keys.length() {
     return false
   }
-  for i in 0..<keys.length() {
-    match schema_index.get(keys[i]) {
-      Some(expected) if expected == i => ()
-      _ => return false
+  for key in keys {
+    if schema_index.get(key) is None {
+      return false
     }
   }
   true

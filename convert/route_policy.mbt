@@ -45,6 +45,7 @@ fn execution_intent(options : ConvertOptions) -> ExecutionIntent {
   {
     strategy_mode: options.mode,
     fidelity_mode: options.fidelity_mode,
+    requested_fidelity_mode: options.fidelity_mode,
     output_mode: options.output_mode,
     stream_requested: options.stream_requested,
     output_format: options.output_format,
@@ -161,11 +162,15 @@ fn strategy_switches_for_plan(
   selected : @formats.StrategyRouteSpec,
   mode_policy : @formats.ModeStrategyPolicy,
   explicit_stream_fell_back : Bool,
+  accurate_fell_back : Bool,
   execution_profile : ExecutionProfile,
 ) -> Array[String] {
   let switches : Array[String] = []
   if explicit_stream_fell_back {
     switches.push("explicit_stream_unsupported_fell_back")
+  }
+  if accurate_fell_back {
+    switches.push("accurate_unsupported_fell_back")
   }
   if execution_profile == ExecutionProfile::MediumAdaptive {
     switches.push(
@@ -196,10 +201,14 @@ fn route_reason_for_plan(
   selected : @formats.StrategyRouteSpec,
   mode_policy : @formats.ModeStrategyPolicy,
   explicit_stream_fell_back : Bool,
+  accurate_fell_back : Bool,
   hard_triggered : Bool,
 ) -> String {
   if explicit_stream_fell_back {
     return "explicit_stream_unsupported_fell_back"
+  }
+  if accurate_fell_back {
+    return "accurate_unsupported_fell_back"
   }
   if intent.stream_requested && mode_policy.explicit_stream_supported {
     return "explicit_stream_mode"
@@ -346,11 +355,28 @@ fn resolve_execution_plan(
   options : ConvertOptions,
 ) -> ResolvedExecutionPlan {
   let intent = execution_intent(options)
+  let preserves_runtime_accurate_semantics = @input.detected_format_is_image_candidate(
+    detected_format,
+  )
+  let accurate_fell_back = detected_format != @input.DetectedFormat::Pdf &&
+    !preserves_runtime_accurate_semantics &&
+    intent.fidelity_mode == FidelityMode::Accurate &&
+    @product.accurate_features_for_detected_format(detected_format).length() ==
+    0
+  let effective_intent = if accurate_fell_back {
+    {
+      ..intent,
+      strategy_mode: ConvertMode::Balanced,
+      fidelity_mode: FidelityMode::Balanced,
+    }
+  } else {
+    intent
+  }
   let probe = preflight_probe(source, detected_format, options)
   let policy = @formats.format_strategy_policy(detected_format)
   let mode_policy = @formats.format_mode_strategy_policy(
     detected_format,
-    product_convert_mode_for_strategy(intent.strategy_mode),
+    product_convert_mode_for_strategy(effective_intent.strategy_mode),
   )
   let hard_trigger_signals = exceeded_threshold_signals(
     probe.probe_signals,
@@ -366,7 +392,7 @@ fn resolve_execution_plan(
     _ => hard_trigger_signals
   }
   let (selected, explicit_stream_fell_back, used_hard_limit) = select_strategy_route(
-    detected_format, intent, policy, mode_policy, route_probe_signals,
+    detected_format, effective_intent, policy, mode_policy, route_probe_signals,
   )
   let execution_profile = effective_execution_profile(
     selected, mode_policy, soft_trigger_signals, hard_trigger_signals,
@@ -381,11 +407,12 @@ fn resolve_execution_plan(
     mode_policy,
   )
   let switches = strategy_switches_for_plan(
-    detected_format, intent, selected, mode_policy, explicit_stream_fell_back, execution_profile,
+    detected_format, effective_intent, selected, mode_policy, explicit_stream_fell_back,
+    accurate_fell_back, execution_profile,
   )
   let ocr_provider_target = ocr_provider_target_for_plan(
     detected_format,
-    intent.fidelity_mode,
+    effective_intent.fidelity_mode,
     strategy_route_parser_mode(selected),
   )
   let ocr_provider_requested_kind = ocr_provider_target.map(target => {
@@ -394,13 +421,13 @@ fn resolve_execution_plan(
   let ocr_provider_resolved_kind = ocr_provider_target.map(target => {
     @focr.resolved_ocr_provider_kind_for_target(target)
   })
-  let strategy_mode = if intent.stream_requested &&
+  let strategy_mode = if effective_intent.stream_requested &&
     mode_policy.explicit_stream_supported &&
     selected.route == mode_policy.canonical.route &&
     policy.stream.canonical.route == selected.route {
     ConvertMode::Stream
   } else {
-    intent.strategy_mode
+    effective_intent.strategy_mode
   }
   let (audio_backend_transport, audio_backend_name, audio_backend_version) = match
     detected_format {
@@ -415,17 +442,18 @@ fn resolve_execution_plan(
   {
     detected_format,
     mode: strategy_mode,
-    fidelity_mode: intent.fidelity_mode,
-    output_mode: intent.output_mode,
-    stream_requested: intent.stream_requested,
-    output_format: intent.output_format,
-    ocr_options: intent.ocr_options,
-    audio_options: intent.audio_options,
-    limits: intent.limits,
-    pdf_ocr_policy: intent.pdf_ocr_policy,
-    pdf_cleanup_mode: intent.pdf_cleanup_mode,
-    pdf_table_mode: intent.pdf_table_mode,
-    rag_options: intent.rag_options,
+    fidelity_mode: effective_intent.fidelity_mode,
+    requested_fidelity_mode: intent.requested_fidelity_mode,
+    output_mode: effective_intent.output_mode,
+    stream_requested: effective_intent.stream_requested,
+    output_format: effective_intent.output_format,
+    ocr_options: effective_intent.ocr_options,
+    audio_options: effective_intent.audio_options,
+    limits: effective_intent.limits,
+    pdf_ocr_policy: effective_intent.pdf_ocr_policy,
+    pdf_cleanup_mode: effective_intent.pdf_cleanup_mode,
+    pdf_table_mode: effective_intent.pdf_table_mode,
+    rag_options: effective_intent.rag_options,
     selected_route: selected.route,
     execution_profile,
     execution_profile_reason: if used_hard_limit {
@@ -441,14 +469,14 @@ fn resolve_execution_plan(
     requested_parser_mode: strategy_route_parser_mode(selected),
     pdf_native_runtime_policy: @parser.default_pdf_native_runtime_policy(),
     pdf_header_footer_filter_policy: pdf_header_footer_filter_policy_from_mode(
-      intent.pdf_cleanup_mode,
+      effective_intent.pdf_cleanup_mode,
     ),
     pdf_table_reconstruction_policy: pdf_table_reconstruction_policy_from_mode(
-      intent.pdf_table_mode,
+      effective_intent.pdf_table_mode,
     ),
     reason: route_reason_for_plan(
-      detected_format, intent, selected, mode_policy, explicit_stream_fell_back,
-      used_hard_limit,
+      detected_format, effective_intent, selected, mode_policy, explicit_stream_fell_back,
+      accurate_fell_back, used_hard_limit,
     ),
     probe_signals: probe.probe_signals,
     profile_trigger_signals: if used_hard_limit {

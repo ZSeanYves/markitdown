@@ -389,6 +389,7 @@ pub fn parse_detected_format(name : String) -> DetectedFormat {
     "adoc" => DetectedFormat::Asciidoc
     "asciidoc" => DetectedFormat::Asciidoc
     "eml" => DetectedFormat::Eml
+    "msg" => DetectedFormat::Eml
     "zip" => DetectedFormat::Zip
     "epub" => DetectedFormat::Epub
     "odt" => DetectedFormat::Odt

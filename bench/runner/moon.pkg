@@ -13,6 +13,7 @@ import {
   "moonbitlang/core/math",
   "moonbitlang/core/string",
   "moonbitlang/x/fs",
+  "moonbitlang/x/crypto",
 }
 
 supported_targets = "native"

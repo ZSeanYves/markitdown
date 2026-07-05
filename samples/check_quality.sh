@@ -109,9 +109,7 @@ summary_note_value() {
 
 runner_from_log() {
   local log_path="$1"
-  if grep -q "runner-note: built native\\|runner-note: rebuilt stale native" "$log_path" 2>/dev/null; then
-    printf 'built'
-  elif grep -q "runner: prebuilt" "$log_path" 2>/dev/null; then
+  if grep -q "runner: prebuilt" "$log_path" 2>/dev/null; then
     printf 'prebuilt'
   elif grep -q "runner: moon-run" "$log_path" 2>/dev/null; then
     printf 'moon-run'

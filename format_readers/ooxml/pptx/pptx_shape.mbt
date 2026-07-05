@@ -31,7 +31,7 @@ fn default_shape_container_context(part_name : String) -> ShapeContainerContext 
 ///|
 fn parse_source_slide(
   ctx : PptxSourceParseContext,
-  slide_ref : PptxSlideRefV2,
+  slide_ref : PptxSlideRef,
   authors : Array[PptxCommentAuthor],
 ) -> PptxSourceSlide raise {
   let part_name = slide_ref.part_name
@@ -89,7 +89,7 @@ fn parse_source_slide(
 }
 
 ///|
-fn find_slide_layout_ref(rels : Array[PptxRelationshipV2]) -> PptxLayoutRef? {
+fn find_slide_layout_ref(rels : Array[PptxRelationship]) -> PptxLayoutRef? {
   for rel in rels {
     if rel.rel_type.has_suffix("/slideLayout") &&
       rel.resolved_target.has_prefix("ppt/slideLayouts/") &&

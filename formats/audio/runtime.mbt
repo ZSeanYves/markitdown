@@ -1,5 +1,10 @@
 ///|
-const AUDIO_TMP_ROOT : String = ".tmp/audio_native"
+const AUDIO_TMP_ROOT : String = ".tmp/tests/audio_native"
+
+///|
+pub fn audio_command_env_var() -> String {
+  "MARKITDOWN_AUDIO_CMD"
+}
 
 ///|
 pub fn audio_model_path_env_var() -> String {
@@ -30,6 +35,14 @@ fn audio_default_model_path() -> String {
 }
 
 ///|
+fn audio_runtime_tmp_root() -> String {
+  match normalized_env_var("MARKITDOWN_TMP_DIR") {
+    Some(path) => path + "/audio_native"
+    None => AUDIO_TMP_ROOT
+  }
+}
+
+///|
 fn audio_resolved_model_path() -> String {
   match normalized_env_var(audio_model_path_env_var()) {
     Some(path) => path
@@ -45,8 +58,10 @@ fn audio_whisper_candidate_commands() -> Array[String] {
 ///|
 pub fn audio_transcribe_install_hint() -> String {
   [
-    "Install local `whisper.cpp` and make `whisper-cli` available on PATH.",
-    "The runtime also accepts `main` as a compatibility fallback binary name.",
+    "Preferred: configure `" +
+    audio_command_env_var() +
+    "` with the official helper `samples/helpers/audio_transcribe_wrapper.py`.",
+    "Fallback: direct local `whisper.cpp` CLI discovery still accepts `whisper-cli` or `main` on PATH.",
     "Download the multilingual `ggml-base` model locally.",
     "Default model path: " + audio_default_model_path(),
     "Override model path with `" + audio_model_path_env_var() + "` when needed.",
@@ -99,14 +114,6 @@ fn build_audio_transcribe_plan(
         ),
       )
   }
-  let backend_cmd = match audio_discover_backend_command() {
-    Ok(value) => value
-    Err(error) => return Err(error)
-  }
-  let model_path = match audio_validate_model_path() {
-    Ok(value) => value
-    Err(error) => return Err(error)
-  }
   let temp_dir = audio_temp_dir_name(source)
   audio_ensure_dir_tree(temp_dir) catch {
     e =>
@@ -126,33 +133,130 @@ fn build_audio_transcribe_plan(
   }
   let output_base = temp_dir + "/transcript"
   let output_json_path = output_base + ".json"
+  let (backend_cmd, argv) = match
+    audio_backend_command_plan(
+      prepared_input.invoked_input_path,
+      output_base,
+      output_json_path,
+      language,
+    ) {
+    Ok(value) => value
+    Err(error) => {
+      audio_cleanup_temp_dir(temp_dir)
+      return Err(error)
+    }
+  }
+  Ok({ backend_cmd, argv, output_json_path, temp_dir })
+}
+
+///|
+fn audio_backend_command_plan(
+  prepared_input_path : String,
+  output_base : String,
+  output_json_path : String,
+  language : String?,
+) -> Result[(String, Array[String]), AudioTranscribeError] {
+  match normalized_env_var(audio_command_env_var()) {
+    Some(command) =>
+      build_audio_transcribe_command_with_wrapper(
+        prepared_input_path, output_json_path, language, command,
+      )
+    None =>
+      build_audio_transcribe_direct_command(
+        prepared_input_path, output_base, language,
+      )
+  }
+}
+
+///|
+fn build_audio_transcribe_direct_command(
+  prepared_input_path : String,
+  output_base : String,
+  language : String?,
+) -> Result[(String, Array[String]), AudioTranscribeError] {
+  let backend_cmd = match audio_discover_backend_command() {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let model_path = match audio_validate_model_path() {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
   let argv : Array[String] = [
-    "-m",
-    model_path,
-    "-f",
-    prepared_input.invoked_input_path,
-    "-ojf",
-    "-of",
-    output_base,
-    "-np",
+    "-m", model_path, "-f", prepared_input_path, "-ojf", "-of", output_base, "-np",
   ]
+  audio_append_direct_language(argv, language)
+  Ok((backend_cmd, argv))
+}
+
+///|
+fn build_audio_transcribe_command_with_wrapper(
+  prepared_input_path : String,
+  output_json_path : String,
+  language : String?,
+  wrapper_command : String,
+) -> Result[(String, Array[String]), AudioTranscribeError] {
+  let trimmed = wrapper_command.trim().to_owned()
+  if trimmed == "" {
+    return Err(
+      AudioTranscribeError::NotConfigured(
+        audio_transcribe_not_configured_message(),
+      ),
+    )
+  }
+  let parts = match audio_command_parts(trimmed) {
+    Ok(value) => value
+    Err(msg) => return Err(AudioTranscribeError::NotConfigured(msg))
+  }
+  if parts.length() == 0 {
+    return Err(
+      AudioTranscribeError::NotConfigured(
+        audio_transcribe_not_configured_message(),
+      ),
+    )
+  }
+  let argv : Array[String] = []
+  argv.append(parts[1:][:])
+  argv.push(prepared_input_path)
+  argv.push(output_json_path)
+  audio_append_wrapper_language(argv, language)
+  Ok((parts[0], argv))
+}
+
+///|
+fn audio_append_direct_language(
+  argv : Array[String],
+  language : String?,
+) -> Unit {
   match language {
     Some(value) => {
       let trimmed = value.trim().to_owned().to_lower()
-      if trimmed != "" {
-        argv.push("-l")
-        argv.push(trimmed)
-      } else {
-        argv.push("-l")
-        argv.push("auto")
-      }
+      argv.push("-l")
+      argv.push(if trimmed == "" { "auto" } else { trimmed })
     }
     None => {
       argv.push("-l")
       argv.push("auto")
     }
   }
-  Ok({ backend_cmd, argv, output_json_path, temp_dir })
+}
+
+///|
+fn audio_append_wrapper_language(
+  argv : Array[String],
+  language : String?,
+) -> Unit {
+  match language {
+    Some(value) => {
+      let trimmed = value.trim().to_owned().to_lower()
+      argv.push("--lang")
+      argv.push(if trimmed == "" { "auto" } else { trimmed })
+    }
+    None => {
+      argv.push("--lang")
+      argv.push("auto")
+    }
+  }
 }
 
 ///|
@@ -289,6 +393,66 @@ fn audio_discover_backend_command() -> Result[String, AudioTranscribeError] {
       audio_transcribe_install_hint(),
     ),
   )
+}
+
+///|
+fn audio_command_parts(command : String) -> Result[Array[String], String] {
+  if @fs.path_exists(command) {
+    return Ok([command])
+  }
+  let parts : Array[String] = []
+  let current : Array[Char] = []
+  let chars = command.to_array()
+  let mut in_single_quote = false
+  let mut in_double_quote = false
+  let mut escape_next = false
+
+  fn flush_current(parts : Array[String], current : Array[Char]) -> Unit {
+    if current.length() == 0 {
+      return
+    }
+    parts.push(String::from_array(current))
+    current.clear()
+  }
+
+  for ch in chars {
+    if escape_next {
+      current.push(ch)
+      escape_next = false
+      continue
+    }
+    if ch == '\\' && !in_single_quote {
+      escape_next = true
+      continue
+    }
+    if ch == '\'' && !in_double_quote {
+      in_single_quote = !in_single_quote
+      continue
+    }
+    if ch == '"' && !in_single_quote {
+      in_double_quote = !in_double_quote
+      continue
+    }
+    if (ch == ' ' || ch == '\t' || ch == '\n') &&
+      !in_single_quote &&
+      !in_double_quote {
+      flush_current(parts, current)
+      continue
+    }
+    current.push(ch)
+  }
+
+  if escape_next || in_single_quote || in_double_quote {
+    return Err(
+      "Audio command configured through `" +
+      audio_command_env_var() +
+      "` is not shell-parseable on this runtime.\n\n" +
+      audio_transcribe_install_hint(),
+    )
+  }
+
+  flush_current(parts, current)
+  Ok(parts)
 }
 
 ///|
@@ -711,7 +875,7 @@ fn audio_temp_dir_name(source : @input.InputSource) -> String {
   }
   let normalized = String::from_array(safe).trim().to_owned()
   let base = if normalized == "" { "input" } else { normalized }
-  AUDIO_TMP_ROOT + "/" + base + "_" + @env.now().to_string()
+  audio_runtime_tmp_root() + "/" + base + "_" + @env.now().to_string()
 }
 
 ///|

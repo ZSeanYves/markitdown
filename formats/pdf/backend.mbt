@@ -166,7 +166,7 @@ pub fn extract_pdf_native_document(
   diagnostics.metrics.set("pdf_native_backend", "true")
   diagnostics.metrics.set("pdf_native_text_baseline", "true")
   diagnostics.metrics.set("pdf_ocr_used", "false")
-  diagnostics.metrics.set("pdf_v2_used", "false")
+  diagnostics.metrics.set("pdf_canonical_pipeline_used", "false")
   diagnostics.metrics.set(
     "pdf_empty_text_layer",
     if span_count == 0 {
@@ -223,7 +223,7 @@ pub fn extract_pdf_native_document(
   metadata.set("pdf_native_backend", @core.JsonValue::Bool(true))
   metadata.set("pdf_native_text_baseline", @core.JsonValue::Bool(true))
   metadata.set("pdf_ocr_used", @core.JsonValue::Bool(false))
-  metadata.set("pdf_v2_used", @core.JsonValue::Bool(false))
+  metadata.set("pdf_canonical_pipeline_used", @core.JsonValue::Bool(false))
   metadata.set("pdf_empty_text_layer", @core.JsonValue::Bool(span_count == 0))
   metadata.set("page_count", @core.JsonValue::Number(page_count.to_string()))
   metadata.set(
@@ -758,7 +758,7 @@ fn pdf_decode_stream_text(
 }
 
 ///|
-/// ToUnicode/CMap-scoped decode adapter. This is not a generic PDF StreamDecode
+/// ToUnicode/CMap-scoped decode wrapper. This is not a generic PDF StreamDecode
 /// framework and must stay local to font CMap recovery.
 fn pdf_decode_cmap_stream_text(
   object : PdfNativeObject,

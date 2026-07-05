@@ -1,6 +1,6 @@
 name = "ZSeanYves/markitdown"
 
-version = "0.4.3"
+version = "0.5.0"
 
 import {
   "bikallem/blit@0.2.2",
@@ -19,19 +19,19 @@ repository = "https://github.com/ZSeanYves/markitdown.git"
 license = "Apache-2.0"
 
 keywords = [
+  "moonbit",
   "markdown",
+  "document-to-markdown",
+  "document-conversion",
+  "ocr",
   "pdf",
   "docx",
   "xlsx",
   "pptx",
-  "html",
-  "csv",
-  "json",
-  "xml",
-  "yaml",
   "epub",
-  "zip",
-  "txt",
+  "rag",
+  "content-ingestion",
+  "cli",
 ]
 
 description = "A MoonBit-native document-to-Markdown converter with multi-format parsing, metadata, assets, batch conversion, and validation tooling"

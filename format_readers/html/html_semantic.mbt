@@ -2,7 +2,7 @@
 /// Collect parser-owned semantic block facts from the tolerant DOM model.
 ///
 /// This pass does not scan raw HTML bytes and does not perform Markdown or IR
-/// policy. It exists as a stable typed-facts bridge for future convert slices.
+/// policy. It exists as a stable typed-facts layer for future convert slices.
 pub fn collect_html_semantic_document(
   doc : HtmlDocument,
 ) -> HtmlSemanticDocument {

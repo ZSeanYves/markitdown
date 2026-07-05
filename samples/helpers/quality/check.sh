@@ -865,10 +865,6 @@ artifact_plan_cli_args_each() {
 }
 
 quality_runner_label() {
-  if [[ "${CLI_RUNNER_NOTE:-}" == built\ native\ CLI* ]]; then
-    printf 'built'
-    return
-  fi
   case "${CLI_RUNNER_KIND:-}" in
     prebuilt-native|override)
       printf 'prebuilt'

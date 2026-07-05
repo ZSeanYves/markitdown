@@ -2,7 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp/check}"
+TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp/tests/check}"
+mkdir -p "$TMP_ROOT"
 OUT_DIR="$(mktemp -d "$TMP_ROOT/quality_contract.XXXXXX")"
 
 trap 'status=$?; rm -rf "$OUT_DIR"; exit "$status"' EXIT
@@ -35,6 +36,9 @@ RUN_LOG="$OUT_DIR/run.log"
 (
   cd "$ROOT"
   QUALITY_RUN_ID="contract-quality-$$" \
+  QUALITY_TMP_ROOT="$ROOT/.tmp/tests/quality" \
+  MARKITDOWN_TMP_DIR="$ROOT/.tmp/tests/quality" \
+  MARKITDOWN_CLI="$ROOT/_build/native/debug/build/cli/cli.exe" \
   MARKITDOWN_QUALITY_LAB="$LAB_ROOT" \
   ./samples/check_quality.sh --format txt
 ) >"$RUN_LOG" 2>&1

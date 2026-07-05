@@ -82,6 +82,7 @@ pub fn pdf_ocr_parser_capability() -> @parser.ParserCapability {
 priv struct PdfOcrExecutionConfig {
   provider_target : @focr.OcrProviderSelectionTarget
   provider_kind : @focr.OcrProviderKind
+  fallback_provider_kind : @focr.OcrProviderKind?
   native_document : PdfNativeDocument?
 }
 
@@ -110,6 +111,11 @@ fn pdf_ocr_execution_config(
   let provider_kind = @focr.resolved_ocr_provider_kind_for_target(
     provider_target,
   )
+  let fallback_provider_kind = match
+    @focr.ocr_provider_fallback_for_target(provider_target) {
+    Some(fallback) => Some(fallback.1)
+    None => None
+  }
   if context.pdf_ocr_policy == @parser.PdfOcrPolicy::Disabled {
     return Err(
       "pdf OCR requires --ocr or --pdf-ocr on this runtime; requested_policy=" +
@@ -125,7 +131,7 @@ fn pdf_ocr_execution_config(
   } else {
     None
   }
-  Ok({ provider_target, provider_kind, native_document })
+  Ok({ provider_target, provider_kind, fallback_provider_kind, native_document })
 }
 
 ///|
@@ -215,8 +221,19 @@ fn pdf_ocr_record_provider_error(
   provider_target : @focr.OcrProviderSelectionTarget,
   page_index : Int,
   error : @focr.OcrProviderError,
+  provider_kind? : @focr.OcrProviderKind? = None,
+  fallback_attempted? : Bool = false,
 ) -> Unit {
   state.ocr_failure_count.val = state.ocr_failure_count.val + 1
+  let provider_note = match provider_kind {
+    Some(kind) => " provider=" + @focr.ocr_provider_kind_name(kind)
+    None => ""
+  }
+  let fallback_note = if fallback_attempted {
+    " fallback_attempted=true"
+  } else {
+    ""
+  }
   match error {
     @focr.OcrProviderError::NotConfigured(message) => {
       state.fatal_dependency_errors.push(message)
@@ -235,6 +252,8 @@ fn pdf_ocr_record_provider_error(
   state.warnings.push(
     "pdf_ocr_page_failed:index=" +
     page_index.to_string() +
+    provider_note +
+    fallback_note +
     " reason=" +
     error.to_string(),
   )
@@ -248,6 +267,15 @@ fn pdf_ocr_empty_result_error(state : PdfOcrAccumulationState) -> String {
     "PDF OCR produced no successful pages on this runtime. " +
     pdf_raster_backend_install_hint()
   }
+}
+
+///|
+fn pdf_ocr_provider_request(
+  image_path : String,
+  provider_kind : @focr.OcrProviderKind,
+  language : String?,
+) -> @focr.OcrProviderRequest {
+  @focr.make_ocr_provider_request(image_path, provider_kind, language~)
 }
 
 ///|
@@ -358,7 +386,7 @@ fn pdf_ocr_finalize_result(
       "false"
     },
   )
-  diagnostics.metrics.set("pdf_v2_used", "false")
+  diagnostics.metrics.set("pdf_canonical_pipeline_used", "false")
   diagnostics.metrics.set(
     "pdf_empty_text_layer",
     if native_text_page_count == 0 && ocr_success_count > 0 {
@@ -439,7 +467,10 @@ fn pdf_ocr_finalize_result(
     "pdf_native_text_baseline",
     @core.JsonValue::Bool(native_text_page_count > 0),
   )
-  document.metadata.set("pdf_v2_used", @core.JsonValue::Bool(false))
+  document.metadata.set(
+    "pdf_canonical_pipeline_used",
+    @core.JsonValue::Bool(false),
+  )
   document.metadata.set(
     "pdf_raster_backend",
     @core.JsonValue::String(raster_result.backend_name),
@@ -526,7 +557,7 @@ pub fn pdf_native_fail_closed_diagnostics(
   diagnostics.metrics.set("pdf_native_backend", "false")
   diagnostics.metrics.set("pdf_native_text_baseline", "false")
   diagnostics.metrics.set("pdf_ocr_used", "false")
-  diagnostics.metrics.set("pdf_v2_used", "false")
+  diagnostics.metrics.set("pdf_canonical_pipeline_used", "false")
   diagnostics.metrics.set("pdf_empty_text_layer", "false")
   diagnostics.metrics.set(
     "pdf_header_footer_filter_policy",
@@ -696,21 +727,64 @@ pub fn pdf_ocr_parser_result(
         continue
       }
     }
-    let request = @focr.make_ocr_provider_request(
+    let request = pdf_ocr_provider_request(
       image_path,
       config.provider_kind,
-      language=context.ocr_options.language,
+      context.ocr_options.language,
     )
     match image_ocr_provider(request) {
       Ok(result) =>
         pdf_ocr_record_provider_success(state, source, page_index, result)
       Err(error) =>
-        pdf_ocr_record_provider_error(
-          state,
-          config.provider_target,
-          page_index,
-          error,
-        )
+        match
+          (
+            config.fallback_provider_kind,
+            @focr.ocr_provider_error_status(error),
+          ) {
+          (
+            Some(fallback_kind),
+            @focr.OcrProviderStatus::NotConfigured
+            | @focr.OcrProviderStatus::CommandUnavailable,
+          ) => {
+            let fallback_request = pdf_ocr_provider_request(
+              image_path,
+              fallback_kind,
+              context.ocr_options.language,
+            )
+            match image_ocr_provider(fallback_request) {
+              Ok(result) => {
+                state.warnings.push(
+                  "pdf_ocr_provider_fallback:index=" +
+                  page_index.to_string() +
+                  " from=" +
+                  @focr.ocr_provider_kind_name(config.provider_kind) +
+                  " to=" +
+                  @focr.ocr_provider_kind_name(fallback_kind),
+                )
+                pdf_ocr_record_provider_success(
+                  state, source, page_index, result,
+                )
+              }
+              Err(fallback_error) =>
+                pdf_ocr_record_provider_error(
+                  state,
+                  config.provider_target,
+                  page_index,
+                  fallback_error,
+                  provider_kind=Some(fallback_kind),
+                  fallback_attempted=true,
+                )
+            }
+          }
+          _ =>
+            pdf_ocr_record_provider_error(
+              state,
+              config.provider_target,
+              page_index,
+              error,
+              provider_kind=Some(config.provider_kind),
+            )
+        }
     }
   }
   pdf_ocr_finalize_result(source, context, config, raster_result, state)
@@ -768,21 +842,64 @@ pub async fn pdf_ocr_parser_result_async(
         continue
       }
     }
-    let request = @focr.make_ocr_provider_request(
+    let request = pdf_ocr_provider_request(
       image_path,
       config.provider_kind,
-      language=context.ocr_options.language,
+      context.ocr_options.language,
     )
     match image_ocr_provider(request) {
       Ok(result) =>
         pdf_ocr_record_provider_success(state, source, page_index, result)
       Err(error) =>
-        pdf_ocr_record_provider_error(
-          state,
-          config.provider_target,
-          page_index,
-          error,
-        )
+        match
+          (
+            config.fallback_provider_kind,
+            @focr.ocr_provider_error_status(error),
+          ) {
+          (
+            Some(fallback_kind),
+            @focr.OcrProviderStatus::NotConfigured
+            | @focr.OcrProviderStatus::CommandUnavailable,
+          ) => {
+            let fallback_request = pdf_ocr_provider_request(
+              image_path,
+              fallback_kind,
+              context.ocr_options.language,
+            )
+            match image_ocr_provider(fallback_request) {
+              Ok(result) => {
+                state.warnings.push(
+                  "pdf_ocr_provider_fallback:index=" +
+                  page_index.to_string() +
+                  " from=" +
+                  @focr.ocr_provider_kind_name(config.provider_kind) +
+                  " to=" +
+                  @focr.ocr_provider_kind_name(fallback_kind),
+                )
+                pdf_ocr_record_provider_success(
+                  state, source, page_index, result,
+                )
+              }
+              Err(fallback_error) =>
+                pdf_ocr_record_provider_error(
+                  state,
+                  config.provider_target,
+                  page_index,
+                  fallback_error,
+                  provider_kind=Some(fallback_kind),
+                  fallback_attempted=true,
+                )
+            }
+          }
+          _ =>
+            pdf_ocr_record_provider_error(
+              state,
+              config.provider_target,
+              page_index,
+              error,
+              provider_kind=Some(config.provider_kind),
+            )
+        }
     }
   }
   pdf_ocr_finalize_result(source, context, config, raster_result, state)
@@ -903,7 +1020,7 @@ fn pdf_native_enabled_success_diagnostics(
   next.metrics.set("pdf_native_backend", "true")
   next.metrics.set("pdf_native_text_baseline", "true")
   next.metrics.set("pdf_ocr_used", "false")
-  next.metrics.set("pdf_v2_used", "false")
+  next.metrics.set("pdf_canonical_pipeline_used", "false")
   if next.metrics.get("pdf_empty_text_layer") == None {
     next.metrics.set("pdf_empty_text_layer", "false")
   }
@@ -1005,7 +1122,7 @@ fn pdf_native_enabled_error_diagnostics(
   diagnostics.metrics.set("pdf_native_backend", "true")
   diagnostics.metrics.set("pdf_native_text_baseline", "true")
   diagnostics.metrics.set("pdf_ocr_used", "false")
-  diagnostics.metrics.set("pdf_v2_used", "false")
+  diagnostics.metrics.set("pdf_canonical_pipeline_used", "false")
   diagnostics.metrics.set(
     "pdf_header_footer_filter_policy",
     @parser.pdf_header_footer_filter_policy_name(

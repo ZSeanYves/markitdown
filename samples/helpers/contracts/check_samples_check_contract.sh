@@ -2,7 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp/check}"
+TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp/tests/check}"
+mkdir -p "$TMP_ROOT"
 OUT_DIR="$(mktemp -d "$TMP_ROOT/check_contract.XXXXXX")"
 
 trap 'status=$?; rm -rf "$OUT_DIR"; exit "$status"' EXIT
@@ -63,9 +64,12 @@ EOF
 RUN_LOG="$OUT_DIR/run.log"
 DIFF_LOG="$OUT_DIR/diff.log"
 FAIL_LOG="$OUT_DIR/fail.log"
+MISSING_LOG="$OUT_DIR/missing.log"
 
 (
   cd "$ROOT"
+  MARKITDOWN_CHECK_TMP_ROOT="$ROOT/.tmp/tests/check" \
+  MARKITDOWN_TMP_DIR="$ROOT/.tmp/tests/check" \
   MARKITDOWN_CLI="$ROOT/_build/native/debug/build/cli/cli.exe" \
   MARKITDOWN_QUALITY_LAB="$LAB_ROOT" \
   ./samples/check.sh --format txt
@@ -104,7 +108,7 @@ assert_contains "$ASSETS_LOG" "ALL EXTERNAL MAIN ASSETS TESTS PASSED (0 samples,
 assert_not_exists "$ROOT/$RUN_DIR/reports/failures.md"
 
 DIFF_RUN_DIR_REL="test-diff-$$"
-DIFF_RUN_DIR="$ROOT/.tmp/check/runs/$DIFF_RUN_DIR_REL"
+DIFF_RUN_DIR="$ROOT/.tmp/tests/check/runs/$DIFF_RUN_DIR_REL"
 WRAPPER="$OUT_DIR/fail-on-txt-wrapper.sh"
 cat >"$WRAPPER" <<EOF
 #!/usr/bin/env bash
@@ -123,6 +127,8 @@ chmod +x "$WRAPPER"
 set +e
 (
   cd "$ROOT"
+  MARKITDOWN_CHECK_TMP_ROOT="$ROOT/.tmp/tests/check" \
+  MARKITDOWN_TMP_DIR="$ROOT/.tmp/tests/check" \
   MARKITDOWN_CLI="$WRAPPER" \
   MARKITDOWN_QUALITY_LAB="$LAB_ROOT" \
   CHECK_RUN_ID="$DIFF_RUN_DIR_REL" \
@@ -152,7 +158,7 @@ assert_contains "$DIFF_FAILURE_INDEX" "external_main_markdown_txt_txt_markdown_t
 assert_contains "$DIFF_REPORT" "diff_mismatch"
 
 FAIL_RUN_DIR_REL="test-failure-$$"
-FAIL_RUN_DIR="$ROOT/.tmp/check/runs/$FAIL_RUN_DIR_REL"
+FAIL_RUN_DIR="$ROOT/.tmp/tests/check/runs/$FAIL_RUN_DIR_REL"
 WRAPPER="$OUT_DIR/fail-on-txt-conversion-wrapper.sh"
 cat >"$WRAPPER" <<EOF
 #!/usr/bin/env bash
@@ -169,6 +175,8 @@ chmod +x "$WRAPPER"
 set +e
 (
   cd "$ROOT"
+  MARKITDOWN_CHECK_TMP_ROOT="$ROOT/.tmp/tests/check" \
+  MARKITDOWN_TMP_DIR="$ROOT/.tmp/tests/check" \
   MARKITDOWN_CLI="$WRAPPER" \
   MARKITDOWN_QUALITY_LAB="$LAB_ROOT" \
   CHECK_RUN_ID="$FAIL_RUN_DIR_REL" \
@@ -192,5 +200,19 @@ assert_contains "$FAIL_SUMMARY_MD" "- Failed raw output:"
 assert_contains "$FAIL_FAILURE_INDEX" "external_main_markdown_txt_txt_markdown_txt_plain"
 assert_contains "$FAIL_REPORT" "conversion_failed"
 assert_contains "$FAIL_STDERR" "forced contract failure"
+
+set +e
+(
+  cd "$ROOT"
+  MARKITDOWN_CHECK_TMP_ROOT="$ROOT/.tmp/tests/check" \
+  MARKITDOWN_TMP_DIR="$ROOT/.tmp/tests/check" \
+  MARKITDOWN_CLI="$OUT_DIR/missing-cli" \
+  MARKITDOWN_QUALITY_LAB="$LAB_ROOT" \
+  ./samples/check.sh --format txt
+) >"$MISSING_LOG" 2>&1
+status=$?
+set -e
+[[ "$status" -ne 0 ]] || fail "missing native runner should fail"
+assert_contains "$MISSING_LOG" "MARKITDOWN_CLI is set but not executable"
 
 echo "SAMPLES CHECK CONTRACT PASSED"

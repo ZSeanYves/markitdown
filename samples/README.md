@@ -1,41 +1,44 @@
-# Samples
+# Regression Samples And Validation Entry Points
 
-`samples/` 是仓库内回归样本与验证入口。
+`samples/` is the regression sample and validation entry area for this repository.
 
-这里主要有两类回归：
+There are two main kinds of regression here:
 
-- 主回归：验证产品默认转换链路是否稳定。
-- 质量回归：验证外部质量语料上的输出质量是否满足预期。
+- Main regression:
+  validates whether the default product conversion path stays stable
+- Quality regression:
+  validates output quality against the external quality corpus
 
-仓库内只保留轻量功能样例，用于主回归和单元级功能覆盖。
-正式主回归、质量回归与 benchmark 都明确依赖主仓根目录下的 `./markitdown-quality-lab/`。性能使用方式见 [bench/README.md](/Users/winter/Documents/Moonbit/markitdown/bench/README.md)。
+The main repository only keeps lightweight functional fixtures for unit-level coverage and shell contracts. Formal main regression, quality regression, and benchmark runs all depend on `./markitdown-quality-lab/` at the repository root. Benchmark usage is documented in [bench/README.md](../bench/README.md).
 
-当前 `rst / asciidoc / tex` 主回归除了基础 heading / paragraph / code / table 之外，还覆盖一组更偏 canonical semantic inventory 的轻量样例，用于验证 field-or-attribute metadata、definition-like inventory、quote/admonition/include、以及 tex metadata/environment 的稳定输出。
+The current main regression for `rst / asciidoc / tex` also includes a lightweight semantic inventory set beyond basic heading / paragraph / code / table coverage. These rows help keep field-or-attribute metadata, definition-like inventory, quote/admonition/include behavior, and tex metadata/environment output stable.
 
-## 主回归
+## Main Regression
 
-主回归入口：
+Entry point:
 
 ```bash
+moon build cli --target native
 ./samples/check.sh
 ```
 
-默认会对主产品格式同时执行：
+By default it runs the main product formats through:
 
-- Markdown 结果回归
-- RAG 结果回归
-- Assets 结果回归
-- 显式 OCR lane 回归
+- Markdown regression
+- RAG regression
+- Assets regression
+- Explicit OCR lane regression
 
-这套回归不是纯 repo-local 检查；正式语料来自外仓 `markitdown-quality-lab/external_main_process/`。
+This is not a pure repo-local check. The formal corpus comes from `markitdown-quality-lab/external_main_process/`.
 
-支持格式：
+Supported formats:
 
 `txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, pdf, wav, mp3, m4a, ocr`
 
-常用命令：
+Common commands:
 
 ```bash
+moon build cli --target native
 ./samples/check.sh
 ./samples/check.sh --format pdf
 ./samples/check.sh --markdown --format docx
@@ -45,15 +48,20 @@
 ./samples/check.sh --list-inventory
 ```
 
-目录约定：
+Directory conventions:
 
-- `samples/fixtures/contracts/<format>/`：主仓离线 test 与保留 shell contract 需要的最小夹具
-- `samples/fixtures/boundaries/<format>/`：高价值 malformed / fail-closed / safety 边界夹具
-- `markitdown-quality-lab/external_main_process/<format>/<lane>/`：外仓主回归输入语料
-- `markitdown-quality-lab/external_main_process/<format>/expected/<lane>/`：外仓主回归期望结果
-- `markitdown-quality-lab/external_main_process/MANIFEST.tsv`：主回归唯一 enrollment 清单
+- `samples/fixtures/contracts/<format>/`:
+  minimal fixtures needed by repo-local tests and retained shell contracts
+- `samples/fixtures/boundaries/<format>/`:
+  high-value malformed / fail-closed / safety fixtures
+- `markitdown-quality-lab/external_main_process/<format>/<lane>/`:
+  external main-regression input corpus
+- `markitdown-quality-lab/external_main_process/<format>/expected/<lane>/`:
+  external expected outputs
+- `markitdown-quality-lab/external_main_process/MANIFEST.tsv`:
+  the only enrollment manifest for main regression
 
-运行产物位于 `.tmp/check/runs/<run_id>/`，重点看：
+Run outputs are written to `.tmp/check/runs/<run_id>/`. The most useful files are:
 
 - `summary.md`
 - `summary.tsv`
@@ -61,42 +69,45 @@
 - `diff/`
 - `raw/`
 
-说明：
+Notes:
 
-- 这套回归只测外仓主语料上的产品默认路径。
-- `./samples/check.sh` 启动时会先确认外仓 manifest、enrollment 与运行目录，因此在真正开始逐行执行前出现一段准备时间是预期行为。
-- 不支持的格式在这里会直接 fail closed，不会偷偷切换到其它路线。
-- `ocr` gate 覆盖正式支持的直接图片 OCR 输入：`png/jpg/jpeg/bmp/webp/tif/tiff`。
-- `pdf/ocr` lane 覆盖 `pdf --accurate` 与显式 `pdf --ocr` 的 OCR-only 产品路径，不改变默认 `pdf` native-text gate。
-- `wav/mp3/m4a` gate 覆盖当前 native `whisper.cpp` audio transcript 接入面；`m4a` lane 额外依赖本地 `ffmpeg`。
-- `workspace/` 只是临时工作目录，不作为主要排查入口。
+- This suite only validates the product default path on the external main corpus
+- `./samples/check.sh` first validates the external manifest, enrollment, and run workspace, so a short preparation phase before row execution is expected
+- Unsupported formats fail closed here as well; they do not silently switch to another route
+- The `ocr` gate covers supported direct-image OCR input:
+  `png/jpg/jpeg/bmp/webp/tif/tiff`
+- The `pdf/ocr` lane covers both `pdf --accurate` and explicit `pdf --ocr` OCR paths without changing the default native-text PDF gate
+- The `wav/mp3/m4a` gate covers the current audio wrapper integration around local `whisper.cpp`; `m4a` also depends on local `ffmpeg`
+- `workspace/` is only a temporary working area and is not the main place to inspect failures
 
-## 质量回归
+## Quality Regression
 
-质量回归入口：
+Entry point:
 
 ```bash
+moon build cli --target native
 ./samples/check_quality.sh
 ```
 
-这套回归只使用主仓根目录下的外部质量语料 `./markitdown-quality-lab`，不回退到仓库内样本。
+This suite only uses the external quality corpus under `./markitdown-quality-lab`. It does not fall back to repo-local samples.
 
-准备语料：
+Prepare the corpus:
 
 ```bash
-git clone git@github.com:ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab
+git clone https://github.com/ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab
 ```
 
-正式放置位置是主仓根目录下的 `./markitdown-quality-lab`。
+The official location is `./markitdown-quality-lab` under the main repository root.
 
-常用命令：
+Common commands:
 
 ```bash
+moon build cli --target native
 ./samples/check_quality.sh
 ./samples/check_quality.sh --format pdf
 ```
 
-运行产物位于 `.tmp/quality/runs/<run_id>/`，重点看：
+Run outputs are written to `.tmp/quality/runs/<run_id>/`. The most useful files are:
 
 - `summary.md`
 - `summary.tsv`
@@ -104,30 +115,43 @@ git clone git@github.com:ZSeanYves/markitdown-quality-lab.git markitdown-quality
 - `diff/`
 - `raw/`
 
-说明：
+Notes:
 
-- 这套回归面向外部质量语料，不替代主回归。
-- `workspace/` 同样只作为临时目录。
-- benchmark 语料与质量语料是两回事；正式 `bench v2` 默认使用主仓目录下的 `./markitdown-quality-lab/external_bench/`。
-- ZIP 相关样例与主链实现建立在 `format_readers/zip` 之上，底层解压继续依赖 `bikallem/compress/flate`。
+- This suite is an external quality signal. It does not replace main regression
+- `workspace/` is still only a temporary working directory
+- Benchmark corpus and quality corpus are different things; formal benchmark runs use `./markitdown-quality-lab/external_bench/`
+- ZIP-related rows and the main ZIP path build on `format_readers/zip`, with decompression still relying on `bikallem/compress/flate`
 
-## 覆盖范围
+## Quality Examples
 
-主回归覆盖：
+Refresh the checked-in showcase corpus with:
 
-- 主产品支持格式的默认转换链路
-- Markdown 输出稳定性
-- RAG 输出结构与内容契约
-- 轻量 assets 输出契约
-- 样本清单完整性与 enrollment 完整性
+```bash
+moon build cli --target native
+bash samples/helpers/generate_quality_examples.sh
+```
 
-质量回归覆盖：
+By default this regenerates every non-audio format enrolled in
+`samples/helpers/generate_quality_examples.sh`. You can also pass one or more
+format labels to refresh only part of the showcase.
 
-- 外部质量语料上的实际输出质量
-- 不同格式质量信号的通过、失败与跳过情况
-- 外部语料与当前 CLI 能力边界的匹配情况
+## Coverage Scope
 
-简化理解：
+Main regression covers:
 
-- 要看“产品主链路有没有回归”，跑 `./samples/check.sh`
-- 要看“真实质量语料表现怎么样”，跑 `./samples/check_quality.sh`
+- the default conversion path for supported product formats
+- Markdown output stability
+- RAG structure and content contracts
+- lightweight assets output contracts
+- sample inventory and enrollment completeness
+
+Quality regression covers:
+
+- actual output quality on the external quality corpus
+- pass / fail / skipped quality signals by format
+- how the external corpus aligns with current CLI capability boundaries
+
+In short:
+
+- run `moon build cli --target native && ./samples/check.sh` to see whether the main product path regressed
+- run `moon build cli --target native && ./samples/check_quality.sh` to see how the current build behaves on the external quality corpus

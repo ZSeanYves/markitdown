@@ -2,7 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp/check}"
+TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp/tests/check}"
+mkdir -p "$TMP_ROOT"
 OUT_DIR="$(mktemp -d "$TMP_ROOT/quality_grouping_contract.XXXXXX")"
 
 trap 'status=$?; if [[ "$status" -ne 0 ]]; then echo "[debug] preserved: $OUT_DIR" >&2; else rm -rf "$OUT_DIR"; fi; exit "$status"' EXIT
@@ -89,7 +90,7 @@ PY
 chmod +x "$STUB_CLI"
 
 RUN_DIR_REL="test-quality-grouping-$$"
-RUN_DIR="$ROOT/.tmp/quality/runs/$RUN_DIR_REL"
+RUN_DIR="$ROOT/.tmp/tests/quality/runs/$RUN_DIR_REL"
 RUN_LOG="$OUT_DIR/run.log"
 
 set +e
@@ -97,7 +98,8 @@ set +e
   cd "$ROOT"
   MARKITDOWN_CLI="$STUB_CLI" \
   QUALITY_RUN_ID="$RUN_DIR_REL" \
-  QUALITY_TMP_ROOT="$ROOT/.tmp/quality" \
+  QUALITY_TMP_ROOT="$ROOT/.tmp/tests/quality" \
+  MARKITDOWN_TMP_DIR="$ROOT/.tmp/tests/quality" \
   MARKITDOWN_QUALITY_LAB="$OUT_DIR" \
   bash samples/helpers/quality/check.sh \
     --require-lab \

@@ -51,6 +51,52 @@ fn read_utf8_text(path : String) -> String {
 }
 
 ///|
+fn run_cli_without_emitting_warnings(
+  opts : CliOptions,
+) -> Result[String, String] {
+  let requested_format = cli_requested_format(opts)
+  if !cli_is_supported_format(requested_format) {
+    return Err(
+      cli_fail_closed_format_message(
+        opts.input,
+        requested_format,
+        cli_requested_format_label(opts),
+        opts.ocr_options,
+        opts.fidelity_mode,
+      ),
+    )
+  }
+  let convert_options = @convert.make_convert_options(
+    opts.convert_mode,
+    opts.output_format,
+    opts.explicit_format,
+    opts.ocr_options,
+    @convert.default_resource_limits(),
+    audio_options=opts.audio_options,
+    fidelity_mode=opts.fidelity_mode,
+    output_mode=opts.output_mode,
+    stream_requested=opts.stream_requested,
+    pdf_ocr_policy=opts.pdf_ocr_policy,
+    pdf_cleanup_mode=opts.pdf_cleanup_mode,
+    pdf_table_mode=opts.pdf_table_mode,
+    rag_options=opts.rag_options,
+  )
+  let execution = match
+    @convert.convert_input_with_provenance_and_image_ocr_provider(
+      @input.input_from_path(opts.input),
+      convert_options,
+      @focr.run_ocr_provider,
+    ) {
+    Ok(value) => value
+    Err(err) => return Err(err.to_string())
+  }
+  persist_cli_provenance(opts, execution.provenance) catch {
+    err => return Err("write provenance failed: " + err.to_string())
+  }
+  cli_render_convert_result(opts, execution.result)
+}
+
+///|
 fn cli_options(
   input : String,
   output : String?,
@@ -164,11 +210,11 @@ test "main cli product policy exposes text, notebook, markup, container, office,
   assert_true(!cli_is_supported_format(@input.DetectedFormat::Unknown))
   let supported = [
     "txt", "csv", "tsv", "srt", "vtt", "json", "jsonl", "ndjson", "ipynb", "xml",
-    "yaml", "yml", "toml", "html", "htm", "markdown", "md", "eml", "tex", "latex",
-    "rst", "adoc", "asciidoc", "zip", "epub", "docx", "xlsx", "pptx", "pdf", "wav",
-    "mp3", "m4a", "png", "jpg", "jpeg", "bmp", "webp", "tif", "tiff",
+    "yaml", "yml", "toml", "html", "htm", "markdown", "md", "eml", "msg", "tex",
+    "latex", "rst", "adoc", "asciidoc", "zip", "epub", "docx", "xlsx", "pptx", "pdf",
+    "wav", "mp3", "m4a", "png", "jpg", "jpeg", "bmp", "webp", "tif", "tiff",
   ]
-  assert_eq(supported.length(), 39)
+  assert_eq(supported.length(), 40)
   assert_eq(supported[0], "txt")
   assert_eq(supported[1], "csv")
   assert_eq(supported[2], "tsv")
@@ -187,27 +233,45 @@ test "main cli product policy exposes text, notebook, markup, container, office,
   assert_eq(supported[15], "markdown")
   assert_eq(supported[16], "md")
   assert_eq(supported[17], "eml")
-  assert_eq(supported[18], "tex")
-  assert_eq(supported[19], "latex")
-  assert_eq(supported[20], "rst")
-  assert_eq(supported[21], "adoc")
-  assert_eq(supported[22], "asciidoc")
-  assert_eq(supported[23], "zip")
-  assert_eq(supported[24], "epub")
-  assert_eq(supported[25], "docx")
-  assert_eq(supported[26], "xlsx")
-  assert_eq(supported[27], "pptx")
-  assert_eq(supported[28], "pdf")
-  assert_eq(supported[29], "wav")
-  assert_eq(supported[30], "mp3")
-  assert_eq(supported[31], "m4a")
-  assert_eq(supported[32], "png")
-  assert_eq(supported[33], "jpg")
-  assert_eq(supported[34], "jpeg")
-  assert_eq(supported[35], "bmp")
-  assert_eq(supported[36], "webp")
-  assert_eq(supported[37], "tif")
-  assert_eq(supported[38], "tiff")
+  assert_eq(supported[18], "msg")
+  assert_eq(supported[19], "tex")
+  assert_eq(supported[20], "latex")
+  assert_eq(supported[21], "rst")
+  assert_eq(supported[22], "adoc")
+  assert_eq(supported[23], "asciidoc")
+  assert_eq(supported[24], "zip")
+  assert_eq(supported[25], "epub")
+  assert_eq(supported[26], "docx")
+  assert_eq(supported[27], "xlsx")
+  assert_eq(supported[28], "pptx")
+  assert_eq(supported[29], "pdf")
+  assert_eq(supported[30], "wav")
+  assert_eq(supported[31], "mp3")
+  assert_eq(supported[32], "m4a")
+  assert_eq(supported[33], "png")
+  assert_eq(supported[34], "jpg")
+  assert_eq(supported[35], "jpeg")
+  assert_eq(supported[36], "bmp")
+  assert_eq(supported[37], "webp")
+  assert_eq(supported[38], "tif")
+  assert_eq(supported[39], "tiff")
+}
+
+///|
+test "main cli parses msg as eml alias" {
+  match parse_cli_options(["--format", "msg", "mail.msg"]) {
+    Ok(opts) =>
+      assert_true(opts.explicit_format == Some(@input.DetectedFormat::Eml))
+    Err(msg) => fail("expected msg alias to parse: " + msg)
+  }
+
+  match parse_cli_options(["mail.msg"]) {
+    Ok(opts) => {
+      assert_true(cli_requested_format(opts) == @input.DetectedFormat::Eml)
+      assert_eq(cli_requested_format_label(opts), "eml")
+    }
+    Err(msg) => fail("expected implicit msg alias to parse: " + msg)
+  }
 }
 
 ///|
@@ -735,7 +799,7 @@ test "main cli pdf accurate enters OCR route or returns dependency guidance" {
       assert_true(
         msg.contains("Missing dependency: pdftoppm / Poppler") ||
         msg.contains("brew install poppler") ||
-        msg.contains("Missing dependency: PaddleOCR bridge") ||
+        msg.contains("Missing dependency: PaddleOCR wrapper") ||
         msg.contains("MARKITDOWN_PADDLE_OCR_CMD"),
       )
       assert_true(
@@ -745,6 +809,59 @@ test "main cli pdf accurate enters OCR route or returns dependency guidance" {
       )
     }
   }
+}
+
+///|
+test "main cli pdf accurate can fall back to balanced OCR provider when accurate dependency is unavailable" {
+  let pdf_path = "samples/fixtures/contracts/pdf/pdf_ocr_single_page.pdf"
+
+  let rendered = match
+    run_cli_with_image_ocr_provider(
+      make_cli_options(
+        pdf_path,
+        None,
+        None,
+        Some(@input.DetectedFormat::Pdf),
+        @parser.explicit_ocr_options(language=Some("eng")),
+        @convert.PdfOcrPolicy::Explicit,
+        @convert.FidelityMode::Accurate,
+        @convert.ConvertMode::Balanced,
+        @convert.output_mode_for_output_format(@convert.OutputFormat::Markdown),
+        false,
+        @convert.OutputFormat::Markdown,
+        pdf_cleanup_mode=@convert.default_pdf_cleanup_mode(),
+        pdf_table_mode=@convert.default_pdf_table_mode(),
+        rag_options=@rag.default_rag_options(),
+      ),
+      fn(request) {
+        if request.provider_kind == @focr.OcrProviderKind::PaddleOcr {
+          Err(
+            @focr.OcrProviderError::NotConfigured(
+              @focr.paddle_ocr_not_configured_message(),
+            ),
+          )
+        } else {
+          let tsv = [
+            "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext",
+            "5\t1\t1\t1\t1\t1\t10\t10\t20\t10\t95\tPDF", "5\t1\t1\t1\t1\t2\t35\t10\t20\t10\t94\tOCR",
+          ].join("\n")
+          match @focr.parse_tesseract_tsv(tsv, language=request.language) {
+            Ok(value) => Ok(value)
+            Err(err) =>
+              abort(
+                "expected CLI fallback OCR TSV parse success: " +
+                err.to_string(),
+              )
+          }
+        }
+      },
+    ) {
+    Ok(value) => value
+    Err(msg) =>
+      fail("expected pdf accurate fallback through injected provider: " + msg)
+  }
+
+  assert_true(rendered.contains("PDF OCR"))
 }
 
 ///|
@@ -1108,10 +1225,63 @@ test "main cli provenance sidecar preserves conversion output semantics" {
 }
 
 ///|
+test "main cli accurate fallback provenance preserves output semantics" {
+  let root = test_tmp_root() + "/main-cli-accurate-fallback"
+  recreate_clean_dir(root)
+  defer cleanup_temp_dir(root)
+
+  let input_path = root + "/demo.toml"
+  let output_path = root + "/demo.md"
+  let provenance_path = root + "/demo.provenance.json"
+  write_utf8_text(
+    input_path, "title = \"MarkItDown\"\nenabled = true\ncount = 3\n",
+  )
+
+  let rendered = match
+    run_cli_without_emitting_warnings(
+      make_cli_options(
+        input_path,
+        Some(output_path),
+        Some(provenance_path),
+        Some(@input.DetectedFormat::Toml),
+        @parser.default_ocr_options(),
+        @convert.default_pdf_ocr_policy(),
+        @convert.FidelityMode::Accurate,
+        @convert.ConvertMode::Accurate,
+        @convert.output_mode_for_output_format(@convert.OutputFormat::Markdown),
+        false,
+        @convert.OutputFormat::Markdown,
+      ),
+    ) {
+    Ok(value) => value
+    Err(msg) => fail("expected cli accurate fallback conversion: " + msg)
+  }
+
+  assert_true(rendered.contains("| Key | Value |"))
+  assert_true(read_utf8_text(output_path).contains("| Key | Value |"))
+  let sidecar = read_utf8_text(provenance_path)
+  assert_true(
+    sidecar.contains("\"route_reason\": \"accurate_unsupported_fell_back\""),
+  )
+  assert_true(sidecar.contains("\"fidelity_mode\": \"balanced\""))
+  assert_true(sidecar.contains("\"requested_fidelity_mode\": ["))
+  assert_true(sidecar.contains("\"accurate\""))
+  assert_true(sidecar.contains("\"accurate_unsupported_fell_back\""))
+}
+
+///|
 test "main cli stream warning message stays stable for unsupported explicit stream fallback" {
   assert_eq(
     cli_explicit_stream_warning_message(@input.DetectedFormat::Toml),
     "warning: explicit --stream is not productized for `toml` yet; falling back to the canonical route",
+  )
+}
+
+///|
+test "main cli accurate warning message stays stable for unsupported accurate fallback" {
+  assert_eq(
+    cli_accurate_fallback_warning_message(@input.DetectedFormat::Toml),
+    "warning: `--accurate` is not productized for `toml` yet; falling back to balanced mode",
   )
 }
 

@@ -9,8 +9,6 @@ CLI_RUNNER_NOTE=""
 CLI_BIN=""
 CLI_PACKAGE="cli"
 CLI_MODULE_ROOT=""
-CLI_NATIVE_BUILD_ATTEMPTED=0
-CLI_NATIVE_BUILD_ATTEMPTED_PACKAGE=""
 CLI_STALENESS_SENTINEL=""
 
 runner_class_for_kind() {
@@ -76,17 +74,6 @@ resolve_markitdown_package_cli() {
     return 0
   fi
 
-  if build_markitdown_cli_native_once "$package"; then
-    if resolve_probe_validated_native_cli_with_retries "$package" 25; then
-      if [[ -n "$CLI_STALENESS_SENTINEL" ]]; then
-        CLI_RUNNER_NOTE="rebuilt stale native CLI because $(basename "$CLI_STALENESS_SENTINEL") was newer than the binary"
-      else
-        CLI_RUNNER_NOTE="built native CLI once via moon build $package --target native"
-      fi
-      return 0
-    fi
-  fi
-
   if validation_bool_enabled "${MARKITDOWN_ALLOW_MOON_RUN:-0}"; then
     CLI_RUNNER_KIND="moon-run"
     CLI_RUNNER_NOTE="manual moon run fallback enabled via MARKITDOWN_ALLOW_MOON_RUN=1; timings are not native product-path"
@@ -94,7 +81,12 @@ resolve_markitdown_package_cli() {
     return 0
   fi
 
-  echo "failed to locate a working native runner for $package; run 'moon build $package --target native' and retry" >&2
+  if [[ -n "$CLI_STALENESS_SENTINEL" ]]; then
+    echo "native runner for $package is missing or stale; newer source detected at $(basename "$CLI_STALENESS_SENTINEL")" >&2
+  else
+    echo "failed to locate a working native runner for $package" >&2
+  fi
+  echo "run 'moon build $package --target native' and retry" >&2
   return 1
 }
 
@@ -248,18 +240,6 @@ resolve_probe_validated_native_cli_with_retries() {
   done
 
   return 1
-}
-
-build_markitdown_cli_native_once() {
-  local package="${1-}"
-  if [[ "$CLI_NATIVE_BUILD_ATTEMPTED" -ne 0 && "$CLI_NATIVE_BUILD_ATTEMPTED_PACKAGE" == "$package" ]]; then
-    return 1
-  fi
-
-  CLI_NATIVE_BUILD_ATTEMPTED=1
-  CLI_NATIVE_BUILD_ATTEMPTED_PACKAGE="$package"
-  echo "[markitdown-cli] building native runner once: (cd $CLI_MODULE_ROOT && moon build $package --target native)" >&2
-  (cd "$CLI_MODULE_ROOT" && moon build "$package" --target native)
 }
 
 markitdown_runner_command_prefix() {

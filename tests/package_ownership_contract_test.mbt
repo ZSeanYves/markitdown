@@ -4,8 +4,8 @@ test "canonical architecture guide remains the single docs source of truth" {
     @fs.path_exists("docs/architecture/mb-markitdown-architecture.md"),
   )
   assert_file_contains_all("docs/architecture/mb-markitdown-architecture.md", [
-    "# mb-markitdown 完整架构书", "ParserRegistry", "Core IR", "Renderer", "Markdown 是输出，不是中间表示",
-    "ConvertMode",
+    "# The mb-markitdown Architecture Guide", "ParserRegistry", "Core IR", "Renderer",
+    "Markdown is an output, not the intermediate representation.", "ConvertMode",
   ])
   assert_true(!@fs.path_exists("docs/README.md"))
   assert_true(!@fs.path_exists("docs/architecture/package-ownership.md"))

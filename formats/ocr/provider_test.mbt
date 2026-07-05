@@ -50,7 +50,7 @@ test "ocr provider taxonomy exposes stable names" {
     tesseract_ocr_install_hint().contains("sudo apt install tesseract-ocr"),
   )
   assert_true(
-    paddle_ocr_install_hint().contains("Missing dependency: PaddleOCR bridge"),
+    paddle_ocr_install_hint().contains("Missing dependency: PaddleOCR wrapper"),
   )
   assert_true(paddle_ocr_install_hint().contains("MARKITDOWN_PADDLE_OCR_CMD"))
   assert_eq(
@@ -60,7 +60,7 @@ test "ocr provider taxonomy exposes stable names" {
     "missing",
   )
   assert_eq(tesseract_ocr_dependency_diagnostic().kind, "tesseract_ocr")
-  assert_eq(paddle_ocr_dependency_diagnostic().kind, "paddle_ocr_bridge")
+  assert_eq(paddle_ocr_dependency_diagnostic().kind, "paddle_ocr_wrapper")
 }
 
 ///|
@@ -87,11 +87,11 @@ test "ocr provider runtime resolves provider kinds without internal fallback" {
     ocr_provider_fallback_for_target(
       OcrProviderSelectionTarget::DirectImageAccurate,
     ) ==
-    None,
+    Some((OcrProviderKind::PaddleOcr, OcrProviderKind::Tesseract)),
   )
   assert_true(
     ocr_provider_fallback_for_target(OcrProviderSelectionTarget::PdfAccurate) ==
-    None,
+    Some((OcrProviderKind::PaddleOcr, OcrProviderKind::Tesseract)),
   )
   let paddle_request = make_ocr_provider_request(
     "scan.png",
@@ -110,7 +110,7 @@ test "ocr provider runtime resolves provider kinds without internal fallback" {
 }
 
 ///|
-test "paddle runtime command builder requires adapter env and passes image path language" {
+test "paddle runtime command builder requires wrapper env and passes image path language" {
   assert_eq(paddle_ocr_command_env_var(), "MARKITDOWN_PADDLE_OCR_CMD")
   let request = make_ocr_provider_request(
     "scan.png",
@@ -128,12 +128,12 @@ test "paddle runtime command builder requires adapter env and passes image path 
       fail("unexpected Paddle command-builder error: " + other.to_string())
   }
   let built = match
-    build_paddle_ocr_command_with_adapter(request, "adapter --mode ocr") {
+    build_paddle_ocr_command_with_wrapper(request, "wrapper --mode ocr") {
     Ok(value) => value
     Err(err) =>
-      fail("expected adapter-aware Paddle command plan: " + err.to_string())
+      fail("expected wrapper-aware Paddle command plan: " + err.to_string())
   }
-  assert_eq(built.0, "adapter")
+  assert_eq(built.0, "wrapper")
   assert_eq(built.1[0], "--mode")
   assert_eq(built.1[1], "ocr")
   assert_eq(built.1[2], "scan.png")
@@ -141,7 +141,7 @@ test "paddle runtime command builder requires adapter env and passes image path 
   assert_eq(built.1[4], "eng")
 
   let quoted = match
-    build_paddle_ocr_command_with_adapter(
+    build_paddle_ocr_command_with_wrapper(
       request, "\"/tmp/paddle wrapper.py\" --mode \"ocr accurate\"",
     ) {
     Ok(value) => value
@@ -154,7 +154,7 @@ test "paddle runtime command builder requires adapter env and passes image path 
   assert_eq(quoted.1[3], "--lang")
   assert_eq(quoted.1[4], "eng")
 
-  match build_paddle_ocr_command_with_adapter(request, "\"unterminated") {
+  match build_paddle_ocr_command_with_wrapper(request, "\"unterminated") {
     Err(OcrProviderError::NotConfigured(msg)) =>
       assert_true(msg.contains("unterminated quotes"))
     Ok(_) => fail("expected malformed quoted Paddle command to fail")
@@ -169,32 +169,32 @@ test "paddle runtime command abstraction preserves fail-closed taxonomy" {
     OcrProviderKind::PaddleOcr,
     language=Some("eng"),
   )
-  let payload = "{\"provider_name\":\"paddle_ocr\",\"provider_version\":\"bridge-v1\",\"pages\":[{\"page_index\":0,\"blocks\":[{\"block_index\":0,\"lines\":[{\"line_index\":0,\"text\":\"MoonBit OCR\",\"words\":[{\"word_index\":0,\"text\":\"MoonBit\"},{\"word_index\":1,\"text\":\"OCR\"}]}]}]}]}"
+  let payload = "{\"provider_name\":\"paddle_ocr\",\"provider_version\":\"wrapper-v1\",\"pages\":[{\"page_index\":0,\"blocks\":[{\"block_index\":0,\"lines\":[{\"line_index\":0,\"text\":\"MoonBit OCR\",\"words\":[{\"word_index\":0,\"text\":\"MoonBit\"},{\"word_index\":1,\"text\":\"OCR\"}]}]}]}]}"
 
   let result = match
-    run_paddle_ocr_provider_with_command_with_adapter(
+    run_paddle_ocr_provider_with_command_with_wrapper(
       request,
-      "adapter --mode ocr",
+      "wrapper --mode ocr",
       (cmd, args) => {
-        if cmd != "adapter" {
-          abort("unexpected Paddle adapter command: " + cmd)
+        if cmd != "wrapper" {
+          abort("unexpected Paddle wrapper command: " + cmd)
         }
         if args[0] != "--mode" ||
           args[1] != "ocr" ||
           args[2] != "scan.png" ||
           args[3] != "--lang" ||
           args[4] != "eng" {
-          abort("unexpected Paddle adapter argv")
+          abort("unexpected Paddle wrapper argv")
         }
         Ok((0, payload, ""))
       },
     ) {
     Ok(value) => value
     Err(other) =>
-      fail("expected Paddle adapter success payload: " + other.to_string())
+      fail("expected Paddle wrapper success payload: " + other.to_string())
   }
   assert_eq(result.provider_name, "paddle_ocr")
-  assert_true(result.provider_version == Some("bridge-v1"))
+  assert_true(result.provider_version == Some("wrapper-v1"))
   assert_eq(result.pages.length(), 1)
   assert_eq(result.pages[0].blocks.length(), 1)
   assert_eq(result.pages[0].blocks[0].lines.length(), 1)
@@ -202,7 +202,7 @@ test "paddle runtime command abstraction preserves fail-closed taxonomy" {
   assert_eq(result.pages[0].blocks[0].lines[0].words.length(), 2)
 
   match
-    run_paddle_ocr_provider_with_command_with_adapter(request, "adapter", fn(
+    run_paddle_ocr_provider_with_command_with_wrapper(request, "wrapper", fn(
       _cmd,
       _args,
     ) {
@@ -216,7 +216,7 @@ test "paddle runtime command abstraction preserves fail-closed taxonomy" {
   }
 
   match
-    run_paddle_ocr_provider_with_command_with_adapter(request, "adapter", fn(
+    run_paddle_ocr_provider_with_command_with_wrapper(request, "wrapper", fn(
       _cmd,
       _args,
     ) {
@@ -225,7 +225,7 @@ test "paddle runtime command abstraction preserves fail-closed taxonomy" {
     Err(OcrProviderError::CommandUnavailable(msg)) =>
       assert_true(
         msg.contains("command not found") &&
-        msg.contains("Missing dependency: PaddleOCR bridge"),
+        msg.contains("Missing dependency: PaddleOCR wrapper"),
       )
     Ok(_) => fail("expected Paddle command unavailable")
     Err(other) =>
@@ -233,7 +233,7 @@ test "paddle runtime command abstraction preserves fail-closed taxonomy" {
   }
 
   match
-    run_paddle_ocr_provider_with_command_with_adapter(request, "adapter", fn(
+    run_paddle_ocr_provider_with_command_with_wrapper(request, "wrapper", fn(
       _cmd,
       _args,
     ) {
@@ -251,19 +251,19 @@ test "paddle runtime command abstraction preserves fail-closed taxonomy" {
 }
 
 ///|
-test "paddle bridge payload parser lowers json adapter output into OCR provider result" {
-  let payload = "{\"provider_name\":\"paddle_ocr\",\"provider_version\":\"bridge-v1\",\"diagnostics\":[\"bridge=sample\"],\"pages\":[{\"page_index\":0,\"width\":1000,\"height\":2000,\"language\":\"eng\",\"diagnostics\":[\"page=0\"],\"blocks\":[{\"block_index\":0,\"confidence\":0.97,\"bbox\":{\"x0\":10,\"y0\":20,\"x1\":300,\"y1\":120},\"lines\":[{\"line_index\":0,\"text\":\"MoonBit OCR\",\"confidence\":0.98,\"bbox\":{\"x0\":10,\"y0\":20,\"x1\":280,\"y1\":60},\"words\":[{\"word_index\":0,\"text\":\"MoonBit\",\"confidence\":0.99,\"bbox\":{\"x0\":10,\"y0\":20,\"x1\":150,\"y1\":60}},{\"word_index\":1,\"text\":\"OCR\",\"confidence\":0.96,\"bbox\":{\"x0\":170,\"y0\":20,\"x1\":280,\"y1\":60}}]}]}]}]}"
+test "paddle wrapper payload parser lowers json wrapper output into OCR provider result" {
+  let payload = "{\"provider_name\":\"paddle_ocr\",\"provider_version\":\"wrapper-v1\",\"diagnostics\":[\"wrapper=sample\"],\"pages\":[{\"page_index\":0,\"width\":1000,\"height\":2000,\"language\":\"eng\",\"diagnostics\":[\"page=0\"],\"blocks\":[{\"block_index\":0,\"confidence\":0.97,\"bbox\":{\"x0\":10,\"y0\":20,\"x1\":300,\"y1\":120},\"lines\":[{\"line_index\":0,\"text\":\"MoonBit OCR\",\"confidence\":0.98,\"bbox\":{\"x0\":10,\"y0\":20,\"x1\":280,\"y1\":60},\"words\":[{\"word_index\":0,\"text\":\"MoonBit\",\"confidence\":0.99,\"bbox\":{\"x0\":10,\"y0\":20,\"x1\":150,\"y1\":60}},{\"word_index\":1,\"text\":\"OCR\",\"confidence\":0.96,\"bbox\":{\"x0\":170,\"y0\":20,\"x1\":280,\"y1\":60}}]}]}]}]}"
 
-  let result = match parse_paddle_ocr_bridge_payload(payload) {
+  let result = match parse_paddle_ocr_wrapper_payload(payload) {
     Ok(value) => value
     Err(err) =>
-      fail("expected Paddle bridge payload to parse: " + err.to_string())
+      fail("expected Paddle wrapper payload to parse: " + err.to_string())
   }
 
   assert_eq(result.provider_name, "paddle_ocr")
-  assert_true(result.provider_version == Some("bridge-v1"))
+  assert_true(result.provider_version == Some("wrapper-v1"))
   assert_eq(result.diagnostics.length(), 1)
-  assert_eq(result.diagnostics[0], "bridge=sample")
+  assert_eq(result.diagnostics[0], "wrapper=sample")
   assert_eq(result.pages.length(), 1)
   assert_eq(result.pages[0].page_index, 0)
   assert_true(result.pages[0].width == Some(1000))
@@ -280,15 +280,15 @@ test "paddle bridge payload parser lowers json adapter output into OCR provider 
 }
 
 ///|
-test "paddle bridge payload parser reports malformed payloads with provider taxonomy" {
-  match parse_paddle_ocr_bridge_payload("") {
+test "paddle wrapper payload parser reports malformed payloads with provider taxonomy" {
+  match parse_paddle_ocr_wrapper_payload("") {
     Err(OcrProviderError::EmptyResult(msg)) =>
       assert_true(msg.contains("empty payload"))
     Ok(_) => fail("expected empty Paddle payload to fail")
     Err(other) => fail("unexpected empty-payload error: " + other.to_string())
   }
 
-  match parse_paddle_ocr_bridge_payload("{\"provider_name\":\"paddle_ocr\"}") {
+  match parse_paddle_ocr_wrapper_payload("{\"provider_name\":\"paddle_ocr\"}") {
     Err(OcrProviderError::OutputParseFailed(msg)) =>
       assert_true(msg.contains("pages"))
     Ok(_) => fail("expected malformed Paddle payload to fail")
@@ -313,15 +313,15 @@ async test "paddle runtime async command abstraction remains fail closed" {
         msg.contains("MARKITDOWN_PADDLE_OCR_CMD") ||
         msg.contains("output parsing is not wired"),
       )
-    Ok(_) => fail("expected async Paddle adapter path to remain fail closed")
+    Ok(_) => fail("expected async Paddle wrapper path to remain fail closed")
     Err(other) => fail("unexpected async Paddle error: " + other.to_string())
   }
 
-  let payload = "{\"provider_name\":\"paddle_ocr\",\"provider_version\":\"bridge-v1\",\"pages\":[{\"page_index\":0,\"blocks\":[{\"block_index\":0,\"lines\":[{\"line_index\":0,\"text\":\"MoonBit OCR\",\"words\":[{\"word_index\":0,\"text\":\"MoonBit\"},{\"word_index\":1,\"text\":\"OCR\"}]}]}]}]}"
+  let payload = "{\"provider_name\":\"paddle_ocr\",\"provider_version\":\"wrapper-v1\",\"pages\":[{\"page_index\":0,\"blocks\":[{\"block_index\":0,\"lines\":[{\"line_index\":0,\"text\":\"MoonBit OCR\",\"words\":[{\"word_index\":0,\"text\":\"MoonBit\"},{\"word_index\":1,\"text\":\"OCR\"}]}]}]}]}"
   match
-    run_paddle_ocr_provider_with_async_command_with_adapter(
+    run_paddle_ocr_provider_with_async_command_with_wrapper(
       request,
-      "adapter",
+      "wrapper",
       (_cmd, _args) => Ok((0, payload, "")),
     ) {
     Ok(result) => {
@@ -329,20 +329,20 @@ async test "paddle runtime async command abstraction remains fail closed" {
       assert_eq(result.pages.length(), 1)
     }
     Err(other) =>
-      fail("unexpected adapter-aware async Paddle error: " + other.to_string())
+      fail("unexpected wrapper-aware async Paddle error: " + other.to_string())
   }
 
   match
-    run_paddle_ocr_provider_with_async_command_with_adapter(
+    run_paddle_ocr_provider_with_async_command_with_wrapper(
       request,
-      "adapter",
+      "wrapper",
       (_cmd, _args) => Ok((0, "{\"provider_name\":\"paddle_ocr\"}", "")),
     ) {
     Err(OcrProviderError::OutputParseFailed(msg)) =>
       assert_true(msg.contains("pages"))
     Ok(_) =>
-      fail("expected malformed adapter-aware async Paddle payload to fail")
+      fail("expected malformed wrapper-aware async Paddle payload to fail")
     Err(other) =>
-      fail("unexpected adapter-aware async Paddle error: " + other.to_string())
+      fail("unexpected wrapper-aware async Paddle error: " + other.to_string())
   }
 }

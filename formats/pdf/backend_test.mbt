@@ -59,7 +59,7 @@ test "pdf native backend extracts direct text and link facts from tiny synthetic
         Some(@core.JsonValue::Bool(false)),
       )
       assert_true(
-        document.metadata.get("pdf_v2_used") ==
+        document.metadata.get("pdf_canonical_pipeline_used") ==
         Some(@core.JsonValue::Bool(false)),
       )
       assert_true(
@@ -97,7 +97,8 @@ test "pdf native backend extracts direct text and link facts from tiny synthetic
         document.diagnostics.metrics.get("pdf_ocr_used") == Some("false"),
       )
       assert_true(
-        document.diagnostics.metrics.get("pdf_v2_used") == Some("false"),
+        document.diagnostics.metrics.get("pdf_canonical_pipeline_used") ==
+        Some("false"),
       )
       assert_true(
         document.diagnostics.metrics.get("pdf_page_count") == Some("1"),

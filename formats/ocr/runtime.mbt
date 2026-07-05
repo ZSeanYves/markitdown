@@ -27,7 +27,6 @@ pub async fn run_ocr_provider_async(
 pub fn resolved_ocr_provider_kind_for_target(
   target : OcrProviderSelectionTarget,
 ) -> OcrProviderKind {
-  ignore(target)
   default_ocr_provider_kind_for_target(target)
 }
 
@@ -35,8 +34,13 @@ pub fn resolved_ocr_provider_kind_for_target(
 pub fn ocr_provider_fallback_for_target(
   target : OcrProviderSelectionTarget,
 ) -> (OcrProviderKind, OcrProviderKind)? {
-  ignore(target)
-  None
+  match target {
+    OcrProviderSelectionTarget::DirectImageAccurate =>
+      Some((OcrProviderKind::PaddleOcr, OcrProviderKind::Tesseract))
+    OcrProviderSelectionTarget::PdfAccurate =>
+      Some((OcrProviderKind::PaddleOcr, OcrProviderKind::Tesseract))
+    _ => None
+  }
 }
 
 ///|
@@ -55,7 +59,7 @@ pub fn paddle_ocr_command_env_var() -> String {
 pub fn paddle_ocr_not_configured_message() -> String {
   "PaddleOCR provider is not configured on this runtime. Set `" +
   paddle_ocr_command_env_var() +
-  "` to an adapter command.\n\n" +
+  "` to a wrapper command.\n\n" +
   paddle_ocr_install_hint()
 }
 
@@ -64,18 +68,18 @@ pub fn build_paddle_ocr_command(
   request : OcrProviderRequest,
 ) -> Result[(String, Array[String]), OcrProviderError] {
   match normalized_env_var(paddle_ocr_command_env_var()) {
-    Some(command) => build_paddle_ocr_command_with_adapter(request, command)
+    Some(command) => build_paddle_ocr_command_with_wrapper(request, command)
     None =>
       Err(OcrProviderError::NotConfigured(paddle_ocr_not_configured_message()))
   }
 }
 
 ///|
-pub fn build_paddle_ocr_command_with_adapter(
+pub fn build_paddle_ocr_command_with_wrapper(
   request : OcrProviderRequest,
-  adapter_command : String,
+  wrapper_command : String,
 ) -> Result[(String, Array[String]), OcrProviderError] {
-  let trimmed = adapter_command.trim().to_owned()
+  let trimmed = wrapper_command.trim().to_owned()
   if trimmed == "" {
     return Err(
       OcrProviderError::NotConfigured(paddle_ocr_not_configured_message()),
@@ -108,14 +112,14 @@ pub fn build_paddle_ocr_command_with_adapter(
 
 ///|
 fn paddle_ocr_command_parts(
-  adapter_command : String,
+  wrapper_command : String,
 ) -> Result[Array[String], String] {
-  if @fs.path_exists(adapter_command) {
-    return Ok([adapter_command])
+  if @fs.path_exists(wrapper_command) {
+    return Ok([wrapper_command])
   }
   let parts : Array[String] = []
   let current : Array[Char] = []
-  let chars = adapter_command.to_array()
+  let chars = wrapper_command.to_array()
   let mut in_single_quote = false
   let mut in_double_quote = false
   let mut escape_next = false
@@ -230,16 +234,16 @@ pub async fn run_paddle_ocr_provider_with_async_command(
 }
 
 ///|
-pub async fn run_paddle_ocr_provider_with_async_command_with_adapter(
+pub async fn run_paddle_ocr_provider_with_async_command_with_wrapper(
   request : OcrProviderRequest,
-  adapter_command : String,
+  wrapper_command : String,
   collect_output : async (String, Array[String]) -> Result[
     (Int, String, String),
     OcrProviderError,
   ],
 ) -> Result[OcrProviderResult, OcrProviderError] {
   let plan = match
-    build_paddle_ocr_command_with_adapter(request, adapter_command) {
+    build_paddle_ocr_command_with_wrapper(request, wrapper_command) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
@@ -251,16 +255,16 @@ pub async fn run_paddle_ocr_provider_with_async_command_with_adapter(
 }
 
 ///|
-pub fn run_paddle_ocr_provider_with_command_with_adapter(
+pub fn run_paddle_ocr_provider_with_command_with_wrapper(
   request : OcrProviderRequest,
-  adapter_command : String,
+  wrapper_command : String,
   collect_output : (String, Array[String]) -> Result[
     (Int, String, String),
     OcrProviderError,
   ],
 ) -> Result[OcrProviderResult, OcrProviderError] {
   let plan = match
-    build_paddle_ocr_command_with_adapter(request, adapter_command) {
+    build_paddle_ocr_command_with_wrapper(request, wrapper_command) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
@@ -276,7 +280,7 @@ fn finalize_paddle_ocr_command_result(
   delegated : (Int, String, String),
 ) -> Result[OcrProviderResult, OcrProviderError] {
   match delegated {
-    (0, stdout, _stderr) => parse_paddle_ocr_bridge_payload(stdout)
+    (0, stdout, _stderr) => parse_paddle_ocr_wrapper_payload(stdout)
     (code, stdout, stderr) => {
       let stderr_text = stderr.trim().to_owned()
       let stdout_text = stdout.trim().to_owned()
@@ -285,7 +289,7 @@ fn finalize_paddle_ocr_command_result(
       } else if stdout_text != "" {
         stdout_text
       } else {
-        "paddle adapter exited with code " + code.to_string()
+        "paddle wrapper exited with code " + code.to_string()
       }
       let lowered = raw_message.to_lower()
       if lowered.contains("command not found") ||
@@ -293,7 +297,7 @@ fn finalize_paddle_ocr_command_result(
         lowered.contains("no such file") {
         Err(
           OcrProviderError::CommandUnavailable(
-            "PaddleOCR adapter command is unavailable on this runtime: " +
+            "PaddleOCR wrapper command is unavailable on this runtime: " +
             raw_message +
             "\n\n" +
             paddle_ocr_install_hint(),
@@ -302,7 +306,7 @@ fn finalize_paddle_ocr_command_result(
       } else {
         Err(
           OcrProviderError::ExecutionFailed(
-            "PaddleOCR adapter command failed on this runtime: " +
+            "PaddleOCR wrapper command failed on this runtime: " +
             raw_message +
             "\n\n" +
             paddle_ocr_install_hint(),
@@ -314,14 +318,14 @@ fn finalize_paddle_ocr_command_result(
 }
 
 ///|
-pub fn parse_paddle_ocr_bridge_payload(
+pub fn parse_paddle_ocr_wrapper_payload(
   payload : String,
 ) -> Result[OcrProviderResult, OcrProviderError] {
   let trimmed = payload.trim().to_owned()
   if trimmed == "" {
     return Err(
       OcrProviderError::EmptyResult(
-        "PaddleOCR adapter produced an empty payload on this runtime.",
+        "PaddleOCR wrapper produced an empty payload on this runtime.",
       ),
     )
   }
@@ -329,7 +333,7 @@ pub fn parse_paddle_ocr_bridge_payload(
     err =>
       return Err(
         OcrProviderError::OutputParseFailed(
-          "PaddleOCR adapter emitted invalid JSON on this runtime: " +
+          "PaddleOCR wrapper emitted invalid JSON on this runtime: " +
           err.to_string(),
         ),
       )
@@ -339,7 +343,7 @@ pub fn parse_paddle_ocr_bridge_payload(
     _ =>
       return Err(
         OcrProviderError::OutputParseFailed(
-          "PaddleOCR adapter payload root must be a JSON object on this runtime.",
+          "PaddleOCR wrapper payload root must be a JSON object on this runtime.",
         ),
       )
   }
@@ -357,14 +361,14 @@ pub fn parse_paddle_ocr_bridge_payload(
     _ =>
       return Err(
         OcrProviderError::OutputParseFailed(
-          "PaddleOCR adapter payload must include a `pages` array on this runtime.",
+          "PaddleOCR wrapper payload must include a `pages` array on this runtime.",
         ),
       )
   }
   if pages.length() == 0 {
     return Err(
       OcrProviderError::EmptyResult(
-        "PaddleOCR adapter produced zero pages on this runtime.",
+        "PaddleOCR wrapper produced zero pages on this runtime.",
       ),
     )
   }
@@ -395,7 +399,7 @@ fn paddle_json_pages(
       _ =>
         return Err(
           OcrProviderError::OutputParseFailed(
-            "PaddleOCR adapter page entries must be JSON objects on this runtime.",
+            "PaddleOCR wrapper page entries must be JSON objects on this runtime.",
           ),
         )
     }
@@ -426,7 +430,7 @@ fn paddle_json_page(
     _ =>
       return Err(
         OcrProviderError::OutputParseFailed(
-          "PaddleOCR adapter page payload must include a `blocks` array on this runtime.",
+          "PaddleOCR wrapper page payload must include a `blocks` array on this runtime.",
         ),
       )
   }
@@ -460,7 +464,7 @@ fn paddle_json_blocks(
       _ =>
         return Err(
           OcrProviderError::OutputParseFailed(
-            "PaddleOCR adapter block entries must be JSON objects on this runtime.",
+            "PaddleOCR wrapper block entries must be JSON objects on this runtime.",
           ),
         )
     }
@@ -491,7 +495,7 @@ fn paddle_json_block(
     _ =>
       return Err(
         OcrProviderError::OutputParseFailed(
-          "PaddleOCR adapter block payload must include a `lines` array on this runtime.",
+          "PaddleOCR wrapper block payload must include a `lines` array on this runtime.",
         ),
       )
   }
@@ -516,7 +520,7 @@ fn paddle_json_lines(
       _ =>
         return Err(
           OcrProviderError::OutputParseFailed(
-            "PaddleOCR adapter line entries must be JSON objects on this runtime.",
+            "PaddleOCR wrapper line entries must be JSON objects on this runtime.",
           ),
         )
     }
@@ -551,7 +555,7 @@ fn paddle_json_line(
     _ =>
       return Err(
         OcrProviderError::OutputParseFailed(
-          "PaddleOCR adapter line payload must include a `words` array on this runtime.",
+          "PaddleOCR wrapper line payload must include a `words` array on this runtime.",
         ),
       )
   }
@@ -577,7 +581,7 @@ fn paddle_json_words(
       _ =>
         return Err(
           OcrProviderError::OutputParseFailed(
-            "PaddleOCR adapter word entries must be JSON objects on this runtime.",
+            "PaddleOCR wrapper word entries must be JSON objects on this runtime.",
           ),
         )
     }
@@ -634,7 +638,7 @@ fn paddle_json_string_required(
     _ =>
       Err(
         OcrProviderError::OutputParseFailed(
-          "PaddleOCR adapter payload is missing required string field `" +
+          "PaddleOCR wrapper payload is missing required string field `" +
           key +
           "` on this runtime.",
         ),
@@ -677,7 +681,7 @@ fn paddle_json_int_required(
           _ =>
             return Err(
               OcrProviderError::OutputParseFailed(
-                "PaddleOCR adapter numeric field `" +
+                "PaddleOCR wrapper numeric field `" +
                 key +
                 "` is not a valid integer on this runtime.",
               ),
@@ -687,7 +691,7 @@ fn paddle_json_int_required(
     _ =>
       Err(
         OcrProviderError::OutputParseFailed(
-          "PaddleOCR adapter payload is missing required numeric field `" +
+          "PaddleOCR wrapper payload is missing required numeric field `" +
           key +
           "` on this runtime.",
         ),
@@ -757,7 +761,7 @@ fn collect_paddle_ocr_output(
         collected.val = Some(
           Err(
             OcrProviderError::ExecutionFailed(
-              "launch PaddleOCR adapter failed on this runtime: " +
+              "launch PaddleOCR wrapper failed on this runtime: " +
               e.to_string() +
               "\n\n" +
               paddle_ocr_install_hint(),
@@ -774,7 +778,7 @@ fn collect_paddle_ocr_output(
             collected.val = Some(
               Err(
                 OcrProviderError::OutputParseFailed(
-                  "failed to decode PaddleOCR adapter stdout as UTF-8 on this runtime: " +
+                  "failed to decode PaddleOCR wrapper stdout as UTF-8 on this runtime: " +
                   e.to_string(),
                 ),
               ),
@@ -787,7 +791,7 @@ fn collect_paddle_ocr_output(
             collected.val = Some(
               Err(
                 OcrProviderError::OutputParseFailed(
-                  "failed to decode PaddleOCR adapter stderr as UTF-8 on this runtime: " +
+                  "failed to decode PaddleOCR wrapper stderr as UTF-8 on this runtime: " +
                   e.to_string(),
                 ),
               ),
@@ -802,7 +806,7 @@ fn collect_paddle_ocr_output(
     e =>
       return Err(
         OcrProviderError::ExecutionFailed(
-          "launch PaddleOCR adapter failed on this runtime: " +
+          "launch PaddleOCR wrapper failed on this runtime: " +
           e.to_string() +
           "\n\n" +
           paddle_ocr_install_hint(),
@@ -814,7 +818,7 @@ fn collect_paddle_ocr_output(
     None =>
       Err(
         OcrProviderError::ExecutionFailed(
-          "launch PaddleOCR adapter failed on this runtime: event loop returned no result" +
+          "launch PaddleOCR wrapper failed on this runtime: event loop returned no result" +
           "\n\n" +
           paddle_ocr_install_hint(),
         ),

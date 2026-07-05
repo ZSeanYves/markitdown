@@ -10,7 +10,7 @@ import {
 // Values
 pub fn build_paddle_ocr_command(OcrProviderRequest) -> Result[(String, Array[String]), OcrProviderError]
 
-pub fn build_paddle_ocr_command_with_adapter(OcrProviderRequest, String) -> Result[(String, Array[String]), OcrProviderError]
+pub fn build_paddle_ocr_command_with_wrapper(OcrProviderRequest, String) -> Result[(String, Array[String]), OcrProviderError]
 
 pub fn build_tesseract_tsv_command(OcrProviderRequest) -> (String, Array[String])
 
@@ -108,7 +108,7 @@ pub fn paddle_ocr_not_configured_message() -> String
 
 pub fn paddle_ocr_runtime_available() -> Bool
 
-pub fn parse_paddle_ocr_bridge_payload(String) -> Result[OcrProviderResult, OcrProviderError]
+pub fn parse_paddle_ocr_wrapper_payload(String) -> Result[OcrProviderResult, OcrProviderError]
 
 pub fn parse_tesseract_tsv(String, language? : String?) -> Result[OcrProviderResult, OcrProviderError]
 
@@ -126,11 +126,11 @@ pub async fn run_paddle_ocr_provider_async(OcrProviderRequest) -> Result[OcrProv
 
 pub async fn run_paddle_ocr_provider_with_async_command(OcrProviderRequest, async (String, Array[String]) -> Result[(Int, String, String), OcrProviderError]) -> Result[OcrProviderResult, OcrProviderError]
 
-pub async fn run_paddle_ocr_provider_with_async_command_with_adapter(OcrProviderRequest, String, async (String, Array[String]) -> Result[(Int, String, String), OcrProviderError]) -> Result[OcrProviderResult, OcrProviderError]
+pub async fn run_paddle_ocr_provider_with_async_command_with_wrapper(OcrProviderRequest, String, async (String, Array[String]) -> Result[(Int, String, String), OcrProviderError]) -> Result[OcrProviderResult, OcrProviderError]
 
 pub fn run_paddle_ocr_provider_with_command(OcrProviderRequest, (String, Array[String]) -> Result[(Int, String, String), OcrProviderError]) -> Result[OcrProviderResult, OcrProviderError]
 
-pub fn run_paddle_ocr_provider_with_command_with_adapter(OcrProviderRequest, String, (String, Array[String]) -> Result[(Int, String, String), OcrProviderError]) -> Result[OcrProviderResult, OcrProviderError]
+pub fn run_paddle_ocr_provider_with_command_with_wrapper(OcrProviderRequest, String, (String, Array[String]) -> Result[(Int, String, String), OcrProviderError]) -> Result[OcrProviderResult, OcrProviderError]
 
 pub fn run_tesseract_provider(OcrProviderRequest) -> Result[OcrProviderResult, OcrProviderError]
 

@@ -1,86 +1,77 @@
-# OCR 与 PDF OCR / Layout 架构书
+# OCR and PDF OCR / Layout Architecture Guide
 
-> 路径：`docs/architecture/ocr-and-pdf-ocr-architecture.md`
+> Path: `docs/architecture/ocr-and-pdf-ocr-architecture.md`
 >
-> 本文是 [`docs/architecture/mb-markitdown-architecture.md`](./mb-markitdown-architecture.md)
-> 与
-> [`docs/architecture/format-mode-and-execution-profile-architecture.md`](./format-mode-and-execution-profile-architecture.md)
-> 在 OCR、PDF OCR、layout provider、route 触发规则上的专项补充与收敛文档。
+> This document complements [mb-markitdown-architecture.md](./mb-markitdown-architecture.md)
+> and [format-mode-and-execution-profile-architecture.md](./format-mode-and-execution-profile-architecture.md)
+> with focused rules for OCR, PDF OCR, layout providers, provider selection, and trigger conditions.
 
-建议阅读顺序：
+Recommended reading order:
 
-1. 先读主架构书，理解统一主链 `detect -> probe -> planner -> parser -> pipeline -> renderer`。
-2. 再读 mode / profile 架构书，理解 `Balanced / Accurate / Stream` 的稳定语义。
-3. 最后读本文，理解 OCR、PDF OCR、layout 支持、provider 选择与触发规则。
-
----
-
-## 0. 文档定位
-
-本文只回答以下问题：
-
-1. OCR 在本项目中到底是什么能力层，而不是什么。
-2. OCR 与 `Balanced / Accurate / Stream` 的关系应如何建模。
-3. PDF 何时允许进入 OCR / layout 路线。
-4. PDF 中“整页 OCR”和“内嵌图片 OCR”应如何区分。
-5. Tesseract、PaddleOCR / PP-StructureV3 等 provider 应如何进入统一主链。
-6. zip / container / batch 处理时，如何批量触发扫描件 OCR，同时避免误伤正常 PDF。
-
-本文是规范性架构文档，不是当前实现说明。
-
-如果当前实现与本文冲突，应优先视为待收敛技术债，而不是修改本文去迁就阶段性实现。
+1. Read the main architecture guide first.
+2. Then read the mode and profile guide.
+3. Finally read this document for OCR, PDF OCR, layout-provider, and trigger rules.
 
 ---
 
-## 1. 设计目标
+## 0. Document Scope
 
-OCR 相关设计必须同时满足以下目标：
+This document answers a narrow set of questions:
 
-1. 保持默认产品路径轻量：
-   默认行为不得依赖沉重 OCR/layout 运行时。
-2. 保持模式语义稳定：
-   `Balanced / Accurate / Stream` 不能退化成“某个具体 provider 的别名”。
-3. 允许显式与批量触发：
-   用户既能单文件显式确认 OCR，也能在 zip / batch 下对扫描件批量触发 OCR。
-4. 避免误 OCR：
-   正常 born-digital PDF 中的内嵌图片，不应因为启用了 PDF OCR 就被误当成“纯图片输入”。
-5. 支持 provider 演进：
-   provider 可以替换、降级、回退，但产品契约不能绑死在某个具体模型名上。
-6. 保持可解释性：
-   每次是否 OCR、为何 OCR、选了哪个 provider、对哪些页 OCR，都必须在 diagnostics / provenance 中可解释。
+1. What OCR means in this project.
+2. How OCR relates to `Balanced`, `Accurate`, and `Stream`.
+3. When PDF is allowed to enter OCR or layout-oriented routes.
+4. How page OCR differs from embedded-image OCR inside PDF.
+5. How providers such as Tesseract and PaddleOCR enter the unified product chain.
+6. How batch, zip, or container handling should trigger scanned-PDF OCR without damaging normal PDF behavior.
+
+This is a normative architecture document. If the implementation temporarily differs, that difference should be treated as convergence debt.
 
 ---
 
-## 2. 核心结论
+## 1. Design Goal
 
-如果只记住本文五条规则，应当是：
+OCR-related design must satisfy all of the following:
 
-1. `mode` 与 `OCR policy` 必须解耦。
-2. PDF OCR 的触发条件不能由“文件大”或“批处理模式”隐式决定。
-3. PDF OCR 的自动触发必须建立在 `scanned-like probe` 证据上。
-4. PDF OCR 默认是“整页 / 按页 OCR”，不是“自动 OCR PDF 里的 asset 图片”。
-5. provider 选择是执行计划的一部分，不是模式语义本身。
+1. The default product path stays lightweight.
+2. Mode semantics stay stable and do not collapse into provider names.
+3. Users can trigger OCR explicitly or in controlled batch flows.
+4. Normal born-digital PDF should not be accidentally treated as image-only input.
+5. Providers must be swappable without changing the product contract.
+6. Every OCR decision must stay explainable in diagnostics and provenance.
 
 ---
 
-## 3. OCR 的能力边界
+## 2. Core Conclusion
 
-在本项目中，`OCR` 是一个受约束的能力层，不等于“任何图像理解能力”。
+If only five rules are remembered, they should be:
 
-它的正式职责包括：
+1. `mode` and `OCR policy` must stay decoupled.
+2. PDF OCR must not be triggered merely because a file is large or in batch mode.
+3. Automatic PDF OCR must be based on scanned-like probe evidence.
+4. PDF OCR means page OCR by default, not automatic OCR of every embedded figure.
+5. Provider choice is part of plan execution, not part of mode meaning.
 
-1. 从图片或栅格化页面恢复文本。
-2. 产生带 bbox / confidence 的 OCR 结构。
-3. 在需要时补充 layout region、reading order、table structure 等 typed facts。
+---
 
-它不直接承诺：
+## 3. OCR Capability Boundary
 
-1. 无证据的复杂阅读顺序猜测。
-2. 无证据的 figure 理解或语义补全。
-3. 把整页 OCR 结果直接当作最终 Markdown 结构。
-4. 用 OCR 取代 native-text PDF 主链。
+In this project, OCR is a constrained capability layer.
 
-因此 OCR 在统一主链中的位置应当是：
+Its formal responsibilities include:
+
+1. recovering text from images or rasterized pages
+2. producing OCR structure with bounding boxes and confidence
+3. optionally providing layout regions, reading-order hints, or table signals where the route supports them
+
+It does not directly promise:
+
+1. speculative reading-order recovery without evidence
+2. speculative figure understanding
+3. direct OCR-to-final-Markdown shortcuts
+4. replacing the born-digital PDF native-text path by default
+
+OCR should therefore sit inside the architecture like this:
 
 ```text
 OCR provider
@@ -90,7 +81,7 @@ OCR provider
   -> renderer
 ```
 
-而不是：
+Not like this:
 
 ```text
 OCR provider -> final Markdown
@@ -98,163 +89,106 @@ OCR provider -> final Markdown
 
 ---
 
-## 4. 模式与 OCR 的关系
+## 4. Relationship Between Mode and OCR
 
-### 4.1 模式不等于 provider
+### 4.1 Mode Is Not a Provider Name
 
-`Balanced / Accurate / Stream` 表达的是转换哲学，不是 provider 名称。
+`Balanced`, `Accurate`, and `Stream` are product strategies, not provider labels.
 
-因此以下绑定都不应成为正式架构语义：
+These mappings must not become architecture truth:
 
 1. `Balanced = Tesseract`
 2. `Accurate = PaddleOCR`
-3. `Accurate = 一定 OCR`
+3. `Accurate = OCR is always required`
 
-更准确的关系应当是：
+The correct relationship is:
 
-1. `Balanced`：
-   优先轻量 canonical 路线；如果 OCR 被允许，也优先轻量 provider 默认值。
-2. `Accurate`：
-   允许 route-level OCR/layout upgrade；如果 OCR 被允许，也优先高保真 provider 默认值。
-3. `Stream`：
-   不改变 OCR 能力边界本身，只影响资源策略、flush/windowing 与输出路径。
+1. `Balanced`: prefer lightweight canonical behavior; if OCR is allowed, prefer the balanced OCR default
+2. `Accurate`: allow stronger OCR or layout routes where formally supported; if OCR is allowed, prefer the accurate OCR default
+3. `Stream`: changes resource posture, not the meaning of OCR itself
 
-### 4.2 模式与 OCR policy 解耦
+### 4.2 Mode and OCR Policy Must Stay Decoupled
 
-用户模式之外，应单独存在 OCR policy。
+OCR policy is a feature-control layer.
 
-至少要区分两类 policy：
+Mode is a product-strategy layer.
 
-1. 通用 OCR policy：
-   面向直接图片输入与非 PDF OCR 输入。
-2. PDF OCR policy：
-   专门决定 PDF 何时允许进入 OCR / layout 路线。
+This separation matters because:
 
-这样做的原因是：
-
-1. `Balanced` 仍然可以在显式确认或批量扫描件场景下做 OCR。
-2. `Accurate` 也不必意味着对每个 PDF 无条件整本 OCR。
-3. zip / batch / container 处理不需要靠切 mode 才能批量触发扫描件 OCR。
+1. not every accurate route needs OCR
+2. some balanced routes do need OCR when the user opts in
+3. stream support should not invent OCR behavior by itself
 
 ---
 
-## 5. OCR policy 设计
+## 5. OCR Policy Design
 
-### 5.1 通用 OCR policy
+### 5.1 Generic OCR Policy
 
-直接图片 OCR 的 policy 可以继续保持相对简单。
+A generic OCR policy surface should distinguish:
 
-推荐至少支持：
+- no OCR
+- explicit OCR
+- scanned-like auto OCR where the format supports it
+- route-specific variants such as `redo`
 
-1. `disabled`
-2. `auto`
-3. `explicit`
+### 5.2 PDF OCR Policy
 
-其中：
+For PDF, OCR policy needs extra discipline because PDF has both native-text and scanned-like cases.
 
-1. `disabled`：
-   不启用 OCR。
-2. `auto`：
-   对天然图像输入按格式策略自动启用 OCR。
-3. `explicit`：
-   由用户显式确认 OCR。
+The formal policy family should continue separating:
 
-对于直接图片输入，`auto` 仍可保持为正式默认。
-
-### 5.2 PDF OCR policy
-
-PDF 需要独立于通用 OCR policy 的专门策略。
-
-推荐正式引入：
-
-1. `disabled`
-2. `explicit`
-3. `auto_scanned`
-4. `force`
-5. `redo`
-
-含义如下：
-
-1. `disabled`：
-   PDF 不进入 OCR / layout 路线。
-2. `explicit`：
-   只有显式确认时才进入 OCR / layout 路线。
-3. `auto_scanned`：
-   先做 scanned-like probe，只有命中扫描件/弱文本层证据时才进入 OCR。
-4. `force`：
-   无条件对 PDF 页做 OCR。
-5. `redo`：
-   在已有文本层的 PDF 中，仅对低质量或缺失文本页重做 OCR，并优先保留高置信 native text。
-
-正式产品默认建议：
-
-1. `Balanced PDF` 默认 `explicit`
-2. `Accurate PDF` 默认 `auto_scanned`
-3. batch / zip / container 可显式要求 `auto_scanned`
-
-`force` 与 `redo` 可以作为后续能力，不要求第一阶段全部实现，但架构上应预留其语义。
+- no PDF OCR
+- explicit PDF OCR
+- auto-scanned PDF OCR
+- accurate-specific stronger PDF OCR variants where formally supported
 
 ---
 
-## 6. PDF OCR 触发规则
+## 6. PDF OCR Trigger Rules
 
-### 6.1 不允许的触发方式
+### 6.1 Trigger Styles That Are Not Allowed
 
-以下条件不得直接作为 PDF OCR 触发条件：
+These must not become formal trigger rules:
 
-1. 文件大
-2. 页数多
-3. 进入 zip / container / batch
-4. 命中普通资源限制
-5. PDF 中存在图片 asset
+1. "the file is large, so use OCR"
+2. "the user is in batch mode, so OCR all PDFs"
+3. "the file contains images, so OCR everything"
 
-原因是这些条件既不能稳定识别扫描件，也容易把默认产品路径拖进重型运行时。
+### 6.2 Trigger Styles That Are Allowed
 
-### 6.2 允许的触发方式
+These are allowed:
 
-PDF 进入 OCR / layout 路线只能由以下来源之一触发：
+1. the user explicitly requested PDF OCR
+2. the user requested `pdf_ocr_policy = auto_scanned`
+3. scanned-like probe evidence supports OCR for the whole document or some pages
+4. the accurate PDF strategy explicitly defaults to `auto_scanned`
 
-1. `pdf_ocr_policy = explicit`
-2. `pdf_ocr_policy = force`
-3. `pdf_ocr_policy = redo`
-4. `pdf_ocr_policy = auto_scanned` 且 probe 证据命中 scanned-like 判定
-5. `Accurate` 模式下的 PDF 策略表明确规定默认 `pdf_ocr_policy = auto_scanned`
+### 6.3 Scanned Batch Handling Under Balanced
 
-### 6.3 Balanced 下的扫描件批量触发
+`Balanced` must not silently turn into `Accurate`.
 
-`Balanced` 不得隐式升级为 OCR 路线，这条原则保留。
-
-但这并不意味着 `Balanced` 不能批量处理扫描件。
-
-正确做法是：
-
-1. `Balanced` 保持其默认 mode 语义不变。
-2. 用户或上层 batch / zip 入口显式设置 `pdf_ocr_policy = auto_scanned`。
-3. planner 依据 probe 冻结是否对某个 PDF 或某些页进入 OCR。
-
-因此：
+But `Balanced + pdf_ocr_policy=auto_scanned` is a valid formal design:
 
 ```text
 Balanced + pdf_ocr_policy=auto_scanned
 ```
 
-是正式允许的设计。
-
-它仍然属于 `Balanced`，不是偷偷切到 `Accurate`。
+That combination keeps the balanced mode meaning intact while still allowing controlled scanned-PDF OCR.
 
 ---
 
-## 7. scanned-like probe
+## 7. Scanned-Like Probe
 
-### 7.1 目标
+### 7.1 Goal
 
-`scanned-like probe` 是 PDF OCR 自动触发的唯一证据入口。
+The scanned-like probe is the only acceptable evidence source for automatic PDF OCR.
 
-它的目标不是直接冻结 route，而是提供结构化信号。
+It should provide structured signals, not freeze the final route by itself.
 
-### 7.2 典型 probe_signals
+### 7.2 Typical Probe Signals
 
-PDF probe 至少应尝试提供以下信号：
+Useful signals include:
 
 1. `pdf_page_count`
 2. `pdf_native_text_span_count`
@@ -265,54 +199,47 @@ PDF probe 至少应尝试提供以下信号：
 7. `pdf_scanned_like_page_count`
 8. `pdf_scanned_like_page_ratio`
 
-如能力允许，还可补充：
+If available, the system may also use:
 
 1. `pdf_average_char_density`
 2. `pdf_text_layer_quality_hint`
 3. `pdf_vector_text_presence`
 4. `pdf_background_image_dominant_page_count`
 
-### 7.3 判定原则
+### 7.3 Decision Principle
 
-scanned-like 判定应遵循保守原则：
+The detection rule should stay conservative:
 
-1. 优先识别“文本层缺失或极弱”的页。
-2. 同时参考大图覆盖率、页级文本密度、vector text 存在性。
-3. 对边界页宁可不自动升级，也不要误判整本为扫描件。
+1. prefer finding pages with missing or very weak text layers
+2. combine text coverage with image coverage and density clues
+3. avoid false positives on mixed PDFs
 
-### 7.4 planner 职责
+### 7.4 Planner Ownership
 
-probe 只提供信号。
+Probe provides evidence.
+Planner decides:
 
-planner 负责：
-
-1. 判断文档是否 scanned-like。
-2. 判断是否只对部分页 OCR。
-3. 记录 `route_reason`、`route_probe_summary`、`same_mode_strategy_switches`。
+1. whether the document is scanned-like
+2. whether OCR is page-selective
+3. which route reason and strategy-switch records should be emitted
 
 ---
 
-## 8. PDF OCR 的页级混合策略
+## 8. Page-Level Hybrid PDF OCR
 
-### 8.1 不推荐整本一刀切
+### 8.1 Avoid Whole-Document Forced OCR
 
-对 mixed PDF，整本 OCR 往往是次优策略。
+Mixed PDFs are common:
 
-典型 mixed PDF 包括：
+1. some pages are scanned, others are born-digital
+2. appendices can be image-heavy
+3. some text layers are broken while others are healthy
 
-1. 前几页是扫描件，后几页是原生文本层。
-2. 正文有文本层，但夹带图片型附录。
-3. 部分页 text layer 损坏或为空。
+For these cases, whole-document forced OCR is often the wrong product choice.
 
-因此 PDF OCR 正式策略应优先支持“按页混合”：
+### 8.2 Preferred Hybrid Model
 
-1. 有效 native-text 页：继续走 native-text page path
-2. scanned-like 页：进入 OCR / layout page path
-3. 最终在文档组装阶段合并为同一个 Document IR
-
-### 8.2 Page-level Hybrid Assembly
-
-推荐正式定义：
+The preferred route model is:
 
 ```text
 pdf page route:
@@ -320,397 +247,276 @@ pdf page route:
   ocr_page
 ```
 
-组装规则：
+Assembly rule:
 
-1. page 是 planner 和 provenance 的稳定单位。
-2. 每页都要记录其来源：
-   `native_text` 或 `ocr_provider:<name>`
-3. 文档级 diagnostics 需要汇总：
-   `ocr_used_pages`
-   `native_text_pages`
-   `scanned_page_ratio`
-   `mixed_page_route`
+1. each page keeps its own provenance
+2. native-text pages stay native-text
+3. scanned-like pages can use OCR
+4. one final document is assembled downstream
 
-### 8.3 redo 语义
+### 8.3 Redo Semantics
 
-`redo` 的正式方向应是：
+`redo` should mean:
 
-1. 优先保留高置信 native-text page facts
-2. 对缺字、乱码、极弱文本层的页补做 OCR
-3. 避免让 OCR 粗暴覆盖正常文本层
-
-这比“有文本层就完全不 OCR”与“整本强制 OCR”都更稳。
+1. keep strong native-text facts where they are trustworthy
+2. rerun OCR on weak or broken pages
+3. avoid clobbering healthy native-text pages with noisier OCR text
 
 ---
 
-## 9. PDF OCR 与 PDF 内嵌图片 OCR 的边界
+## 9. PDF Page OCR vs Embedded Image OCR
 
-这是本文最重要的边界之一。
+This is one of the most important boundaries in the project.
 
-### 9.1 整页 OCR
+### 9.1 Page OCR
 
-`page OCR` 指：
+Page OCR means:
 
-1. 先把 PDF 页 rasterize
-2. 再把整页送入 OCR / layout provider
+1. rasterize the page
+2. send the whole page to OCR or a layout-aware provider
 
-它的正式用途是：
+Use it for:
 
-1. 扫描件
-2. 图片型 PDF
-3. 弱文本层 PDF
-4. 需要页级 layout / table / reading order 恢复的 accurate 路线
+1. scanned PDF
+2. image-based PDF
+3. weak-text-layer PDF
+4. accurate routes that need page-level OCR or layout recovery
 
-### 9.2 内嵌图片 OCR
+### 9.2 Embedded Image OCR
 
-`asset image OCR` 指：
+Embedded image OCR means:
 
-1. 从 PDF 中提取内嵌图片 asset
-2. 对图片 asset 单独做 OCR
+1. extract an image asset from inside the PDF
+2. OCR that asset separately
 
-它的用途不同：
+Use it for:
 
-1. figure / screenshot / scan-in-figure 中的局部文字恢复
-2. image appendix / image notes / OCR caption enrich
-3. 特定产品场景下的图片搜索或 RAG
+1. screenshots or figures that contain text
+2. image appendices
+3. special image-search or RAG scenarios
 
-### 9.3 正式规则
+### 9.3 Formal Rule
 
-默认情况下：
+By default:
 
-1. `page OCR` 可以由 `pdf_ocr_policy` 驱动。
-2. `asset image OCR` 不能因为启用了 `page OCR` 而自动启用。
-3. `asset image OCR` 必须是单独的 feature / policy / provider 决策。
+1. page OCR may be driven by `pdf_ocr_policy`
+2. embedded image OCR must not be auto-enabled just because page OCR is enabled
+3. embedded image OCR must remain a separate feature and policy decision
 
-否则会出现：
+Otherwise the system risks:
 
-1. 正常 PDF 中的插图被误 OCR
-2. figure asset 被错误混入正文 reading order
-3. 页面与图片 OCR 结果重复注入文档
+1. OCRing normal illustrations by mistake
+2. polluting body reading order with figure OCR text
+3. duplicating content through both page OCR and image OCR
 
-因此 planner、parser、diagnostics 都必须区分：
+Diagnostics and provenance must therefore keep these separate:
 
 1. `pdf_page_ocr_used`
 2. `pdf_asset_image_ocr_used`
 
 ---
 
-## 10. provider 架构
+## 10. Provider Architecture
 
-### 10.1 provider 是能力后端，不是产品契约
+### 10.1 Provider Is a Backend, Not a Product Contract
 
-provider 是实现某一 OCR / layout 能力的运行时后端。
+The product contract should never be defined as:
 
-产品契约不应直接写成：
+1. "accurate PDF means PaddleOCR"
+2. "image OCR means Tesseract"
 
-1. PDF Accurate 等于 PaddleOCR
-2. 图片 OCR 等于 Tesseract
+Instead:
 
-更稳定的建模应当是：
+1. define provider kinds
+2. record selected provider in the plan and provenance
+3. let policy choose mode-aware defaults
+4. keep missing-dependency behavior explicit
 
-1. 定义 provider kind taxonomy
-2. 在 plan 中记录 selected provider
-3. 在策略表中定义 mode-aware default provider
-4. provider 选择必须保持 plan-driven，且缺依赖时 fail closed
+### 10.2 Provider Categories
 
-### 10.2 provider 类型
-
-推荐将 OCR / layout provider 语义拆分为：
+The architecture should continue thinking in at least these semantic categories:
 
 1. `TextOcrProvider`
 2. `DocumentLayoutProvider`
 3. `TableStructureProvider`
 4. `PdfRasterProvider`
 
-第一阶段若实现上仍由一个后端同时承担多项职责，也应在架构上保留这层语义拆分。
+One backend may still implement several of them, but the product contract should keep the separation visible.
 
-### 10.3 推荐 provider 角色
+### 10.3 Recommended Provider Roles
 
-对当前产品定位，推荐角色如下：
+For the current product line:
 
-1. `Tesseract`
-   轻依赖、轻运行时、CLI 友好，适合轻量默认 OCR 底座。
-2. `PaddleOCR / PP-StructureV3`
-   更适合 Accurate 路线的 OCR + layout + table provider 默认值。
-3. `pdftoppm` 或同类 raster backend
-   是 PDF page OCR 的 raster provider，不等于 OCR provider。
+1. `Tesseract` is a lightweight, CLI-friendly OCR base
+2. `PaddleOCR` / `PP-StructureV3` is a better fit for accurate OCR and layout-oriented paths
+3. `pdftoppm` or similar tooling is a raster backend, not the OCR provider itself
 
-### 10.4 默认 provider 策略
+### 10.4 Default Provider Policy
 
-推荐默认值：
+Recommended defaults:
 
-1. 直接图片 Balanced：
-   默认 `Tesseract`
-2. 直接图片 Accurate：
-   默认 `PaddleOCR`
-3. PDF Balanced + explicit / auto_scanned：
-   默认 `Tesseract`
-4. PDF Accurate + auto_scanned / force / redo：
-   默认 `PaddleOCR`
+1. direct image balanced OCR: `Tesseract`
+2. direct image accurate OCR: `PaddleOCR`
+3. balanced PDF OCR: `Tesseract`
+4. accurate PDF OCR: `PaddleOCR`
 
-这只是默认值，不是唯一实现。
+These are defaults, not architecture lock-in.
 
-### 10.5 fail-closed provider policy
+### 10.5 Fail-Closed Provider Policy
 
-当前正式产品策略是不做 provider fallback，而是在缺依赖或 provider 运行失败时 fail closed。
+The default product bias remains fail-closed.
 
-要求如下：
+At the same time, the current formal behavior allows one narrow, explicit provider fallback class:
 
-1. `selected_provider` 仍然必须进入 plan / provenance / diagnostics。
-2. 缺依赖时必须返回稳定的 dependency diagnostics / install guidance。
-3. 禁止静默切换到另一个 OCR provider。
-4. 如未来重新开放 fallback，必须先更新正式架构契约，而不是作为实现细节偷偷恢复。
+1. `pdf --accurate` may fall back from the accurate OCR provider to the balanced OCR provider when accurate dependencies are missing
+2. direct image `--accurate` may do the same
 
-### 10.6 Paddle bridge runtime contract
+This is not silent degradation.
 
-当前实现已经把 `PaddleOCR` provider 落到一个可执行的 bridge 协议上，但它仍然是
-`provider adapter`，不是完整的 PDF Accurate route。
+The required behavior is:
 
-运行时约定如下：
+1. requested provider and effective provider must both be visible in diagnostics and provenance
+2. missing dependencies must produce stable dependency diagnostics and install guidance
+3. fallback must be explicit and warning-bearing
+4. unsupported accurate behavior for formats without a formal accurate contract must not pretend to be real accurate support
 
-1. 通过环境变量 `MARKITDOWN_PADDLE_OCR_CMD` 提供 adapter 命令。
-2. 运行时调用形式固定为：
+### 10.6 Paddle Wrapper Runtime Contract
+
+The current implementation uses an executable wrapper contract for `PaddleOCR`.
+
+Runtime contract:
+
+1. wrapper path comes from `MARKITDOWN_PADDLE_OCR_CMD`
+2. invocation shape is:
 
 ```text
-<adapter_cmd> <image_path> [--lang <LANG>]
+<wrapper_cmd> <image_path> [--lang <LANG>]
 ```
 
-3. adapter 必须把 OCR 结果写到 `stdout`，格式为单个 JSON object。
-4. adapter 非零退出码进入 `CommandUnavailable` 或 `ExecutionFailed` taxonomy。
-5. adapter 零退出但 JSON 不合法或字段缺失，进入 `OutputParseFailed` taxonomy。
-6. adapter 零退出但 `pages` 为空，进入 `EmptyResult` taxonomy。
-
-当前 bridge payload 正式契约为：
-
-```json
-{
-  "provider_name": "paddle_ocr",
-  "provider_version": "3.0.0",
-  "diagnostics": ["adapter=sample"],
-  "pages": [
-    {
-      "page_index": 0,
-      "width": 1000,
-      "height": 2000,
-      "language": "eng",
-      "diagnostics": ["page=0"],
-      "blocks": [
-        {
-          "block_index": 0,
-          "bbox": { "x0": 10, "y0": 20, "x1": 300, "y1": 120 },
-          "confidence": 0.97,
-          "lines": [
-            {
-              "line_index": 0,
-              "text": "MoonBit OCR",
-              "bbox": { "x0": 10, "y0": 20, "x1": 280, "y1": 60 },
-              "confidence": 0.98,
-              "words": [
-                { "word_index": 0, "text": "MoonBit" },
-                { "word_index": 1, "text": "OCR" }
-              ]
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}
-```
-
-其中：
-
-1. `provider_name` 与 `pages` 是必填字段。
-2. `page.blocks`、`block.lines`、`line.words` 都是正式结构字段，不接受直接吐纯文本。
-3. `bbox`、`confidence`、`provider_version`、`diagnostics`、`language` 是可选增强字段。
-4. bridge 输出只负责统一 OCR / layout facts，不直接输出 Markdown。
-5. 不允许 bridge 静默降级到别的 provider；当前缺依赖时必须直接 fail closed。
-
-仓库内的 `samples/helpers/paddle_ocr_bridge.py` 是当前 bridge 协议的参考实现。
+3. the wrapper writes one JSON object to `stdout`
+4. non-zero exit maps to execution or availability diagnostics
+5. invalid JSON maps to parse diagnostics
+6. empty pages map to empty-result diagnostics
 
 ---
 
-## 11. route 设计
+## 11. Route Design
 
-### 11.1 PDF canonical route
+### 11.1 PDF Canonical Route
 
-PDF 仍保持：
+For born-digital PDF, the canonical product path remains native-text first.
 
-1. canonical route：`page_single_pass`
-2. OCR / layout upgrade route：`layout_two_stage`
+OCR and layout upgrades must be explicitly policy-driven or probe-supported.
 
-但 `layout_two_stage` 不再被理解为“默认整本 rasterize + OCR-only”。
+### 11.2 Image Canonical Route
 
-更准确的定义应为：
+Direct image OCR is a formal OCR route, not a PDF route pretending to parse images.
 
-```text
-layout_two_stage
-  stage 1: page probe / native text inventory / raster readiness
-  stage 2: page-level OCR/layout/table provider path when policy allows
-```
+### 11.3 Route Is Not Provider
 
-### 11.2 图片 canonical route
+Route answers "what product path are we taking".
+Provider answers "which backend is used inside that path".
 
-直接图片输入仍可使用 `layout_two_stage` 作为 OCR 主路由。
-
-但 route 内部应允许：
-
-1. OCR-only provider path
-2. OCR + layout provider path
-3. OCR + layout + table provider path
-
-### 11.3 route 不是 provider
-
-同一个 `layout_two_stage` route 内，可以根据 plan 选择不同 provider 组合。
-
-因此 route 语义不应绑死为：
-
-1. `layout_two_stage = tesseract`
-2. `layout_two_stage = PaddleOCR`
+Those must stay separate.
 
 ---
 
-## 12. ExecutionIntent / ProbeOutcome / Plan 扩展
+## 12. ExecutionIntent, ProbeOutcome, and Plan Extensions
 
 ### 12.1 ExecutionIntent
 
-内部意图对象至少应新增或显式收口以下概念：
+Execution intent should keep OCR-related requests normalized:
 
-1. `ocr_policy`
-2. `pdf_ocr_policy`
-3. `preferred_ocr_provider`
-4. `preferred_layout_provider`
+- mode
+- output view
+- stream request
+- direct image OCR intent
+- PDF OCR policy
+- language hints
 
 ### 12.2 ProbeOutcome
 
-PDF probe 需要支持：
-
-1. `pdf_scanned_like_page_ratio`
-2. `pdf_native_text_coverage_ratio`
-3. `pdf_empty_text_page_count`
-4. `pdf_page_image_coverage_ratio`
+Probe outcome should expose scanned-like evidence and prepared source data without freezing route truth.
 
 ### 12.3 ResolvedExecutionPlan
 
-正式执行计划至少应能解释：
+The final plan should expose enough OCR-related truth for downstream use:
 
-1. `selected_route`
-2. `selected_pdf_page_strategy`
-3. `pdf_ocr_policy`
-4. `selected_ocr_provider`
-5. `selected_layout_provider`
-6. `provider_reason`
-7. `ocr_page_selection_reason`
-8. `scanned_like_probe_summary`
+- route
+- requested OCR posture
+- selected provider
+- effective provider
+- fallback reasons
+- page-level mixed-route facts when applicable
 
 ---
 
-## 13. diagnostics 与 provenance
+## 13. Diagnostics and Provenance
 
-OCR 相关 diagnostics 至少要区分四个层面：
+OCR behavior is only trustworthy when it is visible.
 
-1. 用户是否请求 OCR
-2. planner 是否允许 OCR
-3. 哪些页实际走了 OCR
-4. 使用了哪个 provider，以及是否 fail closed
+Diagnostics and provenance should make these questions answerable:
 
-建议统一暴露以下 metrics / metadata：
-
-1. `ocr_intent`
-2. `pdf_ocr_policy`
-3. `pdf_ocr_trigger`
-4. `pdf_page_ocr_used`
-5. `pdf_asset_image_ocr_used`
-6. `ocr_provider_name`
-7. `layout_provider_name`
-8. `ocr_provider_status`
-9. `ocr_used_pages`
-10. `native_text_pages`
-11. `scanned_page_ratio`
-12. `mixed_page_route`
-
-如发生自动触发，还应记录：
-
-1. `route_reason = pdf_scanned_like_auto_upgrade`
-2. `route_probe_summary = ...`
+1. Was OCR requested?
+2. Why did OCR run or not run?
+3. Which provider was requested?
+4. Which provider actually ran?
+5. Did the system fall back?
+6. Was the fallback route-level, provider-level, or both?
+7. Which pages used native text versus OCR?
 
 ---
 
-## 14. 批处理、zip 与容器递归
+## 14. Batch, Zip, and Container Recursion
 
-### 14.1 批处理原则
+### 14.1 Batch Principle
 
-zip / container / batch 的正确设计不是：
+Batch handling should stay product-honest:
 
-1. 进入批处理就自动对全部 PDF OCR
+1. batch mode must not weaken route fidelity
+2. batch mode must not force OCR globally
+3. batch mode may carry explicit OCR policy from the caller
 
-而是：
+### 14.2 Recommended Batch Semantics
 
-1. 容器递归仍先 detect / probe
-2. 对每个 PDF 单独应用 `pdf_ocr_policy`
-3. `auto_scanned` 只对命中 scanned-like 的 PDF 或页面生效
+For scanned-PDF handling in batch:
 
-### 14.2 推荐批量语义
+1. keep the requested mode stable
+2. carry `pdf_ocr_policy=auto_scanned` if the caller wants batch scanned-PDF support
+3. let probe and planner decide per document or per page
 
-推荐对 batch / zip 提供正式策略：
-
-1. `inherit`
-2. `pdf_auto_scanned`
-3. `pdf_force`
-
-其中：
-
-1. `inherit`：
-   复用普通单文档产品策略。
-2. `pdf_auto_scanned`：
-   对批量中的 PDF 显式启用 `pdf_ocr_policy = auto_scanned`。
-3. `pdf_force`：
-   对批量中的 PDF 显式启用 `pdf_ocr_policy = force`。
-
-这样既能批量触发扫描件 OCR，也不会因为普通 born-digital PDF 带图片就误 OCR。
+This keeps batch behavior scalable without turning it into silent overreach.
 
 ---
 
-## 15. 对当前设计的收敛建议
+## 15. Convergence Guidance for the Current Design
 
-基于本文，建议将现有方向收敛为：
+The current implementation should keep converging toward these stable outcomes:
 
-1. 保留 PDF native-text `page_single_pass` 作为正式 canonical route。
-2. 保留 `layout_two_stage` 作为 OCR / layout upgrade route。
-3. 不再把 PDF OCR 的产品语义写成“`--accurate` 自动等于 OCR-only 路线”。
-4. 引入 `pdf_ocr_policy`，用于显式、自动扫描件、强制与重做策略。
-5. 将 `Balanced` 下批量扫描件 OCR 的正式触发方式定义为 `Balanced + pdf_ocr_policy=auto_scanned`。
-6. 将“整页 OCR”和“PDF 内嵌图片 OCR”明确拆成不同能力面。
-7. 将 provider 选择从硬编码切为 plan-driven default + fallback。
-8. 让 `Tesseract` 作为轻量默认 OCR / fallback。
-9. 让 `PaddleOCR / PP-StructureV3` 作为 Accurate 路线的高保真默认 provider。
-10. `PaddleOCR` 通过 `MARKITDOWN_PADDLE_OCR_CMD`
-    bridge 接入统一 provider 主链后，`pdf --accurate` 默认采用 `auto_scanned`；命中 scanned-like 时进入该 OCR route，如运行时缺少 Paddle，则明确提示安装方式并 fail closed。
+1. one OCR vocabulary across route, provider, diagnostics, and docs
+2. explicit accurate-to-balanced OCR fallback for supported accurate OCR cases
+3. no fake accurate support for formats that do not have it
+4. clearer page-level provenance for mixed PDF
 
 ---
 
-## 16. 不应做的事
+## 16. Things the Project Should Not Do
 
-以下做法应视为架构反模式：
+The project should not:
 
-1. 因文件大或进入批处理而自动 OCR PDF。
-2. 让 `Balanced` 因内部超限偷偷升级为 OCR / layout 路线。
-3. 让 `Accurate` 默认无条件整本 OCR 全部 PDF。
-4. 让 `page OCR` 自动带出 `asset image OCR`。
-5. 在 parser、finalize、renderer 三处分别私自决定是否 OCR。
-6. 把 provider 名直接写成 mode 语义。
-7. 让 provider 静默切换且无 diagnostics。
+1. silently OCR every PDF in batch mode
+2. silently OCR every embedded figure inside PDF
+3. silently switch OCR providers without provenance
+4. pretend that unsupported accurate behavior is still accurate
+5. let providers redefine what mode means
 
 ---
 
-## 17. 演进顺序
+## 17. Recommended Evolution Order
 
-推荐的实施顺序是：
+The most stable long-term order is:
 
-1. 先把 `mode`、`ocr_policy`、`pdf_ocr_policy` 文档语义收口。
-2. 再给 planner / probe 增加 scanned-like signals 与 `route_reason`。
-3. 然后让 PDF OCR 支持 page-level hybrid assembly。
-4. 再引入 `PaddleOCR / PP-StructureV3` 作为 Accurate 默认 provider。
-5. 最后再考虑 `redo`、asset image OCR 与更复杂 table/layout provider 组合。
-
-这可以最大化保持当前主链稳定，同时逐步提升 PDF OCR 与 layout 能力。
+1. keep balanced OCR paths reliable
+2. keep accurate OCR paths explicit and diagnosable
+3. improve page-level mixed-PDF assembly
+4. expand typed layout and table signals only where regression coverage is strong enough

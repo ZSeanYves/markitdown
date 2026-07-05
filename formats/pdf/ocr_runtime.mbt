@@ -137,7 +137,17 @@ pub fn pdf_ocr_layout_capability() -> @parser.ParserCapability {
 
 ///|
 fn pdf_ocr_tmp_root() -> String {
-  ".tmp/pdf_ocr"
+  match @env.get_env_var("MARKITDOWN_TMP_DIR") {
+    Some(value) => {
+      let trimmed = value.trim().to_owned()
+      if trimmed == "" {
+        ".tmp/tests/pdf_ocr"
+      } else {
+        trimmed + "/pdf_ocr"
+      }
+    }
+    None => ".tmp/tests/pdf_ocr"
+  }
 }
 
 ///|

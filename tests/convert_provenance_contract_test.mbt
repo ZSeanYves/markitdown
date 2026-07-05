@@ -4,13 +4,15 @@ fn convert_with_provenance(
   format : @input.DetectedFormat,
   limits : @convert.ResourceLimits,
   stream_requested? : Bool = false,
+  fidelity_mode? : @convert.FidelityMode = @convert.FidelityMode::Balanced,
 ) -> @convert.ConvertExecution raise {
   let options = @convert.make_convert_options(
-    @convert.ConvertMode::Balanced,
+    @convert.derived_convert_mode(fidelity_mode, stream_requested),
     @convert.OutputFormat::Markdown,
     Some(format),
     @parser.default_ocr_options(),
     limits,
+    fidelity_mode~,
     stream_requested~,
   )
   match @convert.convert_input_with_provenance(source, options) {
@@ -291,9 +293,17 @@ test "convert provenance reports audio canonical media pipeline and honest fallb
       Err(err) => fail("expected accurate audio provenance: " + err.to_string())
     }
     assert_eq(accurate.provenance.route_plan.selected_route, "media_pipeline")
+    assert_eq(
+      accurate.provenance.route_plan.route_reason,
+      "accurate_unsupported_fell_back",
+    )
+    assert_eq(
+      @convert.fidelity_mode_name(accurate.provenance.fidelity_mode),
+      "balanced",
+    )
     assert_true(
-      accurate.result.diagnostics.same_mode_degradation.contains(
-        "audio_accurate_same_as_balanced_p0",
+      accurate.provenance.same_mode_strategy_switches.contains(
+        "accurate_unsupported_fell_back",
       ),
     )
   })
@@ -531,6 +541,94 @@ test "route planner keeps explicit stream fallback honest for toml" {
 }
 
 ///|
+test "route planner keeps unsupported accurate fallback honest for toml" {
+  let source = @input.input_from_path(
+    "samples/fixtures/contracts/toml/toml_object_basic.toml",
+  )
+  let options = @convert.make_convert_options(
+    @convert.ConvertMode::Accurate,
+    @convert.OutputFormat::Markdown,
+    Some(@input.DetectedFormat::Toml),
+    @parser.default_ocr_options(),
+    @convert.default_resource_limits(),
+    fidelity_mode=@convert.FidelityMode::Accurate,
+  )
+  let plan = match @convert.plan_input(source, options) {
+    Ok(value) => value
+    Err(err) => fail("expected toml accurate route plan: " + err.to_string())
+  }
+  assert_eq(plan.selected_route, "dom_ast_model")
+  assert_eq(plan.route_reason, "accurate_unsupported_fell_back")
+  let execution = convert_with_provenance(
+    source,
+    @input.DetectedFormat::Toml,
+    @convert.default_resource_limits(),
+    fidelity_mode=@convert.FidelityMode::Accurate,
+  )
+  assert_eq(
+    @convert.fidelity_mode_name(execution.provenance.fidelity_mode),
+    "balanced",
+  )
+  assert_true(
+    execution.provenance.requested_fidelity_mode ==
+    Some(@convert.FidelityMode::Accurate),
+  )
+  assert_true(
+    execution.provenance.same_mode_strategy_switches.contains(
+      "accurate_unsupported_fell_back",
+    ),
+  )
+  assert_true(execution.result.content.contains("| Key | Value |"))
+}
+
+///|
+test "route planner preserves image accurate OCR target instead of downgrading early" {
+  let source = @input.input_from_path_with_format(
+    "scan.png",
+    Some(@input.DetectedFormat::Image(@input.ImageFormat::Png)),
+  )
+  let options = @convert.make_convert_options(
+    @convert.ConvertMode::Balanced,
+    @convert.OutputFormat::Markdown,
+    Some(@input.DetectedFormat::Image(@input.ImageFormat::Png)),
+    @parser.explicit_ocr_options(language=Some("eng")),
+    @convert.default_resource_limits(),
+    fidelity_mode=@convert.FidelityMode::Accurate,
+  )
+  let plan = match @convert.plan_input(source, options) {
+    Ok(value) => value
+    Err(err) => fail("expected image accurate route plan: " + err.to_string())
+  }
+  assert_eq(plan.route_reason, "png_canonical_layout_two_stage")
+  assert_true(
+    plan.ocr_provider_selection_target == Some("direct_image_accurate"),
+  )
+  assert_true(plan.ocr_provider_requested_kind == Some("paddle_ocr"))
+  assert_true(plan.ocr_provider_resolved_kind == Some("paddle_ocr"))
+}
+
+///|
+test "route planner keeps unsupported accurate fallback honest for audio" {
+  let source = @input.input_from_path(
+    "samples/fixtures/contracts/audio/contract.m4a",
+  )
+  let options = @convert.make_convert_options(
+    @convert.ConvertMode::Accurate,
+    @convert.OutputFormat::Markdown,
+    Some(@input.DetectedFormat::Audio(@input.AudioFormat::M4a)),
+    @parser.default_ocr_options(),
+    @convert.default_resource_limits(),
+    fidelity_mode=@convert.FidelityMode::Accurate,
+    audio_options=@parser.explicit_audio_options(language=Some("eng")),
+  )
+  let plan = match @convert.plan_input(source, options) {
+    Ok(value) => value
+    Err(err) => fail("expected audio accurate route plan: " + err.to_string())
+  }
+  assert_eq(plan.route_reason, "accurate_unsupported_fell_back")
+}
+
+///|
 test "route planner keeps pdf accurate and explicit ocr routes stable" {
   let source = @input.input_from_path(
     "samples/fixtures/contracts/pdf/text_simple.pdf",
@@ -582,6 +680,64 @@ test "route planner keeps pdf accurate and explicit ocr routes stable" {
     explicit_ocr_plan.ocr_provider_requested_kind == Some("tesseract"),
   )
   assert_true(explicit_ocr_plan.ocr_provider_resolved_kind == Some("tesseract"))
+}
+
+///|
+test "convert provenance falls back from pdf accurate OCR dependency failure to balanced OCR provider" {
+  let source = @input.input_from_path(
+    "samples/fixtures/contracts/pdf/pdf_ocr_single_page.pdf",
+  )
+  let options = @convert.make_convert_options(
+    @convert.ConvertMode::Balanced,
+    @convert.OutputFormat::Markdown,
+    Some(@input.DetectedFormat::Pdf),
+    @parser.explicit_ocr_options(language=Some("eng")),
+    @convert.default_resource_limits(),
+    fidelity_mode=@convert.FidelityMode::Accurate,
+    pdf_ocr_policy=@convert.PdfOcrPolicy::Explicit,
+  )
+  let provider = fn(request : @focr.OcrProviderRequest) {
+    if request.provider_kind == @focr.OcrProviderKind::PaddleOcr {
+      Err(
+        @focr.OcrProviderError::NotConfigured(
+          @focr.paddle_ocr_not_configured_message(),
+        ),
+      )
+    } else {
+      let tsv = [
+        "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext",
+        "5\t1\t1\t1\t1\t1\t10\t10\t20\t10\t95\tPDF", "5\t1\t1\t1\t1\t2\t35\t10\t20\t10\t94\tOCR",
+      ].join("\n")
+      match @focr.parse_tesseract_tsv(tsv, language=request.language) {
+        Ok(value) => Ok(value)
+        Err(err) =>
+          abort(
+            "expected injected fallback OCR TSV parse success: " +
+            err.to_string(),
+          )
+      }
+    }
+  }
+  let execution = convert_with_provenance_and_image_ocr_provider(
+    source, options, provider,
+  )
+  assert_true(
+    execution.provenance.ocr_provider_selection_target == Some("pdf_accurate"),
+  )
+  assert_true(
+    execution.provenance.ocr_provider_requested_kind == Some("paddle_ocr"),
+  )
+  assert_true(
+    execution.provenance.ocr_provider_resolved_kind == Some("paddle_ocr"),
+  )
+  assert_true(execution.result.content.contains("PDF OCR"))
+  assert_true(
+    execution.result.diagnostics.warnings.any(fn(item) {
+      item.contains("pdf_ocr_provider_fallback:index=1") &&
+      item.contains("from=paddle_ocr") &&
+      item.contains("to=tesseract")
+    }),
+  )
 }
 
 ///|
@@ -701,4 +857,64 @@ test "convert provenance carries accurate image OCR provider selection explicitl
   assert_true(json.contains("paddle_ocr"))
   assert_true(!json.contains("\"ocr_provider_fallback\""))
   assert_true(!json.contains("\"dependency_diagnostics\""))
+  assert_true(json.contains("\"requested_fidelity_mode\""))
+}
+
+///|
+test "convert provenance falls back from accurate image OCR dependency failure to balanced OCR provider" {
+  let provider = fn(request : @focr.OcrProviderRequest) {
+    if request.provider_kind == @focr.OcrProviderKind::PaddleOcr {
+      Err(
+        @focr.OcrProviderError::NotConfigured(
+          @focr.paddle_ocr_not_configured_message(),
+        ),
+      )
+    } else {
+      let tsv = [
+        "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext",
+        "5\t1\t1\t1\t1\t1\t10\t10\t20\t10\t95\tMoonBit", "5\t1\t1\t1\t1\t2\t35\t10\t15\t10\t94\tOCR",
+      ].join("\n")
+      match @focr.parse_tesseract_tsv(tsv, language=request.language) {
+        Ok(result) => Ok(result)
+        Err(err) =>
+          abort(
+            "expected injected image fallback OCR TSV parse success: " +
+            err.to_string(),
+          )
+      }
+    }
+  }
+  let execution = convert_with_provenance_and_image_ocr_provider(
+    @input.input_from_path_with_format(
+      "scan.png",
+      Some(@input.DetectedFormat::Image(@input.ImageFormat::Png)),
+    ),
+    @convert.make_convert_options(
+      @convert.ConvertMode::Balanced,
+      @convert.OutputFormat::Markdown,
+      Some(@input.DetectedFormat::Image(@input.ImageFormat::Png)),
+      @parser.explicit_ocr_options(language=Some("eng")),
+      @convert.default_resource_limits(),
+      fidelity_mode=@convert.FidelityMode::Accurate,
+    ),
+    provider,
+  )
+  assert_true(execution.result.content.contains("MoonBit OCR"))
+  assert_true(
+    execution.provenance.ocr_provider_selection_target ==
+    Some("direct_image_accurate"),
+  )
+  assert_true(
+    execution.provenance.ocr_provider_requested_kind == Some("paddle_ocr"),
+  )
+  assert_true(
+    execution.provenance.ocr_provider_resolved_kind == Some("paddle_ocr"),
+  )
+  assert_true(
+    execution.result.diagnostics.warnings.any(fn(item) {
+      item.contains("image_ocr_provider_fallback") &&
+      item.contains("from=paddle_ocr") &&
+      item.contains("to=tesseract")
+    }),
+  )
 }

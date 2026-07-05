@@ -9,7 +9,7 @@
 * formal quality runs through `bash ./samples/check_quality.sh` and explicitly depend on the same external corpus repo
 * repo-root `./markitdown-quality-lab/` is the official home for:
   * external corpus payloads
-  * benchmark payloads and `bench v2` sample manifests
+  * benchmark payloads and `bench` sample manifests
   * tracked local/full quality rows
   * PDF layout classifier training/eval/model/report assets
   * generator scripts that do not belong in runtime
@@ -27,6 +27,20 @@
 
 ### User-visible updates
 
+* package metadata in `moon.mod` was refreshed for the current release
+  surface; published `keywords` now reflect the actual MoonBit-native
+  document-to-Markdown, OCR, CLI, and RAG / content-ingestion positioning
+  instead of the older extension-heavy format list
+* `.msg` is now accepted as a formal mail-input alias for the stable `eml`
+  path, so extension-based CLI detection, `--format`, help text, and quality
+  examples no longer need a manual `eml` override for RFC822-style `.msg`
+  fixtures
+* `samples/quality_examples/` now provides a checked-in, source-attributed
+  quality showcase built only from
+  `markitdown-quality-lab/external_quality/`; each non-audio format now keeps a
+  real copied-in sample under `<format>/<source>/` with current `markdown`,
+  `rag`, and `debug` outputs beside the original file, and samples that
+  exercise asset export also keep per-view `assets/` directories
 * direct image OCR is now a formal main-CLI product path for
   `png/jpg/jpeg/bmp/webp/tif/tiff`; image input uses local Tesseract OCR by
   default, `--no-ocr` explicitly disables it, and `--ocr-lang` is accepted for

@@ -184,7 +184,7 @@ fn dependency_diagnostic_kind_from_title(title : String) -> String {
   if lowered.contains("tesseract") {
     "tesseract_ocr"
   } else if lowered.contains("paddle") {
-    "paddle_ocr_bridge"
+    "paddle_ocr_wrapper"
   } else if lowered.contains("pdftoppm") || lowered.contains("poppler") {
     "pdftoppm"
   } else {
@@ -285,8 +285,8 @@ pub fn tesseract_ocr_dependency_diagnostic() -> @core.DependencyDiagnostic {
 ///|
 pub fn paddle_ocr_install_hint() -> String {
   dependency_diagnostic_card(
-    "Missing dependency: PaddleOCR bridge",
-    "Accurate OCR and Accurate PDF OCR are still experimental and currently require a Paddle-backed bridge command configured through `MARKITDOWN_PADDLE_OCR_CMD`.",
+    "Missing dependency: PaddleOCR wrapper",
+    "Accurate OCR and Accurate PDF OCR currently require a Paddle-backed wrapper command configured through `MARKITDOWN_PADDLE_OCR_CMD`.",
     [
       "python3 -m pip install paddlepaddle paddleocr", "chmod +x samples/helpers/paddle_ocr_wrapper.py",
       "export MARKITDOWN_PADDLE_OCR_CMD=\"$PWD/samples/helpers/paddle_ocr_wrapper.py\"",
@@ -296,7 +296,7 @@ pub fn paddle_ocr_install_hint() -> String {
       "export MARKITDOWN_PADDLE_OCR_CMD=\"$PWD/samples/helpers/paddle_ocr_wrapper.py\"",
     ],
     footer=Some(
-      "The adapter receives `<image_path> [--lang <LANG>]` and must print the JSON payload expected by the current Paddle bridge contract.",
+      "The wrapper receives `<image_path> [--lang <LANG>]` and must print the JSON payload expected by the current Paddle wrapper contract.",
     ),
   )
 }
@@ -304,8 +304,8 @@ pub fn paddle_ocr_install_hint() -> String {
 ///|
 pub fn paddle_ocr_dependency_diagnostic() -> @core.DependencyDiagnostic {
   dependency_diagnostic_entry(
-    "Missing dependency: PaddleOCR bridge",
-    "Accurate OCR and Accurate PDF OCR are still experimental and currently require a Paddle-backed bridge command configured through `MARKITDOWN_PADDLE_OCR_CMD`.",
+    "Missing dependency: PaddleOCR wrapper",
+    "Accurate OCR and Accurate PDF OCR currently require a Paddle-backed wrapper command configured through `MARKITDOWN_PADDLE_OCR_CMD`.",
     [
       "python3 -m pip install paddlepaddle paddleocr", "chmod +x samples/helpers/paddle_ocr_wrapper.py",
       "export MARKITDOWN_PADDLE_OCR_CMD=\"$PWD/samples/helpers/paddle_ocr_wrapper.py\"",
@@ -315,7 +315,7 @@ pub fn paddle_ocr_dependency_diagnostic() -> @core.DependencyDiagnostic {
       "export MARKITDOWN_PADDLE_OCR_CMD=\"$PWD/samples/helpers/paddle_ocr_wrapper.py\"",
     ],
     footer=Some(
-      "The adapter receives `<image_path> [--lang <LANG>]` and must print the JSON payload expected by the current Paddle bridge contract.",
+      "The wrapper receives `<image_path> [--lang <LANG>]` and must print the JSON payload expected by the current Paddle wrapper contract.",
     ),
   )
 }

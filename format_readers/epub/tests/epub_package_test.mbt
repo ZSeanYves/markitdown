@@ -391,10 +391,10 @@ test "epub package parses linear no spine flag" {
 ///|
 test "epub package rejects missing container" {
   assert_open_epub_fails(
-    "samples/fixtures/epub/epub_missing_container.epub", "missing EPUB part: META-INF/container.xml",
+    "samples/fixtures/boundaries/epub/epub_missing_container.epub", "missing EPUB part: META-INF/container.xml",
   )
   assert_epub_error_kind(
-    "samples/fixtures/epub/epub_missing_container.epub",
+    "samples/fixtures/boundaries/epub/epub_missing_container.epub",
     @epub.EpubErrorKind::MissingContainer,
   )
 }
@@ -402,10 +402,10 @@ test "epub package rejects missing container" {
 ///|
 test "epub package rejects rootfile parent escape" {
   assert_open_epub_fails(
-    "samples/fixtures/epub/epub_rootfile_parent_escape.epub", "container.xml has no usable rootfile",
+    "samples/fixtures/boundaries/epub/epub_rootfile_parent_escape.epub", "container.xml has no usable rootfile",
   )
   assert_epub_error_kind(
-    "samples/fixtures/epub/epub_rootfile_parent_escape.epub",
+    "samples/fixtures/boundaries/epub/epub_rootfile_parent_escape.epub",
     @epub.EpubErrorKind::MissingRootfile,
   )
 }
@@ -413,10 +413,10 @@ test "epub package rejects rootfile parent escape" {
 ///|
 test "epub package rejects manifest href parent escape" {
   assert_open_epub_fails(
-    "samples/fixtures/epub/epub_manifest_href_parent_escape.epub", "invalid EPUB path: ../text/chapter.xhtml",
+    "samples/fixtures/boundaries/epub/epub_manifest_href_parent_escape.epub", "invalid EPUB path: ../text/chapter.xhtml",
   )
   assert_epub_error_kind(
-    "samples/fixtures/epub/epub_manifest_href_parent_escape.epub",
+    "samples/fixtures/boundaries/epub/epub_manifest_href_parent_escape.epub",
     @epub.EpubErrorKind::UnsafeHref,
   )
 }
@@ -424,10 +424,10 @@ test "epub package rejects manifest href parent escape" {
 ///|
 test "epub package rejects normalized collisions" {
   assert_open_epub_fails(
-    "samples/fixtures/epub/epub_normalized_collision.epub", "normalized path collision",
+    "samples/fixtures/boundaries/epub/epub_normalized_collision.epub", "normalized path collision",
   )
   assert_epub_error_kind(
-    "samples/fixtures/epub/epub_normalized_collision.epub",
+    "samples/fixtures/boundaries/epub/epub_normalized_collision.epub",
     @epub.EpubErrorKind::InvalidPackage,
   )
 }
@@ -435,10 +435,10 @@ test "epub package rejects normalized collisions" {
 ///|
 test "epub package rejects encryption xml" {
   assert_open_epub_fails(
-    "samples/fixtures/epub/epub_encryption_xml.epub", "DRM/encryption is not supported",
+    "samples/fixtures/boundaries/epub/epub_encryption_xml.epub", "DRM/encryption is not supported",
   )
   assert_epub_error_kind(
-    "samples/fixtures/epub/epub_encryption_xml.epub",
+    "samples/fixtures/boundaries/epub/epub_encryption_xml.epub",
     @epub.EpubErrorKind::UnsupportedFeature,
   )
 }
@@ -446,7 +446,7 @@ test "epub package rejects encryption xml" {
 ///|
 test "epub package keeps missing manifest spine item" {
   let pkg = open_sample_package(
-    "samples/fixtures/epub/epub_missing_manifest_item.epub",
+    "samples/fixtures/boundaries/epub/epub_missing_manifest_item.epub",
   )
   assert_eq(pkg.spine.length(), 1)
   let missing = pkg.spine[0]
@@ -494,7 +494,7 @@ test "epub package keeps missing manifest spine item" {
 ///|
 test "epub package rejects duplicate manifest id" {
   assert_open_epub_fails(
-    "samples/fixtures/epub/epub_duplicate_manifest_id.epub", "duplicate manifest id",
+    "samples/fixtures/boundaries/epub/epub_duplicate_manifest_id.epub", "duplicate manifest id",
   )
 }
 
@@ -569,7 +569,7 @@ test "epub package detects nav cover and richer metadata" {
 ///|
 test "epub package detects guide cover image fallback" {
   let pkg = open_sample_package(
-    "samples/fixtures/epub/epub_guide_cover_image.epub",
+    "samples/fixtures/contracts/epub/epub_guide_cover_image.epub",
   )
   match pkg.cover_item {
     Some(item) => {
@@ -599,7 +599,7 @@ test "epub package detects guide cover image fallback" {
 ///|
 test "epub package cover priority keeps manifest cover image over guide" {
   let pkg = open_sample_package(
-    "samples/fixtures/epub/epub_guide_cover_priority.epub",
+    "samples/fixtures/contracts/epub/epub_guide_cover_priority.epub",
   )
   match pkg.cover_item {
     Some(item) =>
@@ -619,7 +619,7 @@ test "epub package cover priority keeps manifest cover image over guide" {
 ///|
 test "epub package keeps guide cover page without forcing cover image" {
   let pkg = open_sample_package(
-    "samples/fixtures/epub/epub_guide_cover_page.epub",
+    "samples/fixtures/contracts/epub/epub_guide_cover_page.epub",
   )
   match pkg.cover_item {
     Some(_) => fail("guide cover page should not be promoted to cover image")
@@ -641,17 +641,19 @@ test "epub package keeps guide cover page without forcing cover image" {
 ///|
 test "epub package rejects unsafe guide cover href" {
   assert_open_epub_fails(
-    "samples/fixtures/epub/epub_guide_cover_unsafe.epub", "invalid EPUB path: ../cover.png",
+    "samples/fixtures/boundaries/epub/epub_guide_cover_unsafe.epub", "invalid EPUB path: ../cover.png",
   )
   assert_epub_error_kind(
-    "samples/fixtures/epub/epub_guide_cover_unsafe.epub",
+    "samples/fixtures/boundaries/epub/epub_guide_cover_unsafe.epub",
     @epub.EpubErrorKind::UnsafeHref,
   )
 }
 
 ///|
 test "epub package discovers ncx nav points from spine toc" {
-  let pkg = open_sample_package("samples/fixtures/epub/epub_ncx_basic.epub")
+  let pkg = open_sample_package(
+    "samples/fixtures/contracts/epub/epub_ncx_basic.epub",
+  )
   match pkg.nav_item {
     Some(item) => {
       assert_eq(item.resolved_path, "OPS/toc.ncx")
@@ -688,7 +690,9 @@ test "epub package discovers ncx nav points from spine toc" {
 
 ///|
 test "epub package keeps current ncx nested boundary stable" {
-  let pkg = open_sample_package("samples/fixtures/epub/epub_ncx_nested.epub")
+  let pkg = open_sample_package(
+    "samples/fixtures/contracts/epub/epub_ncx_nested.epub",
+  )
   assert_eq(pkg.nav_points.length(), 1)
   assert_eq(pkg.nav_points[0].label, "Part One")
   assert_eq(pkg.nav_points[0].depth, 0)
@@ -697,7 +701,7 @@ test "epub package keeps current ncx nested boundary stable" {
 ///|
 test "epub package prefers epub3 nav over ncx" {
   let pkg = open_sample_package(
-    "samples/fixtures/epub/epub_ncx_nav_priority.epub",
+    "samples/fixtures/contracts/epub/epub_ncx_nav_priority.epub",
   )
   match pkg.nav_item {
     Some(item) => {
@@ -718,7 +722,7 @@ test "epub package prefers epub3 nav over ncx" {
 ///|
 test "epub package skips unsafe ncx href and keeps safe points" {
   let pkg = open_sample_package(
-    "samples/fixtures/epub/epub_ncx_unsafe_href.epub",
+    "samples/fixtures/boundaries/epub/epub_ncx_unsafe_href.epub",
   )
   assert_eq(pkg.nav_points.length(), 1)
   assert_eq(pkg.nav_points[0].label, "Good")
@@ -914,7 +918,7 @@ test "epub package nav outranks missing ncx without validation noise" {
 ///|
 test "epub package validation warns on unsupported spine item" {
   let pkg = open_sample_package(
-    "samples/fixtures/epub/epub_unsupported_spine_media.epub",
+    "samples/fixtures/boundaries/epub/epub_unsupported_spine_media.epub",
   )
   let issues = @epub.collect_epub_validation_issues(pkg)
   assert_eq(issues.length(), 2)
@@ -936,7 +940,9 @@ test "epub package validation warns on unsupported spine item" {
 
 ///|
 test "epub package keeps remote-resource handling above lower-layer package open" {
-  let pkg = open_sample_package("samples/fixtures/epub/epub_remote_image.epub")
+  let pkg = open_sample_package(
+    "samples/fixtures/contracts/epub/epub_remote_image.epub",
+  )
   assert_eq(pkg.entries.length(), 4)
   assert_eq(@epub.has_part(pkg, "OPS/content.opf"), true)
   assert_eq(@epub.has_part(pkg, "https://example.com/cover.jpg"), false)
@@ -1068,7 +1074,7 @@ test "epub package ignores commented-out manifest items" {
 ///|
 test "epub package duplicate manifest id classifier stays additive" {
   let sample = resolve_sample_path(
-    "samples/fixtures/epub/epub_duplicate_manifest_id.epub",
+    "samples/fixtures/boundaries/epub/epub_duplicate_manifest_id.epub",
   )
   let bytes = @fs.read_file_to_bytes(sample) catch {
     e => fail("read sample failed: " + e.to_string())

@@ -11,6 +11,8 @@ pub fn audio_backend_name() -> String
 
 pub fn audio_backend_transport_name() -> String
 
+pub fn audio_command_env_var() -> String
+
 pub fn audio_model_path_env_var() -> String
 
 pub fn audio_parser() -> @parser.Parser

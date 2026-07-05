@@ -21,7 +21,7 @@ fn parse_presentation_slide_entries(
   ctx : PptxSourceParseContext,
   part_name : String,
   xml_text : String,
-) -> Array[PptxSlideRefV2] raise {
+) -> Array[PptxSlideRef] raise {
   let bs = @utf8.encode(xml_text)
   let raw : Array[(String, String?, Bool, String)] = []
   let open_pat = pat("<p:sldId")
@@ -63,7 +63,7 @@ fn parse_presentation_slide_entries(
     }
   }
 
-  let out : Array[PptxSlideRefV2] = []
+  let out : Array[PptxSlideRef] = []
   let mut slide_index = 1
   for entry in raw {
     let (rid, slide_id, hidden, node_key) = entry

@@ -88,27 +88,54 @@ fn convert_input_with_image_ocr_provider_and_provenance(
   }
   let detect_trace = format_detection_trace(detected)
   let prepared_source = execution_plan.prepared_source
+  let requested_mode = execution_plan.requested_parser_mode
   let parse_context = parse_context_from_execution_plan(
     detected.format,
     execution_plan,
   )
-  let registry = builtin_registry_with_sync_image_ocr_provider(
-    image_ocr_provider,
-  )
-  let parsed = match
-    parse_with_route_probe_artifact(
-      prepared_source,
-      detected.format,
-      parse_context,
-      execution_plan.probe_artifacts,
-    ) {
-    Some(Ok(result)) => result
-    Some(Err(err)) => return Err(ConvertError::ParseFailed(err))
-    None =>
-      match @parser.registry_parse(registry, prepared_source, parse_context) {
-        Ok(result) => result
-        Err(err) => return Err(ConvertError::ParseFailed(err))
-      }
+  let parsed = if @input.detected_format_is_image_candidate(detected.format) {
+    match
+      @focr.image_ocr_parser_result_with_provider_target(
+        prepared_source,
+        detected.format,
+        execution_plan.ocr_options,
+        @focr.image_ocr_selection_target_for_accuracy(
+          execution_plan.fidelity_mode == FidelityMode::Accurate,
+        ),
+        image_ocr_provider,
+        requested_mode~,
+      ) {
+      Ok(result) => result
+      Err(err) => return Err(ConvertError::ParseFailed(err))
+    }
+  } else if detected.format == @input.DetectedFormat::Pdf &&
+    requested_mode == Some(@parser.ParserMode::LayoutTwoStage) {
+    match
+      @fpdf.pdf_ocr_parser_result(
+        prepared_source,
+        parse_context,
+        image_ocr_provider~,
+      ) {
+      Ok(result) => result
+      Err(err) => return Err(ConvertError::ParseFailed(err))
+    }
+  } else {
+    let registry = @formats.builtin_registry()
+    match
+      parse_with_route_probe_artifact(
+        prepared_source,
+        detected.format,
+        parse_context,
+        execution_plan.probe_artifacts,
+      ) {
+      Some(Ok(result)) => result
+      Some(Err(err)) => return Err(ConvertError::ParseFailed(err))
+      None =>
+        match @parser.registry_parse(registry, prepared_source, parse_context) {
+          Ok(result) => result
+          Err(err) => return Err(ConvertError::ParseFailed(err))
+        }
+    }
   }
   let diagnostics = inject_preparse_diagnostics(
     parsed.diagnostics,
@@ -125,230 +152,6 @@ fn convert_input_with_image_ocr_provider_and_provenance(
       diagnostics,
       execution_plan,
     ),
-  )
-}
-
-///|
-fn builtin_registry_with_sync_image_ocr_provider(
-  image_ocr_provider : (@focr.OcrProviderRequest) -> Result[
-    @focr.OcrProviderResult,
-    @focr.OcrProviderError,
-  ],
-) -> @parser.ParserRegistry {
-  let registry = @formats.builtin_registry()
-  register_sync_image_ocr_provider_overrides(registry, image_ocr_provider)
-  registry
-}
-
-///|
-fn builtin_async_registry_with_image_ocr_provider(
-  image_ocr_provider : async (@focr.OcrProviderRequest) -> Result[
-    @focr.OcrProviderResult,
-    @focr.OcrProviderError,
-  ],
-) -> @parser.AsyncParserRegistry {
-  let registry = @parser.async_registry_from_sync(@formats.builtin_registry())
-  register_async_image_ocr_provider_overrides(registry, image_ocr_provider)
-  registry
-}
-
-///|
-fn register_sync_image_ocr_provider_overrides(
-  registry : @parser.ParserRegistry,
-  image_ocr_provider : (@focr.OcrProviderRequest) -> Result[
-    @focr.OcrProviderResult,
-    @focr.OcrProviderError,
-  ],
-) -> Unit {
-  let image_parser = sync_image_ocr_parser_with_provider(image_ocr_provider)
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Image(@input.ImageFormat::Png),
-    image_parser,
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Image(@input.ImageFormat::Jpg),
-    image_parser,
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Image(@input.ImageFormat::Jpeg),
-    image_parser,
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Image(@input.ImageFormat::Bmp),
-    image_parser,
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Image(@input.ImageFormat::Webp),
-    image_parser,
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Image(@input.ImageFormat::Tif),
-    image_parser,
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Image(@input.ImageFormat::Tiff),
-    image_parser,
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Pdf,
-    sync_pdf_ocr_parser_with_provider(image_ocr_provider),
-  )
-}
-
-///|
-fn register_async_image_ocr_provider_overrides(
-  registry : @parser.AsyncParserRegistry,
-  image_ocr_provider : async (@focr.OcrProviderRequest) -> Result[
-    @focr.OcrProviderResult,
-    @focr.OcrProviderError,
-  ],
-) -> Unit {
-  let image_parser = async_image_ocr_parser_with_provider(image_ocr_provider)
-  @parser.async_registry_register(
-    registry,
-    @input.DetectedFormat::Image(@input.ImageFormat::Png),
-    image_parser,
-  )
-  @parser.async_registry_register(
-    registry,
-    @input.DetectedFormat::Image(@input.ImageFormat::Jpg),
-    image_parser,
-  )
-  @parser.async_registry_register(
-    registry,
-    @input.DetectedFormat::Image(@input.ImageFormat::Jpeg),
-    image_parser,
-  )
-  @parser.async_registry_register(
-    registry,
-    @input.DetectedFormat::Image(@input.ImageFormat::Bmp),
-    image_parser,
-  )
-  @parser.async_registry_register(
-    registry,
-    @input.DetectedFormat::Image(@input.ImageFormat::Webp),
-    image_parser,
-  )
-  @parser.async_registry_register(
-    registry,
-    @input.DetectedFormat::Image(@input.ImageFormat::Tif),
-    image_parser,
-  )
-  @parser.async_registry_register(
-    registry,
-    @input.DetectedFormat::Image(@input.ImageFormat::Tiff),
-    image_parser,
-  )
-  @parser.async_registry_register(
-    registry,
-    @input.DetectedFormat::Pdf,
-    async_pdf_ocr_parser_with_provider(image_ocr_provider),
-  )
-}
-
-///|
-fn sync_image_ocr_parser_with_provider(
-  image_ocr_provider : (@focr.OcrProviderRequest) -> Result[
-    @focr.OcrProviderResult,
-    @focr.OcrProviderError,
-  ],
-) -> @parser.Parser {
-  @parser.make_parser(
-    "image_ocr_parser",
-    @parser.ParserMode::LayoutTwoStage,
-    @focr.ocr_image_parser_capability(),
-    fn(
-      source : @input.InputSource,
-      context : @parser.ParseContext,
-    ) -> Result[@parser.ParseResult, String] {
-      @focr.image_ocr_parser_result_with_provider_target(
-        source,
-        context.detected_format,
-        context.ocr_options,
-        @focr.image_ocr_selection_target_for_accuracy(
-          context.fidelity_mode == FidelityMode::Accurate,
-        ),
-        image_ocr_provider,
-        requested_mode=context.requested_mode,
-      )
-    },
-  )
-}
-
-///|
-fn async_image_ocr_parser_with_provider(
-  image_ocr_provider : async (@focr.OcrProviderRequest) -> Result[
-    @focr.OcrProviderResult,
-    @focr.OcrProviderError,
-  ],
-) -> @parser.AsyncParser {
-  @parser.make_async_parser(
-    "image_ocr_parser",
-    @parser.ParserMode::LayoutTwoStage,
-    @focr.ocr_image_parser_capability(),
-    async fn(
-      source : @input.InputSource,
-      context : @parser.ParseContext,
-    ) -> Result[@parser.ParseResult, String] {
-      @focr.image_ocr_parser_result_with_async_provider_target(
-        source,
-        context.detected_format,
-        context.ocr_options,
-        @focr.image_ocr_selection_target_for_accuracy(
-          context.fidelity_mode == FidelityMode::Accurate,
-        ),
-        image_ocr_provider,
-        requested_mode=context.requested_mode,
-      )
-    },
-  )
-}
-
-///|
-fn sync_pdf_ocr_parser_with_provider(
-  image_ocr_provider : (@focr.OcrProviderRequest) -> Result[
-    @focr.OcrProviderResult,
-    @focr.OcrProviderError,
-  ],
-) -> @parser.Parser {
-  @parser.make_parser(
-    @fpdf.pdf_ocr_parser_name(),
-    @parser.ParserMode::LayoutTwoStage,
-    @fpdf.pdf_ocr_parser_capability(),
-    fn(
-      source : @input.InputSource,
-      context : @parser.ParseContext,
-    ) -> Result[@parser.ParseResult, String] {
-      @fpdf.pdf_ocr_parser_result(source, context, image_ocr_provider~)
-    },
-  )
-}
-
-///|
-fn async_pdf_ocr_parser_with_provider(
-  image_ocr_provider : async (@focr.OcrProviderRequest) -> Result[
-    @focr.OcrProviderResult,
-    @focr.OcrProviderError,
-  ],
-) -> @parser.AsyncParser {
-  @parser.make_async_parser(
-    @fpdf.pdf_ocr_parser_name(),
-    @parser.ParserMode::LayoutTwoStage,
-    @fpdf.pdf_ocr_parser_capability(),
-    async fn(
-      source : @input.InputSource,
-      context : @parser.ParseContext,
-    ) -> Result[@parser.ParseResult, String] {
-      @fpdf.pdf_ocr_parser_result_async(source, context, image_ocr_provider~)
-    },
   )
 }
 
@@ -435,28 +238,55 @@ pub async fn convert_input_with_provenance_and_image_ocr_provider_async(
   }
   let detect_trace = format_detection_trace(detected)
   let prepared_source = execution_plan.prepared_source
+  let requested_mode = execution_plan.requested_parser_mode
   let parse_context = parse_context_from_execution_plan(
     detected.format,
     execution_plan,
   )
-  let registry = builtin_async_registry_with_image_ocr_provider(
-    image_ocr_provider,
-  )
-  let parsed = match
-    parse_with_route_probe_artifact(
-      prepared_source,
-      detected.format,
-      parse_context,
-      execution_plan.probe_artifacts,
-    ) {
-    Some(Ok(result)) => result
-    Some(Err(err)) => return Err(ConvertError::ParseFailed(err))
-    None =>
-      match
-        @parser.async_registry_parse(registry, prepared_source, parse_context) {
-        Ok(result) => result
-        Err(err) => return Err(ConvertError::ParseFailed(err))
-      }
+  let parsed = if detected.format == @input.DetectedFormat::Pdf &&
+    requested_mode == Some(@parser.ParserMode::LayoutTwoStage) {
+    match
+      @fpdf.pdf_ocr_parser_result_async(
+        prepared_source,
+        parse_context,
+        image_ocr_provider~,
+      ) {
+      Ok(result) => result
+      Err(err) => return Err(ConvertError::ParseFailed(err))
+    }
+  } else if @input.detected_format_is_image_candidate(detected.format) {
+    match
+      @focr.image_ocr_parser_result_with_async_provider_target(
+        prepared_source,
+        detected.format,
+        execution_plan.ocr_options,
+        @focr.image_ocr_selection_target_for_accuracy(
+          execution_plan.fidelity_mode == FidelityMode::Accurate,
+        ),
+        image_ocr_provider,
+        requested_mode~,
+      ) {
+      Ok(result) => result
+      Err(err) => return Err(ConvertError::ParseFailed(err))
+    }
+  } else {
+    let registry = @parser.async_registry_from_sync(@formats.builtin_registry())
+    match
+      parse_with_route_probe_artifact(
+        prepared_source,
+        detected.format,
+        parse_context,
+        execution_plan.probe_artifacts,
+      ) {
+      Some(Ok(result)) => result
+      Some(Err(err)) => return Err(ConvertError::ParseFailed(err))
+      None =>
+        match
+          @parser.async_registry_parse(registry, prepared_source, parse_context) {
+          Ok(result) => result
+          Err(err) => return Err(ConvertError::ParseFailed(err))
+        }
+    }
   }
   let diagnostics = inject_preparse_diagnostics(
     parsed.diagnostics,
@@ -604,6 +434,9 @@ pub fn convert_provenance_to_json(provenance : ConvertProvenance) -> Json {
     "audio_backend_transport": provenance.audio_backend_transport.to_json(),
     "audio_backend_name": provenance.audio_backend_name.to_json(),
     "audio_backend_version": provenance.audio_backend_version.to_json(),
+    "requested_fidelity_mode": provenance.requested_fidelity_mode
+    .map(mode => fidelity_mode_name(mode))
+    .to_json(),
   })
 }
 

@@ -172,6 +172,7 @@ fn install_mock_command(
 test "audio runtime default backend identity stays native whisper cpp" {
   assert_eq(audio_backend_transport_name(), "native_cli")
   assert_eq(audio_backend_name(), "whisper_cpp")
+  assert_eq(audio_command_env_var(), "MARKITDOWN_AUDIO_CMD")
   assert_eq(audio_model_path_env_var(), "MARKITDOWN_AUDIO_MODEL_PATH")
 }
 
@@ -220,7 +221,57 @@ test "audio runtime command builder requires whisper backend and model path" {
       assert_true(built.1.contains("-of"))
       assert_true(built.1.contains("-l"))
       assert_true(built.1.contains("zh"))
+      assert_true(!built.1.contains("--lang"))
     })
+  })
+}
+
+///|
+test "audio runtime wrapper command path stays stable and shell-parseable" {
+  let root = test_tmp_root() + "/wrapper_builder"
+  recreate_clean_dir(root) catch {
+    e => fail(e.to_string())
+  }
+  defer cleanup_temp_dir(root)
+  let fake_audio = root + "/sample.wav"
+  write_utf8_text(fake_audio, "RIFFfakeWAVE") catch {
+    e => fail(e.to_string())
+  }
+  let wrapper = "python3 samples/helpers/audio_transcribe_wrapper.py"
+  with_env_var(audio_command_env_var(), wrapper, fn() raise {
+    let built = match
+      build_audio_transcribe_command(
+        @input.input_from_path(fake_audio),
+        @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
+        Some("zh"),
+      ) {
+      Ok(value) => value
+      Err(err) =>
+        fail("expected wrapper audio command plan: " + err.to_string())
+    }
+    assert_eq(built.0, "python3")
+    assert_true(built.1[0] == "samples/helpers/audio_transcribe_wrapper.py")
+    assert_true(built.1.contains(fake_audio))
+    assert_true(built.1.contains("--lang"))
+    assert_true(built.1.contains("zh"))
+    assert_true(!built.1.contains("-m"))
+    assert_true(!built.1.contains("-l"))
+  })
+}
+
+///|
+test "audio runtime wrapper command parse failure stays fail closed" {
+  with_env_var(audio_command_env_var(), "\"unterminated", fn() raise {
+    match
+      build_audio_transcribe_command(
+        @input.input_from_path("samples/fixtures/contracts/audio/contract.wav"),
+        @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
+        Some("eng"),
+      ) {
+      Err(AudioTranscribeError::NotConfigured(msg)) =>
+        assert_true(msg.contains("MARKITDOWN_AUDIO_CMD"))
+      _ => fail("expected wrapper parse failure")
+    }
   })
 }
 

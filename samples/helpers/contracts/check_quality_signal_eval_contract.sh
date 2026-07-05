@@ -2,7 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp/check}"
+TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp/tests/check}"
+mkdir -p "$TMP_ROOT"
 OUT_DIR="$(mktemp -d "$TMP_ROOT/quality_signal_eval_contract.XXXXXX")"
 
 trap 'status=$?; rm -rf "$OUT_DIR"; exit "$status"' EXIT

@@ -8,8 +8,8 @@ priv struct PptxSourcePartCache {
 priv struct PptxSourceParseContext {
   pkg : @ox.OoxmlPackage
   part_cache : Map[String, PptxSourcePartCache]
-  rel_cache : Map[String, Array[PptxRelationshipV2]]
-  rel_by_id_cache : Map[String, Map[String, PptxRelationshipV2]]
+  rel_cache : Map[String, Array[PptxRelationship]]
+  rel_by_id_cache : Map[String, Map[String, PptxRelationship]]
   warnings : Array[PptxWarning]
   budget : PptxParseBudget
   total_source_nodes : Ref[Int]
@@ -136,7 +136,7 @@ fn to_pptx_target_mode(mode : @ox.OoxmlTargetMode) -> PptxTargetMode {
 fn to_pptx_relationship(
   source_part : String,
   rel : @ox.OoxmlRelationship,
-) -> PptxRelationshipV2 {
+) -> PptxRelationship {
   {
     source_part,
     id: rel.id,
@@ -151,14 +151,14 @@ fn to_pptx_relationship(
 fn read_source_relationships(
   ctx : PptxSourceParseContext,
   source_part : String,
-) -> Array[PptxRelationshipV2] {
+) -> Array[PptxRelationship] {
   match ctx.rel_cache.get(source_part) {
     Some(rels) => return rels
     None => ()
   }
   let raw = @ox.read_part_relationships(ctx.pkg, source_part) catch { _ => [] }
-  let out : Array[PptxRelationshipV2] = []
-  let by_id : Map[String, PptxRelationshipV2] = Map([])
+  let out : Array[PptxRelationship] = []
+  let by_id : Map[String, PptxRelationship] = Map([])
   let mut count = 0
   for rel in raw {
     count += 1
@@ -194,7 +194,7 @@ fn find_source_relationship_by_id(
   ctx : PptxSourceParseContext,
   source_part : String,
   rel_id : String,
-) -> PptxRelationshipV2? {
+) -> PptxRelationship? {
   match ctx.rel_by_id_cache.get(source_part) {
     Some(by_id) => return by_id.get(rel_id)
     None => ()
@@ -218,7 +218,7 @@ fn part_content_type(
 
 ///|
 fn build_pptx_part_graph(ctx : PptxSourceParseContext) -> PptxPartGraph {
-  let parts : Array[PptxPartInfoV2] = []
+  let parts : Array[PptxPartInfo] = []
   for info in @ox.list_part_infos(ctx.pkg) {
     parts.push({
       part_name: info.part_name,
@@ -230,7 +230,7 @@ fn build_pptx_part_graph(ctx : PptxSourceParseContext) -> PptxPartGraph {
   }
   parts.sort_by(fn(a, b) { a.part_name.compare(b.part_name) })
 
-  let relationship_sets : Array[PptxRelationshipSetV2] = []
+  let relationship_sets : Array[PptxRelationshipSet] = []
   for info in parts {
     if info.has_relationships && !info.is_relationships_part {
       relationship_sets.push({

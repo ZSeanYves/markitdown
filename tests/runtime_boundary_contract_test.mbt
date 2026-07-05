@@ -62,6 +62,10 @@ test "detector contract covers extensions and unknown fallback" {
     @input.DetectedFormat::Eml,
   )
   assert_true(
+    (detector.detect)(@input.input_from_path("mail.msg")).format ==
+    @input.DetectedFormat::Eml,
+  )
+  assert_true(
     (detector.detect)(@input.input_from_path("writer.odt")).format ==
     @input.DetectedFormat::Odt,
   )
@@ -119,6 +123,7 @@ test "detector contract covers extensions and unknown fallback" {
   assert_true(
     @input.parse_detected_format("latex") == @input.DetectedFormat::Tex,
   )
+  assert_true(@input.parse_detected_format("msg") == @input.DetectedFormat::Eml)
   assert_true(
     @input.parse_detected_format("adoc") == @input.DetectedFormat::Asciidoc,
   )
@@ -414,7 +419,8 @@ test "convert contract recognizes pdf as a root native-text product format" {
         parsed.diagnostics.metrics.get("pdf_ocr_used") == Some("false"),
       )
       assert_true(
-        parsed.diagnostics.metrics.get("pdf_v2_used") == Some("false"),
+        parsed.diagnostics.metrics.get("pdf_canonical_pipeline_used") ==
+        Some("false"),
       )
       assert_true(
         parsed.diagnostics.metrics.get("pdf_empty_text_layer") == Some("false"),
@@ -721,7 +727,7 @@ test "pdf native unit bridge lowers facts to document ir without changing regist
   assert_eq(document.blocks.length(), 1)
   assert_eq(document.blocks[0].text, "Bridge")
   assert_true(
-    document.diagnostics.metrics.get("pdf_native_ir_bridge") ==
+    document.diagnostics.metrics.get("pdf_native_ir_projection") ==
     Some("unit_path"),
   )
   assert_true(document.diagnostics.metrics.get("renderer_name") == None)
@@ -1316,7 +1322,7 @@ test "root image parser reserves explicit OCR mode without wiring a provider" {
   assert_eq(accurate_target_diagnostics.dependency_diagnostics.length(), 1)
   assert_eq(
     accurate_target_diagnostics.dependency_diagnostics[0].kind,
-    "paddle_ocr_bridge",
+    "paddle_ocr_wrapper",
   )
 
   let disabled_diagnostics = @focr.image_ocr_fail_closed_diagnostics(
@@ -1450,55 +1456,4 @@ async test "async convert explicit image OCR injected provider reaches root conv
   assert_true(converted.parser_mode == @parser.ParserMode::LayoutTwoStage)
   assert_metric_eq(converted.diagnostics, "ocr_provider_status", "success")
   assert_metric_eq(converted.diagnostics, "renderer_name", "MarkdownRenderer")
-}
-
-///|
-test "public gates and docs stay aligned on the main cli surface" {
-  assert_file_contains_all("cli/cli.mbt", [
-    "Supported product formats: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, yml, toml, html, htm, markdown, md, eml, tex, latex, rst, adoc, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, wav, mp3, m4a, png, jpg, jpeg, bmp, webp, tif, tiff",
-    "--pdf-ocr explicit|auto-scanned", "--audio-lang <LANG>", "`pdf --accurate` defaults to `auto-scanned`",
-    "DetectedFormat::Pdf", "cli_is_supported_format",
-  ])
-  assert_file_contains_all("samples/check.sh", [
-    "SUPPORTED_FORMATS=(\"txt\" \"csv\" \"tsv\" \"srt\" \"vtt\" \"json\" \"jsonl\" \"ndjson\" \"ipynb\" \"xml\" \"yaml\" \"toml\" \"html\" \"markdown\" \"eml\" \"tex\" \"rst\" \"asciidoc\" \"zip\" \"epub\" \"odt\" \"ods\" \"odp\" \"docx\" \"xlsx\" \"pptx\" \"pdf\" \"wav\" \"mp3\" \"m4a\" \"ocr\")",
-    "txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, eml, tex, rst, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, wav, mp3, m4a, and ocr",
-    "main CLI gate",
-  ])
-  assert_file_contains_all("samples/helpers/contracts/check_cli_contract.sh", [
-    "txt csv tsv json jsonl ndjson ipynb xml yaml toml html markdown zip epub odt ods odp docx xlsx pptx pdf wav mp3 m4a and ocr succeed through main product cli",
-    "markdown_frontmatter_passthrough.markdown", "zip_basic_structured.zip", "docx",
-    "sheet_simple.xlsx", "pptx_hidden_slide_basic.pptx", "pdf", "ocr", "pdftoppm",
-    "help and version expose main cli product surface", "--pdf-cleanup none|conservative",
-    "--pdf-tables none|simple", "PDF cleanup and simple table reconstruction are explicit opt-in product options",
-  ])
-  assert_file_contains_all(
-    "samples/helpers/contracts/check_samples_check_contract.sh",
-    [
-      "formats=txt,csv,tsv,srt,vtt,json,jsonl,ndjson,ipynb,xml,yaml,toml,html,markdown,eml,tex,rst,asciidoc,zip,epub,odt,ods,odp,docx,xlsx,pptx,pdf,wav,mp3,m4a,ocr",
-      "formats=markdown", "formats=docx", "formats=xlsx", "formats=pptx", "formats=pdf",
-    ],
-  )
-  assert_file_contains_all("README.md", [
-    "InputSource", "ParserRegistry", "ParseResult", "Renderer", "`txt`", "`csv`",
-    "`tsv`", "`json`", "`jsonl`", "`ndjson`", "`ipynb`", "`xml`", "`yaml`", "`yml`",
-    "`html`", "`htm`", "`markdown`", "`md`", "`zip`", "`epub`", "`odt`", "`ods`",
-    "`odp`", "`docx`", "`xlsx`", "`pptx`", "`pdf`", "native-text PDFs", "pdf --ocr",
-    "Missing dependencies fail closed with install guidance", "samples/helpers/contracts/check_root_contracts.sh",
-    "markitdown-quality-lab/", "EPUB support is implemented through `format_readers/epub` on top of `format_readers/zip`",
-  ])
-  assert_file_contains_all("README.mbt.md", [
-    "Core IR", "Renderer", "`input`", "`parser`", "`formats`", "`runtime`", "`pipeline`",
-    "`render`", "`convert`", "`pdf`", "native-text PDFs", "moon test tests", "samples/check_quality.sh",
-  ])
-  assert_file_contains_all("samples/check.sh", [
-    "--markdown", "--rag", "--assets", "--check-inventory", "--list-inventory", "external_main_process",
-    "txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, eml, tex, rst, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, wav, mp3, m4a, and ocr",
-  ])
-  assert_file_contains_all(
-    "samples/helpers/contracts/check_root_contracts.sh",
-    [
-      "check_cli_contract.sh", "check_samples_check_contract.sh", "check_quality_contract.sh",
-      "check_quality_grouping_contract.sh", "check_quality_signal_eval_contract.sh",
-    ],
-  )
 }

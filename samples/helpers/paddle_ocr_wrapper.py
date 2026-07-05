@@ -185,14 +185,14 @@ def main() -> int:
     args = parse_args()
     image_path = str(Path(args.image_path))
     requested_language = args.language.strip() if args.language else None
-    adapter_language = mapped_language(requested_language)
+    wrapper_language = mapped_language(requested_language)
 
     if not Path(image_path).exists():
         return fail(f"input image does not exist: {image_path}")
 
     try:
         paddleocr_module, paddle_ocr_cls = load_paddle()
-        engine = build_engine(paddle_ocr_cls, adapter_language)
+        engine = build_engine(paddle_ocr_cls, wrapper_language)
         raw_result = engine.ocr(image_path, cls=True)
     except Exception as exc:
         return fail(f"PaddleOCR wrapper execution failed: {exc}")
@@ -208,9 +208,9 @@ def main() -> int:
         "provider_name": "paddle_ocr",
         "provider_version": getattr(paddleocr_module, "__version__", None),
         "diagnostics": [
-            "adapter=samples/helpers/paddle_ocr_wrapper.py",
+            "wrapper=samples/helpers/paddle_ocr_wrapper.py",
             f"requested_lang={requested_language or 'none'}",
-            f"adapter_lang={adapter_language or 'none'}",
+            f"wrapper_lang={wrapper_language or 'none'}",
         ],
         "pages": pages,
     }

@@ -76,7 +76,7 @@ pub fn pdf_native_document_to_ir_with_policies(
     @core.JsonValue::Number(doc.pages.length().to_string()),
   )
   document.metadata.set(
-    "pdf_native_bridge",
+    "pdf_native_projection",
     @core.JsonValue::String("unit_path"),
   )
   document.metadata.set(
@@ -177,7 +177,7 @@ pub fn pdf_native_document_to_ir_with_policies(
     )
   }
   document.blocks.append(pdf_native_appendix_blocks(document.metadata)[:])
-  let diagnostics = pdf_native_bridge_diagnostics(
+  let diagnostics = pdf_native_projection_diagnostics(
     doc.diagnostics,
     document.blocks.length(),
     paragraph_count,
@@ -253,7 +253,7 @@ pub fn pdf_native_document_to_blocks_with_policies(
     @core.JsonValue::Number(doc.pages.length().to_string()),
   )
   metadata.set(
-    "pdf_native_bridge",
+    "pdf_native_projection",
     @core.JsonValue::String("product_block_stream"),
   )
   metadata.set(
@@ -703,7 +703,7 @@ priv enum PdfNativeTableLoweringResult {
 }
 
 ///|
-fn pdf_native_bridge_diagnostics(
+fn pdf_native_projection_diagnostics(
   diagnostics : @core.Diagnostics,
   block_count : Int,
   paragraph_count : Int,
@@ -774,7 +774,7 @@ fn pdf_native_bridge_diagnostics(
     "artifact_candidate_count",
     artifact_candidate_count.to_string(),
   )
-  next.metrics.set("pdf_native_ir_bridge", "unit_path")
+  next.metrics.set("pdf_native_ir_projection", "unit_path")
   next.metrics.set("product_path_enabled", "false")
   next.metrics.set(
     "pdf_header_footer_removed_count",
@@ -921,7 +921,7 @@ fn pdf_native_stream_bridge_diagnostics(
     "artifact_candidate_count",
     artifact_candidate_count.to_string(),
   )
-  next.metrics.set("pdf_native_ir_bridge", "product_block_stream")
+  next.metrics.set("pdf_native_ir_projection", "product_block_stream")
   next.metrics.set("product_path_enabled", "true")
   next.metrics.set("pdf_header_footer_removed_count", "0")
   next.metrics.set("pdf_table_reconstruction_table_count", "0")

@@ -399,6 +399,18 @@ test "jsonl and ndjson normalize record bom and text sequence prefixes" {
 }
 
 ///|
+test "jsonl identical schema with reordered keys stays normalized as one table" {
+  let jsonl = convert_memory_text(
+    "{\"a\":1,\"b\":2}\n{\"b\":2,\"a\":1}\n",
+    "reordered.jsonl",
+    @input.DetectedFormat::Jsonl,
+  )
+  assert_true(jsonl.content.contains("| a | b |"))
+  assert_true(jsonl.content.contains("| 1 | 2 |\n| 1 | 2 |"))
+  assert_true(!jsonl.content.contains("```jsonl"))
+}
+
+///|
 test "json large input switches to true streaming event path" {
   let parsed = default_registry_parse(
     @input.input_from_text_with_format(
@@ -3597,8 +3609,9 @@ test "epub parser keeps remote and data image refs bounded without local asset m
 test "canonical architecture guide records stable parser and ir boundaries" {
   assert_file_contains_all("docs/architecture/mb-markitdown-architecture.md", [
     "ParserRegistry", "ParseResult", "CoreIRBuilder", "IR Pass Pipeline", "Renderer",
-    "Parser 可以多态", "Core IR 必须统一", "Renderer 必须统一", "Markdown 是输出，不是中间表示",
-    "ContainerRecursive", "page-single-pass",
+    "Parsers can be polymorphic.", "Core IR must stay unified.", "Renderer must stay unified.",
+    "Markdown is an output, not the intermediate representation.", "ContainerRecursive",
+    "page-single-pass",
   ])
 }
 
@@ -3832,7 +3845,7 @@ test "odp accurate fidelity exposes notes appendix and slide window hints" {
 ///|
 test "epub package xml payload path keeps package open semantics stable" {
   let sample_path = resolve_test_sample_path(
-    "samples/fixtures/epub/epub_remote_image.epub",
+    "samples/fixtures/contracts/epub/epub_remote_image.epub",
   )
   let pkg = @epub.open_epub_package(
     @fs.read_file_to_bytes(sample_path) catch {
@@ -3871,7 +3884,7 @@ test "shared child runtime exposes parse result lowering and child dispatch entr
 }
 
 ///|
-test "v2 stabilization drift keeps runtime child dispatch thin and canonical pipeline visible" {
+test "canonical pipeline stabilization keeps runtime child dispatch thin and visible" {
   let pipeline_impl = read_utf8_text("pipeline/pipeline.mbt")
   let pipeline_event_builder_impl = read_utf8_text(
     "pipeline/event_document_builder.mbt",

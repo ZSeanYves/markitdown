@@ -264,6 +264,7 @@ pub struct ConvertProvenance {
   audio_backend_transport : String?
   audio_backend_name : String?
   audio_backend_version : String?
+  requested_fidelity_mode : FidelityMode?
 }
 
 ///|
@@ -289,6 +290,7 @@ pub fn make_convert_provenance(
   audio_backend_transport? : String? = None,
   audio_backend_name? : String? = None,
   audio_backend_version? : String? = None,
+  requested_fidelity_mode? : FidelityMode? = None,
 ) -> ConvertProvenance {
   {
     route_plan,
@@ -312,6 +314,7 @@ pub fn make_convert_provenance(
     audio_backend_transport,
     audio_backend_name,
     audio_backend_version,
+    requested_fidelity_mode,
   }
 }
 
@@ -364,6 +367,7 @@ priv struct ProbeOutcome {
 priv struct ExecutionIntent {
   strategy_mode : ConvertMode
   fidelity_mode : FidelityMode
+  requested_fidelity_mode : FidelityMode
   output_mode : OutputMode
   stream_requested : Bool
   output_format : OutputFormat
@@ -381,6 +385,7 @@ priv struct ResolvedExecutionPlan {
   detected_format : @input.DetectedFormat
   mode : ConvertMode
   fidelity_mode : FidelityMode
+  requested_fidelity_mode : FidelityMode
   output_mode : OutputMode
   stream_requested : Bool
   output_format : OutputFormat
