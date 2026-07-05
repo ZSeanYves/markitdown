@@ -116,6 +116,16 @@ moon build --target native --release --package ZSeanYves/markitdown/cli
 moon build --target native --release --package ZSeanYves/markitdown/bench/runner
 ```
 
+Also install the baseline `markitdown` CLI used by `official-compare`:
+
+```bash
+python3 -m pip install --upgrade pip
+python3 -m pip install 'markitdown[all]'
+which markitdown
+```
+
+If you install `markitdown` inside a virtual environment, pass the binary path explicitly when running the benchmark, for example `.venv-markitdown/bin/markitdown` via `MARKITDOWN_BIN` or `--markitdown-path`.
+
 Then use the benchmark runner like this:
 
 ```bash

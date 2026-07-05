@@ -81,6 +81,16 @@ export MARKITDOWN_AUDIO_CMD="$PWD/samples/helpers/audio_transcribe_wrapper.py"
 git clone https://github.com/ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab
 ```
 
+- If you need formal `bench`, also install the baseline `markitdown` CLI used by `official-compare`:
+
+```bash
+python3 -m pip install --upgrade pip
+python3 -m pip install 'markitdown[all]'
+which markitdown
+```
+
+  If you install `markitdown` inside a virtual environment, pass the binary path explicitly when you run the benchmark, for example `.venv-markitdown/bin/markitdown` via `MARKITDOWN_BIN` or `--markitdown-path`.
+
 - Before `samples/check.sh` or `samples/check_quality.sh`, build the native CLI explicitly:
 
 ```bash

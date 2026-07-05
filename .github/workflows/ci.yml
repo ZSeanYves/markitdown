@@ -130,3 +130,22 @@ jobs:
 
       - name: External quality regression
         run: ./samples/check_quality.sh
+
+      - name: Show quality failure summary
+        if: failure()
+        run: |
+          find .tmp/quality -path '*/reports/nonpass.md' -print -exec sh -c 'echo; echo "===== $1 ====="; sed -n "1,160p" "$1"' _ {} \;
+          find .tmp/quality -path '*/reports/rows/*.md' -print | head -n 5 | while read -r report; do
+            echo
+            echo "===== $report ====="
+            sed -n '1,160p' "$report"
+          done
+          find .tmp/quality -path '*/logs/entrypoint.log' -print -exec sh -c 'echo; echo "===== $1 ====="; tail -n 120 "$1"' _ {} \;
+
+      - name: Upload quality run artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: external-quality-regression-artifacts
+          path: .tmp/quality
+          if-no-files-found: ignore

@@ -1,6 +1,6 @@
 name = "ZSeanYves/markitdown"
 
-version = "0.5.0"
+version = "0.5.1"
 
 import {
   "bikallem/blit@0.2.2",
