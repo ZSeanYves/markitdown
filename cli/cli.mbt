@@ -30,6 +30,23 @@ pub fn run_cli_with_image_ocr_provider(
     @focr.OcrProviderError,
   ],
 ) -> Result[String, String] {
+  run_cli_with_image_ocr_provider_and_pdf_rasterizer(
+    opts, image_ocr_provider, @fpdf.rasterize_pdf_with_pdftoppm_default,
+  )
+}
+
+///|
+fn run_cli_with_image_ocr_provider_and_pdf_rasterizer(
+  opts : CliOptions,
+  image_ocr_provider : (@focr.OcrProviderRequest) -> Result[
+    @focr.OcrProviderResult,
+    @focr.OcrProviderError,
+  ],
+  pdf_rasterizer : (@input.InputSource) -> Result[
+    (@fpdf.PdfRasterResult, String),
+    @fpdf.PdfRasterizerError,
+  ],
+) -> Result[String, String] {
   let requested_format = cli_requested_format(opts)
   if !cli_is_supported_format(requested_format) {
     return Err(
@@ -58,10 +75,11 @@ pub fn run_cli_with_image_ocr_provider(
     rag_options=opts.rag_options,
   )
   let execution = match
-    @convert.convert_input_with_provenance_and_image_ocr_provider(
+    @convert.convert_input_with_provenance_and_image_ocr_provider_and_pdf_rasterizer(
       @input.input_from_path(opts.input),
       convert_options,
       image_ocr_provider,
+      pdf_rasterizer,
     ) {
     Ok(value) => value
     Err(err) => return Err(err.to_string())

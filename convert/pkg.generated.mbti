@@ -4,6 +4,7 @@ package "ZSeanYves/markitdown/convert"
 import {
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/formats/ocr",
+  "ZSeanYves/markitdown/formats/pdf",
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
   "ZSeanYves/markitdown/product",
@@ -20,6 +21,8 @@ pub async fn convert_input_with_image_ocr_provider_async(@input.InputSource, Con
 pub fn convert_input_with_provenance(@input.InputSource, ConvertOptions) -> Result[ConvertExecution, ConvertError]
 
 pub fn convert_input_with_provenance_and_image_ocr_provider(@input.InputSource, ConvertOptions, (@ocr.OcrProviderRequest) -> Result[@ocr.OcrProviderResult, @ocr.OcrProviderError]) -> Result[ConvertExecution, ConvertError]
+
+pub fn convert_input_with_provenance_and_image_ocr_provider_and_pdf_rasterizer(@input.InputSource, ConvertOptions, (@ocr.OcrProviderRequest) -> Result[@ocr.OcrProviderResult, @ocr.OcrProviderError], (@input.InputSource) -> Result[(@pdf.PdfRasterResult, String), @pdf.PdfRasterizerError]) -> Result[ConvertExecution, ConvertError]
 
 pub async fn convert_input_with_provenance_and_image_ocr_provider_async(@input.InputSource, ConvertOptions, async (@ocr.OcrProviderRequest) -> Result[@ocr.OcrProviderResult, @ocr.OcrProviderError]) -> Result[ConvertExecution, ConvertError]
 

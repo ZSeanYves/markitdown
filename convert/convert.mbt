@@ -53,6 +53,26 @@ pub fn convert_input_with_provenance_and_image_ocr_provider(
 }
 
 ///|
+/// Convert one input with injected image OCR and PDF rasterizer boundaries
+/// while preserving full provenance.
+pub fn convert_input_with_provenance_and_image_ocr_provider_and_pdf_rasterizer(
+  source : @input.InputSource,
+  options : ConvertOptions,
+  image_ocr_provider : (@focr.OcrProviderRequest) -> Result[
+    @focr.OcrProviderResult,
+    @focr.OcrProviderError,
+  ],
+  pdf_rasterizer : (@input.InputSource) -> Result[
+    (@fpdf.PdfRasterResult, String),
+    @fpdf.PdfRasterizerError,
+  ],
+) -> Result[ConvertExecution, ConvertError] {
+  convert_input_with_image_ocr_provider_and_pdf_rasterizer_and_provenance(
+    source, options, image_ocr_provider, pdf_rasterizer,
+  )
+}
+
+///|
 /// Convert one input with an injected image OCR provider and return only the
 /// end-user result payload.
 pub fn convert_input_with_image_ocr_provider(
@@ -79,6 +99,24 @@ fn convert_input_with_image_ocr_provider_and_provenance(
   image_ocr_provider : (@focr.OcrProviderRequest) -> Result[
     @focr.OcrProviderResult,
     @focr.OcrProviderError,
+  ],
+) -> Result[ConvertExecution, ConvertError] {
+  convert_input_with_image_ocr_provider_and_pdf_rasterizer_and_provenance(
+    source, options, image_ocr_provider, @fpdf.rasterize_pdf_with_pdftoppm_default,
+  )
+}
+
+///|
+fn convert_input_with_image_ocr_provider_and_pdf_rasterizer_and_provenance(
+  source : @input.InputSource,
+  options : ConvertOptions,
+  image_ocr_provider : (@focr.OcrProviderRequest) -> Result[
+    @focr.OcrProviderResult,
+    @focr.OcrProviderError,
+  ],
+  pdf_rasterizer : (@input.InputSource) -> Result[
+    (@fpdf.PdfRasterResult, String),
+    @fpdf.PdfRasterizerError,
   ],
 ) -> Result[ConvertExecution, ConvertError] {
   let (effective_source, detected, execution_plan) = match
@@ -115,6 +153,7 @@ fn convert_input_with_image_ocr_provider_and_provenance(
         prepared_source,
         parse_context,
         image_ocr_provider~,
+        rasterizer=pdf_rasterizer,
       ) {
       Ok(result) => result
       Err(err) => return Err(ConvertError::ParseFailed(err))

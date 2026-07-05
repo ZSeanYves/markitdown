@@ -24,6 +24,13 @@ pub struct BinaryContract {
 } derive(Eq)
 
 ///|
+pub(all) struct BenchProgressState {
+  enabled : Bool
+  total : Int
+  completed : Int
+} derive(Eq)
+
+///|
 pub struct ScenarioSpec {
   scenario_id : String
   scenario_kind : String
@@ -59,6 +66,196 @@ pub struct RunOptions {
   markitdown_path : String?
   baseline_run_id : String?
 } derive(Eq)
+
+///|
+#cfg(not(target="native"))
+fn bench_write_stderr(message : String) -> Unit {
+  println(message)
+}
+
+///|
+#cfg(target="native")
+#borrow(payload)
+extern "C" fn bench_write_stderr_ffi(payload : Bytes, payload_len : Int) = "markitdown_bench_write_stderr"
+
+///|
+#cfg(target="native")
+extern "C" fn bench_stderr_isatty_ffi() -> Int = "markitdown_bench_stderr_isatty"
+
+///|
+#cfg(target="native")
+fn bench_write_stderr(message : String) -> Unit {
+  let payload = @utf8.encode(message)
+  if payload.length() == 0 {
+    return
+  }
+  bench_write_stderr_ffi(payload, payload.length())
+}
+
+///|
+fn bench_progress_enabled() -> Bool {
+  if progress_disabled_by_env("NO_PROGRESS") || progress_disabled_by_env("CI") {
+    return false
+  }
+  bench_stderr_isatty()
+}
+
+///|
+#cfg(not(target="native"))
+fn bench_stderr_isatty() -> Bool {
+  false
+}
+
+///|
+#cfg(target="native")
+fn bench_stderr_isatty() -> Bool {
+  bench_stderr_isatty_ffi() != 0
+}
+
+///|
+fn progress_disabled_by_env(name : String) -> Bool {
+  match @env.get_env_var(name) {
+    Some(value) => {
+      let lowered = value.trim().to_lower()
+      lowered == "1" || lowered == "true" || lowered == "yes" || lowered == "on"
+    }
+    None => false
+  }
+}
+
+///|
+fn bench_progress_state(total : Int) -> BenchProgressState {
+  { enabled: bench_progress_enabled(), total, completed: 0 }
+}
+
+///|
+fn bench_progress_total(
+  scenarios : Array[ScenarioSpec],
+  opts : RunOptions,
+) -> Int {
+  let total = Ref(0)
+  for scenario in scenarios {
+    let rows = select_rows(scenario, opts)
+    for _row in rows {
+      for tool_name in scenario.tool_names {
+        if tool_name == "moonbit-engine" {
+          total.val = total.val + opts.repeat_count
+        } else {
+          total.val = total.val + opts.warmup_count + opts.repeat_count
+        }
+      }
+    }
+  }
+  total.val
+}
+
+///|
+fn bench_progress_label(
+  scenario : ScenarioSpec,
+  tool_name : String,
+  row : @manifest.BenchRow,
+  phase : String,
+  index : Int,
+  total : Int,
+) -> String {
+  let repeat_label = if total <= 1 {
+    phase
+  } else {
+    phase + " " + (index + 1).to_string() + "/" + total.to_string()
+  }
+  scenario.scenario_id +
+  " " +
+  tool_name +
+  " " +
+  row.bench_id +
+  " " +
+  repeat_label
+}
+
+///|
+fn bench_progress_render_line(
+  completed : Int,
+  total : Int,
+  status : String,
+  label : String,
+) -> String {
+  let trimmed = label.trim().to_owned()
+  if trimmed == "" {
+    "progress: " +
+    completed.to_string() +
+    "/" +
+    total.to_string() +
+    " " +
+    status
+  } else {
+    "progress: " +
+    completed.to_string() +
+    "/" +
+    total.to_string() +
+    " " +
+    status +
+    " " +
+    bench_progress_truncate(trimmed)
+  }
+}
+
+///|
+fn bench_progress_truncate(value : String, max? : Int = 88) -> String {
+  if value.length() <= max {
+    return value
+  }
+  if max <= 3 {
+    return String::from_array(value.to_array()[:max])
+  }
+  String::from_array(value.to_array()[:max - 3]) + "..."
+}
+
+///|
+fn bench_progress_update(
+  state : BenchProgressState,
+  status : String,
+  label : String,
+) -> Unit {
+  if !state.enabled {
+    return
+  }
+  bench_write_stderr(
+    "\r" +
+    bench_progress_render_line(state.completed, state.total, status, label),
+  )
+}
+
+///|
+fn bench_progress_finish(
+  state : BenchProgressState,
+  status? : String = "done",
+  label? : String = "",
+) -> Unit {
+  if !state.enabled {
+    return
+  }
+  bench_write_stderr(
+    "\r" +
+    bench_progress_render_line(state.completed, state.total, status, label) +
+    "\n",
+  )
+}
+
+///|
+fn bench_progress_advance(
+  state : BenchProgressState,
+  label : String,
+  status? : String = "done",
+) -> BenchProgressState {
+  let next = { ..state, completed: state.completed + 1 }
+  if next.enabled {
+    bench_write_stderr(
+      "\r" +
+      bench_progress_render_line(next.completed, next.total, status, label),
+    )
+  }
+  next
+}
 
 ///|
 pub struct SampleRow {
@@ -657,15 +854,22 @@ fn execute_run(
     )
   }
   let samples : Array[SampleRow] = []
+  let progress = Ref(
+    bench_progress_state(bench_progress_total(scenarios, opts)),
+  )
   for scenario in scenarios {
     let rows = select_rows(scenario, opts)
     let scenario_samples = match
-      run_samples(run_id, scenario, rows, opts, contract) {
+      run_samples(run_id, scenario, rows, opts, contract, progress) {
       Ok(value) => value
-      Err(err) => return Err(err)
+      Err(err) => {
+        bench_progress_finish(progress.val, status="failed")
+        return Err(err)
+      }
     }
     samples.append(scenario_samples)
   }
+  bench_progress_finish(progress.val)
   write_jsonl(samples_jsonl_path(run_id), samples.map(item => item.to_json())) catch {
     err =>
       return Err(RuntimeFailure("write samples failed: " + err.to_string()))
@@ -733,6 +937,7 @@ fn run_samples(
   rows : Array[@manifest.BenchRow],
   opts : RunOptions,
   contract : BinaryContract,
+  progress : Ref[BenchProgressState],
 ) -> Result[Array[SampleRow], BenchError] {
   let config = @tools.make_tool_registry_config(opts.markitdown_path)
   let out : Array[SampleRow] = []
@@ -751,10 +956,14 @@ fn run_samples(
         )
       }
       if tool_name == "moonbit-engine" {
-        out.append(run_engine_samples(run_id, scenario, row, opts, contract))
+        out.append(
+          run_engine_samples(run_id, scenario, row, opts, contract, progress),
+        )
       } else {
         out.append(
-          run_process_samples(run_id, scenario, row, tool, opts, contract),
+          run_process_samples(
+            run_id, scenario, row, tool, opts, contract, progress,
+          ),
         )
       }
     }
@@ -770,6 +979,7 @@ fn run_process_samples(
   tool : @tools.BenchTool,
   opts : RunOptions,
   contract : BinaryContract,
+  progress : Ref[BenchProgressState],
 ) -> Array[SampleRow] {
   let out : Array[SampleRow] = []
   let provenance_path = provenance_output_path(
@@ -799,8 +1009,17 @@ fn run_process_samples(
   ensure_parent_dir(stderr_path) catch {
     _ => ()
   }
-  for _ in 0..<opts.warmup_count {
+  for warmup_index in 0..<opts.warmup_count {
     if tool.is_available() {
+      let label = bench_progress_label(
+        scenario,
+        tool.name,
+        row,
+        "warmup",
+        warmup_index,
+        opts.warmup_count,
+      )
+      bench_progress_update(progress.val, "running", label)
       let warmup_path = output_path(
         run_id,
         scenario.scenario_id,
@@ -819,9 +1038,19 @@ fn run_process_samples(
         provenance_path,
       )
       ignore(native_measure_command(command, stdout_path, stderr_path))
+      progress.val = bench_progress_advance(progress.val, label)
     }
   }
   for repeat_index in 0..<opts.repeat_count {
+    let label = bench_progress_label(
+      scenario,
+      tool.name,
+      row,
+      "sample",
+      repeat_index,
+      opts.repeat_count,
+    )
+    bench_progress_update(progress.val, "running", label)
     let output_path = output_path(
       run_id,
       scenario.scenario_id,
@@ -849,6 +1078,7 @@ fn run_process_samples(
     } else {
       "failed"
     }
+    progress.val = bench_progress_advance(progress.val, label, status~)
     out.push({
       schema_version: 2,
       run_id,
@@ -901,6 +1131,7 @@ fn run_engine_samples(
   row : @manifest.BenchRow,
   opts : RunOptions,
   contract : BinaryContract,
+  progress : Ref[BenchProgressState],
 ) -> Array[SampleRow] {
   let out : Array[SampleRow] = []
   let source = @input.input_from_path(row.input_path)
@@ -909,11 +1140,21 @@ fn run_engine_samples(
     ignore(@convert.convert_input_with_provenance(source, options))
   }
   for repeat_index in 0..<opts.repeat_count {
+    let label = bench_progress_label(
+      scenario,
+      "moonbit-engine",
+      row,
+      "sample",
+      repeat_index,
+      opts.repeat_count,
+    )
+    bench_progress_update(progress.val, "running", label)
     let started = @measure.monotonic_start()
     let execution = @convert.convert_input_with_provenance(source, options)
     let wall_us = @measure.monotonic_elapsed_us(started).to_int64()
     match execution {
-      Ok(value) =>
+      Ok(value) => {
+        progress.val = bench_progress_advance(progress.val, label, status="ok")
         out.push({
           schema_version: 2,
           run_id,
@@ -946,7 +1187,13 @@ fn run_engine_samples(
           runner_artifact_identity: contract.runner_path,
           cli_artifact_path: None,
         })
-      Err(err) =>
+      }
+      Err(err) => {
+        progress.val = bench_progress_advance(
+          progress.val,
+          label,
+          status="failed",
+        )
         out.push({
           schema_version: 2,
           run_id,
@@ -977,6 +1224,7 @@ fn run_engine_samples(
           runner_artifact_identity: contract.runner_path,
           cli_artifact_path: None,
         })
+      }
     }
   }
   out

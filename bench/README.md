@@ -52,7 +52,7 @@ Then run the common operations like this:
 "$RUNNER" catalog scenarios
 "$RUNNER" catalog rows --tiers regular,release,stress
 "$RUNNER" run --preset official-internal
-"$RUNNER" run --preset official-compare
+MARKITDOWN_BIN="$(which markitdown)" "$RUNNER" run --preset official-compare
 "$RUNNER" run --scenario diagnostic.html --bench-id html_huge_synthetic_articles_v1
 "$RUNNER" report --run <run_id> [--baseline <run_id>]
 ```

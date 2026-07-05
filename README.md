@@ -2,7 +2,7 @@
 
 `markitdown-mb` is an engineering-focused document-to-Markdown tool built in MoonBit.
 
-The project is inspired by Microsoft's `MarkItDown`, but this implementation puts more emphasis on long-term maintainability, consistent product paths, traceable results, and better behavior under complex formats and engineering-scale workloads.
+The project is inspired by Microsoft's `MarkItDown`, but this implementation puts more emphasis on long-term maintainability, consistent product paths, traceable results, and better behavior under complex formats and engineering-scale workloads. It is not a port of `MarkItDown`.
 
 It is designed for document ingestion pipelines, RAG, content processing, and automation scenarios where route fidelity, provenance, and predictable failure behavior matter as much as raw conversion output.
 
@@ -109,25 +109,36 @@ bash samples/check.sh
 bash samples/check_quality.sh
 ```
 
-For formal benchmark runs:
+For formal benchmark runs, first build the release binaries:
 
 ```bash
 moon build --target native --release --package ZSeanYves/markitdown/cli
 moon build --target native --release --package ZSeanYves/markitdown/bench/runner
-_build/native/release/build/bench/runner/runner.exe doctor
-_build/native/release/build/bench/runner/runner.exe run --preset official-compare
 ```
 
-The last line is one complete command. `official-compare` is the value of `--preset`, not a standalone shell command.
-
-If you want the safest copy-paste form, use:
+Then use the benchmark runner like this:
 
 ```bash
 RUNNER="_build/native/release/build/bench/runner/runner.exe"
 "$RUNNER" doctor
-"$RUNNER" run --preset official-compare
+MARKITDOWN_BIN="$(which markitdown)" "$RUNNER" run --preset official-compare
 ```
 
-If `markitdown` is not already on `PATH`, export `MARKITDOWN_BIN=/absolute/path/to/markitdown` or pass `--markitdown-path /absolute/path/to/markitdown`.
+`doctor` only verifies the release runner and this repository's release CLI wiring. `official-compare` additionally requires a baseline `markitdown` CLI to be available for comparison.
+
+If `markitdown` is already on `PATH`, the command above is the safest general copy-paste form because it resolves the current shell's `markitdown` path explicitly before launching the compare preset.
+
+Important copy-paste note:
+
+- `official-compare` is the value passed to `--preset`
+- it is not a standalone shell command
+- if you run `"$RUNNER" run --preset` by itself, the runner will correctly fail with `missing value for --preset`
+
+If `markitdown` is not already on `PATH`, use either form below:
+
+```bash
+MARKITDOWN_BIN="/absolute/path/to/markitdown" "$RUNNER" run --preset official-compare
+"$RUNNER" run --preset official-compare --markitdown-path /absolute/path/to/markitdown
+```
 
 Main regression, quality regression, and benchmark runs expect the external repo at `./markitdown-quality-lab/` under the main repository root.

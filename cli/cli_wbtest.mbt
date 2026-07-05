@@ -97,6 +97,88 @@ fn run_cli_without_emitting_warnings(
 }
 
 ///|
+fn cli_wbtest_ensure_dir_tree(path : String) -> Unit raise @fs.IOError {
+  let normalized = path.trim().to_owned()
+  if normalized == "" || normalized == "." {
+    return
+  }
+  if @fs.path_exists(normalized) {
+    return
+  }
+  let chars = normalized.to_array()
+  let mut current = if chars.length() > 0 && chars[0] == '/' { "/" } else { "" }
+  let part : Array[Char] = []
+
+  fn flush(part : Array[Char], current : String) -> String raise @fs.IOError {
+    if part.length() == 0 {
+      return current
+    }
+    let segment = String::from_array(part)
+    part.clear()
+    let next = if current == "" || current == "/" {
+      current + segment
+    } else {
+      current + "/" + segment
+    }
+    if !@fs.path_exists(next) {
+      @fs.create_dir(next)
+    }
+    next
+  }
+
+  for ch in chars {
+    if ch == '/' {
+      current = flush(part, current)
+    } else {
+      part.push(ch)
+    }
+  }
+  ignore(flush(part, current))
+}
+
+///|
+fn fake_cli_pdf_rasterizer(
+  page_count : Int,
+) -> (@input.InputSource) -> Result[
+  (@fpdf.PdfRasterResult, String),
+  @fpdf.PdfRasterizerError,
+] {
+  fn(source : @input.InputSource) {
+    @fpdf.rasterize_pdf_with_pdftoppm(source, fn(
+      _cmd : String,
+      args : Array[String],
+    ) {
+      let output_prefix = args[2]
+      let parts = output_prefix
+        .split("/")
+        .to_array()
+        .map(fn(part) { part.to_owned() })
+      let output_dir = parts[:parts.length() - 1].join("/")
+      cli_wbtest_ensure_dir_tree(output_dir) catch {
+        e =>
+          return Err(
+            @fpdf.PdfRasterizerError::ExecutionFailed(
+              "failed to create fake raster output dir: " + e.to_string(),
+            ),
+          )
+      }
+      for i in 0..<page_count {
+        let page_name = output_dir + "/page-" + (i + 1).to_string() + ".png"
+        @fs.write_bytes_to_file(page_name, Bytes::from_array([])) catch {
+          e =>
+            return Err(
+              @fpdf.PdfRasterizerError::ExecutionFailed(
+                "failed to create fake raster page: " + e.to_string(),
+              ),
+            )
+        }
+      }
+      Ok((0, "", ""))
+    })
+  }
+}
+
+///|
 fn cli_options(
   input : String,
   output : String?,
@@ -816,7 +898,7 @@ test "main cli pdf accurate can fall back to balanced OCR provider when accurate
   let pdf_path = "samples/fixtures/contracts/pdf/pdf_ocr_single_page.pdf"
 
   let rendered = match
-    run_cli_with_image_ocr_provider(
+    run_cli_with_image_ocr_provider_and_pdf_rasterizer(
       make_cli_options(
         pdf_path,
         None,
@@ -855,6 +937,7 @@ test "main cli pdf accurate can fall back to balanced OCR provider when accurate
           }
         }
       },
+      fake_cli_pdf_rasterizer(1),
     ) {
     Ok(value) => value
     Err(msg) =>

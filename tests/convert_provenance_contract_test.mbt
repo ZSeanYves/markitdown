@@ -44,6 +44,114 @@ fn convert_with_provenance_and_image_ocr_provider(
 }
 
 ///|
+fn convert_with_provenance_and_image_ocr_provider_and_pdf_rasterizer(
+  source : @input.InputSource,
+  options : @convert.ConvertOptions,
+  provider : (@focr.OcrProviderRequest) -> Result[
+    @focr.OcrProviderResult,
+    @focr.OcrProviderError,
+  ],
+  pdf_rasterizer : (@input.InputSource) -> Result[
+    (@formats.PdfRasterResult, String),
+    @formats.PdfRasterizerError,
+  ],
+) -> @convert.ConvertExecution raise {
+  match
+    @convert.convert_input_with_provenance_and_image_ocr_provider_and_pdf_rasterizer(
+      source, options, provider, pdf_rasterizer,
+    ) {
+    Ok(value) => value
+    Err(err) =>
+      fail(
+        "expected convert provenance with injected OCR provider: " +
+        err.to_string(),
+      )
+  }
+}
+
+///|
+fn contract_test_ensure_dir_tree(path : String) -> Unit raise @fs.IOError {
+  let normalized = path.trim().to_owned()
+  if normalized == "" || normalized == "." {
+    return
+  }
+  if @fs.path_exists(normalized) {
+    return
+  }
+  let chars = normalized.to_array()
+  let mut current = if chars.length() > 0 && chars[0] == '/' { "/" } else { "" }
+  let part : Array[Char] = []
+
+  fn flush(part : Array[Char], current : String) -> String raise @fs.IOError {
+    if part.length() == 0 {
+      return current
+    }
+    let segment = String::from_array(part)
+    part.clear()
+    let next = if current == "" || current == "/" {
+      current + segment
+    } else {
+      current + "/" + segment
+    }
+    if !@fs.path_exists(next) {
+      @fs.create_dir(next)
+    }
+    next
+  }
+
+  for ch in chars {
+    if ch == '/' {
+      current = flush(part, current)
+    } else {
+      part.push(ch)
+    }
+  }
+  ignore(flush(part, current))
+}
+
+///|
+fn fake_contract_pdf_rasterizer(
+  page_count : Int,
+) -> (@input.InputSource) -> Result[
+  (@formats.PdfRasterResult, String),
+  @formats.PdfRasterizerError,
+] {
+  fn(source : @input.InputSource) {
+    @formats.rasterize_pdf_with_pdftoppm(source, fn(
+      _cmd : String,
+      args : Array[String],
+    ) {
+      let output_prefix = args[2]
+      let parts = output_prefix
+        .split("/")
+        .to_array()
+        .map(fn(part) { part.to_owned() })
+      let output_dir = parts[:parts.length() - 1].join("/")
+      contract_test_ensure_dir_tree(output_dir) catch {
+        e =>
+          return Err(
+            @formats.PdfRasterizerError::ExecutionFailed(
+              "failed to create fake raster output dir: " + e.to_string(),
+            ),
+          )
+      }
+      for i in 0..<page_count {
+        let page_name = output_dir + "/page-" + (i + 1).to_string() + ".png"
+        @fs.write_bytes_to_file(page_name, Bytes::from_array([])) catch {
+          e =>
+            return Err(
+              @formats.PdfRasterizerError::ExecutionFailed(
+                "failed to create fake raster page: " + e.to_string(),
+              ),
+            )
+        }
+      }
+      Ok((0, "", ""))
+    })
+  }
+}
+
+///|
 test "convert provenance reports markdown huge block route" {
   let execution = convert_with_provenance(
     @input.input_from_path(
@@ -718,8 +826,11 @@ test "convert provenance falls back from pdf accurate OCR dependency failure to 
       }
     }
   }
-  let execution = convert_with_provenance_and_image_ocr_provider(
-    source, options, provider,
+  let execution = convert_with_provenance_and_image_ocr_provider_and_pdf_rasterizer(
+    source,
+    options,
+    provider,
+    fake_contract_pdf_rasterizer(1),
   )
   assert_true(
     execution.provenance.ocr_provider_selection_target == Some("pdf_accurate"),

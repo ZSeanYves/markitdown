@@ -202,6 +202,27 @@ fn sample_row(
 }
 
 ///|
+fn sample_run_options(
+  limit? : Int? = None,
+  repeat_count? : Int = 3,
+  warmup_count? : Int = 1,
+) -> RunOptions {
+  {
+    preset: Some("official-internal"),
+    scenario_id: None,
+    exact_tiers: ["regular"],
+    bench_ids: [],
+    format_filters: ["markdown"],
+    limit,
+    repeat_count,
+    warmup_count,
+    timeout_ms: 60000,
+    markitdown_path: None,
+    baseline_run_id: None,
+  }
+}
+
+///|
 test "policy preset expands all configured scenario ids" {
   let policy = match load_policy() {
     Ok(value) => value
@@ -235,6 +256,71 @@ test "policy preset expands all configured scenario ids" {
   assert_true(
     scenarios.any(fn(item) { item.scenario_id == "diagnostic.asciidoc" }),
   )
+}
+
+///|
+test "bench progress total counts process warmups and repeats plus engine repeats" {
+  let policy = match load_policy() {
+    Ok(value) => value
+    Err(err) => fail("policy should decode: " + err.to_string())
+  }
+  let scenario = resolve_scenarios(sample_run_options(limit=Some(1)), policy)[0]
+  let total = bench_progress_total(
+    [scenario],
+    sample_run_options(limit=Some(1), repeat_count=2, warmup_count=1),
+  )
+  assert_eq(total, 5)
+}
+
+///|
+test "bench progress label includes scenario tool bench id and phase counter" {
+  let row = @manifest.make_bench_row(
+    "markdown_large_commonmark_spec_v1",
+    "markdown",
+    "regular",
+    "markdown/large/markdown_large_commonmark_spec_v1.md",
+    "copied_from_external_bench",
+    "local",
+    1024,
+    "sha",
+    "regular",
+    ["external_bench"],
+    [],
+    "reviewed",
+    "",
+    "samples/fixtures/contracts/markdown/markdown_basic_heading_paragraph.md",
+  )
+  let label = bench_progress_label(
+    {
+      scenario_id: "compare.official_compare",
+      scenario_kind: "compare",
+      tool_names: ["moonbit-cli", "markitdown"],
+      exact_tiers: ["regular"],
+      format_filters: ["markdown"],
+      official_membership: "official-compare",
+      route_expectation: "canonical",
+    },
+    "markitdown",
+    row,
+    "sample",
+    1,
+    3,
+  )
+  assert_eq(
+    label, "compare.official_compare markitdown markdown_large_commonmark_spec_v1 sample 2/3",
+  )
+}
+
+///|
+test "bench progress render line omits empty labels and truncates long labels" {
+  assert_eq(
+    bench_progress_render_line(2, 10, "running", ""),
+    "progress: 2/10 running",
+  )
+  let long = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  let rendered = bench_progress_render_line(1, 3, "running", long)
+  assert_true(rendered.contains("progress: 1/3 running "))
+  assert_true(rendered.has_suffix("..."))
 }
 
 ///|
