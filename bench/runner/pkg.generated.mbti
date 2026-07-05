@@ -20,6 +20,12 @@ pub(all) suberror BenchError {
 pub impl Show for BenchError
 
 // Types and methods
+pub(all) struct BenchProgressState {
+  enabled : Bool
+  total : Int
+  completed : Int
+} derive(Eq)
+
 pub struct BinaryContract {
   runner_path : String
   cli_path : String

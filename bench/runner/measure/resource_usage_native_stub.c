@@ -7,6 +7,9 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
+#if defined(__APPLE__)
+#include <AvailabilityVersions.h>
+#endif
 #include <spawn.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -120,6 +123,30 @@ static int classify_spawn_exit_code(int spawn_error) {
     return 127;
   }
   return 126;
+}
+
+static int add_spawn_chdir_action(
+  posix_spawn_file_actions_t *file_actions,
+  const char *cwd_c_path
+) {
+  if (cwd_c_path == NULL || cwd_c_path[0] == '\0') {
+    return 0;
+  }
+#if defined(__APPLE__)
+#if defined(__MAC_OS_X_VERSION_MAX_ALLOWED) && defined(__MAC_15_0) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 260000
+  return posix_spawn_file_actions_addchdir(file_actions, cwd_c_path);
+#else
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  int rc = posix_spawn_file_actions_addchdir_np(file_actions, cwd_c_path);
+#pragma clang diagnostic pop
+  return rc;
+#endif
+#elif defined(__GLIBC__)
+  return posix_spawn_file_actions_addchdir_np(file_actions, cwd_c_path);
+#else
+  return ENOSYS;
+#endif
 }
 
 static bool argv_has_path_separator(char **argv) {
@@ -274,9 +301,8 @@ MOONBIT_FFI_EXPORT int32_t markitdown_bench_native_measure_command(
     return -9;
   }
 
-#if defined(__APPLE__) || defined(__GLIBC__)
-  if (cwd_c_path != NULL && cwd_c_path[0] != '\0') {
-    int chdir_rc = posix_spawn_file_actions_addchdir_np(&file_actions, cwd_c_path);
+  {
+    int chdir_rc = add_spawn_chdir_action(&file_actions, cwd_c_path);
     if (chdir_rc != 0) {
       posix_spawn_file_actions_destroy(&file_actions);
       free(cwd_c_path);
@@ -289,19 +315,6 @@ MOONBIT_FFI_EXPORT int32_t markitdown_bench_native_measure_command(
       return -10;
     }
   }
-#else
-  if (cwd_c_path != NULL && cwd_c_path[0] != '\0') {
-    posix_spawn_file_actions_destroy(&file_actions);
-    free(cwd_c_path);
-    free(stdout_c_path);
-    free(stderr_c_path);
-    free_argv(argv, argv_count);
-    free_argv(envp, env_count);
-    if (out_measurement_error != NULL) *out_measurement_error = 1;
-    if (out_spawn_error != NULL) *out_spawn_error = ENOSYS;
-    return -10;
-  }
-#endif
 
   int64_t started_us = bench_now_us();
   pid_t pid = 0;
