@@ -1,4 +1,5 @@
 ///|
+/// Capability for the canonical DOCX package parser.
 pub fn docx_parser_capability() -> @parser.ParserCapability {
   @parser.make_parser_capability(
     @parser.ParserMode::PackageSinglePass,
@@ -24,6 +25,7 @@ pub fn docx_parser_capability() -> @parser.ParserCapability {
 }
 
 ///|
+/// Construct the canonical DOCX parser entrypoint.
 pub fn docx_parser() -> @parser.Parser {
   let capability = docx_parser_capability()
   @parser.make_parser(

@@ -6,5 +6,10 @@ import runpy
 
 
 if __name__ == "__main__":
-    wrapper = Path(__file__).resolve().parents[0] / "paddle_ocr_wrapper.py"
+    wrapper = (
+        Path(__file__).resolve().parents[1]
+        / "samples"
+        / "helpers"
+        / "paddle_ocr_wrapper.py"
+    )
     runpy.run_path(str(wrapper), run_name="__main__")

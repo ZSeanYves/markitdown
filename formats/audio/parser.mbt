@@ -1,4 +1,5 @@
 ///|
+/// Construct the media-pipeline parser used for root audio inputs.
 pub fn audio_parser() -> @parser.Parser {
   @parser.make_parser(
     "audio_parser",
@@ -14,6 +15,7 @@ pub fn audio_parser() -> @parser.Parser {
 }
 
 ///|
+/// Capability for the audio transcript media pipeline.
 pub fn audio_parser_capability() -> @parser.ParserCapability {
   @parser.make_parser_capability(
     @parser.ParserMode::MediaPipeline,
@@ -39,6 +41,7 @@ pub fn audio_parser_capability() -> @parser.ParserCapability {
 }
 
 ///|
+/// Parse one audio input by invoking the configured transcript runtime.
 pub fn audio_parser_result(
   source : @input.InputSource,
   detected_format : @input.DetectedFormat,
@@ -56,7 +59,7 @@ pub fn audio_parser_result(
     run_audio_transcribe_command(
       source,
       detected_format,
-      context.ocr_options.language,
+      context.audio_options.language,
     ) {
     Ok(value) => value
     Err(error) => return Err(error.to_string())
@@ -67,6 +70,8 @@ pub fn audio_parser_result(
 }
 
 ///|
+/// Parse one audio input with an injected transcript runtime, mainly for tests
+/// and adapter boundaries.
 pub fn audio_parser_result_with_runtime(
   source : @input.InputSource,
   detected_format : @input.DetectedFormat,
@@ -77,7 +82,7 @@ pub fn audio_parser_result_with_runtime(
   ],
 ) -> Result[@parser.ParseResult, String] {
   let transcript = match
-    runtime(source, detected_format, context.ocr_options.language) {
+    runtime(source, detected_format, context.audio_options.language) {
     Ok(value) => value
     Err(error) => return Err(error.to_string())
   }
@@ -171,7 +176,7 @@ fn audio_parse_result_from_transcript(
     .length()
   if non_empty_segment_count == 0 {
     return Err(
-      "audio adapter produced transcript segments with empty text only",
+      "audio backend produced transcript segments with empty text only",
     )
   }
 
@@ -208,12 +213,12 @@ fn audio_parse_result_from_transcript(
       segment.end_ms < 0 ||
       segment.end_ms < segment.start_ms {
       return Err(
-        "audio adapter emitted malformed transcript segment timestamps",
+        "audio backend emitted malformed transcript segment timestamps",
       )
     }
     if last_end > segment.start_ms {
       return Err(
-        "audio adapter emitted out-of-order transcript segment timestamps",
+        "audio backend emitted out-of-order transcript segment timestamps",
       )
     }
     last_end = segment.end_ms

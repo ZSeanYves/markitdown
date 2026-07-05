@@ -1,4 +1,6 @@
 ///|
+/// Policy for how container-derived asset references may cross the output
+/// boundary.
 pub enum ContainerAssetCopyPolicy {
   MaterializeAtOutputBoundary
   ReferenceOnly
@@ -6,6 +8,7 @@ pub enum ContainerAssetCopyPolicy {
 } derive(Eq)
 
 ///|
+/// Return the stable name for one container asset copy policy.
 pub fn container_asset_copy_policy_name(
   policy : ContainerAssetCopyPolicy,
 ) -> String {
@@ -18,21 +21,25 @@ pub fn container_asset_copy_policy_name(
 }
 
 ///|
+/// Convenience constructor for the default materialization policy.
 pub fn container_asset_copy_policy_materialize_at_output_boundary() -> ContainerAssetCopyPolicy {
   ContainerAssetCopyPolicy::MaterializeAtOutputBoundary
 }
 
 ///|
+/// Convenience constructor for a reference-only policy.
 pub fn container_asset_copy_policy_reference_only() -> ContainerAssetCopyPolicy {
   ContainerAssetCopyPolicy::ReferenceOnly
 }
 
 ///|
+/// Convenience constructor for the strict unsafe-path rejection policy.
 pub fn container_asset_copy_policy_reject_unsafe_path() -> ContainerAssetCopyPolicy {
   ContainerAssetCopyPolicy::RejectUnsafePath
 }
 
 ///|
+/// Inner formats currently allowed for root-container child dispatch.
 pub fn container_supported_inner_formats() -> Array[String] {
   [
     "txt", "csv", "tsv", "srt", "vtt", "json", "jsonl", "ndjson", "ipynb", "xml",
@@ -42,11 +49,14 @@ pub fn container_supported_inner_formats() -> Array[String] {
 }
 
 ///|
+/// Inner formats that intentionally fail closed inside root containers today.
 pub fn container_unsupported_inner_formats() -> Array[String] {
   ["docx", "pptx", "xlsx", "pdf", "zip", "images", "ocr"]
 }
 
 ///|
+/// Return whether a detected format is currently allowed as a container child
+/// document.
 pub fn container_supports_inner_format(format : @input.DetectedFormat) -> Bool {
   match format {
     @input.DetectedFormat::Txt => true
@@ -76,6 +86,7 @@ pub fn container_supports_inner_format(format : @input.DetectedFormat) -> Bool {
 }
 
 ///|
+/// Human-readable guardrails for container child dispatch.
 pub fn container_dispatch_guardrails() -> Array[String] {
   [
     "inner document dispatch must go through the root ParserRegistry / root pipeline",
@@ -85,6 +96,7 @@ pub fn container_dispatch_guardrails() -> Array[String] {
 }
 
 ///|
+/// Human-readable guardrails for container asset writes.
 pub fn container_asset_write_guardrails() -> Array[String] {
   [
     "asset references stay data-only inside parse and render stages", "actual file writes only happen at the CLI/output boundary",
@@ -93,11 +105,13 @@ pub fn container_asset_write_guardrails() -> Array[String] {
 }
 
 ///|
+/// Source-ref keys reserved for container provenance.
 pub fn container_source_ref_keys() -> Array[String] {
   ["container_path", "entry_path", "entry_index", "entry_format", "inner_path"]
 }
 
 ///|
+/// Diagnostics metric keys reserved for container parsers.
 pub fn container_diagnostic_metric_keys() -> Array[String] {
   [
     "container_entry_count", "selected_entry_count", "skipped_entry_count", "unsupported_entry_count",
@@ -110,6 +124,7 @@ pub fn container_diagnostic_metric_keys() -> Array[String] {
 }
 
 ///|
+/// Resource-limit keys reserved for container planning and parsing.
 pub fn container_resource_limit_keys() -> Array[String] {
   [
     "max_container_entries", "max_total_uncompressed_bytes", "max_single_entry_bytes",
@@ -119,6 +134,8 @@ pub fn container_resource_limit_keys() -> Array[String] {
 }
 
 ///|
+/// Return whether an asset output path is relative and free from obvious
+/// traversal/absolute-path issues.
 pub fn container_asset_output_path_is_safe(path : String) -> Bool {
   let trimmed = path.trim()
   if trimmed == "" {
@@ -144,6 +161,7 @@ pub fn container_asset_output_path_is_safe(path : String) -> Bool {
 }
 
 ///|
+/// Alias of `container_asset_output_path_is_safe` for relative-path checks.
 pub fn container_asset_relative_path_is_safe(path : String) -> Bool {
   container_asset_output_path_is_safe(path)
 }

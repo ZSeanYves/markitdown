@@ -99,16 +99,19 @@ pub(all) enum AccurateFeature {
 } derive(Eq)
 
 ///|
+/// Accurate-mode features that are intentionally opt-in on a per-format basis.
 pub struct AccurateFeatureProfile {
   features : Array[AccurateFeature]
 }
 
 ///|
+/// Return an empty accurate-feature profile.
 pub fn empty_accurate_feature_profile() -> AccurateFeatureProfile {
   { features: [] }
 }
 
 ///|
+/// Wrap a set of accurate features into a profile value.
 pub fn make_accurate_feature_profile(
   features : Array[AccurateFeature],
 ) -> AccurateFeatureProfile {
@@ -116,6 +119,7 @@ pub fn make_accurate_feature_profile(
 }
 
 ///|
+/// Return the stable diagnostics/provenance name for one accurate feature.
 pub fn accurate_feature_name(feature : AccurateFeature) -> String {
   match feature {
     AccurateFeature::PdfPageAppendix => "pdf_page_appendix"
@@ -142,6 +146,7 @@ pub fn accurate_feature_name(feature : AccurateFeature) -> String {
 }
 
 ///|
+/// Return all enabled feature names in stable string form.
 pub fn accurate_feature_profile_names(
   profile : AccurateFeatureProfile,
 ) -> Array[String] {
@@ -149,6 +154,7 @@ pub fn accurate_feature_profile_names(
 }
 
 ///|
+/// Return whether `feature` is enabled in `profile`.
 pub fn accurate_feature_enabled(
   profile : AccurateFeatureProfile,
   feature : AccurateFeature,
@@ -157,6 +163,7 @@ pub fn accurate_feature_enabled(
 }
 
 ///|
+/// Return the accurate-mode features currently defined for the detected format.
 pub fn accurate_features_for_detected_format(
   format : @input.DetectedFormat,
 ) -> Array[AccurateFeature] {
@@ -197,6 +204,7 @@ pub fn accurate_features_for_detected_format(
 }
 
 ///|
+/// Coarse resource ceilings shared by probing, parsing, and lowering.
 pub struct ResourceLimits {
   max_rows : Int
   max_cols : Int
@@ -224,6 +232,8 @@ pub(all) enum PdfOcrPolicy {
 } derive(Eq)
 
 ///|
+/// Normalized product options shared across routing, parsing, pipeline, and
+/// rendering.
 pub struct ProductOptions {
   mode : ConvertMode
   fidelity_mode : FidelityMode
@@ -237,11 +247,13 @@ pub struct ProductOptions {
 }
 
 ///|
+/// Return the default resource ceilings for the canonical product path.
 pub fn default_resource_limits() -> ResourceLimits {
   { max_rows: 2000, max_cols: 50, max_cells: 100000, max_line_chars: 4000 }
 }
 
 ///|
+/// Build explicit product resource ceilings.
 pub fn make_resource_limits(
   max_rows : Int,
   max_cols : Int,
@@ -252,21 +264,25 @@ pub fn make_resource_limits(
 }
 
 ///|
+/// Return the current default PDF cleanup policy.
 pub fn default_pdf_cleanup_mode() -> PdfCleanupMode {
   PdfCleanupMode::Disabled
 }
 
 ///|
+/// Return the current default PDF table-reconstruction policy.
 pub fn default_pdf_table_mode() -> PdfTableMode {
   PdfTableMode::Disabled
 }
 
 ///|
+/// Return the current default PDF OCR policy.
 pub fn default_pdf_ocr_policy() -> PdfOcrPolicy {
   PdfOcrPolicy::Disabled
 }
 
 ///|
+/// Return baseline product defaults for the balanced Markdown path.
 pub fn default_product_options() -> ProductOptions {
   {
     mode: ConvertMode::Balanced,
@@ -282,6 +298,8 @@ pub fn default_product_options() -> ProductOptions {
 }
 
 ///|
+/// Compose product options that can be shared by route planning, parsing,
+/// pipeline passes, and renderers.
 pub fn make_product_options(
   mode : ConvertMode,
   limits : ResourceLimits,
@@ -330,6 +348,8 @@ pub fn output_mode_for_convert_mode(mode : ConvertMode) -> OutputMode {
 }
 
 ///|
+/// Derive the effective strategy mode from fidelity plus explicit stream
+/// request.
 pub fn convert_mode_from_modes(
   fidelity_mode : FidelityMode,
   stream_requested : Bool,
@@ -419,11 +439,13 @@ pub fn pdf_ocr_policy_name(policy : PdfOcrPolicy) -> String {
 }
 
 ///|
+/// Return whether the current output mode is the debug JSON view.
 pub fn debug_output_mode(mode : OutputMode) -> Bool {
   mode == OutputMode::Debug
 }
 
 ///|
+/// Return whether PDF cleanup is enabled for the active product options.
 pub fn pdf_cleanup_enabled(options : ProductOptions) -> Bool {
   options.pdf_cleanup_mode != PdfCleanupMode::Disabled
 }

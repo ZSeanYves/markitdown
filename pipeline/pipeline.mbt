@@ -1,9 +1,12 @@
 ///|
+/// Builder abstraction that normalizes any public IR shape into `DocumentIR`
+/// before pipeline passes run.
 pub struct CoreIRBuilder {
   build : (@core.IRInput) -> @core.DocumentIR
 }
 
 ///|
+/// Lightweight pass failure returned by pipeline stages.
 pub struct PassError {
   message : String
 }
@@ -14,6 +17,10 @@ fn pass_error(message : String) -> PassError {
 }
 
 ///|
+/// Mutable shared context passed through all IR passes.
+///
+/// Besides product options, it holds the evolving diagnostics, metadata,
+/// assets, provenance, and assembly side channels.
 pub struct PassContext {
   mode : @product.ConvertMode
   fidelity_mode : @product.FidelityMode
@@ -31,12 +38,14 @@ pub struct PassContext {
 }
 
 ///|
+/// One named IR transformation step in the unified pipeline.
 pub struct IRPass {
   name : String
   run : (PassContext, @core.IRInput) -> Result[@core.IRInput, PassError]
 }
 
 ///|
+/// Ordered list of IR passes to run.
 pub struct PassPipeline {
   passes : Array[IRPass]
 }
@@ -73,6 +82,7 @@ fn make_product_pass_context(
 }
 
 ///|
+/// Construct a small pass context for tests and focused helpers.
 pub fn make_pass_context(
   debug : Bool,
   mode_name : String,
@@ -101,6 +111,8 @@ pub fn make_pass_context(
 }
 
 ///|
+/// Construct a fully-specified pass context from product options and existing
+/// side-channel state.
 pub fn make_pass_context_with_product_options(
   mode : @product.ConvertMode,
   options : @product.ProductOptions,
@@ -130,6 +142,8 @@ pub fn make_pass_context_with_product_options(
 }
 
 ///|
+/// Return the default builder that turns any public IR shape into
+/// `DocumentIR`.
 pub fn default_ir_builder() -> CoreIRBuilder {
   {
     build: fn(input : @core.IRInput) -> @core.DocumentIR {
@@ -139,6 +153,8 @@ pub fn default_ir_builder() -> CoreIRBuilder {
 }
 
 ///|
+/// Normalize any public IR shape into `DocumentIR` and record the source shape
+/// in diagnostics.
 pub fn ir_input_to_document(input : @core.IRInput) -> @core.DocumentIR {
   match input {
     @core.IRInput::Document(document) => {
@@ -160,11 +176,13 @@ pub fn ir_input_to_document(input : @core.IRInput) -> @core.DocumentIR {
 }
 
 ///|
+/// Wrap a pass list into a runnable pipeline.
 pub fn new_pass_pipeline(passes : Array[IRPass]) -> PassPipeline {
   { passes, }
 }
 
 ///|
+/// Run a pipeline and record pass trace entries by default.
 pub fn run_pipeline(
   pipeline : PassPipeline,
   input : @core.IRInput,
@@ -198,6 +216,7 @@ fn run_pipeline_with_trace(
 }
 
 ///|
+/// Return the canonical product pass sequence.
 pub fn default_pass_pipeline() -> PassPipeline {
   new_pass_pipeline([
     normalize_text_pass(),
@@ -218,6 +237,8 @@ pub fn default_pass_pipeline() -> PassPipeline {
 }
 
 ///|
+/// Run the canonical pass pipeline, including fast paths for already-structured
+/// inputs.
 pub fn run_default_pipeline(
   input : @core.IRInput,
   context : PassContext,
@@ -501,6 +522,8 @@ fn structured_document_caption_candidate(block : @core.CoreBlock) -> Bool {
 }
 
 ///|
+/// Convert any public IR shape into a fully synchronized `DocumentIR` by using
+/// the default builder plus default pass pipeline.
 pub fn build_document_with_default_pipeline(
   input : @core.IRInput,
   context : PassContext,

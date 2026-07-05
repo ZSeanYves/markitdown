@@ -1,4 +1,5 @@
 ///|
+/// Route family used by product strategy selection.
 pub(all) enum FormatRoute {
   StreamingEvent
   BlockStreaming
@@ -11,6 +12,7 @@ pub(all) enum FormatRoute {
 } derive(Eq)
 
 ///|
+/// Concrete route description used by format strategy policies.
 pub struct StrategyRouteSpec {
   route : FormatRoute
   parser_mode : @parser.ParserMode
@@ -29,6 +31,7 @@ fn make_strategy_route_spec(
 }
 
 ///|
+/// Per-mode strategy policy for one format, including large-route fallbacks.
 pub struct ModeStrategyPolicy {
   canonical : StrategyRouteSpec
   explicit_stream_supported : Bool
@@ -73,6 +76,8 @@ fn make_mode_strategy_policy(
 }
 
 ///|
+/// Full strategy policy for one detected format across balanced, accurate, and
+/// stream modes.
 pub struct FormatStrategyPolicy {
   format : @input.DetectedFormat
   cli_supported : Bool
@@ -94,6 +99,7 @@ fn mode_strategy_for(
 }
 
 ///|
+/// Stable, inspectable route summary for one format.
 pub struct FormatRouteProfile {
   format : @input.DetectedFormat
   cli_supported : Bool
@@ -144,6 +150,7 @@ fn make_format_route_profile(
 }
 
 ///|
+/// Return a stable public route profile for the detected format.
 pub fn format_route_profile(
   format : @input.DetectedFormat,
 ) -> FormatRouteProfile {
@@ -561,7 +568,7 @@ fn default_render_profile_for_route(
   route : FormatRoute,
 ) -> @product.RenderProfile {
   match route {
-    FormatRoute::StreamingEvent => @product.RenderProfile::RecordBatchMarkdown
+    FormatRoute::StreamingEvent => @product.RenderProfile::DefaultMarkdown
     FormatRoute::BlockStreaming =>
       match format {
         @input.DetectedFormat::Csv
@@ -702,6 +709,7 @@ fn route_spec_from_profile(
 }
 
 ///|
+/// Return the full strategy policy used internally for the detected format.
 pub fn format_strategy_policy(
   format : @input.DetectedFormat,
 ) -> FormatStrategyPolicy {
@@ -818,6 +826,7 @@ pub fn format_strategy_policy(
 }
 
 ///|
+/// Return the strategy policy for one format under a specific convert mode.
 pub fn format_mode_strategy_policy(
   format : @input.DetectedFormat,
   mode : @product.ConvertMode,
@@ -826,6 +835,7 @@ pub fn format_mode_strategy_policy(
 }
 
 ///|
+/// Return whether the format currently supports an explicit stream request.
 pub fn explicit_stream_supported_for_format(
   format : @input.DetectedFormat,
 ) -> Bool {
@@ -833,11 +843,13 @@ pub fn explicit_stream_supported_for_format(
 }
 
 ///|
+/// Return whether the format is currently exposed by the CLI surface.
 pub fn cli_supported_for_format(format : @input.DetectedFormat) -> Bool {
   format_route_profile(format).cli_supported
 }
 
 ///|
+/// Return the canonical route currently used for the detected format.
 pub fn canonical_route_for_format(
   format : @input.DetectedFormat,
 ) -> FormatRoute {
@@ -845,6 +857,7 @@ pub fn canonical_route_for_format(
 }
 
 ///|
+/// Return the explicit stream route, when the format exposes one.
 pub fn explicit_stream_route_for_format(
   format : @input.DetectedFormat,
 ) -> FormatRoute? {
@@ -852,6 +865,7 @@ pub fn explicit_stream_route_for_format(
 }
 
 ///|
+/// Return the large-route fallback used when probe limits trigger one.
 pub fn over_limit_route_for_format(
   format : @input.DetectedFormat,
 ) -> FormatRoute? {
@@ -859,6 +873,7 @@ pub fn over_limit_route_for_format(
 }
 
 ///|
+/// Map a route family back to the parser mode expected by route planning.
 pub fn parser_mode_for_route(route : FormatRoute) -> @parser.ParserMode {
   match route {
     FormatRoute::StreamingEvent => @parser.ParserMode::StreamingEvent
@@ -873,6 +888,7 @@ pub fn parser_mode_for_route(route : FormatRoute) -> @parser.ParserMode {
 }
 
 ///|
+/// Return the stable diagnostics/provenance name for a route family.
 pub fn route_name(route : FormatRoute) -> String {
   match route {
     FormatRoute::StreamingEvent => "streaming_event"

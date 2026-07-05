@@ -58,6 +58,7 @@ fn cli_options(
   output_format : @convert.OutputFormat,
   provenance_output? : String? = None,
   ocr_options? : @parser.OcrOptions = @parser.default_ocr_options(),
+  audio_options? : @parser.AudioOptions = @parser.default_audio_options(),
   pdf_ocr_policy? : @convert.PdfOcrPolicy = @convert.default_pdf_ocr_policy(),
   pdf_cleanup_mode? : @convert.PdfCleanupMode = @convert.default_pdf_cleanup_mode(),
   pdf_table_mode? : @convert.PdfTableMode = @convert.default_pdf_table_mode(),
@@ -77,6 +78,7 @@ fn cli_options(
     pdf_cleanup_mode~,
     pdf_table_mode~,
     rag_options=@rag.default_rag_options(),
+    audio_options~,
   )
 }
 
@@ -260,6 +262,14 @@ test "main cli parses explicit OCR intent flags" {
       assert_true(opts.ocr_options.language == Some("eng"))
     }
     Err(msg) => fail("expected direct image input to accept --ocr-lang: " + msg)
+  }
+
+  match parse_cli_options(["--audio-lang", "zh", "tiny.wav"]) {
+    Ok(opts) => {
+      assert_true(opts.audio_options.language == Some("zh"))
+      assert_true(opts.ocr_options.language == None)
+    }
+    Err(msg) => fail("expected audio input to accept --audio-lang: " + msg)
   }
 }
 
@@ -466,6 +476,46 @@ test "main cli constrains --ocr-lang to OCR-capable routes" {
     }
     Err(msg) =>
       fail("expected pdf --pdf-ocr auto-scanned --ocr-lang to parse: " + msg)
+  }
+
+  match parse_cli_options(["--ocr-lang", "eng", "tiny.wav"]) {
+    Err(msg) =>
+      assert_true(msg.contains("--ocr-lang cannot be used with audio input"))
+    Ok(_) => fail("expected audio --ocr-lang to fail")
+  }
+
+  match parse_cli_options(["--audio-lang", "eng", "tiny.txt"]) {
+    Err(msg) => assert_true(msg.contains("--audio-lang requires audio input"))
+    Ok(_) => fail("expected non-audio --audio-lang to fail")
+  }
+
+  match
+    parse_cli_options(["--audio-lang", "eng", "--ocr-lang", "eng", "tiny.wav"]) {
+    Err(msg) =>
+      assert_true(msg.contains("cannot combine --ocr-lang and --audio-lang"))
+    Ok(_) => fail("expected mixed language flags to fail")
+  }
+}
+
+///|
+test "main cli batch constrains --audio-lang to explicit audio formats" {
+  match parse_batch_cli_options(["--audio-lang", "eng", "inputs", "out"], 0) {
+    Err(msg) =>
+      assert_true(msg.contains("batch --audio-lang requires explicit --format"))
+    Ok(_) => fail("expected batch --audio-lang without explicit format to fail")
+  }
+
+  match
+    parse_batch_cli_options(
+      ["--format", "wav", "--audio-lang", "eng", "inputs", "out"],
+      0,
+    ) {
+    Ok((opts, out_dir)) => {
+      assert_true(opts.audio_options.language == Some("eng"))
+      assert_eq(out_dir, "out")
+    }
+    Err(msg) =>
+      fail("expected batch audio format with --audio-lang to parse: " + msg)
   }
 }
 
@@ -690,7 +740,7 @@ test "main cli pdf accurate enters OCR route or returns dependency guidance" {
       )
       assert_true(
         msg.contains("poppler-utils") ||
-        msg.contains("samples/helpers/paddle_ocr_bridge.py") ||
+        msg.contains("samples/helpers/paddle_ocr_wrapper.py") ||
         msg.contains("pip install paddlepaddle paddleocr"),
       )
     }

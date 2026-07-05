@@ -129,10 +129,12 @@ TXT_ALIAS_MD="$NO_META_DIR/txt_plain_alias.md"
 echo "==> help and version expose main cli product surface"
 run_and_capture "$HELP_STDOUT" run_markitdown_cli --help
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "--help should succeed"
-assert_contains "$HELP_STDOUT" 'markitdown-mb [convert|normal] [--format txt|csv|tsv|srt|vtt|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|eml|tex|latex|rst|adoc|asciidoc|zip|epub|odt|ods|odp|docx|xlsx|pptx|pdf|wav|mp3|m4a|png|jpg|jpeg|bmp|webp|tif|tiff] [--accurate] [--stream] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-ocr explicit|auto-scanned] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]'
+assert_contains "$HELP_STDOUT" 'markitdown-mb [convert|normal] [--format txt|csv|tsv|srt|vtt|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|eml|tex|latex|rst|adoc|asciidoc|zip|epub|odt|ods|odp|docx|xlsx|pptx|pdf|wav|mp3|m4a|png|jpg|jpeg|bmp|webp|tif|tiff] [--accurate] [--stream] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--audio-lang <LANG>] [--pdf-ocr explicit|auto-scanned] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]'
 assert_contains "$HELP_STDOUT" '--pdf-cleanup none|conservative'
 assert_contains "$HELP_STDOUT" '--pdf-tables none|simple'
+assert_contains "$HELP_STDOUT" '--audio-lang <LANG>'
 assert_contains "$HELP_STDOUT" 'Direct image input uses local Tesseract OCR by default; `--no-ocr` disables it. PDF OCR is controlled by `--pdf-ocr explicit|auto-scanned`; `--ocr` remains a compatibility alias for `pdf --pdf-ocr explicit`. `pdf --accurate` now enters the Paddle-backed OCR route and fails closed with install guidance when Paddle is unavailable.'
+assert_contains "$HELP_STDOUT" 'Audio transcription uses local `whisper.cpp` (`whisper-cli`, with `main` as compatibility fallback) plus local `ffmpeg` for `m4a` normalization.'
 assert_contains "$HELP_STDOUT" 'PDF cleanup and simple table reconstruction are explicit opt-in product options'
 assert_contains "$HELP_STDOUT" '`--rag` switches the output view to chunked retrieval JSON with the default internal chunking policy.'
 assert_contains "$HELP_STDOUT" 'Supported product formats: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, yml, toml, html, htm, markdown, md, eml, tex, latex, rst, adoc, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, wav, mp3, m4a, png, jpg, jpeg, bmp, webp, tif, tiff'

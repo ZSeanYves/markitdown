@@ -266,6 +266,7 @@ fn odp_lower_common(
       source_ref=label_ref,
     )
     label.attrs.set("literal", "true")
+    label.attrs.set("markdown_literal_raw", "true")
     label.attrs.set("slide_local", "true")
     if context.lowering_profile == @product.LoweringProfile::AccurateSemantic &&
       @product.accurate_feature_enabled(

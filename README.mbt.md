@@ -163,14 +163,19 @@ Current boundaries:
 - Accurate PDF OCR is entered through `pdf --accurate`, which defaults to `auto-scanned` instead of whole-document OCR.
 - `--pdf-ocr auto-scanned` keeps native-text pages on the native route and only OCRs scanned-like pages.
 - Balanced OCR and Balanced PDF OCR require local `tesseract`.
-- Accurate OCR and Accurate PDF OCR require a Paddle-backed bridge configured through `MARKITDOWN_PADDLE_OCR_CMD`.
+- Accurate OCR and Accurate PDF OCR are still experimental and currently require a Paddle-backed wrapper configured through `MARKITDOWN_PADDLE_OCR_CMD`.
 - PDF OCR in both modes also requires local `pdftoppm`.
 - Missing dependencies fail closed with install guidance; the product does not silently fall back across OCR providers.
 - This project does not bundle or redistribute `pdftoppm`, `tesseract`, or the Paddle Python runtime.
 
 ### MARKITDOWN_PADDLE_OCR_CMD
 
-`MARKITDOWN_PADDLE_OCR_CMD` is an optional runtime hook for the Paddle-backed OCR provider bridge.
+`MARKITDOWN_PADDLE_OCR_CMD` is the fixed runtime hook for the official Paddle OCR wrapper.
+
+Current status:
+
+- Accurate OCR and Accurate PDF OCR are still experimental.
+- They can run locally, but stability and result quality are not yet treated as the same-level contract as the balanced OCR paths.
 
 - The command is invoked as `<adapter_cmd> <image_path> [--lang <LANG>]`.
 - `markitdown-mb` expects the adapter to print a single JSON object to stdout.
@@ -183,7 +188,7 @@ Current payload contract:
 {
   "provider_name": "paddle_ocr",
   "provider_version": "3.0.0",
-  "diagnostics": ["adapter=sample"],
+  "diagnostics": ["adapter=samples/helpers/paddle_ocr_wrapper.py"],
   "pages": [
     {
       "page_index": 0,
@@ -215,12 +220,50 @@ Current payload contract:
 }
 ```
 
-Reference bridge:
+Official wrapper:
 
 ```bash
-chmod +x samples/helpers/paddle_ocr_bridge.py
-export MARKITDOWN_PADDLE_OCR_CMD="$PWD/samples/helpers/paddle_ocr_bridge.py"
+chmod +x samples/helpers/paddle_ocr_wrapper.py
+export MARKITDOWN_PADDLE_OCR_CMD="$PWD/samples/helpers/paddle_ocr_wrapper.py"
 ```
+
+The sample bridge expects a Python runtime with `paddleocr` installed. If Pillow is available, it also fills `width` and `height`.
+
+## Audio Native CLI
+
+Audio transcription for root local `wav`, `mp3`, and `m4a` inputs now uses local `whisper.cpp` directly.
+
+- Balanced and Accurate both stay on the same P0 native audio route.
+- `--audio-lang <LANG>` is the dedicated audio language hint; audio no longer reuses `--ocr-lang`.
+- `wav` and `mp3` go directly into `whisper.cpp`.
+- `m4a` is normalized through local `ffmpeg` into temporary `wav` before transcription.
+- Non-zero exit codes, missing backend/model, malformed JSON output, empty transcript segments, malformed timestamps, or all-empty transcript text all fail closed.
+
+Runtime requirements:
+
+```bash
+# install whisper.cpp locally and make whisper-cli available on PATH
+# `main` is also accepted as a compatibility fallback binary name
+
+# download the multilingual ggml-base model locally
+mkdir -p "${XDG_CACHE_HOME:-$HOME/.cache}/markitdown/whisper.cpp"
+# place model at:
+# ${XDG_CACHE_HOME:-$HOME/.cache}/markitdown/whisper.cpp/ggml-base.bin
+
+# optional override
+export MARKITDOWN_AUDIO_MODEL_PATH="/absolute/path/to/ggml-base.bin"
+
+# install ffmpeg if you need m4a support
+```
+
+Current backend facts:
+
+- backend transport: `native_cli`
+- backend name: `whisper_cpp`
+- default model: multilingual `ggml-base`
+- command discovery order: `whisper-cli`, then `main`
+- Markdown output keeps `[start - end]` transcript lines
+- RAG output keeps one chunk per audio segment with time boundaries
 
 The sample bridge expects a Python runtime with `paddleocr` installed. If Pillow is available, it also fills `width` and `height`.
 
@@ -244,6 +287,9 @@ The current Office product routes stay architecture-stable:
 
 Daily regression validation:
 
+Note:
+Before running sample validation, make sure the local environment already has the OCR runtime dependencies, PDF raster backend, and the official external regression corpus checked out at `./markitdown-quality-lab/`. In practice, `samples/check.sh` expects local `tesseract`, `pdftoppm`, and `markitdown-quality-lab/external_main_process/`; otherwise OCR, PDF OCR, and enrolled main-regression lanes will fail.
+
 ```bash
 moon fmt
 moon info
@@ -257,6 +303,9 @@ bash samples/helpers/contracts/check_root_contracts.sh
 ```
 
 External quality validation:
+
+Note:
+`samples/check_quality.sh` is also defined against the official external corpus repo at `./markitdown-quality-lab/`.
 
 ```bash
 bash samples/check_quality.sh
@@ -305,8 +354,10 @@ Architectural constraints:
 
 ## Samples And Quality Lab
 
-- `samples/main_process/` contains lightweight repo-local regression samples and expected outputs.
+- `samples/fixtures/contracts/` contains the minimal offline fixtures used by repo-local tests and retained shell contracts.
+- `samples/check.sh` runs the external main regression corpus from `markitdown-quality-lab/external_main_process/`.
 - `samples/check.sh` is the primary sample regression entrypoint.
+- `samples/check_quality.sh` runs the external quality corpus from `markitdown-quality-lab/external_quality/`.
 - `samples/helpers/contracts/check_root_contracts.sh` is the aggregated contract entrypoint.
 - `./markitdown-quality-lab/` is the official external corpus repository location for quality and benchmark validation.
 
@@ -315,6 +366,6 @@ The following implementation notes remain stable user-facing facts:
 - EPUB support is implemented through `format_readers/epub` on top of `format_readers/zip`.
 - ZIP archive reading continues to rely on `bikallem/compress/flate` inside `format_readers/zip`.
 
-The repository is self-contained for build, unit tests, and repo-local functional regression coverage through lightweight samples.
-If you want to validate real conversion quality or benchmark performance, prepare `./markitdown-quality-lab/` under the main repo root first.
+The repository is self-contained for build, unit tests, and a small set of repo-local fixtures used by contract coverage.
+Formal main regression, quality regression, and benchmark validation all intentionally depend on `./markitdown-quality-lab/` under the main repo root.
 Formal `bench v2` reads `./markitdown-quality-lab/external_bench/` by default; `MARKITDOWN_BENCH_ROOT` is an explicit override.

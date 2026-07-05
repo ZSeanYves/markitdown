@@ -8,21 +8,26 @@ const PDF_NATIVE_FAIL_CLOSED_MESSAGE : String = "PDF native text restore is disa
 const PDF_OCR_PARSER_NAME : String = "pdf_ocr_parser"
 
 ///|
+/// Stable parser name for the native-text PDF route.
 pub fn pdf_native_parser_name() -> String {
   PDF_NATIVE_PARSER_NAME
 }
 
 ///|
+/// Fail-closed message emitted when native-text restore is intentionally gated
+/// off.
 pub fn pdf_native_fail_closed_message() -> String {
   PDF_NATIVE_FAIL_CLOSED_MESSAGE
 }
 
 ///|
+/// Stable parser name for the OCR-backed PDF route.
 pub fn pdf_ocr_parser_name() -> String {
   PDF_OCR_PARSER_NAME
 }
 
 ///|
+/// Capability for the native-text PDF route.
 pub fn pdf_native_parser_capability() -> @parser.ParserCapability {
   @parser.make_parser_capability(
     @parser.ParserMode::PageSinglePass,
@@ -48,6 +53,7 @@ pub fn pdf_native_parser_capability() -> @parser.ParserCapability {
 }
 
 ///|
+/// Capability for the OCR-backed PDF route.
 pub fn pdf_ocr_parser_capability() -> @parser.ParserCapability {
   @parser.make_parser_capability(
     @parser.ParserMode::LayoutTwoStage,
@@ -73,176 +79,29 @@ pub fn pdf_ocr_parser_capability() -> @parser.ParserCapability {
 }
 
 ///|
-pub fn pdf_native_fail_closed_diagnostics(
-  source : @input.InputSource,
-  context : @parser.ParseContext,
-) -> @core.Diagnostics {
-  let diagnostics = @core.diagnostics_with_input(
-    @core.diagnostics_with_parser(
-      @core.empty_diagnostics(),
-      Some(pdf_native_parser_name()),
-      Some(@parser.mode_name(@parser.ParserMode::PageSinglePass)),
-    ),
-    Some(pdf_native_input_kind_name(source.kind)),
-    Some("pdf"),
-  )
-  diagnostics.warnings.push(pdf_native_fail_closed_message())
-  diagnostics.degraded_features.push("pdf_native_policy_gate")
-  diagnostics.fallback_trace.push(
-    "pdf native parser policy gate -> fail closed until text restore is enabled",
-  )
-  diagnostics.pass_trace.push("parse:pdf_native_parser")
-  diagnostics.metrics.set("parser_name", pdf_native_parser_name())
-  diagnostics.metrics.set("parser_mode", "page_single_pass")
-  diagnostics.metrics.set("input_kind", pdf_native_input_kind_name(source.kind))
-  diagnostics.metrics.set("detected_format", "pdf")
-  diagnostics.metrics.set(
-    "requested_mode",
-    pdf_native_requested_mode_name(context),
-  )
-  diagnostics.metrics.set("effective_mode", "page_single_pass")
-  diagnostics.metrics.set("ir_input_kind", "document")
-  diagnostics.metrics.set("event_granularity", "page")
-  diagnostics.metrics.set("page_count", "0")
-  diagnostics.metrics.set("table_count", "0")
-  diagnostics.metrics.set("image_count", "0")
-  diagnostics.metrics.set("asset_count", "0")
-  diagnostics.metrics.set("scanned_page_ratio", "0")
-  diagnostics.metrics.set("ocr_used_pages", "0")
-  diagnostics.metrics.set("model_used", "none")
-  diagnostics.metrics.set("model_confidence", "0")
-  diagnostics.metrics.set("pdf_native_backend", "false")
-  diagnostics.metrics.set("pdf_native_text_baseline", "false")
-  diagnostics.metrics.set("pdf_ocr_used", "false")
-  diagnostics.metrics.set("pdf_v2_used", "false")
-  diagnostics.metrics.set("pdf_empty_text_layer", "false")
-  diagnostics.metrics.set(
-    "pdf_header_footer_filter_policy",
-    @parser.pdf_header_footer_filter_policy_name(
-      context.pdf_header_footer_filter_policy,
-    ),
-  )
-  diagnostics.metrics.set(
-    "pdf_header_footer_filter_enabled",
-    if context.pdf_header_footer_filter_policy ==
-      @parser.PdfHeaderFooterFilterPolicy::Disabled {
-      "false"
-    } else {
-      "true"
-    },
-  )
-  diagnostics.metrics.set("pdf_header_footer_removed_count", "0")
-  diagnostics.metrics.set(
-    "pdf_table_reconstruction_policy",
-    @parser.pdf_table_reconstruction_policy_name(
-      context.pdf_table_reconstruction_policy,
-    ),
-  )
-  diagnostics.metrics.set(
-    "pdf_table_reconstruction_enabled",
-    if context.pdf_table_reconstruction_policy ==
-      @parser.PdfTableReconstructionPolicy::Disabled {
-      "false"
-    } else {
-      "true"
-    },
-  )
-  diagnostics.metrics.set("pdf_table_reconstruction_table_count", "0")
-  diagnostics.metrics.set("fallback_reason", "pdf_native_restore_not_enabled")
-  diagnostics.metrics.set("fallback_reason_kind", "parser_policy_gate")
-  diagnostics.metrics.set("warning_count", "1")
-  diagnostics.metrics.set("error_count", "0")
-  diagnostics.metrics.set("fallback_count", "1")
-  diagnostics.metrics.set("product_path_enabled", "false")
-  diagnostics.metrics.set("format_contract", "pdf")
-  diagnostics.metrics.set("native_impl_location", "formats")
-  diagnostics.metrics.set("pdf_native_parser_gate", "disabled")
-  diagnostics.metrics.set(
-    "pdf_native_runtime_policy",
-    @parser.pdf_native_runtime_policy_name(context.pdf_native_runtime_policy),
-  )
-  diagnostics
+priv struct PdfOcrExecutionConfig {
+  provider_target : @focr.OcrProviderSelectionTarget
+  provider_kind : @focr.OcrProviderKind
+  native_document : PdfNativeDocument?
 }
 
 ///|
-pub fn pdf_native_parser_result(
-  source : @input.InputSource,
-  context : @parser.ParseContext,
-) -> @parser.ParseResult {
-  match pdf_native_parser_result_with_gate(source, context) {
-    Ok(result) => result
-    Err(result) => result
-  }
+priv struct PdfOcrAccumulationState {
+  blocks : Array[@core.CoreBlock]
+  warnings : Array[String]
+  fatal_dependency_errors : Array[String]
+  fatal_dependency_diagnostics : Array[@core.DependencyDiagnostic]
+  raster_failure_count : Ref[Int]
+  ocr_failure_count : Ref[Int]
+  ocr_success_count : Ref[Int]
+  native_text_page_count : Ref[Int]
 }
 
 ///|
-fn pdf_native_parser_result_with_gate(
+fn pdf_ocr_execution_config(
   source : @input.InputSource,
   context : @parser.ParseContext,
-) -> Result[@parser.ParseResult, @parser.ParseResult] {
-  let capability = pdf_native_parser_capability()
-  match context.pdf_native_runtime_policy {
-    @parser.PdfNativeRuntimePolicy::EnableTextRestore =>
-      pdf_native_parser_enabled_result(source, context, capability)
-    @parser.PdfNativeRuntimePolicy::DisableTextRestore => {
-      let diagnostics = pdf_native_fail_closed_diagnostics(source, context)
-      Err(
-        @parser.parse_result_with_document_capability(
-          pdf_native_parser_name(),
-          @parser.ParserMode::PageSinglePass,
-          @core.document_with_diagnostics(
-            @core.empty_document_ir(),
-            diagnostics,
-          ),
-          diagnostics,
-          capability,
-        ),
-      )
-    }
-  }
-}
-
-///|
-pub fn pdf_native_parser() -> @parser.Parser {
-  let capability = pdf_native_parser_capability()
-  @parser.make_parser(
-    pdf_native_parser_name(),
-    @parser.ParserMode::PageSinglePass,
-    capability,
-    fn(
-      source : @input.InputSource,
-      context : @parser.ParseContext,
-    ) -> Result[@parser.ParseResult, String] {
-      match pdf_native_parser_result_with_gate(source, context) {
-        Ok(result) => Ok(result)
-        Err(result) =>
-          match context.pdf_native_runtime_policy {
-            @parser.PdfNativeRuntimePolicy::EnableTextRestore =>
-              Err(pdf_native_parser_error_message(result.diagnostics))
-            @parser.PdfNativeRuntimePolicy::DisableTextRestore => {
-              ignore(result)
-              Err(pdf_native_fail_closed_message())
-            }
-          }
-      }
-    },
-  )
-}
-
-///|
-pub fn pdf_ocr_parser_result(
-  source : @input.InputSource,
-  context : @parser.ParseContext,
-  image_ocr_provider? : (@focr.OcrProviderRequest) -> Result[
-    @focr.OcrProviderResult,
-    @focr.OcrProviderError,
-  ] = @focr.run_ocr_provider,
-  rasterizer? : (@input.InputSource) -> Result[
-    (PdfRasterResult, String),
-    PdfRasterizerError,
-  ] = rasterize_pdf_with_pdftoppm_default,
-) -> Result[@parser.ParseResult, String] {
-  let options = context.ocr_options
+) -> Result[PdfOcrExecutionConfig, String] {
   let provider_target = match context.fidelity_mode {
     @product.FidelityMode::Accurate =>
       @focr.OcrProviderSelectionTarget::PdfAccurate
@@ -266,141 +125,181 @@ pub fn pdf_ocr_parser_result(
   } else {
     None
   }
-  let rasterized = match rasterizer(source) {
-    Ok(value) => value
-    Err(error) => return Err(pdf_raster_provider_error_message(error))
-  }
-  let raster_result = rasterized.0
-  let temp_dir = rasterized.1
-  defer cleanup_pdf_ocr_temp_dir(temp_dir)
+  Ok({ provider_target, provider_kind, native_document })
+}
 
-  let blocks : Array[@core.CoreBlock] = []
-  let warnings : Array[String] = []
-  let mut raster_failure_count = 0
-  let mut ocr_failure_count = 0
-  let mut ocr_success_count = 0
-  let mut native_text_page_count = 0
-  let fatal_dependency_errors : Array[String] = []
-  let fatal_dependency_diagnostics : Array[@core.DependencyDiagnostic] = []
-  for page in raster_result.pages {
-    let page_index = page.page_index + 1
-    if native_document is Some(document) &&
-      context.pdf_ocr_policy == @parser.PdfOcrPolicy::AutoScanned &&
-      page_index <= document.pages.length() &&
-      pdf_native_page_has_text(document.pages[page.page_index]) {
-      native_text_page_count += 1
-      blocks.append(
-        pdf_native_page_to_paragraph_blocks(document.pages[page.page_index])[:],
+///|
+fn pdf_ocr_accumulation_state() -> PdfOcrAccumulationState {
+  {
+    blocks: [],
+    warnings: [],
+    fatal_dependency_errors: [],
+    fatal_dependency_diagnostics: [],
+    raster_failure_count: { val: 0 },
+    ocr_failure_count: { val: 0 },
+    ocr_success_count: { val: 0 },
+    native_text_page_count: { val: 0 },
+  }
+}
+
+///|
+fn pdf_ocr_use_native_text_page(
+  context : @parser.ParseContext,
+  native_document : PdfNativeDocument?,
+  page_index : Int,
+) -> Array[@core.CoreBlock]? {
+  if native_document is Some(document) &&
+    context.pdf_ocr_policy == @parser.PdfOcrPolicy::AutoScanned &&
+    page_index <= document.pages.length() &&
+    pdf_native_page_has_text(document.pages[page_index - 1]) {
+    Some(pdf_native_page_to_paragraph_blocks(document.pages[page_index - 1]))
+  } else {
+    None
+  }
+}
+
+///|
+fn pdf_ocr_record_native_text_page(
+  state : PdfOcrAccumulationState,
+  blocks : Array[@core.CoreBlock],
+) -> Unit {
+  state.native_text_page_count.val = state.native_text_page_count.val + 1
+  state.blocks.append(blocks[:])
+}
+
+///|
+fn pdf_ocr_record_raster_failure(
+  state : PdfOcrAccumulationState,
+  warning : String,
+) -> Unit {
+  state.raster_failure_count.val = state.raster_failure_count.val + 1
+  state.warnings.push(warning)
+}
+
+///|
+fn pdf_ocr_record_empty_provider_result(
+  state : PdfOcrAccumulationState,
+  page_index : Int,
+) -> Unit {
+  state.ocr_failure_count.val = state.ocr_failure_count.val + 1
+  state.warnings.push("pdf_ocr_page_empty:index=" + page_index.to_string())
+}
+
+///|
+fn pdf_ocr_record_provider_success(
+  state : PdfOcrAccumulationState,
+  source : @input.InputSource,
+  page_index : Int,
+  result : @focr.OcrProviderResult,
+) -> Unit {
+  if result.pages.length() == 0 {
+    pdf_ocr_record_empty_provider_result(state, page_index)
+    return
+  }
+  for model in result.pages {
+    state.blocks.append(
+      @focr.ocr_page_blocks_from_page(
+        source,
+        @input.DetectedFormat::Pdf,
+        page_index,
+        model,
+      )[:],
+    )
+    state.ocr_success_count.val = state.ocr_success_count.val + 1
+  }
+}
+
+///|
+fn pdf_ocr_record_provider_error(
+  state : PdfOcrAccumulationState,
+  provider_target : @focr.OcrProviderSelectionTarget,
+  page_index : Int,
+  error : @focr.OcrProviderError,
+) -> Unit {
+  state.ocr_failure_count.val = state.ocr_failure_count.val + 1
+  match error {
+    @focr.OcrProviderError::NotConfigured(message) => {
+      state.fatal_dependency_errors.push(message)
+      state.fatal_dependency_diagnostics.push(
+        @focr.ocr_dependency_diagnostic_for_target(provider_target),
       )
-      continue
     }
-    if !page.success {
-      raster_failure_count += 1
-      warnings.push("pdf_raster_page_failed:index=" + page_index.to_string())
-      continue
+    @focr.OcrProviderError::CommandUnavailable(message) => {
+      state.fatal_dependency_errors.push(message)
+      state.fatal_dependency_diagnostics.push(
+        @focr.ocr_dependency_diagnostic_for_target(provider_target),
+      )
     }
-    let image_path = match page.image_path {
-      Some(path) => path
-      None => {
-        raster_failure_count += 1
-        warnings.push(
-          "pdf_raster_page_missing_image:index=" + page_index.to_string(),
-        )
-        continue
-      }
-    }
-    let request = @focr.make_ocr_provider_request(
-      image_path,
-      provider_kind,
-      language=options.language,
-    )
-    match image_ocr_provider(request) {
-      Ok(result) =>
-        if result.pages.length() == 0 {
-          ocr_failure_count += 1
-          warnings.push("pdf_ocr_page_empty:index=" + page_index.to_string())
-        } else {
-          for model in result.pages {
-            blocks.append(
-              @focr.ocr_page_blocks_from_page(
-                source,
-                @input.DetectedFormat::Pdf,
-                page_index,
-                model,
-              )[:],
-            )
-            ocr_success_count += 1
-          }
-        }
-      Err(error) => {
-        ocr_failure_count += 1
-        match error {
-          @focr.OcrProviderError::NotConfigured(message) => {
-            fatal_dependency_errors.push(message)
-            fatal_dependency_diagnostics.push(
-              @focr.ocr_dependency_diagnostic_for_target(provider_target),
-            )
-          }
-          @focr.OcrProviderError::CommandUnavailable(message) => {
-            fatal_dependency_errors.push(message)
-            fatal_dependency_diagnostics.push(
-              @focr.ocr_dependency_diagnostic_for_target(provider_target),
-            )
-          }
-          _ => ()
-        }
-        warnings.push(
-          "pdf_ocr_page_failed:index=" +
-          page_index.to_string() +
-          " reason=" +
-          error.to_string(),
-        )
-      }
-    }
+    _ => ()
   }
+  state.warnings.push(
+    "pdf_ocr_page_failed:index=" +
+    page_index.to_string() +
+    " reason=" +
+    error.to_string(),
+  )
+}
 
-  if blocks.length() == 0 {
-    if fatal_dependency_errors.length() > 0 {
-      return Err(fatal_dependency_errors[0])
-    }
-    return Err(
-      "PDF OCR produced no successful pages on this runtime. " +
-      pdf_raster_backend_install_hint(),
-    )
+///|
+fn pdf_ocr_empty_result_error(state : PdfOcrAccumulationState) -> String {
+  if state.fatal_dependency_errors.length() > 0 {
+    state.fatal_dependency_errors[0]
+  } else {
+    "PDF OCR produced no successful pages on this runtime. " +
+    pdf_raster_backend_install_hint()
   }
+}
+
+///|
+fn pdf_ocr_finalize_result(
+  source : @input.InputSource,
+  context : @parser.ParseContext,
+  config : PdfOcrExecutionConfig,
+  raster_result : PdfRasterResult,
+  state : PdfOcrAccumulationState,
+) -> Result[@parser.ParseResult, String] {
+  if state.blocks.length() == 0 {
+    return Err(pdf_ocr_empty_result_error(state))
+  }
+  let ocr_success_count = state.ocr_success_count.val
+  let ocr_failure_count = state.ocr_failure_count.val
+  let raster_failure_count = state.raster_failure_count.val
+  let native_text_page_count = state.native_text_page_count.val
   let diagnostics = @focr.ocr_base_diagnostics(
     pdf_ocr_parser_name(),
     source,
     @input.DetectedFormat::Pdf,
-    options,
+    context.ocr_options,
     Some(@parser.ParserMode::LayoutTwoStage),
-    provider_target,
+    config.provider_target,
   )
-  diagnostics.dependency_diagnostics.append(fatal_dependency_diagnostics[:])
+  diagnostics.dependency_diagnostics.append(
+    state.fatal_dependency_diagnostics[:],
+  )
   diagnostics.metrics.set("input_kind", pdf_native_input_kind_name(source.kind))
   diagnostics.metrics.set("ocr_provider_wired", "true")
   diagnostics.metrics.set("provider_invoked", "true")
   diagnostics.metrics.set("ocr_provider_status", "success")
   diagnostics.metrics.set(
     "ocr_provider_selection_target",
-    @focr.ocr_provider_selection_target_name(provider_target),
+    @focr.ocr_provider_selection_target_name(config.provider_target),
   )
   diagnostics.metrics.set(
     "ocr_provider_requested_kind",
     @focr.ocr_provider_kind_name(
-      @focr.default_ocr_provider_kind_for_target(provider_target),
+      @focr.default_ocr_provider_kind_for_target(config.provider_target),
     ),
   )
   diagnostics.metrics.set(
     "ocr_provider_kind",
-    @focr.ocr_provider_kind_name(provider_kind),
+    @focr.ocr_provider_kind_name(config.provider_kind),
   )
   diagnostics.metrics.set(
     "ocr_provider_name",
-    @focr.ocr_provider_kind_name(provider_kind),
+    @focr.ocr_provider_kind_name(config.provider_kind),
   )
   diagnostics.metrics.set("ocr_provider_version", "unknown")
-  diagnostics.metrics.set("block_count", blocks.length().to_string())
+  diagnostics.metrics.set("block_count", state.blocks.length().to_string())
   diagnostics.metrics.set("image_count", "0")
   diagnostics.metrics.set("asset_count", "0")
   diagnostics.metrics.set("page_count", raster_result.page_count.to_string())
@@ -523,7 +422,7 @@ pub fn pdf_ocr_parser_result(
   for item in raster_result.diagnostics {
     diagnostics.warnings.push("pdf_raster_diagnostic: " + item)
   }
-  for item in warnings {
+  for item in state.warnings {
     diagnostics.warnings.push(item)
   }
   diagnostics.pass_trace.push("parse:pdf_ocr_parser")
@@ -534,7 +433,7 @@ pub fn pdf_ocr_parser_result(
     diagnostics.pass_trace.push("pdf_ocr:explicit_full_document")
   }
 
-  let document = @core.document_from_blocks(blocks)
+  let document = @core.document_from_blocks(state.blocks)
   document.metadata.set("pdf_ocr_used", @core.JsonValue::Bool(true))
   document.metadata.set(
     "pdf_native_text_baseline",
@@ -581,6 +480,312 @@ pub fn pdf_ocr_parser_result(
       pdf_ocr_parser_capability(),
     ),
   )
+}
+
+///|
+/// Produce diagnostics for the native PDF route when policy intentionally
+/// blocks text restore.
+pub fn pdf_native_fail_closed_diagnostics(
+  source : @input.InputSource,
+  context : @parser.ParseContext,
+) -> @core.Diagnostics {
+  let diagnostics = @core.diagnostics_with_input(
+    @core.diagnostics_with_parser(
+      @core.empty_diagnostics(),
+      Some(pdf_native_parser_name()),
+      Some(@parser.mode_name(@parser.ParserMode::PageSinglePass)),
+    ),
+    Some(pdf_native_input_kind_name(source.kind)),
+    Some("pdf"),
+  )
+  diagnostics.warnings.push(pdf_native_fail_closed_message())
+  diagnostics.degraded_features.push("pdf_native_policy_gate")
+  diagnostics.fallback_trace.push(
+    "pdf native parser policy gate -> fail closed until text restore is enabled",
+  )
+  diagnostics.pass_trace.push("parse:pdf_native_parser")
+  diagnostics.metrics.set("parser_name", pdf_native_parser_name())
+  diagnostics.metrics.set("parser_mode", "page_single_pass")
+  diagnostics.metrics.set("input_kind", pdf_native_input_kind_name(source.kind))
+  diagnostics.metrics.set("detected_format", "pdf")
+  diagnostics.metrics.set(
+    "requested_mode",
+    pdf_native_requested_mode_name(context),
+  )
+  diagnostics.metrics.set("effective_mode", "page_single_pass")
+  diagnostics.metrics.set("ir_input_kind", "document")
+  diagnostics.metrics.set("event_granularity", "page")
+  diagnostics.metrics.set("page_count", "0")
+  diagnostics.metrics.set("table_count", "0")
+  diagnostics.metrics.set("image_count", "0")
+  diagnostics.metrics.set("asset_count", "0")
+  diagnostics.metrics.set("scanned_page_ratio", "0")
+  diagnostics.metrics.set("ocr_used_pages", "0")
+  diagnostics.metrics.set("model_used", "none")
+  diagnostics.metrics.set("model_confidence", "0")
+  diagnostics.metrics.set("pdf_native_backend", "false")
+  diagnostics.metrics.set("pdf_native_text_baseline", "false")
+  diagnostics.metrics.set("pdf_ocr_used", "false")
+  diagnostics.metrics.set("pdf_v2_used", "false")
+  diagnostics.metrics.set("pdf_empty_text_layer", "false")
+  diagnostics.metrics.set(
+    "pdf_header_footer_filter_policy",
+    @parser.pdf_header_footer_filter_policy_name(
+      context.pdf_header_footer_filter_policy,
+    ),
+  )
+  diagnostics.metrics.set(
+    "pdf_header_footer_filter_enabled",
+    if context.pdf_header_footer_filter_policy ==
+      @parser.PdfHeaderFooterFilterPolicy::Disabled {
+      "false"
+    } else {
+      "true"
+    },
+  )
+  diagnostics.metrics.set("pdf_header_footer_removed_count", "0")
+  diagnostics.metrics.set(
+    "pdf_table_reconstruction_policy",
+    @parser.pdf_table_reconstruction_policy_name(
+      context.pdf_table_reconstruction_policy,
+    ),
+  )
+  diagnostics.metrics.set(
+    "pdf_table_reconstruction_enabled",
+    if context.pdf_table_reconstruction_policy ==
+      @parser.PdfTableReconstructionPolicy::Disabled {
+      "false"
+    } else {
+      "true"
+    },
+  )
+  diagnostics.metrics.set("pdf_table_reconstruction_table_count", "0")
+  diagnostics.metrics.set("fallback_reason", "pdf_native_restore_not_enabled")
+  diagnostics.metrics.set("fallback_reason_kind", "parser_policy_gate")
+  diagnostics.metrics.set("warning_count", "1")
+  diagnostics.metrics.set("error_count", "0")
+  diagnostics.metrics.set("fallback_count", "1")
+  diagnostics.metrics.set("product_path_enabled", "false")
+  diagnostics.metrics.set("format_contract", "pdf")
+  diagnostics.metrics.set("native_impl_location", "formats")
+  diagnostics.metrics.set("pdf_native_parser_gate", "disabled")
+  diagnostics.metrics.set(
+    "pdf_native_runtime_policy",
+    @parser.pdf_native_runtime_policy_name(context.pdf_native_runtime_policy),
+  )
+  diagnostics
+}
+
+///|
+/// Return the native PDF parser result, including fail-closed diagnostics when
+/// the runtime gate is disabled.
+pub fn pdf_native_parser_result(
+  source : @input.InputSource,
+  context : @parser.ParseContext,
+) -> @parser.ParseResult {
+  match pdf_native_parser_result_with_gate(source, context) {
+    Ok(result) => result
+    Err(result) => result
+  }
+}
+
+///|
+fn pdf_native_parser_result_with_gate(
+  source : @input.InputSource,
+  context : @parser.ParseContext,
+) -> Result[@parser.ParseResult, @parser.ParseResult] {
+  let capability = pdf_native_parser_capability()
+  match context.pdf_native_runtime_policy {
+    @parser.PdfNativeRuntimePolicy::EnableTextRestore =>
+      pdf_native_parser_enabled_result(source, context, capability)
+    @parser.PdfNativeRuntimePolicy::DisableTextRestore => {
+      let diagnostics = pdf_native_fail_closed_diagnostics(source, context)
+      Err(
+        @parser.parse_result_with_document_capability(
+          pdf_native_parser_name(),
+          @parser.ParserMode::PageSinglePass,
+          @core.document_with_diagnostics(
+            @core.empty_document_ir(),
+            diagnostics,
+          ),
+          diagnostics,
+          capability,
+        ),
+      )
+    }
+  }
+}
+
+///|
+/// Construct the native-text PDF parser entrypoint.
+pub fn pdf_native_parser() -> @parser.Parser {
+  let capability = pdf_native_parser_capability()
+  @parser.make_parser(
+    pdf_native_parser_name(),
+    @parser.ParserMode::PageSinglePass,
+    capability,
+    fn(
+      source : @input.InputSource,
+      context : @parser.ParseContext,
+    ) -> Result[@parser.ParseResult, String] {
+      match pdf_native_parser_result_with_gate(source, context) {
+        Ok(result) => Ok(result)
+        Err(result) =>
+          match context.pdf_native_runtime_policy {
+            @parser.PdfNativeRuntimePolicy::EnableTextRestore =>
+              Err(pdf_native_parser_error_message(result.diagnostics))
+            @parser.PdfNativeRuntimePolicy::DisableTextRestore => {
+              ignore(result)
+              Err(pdf_native_fail_closed_message())
+            }
+          }
+      }
+    },
+  )
+}
+
+///|
+pub fn pdf_ocr_parser_result(
+  source : @input.InputSource,
+  context : @parser.ParseContext,
+  image_ocr_provider? : (@focr.OcrProviderRequest) -> Result[
+    @focr.OcrProviderResult,
+    @focr.OcrProviderError,
+  ] = @focr.run_ocr_provider,
+  rasterizer? : (@input.InputSource) -> Result[
+    (PdfRasterResult, String),
+    PdfRasterizerError,
+  ] = rasterize_pdf_with_pdftoppm_default,
+) -> Result[@parser.ParseResult, String] {
+  let config = match pdf_ocr_execution_config(source, context) {
+    Ok(value) => value
+    Err(err) => return Err(err)
+  }
+  let rasterized = match rasterizer(source) {
+    Ok(value) => value
+    Err(error) => return Err(pdf_raster_provider_error_message(error))
+  }
+  let raster_result = rasterized.0
+  let temp_dir = rasterized.1
+  defer cleanup_pdf_ocr_temp_dir(temp_dir)
+  let state = pdf_ocr_accumulation_state()
+  for page in raster_result.pages {
+    let page_index = page.page_index + 1
+    match
+      pdf_ocr_use_native_text_page(context, config.native_document, page_index) {
+      Some(blocks) => {
+        pdf_ocr_record_native_text_page(state, blocks)
+        continue
+      }
+      None => ()
+    }
+    if !page.success {
+      pdf_ocr_record_raster_failure(
+        state,
+        "pdf_raster_page_failed:index=" + page_index.to_string(),
+      )
+      continue
+    }
+    let image_path = match page.image_path {
+      Some(path) => path
+      None => {
+        pdf_ocr_record_raster_failure(
+          state,
+          "pdf_raster_page_missing_image:index=" + page_index.to_string(),
+        )
+        continue
+      }
+    }
+    let request = @focr.make_ocr_provider_request(
+      image_path,
+      config.provider_kind,
+      language=context.ocr_options.language,
+    )
+    match image_ocr_provider(request) {
+      Ok(result) =>
+        pdf_ocr_record_provider_success(state, source, page_index, result)
+      Err(error) =>
+        pdf_ocr_record_provider_error(
+          state,
+          config.provider_target,
+          page_index,
+          error,
+        )
+    }
+  }
+  pdf_ocr_finalize_result(source, context, config, raster_result, state)
+}
+
+///|
+pub async fn pdf_ocr_parser_result_async(
+  source : @input.InputSource,
+  context : @parser.ParseContext,
+  image_ocr_provider? : async (@focr.OcrProviderRequest) -> Result[
+    @focr.OcrProviderResult,
+    @focr.OcrProviderError,
+  ] = @focr.run_ocr_provider_async,
+  rasterizer? : async (@input.InputSource) -> Result[
+    (PdfRasterResult, String),
+    PdfRasterizerError,
+  ] = rasterize_pdf_with_pdftoppm_default_async,
+) -> Result[@parser.ParseResult, String] {
+  let config = match pdf_ocr_execution_config(source, context) {
+    Ok(value) => value
+    Err(err) => return Err(err)
+  }
+  let rasterized = match rasterizer(source) {
+    Ok(value) => value
+    Err(error) => return Err(pdf_raster_provider_error_message(error))
+  }
+  let raster_result = rasterized.0
+  let temp_dir = rasterized.1
+  defer cleanup_pdf_ocr_temp_dir(temp_dir)
+  let state = pdf_ocr_accumulation_state()
+  for page in raster_result.pages {
+    let page_index = page.page_index + 1
+    match
+      pdf_ocr_use_native_text_page(context, config.native_document, page_index) {
+      Some(blocks) => {
+        pdf_ocr_record_native_text_page(state, blocks)
+        continue
+      }
+      None => ()
+    }
+    if !page.success {
+      pdf_ocr_record_raster_failure(
+        state,
+        "pdf_raster_page_failed:index=" + page_index.to_string(),
+      )
+      continue
+    }
+    let image_path = match page.image_path {
+      Some(path) => path
+      None => {
+        pdf_ocr_record_raster_failure(
+          state,
+          "pdf_raster_page_missing_image:index=" + page_index.to_string(),
+        )
+        continue
+      }
+    }
+    let request = @focr.make_ocr_provider_request(
+      image_path,
+      config.provider_kind,
+      language=context.ocr_options.language,
+    )
+    match image_ocr_provider(request) {
+      Ok(result) =>
+        pdf_ocr_record_provider_success(state, source, page_index, result)
+      Err(error) =>
+        pdf_ocr_record_provider_error(
+          state,
+          config.provider_target,
+          page_index,
+          error,
+        )
+    }
+  }
+  pdf_ocr_finalize_result(source, context, config, raster_result, state)
 }
 
 ///|

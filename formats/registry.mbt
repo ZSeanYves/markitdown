@@ -1,4 +1,5 @@
 ///|
+/// Register all built-in format parsers into a registry instance.
 pub fn register_builtin_parsers(registry : @parser.ParserRegistry) -> Unit {
   @parser.registry_register(
     registry,
@@ -122,6 +123,11 @@ pub fn register_builtin_parsers(registry : @parser.ParserRegistry) -> Unit {
   )
   @parser.registry_register(
     registry,
+    @input.DetectedFormat::Pdf,
+    @fpdf.pdf_ocr_parser(),
+  )
+  @parser.registry_register(
+    registry,
     @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
     @faudio.audio_parser(),
   )
@@ -188,6 +194,7 @@ pub fn register_builtin_parsers(registry : @parser.ParserRegistry) -> Unit {
 }
 
 ///|
+/// Construct a fresh registry populated with all built-in parsers.
 pub fn builtin_registry() -> @parser.ParserRegistry {
   let registry = @parser.empty_registry()
   register_builtin_parsers(registry)

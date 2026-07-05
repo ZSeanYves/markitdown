@@ -1,4 +1,5 @@
 ///|
+/// Convert a parser result into the single public IR shape it actually exposes.
 pub fn parse_result_to_ir_input(result : @parser.ParseResult) -> @core.IRInput {
   match result.document {
     Some(document) => @core.IRInput::Document(document)
@@ -19,6 +20,8 @@ pub fn parse_result_to_ir_input(result : @parser.ParseResult) -> @core.IRInput {
 }
 
 ///|
+/// Merge diagnostics while deduplicating repeated arrays such as warnings and
+/// fallback traces.
 pub fn merge_diagnostics_unique(
   left : @core.Diagnostics,
   right : @core.Diagnostics,
@@ -27,6 +30,7 @@ pub fn merge_diagnostics_unique(
 }
 
 ///|
+/// Merge diagnostics while preserving repeated entries in order.
 pub fn merge_diagnostics_append(
   left : @core.Diagnostics,
   right : @core.Diagnostics,
@@ -35,6 +39,8 @@ pub fn merge_diagnostics_append(
 }
 
 ///|
+/// Result of parsing a child document when the caller only needs blocks,
+/// assets, and merged diagnostics.
 pub struct ChildBlockProduct {
   blocks : Array[@core.CoreBlock]
   assets : Array[@core.AssetRef]
@@ -42,6 +48,8 @@ pub struct ChildBlockProduct {
 }
 
 ///|
+/// Parse a nested/child source and normalize it into blocks plus merged
+/// diagnostics for the parent document.
 pub fn parse_child_to_block_product(
   registry : @parser.ParserRegistry,
   source : @input.InputSource,
@@ -92,6 +100,7 @@ pub fn parse_child_to_block_product(
 }
 
 ///|
+/// Parse a nested/child source and normalize it all the way to `DocumentIR`.
 pub fn parse_child_to_document(
   registry : @parser.ParserRegistry,
   source : @input.InputSource,

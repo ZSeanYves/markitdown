@@ -11,6 +11,8 @@ pub type HeadingPath = Array[String]
 pub type DocumentMetadata = Map[String, JsonValue]
 
 ///|
+/// Public IR entry shapes exchanged between parsers, the pass pipeline, and
+/// renderers.
 pub(all) enum IRInput {
   EventStream(Array[CoreEvent])
   BlockStream(Array[CoreBlock])
@@ -18,6 +20,11 @@ pub(all) enum IRInput {
 }
 
 ///|
+/// Canonical document model carried through the unified product path.
+///
+/// `blocks` is the renderable tree. `signals`, `source_map`, and `assembly`
+/// keep extra recovery results that later passes, renderers, and provenance
+/// outputs can consume without rescanning raw parser state.
 pub(all) struct DocumentIR {
   blocks : Array[CoreBlock]
   metadata : DocumentMetadata
@@ -46,6 +53,10 @@ pub(all) enum BlockKind {
 } derive(Eq)
 
 ///|
+/// One recovered block in the canonical IR tree.
+///
+/// `text` is the plain-text fallback used by many render paths, while
+/// `rich_inlines` preserves richer inline semantics when the parser has them.
 pub(all) struct CoreBlock {
   block_id : BlockId
   kind : BlockKind
@@ -104,6 +115,10 @@ pub(all) struct AssetBinding {
 }
 
 ///|
+/// Recovered structural overlays built after parsing.
+///
+/// These indexes let downstream code reason about sections, captions, reading
+/// order, and asset ownership without re-deriving them from the block tree.
 pub(all) struct DocumentAssembly {
   root_block_ids : Array[BlockId]
   sections : Array[SectionNode]
@@ -124,6 +139,8 @@ pub(all) enum InlineKind {
 } derive(Eq)
 
 ///|
+/// Rich inline content attached to a block when plain text alone is not
+/// enough.
 pub(all) struct CoreInline {
   kind : InlineKind
   text : String
@@ -157,6 +174,8 @@ pub(all) enum SignalType {
 } derive(Eq)
 
 ///|
+/// Parser- or pipeline-emitted semantic hints that help later passes recover
+/// structure conservatively.
 pub(all) struct CoreSignal {
   signal_type : SignalType
   confidence : Int
@@ -164,6 +183,7 @@ pub(all) struct CoreSignal {
 }
 
 ///|
+/// Provenance for one public block or asset entry in a `SourceMap`.
 pub(all) struct SourceMapEntry {
   primary_ref : SourceRef?
   refs : Array[SourceRef]
@@ -173,6 +193,7 @@ pub(all) struct SourceMapEntry {
 }
 
 ///|
+/// Public-facing provenance map kept alongside a `DocumentIR`.
 pub(all) struct SourceMap {
   document_ref : SourceRef?
   block_entries : Array[SourceMapEntry]
@@ -180,6 +201,8 @@ pub(all) struct SourceMap {
 }
 
 ///|
+/// A location pointer that can target files, pages, slides, sheets, archive
+/// entries, markup paths, or media time ranges.
 pub(all) struct SourceRef {
   file_id : String?
   format : String?
@@ -234,6 +257,7 @@ pub(all) enum ContainerSecurityFinding {
 } derive(Eq)
 
 ///|
+/// Observed archive or package entry after normalization and security checks.
 pub(all) struct ContainerEntry {
   entry_path : String
   normalized_path : String?
@@ -251,6 +275,7 @@ pub(all) struct ContainerEntry {
 }
 
 ///|
+/// Raw geometry in page- or image-local coordinates.
 pub(all) struct BBox {
   x0 : Double
   y0 : Double
@@ -259,6 +284,7 @@ pub(all) struct BBox {
 }
 
 ///|
+/// Lightweight recovered style identity attached to a block.
 pub(all) struct StyleRef {
   style_id : String?
   style_name : String?
@@ -275,6 +301,7 @@ pub(all) enum AssetKind {
 } derive(Eq)
 
 ///|
+/// Referenced binary or logical asset discovered during parsing.
 pub(all) struct AssetRef {
   asset_kind : AssetKind
   asset_id : String
@@ -285,6 +312,8 @@ pub(all) struct AssetRef {
 }
 
 ///|
+/// Cross-stage diagnostics and execution metadata accumulated along the product
+/// path.
 pub(all) struct Diagnostics {
   parser_name : String?
   parser_mode : String?
@@ -312,6 +341,8 @@ pub(all) enum DependencyDiagnosticStatus {
 } derive(Eq)
 
 ///|
+/// Install or runtime dependency state surfaced with concrete remediation
+/// hints.
 pub(all) struct DependencyDiagnostic {
   kind : String
   title : String
@@ -323,6 +354,7 @@ pub(all) struct DependencyDiagnostic {
 }
 
 ///|
+/// Minimal JSON value model used in metadata, signals, and debug output.
 pub(all) enum JsonValue {
   Object(Map[String, JsonValue])
   Array(Array[JsonValue])
@@ -350,6 +382,8 @@ pub(all) enum EventKind {
 } derive(Eq)
 
 ///|
+/// Lowest-common-denominator streaming event used by event parsers and fast
+/// render paths.
 pub(all) struct CoreEvent {
   kind : EventKind
   text : String

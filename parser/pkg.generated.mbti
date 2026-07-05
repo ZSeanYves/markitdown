@@ -8,9 +8,21 @@ import {
 }
 
 // Values
+pub fn async_parser_from_sync(Parser) -> AsyncParser
+
+pub fn async_registry_from_sync(ParserRegistry) -> AsyncParserRegistry
+
+pub fn async_registry_lookup(AsyncParserRegistry, @input.DetectedFormat) -> AsyncParser?
+
+pub async fn async_registry_parse(AsyncParserRegistry, @input.InputSource, ParseContext) -> Result[ParseResult, String]
+
+pub fn async_registry_register(AsyncParserRegistry, @input.DetectedFormat, AsyncParser) -> Unit
+
 pub fn block_stream_parser_capability(StreamingGranularity, Bool, Bool, Bool, Bool, Bool, Bool, Bool) -> ParserCapability
 
 pub fn container_recursive_parser_capability(StreamingGranularity, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool) -> ParserCapability
+
+pub fn default_audio_options() -> AudioOptions
 
 pub fn default_ocr_options() -> OcrOptions
 
@@ -28,9 +40,15 @@ pub fn disabled_ocr_options(language? : String?) -> OcrOptions
 
 pub fn dom_ast_parser_capability(StreamingGranularity, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool) -> ParserCapability
 
+pub fn empty_async_registry() -> AsyncParserRegistry
+
 pub fn empty_registry() -> ParserRegistry
 
+pub fn explicit_audio_options(language? : String?) -> AudioOptions
+
 pub fn explicit_ocr_options(language? : String?) -> OcrOptions
+
+pub fn make_async_parser(String, ParserMode, ParserCapability, async (@input.InputSource, ParseContext) -> Result[ParseResult, String]) -> AsyncParser
 
 pub fn make_parser(String, ParserMode, ParserCapability, (@input.InputSource, ParseContext) -> Result[ParseResult, String]) -> Parser
 
@@ -43,6 +61,8 @@ pub fn new_parse_context(@input.DetectedFormat) -> ParseContext
 pub fn ocr_intent_name(OcrIntent) -> String
 
 pub fn package_with_block_route_parser_capability(StreamingGranularity, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool) -> ParserCapability
+
+pub fn parse_context_with_audio_options(ParseContext, AudioOptions) -> ParseContext
 
 pub fn parse_context_with_execution_profiles(ParseContext, @product.ExecutionProfile, @product.LoweringProfile, @product.RenderProfile, @product.AccurateFeatureProfile) -> ParseContext
 
@@ -97,6 +117,21 @@ pub fn streaming_granularity_name(StreamingGranularity) -> String
 // Errors
 
 // Types and methods
+pub struct AsyncParser {
+  name : String
+  mode : ParserMode
+  capability : ParserCapability
+  parse : async (@input.InputSource, ParseContext) -> Result[ParseResult, String]
+}
+
+pub struct AsyncParserRegistry {
+  parsers : Map[String, Array[AsyncParser]]
+}
+
+pub struct AudioOptions {
+  language : String?
+}
+
 pub(all) enum OcrIntent {
   Disabled
   Auto
@@ -118,6 +153,7 @@ pub struct ParseContext {
   render_profile : @product.RenderProfile
   accurate_features : @product.AccurateFeatureProfile
   ocr_options : OcrOptions
+  audio_options : AudioOptions
   pdf_ocr_policy : @product.PdfOcrPolicy
   pdf_native_runtime_policy : PdfNativeRuntimePolicy
   pdf_header_footer_filter_policy : PdfHeaderFooterFilterPolicy
@@ -184,7 +220,7 @@ pub(all) enum ParserMode {
 } derive(Eq)
 
 pub struct ParserRegistry {
-  parsers : Map[String, Parser]
+  parsers : Map[String, Array[Parser]]
 }
 
 pub(all) enum PdfHeaderFooterFilterPolicy {

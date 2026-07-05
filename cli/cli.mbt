@@ -5,12 +5,14 @@ const PRODUCT_NAME : String = "markitdown-mb"
 const PRODUCT_VERSION : String = "0.4.2"
 
 ///|
+/// Parsed CLI options normalized into the convert-layer request model.
 pub struct CliOptions {
   input : String
   output : String?
   provenance_output : String?
   explicit_format : @input.DetectedFormat?
   ocr_options : @parser.OcrOptions
+  audio_options : @parser.AudioOptions
   pdf_ocr_policy : @convert.PdfOcrPolicy
   fidelity_mode : @convert.FidelityMode
   convert_mode : @convert.ConvertMode
@@ -128,12 +130,12 @@ fn print_cli_usage() -> Unit {
   println(
     "  " +
     cli_product_name() +
-    " [convert|normal] [--format txt|csv|tsv|srt|vtt|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|eml|tex|latex|rst|adoc|asciidoc|zip|epub|odt|ods|odp|docx|xlsx|pptx|pdf|wav|mp3|m4a|png|jpg|jpeg|bmp|webp|tif|tiff] [--accurate] [--stream] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-ocr explicit|auto-scanned] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]",
+    " [convert|normal] [--format txt|csv|tsv|srt|vtt|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|eml|tex|latex|rst|adoc|asciidoc|zip|epub|odt|ods|odp|docx|xlsx|pptx|pdf|wav|mp3|m4a|png|jpg|jpeg|bmp|webp|tif|tiff] [--accurate] [--stream] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--audio-lang <LANG>] [--pdf-ocr explicit|auto-scanned] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]",
   )
   println(
     "  " +
     cli_product_name() +
-    " batch [--format txt|csv|tsv|srt|vtt|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|eml|tex|latex|rst|adoc|asciidoc|zip|epub|odt|ods|odp|docx|xlsx|pptx|pdf|wav|mp3|m4a|png|jpg|jpeg|bmp|webp|tif|tiff] [--accurate] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-ocr explicit|auto-scanned] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] <input> <output_dir>",
+    " batch [--format txt|csv|tsv|srt|vtt|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|eml|tex|latex|rst|adoc|asciidoc|zip|epub|odt|ods|odp|docx|xlsx|pptx|pdf|wav|mp3|m4a|png|jpg|jpeg|bmp|webp|tif|tiff] [--accurate] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--audio-lang <LANG>] [--pdf-ocr explicit|auto-scanned] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] <input> <output_dir>",
   )
   println("  " + cli_product_name() + " help | --help | -h")
   println("  " + cli_product_name() + " version | --version")
@@ -156,10 +158,10 @@ fn print_cli_usage() -> Unit {
     "Direct image input uses local Tesseract OCR by default; `--no-ocr` disables it. PDF OCR is controlled by `--pdf-ocr explicit|auto-scanned`; `--ocr` remains a compatibility alias for `pdf --pdf-ocr explicit`. `pdf --accurate` defaults to `auto-scanned` and enters the Paddle-backed OCR route only when scanned-like probe evidence upgrades the PDF.",
   )
   println(
-    "Optional Paddle runtime bridging for OCR providers is configured through `MARKITDOWN_PADDLE_OCR_CMD`; the adapter command receives `<image_path> [--lang <LANG>]` and must print the JSON payload expected by the current OCR provider bridge.",
+    "Accurate OCR and Accurate PDF OCR are still experimental. Optional Paddle runtime bridging is configured through `MARKITDOWN_PADDLE_OCR_CMD`; the official wrapper is `samples/helpers/paddle_ocr_wrapper.py`, and the adapter command receives `<image_path> [--lang <LANG>]` and must print the JSON payload expected by the current OCR provider bridge.",
   )
   println(
-    "Audio transcription bridging is configured through `MARKITDOWN_AUDIO_TRANSCRIBE_CMD`; the adapter command receives `<audio_path> --format <wav|mp3|m4a> [--lang <LANG>]` and must print the JSON payload expected by the current audio bridge.",
+    "Audio transcription uses local `whisper.cpp` (`whisper-cli`, with `main` as compatibility fallback) plus local `ffmpeg` for `m4a` normalization. Use `--audio-lang <LANG>` to pass an audio language hint, and optionally set `MARKITDOWN_AUDIO_MODEL_PATH` to override the default model path.",
   )
   println(
     "PDF cleanup and simple table reconstruction are explicit opt-in product options for native-text PDFs; current defaults stay conservative and disabled.",
@@ -278,6 +280,14 @@ fn cli_requested_format_from_input(
 }
 
 ///|
+fn cli_requested_format_is_audio(format : @input.DetectedFormat) -> Bool {
+  match format {
+    @input.DetectedFormat::Audio(_) => true
+    _ => false
+  }
+}
+
+///|
 fn cli_explicit_stream_warning_message(
   requested_format : @input.DetectedFormat,
 ) -> String {
@@ -385,6 +395,7 @@ fn cli_effective_pdf_ocr_policy(
 }
 
 ///|
+/// Build a normalized CLI options record after argument parsing.
 pub fn make_cli_options(
   input : String,
   output : String?,
@@ -400,6 +411,7 @@ pub fn make_cli_options(
   pdf_cleanup_mode? : @convert.PdfCleanupMode = @convert.default_pdf_cleanup_mode(),
   pdf_table_mode? : @convert.PdfTableMode = @convert.default_pdf_table_mode(),
   rag_options? : @rag.RagOptions = @rag.default_rag_options(),
+  audio_options? : @parser.AudioOptions = @parser.default_audio_options(),
 ) -> CliOptions {
   {
     input,
@@ -407,6 +419,7 @@ pub fn make_cli_options(
     provenance_output,
     explicit_format,
     ocr_options,
+    audio_options,
     pdf_ocr_policy,
     fidelity_mode,
     convert_mode,
@@ -420,16 +433,21 @@ pub fn make_cli_options(
 }
 
 ///|
+/// Run the CLI against the default OCR provider and return the rendered output
+/// payload.
 pub fn run_cli(opts : CliOptions) -> Result[String, String] {
   run_cli_with_image_ocr_provider(opts, @focr.run_ocr_provider)
 }
 
 ///|
+/// Async CLI entry that uses the async OCR provider bridge.
 pub async fn run_cli_async(opts : CliOptions) -> Result[String, String] {
   run_cli_with_async_image_ocr_provider(opts, @focr.run_ocr_provider_async)
 }
 
 ///|
+/// Run the CLI with an injected image OCR provider, mainly for tests and
+/// adapter boundaries.
 pub fn run_cli_with_image_ocr_provider(
   opts : CliOptions,
   image_ocr_provider : (@focr.OcrProviderRequest) -> Result[
@@ -455,6 +473,7 @@ pub fn run_cli_with_image_ocr_provider(
     opts.explicit_format,
     opts.ocr_options,
     @convert.default_resource_limits(),
+    audio_options=opts.audio_options,
     fidelity_mode=opts.fidelity_mode,
     output_mode=opts.output_mode,
     stream_requested=opts.stream_requested,
@@ -480,6 +499,7 @@ pub fn run_cli_with_image_ocr_provider(
 }
 
 ///|
+/// Async CLI execution with an injected async image OCR provider.
 pub async fn run_cli_with_async_image_ocr_provider(
   opts : CliOptions,
   image_ocr_provider : async (@focr.OcrProviderRequest) -> Result[
@@ -505,6 +525,7 @@ pub async fn run_cli_with_async_image_ocr_provider(
     opts.explicit_format,
     opts.ocr_options,
     @convert.default_resource_limits(),
+    audio_options=opts.audio_options,
     fidelity_mode=opts.fidelity_mode,
     output_mode=opts.output_mode,
     stream_requested=opts.stream_requested,
@@ -614,6 +635,8 @@ fn is_batch_subcommand(name : String) -> Bool {
 }
 
 ///|
+/// Top-level CLI app entry that parses raw argv and exits with a process-style
+/// status code.
 pub fn run_cli_app(raw_cli_args : Array[String]) -> Int {
   let first = match first_user_cli_arg(raw_cli_args) {
     Some(value) => value.to_lower()
@@ -764,6 +787,7 @@ fn parse_cli_options(args : Array[String]) -> Result[CliOptions, String] {
 fn parse_cli_options_from_index(
   args : Array[String],
   start_index : Int,
+  allow_batch_audio_language_without_explicit_format? : Bool = false,
 ) -> Result[CliOptions, String] {
   let positionals : Array[String] = []
   let mut explicit_format_raw : String? = None
@@ -771,6 +795,7 @@ fn parse_cli_options_from_index(
   let mut ocr_enabled = false
   let mut ocr_disabled = false
   let mut ocr_language : String? = None
+  let mut audio_language : String? = None
   let mut pdf_ocr_raw : String? = None
   let mut pdf_cleanup_raw : String? = None
   let mut pdf_tables_raw : String? = None
@@ -867,6 +892,18 @@ fn parse_cli_options_from_index(
       i += 2
       continue
     }
+    if arg == "--audio-lang" {
+      if i + 1 >= args.length() {
+        return Err("missing value for --audio-lang")
+      }
+      let value = args[i + 1].trim().to_owned()
+      if value == "" || value.has_prefix("-") {
+        return Err("missing value for --audio-lang")
+      }
+      audio_language = Some(value)
+      i += 2
+      continue
+    }
     if arg == "--pdf-ocr" {
       if i + 1 >= args.length() {
         return Err("missing value for --pdf-ocr")
@@ -925,9 +962,12 @@ fn parse_cli_options_from_index(
   if ocr_enabled && ocr_disabled {
     return Err("cannot combine --ocr and --no-ocr")
   }
+  if ocr_language is Some(_) && audio_language is Some(_) {
+    return Err("cannot combine --ocr-lang and --audio-lang")
+  }
   if positionals.length() < 1 || positionals.length() > 2 {
     return Err(
-      "usage: [convert|normal] [--format txt|csv|tsv|srt|vtt|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|eml|tex|latex|rst|adoc|asciidoc|zip|epub|odt|ods|odp|docx|xlsx|pptx|pdf|wav|mp3|m4a|png|jpg|jpeg|bmp|webp|tif|tiff] [--accurate] [--stream] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--pdf-ocr explicit|auto-scanned] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]",
+      "usage: [convert|normal] [--format txt|csv|tsv|srt|vtt|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|eml|tex|latex|rst|adoc|asciidoc|zip|epub|odt|ods|odp|docx|xlsx|pptx|pdf|wav|mp3|m4a|png|jpg|jpeg|bmp|webp|tif|tiff] [--accurate] [--stream] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--audio-lang <LANG>] [--pdf-ocr explicit|auto-scanned] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]",
     )
   }
   let effective_positionals = positionals
@@ -951,6 +991,9 @@ fn parse_cli_options_from_index(
     fidelity_mode,
     parsed_pdf_ocr_policy,
   )
+  if ocr_language is Some(_) && cli_requested_format_is_audio(requested_format) {
+    return Err("--ocr-lang cannot be used with audio input; use --audio-lang")
+  }
   if ocr_language is Some(_) &&
     !ocr_enabled &&
     !@input.detected_format_is_image_candidate(requested_format) &&
@@ -959,6 +1002,12 @@ fn parse_cli_options_from_index(
     return Err(
       "--ocr-lang requires --ocr, direct image input, or PDF OCR via `--ocr` / `--pdf-ocr`",
     )
+  }
+  if audio_language is Some(_) &&
+    !cli_requested_format_is_audio(requested_format) &&
+    !(allow_batch_audio_language_without_explicit_format &&
+    explicit_format is None) {
+    return Err("--audio-lang requires audio input (`wav`, `mp3`, or `m4a`)")
   }
   let ocr_options = cli_effective_ocr_options(
     effective_positionals[0],
@@ -969,6 +1018,7 @@ fn parse_cli_options_from_index(
     ocr_disabled,
     ocr_language,
   )
+  let audio_options = @parser.explicit_audio_options(language=audio_language)
   let pdf_cleanup_mode = match parse_pdf_cleanup_mode(pdf_cleanup_raw) {
     Ok(value) => value
     Err(msg) => return Err(msg)
@@ -998,6 +1048,7 @@ fn parse_cli_options_from_index(
       pdf_cleanup_mode~,
       pdf_table_mode~,
       rag_options=@rag.default_rag_options(),
+      audio_options~,
     ),
   )
 }
@@ -1142,10 +1193,27 @@ fn parse_batch_cli_options(
   args : Array[String],
   start_index : Int,
 ) -> Result[(CliOptions, String), String] {
-  let parsed = parse_cli_options_from_index(args, start_index)
+  let parsed = parse_cli_options_from_index(
+    args,
+    start_index,
+    allow_batch_audio_language_without_explicit_format=true,
+  )
   let opts = match parsed {
     Ok(value) => value
     Err(msg) => return Err(msg)
+  }
+  if opts.audio_options.language is Some(_) &&
+    !(match opts.explicit_format {
+      Some(
+        @input.DetectedFormat::Audio(
+          @input.AudioFormat::Wav
+          | @input.AudioFormat::Mp3
+          | @input.AudioFormat::M4a
+        )
+      ) => true
+      _ => false
+    }) {
+    return Err("batch --audio-lang requires explicit --format wav|mp3|m4a")
   }
   if opts.output is None {
     return Err("batch requires <input> <output_dir>")
@@ -1273,6 +1341,7 @@ fn run_single_batch_task(
     opts.explicit_format,
     opts.ocr_options,
     @convert.default_resource_limits(),
+    audio_options=opts.audio_options,
     fidelity_mode=opts.fidelity_mode,
     output_mode=opts.output_mode,
     stream_requested=opts.stream_requested,

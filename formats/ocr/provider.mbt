@@ -286,14 +286,14 @@ pub fn tesseract_ocr_dependency_diagnostic() -> @core.DependencyDiagnostic {
 pub fn paddle_ocr_install_hint() -> String {
   dependency_diagnostic_card(
     "Missing dependency: PaddleOCR bridge",
-    "Accurate OCR and Accurate PDF OCR require a Paddle-backed bridge command configured through `MARKITDOWN_PADDLE_OCR_CMD`.",
+    "Accurate OCR and Accurate PDF OCR are still experimental and currently require a Paddle-backed bridge command configured through `MARKITDOWN_PADDLE_OCR_CMD`.",
     [
-      "python3 -m pip install paddlepaddle paddleocr", "chmod +x samples/helpers/paddle_ocr_bridge.py",
-      "export MARKITDOWN_PADDLE_OCR_CMD=\"$PWD/samples/helpers/paddle_ocr_bridge.py\"",
+      "python3 -m pip install paddlepaddle paddleocr", "chmod +x samples/helpers/paddle_ocr_wrapper.py",
+      "export MARKITDOWN_PADDLE_OCR_CMD=\"$PWD/samples/helpers/paddle_ocr_wrapper.py\"",
     ],
     [
-      "python3 -m pip install paddlepaddle paddleocr", "chmod +x samples/helpers/paddle_ocr_bridge.py",
-      "export MARKITDOWN_PADDLE_OCR_CMD=\"$PWD/samples/helpers/paddle_ocr_bridge.py\"",
+      "python3 -m pip install paddlepaddle paddleocr", "chmod +x samples/helpers/paddle_ocr_wrapper.py",
+      "export MARKITDOWN_PADDLE_OCR_CMD=\"$PWD/samples/helpers/paddle_ocr_wrapper.py\"",
     ],
     footer=Some(
       "The adapter receives `<image_path> [--lang <LANG>]` and must print the JSON payload expected by the current Paddle bridge contract.",
@@ -305,14 +305,14 @@ pub fn paddle_ocr_install_hint() -> String {
 pub fn paddle_ocr_dependency_diagnostic() -> @core.DependencyDiagnostic {
   dependency_diagnostic_entry(
     "Missing dependency: PaddleOCR bridge",
-    "Accurate OCR and Accurate PDF OCR require a Paddle-backed bridge command configured through `MARKITDOWN_PADDLE_OCR_CMD`.",
+    "Accurate OCR and Accurate PDF OCR are still experimental and currently require a Paddle-backed bridge command configured through `MARKITDOWN_PADDLE_OCR_CMD`.",
     [
-      "python3 -m pip install paddlepaddle paddleocr", "chmod +x samples/helpers/paddle_ocr_bridge.py",
-      "export MARKITDOWN_PADDLE_OCR_CMD=\"$PWD/samples/helpers/paddle_ocr_bridge.py\"",
+      "python3 -m pip install paddlepaddle paddleocr", "chmod +x samples/helpers/paddle_ocr_wrapper.py",
+      "export MARKITDOWN_PADDLE_OCR_CMD=\"$PWD/samples/helpers/paddle_ocr_wrapper.py\"",
     ],
     [
-      "python3 -m pip install paddlepaddle paddleocr", "chmod +x samples/helpers/paddle_ocr_bridge.py",
-      "export MARKITDOWN_PADDLE_OCR_CMD=\"$PWD/samples/helpers/paddle_ocr_bridge.py\"",
+      "python3 -m pip install paddlepaddle paddleocr", "chmod +x samples/helpers/paddle_ocr_wrapper.py",
+      "export MARKITDOWN_PADDLE_OCR_CMD=\"$PWD/samples/helpers/paddle_ocr_wrapper.py\"",
     ],
     footer=Some(
       "The adapter receives `<image_path> [--lang <LANG>]` and must print the JSON payload expected by the current Paddle bridge contract.",

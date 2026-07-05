@@ -60,6 +60,11 @@ fn chunks_from_events(
   if events.length() == 0 {
     return []
   }
+  if subtitle_record_event_stream(diagnostics) {
+    return rag_subtitle_chunks_from_events(
+      events, metadata, diagnostics, options,
+    )
+  }
   if events[0].kind == @core.EventKind::TextLine ||
     events[0].kind == @core.EventKind::BlankLine {
     return rag_text_chunks_from_events(
@@ -103,6 +108,60 @@ fn chunks_from_events(
     options,
     record_batching~,
   )
+}
+
+///|
+fn subtitle_record_event_stream(diagnostics : @core.Diagnostics) -> Bool {
+  diagnostics.metrics.get("event_semantics") ==
+  Some("subtitle_record_event_stream")
+}
+
+///|
+fn rag_subtitle_chunks_from_events(
+  events : Array[@core.CoreEvent],
+  metadata : @core.DocumentMetadata,
+  diagnostics : @core.Diagnostics,
+  options : @rag.RagOptions,
+) -> Array[@rag.RagChunk] {
+  let refs : Array[@core.SourceRef] = []
+  let parts : Array[String] = []
+  let mut has_raw = false
+  for event in events {
+    append_unique_source_ref(
+      refs,
+      event.source_ref,
+      options.preserve_source_ref,
+    )
+    match event.kind {
+      @core.EventKind::StartBlock(@core.BlockKind::Raw) => {
+        has_raw = true
+        if event.text.trim() != "" {
+          parts.push(event.text)
+        }
+      }
+      @core.EventKind::StartBlock(@core.BlockKind::Heading)
+      | @core.EventKind::StartBlock(@core.BlockKind::Paragraph) =>
+        if event.text.trim() != "" {
+          parts.push(event.text)
+        }
+      _ => ()
+    }
+  }
+  if parts.length() == 0 {
+    return []
+  }
+  let kind = if has_raw { @rag.ChunkKind::Raw } else { @rag.ChunkKind::Text }
+  [
+    make_event_rag_chunk(
+      kind,
+      0,
+      parts.join("\n"),
+      refs,
+      [],
+      metadata,
+      diagnostics,
+    ),
+  ]
 }
 
 ///|

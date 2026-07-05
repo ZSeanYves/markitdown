@@ -146,6 +146,7 @@ if [[ -n "$SPECIAL_MODE" ]]; then
   esac
 fi
 
+sample_progress_update 0 0 "preparing CLI runner"
 resolve_markitdown_cli
 echo "runner: $CLI_RUNNER_KIND"
 if [[ -n "${CLI_RUNNER_NOTE:-}" ]]; then

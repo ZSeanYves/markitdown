@@ -1,4 +1,6 @@
 ///|
+/// Build diagnostics for direct event-stream rendering without a full document
+/// assembly step.
 fn stream_input_diagnostics(
   context : RenderContext,
   events : Array[@core.CoreEvent],
@@ -17,6 +19,8 @@ fn stream_input_diagnostics(
 }
 
 ///|
+/// Build diagnostics for direct block-stream rendering without a full document
+/// assembly step.
 fn block_stream_input_diagnostics(
   context : RenderContext,
   blocks : Array[@core.CoreBlock],

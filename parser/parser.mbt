@@ -38,6 +38,11 @@ pub(all) enum StreamingGranularity {
 } derive(Eq)
 
 ///|
+/// Public declaration of what a parser can emit and what route constraints it
+/// has.
+///
+/// `supports_*` describes the exposed IR shapes, while `produces_*` describes
+/// which semantics the implementation can preserve.
 pub struct ParserCapability {
   parser_mode : ParserMode
   supports_streaming : Bool
@@ -61,6 +66,10 @@ pub struct ParserCapability {
 }
 
 ///|
+/// End-to-end execution knobs passed from route planning into a parser.
+///
+/// This carries requested route shape, fidelity/output profiles, OCR or audio
+/// hints, and coarse resource limits.
 pub struct ParseContext {
   detected_format : @input.DetectedFormat
   requested_mode : ParserMode?
@@ -71,6 +80,7 @@ pub struct ParseContext {
   render_profile : @product.RenderProfile
   accurate_features : @product.AccurateFeatureProfile
   ocr_options : OcrOptions
+  audio_options : AudioOptions
   pdf_ocr_policy : PdfOcrPolicy
   pdf_native_runtime_policy : PdfNativeRuntimePolicy
   pdf_header_footer_filter_policy : PdfHeaderFooterFilterPolicy
@@ -111,12 +121,23 @@ pub(all) enum PdfTableReconstructionPolicy {
 } derive(Eq)
 
 ///|
+/// OCR settings shared by image and PDF OCR routes.
 pub struct OcrOptions {
   intent : OcrIntent
   language : String?
 }
 
 ///|
+/// Audio-transcription hints shared by media-pipeline parsers.
+pub struct AudioOptions {
+  language : String?
+}
+
+///|
+/// One parser result exposed to the rest of the product path.
+///
+/// Exactly one of `event_stream`, `block_stream`, or `document` is expected to
+/// be populated.
 pub struct ParseResult {
   parser_name : String
   mode : ParserMode
@@ -132,6 +153,7 @@ pub struct ParseResult {
 }
 
 ///|
+/// Parser registry entry used by canonical format dispatch.
 pub struct Parser {
   name : String
   mode : ParserMode
@@ -140,11 +162,32 @@ pub struct Parser {
 }
 
 ///|
-pub struct ParserRegistry {
-  parsers : Map[String, Parser]
+/// Async parser registry entry used by async product dispatch.
+pub struct AsyncParser {
+  name : String
+  mode : ParserMode
+  capability : ParserCapability
+  parse : async (@input.InputSource, ParseContext) -> Result[
+    ParseResult,
+    String,
+  ]
 }
 
 ///|
+/// Format-keyed parser registry used by the unified product path.
+pub struct ParserRegistry {
+  parsers : Map[String, Array[Parser]]
+}
+
+///|
+/// Format-keyed async parser registry used by async product dispatch.
+pub struct AsyncParserRegistry {
+  parsers : Map[String, Array[AsyncParser]]
+}
+
+///|
+/// Conservative baseline capability for parsers that directly return
+/// `DocumentIR`.
 pub fn default_parser_capability() -> ParserCapability {
   make_parser_capability(
     ParserMode::DomAstModel,
@@ -170,6 +213,8 @@ pub fn default_parser_capability() -> ParserCapability {
 }
 
 ///|
+/// Small convenience helper for parsers/tests that only need to describe the
+/// public IR shape they emit.
 pub fn parser_capability(
   supports_events : Bool,
   supports_blocks : Bool,
@@ -213,6 +258,7 @@ pub fn parser_capability(
 }
 
 ///|
+/// Low-level capability constructor used by all parser helper builders.
 pub fn make_parser_capability(
   parser_mode : ParserMode,
   supports_streaming : Bool,
@@ -258,6 +304,8 @@ pub fn make_parser_capability(
 }
 
 ///|
+/// Build a DOM-style capability while still allowing optional streaming or
+/// block side routes.
 pub fn dom_ast_parser_capability(
   streaming_granularity : StreamingGranularity,
   supports_streaming : Bool,
@@ -295,6 +343,8 @@ pub fn dom_ast_parser_capability(
 }
 
 ///|
+/// Build a capability for parsers whose primary public product is a block
+/// stream.
 pub fn block_stream_parser_capability(
   streaming_granularity : StreamingGranularity,
   produces_tables : Bool,
@@ -329,6 +379,8 @@ pub fn block_stream_parser_capability(
 }
 
 ///|
+/// Build a capability for parsers whose primary public product is an event
+/// stream.
 pub fn streaming_event_parser_capability(
   streaming_granularity : StreamingGranularity,
   supports_document_ir : Bool,
@@ -364,6 +416,8 @@ pub fn streaming_event_parser_capability(
 }
 
 ///|
+/// Build a package parser capability that can still expose block streaming for
+/// large-route fallbacks.
 pub fn package_with_block_route_parser_capability(
   streaming_granularity : StreamingGranularity,
   requires_random_access : Bool,
@@ -401,6 +455,8 @@ pub fn package_with_block_route_parser_capability(
 }
 
 ///|
+/// Build a capability for recursive container parsers that dispatch inner
+/// documents through the root registry.
 pub fn container_recursive_parser_capability(
   streaming_granularity : StreamingGranularity,
   requires_random_access : Bool,
@@ -437,6 +493,8 @@ pub fn container_recursive_parser_capability(
 }
 
 ///|
+/// Construct a parser record from its name, mode, capability, and parse
+/// function.
 pub fn make_parser(
   name : String,
   mode : ParserMode,
@@ -447,6 +505,33 @@ pub fn make_parser(
 }
 
 ///|
+/// Construct an async parser record from its name, mode, capability, and parse
+/// function.
+pub fn make_async_parser(
+  name : String,
+  mode : ParserMode,
+  capability : ParserCapability,
+  parse : async (@input.InputSource, ParseContext) -> Result[
+    ParseResult,
+    String,
+  ],
+) -> AsyncParser {
+  { name, mode, capability, parse }
+}
+
+///|
+/// Wrap a synchronous parser as an async parser without changing semantics.
+pub fn async_parser_from_sync(parser : Parser) -> AsyncParser {
+  make_async_parser(parser.name, parser.mode, parser.capability, fn(
+    source : @input.InputSource,
+    context : ParseContext,
+  ) -> Result[ParseResult, String] {
+    (parser.parse)(source, context)
+  })
+}
+
+///|
+/// Create a parse context with safe product defaults for the detected format.
 pub fn new_parse_context(
   detected_format : @input.DetectedFormat,
 ) -> ParseContext {
@@ -460,6 +545,7 @@ pub fn new_parse_context(
     render_profile: @product.RenderProfile::DefaultMarkdown,
     accurate_features: @product.empty_accurate_feature_profile(),
     ocr_options: default_ocr_options(),
+    audio_options: default_audio_options(),
     pdf_ocr_policy: default_pdf_ocr_policy(),
     pdf_native_runtime_policy: default_pdf_native_runtime_policy(),
     pdf_header_footer_filter_policy: default_pdf_header_footer_filter_policy(),
@@ -473,8 +559,21 @@ pub fn new_parse_context(
 }
 
 ///|
+/// Default OCR policy for normal product execution.
 pub fn default_ocr_options() -> OcrOptions {
   { intent: OcrIntent::Auto, language: None }
+}
+
+///|
+/// Default audio-transcription hints for media inputs.
+pub fn default_audio_options() -> AudioOptions {
+  { language: None }
+}
+
+///|
+/// Build explicit audio options, typically from CLI input.
+pub fn explicit_audio_options(language? : String? = None) -> AudioOptions {
+  { language, }
 }
 
 ///|
@@ -498,16 +597,20 @@ pub fn default_pdf_table_reconstruction_policy() -> PdfTableReconstructionPolicy
 }
 
 ///|
+/// Return OCR options that hard-disable OCR while still preserving an optional
+/// language hint.
 pub fn disabled_ocr_options(language? : String? = None) -> OcrOptions {
   { intent: OcrIntent::Disabled, language }
 }
 
 ///|
+/// Return OCR options that explicitly force OCR with an optional language hint.
 pub fn explicit_ocr_options(language? : String? = None) -> OcrOptions {
   { intent: OcrIntent::Explicit, language }
 }
 
 ///|
+/// Return a copy of `context` with updated OCR settings.
 pub fn parse_context_with_ocr_options(
   context : ParseContext,
   ocr_options : OcrOptions,
@@ -516,6 +619,16 @@ pub fn parse_context_with_ocr_options(
 }
 
 ///|
+/// Return a copy of `context` with updated audio-transcription hints.
+pub fn parse_context_with_audio_options(
+  context : ParseContext,
+  audio_options : AudioOptions,
+) -> ParseContext {
+  { ..context, audio_options, }
+}
+
+///|
+/// Return a copy of `context` with the resolved PDF OCR policy.
 pub fn parse_context_with_pdf_ocr_policy(
   context : ParseContext,
   pdf_ocr_policy : PdfOcrPolicy,
@@ -524,6 +637,8 @@ pub fn parse_context_with_pdf_ocr_policy(
 }
 
 ///|
+/// Merge product-level fidelity and output choices into an existing parse
+/// context.
 pub fn parse_context_with_product_modes(
   context : ParseContext,
   fidelity_mode : @product.FidelityMode,
@@ -550,6 +665,8 @@ pub fn parse_context_with_product_modes(
 }
 
 ///|
+/// Attach execution, lowering, render, and accurate-feature profiles to a
+/// parse context.
 pub fn parse_context_with_execution_profiles(
   context : ParseContext,
   execution_profile : @product.ExecutionProfile,
@@ -567,6 +684,7 @@ pub fn parse_context_with_execution_profiles(
 }
 
 ///|
+/// Return a copy of `context` with the resolved PDF native-runtime policy.
 pub fn parse_context_with_pdf_native_runtime_policy(
   context : ParseContext,
   pdf_native_runtime_policy : PdfNativeRuntimePolicy,
@@ -575,6 +693,7 @@ pub fn parse_context_with_pdf_native_runtime_policy(
 }
 
 ///|
+/// Return a copy of `context` with the resolved header/footer filter policy.
 pub fn parse_context_with_pdf_header_footer_filter_policy(
   context : ParseContext,
   pdf_header_footer_filter_policy : PdfHeaderFooterFilterPolicy,
@@ -583,6 +702,7 @@ pub fn parse_context_with_pdf_header_footer_filter_policy(
 }
 
 ///|
+/// Return a copy of `context` with the resolved table-reconstruction policy.
 pub fn parse_context_with_pdf_table_reconstruction_policy(
   context : ParseContext,
   pdf_table_reconstruction_policy : PdfTableReconstructionPolicy,
@@ -591,6 +711,7 @@ pub fn parse_context_with_pdf_table_reconstruction_policy(
 }
 
 ///|
+/// Return a copy of `context` with route-selected size limits and debug mode.
 pub fn parse_context_with_limits(
   context : ParseContext,
   requested_mode : ParserMode?,
@@ -658,39 +779,175 @@ pub fn pdf_table_reconstruction_policy_name(
 }
 
 ///|
+/// Create an empty parser registry.
 pub fn empty_registry() -> ParserRegistry {
   { parsers: Map([]) }
 }
 
 ///|
+/// Create an empty async parser registry.
+pub fn empty_async_registry() -> AsyncParserRegistry {
+  { parsers: Map([]) }
+}
+
+///|
+/// Convert a detected format into the stable registry key used for lookup.
 pub fn registry_key(format : @input.DetectedFormat) -> String {
   @input.detected_format_name(format)
 }
 
 ///|
+/// Register `parser` for `format`.
+///
+/// The first registration remains the canonical default; later registrations
+/// can override mode-specific dispatch when `requested_mode` matches.
 pub fn registry_register(
   registry : ParserRegistry,
   format : @input.DetectedFormat,
   parser : Parser,
 ) -> Unit {
-  registry.parsers.set(registry_key(format), parser)
+  let key = registry_key(format)
+  let registered = registry.parsers.get(key).unwrap_or([])
+  let next : Array[Parser] = []
+  next.append(registered[:])
+  next.push(parser)
+  registry.parsers.set(key, next)
 }
 
 ///|
+/// Register `parser` for `format` in the async registry.
+///
+/// The first registration remains the canonical default; later registrations
+/// can override mode-specific dispatch when `requested_mode` matches.
+pub fn async_registry_register(
+  registry : AsyncParserRegistry,
+  format : @input.DetectedFormat,
+  parser : AsyncParser,
+) -> Unit {
+  let key = registry_key(format)
+  let registered = registry.parsers.get(key).unwrap_or([])
+  let next : Array[AsyncParser] = []
+  next.append(registered[:])
+  next.push(parser)
+  registry.parsers.set(key, next)
+}
+
+///|
+/// Look up the canonical default parser for `format`.
 pub fn registry_lookup(
   registry : ParserRegistry,
   format : @input.DetectedFormat,
 ) -> Parser? {
-  registry.parsers.get(registry_key(format))
+  match registry.parsers.get(registry_key(format)) {
+    Some(parsers) => parsers.get(0)
+    None => None
+  }
 }
 
 ///|
+/// Look up the canonical default async parser for `format`.
+pub fn async_registry_lookup(
+  registry : AsyncParserRegistry,
+  format : @input.DetectedFormat,
+) -> AsyncParser? {
+  match registry.parsers.get(registry_key(format)) {
+    Some(parsers) => parsers.get(0)
+    None => None
+  }
+}
+
+///|
+fn parser_matches_requested_mode(
+  parser : Parser,
+  requested_mode : ParserMode?,
+) -> Bool {
+  match requested_mode {
+    Some(mode) => parser.mode == mode
+    None => false
+  }
+}
+
+///|
+fn async_parser_matches_requested_mode(
+  parser : AsyncParser,
+  requested_mode : ParserMode?,
+) -> Bool {
+  match requested_mode {
+    Some(mode) => parser.mode == mode
+    None => false
+  }
+}
+
+///|
+/// Prefer the newest parser whose declared mode matches `context`, then fall
+/// back to the canonical default registration.
+fn registry_lookup_for_context(
+  registry : ParserRegistry,
+  context : ParseContext,
+) -> Parser? {
+  let parsers = match
+    registry.parsers.get(registry_key(context.detected_format)) {
+    Some(value) => value
+    None => return None
+  }
+  match context.requested_mode {
+    Some(_) => {
+      let mut i = parsers.length()
+      while i > 0 {
+        i = i - 1
+        match parsers.get(i) {
+          Some(parser) if parser_matches_requested_mode(
+              parser,
+              context.requested_mode,
+            ) => return Some(parser)
+          _ => ()
+        }
+      }
+    }
+    None => ()
+  }
+  parsers.get(0)
+}
+
+///|
+/// Prefer the newest async parser whose declared mode matches `context`, then
+/// fall back to the canonical default registration.
+fn async_registry_lookup_for_context(
+  registry : AsyncParserRegistry,
+  context : ParseContext,
+) -> AsyncParser? {
+  let parsers = match
+    registry.parsers.get(registry_key(context.detected_format)) {
+    Some(value) => value
+    None => return None
+  }
+  match context.requested_mode {
+    Some(_) => {
+      let mut i = parsers.length()
+      while i > 0 {
+        i = i - 1
+        match parsers.get(i) {
+          Some(parser) if async_parser_matches_requested_mode(
+              parser,
+              context.requested_mode,
+            ) => return Some(parser)
+          _ => ()
+        }
+      }
+    }
+    None => ()
+  }
+  parsers.get(0)
+}
+
+///|
+/// Dispatch into the registered parser for `context.detected_format`.
 pub fn registry_parse(
   registry : ParserRegistry,
   source : @input.InputSource,
   context : ParseContext,
 ) -> Result[ParseResult, String] {
-  match registry_lookup(registry, context.detected_format) {
+  match registry_lookup_for_context(registry, context) {
     Some(parser) => (parser.parse)(source, context)
     None =>
       Err(
@@ -698,6 +955,40 @@ pub fn registry_parse(
         @input.detected_format_name(context.detected_format),
       )
   }
+}
+
+///|
+/// Dispatch into the registered async parser for `context.detected_format`.
+pub async fn async_registry_parse(
+  registry : AsyncParserRegistry,
+  source : @input.InputSource,
+  context : ParseContext,
+) -> Result[ParseResult, String] {
+  match async_registry_lookup_for_context(registry, context) {
+    Some(parser) => (parser.parse)(source, context)
+    None =>
+      Err(
+        "no parser registered for format: " +
+        @input.detected_format_name(context.detected_format),
+      )
+  }
+}
+
+///|
+/// Populate an async registry by wrapping every parser in `registry`.
+pub fn async_registry_from_sync(
+  registry : ParserRegistry,
+) -> AsyncParserRegistry {
+  let async_registry = empty_async_registry()
+  for entry in registry.parsers {
+    let key = entry.0
+    let async_parsers : Array[AsyncParser] = []
+    for parser in entry.1 {
+      async_parsers.push(async_parser_from_sync(parser))
+    }
+    async_registry.parsers.set(key, async_parsers)
+  }
+  async_registry
 }
 
 ///|
@@ -745,6 +1036,7 @@ pub fn streaming_granularity_name(granularity : StreamingGranularity) -> String 
 }
 
 ///|
+/// Wrap an event-stream parser result with the default event capability.
 pub fn parse_result_with_events(
   parser_name : String,
   mode : ParserMode,
@@ -767,6 +1059,8 @@ pub fn parse_result_with_events(
 }
 
 ///|
+/// Wrap an event-stream parser result with an explicit capability plus
+/// metadata/assets/provenance side channels.
 pub fn parse_result_with_events_capability(
   parser_name : String,
   mode : ParserMode,
@@ -797,6 +1091,7 @@ pub fn parse_result_with_events_capability(
 }
 
 ///|
+/// Wrap a block-stream parser result with the default block capability.
 pub fn parse_result_with_blocks(
   parser_name : String,
   mode : ParserMode,
@@ -819,6 +1114,8 @@ pub fn parse_result_with_blocks(
 }
 
 ///|
+/// Wrap a block-stream parser result with an explicit capability plus
+/// metadata/assets/provenance side channels.
 pub fn parse_result_with_blocks_capability(
   parser_name : String,
   mode : ParserMode,
@@ -849,6 +1146,7 @@ pub fn parse_result_with_blocks_capability(
 }
 
 ///|
+/// Wrap a document parser result with the default document capability.
 pub fn parse_result_with_document(
   parser_name : String,
   mode : ParserMode,
@@ -871,6 +1169,7 @@ pub fn parse_result_with_document(
 }
 
 ///|
+/// Wrap a document parser result with an explicit capability.
 pub fn parse_result_with_document_capability(
   parser_name : String,
   mode : ParserMode,

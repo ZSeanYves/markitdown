@@ -860,7 +860,7 @@ fn ipynb_cell_label_block(
     ipynb_cell_kind_name(cell.kind) +
     "]"
   }
-  @core.make_block(
+  let block = @core.make_block(
     @core.BlockKind::Paragraph,
     label,
     source_ref=ipynb_source_ref(
@@ -876,6 +876,8 @@ fn ipynb_cell_label_block(
       None,
     ),
   )
+  block.attrs.set("rag_solo_source_ref_only", "true")
+  block
 }
 
 ///|
@@ -894,7 +896,7 @@ fn ipynb_output_label_block(
     @dipynb.IpynbOutputKind::Error => output.ename.unwrap_or("error")
     @dipynb.IpynbOutputKind::Unknown => output.output_type
   }
-  @core.make_block(
+  let block = @core.make_block(
     @core.BlockKind::Paragraph,
     "[Output " +
     (cell.index + 1).to_string() +
@@ -918,6 +920,8 @@ fn ipynb_output_label_block(
       None,
     ),
   )
+  block.attrs.set("rag_solo_source_ref_only", "true")
+  block
 }
 
 ///|

@@ -47,7 +47,7 @@ pub fn make_audio_probe_artifact(String, codec? : String?, duration_ms? : Int?, 
 
 pub fn make_convert_execution(ConvertResult, ConvertProvenance) -> ConvertExecution
 
-pub fn make_convert_options(ConvertMode, OutputFormat, @input.DetectedFormat?, @parser.OcrOptions, ResourceLimits, fidelity_mode? : @product.FidelityMode, output_mode? : @product.OutputMode, stream_requested? : Bool, pdf_ocr_policy? : @product.PdfOcrPolicy, pdf_cleanup_mode? : PdfCleanupMode, pdf_table_mode? : PdfTableMode, rag_options? : @rag.RagOptions) -> ConvertOptions
+pub fn make_convert_options(ConvertMode, OutputFormat, @input.DetectedFormat?, @parser.OcrOptions, ResourceLimits, audio_options? : @parser.AudioOptions, fidelity_mode? : @product.FidelityMode, output_mode? : @product.OutputMode, stream_requested? : Bool, pdf_ocr_policy? : @product.PdfOcrPolicy, pdf_cleanup_mode? : PdfCleanupMode, pdf_table_mode? : PdfTableMode, rag_options? : @rag.RagOptions) -> ConvertOptions
 
 pub fn make_convert_provenance(RoutePlan, @product.FidelityMode, @product.OutputMode, @product.ExecutionProfile, String, @product.LoweringProfile, @product.RenderProfile, Array[String], @parser.ParserMode, String, String, String, String, Array[String], Array[String], ocr_provider_selection_target? : String?, ocr_provider_requested_kind? : String?, ocr_provider_resolved_kind? : String?, audio_backend_transport? : String?, audio_backend_name? : String?, audio_backend_version? : String?) -> ConvertProvenance
 
@@ -114,6 +114,7 @@ pub struct ConvertOptions {
   output_format : OutputFormat
   explicit_format : @input.DetectedFormat?
   ocr_options : @parser.OcrOptions
+  audio_options : @parser.AudioOptions
   limits : ResourceLimits
   pdf_ocr_policy : @product.PdfOcrPolicy
   pdf_cleanup_mode : PdfCleanupMode

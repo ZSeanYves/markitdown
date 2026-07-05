@@ -501,6 +501,66 @@ test "convert pdf explicit OCR uses OCR route instead of fail-closing before pro
 }
 
 ///|
+async test "async convert pdf explicit OCR uses OCR route through async parser registry" {
+  let pdf = @input.input_from_path_with_format(
+    "samples/fixtures/contracts/pdf/root_native_text_baseline.pdf",
+    Some(@input.DetectedFormat::Pdf),
+  )
+  let provider_calls : Ref[Int] = { val: 0 }
+  match
+    @convert.convert_input_with_image_ocr_provider_async(
+      pdf,
+      @convert.make_convert_options(
+        @convert.ConvertMode::Balanced,
+        @convert.OutputFormat::Markdown,
+        Some(@input.DetectedFormat::Pdf),
+        @parser.explicit_ocr_options(language=Some("eng")),
+        @convert.default_resource_limits(),
+        pdf_ocr_policy=@convert.PdfOcrPolicy::Explicit,
+      ),
+      fn(request : @focr.OcrProviderRequest) {
+        provider_calls.val = provider_calls.val + 1
+        let tsv = [
+          "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext",
+          "5\t1\t1\t1\t1\t1\t10\t10\t20\t10\t95\tPDF", "5\t1\t1\t1\t1\t2\t35\t10\t20\t10\t94\tOCR",
+        ].join("\n")
+        match @focr.parse_tesseract_tsv(tsv, language=request.language) {
+          Ok(value) => Ok(value)
+          Err(err) => abort(err.to_string())
+        }
+      },
+    ) {
+    Ok(parsed) => {
+      assert_true(parsed.content.contains("PDF OCR"))
+      assert_true(
+        parsed.diagnostics.metrics.get("selected_route") ==
+        Some("layout_two_stage"),
+      )
+      assert_true(
+        parsed.diagnostics.metrics.get("pdf_ocr_used") == Some("true"),
+      )
+      assert_true(
+        parsed.diagnostics.metrics.get("pdf_raster_backend") == Some("pdftoppm"),
+      )
+    }
+    Err(@convert.ConvertError::ParseFailed(msg)) => {
+      assert_true(
+        msg.contains("pdftoppm") ||
+        msg.contains("poppler-utils") ||
+        msg.contains("brew install poppler") ||
+        msg.contains("Missing dependency: pdftoppm / Poppler"),
+      )
+      assert_eq(provider_calls.val, 0)
+    }
+    Err(other) =>
+      fail(
+        "unexpected async pdf explicit OCR convert error: " + other.to_string(),
+      )
+  }
+  assert_true(provider_calls.val >= 0)
+}
+
+///|
 test "convert scanned-like pdf fails closed instead of returning empty markdown" {
   let empty_pdf = [
     "%PDF-1.4", "1 0 obj", "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
@@ -1396,7 +1456,7 @@ async test "async convert explicit image OCR injected provider reaches root conv
 test "public gates and docs stay aligned on the main cli surface" {
   assert_file_contains_all("cli/cli.mbt", [
     "Supported product formats: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, yml, toml, html, htm, markdown, md, eml, tex, latex, rst, adoc, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, wav, mp3, m4a, png, jpg, jpeg, bmp, webp, tif, tiff",
-    "--pdf-ocr explicit|auto-scanned", "`pdf --accurate` defaults to `auto-scanned`",
+    "--pdf-ocr explicit|auto-scanned", "--audio-lang <LANG>", "`pdf --accurate` defaults to `auto-scanned`",
     "DetectedFormat::Pdf", "cli_is_supported_format",
   ])
   assert_file_contains_all("samples/check.sh", [

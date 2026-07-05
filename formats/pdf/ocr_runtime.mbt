@@ -328,6 +328,44 @@ fn collect_pdftoppm_output(
 }
 
 ///|
+pub async fn collect_pdftoppm_output_async(
+  cmd : String,
+  args : Array[String],
+) -> Result[(Int, String, String), PdfRasterizerError] {
+  let delegated = @process.collect_output(cmd, args) catch {
+    e =>
+      return Err(
+        PdfRasterizerError::ExecutionFailed(
+          "launch pdftoppm failed on this runtime: " + e.to_string(),
+        ),
+      )
+  }
+  match delegated {
+    (code, stdout, stderr) => {
+      let stdout_text = stdout.text() catch {
+        e =>
+          return Err(
+            PdfRasterizerError::OutputParseFailed(
+              "failed to decode pdftoppm stdout as UTF-8 on this runtime: " +
+              e.to_string(),
+            ),
+          )
+      }
+      let stderr_text = stderr.text() catch {
+        e =>
+          return Err(
+            PdfRasterizerError::OutputParseFailed(
+              "failed to decode pdftoppm stderr as UTF-8 on this runtime: " +
+              e.to_string(),
+            ),
+          )
+      }
+      Ok((code, stdout_text, stderr_text))
+    }
+  }
+}
+
+///|
 fn finalize_pdftoppm_result(
   paths : Array[String],
   delegated : (Int, String, String),
@@ -503,6 +541,99 @@ pub fn rasterize_pdf_with_pdftoppm_default(
   source : @input.InputSource,
 ) -> Result[(PdfRasterResult, String), PdfRasterizerError] {
   rasterize_pdf_with_pdftoppm(source, collect_pdftoppm_output)
+}
+
+///|
+pub async fn rasterize_pdf_with_pdftoppm_async(
+  source : @input.InputSource,
+  collect_output : async (String, Array[String]) -> Result[
+    (Int, String, String),
+    PdfRasterizerError,
+  ],
+) -> Result[(PdfRasterResult, String), PdfRasterizerError] {
+  let temp_dir = pdf_ocr_temp_dir_name(source)
+  pdf_ocr_ensure_dir_tree(temp_dir) catch {
+    e =>
+      return Err(
+        PdfRasterizerError::ExecutionFailed(
+          "failed to create PDF OCR temp dir: " + e.to_string(),
+        ),
+      )
+  }
+  let pdf_path = match pdf_ocr_materialize_source_path(source, temp_dir) {
+    Ok(path) => path
+    Err(err) => {
+      pdf_ocr_cleanup_temp_dir(temp_dir)
+      return Err(err)
+    }
+  }
+  let output_dir = temp_dir + "/pages"
+  pdf_ocr_ensure_dir_tree(output_dir) catch {
+    e => {
+      pdf_ocr_cleanup_temp_dir(temp_dir)
+      return Err(
+        PdfRasterizerError::ExecutionFailed(
+          "failed to create PDF OCR raster dir: " + e.to_string(),
+        ),
+      )
+    }
+  }
+  let plan = build_pdftoppm_png_command(pdf_path, output_dir)
+  let delegated = match collect_output(plan.0, plan.1) {
+    Ok(value) => value
+    Err(error) => {
+      pdf_ocr_cleanup_temp_dir(temp_dir)
+      return Err(error)
+    }
+  }
+  let finalized = match delegated {
+    (0, _, _) => {
+      let paths = pdftoppm_png_paths(output_dir) catch {
+        e => {
+          pdf_ocr_cleanup_temp_dir(temp_dir)
+          return Err(
+            PdfRasterizerError::OutputParseFailed(
+              "failed to enumerate pdftoppm output pages on this runtime: " +
+              e.to_string(),
+            ),
+          )
+        }
+      }
+      let pages : Array[PdfRasterPageArtifact] = []
+      for i in 0..<paths.length() {
+        pages.push({
+          page_index: i,
+          image_path: Some(paths[i]),
+          success: true,
+          diagnostics: [],
+        })
+      }
+      if pages.length() == 0 {
+        Err(
+          PdfRasterizerError::EmptyResult(
+            "pdftoppm produced no page images on this runtime.",
+          ),
+        )
+      } else {
+        finalize_pdftoppm_result(paths, delegated)
+      }
+    }
+    _ => finalize_pdftoppm_result([], delegated)
+  }
+  match finalized {
+    Ok(result) => Ok((result, temp_dir))
+    Err(error) => {
+      pdf_ocr_cleanup_temp_dir(temp_dir)
+      Err(error)
+    }
+  }
+}
+
+///|
+pub async fn rasterize_pdf_with_pdftoppm_default_async(
+  source : @input.InputSource,
+) -> Result[(PdfRasterResult, String), PdfRasterizerError] {
+  rasterize_pdf_with_pdftoppm_async(source, collect_pdftoppm_output_async)
 }
 
 ///|

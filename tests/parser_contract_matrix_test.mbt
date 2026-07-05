@@ -264,9 +264,9 @@ fn contract_matrix_context(
 ) -> @parser.ParseContext {
   match format {
     @input.DetectedFormat::Audio(_) =>
-      @parser.parse_context_with_ocr_options(
+      @parser.parse_context_with_audio_options(
         @parser.new_parse_context(format),
-        @parser.explicit_ocr_options(language=Some("eng")),
+        @parser.explicit_audio_options(language=Some("eng")),
       )
     @input.DetectedFormat::Image(image_format) =>
       @parser.parse_context_with_ocr_options(
@@ -326,34 +326,34 @@ test "product parser contract specs stay registered and capability-honest" {
 ///|
 test "product parser contract specs cover canonical parse results and source refs" {
   let registry = @formats_root.builtin_registry()
-  @env.set_env_var(
-    "MARKITDOWN_AUDIO_TRANSCRIBE_CMD", "python3 samples/helpers/audio_transcribe_bridge.py",
-  )
-  defer @env.unset_env_var("MARKITDOWN_AUDIO_TRANSCRIBE_CMD")
-  for item in contract_matrix_cases() {
-    let format = item.format
-    let spec = item.spec
-    let source = contract_matrix_source(format)
-    let context = contract_matrix_context(format)
-    let parser = @parser.registry_lookup(registry, format).unwrap_or_else(fn() {
-      abort("missing parser for format " + @input.detected_format_name(format))
-    })
-    let result = match (parser.parse)(source, context) {
-      Ok(value) => value
-      Err(err) =>
-        fail(
-          "contract parse failed for " +
-          @input.detected_format_name(format) +
-          ": " +
-          err,
+  with_mock_audio_runtime(fn() raise {
+    for item in contract_matrix_cases() {
+      let format = item.format
+      let spec = item.spec
+      let source = contract_matrix_source(format)
+      let context = contract_matrix_context(format)
+      let parser = @parser.registry_lookup(registry, format).unwrap_or_else(fn() {
+        abort(
+          "missing parser for format " + @input.detected_format_name(format),
         )
+      })
+      let result = match (parser.parse)(source, context) {
+        Ok(value) => value
+        Err(err) =>
+          fail(
+            "contract parse failed for " +
+            @input.detected_format_name(format) +
+            ": " +
+            err,
+          )
+      }
+      assert_parse_result_matches_contract_spec(result, spec)
+      assert_parse_result_source_refs_match_contract_spec(
+        result,
+        spec,
+        allow_relaxed_extra_keys=contract_matrix_relax_extra_keys(spec),
+        allow_relaxed_fields=contract_matrix_relax_fields(spec),
+      )
     }
-    assert_parse_result_matches_contract_spec(result, spec)
-    assert_parse_result_source_refs_match_contract_spec(
-      result,
-      spec,
-      allow_relaxed_extra_keys=contract_matrix_relax_extra_keys(spec),
-      allow_relaxed_fields=contract_matrix_relax_fields(spec),
-    )
-  }
+  })
 }

@@ -1,4 +1,5 @@
 ///|
+/// Canonical Markdown renderer used by the main product path.
 pub fn markdown_renderer() -> Renderer {
   {
     name: "MarkdownRenderer",
@@ -27,6 +28,8 @@ pub fn markdown_renderer() -> Renderer {
 }
 
 ///|
+/// Render any public input shape as Markdown while preserving direct
+/// event/block fast paths.
 fn render_markdown_input(
   input : RenderInput,
   context : RenderContext,
@@ -63,6 +66,7 @@ fn render_markdown_input(
 }
 
 ///|
+/// Render a fully-built document as Markdown.
 fn render_markdown_document(document : @core.DocumentIR) -> String {
   render_markdown_blocks(document.blocks)
 }

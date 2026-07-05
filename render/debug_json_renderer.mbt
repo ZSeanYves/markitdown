@@ -1,4 +1,5 @@
 ///|
+/// Renderer that emits a lossier but inspection-friendly debug JSON view.
 pub fn debug_json_renderer() -> Renderer {
   {
     name: "DebugJsonRenderer",
@@ -29,6 +30,8 @@ pub fn debug_json_renderer() -> Renderer {
 }
 
 ///|
+/// Render any public input shape as debug JSON while preserving direct
+/// event/block fast paths.
 fn render_debug_json_input(
   input : RenderInput,
   context : RenderContext,
@@ -72,6 +75,7 @@ fn render_debug_json_input(
 }
 
 ///|
+/// Render a fully-built document as debug JSON.
 fn render_debug_json_document(document : @core.DocumentIR) -> String {
   let block_items : Array[String] = []
   for block in document.blocks {

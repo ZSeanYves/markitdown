@@ -49,6 +49,7 @@ fn execution_intent(options : ConvertOptions) -> ExecutionIntent {
     stream_requested: options.stream_requested,
     output_format: options.output_format,
     ocr_options: options.ocr_options,
+    audio_options: options.audio_options,
     limits: options.limits,
     pdf_ocr_policy: options.pdf_ocr_policy,
     pdf_cleanup_mode: options.pdf_cleanup_mode,
@@ -406,7 +407,7 @@ fn resolve_execution_plan(
     @input.DetectedFormat::Audio(_) =>
       (
         Some(@faudio.audio_backend_transport_name()),
-        Some("adapter_command"),
+        Some(@faudio.audio_backend_name()),
         None,
       )
     _ => (None, None, None)
@@ -419,6 +420,7 @@ fn resolve_execution_plan(
     stream_requested: intent.stream_requested,
     output_format: intent.output_format,
     ocr_options: intent.ocr_options,
+    audio_options: intent.audio_options,
     limits: intent.limits,
     pdf_ocr_policy: intent.pdf_ocr_policy,
     pdf_cleanup_mode: intent.pdf_cleanup_mode,

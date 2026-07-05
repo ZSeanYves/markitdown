@@ -1,4 +1,8 @@
 ///|
+/// Rendering context shared by Markdown, debug JSON, and RAG JSON renderers.
+///
+/// The context mirrors the product-level execution choices plus optional
+/// side-channel document state for direct block/event rendering.
 pub struct RenderContext {
   debug : Bool
   fidelity_mode : @product.FidelityMode
@@ -15,6 +19,7 @@ pub struct RenderContext {
 }
 
 ///|
+/// Public render input shapes accepted by renderer front doors.
 pub(all) enum RenderInput {
   EventStream(Array[@core.CoreEvent])
   BlockStream(Array[@core.CoreBlock])
@@ -22,6 +27,7 @@ pub(all) enum RenderInput {
 }
 
 ///|
+/// Final renderer output including diagnostics and optional RAG chunks.
 pub struct RenderResult {
   content : String
   diagnostics : @core.Diagnostics
@@ -29,6 +35,7 @@ pub struct RenderResult {
 }
 
 ///|
+/// Renderer interface used by the high-level convert path.
 pub struct Renderer {
   name : String
   render : (@core.DocumentIR, RenderContext) -> RenderResult
@@ -36,6 +43,7 @@ pub struct Renderer {
 }
 
 ///|
+/// Construct a render context with safe product defaults.
 pub fn make_render_context(
   debug : Bool,
   fidelity_mode? : @product.FidelityMode = @product.FidelityMode::Balanced,

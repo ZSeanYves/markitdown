@@ -13,6 +13,8 @@ pub fn build_pdftoppm_png_command(String, String) -> (String, Array[String])
 
 pub fn cleanup_pdf_ocr_temp_dir(String) -> Unit
 
+pub async fn collect_pdftoppm_output_async(String, Array[String]) -> Result[(Int, String, String), PdfRasterizerError]
+
 pub fn extract_pdf_native_document(@input.InputSource) -> Result[PdfNativeDocument, PdfNativeError]
 
 pub fn extract_pdf_native_document_from_path(String) -> Result[PdfNativeDocument, PdfNativeError]
@@ -87,6 +89,8 @@ pub fn pdf_ocr_parser_name() -> String
 
 pub fn pdf_ocr_parser_result(@input.InputSource, @parser.ParseContext, image_ocr_provider? : (@ocr.OcrProviderRequest) -> Result[@ocr.OcrProviderResult, @ocr.OcrProviderError], rasterizer? : (@input.InputSource) -> Result[(PdfRasterResult, String), PdfRasterizerError]) -> Result[@parser.ParseResult, String]
 
+pub async fn pdf_ocr_parser_result_async(@input.InputSource, @parser.ParseContext, image_ocr_provider? : async (@ocr.OcrProviderRequest) -> Result[@ocr.OcrProviderResult, @ocr.OcrProviderError], rasterizer? : async (@input.InputSource) -> Result[(PdfRasterResult, String), PdfRasterizerError]) -> Result[@parser.ParseResult, String]
+
 pub fn pdf_raster_backend_dependency_diagnostic() -> @core.DependencyDiagnostic
 
 pub fn pdf_raster_backend_install_hint() -> String
@@ -105,7 +109,11 @@ pub fn pdf_union_bbox(PdfBBox, PdfBBox) -> PdfBBox
 
 pub fn rasterize_pdf_with_pdftoppm(@input.InputSource, (String, Array[String]) -> Result[(Int, String, String), PdfRasterizerError]) -> Result[(PdfRasterResult, String), PdfRasterizerError]
 
+pub async fn rasterize_pdf_with_pdftoppm_async(@input.InputSource, async (String, Array[String]) -> Result[(Int, String, String), PdfRasterizerError]) -> Result[(PdfRasterResult, String), PdfRasterizerError]
+
 pub fn rasterize_pdf_with_pdftoppm_default(@input.InputSource) -> Result[(PdfRasterResult, String), PdfRasterizerError]
+
+pub async fn rasterize_pdf_with_pdftoppm_default_async(@input.InputSource) -> Result[(PdfRasterResult, String), PdfRasterizerError]
 
 // Errors
 

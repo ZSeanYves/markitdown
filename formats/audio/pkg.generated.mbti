@@ -7,7 +7,11 @@ import {
 }
 
 // Values
+pub fn audio_backend_name() -> String
+
 pub fn audio_backend_transport_name() -> String
+
+pub fn audio_model_path_env_var() -> String
 
 pub fn audio_parser() -> @parser.Parser
 
@@ -17,23 +21,17 @@ pub fn audio_parser_result(@input.InputSource, @input.DetectedFormat, @parser.Pa
 
 pub fn audio_parser_result_with_runtime(@input.InputSource, @input.DetectedFormat, @parser.ParseContext, (@input.InputSource, @input.DetectedFormat, String?) -> Result[AudioTranscriptResult, AudioTranscribeError]) -> Result[@parser.ParseResult, String]
 
-pub fn audio_transcribe_command_env_var() -> String
-
 pub fn audio_transcribe_install_hint() -> String
 
 pub fn audio_transcribe_not_configured_message() -> String
 
 pub fn build_audio_transcribe_command(@input.InputSource, @input.DetectedFormat, String?) -> Result[(String, Array[String]), AudioTranscribeError]
 
-pub fn build_audio_transcribe_command_with_adapter(@input.InputSource, @input.DetectedFormat, String?, String) -> Result[(String, Array[String]), AudioTranscribeError]
-
 pub fn make_audio_transcript_metadata(duration_ms? : Int?, sample_rate_hz? : Int?, channel_count? : Int?, codec? : String?, language? : String?) -> AudioTranscriptMetadata
 
 pub fn make_audio_transcript_result(String, AudioTranscriptMetadata, Array[AudioTranscriptSegment], provider_version? : String?, diagnostics? : Array[String]) -> AudioTranscriptResult
 
 pub fn make_audio_transcript_segment(String, Int, Int, String, speaker? : String?, channel? : Int?, confidence? : Double?, language? : String?) -> AudioTranscriptSegment
-
-pub fn parse_audio_transcribe_bridge_payload(String) -> Result[AudioTranscriptResult, AudioTranscribeError]
 
 pub fn run_audio_transcribe_command(@input.InputSource, @input.DetectedFormat, String?) -> Result[AudioTranscriptResult, AudioTranscribeError]
 

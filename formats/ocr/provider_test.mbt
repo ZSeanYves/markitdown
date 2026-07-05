@@ -121,7 +121,7 @@ test "paddle runtime command builder requires adapter env and passes image path 
     Err(OcrProviderError::NotConfigured(msg)) =>
       assert_true(
         msg.contains("MARKITDOWN_PADDLE_OCR_CMD") &&
-        msg.contains("samples/helpers/paddle_ocr_bridge.py"),
+        msg.contains("samples/helpers/paddle_ocr_wrapper.py"),
       )
     Ok(_) => fail("expected Paddle command builder to fail closed without env")
     Err(other) =>
@@ -139,6 +139,27 @@ test "paddle runtime command builder requires adapter env and passes image path 
   assert_eq(built.1[2], "scan.png")
   assert_eq(built.1[3], "--lang")
   assert_eq(built.1[4], "eng")
+
+  let quoted = match
+    build_paddle_ocr_command_with_adapter(
+      request, "\"/tmp/paddle wrapper.py\" --mode \"ocr accurate\"",
+    ) {
+    Ok(value) => value
+    Err(err) => fail("expected quoted Paddle command plan: " + err.to_string())
+  }
+  assert_eq(quoted.0, "/tmp/paddle wrapper.py")
+  assert_eq(quoted.1[0], "--mode")
+  assert_eq(quoted.1[1], "ocr accurate")
+  assert_eq(quoted.1[2], "scan.png")
+  assert_eq(quoted.1[3], "--lang")
+  assert_eq(quoted.1[4], "eng")
+
+  match build_paddle_ocr_command_with_adapter(request, "\"unterminated") {
+    Err(OcrProviderError::NotConfigured(msg)) =>
+      assert_true(msg.contains("unterminated quotes"))
+    Ok(_) => fail("expected malformed quoted Paddle command to fail")
+    Err(other) => fail("unexpected quoted-command error: " + other.to_string())
+  }
 }
 
 ///|

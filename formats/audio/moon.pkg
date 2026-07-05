@@ -3,6 +3,7 @@ import {
   "moonbitlang/async",
   "moonbitlang/core/env",
   "moonbitlang/core/string",
+  "moonbitlang/x/fs",
   "ZSeanYves/markitdown/format_readers/json" @djson,
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/formats/shared" @fshared,

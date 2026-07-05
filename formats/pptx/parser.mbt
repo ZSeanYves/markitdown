@@ -1,4 +1,5 @@
 ///|
+/// Capability for the canonical PPTX package parser.
 pub fn pptx_parser_capability() -> @parser.ParserCapability {
   @parser.make_parser_capability(
     @parser.ParserMode::PackageSinglePass,
@@ -24,6 +25,7 @@ pub fn pptx_parser_capability() -> @parser.ParserCapability {
 }
 
 ///|
+/// Construct the canonical PPTX parser entrypoint.
 pub fn pptx_parser() -> @parser.Parser {
   let capability = pptx_parser_capability()
   @parser.make_parser(

@@ -8,7 +8,7 @@
 - 质量回归：验证外部质量语料上的输出质量是否满足预期。
 
 仓库内只保留轻量功能样例，用于主回归和单元级功能覆盖。
-如果要验证真实转换质量或 benchmark 性能，请先把 `./markitdown-quality-lab/` 放到主仓目录下。性能使用方式见 [bench/README.md](/Users/winter/Documents/Moonbit/markitdown/bench/README.md)。
+正式主回归、质量回归与 benchmark 都明确依赖主仓根目录下的 `./markitdown-quality-lab/`。性能使用方式见 [bench/README.md](/Users/winter/Documents/Moonbit/markitdown/bench/README.md)。
 
 当前 `rst / asciidoc / tex` 主回归除了基础 heading / paragraph / code / table 之外，还覆盖一组更偏 canonical semantic inventory 的轻量样例，用于验证 field-or-attribute metadata、definition-like inventory、quote/admonition/include、以及 tex metadata/environment 的稳定输出。
 
@@ -27,9 +27,11 @@
 - Assets 结果回归
 - 显式 OCR lane 回归
 
+这套回归不是纯 repo-local 检查；正式语料来自外仓 `markitdown-quality-lab/external_main_process/`。
+
 支持格式：
 
-`txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, pdf, ocr`
+`txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, pdf, wav, mp3, m4a, ocr`
 
 常用命令：
 
@@ -62,9 +64,11 @@
 说明：
 
 - 这套回归只测外仓主语料上的产品默认路径。
+- `./samples/check.sh` 启动时会先确认外仓 manifest、enrollment 与运行目录，因此在真正开始逐行执行前出现一段准备时间是预期行为。
 - 不支持的格式在这里会直接 fail closed，不会偷偷切换到其它路线。
 - `ocr` gate 覆盖正式支持的直接图片 OCR 输入：`png/jpg/jpeg/bmp/webp/tif/tiff`。
 - `pdf/ocr` lane 覆盖 `pdf --accurate` 与显式 `pdf --ocr` 的 OCR-only 产品路径，不改变默认 `pdf` native-text gate。
+- `wav/mp3/m4a` gate 覆盖当前 native `whisper.cpp` audio transcript 接入面；`m4a` lane 额外依赖本地 `ffmpeg`。
 - `workspace/` 只是临时工作目录，不作为主要排查入口。
 
 ## 质量回归

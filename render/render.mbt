@@ -223,7 +223,19 @@ fn write_markdown_paragraph_to(
   block : @core.CoreBlock,
 ) -> Unit {
   if literal_text_block(block) || block.attrs.get("literal") == Some("true") {
-    out.write_string(block.text.trim().to_owned())
+    if block.attrs.get("markdown_literal_raw") == Some("true") {
+      out.write_string(block.text.trim().to_owned())
+      return
+    }
+    let lines = render_literal_markdown_lines(block.text)
+    let mut wrote_any = false
+    for line in lines {
+      if wrote_any {
+        out.write_char('\n')
+      }
+      out.write_string(line)
+      wrote_any = true
+    }
     return
   }
   write_render_literal_markdown_lines_to(out, block.text)
@@ -411,7 +423,10 @@ fn render_markdown_paragraph(block : @core.CoreBlock) -> String {
     return render_markdown_inline_text(block)
   }
   if literal_text_block(block) {
-    return block.text.trim().to_owned()
+    if block.attrs.get("markdown_literal_raw") == Some("true") {
+      return block.text.trim().to_owned()
+    }
+    return render_literal_markdown_lines(block.text).join("\n")
   }
   render_literal_markdown_lines(block.text).join(" ")
 }
@@ -868,18 +883,40 @@ fn render_markdown_blockquote(block : @core.CoreBlock) -> String {
     return render_inline_markdown_blockquote(block)
   }
   let literal = block.attrs.get("literal") == Some("true")
-  block.text
-  .split("\n")
-  .to_array()
+  let lines = block.text.split("\n").to_array().map(line => line.to_owned())
+  if text_markup_semantic_blockquote_markdown(block, lines) is Some(rendered) {
+    return rendered
+  }
+  lines
   .map(line => {
     let text = if literal || literal_text_block(block) {
-      line.to_owned()
+      line
     } else {
-      escape_markdown_inline_text(line.to_owned())
+      escape_markdown_inline_text(line)
     }
     "> " + text
   })
   .join("\n")
+}
+
+///|
+fn text_markup_semantic_blockquote_markdown(
+  block : @core.CoreBlock,
+  lines : Array[String],
+) -> String? {
+  if block.attrs.get("literal") != Some("true") || lines.length() == 0 {
+    return None
+  }
+  if block.attrs.get("semantic_family") is None &&
+    block.attrs.get("quote_kind") is None {
+    return None
+  }
+  let rendered : Array[String] = []
+  rendered.push("> " + lines[0])
+  for i in 1..<lines.length() {
+    rendered.push(lines[i])
+  }
+  Some(rendered.join("\n"))
 }
 
 ///|
@@ -2059,6 +2096,7 @@ fn markdown_literal_tail_needs_escape(ch : Char) -> Bool {
   ch == '(' ||
   ch == ')' ||
   ch == '#' ||
+  ch == '+' ||
   ch == '<' ||
   ch == '>' ||
   ch == '|'

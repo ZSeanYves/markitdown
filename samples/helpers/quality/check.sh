@@ -632,6 +632,9 @@ quality_row_cli_flags() {
       ocr_lang:*)
         flags+=("--ocr-lang" "${feature#ocr_lang:}")
         ;;
+      audio_lang:*)
+        flags+=("--audio-lang" "${feature#audio_lang:}")
+        ;;
     esac
   done
   if [[ "${#flags[@]}" -eq 0 ]]; then

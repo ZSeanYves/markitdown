@@ -1,4 +1,6 @@
 ///|
+/// Renderer that emits chunked retrieval-oriented JSON plus optional chunk
+/// metadata.
 pub fn rag_json_renderer() -> Renderer {
   {
     name: "RagJsonRenderer",
@@ -38,6 +40,8 @@ pub fn rag_json_renderer() -> Renderer {
 }
 
 ///|
+/// Render any public input shape as RAG JSON while keeping block/event direct
+/// paths available.
 fn render_rag_json_input(
   input : RenderInput,
   context : RenderContext,
@@ -128,6 +132,7 @@ fn render_rag_json_input(
 }
 
 ///|
+/// Record chunk-oriented metrics after RAG chunking completes.
 fn apply_rag_chunk_metrics(
   diagnostics : @core.Diagnostics,
   chunks : Array[@rag.RagChunk],
@@ -173,6 +178,7 @@ fn apply_rag_chunk_metrics(
 }
 
 ///|
+/// Render a fully-built document plus chunk payload as RAG JSON.
 fn render_rag_json_document(
   document : @core.DocumentIR,
   payload : RagRenderPayload,

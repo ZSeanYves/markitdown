@@ -36,6 +36,12 @@ fn normalize_block_text(block : @core.CoreBlock) -> @core.CoreBlock {
 ///|
 fn normalize_block_whitespace(block : @core.CoreBlock) -> @core.CoreBlock {
   let next_text = match block.kind {
+    @core.BlockKind::Paragraph =>
+      if block.attrs.get("literal") == Some("true") {
+        block.text
+      } else {
+        collapse_whitespace(block.text)
+      }
     @core.BlockKind::Code
     | @core.BlockKind::Raw
     | @core.BlockKind::BlockQuote

@@ -1,4 +1,5 @@
 ///|
+/// Capability for the canonical XLSX package parser.
 pub fn xlsx_parser_capability() -> @parser.ParserCapability {
   @parser.make_parser_capability(
     @parser.ParserMode::PackageSinglePass,
@@ -24,6 +25,7 @@ pub fn xlsx_parser_capability() -> @parser.ParserCapability {
 }
 
 ///|
+/// Construct the canonical XLSX parser entrypoint.
 pub fn xlsx_parser() -> @parser.Parser {
   let capability = xlsx_parser_capability()
   @parser.make_parser(
@@ -40,6 +42,7 @@ pub fn xlsx_parser() -> @parser.Parser {
 }
 
 ///|
+/// Reuse an already-opened OOXML package to produce an XLSX parse result.
 pub fn xlsx_parse_with_package(
   source : @input.InputSource,
   context : @parser.ParseContext,
@@ -96,6 +99,7 @@ pub fn xlsx_first_sheet_metric(
 }
 
 ///|
+/// Cheap workbook-level summary used by route probing and benchmarks.
 pub struct XlsxPreflightSummary {
   sheet_count : Int
   visible_sheet_count : Int
@@ -107,6 +111,7 @@ pub struct XlsxPreflightSummary {
 }
 
 ///|
+/// Build a workbook preflight summary directly from an input source.
 pub fn xlsx_preflight_summary(
   source : @input.InputSource,
 ) -> Result[XlsxPreflightSummary, String] {
@@ -118,6 +123,7 @@ pub fn xlsx_preflight_summary(
 }
 
 ///|
+/// Build a workbook preflight summary from an already-opened OOXML package.
 pub fn xlsx_preflight_summary_with_package(
   pkg : @ox.OoxmlPackage,
 ) -> Result[XlsxPreflightSummary, String] {
@@ -182,6 +188,8 @@ pub fn xlsx_preflight_summary_with_package(
 }
 
 ///|
+/// Route-probing variant of workbook preflight that respects explicit resource
+/// ceilings.
 pub fn xlsx_route_preflight_summary_with_package(
   pkg : @ox.OoxmlPackage,
   max_rows : Int,

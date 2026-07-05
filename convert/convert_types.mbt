@@ -21,6 +21,7 @@ fn product_convert_mode(mode : ConvertMode) -> @product.ConvertMode {
 }
 
 ///|
+/// External output views currently exposed by the high-level convert API.
 pub(all) enum OutputFormat {
   Markdown
   RagJson
@@ -52,6 +53,7 @@ pub type OcrProviderKind = @focr.OcrProviderKind
 pub type OcrProviderSelectionTarget = @focr.OcrProviderSelectionTarget
 
 ///|
+/// Route-probe summary for an audio input before parsing begins.
 pub struct AudioProbeArtifact {
   format : String
   codec : String?
@@ -84,6 +86,7 @@ pub fn make_audio_probe_artifact(
 }
 
 ///|
+/// One quantitative signal captured during route probing.
 pub struct ProbeSignal {
   kind : ProbeSignalKind
   observed : Int
@@ -102,6 +105,7 @@ pub fn make_probe_signal(
 }
 
 ///|
+/// One hard probe failure recorded during route planning.
 pub struct ProbeFailure {
   stage : String
   detail : String
@@ -113,6 +117,7 @@ pub fn make_probe_failure(stage : String, detail : String) -> ProbeFailure {
 }
 
 ///|
+/// Public convert-layer copy of product resource ceilings.
 pub struct ResourceLimits {
   max_rows : Int
   max_cols : Int
@@ -179,6 +184,10 @@ fn product_pdf_ocr_policy(policy : PdfOcrPolicy) -> @product.PdfOcrPolicy {
 }
 
 ///|
+/// High-level convert API options accepted by `convert_input`.
+///
+/// These are the user-facing knobs that eventually resolve into product
+/// options, parser context, and renderer selection.
 pub struct ConvertOptions {
   mode : ConvertMode
   fidelity_mode : FidelityMode
@@ -187,6 +196,7 @@ pub struct ConvertOptions {
   output_format : OutputFormat
   explicit_format : @input.DetectedFormat?
   ocr_options : @parser.OcrOptions
+  audio_options : @parser.AudioOptions
   limits : ResourceLimits
   pdf_ocr_policy : PdfOcrPolicy
   pdf_cleanup_mode : PdfCleanupMode
@@ -195,6 +205,7 @@ pub struct ConvertOptions {
 }
 
 ///|
+/// Human-readable summary of the selected route before execution.
 pub struct RoutePlan {
   detected_format : @input.DetectedFormat
   selected_route : String
@@ -230,6 +241,7 @@ pub fn make_route_plan(
 }
 
 ///|
+/// Provenance record describing how the product path actually executed.
 pub struct ConvertProvenance {
   route_plan : RoutePlan
   fidelity_mode : FidelityMode
@@ -304,6 +316,7 @@ pub fn make_convert_provenance(
 }
 
 ///|
+/// Pairing of end-user output plus the provenance that produced it.
 pub struct ConvertExecution {
   result : ConvertResult
   provenance : ConvertProvenance
@@ -355,6 +368,7 @@ priv struct ExecutionIntent {
   stream_requested : Bool
   output_format : OutputFormat
   ocr_options : @parser.OcrOptions
+  audio_options : @parser.AudioOptions
   limits : ResourceLimits
   pdf_ocr_policy : PdfOcrPolicy
   pdf_cleanup_mode : PdfCleanupMode
@@ -371,6 +385,7 @@ priv struct ResolvedExecutionPlan {
   stream_requested : Bool
   output_format : OutputFormat
   ocr_options : @parser.OcrOptions
+  audio_options : @parser.AudioOptions
   limits : ResourceLimits
   pdf_ocr_policy : PdfOcrPolicy
   pdf_cleanup_mode : PdfCleanupMode
@@ -445,6 +460,7 @@ pub impl Show for ConvertError with fn output(
 }
 
 ///|
+/// Final public result returned by the high-level convert API.
 pub struct ConvertResult {
   content : String
   output_format : OutputFormat
@@ -484,6 +500,7 @@ pub fn make_resource_limits(
 }
 
 ///|
+/// Return default convert options for the balanced Markdown path.
 pub fn default_convert_options() -> ConvertOptions {
   let product_options = @product.default_product_options()
   {
@@ -494,6 +511,7 @@ pub fn default_convert_options() -> ConvertOptions {
     output_format: OutputFormat::Markdown,
     explicit_format: None,
     ocr_options: @parser.default_ocr_options(),
+    audio_options: @parser.default_audio_options(),
     limits: resource_limits_from_product(product_options.limits),
     pdf_ocr_policy: @product.default_pdf_ocr_policy(),
     pdf_cleanup_mode: default_pdf_cleanup_mode(),
@@ -503,12 +521,15 @@ pub fn default_convert_options() -> ConvertOptions {
 }
 
 ///|
+/// Build explicit convert options while keeping shared defaults aligned with
+/// product-level policy.
 pub fn make_convert_options(
   mode : ConvertMode,
   output_format : OutputFormat,
   explicit_format : @input.DetectedFormat?,
   ocr_options : @parser.OcrOptions,
   limits : ResourceLimits,
+  audio_options? : @parser.AudioOptions = @parser.default_audio_options(),
   fidelity_mode? : FidelityMode = fidelity_mode_for_convert_mode(mode),
   output_mode? : OutputMode = output_mode_for_output_format(output_format),
   stream_requested? : Bool = mode == ConvertMode::Stream,
@@ -525,6 +546,7 @@ pub fn make_convert_options(
     output_format,
     explicit_format,
     ocr_options,
+    audio_options,
     limits,
     pdf_ocr_policy,
     pdf_cleanup_mode,
@@ -534,11 +556,13 @@ pub fn make_convert_options(
 }
 
 ///|
+/// Stable name for the selected convert strategy mode.
 pub fn convert_mode_name(mode : ConvertMode) -> String {
   @product.convert_mode_name(product_convert_mode(mode))
 }
 
 ///|
+/// Return the default fidelity associated with a convert mode.
 pub fn fidelity_mode_for_convert_mode(mode : ConvertMode) -> FidelityMode {
   @product.fidelity_mode_for_convert_mode(product_convert_mode(mode))
 }
@@ -554,6 +578,7 @@ pub fn output_mode_for_convert_mode(mode : ConvertMode) -> OutputMode {
 }
 
 ///|
+/// Map a public output format to the renderer-facing output mode.
 pub fn output_mode_for_output_format(format : OutputFormat) -> OutputMode {
   match format {
     OutputFormat::DebugJson => OutputMode::Debug
@@ -568,6 +593,7 @@ pub fn output_mode_name(mode : OutputMode) -> String {
 }
 
 ///|
+/// Re-derive a convert mode from fidelity plus explicit stream request.
 pub fn derived_convert_mode(
   fidelity_mode : FidelityMode,
   stream_requested : Bool,

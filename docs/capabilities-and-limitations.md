@@ -602,7 +602,7 @@
 
 - scanned-like PDF 在未启用 `--ocr` 或 `--pdf-ocr auto-scanned` 时当前 fail closed
 - Balanced PDF OCR 依赖本地 `pdftoppm` + `tesseract`
-- Accurate PDF OCR 依赖本地 `pdftoppm` + Paddle bridge
+- Accurate PDF OCR 依赖本地 `pdftoppm` + Paddle wrapper
 - 缺失依赖时返回 fail-closed 的诊断卡片，不做静默 provider fallback
 
 性能事实：
@@ -615,20 +615,23 @@
 当前 OCR 已拆成两条正式 provider 路线：
 
 - Balanced OCR / Balanced PDF OCR：本地 `Tesseract`
-- Accurate OCR / Accurate PDF OCR：外部 `PaddleOCR` bridge
+- Accurate OCR / Accurate PDF OCR：外部 `PaddleOCR` wrapper
 
 产品事实：
 
 - 直接图片输入正式支持，并默认启用 OCR
 - `--no-ocr` 可显式关闭直接图片 OCR
-- 语言参数使用 `--ocr-lang <LANG>`
-- 直接图片 `Balanced` 默认走 `Tesseract`，直接图片 `Accurate` 走 Paddle bridge
+- OCR 语言参数使用 `--ocr-lang <LANG>`
+- audio 语言提示使用独立 `--audio-lang <LANG>`
+- 直接图片 `Balanced` 默认走 `Tesseract`，直接图片 `Accurate` 走 Paddle wrapper
 - `pdf --ocr` 继续作为 `pdf --pdf-ocr explicit` 的兼容别名
 - `pdf --pdf-ocr explicit|auto-scanned` 走 Balanced PDF OCR
 - `pdf --accurate` 默认走 `auto_scanned`，仅对命中 scanned-like 的 PDF 进入 Accurate PDF OCR
 - 扫描版 / 图片型 PDF 当前需要 `--ocr`、`--pdf-ocr auto-scanned`，或直接使用 `--accurate`
 - 当前 Balanced OCR 输出以文本段落、reading order、基础块级布局恢复为主，不承诺复杂表格/深度版面重建
-- 当前 Accurate OCR / Accurate PDF OCR 已接入 Paddle bridge，但仍通过同一套共享 OCR lowering 收敛，不做静默 fallback
+- 当前 Accurate OCR / Accurate PDF OCR 已接入 Paddle wrapper，但仍通过同一套共享 OCR lowering 收敛，不做静默 fallback
+- 当前 Accurate OCR / Accurate PDF OCR 仍属于实验性能力，现阶段重点是可运行与 fail-closed，不承诺与 Balanced OCR 同等级的稳定性和结果一致性
+- 当前 audio `Balanced` / `Accurate` 都通过本地 `whisper.cpp` CLI 进入同一条 media pipeline；`m4a` 额外依赖本地 `ffmpeg`
 
 macOS / Homebrew 安装：
 
@@ -637,8 +640,8 @@ brew install poppler
 brew install tesseract
 brew install tesseract-lang
 python3 -m pip install paddlepaddle paddleocr
-chmod +x samples/helpers/paddle_ocr_bridge.py
-export MARKITDOWN_PADDLE_OCR_CMD="$PWD/samples/helpers/paddle_ocr_bridge.py"
+chmod +x samples/helpers/paddle_ocr_wrapper.py
+export MARKITDOWN_PADDLE_OCR_CMD="$PWD/samples/helpers/paddle_ocr_wrapper.py"
 ```
 
 Ubuntu：
@@ -647,8 +650,8 @@ Ubuntu：
 sudo apt install poppler-utils tesseract-ocr
 sudo apt install tesseract-ocr-eng
 python3 -m pip install paddlepaddle paddleocr
-chmod +x samples/helpers/paddle_ocr_bridge.py
-export MARKITDOWN_PADDLE_OCR_CMD="$PWD/samples/helpers/paddle_ocr_bridge.py"
+chmod +x samples/helpers/paddle_ocr_wrapper.py
+export MARKITDOWN_PADDLE_OCR_CMD="$PWD/samples/helpers/paddle_ocr_wrapper.py"
 ```
 
 说明：
@@ -656,7 +659,7 @@ export MARKITDOWN_PADDLE_OCR_CMD="$PWD/samples/helpers/paddle_ocr_bridge.py"
 - `brew install tesseract` 默认只带 `eng`, `osd`, `snum`
 - 需要更多语言时再安装 `tesseract-lang`
 - Ubuntu 可按需安装额外语言包，例如 `tesseract-ocr-chi-sim` 或 `tesseract-ocr-jpn`
-- 当前依赖的是本地可执行 `pdftoppm`、`tesseract` 与外部 Paddle bridge，不是云端模型
+- 当前依赖的是本地可执行 `pdftoppm`、`tesseract` 与外部 Paddle wrapper，不是云端模型
 - 本项目不内置、不打包、不分发这些第三方二进制或 Python 运行时
 
 ## 6. v2 架构收益

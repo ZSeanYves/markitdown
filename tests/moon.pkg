@@ -1,5 +1,6 @@
 import {
   "moonbitlang/async",
+  "moonbitlang/async/process",
   "moonbitlang/core/env",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/string",
@@ -7,6 +8,7 @@ import {
   "ZSeanYves/markitdown/container",
   "ZSeanYves/markitdown/convert",
   "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/formats/audio" @faudio,
   "ZSeanYves/markitdown/formats" @formats_root,
   "ZSeanYves/markitdown/formats/docx" @fdocx,
   "ZSeanYves/markitdown/formats/ocr" @focr,

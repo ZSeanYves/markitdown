@@ -58,6 +58,10 @@ pub(all) enum DetectedFormat {
 } derive(Eq)
 
 ///|
+/// Caller-supplied input handle for the product path.
+///
+/// In practice one payload source is expected according to `kind`, while
+/// `mime_type` and `explicit_format` act as routing hints.
 pub struct InputSource {
   kind : InputKind
   source_name : String
@@ -69,6 +73,7 @@ pub struct InputSource {
 }
 
 ///|
+/// Stable explanation of how format detection resolved for one input.
 pub struct FormatDetectionResult {
   format : DetectedFormat
   used_explicit_format : Bool
@@ -79,16 +84,19 @@ pub struct FormatDetectionResult {
 }
 
 ///|
+/// Thin wrapper around the canonical format-detection function.
 pub struct FormatDetector {
   detect : (InputSource) -> FormatDetectionResult
 }
 
 ///|
+/// Construct a path-backed input without forcing a detected format.
 pub fn input_from_path(path : String) -> InputSource {
   input_from_path_with_format(path, None)
 }
 
 ///|
+/// Construct a path-backed input with an optional explicit format override.
 pub fn input_from_path_with_format(
   path : String,
   explicit_format : DetectedFormat?,
@@ -105,6 +113,7 @@ pub fn input_from_path_with_format(
 }
 
 ///|
+/// Construct an in-memory text input with the default `<memory>` source name.
 pub fn input_from_text(
   text : String,
   source_name? : String = "<memory>",
@@ -113,6 +122,7 @@ pub fn input_from_text(
 }
 
 ///|
+/// Construct an in-memory text input with an optional explicit format hint.
 pub fn input_from_text_with_format(
   text : String,
   source_name : String,
@@ -130,6 +140,7 @@ pub fn input_from_text_with_format(
 }
 
 ///|
+/// Construct an in-memory byte input with the default `<bytes>` source name.
 pub fn input_from_bytes(
   bytes : Bytes,
   source_name? : String = "<bytes>",
@@ -138,6 +149,7 @@ pub fn input_from_bytes(
 }
 
 ///|
+/// Construct an in-memory byte input with an optional explicit format hint.
 pub fn input_from_bytes_with_format(
   bytes : Bytes,
   source_name : String,
@@ -155,6 +167,7 @@ pub fn input_from_bytes_with_format(
 }
 
 ///|
+/// Return a copy of `source` with a new explicit-format override.
 pub fn with_explicit_format(
   source : InputSource,
   explicit_format : DetectedFormat?,
@@ -163,21 +176,25 @@ pub fn with_explicit_format(
 }
 
 ///|
+/// Return a copy of `source` with a new mime-type hint.
 pub fn with_mime_type(source : InputSource, mime_type : String?) -> InputSource {
   { ..source, mime_type, }
 }
 
 ///|
+/// Return a copy of `source` with an in-memory text payload attached.
 pub fn with_text_payload(source : InputSource, text : String) -> InputSource {
   { ..source, text: Some(text) }
 }
 
 ///|
+/// Return a copy of `source` with an in-memory byte payload attached.
 pub fn with_bytes_payload(source : InputSource, bytes : Bytes) -> InputSource {
   { ..source, bytes: Some(bytes) }
 }
 
 ///|
+/// Return the default product format detector.
 pub fn default_format_detector() -> FormatDetector {
   {
     detect: fn(source : InputSource) -> FormatDetectionResult {
@@ -187,6 +204,8 @@ pub fn default_format_detector() -> FormatDetector {
 }
 
 ///|
+/// Detect the product format using explicit override, mime type, extension,
+/// magic bytes, and finally conservative text heuristics.
 pub fn detect_format(source : InputSource) -> FormatDetectionResult {
   match source.explicit_format {
     Some(format) =>
@@ -306,6 +325,8 @@ pub fn detect_format(source : InputSource) -> FormatDetectionResult {
 }
 
 ///|
+/// Stable lower-case format label used in the CLI, registry, diagnostics, and
+/// provenance output.
 pub fn detected_format_name(format : DetectedFormat) -> String {
   match format {
     DetectedFormat::Txt => "txt"
@@ -342,6 +363,7 @@ pub fn detected_format_name(format : DetectedFormat) -> String {
 }
 
 ///|
+/// Parse a user-facing format label into the internal `DetectedFormat` enum.
 pub fn parse_detected_format(name : String) -> DetectedFormat {
   match name.trim().to_lower() {
     "txt" => DetectedFormat::Txt
@@ -391,6 +413,7 @@ pub fn parse_detected_format(name : String) -> DetectedFormat {
 }
 
 ///|
+/// Return the stable label for an audio subtype.
 pub fn audio_format_name(format : AudioFormat) -> String {
   match format {
     AudioFormat::Wav => "wav"
@@ -400,6 +423,7 @@ pub fn audio_format_name(format : AudioFormat) -> String {
 }
 
 ///|
+/// Return the stable label for an image subtype.
 pub fn image_format_name(format : ImageFormat) -> String {
   match format {
     ImageFormat::Png => "png"
@@ -413,6 +437,7 @@ pub fn image_format_name(format : ImageFormat) -> String {
 }
 
 ///|
+/// Return whether the detected format should enter the image OCR routing path.
 pub fn detected_format_is_image_candidate(format : DetectedFormat) -> Bool {
   match format {
     DetectedFormat::Image(_) => true
@@ -421,6 +446,8 @@ pub fn detected_format_is_image_candidate(format : DetectedFormat) -> Bool {
 }
 
 ///|
+/// Read text from any supported input source, decoding UTF-8 bytes when
+/// needed.
 pub fn read_input_text(source : InputSource) -> Result[String, String] {
   match source.text {
     Some(text) => Ok(text)
@@ -443,6 +470,8 @@ pub fn read_input_text(source : InputSource) -> Result[String, String] {
 }
 
 ///|
+/// Read raw bytes from any supported input source, encoding in-memory text
+/// when needed.
 pub fn read_input_bytes(source : InputSource) -> Result[Bytes, String] {
   match source.bytes {
     Some(bytes) => Ok(bytes)

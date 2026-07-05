@@ -1,4 +1,5 @@
 ///|
+/// Chunk a fully-built document into retrieval-friendly units.
 pub fn chunks_from_document(
   document : @core.DocumentIR,
   options : RagOptions,
@@ -114,6 +115,8 @@ pub fn chunks_from_document(
     let text_unit = block_to_text_unit(block)
     match text_unit {
       Some(unit) => {
+        let solo_source_ref_only = block.attrs.get("rag_solo_source_ref_only") ==
+          Some("true")
         if unit.force_single_chunk {
           ordinal = flush_text_chunks(
             chunks, text_units, text_source_refs, text_asset_refs, text_heading_path,
@@ -180,11 +183,13 @@ pub fn chunks_from_document(
           text_heading_path = next_heading_path
         }
         text_units.push(unit)
-        append_unique_source_ref(
-          text_source_refs,
-          block.source_ref,
-          normalized_options.preserve_source_ref,
-        )
+        if !solo_source_ref_only || text_units.length() == 1 {
+          append_unique_source_ref(
+            text_source_refs,
+            block.source_ref,
+            normalized_options.preserve_source_ref,
+          )
+        }
         let block_asset_refs = block_asset_refs(block, document.assets)
         append_unique_strings(text_asset_refs, block_asset_refs)
         text_char_count += unit.char_count

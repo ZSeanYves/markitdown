@@ -93,6 +93,48 @@ fn read_utf8_text(path : String) -> String {
 }
 
 ///|
+#warnings("-deprecated")
+fn with_mock_audio_runtime(body : () -> Unit raise) -> Unit raise {
+  let root = test_tmp_root() + "/audio-runtime"
+  recreate_clean_dir(root)
+  defer cleanup_temp_dir(root)
+  let model_path = root + "/ggml-base.bin"
+  write_utf8_text(model_path, "fake whisper model\n")
+  let bin_dir = root + "/bin"
+  recreate_clean_dir(bin_dir)
+  let whisper_path = bin_dir + "/whisper-cli"
+  let ffmpeg_path = bin_dir + "/ffmpeg"
+  write_utf8_text(
+    whisper_path, "#!/bin/sh\nexec python3 \"$PWD/samples/helpers/mock_whisper_cli.py\" \"$@\"\n",
+  )
+  write_utf8_text(
+    ffmpeg_path, "#!/bin/sh\nexec python3 \"$PWD/samples/helpers/mock_ffmpeg.py\" \"$@\"\n",
+  )
+  @async.with_event_loop(_group => {
+    let _ = @process.collect_output("chmod", ["+x", whisper_path]) catch {
+      e => abort("chmod whisper mock failed: " + e.to_string())
+    }
+    let _ = @process.collect_output("chmod", ["+x", ffmpeg_path]) catch {
+      e => abort("chmod ffmpeg mock failed: " + e.to_string())
+    }
+  }) catch {
+    e => fail("mock chmod event loop failed: " + e.to_string())
+  }
+  let previous_path = @env.get_env_var("PATH")
+  let current_path = previous_path.unwrap_or("")
+  @env.set_env_var("PATH", bin_dir + ":" + current_path)
+  @env.set_env_var(@faudio.audio_model_path_env_var(), model_path)
+  defer {
+    @env.unset_env_var(@faudio.audio_model_path_env_var())
+    match previous_path {
+      Some(path) => @env.set_env_var("PATH", path)
+      None => @env.unset_env_var("PATH")
+    }
+  }
+  body()
+}
+
+///|
 fn collect_mbt_files(path : String, out : Array[String]) -> Unit raise {
   if !@fs.path_exists(path) {
     fail("path missing: " + path)

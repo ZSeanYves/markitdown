@@ -81,11 +81,10 @@ pub fn build_paddle_ocr_command_with_adapter(
       OcrProviderError::NotConfigured(paddle_ocr_not_configured_message()),
     )
   }
-  let parts = trimmed
-    .split(" ")
-    .to_array()
-    .map(part => part.trim().to_owned())
-    .filter(part => part != "")
+  let parts = match paddle_ocr_command_parts(trimmed) {
+    Ok(value) => value
+    Err(msg) => return Err(OcrProviderError::NotConfigured(msg))
+  }
   if parts.length() == 0 {
     return Err(
       OcrProviderError::NotConfigured(paddle_ocr_not_configured_message()),
@@ -105,6 +104,75 @@ pub fn build_paddle_ocr_command_with_adapter(
     None => ()
   }
   Ok((parts[0], argv))
+}
+
+///|
+fn paddle_ocr_command_parts(
+  adapter_command : String,
+) -> Result[Array[String], String] {
+  if @fs.path_exists(adapter_command) {
+    return Ok([adapter_command])
+  }
+  let parts : Array[String] = []
+  let current : Array[Char] = []
+  let chars = adapter_command.to_array()
+  let mut in_single_quote = false
+  let mut in_double_quote = false
+  let mut escape_next = false
+
+  fn flush_current(parts : Array[String], current : Array[Char]) -> Unit {
+    if current.length() == 0 {
+      return
+    }
+    parts.push(String::from_array(current))
+    current.clear()
+  }
+
+  for ch in chars {
+    if escape_next {
+      current.push(ch)
+      escape_next = false
+      continue
+    }
+    if ch == '\\' && !in_single_quote {
+      escape_next = true
+      continue
+    }
+    if ch == '\'' && !in_double_quote {
+      in_single_quote = !in_single_quote
+      continue
+    }
+    if ch == '"' && !in_single_quote {
+      in_double_quote = !in_double_quote
+      continue
+    }
+    if (ch == ' ' || ch == '\t' || ch == '\n') &&
+      !in_single_quote &&
+      !in_double_quote {
+      flush_current(parts, current)
+      continue
+    }
+    current.push(ch)
+  }
+
+  if escape_next {
+    return Err(
+      "PaddleOCR provider command is not configured correctly on this runtime. `" +
+      paddle_ocr_command_env_var() +
+      "` ends with a trailing escape.\n\n" +
+      paddle_ocr_install_hint(),
+    )
+  }
+  if in_single_quote || in_double_quote {
+    return Err(
+      "PaddleOCR provider command is not configured correctly on this runtime. `" +
+      paddle_ocr_command_env_var() +
+      "` contains unterminated quotes.\n\n" +
+      paddle_ocr_install_hint(),
+    )
+  }
+  flush_current(parts, current)
+  Ok(parts)
 }
 
 ///|
