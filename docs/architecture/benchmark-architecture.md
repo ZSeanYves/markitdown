@@ -1,177 +1,391 @@
-# mb-markitdown Benchmark Architecture v2
+# Benchmark Architecture Guide
 
-## 0. Purpose
+> Path: `docs/architecture/benchmark-architecture.md`
+>
+> This document complements
+> [mb-markitdown-architecture.md](./mb-markitdown-architecture.md)
+> and
+> [format-mode-and-execution-profile-architecture.md](./format-mode-and-execution-profile-architecture.md)
+> with focused rules for benchmark architecture, regression trust, product-path measurement, and comparison policy.
 
-`bench v2` exists to measure the real product routes defined by
-`docs/architecture/mb-markitdown-architecture.md`.
+Recommended reading order:
 
-正式 benchmark 的第一原则不是“能跑”，而是：
+1. Read the main architecture guide first.
+2. Then read the mode and profile guide.
+3. Then read this document to understand how benchmark runs measure the formal product path.
+4. Finally read [../capabilities-and-limitations.md](../capabilities-and-limitations.md) for the public boundary.
 
-- 测量路径必须忠实于产品 route selection
-- 正式调度必须是 release binary-only
-- 结果必须带完整 route provenance
+---
 
-## 1. Hard Constraints
+## 0. Document Scope
 
-正式 benchmark 体系完全禁止：
+This is a normative benchmark architecture document, not a one-off score report.
 
-- `moon bench`
-- `moon run`
+It answers:
 
-唯一正式 orchestrator：
+1. what the formal benchmark system measures
+2. what the benchmark system does not measure
+3. how benchmark facts are layered across corpus, policy, execution, and trust
+4. how the benchmark system proves it measured the real product path
+5. how trust, gate, and route-coverage semantics should work over time
 
-- `_build/native/release/build/bench/runner/runner.exe`
+The benchmark system is part of the product validation system, not a separate toy script stack.
 
-唯一正式 MoonBit CLI 被测对象：
+### 0.1 Product Positioning
 
-- `_build/native/release/build/cli/cli.exe`
+The benchmark system exists to serve long-term product goals:
 
-若 runner 不是 release binary、CLI 不是 release binary、或 benchmark 调度链使用
-`moon` 转调，则该 run 直接 `trust_status=failed`。
+1. reproducible performance observation for the formal product path
+2. auditable route and provenance evidence
+3. one shared runtime base for internal performance work, external comparison, diagnostics, and contract checks
+4. fail-closed trust gates instead of speed numbers without context
 
-## 2. Top-Level Model
+### 0.2 Vocabulary
 
-`bench v2` 只有三层事实源：
+This document uses the following fixed terms:
 
-1. `<bench-root>/MANIFEST.tsv`
-   只负责 corpus identity。
-2. `bench/config/policy.json`
-   负责 scenario、preset、tool matrix、row policy。
-3. `bench/runner`
-   负责 catalog、planning、execution、result、report。
+1. `bench root`: benchmark corpus root
+2. `row`: one formal benchmark input declaration
+3. `scenario`: a measurement task family such as `product`, `compare`, `diagnostic`, or `doctor`
+4. `preset`: a named bundle of scenarios and default run settings
+5. `tool`: a measured implementation such as `moonbit-cli`, `moonbit-engine`, or `markitdown`
+6. `sample`: one actual measured run after warmup
+7. `case`: the aggregation of several samples for one `scenario x tool x row`
+8. `run`: one full benchmark execution with a unique `run_id`
+9. `trust`: whether the MoonBit product path stayed trustworthy
+10. `gate`: whether a comparison set is complete enough to be compared formally
 
-旧的：
+### 0.3 Architecture Versus Implementation
 
-- `bench/micro`
-- `bench/pipeline`
-- `bench/product`
+This document defines the benchmark contract.
 
-都不再属于正式 benchmark 主路径。
+So:
 
-## 3. Scenario-First Execution
+1. runner implementations and scripts are downstream artifacts
+2. manifests and policies are implementation expressions of this contract
+3. a mismatch between implementation and this document should usually be fixed in code or operational docs
+4. this document should change only when product goals or formal public promises change
 
-runner 先展开：
+---
 
-```text
-scenario x row x tool
-```
+## 1. Design Goal
 
-再生成 measurement case。
+The benchmark system should satisfy all of the following:
 
-当前正式 preset：
+1. measure the real product path
+2. keep results explainable
+3. keep the benchmark corpus independent from the main repository source tree
+4. separate internal, comparison, diagnostic, and contract-check views while sharing one base
+5. evolve through policy and manifest changes instead of new benchmark side paths
+6. fail closed when provenance, route fidelity, or semantic density evidence is missing
 
-- `official-internal`
-- `official-compare`
-- `doctor`
+### 1.1 Five Rules to Remember First
 
-当前内建诊断 / 参考 scenario：
+If a reader remembers only five rules, they should be:
 
-- `diagnostic.markdown`
-- `diagnostic.html`
-- `diagnostic.xml`
-- `diagnostic.xlsx`
-- `diagnostic.epub`
-- `diagnostic.zip`
+1. There should be one formal benchmark entry path.
+2. Formal benchmark runs should measure release-grade product entry points.
+3. Benchmark measures product truth and provenance, not only wall time.
+4. `trust_status` and `gate_status` are not the same thing.
+5. Benchmark growth should happen through shared manifest, policy, orchestrator, and result contracts.
 
-`<bench-root>` 解析顺序固定为：
+---
 
-- `MARKITDOWN_BENCH_ROOT`
-- repo-root `markitdown-quality-lab/external_bench/`
+## 2. Non-Negotiable Constraints
 
-## 4. Route Fidelity Contract
+The formal benchmark system should keep these constraints:
 
-产品侧必须提供：
+1. it measures the same planner-driven product path used by the formal CLI or engine
+2. it does not introduce benchmark-only parse shortcuts
+3. it records enough provenance to explain route behavior
+4. it fails closed when a result is not trustworthy
+5. it keeps comparison gating separate from product-path trust
 
-- `plan_input(source, options) -> RoutePlan`
-- `convert_input_with_provenance(source, options) -> ConvertExecution`
+---
 
-`RoutePlan` 至少记录：
+## 3. Top-Level Architecture
 
-- `detected_format`
-- `selected_route`
-- `route_reason`
-- `route_probe_summary`
-- `requested_parser_mode`
+### 3.1 Layered Model
 
-`ConvertProvenance` 至少记录：
-
-- `route_plan`
-- `effective_parser_mode`
-- `parse_result_kind`
-- `pipeline_output_kind`
-- `render_input_kind`
-- `route_fidelity_status`
-
-MoonBit 正式 benchmark 行若缺少这些字段，不是 warning，而是 trust failure。
-同样，若 `route_fidelity_status != matched`，或 `expected_route != actual_route`，
-也必须直接视为 trust failure。
-
-## 5. Measurement Rules
-
-正式 preset 默认：
-
-- order: `row_major_interleaved`
-- `warmup=1`
-- `repeat=3`
-
-`doctor` 默认：
-
-- `warmup=5`
-- `repeat=20`
-
-`moonbit-engine` 允许 in-process，但只能在 release runner 内部执行，并明确标记为
-`measurement_mode=inprocess-engine`。
-
-## 6. Result Protocol
-
-正式结果根目录固定为：
+The benchmark architecture can be understood as:
 
 ```text
-.tmp/bench/v2/runs/<run_id>/
+Corpus / Manifest
+  -> Scenario / Preset Policy
+  -> Tool Registry
+  -> Benchmark Orchestrator
+  -> Formal Product Entry
+  -> Measurement
+  -> Result Protocol
+  -> Report / Trust / Gate
 ```
 
-结果协议固定三层：
+### 3.2 Three Fact Sources on the Benchmark Side
 
-1. `samples.jsonl`
-2. `cases.jsonl`
-3. `summary.json` + `report.md`
+Benchmark truth comes from three categories of fact:
 
-`summary.json` 必须显式记录：
+1. corpus facts: what was measured
+2. execution facts: how it was measured
+3. product facts: what route and output truth the product reported
 
-- `binary_only_contract`
-- `trust_status`
-- gate summary
-- route coverage summary
-- truth summary
-- per-scenario summary
-- baseline diff（如提供）
+### 3.3 Product-Side Contract
 
-## 7. Official Views
+Benchmark only stays credible when the product emits enough diagnostics and provenance for:
 
-`official-internal` 只服务 MoonBit 内部优化判断：
+- selected route
+- effective mode behavior
+- fallback behavior
+- semantic density
+- dependency failures
 
-- MoonBit CLI / engine median
-- route coverage
-- non-ok rows
-- baseline diff
+---
 
-`official-compare` 只服务外部对标口径：
+## 4. Stable Data Model
 
-- CLI / engine speedup
-- by-format speedup
-- comparable coverage
-- excluded or non-ok rows
+### 4.1 Bench Root and Corpus Identity
 
-官方 KPI 与诊断视图必须分离，不能再把 block-stream / stream family 强行量成
-whole-document 路径。
+The benchmark corpus should stay outside the main repository's code ownership surface.
 
-## 8. Current Cutover
+That keeps:
 
-本次切换已确定：
+1. formal corpora independent
+2. main-repo tests lighter
+3. benchmark reproducibility more honest
 
-- 正式 benchmark 主路径移除 `moon bench`
-- 正式 benchmark 主路径移除 `moon run`
-- `bench/micro` / `bench/pipeline` / `bench/product` 删除
-- runner help / README / 结果路径切到 v2
+### 4.2 Row
 
-剩余工作只允许继续在 v2 主路径上收敛，不再维护 v1 兼容层。
+A row is one formal benchmark input declaration with enough metadata to identify:
+
+- format
+- tier
+- scenario compatibility
+- expected route or trust assumptions where applicable
+
+### 4.3 Scenario and Preset
+
+Scenarios define what kind of run is happening.
+Presets bundle several scenarios and defaults together.
+
+Examples include:
+
+- internal formal benchmark
+- external comparison
+- diagnostic inspection
+- doctor-style contract checks
+
+### 4.4 Tool
+
+A tool is one measured implementation.
+
+The architecture should keep tool-specific wiring isolated from scenario logic.
+
+### 4.5 Sample, Case, and Run
+
+The benchmark system should continue modeling:
+
+- sample: one measured repeat
+- case: aggregation for one tool and one row under one scenario
+- run: the full benchmark execution and result directory
+
+---
+
+## 5. Main Execution Chain
+
+### 5.1 Formal Execution Flow
+
+The stable benchmark flow is:
+
+```text
+select preset or scenario
+  -> load rows
+  -> resolve tools
+  -> invoke formal product entry
+  -> collect timing, memory, diagnostics, provenance, output truth
+  -> aggregate samples
+  -> write result protocol
+  -> regenerate reports
+```
+
+### 5.2 Measurement Policy
+
+Measurement policy should cover:
+
+- warmup
+- repeat count
+- timeout
+- memory observation
+- trust and gate evaluation
+
+Wall time is important, but it is not enough by itself.
+
+### 5.3 Process CLI and In-Process Engine
+
+The benchmark system may compare:
+
+- the formal CLI
+- the in-process engine
+- external comparison tools
+
+But they should still be orchestrated through one benchmark language and one result protocol.
+
+---
+
+## 6. Truth Model and Trust Gate
+
+### 6.1 Benchmark Measures More Than "Command Succeeded"
+
+A successful exit code is not enough.
+
+Formal benchmark truth should also ask:
+
+1. Did the real product path run?
+2. Did provenance remain complete enough?
+3. Did the route match expectation?
+4. Is the output semantically dense enough to be treated as meaningful?
+
+### 6.2 Provenance Completeness Contract
+
+The benchmark system should treat missing or broken provenance as a trust problem, not just as cosmetic metadata loss.
+
+### 6.3 Route Expectation and Coverage
+
+When a scenario expects a route family, benchmark should verify that expectation honestly.
+
+### 6.4 Route Fidelity
+
+Route fidelity means the measured result actually reflects the route the product claims it used.
+
+This matters especially for:
+
+- large-file adaptation
+- stream fallback
+- OCR and accurate fallback
+- PDF native-text versus OCR behavior
+
+### 6.5 Semantic Density Guard
+
+A benchmark result can be fast and still be poor product truth.
+
+Semantic density checks exist to catch obviously hollow output cases.
+
+### 6.6 Trust and Gate Are Different
+
+`trust_status` asks:
+
+- was the MoonBit product path trustworthy?
+
+`gate_status` asks:
+
+- was the comparison set complete enough to compare formally?
+
+One can fail while the other passes.
+
+---
+
+## 7. Result Protocol
+
+### 7.1 Stable Result Directory
+
+Every run should write to one stable result root keyed by `run_id`.
+
+### 7.2 Three Formal Result Layers
+
+At a minimum, the benchmark system should preserve:
+
+1. raw per-sample facts
+2. case-level aggregates
+3. run-level summaries and reports
+
+### 7.3 Summary Contract
+
+Run summaries should continue exposing:
+
+- scenario and preset identity
+- tool identity
+- timing and memory aggregates
+- trust status
+- gate status
+- route coverage signals
+
+### 7.4 Report Regeneration
+
+Reports should be reproducible from stored result data instead of requiring reruns for every presentation update.
+
+---
+
+## 8. Official View Split
+
+### 8.1 Internal Formal View
+
+Internal formal benchmark focuses on:
+
+- the MoonBit product path itself
+- performance and memory evolution
+- route and provenance trust
+
+### 8.2 External Comparison View
+
+External comparison focuses on:
+
+- apples-to-apples comparison sets
+- whether all compared tools formed enough valid cases
+- whether the baseline can form a real comparable set
+
+### 8.3 Diagnostic View
+
+Diagnostic view exists to explain route or output behavior, not to publish headline scores.
+
+### 8.4 Contract-Check View
+
+Doctor- or contract-style benchmark views exist to catch environment, dependency, or trust regressions quickly.
+
+---
+
+## 9. Evolution and Extension Rule
+
+### 9.1 Adding a New Format
+
+Prefer:
+
+1. new rows in the corpus
+2. new or updated policy entries
+3. tool registry support if needed
+4. route- or trust-aware assertions
+
+Avoid:
+
+- adding a new benchmark path just for one format
+
+### 9.2 Adding a New Tool
+
+New comparison tools should plug into the same scenario and result protocol model.
+
+### 9.3 Evolving the Result Protocol
+
+Result protocol evolution should preserve:
+
+- reproducibility
+- route truth
+- memory and timing comparability
+- explicit versioning when needed
+
+### 9.4 Documentation and Implementation Sync
+
+Operational docs should explain how to reproduce a run.
+This architecture doc explains what counts as a formal benchmark run.
+
+---
+
+## 10. Explicit Non-Goals
+
+The benchmark system is not trying to be:
+
+1. a random collection of microbenchmarks
+2. a wall-time-only scoreboard
+3. a benchmark-only shortcut around the product architecture
+
+---
+
+## 11. Convergence Principle
+
+The benchmark system stays healthy when it keeps measuring the real product path, keeps timing and memory visible together, and treats provenance, route fidelity, and trust gates as first-class parts of benchmark truth.

@@ -4,11 +4,12 @@
 
 ### Current baseline
 
-* main-repo runtime, `moon test`, and `./samples/check.sh` remain self-contained
-* optional external quality runs through `bash ./samples/check_quality.sh`
-* repo-root `markitdown-quality-lab/` remains the optional home for:
+* main-repo runtime and `moon test` remain self-contained
+* formal main regression runs through `bash ./samples/check.sh` and explicitly depends on the checked-out external corpus repo
+* formal quality runs through `bash ./samples/check_quality.sh` and explicitly depend on the same external corpus repo
+* repo-root `./markitdown-quality-lab/` is the official home for:
   * external corpus payloads
-  * benchmark payloads and `bench v2` sample manifests
+  * benchmark payloads and `bench` sample manifests
   * tracked local/full quality rows
   * PDF layout classifier training/eval/model/report assets
   * generator scripts that do not belong in runtime
@@ -18,8 +19,7 @@
 ### Validation baseline
 
 * `moon test`: `591 passed`
-* `./samples/check.sh`: root sample regression passed with `460` checked / `0`
-  skipped / `0` failed
+* `./samples/check.sh`: formal main regression remains external-corpus scoped and depends on the checked-out `markitdown-quality-lab` manifest
 * public-only quality: `24 rows / 0 skipped / 0 expected_fail`
 * full quality remains external-corpus scoped and depends on the checked-out
   `markitdown-quality-lab` manifest
@@ -27,6 +27,20 @@
 
 ### User-visible updates
 
+* package metadata in `moon.mod` was refreshed for the current release
+  surface; published `keywords` now reflect the actual MoonBit-native
+  document-to-Markdown, OCR, CLI, and RAG / content-ingestion positioning
+  instead of the older extension-heavy format list
+* `.msg` is now accepted as a formal mail-input alias for the stable `eml`
+  path, so extension-based CLI detection, `--format`, help text, and quality
+  examples no longer need a manual `eml` override for RFC822-style `.msg`
+  fixtures
+* `samples/quality_examples/` now provides a checked-in, source-attributed
+  quality showcase built only from
+  `markitdown-quality-lab/external_quality/`; each non-audio format now keeps a
+  real copied-in sample under `<format>/<source>/` with current `markdown`,
+  `rag`, and `debug` outputs beside the original file, and samples that
+  exercise asset export also keep per-view `assets/` directories
 * direct image OCR is now a formal main-CLI product path for
   `png/jpg/jpeg/bmp/webp/tif/tiff`; image input uses local Tesseract OCR by
   default, `--no-ocr` explicitly disables it, and `--ocr-lang` is accepted for
@@ -48,8 +62,8 @@
 * sample fixtures and contract checks were expanded and refreshed across OCR,
   PDF OCR, ZIP / EPUB / PPTX boundary cases, and release-facing CLI docs so the
   published command surface is now executable and regression-guarded end to end
-* `samples/check.sh` remains the main repo-local validation entrypoint, and
-  `samples/check_quality.sh` remains the optional external-quality entrypoint
+* `samples/check.sh` remains the formal main-regression entrypoint on the external corpus, and
+  `samples/check_quality.sh` remains the formal quality-regression entrypoint on the external corpus
 * benchmark sample payloads moved out of the main repo into
   `markitdown-quality-lab`, keeping runtime validation lightweight while leaving
   formal bench runs on the external corpus path

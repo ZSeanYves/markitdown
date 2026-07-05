@@ -656,10 +656,7 @@ fn malformed_html_parse_result(
   diagnostics.fallback_trace.push("html fail closed: " + err)
   diagnostics.metrics.set("parser_name", "html_parser")
   diagnostics.metrics.set("parser_mode", "dom_ast_model")
-  diagnostics.metrics.set(
-    "input_kind",
-    @parser_common.input_kind_name(source.kind),
-  )
+  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
   diagnostics.metrics.set("detected_format", "html")
   diagnostics.metrics.set("requested_mode", "default")
   diagnostics.metrics.set("effective_mode", "dom_ast_model")
@@ -684,7 +681,7 @@ fn malformed_html_parse_result(
   diagnostics.metrics.set("unsupported_feature_count", "0")
   diagnostics.metrics.set(
     "line_count",
-    @parser_common.count_physical_lines(text).to_string(),
+    @fshared.count_physical_lines(text).to_string(),
   )
   diagnostics.metrics.set("char_count", text.length().to_string())
   diagnostics.metrics.set("degraded_feature_count", "1")

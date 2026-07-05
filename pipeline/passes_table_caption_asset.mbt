@@ -123,7 +123,8 @@ fn asset_resolved_assembly_from_blocks(
   prior : @core.DocumentAssembly,
 ) -> @core.DocumentAssembly {
   let bindings : Array[@core.AssetBinding] = []
-  collect_asset_bindings(blocks, assets, bindings)
+  let index = build_asset_binding_index(assets)
+  collect_asset_bindings(blocks, index, bindings)
   { ..prior, asset_bindings: bindings }
 }
 
@@ -280,45 +281,143 @@ fn collect_caption_bindings(
 }
 
 ///|
+priv struct AssetBindingIndex {
+  assets_by_id : Map[String, Array[@core.AssetRef]]
+  assets_by_path : Map[String, Array[@core.AssetRef]]
+  assets_by_source_path : Map[String, Array[@core.AssetRef]]
+  assets_by_source_ref_key : Map[String, Array[@core.AssetRef]]
+}
+
+///|
+fn build_asset_binding_index(
+  assets : Array[@core.AssetRef],
+) -> AssetBindingIndex {
+  let assets_by_id : Map[String, Array[@core.AssetRef]] = Map([])
+  let assets_by_path : Map[String, Array[@core.AssetRef]] = Map([])
+  let assets_by_source_path : Map[String, Array[@core.AssetRef]] = Map([])
+  let assets_by_source_ref_key : Map[String, Array[@core.AssetRef]] = Map([])
+  for asset in assets {
+    asset_binding_index_push(assets_by_id, asset.asset_id, asset)
+    match asset.path {
+      Some(path) if path != "" =>
+        asset_binding_index_push(assets_by_path, path, asset)
+      _ => ()
+    }
+    match asset.attrs.get("source_path") {
+      Some(path) if path != "" =>
+        asset_binding_index_push(assets_by_source_path, path, asset)
+      _ => ()
+    }
+    let source_ref_key = asset_source_ref_key(
+      asset.source_ref.unwrap_or(@core.empty_source_ref()),
+    )
+    if source_ref_key != "" {
+      asset_binding_index_push(assets_by_source_ref_key, source_ref_key, asset)
+    }
+  }
+  {
+    assets_by_id,
+    assets_by_path,
+    assets_by_source_path,
+    assets_by_source_ref_key,
+  }
+}
+
+///|
+fn asset_binding_index_push(
+  index : Map[String, Array[@core.AssetRef]],
+  key : String,
+  asset : @core.AssetRef,
+) -> Unit {
+  match index.get(key) {
+    Some(existing) => existing.push(asset)
+    None => index.set(key, [asset])
+  }
+}
+
+///|
 fn collect_asset_bindings(
   blocks : Array[@core.CoreBlock],
-  assets : Array[@core.AssetRef],
+  index : AssetBindingIndex,
   bindings : Array[@core.AssetBinding],
 ) -> Unit {
   for block in blocks {
-    for asset in assets {
-      if block_owns_asset(block, asset) {
-        bindings.push({
-          asset_id: asset.asset_id,
-          owner_block_id: block.block_id,
-          relation: asset_binding_relation(block, asset),
-          confidence: Some(90),
-        })
-      }
+    for asset in block_owned_assets(block, index) {
+      bindings.push({
+        asset_id: asset.asset_id,
+        owner_block_id: block.block_id,
+        relation: asset_binding_relation(block, asset),
+        confidence: Some(90),
+      })
     }
     if block.children.length() > 0 {
-      collect_asset_bindings(block.children, assets, bindings)
+      collect_asset_bindings(block.children, index, bindings)
     }
   }
 }
 
 ///|
-fn block_owns_asset(block : @core.CoreBlock, asset : @core.AssetRef) -> Bool {
+fn block_owned_assets(
+  block : @core.CoreBlock,
+  index : AssetBindingIndex,
+) -> Array[@core.AssetRef] {
+  let matched : Array[@core.AssetRef] = []
+  let seen : Array[String] = []
   match block.attrs.get("asset_id") {
-    Some(asset_id) if asset_id == asset.asset_id => return true
+    Some(asset_id) =>
+      collect_asset_binding_candidates(
+        matched,
+        seen,
+        index.assets_by_id.get(asset_id),
+      )
     _ => ()
   }
-  match (block.attrs.get("path"), asset.path) {
-    (Some(path), Some(asset_path)) if path == asset_path => return true
+  match block.attrs.get("path") {
+    Some(path) =>
+      collect_asset_binding_candidates(
+        matched,
+        seen,
+        index.assets_by_path.get(path),
+      )
     _ => ()
   }
-  match (block.attrs.get("source_path"), asset.attrs.get("source_path")) {
-    (Some(path), Some(asset_path)) if path == asset_path => return true
+  match block.attrs.get("source_path") {
+    Some(path) =>
+      collect_asset_binding_candidates(
+        matched,
+        seen,
+        index.assets_by_source_path.get(path),
+      )
     _ => ()
   }
   let block_ref = block.source_ref.unwrap_or(@core.empty_source_ref())
-  let asset_ref = asset.source_ref.unwrap_or(@core.empty_source_ref())
-  source_ref_equivalent_for_asset(block_ref, asset_ref)
+  let source_ref_key = asset_source_ref_key(block_ref)
+  if source_ref_key != "" {
+    collect_asset_binding_candidates(
+      matched,
+      seen,
+      index.assets_by_source_ref_key.get(source_ref_key),
+    )
+  }
+  matched
+}
+
+///|
+fn collect_asset_binding_candidates(
+  out : Array[@core.AssetRef],
+  seen : Array[String],
+  candidates : Array[@core.AssetRef]?,
+) -> Unit {
+  match candidates {
+    Some(items) =>
+      for asset in items {
+        if !seen.contains(asset.asset_id) {
+          seen.push(asset.asset_id)
+          out.push(asset)
+        }
+      }
+    None => ()
+  }
 }
 
 ///|
@@ -334,19 +433,55 @@ fn asset_binding_relation(
 }
 
 ///|
-fn source_ref_equivalent_for_asset(
-  left : @core.SourceRef,
-  right : @core.SourceRef,
-) -> Bool {
-  left.file_id == right.file_id &&
-  left.format == right.format &&
-  left.container_path == right.container_path &&
-  left.entry_path == right.entry_path &&
-  left.inner_path == right.inner_path &&
-  left.sheet == right.sheet &&
-  left.slide == right.slide &&
-  left.page == right.page &&
-  left.relationship_id == right.relationship_id
+fn asset_source_ref_key(source_ref : @core.SourceRef) -> String {
+  let parts : Array[String] = []
+  if !asset_source_ref_is_specific(source_ref) {
+    return ""
+  }
+  asset_source_ref_key_push(parts, source_ref.file_id)
+  asset_source_ref_key_push(parts, source_ref.format)
+  asset_source_ref_key_push(parts, source_ref.xpath)
+  asset_source_ref_key_push(parts, source_ref.json_pointer)
+  asset_source_ref_key_push(parts, source_ref.yaml_path)
+  asset_source_ref_key_push(parts, source_ref.html_path)
+  asset_source_ref_key_push(parts, source_ref.markdown_path)
+  asset_source_ref_key_push(parts, source_ref.container_path)
+  asset_source_ref_key_push(parts, source_ref.entry_path)
+  asset_source_ref_key_push(parts, source_ref.inner_path)
+  asset_source_ref_key_push(parts, source_ref.sheet)
+  asset_source_ref_key_push(parts, source_ref.slide.map(v => v.to_string()))
+  asset_source_ref_key_push(parts, source_ref.page.map(v => v.to_string()))
+  asset_source_ref_key_push(parts, source_ref.relationship_id)
+  asset_source_ref_key_push(parts, source_ref.chapter_href)
+  if parts.length() == 0 {
+    ""
+  } else {
+    parts.join("\u001f")
+  }
+}
+
+///|
+fn asset_source_ref_is_specific(source_ref : @core.SourceRef) -> Bool {
+  source_ref.json_pointer is Some(_) ||
+  source_ref.markdown_path is Some(_) ||
+  source_ref.html_path is Some(_) ||
+  source_ref.yaml_path is Some(_) ||
+  source_ref.xpath is Some(_) ||
+  source_ref.chapter_href is Some(_) ||
+  source_ref.relationship_id is Some(_) ||
+  source_ref.inner_path is Some(_) ||
+  source_ref.entry_path is Some(_) ||
+  source_ref.sheet is Some(_) ||
+  source_ref.slide is Some(_) ||
+  source_ref.page is Some(_)
+}
+
+///|
+fn asset_source_ref_key_push(parts : Array[String], value : String?) -> Unit {
+  match value {
+    Some(item) => parts.push(item)
+    None => parts.push("")
+  }
 }
 
 ///|

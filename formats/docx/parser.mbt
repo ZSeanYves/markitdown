@@ -1,4 +1,5 @@
 ///|
+/// Capability for the canonical DOCX package parser.
 pub fn docx_parser_capability() -> @parser.ParserCapability {
   @parser.make_parser_capability(
     @parser.ParserMode::PackageSinglePass,
@@ -24,6 +25,7 @@ pub fn docx_parser_capability() -> @parser.ParserCapability {
 }
 
 ///|
+/// Construct the canonical DOCX parser entrypoint.
 pub fn docx_parser() -> @parser.Parser {
   let capability = docx_parser_capability()
   @parser.make_parser(
@@ -45,7 +47,7 @@ fn parse_docx_document_result(
   context : @parser.ParseContext,
   capability : @parser.ParserCapability,
 ) -> Result[@parser.ParseResult, String] {
-  let diagnostics = @parser_common.empty_parser_diagnostics(
+  let diagnostics = @fshared.empty_parser_diagnostics(
     "docx_parser",
     @parser.ParserMode::PackageSinglePass,
     source,
@@ -53,14 +55,11 @@ fn parse_docx_document_result(
   )
   diagnostics.metrics.set("parser_name", "docx_parser")
   diagnostics.metrics.set("parser_mode", "package_single_pass")
-  diagnostics.metrics.set(
-    "input_kind",
-    @parser_common.input_kind_name(source.kind),
-  )
+  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
   diagnostics.metrics.set("detected_format", "docx")
   diagnostics.metrics.set(
     "requested_mode",
-    @parser_common.requested_mode_name(context),
+    @fshared.requested_mode_name(context),
   )
   diagnostics.metrics.set(
     "fidelity_mode",
@@ -100,7 +99,7 @@ fn parse_docx_document_result(
   diagnostics.metrics.set("docx_tracked_change_count", "0")
   diagnostics.metrics.set("format_family", "office")
   diagnostics.metrics.set("native_impl_location", "formats/docx")
-  @parser_common.apply_product_metrics(diagnostics, "docx")
+  @fshared.apply_product_metrics(diagnostics, "docx")
 
   let bytes = match @input.read_input_bytes(source) {
     Ok(payload) => payload
@@ -139,13 +138,7 @@ fn parse_docx_document_result(
   }
 
   fill_docx_package_metrics(diagnostics, pkg)
-  let document = lower_docx_document_ir(
-    source,
-    docx,
-    pkg,
-    diagnostics,
-    context.fidelity_mode,
-  )
+  let document = lower_docx_document_ir(source, docx, pkg, diagnostics, context)
   diagnostics.metrics.set("block_count", document.blocks.length().to_string())
   diagnostics.metrics.set("asset_count", document.assets.length().to_string())
   diagnostics.metrics.set(

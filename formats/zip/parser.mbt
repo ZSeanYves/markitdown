@@ -43,7 +43,7 @@ fn zip_parser_capability() -> @parser.ParserCapability {
     false,
     false,
     false,
-    false,
+    true,
     false,
     true,
     true,
@@ -85,7 +85,7 @@ fn parse_zip_container_result(
     Ok(payload) => payload
     Err(err) => return Err(err)
   }
-  let diagnostics = @parser_common.empty_parser_diagnostics(
+  let diagnostics = @fshared.empty_parser_diagnostics(
     ZIP_PARSER_NAME,
     @parser.ParserMode::ContainerRecursive,
     source,
@@ -93,14 +93,11 @@ fn parse_zip_container_result(
   )
   diagnostics.metrics.set("parser_name", ZIP_PARSER_NAME)
   diagnostics.metrics.set("parser_mode", "container_recursive")
-  diagnostics.metrics.set(
-    "input_kind",
-    @parser_common.input_kind_name(source.kind),
-  )
+  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
   diagnostics.metrics.set("detected_format", "zip")
   diagnostics.metrics.set(
     "requested_mode",
-    @parser_common.requested_mode_name(context),
+    @fshared.requested_mode_name(context),
   )
   diagnostics.metrics.set("effective_mode", "container_recursive")
   diagnostics.metrics.set("ir_input_kind", "block_stream")
@@ -108,7 +105,7 @@ fn parse_zip_container_result(
   diagnostics.metrics.set("event_semantics", "archive_entry_block_stream")
   diagnostics.metrics.set("manifest_seen", "false")
   diagnostics.metrics.set("resource_limit_hit", "false")
-  @parser_common.apply_product_metrics(diagnostics, "zip")
+  @fshared.apply_product_metrics(diagnostics, "zip")
   diagnostics.pass_trace.push("parse:" + ZIP_PARSER_NAME)
 
   let archive = try @dzip.open_zip(bytes) |> Ok catch {
@@ -380,7 +377,7 @@ fn parse_zip_container_result(
   )
   diagnostics.metrics.set(
     "resource_limit_hit",
-    @parser_common.bool_string(resource_limit_hit),
+    @fshared.bool_string(resource_limit_hit),
   )
 
   Ok(

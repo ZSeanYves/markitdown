@@ -60,6 +60,24 @@ test "xml predefined entities decode and unknown entities fail closed" {
 }
 
 ///|
+test "xml numeric entities decode in decimal and hex forms" {
+  let doc = @xml.parse_xml_document("<root>&#169; &#x41; &#X4F60;</root>")
+  let root = match doc.root {
+    Some(root) => root
+    None => fail("expected root element")
+  }
+  match root.children[0] {
+    @xml.XmlNode::Text(text) => assert_eq(text.text, "© A 你")
+    _ => fail("expected text node")
+  }
+
+  let err = try @xml.parse_xml_document("<root>&#x110000;</root>") |> Ok catch {
+    e => Err(e)
+  }
+  assert_true(err is Err(_))
+}
+
+///|
 test "xml doctype is preserved as unsupported signal and never fetched" {
   let doc = @xml.parse_xml_document(
     "<!DOCTYPE note SYSTEM \"http://example.com/test.dtd\">\n<note>hi</note>\n",

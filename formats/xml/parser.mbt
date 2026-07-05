@@ -1,20 +1,12 @@
 ///|
 fn xml_parser_capability() -> @parser.ParserCapability {
-  @parser.make_parser_capability(
-    @parser.ParserMode::DomAstModel,
-    true,
+  @parser.dom_ast_parser_capability(
     @parser.StreamingGranularity::XmlStructure,
-    false,
-    true,
-    false,
-    true,
-    false,
-    true,
     true,
     true,
     false,
     true,
-    false,
+    true,
     true,
     true,
     true,
@@ -79,36 +71,44 @@ fn parse_xml_document_result_from_normalized(
   normalized : String,
   tokenized? : Array[@dxml.XmlToken]? = None,
 ) -> @parser.ParseResult {
-  let diagnostics = @parser_common.empty_parser_diagnostics(
+  let diagnostics = @fshared.empty_parser_diagnostics(
     "xml_parser",
     @parser.ParserMode::DomAstModel,
     source,
     "xml",
   )
-  diagnostics.metrics.set("parser_name", "xml_parser")
-  diagnostics.metrics.set("parser_mode", "dom_ast_model")
-  diagnostics.metrics.set(
-    "input_kind",
-    @parser_common.input_kind_name(source.kind),
-  )
-  diagnostics.metrics.set("detected_format", "xml")
-  diagnostics.metrics.set(
-    "requested_mode",
-    @parser_common.requested_mode_name(context),
-  )
   let requested_streaming = context.requested_mode ==
     Some(@parser.ParserMode::StreamingEvent)
-  diagnostics.metrics.set(
-    "ir_input_kind",
+  @fshared.init_parser_route_metrics_with_granularity(
+    diagnostics,
+    source,
+    context,
+    "xml",
+    "xml_parser",
+    @parser.ParserMode::DomAstModel,
+    if requested_streaming {
+      @parser.ParserMode::StreamingEvent
+    } else {
+      @parser.ParserMode::DomAstModel
+    },
     if requested_streaming {
       "event_stream"
     } else {
       "document"
     },
+    if requested_streaming {
+      @parser.StreamingGranularity::XmlStructure
+    } else {
+      @parser.StreamingGranularity::None
+    },
+    if requested_streaming {
+      "xml_structure_event_stream"
+    } else {
+      "dom_ast_model"
+    },
   )
-  @parser_common.apply_product_metrics(diagnostics, "xml")
+  @fshared.apply_product_metrics(diagnostics, "xml")
   if normalized.trim() == "" {
-    diagnostics.metrics.set("effective_mode", "dom_ast_model")
     diagnostics.metrics.set("resource_limit_hit", "false")
     diagnostics.metrics.set("dom_limit_reached", "false")
     diagnostics.metrics.set("element_count", "0")
@@ -124,7 +124,7 @@ fn parse_xml_document_result_from_normalized(
     diagnostics.metrics.set("custom_entity_seen", "false")
     diagnostics.metrics.set(
       "line_count",
-      @parser_common.count_physical_lines(normalized).to_string(),
+      @fshared.count_physical_lines(normalized).to_string(),
     )
     diagnostics.metrics.set("char_count", normalized.length().to_string())
     diagnostics.metrics.set("table_count", "0")
@@ -135,8 +135,6 @@ fn parse_xml_document_result_from_normalized(
     diagnostics.metrics.set("error_count", "0")
     diagnostics.metrics.set("block_count", "0")
     diagnostics.metrics.set("event_count", "0")
-    diagnostics.metrics.set("event_granularity", "none")
-    diagnostics.metrics.set("event_semantics", "dom_ast_model")
     diagnostics.metrics.set("degraded_feature_count", "0")
     diagnostics.metrics.set("fallback_count", "0")
     diagnostics.pass_trace.push("parse:xml_parser")
@@ -168,23 +166,23 @@ fn parse_xml_document_result_from_normalized(
         )
         diagnostics.metrics.set(
           "stream_policy_has_unsupported_doctype",
-          @parser_common.bool_string(summary.has_unsupported_doctype),
+          @fshared.bool_string(summary.has_unsupported_doctype),
         )
         diagnostics.metrics.set(
           "stream_policy_has_complex_mixed_content",
-          @parser_common.bool_string(summary.has_complex_mixed_content),
+          @fshared.bool_string(summary.has_complex_mixed_content),
         )
         diagnostics.metrics.set(
           "stream_policy_has_markdown_fence_text",
-          @parser_common.bool_string(summary.has_markdown_fence_text),
+          @fshared.bool_string(summary.has_markdown_fence_text),
         )
         diagnostics.metrics.set(
           "stream_policy_has_default_namespace",
-          @parser_common.bool_string(summary.has_default_namespace),
+          @fshared.bool_string(summary.has_default_namespace),
         )
         diagnostics.metrics.set(
           "stream_policy_has_multiline_attribute_value",
-          @parser_common.bool_string(has_multiline_attribute),
+          @fshared.bool_string(has_multiline_attribute),
         )
         if summary.has_unsupported_doctype ||
           summary.has_complex_mixed_content ||

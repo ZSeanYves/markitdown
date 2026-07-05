@@ -19,7 +19,21 @@
         "diagnostic.xml",
         "diagnostic.xlsx",
         "diagnostic.epub",
-        "diagnostic.zip"
+        "diagnostic.zip",
+        "diagnostic.ipynb",
+        "diagnostic.toml",
+        "diagnostic.srt",
+        "diagnostic.vtt",
+        "diagnostic.jsonl",
+        "diagnostic.ndjson",
+        "diagnostic.eml",
+        "diagnostic.tex",
+        "diagnostic.rst",
+        "diagnostic.asciidoc",
+        "diagnostic.odt",
+        "diagnostic.ods",
+        "diagnostic.odp",
+        "diagnostic.ocr"
       ],
       "tiers": ["regular", "release", "stress"],
       "repeat_count": 3,
@@ -140,6 +154,160 @@
       "route_expectation": "product_default",
       "measurement_policy": "runner_generated",
       "official_membership": "none"
+    },
+    {
+      "scenario_id": "diagnostic.ipynb",
+      "scenario_kind": "diagnostic",
+      "tool_set": "official-internal",
+      "row_selector": {
+        "formats": ["ipynb"]
+      },
+      "route_expectation": "product_default",
+      "measurement_policy": "runner_generated",
+      "official_membership": "none"
+    },
+    {
+      "scenario_id": "diagnostic.toml",
+      "scenario_kind": "diagnostic",
+      "tool_set": "official-internal",
+      "row_selector": {
+        "formats": ["toml"]
+      },
+      "route_expectation": "product_default",
+      "measurement_policy": "runner_generated",
+      "official_membership": "none"
+    },
+    {
+      "scenario_id": "diagnostic.srt",
+      "scenario_kind": "diagnostic",
+      "tool_set": "official-internal",
+      "row_selector": {
+        "formats": ["srt"]
+      },
+      "route_expectation": "product_default",
+      "measurement_policy": "runner_generated",
+      "official_membership": "none"
+    },
+    {
+      "scenario_id": "diagnostic.vtt",
+      "scenario_kind": "diagnostic",
+      "tool_set": "official-internal",
+      "row_selector": {
+        "formats": ["vtt"]
+      },
+      "route_expectation": "product_default",
+      "measurement_policy": "runner_generated",
+      "official_membership": "none"
+    },
+    {
+      "scenario_id": "diagnostic.jsonl",
+      "scenario_kind": "diagnostic",
+      "tool_set": "official-internal",
+      "row_selector": {
+        "formats": ["jsonl"]
+      },
+      "route_expectation": "product_default",
+      "measurement_policy": "runner_generated",
+      "official_membership": "none"
+    },
+    {
+      "scenario_id": "diagnostic.ndjson",
+      "scenario_kind": "diagnostic",
+      "tool_set": "official-internal",
+      "row_selector": {
+        "formats": ["ndjson"]
+      },
+      "route_expectation": "product_default",
+      "measurement_policy": "runner_generated",
+      "official_membership": "none"
+    },
+    {
+      "scenario_id": "diagnostic.eml",
+      "scenario_kind": "diagnostic",
+      "tool_set": "official-internal",
+      "row_selector": {
+        "formats": ["eml"]
+      },
+      "route_expectation": "product_default",
+      "measurement_policy": "runner_generated",
+      "official_membership": "none"
+    },
+    {
+      "scenario_id": "diagnostic.tex",
+      "scenario_kind": "diagnostic",
+      "tool_set": "official-internal",
+      "row_selector": {
+        "formats": ["tex"]
+      },
+      "route_expectation": "product_default",
+      "measurement_policy": "runner_generated",
+      "official_membership": "none"
+    },
+    {
+      "scenario_id": "diagnostic.rst",
+      "scenario_kind": "diagnostic",
+      "tool_set": "official-internal",
+      "row_selector": {
+        "formats": ["rst"]
+      },
+      "route_expectation": "product_default",
+      "measurement_policy": "runner_generated",
+      "official_membership": "none"
+    },
+    {
+      "scenario_id": "diagnostic.asciidoc",
+      "scenario_kind": "diagnostic",
+      "tool_set": "official-internal",
+      "row_selector": {
+        "formats": ["asciidoc"]
+      },
+      "route_expectation": "product_default",
+      "measurement_policy": "runner_generated",
+      "official_membership": "none"
+    },
+    {
+      "scenario_id": "diagnostic.odt",
+      "scenario_kind": "diagnostic",
+      "tool_set": "official-internal",
+      "row_selector": {
+        "formats": ["odt"]
+      },
+      "route_expectation": "product_default",
+      "measurement_policy": "runner_generated",
+      "official_membership": "none"
+    },
+    {
+      "scenario_id": "diagnostic.ods",
+      "scenario_kind": "diagnostic",
+      "tool_set": "official-internal",
+      "row_selector": {
+        "formats": ["ods"]
+      },
+      "route_expectation": "product_default",
+      "measurement_policy": "runner_generated",
+      "official_membership": "none"
+    },
+    {
+      "scenario_id": "diagnostic.odp",
+      "scenario_kind": "diagnostic",
+      "tool_set": "official-internal",
+      "row_selector": {
+        "formats": ["odp"]
+      },
+      "route_expectation": "product_default",
+      "measurement_policy": "runner_generated",
+      "official_membership": "none"
+    },
+    {
+      "scenario_id": "diagnostic.ocr",
+      "scenario_kind": "diagnostic",
+      "tool_set": "official-internal",
+      "row_selector": {
+        "formats": ["ocr"]
+      },
+      "route_expectation": "product_default",
+      "measurement_policy": "runner_generated",
+      "official_membership": "none"
     }
   ],
   "row_overrides": {
@@ -196,6 +364,30 @@
     },
     "epub_large_moby_dick_v1": {
       "route_expectation": "package_single_pass"
+    },
+    "ipynb_huge_synthetic_repeated_cells_v1": {
+      "route_expectation": "block_streaming"
+    },
+    "odt_medium_odf_toolkit_test_text_table_v1": {
+      "route_expectation": "block_streaming"
+    },
+    "odt_large_odf_toolkit_feature_images_v1": {
+      "route_expectation": "block_streaming"
+    },
+    "ods_medium_odf_toolkit_st_formulas_v1": {
+      "route_expectation": "block_streaming"
+    },
+    "odp_large_odf_toolkit_presentation1_v1": {
+      "route_expectation": "block_streaming"
+    },
+    "ocr_medium_self_multi_column_v1": {
+      "route_expectation": "layout_two_stage"
+    },
+    "ocr_large_commons_typewriter_photo_v1": {
+      "route_expectation": "layout_two_stage"
+    },
+    "ocr_huge_commons_menu_scene_text_v1": {
+      "route_expectation": "layout_two_stage"
     }
   }
 }

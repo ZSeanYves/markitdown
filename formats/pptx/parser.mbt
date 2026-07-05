@@ -1,4 +1,5 @@
 ///|
+/// Capability for the canonical PPTX package parser.
 pub fn pptx_parser_capability() -> @parser.ParserCapability {
   @parser.make_parser_capability(
     @parser.ParserMode::PackageSinglePass,
@@ -24,6 +25,7 @@ pub fn pptx_parser_capability() -> @parser.ParserCapability {
 }
 
 ///|
+/// Construct the canonical PPTX parser entrypoint.
 pub fn pptx_parser() -> @parser.Parser {
   let capability = pptx_parser_capability()
   @parser.make_parser(
@@ -44,7 +46,8 @@ priv struct PptxState {
   source : @input.InputSource
   diagnostics : @core.Diagnostics
   presentation : @pptxdoc.PptxDocument
-  fidelity_mode : @product.FidelityMode
+  lowering_profile : @product.LoweringProfile
+  accurate_features : @product.AccurateFeatureProfile
   assets : Array[@core.AssetRef]
   asset_ids : Map[String, String]
   image_ids : Map[String, String]
@@ -64,7 +67,7 @@ fn parse_pptx_document_result(
   context : @parser.ParseContext,
   capability : @parser.ParserCapability,
 ) -> Result[@parser.ParseResult, String] {
-  let diagnostics = @parser_common.empty_parser_diagnostics(
+  let diagnostics = @fshared.empty_parser_diagnostics(
     "pptx_parser",
     @parser.ParserMode::PackageSinglePass,
     source,
@@ -111,12 +114,7 @@ fn parse_pptx_document_result(
   }
 
   pptx_fill_package_metrics(diagnostics, pkg, presentation)
-  let document = pptx_lower_document(
-    source,
-    presentation,
-    diagnostics,
-    context.fidelity_mode,
-  )
+  let document = pptx_lower_document(source, presentation, diagnostics, context)
   diagnostics.metrics.set("block_count", document.blocks.length().to_string())
   diagnostics.metrics.set("asset_count", document.assets.length().to_string())
   diagnostics.metrics.set(
@@ -160,14 +158,11 @@ fn pptx_init_diagnostics(
 ) -> Unit {
   diagnostics.metrics.set("parser_name", "pptx_parser")
   diagnostics.metrics.set("parser_mode", "package_single_pass")
-  diagnostics.metrics.set(
-    "input_kind",
-    @parser_common.input_kind_name(source.kind),
-  )
+  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
   diagnostics.metrics.set("detected_format", "pptx")
   diagnostics.metrics.set(
     "requested_mode",
-    @parser_common.requested_mode_name(context),
+    @fshared.requested_mode_name(context),
   )
   diagnostics.metrics.set(
     "fidelity_mode",
@@ -218,7 +213,7 @@ fn pptx_init_diagnostics(
     ),
   )
   diagnostics.metrics.set("native_impl_location", "formats/pptx")
-  @parser_common.apply_product_metrics(diagnostics, "pptx")
+  @fshared.apply_product_metrics(diagnostics, "pptx")
   diagnostics.metrics.set("format_family", "office")
   diagnostics.metrics.set("max_pptx_slides", "2000")
   diagnostics.metrics.set("max_pptx_shapes", "20000")

@@ -2,6 +2,8 @@
 package "ZSeanYves/markitdown/input"
 
 // Values
+pub fn audio_format_name(AudioFormat) -> String
+
 pub fn default_format_detector() -> FormatDetector
 
 pub fn detect_format(InputSource) -> FormatDetectionResult
@@ -34,28 +36,48 @@ pub fn with_bytes_payload(InputSource, Bytes) -> InputSource
 
 pub fn with_explicit_format(InputSource, DetectedFormat?) -> InputSource
 
+pub fn with_mime_type(InputSource, String?) -> InputSource
+
 pub fn with_text_payload(InputSource, String) -> InputSource
 
 // Errors
 
 // Types and methods
+pub(all) enum AudioFormat {
+  Wav
+  Mp3
+  M4a
+} derive(Eq)
+
 pub(all) enum DetectedFormat {
   Txt
   Markdown
   Csv
   Tsv
+  Srt
+  Vtt
   Json
   Jsonl
   Ndjson
+  Ipynb
   Xml
   Yaml
+  Toml
   Html
+  Tex
+  Rst
+  Asciidoc
+  Eml
   Zip
   Epub
+  Odt
+  Ods
+  Odp
   Pdf
   Docx
   Pptx
   Xlsx
+  Audio(AudioFormat)
   Image(ImageFormat)
   Unknown
 } derive(Eq)
@@ -95,6 +117,7 @@ pub struct InputSource {
   path : String?
   text : String?
   bytes : Bytes?
+  mime_type : String?
   explicit_format : DetectedFormat?
 }
 

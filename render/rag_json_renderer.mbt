@@ -1,4 +1,6 @@
 ///|
+/// Renderer that emits chunked retrieval-oriented JSON plus optional chunk
+/// metadata.
 pub fn rag_json_renderer() -> Renderer {
   {
     name: "RagJsonRenderer",
@@ -7,12 +9,22 @@ pub fn rag_json_renderer() -> Renderer {
       context : RenderContext,
     ) -> RenderResult {
       document.diagnostics.metrics.set("renderer_name", "RagJsonRenderer")
-      let chunks = @rag.chunks_from_document(document, context.rag_options)
+      document.diagnostics.metrics.set(
+        "applied_render_profile",
+        @product.render_profile_name(context.render_profile),
+      )
+      let profiled = profiled_document(document, context)
+      let chunks = chunks_from_document(
+        profiled,
+        context.rag_options,
+        record_batching=context.render_profile ==
+          @product.RenderProfile::RecordBatchMarkdown,
+      )
       apply_rag_chunk_metrics(document.diagnostics, chunks, context)
       {
         content: render_rag_json_document(
-          document,
-          rag_payload(document, context, chunks),
+          profiled,
+          rag_payload(profiled, context, chunks),
         ),
         diagnostics: document.diagnostics,
         chunks: Some(chunks),
@@ -28,6 +40,8 @@ pub fn rag_json_renderer() -> Renderer {
 }
 
 ///|
+/// Render any public input shape as RAG JSON while keeping block/event direct
+/// paths available.
 fn render_rag_json_input(
   input : RenderInput,
   context : RenderContext,
@@ -36,8 +50,13 @@ fn render_rag_json_input(
   match input {
     RenderInput::Document(document) => (renderer.render)(document, context)
     RenderInput::BlockStream(blocks) => {
-      let diagnostics = block_stream_input_diagnostics(context, blocks)
+      let profiled = profiled_blocks(blocks, context)
+      let diagnostics = block_stream_input_diagnostics(context, profiled)
       diagnostics.metrics.set("renderer_name", "RagJsonRenderer")
+      diagnostics.metrics.set(
+        "applied_render_profile",
+        @product.render_profile_name(context.render_profile),
+      )
       let metadata : @core.DocumentMetadata = match context.metadata {
         Some(value) => value
         None => Map([])
@@ -50,13 +69,15 @@ fn render_rag_json_input(
         None => ()
       }
       let chunks = chunks_from_blocks(
-        blocks,
+        profiled,
         metadata,
         diagnostics,
         context.assets.unwrap_or([]),
         context.source_map,
         context.assembly,
         context.rag_options,
+        record_batching=context.render_profile ==
+          @product.RenderProfile::RecordBatchMarkdown,
       )
       apply_rag_chunk_metrics(diagnostics, chunks, context)
       {
@@ -74,6 +95,10 @@ fn render_rag_json_input(
         context, events, "event_stream",
       )
       diagnostics.metrics.set("renderer_name", "RagJsonRenderer")
+      diagnostics.metrics.set(
+        "applied_render_profile",
+        @product.render_profile_name(context.render_profile),
+      )
       let metadata : @core.DocumentMetadata = match context.metadata {
         Some(value) => value
         None => Map([])
@@ -82,13 +107,15 @@ fn render_rag_json_input(
         metadata, events, diagnostics,
       )
       let chunks = chunks_from_events(
-        events,
+        profiled_events(events, context),
         normalized_metadata,
         diagnostics,
         context.assets.unwrap_or([]),
         context.source_map,
         context.assembly,
         context.rag_options,
+        record_batching=context.render_profile ==
+          @product.RenderProfile::RecordBatchMarkdown,
       )
       apply_rag_chunk_metrics(diagnostics, chunks, context)
       {
@@ -105,6 +132,7 @@ fn render_rag_json_input(
 }
 
 ///|
+/// Record chunk-oriented metrics after RAG chunking completes.
 fn apply_rag_chunk_metrics(
   diagnostics : @core.Diagnostics,
   chunks : Array[@rag.RagChunk],
@@ -139,9 +167,18 @@ fn apply_rag_chunk_metrics(
     "rag_chunk_overlap",
     context.rag_options.chunk_overlap.to_string(),
   )
+  diagnostics.metrics.set(
+    "record_batch_chunking",
+    if context.render_profile == @product.RenderProfile::RecordBatchMarkdown {
+      "true"
+    } else {
+      "false"
+    },
+  )
 }
 
 ///|
+/// Render a fully-built document plus chunk payload as RAG JSON.
 fn render_rag_json_document(
   document : @core.DocumentIR,
   payload : RagRenderPayload,

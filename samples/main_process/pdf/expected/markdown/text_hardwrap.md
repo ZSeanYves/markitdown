@@ -1,7 +1,0 @@
-Hard Wrap Test
-
-This is a line that is hard wrapped every few words like many PDF extractors do.
-
-下一段：
-
-中文也可能被 硬换行拆开 但我们希望输出 合并成一句。

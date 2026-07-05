@@ -6,7 +6,7 @@ import {
 }
 
 // Values
-pub fn epub_package_parser(() -> @parser.ParserRegistry) -> @parser.Parser
+pub fn epub_parser(() -> @parser.ParserRegistry) -> @parser.Parser
 
 // Errors
 

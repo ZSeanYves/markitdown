@@ -1,0 +1,7 @@
+import {
+  "moonbitlang/core/string",
+}
+
+options(
+  "preferred-target": "native",
+)

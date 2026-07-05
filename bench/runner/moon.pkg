@@ -6,12 +6,14 @@ import {
   "ZSeanYves/markitdown/bench/runner/measure",
   "ZSeanYves/markitdown/convert",
   "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/parser",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/env",
   "moonbitlang/core/json",
   "moonbitlang/core/math",
   "moonbitlang/core/string",
   "moonbitlang/x/fs",
+  "moonbitlang/x/crypto",
 }
 
 supported_targets = "native"

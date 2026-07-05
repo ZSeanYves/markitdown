@@ -1,0 +1,27 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/format_readers/subtitles/vtt"
+
+import {
+  "ZSeanYves/markitdown/format_readers/subtitles/shared",
+}
+
+// Values
+pub fn inspect_subtitle_document(@shared.SubtitleDocument) -> @shared.SubtitleInspectReport
+
+pub fn parse_vtt_document(String) -> @shared.SubtitleDocument raise
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+pub using @shared {type SubtitleCue}
+
+pub using @shared {type SubtitleDocument}
+
+pub using @shared {type SubtitleFormat}
+
+pub using @shared {type SubtitleInspectReport}
+
+// Traits
+

@@ -1,0 +1,7 @@
+import {
+  "ZSeanYves/markitdown/format_readers/text_markup/shared",
+}
+
+options(
+  "preferred-target": "native",
+)

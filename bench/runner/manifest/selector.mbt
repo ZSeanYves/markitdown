@@ -303,6 +303,6 @@ fn missing_external_bench_message() -> String {
     "benchmark corpus not found", "expected one of:", "  - $MARKITDOWN_BENCH_ROOT/MANIFEST.tsv",
     "  - ./markitdown-quality-lab/external_bench/MANIFEST.tsv", "download the external corpus into the main repo root first:",
     "  git clone git@github.com:ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab",
-    "  # expected location: ./markitdown-quality-lab", "or set MARKITDOWN_BENCH_ROOT=/absolute/path/to/markitdown-quality-lab/external_bench",
+    "  # official location: ./markitdown-quality-lab", "or set MARKITDOWN_BENCH_ROOT=/absolute/path/to/markitdown-quality-lab/external_bench",
   ].join("\n")
 }

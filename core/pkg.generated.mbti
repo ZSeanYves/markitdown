@@ -24,7 +24,11 @@ pub fn container_entry_kind_name(ContainerEntryKind) -> String
 
 pub fn container_security_finding_name(ContainerSecurityFinding) -> String
 
+pub fn dependency_diagnostic_status_name(DependencyDiagnosticStatus) -> String
+
 pub fn diagnostics_add_degraded_feature(Diagnostics, String) -> Diagnostics
+
+pub fn diagnostics_add_dependency_diagnostic(Diagnostics, DependencyDiagnostic) -> Diagnostics
 
 pub fn diagnostics_add_error(Diagnostics, String) -> Diagnostics
 
@@ -35,6 +39,8 @@ pub fn diagnostics_add_metric(Diagnostics, String, String) -> Diagnostics
 pub fn diagnostics_add_pass_trace(Diagnostics, String) -> Diagnostics
 
 pub fn diagnostics_add_same_mode_degradation(Diagnostics, String) -> Diagnostics
+
+pub fn diagnostics_add_same_mode_strategy_switch(Diagnostics, String) -> Diagnostics
 
 pub fn diagnostics_add_warning(Diagnostics, String) -> Diagnostics
 
@@ -86,6 +92,8 @@ pub fn make_block_id(BlockKind, String, source_ref? : SourceRef?) -> String
 
 pub fn make_container_entry(String, ContainerEntryKind, normalized_path? : String?, entry_index? : Int?, detected_format? : String?, media_type? : String?, compressed_size? : Int?, uncompressed_size? : Int?, is_encrypted? : Bool, compression_method? : String?, crc? : String?, source_ref? : SourceRef?, security_findings? : Array[ContainerSecurityFinding]) -> ContainerEntry
 
+pub fn make_dependency_diagnostic(String, String, String, DependencyDiagnosticStatus, Array[String], Array[String], footer? : String?) -> DependencyDiagnostic
+
 pub fn make_inline_code(String, source_ref? : SourceRef) -> CoreInline
 
 pub fn make_inline_image(String, String, title? : String?, source_ref? : SourceRef) -> CoreInline
@@ -128,9 +136,13 @@ pub fn source_ref_with_markdown_path(SourceRef, String?, String?, String?) -> So
 
 pub fn source_ref_with_office_fields(SourceRef, String?, String?, String?, String?, String?, Int?, String?, String?) -> SourceRef
 
+pub fn source_ref_with_time_range(SourceRef, String?, String?, String?, String?) -> SourceRef
+
 pub fn source_ref_with_yaml_path(SourceRef, String?, String?, String?) -> SourceRef
 
 pub fn string_array_json(Array[String]) -> String
+
+pub fn string_array_json_opt(Array[String]) -> String
 
 // Errors
 
@@ -260,6 +272,22 @@ pub(all) struct CoreSignal {
   payload : Map[String, JsonValue]
 }
 
+pub(all) struct DependencyDiagnostic {
+  kind : String
+  title : String
+  summary : String
+  status : DependencyDiagnosticStatus
+  macos_commands : Array[String]
+  ubuntu_commands : Array[String]
+  footer : String?
+}
+
+pub(all) enum DependencyDiagnosticStatus {
+  Missing
+  Available
+  Degraded
+} derive(Eq)
+
 pub(all) struct Diagnostics {
   parser_name : String?
   parser_mode : String?
@@ -272,9 +300,11 @@ pub(all) struct Diagnostics {
   errors : Array[String]
   degraded_features : Array[String]
   same_mode_degradation : Array[String]
+  same_mode_strategy_switches : Array[String]
   fallback_trace : Array[String]
   pass_trace : Array[String]
   metrics : Map[String, String]
+  dependency_diagnostics : Array[DependencyDiagnostic]
 }
 
 pub(all) struct DocumentAssembly {
@@ -400,6 +430,8 @@ pub(all) struct SourceRef {
   line_end : Int?
   byte_start : Int?
   byte_end : Int?
+  time_start : String?
+  time_end : String?
   xpath : String?
   json_pointer : String?
   yaml_path : String?

@@ -1,1 +1,0 @@
-- Read [the list docs](https://example.com/list) first

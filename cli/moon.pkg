@@ -1,12 +1,17 @@
 import {
+  "moonbitlang/core/string",
+  "moonbitlang/core/encoding/utf8",
   "ZSeanYves/markitdown/convert",
   "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/formats",
   "ZSeanYves/markitdown/format_readers/zip" @dzip,
   "ZSeanYves/markitdown/formats/ocr" @focr,
   "ZSeanYves/markitdown/formats/pdf" @fpdf,
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/product",
   "ZSeanYves/markitdown/rag",
+  "moonbitlang/x/codec/base64",
   "moonbitlang/x/fs",
   "moonbitlang/x/sys",
 }
@@ -20,4 +25,5 @@ supported_targets = "native"
 options(
   "is-main": true,
   "preferred-target": "native",
+  "native-stub": [ "stderr_native_stub.c" ],
 )

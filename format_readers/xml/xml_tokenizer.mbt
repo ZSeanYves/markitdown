@@ -336,7 +336,7 @@ fn XmlTokenizer::read_decoded_entity(self : XmlTokenizer) -> String raise {
     if ch == ';' {
       self.pos += 1
       let name = String::from_array(out)
-      return decode_predefined_entity(name)
+      return decode_xml_entity(name)
     }
     if ch == '<' || ch == '\n' || ch == '\r' || ch == ' ' || ch == '\t' {
       raise ParseError("malformed entity ref")
@@ -345,6 +345,111 @@ fn XmlTokenizer::read_decoded_entity(self : XmlTokenizer) -> String raise {
     self.pos += 1
   }
   raise ParseError("unterminated entity ref")
+}
+
+///|
+fn decode_xml_entity(name : String) -> String raise {
+  match decode_predefined_entity(name) {
+    Some(value) => value
+    None =>
+      match decode_numeric_xml_entity(name) {
+        Some(value) => value
+        None => raise ParseError("unsupported entity: &" + name + ";")
+      }
+  }
+}
+
+///|
+fn decode_predefined_entity(name : String) -> String? {
+  match name {
+    "amp" => Some("&")
+    "lt" => Some("<")
+    "gt" => Some(">")
+    "quot" => Some("\"")
+    "apos" => Some("'")
+    _ => None
+  }
+}
+
+///|
+fn decode_numeric_xml_entity(name : String) -> String? {
+  if name.has_prefix("#x") || name.has_prefix("#X") {
+    parse_xml_hex_int(name[2:].to_owned()).map(xml_codepoint_to_string)
+  } else if name.has_prefix("#") {
+    parse_xml_dec_int(name[1:].to_owned()).map(xml_codepoint_to_string)
+  } else {
+    None
+  }
+}
+
+///|
+fn parse_xml_dec_int(text : String) -> Int? {
+  if text == "" {
+    return None
+  }
+  let chars = text.to_array()
+  let mut i = 0
+  let mut value = 0
+  while i < chars.length() {
+    let ch = chars[i]
+    if ch < '0' || ch > '9' {
+      return None
+    }
+    value = value * 10 + (ch.to_int() - '0'.to_int())
+    i += 1
+  }
+  if xml_is_valid_codepoint(value) {
+    Some(value)
+  } else {
+    None
+  }
+}
+
+///|
+fn parse_xml_hex_int(text : String) -> Int? {
+  if text == "" {
+    return None
+  }
+  let chars = text.to_array()
+  let mut i = 0
+  let mut value = 0
+  while i < chars.length() {
+    match xml_hex_value(chars[i]) {
+      Some(digit) => {
+        value = (value << 4) + digit
+        i += 1
+      }
+      None => return None
+    }
+  }
+  if xml_is_valid_codepoint(value) {
+    Some(value)
+  } else {
+    None
+  }
+}
+
+///|
+fn xml_hex_value(ch : Char) -> Int? {
+  if ch >= '0' && ch <= '9' {
+    Some(ch.to_int() - '0'.to_int())
+  } else if ch >= 'a' && ch <= 'f' {
+    Some(ch.to_int() - 'a'.to_int() + 10)
+  } else if ch >= 'A' && ch <= 'F' {
+    Some(ch.to_int() - 'A'.to_int() + 10)
+  } else {
+    None
+  }
+}
+
+///|
+fn xml_is_valid_codepoint(value : Int) -> Bool {
+  value >= 0 && value <= 0x10FFFF && !(value >= 0xD800 && value <= 0xDFFF)
+}
+
+///|
+fn xml_codepoint_to_string(value : Int) -> String {
+  String::from_array([Int::unsafe_to_char(value)])
 }
 
 ///|
@@ -499,16 +604,6 @@ fn normalize_xml_source(text : String) -> String {
 }
 
 ///|
-fn decode_predefined_entity(name : String) -> String raise {
-  match name {
-    "amp" => "&"
-    "lt" => "<"
-    "gt" => ">"
-    "quot" => "\""
-    "apos" => "'"
-    _ => raise ParseError("unsupported entity: &" + name + ";")
-  }
-}
 
 ///|
 fn append_chars(out : Array[Char], text : String) -> Unit {

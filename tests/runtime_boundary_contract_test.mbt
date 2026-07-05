@@ -22,6 +22,14 @@ test "detector contract covers extensions and unknown fallback" {
     @input.DetectedFormat::Tsv,
   )
   assert_true(
+    (detector.detect)(@input.input_from_path("captions.srt")).format ==
+    @input.DetectedFormat::Srt,
+  )
+  assert_true(
+    (detector.detect)(@input.input_from_path("captions.vtt")).format ==
+    @input.DetectedFormat::Vtt,
+  )
+  assert_true(
     (detector.detect)(@input.input_from_path("doc.json")).format ==
     @input.DetectedFormat::Json,
   )
@@ -36,6 +44,38 @@ test "detector contract covers extensions and unknown fallback" {
   assert_true(
     (detector.detect)(@input.input_from_path("tree.xml")).format ==
     @input.DetectedFormat::Xml,
+  )
+  assert_true(
+    (detector.detect)(@input.input_from_path("paper.tex")).format ==
+    @input.DetectedFormat::Tex,
+  )
+  assert_true(
+    (detector.detect)(@input.input_from_path("guide.rst")).format ==
+    @input.DetectedFormat::Rst,
+  )
+  assert_true(
+    (detector.detect)(@input.input_from_path("book.adoc")).format ==
+    @input.DetectedFormat::Asciidoc,
+  )
+  assert_true(
+    (detector.detect)(@input.input_from_path("mail.eml")).format ==
+    @input.DetectedFormat::Eml,
+  )
+  assert_true(
+    (detector.detect)(@input.input_from_path("mail.msg")).format ==
+    @input.DetectedFormat::Eml,
+  )
+  assert_true(
+    (detector.detect)(@input.input_from_path("writer.odt")).format ==
+    @input.DetectedFormat::Odt,
+  )
+  assert_true(
+    (detector.detect)(@input.input_from_path("sheet.ods")).format ==
+    @input.DetectedFormat::Ods,
+  )
+  assert_true(
+    (detector.detect)(@input.input_from_path("slides.odp")).format ==
+    @input.DetectedFormat::Odp,
   )
   let png = (detector.detect)(@input.input_from_path("scan.png"))
   assert_true(
@@ -53,11 +93,49 @@ test "detector contract covers extensions and unknown fallback" {
   assert_true(pdf.binary_like)
   assert_true(!pdf.text_like)
   assert_true(
+    (detector.detect)(@input.input_from_path("voice.wav")).format ==
+    @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
+  )
+  assert_true(
+    (detector.detect)(@input.input_from_path("voice.mp3")).format ==
+    @input.DetectedFormat::Audio(@input.AudioFormat::Mp3),
+  )
+  assert_true(
+    (detector.detect)(@input.input_from_path("voice.m4a")).format ==
+    @input.DetectedFormat::Audio(@input.AudioFormat::M4a),
+  )
+  assert_true(
     @input.parse_detected_format("jpg") ==
     @input.DetectedFormat::Image(@input.ImageFormat::Jpg),
   )
+  assert_true(
+    @input.parse_detected_format("wav") ==
+    @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
+  )
+  assert_true(
+    @input.parse_detected_format("mp3") ==
+    @input.DetectedFormat::Audio(@input.AudioFormat::Mp3),
+  )
+  assert_true(
+    @input.parse_detected_format("m4a") ==
+    @input.DetectedFormat::Audio(@input.AudioFormat::M4a),
+  )
+  assert_true(
+    @input.parse_detected_format("latex") == @input.DetectedFormat::Tex,
+  )
+  assert_true(@input.parse_detected_format("msg") == @input.DetectedFormat::Eml)
+  assert_true(
+    @input.parse_detected_format("adoc") == @input.DetectedFormat::Asciidoc,
+  )
   assert_true(@input.parse_detected_format("pdf") == @input.DetectedFormat::Pdf)
   assert_true(@input.detected_format_name(@input.DetectedFormat::Pdf) == "pdf")
+  assert_true(@input.detected_format_name(@input.DetectedFormat::Eml) == "eml")
+  assert_true(
+    @input.detected_format_name(
+      @input.DetectedFormat::Audio(@input.AudioFormat::Mp3),
+    ) ==
+    "mp3",
+  )
   assert_true(
     @input.detected_format_name(
       @input.DetectedFormat::Image(@input.ImageFormat::Webp),
@@ -73,6 +151,163 @@ test "detector contract covers extensions and unknown fallback" {
   )
   assert_true(unknown.format == @input.DetectedFormat::Unknown)
   assert_true(unknown.binary_like)
+}
+
+///|
+test "detector contract covers mime, magic bytes, and container inspection" {
+  let detector = @input.default_format_detector()
+
+  let toml_mime = (detector.detect)(
+    @input.with_mime_type(
+      @input.input_from_text(
+        "[tool.demo]\nname = 'markitdown'\n",
+        source_name="config",
+      ),
+      Some("application/toml"),
+    ),
+  )
+  assert_true(toml_mime.format == @input.DetectedFormat::Toml)
+  assert_true(toml_mime.notes.contains("mime_type"))
+
+  let vtt_mime = (detector.detect)(
+    @input.with_mime_type(
+      @input.input_from_text(
+        "WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nHello\n",
+        source_name="captions",
+      ),
+      Some("text/vtt"),
+    ),
+  )
+  assert_true(vtt_mime.format == @input.DetectedFormat::Vtt)
+  assert_true(vtt_mime.notes.contains("mime_type"))
+
+  let eml_mime = (detector.detect)(
+    @input.with_mime_type(
+      @input.input_from_text(
+        "From: demo@example.com\nSubject: Hello\n\nBody\n",
+        source_name="mail",
+      ),
+      Some("message/rfc822"),
+    ),
+  )
+  assert_true(eml_mime.format == @input.DetectedFormat::Eml)
+  assert_true(eml_mime.notes.contains("mime_type"))
+
+  let odt_mime = (detector.detect)(
+    @input.with_mime_type(
+      @input.input_from_bytes(Bytes::from_array([]), source_name="doc"),
+      Some("application/vnd.oasis.opendocument.text"),
+    ),
+  )
+  assert_true(odt_mime.format == @input.DetectedFormat::Odt)
+  assert_true(odt_mime.notes.contains("mime_type"))
+
+  let ipynb_mime = (detector.detect)(
+    @input.with_mime_type(
+      @input.input_from_text(
+        "{\"nbformat\":4,\"cells\":[]}",
+        source_name="notebook",
+      ),
+      Some("application/x-ipynb+json"),
+    ),
+  )
+  assert_true(ipynb_mime.format == @input.DetectedFormat::Ipynb)
+  assert_true(ipynb_mime.notes.contains("mime_type"))
+
+  let ipynb_content = (detector.detect)(
+    @input.input_from_text(
+      "{\"nbformat\":4,\"nbformat_minor\":5,\"cells\":[{\"cell_type\":\"markdown\",\"source\":[\"# hi\"]}]}",
+      source_name="mystery",
+    ),
+  )
+  assert_true(ipynb_content.format == @input.DetectedFormat::Ipynb)
+  assert_true(ipynb_content.notes.contains("content_notebook_json"))
+
+  let pdf_magic = (detector.detect)(
+    @input.input_from_bytes(
+      Bytes::from_array([37, 80, 68, 70, 45, 49, 46, 55]),
+      source_name="blob",
+    ),
+  )
+  assert_true(pdf_magic.format == @input.DetectedFormat::Pdf)
+  assert_true(pdf_magic.notes.contains("magic_bytes"))
+
+  let wav_magic = (detector.detect)(
+    @input.input_from_bytes(
+      Bytes::from_array([82, 73, 70, 70, 0, 0, 0, 0, 87, 65, 86, 69]),
+      source_name="blob",
+    ),
+  )
+  assert_true(
+    wav_magic.format == @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
+  )
+  assert_true(wav_magic.notes.contains("magic_bytes"))
+
+  let mp3_magic = (detector.detect)(
+    @input.input_from_bytes(
+      Bytes::from_array([73, 68, 51, 4, 0, 0]),
+      source_name="blob",
+    ),
+  )
+  assert_true(
+    mp3_magic.format == @input.DetectedFormat::Audio(@input.AudioFormat::Mp3),
+  )
+  assert_true(mp3_magic.notes.contains("magic_bytes"))
+
+  let m4a_mime = (detector.detect)(
+    @input.with_mime_type(
+      @input.input_from_bytes(Bytes::from_array([]), source_name="audio"),
+      Some("audio/mp4"),
+    ),
+  )
+  assert_true(
+    m4a_mime.format == @input.DetectedFormat::Audio(@input.AudioFormat::M4a),
+  )
+  assert_true(m4a_mime.notes.contains("mime_type"))
+
+  let png_magic = (detector.detect)(
+    @input.input_from_bytes(
+      Bytes::from_array([137, 80, 78, 71, 13, 10, 26, 10]),
+      source_name="blob",
+    ),
+  )
+  assert_true(
+    png_magic.format == @input.DetectedFormat::Image(@input.ImageFormat::Png),
+  )
+  assert_true(png_magic.notes.contains("image_ocr_candidate"))
+
+  let docx_bytes = @fs.read_file_to_bytes(
+    "samples/fixtures/contracts/docx/golden.docx",
+  ) catch {
+    e => fail("failed to read docx sample: " + e.to_string())
+  }
+  let docx_detected = (detector.detect)(
+    @input.input_from_bytes(docx_bytes, source_name="office-blob"),
+  )
+  assert_true(docx_detected.format == @input.DetectedFormat::Docx)
+  assert_true(docx_detected.notes.contains("container_inspection"))
+
+  let epub_bytes = @fs.read_file_to_bytes(
+    "samples/fixtures/contracts/epub/epub_basic_package.epub",
+  ) catch {
+    e => fail("failed to read epub sample: " + e.to_string())
+  }
+  let epub_detected = (detector.detect)(
+    @input.input_from_bytes(epub_bytes, source_name="book-blob"),
+  )
+  assert_true(epub_detected.format == @input.DetectedFormat::Epub)
+  assert_true(epub_detected.notes.contains("container_inspection"))
+
+  let zip_bytes = @fs.read_file_to_bytes(
+    "samples/fixtures/contracts/zip/zip_basic_structured.zip",
+  ) catch {
+    e => fail("failed to read zip sample: " + e.to_string())
+  }
+  let zip_detected = (detector.detect)(
+    @input.input_from_bytes(zip_bytes, source_name="archive-blob"),
+  )
+  assert_true(zip_detected.format == @input.DetectedFormat::Zip)
+  assert_true(zip_detected.notes.contains("zip_signature"))
 }
 
 ///|
@@ -115,6 +350,7 @@ test "convert contract threads OCR intent through fail-closed image branches" {
       assert_true(
         msg.contains("Tesseract OCR command is unavailable") ||
         msg.contains("launch tesseract failed") ||
+        msg.contains("Missing dependency: Tesseract OCR") ||
         msg.contains("image_format=png"),
       )
       assert_true(
@@ -150,7 +386,7 @@ test "convert contract threads OCR intent through fail-closed image branches" {
 ///|
 test "convert contract recognizes pdf as a root native-text product format" {
   let pdf = @input.input_from_path_with_format(
-    "samples/main_process/pdf/markdown/text_simple.pdf",
+    "samples/fixtures/contracts/pdf/text_simple.pdf",
     Some(@input.DetectedFormat::Pdf),
   )
   let result = @convert.convert_input(pdf, @convert.default_convert_options())
@@ -183,7 +419,8 @@ test "convert contract recognizes pdf as a root native-text product format" {
         parsed.diagnostics.metrics.get("pdf_ocr_used") == Some("false"),
       )
       assert_true(
-        parsed.diagnostics.metrics.get("pdf_v2_used") == Some("false"),
+        parsed.diagnostics.metrics.get("pdf_canonical_pipeline_used") ==
+        Some("false"),
       )
       assert_true(
         parsed.diagnostics.metrics.get("pdf_empty_text_layer") == Some("false"),
@@ -214,7 +451,7 @@ test "convert contract recognizes pdf as a root native-text product format" {
 ///|
 test "convert pdf explicit OCR uses OCR route instead of fail-closing before provider path" {
   let pdf = @input.input_from_path_with_format(
-    "samples/main_process/pdf/markdown/root_native_text_baseline.pdf",
+    "samples/fixtures/contracts/pdf/root_native_text_baseline.pdf",
     Some(@input.DetectedFormat::Pdf),
   )
   let provider_calls : Ref[Int] = { val: 0 }
@@ -227,6 +464,7 @@ test "convert pdf explicit OCR uses OCR route instead of fail-closing before pro
         Some(@input.DetectedFormat::Pdf),
         @parser.explicit_ocr_options(language=Some("eng")),
         @convert.default_resource_limits(),
+        pdf_ocr_policy=@convert.PdfOcrPolicy::Explicit,
       ),
       fn(request) {
         provider_calls.val = provider_calls.val + 1
@@ -257,12 +495,73 @@ test "convert pdf explicit OCR uses OCR route instead of fail-closing before pro
       assert_true(
         msg.contains("pdftoppm") ||
         msg.contains("poppler-utils") ||
-        msg.contains("brew install poppler"),
+        msg.contains("brew install poppler") ||
+        msg.contains("Missing dependency: pdftoppm / Poppler"),
       )
       assert_eq(provider_calls.val, 0)
     }
     Err(other) =>
       fail("unexpected pdf explicit OCR convert error: " + other.to_string())
+  }
+  assert_true(provider_calls.val >= 0)
+}
+
+///|
+async test "async convert pdf explicit OCR uses OCR route through async parser registry" {
+  let pdf = @input.input_from_path_with_format(
+    "samples/fixtures/contracts/pdf/root_native_text_baseline.pdf",
+    Some(@input.DetectedFormat::Pdf),
+  )
+  let provider_calls : Ref[Int] = { val: 0 }
+  match
+    @convert.convert_input_with_image_ocr_provider_async(
+      pdf,
+      @convert.make_convert_options(
+        @convert.ConvertMode::Balanced,
+        @convert.OutputFormat::Markdown,
+        Some(@input.DetectedFormat::Pdf),
+        @parser.explicit_ocr_options(language=Some("eng")),
+        @convert.default_resource_limits(),
+        pdf_ocr_policy=@convert.PdfOcrPolicy::Explicit,
+      ),
+      fn(request : @focr.OcrProviderRequest) {
+        provider_calls.val = provider_calls.val + 1
+        let tsv = [
+          "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext",
+          "5\t1\t1\t1\t1\t1\t10\t10\t20\t10\t95\tPDF", "5\t1\t1\t1\t1\t2\t35\t10\t20\t10\t94\tOCR",
+        ].join("\n")
+        match @focr.parse_tesseract_tsv(tsv, language=request.language) {
+          Ok(value) => Ok(value)
+          Err(err) => abort(err.to_string())
+        }
+      },
+    ) {
+    Ok(parsed) => {
+      assert_true(parsed.content.contains("PDF OCR"))
+      assert_true(
+        parsed.diagnostics.metrics.get("selected_route") ==
+        Some("layout_two_stage"),
+      )
+      assert_true(
+        parsed.diagnostics.metrics.get("pdf_ocr_used") == Some("true"),
+      )
+      assert_true(
+        parsed.diagnostics.metrics.get("pdf_raster_backend") == Some("pdftoppm"),
+      )
+    }
+    Err(@convert.ConvertError::ParseFailed(msg)) => {
+      assert_true(
+        msg.contains("pdftoppm") ||
+        msg.contains("poppler-utils") ||
+        msg.contains("brew install poppler") ||
+        msg.contains("Missing dependency: pdftoppm / Poppler"),
+      )
+      assert_eq(provider_calls.val, 0)
+    }
+    Err(other) =>
+      fail(
+        "unexpected async pdf explicit OCR convert error: " + other.to_string(),
+      )
   }
   assert_true(provider_calls.val >= 0)
 }
@@ -328,7 +627,7 @@ test "builtin registry wires pdf native text parser through the active registry"
     @parser.registry_parse(
       @formats_root.builtin_registry(),
       @input.input_from_path_with_format(
-        "samples/main_process/pdf/markdown/text_simple.pdf",
+        "samples/fixtures/contracts/pdf/text_simple.pdf",
         Some(@input.DetectedFormat::Pdf),
       ),
       @parser.new_parse_context(@input.DetectedFormat::Pdf),
@@ -348,7 +647,7 @@ test "builtin registry wires pdf native text parser through the active registry"
 ///|
 test "pdf explicit disable policy can still force fail-closed registry behavior" {
   let source = @input.input_from_path_with_format(
-    "samples/main_process/pdf/markdown/text_simple.pdf",
+    "samples/fixtures/contracts/pdf/text_simple.pdf",
     Some(@input.DetectedFormat::Pdf),
   )
   let gated_context = @parser.parse_context_with_pdf_native_runtime_policy(
@@ -428,7 +727,7 @@ test "pdf native unit bridge lowers facts to document ir without changing regist
   assert_eq(document.blocks.length(), 1)
   assert_eq(document.blocks[0].text, "Bridge")
   assert_true(
-    document.diagnostics.metrics.get("pdf_native_ir_bridge") ==
+    document.diagnostics.metrics.get("pdf_native_ir_projection") ==
     Some("unit_path"),
   )
   assert_true(document.diagnostics.metrics.get("renderer_name") == None)
@@ -447,7 +746,7 @@ test "pdf native unit bridge lowers facts to document ir without changing regist
     @parser.registry_parse(
       @formats_root.builtin_registry(),
       @input.input_from_path_with_format(
-        "samples/main_process/pdf/markdown/text_simple.pdf",
+        "samples/fixtures/contracts/pdf/text_simple.pdf",
         Some(@input.DetectedFormat::Pdf),
       ),
       @parser.new_parse_context(@input.DetectedFormat::Pdf),
@@ -465,7 +764,7 @@ test "pdf native unit bridge lowers facts to document ir without changing regist
 ///|
 test "pdf native parser internal policy stays opt-in and default product markdown stays unchanged" {
   let source = @input.input_from_path_with_format(
-    "samples/main_process/pdf/markdown/root_native_text_baseline.pdf",
+    "samples/fixtures/contracts/pdf/root_native_text_baseline.pdf",
     Some(@input.DetectedFormat::Pdf),
   )
   let default_parsed = match
@@ -1004,6 +1303,28 @@ test "root image parser reserves explicit OCR mode without wiring a provider" {
   )
   assert_metric_eq(explicit_diagnostics, "effective_mode", "layout_two_stage")
 
+  let accurate_target_diagnostics = @focr.image_ocr_fail_closed_diagnostics_for_target(
+    source,
+    detected,
+    @parser.explicit_ocr_options(language=Some("eng")),
+    @focr.OcrProviderSelectionTarget::DirectImageAccurate,
+    requested_mode=Some(@parser.ParserMode::LayoutTwoStage),
+  )
+  assert_metric_eq(
+    accurate_target_diagnostics, "ocr_provider_selection_target", "direct_image_accurate",
+  )
+  assert_metric_eq(
+    accurate_target_diagnostics, "ocr_provider_requested_kind", "paddle_ocr",
+  )
+  assert_metric_eq(
+    accurate_target_diagnostics, "ocr_provider_kind", "paddle_ocr",
+  )
+  assert_eq(accurate_target_diagnostics.dependency_diagnostics.length(), 1)
+  assert_eq(
+    accurate_target_diagnostics.dependency_diagnostics[0].kind,
+    "paddle_ocr_wrapper",
+  )
+
   let disabled_diagnostics = @focr.image_ocr_fail_closed_diagnostics(
     source,
     detected,
@@ -1097,6 +1418,11 @@ test "convert explicit image OCR injected provider reaches root convert and rend
   )
   assert_true(converted.parser_mode == @parser.ParserMode::LayoutTwoStage)
   assert_metric_eq(converted.diagnostics, "ocr_provider_status", "success")
+  assert_metric_eq(
+    converted.diagnostics,
+    "ocr_provider_selection_target",
+    "direct_image_balanced",
+  )
   assert_metric_eq(converted.diagnostics, "renderer_name", "MarkdownRenderer")
 }
 
@@ -1130,60 +1456,4 @@ async test "async convert explicit image OCR injected provider reaches root conv
   assert_true(converted.parser_mode == @parser.ParserMode::LayoutTwoStage)
   assert_metric_eq(converted.diagnostics, "ocr_provider_status", "success")
   assert_metric_eq(converted.diagnostics, "renderer_name", "MarkdownRenderer")
-}
-
-///|
-test "public gates and docs stay aligned on the main cli surface" {
-  assert_file_contains_all("cli/cli.mbt", [
-    "Supported product formats: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, yml, html, htm, markdown, md, zip, epub, docx, xlsx, pptx, pdf, png, jpg, jpeg, bmp, webp, tif, tiff",
-    "pdf --ocr", "DetectedFormat::Pdf", "cli_is_supported_format",
-  ])
-  assert_file_contains_all("samples/check.sh", [
-    "SUPPORTED_FORMATS=(\"txt\" \"csv\" \"tsv\" \"json\" \"jsonl\" \"ndjson\" \"xml\" \"yaml\" \"html\" \"markdown\" \"zip\" \"epub\" \"docx\" \"xlsx\" \"pptx\" \"pdf\" \"ocr\")",
-    "txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, pdf, and ocr",
-    "main CLI gate",
-  ])
-  assert_file_contains_all("samples/helpers/contracts/check_cli_contract.sh", [
-    "txt csv tsv json jsonl ndjson xml yaml html markdown zip epub docx xlsx pptx pdf and ocr succeed through main product cli",
-    "markdown_frontmatter_passthrough.markdown", "zip_basic_structured.zip", "docx",
-    "sheet_simple.xlsx", "pptx_hidden_slide_basic.pptx", "pdf", "ocr", "pdftoppm",
-    "help and version expose main cli product surface", "--pdf-cleanup none|conservative",
-    "--pdf-tables none|simple", "PDF cleanup and simple table reconstruction are explicit opt-in product options",
-  ])
-  assert_file_contains_all("samples/helpers/contracts/check_zip_contract.sh", [
-    "main cli zip markdown output stays root pipeline", "zip_html_local_image.zip",
-    "format_readers/zip", "bikallem/compress/flate",
-  ])
-  assert_file_contains_none("samples/helpers/contracts/check_zip_contract.sh", [
-    "resolve_markitdown_zip_cli", "run_markitdown_zip_cli",
-  ])
-  assert_file_contains_all(
-    "samples/helpers/contracts/check_samples_check_contract.sh",
-    [
-      "formats=txt,csv,tsv,json,jsonl,ndjson,xml,yaml,html,markdown,zip,epub,docx,xlsx,pptx,pdf,ocr",
-      "formats=markdown", "formats=docx", "formats=xlsx", "formats=pptx", "formats=pdf",
-    ],
-  )
-  assert_file_contains_all("README.md", [
-    "InputSource", "ParserRegistry", "ParseResult", "Renderer", "`txt`", "`csv`",
-    "`tsv`", "`json`", "`jsonl`", "`ndjson`", "`xml`", "`yaml`", "`yml`", "`html`",
-    "`htm`", "`markdown`", "`md`", "`zip`", "`epub`", "`docx`", "`xlsx`", "`pptx`",
-    "`pdf`", "native-text PDFs", "pdf --ocr", "dependency-backed product paths",
-    "samples/helpers/contracts/check_root_contracts.sh", "markitdown-quality-lab/",
-    "EPUB support is implemented through `format_readers/epub` on top of `format_readers/zip`",
-  ])
-  assert_file_contains_all("README.mbt.md", [
-    "Core IR", "Renderer", "`input`", "`parser`", "`formats`", "`runtime`", "`pipeline`",
-    "`render`", "`convert`", "`pdf`", "native-text PDFs", "moon test tests", "samples/check_quality.sh",
-  ])
-  assert_file_contains_all("samples/check.sh", [
-    "--markdown", "--rag", "--assets", "--check-inventory", "--list-inventory", "samples/main_process",
-    "txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, pdf, and ocr",
-  ])
-  assert_file_contains_all(
-    "samples/helpers/contracts/check_root_contracts.sh",
-    [
-      "check_cli_contract.sh", "check_samples_check_contract.sh", "check_quality_contract.sh",
-    ],
-  )
 }

@@ -1,0 +1,17 @@
+import {
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/string",
+  "moonbitlang/x/codec/base64",
+  "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/formats/shared" @fshared,
+  "ZSeanYves/markitdown/format_readers/eml" @deml,
+  "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/runtime",
+}
+
+supported_targets = "native"
+
+options(
+  "preferred-target": "native",
+)

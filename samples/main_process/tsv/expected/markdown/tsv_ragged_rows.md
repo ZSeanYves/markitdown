@@ -1,4 +1,0 @@
-| Name | Role | Location |  |
-| --- | --- | --- | --- |
-| Alice | Engineer |  |  |
-| Bob | Designer | LA | Extra |

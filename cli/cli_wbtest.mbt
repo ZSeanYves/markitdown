@@ -51,6 +51,52 @@ fn read_utf8_text(path : String) -> String {
 }
 
 ///|
+fn run_cli_without_emitting_warnings(
+  opts : CliOptions,
+) -> Result[String, String] {
+  let requested_format = cli_requested_format(opts)
+  if !cli_is_supported_format(requested_format) {
+    return Err(
+      cli_fail_closed_format_message(
+        opts.input,
+        requested_format,
+        cli_requested_format_label(opts),
+        opts.ocr_options,
+        opts.fidelity_mode,
+      ),
+    )
+  }
+  let convert_options = @convert.make_convert_options(
+    opts.convert_mode,
+    opts.output_format,
+    opts.explicit_format,
+    opts.ocr_options,
+    @convert.default_resource_limits(),
+    audio_options=opts.audio_options,
+    fidelity_mode=opts.fidelity_mode,
+    output_mode=opts.output_mode,
+    stream_requested=opts.stream_requested,
+    pdf_ocr_policy=opts.pdf_ocr_policy,
+    pdf_cleanup_mode=opts.pdf_cleanup_mode,
+    pdf_table_mode=opts.pdf_table_mode,
+    rag_options=opts.rag_options,
+  )
+  let execution = match
+    @convert.convert_input_with_provenance_and_image_ocr_provider(
+      @input.input_from_path(opts.input),
+      convert_options,
+      @focr.run_ocr_provider,
+    ) {
+    Ok(value) => value
+    Err(err) => return Err(err.to_string())
+  }
+  persist_cli_provenance(opts, execution.provenance) catch {
+    err => return Err("write provenance failed: " + err.to_string())
+  }
+  cli_render_convert_result(opts, execution.result)
+}
+
+///|
 fn cli_options(
   input : String,
   output : String?,
@@ -58,6 +104,8 @@ fn cli_options(
   output_format : @convert.OutputFormat,
   provenance_output? : String? = None,
   ocr_options? : @parser.OcrOptions = @parser.default_ocr_options(),
+  audio_options? : @parser.AudioOptions = @parser.default_audio_options(),
+  pdf_ocr_policy? : @convert.PdfOcrPolicy = @convert.default_pdf_ocr_policy(),
   pdf_cleanup_mode? : @convert.PdfCleanupMode = @convert.default_pdf_cleanup_mode(),
   pdf_table_mode? : @convert.PdfTableMode = @convert.default_pdf_table_mode(),
 ) -> CliOptions {
@@ -67,34 +115,63 @@ fn cli_options(
     provenance_output,
     explicit_format,
     ocr_options,
+    pdf_ocr_policy,
     @convert.FidelityMode::Balanced,
     @convert.ConvertMode::Balanced,
     @convert.output_mode_for_output_format(output_format),
+    false,
     output_format,
     pdf_cleanup_mode~,
     pdf_table_mode~,
     rag_options=@rag.default_rag_options(),
+    audio_options~,
   )
 }
 
 ///|
-test "main cli product policy exposes txt csv tsv json jsonl ndjson xml yaml html markdown zip epub docx xlsx pptx pdf and direct image OCR formats" {
+test "main cli product policy exposes text, notebook, markup, container, office, pdf, and image formats" {
   assert_true(cli_is_supported_format(@input.DetectedFormat::Txt))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Csv))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Tsv))
+  assert_true(cli_is_supported_format(@input.DetectedFormat::Srt))
+  assert_true(cli_is_supported_format(@input.DetectedFormat::Vtt))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Json))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Jsonl))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Ndjson))
+  assert_true(cli_is_supported_format(@input.DetectedFormat::Ipynb))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Xml))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Yaml))
+  assert_true(cli_is_supported_format(@input.DetectedFormat::Toml))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Html))
+  assert_true(cli_is_supported_format(@input.DetectedFormat::Eml))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Markdown))
+  assert_true(cli_is_supported_format(@input.DetectedFormat::Tex))
+  assert_true(cli_is_supported_format(@input.DetectedFormat::Rst))
+  assert_true(cli_is_supported_format(@input.DetectedFormat::Asciidoc))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Zip))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Epub))
+  assert_true(cli_is_supported_format(@input.DetectedFormat::Odt))
+  assert_true(cli_is_supported_format(@input.DetectedFormat::Ods))
+  assert_true(cli_is_supported_format(@input.DetectedFormat::Odp))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Docx))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Xlsx))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Pptx))
   assert_true(cli_is_supported_format(@input.DetectedFormat::Pdf))
+  assert_true(
+    cli_is_supported_format(
+      @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
+    ),
+  )
+  assert_true(
+    cli_is_supported_format(
+      @input.DetectedFormat::Audio(@input.AudioFormat::Mp3),
+    ),
+  )
+  assert_true(
+    cli_is_supported_format(
+      @input.DetectedFormat::Audio(@input.AudioFormat::M4a),
+    ),
+  )
   assert_true(
     cli_is_supported_format(
       @input.DetectedFormat::Image(@input.ImageFormat::Png),
@@ -130,38 +207,71 @@ test "main cli product policy exposes txt csv tsv json jsonl ndjson xml yaml htm
       @input.DetectedFormat::Image(@input.ImageFormat::Tiff),
     ),
   )
+  assert_true(!cli_is_supported_format(@input.DetectedFormat::Unknown))
   let supported = [
-    "txt", "csv", "tsv", "json", "jsonl", "ndjson", "xml", "yaml", "yml", "html",
-    "htm", "markdown", "md", "zip", "epub", "docx", "xlsx", "pptx", "pdf", "png",
-    "jpg", "jpeg", "bmp", "webp", "tif", "tiff",
+    "txt", "csv", "tsv", "srt", "vtt", "json", "jsonl", "ndjson", "ipynb", "xml",
+    "yaml", "yml", "toml", "html", "htm", "markdown", "md", "eml", "msg", "tex",
+    "latex", "rst", "adoc", "asciidoc", "zip", "epub", "docx", "xlsx", "pptx", "pdf",
+    "wav", "mp3", "m4a", "png", "jpg", "jpeg", "bmp", "webp", "tif", "tiff",
   ]
-  assert_eq(supported.length(), 26)
+  assert_eq(supported.length(), 40)
   assert_eq(supported[0], "txt")
   assert_eq(supported[1], "csv")
   assert_eq(supported[2], "tsv")
-  assert_eq(supported[3], "json")
-  assert_eq(supported[4], "jsonl")
-  assert_eq(supported[5], "ndjson")
-  assert_eq(supported[6], "xml")
-  assert_eq(supported[7], "yaml")
-  assert_eq(supported[8], "yml")
-  assert_eq(supported[9], "html")
-  assert_eq(supported[10], "htm")
-  assert_eq(supported[11], "markdown")
-  assert_eq(supported[12], "md")
-  assert_eq(supported[13], "zip")
-  assert_eq(supported[14], "epub")
-  assert_eq(supported[15], "docx")
-  assert_eq(supported[16], "xlsx")
-  assert_eq(supported[17], "pptx")
-  assert_eq(supported[18], "pdf")
-  assert_eq(supported[19], "png")
-  assert_eq(supported[20], "jpg")
-  assert_eq(supported[21], "jpeg")
-  assert_eq(supported[22], "bmp")
-  assert_eq(supported[23], "webp")
-  assert_eq(supported[24], "tif")
-  assert_eq(supported[25], "tiff")
+  assert_eq(supported[3], "srt")
+  assert_eq(supported[4], "vtt")
+  assert_eq(supported[5], "json")
+  assert_eq(supported[6], "jsonl")
+  assert_eq(supported[7], "ndjson")
+  assert_eq(supported[8], "ipynb")
+  assert_eq(supported[9], "xml")
+  assert_eq(supported[10], "yaml")
+  assert_eq(supported[11], "yml")
+  assert_eq(supported[12], "toml")
+  assert_eq(supported[13], "html")
+  assert_eq(supported[14], "htm")
+  assert_eq(supported[15], "markdown")
+  assert_eq(supported[16], "md")
+  assert_eq(supported[17], "eml")
+  assert_eq(supported[18], "msg")
+  assert_eq(supported[19], "tex")
+  assert_eq(supported[20], "latex")
+  assert_eq(supported[21], "rst")
+  assert_eq(supported[22], "adoc")
+  assert_eq(supported[23], "asciidoc")
+  assert_eq(supported[24], "zip")
+  assert_eq(supported[25], "epub")
+  assert_eq(supported[26], "docx")
+  assert_eq(supported[27], "xlsx")
+  assert_eq(supported[28], "pptx")
+  assert_eq(supported[29], "pdf")
+  assert_eq(supported[30], "wav")
+  assert_eq(supported[31], "mp3")
+  assert_eq(supported[32], "m4a")
+  assert_eq(supported[33], "png")
+  assert_eq(supported[34], "jpg")
+  assert_eq(supported[35], "jpeg")
+  assert_eq(supported[36], "bmp")
+  assert_eq(supported[37], "webp")
+  assert_eq(supported[38], "tif")
+  assert_eq(supported[39], "tiff")
+}
+
+///|
+test "main cli parses msg as eml alias" {
+  match parse_cli_options(["--format", "msg", "mail.msg"]) {
+    Ok(opts) =>
+      assert_true(opts.explicit_format == Some(@input.DetectedFormat::Eml))
+    Err(msg) => fail("expected msg alias to parse: " + msg)
+  }
+
+  match parse_cli_options(["mail.msg"]) {
+    Ok(opts) => {
+      assert_true(cli_requested_format(opts) == @input.DetectedFormat::Eml)
+      assert_eq(cli_requested_format_label(opts), "eml")
+    }
+    Err(msg) => fail("expected implicit msg alias to parse: " + msg)
+  }
 }
 
 ///|
@@ -217,6 +327,14 @@ test "main cli parses explicit OCR intent flags" {
     }
     Err(msg) => fail("expected direct image input to accept --ocr-lang: " + msg)
   }
+
+  match parse_cli_options(["--audio-lang", "zh", "tiny.wav"]) {
+    Ok(opts) => {
+      assert_true(opts.audio_options.language == Some("zh"))
+      assert_true(opts.ocr_options.language == None)
+    }
+    Err(msg) => fail("expected audio input to accept --audio-lang: " + msg)
+  }
 }
 
 ///|
@@ -234,7 +352,7 @@ test "main cli keeps --debug and rejects retired --json alias" {
   match parse_cli_options(["--accurate", "--debug", "tiny.txt"]) {
     Ok(opts) => {
       assert_true(opts.fidelity_mode == @convert.FidelityMode::Accurate)
-      assert_true(opts.convert_mode == @convert.ConvertMode::Debug)
+      assert_true(opts.convert_mode == @convert.ConvertMode::Accurate)
       assert_true(opts.output_mode == @convert.OutputMode::Debug)
       assert_true(opts.output_format == @convert.OutputFormat::DebugJson)
     }
@@ -244,7 +362,7 @@ test "main cli keeps --debug and rejects retired --json alias" {
   match parse_cli_options(["--accurate", "--rag", "tiny.txt"]) {
     Ok(opts) => {
       assert_true(opts.fidelity_mode == @convert.FidelityMode::Accurate)
-      assert_true(opts.convert_mode == @convert.ConvertMode::Rag)
+      assert_true(opts.convert_mode == @convert.ConvertMode::Accurate)
       assert_true(opts.output_mode == @convert.OutputMode::Rag)
       assert_true(opts.output_format == @convert.OutputFormat::RagJson)
     }
@@ -253,7 +371,9 @@ test "main cli keeps --debug and rejects retired --json alias" {
 
   match parse_cli_options(["--debug", "tiny.txt"]) {
     Ok(opts) => {
-      assert_true(opts.convert_mode == @convert.ConvertMode::Debug)
+      assert_true(opts.convert_mode == @convert.ConvertMode::Balanced)
+      assert_true(!opts.stream_requested)
+      assert_true(opts.output_mode == @convert.OutputMode::Debug)
       assert_true(opts.output_format == @convert.OutputFormat::DebugJson)
     }
     Err(msg) => fail("expected --debug to parse: " + msg)
@@ -261,7 +381,8 @@ test "main cli keeps --debug and rejects retired --json alias" {
 
   match parse_cli_options(["--rag", "tiny.txt"]) {
     Ok(opts) => {
-      assert_true(opts.convert_mode == @convert.ConvertMode::Rag)
+      assert_true(opts.convert_mode == @convert.ConvertMode::Balanced)
+      assert_true(opts.output_mode == @convert.OutputMode::Rag)
       assert_true(opts.output_format == @convert.OutputFormat::RagJson)
       assert_eq(
         opts.rag_options.chunk_size,
@@ -282,6 +403,42 @@ test "main cli keeps --debug and rejects retired --json alias" {
   match parse_cli_options(["--debug", "--rag", "tiny.txt"]) {
     Err(msg) => assert_true(msg.contains("cannot combine --debug and --rag"))
     Ok(_) => fail("expected --debug and --rag to conflict")
+  }
+
+  match parse_cli_options(["--stream", "tiny.txt"]) {
+    Ok(opts) => {
+      assert_true(opts.stream_requested)
+      assert_true(opts.convert_mode == @convert.ConvertMode::Stream)
+      assert_true(opts.output_mode == @convert.OutputMode::Markdown)
+      assert_true(opts.output_format == @convert.OutputFormat::Markdown)
+    }
+    Err(msg) => fail("expected --stream to parse: " + msg)
+  }
+
+  match parse_cli_options(["--stream", "--debug", "tiny.txt"]) {
+    Ok(opts) => {
+      assert_true(opts.stream_requested)
+      assert_true(opts.convert_mode == @convert.ConvertMode::Stream)
+      assert_true(opts.output_mode == @convert.OutputMode::Debug)
+      assert_true(opts.output_format == @convert.OutputFormat::DebugJson)
+    }
+    Err(msg) => fail("expected --stream --debug to parse: " + msg)
+  }
+
+  match parse_cli_options(["--stream", "--rag", "tiny.txt"]) {
+    Ok(opts) => {
+      assert_true(opts.stream_requested)
+      assert_true(opts.convert_mode == @convert.ConvertMode::Stream)
+      assert_true(opts.output_mode == @convert.OutputMode::Rag)
+      assert_true(opts.output_format == @convert.OutputFormat::RagJson)
+    }
+    Err(msg) => fail("expected --stream --rag to parse: " + msg)
+  }
+
+  match parse_cli_options(["--stream", "--accurate", "tiny.txt"]) {
+    Err(msg) =>
+      assert_true(msg.contains("cannot combine --stream and --accurate"))
+    Ok(_) => fail("expected --stream and --accurate to conflict")
   }
 
   match parse_cli_options(["--json", "tiny.txt"]) {
@@ -348,7 +505,7 @@ test "main cli constrains --ocr-lang to OCR-capable routes" {
     Err(msg) =>
       assert_true(
         msg.contains(
-          "--ocr-lang requires --ocr, Accurate-mode PDF input, or direct image input",
+          "--ocr-lang requires --ocr, direct image input, or PDF OCR via `--ocr` / `--pdf-ocr`",
         ),
       )
     Ok(_) => fail("expected non-image --ocr-lang without --ocr to fail")
@@ -356,6 +513,7 @@ test "main cli constrains --ocr-lang to OCR-capable routes" {
 
   match parse_cli_options(["--ocr-lang", "eng", "--ocr", "tiny.pdf"]) {
     Ok(opts) => {
+      assert_true(opts.pdf_ocr_policy == @convert.PdfOcrPolicy::Explicit)
       assert_true(opts.ocr_options.intent == @parser.OcrIntent::Explicit)
       assert_true(opts.ocr_options.language == Some("eng"))
     }
@@ -365,19 +523,63 @@ test "main cli constrains --ocr-lang to OCR-capable routes" {
   match parse_cli_options(["--accurate", "tiny.pdf"]) {
     Ok(opts) => {
       assert_true(opts.fidelity_mode == @convert.FidelityMode::Accurate)
-      assert_true(opts.ocr_options.intent == @parser.OcrIntent::Explicit)
-      assert_true(opts.ocr_options.language == None)
+      assert_true(opts.pdf_ocr_policy == @convert.PdfOcrPolicy::AutoScanned)
+      assert_true(opts.input == "tiny.pdf")
     }
-    Err(msg) => fail("expected accurate pdf to auto-enable OCR: " + msg)
+    Err(msg) => fail("expected single-file pdf --accurate to parse: " + msg)
   }
 
-  match parse_cli_options(["--accurate", "--ocr-lang", "eng", "tiny.pdf"]) {
+  match
+    parse_cli_options([
+      "--pdf-ocr", "auto-scanned", "--ocr-lang", "eng", "tiny.pdf",
+    ]) {
     Ok(opts) => {
-      assert_true(opts.fidelity_mode == @convert.FidelityMode::Accurate)
+      assert_true(opts.pdf_ocr_policy == @convert.PdfOcrPolicy::AutoScanned)
       assert_true(opts.ocr_options.intent == @parser.OcrIntent::Explicit)
       assert_true(opts.ocr_options.language == Some("eng"))
     }
-    Err(msg) => fail("expected accurate pdf --ocr-lang to parse: " + msg)
+    Err(msg) =>
+      fail("expected pdf --pdf-ocr auto-scanned --ocr-lang to parse: " + msg)
+  }
+
+  match parse_cli_options(["--ocr-lang", "eng", "tiny.wav"]) {
+    Err(msg) =>
+      assert_true(msg.contains("--ocr-lang cannot be used with audio input"))
+    Ok(_) => fail("expected audio --ocr-lang to fail")
+  }
+
+  match parse_cli_options(["--audio-lang", "eng", "tiny.txt"]) {
+    Err(msg) => assert_true(msg.contains("--audio-lang requires audio input"))
+    Ok(_) => fail("expected non-audio --audio-lang to fail")
+  }
+
+  match
+    parse_cli_options(["--audio-lang", "eng", "--ocr-lang", "eng", "tiny.wav"]) {
+    Err(msg) =>
+      assert_true(msg.contains("cannot combine --ocr-lang and --audio-lang"))
+    Ok(_) => fail("expected mixed language flags to fail")
+  }
+}
+
+///|
+test "main cli batch constrains --audio-lang to explicit audio formats" {
+  match parse_batch_cli_options(["--audio-lang", "eng", "inputs", "out"], 0) {
+    Err(msg) =>
+      assert_true(msg.contains("batch --audio-lang requires explicit --format"))
+    Ok(_) => fail("expected batch --audio-lang without explicit format to fail")
+  }
+
+  match
+    parse_batch_cli_options(
+      ["--format", "wav", "--audio-lang", "eng", "inputs", "out"],
+      0,
+    ) {
+    Ok((opts, out_dir)) => {
+      assert_true(opts.audio_options.language == Some("eng"))
+      assert_eq(out_dir, "out")
+    }
+    Err(msg) =>
+      fail("expected batch audio format with --audio-lang to parse: " + msg)
   }
 }
 
@@ -391,6 +593,48 @@ test "main cli parses provenance output flag" {
     }
     Err(msg) => fail("expected --provenance-out to parse: " + msg)
   }
+}
+
+///|
+test "main cli batch writes manifest for single markdown input" {
+  let root = test_tmp_root() + "/main-cli-batch-single"
+  recreate_clean_dir(root)
+  defer cleanup_temp_dir(root)
+
+  let input_path = root + "/note.md"
+  let out_dir = root + "/out"
+  write_utf8_text(input_path, "# Title\n\nhello batch\n")
+
+  let exit_code = run_cli_app(["markitdown-mb", "batch", input_path, out_dir])
+  assert_eq(exit_code, 0)
+  assert_true(@fs.path_exists(out_dir + "/manifest.json"))
+  assert_true(@fs.path_exists(out_dir + "/note.md.md"))
+  let manifest = read_utf8_text(out_dir + "/manifest.json")
+  assert_true(manifest.contains("\"status\": \"success\""))
+  assert_true(manifest.contains("\"relative_path\": \"note.md\""))
+}
+
+///|
+test "main cli batch accurate keeps pdf tasks in the manifest instead of prefiltering them" {
+  let root = test_tmp_root() + "/main-cli-batch-accurate"
+  recreate_clean_dir(root)
+  defer cleanup_temp_dir(root)
+
+  let input_dir = root + "/in"
+  let out_dir = root + "/out"
+  ensure_dir_tree(input_dir)
+  write_utf8_text(input_dir + "/note.md", "# Title\n\nok\n")
+  write_utf8_text(input_dir + "/scan.pdf", "%PDF-1.4 fake")
+
+  let exit_code = run_cli_app([
+    "markitdown-mb", "batch", "--accurate", input_dir, out_dir,
+  ])
+  assert_eq(exit_code, 0)
+  let manifest = read_utf8_text(out_dir + "/manifest.json")
+  assert_true(manifest.contains("\"relative_path\": \"note.md\""))
+  assert_true(manifest.contains("\"relative_path\": \"scan.pdf\""))
+  assert_true(!manifest.contains("\"dependency_diagnostics\":"))
+  assert_true(@fs.path_exists(out_dir + "/note.md.md"))
 }
 
 ///|
@@ -442,6 +686,7 @@ test "main cli image OCR intent remains fail closed by mode" {
       assert_true(
         msg.contains("Tesseract OCR command is unavailable") ||
         msg.contains("launch tesseract failed") ||
+        msg.contains("Missing dependency: Tesseract OCR") ||
         msg.contains("image_format=png"),
       )
     Ok(_) => fail("expected explicit OCR image path to fail closed")
@@ -461,7 +706,8 @@ test "main cli image OCR intent remains fail closed by mode" {
       assert_true(
         msg.contains("language=eng") ||
         msg.contains("image_format=png") ||
-        msg.contains("Tesseract OCR command"),
+        msg.contains("Tesseract OCR command") ||
+        msg.contains("brew install tesseract"),
       )
     Ok(_) => fail("expected explicit OCR image/lang path to fail closed")
   }
@@ -501,6 +747,7 @@ test "main cli pdf plus explicit OCR enters OCR route or returns explicit depend
         None,
         @convert.OutputFormat::Markdown,
         ocr_options=@parser.explicit_ocr_options(language=Some("eng")),
+        pdf_ocr_policy=@convert.PdfOcrPolicy::Explicit,
       ),
       fn(request) {
         let tsv = [
@@ -518,9 +765,103 @@ test "main cli pdf plus explicit OCR enters OCR route or returns explicit depend
       assert_true(
         msg.contains("pdftoppm") ||
         msg.contains("poppler-utils") ||
-        msg.contains("brew install poppler"),
+        msg.contains("brew install poppler") ||
+        msg.contains("Missing dependency: pdftoppm / Poppler"),
       )
   }
+}
+
+///|
+test "main cli pdf accurate enters OCR route or returns dependency guidance" {
+  let pdf_path = "samples/fixtures/contracts/pdf/root_native_text_baseline.pdf"
+
+  match
+    run_cli(
+      make_cli_options(
+        pdf_path,
+        None,
+        None,
+        None,
+        @parser.default_ocr_options(),
+        @convert.default_pdf_ocr_policy(),
+        @convert.FidelityMode::Accurate,
+        @convert.ConvertMode::Balanced,
+        @convert.output_mode_for_output_format(@convert.OutputFormat::Markdown),
+        false,
+        @convert.OutputFormat::Markdown,
+        pdf_cleanup_mode=@convert.default_pdf_cleanup_mode(),
+        pdf_table_mode=@convert.default_pdf_table_mode(),
+        rag_options=@rag.default_rag_options(),
+      ),
+    ) {
+    Ok(content) => assert_true(content.trim() != "")
+    Err(msg) => {
+      assert_true(
+        msg.contains("Missing dependency: pdftoppm / Poppler") ||
+        msg.contains("brew install poppler") ||
+        msg.contains("Missing dependency: PaddleOCR wrapper") ||
+        msg.contains("MARKITDOWN_PADDLE_OCR_CMD"),
+      )
+      assert_true(
+        msg.contains("poppler-utils") ||
+        msg.contains("samples/helpers/paddle_ocr_wrapper.py") ||
+        msg.contains("pip install paddlepaddle paddleocr"),
+      )
+    }
+  }
+}
+
+///|
+test "main cli pdf accurate can fall back to balanced OCR provider when accurate dependency is unavailable" {
+  let pdf_path = "samples/fixtures/contracts/pdf/pdf_ocr_single_page.pdf"
+
+  let rendered = match
+    run_cli_with_image_ocr_provider(
+      make_cli_options(
+        pdf_path,
+        None,
+        None,
+        Some(@input.DetectedFormat::Pdf),
+        @parser.explicit_ocr_options(language=Some("eng")),
+        @convert.PdfOcrPolicy::Explicit,
+        @convert.FidelityMode::Accurate,
+        @convert.ConvertMode::Balanced,
+        @convert.output_mode_for_output_format(@convert.OutputFormat::Markdown),
+        false,
+        @convert.OutputFormat::Markdown,
+        pdf_cleanup_mode=@convert.default_pdf_cleanup_mode(),
+        pdf_table_mode=@convert.default_pdf_table_mode(),
+        rag_options=@rag.default_rag_options(),
+      ),
+      fn(request) {
+        if request.provider_kind == @focr.OcrProviderKind::PaddleOcr {
+          Err(
+            @focr.OcrProviderError::NotConfigured(
+              @focr.paddle_ocr_not_configured_message(),
+            ),
+          )
+        } else {
+          let tsv = [
+            "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext",
+            "5\t1\t1\t1\t1\t1\t10\t10\t20\t10\t95\tPDF", "5\t1\t1\t1\t1\t2\t35\t10\t20\t10\t94\tOCR",
+          ].join("\n")
+          match @focr.parse_tesseract_tsv(tsv, language=request.language) {
+            Ok(value) => Ok(value)
+            Err(err) =>
+              abort(
+                "expected CLI fallback OCR TSV parse success: " +
+                err.to_string(),
+              )
+          }
+        }
+      },
+    ) {
+    Ok(value) => value
+    Err(msg) =>
+      fail("expected pdf accurate fallback through injected provider: " + msg)
+  }
+
+  assert_true(rendered.contains("PDF OCR"))
 }
 
 ///|
@@ -873,6 +1214,75 @@ test "main cli provenance sidecar preserves conversion output semantics" {
   assert_true(sidecar.contains("\"route_probe_summary\":"))
   assert_true(sidecar.contains("\"effective_parser_mode\":"))
   assert_true(sidecar.contains("\"render_input_kind\":"))
+  assert_true(sidecar.contains("\"ocr_provider_selection_target\":"))
+  assert_true(sidecar.contains("\"ocr_provider_requested_kind\":"))
+  assert_true(sidecar.contains("\"ocr_provider_resolved_kind\":"))
+  assert_true(sidecar.contains("\"audio_backend_transport\":"))
+  assert_true(sidecar.contains("\"audio_backend_name\":"))
+  assert_true(sidecar.contains("\"audio_backend_version\":"))
+  assert_true(!sidecar.contains("\"ocr_provider_fallback\":"))
+  assert_true(!sidecar.contains("\"dependency_diagnostics\":"))
+}
+
+///|
+test "main cli accurate fallback provenance preserves output semantics" {
+  let root = test_tmp_root() + "/main-cli-accurate-fallback"
+  recreate_clean_dir(root)
+  defer cleanup_temp_dir(root)
+
+  let input_path = root + "/demo.toml"
+  let output_path = root + "/demo.md"
+  let provenance_path = root + "/demo.provenance.json"
+  write_utf8_text(
+    input_path, "title = \"MarkItDown\"\nenabled = true\ncount = 3\n",
+  )
+
+  let rendered = match
+    run_cli_without_emitting_warnings(
+      make_cli_options(
+        input_path,
+        Some(output_path),
+        Some(provenance_path),
+        Some(@input.DetectedFormat::Toml),
+        @parser.default_ocr_options(),
+        @convert.default_pdf_ocr_policy(),
+        @convert.FidelityMode::Accurate,
+        @convert.ConvertMode::Accurate,
+        @convert.output_mode_for_output_format(@convert.OutputFormat::Markdown),
+        false,
+        @convert.OutputFormat::Markdown,
+      ),
+    ) {
+    Ok(value) => value
+    Err(msg) => fail("expected cli accurate fallback conversion: " + msg)
+  }
+
+  assert_true(rendered.contains("| Key | Value |"))
+  assert_true(read_utf8_text(output_path).contains("| Key | Value |"))
+  let sidecar = read_utf8_text(provenance_path)
+  assert_true(
+    sidecar.contains("\"route_reason\": \"accurate_unsupported_fell_back\""),
+  )
+  assert_true(sidecar.contains("\"fidelity_mode\": \"balanced\""))
+  assert_true(sidecar.contains("\"requested_fidelity_mode\": ["))
+  assert_true(sidecar.contains("\"accurate\""))
+  assert_true(sidecar.contains("\"accurate_unsupported_fell_back\""))
+}
+
+///|
+test "main cli stream warning message stays stable for unsupported explicit stream fallback" {
+  assert_eq(
+    cli_explicit_stream_warning_message(@input.DetectedFormat::Toml),
+    "warning: explicit --stream is not productized for `toml` yet; falling back to the canonical route",
+  )
+}
+
+///|
+test "main cli accurate warning message stays stable for unsupported accurate fallback" {
+  assert_eq(
+    cli_accurate_fallback_warning_message(@input.DetectedFormat::Toml),
+    "warning: `--accurate` is not productized for `toml` yet; falling back to balanced mode",
+  )
 }
 
 ///|
@@ -880,7 +1290,7 @@ test "main cli pdf debug json exposes header footer candidate diagnostics" {
   let rendered = match
     run_cli(
       cli_options(
-        "samples/main_process/pdf/markdown/text_simple.pdf",
+        "samples/fixtures/contracts/pdf/text_simple.pdf",
         None,
         Some(@input.DetectedFormat::Pdf),
         @convert.OutputFormat::DebugJson,
@@ -922,7 +1332,7 @@ test "main cli pdf product options stay opt-in and only change diagnostics when 
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
 
-  let pdf_path = "samples/main_process/pdf/markdown/root_native_text_baseline.pdf"
+  let pdf_path = "samples/fixtures/contracts/pdf/root_native_text_baseline.pdf"
   let baseline = match
     run_cli(
       cli_options(
@@ -972,7 +1382,7 @@ test "main cli persists pptx local assets only at output boundary" {
   let persisted = match
     run_cli(
       cli_options(
-        "samples/main_process/pptx/assets/pptx_image_single.pptx",
+        "samples/fixtures/contracts/pptx/pptx_image_single.pptx",
         Some(out_path),
         Some(@input.DetectedFormat::Pptx),
         @convert.OutputFormat::Markdown,
@@ -1006,7 +1416,7 @@ test "main cli persists markdown local assets only at output boundary" {
     input_path, "![single](img/img_red.jpg)\n\n![remote](https://example.com/remote.png)\n",
   )
   let source_bytes = @fs.read_file_to_bytes(
-    "samples/main_process/html/assets/img/img_red.jpg",
+    "samples/fixtures/contracts/html/img_red.jpg",
   ) catch {
     e => fail("read markdown asset sample failed: " + e.to_string())
   }
@@ -1049,7 +1459,7 @@ test "main cli converts zip through the root container pipeline and persists loc
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
 
-  let zip_input = "samples/main_process/zip/assets/zip_html_local_image.zip"
+  let zip_input = "samples/fixtures/contracts/zip/zip_html_local_image.zip"
   let out_dir = root + "/out"
   let out_md = out_dir + "/archive.md"
   ensure_dir_tree(out_dir)
@@ -1085,6 +1495,139 @@ test "main cli converts zip through the root container pipeline and persists loc
 }
 
 ///|
+test "main cli persists ipynb inline image assets at output boundary" {
+  let root = test_tmp_root() + "/main-cli-ipynb-assets"
+  recreate_clean_dir(root)
+  defer cleanup_temp_dir(root)
+
+  let input_path = root + "/sample.ipynb"
+  let out_dir = root + "/out"
+  let output_path = out_dir + "/sample.md"
+  ensure_dir_tree(out_dir)
+  write_utf8_text(
+    input_path,
+    "{\n" +
+    "  \"nbformat\": 4,\n" +
+    "  \"nbformat_minor\": 5,\n" +
+    "  \"metadata\": {\"language_info\": {\"name\": \"python\"}},\n" +
+    "  \"cells\": [\n" +
+    "    {\n" +
+    "      \"cell_type\": \"markdown\",\n" +
+    "      \"attachments\": {\n" +
+    "        \"dot.png\": {\n" +
+    "          \"image/png\": \"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7Z0MsAAAAASUVORK5CYII=\"\n" +
+    "        }\n" +
+    "      },\n" +
+    "      \"source\": [\"![dot](attachment:dot.png)\\n\"]\n" +
+    "    },\n" +
+    "    {\n" +
+    "      \"cell_type\": \"code\",\n" +
+    "      \"execution_count\": 1,\n" +
+    "      \"source\": \"display('ok')\\n\",\n" +
+    "      \"outputs\": [\n" +
+    "        {\n" +
+    "          \"output_type\": \"display_data\",\n" +
+    "          \"data\": {\n" +
+    "            \"image/png\": \"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7Z0MsAAAAASUVORK5CYII=\",\n" +
+    "            \"text/plain\": [\"<Image>\\n\"]\n" +
+    "          }\n" +
+    "        }\n" +
+    "      ]\n" +
+    "    }\n" +
+    "  ]\n" +
+    "}\n",
+  )
+
+  let rendered = match
+    run_cli(
+      cli_options(
+        input_path,
+        Some(output_path),
+        Some(@input.DetectedFormat::Ipynb),
+        @convert.OutputFormat::Markdown,
+      ),
+    ) {
+    Ok(value) => value
+    Err(msg) => fail("current ipynb cli asset persistence failed: " + msg)
+  }
+
+  assert_true(
+    rendered.contains("![notebook image](assets/ipynb-cell02-output01.png)"),
+  )
+  let persisted_markdown = read_utf8_text(output_path)
+  assert_true(
+    persisted_markdown.contains(
+      "![dot](assets/ipynb-cell01-attachment-dot-png.png)",
+    ),
+  )
+  assert_true(
+    persisted_markdown.contains(
+      "![notebook image](assets/ipynb-cell02-output01.png)",
+    ),
+  )
+  assert_true(
+    @fs.path_exists(out_dir + "/assets/ipynb-cell01-attachment-dot-png.png"),
+  )
+  assert_true(@fs.path_exists(out_dir + "/assets/ipynb-cell02-output01.png"))
+}
+
+///|
+test "main cli persists odt local assets only at output boundary" {
+  let root = test_tmp_root() + "/main-cli-odt-assets"
+  recreate_clean_dir(root)
+  defer cleanup_temp_dir(root)
+
+  let out_dir = root + "/out"
+  let out_path = out_dir + "/odt_basic_assets.md"
+  ensure_dir_tree(out_dir)
+  let persisted = match
+    run_cli(
+      cli_options(
+        "samples/fixtures/contracts/odt/odt_basic_assets.odt",
+        Some(out_path),
+        Some(@input.DetectedFormat::Odt),
+        @convert.OutputFormat::Markdown,
+      ),
+    ) {
+    Ok(value) => value
+    Err(msg) => fail("odt local asset cli failed: " + msg)
+  }
+  assert_true(persisted.contains("![red-dot](assets/odt-red.png)"))
+  let persisted_markdown = read_utf8_text(out_path)
+  assert_true(persisted_markdown.contains("![red-dot](assets/odt-red.png)"))
+  assert_true(@fs.path_exists(out_dir + "/assets/odt-red.png"))
+}
+
+///|
+test "main cli persists odp local assets only at output boundary" {
+  let root = test_tmp_root() + "/main-cli-odp-assets"
+  recreate_clean_dir(root)
+  defer cleanup_temp_dir(root)
+
+  let out_dir = root + "/out"
+  let out_path = out_dir + "/odp_basic_assets.md"
+  ensure_dir_tree(out_dir)
+  let persisted = match
+    run_cli(
+      cli_options(
+        "samples/fixtures/contracts/odp/odp_basic_assets.odp",
+        Some(out_path),
+        Some(@input.DetectedFormat::Odp),
+        @convert.OutputFormat::Markdown,
+      ),
+    ) {
+    Ok(value) => value
+    Err(msg) => fail("odp local asset cli failed: " + msg)
+  }
+  assert_true(persisted.contains("![red-dot](assets/odp-slide1-red.png)"))
+  let persisted_markdown = read_utf8_text(out_path)
+  assert_true(
+    persisted_markdown.contains("![red-dot](assets/odp-slide1-red.png)"),
+  )
+  assert_true(@fs.path_exists(out_dir + "/assets/odp-slide1-red.png"))
+}
+
+///|
 test "main cli keeps epub local assets output boundary only and remote data assets no fetch" {
   let root = test_tmp_root() + "/main-cli-epub-assets"
   recreate_clean_dir(root)
@@ -1098,7 +1641,7 @@ test "main cli keeps epub local assets output boundary only and remote data asse
   let local_rendered = match
     run_cli(
       cli_options(
-        "samples/main_process/epub/assets/epub_local_image_basic.epub",
+        "samples/fixtures/contracts/epub/epub_local_image_basic.epub",
         Some(local_md),
         Some(@input.DetectedFormat::Epub),
         @convert.OutputFormat::Markdown,
@@ -1125,7 +1668,7 @@ test "main cli keeps epub local assets output boundary only and remote data asse
   let remote_rendered = match
     run_cli(
       cli_options(
-        "samples/main_process/epub/markdown/epub_remote_data_image_boundary.epub",
+        "samples/fixtures/contracts/epub/epub_remote_data_image_boundary.epub",
         Some(remote_md),
         Some(@input.DetectedFormat::Epub),
         @convert.OutputFormat::Markdown,
@@ -1155,7 +1698,7 @@ test "main cli restores docx xlsx pptx and native-text pdf" {
   let xlsx_path = root + "/sample.xlsx"
   let pdf_path = root + "/sample.pdf"
   let docx_bytes = @fs.read_file_to_bytes(
-    "samples/main_process/docx/assets/docx_image_alt_title.docx",
+    "samples/fixtures/contracts/docx/docx_image_alt_title.docx",
   ) catch {
     e => fail("read docx sample failed: " + e.to_string())
   }
@@ -1163,7 +1706,7 @@ test "main cli restores docx xlsx pptx and native-text pdf" {
     e => fail("write docx sample failed: " + e.to_string())
   }
   let pptx_bytes = @fs.read_file_to_bytes(
-    "samples/main_process/pptx/markdown/pptx_hidden_slide_basic.pptx",
+    "samples/fixtures/contracts/pptx/pptx_hidden_slide_basic.pptx",
   ) catch {
     e => fail("read pptx sample failed: " + e.to_string())
   }
@@ -1171,7 +1714,7 @@ test "main cli restores docx xlsx pptx and native-text pdf" {
     e => fail("write pptx sample failed: " + e.to_string())
   }
   let xlsx_bytes = @fs.read_file_to_bytes(
-    "samples/main_process/xlsx/markdown/sheet_simple.xlsx",
+    "samples/fixtures/contracts/xlsx/sheet_simple.xlsx",
   ) catch {
     e => fail("read xlsx sample failed: " + e.to_string())
   }
@@ -1179,7 +1722,7 @@ test "main cli restores docx xlsx pptx and native-text pdf" {
     e => fail("write xlsx sample failed: " + e.to_string())
   }
   let pdf_bytes = @fs.read_file_to_bytes(
-    "samples/main_process/pdf/markdown/root_native_text_baseline.pdf",
+    "samples/fixtures/contracts/pdf/root_native_text_baseline.pdf",
   ) catch {
     e => fail("read pdf sample failed: " + e.to_string())
   }
@@ -1198,7 +1741,7 @@ test "main cli restores docx xlsx pptx and native-text pdf" {
   )
   let epub = run_cli(
     cli_options(
-      "samples/main_process/epub/markdown/epub_basic_package.epub",
+      "samples/fixtures/contracts/epub/epub_basic_package.epub",
       None,
       None,
       @convert.OutputFormat::Markdown,
@@ -1243,7 +1786,7 @@ test "main cli restores docx xlsx pptx and native-text pdf" {
       assert_eq(
         value.trim_end().to_owned(),
         read_utf8_text(
-          "samples/main_process/pdf/expected/markdown/root_native_text_baseline.md",
+          "samples/fixtures/contracts/pdf/root_native_text_baseline.expected.md",
         )
         .trim_end()
         .to_owned(),
@@ -1271,7 +1814,7 @@ test "main cli persists html local assets only at output boundary" {
     "<p><img src=\"https://example.com/remote.png\" alt=\"remote\"></p>\n",
   )
   let source_bytes = @fs.read_file_to_bytes(
-    "samples/main_process/html/assets/img/img_red.jpg",
+    "samples/fixtures/contracts/html/img_red.jpg",
   ) catch {
     e => fail("read html asset sample failed: " + e.to_string())
   }

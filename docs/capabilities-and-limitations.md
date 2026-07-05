@@ -1,499 +1,639 @@
-# Capabilities And Limitations
+# Capability Boundaries and Limitations
 
-`markitdown-mb` 当前已经全面迁移到统一的 `v2` 主架构：`input -> parser -> pipeline -> render`。
+`markitdown-mb` now runs on a unified product path:
 
-这意味着当前产品路径的核心特点是：
+```text
+input -> parser -> pipeline -> render
+```
 
-- 所有正式格式都走统一主链，而不是多套历史分支并存
-- 输出不仅是 Markdown，还保留更丰富的语义、诊断、source ref 与 provenance 事实
-- benchmark、主回归、质量回归围绕同一条产品路径工作
-- 不支持的能力直接 fail closed，不用隐藏 fallback 掩盖边界
+That unified path gives the project a few important product properties:
 
-这份文档面向两个问题：
+- All formal formats go through one main chain instead of several historical branches.
+- Output is not only Markdown. We also preserve richer semantics, diagnostics, source refs, and provenance facts.
+- Benchmarks, main regression, and quality regression all measure the same product path.
+- Unsupported capabilities fail closed instead of hiding boundaries behind silent fallback.
 
-- 现在各格式到底支持到了什么地步
-- 哪些能力已经正式可用，哪些仍然缺失或明确不承诺
+This document answers two practical questions:
 
-## 1. 产品边界
+1. Which formats are formally supported today.
+2. Which capabilities are formally available, which are limited, and which are intentionally not promised.
 
-项目最初灵感来自微软的 `MarkItDown`：把多种常见文档格式转换成稳定、可消费的 Markdown。
+For system packages, external tools, and regression dependencies, see [environment-dependencies.md](./environment-dependencies.md).
 
-当前实现不是对原项目的逐项复刻，而是一个更偏工程化的 MoonBit-first 实现，重点在于：
+## 1. Product Boundary
 
-- 单一正式产品路径
-- 更丰富的中间语义
-- 更严格的 provenance / route fidelity / benchmark trust gate
-- 更清晰的支持矩阵与 fail-closed 边界
+The project is inspired by Microsoft's `MarkItDown`: convert common document formats into stable, consumable Markdown.
 
-## 2. 主 CLI 正式支持格式
+This implementation is not a line-by-line clone. It is a MoonBit-first, engineering-oriented implementation that prioritizes:
 
-主 CLI 当前正式支持：
+- one formal product path
+- richer intermediate semantics
+- stronger provenance, route fidelity, and benchmark trust gates
+- a clearer support matrix and clearer fail-closed boundaries
 
-| 格式族 | 扩展名 / 入口 | 当前正式状态 |
+This project is not trying to be:
+
+- a full editor-grade semantic restoration stack for every format
+- a layout-intelligence-heavy AI platform by default
+- a collection of per-format shortcuts optimized for a few nice-looking samples
+
+It is trying to be:
+
+- a maintainable long-term open-source conversion project
+- strong under complex formats and engineering-scale workloads
+- traceable and honest about route selection and capability boundaries
+
+## 2. Formally Supported Main CLI Inputs
+
+The main CLI currently supports these input families:
+
+| Format family | Extensions / entry | Formal status |
 | --- | --- | --- |
-| Plain text | `txt` | 正式支持 |
-| Delimited text | `csv`, `tsv` | 正式支持 |
-| Structured text | `json`, `jsonl`, `ndjson`, `xml`, `yaml`, `yml` | 正式支持 |
-| Web / markup | `html`, `htm`, `markdown`, `md` | 正式支持 |
-| Containers | `zip`, `epub` | 正式支持 |
-| Office | `docx`, `xlsx`, `pptx` | 正式支持 |
-| PDF | `pdf` | 正式支持；默认 native-text，`--accurate` 或显式 `--ocr` 可走 OCR |
-| Image OCR | `png`, `jpg`, `jpeg`, `bmp`, `webp`, `tif`, `tiff` | 正式支持 |
+| Plain text | `txt` | formally supported |
+| Subtitle text | `srt`, `vtt` | formally supported |
+| Delimited text | `csv`, `tsv` | formally supported |
+| Structured text | `json`, `jsonl`, `ndjson`, `ipynb`, `xml`, `yaml`, `yml`, `toml` | formally supported |
+| Web and markup | `html`, `htm`, `markdown`, `md`, `rst`, `adoc`, `asciidoc`, `tex`, `latex` | formally supported |
+| Mail | `eml`, `msg` | formally supported |
+| Containers | `zip`, `epub` | formally supported |
+| Office | `odt`, `ods`, `odp`, `docx`, `xlsx`, `pptx` | formally supported |
+| PDF | `pdf` | formally supported; default is native-text, `--pdf-ocr explicit|auto-scanned` enables balanced PDF OCR, `--accurate` defaults to `auto-scanned` and can enter accurate PDF OCR on scanned-like pages |
+| Audio | `wav`, `mp3`, `m4a` | formally supported; current path is a transcript-only P0 media pipeline |
+| Direct image OCR | `png`, `jpg`, `jpeg`, `bmp`, `webp`, `tif`, `tiff` | formally supported |
 
-明确不属于当前默认主路径矩阵的输入：
+These inputs are not part of the default formal matrix:
 
-- 未启用 `--accurate` 或显式 `--ocr` 的扫描版 / 图片型 PDF
-- 其它未列出格式
+- scanned or image-based PDF when neither `--pdf-ocr` nor `--accurate` is enabled
+- `mp4`, video, streaming audio, subtitle sidecars as primary input, recursive audio dispatch inside containers
+- any format not listed above
 
-## 3. 能力总览
+## 3. Capability Overview
 
-| 格式 | 当前主路径 | 已正式支持 | 当前缺失 / 不承诺 |
+| Format | Current main path | Formally supported today | Current limitation or non-goal |
 | --- | --- | --- | --- |
-| `txt` | `streaming_event` | 段落、基础文本输出、RAG、debug、bench | 富语义来源天然有限 |
-| `csv` / `tsv` | `streaming_event` | 表格型输出、RAG、debug、bench | 不做 Excel 级公式 / 样式语义 |
-| `json` / `jsonl` / `ndjson` | `dom_ast_model` 或 `streaming_event` | 小中样本结构化输出、大样本 streaming、RAG、debug | 不追求完整 JSON editor 语义 |
-| `xml` | `streaming_event` | 结构化输出、streaming、RAG、debug | 不做完整 schema-aware 语义 |
-| `yaml` | `document` | 映射 / 列表 / 表格型输出、RAG、debug | 不承诺覆盖全部 YAML 高阶方言 |
-| `markdown` | `block_streaming` | Markdown 读取、frontmatter passthrough、debug、RAG | 不承诺成为 CommonMark 全功能编辑器 |
-| `html` | `block_streaming` | 标题、段落、列表、表格、图片、链接、RAG、assets | 不做浏览器级视觉布局恢复 |
-| `zip` | `package_single_pass` | 容器扫描、路径安全、子文档派发、assets | 不做任意二进制内容解释 |
-| `epub` | `package_single_pass` | OPF/spine 顺序、章节派发、局部资源 materialization、RAG | 不做远程资源抓取，不做阅读器级完整语义 |
-| `docx` | `package_single_pass` | Office 文档主块、链接、图片、debug source refs、RAG | 不承诺覆盖 Word 全部高级版式语义 |
-| `xlsx` | `package_single_pass` | sheet 读取、表格型输出、hidden sheet policy、公式缓存保留、debug | 不执行公式，不做 Excel 计算引擎 |
-| `pptx` | `package_single_pass` | slide 顺序、列表、图片、speaker notes、hidden slide policy、debug | 不做完整演示视觉布局重建 |
-| `pdf` | `page_single_pass` 或 `layout_two_stage` | native-text 提取、`--accurate` / `--ocr` OCR、基础清理、显式 opt-in cleanup/table signals、RAG、debug | OCR 路线当前不承诺复杂 layout 恢复 |
+| `txt` | `streaming_event` | paragraph output, basic text output, RAG, debug, benchmark | naturally limited semantics |
+| `srt` / `vtt` | `streaming_event` | cue time ranges, multiline captions, first-class `SourceRef.time_start/time_end`, controlled WebVTT degrade, RAG, debug | no player-grade style or layout execution |
+| `csv` / `tsv` | `streaming_event` | table-style output, RAG, debug, benchmark | no workbook-grade formula or style semantics |
+| `json` | `dom_ast_model`, or `streaming_event` when large or explicitly streamed | structured output for small and medium inputs, streaming for large inputs, RAG, debug | not a full JSON editor semantic model |
+| `jsonl` / `ndjson` | `streaming_event` | line-delimited record output, RAG, debug | no full document-tree semantics |
+| `ipynb` | `dom_ast_model`, or `block_streaming` when large or explicitly streamed | markdown/code/raw cells, typed outputs, multi-MIME selection, RAG, debug, assets, source refs | no notebook execution or widget runtime recovery |
+| `toml` | `dom_ast_model` | tables, key-values, array-of-tables, RAG, debug | no comment-preserving or editor-grade round-trip promise |
+| `xml` | `dom_ast_model`, or `streaming_event` when large | structured output, streaming path, RAG, debug | no full schema-aware semantics |
+| `yaml` | `dom_ast_model`, or `streaming_event` when large | mapping/list/table-like output, RAG, debug | no promise to cover every YAML dialect |
+| `markdown` | `dom_ast_model`, or `block_streaming` when large or explicitly streamed | Markdown read path, frontmatter passthrough, debug, RAG | not a full Markdown editor or AST toolkit |
+| `rst` / `asciidoc` / `tex` | `dom_ast_model` | typed semantic inventory, heading/paragraph/list/code/common table/common link/common boundary handling, RAG, debug | no full dialect execution or full editor semantics |
+| `html` | `dom_ast_model`, or `block_streaming(HtmlTokenStructure)` when large or explicitly streamed | content-root selection, boilerplate suppression, headings, paragraphs, lists, tables, images, links, RAG, assets | no browser-grade visual layout restoration |
+| `eml` | `block_streaming(Message)` | header summary, body selection, controlled `text/html`, nested message support, typed attachment dispatch, inline image assets, RAG, debug | no unbounded recursive attachment expansion or full mail-client behavior restoration |
+| `zip` | `container_recursive` | container scan, path safety, child document dispatch, assets | no arbitrary binary interpretation |
+| `epub` | `package_single_pass`, or `container_recursive` when explicitly streamed | OPF/spine order, chapter dispatch, local resource materialization, RAG | no remote fetch, no reader-grade runtime semantics |
+| `odt` | `package_single_pass`, or `block_streaming` when explicitly streamed | main content, tables, images, hyperlinks, footnotes/endnotes, comment appendix, RAG, debug source refs, assets | no full ODF style round-trip, revision recovery, or macro execution |
+| `ods` | `package_single_pass`, or `block_streaming` when explicitly streamed | sheet reading, table-like output, RAG, debug source refs, hidden-sheet visibility metrics | no formula execution, no full style or embedded-object recovery |
+| `odp` | `package_single_pass`, or `block_streaming` when explicitly streamed | slide order, text blocks, tables, images, notes, RAG, debug source refs, assets | no full visual layout reconstruction, animation execution, or style round-trip |
+| `docx` | `package_single_pass` | main Office blocks, links, images, debug source refs, RAG | not a full Word advanced-layout semantic stack |
+| `xlsx` | `package_single_pass`, or `block_streaming` when large or explicitly streamed | sheet reading, table-like output, hidden-sheet policy, cached formula values, debug | no Excel calculation engine |
+| `pptx` | `package_single_pass` | slide order, lists, images, speaker notes, hidden-slide policy, debug | no full slide-layout reconstruction |
+| `pdf` | `page_single_pass` or `layout_two_stage` | native-text extraction, balanced PDF OCR, accurate PDF OCR, cleanup hooks, optional table signals, RAG, debug | OCR routes do not currently promise deep layout intelligence or complex-table reconstruction |
+| direct image OCR | `layout_two_stage` or image OCR parser route | text extraction, OCR diagnostics, provenance, provider-aware fallback from accurate to balanced when accurate dependencies are missing | quality depends heavily on the OCR provider and image complexity |
+| `wav` / `mp3` / `m4a` | `media_pipeline` | transcript output, timestamps, Markdown, RAG, debug, provenance | current implementation is still a lightweight P0 media pipeline |
 
-## 4. 逐格式能力
+## 3.1 Current Maturity Audit
+
+We currently use four maturity levels:
+
+- `usable`: product path is available, but semantics, quality confidence, or coverage depth are still limited
+- `mature`: canonical path is stable and regression coverage is strong enough for long-term maintenance
+- `strong mature`: mature plus stronger route, accurate, or stress confidence for complex formats
+- `experimental`: not yet part of the formal long-term product promise
+
+There is no formally supported input family that is publicly labeled `experimental`. Experimental status today applies only to some scoped enhancements, especially parts of `pdf --accurate` and the current audio line.
+
+| Format | Current level | Summary |
+| --- | --- | --- |
+| `txt` | `mature` | stable lightweight `streaming_event` path |
+| `srt` / `vtt` | `mature` | stable cue timing and source refs |
+| `csv` / `tsv` | `mature` | stable table-style streaming path |
+| `json` | `strong mature` | stable DOM and streaming routes with strong provenance confidence |
+| `jsonl` / `ndjson` | `mature` | clear line-delimited record path |
+| `ipynb` | `mature` | typed cells, outputs, assets, and source refs are stable |
+| `toml` | `mature` | stable canonical DOM path and malformed-input degrade behavior |
+| `xml` | `mature` | stable DOM and streaming paths |
+| `yaml` | `mature` | stable mapping/list/table-like output path |
+| `markdown` | `mature` | stable read path, frontmatter, debug, RAG, and stream fallback |
+| `rst` / `asciidoc` / `tex` | `mature` | shared canonical text-markup path with dedicated contract coverage |
+| `html` | `strong mature` | strong content-root selection, boilerplate suppression, assets, and quality regression confidence |
+| `eml` | `mature` | stable message/body/attachment path |
+| `zip` | `mature` | stable container recursion and path safety |
+| `epub` | `mature` | stable package and spine path |
+| `odt` | `mature` | stable package path with notes/comments appendix and source refs |
+| `ods` | `mature` | stable main path for sheet visibility and large-table handling |
+| `odp` | `mature` | stable slide-local organization and notes appendix path |
+| `docx` | `strong mature` | strong package path, accurate enhancements, and regression confidence |
+| `xlsx` | `strong mature` | strong large-sheet, hidden-sheet, sparse-table, and accurate semantics |
+| `pptx` | `strong mature` | strong slide/notes handling and readable-order-like semantics |
+| `pdf` | `strong mature` | stable native-text path plus clear balanced versus accurate PDF OCR split |
+| direct image OCR | `usable` | formally available, but highly dependent on OCR provider quality |
+| `wav` / `mp3` / `m4a` | `usable` | formal main-path integration exists, but the current product contract is intentionally narrow |
+
+The most important update from this audit is that `rst`, `asciidoc`, and `tex` should now be considered mature canonical formats, not provisional semantic inventory experiments.
+
+## 4. Per-Format Notes
 
 ### 4.1 TXT
 
-当前状态：
+Current status:
 
-- 正式支持
-- 默认走轻量文本主链
-- 支持 Markdown 输出、RAG 输出、debug JSON
+- formally supported
+- lightweight canonical text path
+- supports Markdown, RAG, and debug output
 
-特点：
+Current non-goals:
 
-- 适合中大文本文件
-- 在 benchmark 中对大文本样本有稳定表现
-- 输出语义以段落和基础块结构为主
+- rich layout recovery
+- external metadata inference
 
-当前不承诺：
+### 4.2 SRT / VTT
 
-- 富版式恢复
-- 外部文档元数据推断
+Current status:
 
-### 4.2 CSV / TSV
+- formally supported
+- always runs through `streaming_event`
+- explicit `--stream` stays on the same canonical route
 
-当前状态：
+Verified today:
 
-- 正式支持
-- 默认走 streaming 主链
+- cue time range output
+- stable `time_start` and `time_end` source refs
+- multiline captions
+- controlled degrade for WebVTT `NOTE`, `STYLE`, and `REGION`
+- RAG, diagnostics, and line-range source refs
+- malformed input fails closed inside the subtitle route
 
-已验证能力：
+Current non-goals:
 
-- 基础表格转 Markdown
-- repo-local 主回归样本覆盖
-- RAG 输出
-- benchmark 正式纳入
+- CSS or region positioning execution
+- full subtitle styling systems
+- media playback semantics
 
-当前不承诺：
+### 4.3 CSV / TSV
 
-- Excel 公式执行
-- 单元格样式、批注、图表这类工作簿级语义
+Current status:
 
-### 4.3 JSON / JSONL / NDJSON
+- formally supported
+- canonical streaming path
 
-当前状态：
+Verified today:
 
-- 正式支持
-- 根据样本复杂度在 `dom_ast_model` 与 `streaming_event` 之间选择
+- table-style Markdown output
+- repo-local regression coverage
+- RAG output
+- benchmark coverage
 
-已验证能力：
+Current non-goals:
 
-- 中小 JSON 可保留更丰富的结构化语义
-- 大 JSON / huge JSON 可转入 streaming 路径
-- `json_medium_spdx_licenses_v1` 这类样本上，MoonBit 路径可以稳定完成转换
+- spreadsheet formula execution
+- workbook-grade style or chart semantics
 
-当前已知事实：
+### 4.4 JSON / JSONL / NDJSON
 
-- 在 `run-1782740391274-133` 中，`json_medium_spdx_licenses_v1` 上：
-  - `moonbit-cli` 成功 `3/3`
-  - `moonbit-engine` 成功 `3/3`
-  - `markitdown` 成功 `0/3`
-  - compare gate 因 baseline 无法形成可比集而失败
+Current status:
 
-这说明在部分中高压结构化文本样本上，MoonBit 路径仍可稳定完成转换，而外部 baseline 可能无法形成完整可比结果。
+- formally supported
+- route chosen between `dom_ast_model` and `streaming_event` based on input shape
 
-当前不承诺：
+Verified today:
 
-- 通用 JSON 查询语言
-- 所有 schema 的强语义解释
+- richer structure for small and medium JSON
+- stable streaming route for large JSON
+- strong conversion success on representative high-pressure JSON samples
 
-### 4.4 XML
+Current non-goals:
 
-当前状态：
+- a general JSON query engine
+- full schema-specific semantic reconstruction for every JSON family
 
-- 正式支持
-- 默认走 streaming/event 主链
+### 4.5 IPYNB
 
-已验证能力：
+Current status:
 
-- 基础 XML 结构转 Markdown
-- 大 XML benchmarking
-- 主回归与 diagnostic 覆盖
+- formally supported
+- default route is `dom_ast_model`
+- explicit `--stream` or oversized inputs fall back to `block_streaming`
 
-当前不承诺：
+Verified today:
 
-- 全量 schema-aware 语义恢复
-- 专用行业 XML 标准的深度业务解释
+- notebook summary tables
+- markdown, code, and raw cell boundaries
+- typed output lowering for `stream`, `display_data`, `execute_result`, and `error`
+- explicit degrade for JavaScript MIME outputs
+- structured JSON lowering for `application/json` and `application/*+json`
+- asset materialization for images and markdown attachments
+- RAG, debug, source refs, and diagnostics
 
-### 4.5 YAML / YML
+Current non-goals:
 
-当前状态：
+- notebook execution
+- kernel-state reconstruction
+- widget or browser runtime restoration
 
-- 正式支持
-- 走 document 语义路径
+### 4.6 XML
 
-已验证能力：
+Current status:
 
-- mapping / nested mapping
+- formally supported
+- default route is `dom_ast_model`
+- oversized inputs can switch to `streaming_event`
+
+Verified today:
+
+- structural XML-to-Markdown conversion
+- large-XML benchmark coverage
+- main regression and diagnostic coverage
+
+Current non-goals:
+
+- deep schema-aware semantics
+- domain-specific business reconstruction for every XML standard
+
+### 4.7 YAML / YML
+
+Current status:
+
+- formally supported
+- default route is `dom_ast_model`
+- oversized inputs can switch to `streaming_event`
+
+Verified today:
+
+- mapping and nested mapping output
 - flow collections
-- metadata-like 输出
-- RAG 输出
+- metadata-like output
+- RAG output
 
-当前不承诺：
+Current non-goals:
 
-- 覆盖 YAML 所有边缘语法与方言
-- 复杂 anchor / alias 的产品级富语义展开承诺
+- every YAML edge syntax or dialect
+- strong product promises around complex anchor or alias expansion
 
-### 4.6 Markdown
+### 4.8 TOML
 
-当前状态：
+Current status:
 
-- 正式支持
-- 走 block-streaming 主链
+- formally supported
+- canonical `dom_ast_model` path
 
-已验证能力：
+Verified today:
 
-- heading / paragraph / list 基础块结构
+- top-level key-values, named tables, dotted keys
+- arrays, array-of-tables, inline tables
+- multiline strings, RAG output, and debug diagnostics
+- malformed input degrades to raw fenced TOML with explicit warning signals
+
+Current non-goals:
+
+- editor-grade comment preservation
+- wide TOML dialect promises beyond the current regression scope
+
+### 4.9 Markdown
+
+Current status:
+
+- formally supported
+- default route is `dom_ast_model`
+- explicit `--stream` or oversized inputs can switch to `block_streaming`
+
+Verified today:
+
+- headings, paragraphs, and list structure
 - frontmatter passthrough
 - debug diagnostics
-- RAG 输出
+- RAG output
 
-当前不承诺：
+Current non-goals:
 
-- 作为完整 Markdown 编辑器或 AST 工具链替代品
-- 覆盖所有方言扩展
+- acting as a full Markdown editor
+- covering every Markdown dialect extension
 
-### 4.7 HTML
+### 4.10 RST / AsciiDoc / TEX
 
-当前状态：
+Current status:
 
-- 正式支持
-- 走 block-streaming 主链
+- formally supported
+- current formal level is mature canonical format
+- default route is `dom_ast_model`
+- explicit `--stream` warns honestly and falls back to the canonical route
 
-已验证能力：
+Verified today:
 
-- 标题、段落、列表
-- 基础表格
-- 图片与链接
-- RAG 输出
-- assets materialization
+- shared `text_markup` canonical path
+- typed lowering for headings, paragraphs, lists, code, common tables, and common links
+- stable semantic inventory for representative RST, AsciiDoc, and TEX structures
+- observable semantic attrs, boundaries, source refs, and diagnostics across Markdown, RAG, and debug output
+- dedicated contract tests and dedicated main-regression fixtures
 
-当前不承诺：
+Current non-goals:
 
-- 浏览器级 CSS 布局恢复
-- 完整视觉阅读顺序重建
-- JS 执行后的动态页面语义
+- full dialect editor behavior
+- complex directive, include, macro, or environment execution
+- layout-intelligence-style accurate recovery
+- full cross-reference and every table dialect
 
-### 4.8 ZIP
+### 4.11 HTML
 
-当前状态：
+Current status:
 
-- 正式支持
-- 走 `package_single_pass`
+- formally supported
+- default route is `dom_ast_model`
+- explicit `--stream` or oversized inputs can switch to `block_streaming`
 
-已验证能力：
+Verified today:
 
-- 容器 entry 枚举
-- entry 路径归一与安全边界
-- 已支持子格式继续回到统一主链
-- 资源 materialization
+- content-root selection from `main`, `article`, `body`, and fragments
+- suppression for nav/footer/hidden/script/style/template/repeated boilerplate
+- headings, paragraphs, lists, basic tables, links, and images
+- RAG output
+- asset materialization
 
-稳定事实：
+Current non-goals:
 
-- `zip` 是正式产品格式
-- `format_readers/zip` 是当前容器基线
-- ZIP archive reading continues to rely on `bikallem/compress/flate` inside `format_readers/zip`
+- browser-grade CSS layout reconstruction
+- full visual reading-order recovery
+- JavaScript-executed page semantics
 
-当前不承诺：
+### 4.12 ODT
 
-- 对任意二进制成员做智能识别
-- 远程抓取或执行容器内外部引用
+Current status:
 
-### 4.9 EPUB
+- formally supported
+- default route is `package_single_pass`
+- explicit `--stream` switches to `block_streaming`
 
-当前状态：
+Verified today:
 
-- 正式支持
-- 走 `package_single_pass`
+- `content.xml` main-block scan
+- headings, paragraphs, lists, tables, and images
+- hyperlinks, footnotes, endnotes, and comment appendix
+- asset materialization
+- RAG, debug diagnostics, and source refs
 
-已验证能力：
+Current non-goals:
 
-- OPF / spine 顺序
-- chapter 级 HTML 派发
-- 本地资源 materialization
-- remote/data image no-fetch / no-persist
-- debug JSON 暴露 spine / missing item 诊断
+- full ODF style, revision, and macro semantics
+- complete parity with every advanced `docx` feature
 
-稳定事实：
+### 4.13 ODS
 
-- EPUB support is implemented through `format_readers/epub` on top of `format_readers/zip`
+Current status:
 
-当前不承诺：
+- formally supported
+- default route is `package_single_pass`
+- explicit `--stream` switches to `block_streaming`
 
-- 阅读器级完整 EPUB 交互语义
-- 远程资源下载
-- 任意脚本或外链内容执行
+Verified today:
 
-### 4.10 DOCX
+- `content.xml` sheet scan
+- visible-sheet headings and table-like output
+- row-level block streaming
+- RAG, debug diagnostics, and sheet source refs
 
-当前状态：
+Current non-goals:
 
-- 正式支持
-- 走 `package_single_pass`
+- formula execution or recalculation
+- full ODF style, comment, and embedded-object recovery
+- complete parity with every advanced `xlsx` feature
 
-已验证能力：
+### 4.14 ODP
 
-- Office 文档主块输出
-- 链接
-- 图片与 assets
-- debug JSON 暴露 `relationship_id`、`part_name`、`paragraph_index`
-- RAG / assets lane 回归覆盖
+Current status:
 
-当前仓库内已验证的工程事实：
+- formally supported
+- default route is `package_single_pass`
+- explicit `--stream` switches to `block_streaming`
 
-- renderer 仍是最终 Markdown 所有者
-- 没有回退到 legacy docx 路线
-- debug JSON 能暴露 Office source refs 与 pass trace
+Verified today:
 
-性能事实：
+- slide-order scan through `content.xml`
+- headings, paragraphs, lists, tables, images, and notes
+- local image asset materialization
+- RAG, debug diagnostics, and slide source refs
 
-- `run-1782740057646-126`
-- `docx` CLI speedup vs `markitdown`: `88.09x`
+Current non-goals:
 
-当前不承诺：
+- full visual layout, animation, or transition recovery
+- macro or script execution
+- complete parity with every advanced `pptx` feature
 
-- Word 全部高级版式能力
-- 复杂浮动布局、修订、宏、嵌入对象的完整产品语义恢复
+### 4.15 ZIP
 
-### 4.11 XLSX
+Current status:
 
-当前状态：
+- formally supported
+- canonical route is `container_recursive`
 
-- 正式支持
-- 走 `package_single_pass`
+Verified today:
 
-已验证能力：
+- entry enumeration
+- path normalization and safety boundaries
+- dispatch back into the unified main path for supported child formats
+- resource materialization
 
-- workbook / worksheet 主路径
-- sheet 级输出
-- hidden / very hidden sheet policy diagnostics
-- 公式缺缓存时保留公式文本，不执行计算
-- debug JSON 暴露 workbook/part metadata
+Current non-goals:
 
-性能事实：
+- smart interpretation for arbitrary binary members
+- remote fetch or execution of external references
 
-- `run-1782740057650-138`
-- `xlsx` CLI speedup vs `markitdown`: `30.75x`
+### 4.16 EPUB
 
-当前不承诺：
+Current status:
 
-- Excel 公式执行
-- 完整工作簿计算引擎
-- 图表、数据透视、宏等完整 Office 交互语义恢复
+- formally supported
+- default route is `package_single_pass`
+- explicit `--stream` switches to `container_recursive`
 
-### 4.12 PPTX
+Verified today:
 
-当前状态：
+- OPF and spine ordering
+- chapter-level HTML dispatch
+- local resource materialization
+- remote/data image no-fetch and no-persist behavior
+- debug JSON exposure for spine and missing-item diagnostics
 
-- 正式支持
-- 走 `package_single_pass`
+Current non-goals:
 
-已验证能力：
+- full reader-grade interaction semantics
+- remote resource download
+- arbitrary script or linked-content execution
 
-- slide 顺序恢复
-- 列表与段落结构
-- hidden slide policy
-- package-local 图片 assets
-- speaker notes 输出
-- debug JSON 暴露 slide part、placeholder、reading order strategy
+### 4.17 DOCX
 
-当前不承诺：
+Current status:
 
-- 完整视觉布局重建
-- 演示动画、切换效果、复杂 SmartArt 的完整产品语义
+- formally supported
+- canonical route is `package_single_pass`
 
-### 4.13 PDF
+Verified today:
 
-当前状态：
+- main Office document blocks
+- links
+- images and assets
+- debug JSON exposure for `relationship_id`, `part_name`, and `paragraph_index`
+- stable RAG and asset-lane regression coverage
 
-- 正式支持
-- 默认主路径是 `page_single_pass`
-- `pdf --accurate` 与显式 `pdf --ocr` 会进入当前 OCR-only 的 `layout_two_stage`
+Current non-goals:
 
-已验证能力：
+- full Word advanced-layout semantics
 
-- native-text 基线提取
-- heading / paragraph 基础恢复
-- cross-page 段落边界处理
-- repeated header/footer 候选诊断
-- table-like 候选诊断
-- metadata-only link candidates
-- 显式 opt-in `--pdf-cleanup conservative`
-- 显式 opt-in `--pdf-tables simple`
+### 4.18 XLSX
 
-当前明确缺失：
+Current status:
 
-- 默认自动扫描 PDF OCR 升级
-- OCR 路线下的复杂 layout/model 恢复
-- 深度版面分析模型
+- formally supported
+- default route is `package_single_pass`
+- oversized or explicit streaming requests can switch to `block_streaming`
 
-当前边界行为：
+Verified today:
 
-- scanned-like PDF 在未启用 `--accurate` 或显式 `--ocr` 时当前 fail closed
-- `pdf --accurate` 与显式 `pdf --ocr` 依赖本地 `pdftoppm` + `tesseract`
-- 缺失依赖时返回明确运行时错误与安装提示
+- workbook and worksheet scanning
+- table-like output
+- hidden-sheet policy
+- cached formula value preservation
+- debug output
 
-性能事实：
+Current non-goals:
 
-- `run-1782739994016-202`
-- `pdf` CLI speedup vs `markitdown`: `30.60x`
+- formula execution
+- an Excel calculation engine
 
-## 5. OCR 现状
+### 4.19 PPTX
 
-当前 OCR 只依托本地 `Tesseract` 命令行提供者。
+Current status:
 
-产品事实：
+- formally supported
+- canonical route is `package_single_pass`
 
-- 直接图片输入正式支持，并默认启用 OCR
-- `--no-ocr` 可显式关闭直接图片 OCR
-- 语言参数使用 `--ocr-lang <LANG>`
-- `pdf --accurate` 当前会自动进入 PDF OCR；显式 `pdf --ocr` 继续正式支持
-- 扫描版 / 图片型 PDF 当前需要 `--accurate` 或显式 `--ocr`
-- 当前图片 OCR 输出以文本段落恢复为主，不承诺复杂版面重建
-- 当前 PDF OCR 也是 OCR-only 路线，不承诺复杂版面重建
+Verified today:
 
-macOS / Homebrew 安装：
+- slide order
+- text blocks and lists
+- images
+- speaker notes
+- hidden-slide policy
+- debug output
+
+Current non-goals:
+
+- full presentation-layout reconstruction
+
+### 4.20 PDF
+
+Current status:
+
+- formally supported
+- default product path is native-text first
+- balanced and accurate PDF OCR are both integrated into the unified planner
+
+Verified today:
+
+- native-text extraction
+- balanced PDF OCR through explicit or scanned-like policy
+- accurate PDF OCR for `--accurate`
+- route fidelity and provenance
+- cleanup and optional table signals
+- RAG and debug output
+- provider fallback from accurate PDF OCR to balanced OCR with an explicit warning when accurate dependencies are missing
+
+Current non-goals:
+
+- deep layout intelligence as a balanced default
+- full complex-table or full visual layout reconstruction guarantees on OCR routes
+
+## 5. OCR Status
+
+Current formal OCR behavior is intentionally narrow and explicit:
+
+- Direct image OCR is formally supported.
+- Balanced direct image OCR and balanced PDF OCR are the stable default OCR paths.
+- Accurate direct image OCR and accurate PDF OCR both require the accurate OCR dependency path.
+- When accurate direct image OCR or accurate PDF OCR is requested but accurate OCR dependencies are missing, the product now emits an explicit warning and falls back to the balanced OCR provider.
+- Route fallback and provider fallback are both recorded in diagnostics and provenance.
+
+Current non-goals:
+
+- silent OCR provider switching
+- layout-intelligence promises for every OCR case
+- automatic OCR of embedded PDF figures just because page OCR is enabled
+
+## 6. What the Unified Architecture Already Buys Us
+
+Moving to the unified architecture already gives the project several long-term benefits:
+
+- one planner and one provenance contract across formats
+- one renderer contract across Markdown, RAG, and debug views
+- one benchmark story tied to the real product path
+- clearer failure behavior for unsupported stream or accurate requests
+- stronger regression coverage across route selection and capability boundaries
+
+## 7. Performance and Stress-Sample Positioning
+
+Representative benchmark results should still be refreshed by rerunning the bench suite before a formal release. The current long-term positioning is:
+
+- The project shows clear advantages on more complex formats and more stressful input shapes.
+- The engine is better suited for engineering-scale workloads where route honesty and traceability matter.
+- The project behaves more predictably under oversized or borderline inputs because unsupported capabilities fail closed and supported capabilities keep provenance.
+- In some representative high-pressure cases, the MoonBit path continues to produce successful output where the external baseline fails to form a comparable result set.
+
+For formal benchmark commands and benchmark architecture, see [bench/README.md](../bench/README.md) and [benchmark-architecture.md](./architecture/benchmark-architecture.md).
+
+## 8. Capabilities We Do Not Currently Promise
+
+The project does not currently promise:
+
+- full editor-grade round-trip semantics for every input family
+- full browser-grade, Office-grade, or PDF-viewer-grade layout reconstruction
+- formula execution, macro execution, or script execution
+- automatic accurate upgrades for formats that do not formally support them
+- audio accurate mode as a real separate product line today
+- stable production guarantees for experimental `pdf --accurate` and the current audio line
+
+Important note:
+
+- `pdf --accurate` and audio are still experimental capabilities and are not currently recommended for production use
+
+## 9. Recommended Validation Entry Points
+
+For normal local validation:
 
 ```bash
-brew install poppler
-brew install tesseract
-brew install tesseract-lang
+moon test
 ```
 
-Ubuntu：
+For full repository validation:
 
 ```bash
-sudo apt install poppler-utils tesseract-ocr
-sudo apt install tesseract-ocr-eng
+moon clean
+moon build
+moon test
 ```
 
-说明：
+For main regression and quality regression, first fetch the external corpus repository:
 
-- `brew install tesseract` 默认只带 `eng`, `osd`, `snum`
-- 需要更多语言时再安装 `tesseract-lang`
-- 当前依赖的是本地可执行 `pdftoppm` 与 `tesseract`，不是云端模型
-- 本项目不内置、不打包、不分发这两个第三方二进制
+```bash
+git clone https://github.com/ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab
+```
 
-## 6. v2 架构收益
-
-当前仓库已经全面迁移到统一 `v2` 主架构。对外部使用者最直接的影响有三类：
-
-- 语义更丰富：
-  parser、pipeline、render 之间有稳定中间层，能保留更多主链事实、diagnostics、source refs、route provenance
-- 大文件表现更稳：
-  结构化文本与部分容器/Office 样本可以根据规模切换到更合适的 canonical route，而不是一条路径硬撑到底
-- benchmark 更可信：
-  `bench v2` 只测真实产品路径，并把 trust / route coverage / fidelity 一起纳入结果
-
-## 7. 性能与高压样本口径
-
-正式性能口径只认 `bench v2`。
-
-它的约束是：
-
-- 只跑 release binary
-- 只测正式产品路径
-- MoonBit case 必须带完整 provenance
-- route mismatch / fidelity mismatch / missing provenance 都会直接打成 trust failure
-
-当前仓库内已经有几组可直接复线的正式结果：
-
-- `docx`: `run-1782740057646-126`
-- `xlsx`: `run-1782740057650-138`
-- `epub` / `pdf`: `run-1782739994016-202`
-- `json` non-comparable 高压样本：`run-1782740391274-133`
-
-目前可以安全表述的结论是：
-
-- 在复杂文档主链上，`docx/xlsx/epub/pdf` 均有显著速度优势
-- 在部分中高压样本上，外部 baseline 可能无法形成可比集，而 MoonBit 仍能稳定完成转换
-
-目前最稳妥的例子是：
-
-- `json_medium_spdx_licenses_v1`
-- run id: `run-1782740391274-133`
-- `moonbit-cli`: 成功 `3/3`
-- `moonbit-engine`: 成功 `3/3`
-- `markitdown`: 成功 `0/3`
-
-因此，关于“高压环境”的对外说法，当前最准确的版本应是：
-
-- 在部分中高压样本上，`markitdown` 可能无法形成完整可比结果，而 `markitdown-mb` 仍能稳定完成转换
-
-而不是泛化成“所有超大文件场景都必然如此”。
-
-## 8. 当前不承诺的能力
-
-以下能力不在当前正式承诺范围内：
-
-- 云 OCR / 大模型 OCR
-- OCR 路线下的复杂 layout/model 恢复
-- benchmark-only fast path
-- 隐藏 alternate route
-- 为了追求 benchmark 数字而牺牲主链语义
-
-## 9. 推荐验证入口
-
-快速功能验证：
+Then run:
 
 ```bash
 moon build cli --target native
-./_build/native/debug/build/cli/cli.exe normal samples/main_process/txt/markdown/txt_plain.txt .tmp/manual/out.md
+bash samples/check.sh
+bash samples/check_quality.sh
 ```
 
-主回归：
-
-```bash
-./samples/check.sh
-./samples/check.sh --check-inventory
-```
-
-外部质量回归：
-
-```bash
-./samples/check_quality.sh
-```
-
-正式 benchmark：
+For a representative external comparison benchmark run:
 
 ```bash
 moon build --target native --release --package ZSeanYves/markitdown/cli
 moon build --target native --release --package ZSeanYves/markitdown/bench/runner
-_build/native/release/build/bench/runner/runner.exe doctor
-_build/native/release/build/bench/runner/runner.exe run --preset official-internal
-_build/native/release/build/bench/runner/runner.exe run --preset official-compare --markitdown-path /path/to/markitdown
+_build/native/release/build/bench/runner/runner.exe run --preset official-compare
 ```
+
+If the baseline `markitdown` CLI is not already on `PATH`, set `MARKITDOWN_BIN` or pass `--markitdown-path /absolute/path/to/markitdown`.

@@ -2,7 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp/check}"
+TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp/tests/check}"
+mkdir -p "$TMP_ROOT"
 OUT_DIR="$(mktemp -d "$TMP_ROOT/quality_contract.XXXXXX")"
 
 trap 'status=$?; rm -rf "$OUT_DIR"; exit "$status"' EXIT
@@ -18,12 +19,28 @@ assert_contains() {
   grep -Fq -- "$needle" "$path" || fail "expected $path to contain: $needle"
 }
 
+LAB_ROOT="$OUT_DIR/markitdown-quality-lab"
+QUALITY_ROOT="$LAB_ROOT/external_quality"
+mkdir -p "$QUALITY_ROOT/shared"
+printf 'Alpha\nBeta\n' > "$QUALITY_ROOT/shared/shared.txt"
+
+MANIFEST="$QUALITY_ROOT/MANIFEST.tsv"
+cat >"$MANIFEST" <<'EOF'
+id	format	path	source_type	source_id	license_status	license_review_status	privacy	size_class	features	expected_signals	quality_tier	original_url	local_cache_path	notes
+txt_basic_quality	txt	external_quality/shared/shared.txt	file	contract_source	Apache-2.0	approved	public	small	txt;contract	no_empty_output;contains_all:Alpha|Beta;order:Alpha|Beta	gate			offline quality contract sample
+txt_known_bad_quality	txt	external_quality/shared/shared.txt	file	contract_source	Apache-2.0	approved	public	small	txt;known_bad	contains:Gamma	known_bad			offline known-bad quality row
+EOF
+
 RUN_LOG="$OUT_DIR/run.log"
 
 (
   cd "$ROOT"
   QUALITY_RUN_ID="contract-quality-$$" \
-  ./samples/check_quality.sh --format pdf
+  QUALITY_TMP_ROOT="$ROOT/.tmp/tests/quality" \
+  MARKITDOWN_TMP_DIR="$ROOT/.tmp/tests/quality" \
+  MARKITDOWN_CLI="$ROOT/_build/native/debug/build/cli/cli.exe" \
+  MARKITDOWN_QUALITY_LAB="$LAB_ROOT" \
+  ./samples/check_quality.sh --format txt
 ) >"$RUN_LOG" 2>&1
 
 assert_contains "$RUN_LOG" "result: pass"

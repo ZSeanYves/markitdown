@@ -1,5 +1,5 @@
 import {
-  "ZSeanYves/markitdown/formats/delimited_text",
+  "ZSeanYves/markitdown/formats/shared" @fshared,
   "ZSeanYves/markitdown/parser",
 }
 

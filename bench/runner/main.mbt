@@ -9,5 +9,5 @@ fn main {
 ///|
 pub fn run_bench_cli(raw_args : Array[String]) -> Int {
   let runner = @command.detect_runner_context(raw_args)
-  run_bench_v2_cli(raw_args, runner)
+  run_bench_cli_entry(raw_args, runner)
 }

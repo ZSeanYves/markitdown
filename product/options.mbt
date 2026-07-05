@@ -1,11 +1,8 @@
 ///|
 pub(all) enum ConvertMode {
-  Fast
   Balanced
   Accurate
   Stream
-  Rag
-  Debug
 } derive(Eq)
 
 ///|
@@ -22,6 +19,192 @@ pub(all) enum OutputMode {
 } derive(Eq)
 
 ///|
+pub(all) enum ExecutionProfile {
+  Standard
+  MediumAdaptive
+  LargeAdaptive
+} derive(Eq)
+
+///|
+pub(all) enum LoweringProfile {
+  Canonical
+  AccurateSemantic
+  StreamCanonical
+  LargeAdaptive
+} derive(Eq)
+
+///|
+pub(all) enum RenderProfile {
+  DefaultMarkdown
+  SectionFlushMarkdown
+  SparseTableMarkdown
+  NotesAppendixFirst
+  AssetManifestFirst
+  PageWindowMarkdown
+  RecordBatchMarkdown
+} derive(Eq)
+
+///|
+pub(all) enum ProbeSignalKind {
+  CharCount
+  LineCount
+  BlockCount
+  ListItemCount
+  NodeCount
+  MaxDepth
+  RowCount
+  ColCount
+  CellCount
+  CellEstimate
+  OutputCount
+  AttachmentCount
+  AssetCount
+  EntryCount
+  PageCount
+  SlideCount
+  SheetCount
+  ScalarCount
+  ObjectCount
+  ArrayCount
+  HiddenRowCount
+  HiddenSheetCount
+  CoveredCellCount
+  NoteCount
+  CommentCount
+  ScannedPageCount
+  NativeTextPageCount
+} derive(Eq)
+
+///|
+pub(all) enum AccurateFeature {
+  PdfPageAppendix
+  PdfWindowedAssembly
+  DocxTextboxInline
+  DocxAlternateContentRestore
+  DocxNotesAppendix
+  XlsxHiddenSheets
+  XlsxHiddenRows
+  XlsxMergedSpans
+  PptxReadingOrder
+  PptxGroupSummary
+  PptxHiddenSlideSemantics
+  PptxNotesAppendix
+  OdtRichNotes
+  OdtCommentsAppendix
+  OdsHiddenSheets
+  OdsHiddenRows
+  OdsCoveredCellSpans
+  OdpNotesAppendix
+  OdpSlideSummary
+} derive(Eq)
+
+///|
+/// Accurate-mode features that are intentionally opt-in on a per-format basis.
+pub struct AccurateFeatureProfile {
+  features : Array[AccurateFeature]
+}
+
+///|
+/// Return an empty accurate-feature profile.
+pub fn empty_accurate_feature_profile() -> AccurateFeatureProfile {
+  { features: [] }
+}
+
+///|
+/// Wrap a set of accurate features into a profile value.
+pub fn make_accurate_feature_profile(
+  features : Array[AccurateFeature],
+) -> AccurateFeatureProfile {
+  { features, }
+}
+
+///|
+/// Return the stable diagnostics/provenance name for one accurate feature.
+pub fn accurate_feature_name(feature : AccurateFeature) -> String {
+  match feature {
+    AccurateFeature::PdfPageAppendix => "pdf_page_appendix"
+    AccurateFeature::PdfWindowedAssembly => "pdf_windowed_assembly"
+    AccurateFeature::DocxTextboxInline => "docx_textbox_inline"
+    AccurateFeature::DocxAlternateContentRestore =>
+      "docx_alternate_content_restore"
+    AccurateFeature::DocxNotesAppendix => "docx_notes_appendix"
+    AccurateFeature::XlsxHiddenSheets => "xlsx_hidden_sheets"
+    AccurateFeature::XlsxHiddenRows => "xlsx_hidden_rows"
+    AccurateFeature::XlsxMergedSpans => "xlsx_merged_spans"
+    AccurateFeature::PptxReadingOrder => "pptx_reading_order"
+    AccurateFeature::PptxGroupSummary => "pptx_group_summary"
+    AccurateFeature::PptxHiddenSlideSemantics => "pptx_hidden_slide_semantics"
+    AccurateFeature::PptxNotesAppendix => "pptx_notes_appendix"
+    AccurateFeature::OdtRichNotes => "odt_rich_notes"
+    AccurateFeature::OdtCommentsAppendix => "odt_comments_appendix"
+    AccurateFeature::OdsHiddenSheets => "ods_hidden_sheets"
+    AccurateFeature::OdsHiddenRows => "ods_hidden_rows"
+    AccurateFeature::OdsCoveredCellSpans => "ods_covered_cell_spans"
+    AccurateFeature::OdpNotesAppendix => "odp_notes_appendix"
+    AccurateFeature::OdpSlideSummary => "odp_slide_summary"
+  }
+}
+
+///|
+/// Return all enabled feature names in stable string form.
+pub fn accurate_feature_profile_names(
+  profile : AccurateFeatureProfile,
+) -> Array[String] {
+  profile.features.map(accurate_feature_name)
+}
+
+///|
+/// Return whether `feature` is enabled in `profile`.
+pub fn accurate_feature_enabled(
+  profile : AccurateFeatureProfile,
+  feature : AccurateFeature,
+) -> Bool {
+  profile.features.contains(feature)
+}
+
+///|
+/// Return the accurate-mode features currently defined for the detected format.
+pub fn accurate_features_for_detected_format(
+  format : @input.DetectedFormat,
+) -> Array[AccurateFeature] {
+  match format {
+    @input.DetectedFormat::Pdf =>
+      [AccurateFeature::PdfPageAppendix, AccurateFeature::PdfWindowedAssembly]
+    @input.DetectedFormat::Docx =>
+      [
+        AccurateFeature::DocxTextboxInline,
+        AccurateFeature::DocxAlternateContentRestore,
+        AccurateFeature::DocxNotesAppendix,
+      ]
+    @input.DetectedFormat::Xlsx =>
+      [
+        AccurateFeature::XlsxHiddenSheets,
+        AccurateFeature::XlsxHiddenRows,
+        AccurateFeature::XlsxMergedSpans,
+      ]
+    @input.DetectedFormat::Pptx =>
+      [
+        AccurateFeature::PptxReadingOrder,
+        AccurateFeature::PptxGroupSummary,
+        AccurateFeature::PptxHiddenSlideSemantics,
+        AccurateFeature::PptxNotesAppendix,
+      ]
+    @input.DetectedFormat::Odt =>
+      [AccurateFeature::OdtRichNotes, AccurateFeature::OdtCommentsAppendix]
+    @input.DetectedFormat::Ods =>
+      [
+        AccurateFeature::OdsHiddenSheets,
+        AccurateFeature::OdsHiddenRows,
+        AccurateFeature::OdsCoveredCellSpans,
+      ]
+    @input.DetectedFormat::Odp =>
+      [AccurateFeature::OdpNotesAppendix, AccurateFeature::OdpSlideSummary]
+    _ => []
+  }
+}
+
+///|
+/// Coarse resource ceilings shared by probing, parsing, and lowering.
 pub struct ResourceLimits {
   max_rows : Int
   max_cols : Int
@@ -42,22 +225,35 @@ pub(all) enum PdfTableMode {
 } derive(Eq)
 
 ///|
+pub(all) enum PdfOcrPolicy {
+  Disabled
+  Explicit
+  AutoScanned
+} derive(Eq)
+
+///|
+/// Normalized product options shared across routing, parsing, pipeline, and
+/// rendering.
 pub struct ProductOptions {
   mode : ConvertMode
   fidelity_mode : FidelityMode
   output_mode : OutputMode
+  stream_requested : Bool
   limits : ResourceLimits
+  pdf_ocr_policy : PdfOcrPolicy
   pdf_cleanup_mode : PdfCleanupMode
   pdf_table_mode : PdfTableMode
   rag_options : @rag.RagOptions
 }
 
 ///|
+/// Return the default resource ceilings for the canonical product path.
 pub fn default_resource_limits() -> ResourceLimits {
   { max_rows: 2000, max_cols: 50, max_cells: 100000, max_line_chars: 4000 }
 }
 
 ///|
+/// Build explicit product resource ceilings.
 pub fn make_resource_limits(
   max_rows : Int,
   max_cols : Int,
@@ -68,22 +264,33 @@ pub fn make_resource_limits(
 }
 
 ///|
+/// Return the current default PDF cleanup policy.
 pub fn default_pdf_cleanup_mode() -> PdfCleanupMode {
   PdfCleanupMode::Disabled
 }
 
 ///|
+/// Return the current default PDF table-reconstruction policy.
 pub fn default_pdf_table_mode() -> PdfTableMode {
   PdfTableMode::Disabled
 }
 
 ///|
+/// Return the current default PDF OCR policy.
+pub fn default_pdf_ocr_policy() -> PdfOcrPolicy {
+  PdfOcrPolicy::Disabled
+}
+
+///|
+/// Return baseline product defaults for the balanced Markdown path.
 pub fn default_product_options() -> ProductOptions {
   {
     mode: ConvertMode::Balanced,
     fidelity_mode: FidelityMode::Balanced,
     output_mode: OutputMode::Markdown,
+    stream_requested: false,
     limits: default_resource_limits(),
+    pdf_ocr_policy: default_pdf_ocr_policy(),
     pdf_cleanup_mode: default_pdf_cleanup_mode(),
     pdf_table_mode: default_pdf_table_mode(),
     rag_options: @rag.default_rag_options(),
@@ -91,11 +298,15 @@ pub fn default_product_options() -> ProductOptions {
 }
 
 ///|
+/// Compose product options that can be shared by route planning, parsing,
+/// pipeline passes, and renderers.
 pub fn make_product_options(
   mode : ConvertMode,
   limits : ResourceLimits,
   fidelity_mode? : FidelityMode = fidelity_mode_for_convert_mode(mode),
-  output_mode? : OutputMode = output_mode_for_convert_mode(mode),
+  output_mode? : OutputMode = OutputMode::Markdown,
+  stream_requested? : Bool = mode == ConvertMode::Stream,
+  pdf_ocr_policy? : PdfOcrPolicy = default_pdf_ocr_policy(),
   pdf_cleanup_mode? : PdfCleanupMode = default_pdf_cleanup_mode(),
   pdf_table_mode? : PdfTableMode = default_pdf_table_mode(),
   rag_options? : @rag.RagOptions = @rag.default_rag_options(),
@@ -104,7 +315,9 @@ pub fn make_product_options(
     mode,
     fidelity_mode,
     output_mode,
+    stream_requested,
     limits,
+    pdf_ocr_policy,
     pdf_cleanup_mode,
     pdf_table_mode,
     rag_options,
@@ -114,12 +327,9 @@ pub fn make_product_options(
 ///|
 pub fn convert_mode_name(mode : ConvertMode) -> String {
   match mode {
-    ConvertMode::Fast => "fast"
     ConvertMode::Balanced => "balanced"
     ConvertMode::Accurate => "accurate"
     ConvertMode::Stream => "stream"
-    ConvertMode::Rag => "rag"
-    ConvertMode::Debug => "debug"
   }
 }
 
@@ -133,26 +343,24 @@ pub fn fidelity_mode_for_convert_mode(mode : ConvertMode) -> FidelityMode {
 
 ///|
 pub fn output_mode_for_convert_mode(mode : ConvertMode) -> OutputMode {
-  match mode {
-    ConvertMode::Debug => OutputMode::Debug
-    ConvertMode::Rag => OutputMode::Rag
-    _ => OutputMode::Markdown
-  }
+  ignore(mode)
+  OutputMode::Markdown
 }
 
 ///|
+/// Derive the effective strategy mode from fidelity plus explicit stream
+/// request.
 pub fn convert_mode_from_modes(
   fidelity_mode : FidelityMode,
-  output_mode : OutputMode,
+  stream_requested : Bool,
 ) -> ConvertMode {
-  match output_mode {
-    OutputMode::Debug => ConvertMode::Debug
-    OutputMode::Rag => ConvertMode::Rag
-    OutputMode::Markdown =>
-      match fidelity_mode {
-        FidelityMode::Accurate => ConvertMode::Accurate
-        FidelityMode::Balanced => ConvertMode::Balanced
-      }
+  if stream_requested {
+    ConvertMode::Stream
+  } else {
+    match fidelity_mode {
+      FidelityMode::Accurate => ConvertMode::Accurate
+      FidelityMode::Balanced => ConvertMode::Balanced
+    }
   }
 }
 
@@ -174,6 +382,38 @@ pub fn output_mode_name(mode : OutputMode) -> String {
 }
 
 ///|
+pub fn execution_profile_name(profile : ExecutionProfile) -> String {
+  match profile {
+    ExecutionProfile::Standard => "standard"
+    ExecutionProfile::MediumAdaptive => "medium_adaptive"
+    ExecutionProfile::LargeAdaptive => "large_adaptive"
+  }
+}
+
+///|
+pub fn lowering_profile_name(profile : LoweringProfile) -> String {
+  match profile {
+    LoweringProfile::Canonical => "canonical"
+    LoweringProfile::AccurateSemantic => "accurate_semantic"
+    LoweringProfile::StreamCanonical => "stream_canonical"
+    LoweringProfile::LargeAdaptive => "large_adaptive"
+  }
+}
+
+///|
+pub fn render_profile_name(profile : RenderProfile) -> String {
+  match profile {
+    RenderProfile::DefaultMarkdown => "default_markdown"
+    RenderProfile::SectionFlushMarkdown => "section_flush_markdown"
+    RenderProfile::SparseTableMarkdown => "sparse_table_markdown"
+    RenderProfile::NotesAppendixFirst => "notes_appendix_first"
+    RenderProfile::AssetManifestFirst => "asset_manifest_first"
+    RenderProfile::PageWindowMarkdown => "page_window_markdown"
+    RenderProfile::RecordBatchMarkdown => "record_batch_markdown"
+  }
+}
+
+///|
 pub fn pdf_cleanup_mode_name(mode : PdfCleanupMode) -> String {
   match mode {
     PdfCleanupMode::Disabled => "none"
@@ -190,16 +430,22 @@ pub fn pdf_table_mode_name(mode : PdfTableMode) -> String {
 }
 
 ///|
-pub fn debug_mode(mode : ConvertMode) -> Bool {
-  mode == ConvertMode::Debug
+pub fn pdf_ocr_policy_name(policy : PdfOcrPolicy) -> String {
+  match policy {
+    PdfOcrPolicy::Disabled => "disabled"
+    PdfOcrPolicy::Explicit => "explicit"
+    PdfOcrPolicy::AutoScanned => "auto_scanned"
+  }
 }
 
 ///|
+/// Return whether the current output mode is the debug JSON view.
 pub fn debug_output_mode(mode : OutputMode) -> Bool {
   mode == OutputMode::Debug
 }
 
 ///|
+/// Return whether PDF cleanup is enabled for the active product options.
 pub fn pdf_cleanup_enabled(options : ProductOptions) -> Bool {
   options.pdf_cleanup_mode != PdfCleanupMode::Disabled
 }

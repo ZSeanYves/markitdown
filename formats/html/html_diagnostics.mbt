@@ -4,6 +4,7 @@ fn html_fill_common_metrics(
   inspect : @dhtml.HtmlInspectReport,
   validation : @dhtml.HtmlValidationReport,
   semantic_report : @dhtml.HtmlSemanticInspectReport,
+  semantic : @dhtml.HtmlSemanticDocument,
   text : String,
   event_count : Int,
   large_mode : Bool,
@@ -46,6 +47,21 @@ fn html_fill_common_metrics(
     "validation_issue_count",
     validation.issue_count.to_string(),
   )
+  let scope_source = html_scope_source_metric(semantic)
+  diagnostics.metrics.set("scope_source", scope_source)
+  diagnostics.metrics.set(
+    "selected_content_root",
+    html_selected_content_root_metric(semantic),
+  )
+  diagnostics.metrics.set("readability_mode", "hybrid")
+  diagnostics.metrics.set(
+    "noise_repeated_boilerplate_count",
+    semantic_report.noise_repeated_boilerplate_count.to_string(),
+  )
+  diagnostics.metrics.set(
+    "boilerplate_skipped_block_count",
+    html_boilerplate_skipped_block_count(semantic).to_string(),
+  )
   diagnostics.metrics.set(
     "warning_count",
     (validation.warning_count + semantic_report.warning_count).to_string(),
@@ -75,18 +91,18 @@ fn html_fill_common_metrics(
   )
   diagnostics.metrics.set(
     "line_count",
-    @parser_common.count_physical_lines(text).to_string(),
+    @fshared.count_physical_lines(text).to_string(),
   )
   diagnostics.metrics.set("char_count", text.length().to_string())
   diagnostics.metrics.set("asset_count", asset_count.to_string())
   diagnostics.metrics.set("event_count", event_count.to_string())
   diagnostics.metrics.set(
     "resource_limit_hit",
-    @parser_common.bool_string(large_mode),
+    @fshared.bool_string(large_mode),
   )
   diagnostics.metrics.set(
     "has_doctype",
-    @parser_common.bool_string(inspect.has_doctype),
+    @fshared.bool_string(inspect.has_doctype),
   )
 
   for issue in validation.issues {
@@ -121,6 +137,56 @@ fn html_fill_common_metrics(
     "fallback_count",
     diagnostics.fallback_trace.length().to_string(),
   )
+}
+
+///|
+fn html_scope_source_metric(semantic : @dhtml.HtmlSemanticDocument) -> String {
+  for scope in semantic.scope {
+    return match scope.scope_source {
+      @dhtml.HtmlDocumentScopeSource::Body => "body"
+      @dhtml.HtmlDocumentScopeSource::Main => "main"
+      @dhtml.HtmlDocumentScopeSource::Article => "article"
+      @dhtml.HtmlDocumentScopeSource::DocumentRoot => "document_root"
+      @dhtml.HtmlDocumentScopeSource::Fragment => "fragment"
+      @dhtml.HtmlDocumentScopeSource::Heuristic => "heuristic"
+    }
+  }
+  "none"
+}
+
+///|
+fn html_selected_content_root_metric(
+  semantic : @dhtml.HtmlSemanticDocument,
+) -> String {
+  for scope in semantic.scope {
+    match scope.selected_scope_reason {
+      "" => ()
+      value => return value
+    }
+  }
+  "none"
+}
+
+///|
+fn html_boilerplate_skipped_block_count(
+  semantic : @dhtml.HtmlSemanticDocument,
+) -> Int {
+  let skipped : Map[String, Bool] = Map([])
+  for block in semantic.blocks {
+    if block.tag_name == "nav" {
+      skipped.set(block.source_key, true)
+    }
+  }
+  for noise in semantic.noise_candidates {
+    if !html_noise_should_skip(noise) {
+      continue
+    }
+    match noise.block_source_key {
+      Some(key) => if !skipped.contains(key) { skipped.set(key, true) }
+      None => ()
+    }
+  }
+  skipped.length()
 }
 
 ///|
@@ -801,14 +867,14 @@ fn html_block_scope_plans_from_events(
 ) -> Array[HtmlScopePlan] {
   let roots = html_scope_plan_ranges(
     @dhtml.html_tokens_collect_element_ranges(events, ["main", "article"]),
-    "semantic_root_",
+    "hybrid_root_",
   )
   if roots.length() > 0 {
     return roots
   }
   let sections = html_scope_plan_ranges(
     @dhtml.html_tokens_collect_element_ranges(events, ["section"]),
-    "section_",
+    "hybrid_section_",
   )
   if sections.length() > 0 {
     return sections
@@ -817,7 +883,7 @@ fn html_block_scope_plans_from_events(
   if subtrees.length() > 0 {
     return subtrees
   }
-  [{ source_start: 0, source_end: text.length(), label: "document" }]
+  [{ source_start: 0, source_end: text.length(), label: "hybrid_document" }]
 }
 
 ///|

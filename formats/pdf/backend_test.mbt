@@ -59,7 +59,7 @@ test "pdf native backend extracts direct text and link facts from tiny synthetic
         Some(@core.JsonValue::Bool(false)),
       )
       assert_true(
-        document.metadata.get("pdf_v2_used") ==
+        document.metadata.get("pdf_canonical_pipeline_used") ==
         Some(@core.JsonValue::Bool(false)),
       )
       assert_true(
@@ -97,7 +97,8 @@ test "pdf native backend extracts direct text and link facts from tiny synthetic
         document.diagnostics.metrics.get("pdf_ocr_used") == Some("false"),
       )
       assert_true(
-        document.diagnostics.metrics.get("pdf_v2_used") == Some("false"),
+        document.diagnostics.metrics.get("pdf_canonical_pipeline_used") ==
+        Some("false"),
       )
       assert_true(
         document.diagnostics.metrics.get("pdf_page_count") == Some("1"),
@@ -124,7 +125,7 @@ test "pdf native backend extracts direct text and link facts from tiny synthetic
 ///|
 test "pdf native backend extracts table-like text lines from existing sample" {
   let source = @input.input_from_path_with_format(
-    "samples/main_process/pdf/rag/pdf_metadata_table_like.pdf",
+    "samples/fixtures/contracts/pdf/pdf_metadata_table_like.pdf",
     Some(@input.DetectedFormat::Pdf),
   )
   match extract_pdf_native_document(source) {
@@ -156,7 +157,7 @@ test "pdf native backend extracts table-like text lines from existing sample" {
 ///|
 test "pdf native backend handles flate plus ToUnicode sample text" {
   let source = @input.input_from_path_with_format(
-    "samples/main_process/pdf/markdown/text_simple.pdf",
+    "samples/fixtures/contracts/pdf/text_simple.pdf",
     Some(@input.DetectedFormat::Pdf),
   )
   match extract_pdf_native_document(source) {
@@ -232,7 +233,7 @@ test "pdf native backend prefers valid ActualText and rejects malformed literal 
 ///|
 test "pdf native backend groups hard-wrapped native text conservatively" {
   let source = @input.input_from_path_with_format(
-    "samples/main_process/pdf/markdown/hardwrap_en.pdf",
+    "samples/fixtures/contracts/pdf/hardwrap_en.pdf",
     Some(@input.DetectedFormat::Pdf),
   )
   match extract_pdf_native_document(source) {
@@ -333,7 +334,7 @@ test "pdf native backend keeps unsupported feature taxonomy stable" {
 ///|
 test "pdf native backend preserves line source refs reading order and grouping metrics for multipage samples" {
   let source = @input.input_from_path_with_format(
-    "samples/main_process/pdf/markdown/text_multipage.pdf",
+    "samples/fixtures/contracts/pdf/text_multipage.pdf",
     Some(@input.DetectedFormat::Pdf),
   )
   match extract_pdf_native_document(source) {

@@ -91,7 +91,7 @@ pub(all) enum PptxTargetMode {
 } derive(Eq)
 
 ///|
-pub struct PptxRelationshipV2 {
+pub struct PptxRelationship {
   source_part : String
   id : String
   rel_type : String
@@ -101,7 +101,7 @@ pub struct PptxRelationshipV2 {
 }
 
 ///|
-pub struct PptxPartInfoV2 {
+pub struct PptxPartInfo {
   part_name : String
   content_type : String?
   size : Int
@@ -110,21 +110,21 @@ pub struct PptxPartInfoV2 {
 }
 
 ///|
-pub struct PptxRelationshipSetV2 {
+pub struct PptxRelationshipSet {
   source_part : String
-  relationships : Array[PptxRelationshipV2]
+  relationships : Array[PptxRelationship]
 }
 
 ///|
 pub struct PptxPartGraph {
-  parts : Array[PptxPartInfoV2]
-  relationships : Array[PptxRelationshipSetV2]
+  parts : Array[PptxPartInfo]
+  relationships : Array[PptxRelationshipSet]
   root_presentation_part : String?
   warnings : Array[PptxWarning]
 }
 
 ///|
-pub struct PptxSlideRefV2 {
+pub struct PptxSlideRef {
   slide_id : String?
   slide_index : Int
   part_name : String
@@ -136,7 +136,7 @@ pub struct PptxSlideRefV2 {
 ///|
 pub struct PptxSourcePresentation {
   part_name : String
-  slide_refs : Array[PptxSlideRefV2]
+  slide_refs : Array[PptxSlideRef]
   source_key : PptxSourceKey
 }
 
@@ -531,7 +531,7 @@ pub struct PptxSourceMaster {
 
 ///|
 pub struct PptxSourceSlide {
-  slide_ref : PptxSlideRefV2
+  slide_ref : PptxSlideRef
   layout_ref : PptxLayoutRef?
   master_ref : PptxMasterRef?
   objects : Array[PptxObject]

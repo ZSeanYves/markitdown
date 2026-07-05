@@ -188,7 +188,7 @@ test "pdf native unit bridge lowers paragraphs with source refs and metadata onl
     document.diagnostics.pass_trace.contains("pdf_native:to_document_ir"),
   )
   assert_true(
-    document.diagnostics.metrics.get("pdf_native_ir_bridge") ==
+    document.diagnostics.metrics.get("pdf_native_ir_projection") ==
     Some("unit_path"),
   )
   assert_true(document.diagnostics.metrics.get("block_count") == Some("2"))
@@ -226,7 +226,7 @@ test "pdf native unit bridge lowers paragraphs with source refs and metadata onl
     Some(@core.JsonValue::String(value)) => assert_eq(value, "test")
     _ => fail("expected producer metadata")
   }
-  match document.metadata.get("pdf_native_bridge") {
+  match document.metadata.get("pdf_native_projection") {
     Some(@core.JsonValue::String(value)) => assert_eq(value, "unit_path")
     _ => fail("expected unit bridge metadata")
   }

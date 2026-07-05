@@ -6,7 +6,7 @@ import {
   "moonbitlang/core/string",
   "moonbitlang/x/fs",
   "tonyfettes/encoding",
-  "ZSeanYves/markitdown/format_readers/pdf_native" @dpdfnative,
+  "ZSeanYves/markitdown/format_readers/pdf" @dpdfnative,
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/formats/ocr" @focr,
   "ZSeanYves/markitdown/input",

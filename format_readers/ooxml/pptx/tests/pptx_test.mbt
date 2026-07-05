@@ -259,7 +259,7 @@ fn sample_pkg() -> @ox.OoxmlPackage raise {
     ),
     ("ppt/media/image1.png", "PNGDATA"),
     (
-      "docProps/core.xml", "<cp:coreProperties xmlns:cp=\"http://schemas.openxmlformats.org/package/2006/metadata/core-properties\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:dcterms=\"http://purl.org/dc/terms/\"><dc:title>Spec Deck</dc:title><dc:subject>Parity</dc:subject><dc:creator>MoonBit</dc:creator><dc:description>PPTX metadata fixture</dc:description><cp:keywords>pptx,v2</cp:keywords><dcterms:created>2026-01-01T00:00:00Z</dcterms:created><dcterms:modified>2026-01-02T00:00:00Z</dcterms:modified></cp:coreProperties>",
+      "docProps/core.xml", "<cp:coreProperties xmlns:cp=\"http://schemas.openxmlformats.org/package/2006/metadata/core-properties\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:dcterms=\"http://purl.org/dc/terms/\"><dc:title>Spec Deck</dc:title><dc:subject>Parity</dc:subject><dc:creator>MoonBit</dc:creator><dc:description>PPTX metadata fixture</dc:description><cp:keywords>pptx,canonical</cp:keywords><dcterms:created>2026-01-01T00:00:00Z</dcterms:created><dcterms:modified>2026-01-02T00:00:00Z</dcterms:modified></cp:coreProperties>",
     ),
     (
       "docProps/app.xml", "<Properties><Application>MarkItDown</Application><Slides>2</Slides><Words>42</Words></Properties>",

@@ -1,0 +1,12 @@
+import {
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/string",
+  "ZSeanYves/markitdown/format_readers/xml" @dxml,
+  "ZSeanYves/markitdown/format_readers/zip" @dzip,
+}
+
+supported_targets = "native"
+
+options(
+  "preferred-target": "native",
+)

@@ -1,9 +1,4 @@
 ///|
-fn probe_limit_reached(observed : Int, limit : Int) -> Bool {
-  observed > limit
-}
-
-///|
 fn read_probe_text(
   source : @input.InputSource,
 ) -> (String?, @input.InputSource) {
@@ -40,393 +35,359 @@ fn read_probe_bytes(
 }
 
 ///|
+fn probe_outcome(
+  summary_format : String,
+  summary_parts : Array[String],
+  prepared_source : @input.InputSource,
+  probe_signals? : Array[ProbeSignal] = [],
+  probe_failures? : Array[ProbeFailure] = [],
+  probe_artifacts? : Array[RouteProbeArtifact] = [],
+) -> ProbeOutcome {
+  {
+    probe_signals,
+    probe_failures,
+    summary_format,
+    summary_parts,
+    prepared_source,
+    probe_artifacts,
+  }
+}
+
+///|
+fn probe_summary_line(label : String, value : Int, limit : Int?) -> String {
+  match limit {
+    Some(limit_value) =>
+      label + "=" + value.to_string() + "/limit=" + limit_value.to_string()
+    None => label + "=" + value.to_string()
+  }
+}
+
+///|
+fn signal_summary_lines(signals : Array[ProbeSignal]) -> Array[String] {
+  let parts : Array[String] = []
+  for signal in signals {
+    let label = match signal.kind {
+      ProbeSignalKind::CharCount => "chars"
+      ProbeSignalKind::LineCount => "lines"
+      ProbeSignalKind::BlockCount => "blocks"
+      ProbeSignalKind::ListItemCount => "list_items"
+      ProbeSignalKind::NodeCount => "nodes"
+      ProbeSignalKind::MaxDepth => "depth"
+      ProbeSignalKind::RowCount => "rows"
+      ProbeSignalKind::ColCount => "cols"
+      ProbeSignalKind::CellCount => "cells"
+      ProbeSignalKind::CellEstimate => "estimated_cells"
+      ProbeSignalKind::OutputCount => "outputs"
+      ProbeSignalKind::AttachmentCount => "attachments"
+      ProbeSignalKind::AssetCount => "assets"
+      ProbeSignalKind::EntryCount => "entries"
+      ProbeSignalKind::PageCount => "pages"
+      ProbeSignalKind::SlideCount => "slides"
+      ProbeSignalKind::SheetCount => "sheets"
+      ProbeSignalKind::ScalarCount => "scalars"
+      ProbeSignalKind::ObjectCount => "objects"
+      ProbeSignalKind::ArrayCount => "arrays"
+      ProbeSignalKind::HiddenRowCount => "hidden_rows"
+      ProbeSignalKind::HiddenSheetCount => "hidden_sheets"
+      ProbeSignalKind::CoveredCellCount => "covered_cells"
+      ProbeSignalKind::NoteCount => "notes"
+      ProbeSignalKind::CommentCount => "comments"
+      ProbeSignalKind::ScannedPageCount => "scanned_pages"
+      ProbeSignalKind::NativeTextPageCount => "native_text_pages"
+    }
+    parts.push(probe_summary_line(label, signal.observed, signal.limit))
+  }
+  parts
+}
+
+///|
+fn unavailable_probe(
+  summary_format : String,
+  prepared_source : @input.InputSource,
+) -> ProbeOutcome {
+  probe_outcome(summary_format, ["unavailable"], prepared_source, probe_failures=[
+    make_probe_failure(summary_format, "probe_unavailable"),
+  ])
+}
+
+///|
 fn markdown_preflight_probe(
   source : @input.InputSource,
-  format : @input.DetectedFormat,
   options : ConvertOptions,
-) -> PreflightProbe {
+) -> ProbeOutcome {
   let (text, prepared_source) = read_probe_text(source)
   let text = match text {
     Some(value) => value
-    None =>
-      return canonical_preflight_probe(
-        format,
-        CanonicalRoute::DomAstModel,
-        "markdown_probe_unavailable",
-        "markdown",
-        ["unavailable"],
-        source,
-        artifact=None,
-      )
+    None => return unavailable_probe("markdown", source)
   }
   let scanned = @dmd.scan_markdown_document(text)
   let inspect = @dmd.inspect_markdown_document(scanned)
-  let block_limit = options.limits.max_rows
-  let char_limit = options.limits.max_line_chars
-  let list_limit = options.limits.max_cols
-  let list_pressure = inspect.list_item_count > list_limit
-  let route = if probe_limit_reached(inspect.block_count, block_limit) ||
-    probe_limit_reached(text.length(), char_limit) ||
-    list_pressure {
-    CanonicalRoute::BlockStreaming
-  } else {
-    CanonicalRoute::DomAstModel
-  }
-  let reason = if route == CanonicalRoute::BlockStreaming {
-    "markdown_over_limit_block_streaming"
-  } else {
-    "markdown_within_dom_budget"
-  }
-  canonical_preflight_probe(
-    format,
-    route,
-    reason,
+  let signals = [
+    make_probe_signal(
+      ProbeSignalKind::BlockCount,
+      inspect.block_count,
+      limit=Some(options.limits.max_rows),
+    ),
+    make_probe_signal(
+      ProbeSignalKind::CharCount,
+      text.length(),
+      limit=Some(options.limits.max_line_chars),
+    ),
+    make_probe_signal(
+      ProbeSignalKind::ListItemCount,
+      inspect.list_item_count,
+      limit=Some(options.limits.max_cols),
+    ),
+  ]
+  probe_outcome(
     "markdown",
-    [
-      "blocks=" +
-      inspect.block_count.to_string() +
-      "/limit=" +
-      block_limit.to_string(),
-      "chars=" + text.length().to_string() + "/limit=" + char_limit.to_string(),
-      "list_items=" +
-      inspect.list_item_count.to_string() +
-      "/limit=" +
-      list_limit.to_string(),
-      "route=" + canonical_route_name(route),
-    ],
+    signal_summary_lines(signals),
     prepared_source,
-    artifact=Some(RouteProbeArtifact::MarkdownScan(scanned, inspect)),
+    probe_signals=signals,
+    probe_artifacts=[RouteProbeArtifact::MarkdownScan(scanned, inspect)],
   )
 }
 
 ///|
 fn json_preflight_probe(
   source : @input.InputSource,
-  format : @input.DetectedFormat,
   options : ConvertOptions,
-) -> PreflightProbe {
+) -> ProbeOutcome {
   let (text, prepared_source) = read_probe_text(source)
   let text = match text {
     Some(value) => value
-    None =>
-      return canonical_preflight_probe(
-        format,
-        CanonicalRoute::DomAstModel,
-        "json_probe_unavailable",
-        "json",
-        ["unavailable"],
-        source,
-        artifact=None,
-      )
+    None => return unavailable_probe("json", source)
   }
   let streamed = try @djson.parse_json_stream(text) |> Ok catch {
     _ => Err(())
   }
-  let route = match streamed {
-    Ok(stream) =>
-      if probe_limit_reached(
+  match streamed {
+    Ok(stream) => {
+      let signals = [
+        make_probe_signal(
+          ProbeSignalKind::ObjectCount,
           stream.summary.object_count,
-          options.limits.max_rows,
-        ) ||
-        probe_limit_reached(stream.summary.max_depth, options.limits.max_rows) ||
-        probe_limit_reached(
+          limit=Some(options.limits.max_rows),
+        ),
+        make_probe_signal(
+          ProbeSignalKind::MaxDepth,
+          stream.summary.max_depth,
+          limit=Some(options.limits.max_rows),
+        ),
+        make_probe_signal(
+          ProbeSignalKind::NodeCount,
           stream.summary.object_count +
           stream.summary.array_count +
           stream.summary.scalar_count,
-          options.limits.max_cells,
-        ) {
-        CanonicalRoute::StreamingEvent
-      } else {
-        CanonicalRoute::DomAstModel
-      }
-    Err(_) => CanonicalRoute::DomAstModel
-  }
-  let reason = if route == CanonicalRoute::StreamingEvent {
-    "json_over_limit_streaming_event"
-  } else {
-    "json_within_dom_budget"
-  }
-  let parts = match streamed {
-    Ok(stream) =>
-      [
-        "objects=" +
-        stream.summary.object_count.to_string() +
-        "/limit=" +
-        options.limits.max_rows.to_string(),
-        "depth=" +
-        stream.summary.max_depth.to_string() +
-        "/limit=" +
-        options.limits.max_rows.to_string(),
-        "nodes=" +
-        (stream.summary.object_count +
-        stream.summary.array_count +
-        stream.summary.scalar_count).to_string() +
-        "/limit=" +
-        options.limits.max_cells.to_string(),
-        "route=" + canonical_route_name(route),
+          limit=Some(options.limits.max_cells),
+        ),
       ]
-    Err(_) => ["parse_failed", "route=" + canonical_route_name(route)]
+      probe_outcome(
+        "json",
+        signal_summary_lines(signals),
+        prepared_source,
+        probe_signals=signals,
+        probe_artifacts=[RouteProbeArtifact::JsonStream(stream)],
+      )
+    }
+    Err(_) =>
+      probe_outcome("json", ["parse_failed"], prepared_source, probe_failures=[
+        make_probe_failure("json", "parse_failed"),
+      ])
   }
-  canonical_preflight_probe(
-    format,
-    route,
-    reason,
-    "json",
-    parts,
-    prepared_source,
-    artifact=match streamed {
-      Ok(stream) if route == CanonicalRoute::StreamingEvent =>
-        Some(RouteProbeArtifact::JsonStream(stream))
-      _ => None
-    },
-  )
 }
 
 ///|
 fn yaml_preflight_probe(
   source : @input.InputSource,
-  format : @input.DetectedFormat,
   options : ConvertOptions,
-) -> PreflightProbe {
+) -> ProbeOutcome {
   let (text, prepared_source) = read_probe_text(source)
   let text = match text {
     Some(value) => value
-    None =>
-      return canonical_preflight_probe(
-        format,
-        CanonicalRoute::DomAstModel,
-        "yaml_probe_unavailable",
-        "yaml",
-        ["unavailable"],
-        source,
-        artifact=None,
-      )
+    None => return unavailable_probe("yaml", source)
   }
   let parsed = try @dyaml.parse_yaml_structure_events(text) |> Ok catch {
     _ => Err(())
   }
-  let route = match parsed {
+  match parsed {
     Ok(events) => {
       let inspect = @dyaml.inspect_yaml_structure_events(events)
-      let text_budget = inspect.scalar_count +
-        inspect.mapping_count +
-        inspect.sequence_count
-      if probe_limit_reached(inspect.node_count, options.limits.max_cells) ||
-        probe_limit_reached(inspect.max_depth, options.limits.max_rows) ||
-        text_budget > options.limits.max_cells / 8 {
-        CanonicalRoute::StreamingEvent
-      } else {
-        CanonicalRoute::DomAstModel
-      }
-    }
-    Err(_) => CanonicalRoute::DomAstModel
-  }
-  let reason = if route == CanonicalRoute::StreamingEvent {
-    "yaml_over_limit_streaming_event"
-  } else {
-    "yaml_within_dom_budget"
-  }
-  let parts = match parsed {
-    Ok(events) => {
-      let inspect = @dyaml.inspect_yaml_structure_events(events)
-      [
-        "nodes=" +
-        inspect.node_count.to_string() +
-        "/limit=" +
-        options.limits.max_cells.to_string(),
-        "depth=" +
-        inspect.max_depth.to_string() +
-        "/limit=" +
-        options.limits.max_rows.to_string(),
-        "route=" + canonical_route_name(route),
+      let signals = [
+        make_probe_signal(
+          ProbeSignalKind::NodeCount,
+          inspect.node_count,
+          limit=Some(options.limits.max_cells),
+        ),
+        make_probe_signal(
+          ProbeSignalKind::MaxDepth,
+          inspect.max_depth,
+          limit=Some(options.limits.max_rows),
+        ),
       ]
+      probe_outcome(
+        "yaml",
+        signal_summary_lines(signals),
+        prepared_source,
+        probe_signals=signals,
+        probe_artifacts=[RouteProbeArtifact::YamlEvents(events, inspect)],
+      )
     }
-    Err(_) => ["parse_failed", "route=" + canonical_route_name(route)]
+    Err(_) =>
+      probe_outcome("yaml", ["parse_failed"], prepared_source, probe_failures=[
+        make_probe_failure("yaml", "parse_failed"),
+      ])
   }
-  canonical_preflight_probe(
-    format,
-    route,
-    reason,
-    "yaml",
-    parts,
+}
+
+///|
+fn toml_preflight_probe(
+  source : @input.InputSource,
+  _options : ConvertOptions,
+) -> ProbeOutcome {
+  let (text, prepared_source) = read_probe_text(source)
+  let text = match text {
+    Some(value) => value
+    None => return unavailable_probe("toml", source)
+  }
+  let parsed = try @dtoml.parse_toml_document(text) |> Ok catch {
+    _ => Err(())
+  }
+  let inspect = match parsed {
+    Ok(doc) => Some((doc, @dtoml.inspect_toml_document(doc)))
+    Err(_) => None
+  }
+  let signals = [
+    make_probe_signal(ProbeSignalKind::CharCount, text.length()),
+    make_probe_signal(
+      ProbeSignalKind::LineCount,
+      @fshared.count_physical_lines(text),
+    ),
+  ]
+  probe_outcome(
+    "toml",
+    signal_summary_lines(signals),
     prepared_source,
-    artifact=match parsed {
-      Ok(events) if route == CanonicalRoute::StreamingEvent =>
-        Some(
-          RouteProbeArtifact::YamlEvents(
-            events,
-            @dyaml.inspect_yaml_structure_events(events),
-          ),
-        )
-      _ => None
+    probe_signals=signals,
+    probe_artifacts=match inspect {
+      Some((doc, report)) => [RouteProbeArtifact::TomlDocument(doc, report)]
+      None => []
     },
   )
 }
 
 ///|
-fn xml_preflight_probe(
+fn text_markup_preflight_probe(
   source : @input.InputSource,
   format : @input.DetectedFormat,
-  options : ConvertOptions,
-) -> PreflightProbe {
-  let (bytes, prepared_source) = read_probe_bytes(source)
-  let bytes = match bytes {
-    Some(value) => value
-    None =>
-      return canonical_preflight_probe(
-        format,
-        CanonicalRoute::DomAstModel,
-        "xml_probe_unavailable",
-        "xml",
-        ["unavailable"],
-        source,
-        artifact=None,
-      )
-  }
-  let text = match @input.read_input_text(prepared_source) {
-    Ok(value) => Some(value)
-    Err(_) => None
-  }
+) -> ProbeOutcome {
+  let (text, prepared_source) = read_probe_text(source)
   let text = match text {
     Some(value) => value
     None =>
-      return canonical_preflight_probe(
-        format,
-        CanonicalRoute::DomAstModel,
-        "xml_probe_unavailable",
-        "xml",
-        ["unavailable"],
-        source,
-        artifact=None,
+      return unavailable_probe(
+        @input.detected_format_name(format),
+        prepared_source,
       )
   }
-  let xml_scan = @dxml.scan_xml_structure_bytes(bytes)
-  let native_summary = if xml_scan.status ==
-    @dxml.XmlStructureScanStatus::Success {
-    Some({ node_count: xml_scan.node_count, max_depth: xml_scan.max_depth })
-  } else {
-    None
+  let doc = match format {
+    @input.DetectedFormat::Tex => @dtext.parse_tex_document(text)
+    @input.DetectedFormat::Rst => @dtext.parse_rst_document(text)
+    @input.DetectedFormat::Asciidoc => @dtext.parse_asciidoc_document(text)
+    _ => abort("unsupported text markup preflight format")
   }
-  let parsed = try @dxml.parse_xml_structure_tokens(text) |> Ok catch {
+  let inspect = @dtext.inspect_text_markup_document(doc, text)
+  let signals = [
+    make_probe_signal(ProbeSignalKind::BlockCount, inspect.block_count),
+    make_probe_signal(
+      ProbeSignalKind::LineCount,
+      @fshared.count_physical_lines(text),
+    ),
+    make_probe_signal(ProbeSignalKind::CharCount, text.length()),
+  ]
+  probe_outcome(
+    @input.detected_format_name(format),
+    signal_summary_lines(signals),
+    prepared_source,
+    probe_signals=signals,
+    probe_artifacts=[RouteProbeArtifact::TextMarkupDocument(doc, inspect)],
+  )
+}
+
+///|
+fn audio_preflight_probe(
+  source : @input.InputSource,
+  format : @input.DetectedFormat,
+) -> ProbeOutcome {
+  let format_name = @input.detected_format_name(format)
+  let artifact = make_audio_probe_artifact(format_name, probe_notes=[
+    @formats.route_name(@formats.canonical_route_for_format(format)),
+  ])
+  probe_outcome(
+    format_name,
+    [@formats.route_name(@formats.canonical_route_for_format(format))],
+    source,
+    probe_artifacts=[RouteProbeArtifact::AudioProbe(artifact)],
+  )
+}
+
+///|
+fn ipynb_preflight_probe(
+  source : @input.InputSource,
+  options : ConvertOptions,
+) -> ProbeOutcome {
+  let (text, prepared_source) = read_probe_text(source)
+  let text = match text {
+    Some(value) => value
+    None => return unavailable_probe("ipynb", source)
+  }
+  let parsed = try @dipynb.parse_ipynb_notebook(text) |> Ok catch {
     _ => Err(())
   }
-  let route = match parsed {
-    Ok(tokens) => {
-      let inspect = match native_summary {
-        Some(summary) => summary
-        None => xml_stream_probe_summary_from_tokens(tokens)
-      }
-      if probe_limit_reached(inspect.node_count, options.limits.max_cells) ||
-        probe_limit_reached(inspect.max_depth, options.limits.max_rows) ||
-        (
-          probe_limit_reached(text.length(), options.limits.max_line_chars * 6) &&
-          inspect.node_count > options.limits.max_rows / 5
-        ) {
-        CanonicalRoute::StreamingEvent
-      } else {
-        CanonicalRoute::DomAstModel
-      }
+  match parsed {
+    Ok(notebook) => {
+      let inspect = @dipynb.inspect_ipynb_notebook(notebook)
+      let signals = [
+        make_probe_signal(
+          ProbeSignalKind::BlockCount,
+          inspect.cell_count,
+          limit=Some(options.limits.max_rows),
+        ),
+        make_probe_signal(
+          ProbeSignalKind::OutputCount,
+          inspect.output_count,
+          limit=Some(options.limits.max_cells),
+        ),
+        make_probe_signal(
+          ProbeSignalKind::AttachmentCount,
+          inspect.attachment_count,
+          limit=Some(options.limits.max_cells),
+        ),
+        make_probe_signal(
+          ProbeSignalKind::CharCount,
+          text.length(),
+          limit=Some(options.limits.max_line_chars),
+        ),
+      ]
+      probe_outcome(
+        "ipynb",
+        signal_summary_lines(signals),
+        prepared_source,
+        probe_signals=signals,
+        probe_artifacts=[RouteProbeArtifact::IpynbNotebook(notebook, inspect)],
+      )
     }
     Err(_) =>
-      match native_summary {
-        Some(inspect) =>
-          if probe_limit_reached(inspect.node_count, options.limits.max_cells) ||
-            probe_limit_reached(inspect.max_depth, options.limits.max_rows) ||
-            (
-              probe_limit_reached(
-                text.length(),
-                options.limits.max_line_chars * 6,
-              ) &&
-              inspect.node_count > options.limits.max_rows / 5
-            ) {
-            CanonicalRoute::StreamingEvent
-          } else {
-            CanonicalRoute::DomAstModel
-          }
-        None => CanonicalRoute::DomAstModel
-      }
+      probe_outcome("ipynb", ["parse_failed"], prepared_source, probe_failures=[
+        make_probe_failure("ipynb", "parse_failed"),
+      ])
   }
-  let reason = if route == CanonicalRoute::StreamingEvent {
-    "xml_over_limit_streaming_event"
-  } else {
-    "xml_within_dom_budget"
-  }
-  let parts = match native_summary {
-    Some(inspect) =>
-      [
-        "nodes=" +
-        inspect.node_count.to_string() +
-        "/limit=" +
-        options.limits.max_cells.to_string(),
-        "depth=" +
-        inspect.max_depth.to_string() +
-        "/limit=" +
-        options.limits.max_rows.to_string(),
-        "chars=" +
-        text.length().to_string() +
-        "/limit=" +
-        options.limits.max_line_chars.to_string(),
-        "probe=xml_structure_scan",
-        "route=" + canonical_route_name(route),
-      ]
-    None =>
-      match parsed {
-        Ok(tokens) => {
-          let inspect = xml_stream_probe_summary_from_tokens(tokens)
-          [
-            "nodes=" +
-            inspect.node_count.to_string() +
-            "/limit=" +
-            options.limits.max_cells.to_string(),
-            "depth=" +
-            inspect.max_depth.to_string() +
-            "/limit=" +
-            options.limits.max_rows.to_string(),
-            "chars=" +
-            text.length().to_string() +
-            "/limit=" +
-            options.limits.max_line_chars.to_string(),
-            "probe=moonbit_xml_tokens",
-            "route=" + canonical_route_name(route),
-          ]
-        }
-        Err(_) =>
-          [
-            "parse_failed",
-            "probe=xml_structure_unavailable",
-            "route=" + canonical_route_name(route),
-          ]
-      }
-  }
-  canonical_preflight_probe(
-    format,
-    route,
-    reason,
-    "xml",
-    parts,
-    prepared_source,
-    artifact=match parsed {
-      Ok(tokens) if route == CanonicalRoute::StreamingEvent =>
-        Some(RouteProbeArtifact::XmlTokens(tokens))
-      _ => None
-    },
-  )
 }
 
 ///|
 priv struct XmlProbeSummary {
   node_count : Int
   max_depth : Int
-}
-
-///|
-priv struct HtmlProbeSummary {
-  node_count : Int
-  block_scope_count : Int
-  structural_scope_count : Int
-  token_count : Int
-  max_depth : Int
-  char_count : Int
 }
 
 ///|
@@ -457,6 +418,69 @@ fn xml_stream_probe_summary_from_tokens(
     }
   }
   { node_count, max_depth }
+}
+
+///|
+fn xml_preflight_probe(
+  source : @input.InputSource,
+  options : ConvertOptions,
+) -> ProbeOutcome {
+  let (bytes, prepared_source) = read_probe_bytes(source)
+  ignore(
+    match bytes {
+      Some(value) => value
+      None => return unavailable_probe("xml", source)
+    },
+  )
+  let text = match @input.read_input_text(prepared_source) {
+    Ok(value) => value
+    Err(_) => return unavailable_probe("xml", source)
+  }
+  let parsed = try @dxml.parse_xml_structure_tokens(text) |> Ok catch {
+    _ => Err(())
+  }
+  match parsed {
+    Ok(tokens) => {
+      let inspect = xml_stream_probe_summary_from_tokens(tokens)
+      let signals = [
+        make_probe_signal(
+          ProbeSignalKind::NodeCount,
+          inspect.node_count,
+          limit=Some(options.limits.max_cells),
+        ),
+        make_probe_signal(
+          ProbeSignalKind::MaxDepth,
+          inspect.max_depth,
+          limit=Some(options.limits.max_rows),
+        ),
+        make_probe_signal(
+          ProbeSignalKind::CharCount,
+          text.length(),
+          limit=Some(options.limits.max_line_chars * 6),
+        ),
+      ]
+      probe_outcome(
+        "xml",
+        signal_summary_lines(signals),
+        prepared_source,
+        probe_signals=signals,
+        probe_artifacts=[RouteProbeArtifact::XmlTokens(tokens)],
+      )
+    }
+    Err(_) =>
+      probe_outcome("xml", ["parse_failed"], prepared_source, probe_failures=[
+        make_probe_failure("xml", "parse_failed"),
+      ])
+  }
+}
+
+///|
+priv struct HtmlProbeSummary {
+  node_count : Int
+  block_scope_count : Int
+  structural_scope_count : Int
+  max_depth : Int
+  char_count : Int
 }
 
 ///|
@@ -508,7 +532,6 @@ fn html_probe_summary_from_events(
     node_count,
     block_scope_count,
     structural_scope_count,
-    token_count: events.length(),
     max_depth,
     char_count: text.length(),
   }
@@ -517,105 +540,71 @@ fn html_probe_summary_from_events(
 ///|
 fn html_preflight_probe(
   source : @input.InputSource,
-  format : @input.DetectedFormat,
   options : ConvertOptions,
-) -> PreflightProbe {
+) -> ProbeOutcome {
   let (text, prepared_source) = read_probe_text(source)
   let text = match text {
     Some(value) => value
-    None =>
-      return canonical_preflight_probe(
-        format,
-        CanonicalRoute::DomAstModel,
-        "html_probe_unavailable",
-        "html",
-        ["unavailable"],
-        source,
-        artifact=None,
-      )
+    None => return unavailable_probe("html", source)
   }
   let normalized_text = @dhtml.normalize_html_token_source(text)
   let scanned = try @dhtml.tokenize_html_events(text) |> Ok catch {
     _ => Err(())
   }
-  let route = match scanned {
+  match scanned {
     Ok(events) => {
       let probe = html_probe_summary_from_events(normalized_text, events)
-      if probe_limit_reached(probe.node_count, options.limits.max_cells) ||
-        probe_limit_reached(probe.token_count, options.limits.max_cells) ||
-        probe_limit_reached(probe.block_scope_count, options.limits.max_rows) ||
-        probe_limit_reached(probe.max_depth, options.limits.max_rows) ||
-        probe.structural_scope_count > options.limits.max_rows / 4 ||
-        (
-          probe.char_count > options.limits.max_line_chars * 64 &&
-          probe.structural_scope_count > 0
-        ) {
-        CanonicalRoute::BlockStreaming
-      } else {
-        CanonicalRoute::DomAstModel
-      }
-    }
-    Err(_) => CanonicalRoute::DomAstModel
-  }
-  let reason = if route == CanonicalRoute::BlockStreaming {
-    "html_over_limit_block_streaming"
-  } else {
-    "html_within_dom_budget"
-  }
-  let parts = match scanned {
-    Ok(events) => {
-      let probe = html_probe_summary_from_events(normalized_text, events)
-      [
-        "nodes=" +
-        probe.node_count.to_string() +
-        "/limit=" +
-        options.limits.max_cells.to_string(),
-        "tokens=" +
-        probe.token_count.to_string() +
-        "/limit=" +
-        options.limits.max_cells.to_string(),
-        "scopes=" +
-        probe.block_scope_count.to_string() +
-        "/limit=" +
-        options.limits.max_rows.to_string(),
-        "structural_scopes=" +
-        probe.structural_scope_count.to_string() +
-        "/limit=" +
-        (options.limits.max_rows / 4).to_string(),
-        "depth=" +
-        probe.max_depth.to_string() +
-        "/limit=" +
-        options.limits.max_rows.to_string(),
-        "chars=" +
-        probe.char_count.to_string() +
-        "/limit=" +
-        (options.limits.max_line_chars * 64).to_string(),
-        "route=" + canonical_route_name(route),
+      let signals = [
+        make_probe_signal(
+          ProbeSignalKind::NodeCount,
+          probe.node_count,
+          limit=Some(options.limits.max_cells),
+        ),
+        make_probe_signal(
+          ProbeSignalKind::BlockCount,
+          probe.block_scope_count,
+          limit=Some(options.limits.max_rows),
+        ),
+        make_probe_signal(
+          ProbeSignalKind::MaxDepth,
+          probe.max_depth,
+          limit=Some(options.limits.max_rows),
+        ),
+        make_probe_signal(
+          ProbeSignalKind::CharCount,
+          probe.char_count,
+          limit=Some(options.limits.max_line_chars * 64),
+        ),
       ]
+      probe_outcome(
+        "html",
+        signal_summary_lines(signals) +
+        [
+          probe_summary_line(
+            "scopes",
+            probe.structural_scope_count,
+            Some(options.limits.max_rows),
+          ),
+        ],
+        prepared_source,
+        probe_signals=signals,
+        probe_artifacts=[
+          RouteProbeArtifact::HtmlEvents(normalized_text, events),
+        ],
+      )
     }
-    Err(_) => ["scan_failed", "route=" + canonical_route_name(route)]
+    Err(_) =>
+      probe_outcome("html", ["scan_failed"], prepared_source, probe_failures=[
+        make_probe_failure("html", "scan_failed"),
+      ])
   }
-  canonical_preflight_probe(
-    format,
-    route,
-    reason,
-    "html",
-    parts,
-    prepared_source,
-    artifact=match scanned {
-      Ok(events) if route == CanonicalRoute::BlockStreaming =>
-        Some(RouteProbeArtifact::HtmlEvents(normalized_text, events))
-      _ => None
-    },
-  )
 }
 
 ///|
 fn xlsx_preflight_probe(
   source : @input.InputSource,
-  format : @input.DetectedFormat,
   options : ConvertOptions,
-) -> PreflightProbe {
+) -> ProbeOutcome {
   let (bytes, prepared_source) = read_probe_bytes(source)
   let opened_pkg = match bytes {
     Some(payload) =>
@@ -641,88 +630,257 @@ fn xlsx_preflight_probe(
       )
     Err(err) => Err(err)
   }
-  let route = match summary {
-    Ok(probe) =>
-      if probe.visible_sheet_count > options.limits.max_rows ||
-        probe.max_sheet_rows > options.limits.max_rows ||
-        probe.max_sheet_cols > options.limits.max_cols ||
-        probe.estimated_cells > options.limits.max_cells {
-        CanonicalRoute::BlockStreaming
-      } else {
-        CanonicalRoute::PackageSinglePass
-      }
-    Err(_) => CanonicalRoute::PackageSinglePass
-  }
-  let reason = if route == CanonicalRoute::BlockStreaming {
-    "xlsx_over_limit_block_streaming"
-  } else {
-    "xlsx_within_package_budget"
-  }
-  let probe_summary_parts = match summary {
-    Ok(probe) =>
-      [
-        "visible_sheets=" +
-        probe.visible_sheet_count.to_string() +
-        "/limit=" +
-        options.limits.max_rows.to_string(),
-        "sheet_rows=" +
-        probe.max_sheet_rows.to_string() +
-        "/limit=" +
-        options.limits.max_rows.to_string(),
-        "sheet_cols=" +
-        probe.max_sheet_cols.to_string() +
-        "/limit=" +
-        options.limits.max_cols.to_string(),
-        "estimated_cells=" +
-        probe.estimated_cells.to_string() +
-        "/limit=" +
-        options.limits.max_cells.to_string(),
-        "route=" + canonical_route_name(route),
+  match (opened_pkg, summary) {
+    (Ok(pkg), Ok(probe)) => {
+      let signals = [
+        make_probe_signal(
+          ProbeSignalKind::SheetCount,
+          probe.visible_sheet_count,
+          limit=Some(options.limits.max_rows),
+        ),
+        make_probe_signal(
+          ProbeSignalKind::RowCount,
+          probe.max_sheet_rows,
+          limit=Some(options.limits.max_rows),
+        ),
+        make_probe_signal(
+          ProbeSignalKind::ColCount,
+          probe.max_sheet_cols,
+          limit=Some(options.limits.max_cols),
+        ),
+        make_probe_signal(
+          ProbeSignalKind::CellEstimate,
+          probe.estimated_cells,
+          limit=Some(options.limits.max_cells),
+        ),
       ]
-    Err(_) => ["probe_failed", "route=" + canonical_route_name(route)]
+      probe_outcome(
+        "xlsx",
+        signal_summary_lines(signals),
+        prepared_source,
+        probe_signals=signals,
+        probe_artifacts=[RouteProbeArtifact::XlsxPackage(pkg)],
+      )
+    }
+    (_, Err(_)) =>
+      probe_outcome("xlsx", ["probe_failed"], prepared_source, probe_failures=[
+        make_probe_failure("xlsx", "probe_failed"),
+      ])
+    _ => unavailable_probe("xlsx", prepared_source)
   }
-  canonical_preflight_probe(
-    format,
-    route,
-    reason,
-    "xlsx",
-    probe_summary_parts,
-    prepared_source,
-    artifact=match opened_pkg {
-      Ok(pkg) => Some(RouteProbeArtifact::XlsxPackage(pkg))
-      Err(_) => None
-    },
-  )
 }
 
 ///|
-fn canonical_preflight_probe(
+fn odt_preflight_probe(
+  source : @input.InputSource,
+  _options : ConvertOptions,
+) -> ProbeOutcome {
+  let (bytes, prepared_source) = read_probe_bytes(source)
+  let document = match bytes {
+    Some(payload) =>
+      try @dodf.open_odt_document(payload) |> Ok catch {
+        err => Err(err.to_string())
+      }
+    None => Err("probe_unavailable")
+  }
+  match document {
+    Ok(doc) => {
+      let inspect = @dodf.inspect_odt_document(doc)
+      let signals = [
+        make_probe_signal(ProbeSignalKind::BlockCount, inspect.block_count),
+        make_probe_signal(ProbeSignalKind::NoteCount, inspect.note_count),
+        make_probe_signal(ProbeSignalKind::CommentCount, inspect.comment_count),
+      ]
+      probe_outcome(
+        "odt",
+        signal_summary_lines(signals) +
+        [
+          probe_summary_line("images", inspect.image_count, None),
+          probe_summary_line("tables", inspect.table_count, None),
+        ],
+        prepared_source,
+        probe_signals=signals,
+        probe_artifacts=[RouteProbeArtifact::OdtDocument(doc, inspect)],
+      )
+    }
+    Err(_) =>
+      probe_outcome("odt", ["probe_failed"], prepared_source, probe_failures=[
+        make_probe_failure("odt", "probe_failed"),
+      ])
+  }
+}
+
+///|
+fn ods_preflight_probe(
+  source : @input.InputSource,
+  _options : ConvertOptions,
+) -> ProbeOutcome {
+  let (bytes, prepared_source) = read_probe_bytes(source)
+  let document = match bytes {
+    Some(payload) =>
+      try @dodf.open_ods_document(payload) |> Ok catch {
+        err => Err(err.to_string())
+      }
+    None => Err("probe_unavailable")
+  }
+  match document {
+    Ok(doc) => {
+      let inspect = @dodf.inspect_ods_document(doc)
+      let signals = [
+        make_probe_signal(
+          ProbeSignalKind::SheetCount,
+          inspect.visible_sheet_count,
+        ),
+        make_probe_signal(
+          ProbeSignalKind::HiddenSheetCount,
+          inspect.hidden_sheet_count,
+        ),
+        make_probe_signal(
+          ProbeSignalKind::RowCount,
+          inspect.non_empty_row_count,
+        ),
+        make_probe_signal(
+          ProbeSignalKind::CellEstimate,
+          inspect.used_cell_count,
+        ),
+        make_probe_signal(
+          ProbeSignalKind::HiddenRowCount,
+          inspect.hidden_row_count,
+        ),
+        make_probe_signal(
+          ProbeSignalKind::CoveredCellCount,
+          inspect.covered_cell_count,
+        ),
+      ]
+      probe_outcome(
+        "ods",
+        signal_summary_lines(signals) +
+        [
+          probe_summary_line("max_cols", inspect.max_sheet_cols, None),
+          probe_summary_line("used_cols", inspect.max_used_cols, None),
+        ],
+        prepared_source,
+        probe_signals=signals,
+        probe_artifacts=[RouteProbeArtifact::OdsDocument(doc, inspect)],
+      )
+    }
+    Err(_) =>
+      probe_outcome("ods", ["probe_failed"], prepared_source, probe_failures=[
+        make_probe_failure("ods", "probe_failed"),
+      ])
+  }
+}
+
+///|
+fn odp_preflight_probe(
+  source : @input.InputSource,
+  _options : ConvertOptions,
+) -> ProbeOutcome {
+  let (bytes, prepared_source) = read_probe_bytes(source)
+  let document = match bytes {
+    Some(payload) =>
+      try @dodf.open_odp_document(payload) |> Ok catch {
+        err => Err(err.to_string())
+      }
+    None => Err("probe_unavailable")
+  }
+  match document {
+    Ok(doc) => {
+      let inspect = @dodf.inspect_odp_document(doc)
+      let signals = [
+        make_probe_signal(ProbeSignalKind::SlideCount, inspect.slide_count),
+        make_probe_signal(ProbeSignalKind::BlockCount, inspect.block_count),
+        make_probe_signal(ProbeSignalKind::NoteCount, inspect.notes_count),
+        make_probe_signal(ProbeSignalKind::AssetCount, inspect.image_count),
+      ]
+      probe_outcome(
+        "odp",
+        signal_summary_lines(signals),
+        prepared_source,
+        probe_signals=signals,
+        probe_artifacts=[RouteProbeArtifact::OdpDocument(doc, inspect)],
+      )
+    }
+    Err(_) =>
+      probe_outcome("odp", ["probe_failed"], prepared_source, probe_failures=[
+        make_probe_failure("odp", "probe_failed"),
+      ])
+  }
+}
+
+///|
+fn pdf_preflight_probe(
+  source : @input.InputSource,
+  options : ConvertOptions,
+) -> ProbeOutcome {
+  let native = @fpdf.extract_pdf_native_document(source)
+  match native {
+    Ok(document) => {
+      let mut native_text_pages = 0
+      let mut scanned_pages = 0
+      for page in document.pages {
+        let mut span_count = 0
+        for block in page.text_blocks {
+          for line in block.lines {
+            span_count += line.spans.length()
+          }
+        }
+        if span_count > 0 {
+          native_text_pages += 1
+        } else {
+          scanned_pages += 1
+        }
+      }
+      let signals = [
+        make_probe_signal(ProbeSignalKind::PageCount, document.pages.length()),
+        make_probe_signal(
+          ProbeSignalKind::NativeTextPageCount,
+          native_text_pages,
+        ),
+        make_probe_signal(
+          ProbeSignalKind::ScannedPageCount,
+          scanned_pages,
+          note=Some(pdf_ocr_policy_name(options.pdf_ocr_policy)),
+        ),
+      ]
+      let summary = [
+        "pdf_ocr_policy=" + pdf_ocr_policy_name(options.pdf_ocr_policy),
+        "convert_mode=" + convert_mode_name(options.mode),
+        "native_text_pages=" + native_text_pages.to_string(),
+        "scanned_pages=" + scanned_pages.to_string(),
+      ]
+      probe_outcome("pdf", summary, source, probe_signals=signals)
+    }
+    Err(_error) => {
+      let signals = [
+        make_probe_signal(
+          ProbeSignalKind::PageCount,
+          0,
+          note=Some(pdf_ocr_policy_name(options.pdf_ocr_policy)),
+        ),
+      ]
+      let summary = [
+        "pdf_ocr_policy=" + pdf_ocr_policy_name(options.pdf_ocr_policy),
+        "convert_mode=" + convert_mode_name(options.mode),
+        "native_probe=failed",
+      ]
+      probe_outcome("pdf", summary, source, probe_signals=signals, probe_failures=[
+        make_probe_failure("pdf", "native_probe_failed"),
+      ])
+    }
+  }
+}
+
+///|
+fn generic_preflight_probe(
+  source : @input.InputSource,
   format : @input.DetectedFormat,
-  route : CanonicalRoute,
-  reason : String,
-  summary_format : String,
-  summary_parts : Array[String],
-  prepared_source : @input.InputSource,
-  artifact? : RouteProbeArtifact? = None,
-) -> PreflightProbe {
-  ignore(format)
-  {
-    selected_route: route,
-    reason,
-    summary_format,
-    summary_parts,
-    prepared_source,
-    probe_artifact: artifact,
-  }
-}
-
-///|
-fn input_source_kind_name(source : @input.InputSource) -> String {
-  match source.kind {
-    @input.InputKind::Path => "path"
-    @input.InputKind::Text => "text"
-    @input.InputKind::Bytes => "bytes"
-  }
+) -> ProbeOutcome {
+  probe_outcome(
+    @input.detected_format_name(format),
+    [@formats.route_name(@formats.canonical_route_for_format(format))],
+    source,
+  )
 }
 
 ///|
@@ -730,60 +888,25 @@ fn preflight_probe(
   source : @input.InputSource,
   format : @input.DetectedFormat,
   options : ConvertOptions,
-) -> PreflightProbe {
-  if options.mode == ConvertMode::Stream {
-    let route = canonical_route_for_format(format, options)
-    return canonical_preflight_probe(
-      format,
-      route,
-      "explicit_stream_mode",
-      @input.detected_format_name(format),
-      ["explicit_stream", canonical_route_name(route)],
-      source,
-      artifact=None,
-    )
-  }
+) -> ProbeOutcome {
   match format {
-    @input.DetectedFormat::Markdown =>
-      markdown_preflight_probe(source, format, options)
-    @input.DetectedFormat::Json => json_preflight_probe(source, format, options)
-    @input.DetectedFormat::Yaml => yaml_preflight_probe(source, format, options)
-    @input.DetectedFormat::Xml => xml_preflight_probe(source, format, options)
-    @input.DetectedFormat::Html => html_preflight_probe(source, format, options)
-    @input.DetectedFormat::Xlsx => xlsx_preflight_probe(source, format, options)
-    @input.DetectedFormat::Pdf => {
-      let route = canonical_route_for_format(format, options)
-      let raster_backend = if route == CanonicalRoute::LayoutTwoStage {
-        "pdftoppm"
-      } else {
-        "none"
-      }
-      canonical_preflight_probe(
-        format,
-        route,
-        route_reason_for_format(format, options, route),
-        "pdf",
-        [
-          "ocr_intent=" + @parser.ocr_intent_name(options.ocr_options.intent),
-          "convert_mode=" + convert_mode_name(options.mode),
-          "raster_backend=" + raster_backend,
-          "pdf_source_kind=" + input_source_kind_name(source),
-        ],
-        source,
-        artifact=None,
-      )
-    }
-    _ => {
-      let route = canonical_route_for_format(format, options)
-      canonical_preflight_probe(
-        format,
-        route,
-        route_reason_for_format(format, options, route),
-        @input.detected_format_name(format),
-        [canonical_route_name(route)],
-        source,
-        artifact=None,
-      )
-    }
+    @input.DetectedFormat::Markdown => markdown_preflight_probe(source, options)
+    @input.DetectedFormat::Json => json_preflight_probe(source, options)
+    @input.DetectedFormat::Ipynb => ipynb_preflight_probe(source, options)
+    @input.DetectedFormat::Yaml => yaml_preflight_probe(source, options)
+    @input.DetectedFormat::Toml => toml_preflight_probe(source, options)
+    @input.DetectedFormat::Tex => text_markup_preflight_probe(source, format)
+    @input.DetectedFormat::Rst => text_markup_preflight_probe(source, format)
+    @input.DetectedFormat::Asciidoc =>
+      text_markup_preflight_probe(source, format)
+    @input.DetectedFormat::Audio(_) => audio_preflight_probe(source, format)
+    @input.DetectedFormat::Xml => xml_preflight_probe(source, options)
+    @input.DetectedFormat::Html => html_preflight_probe(source, options)
+    @input.DetectedFormat::Xlsx => xlsx_preflight_probe(source, options)
+    @input.DetectedFormat::Odt => odt_preflight_probe(source, options)
+    @input.DetectedFormat::Ods => ods_preflight_probe(source, options)
+    @input.DetectedFormat::Odp => odp_preflight_probe(source, options)
+    @input.DetectedFormat::Pdf => pdf_preflight_probe(source, options)
+    _ => generic_preflight_probe(source, format)
   }
 }

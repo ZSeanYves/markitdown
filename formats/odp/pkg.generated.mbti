@@ -1,0 +1,24 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/formats/odp"
+
+import {
+  "ZSeanYves/markitdown/format_readers/odf/shared",
+  "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/parser",
+}
+
+// Values
+pub fn odp_parse_with_open_document(@input.InputSource, @parser.ParseContext, @shared.OdpDocument, @shared.OdpInspectReport) -> @parser.ParseResult
+
+pub fn odp_parser() -> @parser.Parser
+
+pub fn odp_parser_capability() -> @parser.ParserCapability
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

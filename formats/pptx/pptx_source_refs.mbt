@@ -98,7 +98,7 @@ fn pptx_warning_already_represented_in_markdown(
   state : PptxState,
   warning : @pptxdoc.PptxWarning,
 ) -> Bool {
-  if state.fidelity_mode != @product.FidelityMode::Accurate {
+  if !pptx_feature_enabled(state, @product.AccurateFeature::PptxGroupSummary) {
     return false
   }
   if warning.kind != @pptxdoc.PptxWarningKind::UnsupportedObject {
@@ -430,7 +430,7 @@ fn pptx_opt_suffix(value : String?) -> String {
 
 ///|
 fn pptx_include_block_reading_order_hint(state : PptxState) -> Bool {
-  state.fidelity_mode == @product.FidelityMode::Accurate
+  pptx_feature_enabled(state, @product.AccurateFeature::PptxReadingOrder)
 }
 
 ///|

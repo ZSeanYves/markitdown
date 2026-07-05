@@ -9,8 +9,7 @@ CLI_RUNNER_NOTE=""
 CLI_BIN=""
 CLI_PACKAGE="cli"
 CLI_MODULE_ROOT=""
-CLI_NATIVE_BUILD_ATTEMPTED=0
-CLI_NATIVE_BUILD_ATTEMPTED_PACKAGE=""
+CLI_STALENESS_SENTINEL=""
 
 runner_class_for_kind() {
   case "${1-}" in
@@ -75,13 +74,6 @@ resolve_markitdown_package_cli() {
     return 0
   fi
 
-  if build_markitdown_cli_native_once "$package"; then
-    if resolve_probe_validated_native_cli_with_retries "$package" 25; then
-      CLI_RUNNER_NOTE="built native CLI once via moon build $package --target native"
-      return 0
-    fi
-  fi
-
   if validation_bool_enabled "${MARKITDOWN_ALLOW_MOON_RUN:-0}"; then
     CLI_RUNNER_KIND="moon-run"
     CLI_RUNNER_NOTE="manual moon run fallback enabled via MARKITDOWN_ALLOW_MOON_RUN=1; timings are not native product-path"
@@ -89,7 +81,12 @@ resolve_markitdown_package_cli() {
     return 0
   fi
 
-  echo "failed to locate a working native runner for $package; run 'moon build $package --target native' and retry" >&2
+  if [[ -n "$CLI_STALENESS_SENTINEL" ]]; then
+    echo "native runner for $package is missing or stale; newer source detected at $(basename "$CLI_STALENESS_SENTINEL")" >&2
+  else
+    echo "failed to locate a working native runner for $package" >&2
+  fi
+  echo "run 'moon build $package --target native' and retry" >&2
   return 1
 }
 
@@ -125,12 +122,99 @@ $CLI_MODULE_ROOT/target/native/release/build/$package/$package
 EOF
 }
 
+native_cli_staleness_sentinel() {
+  local package="${1-}"
+  case "$package" in
+    cli)
+      printf '%s' "$ROOT/cli/cli.mbt"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+native_cli_source_roots() {
+  local package="${1-}"
+  case "$package" in
+    cli)
+      cat <<EOF
+$ROOT/cli
+$ROOT/container
+$ROOT/convert
+$ROOT/core
+$ROOT/format_readers
+$ROOT/formats
+$ROOT/input
+$ROOT/parser
+$ROOT/pipeline
+$ROOT/product
+$ROOT/rag
+$ROOT/render
+$ROOT/runtime
+$ROOT/moon.mod.json
+EOF
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+native_cli_has_newer_source() {
+  local candidate="${1-}"
+  local package="${2-}"
+  local root_path
+  while IFS= read -r root_path; do
+    [[ -n "$root_path" ]] || continue
+    if [[ -f "$root_path" ]]; then
+      if [[ "$root_path" -nt "$candidate" ]]; then
+        CLI_STALENESS_SENTINEL="$root_path"
+        return 0
+      fi
+      continue
+    fi
+    [[ -d "$root_path" ]] || continue
+    local newer_file=""
+    newer_file="$(find "$root_path" -type f \
+      \( -name '*.mbt' -o -name 'moon.pkg' -o -name 'moon.pkg.json' -o -name '*.c' \) \
+      ! -name '*_test.mbt' \
+      ! -name '*_wbtest.mbt' \
+      -newer "$candidate" -print -quit 2>/dev/null || true)"
+    if [[ -n "$newer_file" ]]; then
+      CLI_STALENESS_SENTINEL="$newer_file"
+      return 0
+    fi
+  done < <(native_cli_source_roots "$package")
+  return 1
+}
+
+native_cli_is_fresh_enough() {
+  local candidate="${1-}"
+  local package="${2-}"
+  local sentinel=""
+  sentinel="$(native_cli_staleness_sentinel "$package" 2>/dev/null || true)"
+  [[ -f "$candidate" ]] || return 1
+  if [[ -n "$sentinel" && -f "$sentinel" && "$candidate" -nt "$sentinel" ]] && \
+    ! native_cli_has_newer_source "$candidate" "$package"; then
+    CLI_STALENESS_SENTINEL=""
+    return 0
+  fi
+  if [[ -z "$CLI_STALENESS_SENTINEL" && -n "$sentinel" ]]; then
+    CLI_STALENESS_SENTINEL="$sentinel"
+  fi
+  return 1
+}
+
 resolve_probe_validated_native_cli() {
   local package="${1-}"
   local candidate
   while IFS= read -r candidate; do
     [[ -n "$candidate" ]] || continue
     [[ -x "$candidate" ]] || continue
+    if ! native_cli_is_fresh_enough "$candidate" "$package"; then
+      continue
+    fi
     if probe_markitdown_cli "$package" "$candidate"; then
       CLI_RUNNER_KIND="prebuilt-native"
       CLI_BIN="$candidate"
@@ -158,18 +242,6 @@ resolve_probe_validated_native_cli_with_retries() {
   return 1
 }
 
-build_markitdown_cli_native_once() {
-  local package="${1-}"
-  if [[ "$CLI_NATIVE_BUILD_ATTEMPTED" -ne 0 && "$CLI_NATIVE_BUILD_ATTEMPTED_PACKAGE" == "$package" ]]; then
-    return 1
-  fi
-
-  CLI_NATIVE_BUILD_ATTEMPTED=1
-  CLI_NATIVE_BUILD_ATTEMPTED_PACKAGE="$package"
-  echo "[markitdown-cli] building native runner once: (cd $CLI_MODULE_ROOT && moon build $package --target native)" >&2
-  (cd "$CLI_MODULE_ROOT" && moon build "$package" --target native)
-}
-
 markitdown_runner_command_prefix() {
   if [[ "${CLI_RUNNER_KIND:-moon-run}" == "prebuilt-native" || "${CLI_RUNNER_KIND:-moon-run}" == "override" ]]; then
     printf '%s' "$CLI_BIN"
@@ -180,12 +252,12 @@ markitdown_runner_command_prefix() {
 
 validation_probe_cases() {
   cat <<'EOF'
-samples/main_process/txt/markdown/txt_plain.txt|txt_plain
-samples/main_process/csv/markdown/csv_markdown_pipes.csv|csv_markdown_pipes
-samples/main_process/tsv/markdown/tsv_markdown_pipes.tsv|tsv_markdown_pipes
-samples/main_process/json/markdown/json_object_basic.json|json_object_basic
-samples/main_process/jsonl/markdown/jsonl_records_basic.jsonl|jsonl_records_basic
-samples/main_process/ndjson/markdown/ndjson_records_basic.ndjson|ndjson_records_basic
+samples/fixtures/contracts/txt/txt_plain.txt|txt_plain
+samples/fixtures/contracts/csv/csv_markdown_pipes.csv|csv_markdown_pipes
+samples/fixtures/contracts/tsv/tsv_markdown_pipes.tsv|tsv_markdown_pipes
+samples/fixtures/contracts/json/json_object_basic.json|json_object_basic
+samples/fixtures/contracts/jsonl/jsonl_records_basic.jsonl|jsonl_records_basic
+samples/fixtures/contracts/ndjson/ndjson_records_basic.ndjson|ndjson_records_basic
 EOF
 }
 
@@ -221,7 +293,9 @@ probe_markitdown_cli() {
     local help_out
     help_out="$(MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" --help 2>&1)" || status=1
     if [[ "$status" -eq 0 ]]; then
-      if ! grep -Fq -- 'Supported product formats: txt, csv, tsv, json, jsonl, ndjson, xml' <<<"$help_out"; then
+      if ! grep -Fq -- 'Supported product formats: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml' <<<"$help_out"; then
+        status=1
+      elif ! grep -Fq -- 'odt' <<<"$help_out"; then
         status=1
       elif ! grep -Fq -- '--accurate' <<<"$help_out"; then
         status=1
@@ -230,7 +304,7 @@ probe_markitdown_cli() {
   fi
 
   if [[ "$status" -eq 0 ]]; then
-    local accurate_input="$ROOT/samples/main_process/txt/markdown/txt_plain.txt"
+    local accurate_input="$ROOT/samples/fixtures/contracts/txt/txt_plain.txt"
     local accurate_output="$probe_dir/accurate/txt_plain.md"
     mkdir -p "$probe_dir/accurate"
     if ! MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" normal --accurate "$accurate_input" "$accurate_output" >/dev/null 2>&1; then
@@ -242,7 +316,7 @@ probe_markitdown_cli() {
 
   if [[ "$status" -eq 0 ]]; then
     local contract_dir="$probe_dir/contract"
-    local contract_input="$ROOT/samples/main_process/txt/markdown/txt_plain.txt"
+    local contract_input="$ROOT/samples/fixtures/contracts/txt/txt_plain.txt"
     local contract_output="$contract_dir/txt_plain.md"
     mkdir -p "$contract_dir"
     if ! MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" normal "$contract_input" "$contract_output" >/dev/null 2>&1; then
@@ -300,14 +374,15 @@ validation_progress_zero() {
 }
 
 validation_progress_done() {
+  local status="${1:-done}"
   if [[ "${VALIDATION_TOTAL:-0}" -eq 0 ]]; then
     return
   fi
   if validation_bool_enabled "$SAMPLES_VERBOSE"; then
-    echo "progress: $VALIDATION_CURRENT/$VALIDATION_TOTAL done"
+    echo "progress: $VALIDATION_CURRENT/$VALIDATION_TOTAL $status"
     return
   fi
-  sample_progress_finish "$VALIDATION_CURRENT" "$VALIDATION_TOTAL" "done"
+  sample_progress_finish "$VALIDATION_CURRENT" "$VALIDATION_TOTAL" "$status"
 }
 
 validation_record_failure() {

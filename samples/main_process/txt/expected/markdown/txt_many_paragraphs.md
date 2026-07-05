@@ -1,9 +1,0 @@
-Alpha line one Alpha line two
-
-Beta only
-
-Gamma starts Gamma ends
-
-Delta
-
-Epsilon tail

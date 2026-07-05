@@ -525,7 +525,7 @@ fn remove_header_footer_input(
   context : PassContext,
   input : @core.IRInput,
 ) -> @core.IRInput {
-  let debug = @product.debug_mode(context.mode)
+  let debug = @product.debug_output_mode(context.output_mode)
   let cleanup_enabled = @product.pdf_cleanup_enabled(context.options)
   match input {
     @core.IRInput::Document(document) => {

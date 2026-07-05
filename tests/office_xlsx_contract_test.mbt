@@ -133,7 +133,7 @@ test "xlsx shared contracts keep formula sheet relationship and asset policies e
 test "xlsx parser keeps package-single-pass route diagnostics and source refs stable" {
   let parsed = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/xlsx/markdown/xlsx_hidden_sheets_policy.xlsx",
+      "samples/fixtures/contracts/xlsx/xlsx_hidden_sheets_policy.xlsx",
     ),
     @input.DetectedFormat::Xlsx,
   )
@@ -175,7 +175,7 @@ test "xlsx accurate fidelity includes hidden sheets instead of skipping them" {
     @parser.registry_parse(
       registry,
       @input.input_from_path(
-        "samples/main_process/xlsx/markdown/xlsx_hidden_sheets_policy.xlsx",
+        "samples/fixtures/contracts/xlsx/xlsx_hidden_sheets_policy.xlsx",
       ),
       context,
     ) {
@@ -211,9 +211,7 @@ test "xlsx accurate fidelity restores hidden grouped rows in external quality sa
   let balanced = match
     @parser.registry_parse(
       registry,
-      @input.input_from_path(
-        "markitdown-quality-lab/external_quality/xlsx/apache-poi/GroupTest.xlsx",
-      ),
+      @input.input_from_path("samples/fixtures/contracts/xlsx/GroupTest.xlsx"),
       @parser.parse_context_with_product_modes(
         @parser.new_parse_context(@input.DetectedFormat::Xlsx),
         @product.FidelityMode::Balanced,
@@ -226,9 +224,7 @@ test "xlsx accurate fidelity restores hidden grouped rows in external quality sa
   let accurate = match
     @parser.registry_parse(
       registry,
-      @input.input_from_path(
-        "markitdown-quality-lab/external_quality/xlsx/apache-poi/GroupTest.xlsx",
-      ),
+      @input.input_from_path("samples/fixtures/contracts/xlsx/GroupTest.xlsx"),
       @parser.parse_context_with_product_modes(
         @parser.new_parse_context(@input.DetectedFormat::Xlsx),
         @product.FidelityMode::Accurate,
@@ -287,9 +283,7 @@ test "xlsx accurate fidelity upgrades merged-range workbook to html table spans"
   let balanced = match
     @parser.registry_parse(
       registry,
-      @input.input_from_path(
-        "markitdown-quality-lab/external_quality/xlsx/xlsxwriter/generated/merge1.xlsx",
-      ),
+      @input.input_from_path("samples/fixtures/contracts/xlsx/merge1.xlsx"),
       @parser.parse_context_with_product_modes(
         @parser.new_parse_context(@input.DetectedFormat::Xlsx),
         @product.FidelityMode::Balanced,
@@ -302,9 +296,7 @@ test "xlsx accurate fidelity upgrades merged-range workbook to html table spans"
   let accurate = match
     @parser.registry_parse(
       registry,
-      @input.input_from_path(
-        "markitdown-quality-lab/external_quality/xlsx/xlsxwriter/generated/merge1.xlsx",
-      ),
+      @input.input_from_path("samples/fixtures/contracts/xlsx/merge1.xlsx"),
       @parser.parse_context_with_product_modes(
         @parser.new_parse_context(@input.DetectedFormat::Xlsx),
         @product.FidelityMode::Accurate,
@@ -340,7 +332,7 @@ test "xlsx sheet hyperlinks render as markdown links without fetching targets" {
     @parser.registry_parse(
       registry,
       @input.input_from_path(
-        "markitdown-quality-lab/external_quality/xlsx/apache-poi/sharedhyperlink.xlsx",
+        "samples/fixtures/contracts/xlsx/sharedhyperlink.xlsx",
       ),
       @parser.parse_context_with_product_modes(
         @parser.new_parse_context(@input.DetectedFormat::Xlsx),
@@ -371,9 +363,7 @@ test "xlsx formal table parts split disjoint sheet tables into separate markdown
   let parsed = match
     @parser.registry_parse(
       registry,
-      @input.input_from_path(
-        "markitdown-quality-lab/external_quality/xlsx/apache-poi/ExcelTables.xlsx",
-      ),
+      @input.input_from_path("samples/fixtures/contracts/xlsx/ExcelTables.xlsx"),
       @parser.parse_context_with_product_modes(
         @parser.new_parse_context(@input.DetectedFormat::Xlsx),
         @product.FidelityMode::Accurate,
@@ -406,7 +396,7 @@ test "xlsx formal table parts split disjoint sheet tables into separate markdown
 ///|
 test "xlsx convert and parser large routes stay on block streaming" {
   let converted = convert_path(
-    "samples/main_process/xlsx/markdown/sheet_simple.xlsx",
+    "samples/fixtures/contracts/xlsx/sheet_simple.xlsx",
     format=Some(@input.DetectedFormat::Xlsx),
     limits=limits(1, 1, 1),
   )
@@ -421,9 +411,7 @@ test "xlsx convert and parser large routes stay on block streaming" {
   assert_metric_eq(converted.diagnostics, "event_granularity", "xlsx_row")
 
   let parsed = default_registry_parse(
-    @input.input_from_path(
-      "samples/main_process/xlsx/markdown/sheet_simple.xlsx",
-    ),
+    @input.input_from_path("samples/fixtures/contracts/xlsx/sheet_simple.xlsx"),
     @input.DetectedFormat::Xlsx,
     requested_mode=Some(@parser.ParserMode::BlockStreaming),
   )
@@ -441,7 +429,7 @@ test "xlsx convert and parser large routes stay on block streaming" {
 test "xlsx parser preserves formulas renderer boundary and source-ref debug fields" {
   let parsed = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/xlsx/markdown/xlsx_formula_missing_cache.xlsx",
+      "samples/fixtures/contracts/xlsx/xlsx_formula_missing_cache.xlsx",
     ),
     @input.DetectedFormat::Xlsx,
   )
@@ -453,7 +441,7 @@ test "xlsx parser preserves formulas renderer boundary and source-ref debug fiel
     @render.make_render_context(false),
   )
   let expected = read_utf8_text(
-    "samples/main_process/xlsx/expected/markdown/xlsx_formula_missing_cache.md",
+    "samples/fixtures/contracts/xlsx/xlsx_formula_missing_cache.expected.md",
   )
   assert_eq(rendered.content.trim().to_owned(), expected.trim().to_owned())
   assert_true(rendered.content.contains("| Missing numeric cache | =1+2 |"))

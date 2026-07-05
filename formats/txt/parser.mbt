@@ -8,7 +8,7 @@ pub fn txt_parser() -> @parser.Parser {
       source : @input.InputSource,
       context : @parser.ParseContext,
     ) -> Result[@parser.ParseResult, String] {
-      let diagnostics = @parser_common.empty_parser_diagnostics(
+      let diagnostics = @fshared.empty_parser_diagnostics(
         "txt_parser",
         @parser.ParserMode::StreamingEvent,
         source,
@@ -66,10 +66,10 @@ pub fn txt_parser() -> @parser.Parser {
       diagnostics.metrics.set("parser_mode", "streaming_event")
       diagnostics.metrics.set(
         "input_kind",
-        @parser_common.input_kind_name(source.kind),
+        @fshared.input_kind_name(source.kind),
       )
       diagnostics.metrics.set("detected_format", "txt")
-      @parser_common.apply_product_metrics(diagnostics, "txt")
+      @fshared.apply_product_metrics(diagnostics, "txt")
       diagnostics.metrics.set("table_count", "0")
       diagnostics.metrics.set("image_count", "0")
       diagnostics.metrics.set("asset_count", "0")
@@ -94,7 +94,7 @@ pub fn txt_parser() -> @parser.Parser {
       )
       diagnostics.metrics.set(
         "is_empty",
-        @parser_common.bool_string(inspect.is_empty),
+        @fshared.bool_string(inspect.is_empty),
       )
       diagnostics.metrics.set("invalid_utf8_fallback", "false")
       diagnostics.metrics.set("long_line_count", long_line_count.to_string())
@@ -120,7 +120,7 @@ pub fn txt_parser() -> @parser.Parser {
         })
         diagnostics.metrics.set(
           "requested_mode",
-          @parser_common.requested_mode_name(context),
+          @fshared.requested_mode_name(context),
         )
         diagnostics.metrics.set("effective_mode", "streaming_event")
         diagnostics.metrics.set("ir_input_kind", "event_stream")
@@ -149,7 +149,7 @@ pub fn txt_parser() -> @parser.Parser {
       }
       diagnostics.metrics.set(
         "requested_mode",
-        @parser_common.requested_mode_name(context),
+        @fshared.requested_mode_name(context),
       )
       diagnostics.metrics.set("effective_mode", "streaming_event")
       diagnostics.metrics.set("ir_input_kind", "event_stream")
@@ -209,17 +209,54 @@ fn open_text_document(
     Ok(payload) => payload
     Err(err) => return Err(err)
   }
-  let decoded = try @utf8.decode(bytes, ignore_bom=false) |> Ok catch {
-    _ => Err("Utf8DecodeFailed(invalid utf8)")
+  let text = match decode_txt_input_bytes(bytes) {
+    Ok(payload) => payload
+    Err(err) => return Err(err)
   }
-  match decoded {
-    Ok(text) =>
-      Ok(
-        @dtext.parse_text_document_from_normalized_text(
-          normalize_txt_text(text),
-        ),
-      )
-    Err(err) => Err(err)
+  Ok(@dtext.parse_text_document_from_normalized_text(normalize_txt_text(text)))
+}
+
+///|
+fn decode_txt_input_bytes(bytes : Bytes) -> Result[String, String] {
+  match decode_utf16_text_bytes(bytes) {
+    Some(text) => Ok(text)
+    None =>
+      try @utf8.decode(bytes, ignore_bom=false) |> Ok catch {
+        _ => Err("Utf8DecodeFailed(invalid utf8)")
+      }
+  }
+}
+
+///|
+fn decode_utf16_text_bytes(bytes : Bytes) -> String? {
+  let arr = bytes.to_array()
+  if arr.length() < 2 {
+    return None
+  }
+  let first = arr[0].to_int()
+  let second = arr[1].to_int()
+  if first == 0xFF && second == 0xFE {
+    let decoded = @encoding.decode(bytes, encoding=@encoding.UTF16LE) catch {
+      _ => return None
+    }
+    return Some(strip_leading_bom(decoded))
+  }
+  if first == 0xFE && second == 0xFF {
+    let decoded = @encoding.decode(bytes, encoding=@encoding.UTF16BE) catch {
+      _ => return None
+    }
+    return Some(strip_leading_bom(decoded))
+  }
+  None
+}
+
+///|
+fn strip_leading_bom(text : String) -> String {
+  let chars = text.to_array()
+  if chars.length() > 0 && chars[0] == '\u{FEFF}' {
+    String::from_array(chars[1:])
+  } else {
+    text
   }
 }
 
@@ -247,12 +284,9 @@ fn invalid_text_parse_result(
   diagnostics.fallback_trace.push("txt invalid utf8 -> raw placeholder block")
   diagnostics.metrics.set("parser_name", "txt_parser")
   diagnostics.metrics.set("parser_mode", "streaming_event")
-  diagnostics.metrics.set(
-    "input_kind",
-    @parser_common.input_kind_name(source.kind),
-  )
+  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
   diagnostics.metrics.set("detected_format", "txt")
-  @parser_common.apply_product_metrics(diagnostics, "txt")
+  @fshared.apply_product_metrics(diagnostics, "txt")
   diagnostics.metrics.set("input_line_count", "0")
   diagnostics.metrics.set("line_count", "0")
   diagnostics.metrics.set("paragraph_count", "0")
@@ -269,7 +303,7 @@ fn invalid_text_parse_result(
   diagnostics.metrics.set("event_semantics", "line_event_stream")
   diagnostics.metrics.set(
     "requested_mode",
-    @parser_common.requested_mode_name(context),
+    @fshared.requested_mode_name(context),
   )
   diagnostics.metrics.set("effective_mode", "streaming_event")
   diagnostics.metrics.set("ir_input_kind", "event_stream")

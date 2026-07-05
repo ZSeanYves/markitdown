@@ -10,7 +10,7 @@ import {
 // Values
 pub fn debug_json_renderer() -> Renderer
 
-pub fn make_render_context(Bool, fidelity_mode? : @product.FidelityMode, output_mode? : @product.OutputMode, rag_options? : @rag.RagOptions, base_diagnostics? : @core.Diagnostics?, metadata? : Map[String, @core.JsonValue]?, source_map? : @core.SourceMap?, assets? : Array[@core.AssetRef]?, assembly? : @core.DocumentAssembly?) -> RenderContext
+pub fn make_render_context(Bool, fidelity_mode? : @product.FidelityMode, output_mode? : @product.OutputMode, execution_profile? : @product.ExecutionProfile, render_profile? : @product.RenderProfile, accurate_features? : @product.AccurateFeatureProfile, rag_options? : @rag.RagOptions, base_diagnostics? : @core.Diagnostics?, metadata? : Map[String, @core.JsonValue]?, source_map? : @core.SourceMap?, assets? : Array[@core.AssetRef]?, assembly? : @core.DocumentAssembly?) -> RenderContext
 
 pub fn markdown_renderer() -> Renderer
 
@@ -23,6 +23,9 @@ pub struct RenderContext {
   debug : Bool
   fidelity_mode : @product.FidelityMode
   output_mode : @product.OutputMode
+  execution_profile : @product.ExecutionProfile
+  render_profile : @product.RenderProfile
+  accurate_features : @product.AccurateFeatureProfile
   rag_options : @rag.RagOptions
   base_diagnostics : @core.Diagnostics?
   metadata : Map[String, @core.JsonValue]?

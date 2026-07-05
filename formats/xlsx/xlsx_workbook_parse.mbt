@@ -268,14 +268,11 @@ fn xlsx_init_diagnostics(
 ) -> Unit {
   diagnostics.metrics.set("parser_name", "xlsx_parser")
   diagnostics.metrics.set("parser_mode", "package_single_pass")
-  diagnostics.metrics.set(
-    "input_kind",
-    @parser_common.input_kind_name(source.kind),
-  )
+  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
   diagnostics.metrics.set("detected_format", "xlsx")
   diagnostics.metrics.set(
     "requested_mode",
-    @parser_common.requested_mode_name(context),
+    @fshared.requested_mode_name(context),
   )
   diagnostics.metrics.set("effective_mode", "package_single_pass")
   diagnostics.metrics.set("ir_input_kind", "document")
@@ -352,7 +349,7 @@ fn xlsx_init_diagnostics(
   )
   diagnostics.metrics.set("max_materialized_assets", "0")
   diagnostics.metrics.set("native_impl_location", "formats/xlsx")
-  @parser_common.apply_product_metrics(diagnostics, "xlsx")
+  @fshared.apply_product_metrics(diagnostics, "xlsx")
 }
 
 ///|
@@ -366,12 +363,23 @@ fn xlsx_parse_workbook(
   let max_cols = context.max_cols.unwrap_or(50)
   let max_cells = context.max_cells.unwrap_or(100000)
   let max_sheets = 200
-  let include_hidden_sheets = context.fidelity_mode ==
-    @product.FidelityMode::Accurate
-  let include_hidden_rows = context.fidelity_mode ==
-    @product.FidelityMode::Accurate
-  let include_merge_layout = context.fidelity_mode ==
-    @product.FidelityMode::Accurate
+  let accurate_semantic = context.lowering_profile ==
+    @product.LoweringProfile::AccurateSemantic
+  let include_hidden_sheets = accurate_semantic &&
+    @product.accurate_feature_enabled(
+      context.accurate_features,
+      @product.AccurateFeature::XlsxHiddenSheets,
+    )
+  let include_hidden_rows = accurate_semantic &&
+    @product.accurate_feature_enabled(
+      context.accurate_features,
+      @product.AccurateFeature::XlsxHiddenRows,
+    )
+  let include_merge_layout = accurate_semantic &&
+    @product.accurate_feature_enabled(
+      context.accurate_features,
+      @product.AccurateFeature::XlsxMergedSpans,
+    )
 
   let included_sheets : Array[XlsxSheet] = []
   let effective_sheet_infos = if shared.sheet_infos.length() > max_sheets {

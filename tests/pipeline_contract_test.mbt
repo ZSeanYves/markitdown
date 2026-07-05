@@ -156,6 +156,12 @@ test "markdown footnotes normalize missing refs and keep definition bodies" {
       "[^e]: 1.  The top couple half figure, contrary sides and hands across with bottom couple,",
     ),
   )
+  assert_metric_eq(parsed.diagnostics, "footnote_definition_count", "3")
+  assert_metric_eq(parsed.diagnostics, "footnote_reference_count", "1")
+  assert_true(
+    document.blocks[1].attrs.get("raw_kind") ==
+    Some("markdown_footnote_definition"),
+  )
 }
 
 ///|
@@ -336,6 +342,75 @@ test "ndjson invalid input falls back with line-aware diagnostics" {
 }
 
 ///|
+test "jsonl and ndjson blank lines stay observable without becoming silent records" {
+  let jsonl = default_registry_parse(
+    @input.input_from_text_with_format(
+      "{\"name\":\"Alice\"}\n\n{\"name\":\"Bob\"}\n",
+      "blank-lines.jsonl",
+      Some(@input.DetectedFormat::Jsonl),
+    ),
+    @input.DetectedFormat::Jsonl,
+  )
+  let ndjson = default_registry_parse(
+    @input.input_from_text_with_format(
+      "{\"name\":\"Carol\"}\n\n{\"name\":\"Dave\"}\n",
+      "blank-lines.ndjson",
+      Some(@input.DetectedFormat::Ndjson),
+    ),
+    @input.DetectedFormat::Ndjson,
+  )
+  assert_metric_eq(jsonl.diagnostics, "record_count", "2")
+  assert_metric_eq(jsonl.diagnostics, "blank_line_count", "2")
+  assert_metric_eq(jsonl.diagnostics, "warning_count", "1")
+  assert_true(
+    jsonl.diagnostics.degraded_features.contains("jsonl_blank_line_skipped"),
+  )
+  assert_true(
+    jsonl.diagnostics.warnings[0].contains("blank jsonl line(s) skipped: 2"),
+  )
+  assert_metric_eq(ndjson.diagnostics, "record_count", "2")
+  assert_metric_eq(ndjson.diagnostics, "blank_line_count", "2")
+  assert_metric_eq(ndjson.diagnostics, "warning_count", "1")
+  assert_true(
+    ndjson.diagnostics.degraded_features.contains("ndjson_blank_line_skipped"),
+  )
+  assert_true(
+    ndjson.diagnostics.warnings[0].contains("blank ndjson line(s) skipped: 2"),
+  )
+}
+
+///|
+test "jsonl and ndjson normalize record bom and text sequence prefixes" {
+  let jsonl = convert_memory_text(
+    "\u{FEFF}{\"a\":1}\n\u{001E}{\"b\":2}\n",
+    "normalized.jsonl",
+    @input.DetectedFormat::Jsonl,
+  )
+  let ndjson = convert_memory_text(
+    "\u{001E}{\"name\":\"Alice\",\"score\":7}\n\u{FEFF}{\"name\":\"Bob\",\"score\":9}\n",
+    "normalized.ndjson",
+    @input.DetectedFormat::Ndjson,
+  )
+  assert_true(jsonl.content.contains("| a |"))
+  assert_true(jsonl.content.contains("```jsonl\n{\"b\":2}\n```"))
+  assert_true(ndjson.content.contains("| name | score |"))
+  assert_true(ndjson.content.contains("| Alice | 7 |"))
+  assert_true(ndjson.content.contains("| Bob | 9 |"))
+}
+
+///|
+test "jsonl identical schema with reordered keys stays normalized as one table" {
+  let jsonl = convert_memory_text(
+    "{\"a\":1,\"b\":2}\n{\"b\":2,\"a\":1}\n",
+    "reordered.jsonl",
+    @input.DetectedFormat::Jsonl,
+  )
+  assert_true(jsonl.content.contains("| a | b |"))
+  assert_true(jsonl.content.contains("| 1 | 2 |\n| 1 | 2 |"))
+  assert_true(!jsonl.content.contains("```jsonl"))
+}
+
+///|
 test "json large input switches to true streaming event path" {
   let parsed = default_registry_parse(
     @input.input_from_text_with_format(
@@ -471,6 +546,29 @@ test "xml fail closed paths preserve fenced raw output and diagnostics" {
 }
 
 ///|
+test "xml numeric entities lower through product path while unknown entities still fail closed" {
+  let numeric = convert_memory_text(
+    "<root>&#169; &#x41; &#X4F60;</root>",
+    "numeric-entities.xml",
+    @input.DetectedFormat::Xml,
+  )
+  assert_eq(numeric.content, "# <root>\n\n- © A 你")
+  assert_metric_eq(numeric.diagnostics, "format_contract", "xml")
+  assert_true(
+    !numeric.diagnostics.degraded_features.contains("xml_fail_closed"),
+  )
+
+  let unknown = convert_memory_text(
+    "<root>&writer;</root>",
+    "unknown-entity.xml",
+    @input.DetectedFormat::Xml,
+  )
+  assert_true(unknown.content.contains("```xml"))
+  assert_true(unknown.content.contains("&writer;"))
+  assert_true(unknown.diagnostics.degraded_features.contains("xml_fail_closed"))
+}
+
+///|
 test "xml path input honors declared iso-8859-1 bytes for literal fallback" {
   let root = test_tmp_root() + "/xml-encoding"
   recreate_clean_dir(root)
@@ -542,7 +640,7 @@ test "xml convert contract keeps dom and event paths renderer-aligned" {
 ///|
 test "xml worldbank namespace dataset stays on streaming event route" {
   let result = convert_path(
-    "samples/main_process/xml/markdown/xml_namespace_syntax.xml",
+    "samples/fixtures/contracts/xml/xml_namespace_syntax.xml",
     format=Some(@input.DetectedFormat::Xml),
     limits=limits(1, 50, 10000, max_line_chars=8),
   )
@@ -556,17 +654,17 @@ test "xml worldbank namespace dataset stays on streaming event route" {
 ///|
 test "xml synthetic benchmark samples stay parseable and keep intended routes" {
   let small = convert_path(
-    "samples/main_process/xml/markdown/xml_basic.xml",
+    "samples/fixtures/contracts/xml/xml_basic.xml",
     format=Some(@input.DetectedFormat::Xml),
     limits=limits(1, 50, 10000, max_line_chars=8),
   )
   let medium = convert_path(
-    "samples/main_process/xml/markdown/xml_nested.xml",
+    "samples/fixtures/contracts/xml/xml_nested.xml",
     format=Some(@input.DetectedFormat::Xml),
     limits=limits(1, 50, 10000, max_line_chars=8),
   )
   let huge = convert_path(
-    "samples/main_process/xml/markdown/xml_namespace_syntax.xml",
+    "samples/fixtures/contracts/xml/xml_namespace_syntax.xml",
     format=Some(@input.DetectedFormat::Xml),
     limits=limits(1, 50, 10000, max_line_chars=8),
   )
@@ -587,7 +685,7 @@ test "xml synthetic benchmark samples stay parseable and keep intended routes" {
 ///|
 test "xlsx huge benchmark sample should not fail closed on package open" {
   let result = convert_path(
-    "samples/main_process/xlsx/markdown/xlsx_multi_sheet_mixed.xlsx",
+    "samples/fixtures/contracts/xlsx/xlsx_multi_sheet_mixed.xlsx",
     format=Some(@input.DetectedFormat::Xlsx),
     limits=limits(1, 1, 1),
   )
@@ -603,7 +701,7 @@ test "xlsx huge benchmark sample should not fail closed on package open" {
 ///|
 test "html large benchmark sample stays on block streaming route" {
   let result = convert_path(
-    "samples/main_process/html/markdown/html_semantic_sectioning.html",
+    "samples/fixtures/contracts/html/html_semantic_sectioning.html",
     format=Some(@input.DetectedFormat::Html),
     limits=limits(1, 50, 100000),
   )
@@ -616,12 +714,113 @@ test "html large benchmark sample stays on block streaming route" {
 ///|
 test "epub large benchmark sample keeps package single pass public shape" {
   let result = convert_path(
-    "samples/main_process/epub/markdown/epub_basic_package.epub",
+    "samples/fixtures/contracts/epub/epub_basic_package.epub",
     format=Some(@input.DetectedFormat::Epub),
   )
   assert_true(result.parser_mode == @parser.ParserMode::PackageSinglePass)
   assert_metric_eq(result.diagnostics, "selected_route", "package_single_pass")
   assert_metric_eq(result.diagnostics, "effective_mode", "package_single_pass")
+  assert_metric_eq(result.diagnostics, "builder_input_kind", "block_stream")
+}
+
+///|
+test "odt default route keeps package single pass public shape" {
+  let result = convert_path(
+    "samples/fixtures/contracts/odt/odt_basic_sample.odt",
+    format=Some(@input.DetectedFormat::Odt),
+  )
+  assert_true(result.parser_mode == @parser.ParserMode::PackageSinglePass)
+  assert_metric_eq(result.diagnostics, "selected_route", "package_single_pass")
+  assert_metric_eq(result.diagnostics, "effective_mode", "package_single_pass")
+  assert_metric_eq(result.diagnostics, "builder_input_kind", "document")
+  assert_true(result.content.contains("# ODT Sample"))
+  assert_true(result.content.contains("![red-dot](assets/odt-red.png)"))
+}
+
+///|
+test "odt hyperlink and note semantics stay visible on package route" {
+  let link = convert_path(
+    "samples/fixtures/contracts/odt/Hyperlink-AOO401.odt",
+    format=Some(@input.DetectedFormat::Odt),
+  )
+  let notes = convert_path(
+    "samples/fixtures/contracts/odt/footnote.odt",
+    format=Some(@input.DetectedFormat::Odt),
+  )
+  assert_true(link.content.contains("[llo Wor](http://www.heise.de/)"))
+  assert_true(notes.content.contains("A text before footnote[^1]."))
+  assert_true(notes.content.contains("A text before endnote[^ei]."))
+  assert_true(notes.content.contains("[^1]: A footnote?"))
+  assert_true(notes.content.contains("[^ei]: An endnote?"))
+}
+
+///|
+test "odt explicit stream route switches to block streaming" {
+  let result = convert_path(
+    "samples/fixtures/contracts/odt/odt_basic_sample.odt",
+    format=Some(@input.DetectedFormat::Odt),
+    mode=@convert.ConvertMode::Stream,
+  )
+  assert_true(result.parser_mode == @parser.ParserMode::BlockStreaming)
+  assert_metric_eq(result.diagnostics, "selected_route", "block_streaming")
+  assert_metric_eq(result.diagnostics, "route_reason", "explicit_stream_mode")
+  assert_metric_eq(result.diagnostics, "effective_mode", "block_streaming")
+  assert_metric_eq(result.diagnostics, "builder_input_kind", "block_stream")
+}
+
+///|
+test "ods default route keeps package single pass public shape" {
+  let result = convert_path(
+    "samples/fixtures/contracts/ods/ods_basic_sample.ods",
+    format=Some(@input.DetectedFormat::Ods),
+  )
+  assert_true(result.parser_mode == @parser.ParserMode::PackageSinglePass)
+  assert_metric_eq(result.diagnostics, "selected_route", "package_single_pass")
+  assert_metric_eq(result.diagnostics, "effective_mode", "package_single_pass")
+  assert_metric_eq(result.diagnostics, "builder_input_kind", "document")
+  assert_true(result.content.contains("# Budget"))
+  assert_true(result.content.contains("| Alpha | 42 |"))
+}
+
+///|
+test "ods explicit stream route switches to block streaming" {
+  let result = convert_path(
+    "samples/fixtures/contracts/ods/ods_basic_sample.ods",
+    format=Some(@input.DetectedFormat::Ods),
+    mode=@convert.ConvertMode::Stream,
+  )
+  assert_true(result.parser_mode == @parser.ParserMode::BlockStreaming)
+  assert_metric_eq(result.diagnostics, "selected_route", "block_streaming")
+  assert_metric_eq(result.diagnostics, "route_reason", "explicit_stream_mode")
+  assert_metric_eq(result.diagnostics, "effective_mode", "block_streaming")
+  assert_metric_eq(result.diagnostics, "builder_input_kind", "block_stream")
+}
+
+///|
+test "odp default route keeps package single pass public shape" {
+  let result = convert_path(
+    "samples/fixtures/contracts/odp/odp_basic_sample.odp",
+    format=Some(@input.DetectedFormat::Odp),
+  )
+  assert_true(result.parser_mode == @parser.ParserMode::PackageSinglePass)
+  assert_metric_eq(result.diagnostics, "selected_route", "package_single_pass")
+  assert_metric_eq(result.diagnostics, "effective_mode", "package_single_pass")
+  assert_metric_eq(result.diagnostics, "builder_input_kind", "document")
+  assert_true(result.content.contains("# ODP Sample"))
+  assert_true(result.content.contains("![red-dot](assets/odp-slide1-red.png)"))
+}
+
+///|
+test "odp explicit stream route switches to block streaming" {
+  let result = convert_path(
+    "samples/fixtures/contracts/odp/odp_basic_sample.odp",
+    format=Some(@input.DetectedFormat::Odp),
+    mode=@convert.ConvertMode::Stream,
+  )
+  assert_true(result.parser_mode == @parser.ParserMode::BlockStreaming)
+  assert_metric_eq(result.diagnostics, "selected_route", "block_streaming")
+  assert_metric_eq(result.diagnostics, "route_reason", "explicit_stream_mode")
+  assert_metric_eq(result.diagnostics, "effective_mode", "block_streaming")
   assert_metric_eq(result.diagnostics, "builder_input_kind", "block_stream")
 }
 
@@ -785,7 +984,7 @@ test "html large input switches to true structure event stream" {
 ///|
 test "html convert contract keeps dom and event paths renderer-aligned" {
   let small = convert_path(
-    "samples/main_process/html/markdown/html_details_summary.html",
+    "samples/fixtures/contracts/html/html_details_summary.html",
     format=Some(@input.DetectedFormat::Html),
   )
   let large_parsed = default_registry_parse(
@@ -877,33 +1076,192 @@ test "block stream fast path skips full pipeline for html block route" {
 }
 
 ///|
+test "structured document fast path skips normalization passes for toml route" {
+  let parsed = default_registry_parse(
+    @input.input_from_path(
+      "samples/fixtures/contracts/toml/toml_array_of_tables_table.toml",
+    ),
+    @input.DetectedFormat::Toml,
+  )
+  assert_metric_eq(
+    parsed.diagnostics,
+    "structured_document_profile",
+    "pipeline_ready",
+  )
+  let context = @pipeline.make_pass_context(false, "balanced")
+  context.diagnostics.val = parsed.diagnostics
+  let output = match
+    @pipeline.run_default_pipeline(
+      @runtime.parse_result_to_ir_input(parsed),
+      context,
+    ) {
+    Ok(value) => value
+    Err(err) => abort("structured document fast path failed: " + err.message)
+  }
+  let document = match output {
+    @core.IRInput::Document(document) => document
+    _ => abort("expected structured document fast path to preserve Document")
+  }
+  assert_true(
+    context.diagnostics.val.pass_trace.contains(
+      "pipeline:structured_document_fast_path",
+    ),
+  )
+  assert_true(context.diagnostics.val.pass_trace.contains("NormalizeTextPass"))
+  assert_true(
+    context.diagnostics.val.pass_trace.contains("NormalizeWhitespacePass"),
+  )
+  assert_true(
+    !context.diagnostics.val.pass_trace.contains("ResolveHeadingPass"),
+  )
+  assert_true(
+    context.diagnostics.val.pass_trace.contains("AssembleSectionTreePass"),
+  )
+  assert_true(
+    context.diagnostics.val.pass_trace.contains("ResolveRenderHintsPass"),
+  )
+  assert_true(
+    context.diagnostics.val.metrics.get("pipeline_profile") ==
+    Some("structured_document"),
+  )
+  assert_true(
+    context.diagnostics.val.metrics.get("builder_input_kind") ==
+    Some("document"),
+  )
+  assert_true(document.assembly is Some(_))
+}
+
+///|
+test "structured text document fast path still assembles heading render hints" {
+  let parsed = default_registry_parse(
+    @input.input_from_text_with_format(
+      "= Title\n\nParagraph under title.\n",
+      "fast-path.adoc",
+      Some(@input.DetectedFormat::Asciidoc),
+    ),
+    @input.DetectedFormat::Asciidoc,
+  )
+  assert_metric_eq(
+    parsed.diagnostics,
+    "structured_document_profile",
+    "pipeline_ready",
+  )
+  let context = @pipeline.make_pass_context(false, "balanced")
+  context.diagnostics.val = parsed.diagnostics
+  let output = match
+    @pipeline.run_default_pipeline(
+      @runtime.parse_result_to_ir_input(parsed),
+      context,
+    ) {
+    Ok(value) => value
+    Err(err) => abort("structured text fast path failed: " + err.message)
+  }
+  let document = match output {
+    @core.IRInput::Document(document) => document
+    _ => abort("expected structured text route to preserve Document")
+  }
+  assert_true(
+    context.diagnostics.val.pass_trace.contains(
+      "pipeline:structured_document_fast_path",
+    ),
+  )
+  assert_true(document.assembly is Some(_))
+  let assembly = document.assembly.unwrap_or(@core.empty_document_assembly())
+  assert_true(document.blocks.length() >= 2)
+  let heading = document.blocks[0]
+  let paragraph = document.blocks[1]
+  assert_true(heading.kind == @core.BlockKind::Heading)
+  assert_true(
+    heading.attrs.get("render_boundary_key") == Some(heading.block_id),
+  )
+  assert_true(assembly.heading_paths.get(paragraph.block_id) == Some(["Title"]))
+  assert_true(paragraph.attrs.get("render_boundary_key") == Some("Title"))
+}
+
+///|
+test "structured text document fast path skips empty asset passes for asset-free docs" {
+  let parsed = default_registry_parse(
+    @input.input_from_text_with_format(
+      "\\section{Overview}\n\nAlpha paragraph.\n",
+      "asset-free.tex",
+      Some(@input.DetectedFormat::Tex),
+    ),
+    @input.DetectedFormat::Tex,
+  )
+  assert_metric_eq(
+    parsed.diagnostics,
+    "structured_document_profile",
+    "pipeline_ready",
+  )
+  let context = @pipeline.make_pass_context(false, "balanced")
+  context.diagnostics.val = parsed.diagnostics
+  let output = match
+    @pipeline.run_default_pipeline(
+      @runtime.parse_result_to_ir_input(parsed),
+      context,
+    ) {
+    Ok(value) => value
+    Err(err) => abort("structured text fast path failed: " + err.message)
+  }
+  let document = match output {
+    @core.IRInput::Document(document) => document
+    _ => abort("expected structured text route to preserve Document")
+  }
+  assert_true(
+    context.diagnostics.val.pass_trace.contains(
+      "pipeline:structured_document_fast_path",
+    ),
+  )
+  assert_true(
+    !context.diagnostics.val.pass_trace.contains("CollectAssetRefsPass"),
+  )
+  assert_true(
+    !context.diagnostics.val.pass_trace.contains("ResolveCaptionPass"),
+  )
+  assert_true(!context.diagnostics.val.pass_trace.contains("ResolveAssetPass"))
+  assert_true(document.assembly is Some(_))
+  assert_true(
+    context.diagnostics.val.metrics.get("resolved_table_continuation_count") ==
+    Some("0"),
+  )
+  assert_true(
+    context.diagnostics.val.metrics.get("resolved_caption_binding_count") ==
+    Some("0"),
+  )
+  assert_true(
+    context.diagnostics.val.metrics.get("resolved_asset_binding_count") ==
+    Some("0"),
+  )
+}
+
+///|
 test "html parser contract preserves semantic behavior clusters and asset persistence" {
   let details = convert_path(
-    "samples/main_process/html/markdown/html_details_summary.html",
+    "samples/fixtures/contracts/html/html_details_summary.html",
     format=Some(@input.DetectedFormat::Html),
   )
   let nav = convert_path(
-    "samples/main_process/html/markdown/html_semantic_containers.html",
+    "samples/fixtures/contracts/html/html_semantic_containers.html",
     format=Some(@input.DetectedFormat::Html),
   )
   let list_quote = convert_path(
-    "samples/main_process/html/markdown/html_listitem_with_blockquote.html",
+    "samples/fixtures/contracts/html/html_listitem_with_blockquote.html",
     format=Some(@input.DetectedFormat::Html),
   )
   let blockquote = convert_path(
-    "samples/main_process/html/markdown/html_blockquote_mixed_text_and_paragraph.html",
+    "samples/fixtures/contracts/html/html_blockquote_mixed_text_and_paragraph.html",
     format=Some(@input.DetectedFormat::Html),
   )
   let table = convert_path(
-    "samples/main_process/html/markdown/html_br_table.html",
+    "samples/fixtures/contracts/html/html_br_table.html",
     format=Some(@input.DetectedFormat::Html),
   )
   let entities = convert_path(
-    "samples/main_process/html/markdown/html_entities.html",
+    "samples/fixtures/contracts/html/html_entities.html",
     format=Some(@input.DetectedFormat::Html),
   )
   let assets = convert_path(
-    "samples/main_process/html/assets/html_img_single.html",
+    "samples/fixtures/contracts/html/html_img_single.html",
     format=Some(@input.DetectedFormat::Html),
   )
   assert_eq(details.content, "Open\n\nBody")
@@ -924,10 +1282,39 @@ test "html parser contract preserves semantic behavior clusters and asset persis
 }
 
 ///|
+test "html figure keeps visible caption when image stays non-materialized" {
+  let remote = convert_memory_text(
+    "<article><figure><img src='https://example.com/a.png' alt='Remote'><figcaption>Caption text</figcaption></figure></article>",
+    "figure-remote.html",
+    @input.DetectedFormat::Html,
+  )
+  assert_eq(remote.content, "Caption text")
+  assert_true(
+    remote.diagnostics.degraded_features.contains(
+      "html_remote_image_reference_only",
+    ),
+  )
+  assert_metric_eq(remote.diagnostics, "asset_count", "0")
+
+  let data = convert_memory_text(
+    "<article><figure><img src='data:image/png;base64,abc' alt='Inline'><figcaption>Inline caption</figcaption></figure></article>",
+    "figure-data.html",
+    @input.DetectedFormat::Html,
+  )
+  assert_true(data.content.contains("\\[inline data\\]"))
+  assert_true(data.content.contains("Inline caption"))
+  assert_true(
+    data.diagnostics.degraded_features.contains(
+      "html_data_image_reference_only",
+    ),
+  )
+}
+
+///|
 test "html parser keeps renderer boundary for link image table and br semantics" {
   let linked = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/html/markdown/html_link_in_paragraph.html",
+      "samples/fixtures/contracts/html/html_link_in_paragraph.html",
     ),
     @input.DetectedFormat::Html,
   )
@@ -954,9 +1341,7 @@ test "html parser keeps renderer boundary for link image table and br semantics"
   assert_contains_none(paragraph.text, ["[the docs](", "<a "])
 
   let table = default_registry_parse(
-    @input.input_from_path(
-      "samples/main_process/html/markdown/html_br_table.html",
-    ),
+    @input.input_from_path("samples/fixtures/contracts/html/html_br_table.html"),
     @input.DetectedFormat::Html,
   )
   let table_doc = table.document.unwrap_or(@core.empty_document_ir())
@@ -984,7 +1369,7 @@ test "html parser keeps renderer boundary for link image table and br semantics"
 
   let imaged = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/html/assets/html_img_single.html",
+      "samples/fixtures/contracts/html/html_img_single.html",
     ),
     @input.DetectedFormat::Html,
   )
@@ -1012,7 +1397,7 @@ test "html parser keeps renderer boundary for link image table and br semantics"
 test "docx merged table boundary keeps full body column count through product path" {
   let parsed = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/docx/markdown/docx_table_merged_cells_boundary.docx",
+      "samples/fixtures/contracts/docx/docx_table_merged_cells_boundary.docx",
     ),
     @input.DetectedFormat::Docx,
   )
@@ -1041,7 +1426,7 @@ test "docx merged table boundary keeps full body column count through product pa
 test "nested ordered list indentation remains parser-owned while renderer stays generic" {
   let html_mixed = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/html/markdown/html_nested_list_mixed.html",
+      "samples/fixtures/contracts/html/html_nested_list_mixed.html",
     ),
     @input.DetectedFormat::Html,
   )
@@ -1070,13 +1455,13 @@ test "nested ordered list indentation remains parser-owned while renderer stays 
     @render.make_render_context(false),
   )
   let html_mixed_expected = read_utf8_text(
-    "samples/main_process/html/expected/markdown/html_nested_list_mixed.md",
+    "samples/fixtures/contracts/html/html_nested_list_mixed.expected.md",
   )
   let html_deep_expected = read_utf8_text(
-    "samples/main_process/html/expected/markdown/html_nested_lists_deep.md",
+    "samples/fixtures/contracts/html/html_nested_lists_deep.expected.md",
   )
   let docx_mixed_expected = read_utf8_text(
-    "samples/main_process/docx/expected/markdown/docx_nested_lists_mixed.md",
+    "samples/fixtures/contracts/docx/docx_nested_lists_mixed.expected.md",
   )
   assert_eq(
     html_mixed_rendered.content.trim().to_owned(),
@@ -1084,7 +1469,7 @@ test "nested ordered list indentation remains parser-owned while renderer stays 
   )
 
   let html_deep = convert_path(
-    "samples/main_process/html/markdown/html_nested_lists_deep.html",
+    "samples/fixtures/contracts/html/html_nested_lists_deep.html",
     format=Some(@input.DetectedFormat::Html),
   )
   assert_eq(
@@ -1093,7 +1478,7 @@ test "nested ordered list indentation remains parser-owned while renderer stays 
   )
 
   let docx_mixed = convert_path(
-    "samples/main_process/docx/markdown/docx_nested_lists_mixed.docx",
+    "samples/fixtures/contracts/docx/docx_nested_lists_mixed.docx",
     format=Some(@input.DetectedFormat::Docx),
   )
   assert_eq(
@@ -1121,6 +1506,30 @@ test "html product path keeps content sections with hyphenated nav-like ids" {
     "toc nav", "Body A", "landmarks nav", "Body B", "page-list nav", "110", "Custom nav elements",
     "Glossary",
   ])
+  assert_metric_eq(result.diagnostics, "scope_source", "article")
+  assert_metric_eq(result.diagnostics, "selected_content_root", "article")
+  assert_metric_eq(result.diagnostics, "readability_mode", "hybrid")
+}
+
+///|
+test "html hybrid diagnostics expose boilerplate suppression and selected root" {
+  let parsed = default_registry_parse(
+    @input.input_from_text_with_format(
+      "<html><body>" +
+      "<nav><ul><li>Home</li><li>About</li></ul></nav>" +
+      "<main><article><h1>Title</h1><p>Body</p></article></main>" +
+      "<footer><p>Footer</p></footer>" +
+      "</body></html>",
+      "hybrid.html",
+      Some(@input.DetectedFormat::Html),
+    ),
+    @input.DetectedFormat::Html,
+  )
+  assert_metric_eq(parsed.diagnostics, "scope_source", "main")
+  assert_metric_eq(parsed.diagnostics, "selected_content_root", "main")
+  assert_metric_eq(parsed.diagnostics, "readability_mode", "hybrid")
+  assert_metric_present(parsed.diagnostics, "noise_repeated_boilerplate_count")
+  assert_metric_present(parsed.diagnostics, "boilerplate_skipped_block_count")
 }
 
 ///|
@@ -1156,7 +1565,7 @@ test "html product path keeps full safe external href" {
 test "html safety keeps unsafe links as text with diagnostics and no parser markdown fallback" {
   let parsed = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/html/markdown/html_link_unsafe_javascript.html",
+      "samples/fixtures/contracts/html/html_link_unsafe_javascript.html",
     ),
     @input.DetectedFormat::Html,
   )
@@ -1327,6 +1736,36 @@ test "txt invalid utf8 bytes fail closed with diagnostics and raw fallback" {
   )
   assert_true(
     result.diagnostics.metrics.get("invalid_utf8_fallback") == Some("true"),
+  )
+}
+
+///|
+test "txt utf16 bom bytes decode through shared text input path" {
+  let bytes : Array[Byte] = [
+    255, 254, 67, 0, 111, 0, 117, 0, 110, 0, 116, 0, 114, 0, 121, 0, 9, 0, 86, 0,
+    97, 0, 108, 0, 117, 0, 101, 0, 10, 0, 77, 0, 111, 0, 111, 0, 110, 0, 66, 0, 105,
+    0, 116, 0, 9, 0, 52, 0, 50, 0, 10, 0,
+  ]
+  let options = @convert.make_convert_options(
+    @convert.ConvertMode::Balanced,
+    @convert.OutputFormat::Markdown,
+    Some(@input.DetectedFormat::Txt),
+    @parser.default_ocr_options(),
+    @convert.default_resource_limits(),
+  )
+  let source = @input.input_from_bytes_with_format(
+    Bytes::from_array(bytes),
+    "utf16.txt",
+    Some(@input.DetectedFormat::Txt),
+  )
+  let result = match @convert.convert_input(source, options) {
+    Ok(value) => value
+    Err(err) => fail("convert failed: " + err.to_string())
+  }
+  assert_true(result.content.contains("Country\tValue"))
+  assert_true(result.content.contains("MoonBit\t42"))
+  assert_true(
+    result.diagnostics.metrics.get("invalid_utf8_fallback") == Some("false"),
   )
 }
 
@@ -1595,6 +2034,16 @@ test "csv and tsv maturity cover quoted fields ragged rows multiline cells and d
     tsv.diagnostics.metrics.get("quoted_delimiter_support") ==
     Some("quoted_tab"),
   )
+
+  let blank_rows = convert_memory_text(
+    "a,b\n\n1,2\n",
+    "blank-rows.csv",
+    @input.DetectedFormat::Csv,
+  )
+  assert_true(blank_rows.content.contains("| a | b |"))
+  assert_true(blank_rows.content.contains("| 1 | 2 |"))
+  assert_metric_eq(blank_rows.diagnostics, "blank_row_count", "0")
+  assert_metric_eq(blank_rows.diagnostics, "line_count", "4")
 }
 
 ///|
@@ -1814,6 +2263,674 @@ test "structured text parsers keep semantic values and renderer owns markdown fo
 }
 
 ///|
+test "toml product path keeps array tables semantic and malformed fallback explicit" {
+  let semantic = default_registry_parse(
+    @input.input_from_path(
+      "samples/fixtures/contracts/toml/toml_array_of_tables_table.toml",
+    ),
+    @input.DetectedFormat::Toml,
+  )
+  let malformed = default_registry_parse(
+    @input.input_from_path(
+      "samples/fixtures/contracts/toml/toml_malformed_current_fallback.toml",
+    ),
+    @input.DetectedFormat::Toml,
+  )
+  let semantic_doc = semantic.document.unwrap_or(@core.empty_document_ir())
+  let malformed_doc = malformed.document.unwrap_or(@core.empty_document_ir())
+  assert_true(semantic_doc.blocks.length() >= 2)
+  assert_true(semantic_doc.blocks[0].kind == @core.BlockKind::Heading)
+  assert_true(semantic_doc.blocks[1].kind == @core.BlockKind::Table)
+  assert_eq(semantic_doc.blocks[1].children[1].children[0].text, "Hammer")
+  assert_true(
+    !semantic.diagnostics.degraded_features.contains("toml_raw_fenced_fallback"),
+  )
+  assert_metric_eq(semantic.diagnostics, "effective_mode", "dom_ast_model")
+  assert_metric_eq(semantic.diagnostics, "ir_input_kind", "document")
+  assert_true(malformed_doc.blocks.length() == 1)
+  assert_true(malformed_doc.blocks[0].kind == @core.BlockKind::Code)
+  assert_true(
+    malformed.diagnostics.degraded_features.contains("toml_raw_fenced_fallback"),
+  )
+  assert_true(malformed.diagnostics.warnings.length() > 0)
+  assert_metric_eq(malformed.diagnostics, "syntax_error_count", "1")
+}
+
+///|
+test "ipynb product path keeps notebook semantics assets and malformed fallback explicit" {
+  let semantic = default_registry_parse(
+    @input.input_from_text_with_format(
+      "{\n" +
+      "  \"nbformat\": 4,\n" +
+      "  \"nbformat_minor\": 5,\n" +
+      "  \"metadata\": {\n" +
+      "    \"kernelspec\": {\"name\": \"python3\", \"display_name\": \"Python 3\"},\n" +
+      "    \"language_info\": {\"name\": \"python\", \"version\": \"3.11\"}\n" +
+      "  },\n" +
+      "  \"cells\": [\n" +
+      "    {\n" +
+      "      \"cell_type\": \"markdown\",\n" +
+      "      \"id\": \"m1\",\n" +
+      "      \"attachments\": {\n" +
+      "        \"dot.png\": {\n" +
+      "          \"image/png\": \"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7Z0MsAAAAASUVORK5CYII=\"\n" +
+      "        }\n" +
+      "      },\n" +
+      "      \"source\": [\"![dot](attachment:dot.png)\\n\"]\n" +
+      "    },\n" +
+      "    {\n" +
+      "      \"cell_type\": \"code\",\n" +
+      "      \"id\": \"c1\",\n" +
+      "      \"execution_count\": 1,\n" +
+      "      \"source\": \"display('ok')\\n\",\n" +
+      "      \"outputs\": [\n" +
+      "        {\n" +
+      "          \"output_type\": \"display_data\",\n" +
+      "          \"data\": {\n" +
+      "            \"image/png\": \"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7Z0MsAAAAASUVORK5CYII=\",\n" +
+      "            \"text/plain\": [\"<Image>\\n\"]\n" +
+      "          }\n" +
+      "        }\n" +
+      "      ]\n" +
+      "    }\n" +
+      "  ]\n" +
+      "}\n",
+      "semantic.ipynb",
+      Some(@input.DetectedFormat::Ipynb),
+    ),
+    @input.DetectedFormat::Ipynb,
+  )
+  let malformed = default_registry_parse(
+    @input.input_from_text_with_format(
+      "{\"nbformat\":4,\"cells\":\"oops\"}\n",
+      "malformed.ipynb",
+      Some(@input.DetectedFormat::Ipynb),
+    ),
+    @input.DetectedFormat::Ipynb,
+  )
+  let semantic_doc = semantic.document.unwrap_or(@core.empty_document_ir())
+  let malformed_doc = malformed.document.unwrap_or(@core.empty_document_ir())
+  let semantic_texts = flatten_block_texts(semantic_doc.blocks)
+  assert_true(semantic_doc.blocks.length() >= 5)
+  assert_true(semantic_doc.assets.length() == 2)
+  assert_true(semantic_texts.contains("[Cell 1 | markdown]"))
+  assert_true(semantic_texts.contains("[Cell 2 | code | execution=1]"))
+  assert_true(
+    semantic_texts.contains("[Output 2.1 | display_data | image/png]"),
+  )
+  let attachment_asset = semantic_doc.assets[0]
+  assert_true(
+    attachment_asset.path == Some("assets/ipynb-cell01-attachment-dot-png.png"),
+  )
+  assert_true(
+    attachment_asset.attrs.get("inline_payload_kind") == Some("base64"),
+  )
+  assert_true(
+    semantic_doc.assets
+    .map(fn(asset) { asset.path.unwrap_or("") })
+    .contains("assets/ipynb-cell02-output01.png"),
+  )
+  assert_metric_eq(semantic.diagnostics, "effective_mode", "dom_ast_model")
+  assert_metric_eq(semantic.diagnostics, "ir_input_kind", "document")
+  assert_metric_eq(semantic.diagnostics, "asset_count", "2")
+  assert_true(
+    !semantic.diagnostics.degraded_features.contains(
+      "ipynb_raw_fenced_fallback",
+    ),
+  )
+  assert_true(malformed_doc.blocks.length() == 1)
+  assert_true(malformed_doc.blocks[0].kind == @core.BlockKind::Code)
+  assert_true(
+    malformed.diagnostics.degraded_features.contains(
+      "ipynb_raw_fenced_fallback",
+    ),
+  )
+  assert_true(malformed.diagnostics.warnings.length() > 0)
+  assert_metric_eq(malformed.diagnostics, "syntax_error_count", "1")
+}
+
+///|
+test "ipynb html output without visible html lowering falls back to fenced html" {
+  let semantic = default_registry_parse(
+    @input.input_from_text_with_format(
+      "{\n" +
+      "  \"nbformat\": 4,\n" +
+      "  \"nbformat_minor\": 5,\n" +
+      "  \"metadata\": {\"language_info\": {\"name\": \"python\"}},\n" +
+      "  \"cells\": [\n" +
+      "    {\n" +
+      "      \"cell_type\": \"code\",\n" +
+      "      \"execution_count\": 3,\n" +
+      "      \"source\": \"display(HTML('<script>console.log(1)</script>'))\\n\",\n" +
+      "      \"outputs\": [\n" +
+      "        {\n" +
+      "          \"output_type\": \"execute_result\",\n" +
+      "          \"execution_count\": 3,\n" +
+      "          \"data\": {\n" +
+      "            \"text/html\": [\"<script>console.log(1)</script>\\n\"],\n" +
+      "            \"text/plain\": [\"<IPython.core.display.HTML object>\\n\"]\n" +
+      "          }\n" +
+      "        }\n" +
+      "      ]\n" +
+      "    }\n" +
+      "  ]\n" +
+      "}\n",
+      "html-output.ipynb",
+      Some(@input.DetectedFormat::Ipynb),
+    ),
+    @input.DetectedFormat::Ipynb,
+  )
+  let semantic_doc = semantic.document.unwrap_or(@core.empty_document_ir())
+  let semantic_texts = flatten_block_texts(semantic_doc.blocks)
+  let html_blocks = semantic_doc.blocks.filter(fn(block) {
+    block.kind == @core.BlockKind::Code &&
+    block.attrs.get("info") == Some("html")
+  })
+  assert_true(
+    semantic_texts.contains("[Output 1.1 | execute_result | text/html]"),
+  )
+  assert_true(html_blocks.length() == 1)
+  assert_true(html_blocks[0].text.contains("<script>console.log(1)</script>"))
+  assert_true(
+    semantic.diagnostics.degraded_features.contains(
+      "ipynb_html_output_empty_visible_payload",
+    ),
+  )
+}
+
+///|
+test "ipynb javascript mime output is preferred over plain object repr" {
+  let semantic = default_registry_parse(
+    @input.input_from_text_with_format(
+      "{\n" +
+      "  \"nbformat\": 4,\n" +
+      "  \"nbformat_minor\": 5,\n" +
+      "  \"metadata\": {\"language_info\": {\"name\": \"python\"}},\n" +
+      "  \"cells\": [\n" +
+      "    {\n" +
+      "      \"cell_type\": \"code\",\n" +
+      "      \"execution_count\": 7,\n" +
+      "      \"source\": \"%%javascript\\nconsole.log('hi')\\n\",\n" +
+      "      \"outputs\": [\n" +
+      "        {\n" +
+      "          \"output_type\": \"display_data\",\n" +
+      "          \"data\": {\n" +
+      "            \"application/javascript\": [\"console.log(\\\"hi\\\");\"],\n" +
+      "            \"text/plain\": [\"<IPython.core.display.Javascript object>\\n\"]\n" +
+      "          }\n" +
+      "        }\n" +
+      "      ]\n" +
+      "    }\n" +
+      "  ]\n" +
+      "}\n",
+      "javascript-output.ipynb",
+      Some(@input.DetectedFormat::Ipynb),
+    ),
+    @input.DetectedFormat::Ipynb,
+  )
+  let semantic_doc = semantic.document.unwrap_or(@core.empty_document_ir())
+  let semantic_texts = flatten_block_texts(semantic_doc.blocks)
+  let js_blocks = semantic_doc.blocks.filter(fn(block) {
+    block.kind == @core.BlockKind::Code &&
+    block.attrs.get("info") == Some("javascript")
+  })
+  let output_js_blocks = js_blocks.filter(fn(block) {
+    let source_ref = block.source_ref.unwrap_or(@core.empty_source_ref())
+    source_ref.extra.get("ipynb_output_kind") == Some("display_data")
+  })
+  assert_true(
+    semantic_texts.contains(
+      "[Output 1.1 | display_data | application/javascript]",
+    ),
+  )
+  assert_true(output_js_blocks.length() == 1)
+  assert_true(output_js_blocks[0].text.contains("console.log(\"hi\");"))
+  assert_true(
+    !flatten_block_texts([output_js_blocks[0]]).contains(
+      "<IPython.core.display.Javascript object>",
+    ),
+  )
+  assert_metric_eq(
+    semantic.diagnostics,
+    "ipynb_output_selected_mime",
+    "application/javascript",
+  )
+  assert_true(
+    semantic.diagnostics.degraded_features.contains(
+      "ipynb_javascript_output_raw_fallback",
+    ),
+  )
+}
+
+///|
+test "ipynb structured plus-json output keeps selected mime visible" {
+  let semantic = default_registry_parse(
+    @input.input_from_text_with_format(
+      "{\n" +
+      "  \"nbformat\": 4,\n" +
+      "  \"nbformat_minor\": 5,\n" +
+      "  \"metadata\": {\"language_info\": {\"name\": \"python\"}},\n" +
+      "  \"cells\": [\n" +
+      "    {\n" +
+      "      \"cell_type\": \"code\",\n" +
+      "      \"execution_count\": 1,\n" +
+      "      \"source\": \"display({})\\n\",\n" +
+      "      \"outputs\": [\n" +
+      "        {\n" +
+      "          \"output_type\": \"display_data\",\n" +
+      "          \"data\": {\n" +
+      "            \"application/vnd.demo+json\": {\"name\": \"markitdown\", \"score\": 7},\n" +
+      "            \"text/plain\": [\"{'name': 'markitdown', 'score': 7}\\n\"]\n" +
+      "          }\n" +
+      "        }\n" +
+      "      ]\n" +
+      "    }\n" +
+      "  ]\n" +
+      "}\n",
+      "plus-json-output.ipynb",
+      Some(@input.DetectedFormat::Ipynb),
+    ),
+    @input.DetectedFormat::Ipynb,
+  )
+  assert_metric_eq(
+    semantic.diagnostics,
+    "ipynb_output_selected_mime",
+    "application/vnd.demo+json",
+  )
+  assert_true(
+    !semantic.diagnostics.degraded_features.contains(
+      "ipynb_structured_json_output_raw_fallback",
+    ),
+  )
+}
+
+///|
+test "subtitle malformed input stays in streaming event fail closed path" {
+  let srt = default_registry_parse(
+    @input.input_from_text_with_format(
+      "1\nnot a time range\nbroken\n",
+      "broken.srt",
+      Some(@input.DetectedFormat::Srt),
+    ),
+    @input.DetectedFormat::Srt,
+  )
+  let vtt = default_registry_parse(
+    @input.input_from_text_with_format(
+      "WEBVTT\n\nintro\nnot a time range\nbroken\n",
+      "broken.vtt",
+      Some(@input.DetectedFormat::Vtt),
+    ),
+    @input.DetectedFormat::Vtt,
+  )
+
+  assert_true(srt.mode == @parser.ParserMode::StreamingEvent)
+  assert_true(srt.event_stream is Some(_))
+  assert_true(srt.document is None)
+  assert_metric_eq(srt.diagnostics, "effective_mode", "streaming_event")
+  assert_metric_eq(srt.diagnostics, "ir_input_kind", "event_stream")
+  assert_metric_eq(srt.diagnostics, "builder_input_kind", "event_stream")
+  assert_metric_eq(srt.diagnostics, "syntax_error_count", "1")
+  assert_true(
+    srt.diagnostics.degraded_features.contains("srt_raw_fenced_fallback"),
+  )
+
+  assert_true(vtt.mode == @parser.ParserMode::StreamingEvent)
+  assert_true(vtt.event_stream is Some(_))
+  assert_true(vtt.document is None)
+  assert_metric_eq(vtt.diagnostics, "effective_mode", "streaming_event")
+  assert_metric_eq(vtt.diagnostics, "ir_input_kind", "event_stream")
+  assert_metric_eq(vtt.diagnostics, "builder_input_kind", "event_stream")
+  assert_metric_eq(vtt.diagnostics, "syntax_error_count", "1")
+  assert_true(
+    vtt.diagnostics.degraded_features.contains("vtt_raw_fenced_fallback"),
+  )
+}
+
+///|
+test "subtitle source refs promote cue time range into first class fields" {
+  let srt = default_registry_parse(
+    @input.input_from_text_with_format(
+      "1\n00:00:01,250 --> 00:00:03,500\nHello\n",
+      "timed.srt",
+      Some(@input.DetectedFormat::Srt),
+    ),
+    @input.DetectedFormat::Srt,
+  )
+  let vtt = default_registry_parse(
+    @input.input_from_text_with_format(
+      "WEBVTT\n\n00:00:01.250 --> 00:00:03.500 align:start position:20%\nHello\n",
+      "timed.vtt",
+      Some(@input.DetectedFormat::Vtt),
+    ),
+    @input.DetectedFormat::Vtt,
+  )
+  let srt_ref = srt.event_stream.unwrap_or([])[0].source_ref.unwrap_or(
+    @core.empty_source_ref(),
+  )
+  let vtt_ref = vtt.event_stream.unwrap_or([])[0].source_ref.unwrap_or(
+    @core.empty_source_ref(),
+  )
+  assert_true(srt_ref.time_start == Some("00:00:01,250"))
+  assert_true(srt_ref.time_end == Some("00:00:03,500"))
+  assert_true(vtt_ref.time_start == Some("00:00:01.250"))
+  assert_true(vtt_ref.time_end == Some("00:00:03.500"))
+}
+
+///|
+test "text markup formats lift common tables and inline semantics into IR" {
+  let rst = default_registry_parse(
+    @input.input_from_text_with_format(
+      "Overview\n========\n\nSee `spec <https://example.com/spec>`_ and `alpha`.\n\n+---+---+\n| A | B |\n+===+===+\n| 1 | 2 |\n+---+---+\n",
+      "semantic.rst",
+      Some(@input.DetectedFormat::Rst),
+    ),
+    @input.DetectedFormat::Rst,
+  )
+  let asciidoc = default_registry_parse(
+    @input.input_from_text_with_format(
+      "= Overview\n\nSee link:https://example.com/spec[spec] and `alpha`.\n\n|===\n| A | B\n\n| 1\n| 2\n|===\n",
+      "semantic.adoc",
+      Some(@input.DetectedFormat::Asciidoc),
+    ),
+    @input.DetectedFormat::Asciidoc,
+  )
+  let tex = default_registry_parse(
+    @input.input_from_text_with_format(
+      "\\section{Overview}\n\nSee \\href{https://example.com/spec}{spec} and \\texttt{alpha}.\n\n\\begin{tabular}{ll}\nA & B \\\\\n1 & 2 \\\\\n\\end{tabular}\n",
+      "semantic.tex",
+      Some(@input.DetectedFormat::Tex),
+    ),
+    @input.DetectedFormat::Tex,
+  )
+
+  assert_text_markup_semantics(
+    rst.document.unwrap_or(@core.empty_document_ir()),
+  )
+  assert_text_markup_semantics(
+    asciidoc.document.unwrap_or(@core.empty_document_ir()),
+  )
+  assert_text_markup_semantics(
+    tex.document.unwrap_or(@core.empty_document_ir()),
+  )
+}
+
+///|
+test "text markup richer semantic structures stay productized on main route" {
+  let rst = default_registry_parse(
+    @input.input_from_text_with_format(
+      ":Author: Richard Jones\n:Version: 1.0\n\nTerm\n  Definition body\n",
+      "rich.rst",
+      Some(@input.DetectedFormat::Rst),
+    ),
+    @input.DetectedFormat::Rst,
+  )
+  let asciidoc = default_registry_parse(
+    @input.input_from_text_with_format(
+      ":idprefix:\n:source-language: ruby\n\n= Doc\n",
+      "rich.adoc",
+      Some(@input.DetectedFormat::Asciidoc),
+    ),
+    @input.DetectedFormat::Asciidoc,
+  )
+  let tex = default_registry_parse(
+    @input.input_from_text_with_format(
+      "\\title{Doc}\n\\author{Tester}\n\\date{2026}\n\n" +
+      "\\begin{quotation}\nA quoted paragraph.\n\\end{quotation}\n\n" +
+      "\\begin{itemize}\n\\item Alpha\n\\item Beta\n\\end{itemize}\n",
+      "rich.tex",
+      Some(@input.DetectedFormat::Tex),
+    ),
+    @input.DetectedFormat::Tex,
+  )
+
+  let rst_doc = rst.document.unwrap_or(@core.empty_document_ir())
+  let asciidoc_doc = asciidoc.document.unwrap_or(@core.empty_document_ir())
+  let tex_doc = tex.document.unwrap_or(@core.empty_document_ir())
+
+  assert_true(rst_doc.blocks[0].kind == @core.BlockKind::Table)
+  assert_true(rst_doc.blocks[0].children[0].children[0].text == "Field")
+  assert_true(rst_doc.blocks[0].children[1].children[0].text == "Author")
+  assert_true(rst_doc.blocks[1].kind == @core.BlockKind::Table)
+  assert_true(rst_doc.blocks[1].children[1].children[0].text == "Term")
+
+  assert_true(asciidoc_doc.blocks[0].kind == @core.BlockKind::Table)
+  assert_true(asciidoc_doc.blocks[0].children[1].children[0].text == "idprefix")
+  assert_true(asciidoc_doc.blocks[0].children[2].children[1].text == "ruby")
+
+  assert_true(tex_doc.blocks[0].kind == @core.BlockKind::Table)
+  assert_true(tex_doc.blocks[0].children[1].children[0].text == "title")
+  assert_true(tex_doc.blocks[1].kind == @core.BlockKind::BlockQuote)
+  assert_true(tex_doc.blocks[1].text.contains("A quoted paragraph."))
+  assert_true(tex_doc.blocks[2].kind == @core.BlockKind::Raw)
+  assert_true(tex_doc.blocks[3].kind == @core.BlockKind::List)
+  assert_true(tex_doc.blocks[3].children.length() == 2)
+}
+
+///|
+test "text markup complex directives includes and environments stay explicit" {
+  let rst = convert_memory_text(
+    ".. note::\n   Important context\n\n.. include:: shared.rst\n   :start-line: 1\n",
+    "directive.rst",
+    @input.DetectedFormat::Rst,
+  )
+  let asciidoc = convert_memory_text(
+    "[WARNING]\n====\nRead carefully.\n====\n\ninclude::shared.adoc[]\n",
+    "directive.adoc",
+    @input.DetectedFormat::Asciidoc,
+  )
+  let tex = convert_memory_text(
+    "\\input{shared.tex}\n\n\\begin{theorem}\nStatement.\n\\end{theorem}\n",
+    "directive.tex",
+    @input.DetectedFormat::Tex,
+  )
+
+  assert_true(rst.content.contains("Important context"))
+  assert_true(rst.content.contains("Include: shared.rst"))
+  assert_true(asciidoc.content.contains("Read carefully."))
+  assert_true(asciidoc.content.contains("Include: shared.adoc"))
+  assert_true(tex.content.contains("Include: shared.tex"))
+  assert_true(tex.content.contains("> Environment: Theorem"))
+  assert_true(tex.content.contains("Statement."))
+  assert_true(
+    tex.diagnostics.degraded_features.contains("tex_include_directive_boundary"),
+  )
+  assert_true(
+    rst.diagnostics.degraded_features.contains("rst_include_directive_boundary"),
+  )
+  assert_true(
+    asciidoc.diagnostics.degraded_features.contains(
+      "asciidoc_include_directive_boundary",
+    ),
+  )
+}
+
+///|
+test "text markup complex semantic blocks keep typed lowering while preserving degrade signals" {
+  let rst = convert_memory_text(
+    ".. code-block:: python\n   :linenos:\n\n   print('hi')\n\n.. admonition:: Custom Label\n   Read me carefully.\n",
+    "semantic-rich.rst",
+    @input.DetectedFormat::Rst,
+  )
+  let asciidoc = convert_memory_text(
+    "[source,ruby]\n----\nputs 'hi'\n----\n\n[quote, Ada Lovelace]\n____\nThat brain of mine is something more than merely mortal.\n____\n",
+    "semantic-rich.adoc",
+    @input.DetectedFormat::Asciidoc,
+  )
+  let tex = convert_memory_text(
+    "\\begin{equation}\na^2 + b^2 = c^2\n\\end{equation}\n\n\\begin{lemma}\nA useful fact.\n\\end{lemma}\n",
+    "semantic-rich.tex",
+    @input.DetectedFormat::Tex,
+  )
+
+  assert_true(rst.content.contains("print('hi')"))
+  assert_true(
+    rst.diagnostics.degraded_features.contains("rst_directive_code_boundary"),
+  )
+  assert_true(rst.content.contains("> Custom Label"))
+  assert_true(rst.content.contains("Read me carefully."))
+
+  assert_true(asciidoc.content.contains("```asciidoc"))
+  assert_true(asciidoc.content.contains("puts 'hi'"))
+  assert_true(
+    asciidoc.diagnostics.degraded_features.contains(
+      "asciidoc_source_block_boundary",
+    ),
+  )
+  assert_true(asciidoc.content.contains("> QUOTE - Ada Lovelace"))
+  assert_true(
+    asciidoc.diagnostics.degraded_features.contains(
+      "asciidoc_quote_block_boundary",
+    ),
+  )
+
+  assert_true(tex.content.contains("a^2 + b^2 = c^2"))
+  assert_true(
+    tex.diagnostics.degraded_features.contains("tex_math_environment_boundary"),
+  )
+  assert_true(tex.content.contains("> Environment: Lemma"))
+  assert_true(tex.content.contains("A useful fact."))
+}
+
+///|
+test "tex document wrapper stays transparent to typed section lowering" {
+  let tex = convert_memory_text(
+    "\\documentclass{article}\n\n\\title{Demo}\n\\begin{document}\n\\section{Ordinary Text}\nBody paragraph.\n\\section{Displayed Text}\n\\begin{quote}\nQuoted body.\n\\end{quote}\n\\end{document}\n",
+    "wrapped.tex",
+    @input.DetectedFormat::Tex,
+  )
+  assert_true(tex.content.contains("# Ordinary Text"))
+  assert_true(tex.content.contains("# Displayed Text"))
+  assert_true(tex.content.contains("Body paragraph."))
+  assert_true(tex.content.contains("> Quoted body."))
+  assert_true(!tex.content.contains("Environment: Document"))
+}
+
+///|
+fn assert_text_markup_semantics(document : @core.DocumentIR) -> Unit raise {
+  let paragraph = document.blocks[1]
+  let table = document.blocks[2]
+  let inlines = paragraph.rich_inlines.unwrap_or([])
+  assert_true(paragraph.kind == @core.BlockKind::Paragraph)
+  assert_true(inlines.length() >= 4)
+  assert_true(inlines[1].kind == @core.InlineKind::Link)
+  assert_true(inlines[1].text == "spec")
+  assert_true(inlines[1].href == Some("https://example.com/spec"))
+  assert_true(inlines[3].kind == @core.InlineKind::Code)
+  assert_true(inlines[3].text == "alpha")
+  assert_true(table.kind == @core.BlockKind::Table)
+  assert_true(table.children.length() == 2)
+  assert_true(table.children[0].children[0].text == "A")
+  assert_true(table.children[1].children[1].text == "2")
+}
+
+///|
+test "eml product path keeps headers body assets and malformed fallback explicit" {
+  let semantic = default_registry_parse(
+    @input.input_from_text_with_format(
+      "From: Asset Sender <assets@example.com>\n" +
+      "To: Asset Receiver <receiver@example.com>\n" +
+      "Subject: Inline Image\n" +
+      "Date: Tue, 02 Jul 2026 10:20:00 +0800\n" +
+      "Message-ID: <inline-image@example.com>\n" +
+      "MIME-Version: 1.0\n" +
+      "Content-Type: multipart/related; boundary=\"rel-1\"\n\n" +
+      "--rel-1\n" +
+      "Content-Type: text/plain; charset=\"utf-8\"\n\n" +
+      "See the inline image below.\n" +
+      "--rel-1\n" +
+      "Content-Type: image/png; name=\"dot.png\"\n" +
+      "Content-Transfer-Encoding: base64\n" +
+      "Content-Disposition: inline; filename=\"dot.png\"\n" +
+      "Content-ID: <dot-1>\n\n" +
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7Z0MsAAAAASUVORK5CYII=\n" +
+      "--rel-1--\n",
+      "semantic.eml",
+      Some(@input.DetectedFormat::Eml),
+    ),
+    @input.DetectedFormat::Eml,
+  )
+  let malformed = default_registry_parse(
+    @input.input_from_text_with_format(
+      "From Broken Example\n" +
+      "This is not a valid RFC 822 header block.\n\n" +
+      "Body that should fall back to a fenced raw eml block.\n",
+      "malformed.eml",
+      Some(@input.DetectedFormat::Eml),
+    ),
+    @input.DetectedFormat::Eml,
+  )
+  let semantic_blocks = semantic.block_stream.unwrap_or([])
+  let malformed_blocks = malformed.block_stream.unwrap_or([])
+  let semantic_texts = flatten_block_texts(semantic_blocks)
+  assert_true(semantic.document is None)
+  assert_true(semantic.block_stream is Some(_))
+  assert_true(semantic_blocks.length() >= 4)
+  assert_true(semantic.assets.length() == 1)
+  assert_true(semantic_blocks[0].kind == @core.BlockKind::Table)
+  assert_true(semantic_texts.contains("[Part 1 | text/plain]"))
+  assert_true(semantic_texts.contains("[Part 2 | image/png]"))
+  assert_true(semantic_texts.contains("See the inline image below."))
+  let image_blocks = semantic_blocks.filter(fn(block) {
+    block.kind == @core.BlockKind::Image
+  })
+  assert_true(image_blocks.length() == 1)
+  assert_true(
+    image_blocks[0].attrs.get("path") == Some("assets/eml-parts-1-dot-png.png"),
+  )
+  let asset = semantic.assets[0]
+  assert_true(asset.path == Some("assets/eml-parts-1-dot-png.png"))
+  assert_true(asset.attrs.get("inline_payload_kind") == Some("base64"))
+  assert_metric_eq(semantic.diagnostics, "effective_mode", "block_streaming")
+  assert_metric_eq(semantic.diagnostics, "ir_input_kind", "block_stream")
+  assert_metric_eq(semantic.diagnostics, "asset_count", "1")
+  assert_true(
+    !semantic.diagnostics.degraded_features.contains("eml_raw_fenced_fallback"),
+  )
+  assert_true(malformed.document is None)
+  assert_true(malformed.block_stream is Some(_))
+  assert_true(malformed_blocks.length() == 1)
+  assert_true(malformed_blocks[0].kind == @core.BlockKind::Code)
+  assert_true(malformed_blocks[0].attrs.get("info") == Some("eml"))
+  assert_true(
+    malformed.diagnostics.degraded_features.contains("eml_raw_fenced_fallback"),
+  )
+  assert_true(malformed.diagnostics.warnings.length() > 0)
+  assert_metric_eq(malformed.diagnostics, "syntax_error_count", "1")
+}
+
+///|
+test "eml decodes nested message rfc822 bodies before recursive parsing" {
+  let nested = default_registry_parse(
+    @input.input_from_text_with_format(
+      "MIME-Version: 1.0\n" +
+      "Subject: a simple rfc822 message encoded in a base64 body.\n" +
+      "Content-Type: message/rfc822\n" +
+      "Content-Transfer-Encoding: base64\n\n" +
+      "Q29udGVudC1UeXBlOiB0ZXh0L3BsYWluOyBjaGFyc2V0PXVzLWFzY2lpDQpDb250ZW50LVRyYW5z\n" +
+      "ZmVyLUVuY29kaW5nOiA3Yml0DQoNClRleHQgYm9keQoNCg==\n",
+      "nested-rfc822.eml",
+      Some(@input.DetectedFormat::Eml),
+    ),
+    @input.DetectedFormat::Eml,
+  )
+  let blocks = nested.block_stream.unwrap_or([])
+  let texts = flatten_block_texts(blocks)
+  assert_true(nested.document is None)
+  assert_true(nested.block_stream is Some(_))
+  assert_true(blocks.length() >= 3)
+  assert_true(texts.contains("[Nested Message]"))
+  assert_true(
+    texts.contains("[Part 0 | text/plain]") ||
+    texts.contains("[Part 1 | text/plain]"),
+  )
+  assert_true(texts.contains("Text body"))
+  assert_true(
+    !nested.diagnostics.degraded_features.contains("eml_raw_fenced_fallback"),
+  )
+  assert_metric_eq(nested.diagnostics, "syntax_error_count", "0")
+}
+
+///|
 test "tsv resource limits contract also degrades with diagnostics" {
   let result = convert_memory_text(
     "a\tb\tc\n1\t2\t3\n4\t5\t6\n",
@@ -1941,7 +3058,7 @@ test "product main cli points directly at the root cli entry" {
   assert_true(cli_impl.contains("@convert.convert_input"))
   assert_true(convert_pkg.contains("ZSeanYves/markitdown/formats"))
   assert_true(tests_pkg.contains("ZSeanYves/markitdown/convert"))
-  assert_true(contract_script.contains("check_pdf_signal_contract.sh"))
+  assert_true(contract_script.contains("check_quality_signal_eval_contract.sh"))
   assert_true(
     sample_gate.contains("samples/helpers/validation/check_samples_impl.sh"),
   )
@@ -1957,8 +3074,7 @@ test "product main cli points directly at the root cli entry" {
   assert_files_avoid_strings(
     [
       "cli/moon.pkg", "cli/cli.mbt", "convert/moon.pkg", "convert/convert.mbt", "tests/moon.pkg",
-      "samples/check.sh", "samples/helpers/contracts/check_root_contracts.sh", "samples/helpers/contracts/check_pdf_signal_contract.sh",
-      "samples/helpers/validation/check_samples_impl.sh",
+      "samples/check.sh", "samples/helpers/contracts/check_root_contracts.sh", "samples/helpers/validation/check_samples_impl.sh",
     ],
     [
       "ZSeanYves/markitdown/unmigrated/", "ZSeanYves/markitdown/cli_support", "ZSeanYves/markitdown/adapters",
@@ -1980,19 +3096,25 @@ test "root package manifests avoid retired convert and core runtime dependencies
   }
   let formats_pkg = read_utf8_text("formats/moon.pkg")
   let json_pkg = read_utf8_text("formats/json/moon.pkg")
+  let toml_pkg = read_utf8_text("formats/toml/moon.pkg")
   let xml_pkg = read_utf8_text("formats/xml/moon.pkg")
   let yaml_pkg = read_utf8_text("formats/yaml/moon.pkg")
   assert_true(json_pkg.contains("ZSeanYves/markitdown/format_readers/json"))
+  assert_true(toml_pkg.contains("ZSeanYves/markitdown/format_readers/toml"))
   assert_true(xml_pkg.contains("ZSeanYves/markitdown/format_readers/xml"))
   assert_true(yaml_pkg.contains("ZSeanYves/markitdown/format_readers/yaml"))
   assert_true(!formats_pkg.contains("ZSeanYves/markitdown/convert/json"))
+  assert_true(!formats_pkg.contains("ZSeanYves/markitdown/convert/toml"))
   assert_true(!formats_pkg.contains("ZSeanYves/markitdown/convert/xml"))
   assert_true(!formats_pkg.contains("ZSeanYves/markitdown/convert/yaml"))
   let json_impl = read_package_mbt_sources("formats/json")
+  let toml_impl = read_package_mbt_sources("formats/toml")
   let xml_impl = read_package_mbt_sources("formats/xml")
   assert_true(!json_impl.contains("@oldjson"))
   assert_true(!json_impl.contains("@legacy"))
   assert_true(!json_impl.contains("convert/json"))
+  assert_true(!toml_impl.contains("@legacy"))
+  assert_true(!toml_impl.contains("convert/toml"))
   assert_true(!xml_impl.contains("@legacy"))
   assert_true(!xml_impl.contains("convert/xml"))
   let yaml_impl = read_package_mbt_sources("formats/yaml")
@@ -2045,9 +3167,8 @@ test "zip foundation contract reuses the active zip reader and avoids custom dec
     "pub fn parse_child_to_document", "@parser.registry_parse(registry, source, inner_context)",
   ])
   assert_contains_none(formats_pkg, [
-    "ZSeanYves/markitdown/format_readers/zip", "ZSeanYves/markitdown/container",
-    "ZSeanYves/markitdown/runtime", "ZSeanYves/markitdown/convert/zip", "ZSeanYves/markitdown/convert/zip_core",
-    "bikallem/compress/flate",
+    "ZSeanYves/markitdown/format_readers/zip", "ZSeanYves/markitdown/runtime", "ZSeanYves/markitdown/convert/zip",
+    "ZSeanYves/markitdown/convert/zip_core", "bikallem/compress/flate",
   ])
   assert_contains_none(cli_pkg, [
     "ZSeanYves/markitdown/convert/zip", "ZSeanYves/markitdown/convert/zip_core",
@@ -2073,15 +3194,18 @@ test "root runtime and exposed parser foundations stay free of retired runtime i
     [
       "format_readers/txt/moon.pkg", "format_readers/txt/text_types.mbt", "format_readers/txt/text_parser.mbt",
       "format_readers/txt/text_inspect.mbt", "format_readers/txt/text_profile_internal.mbt",
-      "format_readers/csv/moon.pkg", "format_readers/csv/csv_types.mbt", "format_readers/csv/csv_parser.mbt",
-      "format_readers/csv/csv_inspect.mbt", "format_readers/tsv/moon.pkg", "format_readers/tsv/tsv_parser.mbt",
+      "format_readers/delimited/csv/moon.pkg", "format_readers/delimited/csv/csv_types.mbt",
+      "format_readers/delimited/csv/csv_parser.mbt", "format_readers/delimited/csv/csv_inspect.mbt",
+      "format_readers/delimited/tsv/moon.pkg", "format_readers/delimited/tsv/tsv_parser.mbt",
       "format_readers/json/moon.pkg", "format_readers/json/json_types.mbt", "format_readers/json/json_parser.mbt",
       "format_readers/json/json_inspect.mbt", "format_readers/json/json_profile_internal.mbt",
-      "format_readers/xml/moon.pkg", "format_readers/xml/xml_types.mbt", "format_readers/xml/xml_tokenizer.mbt",
-      "format_readers/xml/xml_parser.mbt", "format_readers/xml/xml_inspect.mbt",
-      "format_readers/yaml/moon.pkg", "format_readers/yaml/yaml_types.mbt", "format_readers/yaml/yaml_parser.mbt",
-      "format_readers/yaml/yaml_inspect.mbt", "format_readers/yaml/yaml_profile_internal.mbt",
-      "format_readers/html/moon.pkg", "format_readers/html/html_types.mbt", "format_readers/html/html_guards.mbt",
+      "format_readers/toml/moon.pkg", "format_readers/toml/toml_types.mbt", "format_readers/toml/toml_parser.mbt",
+      "format_readers/toml/toml_inspect.mbt", "format_readers/xml/moon.pkg", "format_readers/xml/xml_types.mbt",
+      "format_readers/xml/xml_tokenizer.mbt", "format_readers/xml/xml_parser.mbt",
+      "format_readers/xml/xml_inspect.mbt", "format_readers/yaml/moon.pkg", "format_readers/yaml/yaml_types.mbt",
+      "format_readers/yaml/yaml_parser.mbt", "format_readers/yaml/yaml_inspect.mbt",
+      "format_readers/yaml/yaml_profile_internal.mbt", "format_readers/html/moon.pkg",
+      "format_readers/html/html_types.mbt", "format_readers/html/html_guards.mbt",
       "format_readers/html/html_tokenizer.mbt", "format_readers/html/html_semantic.mbt",
       "format_readers/html/html_parser.mbt", "format_readers/html/html_inspect.mbt",
       "format_readers/zip/moon.pkg", "format_readers/zip/zip_types.mbt", "format_readers/zip/zip_codec.mbt",
@@ -2123,7 +3247,7 @@ test "cli package stays isolated from retired layers and calls root convert" {
 test "zip parser stays on block stream archive entry contracts even when stream mode is requested" {
   let parsed = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/zip/markdown/zip_basic_structured.zip",
+      "samples/fixtures/contracts/zip/zip_basic_structured.zip",
     ),
     @input.DetectedFormat::Zip,
     requested_mode=Some(@parser.ParserMode::StreamingEvent),
@@ -2164,7 +3288,7 @@ test "zip parser stays on block stream archive entry contracts even when stream 
 test "zip parser keeps root-pipeline merged block output and source refs" {
   let parsed = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/zip/markdown/zip_mixed_supported_entries.zip",
+      "samples/fixtures/contracts/zip/zip_mixed_supported_entries.zip",
     ),
     @input.DetectedFormat::Zip,
   )
@@ -2216,7 +3340,7 @@ test "zip parser keeps root-pipeline merged block output and source refs" {
 ///|
 test "zip convert result keeps root container diagnostics and source refs" {
   let result = convert_path(
-    "samples/main_process/zip/markdown/zip_basic_structured.zip",
+    "samples/fixtures/contracts/zip/zip_basic_structured.zip",
     format=Some(@input.DetectedFormat::Zip),
   )
   assert_true(result.content.contains("# data/person.json"))
@@ -2297,7 +3421,7 @@ test "epub foundation contract reuses active epub and zip readers plus root html
   ])
   assert_contains_all(zip_reader_pkg, ["bikallem/compress/flate"])
   assert_contains_all(registry_impl, [
-    "@input.DetectedFormat::Epub", "@fepub.epub_package_parser(fn() { builtin_registry() })",
+    "@input.DetectedFormat::Epub", "@fepub.epub_parser(fn() { builtin_registry() })",
     "@input.DetectedFormat::Html", "@fhtml.html_parser()",
   ])
   assert_contains_all(epub_parser, [
@@ -2324,20 +3448,21 @@ test "epub foundation contract reuses active epub and zip readers plus root html
 }
 
 ///|
-test "epub parser stays on package single pass block stream contracts even when stream mode is requested" {
+test "epub parser switches to container recursive block stream contracts when explicitly requested" {
   let parsed = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/epub/markdown/epub_basic_package.epub",
+      "samples/fixtures/contracts/epub/epub_basic_package.epub",
     ),
     @input.DetectedFormat::Epub,
-    requested_mode=Some(@parser.ParserMode::StreamingEvent),
+    requested_mode=Some(@parser.ParserMode::ContainerRecursive),
   )
 
-  assert_true(parsed.parser_name == "epub_package_parser")
-  assert_true(parsed.mode == @parser.ParserMode::PackageSinglePass)
+  assert_true(parsed.parser_name == "epub_parser")
+  assert_true(parsed.mode == @parser.ParserMode::ContainerRecursive)
   assert_true(
     parsed.capabilities.parser_mode == @parser.ParserMode::PackageSinglePass,
   )
+  assert_true(parsed.capabilities.supports_blocks)
   assert_true(
     parsed.capabilities.streaming_granularity ==
     @parser.StreamingGranularity::EpubSpineItem,
@@ -2354,8 +3479,8 @@ test "epub parser stays on package single pass block stream contracts even when 
     Some(_) => fail("epub parse result must not expose a document IR directly")
     None => ()
   }
-  assert_metric_eq(parsed.diagnostics, "requested_mode", "streaming_event")
-  assert_metric_eq(parsed.diagnostics, "effective_mode", "package_single_pass")
+  assert_metric_eq(parsed.diagnostics, "requested_mode", "container_recursive")
+  assert_metric_eq(parsed.diagnostics, "effective_mode", "container_recursive")
   assert_metric_eq(parsed.diagnostics, "ir_input_kind", "block_stream")
   assert_metric_eq(parsed.diagnostics, "event_granularity", "epub_spine_item")
   assert_metric_absent(parsed.diagnostics, "streaming_fallback")
@@ -2368,7 +3493,7 @@ test "epub parser stays on package single pass block stream contracts even when 
 test "epub parser preserves opf spine order and root html source refs without parser markdown emission" {
   let parsed = default_registry_parse(
     @input.input_from_path(
-      "samples/main_process/epub/markdown/epub_spine_order.epub",
+      "samples/fixtures/contracts/epub/epub_spine_order.epub",
     ),
     @input.DetectedFormat::Epub,
   )
@@ -2408,7 +3533,7 @@ test "epub parser preserves opf spine order and root html source refs without pa
   assert_true(chapter_one_ref.html_path == Some("/block/html:block:h1:2"))
   assert_true(chapter_one_ref.inner_path == Some("/block/html:block:h1:2"))
   assert_contains_all(parsed.diagnostics.pass_trace.join("\n"), [
-    "parse:epub_package_parser", "parse:html_parser",
+    "parse:epub_parser", "parse:html_parser",
   ])
   assert_diagnostics_lists_contain_none(parsed.diagnostics, [
     "legacy dispatcher", "convert/html", "convert/epub", "epub_raw_fallback", "epub_legacy_fallback",
@@ -2418,7 +3543,7 @@ test "epub parser preserves opf spine order and root html source refs without pa
 ///|
 test "epub parser keeps missing and unsupported spine diagnostics root-pipeline and renderer owned" {
   let missing = convert_path(
-    "samples/main_process/epub/markdown/epub_spine_missing_item_boundary.epub",
+    "samples/fixtures/contracts/epub/epub_spine_missing_item_boundary.epub",
     format=Some(@input.DetectedFormat::Epub),
   )
   assert_true(missing.content.contains("# (missing manifest item #0: missing)"))
@@ -2440,7 +3565,7 @@ test "epub parser keeps missing and unsupported spine diagnostics root-pipeline 
   ])
 
   let unsupported = convert_path(
-    "samples/main_process/epub/markdown/epub_unsupported_spine_warning.epub",
+    "samples/fixtures/contracts/epub/epub_unsupported_spine_warning.epub",
     format=Some(@input.DetectedFormat::Epub),
   )
   assert_true(unsupported.content.contains("# OPS/chapter.xhtml"))
@@ -2462,7 +3587,7 @@ test "epub parser keeps missing and unsupported spine diagnostics root-pipeline 
 ///|
 test "epub parser keeps remote and data image refs bounded without local asset materialization" {
   let remote_json = convert_path(
-    "samples/main_process/epub/markdown/epub_remote_data_image_boundary.epub",
+    "samples/fixtures/contracts/epub/epub_remote_data_image_boundary.epub",
     format=Some(@input.DetectedFormat::Epub),
     output=@convert.OutputFormat::DebugJson,
   )
@@ -2484,8 +3609,9 @@ test "epub parser keeps remote and data image refs bounded without local asset m
 test "canonical architecture guide records stable parser and ir boundaries" {
   assert_file_contains_all("docs/architecture/mb-markitdown-architecture.md", [
     "ParserRegistry", "ParseResult", "CoreIRBuilder", "IR Pass Pipeline", "Renderer",
-    "Parser 可以多态", "Core IR 必须统一", "Renderer 必须统一", "Markdown 是输出，不是中间表示",
-    "ContainerRecursive", "page-single-pass",
+    "Parsers can be polymorphic.", "Core IR must stay unified.", "Renderer must stay unified.",
+    "Markdown is an output, not the intermediate representation.", "ContainerRecursive",
+    "page-single-pass",
   ])
 }
 
@@ -2521,7 +3647,7 @@ test "xml structure scan stays stable on mixed xml input" {
 ///|
 test "ooxml xml part payload exposes structure scan for workbook parts" {
   let sample_path = resolve_test_sample_path(
-    "samples/main_process/xlsx/markdown/xlsx_multi_sheet_mixed.xlsx",
+    "samples/fixtures/contracts/xlsx/xlsx_multi_sheet_mixed.xlsx",
   )
   let pkg = @ox.open_ooxml_package(
     @fs.read_file_to_bytes(sample_path) catch {
@@ -2543,9 +3669,183 @@ test "ooxml xml part payload exposes structure scan for workbook parts" {
 }
 
 ///|
+test "ods merged cells fixture preserves covered-cell diagnostics" {
+  let result = convert_path(
+    "samples/fixtures/contracts/ods/MergedCells.ods",
+    format=Some(@input.DetectedFormat::Ods),
+  )
+  let covered_cell_count = @string.parse_int(
+    result.diagnostics.metrics.get("covered_cell_count").unwrap_or("0"),
+  ) catch {
+    _ => 0
+  }
+  assert_metric_eq(result.diagnostics, "detected_format", "ods")
+  assert_true(covered_cell_count > 0)
+  assert_true(result.content.contains("# Sheet1"))
+}
+
+///|
+test "odt annotation fixture keeps appendix signals visible" {
+  let result = convert_path(
+    "samples/fixtures/contracts/odt/_annotation.odt",
+    format=Some(@input.DetectedFormat::Odt),
+  )
+  let comment_count = @string.parse_int(
+    result.diagnostics.metrics.get("comment_count").unwrap_or("0"),
+  ) catch {
+    _ => 0
+  }
+  assert_true(result.content.contains("## Comments"))
+  assert_true(result.content.contains("[comment 32]"))
+  assert_true(comment_count > 0)
+}
+
+///|
+test "odp presentation fixture keeps notes and slide-local diagnostics visible" {
+  let result = convert_path(
+    "samples/fixtures/contracts/odp/Presentation1.odp",
+    format=Some(@input.DetectedFormat::Odp),
+  )
+  let notes_count = @string.parse_int(
+    result.diagnostics.metrics.get("notes_count").unwrap_or("0"),
+  ) catch {
+    _ => 0
+  }
+  assert_true(result.content.contains("[Slide 1]"))
+  assert_true(notes_count >= 0)
+}
+
+///|
+test "odt accurate fidelity exposes appendix render hints for notes and comments" {
+  let registry = @formats_root.builtin_registry()
+  let context = @parser.parse_context_with_product_modes(
+    @parser.new_parse_context(@input.DetectedFormat::Odt),
+    @product.FidelityMode::Accurate,
+    @product.OutputMode::Markdown,
+  )
+  let result = match
+    @parser.registry_parse(
+      registry,
+      @input.input_from_path("samples/fixtures/contracts/odt/_annotation.odt"),
+      context,
+    ) {
+    Ok(value) => value
+    Err(err) => fail("accurate odt parse failed: " + err)
+  }
+  let document = result.document.unwrap_or_else(fn() {
+    abort("missing accurate odt document")
+  })
+  let comment_blocks = document.blocks.filter(fn(block) {
+    block.attrs.get("render_appendix_group") == Some("comments")
+  })
+  assert_true(comment_blocks.length() > 0)
+  let note_refs : Array[String] = []
+  let note_definitions : Array[String] = []
+  for block in document.blocks {
+    match block.rich_inlines {
+      Some(inlines) =>
+        for inline in inlines {
+          if inline.attrs.get("annotation_role") == Some("note_ref") {
+            match inline.attrs.get("annotation_target_id") {
+              Some(target) => note_refs.push(target)
+              None => ()
+            }
+          }
+        }
+      None => ()
+    }
+    match block.attrs.get("annotation_definition_id") {
+      Some(target) => note_definitions.push(target)
+      None => ()
+    }
+  }
+  assert_true(note_refs.length() > 0)
+  assert_true(note_definitions.length() > 0)
+  assert_true(note_refs.any(fn(target) { note_definitions.contains(target) }))
+}
+
+///|
+test "ods accurate fidelity restores hidden structures and covered cell hints" {
+  let registry = @formats_root.builtin_registry()
+  let context = @parser.parse_context_with_product_modes(
+    @parser.new_parse_context(@input.DetectedFormat::Ods),
+    @product.FidelityMode::Accurate,
+    @product.OutputMode::Markdown,
+  )
+  let result = match
+    @parser.registry_parse(
+      registry,
+      @input.input_from_path("samples/fixtures/contracts/ods/MergedCells.ods"),
+      context,
+    ) {
+    Ok(value) => value
+    Err(err) => fail("accurate ods parse failed: " + err)
+  }
+  let document = result.document.unwrap_or_else(fn() {
+    abort("missing accurate ods document")
+  })
+  let tables = document.blocks.filter(fn(block) {
+    block.kind == @core.BlockKind::Table
+  })
+  let has_covered_cell = tables.any(fn(table) {
+    table.children.any(fn(row) {
+      row.children.any(fn(cell) {
+        cell.attrs.get("covered_cell") == Some("true")
+      })
+    })
+  })
+  let has_spans = tables.any(fn(table) {
+    table.attrs.get("render_html_table") == Some("true") &&
+    table.children.any(fn(row) {
+      row.children.any(fn(cell) {
+        cell.attrs.get("rowspan") is Some(_) ||
+        cell.attrs.get("colspan") is Some(_)
+      })
+    })
+  })
+  assert_true(has_covered_cell)
+  assert_true(has_spans)
+  assert_true(
+    result.diagnostics.metrics.get("covered_cell_count").unwrap_or("0") != "0",
+  )
+}
+
+///|
+test "odp accurate fidelity exposes notes appendix and slide window hints" {
+  let registry = @formats_root.builtin_registry()
+  let context = @parser.parse_context_with_product_modes(
+    @parser.new_parse_context(@input.DetectedFormat::Odp),
+    @product.FidelityMode::Accurate,
+    @product.OutputMode::Markdown,
+  )
+  let result = match
+    @parser.registry_parse(
+      registry,
+      @input.input_from_path("samples/fixtures/contracts/odp/Presentation1.odp"),
+      context,
+    ) {
+    Ok(value) => value
+    Err(err) => fail("accurate odp parse failed: " + err)
+  }
+  let document = result.document.unwrap_or_else(fn() {
+    abort("missing accurate odp document")
+  })
+  let slide_local_windowed = document.blocks.filter(fn(block) {
+    block.attrs.get("slide_local") == Some("true") &&
+    block.attrs.get("render_window_group") is Some(_)
+  })
+  let slide_labels = document.blocks.filter(fn(block) {
+    block.text.has_prefix("[Slide ") &&
+    block.attrs.get("render_window_group") is Some(_)
+  })
+  assert_true(slide_local_windowed.length() > 0)
+  assert_true(slide_labels.length() > 0)
+}
+
+///|
 test "epub package xml payload path keeps package open semantics stable" {
   let sample_path = resolve_test_sample_path(
-    "samples/fixtures/epub/epub_remote_image.epub",
+    "samples/fixtures/contracts/epub/epub_remote_image.epub",
   )
   let pkg = @epub.open_epub_package(
     @fs.read_file_to_bytes(sample_path) catch {
@@ -2584,7 +3884,7 @@ test "shared child runtime exposes parse result lowering and child dispatch entr
 }
 
 ///|
-test "v2 stabilization drift keeps runtime child dispatch thin and canonical pipeline visible" {
+test "canonical pipeline stabilization keeps runtime child dispatch thin and visible" {
   let pipeline_impl = read_utf8_text("pipeline/pipeline.mbt")
   let pipeline_event_builder_impl = read_utf8_text(
     "pipeline/event_document_builder.mbt",

@@ -1,4 +1,5 @@
 ///|
+/// Chunking options used by the RAG JSON render path.
 pub struct RagOptions {
   chunk_size : Int
   chunk_overlap : Int
@@ -9,6 +10,7 @@ pub struct RagOptions {
 }
 
 ///|
+/// Public chunk kinds emitted by the RAG render path.
 pub(all) enum ChunkKind {
   Text
   Table
@@ -19,8 +21,7 @@ pub(all) enum ChunkKind {
 } derive(Eq)
 
 ///|
-
-///|
+/// Construct one public RAG chunk value.
 pub fn make_rag_chunk(
   id : String,
   kind : ChunkKind,
@@ -34,6 +35,7 @@ pub fn make_rag_chunk(
 }
 
 ///|
+/// One retrieval-oriented chunk emitted by the RAG renderer.
 pub struct RagChunk {
   id : String
   kind : ChunkKind
@@ -45,6 +47,7 @@ pub struct RagChunk {
 }
 
 ///|
+/// Return the default chunking policy used by product RAG output.
 pub fn default_rag_options() -> RagOptions {
   {
     chunk_size: 1200,
@@ -57,6 +60,8 @@ pub fn default_rag_options() -> RagOptions {
 }
 
 ///|
+/// Construct explicit RAG options, applying normalization to invalid size or
+/// overlap values.
 pub fn make_rag_options(
   chunk_size : Int,
   chunk_overlap : Int,
@@ -94,6 +99,7 @@ fn rag_chunk_overlap_or_default(value : Int) -> Int {
 }
 
 ///|
+/// Normalize chunk size/overlap while preserving the remaining options.
 pub fn normalize_rag_options(options : RagOptions) -> RagOptions {
   {
     chunk_size: rag_chunk_size_or_default(options.chunk_size),
@@ -106,6 +112,7 @@ pub fn normalize_rag_options(options : RagOptions) -> RagOptions {
 }
 
 ///|
+/// Return the stable string name for a chunk kind.
 pub fn chunk_kind_name(kind : ChunkKind) -> String {
   match kind {
     ChunkKind::Text => "text"

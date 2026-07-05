@@ -1,3 +1,0 @@
-[unsafe parent]
-
-[unsafe rooted]

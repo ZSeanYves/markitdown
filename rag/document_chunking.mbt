@@ -1,4 +1,5 @@
 ///|
+/// Chunk a fully-built document into retrieval-friendly units.
 pub fn chunks_from_document(
   document : @core.DocumentIR,
   options : RagOptions,
@@ -114,6 +115,45 @@ pub fn chunks_from_document(
     let text_unit = block_to_text_unit(block)
     match text_unit {
       Some(unit) => {
+        let solo_source_ref_only = block.attrs.get("rag_solo_source_ref_only") ==
+          Some("true")
+        if unit.force_single_chunk {
+          ordinal = flush_text_chunks(
+            chunks, text_units, text_source_refs, text_asset_refs, text_heading_path,
+            text_char_count, text_contains_raw, ordinal, document_format, document_title,
+            normalized_options,
+          )
+          reset_text_accumulators(text_units, text_source_refs, text_asset_refs)
+          text_char_count = 0
+          text_location_key = ""
+          text_heading_path = []
+          text_contains_raw = false
+
+          text_units.push(unit)
+          append_unique_source_ref(
+            text_source_refs,
+            block.source_ref,
+            normalized_options.preserve_source_ref,
+          )
+          let block_asset_refs = block_asset_refs(block, document.assets)
+          append_unique_strings(text_asset_refs, block_asset_refs)
+          text_char_count = unit.char_count
+          text_location_key = location_key
+          text_heading_path = block_heading.copy()
+          text_contains_raw = block.kind == @core.BlockKind::Raw
+
+          ordinal = flush_text_chunks(
+            chunks, text_units, text_source_refs, text_asset_refs, text_heading_path,
+            text_char_count, text_contains_raw, ordinal, document_format, document_title,
+            normalized_options,
+          )
+          reset_text_accumulators(text_units, text_source_refs, text_asset_refs)
+          text_char_count = 0
+          text_location_key = ""
+          text_heading_path = []
+          text_contains_raw = false
+          continue
+        }
         let next_heading_path = if text_heading_path.length() == 0 {
           block_heading.copy()
         } else {
@@ -143,11 +183,13 @@ pub fn chunks_from_document(
           text_heading_path = next_heading_path
         }
         text_units.push(unit)
-        append_unique_source_ref(
-          text_source_refs,
-          block.source_ref,
-          normalized_options.preserve_source_ref,
-        )
+        if !solo_source_ref_only || text_units.length() == 1 {
+          append_unique_source_ref(
+            text_source_refs,
+            block.source_ref,
+            normalized_options.preserve_source_ref,
+          )
+        }
         let block_asset_refs = block_asset_refs(block, document.assets)
         append_unique_strings(text_asset_refs, block_asset_refs)
         text_char_count += unit.char_count
@@ -193,6 +235,7 @@ priv struct ChunkUnit {
   text : String
   char_count : Int
   block_kind : String
+  force_single_chunk : Bool
 }
 
 ///|
@@ -353,23 +396,36 @@ fn block_to_text_unit(block : @core.CoreBlock) -> ChunkUnit? {
         text,
         char_count: unicode_char_count(text),
         block_kind: "paragraph",
+        force_single_chunk: block.attrs.get("audio_segment") == Some("true"),
       })
     @core.BlockKind::List =>
-      Some({ text, char_count: unicode_char_count(text), block_kind: "list" })
+      Some({
+        text,
+        char_count: unicode_char_count(text),
+        block_kind: "list",
+        force_single_chunk: false,
+      })
     @core.BlockKind::ListItem =>
       Some({
         text,
         char_count: unicode_char_count(text),
         block_kind: "list_item",
+        force_single_chunk: false,
       })
     @core.BlockKind::BlockQuote =>
       Some({
         text,
         char_count: unicode_char_count(text),
         block_kind: "blockquote",
+        force_single_chunk: false,
       })
     @core.BlockKind::Raw =>
-      Some({ text, char_count: unicode_char_count(text), block_kind: "raw" })
+      Some({
+        text,
+        char_count: unicode_char_count(text),
+        block_kind: "raw",
+        force_single_chunk: false,
+      })
     _ => None
   }
 }
@@ -1050,6 +1106,8 @@ fn block_location_bucket(block : @core.CoreBlock) -> String {
         source_ref.entry_path.unwrap_or(""),
         source_ref.container_path.unwrap_or(""),
         source_ref.chapter_href.unwrap_or(""),
+        source_ref.time_start.unwrap_or(""),
+        source_ref.time_end.unwrap_or(""),
       ].join("|")
     None => ""
   }

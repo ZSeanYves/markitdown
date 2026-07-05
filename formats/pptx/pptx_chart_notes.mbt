@@ -234,7 +234,7 @@ fn pptx_table_use_span_rendering(
   state : PptxState,
   table : @pptxdoc.PptxTable,
 ) -> Bool {
-  if state.fidelity_mode != @product.FidelityMode::Accurate {
+  if !pptx_feature_enabled(state, @product.AccurateFeature::PptxGroupSummary) {
     return false
   }
   for row in table.rows {

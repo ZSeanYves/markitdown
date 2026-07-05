@@ -3,7 +3,7 @@ import {
   "ZSeanYves/markitdown/format_readers/ooxml/docx" @ddocx,
   "ZSeanYves/markitdown/format_readers/ooxml/package" @ox,
   "ZSeanYves/markitdown/core",
-  "ZSeanYves/markitdown/formats/parser_common",
+  "ZSeanYves/markitdown/formats/shared" @fshared,
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
   "ZSeanYves/markitdown/product",

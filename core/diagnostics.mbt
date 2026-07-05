@@ -12,9 +12,11 @@ pub fn empty_diagnostics() -> Diagnostics {
     errors: [],
     degraded_features: [],
     same_mode_degradation: [],
+    same_mode_strategy_switches: [],
     fallback_trace: [],
     pass_trace: [],
     metrics: Map([]),
+    dependency_diagnostics: [],
   }
 }
 
@@ -99,6 +101,16 @@ pub fn diagnostics_add_same_mode_degradation(
 }
 
 ///|
+pub fn diagnostics_add_same_mode_strategy_switch(
+  diagnostics : Diagnostics,
+  strategy_switch : String,
+) -> Diagnostics {
+  let next = { ..diagnostics }
+  next.same_mode_strategy_switches.push(strategy_switch)
+  next
+}
+
+///|
 pub fn diagnostics_add_fallback_trace(
   diagnostics : Diagnostics,
   trace : String,
@@ -115,5 +127,39 @@ pub fn diagnostics_add_pass_trace(
 ) -> Diagnostics {
   let next = { ..diagnostics }
   next.pass_trace.push(trace)
+  next
+}
+
+///|
+pub fn dependency_diagnostic_status_name(
+  status : DependencyDiagnosticStatus,
+) -> String {
+  match status {
+    DependencyDiagnosticStatus::Missing => "missing"
+    DependencyDiagnosticStatus::Available => "available"
+    DependencyDiagnosticStatus::Degraded => "degraded"
+  }
+}
+
+///|
+pub fn make_dependency_diagnostic(
+  kind : String,
+  title : String,
+  summary : String,
+  status : DependencyDiagnosticStatus,
+  macos_commands : Array[String],
+  ubuntu_commands : Array[String],
+  footer? : String? = None,
+) -> DependencyDiagnostic {
+  { kind, title, summary, status, macos_commands, ubuntu_commands, footer }
+}
+
+///|
+pub fn diagnostics_add_dependency_diagnostic(
+  diagnostics : Diagnostics,
+  dependency : DependencyDiagnostic,
+) -> Diagnostics {
+  let next = { ..diagnostics }
+  next.dependency_diagnostics.push(dependency)
   next
 }

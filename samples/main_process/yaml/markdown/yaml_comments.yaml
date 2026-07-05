@@ -1,4 +1,0 @@
-# top-level comment
-name: Alice # inline comment
-note: "keep # inside quotes"
-flag: true # keep bool

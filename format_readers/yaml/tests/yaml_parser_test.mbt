@@ -23,12 +23,6 @@ test "yaml parser handles nested subset and quoted strings" {
 ///|
 test "yaml unsupported features fail closed and classify" {
   assert_true(
-    (try @yaml.parse_yaml_document("note: |\n  long\n") |> Ok catch {
-      e => Err(e)
-    })
-    is Err(_),
-  )
-  assert_true(
     (try @yaml.parse_yaml_document("a:\n\tb: 1\n") |> Ok catch {
       e => Err(e)
     })
@@ -36,7 +30,9 @@ test "yaml unsupported features fail closed and classify" {
   )
 
   let unsupported = @yaml.classify_yaml_error(
-    @yaml.YamlError::ParseError("block scalars are unsupported at line 1"),
+    @yaml.YamlError::ParseError(
+      "anchors, aliases, and tags are unsupported at line 1",
+    ),
   )
   assert_true(unsupported.kind == @yaml.YamlErrorKind::UnsupportedFeature)
 
@@ -222,6 +218,54 @@ test "yaml parser handles conservative flow sequence" {
       }
     }
     _ => fail("expected flow sequence root")
+  }
+}
+
+///|
+test "yaml parser preserves numbers as first-class scalars" {
+  let doc = @yaml.parse_yaml_document("count: 42\nratio: 3.14\nneg: -7\n")
+  match doc.root {
+    Some(@yaml.YamlValue::Mapping(members)) => {
+      match members[0].value {
+        @yaml.YamlValue::Number(value) => assert_eq(value, "42")
+        _ => fail("expected number for count")
+      }
+      match members[1].value {
+        @yaml.YamlValue::Number(value) => assert_eq(value, "3.14")
+        _ => fail("expected number for ratio")
+      }
+      match members[2].value {
+        @yaml.YamlValue::Number(value) => assert_eq(value, "-7")
+        _ => fail("expected number for neg")
+      }
+    }
+    _ => fail("expected mapping root")
+  }
+}
+
+///|
+test "yaml parser handles literal and folded block scalars" {
+  let literal = @yaml.parse_yaml_document("note: |\n  line one\n  line two\n")
+  match literal.root {
+    Some(@yaml.YamlValue::Mapping(members)) =>
+      match members[0].value {
+        @yaml.YamlValue::String(value) => assert_eq(value, "line one\nline two")
+        _ => fail("expected literal block scalar string")
+      }
+    _ => fail("expected mapping root for literal block scalar")
+  }
+
+  let folded = @yaml.parse_yaml_document(
+    "note: >\n  line one\n  line two\n  tail\n",
+  )
+  match folded.root {
+    Some(@yaml.YamlValue::Mapping(members)) =>
+      match members[0].value {
+        @yaml.YamlValue::String(value) =>
+          assert_eq(value, "line one line two tail")
+        _ => fail("expected folded block scalar string")
+      }
+    _ => fail("expected mapping root for folded block scalar")
   }
 }
 

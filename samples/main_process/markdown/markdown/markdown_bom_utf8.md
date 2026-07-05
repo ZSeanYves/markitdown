@@ -1,3 +1,0 @@
-﻿# BOM Heading
-
-BOM paragraph.

@@ -3,13 +3,13 @@
 ///|
 test "tesseract command builder keeps explicit-only argv shape and language passthrough" {
   let request = make_ocr_provider_request(
-    "samples/fixtures/ocr/tiny_ocr_sample.png",
+    "samples/fixtures/contracts/ocr/ocr_tiny_png.png",
     OcrProviderKind::Tesseract,
     language=Some("eng"),
   )
   let plan = build_tesseract_tsv_command(request)
   assert_eq(plan.0, "tesseract")
-  assert_eq(plan.1[0], "samples/fixtures/ocr/tiny_ocr_sample.png")
+  assert_eq(plan.1[0], "samples/fixtures/contracts/ocr/ocr_tiny_png.png")
   assert_eq(plan.1[1], "stdout")
   assert_eq(plan.1[2], "--oem")
   assert_eq(plan.1[3], "1")

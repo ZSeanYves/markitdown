@@ -1,8 +1,0 @@
-| Key | Value |
-| --- | --- |
-| items | [one, two, true, null] |
-| person | {name: Ada, active: true} |
-| nested | {items: [one, {two: three}]} |
-| text | ["a,b", "x:y"] |
-| empty_list | [] |
-| empty_map | {} |

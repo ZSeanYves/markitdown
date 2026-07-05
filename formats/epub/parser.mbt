@@ -1,5 +1,5 @@
 ///|
-const EPUB_PARSER_NAME : String = "epub_package_parser"
+const EPUB_PARSER_NAME : String = "epub_parser"
 
 ///|
 const EPUB_MAX_CONTAINER_ENTRIES : Int = 512
@@ -41,18 +41,10 @@ priv struct EpubSkipReason {
 
 ///|
 fn epub_parser_capability() -> @parser.ParserCapability {
-  @parser.make_parser_capability(
-    @parser.ParserMode::PackageSinglePass,
-    true,
+  @parser.package_with_block_route_parser_capability(
     @parser.StreamingGranularity::EpubSpineItem,
     true,
     false,
-    false,
-    false,
-    false,
-    false,
-    true,
-    true,
     false,
     true,
     true,
@@ -65,7 +57,7 @@ fn epub_parser_capability() -> @parser.ParserCapability {
 }
 
 ///|
-pub fn epub_package_parser(
+pub fn epub_parser(
   registry_provider : () -> @parser.ParserRegistry,
 ) -> @parser.Parser {
   @parser.make_parser(
@@ -91,27 +83,32 @@ fn parse_epub_container_result(
     Ok(payload) => payload
     Err(err) => return Err(err)
   }
-  let diagnostics = @parser_common.empty_parser_diagnostics(
+  let requested_container = context.requested_mode ==
+    Some(@parser.ParserMode::ContainerRecursive)
+  let effective_mode = if requested_container {
+    @parser.ParserMode::ContainerRecursive
+  } else {
+    @parser.ParserMode::PackageSinglePass
+  }
+  let diagnostics = @fshared.empty_parser_diagnostics(
     EPUB_PARSER_NAME,
-    @parser.ParserMode::PackageSinglePass,
+    effective_mode,
     source,
     "epub",
   )
-  diagnostics.metrics.set("parser_name", EPUB_PARSER_NAME)
-  diagnostics.metrics.set("parser_mode", "package_single_pass")
-  diagnostics.metrics.set(
-    "input_kind",
-    @parser_common.input_kind_name(source.kind),
+  @fshared.init_parser_route_metrics(
+    diagnostics,
+    source,
+    context,
+    "epub",
+    EPUB_PARSER_NAME,
+    effective_mode,
+    effective_mode,
+    "block_stream",
+    "epub_spine_item",
+    "epub_spine_block_stream",
   )
-  diagnostics.metrics.set("detected_format", "epub")
-  diagnostics.metrics.set(
-    "requested_mode",
-    @parser_common.requested_mode_name(context),
-  )
-  diagnostics.metrics.set("effective_mode", "package_single_pass")
-  diagnostics.metrics.set("ir_input_kind", "block_stream")
-  diagnostics.metrics.set("event_granularity", "epub_spine_item")
-  diagnostics.metrics.set("event_semantics", "epub_spine_block_stream")
+  @fshared.init_parser_count_metrics(diagnostics)
   diagnostics.metrics.set("manifest_seen", "false")
   diagnostics.metrics.set("resource_limit_hit", "false")
   diagnostics.metrics.set("nav_seen", "false")
@@ -120,7 +117,7 @@ fn parse_epub_container_result(
   diagnostics.metrics.set("missing_manifest_item_count", "0")
   diagnostics.metrics.set("missing_spine_item_count", "0")
   diagnostics.metrics.set("external_resource_count", "0")
-  @parser_common.apply_product_metrics(diagnostics, "epub")
+  @fshared.apply_product_metrics(diagnostics, "epub")
   diagnostics.pass_trace.push("parse:" + EPUB_PARSER_NAME)
 
   let container_path = epub_container_path(source)
@@ -138,7 +135,7 @@ fn parse_epub_container_result(
 
   diagnostics.metrics.set(
     "manifest_seen",
-    @parser_common.bool_string(inspect.manifest_count > 0),
+    @fshared.bool_string(inspect.manifest_count > 0),
   )
   diagnostics.metrics.set(
     "container_entry_count",
@@ -195,17 +192,17 @@ fn parse_epub_container_result(
   diagnostics.metrics.set("spine_item_count", inventory.spine_count.to_string())
   diagnostics.metrics.set(
     "nav_seen",
-    @parser_common.bool_string(
+    @fshared.bool_string(
       inventory.nav_path is Some(_) || inventory.nav_document_path is Some(_),
     ),
   )
   diagnostics.metrics.set(
     "ncx_seen",
-    @parser_common.bool_string(inventory.ncx_path is Some(_)),
+    @fshared.bool_string(inventory.ncx_path is Some(_)),
   )
   diagnostics.metrics.set(
     "cover_candidate_seen",
-    @parser_common.bool_string(inventory.cover_candidate_count > 0),
+    @fshared.bool_string(inventory.cover_candidate_count > 0),
   )
 
   let issue_tallies = epub_issue_tallies(validations)
@@ -364,18 +361,7 @@ fn parse_epub_container_result(
   )
   diagnostics.metrics.set("nested_archive_count", "0")
   diagnostics.metrics.set("asset_count", merged_assets.length().to_string())
-  diagnostics.metrics.set(
-    "degraded_feature_count",
-    diagnostics.degraded_features.length().to_string(),
-  )
-  diagnostics.metrics.set(
-    "fallback_count",
-    diagnostics.fallback_trace.length().to_string(),
-  )
-  diagnostics.metrics.set(
-    "warning_count",
-    diagnostics.warnings.length().to_string(),
-  )
+  @fshared.refresh_parser_count_metrics(diagnostics, "block_stream")
   diagnostics.metrics.set(
     "error_count",
     diagnostics.errors.length().to_string(),
@@ -386,13 +372,13 @@ fn parse_epub_container_result(
   )
   diagnostics.metrics.set(
     "resource_limit_hit",
-    @parser_common.bool_string(resource_limit_hit),
+    @fshared.bool_string(resource_limit_hit),
   )
 
   Ok(
     @parser.parse_result_with_blocks_capability(
       EPUB_PARSER_NAME,
-      @parser.ParserMode::PackageSinglePass,
+      effective_mode,
       merged_blocks,
       diagnostics,
       epub_parser_capability(),

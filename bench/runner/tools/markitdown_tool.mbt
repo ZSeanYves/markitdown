@@ -134,9 +134,7 @@ fn normalized_env_var(name : String) -> String? {
 
 ///|
 fn fallback_candidates() -> Array[String] {
-  [
-    "/usr/local/bin/markitdown", "/opt/homebrew/bin/markitdown", "/Users/winter/miniconda3/bin/markitdown",
-  ]
+  ["/usr/local/bin/markitdown", "/opt/homebrew/bin/markitdown"]
 }
 
 ///|

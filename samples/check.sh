@@ -3,8 +3,9 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SAMPLE_IMPL="$ROOT/samples/helpers/validation/check_samples_impl.sh"
+source "$ROOT/samples/helpers/shared/cli_runner.sh"
 CHECK_TMP_ROOT="${MARKITDOWN_CHECK_TMP_ROOT:-$ROOT/.tmp/check}"
-SUPPORTED_FORMATS=("txt" "csv" "tsv" "json" "jsonl" "ndjson" "xml" "yaml" "html" "markdown" "zip" "epub" "docx" "xlsx" "pptx" "pdf" "ocr")
+SUPPORTED_FORMATS=("txt" "csv" "tsv" "srt" "vtt" "json" "jsonl" "ndjson" "ipynb" "xml" "yaml" "toml" "html" "markdown" "eml" "tex" "rst" "asciidoc" "zip" "epub" "odt" "ods" "odp" "docx" "xlsx" "pptx" "pdf" "wav" "mp3" "m4a" "ocr")
 
 ONLY_MODE=""
 FORMAT_FILTER=""
@@ -18,20 +19,20 @@ usage() {
   cat <<'EOF'
 Usage: ./samples/check.sh [--markdown|--rag|--assets|--ocr] [--format FMT] [--check-inventory] [--list-inventory]
 
-Runs repo-local samples/main_process regression checks.
+Runs external main regression checks from ./markitdown-quality-lab/external_main_process.
 
 Options:
   --markdown          Run only Markdown expected-output checks.
   --rag               Run only RAG expected-output checks.
   --assets            Run only light-asset expected-output checks.
   --ocr               Run only explicit OCR-lane expected-output checks.
-  --format FMT        Restrict checks to one supported product format: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, pdf, ocr.
+  --format FMT        Restrict checks to one supported product format: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, eml, tex, rst, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, wav, mp3, m4a, ocr.
   --check-inventory   Run sample enrollment/integrity checks without conversion.
   --list-inventory    Print sample inventory counts in TSV form.
   -h, --help          Show this help.
 
 Default:
-  Run markdown, rag, assets, and explicit OCR-lane checks for the main CLI gate: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, pdf, and ocr.
+  Run markdown, rag, assets, and explicit OCR-lane checks for the external main CLI gate: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, eml, tex, rst, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, wav, mp3, m4a, and ocr.
   Unsupported formats fail closed here.
 
 Run artifacts:
@@ -176,6 +177,11 @@ if [[ "$SPECIAL_MODE" == "list-inventory" ]]; then
   exit 0
 fi
 
+resolve_markitdown_cli
+if [[ "${CLI_RUNNER_KIND:-}" == "prebuilt-native" || "${CLI_RUNNER_KIND:-}" == "override" ]]; then
+  SHARED_CLI_BIN="$CLI_BIN"
+fi
+
 RUN_STAMP="$(date +%Y%m%d-%H%M%S)"
 RUN_LABEL="all"
 if [[ -n "$FORMAT_FILTER" ]]; then
@@ -237,9 +243,7 @@ update_runner_label() {
 
 runner_from_log() {
   local log_path="$1"
-  if grep -q "runner-note: built native" "$log_path" 2>/dev/null; then
-    printf 'built'
-  elif grep -q "runner: prebuilt-native\\|runner: override" "$log_path" 2>/dev/null; then
+  if grep -q "runner: prebuilt-native\\|runner: override" "$log_path" 2>/dev/null; then
     printf 'prebuilt'
   elif grep -q "runner: moon-run" "$log_path" 2>/dev/null; then
     printf 'moon-run'
@@ -297,16 +301,21 @@ run_impl() {
     echo "log: $(display_path "$log_path")"
   } >> "$ENTRYPOINT_LOG"
 
+  local -a env_args=(
+    CHECK_SAMPLES_OUT_DIR="$mode_workspace/samples"
+    MARKITDOWN_CLI_TMP_DIR="$mode_workspace/cli"
+    CHECK_FAILURE_DIFF_DIR="$DIFF_DIR"
+    CHECK_FAILURE_RAW_DIR="$RAW_DIR/failures"
+    CHECK_FAILURE_REPORTS_DIR="$FAILURE_REPORTS_DIR"
+    SAMPLES_KEEP_TMP=1
+    MARKITDOWN_PROGRESS_FD=3
+  )
+  if [[ -n "$SHARED_CLI_BIN" ]]; then
+    env_args+=(MARKITDOWN_CLI="$SHARED_CLI_BIN")
+  fi
+
   set +e
-  env \
-    CHECK_SAMPLES_OUT_DIR="$mode_workspace/samples" \
-    MARKITDOWN_CLI_TMP_DIR="$mode_workspace/cli" \
-    CHECK_FAILURE_DIFF_DIR="$DIFF_DIR" \
-    CHECK_FAILURE_RAW_DIR="$RAW_DIR/failures" \
-    CHECK_FAILURE_REPORTS_DIR="$FAILURE_REPORTS_DIR" \
-    SAMPLES_KEEP_TMP=1 \
-    MARKITDOWN_PROGRESS_FD=3 \
-    "$SAMPLE_IMPL" "${args[@]}" 3>&1 >"$log_path" 2>&1
+  env "${env_args[@]}" "$SAMPLE_IMPL" "${args[@]}" 3>&1 >"$log_path" 2>&1
   local status=$?
   set -e
 
@@ -390,7 +399,7 @@ write_summary_md() {
     echo
     echo "## What was checked"
     echo
-    echo "Repo-local samples/main_process lane checks for the main CLI gate: txt, csv, tsv, json, jsonl, ndjson, xml, yaml, html, markdown, zip, epub, docx, xlsx, pptx, pdf, and ocr."
+    echo "External main manifest lane checks for the main CLI gate: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, eml, tex, rst, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, and ocr."
     echo "Lanes: $lanes"
     echo "Formats outside the current gate fail closed and are not part of this check."
     echo
