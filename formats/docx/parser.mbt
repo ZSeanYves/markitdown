@@ -161,6 +161,7 @@ fn parse_docx_document_result(
     "issue_count",
     (diagnostics.warnings.length() + diagnostics.errors.length()).to_string(),
   )
+  @fshared.mark_structured_document_profile(diagnostics)
   diagnostics.pass_trace.push("parse:docx_parser")
   let final_document = @core.document_with_diagnostics(document, diagnostics)
   Ok(

@@ -233,6 +233,14 @@ test "convert provenance reports zip container route" {
     @convert.output_mode_name(execution.provenance.output_mode),
     "markdown",
   )
+  assert_eq(
+    execution.result.diagnostics.metrics.get("probe_artifact_reused"),
+    Some("true"),
+  )
+  assert_eq(
+    execution.result.diagnostics.metrics.get("process_cache_hit"),
+    Some("false"),
+  )
 }
 
 ///|
@@ -370,7 +378,7 @@ test "convert provenance reports audio canonical media pipeline and honest fallb
     assert_true(
       balanced.provenance.audio_backend_transport == Some("native_cli"),
     )
-    assert_true(balanced.provenance.audio_backend_name == Some("whisper_cpp"))
+    assert_true(balanced.provenance.audio_backend_name == Some("vosk"))
 
     let stream = convert_with_provenance(
       @input.input_from_path("samples/fixtures/contracts/audio/contract.mp3"),
@@ -465,6 +473,40 @@ test "convert provenance reports epub explicit stream container route fidelity" 
   assert_eq(execution.provenance.pipeline_output_kind, "block_stream")
   assert_eq(execution.provenance.render_input_kind, "block_stream")
   assert_eq(execution.provenance.route_fidelity_status, "matched")
+  assert_eq(
+    execution.result.diagnostics.metrics.get("probe_artifact_reused"),
+    Some("true"),
+  )
+  assert_eq(
+    execution.result.diagnostics.metrics.get("process_cache_hit"),
+    Some("false"),
+  )
+}
+
+///|
+test "convert provenance reports pdf native artifact reuse without process cache" {
+  let execution = convert_with_provenance(
+    @input.input_from_path("samples/fixtures/contracts/pdf/text_simple.pdf"),
+    @input.DetectedFormat::Pdf,
+    @convert.default_resource_limits(),
+  )
+  assert_eq(execution.provenance.route_plan.selected_route, "page_single_pass")
+  assert_eq(
+    @parser.mode_name(execution.provenance.effective_parser_mode),
+    "page_single_pass",
+  )
+  assert_eq(execution.provenance.parse_result_kind, "document")
+  assert_eq(execution.provenance.pipeline_output_kind, "document")
+  assert_eq(execution.provenance.render_input_kind, "document")
+  assert_eq(execution.provenance.route_fidelity_status, "matched")
+  assert_eq(
+    execution.result.diagnostics.metrics.get("probe_artifact_reused"),
+    Some("true"),
+  )
+  assert_eq(
+    execution.result.diagnostics.metrics.get("process_cache_hit"),
+    Some("false"),
+  )
 }
 
 ///|

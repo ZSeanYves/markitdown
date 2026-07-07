@@ -257,4 +257,13 @@ pub struct EpubPackage {
   guide_cover_path : String?
   cover_candidates : Array[EpubCoverCandidate]
   nav_points : Array[EpubNavPoint]
+  priv inspect_cache : Ref[EpubInspectReport?]
+  priv inventory_cache : Ref[EpubPackageInventory?]
+  priv text_part_cache : Map[String, String]
+  priv text_hit_count : Ref[Int]
+  priv text_miss_count : Ref[Int]
+  priv inspect_hit_count : Ref[Int]
+  priv inspect_miss_count : Ref[Int]
+  priv inventory_hit_count : Ref[Int]
+  priv inventory_miss_count : Ref[Int]
 }

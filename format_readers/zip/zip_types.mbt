@@ -59,6 +59,12 @@ pub struct ZipArchive {
   bytes : Bytes
   entries : Array[ZipEntryMeta]
   entry_index : Map[String, Int]
+  priv inspect_cache : Ref[ZipArchiveInspectReport?]
+  priv read_entry_cache : Map[String, Bytes]
+  priv inspect_hit_count : Ref[Int]
+  priv inspect_miss_count : Ref[Int]
+  priv read_hit_count : Ref[Int]
+  priv read_miss_count : Ref[Int]
 }
 
 ///|

@@ -98,22 +98,16 @@ fn with_mock_audio_runtime(body : () -> Unit raise) -> Unit raise {
   let root = test_tmp_root() + "/audio-runtime"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
-  let model_path = root + "/ggml-base.bin"
-  write_utf8_text(model_path, "fake whisper model\n")
+  let model_path = root + "/model"
+  ensure_dir_tree(model_path)
+  write_utf8_text(model_path + "/README", "fake vosk model\n")
   let bin_dir = root + "/bin"
   recreate_clean_dir(bin_dir)
-  let whisper_path = bin_dir + "/whisper-cli"
   let ffmpeg_path = bin_dir + "/ffmpeg"
-  write_utf8_text(
-    whisper_path, "#!/bin/sh\nexec python3 \"$PWD/samples/helpers/mock_whisper_cli.py\" \"$@\"\n",
-  )
   write_utf8_text(
     ffmpeg_path, "#!/bin/sh\nexec python3 \"$PWD/samples/helpers/mock_ffmpeg.py\" \"$@\"\n",
   )
   @async.with_event_loop(_group => {
-    let _ = @process.collect_output("chmod", ["+x", whisper_path]) catch {
-      e => abort("chmod whisper mock failed: " + e.to_string())
-    }
     let _ = @process.collect_output("chmod", ["+x", ffmpeg_path]) catch {
       e => abort("chmod ffmpeg mock failed: " + e.to_string())
     }
@@ -122,9 +116,18 @@ fn with_mock_audio_runtime(body : () -> Unit raise) -> Unit raise {
   }
   let previous_path = @env.get_env_var("PATH")
   let current_path = previous_path.unwrap_or("")
+  let previous_audio_cmd = @env.get_env_var(@faudio.audio_command_env_var())
   @env.set_env_var("PATH", bin_dir + ":" + current_path)
   @env.set_env_var(@faudio.audio_model_path_env_var(), model_path)
+  @env.set_env_var(
+    @faudio.audio_command_env_var(),
+    "python3 samples/helpers/mock_vosk_wrapper.py",
+  )
   defer {
+    match previous_audio_cmd {
+      Some(cmd) => @env.set_env_var(@faudio.audio_command_env_var(), cmd)
+      None => @env.unset_env_var(@faudio.audio_command_env_var())
+    }
     @env.unset_env_var(@faudio.audio_model_path_env_var())
     match previous_path {
       Some(path) => @env.set_env_var("PATH", path)

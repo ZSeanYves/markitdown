@@ -813,7 +813,15 @@ fn pdf_preflight_probe(
   source : @input.InputSource,
   options : ConvertOptions,
 ) -> ProbeOutcome {
-  let native = @fpdf.extract_pdf_native_document(source)
+  let (bytes, prepared_source) = read_probe_bytes(source)
+  match bytes {
+    Some(_) => ()
+    None =>
+      return probe_outcome("pdf", ["probe_failed"], prepared_source, probe_failures=[
+        make_probe_failure("pdf", "probe_failed"),
+      ])
+  }
+  let native = @fpdf.extract_pdf_native_document(prepared_source)
   match native {
     Ok(document) => {
       let mut native_text_pages = 0
@@ -849,7 +857,9 @@ fn pdf_preflight_probe(
         "native_text_pages=" + native_text_pages.to_string(),
         "scanned_pages=" + scanned_pages.to_string(),
       ]
-      probe_outcome("pdf", summary, source, probe_signals=signals)
+      probe_outcome("pdf", summary, prepared_source, probe_signals=signals, probe_artifacts=[
+        RouteProbeArtifact::PdfNativeDocument(document),
+      ])
     }
     Err(_error) => {
       let signals = [
@@ -864,10 +874,111 @@ fn pdf_preflight_probe(
         "convert_mode=" + convert_mode_name(options.mode),
         "native_probe=failed",
       ]
-      probe_outcome("pdf", summary, source, probe_signals=signals, probe_failures=[
+      probe_outcome("pdf", summary, prepared_source, probe_signals=signals, probe_failures=[
         make_probe_failure("pdf", "native_probe_failed"),
       ])
     }
+  }
+}
+
+///|
+fn zip_preflight_probe(
+  source : @input.InputSource,
+  options : ConvertOptions,
+) -> ProbeOutcome {
+  let (bytes, prepared_source) = read_probe_bytes(source)
+  let archive = match bytes {
+    Some(payload) =>
+      try @dzip.open_zip(payload) |> Ok catch {
+        err => Err(err.to_string())
+      }
+    None => Err("probe_unavailable")
+  }
+  match archive {
+    Ok(value) => {
+      let report = @dzip.inspect_zip_archive(value)
+      let signals = [
+        make_probe_signal(
+          ProbeSignalKind::EntryCount,
+          report.file_entry_count,
+          limit=Some(options.limits.max_rows),
+        ),
+        make_probe_signal(
+          ProbeSignalKind::AssetCount,
+          report.inventory.entries.length(),
+        ),
+      ]
+      probe_outcome(
+        "zip",
+        signal_summary_lines(signals) +
+        [
+          probe_summary_line(
+            "decoded_bytes",
+            report.total_uncompressed_size,
+            None,
+          ),
+        ],
+        prepared_source,
+        probe_signals=signals,
+        probe_artifacts=[RouteProbeArtifact::ZipArchiveInspect(value, report)],
+      )
+    }
+    Err(_) =>
+      probe_outcome("zip", ["probe_failed"], prepared_source, probe_failures=[
+        make_probe_failure("zip", "probe_failed"),
+      ])
+  }
+}
+
+///|
+fn epub_preflight_probe(
+  source : @input.InputSource,
+  options : ConvertOptions,
+) -> ProbeOutcome {
+  let (bytes, prepared_source) = read_probe_bytes(source)
+  let opened = match bytes {
+    Some(payload) =>
+      try @depub.open_epub_package(payload, source.source_name) |> Ok catch {
+        err => Err(err.to_string())
+      }
+    None => Err("probe_unavailable")
+  }
+  match opened {
+    Ok(pkg) => {
+      let inspect = @depub.inspect_epub_package(pkg)
+      let inventory = inspect.inventory
+      let signals = [
+        make_probe_signal(
+          ProbeSignalKind::EntryCount,
+          inventory.part_count,
+          limit=Some(options.limits.max_rows),
+        ),
+        make_probe_signal(
+          ProbeSignalKind::BlockCount,
+          inventory.spine_linear_count,
+          limit=Some(options.limits.max_rows),
+        ),
+        make_probe_signal(
+          ProbeSignalKind::AssetCount,
+          inventory.cover_candidate_count,
+        ),
+      ]
+      probe_outcome(
+        "epub",
+        signal_summary_lines(signals) +
+        [
+          probe_summary_line("manifest", inventory.manifest_count, None),
+          probe_summary_line("spine", inventory.spine_count, None),
+        ],
+        prepared_source,
+        probe_signals=signals,
+        probe_artifacts=[RouteProbeArtifact::EpubPackageInspect(pkg, inspect)],
+      )
+    }
+    Err(_) =>
+      probe_outcome("epub", ["probe_failed"], prepared_source, probe_failures=[
+        make_probe_failure("epub", "probe_failed"),
+      ])
   }
 }
 
@@ -902,6 +1013,8 @@ fn preflight_probe(
     @input.DetectedFormat::Audio(_) => audio_preflight_probe(source, format)
     @input.DetectedFormat::Xml => xml_preflight_probe(source, options)
     @input.DetectedFormat::Html => html_preflight_probe(source, options)
+    @input.DetectedFormat::Zip => zip_preflight_probe(source, options)
+    @input.DetectedFormat::Epub => epub_preflight_probe(source, options)
     @input.DetectedFormat::Xlsx => xlsx_preflight_probe(source, options)
     @input.DetectedFormat::Odt => odt_preflight_probe(source, options)
     @input.DetectedFormat::Ods => ods_preflight_probe(source, options)

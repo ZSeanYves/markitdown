@@ -58,7 +58,7 @@ The main CLI currently supports these input families:
 | Containers | `zip`, `epub` | formally supported |
 | Office | `odt`, `ods`, `odp`, `docx`, `xlsx`, `pptx` | formally supported |
 | PDF | `pdf` | formally supported; default is native-text, `--pdf-ocr explicit|auto-scanned` enables balanced PDF OCR, `--accurate` defaults to `auto-scanned` and can enter accurate PDF OCR on scanned-like pages |
-| Audio | `wav`, `mp3`, `m4a` | formally supported; current path is a transcript-only P0 media pipeline |
+| Audio | `wav`, `mp3`, `m4a` | formally supported through an optional local transcript backend; current path is a narrow transcript-only media pipeline |
 | Direct image OCR | `png`, `jpg`, `jpeg`, `bmp`, `webp`, `tif`, `tiff` | formally supported |
 
 These inputs are not part of the default formal matrix:
@@ -94,7 +94,7 @@ These inputs are not part of the default formal matrix:
 | `pptx` | `package_single_pass` | slide order, lists, images, speaker notes, hidden-slide policy, debug | no full slide-layout reconstruction |
 | `pdf` | `page_single_pass` or `layout_two_stage` | native-text extraction, balanced PDF OCR, accurate PDF OCR, cleanup hooks, optional table signals, RAG, debug | OCR routes do not currently promise deep layout intelligence or complex-table reconstruction |
 | direct image OCR | `layout_two_stage` or image OCR parser route | text extraction, OCR diagnostics, provenance, provider-aware fallback from accurate to balanced when accurate dependencies are missing | quality depends heavily on the OCR provider and image complexity |
-| `wav` / `mp3` / `m4a` | `media_pipeline` | transcript output, timestamps, Markdown, RAG, debug, provenance | current implementation is still a lightweight P0 media pipeline |
+| `wav` / `mp3` / `m4a` | `media_pipeline` | transcript output, timestamps, Markdown, RAG, debug, provenance through a local optional backend | no diarization, no speaker separation promise, no dedicated accurate enhancement line, and compressed-audio support may require local normalization |
 
 ## 3.1 Current Maturity Audit
 
@@ -105,7 +105,7 @@ We currently use four maturity levels:
 - `strong mature`: mature plus stronger route, accurate, or stress confidence for complex formats
 - `experimental`: not yet part of the formal long-term product promise
 
-There is no formally supported input family that is publicly labeled `experimental`. Experimental status today applies only to some scoped enhancements, especially parts of `pdf --accurate` and the current audio line.
+There is no formally supported input family that is publicly labeled `experimental`. Experimental status today applies mainly to some scoped `pdf --accurate` enhancements; the audio line is now intentionally narrow and optional rather than broad and experimental.
 
 | Format | Current level | Summary |
 | --- | --- | --- |
@@ -132,7 +132,7 @@ There is no formally supported input family that is publicly labeled `experiment
 | `pptx` | `strong mature` | strong slide/notes handling and readable-order-like semantics |
 | `pdf` | `strong mature` | stable native-text path plus clear balanced versus accurate PDF OCR split |
 | direct image OCR | `usable` | formally available, but highly dependent on OCR provider quality |
-| `wav` / `mp3` / `m4a` | `usable` | formal main-path integration exists, but the current product contract is intentionally narrow |
+| `wav` / `mp3` / `m4a` | `usable` | formal main-path integration exists through a stable optional local backend, but the current product contract is intentionally narrow |
 
 The most important update from this audit is that `rst`, `asciidoc`, and `tex` should now be considered mature canonical formats, not provisional semantic inventory experiments.
 
@@ -592,11 +592,12 @@ The project does not currently promise:
 - formula execution, macro execution, or script execution
 - automatic accurate upgrades for formats that do not formally support them
 - audio accurate mode as a real separate product line today
-- stable production guarantees for experimental `pdf --accurate` and the current audio line
+- stable production guarantees for dependency-heavy `pdf --accurate` and the current optional audio backend line
 
 Important note:
 
-- `pdf --accurate` and audio are still experimental capabilities and are not currently recommended for production use
+- `pdf --accurate` is still the more dependency-heavy path today
+- audio is available through an optional local backend with a narrow transcript-only contract, not as a broad fully managed media product line
 
 ## 9. Recommended Validation Entry Points
 

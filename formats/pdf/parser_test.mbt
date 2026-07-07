@@ -201,6 +201,12 @@ test "pdf native parser default product path can return document ir" {
     Some("false"),
   )
   assert_true(
+    document.diagnostics.metrics.get("probe_artifact_reused") == Some("false"),
+  )
+  assert_true(
+    document.diagnostics.metrics.get("process_cache_hit") == Some("false"),
+  )
+  assert_true(
     document.diagnostics.metrics.get("pdf_empty_text_layer") == Some("false"),
   )
   assert_true(

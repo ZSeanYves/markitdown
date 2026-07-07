@@ -13,6 +13,54 @@ fn pdf_test_join_bytes(parts : Array[Bytes]) -> Bytes {
 }
 
 ///|
+fn tiny_pdf_bytes() -> Bytes {
+  @utf8.encode(
+    [
+      "%PDF-1.4", "1 0 obj", "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+      "endobj", "2 0 obj", "<< /Length 54 >>", "stream", "BT /F1 12 Tf 1 0 0 1 50 700 Tm (Hello PDF backend) Tj ET",
+      "endstream", "endobj", "4 0 obj", "<< /Type /Page /Parent 5 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 2 0 R >>",
+      "endobj", "5 0 obj", "<< /Type /Pages /Kids [4 0 R] /Count 1 >>", "endobj",
+      "6 0 obj", "<< /Type /Catalog /Pages 5 0 R >>", "endobj", "trailer", "<< /Size 7 /Root 6 0 R >>",
+      "%%EOF", "",
+    ].join("\n"),
+  )
+}
+
+///|
+test "pdf native backend repeated extraction stays cache-free and artifact-neutral" {
+  let bytes = tiny_pdf_bytes()
+  let source = @input.input_from_bytes_with_format(
+    bytes,
+    "cache-hit.pdf",
+    Some(@input.DetectedFormat::Pdf),
+  )
+
+  let first = match extract_pdf_native_document(source) {
+    Ok(document) => document
+    Err(err) => fail("first extract failed: " + err.to_string())
+  }
+  let second = match extract_pdf_native_document(source) {
+    Ok(document) => document
+    Err(err) => fail("second extract failed: " + err.to_string())
+  }
+
+  assert_eq(first.pages.length(), 1)
+  assert_eq(second.pages.length(), 1)
+  assert_true(
+    first.diagnostics.metrics.get("probe_artifact_reused") == Some("false"),
+  )
+  assert_true(
+    second.diagnostics.metrics.get("probe_artifact_reused") == Some("false"),
+  )
+  assert_true(
+    first.diagnostics.metrics.get("process_cache_hit") == Some("false"),
+  )
+  assert_true(
+    second.diagnostics.metrics.get("process_cache_hit") == Some("false"),
+  )
+}
+
+///|
 test "pdf native backend extracts direct text and link facts from tiny synthetic pdf" {
   let pdf = [
     "%PDF-1.4", "1 0 obj", "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",

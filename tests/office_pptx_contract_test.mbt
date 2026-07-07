@@ -391,6 +391,11 @@ test "pptx parser keeps diagnostics source refs and runtime behavior contract lo
   let document = parsed.document.unwrap_or_else(fn() {
     abort("missing pptx document")
   })
+  assert_metric_eq(
+    parsed.diagnostics,
+    "structured_document_profile",
+    "pipeline_ready",
+  )
   assert_true(document.blocks.length() == 6)
   assert_eq(document.blocks[0].text, "Slide 1")
   assert_eq(document.blocks[3].text, "Slide 3")

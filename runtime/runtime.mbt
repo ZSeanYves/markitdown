@@ -48,6 +48,14 @@ pub struct ChildBlockProduct {
 }
 
 ///|
+priv struct ChildParsePlan {
+  context : @parser.ParseContext
+  preference : String
+  preferred_format : String
+  predecoded_text_used : Bool
+}
+
+///|
 /// Parse a nested/child source and normalize it into blocks plus merged
 /// diagnostics for the parent document.
 pub fn parse_child_to_block_product(
@@ -56,7 +64,8 @@ pub fn parse_child_to_block_product(
   format : @input.DetectedFormat,
   context : @parser.ParseContext,
 ) -> Result[ChildBlockProduct, String] {
-  let inner_context = child_parse_context(format, context)
+  let child_plan = child_parse_plan(format, source, context)
+  let inner_context = child_plan.context
   let product_options = child_product_options(context)
   let parsed = match @parser.registry_parse(registry, source, inner_context) {
     Ok(value) => value
@@ -68,12 +77,16 @@ pub fn parse_child_to_block_product(
         parsed.diagnostics,
         document.diagnostics,
       )
+      record_child_parse_preference_metrics(diagnostics, child_plan, true)
       Ok({ blocks: document.blocks, assets: document.assets, diagnostics })
     }
     None =>
       match parsed.block_stream {
-        Some(blocks) =>
-          Ok({ blocks, assets: parsed.assets, diagnostics: parsed.diagnostics })
+        Some(blocks) => {
+          let diagnostics = parsed.diagnostics
+          record_child_parse_preference_metrics(diagnostics, child_plan, true)
+          Ok({ blocks, assets: parsed.assets, diagnostics })
+        }
         None => {
           let built = @pipeline.build_document_with_default_pipeline(
             parse_result_to_ir_input(parsed),
@@ -93,6 +106,7 @@ pub fn parse_child_to_block_product(
             parsed.diagnostics,
             built.diagnostics,
           )
+          record_child_parse_preference_metrics(diagnostics, child_plan, false)
           Ok({ blocks: built.blocks, assets: built.assets, diagnostics })
         }
       }
@@ -107,7 +121,7 @@ pub fn parse_child_to_document(
   format : @input.DetectedFormat,
   context : @parser.ParseContext,
 ) -> Result[@core.DocumentIR, String] {
-  let inner_context = child_parse_context(format, context)
+  let inner_context = child_parse_context(format, source, context)
   let parsed = match @parser.registry_parse(registry, source, inner_context) {
     Ok(value) => value
     Err(err) => return Err(err)
@@ -116,9 +130,38 @@ pub fn parse_child_to_document(
 }
 
 ///|
+fn child_parse_plan(
+  format : @input.DetectedFormat,
+  source : @input.InputSource,
+  context : @parser.ParseContext,
+) -> ChildParsePlan {
+  let requested_mode = resolved_child_requested_mode(format, source, context)
+  {
+    context: child_parse_context_from_mode(format, context, requested_mode),
+    preference: child_parse_preference_name(format, source, requested_mode),
+    preferred_format: @input.detected_format_name(format),
+    predecoded_text_used: source.text is Some(_),
+  }
+}
+
+///|
 fn child_parse_context(
   format : @input.DetectedFormat,
+  source : @input.InputSource,
   context : @parser.ParseContext,
+) -> @parser.ParseContext {
+  child_parse_context_from_mode(
+    format,
+    context,
+    resolved_child_requested_mode(format, source, context),
+  )
+}
+
+///|
+fn child_parse_context_from_mode(
+  format : @input.DetectedFormat,
+  context : @parser.ParseContext,
+  requested_mode : @parser.ParserMode?,
 ) -> @parser.ParseContext {
   @parser.parse_context_with_limits(
     @parser.parse_context_with_pdf_table_reconstruction_policy(
@@ -144,12 +187,80 @@ fn child_parse_context(
       ),
       context.pdf_table_reconstruction_policy,
     ),
-    context.requested_mode,
+    requested_mode,
     context.max_rows,
     context.max_cols,
     context.max_cells,
     context.max_line_chars,
     context.debug,
+  )
+}
+
+///|
+fn resolved_child_requested_mode(
+  format : @input.DetectedFormat,
+  source : @input.InputSource,
+  context : @parser.ParseContext,
+) -> @parser.ParserMode? {
+  if source.text is Some(_) &&
+    child_format_prefers_block_stream_text_markup(format) {
+    Some(@parser.ParserMode::BlockStreaming)
+  } else {
+    context.requested_mode
+  }
+}
+
+///|
+fn child_parse_preference_name(
+  format : @input.DetectedFormat,
+  source : @input.InputSource,
+  _requested_mode : @parser.ParserMode?,
+) -> String {
+  if source.text is Some(_) &&
+    child_format_prefers_block_stream_text_markup(format) {
+    "prefer_block_stream_text_markup"
+  } else {
+    "default"
+  }
+}
+
+///|
+fn child_format_prefers_block_stream_text_markup(
+  format : @input.DetectedFormat,
+) -> Bool {
+  match format {
+    @input.DetectedFormat::Html => true
+    @input.DetectedFormat::Markdown => true
+    _ => false
+  }
+}
+
+///|
+fn record_child_parse_preference_metrics(
+  diagnostics : @core.Diagnostics,
+  child_plan : ChildParsePlan,
+  fast_path_hit : Bool,
+) -> Unit {
+  diagnostics.metrics.set("child_parse_preference", child_plan.preference)
+  diagnostics.metrics.set(
+    "child_parse_preferred_format",
+    child_plan.preferred_format,
+  )
+  diagnostics.metrics.set(
+    "child_parse_fast_path_used",
+    if fast_path_hit {
+      "true"
+    } else {
+      "false"
+    },
+  )
+  diagnostics.metrics.set(
+    "child_parse_predecoded_text_used",
+    if child_plan.predecoded_text_used {
+      "true"
+    } else {
+      "false"
+    },
   )
 }
 

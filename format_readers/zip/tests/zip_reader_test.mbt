@@ -202,6 +202,27 @@ fn open_inline_zip(entries : Array[(String, String)]) -> @zip.ZipArchive raise {
 }
 
 ///|
+test "zip archive cache reuses inspect report and decoded entry bytes" {
+  let archive = open_inline_zip([
+    ("alpha/readme.md", "# Alpha\n\nBody\n"),
+    ("beta/page.html", "<html><body><h1>Beta</h1></body></html>"),
+  ])
+
+  let first_report = @zip.inspect_zip_archive(archive)
+  let second_report = @zip.inspect_zip_archive(archive)
+  let first_entry = @zip.read_entry(archive, "alpha/readme.md") catch {
+    e => fail("first read_entry failed: " + e.to_string())
+  }
+  let second_entry = @zip.read_entry(archive, "alpha/readme.md") catch {
+    e => fail("second read_entry failed: " + e.to_string())
+  }
+
+  assert_eq(first_report.entry_count, second_report.entry_count)
+  assert_true(bytes_to_string(first_entry).contains("Alpha"))
+  assert_eq(first_entry.length(), second_entry.length())
+}
+
+///|
 fn repeated_path_segment(base : String, count : Int, leaf : String) -> String {
   let parts : Array[String] = []
   for _ in 0..<count {

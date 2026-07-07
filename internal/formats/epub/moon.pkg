@@ -1,8 +1,11 @@
 import {
-  "ZSeanYves/markitdown/internal/formats/epub" @internal,
+  "moonbitlang/core/encoding/utf8",
   "ZSeanYves/markitdown/format_readers/epub" @depub,
+  "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/formats/shared" @fshared,
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/runtime",
 }
 
 supported_targets = "native"

@@ -674,6 +674,48 @@ test "pdf native unit bridge keeps paragraph grouping matrix and source refs sta
 }
 
 ///|
+test "pdf native unit bridge rejoins hyphenated hard wraps within one text block" {
+  let line1 = pdf_test_line(
+    "inter-",
+    10.0,
+    40.0,
+    width=36.0,
+    file_id="hardwrap-join.pdf",
+    page=1,
+    line=1,
+    reading_order_index=Some(1),
+  )
+  let line2 = pdf_test_line(
+    "national text processing",
+    10.0,
+    26.0,
+    width=130.0,
+    file_id="hardwrap-join.pdf",
+    page=1,
+    line=2,
+    reading_order_index=Some(2),
+  )
+  let document = pdf_native_document_to_ir(
+    make_pdf_native_document(pages=[
+      make_pdf_native_page(make_pdf_page_geometry(1, 612.0, 792.0), text_blocks=[
+        make_pdf_native_text_block(
+          [line1, line2],
+          make_pdf_bbox(10.0, 26.0, 130.0, 26.0),
+          reading_order_index=Some(1),
+        ),
+      ]),
+    ]),
+  )
+  assert_eq(document.blocks.length(), 1)
+  assert_eq(document.blocks[0].text, "international text processing")
+  let source_ref = document.blocks[0].source_ref.unwrap_or(
+    @core.empty_source_ref(),
+  )
+  assert_true(source_ref.line_start == Some(1))
+  assert_true(source_ref.line_end == Some(2))
+}
+
+///|
 test "pdf native unit bridge records repeated header and footer candidates as metadata only" {
   let header_text = "ACME Quarterly Report"
   let footer_text = "Confidential - Internal Use"

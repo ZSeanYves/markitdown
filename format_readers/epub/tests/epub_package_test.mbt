@@ -223,6 +223,56 @@ fn open_inline_epub(
 }
 
 ///|
+fn minimal_epub_entries() -> Array[(String, String)] {
+  [
+    ("mimetype", "application/epub+zip"),
+    (
+      "META-INF/container.xml",
+      minimal_container([
+        ("OPS/content.opf", Some("application/oebps-package+xml")),
+      ]),
+    ),
+    (
+      "OPS/content.opf",
+      minimal_opf(
+        [
+          ("nav", "nav.xhtml", "application/xhtml+xml", Some("nav")),
+          ("chapter1", "chapter1.xhtml", "application/xhtml+xml", None),
+        ],
+        [("chapter1", None)],
+      ),
+    ),
+    (
+      "OPS/nav.xhtml", "<?xml version=\"1.0\" encoding=\"UTF-8\"?><html xmlns=\"http://www.w3.org/1999/xhtml\"><body><nav><ol><li><a href=\"chapter1.xhtml\">Chapter 1</a></li></ol></nav></body></html>",
+    ),
+    (
+      "OPS/chapter1.xhtml", "<?xml version=\"1.0\" encoding=\"UTF-8\"?><html xmlns=\"http://www.w3.org/1999/xhtml\"><body><h1>Chapter 1</h1><p>Hello</p></body></html>",
+    ),
+  ]
+}
+
+///|
+test "epub package cache reuses inspect inventory and decoded xml parts" {
+  let pkg = open_inline_epub(minimal_epub_entries())
+
+  let first_inventory = @epub.inspect_epub_inventory(pkg)
+  let second_inventory = @epub.inspect_epub_inventory(pkg)
+  let first_report = @epub.inspect_epub_package(pkg)
+  let second_report = @epub.inspect_epub_package(pkg)
+  let first_text = @epub.read_part_text(pkg, "OPS/content.opf") catch {
+    e => fail("first read_part_text failed: " + e.to_string())
+  }
+  let second_text = @epub.read_part_text(pkg, "OPS/content.opf") catch {
+    e => fail("second read_part_text failed: " + e.to_string())
+  }
+
+  assert_eq(first_inventory.part_count, second_inventory.part_count)
+  assert_eq(first_report.manifest_count, second_report.manifest_count)
+  assert_eq(first_text, second_text)
+  assert_true(first_text.contains("chapter1.xhtml"))
+}
+
+///|
 fn minimal_container(rootfiles : Array[(String, String?)]) -> String {
   let children : Array[String] = []
   for entry in rootfiles {

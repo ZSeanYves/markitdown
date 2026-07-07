@@ -3144,13 +3144,19 @@ test "root package manifests avoid retired convert and core runtime dependencies
 test "zip foundation contract reuses the active zip reader and avoids custom decompressor or retired convert layers" {
   let formats_pkg = read_utf8_text("formats/moon.pkg")
   let zip_pkg = read_utf8_text("formats/zip/moon.pkg")
+  let zip_internal_pkg = read_utf8_text("internal/formats/zip/moon.pkg")
   let cli_pkg = read_utf8_text("cli/moon.pkg")
   let registry_impl = read_utf8_text("formats/registry.mbt")
   let zip_parser = read_package_mbt_sources("formats/zip")
+  let zip_internal_impl = read_package_mbt_sources("internal/formats/zip")
+  let zip_impl = zip_parser + "\n" + zip_internal_impl
   let runtime_impl = read_utf8_text("runtime/runtime.mbt")
   let zip_reader_pkg = read_utf8_text("format_readers/zip/moon.pkg")
   assert_contains_all(formats_pkg, ["ZSeanYves/markitdown/formats/zip"])
   assert_contains_all(zip_pkg, [
+    "ZSeanYves/markitdown/internal/formats/zip", "ZSeanYves/markitdown/format_readers/zip",
+  ])
+  assert_contains_all(zip_internal_pkg, [
     "ZSeanYves/markitdown/format_readers/zip", "ZSeanYves/markitdown/container",
     "ZSeanYves/markitdown/runtime",
   ])
@@ -3159,12 +3165,12 @@ test "zip foundation contract reuses the active zip reader and avoids custom dec
   assert_contains_all(registry_impl, [
     "@input.DetectedFormat::Zip", "@fzip.zip_container_parser(fn() { builtin_registry() })",
   ])
-  assert_contains_all(zip_parser, [
+  assert_contains_all(zip_impl, [
     "@dzip.open_zip", "@dzip.inspect_zip_archive", "@dzip.read_entry", "@dzip.normalize_entry_path",
-    "registry_provider", "@runtime.parse_child_to_document",
+    "registry_provider", "@runtime.parse_child_to_block_product",
   ])
   assert_contains_all(runtime_impl, [
-    "pub fn parse_child_to_document", "@parser.registry_parse(registry, source, inner_context)",
+    "pub fn parse_child_to_document", "pub fn parse_child_to_block_product", "@parser.registry_parse(registry, source, inner_context)",
   ])
   assert_contains_none(formats_pkg, [
     "ZSeanYves/markitdown/format_readers/zip", "ZSeanYves/markitdown/runtime", "ZSeanYves/markitdown/convert/zip",
@@ -3173,7 +3179,7 @@ test "zip foundation contract reuses the active zip reader and avoids custom dec
   assert_contains_none(cli_pkg, [
     "ZSeanYves/markitdown/convert/zip", "ZSeanYves/markitdown/convert/zip_core",
   ])
-  assert_contains_none(zip_parser, [
+  assert_contains_none(zip_impl, [
     "@flate", "bikallem/compress/flate", "convert/zip", "convert/zip_core", "zip_legacy_fallback",
     "zip_raw_fallback",
   ])
@@ -3335,6 +3341,18 @@ test "zip parser keeps root-pipeline merged block output and source refs" {
   assert_true(inner_ref.entry_format == Some("markdown"))
   assert_true(inner_ref.inner_path == Some("/heading[0]"))
   assert_true(inner_ref.entry_index == entry_ref.entry_index)
+  assert_metric_eq(
+    parsed.diagnostics,
+    "child_parse_predecoded_text_used",
+    "true",
+  )
+  assert_metric_eq(parsed.diagnostics, "child_parse_fast_path_used", "true")
+  assert_metric_eq(
+    parsed.diagnostics,
+    "child_parse_preference",
+    "prefer_block_stream_text_markup",
+  )
+  assert_metric_eq(parsed.diagnostics, "child_parse_preferred_format", "html")
 }
 
 ///|
@@ -3401,10 +3419,13 @@ test "zip convert result keeps root container diagnostics and source refs" {
 test "epub foundation contract reuses active epub and zip readers plus root html without retired bridges" {
   let formats_pkg = read_utf8_text("formats/moon.pkg")
   let epub_pkg = read_utf8_text("formats/epub/moon.pkg")
+  let epub_internal_pkg = read_utf8_text("internal/formats/epub/moon.pkg")
   let html_pkg = read_utf8_text("formats/html/moon.pkg")
   let cli_pkg = read_utf8_text("cli/moon.pkg")
   let registry_impl = read_utf8_text("formats/registry.mbt")
   let epub_parser = read_package_mbt_sources("formats/epub")
+  let epub_internal_impl = read_package_mbt_sources("internal/formats/epub")
+  let epub_impl = epub_parser + "\n" + epub_internal_impl
   let runtime_impl = read_utf8_text("runtime/runtime.mbt")
   let epub_reader_pkg = read_utf8_text("format_readers/epub/moon.pkg")
   let zip_reader_pkg = read_utf8_text("format_readers/zip/moon.pkg")
@@ -3412,6 +3433,9 @@ test "epub foundation contract reuses active epub and zip readers plus root html
     "ZSeanYves/markitdown/formats/epub", "ZSeanYves/markitdown/formats/html",
   ])
   assert_contains_all(epub_pkg, [
+    "ZSeanYves/markitdown/internal/formats/epub", "ZSeanYves/markitdown/format_readers/epub",
+  ])
+  assert_contains_all(epub_internal_pkg, [
     "ZSeanYves/markitdown/format_readers/epub", "ZSeanYves/markitdown/runtime",
   ])
   assert_contains_all(html_pkg, ["ZSeanYves/markitdown/format_readers/html"])
@@ -3424,7 +3448,7 @@ test "epub foundation contract reuses active epub and zip readers plus root html
     "@input.DetectedFormat::Epub", "@fepub.epub_parser(fn() { builtin_registry() })",
     "@input.DetectedFormat::Html", "@fhtml.html_parser()",
   ])
-  assert_contains_all(epub_parser, [
+  assert_contains_all(epub_impl, [
     "@depub.open_epub_package", "@depub.inspect_epub_package", "@depub.read_part_bytes",
     "registry_provider", "@runtime.parse_child_to_block_product",
   ])
@@ -3441,7 +3465,7 @@ test "epub foundation contract reuses active epub and zip readers plus root html
     "ZSeanYves/markitdown/convert/epub", "ZSeanYves/markitdown/convert/html",
   ])
   assert_contains_none(epub_reader_pkg, ["ZSeanYves/markitdown/convert/"])
-  assert_contains_none(epub_parser, [
+  assert_contains_none(epub_impl, [
     "@flate", "bikallem/compress/flate", "convert/epub", "convert/html", "epub_raw_fallback",
     "epub_legacy_fallback",
   ])
@@ -3532,12 +3556,349 @@ test "epub parser preserves opf spine order and root html source refs without pa
   assert_true(chapter_one_ref.entry_format == Some("html"))
   assert_true(chapter_one_ref.html_path == Some("/block/html:block:h1:2"))
   assert_true(chapter_one_ref.inner_path == Some("/block/html:block:h1:2"))
+  assert_metric_eq(
+    parsed.diagnostics,
+    "child_parse_predecoded_text_used",
+    "true",
+  )
+  assert_metric_eq(parsed.diagnostics, "child_parse_fast_path_used", "true")
+  assert_metric_eq(
+    parsed.diagnostics,
+    "child_parse_preference",
+    "prefer_block_stream_text_markup",
+  )
+  assert_metric_eq(parsed.diagnostics, "child_parse_preferred_format", "html")
   assert_contains_all(parsed.diagnostics.pass_trace.join("\n"), [
     "parse:epub_parser", "parse:html_parser",
   ])
   assert_diagnostics_lists_contain_none(parsed.diagnostics, [
     "legacy dispatcher", "convert/html", "convert/epub", "epub_raw_fallback", "epub_legacy_fallback",
   ])
+}
+
+///|
+test "runtime child html routing keeps simple and mixed markup on fast block path" {
+  let registry = @formats_root.builtin_registry()
+  let parent_context = @parser.new_parse_context(@input.DetectedFormat::Epub)
+
+  let simple = match
+    @runtime.parse_child_to_block_product(
+      registry,
+      @input.with_bytes_payload(
+        @input.input_from_text_with_format(
+          "<html><body><h1>Chapter</h1><p>Body</p></body></html>",
+          "chapter.xhtml",
+          Some(@input.DetectedFormat::Html),
+        ),
+        @utf8.encode("<html><body><h1>Chapter</h1><p>Body</p></body></html>"),
+      ),
+      @input.DetectedFormat::Html,
+      parent_context,
+    ) {
+    Ok(value) => value
+    Err(err) => fail("simple child html parse failed: " + err)
+  }
+  assert_metric_eq(
+    simple.diagnostics,
+    "child_parse_preference",
+    "prefer_block_stream_text_markup",
+  )
+  assert_metric_eq(simple.diagnostics, "child_parse_fast_path_used", "true")
+  assert_metric_eq(
+    simple.diagnostics,
+    "child_parse_predecoded_text_used",
+    "true",
+  )
+  assert_true(simple.blocks.length() == 2)
+  let simple_heading = simple.blocks[0]
+  let simple_paragraph = simple.blocks[1]
+  assert_true(
+    simple_heading.source_ref.unwrap_or(@core.empty_source_ref()).html_path ==
+    Some("/block/html:block:h1:2"),
+  )
+  assert_eq(simple_paragraph.text, "Body")
+
+  let quote = match
+    @runtime.parse_child_to_block_product(
+      registry,
+      @input.with_bytes_payload(
+        @input.input_from_text_with_format(
+          "<html><body><blockquote><p>Quoted</p></blockquote></body></html>",
+          "chapter.xhtml",
+          Some(@input.DetectedFormat::Html),
+        ),
+        @utf8.encode(
+          "<html><body><blockquote><p>Quoted</p></blockquote></body></html>",
+        ),
+      ),
+      @input.DetectedFormat::Html,
+      parent_context,
+    ) {
+    Ok(value) => value
+    Err(err) => fail("blockquote child html parse failed: " + err)
+  }
+  assert_metric_eq(
+    quote.diagnostics,
+    "child_parse_preference",
+    "prefer_block_stream_text_markup",
+  )
+  assert_metric_eq(quote.diagnostics, "child_parse_fast_path_used", "true")
+  assert_metric_eq(
+    quote.diagnostics,
+    "child_parse_predecoded_text_used",
+    "true",
+  )
+  assert_metric_eq(quote.diagnostics, "scope_plan_labels", "child_text_fast")
+  assert_true(quote.blocks.length() == 1)
+  assert_true(quote.blocks[0].kind == @core.BlockKind::BlockQuote)
+  assert_true(quote.blocks[0].text.contains("Quoted"))
+
+  let mixed = match
+    @runtime.parse_child_to_block_product(
+      registry,
+      @input.with_bytes_payload(
+        @input.input_from_text_with_format(
+          "<html><body><hr><table><tr><td>Cell</td></tr></table><img src='images/cover.png' alt='Cover'></body></html>",
+          "chapter.xhtml",
+          Some(@input.DetectedFormat::Html),
+        ),
+        @utf8.encode(
+          "<html><body><hr><table><tr><td>Cell</td></tr></table><img src='images/cover.png' alt='Cover'></body></html>",
+        ),
+      ),
+      @input.DetectedFormat::Html,
+      parent_context,
+    ) {
+    Ok(value) => value
+    Err(err) => fail("mixed child html parse failed: " + err)
+  }
+  assert_metric_eq(
+    mixed.diagnostics,
+    "child_parse_preference",
+    "prefer_block_stream_text_markup",
+  )
+  assert_metric_eq(mixed.diagnostics, "child_parse_fast_path_used", "true")
+  assert_metric_eq(
+    mixed.diagnostics,
+    "child_parse_predecoded_text_used",
+    "true",
+  )
+  assert_metric_eq(mixed.diagnostics, "scope_plan_labels", "child_text_fast")
+  assert_true(mixed.blocks.length() == 3)
+  assert_true(mixed.blocks[0].kind == @core.BlockKind::Raw)
+  assert_true(mixed.blocks[0].attrs.get("raw_kind") == Some("thematic_break"))
+  assert_true(mixed.blocks[1].kind == @core.BlockKind::Table)
+  assert_true(mixed.blocks[1].children.length() == 1)
+  assert_true(mixed.blocks[1].children[0].kind == @core.BlockKind::TableRow)
+  assert_true(mixed.blocks[1].children[0].children.length() == 1)
+  assert_true(mixed.blocks[1].children[0].children[0].text == "Cell")
+  assert_true(mixed.blocks[2].kind == @core.BlockKind::Image)
+  assert_true(mixed.blocks[2].attrs.get("alt") == Some("Cover"))
+  assert_true(mixed.blocks[2].attrs.get("path") == Some("assets/image01.png"))
+  assert_true(mixed.assets.length() == 1)
+  assert_true(
+    mixed.assets[0].attrs.get("source_path") == Some("images/cover.png"),
+  )
+}
+
+///|
+test "runtime child html fast path keeps block html refs and simple link inlines" {
+  let registry = @formats_root.builtin_registry()
+  let parent_context = @parser.new_parse_context(@input.DetectedFormat::Epub)
+  let parsed = match
+    @runtime.parse_child_to_block_product(
+      registry,
+      @input.with_bytes_payload(
+        @input.input_from_text_with_format(
+          "<html><body><h1>Chapter</h1><p>Read <a href='https://example.com/ch1'>chapter one</a><br>now.</p></body></html>",
+          "chapter.xhtml",
+          Some(@input.DetectedFormat::Html),
+        ),
+        @utf8.encode(
+          "<html><body><h1>Chapter</h1><p>Read <a href='https://example.com/ch1'>chapter one</a><br>now.</p></body></html>",
+        ),
+      ),
+      @input.DetectedFormat::Html,
+      parent_context,
+    ) {
+    Ok(value) => value
+    Err(err) => fail("child html fast path parse failed: " + err)
+  }
+  assert_metric_eq(
+    parsed.diagnostics,
+    "child_parse_preference",
+    "prefer_block_stream_text_markup",
+  )
+  assert_true(parsed.blocks.length() == 2)
+  let heading = parsed.blocks[0]
+  let paragraph = parsed.blocks[1]
+  assert_true(
+    heading.source_ref.unwrap_or(@core.empty_source_ref()).html_path ==
+    Some("/block/html:block:h1:2"),
+  )
+  assert_true(
+    paragraph.source_ref.unwrap_or(@core.empty_source_ref()).html_path ==
+    Some("/block/html:block:p:3"),
+  )
+  let inlines = paragraph.rich_inlines.unwrap_or([])
+  assert_true(inlines.length() == 4)
+  assert_true(inlines[0].kind == @core.InlineKind::Text)
+  assert_true(inlines[1].kind == @core.InlineKind::Link)
+  assert_true(inlines[1].text == "chapter one")
+  assert_true(inlines[1].href == Some("https://example.com/ch1"))
+  assert_true(inlines[2].kind == @core.InlineKind::LineBreak)
+  assert_true(inlines[3].kind == @core.InlineKind::Text)
+}
+
+///|
+test "runtime child html fast path lowers pre blocks as code without semantic fallback" {
+  let registry = @formats_root.builtin_registry()
+  let parent_context = @parser.new_parse_context(@input.DetectedFormat::Epub)
+  let parsed = match
+    @runtime.parse_child_to_block_product(
+      registry,
+      @input.with_bytes_payload(
+        @input.input_from_text_with_format(
+          "<html><body><h2>Verse</h2><pre>line one\n  line two</pre><p>After</p></body></html>",
+          "chapter.xhtml",
+          Some(@input.DetectedFormat::Html),
+        ),
+        @utf8.encode(
+          "<html><body><h2>Verse</h2><pre>line one\n  line two</pre><p>After</p></body></html>",
+        ),
+      ),
+      @input.DetectedFormat::Html,
+      parent_context,
+    ) {
+    Ok(value) => value
+    Err(err) => fail("child html pre fast path parse failed: " + err)
+  }
+  assert_metric_eq(
+    parsed.diagnostics,
+    "child_parse_preference",
+    "prefer_block_stream_text_markup",
+  )
+  assert_true(parsed.blocks.length() == 3)
+  assert_true(parsed.blocks[0].kind == @core.BlockKind::Heading)
+  assert_true(parsed.blocks[1].kind == @core.BlockKind::Code)
+  assert_eq(parsed.blocks[1].text, "line one\n  line two")
+  assert_true(parsed.blocks[1].attrs.get("info") == Some(""))
+  assert_true(parsed.blocks[2].kind == @core.BlockKind::Paragraph)
+  assert_true(
+    parsed.blocks[1].source_ref.unwrap_or(@core.empty_source_ref()).html_path ==
+    Some("/block/html:block:pre:3"),
+  )
+}
+
+///|
+test "runtime child html fast path keeps nested list structure without semantic fallback" {
+  let registry = @formats_root.builtin_registry()
+  let parent_context = @parser.new_parse_context(@input.DetectedFormat::Epub)
+  let html = "<html><body><ul><li>Alpha <a href='https://example.com'>link</a></li><li>Nested<ul><li>Child</li></ul></li></ul><ol><li>Step</li></ol></body></html>"
+  let parsed = match
+    @runtime.parse_child_to_block_product(
+      registry,
+      @input.with_bytes_payload(
+        @input.input_from_text_with_format(
+          html,
+          "chapter.xhtml",
+          Some(@input.DetectedFormat::Html),
+        ),
+        @utf8.encode(html),
+      ),
+      @input.DetectedFormat::Html,
+      parent_context,
+    ) {
+    Ok(value) => value
+    Err(err) => fail("child html list fast path parse failed: " + err)
+  }
+  assert_metric_eq(
+    parsed.diagnostics,
+    "child_parse_preference",
+    "prefer_block_stream_text_markup",
+  )
+  assert_metric_eq(parsed.diagnostics, "child_parse_fast_path_used", "true")
+  assert_metric_eq(
+    parsed.diagnostics,
+    "child_parse_predecoded_text_used",
+    "true",
+  )
+  assert_metric_eq(parsed.diagnostics, "scope_plan_labels", "child_text_fast")
+  assert_true(parsed.blocks.length() == 2)
+  let unordered = parsed.blocks[0]
+  let ordered = parsed.blocks[1]
+  assert_true(unordered.kind == @core.BlockKind::List)
+  assert_true(unordered.attrs.get("ordered") == Some("false"))
+  assert_true(unordered.children.length() == 2)
+  assert_true(unordered.children[0].kind == @core.BlockKind::ListItem)
+  assert_eq(unordered.children[0].text, "Alpha link")
+  let first_inlines = unordered.children[0].rich_inlines.unwrap_or([])
+  assert_true(first_inlines.length() == 2)
+  assert_true(first_inlines[1].kind == @core.InlineKind::Link)
+  assert_true(first_inlines[1].href == Some("https://example.com"))
+  assert_true(unordered.children[1].children.length() == 1)
+  assert_true(unordered.children[1].children[0].kind == @core.BlockKind::List)
+  assert_true(unordered.children[1].children[0].children[0].text == "Child")
+  assert_true(ordered.kind == @core.BlockKind::List)
+  assert_true(ordered.attrs.get("ordered") == Some("true"))
+  assert_true(ordered.children.length() == 1)
+  assert_true(
+    ordered.children[0].attrs.get("stable_ordered_marker") == Some("true"),
+  )
+  assert_true(ordered.children[0].attrs.get("ordered_indent_step") == Some("3"))
+  let rendered = (@render.markdown_renderer().render)(
+    @core.document_from_blocks(parsed.blocks),
+    @render.make_render_context(false),
+  )
+  assert_true(rendered.content.contains("- Alpha [link](https://example.com)"))
+  assert_true(rendered.content.contains("- Nested"))
+  assert_true(rendered.content.contains("  - Child"))
+  assert_true(rendered.content.contains("1. Step"))
+}
+
+///|
+test "runtime child html fast path preserves inline spacing across generic markup boundaries" {
+  let registry = @formats_root.builtin_registry()
+  let parent_context = @parser.new_parse_context(@input.DetectedFormat::Epub)
+  let html = "<html><body><h2>[OPTIONAL] audio-040 <code>audio</code> element: <em>remote</em> resources</h2><p>Tests for required <strong>Reading System</strong> functionality are preceded by the label: <code>[REQUIRED]</code></p></body></html>"
+  let parsed = match
+    @runtime.parse_child_to_block_product(
+      registry,
+      @input.with_bytes_payload(
+        @input.input_from_text_with_format(
+          html,
+          "chapter.xhtml",
+          Some(@input.DetectedFormat::Html),
+        ),
+        @utf8.encode(html),
+      ),
+      @input.DetectedFormat::Html,
+      parent_context,
+    ) {
+    Ok(value) => value
+    Err(err) => fail("child html inline spacing fast path parse failed: " + err)
+  }
+  assert_metric_eq(
+    parsed.diagnostics,
+    "child_parse_preference",
+    "prefer_block_stream_text_markup",
+  )
+  assert_metric_eq(parsed.diagnostics, "child_parse_fast_path_used", "true")
+  assert_metric_eq(
+    parsed.diagnostics,
+    "child_parse_predecoded_text_used",
+    "true",
+  )
+  assert_metric_eq(parsed.diagnostics, "scope_plan_labels", "child_text_fast")
+  assert_true(parsed.blocks.length() == 2)
+  assert_eq(
+    parsed.blocks[0].text,
+    "[OPTIONAL] audio-040 audio element: remote resources",
+  )
+  assert_eq(
+    parsed.blocks[1].text,
+    "Tests for required Reading System functionality are preceded by the label: [REQUIRED]",
+  )
 }
 
 ///|
@@ -3893,8 +4254,12 @@ test "canonical pipeline stabilization keeps runtime child dispatch thin and vis
   let render_impl = read_utf8_text("render/render.mbt")
   let runtime_pkg = read_utf8_text("runtime/moon.pkg")
   let runtime_impl = read_utf8_text("runtime/runtime.mbt")
-  let zip_impl = read_package_mbt_sources("formats/zip")
-  let epub_impl = read_package_mbt_sources("formats/epub")
+  let zip_impl = read_package_mbt_sources("formats/zip") +
+    "\n" +
+    read_package_mbt_sources("internal/formats/zip")
+  let epub_impl = read_package_mbt_sources("formats/epub") +
+    "\n" +
+    read_package_mbt_sources("internal/formats/epub")
   let docx_impl = read_package_mbt_sources("formats/docx")
   let core_impl = read_package_mbt_sources("core")
   let core_source_ref_impl = read_utf8_text("core/source_refs.mbt")
@@ -3955,7 +4320,7 @@ test "canonical pipeline stabilization keeps runtime child dispatch thin and vis
   assert_true(!runtime_impl.contains("fn normalize_block_text"))
   assert_true(!runtime_impl.contains("fn normalize_block_whitespace"))
   assert_true(!runtime_impl.contains("fn collect_document_asset_refs"))
-  assert_true(zip_impl.contains("@runtime.parse_child_to_document"))
+  assert_true(zip_impl.contains("@runtime.parse_child_to_block_product"))
   assert_true(epub_impl.contains("@runtime.parse_child_to_block_product"))
   assert_true(!zip_impl.contains("zip_parse_result_to_ir_input"))
   assert_true(!zip_impl.contains("zip_ir_input_to_document"))

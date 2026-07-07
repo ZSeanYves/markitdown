@@ -7,7 +7,7 @@ The project is inspired by Microsoft's `MarkItDown`, but this implementation put
 It is designed for document ingestion pipelines, RAG, content processing, and automation scenarios where route fidelity, provenance, and predictable failure behavior matter as much as raw conversion output.
 
 > Important:
-> `pdf/ocr --accurate` and `audio` are still experimental. They are not recommended for production use today.
+> `pdf/ocr --accurate` is still dependency-heavy. `audio` stays available on the main CLI, but it now depends on an optional local transcript backend and intentionally exposes a narrow support boundary.
 
 Read these two documents first:
 
@@ -43,7 +43,7 @@ A short view is:
   `txt/csv/tsv/json/jsonl/ndjson/ipynb/xml/yaml/toml/html/markdown/eml/msg/tex/rst/asciidoc/zip/epub/odt/ods/odp/docx/xlsx/pptx/pdf`
 - Direct image OCR:
   `png/jpg/jpeg/bmp/webp/tif/tiff`
-- Audio:
+- Audio via optional local transcript backend:
   `wav/mp3/m4a`
 
 ## Quick Start
@@ -81,6 +81,7 @@ For more CLI options, modes, batch usage, provenance output, and OCR / PDF / aud
 - `pdf --accurate` only enters Accurate PDF OCR when scanned-like probe evidence upgrades the PDF.
 - If `pdf --accurate` is missing Paddle dependencies, it reports the missing dependency and falls back to Balanced PDF OCR.
 - If direct image OCR is requested with `--accurate` and Paddle is missing, it reports the missing dependency and falls back to Balanced image OCR.
+- Audio keeps the same input surface on the main CLI, but runtime transcription only works when the local Vosk backend is installed and configured.
 - Unsupported formats and out-of-bound feature requests fail closed. The product does not hide unsupported behavior behind silent side paths.
 
 ## Development And Verification

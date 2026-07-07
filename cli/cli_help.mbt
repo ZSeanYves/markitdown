@@ -66,7 +66,7 @@ fn print_cli_usage() -> Unit {
     "Accurate OCR and Accurate PDF OCR currently require a Paddle-backed wrapper configured through `MARKITDOWN_PADDLE_OCR_CMD`; the official wrapper is `samples/helpers/paddle_ocr_wrapper.py`, and the wrapper command receives `<image_path> [--lang <LANG>]` and must print the JSON payload expected by the current OCR provider wrapper.",
   )
   println(
-    "Audio transcription prefers the wrapper command configured through `MARKITDOWN_AUDIO_CMD`; the official wrapper is `samples/helpers/audio_transcribe_wrapper.py`, which drives local `whisper.cpp` and uses local `ffmpeg` for `m4a` normalization. If `MARKITDOWN_AUDIO_CMD` is unset, the runtime falls back to direct `whisper-cli` or `main` discovery. Use `--audio-lang <LANG>` to pass an audio language hint, and optionally set `MARKITDOWN_AUDIO_MODEL_PATH` to override the default model path.",
+    "Audio transcription uses an optional local backend. The official wrapper is `samples/helpers/audio_transcribe_wrapper.py`, which drives local `Vosk`; if `MARKITDOWN_AUDIO_CMD` is unset, the runtime uses that wrapper by default. Use `--audio-lang <LANG>` to pass a language hint, set `MARKITDOWN_AUDIO_MODEL_PATH` to the extracted Vosk model directory, and install local `ffmpeg` when compressed audio needs normalization.",
   )
   println(
     "PDF cleanup and simple table reconstruction are explicit opt-in product options for native-text PDFs; current defaults stay conservative and disabled.",

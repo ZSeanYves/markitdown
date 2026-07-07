@@ -65,6 +65,7 @@ pub struct ZipArchive {
   bytes : Bytes
   entries : Array[ZipEntryMeta]
   entry_index : Map[String, Int]
+  // private fields
 }
 
 pub struct ZipArchiveInspectReport {

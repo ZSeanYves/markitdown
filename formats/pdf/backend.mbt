@@ -219,6 +219,8 @@ pub fn extract_pdf_native_document(
   diagnostics.metrics.set("product_path_enabled", "false")
   diagnostics.metrics.set("ocr_used_pages", "0")
   diagnostics.metrics.set("scanned_page_ratio", "0")
+  diagnostics.metrics.set("probe_artifact_reused", "false")
+  diagnostics.metrics.set("process_cache_hit", "false")
   let metadata : Map[String, @core.JsonValue] = Map([])
   metadata.set("pdf_native_backend", @core.JsonValue::Bool(true))
   metadata.set("pdf_native_text_baseline", @core.JsonValue::Bool(true))

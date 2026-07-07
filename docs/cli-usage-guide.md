@@ -2,7 +2,7 @@
 
 This document covers the day-to-day usage of the main CLI. Read [environment-dependencies.md](./environment-dependencies.md) first.
 
-> `pdf --accurate` and `audio` are still experimental and are not recommended for production use today.
+> `pdf --accurate` is still dependency-heavy. `audio` remains available on the main CLI, but it now depends on an optional local transcript backend with a deliberately narrow support contract.
 
 ## 1. Build And Help
 
@@ -150,9 +150,10 @@ Audio input currently supports `wav/mp3/m4a`:
 
 Notes:
 
-- `audio` is still experimental and is not recommended for production use today
-- It depends on `MARKITDOWN_AUDIO_CMD`
-- `m4a` also depends on local `ffmpeg`
+- `audio` stays on the main CLI, but it now runs through an optional local transcript backend with a deliberately narrow contract
+- By default the runtime uses `samples/helpers/audio_transcribe_wrapper.py`; set `MARKITDOWN_AUDIO_CMD` only when you need to override that wrapper
+- Set `MARKITDOWN_AUDIO_MODEL_PATH` to the extracted local Vosk model directory
+- Compressed audio may depend on local `ffmpeg`
 - `audio` does not support `--accurate` today; if requested, it emits a warning and falls back to `balance`
 
 ## 8. Common Examples
@@ -187,4 +188,4 @@ Batch:
 - Then check CLI stderr
 - If you need the real execution route, add `--provenance-out`
 - For Accurate PDF OCR or Accurate image OCR, check `MARKITDOWN_PADDLE_OCR_CMD` first
-- For audio, check `MARKITDOWN_AUDIO_CMD`, the local `whisper.cpp` model, and `ffmpeg`
+- For audio, check `MARKITDOWN_AUDIO_CMD`, the local Vosk model directory configured through `MARKITDOWN_AUDIO_MODEL_PATH`, and `ffmpeg` when compressed audio needs normalization

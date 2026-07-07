@@ -188,8 +188,8 @@ fn zip_parse_inner_document(
   source : @input.InputSource,
   format : @input.DetectedFormat,
   context : @parser.ParseContext,
-) -> Result[@core.DocumentIR, String] {
-  @runtime.parse_child_to_document(registry, source, format, context)
+) -> Result[@runtime.ChildBlockProduct, String] {
+  @runtime.parse_child_to_block_product(registry, source, format, context)
 }
 
 ///|
@@ -202,6 +202,29 @@ fn zip_absorb_child_diagnostics(
   diagnostics.degraded_features.append(child.degraded_features[:])
   diagnostics.fallback_trace.append(child.fallback_trace[:])
   diagnostics.pass_trace.append(child.pass_trace[:])
+  let child_fast_markup = child.metrics.get("child_parse_preference") ==
+    Some("prefer_block_stream_text_markup") &&
+    child.metrics.get("child_parse_fast_path_used") == Some("true")
+  if child_fast_markup {
+    zip_absorb_child_metric(diagnostics, child, "child_parse_preference")
+    zip_absorb_child_metric(diagnostics, child, "child_parse_preferred_format")
+    zip_absorb_child_metric(diagnostics, child, "child_parse_fast_path_used")
+    zip_absorb_child_metric(
+      diagnostics, child, "child_parse_predecoded_text_used",
+    )
+  }
+}
+
+///|
+fn zip_absorb_child_metric(
+  diagnostics : @core.Diagnostics,
+  child : @core.Diagnostics,
+  key : String,
+) -> Unit {
+  match child.metrics.get(key) {
+    Some(value) => diagnostics.metrics.set(key, value)
+    None => ()
+  }
 }
 
 ///|
@@ -336,12 +359,20 @@ fn zip_rewrite_single_block(
     entry,
     inner_path=None,
   )
-  let rewritten_children = block.children.map(child => {
-    zip_rewrite_single_block(child, entry, rewrites, diagnostics)
-  })
+  let rewritten_children = if block.children.length() == 0 {
+    block.children
+  } else {
+    block.children.map(child => {
+      zip_rewrite_single_block(child, entry, rewrites, diagnostics)
+    })
+  }
   let rewritten_inlines = match block.rich_inlines {
     Some(inlines) =>
-      Some(inlines.map(inline => zip_rewrite_inline(inline, entry, rewrites)))
+      if inlines.length() == 0 {
+        Some(inlines)
+      } else {
+        Some(inlines.map(inline => zip_rewrite_inline(inline, entry, rewrites)))
+      }
     None => None
   }
   let next_block = {
@@ -636,6 +667,55 @@ fn zip_inner_source_name(
   entry_path : String,
 ) -> String {
   container_path + "::" + entry_path
+}
+
+///|
+fn zip_inner_source(
+  container_path : String,
+  entry_path : String,
+  detected_format : @input.DetectedFormat,
+  entry_bytes : Bytes,
+) -> @input.InputSource {
+  let source_name = zip_inner_source_name(container_path, entry_path)
+  if zip_child_prefers_text_source(detected_format) {
+    match
+      (try @utf8.decode(entry_bytes, ignore_bom=false) |> Ok catch {
+        _ => Err(())
+      }) {
+      Ok(text) =>
+        @input.with_bytes_payload(
+          @input.input_from_text_with_format(
+            text,
+            source_name,
+            Some(detected_format),
+          ),
+          entry_bytes,
+        )
+      Err(_) =>
+        @input.input_from_bytes_with_format(
+          entry_bytes,
+          source_name,
+          Some(detected_format),
+        )
+    }
+  } else {
+    @input.input_from_bytes_with_format(
+      entry_bytes,
+      source_name,
+      Some(detected_format),
+    )
+  }
+}
+
+///|
+fn zip_child_prefers_text_source(
+  detected_format : @input.DetectedFormat,
+) -> Bool {
+  match detected_format {
+    @input.DetectedFormat::Html => true
+    @input.DetectedFormat::Markdown => true
+    _ => false
+  }
 }
 
 ///|

@@ -18,7 +18,7 @@ pub fn audio_backend_transport_name() -> String {
 
 ///|
 pub fn audio_backend_name() -> String {
-  "whisper_cpp"
+  "vosk"
 }
 
 ///|
@@ -31,7 +31,7 @@ fn audio_default_model_path() -> String {
         None => ".cache"
       }
   }
-  cache_root + "/markitdown/whisper.cpp/ggml-base.bin"
+  cache_root + "/markitdown/vosk/model"
 }
 
 ///|
@@ -51,8 +51,8 @@ fn audio_resolved_model_path() -> String {
 }
 
 ///|
-fn audio_whisper_candidate_commands() -> Array[String] {
-  ["whisper-cli", "main"]
+fn audio_default_wrapper_command() -> String {
+  "python3 samples/helpers/audio_transcribe_wrapper.py"
 }
 
 ///|
@@ -60,12 +60,13 @@ pub fn audio_transcribe_install_hint() -> String {
   [
     "Preferred: configure `" +
     audio_command_env_var() +
-    "` with the official helper `samples/helpers/audio_transcribe_wrapper.py`.",
-    "Fallback: direct local `whisper.cpp` CLI discovery still accepts `whisper-cli` or `main` on PATH.",
-    "Download the multilingual `ggml-base` model locally.",
-    "Default model path: " + audio_default_model_path(),
-    "Override model path with `" + audio_model_path_env_var() + "` when needed.",
-    "Install local `ffmpeg` when you need `m4a` input support.",
+    "` with the official helper `samples/helpers/audio_transcribe_wrapper.py`, or leave it unset to use that wrapper by default.",
+    "Install local `python3`, `vosk`, and one extracted Vosk model directory.",
+    "Recommended model directory: " + audio_default_model_path(),
+    "Set `" +
+    audio_model_path_env_var() +
+    "` to point at the extracted model directory when needed.",
+    "Plain PCM `wav` is the lightest supported route. `m4a` still requires local `ffmpeg`, and the wrapper may also use `ffmpeg` when it needs to normalize compressed audio.",
   ].join("\n")
 }
 
@@ -136,7 +137,6 @@ fn build_audio_transcribe_plan(
   let (backend_cmd, argv) = match
     audio_backend_command_plan(
       prepared_input.invoked_input_path,
-      output_base,
       output_json_path,
       language,
     ) {
@@ -152,7 +152,6 @@ fn build_audio_transcribe_plan(
 ///|
 fn audio_backend_command_plan(
   prepared_input_path : String,
-  output_base : String,
   output_json_path : String,
   language : String?,
 ) -> Result[(String, Array[String]), AudioTranscribeError] {
@@ -163,7 +162,7 @@ fn audio_backend_command_plan(
       )
     None =>
       build_audio_transcribe_direct_command(
-        prepared_input_path, output_base, language,
+        prepared_input_path, output_json_path, language,
       )
   }
 }
@@ -171,22 +170,19 @@ fn audio_backend_command_plan(
 ///|
 fn build_audio_transcribe_direct_command(
   prepared_input_path : String,
-  output_base : String,
+  output_json_path : String,
   language : String?,
 ) -> Result[(String, Array[String]), AudioTranscribeError] {
-  let backend_cmd = match audio_discover_backend_command() {
+  let _model_path = match audio_validate_model_path() {
     Ok(value) => value
     Err(error) => return Err(error)
   }
-  let model_path = match audio_validate_model_path() {
-    Ok(value) => value
-    Err(error) => return Err(error)
-  }
-  let argv : Array[String] = [
-    "-m", model_path, "-f", prepared_input_path, "-ojf", "-of", output_base, "-np",
-  ]
-  audio_append_direct_language(argv, language)
-  Ok((backend_cmd, argv))
+  build_audio_transcribe_command_with_wrapper(
+    prepared_input_path,
+    output_json_path,
+    language,
+    audio_default_wrapper_command(),
+  )
 }
 
 ///|
@@ -221,24 +217,6 @@ fn build_audio_transcribe_command_with_wrapper(
   argv.push(output_json_path)
   audio_append_wrapper_language(argv, language)
   Ok((parts[0], argv))
-}
-
-///|
-fn audio_append_direct_language(
-  argv : Array[String],
-  language : String?,
-) -> Unit {
-  match language {
-    Some(value) => {
-      let trimmed = value.trim().to_owned().to_lower()
-      argv.push("-l")
-      argv.push(if trimmed == "" { "auto" } else { trimmed })
-    }
-    None => {
-      argv.push("-l")
-      argv.push("auto")
-    }
-  }
 }
 
 ///|
@@ -342,57 +320,19 @@ fn audio_prepare_input_for_backend(
 ///|
 fn audio_validate_model_path() -> Result[String, AudioTranscribeError] {
   let model_path = audio_resolved_model_path()
-  let model_is_file = @fs.is_file(model_path) catch { _ => false }
-  if @fs.path_exists(model_path) && model_is_file {
+  let model_is_dir = @fs.is_dir(model_path) catch { _ => false }
+  if @fs.path_exists(model_path) && model_is_dir {
     Ok(model_path)
   } else {
     Err(
       AudioTranscribeError::NotConfigured(
-        "Whisper model is not available on this runtime: " +
+        "Vosk model directory is not available on this runtime: " +
         model_path +
         "\n\n" +
         audio_transcribe_install_hint(),
       ),
     )
   }
-}
-
-///|
-fn audio_discover_backend_command() -> Result[String, AudioTranscribeError] {
-  for candidate in audio_whisper_candidate_commands() {
-    match collect_audio_transcribe_output(candidate, ["--help"]) {
-      Ok((0, _stdout, _stderr)) => return Ok(candidate)
-      Ok((code, stdout, stderr)) => {
-        let raw_message = audio_process_raw_message(
-          candidate + " exited with code " + code.to_string(),
-          stdout,
-          stderr,
-        )
-        if !audio_raw_message_suggests_missing_command(raw_message) {
-          return Ok(candidate)
-        }
-      }
-      Err(AudioTranscribeError::ExecutionFailed(msg)) =>
-        if audio_raw_message_suggests_missing_command(msg) {
-          ()
-        } else {
-          return Ok(candidate)
-        }
-      Err(AudioTranscribeError::CommandUnavailable(msg)) =>
-        if audio_raw_message_suggests_missing_command(msg) {
-          ()
-        } else {
-          return Ok(candidate)
-        }
-      Err(_other) => return Ok(candidate)
-    }
-  }
-  Err(
-    AudioTranscribeError::CommandUnavailable(
-      "whisper.cpp CLI is unavailable on this runtime. Expected `whisper-cli` or `main` on PATH.\n\n" +
-      audio_transcribe_install_hint(),
-    ),
-  )
 }
 
 ///|
@@ -519,13 +459,13 @@ fn finalize_audio_transcribe_command_result(
         e =>
           return Err(
             AudioTranscribeError::OutputParseFailed(
-              "whisper.cpp did not produce a readable JSON transcript on this runtime: " +
+              "audio backend did not produce a readable JSON transcript on this runtime: " +
               e.to_string(),
             ),
           )
       }
       let parsed = match
-        parse_whisper_cpp_json_payload(payload, format, requested_language) {
+        parse_audio_transcript_json_payload(payload, format, requested_language) {
         Ok(value) => value
         Err(error) => return Err(error)
       }
@@ -533,23 +473,35 @@ fn finalize_audio_transcribe_command_result(
       let stdout_text = stdout.trim().to_owned()
       let stderr_text = stderr.trim().to_owned()
       if stdout_text != "" {
-        diagnostics.push("whisper_stdout=" + stdout_text)
+        diagnostics.push("audio_backend_stdout=" + stdout_text)
       }
       if stderr_text != "" {
-        diagnostics.push("whisper_stderr=" + stderr_text)
+        diagnostics.push("audio_backend_stderr=" + stderr_text)
       }
       Ok({ ..parsed, diagnostics, })
     }
     (code, stdout, stderr) => {
       let raw_message = audio_process_raw_message(
-        "whisper.cpp exited with code " + code.to_string(),
+        "audio backend exited with code " + code.to_string(),
         stdout,
         stderr,
       )
-      if audio_raw_message_suggests_missing_command(raw_message) {
+      let lowered = raw_message.to_lower()
+      if audio_raw_message_suggests_missing_command(raw_message) ||
+        lowered.contains("ffmpeg is required") {
         Err(
           AudioTranscribeError::CommandUnavailable(
-            "whisper.cpp CLI is unavailable on this runtime: " +
+            "audio backend command is unavailable on this runtime: " +
+            raw_message +
+            "\n\n" +
+            audio_transcribe_install_hint(),
+          ),
+        )
+      } else if lowered.contains("vosk model directory is unavailable") ||
+        lowered.contains("vosk python package is unavailable") {
+        Err(
+          AudioTranscribeError::NotConfigured(
+            "audio backend is not fully configured on this runtime: " +
             raw_message +
             "\n\n" +
             audio_transcribe_install_hint(),
@@ -558,7 +510,7 @@ fn finalize_audio_transcribe_command_result(
       } else {
         Err(
           AudioTranscribeError::ExecutionFailed(
-            "whisper.cpp CLI failed on this runtime: " +
+            "audio backend command failed on this runtime: " +
             raw_message +
             "\n\n" +
             audio_transcribe_install_hint(),
@@ -570,7 +522,7 @@ fn finalize_audio_transcribe_command_result(
 }
 
 ///|
-fn parse_whisper_cpp_json_payload(
+fn parse_audio_transcript_json_payload(
   payload : String,
   format : @input.DetectedFormat,
   requested_language : String?,
@@ -579,7 +531,7 @@ fn parse_whisper_cpp_json_payload(
   if trimmed == "" {
     return Err(
       AudioTranscribeError::EmptyResult(
-        "whisper.cpp produced an empty JSON transcript on this runtime.",
+        "audio backend produced an empty JSON transcript on this runtime.",
       ),
     )
   }
@@ -587,7 +539,8 @@ fn parse_whisper_cpp_json_payload(
     err =>
       return Err(
         AudioTranscribeError::OutputParseFailed(
-          "whisper.cpp emitted invalid JSON on this runtime: " + err.to_string(),
+          "audio backend emitted invalid JSON on this runtime: " +
+          err.to_string(),
         ),
       )
   }
@@ -596,38 +549,50 @@ fn parse_whisper_cpp_json_payload(
     _ =>
       return Err(
         AudioTranscribeError::OutputParseFailed(
-          "whisper.cpp JSON root must be an object on this runtime.",
+          "audio transcript JSON root must be an object on this runtime.",
         ),
       )
   }
-  let transcription = match root_object.get("transcription") {
+  let segments_payload = match root_object.get("segments") {
     Some(@djson.JsonValue::Array(items)) => items
     _ =>
       return Err(
         AudioTranscribeError::OutputParseFailed(
-          "whisper.cpp JSON must include a `transcription` array on this runtime.",
+          "audio transcript JSON must include a `segments` array on this runtime.",
         ),
       )
   }
-  let metadata = whisper_cpp_metadata_from_object(
+  let metadata = audio_transcript_metadata_from_object(
     root_object, format, requested_language,
   )
-  let segments = match whisper_cpp_segments(transcription, metadata.language) {
+  let provider_name = match
+    audio_trimmed_optional(json_string_optional(root_object, "provider_name")) {
+    Some(value) => value
+    None => audio_backend_name()
+  }
+  let provider_version = audio_trimmed_optional(
+    json_string_optional(root_object, "provider_version"),
+  )
+  let segments = match
+    audio_transcript_segments(segments_payload, metadata.language) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
   if segments.length() == 0 {
     return Err(
       AudioTranscribeError::EmptyResult(
-        "whisper.cpp produced zero transcript segments on this runtime.",
+        "audio backend produced zero transcript segments on this runtime.",
       ),
     )
   }
   let diagnostics : Array[String] = [
-    "backend=" + audio_backend_name(),
+    "backend=" + provider_name,
     "transport=" + audio_backend_transport_name(),
     "model_path=" + audio_resolved_model_path(),
   ]
+  for item in json_string_array_optional(root_object, "diagnostics") {
+    diagnostics.push(item)
+  }
   let requested_trimmed = audio_trimmed_optional(requested_language)
   match requested_trimmed {
     Some(value) => diagnostics.push("requested_lang=" + value)
@@ -635,47 +600,48 @@ fn parse_whisper_cpp_json_payload(
   }
   Ok(
     make_audio_transcript_result(
-      audio_backend_name(),
+      provider_name,
       metadata,
       segments,
-      provider_version=None,
+      provider_version~,
       diagnostics~,
     ),
   )
 }
 
 ///|
-fn whisper_cpp_metadata_from_object(
+fn audio_transcript_metadata_from_object(
   payload : Map[String, @djson.JsonValue],
   format : @input.DetectedFormat,
   requested_language : String?,
 ) -> AudioTranscriptMetadata {
-  let result_language = match payload.get("result") {
+  let metadata_object = match payload.get("metadata") {
     Some(@djson.JsonValue::Object(entries)) =>
-      json_string_optional(json_object_from_members(entries), "language")
+      Some(json_object_from_members(entries))
     _ => None
   }
-  let params_language = match payload.get("params") {
-    Some(@djson.JsonValue::Object(entries)) =>
-      json_string_optional(json_object_from_members(entries), "language")
-    _ => None
-  }
-  let language = match audio_trimmed_optional(result_language) {
-    Some("auto") | None =>
-      match audio_trimmed_optional(params_language) {
-        Some("auto") | None => audio_trimmed_optional(requested_language)
-        some => some
-      }
+  let metadata = metadata_object.unwrap_or(Map([]))
+  let language = match
+    audio_trimmed_optional(json_string_optional(metadata, "language")) {
+    Some("auto") | None => audio_trimmed_optional(requested_language)
     some => some
   }
+  let codec = match
+    audio_trimmed_optional(json_string_optional(metadata, "codec")) {
+    Some(value) => Some(value)
+    None => Some(@input.detected_format_name(format))
+  }
   make_audio_transcript_metadata(
-    codec=Some(@input.detected_format_name(format)),
+    duration_ms=json_int_optional(metadata, "duration_ms"),
+    sample_rate_hz=json_int_optional(metadata, "sample_rate_hz"),
+    channel_count=json_int_optional(metadata, "channel_count"),
+    codec~,
     language~,
   )
 }
 
 ///|
-fn whisper_cpp_segments(
+fn audio_transcript_segments(
   items : Array[@djson.JsonValue],
   default_language : String?,
 ) -> Result[Array[AudioTranscriptSegment], AudioTranscribeError] {
@@ -686,7 +652,7 @@ fn whisper_cpp_segments(
       _ =>
         return Err(
           AudioTranscribeError::OutputParseFailed(
-            "whisper.cpp transcript segments must be JSON objects on this runtime.",
+            "audio transcript segments must be JSON objects on this runtime.",
           ),
         )
     }
@@ -694,25 +660,26 @@ fn whisper_cpp_segments(
       Ok(value) => value
       Err(error) => return Err(error)
     }
-    let offsets = match object.get("offsets") {
-      Some(@djson.JsonValue::Object(entries)) =>
-        json_object_from_members(entries)
-      _ =>
-        return Err(
-          AudioTranscribeError::OutputParseFailed(
-            "whisper.cpp transcript segments must include `offsets` on this runtime.",
-          ),
-        )
-    }
-    let start_ms = match json_int_required(offsets, "from") {
+    let start_ms = match json_int_required(object, "start_ms") {
       Ok(value) => value
       Err(error) => return Err(error)
     }
-    let end_ms = match json_int_required(offsets, "to") {
+    let end_ms = match json_int_required(object, "end_ms") {
       Ok(value) => value
       Err(error) => return Err(error)
     }
-    let confidence = whisper_cpp_segment_confidence(object)
+    if start_ms < 0 || end_ms < start_ms {
+      return Err(
+        AudioTranscribeError::OutputParseFailed(
+          "audio transcript segments must carry non-negative ordered timestamps on this runtime.",
+        ),
+      )
+    }
+    let confidence = json_double_optional(object, "confidence")
+    let trimmed_text = text.trim().to_owned()
+    if trimmed_text == "" {
+      continue
+    }
     let segment_language = match
       audio_trimmed_optional(json_string_optional(object, "language")) {
       Some(value) => Some(value)
@@ -720,51 +687,20 @@ fn whisper_cpp_segments(
     }
     segments.push(
       make_audio_transcript_segment(
-        "seg-" + (i + 1).to_string(),
+        json_string_optional(object, "segment_id").unwrap_or(
+          "seg-" + (i + 1).to_string(),
+        ),
         start_ms,
         end_ms,
-        text,
+        trimmed_text,
         speaker=json_string_optional(object, "speaker"),
+        channel=json_int_optional(object, "channel"),
         confidence~,
         language=segment_language,
       ),
     )
   }
   Ok(segments)
-}
-
-///|
-fn whisper_cpp_segment_confidence(
-  payload : Map[String, @djson.JsonValue],
-) -> Double? {
-  let direct = json_double_optional(payload, "confidence")
-  if direct is Some(_) {
-    return direct
-  }
-  let tokens = match payload.get("tokens") {
-    Some(@djson.JsonValue::Array(items)) => items
-    _ => return None
-  }
-  let mut total = 0.0
-  let mut count = 0
-  for item in tokens {
-    let object = match item {
-      @djson.JsonValue::Object(entries) => json_object_from_members(entries)
-      _ => continue
-    }
-    match json_double_optional(object, "p") {
-      Some(value) => {
-        total += value
-        count += 1
-      }
-      None => ()
-    }
-  }
-  if count == 0 {
-    None
-  } else {
-    Some(total / count.to_double())
-  }
 }
 
 ///|
@@ -990,6 +926,18 @@ fn json_int_required(
 }
 
 ///|
+fn json_int_optional(
+  payload : Map[String, @djson.JsonValue],
+  key : String,
+) -> Int? {
+  match payload.get(key) {
+    Some(@djson.JsonValue::Number(value)) =>
+      Some(@string.parse_int(value) catch { _ => return None })
+    _ => None
+  }
+}
+
+///|
 fn json_double_optional(
   payload : Map[String, @djson.JsonValue],
   key : String,
@@ -999,6 +947,25 @@ fn json_double_optional(
       Some(@string.parse_double(value) catch { _ => return None })
     _ => None
   }
+}
+
+///|
+fn json_string_array_optional(
+  payload : Map[String, @djson.JsonValue],
+  key : String,
+) -> Array[String] {
+  let values : Array[String] = []
+  match payload.get(key) {
+    Some(@djson.JsonValue::Array(items)) =>
+      for item in items {
+        match item {
+          @djson.JsonValue::String(value) => values.push(value)
+          _ => ()
+        }
+      }
+    _ => ()
+  }
+  values
 }
 
 ///|

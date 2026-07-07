@@ -752,6 +752,11 @@ test "pdf native unit bridge lowers facts to document ir without changing regist
       @parser.new_parse_context(@input.DetectedFormat::Pdf),
     ) {
     Ok(parsed) => {
+      assert_metric_eq(
+        parsed.diagnostics,
+        "structured_document_profile",
+        "pipeline_ready",
+      )
       let registry_document = parsed.document.unwrap_or(
         @core.empty_document_ir(),
       )

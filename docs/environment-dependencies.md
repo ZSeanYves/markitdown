@@ -31,48 +31,56 @@ sudo apt install -y poppler-utils tesseract-ocr tesseract-ocr-eng
 brew install poppler
 brew install python
 python3 -m pip install paddlepaddle paddleocr pillow
-chmod +x samples/helpers/paddle_ocr_wrapper.py
-export MARKITDOWN_PADDLE_OCR_CMD="$PWD/samples/helpers/paddle_ocr_wrapper.py"
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
+  echo "Run this from inside the markitdown repo."
+  return 1 2>/dev/null || exit 1
+}
+chmod +x "$REPO_ROOT/samples/helpers/paddle_ocr_wrapper.py"
+export MARKITDOWN_PADDLE_OCR_CMD="$REPO_ROOT/samples/helpers/paddle_ocr_wrapper.py"
 
 # Ubuntu / Debian
 sudo apt update
 sudo apt install -y python3 python3-pip python3-venv poppler-utils
 python3 -m pip install paddlepaddle paddleocr pillow
-chmod +x samples/helpers/paddle_ocr_wrapper.py
-export MARKITDOWN_PADDLE_OCR_CMD="$PWD/samples/helpers/paddle_ocr_wrapper.py"
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
+  echo "Run this from inside the markitdown repo."
+  return 1 2>/dev/null || exit 1
+}
+chmod +x "$REPO_ROOT/samples/helpers/paddle_ocr_wrapper.py"
+export MARKITDOWN_PADDLE_OCR_CMD="$REPO_ROOT/samples/helpers/paddle_ocr_wrapper.py"
 ```
 
-- If you need `audio`, install `ffmpeg`, build local `whisper.cpp`, download `ggml-base.bin`, and configure `MARKITDOWN_AUDIO_CMD`:
+- If you need `audio`, install `python3`, `vosk`, one extracted local Vosk model directory, and configure the official wrapper. `wav` is the lightest path; compressed audio may also need local `ffmpeg` normalization:
 
 ```bash
 # macOS
-brew install ffmpeg cmake
-git clone https://github.com/ggml-org/whisper.cpp.git
-cd whisper.cpp
-sh ./models/download-ggml-model.sh base
-cmake -B build
-cmake --build build -j --config Release
-mkdir -p "${XDG_CACHE_HOME:-$HOME/.cache}/markitdown/whisper.cpp"
-cp models/ggml-base.bin "${XDG_CACHE_HOME:-$HOME/.cache}/markitdown/whisper.cpp/ggml-base.bin"
-export PATH="$PWD/build/bin:$PATH"
-cd ..
-chmod +x samples/helpers/audio_transcribe_wrapper.py
-export MARKITDOWN_AUDIO_CMD="$PWD/samples/helpers/audio_transcribe_wrapper.py"
+brew install ffmpeg python
+python3 -m pip install vosk
+mkdir -p "${XDG_CACHE_HOME:-$HOME/.cache}/markitdown/vosk"
+# Download and extract one official Vosk model into the directory below.
+mv /path/to/extracted-vosk-model "${XDG_CACHE_HOME:-$HOME/.cache}/markitdown/vosk/model"
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
+  echo "Run this from inside the markitdown repo."
+  return 1 2>/dev/null || exit 1
+}
+chmod +x "$REPO_ROOT/samples/helpers/audio_transcribe_wrapper.py"
+export MARKITDOWN_AUDIO_CMD="$REPO_ROOT/samples/helpers/audio_transcribe_wrapper.py"
+export MARKITDOWN_AUDIO_MODEL_PATH="${XDG_CACHE_HOME:-$HOME/.cache}/markitdown/vosk/model"
 
 # Ubuntu / Debian
 sudo apt update
-sudo apt install -y ffmpeg cmake
-git clone https://github.com/ggml-org/whisper.cpp.git
-cd whisper.cpp
-sh ./models/download-ggml-model.sh base
-cmake -B build
-cmake --build build -j --config Release
-mkdir -p "${XDG_CACHE_HOME:-$HOME/.cache}/markitdown/whisper.cpp"
-cp models/ggml-base.bin "${XDG_CACHE_HOME:-$HOME/.cache}/markitdown/whisper.cpp/ggml-base.bin"
-export PATH="$PWD/build/bin:$PATH"
-cd ..
-chmod +x samples/helpers/audio_transcribe_wrapper.py
-export MARKITDOWN_AUDIO_CMD="$PWD/samples/helpers/audio_transcribe_wrapper.py"
+sudo apt install -y ffmpeg python3 python3-pip python3-venv
+python3 -m pip install vosk
+mkdir -p "${XDG_CACHE_HOME:-$HOME/.cache}/markitdown/vosk"
+# Download and extract one official Vosk model into the directory below.
+mv /path/to/extracted-vosk-model "${XDG_CACHE_HOME:-$HOME/.cache}/markitdown/vosk/model"
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
+  echo "Run this from inside the markitdown repo."
+  return 1 2>/dev/null || exit 1
+}
+chmod +x "$REPO_ROOT/samples/helpers/audio_transcribe_wrapper.py"
+export MARKITDOWN_AUDIO_CMD="$REPO_ROOT/samples/helpers/audio_transcribe_wrapper.py"
+export MARKITDOWN_AUDIO_MODEL_PATH="${XDG_CACHE_HOME:-$HOME/.cache}/markitdown/vosk/model"
 ```
 
 - If you need to run `samples/check.sh`, `samples/check_quality.sh`, or formal `bench`, also prepare the external corpus repo:

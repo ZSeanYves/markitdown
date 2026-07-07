@@ -2521,7 +2521,14 @@ fn pdf_native_text_block_paragraph(
     if text == "" {
       continue
     }
-    parts.push(text)
+    if parts.length() == 0 {
+      parts.push(text)
+    } else {
+      let previous = parts[parts.length() - 1]
+      parts[parts.length() - 1] = pdf_native_merge_block_line_text(
+        previous, text,
+      )
+    }
     meaningful_lines.push(line)
   }
   if parts.length() == 0 {
@@ -2531,6 +2538,23 @@ fn pdf_native_text_block_paragraph(
     page, text_block, meaningful_lines, text_block_index,
   )
   Some((parts.join(" "), source_ref))
+}
+
+///|
+fn pdf_native_merge_block_line_text(left : String, right : String) -> String {
+  let lhs = left.trim_end().to_owned()
+  let rhs = right.trim_start().to_owned()
+  if lhs == "" {
+    return rhs
+  }
+  if rhs == "" {
+    return lhs
+  }
+  if lhs.has_suffix("-") {
+    lhs[:lhs.length() - 1].to_owned() + rhs
+  } else {
+    lhs + " " + rhs
+  }
 }
 
 ///|

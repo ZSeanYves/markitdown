@@ -437,6 +437,29 @@ fn epub_absorb_child_diagnostics(
   diagnostics.degraded_features.append(child.degraded_features[:])
   diagnostics.fallback_trace.append(child.fallback_trace[:])
   diagnostics.pass_trace.append(child.pass_trace[:])
+  let child_fast_markup = child.metrics.get("child_parse_preference") ==
+    Some("prefer_block_stream_text_markup") &&
+    child.metrics.get("child_parse_fast_path_used") == Some("true")
+  if child_fast_markup {
+    epub_absorb_child_metric(diagnostics, child, "child_parse_preference")
+    epub_absorb_child_metric(diagnostics, child, "child_parse_preferred_format")
+    epub_absorb_child_metric(diagnostics, child, "child_parse_fast_path_used")
+    epub_absorb_child_metric(
+      diagnostics, child, "child_parse_predecoded_text_used",
+    )
+  }
+}
+
+///|
+fn epub_absorb_child_metric(
+  diagnostics : @core.Diagnostics,
+  child : @core.Diagnostics,
+  key : String,
+) -> Unit {
+  match child.metrics.get(key) {
+    Some(value) => diagnostics.metrics.set(key, value)
+    None => ()
+  }
 }
 
 ///|
@@ -447,6 +470,7 @@ fn epub_rewrite_child_assets(
   merged_assets : Array[@core.AssetRef],
   diagnostics : @core.Diagnostics,
 ) -> Array[EpubAssetRewrite] {
+  let rewrite_plan = epub_rewrite_plan(entry, [])
   let rewrites : Array[EpubAssetRewrite] = []
   let entry_path = entry.entry_path
   for asset in assets {
@@ -489,7 +513,7 @@ fn epub_rewrite_child_assets(
               asset.source_ref.unwrap_or(
                 entry.source_ref.unwrap_or(@core.empty_source_ref()),
               ),
-              entry,
+              rewrite_plan,
               inner_path=None,
             )
             let next_asset = {
@@ -529,7 +553,7 @@ fn epub_rewrite_child_assets(
             asset.source_ref.unwrap_or(
               entry.source_ref.unwrap_or(@core.empty_source_ref()),
             ),
-            entry,
+            rewrite_plan,
             inner_path=None,
           )
           merged_assets.push({ ..asset, source_ref: Some(next_source_ref) })
@@ -546,31 +570,89 @@ fn epub_rewrite_child_blocks(
   rewrites : Array[EpubAssetRewrite],
   diagnostics : @core.Diagnostics,
 ) -> Array[@core.CoreBlock] {
-  blocks.map(block => {
-    epub_rewrite_single_block(block, entry, rewrites, diagnostics)
-  })
+  let plan = epub_rewrite_plan(entry, rewrites)
+  let rewritten : Array[@core.CoreBlock] = []
+  for block in blocks {
+    rewritten.push(epub_rewrite_single_block(block, plan, diagnostics))
+  }
+  rewritten
+}
+
+///|
+priv struct EpubRewritePlan {
+  entry_path : String
+  entry_index : Int?
+  entry_format : String?
+  container_path : String?
+  fallback_source_ref : @core.SourceRef
+  rewrite_by_asset_id : Map[String, EpubAssetRewrite]
+  rewrite_by_path : Map[String, EpubAssetRewrite]
+}
+
+///|
+fn epub_rewrite_plan(
+  entry : @core.ContainerEntry,
+  rewrites : Array[EpubAssetRewrite],
+) -> EpubRewritePlan {
+  let fallback_source_ref = entry.source_ref.unwrap_or(@core.empty_source_ref())
+  let rewrite_by_asset_id : Map[String, EpubAssetRewrite] = Map([])
+  let rewrite_by_path : Map[String, EpubAssetRewrite] = Map([])
+  for rewrite in rewrites {
+    if rewrite.old_asset_id != "" &&
+      !rewrite_by_asset_id.contains(rewrite.old_asset_id) {
+      rewrite_by_asset_id.set(rewrite.old_asset_id, rewrite)
+    }
+    if rewrite.old_path != "" && !rewrite_by_path.contains(rewrite.old_path) {
+      rewrite_by_path.set(rewrite.old_path, rewrite)
+    }
+  }
+  {
+    entry_path: entry.entry_path,
+    entry_index: entry.entry_index,
+    entry_format: entry.detected_format,
+    container_path: fallback_source_ref.container_path,
+    fallback_source_ref,
+    rewrite_by_asset_id,
+    rewrite_by_path,
+  }
 }
 
 ///|
 fn epub_rewrite_single_block(
   block : @core.CoreBlock,
-  entry : @core.ContainerEntry,
-  rewrites : Array[EpubAssetRewrite],
+  plan : EpubRewritePlan,
   diagnostics : @core.Diagnostics,
 ) -> @core.CoreBlock {
   let source_ref = epub_rewrite_source_ref(
-    block.source_ref.unwrap_or(
-      entry.source_ref.unwrap_or(@core.empty_source_ref()),
-    ),
-    entry,
+    block.source_ref.unwrap_or(plan.fallback_source_ref),
+    plan,
     inner_path=None,
   )
-  let rewritten_children = block.children.map(child => {
-    epub_rewrite_single_block(child, entry, rewrites, diagnostics)
-  })
+  if block.children.length() == 0 &&
+    block.rich_inlines is None &&
+    block.kind != @core.BlockKind::Image {
+    return { ..block, source_ref: Some(source_ref) }
+  }
+  let rewritten_children = if block.children.length() == 0 {
+    block.children
+  } else {
+    let children : Array[@core.CoreBlock] = []
+    for child in block.children {
+      children.push(epub_rewrite_single_block(child, plan, diagnostics))
+    }
+    children
+  }
   let rewritten_inlines = match block.rich_inlines {
     Some(inlines) =>
-      Some(inlines.map(inline => epub_rewrite_inline(inline, entry, rewrites)))
+      if inlines.length() == 0 {
+        Some(inlines)
+      } else {
+        let rewritten : Array[@core.CoreInline] = []
+        for inline in inlines {
+          rewritten.push(epub_rewrite_inline(inline, plan))
+        }
+        Some(rewritten)
+      }
     None => None
   }
   let next_block = {
@@ -582,7 +664,7 @@ fn epub_rewrite_single_block(
   if block.kind == @core.BlockKind::Image {
     let old_path = block.attrs.get("path").unwrap_or("")
     let old_asset_id = block.attrs.get("asset_id").unwrap_or("")
-    match epub_find_asset_rewrite(rewrites, old_asset_id, old_path) {
+    match epub_find_asset_rewrite(plan, old_asset_id, old_path) {
       Some(rewrite) => {
         next_block.attrs.set("path", rewrite.new_path)
         next_block.attrs.set("asset_id", rewrite.new_asset_id)
@@ -592,17 +674,17 @@ fn epub_rewrite_single_block(
         if !epub_block_is_remote_image(block) &&
           epub_path_looks_local_candidate(trimmed_old_path) {
           match
-            epub_resolve_asset_entry_path(entry.entry_path, trimmed_old_path) {
+            epub_resolve_asset_entry_path(plan.entry_path, trimmed_old_path) {
             Some(_) =>
               diagnostics.warnings.push(
                 "epub local image asset could not be materialized for entry `" +
-                entry.entry_path +
+                plan.entry_path +
                 "`",
               )
             None =>
               diagnostics.warnings.push(
                 "epub asset path rejected for entry `" +
-                entry.entry_path +
+                plan.entry_path +
                 "`: " +
                 trimmed_old_path,
               )
@@ -619,21 +701,18 @@ fn epub_rewrite_single_block(
 ///|
 fn epub_rewrite_inline(
   inline : @core.CoreInline,
-  entry : @core.ContainerEntry,
-  rewrites : Array[EpubAssetRewrite],
+  plan : EpubRewritePlan,
 ) -> @core.CoreInline {
   let source_ref = epub_rewrite_source_ref(
-    inline.source_ref.unwrap_or(
-      entry.source_ref.unwrap_or(@core.empty_source_ref()),
-    ),
-    entry,
+    inline.source_ref.unwrap_or(plan.fallback_source_ref),
+    plan,
     inner_path=None,
   )
   if inline.kind != @core.InlineKind::Image {
     return { ..inline, source_ref: Some(source_ref) }
   }
   let old_path = inline.href.unwrap_or("")
-  match epub_find_asset_rewrite(rewrites, "", old_path) {
+  match epub_find_asset_rewrite(plan, "", old_path) {
     Some(rewrite) =>
       { ..inline, href: Some(rewrite.new_path), source_ref: Some(source_ref) }
     None => { ..inline, source_ref: Some(source_ref) }
@@ -642,16 +721,20 @@ fn epub_rewrite_inline(
 
 ///|
 fn epub_find_asset_rewrite(
-  rewrites : Array[EpubAssetRewrite],
+  plan : EpubRewritePlan,
   old_asset_id : String,
   old_path : String,
 ) -> EpubAssetRewrite? {
-  for rewrite in rewrites {
-    if old_asset_id != "" && rewrite.old_asset_id == old_asset_id {
-      return Some(rewrite)
+  if old_asset_id != "" {
+    match plan.rewrite_by_asset_id.get(old_asset_id) {
+      Some(rewrite) => return Some(rewrite)
+      None => ()
     }
-    if old_path != "" && rewrite.old_path == old_path {
-      return Some(rewrite)
+  }
+  if old_path != "" {
+    match plan.rewrite_by_path.get(old_path) {
+      Some(rewrite) => return Some(rewrite)
+      None => ()
     }
   }
   None
@@ -660,23 +743,23 @@ fn epub_find_asset_rewrite(
 ///|
 fn epub_rewrite_source_ref(
   source_ref : @core.SourceRef,
-  entry : @core.ContainerEntry,
+  plan : EpubRewritePlan,
   inner_path? : String? = None,
 ) -> @core.SourceRef {
   let resolved_inner_path = match inner_path {
     Some(value) => Some(value)
     None => epub_inner_path(source_ref)
   }
-  @core.source_ref_with_container_entry(
-    source_ref,
-    source_ref.file_id,
-    source_ref.format,
-    entry.source_ref.unwrap_or(@core.empty_source_ref()).container_path,
-    Some(entry.entry_path),
-    entry.entry_index,
-    entry.detected_format,
-    resolved_inner_path,
-  )
+  {
+    ..source_ref,
+    file_id: source_ref.file_id,
+    format: source_ref.format,
+    container_path: plan.container_path,
+    entry_path: Some(plan.entry_path),
+    entry_index: plan.entry_index,
+    entry_format: plan.entry_format,
+    inner_path: resolved_inner_path,
+  }
 }
 
 ///|
@@ -900,6 +983,55 @@ fn epub_inner_source_name(
   entry_path : String,
 ) -> String {
   container_path + "::" + entry_path
+}
+
+///|
+fn epub_inner_source(
+  container_path : String,
+  entry_path : String,
+  detected_format : @input.DetectedFormat,
+  entry_bytes : Bytes,
+) -> @input.InputSource {
+  let source_name = epub_inner_source_name(container_path, entry_path)
+  if epub_child_prefers_text_source(detected_format) {
+    match
+      (try @utf8.decode(entry_bytes, ignore_bom=false) |> Ok catch {
+        _ => Err(())
+      }) {
+      Ok(text) =>
+        @input.with_bytes_payload(
+          @input.input_from_text_with_format(
+            text,
+            source_name,
+            Some(detected_format),
+          ),
+          entry_bytes,
+        )
+      Err(_) =>
+        @input.input_from_bytes_with_format(
+          entry_bytes,
+          source_name,
+          Some(detected_format),
+        )
+    }
+  } else {
+    @input.input_from_bytes_with_format(
+      entry_bytes,
+      source_name,
+      Some(detected_format),
+    )
+  }
+}
+
+///|
+fn epub_child_prefers_text_source(
+  detected_format : @input.DetectedFormat,
+) -> Bool {
+  match detected_format {
+    @input.DetectedFormat::Html => true
+    @input.DetectedFormat::Markdown => true
+    _ => false
+  }
 }
 
 ///|

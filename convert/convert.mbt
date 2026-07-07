@@ -165,6 +165,7 @@ fn convert_input_with_image_ocr_provider_and_pdf_rasterizer_and_provenance(
         prepared_source,
         detected.format,
         parse_context,
+        registry,
         execution_plan.probe_artifacts,
       ) {
       Some(Ok(result)) => result
@@ -309,12 +310,14 @@ pub async fn convert_input_with_provenance_and_image_ocr_provider_async(
       Err(err) => return Err(ConvertError::ParseFailed(err))
     }
   } else {
-    let registry = @parser.async_registry_from_sync(@formats.builtin_registry())
+    let sync_registry = @formats.builtin_registry()
+    let registry = @parser.async_registry_from_sync(sync_registry)
     match
       parse_with_route_probe_artifact(
         prepared_source,
         detected.format,
         parse_context,
+        sync_registry,
         execution_plan.probe_artifacts,
       ) {
       Some(Ok(result)) => result
@@ -659,6 +662,7 @@ fn parse_with_route_probe_artifact(
   source : @input.InputSource,
   format : @input.DetectedFormat,
   context : @parser.ParseContext,
+  registry : @parser.ParserRegistry,
   artifacts : Array[RouteProbeArtifact],
 ) -> Result[@parser.ParseResult, String]? {
   for artifact in artifacts {
@@ -851,6 +855,45 @@ fn parse_with_route_probe_artifact(
       RouteProbeArtifact::XlsxPackage(pkg) =>
         if format == @input.DetectedFormat::Xlsx {
           Some(Ok(@dxlsx.xlsx_parse_with_package(source, context, pkg)))
+        } else {
+          None
+        }
+      RouteProbeArtifact::PdfNativeDocument(document) =>
+        if format == @input.DetectedFormat::Pdf {
+          Some(
+            Ok(
+              @fpdfinternal.pdf_parse_with_native_document(
+                source,
+                context,
+                document,
+                probe_artifact_reused=true,
+              ),
+            ),
+          )
+        } else {
+          None
+        }
+      RouteProbeArtifact::ZipArchiveInspect(archive, report) =>
+        if format == @input.DetectedFormat::Zip {
+          Some(
+            Ok(
+              @fzipinternal.zip_parse_with_archive_artifact(
+                source, context, registry, archive, report,
+              ),
+            ),
+          )
+        } else {
+          None
+        }
+      RouteProbeArtifact::EpubPackageInspect(pkg, inspect) =>
+        if format == @input.DetectedFormat::Epub {
+          Some(
+            Ok(
+              @fepubinternal.epub_parse_with_package_artifact(
+                source, context, registry, pkg, inspect,
+              ),
+            ),
+          )
         } else {
           None
         }

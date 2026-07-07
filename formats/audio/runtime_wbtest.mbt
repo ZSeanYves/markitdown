@@ -72,7 +72,8 @@ fn write_utf8_text(path : String, text : String) -> Unit raise {
 
 ///|
 fn make_fake_model(path : String) -> Unit raise {
-  write_utf8_text(path, "fake whisper model\n")
+  ensure_dir_tree(path)
+  write_utf8_text(path + "/README", "fake vosk model\n")
 }
 
 ///|
@@ -91,46 +92,64 @@ fn with_env_var(
 }
 
 ///|
-fn fake_whisper_json(
+fn with_unset_env_var(name : String, body : () -> Unit raise) -> Unit raise {
+  let previous = @env.get_env_var(name)
+  @env.unset_env_var(name)
+  defer (match previous {
+    Some(old) => @env.set_env_var(name, old)
+    None => ()
+  })
+  body()
+}
+
+///|
+fn fake_audio_transcript_json(
   requested_language : String,
   result_language? : String = "en",
   text0? : String = "hello",
   text1? : String = "world",
 ) -> String {
   "{\n" +
-  "  \"params\": {\n" +
-  "    \"model\": \"/tmp/ggml-base.bin\",\n" +
-  "    \"language\": \"" +
-  requested_language +
-  "\",\n" +
-  "    \"translate\": false\n" +
-  "  },\n" +
-  "  \"result\": {\n" +
+  "  \"provider_name\": \"vosk\",\n" +
+  "  \"provider_version\": \"0.test\",\n" +
+  "  \"metadata\": {\n" +
+  "    \"duration_ms\": 7200,\n" +
+  "    \"sample_rate_hz\": 16000,\n" +
+  "    \"channel_count\": 1,\n" +
+  "    \"codec\": \"wav\",\n" +
   "    \"language\": \"" +
   result_language +
   "\"\n" +
   "  },\n" +
-  "  \"transcription\": [\n" +
+  "  \"segments\": [\n" +
   "    {\n" +
-  "      \"offsets\": {\"from\": 0, \"to\": 3200},\n" +
+  "      \"segment_id\": \"seg-1\",\n" +
+  "      \"start_ms\": 0,\n" +
+  "      \"end_ms\": 3200,\n" +
   "      \"text\": \"" +
   text0 +
   "\",\n" +
   "      \"speaker\": \"speaker-1\",\n" +
-  "      \"tokens\": [\n" +
-  "        {\"text\": \"hello\", \"id\": 1, \"p\": 0.98, \"t_dtw\": 0.0}\n" +
-  "      ]\n" +
+  "      \"channel\": 0,\n" +
+  "      \"confidence\": 0.98,\n" +
+  "      \"language\": \"" +
+  requested_language +
+  "\"\n" +
   "    },\n" +
   "    {\n" +
-  "      \"offsets\": {\"from\": 3200, \"to\": 7200},\n" +
+  "      \"segment_id\": \"seg-2\",\n" +
+  "      \"start_ms\": 3200,\n" +
+  "      \"end_ms\": 7200,\n" +
   "      \"text\": \"" +
   text1 +
   "\",\n" +
-  "      \"tokens\": [\n" +
-  "        {\"text\": \"world\", \"id\": 2, \"p\": 0.97, \"t_dtw\": 0.0}\n" +
-  "      ]\n" +
+  "      \"confidence\": 0.97,\n" +
+  "      \"language\": \"" +
+  requested_language +
+  "\"\n" +
   "    }\n" +
-  "  ]\n" +
+  "  ],\n" +
+  "  \"diagnostics\": [\"mock=true\"]\n" +
   "}\n"
 }
 
@@ -142,48 +161,21 @@ fn with_audio_model_env(path : String, body : () -> Unit raise) -> Unit raise {
 }
 
 ///|
-#warnings("-deprecated")
-fn chmod_executable(path : String) -> Unit raise {
-  @async.with_event_loop(_group => {
-    let _ = @process.collect_output("chmod", ["+x", path]) catch {
-      e => abort("chmod failed: " + e.to_string())
-    }
-  }) catch {
-    e => fail("chmod event loop failed: " + e.to_string())
-  }
-}
-
-///|
-fn install_mock_command(
-  root : String,
-  command_name : String,
-  script_path : String,
-) -> String raise {
-  let launcher_path = root + "/" + command_name
-  write_utf8_text(
-    launcher_path,
-    "#!/bin/sh\nexec python3 \"" + script_path + "\" \"$@\"\n",
-  )
-  chmod_executable(launcher_path)
-  launcher_path
-}
-
-///|
-test "audio runtime default backend identity stays native whisper cpp" {
+test "audio runtime default backend identity stays native vosk" {
   assert_eq(audio_backend_transport_name(), "native_cli")
-  assert_eq(audio_backend_name(), "whisper_cpp")
+  assert_eq(audio_backend_name(), "vosk")
   assert_eq(audio_command_env_var(), "MARKITDOWN_AUDIO_CMD")
   assert_eq(audio_model_path_env_var(), "MARKITDOWN_AUDIO_MODEL_PATH")
 }
 
 ///|
-test "audio runtime command builder requires whisper backend and model path" {
+test "audio runtime command builder defaults to official wrapper and model dir" {
   let root = test_tmp_root() + "/command_builder"
   recreate_clean_dir(root) catch {
     e => fail(e.to_string())
   }
   defer cleanup_temp_dir(root)
-  let fake_model = root + "/ggml-base.bin"
+  let fake_model = root + "/model"
   make_fake_model(fake_model) catch {
     e => fail(e.to_string())
   }
@@ -195,33 +187,28 @@ test "audio runtime command builder requires whisper backend and model path" {
   recreate_clean_dir(mock_bin) catch {
     e => fail(e.to_string())
   }
-  ignore(
-    install_mock_command(
-      mock_bin, "whisper-cli", "samples/helpers/mock_whisper_cli.py",
-    ) catch {
-      e => fail(e.to_string())
-    },
-  )
   let old_path = @env.get_env_var("PATH").unwrap_or("")
   with_env_var("PATH", mock_bin + ":" + old_path, fn() raise {
-    with_audio_model_env(fake_model, fn() raise {
-      let built = match
-        build_audio_transcribe_command(
-          @input.input_from_path(fake_audio),
-          @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
-          Some("zh"),
-        ) {
-        Ok(value) => value
-        Err(err) => fail("expected audio command plan: " + err.to_string())
-      }
-      assert_eq(built.0, "whisper-cli")
-      assert_true(built.1.contains(fake_model))
-      assert_true(built.1.contains(fake_audio))
-      assert_true(built.1.contains("-ojf"))
-      assert_true(built.1.contains("-of"))
-      assert_true(built.1.contains("-l"))
-      assert_true(built.1.contains("zh"))
-      assert_true(!built.1.contains("--lang"))
+    with_unset_env_var(audio_command_env_var(), fn() raise {
+      with_audio_model_env(fake_model, fn() raise {
+        let built = match
+          build_audio_transcribe_command(
+            @input.input_from_path(fake_audio),
+            @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
+            Some("zh"),
+          ) {
+          Ok(value) => value
+          Err(err) => fail("expected audio command plan: " + err.to_string())
+        }
+        assert_eq(built.0, "python3")
+        assert_true(built.1[0] == "samples/helpers/audio_transcribe_wrapper.py")
+        assert_eq(built.1[1], fake_audio)
+        assert_true(built.1[2].contains("transcript.json"))
+        assert_true(built.1.contains("--lang"))
+        assert_true(built.1.contains("zh"))
+        assert_true(!built.1.contains("-m"))
+        assert_true(!built.1.contains("-l"))
+      })
     })
   })
 }
@@ -282,7 +269,7 @@ test "audio runtime command builder defaults language to auto" {
     e => fail(e.to_string())
   }
   defer cleanup_temp_dir(root)
-  let fake_model = root + "/ggml-base.bin"
+  let fake_model = root + "/model"
   make_fake_model(fake_model) catch {
     e => fail(e.to_string())
   }
@@ -294,27 +281,24 @@ test "audio runtime command builder defaults language to auto" {
   recreate_clean_dir(mock_bin) catch {
     e => fail(e.to_string())
   }
-  ignore(
-    install_mock_command(
-      mock_bin, "whisper-cli", "samples/helpers/mock_whisper_cli.py",
-    ) catch {
-      e => fail(e.to_string())
-    },
-  )
   let old_path = @env.get_env_var("PATH").unwrap_or("")
   with_env_var("PATH", mock_bin + ":" + old_path, fn() raise {
-    with_audio_model_env(fake_model, fn() raise {
-      let built = match
-        build_audio_transcribe_command(
-          @input.input_from_path(fake_audio),
-          @input.DetectedFormat::Audio(@input.AudioFormat::Mp3),
-          None,
-        ) {
-        Ok(value) => value
-        Err(err) =>
-          fail("expected auto language command plan: " + err.to_string())
-      }
-      assert_true(built.1.contains("auto"))
+    with_unset_env_var(audio_command_env_var(), fn() raise {
+      with_audio_model_env(fake_model, fn() raise {
+        let built = match
+          build_audio_transcribe_command(
+            @input.input_from_path(fake_audio),
+            @input.DetectedFormat::Audio(@input.AudioFormat::Mp3),
+            None,
+          ) {
+          Ok(value) => value
+          Err(err) =>
+            fail("expected auto language command plan: " + err.to_string())
+        }
+        assert_true(built.0 == "python3")
+        assert_true(built.1.contains("--lang"))
+        assert_true(built.1.contains("auto"))
+      })
     })
   })
 }
@@ -323,7 +307,7 @@ test "audio runtime command builder defaults language to auto" {
 test "audio runtime fails closed when model path is missing" {
   @env.set_env_var(
     audio_model_path_env_var(),
-    ".tmp/tests/audio_runtime/missing.bin",
+    ".tmp/tests/audio_runtime/missing-model/not-installed",
   )
   defer @env.unset_env_var(audio_model_path_env_var())
   let root = test_tmp_root() + "/missing-model"
@@ -335,33 +319,30 @@ test "audio runtime fails closed when model path is missing" {
   recreate_clean_dir(mock_bin) catch {
     e => fail(e.to_string())
   }
-  ignore(
-    install_mock_command(
-      mock_bin, "whisper-cli", "samples/helpers/mock_whisper_cli.py",
-    ) catch {
-      e => fail(e.to_string())
-    },
-  )
   let old_path = @env.get_env_var("PATH").unwrap_or("")
   with_env_var("PATH", mock_bin + ":" + old_path, fn() raise {
-    match
-      build_audio_transcribe_command(
-        @input.input_from_path("samples/fixtures/contracts/audio/contract.wav"),
-        @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
-        Some("eng"),
-      ) {
-      Err(AudioTranscribeError::NotConfigured(msg)) =>
-        assert_true(msg.contains("Whisper model is not available"))
-      _ => fail("expected missing model failure")
-    }
+    with_unset_env_var(audio_command_env_var(), fn() raise {
+      match
+        build_audio_transcribe_command(
+          @input.input_from_path(
+            "samples/fixtures/contracts/audio/contract.wav",
+          ),
+          @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
+          Some("eng"),
+        ) {
+        Err(AudioTranscribeError::NotConfigured(msg)) =>
+          assert_true(msg.contains("Vosk model directory is not available"))
+        _ => fail("expected missing model failure")
+      }
+    })
   })
 }
 
 ///|
-test "audio runtime parses whisper cpp json into transcript result" {
+test "audio runtime parses transcript json into result" {
   let parsed = match
-    parse_whisper_cpp_json_payload(
-      fake_whisper_json(
+    parse_audio_transcript_json_payload(
+      fake_audio_transcript_json(
         "zh",
         result_language="zh",
         text0="ni hao",
@@ -371,17 +352,19 @@ test "audio runtime parses whisper cpp json into transcript result" {
       Some("zh"),
     ) {
     Ok(value) => value
-    Err(err) => fail("expected whisper json success: " + err.to_string())
+    Err(err) => fail("expected transcript json success: " + err.to_string())
   }
-  assert_eq(parsed.provider_name, "whisper_cpp")
-  assert_true(parsed.provider_version == None)
+  assert_eq(parsed.provider_name, "vosk")
+  assert_true(parsed.provider_version == Some("0.test"))
   assert_true(parsed.metadata.codec == Some("wav"))
   assert_true(parsed.metadata.language == Some("zh"))
+  assert_true(parsed.metadata.duration_ms == Some(7200))
   assert_eq(parsed.segments.length(), 2)
   assert_eq(parsed.segments[0].segment_id, "seg-1")
   assert_eq(parsed.segments[0].start_ms, 0)
   assert_eq(parsed.segments[0].end_ms, 3200)
   assert_true(parsed.segments[0].speaker == Some("speaker-1"))
+  assert_true(parsed.segments[0].channel == Some(0))
   assert_true(parsed.segments[0].confidence is Some(_))
 }
 
@@ -392,7 +375,7 @@ test "audio runtime collect path keeps fail closed taxonomy" {
     e => fail(e.to_string())
   }
   defer cleanup_temp_dir(root)
-  let fake_model = root + "/ggml-base.bin"
+  let fake_model = root + "/model"
   make_fake_model(fake_model) catch {
     e => fail(e.to_string())
   }
@@ -402,51 +385,81 @@ test "audio runtime collect path keeps fail closed taxonomy" {
   }
   let source = @input.input_from_path(fake_audio)
   let format = @input.DetectedFormat::Audio(@input.AudioFormat::Mp3)
-  let mock_bin = root + "/bin"
-  recreate_clean_dir(mock_bin) catch {
+  with_audio_model_env(fake_model, fn() raise {
+    match
+      run_audio_transcribe_command_with_collect(source, format, Some("eng"), fn(
+        _cmd,
+        _args,
+      ) {
+        Err(AudioTranscribeError::CommandUnavailable("boom"))
+      }) {
+      Err(AudioTranscribeError::CommandUnavailable(msg)) =>
+        assert_true(msg.contains("boom"))
+      _ => fail("expected command unavailable")
+    }
+
+    match
+      run_audio_transcribe_command_with_collect(source, format, Some("eng"), fn(
+        _cmd,
+        _args,
+      ) {
+        Ok((1, "", "failed"))
+      }) {
+      Err(AudioTranscribeError::ExecutionFailed(msg)) =>
+        assert_true(msg.contains("failed"))
+      _ => fail("expected execution failed")
+    }
+  })
+}
+
+///|
+test "audio runtime classifies missing model dir and ffmpeg dependency" {
+  let root = test_tmp_root() + "/taxonomy_deps"
+  recreate_clean_dir(root) catch {
     e => fail(e.to_string())
   }
-  ignore(
-    install_mock_command(
-      mock_bin, "whisper-cli", "samples/helpers/mock_whisper_cli.py",
-    ) catch {
-      e => fail(e.to_string())
-    },
-  )
-  let old_path = @env.get_env_var("PATH").unwrap_or("")
-  with_env_var("PATH", mock_bin + ":" + old_path, fn() raise {
-    with_audio_model_env(fake_model, fn() raise {
-      match
-        run_audio_transcribe_command_with_collect(source, format, Some("eng"), fn(
-          _cmd,
-          _args,
-        ) {
-          Err(AudioTranscribeError::CommandUnavailable("boom"))
-        }) {
-        Err(AudioTranscribeError::CommandUnavailable(msg)) =>
-          assert_true(msg.contains("boom"))
-        _ => fail("expected command unavailable")
-      }
+  defer cleanup_temp_dir(root)
+  let fake_model = root + "/model"
+  make_fake_model(fake_model) catch {
+    e => fail(e.to_string())
+  }
+  let fake_audio = root + "/sample.mp3"
+  write_utf8_text(fake_audio, "ID3fakeaudio") catch {
+    e => fail(e.to_string())
+  }
+  let source = @input.input_from_path(fake_audio)
+  let format = @input.DetectedFormat::Audio(@input.AudioFormat::Mp3)
+  with_audio_model_env(fake_model, fn() raise {
+    match
+      run_audio_transcribe_command_with_collect(source, format, Some("eng"), fn(
+        _cmd,
+        _args,
+      ) {
+        Ok((4, "", "Vosk model directory is unavailable"))
+      }) {
+      Err(AudioTranscribeError::NotConfigured(msg)) =>
+        assert_true(msg.contains("not fully configured"))
+      _ => fail("expected missing model taxonomy")
+    }
 
-      match
-        run_audio_transcribe_command_with_collect(source, format, Some("eng"), fn(
-          _cmd,
-          _args,
-        ) {
-          Ok((1, "", "failed"))
-        }) {
-        Err(AudioTranscribeError::ExecutionFailed(msg)) =>
-          assert_true(msg.contains("failed"))
-        _ => fail("expected execution failed")
-      }
-    })
+    match
+      run_audio_transcribe_command_with_collect(source, format, Some("eng"), fn(
+        _cmd,
+        _args,
+      ) {
+        Ok((5, "", "ffmpeg is required to normalize compressed audio"))
+      }) {
+      Err(AudioTranscribeError::CommandUnavailable(msg)) =>
+        assert_true(msg.contains("ffmpeg"))
+      _ => fail("expected ffmpeg taxonomy")
+    }
   })
 }
 
 ///|
 test "audio runtime fails closed on invalid json and empty transcription" {
   match
-    parse_whisper_cpp_json_payload(
+    parse_audio_transcript_json_payload(
       "not-json",
       @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
       Some("eng"),
@@ -457,8 +470,8 @@ test "audio runtime fails closed on invalid json and empty transcription" {
   }
 
   match
-    parse_whisper_cpp_json_payload(
-      "{\n\"params\":{\"language\":\"auto\"},\n\"result\":{\"language\":\"en\"},\n\"transcription\":[]\n}\n",
+    parse_audio_transcript_json_payload(
+      "{\n\"provider_name\":\"vosk\",\n\"metadata\":{\"language\":\"en\"},\n\"segments\":[]\n}\n",
       @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
       Some("eng"),
     ) {
@@ -484,8 +497,8 @@ test "audio parser lowers transcript into media pipeline document with segment r
       _format,
       _language,
     ) {
-      parse_whisper_cpp_json_payload(
-        fake_whisper_json("eng", result_language="eng"),
+      parse_audio_transcript_json_payload(
+        fake_audio_transcript_json("eng", result_language="eng"),
         detected,
         Some("eng"),
       )

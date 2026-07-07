@@ -8,6 +8,7 @@ import {
   "tonyfettes/encoding",
   "ZSeanYves/markitdown/format_readers/pdf" @dpdfnative,
   "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/formats/shared" @fshared,
   "ZSeanYves/markitdown/formats/ocr" @focr,
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",

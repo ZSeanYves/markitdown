@@ -70,16 +70,16 @@ pub fn html_document_to_ir(
   }
   match parsed {
     Ok(doc) => {
-      let inspect = @dhtml.inspect_html_document(doc)
       let validation = @dhtml.validate_html_document(doc)
+      let inspect = @dhtml.inspect_html_document(doc)
       let semantic = @dhtml.collect_html_semantic_document(doc)
-      let semantic_report = @dhtml.inspect_html_semantic_document(semantic)
+      let semantic_metrics = html_semantic_metric_summary(semantic)
       let document = lower_html_document(doc, semantic, source)
       html_fill_common_metrics(
         diagnostics,
         inspect,
         validation,
-        semantic_report,
+        semantic_metrics,
         semantic,
         text,
         0,
@@ -193,16 +193,16 @@ fn parse_html_document_result(
       diagnostics.metrics.set("ir_input_kind", "document")
       @fshared.apply_product_metrics(diagnostics, "html")
 
-      let inspect = @dhtml.inspect_html_document(doc)
       let validation = @dhtml.validate_html_document(doc)
+      let inspect = @dhtml.inspect_html_document(doc)
       let semantic = @dhtml.collect_html_semantic_document(doc)
-      let semantic_report = @dhtml.inspect_html_semantic_document(semantic)
+      let semantic_metrics = html_semantic_metric_summary(semantic)
       let document = lower_html_document(doc, semantic, source)
       html_fill_common_metrics(
         diagnostics,
         inspect,
         validation,
-        semantic_report,
+        semantic_metrics,
         semantic,
         text,
         0,
@@ -242,7 +242,15 @@ fn html_block_stream_parse_result(
   context : @parser.ParseContext,
 ) -> @parser.ParseResult {
   let diagnostics = html_block_stream_diagnostics(source, context)
-  let lowered = html_lower_block_stream_document(source, text, diagnostics)
+  let lowered = if html_prefers_semantic_block_stream(source) {
+    html_lower_semantic_block_stream_document(source, text, diagnostics)
+  } else if html_prefers_child_text_fast_block_stream(source) {
+    html_lower_child_text_block_stream_document(source, text, diagnostics)
+  } else if html_requires_semantic_block_stream_markup(source) {
+    html_lower_child_semantic_block_stream_document(source, text, diagnostics)
+  } else {
+    html_lower_block_stream_document(source, text, diagnostics)
+  }
   html_block_stream_parse_result_from_lowered(text, diagnostics, lowered)
 }
 
@@ -257,9 +265,19 @@ fn html_block_stream_parse_result_from_events(
     @parser.new_parse_context(@input.DetectedFormat::Html),
   )
   diagnostics.metrics.set("requested_mode", "block_streaming")
-  let lowered = html_lower_block_stream_document_from_events(
-    source, text, diagnostics, events,
-  )
+  let lowered = if html_prefers_semantic_block_stream(source) {
+    html_lower_semantic_block_stream_document(source, text, diagnostics)
+  } else if html_requires_semantic_block_stream_markup(source) {
+    html_lower_child_semantic_block_stream_document(source, text, diagnostics)
+  } else if html_prefers_child_text_fast_block_stream(source) {
+    html_lower_child_text_block_stream_document_from_events(
+      source, text, diagnostics, events,
+    )
+  } else {
+    html_lower_block_stream_document_from_events(
+      source, text, diagnostics, events,
+    )
+  }
   html_block_stream_parse_result_from_lowered(text, diagnostics, lowered)
 }
 
@@ -290,6 +308,74 @@ fn html_block_stream_diagnostics(
   diagnostics.metrics.set("dom_limit_reached", "false")
   @fshared.apply_product_metrics(diagnostics, "html")
   diagnostics
+}
+
+///|
+fn html_prefers_semantic_block_stream(source : @input.InputSource) -> Bool {
+  source.kind == @input.InputKind::Bytes
+}
+
+///|
+fn html_prefers_child_text_fast_block_stream(
+  source : @input.InputSource,
+) -> Bool {
+  source.kind == @input.InputKind::Text &&
+  source.text is Some(_) &&
+  source.bytes is Some(_)
+}
+
+///|
+fn html_requires_semantic_block_stream_markup(
+  source : @input.InputSource,
+) -> Bool {
+  if source.kind != @input.InputKind::Text {
+    return false
+  }
+  let text = match source.text {
+    Some(value) => value
+    None => return false
+  }
+  html_contains_ascii_case_insensitive(text, "<figure") ||
+  html_contains_ascii_case_insensitive(text, "<details") ||
+  html_contains_ascii_case_insensitive(text, "<summary")
+}
+
+///|
+fn html_contains_ascii_case_insensitive(
+  text : String,
+  needle_lower : String,
+) -> Bool {
+  let haystack = text.to_array()
+  let needle = needle_lower.to_array()
+  if needle.length() == 0 {
+    return true
+  }
+  if haystack.length() < needle.length() {
+    return false
+  }
+  let limit = haystack.length() - needle.length()
+  for start in 0..<=limit {
+    let mut matched = true
+    for offset in 0..<needle.length() {
+      if html_lower_ascii_char(haystack[start + offset]) != needle[offset] {
+        matched = false
+        break
+      }
+    }
+    if matched {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn html_lower_ascii_char(ch : Char) -> Char {
+  if ch >= 'A' && ch <= 'Z' {
+    Int::unsafe_to_char(ch.to_int() + 32)
+  } else {
+    ch
+  }
 }
 
 ///|
@@ -337,6 +423,100 @@ fn html_block_stream_parse_result_from_lowered(
     metadata=lowered.metadata,
     assets=lowered.assets,
   )
+}
+
+///|
+fn html_lower_semantic_block_stream_document(
+  source : @input.InputSource,
+  text : String,
+  diagnostics : @core.Diagnostics,
+) -> HtmlLoweringResult {
+  let parsed = try @dhtml.parse_html_document(text) |> Ok catch {
+    _ => Err(())
+  }
+  match parsed {
+    Ok(doc) => {
+      let validation = @dhtml.validate_html_document(doc)
+      let inspect = @dhtml.inspect_html_document(doc)
+      let semantic = @dhtml.collect_html_semantic_document(doc)
+      let semantic_metrics = html_semantic_metric_summary(semantic)
+      let document = lower_html_document(doc, semantic, source)
+      html_fill_common_metrics(
+        diagnostics,
+        inspect,
+        validation,
+        semantic_metrics,
+        semantic,
+        text,
+        0,
+        false,
+        document.assets.length(),
+      )
+      diagnostics.metrics.set("html_block_stream_reparse", "false")
+      diagnostics.metrics.set("html_block_stream_token_path", "false")
+      diagnostics.metrics.set("scope_plan_count", "0")
+      diagnostics.metrics.set("scope_plan_labels", "semantic_block_stream")
+      {
+        blocks: document.blocks,
+        metadata: document.metadata,
+        assets: document.assets,
+      }
+    }
+    Err(_) => {
+      diagnostics.metrics.set("html_block_stream_reparse", "false")
+      diagnostics.metrics.set("html_block_stream_token_path", "unavailable")
+      diagnostics.metrics.set("scope_plan_count", "0")
+      diagnostics.metrics.set(
+        "scope_plan_labels", "semantic_block_stream_failed",
+      )
+      { blocks: [], metadata: Map([]), assets: [] }
+    }
+  }
+}
+
+///|
+fn html_lower_child_semantic_block_stream_document(
+  source : @input.InputSource,
+  text : String,
+  diagnostics : @core.Diagnostics,
+) -> HtmlLoweringResult {
+  let parsed = try @dhtml.parse_html_document(text) |> Ok catch {
+    _ => Err(())
+  }
+  match parsed {
+    Ok(doc) => {
+      let semantic = @dhtml.collect_html_semantic_document(doc)
+      let semantic_metrics = html_semantic_metric_summary(semantic)
+      let document = lower_html_document(doc, semantic, source)
+      html_fill_child_semantic_metrics(
+        diagnostics,
+        semantic_metrics,
+        semantic,
+        text,
+        document.assets.length(),
+      )
+      diagnostics.metrics.set("html_block_stream_reparse", "false")
+      diagnostics.metrics.set("html_block_stream_token_path", "false")
+      diagnostics.metrics.set("scope_plan_count", "0")
+      diagnostics.metrics.set(
+        "scope_plan_labels", "child_semantic_block_stream",
+      )
+      {
+        blocks: document.blocks,
+        metadata: document.metadata,
+        assets: document.assets,
+      }
+    }
+    Err(_) => {
+      diagnostics.metrics.set("html_block_stream_reparse", "false")
+      diagnostics.metrics.set("html_block_stream_token_path", "unavailable")
+      diagnostics.metrics.set("scope_plan_count", "0")
+      diagnostics.metrics.set(
+        "scope_plan_labels", "child_semantic_block_stream_failed",
+      )
+      { blocks: [], metadata: Map([]), assets: [] }
+    }
+  }
 }
 
 ///|

@@ -1,0 +1,23 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/internal/formats/zip"
+
+import {
+  "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/parser",
+}
+
+// Values
+pub fn zip_parse_with_archive(@input.InputSource, @parser.ParseContext, @parser.ParserRegistry, @ZSeanYves/markitdown/format_readers/zip.ZipArchive, @ZSeanYves/markitdown/format_readers/zip.ZipArchiveInspectReport) -> @parser.ParseResult
+
+pub fn zip_parse_with_archive_artifact(@input.InputSource, @parser.ParseContext, @parser.ParserRegistry, @ZSeanYves/markitdown/format_readers/zip.ZipArchive, @ZSeanYves/markitdown/format_readers/zip.ZipArchiveInspectReport) -> @parser.ParseResult
+
+pub fn zip_parser_capability() -> @parser.ParserCapability
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

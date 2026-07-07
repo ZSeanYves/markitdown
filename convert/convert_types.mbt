@@ -436,6 +436,9 @@ priv enum RouteProbeArtifact {
   OdsDocument(@dodf.OdsDocument, @dodf.OdsInspectReport)
   OdpDocument(@dodf.OdpDocument, @dodf.OdpInspectReport)
   XlsxPackage(@ox.OoxmlPackage)
+  PdfNativeDocument(@fpdf.PdfNativeDocument)
+  ZipArchiveInspect(@dzip.ZipArchive, @dzip.ZipArchiveInspectReport)
+  EpubPackageInspect(@depub.EpubPackage, @depub.EpubInspectReport)
   YamlEvents(Array[@dyaml.YamlStructureEvent], @dyaml.YamlInspectReport)
   AudioProbe(AudioProbeArtifact)
 }

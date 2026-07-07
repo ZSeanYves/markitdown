@@ -939,35 +939,10 @@ fn pdf_native_parser_enabled_result(
   capability : @parser.ParserCapability,
 ) -> Result[@parser.ParseResult, @parser.ParseResult] {
   match extract_pdf_native_document(source) {
-    Ok(native_document) => {
-      let lowered = pdf_native_document_to_blocks_with_policies(
-        native_document,
-        context.pdf_header_footer_filter_policy,
+    Ok(native_document) =>
+      pdf_native_parser_enabled_result_from_document(
+        source, context, capability, native_document,
       )
-      let metadata = lowered.0
-      let blocks = lowered.1
-      let stream_diagnostics = lowered.2
-      let document = @core.document_from_blocks(blocks)
-      for entry in metadata.to_array() {
-        document.metadata.set(entry.0, entry.1)
-      }
-      document.blocks.append(pdf_native_appendix_blocks(document.metadata)[:])
-      let diagnostics = pdf_native_enabled_success_diagnostics(
-        source, context, stream_diagnostics,
-      )
-      let final_document = @core.document_with_diagnostics(
-        document, diagnostics,
-      )
-      Ok(
-        @parser.parse_result_with_document_capability(
-          pdf_native_parser_name(),
-          @parser.ParserMode::PageSinglePass,
-          final_document,
-          diagnostics,
-          capability,
-        ),
-      )
-    }
     Err(error) => {
       let diagnostics = pdf_native_enabled_error_diagnostics(
         source, context, error,
@@ -986,6 +961,35 @@ fn pdf_native_parser_enabled_result(
       )
     }
   }
+}
+
+///|
+fn pdf_native_parser_enabled_result_from_document(
+  source : @input.InputSource,
+  context : @parser.ParseContext,
+  capability : @parser.ParserCapability,
+  native_document : PdfNativeDocument,
+) -> Result[@parser.ParseResult, @parser.ParseResult] {
+  let document = pdf_native_document_to_ir_with_policies(
+    native_document,
+    context.pdf_header_footer_filter_policy,
+    context.pdf_table_reconstruction_policy,
+  )
+  let diagnostics = document.diagnostics
+  @fshared.mark_structured_document_profile(diagnostics)
+  let diagnostics = pdf_native_enabled_success_diagnostics(
+    source, context, diagnostics,
+  )
+  let final_document = @core.document_with_diagnostics(document, diagnostics)
+  Ok(
+    @parser.parse_result_with_document_capability(
+      pdf_native_parser_name(),
+      @parser.ParserMode::PageSinglePass,
+      final_document,
+      diagnostics,
+      capability,
+    ),
+  )
 }
 
 ///|
@@ -1021,6 +1025,31 @@ fn pdf_native_enabled_success_diagnostics(
   next.metrics.set("pdf_native_text_baseline", "true")
   next.metrics.set("pdf_ocr_used", "false")
   next.metrics.set("pdf_canonical_pipeline_used", "false")
+  next.metrics.set(
+    "probe_artifact_reused",
+    if diagnostics.metrics.get("probe_artifact_reused") == Some("true") {
+      "true"
+    } else {
+      "false"
+    },
+  )
+  next.metrics.set(
+    "process_cache_hit",
+    if diagnostics.metrics.get("process_cache_hit") == Some("true") {
+      "true"
+    } else {
+      "false"
+    },
+  )
+  next.metrics.set(
+    "child_parse_fast_path_used",
+    if diagnostics.metrics.get("structured_document_profile") ==
+      Some("pipeline_ready") {
+      "true"
+    } else {
+      "false"
+    },
+  )
   if next.metrics.get("pdf_empty_text_layer") == None {
     next.metrics.set("pdf_empty_text_layer", "false")
   }
@@ -1123,6 +1152,8 @@ fn pdf_native_enabled_error_diagnostics(
   diagnostics.metrics.set("pdf_native_text_baseline", "true")
   diagnostics.metrics.set("pdf_ocr_used", "false")
   diagnostics.metrics.set("pdf_canonical_pipeline_used", "false")
+  diagnostics.metrics.set("probe_artifact_reused", "false")
+  diagnostics.metrics.set("process_cache_hit", "false")
   diagnostics.metrics.set(
     "pdf_header_footer_filter_policy",
     @parser.pdf_header_footer_filter_policy_name(

@@ -186,6 +186,7 @@ pub struct EpubPackage {
   guide_cover_path : String?
   cover_candidates : Array[EpubCoverCandidate]
   nav_points : Array[EpubNavPoint]
+  // private fields
 }
 
 pub struct EpubPackageInventory {

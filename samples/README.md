@@ -77,7 +77,7 @@ Notes:
 - The `ocr` gate covers supported direct-image OCR input:
   `png/jpg/jpeg/bmp/webp/tif/tiff`
 - The `pdf/ocr` lane covers both `pdf --accurate` and explicit `pdf --ocr` OCR paths without changing the default native-text PDF gate
-- The `wav/mp3/m4a` gate covers the current audio wrapper integration around local `whisper.cpp`; `m4a` also depends on local `ffmpeg`
+- The `wav/mp3/m4a` gate covers the current audio wrapper integration around local `Vosk`; `wav` is the lightest route, and compressed audio may also depend on local `ffmpeg`
 - `workspace/` is only a temporary working area and is not the main place to inspect failures
 
 ## Quality Regression

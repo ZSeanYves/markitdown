@@ -249,6 +249,11 @@ test "docx parser keeps diagnostics source refs and renderer boundary contract l
   let document = parsed.document.unwrap_or_else(fn() {
     abort("missing docx document")
   })
+  assert_metric_eq(
+    parsed.diagnostics,
+    "structured_document_profile",
+    "pipeline_ready",
+  )
   assert_true(document.blocks.length() > 0)
   let image = document.blocks[0]
   assert_true(image.kind == @core.BlockKind::Image)

@@ -95,7 +95,7 @@ Notes:
 
 | preset | scenarios | tools | purpose |
 | --- | --- | --- | --- |
-| `official-internal` | `product.official_internal` + `diagnostic.markdown/html/xml/xlsx/epub/zip/ipynb/toml/odt/ods/odp/ocr` | `moonbit-cli`, `moonbit-engine` | internal performance, route proof, targeted format diagnostics |
+| `official-internal` | `product.official_internal` + `diagnostic.markdown/html/xml/pdf/docx/pptx/xlsx/epub/zip/ipynb/toml/odt/ods/odp/ocr` | `moonbit-cli`, `moonbit-engine` | internal performance, route proof, targeted format diagnostics |
 | `official-compare` | `compare.official_compare` | `moonbit-cli`, `moonbit-engine`, `markitdown` | external performance comparison |
 | `doctor` | `doctor.binary_contract` | `moonbit-cli`, `moonbit-engine`, `markitdown` | binary contract verification |
 
@@ -107,6 +107,9 @@ Current scenarios:
 - `diagnostic.markdown`
 - `diagnostic.html`
 - `diagnostic.xml`
+- `diagnostic.pdf`
+- `diagnostic.docx`
+- `diagnostic.pptx`
 - `diagnostic.xlsx`
 - `diagnostic.epub`
 - `diagnostic.zip`
