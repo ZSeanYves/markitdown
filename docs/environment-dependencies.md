@@ -1,95 +1,112 @@
 # Environment Dependencies
 
-This document only lists the environment commands needed for runtime use and regression checks. Pick the section that matches the capability you want to use.
+This repo now provides stable setup scripts for the three runtime dependency groups we actually use.
 
-- If you only need normal `balance` conversion without `audio`, install:
+Python dependencies are installed into a repo-local virtualenv under `./env/`.
+Native tools such as `tesseract`, `pdftoppm`, and `ffmpeg` still come from your
+system package manager because markitdown invokes those binaries directly.
 
-```bash
-# macOS
-xcode-select --install
-brew install git python
+Pick the script that matches the capability you want:
 
-# Ubuntu / Debian
-sudo apt update
-sudo apt install -y build-essential git python3 python3-pip python3-venv
-```
+## 1. Balanced OCR / Balanced PDF OCR
 
-  If you also need direct image OCR, install `tesseract`. If you also need Balanced PDF OCR, install `pdftoppm` too:
+Use this when you need:
 
-```bash
-# macOS
-brew install poppler tesseract tesseract-lang
+- direct image OCR in `balance`
+- PDF OCR in `balance`
 
-# Ubuntu / Debian
-sudo apt install -y poppler-utils tesseract-ocr tesseract-ocr-eng
-```
-
-- If you need `pdf --accurate`, also install `pdftoppm`, Paddle Python dependencies, and configure `MARKITDOWN_PADDLE_OCR_CMD`:
+Run:
 
 ```bash
-# macOS
-brew install poppler
-brew install python
-python3 -m pip install paddlepaddle paddleocr pillow
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
-  echo "Run this from inside the markitdown repo."
-  return 1 2>/dev/null || exit 1
-}
-chmod +x "$REPO_ROOT/samples/helpers/paddle_ocr_wrapper.py"
-export MARKITDOWN_PADDLE_OCR_CMD="$REPO_ROOT/samples/helpers/paddle_ocr_wrapper.py"
-
-# Ubuntu / Debian
-sudo apt update
-sudo apt install -y python3 python3-pip python3-venv poppler-utils
-python3 -m pip install paddlepaddle paddleocr pillow
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
-  echo "Run this from inside the markitdown repo."
-  return 1 2>/dev/null || exit 1
-}
-chmod +x "$REPO_ROOT/samples/helpers/paddle_ocr_wrapper.py"
-export MARKITDOWN_PADDLE_OCR_CMD="$REPO_ROOT/samples/helpers/paddle_ocr_wrapper.py"
+./samples/env/install_ocr_pdf_balance_deps.sh
 ```
 
-- If you need `audio`, install `python3`, `vosk`, one extracted local Vosk model directory, and configure the official wrapper. `wav` is the lightest path; compressed audio may also need local `ffmpeg` normalization:
+This installs the local runtime pieces needed for:
+
+- `tesseract`
+- `pdftoppm`
+
+No extra markitdown environment variable is required after it finishes.
+
+## 2. Accurate OCR / Accurate PDF OCR
+
+Use this when you need:
+
+- direct image OCR in `accurate`
+- PDF OCR in `accurate`
+
+Run:
 
 ```bash
-# macOS
-brew install ffmpeg python
-python3 -m pip install vosk
-mkdir -p "${XDG_CACHE_HOME:-$HOME/.cache}/markitdown/vosk"
-# Download and extract one official Vosk model into the directory below.
-mv /path/to/extracted-vosk-model "${XDG_CACHE_HOME:-$HOME/.cache}/markitdown/vosk/model"
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
-  echo "Run this from inside the markitdown repo."
-  return 1 2>/dev/null || exit 1
-}
-chmod +x "$REPO_ROOT/samples/helpers/audio_transcribe_wrapper.py"
-export MARKITDOWN_AUDIO_CMD="$REPO_ROOT/samples/helpers/audio_transcribe_wrapper.py"
-export MARKITDOWN_AUDIO_MODEL_PATH="${XDG_CACHE_HOME:-$HOME/.cache}/markitdown/vosk/model"
-
-# Ubuntu / Debian
-sudo apt update
-sudo apt install -y ffmpeg python3 python3-pip python3-venv
-python3 -m pip install vosk
-mkdir -p "${XDG_CACHE_HOME:-$HOME/.cache}/markitdown/vosk"
-# Download and extract one official Vosk model into the directory below.
-mv /path/to/extracted-vosk-model "${XDG_CACHE_HOME:-$HOME/.cache}/markitdown/vosk/model"
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
-  echo "Run this from inside the markitdown repo."
-  return 1 2>/dev/null || exit 1
-}
-chmod +x "$REPO_ROOT/samples/helpers/audio_transcribe_wrapper.py"
-export MARKITDOWN_AUDIO_CMD="$REPO_ROOT/samples/helpers/audio_transcribe_wrapper.py"
-export MARKITDOWN_AUDIO_MODEL_PATH="${XDG_CACHE_HOME:-$HOME/.cache}/markitdown/vosk/model"
+./samples/env/install_ocr_pdf_accurate_deps.sh
 ```
 
-- If you need to run `samples/check.sh`, `samples/check_quality.sh`, or formal `bench`, also prepare the external corpus repo:
+If you run `markitdown` from the repo root, that is enough: the runtime auto-detects the repo-local virtualenv and wrapper.
+Use `source ./env/accurate-ocr-pdf.env.sh` only when you want those paths exported into another shell.
+
+This installs:
+
+- `pdftoppm`
+- `paddlepaddle`
+- `paddleocr`
+- `pillow`
+
+The Python packages above are installed into the repo-local virtualenv at
+`./env/.venv-markitdown-runtime`, not into your global Python environment.
+
+It also writes a stable env file that exports:
+
+- `MARKITDOWN_PADDLE_OCR_CMD`
+
+## 3. Audio
+
+Use this when you need:
+
+- `wav`
+- `mp3`
+- `m4a`
+
+Run:
+
+```bash
+./samples/env/install_audio_deps.sh
+```
+
+If you specifically want the small Chinese Vosk model instead of the default small English model:
+
+```bash
+./samples/env/install_audio_deps.sh --model cn-small
+```
+
+If you run `markitdown` from the repo root, that is enough: the runtime prefers the repo-local virtualenv automatically.
+Use `source ./env/audio.env.sh` only when you want those paths exported into another shell.
+
+This installs:
+
+- `ffmpeg`
+- `unzip`
+- `vosk`
+- one local Vosk model
+
+The Python packages above are installed into the repo-local virtualenv at
+`./env/.venv-markitdown-runtime`, not into your global Python environment.
+
+It also writes a stable env file that exports:
+
+- `MARKITDOWN_AUDIO_CMD`
+- `MARKITDOWN_AUDIO_MODEL_PATH`
+
+## 4. External Regression Corpus
+
+If you need `samples/check_balance.sh`, `samples/check_balance_quality.sh`, or `samples/check_accurate.sh` against the external lab corpora:
 
 ```bash
 git clone https://github.com/ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab
 ```
 
-- If you need formal `bench`, also install the baseline `markitdown` CLI used by `official-compare`:
+## 5. Benchmark Baseline
+
+If you need formal `bench`, also install the baseline Python `markitdown` CLI:
 
 ```bash
 python3 -m pip install --upgrade pip
@@ -97,9 +114,11 @@ python3 -m pip install 'markitdown[all]'
 which markitdown
 ```
 
-  If you install `markitdown` inside a virtual environment, pass the binary path explicitly when you run the benchmark, for example `.venv-markitdown/bin/markitdown` via `MARKITDOWN_BIN` or `--markitdown-path`.
+If that binary lives inside a virtual environment, pass it explicitly later through `MARKITDOWN_BIN` or `--markitdown-path`.
 
-- Before `samples/check.sh` or `samples/check_quality.sh`, build the native CLI explicitly:
+## 6. Build Before Checks
+
+Before `samples/check_balance.sh`, `samples/check_balance_quality.sh`, or `samples/check_accurate.sh`, build the native CLI:
 
 ```bash
 moon build cli --target native

@@ -129,14 +129,15 @@ TXT_ALIAS_MD="$NO_META_DIR/txt_plain_alias.md"
 echo "==> help and version expose main cli product surface"
 run_and_capture "$HELP_STDOUT" run_markitdown_cli --help
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "--help should succeed"
-assert_contains "$HELP_STDOUT" 'markitdown-mb [convert|normal] [--format txt|csv|tsv|srt|vtt|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|eml|msg|tex|latex|rst|adoc|asciidoc|zip|epub|odt|ods|odp|docx|xlsx|pptx|pdf|wav|mp3|m4a|png|jpg|jpeg|bmp|webp|tif|tiff] [--accurate] [--stream] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--audio-lang <LANG>] [--pdf-ocr explicit|auto-scanned] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]'
-assert_contains "$HELP_STDOUT" '--pdf-cleanup none|conservative'
-assert_contains "$HELP_STDOUT" '--pdf-tables none|simple'
+assert_contains "$HELP_STDOUT" 'markitdown-mb [balance|accurate|stream] [--format txt|csv|tsv|srt|vtt|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|eml|msg|tex|latex|rst|adoc|asciidoc|zip|epub|odt|ods|odp|docx|xlsx|pptx|pdf|wav|mp3|m4a|png|jpg|jpeg|bmp|webp|tif|tiff] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--audio-lang <LANG>] [--provenance-out <path>] <input> [output]'
 assert_contains "$HELP_STDOUT" '--audio-lang <LANG>'
-assert_contains "$HELP_STDOUT" 'Direct image input uses local Tesseract OCR by default; `--no-ocr` disables it. PDF OCR is controlled by `--pdf-ocr explicit|auto-scanned`; `--ocr` remains a compatibility alias for `pdf --pdf-ocr explicit`. `pdf --accurate` defaults to `auto-scanned` and enters the Paddle-backed OCR route only when scanned-like probe evidence upgrades the PDF.'
-assert_contains "$HELP_STDOUT" 'Audio transcription uses an optional local backend. The official wrapper is `samples/helpers/audio_transcribe_wrapper.py`, which drives local `Vosk`; if `MARKITDOWN_AUDIO_CMD` is unset, the runtime uses that wrapper by default.'
+assert_contains "$HELP_STDOUT" 'Omit the mode or use `balance` for the default strategy mode.'
+assert_contains "$HELP_STDOUT" '`accurate` selects the Accurate strategy mode while preserving the selected output view.'
+assert_contains "$HELP_STDOUT" '`stream` selects the Stream strategy mode and explicitly requests a format'
+assert_contains "$HELP_STDOUT" 'Direct image input uses local Tesseract OCR by default; `--no-ocr` disables it. On PDF input, `--ocr` enables the explicit balanced OCR path, while `accurate` defaults to scanned-like OCR upgrades before entering the Paddle-backed accurate route.'
+assert_contains "$HELP_STDOUT" 'Audio transcription uses an optional local backend. The official wrapper is `samples/env/audio/audio_transcribe_wrapper.py`, which drives local `Vosk`; if `MARKITDOWN_AUDIO_CMD` is unset, the runtime prefers the repo-local virtualenv under `./env/` and otherwise falls back to `python3`.'
 assert_contains "$HELP_STDOUT" 'Use `--audio-lang <LANG>` to pass a language hint, set `MARKITDOWN_AUDIO_MODEL_PATH` to the extracted Vosk model directory, and install local `ffmpeg` when compressed audio needs normalization.'
-assert_contains "$HELP_STDOUT" 'PDF cleanup and simple table reconstruction are explicit opt-in product options'
+assert_contains "$HELP_STDOUT" '`--provenance-out` is available only on single-file runs; batch mode always writes `manifest.json` to the output directory instead.'
 assert_contains "$HELP_STDOUT" '`--rag` switches the output view to chunked retrieval JSON with the default internal chunking policy.'
 assert_contains "$HELP_STDOUT" 'Supported product formats: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, yml, toml, html, htm, markdown, md, eml, msg, tex, latex, rst, adoc, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, wav, mp3, m4a, png, jpg, jpeg, bmp, webp, tif, tiff'
 assert_contains "$HELP_STDOUT" 'fail closed'
@@ -158,26 +159,26 @@ run_and_capture "$VERSION_ALIAS_STDOUT" run_markitdown_cli version
 assert_matches_expected "$VERSION_STDOUT" "$VERSION_ALIAS_STDOUT"
 
 echo "==> txt csv tsv json jsonl ndjson ipynb xml yaml toml html markdown zip epub odt ods odp docx xlsx pptx pdf wav mp3 m4a and ocr succeed through main product cli"
-run_markitdown_cli normal "$TXT_INPUT" "$TXT_MD"
-run_markitdown_cli normal "$CSV_INPUT" "$CSV_MD"
-run_markitdown_cli normal "$TSV_INPUT" "$TSV_MD"
-run_markitdown_cli normal "$JSON_INPUT" "$JSON_MD"
-run_markitdown_cli normal "$JSONL_INPUT" "$JSONL_MD"
-run_markitdown_cli normal "$NDJSON_INPUT" "$NDJSON_MD"
-run_markitdown_cli normal "$IPYNB_INPUT" "$IPYNB_MD"
-run_markitdown_cli normal "$XML_INPUT" "$XML_MD"
-run_markitdown_cli normal "$YAML_INPUT" "$YAML_MD"
-run_markitdown_cli normal "$TOML_INPUT" "$TOML_MD"
-run_markitdown_cli normal "$HTML_INPUT" "$HTML_MD"
-run_markitdown_cli normal "$MARKDOWN_INPUT" "$MARKDOWN_MD"
-run_markitdown_cli normal "$MARKDOWN_DOT_INPUT" "$MARKDOWN_DOT_MD"
-run_markitdown_cli normal "$ZIP_INPUT" "$ZIP_MD"
-run_markitdown_cli normal "$EPUB_INPUT" "$EPUB_MD"
-run_markitdown_cli normal "$DOCX_INPUT" "$DOCX_MD"
-run_markitdown_cli normal "$XLSX_INPUT" "$XLSX_MD"
-run_markitdown_cli normal "$PPTX_INPUT" "$NO_META_DIR/pptx_hidden_slide_basic.md"
-run_markitdown_cli normal "$PDF_INPUT" "$NO_META_DIR/root_native_text_baseline.md"
-run_markitdown_cli normal "$OCR_INPUT" "$OCR_MD"
+run_markitdown_cli balance "$TXT_INPUT" "$TXT_MD"
+run_markitdown_cli balance "$CSV_INPUT" "$CSV_MD"
+run_markitdown_cli balance "$TSV_INPUT" "$TSV_MD"
+run_markitdown_cli balance "$JSON_INPUT" "$JSON_MD"
+run_markitdown_cli balance "$JSONL_INPUT" "$JSONL_MD"
+run_markitdown_cli balance "$NDJSON_INPUT" "$NDJSON_MD"
+run_markitdown_cli balance "$IPYNB_INPUT" "$IPYNB_MD"
+run_markitdown_cli balance "$XML_INPUT" "$XML_MD"
+run_markitdown_cli balance "$YAML_INPUT" "$YAML_MD"
+run_markitdown_cli balance "$TOML_INPUT" "$TOML_MD"
+run_markitdown_cli balance "$HTML_INPUT" "$HTML_MD"
+run_markitdown_cli balance "$MARKDOWN_INPUT" "$MARKDOWN_MD"
+run_markitdown_cli balance "$MARKDOWN_DOT_INPUT" "$MARKDOWN_DOT_MD"
+run_markitdown_cli balance "$ZIP_INPUT" "$ZIP_MD"
+run_markitdown_cli balance "$EPUB_INPUT" "$EPUB_MD"
+run_markitdown_cli balance "$DOCX_INPUT" "$DOCX_MD"
+run_markitdown_cli balance "$XLSX_INPUT" "$XLSX_MD"
+run_markitdown_cli balance "$PPTX_INPUT" "$NO_META_DIR/pptx_hidden_slide_basic.md"
+run_markitdown_cli balance "$PDF_INPUT" "$NO_META_DIR/root_native_text_baseline.md"
+run_markitdown_cli balance "$OCR_INPUT" "$OCR_MD"
 assert_matches_expected "$TXT_EXPECTED" "$TXT_MD"
 assert_matches_expected "$CSV_EXPECTED" "$CSV_MD"
 assert_matches_expected "$TSV_EXPECTED" "$TSV_MD"
@@ -200,7 +201,7 @@ assert_matches_expected "$ROOT/samples/fixtures/contracts/pdf/root_native_text_b
 assert_matches_expected "$OCR_EXPECTED" "$OCR_MD"
 assert_file_not_exists "$NO_META_DIR/metadata/txt_plain.metadata.json"
 
-echo "==> bare alias still maps to normal"
+echo "==> bare invocation still maps to balance"
 run_markitdown_cli "$TXT_INPUT" "$TXT_ALIAS_MD"
 assert_matches_expected "$TXT_EXPECTED" "$TXT_ALIAS_MD"
 
@@ -224,8 +225,9 @@ else
   assert_contains "$PDF_ERR" 'pdftoppm'
 fi
 
-echo "==> pdf product options are explicit opt-in and default markdown remains stable"
-run_markitdown_cli --pdf-cleanup conservative --pdf-tables simple "$PDF_INPUT" "$NO_META_DIR/root_native_text_baseline_optin.md"
-assert_matches_expected "$ROOT/samples/fixtures/contracts/pdf/root_native_text_baseline.expected.md" "$NO_META_DIR/root_native_text_baseline_optin.md"
+echo "==> removed PDF product options fail with migration guidance"
+run_and_capture "$PDF_ERR" run_markitdown_cli --pdf-cleanup conservative "$PDF_INPUT" "$NO_META_DIR/root_native_text_baseline_optin.md"
+[[ "$CAPTURED_STATUS" -ne 0 ]] || fail "removed --pdf-cleanup should fail"
+assert_contains "$PDF_ERR" '`--pdf-cleanup` was removed from the main CLI'
 
 echo "CLI CONTRACT PASSED"

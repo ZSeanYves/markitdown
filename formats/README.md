@@ -23,5 +23,5 @@ Validation:
 
 ```bash
 moon test
-bash samples/check.sh
+bash samples/check_balance.sh
 ```

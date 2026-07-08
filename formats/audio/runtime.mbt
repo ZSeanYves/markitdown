@@ -12,6 +12,11 @@ pub fn audio_model_path_env_var() -> String {
 }
 
 ///|
+fn runtime_python_env_var() -> String {
+  "MARKITDOWN_RUNTIME_PYTHON"
+}
+
+///|
 pub fn audio_backend_transport_name() -> String {
   "native_cli"
 }
@@ -51,8 +56,61 @@ fn audio_resolved_model_path() -> String {
 }
 
 ///|
+fn audio_default_wrapper_path() -> String {
+  "samples/env/audio/audio_transcribe_wrapper.py"
+}
+
+///|
+fn repo_local_runtime_python_path() -> String {
+  "env/.venv-markitdown-runtime/bin/python"
+}
+
+///|
+fn resolved_runtime_python_command() -> String? {
+  match normalized_env_var(runtime_python_env_var()) {
+    Some(path) => if @fs.path_exists(path) { Some(path) } else { None }
+    None => {
+      let repo_local = repo_local_runtime_python_path()
+      if @fs.path_exists(repo_local) {
+        Some(repo_local)
+      } else {
+        None
+      }
+    }
+  }
+}
+
+///|
+fn shell_quote_command_part(part : String) -> String {
+  let mut needs_quote = false
+  for ch in part.to_array() {
+    if ch == ' ' || ch == '\t' || ch == '\n' || ch == '"' || ch == '\\' {
+      needs_quote = true
+    }
+  }
+  if !needs_quote {
+    return part
+  }
+  let out : Array[Char] = ['"']
+  for ch in part.to_array() {
+    if ch == '"' || ch == '\\' {
+      out.push('\\')
+    }
+    out.push(ch)
+  }
+  out.push('"')
+  String::from_array(out)
+}
+
+///|
 fn audio_default_wrapper_command() -> String {
-  "python3 samples/helpers/audio_transcribe_wrapper.py"
+  let python_cmd = match resolved_runtime_python_command() {
+    Some(path) => path
+    None => "python3"
+  }
+  shell_quote_command_part(python_cmd) +
+  " " +
+  shell_quote_command_part(audio_default_wrapper_path())
 }
 
 ///|
@@ -60,8 +118,9 @@ pub fn audio_transcribe_install_hint() -> String {
   [
     "Preferred: configure `" +
     audio_command_env_var() +
-    "` with the official helper `samples/helpers/audio_transcribe_wrapper.py`, or leave it unset to use that wrapper by default.",
-    "Install local `python3`, `vosk`, and one extracted Vosk model directory.",
+    "` with the official helper `samples/env/audio/audio_transcribe_wrapper.py`, or leave it unset to use that wrapper by default.",
+    "Recommended setup from the repo root: `./samples/env/install_audio_deps.sh`. If you run from the repo root, the runtime auto-detects the repo-local virtualenv; `source ./env/audio.env.sh` is only needed when you want those paths exported into another shell.",
+    "Python dependencies should live in the repo-local virtualenv under `./env/`, not in your global `python3` environment.",
     "Recommended model directory: " + audio_default_model_path(),
     "Set `" +
     audio_model_path_env_var() +

@@ -77,6 +77,20 @@ fn make_fake_model(path : String) -> Unit raise {
 }
 
 ///|
+fn audio_wbtest_repo_local_runtime_python_path() -> String {
+  "env/.venv-markitdown-runtime/bin/python"
+}
+
+///|
+fn expected_default_audio_python_cmd() -> String {
+  if @fs.path_exists(audio_wbtest_repo_local_runtime_python_path()) {
+    audio_wbtest_repo_local_runtime_python_path()
+  } else {
+    "python3"
+  }
+}
+
+///|
 fn with_env_var(
   name : String,
   value : String,
@@ -187,27 +201,80 @@ test "audio runtime command builder defaults to official wrapper and model dir" 
   recreate_clean_dir(mock_bin) catch {
     e => fail(e.to_string())
   }
+  let expected_python = expected_default_audio_python_cmd()
   let old_path = @env.get_env_var("PATH").unwrap_or("")
   with_env_var("PATH", mock_bin + ":" + old_path, fn() raise {
+    with_unset_env_var("MARKITDOWN_RUNTIME_PYTHON", fn() raise {
+      with_unset_env_var(audio_command_env_var(), fn() raise {
+        with_audio_model_env(fake_model, fn() raise {
+          let built = match
+            build_audio_transcribe_command(
+              @input.input_from_path(fake_audio),
+              @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
+              Some("zh"),
+            ) {
+            Ok(value) => value
+            Err(err) => fail("expected audio command plan: " + err.to_string())
+          }
+          assert_eq(built.0, expected_python)
+          assert_true(
+            built.1[0] == "samples/env/audio/audio_transcribe_wrapper.py",
+          )
+          assert_eq(built.1[1], fake_audio)
+          assert_true(built.1[2].contains("transcript.json"))
+          assert_true(built.1.contains("--lang"))
+          assert_true(built.1.contains("zh"))
+          assert_true(!built.1.contains("-m"))
+          assert_true(!built.1.contains("-l"))
+        })
+      })
+    })
+  })
+}
+
+///|
+test "audio runtime prefers MARKITDOWN_RUNTIME_PYTHON and preserves spaced paths" {
+  let root = test_tmp_root() + "/runtime_python_override"
+  recreate_clean_dir(root) catch {
+    e => fail(e.to_string())
+  }
+  defer cleanup_temp_dir(root)
+  let fake_model = root + "/model"
+  make_fake_model(fake_model) catch {
+    e => fail(e.to_string())
+  }
+  let fake_audio = root + "/sample.wav"
+  write_utf8_text(fake_audio, "RIFFfakeWAVE") catch {
+    e => fail(e.to_string())
+  }
+  let fake_python_dir = root + "/python bin"
+  ensure_dir_tree(fake_python_dir) catch {
+    e => fail(e.to_string())
+  }
+  let fake_python = fake_python_dir + "/python3"
+  write_utf8_text(fake_python, "#!/bin/sh\n") catch {
+    e => fail(e.to_string())
+  }
+  with_env_var("MARKITDOWN_RUNTIME_PYTHON", fake_python, fn() raise {
     with_unset_env_var(audio_command_env_var(), fn() raise {
       with_audio_model_env(fake_model, fn() raise {
         let built = match
           build_audio_transcribe_command(
             @input.input_from_path(fake_audio),
             @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
-            Some("zh"),
+            Some("eng"),
           ) {
           Ok(value) => value
-          Err(err) => fail("expected audio command plan: " + err.to_string())
+          Err(err) =>
+            fail("expected runtime python override plan: " + err.to_string())
         }
-        assert_eq(built.0, "python3")
-        assert_true(built.1[0] == "samples/helpers/audio_transcribe_wrapper.py")
+        assert_eq(built.0, fake_python)
+        assert_true(
+          built.1[0] == "samples/env/audio/audio_transcribe_wrapper.py",
+        )
         assert_eq(built.1[1], fake_audio)
-        assert_true(built.1[2].contains("transcript.json"))
         assert_true(built.1.contains("--lang"))
-        assert_true(built.1.contains("zh"))
-        assert_true(!built.1.contains("-m"))
-        assert_true(!built.1.contains("-l"))
+        assert_true(built.1.contains("eng"))
       })
     })
   })
@@ -224,7 +291,7 @@ test "audio runtime wrapper command path stays stable and shell-parseable" {
   write_utf8_text(fake_audio, "RIFFfakeWAVE") catch {
     e => fail(e.to_string())
   }
-  let wrapper = "python3 samples/helpers/audio_transcribe_wrapper.py"
+  let wrapper = "python3 samples/env/audio/audio_transcribe_wrapper.py"
   with_env_var(audio_command_env_var(), wrapper, fn() raise {
     let built = match
       build_audio_transcribe_command(
@@ -237,7 +304,7 @@ test "audio runtime wrapper command path stays stable and shell-parseable" {
         fail("expected wrapper audio command plan: " + err.to_string())
     }
     assert_eq(built.0, "python3")
-    assert_true(built.1[0] == "samples/helpers/audio_transcribe_wrapper.py")
+    assert_true(built.1[0] == "samples/env/audio/audio_transcribe_wrapper.py")
     assert_true(built.1.contains(fake_audio))
     assert_true(built.1.contains("--lang"))
     assert_true(built.1.contains("zh"))
@@ -281,23 +348,26 @@ test "audio runtime command builder defaults language to auto" {
   recreate_clean_dir(mock_bin) catch {
     e => fail(e.to_string())
   }
+  let expected_python = expected_default_audio_python_cmd()
   let old_path = @env.get_env_var("PATH").unwrap_or("")
   with_env_var("PATH", mock_bin + ":" + old_path, fn() raise {
-    with_unset_env_var(audio_command_env_var(), fn() raise {
-      with_audio_model_env(fake_model, fn() raise {
-        let built = match
-          build_audio_transcribe_command(
-            @input.input_from_path(fake_audio),
-            @input.DetectedFormat::Audio(@input.AudioFormat::Mp3),
-            None,
-          ) {
-          Ok(value) => value
-          Err(err) =>
-            fail("expected auto language command plan: " + err.to_string())
-        }
-        assert_true(built.0 == "python3")
-        assert_true(built.1.contains("--lang"))
-        assert_true(built.1.contains("auto"))
+    with_unset_env_var("MARKITDOWN_RUNTIME_PYTHON", fn() raise {
+      with_unset_env_var(audio_command_env_var(), fn() raise {
+        with_audio_model_env(fake_model, fn() raise {
+          let built = match
+            build_audio_transcribe_command(
+              @input.input_from_path(fake_audio),
+              @input.DetectedFormat::Audio(@input.AudioFormat::Mp3),
+              None,
+            ) {
+            Ok(value) => value
+            Err(err) =>
+              fail("expected auto language command plan: " + err.to_string())
+          }
+          assert_true(built.0 == expected_python)
+          assert_true(built.1.contains("--lang"))
+          assert_true(built.1.contains("auto"))
+        })
       })
     })
   })

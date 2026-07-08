@@ -69,7 +69,6 @@ fn run_cli_with_image_ocr_provider_and_pdf_rasterizer(
     fidelity_mode=opts.fidelity_mode,
     output_mode=opts.output_mode,
     stream_requested=opts.stream_requested,
-    pdf_ocr_policy=opts.pdf_ocr_policy,
     pdf_cleanup_mode=opts.pdf_cleanup_mode,
     pdf_table_mode=opts.pdf_table_mode,
     rag_options=opts.rag_options,
@@ -123,7 +122,6 @@ pub async fn run_cli_with_async_image_ocr_provider(
     fidelity_mode=opts.fidelity_mode,
     output_mode=opts.output_mode,
     stream_requested=opts.stream_requested,
-    pdf_ocr_policy=opts.pdf_ocr_policy,
     pdf_cleanup_mode=opts.pdf_cleanup_mode,
     pdf_table_mode=opts.pdf_table_mode,
     rag_options=opts.rag_options,
@@ -132,11 +130,9 @@ pub async fn run_cli_with_async_image_ocr_provider(
       requested_format,
     ) &&
     opts.ocr_options.intent == @parser.OcrIntent::Explicit
-  let execution = if allow_image_ocr ||
-    (
-      requested_format == @input.DetectedFormat::Pdf &&
-      opts.pdf_ocr_policy != @convert.PdfOcrPolicy::Disabled
-    ) {
+  let allow_pdf_accurate_layout = requested_format == @input.DetectedFormat::Pdf &&
+    opts.fidelity_mode == @convert.FidelityMode::Accurate
+  let execution = if allow_image_ocr || allow_pdf_accurate_layout {
     let async_result = @convert.convert_input_with_provenance_and_image_ocr_provider_async(
       @input.input_from_path(opts.input),
       convert_options,
@@ -209,6 +205,9 @@ pub fn run_cli_app(raw_cli_args : Array[String]) -> Int {
     print_cli_version()
     return 0
   }
+  if first == "convert" || first == "normal" {
+    return exit_cli_error(removed_cli_subcommand_message(first), true)
+  }
   if first == "debug" {
     return exit_cli_error(
       "unsupported subcommand in this build: debug moved to the dedicated debug package and is not exposed through the main product CLI",
@@ -233,8 +232,11 @@ pub fn run_cli_app(raw_cli_args : Array[String]) -> Int {
   if is_batch_subcommand(first) {
     return run_batch_cli_app(cli_args)
   }
-  let parsed = if is_convert_subcommand(first) {
-    parse_cli_options_from_index(cli_args, 1)
+  let parsed = if is_cli_mode_word(first) {
+    let mode = cli_mode_from_name(first).unwrap_or(
+      @convert.ConvertMode::Balanced,
+    )
+    parse_cli_options_from_index(cli_args, 1, mode~)
   } else {
     parse_cli_options(cli_args)
   }

@@ -7,7 +7,7 @@ The project is inspired by Microsoft's `MarkItDown`, but this implementation put
 It is designed for document ingestion pipelines, RAG, content processing, and automation scenarios where route fidelity, provenance, and predictable failure behavior matter as much as raw conversion output.
 
 > Important:
-> `pdf --accurate` and `audio` are still experimental. They are not recommended for production use today.
+> `accurate` PDF OCR and `audio` are still experimental. They are not recommended for production use today.
 
 Read these two documents first:
 
@@ -63,24 +63,24 @@ Show help:
 Minimal example:
 
 ```bash
-./_build/native/debug/build/cli/cli.exe normal samples/fixtures/contracts/txt/txt_plain.txt .tmp/manual/out.md
+./_build/native/debug/build/cli/cli.exe balance samples/fixtures/contracts/txt/txt_plain.txt .tmp/manual/out.md
 ```
 
 PDF example:
 
 ```bash
-./_build/native/debug/build/cli/cli.exe normal samples/fixtures/contracts/pdf/root_native_text_baseline.pdf .tmp/manual/pdf.md
+./_build/native/debug/build/cli/cli.exe balance samples/fixtures/contracts/pdf/root_native_text_baseline.pdf .tmp/manual/pdf.md
 ```
 
 For more CLI options, modes, batch usage, provenance output, and OCR / PDF / audio examples, see [docs/cli-usage-guide.md](./docs/cli-usage-guide.md).
 
 ## Behavior Notes
 
-- `--accurate` is not productized for every format. Unsupported formats emit a warning and fall back to `balance`.
-- `--stream` follows the same rule. Unsupported formats emit a warning and fall back to that format's canonical route.
-- `pdf --accurate` only enters Accurate PDF OCR when scanned-like probe evidence upgrades the PDF.
-- If `pdf --accurate` is missing Paddle dependencies, it reports the missing dependency and falls back to Balanced PDF OCR.
-- If direct image OCR is requested with `--accurate` and Paddle is missing, it reports the missing dependency and falls back to Balanced image OCR.
+- `accurate` is not productized for every format. Unsupported formats emit a warning and falls back to `balance`.
+- `stream` follows the same rule. Unsupported formats emit a warning and falls back to that format's canonical route.
+- `accurate` on PDF only enters Accurate PDF OCR when scanned-like probe evidence upgrades the PDF.
+- If `accurate` PDF OCR is missing Paddle dependencies, it reports the missing dependency and falls back to Balanced PDF OCR.
+- If `accurate` direct image OCR is missing Paddle dependencies, it reports the missing dependency and falls back to Balanced image OCR.
 - Unsupported formats and out-of-bound feature requests fail closed. The product does not hide unsupported behavior behind silent side paths.
 
 ## Development And Verification
@@ -105,8 +105,8 @@ git clone https://github.com/ZSeanYves/markitdown-quality-lab.git markitdown-qua
 Common regression scripts:
 
 ```bash
-bash samples/check.sh
-bash samples/check_quality.sh
+bash samples/check_balance.sh
+bash samples/check_balance_quality.sh
 ```
 
 For formal benchmark runs:

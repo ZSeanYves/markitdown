@@ -10,7 +10,8 @@ pub fn run_ocr_provider(
 
 ///|
 pub fn paddle_ocr_runtime_available() -> Bool {
-  normalized_env_var(paddle_ocr_command_env_var()) is Some(_)
+  normalized_env_var(paddle_ocr_command_env_var()) is Some(_) ||
+  paddle_ocr_default_wrapper_command() is Some(_)
 }
 
 ///|
@@ -37,8 +38,6 @@ pub fn ocr_provider_fallback_for_target(
   match target {
     OcrProviderSelectionTarget::DirectImageAccurate =>
       Some((OcrProviderKind::PaddleOcr, OcrProviderKind::Tesseract))
-    OcrProviderSelectionTarget::PdfAccurate =>
-      Some((OcrProviderKind::PaddleOcr, OcrProviderKind::Tesseract))
     _ => None
   }
 }
@@ -56,6 +55,74 @@ pub fn paddle_ocr_command_env_var() -> String {
 }
 
 ///|
+fn runtime_python_env_var() -> String {
+  "MARKITDOWN_RUNTIME_PYTHON"
+}
+
+///|
+fn paddle_ocr_default_wrapper_path() -> String {
+  "samples/env/ocr/paddle_ocr_wrapper.py"
+}
+
+///|
+fn repo_local_runtime_python_path() -> String {
+  "env/.venv-markitdown-runtime/bin/python"
+}
+
+///|
+fn resolved_runtime_python_command() -> String? {
+  match normalized_env_var(runtime_python_env_var()) {
+    Some(path) => if @fs.path_exists(path) { Some(path) } else { None }
+    None => {
+      let repo_local = repo_local_runtime_python_path()
+      if @fs.path_exists(repo_local) {
+        Some(repo_local)
+      } else {
+        None
+      }
+    }
+  }
+}
+
+///|
+fn shell_quote_command_part(part : String) -> String {
+  let mut needs_quote = false
+  for ch in part.to_array() {
+    if ch == ' ' || ch == '\t' || ch == '\n' || ch == '"' || ch == '\\' {
+      needs_quote = true
+    }
+  }
+  if !needs_quote {
+    return part
+  }
+  let out : Array[Char] = ['"']
+  for ch in part.to_array() {
+    if ch == '"' || ch == '\\' {
+      out.push('\\')
+    }
+    out.push(ch)
+  }
+  out.push('"')
+  String::from_array(out)
+}
+
+///|
+fn paddle_ocr_default_wrapper_command() -> String? {
+  if !@fs.path_exists(paddle_ocr_default_wrapper_path()) {
+    return None
+  }
+  match resolved_runtime_python_command() {
+    Some(python_cmd) =>
+      Some(
+        shell_quote_command_part(python_cmd) +
+        " " +
+        shell_quote_command_part(paddle_ocr_default_wrapper_path()),
+      )
+    None => None
+  }
+}
+
+///|
 pub fn paddle_ocr_not_configured_message() -> String {
   "PaddleOCR provider is not configured on this runtime. Set `" +
   paddle_ocr_command_env_var() +
@@ -70,7 +137,13 @@ pub fn build_paddle_ocr_command(
   match normalized_env_var(paddle_ocr_command_env_var()) {
     Some(command) => build_paddle_ocr_command_with_wrapper(request, command)
     None =>
-      Err(OcrProviderError::NotConfigured(paddle_ocr_not_configured_message()))
+      match paddle_ocr_default_wrapper_command() {
+        Some(command) => build_paddle_ocr_command_with_wrapper(request, command)
+        None =>
+          Err(
+            OcrProviderError::NotConfigured(paddle_ocr_not_configured_message()),
+          )
+      }
   }
 }
 

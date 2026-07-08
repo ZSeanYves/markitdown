@@ -87,21 +87,16 @@ jobs:
         run: moon update
 
       - name: Build native CLI
-        run: moon build --target native
+        run: moon build cli --target native
 
-      - name: Install OCR dependencies (Ubuntu)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y poppler-utils tesseract-ocr tesseract-ocr-eng
+      - name: Install balance OCR/PDF dependencies
+        run: ./samples/env/install_ocr_pdf_balance_deps.sh
 
-      - name: Install OCR dependencies (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          brew install poppler tesseract
+      - name: Install audio dependencies
+        run: ./samples/env/install_audio_deps.sh
 
       - name: External main regression
-        run: ./samples/check.sh
+        run: ./samples/check_balance.sh
 
   external-quality-regression:
     name: external-quality-regression
@@ -129,15 +124,16 @@ jobs:
         run: moon update
 
       - name: Build native CLI
-        run: moon build --target native
+        run: moon build cli --target native
 
-      - name: Install OCR dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y poppler-utils tesseract-ocr tesseract-ocr-eng
+      - name: Install balance OCR/PDF dependencies
+        run: ./samples/env/install_ocr_pdf_balance_deps.sh
+
+      - name: Install audio dependencies
+        run: ./samples/env/install_audio_deps.sh
 
       - name: External quality regression
-        run: ./samples/check_quality.sh
+        run: ./samples/check_balance_quality.sh
 
       - name: Show quality failure summary
         if: failure()
@@ -156,4 +152,62 @@ jobs:
         with:
           name: external-quality-regression-artifacts
           path: .tmp/quality
+          if-no-files-found: ignore
+
+  external-accurate-regression:
+    name: external-accurate-regression
+    needs: core-validate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Checkout quality lab
+        uses: actions/checkout@v5
+        with:
+          repository: ZSeanYves/markitdown-quality-lab
+          path: markitdown-quality-lab
+
+      - name: Install MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s -- "$MOONBIT_VERSION"
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: Update MoonBit registry
+        run: moon update
+
+      - name: Build native CLI
+        run: moon build cli --target native
+
+      - name: Install accurate OCR/PDF dependencies
+        run: ./samples/env/install_ocr_pdf_accurate_deps.sh
+
+      - name: External accurate regression
+        run: ./samples/check_accurate.sh
+
+      - name: Show accurate failure summary
+        if: failure()
+        run: |
+          find .tmp/accurate -path '*/summary.md' -print -exec sh -c 'echo; echo "===== $1 ====="; sed -n "1,200p" "$1"' _ {} \;
+          find .tmp/accurate -path '*/reports/nonpass.md' -print -exec sh -c 'echo; echo "===== $1 ====="; sed -n "1,200p" "$1"' _ {} \;
+          find .tmp/accurate -path '*/reports/rows/*.md' -print | head -n 8 | while read -r report; do
+            echo
+            echo "===== $report ====="
+            sed -n '1,200p' "$report"
+          done
+          find .tmp/accurate -path '*/logs/*.log' -print | while read -r log; do
+            echo
+            echo "===== $log ====="
+            tail -n 160 "$log"
+          done
+
+      - name: Upload accurate run artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: external-accurate-regression-artifacts
+          path: .tmp/accurate
           if-no-files-found: ignore

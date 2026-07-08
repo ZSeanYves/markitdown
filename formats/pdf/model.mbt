@@ -1,13 +1,5 @@
 ///|
-pub struct PdfNativeTextSpan {
-  text : String
-  bbox : PdfBBox
-  source_ref : @core.SourceRef?
-  confidence : Int?
-  font_name : String?
-  font_size : Double?
-  reading_order_index : Int?
-}
+pub type PdfNativeTextSpan = @dpdfnative.PdfNativeTextSpan
 
 ///|
 pub fn make_pdf_native_text_span(
@@ -19,24 +11,19 @@ pub fn make_pdf_native_text_span(
   font_size? : Double? = None,
   reading_order_index? : Int? = None,
 ) -> PdfNativeTextSpan {
-  {
+  @dpdfnative.make_pdf_native_text_span(
     text,
     bbox,
-    source_ref,
-    confidence,
-    font_name,
-    font_size,
-    reading_order_index,
-  }
+    source_ref~,
+    confidence~,
+    font_name~,
+    font_size~,
+    reading_order_index~,
+  )
 }
 
 ///|
-pub struct PdfNativeTextLine {
-  spans : Array[PdfNativeTextSpan]
-  bbox : PdfBBox
-  source_ref : @core.SourceRef?
-  reading_order_index : Int?
-}
+pub type PdfNativeTextLine = @dpdfnative.PdfNativeTextLine
 
 ///|
 pub fn make_pdf_native_text_line(
@@ -45,16 +32,16 @@ pub fn make_pdf_native_text_line(
   source_ref? : @core.SourceRef? = None,
   reading_order_index? : Int? = None,
 ) -> PdfNativeTextLine {
-  { spans, bbox, source_ref, reading_order_index }
+  @dpdfnative.make_pdf_native_text_line(
+    spans,
+    bbox,
+    source_ref~,
+    reading_order_index~,
+  )
 }
 
 ///|
-pub struct PdfNativeTextBlock {
-  lines : Array[PdfNativeTextLine]
-  bbox : PdfBBox
-  source_ref : @core.SourceRef?
-  reading_order_index : Int?
-}
+pub type PdfNativeTextBlock = @dpdfnative.PdfNativeTextBlock
 
 ///|
 pub fn make_pdf_native_text_block(
@@ -63,16 +50,16 @@ pub fn make_pdf_native_text_block(
   source_ref? : @core.SourceRef? = None,
   reading_order_index? : Int? = None,
 ) -> PdfNativeTextBlock {
-  { lines, bbox, source_ref, reading_order_index }
+  @dpdfnative.make_pdf_native_text_block(
+    lines,
+    bbox,
+    source_ref~,
+    reading_order_index~,
+  )
 }
 
 ///|
-pub struct PdfNativeImageCandidate {
-  bbox : PdfBBox
-  source_ref : @core.SourceRef?
-  asset_ref : @core.AssetRef?
-  reading_order_index : Int?
-}
+pub type PdfNativeImageCandidate = @dpdfnative.PdfNativeImageCandidate
 
 ///|
 pub fn make_pdf_native_image_candidate(
@@ -81,18 +68,16 @@ pub fn make_pdf_native_image_candidate(
   asset_ref? : @core.AssetRef? = None,
   reading_order_index? : Int? = None,
 ) -> PdfNativeImageCandidate {
-  { bbox, source_ref, asset_ref, reading_order_index }
+  @dpdfnative.make_pdf_native_image_candidate(
+    bbox,
+    source_ref~,
+    asset_ref~,
+    reading_order_index~,
+  )
 }
 
 ///|
-pub struct PdfNativeLinkCandidate {
-  bbox : PdfBBox
-  href : String
-  text : String?
-  source_ref : @core.SourceRef?
-  annotation_index : Int?
-  annotation_object_id : Int?
-}
+pub type PdfNativeLinkCandidate = @dpdfnative.PdfNativeLinkCandidate
 
 ///|
 pub fn make_pdf_native_link_candidate(
@@ -103,20 +88,18 @@ pub fn make_pdf_native_link_candidate(
   annotation_index? : Int? = None,
   annotation_object_id? : Int? = None,
 ) -> PdfNativeLinkCandidate {
-  { bbox, href, text, source_ref, annotation_index, annotation_object_id }
+  @dpdfnative.make_pdf_native_link_candidate(
+    bbox,
+    href,
+    text~,
+    source_ref~,
+    annotation_index~,
+    annotation_object_id~,
+  )
 }
 
 ///|
-pub struct PdfNativeDestination {
-  page_index : Int?
-  target_page_index : Int?
-  target_page_object_id : Int?
-  kind : String?
-  raw_value : String?
-  name : String?
-  source_ref : @core.SourceRef?
-  object_id : Int?
-}
+pub type PdfNativeDestination = @dpdfnative.PdfNativeDestination
 
 ///|
 pub fn make_pdf_native_destination(
@@ -129,36 +112,20 @@ pub fn make_pdf_native_destination(
   source_ref? : @core.SourceRef? = None,
   object_id? : Int? = None,
 ) -> PdfNativeDestination {
-  {
-    page_index,
-    target_page_index,
-    target_page_object_id,
-    kind,
-    raw_value,
-    name,
-    source_ref,
-    object_id,
-  }
+  @dpdfnative.make_pdf_native_destination(
+    page_index~,
+    target_page_index~,
+    target_page_object_id~,
+    kind~,
+    raw_value~,
+    name~,
+    source_ref~,
+    object_id~,
+  )
 }
 
 ///|
-pub struct PdfNativeAnnotation {
-  page_index : Int
-  subtype : String
-  bbox : PdfBBox?
-  text : String?
-  title : String?
-  subject : String?
-  file_name : String?
-  name : String?
-  modified_at : String?
-  action_kind : String?
-  target : String?
-  destination : PdfNativeDestination?
-  source_ref : @core.SourceRef?
-  annotation_index : Int?
-  object_id : Int?
-}
+pub type PdfNativeAnnotation = @dpdfnative.PdfNativeAnnotation
 
 ///|
 pub fn make_pdf_native_annotation(
@@ -178,40 +145,27 @@ pub fn make_pdf_native_annotation(
   annotation_index? : Int? = None,
   object_id? : Int? = None,
 ) -> PdfNativeAnnotation {
-  {
+  @dpdfnative.make_pdf_native_annotation(
     page_index,
     subtype,
-    bbox,
-    text,
-    title,
-    subject,
-    file_name,
-    name,
-    modified_at,
-    action_kind,
-    target,
-    destination,
-    source_ref,
-    annotation_index,
-    object_id,
-  }
+    bbox~,
+    text~,
+    title~,
+    subject~,
+    file_name~,
+    name~,
+    modified_at~,
+    action_kind~,
+    target~,
+    destination~,
+    source_ref~,
+    annotation_index~,
+    object_id~,
+  )
 }
 
 ///|
-pub struct PdfNativeFormField {
-  page_index : Int?
-  field_type : String?
-  field_name : String?
-  alternate_name : String?
-  value : String?
-  default_value : String?
-  options : Array[String]
-  bbox : PdfBBox?
-  source_ref : @core.SourceRef?
-  object_id : Int?
-  widget_object_id : Int?
-  flags : Int?
-}
+pub type PdfNativeFormField = @dpdfnative.PdfNativeFormField
 
 ///|
 pub fn make_pdf_native_form_field(
@@ -228,34 +182,24 @@ pub fn make_pdf_native_form_field(
   widget_object_id? : Int? = None,
   flags? : Int? = None,
 ) -> PdfNativeFormField {
-  {
-    page_index,
-    field_type,
-    field_name,
-    alternate_name,
-    value,
-    default_value,
-    options,
-    bbox,
-    source_ref,
-    object_id,
-    widget_object_id,
-    flags,
-  }
+  @dpdfnative.make_pdf_native_form_field(
+    page_index~,
+    field_type~,
+    field_name~,
+    alternate_name~,
+    value~,
+    default_value~,
+    options~,
+    bbox~,
+    source_ref~,
+    object_id~,
+    widget_object_id~,
+    flags~,
+  )
 }
 
 ///|
-pub struct PdfNativeOutlineItem {
-  title : String
-  level : Int
-  order_index : Int
-  page_index : Int?
-  action_kind : String?
-  target : String?
-  destination : PdfNativeDestination?
-  source_ref : @core.SourceRef?
-  object_id : Int?
-}
+pub type PdfNativeOutlineItem = @dpdfnative.PdfNativeOutlineItem
 
 ///|
 pub fn make_pdf_native_outline_item(
@@ -269,27 +213,21 @@ pub fn make_pdf_native_outline_item(
   source_ref? : @core.SourceRef? = None,
   object_id? : Int? = None,
 ) -> PdfNativeOutlineItem {
-  {
+  @dpdfnative.make_pdf_native_outline_item(
     title,
     level,
     order_index,
-    page_index,
-    action_kind,
-    target,
-    destination,
-    source_ref,
-    object_id,
-  }
+    page_index~,
+    action_kind~,
+    target~,
+    destination~,
+    source_ref~,
+    object_id~,
+  )
 }
 
 ///|
-pub struct PdfNativeTableCandidate {
-  bbox : PdfBBox
-  source_ref : @core.SourceRef?
-  row_count : Int?
-  column_count : Int?
-  cell_bboxes : Array[PdfBBox]
-}
+pub type PdfNativeTableCandidate = @dpdfnative.PdfNativeTableCandidate
 
 ///|
 pub fn make_pdf_native_table_candidate(
@@ -299,15 +237,17 @@ pub fn make_pdf_native_table_candidate(
   column_count? : Int? = None,
   cell_bboxes? : Array[PdfBBox] = [],
 ) -> PdfNativeTableCandidate {
-  { bbox, source_ref, row_count, column_count, cell_bboxes }
+  @dpdfnative.make_pdf_native_table_candidate(
+    bbox,
+    source_ref~,
+    row_count~,
+    column_count~,
+    cell_bboxes~,
+  )
 }
 
 ///|
-pub struct PdfNativeArtifactCandidate {
-  kind : String
-  bbox : PdfBBox
-  source_ref : @core.SourceRef?
-}
+pub type PdfNativeArtifactCandidate = @dpdfnative.PdfNativeArtifactCandidate
 
 ///|
 pub fn make_pdf_native_artifact_candidate(
@@ -315,21 +255,11 @@ pub fn make_pdf_native_artifact_candidate(
   bbox : PdfBBox,
   source_ref? : @core.SourceRef? = None,
 ) -> PdfNativeArtifactCandidate {
-  { kind, bbox, source_ref }
+  @dpdfnative.make_pdf_native_artifact_candidate(kind, bbox, source_ref~)
 }
 
 ///|
-pub struct PdfNativePage {
-  geometry : PdfPageGeometry
-  text_blocks : Array[PdfNativeTextBlock]
-  image_candidates : Array[PdfNativeImageCandidate]
-  link_candidates : Array[PdfNativeLinkCandidate]
-  annotations : Array[PdfNativeAnnotation]
-  destinations : Array[PdfNativeDestination]
-  table_candidates : Array[PdfNativeTableCandidate]
-  artifact_candidates : Array[PdfNativeArtifactCandidate]
-  diagnostics : @core.Diagnostics
-}
+pub type PdfNativePage = @dpdfnative.PdfNativePage
 
 ///|
 pub fn make_pdf_native_page(
@@ -343,28 +273,21 @@ pub fn make_pdf_native_page(
   artifact_candidates? : Array[PdfNativeArtifactCandidate] = [],
   diagnostics? : @core.Diagnostics = @core.empty_diagnostics(),
 ) -> PdfNativePage {
-  {
+  @dpdfnative.make_pdf_native_page(
     geometry,
-    text_blocks,
-    image_candidates,
-    link_candidates,
-    annotations,
-    destinations,
-    table_candidates,
-    artifact_candidates,
-    diagnostics,
-  }
+    text_blocks~,
+    image_candidates~,
+    link_candidates~,
+    annotations~,
+    destinations~,
+    table_candidates~,
+    artifact_candidates~,
+    diagnostics~,
+  )
 }
 
 ///|
-pub struct PdfNativeDocument {
-  pages : Array[PdfNativePage]
-  form_fields : Array[PdfNativeFormField]
-  outline_items : Array[PdfNativeOutlineItem]
-  named_destinations : Array[PdfNativeDestination]
-  metadata : Map[String, @core.JsonValue]
-  diagnostics : @core.Diagnostics
-}
+pub type PdfNativeDocument = @dpdfnative.PdfNativeDocument
 
 ///|
 pub fn make_pdf_native_document(
@@ -375,12 +298,12 @@ pub fn make_pdf_native_document(
   metadata? : Map[String, @core.JsonValue] = Map([]),
   diagnostics? : @core.Diagnostics = @core.empty_diagnostics(),
 ) -> PdfNativeDocument {
-  {
-    pages,
-    form_fields,
-    outline_items,
-    named_destinations,
-    metadata,
-    diagnostics,
-  }
+  @dpdfnative.make_pdf_native_document(
+    pages~,
+    form_fields~,
+    outline_items~,
+    named_destinations~,
+    metadata~,
+    diagnostics~,
+  )
 }

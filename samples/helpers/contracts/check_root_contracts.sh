@@ -16,7 +16,7 @@ Modes:
 
 Groups:
   Root main CLI contracts:
-    cli, samples, quality, quality grouping, quality signal eval
+    cli, samples, quality, quality override, accurate, quality grouping, quality signal eval
 EOF
 }
 
@@ -58,6 +58,8 @@ run_root_contracts() {
   run_contract "cli" "check_cli_contract.sh"
   run_contract "samples" "check_samples_check_contract.sh"
   run_contract "quality" "check_quality_contract.sh"
+  run_contract "quality-override" "check_quality_override_contract.sh"
+  run_contract "accurate" "check_accurate_contract.sh"
   run_contract "quality-grouping" "check_quality_grouping_contract.sh"
   run_contract "quality-signal-eval" "check_quality_signal_eval_contract.sh"
 }

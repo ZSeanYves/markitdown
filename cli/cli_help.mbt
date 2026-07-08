@@ -35,12 +35,12 @@ fn print_cli_usage() -> Unit {
   println(
     "  " +
     cli_product_name() +
-    " [convert|normal] [--format txt|csv|tsv|srt|vtt|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|eml|msg|tex|latex|rst|adoc|asciidoc|zip|epub|odt|ods|odp|docx|xlsx|pptx|pdf|wav|mp3|m4a|png|jpg|jpeg|bmp|webp|tif|tiff] [--accurate] [--stream] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--audio-lang <LANG>] [--pdf-ocr explicit|auto-scanned] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]",
+    " [balance|accurate|stream] [--format txt|csv|tsv|srt|vtt|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|eml|msg|tex|latex|rst|adoc|asciidoc|zip|epub|odt|ods|odp|docx|xlsx|pptx|pdf|wav|mp3|m4a|png|jpg|jpeg|bmp|webp|tif|tiff] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--audio-lang <LANG>] [--provenance-out <path>] <input> [output]",
   )
   println(
     "  " +
     cli_product_name() +
-    " batch [--format txt|csv|tsv|srt|vtt|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|eml|msg|tex|latex|rst|adoc|asciidoc|zip|epub|odt|ods|odp|docx|xlsx|pptx|pdf|wav|mp3|m4a|png|jpg|jpeg|bmp|webp|tif|tiff] [--accurate] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--audio-lang <LANG>] [--pdf-ocr explicit|auto-scanned] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] <input> <output_dir>",
+    " batch [balance|accurate|stream] [--format txt|csv|tsv|srt|vtt|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|eml|msg|tex|latex|rst|adoc|asciidoc|zip|epub|odt|ods|odp|docx|xlsx|pptx|pdf|wav|mp3|m4a|png|jpg|jpeg|bmp|webp|tif|tiff] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--audio-lang <LANG>] <input> <output_dir>",
   )
   println("  " + cli_product_name() + " help | --help | -h")
   println("  " + cli_product_name() + " version | --version")
@@ -49,27 +49,28 @@ fn print_cli_usage() -> Unit {
     "Supported product formats: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, yml, toml, html, htm, markdown, md, eml, msg, tex, latex, rst, adoc, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, wav, mp3, m4a, png, jpg, jpeg, bmp, webp, tif, tiff",
   )
   println("All other formats fail closed in this build.")
+  println("Omit the mode or use `balance` for the default strategy mode.")
   println(
-    "`--accurate` selects the Accurate strategy mode while preserving the selected output view.",
+    "`accurate` selects the Accurate strategy mode while preserving the selected output view.",
   )
   println(
-    "`--stream` selects the Stream strategy mode and explicitly requests a format's streaming or block-streaming route when the active parser supports one.",
+    "`stream` selects the Stream strategy mode and explicitly requests a format's streaming or block-streaming route when the active parser supports one.",
   )
   println("`--debug` switches the output view to debug JSON.")
   println(
     "`--rag` switches the output view to chunked retrieval JSON with the default internal chunking policy.",
   )
   println(
-    "Direct image input uses local Tesseract OCR by default; `--no-ocr` disables it. PDF OCR is controlled by `--pdf-ocr explicit|auto-scanned`; `--ocr` remains a compatibility alias for `pdf --pdf-ocr explicit`. `pdf --accurate` defaults to `auto-scanned` and enters the Paddle-backed OCR route only when scanned-like probe evidence upgrades the PDF.",
+    "Direct image input uses local Tesseract OCR by default; `--no-ocr` disables it. PDF input no longer supports balanced OCR. Use `accurate` for the Paddle-backed PDF layout/OCR route; `--ocr` continues to apply only to direct image input.",
   )
   println(
-    "Accurate OCR and Accurate PDF OCR currently require a Paddle-backed wrapper configured through `MARKITDOWN_PADDLE_OCR_CMD`; the official wrapper is `samples/helpers/paddle_ocr_wrapper.py`, and the wrapper command receives `<image_path> [--lang <LANG>]` and must print the JSON payload expected by the current OCR provider wrapper.",
+    "Accurate OCR and Accurate PDF OCR use the official Paddle-backed wrapper at `samples/env/ocr/paddle_ocr_wrapper.py`. After `./samples/env/install_ocr_pdf_accurate_deps.sh`, repo-root runs auto-detect the repo-local virtualenv; `MARKITDOWN_PADDLE_OCR_CMD` remains the explicit override, and the wrapper command receives `<image_path> [--lang <LANG>]` and must print the JSON payload expected by the current OCR provider wrapper.",
   )
   println(
-    "Audio transcription uses an optional local backend. The official wrapper is `samples/helpers/audio_transcribe_wrapper.py`, which drives local `Vosk`; if `MARKITDOWN_AUDIO_CMD` is unset, the runtime uses that wrapper by default. Use `--audio-lang <LANG>` to pass a language hint, set `MARKITDOWN_AUDIO_MODEL_PATH` to the extracted Vosk model directory, and install local `ffmpeg` when compressed audio needs normalization.",
+    "Audio transcription uses an optional local backend. The official wrapper is `samples/env/audio/audio_transcribe_wrapper.py`, which drives local `Vosk`; if `MARKITDOWN_AUDIO_CMD` is unset, the runtime prefers the repo-local virtualenv under `./env/` and otherwise falls back to `python3`. Use `--audio-lang <LANG>` to pass a language hint, set `MARKITDOWN_AUDIO_MODEL_PATH` to the extracted Vosk model directory, and install local `ffmpeg` when compressed audio needs normalization.",
   )
   println(
-    "PDF cleanup and simple table reconstruction are explicit opt-in product options for native-text PDFs; current defaults stay conservative and disabled.",
+    "`--provenance-out` is available only on single-file runs; batch mode always writes `manifest.json` to the output directory instead.",
   )
 }
 

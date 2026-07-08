@@ -214,14 +214,8 @@ fn route_reason_for_plan(
     return "explicit_stream_mode"
   }
   if detected_format == @input.DetectedFormat::Pdf &&
-    selected.route == CanonicalRoute::LayoutTwoStage &&
-    intent.pdf_ocr_policy == PdfOcrPolicy::Explicit {
-    return "pdf_explicit_ocr_layout_two_stage"
-  }
-  if detected_format == @input.DetectedFormat::Pdf &&
-    selected.route == CanonicalRoute::LayoutTwoStage &&
-    intent.pdf_ocr_policy == PdfOcrPolicy::AutoScanned {
-    return "pdf_scanned_like_auto_upgrade"
+    selected.route == CanonicalRoute::LayoutTwoStage {
+    return "pdf_accurate_layout_two_stage"
   }
   if detected_format == @input.DetectedFormat::Pdf &&
     selected.route == CanonicalRoute::PageSinglePass {
@@ -315,12 +309,7 @@ fn select_strategy_route(
   hard_trigger_signals : Array[ProbeSignal],
 ) -> (@formats.StrategyRouteSpec, Bool, Bool) {
   if detected_format == @input.DetectedFormat::Pdf &&
-    intent.pdf_ocr_policy == PdfOcrPolicy::Explicit {
-    return (policy.accurate.canonical, false, false)
-  }
-  if detected_format == @input.DetectedFormat::Pdf &&
-    intent.pdf_ocr_policy == PdfOcrPolicy::AutoScanned &&
-    scanned_page_signal(hard_trigger_signals) is Some(_) {
+    intent.fidelity_mode == FidelityMode::Accurate {
     return (policy.accurate.canonical, false, false)
   }
   if detected_format == @input.DetectedFormat::Pdf {
@@ -516,13 +505,8 @@ fn ocr_provider_target_for_plan(
   }
   if detected_format == @input.DetectedFormat::Pdf &&
     requested_parser_mode == Some(@parser.ParserMode::LayoutTwoStage) {
-    return Some(
-      if fidelity_mode == FidelityMode::Accurate {
-        @focr.OcrProviderSelectionTarget::PdfAccurate
-      } else {
-        @focr.OcrProviderSelectionTarget::PdfBalanced
-      },
-    )
+    ignore(fidelity_mode)
+    return Some(@focr.OcrProviderSelectionTarget::PdfAccurate)
   }
   None
 }

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -61,6 +62,9 @@ def read_image_size(image_path: str) -> tuple[float | None, float | None]:
 
 
 def load_paddle():
+    # PaddleOCR 3.x can trip over the default PIR API path on some CPU-only
+    # runtimes. Force the compatibility flag before importing paddle modules.
+    os.environ["FLAGS_enable_pir_api"] = "0"
     try:
         import paddleocr
         from paddleocr import PaddleOCR
@@ -73,13 +77,72 @@ def load_paddle():
 
 
 def build_engine(paddle_ocr_cls, language: str | None):
-    kwargs = {}
+    kwargs = {
+        "enable_mkldnn": False,
+        "use_doc_orientation_classify": False,
+        "use_doc_unwarping": False,
+        "use_textline_orientation": False,
+    }
     if language:
         kwargs["lang"] = language
     try:
-        return paddle_ocr_cls(use_angle_cls=True, **kwargs)
-    except TypeError:
         return paddle_ocr_cls(**kwargs)
+    except TypeError:
+        legacy_kwargs = {}
+        if language:
+            legacy_kwargs["lang"] = language
+        try:
+            return paddle_ocr_cls(use_angle_cls=True, **legacy_kwargs)
+        except TypeError:
+            return paddle_ocr_cls(**legacy_kwargs)
+
+
+def predict_pages(engine, image_path: str):
+    if not hasattr(engine, "predict"):
+        return None
+    kwargs = {
+        "use_doc_orientation_classify": False,
+        "use_doc_unwarping": False,
+        "use_textline_orientation": False,
+    }
+    try:
+        return engine.predict(image_path, **kwargs)
+    except TypeError:
+        return engine.predict(image_path)
+
+
+def normalize_predict_pages(raw_result):
+    if raw_result is None:
+        return []
+    if not isinstance(raw_result, list):
+        return []
+
+    pages = []
+    for page in raw_result:
+        if hasattr(page, "json"):
+            page = page.json
+        if not isinstance(page, dict):
+            continue
+        page_data = page.get("res") if isinstance(page.get("res"), dict) else page
+        texts = page_data.get("rec_texts")
+        if not isinstance(texts, list):
+            continue
+        scores = page_data.get("rec_scores")
+        if not isinstance(scores, list):
+            scores = []
+        polys = page_data.get("dt_polys")
+        if not isinstance(polys, list):
+            polys = page_data.get("rec_polys")
+        if not isinstance(polys, list):
+            polys = []
+        pages.append(
+            {
+                "texts": texts,
+                "scores": scores,
+                "polys": polys,
+            }
+        )
+    return pages
 
 
 def normalize_lines(raw_result):
@@ -130,6 +193,61 @@ def word_models(text: str, confidence: float | None):
         }
         for index, part in enumerate(parts)
     ]
+
+
+def page_from_predict_result(
+    page_index: int,
+    image_path: str,
+    language: str | None,
+    page_result,
+):
+    width, height = read_image_size(image_path)
+    blocks = []
+    texts = page_result.get("texts") or []
+    scores = page_result.get("scores") or []
+    polys = page_result.get("polys") or []
+
+    for block_index, text in enumerate(texts):
+        text = str(text).strip()
+        if not text:
+            continue
+        confidence = line_confidence(
+            scores[block_index] if block_index < len(scores) else None
+        )
+        bbox = line_bbox(polys[block_index]) if block_index < len(polys) else None
+        line = {
+            "line_index": 0,
+            "text": text,
+            "words": word_models(text, confidence),
+        }
+        if bbox is not None:
+            line["bbox"] = bbox
+        if confidence is not None:
+            line["confidence"] = confidence
+        block = {
+            "block_index": block_index,
+            "lines": [line],
+        }
+        if bbox is not None:
+            block["bbox"] = bbox
+        if confidence is not None:
+            block["confidence"] = confidence
+        blocks.append(block)
+
+    if not blocks:
+        return None
+
+    page = {
+        "page_index": page_index,
+        "blocks": blocks,
+    }
+    if width is not None:
+        page["width"] = width
+    if height is not None:
+        page["height"] = height
+    if language:
+        page["language"] = language
+    return page
 
 
 def page_from_lines(page_index: int, image_path: str, language: str | None, lines):
@@ -193,24 +311,43 @@ def main() -> int:
     try:
         paddleocr_module, paddle_ocr_cls = load_paddle()
         engine = build_engine(paddle_ocr_cls, wrapper_language)
-        raw_result = engine.ocr(image_path, cls=True)
+        raw_result = predict_pages(engine, image_path)
+        predict_pages_result = normalize_predict_pages(raw_result)
+        if not predict_pages_result:
+            try:
+                raw_result = engine.ocr(image_path, cls=True)
+            except TypeError:
+                raw_result = engine.ocr(image_path)
+            predict_pages_result = []
     except Exception as exc:
         return fail(f"PaddleOCR wrapper execution failed: {exc}")
 
-    normalized_pages = normalize_lines(raw_result)
     pages = []
-    for page_index, page_lines in enumerate(normalized_pages):
-        page = page_from_lines(page_index, image_path, requested_language, page_lines)
-        if page is not None:
-            pages.append(page)
+    if predict_pages_result:
+        for page_index, page_result in enumerate(predict_pages_result):
+            page = page_from_predict_result(
+                page_index, image_path, requested_language, page_result
+            )
+            if page is not None:
+                pages.append(page)
+    else:
+        normalized_pages = normalize_lines(raw_result)
+        for page_index, page_lines in enumerate(normalized_pages):
+            page = page_from_lines(
+                page_index, image_path, requested_language, page_lines
+            )
+            if page is not None:
+                pages.append(page)
 
     payload = {
         "provider_name": "paddle_ocr",
         "provider_version": getattr(paddleocr_module, "__version__", None),
         "diagnostics": [
-            "wrapper=samples/helpers/paddle_ocr_wrapper.py",
+            "wrapper=samples/env/ocr/paddle_ocr_wrapper.py",
             f"requested_lang={requested_language or 'none'}",
             f"wrapper_lang={wrapper_language or 'none'}",
+            f"pir_api={os.environ.get('FLAGS_enable_pir_api', 'unset')}",
+            "mkldnn=disabled",
         ],
         "pages": pages,
     }

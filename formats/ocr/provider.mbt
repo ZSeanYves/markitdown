@@ -79,7 +79,6 @@ pub fn ocr_provider_kind_name(kind : OcrProviderKind) -> String {
 pub(all) enum OcrProviderSelectionTarget {
   DirectImageBalanced
   DirectImageAccurate
-  PdfBalanced
   PdfAccurate
 } derive(Eq)
 
@@ -92,7 +91,6 @@ pub fn default_ocr_provider_kind_for_target(
       OcrProviderKind::Tesseract
     OcrProviderSelectionTarget::DirectImageAccurate =>
       OcrProviderKind::PaddleOcr
-    OcrProviderSelectionTarget::PdfBalanced => OcrProviderKind::Tesseract
     OcrProviderSelectionTarget::PdfAccurate => OcrProviderKind::PaddleOcr
   }
 }
@@ -104,7 +102,6 @@ pub fn ocr_provider_selection_target_name(
   match target {
     OcrProviderSelectionTarget::DirectImageBalanced => "direct_image_balanced"
     OcrProviderSelectionTarget::DirectImageAccurate => "direct_image_accurate"
-    OcrProviderSelectionTarget::PdfBalanced => "pdf_balanced"
     OcrProviderSelectionTarget::PdfAccurate => "pdf_accurate"
   }
 }
@@ -261,10 +258,10 @@ pub fn tesseract_ocr_install_hint() -> String {
   dependency_diagnostic_card(
     "Missing dependency: Tesseract OCR",
     "Balanced OCR and Balanced PDF OCR require a local Tesseract runtime on this machine.",
-    ["brew install tesseract", "brew install tesseract-lang"],
-    ["sudo apt install tesseract-ocr", "sudo apt install tesseract-ocr-eng"],
+    ["./samples/env/install_ocr_pdf_balance_deps.sh"],
+    ["./samples/env/install_ocr_pdf_balance_deps.sh"],
     footer=Some(
-      "Install extra language packs only when needed, for example `tesseract-ocr-chi-sim` or `tesseract-ocr-jpn`.",
+      "This script only installs the balanced OCR/PDF system tools and avoids adding Python packages to your global environment.",
     ),
   )
 }
@@ -274,10 +271,10 @@ pub fn tesseract_ocr_dependency_diagnostic() -> @core.DependencyDiagnostic {
   dependency_diagnostic_entry(
     "Missing dependency: Tesseract OCR",
     "Balanced OCR and Balanced PDF OCR require a local Tesseract runtime on this machine.",
-    ["brew install tesseract", "brew install tesseract-lang"],
-    ["sudo apt install tesseract-ocr", "sudo apt install tesseract-ocr-eng"],
+    ["./samples/env/install_ocr_pdf_balance_deps.sh"],
+    ["./samples/env/install_ocr_pdf_balance_deps.sh"],
     footer=Some(
-      "Install extra language packs only when needed, for example `tesseract-ocr-chi-sim` or `tesseract-ocr-jpn`.",
+      "This script only installs the balanced OCR/PDF system tools and avoids adding Python packages to your global environment.",
     ),
   )
 }
@@ -286,17 +283,15 @@ pub fn tesseract_ocr_dependency_diagnostic() -> @core.DependencyDiagnostic {
 pub fn paddle_ocr_install_hint() -> String {
   dependency_diagnostic_card(
     "Missing dependency: PaddleOCR wrapper",
-    "Accurate OCR and Accurate PDF OCR currently require a Paddle-backed wrapper command configured through `MARKITDOWN_PADDLE_OCR_CMD`.",
+    "Accurate OCR and Accurate PDF OCR require a Paddle-backed wrapper command. The repo-root runtime will auto-detect the official wrapper after `./samples/env/install_ocr_pdf_accurate_deps.sh`; `MARKITDOWN_PADDLE_OCR_CMD` remains the explicit override.",
     [
-      "python3 -m pip install paddlepaddle paddleocr", "chmod +x samples/helpers/paddle_ocr_wrapper.py",
-      "export MARKITDOWN_PADDLE_OCR_CMD=\"$PWD/samples/helpers/paddle_ocr_wrapper.py\"",
+      "./samples/env/install_ocr_pdf_accurate_deps.sh", "source ./env/accurate-ocr-pdf.env.sh",
     ],
     [
-      "python3 -m pip install paddlepaddle paddleocr", "chmod +x samples/helpers/paddle_ocr_wrapper.py",
-      "export MARKITDOWN_PADDLE_OCR_CMD=\"$PWD/samples/helpers/paddle_ocr_wrapper.py\"",
+      "./samples/env/install_ocr_pdf_accurate_deps.sh", "source ./env/accurate-ocr-pdf.env.sh",
     ],
     footer=Some(
-      "The wrapper receives `<image_path> [--lang <LANG>]` and must print the JSON payload expected by the current Paddle wrapper contract.",
+      "The install script keeps Paddle Python packages in the repo-local virtualenv under `./env/`. If you run from the repo root, `source ./env/accurate-ocr-pdf.env.sh` is optional; use it when you want the wrapper paths exported into another shell.",
     ),
   )
 }
@@ -305,17 +300,15 @@ pub fn paddle_ocr_install_hint() -> String {
 pub fn paddle_ocr_dependency_diagnostic() -> @core.DependencyDiagnostic {
   dependency_diagnostic_entry(
     "Missing dependency: PaddleOCR wrapper",
-    "Accurate OCR and Accurate PDF OCR currently require a Paddle-backed wrapper command configured through `MARKITDOWN_PADDLE_OCR_CMD`.",
+    "Accurate OCR and Accurate PDF OCR require a Paddle-backed wrapper command. The repo-root runtime will auto-detect the official wrapper after `./samples/env/install_ocr_pdf_accurate_deps.sh`; `MARKITDOWN_PADDLE_OCR_CMD` remains the explicit override.",
     [
-      "python3 -m pip install paddlepaddle paddleocr", "chmod +x samples/helpers/paddle_ocr_wrapper.py",
-      "export MARKITDOWN_PADDLE_OCR_CMD=\"$PWD/samples/helpers/paddle_ocr_wrapper.py\"",
+      "./samples/env/install_ocr_pdf_accurate_deps.sh", "source ./env/accurate-ocr-pdf.env.sh",
     ],
     [
-      "python3 -m pip install paddlepaddle paddleocr", "chmod +x samples/helpers/paddle_ocr_wrapper.py",
-      "export MARKITDOWN_PADDLE_OCR_CMD=\"$PWD/samples/helpers/paddle_ocr_wrapper.py\"",
+      "./samples/env/install_ocr_pdf_accurate_deps.sh", "source ./env/accurate-ocr-pdf.env.sh",
     ],
     footer=Some(
-      "The wrapper receives `<image_path> [--lang <LANG>]` and must print the JSON payload expected by the current Paddle wrapper contract.",
+      "The install script keeps Paddle Python packages in the repo-local virtualenv under `./env/`. If you run from the repo root, `source ./env/accurate-ocr-pdf.env.sh` is optional; use it when you want the wrapper paths exported into another shell.",
     ),
   )
 }

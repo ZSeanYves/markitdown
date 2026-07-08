@@ -13,6 +13,77 @@ fn pdf_test_join_bytes(parts : Array[Bytes]) -> Bytes {
 }
 
 ///|
+fn pdf_test_bytes_from_ints(values : Array[Int]) -> Bytes {
+  let out : Array[Byte] = []
+  for value in values {
+    out.push(value.to_byte())
+  }
+  Bytes::from_array(out)
+}
+
+///|
+fn pdf_test_append_xref_stream_entry(
+  out : Array[Int],
+  kind : Int,
+  field1 : Int,
+  field2 : Int,
+) -> Unit {
+  out.push(kind)
+  out.push((field1 / 16777216) & 0xFF)
+  out.push((field1 / 65536) & 0xFF)
+  out.push((field1 / 256) & 0xFF)
+  out.push(field1 & 0xFF)
+  out.push(field2 & 0xFF)
+}
+
+///|
+fn xref_stream_objstm_pdf_bytes() -> Bytes {
+  let header = "%PDF-1.5\n"
+  let object1 = "1 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n"
+  let object2 = "2 0 obj\n<< >>\nstream\nBT /F1 12 Tf 1 0 0 1 50 700 Tm (xref stream page) Tj ET\nendstream\nendobj\n"
+  let embedded_page = "<< /Type /Page /Parent 5 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 2 0 R >>"
+  let embedded_pages = "<< /Type /Pages /Kids [4 0 R] /Count 1 >>"
+  let object_stream_header = "4 0 5 " +
+    (embedded_page.length() + 1).to_string() +
+    " "
+  let object_stream_first = object_stream_header.length()
+  let object_stream_body = object_stream_header +
+    embedded_page +
+    " " +
+    embedded_pages
+  let object3 = "3 0 obj\n<< /Type /ObjStm /N 2 /First " +
+    object_stream_first.to_string() +
+    " >>\nstream\n" +
+    object_stream_body +
+    "\nendstream\nendobj\n"
+  let object6 = "6 0 obj\n<< /Type /Catalog /Pages 5 0 R >>\nendobj\n"
+  let object7_prefix = "7 0 obj\n<< /Type /XRef /Size 8 /Root 6 0 R /W [1 4 1] /Index [0 8] >>\nstream\n"
+  let object7_suffix = "\nendstream\nendobj\n"
+  let offset1 = header.length()
+  let offset2 = offset1 + object1.length()
+  let offset3 = offset2 + object2.length()
+  let offset6 = offset3 + object3.length()
+  let offset7 = offset6 + object6.length()
+  let xref_stream_values : Array[Int] = []
+  pdf_test_append_xref_stream_entry(xref_stream_values, 0, 0, 255)
+  pdf_test_append_xref_stream_entry(xref_stream_values, 1, offset1, 0)
+  pdf_test_append_xref_stream_entry(xref_stream_values, 1, offset2, 0)
+  pdf_test_append_xref_stream_entry(xref_stream_values, 1, offset3, 0)
+  pdf_test_append_xref_stream_entry(xref_stream_values, 2, 3, 0)
+  pdf_test_append_xref_stream_entry(xref_stream_values, 2, 3, 1)
+  pdf_test_append_xref_stream_entry(xref_stream_values, 1, offset6, 0)
+  pdf_test_append_xref_stream_entry(xref_stream_values, 1, offset7, 0)
+  pdf_test_join_bytes([
+    pdf_test_ascii_bytes(header + object1 + object2 + object3 + object6),
+    pdf_test_ascii_bytes(object7_prefix),
+    pdf_test_bytes_from_ints(xref_stream_values),
+    pdf_test_ascii_bytes(
+      object7_suffix + "startxref\n" + offset7.to_string() + "\n%%EOF\n",
+    ),
+  ])
+}
+
+///|
 fn tiny_pdf_bytes() -> Bytes {
   @utf8.encode(
     [
@@ -371,11 +442,11 @@ test "pdf native backend keeps unsupported feature taxonomy stable" {
     Some(@input.DetectedFormat::Pdf),
   )
   match extract_pdf_native_document(source) {
-    Err(PdfNativeError::UnsupportedFeature(msg)) =>
-      assert_true(msg.contains("unsupported PDF stream filter"))
+    Err(PdfNativeError::EmptyTextLayer(msg)) =>
+      assert_true(msg.contains("empty") || msg.contains("not recoverable"))
     Err(other) =>
-      fail("unexpected unsupported feature error: " + other.to_string())
-    Ok(_) => fail("expected unsupported filter to fail explicitly")
+      fail("unexpected unsupported filter decode result: " + other.to_string())
+    Ok(_) => fail("expected undecodable ASCII85 sample to fail explicitly")
   }
 }
 
@@ -524,6 +595,55 @@ test "pdf native backend expands page objects embedded in object streams" {
       fail(
         "expected object stream embedded page extraction success: " +
         err.to_string(),
+      )
+  }
+}
+
+///|
+test "pdf native backend uses classic xref table on contract fixture" {
+  let source = @input.input_from_path(
+    "samples/fixtures/contracts/pdf/text_simple.pdf",
+  )
+  match extract_pdf_native_document(source) {
+    Ok(document) => {
+      assert_true(
+        document.diagnostics.metrics.get("pdf_xref_mode") ==
+        Some("classic_xref_table_v1"),
+      )
+      assert_true(
+        document.diagnostics.metrics.get("pdf_filter_decode_mode") ==
+        Some("filter_chain_v1"),
+      )
+      assert_true(document.pages.length() >= 1)
+      assert_true(document.pages[0].text_blocks.length() >= 1)
+    }
+    Err(err) =>
+      fail(
+        "expected classic xref fixture extraction success: " + err.to_string(),
+      )
+  }
+}
+
+///|
+test "pdf native backend resolves xref stream object streams canonically" {
+  let source = @input.input_from_bytes_with_format(
+    xref_stream_objstm_pdf_bytes(),
+    "xref-stream-objstm.pdf",
+    Some(@input.DetectedFormat::Pdf),
+  )
+  match extract_pdf_native_document(source) {
+    Ok(document) => {
+      assert_true(
+        document.diagnostics.metrics.get("pdf_xref_mode") ==
+        Some("xref_stream_objstm_v1"),
+      )
+      assert_eq(document.pages.length(), 1)
+      let line = document.pages[0].text_blocks[0].lines[0]
+      assert_eq(line.spans[0].text, "xref stream page")
+    }
+    Err(err) =>
+      fail(
+        "expected xref stream + ObjStm extraction success: " + err.to_string(),
       )
   }
 }

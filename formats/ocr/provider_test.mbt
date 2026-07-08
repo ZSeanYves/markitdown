@@ -1,4 +1,109 @@
 ///|
+
+///|
+fn ocr_test_tmp_root() -> String {
+  ".tmp/tests/ocr_provider"
+}
+
+///|
+fn remove_dir_recursive(path : String) -> Unit raise {
+  if !@fs.path_exists(path) {
+    return
+  }
+  for name in @fs.read_dir(path) {
+    let child = path + "/" + name
+    if @fs.is_dir(child) {
+      remove_dir_recursive(child)
+    } else if @fs.is_file(child) {
+      @fs.remove_file(child)
+    }
+  }
+  @fs.remove_dir(path)
+}
+
+///|
+fn recreate_clean_dir(path : String) -> Unit raise {
+  if @fs.path_exists(path) {
+    remove_dir_recursive(path)
+  }
+  ensure_dir_tree(path)
+}
+
+///|
+fn cleanup_temp_dir(path : String) -> Unit {
+  ignore(
+    try remove_dir_recursive(path) |> Ok catch {
+      _ => Err(())
+    },
+  )
+}
+
+///|
+fn ensure_dir_tree(path : String) -> Unit raise {
+  let normalized = path.trim().to_owned()
+  if normalized == "" || normalized == "." {
+    return
+  }
+  if @fs.path_exists(normalized) {
+    return
+  }
+  let parts = normalized.split("/")
+  let mut current = if normalized.has_prefix("/") { "/" } else { "" }
+  for raw in parts {
+    let part = raw.trim().to_owned()
+    if part == "" || part == "." {
+      continue
+    }
+    if current == "" || current == "/" {
+      current = if current == "/" { "/" + part } else { part }
+    } else {
+      current = current + "/" + part
+    }
+    if !@fs.path_exists(current) {
+      @fs.create_dir(current)
+    }
+  }
+}
+
+///|
+fn write_utf8_text(path : String, text : String) -> Unit raise {
+  @fs.write_string_to_file(path, text, encoding="utf8") catch {
+    e => fail("write failed: " + e.to_string())
+  }
+}
+
+///|
+fn with_env_var(
+  name : String,
+  value : String,
+  body : () -> Unit raise,
+) -> Unit raise {
+  let previous = @env.get_env_var(name)
+  @env.set_env_var(name, value)
+  defer (match previous {
+    Some(old) => @env.set_env_var(name, old)
+    None => @env.unset_env_var(name)
+  })
+  body()
+}
+
+///|
+fn with_unset_env_var(name : String, body : () -> Unit raise) -> Unit raise {
+  let previous = @env.get_env_var(name)
+  @env.unset_env_var(name)
+  defer (match previous {
+    Some(old) => @env.set_env_var(name, old)
+    None => ()
+  })
+  body()
+}
+
+///|
+fn ocr_provider_test_repo_local_runtime_python_path() -> String {
+  "env/.venv-markitdown-runtime/bin/python"
+}
+
+///|
 test "ocr provider request preserves image path language and kind" {
   let request = make_ocr_provider_request(
     "scan.png",
@@ -22,12 +127,6 @@ test "ocr provider taxonomy exposes stable names" {
   )
   assert_true(
     default_ocr_provider_kind_for_target(
-      OcrProviderSelectionTarget::PdfBalanced,
-    ) ==
-    OcrProviderKind::Tesseract,
-  )
-  assert_true(
-    default_ocr_provider_kind_for_target(
       OcrProviderSelectionTarget::PdfAccurate,
     ) ==
     OcrProviderKind::PaddleOcr,
@@ -45,14 +144,23 @@ test "ocr provider taxonomy exposes stable names" {
   assert_true(
     tesseract_ocr_install_hint().contains("Missing dependency: Tesseract OCR"),
   )
-  assert_true(tesseract_ocr_install_hint().contains("brew install tesseract"))
   assert_true(
-    tesseract_ocr_install_hint().contains("sudo apt install tesseract-ocr"),
+    tesseract_ocr_install_hint().contains(
+      "./samples/env/install_ocr_pdf_balance_deps.sh",
+    ),
   )
   assert_true(
     paddle_ocr_install_hint().contains("Missing dependency: PaddleOCR wrapper"),
   )
   assert_true(paddle_ocr_install_hint().contains("MARKITDOWN_PADDLE_OCR_CMD"))
+  assert_true(
+    paddle_ocr_install_hint().contains(
+      "./samples/env/install_ocr_pdf_accurate_deps.sh",
+    ),
+  )
+  assert_true(
+    paddle_ocr_install_hint().contains("source ./env/accurate-ocr-pdf.env.sh"),
+  )
   assert_eq(
     @core.dependency_diagnostic_status_name(
       tesseract_ocr_dependency_diagnostic().status,
@@ -91,42 +199,54 @@ test "ocr provider runtime resolves provider kinds without internal fallback" {
   )
   assert_true(
     ocr_provider_fallback_for_target(OcrProviderSelectionTarget::PdfAccurate) ==
-    Some((OcrProviderKind::PaddleOcr, OcrProviderKind::Tesseract)),
+    None,
   )
-  let paddle_request = make_ocr_provider_request(
-    "scan.png",
-    OcrProviderKind::PaddleOcr,
-    language=Some("eng"),
-  )
-  match run_ocr_provider(paddle_request) {
-    Err(OcrProviderError::NotConfigured(msg)) =>
-      assert_true(
-        msg.contains("MARKITDOWN_PADDLE_OCR_CMD") &&
-        msg.contains("pip install paddlepaddle paddleocr"),
-      )
-    Ok(_) => fail("expected Paddle provider stub to fail closed")
-    Err(other) => fail("unexpected Paddle provider error: " + other.to_string())
-  }
 }
 
 ///|
-test "paddle runtime command builder requires wrapper env and passes image path language" {
+test "paddle runtime command builder auto-detects repo-local runtime or fails closed" {
   assert_eq(paddle_ocr_command_env_var(), "MARKITDOWN_PADDLE_OCR_CMD")
   let request = make_ocr_provider_request(
     "scan.png",
     OcrProviderKind::PaddleOcr,
     language=Some("eng"),
   )
-  match build_paddle_ocr_command(request) {
-    Err(OcrProviderError::NotConfigured(msg)) =>
-      assert_true(
-        msg.contains("MARKITDOWN_PADDLE_OCR_CMD") &&
-        msg.contains("samples/helpers/paddle_ocr_wrapper.py"),
-      )
-    Ok(_) => fail("expected Paddle command builder to fail closed without env")
-    Err(other) =>
-      fail("unexpected Paddle command-builder error: " + other.to_string())
-  }
+  with_unset_env_var("MARKITDOWN_RUNTIME_PYTHON", fn() raise {
+    with_unset_env_var(paddle_ocr_command_env_var(), fn() raise {
+      if @fs.path_exists(ocr_provider_test_repo_local_runtime_python_path()) {
+        let autodetected = match build_paddle_ocr_command(request) {
+          Ok(value) => value
+          Err(err) =>
+            fail("expected repo-local Paddle command plan: " + err.to_string())
+        }
+        assert_eq(
+          autodetected.0,
+          ocr_provider_test_repo_local_runtime_python_path(),
+        )
+        assert_eq(autodetected.1[0], "samples/env/ocr/paddle_ocr_wrapper.py")
+        assert_eq(autodetected.1[1], "scan.png")
+        assert_eq(autodetected.1[2], "--lang")
+        assert_eq(autodetected.1[3], "eng")
+      } else {
+        match build_paddle_ocr_command(request) {
+          Err(OcrProviderError::NotConfigured(msg)) =>
+            assert_true(
+              msg.contains("MARKITDOWN_PADDLE_OCR_CMD") &&
+              msg.contains("./samples/env/install_ocr_pdf_accurate_deps.sh") &&
+              msg.contains("source ./env/accurate-ocr-pdf.env.sh"),
+            )
+          Ok(_) =>
+            fail(
+              "expected Paddle command builder to fail closed without runtime discovery",
+            )
+          Err(other) =>
+            fail(
+              "unexpected Paddle command-builder error: " + other.to_string(),
+            )
+        }
+      }
+    })
+  })
   let built = match
     build_paddle_ocr_command_with_wrapper(request, "wrapper --mode ocr") {
     Ok(value) => value
@@ -160,6 +280,43 @@ test "paddle runtime command builder requires wrapper env and passes image path 
     Ok(_) => fail("expected malformed quoted Paddle command to fail")
     Err(other) => fail("unexpected quoted-command error: " + other.to_string())
   }
+}
+
+///|
+test "paddle runtime prefers MARKITDOWN_RUNTIME_PYTHON and preserves spaced paths" {
+  let root = ocr_test_tmp_root() + "/runtime_python_override"
+  recreate_clean_dir(root) catch {
+    e => fail(e.to_string())
+  }
+  defer cleanup_temp_dir(root)
+  let fake_python_dir = root + "/python bin"
+  ensure_dir_tree(fake_python_dir) catch {
+    e => fail(e.to_string())
+  }
+  let fake_python = fake_python_dir + "/python3"
+  write_utf8_text(fake_python, "#!/bin/sh\n") catch {
+    e => fail(e.to_string())
+  }
+  let request = make_ocr_provider_request(
+    "scan.png",
+    OcrProviderKind::PaddleOcr,
+    language=Some("eng"),
+  )
+  with_env_var("MARKITDOWN_RUNTIME_PYTHON", fake_python, fn() raise {
+    with_unset_env_var(paddle_ocr_command_env_var(), fn() raise {
+      assert_true(paddle_ocr_runtime_available())
+      let built = match build_paddle_ocr_command(request) {
+        Ok(value) => value
+        Err(err) =>
+          fail("expected runtime python override plan: " + err.to_string())
+      }
+      assert_eq(built.0, fake_python)
+      assert_eq(built.1[0], "samples/env/ocr/paddle_ocr_wrapper.py")
+      assert_eq(built.1[1], "scan.png")
+      assert_eq(built.1[2], "--lang")
+      assert_eq(built.1[3], "eng")
+    })
+  })
 }
 
 ///|
@@ -242,7 +399,7 @@ test "paddle runtime command abstraction preserves fail-closed taxonomy" {
     Err(OcrProviderError::ExecutionFailed(msg)) =>
       assert_true(
         msg.contains("boom") &&
-        msg.contains("python3 -m pip install paddlepaddle paddleocr"),
+        msg.contains("./samples/env/install_ocr_pdf_accurate_deps.sh"),
       )
     Ok(_) => fail("expected Paddle execution failed")
     Err(other) =>
@@ -304,17 +461,27 @@ async test "paddle runtime async command abstraction remains fail closed" {
     OcrProviderKind::PaddleOcr,
     language=Some("eng"),
   )
-  match
-    run_paddle_ocr_provider_with_async_command(request, (_cmd, _args) => {
-      Ok((0, "{}", ""))
-    }) {
-    Err(OcrProviderError::NotConfigured(msg)) =>
-      assert_true(
-        msg.contains("MARKITDOWN_PADDLE_OCR_CMD") ||
-        msg.contains("output parsing is not wired"),
-      )
-    Ok(_) => fail("expected async Paddle wrapper path to remain fail closed")
-    Err(other) => fail("unexpected async Paddle error: " + other.to_string())
+  if paddle_ocr_runtime_available() {
+    match
+      run_paddle_ocr_provider_with_async_command(request, (_cmd, _args) => {
+        Ok((0, "{}", ""))
+      }) {
+      Err(OcrProviderError::OutputParseFailed(msg)) =>
+        assert_true(msg.contains("provider_name"))
+      Ok(_) => fail("expected async Paddle malformed payload to fail closed")
+      Err(other) => fail("unexpected async Paddle error: " + other.to_string())
+    }
+  } else {
+    match
+      run_paddle_ocr_provider_with_async_command(request, (_cmd, _args) => {
+        Ok((0, "{}", ""))
+      }) {
+      Err(OcrProviderError::NotConfigured(msg)) =>
+        assert_true(msg.contains("MARKITDOWN_PADDLE_OCR_CMD"))
+      Ok(_) =>
+        fail("expected async Paddle runtime without wrapper to fail closed")
+      Err(other) => fail("unexpected async Paddle error: " + other.to_string())
+    }
   }
 
   let payload = "{\"provider_name\":\"paddle_ocr\",\"provider_version\":\"wrapper-v1\",\"pages\":[{\"page_index\":0,\"blocks\":[{\"block_index\":0,\"lines\":[{\"line_index\":0,\"text\":\"MoonBit OCR\",\"words\":[{\"word_index\":0,\"text\":\"MoonBit\"},{\"word_index\":1,\"text\":\"OCR\"}]}]}]}]}"

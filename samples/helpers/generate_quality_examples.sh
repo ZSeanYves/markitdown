@@ -86,7 +86,7 @@ run_quality_example_cli() {
   local input_path="$2"
   local output_path="$3"
   local format_override="$4"
-  local -a args=("normal")
+  local -a args=("balance")
   if [[ -n "$format_override" ]]; then
     args+=("--format" "$format_override")
   fi

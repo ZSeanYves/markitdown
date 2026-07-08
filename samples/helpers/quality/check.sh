@@ -46,9 +46,14 @@ QUALITY_ROWS_MANIFEST=""
 QUALITY_ROWS_MANIFEST_SOURCE=""
 QUALITY_ROWS_MANIFEST_CANDIDATES=()
 QUALITY_ROWS_MANIFEST_CANDIDATE_LABELS=()
+QUALITY_OVERRIDE_MANIFEST=""
+QUALITY_OVERRIDE_MANIFEST_SOURCE=""
+QUALITY_OVERRIDE_MANIFEST_CANDIDATES=()
+QUALITY_OVERRIDE_MANIFEST_CANDIDATE_LABELS=()
 RESOLVED_EXTERNAL_PATH=""
 TRIED_EXTERNAL_PATHS=()
 CLI_EXTRA_ARGS=()
+FORBID_FEATURE=""
 
 EXTERNAL_HEADER=$'id\tformat\tpath\tsource_type\tsource_id\tlicense_status\tlicense_review_status\tprivacy\tsize_class\tfeatures\texpected_signals\tquality_tier\toriginal_url\tlocal_cache_path\tnotes'
 
@@ -60,11 +65,14 @@ Internal/debug options:
   --list          list manifest rows after filters, without running conversion
   --profile       write per-row timing diagnostics to a run-local profile.tsv
   --cli-arg ARG   append one extra CLI arg to every conversion command
+  --forbid-feature <feature>
+                  fail closed if any selected row includes this feature tag
 
 Filters:
   --id <id>           match one exact row id
   --source <source>   match external rows by source_id
   --format <format>   match rows by format
+  --formats <format>  backward-compatible alias of --format for one format
   --corpus-root <path>
                       resolve external corpus payloads from this root first
   --lab-manifest <path>
@@ -85,11 +93,13 @@ Filter semantics:
       MARKITDOWN_QUALITY_MANIFEST
       MARKITDOWN_QUALITY_LAB/external_quality/MANIFEST.tsv
       markitdown-quality-lab/external_quality/MANIFEST.tsv
+  * repo-local row overrides are applied last from:
+      MARKITDOWN_QUALITY_OVERRIDE_MANIFEST
+      samples/quality-overrides/external_quality/MANIFEST.tsv
   * --profile is diagnostic-only and does not change pass/fail semantics
 
 Notes:
-  * the preferred user entrypoint is bash samples/check_quality.sh
-  * bash samples/check_quality.sh passes explicit lab paths and --require-lab
+  * wrapper entrypoints pass explicit lab paths and --require-lab
   * this helper does not fall back to repo-local rows or staging manifests
   * non-approved external rows are skipped
   * missing external files are recorded as skipped when appropriate
@@ -117,9 +127,9 @@ while [[ $# -gt 0 ]]; do
       FILTER_SOURCE="$2"
       shift
       ;;
-    --format)
+    --format|--formats)
       [[ $# -ge 2 ]] || {
-        echo "missing value for --format" >&2
+        echo "missing value for $1" >&2
         usage >&2
         exit 1
       }
@@ -161,6 +171,15 @@ while [[ $# -gt 0 ]]; do
       ;;
     --profile)
       PROFILE_ENABLED=1
+      ;;
+    --forbid-feature)
+      [[ $# -ge 2 ]] || {
+        echo "missing value for --forbid-feature" >&2
+        usage >&2
+        exit 1
+      }
+      FORBID_FEATURE="$2"
+      shift
       ;;
     -h|--help)
       usage
@@ -206,6 +225,16 @@ add_quality_rows_manifest_candidate() {
   fi
   QUALITY_ROWS_MANIFEST_CANDIDATE_LABELS+=("$label")
   QUALITY_ROWS_MANIFEST_CANDIDATES+=("$path")
+}
+
+add_quality_override_manifest_candidate() {
+  local label="$1"
+  local path="${2-}"
+  if [[ -z "$path" ]]; then
+    return 0
+  fi
+  QUALITY_OVERRIDE_MANIFEST_CANDIDATE_LABELS+=("$label")
+  QUALITY_OVERRIDE_MANIFEST_CANDIDATES+=("$path")
 }
 
 detect_corpus_root() {
@@ -282,6 +311,39 @@ detect_quality_rows_manifest() {
   done
 }
 
+detect_quality_override_manifest() {
+  QUALITY_OVERRIDE_MANIFEST=""
+  QUALITY_OVERRIDE_MANIFEST_SOURCE=""
+  QUALITY_OVERRIDE_MANIFEST_CANDIDATES=()
+  QUALITY_OVERRIDE_MANIFEST_CANDIDATE_LABELS=()
+
+  add_quality_override_manifest_candidate "MARKITDOWN_QUALITY_OVERRIDE_MANIFEST" "${MARKITDOWN_QUALITY_OVERRIDE_MANIFEST:-}"
+  add_quality_override_manifest_candidate \
+    "repo-local quality override manifest" \
+    "$ROOT/samples/quality-overrides/external_quality/MANIFEST.tsv"
+
+  local i
+  for i in "${!QUALITY_OVERRIDE_MANIFEST_CANDIDATES[@]}"; do
+    local candidate="${QUALITY_OVERRIDE_MANIFEST_CANDIDATES[$i]}"
+    local label="${QUALITY_OVERRIDE_MANIFEST_CANDIDATE_LABELS[$i]}"
+    local abs="$candidate"
+    if [[ "$abs" != /* ]]; then
+      abs="$ROOT/$abs"
+    fi
+    local parent
+    parent="$(dirname "$abs")"
+    if [[ ! -d "$parent" ]]; then
+      continue
+    fi
+    abs="$(cd "$parent" && pwd)/$(basename "$abs")"
+    if [[ -f "$abs" ]]; then
+      QUALITY_OVERRIDE_MANIFEST="$abs"
+      QUALITY_OVERRIDE_MANIFEST_SOURCE="$label"
+      return
+    fi
+  done
+}
+
 append_unique_path() {
   local value="$1"
   if [[ -z "$value" ]]; then
@@ -312,10 +374,18 @@ resolve_external_input_path() {
     local repo_candidate="$ROOT/$path"
     local repo_quality_lab_candidate="$ROOT/markitdown-quality-lab/$path"
     local relative_suffix=""
+    local corpus_root_name=""
+    if [[ -n "$CORPUS_ROOT" ]]; then
+      corpus_root_name="$(basename "$CORPUS_ROOT")"
+    fi
     if [[ "$path" == external_quality/* ]]; then
       relative_suffix="${path#external_quality/}"
     elif [[ "$path" == markitdown-quality-lab/external_quality/* ]]; then
       relative_suffix="${path#markitdown-quality-lab/external_quality/}"
+    elif [[ -n "$corpus_root_name" && "$path" == "$corpus_root_name"/* ]]; then
+      relative_suffix="${path#"$corpus_root_name"/}"
+    elif [[ -n "$corpus_root_name" && "$path" == markitdown-quality-lab/"$corpus_root_name"/* ]]; then
+      relative_suffix="${path#markitdown-quality-lab/"$corpus_root_name"/}"
     elif [[ -n "$CORPUS_ROOT" ]]; then
       relative_suffix="$path"
     fi
@@ -456,8 +526,8 @@ normalize_public_row() {
   local raw_line="$2"
   local delimiter=$'\x1f'
   local converted="${raw_line//$'\t'/$delimiter}"
-  local id format path source_type license_status privacy size_class features expected_signals quality_tier notes extra_fields
-  IFS="$delimiter" read -r id format path source_type license_status privacy size_class features expected_signals quality_tier notes extra_fields <<< "$converted"
+  local id format path source_type license_status privacy size_class features expected_signals quality_tier notes validation_view extra_fields
+  IFS="$delimiter" read -r id format path source_type license_status privacy size_class features expected_signals quality_tier notes validation_view extra_fields <<< "$converted"
   id="$(tsv_field_unquote "$id")"
   format="$(tsv_field_unquote "$format")"
   path="$(tsv_field_unquote "$path")"
@@ -469,7 +539,8 @@ normalize_public_row() {
   expected_signals="$(tsv_field_unquote "$expected_signals")"
   quality_tier="$(tsv_field_unquote "$quality_tier")"
   notes="$(tsv_field_unquote "$notes")"
-  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+  validation_view="$(tsv_field_unquote "$validation_view")"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
     "$scope" \
     "$id" \
     "$format" \
@@ -484,15 +555,16 @@ normalize_public_row() {
     "$expected_signals" \
     "$quality_tier" \
     "" \
-    "$notes"
+    "$notes" \
+    "$validation_view"
 }
 
 normalize_external_row() {
   local raw_line="$1"
   local delimiter=$'\x1f'
   local converted="${raw_line//$'\t'/$delimiter}"
-  local id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url local_cache_path notes extra_fields
-  IFS="$delimiter" read -r id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url local_cache_path notes extra_fields <<< "$converted"
+  local id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url local_cache_path notes proposed_rel_path migration_action migration_note quality_tags quality_note proposed_expected_fail proposed_skip_reason validation_view extra_fields
+  IFS="$delimiter" read -r id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url local_cache_path notes proposed_rel_path migration_action migration_note quality_tags quality_note proposed_expected_fail proposed_skip_reason validation_view extra_fields <<< "$converted"
   id="$(tsv_field_unquote "$id")"
   format="$(tsv_field_unquote "$format")"
   path="$(tsv_field_unquote "$path")"
@@ -508,7 +580,22 @@ normalize_external_row() {
   original_url="$(tsv_field_unquote "$original_url")"
   local_cache_path="$(tsv_field_unquote "$local_cache_path")"
   notes="$(tsv_field_unquote "$notes")"
-  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+  proposed_rel_path="$(tsv_field_unquote "$proposed_rel_path")"
+  migration_action="$(tsv_field_unquote "$migration_action")"
+  migration_note="$(tsv_field_unquote "$migration_note")"
+  quality_tags="$(tsv_field_unquote "$quality_tags")"
+  quality_note="$(tsv_field_unquote "$quality_note")"
+  proposed_expected_fail="$(tsv_field_unquote "$proposed_expected_fail")"
+  proposed_skip_reason="$(tsv_field_unquote "$proposed_skip_reason")"
+  validation_view="$(tsv_field_unquote "$validation_view")"
+  if [[ -z "$validation_view" && -z "$migration_action" && -z "$migration_note" && -z "$quality_tags" && -z "$quality_note" && -z "$proposed_expected_fail" && -z "$proposed_skip_reason" ]]; then
+    case "$proposed_rel_path" in
+      markdown|debug|provenance)
+        validation_view="$proposed_rel_path"
+        ;;
+    esac
+  fi
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
     "external" \
     "$id" \
     "$format" \
@@ -523,7 +610,8 @@ normalize_external_row() {
     "$expected_signals" \
     "$quality_tier" \
     "$original_url" \
-    "$notes"
+    "$notes" \
+    "$validation_view"
 }
 
 manifest_rows_from_file() {
@@ -560,19 +648,45 @@ normalize_external_manifest_entry() {
 
 collect_manifest_rows() {
   local rows=()
+  declare -A row_overrides=()
   if [[ -n "$QUALITY_ROWS_MANIFEST" ]]; then
     while IFS= read -r row; do
       [[ -n "$row" ]] && rows+=("$row")
     done < <(manifest_rows_from_file "$QUALITY_ROWS_MANIFEST" "external" "$EXTERNAL_HEADER" normalize_external_manifest_entry)
   fi
+  if [[ -n "$QUALITY_OVERRIDE_MANIFEST" ]]; then
+    while IFS= read -r row; do
+      [[ -z "$row" ]] && continue
+      local delimiter=$'\x1f'
+      local converted="${row//$'\t'/$delimiter}"
+      local scope id _
+      IFS="$delimiter" read -r scope id _ <<< "$converted"
+      [[ -z "$id" ]] && continue
+      row_overrides["$id"]="$row"
+    done < <(manifest_rows_from_file "$QUALITY_OVERRIDE_MANIFEST" "external" "$EXTERNAL_HEADER" normalize_external_manifest_entry)
+  fi
   if [[ "${#rows[@]}" -eq 0 ]]; then
     return 0
   fi
-  printf '%s\n' "${rows[@]}"
+  local merged_rows=()
+  local row delimiter converted scope id _
+  for row in "${rows[@]}"; do
+    delimiter=$'\x1f'
+    converted="${row//$'\t'/$delimiter}"
+    IFS="$delimiter" read -r scope id _ <<< "$converted"
+    if [[ -n "$id" && -n "${row_overrides["$id"]+x}" ]]; then
+      merged_rows+=("${row_overrides["$id"]}")
+      unset "row_overrides[$id]"
+    else
+      merged_rows+=("$row")
+    fi
+  done
+  printf '%s\n' "${merged_rows[@]}"
 }
 
 detect_corpus_root
 detect_quality_rows_manifest
+detect_quality_override_manifest
 
 if [[ -z "$QUALITY_ROWS_MANIFEST" ]]; then
   echo "quality lab manifest not found" >&2
@@ -610,6 +724,56 @@ cli_extra_args_summary_value() {
   printf '%s' "$joined"
 }
 
+quality_row_cli_mode() {
+  local features="${1-}"
+  local feature
+  IFS=';' read -r -a feature_parts <<< "$features"
+  for feature in "${feature_parts[@]}"; do
+    feature="${feature#"${feature%%[![:space:]]*}"}"
+    feature="${feature%"${feature##*[![:space:]]}"}"
+    [[ -z "$feature" ]] && continue
+    case "$feature" in
+      accurate)
+        printf 'accurate'
+        return
+        ;;
+    esac
+  done
+  printf 'balance'
+}
+
+quality_row_has_feature() {
+  local features="${1-}"
+  local target="${2-}"
+  local feature
+  IFS=';' read -r -a feature_parts <<< "$features"
+  for feature in "${feature_parts[@]}"; do
+    feature="${feature#"${feature%%[![:space:]]*}"}"
+    feature="${feature%"${feature##*[![:space:]]}"}"
+    [[ -z "$feature" ]] && continue
+    if [[ "$feature" == "$target" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+quality_validation_view() {
+  local raw="${1-}"
+  case "$raw" in
+    ""|markdown)
+      printf 'markdown'
+      ;;
+    debug|provenance)
+      printf '%s' "$raw"
+      ;;
+    *)
+      echo "unsupported validation_view in manifest: $raw" >&2
+      exit 1
+      ;;
+  esac
+}
+
 quality_row_cli_flags() {
   local format="$1"
   local features="${2-}"
@@ -622,7 +786,6 @@ quality_row_cli_flags() {
     [[ -z "$feature" ]] && continue
     case "$feature" in
       accurate)
-        flags+=("--accurate")
         ;;
       pdf_ocr)
         if [[ "$format" == "pdf" ]]; then
@@ -805,6 +968,11 @@ artifact_plan_cli_args_file() {
   printf '%s/cli_args.txt' "$(artifact_plan_dir "$artifact_id")"
 }
 
+artifact_plan_validation_view_file() {
+  local artifact_id="$1"
+  printf '%s/validation_view.txt' "$(artifact_plan_dir "$artifact_id")"
+}
+
 artifact_plan_rowcount_file() {
   local artifact_id="$1"
   printf '%s/row_count.txt' "$(artifact_plan_dir "$artifact_id")"
@@ -814,6 +982,7 @@ artifact_plan_register() {
   local artifact_id="$1"
   local abs_path="$2"
   local cli_args_summary="${3-}"
+  local validation_view="${4-markdown}"
   local plan_dir
   plan_dir="$(artifact_plan_dir "$artifact_id")"
   if [[ ! -d "$plan_dir" ]]; then
@@ -823,6 +992,7 @@ artifact_plan_register() {
     printf '0' > "$(artifact_plan_rowcount_file "$artifact_id")"
     : > "$(artifact_plan_rows_raw_path "$artifact_id")"
     : > "$(artifact_plan_cli_args_file "$artifact_id")"
+    printf '%s' "$validation_view" > "$(artifact_plan_validation_view_file "$artifact_id")"
     if [[ -n "$cli_args_summary" ]]; then
       printf '%s\n' "$cli_args_summary" > "$(artifact_plan_cli_args_file "$artifact_id")"
     fi
@@ -864,13 +1034,32 @@ artifact_plan_cli_args_each() {
   cat "$(artifact_plan_cli_args_file "$artifact_id")"
 }
 
+artifact_plan_cli_mode() {
+  local artifact_id="$1"
+  local cli_args_file
+  cli_args_file="$(artifact_plan_cli_args_file "$artifact_id")"
+  if [[ ! -f "$cli_args_file" ]]; then
+    printf 'balance'
+    return
+  fi
+  tail -n 1 "$cli_args_file"
+}
+
+artifact_plan_validation_view() {
+  local artifact_id="$1"
+  local view_file
+  view_file="$(artifact_plan_validation_view_file "$artifact_id")"
+  if [[ ! -f "$view_file" ]]; then
+    printf 'markdown'
+    return
+  fi
+  cat "$view_file"
+}
+
 quality_runner_label() {
   case "${CLI_RUNNER_KIND:-}" in
-    prebuilt-native|override)
+    prebuilt|override)
       printf 'prebuilt'
-      ;;
-    moon-run)
-      printf 'moon-run'
       ;;
     *)
       printf 'none'
@@ -972,8 +1161,8 @@ row_matches_filters() {
   local row="$1"
   local delimiter=$'\x1f'
   local converted="${row//$'\t'/$delimiter}"
-  local source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes
-  IFS="$delimiter" read -r source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes <<< "$converted"
+  local source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes validation_view
+  IFS="$delimiter" read -r source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes validation_view <<< "$converted"
 
   if [[ -n "$FILTER_ID" && "$id" != "$FILTER_ID" ]]; then
     return 1
@@ -994,8 +1183,8 @@ print_filtered_rows() {
     [[ -n "$row" ]] || continue
     local delimiter=$'\x1f'
     local converted="${row//$'\t'/$delimiter}"
-    local source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes
-    IFS="$delimiter" read -r source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes <<< "$converted"
+    local source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes validation_view
+    IFS="$delimiter" read -r source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes validation_view <<< "$converted"
     printf '%s\t%s\t%s\t%s\t%s\n' "$id" "$format" "$source_id" "$license_review_status" "$path"
   done
 }
@@ -1267,7 +1456,7 @@ quality_write_row_report() {
     echo "- Status: $status"
     echo "- Input: $input_path"
     if [[ -n "$output_md" ]]; then
-      echo "- Output markdown: $output_md"
+      echo "- Output artifact: $output_md"
     fi
     if [[ -n "$stdout_path" ]]; then
       echo "- Stdout log: $stdout_path"
@@ -1414,8 +1603,9 @@ quality_plan_row() {
 
   local delimiter=$'\x1f'
   local converted="${row//$'\t'/$delimiter}"
-  local source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes
-  IFS="$delimiter" read -r source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes <<< "$converted"
+  local source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes validation_view
+  IFS="$delimiter" read -r source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes validation_view <<< "$converted"
+  validation_view="$(quality_validation_view "$validation_view")"
 
   local real_signal_count
   real_signal_count="$(real_signal_count_from_expected "$expected_signals")"
@@ -1503,11 +1693,17 @@ quality_plan_row() {
   if [[ "${#combined_cli_args[@]}" -ne 0 ]]; then
     cli_args_payload="$cli_extra_summary"
   fi
-  local artifact_key="$abs_path"$'\x1f'"$cli_extra_summary"$'\x1f'"normal"
+  local cli_mode
+  cli_mode="$(quality_row_cli_mode "$features")"
+  local artifact_key="$abs_path"$'\x1f'"$cli_extra_summary"$'\x1f'"$cli_mode"$'\x1f'"$validation_view"
   local artifact_id
   artifact_id="$(artifact_id_from_key "$abs_path" "$artifact_key")"
 
-  artifact_plan_register "$artifact_id" "$abs_path" "$cli_args_payload"
+  local artifact_cli_args_payload="$cli_mode"
+  if [[ -n "$cli_args_payload" ]]; then
+    artifact_cli_args_payload="$cli_args_payload"$'\n'"$cli_mode"
+  fi
+  artifact_plan_register "$artifact_id" "$abs_path" "$artifact_cli_args_payload" "$validation_view"
   artifact_plan_append_row "$artifact_id" "$row"
   EXECUTABLE_ROW_COUNT=$((EXECUTABLE_ROW_COUNT + 1))
   validation_progress_step "$path"
@@ -1516,20 +1712,22 @@ quality_plan_row() {
 quality_write_artifact_rows_tsv() {
   local artifact_id="$1"
   local rows_tsv="$2"
-  printf 'row_id\tformat\tsource_scope\tsource_id\tquality_tier\texpected_signals\n' > "$rows_tsv"
+  printf 'row_id\tformat\tsource_scope\tsource_id\tquality_tier\texpected_signals\tvalidation_view\n' > "$rows_tsv"
   while IFS= read -r row || [[ -n "$row" ]]; do
     [[ -n "$row" ]] || continue
     local delimiter=$'\x1f'
     local converted="${row//$'\t'/$delimiter}"
-    local source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes
-    IFS="$delimiter" read -r source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes <<< "$converted"
-    printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
+    local source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes validation_view
+    IFS="$delimiter" read -r source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes validation_view <<< "$converted"
+    validation_view="$(quality_validation_view "$validation_view")"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
       "$id" \
       "$format" \
       "$source_scope" \
       "$source_id" \
       "$quality_tier" \
-      "$expected_signals" >> "$rows_tsv"
+      "$expected_signals" \
+      "$validation_view" >> "$rows_tsv"
   done < <(artifact_plan_rows_each "$artifact_id")
 }
 
@@ -1549,15 +1747,17 @@ quality_artifact_progress_label() {
 
 quality_run_signal_evaluator() {
   local artifact_id="$1"
-  local output_md="$2"
+  local snapshot_path="$2"
   local artifact_dir="$3"
   local rows_tsv="$4"
   local results_tsv="$5"
+  local snapshot_view="$6"
   local _artifact_id="$artifact_id"
 
   python3_required
   python3 "$QUALITY_SIGNAL_EVALUATOR" \
-    --markdown "$output_md" \
+    --snapshot "$snapshot_path" \
+    --view "$snapshot_view" \
     --artifact-dir "$artifact_dir" \
     --rows-tsv "$rows_tsv" \
     --results-tsv "$results_tsv"
@@ -1625,6 +1825,32 @@ quality_process_eval_results() {
   fi
 }
 
+quality_artifact_output_path() {
+  local artifact_dir="$1"
+  local validation_view="$2"
+  case "$validation_view" in
+    debug)
+      printf '%s/result.debug.json' "$artifact_dir"
+      ;;
+    *)
+      printf '%s/result.md' "$artifact_dir"
+      ;;
+  esac
+}
+
+quality_artifact_snapshot_path() {
+  local artifact_dir="$1"
+  local validation_view="$2"
+  case "$validation_view" in
+    provenance)
+      printf '%s/result.provenance.json' "$artifact_dir"
+      ;;
+    *)
+      quality_artifact_output_path "$artifact_dir" "$validation_view"
+      ;;
+  esac
+}
+
 quality_execute_artifact_group() {
   local artifact_id="$1"
   local abs_path
@@ -1634,21 +1860,41 @@ quality_execute_artifact_group() {
   rm -rf "$artifact_dir"
   mkdir -p "$artifact_dir"
 
-  local output_md="$artifact_dir/result.md"
+  local validation_view
+  validation_view="$(artifact_plan_validation_view "$artifact_id")"
+  local output_md
+  output_md="$(quality_artifact_output_path "$artifact_dir" "$validation_view")"
+  local snapshot_path
+  snapshot_path="$(quality_artifact_snapshot_path "$artifact_dir" "$validation_view")"
+  local provenance_path="$artifact_dir/result.provenance.json"
   local cli_stdout="$artifact_dir/convert.stdout.log"
   local cli_stderr="$artifact_dir/convert.stderr.log"
-  local cli_args=("normal")
+  local cli_mode
+  cli_mode="$(artifact_plan_cli_mode "$artifact_id")"
+  local cli_args=("$cli_mode")
   while IFS= read -r cli_arg; do
     [[ -z "$cli_arg" ]] && continue
+    if [[ "$cli_arg" == "balance" || "$cli_arg" == "accurate" || "$cli_arg" == "stream" ]]; then
+      continue
+    fi
     cli_args+=("$cli_arg")
   done < <(artifact_plan_cli_args_each "$artifact_id")
+  case "$validation_view" in
+    debug)
+      cli_args+=("--debug")
+      ;;
+    provenance)
+      cli_args+=("--provenance-out" "$provenance_path")
+      ;;
+  esac
   cli_args+=("$abs_path" "$output_md")
 
   local stage_start_ms=0
   if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
     stage_start_ms="$(profile_now_ms)"
   fi
-  if ! run_markitdown_cli "${cli_args[@]}" >"$cli_stdout" 2>"$cli_stderr"; then
+  # Keep artifact-plan iteration fail-closed even when media backends probe stdin.
+  if ! run_markitdown_cli "${cli_args[@]}" </dev/null >"$cli_stdout" 2>"$cli_stderr"; then
     local failure_reason
     failure_reason="$(single_line_note "$(sed -n '1,5p' "$cli_stderr" 2>/dev/null)")"
     if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
@@ -1658,8 +1904,8 @@ quality_execute_artifact_group() {
       [[ -n "$row" ]] || continue
       local delimiter=$'\x1f'
       local converted="${row//$'\t'/$delimiter}"
-      local source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes
-      IFS="$delimiter" read -r source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes <<< "$converted"
+      local source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes validation_view
+      IFS="$delimiter" read -r source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes validation_view <<< "$converted"
       local failure_status="fail"
       local failure_note="cli conversion failed"
       if [[ -n "$failure_reason" ]]; then
@@ -1682,12 +1928,35 @@ quality_execute_artifact_group() {
   if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
     profile_record "$artifact_row_id" "convert" "$(( $(profile_now_ms) - stage_start_ms ))" "ok"
   fi
+  if [[ ! -f "$snapshot_path" ]]; then
+    while IFS= read -r row || [[ -n "$row" ]]; do
+      [[ -n "$row" ]] || continue
+      local delimiter=$'\x1f'
+      local converted="${row//$'\t'/$delimiter}"
+      local source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes row_validation_view
+      IFS="$delimiter" read -r source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes row_validation_view <<< "$converted"
+      local failure_status="fail"
+      local failure_note="validation snapshot missing: $validation_view"
+      if is_known_bad_tier "$quality_tier"; then
+        failure_status="expected_fail"
+        failure_note="expected converter failure: $failure_note"
+      fi
+      summary_add "$id" "$format" "$source_scope" "$source_id" "$quality_tier" "$failure_status" 0 0 "$failure_note"
+      if quality_status_generates_report "$failure_status"; then
+        quality_write_row_report "$id" "$format" "$source_scope" "$source_id" "$quality_tier" "$failure_status" "$abs_path" "$snapshot_path" "$cli_stdout" "$cli_stderr" 0 0 "$failure_note" "" ""
+      fi
+      if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
+        profile_record "$id" "row_total" 0 "$failure_status"
+      fi
+    done < <(artifact_plan_rows_each "$artifact_id")
+    return
+  fi
 
   local rows_tsv="$artifact_dir/rows.tsv"
   local results_tsv="$artifact_dir/results.tsv"
   quality_write_artifact_rows_tsv "$artifact_id" "$rows_tsv"
-  quality_run_signal_evaluator "$artifact_id" "$output_md" "$artifact_dir" "$rows_tsv" "$results_tsv"
-  quality_process_eval_results "$artifact_id" "$abs_path" "$output_md" "$cli_stdout" "$cli_stderr" "$results_tsv"
+  quality_run_signal_evaluator "$artifact_id" "$snapshot_path" "$artifact_dir" "$rows_tsv" "$results_tsv" "$validation_view"
+  quality_process_eval_results "$artifact_id" "$abs_path" "$snapshot_path" "$cli_stdout" "$cli_stderr" "$results_tsv"
 }
 
 write_summary() {
@@ -1712,6 +1981,8 @@ write_summary() {
     printf 'CORPUS_ROOT_SOURCE\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$CORPUS_ROOT_SOURCE")"
     printf 'QUALITY_ROWS_MANIFEST\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$QUALITY_ROWS_MANIFEST")"
     printf 'QUALITY_ROWS_MANIFEST_SOURCE\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$QUALITY_ROWS_MANIFEST_SOURCE")"
+    printf 'QUALITY_OVERRIDE_MANIFEST\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$QUALITY_OVERRIDE_MANIFEST")"
+    printf 'QUALITY_OVERRIDE_MANIFEST_SOURCE\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$QUALITY_OVERRIDE_MANIFEST_SOURCE")"
     printf 'FILTER_ID\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$FILTER_ID")"
     printf 'FILTER_SOURCE\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$FILTER_SOURCE")"
     printf 'FILTER_FORMAT\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$FILTER_FORMAT")"
@@ -1851,6 +2122,40 @@ if [[ "${#MANIFEST_ROWS[@]}" -eq 0 ]]; then
   echo "summary: $SUMMARY_TSV"
   echo "report: $SUMMARY_MD"
   exit 0
+fi
+
+if [[ -n "$FORBID_FEATURE" ]]; then
+  forbidden_rows=()
+  for row in "${MANIFEST_ROWS[@]}"; do
+    delimiter=$'\x1f'
+    converted="${row//$'\t'/$delimiter}"
+    source_scope=""
+    id=""
+    format=""
+    path=""
+    source_type=""
+    source_id=""
+    license_status=""
+    license_review_status=""
+    privacy=""
+    size_class=""
+    features=""
+    expected_signals=""
+    quality_tier=""
+    original_url=""
+    notes=""
+    validation_view=""
+    IFS="$delimiter" read -r source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes validation_view <<< "$converted"
+    if quality_row_has_feature "$features" "$FORBID_FEATURE"; then
+      forbidden_rows+=("$id")
+    fi
+  done
+  if [[ "${#forbidden_rows[@]}" -gt 0 ]]; then
+    echo "manifest rows include forbidden feature tag \`$FORBID_FEATURE\`." >&2
+    echo "this suite fails closed when rows belong to a different corpus." >&2
+    printf 'offending rows: %s\n' "$(IFS=', '; echo "${forbidden_rows[*]}")" >&2
+    exit 1
+  fi
 fi
 
 for row in "${MANIFEST_ROWS[@]}"; do

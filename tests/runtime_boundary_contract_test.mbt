@@ -449,7 +449,7 @@ test "convert contract recognizes pdf as a root native-text product format" {
 }
 
 ///|
-test "convert pdf explicit OCR uses OCR route instead of fail-closing before provider path" {
+test "convert accurate pdf uses OCR route instead of fail-closing before provider path" {
   let pdf = @input.input_from_path_with_format(
     "samples/fixtures/contracts/pdf/root_native_text_baseline.pdf",
     Some(@input.DetectedFormat::Pdf),
@@ -459,12 +459,11 @@ test "convert pdf explicit OCR uses OCR route instead of fail-closing before pro
     @convert.convert_input_with_image_ocr_provider(
       pdf,
       @convert.make_convert_options(
-        @convert.ConvertMode::Balanced,
+        @convert.ConvertMode::Accurate,
         @convert.OutputFormat::Markdown,
         Some(@input.DetectedFormat::Pdf),
         @parser.explicit_ocr_options(language=Some("eng")),
         @convert.default_resource_limits(),
-        pdf_ocr_policy=@convert.PdfOcrPolicy::Explicit,
       ),
       fn(request) {
         provider_calls.val = provider_calls.val + 1
@@ -501,13 +500,13 @@ test "convert pdf explicit OCR uses OCR route instead of fail-closing before pro
       assert_eq(provider_calls.val, 0)
     }
     Err(other) =>
-      fail("unexpected pdf explicit OCR convert error: " + other.to_string())
+      fail("unexpected accurate pdf OCR convert error: " + other.to_string())
   }
   assert_true(provider_calls.val >= 0)
 }
 
 ///|
-async test "async convert pdf explicit OCR uses OCR route through async parser registry" {
+async test "async convert accurate pdf uses OCR route through async parser registry" {
   let pdf = @input.input_from_path_with_format(
     "samples/fixtures/contracts/pdf/root_native_text_baseline.pdf",
     Some(@input.DetectedFormat::Pdf),
@@ -517,12 +516,11 @@ async test "async convert pdf explicit OCR uses OCR route through async parser r
     @convert.convert_input_with_image_ocr_provider_async(
       pdf,
       @convert.make_convert_options(
-        @convert.ConvertMode::Balanced,
+        @convert.ConvertMode::Accurate,
         @convert.OutputFormat::Markdown,
         Some(@input.DetectedFormat::Pdf),
         @parser.explicit_ocr_options(language=Some("eng")),
         @convert.default_resource_limits(),
-        pdf_ocr_policy=@convert.PdfOcrPolicy::Explicit,
       ),
       fn(request : @focr.OcrProviderRequest) {
         provider_calls.val = provider_calls.val + 1
@@ -585,7 +583,7 @@ test "convert scanned-like pdf fails closed instead of returning empty markdown"
   match @convert.convert_input(source, @convert.default_convert_options()) {
     Err(@convert.ConvertError::ParseFailed(msg)) => {
       assert_true(msg.contains("empty"))
-      assert_true(msg.contains("root pdf_native backend"))
+      assert_true(msg.contains("native PDF reader backend"))
       assert_true(!msg.contains("not configured"))
       assert_true(
         !msg.contains("image OCR provider returned a non-empty OCR model"),
@@ -608,7 +606,7 @@ test "convert scanned-like pdf fails closed instead of returning empty markdown"
     ) {
     Err(msg) => {
       assert_true(msg.contains("empty"))
-      assert_true(msg.contains("root pdf_native backend"))
+      assert_true(msg.contains("native PDF reader backend"))
     }
     Ok(_) => fail("registry parse should not succeed for scanned-like pdf")
   }

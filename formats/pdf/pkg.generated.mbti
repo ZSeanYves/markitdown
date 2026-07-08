@@ -15,61 +15,61 @@ pub fn cleanup_pdf_ocr_temp_dir(String) -> Unit
 
 pub async fn collect_pdftoppm_output_async(String, Array[String]) -> Result[(Int, String, String), PdfRasterizerError]
 
-pub fn extract_pdf_native_document(@input.InputSource) -> Result[PdfNativeDocument, PdfNativeError]
+pub fn extract_pdf_native_document(@input.InputSource) -> Result[@ZSeanYves/markitdown/format_readers/pdf.PdfNativeDocument, @ZSeanYves/markitdown/format_readers/pdf.PdfNativeError]
 
-pub fn extract_pdf_native_document_from_path(String) -> Result[PdfNativeDocument, PdfNativeError]
+pub fn extract_pdf_native_document_from_path(String) -> Result[@ZSeanYves/markitdown/format_readers/pdf.PdfNativeDocument, @ZSeanYves/markitdown/format_readers/pdf.PdfNativeError]
 
-pub fn make_pdf_bbox(Double, Double, Double, Double) -> PdfBBox
+pub fn make_pdf_bbox(Double, Double, Double, Double) -> @ZSeanYves/markitdown/format_readers/pdf.PdfBBox
 
-pub fn make_pdf_native_annotation(Int, String, bbox? : PdfBBox?, text? : String?, title? : String?, subject? : String?, file_name? : String?, name? : String?, modified_at? : String?, action_kind? : String?, target? : String?, destination? : PdfNativeDestination?, source_ref? : @core.SourceRef?, annotation_index? : Int?, object_id? : Int?) -> PdfNativeAnnotation
+pub fn make_pdf_native_annotation(Int, String, bbox? : @ZSeanYves/markitdown/format_readers/pdf.PdfBBox?, text? : String?, title? : String?, subject? : String?, file_name? : String?, name? : String?, modified_at? : String?, action_kind? : String?, target? : String?, destination? : @ZSeanYves/markitdown/format_readers/pdf.PdfNativeDestination?, source_ref? : @core.SourceRef?, annotation_index? : Int?, object_id? : Int?) -> @ZSeanYves/markitdown/format_readers/pdf.PdfNativeAnnotation
 
-pub fn make_pdf_native_artifact_candidate(String, PdfBBox, source_ref? : @core.SourceRef?) -> PdfNativeArtifactCandidate
+pub fn make_pdf_native_artifact_candidate(String, @ZSeanYves/markitdown/format_readers/pdf.PdfBBox, source_ref? : @core.SourceRef?) -> @ZSeanYves/markitdown/format_readers/pdf.PdfNativeArtifactCandidate
 
-pub fn make_pdf_native_destination(page_index? : Int?, target_page_index? : Int?, target_page_object_id? : Int?, kind? : String?, raw_value? : String?, name? : String?, source_ref? : @core.SourceRef?, object_id? : Int?) -> PdfNativeDestination
+pub fn make_pdf_native_destination(page_index? : Int?, target_page_index? : Int?, target_page_object_id? : Int?, kind? : String?, raw_value? : String?, name? : String?, source_ref? : @core.SourceRef?, object_id? : Int?) -> @ZSeanYves/markitdown/format_readers/pdf.PdfNativeDestination
 
-pub fn make_pdf_native_document(pages? : Array[PdfNativePage], form_fields? : Array[PdfNativeFormField], outline_items? : Array[PdfNativeOutlineItem], named_destinations? : Array[PdfNativeDestination], metadata? : Map[String, @core.JsonValue], diagnostics? : @core.Diagnostics) -> PdfNativeDocument
+pub fn make_pdf_native_document(pages? : Array[@ZSeanYves/markitdown/format_readers/pdf.PdfNativePage], form_fields? : Array[@ZSeanYves/markitdown/format_readers/pdf.PdfNativeFormField], outline_items? : Array[@ZSeanYves/markitdown/format_readers/pdf.PdfNativeOutlineItem], named_destinations? : Array[@ZSeanYves/markitdown/format_readers/pdf.PdfNativeDestination], metadata? : Map[String, @core.JsonValue], diagnostics? : @core.Diagnostics) -> @ZSeanYves/markitdown/format_readers/pdf.PdfNativeDocument
 
-pub fn make_pdf_native_form_field(page_index? : Int?, field_type? : String?, field_name? : String?, alternate_name? : String?, value? : String?, default_value? : String?, options? : Array[String], bbox? : PdfBBox?, source_ref? : @core.SourceRef?, object_id? : Int?, widget_object_id? : Int?, flags? : Int?) -> PdfNativeFormField
+pub fn make_pdf_native_form_field(page_index? : Int?, field_type? : String?, field_name? : String?, alternate_name? : String?, value? : String?, default_value? : String?, options? : Array[String], bbox? : @ZSeanYves/markitdown/format_readers/pdf.PdfBBox?, source_ref? : @core.SourceRef?, object_id? : Int?, widget_object_id? : Int?, flags? : Int?) -> @ZSeanYves/markitdown/format_readers/pdf.PdfNativeFormField
 
-pub fn make_pdf_native_image_candidate(PdfBBox, source_ref? : @core.SourceRef?, asset_ref? : @core.AssetRef?, reading_order_index? : Int?) -> PdfNativeImageCandidate
+pub fn make_pdf_native_image_candidate(@ZSeanYves/markitdown/format_readers/pdf.PdfBBox, source_ref? : @core.SourceRef?, asset_ref? : @core.AssetRef?, reading_order_index? : Int?) -> @ZSeanYves/markitdown/format_readers/pdf.PdfNativeImageCandidate
 
-pub fn make_pdf_native_link_candidate(PdfBBox, String, text? : String?, source_ref? : @core.SourceRef?, annotation_index? : Int?, annotation_object_id? : Int?) -> PdfNativeLinkCandidate
+pub fn make_pdf_native_link_candidate(@ZSeanYves/markitdown/format_readers/pdf.PdfBBox, String, text? : String?, source_ref? : @core.SourceRef?, annotation_index? : Int?, annotation_object_id? : Int?) -> @ZSeanYves/markitdown/format_readers/pdf.PdfNativeLinkCandidate
 
-pub fn make_pdf_native_outline_item(String, Int, Int, page_index? : Int?, action_kind? : String?, target? : String?, destination? : PdfNativeDestination?, source_ref? : @core.SourceRef?, object_id? : Int?) -> PdfNativeOutlineItem
+pub fn make_pdf_native_outline_item(String, Int, Int, page_index? : Int?, action_kind? : String?, target? : String?, destination? : @ZSeanYves/markitdown/format_readers/pdf.PdfNativeDestination?, source_ref? : @core.SourceRef?, object_id? : Int?) -> @ZSeanYves/markitdown/format_readers/pdf.PdfNativeOutlineItem
 
-pub fn make_pdf_native_page(PdfPageGeometry, text_blocks? : Array[PdfNativeTextBlock], image_candidates? : Array[PdfNativeImageCandidate], link_candidates? : Array[PdfNativeLinkCandidate], annotations? : Array[PdfNativeAnnotation], destinations? : Array[PdfNativeDestination], table_candidates? : Array[PdfNativeTableCandidate], artifact_candidates? : Array[PdfNativeArtifactCandidate], diagnostics? : @core.Diagnostics) -> PdfNativePage
+pub fn make_pdf_native_page(@ZSeanYves/markitdown/format_readers/pdf.PdfPageGeometry, text_blocks? : Array[@ZSeanYves/markitdown/format_readers/pdf.PdfNativeTextBlock], image_candidates? : Array[@ZSeanYves/markitdown/format_readers/pdf.PdfNativeImageCandidate], link_candidates? : Array[@ZSeanYves/markitdown/format_readers/pdf.PdfNativeLinkCandidate], annotations? : Array[@ZSeanYves/markitdown/format_readers/pdf.PdfNativeAnnotation], destinations? : Array[@ZSeanYves/markitdown/format_readers/pdf.PdfNativeDestination], table_candidates? : Array[@ZSeanYves/markitdown/format_readers/pdf.PdfNativeTableCandidate], artifact_candidates? : Array[@ZSeanYves/markitdown/format_readers/pdf.PdfNativeArtifactCandidate], diagnostics? : @core.Diagnostics) -> @ZSeanYves/markitdown/format_readers/pdf.PdfNativePage
 
-pub fn make_pdf_native_table_candidate(PdfBBox, source_ref? : @core.SourceRef?, row_count? : Int?, column_count? : Int?, cell_bboxes? : Array[PdfBBox]) -> PdfNativeTableCandidate
+pub fn make_pdf_native_table_candidate(@ZSeanYves/markitdown/format_readers/pdf.PdfBBox, source_ref? : @core.SourceRef?, row_count? : Int?, column_count? : Int?, cell_bboxes? : Array[@ZSeanYves/markitdown/format_readers/pdf.PdfBBox]) -> @ZSeanYves/markitdown/format_readers/pdf.PdfNativeTableCandidate
 
-pub fn make_pdf_native_text_block(Array[PdfNativeTextLine], PdfBBox, source_ref? : @core.SourceRef?, reading_order_index? : Int?) -> PdfNativeTextBlock
+pub fn make_pdf_native_text_block(Array[@ZSeanYves/markitdown/format_readers/pdf.PdfNativeTextLine], @ZSeanYves/markitdown/format_readers/pdf.PdfBBox, source_ref? : @core.SourceRef?, reading_order_index? : Int?) -> @ZSeanYves/markitdown/format_readers/pdf.PdfNativeTextBlock
 
-pub fn make_pdf_native_text_line(Array[PdfNativeTextSpan], PdfBBox, source_ref? : @core.SourceRef?, reading_order_index? : Int?) -> PdfNativeTextLine
+pub fn make_pdf_native_text_line(Array[@ZSeanYves/markitdown/format_readers/pdf.PdfNativeTextSpan], @ZSeanYves/markitdown/format_readers/pdf.PdfBBox, source_ref? : @core.SourceRef?, reading_order_index? : Int?) -> @ZSeanYves/markitdown/format_readers/pdf.PdfNativeTextLine
 
-pub fn make_pdf_native_text_span(String, PdfBBox, source_ref? : @core.SourceRef?, confidence? : Int?, font_name? : String?, font_size? : Double?, reading_order_index? : Int?) -> PdfNativeTextSpan
+pub fn make_pdf_native_text_span(String, @ZSeanYves/markitdown/format_readers/pdf.PdfBBox, source_ref? : @core.SourceRef?, confidence? : Int?, font_name? : String?, font_size? : Double?, reading_order_index? : Int?) -> @ZSeanYves/markitdown/format_readers/pdf.PdfNativeTextSpan
 
-pub fn make_pdf_page_geometry(Int, Double, Double, rotation_degrees? : Int, crop_box? : PdfBBox?) -> PdfPageGeometry
+pub fn make_pdf_page_geometry(Int, Double, Double, rotation_degrees? : Int, crop_box? : @ZSeanYves/markitdown/format_readers/pdf.PdfBBox?) -> @ZSeanYves/markitdown/format_readers/pdf.PdfPageGeometry
 
-pub fn pdf_bbox_bottom(PdfBBox) -> Double
+pub fn pdf_bbox_bottom(@ZSeanYves/markitdown/format_readers/pdf.PdfBBox) -> Double
 
-pub fn pdf_bbox_is_empty(PdfBBox) -> Bool
+pub fn pdf_bbox_is_empty(@ZSeanYves/markitdown/format_readers/pdf.PdfBBox) -> Bool
 
-pub fn pdf_bbox_right(PdfBBox) -> Double
+pub fn pdf_bbox_right(@ZSeanYves/markitdown/format_readers/pdf.PdfBBox) -> Double
 
 pub fn pdf_decode_gb2312_first_bytes(Array[Int]) -> PdfRawCjkDecodeResult
 
 pub fn pdf_native_appendix_blocks(Map[String, @core.JsonValue]) -> Array[@core.CoreBlock]
 
-pub fn pdf_native_document_to_blocks_with_policies(PdfNativeDocument, @parser.PdfHeaderFooterFilterPolicy) -> (Map[String, @core.JsonValue], Array[@core.CoreBlock], @core.Diagnostics)
+pub fn pdf_native_document_to_blocks_with_policies(@ZSeanYves/markitdown/format_readers/pdf.PdfNativeDocument, @parser.PdfHeaderFooterFilterPolicy) -> (Map[String, @core.JsonValue], Array[@core.CoreBlock], @core.Diagnostics)
 
-pub fn pdf_native_document_to_ir(PdfNativeDocument) -> @core.DocumentIR
+pub fn pdf_native_document_to_ir(@ZSeanYves/markitdown/format_readers/pdf.PdfNativeDocument) -> @core.DocumentIR
 
-pub fn pdf_native_document_to_ir_with_policies(PdfNativeDocument, @parser.PdfHeaderFooterFilterPolicy, @parser.PdfTableReconstructionPolicy) -> @core.DocumentIR
+pub fn pdf_native_document_to_ir_with_policies(@ZSeanYves/markitdown/format_readers/pdf.PdfNativeDocument, @parser.PdfHeaderFooterFilterPolicy, @parser.PdfTableReconstructionPolicy) -> @core.DocumentIR
 
 pub fn pdf_native_fail_closed_diagnostics(@input.InputSource, @parser.ParseContext) -> @core.Diagnostics
 
 pub fn pdf_native_fail_closed_message() -> String
 
-pub fn pdf_native_page_to_paragraph_blocks(PdfNativePage) -> Array[@core.CoreBlock]
+pub fn pdf_native_page_to_paragraph_blocks(@ZSeanYves/markitdown/format_readers/pdf.PdfNativePage) -> Array[@core.CoreBlock]
 
 pub fn pdf_native_parser() -> @parser.Parser
 
@@ -105,7 +105,7 @@ pub fn pdf_rasterizer_status_name(PdfRasterizerStatus) -> String
 
 pub fn pdf_raw_cjk_decode_result_is_confident_gb2312(PdfRawCjkDecodeResult) -> Bool
 
-pub fn pdf_union_bbox(PdfBBox, PdfBBox) -> PdfBBox
+pub fn pdf_union_bbox(@ZSeanYves/markitdown/format_readers/pdf.PdfBBox, @ZSeanYves/markitdown/format_readers/pdf.PdfBBox) -> @ZSeanYves/markitdown/format_readers/pdf.PdfBBox
 
 pub fn rasterize_pdf_with_pdftoppm(@input.InputSource, (String, Array[String]) -> Result[(Int, String, String), PdfRasterizerError]) -> Result[(PdfRasterResult, String), PdfRasterizerError]
 
@@ -118,162 +118,6 @@ pub async fn rasterize_pdf_with_pdftoppm_default_async(@input.InputSource) -> Re
 // Errors
 
 // Types and methods
-pub struct PdfBBox {
-  x : Double
-  y : Double
-  width : Double
-  height : Double
-}
-
-pub struct PdfNativeAnnotation {
-  page_index : Int
-  subtype : String
-  bbox : PdfBBox?
-  text : String?
-  title : String?
-  subject : String?
-  file_name : String?
-  name : String?
-  modified_at : String?
-  action_kind : String?
-  target : String?
-  destination : PdfNativeDestination?
-  source_ref : @core.SourceRef?
-  annotation_index : Int?
-  object_id : Int?
-}
-
-pub struct PdfNativeArtifactCandidate {
-  kind : String
-  bbox : PdfBBox
-  source_ref : @core.SourceRef?
-}
-
-pub struct PdfNativeDestination {
-  page_index : Int?
-  target_page_index : Int?
-  target_page_object_id : Int?
-  kind : String?
-  raw_value : String?
-  name : String?
-  source_ref : @core.SourceRef?
-  object_id : Int?
-}
-
-pub struct PdfNativeDocument {
-  pages : Array[PdfNativePage]
-  form_fields : Array[PdfNativeFormField]
-  outline_items : Array[PdfNativeOutlineItem]
-  named_destinations : Array[PdfNativeDestination]
-  metadata : Map[String, @core.JsonValue]
-  diagnostics : @core.Diagnostics
-}
-
-pub(all) enum PdfNativeError {
-  BackendUnavailable(String)
-  ReadFailed(String)
-  ParseFailed(String)
-  EncryptedUnsupported(String)
-  EmptyTextLayer(String)
-  UnsupportedFeature(String)
-} derive(Eq)
-pub impl Show for PdfNativeError
-
-pub struct PdfNativeFormField {
-  page_index : Int?
-  field_type : String?
-  field_name : String?
-  alternate_name : String?
-  value : String?
-  default_value : String?
-  options : Array[String]
-  bbox : PdfBBox?
-  source_ref : @core.SourceRef?
-  object_id : Int?
-  widget_object_id : Int?
-  flags : Int?
-}
-
-pub struct PdfNativeImageCandidate {
-  bbox : PdfBBox
-  source_ref : @core.SourceRef?
-  asset_ref : @core.AssetRef?
-  reading_order_index : Int?
-}
-
-pub struct PdfNativeLinkCandidate {
-  bbox : PdfBBox
-  href : String
-  text : String?
-  source_ref : @core.SourceRef?
-  annotation_index : Int?
-  annotation_object_id : Int?
-}
-
-pub struct PdfNativeOutlineItem {
-  title : String
-  level : Int
-  order_index : Int
-  page_index : Int?
-  action_kind : String?
-  target : String?
-  destination : PdfNativeDestination?
-  source_ref : @core.SourceRef?
-  object_id : Int?
-}
-
-pub struct PdfNativePage {
-  geometry : PdfPageGeometry
-  text_blocks : Array[PdfNativeTextBlock]
-  image_candidates : Array[PdfNativeImageCandidate]
-  link_candidates : Array[PdfNativeLinkCandidate]
-  annotations : Array[PdfNativeAnnotation]
-  destinations : Array[PdfNativeDestination]
-  table_candidates : Array[PdfNativeTableCandidate]
-  artifact_candidates : Array[PdfNativeArtifactCandidate]
-  diagnostics : @core.Diagnostics
-}
-
-pub struct PdfNativeTableCandidate {
-  bbox : PdfBBox
-  source_ref : @core.SourceRef?
-  row_count : Int?
-  column_count : Int?
-  cell_bboxes : Array[PdfBBox]
-}
-
-pub struct PdfNativeTextBlock {
-  lines : Array[PdfNativeTextLine]
-  bbox : PdfBBox
-  source_ref : @core.SourceRef?
-  reading_order_index : Int?
-}
-
-pub struct PdfNativeTextLine {
-  spans : Array[PdfNativeTextSpan]
-  bbox : PdfBBox
-  source_ref : @core.SourceRef?
-  reading_order_index : Int?
-}
-
-pub struct PdfNativeTextSpan {
-  text : String
-  bbox : PdfBBox
-  source_ref : @core.SourceRef?
-  confidence : Int?
-  font_name : String?
-  font_size : Double?
-  reading_order_index : Int?
-}
-
-pub struct PdfPageGeometry {
-  page_no : Int
-  width : Double
-  height : Double
-  rotation_degrees : Int
-  crop_box : PdfBBox?
-}
-
 pub struct PdfRasterPageArtifact {
   page_index : Int
   image_path : String?
@@ -316,6 +160,37 @@ pub(all) struct PdfRawCjkDecodeResult {
 }
 
 // Type aliases
+pub using @ZSeanYves/markitdown/format_readers/pdf {type PdfBBox}
+
+pub using @ZSeanYves/markitdown/format_readers/pdf {type PdfNativeAnnotation}
+
+pub using @ZSeanYves/markitdown/format_readers/pdf {type PdfNativeArtifactCandidate}
+
+pub using @ZSeanYves/markitdown/format_readers/pdf {type PdfNativeDestination}
+
+pub using @ZSeanYves/markitdown/format_readers/pdf {type PdfNativeDocument}
+
+pub using @ZSeanYves/markitdown/format_readers/pdf {type PdfNativeError}
+
+pub using @ZSeanYves/markitdown/format_readers/pdf {type PdfNativeFormField}
+
+pub using @ZSeanYves/markitdown/format_readers/pdf {type PdfNativeImageCandidate}
+
+pub using @ZSeanYves/markitdown/format_readers/pdf {type PdfNativeLinkCandidate}
+
+pub using @ZSeanYves/markitdown/format_readers/pdf {type PdfNativeOutlineItem}
+
+pub using @ZSeanYves/markitdown/format_readers/pdf {type PdfNativePage}
+
+pub using @ZSeanYves/markitdown/format_readers/pdf {type PdfNativeTableCandidate}
+
+pub using @ZSeanYves/markitdown/format_readers/pdf {type PdfNativeTextBlock}
+
+pub using @ZSeanYves/markitdown/format_readers/pdf {type PdfNativeTextLine}
+
+pub using @ZSeanYves/markitdown/format_readers/pdf {type PdfNativeTextSpan}
+
+pub using @ZSeanYves/markitdown/format_readers/pdf {type PdfPageGeometry}
 
 // Traits
 

@@ -625,8 +625,8 @@ Then run:
 
 ```bash
 moon build cli --target native
-bash samples/check.sh
-bash samples/check_quality.sh
+bash samples/check_balance.sh
+bash samples/check_balance_quality.sh
 ```
 
 For a representative external comparison benchmark run:

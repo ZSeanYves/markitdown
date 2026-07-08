@@ -28,13 +28,13 @@ fi
 MODE="markdown"
 FORMAT_FILTER=""
 SPECIAL_MODE=""
-FORMATS=("csv" "tsv" "txt" "srt" "vtt" "json" "jsonl" "ndjson" "ipynb" "xml" "yaml" "toml" "html" "markdown" "eml" "tex" "rst" "asciidoc" "zip" "epub" "odt" "ods" "odp" "docx" "xlsx" "pptx" "pdf" "ocr")
+FORMATS=("csv" "tsv" "txt" "srt" "vtt" "json" "jsonl" "ndjson" "ipynb" "xml" "yaml" "toml" "html" "markdown" "eml" "tex" "rst" "asciidoc" "zip" "epub" "odt" "ods" "odp" "docx" "xlsx" "pptx" "pdf" "wav" "mp3" "m4a" "ocr")
 
 trap 'status=$?; if [[ "$CLEANUP_OUT_DIR" -ne 0 ]]; then sample_cleanup_tmp_dir "$OUT_DIR"; fi; exit "$status"' EXIT
 
 usage() {
   cat <<'EOF'
-Internal usage: check_samples_impl.sh [--markdown|--rag|--assets|--ocr] [--format FMT] [--check-inventory] [--list-inventory]
+Internal usage: check_samples_impl.sh [--markdown|--rag|--assets|--ocr] [--format FMT|--formats FMT] [--check-inventory] [--list-inventory]
 EOF
 }
 
@@ -91,10 +91,10 @@ while [[ $# -gt 0 ]]; do
     --ocr)
       MODE="ocr"
       ;;
-    --format)
+    --format|--formats)
       shift
       if [[ $# -eq 0 || "${1:-}" == --* ]]; then
-        echo "--format requires a value" >&2
+        echo "$1 requires a value" >&2
         usage >&2
         exit 1
       fi
@@ -207,7 +207,7 @@ for row in "${SAMPLE_ROWS[@]}"; do
     echo "==> converting $scope"
   fi
 
-  cli_args=(normal)
+  cli_args=(balance)
   while IFS= read -r extra_arg; do
     [[ -z "$extra_arg" ]] && continue
     cli_args+=("$extra_arg")

@@ -10,11 +10,20 @@ from pathlib import Path
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--markdown", required=True)
+    parser.add_argument("--markdown")
+    parser.add_argument("--snapshot")
+    parser.add_argument(
+        "--view",
+        choices=["markdown", "debug", "provenance"],
+        default="markdown",
+    )
     parser.add_argument("--artifact-dir", required=True)
     parser.add_argument("--rows-tsv", required=True)
     parser.add_argument("--results-tsv", required=True)
-    return parser.parse_args()
+    args = parser.parse_args()
+    if not args.snapshot and not args.markdown:
+        parser.error("one of --snapshot or --markdown is required")
+    return args
 
 
 def normalize_newlines(text: str) -> str:
@@ -45,7 +54,7 @@ def count_assets_on_disk(artifact_dir: Path) -> int:
 
 @dataclass
 class Snapshot:
-    markdown_text: str
+    snapshot_text: str
     normalized_text: str
     literal_text: str
     token_text: str
@@ -68,7 +77,7 @@ class Evaluator:
     def _evaluate_uncached(self, signal: str) -> bool:
         literal_text = self.snapshot.literal_text
         if signal == "no_empty_output":
-            return any(not ch.isspace() for ch in self.snapshot.markdown_text)
+            return any(not ch.isspace() for ch in self.snapshot.snapshot_text)
         if signal.startswith("contains:"):
             needle = normalize_signal_literal(signal[len("contains:") :])
             return needle in literal_text
@@ -88,13 +97,13 @@ class Evaluator:
         if signal.startswith("heading_marker:"):
             needle = signal[len("heading_marker:") :]
             pattern = re.compile(rf"^[ \t]*#+[ \t]+.*{re.escape(needle)}.*$", re.MULTILINE)
-            return pattern.search(self.snapshot.markdown_text) is not None
+            return pattern.search(self.snapshot.snapshot_text) is not None
         if signal == "table_marker":
             return any(re.match(r"^[ \t]*\|.*\|[ \t]*$", line) for line in self.snapshot.lines)
         if signal == "image_ref":
-            return re.search(r"!\[[^]]*\]\([^)]*\)", self.snapshot.markdown_text) is not None
+            return re.search(r"!\[[^]]*\]\([^)]*\)", self.snapshot.snapshot_text) is not None
         if signal == "link_ref":
-            return re.search(r"\[[^]]+\]\([^)]*\)", self.snapshot.markdown_text) is not None
+            return re.search(r"\[[^]]+\]\([^)]*\)", self.snapshot.snapshot_text) is not None
         if signal.startswith("asset_count_min:"):
             limit = int(signal[len("asset_count_min:") :])
             return self.snapshot.asset_count >= limit
@@ -148,14 +157,20 @@ class Evaluator:
 
 
 def load_snapshot(args: argparse.Namespace) -> Snapshot:
-    markdown_text = normalize_newlines(Path(args.markdown).read_text(encoding="utf-8"))
-    literal_text = normalize_markdown_literal(markdown_text)
+    snapshot_path = Path(args.snapshot or args.markdown)
+    snapshot_text = normalize_newlines(snapshot_path.read_text(encoding="utf-8"))
+    if args.view == "markdown":
+        literal_text = normalize_markdown_literal(snapshot_text)
+        token_text = normalized_text_without_asset_urls(snapshot_text)
+    else:
+        literal_text = snapshot_text
+        token_text = snapshot_text
     return Snapshot(
-        markdown_text=markdown_text,
-        normalized_text=markdown_text,
+        snapshot_text=snapshot_text,
+        normalized_text=snapshot_text,
         literal_text=literal_text,
-        token_text=normalized_text_without_asset_urls(markdown_text),
-        lines=markdown_text.split("\n"),
+        token_text=token_text,
+        lines=snapshot_text.split("\n"),
         asset_count=count_assets_on_disk(Path(args.artifact_dir)),
     )
 

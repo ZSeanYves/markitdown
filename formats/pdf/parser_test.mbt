@@ -491,15 +491,15 @@ test "pdf native parser keeps stable diagnostics tokens for empty text layer and
   )
   assert_true(
     unsupported_document.diagnostics.metrics.get("fallback_reason_kind") ==
-    Some("unsupported_feature"),
+    Some("empty_text_layer"),
   )
   assert_true(
     unsupported_document.diagnostics.metrics.get("fallback_reason") ==
-    Some("pdf_native_unsupported_feature"),
+    Some("pdf_native_empty_text_layer"),
   )
   assert_true(
     unsupported_document.diagnostics.metrics.get("pdf_empty_text_layer") ==
-    Some("false"),
+    Some("true"),
   )
   assert_true(
     unsupported_document.diagnostics.metrics.get(
@@ -514,9 +514,8 @@ test "pdf native parser keeps stable diagnostics tokens for empty text layer and
     Some("false"),
   )
   assert_true(
-    unsupported_document.diagnostics.errors[0].contains(
-      "unsupported PDF stream filter",
-    ),
+    unsupported_document.diagnostics.errors[0].contains("empty") ||
+    unsupported_document.diagnostics.errors[0].contains("not recoverable"),
   )
 }
 
@@ -580,12 +579,13 @@ test "pdf native parser internal policy stays disabled by default and does not c
 ///|
 fn sample_pdf_ocr_context() -> @parser.ParseContext {
   @parser.parse_context_with_limits(
-    @parser.parse_context_with_pdf_ocr_policy(
+    @parser.parse_context_with_product_modes(
       @parser.parse_context_with_ocr_options(
         @parser.new_parse_context(@input.DetectedFormat::Pdf),
         @parser.explicit_ocr_options(language=Some("eng")),
       ),
-      @parser.PdfOcrPolicy::Explicit,
+      @product.FidelityMode::Accurate,
+      @product.OutputMode::Markdown,
     ),
     Some(@parser.ParserMode::LayoutTwoStage),
     None,
@@ -599,16 +599,13 @@ fn sample_pdf_ocr_context() -> @parser.ParseContext {
 ///|
 fn sample_pdf_accurate_ocr_context() -> @parser.ParseContext {
   @parser.parse_context_with_limits(
-    @parser.parse_context_with_pdf_ocr_policy(
-      @parser.parse_context_with_product_modes(
-        @parser.parse_context_with_ocr_options(
-          @parser.new_parse_context(@input.DetectedFormat::Pdf),
-          @parser.default_ocr_options(),
-        ),
-        @product.FidelityMode::Accurate,
-        @product.OutputMode::Markdown,
+    @parser.parse_context_with_product_modes(
+      @parser.parse_context_with_ocr_options(
+        @parser.new_parse_context(@input.DetectedFormat::Pdf),
+        @parser.default_ocr_options(),
       ),
-      @parser.PdfOcrPolicy::AutoScanned,
+      @product.FidelityMode::Accurate,
+      @product.OutputMode::Markdown,
     ),
     Some(@parser.ParserMode::LayoutTwoStage),
     None,
@@ -681,7 +678,7 @@ fn fake_pdf_ocr_page(language : String?, label : String) -> @focr.OcrPageModel {
 ///|
 fn fake_pdf_ocr_provider(
   expected_language : String?,
-  expected_provider_kind? : @focr.OcrProviderKind = @focr.OcrProviderKind::Tesseract,
+  expected_provider_kind? : @focr.OcrProviderKind = @focr.OcrProviderKind::PaddleOcr,
 ) -> (@focr.OcrProviderRequest) -> Result[
   @focr.OcrProviderResult,
   @focr.OcrProviderError,
@@ -833,7 +830,7 @@ test "pdf OCR route aggregates multi-page scanned samples without native-text fa
 }
 
 ///|
-test "pdf OCR parser requires explicit pdf OCR policy even under accurate fidelity" {
+test "pdf accurate layout parser runs under accurate fidelity without pdf OCR policy gates" {
   let source = @input.input_from_path_with_format(
     "samples/fixtures/contracts/pdf/pdf_ocr_single_page.pdf",
     Some(@input.DetectedFormat::Pdf),
@@ -849,8 +846,7 @@ test "pdf OCR parser requires explicit pdf OCR policy even under accurate fideli
       rasterizer=fake_pdf_rasterizer(1),
     ) {
     Ok(value) => value
-    Err(err) =>
-      fail("expected explicit pdf OCR policy to override accurate gate: " + err)
+    Err(err) => fail("expected accurate pdf layout route to run: " + err)
   }
   assert_true(parsed.mode == @parser.ParserMode::LayoutTwoStage)
   let document = parsed.document.unwrap_or(@core.empty_document_ir())
@@ -873,10 +869,12 @@ test "pdf OCR parser requires explicit pdf OCR policy even under accurate fideli
     document.diagnostics.metrics.get("ocr_provider_kind") == Some("paddle_ocr"),
   )
   assert_true(
-    document.diagnostics.metrics.get("pdf_ocr_policy") == Some("auto_scanned"),
+    document.diagnostics.metrics.get("pdf_ocr_policy") ==
+    Some("accurate_layout_only"),
   )
   assert_true(
-    document.diagnostics.metrics.get("pdf_ocr_trigger") == Some("auto_scanned"),
+    document.diagnostics.metrics.get("pdf_ocr_trigger") ==
+    Some("accurate_layout"),
   )
 }
 

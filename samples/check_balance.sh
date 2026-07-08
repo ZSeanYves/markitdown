@@ -4,8 +4,12 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SAMPLE_IMPL="$ROOT/samples/helpers/validation/check_samples_impl.sh"
 source "$ROOT/samples/helpers/shared/cli_runner.sh"
+source "$ROOT/samples/helpers/shared/regression_common.sh"
 CHECK_TMP_ROOT="${MARKITDOWN_CHECK_TMP_ROOT:-$ROOT/.tmp/check}"
 SUPPORTED_FORMATS=("txt" "csv" "tsv" "srt" "vtt" "json" "jsonl" "ndjson" "ipynb" "xml" "yaml" "toml" "html" "markdown" "eml" "tex" "rst" "asciidoc" "zip" "epub" "odt" "ods" "odp" "docx" "xlsx" "pptx" "pdf" "wav" "mp3" "m4a" "ocr")
+BALANCE_AUDIO_RUNTIME_MODE="${MARKITDOWN_BALANCE_AUDIO_RUNTIME:-mock}"
+BALANCE_AUDIO_MOCK_ACTIVE=0
+BALANCE_AUDIO_RUNTIME_NOTE="environment"
 
 ONLY_MODE=""
 FORMAT_FILTER=""
@@ -15,24 +19,104 @@ if [[ $# -gt 0 ]]; then
   ORIGINAL_ARGS=("$@")
 fi
 
+audio_format_selected() {
+  case "${1-}" in
+    wav|mp3|m4a)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+balance_audio_mock_enabled() {
+  local raw="${BALANCE_AUDIO_RUNTIME_MODE:-mock}"
+  raw="$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]')"
+  case "$raw" in
+    real|0|false|off)
+      return 1
+      ;;
+    *)
+      return 0
+      ;;
+  esac
+}
+
+balance_run_needs_audio_runtime() {
+  if [[ -n "$FORMAT_FILTER" ]]; then
+    audio_format_selected "$FORMAT_FILTER"
+    return $?
+  fi
+  if [[ "$ONLY_MODE" == "assets" || "$ONLY_MODE" == "ocr" ]]; then
+    return 1
+  fi
+  return 0
+}
+
+resolve_balance_audio_mock_python() {
+  if [[ -n "${MARKITDOWN_RUNTIME_PYTHON:-}" && -x "${MARKITDOWN_RUNTIME_PYTHON}" ]]; then
+    printf '%s' "$MARKITDOWN_RUNTIME_PYTHON"
+    return 0
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    command -v python3
+    return 0
+  fi
+  return 1
+}
+
+setup_balance_audio_mock_runtime() {
+  if ! balance_audio_mock_enabled; then
+    BALANCE_AUDIO_RUNTIME_NOTE="environment"
+    return 0
+  fi
+  if ! balance_run_needs_audio_runtime; then
+    BALANCE_AUDIO_RUNTIME_NOTE="not-needed"
+    return 0
+  fi
+
+  local python_cmd ffmpeg_stub quoted_python quoted_ffmpeg quoted_wrapper
+  python_cmd="$(resolve_balance_audio_mock_python)" || {
+    echo "samples/check_balance.sh needs python3 or MARKITDOWN_RUNTIME_PYTHON for the deterministic audio mock backend" >&2
+    return 1
+  }
+  ffmpeg_stub="$CHECK_RUN_DIR/audio-mock/bin/ffmpeg"
+  mkdir -p "$(dirname "$ffmpeg_stub")"
+  printf -v quoted_python '%q' "$python_cmd"
+  printf -v quoted_ffmpeg '%q' "$ROOT/samples/helpers/mock_ffmpeg.py"
+  printf -v quoted_wrapper '%q %q' "$python_cmd" "$ROOT/samples/helpers/mock_vosk_wrapper.py"
+  cat >"$ffmpeg_stub" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+exec $quoted_python $quoted_ffmpeg "\$@"
+EOF
+  chmod +x "$ffmpeg_stub"
+  export PATH="$(dirname "$ffmpeg_stub"):$PATH"
+  export MARKITDOWN_AUDIO_CMD="$quoted_wrapper"
+  BALANCE_AUDIO_MOCK_ACTIVE=1
+  BALANCE_AUDIO_RUNTIME_NOTE="deterministic-mock"
+}
+
 usage() {
   cat <<'EOF'
-Usage: ./samples/check.sh [--markdown|--rag|--assets|--ocr] [--format FMT] [--check-inventory] [--list-inventory]
+Usage: ./samples/check_balance.sh [--markdown|--rag|--assets|--ocr] [--format FMT|--formats FMT] [--check-inventory] [--list-inventory]
 
-Runs external main regression checks from ./markitdown-quality-lab/external_main_process.
+Runs the external main balance regression gate from ./markitdown-quality-lab/external_main_process.
 
 Options:
   --markdown          Run only Markdown expected-output checks.
   --rag               Run only RAG expected-output checks.
   --assets            Run only light-asset expected-output checks.
   --ocr               Run only explicit OCR-lane expected-output checks.
-  --format FMT        Restrict checks to one supported product format: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, eml, tex, rst, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, wav, mp3, m4a, ocr.
+  --format FMT        Restrict checks to one supported balance-gate format: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, eml, tex, rst, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, wav, mp3, m4a, ocr.
+  --formats FMT       Backward-compatible alias of --format for one format.
   --check-inventory   Run sample enrollment/integrity checks without conversion.
   --list-inventory    Print sample inventory counts in TSV form.
   -h, --help          Show this help.
 
 Default:
-  Run markdown, rag, assets, and explicit OCR-lane checks for the external main CLI gate: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, eml, tex, rst, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, wav, mp3, m4a, and ocr.
+  Run markdown, rag, assets, and explicit OCR-lane checks for the external main balance gate: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, eml, tex, rst, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, wav, mp3, m4a, and ocr.
   Unsupported formats fail closed here.
 
 Run artifacts:
@@ -88,31 +172,15 @@ format_is_supported() {
 
 fail_unsupported_format() {
   local format="$1"
-  echo "unsupported format for the main CLI gate in this build: $format" >&2
+  echo "unsupported format for the balance CLI gate in this build: $format" >&2
   echo "supported gate formats: $(supported_formats_display)" >&2
   echo "unsupported formats fail closed; no alternate product route is available here" >&2
   exit 1
 }
 
-display_path() {
-  local path="$1"
-  if [[ "$path" == "$ROOT" ]]; then
-    printf '.'
-  elif [[ "$path" == "$ROOT/"* ]]; then
-    printf '%s' "${path#$ROOT/}"
-  else
-    printf '%s' "$path"
-  fi
-}
-
 command_text() {
-  printf './samples/check.sh'
-  local arg
-  if ((${#ORIGINAL_ARGS[@]} > 0)); then
-    for arg in "${ORIGINAL_ARGS[@]}"; do
-      printf ' %q' "$arg"
-    done
-  fi
+  printf './samples/check_balance.sh'
+  append_command_args "${ORIGINAL_ARGS[@]}"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -129,10 +197,10 @@ while [[ $# -gt 0 ]]; do
     --ocr)
       set_only_mode "ocr"
       ;;
-    --format)
+    --format|--formats)
       shift
       if [[ $# -eq 0 || "${1:-}" == --* ]]; then
-        fail_usage "--format requires a value"
+        fail_usage "$1 requires a value"
       fi
       FORMAT_FILTER="$1"
       ;;
@@ -178,7 +246,7 @@ if [[ "$SPECIAL_MODE" == "list-inventory" ]]; then
 fi
 
 resolve_markitdown_cli
-if [[ "${CLI_RUNNER_KIND:-}" == "prebuilt-native" || "${CLI_RUNNER_KIND:-}" == "override" ]]; then
+if [[ "${CLI_RUNNER_KIND:-}" == "prebuilt" || "${CLI_RUNNER_KIND:-}" == "override" ]]; then
   SHARED_CLI_BIN="$CLI_BIN"
 fi
 
@@ -209,6 +277,8 @@ CHECKS_TOTAL=0
 FAILED_TOTAL=0
 SKIPPED_TOTAL=0
 
+setup_balance_audio_mock_runtime
+
 mode_display() {
   local mode="$1"
   printf '%s' "$mode"
@@ -225,28 +295,23 @@ format_display() {
 update_runner_label() {
   local candidate="$1"
   case "$candidate" in
-    built)
-      RUNNER_LABEL="built"
+    override)
+      RUNNER_LABEL="override"
       ;;
     prebuilt)
-      if [[ "$RUNNER_LABEL" != "built" ]]; then
-        RUNNER_LABEL="prebuilt"
-      fi
-      ;;
-    moon-run)
       if [[ "$RUNNER_LABEL" == "none" ]]; then
-        RUNNER_LABEL="moon-run"
+        RUNNER_LABEL="prebuilt"
       fi
       ;;
   esac
 }
 
-runner_from_log() {
+runner_from_log_balance() {
   local log_path="$1"
-  if grep -q "runner: prebuilt-native\\|runner: override" "$log_path" 2>/dev/null; then
+  if grep -q "runner: override" "$log_path" 2>/dev/null; then
+    printf 'override'
+  elif grep -q "runner: prebuilt" "$log_path" 2>/dev/null; then
     printf 'prebuilt'
-  elif grep -q "runner: moon-run" "$log_path" 2>/dev/null; then
-    printf 'moon-run'
   else
     printf 'none'
   fi
@@ -298,7 +363,8 @@ run_impl() {
   {
     echo "mode: $mode_short"
     echo "format: $fmt"
-    echo "log: $(display_path "$log_path")"
+    echo "audio-runtime: $BALANCE_AUDIO_RUNTIME_NOTE"
+    echo "log: $(display_path "$ROOT" "$log_path")"
   } >> "$ENTRYPOINT_LOG"
 
   local -a env_args=(
@@ -310,7 +376,7 @@ run_impl() {
     SAMPLES_KEEP_TMP=1
     MARKITDOWN_PROGRESS_FD=3
   )
-  if [[ -n "$SHARED_CLI_BIN" ]]; then
+  if [[ -n "${SHARED_CLI_BIN:-}" ]]; then
     env_args+=(MARKITDOWN_CLI="$SHARED_CLI_BIN")
   fi
 
@@ -320,7 +386,7 @@ run_impl() {
   set -e
 
   local runner checks failures line_status notes
-  runner="$(runner_from_log "$log_path")"
+  runner="$(runner_from_log_balance "$log_path")"
   update_runner_label "$runner"
   checks="$(checks_from_log "$log_path")"
   failures="$(failures_from_log "$log_path")"
@@ -337,7 +403,7 @@ run_impl() {
     notes="lane=$mode_short checks=$checks failures=$failures"
   fi
 
-  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$mode_short" "$fmt" "$line_status" "$runner" "$checks" "$failures" "$(display_path "$log_path")" "$notes" >> "$SUMMARY_PATH"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$mode_short" "$fmt" "$line_status" "$runner" "$checks" "$failures" "$(display_path "$ROOT" "$log_path")" "$notes" >> "$SUMMARY_PATH"
   cat "$log_path" >> "$ENTRYPOINT_LOG"
   return "$status"
 }
@@ -362,14 +428,14 @@ write_failures_index() {
     echo "# Failure Index"
     echo
     echo "- Failure reports: $report_count"
-    echo "- Diff directory: $(display_path "$DIFF_DIR")"
-    echo "- Failure raw artifacts: $(display_path "$RAW_DIR/failures")"
+    echo "- Diff directory: $(display_path "$ROOT" "$DIFF_DIR")"
+    echo "- Failure raw artifacts: $(display_path "$ROOT" "$RAW_DIR/failures")"
     echo
     local report
     for report in $(find "$FAILURE_REPORTS_DIR" -maxdepth 1 -type f -name '*.md' | sort); do
       local name
       name="$(basename "$report" .md)"
-      echo "- [$name]($(display_path "$report"))"
+      echo "- [$name]($(display_path "$ROOT" "$report"))"
     done
   } > "$index_path"
 }
@@ -391,7 +457,7 @@ write_summary_md() {
     echo
     echo "Status: $result_word"
     echo "Command: $(command_text)"
-    echo "Run directory: $(display_path "$CHECK_RUN_DIR")"
+    echo "Run directory: $(display_path "$ROOT" "$CHECK_RUN_DIR")"
     echo "Runner: $RUNNER_LABEL"
     echo "Started: $STARTED_AT"
     echo "Finished: $finished_at"
@@ -399,7 +465,7 @@ write_summary_md() {
     echo
     echo "## What was checked"
     echo
-    echo "External main manifest lane checks for the main CLI gate: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, eml, tex, rst, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, and ocr."
+    echo "External main manifest lane checks for the balance CLI gate: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, eml, tex, rst, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, wav, mp3, m4a, and ocr."
     echo "Lanes: $lanes"
     echo "Formats outside the current gate fail closed and are not part of this check."
     echo
@@ -410,18 +476,23 @@ write_summary_md() {
     echo "- Checked: $CHECKS_TOTAL"
     echo "- Skipped: $SKIPPED_TOTAL"
     echo "- Failed: $FAILED_TOTAL"
+    if [[ "$BALANCE_AUDIO_MOCK_ACTIVE" -eq 1 ]]; then
+      echo "- Audio runtime: deterministic mock (\`samples/helpers/mock_vosk_wrapper.py\` with repo-local mock \`ffmpeg\`)"
+    else
+      echo "- Audio runtime: $BALANCE_AUDIO_RUNTIME_NOTE"
+    fi
     echo
     echo "## Where to look next"
     echo
-    echo "- Full log: $(display_path "$ENTRYPOINT_LOG")"
-    echo "- Workspace scratch: $(display_path "$WORKSPACE_DIR")"
+    echo "- Full log: $(display_path "$ROOT" "$ENTRYPOINT_LOG")"
+    echo "- Workspace scratch: $(display_path "$ROOT" "$WORKSPACE_DIR")"
     if [[ "$failure_report_count" == "0" ]]; then
       echo "- Failure artifacts: none"
     else
-      echo "- Failure index: $(display_path "$REPORTS_DIR/failures.md")"
-      echo "- Failed diffs: $(display_path "$DIFF_DIR")"
-      echo "- Failed raw output: $(display_path "$RAW_DIR/failures")"
-      echo "- Failed reports: $(display_path "$FAILURE_REPORTS_DIR")"
+      echo "- Failure index: $(display_path "$ROOT" "$REPORTS_DIR/failures.md")"
+      echo "- Failed diffs: $(display_path "$ROOT" "$DIFF_DIR")"
+      echo "- Failed raw output: $(display_path "$ROOT" "$RAW_DIR/failures")"
+      echo "- Failed reports: $(display_path "$ROOT" "$FAILURE_REPORTS_DIR")"
     fi
   } > "$SUMMARY_MD_PATH"
 }
@@ -430,15 +501,11 @@ print_result() {
   local status="$1"
   local result_label="pass"
   [[ "$status" -eq 0 ]] || result_label="fail"
-  local format_status="$result_label"
-  if [[ "$status" -eq 0 && "$CHECKS_TOTAL" -eq 0 && "$SKIPPED_TOTAL" -gt 0 ]]; then
-    format_status="skip"
-  fi
-  echo "check: format=$(format_display) mode=$([[ -n "$ONLY_MODE" ]] && mode_display "$ONLY_MODE" || printf 'all') runner=$RUNNER_LABEL"
-  echo "run: $(display_path "$CHECK_RUN_DIR")"
+  echo "balance-gate: format=$(format_display) mode=$([[ -n "$ONLY_MODE" ]] && mode_display "$ONLY_MODE" || printf 'all') runner=$RUNNER_LABEL"
+  echo "run: $(display_path "$ROOT" "$CHECK_RUN_DIR")"
   echo "result: $result_label  formats=$(format_display) rows=$CHECKS_TOTAL checked=$CHECKS_TOTAL skipped=$SKIPPED_TOTAL failed=$FAILED_TOTAL"
-  echo "summary: $(display_path "$SUMMARY_MD_PATH")"
-  echo "details: $(display_path "$CHECK_RUN_DIR")"
+  echo "summary: $(display_path "$ROOT" "$SUMMARY_MD_PATH")"
+  echo "details: $(display_path "$ROOT" "$CHECK_RUN_DIR")"
 }
 
 overall_status=0

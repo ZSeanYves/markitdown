@@ -72,7 +72,6 @@ fn cli_default_ocr_options(
 fn cli_effective_ocr_options(
   input_path : String,
   explicit_format : @input.DetectedFormat?,
-  pdf_ocr_policy : @convert.PdfOcrPolicy,
   fidelity_mode : @convert.FidelityMode,
   ocr_enabled : Bool,
   ocr_disabled : Bool,
@@ -91,10 +90,7 @@ fn cli_effective_ocr_options(
     return @parser.explicit_ocr_options(language=ocr_language)
   }
   if requested_format == @input.DetectedFormat::Pdf &&
-    (
-      pdf_ocr_policy != @convert.PdfOcrPolicy::Disabled ||
-      fidelity_mode == @convert.FidelityMode::Accurate
-    ) {
+    fidelity_mode == @convert.FidelityMode::Accurate {
     return @parser.explicit_ocr_options(language=ocr_language)
   }
   match cli_default_ocr_options(input_path, explicit_format).intent {
@@ -103,36 +99,6 @@ fn cli_effective_ocr_options(
     @parser.OcrIntent::Disabled => @parser.disabled_ocr_options()
     @parser.OcrIntent::Auto => @parser.default_ocr_options()
   }
-}
-
-///|
-fn cli_effective_pdf_ocr_policy(
-  input_path : String,
-  explicit_format : @input.DetectedFormat?,
-  ocr_enabled : Bool,
-  ocr_disabled : Bool,
-  fidelity_mode : @convert.FidelityMode,
-  pdf_ocr_policy : @convert.PdfOcrPolicy,
-) -> @convert.PdfOcrPolicy {
-  let requested_format = cli_requested_format_from_input(
-    input_path, explicit_format,
-  )
-  if requested_format != @input.DetectedFormat::Pdf {
-    return @convert.default_pdf_ocr_policy()
-  }
-  if ocr_disabled {
-    return @convert.PdfOcrPolicy::Disabled
-  }
-  if pdf_ocr_policy != @convert.PdfOcrPolicy::Disabled {
-    return pdf_ocr_policy
-  }
-  if fidelity_mode == @convert.FidelityMode::Accurate {
-    return @convert.PdfOcrPolicy::AutoScanned
-  }
-  if ocr_enabled {
-    return @convert.PdfOcrPolicy::Explicit
-  }
-  @convert.PdfOcrPolicy::Disabled
 }
 
 ///|
@@ -167,8 +133,56 @@ fn first_user_cli_arg(raw_cli_args : Array[String]) -> String? {
 }
 
 ///|
-fn is_convert_subcommand(name : String) -> Bool {
-  name == "convert" || name == "normal"
+fn cli_mode_from_name(name : String) -> @convert.ConvertMode? {
+  match name {
+    "balance" => Some(@convert.ConvertMode::Balanced)
+    "accurate" => Some(@convert.ConvertMode::Accurate)
+    "stream" => Some(@convert.ConvertMode::Stream)
+    _ => None
+  }
+}
+
+///|
+fn is_cli_mode_word(name : String) -> Bool {
+  cli_mode_from_name(name) is Some(_)
+}
+
+///|
+fn cli_mode_stream_requested(mode : @convert.ConvertMode) -> Bool {
+  mode == @convert.ConvertMode::Stream
+}
+
+///|
+fn cli_mode_fidelity_mode(mode : @convert.ConvertMode) -> @convert.FidelityMode {
+  match mode {
+    @convert.ConvertMode::Accurate => @convert.FidelityMode::Accurate
+    _ => @convert.FidelityMode::Balanced
+  }
+}
+
+///|
+fn removed_cli_subcommand_message(name : String) -> String {
+  "subcommand `" + name + "` was removed; use `balance` or omit the mode"
+}
+
+///|
+fn removed_batch_mode_message(name : String) -> String {
+  "mode `" +
+  name +
+  "` was removed after `batch`; use `batch balance` or omit the mode"
+}
+
+///|
+fn removed_cli_flag_message(name : String) -> String {
+  match name {
+    "--accurate" => "`--accurate` was removed; use the `accurate` mode"
+    "--stream" => "`--stream` was removed; use the `stream` mode"
+    "--pdf-ocr" =>
+      "`--pdf-ocr` was removed from the main CLI; PDF OCR is only available through the `accurate` PDF layout route"
+    "--pdf-cleanup" => "`--pdf-cleanup` was removed from the main CLI"
+    "--pdf-tables" => "`--pdf-tables` was removed from the main CLI"
+    _ => "unsupported option: " + name
+  }
 }
 
 ///|
@@ -222,6 +236,7 @@ fn parse_cli_options(args : Array[String]) -> Result[CliOptions, String] {
 fn parse_cli_options_from_index(
   args : Array[String],
   start_index : Int,
+  mode? : @convert.ConvertMode = @convert.ConvertMode::Balanced,
   allow_batch_audio_language_without_explicit_format? : Bool = false,
 ) -> Result[CliOptions, String] {
   let positionals : Array[String] = []
@@ -231,13 +246,10 @@ fn parse_cli_options_from_index(
   let mut ocr_disabled = false
   let mut ocr_language : String? = None
   let mut audio_language : String? = None
-  let mut pdf_ocr_raw : String? = None
-  let mut pdf_cleanup_raw : String? = None
-  let mut pdf_tables_raw : String? = None
-  let mut fidelity_mode = @convert.FidelityMode::Balanced
-  let mut convert_mode = @convert.ConvertMode::Balanced
+  let fidelity_mode = cli_mode_fidelity_mode(mode)
+  let convert_mode = mode
   let mut output_mode = @convert.OutputMode::Markdown
-  let mut stream_requested = false
+  let stream_requested = cli_mode_stream_requested(mode)
   let mut output_format = @convert.OutputFormat::Markdown
   let mut i = start_index
 
@@ -259,36 +271,25 @@ fn parse_cli_options_from_index(
       i += 2
       continue
     }
-    if arg == "--accurate" {
-      if stream_requested {
-        return Err("cannot combine --stream and --accurate")
-      }
-      fidelity_mode = @convert.FidelityMode::Accurate
-      convert_mode = @convert.derived_convert_mode(
-        fidelity_mode, stream_requested,
-      )
-      i += 1
-      continue
+    if arg == "--accurate" || arg == "--stream" {
+      return Err(removed_cli_flag_message(arg))
     }
-    if arg == "--stream" {
-      if fidelity_mode == @convert.FidelityMode::Accurate {
-        return Err("cannot combine --stream and --accurate")
-      }
-      stream_requested = true
-      convert_mode = @convert.derived_convert_mode(
-        fidelity_mode, stream_requested,
+    if arg == "--pdf-ocr" || arg == "--pdf-cleanup" || arg == "--pdf-tables" {
+      return Err(removed_cli_flag_message(arg))
+    }
+    if is_cli_mode_word(arg.to_lower()) {
+      return Err(
+        "mode `" + arg + "` must appear before options and input paths",
       )
-      i += 1
-      continue
+    }
+    if arg == "convert" || arg == "normal" {
+      return Err(removed_cli_subcommand_message(arg))
     }
     if arg == "--debug" {
       if output_mode == @convert.OutputMode::Rag {
         return Err("cannot combine --debug and --rag")
       }
       output_mode = @convert.OutputMode::Debug
-      convert_mode = @convert.derived_convert_mode(
-        fidelity_mode, stream_requested,
-      )
       output_format = @convert.OutputFormat::DebugJson
       i += 1
       continue
@@ -298,9 +299,6 @@ fn parse_cli_options_from_index(
         return Err("cannot combine --debug and --rag")
       }
       output_mode = @convert.OutputMode::Rag
-      convert_mode = @convert.derived_convert_mode(
-        fidelity_mode, stream_requested,
-      )
       output_format = @convert.OutputFormat::RagJson
       i += 1
       continue
@@ -339,42 +337,6 @@ fn parse_cli_options_from_index(
       i += 2
       continue
     }
-    if arg == "--pdf-ocr" {
-      if i + 1 >= args.length() {
-        return Err("missing value for --pdf-ocr")
-      }
-      let value = args[i + 1].trim().to_owned().to_lower()
-      if value == "" || value.has_prefix("-") {
-        return Err("missing value for --pdf-ocr")
-      }
-      pdf_ocr_raw = Some(value)
-      i += 2
-      continue
-    }
-    if arg == "--pdf-cleanup" {
-      if i + 1 >= args.length() {
-        return Err("missing value for --pdf-cleanup")
-      }
-      let value = args[i + 1].trim().to_owned().to_lower()
-      if value == "" || value.has_prefix("-") {
-        return Err("missing value for --pdf-cleanup")
-      }
-      pdf_cleanup_raw = Some(value)
-      i += 2
-      continue
-    }
-    if arg == "--pdf-tables" {
-      if i + 1 >= args.length() {
-        return Err("missing value for --pdf-tables")
-      }
-      let value = args[i + 1].trim().to_owned().to_lower()
-      if value == "" || value.has_prefix("-") {
-        return Err("missing value for --pdf-tables")
-      }
-      pdf_tables_raw = Some(value)
-      i += 2
-      continue
-    }
     if arg == "--provenance-out" {
       if i + 1 >= args.length() {
         return Err("missing value for --provenance-out")
@@ -402,7 +364,7 @@ fn parse_cli_options_from_index(
   }
   if positionals.length() < 1 || positionals.length() > 2 {
     return Err(
-      "usage: [convert|normal] [--format txt|csv|tsv|srt|vtt|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|eml|msg|tex|latex|rst|adoc|asciidoc|zip|epub|odt|ods|odp|docx|xlsx|pptx|pdf|wav|mp3|m4a|png|jpg|jpeg|bmp|webp|tif|tiff] [--accurate] [--stream] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--audio-lang <LANG>] [--pdf-ocr explicit|auto-scanned] [--pdf-cleanup none|conservative] [--pdf-tables none|simple] [--provenance-out <path>] <input> [output]",
+      "usage: [balance|accurate|stream] [--format txt|csv|tsv|srt|vtt|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|eml|msg|tex|latex|rst|adoc|asciidoc|zip|epub|odt|ods|odp|docx|xlsx|pptx|pdf|wav|mp3|m4a|png|jpg|jpeg|bmp|webp|tif|tiff] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--audio-lang <LANG>] [--provenance-out <path>] <input> [output]",
     )
   }
   let effective_positionals = positionals
@@ -414,18 +376,13 @@ fn parse_cli_options_from_index(
     effective_positionals[0],
     explicit_format,
   )
-  let parsed_pdf_ocr_policy = match parse_pdf_ocr_policy(pdf_ocr_raw) {
-    Ok(value) => value
-    Err(msg) => return Err(msg)
+  if requested_format == @input.DetectedFormat::Pdf &&
+    ocr_enabled &&
+    fidelity_mode != @convert.FidelityMode::Accurate {
+    return Err(
+      "PDF OCR is only available through the `accurate` PDF layout route; `--ocr` continues to work for direct image input",
+    )
   }
-  let effective_pdf_ocr_policy = cli_effective_pdf_ocr_policy(
-    effective_positionals[0],
-    explicit_format,
-    ocr_enabled,
-    ocr_disabled,
-    fidelity_mode,
-    parsed_pdf_ocr_policy,
-  )
   if ocr_language is Some(_) && cli_requested_format_is_audio(requested_format) {
     return Err("--ocr-lang cannot be used with audio input; use --audio-lang")
   }
@@ -433,9 +390,9 @@ fn parse_cli_options_from_index(
     !ocr_enabled &&
     !@input.detected_format_is_image_candidate(requested_format) &&
     !(requested_format == @input.DetectedFormat::Pdf &&
-    effective_pdf_ocr_policy != @convert.PdfOcrPolicy::Disabled) {
+    fidelity_mode == @convert.FidelityMode::Accurate) {
     return Err(
-      "--ocr-lang requires --ocr, direct image input, or PDF OCR via `--ocr` / `--pdf-ocr`",
+      "--ocr-lang requires --ocr, direct image input, or the `accurate` PDF layout route",
     )
   }
   if audio_language is Some(_) &&
@@ -447,21 +404,12 @@ fn parse_cli_options_from_index(
   let ocr_options = cli_effective_ocr_options(
     effective_positionals[0],
     explicit_format,
-    effective_pdf_ocr_policy,
     fidelity_mode,
     ocr_enabled,
     ocr_disabled,
     ocr_language,
   )
   let audio_options = @parser.explicit_audio_options(language=audio_language)
-  let pdf_cleanup_mode = match parse_pdf_cleanup_mode(pdf_cleanup_raw) {
-    Ok(value) => value
-    Err(msg) => return Err(msg)
-  }
-  let pdf_table_mode = match parse_pdf_table_mode(pdf_tables_raw) {
-    Ok(value) => value
-    Err(msg) => return Err(msg)
-  }
   let output = if effective_positionals.length() >= 2 {
     Some(effective_positionals[1])
   } else {
@@ -474,73 +422,15 @@ fn parse_cli_options_from_index(
       provenance_output,
       explicit_format,
       ocr_options,
-      effective_pdf_ocr_policy,
       fidelity_mode,
       convert_mode,
       output_mode,
       stream_requested,
       output_format,
-      pdf_cleanup_mode~,
-      pdf_table_mode~,
+      pdf_cleanup_mode=@convert.default_pdf_cleanup_mode(),
+      pdf_table_mode=@convert.default_pdf_table_mode(),
       rag_options=@rag.default_rag_options(),
       audio_options~,
     ),
   )
-}
-
-///|
-fn parse_pdf_ocr_policy(raw : String?) -> Result[@convert.PdfOcrPolicy, String] {
-  match raw {
-    None => Ok(@convert.default_pdf_ocr_policy())
-    Some(value) =>
-      if value == "explicit" {
-        Ok(@convert.PdfOcrPolicy::Explicit)
-      } else if value == "auto-scanned" {
-        Ok(@convert.PdfOcrPolicy::AutoScanned)
-      } else {
-        Err(
-          "unsupported --pdf-ocr value: " +
-          value +
-          " (expected explicit|auto-scanned)",
-        )
-      }
-  }
-}
-
-///|
-fn parse_pdf_cleanup_mode(
-  raw : String?,
-) -> Result[@convert.PdfCleanupMode, String] {
-  match raw {
-    None => Ok(@convert.default_pdf_cleanup_mode())
-    Some(value) =>
-      if value == "none" {
-        Ok(@convert.PdfCleanupMode::Disabled)
-      } else if value == "conservative" {
-        Ok(@convert.PdfCleanupMode::Conservative)
-      } else {
-        Err(
-          "unsupported --pdf-cleanup value: " +
-          value +
-          " (expected none|conservative)",
-        )
-      }
-  }
-}
-
-///|
-fn parse_pdf_table_mode(raw : String?) -> Result[@convert.PdfTableMode, String] {
-  match raw {
-    None => Ok(@convert.default_pdf_table_mode())
-    Some(value) =>
-      if value == "none" {
-        Ok(@convert.PdfTableMode::Disabled)
-      } else if value == "simple" {
-        Ok(@convert.PdfTableMode::Simple)
-      } else {
-        Err(
-          "unsupported --pdf-tables value: " + value + " (expected none|simple)",
-        )
-      }
-  }
 }

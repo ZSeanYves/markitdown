@@ -5,7 +5,6 @@ import {
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/string",
   "moonbitlang/x/fs",
-  "tonyfettes/encoding",
   "ZSeanYves/markitdown/format_readers/pdf" @dpdfnative,
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/formats/shared" @fshared,

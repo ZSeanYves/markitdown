@@ -214,7 +214,6 @@ pub struct OcrProviderResult {
 pub(all) enum OcrProviderSelectionTarget {
   DirectImageBalanced
   DirectImageAccurate
-  PdfBalanced
   PdfAccurate
 } derive(Eq)
 

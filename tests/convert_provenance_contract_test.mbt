@@ -233,12 +233,12 @@ test "convert provenance reports zip container route" {
     @convert.output_mode_name(execution.provenance.output_mode),
     "markdown",
   )
-  assert_eq(
-    execution.result.diagnostics.metrics.get("probe_artifact_reused"),
+  assert_true(
+    execution.result.diagnostics.metrics.get("probe_artifact_reused") ==
     Some("true"),
   )
-  assert_eq(
-    execution.result.diagnostics.metrics.get("process_cache_hit"),
+  assert_true(
+    execution.result.diagnostics.metrics.get("process_cache_hit") ==
     Some("false"),
   )
 }
@@ -473,12 +473,12 @@ test "convert provenance reports epub explicit stream container route fidelity" 
   assert_eq(execution.provenance.pipeline_output_kind, "block_stream")
   assert_eq(execution.provenance.render_input_kind, "block_stream")
   assert_eq(execution.provenance.route_fidelity_status, "matched")
-  assert_eq(
-    execution.result.diagnostics.metrics.get("probe_artifact_reused"),
+  assert_true(
+    execution.result.diagnostics.metrics.get("probe_artifact_reused") ==
     Some("true"),
   )
-  assert_eq(
-    execution.result.diagnostics.metrics.get("process_cache_hit"),
+  assert_true(
+    execution.result.diagnostics.metrics.get("process_cache_hit") ==
     Some("false"),
   )
 }
@@ -499,12 +499,12 @@ test "convert provenance reports pdf native artifact reuse without process cache
   assert_eq(execution.provenance.pipeline_output_kind, "document")
   assert_eq(execution.provenance.render_input_kind, "document")
   assert_eq(execution.provenance.route_fidelity_status, "matched")
-  assert_eq(
-    execution.result.diagnostics.metrics.get("probe_artifact_reused"),
+  assert_true(
+    execution.result.diagnostics.metrics.get("probe_artifact_reused") ==
     Some("true"),
   )
-  assert_eq(
-    execution.result.diagnostics.metrics.get("process_cache_hit"),
+  assert_true(
+    execution.result.diagnostics.metrics.get("process_cache_hit") ==
     Some("false"),
   )
 }
@@ -779,7 +779,7 @@ test "route planner keeps unsupported accurate fallback honest for audio" {
 }
 
 ///|
-test "route planner keeps pdf accurate and explicit ocr routes stable" {
+test "route planner keeps pdf balanced native and accurate layout routes stable" {
   let source = @input.input_from_path(
     "samples/fixtures/contracts/pdf/text_simple.pdf",
   )
@@ -794,46 +794,42 @@ test "route planner keeps pdf accurate and explicit ocr routes stable" {
     Ok(value) => value
     Err(err) => fail("expected pdf accurate route plan: " + err.to_string())
   }
-  assert_eq(accurate_plan.selected_route, "page_single_pass")
-  assert_eq(accurate_plan.route_reason, "pdf_canonical_page_single_pass")
+  assert_eq(accurate_plan.selected_route, "layout_two_stage")
+  assert_eq(accurate_plan.route_reason, "pdf_accurate_layout_two_stage")
   assert_true(
     accurate_plan.requested_parser_mode.map(mode => @parser.mode_name(mode)) ==
-    Some("page_single_pass"),
-  )
-  assert_true(accurate_plan.ocr_provider_selection_target == None)
-  assert_true(accurate_plan.ocr_provider_requested_kind == None)
-  assert_true(accurate_plan.ocr_provider_resolved_kind == None)
-
-  let explicit_ocr_options = @convert.make_convert_options(
-    @convert.ConvertMode::Balanced,
-    @convert.OutputFormat::Markdown,
-    Some(@input.DetectedFormat::Pdf),
-    @parser.explicit_ocr_options(),
-    @convert.default_resource_limits(),
-    pdf_ocr_policy=@convert.PdfOcrPolicy::Explicit,
-  )
-  let explicit_ocr_plan = match
-    @convert.plan_input(source, explicit_ocr_options) {
-    Ok(value) => value
-    Err(err) => fail("expected pdf explicit ocr route plan: " + err.to_string())
-  }
-  assert_eq(explicit_ocr_plan.selected_route, "layout_two_stage")
-  assert_eq(explicit_ocr_plan.route_reason, "pdf_explicit_ocr_layout_two_stage")
-  assert_true(
-    explicit_ocr_plan.requested_parser_mode.map(mode => @parser.mode_name(mode)) ==
     Some("layout_two_stage"),
   )
   assert_true(
-    explicit_ocr_plan.ocr_provider_selection_target == Some("pdf_balanced"),
+    accurate_plan.ocr_provider_selection_target == Some("pdf_accurate"),
   )
+  assert_true(accurate_plan.ocr_provider_requested_kind == Some("paddle_ocr"))
+  assert_true(accurate_plan.ocr_provider_resolved_kind == Some("paddle_ocr"))
+
+  let balanced_options = @convert.make_convert_options(
+    @convert.ConvertMode::Balanced,
+    @convert.OutputFormat::Markdown,
+    Some(@input.DetectedFormat::Pdf),
+    @parser.default_ocr_options(),
+    @convert.default_resource_limits(),
+  )
+  let balanced_plan = match @convert.plan_input(source, balanced_options) {
+    Ok(value) => value
+    Err(err) => fail("expected pdf balanced route plan: " + err.to_string())
+  }
+  assert_eq(balanced_plan.selected_route, "page_single_pass")
+  assert_eq(balanced_plan.route_reason, "pdf_canonical_page_single_pass")
   assert_true(
-    explicit_ocr_plan.ocr_provider_requested_kind == Some("tesseract"),
+    balanced_plan.requested_parser_mode.map(mode => @parser.mode_name(mode)) ==
+    Some("page_single_pass"),
   )
-  assert_true(explicit_ocr_plan.ocr_provider_resolved_kind == Some("tesseract"))
+  assert_true(balanced_plan.ocr_provider_selection_target == None)
+  assert_true(balanced_plan.ocr_provider_requested_kind == None)
+  assert_true(balanced_plan.ocr_provider_resolved_kind == None)
 }
 
 ///|
-test "convert provenance falls back from pdf accurate OCR dependency failure to balanced OCR provider" {
+test "convert provenance fails closed when pdf accurate OCR dependency is unavailable" {
   let source = @input.input_from_path(
     "samples/fixtures/contracts/pdf/pdf_ocr_single_page.pdf",
   )
@@ -844,53 +840,31 @@ test "convert provenance falls back from pdf accurate OCR dependency failure to 
     @parser.explicit_ocr_options(language=Some("eng")),
     @convert.default_resource_limits(),
     fidelity_mode=@convert.FidelityMode::Accurate,
-    pdf_ocr_policy=@convert.PdfOcrPolicy::Explicit,
   )
   let provider = fn(request : @focr.OcrProviderRequest) {
-    if request.provider_kind == @focr.OcrProviderKind::PaddleOcr {
-      Err(
-        @focr.OcrProviderError::NotConfigured(
-          @focr.paddle_ocr_not_configured_message(),
-        ),
-      )
-    } else {
-      let tsv = [
-        "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext",
-        "5\t1\t1\t1\t1\t1\t10\t10\t20\t10\t95\tPDF", "5\t1\t1\t1\t1\t2\t35\t10\t20\t10\t94\tOCR",
-      ].join("\n")
-      match @focr.parse_tesseract_tsv(tsv, language=request.language) {
-        Ok(value) => Ok(value)
-        Err(err) =>
-          abort(
-            "expected injected fallback OCR TSV parse success: " +
-            err.to_string(),
-          )
-      }
-    }
+    ignore(request)
+    Err(
+      @focr.OcrProviderError::NotConfigured(
+        @focr.paddle_ocr_not_configured_message(),
+      ),
+    )
   }
-  let execution = convert_with_provenance_and_image_ocr_provider_and_pdf_rasterizer(
-    source,
-    options,
-    provider,
-    fake_contract_pdf_rasterizer(1),
-  )
-  assert_true(
-    execution.provenance.ocr_provider_selection_target == Some("pdf_accurate"),
-  )
-  assert_true(
-    execution.provenance.ocr_provider_requested_kind == Some("paddle_ocr"),
-  )
-  assert_true(
-    execution.provenance.ocr_provider_resolved_kind == Some("paddle_ocr"),
-  )
-  assert_true(execution.result.content.contains("PDF OCR"))
-  assert_true(
-    execution.result.diagnostics.warnings.any(fn(item) {
-      item.contains("pdf_ocr_provider_fallback:index=1") &&
-      item.contains("from=paddle_ocr") &&
-      item.contains("to=tesseract")
-    }),
-  )
+  match
+    @convert.convert_input_with_provenance_and_image_ocr_provider_and_pdf_rasterizer(
+      source,
+      options,
+      provider,
+      fake_contract_pdf_rasterizer(1),
+    ) {
+    Err(@convert.ConvertError::ParseFailed(msg)) =>
+      assert_true(
+        msg.contains("Missing dependency: PaddleOCR wrapper") ||
+        msg.contains("MARKITDOWN_PADDLE_OCR_CMD"),
+      )
+    Err(other) =>
+      fail("expected pdf accurate dependency failure: " + other.to_string())
+    Ok(_) => fail("expected pdf accurate OCR to fail closed without Paddle")
+  }
 }
 
 ///|

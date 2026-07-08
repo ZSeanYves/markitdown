@@ -72,10 +72,11 @@ MISSING_LOG="$OUT_DIR/missing.log"
   MARKITDOWN_TMP_DIR="$ROOT/.tmp/tests/check" \
   MARKITDOWN_CLI="$ROOT/_build/native/debug/build/cli/cli.exe" \
   MARKITDOWN_QUALITY_LAB="$LAB_ROOT" \
-  ./samples/check.sh --format txt
+  ./samples/check_balance.sh --format txt
 ) >"$RUN_LOG" 2>&1
 
 assert_contains "$RUN_LOG" "result: pass"
+assert_contains "$RUN_LOG" "balance-gate:"
 assert_contains "$RUN_LOG" "formats=txt"
 
 RUN_DIR="$(sed -n 's/^run: //p' "$RUN_LOG" | tail -1)"
@@ -93,10 +94,10 @@ ASSETS_LOG="$ROOT/$RUN_DIR/logs/assets.entrypoint.log"
 [[ -f "$RAG_LOG" ]] || fail "missing rag entrypoint log"
 [[ -f "$ASSETS_LOG" ]] || fail "missing assets entrypoint log"
 
-assert_contains "$SUMMARY_TSV" $'markdown\ttxt\tpass\tprebuilt\t1\t0\t'
-assert_contains "$SUMMARY_TSV" $'rag\ttxt\tpass\tprebuilt\t1\t0\t'
-assert_contains "$SUMMARY_TSV" $'assets\ttxt\tpass\tprebuilt\t0\t0\t'
-assert_contains "$SUMMARY_MD" "Runner: prebuilt"
+assert_contains "$SUMMARY_TSV" $'markdown\ttxt\tpass\toverride\t1\t0\t'
+assert_contains "$SUMMARY_TSV" $'rag\ttxt\tpass\toverride\t1\t0\t'
+assert_contains "$SUMMARY_TSV" $'assets\ttxt\tpass\toverride\t0\t0\t'
+assert_contains "$SUMMARY_MD" "Runner: override"
 assert_contains "$SUMMARY_MD" "Lanes: markdown, rag, assets"
 assert_contains "$SUMMARY_MD" "- Formats: txt"
 assert_contains "$SUMMARY_MD" "- Failed: 0"
@@ -114,7 +115,7 @@ cat >"$WRAPPER" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
 REAL="$ROOT/_build/native/debug/build/cli/cli.exe"
-if [[ "\${1-}" == "normal" && "\${2-}" == *"txt_plain.txt" ]]; then
+if [[ "\${1-}" == "balance" && "\${2-}" == *"txt_plain.txt" ]]; then
   out_path="\${3-}"
   mkdir -p "\$(dirname "\$out_path")"
   printf '# forced diff mismatch\n' >"\$out_path"
@@ -132,11 +133,11 @@ set +e
   MARKITDOWN_CLI="$WRAPPER" \
   MARKITDOWN_QUALITY_LAB="$LAB_ROOT" \
   CHECK_RUN_ID="$DIFF_RUN_DIR_REL" \
-  ./samples/check.sh --format txt
+  ./samples/check_balance.sh --format txt
 ) >"$DIFF_LOG" 2>&1
 status=$?
 set -e
-[[ "$status" -ne 0 ]] || fail "forced diff mismatch samples/check.sh run should fail"
+[[ "$status" -ne 0 ]] || fail "forced diff mismatch samples/check_balance.sh run should fail"
 
 DIFF_SUMMARY_MD="$DIFF_RUN_DIR/summary.md"
 DIFF_FAILURE_INDEX="$DIFF_RUN_DIR/reports/failures.md"
@@ -164,7 +165,7 @@ cat >"$WRAPPER" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
 REAL="$ROOT/_build/native/debug/build/cli/cli.exe"
-if [[ "\${1-}" == "normal" && "\${2-}" == *"txt_plain.txt" ]]; then
+if [[ "\${1-}" == "balance" && "\${2-}" == *"txt_plain.txt" ]]; then
   printf 'forced contract failure for txt_plain\n' >&2
   exit 1
 fi
@@ -180,11 +181,11 @@ set +e
   MARKITDOWN_CLI="$WRAPPER" \
   MARKITDOWN_QUALITY_LAB="$LAB_ROOT" \
   CHECK_RUN_ID="$FAIL_RUN_DIR_REL" \
-  ./samples/check.sh --format txt
+  ./samples/check_balance.sh --format txt
 ) >"$FAIL_LOG" 2>&1
 status=$?
 set -e
-[[ "$status" -ne 0 ]] || fail "forced failing samples/check.sh run should fail"
+[[ "$status" -ne 0 ]] || fail "forced failing samples/check_balance.sh run should fail"
 
 FAIL_SUMMARY_MD="$FAIL_RUN_DIR/summary.md"
 FAIL_FAILURE_INDEX="$FAIL_RUN_DIR/reports/failures.md"
@@ -208,7 +209,7 @@ set +e
   MARKITDOWN_TMP_DIR="$ROOT/.tmp/tests/check" \
   MARKITDOWN_CLI="$OUT_DIR/missing-cli" \
   MARKITDOWN_QUALITY_LAB="$LAB_ROOT" \
-  ./samples/check.sh --format txt
+  ./samples/check_balance.sh --format txt
 ) >"$MISSING_LOG" 2>&1
 status=$?
 set -e

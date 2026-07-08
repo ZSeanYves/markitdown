@@ -3048,7 +3048,7 @@ test "product main cli points directly at the root cli entry" {
   let contract_script = read_utf8_text(
     "samples/helpers/contracts/check_root_contracts.sh",
   )
-  let sample_gate = read_utf8_text("samples/check.sh")
+  let sample_gate = read_utf8_text("samples/check_balance.sh")
   assert_true(cli_main.contains("run_cli_app(@sys.get_cli_args())"))
   assert_true(cli_pkg.contains("\"is-main\": true"))
   assert_true(cli_pkg.contains("ZSeanYves/markitdown/convert"))
@@ -3062,6 +3062,7 @@ test "product main cli points directly at the root cli entry" {
   assert_true(
     sample_gate.contains("samples/helpers/validation/check_samples_impl.sh"),
   )
+  assert_true(sample_gate.contains("samples/check_balance.sh"))
   assert_true(!@fs.path_exists("unmigrated/moon.mod"))
   assert_true(!@fs.path_exists("unmigrated/cli_support"))
   assert_true(!@fs.path_exists("unmigrated/convert/convert/dispatcher.mbt"))
@@ -3074,7 +3075,8 @@ test "product main cli points directly at the root cli entry" {
   assert_files_avoid_strings(
     [
       "cli/moon.pkg", "cli/cli.mbt", "convert/moon.pkg", "convert/convert.mbt", "tests/moon.pkg",
-      "samples/check.sh", "samples/helpers/contracts/check_root_contracts.sh", "samples/helpers/validation/check_samples_impl.sh",
+      "samples/check_balance.sh", "samples/helpers/contracts/check_root_contracts.sh",
+      "samples/helpers/validation/check_samples_impl.sh",
     ],
     [
       "ZSeanYves/markitdown/unmigrated/", "ZSeanYves/markitdown/cli_support", "ZSeanYves/markitdown/adapters",

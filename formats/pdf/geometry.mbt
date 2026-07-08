@@ -1,19 +1,8 @@
 ///|
-pub struct PdfBBox {
-  x : Double
-  y : Double
-  width : Double
-  height : Double
-}
+pub type PdfBBox = @dpdfnative.PdfBBox
 
 ///|
-pub struct PdfPageGeometry {
-  page_no : Int
-  width : Double
-  height : Double
-  rotation_degrees : Int
-  crop_box : PdfBBox?
-}
+pub type PdfPageGeometry = @dpdfnative.PdfPageGeometry
 
 ///|
 pub fn make_pdf_bbox(
@@ -22,7 +11,7 @@ pub fn make_pdf_bbox(
   width : Double,
   height : Double,
 ) -> PdfBBox {
-  { x, y, width, height }
+  @dpdfnative.make_pdf_bbox(x, y, width, height)
 }
 
 ///|
@@ -33,53 +22,40 @@ pub fn make_pdf_page_geometry(
   rotation_degrees? : Int = 0,
   crop_box? : PdfBBox? = None,
 ) -> PdfPageGeometry {
-  { page_no, width, height, rotation_degrees, crop_box }
+  @dpdfnative.make_pdf_page_geometry(
+    page_no,
+    width,
+    height,
+    rotation_degrees~,
+    crop_box~,
+  )
 }
 
 ///|
 pub fn pdf_bbox_right(bbox : PdfBBox) -> Double {
-  bbox.x + bbox.width
+  @dpdfnative.pdf_bbox_right(bbox)
 }
 
 ///|
 pub fn pdf_bbox_bottom(bbox : PdfBBox) -> Double {
-  bbox.y + bbox.height
+  @dpdfnative.pdf_bbox_bottom(bbox)
 }
 
 ///|
 pub fn pdf_bbox_is_empty(bbox : PdfBBox) -> Bool {
-  bbox.width <= 0.0 || bbox.height <= 0.0
+  @dpdfnative.pdf_bbox_is_empty(bbox)
 }
 
 ///|
 pub fn pdf_union_bbox(left : PdfBBox, right : PdfBBox) -> PdfBBox {
-  if pdf_bbox_is_empty(left) {
-    return right
-  }
-  if pdf_bbox_is_empty(right) {
-    return left
-  }
-  let x0 = pdf_double_min(left.x, right.x)
-  let y0 = pdf_double_min(left.y, right.y)
-  let x1 = pdf_double_max(pdf_bbox_right(left), pdf_bbox_right(right))
-  let y1 = pdf_double_max(pdf_bbox_bottom(left), pdf_bbox_bottom(right))
-  { x: x0, y: y0, width: x1 - x0, height: y1 - y0 }
+  @dpdfnative.pdf_union_bbox(left, right)
 }
 
 ///|
-fn pdf_double_min(a : Double, b : Double) -> Double {
-  if a < b {
-    a
+fn pdf_abs_double(value : Double) -> Double {
+  if value < 0.0 {
+    0.0 - value
   } else {
-    b
-  }
-}
-
-///|
-fn pdf_double_max(a : Double, b : Double) -> Double {
-  if a > b {
-    a
-  } else {
-    b
+    value
   }
 }

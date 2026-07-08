@@ -115,14 +115,33 @@ fn parse_batch_cli_options(
   args : Array[String],
   start_index : Int,
 ) -> Result[(CliOptions, String), String] {
+  let mut parsed_index = start_index
+  let mut mode = @convert.ConvertMode::Balanced
+  if parsed_index < args.length() {
+    let first = args[parsed_index].trim().to_owned().to_lower()
+    match cli_mode_from_name(first) {
+      Some(parsed_mode) => {
+        mode = parsed_mode
+        parsed_index += 1
+      }
+      None =>
+        if first == "convert" || first == "normal" {
+          return Err(removed_batch_mode_message(first))
+        }
+    }
+  }
   let parsed = parse_cli_options_from_index(
     args,
-    start_index,
+    parsed_index,
+    mode~,
     allow_batch_audio_language_without_explicit_format=true,
   )
   let opts = match parsed {
     Ok(value) => value
     Err(msg) => return Err(msg)
+  }
+  if opts.provenance_output is Some(_) {
+    return Err("batch does not support --provenance-out; use manifest.json")
   }
   if opts.audio_options.language is Some(_) &&
     !(match opts.explicit_format {
@@ -267,7 +286,6 @@ fn run_single_batch_task(
     fidelity_mode=opts.fidelity_mode,
     output_mode=opts.output_mode,
     stream_requested=opts.stream_requested,
-    pdf_ocr_policy=opts.pdf_ocr_policy,
     pdf_cleanup_mode=opts.pdf_cleanup_mode,
     pdf_table_mode=opts.pdf_table_mode,
     rag_options=opts.rag_options,

@@ -13,7 +13,6 @@ pub struct CliOptions {
   explicit_format : @input.DetectedFormat?
   ocr_options : @parser.OcrOptions
   audio_options : @parser.AudioOptions
-  pdf_ocr_policy : @convert.PdfOcrPolicy
   fidelity_mode : @convert.FidelityMode
   convert_mode : @convert.ConvertMode
   output_mode : @convert.OutputMode
@@ -101,7 +100,6 @@ pub fn make_cli_options(
   provenance_output : String?,
   explicit_format : @input.DetectedFormat?,
   ocr_options : @parser.OcrOptions,
-  pdf_ocr_policy : @convert.PdfOcrPolicy,
   fidelity_mode : @convert.FidelityMode,
   convert_mode : @convert.ConvertMode,
   output_mode : @convert.OutputMode,
@@ -119,7 +117,6 @@ pub fn make_cli_options(
     explicit_format,
     ocr_options,
     audio_options,
-    pdf_ocr_policy,
     fidelity_mode,
     convert_mode,
     output_mode,

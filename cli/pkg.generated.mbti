@@ -11,7 +11,7 @@ import {
 }
 
 // Values
-pub fn make_cli_options(String, String?, String?, @input.DetectedFormat?, @parser.OcrOptions, @product.PdfOcrPolicy, @product.FidelityMode, @convert.ConvertMode, @product.OutputMode, Bool, @convert.OutputFormat, pdf_cleanup_mode? : @convert.PdfCleanupMode, pdf_table_mode? : @convert.PdfTableMode, rag_options? : @rag.RagOptions, audio_options? : @parser.AudioOptions) -> CliOptions
+pub fn make_cli_options(String, String?, String?, @input.DetectedFormat?, @parser.OcrOptions, @product.FidelityMode, @convert.ConvertMode, @product.OutputMode, Bool, @convert.OutputFormat, pdf_cleanup_mode? : @convert.PdfCleanupMode, pdf_table_mode? : @convert.PdfTableMode, rag_options? : @rag.RagOptions, audio_options? : @parser.AudioOptions) -> CliOptions
 
 pub fn run_cli(CliOptions) -> Result[String, String]
 
@@ -41,7 +41,6 @@ pub struct CliOptions {
   explicit_format : @input.DetectedFormat?
   ocr_options : @parser.OcrOptions
   audio_options : @parser.AudioOptions
-  pdf_ocr_policy : @product.PdfOcrPolicy
   fidelity_mode : @product.FidelityMode
   convert_mode : @convert.ConvertMode
   output_mode : @product.OutputMode

@@ -8,6 +8,9 @@ There are two main kinds of regression here:
   validates whether the default product conversion path stays stable
 - Quality regression:
   validates output quality against the external quality corpus
+- Accurate regression:
+  validates accurate-only behavior, route upgrades, and OCR/provider evidence
+  against the external accurate corpus
 
 The main repository only keeps lightweight functional fixtures for unit-level coverage and shell contracts. Formal main regression, quality regression, and benchmark runs all depend on `./markitdown-quality-lab/` at the repository root. Benchmark usage is documented in [bench/README.md](../bench/README.md).
 
@@ -19,7 +22,7 @@ Entry point:
 
 ```bash
 moon build cli --target native
-./samples/check.sh
+./samples/check_balance.sh
 ```
 
 By default it runs the main product formats through:
@@ -39,13 +42,13 @@ Common commands:
 
 ```bash
 moon build cli --target native
-./samples/check.sh
-./samples/check.sh --format pdf
-./samples/check.sh --markdown --format docx
-./samples/check.sh --rag --format html
-./samples/check.sh --assets --format epub
-./samples/check.sh --check-inventory
-./samples/check.sh --list-inventory
+./samples/check_balance.sh
+./samples/check_balance.sh --format pdf
+./samples/check_balance.sh --markdown --format docx
+./samples/check_balance.sh --rag --format html
+./samples/check_balance.sh --assets --format epub
+./samples/check_balance.sh --check-inventory
+./samples/check_balance.sh --list-inventory
 ```
 
 Directory conventions:
@@ -72,7 +75,7 @@ Run outputs are written to `.tmp/check/runs/<run_id>/`. The most useful files ar
 Notes:
 
 - This suite only validates the product default path on the external main corpus
-- `./samples/check.sh` first validates the external manifest, enrollment, and run workspace, so a short preparation phase before row execution is expected
+- `./samples/check_balance.sh` first validates the external manifest, enrollment, and run workspace, so a short preparation phase before row execution is expected
 - Unsupported formats fail closed here as well; they do not silently switch to another route
 - The `ocr` gate covers supported direct-image OCR input:
   `png/jpg/jpeg/bmp/webp/tif/tiff`
@@ -86,7 +89,7 @@ Entry point:
 
 ```bash
 moon build cli --target native
-./samples/check_quality.sh
+./samples/check_balance_quality.sh
 ```
 
 This suite only uses the external quality corpus under `./markitdown-quality-lab`. It does not fall back to repo-local samples.
@@ -103,8 +106,8 @@ Common commands:
 
 ```bash
 moon build cli --target native
-./samples/check_quality.sh
-./samples/check_quality.sh --format pdf
+./samples/check_balance_quality.sh
+./samples/check_balance_quality.sh --formats pdf
 ```
 
 Run outputs are written to `.tmp/quality/runs/<run_id>/`. The most useful files are:
@@ -121,6 +124,34 @@ Notes:
 - `workspace/` is still only a temporary working directory
 - Benchmark corpus and quality corpus are different things; formal benchmark runs use `./markitdown-quality-lab/external_bench/`
 - ZIP-related rows and the main ZIP path build on `format_readers/zip`, with decompression still relying on `bikallem/compress/flate`
+
+## Accurate Regression
+
+Entry point:
+
+```bash
+moon build cli --target native
+./samples/check_accurate.sh
+```
+
+This suite only uses the accurate corpus under `./markitdown-quality-lab/external_accurate/`.
+
+Common commands:
+
+```bash
+moon build cli --target native
+./samples/check_accurate.sh
+./samples/check_accurate.sh --formats pdf
+./samples/check_accurate.sh --id pdf_niosh_scanned_like_debug
+```
+
+Notes:
+
+- this suite performs an accurate runtime preflight before row execution
+- validation is mixed across Markdown, debug JSON, and provenance sidecars
+- OCR rows fail if the accurate path falls back away from PaddleOCR
+- this suite is separate from `check_balance_quality.sh` so accurate-only behavior can
+  evolve without weakening the broader quality surface
 
 ## Quality Examples
 
@@ -151,7 +182,14 @@ Quality regression covers:
 - pass / fail / skipped quality signals by format
 - how the external corpus aligns with current CLI capability boundaries
 
+Accurate regression covers:
+
+- format-specific accurate behavior differences on the external accurate corpus
+- provider-truth and route-upgrade evidence for direct-image OCR and PDF OCR
+- mixed Markdown / debug / provenance assertions for accurate-only features
+
 In short:
 
-- run `moon build cli --target native && ./samples/check.sh` to see whether the main product path regressed
-- run `moon build cli --target native && ./samples/check_quality.sh` to see how the current build behaves on the external quality corpus
+- run `moon build cli --target native && ./samples/check_balance.sh` to see whether the main product path regressed
+- run `moon build cli --target native && ./samples/check_balance_quality.sh` to see how the current build behaves on the external balance-quality corpus
+- run `moon build cli --target native && ./samples/check_accurate.sh` to validate the dedicated accurate regression surface

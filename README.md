@@ -7,7 +7,7 @@ The project is inspired by Microsoft's `MarkItDown`, but this implementation put
 It is designed for document ingestion pipelines, RAG, content processing, and automation scenarios where route fidelity, provenance, and predictable failure behavior matter as much as raw conversion output.
 
 > Important:
-> `pdf/ocr --accurate` is still dependency-heavy. `audio` stays available on the main CLI, but it now depends on an optional local transcript backend and intentionally exposes a narrow support boundary.
+> `accurate` OCR on PDF or direct images is still dependency-heavy. `audio` stays available on the main CLI, but it now depends on an optional local transcript backend and intentionally exposes a narrow support boundary.
 
 Read these two documents first:
 
@@ -63,24 +63,24 @@ Show help:
 Minimal example:
 
 ```bash
-./_build/native/debug/build/cli/cli.exe normal samples/fixtures/contracts/txt/txt_plain.txt .tmp/manual/out.md
+ balance samples/fixtures/contracts/txt/txt_plain.txt .tmp/manual/out.md
 ```
 
 PDF example:
 
-```bash
-./_build/native/debug/build/cli/cli.exe normal samples/fixtures/contracts/pdf/root_native_text_baseline.pdf .tmp/manual/pdf.md
+```bash./_build/native/debug/build/cli/cli.exe
+./_build/native/debug/build/cli/cli.exe balance samples/fixtures/contracts/pdf/root_native_text_baseline.pdf .tmp/manual/pdf.md
 ```
 
 For more CLI options, modes, batch usage, provenance output, and OCR / PDF / audio examples, see [docs/cli-usage-guide.md](./docs/cli-usage-guide.md).
 
 ## Behavior Notes
 
-- `--accurate` is not productized for every format. Unsupported formats emit a warning and fall back to `balance`.
-- `--stream` follows the same rule. Unsupported formats emit a warning and fall back to that format's canonical route.
-- `pdf --accurate` only enters Accurate PDF OCR when scanned-like probe evidence upgrades the PDF.
-- If `pdf --accurate` is missing Paddle dependencies, it reports the missing dependency and falls back to Balanced PDF OCR.
-- If direct image OCR is requested with `--accurate` and Paddle is missing, it reports the missing dependency and falls back to Balanced image OCR.
+- `accurate` is not productized for every format. Unsupported formats emit a warning and fall back to `balance`.
+- `stream` follows the same rule. Unsupported formats emit a warning and falls back to that format's canonical route.
+- `accurate` on PDF only enters Accurate PDF OCR when scanned-like probe evidence upgrades the PDF.
+- If `accurate` PDF OCR is missing Paddle dependencies, it reports the missing dependency and falls back to Balanced PDF OCR.
+- If `accurate` direct image OCR is missing Paddle dependencies, it reports the missing dependency and falls back to Balanced image OCR.
 - Audio keeps the same input surface on the main CLI, but runtime transcription only works when the local Vosk backend is installed and configured.
 - Unsupported formats and out-of-bound feature requests fail closed. The product does not hide unsupported behavior behind silent side paths.
 
@@ -106,8 +106,8 @@ Common regression scripts:
 
 ```bash
 moon build cli --target native
-bash samples/check.sh
-bash samples/check_quality.sh
+bash samples/check_balance.sh
+bash samples/check_balance_quality.sh
 ```
 
 For formal benchmark runs, first build the release binaries:

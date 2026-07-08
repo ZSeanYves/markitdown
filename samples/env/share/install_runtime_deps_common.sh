@@ -1,0 +1,255 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+HELPER_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$HELPER_ROOT/../../.." && pwd)"
+GENERATED_ENV_ROOT="$REPO_ROOT/env"
+RUNTIME_VENV_ROOT="$GENERATED_ENV_ROOT/.venv-markitdown-runtime"
+
+mkdir -p "$GENERATED_ENV_ROOT"
+
+APT_UPDATED=0
+
+log_note() {
+  printf '[deps] %s\n' "$*" >&2
+}
+
+die() {
+  printf '[deps] error: %s\n' "$*" >&2
+  exit 1
+}
+
+require_command() {
+  local cmd="$1"
+  command -v "$cmd" >/dev/null 2>&1 || die "missing required command: $cmd"
+}
+
+resolve_platform_family() {
+  if command -v brew >/dev/null 2>&1; then
+    printf 'brew'
+    return
+  fi
+  if command -v apt-get >/dev/null 2>&1; then
+    printf 'apt'
+    return
+  fi
+  die "unsupported platform; expected Homebrew or apt-get"
+}
+
+run_as_root() {
+  if [[ "$(id -u)" -eq 0 ]]; then
+    "$@"
+    return
+  fi
+  if command -v sudo >/dev/null 2>&1; then
+    sudo "$@"
+    return
+  fi
+  die "root privileges are required to run: $*"
+}
+
+brew_package_installed() {
+  local package="$1"
+  brew list --versions "$package" >/dev/null 2>&1
+}
+
+apt_package_installed() {
+  local package="$1"
+  dpkg -s "$package" >/dev/null 2>&1
+}
+
+install_system_packages() {
+  local family="$1"
+  shift
+  local requested_packages=("$@")
+  local packages=()
+  local package
+  for package in "${requested_packages[@]}"; do
+    case "$family" in
+      brew)
+        if ! brew_package_installed "$package"; then
+          packages+=("$package")
+        fi
+        ;;
+      apt)
+        if ! apt_package_installed "$package"; then
+          packages+=("$package")
+        fi
+        ;;
+      *)
+        die "unknown platform family: $family"
+        ;;
+    esac
+  done
+  if [[ "${#packages[@]}" -eq 0 ]]; then
+    log_note "System packages already installed for $family: ${requested_packages[*]}"
+    return
+  fi
+  case "$family" in
+    brew)
+      log_note "Installing Homebrew packages: ${packages[*]}"
+      brew install "${packages[@]}"
+      ;;
+    apt)
+      if [[ "$APT_UPDATED" -eq 0 ]]; then
+        log_note "Updating apt package index"
+        run_as_root apt-get update
+        APT_UPDATED=1
+      fi
+      log_note "Installing apt packages: ${packages[*]}"
+      run_as_root apt-get install -y "${packages[@]}"
+      ;;
+    *)
+      die "unknown platform family: $family"
+      ;;
+  esac
+}
+
+resolve_python_cmd() {
+  if command -v python3 >/dev/null 2>&1; then
+    printf 'python3'
+    return
+  fi
+  if command -v python >/dev/null 2>&1; then
+    printf 'python'
+    return
+  fi
+  die "python3 is unavailable after dependency installation"
+}
+
+python_command_available() {
+  command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1
+}
+
+python_supports_venv() {
+  if ! python_command_available; then
+    return 1
+  fi
+  local python_cmd
+  python_cmd="$(resolve_python_cmd)"
+  "$python_cmd" -m venv --help >/dev/null 2>&1
+}
+
+resolve_python_bin() {
+  local python_cmd
+  python_cmd="$(resolve_python_cmd)"
+  command -v "$python_cmd"
+}
+
+runtime_venv_path() {
+  printf '%s' "$RUNTIME_VENV_ROOT"
+}
+
+runtime_venv_python_bin() {
+  printf '%s/bin/python' "$(runtime_venv_path)"
+}
+
+ensure_runtime_venv() {
+  local python_cmd
+  python_cmd="$(resolve_python_cmd)"
+  local venv_path
+  venv_path="$(runtime_venv_path)"
+  local venv_python
+  venv_python="$(runtime_venv_python_bin)"
+  if [[ ! -x "$venv_python" ]]; then
+    log_note "Creating repo-local Python virtualenv at $venv_path"
+    "$python_cmd" -m venv "$venv_path"
+  fi
+  if ! "$venv_python" -m pip --version >/dev/null 2>&1; then
+    log_note "Bootstrapping pip into repo-local virtualenv"
+    "$venv_python" -m ensurepip --upgrade >/dev/null 2>&1 || die "repo-local virtualenv is missing pip support; install Python with venv/ensurepip enabled"
+  fi
+  log_note "Upgrading repo-local virtualenv tooling"
+  "$venv_python" -m pip install --upgrade pip setuptools wheel
+}
+
+resolve_runtime_python_bin() {
+  ensure_runtime_venv >&2
+  runtime_venv_python_bin
+}
+
+venv_pip_install_packages() {
+  local venv_python
+  venv_python="$(resolve_runtime_python_bin)"
+  log_note "Installing Python packages into repo-local virtualenv with $venv_python -m pip: $*"
+  "$venv_python" -m pip install --upgrade "$@"
+}
+
+mark_executable() {
+  local path="$1"
+  chmod +x "$path"
+}
+
+default_cache_root() {
+  if [[ -n "${XDG_CACHE_HOME:-}" ]]; then
+    printf '%s' "$XDG_CACHE_HOME"
+    return
+  fi
+  if [[ -n "${HOME:-}" ]]; then
+    printf '%s/.cache' "$HOME"
+    return
+  fi
+  printf '%s/.cache' "$REPO_ROOT"
+}
+
+default_audio_model_path() {
+  printf '%s/markitdown/vosk/model' "$(default_cache_root)"
+}
+
+generated_env_path() {
+  local name="$1"
+  printf '%s/%s' "$GENERATED_ENV_ROOT" "$name"
+}
+
+write_export_env_file() {
+  local path="$1"
+  shift
+  local parent
+  parent="$(dirname "$path")"
+  mkdir -p "$parent"
+  {
+    printf '# Generated by %s on %s\n' "$(basename "$0")" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf '# shellcheck shell=bash\n'
+    while [[ $# -gt 1 ]]; do
+      local var_name="$1"
+      local var_value="$2"
+      shift 2
+      printf 'export %s=%q\n' "$var_name" "$var_value"
+    done
+  } > "$path"
+}
+
+shell_quote_arg() {
+  local escaped="${1//\\/\\\\}"
+  escaped="${escaped//\"/\\\"}"
+  printf '"%s"' "$escaped"
+}
+
+join_shell_command() {
+  local first=1
+  local arg
+  for arg in "$@"; do
+    if [[ "$first" -eq 0 ]]; then
+      printf ' '
+    fi
+    first=0
+    shell_quote_arg "$arg"
+  done
+}
+
+write_note_env_file() {
+  local path="$1"
+  local note="$2"
+  local parent
+  parent="$(dirname "$path")"
+  mkdir -p "$parent"
+  {
+    printf '# Generated by %s on %s\n' "$(basename "$0")" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf '# %s\n' "$note"
+  } > "$path"
+}
+
+print_source_hint() {
+  local path="$1"
+  printf 'source %q\n' "$path"
+}

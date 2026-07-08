@@ -340,7 +340,7 @@ test "pdf native cmap stream adapter decodes zlib flated tounicode bytes and fai
 
   let unsupported_filter : PdfNativeObject = {
     object_id: 32,
-    dict_text: "<< /Filter /ASCII85Decode /Length 4 >>",
+    dict_text: "<< /Filter /LZWDecode /Length 4 >>",
     stream: Some({
       primary_bytes: b"noop",
       endstream_bytes: b"noop",
@@ -349,8 +349,8 @@ test "pdf native cmap stream adapter decodes zlib flated tounicode bytes and fai
   }
   match pdf_decode_cmap_stream_text(unsupported_filter) {
     Err(err) => {
-      assert_true(err.message.contains("unsupported CMap stream filter"))
-      assert_true(err.diagnostics.filter_name == "ASCII85Decode")
+      assert_true(err.message.contains("unsupported PDF stream filter"))
+      assert_true(err.diagnostics.filter_name == "LZWDecode")
     }
     Ok(_) => fail("expected unsupported cmap filter to fail softly")
   }
@@ -400,7 +400,7 @@ test "pdf native cmap stream adapter reports checksum mismatch without raw fallb
       assert_true(err.message.contains("ChecksumMismatch"))
       assert_true(err.diagnostics.zlib_status.contains("ChecksumMismatch"))
       match err.diagnostics.raw_fallback {
-        Skipped(reason) => assert_eq(reason, "no_raw_flate_evidence")
+        Skipped(reason) => assert_eq(reason, "filter_decode_failed")
       }
     }
     Ok(_) => fail("expected checksum mismatch to fail softly")
@@ -420,7 +420,7 @@ test "pdf native cmap stream adapter fails softly on malformed compressed bytes"
   }
   match pdf_decode_cmap_stream_text(malformed) {
     Err(err) => {
-      assert_true(err.message.contains("flate decode failed"))
+      assert_true(err.message.contains("filter decode failed"))
       assert_true(err.diagnostics.zlib_status.contains("failed:"))
     }
     Ok(_) => fail("expected malformed cmap bytes to fail softly")

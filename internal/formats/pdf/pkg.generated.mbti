@@ -7,7 +7,7 @@ import {
 }
 
 // Values
-pub fn pdf_parse_with_native_document(@input.InputSource, @parser.ParseContext, @ZSeanYves/markitdown/formats/pdf.PdfNativeDocument, probe_artifact_reused? : Bool) -> @parser.ParseResult
+pub fn pdf_parse_with_native_document(@input.InputSource, @parser.ParseContext, @ZSeanYves/markitdown/format_readers/pdf.PdfNativeDocument, probe_artifact_reused? : Bool) -> @parser.ParseResult
 
 // Errors
 

@@ -23,5 +23,5 @@ Validation:
 
 ```bash
 moon test
-bash samples/check_quality.sh
+bash samples/check_balance_quality.sh
 ```

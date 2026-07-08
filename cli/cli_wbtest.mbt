@@ -76,7 +76,6 @@ fn run_cli_without_emitting_warnings(
     fidelity_mode=opts.fidelity_mode,
     output_mode=opts.output_mode,
     stream_requested=opts.stream_requested,
-    pdf_ocr_policy=opts.pdf_ocr_policy,
     pdf_cleanup_mode=opts.pdf_cleanup_mode,
     pdf_table_mode=opts.pdf_table_mode,
     rag_options=opts.rag_options,
@@ -187,7 +186,6 @@ fn cli_options(
   provenance_output? : String? = None,
   ocr_options? : @parser.OcrOptions = @parser.default_ocr_options(),
   audio_options? : @parser.AudioOptions = @parser.default_audio_options(),
-  pdf_ocr_policy? : @convert.PdfOcrPolicy = @convert.default_pdf_ocr_policy(),
   pdf_cleanup_mode? : @convert.PdfCleanupMode = @convert.default_pdf_cleanup_mode(),
   pdf_table_mode? : @convert.PdfTableMode = @convert.default_pdf_table_mode(),
 ) -> CliOptions {
@@ -197,7 +195,6 @@ fn cli_options(
     provenance_output,
     explicit_format,
     ocr_options,
-    pdf_ocr_policy,
     @convert.FidelityMode::Balanced,
     @convert.ConvertMode::Balanced,
     @convert.output_mode_for_output_format(output_format),
@@ -421,34 +418,49 @@ test "main cli parses explicit OCR intent flags" {
 
 ///|
 test "main cli keeps --debug and rejects retired --json alias" {
-  match parse_cli_options(["--accurate", "tiny.txt"]) {
+  match
+    parse_cli_options_from_index(
+      ["tiny.txt"],
+      0,
+      mode=@convert.ConvertMode::Accurate,
+    ) {
     Ok(opts) => {
       assert_true(opts.fidelity_mode == @convert.FidelityMode::Accurate)
       assert_true(opts.convert_mode == @convert.ConvertMode::Accurate)
       assert_true(opts.output_mode == @convert.OutputMode::Markdown)
       assert_true(opts.output_format == @convert.OutputFormat::Markdown)
     }
-    Err(msg) => fail("expected --accurate to parse: " + msg)
+    Err(msg) => fail("expected accurate mode to parse: " + msg)
   }
 
-  match parse_cli_options(["--accurate", "--debug", "tiny.txt"]) {
+  match
+    parse_cli_options_from_index(
+      ["--debug", "tiny.txt"],
+      0,
+      mode=@convert.ConvertMode::Accurate,
+    ) {
     Ok(opts) => {
       assert_true(opts.fidelity_mode == @convert.FidelityMode::Accurate)
       assert_true(opts.convert_mode == @convert.ConvertMode::Accurate)
       assert_true(opts.output_mode == @convert.OutputMode::Debug)
       assert_true(opts.output_format == @convert.OutputFormat::DebugJson)
     }
-    Err(msg) => fail("expected --accurate --debug to parse: " + msg)
+    Err(msg) => fail("expected accurate --debug to parse: " + msg)
   }
 
-  match parse_cli_options(["--accurate", "--rag", "tiny.txt"]) {
+  match
+    parse_cli_options_from_index(
+      ["--rag", "tiny.txt"],
+      0,
+      mode=@convert.ConvertMode::Accurate,
+    ) {
     Ok(opts) => {
       assert_true(opts.fidelity_mode == @convert.FidelityMode::Accurate)
       assert_true(opts.convert_mode == @convert.ConvertMode::Accurate)
       assert_true(opts.output_mode == @convert.OutputMode::Rag)
       assert_true(opts.output_format == @convert.OutputFormat::RagJson)
     }
-    Err(msg) => fail("expected --accurate --rag to parse: " + msg)
+    Err(msg) => fail("expected accurate --rag to parse: " + msg)
   }
 
   match parse_cli_options(["--debug", "tiny.txt"]) {
@@ -487,40 +499,63 @@ test "main cli keeps --debug and rejects retired --json alias" {
     Ok(_) => fail("expected --debug and --rag to conflict")
   }
 
-  match parse_cli_options(["--stream", "tiny.txt"]) {
+  match
+    parse_cli_options_from_index(
+      ["tiny.txt"],
+      0,
+      mode=@convert.ConvertMode::Stream,
+    ) {
     Ok(opts) => {
       assert_true(opts.stream_requested)
       assert_true(opts.convert_mode == @convert.ConvertMode::Stream)
       assert_true(opts.output_mode == @convert.OutputMode::Markdown)
       assert_true(opts.output_format == @convert.OutputFormat::Markdown)
     }
-    Err(msg) => fail("expected --stream to parse: " + msg)
+    Err(msg) => fail("expected stream mode to parse: " + msg)
   }
 
-  match parse_cli_options(["--stream", "--debug", "tiny.txt"]) {
+  match
+    parse_cli_options_from_index(
+      ["--debug", "tiny.txt"],
+      0,
+      mode=@convert.ConvertMode::Stream,
+    ) {
     Ok(opts) => {
       assert_true(opts.stream_requested)
       assert_true(opts.convert_mode == @convert.ConvertMode::Stream)
       assert_true(opts.output_mode == @convert.OutputMode::Debug)
       assert_true(opts.output_format == @convert.OutputFormat::DebugJson)
     }
-    Err(msg) => fail("expected --stream --debug to parse: " + msg)
+    Err(msg) => fail("expected stream --debug to parse: " + msg)
   }
 
-  match parse_cli_options(["--stream", "--rag", "tiny.txt"]) {
+  match
+    parse_cli_options_from_index(
+      ["--rag", "tiny.txt"],
+      0,
+      mode=@convert.ConvertMode::Stream,
+    ) {
     Ok(opts) => {
       assert_true(opts.stream_requested)
       assert_true(opts.convert_mode == @convert.ConvertMode::Stream)
       assert_true(opts.output_mode == @convert.OutputMode::Rag)
       assert_true(opts.output_format == @convert.OutputFormat::RagJson)
     }
-    Err(msg) => fail("expected --stream --rag to parse: " + msg)
+    Err(msg) => fail("expected stream --rag to parse: " + msg)
   }
 
-  match parse_cli_options(["--stream", "--accurate", "tiny.txt"]) {
+  match parse_cli_options(["--accurate", "tiny.txt"]) {
     Err(msg) =>
-      assert_true(msg.contains("cannot combine --stream and --accurate"))
-    Ok(_) => fail("expected --stream and --accurate to conflict")
+      assert_true(
+        msg.contains("`--accurate` was removed; use the `accurate` mode"),
+      )
+    Ok(_) => fail("expected retired --accurate flag to fail")
+  }
+
+  match parse_cli_options(["--stream", "tiny.txt"]) {
+    Err(msg) =>
+      assert_true(msg.contains("`--stream` was removed; use the `stream` mode"))
+    Ok(_) => fail("expected retired --stream flag to fail")
   }
 
   match parse_cli_options(["--json", "tiny.txt"]) {
@@ -530,38 +565,18 @@ test "main cli keeps --debug and rejects retired --json alias" {
 }
 
 ///|
-test "main cli parses explicit PDF product option flags" {
-  match
-    parse_cli_options([
-      "--pdf-cleanup", "conservative", "--pdf-tables", "simple", "tiny.pdf",
-    ]) {
-    Ok(opts) => {
-      assert_true(
-        opts.pdf_cleanup_mode == @convert.PdfCleanupMode::Conservative,
-      )
-      assert_true(opts.pdf_table_mode == @convert.PdfTableMode::Simple)
-    }
-    Err(msg) => fail("expected PDF product flags to parse: " + msg)
+test "main cli rejects removed PDF product option flags" {
+  match parse_cli_options(["--pdf-cleanup", "conservative", "tiny.pdf"]) {
+    Err(msg) => assert_true(msg.contains("`--pdf-cleanup` was removed"))
+    Ok(_) => fail("expected removed --pdf-cleanup to fail")
   }
-
-  match parse_cli_options(["tiny.pdf"]) {
-    Ok(opts) => {
-      assert_true(opts.pdf_cleanup_mode == @convert.PdfCleanupMode::Disabled)
-      assert_true(opts.pdf_table_mode == @convert.PdfTableMode::Disabled)
-    }
-    Err(msg) => fail("expected default PDF product flags to parse: " + msg)
+  match parse_cli_options(["--pdf-tables", "simple", "tiny.pdf"]) {
+    Err(msg) => assert_true(msg.contains("`--pdf-tables` was removed"))
+    Ok(_) => fail("expected removed --pdf-tables to fail")
   }
-}
-
-///|
-test "main cli rejects invalid PDF product option values" {
-  match parse_cli_options(["--pdf-cleanup", "aggressive", "tiny.pdf"]) {
-    Err(msg) => assert_true(msg.contains("unsupported --pdf-cleanup value"))
-    Ok(_) => fail("expected invalid --pdf-cleanup to fail")
-  }
-  match parse_cli_options(["--pdf-tables", "full", "tiny.pdf"]) {
-    Err(msg) => assert_true(msg.contains("unsupported --pdf-tables value"))
-    Ok(_) => fail("expected invalid --pdf-tables to fail")
+  match parse_cli_options(["--pdf-ocr", "auto-scanned", "tiny.pdf"]) {
+    Err(msg) => assert_true(msg.contains("`--pdf-ocr` was removed"))
+    Ok(_) => fail("expected removed --pdf-ocr to fail")
   }
 }
 
@@ -587,41 +602,34 @@ test "main cli constrains --ocr-lang to OCR-capable routes" {
     Err(msg) =>
       assert_true(
         msg.contains(
-          "--ocr-lang requires --ocr, direct image input, or PDF OCR via `--ocr` / `--pdf-ocr`",
+          "--ocr-lang requires --ocr, direct image input, or the `accurate` PDF layout route",
         ),
       )
     Ok(_) => fail("expected non-image --ocr-lang without --ocr to fail")
   }
 
   match parse_cli_options(["--ocr-lang", "eng", "--ocr", "tiny.pdf"]) {
-    Ok(opts) => {
-      assert_true(opts.pdf_ocr_policy == @convert.PdfOcrPolicy::Explicit)
-      assert_true(opts.ocr_options.intent == @parser.OcrIntent::Explicit)
-      assert_true(opts.ocr_options.language == Some("eng"))
-    }
-    Err(msg) => fail("expected pdf --ocr-lang with --ocr to parse: " + msg)
-  }
-
-  match parse_cli_options(["--accurate", "tiny.pdf"]) {
-    Ok(opts) => {
-      assert_true(opts.fidelity_mode == @convert.FidelityMode::Accurate)
-      assert_true(opts.pdf_ocr_policy == @convert.PdfOcrPolicy::AutoScanned)
-      assert_true(opts.input == "tiny.pdf")
-    }
-    Err(msg) => fail("expected single-file pdf --accurate to parse: " + msg)
+    Err(msg) =>
+      assert_true(
+        msg.contains(
+          "PDF OCR is only available through the `accurate` PDF layout route",
+        ),
+      )
+    Ok(_) => fail("expected balanced pdf --ocr to fail closed")
   }
 
   match
-    parse_cli_options([
-      "--pdf-ocr", "auto-scanned", "--ocr-lang", "eng", "tiny.pdf",
-    ]) {
+    parse_cli_options_from_index(
+      ["tiny.pdf"],
+      0,
+      mode=@convert.ConvertMode::Accurate,
+    ) {
     Ok(opts) => {
-      assert_true(opts.pdf_ocr_policy == @convert.PdfOcrPolicy::AutoScanned)
+      assert_true(opts.fidelity_mode == @convert.FidelityMode::Accurate)
       assert_true(opts.ocr_options.intent == @parser.OcrIntent::Explicit)
-      assert_true(opts.ocr_options.language == Some("eng"))
+      assert_true(opts.input == "tiny.pdf")
     }
-    Err(msg) =>
-      fail("expected pdf --pdf-ocr auto-scanned --ocr-lang to parse: " + msg)
+    Err(msg) => fail("expected accurate pdf mode to parse: " + msg)
   }
 
   match parse_cli_options(["--ocr-lang", "eng", "tiny.wav"]) {
@@ -678,6 +686,19 @@ test "main cli parses provenance output flag" {
 }
 
 ///|
+test "main cli batch rejects provenance output flag" {
+  match
+    parse_batch_cli_options(
+      ["--provenance-out", "trace.json", "inputs", "out"],
+      0,
+    ) {
+    Err(msg) =>
+      assert_true(msg.contains("batch does not support --provenance-out"))
+    Ok(_) => fail("expected batch --provenance-out to fail")
+  }
+}
+
+///|
 test "main cli batch writes manifest for single markdown input" {
   let root = test_tmp_root() + "/main-cli-batch-single"
   recreate_clean_dir(root)
@@ -709,7 +730,7 @@ test "main cli batch accurate keeps pdf tasks in the manifest instead of prefilt
   write_utf8_text(input_dir + "/scan.pdf", "%PDF-1.4 fake")
 
   let exit_code = run_cli_app([
-    "markitdown-mb", "batch", "--accurate", input_dir, out_dir,
+    "markitdown-mb", "batch", "accurate", input_dir, out_dir,
   ])
   assert_eq(exit_code, 0)
   let manifest = read_utf8_text(out_dir + "/manifest.json")
@@ -723,25 +744,51 @@ test "main cli batch accurate keeps pdf tasks in the manifest instead of prefilt
 test "main cli first user arg helper handles executable-prefixed argv" {
   assert_true(first_user_cli_arg(["cli.exe"]) == None)
   assert_true(first_user_cli_arg(["cli.exe", "help"]) == Some("help"))
-  assert_true(first_user_cli_arg(["cli.exe", "normal"]) == Some("normal"))
+  assert_true(first_user_cli_arg(["cli.exe", "balance"]) == Some("balance"))
 }
 
 ///|
-test "main cli can parse options from either implicit or explicit convert position" {
+test "main cli can parse options from either implicit or explicit mode position" {
   match parse_cli_options_from_index(["demo.txt"], 0) {
     Ok(opts) => {
       assert_eq(opts.input, "demo.txt")
       assert_true(opts.output == None)
+      assert_true(opts.convert_mode == @convert.ConvertMode::Balanced)
     }
     Err(msg) => fail("expected implicit convert argv to parse: " + msg)
   }
 
-  match parse_cli_options_from_index(["convert", "demo.txt", "out.md"], 1) {
+  match
+    parse_cli_options_from_index(
+      ["demo.txt", "out.md"],
+      0,
+      mode=@convert.ConvertMode::Accurate,
+    ) {
     Ok(opts) => {
       assert_eq(opts.input, "demo.txt")
       assert_true(opts.output == Some("out.md"))
+      assert_true(opts.convert_mode == @convert.ConvertMode::Accurate)
     }
-    Err(msg) => fail("expected explicit convert argv to parse: " + msg)
+    Err(msg) => fail("expected explicit accurate mode argv to parse: " + msg)
+  }
+}
+
+///|
+test "main cli rejects removed subcommands with migration guidance" {
+  match parse_cli_options(["normal", "demo.txt"]) {
+    Err(msg) => assert_true(msg.contains("subcommand `normal` was removed"))
+    Ok(_) => fail("expected normal subcommand to fail")
+  }
+
+  match parse_cli_options(["convert", "demo.txt"]) {
+    Err(msg) => assert_true(msg.contains("subcommand `convert` was removed"))
+    Ok(_) => fail("expected convert subcommand to fail")
+  }
+
+  match parse_batch_cli_options(["normal", "inputs", "out"], 0) {
+    Err(msg) =>
+      assert_true(msg.contains("mode `normal` was removed after `batch`"))
+    Ok(_) => fail("expected batch normal mode to fail")
   }
 }
 
@@ -789,7 +836,7 @@ test "main cli image OCR intent remains fail closed by mode" {
         msg.contains("language=eng") ||
         msg.contains("image_format=png") ||
         msg.contains("Tesseract OCR command") ||
-        msg.contains("brew install tesseract"),
+        msg.contains("./samples/env/install_ocr_pdf_balance_deps.sh"),
       )
     Ok(_) => fail("expected explicit OCR image/lang path to fail closed")
   }
@@ -813,7 +860,7 @@ test "main cli image OCR intent remains fail closed by mode" {
 }
 
 ///|
-test "main cli pdf plus explicit OCR enters OCR route or returns explicit dependency guidance" {
+test "main cli parse rejects balanced pdf explicit OCR with accurate-route guidance" {
   let root = test_tmp_root() + "/main-cli-pdf-explicit-ocr"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -821,35 +868,14 @@ test "main cli pdf plus explicit OCR enters OCR route or returns explicit depend
   let pdf_path = root + "/tiny.pdf"
   write_utf8_text(pdf_path, "%PDF-1.4 fake")
 
-  match
-    run_cli_with_image_ocr_provider(
-      cli_options(
-        pdf_path,
-        None,
-        None,
-        @convert.OutputFormat::Markdown,
-        ocr_options=@parser.explicit_ocr_options(language=Some("eng")),
-        pdf_ocr_policy=@convert.PdfOcrPolicy::Explicit,
-      ),
-      fn(request) {
-        let tsv = [
-          "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext",
-          "5\t1\t1\t1\t1\t1\t10\t10\t20\t10\t95\tPDF", "5\t1\t1\t1\t1\t2\t35\t10\t20\t10\t94\tOCR",
-        ].join("\n")
-        match @focr.parse_tesseract_tsv(tsv, language=request.language) {
-          Ok(value) => Ok(value)
-          Err(err) => abort(err.to_string())
-        }
-      },
-    ) {
-    Ok(content) => assert_true(content.contains("PDF OCR"))
+  match parse_cli_options(["--ocr", pdf_path]) {
     Err(msg) =>
       assert_true(
-        msg.contains("pdftoppm") ||
-        msg.contains("poppler-utils") ||
-        msg.contains("brew install poppler") ||
-        msg.contains("Missing dependency: pdftoppm / Poppler"),
+        msg.contains(
+          "PDF OCR is only available through the `accurate` PDF layout route",
+        ),
       )
+    Ok(_) => fail("expected balanced pdf --ocr parse to fail closed")
   }
 }
 
@@ -865,7 +891,6 @@ test "main cli pdf accurate enters OCR route or returns dependency guidance" {
         None,
         None,
         @parser.default_ocr_options(),
-        @convert.default_pdf_ocr_policy(),
         @convert.FidelityMode::Accurate,
         @convert.ConvertMode::Balanced,
         @convert.output_mode_for_output_format(@convert.OutputFormat::Markdown),
@@ -886,18 +911,18 @@ test "main cli pdf accurate enters OCR route or returns dependency guidance" {
       )
       assert_true(
         msg.contains("poppler-utils") ||
-        msg.contains("samples/helpers/paddle_ocr_wrapper.py") ||
-        msg.contains("pip install paddlepaddle paddleocr"),
+        msg.contains("samples/env/ocr/paddle_ocr_wrapper.py") ||
+        msg.contains("./samples/env/install_ocr_pdf_accurate_deps.sh"),
       )
     }
   }
 }
 
 ///|
-test "main cli pdf accurate can fall back to balanced OCR provider when accurate dependency is unavailable" {
+test "main cli pdf accurate fails closed when Paddle OCR is unavailable" {
   let pdf_path = "samples/fixtures/contracts/pdf/pdf_ocr_single_page.pdf"
 
-  let rendered = match
+  match
     run_cli_with_image_ocr_provider_and_pdf_rasterizer(
       make_cli_options(
         pdf_path,
@@ -905,7 +930,6 @@ test "main cli pdf accurate can fall back to balanced OCR provider when accurate
         None,
         Some(@input.DetectedFormat::Pdf),
         @parser.explicit_ocr_options(language=Some("eng")),
-        @convert.PdfOcrPolicy::Explicit,
         @convert.FidelityMode::Accurate,
         @convert.ConvertMode::Balanced,
         @convert.output_mode_for_output_format(@convert.OutputFormat::Markdown),
@@ -916,35 +940,22 @@ test "main cli pdf accurate can fall back to balanced OCR provider when accurate
         rag_options=@rag.default_rag_options(),
       ),
       fn(request) {
-        if request.provider_kind == @focr.OcrProviderKind::PaddleOcr {
-          Err(
-            @focr.OcrProviderError::NotConfigured(
-              @focr.paddle_ocr_not_configured_message(),
-            ),
-          )
-        } else {
-          let tsv = [
-            "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext",
-            "5\t1\t1\t1\t1\t1\t10\t10\t20\t10\t95\tPDF", "5\t1\t1\t1\t1\t2\t35\t10\t20\t10\t94\tOCR",
-          ].join("\n")
-          match @focr.parse_tesseract_tsv(tsv, language=request.language) {
-            Ok(value) => Ok(value)
-            Err(err) =>
-              abort(
-                "expected CLI fallback OCR TSV parse success: " +
-                err.to_string(),
-              )
-          }
-        }
+        ignore(request)
+        Err(
+          @focr.OcrProviderError::NotConfigured(
+            @focr.paddle_ocr_not_configured_message(),
+          ),
+        )
       },
       fake_cli_pdf_rasterizer(1),
     ) {
-    Ok(value) => value
     Err(msg) =>
-      fail("expected pdf accurate fallback through injected provider: " + msg)
+      assert_true(
+        msg.contains("Missing dependency: PaddleOCR wrapper") ||
+        msg.contains("MARKITDOWN_PADDLE_OCR_CMD"),
+      )
+    Ok(_) => fail("expected accurate PDF OCR to fail closed without Paddle")
   }
-
-  assert_true(rendered.contains("PDF OCR"))
 }
 
 ///|
@@ -970,7 +981,7 @@ test "main cli scanned-like pdf fails closed instead of returning empty markdown
     run_cli(cli_options(pdf_path, None, None, @convert.OutputFormat::Markdown)) {
     Err(msg) => {
       assert_true(msg.contains("empty"))
-      assert_true(msg.contains("root pdf_native backend"))
+      assert_true(msg.contains("native PDF reader backend"))
       assert_true(!msg.contains("not configured"))
       assert_true(
         !msg.contains("image OCR provider returned a non-empty OCR model"),
@@ -1328,7 +1339,6 @@ test "main cli accurate fallback provenance preserves output semantics" {
         Some(provenance_path),
         Some(@input.DetectedFormat::Toml),
         @parser.default_ocr_options(),
-        @convert.default_pdf_ocr_policy(),
         @convert.FidelityMode::Accurate,
         @convert.ConvertMode::Accurate,
         @convert.output_mode_for_output_format(@convert.OutputFormat::Markdown),

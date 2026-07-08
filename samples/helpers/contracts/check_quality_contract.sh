@@ -32,6 +32,7 @@ txt_known_bad_quality	txt	external_quality/shared/shared.txt	file	contract_sourc
 EOF
 
 RUN_LOG="$OUT_DIR/run.log"
+FORBID_LOG="$OUT_DIR/forbid.log"
 
 (
   cd "$ROOT"
@@ -40,7 +41,7 @@ RUN_LOG="$OUT_DIR/run.log"
   MARKITDOWN_TMP_DIR="$ROOT/.tmp/tests/quality" \
   MARKITDOWN_CLI="$ROOT/_build/native/debug/build/cli/cli.exe" \
   MARKITDOWN_QUALITY_LAB="$LAB_ROOT" \
-  ./samples/check_quality.sh --format txt
+  ./samples/check_balance_quality.sh --formats txt
 ) >"$RUN_LOG" 2>&1
 
 assert_contains "$RUN_LOG" "result: pass"
@@ -67,5 +68,33 @@ assert_contains "$NONPASS_MD" "expected_fail"
 find "$ROW_REPORTS_DIR" -mindepth 1 -maxdepth 1 -type f -name '*.md' | grep -q . || fail "expected per-row non-pass reports"
 
 find "$RAW_OUTPUTS_DIR" -mindepth 2 -type f -name '*.md' | grep -q . || fail "expected raw output markdown files"
+
+cat >"$MANIFEST" <<'EOF'
+id	format	path	source_type	source_id	license_status	license_review_status	privacy	size_class	features	expected_signals	quality_tier	original_url	local_cache_path	notes
+txt_basic_quality	txt	external_quality/shared/shared.txt	file	contract_source	Apache-2.0	approved	public	small	txt;contract	no_empty_output;contains_all:Alpha|Beta;order:Alpha|Beta	gate			offline quality contract sample
+txt_accurate_wrong_suite	txt	external_quality/shared/shared.txt	file	contract_source	Apache-2.0	approved	public	small	txt;accurate	contains:Alpha	gate			wrong-suite accurate row
+EOF
+
+set +e
+(
+  cd "$ROOT"
+  QUALITY_RUN_ID="contract-quality-forbid-$$" \
+  QUALITY_TMP_ROOT="$ROOT/.tmp/tests/quality" \
+  MARKITDOWN_TMP_DIR="$ROOT/.tmp/tests/quality" \
+  MARKITDOWN_CLI="$ROOT/_build/native/debug/build/cli/cli.exe" \
+  MARKITDOWN_QUALITY_LAB="$LAB_ROOT" \
+  ./samples/check_balance_quality.sh --formats txt
+) >"$FORBID_LOG" 2>&1
+status=$?
+set -e
+[[ "$status" -ne 0 ]] || fail "balance-quality suite should fail closed when external_quality contains accurate rows"
+assert_contains "$FORBID_LOG" "result: fail"
+assert_contains "$FORBID_LOG" "runner=none"
+RUN_FORBID_DIR="$(sed -n 's/^run: //p' "$FORBID_LOG" | tail -1)"
+[[ -n "$RUN_FORBID_DIR" ]] || fail "missing forbid run directory in output"
+FORBID_ENTRY_LOG="$ROOT/$RUN_FORBID_DIR/logs/entrypoint.log"
+[[ -f "$FORBID_ENTRY_LOG" ]] || fail "missing forbid entrypoint log"
+assert_contains "$FORBID_ENTRY_LOG" "manifest rows include forbidden feature tag"
+assert_contains "$FORBID_ENTRY_LOG" "txt_accurate_wrong_suite"
 
 echo "QUALITY CONTRACT PASSED"
