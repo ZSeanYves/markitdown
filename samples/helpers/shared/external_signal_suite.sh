@@ -53,6 +53,14 @@ signal_suite_fail_unsupported_format() {
   exit 1
 }
 
+signal_suite_log_excerpt() {
+  local log_path="$1"
+  [[ -f "$log_path" ]] || return 0
+  sed -n '1,5p' "$log_path" |
+    tr '\r\n\t' '   ' |
+    sed 's/[[:space:]]\+/ /g; s/^[[:space:]]*//; s/[[:space:]]*$//'
+}
+
 signal_suite_set_filter_format() {
   local format="${1-}"
   if [[ -n "$FILTER_FORMAT" ]]; then
@@ -338,6 +346,14 @@ signal_suite_run() {
   echo "run: $(display_path "$ROOT" "$QUALITY_TMP_DIR")"
   if [[ "$status" -ne 0 ]]; then
     echo "result: fail  rows=$rows checked=$checked skipped=$skipped failed=$failed"
+    if [[ ! -f "$SUMMARY_PATH" ]]; then
+      local failure_hint=""
+      echo "note: run exited before summary.tsv was written"
+      failure_hint="$(signal_suite_log_excerpt "$RUN_LOG_PATH")"
+      if [[ -n "$failure_hint" ]]; then
+        echo "reason: $failure_hint"
+      fi
+    fi
     echo "summary: $(display_path "$ROOT" "$SUMMARY_MD_PATH")"
     echo "details: $(display_path "$ROOT" "$QUALITY_TMP_DIR")"
     echo "log: $(display_path "$ROOT" "$RUN_LOG_PATH")"

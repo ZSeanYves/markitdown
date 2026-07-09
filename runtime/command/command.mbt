@@ -75,6 +75,46 @@ pub fn normalized_env_var(name : String) -> String? {
 }
 
 ///|
+pub fn markitdown_module_root_env_var() -> String {
+  "MARKITDOWN_MODULE_ROOT"
+}
+
+///|
+fn trim_trailing_slashes(path : String) -> String {
+  let chars = path.to_array()
+  let mut end = chars.length()
+  while end > 1 && chars[end - 1] == '/' {
+    end = end - 1
+  }
+  if end == chars.length() {
+    path
+  } else {
+    String::from_array(chars[:end])
+  }
+}
+
+///|
+pub fn resolve_repo_relative_path(path : String) -> String {
+  let trimmed = path.trim().to_owned()
+  if trimmed == "" || trimmed.has_prefix("/") {
+    return trimmed
+  }
+  match normalized_env_var(markitdown_module_root_env_var()) {
+    Some(root) => {
+      let normalized_root = trim_trailing_slashes(root.trim().to_owned())
+      if normalized_root == "" || normalized_root == "." {
+        trimmed
+      } else if normalized_root == "/" {
+        "/" + trimmed
+      } else {
+        normalized_root + "/" + trimmed
+      }
+    }
+    None => trimmed
+  }
+}
+
+///|
 pub fn is_executable_file(path : String) -> Bool {
   if path.trim() == "" {
     return false
@@ -140,7 +180,7 @@ pub fn fallback_command(name : String) -> ResolvedCommand {
 
 ///|
 pub fn repo_managed_command_record_path(name : String) -> String {
-  "env/managed-paths/" + name.trim().to_owned()
+  resolve_repo_relative_path("env/managed-paths/" + name.trim().to_owned())
 }
 
 ///|

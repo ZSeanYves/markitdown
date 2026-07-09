@@ -153,18 +153,18 @@ accurate_runtime_preflight() {
   python_cmd="$(resolve_accurate_python_cmd)"
   {
     echo "preflight: checking accurate runtime dependencies"
-    require_command "$ACCURATE_TESSERACT_CMD"
-    require_command "$ACCURATE_PDFTOPPM_CMD"
-    require_command "$python_cmd"
+    require_command "$ACCURATE_TESSERACT_CMD" || return 1
+    require_command "$ACCURATE_PDFTOPPM_CMD" || return 1
+    require_command "$python_cmd" || return 1
     if [[ "${MARKITDOWN_ACCURATE_SKIP_PADDLE_IMPORT_CHECK:-0}" != "1" ]]; then
-      "$python_cmd" - <<'PY'
+      "$python_cmd" - <<'PY' || return 1
 import paddle  # noqa: F401
 import paddleocr  # noqa: F401
 PY
     fi
-    ensure_default_paddle_wrapper
-    wrapper_smoke_test "$python_cmd" "$smoke_image"
-    resolve_markitdown_cli >/dev/null
+    ensure_default_paddle_wrapper || return 1
+    wrapper_smoke_test "$python_cmd" "$smoke_image" || return 1
+    resolve_markitdown_cli >/dev/null || return 1
     echo "preflight: ok"
     echo "python: $python_cmd"
     echo "paddle_wrapper: $MARKITDOWN_PADDLE_OCR_CMD"

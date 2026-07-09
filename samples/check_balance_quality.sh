@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+source "$ROOT/samples/helpers/shared/cli_runner.sh"
 source "$ROOT/samples/helpers/shared/external_signal_suite.sh"
 
 QUALITY_CHECK="$ROOT/samples/helpers/quality/check.sh"
@@ -32,5 +33,33 @@ SIGNAL_SUITE_SUMMARY_INTRO="External balance-quality rows from ./markitdown-qual
 SIGNAL_SUITE_MISSING_TITLE="EXTERNAL BALANCE-QUALITY CORPUS NOT FOUND"
 SIGNAL_SUITE_MISSING_HINTS=$'place markitdown-quality-lab at the official repo-root location\nclone: git clone git@github.com:ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab\nofficial location: ./markitdown-quality-lab\nlocal-only validation: bash samples/check_balance.sh'
 SIGNAL_SUITE_FORBID_FEATURE="accurate"
+
+signal_suite_before_run() {
+  local _run_dir="$1"
+  local log_dir="$2"
+  local _run_label="$3"
+  local preflight_log_path="$log_dir/preflight.log"
+  if ! (
+    echo "preflight: checking CLI runner"
+    resolve_markitdown_cli >/dev/null || exit 1
+    echo "preflight: ok"
+    echo "runner: ${CLI_RUNNER_KIND:-none}"
+    echo "cli: ${CLI_BIN:-unset}"
+  ) >"$preflight_log_path" 2>&1; then
+    echo "balance-quality: preflight failed"
+    echo "run: $(display_path "$ROOT" "$_run_dir")"
+    echo "preflight-log: $(display_path "$ROOT" "$preflight_log_path")"
+    sed -n '1,40p' "$preflight_log_path" >&2 || true
+    exit 1
+  fi
+}
+
+signal_suite_write_summary_extra() {
+  local preflight_log_path="$LOG_DIR/preflight.log"
+  echo
+  echo "## Preflight"
+  echo
+  echo "- Log: $(display_path "$ROOT" "$preflight_log_path")"
+}
 
 signal_suite_run "$@"

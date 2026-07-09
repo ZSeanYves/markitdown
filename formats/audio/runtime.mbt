@@ -62,12 +62,14 @@ fn audio_resolved_model_path() -> String {
 
 ///|
 fn audio_default_wrapper_path() -> String {
-  "samples/env/audio/audio_transcribe_wrapper.py"
+  @rtcmd.resolve_repo_relative_path(
+    "samples/env/audio/audio_transcribe_wrapper.py",
+  )
 }
 
 ///|
 fn repo_local_runtime_python_path() -> String {
-  "env/.venv-markitdown-runtime/bin/python"
+  @rtcmd.resolve_repo_relative_path("env/.venv-markitdown-runtime/bin/python")
 }
 
 ///|

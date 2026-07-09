@@ -102,6 +102,7 @@ markitdown_package_module_root() {
 run_markitdown_cli() {
   local cli_tmp_root
   cli_tmp_root="$(validation_cli_tmp_root)"
+  local module_root="${MARKITDOWN_MODULE_ROOT:-$CLI_MODULE_ROOT}"
   if [[ "${CLI_RUNNER_KIND:-}" == "prebuilt" || "${CLI_RUNNER_KIND:-}" == "override" ]]; then
     local runner_cwd=""
     runner_cwd="$(markitdown_runner_cwd 2>/dev/null || true)"
@@ -109,11 +110,11 @@ run_markitdown_cli() {
       mkdir -p "$runner_cwd"
       (
         cd "$runner_cwd"
-        MARKITDOWN_TMP_DIR="$cli_tmp_root" "$CLI_BIN" "$@"
+        MARKITDOWN_MODULE_ROOT="$module_root" MARKITDOWN_TMP_DIR="$cli_tmp_root" "$CLI_BIN" "$@"
       )
       return $?
     fi
-    MARKITDOWN_TMP_DIR="$cli_tmp_root" "$CLI_BIN" "$@"
+    MARKITDOWN_MODULE_ROOT="$module_root" MARKITDOWN_TMP_DIR="$cli_tmp_root" "$CLI_BIN" "$@"
     return $?
   fi
   echo "CLI runner is not configured. Run 'moon build $CLI_PACKAGE --target native' or set MARKITDOWN_CLI." >&2

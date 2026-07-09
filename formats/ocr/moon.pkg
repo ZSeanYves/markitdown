@@ -12,11 +12,6 @@ import {
   "ZSeanYves/markitdown/runtime/command" @rtcmd,
 }
 
-import {
-  "moonbitlang/async",
-  "ZSeanYves/markitdown/internal/testsupport/hermetic" @therm,
-} for "test"
-
 supported_targets = "native"
 
 options(

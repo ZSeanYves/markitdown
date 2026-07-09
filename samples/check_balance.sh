@@ -92,9 +92,8 @@ set -euo pipefail
 exec $quoted_python $quoted_ffmpeg "\$@"
 EOF
   chmod +x "$ffmpeg_stub"
-  # The repo-managed audio runtime now resolves relative to cwd. Keep audio
-  # samples on an isolated cwd so the deterministic mock remains the active
-  # wrapper during balance regression runs.
+  # Audio balance runs isolate both cwd and module root so the deterministic
+  # mock stays active instead of the repo-managed wrapper/runtime.
   mkdir -p "$CHECK_RUN_DIR/audio-mock/cwd"
   export PATH="$(dirname "$ffmpeg_stub"):$PATH"
   export MARKITDOWN_AUDIO_CMD="$quoted_wrapper"
@@ -250,11 +249,6 @@ if [[ "$SPECIAL_MODE" == "list-inventory" ]]; then
   exit 0
 fi
 
-resolve_markitdown_cli
-if [[ "${CLI_RUNNER_KIND:-}" == "prebuilt" || "${CLI_RUNNER_KIND:-}" == "override" ]]; then
-  SHARED_CLI_BIN="$CLI_BIN"
-fi
-
 RUN_STAMP="$(date +%Y%m%d-%H%M%S)"
 RUN_LABEL="all"
 if [[ -n "$FORMAT_FILTER" ]]; then
@@ -271,6 +265,7 @@ FAILURE_REPORTS_DIR="$REPORTS_DIR/failures"
 SUMMARY_PATH="$CHECK_RUN_DIR/summary.tsv"
 SUMMARY_MD_PATH="$CHECK_RUN_DIR/summary.md"
 ENTRYPOINT_LOG="$LOG_DIR/entrypoint.log"
+PREFLIGHT_LOG_PATH="$LOG_DIR/preflight.log"
 mkdir -p "$LOG_DIR" "$DIFF_DIR" "$WORKSPACE_DIR" "$RAW_DIR/failures" "$FAILURE_REPORTS_DIR"
 : > "$ENTRYPOINT_LOG"
 printf 'mode\tformat\tstatus\trunner\tchecks\tfailed\tlog_path\tnotes\n' > "$SUMMARY_PATH"
@@ -281,8 +276,6 @@ RUNNER_LABEL="none"
 CHECKS_TOTAL=0
 FAILED_TOTAL=0
 SKIPPED_TOTAL=0
-
-setup_balance_audio_mock_runtime
 
 mode_display() {
   local mode="$1"
@@ -320,6 +313,20 @@ runner_from_log_balance() {
   else
     printf 'none'
   fi
+}
+
+balance_cli_preflight() {
+  {
+    echo "preflight: checking CLI runner"
+    resolve_markitdown_cli >/dev/null || return 1
+    if [[ "${CLI_RUNNER_KIND:-}" == "prebuilt" || "${CLI_RUNNER_KIND:-}" == "override" ]]; then
+      SHARED_CLI_BIN="$CLI_BIN"
+    fi
+    echo "preflight: ok"
+    echo "runner: ${CLI_RUNNER_KIND:-none}"
+    echo "cli: ${CLI_BIN:-unset}"
+  } >"$PREFLIGHT_LOG_PATH" 2>&1
+  cat "$PREFLIGHT_LOG_PATH" >> "$ENTRYPOINT_LOG"
 }
 
 checks_from_log() {
@@ -468,6 +475,10 @@ write_summary_md() {
     echo "Finished: $finished_at"
     echo "Duration: ${duration}s"
     echo
+    echo "## Preflight"
+    echo
+    echo "- Log: $(display_path "$ROOT" "$PREFLIGHT_LOG_PATH")"
+    echo
     echo "## What was checked"
     echo
     echo "External main manifest lane checks for the balance CLI gate: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, eml, tex, rst, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, wav, mp3, m4a, and ocr."
@@ -502,6 +513,41 @@ write_summary_md() {
   } > "$SUMMARY_MD_PATH"
 }
 
+write_preflight_failure_summary_md() {
+  local finished_at="$1"
+  local duration="$2"
+  {
+    echo "# Run summary"
+    echo
+    echo "Status: FAIL"
+    echo "Command: $(command_text)"
+    echo "Run directory: $(display_path "$ROOT" "$CHECK_RUN_DIR")"
+    echo "Runner: none"
+    echo "Started: $STARTED_AT"
+    echo "Finished: $finished_at"
+    echo "Duration: ${duration}s"
+    echo
+    echo "## Preflight"
+    echo
+    echo "- Log: $(display_path "$ROOT" "$PREFLIGHT_LOG_PATH")"
+    echo
+    echo "## Result"
+    echo
+    echo "- Formats: $(format_display)"
+    echo "- Rows: 0"
+    echo "- Checked: 0"
+    echo "- Skipped: 0"
+    echo "- Failed: 0"
+    echo "- Note: CLI runner preflight failed before lane execution started"
+    echo
+    echo "## Where to look next"
+    echo
+    echo "- Full log: $(display_path "$ROOT" "$ENTRYPOINT_LOG")"
+    echo "- Preflight log: $(display_path "$ROOT" "$PREFLIGHT_LOG_PATH")"
+    echo "- Workspace scratch: $(display_path "$ROOT" "$WORKSPACE_DIR")"
+  } > "$SUMMARY_MD_PATH"
+}
+
 print_result() {
   local status="$1"
   local result_label="pass"
@@ -512,6 +558,32 @@ print_result() {
   echo "summary: $(display_path "$ROOT" "$SUMMARY_MD_PATH")"
   echo "details: $(display_path "$ROOT" "$CHECK_RUN_DIR")"
 }
+
+if ! balance_cli_preflight; then
+  cat "$PREFLIGHT_LOG_PATH" >> "$ENTRYPOINT_LOG" 2>/dev/null || true
+  RUNNER_LABEL="none"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "preflight" \
+    "$(format_display)" \
+    "fail" \
+    "none" \
+    "0" \
+    "0" \
+    "$(display_path "$ROOT" "$PREFLIGHT_LOG_PATH")" \
+    "cli runner preflight failed" >> "$SUMMARY_PATH"
+  FINISHED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  FINISH_SECONDS="$(date +%s)"
+  DURATION_SECONDS=$((FINISH_SECONDS - START_SECONDS))
+  write_preflight_failure_summary_md "$FINISHED_AT" "$DURATION_SECONDS"
+  echo "balance: preflight failed"
+  echo "run: $(display_path "$ROOT" "$CHECK_RUN_DIR")"
+  echo "preflight-log: $(display_path "$ROOT" "$PREFLIGHT_LOG_PATH")"
+  print_result 1
+  sed -n '1,40p' "$PREFLIGHT_LOG_PATH" >&2 || true
+  exit 1
+fi
+
+setup_balance_audio_mock_runtime
 
 overall_status=0
 if [[ -n "$ONLY_MODE" ]]; then

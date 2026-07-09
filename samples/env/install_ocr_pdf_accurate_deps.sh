@@ -66,6 +66,7 @@ wrapper_cmd="$(join_shell_command "$python_bin" "$wrapper_path")"
 env_path="$(generated_env_path accurate-ocr-pdf.env.sh)"
 write_export_env_file \
   "$env_path" \
+  MARKITDOWN_MODULE_ROOT "$ROOT" \
   MARKITDOWN_RUNTIME_VENV "$(runtime_venv_path)" \
   MARKITDOWN_RUNTIME_PYTHON "$python_bin" \
   MARKITDOWN_PADDLE_OCR_CMD "$wrapper_cmd"

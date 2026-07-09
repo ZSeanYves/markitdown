@@ -12,6 +12,8 @@ pub fn join_shell_command(Array[String]) -> String
 
 pub fn make_resolved_command(String, String, ResolvedCommandSource) -> ResolvedCommand
 
+pub fn markitdown_module_root_env_var() -> String
+
 pub fn normalized_env_var(String) -> String?
 
 pub fn repo_managed_command_record_path(String) -> String
@@ -21,6 +23,8 @@ pub fn resolve_executable_path(String, String, ResolvedCommandSource) -> Result[
 pub fn resolve_path_command(String) -> ResolvedCommand?
 
 pub fn resolve_repo_managed_command(String) -> ResolvedCommand?
+
+pub fn resolve_repo_relative_path(String) -> String
 
 pub fn resolved_command_context(ResolvedCommand) -> String
 

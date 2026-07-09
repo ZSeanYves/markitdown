@@ -12,11 +12,6 @@ import {
   "ZSeanYves/markitdown/runtime/command" @rtcmd,
 }
 
-import {
-  "moonbitlang/core/env",
-  "ZSeanYves/markitdown/internal/testsupport/hermetic" @therm,
-} for "wbtest"
-
 supported_targets = "native"
 
 options(

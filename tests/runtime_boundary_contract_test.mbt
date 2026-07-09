@@ -147,7 +147,7 @@ test "root image parser keeps deterministic fail-closed OCR diagnostics" {
         }
         Err(
           @focr.OcrProviderError::CommandUnavailable(
-            "synthetic tesseract missing",
+            "synthetic OCR provider unavailable",
           ),
         )
       },
@@ -155,7 +155,7 @@ test "root image parser keeps deterministic fail-closed OCR diagnostics" {
     ) {
     Err(msg) =>
       assert_true(
-        msg.contains("synthetic tesseract missing") &&
+        msg.contains("synthetic OCR provider unavailable") &&
         msg.contains("image_format=png"),
       )
     Ok(_) =>
@@ -205,14 +205,14 @@ test "pure tesseract tsv parser stays provider-independent while root image OCR 
       fn(_request : @focr.OcrProviderRequest) {
         Err(
           @focr.OcrProviderError::ExecutionFailed(
-            "synthetic tesseract execution failed",
+            "synthetic OCR provider failed",
           ),
         )
       },
     ) {
     Err(@convert.ConvertError::ParseFailed(msg)) =>
       assert_true(
-        msg.contains("synthetic tesseract execution failed") &&
+        msg.contains("synthetic OCR provider failed") &&
         msg.contains("image_format=png"),
       )
     Err(other) =>

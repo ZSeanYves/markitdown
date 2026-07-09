@@ -42,9 +42,13 @@ esac
 write_managed_command_path_record tesseract tesseract
 
 env_path="$(generated_env_path balance-ocr-pdf.env.sh)"
-write_note_env_file "$env_path" "Balanced direct image OCR does not require extra markitdown runtime exports."
+write_export_env_file \
+  "$env_path" \
+  MARKITDOWN_MODULE_ROOT "$ROOT"
 
 log_note "Balanced direct image OCR dependencies are ready."
 log_note "Tesseract: $(command -v tesseract)"
 log_note "Managed record: $(managed_command_record_path tesseract)"
-log_note "Env note written to: $env_path"
+log_note "Env file written to: $env_path"
+log_note "Load it in your shell with:"
+print_source_hint "$env_path"

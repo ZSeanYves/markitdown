@@ -80,7 +80,10 @@ sample_run_markitdown_cli() {
   local runner_cwd=""
   runner_cwd="$(sample_runner_cwd_for_format "$format" 2>/dev/null || true)"
   if [[ -n "$runner_cwd" ]]; then
-    MARKITDOWN_RUNNER_CWD="$runner_cwd" run_markitdown_cli "$@"
+    # Keep audio mock runs hermetic by hiding repo-managed wrappers under an
+    # isolated module root as well as an isolated cwd.
+    MARKITDOWN_RUNNER_CWD="$runner_cwd" MARKITDOWN_MODULE_ROOT="$runner_cwd" \
+      run_markitdown_cli "$@"
     return $?
   fi
   run_markitdown_cli "$@"

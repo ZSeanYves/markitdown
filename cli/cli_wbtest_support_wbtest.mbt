@@ -67,48 +67,6 @@ fn run_cli_without_emitting_warnings(
 }
 
 ///|
-fn fake_cli_pdf_rasterizer(
-  page_count : Int,
-) -> (@input.InputSource) -> Result[
-  (@fpdf.PdfRasterResult, String),
-  @fpdf.PdfRasterizerError,
-] {
-  fn(source : @input.InputSource) {
-    @fpdf.rasterize_pdf_with_pdftoppm(source, fn(
-      _cmd : String,
-      args : Array[String],
-    ) {
-      let output_prefix = args[2]
-      let parts = output_prefix
-        .split("/")
-        .to_array()
-        .map(fn(part) { part.to_owned() })
-      let output_dir = parts[:parts.length() - 1].join("/")
-      @therm.ensure_dir_tree(output_dir) catch {
-        e =>
-          return Err(
-            @fpdf.PdfRasterizerError::ExecutionFailed(
-              "failed to create fake raster output dir: " + e.to_string(),
-            ),
-          )
-      }
-      for i in 0..<page_count {
-        let page_name = output_dir + "/page-" + (i + 1).to_string() + ".png"
-        @fs.write_bytes_to_file(page_name, Bytes::from_array([])) catch {
-          e =>
-            return Err(
-              @fpdf.PdfRasterizerError::ExecutionFailed(
-                "failed to create fake raster page: " + e.to_string(),
-              ),
-            )
-        }
-      }
-      Ok((0, "", ""))
-    })
-  }
-}
-
-///|
 fn fake_cli_failing_image_provider(
   expected_input : String,
   expected_language : String?,
@@ -179,39 +137,5 @@ fn fake_cli_image_provider(
       Err(err) =>
         abort("expected fake cli OCR TSV parse success: " + err.to_string())
     }
-  }
-}
-
-///|
-fn fake_cli_pdf_ocr_provider(
-  expected_language : String?,
-  expected_pages : Int,
-) -> (@focr.OcrProviderRequest) -> Result[
-  @focr.OcrProviderResult,
-  @focr.OcrProviderError,
-] {
-  fn(request : @focr.OcrProviderRequest) {
-    if request.language != expected_language {
-      abort("unexpected OCR language")
-    }
-    if request.image_paths.length() != expected_pages {
-      abort("unexpected OCR page count")
-    }
-    let tsv = [
-      "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext",
-      "5\t1\t1\t1\t1\t1\t10\t10\t20\t10\t95\tMoonBit", "5\t1\t1\t1\t1\t2\t35\t10\t15\t10\t94\tOCR",
-      "5\t1\t1\t1\t2\t1\t10\t25\t22\t10\t93\tSample", "5\t1\t1\t1\t2\t2\t36\t25\t18\t10\t92\t123",
-    ].join("\n")
-    let parsed = match
-      @focr.parse_tesseract_tsv(tsv, language=request.language) {
-      Ok(value) => value
-      Err(err) =>
-        abort("expected fake cli PDF OCR TSV parse success: " + err.to_string())
-    }
-    let page_model = parsed.pages[0]
-    let jobs = request.image_paths.map(fn(path) {
-      @focr.make_ocr_provider_job_result(path, [page_model])
-    })
-    Ok(@focr.make_ocr_provider_result([], "mock_paddle", jobs~))
   }
 }

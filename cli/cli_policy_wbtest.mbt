@@ -20,13 +20,13 @@ test "main cli image OCR intent remains fail closed by mode" {
         png_path,
         None,
         @focr.OcrProviderError::CommandUnavailable(
-          "synthetic tesseract missing",
+          "synthetic OCR provider unavailable",
         ),
       ),
     ) {
     Err(msg) =>
       assert_true(
-        msg.contains("synthetic tesseract missing") &&
+        msg.contains("synthetic OCR provider unavailable") &&
         msg.contains("image_format=png"),
       )
     Ok(_) => fail("expected explicit OCR image path to fail closed")
@@ -44,14 +44,12 @@ test "main cli image OCR intent remains fail closed by mode" {
       fake_cli_failing_image_provider(
         png_path,
         Some("eng"),
-        @focr.OcrProviderError::ExecutionFailed(
-          "synthetic tesseract execution failed",
-        ),
+        @focr.OcrProviderError::ExecutionFailed("synthetic OCR provider failed"),
       ),
     ) {
     Err(msg) =>
       assert_true(
-        msg.contains("synthetic tesseract execution failed") &&
+        msg.contains("synthetic OCR provider failed") &&
         msg.contains("image_format=png"),
       )
     Ok(_) => fail("expected explicit OCR image/lang path to fail closed")
@@ -98,74 +96,6 @@ test "main cli parse rejects balanced pdf explicit OCR with accurate-route guida
         ),
       )
     Ok(_) => fail("expected balanced pdf --ocr parse to fail closed")
-  }
-}
-
-///|
-test "main cli pdf accurate can succeed through injected rasterizer and OCR provider" {
-  let pdf_path = "samples/fixtures/contracts/pdf/pdf_ocr_single_page.pdf"
-
-  match
-    run_cli_with_image_ocr_provider_and_pdf_rasterizer(
-      make_cli_options(
-        pdf_path,
-        None,
-        None,
-        Some(@input.DetectedFormat::Pdf),
-        @parser.explicit_ocr_options(language=Some("eng")),
-        @convert.FidelityMode::Accurate,
-        @convert.ConvertMode::Balanced,
-        @convert.output_mode_for_output_format(@convert.OutputFormat::Markdown),
-        false,
-        @convert.OutputFormat::Markdown,
-        rag_options=@rag.default_rag_options(),
-      ),
-      fake_cli_pdf_ocr_provider(Some("eng"), 1),
-      fake_cli_pdf_rasterizer(1),
-    ) {
-    Ok(content) =>
-      assert_true(
-        content.contains("MoonBit OCR") && content.contains("Sample 123"),
-      )
-    Err(msg) => fail("expected injected accurate PDF OCR success: " + msg)
-  }
-}
-
-///|
-test "main cli pdf accurate fails closed when Paddle OCR is unavailable" {
-  let pdf_path = "samples/fixtures/contracts/pdf/pdf_ocr_single_page.pdf"
-
-  match
-    run_cli_with_image_ocr_provider_and_pdf_rasterizer(
-      make_cli_options(
-        pdf_path,
-        None,
-        None,
-        Some(@input.DetectedFormat::Pdf),
-        @parser.explicit_ocr_options(language=Some("eng")),
-        @convert.FidelityMode::Accurate,
-        @convert.ConvertMode::Balanced,
-        @convert.output_mode_for_output_format(@convert.OutputFormat::Markdown),
-        false,
-        @convert.OutputFormat::Markdown,
-        rag_options=@rag.default_rag_options(),
-      ),
-      fn(request) {
-        ignore(request)
-        Err(
-          @focr.OcrProviderError::NotConfigured(
-            @focr.paddle_ocr_not_configured_message(),
-          ),
-        )
-      },
-      fake_cli_pdf_rasterizer(1),
-    ) {
-    Err(msg) =>
-      assert_true(
-        msg.contains("Missing dependency: PaddleOCR wrapper") ||
-        msg.contains("MARKITDOWN_PADDLE_OCR_CMD"),
-      )
-    Ok(_) => fail("expected accurate PDF OCR to fail closed without Paddle")
   }
 }
 

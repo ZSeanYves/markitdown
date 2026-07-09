@@ -203,25 +203,15 @@ fn pdf_ocr_ensure_dir_tree(path : String) -> Unit raise @fs.IOError {
 }
 
 ///|
-fn pdf_ocr_remove_dir_recursive(path : String) -> Unit raise @fs.IOError {
+#warnings("-deprecated")
+fn pdf_ocr_cleanup_temp_dir(path : String) -> Unit {
   if !@fs.path_exists(path) {
     return
   }
-  for name in @fs.read_dir(path) {
-    let child = path + "/" + name
-    if @fs.is_dir(child) {
-      pdf_ocr_remove_dir_recursive(child)
-    } else if @fs.is_file(child) {
-      @fs.remove_file(child)
-    }
-  }
-  @fs.remove_dir(path)
-}
-
-///|
-fn pdf_ocr_cleanup_temp_dir(path : String) -> Unit {
   ignore(
-    try pdf_ocr_remove_dir_recursive(path) |> Ok catch {
+    try
+      @async.with_event_loop(_group => @afs.rmdir(path, recursive=true)) |> Ok
+    catch {
       _ => Err(())
     },
   )
@@ -317,6 +307,11 @@ fn resolve_pdftoppm_command() -> Result[
 }
 
 ///|
+fn pdftoppm_png_output_prefix(output_dir : String) -> String {
+  output_dir + "/page"
+}
+
+///|
 fn build_pdftoppm_png_command_plan(
   pdf_path : String,
   output_dir : String,
@@ -325,7 +320,10 @@ fn build_pdftoppm_png_command_plan(
     Ok(value) => value
     Err(error) => return Err(error)
   }
-  Ok({ command, argv: ["-png", pdf_path, output_dir + "/page"] })
+  Ok({
+    command,
+    argv: ["-png", pdf_path, pdftoppm_png_output_prefix(output_dir)],
+  })
 }
 
 ///|
@@ -337,7 +335,7 @@ pub fn build_pdftoppm_png_command(
     Ok(value) => value
     Err(_) => @rtcmd.fallback_command("pdftoppm")
   }
-  (command.program, ["-png", pdf_path, output_dir + "/page"])
+  (command.program, ["-png", pdf_path, pdftoppm_png_output_prefix(output_dir)])
 }
 
 ///|
@@ -557,18 +555,23 @@ fn finalize_pdftoppm_result(
 }
 
 ///|
-fn pdftoppm_png_paths(output_dir : String) -> Array[String] raise @fs.IOError {
-  if !@fs.path_exists(output_dir) || !@fs.is_dir(output_dir) {
-    return []
-  }
+fn pdftoppm_png_paths(
+  output_prefix : String,
+) -> Array[String] raise @fs.IOError {
   let paths : Array[String] = []
-  for name in @fs.read_dir(output_dir) {
-    let child = output_dir + "/" + name
-    if @fs.is_file(child) && child.to_lower().has_suffix(".png") {
-      paths.push(child)
+  let mut page_index = 1
+  while true {
+    let candidate = output_prefix + "-" + page_index.to_string() + ".png"
+    if !@fs.path_exists(candidate) {
+      break
     }
+    if @fs.is_file(candidate) {
+      paths.push(candidate)
+      page_index = page_index + 1
+      continue
+    }
+    break
   }
-  paths.sort()
   paths
 }
 
@@ -614,6 +617,7 @@ pub fn rasterize_pdf_with_pdftoppm(
       return Err(error)
     }
   }
+  let output_prefix = pdftoppm_png_output_prefix(output_dir)
   let delegated = match collect_output(plan.command.program, plan.argv) {
     Ok(value) => value
     Err(error) => {
@@ -623,7 +627,7 @@ pub fn rasterize_pdf_with_pdftoppm(
   }
   let finalized = match delegated {
     (0, _, _) => {
-      let paths = pdftoppm_png_paths(output_dir) catch {
+      let paths = pdftoppm_png_paths(output_prefix) catch {
         e => {
           pdf_ocr_cleanup_temp_dir(temp_dir)
           return Err(
@@ -702,6 +706,7 @@ pub fn rasterize_pdf_with_pdftoppm_default(
       return Err(error)
     }
   }
+  let output_prefix = pdftoppm_png_output_prefix(output_dir)
   let delegated = match collect_pdftoppm_output(plan.command, plan.argv) {
     Ok(value) => value
     Err(error) => {
@@ -711,7 +716,7 @@ pub fn rasterize_pdf_with_pdftoppm_default(
   }
   let finalized = match delegated {
     (0, _, _) => {
-      let paths = pdftoppm_png_paths(output_dir) catch {
+      let paths = pdftoppm_png_paths(output_prefix) catch {
         e => {
           pdf_ocr_cleanup_temp_dir(temp_dir)
           return Err(
@@ -794,6 +799,7 @@ pub async fn rasterize_pdf_with_pdftoppm_async(
       return Err(error)
     }
   }
+  let output_prefix = pdftoppm_png_output_prefix(output_dir)
   let delegated = match collect_output(plan.command.program, plan.argv) {
     Ok(value) => value
     Err(error) => {
@@ -803,7 +809,7 @@ pub async fn rasterize_pdf_with_pdftoppm_async(
   }
   let finalized = match delegated {
     (0, _, _) => {
-      let paths = pdftoppm_png_paths(output_dir) catch {
+      let paths = pdftoppm_png_paths(output_prefix) catch {
         e => {
           pdf_ocr_cleanup_temp_dir(temp_dir)
           return Err(
@@ -882,6 +888,7 @@ pub async fn rasterize_pdf_with_pdftoppm_default_async(
       return Err(error)
     }
   }
+  let output_prefix = pdftoppm_png_output_prefix(output_dir)
   let delegated = match
     collect_pdftoppm_output_async_resolved(plan.command, plan.argv) {
     Ok(value) => value
@@ -892,7 +899,7 @@ pub async fn rasterize_pdf_with_pdftoppm_default_async(
   }
   let finalized = match delegated {
     (0, _, _) => {
-      let paths = pdftoppm_png_paths(output_dir) catch {
+      let paths = pdftoppm_png_paths(output_prefix) catch {
         e => {
           pdf_ocr_cleanup_temp_dir(temp_dir)
           return Err(

@@ -82,6 +82,7 @@ model_path="$(default_audio_model_path)"
 env_path="$(generated_env_path audio.env.sh)"
 write_export_env_file \
   "$env_path" \
+  MARKITDOWN_MODULE_ROOT "$ROOT" \
   MARKITDOWN_RUNTIME_VENV "$(runtime_venv_path)" \
   MARKITDOWN_RUNTIME_PYTHON "$python_bin" \
   MARKITDOWN_AUDIO_CMD "$wrapper_cmd" \
