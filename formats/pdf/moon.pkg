@@ -12,7 +12,10 @@ import {
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
   "ZSeanYves/markitdown/product",
+  "ZSeanYves/markitdown/runtime/command" @rtcmd,
 }
+
+supported_targets = "native"
 
 options(
   "preferred-target": "native",

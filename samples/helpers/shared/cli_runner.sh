@@ -73,6 +73,8 @@ resolve_markitdown_package_cli() {
 
   if [[ -n "$CLI_STALENESS_SENTINEL" ]]; then
     echo "native runner for $package is missing or stale; newer source detected at $(basename "$CLI_STALENESS_SENTINEL")" >&2
+  elif [[ -n "$CLI_RUNNER_NOTE" ]]; then
+    echo "$CLI_RUNNER_NOTE" >&2
   else
     echo "failed to locate a working native runner for $package" >&2
   fi
@@ -85,6 +87,14 @@ validation_cli_tmp_root() {
   printf '%s' "$base"
 }
 
+markitdown_runner_cwd() {
+  local base="${MARKITDOWN_RUNNER_CWD:-}"
+  if [[ -z "$base" ]]; then
+    return 1
+  fi
+  printf '%s' "$base"
+}
+
 markitdown_package_module_root() {
   printf '%s' "$ROOT"
 }
@@ -93,6 +103,16 @@ run_markitdown_cli() {
   local cli_tmp_root
   cli_tmp_root="$(validation_cli_tmp_root)"
   if [[ "${CLI_RUNNER_KIND:-}" == "prebuilt" || "${CLI_RUNNER_KIND:-}" == "override" ]]; then
+    local runner_cwd=""
+    runner_cwd="$(markitdown_runner_cwd 2>/dev/null || true)"
+    if [[ -n "$runner_cwd" ]]; then
+      mkdir -p "$runner_cwd"
+      (
+        cd "$runner_cwd"
+        MARKITDOWN_TMP_DIR="$cli_tmp_root" "$CLI_BIN" "$@"
+      )
+      return $?
+    fi
     MARKITDOWN_TMP_DIR="$cli_tmp_root" "$CLI_BIN" "$@"
     return $?
   fi
@@ -206,8 +226,10 @@ resolve_probe_validated_native_cli() {
     if probe_markitdown_cli "$package" "$candidate"; then
       CLI_RUNNER_KIND="prebuilt"
       CLI_BIN="$candidate"
+      CLI_RUNNER_NOTE=""
       return 0
     fi
+    CLI_RUNNER_NOTE="native runner for $package exists at $candidate but failed the validation probe"
   done < <(markitdown_cli_candidates "$package")
   return 1
 }
@@ -281,11 +303,13 @@ probe_markitdown_cli() {
     local help_out
     help_out="$(MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" --help 2>&1)" || status=1
     if [[ "$status" -eq 0 ]]; then
-      if ! grep -Fq -- 'Supported product formats: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml' <<<"$help_out"; then
+      if ! grep -Fq -- 'markitdown-mb [balance|accurate|stream] [--format <format>]' <<<"$help_out"; then
         status=1
-      elif ! grep -Fq -- 'odt' <<<"$help_out"; then
+      elif ! grep -Fq -- 'Capability groups: Core, Office, Containers, Media, PdfOcr.' <<<"$help_out"; then
         status=1
-      elif ! grep -Fq -- 'balance|accurate|stream' <<<"$help_out"; then
+      elif ! grep -Fq -- 'All other formats fail closed in this build.' <<<"$help_out"; then
+        status=1
+      elif ! grep -Fq -- 'Direct image input uses local OCR by default;' <<<"$help_out"; then
         status=1
       fi
     fi

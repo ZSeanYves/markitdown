@@ -1,5 +1,8 @@
 ///|
 /// Convert a parser result into the single public IR shape it actually exposes.
+///
+/// This helper enforces the product contract that exactly one of document,
+/// block stream, or event stream should be populated.
 pub fn parse_result_to_ir_input(result : @parser.ParseResult) -> @core.IRInput {
   match result.document {
     Some(document) => @core.IRInput::Document(document)
@@ -41,6 +44,9 @@ pub fn merge_diagnostics_append(
 ///|
 /// Result of parsing a child document when the caller only needs blocks,
 /// assets, and merged diagnostics.
+///
+/// This is the common shape used by container and embedded-document callers
+/// that want to splice child content into a parent document.
 pub struct ChildBlockProduct {
   blocks : Array[@core.CoreBlock]
   assets : Array[@core.AssetRef]
@@ -58,6 +64,10 @@ priv struct ChildParsePlan {
 ///|
 /// Parse a nested/child source and normalize it into blocks plus merged
 /// diagnostics for the parent document.
+///
+/// The function reuses the root parser registry and, when necessary, the
+/// default pipeline so nested content follows the same product rules as a
+/// top-level document.
 pub fn parse_child_to_block_product(
   registry : @parser.ParserRegistry,
   source : @input.InputSource,
@@ -288,18 +298,6 @@ fn child_product_options(
     stream_requested=context.requested_mode ==
       Some(@parser.ParserMode::BlockStreaming) ||
       context.requested_mode == Some(@parser.ParserMode::StreamingEvent),
-    pdf_cleanup_mode=if context.pdf_header_footer_filter_policy ==
-      @parser.PdfHeaderFooterFilterPolicy::Disabled {
-      @product.PdfCleanupMode::Disabled
-    } else {
-      @product.PdfCleanupMode::Conservative
-    },
-    pdf_table_mode=if context.pdf_table_reconstruction_policy ==
-      @parser.PdfTableReconstructionPolicy::Disabled {
-      @product.PdfTableMode::Disabled
-    } else {
-      @product.PdfTableMode::Simple
-    },
   )
 }
 

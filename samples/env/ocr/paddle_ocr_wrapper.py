@@ -3,9 +3,21 @@
 
 Stable wrapper contract:
 
-  paddle_ocr_wrapper.py <image_path> [--lang <LANG>]
+  paddle_ocr_wrapper.py --batch-json <request_json_path> --result-json <result_json_path>
 
-It prints the JSON payload consumed by `formats/ocr/runtime.mbt`.
+The request JSON must contain:
+
+  {
+    "provider": "paddle_ocr",
+    "version": "v2",
+    "jobs": [
+      {
+        "job_id": "...",
+        "image_path": "...",
+        "language": "eng"
+      }
+    ]
+  }
 """
 
 from __future__ import annotations
@@ -36,8 +48,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Official MARKITDOWN_PADDLE_OCR_CMD wrapper"
     )
-    parser.add_argument("image_path")
-    parser.add_argument("--lang", dest="language")
+    parser.add_argument("--batch-json", required=True)
+    parser.add_argument("--result-json", required=True)
     return parser.parse_args()
 
 
@@ -62,8 +74,6 @@ def read_image_size(image_path: str) -> tuple[float | None, float | None]:
 
 
 def load_paddle():
-    # PaddleOCR 3.x can trip over the default PIR API path on some CPU-only
-    # runtimes. Force the compatibility flag before importing paddle modules.
     os.environ["FLAGS_enable_pir_api"] = "0"
     try:
         import paddleocr
@@ -299,29 +309,26 @@ def page_from_lines(page_index: int, image_path: str, language: str | None, line
     return page
 
 
-def main() -> int:
-    args = parse_args()
-    image_path = str(Path(args.image_path))
-    requested_language = args.language.strip() if args.language else None
-    wrapper_language = mapped_language(requested_language)
-
-    if not Path(image_path).exists():
-        return fail(f"input image does not exist: {image_path}")
-
+def load_request(request_path: Path) -> dict:
     try:
-        paddleocr_module, paddle_ocr_cls = load_paddle()
-        engine = build_engine(paddle_ocr_cls, wrapper_language)
-        raw_result = predict_pages(engine, image_path)
-        predict_pages_result = normalize_predict_pages(raw_result)
-        if not predict_pages_result:
-            try:
-                raw_result = engine.ocr(image_path, cls=True)
-            except TypeError:
-                raw_result = engine.ocr(image_path)
-            predict_pages_result = []
+        payload = json.loads(request_path.read_text(encoding="utf-8"))
     except Exception as exc:
-        return fail(f"PaddleOCR wrapper execution failed: {exc}")
+        raise RuntimeError(f"failed to read batch request JSON: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise RuntimeError("batch request JSON root must be an object")
+    if payload.get("provider") != "paddle_ocr":
+        raise RuntimeError("batch request provider must be `paddle_ocr`")
+    if payload.get("version") != "v2":
+        raise RuntimeError("batch request version must be `v2`")
+    jobs = payload.get("jobs")
+    if not isinstance(jobs, list) or not jobs:
+        raise RuntimeError("batch request must include a non-empty `jobs` array")
+    return payload
 
+
+def run_one_job(engine, requested_language: str | None, image_path: str) -> list[dict]:
+    raw_result = predict_pages(engine, image_path)
+    predict_pages_result = normalize_predict_pages(raw_result)
     pages = []
     if predict_pages_result:
         for page_index, page_result in enumerate(predict_pages_result):
@@ -330,29 +337,145 @@ def main() -> int:
             )
             if page is not None:
                 pages.append(page)
-    else:
-        normalized_pages = normalize_lines(raw_result)
-        for page_index, page_lines in enumerate(normalized_pages):
-            page = page_from_lines(
-                page_index, image_path, requested_language, page_lines
+        return pages
+
+    try:
+        raw_result = engine.ocr(image_path, cls=True)
+    except TypeError:
+        raw_result = engine.ocr(image_path)
+    normalized_pages = normalize_lines(raw_result)
+    for page_index, page_lines in enumerate(normalized_pages):
+        page = page_from_lines(page_index, image_path, requested_language, page_lines)
+        if page is not None:
+            pages.append(page)
+    return pages
+
+
+def build_job_groups(jobs: list[dict]) -> dict[str, list[dict]]:
+    groups: dict[str, list[dict]] = {}
+    for job in jobs:
+        requested_language = str(job.get("language") or "").strip() or "none"
+        groups.setdefault(requested_language, []).append(job)
+    return groups
+
+
+def main() -> int:
+    args = parse_args()
+    request_path = Path(args.batch_json)
+    result_path = Path(args.result_json)
+    if not request_path.is_file():
+        return fail(f"batch request JSON does not exist: {request_path}")
+
+    try:
+        request_payload = load_request(request_path)
+        paddleocr_module, paddle_ocr_cls = load_paddle()
+    except Exception as exc:
+        return fail(f"PaddleOCR wrapper initialization failed: {exc}")
+
+    jobs = request_payload["jobs"]
+    grouped_jobs = build_job_groups(jobs)
+    engines: dict[str, object] = {}
+    job_results: list[dict] = []
+    batch_diagnostics = [
+        "wrapper=samples/env/ocr/paddle_ocr_wrapper.py",
+        "batch_mode=v2",
+        "mkldnn=disabled",
+        f"pir_api={os.environ.get('FLAGS_enable_pir_api', 'unset')}",
+        f"job_count={len(jobs)}",
+    ]
+
+    for language_key, grouped in grouped_jobs.items():
+        try:
+            wrapper_language = mapped_language(
+                None if language_key == "none" else language_key
             )
-            if page is not None:
-                pages.append(page)
+            engine = engines.get(language_key)
+            if engine is None:
+                engine = build_engine(paddle_ocr_cls, wrapper_language)
+                engines[language_key] = engine
+        except Exception as exc:
+            for job in grouped:
+                job_results.append(
+                    {
+                        "job_id": str(job.get("job_id") or ""),
+                        "status": "error",
+                        "error_kind": "engine_init_failed",
+                        "error_message": str(exc),
+                        "pages": [],
+                    }
+                )
+            continue
+
+        for job in grouped:
+            job_id = str(job.get("job_id") or "")
+            image_path = str(job.get("image_path") or "")
+            requested_language = str(job.get("language") or "").strip() or None
+            if not job_id:
+                job_results.append(
+                    {
+                        "job_id": "",
+                        "status": "error",
+                        "error_kind": "invalid_job",
+                        "error_message": "missing job_id",
+                        "pages": [],
+                    }
+                )
+                continue
+            if not image_path:
+                job_results.append(
+                    {
+                        "job_id": job_id,
+                        "status": "error",
+                        "error_kind": "invalid_job",
+                        "error_message": "missing image_path",
+                        "pages": [],
+                    }
+                )
+                continue
+            if not Path(image_path).is_file():
+                job_results.append(
+                    {
+                        "job_id": job_id,
+                        "status": "error",
+                        "error_kind": "missing_image",
+                        "error_message": f"input image does not exist: {image_path}",
+                        "pages": [],
+                    }
+                )
+                continue
+            try:
+                pages = run_one_job(engine, requested_language, image_path)
+                job_results.append(
+                    {
+                        "job_id": job_id,
+                        "status": "ok" if pages else "empty",
+                        "error_kind": None,
+                        "error_message": None,
+                        "pages": pages,
+                    }
+                )
+            except Exception as exc:
+                job_results.append(
+                    {
+                        "job_id": job_id,
+                        "status": "error",
+                        "error_kind": "execution_failed",
+                        "error_message": str(exc),
+                        "pages": [],
+                    }
+                )
 
     payload = {
         "provider_name": "paddle_ocr",
         "provider_version": getattr(paddleocr_module, "__version__", None),
-        "diagnostics": [
-            "wrapper=samples/env/ocr/paddle_ocr_wrapper.py",
-            f"requested_lang={requested_language or 'none'}",
-            f"wrapper_lang={wrapper_language or 'none'}",
-            f"pir_api={os.environ.get('FLAGS_enable_pir_api', 'unset')}",
-            "mkldnn=disabled",
-        ],
-        "pages": pages,
+        "diagnostics": batch_diagnostics,
+        "jobs": job_results,
     }
-    json.dump(payload, sys.stdout, ensure_ascii=False)
-    sys.stdout.write("\n")
+    try:
+        result_path.parent.mkdir(parents=True, exist_ok=True)
+        result_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    except Exception as exc:
+        return fail(f"failed to write PaddleOCR batch result JSON: {exc}")
     return 0
 
 

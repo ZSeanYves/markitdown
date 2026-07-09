@@ -123,20 +123,3 @@ test "tesseract tsv parser skips invalid numeric and empty text rows with diagno
   assert_true(diagnostics.contains("skipped_ragged_rows=1"))
   assert_eq(result.pages[0].blocks[0].lines[0].text, "ok")
 }
-
-///|
-test "tesseract provider shell remains fail-closed even when TSV parser exists" {
-  let request = make_ocr_provider_request(
-    "scan.png",
-    OcrProviderKind::Tesseract,
-    language=Some("eng"),
-  )
-  match run_tesseract_provider(request) {
-    Err(OcrProviderError::CommandUnavailable(msg)) =>
-      assert_true(msg.contains("scan.png") || msg.contains("tesseract"))
-    Err(OcrProviderError::ExecutionFailed(msg)) =>
-      assert_true(msg.contains("scan.png") || msg.contains("tesseract"))
-    Err(other) => fail("unexpected provider shell error: " + other.to_string())
-    Ok(_) => fail("provider shell should remain fail-closed")
-  }
-}

@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+                  #!/usr/bin/env bash
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -86,6 +86,7 @@ import json
 import shlex
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 cmd_text, image_path = sys.argv[1:]
@@ -97,27 +98,51 @@ argv = shlex.split(cmd_text)
 if not argv:
     raise SystemExit("MARKITDOWN_PADDLE_OCR_CMD resolved to an empty command")
 
-completed = subprocess.run(
-    argv + [str(path), "--lang", "eng"],
-    check=False,
-    capture_output=True,
-    text=True,
-)
-if completed.returncode != 0:
-    detail = completed.stderr.strip() or completed.stdout.strip() or f"exit={completed.returncode}"
-    raise SystemExit(f"paddle wrapper smoke test failed: {detail}")
+with tempfile.TemporaryDirectory(prefix="markitdown-accurate-smoke-") as tmp:
+    request_json = Path(tmp) / "request.json"
+    result_json = Path(tmp) / "result.json"
+    request_json.write_text(
+        json.dumps(
+            {
+                "provider": "paddle_ocr",
+                "version": "v2",
+                "jobs": [
+                    {
+                        "job_id": "smoke-1",
+                        "image_path": str(path),
+                        "language": "eng",
+                    }
+                ],
+            },
+            ensure_ascii=True,
+        ),
+        encoding="utf-8",
+    )
+    completed = subprocess.run(
+        argv + ["--batch-json", str(request_json), "--result-json", str(result_json)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        detail = completed.stderr.strip() or completed.stdout.strip() or f"exit={completed.returncode}"
+        raise SystemExit(f"paddle wrapper smoke test failed: {detail}")
 
-try:
-    payload = json.loads(completed.stdout)
-except Exception as exc:
-    raise SystemExit(f"paddle wrapper smoke test emitted invalid JSON: {exc}") from exc
+    try:
+        payload = json.loads(result_json.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise SystemExit(f"paddle wrapper smoke test emitted invalid result JSON: {exc}") from exc
 
 provider_name = payload.get("provider_name")
-pages = payload.get("pages")
+jobs = payload.get("jobs")
 if provider_name != "paddle_ocr":
     raise SystemExit(f"unexpected paddle wrapper provider_name: {provider_name!r}")
-if not isinstance(pages, list) or not pages:
-    raise SystemExit("paddle wrapper smoke test returned no OCR pages")
+if not isinstance(jobs, list) or not jobs:
+    raise SystemExit("paddle wrapper smoke test returned no OCR jobs")
+first_job = jobs[0] if isinstance(jobs[0], dict) else {}
+pages = first_job.get("pages")
+if first_job.get("status") != "ok" or not isinstance(pages, list) or not pages:
+    raise SystemExit("paddle wrapper smoke test returned no successful OCR pages")
 PY
 }
 
@@ -150,8 +175,9 @@ SIGNAL_SUITE_ENTRYPOINT="samples/check_accurate.sh"
 SIGNAL_SUITE_USAGE_TITLE="Run the external accurate validation entrypoint."
 SIGNAL_SUITE_CORPUS_LABEL="external accurate"
 SIGNAL_SUITE_CORPUS_DIRNAME="external_accurate"
-SIGNAL_SUITE_USAGE_EXTRA=$'  * performs an accurate runtime preflight before row execution\n'
-SIGNAL_SUITE_USAGE_EXAMPLES=$'  ./samples/check_accurate.sh\n  ./samples/check_accurate.sh --format pdf\n  ./samples/check_accurate.sh --formats pdf\n  ./samples/check_accurate.sh --id pdf_niosh_scanned_like_debug'
+SIGNAL_SUITE_SUPPORTED_FORMATS="docx ocr odp ods odt pdf pptx xlsx"
+SIGNAL_SUITE_USAGE_EXTRA=$'  * performs an accurate runtime preflight before row execution\n  * unsupported formats fail closed and print the supported accurate format list\n'
+SIGNAL_SUITE_USAGE_EXAMPLES=$'  ./samples/check_accurate.sh\n  ./samples/check_accurate.sh --pdf\n  ./samples/check_accurate.sh --ocr\n  ./samples/check_accurate.sh --id pdf_niosh_scanned_like_debug'
 SIGNAL_SUITE_TMP_ROOT="$ACCURATE_TMP_ROOT"
 SIGNAL_SUITE_RUN_ID_PREFIX="accurate"
 SIGNAL_SUITE_RESULT_PREFIX="accurate"

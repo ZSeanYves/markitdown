@@ -54,11 +54,15 @@ pub fn make_ocr_block(Int, lines? : Array[OcrLine], bbox? : @core.BBox?, confide
 
 pub fn make_ocr_line(Int, String, words? : Array[OcrWord], bbox? : @core.BBox?, confidence? : Double?) -> OcrLine
 
+pub fn make_ocr_provider_batch_request(Array[String], OcrProviderKind, language? : String?) -> OcrProviderRequest
+
 pub fn make_ocr_provider_info(String, version? : String?, language? : String?, diagnostics? : Array[String]) -> OcrProviderInfo
+
+pub fn make_ocr_provider_job_result(String, status? : String, error_kind? : String?, error_message? : String?, Array[OcrPageModel], diagnostics? : Array[String]) -> OcrProviderJobResult
 
 pub fn make_ocr_provider_request(String, OcrProviderKind, language? : String?) -> OcrProviderRequest
 
-pub fn make_ocr_provider_result(Array[OcrPageModel], String, provider_version? : String?, diagnostics? : Array[String]) -> OcrProviderResult
+pub fn make_ocr_provider_result(Array[OcrPageModel], String, provider_version? : String?, diagnostics? : Array[String], jobs? : Array[OcrProviderJobResult]) -> OcrProviderResult
 
 pub fn make_ocr_word(Int, String, bbox? : @core.BBox?, confidence? : Double?) -> OcrWord
 
@@ -90,6 +94,8 @@ pub fn ocr_provider_kind_name(OcrProviderKind) -> String
 
 pub fn ocr_provider_language_label(String?) -> String
 
+pub fn ocr_provider_request_first_image_path(OcrProviderRequest) -> String
+
 pub fn ocr_provider_selection_target_name(OcrProviderSelectionTarget) -> String
 
 pub fn ocr_provider_status_name(OcrProviderStatus) -> String
@@ -108,7 +114,7 @@ pub fn paddle_ocr_not_configured_message() -> String
 
 pub fn paddle_ocr_runtime_available() -> Bool
 
-pub fn parse_paddle_ocr_wrapper_payload(String) -> Result[OcrProviderResult, OcrProviderError]
+pub fn parse_paddle_ocr_wrapper_payload(String, OcrProviderRequest) -> Result[OcrProviderResult, OcrProviderError]
 
 pub fn parse_tesseract_tsv(String, language? : String?) -> Result[OcrProviderResult, OcrProviderError]
 
@@ -139,6 +145,8 @@ pub async fn run_tesseract_provider_async(OcrProviderRequest) -> Result[OcrProvi
 pub async fn run_tesseract_provider_with_async_command(OcrProviderRequest, async (String, Array[String]) -> Result[(Int, String, String), OcrProviderError]) -> Result[OcrProviderResult, OcrProviderError]
 
 pub fn run_tesseract_provider_with_command(OcrProviderRequest, (String, Array[String]) -> Result[(Int, String, String), OcrProviderError]) -> Result[OcrProviderResult, OcrProviderError]
+
+pub fn tesseract_command_env_var() -> String
 
 pub fn tesseract_ocr_dependency_diagnostic() -> @core.DependencyDiagnostic
 
@@ -193,6 +201,15 @@ pub struct OcrProviderInfo {
   diagnostics : Array[String]
 }
 
+pub struct OcrProviderJobResult {
+  image_path : String
+  status : String
+  error_kind : String?
+  error_message : String?
+  pages : Array[OcrPageModel]
+  diagnostics : Array[String]
+}
+
 pub(all) enum OcrProviderKind {
   Tesseract
   PaddleOcr
@@ -200,6 +217,7 @@ pub(all) enum OcrProviderKind {
 
 pub struct OcrProviderRequest {
   image_path : String
+  image_paths : Array[String]
   language : String?
   provider_kind : OcrProviderKind
 }
@@ -209,6 +227,7 @@ pub struct OcrProviderResult {
   provider_name : String
   provider_version : String?
   diagnostics : Array[String]
+  jobs : Array[OcrProviderJobResult]
 }
 
 pub(all) enum OcrProviderSelectionTarget {

@@ -8,6 +8,12 @@ on:
 permissions:
   contents: read
 
+env:
+  PYTHON_VERSION: "3.11"
+  HOMEBREW_NO_AUTO_UPDATE: "1"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PIP_NO_PYTHON_VERSION_WARNING: "1"
+
 jobs:
   core-validate:
     name: core-validate (${{ matrix.os }})
@@ -24,12 +30,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-
-      - name: Checkout quality lab
-        uses: actions/checkout@v5
-        with:
-          repository: ZSeanYves/markitdown-quality-lab
-          path: markitdown-quality-lab
 
       - name: Install MoonBit
         run: |
@@ -57,6 +57,8 @@ jobs:
     name: external-main-regression (${{ matrix.os }})
     needs: core-validate
     runs-on: ${{ matrix.os }}
+    env:
+      MARKITDOWN_BALANCE_AUDIO_RUNTIME: mock
     strategy:
       fail-fast: false
       matrix:
@@ -76,9 +78,14 @@ jobs:
           repository: ZSeanYves/markitdown-quality-lab
           path: markitdown-quality-lab
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
       - name: Install MoonBit
         run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s -- "$MOONBIT_VERSION"
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
 
       - name: Update MoonBit registry
@@ -87,8 +94,8 @@ jobs:
       - name: Build native CLI
         run: moon build cli --target native
 
-      - name: Install balance OCR/PDF dependencies
-        run: ./samples/env/install_ocr_pdf_balance_deps.sh
+      - name: Install balance image OCR dependencies
+        run: ./samples/env/install_ocr_balance_deps.sh
 
       - name: Install audio dependencies
         run: ./samples/env/install_audio_deps.sh
@@ -113,9 +120,25 @@ jobs:
           repository: ZSeanYves/markitdown-quality-lab
           path: markitdown-quality-lab
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            samples/env/share/install_runtime_deps_common.sh
+            samples/env/install_audio_deps.sh
+            samples/env/share/install_audio_vosk_model.sh
+
+      - name: Restore Vosk model cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/markitdown/vosk
+          key: ${{ runner.os }}-vosk-${{ hashFiles('samples/env/install_audio_deps.sh', 'samples/env/share/install_audio_vosk_model.sh') }}
+
       - name: Install MoonBit
         run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s -- "$MOONBIT_VERSION"
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
 
       - name: Update MoonBit registry
@@ -124,8 +147,8 @@ jobs:
       - name: Build native CLI
         run: moon build cli --target native
 
-      - name: Install balance OCR/PDF dependencies
-        run: ./samples/env/install_ocr_pdf_balance_deps.sh
+      - name: Install balance image OCR dependencies
+        run: ./samples/env/install_ocr_balance_deps.sh
 
       - name: Install audio dependencies
         run: ./samples/env/install_audio_deps.sh
@@ -169,9 +192,19 @@ jobs:
           repository: ZSeanYves/markitdown-quality-lab
           path: markitdown-quality-lab
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            samples/env/share/install_runtime_deps_common.sh
+            samples/env/install_ocr_pdf_accurate_deps.sh
+            samples/env/ocr/paddle_ocr_wrapper.py
+
       - name: Install MoonBit
         run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s -- "$MOONBIT_VERSION"
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
 
       - name: Update MoonBit registry

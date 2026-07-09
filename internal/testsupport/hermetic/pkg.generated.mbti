@@ -1,0 +1,60 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/internal/testsupport/hermetic"
+
+// Values
+pub fn absolute_test_path(String) -> String
+
+pub fn chmod_plus_x(String) -> Unit raise
+
+pub fn cleanup_temp_dir(String) -> Unit
+
+pub fn ensure_dir_tree(String) -> Unit raise
+
+pub fn managed_command_record_path(String) -> String
+
+pub fn managed_command_record_root() -> String
+
+pub fn move_path(String, String) -> Unit raise
+
+pub fn read_utf8_text(String) -> String
+
+pub fn recreate_clean_dir(String) -> Unit raise
+
+pub fn remove_dir_recursive(String) -> Unit raise
+
+pub fn remove_file_if_exists(String) -> Unit
+
+pub fn repo_local_runtime_python_dir() -> String
+
+pub fn repo_local_runtime_python_path() -> String
+
+pub fn restore_path_if_exists(String, String) -> Unit
+
+pub fn restore_text_file(String, String?) -> Unit
+
+pub fn run_process(String, Array[String]) -> Unit raise
+
+pub fn with_env_var(String, String, () -> Unit raise) -> Unit raise
+
+pub fn with_executable_stub(String, String, String, () -> Unit raise) -> Unit raise
+
+pub fn with_hidden_path(String, () -> Unit raise) -> Unit raise
+
+pub fn with_managed_command_record(String, String?, () -> Unit raise) -> Unit raise
+
+pub fn with_repo_local_runtime_python_hidden(() -> Unit raise) -> Unit raise
+
+pub fn with_repo_local_runtime_python_stub(() -> Unit raise) -> Unit raise
+
+pub fn with_unset_env_var(String, () -> Unit raise) -> Unit raise
+
+pub fn write_utf8_text(String, String) -> Unit raise
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

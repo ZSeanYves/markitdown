@@ -4,7 +4,7 @@ set -euo pipefail
 HELPER_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$HELPER_ROOT/../../.." && pwd)"
 GENERATED_ENV_ROOT="$REPO_ROOT/env"
-RUNTIME_VENV_ROOT="$GENERATED_ENV_ROOT/.venv-markitdown-runtime"
+DEFAULT_RUNTIME_VENV_NAME=".venv-markitdown-runtime"
 
 mkdir -p "$GENERATED_ENV_ROOT"
 
@@ -137,20 +137,37 @@ resolve_python_bin() {
 }
 
 runtime_venv_path() {
-  printf '%s' "$RUNTIME_VENV_ROOT"
+  venv_path_for_name "$DEFAULT_RUNTIME_VENV_NAME"
 }
 
 runtime_venv_python_bin() {
-  printf '%s/bin/python' "$(runtime_venv_path)"
+  venv_python_bin_for_name "$DEFAULT_RUNTIME_VENV_NAME"
 }
 
-ensure_runtime_venv() {
+venv_path_for_name() {
+  local name="$1"
+  printf '%s/%s' "$GENERATED_ENV_ROOT" "$name"
+}
+
+venv_python_bin_for_name() {
+  local name="$1"
+  printf '%s/bin/python' "$(venv_path_for_name "$name")"
+}
+
+venv_executable_path() {
+  local name="$1"
+  local executable="$2"
+  printf '%s/bin/%s' "$(venv_path_for_name "$name")" "$executable"
+}
+
+ensure_named_venv() {
+  local name="$1"
   local python_cmd
   python_cmd="$(resolve_python_cmd)"
   local venv_path
-  venv_path="$(runtime_venv_path)"
+  venv_path="$(venv_path_for_name "$name")"
   local venv_python
-  venv_python="$(runtime_venv_python_bin)"
+  venv_python="$(venv_python_bin_for_name "$name")"
   if [[ ! -x "$venv_python" ]]; then
     log_note "Creating repo-local Python virtualenv at $venv_path"
     "$python_cmd" -m venv "$venv_path"
@@ -163,16 +180,31 @@ ensure_runtime_venv() {
   "$venv_python" -m pip install --upgrade pip setuptools wheel
 }
 
+resolve_named_venv_python_bin() {
+  local name="$1"
+  ensure_named_venv "$name" >&2
+  venv_python_bin_for_name "$name"
+}
+
+named_venv_pip_install_packages() {
+  local name="$1"
+  shift
+  local venv_python
+  venv_python="$(resolve_named_venv_python_bin "$name")"
+  log_note "Installing Python packages into repo-local virtualenv with $venv_python -m pip: $*"
+  "$venv_python" -m pip install --upgrade "$@"
+}
+
+ensure_runtime_venv() {
+  ensure_named_venv "$DEFAULT_RUNTIME_VENV_NAME"
+}
+
 resolve_runtime_python_bin() {
-  ensure_runtime_venv >&2
-  runtime_venv_python_bin
+  resolve_named_venv_python_bin "$DEFAULT_RUNTIME_VENV_NAME"
 }
 
 venv_pip_install_packages() {
-  local venv_python
-  venv_python="$(resolve_runtime_python_bin)"
-  log_note "Installing Python packages into repo-local virtualenv with $venv_python -m pip: $*"
-  "$venv_python" -m pip install --upgrade "$@"
+  named_venv_pip_install_packages "$DEFAULT_RUNTIME_VENV_NAME" "$@"
 }
 
 mark_executable() {
@@ -199,6 +231,44 @@ default_audio_model_path() {
 generated_env_path() {
   local name="$1"
   printf '%s/%s' "$GENERATED_ENV_ROOT" "$name"
+}
+
+managed_command_root() {
+  printf '%s/managed-paths' "$GENERATED_ENV_ROOT"
+}
+
+managed_command_record_path() {
+  local name="$1"
+  printf '%s/%s' "$(managed_command_root)" "$name"
+}
+
+absolute_existing_path() {
+  local path="$1"
+  [[ -e "$path" ]] || die "path does not exist: $path"
+  local dir base
+  dir="$(cd "$(dirname "$path")" && pwd -P)"
+  base="$(basename "$path")"
+  printf '%s/%s' "$dir" "$base"
+}
+
+resolve_absolute_command_path() {
+  local command_name="$1"
+  local resolved
+  resolved="$(type -P "$command_name" || true)"
+  [[ -n "$resolved" ]] || die "command is unavailable after dependency installation: $command_name"
+  [[ -x "$resolved" ]] || die "command is not executable after dependency installation: $resolved"
+  absolute_existing_path "$resolved"
+}
+
+write_managed_command_path_record() {
+  local record_name="$1"
+  local command_name="$2"
+  local record_path resolved
+  record_path="$(managed_command_record_path "$record_name")"
+  resolved="$(resolve_absolute_command_path "$command_name")"
+  mkdir -p "$(dirname "$record_path")"
+  printf '%s\n' "$resolved" > "$record_path"
+  log_note "Repo-managed path recorded: $record_name -> $resolved"
 }
 
 write_export_env_file() {

@@ -11,29 +11,47 @@ from pathlib import Path
 def main() -> int:
     args = sys.argv[1:]
     if "--help" in args or "-h" in args:
-        print(
-            "usage: mock_vosk_wrapper.py <input_audio_path> <output_json_path> [--lang <LANG>]"
-        )
+        print("usage: mock_vosk_wrapper.py --request-json <request_json_path> --result-json <result_json_path>")
         return 0
 
-    if len(args) < 2:
-        print("missing required args", file=sys.stderr)
-        return 2
-
-    input_path = Path(args[0])
-    output_path = Path(args[1])
-    language = "auto"
-    index = 2
+    request_json_path: Path | None = None
+    output_path: Path | None = None
+    index = 0
     while index < len(args):
-        if args[index] == "--lang" and index + 1 < len(args):
-            language = args[index + 1].strip() or "auto"
+        if args[index] == "--request-json" and index + 1 < len(args):
+            request_json_path = Path(args[index + 1])
+            index += 2
+            continue
+        if args[index] == "--result-json" and index + 1 < len(args):
+            output_path = Path(args[index + 1])
             index += 2
             continue
         print(f"unexpected argument: {args[index]}", file=sys.stderr)
         return 2
 
+    if request_json_path is None or output_path is None:
+        print("missing required args", file=sys.stderr)
+        return 2
+
+    try:
+        request = json.loads(request_json_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        print(f"request JSON unreadable: {exc}", file=sys.stderr)
+        return 2
+    if not isinstance(request, dict):
+        print("request JSON root must be an object", file=sys.stderr)
+        return 2
+
+    input_path = Path(str(request.get("input_audio_path", "")))
+    normalized_path_raw = str(request.get("normalized_audio_path", "") or "").strip()
+    backend_input_path = Path(normalized_path_raw) if normalized_path_raw else input_path
+    language = str(request.get("language", "auto") or "auto").strip() or "auto"
+
     if not input_path.exists():
         print(f"source missing: {input_path}", file=sys.stderr)
+        return 3
+    if not backend_input_path.exists():
+        print(f"backend input missing: {backend_input_path}", file=sys.stderr)
         return 3
 
     result_language = "en" if language == "auto" else language
@@ -52,7 +70,7 @@ def main() -> int:
                 "segment_id": "seg-1",
                 "start_ms": 0,
                 "end_ms": 3200,
-                "text": f"{input_path.name} hello",
+                "text": f"{backend_input_path.name} hello",
                 "confidence": 0.98,
                 "language": result_language,
             },

@@ -1,4 +1,5 @@
 ///|
+/// Provider identity and runtime metadata attached to OCR results.
 pub struct OcrProviderInfo {
   name : String
   version : String?
@@ -7,6 +8,7 @@ pub struct OcrProviderInfo {
 }
 
 ///|
+/// One OCR word token plus optional geometry and confidence.
 pub struct OcrWord {
   word_index : Int
   text : String
@@ -15,6 +17,10 @@ pub struct OcrWord {
 }
 
 ///|
+/// One OCR line recovered from the provider output.
+///
+/// `text` is the normalized line text, while `words` preserves token-level
+/// segmentation when the provider exposes it.
 pub struct OcrLine {
   line_index : Int
   text : String
@@ -24,6 +30,7 @@ pub struct OcrLine {
 }
 
 ///|
+/// One OCR block consisting of one or more lines.
 pub struct OcrBlock {
   block_index : Int
   lines : Array[OcrLine]
@@ -32,6 +39,10 @@ pub struct OcrBlock {
 }
 
 ///|
+/// OCR result for a single page or image.
+///
+/// `provider` can be repeated per page for convenience, even when the document
+/// also records the same top-level provider identity.
 pub struct OcrPageModel {
   page_index : Int
   width : Double?
@@ -42,6 +53,7 @@ pub struct OcrPageModel {
 }
 
 ///|
+/// OCR result for an entire input document or image batch.
 pub struct OcrDocumentModel {
   pages : Array[OcrPageModel]
   provider : OcrProviderInfo?
@@ -49,6 +61,7 @@ pub struct OcrDocumentModel {
 }
 
 ///|
+/// Construct one provider info record.
 pub fn make_ocr_provider_info(
   name : String,
   version? : String? = None,
@@ -59,6 +72,7 @@ pub fn make_ocr_provider_info(
 }
 
 ///|
+/// Construct one OCR word token.
 pub fn make_ocr_word(
   word_index : Int,
   text : String,
@@ -69,6 +83,7 @@ pub fn make_ocr_word(
 }
 
 ///|
+/// Construct one OCR line.
 pub fn make_ocr_line(
   line_index : Int,
   text : String,
@@ -80,6 +95,7 @@ pub fn make_ocr_line(
 }
 
 ///|
+/// Construct one OCR block.
 pub fn make_ocr_block(
   block_index : Int,
   lines? : Array[OcrLine] = [],
@@ -90,6 +106,7 @@ pub fn make_ocr_block(
 }
 
 ///|
+/// Return an empty OCR document model with optional provider metadata.
 pub fn empty_ocr_document_model(
   provider? : OcrProviderInfo? = None,
   diagnostics? : Array[String] = [],
@@ -98,6 +115,7 @@ pub fn empty_ocr_document_model(
 }
 
 ///|
+/// Return an empty OCR page model for `page_index`.
 pub fn empty_ocr_page_model(
   page_index : Int,
   provider? : OcrProviderInfo? = None,
@@ -107,11 +125,13 @@ pub fn empty_ocr_page_model(
 }
 
 ///|
+/// Count how many pages are present in one OCR document model.
 pub fn ocr_document_page_count(document : OcrDocumentModel) -> Int {
   document.pages.length()
 }
 
 ///|
+/// Count how many top-level blocks are present in one OCR page.
 pub fn ocr_page_block_count(page : OcrPageModel) -> Int {
   page.blocks.length()
 }

@@ -9,11 +9,15 @@ import {
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/runtime/command" @rtcmd,
 }
 
 import {
   "moonbitlang/async",
+  "ZSeanYves/markitdown/internal/testsupport/hermetic" @therm,
 } for "test"
+
+supported_targets = "native"
 
 options(
   "preferred-target": "native",

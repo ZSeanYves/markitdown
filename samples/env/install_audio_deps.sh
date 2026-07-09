@@ -22,8 +22,9 @@ This installs:
 
 Python packages are installed into a repo-local virtualenv under `./env/`.
 If Python with `venv` support is missing, the script installs that runtime first.
-This script also writes a stable env file that exports MARKITDOWN_AUDIO_CMD and
-MARKITDOWN_AUDIO_MODEL_PATH.
+This script also records the repo-managed `ffmpeg` path under
+`./env/managed-paths/`, and writes a stable env file that exports
+MARKITDOWN_AUDIO_CMD and MARKITDOWN_AUDIO_MODEL_PATH.
 EOF
 }
 
@@ -66,6 +67,7 @@ case "$platform_family" in
     ;;
 esac
 install_system_packages "$platform_family" "${system_packages[@]}"
+write_managed_command_path_record ffmpeg ffmpeg
 
 venv_pip_install_packages vosk
 mark_executable "$ROOT/samples/env/audio/audio_transcribe_wrapper.py"
@@ -86,6 +88,8 @@ write_export_env_file \
   MARKITDOWN_AUDIO_MODEL_PATH "$model_path"
 
 log_note "Audio dependencies are ready."
+log_note "ffmpeg: $(command -v ffmpeg)"
+log_note "Managed ffmpeg record: $(managed_command_record_path ffmpeg)"
 log_note "Repo-local Python: $python_bin"
 log_note "Repo-local virtualenv: $(runtime_venv_path)"
 log_note "Wrapper: $wrapper_path"

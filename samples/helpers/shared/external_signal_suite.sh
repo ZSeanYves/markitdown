@@ -2,6 +2,70 @@
 
 source "$ROOT/samples/helpers/shared/regression_common.sh"
 
+signal_suite_supported_formats_array() {
+  local raw="${SIGNAL_SUITE_SUPPORTED_FORMATS:-}"
+  local -a formats=()
+  if [[ -n "$raw" ]]; then
+    read -r -a formats <<< "$raw"
+  fi
+  printf '%s\n' "${formats[@]}"
+}
+
+signal_suite_supported_formats_compact() {
+  local -a formats=()
+  local fmt
+  while IFS= read -r fmt; do
+    [[ -n "$fmt" ]] && formats+=("$fmt")
+  done < <(signal_suite_supported_formats_array)
+  local IFS=","
+  printf '%s' "${formats[*]}"
+}
+
+signal_suite_supported_shortcuts_compact() {
+  local shortcuts=()
+  local fmt
+  while IFS= read -r fmt; do
+    [[ -n "$fmt" ]] && shortcuts+=("--$fmt")
+  done < <(signal_suite_supported_formats_array)
+  local IFS=", "
+  printf '%s' "${shortcuts[*]}"
+}
+
+signal_suite_format_is_supported() {
+  local target="${1-}"
+  local fmt
+  while IFS= read -r fmt; do
+    [[ -z "$fmt" ]] && continue
+    if [[ "$fmt" == "$target" ]]; then
+      return 0
+    fi
+  done < <(signal_suite_supported_formats_array)
+  return 1
+}
+
+signal_suite_fail_unsupported_format() {
+  local format="${1-}"
+  echo "unsupported format for $SIGNAL_SUITE_ENTRYPOINT: $format" >&2
+  if [[ -n "${SIGNAL_SUITE_SUPPORTED_FORMATS:-}" ]]; then
+    echo "supported formats: $(signal_suite_supported_formats_compact)" >&2
+    echo "supported shortcuts: $(signal_suite_supported_shortcuts_compact)" >&2
+  fi
+  exit 1
+}
+
+signal_suite_set_filter_format() {
+  local format="${1-}"
+  if [[ -n "$FILTER_FORMAT" ]]; then
+    echo "choose only one format filter" >&2
+    signal_suite_usage_common >&2
+    exit 1
+  fi
+  if [[ -n "${SIGNAL_SUITE_SUPPORTED_FORMATS:-}" ]] && ! signal_suite_format_is_supported "$format"; then
+    signal_suite_fail_unsupported_format "$format"
+  fi
+  FILTER_FORMAT="$format"
+}
+
 signal_suite_require_var() {
   local name="$1"
   if [[ -z "${!name:-}" ]]; then
@@ -25,7 +89,7 @@ signal_suite_print_missing_corpus() {
 
 signal_suite_usage_common() {
   cat <<EOF
-Usage: ./$SIGNAL_SUITE_ENTRYPOINT [--format FORMAT|--formats FORMAT] [--id ROW_ID] [--source SOURCE_ID] [--help]
+Usage: ./$SIGNAL_SUITE_ENTRYPOINT [--format FORMAT|--formats FORMAT|--pdf] [--id ROW_ID] [--source SOURCE_ID] [--help]
 
 $SIGNAL_SUITE_USAGE_TITLE
 
@@ -39,6 +103,16 @@ $SIGNAL_SUITE_USAGE_EXTRA
   * keeps raw per-row outputs for executed rows under \`raw/\`
   * writes non-pass per-row reports under \`reports/\`
   * uses \`workspace/\` only as scratch CLI temp space
+EOF
+  if [[ -n "${SIGNAL_SUITE_SUPPORTED_FORMATS:-}" ]]; then
+    cat <<EOF
+
+Supported formats:
+  * values for --format / --formats: $(signal_suite_supported_formats_compact)
+  * quick shortcuts: $(signal_suite_supported_shortcuts_compact)
+EOF
+  fi
+  cat <<EOF
 
 Examples:
 $SIGNAL_SUITE_USAGE_EXAMPLES
@@ -71,7 +145,7 @@ signal_suite_run() {
           signal_suite_usage_common >&2
           exit 1
         }
-        FILTER_FORMAT="$2"
+        signal_suite_set_filter_format "$2"
         shift 2
         ;;
       --id|--source|--cli-arg)
@@ -90,6 +164,15 @@ signal_suite_run() {
       -h|--help)
         signal_suite_usage_common
         exit 0
+        ;;
+      --*)
+        shortcut_format="${1#--}"
+        if [[ -n "${SIGNAL_SUITE_SUPPORTED_FORMATS:-}" ]] && signal_suite_format_is_supported "$shortcut_format"; then
+          signal_suite_set_filter_format "$shortcut_format"
+          shift
+          continue
+        fi
+        signal_suite_fail_unsupported_format "$shortcut_format"
         ;;
       *)
         echo "unknown argument: $1" >&2

@@ -19,7 +19,9 @@ This installs:
 
 Python packages are installed into a repo-local virtualenv under `./env/`.
 If Python with `venv` support is missing, the script installs that runtime first.
-This script also writes a stable env file that exports MARKITDOWN_PADDLE_OCR_CMD.
+This script also records repo-managed `tesseract` and `pdftoppm` paths under
+`./env/managed-paths/`, and writes a stable env file that exports
+MARKITDOWN_PADDLE_OCR_CMD.
 EOF
 }
 
@@ -52,6 +54,8 @@ case "$platform_family" in
     ;;
 esac
 install_system_packages "$platform_family" "${system_packages[@]}"
+write_managed_command_path_record tesseract tesseract
+write_managed_command_path_record pdftoppm pdftoppm
 
 venv_pip_install_packages paddlepaddle paddleocr pillow
 mark_executable "$ROOT/samples/env/ocr/paddle_ocr_wrapper.py"
@@ -69,6 +73,8 @@ write_export_env_file \
 log_note "Accurate OCR/PDF OCR dependencies are ready."
 log_note "Tesseract: $(command -v tesseract)"
 log_note "pdftoppm: $(command -v pdftoppm)"
+log_note "Managed tesseract record: $(managed_command_record_path tesseract)"
+log_note "Managed pdftoppm record: $(managed_command_record_path pdftoppm)"
 log_note "Repo-local Python: $python_bin"
 log_note "Repo-local virtualenv: $(runtime_venv_path)"
 log_note "Wrapper: $wrapper_path"

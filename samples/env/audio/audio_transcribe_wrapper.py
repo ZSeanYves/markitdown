@@ -22,40 +22,69 @@ DEFAULT_MODEL_PATH = (
 
 
 def usage() -> str:
-    return (
-        "usage: audio_transcribe_wrapper.py <input_audio_path> <output_json_path> "
-        "[--lang <LANG>]"
-    )
+    return "usage: audio_transcribe_wrapper.py --request-json <request_json_path> --result-json <result_json_path>"
 
 
-def parse_args(argv: list[str]) -> tuple[Path, Path, str]:
+def parse_args(argv: list[str]) -> tuple[Path, Path]:
     if not argv or "--help" in argv or "-h" in argv:
         print(usage())
         raise SystemExit(0)
 
-    if len(argv) < 2:
-        print(usage(), file=sys.stderr)
-        raise SystemExit(2)
-
-    input_path = Path(argv[0])
-    output_json_path = Path(argv[1])
-    language = "auto"
-
-    index = 2
+    request_json_path: Path | None = None
+    result_json_path: Path | None = None
+    index = 0
     while index < len(argv):
         arg = argv[index]
-        if arg == "--lang" and index + 1 < len(argv):
-            language = argv[index + 1].strip() or "auto"
+        if arg == "--request-json" and index + 1 < len(argv):
+            request_json_path = Path(argv[index + 1])
+            index += 2
+            continue
+        if arg == "--result-json" and index + 1 < len(argv):
+            result_json_path = Path(argv[index + 1])
             index += 2
             continue
         print(f"unexpected argument: {arg}", file=sys.stderr)
         raise SystemExit(2)
 
-    return input_path, output_json_path, language.lower()
+    if request_json_path is None or result_json_path is None:
+        print(usage(), file=sys.stderr)
+        raise SystemExit(2)
+
+    return request_json_path, result_json_path
 
 
-def resolve_model_path() -> Path:
-    raw = os.environ.get("MARKITDOWN_AUDIO_MODEL_PATH", "").strip()
+def load_request(request_json_path: Path) -> dict[str, object]:
+    try:
+        payload = json.loads(request_json_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        print(f"audio request JSON is unreadable: {exc}", file=sys.stderr)
+        raise SystemExit(2) from exc
+
+    if not isinstance(payload, dict):
+        print("audio request JSON root must be an object.", file=sys.stderr)
+        raise SystemExit(2)
+    if payload.get("provider") not in (None, "vosk"):
+        print("audio request provider must be `vosk`.", file=sys.stderr)
+        raise SystemExit(2)
+    if payload.get("version") not in (None, "v2"):
+        print("audio request version must be `v2`.", file=sys.stderr)
+        raise SystemExit(2)
+    output_mode = str(payload.get("output_mode", "transcript_json")).strip()
+    if output_mode and output_mode != "transcript_json":
+        print(f"unsupported audio output_mode: {output_mode}", file=sys.stderr)
+        raise SystemExit(2)
+    return payload
+
+
+def normalized_language(raw: object) -> str:
+    text = str(raw or "").strip().lower()
+    return text or "auto"
+
+
+def resolve_model_path(request_model_path: object) -> Path:
+    raw = str(request_model_path or "").strip()
+    if not raw:
+        raw = os.environ.get("MARKITDOWN_AUDIO_MODEL_PATH", "").strip()
     model_path = Path(raw) if raw else DEFAULT_MODEL_PATH
     if model_path.is_dir():
         return model_path
@@ -153,6 +182,11 @@ def ensure_pcm_wav(input_path: Path) -> tuple[Path, dict[str, int | str], Path |
     return normalize_with_ffmpeg(input_path, suffix.removeprefix(".") or "audio")
 
 
+def reported_codec(input_path: Path) -> str:
+    suffix = input_path.suffix.lower().removeprefix(".")
+    return suffix or "audio"
+
+
 def recognize_segments(
     wav_path: Path,
     model_path: Path,
@@ -243,14 +277,23 @@ def write_payload(
 
 
 def main() -> int:
-    input_path, output_json_path, language = parse_args(sys.argv[1:])
+    request_json_path, output_json_path = parse_args(sys.argv[1:])
+    request = load_request(request_json_path)
+    input_path = Path(str(request.get("input_audio_path", "")))
+    normalized_audio_path_raw = str(request.get("normalized_audio_path", "") or "").strip()
+    backend_input_path = Path(normalized_audio_path_raw) if normalized_audio_path_raw else input_path
+    language = normalized_language(request.get("language"))
     if not input_path.is_file():
         print(f"audio input is missing: {input_path}", file=sys.stderr)
         return 2
+    if not backend_input_path.is_file():
+        print(f"audio backend input is missing: {backend_input_path}", file=sys.stderr)
+        return 2
 
-    model_path = resolve_model_path()
-    wav_path, metadata, cleanup_dir = ensure_pcm_wav(input_path)
+    model_path = resolve_model_path(request.get("model_path"))
+    wav_path, metadata, cleanup_dir = ensure_pcm_wav(backend_input_path)
     try:
+        metadata["codec"] = reported_codec(input_path)
         provider_version = resolve_provider_version()
         segments = recognize_segments(wav_path, model_path, language)
         write_payload(output_json_path, provider_version, metadata, language, segments)

@@ -6,101 +6,65 @@ fn ocr_test_tmp_root() -> String {
 }
 
 ///|
-fn remove_dir_recursive(path : String) -> Unit raise {
-  if !@fs.path_exists(path) {
-    return
-  }
-  for name in @fs.read_dir(path) {
-    let child = path + "/" + name
-    if @fs.is_dir(child) {
-      remove_dir_recursive(child)
-    } else if @fs.is_file(child) {
-      @fs.remove_file(child)
-    }
-  }
-  @fs.remove_dir(path)
-}
-
-///|
 fn recreate_clean_dir(path : String) -> Unit raise {
-  if @fs.path_exists(path) {
-    remove_dir_recursive(path)
-  }
-  ensure_dir_tree(path)
+  @therm.recreate_clean_dir(path)
 }
 
 ///|
 fn cleanup_temp_dir(path : String) -> Unit {
-  ignore(
-    try remove_dir_recursive(path) |> Ok catch {
-      _ => Err(())
-    },
-  )
+  @therm.cleanup_temp_dir(path)
 }
 
 ///|
-fn ensure_dir_tree(path : String) -> Unit raise {
-  let normalized = path.trim().to_owned()
-  if normalized == "" || normalized == "." {
-    return
-  }
-  if @fs.path_exists(normalized) {
-    return
-  }
-  let parts = normalized.split("/")
-  let mut current = if normalized.has_prefix("/") { "/" } else { "" }
-  for raw in parts {
-    let part = raw.trim().to_owned()
-    if part == "" || part == "." {
-      continue
-    }
-    if current == "" || current == "/" {
-      current = if current == "/" { "/" + part } else { part }
-    } else {
-      current = current + "/" + part
-    }
-    if !@fs.path_exists(current) {
-      @fs.create_dir(current)
-    }
-  }
+fn provider_test_ensure_dir_tree(path : String) -> Unit raise {
+  @therm.ensure_dir_tree(path)
 }
 
 ///|
-fn write_utf8_text(path : String, text : String) -> Unit raise {
-  @fs.write_string_to_file(path, text, encoding="utf8") catch {
-    e => fail("write failed: " + e.to_string())
-  }
+fn provider_test_write_utf8_text(path : String, text : String) -> Unit raise {
+  @therm.write_utf8_text(path, text)
 }
 
 ///|
-fn with_env_var(
+fn provider_test_read_utf8_text(path : String) -> String {
+  @therm.read_utf8_text(path)
+}
+
+///|
+fn provider_test_with_env_var(
   name : String,
   value : String,
   body : () -> Unit raise,
 ) -> Unit raise {
-  let previous = @env.get_env_var(name)
-  @env.set_env_var(name, value)
-  defer (match previous {
-    Some(old) => @env.set_env_var(name, old)
-    None => @env.unset_env_var(name)
-  })
-  body()
+  @therm.with_env_var(name, value, body)
 }
 
 ///|
-fn with_unset_env_var(name : String, body : () -> Unit raise) -> Unit raise {
-  let previous = @env.get_env_var(name)
-  @env.unset_env_var(name)
-  defer (match previous {
-    Some(old) => @env.set_env_var(name, old)
-    None => ()
-  })
-  body()
+fn provider_test_with_unset_env_var(
+  name : String,
+  body : () -> Unit raise,
+) -> Unit raise {
+  @therm.with_unset_env_var(name, body)
 }
 
 ///|
 fn ocr_provider_test_repo_local_runtime_python_path() -> String {
-  "env/.venv-markitdown-runtime/bin/python"
+  @therm.repo_local_runtime_python_path()
+}
+
+///|
+fn chmod_plus_x(path : String) -> Unit raise {
+  @therm.chmod_plus_x(path)
+}
+
+///|
+fn with_repo_local_runtime_python_stub(body : () -> Unit raise) -> Unit raise {
+  @therm.with_repo_local_runtime_python_stub(body)
+}
+
+///|
+fn with_repo_local_runtime_python_hidden(body : () -> Unit raise) -> Unit raise {
+  @therm.with_repo_local_runtime_python_hidden(body)
 }
 
 ///|
@@ -146,7 +110,12 @@ test "ocr provider taxonomy exposes stable names" {
   )
   assert_true(
     tesseract_ocr_install_hint().contains(
-      "./samples/env/install_ocr_pdf_balance_deps.sh",
+      "./samples/env/install_ocr_balance_deps.sh",
+    ),
+  )
+  assert_true(
+    tesseract_ocr_install_hint().contains(
+      "Direct image OCR and Tesseract-backed fallback routes",
     ),
   )
   assert_true(
@@ -204,16 +173,16 @@ test "ocr provider runtime resolves provider kinds without internal fallback" {
 }
 
 ///|
-test "paddle runtime command builder auto-detects repo-local runtime or fails closed" {
+test "paddle runtime command builder defaults to repo-managed runtime" {
   assert_eq(paddle_ocr_command_env_var(), "MARKITDOWN_PADDLE_OCR_CMD")
   let request = make_ocr_provider_request(
     "scan.png",
     OcrProviderKind::PaddleOcr,
     language=Some("eng"),
   )
-  with_unset_env_var("MARKITDOWN_RUNTIME_PYTHON", fn() raise {
-    with_unset_env_var(paddle_ocr_command_env_var(), fn() raise {
-      if @fs.path_exists(ocr_provider_test_repo_local_runtime_python_path()) {
+  with_repo_local_runtime_python_stub(fn() raise {
+    provider_test_with_unset_env_var("MARKITDOWN_RUNTIME_PYTHON", fn() raise {
+      provider_test_with_unset_env_var(paddle_ocr_command_env_var(), fn() raise {
         let autodetected = match build_paddle_ocr_command(request) {
           Ok(value) => value
           Err(err) =>
@@ -224,27 +193,16 @@ test "paddle runtime command builder auto-detects repo-local runtime or fails cl
           ocr_provider_test_repo_local_runtime_python_path(),
         )
         assert_eq(autodetected.1[0], "samples/env/ocr/paddle_ocr_wrapper.py")
-        assert_eq(autodetected.1[1], "scan.png")
-        assert_eq(autodetected.1[2], "--lang")
-        assert_eq(autodetected.1[3], "eng")
-      } else {
-        match build_paddle_ocr_command(request) {
-          Err(OcrProviderError::NotConfigured(msg)) =>
-            assert_true(
-              msg.contains("MARKITDOWN_PADDLE_OCR_CMD") &&
-              msg.contains("./samples/env/install_ocr_pdf_accurate_deps.sh") &&
-              msg.contains("source ./env/accurate-ocr-pdf.env.sh"),
-            )
-          Ok(_) =>
-            fail(
-              "expected Paddle command builder to fail closed without runtime discovery",
-            )
-          Err(other) =>
-            fail(
-              "unexpected Paddle command-builder error: " + other.to_string(),
-            )
-        }
-      }
+        assert_eq(autodetected.1[1], "--batch-json")
+        assert_true(autodetected.1[2].contains("/request.json"))
+        assert_eq(autodetected.1[3], "--result-json")
+        assert_true(autodetected.1[4].contains("/result.json"))
+        let request_json = provider_test_read_utf8_text(autodetected.1[2])
+        assert_true(request_json.contains("\"provider\":\"paddle_ocr\""))
+        assert_true(request_json.contains("\"version\":\"v2\""))
+        assert_true(request_json.contains("\"image_path\":\"scan.png\""))
+        assert_true(request_json.contains("\"language\":\"eng\""))
+      })
     })
   })
   let built = match
@@ -256,9 +214,13 @@ test "paddle runtime command builder auto-detects repo-local runtime or fails cl
   assert_eq(built.0, "wrapper")
   assert_eq(built.1[0], "--mode")
   assert_eq(built.1[1], "ocr")
-  assert_eq(built.1[2], "scan.png")
-  assert_eq(built.1[3], "--lang")
-  assert_eq(built.1[4], "eng")
+  assert_eq(built.1[2], "--batch-json")
+  assert_true(built.1[3].contains("/request.json"))
+  assert_eq(built.1[4], "--result-json")
+  assert_true(built.1[5].contains("/result.json"))
+  let built_request_json = provider_test_read_utf8_text(built.1[3])
+  assert_true(built_request_json.contains("\"image_path\":\"scan.png\""))
+  assert_true(built_request_json.contains("\"language\":\"eng\""))
 
   let quoted = match
     build_paddle_ocr_command_with_wrapper(
@@ -270,9 +232,10 @@ test "paddle runtime command builder auto-detects repo-local runtime or fails cl
   assert_eq(quoted.0, "/tmp/paddle wrapper.py")
   assert_eq(quoted.1[0], "--mode")
   assert_eq(quoted.1[1], "ocr accurate")
-  assert_eq(quoted.1[2], "scan.png")
-  assert_eq(quoted.1[3], "--lang")
-  assert_eq(quoted.1[4], "eng")
+  assert_eq(quoted.1[2], "--batch-json")
+  assert_true(quoted.1[3].contains("/request.json"))
+  assert_eq(quoted.1[4], "--result-json")
+  assert_true(quoted.1[5].contains("/result.json"))
 
   match build_paddle_ocr_command_with_wrapper(request, "\"unterminated") {
     Err(OcrProviderError::NotConfigured(msg)) =>
@@ -283,18 +246,18 @@ test "paddle runtime command builder auto-detects repo-local runtime or fails cl
 }
 
 ///|
-test "paddle runtime prefers MARKITDOWN_RUNTIME_PYTHON and preserves spaced paths" {
+test "paddle runtime repo-managed runtime beats MARKITDOWN_RUNTIME_PYTHON and MARKITDOWN_PADDLE_OCR_CMD" {
   let root = ocr_test_tmp_root() + "/runtime_python_override"
   recreate_clean_dir(root) catch {
     e => fail(e.to_string())
   }
   defer cleanup_temp_dir(root)
   let fake_python_dir = root + "/python bin"
-  ensure_dir_tree(fake_python_dir) catch {
+  provider_test_ensure_dir_tree(fake_python_dir) catch {
     e => fail(e.to_string())
   }
   let fake_python = fake_python_dir + "/python3"
-  write_utf8_text(fake_python, "#!/bin/sh\n") catch {
+  provider_test_write_utf8_text(fake_python, "#!/bin/sh\n") catch {
     e => fail(e.to_string())
   }
   let request = make_ocr_provider_request(
@@ -302,19 +265,99 @@ test "paddle runtime prefers MARKITDOWN_RUNTIME_PYTHON and preserves spaced path
     OcrProviderKind::PaddleOcr,
     language=Some("eng"),
   )
-  with_env_var("MARKITDOWN_RUNTIME_PYTHON", fake_python, fn() raise {
-    with_unset_env_var(paddle_ocr_command_env_var(), fn() raise {
-      assert_true(paddle_ocr_runtime_available())
-      let built = match build_paddle_ocr_command(request) {
-        Ok(value) => value
-        Err(err) =>
-          fail("expected runtime python override plan: " + err.to_string())
-      }
-      assert_eq(built.0, fake_python)
-      assert_eq(built.1[0], "samples/env/ocr/paddle_ocr_wrapper.py")
-      assert_eq(built.1[1], "scan.png")
-      assert_eq(built.1[2], "--lang")
-      assert_eq(built.1[3], "eng")
+  with_repo_local_runtime_python_stub(fn() raise {
+    provider_test_with_env_var("MARKITDOWN_RUNTIME_PYTHON", fake_python, fn() raise {
+      provider_test_with_env_var(
+        paddle_ocr_command_env_var(),
+        "python3 wrapper.py",
+        fn() raise {
+          assert_true(paddle_ocr_runtime_available())
+          let built = match build_paddle_ocr_command(request) {
+            Ok(value) => value
+            Err(err) =>
+              fail("expected repo-managed Paddle plan: " + err.to_string())
+          }
+          assert_eq(built.0, ocr_provider_test_repo_local_runtime_python_path())
+          assert_eq(built.1[0], "samples/env/ocr/paddle_ocr_wrapper.py")
+          assert_eq(built.1[1], "--batch-json")
+          assert_true(built.1[2].contains("/request.json"))
+          assert_eq(built.1[3], "--result-json")
+          assert_true(built.1[4].contains("/result.json"))
+        },
+      )
+    })
+  })
+}
+
+///|
+test "paddle runtime falls back to MARKITDOWN_RUNTIME_PYTHON when repo-managed runtime is unavailable" {
+  let root = ocr_test_tmp_root() + "/runtime_python_fallback"
+  recreate_clean_dir(root) catch {
+    e => fail(e.to_string())
+  }
+  defer cleanup_temp_dir(root)
+  let fake_python_dir = root + "/python bin"
+  provider_test_ensure_dir_tree(fake_python_dir) catch {
+    e => fail(e.to_string())
+  }
+  let fake_python = fake_python_dir + "/python3"
+  provider_test_write_utf8_text(fake_python, "#!/bin/sh\nexit 0\n") catch {
+    e => fail(e.to_string())
+  }
+  chmod_plus_x(fake_python) catch {
+    e => fail(e.to_string())
+  }
+  let request = make_ocr_provider_request(
+    "scan.png",
+    OcrProviderKind::PaddleOcr,
+    language=Some("eng"),
+  )
+  with_repo_local_runtime_python_hidden(fn() raise {
+    provider_test_with_env_var("MARKITDOWN_RUNTIME_PYTHON", fake_python, fn() raise {
+      provider_test_with_unset_env_var(paddle_ocr_command_env_var(), fn() raise {
+        assert_true(paddle_ocr_runtime_available())
+        let built = match build_paddle_ocr_command(request) {
+          Ok(value) => value
+          Err(err) =>
+            fail("expected runtime python fallback plan: " + err.to_string())
+        }
+        assert_eq(built.0, fake_python)
+        assert_eq(built.1[0], "samples/env/ocr/paddle_ocr_wrapper.py")
+        assert_eq(built.1[1], "--batch-json")
+        assert_true(built.1[2].contains("/request.json"))
+        assert_eq(built.1[3], "--result-json")
+        assert_true(built.1[4].contains("/result.json"))
+      })
+    })
+  })
+}
+
+///|
+test "paddle runtime fails closed without repo-managed runtime or explicit overrides" {
+  let request = make_ocr_provider_request(
+    "scan.png",
+    OcrProviderKind::PaddleOcr,
+    language=Some("eng"),
+  )
+  with_repo_local_runtime_python_hidden(fn() raise {
+    provider_test_with_unset_env_var("MARKITDOWN_RUNTIME_PYTHON", fn() raise {
+      provider_test_with_unset_env_var(paddle_ocr_command_env_var(), fn() raise {
+        match build_paddle_ocr_command(request) {
+          Err(OcrProviderError::NotConfigured(msg)) =>
+            assert_true(
+              msg.contains("MARKITDOWN_PADDLE_OCR_CMD") &&
+              msg.contains("./samples/env/install_ocr_pdf_accurate_deps.sh"),
+            )
+          Ok(_) =>
+            fail(
+              "expected Paddle command builder to fail closed without runtime discovery",
+            )
+          Err(other) =>
+            fail(
+              "unexpected Paddle command-builder error: " + other.to_string(),
+            )
+        }
+      })
     })
   })
 }
@@ -326,7 +369,38 @@ test "paddle runtime command abstraction preserves fail-closed taxonomy" {
     OcrProviderKind::PaddleOcr,
     language=Some("eng"),
   )
-  let payload = "{\"provider_name\":\"paddle_ocr\",\"provider_version\":\"wrapper-v1\",\"pages\":[{\"page_index\":0,\"blocks\":[{\"block_index\":0,\"lines\":[{\"line_index\":0,\"text\":\"MoonBit OCR\",\"words\":[{\"word_index\":0,\"text\":\"MoonBit\"},{\"word_index\":1,\"text\":\"OCR\"}]}]}]}]}"
+  let payload = "{\n" +
+    "  \"provider_name\": \"paddle_ocr\",\n" +
+    "  \"provider_version\": \"wrapper-v1\",\n" +
+    "  \"jobs\": [\n" +
+    "    {\n" +
+    "      \"job_id\": \"job-0\",\n" +
+    "      \"status\": \"ok\",\n" +
+    "      \"error_kind\": null,\n" +
+    "      \"error_message\": null,\n" +
+    "      \"pages\": [\n" +
+    "        {\n" +
+    "          \"page_index\": 0,\n" +
+    "          \"blocks\": [\n" +
+    "            {\n" +
+    "              \"block_index\": 0,\n" +
+    "              \"lines\": [\n" +
+    "                {\n" +
+    "                  \"line_index\": 0,\n" +
+    "                  \"text\": \"MoonBit OCR\",\n" +
+    "                  \"words\": [\n" +
+    "                    {\"word_index\": 0, \"text\": \"MoonBit\"},\n" +
+    "                    {\"word_index\": 1, \"text\": \"OCR\"}\n" +
+    "                  ]\n" +
+    "                }\n" +
+    "              ]\n" +
+    "            }\n" +
+    "          ]\n" +
+    "        }\n" +
+    "      ]\n" +
+    "    }\n" +
+    "  ]\n" +
+    "}\n"
 
   let result = match
     run_paddle_ocr_provider_with_command_with_wrapper(
@@ -338,10 +412,12 @@ test "paddle runtime command abstraction preserves fail-closed taxonomy" {
         }
         if args[0] != "--mode" ||
           args[1] != "ocr" ||
-          args[2] != "scan.png" ||
-          args[3] != "--lang" ||
-          args[4] != "eng" {
+          args[2] != "--batch-json" ||
+          args[4] != "--result-json" {
           abort("unexpected Paddle wrapper argv")
+        }
+        provider_test_write_utf8_text(args[5], payload) catch {
+          e => abort("failed to write result json: " + e.to_string())
         }
         Ok((0, payload, ""))
       },
@@ -353,6 +429,8 @@ test "paddle runtime command abstraction preserves fail-closed taxonomy" {
   assert_eq(result.provider_name, "paddle_ocr")
   assert_true(result.provider_version == Some("wrapper-v1"))
   assert_eq(result.pages.length(), 1)
+  assert_eq(result.jobs.length(), 1)
+  assert_eq(result.jobs[0].image_path, "scan.png")
   assert_eq(result.pages[0].blocks.length(), 1)
   assert_eq(result.pages[0].blocks[0].lines.length(), 1)
   assert_eq(result.pages[0].blocks[0].lines[0].text, "MoonBit OCR")
@@ -361,12 +439,18 @@ test "paddle runtime command abstraction preserves fail-closed taxonomy" {
   match
     run_paddle_ocr_provider_with_command_with_wrapper(request, "wrapper", fn(
       _cmd,
-      _args,
+      args,
     ) {
-      Ok((0, "{\"provider_name\":\"paddle_ocr\"}", ""))
+      provider_test_write_utf8_text(
+        args[3],
+        "{\"provider_name\":\"paddle_ocr\"}",
+      ) catch {
+        e => abort("failed to write malformed result json: " + e.to_string())
+      }
+      Ok((0, "", ""))
     }) {
     Err(OcrProviderError::OutputParseFailed(msg)) =>
-      assert_true(msg.contains("pages"))
+      assert_true(msg.contains("jobs"))
     Ok(_) => fail("expected malformed Paddle payload to fail parsing")
     Err(other) =>
       fail("unexpected Paddle malformed-payload error: " + other.to_string())
@@ -409,9 +493,64 @@ test "paddle runtime command abstraction preserves fail-closed taxonomy" {
 
 ///|
 test "paddle wrapper payload parser lowers json wrapper output into OCR provider result" {
-  let payload = "{\"provider_name\":\"paddle_ocr\",\"provider_version\":\"wrapper-v1\",\"diagnostics\":[\"wrapper=sample\"],\"pages\":[{\"page_index\":0,\"width\":1000,\"height\":2000,\"language\":\"eng\",\"diagnostics\":[\"page=0\"],\"blocks\":[{\"block_index\":0,\"confidence\":0.97,\"bbox\":{\"x0\":10,\"y0\":20,\"x1\":300,\"y1\":120},\"lines\":[{\"line_index\":0,\"text\":\"MoonBit OCR\",\"confidence\":0.98,\"bbox\":{\"x0\":10,\"y0\":20,\"x1\":280,\"y1\":60},\"words\":[{\"word_index\":0,\"text\":\"MoonBit\",\"confidence\":0.99,\"bbox\":{\"x0\":10,\"y0\":20,\"x1\":150,\"y1\":60}},{\"word_index\":1,\"text\":\"OCR\",\"confidence\":0.96,\"bbox\":{\"x0\":170,\"y0\":20,\"x1\":280,\"y1\":60}}]}]}]}]}"
+  let payload = "{\n" +
+    "  \"provider_name\": \"paddle_ocr\",\n" +
+    "  \"provider_version\": \"wrapper-v1\",\n" +
+    "  \"diagnostics\": [\"wrapper=sample\"],\n" +
+    "  \"jobs\": [\n" +
+    "    {\n" +
+    "      \"job_id\": \"job-0\",\n" +
+    "      \"status\": \"ok\",\n" +
+    "      \"error_kind\": null,\n" +
+    "      \"error_message\": null,\n" +
+    "      \"pages\": [\n" +
+    "        {\n" +
+    "          \"page_index\": 0,\n" +
+    "          \"width\": 1000,\n" +
+    "          \"height\": 2000,\n" +
+    "          \"language\": \"eng\",\n" +
+    "          \"diagnostics\": [\"page=0\"],\n" +
+    "          \"blocks\": [\n" +
+    "            {\n" +
+    "              \"block_index\": 0,\n" +
+    "              \"confidence\": 0.97,\n" +
+    "              \"bbox\": {\"x0\": 10, \"y0\": 20, \"x1\": 300, \"y1\": 120},\n" +
+    "              \"lines\": [\n" +
+    "                {\n" +
+    "                  \"line_index\": 0,\n" +
+    "                  \"text\": \"MoonBit OCR\",\n" +
+    "                  \"confidence\": 0.98,\n" +
+    "                  \"bbox\": {\"x0\": 10, \"y0\": 20, \"x1\": 280, \"y1\": 60},\n" +
+    "                  \"words\": [\n" +
+    "                    {\n" +
+    "                      \"word_index\": 0,\n" +
+    "                      \"text\": \"MoonBit\",\n" +
+    "                      \"confidence\": 0.99,\n" +
+    "                      \"bbox\": {\"x0\": 10, \"y0\": 20, \"x1\": 150, \"y1\": 60}\n" +
+    "                    },\n" +
+    "                    {\n" +
+    "                      \"word_index\": 1,\n" +
+    "                      \"text\": \"OCR\",\n" +
+    "                      \"confidence\": 0.96,\n" +
+    "                      \"bbox\": {\"x0\": 170, \"y0\": 20, \"x1\": 280, \"y1\": 60}\n" +
+    "                    }\n" +
+    "                  ]\n" +
+    "                }\n" +
+    "              ]\n" +
+    "            }\n" +
+    "          ]\n" +
+    "        }\n" +
+    "      ]\n" +
+    "    }\n" +
+    "  ]\n" +
+    "}\n"
+  let request = make_ocr_provider_request(
+    "scan.png",
+    OcrProviderKind::PaddleOcr,
+    language=Some("eng"),
+  )
 
-  let result = match parse_paddle_ocr_wrapper_payload(payload) {
+  let result = match parse_paddle_ocr_wrapper_payload(payload, request) {
     Ok(value) => value
     Err(err) =>
       fail("expected Paddle wrapper payload to parse: " + err.to_string())
@@ -422,6 +561,9 @@ test "paddle wrapper payload parser lowers json wrapper output into OCR provider
   assert_eq(result.diagnostics.length(), 1)
   assert_eq(result.diagnostics[0], "wrapper=sample")
   assert_eq(result.pages.length(), 1)
+  assert_eq(result.jobs.length(), 1)
+  assert_eq(result.jobs[0].status, "ok")
+  assert_eq(result.jobs[0].image_path, "scan.png")
   assert_eq(result.pages[0].page_index, 0)
   assert_true(result.pages[0].width == Some(1000))
   assert_true(result.pages[0].height == Some(2000))
@@ -438,16 +580,24 @@ test "paddle wrapper payload parser lowers json wrapper output into OCR provider
 
 ///|
 test "paddle wrapper payload parser reports malformed payloads with provider taxonomy" {
-  match parse_paddle_ocr_wrapper_payload("") {
+  let request = make_ocr_provider_request(
+    "scan.png",
+    OcrProviderKind::PaddleOcr,
+    language=Some("eng"),
+  )
+  match parse_paddle_ocr_wrapper_payload("", request) {
     Err(OcrProviderError::EmptyResult(msg)) =>
       assert_true(msg.contains("empty payload"))
     Ok(_) => fail("expected empty Paddle payload to fail")
     Err(other) => fail("unexpected empty-payload error: " + other.to_string())
   }
 
-  match parse_paddle_ocr_wrapper_payload("{\"provider_name\":\"paddle_ocr\"}") {
+  match
+    parse_paddle_ocr_wrapper_payload(
+      "{\"provider_name\":\"paddle_ocr\"}", request,
+    ) {
     Err(OcrProviderError::OutputParseFailed(msg)) =>
-      assert_true(msg.contains("pages"))
+      assert_true(msg.contains("jobs"))
     Ok(_) => fail("expected malformed Paddle payload to fail")
     Err(other) =>
       fail("unexpected malformed-payload error: " + other.to_string())
@@ -467,7 +617,7 @@ async test "paddle runtime async command abstraction remains fail closed" {
         Ok((0, "{}", ""))
       }) {
       Err(OcrProviderError::OutputParseFailed(msg)) =>
-        assert_true(msg.contains("provider_name"))
+        assert_true(msg.contains("readable result JSON"))
       Ok(_) => fail("expected async Paddle malformed payload to fail closed")
       Err(other) => fail("unexpected async Paddle error: " + other.to_string())
     }
@@ -484,12 +634,48 @@ async test "paddle runtime async command abstraction remains fail closed" {
     }
   }
 
-  let payload = "{\"provider_name\":\"paddle_ocr\",\"provider_version\":\"wrapper-v1\",\"pages\":[{\"page_index\":0,\"blocks\":[{\"block_index\":0,\"lines\":[{\"line_index\":0,\"text\":\"MoonBit OCR\",\"words\":[{\"word_index\":0,\"text\":\"MoonBit\"},{\"word_index\":1,\"text\":\"OCR\"}]}]}]}]}"
+  let payload = "{\n" +
+    "  \"provider_name\": \"paddle_ocr\",\n" +
+    "  \"provider_version\": \"wrapper-v1\",\n" +
+    "  \"jobs\": [\n" +
+    "    {\n" +
+    "      \"job_id\": \"job-0\",\n" +
+    "      \"status\": \"ok\",\n" +
+    "      \"error_kind\": null,\n" +
+    "      \"error_message\": null,\n" +
+    "      \"pages\": [\n" +
+    "        {\n" +
+    "          \"page_index\": 0,\n" +
+    "          \"blocks\": [\n" +
+    "            {\n" +
+    "              \"block_index\": 0,\n" +
+    "              \"lines\": [\n" +
+    "                {\n" +
+    "                  \"line_index\": 0,\n" +
+    "                  \"text\": \"MoonBit OCR\",\n" +
+    "                  \"words\": [\n" +
+    "                    {\"word_index\": 0, \"text\": \"MoonBit\"},\n" +
+    "                    {\"word_index\": 1, \"text\": \"OCR\"}\n" +
+    "                  ]\n" +
+    "                }\n" +
+    "              ]\n" +
+    "            }\n" +
+    "          ]\n" +
+    "        }\n" +
+    "      ]\n" +
+    "    }\n" +
+    "  ]\n" +
+    "}\n"
   match
     run_paddle_ocr_provider_with_async_command_with_wrapper(
       request,
       "wrapper",
-      (_cmd, _args) => Ok((0, payload, "")),
+      (_cmd, args) => {
+        provider_test_write_utf8_text(args[3], payload) catch {
+          e => abort("failed to write async result json: " + e.to_string())
+        }
+        Ok((0, "", ""))
+      },
     ) {
     Ok(result) => {
       assert_eq(result.provider_name, "paddle_ocr")
@@ -503,10 +689,21 @@ async test "paddle runtime async command abstraction remains fail closed" {
     run_paddle_ocr_provider_with_async_command_with_wrapper(
       request,
       "wrapper",
-      (_cmd, _args) => Ok((0, "{\"provider_name\":\"paddle_ocr\"}", "")),
+      (_cmd, args) => {
+        provider_test_write_utf8_text(
+          args[3],
+          "{\"provider_name\":\"paddle_ocr\"}",
+        ) catch {
+          e =>
+            abort(
+              "failed to write async malformed result json: " + e.to_string(),
+            )
+        }
+        Ok((0, "", ""))
+      },
     ) {
     Err(OcrProviderError::OutputParseFailed(msg)) =>
-      assert_true(msg.contains("pages"))
+      assert_true(msg.contains("jobs"))
     Ok(_) =>
       fail("expected malformed wrapper-aware async Paddle payload to fail")
     Err(other) =>

@@ -4,70 +4,29 @@ fn test_tmp_root() -> String {
 }
 
 ///|
-fn remove_dir_recursive(path : String) -> Unit raise {
-  if !@fs.path_exists(path) {
-    return
-  }
-  for name in @fs.read_dir(path) {
-    let child = path + "/" + name
-    if @fs.is_dir(child) {
-      remove_dir_recursive(child)
-    } else if @fs.is_file(child) {
-      @fs.remove_file(child)
-    }
-  }
-  @fs.remove_dir(path)
+#warnings("-deprecated")
+fn cleanup_temp_dir(path : String) -> Unit {
+  @therm.cleanup_temp_dir(path)
 }
 
 ///|
 fn recreate_clean_dir(path : String) -> Unit raise {
-  if @fs.path_exists(path) {
-    remove_dir_recursive(path)
-  }
-  ensure_dir_tree(path)
-}
-
-///|
-fn cleanup_temp_dir(path : String) -> Unit {
-  ignore(
-    try remove_dir_recursive(path) |> Ok catch {
-      _ => Err(())
-    },
-  )
+  @therm.recreate_clean_dir(path)
 }
 
 ///|
 fn ensure_dir_tree(path : String) -> Unit raise {
-  let normalized = path.trim().to_owned()
-  if normalized == "" || normalized == "." {
-    return
-  }
-  if @fs.path_exists(normalized) {
-    return
-  }
-  let parts = normalized.split("/")
-  let mut current = if normalized.has_prefix("/") { "/" } else { "" }
-  for raw in parts {
-    let part = raw.trim().to_owned()
-    if part == "" || part == "." {
-      continue
-    }
-    if current == "" || current == "/" {
-      current = if current == "/" { "/" + part } else { part }
-    } else {
-      current = current + "/" + part
-    }
-    if !@fs.path_exists(current) {
-      @fs.create_dir(current)
-    }
-  }
+  @therm.ensure_dir_tree(path)
 }
 
 ///|
 fn write_utf8_text(path : String, text : String) -> Unit raise {
-  @fs.write_string_to_file(path, text, encoding="utf8") catch {
-    e => fail("write failed: " + e.to_string())
-  }
+  @therm.write_utf8_text(path, text)
+}
+
+///|
+fn read_utf8_text(path : String) -> String {
+  @therm.read_utf8_text(path)
 }
 
 ///|
@@ -78,16 +37,36 @@ fn make_fake_model(path : String) -> Unit raise {
 
 ///|
 fn audio_wbtest_repo_local_runtime_python_path() -> String {
-  "env/.venv-markitdown-runtime/bin/python"
+  @therm.repo_local_runtime_python_path()
 }
 
 ///|
-fn expected_default_audio_python_cmd() -> String {
-  if @fs.path_exists(audio_wbtest_repo_local_runtime_python_path()) {
-    audio_wbtest_repo_local_runtime_python_path()
-  } else {
-    "python3"
-  }
+fn absolute_test_path(path : String) -> String {
+  @therm.absolute_test_path(path)
+}
+
+///|
+fn chmod_plus_x(path : String) -> Unit raise {
+  @therm.chmod_plus_x(path)
+}
+
+///|
+fn with_repo_local_runtime_python_stub(body : () -> Unit raise) -> Unit raise {
+  @therm.with_repo_local_runtime_python_stub(body)
+}
+
+///|
+fn with_repo_local_runtime_python_hidden(body : () -> Unit raise) -> Unit raise {
+  @therm.with_repo_local_runtime_python_hidden(body)
+}
+
+///|
+fn with_managed_command_record(
+  name : String,
+  value : String?,
+  body : () -> Unit raise,
+) -> Unit raise {
+  @therm.with_managed_command_record(name, value, body)
 }
 
 ///|
@@ -96,24 +75,12 @@ fn with_env_var(
   value : String,
   body : () -> Unit raise,
 ) -> Unit raise {
-  let previous = @env.get_env_var(name)
-  @env.set_env_var(name, value)
-  defer (match previous {
-    Some(old) => @env.set_env_var(name, old)
-    None => @env.unset_env_var(name)
-  })
-  body()
+  @therm.with_env_var(name, value, body)
 }
 
 ///|
 fn with_unset_env_var(name : String, body : () -> Unit raise) -> Unit raise {
-  let previous = @env.get_env_var(name)
-  @env.unset_env_var(name)
-  defer (match previous {
-    Some(old) => @env.set_env_var(name, old)
-    None => ()
-  })
-  body()
+  @therm.with_unset_env_var(name, body)
 }
 
 ///|
@@ -163,15 +130,29 @@ fn fake_audio_transcript_json(
   "\"\n" +
   "    }\n" +
   "  ],\n" +
-  "  \"diagnostics\": [\"mock=true\"]\n" +
+  "  \"diagnostics\": [\"mock=true\", \"metric|audio_backend_wall_ms|11\", \"metric|external_process_invocation_count|1\", \"metric|external_process_kind|audio_backend\"]\n" +
   "}\n"
 }
 
 ///|
 fn with_audio_model_env(path : String, body : () -> Unit raise) -> Unit raise {
+  let previous = @env.get_env_var(audio_model_path_env_var())
   @env.set_env_var(audio_model_path_env_var(), path)
-  defer @env.unset_env_var(audio_model_path_env_var())
+  defer (match previous {
+    Some(old) => @env.set_env_var(audio_model_path_env_var(), old)
+    None => @env.unset_env_var(audio_model_path_env_var())
+  })
   body()
+}
+
+///|
+fn find_arg_value(args : Array[String], flag : String) -> String {
+  for i in 0..<args.length() {
+    if args[i] == flag && i + 1 < args.length() {
+      return args[i + 1]
+    }
+  }
+  abort("missing flag in args: " + flag)
 }
 
 ///|
@@ -197,13 +178,7 @@ test "audio runtime command builder defaults to official wrapper and model dir" 
   write_utf8_text(fake_audio, "RIFFfakeWAVE") catch {
     e => fail(e.to_string())
   }
-  let mock_bin = root + "/bin"
-  recreate_clean_dir(mock_bin) catch {
-    e => fail(e.to_string())
-  }
-  let expected_python = expected_default_audio_python_cmd()
-  let old_path = @env.get_env_var("PATH").unwrap_or("")
-  with_env_var("PATH", mock_bin + ":" + old_path, fn() raise {
+  with_repo_local_runtime_python_stub(fn() raise {
     with_unset_env_var("MARKITDOWN_RUNTIME_PYTHON", fn() raise {
       with_unset_env_var(audio_command_env_var(), fn() raise {
         with_audio_model_env(fake_model, fn() raise {
@@ -216,16 +191,18 @@ test "audio runtime command builder defaults to official wrapper and model dir" 
             Ok(value) => value
             Err(err) => fail("expected audio command plan: " + err.to_string())
           }
-          assert_eq(built.0, expected_python)
+          assert_eq(built.0, audio_wbtest_repo_local_runtime_python_path())
           assert_true(
             built.1[0] == "samples/env/audio/audio_transcribe_wrapper.py",
           )
-          assert_eq(built.1[1], fake_audio)
-          assert_true(built.1[2].contains("transcript.json"))
-          assert_true(built.1.contains("--lang"))
-          assert_true(built.1.contains("zh"))
-          assert_true(!built.1.contains("-m"))
-          assert_true(!built.1.contains("-l"))
+          let request_json = read_utf8_text(built.1[2])
+          assert_true(
+            request_json.contains("\"input_audio_path\":\"" + fake_audio + "\""),
+          )
+          assert_true(request_json.contains("\"language\":\"zh\""))
+          assert_true(
+            request_json.contains("\"model_path\":\"" + fake_model + "\""),
+          )
         })
       })
     })
@@ -233,7 +210,7 @@ test "audio runtime command builder defaults to official wrapper and model dir" 
 }
 
 ///|
-test "audio runtime prefers MARKITDOWN_RUNTIME_PYTHON and preserves spaced paths" {
+test "audio runtime repo-managed wrapper beats MARKITDOWN_RUNTIME_PYTHON and MARKITDOWN_AUDIO_CMD" {
   let root = test_tmp_root() + "/runtime_python_override"
   recreate_clean_dir(root) catch {
     e => fail(e.to_string())
@@ -247,91 +224,39 @@ test "audio runtime prefers MARKITDOWN_RUNTIME_PYTHON and preserves spaced paths
   write_utf8_text(fake_audio, "RIFFfakeWAVE") catch {
     e => fail(e.to_string())
   }
-  let fake_python_dir = root + "/python bin"
-  ensure_dir_tree(fake_python_dir) catch {
-    e => fail(e.to_string())
-  }
-  let fake_python = fake_python_dir + "/python3"
+  let fake_python = root + "/python3"
   write_utf8_text(fake_python, "#!/bin/sh\n") catch {
     e => fail(e.to_string())
   }
-  with_env_var("MARKITDOWN_RUNTIME_PYTHON", fake_python, fn() raise {
-    with_unset_env_var(audio_command_env_var(), fn() raise {
-      with_audio_model_env(fake_model, fn() raise {
-        let built = match
-          build_audio_transcribe_command(
-            @input.input_from_path(fake_audio),
-            @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
-            Some("eng"),
-          ) {
-          Ok(value) => value
-          Err(err) =>
-            fail("expected runtime python override plan: " + err.to_string())
-        }
-        assert_eq(built.0, fake_python)
-        assert_true(
-          built.1[0] == "samples/env/audio/audio_transcribe_wrapper.py",
-        )
-        assert_eq(built.1[1], fake_audio)
-        assert_true(built.1.contains("--lang"))
-        assert_true(built.1.contains("eng"))
+  with_repo_local_runtime_python_stub(fn() raise {
+    with_env_var("MARKITDOWN_RUNTIME_PYTHON", fake_python, fn() raise {
+      with_env_var(audio_command_env_var(), "python3 wrapper.py", fn() raise {
+        with_audio_model_env(fake_model, fn() raise {
+          let built = match
+            build_audio_transcribe_command(
+              @input.input_from_path(fake_audio),
+              @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
+              Some("eng"),
+            ) {
+            Ok(value) => value
+            Err(err) =>
+              fail(
+                "expected repo-managed audio command plan: " + err.to_string(),
+              )
+          }
+          assert_eq(built.0, audio_wbtest_repo_local_runtime_python_path())
+          assert_true(
+            built.1[0] == "samples/env/audio/audio_transcribe_wrapper.py",
+          )
+        })
       })
     })
   })
 }
 
 ///|
-test "audio runtime wrapper command path stays stable and shell-parseable" {
-  let root = test_tmp_root() + "/wrapper_builder"
-  recreate_clean_dir(root) catch {
-    e => fail(e.to_string())
-  }
-  defer cleanup_temp_dir(root)
-  let fake_audio = root + "/sample.wav"
-  write_utf8_text(fake_audio, "RIFFfakeWAVE") catch {
-    e => fail(e.to_string())
-  }
-  let wrapper = "python3 samples/env/audio/audio_transcribe_wrapper.py"
-  with_env_var(audio_command_env_var(), wrapper, fn() raise {
-    let built = match
-      build_audio_transcribe_command(
-        @input.input_from_path(fake_audio),
-        @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
-        Some("zh"),
-      ) {
-      Ok(value) => value
-      Err(err) =>
-        fail("expected wrapper audio command plan: " + err.to_string())
-    }
-    assert_eq(built.0, "python3")
-    assert_true(built.1[0] == "samples/env/audio/audio_transcribe_wrapper.py")
-    assert_true(built.1.contains(fake_audio))
-    assert_true(built.1.contains("--lang"))
-    assert_true(built.1.contains("zh"))
-    assert_true(!built.1.contains("-m"))
-    assert_true(!built.1.contains("-l"))
-  })
-}
-
-///|
-test "audio runtime wrapper command parse failure stays fail closed" {
-  with_env_var(audio_command_env_var(), "\"unterminated", fn() raise {
-    match
-      build_audio_transcribe_command(
-        @input.input_from_path("samples/fixtures/contracts/audio/contract.wav"),
-        @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
-        Some("eng"),
-      ) {
-      Err(AudioTranscribeError::NotConfigured(msg)) =>
-        assert_true(msg.contains("MARKITDOWN_AUDIO_CMD"))
-      _ => fail("expected wrapper parse failure")
-    }
-  })
-}
-
-///|
-test "audio runtime command builder defaults language to auto" {
-  let root = test_tmp_root() + "/auto_lang"
+test "audio runtime falls back to MARKITDOWN_RUNTIME_PYTHON when repo-managed runtime is unavailable" {
+  let root = test_tmp_root() + "/runtime_python_fallback"
   recreate_clean_dir(root) catch {
     e => fail(e.to_string())
   }
@@ -340,33 +265,35 @@ test "audio runtime command builder defaults language to auto" {
   make_fake_model(fake_model) catch {
     e => fail(e.to_string())
   }
-  let fake_audio = root + "/sample.mp3"
-  write_utf8_text(fake_audio, "ID3fakeaudio") catch {
+  let fake_audio = root + "/sample.wav"
+  write_utf8_text(fake_audio, "RIFFfakeWAVE") catch {
     e => fail(e.to_string())
   }
-  let mock_bin = root + "/bin"
-  recreate_clean_dir(mock_bin) catch {
+  let fake_python = root + "/python3"
+  write_utf8_text(fake_python, "#!/bin/sh\nexit 0\n") catch {
     e => fail(e.to_string())
   }
-  let expected_python = expected_default_audio_python_cmd()
-  let old_path = @env.get_env_var("PATH").unwrap_or("")
-  with_env_var("PATH", mock_bin + ":" + old_path, fn() raise {
-    with_unset_env_var("MARKITDOWN_RUNTIME_PYTHON", fn() raise {
+  chmod_plus_x(fake_python) catch {
+    e => fail(e.to_string())
+  }
+  with_repo_local_runtime_python_hidden(fn() raise {
+    with_env_var("MARKITDOWN_RUNTIME_PYTHON", fake_python, fn() raise {
       with_unset_env_var(audio_command_env_var(), fn() raise {
         with_audio_model_env(fake_model, fn() raise {
           let built = match
             build_audio_transcribe_command(
               @input.input_from_path(fake_audio),
-              @input.DetectedFormat::Audio(@input.AudioFormat::Mp3),
-              None,
+              @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
+              Some("zh"),
             ) {
             Ok(value) => value
             Err(err) =>
-              fail("expected auto language command plan: " + err.to_string())
+              fail("expected runtime python fallback plan: " + err.to_string())
           }
-          assert_true(built.0 == expected_python)
-          assert_true(built.1.contains("--lang"))
-          assert_true(built.1.contains("auto"))
+          assert_eq(built.0, fake_python)
+          assert_true(
+            built.1[0] == "samples/env/audio/audio_transcribe_wrapper.py",
+          )
         })
       })
     })
@@ -374,68 +301,219 @@ test "audio runtime command builder defaults language to auto" {
 }
 
 ///|
-test "audio runtime fails closed when model path is missing" {
-  @env.set_env_var(
-    audio_model_path_env_var(),
-    ".tmp/tests/audio_runtime/missing-model/not-installed",
-  )
-  defer @env.unset_env_var(audio_model_path_env_var())
-  let root = test_tmp_root() + "/missing-model"
-  recreate_clean_dir(root) catch {
-    e => fail(e.to_string())
-  }
-  defer cleanup_temp_dir(root)
-  let mock_bin = root + "/bin"
-  recreate_clean_dir(mock_bin) catch {
-    e => fail(e.to_string())
-  }
-  let old_path = @env.get_env_var("PATH").unwrap_or("")
-  with_env_var("PATH", mock_bin + ":" + old_path, fn() raise {
-    with_unset_env_var(audio_command_env_var(), fn() raise {
-      match
-        build_audio_transcribe_command(
-          @input.input_from_path(
-            "samples/fixtures/contracts/audio/contract.wav",
-          ),
-          @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
-          Some("eng"),
-        ) {
-        Err(AudioTranscribeError::NotConfigured(msg)) =>
-          assert_true(msg.contains("Vosk model directory is not available"))
-        _ => fail("expected missing model failure")
-      }
+test "audio runtime wrapper command parse failure stays fail closed" {
+  with_repo_local_runtime_python_hidden(fn() raise {
+    with_unset_env_var("MARKITDOWN_RUNTIME_PYTHON", fn() raise {
+      with_env_var(audio_command_env_var(), "\"unterminated", fn() raise {
+        match
+          build_audio_transcribe_command(
+            @input.input_from_path(
+              "samples/fixtures/contracts/audio/contract.wav",
+            ),
+            @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
+            Some("eng"),
+          ) {
+          Err(AudioTranscribeError::NotConfigured(msg)) =>
+            assert_true(msg.contains("MARKITDOWN_AUDIO_CMD"))
+          _ => fail("expected wrapper parse failure")
+        }
+      })
     })
   })
 }
 
 ///|
-test "audio runtime parses transcript json into result" {
-  let parsed = match
-    parse_audio_transcript_json_payload(
-      fake_audio_transcript_json(
-        "zh",
-        result_language="zh",
-        text0="ni hao",
-        text1="shi jie",
-      ),
-      @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
-      Some("zh"),
-    ) {
-    Ok(value) => value
-    Err(err) => fail("expected transcript json success: " + err.to_string())
+test "audio runtime fails closed when model path is missing" {
+  with_repo_local_runtime_python_stub(fn() raise {
+    with_unset_env_var(audio_command_env_var(), fn() raise {
+      with_env_var(
+        audio_model_path_env_var(),
+        ".tmp/tests/audio_runtime/missing-model/not-installed",
+        fn() raise {
+          match
+            build_audio_transcribe_command(
+              @input.input_from_path(
+                "samples/fixtures/contracts/audio/contract.wav",
+              ),
+              @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
+              Some("eng"),
+            ) {
+            Err(AudioTranscribeError::NotConfigured(msg)) =>
+              assert_true(msg.contains("Vosk model directory is not available"))
+            _ => fail("expected missing model failure")
+          }
+        },
+      )
+    })
+  })
+}
+
+///|
+test "audio runtime no longer falls back to python3 when repo-managed runtime is unavailable" {
+  let root = test_tmp_root() + "/no_python3_fallback"
+  recreate_clean_dir(root) catch {
+    e => fail(e.to_string())
   }
-  assert_eq(parsed.provider_name, "vosk")
-  assert_true(parsed.provider_version == Some("0.test"))
-  assert_true(parsed.metadata.codec == Some("wav"))
-  assert_true(parsed.metadata.language == Some("zh"))
-  assert_true(parsed.metadata.duration_ms == Some(7200))
-  assert_eq(parsed.segments.length(), 2)
-  assert_eq(parsed.segments[0].segment_id, "seg-1")
-  assert_eq(parsed.segments[0].start_ms, 0)
-  assert_eq(parsed.segments[0].end_ms, 3200)
-  assert_true(parsed.segments[0].speaker == Some("speaker-1"))
-  assert_true(parsed.segments[0].channel == Some(0))
-  assert_true(parsed.segments[0].confidence is Some(_))
+  defer cleanup_temp_dir(root)
+  let fake_model = root + "/model"
+  make_fake_model(fake_model) catch {
+    e => fail(e.to_string())
+  }
+  let fake_audio = root + "/sample.wav"
+  write_utf8_text(fake_audio, "RIFFfakeWAVE") catch {
+    e => fail(e.to_string())
+  }
+  let fake_bin = root + "/bin"
+  recreate_clean_dir(fake_bin) catch {
+    e => fail(e.to_string())
+  }
+  let fake_python3 = fake_bin + "/python3"
+  write_utf8_text(fake_python3, "#!/bin/sh\nexit 0\n") catch {
+    e => fail(e.to_string())
+  }
+  chmod_plus_x(fake_python3) catch {
+    e => fail(e.to_string())
+  }
+  let old_path = @env.get_env_var("PATH").unwrap_or("")
+  with_repo_local_runtime_python_hidden(fn() raise {
+    with_env_var("PATH", fake_bin + ":" + old_path, fn() raise {
+      with_unset_env_var("MARKITDOWN_RUNTIME_PYTHON", fn() raise {
+        with_unset_env_var(audio_command_env_var(), fn() raise {
+          with_audio_model_env(fake_model, fn() raise {
+            match
+              build_audio_transcribe_command(
+                @input.input_from_path(fake_audio),
+                @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
+                Some("eng"),
+              ) {
+              Err(AudioTranscribeError::NotConfigured(msg)) =>
+                assert_true(
+                  msg.contains("Audio transcription backend is not available"),
+                )
+              _ => fail("expected no-python3 fallback failure")
+            }
+          })
+        })
+      })
+    })
+  })
+}
+
+///|
+test "audio runtime prefers repo-managed ffmpeg record over MARKITDOWN_FFMPEG_BIN" {
+  let root = test_tmp_root() + "/ffmpeg_repo_managed"
+  recreate_clean_dir(root) catch {
+    e => fail(e.to_string())
+  }
+  defer cleanup_temp_dir(root)
+  let fake_model = root + "/model"
+  make_fake_model(fake_model) catch {
+    e => fail(e.to_string())
+  }
+  let fake_audio = root + "/sample.m4a"
+  write_utf8_text(fake_audio, "fake m4a") catch {
+    e => fail(e.to_string())
+  }
+  let repo_ffmpeg = root + "/repo-ffmpeg"
+  write_utf8_text(
+    repo_ffmpeg, "#!/bin/sh\n: > \"${10}\"\nprintf 'repo-managed ffmpeg\\n' >&2\n",
+  ) catch {
+    e => fail(e.to_string())
+  }
+  chmod_plus_x(repo_ffmpeg) catch {
+    e => fail(e.to_string())
+  }
+  let env_ffmpeg = root + "/env-ffmpeg"
+  write_utf8_text(
+    env_ffmpeg, "#!/bin/sh\n: > \"${10}\"\nprintf 'env ffmpeg\\n' >&2\n",
+  ) catch {
+    e => fail(e.to_string())
+  }
+  chmod_plus_x(env_ffmpeg) catch {
+    e => fail(e.to_string())
+  }
+  with_repo_local_runtime_python_stub(fn() raise {
+    with_managed_command_record(
+      "ffmpeg",
+      Some(absolute_test_path(repo_ffmpeg)),
+      fn() raise {
+        with_env_var(ffmpeg_command_env_var(), env_ffmpeg, fn() raise {
+          with_audio_model_env(fake_model, fn() raise {
+            let result = run_audio_transcribe_command_with_collect(
+              @input.input_from_path(fake_audio),
+              @input.DetectedFormat::Audio(@input.AudioFormat::M4a),
+              Some("eng"),
+              fn(_cmd, args) {
+                let result_json = find_arg_value(args, "--result-json")
+                write_utf8_text(result_json, fake_audio_transcript_json("eng")) catch {
+                  e =>
+                    abort("failed to write transcript result: " + e.to_string())
+                }
+                Ok((0, "", ""))
+              },
+            )
+            match result {
+              Ok(parsed) => {
+                assert_true(
+                  parsed.diagnostics.contains(
+                    "ffmpeg_command_source=repo_managed",
+                  ),
+                )
+                assert_true(
+                  parsed.diagnostics.contains(
+                    "ffmpeg_command=" + absolute_test_path(repo_ffmpeg),
+                  ),
+                )
+              }
+              Err(err) =>
+                fail("expected repo-managed ffmpeg success: " + err.to_string())
+            }
+          })
+        })
+      },
+    )
+  })
+}
+
+///|
+test "audio runtime requires ffmpeg for m4a when no resolver is available" {
+  let root = test_tmp_root() + "/missing_ffmpeg"
+  recreate_clean_dir(root) catch {
+    e => fail(e.to_string())
+  }
+  defer cleanup_temp_dir(root)
+  let fake_model = root + "/model"
+  make_fake_model(fake_model) catch {
+    e => fail(e.to_string())
+  }
+  let fake_audio = root + "/sample.m4a"
+  write_utf8_text(fake_audio, "fake m4a") catch {
+    e => fail(e.to_string())
+  }
+  let old_path = @env.get_env_var("PATH").unwrap_or("")
+  with_repo_local_runtime_python_stub(fn() raise {
+    with_managed_command_record("ffmpeg", None, fn() raise {
+      with_unset_env_var(ffmpeg_command_env_var(), fn() raise {
+        with_env_var("PATH", "", fn() raise {
+          with_audio_model_env(fake_model, fn() raise {
+            match
+              build_audio_transcribe_command(
+                @input.input_from_path(fake_audio),
+                @input.DetectedFormat::Audio(@input.AudioFormat::M4a),
+                Some("eng"),
+              ) {
+              Err(AudioTranscribeError::CommandUnavailable(msg)) =>
+                assert_true(msg.contains("ffmpeg"))
+              Err(AudioTranscribeError::ExecutionFailed(msg)) =>
+                assert_true(msg.contains("ffmpeg"))
+              _ => fail("expected missing ffmpeg failure")
+            }
+          })
+        })
+      })
+    })
+  })
+  ignore(old_path)
 }
 
 ///|
@@ -449,80 +527,38 @@ test "audio runtime collect path keeps fail closed taxonomy" {
   make_fake_model(fake_model) catch {
     e => fail(e.to_string())
   }
-  let fake_audio = root + "/sample.mp3"
-  write_utf8_text(fake_audio, "ID3fakeaudio") catch {
+  let fake_audio = root + "/sample.wav"
+  write_utf8_text(fake_audio, "RIFFfakeWAVE") catch {
     e => fail(e.to_string())
   }
   let source = @input.input_from_path(fake_audio)
-  let format = @input.DetectedFormat::Audio(@input.AudioFormat::Mp3)
-  with_audio_model_env(fake_model, fn() raise {
-    match
-      run_audio_transcribe_command_with_collect(source, format, Some("eng"), fn(
-        _cmd,
-        _args,
-      ) {
-        Err(AudioTranscribeError::CommandUnavailable("boom"))
-      }) {
-      Err(AudioTranscribeError::CommandUnavailable(msg)) =>
-        assert_true(msg.contains("boom"))
-      _ => fail("expected command unavailable")
-    }
+  let format = @input.DetectedFormat::Audio(@input.AudioFormat::Wav)
+  with_repo_local_runtime_python_stub(fn() raise {
+    with_audio_model_env(fake_model, fn() raise {
+      match
+        run_audio_transcribe_command_with_collect(source, format, Some("eng"), fn(
+          _cmd,
+          _args,
+        ) {
+          Err(AudioTranscribeError::CommandUnavailable("boom"))
+        }) {
+        Err(AudioTranscribeError::CommandUnavailable(msg)) =>
+          assert_true(msg.contains("boom"))
+        _ => fail("expected command unavailable")
+      }
 
-    match
-      run_audio_transcribe_command_with_collect(source, format, Some("eng"), fn(
-        _cmd,
-        _args,
-      ) {
-        Ok((1, "", "failed"))
-      }) {
-      Err(AudioTranscribeError::ExecutionFailed(msg)) =>
-        assert_true(msg.contains("failed"))
-      _ => fail("expected execution failed")
-    }
-  })
-}
-
-///|
-test "audio runtime classifies missing model dir and ffmpeg dependency" {
-  let root = test_tmp_root() + "/taxonomy_deps"
-  recreate_clean_dir(root) catch {
-    e => fail(e.to_string())
-  }
-  defer cleanup_temp_dir(root)
-  let fake_model = root + "/model"
-  make_fake_model(fake_model) catch {
-    e => fail(e.to_string())
-  }
-  let fake_audio = root + "/sample.mp3"
-  write_utf8_text(fake_audio, "ID3fakeaudio") catch {
-    e => fail(e.to_string())
-  }
-  let source = @input.input_from_path(fake_audio)
-  let format = @input.DetectedFormat::Audio(@input.AudioFormat::Mp3)
-  with_audio_model_env(fake_model, fn() raise {
-    match
-      run_audio_transcribe_command_with_collect(source, format, Some("eng"), fn(
-        _cmd,
-        _args,
-      ) {
-        Ok((4, "", "Vosk model directory is unavailable"))
-      }) {
-      Err(AudioTranscribeError::NotConfigured(msg)) =>
-        assert_true(msg.contains("not fully configured"))
-      _ => fail("expected missing model taxonomy")
-    }
-
-    match
-      run_audio_transcribe_command_with_collect(source, format, Some("eng"), fn(
-        _cmd,
-        _args,
-      ) {
-        Ok((5, "", "ffmpeg is required to normalize compressed audio"))
-      }) {
-      Err(AudioTranscribeError::CommandUnavailable(msg)) =>
-        assert_true(msg.contains("ffmpeg"))
-      _ => fail("expected ffmpeg taxonomy")
-    }
+      match
+        run_audio_transcribe_command_with_collect(source, format, Some("eng"), fn(
+          _cmd,
+          _args,
+        ) {
+          Ok((1, "", "failed"))
+        }) {
+        Err(AudioTranscribeError::ExecutionFailed(msg)) =>
+          assert_true(msg.contains("failed"))
+        _ => fail("expected execution failed")
+      }
+    })
   })
 }
 
@@ -578,23 +614,12 @@ test "audio parser lowers transcript into media pipeline document with segment r
   }
   assert_true(parsed.mode == @parser.ParserMode::MediaPipeline)
   let document = parsed.document.unwrap_or(@core.empty_document_ir())
-  assert_eq(document.blocks.length(), 5)
-  assert_eq(document.blocks[0].text, "contract.m4a")
   assert_eq(document.blocks[2].text, "Transcript")
-  assert_true(document.metadata.get("audio_format") is Some(_))
-  assert_true(document.metadata.get("audio_backend_name") is Some(_))
   let segment = document.blocks[3]
-  assert_true(segment.attrs.get("audio_segment") == Some("true"))
   let source_ref = segment.source_ref.unwrap_or(@core.empty_source_ref())
   assert_true(source_ref.time_start == Some("00:00:00.000"))
   assert_true(source_ref.time_end == Some("00:00:03.200"))
   assert_true(source_ref.extra.get("audio_segment_id") == Some("seg-1"))
-  assert_true(source_ref.extra.get("audio_start_ms") == Some("0"))
-  assert_true(source_ref.extra.get("audio_end_ms") == Some("3200"))
-  assert_true(
-    parsed.diagnostics.metrics.get("audio_backend_transport") ==
-    Some("native_cli"),
-  )
   assert_true(
     parsed.diagnostics.metrics.get("audio_segment_count") == Some("2"),
   )

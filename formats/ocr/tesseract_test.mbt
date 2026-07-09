@@ -1,14 +1,33 @@
 ///|
 
 ///|
-test "tesseract command builder keeps explicit-only argv shape and language passthrough" {
+fn with_env_var(
+  name : String,
+  value : String,
+  body : () -> Unit raise,
+) -> Unit raise {
+  @therm.with_env_var(name, value, body)
+}
+
+///|
+fn with_managed_command_record(
+  name : String,
+  value : String?,
+  body : () -> Unit raise,
+) -> Unit raise {
+  @therm.with_managed_command_record(name, value, body)
+}
+
+///|
+test "tesseract command builder keeps argv shape and language passthrough" {
+  assert_eq(tesseract_command_env_var(), "MARKITDOWN_TESSERACT_BIN")
   let request = make_ocr_provider_request(
     "samples/fixtures/contracts/ocr/ocr_tiny_png.png",
     OcrProviderKind::Tesseract,
     language=Some("eng"),
   )
   let plan = build_tesseract_tsv_command(request)
-  assert_eq(plan.0, "tesseract")
+  assert_true(plan.0 != "")
   assert_eq(plan.1[0], "samples/fixtures/contracts/ocr/ocr_tiny_png.png")
   assert_eq(plan.1[1], "stdout")
   assert_eq(plan.1[2], "--oem")
@@ -18,6 +37,90 @@ test "tesseract command builder keeps explicit-only argv shape and language pass
   assert_eq(plan.1[6], "-l")
   assert_eq(plan.1[7], "eng")
   assert_eq(plan.1[8], "tsv")
+}
+
+///|
+test "tesseract runtime prefers repo-managed record over MARKITDOWN_TESSERACT_BIN" {
+  let request = make_ocr_provider_request(
+    "scan.png",
+    OcrProviderKind::Tesseract,
+    language=Some("eng"),
+  )
+  with_managed_command_record("tesseract", Some("/bin/sh"), fn() raise {
+    with_env_var(tesseract_command_env_var(), "/bin/echo", fn() raise {
+      let result = run_tesseract_provider_with_command(request, fn(cmd, _args) {
+        if cmd != "/bin/sh" {
+          abort("expected repo-managed tesseract command, got: " + cmd)
+        }
+        Ok(
+          (
+            0,
+            [
+              "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext",
+              "5\t1\t1\t1\t1\t1\t10\t20\t20\t10\t95\tMoonBit",
+            ].join("\n"),
+            "",
+          ),
+        )
+      })
+      match result {
+        Ok(parsed) => {
+          assert_true(
+            parsed.diagnostics.contains("tesseract_command_source=repo_managed"),
+          )
+          assert_true(parsed.diagnostics.contains("tesseract_command=/bin/sh"))
+        }
+        Err(err) =>
+          fail("expected repo-managed tesseract success: " + err.to_string())
+      }
+    })
+  })
+}
+
+///|
+test "tesseract runtime ignores invalid repo-managed record and falls back to MARKITDOWN_TESSERACT_BIN" {
+  let request = make_ocr_provider_request(
+    "scan.png",
+    OcrProviderKind::Tesseract,
+    language=Some("eng"),
+  )
+  with_managed_command_record(
+    "tesseract",
+    Some("/definitely/missing/tesseract"),
+    fn() raise {
+      with_env_var(tesseract_command_env_var(), "/bin/echo", fn() raise {
+        let result = run_tesseract_provider_with_command(request, fn(
+          cmd,
+          _args,
+        ) {
+          if cmd != "/bin/echo" {
+            abort("expected env-var tesseract command, got: " + cmd)
+          }
+          Ok(
+            (
+              0,
+              [
+                "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext",
+                "5\t1\t1\t1\t1\t1\t10\t20\t20\t10\t95\tMoonBit",
+              ].join("\n"),
+              "",
+            ),
+          )
+        })
+        match result {
+          Ok(parsed) => {
+            assert_true(
+              parsed.diagnostics.contains("tesseract_command_source=env_var"),
+            )
+            assert_true(
+              parsed.diagnostics.contains("tesseract_command=/bin/echo"),
+            )
+          }
+          Err(err) => fail("expected env tesseract success: " + err.to_string())
+        }
+      })
+    },
+  )
 }
 
 ///|

@@ -92,8 +92,13 @@ set -euo pipefail
 exec $quoted_python $quoted_ffmpeg "\$@"
 EOF
   chmod +x "$ffmpeg_stub"
+  # The repo-managed audio runtime now resolves relative to cwd. Keep audio
+  # samples on an isolated cwd so the deterministic mock remains the active
+  # wrapper during balance regression runs.
+  mkdir -p "$CHECK_RUN_DIR/audio-mock/cwd"
   export PATH="$(dirname "$ffmpeg_stub"):$PATH"
   export MARKITDOWN_AUDIO_CMD="$quoted_wrapper"
+  export MARKITDOWN_AUDIO_RUNNER_CWD="$CHECK_RUN_DIR/audio-mock/cwd"
   BALANCE_AUDIO_MOCK_ACTIVE=1
   BALANCE_AUDIO_RUNTIME_NOTE="deterministic-mock"
 }

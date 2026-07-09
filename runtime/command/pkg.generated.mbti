@@ -1,0 +1,60 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/runtime/command"
+
+// Values
+pub fn fallback_command(String) -> ResolvedCommand
+
+pub fn find_in_path(String, String?) -> String?
+
+pub fn is_executable_file(String) -> Bool
+
+pub fn join_shell_command(Array[String]) -> String
+
+pub fn make_resolved_command(String, String, ResolvedCommandSource) -> ResolvedCommand
+
+pub fn normalized_env_var(String) -> String?
+
+pub fn repo_managed_command_record_path(String) -> String
+
+pub fn resolve_executable_path(String, String, ResolvedCommandSource) -> Result[ResolvedCommand, String]
+
+pub fn resolve_path_command(String) -> ResolvedCommand?
+
+pub fn resolve_repo_managed_command(String) -> ResolvedCommand?
+
+pub fn resolved_command_context(ResolvedCommand) -> String
+
+pub fn resolved_command_from_parts(Array[String], ResolvedCommandSource) -> ResolvedCommand?
+
+pub fn resolved_command_source_label(ResolvedCommandSource) -> String
+
+pub fn shell_quote_command_part(String) -> String
+
+pub fn split_shell_command(String) -> Result[Array[String], ShellCommandSplitError]
+
+// Errors
+
+// Types and methods
+pub struct ResolvedCommand {
+  program : String
+  display_command : String
+  source : ResolvedCommandSource
+} derive(Eq)
+
+pub(all) enum ResolvedCommandSource {
+  ExplicitArg
+  RepoManaged
+  EnvVar
+  Path
+  Fallback
+} derive(Eq)
+
+pub(all) enum ShellCommandSplitError {
+  TrailingEscape
+  UnterminatedQuotes
+} derive(Eq)
+
+// Type aliases
+
+// Traits
+
