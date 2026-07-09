@@ -83,36 +83,6 @@ fn new_ooxml_relationship_cache() -> OoxmlRelationshipCache {
 }
 
 ///|
-/// Inspect package-local OOXML part cache reuse.
-pub fn inspect_ooxml_part_cache_stats(
-  pkg : OoxmlPackage,
-) -> OoxmlPartCacheStats {
-  {
-    bytes_hit_count: pkg.part_cache.bytes_hit_count.val,
-    bytes_miss_count: pkg.part_cache.bytes_miss_count.val,
-    text_hit_count: pkg.part_cache.text_hit_count.val,
-    text_decode_count: pkg.part_cache.text_decode_count.val,
-    bytes_entry_count: pkg.part_cache.bytes_by_part.length(),
-    text_entry_count: pkg.part_cache.text_by_part.length(),
-  }
-}
-
-///|
-/// Inspect package-local OOXML relationship index reuse.
-pub fn inspect_ooxml_relationship_cache_stats(
-  pkg : OoxmlPackage,
-) -> OoxmlRelationshipCacheStats {
-  {
-    relationships_hit_count: pkg.relationship_cache.relationships_hit_count.val,
-    relationships_miss_count: pkg.relationship_cache.relationships_miss_count.val,
-    by_id_hit_count: pkg.relationship_cache.by_id_hit_count.val,
-    by_id_miss_count: pkg.relationship_cache.by_id_miss_count.val,
-    by_type_query_count: pkg.relationship_cache.by_type_query_count.val,
-    entry_count: pkg.relationship_cache.index_by_rels_part.length(),
-  }
-}
-
-///|
 /// Return whether a normalized package part exists.
 pub fn has_part(pkg : OoxmlPackage, part_name : String) -> Bool {
   let normalized = normalize_part_name(part_name) catch { _ => return false }

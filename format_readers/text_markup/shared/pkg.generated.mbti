@@ -1,6 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "ZSeanYves/markitdown/format_readers/text_markup/shared"
 
+import {
+  "ZSeanYves/markitdown/input",
+}
+
 // Values
 pub fn inspect_text_markup_document(TextMarkupDocument, String) -> TextMarkupInspectReport
 
@@ -14,9 +18,22 @@ pub fn parse_text_markup_inlines(String, TextMarkupFormat) -> Array[TextMarkupIn
 
 pub fn parse_text_markup_table(TextMarkupBlock, TextMarkupFormat) -> TextMarkupTable?
 
+pub fn prepare_asciidoc_document_from_source(@input.InputSource) -> Result[PreparedTextMarkupDocument, String]
+
+pub fn prepare_rst_document_from_source(@input.InputSource) -> Result[PreparedTextMarkupDocument, String]
+
+pub fn prepare_tex_document_from_source(@input.InputSource) -> Result[PreparedTextMarkupDocument, String]
+
 // Errors
 
 // Types and methods
+pub struct PreparedTextMarkupDocument {
+  prepared_source : @input.InputSource
+  original_text : String
+  document : TextMarkupDocument
+  inspect : TextMarkupInspectReport
+}
+
 pub struct TextMarkupBlock {
   kind : TextMarkupBlockKind
   text : String

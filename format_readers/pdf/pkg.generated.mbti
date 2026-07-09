@@ -59,6 +59,12 @@ pub fn pdf_bbox_right(PdfBBox) -> Double
 
 pub fn pdf_decode_gb2312_first_bytes(Array[Int]) -> PdfRawCjkDecodeResult
 
+pub fn pdf_decode_raw_cjk_bytes(Array[Int], PdfRawCjkEncodingKind) -> PdfRawCjkDecodeResult
+
+pub fn pdf_raw_cjk_bytes_need_decode(Array[Int], PdfRawCjkEncodingKind) -> Bool
+
+pub fn pdf_raw_cjk_decode_result_is_confident(PdfRawCjkDecodeResult) -> Bool
+
 pub fn pdf_raw_cjk_decode_result_is_confident_gb2312(PdfRawCjkDecodeResult) -> Bool
 
 pub fn pdf_union_bbox(PdfBBox, PdfBBox) -> PdfBBox
@@ -229,6 +235,12 @@ pub(all) struct PdfRawCjkDecodeResult {
   invalid_byte_count : Int
   has_high_bytes : Bool
 }
+
+pub(all) enum PdfRawCjkEncodingKind {
+  Gb2312
+  EucJp
+  ShiftJis
+} derive(Eq)
 
 // Type aliases
 

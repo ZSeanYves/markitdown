@@ -1,4 +1,5 @@
 import {
+  "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/format_readers/odf/odp",
   "ZSeanYves/markitdown/format_readers/odf/ods",
   "ZSeanYves/markitdown/format_readers/odf/odt",

@@ -1,4 +1,5 @@
 ///|
+/// Payload source categories accepted by the product path.
 pub(all) enum InputKind {
   Path
   Text
@@ -6,6 +7,7 @@ pub(all) enum InputKind {
 } derive(Eq)
 
 ///|
+/// Direct image subtypes currently routed through the image OCR entry.
 pub(all) enum ImageFormat {
   Png
   Jpg
@@ -17,6 +19,7 @@ pub(all) enum ImageFormat {
 } derive(Eq)
 
 ///|
+/// Audio subtypes currently routed through the audio transcription entry.
 pub(all) enum AudioFormat {
   Wav
   Mp3
@@ -24,6 +27,8 @@ pub(all) enum AudioFormat {
 } derive(Eq)
 
 ///|
+/// Canonical detected format enum used across CLI, routing, diagnostics, and
+/// provenance.
 pub(all) enum DetectedFormat {
   Txt
   Markdown
@@ -61,7 +66,8 @@ pub(all) enum DetectedFormat {
 /// Caller-supplied input handle for the product path.
 ///
 /// In practice one payload source is expected according to `kind`, while
-/// `mime_type` and `explicit_format` act as routing hints.
+/// `mime_type` and `explicit_format` act as routing hints. `source_name`
+/// should remain stable because it appears in diagnostics and output metadata.
 pub struct InputSource {
   kind : InputKind
   source_name : String
@@ -74,6 +80,9 @@ pub struct InputSource {
 
 ///|
 /// Stable explanation of how format detection resolved for one input.
+///
+/// The `used_*` flags indicate which detection signals were authoritative, and
+/// `notes` records the ordered hints that supported the final decision.
 pub struct FormatDetectionResult {
   format : DetectedFormat
   used_explicit_format : Bool
@@ -206,6 +215,9 @@ pub fn default_format_detector() -> FormatDetector {
 ///|
 /// Detect the product format using explicit override, mime type, extension,
 /// magic bytes, and finally conservative text heuristics.
+///
+/// This function is intentionally format-identification only; it does not make
+/// routing, fidelity, or parser-mode decisions.
 pub fn detect_format(source : InputSource) -> FormatDetectionResult {
   match source.explicit_format {
     Some(format) =>
@@ -449,6 +461,9 @@ pub fn detected_format_is_image_candidate(format : DetectedFormat) -> Bool {
 ///|
 /// Read text from any supported input source, decoding UTF-8 bytes when
 /// needed.
+///
+/// The function prefers already attached in-memory payloads before falling
+/// back to filesystem reads.
 pub fn read_input_text(source : InputSource) -> Result[String, String] {
   match source.text {
     Some(text) => Ok(text)
@@ -473,6 +488,9 @@ pub fn read_input_text(source : InputSource) -> Result[String, String] {
 ///|
 /// Read raw bytes from any supported input source, encoding in-memory text
 /// when needed.
+///
+/// The function mirrors `read_input_text` so downstream code can consume a
+/// uniform API regardless of where the input came from.
 pub fn read_input_bytes(source : InputSource) -> Result[Bytes, String] {
   match source.bytes {
     Some(bytes) => Ok(bytes)

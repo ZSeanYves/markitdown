@@ -2,6 +2,8 @@ import {
   "moonbitlang/core/env",
   "moonbitlang/core/string",
   "ZSeanYves/markitdown/format_readers/json" @djson,
+  "ZSeanYves/markitdown/format_readers/source_io" @sourceio,
+  "ZSeanYves/markitdown/input",
 }
 
 options(

@@ -1,4 +1,5 @@
 import {
+  "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/format_readers/ooxml/package" @ox,
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/x/fs",

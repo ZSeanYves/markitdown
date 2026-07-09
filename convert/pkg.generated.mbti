@@ -16,27 +16,17 @@ pub fn convert_input(@input.InputSource, ConvertOptions) -> Result[ConvertResult
 
 pub fn convert_input_with_image_ocr_provider(@input.InputSource, ConvertOptions, (@ocr.OcrProviderRequest) -> Result[@ocr.OcrProviderResult, @ocr.OcrProviderError]) -> Result[ConvertResult, ConvertError]
 
-pub async fn convert_input_with_image_ocr_provider_async(@input.InputSource, ConvertOptions, async (@ocr.OcrProviderRequest) -> Result[@ocr.OcrProviderResult, @ocr.OcrProviderError]) -> Result[ConvertResult, ConvertError]
-
 pub fn convert_input_with_provenance(@input.InputSource, ConvertOptions) -> Result[ConvertExecution, ConvertError]
 
 pub fn convert_input_with_provenance_and_image_ocr_provider(@input.InputSource, ConvertOptions, (@ocr.OcrProviderRequest) -> Result[@ocr.OcrProviderResult, @ocr.OcrProviderError]) -> Result[ConvertExecution, ConvertError]
 
 pub fn convert_input_with_provenance_and_image_ocr_provider_and_pdf_rasterizer(@input.InputSource, ConvertOptions, (@ocr.OcrProviderRequest) -> Result[@ocr.OcrProviderResult, @ocr.OcrProviderError], (@input.InputSource) -> Result[(@pdf.PdfRasterResult, String), @pdf.PdfRasterizerError]) -> Result[ConvertExecution, ConvertError]
 
-pub async fn convert_input_with_provenance_and_image_ocr_provider_async(@input.InputSource, ConvertOptions, async (@ocr.OcrProviderRequest) -> Result[@ocr.OcrProviderResult, @ocr.OcrProviderError]) -> Result[ConvertExecution, ConvertError]
-
 pub fn convert_mode_name(ConvertMode) -> String
 
 pub fn convert_provenance_to_json(ConvertProvenance) -> Json
 
 pub fn default_convert_options() -> ConvertOptions
-
-pub fn default_pdf_cleanup_mode() -> PdfCleanupMode
-
-pub fn default_pdf_ocr_policy() -> @product.PdfOcrPolicy
-
-pub fn default_pdf_table_mode() -> PdfTableMode
 
 pub fn default_resource_limits() -> ResourceLimits
 
@@ -46,33 +36,15 @@ pub fn fidelity_mode_for_convert_mode(ConvertMode) -> @product.FidelityMode
 
 pub fn fidelity_mode_name(@product.FidelityMode) -> String
 
-pub fn make_audio_probe_artifact(String, codec? : String?, duration_ms? : Int?, sample_rate_hz? : Int?, channel_count? : Int?, language? : String?, probe_notes? : Array[String]) -> AudioProbeArtifact
-
-pub fn make_convert_execution(ConvertResult, ConvertProvenance) -> ConvertExecution
-
-pub fn make_convert_options(ConvertMode, OutputFormat, @input.DetectedFormat?, @parser.OcrOptions, ResourceLimits, audio_options? : @parser.AudioOptions, fidelity_mode? : @product.FidelityMode, output_mode? : @product.OutputMode, stream_requested? : Bool, pdf_ocr_policy? : @product.PdfOcrPolicy, pdf_cleanup_mode? : PdfCleanupMode, pdf_table_mode? : PdfTableMode, rag_options? : @rag.RagOptions) -> ConvertOptions
-
-pub fn make_convert_provenance(RoutePlan, @product.FidelityMode, @product.OutputMode, @product.ExecutionProfile, String, @product.LoweringProfile, @product.RenderProfile, Array[String], @parser.ParserMode, String, String, String, String, Array[String], Array[String], ocr_provider_selection_target? : String?, ocr_provider_requested_kind? : String?, ocr_provider_resolved_kind? : String?, audio_backend_transport? : String?, audio_backend_name? : String?, audio_backend_version? : String?, requested_fidelity_mode? : @product.FidelityMode?) -> ConvertProvenance
-
-pub fn make_probe_failure(String, String) -> ProbeFailure
-
-pub fn make_probe_signal(@product.ProbeSignalKind, Int, limit? : Int?, note? : String?) -> ProbeSignal
+pub fn make_convert_options(ConvertMode, OutputFormat, @input.DetectedFormat?, @parser.OcrOptions, ResourceLimits, audio_options? : @parser.AudioOptions, fidelity_mode? : @product.FidelityMode, output_mode? : @product.OutputMode, stream_requested? : Bool, rag_options? : @rag.RagOptions) -> ConvertOptions
 
 pub fn make_resource_limits(Int, Int, Int, max_line_chars? : Int) -> ResourceLimits
-
-pub fn make_route_plan(@input.DetectedFormat, String, String, String, @parser.ParserMode?, ocr_provider_selection_target? : String?, ocr_provider_requested_kind? : String?, ocr_provider_resolved_kind? : String?) -> RoutePlan
 
 pub fn output_mode_for_convert_mode(ConvertMode) -> @product.OutputMode
 
 pub fn output_mode_for_output_format(OutputFormat) -> @product.OutputMode
 
 pub fn output_mode_name(@product.OutputMode) -> String
-
-pub fn pdf_cleanup_mode_name(PdfCleanupMode) -> String
-
-pub fn pdf_ocr_policy_name(@product.PdfOcrPolicy) -> String
-
-pub fn pdf_table_mode_name(PdfTableMode) -> String
 
 pub fn plan_input(@input.InputSource, ConvertOptions) -> Result[RoutePlan, ConvertError]
 
@@ -81,16 +53,6 @@ pub fn route_plan_to_json(RoutePlan) -> Json
 // Errors
 
 // Types and methods
-pub struct AudioProbeArtifact {
-  format : String
-  codec : String?
-  duration_ms : Int?
-  sample_rate_hz : Int?
-  channel_count : Int?
-  language : String?
-  probe_notes : Array[String]
-}
-
 pub(all) enum ConvertError {
   DetectFailed(String)
   ParseFailed(String)
@@ -119,9 +81,6 @@ pub struct ConvertOptions {
   ocr_options : @parser.OcrOptions
   audio_options : @parser.AudioOptions
   limits : ResourceLimits
-  pdf_ocr_policy : @product.PdfOcrPolicy
-  pdf_cleanup_mode : PdfCleanupMode
-  pdf_table_mode : PdfTableMode
   rag_options : @rag.RagOptions
 }
 
@@ -172,28 +131,6 @@ pub(all) enum OutputFormat {
   DebugJson
 } derive(Eq)
 
-pub(all) enum PdfCleanupMode {
-  Disabled
-  Conservative
-} derive(Eq)
-
-pub(all) enum PdfTableMode {
-  Disabled
-  Simple
-} derive(Eq)
-
-pub struct ProbeFailure {
-  stage : String
-  detail : String
-}
-
-pub struct ProbeSignal {
-  kind : @product.ProbeSignalKind
-  observed : Int
-  limit : Int?
-  note : String?
-}
-
 pub struct ResourceLimits {
   max_rows : Int
   max_cols : Int
@@ -228,8 +165,6 @@ pub using @ocr {type OcrProviderKind}
 pub using @ocr {type OcrProviderSelectionTarget}
 
 pub using @product {type OutputMode}
-
-pub using @product {type PdfOcrPolicy}
 
 pub using @product {type ProbeSignalKind}
 

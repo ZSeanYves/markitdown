@@ -3,6 +3,7 @@ package "ZSeanYves/markitdown/format_readers/odf/odt"
 
 import {
   "ZSeanYves/markitdown/format_readers/odf/shared",
+  "ZSeanYves/markitdown/input",
 }
 
 // Values
@@ -12,9 +13,16 @@ pub fn inspect_odt_package(Bytes) -> @shared.OdfPackageInfo raise
 
 pub fn open_odt_document(Bytes) -> @shared.OdtDocument raise
 
+pub fn prepare_odt_document_from_source(@input.InputSource) -> Result[PreparedOdtDocument, String]
+
 // Errors
 
 // Types and methods
+pub struct PreparedOdtDocument {
+  prepared_source : @input.InputSource
+  document : @shared.OdtDocument
+  inspect : @shared.OdtInspectReport
+}
 
 // Type aliases
 pub using @shared {type OdfDocumentKind}

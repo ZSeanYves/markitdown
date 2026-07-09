@@ -1,10 +1,16 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "ZSeanYves/markitdown/format_readers/markdown"
 
+import {
+  "ZSeanYves/markitdown/input",
+}
+
 // Values
 pub fn collect_markdown_validation_issues(MarkdownDocument) -> Array[MarkdownValidationIssue]
 
 pub fn inspect_markdown_document(MarkdownDocument) -> MarkdownInspectReport
+
+pub fn prepare_markdown_document_from_source(@input.InputSource) -> Result[PreparedMarkdownDocument, String]
 
 pub fn profile_markdown_document(String) -> MarkdownProfiledDocument
 
@@ -127,6 +133,13 @@ pub(all) enum MarkdownValidationSeverity {
   Warning
   Error
 } derive(Eq)
+
+pub struct PreparedMarkdownDocument {
+  prepared_source : @input.InputSource
+  original_text : String
+  document : MarkdownDocument
+  inspect : MarkdownInspectReport
+}
 
 // Type aliases
 

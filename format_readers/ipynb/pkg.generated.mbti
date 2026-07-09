@@ -3,6 +3,7 @@ package "ZSeanYves/markitdown/format_readers/ipynb"
 
 import {
   "ZSeanYves/markitdown/format_readers/json",
+  "ZSeanYves/markitdown/input",
 }
 
 // Values
@@ -11,6 +12,8 @@ pub fn classify_ipynb_error(IpynbError) -> String
 pub fn inspect_ipynb_notebook(IpynbNotebook) -> IpynbInspectReport
 
 pub fn parse_ipynb_notebook(String) -> IpynbNotebook raise
+
+pub fn prepare_ipynb_notebook_from_source(@input.InputSource) -> Result[PreparedIpynbNotebook, String]
 
 // Errors
 pub(all) suberror IpynbError {
@@ -107,6 +110,14 @@ pub(all) enum IpynbOutputKind {
   Error
   Unknown
 } derive(Eq)
+
+pub struct PreparedIpynbNotebook {
+  prepared_source : @input.InputSource
+  original_text : String
+  notebook : IpynbNotebook?
+  inspect : IpynbInspectReport?
+  parse_error : String?
+}
 
 // Type aliases
 

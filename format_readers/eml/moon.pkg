@@ -2,6 +2,8 @@ import {
   "moonbitlang/core/encoding/ascii",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/x/codec/base64",
+  "ZSeanYves/markitdown/format_readers/source_io" @sourceio,
+  "ZSeanYves/markitdown/input",
 }
 
 options(

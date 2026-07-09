@@ -1,5 +1,7 @@
 import {
   "ZSeanYves/markitdown/format_readers/delimited/csv",
+  "ZSeanYves/markitdown/format_readers/source_io" @sourceio,
+  "ZSeanYves/markitdown/input",
 }
 
 options(

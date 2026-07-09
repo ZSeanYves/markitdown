@@ -3,6 +3,7 @@ package "ZSeanYves/markitdown/format_readers/ooxml/docx"
 
 import {
   "ZSeanYves/markitdown/format_readers/ooxml/package",
+  "ZSeanYves/markitdown/input",
 }
 
 // Values
@@ -31,6 +32,8 @@ pub fn parse_docx_document_from_package(@package.OoxmlPackage) -> DocxDocument r
 pub fn parse_docx_source_document_xml(String, String) -> DocxSourceDocument raise DocxError
 
 pub fn parse_docx_source_from_package(@package.OoxmlPackage) -> DocxSourceDocument raise DocxError
+
+pub fn prepare_docx_document_from_source(@input.InputSource) -> Result[PreparedDocxDocument, String]
 
 // Errors
 pub(all) suberror DocxError {
@@ -878,6 +881,12 @@ pub(all) enum DocxWarningSeverity {
   Warning
   Error
 } derive(Eq)
+
+pub struct PreparedDocxDocument {
+  prepared_source : @input.InputSource
+  opened_package : @package.OoxmlPackage
+  document : DocxDocument
+}
 
 // Type aliases
 

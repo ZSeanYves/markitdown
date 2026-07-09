@@ -1,5 +1,6 @@
 import {
   "ZSeanYves/markitdown/format_readers/subtitles/shared",
+  "ZSeanYves/markitdown/input",
 }
 
 options(

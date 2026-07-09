@@ -1,5 +1,5 @@
 ///|
-fn finalize_pipeline_convert_execution(
+fn finalize_pipeline_execution(
   source : @input.InputSource,
   detected_format : @input.DetectedFormat,
   options : ConvertOptions,
@@ -17,8 +17,6 @@ fn finalize_pipeline_convert_execution(
     output_format: execution_plan.output_format,
     ocr_options: execution_plan.ocr_options,
     limits: execution_plan.limits,
-    pdf_cleanup_mode: execution_plan.pdf_cleanup_mode,
-    pdf_table_mode: execution_plan.pdf_table_mode,
     rag_options: execution_plan.rag_options,
   }
   let product_options = product_options_from_convert_options(effective_options)
@@ -72,9 +70,6 @@ fn finalize_pipeline_convert_execution(
     Some(convert_mode_name(effective_options.mode)),
     fidelity_mode=Some(fidelity_mode_name(effective_options.fidelity_mode)),
     output_mode=Some(output_mode_name(effective_options.output_mode)),
-  )
-  apply_pdf_product_option_metrics(
-    final_diagnostics, detected_format, effective_options,
   )
   final_diagnostics.pass_trace.push("render:" + renderer.name)
   let render_input = ir_input_to_render_input(pipeline_result)
@@ -238,57 +233,6 @@ fn renderer_for_output(format : OutputFormat) -> @render.Renderer {
     OutputFormat::RagJson => @render.rag_json_renderer()
     OutputFormat::DebugJson => @render.debug_json_renderer()
   }
-}
-
-///|
-fn apply_pdf_product_option_metrics(
-  diagnostics : @core.Diagnostics,
-  detected_format : @input.DetectedFormat,
-  options : ConvertOptions,
-) -> Unit {
-  if detected_format != @input.DetectedFormat::Pdf {
-    return
-  }
-  diagnostics.metrics.set(
-    "pdf_cleanup_mode",
-    pdf_cleanup_mode_name(options.pdf_cleanup_mode),
-  )
-  diagnostics.metrics.set(
-    "pdf_cleanup_enabled",
-    if options.pdf_cleanup_mode == PdfCleanupMode::Disabled {
-      "false"
-    } else {
-      "true"
-    },
-  )
-  diagnostics.metrics.set(
-    "pdf_cleanup_default_mode",
-    pdf_cleanup_mode_name(default_pdf_cleanup_mode()),
-  )
-  diagnostics.metrics.set(
-    "pdf_cleanup_opt_in_mode",
-    pdf_cleanup_mode_name(pdf_cleanup_opt_in_mode()),
-  )
-  diagnostics.metrics.set(
-    "pdf_table_mode",
-    pdf_table_mode_name(options.pdf_table_mode),
-  )
-  diagnostics.metrics.set(
-    "pdf_table_enabled",
-    if options.pdf_table_mode == PdfTableMode::Disabled {
-      "false"
-    } else {
-      "true"
-    },
-  )
-  diagnostics.metrics.set(
-    "pdf_table_default_mode",
-    pdf_table_mode_name(default_pdf_table_mode()),
-  )
-  diagnostics.metrics.set(
-    "pdf_table_opt_in_mode",
-    pdf_table_mode_name(pdf_table_opt_in_mode()),
-  )
 }
 
 ///|

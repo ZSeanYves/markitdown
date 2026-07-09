@@ -3,12 +3,15 @@ package "ZSeanYves/markitdown/format_readers/subtitles/vtt"
 
 import {
   "ZSeanYves/markitdown/format_readers/subtitles/shared",
+  "ZSeanYves/markitdown/input",
 }
 
 // Values
 pub fn inspect_subtitle_document(@shared.SubtitleDocument) -> @shared.SubtitleInspectReport
 
 pub fn parse_vtt_document(String) -> @shared.SubtitleDocument raise
+
+pub fn prepare_vtt_document_from_source(@input.InputSource) -> Result[@shared.PreparedSubtitleDocument, String]
 
 // Errors
 

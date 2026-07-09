@@ -1,12 +1,18 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "ZSeanYves/markitdown/format_readers/toml"
 
+import {
+  "ZSeanYves/markitdown/input",
+}
+
 // Values
 pub fn classify_toml_error(TomlError) -> TomlErrorInfo
 
 pub fn inspect_toml_document(TomlDocument) -> TomlInspectReport
 
 pub fn parse_toml_document(String) -> TomlDocument raise
+
+pub fn prepare_toml_document_from_source(@input.InputSource) -> Result[PreparedTomlDocument, String]
 
 // Errors
 pub(all) suberror TomlError {
@@ -15,6 +21,14 @@ pub(all) suberror TomlError {
 pub impl Show for TomlError
 
 // Types and methods
+pub struct PreparedTomlDocument {
+  prepared_source : @input.InputSource
+  original_text : String
+  document : TomlDocument?
+  inspect : TomlInspectReport?
+  parse_error : String?
+}
+
 pub struct TomlDocument {
   root_members : Array[TomlMember]
   tables : Array[TomlTable]

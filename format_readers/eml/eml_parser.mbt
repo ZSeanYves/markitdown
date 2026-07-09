@@ -84,6 +84,19 @@ fn eml_parse_entity(
 }
 
 ///|
+pub fn decode_eml_source_text(bytes : Bytes) -> String {
+  @utf8.decode(bytes, ignore_bom=false) catch {
+    _ => {
+      let chars : Array[Char] = []
+      for byte in bytes.to_array() {
+        chars.push(Int::unsafe_to_char(byte.to_int()))
+      }
+      String::from_array(chars)
+    }
+  }
+}
+
+///|
 fn eml_lower_entity_body(
   part : EmlPart,
   body_text : String,

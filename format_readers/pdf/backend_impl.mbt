@@ -126,13 +126,25 @@ pub fn extract_pdf_native_document(
     Ok(parsed) => parsed
     Err(err) => return Err(err)
   }
-  let page_object_ids = pdf_page_object_ids(objects)
+  let mut tounicode_failed_font_count = 0
+  for entry in fonts.to_array() {
+    if entry.1.tounicode_decode_failed {
+      tounicode_failed_font_count += 1
+    }
+  }
+  let page_object_ids = pdf_ordered_page_object_ids(
+    parsed_store.trailer_hints,
+    object_index,
+    objects,
+  )
   let page_numbers = pdf_page_number_index(page_object_ids)
   let annotation_pages = pdf_annotation_page_index(
     objects, object_index, page_numbers,
   )
   let pages = match
-    pdf_build_native_pages(source, objects, object_index, fonts, page_numbers) {
+    pdf_build_native_pages(
+      source, page_object_ids, object_index, fonts, page_numbers,
+    ) {
     Ok(parsed) => parsed
     Err(err) => return Err(err)
   }
@@ -147,6 +159,8 @@ pub fn extract_pdf_native_document(
   let mut text_block_count = 0
   let mut line_count = 0
   let mut span_count = 0
+  let mut image_count = 0
+  let mut exportable_asset_count = 0
   let mut link_count = 0
   let mut annotation_count = 0
   let mut destination_count = 0
@@ -155,6 +169,10 @@ pub fn extract_pdf_native_document(
     text_block_count += page.text_blocks.length()
     line_count += pdf_native_page_line_count(page)
     span_count += pdf_native_page_span_count(page)
+    image_count += page.image_candidates.length()
+    exportable_asset_count += pdf_native_exportable_image_asset_count(
+      page.image_candidates,
+    )
     link_count += page.link_candidates.length()
     annotation_count += page.annotations.length()
     destination_count += page.destinations.length()
@@ -178,7 +196,8 @@ pub fn extract_pdf_native_document(
     object_index,
     page_numbers,
   )
-  let has_appendix_signal = annotation_count > 0 ||
+  let has_appendix_signal = image_count > 0 ||
+    annotation_count > 0 ||
     form_fields.length() > 0 ||
     outline_items.length() > 0 ||
     named_destinations.length() > 0 ||
@@ -233,6 +252,7 @@ pub fn extract_pdf_native_document(
   diagnostics.metrics.set("pdf_text_line_count", line_count.to_string())
   diagnostics.metrics.set("text_span_count", span_count.to_string())
   diagnostics.metrics.set("pdf_text_span_count", span_count.to_string())
+  diagnostics.metrics.set("image_count", image_count.to_string())
   diagnostics.metrics.set("link_count", link_count.to_string())
   diagnostics.metrics.set("pdf_link_candidate_count", link_count.to_string())
   diagnostics.metrics.set(
@@ -261,17 +281,31 @@ pub fn extract_pdf_native_document(
     text_block_count.to_string(),
   )
   diagnostics.metrics.set("table_count", "0")
-  diagnostics.metrics.set("image_count", "0")
-  diagnostics.metrics.set("asset_count", "0")
+  diagnostics.metrics.set("asset_count", exportable_asset_count.to_string())
   diagnostics.metrics.set("model_used", "none")
   diagnostics.metrics.set("native_backend", "root_minimal")
   diagnostics.metrics.set("supports_flate_text_streams", "true")
   diagnostics.metrics.set("supports_tounicode", "true")
+  diagnostics.metrics.set(
+    "tounicode_decode_failed",
+    if tounicode_failed_font_count > 0 {
+      "true"
+    } else {
+      "false"
+    },
+  )
+  diagnostics.metrics.set(
+    "pdf_tounicode_failed_font_count",
+    tounicode_failed_font_count.to_string(),
+  )
   diagnostics.metrics.set("product_path_enabled", "false")
   diagnostics.metrics.set("ocr_used_pages", "0")
   diagnostics.metrics.set("scanned_page_ratio", "0")
   diagnostics.metrics.set("probe_artifact_reused", "false")
   diagnostics.metrics.set("process_cache_hit", "false")
+  if tounicode_failed_font_count > 0 {
+    diagnostics.degraded_features.push("pdf_tounicode_decode_failed")
+  }
   let metadata : Map[String, @core.JsonValue] = Map([])
   metadata.set("pdf_native_backend", @core.JsonValue::Bool(true))
   metadata.set("pdf_native_text_baseline", @core.JsonValue::Bool(true))
@@ -294,6 +328,11 @@ pub fn extract_pdf_native_document(
   metadata.set(
     "pdf_text_span_count",
     @core.JsonValue::Number(span_count.to_string()),
+  )
+  metadata.set("image_count", @core.JsonValue::Number(image_count.to_string()))
+  metadata.set(
+    "pdf_image_candidate_count",
+    @core.JsonValue::Number(image_count.to_string()),
   )
   metadata.set(
     "pdf_link_candidate_count",
@@ -376,6 +415,20 @@ priv struct PdfNativeFontInfo {
 }
 
 ///|
+priv struct PdfNativeFontEncodingInfo {
+  encoding_name : String?
+  code_hex_widths : Array[Int]
+  unicode_map : Map[String, String]
+}
+
+///|
+priv struct PdfToUnicodeCMapInfo {
+  mapping : Map[String, String]
+  widths : Array[Int]
+  usecmap_name : String?
+}
+
+///|
 priv enum PdfCMapStreamDecodeStrategy {
   NoFilter
   ZlibFlateDecode
@@ -437,6 +490,7 @@ priv struct PdfNativeTextFragment {
   font_name : String?
   font_size : Double?
   bbox : PdfBBox
+  vertical_writing : Bool
 }
 
 ///|
@@ -1237,6 +1291,315 @@ fn pdf_extract_stream_slice(
 }
 
 ///|
+fn pdf_empty_tounicode_cmap_info() -> PdfToUnicodeCMapInfo {
+  { mapping: Map([]), widths: [], usecmap_name: None }
+}
+
+///|
+fn pdf_merge_desc_widths(left : Array[Int], right : Array[Int]) -> Array[Int] {
+  let merged : Map[Int, Bool] = Map([])
+  for width in left {
+    if width > 0 {
+      merged.set(width, true)
+    }
+  }
+  for width in right {
+    if width > 0 {
+      merged.set(width, true)
+    }
+  }
+  pdf_sort_desc_widths(merged)
+}
+
+///|
+fn pdf_collect_font_encoding_info(
+  object : PdfNativeObject,
+  object_index : Map[Int, PdfNativeObject],
+) -> PdfNativeFontEncodingInfo {
+  let base_font = pdf_extract_name_after(object.dict_text, "/BaseFont")
+  let subtype = pdf_extract_name_after(object.dict_text, "/Subtype")
+  let default_encoding_name = pdf_font_default_encoding_name(base_font, subtype)
+  match pdf_extract_dict_value(object.dict_text, "/Encoding") {
+    Some(value) =>
+      pdf_font_encoding_info_from_value(
+        value, object_index, default_encoding_name,
+      )
+    None =>
+      match default_encoding_name {
+        Some(name) => pdf_font_encoding_info_from_dict(None, Some(name))
+        None =>
+          { encoding_name: None, code_hex_widths: [], unicode_map: Map([]) }
+      }
+  }
+}
+
+///|
+fn pdf_font_encoding_info_from_value(
+  value : PdfNativeDictValue,
+  object_index : Map[Int, PdfNativeObject],
+  default_encoding_name : String?,
+) -> PdfNativeFontEncodingInfo {
+  match value {
+    PdfNativeDictValue::Name(name) =>
+      pdf_font_encoding_info_from_dict(None, Some(name))
+    PdfNativeDictValue::Dict(dict_text) =>
+      pdf_font_encoding_info_from_dict(Some(dict_text), default_encoding_name)
+    PdfNativeDictValue::Reference(object_id, generation) => {
+      ignore(generation)
+      match object_index.get(object_id) {
+        Some(object) => {
+          let dict_text = if object.dict_text.contains("<<") {
+            Some(object.dict_text)
+          } else {
+            None
+          }
+          pdf_font_encoding_info_from_dict(dict_text, default_encoding_name)
+        }
+        None =>
+          match default_encoding_name {
+            Some(name) => pdf_font_encoding_info_from_dict(None, Some(name))
+            None =>
+              { encoding_name: None, code_hex_widths: [], unicode_map: Map([]) }
+          }
+      }
+    }
+    _ =>
+      match default_encoding_name {
+        Some(name) => pdf_font_encoding_info_from_dict(None, Some(name))
+        None =>
+          { encoding_name: None, code_hex_widths: [], unicode_map: Map([]) }
+      }
+  }
+}
+
+///|
+fn pdf_font_encoding_info_from_dict(
+  dict_text : String?,
+  default_encoding_name : String?,
+) -> PdfNativeFontEncodingInfo {
+  let base_encoding_name = match dict_text {
+    Some(text) =>
+      match pdf_extract_name_after(text, "/BaseEncoding") {
+        Some(name) => Some(name)
+        None => default_encoding_name
+      }
+    None => default_encoding_name
+  }
+  let glyph_names = match base_encoding_name {
+    Some(name) => pdf_font_base_encoding_code_to_glyph_map(name)
+    None => Map([])
+  }
+  match dict_text {
+    Some(text) =>
+      match pdf_extract_dict_value(text, "/Differences") {
+        Some(PdfNativeDictValue::Array(tokens)) =>
+          pdf_apply_font_encoding_differences(glyph_names, tokens)
+        _ => ()
+      }
+    None => ()
+  }
+  let unicode_map : Map[String, String] = Map([])
+  for entry in glyph_names.to_array() {
+    match pdf_font_glyph_name_to_unicode(entry.1) {
+      Some(text) if pdf_is_usable_tounicode_text(text) =>
+        unicode_map.set(pdf_hex_upper(entry.0, 2), text)
+      _ => ()
+    }
+  }
+  {
+    encoding_name: base_encoding_name,
+    code_hex_widths: if unicode_map.length() > 0 {
+      [1]
+    } else {
+      []
+    },
+    unicode_map,
+  }
+}
+
+///|
+fn pdf_apply_font_encoding_differences(
+  glyph_names : Map[Int, String],
+  tokens : Array[PdfNativeContentToken],
+) -> Unit {
+  let mut current_code : Int? = None
+  for token in tokens {
+    match token {
+      PdfNativeContentToken::Number(value) =>
+        if pdf_double_is_integral(value) {
+          current_code = Some(value.to_int())
+        }
+      PdfNativeContentToken::Name(name) =>
+        match current_code {
+          Some(code) => {
+            glyph_names.set(code, name)
+            current_code = Some(code + 1)
+          }
+          None => ()
+        }
+      _ => ()
+    }
+  }
+}
+
+///|
+fn pdf_font_default_encoding_name(
+  base_font : String?,
+  subtype : String?,
+) -> String? {
+  let normalized = pdf_normalized_pdf_font_name(base_font)
+  match normalized {
+    Some(name) if name.contains("zapfdingbats") => Some("ZapfDingbats")
+    Some(name) if name.contains("symbol") => Some("Symbol")
+    _ =>
+      match subtype {
+        Some("Type0") => None
+        Some("CIDFontType0") => None
+        Some("CIDFontType2") => None
+        Some("Type1") => Some("StandardEncoding")
+        Some("MMType1") => Some("StandardEncoding")
+        Some("TrueType") => Some("WinAnsiEncoding")
+        Some("Type3") => Some("StandardEncoding")
+        _ => Some("StandardEncoding")
+      }
+  }
+}
+
+///|
+fn pdf_find_cmap_object_id_by_name(
+  object_index : Map[Int, PdfNativeObject],
+  cmap_name : String,
+) -> Int? {
+  for entry in object_index.to_array() {
+    match pdf_extract_name_after(entry.1.dict_text, "/CMapName") {
+      Some(name) if name == cmap_name => return Some(entry.0)
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
+fn pdf_parent_tounicode_cmap_info(
+  cmap_object : PdfNativeObject,
+  local_usecmap_name : String?,
+  object_index : Map[Int, PdfNativeObject],
+  visited : Map[Int, Bool],
+  remaining_depth : Int,
+) -> PdfToUnicodeCMapInfo {
+  if remaining_depth <= 0 {
+    return pdf_empty_tounicode_cmap_info()
+  }
+  match pdf_extract_dict_value(cmap_object.dict_text, "/UseCMap") {
+    Some(PdfNativeDictValue::Reference(object_id, generation)) => {
+      ignore(generation)
+      match
+        pdf_collect_tounicode_cmap_info(
+          object_id,
+          object_index,
+          visited,
+          remaining_depth - 1,
+        ) {
+        Ok(info) => info
+        Err(_) => pdf_empty_tounicode_cmap_info()
+      }
+    }
+    Some(PdfNativeDictValue::Name(name)) =>
+      match pdf_find_cmap_object_id_by_name(object_index, name) {
+        Some(object_id) =>
+          match
+            pdf_collect_tounicode_cmap_info(
+              object_id,
+              object_index,
+              visited,
+              remaining_depth - 1,
+            ) {
+            Ok(info) => info
+            Err(_) => pdf_empty_tounicode_cmap_info()
+          }
+        None => pdf_empty_tounicode_cmap_info()
+      }
+    _ =>
+      match local_usecmap_name {
+        Some(name) =>
+          match pdf_find_cmap_object_id_by_name(object_index, name) {
+            Some(object_id) =>
+              match
+                pdf_collect_tounicode_cmap_info(
+                  object_id,
+                  object_index,
+                  visited,
+                  remaining_depth - 1,
+                ) {
+                Ok(info) => info
+                Err(_) => pdf_empty_tounicode_cmap_info()
+              }
+            None => pdf_empty_tounicode_cmap_info()
+          }
+        None => pdf_empty_tounicode_cmap_info()
+      }
+  }
+}
+
+///|
+fn pdf_collect_tounicode_cmap_info(
+  cmap_object_id : Int,
+  object_index : Map[Int, PdfNativeObject],
+  visited : Map[Int, Bool],
+  remaining_depth : Int,
+) -> Result[PdfToUnicodeCMapInfo, String] {
+  if remaining_depth <= 0 {
+    return Ok(pdf_empty_tounicode_cmap_info())
+  }
+  if visited.get(cmap_object_id).unwrap_or(false) {
+    return Ok(pdf_empty_tounicode_cmap_info())
+  }
+  visited.set(cmap_object_id, true)
+  let cmap_object = match object_index.get(cmap_object_id) {
+    Some(value) => value
+    None => return Err("missing ToUnicode CMap object")
+  }
+  let cmap_text = match pdf_decode_cmap_stream_text(cmap_object) {
+    Ok(result) => {
+      ignore(pdf_cmap_stream_decode_result_summary(result))
+      result.text
+    }
+    Err(failure) => {
+      ignore(pdf_cmap_stream_decode_failure_summary(failure))
+      return Err(failure.message)
+    }
+  }
+  let cmap_info = if cmap_text == "" {
+    pdf_empty_tounicode_cmap_info()
+  } else {
+    pdf_parse_tounicode_cmap_info(cmap_text)
+  }
+  let parent = pdf_parent_tounicode_cmap_info(
+    cmap_object,
+    cmap_info.usecmap_name,
+    object_index,
+    visited,
+    remaining_depth,
+  )
+  let mapping : Map[String, String] = Map([])
+  for entry in parent.mapping.to_array() {
+    mapping.set(entry.0, entry.1)
+  }
+  for entry in cmap_info.mapping.to_array() {
+    mapping.set(entry.0, entry.1)
+  }
+  Ok({
+    mapping,
+    widths: if cmap_info.widths.length() > 0 {
+      pdf_merge_desc_widths(cmap_info.widths, parent.widths)
+    } else {
+      parent.widths
+    },
+    usecmap_name: cmap_info.usecmap_name,
+  })
+}
+
+///|
 fn pdf_collect_font_infos(
   object_index : Map[Int, PdfNativeObject],
 ) -> Result[Map[Int, PdfNativeFontInfo], PdfNativeError] {
@@ -1246,44 +1609,45 @@ fn pdf_collect_font_infos(
     if !pdf_object_is_font(object) {
       continue
     }
+    let encoding_info = pdf_collect_font_encoding_info(object, object_index)
     let to_unicode_ref = pdf_extract_object_reference_after(
       object.dict_text,
       "/ToUnicode",
     )
     let mut tounicode_decode_failed = false
     let unicode_info = match to_unicode_ref {
-      Some(ref_id) =>
-        match object_index.get(ref_id) {
-          Some(cmap_object) => {
-            let cmap_text = match pdf_decode_cmap_stream_text(cmap_object) {
-              Ok(result) => {
-                ignore(pdf_cmap_stream_decode_result_summary(result))
-                result.text
-              }
-              Err(failure) => {
-                tounicode_decode_failed = true
-                ignore(pdf_cmap_stream_decode_failure_summary(failure))
-                ""
-              }
-            }
-            if cmap_text == "" {
-              (Map([]), [])
-            } else {
-              pdf_parse_tounicode_cmap(cmap_text)
-            }
+      Some(ref_id) => {
+        let visited : Map[Int, Bool] = Map([])
+        match
+          pdf_collect_tounicode_cmap_info(ref_id, object_index, visited, 8) {
+          Ok(value) => value
+          Err(_) => {
+            tounicode_decode_failed = true
+            pdf_empty_tounicode_cmap_info()
           }
-          None => (Map([]), [])
         }
-      None => (Map([]), [])
+      }
+      None => pdf_empty_tounicode_cmap_info()
+    }
+    let unicode_map : Map[String, String] = Map([])
+    for entry in encoding_info.unicode_map.to_array() {
+      unicode_map.set(entry.0, entry.1)
+    }
+    for entry in unicode_info.mapping.to_array() {
+      unicode_map.set(entry.0, entry.1)
     }
     fonts.set(object.object_id, {
       base_font: pdf_extract_name_after(object.dict_text, "/BaseFont"),
       normalized_base_font: pdf_normalized_pdf_font_name(
         pdf_extract_name_after(object.dict_text, "/BaseFont"),
       ),
-      encoding_name: pdf_extract_name_after(object.dict_text, "/Encoding"),
-      code_hex_widths: unicode_info.1,
-      unicode_map: unicode_info.0,
+      encoding_name: encoding_info.encoding_name,
+      code_hex_widths: if unicode_info.widths.length() > 0 {
+        unicode_info.widths
+      } else {
+        encoding_info.code_hex_widths
+      },
+      unicode_map,
       has_tounicode: to_unicode_ref is Some(_) && !tounicode_decode_failed,
       tounicode_decode_failed,
     })
@@ -1294,24 +1658,38 @@ fn pdf_collect_font_infos(
 ///|
 fn pdf_build_native_pages(
   source : @input.InputSource,
-  objects : Array[PdfNativeObject],
+  page_object_ids : Array[Int],
   object_index : Map[Int, PdfNativeObject],
   fonts : Map[Int, PdfNativeFontInfo],
   page_numbers : Map[Int, Int],
 ) -> Result[Array[PdfNativePage], PdfNativeError] {
   let pages : Array[PdfNativePage] = []
-  let mut page_no = 1
-  for object in objects {
-    if !pdf_object_is_page(object) {
-      continue
+  for page_object_id in page_object_ids {
+    let object = match object_index.get(page_object_id) {
+      Some(value) => value
+      None =>
+        return Err(
+          PdfNativeError::ParseFailed(
+            "page tree references missing page object " +
+            page_object_id.to_string(),
+          ),
+        )
     }
+    let page_no = page_numbers.get(page_object_id).unwrap_or(pages.length() + 1)
     let geometry = pdf_page_geometry(object, object_index, page_no)
-    let font_aliases = pdf_page_font_aliases(object, object_index)
+    let resources_text = pdf_extract_resources_text(
+      object.dict_text,
+      object_index,
+    )
+    let font_aliases = pdf_font_aliases_from_resources_text(
+      resources_text, object_index,
+    )
     let content_refs = pdf_extract_object_references_after(
       object.dict_text,
       "/Contents",
     )
     let fragments : Array[PdfNativeTextFragment] = []
+    let image_candidates : Array[PdfNativeImageCandidate] = []
     for content_ref in content_refs {
       let content_object = match object_index.get(content_ref) {
         Some(found) => found
@@ -1332,12 +1710,23 @@ fn pdf_build_native_pages(
       }
       let page_fragments = match
         pdf_extract_text_fragments_from_stream(
-          source, geometry, font_aliases, fonts, content_text,
+          source,
+          geometry,
+          font_aliases,
+          fonts,
+          content_text,
+          object_index~,
+          resources_text~,
         ) {
         Ok(parsed) => parsed
         Err(err) => return Err(err)
       }
       fragments.append(page_fragments[:])
+      image_candidates.append(
+        pdf_extract_image_candidates_from_stream(
+          source, geometry, object_index, resources_text, content_text,
+        )[:],
+      )
     }
     let lines = pdf_group_text_fragments_into_lines(source, geometry, fragments)
     let text_blocks = pdf_group_lines_into_text_blocks(source, geometry, lines)
@@ -1378,18 +1767,25 @@ fn pdf_build_native_pages(
       destinations.length().to_string(),
     )
     diagnostics.metrics.set("table_count", "0")
-    diagnostics.metrics.set("image_count", "0")
+    diagnostics.metrics.set(
+      "image_count",
+      image_candidates.length().to_string(),
+    )
+    diagnostics.metrics.set(
+      "asset_count",
+      pdf_native_exportable_image_asset_count(image_candidates).to_string(),
+    )
     pages.push(
       make_pdf_native_page(
         geometry,
         text_blocks~,
+        image_candidates~,
         link_candidates~,
         annotations~,
         destinations~,
         diagnostics~,
       ),
     )
-    page_no += 1
   }
   Ok(pages)
 }
@@ -1423,8 +1819,26 @@ fn pdf_decode_stream_bytes(
       )
   }
   let stream_bytes = stream.primary_bytes
-  let filters = pdf_extract_filter_names(object.dict_text)
-  let decoded = match decode_pdf_stream_filters(stream_bytes, filters) {
+  let filter_specs = match pdf_extract_stream_filter_specs(object.dict_text) {
+    Ok(value) => value
+    Err(err) =>
+      return Err(
+        PdfNativeError::UnsupportedFeature(
+          "stream decode failed for object " +
+          object.object_id.to_string() +
+          " (" +
+          context +
+          "): " +
+          err,
+        ),
+      )
+  }
+  let decoded = match
+    decode_pdf_stream_filters_with_params(
+      stream_bytes,
+      filter_specs.0,
+      filter_specs.1,
+    ) {
     Ok(bytes) => Ok(bytes)
     Err(err) =>
       Err(
@@ -1439,6 +1853,845 @@ fn pdf_decode_stream_bytes(
       )
   }
   decoded
+}
+
+///|
+fn pdf_extract_image_candidates_from_stream(
+  source : @input.InputSource,
+  geometry : PdfPageGeometry,
+  object_index : Map[Int, PdfNativeObject],
+  resources_text : String?,
+  content_text : String,
+  base_matrix? : PdfNativeGraphicsMatrix = pdf_identity_matrix(),
+  remaining_depth? : Int = 6,
+) -> Array[PdfNativeImageCandidate] {
+  if remaining_depth <= 0 {
+    return []
+  }
+  let tokens = match pdf_scan_content_tokens(content_text) {
+    Ok(parsed) => parsed
+    Err(_) => return []
+  }
+  let candidates : Array[PdfNativeImageCandidate] = []
+  let operands : Array[PdfNativeContentToken] = []
+  let graphics_stack : Array[PdfNativeGraphicsMatrix] = []
+  let mut current_matrix = base_matrix
+  for token in tokens {
+    match token {
+      PdfNativeContentToken::Word(op) =>
+        match op {
+          "q" => {
+            graphics_stack.push(current_matrix)
+            operands.clear()
+          }
+          "Q" => {
+            current_matrix = graphics_stack.pop().unwrap_or(base_matrix)
+            operands.clear()
+          }
+          "cm" => {
+            if operands.length() >= 6 {
+              current_matrix = pdf_concat_graphics_matrix(
+                current_matrix,
+                pdf_matrix_from_operands(operands),
+              )
+            }
+            operands.clear()
+          }
+          "Do" => {
+            if operands.length() >= 1 {
+              match pdf_token_name(operands[operands.length() - 1]) {
+                Some(xobject_name) =>
+                  candidates.append(
+                    pdf_image_candidates_from_xobject_name(
+                      source, geometry, object_index, resources_text, xobject_name,
+                      current_matrix, remaining_depth,
+                    )[:],
+                  )
+                None => ()
+              }
+            }
+            operands.clear()
+          }
+          _ => operands.clear()
+        }
+      _ => operands.push(token)
+    }
+  }
+  candidates
+}
+
+///|
+fn pdf_image_candidates_from_xobject_name(
+  source : @input.InputSource,
+  geometry : PdfPageGeometry,
+  object_index : Map[Int, PdfNativeObject],
+  resources_text : String?,
+  xobject_name : String,
+  current_matrix : PdfNativeGraphicsMatrix,
+  remaining_depth : Int,
+) -> Array[PdfNativeImageCandidate] {
+  let resolved = match
+    pdf_lookup_xobject_object(resources_text, xobject_name, object_index) {
+    Some(value) => value
+    None => return []
+  }
+  let (object_id, xobject) = resolved
+  match pdf_extract_name_after(xobject.dict_text, "/Subtype") {
+    Some("Image") =>
+      [
+        pdf_image_candidate_from_xobject(
+          source, geometry, xobject_name, object_id, xobject, current_matrix,
+        ),
+      ]
+    Some("Form") =>
+      match pdf_decode_stream_text(xobject, "form xobject stream") {
+        Ok(form_text) =>
+          pdf_extract_image_candidates_from_stream(
+            source,
+            geometry,
+            object_index,
+            pdf_extract_resources_text(xobject.dict_text, object_index),
+            form_text,
+            base_matrix=pdf_concat_graphics_matrix(
+              current_matrix,
+              pdf_form_graphics_matrix(xobject.dict_text),
+            ),
+            remaining_depth=remaining_depth - 1,
+          )
+        Err(_) => []
+      }
+    _ => []
+  }
+}
+
+///|
+fn pdf_lookup_xobject_object(
+  resources_text : String?,
+  xobject_name : String,
+  object_index : Map[Int, PdfNativeObject],
+) -> (Int, PdfNativeObject)? {
+  let resources_text = match resources_text {
+    Some(value) => value
+    None => return None
+  }
+  let xobject_dict = match
+    pdf_inline_or_referenced_dict_text(resources_text, "/XObject", object_index) {
+    Some(value) => value
+    None => return None
+  }
+  let entries = match pdf_parse_dict_entries(xobject_dict) {
+    Some(value) => value
+    None => return None
+  }
+  let target_key = "/" + xobject_name
+  for entry in entries {
+    if entry.0 != target_key {
+      continue
+    }
+    match entry.1 {
+      PdfNativeDictValue::Reference(object_id, generation) => {
+        ignore(generation)
+        match object_index.get(object_id) {
+          Some(object) => return Some((object_id, object))
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
+fn pdf_image_candidate_from_xobject(
+  source : @input.InputSource,
+  geometry : PdfPageGeometry,
+  xobject_name : String,
+  object_id : Int,
+  object : PdfNativeObject,
+  current_matrix : PdfNativeGraphicsMatrix,
+) -> PdfNativeImageCandidate {
+  let image_width = pdf_extract_int_after(object.dict_text, "/Width")
+    .unwrap_or(1)
+    .to_double()
+  let image_height = pdf_extract_int_after(object.dict_text, "/Height")
+    .unwrap_or(1)
+    .to_double()
+  let bbox = pdf_image_bbox_from_graphics_matrix(
+    current_matrix, image_width, image_height,
+  )
+  let source_ref = pdf_source_ref_for_image_candidate(
+    source,
+    geometry.page_no,
+    bbox,
+    object_id,
+    xobject_name,
+  )
+  make_pdf_native_image_candidate(
+    bbox,
+    source_ref=Some(source_ref),
+    asset_ref=pdf_exportable_image_asset_ref(
+      source,
+      geometry.page_no,
+      bbox,
+      xobject_name,
+      object_id,
+      object,
+    ),
+  )
+}
+
+///|
+fn pdf_source_ref_for_image_candidate(
+  source : @input.InputSource,
+  page_no : Int,
+  bbox : PdfBBox,
+  object_id : Int,
+  xobject_name : String,
+) -> @core.SourceRef {
+  let base = pdf_native_source_ref(source, page_no, bbox, None, None, 0.0)
+  let next = @core.source_ref_with_extra(
+    base,
+    "pdf_object_id",
+    object_id.to_string(),
+  )
+  @core.source_ref_with_extra(next, "pdf_xobject_name", xobject_name)
+}
+
+///|
+fn pdf_exportable_image_asset_ref(
+  source : @input.InputSource,
+  page_no : Int,
+  bbox : PdfBBox,
+  xobject_name : String,
+  object_id : Int,
+  object : PdfNativeObject,
+) -> @core.AssetRef? {
+  let payload_info = match pdf_exportable_image_payload(object) {
+    Some(value) => value
+    None => return None
+  }
+  let source_ref = pdf_source_ref_for_image_candidate(
+    source, page_no, bbox, object_id, xobject_name,
+  )
+  let asset = @core.make_asset_ref(
+    @core.AssetKind::Image,
+    "pdf:" + object_id.to_string(),
+    source_ref~,
+  )
+  let next_asset = { ..asset, mime_type: Some(payload_info.mime_type) }
+  next_asset.attrs.set("alt", "image")
+  next_asset.attrs.set("file_ext", payload_info.ext)
+  next_asset.attrs.set("inline_payload_kind", "base64")
+  next_asset.attrs.set(
+    "inline_payload",
+    @base64.encode(payload_info.payload, url_safe=false),
+  )
+  next_asset.attrs.set("pdf_object_id", object_id.to_string())
+  next_asset.attrs.set("pdf_xobject_name", xobject_name)
+  next_asset.attrs.set("pdf_filter_chain", payload_info.filter_chain)
+  next_asset.attrs.set("pdf_decode_mode", payload_info.decode_mode)
+  match payload_info.source_encoding {
+    Some(value) => next_asset.attrs.set("pdf_source_encoding", value)
+    None => ()
+  }
+  match payload_info.globals_object_id {
+    Some(value) =>
+      next_asset.attrs.set("pdf_jbig2_globals_object_id", value.to_string())
+    None => ()
+  }
+  Some(next_asset)
+}
+
+///|
+priv struct PdfExportableImagePayload {
+  payload : Bytes
+  mime_type : String
+  ext : String
+  filter_chain : String
+  decode_mode : String
+  source_encoding : String?
+  globals_object_id : Int?
+}
+
+///|
+priv struct PdfCcittFaxParams {
+  compression : Int
+  width : Int
+  height : Int
+  photometric : Int
+  encoded_byte_align : Bool
+}
+
+///|
+fn pdf_exportable_image_payload(
+  object : PdfNativeObject,
+) -> PdfExportableImagePayload? {
+  let stream = match object.stream {
+    Some(value) => value
+    None => return None
+  }
+  let filters = pdf_extract_filter_names(object.dict_text)
+  let filter_chain = pdf_image_filter_chain_label(filters)
+  let payload = pdf_stream_selected_bytes(stream)
+  let filter_specs = pdf_extract_stream_filter_specs(object.dict_text)
+  let params = match filter_specs {
+    Ok(specs) => specs.1
+    Err(_) => {
+      let empty : Array[PdfStreamDecodeParams?] = []
+      for _ in filters {
+        empty.push(None)
+      }
+      empty
+    }
+  }
+  if filters.length() == 0 {
+    match pdf_detect_binary_image_payload(payload) {
+      Some((mime_type, ext)) =>
+        return Some({
+          payload,
+          mime_type,
+          ext,
+          filter_chain,
+          decode_mode: "decoded_pixels",
+          source_encoding: None,
+          globals_object_id: None,
+        })
+      None => return None
+    }
+  }
+  let terminal_filter = filters[filters.length() - 1]
+  let prefix_decoded = match
+    pdf_decode_image_prefix_filters_with_params(
+      payload,
+      filters,
+      params,
+      filters.length() - 1,
+    ) {
+    Ok(value) => Some(value)
+    Err(_) => None
+  }
+  match terminal_filter {
+    "DCTDecode" | "JPXDecode" =>
+      match (pdf_passthrough_image_format(terminal_filter), prefix_decoded) {
+        (Some((mime_type, ext)), Some(decoded)) =>
+          return Some({
+            payload: decoded,
+            mime_type,
+            ext,
+            filter_chain,
+            decode_mode: "container_passthrough",
+            source_encoding: Some(terminal_filter),
+            globals_object_id: None,
+          })
+        _ =>
+          return Some(
+            pdf_raw_preserved_image_payload(
+              payload,
+              filter_chain,
+              terminal_filter,
+              filters.length() == 1,
+            ),
+          )
+      }
+    "JBIG2Decode" => {
+      let globals_object_id = match
+        pdf_image_filter_param_dict_text_at(
+          object.dict_text,
+          filters.length(),
+          filters.length() - 1,
+        ) {
+        Some(dict_text) =>
+          pdf_extract_object_reference_after(dict_text, "/JBIG2Globals")
+        None => None
+      }
+      match prefix_decoded {
+        Some(decoded) =>
+          return Some({
+            payload: decoded,
+            mime_type: "image/x-jbig2",
+            ext: "jb2",
+            filter_chain,
+            decode_mode: "raw_preserved",
+            source_encoding: Some("JBIG2Decode"),
+            globals_object_id,
+          })
+        None =>
+          return Some({
+            ..pdf_raw_preserved_image_payload(
+              payload,
+              filter_chain,
+              "JBIG2Decode",
+              filters.length() == 1,
+            ),
+            globals_object_id,
+          })
+      }
+    }
+    "CCITTFaxDecode" =>
+      match prefix_decoded {
+        Some(decoded) =>
+          match
+            pdf_ccitt_fax_params_from_image_object(
+              object,
+              pdf_image_filter_param_dict_text_at(
+                object.dict_text,
+                filters.length(),
+                filters.length() - 1,
+              ),
+            ) {
+            Some(params) =>
+              return Some({
+                payload: pdf_wrap_ccitt_payload_as_tiff(decoded, params),
+                mime_type: "image/tiff",
+                ext: "tif",
+                filter_chain,
+                decode_mode: "container_passthrough",
+                source_encoding: Some("CCITTFaxDecode"),
+                globals_object_id: None,
+              })
+            None =>
+              return Some(
+                pdf_raw_preserved_image_payload(
+                  payload,
+                  filter_chain,
+                  "CCITTFaxDecode",
+                  filters.length() == 1,
+                ),
+              )
+          }
+        None =>
+          return Some(
+            pdf_raw_preserved_image_payload(
+              payload,
+              filter_chain,
+              "CCITTFaxDecode",
+              filters.length() == 1,
+            ),
+          )
+      }
+    _ => ()
+  }
+  if !pdf_filters_all_image_decode_safe(filters) {
+    return Some(
+      pdf_raw_preserved_image_payload(
+        payload,
+        filter_chain,
+        terminal_filter,
+        filters.length() == 1,
+      ),
+    )
+  }
+  let decoded = match
+    pdf_decode_image_prefix_filters_with_params(
+      payload,
+      filters,
+      params,
+      filters.length(),
+    ) {
+    Ok(value) => value
+    Err(_) =>
+      return Some(
+        pdf_raw_preserved_image_payload(
+          payload,
+          filter_chain,
+          terminal_filter,
+          filters.length() == 1,
+        ),
+      )
+  }
+  match pdf_detect_binary_image_payload(decoded) {
+    Some((mime_type, ext)) =>
+      Some({
+        payload: decoded,
+        mime_type,
+        ext,
+        filter_chain,
+        decode_mode: "decoded_pixels",
+        source_encoding: None,
+        globals_object_id: None,
+      })
+    None =>
+      Some({
+        payload: decoded,
+        mime_type: "application/octet-stream",
+        ext: "bin",
+        filter_chain,
+        decode_mode: "raw_preserved",
+        source_encoding: Some(terminal_filter),
+        globals_object_id: None,
+      })
+  }
+}
+
+///|
+fn pdf_passthrough_image_format(filter_name : String) -> (String, String)? {
+  match filter_name {
+    "DCTDecode" => Some(("image/jpeg", "jpg"))
+    "JPXDecode" => Some(("image/jp2", "jp2"))
+    _ => None
+  }
+}
+
+///|
+fn pdf_image_filter_chain_label(filters : Array[String]) -> String {
+  if filters.length() == 0 {
+    "none"
+  } else {
+    filters.join(",")
+  }
+}
+
+///|
+fn pdf_raw_preserved_image_payload(
+  payload : Bytes,
+  filter_chain : String,
+  terminal_filter : String,
+  filter_chain_passthrough_safe : Bool,
+) -> PdfExportableImagePayload {
+  match
+    (
+      filter_chain_passthrough_safe,
+      pdf_passthrough_image_format(terminal_filter),
+    ) {
+    (true, Some((mime_type, ext))) =>
+      {
+        payload,
+        mime_type,
+        ext,
+        filter_chain,
+        decode_mode: "raw_preserved",
+        source_encoding: Some(terminal_filter),
+        globals_object_id: None,
+      }
+    _ =>
+      {
+        payload,
+        mime_type: if terminal_filter == "JBIG2Decode" {
+          "image/x-jbig2"
+        } else {
+          "application/octet-stream"
+        },
+        ext: if terminal_filter == "JBIG2Decode" {
+          "jb2"
+        } else {
+          "bin"
+        },
+        filter_chain,
+        decode_mode: "raw_preserved",
+        source_encoding: Some(terminal_filter),
+        globals_object_id: None,
+      }
+  }
+}
+
+///|
+fn pdf_filters_all_image_decode_safe(filters : Array[String]) -> Bool {
+  for filter_name in filters {
+    if !pdf_image_filter_is_decode_safe(filter_name) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn pdf_image_filter_is_decode_safe(filter_name : String) -> Bool {
+  match filter_name {
+    "FlateDecode" => true
+    "ASCIIHexDecode" => true
+    "ASCII85Decode" => true
+    "RunLengthDecode" => true
+    "LZWDecode" => true
+    _ => false
+  }
+}
+
+///|
+fn pdf_decode_image_prefix_filters_with_params(
+  payload : Bytes,
+  filters : Array[String],
+  params : Array[PdfStreamDecodeParams?],
+  decode_count : Int,
+) -> Result[Bytes, String] {
+  let limit = if decode_count < filters.length() {
+    decode_count
+  } else {
+    filters.length()
+  }
+  let prefix_filters : Array[String] = []
+  let prefix_params : Array[PdfStreamDecodeParams?] = []
+  for index in 0..<limit {
+    prefix_filters.push(filters[index])
+    prefix_params.push(
+      if index < params.length() {
+        params[index]
+      } else {
+        None
+      },
+    )
+  }
+  decode_pdf_stream_filters_with_params(payload, prefix_filters, prefix_params)
+}
+
+///|
+fn pdf_image_filter_param_dict_text_at(
+  dict_text : String,
+  filter_count : Int,
+  filter_index : Int,
+) -> String? {
+  let value = match pdf_extract_dict_value(dict_text, "/DecodeParms") {
+    Some(found) => Some(found)
+    None => pdf_extract_dict_value(dict_text, "/DP")
+  }
+  match value {
+    Some(PdfNativeDictValue::Dict(text)) if filter_count == 1 &&
+      filter_index == 0 => Some(text)
+    Some(PdfNativeDictValue::Array(items)) =>
+      if filter_index < items.length() {
+        match items[filter_index] {
+          PdfNativeContentToken::Dict(text) => Some(text)
+          _ => None
+        }
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
+fn pdf_dict_bool_value(dict_text : String, key : String) -> Bool? {
+  match pdf_extract_dict_value(dict_text, key) {
+    Some(PdfNativeDictValue::Word("true")) => Some(true)
+    Some(PdfNativeDictValue::Word("false")) => Some(false)
+    _ => None
+  }
+}
+
+///|
+fn pdf_ccitt_fax_params_from_image_object(
+  object : PdfNativeObject,
+  decode_param_dict_text : String?,
+) -> PdfCcittFaxParams? {
+  let width = pdf_extract_int_after(object.dict_text, "/Width").unwrap_or(0)
+  let raw_height = pdf_extract_int_after(object.dict_text, "/Height").unwrap_or(
+    0,
+  )
+  let bits_per_component = pdf_extract_int_after(
+    object.dict_text,
+    "/BitsPerComponent",
+  ).unwrap_or(1)
+  if width <= 0 || raw_height <= 0 || bits_per_component != 1 {
+    return None
+  }
+  let k = match decode_param_dict_text {
+    Some(text) => pdf_extract_int_after(text, "/K").unwrap_or(0)
+    None => 0
+  }
+  let rows = match decode_param_dict_text {
+    Some(text) => pdf_extract_int_after(text, "/Rows").unwrap_or(raw_height)
+    None => raw_height
+  }
+  if rows <= 0 {
+    return None
+  }
+  let black_is_1 = match decode_param_dict_text {
+    Some(text) => pdf_dict_bool_value(text, "/BlackIs1").unwrap_or(false)
+    None => false
+  }
+  let encoded_byte_align = match decode_param_dict_text {
+    Some(text) =>
+      pdf_dict_bool_value(text, "/EncodedByteAlign").unwrap_or(false)
+    None => false
+  }
+  Some({
+    compression: if k < 0 {
+      4
+    } else {
+      3
+    },
+    width,
+    height: rows,
+    photometric: if black_is_1 {
+      1
+    } else {
+      0
+    },
+    encoded_byte_align,
+  })
+}
+
+///|
+fn pdf_push_u16le(out : Array[Byte], value : Int) -> Unit {
+  out.push((value & 0xFF).to_byte())
+  out.push(((value >> 8) & 0xFF).to_byte())
+}
+
+///|
+fn pdf_push_u32le(out : Array[Byte], value : Int) -> Unit {
+  out.push((value & 0xFF).to_byte())
+  out.push(((value >> 8) & 0xFF).to_byte())
+  out.push(((value >> 16) & 0xFF).to_byte())
+  out.push(((value >> 24) & 0xFF).to_byte())
+}
+
+///|
+fn pdf_push_tiff_ifd_entry_short(
+  out : Array[Byte],
+  tag : Int,
+  value : Int,
+) -> Unit {
+  pdf_push_u16le(out, tag)
+  pdf_push_u16le(out, 3)
+  pdf_push_u32le(out, 1)
+  pdf_push_u16le(out, value)
+  pdf_push_u16le(out, 0)
+}
+
+///|
+fn pdf_push_tiff_ifd_entry_long(
+  out : Array[Byte],
+  tag : Int,
+  value : Int,
+) -> Unit {
+  pdf_push_u16le(out, tag)
+  pdf_push_u16le(out, 4)
+  pdf_push_u32le(out, 1)
+  pdf_push_u32le(out, value)
+}
+
+///|
+fn pdf_wrap_ccitt_payload_as_tiff(
+  payload : Bytes,
+  params : PdfCcittFaxParams,
+) -> Bytes {
+  ignore(params.encoded_byte_align)
+  let entry_count = 9
+  let ifd_offset = 8
+  let strip_offset = ifd_offset + 2 + entry_count * 12 + 4
+  let out : Array[Byte] = []
+  out.push('I'.to_int().to_byte())
+  out.push('I'.to_int().to_byte())
+  pdf_push_u16le(out, 42)
+  pdf_push_u32le(out, ifd_offset)
+  pdf_push_u16le(out, entry_count)
+  pdf_push_tiff_ifd_entry_long(out, 256, params.width)
+  pdf_push_tiff_ifd_entry_long(out, 257, params.height)
+  pdf_push_tiff_ifd_entry_short(out, 258, 1)
+  pdf_push_tiff_ifd_entry_short(out, 259, params.compression)
+  pdf_push_tiff_ifd_entry_short(out, 262, params.photometric)
+  pdf_push_tiff_ifd_entry_long(out, 273, strip_offset)
+  pdf_push_tiff_ifd_entry_short(out, 277, 1)
+  pdf_push_tiff_ifd_entry_long(out, 278, params.height)
+  pdf_push_tiff_ifd_entry_long(out, 279, payload.length())
+  pdf_push_u32le(out, 0)
+  out.append(payload.to_array())
+  Bytes::from_array(out)
+}
+
+///|
+fn pdf_detect_binary_image_payload(payload : Bytes) -> (String, String)? {
+  if payload.length() >= 2 &&
+    pdf_byte_at(payload, 0) == 0xFF &&
+    pdf_byte_at(payload, 1) == 0xD8 {
+    return Some(("image/jpeg", "jpg"))
+  }
+  if payload.length() >= 8 &&
+    pdf_byte_at(payload, 0) == 0x89 &&
+    pdf_byte_at(payload, 1) == 0x50 &&
+    pdf_byte_at(payload, 2) == 0x4E &&
+    pdf_byte_at(payload, 3) == 0x47 &&
+    pdf_byte_at(payload, 4) == 0x0D &&
+    pdf_byte_at(payload, 5) == 0x0A &&
+    pdf_byte_at(payload, 6) == 0x1A &&
+    pdf_byte_at(payload, 7) == 0x0A {
+    return Some(("image/png", "png"))
+  }
+  if payload.length() >= 6 {
+    let header = pdf_byte_string(payload[:6].to_owned())
+    if header == "GIF87a" || header == "GIF89a" {
+      return Some(("image/gif", "gif"))
+    }
+  }
+  if payload.length() >= 2 &&
+    pdf_byte_at(payload, 0) == 'B'.to_int() &&
+    pdf_byte_at(payload, 1) == 'M'.to_int() {
+    return Some(("image/bmp", "bmp"))
+  }
+  if payload.length() >= 12 &&
+    pdf_byte_string(payload[:4].to_owned()) == "RIFF" &&
+    pdf_byte_string(payload[8:12].to_owned()) == "WEBP" {
+    return Some(("image/webp", "webp"))
+  }
+  None
+}
+
+///|
+fn pdf_concat_graphics_matrix(
+  outer : PdfNativeGraphicsMatrix,
+  inner : PdfNativeGraphicsMatrix,
+) -> PdfNativeGraphicsMatrix {
+  {
+    a: outer.a * inner.a,
+    d: outer.d * inner.d,
+    e: outer.a * inner.e + outer.e,
+    f: outer.d * inner.f + outer.f,
+  }
+}
+
+///|
+fn pdf_form_graphics_matrix(dict_text : String) -> PdfNativeGraphicsMatrix {
+  match pdf_extract_dict_value(dict_text, "/Matrix") {
+    Some(PdfNativeDictValue::Array(values)) =>
+      pdf_matrix_from_token_array(values).unwrap_or(pdf_identity_matrix())
+    _ => pdf_identity_matrix()
+  }
+}
+
+///|
+fn pdf_matrix_from_token_array(
+  values : Array[PdfNativeContentToken],
+) -> PdfNativeGraphicsMatrix? {
+  if values.length() < 6 {
+    return None
+  }
+  Some({
+    a: pdf_token_number(values[0]).unwrap_or(1.0),
+    d: pdf_token_number(values[3]).unwrap_or(1.0),
+    e: pdf_token_number(values[4]).unwrap_or(0.0),
+    f: pdf_token_number(values[5]).unwrap_or(0.0),
+  })
+}
+
+///|
+fn pdf_image_bbox_from_graphics_matrix(
+  matrix : PdfNativeGraphicsMatrix,
+  intrinsic_width : Double,
+  intrinsic_height : Double,
+) -> PdfBBox {
+  let raw_width = if pdf_abs_double(matrix.a) > 0.0 {
+    matrix.a
+  } else {
+    intrinsic_width
+  }
+  let raw_height = if pdf_abs_double(matrix.d) > 0.0 {
+    matrix.d
+  } else {
+    intrinsic_height
+  }
+  let width = pdf_abs_double(raw_width)
+  let height = pdf_abs_double(raw_height)
+  let x = if raw_width >= 0.0 { matrix.e } else { matrix.e + raw_width }
+  let y = if raw_height >= 0.0 { matrix.f } else { matrix.f + raw_height }
+  make_pdf_bbox(x, y, width, height)
+}
+
+///|
+fn pdf_native_exportable_image_asset_count(
+  image_candidates : Array[PdfNativeImageCandidate],
+) -> Int {
+  image_candidates.filter(candidate => candidate.asset_ref is Some(_)).length()
 }
 
 ///|
@@ -1465,7 +2718,26 @@ fn pdf_decode_cmap_stream_text(
         " has no CMap stream",
       })
   }
-  let filters = pdf_extract_filter_names(object.dict_text)
+  let filter_specs = match pdf_extract_stream_filter_specs(object.dict_text) {
+    Ok(value) => value
+    Err(err) =>
+      return Err({
+        strategy: Failed,
+        diagnostics: {
+          filter_name: "DecodeParms",
+          input_length: stream.primary_bytes.length(),
+          declared_length: stream.declared_length,
+          actual_sliced_length: stream.endstream_bytes.length(),
+          zlib_status: "failed:" + err,
+          raw_fallback: Skipped("filter_decode_failed"),
+        },
+        message: "filter decode failed for object " +
+        object.object_id.to_string() +
+        " (cmap): " +
+        err,
+      })
+  }
+  let filters = filter_specs.0
   let selected_bytes = pdf_cmap_stream_selected_bytes(stream)
   let diagnostics : PdfCMapStreamDecodeDiagnostics = {
     filter_name: if filters.length() == 0 {
@@ -1486,7 +2758,12 @@ fn pdf_decode_cmap_stream_text(
       diagnostics,
     })
   }
-  match decode_pdf_stream_filters(selected_bytes, filters) {
+  match
+    decode_pdf_stream_filters_with_params(
+      selected_bytes,
+      filters,
+      filter_specs.1,
+    ) {
     Ok(bytes) =>
       Ok({
         text: pdf_byte_string(bytes),
@@ -1518,7 +2795,7 @@ fn pdf_decode_cmap_stream_text(
 }
 
 ///|
-fn pdf_cmap_stream_selected_bytes(stream : PdfNativeStreamSlice) -> Bytes {
+fn pdf_stream_selected_bytes(stream : PdfNativeStreamSlice) -> Bytes {
   if stream.primary_bytes.length() == stream.endstream_bytes.length() + 1 &&
     pdf_bytes_match_except_suffix(stream.primary_bytes, stream.endstream_bytes) &&
     pdf_stream_suffix_is_single_eol(
@@ -1529,6 +2806,11 @@ fn pdf_cmap_stream_selected_bytes(stream : PdfNativeStreamSlice) -> Bytes {
   } else {
     stream.primary_bytes
   }
+}
+
+///|
+fn pdf_cmap_stream_selected_bytes(stream : PdfNativeStreamSlice) -> Bytes {
+  pdf_stream_selected_bytes(stream)
 }
 
 ///|
@@ -1611,7 +2893,14 @@ fn pdf_extract_text_fragments_from_stream(
   font_aliases : Map[String, Int],
   fonts : Map[Int, PdfNativeFontInfo],
   content_text : String,
+  object_index? : Map[Int, PdfNativeObject] = Map([]),
+  resources_text? : String? = None,
+  base_matrix? : PdfNativeGraphicsMatrix = pdf_identity_matrix(),
+  remaining_depth? : Int = 6,
 ) -> Result[Array[PdfNativeTextFragment], PdfNativeError] {
+  if remaining_depth <= 0 {
+    return Ok([])
+  }
   let tokens = match pdf_scan_content_tokens(content_text) {
     Ok(parsed) => parsed
     Err(err) => return Err(err)
@@ -1620,8 +2909,14 @@ fn pdf_extract_text_fragments_from_stream(
   let operands : Array[PdfNativeContentToken] = []
   let graphics_stack : Array[PdfNativeGraphicsMatrix] = []
   let actual_text_stack : Array[String?] = []
-  let mut current_matrix = pdf_identity_matrix()
+  let mut current_matrix = base_matrix
   let mut text_matrix = pdf_identity_matrix()
+  let mut text_line_matrix = pdf_identity_matrix()
+  let mut text_leading = 0.0
+  let mut char_spacing = 0.0
+  let mut word_spacing = 0.0
+  let mut horizontal_scaling = 1.0
+  let mut text_rise = 0.0
   let mut in_text = false
   let mut current_font_alias : String? = None
   let mut current_font_size : Double? = None
@@ -1634,14 +2929,18 @@ fn pdf_extract_text_fragments_from_stream(
             operands.clear()
           }
           "Q" => {
-            current_matrix = graphics_stack
-              .pop()
-              .unwrap_or(pdf_identity_matrix())
+            current_matrix = graphics_stack.pop().unwrap_or(base_matrix)
             operands.clear()
           }
           "BT" => {
             in_text = true
             text_matrix = pdf_identity_matrix()
+            text_line_matrix = pdf_identity_matrix()
+            text_leading = 0.0
+            char_spacing = 0.0
+            word_spacing = 0.0
+            horizontal_scaling = 1.0
+            text_rise = 0.0
             operands.clear()
           }
           "ET" => {
@@ -1650,18 +2949,21 @@ fn pdf_extract_text_fragments_from_stream(
           }
           "cm" => {
             if operands.length() >= 6 {
-              let matrix = pdf_matrix_from_operands(operands)
-              current_matrix = matrix
+              current_matrix = pdf_concat_graphics_matrix(
+                current_matrix,
+                pdf_matrix_from_operands(operands),
+              )
             }
             operands.clear()
           }
           "Tm" => {
             if operands.length() >= 6 {
               text_matrix = pdf_matrix_from_operands(operands)
+              text_line_matrix = text_matrix
             }
             operands.clear()
           }
-          "Td" | "TD" => {
+          "Td" => {
             if operands.length() >= 2 {
               let tx = pdf_token_number(operands[operands.length() - 2]).unwrap_or(
                 0.0,
@@ -1669,11 +2971,78 @@ fn pdf_extract_text_fragments_from_stream(
               let ty = pdf_token_number(operands[operands.length() - 1]).unwrap_or(
                 0.0,
               )
-              text_matrix = {
-                ..text_matrix,
-                e: text_matrix.e + tx * pdf_text_matrix_x_scale(text_matrix),
-                f: text_matrix.f + ty * pdf_text_matrix_y_scale(text_matrix),
-              }
+              text_line_matrix = pdf_text_matrix_translated(
+                text_line_matrix, tx, ty,
+              )
+              text_matrix = text_line_matrix
+            }
+            operands.clear()
+          }
+          "TD" => {
+            if operands.length() >= 2 {
+              let tx = pdf_token_number(operands[operands.length() - 2]).unwrap_or(
+                0.0,
+              )
+              let ty = pdf_token_number(operands[operands.length() - 1]).unwrap_or(
+                0.0,
+              )
+              text_leading = 0.0 - ty
+              text_line_matrix = pdf_text_matrix_translated(
+                text_line_matrix, tx, ty,
+              )
+              text_matrix = text_line_matrix
+            }
+            operands.clear()
+          }
+          "T*" => {
+            if in_text {
+              text_line_matrix = pdf_text_matrix_translated(
+                text_line_matrix,
+                0.0,
+                0.0 - text_leading,
+              )
+              text_matrix = text_line_matrix
+            }
+            operands.clear()
+          }
+          "TL" => {
+            if operands.length() >= 1 {
+              text_leading = pdf_token_number(operands[operands.length() - 1]).unwrap_or(
+                text_leading,
+              )
+            }
+            operands.clear()
+          }
+          "Tc" => {
+            if operands.length() >= 1 {
+              char_spacing = pdf_token_number(operands[operands.length() - 1]).unwrap_or(
+                char_spacing,
+              )
+            }
+            operands.clear()
+          }
+          "Tw" => {
+            if operands.length() >= 1 {
+              word_spacing = pdf_token_number(operands[operands.length() - 1]).unwrap_or(
+                word_spacing,
+              )
+            }
+            operands.clear()
+          }
+          "Tz" => {
+            if operands.length() >= 1 {
+              horizontal_scaling = pdf_token_number(
+                  operands[operands.length() - 1],
+                ).unwrap_or(horizontal_scaling) /
+                100.0
+            }
+            operands.clear()
+          }
+          "Ts" => {
+            if operands.length() >= 1 {
+              text_rise = pdf_token_number(operands[operands.length() - 1]).unwrap_or(
+                text_rise,
+              )
             }
             operands.clear()
           }
@@ -1699,7 +3068,8 @@ fn pdf_extract_text_fragments_from_stream(
           }
           "Tj" => {
             if in_text && operands.length() >= 1 {
-              let fragment = pdf_fragment_from_text_operand(
+              text_matrix = pdf_append_text_operand_fragment(
+                fragments,
                 source,
                 geometry,
                 current_matrix,
@@ -1710,17 +3080,18 @@ fn pdf_extract_text_fragments_from_stream(
                 fonts,
                 operands[operands.length() - 1],
                 actual_text_stack.last().unwrap_or(None),
+                char_spacing,
+                word_spacing,
+                horizontal_scaling,
+                text_rise,
               )
-              match fragment {
-                Some(value) => fragments.push(value)
-                None => ()
-              }
             }
             operands.clear()
           }
           "TJ" => {
             if in_text && operands.length() >= 1 {
-              let fragment = pdf_fragment_from_text_operand(
+              text_matrix = pdf_append_text_operand_fragment(
+                fragments,
                 source,
                 geometry,
                 current_matrix,
@@ -1731,9 +3102,88 @@ fn pdf_extract_text_fragments_from_stream(
                 fonts,
                 operands[operands.length() - 1],
                 actual_text_stack.last().unwrap_or(None),
+                char_spacing,
+                word_spacing,
+                horizontal_scaling,
+                text_rise,
               )
-              match fragment {
-                Some(value) => fragments.push(value)
+            }
+            operands.clear()
+          }
+          "'" => {
+            if in_text && operands.length() >= 1 {
+              text_line_matrix = pdf_text_matrix_translated(
+                text_line_matrix,
+                0.0,
+                0.0 - text_leading,
+              )
+              text_matrix = text_line_matrix
+              text_matrix = pdf_append_text_operand_fragment(
+                fragments,
+                source,
+                geometry,
+                current_matrix,
+                text_matrix,
+                current_font_alias,
+                current_font_size,
+                font_aliases,
+                fonts,
+                operands[operands.length() - 1],
+                actual_text_stack.last().unwrap_or(None),
+                char_spacing,
+                word_spacing,
+                horizontal_scaling,
+                text_rise,
+              )
+            }
+            operands.clear()
+          }
+          "\"" => {
+            if in_text && operands.length() >= 3 {
+              word_spacing = pdf_token_number(operands[operands.length() - 3]).unwrap_or(
+                word_spacing,
+              )
+              char_spacing = pdf_token_number(operands[operands.length() - 2]).unwrap_or(
+                char_spacing,
+              )
+              text_line_matrix = pdf_text_matrix_translated(
+                text_line_matrix,
+                0.0,
+                0.0 - text_leading,
+              )
+              text_matrix = text_line_matrix
+              text_matrix = pdf_append_text_operand_fragment(
+                fragments,
+                source,
+                geometry,
+                current_matrix,
+                text_matrix,
+                current_font_alias,
+                current_font_size,
+                font_aliases,
+                fonts,
+                operands[operands.length() - 1],
+                actual_text_stack.last().unwrap_or(None),
+                char_spacing,
+                word_spacing,
+                horizontal_scaling,
+                text_rise,
+              )
+            }
+            operands.clear()
+          }
+          "Do" => {
+            if operands.length() >= 1 {
+              match pdf_token_name(operands[operands.length() - 1]) {
+                Some(xobject_name) =>
+                  match
+                    pdf_extract_text_fragments_from_xobject_name(
+                      source, geometry, object_index, resources_text, fonts, xobject_name,
+                      current_matrix, remaining_depth,
+                    ) {
+                    Ok(children) => fragments.append(children[:])
+                    Err(err) => return Err(err)
+                  }
                 None => ()
               }
             }
@@ -1745,6 +3195,57 @@ fn pdf_extract_text_fragments_from_stream(
     }
   }
   Ok(fragments)
+}
+
+///|
+fn pdf_extract_text_fragments_from_xobject_name(
+  source : @input.InputSource,
+  geometry : PdfPageGeometry,
+  object_index : Map[Int, PdfNativeObject],
+  resources_text : String?,
+  fonts : Map[Int, PdfNativeFontInfo],
+  xobject_name : String,
+  current_matrix : PdfNativeGraphicsMatrix,
+  remaining_depth : Int,
+) -> Result[Array[PdfNativeTextFragment], PdfNativeError] {
+  if remaining_depth <= 0 {
+    return Ok([])
+  }
+  let resolved = match
+    pdf_lookup_xobject_object(resources_text, xobject_name, object_index) {
+    Some(value) => value
+    None => return Ok([])
+  }
+  let xobject = resolved.1
+  match pdf_extract_name_after(xobject.dict_text, "/Subtype") {
+    Some("Form") => {
+      let form_text = match
+        pdf_decode_stream_text(xobject, "form xobject stream") {
+        Ok(value) => value
+        Err(err) => return Err(err)
+      }
+      let form_resources = match
+        pdf_extract_resources_text(xobject.dict_text, object_index) {
+        Some(value) => Some(value)
+        None => resources_text
+      }
+      pdf_extract_text_fragments_from_stream(
+        source,
+        geometry,
+        pdf_font_aliases_from_resources_text(form_resources, object_index),
+        fonts,
+        form_text,
+        object_index~,
+        resources_text=form_resources,
+        base_matrix=pdf_concat_graphics_matrix(
+          current_matrix,
+          pdf_form_graphics_matrix(xobject.dict_text),
+        ),
+        remaining_depth=remaining_depth - 1,
+      )
+    }
+    _ => Ok([])
+  }
 }
 
 ///|
@@ -2089,19 +3590,11 @@ fn pdf_fragment_from_text_operand(
   text_matrix : PdfNativeGraphicsMatrix,
   current_font_alias : String?,
   current_font_size : Double?,
-  font_aliases : Map[String, Int],
-  fonts : Map[Int, PdfNativeFontInfo],
+  font_info : PdfNativeFontInfo?,
   token : PdfNativeContentToken,
   actual_text : String?,
+  text_rise? : Double = 0.0,
 ) -> PdfNativeTextFragment? {
-  let font_object_id = match current_font_alias {
-    Some(font_alias_name) => font_aliases.get(font_alias_name)
-    None => None
-  }
-  let font_info = match font_object_id {
-    Some(object_id) => fonts.get(object_id)
-    None => None
-  }
   let resolved_text = match actual_text {
     Some(value) if value.trim() != "" => value
     _ =>
@@ -2129,7 +3622,9 @@ fn pdf_fragment_from_text_operand(
   }
   let font_size = pdf_effective_font_size(text_matrix, current_font_size)
   let x = current_matrix.e + text_matrix.e
-  let y = current_matrix.f + text_matrix.f
+  let y = current_matrix.f +
+    text_matrix.f +
+    text_rise * pdf_text_matrix_y_scale(text_matrix)
   let bbox = pdf_estimate_text_bbox(fragment_text, x, y, font_size)
   let source_ref = pdf_native_source_ref(
     source,
@@ -2148,7 +3643,79 @@ fn pdf_fragment_from_text_operand(
     font_name,
     font_size: Some(font_size),
     bbox,
+    vertical_writing: match font_info {
+      Some(info) => pdf_font_uses_vertical_writing(info)
+      None => false
+    },
   })
+}
+
+///|
+fn pdf_append_text_operand_fragment(
+  fragments : Array[PdfNativeTextFragment],
+  source : @input.InputSource,
+  geometry : PdfPageGeometry,
+  current_matrix : PdfNativeGraphicsMatrix,
+  text_matrix : PdfNativeGraphicsMatrix,
+  current_font_alias : String?,
+  current_font_size : Double?,
+  font_aliases : Map[String, Int],
+  fonts : Map[Int, PdfNativeFontInfo],
+  token : PdfNativeContentToken,
+  actual_text : String?,
+  char_spacing : Double,
+  word_spacing : Double,
+  horizontal_scaling : Double,
+  text_rise : Double,
+) -> PdfNativeGraphicsMatrix {
+  let font_info = pdf_font_info_for_alias(
+    current_font_alias, font_aliases, fonts,
+  )
+  match
+    pdf_fragment_from_text_operand(
+      source,
+      geometry,
+      current_matrix,
+      text_matrix,
+      current_font_alias,
+      current_font_size,
+      font_info,
+      token,
+      actual_text,
+      text_rise~,
+    ) {
+    Some(fragment) => fragments.push(fragment)
+    None => ()
+  }
+  let font_size = pdf_effective_font_size(text_matrix, current_font_size)
+  let advance = pdf_text_operand_advance_width(
+    token, font_info, font_size, char_spacing, word_spacing, horizontal_scaling,
+  )
+  let vertical_writing = match font_info {
+    Some(info) => pdf_font_uses_vertical_writing(info)
+    None => false
+  }
+  if vertical_writing {
+    { ..text_matrix, f: text_matrix.f - advance }
+  } else {
+    { ..text_matrix, e: text_matrix.e + advance }
+  }
+}
+
+///|
+fn pdf_font_info_for_alias(
+  current_font_alias : String?,
+  font_aliases : Map[String, Int],
+  fonts : Map[Int, PdfNativeFontInfo],
+) -> PdfNativeFontInfo? {
+  let font_object_id = match current_font_alias {
+    Some(font_alias_name) => font_aliases.get(font_alias_name)
+    None => None
+  }
+  match font_object_id {
+    Some(object_id) => fonts.get(object_id)
+    None => None
+  }
 }
 
 ///|
@@ -2193,6 +3760,85 @@ fn pdf_decode_text_operand(
 }
 
 ///|
+fn pdf_text_operand_advance_width(
+  token : PdfNativeContentToken,
+  font_info : PdfNativeFontInfo?,
+  font_size : Double,
+  char_spacing : Double,
+  word_spacing : Double,
+  horizontal_scaling : Double,
+) -> Double {
+  match token {
+    PdfNativeContentToken::LiteralString(value) =>
+      pdf_text_string_advance_width(
+        pdf_decode_content_literal_pdf_text(value.decoded, font_info),
+        font_size,
+        char_spacing,
+        word_spacing,
+        horizontal_scaling,
+      )
+    PdfNativeContentToken::HexString(hex) =>
+      match pdf_decode_hex_pdf_text(hex, font_info) {
+        Some(text) =>
+          pdf_text_string_advance_width(
+            text, font_size, char_spacing, word_spacing, horizontal_scaling,
+          )
+        None => 0.0
+      }
+    PdfNativeContentToken::Array(items) => {
+      let mut width = 0.0
+      for item in items {
+        match item {
+          PdfNativeContentToken::Number(value) =>
+            width += (0.0 - value) * font_size * horizontal_scaling / 1000.0
+          PdfNativeContentToken::LiteralString(value) =>
+            width += pdf_text_string_advance_width(
+              pdf_decode_content_literal_pdf_text(value.decoded, font_info),
+              font_size,
+              char_spacing,
+              word_spacing,
+              horizontal_scaling,
+            )
+          PdfNativeContentToken::HexString(hex) =>
+            match pdf_decode_hex_pdf_text(hex, font_info) {
+              Some(text) =>
+                width += pdf_text_string_advance_width(
+                  text, font_size, char_spacing, word_spacing, horizontal_scaling,
+                )
+              None => ()
+            }
+          _ => ()
+        }
+      }
+      width
+    }
+    _ => 0.0
+  }
+}
+
+///|
+fn pdf_text_string_advance_width(
+  text : String,
+  font_size : Double,
+  char_spacing : Double,
+  word_spacing : Double,
+  horizontal_scaling : Double,
+) -> Double {
+  if text == "" {
+    return 0.0
+  }
+  let base_width = pdf_estimate_text_width(text, font_size)
+  let chars = text.to_array()
+  let mut spacing = char_spacing * chars.length().to_double()
+  for ch in chars {
+    if ch == ' ' {
+      spacing += word_spacing
+    }
+  }
+  (base_width + spacing) * horizontal_scaling
+}
+
+///|
 fn pdf_decode_hex_pdf_text(
   hex : String,
   font_info : PdfNativeFontInfo?,
@@ -2201,11 +3847,20 @@ fn pdf_decode_hex_pdf_text(
     return None
   }
   match font_info {
-    Some(info) if info.tounicode_decode_failed => None
     Some(info) if pdf_font_uses_code_unit_decode(info) => {
       match pdf_identity_h_ascii_rescue(hex, info) {
         Some(rescued) => return Some(rescued)
         None => ()
+      }
+      if !info.has_tounicode {
+        match pdf_hex_byte_values(hex) {
+          Some(bytes) =>
+            match pdf_decode_raw_cjk_bytes_for_font(bytes, info) {
+              Some(decoded) => return Some(decoded)
+              None => ()
+            }
+          None => ()
+        }
       }
       let widths = pdf_font_decode_widths(info)
       let parts : Array[String] = []
@@ -2304,22 +3959,36 @@ fn pdf_group_text_fragments_into_lines(
   let lines : Array[PdfNativeTextLine] = []
   let mut current : Array[PdfNativeTextFragment] = []
   let mut current_baseline = 0.0
+  let mut current_vertical = false
   for fragment in ordered {
     if current.length() == 0 {
       current = [fragment]
-      current_baseline = fragment.y
+      current_baseline = if fragment.vertical_writing {
+        fragment.x
+      } else {
+        fragment.y
+      }
+      current_vertical = fragment.vertical_writing
       continue
     }
     let tolerance = pdf_line_merge_tolerance(current, fragment)
-    if pdf_abs_double(fragment.y - current_baseline) <= tolerance {
+    let next_vertical = current_vertical || fragment.vertical_writing
+    let candidate_baseline = if next_vertical { fragment.x } else { fragment.y }
+    if pdf_abs_double(candidate_baseline - current_baseline) <= tolerance {
       current.push(fragment)
-      current_baseline = (current_baseline + fragment.y) / 2.0
+      current_baseline = (current_baseline + candidate_baseline) / 2.0
+      current_vertical = next_vertical
     } else {
       lines.push(
         pdf_finalize_line(source, geometry, current, lines.length() + 1),
       )
       current = [fragment]
-      current_baseline = fragment.y
+      current_baseline = if fragment.vertical_writing {
+        fragment.x
+      } else {
+        fragment.y
+      }
+      current_vertical = fragment.vertical_writing
     }
   }
   if current.length() > 0 {
@@ -2335,14 +4004,23 @@ fn pdf_finalize_line(
   fragments : Array[PdfNativeTextFragment],
   line_index : Int,
 ) -> PdfNativeTextLine {
+  let vertical_line = fragments.any(fn(fragment) { fragment.vertical_writing })
   let ordered : Array[PdfNativeTextFragment] = []
   ordered.append(fragments[:])
-  ordered.sort_by(fn(left, right) { pdf_fragment_visual_compare(left, right) })
+  ordered.sort_by(fn(left, right) {
+    if vertical_line {
+      pdf_fragment_vertical_compare(left, right)
+    } else {
+      pdf_fragment_visual_compare(left, right)
+    }
+  })
   let spans : Array[PdfNativeTextSpan] = []
   let mut merged_bbox = make_pdf_bbox(0.0, 0.0, 0.0, 0.0)
   let mut reading_index = 1
   for fragment in ordered {
     let gap = if spans.length() == 0 {
+      None
+    } else if vertical_line {
       None
     } else {
       Some(fragment.x - pdf_bbox_right(merged_bbox))
@@ -2539,7 +4217,8 @@ fn pdf_line_has_strong_terminal_punctuation(line : PdfNativeTextLine) -> Bool {
   if trimmed == "" {
     return false
   }
-  match trimmed.to_array()[trimmed.length() - 1] {
+  let chars = trimmed.to_array()
+  match chars[chars.length() - 1] {
     '.' => true
     '!' => true
     '?' => true
@@ -2690,18 +4369,17 @@ fn pdf_page_destinations(
 }
 
 ///|
-fn pdf_parse_tounicode_cmap(
-  cmap_text : String,
-) -> (Map[String, String], Array[Int]) {
+fn pdf_parse_tounicode_cmap_info(cmap_text : String) -> PdfToUnicodeCMapInfo {
   let mapping : Map[String, String] = Map([])
   let widths : Map[Int, Bool] = Map([])
   let tokens = match pdf_scan_content_tokens(cmap_text) {
     Ok(value) => value
-    Err(_) => return (mapping, [2])
+    Err(_) => return { mapping, widths: [2], usecmap_name: None }
   }
   let mut in_codespacerange = false
   let mut in_bfchar = false
   let mut in_bfrange = false
+  let mut usecmap_name : String? = None
   let mut index = 0
   while index < tokens.length() {
     match tokens[index] {
@@ -2724,6 +4402,16 @@ fn pdf_parse_tounicode_cmap(
         in_bfrange = true
       }
       PdfNativeContentToken::Word("endbfrange") => in_bfrange = false
+      PdfNativeContentToken::Name(name) =>
+        if index + 1 < tokens.length() {
+          match tokens[index + 1] {
+            PdfNativeContentToken::Word("usecmap") => {
+              usecmap_name = Some(name)
+              index += 1
+            }
+            _ => ()
+          }
+        }
       PdfNativeContentToken::HexString(start_hex) if in_codespacerange =>
         if index + 1 < tokens.length() {
           match tokens[index + 1] {
@@ -2792,10 +4480,14 @@ fn pdf_parse_tounicode_cmap(
     index += 1
   }
   let sorted_widths = pdf_sort_desc_widths(widths)
-  if sorted_widths.length() == 0 {
-    (mapping, [2])
-  } else {
-    (mapping, sorted_widths)
+  {
+    mapping,
+    widths: if sorted_widths.length() == 0 {
+      [2]
+    } else {
+      sorted_widths
+    },
+    usecmap_name,
   }
 }
 
@@ -2916,13 +4608,12 @@ fn pdf_extract_parent_page_boxes(
 }
 
 ///|
-fn pdf_page_font_aliases(
-  page_object : PdfNativeObject,
+fn pdf_font_aliases_from_resources_text(
+  resources_text : String?,
   object_index : Map[Int, PdfNativeObject],
 ) -> Map[String, Int] {
   let aliases : Map[String, Int] = Map([])
-  let resources_text = match
-    pdf_extract_resources_text(page_object.dict_text, object_index) {
+  let resources_text = match resources_text {
     Some(text) => text
     None => return aliases
   }
@@ -3054,6 +4745,64 @@ fn pdf_page_object_ids(objects : Array[PdfNativeObject]) -> Array[Int] {
 }
 
 ///|
+fn pdf_ordered_page_object_ids(
+  trailer_hints : Array[String],
+  object_index : Map[Int, PdfNativeObject],
+  objects : Array[PdfNativeObject],
+) -> Array[Int] {
+  let catalog = match pdf_catalog_object(trailer_hints, object_index) {
+    Some(value) => value
+    None => return pdf_page_object_ids(objects)
+  }
+  let pages_ref = match
+    pdf_extract_object_reference_after(catalog.dict_text, "/Pages") {
+    Some(value) => value
+    None => return pdf_page_object_ids(objects)
+  }
+  let ordered = pdf_collect_page_tree_ids(object_index, pages_ref, Map([]), 0)
+  if ordered.length() > 0 {
+    ordered
+  } else {
+    pdf_page_object_ids(objects)
+  }
+}
+
+///|
+fn pdf_collect_page_tree_ids(
+  object_index : Map[Int, PdfNativeObject],
+  object_id : Int,
+  visited : Map[Int, Bool],
+  depth : Int,
+) -> Array[Int] {
+  if depth >= 256 || visited.get(object_id).unwrap_or(false) {
+    return []
+  }
+  visited.set(object_id, true)
+  let object = match object_index.get(object_id) {
+    Some(value) => value
+    None => return []
+  }
+  if pdf_object_is_page(object) {
+    return [object_id]
+  }
+  if !pdf_object_is_pages_node(object) {
+    return []
+  }
+  let ordered : Array[Int] = []
+  for
+    kid_id in pdf_extract_resolved_object_references_after(
+      object.dict_text,
+      "/Kids",
+      object_index,
+    ) {
+    ordered.append(
+      pdf_collect_page_tree_ids(object_index, kid_id, visited, depth + 1)[:],
+    )
+  }
+  ordered
+}
+
+///|
 fn pdf_page_number_index(page_object_ids : Array[Int]) -> Map[Int, Int] {
   let index : Map[Int, Int] = Map([])
   for i in 0..<page_object_ids.length() {
@@ -3141,6 +4890,14 @@ fn pdf_collect_xref_follow_offsets(trailer_text : String) -> Array[Int] {
 fn pdf_object_is_page(object : PdfNativeObject) -> Bool {
   match pdf_extract_dict_value(object.dict_text, "/Type") {
     Some(PdfNativeDictValue::Name("Page")) => true
+    _ => false
+  }
+}
+
+///|
+fn pdf_object_is_pages_node(object : PdfNativeObject) -> Bool {
+  match pdf_extract_dict_value(object.dict_text, "/Type") {
+    Some(PdfNativeDictValue::Name("Pages")) => true
     _ => false
   }
 }
@@ -3462,7 +5219,10 @@ fn pdf_decode_content_literal_pdf_text(
             None => pdf_decode_pdfdoc_bytes(bytes)
           }
         Some(info) if pdf_font_is_winansi(info) =>
-          pdf_decode_winansi_bytes(bytes)
+          match pdf_decode_raw_cjk_bytes_for_font(bytes, info) {
+            Some(decoded) => decoded
+            None => pdf_decode_winansi_bytes(bytes)
+          }
         _ => pdf_decode_pdfdoc_bytes(bytes)
       }
     }
@@ -3507,6 +5267,12 @@ fn pdf_decode_literal_bytes_with_font(
   bytes : Array[Int],
   info : PdfNativeFontInfo,
 ) -> String? {
+  if !info.has_tounicode {
+    match pdf_decode_raw_cjk_bytes_for_font(bytes, info) {
+      Some(decoded) => return Some(decoded)
+      None => ()
+    }
+  }
   let widths = pdf_font_decode_widths(info)
   if widths.length() == 0 {
     return None
@@ -3668,6 +5434,7 @@ fn pdf_winansi_byte_char(byte : Int) -> Char {
     0x8B => '\u{2039}'
     0x8C => '\u{0152}'
     0x8E => '\u{017D}'
+    0x90 => '\u{2019}'
     0x91 => '\u{2018}'
     0x92 => '\u{2019}'
     0x93 => '\u{201C}'
@@ -3700,6 +5467,10 @@ fn pdf_annotation_from_object(
     Some(value) => value
     None => return None
   }
+  let resolved_page_index = pdf_page_index_from_object(
+    object.dict_text,
+    page_numbers,
+  ).unwrap_or(page_index)
   let flags = pdf_extract_int_after(object.dict_text, "/F")
   if !pdf_annotation_should_surface(subtype, flags) {
     return None
@@ -3707,13 +5478,22 @@ fn pdf_annotation_from_object(
   let bbox = pdf_extract_rect_after(object.dict_text, "/Rect")
   let source_ref = match bbox {
     Some(value) =>
-      Some(pdf_native_source_ref(source, page_index, value, None, None, 0.0))
+      Some(
+        pdf_native_source_ref(
+          source,
+          resolved_page_index,
+          value,
+          None,
+          None,
+          0.0,
+        ),
+      )
     None => None
   }
   let action = pdf_annotation_action_summary(
     object.dict_text,
     object_index,
-    page_index,
+    resolved_page_index,
     source_ref,
     page_numbers,
   )
@@ -3722,7 +5502,7 @@ fn pdf_annotation_from_object(
       object.dict_text,
       "/Dest",
       object_index,
-      page_index,
+      resolved_page_index,
       source_ref,
       page_numbers,
     ) {
@@ -3740,7 +5520,7 @@ fn pdf_annotation_from_object(
   let text = pdf_annotation_text(object.dict_text)
   Some(
     make_pdf_native_annotation(
-      page_index,
+      resolved_page_index,
       subtype,
       bbox~,
       text~,
@@ -3821,6 +5601,69 @@ fn pdf_annotation_file_name(
     }
   }
   None
+}
+
+///|
+fn pdf_file_spec_display_name(
+  dict_text : String,
+  key : String,
+  object_index : Map[Int, PdfNativeObject],
+) -> String? {
+  match pdf_extract_string_after(dict_text, key) {
+    Some(value) if value.trim() != "" => return Some(value.trim().to_owned())
+    _ => ()
+  }
+  let file_spec = match
+    pdf_inline_or_referenced_dict_text(dict_text, key, object_index) {
+    Some(value) => value
+    None => return None
+  }
+  for candidate in ["/UF", "/F", "/Desc"] {
+    match pdf_extract_string_after(file_spec, candidate) {
+      Some(value) if value.trim() != "" => return Some(value.trim().to_owned())
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
+fn pdf_action_external_target_text(
+  action_text : String,
+  object_index : Map[Int, PdfNativeObject],
+  page_numbers : Map[Int, Int],
+) -> String? {
+  let file_name = pdf_file_spec_display_name(action_text, "/F", object_index)
+  let destination = pdf_destination_from_key(
+    action_text,
+    "/D",
+    object_index,
+    0,
+    None,
+    page_numbers,
+  )
+  let destination_text = match destination {
+    Some(value) =>
+      match pdf_destination_target_text(value) {
+        Some(text) => Some(text)
+        None =>
+          match value.raw_value {
+            Some(raw) if raw.trim() != "" => Some(raw.trim().to_owned())
+            _ => None
+          }
+      }
+    None =>
+      match pdf_extract_raw_string_after(action_text, "/D") {
+        Some(value) if value.trim() != "" => Some(value.trim().to_owned())
+        _ => None
+      }
+  }
+  match (file_name, destination_text) {
+    (Some(file), Some(dest)) => Some(file + " -> " + dest)
+    (Some(file), None) => Some(file)
+    (None, Some(dest)) => Some(dest)
+    (None, None) => Some(action_text.trim().to_owned())
+  }
 }
 
 ///|
@@ -4005,7 +5848,36 @@ fn pdf_annotation_action_summary(
         destination,
       )
     }
-    Some(kind) => (Some(kind), None, None)
+    Some("GoToR") =>
+      (
+        Some("GoToR"),
+        pdf_action_external_target_text(action_text, object_index, page_numbers),
+        None,
+      )
+    Some("Launch") =>
+      (
+        Some("Launch"),
+        match
+          pdf_action_external_target_text(
+            action_text, object_index, page_numbers,
+          ) {
+          Some(value) => Some(value)
+          None => pdf_extract_raw_string_after(action_text, "/F")
+        },
+        None,
+      )
+    Some(kind) =>
+      (
+        Some(kind),
+        match
+          pdf_action_external_target_text(
+            action_text, object_index, page_numbers,
+          ) {
+          Some(value) => Some(value)
+          None => Some(action_text.trim().to_owned())
+        },
+        None,
+      )
     None => (None, None, None)
   }
 }
@@ -4747,13 +6619,31 @@ fn pdf_extract_named_destinations_from_names_dict(
   object_index : Map[Int, PdfNativeObject],
   page_numbers : Map[Int, Int],
 ) -> Array[PdfNativeDestination] {
-  let out : Array[PdfNativeDestination] = []
   let dests_dict = match
     pdf_inline_or_referenced_dict_text(dict_text, "/Dests", object_index) {
     Some(value) => value
-    None => return out
+    None => return []
   }
-  match pdf_extract_dict_value(dests_dict, "/Names") {
+  let visited : Map[Int, Bool] = Map([])
+  pdf_extract_named_destinations_from_name_tree(
+    source, dests_dict, object_index, page_numbers, visited, 16,
+  )
+}
+
+///|
+fn pdf_extract_named_destinations_from_name_tree(
+  source : @input.InputSource,
+  dict_text : String,
+  object_index : Map[Int, PdfNativeObject],
+  page_numbers : Map[Int, Int],
+  visited : Map[Int, Bool],
+  remaining_depth : Int,
+) -> Array[PdfNativeDestination] {
+  if remaining_depth <= 0 {
+    return []
+  }
+  let out : Array[PdfNativeDestination] = []
+  match pdf_extract_dict_value(dict_text, "/Names") {
     Some(PdfNativeDictValue::Array(tokens)) => {
       let mut index = 0
       while index + 1 < tokens.length() {
@@ -4793,6 +6683,26 @@ fn pdf_extract_named_destinations_from_names_dict(
       }
     }
     _ => ()
+  }
+  for kid_id in pdf_extract_object_references_after(dict_text, "/Kids") {
+    if visited.get(kid_id).unwrap_or(false) {
+      continue
+    }
+    visited.set(kid_id, true)
+    match object_index.get(kid_id) {
+      Some(object) =>
+        out.append(
+          pdf_extract_named_destinations_from_name_tree(
+            source,
+            object.dict_text,
+            object_index,
+            page_numbers,
+            visited,
+            remaining_depth - 1,
+          )[:],
+        )
+      None => ()
+    }
   }
   out
 }
@@ -4962,6 +6872,19 @@ fn pdf_text_matrix_x_scale(matrix : PdfNativeGraphicsMatrix) -> Double {
     scale
   } else {
     1.0
+  }
+}
+
+///|
+fn pdf_text_matrix_translated(
+  matrix : PdfNativeGraphicsMatrix,
+  tx : Double,
+  ty : Double,
+) -> PdfNativeGraphicsMatrix {
+  {
+    ..matrix,
+    e: matrix.e + tx * pdf_text_matrix_x_scale(matrix),
+    f: matrix.f + ty * pdf_text_matrix_y_scale(matrix),
   }
 }
 
@@ -5733,9 +7656,32 @@ fn pdf_fragment_visual_compare(
   left : PdfNativeTextFragment,
   right : PdfNativeTextFragment,
 ) -> Int {
-  if left.x < right.x {
+  if left.vertical_writing || right.vertical_writing {
+    pdf_fragment_vertical_compare(left, right)
+  } else if left.x < right.x {
     -1
   } else if left.x > right.x {
+    1
+  } else {
+    0
+  }
+}
+
+///|
+fn pdf_fragment_vertical_compare(
+  left : PdfNativeTextFragment,
+  right : PdfNativeTextFragment,
+) -> Int {
+  let x_gap = pdf_abs_double(left.x - right.x)
+  if x_gap > 2.0 {
+    if left.x > right.x {
+      -1
+    } else {
+      1
+    }
+  } else if left.y > right.y {
+    -1
+  } else if left.y < right.y {
     1
   } else {
     0
@@ -5747,78 +7693,84 @@ fn pdf_fragment_reading_order_compare(
   left : PdfNativeTextFragment,
   right : PdfNativeTextFragment,
 ) -> Int {
-  let y_gap = pdf_abs_double(left.y - right.y)
-  if y_gap > 2.0 {
-    if left.y > right.y {
-      -1
-    } else {
-      1
-    }
+  if left.vertical_writing || right.vertical_writing {
+    pdf_fragment_vertical_compare(left, right)
   } else {
-    pdf_fragment_visual_compare(left, right)
-  }
-}
-
-///|
-fn pdf_native_line_reading_order_compare(
-  left : PdfNativeTextLine,
-  right : PdfNativeTextLine,
-) -> Int {
-  match (left.reading_order_index, right.reading_order_index) {
-    (Some(a), Some(b)) =>
-      if a < b {
+    let y_gap = pdf_abs_double(left.y - right.y)
+    if y_gap > 2.0 {
+      if left.y > right.y {
         -1
-      } else if a > b {
-        1
       } else {
-        pdf_native_line_bbox_compare(left, right)
+        1
       }
-    _ => pdf_native_line_bbox_compare(left, right)
+    } else {
+      pdf_fragment_visual_compare(left, right)
+    }
   }
 }
 
 ///|
-fn pdf_native_line_bbox_compare(
-  left : PdfNativeTextLine,
-  right : PdfNativeTextLine,
-) -> Int {
-  let y_gap = pdf_abs_double(left.bbox.y - right.bbox.y)
-  if y_gap > 2.0 {
-    if left.bbox.y < right.bbox.y {
-      -1
-    } else {
-      1
-    }
-  } else if left.bbox.x < right.bbox.x {
-    -1
-  } else if left.bbox.x > right.bbox.x {
-    1
-  } else {
-    0
+fn pdf_font_is_identity_v(info : PdfNativeFontInfo) -> Bool {
+  info.encoding_name == Some("Identity-V")
+}
+
+///|
+fn pdf_font_encoding_name_has_prefix(
+  info : PdfNativeFontInfo,
+  prefix : String,
+) -> Bool {
+  match info.encoding_name {
+    Some(name) => name.has_prefix(prefix)
+    None => false
   }
 }
 
 ///|
-fn pdf_native_lines_bbox(lines : Array[PdfNativeTextLine]) -> PdfBBox {
-  let mut bbox = make_pdf_bbox(0.0, 0.0, 0.0, 0.0)
-  for line in lines {
-    bbox = if pdf_bbox_is_empty(bbox) {
-      line.bbox
-    } else {
-      pdf_union_bbox(bbox, line.bbox)
-    }
+fn pdf_font_encoding_name_has_suffix(
+  info : PdfNativeFontInfo,
+  suffix : String,
+) -> Bool {
+  match info.encoding_name {
+    Some(name) => name.has_suffix(suffix)
+    None => false
   }
-  bbox
+}
+
+///|
+fn pdf_font_has_predefined_cid_encoding(info : PdfNativeFontInfo) -> Bool {
+  pdf_font_is_identity_h(info) ||
+  pdf_font_is_identity_v(info) ||
+  info.encoding_name == Some("EUC-H") ||
+  info.encoding_name == Some("EUC-V") ||
+  pdf_font_encoding_name_has_prefix(info, "UniJIS-") ||
+  pdf_font_encoding_name_has_prefix(info, "UniCNS-") ||
+  pdf_font_encoding_name_has_prefix(info, "UniKS-") ||
+  pdf_font_encoding_name_has_prefix(info, "GB-EUC-") ||
+  pdf_font_encoding_name_has_prefix(info, "GBK-EUC-") ||
+  pdf_font_encoding_name_has_prefix(info, "ETen-B5-") ||
+  pdf_font_encoding_name_has_prefix(info, "90ms-RKSJ-") ||
+  pdf_font_encoding_name_has_prefix(info, "KSC-EUC-")
+}
+
+///|
+fn pdf_font_uses_vertical_writing(info : PdfNativeFontInfo) -> Bool {
+  pdf_font_is_identity_v(info) ||
+  (
+    pdf_font_has_predefined_cid_encoding(info) &&
+    pdf_font_encoding_name_has_suffix(info, "-V")
+  )
+}
+
+///|
+fn pdf_font_has_cjk_encoding_evidence(info : PdfNativeFontInfo) -> Bool {
+  pdf_font_has_predefined_cid_encoding(info)
 }
 
 ///|
 fn pdf_font_uses_code_unit_decode(info : PdfNativeFontInfo) -> Bool {
-  if info.tounicode_decode_failed {
-    return false
-  }
   info.has_tounicode ||
   info.unicode_map.length() > 0 ||
-  pdf_font_is_identity_h(info) ||
+  pdf_font_has_predefined_cid_encoding(info) ||
   pdf_font_has_multibyte_widths(info.code_hex_widths)
 }
 
@@ -5826,7 +7778,7 @@ fn pdf_font_uses_code_unit_decode(info : PdfNativeFontInfo) -> Bool {
 fn pdf_font_decode_widths(info : PdfNativeFontInfo) -> Array[Int] {
   if info.code_hex_widths.length() > 0 {
     info.code_hex_widths
-  } else if pdf_font_is_identity_h(info) {
+  } else if pdf_font_has_predefined_cid_encoding(info) {
     [2]
   } else {
     [1]
@@ -5834,189 +7786,40 @@ fn pdf_font_decode_widths(info : PdfNativeFontInfo) -> Array[Int] {
 }
 
 ///|
-fn pdf_font_has_multibyte_widths(widths : Array[Int]) -> Bool {
-  for width in widths {
-    if width > 1 {
-      return true
-    }
-  }
-  false
-}
-
-///|
-fn pdf_font_is_identity_h(info : PdfNativeFontInfo) -> Bool {
-  info.encoding_name == Some("Identity-H")
-}
-
-///|
-fn pdf_decode_font_code_fallback(
-  key : String,
-  info : PdfNativeFontInfo,
-) -> String? {
-  let decoded = match pdf_hex_to_string(key) {
-    Some(value) => value
-    None => return None
-  }
-  if !pdf_text_has_disallowed_control(decoded) {
-    return Some(decoded)
-  }
-  if pdf_font_is_identity_h(info) && key == "0001" {
-    return Some(" ")
-  }
-  None
-}
-
-///|
-fn pdf_decode_raw_cjk_hex_fallback(
-  hex : String,
-  info : PdfNativeFontInfo,
-) -> String? {
-  if !pdf_font_may_use_raw_cjk_decode(info) {
-    return None
-  }
-  let bytes = match pdf_hex_byte_values(hex) {
-    Some(value) => value
-    None => return None
-  }
-  if !pdf_raw_cjk_bytes_need_decode(bytes) {
-    return None
-  }
-  let decoded = pdf_decode_gb2312_first_bytes(bytes)
-  let strong_cjk_evidence = pdf_font_has_cjk_name_evidence(info)
-  if pdf_raw_cjk_decode_result_is_confident_gb2312(decoded) ||
-    (
-      strong_cjk_evidence &&
-      pdf_raw_cjk_decode_result_is_safe_gb2312_token(decoded)
-    ) {
-    Some(decoded.text)
-  } else {
-    None
-  }
-}
-
-///|
-fn pdf_text_has_disallowed_control(text : String) -> Bool {
-  for ch in text.to_array() {
-    let code = ch.to_int()
-    if code == 0x0000 {
-      return true
-    }
-    if code < 0x0020 &&
-      ch != '\t' &&
-      ch != '\n' &&
-      ch != '\r' &&
-      ch != '\u{0008}' &&
-      ch != '\u{000C}' {
-      return true
-    }
-  }
-  false
-}
-
-///|
-fn pdf_is_usable_tounicode_text(text : String) -> Bool {
-  if text == "" {
-    return false
-  }
-  for ch in text.to_array() {
-    if pdf_codepoint_is_noncharacter(ch.to_int()) {
-      return false
-    }
-  }
-  true
-}
-
-///|
-fn pdf_codepoint_is_noncharacter(code : Int) -> Bool {
-  (code >= 0xFDD0 && code <= 0xFDEF) || (code & 0xFFFE) == 0xFFFE
-}
-
-///|
-fn pdf_identity_h_ascii_rescue(
-  hex : String,
-  info : PdfNativeFontInfo,
-) -> String? {
-  if info.has_tounicode || !pdf_font_is_identity_h(info) {
-    return None
-  }
-  let raw_codes = pdf_hex_codes_as_ints(hex)
-  if raw_codes is None {
-    return None
-  }
-  let rescued = pdf_rescued_identity_h_ascii_codepoints(raw_codes.unwrap())
-  match rescued {
-    Some(codepoints) => Some(pdf_string_from_codepoints(codepoints))
-    None => None
-  }
-}
-
-///|
-fn pdf_hex_codes_as_ints(hex : String) -> Array[Int]? {
-  let normalized = hex.trim().to_upper()
-  if normalized == "" || normalized.length() % 4 != 0 {
-    return None
-  }
-  let codes : Array[Int] = []
-  let mut index = 0
-  while index + 4 <= normalized.length() {
-    match pdf_parse_hex_int(normalized[index:index + 4].to_owned()) {
-      Some(code) => codes.push(code)
-      None => return None
-    }
-    index += 4
-  }
-  Some(codes)
-}
-
-///|
-fn pdf_hex_byte_values(hex : String) -> Array[Int]? {
-  let normalized = hex.trim().to_upper()
-  if normalized == "" || normalized.length() % 2 != 0 {
-    return None
-  }
-  let bytes : Array[Int] = []
-  let mut index = 0
-  while index + 2 <= normalized.length() {
-    match pdf_parse_hex_int(normalized[index:index + 2].to_owned()) {
-      Some(value) => bytes.push(value)
-      None => return None
-    }
-    index += 2
-  }
-  Some(bytes)
-}
-
-///|
-fn pdf_ascii_lower_codepoint(codepoint : Int) -> Int {
-  if codepoint >= 65 && codepoint <= 90 {
-    codepoint + 32
-  } else {
-    codepoint
-  }
-}
-
-///|
 fn pdf_font_may_use_raw_cjk_decode(info : PdfNativeFontInfo) -> Bool {
-  if info.has_tounicode || info.tounicode_decode_failed {
+  if info.has_tounicode {
     return false
   }
-  if pdf_font_is_identity_h(info) {
+  if pdf_font_is_identity_h(info) || pdf_font_is_identity_v(info) {
     return false
   }
-  pdf_font_has_cjk_name_evidence(info) || pdf_font_is_winansi(info)
+  pdf_font_has_cjk_name_evidence(info) ||
+  pdf_font_has_cjk_encoding_evidence(info)
 }
 
 ///|
 fn pdf_font_has_cjk_name_evidence(info : PdfNativeFontInfo) -> Bool {
   let normalized = match info.normalized_base_font {
     Some(value) => value
-    None => return false
+    None => return pdf_font_has_cjk_encoding_evidence(info)
   }
   if pdf_string_contains_cjk_char(normalized) {
     return true
   }
   normalized.contains("gb2312") ||
   normalized.contains("gbk") ||
+  normalized.contains("big5") ||
+  normalized.contains("eten") ||
+  normalized.contains("sjis") ||
+  normalized.contains("rksj") ||
+  normalized.contains("jis") ||
+  normalized.contains("euc") ||
+  normalized.contains("gothic") ||
+  normalized.contains("mincho") ||
+  normalized.contains("cns") ||
+  normalized.contains("ksc") ||
+  normalized.contains("korean") ||
+  normalized.contains("japan") ||
   normalized.contains("cjk") ||
   normalized.contains("song") ||
   normalized.contains("fang") ||
@@ -6027,13 +7830,82 @@ fn pdf_font_has_cjk_name_evidence(info : PdfNativeFontInfo) -> Bool {
 }
 
 ///|
-fn pdf_string_contains_cjk_char(text : String) -> Bool {
-  for ch in text.to_array() {
-    if pdf_is_cjk_char(ch) {
-      return true
-    }
+fn pdf_font_prefers_raw_gb_family_decode(info : PdfNativeFontInfo) -> Bool {
+  if pdf_font_encoding_name_has_prefix(info, "GB-EUC-") ||
+    pdf_font_encoding_name_has_prefix(info, "GBK-EUC-") {
+    return true
   }
-  false
+  let normalized = match info.normalized_base_font {
+    Some(value) => value
+    None => return false
+  }
+  normalized.contains("gb2312") ||
+  normalized.contains("gbk") ||
+  normalized.contains("song") ||
+  normalized.contains("fang") ||
+  normalized.contains("hei") ||
+  normalized.contains("kai") ||
+  normalized.contains("ming") ||
+  normalized.contains("sim") ||
+  normalized.contains("宋") ||
+  normalized.contains("体") ||
+  normalized.contains("仿") ||
+  normalized.contains("黑") ||
+  normalized.contains("楷") ||
+  normalized.contains("明")
+}
+
+///|
+fn pdf_font_prefers_raw_euc_jp_decode(info : PdfNativeFontInfo) -> Bool {
+  if info.encoding_name == Some("EUC-H") || info.encoding_name == Some("EUC-V") {
+    return true
+  }
+  let normalized = match info.normalized_base_font {
+    Some(value) => value
+    None => return false
+  }
+  normalized.contains("gothic") ||
+  normalized.contains("mincho") ||
+  normalized.contains("jis") ||
+  normalized.contains("japan")
+}
+
+///|
+fn pdf_font_prefers_raw_shift_jis_decode(info : PdfNativeFontInfo) -> Bool {
+  if pdf_font_encoding_name_has_prefix(info, "90ms-RKSJ-") ||
+    pdf_font_encoding_name_has_prefix(info, "83pv-RKSJ-") {
+    return true
+  }
+  let normalized = match info.normalized_base_font {
+    Some(value) => value
+    None => return false
+  }
+  normalized.contains("sjis") ||
+  normalized.contains("rksj") ||
+  normalized.contains("gothic") ||
+  normalized.contains("mincho") ||
+  normalized.contains("japan")
+}
+
+///|
+fn pdf_font_raw_cjk_encoding_kind(
+  info : PdfNativeFontInfo,
+) -> PdfRawCjkEncodingKind? {
+  if pdf_font_prefers_raw_gb_family_decode(info) {
+    Some(PdfRawCjkEncodingKind::Gb2312)
+  } else if info.encoding_name == Some("EUC-H") ||
+    info.encoding_name == Some("EUC-V") {
+    Some(PdfRawCjkEncodingKind::EucJp)
+  } else if pdf_font_encoding_name_has_prefix(info, "90ms-RKSJ-") ||
+    pdf_font_encoding_name_has_prefix(info, "83pv-RKSJ-") {
+    Some(PdfRawCjkEncodingKind::ShiftJis)
+  } else if pdf_font_prefers_raw_shift_jis_decode(info) {
+    Some(PdfRawCjkEncodingKind::ShiftJis)
+  } else if pdf_font_prefers_raw_euc_jp_decode(info) {
+    Some(PdfRawCjkEncodingKind::EucJp)
+  } else {
+    None
+  }
 }
 
 ///|
@@ -6042,26 +7914,28 @@ fn pdf_font_is_winansi(info : PdfNativeFontInfo) -> Bool {
 }
 
 ///|
-fn pdf_raw_cjk_bytes_need_decode(bytes : Array[Int]) -> Bool {
-  let mut index = 0
-  let mut saw_pair = false
-  while index < bytes.length() {
-    let byte = bytes[index]
-    if byte >= 0 && byte <= 0x7F {
-      index += 1
-      continue
-    }
-    if index + 1 >= bytes.length() {
-      return false
-    }
-    if pdf_native_gb2312_lookup_codepoint(byte, bytes[index + 1]) is Some(_) {
-      saw_pair = true
-      index += 2
-    } else {
-      return false
-    }
+fn pdf_decode_raw_cjk_bytes_for_font(
+  bytes : Array[Int],
+  info : PdfNativeFontInfo,
+) -> String? {
+  let encoding_kind = match pdf_font_raw_cjk_encoding_kind(info) {
+    Some(value) => value
+    None => return None
   }
-  saw_pair
+  if !pdf_raw_cjk_bytes_need_decode(bytes, encoding_kind) {
+    return None
+  }
+  let decoded = pdf_decode_raw_cjk_bytes(bytes, encoding_kind)
+  let strong_cjk_evidence = pdf_font_has_cjk_name_evidence(info)
+  if pdf_raw_cjk_decode_result_is_confident(decoded) ||
+    (
+      strong_cjk_evidence &&
+      pdf_raw_cjk_decode_result_is_safe_gb2312_token(decoded)
+    ) {
+    Some(decoded.text)
+  } else {
+    None
+  }
 }
 
 ///|
@@ -6350,6 +8224,236 @@ fn pdf_native_source_id(source : @input.InputSource) -> String {
 }
 
 ///|
+fn pdf_native_line_reading_order_compare(
+  left : PdfNativeTextLine,
+  right : PdfNativeTextLine,
+) -> Int {
+  match (left.reading_order_index, right.reading_order_index) {
+    (Some(a), Some(b)) =>
+      if a < b {
+        -1
+      } else if a > b {
+        1
+      } else {
+        pdf_native_line_bbox_compare(left, right)
+      }
+    _ => pdf_native_line_bbox_compare(left, right)
+  }
+}
+
+///|
+fn pdf_native_line_bbox_compare(
+  left : PdfNativeTextLine,
+  right : PdfNativeTextLine,
+) -> Int {
+  let y_gap = pdf_abs_double(left.bbox.y - right.bbox.y)
+  if y_gap > 2.0 {
+    if left.bbox.y < right.bbox.y {
+      -1
+    } else {
+      1
+    }
+  } else if left.bbox.x < right.bbox.x {
+    -1
+  } else if left.bbox.x > right.bbox.x {
+    1
+  } else {
+    0
+  }
+}
+
+///|
+fn pdf_native_lines_bbox(lines : Array[PdfNativeTextLine]) -> PdfBBox {
+  let mut bbox = make_pdf_bbox(0.0, 0.0, 0.0, 0.0)
+  for line in lines {
+    bbox = if pdf_bbox_is_empty(bbox) {
+      line.bbox
+    } else {
+      pdf_union_bbox(bbox, line.bbox)
+    }
+  }
+  bbox
+}
+
+///|
+fn pdf_font_has_multibyte_widths(widths : Array[Int]) -> Bool {
+  for width in widths {
+    if width > 1 {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn pdf_font_is_identity_h(info : PdfNativeFontInfo) -> Bool {
+  info.encoding_name == Some("Identity-H")
+}
+
+///|
+fn pdf_decode_font_code_fallback(
+  key : String,
+  info : PdfNativeFontInfo,
+) -> String? {
+  if pdf_font_is_winansi(info) &&
+    (key.length() == 2 || (key.length() == 4 && key.has_prefix("00"))) {
+    let byte_hex = if key.length() == 4 { key[2:].to_owned() } else { key }
+    match pdf_parse_hex_int(byte_hex) {
+      Some(byte) => return Some(pdf_decode_winansi_bytes([byte]))
+      None => ()
+    }
+  }
+  if pdf_font_prefers_raw_gb_family_decode(info) {
+    match pdf_hex_byte_values(key) {
+      Some(bytes) =>
+        for byte in bytes {
+          if byte > 0x7F {
+            return None
+          }
+        }
+      None => ()
+    }
+  }
+  let decoded = match pdf_hex_to_string(key) {
+    Some(value) => value
+    None => return None
+  }
+  if !pdf_text_has_disallowed_control(decoded) {
+    return Some(decoded)
+  }
+  if pdf_font_is_identity_h(info) && key == "0001" {
+    return Some(" ")
+  }
+  None
+}
+
+///|
+fn pdf_decode_raw_cjk_hex_fallback(
+  hex : String,
+  info : PdfNativeFontInfo,
+) -> String? {
+  if !pdf_font_may_use_raw_cjk_decode(info) {
+    return None
+  }
+  let bytes = match pdf_hex_byte_values(hex) {
+    Some(value) => value
+    None => return None
+  }
+  pdf_decode_raw_cjk_bytes_for_font(bytes, info)
+}
+
+///|
+fn pdf_text_has_disallowed_control(text : String) -> Bool {
+  for ch in text.to_array() {
+    let code = ch.to_int()
+    if code == 0x0000 {
+      return true
+    }
+    if code < 0x0020 &&
+      ch != '\t' &&
+      ch != '\n' &&
+      ch != '\r' &&
+      ch != '\u{0008}' &&
+      ch != '\u{000C}' {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn pdf_is_usable_tounicode_text(text : String) -> Bool {
+  if text == "" {
+    return false
+  }
+  for ch in text.to_array() {
+    if pdf_codepoint_is_noncharacter(ch.to_int()) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn pdf_codepoint_is_noncharacter(code : Int) -> Bool {
+  (code >= 0xFDD0 && code <= 0xFDEF) || (code & 0xFFFE) == 0xFFFE
+}
+
+///|
+fn pdf_identity_h_ascii_rescue(
+  hex : String,
+  info : PdfNativeFontInfo,
+) -> String? {
+  if info.has_tounicode || !pdf_font_is_identity_h(info) {
+    return None
+  }
+  let raw_codes = pdf_hex_codes_as_ints(hex)
+  if raw_codes is None {
+    return None
+  }
+  let rescued = pdf_rescued_identity_h_ascii_codepoints(raw_codes.unwrap())
+  match rescued {
+    Some(codepoints) => Some(pdf_string_from_codepoints(codepoints))
+    None => None
+  }
+}
+
+///|
+fn pdf_hex_codes_as_ints(hex : String) -> Array[Int]? {
+  let normalized = hex.trim().to_upper()
+  if normalized == "" || normalized.length() % 4 != 0 {
+    return None
+  }
+  let codes : Array[Int] = []
+  let mut index = 0
+  while index + 4 <= normalized.length() {
+    match pdf_parse_hex_int(normalized[index:index + 4].to_owned()) {
+      Some(code) => codes.push(code)
+      None => return None
+    }
+    index += 4
+  }
+  Some(codes)
+}
+
+///|
+fn pdf_hex_byte_values(hex : String) -> Array[Int]? {
+  let normalized = hex.trim().to_upper()
+  if normalized == "" || normalized.length() % 2 != 0 {
+    return None
+  }
+  let bytes : Array[Int] = []
+  let mut index = 0
+  while index + 2 <= normalized.length() {
+    match pdf_parse_hex_int(normalized[index:index + 2].to_owned()) {
+      Some(value) => bytes.push(value)
+      None => return None
+    }
+    index += 2
+  }
+  Some(bytes)
+}
+
+///|
+fn pdf_ascii_lower_codepoint(codepoint : Int) -> Int {
+  if codepoint >= 65 && codepoint <= 90 {
+    codepoint + 32
+  } else {
+    codepoint
+  }
+}
+
+///|
+fn pdf_string_contains_cjk_char(text : String) -> Bool {
+  for ch in text.to_array() {
+    if pdf_is_cjk_char(ch) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn pdf_native_count_line_spans(lines : Array[PdfNativeTextLine]) -> Int {
   let mut count = 0
   for line in lines {
@@ -6577,6 +8681,117 @@ fn pdf_extract_filter_names(dict_text : String) -> Array[String] {
       names
     }
     _ => []
+  }
+}
+
+///|
+fn pdf_extract_stream_filter_specs(
+  dict_text : String,
+) -> Result[(Array[String], Array[PdfStreamDecodeParams?]), String] {
+  let filter_value = match pdf_extract_dict_value(dict_text, "/Filter") {
+    Some(value) => Some(value)
+    None => pdf_extract_dict_value(dict_text, "/F")
+  }
+  let filters = match filter_value {
+    Some(PdfNativeDictValue::Name(value)) => [value]
+    Some(PdfNativeDictValue::Array(tokens)) => {
+      let names : Array[String] = []
+      for token in tokens {
+        match token {
+          PdfNativeContentToken::Name(value) => names.push(value)
+          _ => ()
+        }
+      }
+      names
+    }
+    _ => []
+  }
+  let params : Array[PdfStreamDecodeParams?] = []
+  for _ in filters {
+    params.push(None)
+  }
+  if filters.length() == 0 {
+    return Ok((filters, params))
+  }
+  let decode_params_value = match
+    pdf_extract_dict_value(dict_text, "/DecodeParms") {
+    Some(value) => Some(value)
+    None => pdf_extract_dict_value(dict_text, "/DP")
+  }
+  match decode_params_value {
+    None => Ok((filters, params))
+    Some(PdfNativeDictValue::Array(tokens)) => {
+      let mut filter_index = 0
+      for token in tokens {
+        if filter_index >= filters.length() {
+          break
+        }
+        let value = match token {
+          PdfNativeContentToken::Dict(dict) => PdfNativeDictValue::Dict(dict)
+          PdfNativeContentToken::Word(word) => PdfNativeDictValue::Word(word)
+          PdfNativeContentToken::Number(number) =>
+            PdfNativeDictValue::Number(number)
+          PdfNativeContentToken::Name(name) => PdfNativeDictValue::Name(name)
+          PdfNativeContentToken::Array(items) =>
+            PdfNativeDictValue::Array(items)
+          PdfNativeContentToken::LiteralString(text) =>
+            PdfNativeDictValue::LiteralString(text)
+          PdfNativeContentToken::HexString(hex) =>
+            PdfNativeDictValue::HexString(hex)
+        }
+        match pdf_stream_decode_params_from_value(value) {
+          Ok(parsed) => params[filter_index] = parsed
+          Err(err) => return Err(err)
+        }
+        filter_index += 1
+      }
+      Ok((filters, params))
+    }
+    Some(value) =>
+      if filters.length() == 1 {
+        match pdf_stream_decode_params_from_value(value) {
+          Ok(parsed) => {
+            params[0] = parsed
+            Ok((filters, params))
+          }
+          Err(err) => Err(err)
+        }
+      } else {
+        Err("DecodeParms count does not match Filter count")
+      }
+  }
+}
+
+///|
+fn pdf_stream_decode_params_from_value(
+  value : PdfNativeDictValue,
+) -> Result[PdfStreamDecodeParams?, String] {
+  match value {
+    PdfNativeDictValue::Dict(dict_text) =>
+      Ok(Some(pdf_stream_decode_params_from_dict(dict_text)))
+    PdfNativeDictValue::Word("null") => Ok(None)
+    PdfNativeDictValue::Reference(object_id, generation) => {
+      ignore(generation)
+      Err(
+        "indirect DecodeParms are unsupported for stream decode (object " +
+        object_id.to_string() +
+        ")",
+      )
+    }
+    _ => Err("unsupported DecodeParms value")
+  }
+}
+
+///|
+fn pdf_stream_decode_params_from_dict(
+  dict_text : String,
+) -> PdfStreamDecodeParams {
+  {
+    predictor: pdf_extract_int_after(dict_text, "/Predictor"),
+    colors: pdf_extract_int_after(dict_text, "/Colors"),
+    bits_per_component: pdf_extract_int_after(dict_text, "/BitsPerComponent"),
+    columns: pdf_extract_int_after(dict_text, "/Columns"),
+    early_change: pdf_extract_int_after(dict_text, "/EarlyChange"),
   }
 }
 

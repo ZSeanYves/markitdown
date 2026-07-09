@@ -1,6 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "ZSeanYves/markitdown/format_readers/html"
 
+import {
+  "ZSeanYves/markitdown/input",
+}
+
 // Values
 pub fn analyze_html_source(String) -> HtmlSourceAnalysis raise
 
@@ -35,6 +39,8 @@ pub fn inspect_html_semantic_document(HtmlSemanticDocument) -> HtmlSemanticInspe
 pub fn normalize_html_token_source(String) -> String
 
 pub fn parse_html_document(String) -> HtmlDocument raise
+
+pub fn prepare_html_document_from_source(@input.InputSource) -> Result[PreparedHtmlDocument, String]
 
 pub fn tokenize_html_document(String) -> Array[HtmlToken] raise
 
@@ -973,6 +979,16 @@ pub(all) enum HtmlWarningSeverity {
   Warning
   Error
 } derive(Eq)
+
+pub struct PreparedHtmlDocument {
+  prepared_source : @input.InputSource
+  original_text : String
+  normalized_text : String
+  document : HtmlDocument?
+  inspect : HtmlInspectReport?
+  events : Array[HtmlTokenEvent]?
+  parse_error : String?
+}
 
 // Type aliases
 

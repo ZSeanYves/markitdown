@@ -1,6 +1,6 @@
 ///|
 fn canonical_route_name(route : CanonicalRoute) -> String {
-  @formats.route_name(route)
+  @fmeta.route_name(route)
 }
 
 ///|
@@ -52,32 +52,37 @@ fn execution_intent(options : ConvertOptions) -> ExecutionIntent {
     ocr_options: options.ocr_options,
     audio_options: options.audio_options,
     limits: options.limits,
-    pdf_ocr_policy: options.pdf_ocr_policy,
-    pdf_cleanup_mode: options.pdf_cleanup_mode,
-    pdf_table_mode: options.pdf_table_mode,
     rag_options: options.rag_options,
   }
 }
 
 ///|
-fn pdf_header_footer_filter_policy_from_mode(
-  mode : PdfCleanupMode,
+fn pdf_header_footer_filter_policy_for_plan(
+  detected_format : @input.DetectedFormat,
+  fidelity_mode : FidelityMode,
+  selected_route : CanonicalRoute,
 ) -> @parser.PdfHeaderFooterFilterPolicy {
-  match mode {
-    PdfCleanupMode::Disabled => @parser.PdfHeaderFooterFilterPolicy::Disabled
-    PdfCleanupMode::Conservative =>
-      @parser.PdfHeaderFooterFilterPolicy::InternalHighConfidenceOnly
+  if detected_format == @input.DetectedFormat::Pdf &&
+    selected_route == CanonicalRoute::LayoutTwoStage &&
+    fidelity_mode == FidelityMode::Accurate {
+    @parser.PdfHeaderFooterFilterPolicy::InternalHighConfidenceOnly
+  } else {
+    @parser.PdfHeaderFooterFilterPolicy::Disabled
   }
 }
 
 ///|
-fn pdf_table_reconstruction_policy_from_mode(
-  mode : PdfTableMode,
+fn pdf_table_reconstruction_policy_for_plan(
+  detected_format : @input.DetectedFormat,
+  fidelity_mode : FidelityMode,
+  selected_route : CanonicalRoute,
 ) -> @parser.PdfTableReconstructionPolicy {
-  match mode {
-    PdfTableMode::Disabled => @parser.PdfTableReconstructionPolicy::Disabled
-    PdfTableMode::Simple =>
-      @parser.PdfTableReconstructionPolicy::InternalSimpleRowsOnly
+  if detected_format == @input.DetectedFormat::Pdf &&
+    selected_route == CanonicalRoute::LayoutTwoStage &&
+    fidelity_mode == FidelityMode::Accurate {
+    @parser.PdfTableReconstructionPolicy::InternalSimpleRowsOnly
+  } else {
+    @parser.PdfTableReconstructionPolicy::Disabled
   }
 }
 
@@ -93,7 +98,7 @@ fn route_expects_stream_render(route : CanonicalRoute) -> Bool {
 
 ///|
 fn strategy_route_parser_mode(
-  route : @formats.StrategyRouteSpec,
+  route : @fmeta.StrategyRouteSpec,
 ) -> @parser.ParserMode? {
   Some(route.parser_mode)
 }
@@ -159,8 +164,8 @@ fn resolved_threshold_limit(
 fn strategy_switches_for_plan(
   detected_format : @input.DetectedFormat,
   intent : ExecutionIntent,
-  selected : @formats.StrategyRouteSpec,
-  mode_policy : @formats.ModeStrategyPolicy,
+  selected : @fmeta.StrategyRouteSpec,
+  mode_policy : @fmeta.ModeStrategyPolicy,
   explicit_stream_fell_back : Bool,
   accurate_fell_back : Bool,
   execution_profile : ExecutionProfile,
@@ -198,8 +203,8 @@ fn strategy_switches_for_plan(
 fn route_reason_for_plan(
   detected_format : @input.DetectedFormat,
   intent : ExecutionIntent,
-  selected : @formats.StrategyRouteSpec,
-  mode_policy : @formats.ModeStrategyPolicy,
+  selected : @fmeta.StrategyRouteSpec,
+  mode_policy : @fmeta.ModeStrategyPolicy,
   explicit_stream_fell_back : Bool,
   accurate_fell_back : Bool,
   hard_triggered : Bool,
@@ -233,8 +238,8 @@ fn route_reason_for_plan(
 
 ///|
 fn effective_execution_profile(
-  selected : @formats.StrategyRouteSpec,
-  mode_policy : @formats.ModeStrategyPolicy,
+  selected : @fmeta.StrategyRouteSpec,
+  mode_policy : @fmeta.ModeStrategyPolicy,
   soft_trigger_signals : Array[ProbeSignal],
   hard_trigger_signals : Array[ProbeSignal],
 ) -> ExecutionProfile {
@@ -254,8 +259,8 @@ fn effective_execution_profile(
 
 ///|
 fn effective_render_profile(
-  selected : @formats.StrategyRouteSpec,
-  mode_policy : @formats.ModeStrategyPolicy,
+  selected : @fmeta.StrategyRouteSpec,
+  mode_policy : @fmeta.ModeStrategyPolicy,
   execution_profile : ExecutionProfile,
 ) -> RenderProfile {
   match execution_profile {
@@ -277,7 +282,7 @@ fn effective_render_profile(
 
 ///|
 fn effective_lowering_profile(
-  selected : @formats.StrategyRouteSpec,
+  selected : @fmeta.StrategyRouteSpec,
   intent : ExecutionIntent,
   execution_profile : ExecutionProfile,
 ) -> LoweringProfile {
@@ -295,7 +300,7 @@ fn effective_lowering_profile(
 
 ///|
 fn accurate_feature_profile_for_mode_policy(
-  mode_policy : @formats.ModeStrategyPolicy,
+  mode_policy : @fmeta.ModeStrategyPolicy,
 ) -> AccurateFeatureProfile {
   @product.make_accurate_feature_profile(mode_policy.accurate_features.copy())
 }
@@ -304,10 +309,10 @@ fn accurate_feature_profile_for_mode_policy(
 fn select_strategy_route(
   detected_format : @input.DetectedFormat,
   intent : ExecutionIntent,
-  policy : @formats.FormatStrategyPolicy,
-  mode_policy : @formats.ModeStrategyPolicy,
+  policy : @fmeta.FormatStrategyPolicy,
+  mode_policy : @fmeta.ModeStrategyPolicy,
   hard_trigger_signals : Array[ProbeSignal],
-) -> (@formats.StrategyRouteSpec, Bool, Bool) {
+) -> (@fmeta.StrategyRouteSpec, Bool, Bool) {
   if detected_format == @input.DetectedFormat::Pdf &&
     intent.fidelity_mode == FidelityMode::Accurate {
     return (policy.accurate.canonical, false, false)
@@ -362,8 +367,8 @@ fn resolve_execution_plan(
     intent
   }
   let probe = preflight_probe(source, detected_format, options)
-  let policy = @formats.format_strategy_policy(detected_format)
-  let mode_policy = @formats.format_mode_strategy_policy(
+  let policy = @fmeta.route_contract_for_format(detected_format)
+  let mode_policy = @fmeta.route_mode_contract_for_format(
     detected_format,
     product_convert_mode_for_strategy(effective_intent.strategy_mode),
   )
@@ -439,9 +444,6 @@ fn resolve_execution_plan(
     ocr_options: effective_intent.ocr_options,
     audio_options: effective_intent.audio_options,
     limits: effective_intent.limits,
-    pdf_ocr_policy: effective_intent.pdf_ocr_policy,
-    pdf_cleanup_mode: effective_intent.pdf_cleanup_mode,
-    pdf_table_mode: effective_intent.pdf_table_mode,
     rag_options: effective_intent.rag_options,
     selected_route: selected.route,
     execution_profile,
@@ -457,11 +459,15 @@ fn resolve_execution_plan(
     accurate_feature_profile,
     requested_parser_mode: strategy_route_parser_mode(selected),
     pdf_native_runtime_policy: @parser.default_pdf_native_runtime_policy(),
-    pdf_header_footer_filter_policy: pdf_header_footer_filter_policy_from_mode(
-      effective_intent.pdf_cleanup_mode,
+    pdf_header_footer_filter_policy: pdf_header_footer_filter_policy_for_plan(
+      detected_format,
+      effective_intent.fidelity_mode,
+      selected.route,
     ),
-    pdf_table_reconstruction_policy: pdf_table_reconstruction_policy_from_mode(
-      effective_intent.pdf_table_mode,
+    pdf_table_reconstruction_policy: pdf_table_reconstruction_policy_for_plan(
+      detected_format,
+      effective_intent.fidelity_mode,
+      selected.route,
     ),
     reason: route_reason_for_plan(
       detected_format, effective_intent, selected, mode_policy, explicit_stream_fell_back,

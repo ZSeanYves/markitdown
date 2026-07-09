@@ -7,22 +7,6 @@ import {
 }
 
 // Values
-pub fn classify_ooxml_error(OoxmlError) -> OoxmlErrorInfo
-
-pub fn collect_ooxml_validation_issues(OoxmlPackage, mode? : OoxmlValidationMode) -> Array[OoxmlValidationIssue]
-
-pub fn dump_media_assets_summary(OoxmlPackage) -> String
-
-pub fn dump_ooxml_package(OoxmlPackage) -> String
-
-pub fn dump_package_summary(OoxmlPackage) -> String
-
-pub fn dump_properties_summary(OoxmlPackage) -> String
-
-pub fn dump_relationships_summary(OoxmlPackage) -> String
-
-pub fn find_part_info(OoxmlPackage, String) -> OoxmlPartInfo? raise OoxmlError
-
 pub fn find_relationship_by_id(OoxmlPackage, String, String) -> OoxmlRelationship? raise OoxmlError
 
 pub fn find_relationships_by_type(OoxmlPackage, String, String) -> Array[OoxmlRelationship] raise OoxmlError
@@ -33,14 +17,6 @@ pub fn has_relationships_part(OoxmlPackage, String) -> Bool
 
 pub fn inspect_ooxml_inventory(OoxmlPackage) -> OoxmlPackageInventory
 
-pub fn inspect_ooxml_package(OoxmlPackage) -> OoxmlPackageInspectReport
-
-pub fn inspect_ooxml_part_cache_stats(OoxmlPackage) -> OoxmlPartCacheStats
-
-pub fn inspect_ooxml_relationship_cache_stats(OoxmlPackage) -> OoxmlRelationshipCacheStats
-
-pub fn list_content_type_infos(OoxmlPackage) -> Array[OoxmlContentTypeInfo]
-
 pub fn list_media_assets(OoxmlPackage) -> Array[OoxmlAsset] raise OoxmlError
 
 pub fn list_part_infos(OoxmlPackage) -> Array[OoxmlPartInfo]
@@ -50,8 +26,6 @@ pub fn list_parts(OoxmlPackage) -> Array[String]
 pub fn list_parts_by_content_type(OoxmlPackage, String) -> Array[String] raise OoxmlError
 
 pub fn list_parts_by_prefix(OoxmlPackage, String) -> Array[String]
-
-pub fn list_relationship_infos(OoxmlPackage, String) -> Array[OoxmlRelationshipInfo] raise OoxmlError
 
 pub fn lookup_content_type(OoxmlPackage, String) -> String? raise OoxmlError
 
@@ -152,16 +126,6 @@ pub struct OoxmlCustomProperty {
   value_type : String?
 }
 
-pub struct OoxmlErrorInfo {
-  kind : OoxmlErrorKind
-  detail : String
-  part_name : String?
-  rels_part_name : String?
-  source_part : String?
-  rel_id : String?
-  target : String?
-}
-
 pub(all) enum OoxmlErrorKind {
   ZipFailure
   MissingPart
@@ -184,22 +148,6 @@ pub struct OoxmlPackage {
   // private fields
 }
 
-pub struct OoxmlPackageInspectReport {
-  part_count : Int
-  content_type_default_count : Int
-  content_type_override_count : Int
-  relationship_source_count : Int
-  package_relationship_count : Int
-  part_relationship_count : Int
-  media_asset_count : Int
-  inventory : OoxmlPackageInventory
-  package_relationships : Array[OoxmlRelationshipInfo]
-  part_relationships : Array[OoxmlRelationshipInfo]
-  media_assets : Array[OoxmlAsset]
-  core_properties : OoxmlCoreProperties
-  app_properties : OoxmlAppProperties
-}
-
 pub struct OoxmlPackageInventory {
   parts : Array[OoxmlPartInfo]
   content_types : Array[OoxmlContentTypeInfo]
@@ -213,15 +161,6 @@ pub struct OoxmlPackageInventory {
   has_app_properties : Bool
 }
 
-pub struct OoxmlPartCacheStats {
-  bytes_hit_count : Int
-  bytes_miss_count : Int
-  text_hit_count : Int
-  text_decode_count : Int
-  bytes_entry_count : Int
-  text_entry_count : Int
-}
-
 pub struct OoxmlPartInfo {
   part_name : String
   content_type : String?
@@ -231,25 +170,6 @@ pub struct OoxmlPartInfo {
 }
 
 pub struct OoxmlRelationship {
-  id : String
-  rel_type : String
-  target : String
-  target_mode : OoxmlTargetMode
-  resolved_target : String
-}
-
-pub struct OoxmlRelationshipCacheStats {
-  relationships_hit_count : Int
-  relationships_miss_count : Int
-  by_id_hit_count : Int
-  by_id_miss_count : Int
-  by_type_query_count : Int
-  entry_count : Int
-}
-
-pub struct OoxmlRelationshipInfo {
-  source_part : String?
-  rels_part_name : String
   id : String
   rel_type : String
   target : String

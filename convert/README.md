@@ -1,28 +1,49 @@
 # Convert
 
-`convert/` is the unified public conversion entry point. CLI code, tests, and future integrations should prefer this layer.
+`convert/` is the unified public conversion API layer. CLI, tests, and future external integrations should prefer this layer instead of directly wiring parser, pipeline, and renderer together.
 
-Main responsibilities:
+## Responsibilities
 
-- accept top-level conversion requests
-- freeze execution plans from format, mode, and runtime signals
-- coordinate the formal parser, pipeline, and render path
-- produce provenance so behavior stays explainable and regression-testable
+- Accept top-level conversion requests and normalize options
+- Probe inputs first, then freeze execution plans and route plans
+- Coordinate parser, pipeline, and render as one canonical path
+- Return final content, diagnostics, assets, source map, and provenance
 
-Main files:
+## Key Entry Points
 
-- `convert.mbt`: public `convert_input*` APIs
-- `convert_types.mbt`: conversion options, execution-plan models, and provenance models
-- `route_policy.mbt`: route planning and strategy decisions
-- `convert_finalize.mbt`: result finalization and provenance assembly
+- `convert.mbt`
+  `convert_input`, `plan_input`, `convert_input_with_provenance`
+- `types.mbt`
+  `ConvertOptions`, `RoutePlan`, `ConvertProvenance`, `ConvertResult`
+- `route_policy.mbt`
+  Unified routing, profile, and strategy decisions
+- `probe*.mbt`
+  Probing logic for structured text, containers, and paged media
+- `execution.mbt`
+  Main execution orchestration for parse, pipeline, and render
+- `json.mbt`
+  JSON projections for route plans and provenance
+- `convert_finalize.mbt`
+  Final output assembly, diagnostics merging, and provenance finalization
 
-Maintenance rules:
+## Key Types
 
-- all route decisions should converge in `route_policy.mbt`
-- provenance fields should be maintained centrally
-- new capabilities should extend the formal plan instead of bypassing the main path through one parser directly
+- `ConvertOptions`
+  User-facing options for mode, output format, OCR/audio, RAG, and resource limits
+- `RoutePlan`
+  A human-readable explanation of why the selected route was chosen
+- `ConvertProvenance`
+  The record of actual execution-time modes, profiles, features, providers, and strategy switches
+- `ConvertResult`
+  The unified public result object returned by the high-level API
 
-Validation:
+## Maintenance Rules
+
+- All route decisions should converge in `route_policy.mbt` and the probing modules, not be reimplemented inside CLI or format packages
+- Provenance fields must stay explainable and regression-friendly; new strategy decisions usually need matching provenance fields
+- New capabilities should extend the execution plan and canonical path instead of bypassing convert to call a parser directly
+
+## Validation
 
 ```bash
 moon build

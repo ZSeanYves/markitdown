@@ -3,6 +3,7 @@ package "ZSeanYves/markitdown/format_readers/ooxml/pptx"
 
 import {
   "ZSeanYves/markitdown/format_readers/ooxml/package",
+  "ZSeanYves/markitdown/input",
 }
 
 // Values
@@ -15,6 +16,8 @@ pub fn open_pptx_document(String) -> PptxDocument raise
 pub fn parse_pptx_document_from_package(@package.OoxmlPackage) -> PptxDocument raise
 
 pub fn parse_pptx_source(@package.OoxmlPackage) -> PptxSourceDocument raise
+
+pub fn prepare_pptx_document_from_source(@input.InputSource) -> Result[PreparedPptxDocument, String]
 
 // Errors
 pub(all) suberror PptxError {
@@ -572,6 +575,12 @@ pub(all) enum PptxWarningSeverity {
   Warning
   Error
 } derive(Eq)
+
+pub struct PreparedPptxDocument {
+  prepared_source : @input.InputSource
+  opened_package : @package.OoxmlPackage
+  document : PptxDocument
+}
 
 // Type aliases
 

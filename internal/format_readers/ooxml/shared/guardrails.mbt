@@ -90,11 +90,13 @@ pub fn office_asset_output_path_is_safe(path : String) -> Bool {
 }
 
 ///|
-pub fn office_asset_plan_is_safe(plan : OfficeAssetPlan) -> Bool {
+pub fn office_asset_plan_is_safe(plan : @oshared.OfficeAssetPlan) -> Bool {
   office_asset_output_path_is_safe(plan.output_relative_path)
 }
 
 ///|
-pub fn office_relationship_is_no_fetch(rel : OfficeRelationship) -> Bool {
+pub fn office_relationship_is_no_fetch(
+  rel : @oshared.OfficeRelationship,
+) -> Bool {
   rel.is_external || rel.target_mode.trim().to_lower() == "external"
 }

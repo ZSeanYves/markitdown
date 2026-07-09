@@ -50,3 +50,10 @@ pub fn parse_text_markup_table(
 ) -> TextMarkupTable? {
   @shared.parse_text_markup_table(block, format)
 }
+
+///|
+pub fn prepare_asciidoc_document_from_source(
+  source : @input.InputSource,
+) -> Result[@shared.PreparedTextMarkupDocument, String] {
+  @shared.prepare_asciidoc_document_from_source(source)
+}

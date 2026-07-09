@@ -1,4 +1,5 @@
 ///|
+/// Public convert strategy modes re-exported by the high-level API.
 pub(all) enum ConvertMode {
   Balanced
   Accurate
@@ -22,6 +23,9 @@ fn product_convert_mode(mode : ConvertMode) -> @product.ConvertMode {
 
 ///|
 /// External output views currently exposed by the high-level convert API.
+///
+/// These stay slightly narrower than internal `OutputMode` because they model
+/// what callers can request directly from `convert_input`.
 pub(all) enum OutputFormat {
   Markdown
   RagJson
@@ -29,65 +33,62 @@ pub(all) enum OutputFormat {
 } derive(Eq)
 
 ///|
+/// High-level convert-layer alias of the product execution profile.
 pub type ExecutionProfile = @product.ExecutionProfile
 
 ///|
+/// High-level convert-layer alias of the product lowering profile.
 pub type LoweringProfile = @product.LoweringProfile
 
 ///|
+/// High-level convert-layer alias of the product render profile.
 pub type RenderProfile = @product.RenderProfile
 
 ///|
+/// Public probe signal label re-exported from the product vocabulary.
 pub type ProbeSignalKind = @product.ProbeSignalKind
 
 ///|
+/// Public accurate-feature label re-exported from the product vocabulary.
 pub type AccurateFeature = @product.AccurateFeature
 
 ///|
+/// Public accurate-feature profile re-exported from the product vocabulary.
 pub type AccurateFeatureProfile = @product.AccurateFeatureProfile
 
 ///|
+/// OCR provider kind re-exported for route plan and provenance surfaces.
 pub type OcrProviderKind = @focr.OcrProviderKind
 
 ///|
+/// OCR provider selection target re-exported for route plan and provenance
+/// surfaces.
 pub type OcrProviderSelectionTarget = @focr.OcrProviderSelectionTarget
 
 ///|
-/// Route-probe summary for an audio input before parsing begins.
-pub struct AudioProbeArtifact {
-  format : String
-  codec : String?
-  duration_ms : Int?
-  sample_rate_hz : Int?
-  channel_count : Int?
-  language : String?
-  probe_notes : Array[String]
+priv struct DocxProbeArtifact {
+  block_count : Int
+  image_count : Int
+  comment_count : Int
+  textbox_count : Int
+  header_count : Int
+  footer_count : Int
+  note_count : Int
 }
 
 ///|
-pub fn make_audio_probe_artifact(
-  format : String,
-  codec? : String? = None,
-  duration_ms? : Int? = None,
-  sample_rate_hz? : Int? = None,
-  channel_count? : Int? = None,
-  language? : String? = None,
-  probe_notes? : Array[String] = [],
-) -> AudioProbeArtifact {
-  {
-    format,
-    codec,
-    duration_ms,
-    sample_rate_hz,
-    channel_count,
-    language,
-    probe_notes,
-  }
+priv struct PptxProbeArtifact {
+  hidden_slide_count : Int
+  text_block_count : Int
+  image_count : Int
 }
 
 ///|
 /// One quantitative signal captured during route probing.
-pub struct ProbeSignal {
+///
+/// `observed` is the measured value, `limit` is the threshold that mattered
+/// for routing, and `note` keeps small human-readable context for summaries.
+priv struct ProbeSignal {
   kind : ProbeSignalKind
   observed : Int
   limit : Int?
@@ -95,7 +96,14 @@ pub struct ProbeSignal {
 }
 
 ///|
-pub fn make_probe_signal(
+/// One hard probe failure recorded during route planning.
+priv struct ProbeFailure {
+  stage : String
+  detail : String
+}
+
+///|
+fn make_probe_signal(
   kind : ProbeSignalKind,
   observed : Int,
   limit? : Int? = None,
@@ -105,19 +113,15 @@ pub fn make_probe_signal(
 }
 
 ///|
-/// One hard probe failure recorded during route planning.
-pub struct ProbeFailure {
-  stage : String
-  detail : String
-}
-
-///|
-pub fn make_probe_failure(stage : String, detail : String) -> ProbeFailure {
+fn make_probe_failure(stage : String, detail : String) -> ProbeFailure {
   { stage, detail }
 }
 
 ///|
 /// Public convert-layer copy of product resource ceilings.
+///
+/// Keeping a local copy lets the public API stay stable even if internal
+/// product options gain additional fields later.
 pub struct ResourceLimits {
   max_rows : Int
   max_cols : Int
@@ -148,46 +152,10 @@ fn product_resource_limits(limits : ResourceLimits) -> @product.ResourceLimits {
 }
 
 ///|
-pub(all) enum PdfCleanupMode {
-  Disabled
-  Conservative
-} derive(Eq)
-
-///|
-fn product_pdf_cleanup_mode(mode : PdfCleanupMode) -> @product.PdfCleanupMode {
-  match mode {
-    PdfCleanupMode::Disabled => @product.PdfCleanupMode::Disabled
-    PdfCleanupMode::Conservative => @product.PdfCleanupMode::Conservative
-  }
-}
-
-///|
-pub(all) enum PdfTableMode {
-  Disabled
-  Simple
-} derive(Eq)
-
-///|
-fn product_pdf_table_mode(mode : PdfTableMode) -> @product.PdfTableMode {
-  match mode {
-    PdfTableMode::Disabled => @product.PdfTableMode::Disabled
-    PdfTableMode::Simple => @product.PdfTableMode::Simple
-  }
-}
-
-///|
-pub type PdfOcrPolicy = @product.PdfOcrPolicy
-
-///|
-fn product_pdf_ocr_policy(policy : PdfOcrPolicy) -> @product.PdfOcrPolicy {
-  policy
-}
-
-///|
 /// High-level convert API options accepted by `convert_input`.
 ///
 /// These are the user-facing knobs that eventually resolve into product
-/// options, parser context, and renderer selection.
+/// options, parser context, renderer selection, and route-planning policy.
 pub struct ConvertOptions {
   mode : ConvertMode
   fidelity_mode : FidelityMode
@@ -198,14 +166,15 @@ pub struct ConvertOptions {
   ocr_options : @parser.OcrOptions
   audio_options : @parser.AudioOptions
   limits : ResourceLimits
-  pdf_ocr_policy : PdfOcrPolicy
-  pdf_cleanup_mode : PdfCleanupMode
-  pdf_table_mode : PdfTableMode
   rag_options : @rag.RagOptions
 }
 
 ///|
 /// Human-readable summary of the selected route before execution.
+///
+/// This is intentionally compact and user-facing, so CLI and tests can explain
+/// why a specific parser mode or OCR provider was selected without dumping the
+/// full internal execution plan.
 pub struct RoutePlan {
   detected_format : @input.DetectedFormat
   selected_route : String
@@ -218,30 +187,11 @@ pub struct RoutePlan {
 }
 
 ///|
-pub fn make_route_plan(
-  detected_format : @input.DetectedFormat,
-  selected_route : String,
-  route_reason : String,
-  route_probe_summary : String,
-  requested_parser_mode : @parser.ParserMode?,
-  ocr_provider_selection_target? : String? = None,
-  ocr_provider_requested_kind? : String? = None,
-  ocr_provider_resolved_kind? : String? = None,
-) -> RoutePlan {
-  {
-    detected_format,
-    selected_route,
-    route_reason,
-    route_probe_summary,
-    requested_parser_mode,
-    ocr_provider_selection_target,
-    ocr_provider_requested_kind,
-    ocr_provider_resolved_kind,
-  }
-}
-
-///|
 /// Provenance record describing how the product path actually executed.
+///
+/// Compared with `RoutePlan`, this captures the effective profiles, parser
+/// result shape, feature switches, provider resolution, and strategy changes
+/// that happened during real execution.
 pub struct ConvertProvenance {
   route_plan : RoutePlan
   fidelity_mode : FidelityMode
@@ -268,69 +218,10 @@ pub struct ConvertProvenance {
 }
 
 ///|
-pub fn make_convert_provenance(
-  route_plan : RoutePlan,
-  fidelity_mode : FidelityMode,
-  output_mode : OutputMode,
-  execution_profile : ExecutionProfile,
-  execution_profile_reason : String,
-  lowering_profile : LoweringProfile,
-  render_profile : RenderProfile,
-  profile_trigger_signals : Array[String],
-  effective_parser_mode : @parser.ParserMode,
-  parse_result_kind : String,
-  pipeline_output_kind : String,
-  render_input_kind : String,
-  route_fidelity_status : String,
-  applied_accurate_features : Array[String],
-  same_mode_strategy_switches : Array[String],
-  ocr_provider_selection_target? : String? = None,
-  ocr_provider_requested_kind? : String? = None,
-  ocr_provider_resolved_kind? : String? = None,
-  audio_backend_transport? : String? = None,
-  audio_backend_name? : String? = None,
-  audio_backend_version? : String? = None,
-  requested_fidelity_mode? : FidelityMode? = None,
-) -> ConvertProvenance {
-  {
-    route_plan,
-    fidelity_mode,
-    output_mode,
-    execution_profile,
-    execution_profile_reason,
-    lowering_profile,
-    render_profile,
-    profile_trigger_signals,
-    effective_parser_mode,
-    parse_result_kind,
-    pipeline_output_kind,
-    render_input_kind,
-    route_fidelity_status,
-    applied_accurate_features,
-    same_mode_strategy_switches,
-    ocr_provider_selection_target,
-    ocr_provider_requested_kind,
-    ocr_provider_resolved_kind,
-    audio_backend_transport,
-    audio_backend_name,
-    audio_backend_version,
-    requested_fidelity_mode,
-  }
-}
-
-///|
 /// Pairing of end-user output plus the provenance that produced it.
 pub struct ConvertExecution {
   result : ConvertResult
   provenance : ConvertProvenance
-}
-
-///|
-pub fn make_convert_execution(
-  result : ConvertResult,
-  provenance : ConvertProvenance,
-) -> ConvertExecution {
-  { result, provenance }
 }
 
 ///|
@@ -343,17 +234,15 @@ fn product_options_from_convert_options(
     fidelity_mode=options.fidelity_mode,
     output_mode=options.output_mode,
     stream_requested=options.stream_requested,
-    pdf_ocr_policy=product_pdf_ocr_policy(options.pdf_ocr_policy),
-    pdf_cleanup_mode=product_pdf_cleanup_mode(options.pdf_cleanup_mode),
-    pdf_table_mode=product_pdf_table_mode(options.pdf_table_mode),
     rag_options=options.rag_options,
   )
 }
 
 ///|
-type CanonicalRoute = @formats.FormatRoute
+type CanonicalRoute = @fmeta.FormatRoute
 
 ///|
+/// Internal result of the probing stage before the route is frozen.
 priv struct ProbeOutcome {
   probe_signals : Array[ProbeSignal]
   probe_failures : Array[ProbeFailure]
@@ -364,6 +253,16 @@ priv struct ProbeOutcome {
 }
 
 ///|
+/// Prepared source plus the probe artifacts that may be reused by execution.
+priv struct PreparedParseRequest {
+  source : @input.InputSource
+  detected_format : @input.DetectedFormat
+  probe_outcome : ProbeOutcome
+  probe_artifact : RouteProbeArtifact?
+}
+
+///|
+/// Caller intent after CLI/public defaults are normalized but before routing.
 priv struct ExecutionIntent {
   strategy_mode : ConvertMode
   fidelity_mode : FidelityMode
@@ -374,13 +273,12 @@ priv struct ExecutionIntent {
   ocr_options : @parser.OcrOptions
   audio_options : @parser.AudioOptions
   limits : ResourceLimits
-  pdf_ocr_policy : PdfOcrPolicy
-  pdf_cleanup_mode : PdfCleanupMode
-  pdf_table_mode : PdfTableMode
   rag_options : @rag.RagOptions
 }
 
 ///|
+/// Fully-resolved internal execution plan frozen after probing and route
+/// policy selection.
 priv struct ResolvedExecutionPlan {
   detected_format : @input.DetectedFormat
   mode : ConvertMode
@@ -392,9 +290,6 @@ priv struct ResolvedExecutionPlan {
   ocr_options : @parser.OcrOptions
   audio_options : @parser.AudioOptions
   limits : ResourceLimits
-  pdf_ocr_policy : PdfOcrPolicy
-  pdf_cleanup_mode : PdfCleanupMode
-  pdf_table_mode : PdfTableMode
   rag_options : @rag.RagOptions
   selected_route : CanonicalRoute
   execution_profile : ExecutionProfile
@@ -425,22 +320,23 @@ priv struct ResolvedExecutionPlan {
 
 ///|
 priv enum RouteProbeArtifact {
-  MarkdownScan(@dmd.MarkdownDocument, @dmd.MarkdownInspectReport)
-  HtmlEvents(String, Array[@dhtml.HtmlTokenEvent])
-  IpynbNotebook(@dipynb.IpynbNotebook, @dipynb.IpynbInspectReport)
-  JsonStream(@djson.JsonStreamDocument)
-  TextMarkupDocument(@dtext.TextMarkupDocument, @dtext.TextMarkupInspectReport)
-  TomlDocument(@dtoml.TomlDocument, @dtoml.TomlInspectReport)
-  XmlTokens(Array[@dxml.XmlToken])
-  OdtDocument(@dodf.OdtDocument, @dodf.OdtInspectReport)
-  OdsDocument(@dodf.OdsDocument, @dodf.OdsInspectReport)
-  OdpDocument(@dodf.OdpDocument, @dodf.OdpInspectReport)
-  XlsxPackage(@ox.OoxmlPackage)
-  PdfNativeDocument(@fpdf.PdfNativeDocument)
-  ZipArchiveInspect(@dzip.ZipArchive, @dzip.ZipArchiveInspectReport)
-  EpubPackageInspect(@depub.EpubPackage, @depub.EpubInspectReport)
-  YamlEvents(Array[@dyaml.YamlStructureEvent], @dyaml.YamlInspectReport)
-  AudioProbe(AudioProbeArtifact)
+  MarkdownPrepared(@dmd.PreparedMarkdownDocument)
+  HtmlPrepared(@dhtml.PreparedHtmlDocument)
+  IpynbPrepared(@dipynb.PreparedIpynbNotebook)
+  JsonPrepared(@djson.PreparedJsonText)
+  TextMarkupPrepared(@dtext.PreparedTextMarkupDocument)
+  TomlPrepared(@dtoml.PreparedTomlDocument)
+  XmlPrepared(@dxml.PreparedXmlText)
+  DocxPrepared(@ddocx.PreparedDocxDocument, DocxProbeArtifact)
+  PptxPrepared(@pptxdoc.PreparedPptxDocument, PptxProbeArtifact)
+  OdtPrepared(@dodf.PreparedOdtDocument)
+  OdsPrepared(@dodf.PreparedOdsDocument)
+  OdpPrepared(@dodf.PreparedOdpDocument)
+  XlsxPrepared(@drxlsx.PreparedXlsxPackage)
+  PdfNativeDocument(@dpdfnative.PdfNativeDocument)
+  ZipPrepared(@dzipsource.PreparedZipArchive)
+  EpubPrepared(@depub.PreparedEpubPackage)
+  YamlPrepared(@dyaml.PreparedYamlDocument)
 }
 
 ///|
@@ -469,6 +365,10 @@ pub impl Show for ConvertError with fn output(
 
 ///|
 /// Final public result returned by the high-level convert API.
+///
+/// It carries the rendered content plus the stable public side channels callers
+/// most often need: diagnostics, metadata, assets, source map, chunks, and an
+/// optional debug IR snapshot.
 pub struct ConvertResult {
   content : String
   output_format : OutputFormat
@@ -486,11 +386,14 @@ pub struct ConvertResult {
 }
 
 ///|
+/// Return the default convert-layer resource limits aligned with product
+/// defaults.
 pub fn default_resource_limits() -> ResourceLimits {
   resource_limits_from_product(@product.default_resource_limits())
 }
 
 ///|
+/// Build explicit convert-layer resource limits aligned with product policy.
 pub fn make_resource_limits(
   max_rows : Int,
   max_cols : Int,
@@ -521,9 +424,6 @@ pub fn default_convert_options() -> ConvertOptions {
     ocr_options: @parser.default_ocr_options(),
     audio_options: @parser.default_audio_options(),
     limits: resource_limits_from_product(product_options.limits),
-    pdf_ocr_policy: @product.default_pdf_ocr_policy(),
-    pdf_cleanup_mode: default_pdf_cleanup_mode(),
-    pdf_table_mode: default_pdf_table_mode(),
     rag_options: product_options.rag_options,
   }
 }
@@ -541,9 +441,6 @@ pub fn make_convert_options(
   fidelity_mode? : FidelityMode = fidelity_mode_for_convert_mode(mode),
   output_mode? : OutputMode = output_mode_for_output_format(output_format),
   stream_requested? : Bool = mode == ConvertMode::Stream,
-  pdf_ocr_policy? : PdfOcrPolicy = @product.default_pdf_ocr_policy(),
-  pdf_cleanup_mode? : PdfCleanupMode = default_pdf_cleanup_mode(),
-  pdf_table_mode? : PdfTableMode = default_pdf_table_mode(),
   rag_options? : @rag.RagOptions = @rag.default_rag_options(),
 ) -> ConvertOptions {
   {
@@ -556,9 +453,6 @@ pub fn make_convert_options(
     ocr_options,
     audio_options,
     limits,
-    pdf_ocr_policy,
-    pdf_cleanup_mode,
-    pdf_table_mode,
     rag_options,
   }
 }
@@ -576,11 +470,13 @@ pub fn fidelity_mode_for_convert_mode(mode : ConvertMode) -> FidelityMode {
 }
 
 ///|
+/// Stable diagnostics/provenance label for one fidelity mode.
 pub fn fidelity_mode_name(mode : FidelityMode) -> String {
   @product.fidelity_mode_name(mode)
 }
 
 ///|
+/// Return the renderer-facing output mode implied by a convert mode.
 pub fn output_mode_for_convert_mode(mode : ConvertMode) -> OutputMode {
   @product.output_mode_for_convert_mode(product_convert_mode(mode))
 }
@@ -596,6 +492,7 @@ pub fn output_mode_for_output_format(format : OutputFormat) -> OutputMode {
 }
 
 ///|
+/// Stable diagnostics/provenance label for one output mode.
 pub fn output_mode_name(mode : OutputMode) -> String {
   @product.output_mode_name(mode)
 }
@@ -614,44 +511,4 @@ pub fn derived_convert_mode(
       FidelityMode::Balanced => ConvertMode::Balanced
     }
   }
-}
-
-///|
-pub fn default_pdf_cleanup_mode() -> PdfCleanupMode {
-  PdfCleanupMode::Disabled
-}
-
-///|
-pub fn default_pdf_table_mode() -> PdfTableMode {
-  PdfTableMode::Disabled
-}
-
-///|
-pub fn default_pdf_ocr_policy() -> PdfOcrPolicy {
-  @product.default_pdf_ocr_policy()
-}
-
-///|
-fn pdf_cleanup_opt_in_mode() -> PdfCleanupMode {
-  PdfCleanupMode::Conservative
-}
-
-///|
-fn pdf_table_opt_in_mode() -> PdfTableMode {
-  PdfTableMode::Simple
-}
-
-///|
-pub fn pdf_cleanup_mode_name(mode : PdfCleanupMode) -> String {
-  @product.pdf_cleanup_mode_name(product_pdf_cleanup_mode(mode))
-}
-
-///|
-pub fn pdf_table_mode_name(mode : PdfTableMode) -> String {
-  @product.pdf_table_mode_name(product_pdf_table_mode(mode))
-}
-
-///|
-pub fn pdf_ocr_policy_name(policy : PdfOcrPolicy) -> String {
-  @product.pdf_ocr_policy_name(policy)
 }
