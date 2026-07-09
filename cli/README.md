@@ -1,29 +1,43 @@
 # CLI
 
-`cli/` provides the formal command-line entry point for the project. It is the main product surface that users interact with directly.
+`cli/` provides the formal command-line entry point for the project and is the product surface most end users interact with. It is responsible for normalizing command-line syntax into convert-layer requests and handling single-file, batch, and output-boundary concerns.
 
-Main responsibilities:
+## Responsibilities
 
-- parse CLI arguments and normalize them into stable conversion requests
-- execute single-file and batch conversion
-- print help, version, and user-facing error messages
-- expose formal `convert` capabilities through one consistent CLI surface
+- Parse CLI arguments and build `CliOptions`
+- Execute single-file conversion and batch conversion
+- Print help, version, warnings, and user-actionable error messages
+- Persist content, provenance, and asset files at the output boundary
 
-Main files:
+## Key Entry Points
 
-- `main.mbt`: native executable entry
-- `cli.mbt`: top-level execution flow
-- `cli_parse.mbt`: argument parsing and normalization
-- `cli_batch.mbt`: batch conversion, manifest output, and asset persistence
-- `cli_help.mbt`: help text and user-facing warning messages
+- `main.mbt`
+  Native executable entry point
+- `cli.mbt`
+  `run_cli_app`, `run_cli`, and the main output-persistence flow
+- `cli_parse.mbt`
+  Argument parsing, defaults, and compatibility/removal guidance
+- `cli_batch.mbt`
+  Batch conversion, manifest generation, and batch-status aggregation
+- `cli_types.mbt`
+  `CliOptions` and batch-task result structures
+- `cli_help.mbt`
+  Help text, usage, and dependency guidance
 
-Maintenance rules:
+## Key Types
 
-- new flags should normalize into `CliOptions` first
-- the CLI should expose only formal product paths
-- user-facing warnings, fallbacks, and dependency guidance must stay stable and regression-testable
+- `CliOptions`
+  The normalized CLI input that feeds directly into the convert layer
+- `BatchTaskResult`
+  A per-task summary of detection, route selection, and failure reasons in batch mode
 
-Validation:
+## Maintenance Rules
+
+- New flags should normalize into `CliOptions` first instead of leaking intent through scattered booleans
+- The CLI should expose only formal product paths, not experimental parser side routes
+- Dependency-missing, degradation, and fail-closed messages should stay stable so scripts and regression tests can rely on them
+
+## Validation
 
 ```bash
 moon test

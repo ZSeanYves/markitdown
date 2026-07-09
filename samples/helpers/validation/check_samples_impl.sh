@@ -54,6 +54,38 @@ format_is_supported() {
   return 1
 }
 
+audio_format_selected() {
+  case "${1-}" in
+    wav|mp3|m4a)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+sample_runner_cwd_for_format() {
+  local format="${1-}"
+  if audio_format_selected "$format" && [[ -n "${MARKITDOWN_AUDIO_RUNNER_CWD:-}" ]]; then
+    printf '%s' "$MARKITDOWN_AUDIO_RUNNER_CWD"
+    return 0
+  fi
+  return 1
+}
+
+sample_run_markitdown_cli() {
+  local format="$1"
+  shift
+  local runner_cwd=""
+  runner_cwd="$(sample_runner_cwd_for_format "$format" 2>/dev/null || true)"
+  if [[ -n "$runner_cwd" ]]; then
+    MARKITDOWN_RUNNER_CWD="$runner_cwd" run_markitdown_cli "$@"
+    return $?
+  fi
+  run_markitdown_cli "$@"
+}
+
 require_external_main_corpus() {
   if [[ ! -d "$QUALITY_LAB_ROOT" ]]; then
     echo "external main corpus lab root missing: $QUALITY_LAB_ROOT" >&2
@@ -220,7 +252,7 @@ for row in "${SAMPLE_ROWS[@]}"; do
     out_path="$output_rag"
   fi
 
-  if ! run_markitdown_cli "${cli_args[@]}" "$input_path" "$out_path" >"$stdout_path" 2>"$stderr_path"; then
+  if ! sample_run_markitdown_cli "$fmt" "${cli_args[@]}" "$input_path" "$out_path" >"$stdout_path" 2>"$stderr_path"; then
     copy_if_exists "$out_path" "$failure_actual"
     copy_if_exists "$expected_path" "$failure_expected"
     copy_if_exists "$stdout_path" "$failure_stdout"

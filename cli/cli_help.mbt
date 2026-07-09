@@ -26,7 +26,9 @@ fn cli_write_stderr(message : String) -> Unit {
 
 ///|
 fn print_cli_help() -> Unit {
-  println("Convert documents to Markdown through the main CLI.")
+  println(
+    "Convert documents through one main CLI with capability-group routing.",
+  )
 }
 
 ///|
@@ -35,19 +37,17 @@ fn print_cli_usage() -> Unit {
   println(
     "  " +
     cli_product_name() +
-    " [balance|accurate|stream] [--format txt|csv|tsv|srt|vtt|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|eml|msg|tex|latex|rst|adoc|asciidoc|zip|epub|odt|ods|odp|docx|xlsx|pptx|pdf|wav|mp3|m4a|png|jpg|jpeg|bmp|webp|tif|tiff] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--audio-lang <LANG>] [--provenance-out <path>] <input> [output]",
+    " [balance|accurate|stream] [--format <format>] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--audio-lang <LANG>] [--provenance-out <path>] <input> [output]",
   )
   println(
     "  " +
     cli_product_name() +
-    " batch [balance|accurate|stream] [--format txt|csv|tsv|srt|vtt|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|eml|msg|tex|latex|rst|adoc|asciidoc|zip|epub|odt|ods|odp|docx|xlsx|pptx|pdf|wav|mp3|m4a|png|jpg|jpeg|bmp|webp|tif|tiff] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--audio-lang <LANG>] <input> <output_dir>",
+    " batch [balance|accurate|stream] [--format <format>] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--audio-lang <LANG>] <input> <output_dir>",
   )
   println("  " + cli_product_name() + " help | --help | -h")
   println("  " + cli_product_name() + " version | --version")
   println("")
-  println(
-    "Supported product formats: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, yml, toml, html, htm, markdown, md, eml, msg, tex, latex, rst, adoc, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, wav, mp3, m4a, png, jpg, jpeg, bmp, webp, tif, tiff",
-  )
+  println("Capability groups: Core, Office, Containers, Media, PdfOcr.")
   println("All other formats fail closed in this build.")
   println("Omit the mode or use `balance` for the default strategy mode.")
   println(
@@ -61,13 +61,13 @@ fn print_cli_usage() -> Unit {
     "`--rag` switches the output view to chunked retrieval JSON with the default internal chunking policy.",
   )
   println(
-    "Direct image input uses local Tesseract OCR by default; `--no-ocr` disables it. PDF input no longer supports balanced OCR. Use `accurate` for the Paddle-backed PDF layout/OCR route; `--ocr` continues to apply only to direct image input.",
+    "Direct image input uses local OCR by default; `--no-ocr` disables it. PDF input no longer supports balanced OCR. Use `accurate` for the PdfOcr layout/OCR route; `--ocr` continues to apply only to direct image input.",
   )
   println(
-    "Accurate OCR and Accurate PDF OCR use the official Paddle-backed wrapper at `samples/env/ocr/paddle_ocr_wrapper.py`. After `./samples/env/install_ocr_pdf_accurate_deps.sh`, repo-root runs auto-detect the repo-local virtualenv; `MARKITDOWN_PADDLE_OCR_CMD` remains the explicit override, and the wrapper command receives `<image_path> [--lang <LANG>]` and must print the JSON payload expected by the current OCR provider wrapper.",
+    "Accurate OCR and Accurate PDF OCR prefer the official Paddle-backed wrapper at `samples/env/ocr/paddle_ocr_wrapper.py` together with the repo-managed runtime under `./env/`. If that runtime is unavailable, `MARKITDOWN_PADDLE_OCR_CMD` remains the custom wrapper command and `MARKITDOWN_RUNTIME_PYTHON` is the secondary official-wrapper fallback. Local `tesseract` and `pdftoppm` also prefer repo-managed path records under `./env/managed-paths/`, then `MARKITDOWN_TESSERACT_BIN` / `MARKITDOWN_PDFTOPPM_BIN`, then `PATH`.",
   )
   println(
-    "Audio transcription uses an optional local backend. The official wrapper is `samples/env/audio/audio_transcribe_wrapper.py`, which drives local `Vosk`; if `MARKITDOWN_AUDIO_CMD` is unset, the runtime prefers the repo-local virtualenv under `./env/` and otherwise falls back to `python3`. Use `--audio-lang <LANG>` to pass a language hint, set `MARKITDOWN_AUDIO_MODEL_PATH` to the extracted Vosk model directory, and install local `ffmpeg` when compressed audio needs normalization.",
+    "Audio transcription uses an optional local backend. The official wrapper is `samples/env/audio/audio_transcribe_wrapper.py`, which drives local `Vosk`; repo-root runs prefer the repo-managed virtualenv under `./env/`, then `MARKITDOWN_AUDIO_CMD`, then `MARKITDOWN_RUNTIME_PYTHON` plus the checked-in wrapper, and otherwise fail closed. Use `--audio-lang <LANG>` to pass a language hint, set `MARKITDOWN_AUDIO_MODEL_PATH` to the extracted Vosk model directory, and resolve `ffmpeg` from repo-managed records, then `MARKITDOWN_FFMPEG_BIN`, then `PATH` when compressed audio needs normalization.",
   )
   println(
     "`--provenance-out` is available only on single-file runs; batch mode always writes `manifest.json` to the output directory instead.",

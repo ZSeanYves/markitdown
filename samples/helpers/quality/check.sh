@@ -46,10 +46,6 @@ QUALITY_ROWS_MANIFEST=""
 QUALITY_ROWS_MANIFEST_SOURCE=""
 QUALITY_ROWS_MANIFEST_CANDIDATES=()
 QUALITY_ROWS_MANIFEST_CANDIDATE_LABELS=()
-QUALITY_OVERRIDE_MANIFEST=""
-QUALITY_OVERRIDE_MANIFEST_SOURCE=""
-QUALITY_OVERRIDE_MANIFEST_CANDIDATES=()
-QUALITY_OVERRIDE_MANIFEST_CANDIDATE_LABELS=()
 RESOLVED_EXTERNAL_PATH=""
 TRIED_EXTERNAL_PATHS=()
 CLI_EXTRA_ARGS=()
@@ -93,9 +89,6 @@ Filter semantics:
       MARKITDOWN_QUALITY_MANIFEST
       MARKITDOWN_QUALITY_LAB/external_quality/MANIFEST.tsv
       markitdown-quality-lab/external_quality/MANIFEST.tsv
-  * repo-local row overrides are applied last from:
-      MARKITDOWN_QUALITY_OVERRIDE_MANIFEST
-      samples/quality-overrides/external_quality/MANIFEST.tsv
   * --profile is diagnostic-only and does not change pass/fail semantics
 
 Notes:
@@ -227,16 +220,6 @@ add_quality_rows_manifest_candidate() {
   QUALITY_ROWS_MANIFEST_CANDIDATES+=("$path")
 }
 
-add_quality_override_manifest_candidate() {
-  local label="$1"
-  local path="${2-}"
-  if [[ -z "$path" ]]; then
-    return 0
-  fi
-  QUALITY_OVERRIDE_MANIFEST_CANDIDATE_LABELS+=("$label")
-  QUALITY_OVERRIDE_MANIFEST_CANDIDATES+=("$path")
-}
-
 detect_corpus_root() {
   CORPUS_ROOT=""
   CORPUS_ROOT_SOURCE=""
@@ -306,39 +289,6 @@ detect_quality_rows_manifest() {
     if [[ -f "$abs" ]]; then
       QUALITY_ROWS_MANIFEST="$abs"
       QUALITY_ROWS_MANIFEST_SOURCE="$label"
-      return
-    fi
-  done
-}
-
-detect_quality_override_manifest() {
-  QUALITY_OVERRIDE_MANIFEST=""
-  QUALITY_OVERRIDE_MANIFEST_SOURCE=""
-  QUALITY_OVERRIDE_MANIFEST_CANDIDATES=()
-  QUALITY_OVERRIDE_MANIFEST_CANDIDATE_LABELS=()
-
-  add_quality_override_manifest_candidate "MARKITDOWN_QUALITY_OVERRIDE_MANIFEST" "${MARKITDOWN_QUALITY_OVERRIDE_MANIFEST:-}"
-  add_quality_override_manifest_candidate \
-    "repo-local quality override manifest" \
-    "$ROOT/samples/quality-overrides/external_quality/MANIFEST.tsv"
-
-  local i
-  for i in "${!QUALITY_OVERRIDE_MANIFEST_CANDIDATES[@]}"; do
-    local candidate="${QUALITY_OVERRIDE_MANIFEST_CANDIDATES[$i]}"
-    local label="${QUALITY_OVERRIDE_MANIFEST_CANDIDATE_LABELS[$i]}"
-    local abs="$candidate"
-    if [[ "$abs" != /* ]]; then
-      abs="$ROOT/$abs"
-    fi
-    local parent
-    parent="$(dirname "$abs")"
-    if [[ ! -d "$parent" ]]; then
-      continue
-    fi
-    abs="$(cd "$parent" && pwd)/$(basename "$abs")"
-    if [[ -f "$abs" ]]; then
-      QUALITY_OVERRIDE_MANIFEST="$abs"
-      QUALITY_OVERRIDE_MANIFEST_SOURCE="$label"
       return
     fi
   done
@@ -648,45 +598,19 @@ normalize_external_manifest_entry() {
 
 collect_manifest_rows() {
   local rows=()
-  declare -A row_overrides=()
   if [[ -n "$QUALITY_ROWS_MANIFEST" ]]; then
     while IFS= read -r row; do
       [[ -n "$row" ]] && rows+=("$row")
     done < <(manifest_rows_from_file "$QUALITY_ROWS_MANIFEST" "external" "$EXTERNAL_HEADER" normalize_external_manifest_entry)
   fi
-  if [[ -n "$QUALITY_OVERRIDE_MANIFEST" ]]; then
-    while IFS= read -r row; do
-      [[ -z "$row" ]] && continue
-      local delimiter=$'\x1f'
-      local converted="${row//$'\t'/$delimiter}"
-      local scope id _
-      IFS="$delimiter" read -r scope id _ <<< "$converted"
-      [[ -z "$id" ]] && continue
-      row_overrides["$id"]="$row"
-    done < <(manifest_rows_from_file "$QUALITY_OVERRIDE_MANIFEST" "external" "$EXTERNAL_HEADER" normalize_external_manifest_entry)
-  fi
   if [[ "${#rows[@]}" -eq 0 ]]; then
     return 0
   fi
-  local merged_rows=()
-  local row delimiter converted scope id _
-  for row in "${rows[@]}"; do
-    delimiter=$'\x1f'
-    converted="${row//$'\t'/$delimiter}"
-    IFS="$delimiter" read -r scope id _ <<< "$converted"
-    if [[ -n "$id" && -n "${row_overrides["$id"]+x}" ]]; then
-      merged_rows+=("${row_overrides["$id"]}")
-      unset "row_overrides[$id]"
-    else
-      merged_rows+=("$row")
-    fi
-  done
-  printf '%s\n' "${merged_rows[@]}"
+  printf '%s\n' "${rows[@]}"
 }
 
 detect_corpus_root
 detect_quality_rows_manifest
-detect_quality_override_manifest
 
 if [[ -z "$QUALITY_ROWS_MANIFEST" ]]; then
   echo "quality lab manifest not found" >&2
@@ -1981,8 +1905,6 @@ write_summary() {
     printf 'CORPUS_ROOT_SOURCE\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$CORPUS_ROOT_SOURCE")"
     printf 'QUALITY_ROWS_MANIFEST\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$QUALITY_ROWS_MANIFEST")"
     printf 'QUALITY_ROWS_MANIFEST_SOURCE\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$QUALITY_ROWS_MANIFEST_SOURCE")"
-    printf 'QUALITY_OVERRIDE_MANIFEST\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$QUALITY_OVERRIDE_MANIFEST")"
-    printf 'QUALITY_OVERRIDE_MANIFEST_SOURCE\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$QUALITY_OVERRIDE_MANIFEST_SOURCE")"
     printf 'FILTER_ID\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$FILTER_ID")"
     printf 'FILTER_SOURCE\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$FILTER_SOURCE")"
     printf 'FILTER_FORMAT\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$FILTER_FORMAT")"

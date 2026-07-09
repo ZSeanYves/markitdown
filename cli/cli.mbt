@@ -15,12 +15,6 @@ pub fn run_cli(opts : CliOptions) -> Result[String, String] {
 }
 
 ///|
-/// Async CLI entry that uses the async OCR provider wrapper.
-pub async fn run_cli_async(opts : CliOptions) -> Result[String, String] {
-  run_cli_with_async_image_ocr_provider(opts, @focr.run_ocr_provider_async)
-}
-
-///|
 /// Run the CLI with an injected image OCR provider, mainly for tests and
 /// wrapper boundaries.
 pub fn run_cli_with_image_ocr_provider(
@@ -69,8 +63,6 @@ fn run_cli_with_image_ocr_provider_and_pdf_rasterizer(
     fidelity_mode=opts.fidelity_mode,
     output_mode=opts.output_mode,
     stream_requested=opts.stream_requested,
-    pdf_cleanup_mode=opts.pdf_cleanup_mode,
-    pdf_table_mode=opts.pdf_table_mode,
     rag_options=opts.rag_options,
   )
   let execution = match
@@ -82,75 +74,6 @@ fn run_cli_with_image_ocr_provider_and_pdf_rasterizer(
     ) {
     Ok(value) => value
     Err(err) => return Err(err.to_string())
-  }
-  persist_cli_provenance(opts, execution.provenance) catch {
-    err => return Err("write provenance failed: " + err.to_string())
-  }
-  cli_emit_accurate_warning_if_needed(opts, requested_format, execution)
-  cli_emit_stream_warning_if_needed(opts, requested_format, execution)
-  cli_render_convert_result(opts, execution.result)
-}
-
-///|
-/// Async CLI execution with an injected async image OCR provider.
-pub async fn run_cli_with_async_image_ocr_provider(
-  opts : CliOptions,
-  image_ocr_provider : async (@focr.OcrProviderRequest) -> Result[
-    @focr.OcrProviderResult,
-    @focr.OcrProviderError,
-  ],
-) -> Result[String, String] {
-  let requested_format = cli_requested_format(opts)
-  if !cli_is_supported_format(requested_format) {
-    return Err(
-      cli_fail_closed_format_message(
-        opts.input,
-        requested_format,
-        cli_requested_format_label(opts),
-        opts.ocr_options,
-        opts.fidelity_mode,
-      ),
-    )
-  }
-  let convert_options = @convert.make_convert_options(
-    opts.convert_mode,
-    opts.output_format,
-    opts.explicit_format,
-    opts.ocr_options,
-    @convert.default_resource_limits(),
-    audio_options=opts.audio_options,
-    fidelity_mode=opts.fidelity_mode,
-    output_mode=opts.output_mode,
-    stream_requested=opts.stream_requested,
-    pdf_cleanup_mode=opts.pdf_cleanup_mode,
-    pdf_table_mode=opts.pdf_table_mode,
-    rag_options=opts.rag_options,
-  )
-  let allow_image_ocr = @input.detected_format_is_image_candidate(
-      requested_format,
-    ) &&
-    opts.ocr_options.intent == @parser.OcrIntent::Explicit
-  let allow_pdf_accurate_layout = requested_format == @input.DetectedFormat::Pdf &&
-    opts.fidelity_mode == @convert.FidelityMode::Accurate
-  let execution = if allow_image_ocr || allow_pdf_accurate_layout {
-    let async_result = @convert.convert_input_with_provenance_and_image_ocr_provider_async(
-      @input.input_from_path(opts.input),
-      convert_options,
-      image_ocr_provider,
-    )
-    match async_result {
-      Ok(value) => value
-      Err(err) => return Err(err.to_string())
-    }
-  } else {
-    let sync_result = @convert.convert_input_with_provenance(
-      @input.input_from_path(opts.input),
-      convert_options,
-    )
-    match sync_result {
-      Ok(value) => value
-      Err(err) => return Err(err.to_string())
-    }
   }
   persist_cli_provenance(opts, execution.provenance) catch {
     err => return Err("write provenance failed: " + err.to_string())

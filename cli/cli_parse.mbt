@@ -177,10 +177,6 @@ fn removed_cli_flag_message(name : String) -> String {
   match name {
     "--accurate" => "`--accurate` was removed; use the `accurate` mode"
     "--stream" => "`--stream` was removed; use the `stream` mode"
-    "--pdf-ocr" =>
-      "`--pdf-ocr` was removed from the main CLI; PDF OCR is only available through the `accurate` PDF layout route"
-    "--pdf-cleanup" => "`--pdf-cleanup` was removed from the main CLI"
-    "--pdf-tables" => "`--pdf-tables` was removed from the main CLI"
     _ => "unsupported option: " + name
   }
 }
@@ -272,9 +268,6 @@ fn parse_cli_options_from_index(
       continue
     }
     if arg == "--accurate" || arg == "--stream" {
-      return Err(removed_cli_flag_message(arg))
-    }
-    if arg == "--pdf-ocr" || arg == "--pdf-cleanup" || arg == "--pdf-tables" {
       return Err(removed_cli_flag_message(arg))
     }
     if is_cli_mode_word(arg.to_lower()) {
@@ -427,8 +420,6 @@ fn parse_cli_options_from_index(
       output_mode,
       stream_requested,
       output_format,
-      pdf_cleanup_mode=@convert.default_pdf_cleanup_mode(),
-      pdf_table_mode=@convert.default_pdf_table_mode(),
       rag_options=@rag.default_rag_options(),
       audio_options~,
     ),

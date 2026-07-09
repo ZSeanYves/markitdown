@@ -286,8 +286,6 @@ fn run_single_batch_task(
     fidelity_mode=opts.fidelity_mode,
     output_mode=opts.output_mode,
     stream_requested=opts.stream_requested,
-    pdf_cleanup_mode=opts.pdf_cleanup_mode,
-    pdf_table_mode=opts.pdf_table_mode,
     rag_options=opts.rag_options,
   )
   match

@@ -11,15 +11,11 @@ import {
 }
 
 // Values
-pub fn make_cli_options(String, String?, String?, @input.DetectedFormat?, @parser.OcrOptions, @product.FidelityMode, @convert.ConvertMode, @product.OutputMode, Bool, @convert.OutputFormat, pdf_cleanup_mode? : @convert.PdfCleanupMode, pdf_table_mode? : @convert.PdfTableMode, rag_options? : @rag.RagOptions, audio_options? : @parser.AudioOptions) -> CliOptions
+pub fn make_cli_options(String, String?, String?, @input.DetectedFormat?, @parser.OcrOptions, @product.FidelityMode, @convert.ConvertMode, @product.OutputMode, Bool, @convert.OutputFormat, rag_options? : @rag.RagOptions, audio_options? : @parser.AudioOptions) -> CliOptions
 
 pub fn run_cli(CliOptions) -> Result[String, String]
 
 pub fn run_cli_app(Array[String]) -> Int
-
-pub async fn run_cli_async(CliOptions) -> Result[String, String]
-
-pub async fn run_cli_with_async_image_ocr_provider(CliOptions, async (@ocr.OcrProviderRequest) -> Result[@ocr.OcrProviderResult, @ocr.OcrProviderError]) -> Result[String, String]
 
 pub fn run_cli_with_image_ocr_provider(CliOptions, (@ocr.OcrProviderRequest) -> Result[@ocr.OcrProviderResult, @ocr.OcrProviderError]) -> Result[String, String]
 
@@ -46,8 +42,6 @@ pub struct CliOptions {
   output_mode : @product.OutputMode
   stream_requested : Bool
   output_format : @convert.OutputFormat
-  pdf_cleanup_mode : @convert.PdfCleanupMode
-  pdf_table_mode : @convert.PdfTableMode
   rag_options : @rag.RagOptions
 }
 

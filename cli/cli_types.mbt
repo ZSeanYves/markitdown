@@ -6,6 +6,10 @@ const PRODUCT_VERSION : String = "0.5.0"
 
 ///|
 /// Parsed CLI options normalized into the convert-layer request model.
+///
+/// This is the only structure the execution path should need after argument
+/// parsing; everything before this point is CLI syntax, everything after this
+/// point is product semantics.
 pub struct CliOptions {
   input : String
   output : String?
@@ -18,8 +22,6 @@ pub struct CliOptions {
   output_mode : @convert.OutputMode
   stream_requested : Bool
   output_format : @convert.OutputFormat
-  pdf_cleanup_mode : @convert.PdfCleanupMode
-  pdf_table_mode : @convert.PdfTableMode
   rag_options : @rag.RagOptions
 }
 
@@ -31,6 +33,7 @@ pub(all) enum BatchTaskStatus {
 } derive(Eq)
 
 ///|
+/// Per-file batch execution outcome used in manifest and summary generation.
 struct BatchTaskResult {
   input_path : String
   relative_path : String
@@ -79,7 +82,7 @@ fn batch_task_result_to_json(entry : BatchTaskResult) -> Json {
 
 ///|
 fn cli_is_supported_format(format : @input.DetectedFormat) -> Bool {
-  @formats.cli_supported_for_format(format)
+  @fmeta.cli_supported_for_capability_format(format)
 }
 
 ///|
@@ -105,8 +108,6 @@ pub fn make_cli_options(
   output_mode : @convert.OutputMode,
   stream_requested : Bool,
   output_format : @convert.OutputFormat,
-  pdf_cleanup_mode? : @convert.PdfCleanupMode = @convert.default_pdf_cleanup_mode(),
-  pdf_table_mode? : @convert.PdfTableMode = @convert.default_pdf_table_mode(),
   rag_options? : @rag.RagOptions = @rag.default_rag_options(),
   audio_options? : @parser.AudioOptions = @parser.default_audio_options(),
 ) -> CliOptions {
@@ -122,8 +123,6 @@ pub fn make_cli_options(
     output_mode,
     stream_requested,
     output_format,
-    pdf_cleanup_mode,
-    pdf_table_mode,
     rag_options,
   }
 }

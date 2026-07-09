@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp/tests/check}"
 mkdir -p "$TMP_ROOT"
-OUT_DIR="$(mktemp -d "$TMP_ROOT/quality_signal_eval_contract.XXXXXX")"
+OUT_DIR="$(mktemp -d "$TMP_ROOT/quality_signal_eval.XXXXXX")"
 
 trap 'status=$?; rm -rf "$OUT_DIR"; exit "$status"' EXIT
 
@@ -60,4 +60,4 @@ assert_contains "$RESULTS_TSV" $'row_exact\ttxt\texternal\tsource\tgate\t5\t5\t\
 assert_contains "$RESULTS_TSV" $'row_negative\ttxt\texternal\tsource\tgate\t6\t6\t\t'
 assert_contains "$RESULTS_TSV" $'row_long_token\ttxt\texternal\tsource\tgate\t0\t1\tmax_long_token_len:20\t'
 
-echo "QUALITY SIGNAL EVAL CONTRACT PASSED"
+echo "QUALITY SIGNAL EVAL PASSED"
