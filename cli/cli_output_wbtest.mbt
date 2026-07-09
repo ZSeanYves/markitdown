@@ -487,6 +487,50 @@ test "main cli expands nested office entries from zip and persists rewritten ass
 }
 
 ///|
+test "main cli preserves namespaced office asset rewrites for repo zip fixtures" {
+  let root = test_tmp_root() + "/main-cli-zip-office-namespaced"
+  recreate_clean_dir(root)
+  defer cleanup_temp_dir(root)
+
+  let zip_input = "samples/fixtures/contracts/zip/zip_assets_namespace.zip"
+  let out_dir = root + "/out"
+  let out_md = out_dir + "/archive.md"
+  ensure_dir_tree(out_dir)
+
+  let rendered = match
+    run_cli(
+      cli_options(
+        zip_input,
+        Some(out_md),
+        Some(@input.DetectedFormat::Zip),
+        @convert.OutputFormat::Markdown,
+      ),
+    ) {
+    Ok(value) => value
+    Err(msg) => fail("namespaced office zip cli failed: " + msg)
+  }
+
+  cli_output_assert_contains_all(rendered, [
+    "# docs/report.docx", "![Figure alt text](assets/archive/docs_report.docx/image01.png)",
+    "# slides/overview.pptx", "## Slide 1", "![Figure alt text](assets/archive/slides_overview.pptx/image01.png)",
+  ])
+  assert_true(!rendered.contains("> Skipped: unsupported file type: docx"))
+  assert_true(!rendered.contains("> Skipped: unsupported file type: pptx"))
+  let persisted_markdown = read_utf8_text(out_md)
+  cli_output_assert_contains_all(persisted_markdown, [
+    "![Figure alt text](assets/archive/docs_report.docx/image01.png)", "![Figure alt text](assets/archive/slides_overview.pptx/image01.png)",
+  ])
+  assert_true(
+    @fs.path_exists(out_dir + "/assets/archive/docs_report.docx/image01.png"),
+  )
+  assert_true(
+    @fs.path_exists(
+      out_dir + "/assets/archive/slides_overview.pptx/image01.png",
+    ),
+  )
+}
+
+///|
 test "main cli persists ipynb inline image assets at output boundary" {
   let root = test_tmp_root() + "/main-cli-ipynb-assets"
   recreate_clean_dir(root)
