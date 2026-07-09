@@ -1,25 +1,36 @@
 # RAG
 
-`rag/` owns the retrieval-oriented output view so results from the unified main path can be projected into stable RAG JSON.
+`rag/` projects the unified document IR into retrieval-oriented chunk views. It does not parse formats and does not control rendering directly; its job is to own chunking rules, chunk metadata, and stable RAG JSON semantics.
 
-Main responsibilities:
+## Responsibilities
 
-- chunk options
-- document chunking
-- RAG output structure
+- Define RAG chunk options and default policy
+- Split `DocumentIR` into stable retrieval units
+- Preserve heading paths, source refs, asset refs, and other retrieval-side context
 
-Main files:
+## Key Entry Points
 
-- `rag.mbt`
-- `document_chunking.mbt`
 - `types_options.mbt`
+  `RagOptions`, `RagChunk`, `ChunkKind`
+- `document_chunking.mbt`
+  `chunks_from_document`
+- `helpers.mbt`
+  Helper logic for chunk text, heading paths, and metadata assembly
 
-Maintenance rules:
+## Key Types
 
-- chunking rules should stay centralized here
-- do not let CLI, convert, or render each grow their own chunking logic
+- `RagOptions`
+  Controls chunk size, overlap, table/code splitting, and provenance retention
+- `RagChunk`
+  Represents one stable public chunk consumable by downstream retrieval systems
 
-Validation:
+## Maintenance Rules
+
+- Keep chunking rules centralized here instead of letting CLI, render, and convert each grow their own logic
+- Keep heading-path, source-ref, and asset-reference semantics stable so downstream indexing and regression tests stay reliable
+- Add new chunk kinds only when there is a clear retrieval use case, not just local renderer convenience
+
+## Validation
 
 ```bash
 moon test

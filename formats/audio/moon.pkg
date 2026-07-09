@@ -9,11 +9,10 @@ import {
   "ZSeanYves/markitdown/formats/shared" @fshared,
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/runtime/command" @rtcmd,
 }
 
-import {
-  "moonbitlang/core/env",
-} for "test"
+supported_targets = "native"
 
 options(
   "preferred-target": "native",

@@ -1,4 +1,5 @@
 ///|
+/// Public OOXML package errors surfaced by the reader layer.
 pub(all) suberror OoxmlError {
   ZipError(String)
   MissingPart(String)
@@ -8,6 +9,7 @@ pub(all) suberror OoxmlError {
 }
 
 ///|
+/// Coarse error kinds used for diagnostics and validation summaries.
 pub(all) enum OoxmlErrorKind {
   ZipFailure
   MissingPart
@@ -22,18 +24,21 @@ pub(all) enum OoxmlErrorKind {
 } derive(Eq)
 
 ///|
+/// Validation strictness applied when checking OOXML package structure.
 pub(all) enum OoxmlValidationMode {
   Compatible
   Strict
 } derive(Eq)
 
 ///|
+/// Severity levels attached to OOXML validation issues.
 pub(all) enum OoxmlValidationSeverity {
   Warning
   Error
 } derive(Eq)
 
 ///|
+/// Fine-grained validation issue kinds for `.rels` and external references.
 pub(all) enum OoxmlValidationIssueKind {
   ExternalRelationship
   DuplicateRelationshipId
@@ -61,17 +66,10 @@ pub impl Show for OoxmlError with fn output(self : OoxmlError, logger : &Logger)
 }
 
 ///|
-pub struct OoxmlErrorInfo {
-  kind : OoxmlErrorKind
-  detail : String
-  part_name : String?
-  rels_part_name : String?
-  source_part : String?
-  rel_id : String?
-  target : String?
-}
-
-///|
+/// One validation issue discovered while scanning an OOXML package.
+///
+/// The optional location fields let callers point back to either the source
+/// part or the relationships part that triggered the issue.
 pub struct OoxmlValidationIssue {
   kind : OoxmlValidationIssueKind
   severity : OoxmlValidationSeverity
@@ -84,6 +82,7 @@ pub struct OoxmlValidationIssue {
 }
 
 ///|
+/// Summary of OOXML package validation results.
 pub struct OoxmlValidationReport {
   mode : OoxmlValidationMode
   part_count : Int
@@ -95,48 +94,6 @@ pub struct OoxmlValidationReport {
 }
 
 ///|
-pub fn classify_ooxml_error(err : OoxmlError) -> OoxmlErrorInfo {
-  match err {
-    ZipError(msg) =>
-      {
-        kind: OoxmlErrorKind::ZipFailure,
-        detail: msg,
-        part_name: None,
-        rels_part_name: None,
-        source_part: None,
-        rel_id: None,
-        target: None,
-      }
-    MissingPart(path) =>
-      {
-        kind: OoxmlErrorKind::MissingPart,
-        detail: path,
-        part_name: Some(path),
-        rels_part_name: if path.has_suffix(".rels") {
-          Some(path)
-        } else {
-          None
-        },
-        source_part: None,
-        rel_id: None,
-        target: None,
-      }
-    InvalidXml(msg) => classify_invalid_xml_detail(msg)
-    InvalidPartPath(path) => classify_invalid_part_path_detail(path)
-    RelationshipNotFound(source_part, rel_id) =>
-      {
-        kind: OoxmlErrorKind::RelationshipNotFound,
-        detail: "source=" + source_part + ", rel_id=" + rel_id,
-        part_name: None,
-        rels_part_name: None,
-        source_part: Some(source_part),
-        rel_id: Some(rel_id),
-        target: None,
-      }
-  }
-}
-
-///|
 /// Relationship target mode in OOXML `.rels` parts.
 pub(all) enum OoxmlTargetMode {
   Internal
@@ -144,6 +101,8 @@ pub(all) enum OoxmlTargetMode {
 } derive(Eq)
 
 ///|
+/// Whether a content-type entry came from a default extension mapping or a
+/// part-specific override.
 pub(all) enum OoxmlContentTypeInfoKind {
   DefaultExtension
   OverridePart
@@ -155,17 +114,6 @@ pub(all) enum OoxmlContentTypeInfoKind {
 /// `target` is the raw relationship target. `resolved_target` is normalized for
 /// internal targets and left as-is for external targets.
 pub struct OoxmlRelationship {
-  id : String
-  rel_type : String
-  target : String
-  target_mode : OoxmlTargetMode
-  resolved_target : String
-}
-
-///|
-pub struct OoxmlRelationshipInfo {
-  source_part : String?
-  rels_part_name : String
   id : String
   rel_type : String
   target : String
@@ -195,6 +143,7 @@ pub struct OoxmlAsset {
 }
 
 ///|
+/// Lightweight inventory row for one OOXML part.
 pub struct OoxmlPartInfo {
   part_name : String
   content_type : String?
@@ -204,6 +153,7 @@ pub struct OoxmlPartInfo {
 }
 
 ///|
+/// Decoded XML part payload cached together with a structure scan.
 pub struct OoxmlXmlPartPayload {
   part_name : String
   bytes : Bytes
@@ -212,6 +162,7 @@ pub struct OoxmlXmlPartPayload {
 }
 
 ///|
+/// Content-type mapping entry extracted from `[Content_Types].xml`.
 pub struct OoxmlContentTypeInfo {
   kind : OoxmlContentTypeInfoKind
   extension : String?
@@ -254,6 +205,8 @@ pub struct OoxmlCustomProperty {
 }
 
 ///|
+/// Read-only summary of an OOXML package inventory used by tests and debug
+/// inspection.
 pub struct OoxmlPackageInventory {
   parts : Array[OoxmlPartInfo]
   content_types : Array[OoxmlContentTypeInfo]
@@ -268,23 +221,8 @@ pub struct OoxmlPackageInventory {
 }
 
 ///|
-pub struct OoxmlPackageInspectReport {
-  part_count : Int
-  content_type_default_count : Int
-  content_type_override_count : Int
-  relationship_source_count : Int
-  package_relationship_count : Int
-  part_relationship_count : Int
-  media_asset_count : Int
-  inventory : OoxmlPackageInventory
-  package_relationships : Array[OoxmlRelationshipInfo]
-  part_relationships : Array[OoxmlRelationshipInfo]
-  media_assets : Array[OoxmlAsset]
-  core_properties : OoxmlCoreProperties
-  app_properties : OoxmlAppProperties
-}
-
-///|
+/// Internal decoded-part cache used to avoid repeatedly re-reading or
+/// re-decoding OOXML parts.
 priv struct OoxmlPartCache {
   bytes_by_part : Map[String, Bytes]
   text_by_part : Map[String, String]
@@ -312,28 +250,6 @@ priv struct OoxmlRelationshipCache {
 }
 
 ///|
-/// Read-only observability for package-local OOXML part cache reuse.
-pub struct OoxmlPartCacheStats {
-  bytes_hit_count : Int
-  bytes_miss_count : Int
-  text_hit_count : Int
-  text_decode_count : Int
-  bytes_entry_count : Int
-  text_entry_count : Int
-}
-
-///|
-/// Read-only observability for package-local OOXML relationship index reuse.
-pub struct OoxmlRelationshipCacheStats {
-  relationships_hit_count : Int
-  relationships_miss_count : Int
-  by_id_hit_count : Int
-  by_id_miss_count : Int
-  by_type_query_count : Int
-  entry_count : Int
-}
-
-///|
 /// Opened OOXML package with a ZIP archive, cached content-type maps, and a
 /// per-package part / relationship cache.
 pub struct OoxmlPackage {
@@ -346,136 +262,6 @@ pub struct OoxmlPackage {
   priv relationship_cache : OoxmlRelationshipCache
   priv sorted_parts_cache : Ref[Array[String]?]
   priv inventory_cache : Ref[OoxmlPackageInventory?]
-}
-
-///|
-fn classify_invalid_xml_detail(msg : String) -> OoxmlErrorInfo {
-  if msg.has_prefix("[Content_Types].xml: ") {
-    let detail = msg["[Content_Types].xml: ".length():].to_owned()
-    {
-      kind: classify_content_types_detail(detail),
-      detail,
-      part_name: Some("[Content_Types].xml"),
-      rels_part_name: None,
-      source_part: None,
-      rel_id: None,
-      target: None,
-    }
-  } else if msg.has_prefix("relationships ") {
-    classify_relationships_detail(msg)
-  } else {
-    {
-      kind: OoxmlErrorKind::InvalidXml,
-      detail: msg,
-      part_name: None,
-      rels_part_name: None,
-      source_part: None,
-      rel_id: None,
-      target: None,
-    }
-  }
-}
-
-///|
-fn classify_content_types_detail(detail : String) -> OoxmlErrorKind {
-  if detail.contains("duplicate content type override: ") {
-    OoxmlErrorKind::DuplicateContentTypeOverride
-  } else {
-    OoxmlErrorKind::MalformedContentTypes
-  }
-}
-
-///|
-fn classify_relationships_detail(msg : String) -> OoxmlErrorInfo {
-  let rels_part_name = parse_quoted_field(msg, "rels_part=")
-  let source_part = parse_quoted_field(msg, "source=")
-  let detail = parse_relationship_detail(msg)
-  {
-    kind: OoxmlErrorKind::MalformedRelationships,
-    detail,
-    part_name: rels_part_name,
-    rels_part_name,
-    source_part,
-    rel_id: None,
-    target: None,
-  }
-}
-
-///|
-fn classify_invalid_part_path_detail(path : String) -> OoxmlErrorInfo {
-  if path.has_prefix("unsafe relationship target: ") {
-    let detail = path["unsafe relationship target: ".length():].to_owned()
-    let target = parse_relationship_target(detail)
-    {
-      kind: OoxmlErrorKind::UnsafeRelationshipTarget,
-      detail,
-      part_name: None,
-      rels_part_name: None,
-      source_part: None,
-      rel_id: None,
-      target,
-    }
-  } else if path.has_prefix("normalized part collision: ") {
-    let detail = path["normalized part collision: ".length():].to_owned()
-    {
-      kind: OoxmlErrorKind::DuplicateNormalizedPart,
-      detail,
-      part_name: Some(detail),
-      rels_part_name: None,
-      source_part: None,
-      rel_id: None,
-      target: None,
-    }
-  } else {
-    {
-      kind: OoxmlErrorKind::UnsafePartName,
-      detail: path,
-      part_name: Some(path),
-      rels_part_name: None,
-      source_part: None,
-      rel_id: None,
-      target: None,
-    }
-  }
-}
-
-///|
-fn parse_quoted_field(msg : String, key : String) -> String? {
-  let start = find_substring(msg, key)
-  if start < 0 {
-    return None
-  }
-  let value_start = start + key.length()
-  if value_start >= msg.length() || msg[value_start] != '"' {
-    return None
-  }
-  let body_start = value_start + 1
-  let end_abs = find_char_from(msg, '"', body_start)
-  if end_abs < 0 {
-    None
-  } else {
-    Some(msg[body_start:end_abs].to_owned())
-  }
-}
-
-///|
-fn parse_relationship_detail(msg : String) -> String {
-  let idx = find_substring(msg, ": ")
-  if idx < 0 {
-    msg
-  } else {
-    msg[idx + 2:].to_owned()
-  }
-}
-
-///|
-fn parse_relationship_target(detail : String) -> String? {
-  let idx = find_substring(detail, ": ")
-  if idx < 0 || idx + 2 >= detail.length() {
-    None
-  } else {
-    Some(detail[idx + 2:].to_owned())
-  }
 }
 
 ///|
@@ -501,19 +287,6 @@ fn find_substring(text : String, needle : String) -> Int {
     if ok {
       return start
     }
-  }
-  -1
-}
-
-///|
-fn find_char_from(text : String, needle : Char, start : Int) -> Int {
-  let chars = text.to_array()
-  let mut i = start
-  while i < chars.length() {
-    if chars[i] == needle {
-      return i
-    }
-    i = i + 1
   }
   -1
 }

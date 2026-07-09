@@ -29,6 +29,8 @@ pub fn audio_transcribe_not_configured_message() -> String
 
 pub fn build_audio_transcribe_command(@input.InputSource, @input.DetectedFormat, String?) -> Result[(String, Array[String]), AudioTranscribeError]
 
+pub fn ffmpeg_command_env_var() -> String
+
 pub fn make_audio_transcript_metadata(duration_ms? : Int?, sample_rate_hz? : Int?, channel_count? : Int?, codec? : String?, language? : String?) -> AudioTranscriptMetadata
 
 pub fn make_audio_transcript_result(String, AudioTranscriptMetadata, Array[AudioTranscriptSegment], provider_version? : String?, diagnostics? : Array[String]) -> AudioTranscriptResult

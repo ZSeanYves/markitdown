@@ -7,6 +7,8 @@ import {
 }
 
 // Values
+pub fn toml_parse_with_prepared_document(@input.InputSource, @parser.ParseContext, @ZSeanYves/markitdown/format_readers/toml.PreparedTomlDocument) -> @parser.ParseResult
+
 pub fn toml_parse_with_preparsed_document(@input.InputSource, @parser.ParseContext, String, @ZSeanYves/markitdown/format_readers/toml.TomlDocument, @ZSeanYves/markitdown/format_readers/toml.TomlInspectReport) -> @parser.ParseResult
 
 pub fn toml_parser() -> @parser.Parser

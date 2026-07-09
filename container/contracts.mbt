@@ -1,6 +1,9 @@
 ///|
 /// Policy for how container-derived asset references may cross the output
 /// boundary.
+///
+/// The policy only describes data-flow intent; actual filesystem writes still
+/// happen at the CLI/output boundary.
 pub enum ContainerAssetCopyPolicy {
   MaterializeAtOutputBoundary
   ReferenceOnly

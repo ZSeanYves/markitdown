@@ -3,22 +3,9 @@ package "ZSeanYves/markitdown/format_readers/ooxml/shared"
 
 import {
   "ZSeanYves/markitdown/core",
-  "ZSeanYves/markitdown/parser",
 }
 
 // Values
-pub fn docx_contract_foundations() -> Array[String]
-
-pub fn docx_contract_granularity() -> @parser.StreamingGranularity
-
-pub fn docx_contract_guardrails() -> Array[String]
-
-pub fn docx_contract_ir_input_kind() -> String
-
-pub fn docx_contract_mode() -> @parser.ParserMode
-
-pub fn docx_contract_parser_name() -> String
-
 pub fn make_office_asset_plan(String, String, copy_policy? : OfficeAssetCopyPolicy, source_ref? : @core.SourceRef?) -> OfficeAssetPlan
 
 pub fn make_office_content_type(String, extension? : String?, part_name? : String?, source_ref? : @core.SourceRef?) -> OfficeContentType
@@ -85,59 +72,9 @@ pub fn make_xlsx_workbook_plan(XlsxWorkbookModel, Array[String], skipped_sheet_n
 
 pub fn office_asset_copy_policy_name(OfficeAssetCopyPolicy) -> String
 
-pub fn office_asset_output_path_is_safe(String) -> Bool
-
-pub fn office_asset_plan_is_safe(OfficeAssetPlan) -> Bool
-
-pub fn office_asset_write_guardrails() -> Array[String]
-
-pub fn office_diagnostic_metric_keys() -> Array[String]
-
 pub fn office_document_kind_name(OfficeDocumentKind) -> String
 
-pub fn office_parser_modes() -> Array[@parser.ParserMode]
-
-pub fn office_relationship_guardrails() -> Array[String]
-
-pub fn office_relationship_is_no_fetch(OfficeRelationship) -> Bool
-
-pub fn office_resource_limit_keys() -> Array[String]
-
 pub fn office_security_finding_name(OfficeSecurityFinding) -> String
-
-pub fn office_source_ref_extra_keys() -> Array[String]
-
-pub fn office_streaming_granularities() -> Array[@parser.StreamingGranularity]
-
-pub fn parser_contract_required_foundation_exclusions() -> Array[String]
-
-pub fn pptx_contract_asset_policy() -> Array[String]
-
-pub fn pptx_contract_excluded_runtime_foundations() -> Array[String]
-
-pub fn pptx_contract_foundations() -> Array[String]
-
-pub fn pptx_contract_granularity() -> @parser.StreamingGranularity
-
-pub fn pptx_contract_guardrails() -> Array[String]
-
-pub fn pptx_contract_ir_input_kind() -> String
-
-pub fn pptx_contract_mode() -> @parser.ParserMode
-
-pub fn pptx_contract_notes_policy() -> Array[String]
-
-pub fn pptx_contract_parser_name() -> String
-
-pub fn pptx_contract_placeholder_policy() -> Array[String]
-
-pub fn pptx_contract_reading_order_policy() -> Array[String]
-
-pub fn pptx_contract_relationship_policy() -> Array[String]
-
-pub fn pptx_contract_slide_policy() -> Array[String]
-
-pub fn pptx_contract_source_ref_extra_keys() -> Array[String]
 
 pub fn pptx_placeholder_origin_name(PptxPlaceholderOrigin) -> String
 
@@ -148,34 +85,6 @@ pub fn pptx_shape_type_name(PptxShapeType) -> String
 pub fn pptx_slide_visibility_name(PptxSlideVisibility) -> String
 
 pub fn xlsx_cell_type_name(XlsxCellType) -> String
-
-pub fn xlsx_contract_asset_policy() -> Array[String]
-
-pub fn xlsx_contract_excluded_runtime_foundations() -> Array[String]
-
-pub fn xlsx_contract_formula_policy() -> Array[String]
-
-pub fn xlsx_contract_foundations() -> Array[String]
-
-pub fn xlsx_contract_granularity() -> @parser.StreamingGranularity
-
-pub fn xlsx_contract_guardrails() -> Array[String]
-
-pub fn xlsx_contract_ir_input_kind() -> String
-
-pub fn xlsx_contract_large_granularity() -> @parser.StreamingGranularity
-
-pub fn xlsx_contract_large_ir_input_kind() -> String
-
-pub fn xlsx_contract_mode() -> @parser.ParserMode
-
-pub fn xlsx_contract_parser_name() -> String
-
-pub fn xlsx_contract_relationship_policy() -> Array[String]
-
-pub fn xlsx_contract_sheet_policy() -> Array[String]
-
-pub fn xlsx_contract_source_ref_extra_keys() -> Array[String]
 
 pub fn xlsx_sheet_visibility_name(XlsxSheetVisibility) -> String
 

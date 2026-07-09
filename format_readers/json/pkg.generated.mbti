@@ -1,6 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "ZSeanYves/markitdown/format_readers/json"
 
+import {
+  "ZSeanYves/markitdown/input",
+}
+
 // Values
 pub fn classify_json_error(JsonError) -> JsonErrorInfo
 
@@ -11,6 +15,8 @@ pub fn json_value_kind(JsonValue) -> String
 pub fn parse_json_document(String) -> JsonDocument raise
 
 pub fn parse_json_stream(String) -> JsonStreamDocument raise
+
+pub fn prepare_json_document_from_source(@input.InputSource) -> Result[PreparedJsonText, String]
 
 pub fn profile_json_document(String) -> JsonProfiledDocument raise
 
@@ -126,6 +132,15 @@ pub(all) enum JsonValue {
   Number(String)
   Bool(Bool)
   Null
+}
+
+pub struct PreparedJsonText {
+  prepared_source : @input.InputSource
+  original_text : String
+  document : JsonDocument?
+  inspect : JsonInspectReport?
+  stream : JsonStreamDocument?
+  parse_error : String?
 }
 
 // Type aliases

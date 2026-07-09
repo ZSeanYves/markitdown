@@ -66,18 +66,18 @@ fn parse_eml_result(
   context : @parser.ParseContext,
   registry_provider : () -> @parser.ParserRegistry,
 ) -> Result[@parser.ParseResult, String] {
-  let bytes = match @input.read_input_bytes(source) {
+  let prepared = match @deml.prepare_eml_message_from_source(source) {
     Ok(payload) => payload
     Err(err) => return Err(err)
   }
-  let text = eml_decode_source_text(source, bytes)
+  let source = prepared.prepared_source
+  let text = prepared.original_text
   let diagnostics = eml_base_diagnostics(source, context)
-  let parsed = try @deml.parse_eml_message(text) |> Ok catch {
-    e => Err(e.to_string())
-  }
-  match parsed {
-    Ok(message) => {
-      let inspect = @deml.inspect_eml_message(message)
+  match prepared.message {
+    Some(message) => {
+      let inspect = prepared.inspect.unwrap_or(
+        @deml.inspect_eml_message(message),
+      )
       let lowered = lower_eml_message(
         message,
         source,
@@ -101,7 +101,15 @@ fn parse_eml_result(
         ),
       )
     }
-    Err(err) => Ok(eml_malformed_parse_result(source, text, diagnostics, err))
+    None =>
+      Ok(
+        eml_malformed_parse_result(
+          source,
+          text,
+          diagnostics,
+          prepared.parse_error.unwrap_or("unknown"),
+        ),
+      )
   }
 }
 
@@ -1160,23 +1168,6 @@ fn eml_message_source_ref(source : @input.InputSource) -> @core.SourceRef {
 }
 
 ///|
-fn eml_decode_source_text(source : @input.InputSource, bytes : Bytes) -> String {
-  match source.text {
-    Some(text) => text
-    None =>
-      @utf8.decode(bytes, ignore_bom=false) catch {
-        _ => {
-          let chars : Array[Char] = []
-          for byte in bytes.to_array() {
-            chars.push(Int::unsafe_to_char(byte.to_int()))
-          }
-          String::from_array(chars)
-        }
-      }
-  }
-}
-
-///|
 fn eml_malformed_parse_result(
   source : @input.InputSource,
   text : String,
@@ -1324,10 +1315,7 @@ fn eml_attach_inline_payload(
         attachment.mime_type.contains("+xml") ||
         attachment.mime_type == "application/xml" {
         let text = attachment.decoded_text.unwrap_or(
-          eml_decode_source_text(
-            @input.input_from_text("", source_name="<attachment>"),
-            bytes,
-          ),
+          @deml.decode_eml_source_text(bytes),
         )
         asset.attrs.set("inline_payload_kind", "utf8")
         asset.attrs.set("inline_payload", text)

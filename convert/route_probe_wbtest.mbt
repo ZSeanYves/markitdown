@@ -42,6 +42,7 @@ test "text markup preflight probe reuses preparsed tex document artifact" {
       plan.prepared_source,
       @input.DetectedFormat::Tex,
       context,
+      @formats.builtin_registry(),
       plan.probe_artifacts,
     ) {
     Some(Ok(value)) => value
@@ -75,6 +76,7 @@ test "text markup preflight probe reuses preparsed rst document artifact" {
       plan.prepared_source,
       @input.DetectedFormat::Rst,
       context,
+      @formats.builtin_registry(),
       plan.probe_artifacts,
     ) {
     Some(Ok(value)) => value
@@ -108,6 +110,7 @@ test "text markup preflight probe reuses preparsed asciidoc document artifact" {
       plan.prepared_source,
       @input.DetectedFormat::Asciidoc,
       context,
+      @formats.builtin_registry(),
       plan.probe_artifacts,
     ) {
     Some(Ok(value)) => value
@@ -118,4 +121,116 @@ test "text markup preflight probe reuses preparsed asciidoc document artifact" {
   assert_true(document.blocks.length() >= 2)
   assert_true(document.blocks[0].kind == @core.BlockKind::Heading)
   assert_true(document.blocks[0].text.contains("Title"))
+}
+
+///|
+test "pdf preflight probe reuses native document artifact on product parse path" {
+  let source = @input.input_from_path_with_format(
+    "samples/fixtures/contracts/pdf/text_simple.pdf",
+    Some(@input.DetectedFormat::Pdf),
+  )
+  let options = balanced_markdown_options(@input.DetectedFormat::Pdf)
+  let plan = match detect_and_resolve_execution_plan(source, options) {
+    Ok(value) => value.2
+    Err(err) => fail(err.to_string())
+  }
+  assert_eq(plan.probe_artifacts.length(), 1)
+  let context = parse_context_from_execution_plan(
+    @input.DetectedFormat::Pdf,
+    plan,
+  )
+  let parsed = match
+    parse_with_route_probe_artifact(
+      plan.prepared_source,
+      @input.DetectedFormat::Pdf,
+      context,
+      @formats.builtin_registry(),
+      plan.probe_artifacts,
+    ) {
+    Some(Ok(value)) => value
+    Some(Err(err)) => fail(err)
+    None => fail("expected preparsed pdf artifact reuse")
+  }
+  let document = parsed.document.unwrap_or(@core.empty_document_ir())
+  assert_true(document.blocks.length() >= 3)
+  assert_true(
+    parsed.diagnostics.metrics.get("probe_artifact_reused") == Some("true"),
+  )
+  assert_true(
+    parsed.diagnostics.metrics.get("process_cache_hit") == Some("false"),
+  )
+}
+
+///|
+test "zip preflight probe reuses archive artifact on product parse path" {
+  let source = @input.input_from_path_with_format(
+    "samples/fixtures/contracts/zip/zip_assets_namespace.zip",
+    Some(@input.DetectedFormat::Zip),
+  )
+  let options = balanced_markdown_options(@input.DetectedFormat::Zip)
+  let plan = match detect_and_resolve_execution_plan(source, options) {
+    Ok(value) => value.2
+    Err(err) => fail(err.to_string())
+  }
+  assert_eq(plan.probe_artifacts.length(), 1)
+  let context = parse_context_from_execution_plan(
+    @input.DetectedFormat::Zip,
+    plan,
+  )
+  let parsed = match
+    parse_with_route_probe_artifact(
+      plan.prepared_source,
+      @input.DetectedFormat::Zip,
+      context,
+      @formats.builtin_registry(),
+      plan.probe_artifacts,
+    ) {
+    Some(Ok(value)) => value
+    Some(Err(err)) => fail(err)
+    None => fail("expected preparsed zip artifact reuse")
+  }
+  assert_true(parsed.block_stream is Some(_))
+  assert_true(
+    parsed.diagnostics.metrics.get("probe_artifact_reused") == Some("true"),
+  )
+  assert_true(
+    parsed.diagnostics.metrics.get("process_cache_hit") == Some("false"),
+  )
+}
+
+///|
+test "epub preflight probe reuses package artifact on product parse path" {
+  let source = @input.input_from_path_with_format(
+    "samples/fixtures/contracts/epub/epub_basic_package.epub",
+    Some(@input.DetectedFormat::Epub),
+  )
+  let options = balanced_markdown_options(@input.DetectedFormat::Epub)
+  let plan = match detect_and_resolve_execution_plan(source, options) {
+    Ok(value) => value.2
+    Err(err) => fail(err.to_string())
+  }
+  assert_eq(plan.probe_artifacts.length(), 1)
+  let context = parse_context_from_execution_plan(
+    @input.DetectedFormat::Epub,
+    plan,
+  )
+  let parsed = match
+    parse_with_route_probe_artifact(
+      plan.prepared_source,
+      @input.DetectedFormat::Epub,
+      context,
+      @formats.builtin_registry(),
+      plan.probe_artifacts,
+    ) {
+    Some(Ok(value)) => value
+    Some(Err(err)) => fail(err)
+    None => fail("expected preparsed epub artifact reuse")
+  }
+  assert_true(parsed.block_stream is Some(_))
+  assert_true(
+    parsed.diagnostics.metrics.get("probe_artifact_reused") == Some("true"),
+  )
+  assert_true(
+    parsed.diagnostics.metrics.get("process_cache_hit") == Some("false"),
+  )
 }

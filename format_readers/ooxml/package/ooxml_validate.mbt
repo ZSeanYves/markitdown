@@ -25,7 +25,7 @@ pub fn validate_ooxml_package(
 }
 
 ///|
-pub fn collect_ooxml_validation_issues(
+fn collect_ooxml_validation_issues(
   pkg : OoxmlPackage,
   mode? : OoxmlValidationMode = OoxmlValidationMode::Strict,
 ) -> Array[OoxmlValidationIssue] {

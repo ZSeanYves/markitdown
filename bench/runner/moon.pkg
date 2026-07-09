@@ -20,4 +20,5 @@ supported_targets = "native"
 
 options(
   "is-main": true,
+  "native-stub": [ "stderr_native_stub.c" ],
 )

@@ -1,0 +1,9 @@
+import {
+  "tonyfettes/encoding",
+  "moonbitlang/core/encoding/utf8",
+  "ZSeanYves/markitdown/input",
+}
+
+options(
+  "preferred-target": "native",
+)

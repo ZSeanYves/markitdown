@@ -7,6 +7,8 @@ import {
 }
 
 // Values
+pub fn yaml_parse_with_prepared_document(@input.InputSource, @parser.ParseContext, @ZSeanYves/markitdown/format_readers/yaml.PreparedYamlDocument) -> @parser.ParseResult
+
 pub fn yaml_parse_with_structure_events(@input.InputSource, @parser.ParseContext, String, @ZSeanYves/markitdown/format_readers/yaml.YamlInspectReport, Array[@ZSeanYves/markitdown/format_readers/yaml.YamlStructureEvent]) -> @parser.ParseResult
 
 pub fn yaml_parser() -> @parser.Parser

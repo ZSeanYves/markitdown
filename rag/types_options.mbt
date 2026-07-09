@@ -1,5 +1,8 @@
 ///|
 /// Chunking options used by the RAG JSON render path.
+///
+/// These options affect both chunk boundaries and how much structural or
+/// provenance context each chunk retains.
 pub struct RagOptions {
   chunk_size : Int
   chunk_overlap : Int
@@ -36,6 +39,9 @@ pub fn make_rag_chunk(
 
 ///|
 /// One retrieval-oriented chunk emitted by the RAG renderer.
+///
+/// `heading_path`, `source_refs`, and `asset_refs` let downstream indexing
+/// systems preserve navigation context and provenance alongside the text body.
 pub struct RagChunk {
   id : String
   kind : ChunkKind

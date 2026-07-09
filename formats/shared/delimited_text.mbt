@@ -47,40 +47,45 @@ fn delimited_parser(
       source : @input.InputSource,
       context : @parser.ParseContext,
     ) -> Result[@parser.ParseResult, String] {
-      let format_name = @input.detected_format_name(format)
-      let text = match read_delimited_input_text(source) {
+      let prepared = match
+        (if is_tsv {
+          @ddelimited.prepare_tsv_document_from_source(source)
+        } else {
+          @ddelimited.prepare_csv_document_from_source(source)
+        }) {
         Ok(payload) => payload
         Err(err) => return Err(err)
       }
+      let source = prepared.prepared_source
+      let format_name = prepared.format_name
       let diagnostics = empty_parser_diagnostics(
         name,
         @parser.ParserMode::StreamingEvent,
         source,
         format_name,
       )
-      let parsed = if is_tsv {
-        try
-          @dcsv.parse_csv_with_options(text, @dcsv.csv_parse_options_for_tsv())
-          |> Ok
-        catch {
-          e => Err(e.to_string())
-        }
-      } else {
-        try @dcsv.parse_csv_document(text) |> Ok catch {
-          e => Err(e.to_string())
-        }
-      }
-      let table_doc = match parsed {
-        Ok(doc) => doc
-        Err(err) => {
+      let table_doc = match prepared.document {
+        Some(doc) => doc
+        None => {
+          let err = prepared.parse_error.unwrap_or("unknown")
           let fallback = malformed_delimited_parse_result(
-            name, source, format, text, diagnostics, err, context,
+            name,
+            source,
+            format,
+            prepared.original_text,
+            diagnostics,
+            err,
+            context,
           )
           return Ok(fallback)
         }
       }
-      let inspect = @dcsv.inspect_csv_document(table_doc)
-      let validation = @dcsv.validate_csv_document(table_doc)
+      let inspect = prepared.inspect.unwrap_or(
+        @dcsv.inspect_csv_document(table_doc),
+      )
+      let validation = prepared.validation.unwrap_or(
+        @dcsv.validate_csv_document(table_doc),
+      )
       let max_rows = context.max_rows.unwrap_or(200)
       let max_cols = context.max_cols.unwrap_or(50)
       let max_cells = context.max_cells.unwrap_or(10000)
@@ -316,53 +321,6 @@ fn delimited_parser(
       )
     },
   )
-}
-
-///|
-fn read_delimited_input_text(
-  source : @input.InputSource,
-) -> Result[String, String] {
-  let bytes = match @input.read_input_bytes(source) {
-    Ok(payload) => payload
-    Err(err) => return Err(err)
-  }
-  match decode_utf16_text_bytes(bytes) {
-    Some(text) => Ok(text)
-    None => @input.read_input_text(source)
-  }
-}
-
-///|
-fn decode_utf16_text_bytes(bytes : Bytes) -> String? {
-  let arr = bytes.to_array()
-  if arr.length() < 2 {
-    return None
-  }
-  let first = arr[0].to_int()
-  let second = arr[1].to_int()
-  if first == 0xFF && second == 0xFE {
-    let decoded = @encoding.decode(bytes, encoding=@encoding.UTF16LE) catch {
-      _ => return None
-    }
-    return Some(strip_leading_bom(decoded))
-  }
-  if first == 0xFE && second == 0xFF {
-    let decoded = @encoding.decode(bytes, encoding=@encoding.UTF16BE) catch {
-      _ => return None
-    }
-    return Some(strip_leading_bom(decoded))
-  }
-  None
-}
-
-///|
-fn strip_leading_bom(text : String) -> String {
-  let chars = text.to_array()
-  if chars.length() > 0 && chars[0] == '\u{FEFF}' {
-    String::from_array(chars[1:])
-  } else {
-    text
-  }
 }
 
 ///|

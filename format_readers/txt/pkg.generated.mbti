@@ -1,6 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "ZSeanYves/markitdown/format_readers/txt"
 
+import {
+  "ZSeanYves/markitdown/input",
+}
+
 // Values
 pub fn classify_text_error(TextError) -> TextErrorInfo
 
@@ -11,6 +15,8 @@ pub fn open_text_document(Bytes) -> TextDocument raise
 pub fn parse_text_document(String) -> TextDocument
 
 pub fn parse_text_document_from_normalized_text(String) -> TextDocument
+
+pub fn prepare_text_document_from_source(@input.InputSource) -> Result[PreparedTextSourceDocument, String]
 
 pub fn profile_text_document(String) -> TextProfiledDocument
 
@@ -23,6 +29,14 @@ pub(all) suberror TextError {
 pub impl Show for TextError
 
 // Types and methods
+pub struct PreparedTextSourceDocument {
+  prepared_source : @input.InputSource
+  original_text : String?
+  document : TextDocument?
+  inspect : TextInspectReport?
+  parse_error : String?
+}
+
 pub struct TextDocument {
   text : String
   byte_count : Int?

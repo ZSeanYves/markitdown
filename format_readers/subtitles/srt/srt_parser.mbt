@@ -21,3 +21,10 @@ pub fn inspect_subtitle_document(
 pub fn parse_srt_document(text : String) -> SubtitleDocument raise {
   @shared.parse_srt_document(text)
 }
+
+///|
+pub fn prepare_srt_document_from_source(
+  source : @input.InputSource,
+) -> Result[@shared.PreparedSubtitleDocument, String] {
+  @shared.prepare_srt_document_from_source(source)
+}

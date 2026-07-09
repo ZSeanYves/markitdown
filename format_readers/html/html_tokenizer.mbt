@@ -26,6 +26,7 @@ fn tokenize_normalized_html_document(
     pos: 0,
     line: 1,
     collect_events: false,
+    emit_tokens: true,
     events: [],
   }
   tokenizer.parse_tokens()
@@ -40,6 +41,7 @@ fn tokenize_normalized_html_event_scan(
     pos: 0,
     line: 1,
     collect_events: true,
+    emit_tokens: false,
     events: [],
   }
   let tokens = tokenizer.parse_tokens()
@@ -58,6 +60,7 @@ priv struct HtmlTokenizer {
   mut pos : Int
   mut line : Int
   collect_events : Bool
+  emit_tokens : Bool
   events : Array[HtmlTokenEvent]
 }
 
@@ -72,7 +75,9 @@ fn HtmlTokenizer::parse_tokens(self : HtmlTokenizer) -> Array[HtmlToken] raise {
       if self.starts_with("<!--") {
         let comment = self.read_comment()
         let span = { line_start: start_line, line_end: self.line }
-        out.push(HtmlToken::Comment(comment, span))
+        if self.emit_tokens {
+          out.push(HtmlToken::Comment(comment, span))
+        }
         self.push_event(
           HtmlTokenEventKind::Comment,
           "",
@@ -85,7 +90,9 @@ fn HtmlTokenizer::parse_tokens(self : HtmlTokenizer) -> Array[HtmlToken] raise {
       } else if self.starts_with("</") && self.has_end_tag_name() {
         let tag_name = self.read_end_tag()
         let span = { line_start: start_line, line_end: self.line }
-        out.push(HtmlToken::EndTag(tag_name, span))
+        if self.emit_tokens {
+          out.push(HtmlToken::EndTag(tag_name, span))
+        }
         self.push_event(
           HtmlTokenEventKind::EndTag,
           tag_name,
@@ -98,7 +105,9 @@ fn HtmlTokenizer::parse_tokens(self : HtmlTokenizer) -> Array[HtmlToken] raise {
       } else if self.starts_with_case_insensitive("<!doctype") {
         let text = self.read_doctype_like()
         let span = { line_start: start_line, line_end: self.line }
-        out.push(HtmlToken::Doctype(text, span))
+        if self.emit_tokens {
+          out.push(HtmlToken::Doctype(text, span))
+        }
         self.push_event(
           HtmlTokenEventKind::Doctype,
           "",
@@ -112,7 +121,9 @@ fn HtmlTokenizer::parse_tokens(self : HtmlTokenizer) -> Array[HtmlToken] raise {
         is_html_name_start(self.chars[self.pos + 1]) {
         let (name, attrs, self_closing) = self.read_start_tag()
         let span = { line_start: start_line, line_end: self.line }
-        out.push(HtmlToken::StartTag(name, attrs, self_closing, span))
+        if self.emit_tokens {
+          out.push(HtmlToken::StartTag(name, attrs, self_closing, span))
+        }
         self.push_event(
           HtmlTokenEventKind::StartTag,
           name,
@@ -128,7 +139,9 @@ fn HtmlTokenizer::parse_tokens(self : HtmlTokenizer) -> Array[HtmlToken] raise {
           let raw_text = self.read_raw_text_body(name)
           if raw_text != "" {
             let raw_span = { line_start: raw_start, line_end: self.line }
-            out.push(HtmlToken::Text(raw_text, raw_span))
+            if self.emit_tokens {
+              out.push(HtmlToken::Text(raw_text, raw_span))
+            }
             self.push_event(
               HtmlTokenEventKind::Text,
               "",
@@ -145,7 +158,9 @@ fn HtmlTokenizer::parse_tokens(self : HtmlTokenizer) -> Array[HtmlToken] raise {
             self.skip_spaces()
             self.expect_char('>', "unterminated raw-text closing tag")
             let close_span = { line_start: close_start, line_end: self.line }
-            out.push(HtmlToken::EndTag(name, close_span))
+            if self.emit_tokens {
+              out.push(HtmlToken::EndTag(name, close_span))
+            }
             self.push_event(
               HtmlTokenEventKind::EndTag,
               name,
@@ -159,7 +174,9 @@ fn HtmlTokenizer::parse_tokens(self : HtmlTokenizer) -> Array[HtmlToken] raise {
         }
       } else {
         let span = { line_start: start_line, line_end: start_line }
-        out.push(HtmlToken::Text("<", span))
+        if self.emit_tokens {
+          out.push(HtmlToken::Text("<", span))
+        }
         self.push_event(
           HtmlTokenEventKind::Text,
           "",
@@ -175,7 +192,9 @@ fn HtmlTokenizer::parse_tokens(self : HtmlTokenizer) -> Array[HtmlToken] raise {
       let text_node = self.read_text()
       if text_node != "" {
         let span = { line_start: start_line, line_end: self.line }
-        out.push(HtmlToken::Text(text_node, span))
+        if self.emit_tokens {
+          out.push(HtmlToken::Text(text_node, span))
+        }
         self.push_event(
           HtmlTokenEventKind::Text,
           "",
@@ -528,13 +547,26 @@ fn HtmlTokenizer::expect_char(
 ///|
 fn normalize_html_source(text : String) -> String {
   let chars = text.to_array()
-  let out : Array[Char] = []
   let mut i = 0
+  let mut needs_normalization = false
 
   if chars.length() > 0 && chars[0] == '\u{FEFF}' {
     i = 1
+    needs_normalization = true
+  } else {
+    for ch in chars {
+      if ch == '\r' {
+        needs_normalization = true
+        break
+      }
+    }
   }
 
+  if !needs_normalization {
+    return text
+  }
+
+  let out : Array[Char] = []
   while i < chars.length() {
     let ch = chars[i]
     if ch == '\r' {

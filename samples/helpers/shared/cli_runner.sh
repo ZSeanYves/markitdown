@@ -13,11 +13,8 @@ CLI_STALENESS_SENTINEL=""
 
 runner_class_for_kind() {
   case "${1-}" in
-    prebuilt-native)
+    prebuilt)
       printf 'native-binary'
-      ;;
-    moon-run)
-      printf 'moon-run-fallback'
       ;;
     override)
       printf 'user-override'
@@ -74,15 +71,10 @@ resolve_markitdown_package_cli() {
     return 0
   fi
 
-  if validation_bool_enabled "${MARKITDOWN_ALLOW_MOON_RUN:-0}"; then
-    CLI_RUNNER_KIND="moon-run"
-    CLI_RUNNER_NOTE="manual moon run fallback enabled via MARKITDOWN_ALLOW_MOON_RUN=1; timings are not native product-path"
-    CLI_BIN=""
-    return 0
-  fi
-
   if [[ -n "$CLI_STALENESS_SENTINEL" ]]; then
     echo "native runner for $package is missing or stale; newer source detected at $(basename "$CLI_STALENESS_SENTINEL")" >&2
+  elif [[ -n "$CLI_RUNNER_NOTE" ]]; then
+    echo "$CLI_RUNNER_NOTE" >&2
   else
     echo "failed to locate a working native runner for $package" >&2
   fi
@@ -95,6 +87,14 @@ validation_cli_tmp_root() {
   printf '%s' "$base"
 }
 
+markitdown_runner_cwd() {
+  local base="${MARKITDOWN_RUNNER_CWD:-}"
+  if [[ -z "$base" ]]; then
+    return 1
+  fi
+  printf '%s' "$base"
+}
+
 markitdown_package_module_root() {
   printf '%s' "$ROOT"
 }
@@ -102,14 +102,23 @@ markitdown_package_module_root() {
 run_markitdown_cli() {
   local cli_tmp_root
   cli_tmp_root="$(validation_cli_tmp_root)"
-  if [[ "${CLI_RUNNER_KIND:-moon-run}" == "prebuilt-native" || "${CLI_RUNNER_KIND:-moon-run}" == "override" ]]; then
-    MARKITDOWN_TMP_DIR="$cli_tmp_root" "$CLI_BIN" "$@"
-  else
-    (
-      cd "$CLI_MODULE_ROOT"
-      MARKITDOWN_TMP_DIR="$cli_tmp_root" moon run "$CLI_PACKAGE" -- "$@"
-    )
+  local module_root="${MARKITDOWN_MODULE_ROOT:-$CLI_MODULE_ROOT}"
+  if [[ "${CLI_RUNNER_KIND:-}" == "prebuilt" || "${CLI_RUNNER_KIND:-}" == "override" ]]; then
+    local runner_cwd=""
+    runner_cwd="$(markitdown_runner_cwd 2>/dev/null || true)"
+    if [[ -n "$runner_cwd" ]]; then
+      mkdir -p "$runner_cwd"
+      (
+        cd "$runner_cwd"
+        MARKITDOWN_MODULE_ROOT="$module_root" MARKITDOWN_TMP_DIR="$cli_tmp_root" "$CLI_BIN" "$@"
+      )
+      return $?
+    fi
+    MARKITDOWN_MODULE_ROOT="$module_root" MARKITDOWN_TMP_DIR="$cli_tmp_root" "$CLI_BIN" "$@"
+    return $?
   fi
+  echo "CLI runner is not configured. Run 'moon build $CLI_PACKAGE --target native' or set MARKITDOWN_CLI." >&2
+  return 1
 }
 
 markitdown_cli_candidates() {
@@ -216,10 +225,12 @@ resolve_probe_validated_native_cli() {
       continue
     fi
     if probe_markitdown_cli "$package" "$candidate"; then
-      CLI_RUNNER_KIND="prebuilt-native"
+      CLI_RUNNER_KIND="prebuilt"
       CLI_BIN="$candidate"
+      CLI_RUNNER_NOTE=""
       return 0
     fi
+    CLI_RUNNER_NOTE="native runner for $package exists at $candidate but failed the validation probe"
   done < <(markitdown_cli_candidates "$package")
   return 1
 }
@@ -243,11 +254,11 @@ resolve_probe_validated_native_cli_with_retries() {
 }
 
 markitdown_runner_command_prefix() {
-  if [[ "${CLI_RUNNER_KIND:-moon-run}" == "prebuilt-native" || "${CLI_RUNNER_KIND:-moon-run}" == "override" ]]; then
+  if [[ "${CLI_RUNNER_KIND:-}" == "prebuilt" || "${CLI_RUNNER_KIND:-}" == "override" ]]; then
     printf '%s' "$CLI_BIN"
-  else
-    printf 'cd %s && moon run %s --' "$CLI_MODULE_ROOT" "$CLI_PACKAGE"
+    return 0
   fi
+  printf '<missing-native-cli:%s>' "$CLI_PACKAGE"
 }
 
 validation_probe_cases() {
@@ -279,7 +290,7 @@ probe_markitdown_cli() {
     [[ -n "$input_rel" ]] || continue
     input_abs="$ROOT/$input_rel"
     out="$probe_dir/$stem.md"
-    if ! MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" normal "$input_abs" "$out" >/dev/null 2>&1; then
+    if ! MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" balance "$input_abs" "$out" >/dev/null 2>&1; then
       status=1
       break
     fi
@@ -293,11 +304,13 @@ probe_markitdown_cli() {
     local help_out
     help_out="$(MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" --help 2>&1)" || status=1
     if [[ "$status" -eq 0 ]]; then
-      if ! grep -Fq -- 'Supported product formats: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml' <<<"$help_out"; then
+      if ! grep -Fq -- 'markitdown-mb [balance|accurate|stream] [--format <format>]' <<<"$help_out"; then
         status=1
-      elif ! grep -Fq -- 'odt' <<<"$help_out"; then
+      elif ! grep -Fq -- 'Capability groups: Core, Office, Containers, Media, PdfOcr.' <<<"$help_out"; then
         status=1
-      elif ! grep -Fq -- '--accurate' <<<"$help_out"; then
+      elif ! grep -Fq -- 'All other formats fail closed in this build.' <<<"$help_out"; then
+        status=1
+      elif ! grep -Fq -- 'Direct image input uses local OCR by default;' <<<"$help_out"; then
         status=1
       fi
     fi
@@ -307,7 +320,7 @@ probe_markitdown_cli() {
     local accurate_input="$ROOT/samples/fixtures/contracts/txt/txt_plain.txt"
     local accurate_output="$probe_dir/accurate/txt_plain.md"
     mkdir -p "$probe_dir/accurate"
-    if ! MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" normal --accurate "$accurate_input" "$accurate_output" >/dev/null 2>&1; then
+    if ! MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" accurate "$accurate_input" "$accurate_output" >/dev/null 2>&1; then
       status=1
     elif [[ ! -s "$accurate_output" ]]; then
       status=1
@@ -319,7 +332,7 @@ probe_markitdown_cli() {
     local contract_input="$ROOT/samples/fixtures/contracts/txt/txt_plain.txt"
     local contract_output="$contract_dir/txt_plain.md"
     mkdir -p "$contract_dir"
-    if ! MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" normal "$contract_input" "$contract_output" >/dev/null 2>&1; then
+    if ! MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" balance "$contract_input" "$contract_output" >/dev/null 2>&1; then
       status=1
     elif [[ -e "$contract_dir/metadata/txt_plain.metadata.json" ]]; then
       status=1

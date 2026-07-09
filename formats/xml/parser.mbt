@@ -46,20 +46,39 @@ pub fn xml_parse_with_structure_tokens(
 }
 
 ///|
+pub fn xml_parse_with_prepared_text(
+  source : @input.InputSource,
+  context : @parser.ParseContext,
+  prepared : @dxml.PreparedXmlText,
+) -> @parser.ParseResult {
+  let parsed = parse_xml_document_result_from_normalized(
+    source,
+    context,
+    prepared.normalized_text,
+    tokenized=prepared.tokens,
+  )
+  if prepared.tokens is Some(_) &&
+    context.requested_mode == Some(@parser.ParserMode::StreamingEvent) {
+    parsed.diagnostics.metrics.set("probe_artifact_reused", "true")
+  }
+  parsed
+}
+
+///|
 fn parse_xml_document_result(
   source : @input.InputSource,
   context : @parser.ParseContext,
 ) -> Result[@parser.ParseResult, String] {
-  let text = match read_xml_input_text(source) {
+  let prepared = match @dxml.prepare_xml_from_source(source) {
     Ok(payload) => payload
     Err(err) => return Err(err)
   }
   Ok(
     parse_xml_document_result_from_normalized(
-      source,
+      prepared.prepared_source,
       context,
-      normalize_xml_text_for_next(text),
-      tokenized=None,
+      prepared.normalized_text,
+      tokenized=prepared.tokens,
     ),
   )
 }

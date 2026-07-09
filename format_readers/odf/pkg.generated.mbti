@@ -2,7 +2,11 @@
 package "ZSeanYves/markitdown/format_readers/odf"
 
 import {
+  "ZSeanYves/markitdown/format_readers/odf/odp",
+  "ZSeanYves/markitdown/format_readers/odf/ods",
+  "ZSeanYves/markitdown/format_readers/odf/odt",
   "ZSeanYves/markitdown/format_readers/odf/shared",
+  "ZSeanYves/markitdown/input",
 }
 
 // Values
@@ -19,6 +23,12 @@ pub fn open_odp_document(Bytes) -> @shared.OdpDocument raise
 pub fn open_ods_document(Bytes) -> @shared.OdsDocument raise
 
 pub fn open_odt_document(Bytes) -> @shared.OdtDocument raise
+
+pub fn prepare_odp_document_from_source(@input.InputSource) -> Result[@odp.PreparedOdpDocument, String]
+
+pub fn prepare_ods_document_from_source(@input.InputSource) -> Result[@ods.PreparedOdsDocument, String]
+
+pub fn prepare_odt_document_from_source(@input.InputSource) -> Result[@odt.PreparedOdtDocument, String]
 
 // Errors
 
@@ -76,6 +86,12 @@ pub using @shared {type OdtNote}
 pub using @shared {type OdtTableCell}
 
 pub using @shared {type OdtTableRow}
+
+pub using @odp {type PreparedOdpDocument}
+
+pub using @ods {type PreparedOdsDocument}
+
+pub using @odt {type PreparedOdtDocument}
 
 // Traits
 

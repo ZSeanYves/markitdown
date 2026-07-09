@@ -48,7 +48,16 @@ pub fn inspect_html_document(doc : HtmlDocument) -> HtmlInspectReport {
     visit_html_node(node, stats, 1)
   }
 
-  let validation = validate_html_document(doc)
+  let issues = doc.issues
+  let mut warning_count = 0
+  let mut error_count = 0
+  for issue in issues {
+    match issue.severity {
+      HtmlValidationSeverity::Warning => warning_count += 1
+      HtmlValidationSeverity::Error => error_count += 1
+    }
+  }
+
   {
     node_count: stats.node_count,
     element_count: stats.element_count,
@@ -68,9 +77,9 @@ pub fn inspect_html_document(doc : HtmlDocument) -> HtmlInspectReport {
     code_element_count: stats.code_element_count,
     max_depth: stats.max_depth,
     has_doctype: doc.has_doctype,
-    issue_count: validation.issue_count,
-    warning_count: validation.warning_count,
-    error_count: validation.error_count,
+    issue_count: issues.length(),
+    warning_count,
+    error_count,
     is_empty: doc.nodes.length() == 0,
   }
 }

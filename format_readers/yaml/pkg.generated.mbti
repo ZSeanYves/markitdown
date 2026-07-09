@@ -1,6 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "ZSeanYves/markitdown/format_readers/yaml"
 
+import {
+  "ZSeanYves/markitdown/input",
+}
+
 // Values
 pub fn classify_yaml_error(YamlError) -> YamlErrorInfo
 
@@ -14,6 +18,8 @@ pub fn parse_yaml_structure_document(String) -> YamlStructureDocument raise
 
 pub fn parse_yaml_structure_events(String) -> Array[YamlStructureEvent] raise
 
+pub fn prepare_yaml_document_from_source(@input.InputSource) -> Result[PreparedYamlDocument, String]
+
 pub fn profile_yaml_document(String) -> YamlProfiledDocument raise
 
 pub fn yaml_value_kind(YamlValue) -> String
@@ -25,6 +31,15 @@ pub(all) suberror YamlError {
 pub impl Show for YamlError
 
 // Types and methods
+pub struct PreparedYamlDocument {
+  prepared_source : @input.InputSource
+  original_text : String
+  document : YamlStructureDocument?
+  inspect : YamlInspectReport?
+  events : Array[YamlStructureEvent]?
+  parse_error : String?
+}
+
 pub struct YamlDocument {
   root : YamlValue?
 }

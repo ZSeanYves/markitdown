@@ -1,7 +1,7 @@
 import {
-  "tonyfettes/encoding",
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/format_readers/delimited/csv" @dcsv,
+  "ZSeanYves/markitdown/format_readers/delimited/shared" @ddelimited,
   "ZSeanYves/markitdown/format_readers/text_markup/shared" @dmark,
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",

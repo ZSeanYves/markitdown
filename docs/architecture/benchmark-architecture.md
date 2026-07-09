@@ -5,13 +5,13 @@
 > This document complements
 > [mb-markitdown-architecture.md](./mb-markitdown-architecture.md)
 > and
-> [format-mode-and-execution-profile-architecture.md](./format-mode-and-execution-profile-architecture.md)
+> [optional-enhancement-architecture.md](./optional-enhancement-architecture.md)
 > with focused rules for benchmark architecture, regression trust, product-path measurement, and comparison policy.
 
 Recommended reading order:
 
 1. Read the main architecture guide first.
-2. Then read the mode and profile guide.
+2. Then read the optional enhancement guide if you need OCR / PDF accurate / audio details.
 3. Then read this document to understand how benchmark runs measure the formal product path.
 4. Finally read [../capabilities-and-limitations.md](../capabilities-and-limitations.md) for the public boundary.
 

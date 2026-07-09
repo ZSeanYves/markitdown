@@ -7,8 +7,18 @@ pub fn audio_command_env_var() -> String {
 }
 
 ///|
+pub fn ffmpeg_command_env_var() -> String {
+  "MARKITDOWN_FFMPEG_BIN"
+}
+
+///|
 pub fn audio_model_path_env_var() -> String {
   "MARKITDOWN_AUDIO_MODEL_PATH"
+}
+
+///|
+fn runtime_python_env_var() -> String {
+  "MARKITDOWN_RUNTIME_PYTHON"
 }
 
 ///|
@@ -18,25 +28,25 @@ pub fn audio_backend_transport_name() -> String {
 
 ///|
 pub fn audio_backend_name() -> String {
-  "whisper_cpp"
+  "vosk"
 }
 
 ///|
 fn audio_default_model_path() -> String {
-  let cache_root = match normalized_env_var("XDG_CACHE_HOME") {
+  let cache_root = match @rtcmd.normalized_env_var("XDG_CACHE_HOME") {
     Some(path) => path
     None =>
-      match normalized_env_var("HOME") {
+      match @rtcmd.normalized_env_var("HOME") {
         Some(home) => home + "/.cache"
         None => ".cache"
       }
   }
-  cache_root + "/markitdown/whisper.cpp/ggml-base.bin"
+  cache_root + "/markitdown/vosk/model"
 }
 
 ///|
 fn audio_runtime_tmp_root() -> String {
-  match normalized_env_var("MARKITDOWN_TMP_DIR") {
+  match @rtcmd.normalized_env_var("MARKITDOWN_TMP_DIR") {
     Some(path) => path + "/audio_native"
     None => AUDIO_TMP_ROOT
   }
@@ -44,28 +54,93 @@ fn audio_runtime_tmp_root() -> String {
 
 ///|
 fn audio_resolved_model_path() -> String {
-  match normalized_env_var(audio_model_path_env_var()) {
+  match @rtcmd.normalized_env_var(audio_model_path_env_var()) {
     Some(path) => path
     None => audio_default_model_path()
   }
 }
 
 ///|
-fn audio_whisper_candidate_commands() -> Array[String] {
-  ["whisper-cli", "main"]
+fn audio_default_wrapper_path() -> String {
+  @rtcmd.resolve_repo_relative_path(
+    "samples/env/audio/audio_transcribe_wrapper.py",
+  )
+}
+
+///|
+fn repo_local_runtime_python_path() -> String {
+  @rtcmd.resolve_repo_relative_path("env/.venv-markitdown-runtime/bin/python")
+}
+
+///|
+fn official_audio_wrapper_missing_message() -> String {
+  "Audio transcription requires the checked-in wrapper at `" +
+  audio_default_wrapper_path() +
+  "` when using the repo-managed runtime or `" +
+  runtime_python_env_var() +
+  "`.\n\n" +
+  audio_transcribe_install_hint()
+}
+
+///|
+fn audio_split_command_config_error(
+  env_var : String,
+  error : @rtcmd.ShellCommandSplitError,
+) -> AudioTranscribeError {
+  let detail = match error {
+    @rtcmd.ShellCommandSplitError::TrailingEscape =>
+      "ends with a trailing escape."
+    @rtcmd.ShellCommandSplitError::UnterminatedQuotes =>
+      "contains unterminated quotes."
+  }
+  AudioTranscribeError::NotConfigured(
+    "Audio command configured through `" +
+    env_var +
+    "` is not shell-parseable on this runtime. It " +
+    detail +
+    "\n\n" +
+    audio_transcribe_install_hint(),
+  )
+}
+
+///|
+priv struct WrapperCommandResolution {
+  command : @rtcmd.ResolvedCommand
+  argv_prefix : Array[String]
+}
+
+///|
+fn audio_wrapper_resolution_from_parts(
+  parts : Array[String],
+  source : @rtcmd.ResolvedCommandSource,
+) -> WrapperCommandResolution {
+  let resolved = match @rtcmd.resolved_command_from_parts(parts, source) {
+    Some(value) => value
+    None => abort("wrapper resolution requires at least one command part")
+  }
+  let argv_prefix : Array[String] = []
+  argv_prefix.append(parts[1:][:])
+  { command: resolved, argv_prefix }
 }
 
 ///|
 pub fn audio_transcribe_install_hint() -> String {
   [
-    "Preferred: configure `" +
+    "Preferred: run `./samples/env/install_audio_deps.sh` and let repo-root runs use the repo-managed virtualenv plus `samples/env/audio/audio_transcribe_wrapper.py` by default.",
+    "Custom audio wrapper commands still work through `" +
     audio_command_env_var() +
-    "` with the official helper `samples/helpers/audio_transcribe_wrapper.py`.",
-    "Fallback: direct local `whisper.cpp` CLI discovery still accepts `whisper-cli` or `main` on PATH.",
-    "Download the multilingual `ggml-base` model locally.",
-    "Default model path: " + audio_default_model_path(),
-    "Override model path with `" + audio_model_path_env_var() + "` when needed.",
-    "Install local `ffmpeg` when you need `m4a` input support.",
+    "`, but that is lower priority than the repo-managed runtime.",
+    "If the repo-managed runtime is unavailable, `" +
+    runtime_python_env_var() +
+    "` can point at a Python executable that should launch the checked-in audio wrapper.",
+    "Python dependencies should live in the repo-local virtualenv under `./env/`, not in your global Python environment.",
+    "Recommended model directory: " + audio_default_model_path(),
+    "Set `" +
+    audio_model_path_env_var() +
+    "` to point at the extracted model directory when needed.",
+    "Plain PCM `wav` is the lightest supported route. `m4a` still requires local `ffmpeg`; repo-managed records under `./env/managed-paths/ffmpeg` win first, then `" +
+    ffmpeg_command_env_var() +
+    "`, then `PATH`.",
   ].join("\n")
 }
 
@@ -77,10 +152,23 @@ pub fn audio_transcribe_not_configured_message() -> String {
 
 ///|
 priv struct AudioCommandPlan {
-  backend_cmd : String
+  backend_command : @rtcmd.ResolvedCommand
   argv : Array[String]
-  output_json_path : String
+  result_json_path : String
   temp_dir : String
+  preprocess_invocation_count : Int
+  preprocess_wall_ms : UInt64
+  preprocess_kinds : Array[String]
+  preprocess_command : @rtcmd.ResolvedCommand?
+}
+
+///|
+priv struct AudioRuntimeMetrics {
+  external_process_invocation_count : Int
+  external_process_wall_ms : UInt64
+  external_process_kind : String
+  audio_backend_wall_ms : UInt64
+  audio_normalization_used : Bool
 }
 
 ///|
@@ -90,7 +178,7 @@ pub fn build_audio_transcribe_command(
   language : String?,
 ) -> Result[(String, Array[String]), AudioTranscribeError] {
   match build_audio_transcribe_plan(source, format, language) {
-    Ok(plan) => Ok((plan.backend_cmd, plan.argv))
+    Ok(plan) => Ok((plan.backend_command.program, plan.argv))
     Err(error) => Err(error)
   }
 }
@@ -131,14 +219,18 @@ fn build_audio_transcribe_plan(
       return Err(error)
     }
   }
+  let model_path = match audio_validate_model_path() {
+    Ok(value) => value
+    Err(error) => {
+      audio_cleanup_temp_dir(temp_dir)
+      return Err(error)
+    }
+  }
   let output_base = temp_dir + "/transcript"
-  let output_json_path = output_base + ".json"
-  let (backend_cmd, argv) = match
+  let result_json_path = output_base + ".json"
+  let (backend_command, argv) = match
     audio_backend_command_plan(
-      prepared_input.invoked_input_path,
-      output_base,
-      output_json_path,
-      language,
+      prepared_input, result_json_path, language, model_path, temp_dir,
     ) {
     Ok(value) => value
     Err(error) => {
@@ -146,122 +238,267 @@ fn build_audio_transcribe_plan(
       return Err(error)
     }
   }
-  Ok({ backend_cmd, argv, output_json_path, temp_dir })
+  Ok({
+    backend_command,
+    argv,
+    result_json_path,
+    temp_dir,
+    preprocess_invocation_count: prepared_input.preprocess_invocation_count,
+    preprocess_wall_ms: prepared_input.preprocess_wall_ms,
+    preprocess_kinds: prepared_input.preprocess_kinds,
+    preprocess_command: prepared_input.preprocess_command,
+  })
 }
 
 ///|
 fn audio_backend_command_plan(
-  prepared_input_path : String,
-  output_base : String,
-  output_json_path : String,
+  prepared_input : PreparedAudioInput,
+  result_json_path : String,
   language : String?,
-) -> Result[(String, Array[String]), AudioTranscribeError] {
-  match normalized_env_var(audio_command_env_var()) {
-    Some(command) =>
-      build_audio_transcribe_command_with_wrapper(
-        prepared_input_path, output_json_path, language, command,
+  model_path : String,
+  temp_dir : String,
+) -> Result[(@rtcmd.ResolvedCommand, Array[String]), AudioTranscribeError] {
+  match resolve_repo_managed_audio_wrapper() {
+    Some(wrapper) =>
+      return build_audio_transcribe_command_with_wrapper_resolution(
+        prepared_input, result_json_path, language, model_path, temp_dir, wrapper,
       )
-    None =>
-      build_audio_transcribe_direct_command(
-        prepared_input_path, output_base, language,
+    None => ()
+  }
+  match resolve_audio_wrapper_command_from_env() {
+    Ok(Some(wrapper)) =>
+      return build_audio_transcribe_command_with_wrapper_resolution(
+        prepared_input, result_json_path, language, model_path, temp_dir, wrapper,
       )
+    Ok(None) => ()
+    Err(error) => return Err(error)
+  }
+  match resolve_audio_wrapper_from_runtime_python_env() {
+    Ok(Some(wrapper)) =>
+      return build_audio_transcribe_command_with_wrapper_resolution(
+        prepared_input, result_json_path, language, model_path, temp_dir, wrapper,
+      )
+    Ok(None) =>
+      Err(
+        AudioTranscribeError::NotConfigured(
+          audio_transcribe_not_configured_message(),
+        ),
+      )
+    Err(error) => Err(error)
   }
 }
 
 ///|
-fn build_audio_transcribe_direct_command(
-  prepared_input_path : String,
-  output_base : String,
-  language : String?,
-) -> Result[(String, Array[String]), AudioTranscribeError] {
-  let backend_cmd = match audio_discover_backend_command() {
-    Ok(value) => value
-    Err(error) => return Err(error)
+fn resolve_repo_managed_audio_wrapper() -> WrapperCommandResolution? {
+  let python_path = repo_local_runtime_python_path()
+  if !@fs.path_exists(audio_default_wrapper_path()) ||
+    !@rtcmd.is_executable_file(python_path) {
+    return None
   }
-  let model_path = match audio_validate_model_path() {
-    Ok(value) => value
-    Err(error) => return Err(error)
-  }
-  let argv : Array[String] = [
-    "-m", model_path, "-f", prepared_input_path, "-ojf", "-of", output_base, "-np",
-  ]
-  audio_append_direct_language(argv, language)
-  Ok((backend_cmd, argv))
+  Some(
+    audio_wrapper_resolution_from_parts(
+      [python_path, audio_default_wrapper_path()],
+      @rtcmd.ResolvedCommandSource::RepoManaged,
+    ),
+  )
 }
 
 ///|
-fn build_audio_transcribe_command_with_wrapper(
-  prepared_input_path : String,
-  output_json_path : String,
-  language : String?,
-  wrapper_command : String,
-) -> Result[(String, Array[String]), AudioTranscribeError] {
-  let trimmed = wrapper_command.trim().to_owned()
-  if trimmed == "" {
+fn resolve_audio_wrapper_command_from_env() -> Result[
+  WrapperCommandResolution?,
+  AudioTranscribeError,
+] {
+  match @rtcmd.normalized_env_var(audio_command_env_var()) {
+    Some(command) => {
+      let parts = match @rtcmd.split_shell_command(command) {
+        Ok(value) => value
+        Err(error) =>
+          return Err(
+            audio_split_command_config_error(audio_command_env_var(), error),
+          )
+      }
+      if parts.length() == 0 {
+        return Err(
+          AudioTranscribeError::NotConfigured(
+            audio_transcribe_not_configured_message(),
+          ),
+        )
+      }
+      Ok(
+        Some(
+          audio_wrapper_resolution_from_parts(
+            parts,
+            @rtcmd.ResolvedCommandSource::EnvVar,
+          ),
+        ),
+      )
+    }
+    None => Ok(None)
+  }
+}
+
+///|
+fn resolve_audio_wrapper_from_runtime_python_env() -> Result[
+  WrapperCommandResolution?,
+  AudioTranscribeError,
+] {
+  match @rtcmd.normalized_env_var(runtime_python_env_var()) {
+    Some(path) =>
+      match
+        resolve_checked_in_audio_wrapper(
+          path,
+          runtime_python_env_var(),
+          @rtcmd.ResolvedCommandSource::EnvVar,
+        ) {
+        Ok(wrapper) => Ok(Some(wrapper))
+        Err(error) => Err(error)
+      }
+    None => Ok(None)
+  }
+}
+
+///|
+fn resolve_checked_in_audio_wrapper(
+  python_path : String,
+  label : String,
+  source : @rtcmd.ResolvedCommandSource,
+) -> Result[WrapperCommandResolution, AudioTranscribeError] {
+  if !@fs.path_exists(audio_default_wrapper_path()) {
     return Err(
       AudioTranscribeError::NotConfigured(
-        audio_transcribe_not_configured_message(),
+        official_audio_wrapper_missing_message(),
       ),
     )
   }
-  let parts = match audio_command_parts(trimmed) {
+  let python = match
+    @rtcmd.resolve_executable_path(python_path, label, source) {
     Ok(value) => value
-    Err(msg) => return Err(AudioTranscribeError::NotConfigured(msg))
+    Err(msg) =>
+      return Err(
+        AudioTranscribeError::NotConfigured(
+          msg + "\n\n" + audio_transcribe_install_hint(),
+        ),
+      )
   }
-  if parts.length() == 0 {
-    return Err(
-      AudioTranscribeError::NotConfigured(
-        audio_transcribe_not_configured_message(),
-      ),
-    )
+  Ok(
+    audio_wrapper_resolution_from_parts(
+      [python.program, audio_default_wrapper_path()],
+      source,
+    ),
+  )
+}
+
+///|
+fn build_audio_transcribe_command_with_wrapper_resolution(
+  prepared_input : PreparedAudioInput,
+  result_json_path : String,
+  language : String?,
+  model_path : String,
+  temp_dir : String,
+  wrapper : WrapperCommandResolution,
+) -> Result[(@rtcmd.ResolvedCommand, Array[String]), AudioTranscribeError] {
+  let request_json_path = temp_dir + "/request.json"
+  @fs.write_string_to_file(
+    request_json_path,
+    audio_transcribe_request_json(prepared_input, language, model_path),
+    encoding="utf8",
+  ) catch {
+    e =>
+      return Err(
+        AudioTranscribeError::ExecutionFailed(
+          "failed to write audio request JSON on this runtime: " + e.to_string(),
+        ),
+      )
   }
   let argv : Array[String] = []
-  argv.append(parts[1:][:])
-  argv.push(prepared_input_path)
-  argv.push(output_json_path)
-  audio_append_wrapper_language(argv, language)
-  Ok((parts[0], argv))
+  argv.append(wrapper.argv_prefix[:])
+  argv.push("--request-json")
+  argv.push(request_json_path)
+  argv.push("--result-json")
+  argv.push(result_json_path)
+  Ok((wrapper.command, argv))
 }
 
 ///|
-fn audio_append_direct_language(
-  argv : Array[String],
+fn audio_transcribe_request_json(
+  prepared_input : PreparedAudioInput,
   language : String?,
-) -> Unit {
-  match language {
-    Some(value) => {
-      let trimmed = value.trim().to_owned().to_lower()
-      argv.push("-l")
-      argv.push(if trimmed == "" { "auto" } else { trimmed })
-    }
-    None => {
-      argv.push("-l")
-      argv.push("auto")
-    }
-  }
+  model_path : String,
+) -> String {
+  "{" +
+  "\"provider\":\"vosk\"," +
+  "\"version\":\"v2\"," +
+  "\"input_audio_path\":" +
+  audio_json_quote_string(prepared_input.input_audio_path) +
+  "," +
+  "\"normalized_audio_path\":" +
+  audio_json_optional_string(prepared_input.normalized_audio_path) +
+  "," +
+  "\"output_mode\":\"transcript_json\"," +
+  "\"language\":" +
+  audio_json_quote_string(audio_request_language(language)) +
+  "," +
+  "\"model_path\":" +
+  audio_json_quote_string(model_path) +
+  "}"
 }
 
 ///|
-fn audio_append_wrapper_language(
-  argv : Array[String],
-  language : String?,
-) -> Unit {
+fn audio_request_language(language : String?) -> String {
   match language {
     Some(value) => {
       let trimmed = value.trim().to_owned().to_lower()
-      argv.push("--lang")
-      argv.push(if trimmed == "" { "auto" } else { trimmed })
+      if trimmed == "" {
+        "auto"
+      } else {
+        trimmed
+      }
     }
-    None => {
-      argv.push("--lang")
-      argv.push("auto")
-    }
+    None => "auto"
   }
 }
 
 ///|
 priv struct PreparedAudioInput {
-  invoked_input_path : String
+  input_audio_path : String
+  normalized_audio_path : String?
+  preprocess_invocation_count : Int
+  preprocess_wall_ms : UInt64
+  preprocess_kinds : Array[String]
+  preprocess_command : @rtcmd.ResolvedCommand?
+}
+
+///|
+fn resolve_ffmpeg_command() -> Result[
+  @rtcmd.ResolvedCommand,
+  AudioTranscribeError,
+] {
+  match @rtcmd.resolve_repo_managed_command("ffmpeg") {
+    Some(command) => return Ok(command)
+    None => ()
+  }
+  match @rtcmd.normalized_env_var(ffmpeg_command_env_var()) {
+    Some(path) =>
+      match
+        @rtcmd.resolve_executable_path(
+          path,
+          ffmpeg_command_env_var(),
+          @rtcmd.ResolvedCommandSource::EnvVar,
+        ) {
+        Ok(command) => return Ok(command)
+        Err(msg) =>
+          return Err(
+            AudioTranscribeError::CommandUnavailable(
+              msg + "\n\n" + audio_transcribe_install_hint(),
+            ),
+          )
+      }
+    None => ()
+  }
+  match @rtcmd.resolve_path_command("ffmpeg") {
+    Some(command) => Ok(command)
+    None => Ok(@rtcmd.fallback_command("ffmpeg"))
+  }
 }
 
 ///|
@@ -272,21 +509,32 @@ fn audio_prepare_input_for_backend(
 ) -> Result[PreparedAudioInput, AudioTranscribeError] {
   match audio_format {
     @input.AudioFormat::M4a => {
-      let normalized_wav_path = temp_dir + "/normalized.wav"
-      let delegated = match
-        collect_audio_transcribe_output("ffmpeg", [
-          "-y", "-i", source_path, "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le",
-          normalized_wav_path,
-        ]) {
+      let ffmpeg_command = match resolve_ffmpeg_command() {
         Ok(value) => value
         Err(error) => return Err(error)
       }
+      let normalized_wav_path = temp_dir + "/normalized.wav"
+      let started = @env.now()
+      let delegated = match
+        collect_audio_transcribe_output(
+          ffmpeg_command,
+          [
+            "-y", "-i", source_path, "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le",
+            normalized_wav_path,
+          ],
+          "ffmpeg",
+        ) {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+      let wall_ms = @env.now() - started
       match delegated {
         (0, stdout, stderr) => {
           if !@fs.path_exists(normalized_wav_path) {
             return Err(
               AudioTranscribeError::ExecutionFailed(
-                "ffmpeg reported success but produced no normalized wav output on this runtime.",
+                "ffmpeg reported success but produced no normalized wav output on this runtime.\nResolved command: " +
+                @rtcmd.resolved_command_context(ffmpeg_command),
               ),
             )
           }
@@ -300,7 +548,14 @@ fn audio_prepare_input_for_backend(
             diagnostics.push(stderr_text)
           }
           ignore(diagnostics)
-          Ok({ invoked_input_path: normalized_wav_path })
+          Ok({
+            input_audio_path: source_path,
+            normalized_audio_path: Some(normalized_wav_path),
+            preprocess_invocation_count: 1,
+            preprocess_wall_ms: wall_ms,
+            preprocess_kinds: ["ffmpeg"],
+            preprocess_command: Some(ffmpeg_command),
+          })
         }
         (code, stdout, stderr) => {
           let stderr_text = stderr.trim().to_owned()
@@ -320,6 +575,8 @@ fn audio_prepare_input_for_backend(
               AudioTranscribeError::CommandUnavailable(
                 "ffmpeg is required for `m4a` audio input on this runtime: " +
                 raw_message +
+                "\nResolved command: " +
+                @rtcmd.resolved_command_context(ffmpeg_command) +
                 "\n\n" +
                 audio_transcribe_install_hint(),
               ),
@@ -328,131 +585,43 @@ fn audio_prepare_input_for_backend(
             Err(
               AudioTranscribeError::ExecutionFailed(
                 "ffmpeg failed to normalize `m4a` audio on this runtime: " +
-                raw_message,
+                raw_message +
+                "\nResolved command: " +
+                @rtcmd.resolved_command_context(ffmpeg_command),
               ),
             )
           }
         }
       }
     }
-    _ => Ok({ invoked_input_path: source_path })
+    _ =>
+      Ok({
+        input_audio_path: source_path,
+        normalized_audio_path: None,
+        preprocess_invocation_count: 0,
+        preprocess_wall_ms: 0,
+        preprocess_kinds: [],
+        preprocess_command: None,
+      })
   }
 }
 
 ///|
 fn audio_validate_model_path() -> Result[String, AudioTranscribeError] {
   let model_path = audio_resolved_model_path()
-  let model_is_file = @fs.is_file(model_path) catch { _ => false }
-  if @fs.path_exists(model_path) && model_is_file {
+  let model_is_dir = @fs.is_dir(model_path) catch { _ => false }
+  if @fs.path_exists(model_path) && model_is_dir {
     Ok(model_path)
   } else {
     Err(
       AudioTranscribeError::NotConfigured(
-        "Whisper model is not available on this runtime: " +
+        "Vosk model directory is not available on this runtime: " +
         model_path +
         "\n\n" +
         audio_transcribe_install_hint(),
       ),
     )
   }
-}
-
-///|
-fn audio_discover_backend_command() -> Result[String, AudioTranscribeError] {
-  for candidate in audio_whisper_candidate_commands() {
-    match collect_audio_transcribe_output(candidate, ["--help"]) {
-      Ok((0, _stdout, _stderr)) => return Ok(candidate)
-      Ok((code, stdout, stderr)) => {
-        let raw_message = audio_process_raw_message(
-          candidate + " exited with code " + code.to_string(),
-          stdout,
-          stderr,
-        )
-        if !audio_raw_message_suggests_missing_command(raw_message) {
-          return Ok(candidate)
-        }
-      }
-      Err(AudioTranscribeError::ExecutionFailed(msg)) =>
-        if audio_raw_message_suggests_missing_command(msg) {
-          ()
-        } else {
-          return Ok(candidate)
-        }
-      Err(AudioTranscribeError::CommandUnavailable(msg)) =>
-        if audio_raw_message_suggests_missing_command(msg) {
-          ()
-        } else {
-          return Ok(candidate)
-        }
-      Err(_other) => return Ok(candidate)
-    }
-  }
-  Err(
-    AudioTranscribeError::CommandUnavailable(
-      "whisper.cpp CLI is unavailable on this runtime. Expected `whisper-cli` or `main` on PATH.\n\n" +
-      audio_transcribe_install_hint(),
-    ),
-  )
-}
-
-///|
-fn audio_command_parts(command : String) -> Result[Array[String], String] {
-  if @fs.path_exists(command) {
-    return Ok([command])
-  }
-  let parts : Array[String] = []
-  let current : Array[Char] = []
-  let chars = command.to_array()
-  let mut in_single_quote = false
-  let mut in_double_quote = false
-  let mut escape_next = false
-
-  fn flush_current(parts : Array[String], current : Array[Char]) -> Unit {
-    if current.length() == 0 {
-      return
-    }
-    parts.push(String::from_array(current))
-    current.clear()
-  }
-
-  for ch in chars {
-    if escape_next {
-      current.push(ch)
-      escape_next = false
-      continue
-    }
-    if ch == '\\' && !in_single_quote {
-      escape_next = true
-      continue
-    }
-    if ch == '\'' && !in_double_quote {
-      in_single_quote = !in_single_quote
-      continue
-    }
-    if ch == '"' && !in_single_quote {
-      in_double_quote = !in_double_quote
-      continue
-    }
-    if (ch == ' ' || ch == '\t' || ch == '\n') &&
-      !in_single_quote &&
-      !in_double_quote {
-      flush_current(parts, current)
-      continue
-    }
-    current.push(ch)
-  }
-
-  if escape_next || in_single_quote || in_double_quote {
-    return Err(
-      "Audio command configured through `" +
-      audio_command_env_var() +
-      "` is not shell-parseable on this runtime.\n\n" +
-      audio_transcribe_install_hint(),
-    )
-  }
-
-  flush_current(parts, current)
-  Ok(parts)
 }
 
 ///|
@@ -466,16 +635,24 @@ pub fn run_audio_transcribe_command(
     Err(error) => return Err(error)
   }
   defer audio_cleanup_temp_dir(plan.temp_dir)
+  let backend_started = @env.now()
   let delegated = match
-    collect_audio_transcribe_output(plan.backend_cmd, plan.argv) {
+    collect_audio_transcribe_output(
+      plan.backend_command,
+      plan.argv,
+      "audio backend command",
+    ) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
+  let backend_wall_ms = @env.now() - backend_started
   finalize_audio_transcribe_command_result(
     delegated,
-    plan.output_json_path,
+    plan,
+    plan.result_json_path,
     format,
     language,
+    audio_runtime_metrics(plan, backend_wall_ms),
   )
 }
 
@@ -494,38 +671,45 @@ pub fn run_audio_transcribe_command_with_collect(
     Err(error) => return Err(error)
   }
   defer audio_cleanup_temp_dir(plan.temp_dir)
-  let delegated = match collect_output(plan.backend_cmd, plan.argv) {
+  let backend_started = @env.now()
+  let delegated = match
+    collect_output(plan.backend_command.program, plan.argv) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
+  let backend_wall_ms = @env.now() - backend_started
   finalize_audio_transcribe_command_result(
     delegated,
-    plan.output_json_path,
+    plan,
+    plan.result_json_path,
     format,
     language,
+    audio_runtime_metrics(plan, backend_wall_ms),
   )
 }
 
 ///|
 fn finalize_audio_transcribe_command_result(
   delegated : (Int, String, String),
-  output_json_path : String,
+  plan : AudioCommandPlan,
+  result_json_path : String,
   format : @input.DetectedFormat,
   requested_language : String?,
+  runtime_metrics : AudioRuntimeMetrics,
 ) -> Result[AudioTranscriptResult, AudioTranscribeError] {
   match delegated {
     (0, stdout, stderr) => {
-      let payload = @fs.read_file_to_string(output_json_path, encoding="utf8") catch {
+      let payload = @fs.read_file_to_string(result_json_path, encoding="utf8") catch {
         e =>
           return Err(
             AudioTranscribeError::OutputParseFailed(
-              "whisper.cpp did not produce a readable JSON transcript on this runtime: " +
+              "audio backend did not produce a readable JSON transcript on this runtime: " +
               e.to_string(),
             ),
           )
       }
       let parsed = match
-        parse_whisper_cpp_json_payload(payload, format, requested_language) {
+        parse_audio_transcript_json_payload(payload, format, requested_language) {
         Ok(value) => value
         Err(error) => return Err(error)
       }
@@ -533,24 +717,97 @@ fn finalize_audio_transcribe_command_result(
       let stdout_text = stdout.trim().to_owned()
       let stderr_text = stderr.trim().to_owned()
       if stdout_text != "" {
-        diagnostics.push("whisper_stdout=" + stdout_text)
+        diagnostics.push("audio_backend_stdout=" + stdout_text)
       }
       if stderr_text != "" {
-        diagnostics.push("whisper_stderr=" + stderr_text)
+        diagnostics.push("audio_backend_stderr=" + stderr_text)
       }
+      diagnostics.push(
+        "audio_backend_command_source=" +
+        @rtcmd.resolved_command_source_label(plan.backend_command.source),
+      )
+      diagnostics.push(
+        "audio_backend_command=" + plan.backend_command.display_command,
+      )
+      match plan.preprocess_command {
+        Some(command) => {
+          diagnostics.push(
+            "ffmpeg_command_source=" +
+            @rtcmd.resolved_command_source_label(command.source),
+          )
+          diagnostics.push("ffmpeg_command=" + command.display_command)
+        }
+        None => ()
+      }
+      diagnostics.push(
+        audio_metric_diagnostic(
+          "audio_backend_wall_ms",
+          runtime_metrics.audio_backend_wall_ms.to_string(),
+        ),
+      )
+      diagnostics.push(
+        audio_metric_diagnostic(
+          "external_process_invocation_count",
+          runtime_metrics.external_process_invocation_count.to_string(),
+        ),
+      )
+      diagnostics.push(
+        audio_metric_diagnostic(
+          "external_process_kind",
+          runtime_metrics.external_process_kind,
+        ),
+      )
+      diagnostics.push(
+        audio_metric_diagnostic(
+          "external_process_wall_ms",
+          runtime_metrics.external_process_wall_ms.to_string(),
+        ),
+      )
+      diagnostics.push(
+        audio_metric_diagnostic("external_process_batch_job_count", "1"),
+      )
+      diagnostics.push(
+        audio_metric_diagnostic("external_process_cache_hit", "false"),
+      )
+      diagnostics.push(
+        audio_metric_diagnostic(
+          "audio_normalization_used",
+          if runtime_metrics.audio_normalization_used {
+            "true"
+          } else {
+            "false"
+          },
+        ),
+      )
       Ok({ ..parsed, diagnostics, })
     }
     (code, stdout, stderr) => {
       let raw_message = audio_process_raw_message(
-        "whisper.cpp exited with code " + code.to_string(),
+        "audio backend exited with code " + code.to_string(),
         stdout,
         stderr,
       )
-      if audio_raw_message_suggests_missing_command(raw_message) {
+      let lowered = raw_message.to_lower()
+      if audio_raw_message_suggests_missing_command(raw_message) ||
+        lowered.contains("ffmpeg is required") {
         Err(
           AudioTranscribeError::CommandUnavailable(
-            "whisper.cpp CLI is unavailable on this runtime: " +
+            "audio backend command is unavailable on this runtime: " +
             raw_message +
+            "\nResolved command: " +
+            @rtcmd.resolved_command_context(plan.backend_command) +
+            "\n\n" +
+            audio_transcribe_install_hint(),
+          ),
+        )
+      } else if lowered.contains("vosk model directory is unavailable") ||
+        lowered.contains("vosk python package is unavailable") {
+        Err(
+          AudioTranscribeError::NotConfigured(
+            "audio backend is not fully configured on this runtime: " +
+            raw_message +
+            "\nResolved command: " +
+            @rtcmd.resolved_command_context(plan.backend_command) +
             "\n\n" +
             audio_transcribe_install_hint(),
           ),
@@ -558,8 +815,10 @@ fn finalize_audio_transcribe_command_result(
       } else {
         Err(
           AudioTranscribeError::ExecutionFailed(
-            "whisper.cpp CLI failed on this runtime: " +
+            "audio backend command failed on this runtime: " +
             raw_message +
+            "\nResolved command: " +
+            @rtcmd.resolved_command_context(plan.backend_command) +
             "\n\n" +
             audio_transcribe_install_hint(),
           ),
@@ -570,7 +829,23 @@ fn finalize_audio_transcribe_command_result(
 }
 
 ///|
-fn parse_whisper_cpp_json_payload(
+fn audio_runtime_metrics(
+  plan : AudioCommandPlan,
+  backend_wall_ms : UInt64,
+) -> AudioRuntimeMetrics {
+  let kinds = plan.preprocess_kinds.copy()
+  kinds.push("audio_backend")
+  {
+    external_process_invocation_count: plan.preprocess_invocation_count + 1,
+    external_process_wall_ms: plan.preprocess_wall_ms + backend_wall_ms,
+    external_process_kind: kinds.join(","),
+    audio_backend_wall_ms: backend_wall_ms,
+    audio_normalization_used: plan.preprocess_invocation_count > 0,
+  }
+}
+
+///|
+fn parse_audio_transcript_json_payload(
   payload : String,
   format : @input.DetectedFormat,
   requested_language : String?,
@@ -579,7 +854,7 @@ fn parse_whisper_cpp_json_payload(
   if trimmed == "" {
     return Err(
       AudioTranscribeError::EmptyResult(
-        "whisper.cpp produced an empty JSON transcript on this runtime.",
+        "audio backend produced an empty JSON transcript on this runtime.",
       ),
     )
   }
@@ -587,7 +862,8 @@ fn parse_whisper_cpp_json_payload(
     err =>
       return Err(
         AudioTranscribeError::OutputParseFailed(
-          "whisper.cpp emitted invalid JSON on this runtime: " + err.to_string(),
+          "audio backend emitted invalid JSON on this runtime: " +
+          err.to_string(),
         ),
       )
   }
@@ -596,38 +872,50 @@ fn parse_whisper_cpp_json_payload(
     _ =>
       return Err(
         AudioTranscribeError::OutputParseFailed(
-          "whisper.cpp JSON root must be an object on this runtime.",
+          "audio transcript JSON root must be an object on this runtime.",
         ),
       )
   }
-  let transcription = match root_object.get("transcription") {
+  let segments_payload = match root_object.get("segments") {
     Some(@djson.JsonValue::Array(items)) => items
     _ =>
       return Err(
         AudioTranscribeError::OutputParseFailed(
-          "whisper.cpp JSON must include a `transcription` array on this runtime.",
+          "audio transcript JSON must include a `segments` array on this runtime.",
         ),
       )
   }
-  let metadata = whisper_cpp_metadata_from_object(
+  let metadata = audio_transcript_metadata_from_object(
     root_object, format, requested_language,
   )
-  let segments = match whisper_cpp_segments(transcription, metadata.language) {
+  let provider_name = match
+    audio_trimmed_optional(json_string_optional(root_object, "provider_name")) {
+    Some(value) => value
+    None => audio_backend_name()
+  }
+  let provider_version = audio_trimmed_optional(
+    json_string_optional(root_object, "provider_version"),
+  )
+  let segments = match
+    audio_transcript_segments(segments_payload, metadata.language) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
   if segments.length() == 0 {
     return Err(
       AudioTranscribeError::EmptyResult(
-        "whisper.cpp produced zero transcript segments on this runtime.",
+        "audio backend produced zero transcript segments on this runtime.",
       ),
     )
   }
   let diagnostics : Array[String] = [
-    "backend=" + audio_backend_name(),
+    "backend=" + provider_name,
     "transport=" + audio_backend_transport_name(),
     "model_path=" + audio_resolved_model_path(),
   ]
+  for item in json_string_array_optional(root_object, "diagnostics") {
+    diagnostics.push(item)
+  }
   let requested_trimmed = audio_trimmed_optional(requested_language)
   match requested_trimmed {
     Some(value) => diagnostics.push("requested_lang=" + value)
@@ -635,47 +923,48 @@ fn parse_whisper_cpp_json_payload(
   }
   Ok(
     make_audio_transcript_result(
-      audio_backend_name(),
+      provider_name,
       metadata,
       segments,
-      provider_version=None,
+      provider_version~,
       diagnostics~,
     ),
   )
 }
 
 ///|
-fn whisper_cpp_metadata_from_object(
+fn audio_transcript_metadata_from_object(
   payload : Map[String, @djson.JsonValue],
   format : @input.DetectedFormat,
   requested_language : String?,
 ) -> AudioTranscriptMetadata {
-  let result_language = match payload.get("result") {
+  let metadata_object = match payload.get("metadata") {
     Some(@djson.JsonValue::Object(entries)) =>
-      json_string_optional(json_object_from_members(entries), "language")
+      Some(json_object_from_members(entries))
     _ => None
   }
-  let params_language = match payload.get("params") {
-    Some(@djson.JsonValue::Object(entries)) =>
-      json_string_optional(json_object_from_members(entries), "language")
-    _ => None
-  }
-  let language = match audio_trimmed_optional(result_language) {
-    Some("auto") | None =>
-      match audio_trimmed_optional(params_language) {
-        Some("auto") | None => audio_trimmed_optional(requested_language)
-        some => some
-      }
+  let metadata = metadata_object.unwrap_or(Map([]))
+  let language = match
+    audio_trimmed_optional(json_string_optional(metadata, "language")) {
+    Some("auto") | None => audio_trimmed_optional(requested_language)
     some => some
   }
+  let codec = match
+    audio_trimmed_optional(json_string_optional(metadata, "codec")) {
+    Some(value) => Some(value)
+    None => Some(@input.detected_format_name(format))
+  }
   make_audio_transcript_metadata(
-    codec=Some(@input.detected_format_name(format)),
+    duration_ms=json_int_optional(metadata, "duration_ms"),
+    sample_rate_hz=json_int_optional(metadata, "sample_rate_hz"),
+    channel_count=json_int_optional(metadata, "channel_count"),
+    codec~,
     language~,
   )
 }
 
 ///|
-fn whisper_cpp_segments(
+fn audio_transcript_segments(
   items : Array[@djson.JsonValue],
   default_language : String?,
 ) -> Result[Array[AudioTranscriptSegment], AudioTranscribeError] {
@@ -686,7 +975,7 @@ fn whisper_cpp_segments(
       _ =>
         return Err(
           AudioTranscribeError::OutputParseFailed(
-            "whisper.cpp transcript segments must be JSON objects on this runtime.",
+            "audio transcript segments must be JSON objects on this runtime.",
           ),
         )
     }
@@ -694,25 +983,26 @@ fn whisper_cpp_segments(
       Ok(value) => value
       Err(error) => return Err(error)
     }
-    let offsets = match object.get("offsets") {
-      Some(@djson.JsonValue::Object(entries)) =>
-        json_object_from_members(entries)
-      _ =>
-        return Err(
-          AudioTranscribeError::OutputParseFailed(
-            "whisper.cpp transcript segments must include `offsets` on this runtime.",
-          ),
-        )
-    }
-    let start_ms = match json_int_required(offsets, "from") {
+    let start_ms = match json_int_required(object, "start_ms") {
       Ok(value) => value
       Err(error) => return Err(error)
     }
-    let end_ms = match json_int_required(offsets, "to") {
+    let end_ms = match json_int_required(object, "end_ms") {
       Ok(value) => value
       Err(error) => return Err(error)
     }
-    let confidence = whisper_cpp_segment_confidence(object)
+    if start_ms < 0 || end_ms < start_ms {
+      return Err(
+        AudioTranscribeError::OutputParseFailed(
+          "audio transcript segments must carry non-negative ordered timestamps on this runtime.",
+        ),
+      )
+    }
+    let confidence = json_double_optional(object, "confidence")
+    let trimmed_text = text.trim().to_owned()
+    if trimmed_text == "" {
+      continue
+    }
     let segment_language = match
       audio_trimmed_optional(json_string_optional(object, "language")) {
       Some(value) => Some(value)
@@ -720,51 +1010,20 @@ fn whisper_cpp_segments(
     }
     segments.push(
       make_audio_transcript_segment(
-        "seg-" + (i + 1).to_string(),
+        json_string_optional(object, "segment_id").unwrap_or(
+          "seg-" + (i + 1).to_string(),
+        ),
         start_ms,
         end_ms,
-        text,
+        trimmed_text,
         speaker=json_string_optional(object, "speaker"),
+        channel=json_int_optional(object, "channel"),
         confidence~,
         language=segment_language,
       ),
     )
   }
   Ok(segments)
-}
-
-///|
-fn whisper_cpp_segment_confidence(
-  payload : Map[String, @djson.JsonValue],
-) -> Double? {
-  let direct = json_double_optional(payload, "confidence")
-  if direct is Some(_) {
-    return direct
-  }
-  let tokens = match payload.get("tokens") {
-    Some(@djson.JsonValue::Array(items)) => items
-    _ => return None
-  }
-  let mut total = 0.0
-  let mut count = 0
-  for item in tokens {
-    let object = match item {
-      @djson.JsonValue::Object(entries) => json_object_from_members(entries)
-      _ => continue
-    }
-    match json_double_optional(object, "p") {
-      Some(value) => {
-        total += value
-        count += 1
-      }
-      None => ()
-    }
-  }
-  if count == 0 {
-    None
-  } else {
-    Some(total / count.to_double())
-  }
 }
 
 ///|
@@ -806,6 +1065,22 @@ fn audio_local_source_path(
 }
 
 ///|
+fn audio_remove_dir_recursive(path : String) -> Unit raise @fs.IOError {
+  if !@fs.path_exists(path) {
+    return
+  }
+  for name in @fs.read_dir(path) {
+    let child = path + "/" + name
+    if @fs.is_dir(child) {
+      audio_remove_dir_recursive(child)
+    } else if @fs.is_file(child) {
+      @fs.remove_file(child)
+    }
+  }
+  @fs.remove_dir(path)
+}
+
+///|
 fn audio_ensure_dir_tree(path : String) -> Unit raise @fs.IOError {
   let normalized = path.trim().to_owned()
   if normalized == "" || normalized == "." {
@@ -830,22 +1105,6 @@ fn audio_ensure_dir_tree(path : String) -> Unit raise @fs.IOError {
       @fs.create_dir(current)
     }
   }
-}
-
-///|
-fn audio_remove_dir_recursive(path : String) -> Unit raise @fs.IOError {
-  if !@fs.path_exists(path) {
-    return
-  }
-  for name in @fs.read_dir(path) {
-    let child = path + "/" + name
-    if @fs.is_dir(child) {
-      audio_remove_dir_recursive(child)
-    } else if @fs.is_file(child) {
-      @fs.remove_file(child)
-    }
-  }
-  @fs.remove_dir(path)
 }
 
 ///|
@@ -920,6 +1179,51 @@ fn audio_trimmed_optional(value : String?) -> String? {
 }
 
 ///|
+fn audio_json_quote_string(text : String) -> String {
+  let out : Array[Char] = ['"']
+  for ch in text.to_array() {
+    match ch {
+      '"' => {
+        out.push('\\')
+        out.push('"')
+      }
+      '\\' => {
+        out.push('\\')
+        out.push('\\')
+      }
+      '\n' => {
+        out.push('\\')
+        out.push('n')
+      }
+      '\r' => {
+        out.push('\\')
+        out.push('r')
+      }
+      '\t' => {
+        out.push('\\')
+        out.push('t')
+      }
+      _ => out.push(ch)
+    }
+  }
+  out.push('"')
+  String::from_array(out)
+}
+
+///|
+fn audio_json_optional_string(value : String?) -> String {
+  match value {
+    Some(text) => audio_json_quote_string(text)
+    None => "null"
+  }
+}
+
+///|
+fn audio_metric_diagnostic(key : String, value : String) -> String {
+  "metric|" + key + "|" + value
+}
+
+///|
 fn json_object_from_members(
   entries : Array[@djson.JsonMember],
 ) -> Map[String, @djson.JsonValue] {
@@ -990,6 +1294,18 @@ fn json_int_required(
 }
 
 ///|
+fn json_int_optional(
+  payload : Map[String, @djson.JsonValue],
+  key : String,
+) -> Int? {
+  match payload.get(key) {
+    Some(@djson.JsonValue::Number(value)) =>
+      Some(@string.parse_int(value) catch { _ => return None })
+    _ => None
+  }
+}
+
+///|
 fn json_double_optional(
   payload : Map[String, @djson.JsonValue],
   key : String,
@@ -1002,21 +1318,46 @@ fn json_double_optional(
 }
 
 ///|
+fn json_string_array_optional(
+  payload : Map[String, @djson.JsonValue],
+  key : String,
+) -> Array[String] {
+  let values : Array[String] = []
+  match payload.get(key) {
+    Some(@djson.JsonValue::Array(items)) =>
+      for item in items {
+        match item {
+          @djson.JsonValue::String(value) => values.push(value)
+          _ => ()
+        }
+      }
+    _ => ()
+  }
+  values
+}
+
+///|
 #warnings("-deprecated")
 fn collect_audio_transcribe_output(
-  cmd : String,
+  command : @rtcmd.ResolvedCommand,
   args : Array[String],
+  command_label : String,
 ) -> Result[(Int, String, String), AudioTranscribeError] {
   let collected : Ref[Result[(Int, String, String), AudioTranscribeError]?] = {
     val: None,
   }
   @async.with_event_loop(_group => {
-    let delegated = @process.collect_output(cmd, args) catch {
+    let delegated = @process.collect_output(command.program, args) catch {
       e => {
         collected.val = Some(
           Err(
             AudioTranscribeError::ExecutionFailed(
-              "launch audio command failed on this runtime: " + e.to_string(),
+              "launch " +
+              command_label +
+              " failed on this runtime: " +
+              e.to_string() +
+              "\nResolved command: " +
+              @rtcmd.resolved_command_context(command),
             ),
           ),
         )
@@ -1058,7 +1399,12 @@ fn collect_audio_transcribe_output(
     e =>
       return Err(
         AudioTranscribeError::ExecutionFailed(
-          "launch audio command failed on this runtime: " + e.to_string(),
+          "launch " +
+          command_label +
+          " failed on this runtime: " +
+          e.to_string() +
+          "\nResolved command: " +
+          @rtcmd.resolved_command_context(command),
         ),
       )
   }
@@ -1067,23 +1413,11 @@ fn collect_audio_transcribe_output(
     None =>
       Err(
         AudioTranscribeError::ExecutionFailed(
-          "launch audio command failed on this runtime: event loop returned no result",
+          "launch " +
+          command_label +
+          " failed on this runtime: event loop returned no result\nResolved command: " +
+          @rtcmd.resolved_command_context(command),
         ),
       )
-  }
-}
-
-///|
-fn normalized_env_var(name : String) -> String? {
-  match @env.get_env_var(name) {
-    Some(value) => {
-      let trimmed = value.trim().to_owned()
-      if trimmed == "" {
-        None
-      } else {
-        Some(trimmed)
-      }
-    }
-    None => None
   }
 }

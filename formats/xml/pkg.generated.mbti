@@ -7,7 +7,7 @@ import {
 }
 
 // Values
-pub fn read_xml_input_text(@input.InputSource) -> Result[String, String]
+pub fn xml_parse_with_prepared_text(@input.InputSource, @parser.ParseContext, @ZSeanYves/markitdown/format_readers/xml.PreparedXmlText) -> @parser.ParseResult
 
 pub fn xml_parse_with_structure_tokens(@input.InputSource, @parser.ParseContext, String, Array[@ZSeanYves/markitdown/format_readers/xml.XmlToken]) -> @parser.ParseResult
 

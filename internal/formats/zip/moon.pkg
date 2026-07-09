@@ -1,0 +1,17 @@
+import {
+  "moonbitlang/core/encoding/utf8",
+  "ZSeanYves/markitdown/format_readers/zip" @dzip,
+  "ZSeanYves/markitdown/format_readers/zip_source" @dzipsource,
+  "ZSeanYves/markitdown/container",
+  "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/formats/shared" @fshared,
+  "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/runtime",
+}
+
+supported_targets = "native"
+
+options(
+  "preferred-target": "native",
+)

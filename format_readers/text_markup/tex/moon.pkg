@@ -1,5 +1,6 @@
 import {
   "ZSeanYves/markitdown/format_readers/text_markup/shared",
+  "ZSeanYves/markitdown/input",
 }
 
 options(

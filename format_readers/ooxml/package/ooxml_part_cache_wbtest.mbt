@@ -206,6 +206,32 @@ fn cache_test_open_relationship_package() -> OoxmlPackage raise {
 }
 
 ///|
+fn cache_test_part_stats(pkg : OoxmlPackage) -> (Int, Int, Int, Int, Int, Int) {
+  (
+    pkg.part_cache.bytes_hit_count.val,
+    pkg.part_cache.bytes_miss_count.val,
+    pkg.part_cache.text_hit_count.val,
+    pkg.part_cache.text_decode_count.val,
+    pkg.part_cache.bytes_by_part.length(),
+    pkg.part_cache.text_by_part.length(),
+  )
+}
+
+///|
+fn cache_test_relationship_stats(
+  pkg : OoxmlPackage,
+) -> (Int, Int, Int, Int, Int, Int) {
+  (
+    pkg.relationship_cache.relationships_hit_count.val,
+    pkg.relationship_cache.relationships_miss_count.val,
+    pkg.relationship_cache.by_id_hit_count.val,
+    pkg.relationship_cache.by_id_miss_count.val,
+    pkg.relationship_cache.by_type_query_count.val,
+    pkg.relationship_cache.index_by_rels_part.length(),
+  )
+}
+
+///|
 test "ooxml part cache reuses bytes by normalized package path" {
   let pkg = cache_test_open_package()
   let first = read_part_bytes(pkg, "word/document.xml") catch {
@@ -216,10 +242,12 @@ test "ooxml part cache reuses bytes by normalized package path" {
   }
 
   assert_eq(first.length(), second.length())
-  let stats = inspect_ooxml_part_cache_stats(pkg)
-  assert_eq(stats.bytes_miss_count, 1)
-  assert_eq(stats.bytes_hit_count, 1)
-  assert_eq(stats.bytes_entry_count, 1)
+  let (bytes_hit_count, bytes_miss_count, _, _, bytes_entry_count, _) = cache_test_part_stats(
+    pkg,
+  )
+  assert_eq(bytes_miss_count, 1)
+  assert_eq(bytes_hit_count, 1)
+  assert_eq(bytes_entry_count, 1)
 }
 
 ///|
@@ -238,12 +266,19 @@ test "ooxml part cache reuses decoded text and feeds byte cache" {
   assert_eq(first, second)
   assert_true(first.contains("Cäsar"))
   assert_true(bytes.length() > 0)
-  let stats = inspect_ooxml_part_cache_stats(pkg)
-  assert_eq(stats.bytes_miss_count, 1)
-  assert_eq(stats.bytes_hit_count, 1)
-  assert_eq(stats.text_decode_count, 1)
-  assert_eq(stats.text_hit_count, 1)
-  assert_eq(stats.text_entry_count, 1)
+  let (
+    bytes_hit_count,
+    bytes_miss_count,
+    text_hit_count,
+    text_decode_count,
+    _,
+    text_entry_count,
+  ) = cache_test_part_stats(pkg)
+  assert_eq(bytes_miss_count, 1)
+  assert_eq(bytes_hit_count, 1)
+  assert_eq(text_decode_count, 1)
+  assert_eq(text_hit_count, 1)
+  assert_eq(text_entry_count, 1)
 }
 
 ///|
@@ -262,12 +297,19 @@ test "ooxml xml part payload reuses decoded text and exposes structure scan" {
     first.structure_scan.status == @xml.XmlStructureScanStatus::Success,
   )
   assert_true(first.structure_scan.element_count > 0)
-  let stats = inspect_ooxml_part_cache_stats(pkg)
-  assert_eq(stats.bytes_miss_count, 1)
-  assert_eq(stats.bytes_hit_count, 1)
-  assert_eq(stats.text_decode_count, 1)
-  assert_eq(stats.text_hit_count, 1)
-  assert_eq(stats.text_entry_count, 1)
+  let (
+    bytes_hit_count,
+    bytes_miss_count,
+    text_hit_count,
+    text_decode_count,
+    _,
+    text_entry_count,
+  ) = cache_test_part_stats(pkg)
+  assert_eq(bytes_miss_count, 1)
+  assert_eq(bytes_hit_count, 1)
+  assert_eq(text_decode_count, 1)
+  assert_eq(text_hit_count, 1)
+  assert_eq(text_entry_count, 1)
 }
 
 ///|
@@ -282,27 +324,32 @@ test "ooxml part cache preserves missing part behavior" {
 
   match first {
     Ok(_) => fail("missing bytes read should fail")
-    Err(err) => {
-      let info = classify_ooxml_error(err)
-      if info.kind != OoxmlErrorKind::MissingPart {
-        fail("missing bytes read should classify as MissingPart")
+    Err(err) =>
+      match err {
+        MissingPart(_) => ()
+        _ => fail("missing bytes read should classify as MissingPart")
       }
-    }
   }
   match second {
     Ok(_) => fail("missing text read should fail")
-    Err(err) => {
-      let info = classify_ooxml_error(err)
-      if info.kind != OoxmlErrorKind::MissingPart {
-        fail("missing text read should classify as MissingPart")
+    Err(err) =>
+      match err {
+        MissingPart(_) => ()
+        _ => fail("missing text read should classify as MissingPart")
       }
-    }
   }
-  let stats = inspect_ooxml_part_cache_stats(pkg)
-  assert_eq(stats.bytes_hit_count, 0)
-  assert_eq(stats.text_hit_count, 0)
-  assert_eq(stats.bytes_entry_count, 0)
-  assert_eq(stats.text_entry_count, 0)
+  let (
+    bytes_hit_count,
+    _,
+    text_hit_count,
+    _,
+    bytes_entry_count,
+    text_entry_count,
+  ) = cache_test_part_stats(pkg)
+  assert_eq(bytes_hit_count, 0)
+  assert_eq(text_hit_count, 0)
+  assert_eq(bytes_entry_count, 0)
+  assert_eq(text_entry_count, 0)
 }
 
 ///|
@@ -341,13 +388,20 @@ test "ooxml relationship cache reuses parsed rels and indexed lookups" {
   assert_eq(image_rels.length(), 1)
   assert_eq(image_rels[0].id, "rIdImage")
 
-  let stats = inspect_ooxml_relationship_cache_stats(pkg)
-  assert_eq(stats.relationships_miss_count, 1)
-  assert_true(stats.relationships_hit_count >= 4)
-  assert_eq(stats.by_id_hit_count, 2)
-  assert_eq(stats.by_id_miss_count, 0)
-  assert_eq(stats.by_type_query_count, 1)
-  assert_eq(stats.entry_count, 1)
+  let (
+    relationships_hit_count,
+    relationships_miss_count,
+    by_id_hit_count,
+    by_id_miss_count,
+    by_type_query_count,
+    entry_count,
+  ) = cache_test_relationship_stats(pkg)
+  assert_eq(relationships_miss_count, 1)
+  assert_true(relationships_hit_count >= 4)
+  assert_eq(by_id_hit_count, 2)
+  assert_eq(by_id_miss_count, 0)
+  assert_eq(by_type_query_count, 1)
+  assert_eq(entry_count, 1)
 }
 
 ///|
@@ -360,18 +414,18 @@ test "ooxml relationship cache preserves missing rid behavior" {
   }
   match result {
     Ok(_) => fail("missing relationship id should fail")
-    Err(err) => {
-      let info = classify_ooxml_error(err)
-      if info.kind != OoxmlErrorKind::RelationshipNotFound {
-        fail("missing relationship id should classify as RelationshipNotFound")
+    Err(err) =>
+      match err {
+        RelationshipNotFound(_, rel_id) => assert_eq(rel_id, "rId404")
+        _ =>
+          fail(
+            "missing relationship id should classify as RelationshipNotFound",
+          )
       }
-      match info.rel_id {
-        Some(v) => assert_eq(v, "rId404")
-        None => fail("expected missing relationship id in error info")
-      }
-    }
   }
-  let stats = inspect_ooxml_relationship_cache_stats(pkg)
-  assert_eq(stats.relationships_miss_count, 1)
-  assert_eq(stats.by_id_miss_count, 1)
+  let (_, relationships_miss_count, _, by_id_miss_count, _, _) = cache_test_relationship_stats(
+    pkg,
+  )
+  assert_eq(relationships_miss_count, 1)
+  assert_eq(by_id_miss_count, 1)
 }

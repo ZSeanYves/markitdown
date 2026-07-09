@@ -1,27 +1,42 @@
 # Render
 
-`render/` owns the formal output stage and turns unified main-path results into the content users actually consume.
+`render/` owns the final output stage and turns the unified document structure into the text or JSON that users actually consume. It must keep outputs stable while faithfully consuming diagnostics, assembly, source map, and RAG side channels.
 
-Main responsibilities:
+## Responsibilities
 
-- Markdown output
-- debug JSON output
-- RAG JSON output
+- Render the primary Markdown output
+- Render debug JSON and RAG JSON views
+- Manage render context, input adapters, and profile selection consistently
 
-Main files:
+## Key Entry Points
 
-- `render.mbt`: top-level dispatch
+- `render_types.mbt`
+  `RenderContext`, `RenderInput`, `RenderResult`, `Renderer`
+- `render.mbt`
+  Top-level dispatch and renderer selection
 - `markdown_renderer.mbt`
+  Markdown renderer entry point
+- `render_markdown_blocks.mbt` / `render_markdown_events.mbt`
+  Block- and event-level Markdown serialization
 - `debug_json_renderer.mbt`
-- `rag_json_renderer.mbt`
-- `render_input_adapters.mbt`
+  Debug JSON entry point
+- `rag_json_renderer.mbt` / `render_rag_json.mbt`
+  RAG JSON entry points and chunk-output integration
 
-Maintenance rules:
+## Key Types
 
-- new output views should plug into the shared render dispatch
-- do not duplicate rendering logic inside `convert` or the CLI
+- `RenderContext`
+  Carries fidelity, output mode, render profile, RAG options, and side data such as diagnostics, metadata, assets, and assembly
+- `RenderResult`
+  The unified output object for content, accumulated diagnostics, and optional RAG chunks
 
-Validation:
+## Maintenance Rules
+
+- Every new output view should plug into the shared render dispatch instead of assembling content inside convert or CLI
+- Keep naming and field semantics aligned across Markdown, debug JSON, and RAG JSON so tests and provenance stay comparable
+- Whenever a renderer depends on a new side channel, represent it explicitly in `RenderContext` and the relevant adapters
+
+## Validation
 
 ```bash
 moon test

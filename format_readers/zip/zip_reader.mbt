@@ -33,7 +33,7 @@ const MAX_NORMALIZED_ENTRY_PATH_LENGTH : Int = 240
 const MAX_NORMALIZED_DIRECTORY_DEPTH : Int = 16
 
 ///|
-pub fn open_zip(bytes : Bytes) -> ZipArchive raise ZipError {
+fn open_zip_impl(bytes : Bytes) -> ZipArchive raise ZipError {
   let eocd_offset = find_eocd(bytes)
   let (cd_offset, cd_size, entry_count) = parse_eocd(bytes, eocd_offset)
   let entries = parse_cd_entries(bytes, cd_offset, cd_size, entry_count)
@@ -51,7 +51,22 @@ pub fn open_zip(bytes : Bytes) -> ZipArchive raise ZipError {
     i = i + 1
   }
 
-  { bytes, entries, entry_index: index }
+  {
+    bytes,
+    entries,
+    entry_index: index,
+    inspect_cache: Ref(None),
+    read_entry_cache: Map([]),
+    inspect_hit_count: { val: 0 },
+    inspect_miss_count: { val: 0 },
+    read_hit_count: { val: 0 },
+    read_miss_count: { val: 0 },
+  }
+}
+
+///|
+pub fn open_zip(bytes : Bytes) -> ZipArchive raise ZipError {
+  open_zip_impl(bytes)
 }
 
 ///|
@@ -91,7 +106,18 @@ pub fn inspect_zip_inventory(archive : ZipArchive) -> ZipArchiveInventory {
 
 ///|
 pub fn inspect_zip_archive(archive : ZipArchive) -> ZipArchiveInspectReport {
-  build_zip_archive_report(archive)
+  match archive.inspect_cache.val {
+    Some(report) => {
+      archive.inspect_hit_count.val += 1
+      report
+    }
+    None => {
+      let report = build_zip_archive_report(archive)
+      archive.inspect_miss_count.val += 1
+      archive.inspect_cache.val = Some(report)
+      report
+    }
+  }
 }
 
 ///|
@@ -126,6 +152,13 @@ pub fn read_entry(
   path : String,
   max_output_size? : Int = 128 * 1024 * 1024,
 ) -> Bytes raise ZipError {
+  match archive.read_entry_cache.get(path) {
+    Some(cached) => {
+      archive.read_hit_count.val += 1
+      return cached
+    }
+    None => ()
+  }
   let slice = read_entry_data_slice(archive, path)
   let entry = slice.entry
   let compressed = subview(
@@ -165,6 +198,8 @@ pub fn read_entry(
   }
 
   validate_crc32(decoded, entry)
+  archive.read_miss_count.val += 1
+  archive.read_entry_cache.set(path, decoded)
   decoded
 }
 

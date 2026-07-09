@@ -8,11 +8,7 @@ import {
 // Values
 pub fn default_tool_registry_config() -> ToolRegistryConfig
 
-pub fn find_in_path(String, String?) -> String?
-
 pub fn find_tool(String, config? : ToolRegistryConfig) -> BenchTool?
-
-pub fn is_executable_file(String) -> Bool
 
 pub fn make_tool_command(String, Array[String], String?, Array[(String, String)], Int, String, String) -> ToolCommand
 
@@ -35,18 +31,6 @@ pub struct BenchTool {
 }
 pub fn BenchTool::build_command(Self, @manifest.BenchRow, String, Int) -> ToolCommand
 pub fn BenchTool::is_available(Self) -> Bool
-
-pub struct MarkItDownResolution {
-  path : String
-  source : MarkItDownSource
-} derive(Eq)
-
-pub(all) enum MarkItDownSource {
-  ExplicitArg
-  EnvVar
-  PathLookup
-  Fallback
-} derive(Eq)
 
 pub struct ToolCommand {
   program : String

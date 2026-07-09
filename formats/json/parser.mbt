@@ -179,14 +179,91 @@ pub fn json_parse_with_stream_document(
 }
 
 ///|
+pub fn json_parse_with_prepared_document(
+  source : @input.InputSource,
+  context : @parser.ParseContext,
+  prepared : @djson.PreparedJsonText,
+) -> @parser.ParseResult {
+  let requested_streaming = context.requested_mode ==
+    Some(@parser.ParserMode::StreamingEvent)
+  if requested_streaming {
+    match prepared.stream {
+      Some(stream) => {
+        let parsed = json_parse_with_stream_document(
+          source,
+          context,
+          prepared.original_text,
+          stream,
+        )
+        parsed.diagnostics.metrics.set("probe_artifact_reused", "true")
+        parsed
+      }
+      None => {
+        let diagnostics = @fshared.empty_parser_diagnostics(
+          "json_parser",
+          @parser.ParserMode::DomAstModel,
+          source,
+          "json",
+        )
+        @fshared.init_parser_route_metrics_with_granularity(
+          diagnostics,
+          source,
+          context,
+          "json",
+          "json_parser",
+          @parser.ParserMode::DomAstModel,
+          @parser.ParserMode::StreamingEvent,
+          "event_stream",
+          @parser.StreamingGranularity::JsonStructure,
+          "json_structure_event_stream",
+        )
+        @fshared.apply_product_metrics(diagnostics, "json")
+        malformed_json_parse_result(
+          "json_parser",
+          "json",
+          source,
+          prepared.original_text,
+          diagnostics,
+          prepared.parse_error.unwrap_or("unknown"),
+          json_parser_capability(),
+        )
+      }
+    }
+  } else {
+    match parse_json_document_result(source, context) {
+      Ok(result) => result
+      Err(err) => {
+        let diagnostics = @fshared.empty_parser_diagnostics(
+          "json_parser",
+          @parser.ParserMode::DomAstModel,
+          source,
+          "json",
+        )
+        malformed_json_parse_result(
+          "json_parser",
+          "json",
+          source,
+          prepared.original_text,
+          diagnostics,
+          err,
+          json_parser_capability(),
+        )
+      }
+    }
+  }
+}
+
+///|
 fn parse_json_document_result(
   source : @input.InputSource,
   context : @parser.ParseContext,
 ) -> Result[@parser.ParseResult, String] {
-  let text = match @input.read_input_text(source) {
+  let prepared = match @djson.prepare_json_document_from_source(source) {
     Ok(payload) => payload
     Err(err) => return Err(err)
   }
+  let source = prepared.prepared_source
+  let text = prepared.original_text
   let diagnostics = @fshared.empty_parser_diagnostics(
     "json_parser",
     @parser.ParserMode::DomAstModel,
@@ -225,11 +302,8 @@ fn parse_json_document_result(
   )
   @fshared.apply_product_metrics(diagnostics, "json")
   if requested_streaming {
-    let streamed = try @djson.parse_json_stream(text) |> Ok catch {
-      e => Err(e.to_string())
-    }
-    match streamed {
-      Ok(stream) => {
+    match prepared.stream {
+      Some(stream) => {
         let events = json_generic_block_events_from_stream(stream, source)
         diagnostics.metrics.set("parser_mode", "streaming_event")
         diagnostics.metrics.set("effective_mode", "streaming_event")
@@ -282,7 +356,7 @@ fn parse_json_document_result(
           ),
         )
       }
-      Err(err) =>
+      None =>
         return Ok(
           malformed_json_parse_result(
             "json_parser",
@@ -290,18 +364,17 @@ fn parse_json_document_result(
             source,
             text,
             diagnostics,
-            err,
+            prepared.parse_error.unwrap_or("unknown"),
             json_parser_capability(),
           ),
         )
     }
   }
-  let parsed = try @djson.parse_json_document(text) |> Ok catch {
-    e => Err(e.to_string())
-  }
-  match parsed {
-    Ok(doc) => {
-      let inspect = @djson.inspect_json_document(doc)
+  match prepared.document {
+    Some(doc) => {
+      let inspect = prepared.inspect.unwrap_or(
+        @djson.inspect_json_document(doc),
+      )
       let document = lower_json_document(doc, text, source, diagnostics)
       diagnostics.metrics.set("effective_mode", "dom_ast_model")
       diagnostics.metrics.set("dom_limit_reached", "false")
@@ -345,14 +418,14 @@ fn parse_json_document_result(
         ),
       )
     }
-    Err(err) => {
+    None => {
       let fallback = malformed_json_parse_result(
         "json_parser",
         "json",
         source,
         text,
         diagnostics,
-        err,
+        prepared.parse_error.unwrap_or("unknown"),
         json_parser_capability(),
       )
       Ok(fallback)
@@ -367,10 +440,12 @@ fn parse_line_delimited_json_result(
   source : @input.InputSource,
   context : @parser.ParseContext,
 ) -> Result[@parser.ParseResult, String] {
-  let text = match @input.read_input_text(source) {
+  let prepared = match @djson.prepare_json_document_from_source(source) {
     Ok(payload) => payload
     Err(err) => return Err(err)
   }
+  let source = prepared.prepared_source
+  let text = prepared.original_text
   let diagnostics = @fshared.empty_parser_diagnostics(
     parser_name,
     @parser.ParserMode::StreamingEvent,

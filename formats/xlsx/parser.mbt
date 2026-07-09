@@ -53,6 +53,23 @@ pub fn xlsx_parse_with_package(
     context,
     xlsx_parser_capability(),
     pkg,
+    probe_artifact_reused=true,
+  )
+}
+
+///|
+pub fn xlsx_parse_with_prepared_package(
+  _source : @input.InputSource,
+  context : @parser.ParseContext,
+  prepared : @drxlsx.PreparedXlsxPackage,
+  probe_artifact_reused? : Bool = true,
+) -> @parser.ParseResult {
+  xlsx_parse_document_result_from_package(
+    prepared.prepared_source,
+    context,
+    xlsx_parser_capability(),
+    prepared.opened_package,
+    probe_artifact_reused~,
   )
 }
 
@@ -60,13 +77,13 @@ pub fn xlsx_parse_with_package(
 /// Benchmark-oriented helper that parses workbook-level OOXML structures and
 /// returns the included visible sheet count.
 pub fn xlsx_workbook_metric(source : @input.InputSource) -> Result[Int, String] {
-  let pkg = match xlsx_open_package_from_source(source) {
+  let prepared = match @drxlsx.prepare_xlsx_package_from_source(source) {
     Ok(value) => value
     Err(err) => return Err(err)
   }
   let workbook = try
     xlsx_parse_workbook(
-      pkg,
+      prepared.opened_package,
       @core.empty_diagnostics(),
       xlsx_benchmark_parse_context(),
     )
@@ -115,11 +132,11 @@ pub struct XlsxPreflightSummary {
 pub fn xlsx_preflight_summary(
   source : @input.InputSource,
 ) -> Result[XlsxPreflightSummary, String] {
-  let pkg = match xlsx_open_package_from_source(source) {
+  let prepared = match @drxlsx.prepare_xlsx_package_from_source(source) {
     Ok(value) => value
     Err(err) => return Err(err)
   }
-  xlsx_preflight_summary_with_package(pkg)
+  xlsx_preflight_summary_with_package(prepared.opened_package)
 }
 
 ///|
@@ -334,14 +351,22 @@ fn xlsx_parse_document_result(
   context : @parser.ParseContext,
   capability : @parser.ParserCapability,
 ) -> Result[@parser.ParseResult, String] {
-  let pkg = match xlsx_open_package_from_source(source) {
+  let prepared = match @drxlsx.prepare_xlsx_package_from_source(source) {
     Ok(value) => value
     Err(err) =>
       return Ok(
         xlsx_open_package_failed_result(source, context, capability, err),
       )
   }
-  Ok(xlsx_parse_document_result_from_package(source, context, capability, pkg))
+  Ok(
+    xlsx_parse_document_result_from_package(
+      prepared.prepared_source,
+      context,
+      capability,
+      prepared.opened_package,
+      probe_artifact_reused=false,
+    ),
+  )
 }
 
 ///|
@@ -350,6 +375,7 @@ fn xlsx_parse_document_result_from_package(
   context : @parser.ParseContext,
   capability : @parser.ParserCapability,
   pkg : @ox.OoxmlPackage,
+  probe_artifact_reused? : Bool = false,
 ) -> @parser.ParseResult {
   let diagnostics = @fshared.empty_parser_diagnostics(
     "xlsx_parser",
@@ -358,6 +384,14 @@ fn xlsx_parse_document_result_from_package(
     "xlsx",
   )
   xlsx_init_diagnostics(diagnostics, source, context)
+  diagnostics.metrics.set(
+    "probe_artifact_reused",
+    if probe_artifact_reused {
+      "true"
+    } else {
+      "false"
+    },
+  )
 
   xlsx_fill_package_metrics(diagnostics, pkg)
   diagnostics.metrics.set(
@@ -519,19 +553,6 @@ fn xlsx_parse_document_result_from_package(
     diagnostics,
     capability,
   )
-}
-
-///|
-fn xlsx_open_package_from_source(
-  source : @input.InputSource,
-) -> Result[@ox.OoxmlPackage, String] {
-  let bytes = match @input.read_input_bytes(source) {
-    Ok(value) => value
-    Err(err) => return Err(err)
-  }
-  try @ox.open_ooxml_package(bytes) |> Ok catch {
-    err => Err(err.to_string())
-  }
 }
 
 ///|

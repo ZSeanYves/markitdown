@@ -28,13 +28,13 @@ fi
 MODE="markdown"
 FORMAT_FILTER=""
 SPECIAL_MODE=""
-FORMATS=("csv" "tsv" "txt" "srt" "vtt" "json" "jsonl" "ndjson" "ipynb" "xml" "yaml" "toml" "html" "markdown" "eml" "tex" "rst" "asciidoc" "zip" "epub" "odt" "ods" "odp" "docx" "xlsx" "pptx" "pdf" "ocr")
+FORMATS=("csv" "tsv" "txt" "srt" "vtt" "json" "jsonl" "ndjson" "ipynb" "xml" "yaml" "toml" "html" "markdown" "eml" "tex" "rst" "asciidoc" "zip" "epub" "odt" "ods" "odp" "docx" "xlsx" "pptx" "pdf" "wav" "mp3" "m4a" "ocr")
 
 trap 'status=$?; if [[ "$CLEANUP_OUT_DIR" -ne 0 ]]; then sample_cleanup_tmp_dir "$OUT_DIR"; fi; exit "$status"' EXIT
 
 usage() {
   cat <<'EOF'
-Internal usage: check_samples_impl.sh [--markdown|--rag|--assets|--ocr] [--format FMT] [--check-inventory] [--list-inventory]
+Internal usage: check_samples_impl.sh [--markdown|--rag|--assets|--ocr] [--format FMT|--formats FMT] [--check-inventory] [--list-inventory]
 EOF
 }
 
@@ -52,6 +52,41 @@ format_is_supported() {
     fi
   done
   return 1
+}
+
+audio_format_selected() {
+  case "${1-}" in
+    wav|mp3|m4a)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+sample_runner_cwd_for_format() {
+  local format="${1-}"
+  if audio_format_selected "$format" && [[ -n "${MARKITDOWN_AUDIO_RUNNER_CWD:-}" ]]; then
+    printf '%s' "$MARKITDOWN_AUDIO_RUNNER_CWD"
+    return 0
+  fi
+  return 1
+}
+
+sample_run_markitdown_cli() {
+  local format="$1"
+  shift
+  local runner_cwd=""
+  runner_cwd="$(sample_runner_cwd_for_format "$format" 2>/dev/null || true)"
+  if [[ -n "$runner_cwd" ]]; then
+    # Keep audio mock runs hermetic by hiding repo-managed wrappers under an
+    # isolated module root as well as an isolated cwd.
+    MARKITDOWN_RUNNER_CWD="$runner_cwd" MARKITDOWN_MODULE_ROOT="$runner_cwd" \
+      run_markitdown_cli "$@"
+    return $?
+  fi
+  run_markitdown_cli "$@"
 }
 
 require_external_main_corpus() {
@@ -91,10 +126,10 @@ while [[ $# -gt 0 ]]; do
     --ocr)
       MODE="ocr"
       ;;
-    --format)
+    --format|--formats)
       shift
       if [[ $# -eq 0 || "${1:-}" == --* ]]; then
-        echo "--format requires a value" >&2
+        echo "$1 requires a value" >&2
         usage >&2
         exit 1
       fi
@@ -207,7 +242,7 @@ for row in "${SAMPLE_ROWS[@]}"; do
     echo "==> converting $scope"
   fi
 
-  cli_args=(normal)
+  cli_args=(balance)
   while IFS= read -r extra_arg; do
     [[ -z "$extra_arg" ]] && continue
     cli_args+=("$extra_arg")
@@ -220,7 +255,7 @@ for row in "${SAMPLE_ROWS[@]}"; do
     out_path="$output_rag"
   fi
 
-  if ! run_markitdown_cli "${cli_args[@]}" "$input_path" "$out_path" >"$stdout_path" 2>"$stderr_path"; then
+  if ! sample_run_markitdown_cli "$fmt" "${cli_args[@]}" "$input_path" "$out_path" >"$stdout_path" 2>"$stderr_path"; then
     copy_if_exists "$out_path" "$failure_actual"
     copy_if_exists "$expected_path" "$failure_expected"
     copy_if_exists "$stdout_path" "$failure_stdout"

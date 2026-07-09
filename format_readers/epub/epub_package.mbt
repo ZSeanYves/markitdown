@@ -80,7 +80,7 @@ pub fn open_epub_package(
     None => []
   }
 
-  {
+  let pkg = {
     archive,
     entries,
     entry_index,
@@ -99,7 +99,17 @@ pub fn open_epub_package(
     guide_cover_path,
     cover_candidates,
     nav_points,
+    inspect_cache: Ref(None),
+    inventory_cache: Ref(None),
+    text_part_cache: Map([]),
+    text_hit_count: { val: 0 },
+    text_miss_count: { val: 0 },
+    inspect_hit_count: { val: 0 },
+    inspect_miss_count: { val: 0 },
+    inventory_hit_count: { val: 0 },
+    inventory_miss_count: { val: 0 },
   }
+  pkg
 }
 
 ///|
@@ -190,6 +200,13 @@ pub fn find_epub_cover_candidates(
 
 ///|
 pub fn inspect_epub_inventory(pkg : EpubPackage) -> EpubPackageInventory {
+  match pkg.inventory_cache.val {
+    Some(cached) => {
+      pkg.inventory_hit_count.val += 1
+      return cached
+    }
+    None => ()
+  }
   let primary_rootfile = get_epub_primary_rootfile(pkg)
   let metadata_entries = list_epub_metadata(pkg)
   let mut spine_linear_count = 0
@@ -198,7 +215,7 @@ pub fn inspect_epub_inventory(pkg : EpubPackage) -> EpubPackageInventory {
       spine_linear_count += 1
     }
   }
-  {
+  let inventory = {
     source_name: pkg.source_name,
     mimetype: pkg.mimetype,
     primary_rootfile_path: primary_rootfile.full_path,
@@ -233,67 +250,81 @@ pub fn inspect_epub_inventory(pkg : EpubPackage) -> EpubPackageInventory {
     metadata_entries,
     cover_candidates: pkg.cover_candidates,
   }
+  pkg.inventory_miss_count.val += 1
+  pkg.inventory_cache.val = Some(inventory)
+  inventory
 }
 
 ///|
 pub fn inspect_epub_package(pkg : EpubPackage) -> EpubInspectReport {
-  let inventory = inspect_epub_inventory(pkg)
-  let primary_rootfile = get_epub_primary_rootfile(pkg)
-  let spine_items : Array[EpubInspectSpineItem] = []
-  for item in pkg.spine {
-    let media_type = match item.manifest_item {
-      Some(v) => v.media_type
-      None => None
+  match pkg.inspect_cache.val {
+    Some(cached) => {
+      pkg.inspect_hit_count.val += 1
+      cached
     }
-    let action = if !item.linear {
-      "skip"
-    } else if spine_item_supported(item) {
-      "convert"
-    } else {
-      "warn"
+    None => {
+      let inventory = inspect_epub_inventory(pkg)
+      let primary_rootfile = get_epub_primary_rootfile(pkg)
+      let spine_items : Array[EpubInspectSpineItem] = []
+      for item in pkg.spine {
+        let media_type = match item.manifest_item {
+          Some(v) => v.media_type
+          None => None
+        }
+        let action = if !item.linear {
+          "skip"
+        } else if spine_item_supported(item) {
+          "convert"
+        } else {
+          "warn"
+        }
+        spine_items.push({
+          idref: item.idref,
+          href: match item.manifest_item {
+            Some(v) => v.href
+            None => ""
+          },
+          media_type,
+          linear: item.linear,
+          spine_index: item.spine_index,
+          action,
+        })
+      }
+      let report = {
+        source_name: pkg.source_name,
+        mimetype: pkg.mimetype,
+        rootfile_path: pkg.rootfile_path,
+        primary_rootfile,
+        rootfiles: pkg.rootfiles,
+        manifest_count: pkg.manifest.length(),
+        spine_count: pkg.spine.length(),
+        nav_path: match pkg.nav_item {
+          Some(v) => Some(v.resolved_path)
+          None => None
+        },
+        nav_document_path: match pkg.nav_document_item {
+          Some(v) => Some(v.resolved_path)
+          None => None
+        },
+        ncx_path: match pkg.ncx_item {
+          Some(v) => Some(v.resolved_path)
+          None => None
+        },
+        cover_path: match pkg.cover_item {
+          Some(v) => Some(v.resolved_path)
+          None => None
+        },
+        guide_cover_path: pkg.guide_cover_path,
+        has_encryption: pkg.entry_index.contains("META-INF/encryption.xml"),
+        metadata: pkg.metadata,
+        cover_candidates: pkg.cover_candidates,
+        inventory,
+        spine_items,
+      }
+      pkg.inspect_miss_count.val += 1
+      pkg.inspect_cache.val = Some(report)
+      report
     }
-    spine_items.push({
-      idref: item.idref,
-      href: match item.manifest_item {
-        Some(v) => v.href
-        None => ""
-      },
-      media_type,
-      linear: item.linear,
-      spine_index: item.spine_index,
-      action,
-    })
-  }
-  {
-    source_name: pkg.source_name,
-    mimetype: pkg.mimetype,
-    rootfile_path: pkg.rootfile_path,
-    primary_rootfile,
-    rootfiles: pkg.rootfiles,
-    manifest_count: pkg.manifest.length(),
-    spine_count: pkg.spine.length(),
-    nav_path: match pkg.nav_item {
-      Some(v) => Some(v.resolved_path)
-      None => None
-    },
-    nav_document_path: match pkg.nav_document_item {
-      Some(v) => Some(v.resolved_path)
-      None => None
-    },
-    ncx_path: match pkg.ncx_item {
-      Some(v) => Some(v.resolved_path)
-      None => None
-    },
-    cover_path: match pkg.cover_item {
-      Some(v) => Some(v.resolved_path)
-      None => None
-    },
-    guide_cover_path: pkg.guide_cover_path,
-    has_encryption: pkg.entry_index.contains("META-INF/encryption.xml"),
-    metadata: pkg.metadata,
-    cover_candidates: pkg.cover_candidates,
-    inventory,
-    spine_items,
   }
 }
 
@@ -524,7 +555,22 @@ pub fn read_part_text(
   part_name : String,
 ) -> String raise EpubError {
   let normalized = normalize_package_full_path(part_name)
-  read_required_xml_part(pkg.archive, pkg.entry_index, normalized)
+  match pkg.text_part_cache.get(normalized) {
+    Some(cached) => {
+      pkg.text_hit_count.val += 1
+      cached
+    }
+    None => {
+      let text = read_required_xml_part(
+        pkg.archive,
+        pkg.entry_index,
+        normalized,
+      )
+      pkg.text_miss_count.val += 1
+      pkg.text_part_cache.set(normalized, text)
+      text
+    }
+  }
 }
 
 ///|
@@ -540,9 +586,7 @@ pub fn list_parts(pkg : EpubPackage) -> Array[String] {
 pub fn read_nav_document(pkg : EpubPackage) -> String? {
   match pkg.nav_item {
     Some(item) =>
-      try
-        read_required_xml_part(pkg.archive, pkg.entry_index, item.resolved_path)
-      catch {
+      try read_part_text(pkg, item.resolved_path) catch {
         _ => None
       } noraise {
         xml => Some(xml)

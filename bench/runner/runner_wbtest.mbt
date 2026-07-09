@@ -86,6 +86,58 @@ fn bench_read_utf8_text(path : String) -> String {
 }
 
 ///|
+fn bench_write_utf8_text(path : String, content : String) -> Unit raise {
+  @fs.write_string_to_file(path, content, encoding="utf8")
+}
+
+///|
+fn with_env_var(
+  name : String,
+  value : String,
+  body : () -> Unit raise,
+) -> Unit raise {
+  let previous = @env.get_env_var(name)
+  @env.set_env_var(name, value)
+  defer (match previous {
+    Some(old) => @env.set_env_var(name, old)
+    None => @env.unset_env_var(name)
+  })
+  body()
+}
+
+///|
+fn bench_manifest_fixture_root() -> String {
+  bench_test_tmp_root() + "/external-bench-fixture"
+}
+
+///|
+fn bench_manifest_header() -> String {
+  "bench_id\tformat\tsize_class\trel_path\tsource_kind\tsource_ref\tbytes\tsha256\tenabled_tier\tbench_layers\ttags\treview_status\tnotes"
+}
+
+///|
+fn bench_manifest_fixture_manifest() -> String {
+  bench_manifest_header() +
+  "\n" +
+  "markdown_large_commonmark_spec_v1\tmarkdown\tlarge\tmarkdown/large/markdown_large_commonmark_spec_v1.md\tcopied_from_external_bench\tlocal\t1024\tsha\tregular\texternal_bench\t\treviewed\tfixture-note\n"
+}
+
+///|
+fn setup_bench_manifest_fixture(root : String) -> Unit raise {
+  bench_recreate_clean_dir(root)
+  let sample_dir = root + "/markdown/large"
+  bench_ensure_dir_tree(sample_dir)
+  bench_write_utf8_text(
+    root + "/MANIFEST.tsv",
+    bench_manifest_fixture_manifest(),
+  )
+  bench_write_utf8_text(
+    sample_dir + "/markdown_large_commonmark_spec_v1.md",
+    "# Benchmark Fixture\n\nThis payload keeps bench runner whitebox tests repo-local.\n",
+  )
+}
+
+///|
 fn sample_route_provenance(
   route? : String = "block_streaming",
   fidelity? : String = "matched",
@@ -202,6 +254,27 @@ fn sample_row(
 }
 
 ///|
+fn sample_run_options(
+  limit? : Int? = None,
+  repeat_count? : Int = 3,
+  warmup_count? : Int = 1,
+) -> RunOptions {
+  {
+    preset: Some("official-internal"),
+    scenario_id: None,
+    exact_tiers: ["regular"],
+    bench_ids: [],
+    format_filters: ["markdown"],
+    limit,
+    repeat_count,
+    warmup_count,
+    timeout_ms: 60000,
+    markitdown_path: None,
+    baseline_run_id: None,
+  }
+}
+
+///|
 test "policy preset expands all configured scenario ids" {
   let policy = match load_policy() {
     Ok(value) => value
@@ -235,6 +308,81 @@ test "policy preset expands all configured scenario ids" {
   assert_true(
     scenarios.any(fn(item) { item.scenario_id == "diagnostic.asciidoc" }),
   )
+}
+
+///|
+test "bench progress total counts process warmups and repeats plus engine repeats" {
+  let policy = match load_policy() {
+    Ok(value) => value
+    Err(err) => fail("policy should decode: " + err.to_string())
+  }
+  let root = bench_manifest_fixture_root()
+  setup_bench_manifest_fixture(root) catch {
+    err => fail("setup bench manifest fixture failed: " + err.to_string())
+  }
+  defer bench_cleanup_temp_dir(root)
+
+  with_env_var("MARKITDOWN_BENCH_ROOT", root, fn() raise {
+    let scenario = resolve_scenarios(sample_run_options(limit=Some(1)), policy)[0]
+    let total = bench_progress_total(
+      [scenario],
+      sample_run_options(limit=Some(1), repeat_count=2, warmup_count=1),
+    )
+    assert_eq(total, 5)
+  }) catch {
+    err => fail("bench progress total fixture run failed: " + err.to_string())
+  }
+}
+
+///|
+test "bench progress label includes scenario tool bench id and phase counter" {
+  let row = @manifest.make_bench_row(
+    "markdown_large_commonmark_spec_v1",
+    "markdown",
+    "regular",
+    "markdown/large/markdown_large_commonmark_spec_v1.md",
+    "copied_from_external_bench",
+    "local",
+    1024,
+    "sha",
+    "regular",
+    ["external_bench"],
+    [],
+    "reviewed",
+    "",
+    "samples/fixtures/contracts/markdown/markdown_basic_heading_paragraph.md",
+  )
+  let label = bench_progress_label(
+    {
+      scenario_id: "compare.official_compare",
+      scenario_kind: "compare",
+      tool_names: ["moonbit-cli", "markitdown"],
+      exact_tiers: ["regular"],
+      format_filters: ["markdown"],
+      official_membership: "official-compare",
+      route_expectation: "canonical",
+    },
+    "markitdown",
+    row,
+    "sample",
+    1,
+    3,
+  )
+  assert_eq(
+    label, "compare.official_compare markitdown markdown_large_commonmark_spec_v1 sample 2/3",
+  )
+}
+
+///|
+test "bench progress render line omits empty labels and truncates long labels" {
+  assert_eq(
+    bench_progress_render_line(2, 10, "running", ""),
+    "progress: 2/10 running",
+  )
+  let long = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  let rendered = bench_progress_render_line(1, 3, "running", long)
+  assert_true(rendered.contains("progress: 1/3 running "))
+  assert_true(rendered.has_suffix("..."))
 }
 
 ///|

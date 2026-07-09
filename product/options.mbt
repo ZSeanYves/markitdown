@@ -1,4 +1,5 @@
 ///|
+/// Top-level convert strategy modes exposed by the product.
 pub(all) enum ConvertMode {
   Balanced
   Accurate
@@ -6,12 +7,14 @@ pub(all) enum ConvertMode {
 } derive(Eq)
 
 ///|
+/// Fidelity target requested by the caller after mode normalization.
 pub(all) enum FidelityMode {
   Balanced
   Accurate
 } derive(Eq)
 
 ///|
+/// Public output views selected before the render stage.
 pub(all) enum OutputMode {
   Markdown
   Debug
@@ -19,6 +22,8 @@ pub(all) enum OutputMode {
 } derive(Eq)
 
 ///|
+/// Coarse execution profiles selected by route planning for differently sized
+/// inputs.
 pub(all) enum ExecutionProfile {
   Standard
   MediumAdaptive
@@ -26,6 +31,8 @@ pub(all) enum ExecutionProfile {
 } derive(Eq)
 
 ///|
+/// Lowering profiles that tune how aggressively parsers and pipeline preserve
+/// semantics.
 pub(all) enum LoweringProfile {
   Canonical
   AccurateSemantic
@@ -34,6 +41,7 @@ pub(all) enum LoweringProfile {
 } derive(Eq)
 
 ///|
+/// Render profiles that shape Markdown or JSON emission details.
 pub(all) enum RenderProfile {
   DefaultMarkdown
   SectionFlushMarkdown
@@ -45,6 +53,7 @@ pub(all) enum RenderProfile {
 } derive(Eq)
 
 ///|
+/// Quantitative probe signal kinds collected during route planning.
 pub(all) enum ProbeSignalKind {
   CharCount
   LineCount
@@ -76,6 +85,7 @@ pub(all) enum ProbeSignalKind {
 } derive(Eq)
 
 ///|
+/// Accurate-mode features that can be enabled selectively per format.
 pub(all) enum AccurateFeature {
   PdfPageAppendix
   PdfWindowedAssembly
@@ -100,6 +110,9 @@ pub(all) enum AccurateFeature {
 
 ///|
 /// Accurate-mode features that are intentionally opt-in on a per-format basis.
+///
+/// Keeping them in an explicit profile lets convert, parser, pipeline, render,
+/// and provenance stay aligned on the exact semantic upgrades in effect.
 pub struct AccurateFeatureProfile {
   features : Array[AccurateFeature]
 }
@@ -205,6 +218,9 @@ pub fn accurate_features_for_detected_format(
 
 ///|
 /// Coarse resource ceilings shared by probing, parsing, and lowering.
+///
+/// These are deliberately product-wide rather than format-local so route
+/// planning and parser execution make decisions from the same limits.
 pub struct ResourceLimits {
   max_rows : Int
   max_cols : Int
@@ -213,36 +229,18 @@ pub struct ResourceLimits {
 }
 
 ///|
-pub(all) enum PdfCleanupMode {
-  Disabled
-  Conservative
-} derive(Eq)
-
-///|
-pub(all) enum PdfTableMode {
-  Disabled
-  Simple
-} derive(Eq)
-
-///|
-pub(all) enum PdfOcrPolicy {
-  Disabled
-  Explicit
-  AutoScanned
-} derive(Eq)
-
-///|
 /// Normalized product options shared across routing, parsing, pipeline, and
 /// rendering.
+///
+/// `mode` captures the primary strategy, while the remaining fields keep the
+/// derived fidelity/output view plus resource and RAG policy stable across
+/// layers.
 pub struct ProductOptions {
   mode : ConvertMode
   fidelity_mode : FidelityMode
   output_mode : OutputMode
   stream_requested : Bool
   limits : ResourceLimits
-  pdf_ocr_policy : PdfOcrPolicy
-  pdf_cleanup_mode : PdfCleanupMode
-  pdf_table_mode : PdfTableMode
   rag_options : @rag.RagOptions
 }
 
@@ -264,24 +262,6 @@ pub fn make_resource_limits(
 }
 
 ///|
-/// Return the current default PDF cleanup policy.
-pub fn default_pdf_cleanup_mode() -> PdfCleanupMode {
-  PdfCleanupMode::Disabled
-}
-
-///|
-/// Return the current default PDF table-reconstruction policy.
-pub fn default_pdf_table_mode() -> PdfTableMode {
-  PdfTableMode::Disabled
-}
-
-///|
-/// Return the current default PDF OCR policy.
-pub fn default_pdf_ocr_policy() -> PdfOcrPolicy {
-  PdfOcrPolicy::Disabled
-}
-
-///|
 /// Return baseline product defaults for the balanced Markdown path.
 pub fn default_product_options() -> ProductOptions {
   {
@@ -290,9 +270,6 @@ pub fn default_product_options() -> ProductOptions {
     output_mode: OutputMode::Markdown,
     stream_requested: false,
     limits: default_resource_limits(),
-    pdf_ocr_policy: default_pdf_ocr_policy(),
-    pdf_cleanup_mode: default_pdf_cleanup_mode(),
-    pdf_table_mode: default_pdf_table_mode(),
     rag_options: @rag.default_rag_options(),
   }
 }
@@ -306,25 +283,13 @@ pub fn make_product_options(
   fidelity_mode? : FidelityMode = fidelity_mode_for_convert_mode(mode),
   output_mode? : OutputMode = OutputMode::Markdown,
   stream_requested? : Bool = mode == ConvertMode::Stream,
-  pdf_ocr_policy? : PdfOcrPolicy = default_pdf_ocr_policy(),
-  pdf_cleanup_mode? : PdfCleanupMode = default_pdf_cleanup_mode(),
-  pdf_table_mode? : PdfTableMode = default_pdf_table_mode(),
   rag_options? : @rag.RagOptions = @rag.default_rag_options(),
 ) -> ProductOptions {
-  {
-    mode,
-    fidelity_mode,
-    output_mode,
-    stream_requested,
-    limits,
-    pdf_ocr_policy,
-    pdf_cleanup_mode,
-    pdf_table_mode,
-    rag_options,
-  }
+  { mode, fidelity_mode, output_mode, stream_requested, limits, rag_options }
 }
 
 ///|
+/// Stable diagnostics/provenance label for a convert mode.
 pub fn convert_mode_name(mode : ConvertMode) -> String {
   match mode {
     ConvertMode::Balanced => "balanced"
@@ -334,6 +299,7 @@ pub fn convert_mode_name(mode : ConvertMode) -> String {
 }
 
 ///|
+/// Return the default fidelity target implied by a convert mode.
 pub fn fidelity_mode_for_convert_mode(mode : ConvertMode) -> FidelityMode {
   match mode {
     ConvertMode::Accurate => FidelityMode::Accurate
@@ -342,6 +308,7 @@ pub fn fidelity_mode_for_convert_mode(mode : ConvertMode) -> FidelityMode {
 }
 
 ///|
+/// Return the default renderer-facing output mode implied by a convert mode.
 pub fn output_mode_for_convert_mode(mode : ConvertMode) -> OutputMode {
   ignore(mode)
   OutputMode::Markdown
@@ -365,6 +332,7 @@ pub fn convert_mode_from_modes(
 }
 
 ///|
+/// Stable diagnostics/provenance label for one fidelity mode.
 pub fn fidelity_mode_name(mode : FidelityMode) -> String {
   match mode {
     FidelityMode::Balanced => "balanced"
@@ -373,6 +341,7 @@ pub fn fidelity_mode_name(mode : FidelityMode) -> String {
 }
 
 ///|
+/// Stable diagnostics/provenance label for one output mode.
 pub fn output_mode_name(mode : OutputMode) -> String {
   match mode {
     OutputMode::Markdown => "markdown"
@@ -382,6 +351,7 @@ pub fn output_mode_name(mode : OutputMode) -> String {
 }
 
 ///|
+/// Stable diagnostics/provenance label for one execution profile.
 pub fn execution_profile_name(profile : ExecutionProfile) -> String {
   match profile {
     ExecutionProfile::Standard => "standard"
@@ -391,6 +361,7 @@ pub fn execution_profile_name(profile : ExecutionProfile) -> String {
 }
 
 ///|
+/// Stable diagnostics/provenance label for one lowering profile.
 pub fn lowering_profile_name(profile : LoweringProfile) -> String {
   match profile {
     LoweringProfile::Canonical => "canonical"
@@ -401,6 +372,7 @@ pub fn lowering_profile_name(profile : LoweringProfile) -> String {
 }
 
 ///|
+/// Stable diagnostics/provenance label for one render profile.
 pub fn render_profile_name(profile : RenderProfile) -> String {
   match profile {
     RenderProfile::DefaultMarkdown => "default_markdown"
@@ -414,38 +386,7 @@ pub fn render_profile_name(profile : RenderProfile) -> String {
 }
 
 ///|
-pub fn pdf_cleanup_mode_name(mode : PdfCleanupMode) -> String {
-  match mode {
-    PdfCleanupMode::Disabled => "none"
-    PdfCleanupMode::Conservative => "conservative"
-  }
-}
-
-///|
-pub fn pdf_table_mode_name(mode : PdfTableMode) -> String {
-  match mode {
-    PdfTableMode::Disabled => "none"
-    PdfTableMode::Simple => "simple"
-  }
-}
-
-///|
-pub fn pdf_ocr_policy_name(policy : PdfOcrPolicy) -> String {
-  match policy {
-    PdfOcrPolicy::Disabled => "disabled"
-    PdfOcrPolicy::Explicit => "explicit"
-    PdfOcrPolicy::AutoScanned => "auto_scanned"
-  }
-}
-
-///|
 /// Return whether the current output mode is the debug JSON view.
 pub fn debug_output_mode(mode : OutputMode) -> Bool {
   mode == OutputMode::Debug
-}
-
-///|
-/// Return whether PDF cleanup is enabled for the active product options.
-pub fn pdf_cleanup_enabled(options : ProductOptions) -> Bool {
-  options.pdf_cleanup_mode != PdfCleanupMode::Disabled
 }

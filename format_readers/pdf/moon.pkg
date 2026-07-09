@@ -1,5 +1,11 @@
 import {
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/string",
+  "moonbitlang/x/codec/base64",
+  "tonyfettes/encoding",
   "bikallem/compress/zlib",
+  "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/input",
 }
 
 options(

@@ -1,12 +1,20 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "ZSeanYves/markitdown/format_readers/eml"
 
+import {
+  "ZSeanYves/markitdown/input",
+}
+
 // Values
+pub fn decode_eml_source_text(Bytes) -> String
+
 pub fn inspect_eml_message(EmlMessage) -> EmlInspectReport
 
 pub fn materialize_attachment_payload(EmlAttachment, Bool, Bool) -> EmlAttachment
 
 pub fn parse_eml_message(String) -> EmlMessage raise
+
+pub fn prepare_eml_message_from_source(@input.InputSource) -> Result[PreparedEmlMessage, String]
 
 // Errors
 pub(all) suberror EmlError {
@@ -119,6 +127,14 @@ pub(all) enum EmlTransferEncoding {
   QuotedPrintable
   Other(String)
 } derive(Eq)
+
+pub struct PreparedEmlMessage {
+  prepared_source : @input.InputSource
+  original_text : String
+  message : EmlMessage?
+  inspect : EmlInspectReport?
+  parse_error : String?
+}
 
 // Type aliases
 

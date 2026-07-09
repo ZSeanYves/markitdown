@@ -1,27 +1,43 @@
 # OCR
 
-`formats/ocr/` owns the formal direct-image OCR path and also provides the shared provider contract and OCR data model reused by PDF OCR.
+`formats/ocr/` owns the formal direct-image OCR parser path and also provides the provider protocol, runtime selection logic, and OCR data model reused by PDF OCR.
 
-Main responsibilities:
+## Responsibilities
 
-- direct-image OCR parser
-- provider selection and dependency guidance
-- wrapper runtime protocol
-- Tesseract / Paddle runtime integration
+- Provide the image OCR parser and its fail-closed boundaries
+- Define OCR provider request, result, error, and dependency-diagnostic contracts
+- Manage local runtime integrations such as Tesseract and Paddle OCR
+- Lower OCR page, block, line, and word models into unified block structures
 
-Main files:
+## Key Entry Points
 
 - `parser.mbt`
+  `image_ocr_parser`, `image_ocr_parser_result*`
 - `provider.mbt`
+  `OcrProviderRequest`, `OcrProviderResult`, dependency diagnostics, and provider selection targets
 - `runtime.mbt`
-- `tesseract*.mbt`
+  Provider selection, fallback, and Paddle OCR runtime execution
+- `model.mbt`
+  `OcrPageModel`, `OcrBlock`, `OcrLine`, `OcrWord`
+- `tesseract.mbt` / `tesseract_tsv.mbt`
+  Tesseract invocation and TSV parsing
 
-Maintenance rules:
+## Key Types
 
-- new OCR providers should implement the shared provider contract
-- provider fallback, dependency guidance, and fail-closed behavior must stay explainable and regression-testable
+- `OcrProviderRequest`
+  A unified description of single-image or batch-image OCR requests
+- `OcrProviderResult`
+  A unified description of provider page results, version info, and diagnostics
+- `OcrDocumentModel`
+  The stable provider-neutral OCR document model
 
-Validation:
+## Maintenance Rules
+
+- New providers should implement the shared provider contract before being wired into parser/runtime layers
+- Dependency-missing, fallback, and fail-closed diagnostics should remain explainable
+- Keep OCR geometry and text models provider-neutral so upper layers do not become tied to one tool's private output shape
+
+## Validation
 
 ```bash
 moon test

@@ -3,7 +3,7 @@ import {
   "moonbitlang/core/encoding/utf8",
   "ZSeanYves/markitdown/convert",
   "ZSeanYves/markitdown/core",
-  "ZSeanYves/markitdown/formats",
+  "ZSeanYves/markitdown/internal/formats/meta" @fmeta,
   "ZSeanYves/markitdown/format_readers/zip" @dzip,
   "ZSeanYves/markitdown/formats/ocr" @focr,
   "ZSeanYves/markitdown/formats/pdf" @fpdf,
@@ -17,7 +17,7 @@ import {
 }
 
 import {
-  "moonbitlang/async",
+  "ZSeanYves/markitdown/internal/testsupport/hermetic" @therm,
 } for "wbtest"
 
 supported_targets = "native"

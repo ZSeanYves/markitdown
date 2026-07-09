@@ -1,6 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "ZSeanYves/markitdown/format_readers/xml"
 
+import {
+  "ZSeanYves/markitdown/input",
+}
+
 // Values
 pub fn classify_xml_error(XmlError) -> XmlErrorInfo
 
@@ -11,6 +15,8 @@ pub fn inspect_xml_document(XmlDocument) -> XmlInspectReport
 pub fn parse_xml_document(String) -> XmlDocument raise
 
 pub fn parse_xml_structure_tokens(String) -> Array[XmlToken] raise
+
+pub fn prepare_xml_from_source(@input.InputSource) -> Result[PreparedXmlText, String]
 
 pub fn scan_xml_structure(String) -> XmlStructureScan
 
@@ -27,6 +33,14 @@ pub(all) suberror XmlError {
 pub impl Show for XmlError
 
 // Types and methods
+pub struct PreparedXmlText {
+  prepared_source : @input.InputSource
+  original_text : String
+  normalized_text : String
+  tokens : Array[XmlToken]?
+  parse_error : String?
+}
+
 pub struct XmlAttribute {
   name : String
   value : String

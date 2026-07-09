@@ -63,14 +63,88 @@ pub fn yaml_parse_with_structure_events(
 }
 
 ///|
+pub fn yaml_parse_with_prepared_document(
+  source : @input.InputSource,
+  context : @parser.ParseContext,
+  prepared : @dyaml.PreparedYamlDocument,
+) -> @parser.ParseResult {
+  if context.requested_mode == Some(@parser.ParserMode::StreamingEvent) {
+    match prepared.events {
+      Some(events) => {
+        let parsed = yaml_parse_with_structure_events(
+          source,
+          context,
+          prepared.original_text,
+          prepared.inspect.unwrap_or(
+            @dyaml.inspect_yaml_structure_events(events),
+          ),
+          events,
+        )
+        parsed.diagnostics.metrics.set("probe_artifact_reused", "true")
+        parsed
+      }
+      None => {
+        let diagnostics = @fshared.empty_parser_diagnostics(
+          "yaml_parser",
+          @parser.ParserMode::DomAstModel,
+          source,
+          "yaml",
+        )
+        @fshared.init_parser_route_metrics_with_granularity(
+          diagnostics,
+          source,
+          context,
+          "yaml",
+          "yaml_parser",
+          @parser.ParserMode::DomAstModel,
+          @parser.ParserMode::StreamingEvent,
+          "event_stream",
+          @parser.StreamingGranularity::YamlStructure,
+          "yaml_structure_event_stream",
+        )
+        diagnostics.metrics.set("resource_limit_hit", "false")
+        diagnostics.metrics.set("dom_limit_reached", "false")
+        @fshared.apply_product_metrics(diagnostics, "yaml")
+        yaml_malformed_parse_result(
+          source,
+          prepared.original_text,
+          diagnostics,
+          prepared.parse_error.unwrap_or("unknown"),
+        )
+      }
+    }
+  } else {
+    match parse_yaml_document_result(source, context) {
+      Ok(result) => result
+      Err(err) => {
+        let diagnostics = @fshared.empty_parser_diagnostics(
+          "yaml_parser",
+          @parser.ParserMode::DomAstModel,
+          source,
+          "yaml",
+        )
+        yaml_malformed_parse_result(
+          source,
+          prepared.original_text,
+          diagnostics,
+          err,
+        )
+      }
+    }
+  }
+}
+
+///|
 fn parse_yaml_document_result(
   source : @input.InputSource,
   context : @parser.ParseContext,
 ) -> Result[@parser.ParseResult, String] {
-  let text = match @input.read_input_text(source) {
+  let prepared = match @dyaml.prepare_yaml_document_from_source(source) {
     Ok(payload) => payload
     Err(err) => return Err(err)
   }
+  let source = prepared.prepared_source
+  let text = prepared.original_text
   let diagnostics = @fshared.empty_parser_diagnostics(
     "yaml_parser",
     @parser.ParserMode::DomAstModel,
@@ -112,29 +186,34 @@ fn parse_yaml_document_result(
   @fshared.apply_product_metrics(diagnostics, "yaml")
 
   if requested_streaming {
-    let yaml_events = try @dyaml.parse_yaml_structure_events(text) |> Ok catch {
-      e => Err(e.to_string())
-    }
-    match yaml_events {
-      Ok(events) => {
-        let inspect = @dyaml.inspect_yaml_structure_events(events)
+    match prepared.events {
+      Some(events) => {
+        let inspect = prepared.inspect.unwrap_or(
+          @dyaml.inspect_yaml_structure_events(events),
+        )
         return Ok(
           yaml_streaming_parse_result(
             source, text, diagnostics, inspect, events,
           ),
         )
       }
-      Err(err) =>
-        return Ok(yaml_malformed_parse_result(source, text, diagnostics, err))
+      None =>
+        return Ok(
+          yaml_malformed_parse_result(
+            source,
+            text,
+            diagnostics,
+            prepared.parse_error.unwrap_or("unknown"),
+          ),
+        )
     }
   }
 
-  let parsed = try @dyaml.parse_yaml_structure_document(text) |> Ok catch {
-    e => Err(e.to_string())
-  }
-  match parsed {
-    Ok(structured) => {
-      let inspect = @dyaml.inspect_yaml_document(structured.document)
+  match prepared.document {
+    Some(structured) => {
+      let inspect = prepared.inspect.unwrap_or(
+        @dyaml.inspect_yaml_document(structured.document),
+      )
       let document = lower_yaml_document(structured.document, source)
       yaml_fill_common_metrics(diagnostics, inspect, text, 0)
       diagnostics.metrics.set(
@@ -160,6 +239,14 @@ fn parse_yaml_document_result(
         ),
       )
     }
-    Err(err) => Ok(yaml_malformed_parse_result(source, text, diagnostics, err))
+    None =>
+      Ok(
+        yaml_malformed_parse_result(
+          source,
+          text,
+          diagnostics,
+          prepared.parse_error.unwrap_or("unknown"),
+        ),
+      )
   }
 }

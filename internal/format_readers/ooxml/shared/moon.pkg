@@ -1,0 +1,8 @@
+import {
+  "ZSeanYves/markitdown/format_readers/ooxml/shared" @oshared,
+  "ZSeanYves/markitdown/parser",
+}
+
+options(
+  "preferred-target": "native",
+)

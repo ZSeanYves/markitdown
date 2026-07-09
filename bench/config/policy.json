@@ -17,6 +17,9 @@
         "diagnostic.markdown",
         "diagnostic.html",
         "diagnostic.xml",
+        "diagnostic.pdf",
+        "diagnostic.docx",
+        "diagnostic.pptx",
         "diagnostic.xlsx",
         "diagnostic.epub",
         "diagnostic.zip",
@@ -117,6 +120,39 @@
       "tool_set": "official-internal",
       "row_selector": {
         "formats": ["xml"]
+      },
+      "route_expectation": "product_default",
+      "measurement_policy": "runner_generated",
+      "official_membership": "none"
+    },
+    {
+      "scenario_id": "diagnostic.pdf",
+      "scenario_kind": "diagnostic",
+      "tool_set": "official-internal",
+      "row_selector": {
+        "formats": ["pdf"]
+      },
+      "route_expectation": "product_default",
+      "measurement_policy": "runner_generated",
+      "official_membership": "none"
+    },
+    {
+      "scenario_id": "diagnostic.docx",
+      "scenario_kind": "diagnostic",
+      "tool_set": "official-internal",
+      "row_selector": {
+        "formats": ["docx"]
+      },
+      "route_expectation": "product_default",
+      "measurement_policy": "runner_generated",
+      "official_membership": "none"
+    },
+    {
+      "scenario_id": "diagnostic.pptx",
+      "scenario_kind": "diagnostic",
+      "tool_set": "official-internal",
+      "row_selector": {
+        "formats": ["pptx"]
       },
       "route_expectation": "product_default",
       "measurement_policy": "runner_generated",

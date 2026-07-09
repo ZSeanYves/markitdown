@@ -1,0 +1,39 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/format_readers/source_io"
+
+import {
+  "ZSeanYves/markitdown/input",
+}
+
+// Values
+pub fn decode_utf16_text_bytes(Bytes) -> String?
+
+pub fn decode_xml_input_bytes(Bytes) -> Result[String, String]
+
+pub fn read_source_bytes(@input.InputSource) -> Result[SourceBytesPayload, String]
+
+pub fn read_source_text(@input.InputSource) -> Result[SourceTextPayload, String]
+
+pub fn read_source_text_with_utf16_bom(@input.InputSource) -> Result[SourceTextPayload, String]
+
+pub fn read_xml_source_text(@input.InputSource) -> Result[SourceTextPayload, String]
+
+pub fn sniff_xml_declared_encoding(Bytes) -> String?
+
+// Errors
+
+// Types and methods
+pub struct SourceBytesPayload {
+  bytes : Bytes
+  prepared_source : @input.InputSource
+}
+
+pub struct SourceTextPayload {
+  text : String
+  prepared_source : @input.InputSource
+}
+
+// Type aliases
+
+// Traits
+

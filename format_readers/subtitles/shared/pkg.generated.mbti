@@ -1,6 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "ZSeanYves/markitdown/format_readers/subtitles/shared"
 
+import {
+  "ZSeanYves/markitdown/input",
+}
+
 // Values
 pub fn inspect_subtitle_document(SubtitleDocument) -> SubtitleInspectReport
 
@@ -8,9 +12,22 @@ pub fn parse_srt_document(String) -> SubtitleDocument raise
 
 pub fn parse_vtt_document(String) -> SubtitleDocument raise
 
+pub fn prepare_srt_document_from_source(@input.InputSource) -> Result[PreparedSubtitleDocument, String]
+
+pub fn prepare_vtt_document_from_source(@input.InputSource) -> Result[PreparedSubtitleDocument, String]
+
 // Errors
 
 // Types and methods
+pub struct PreparedSubtitleDocument {
+  prepared_source : @input.InputSource
+  original_text : String
+  document : SubtitleDocument?
+  inspect : SubtitleInspectReport?
+  format_name : String
+  parse_error : String?
+}
+
 pub struct SubtitleCue {
   index : Int
   identifier : String?

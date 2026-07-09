@@ -410,8 +410,16 @@ fn block_is_header_footer_candidate(block : @core.CoreBlock) -> Bool {
 ///|
 fn block_has_explicit_reading_order_hint(block : @core.CoreBlock) -> Bool {
   let source_ref = block.source_ref.unwrap_or(@core.empty_source_ref())
-  source_ref.extra.get("reading_order_key") is Some(_) ||
-  source_ref.extra.get("reading_order_index") is Some(_)
+  if source_ref.extra.get("reading_order_index") is Some(_) {
+    return true
+  }
+  // PPTX lowering already materializes slide/group reading order before the
+  // generic pipeline pass runs, so re-sorting by the diagnostic key here would
+  // scramble intentionally grouped block sequences.
+  match source_ref.extra.get("reading_order_key") {
+    Some(_) => source_ref.format != Some("pptx")
+    None => false
+  }
 }
 
 ///|
@@ -526,7 +534,10 @@ fn remove_header_footer_input(
   input : @core.IRInput,
 ) -> @core.IRInput {
   let debug = @product.debug_output_mode(context.output_mode)
-  let cleanup_enabled = @product.pdf_cleanup_enabled(context.options)
+  let cleanup_enabled = context.diagnostics.val.metrics.get(
+      "pdf_header_footer_filter_enabled",
+    ) ==
+    Some("true")
   match input {
     @core.IRInput::Document(document) => {
       let removal = remove_header_footer_blocks(

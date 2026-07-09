@@ -159,6 +159,7 @@ fn audio_parse_result_from_transcript(
     "audio_segment_count",
     transcript.segments.length().to_string(),
   )
+  audio_apply_runtime_diagnostic_metrics(diagnostics, transcript.diagnostics)
   diagnostics.metrics.set("provider_invoked", "true")
   diagnostics.metrics.set("table_count", "0")
   diagnostics.metrics.set("image_count", "0")
@@ -242,6 +243,23 @@ fn audio_parse_result_from_transcript(
       audio_parser_capability(),
     ),
   )
+}
+
+///|
+fn audio_apply_runtime_diagnostic_metrics(
+  diagnostics : @core.Diagnostics,
+  runtime_diagnostics : Array[String],
+) -> Unit {
+  for entry in runtime_diagnostics {
+    if !entry.has_prefix("metric|") {
+      continue
+    }
+    let parts = entry.split("|").to_array().map(fn(part) { part.to_owned() })
+    if parts.length() < 3 {
+      continue
+    }
+    diagnostics.metrics.set(parts[1], parts[2:][:].join("|"))
+  }
 }
 
 ///|

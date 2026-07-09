@@ -1,0 +1,106 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/internal/format_readers/ooxml/shared"
+
+import {
+  "ZSeanYves/markitdown/parser",
+}
+
+// Values
+pub fn docx_contract_foundations() -> Array[String]
+
+pub fn docx_contract_granularity() -> @parser.StreamingGranularity
+
+pub fn docx_contract_guardrails() -> Array[String]
+
+pub fn docx_contract_ir_input_kind() -> String
+
+pub fn docx_contract_mode() -> @parser.ParserMode
+
+pub fn docx_contract_parser_name() -> String
+
+pub fn office_asset_output_path_is_safe(String) -> Bool
+
+pub fn office_asset_plan_is_safe(@ZSeanYves/markitdown/format_readers/ooxml/shared.OfficeAssetPlan) -> Bool
+
+pub fn office_asset_write_guardrails() -> Array[String]
+
+pub fn office_diagnostic_metric_keys() -> Array[String]
+
+pub fn office_parser_modes() -> Array[@parser.ParserMode]
+
+pub fn office_relationship_guardrails() -> Array[String]
+
+pub fn office_relationship_is_no_fetch(@ZSeanYves/markitdown/format_readers/ooxml/shared.OfficeRelationship) -> Bool
+
+pub fn office_resource_limit_keys() -> Array[String]
+
+pub fn office_source_ref_extra_keys() -> Array[String]
+
+pub fn office_streaming_granularities() -> Array[@parser.StreamingGranularity]
+
+pub fn parser_contract_required_foundation_exclusions() -> Array[String]
+
+pub fn pptx_contract_asset_policy() -> Array[String]
+
+pub fn pptx_contract_excluded_runtime_foundations() -> Array[String]
+
+pub fn pptx_contract_foundations() -> Array[String]
+
+pub fn pptx_contract_granularity() -> @parser.StreamingGranularity
+
+pub fn pptx_contract_guardrails() -> Array[String]
+
+pub fn pptx_contract_ir_input_kind() -> String
+
+pub fn pptx_contract_mode() -> @parser.ParserMode
+
+pub fn pptx_contract_notes_policy() -> Array[String]
+
+pub fn pptx_contract_parser_name() -> String
+
+pub fn pptx_contract_placeholder_policy() -> Array[String]
+
+pub fn pptx_contract_reading_order_policy() -> Array[String]
+
+pub fn pptx_contract_relationship_policy() -> Array[String]
+
+pub fn pptx_contract_slide_policy() -> Array[String]
+
+pub fn pptx_contract_source_ref_extra_keys() -> Array[String]
+
+pub fn xlsx_contract_asset_policy() -> Array[String]
+
+pub fn xlsx_contract_excluded_runtime_foundations() -> Array[String]
+
+pub fn xlsx_contract_formula_policy() -> Array[String]
+
+pub fn xlsx_contract_foundations() -> Array[String]
+
+pub fn xlsx_contract_granularity() -> @parser.StreamingGranularity
+
+pub fn xlsx_contract_guardrails() -> Array[String]
+
+pub fn xlsx_contract_ir_input_kind() -> String
+
+pub fn xlsx_contract_large_granularity() -> @parser.StreamingGranularity
+
+pub fn xlsx_contract_large_ir_input_kind() -> String
+
+pub fn xlsx_contract_mode() -> @parser.ParserMode
+
+pub fn xlsx_contract_parser_name() -> String
+
+pub fn xlsx_contract_relationship_policy() -> Array[String]
+
+pub fn xlsx_contract_sheet_policy() -> Array[String]
+
+pub fn xlsx_contract_source_ref_extra_keys() -> Array[String]
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

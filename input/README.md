@@ -1,23 +1,38 @@
 # Input
 
-`input/` describes input sources and normalizes external input into a format identity the product understands.
+`input/` describes external inputs and normalizes them into format identities the product understands. Its job is to answer “what is this input and how do I read it,” not “which high-level strategy should parse it.”
 
-Main responsibilities:
+## Responsibilities
 
-- represent path, text, and byte-based input sources
-- perform formal format detection
-- handle extensions and explicit format hints
+- Define path, text, and byte input sources
+- Handle explicit format hints, extensions, MIME types, magic bytes, and text heuristics
+- Provide unified text and byte reading helpers
 
-Main files:
+## Key Entry Points
 
 - `input.mbt`
+  `InputSource`, `DetectedFormat`, `FormatDetectionResult`
+- `input.mbt`
+  `input_from_path`, `input_from_text`, `input_from_bytes`
+- `input.mbt`
+  `detect_format`, `detected_format_name`, `parse_detected_format`
+- `input.mbt`
+  `read_input_text`, `read_input_bytes`
 
-Maintenance rules:
+## Key Types
 
-- aliases, extensions, and detection rules for new formats should converge here first
-- detection should answer only “what is this input”, not “how should it be parsed”
+- `InputSource`
+  A unified wrapper for path-backed, in-memory text, and in-memory byte inputs
+- `FormatDetectionResult`
+  A stable record of which signals were used during one format-detection decision
 
-Validation:
+## Maintenance Rules
+
+- Centralize aliases, extensions, and detection rules for new formats here first
+- Detection should answer only format identity, not parser mode or fidelity strategy
+- Keep `InputSource` field semantics stable because CLI, convert, and tests construct it directly
+
+## Validation
 
 ```bash
 moon test
