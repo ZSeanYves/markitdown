@@ -805,3 +805,114 @@ fn collect_docx_inline_reference_ids(
     }
   }
 }
+
+///|
+fn append_docx_comments_blocks(
+  state : DocxLoweringState,
+  out : Array[@core.CoreBlock],
+) -> Unit {
+  if state.comment_labels.length() == 0 {
+    return
+  }
+  let comment_ids = docx_note_ids_sorted_by_label(state.comment_labels)
+  if comment_ids.length() == 0 {
+    return
+  }
+  let heading = @core.make_block(
+    @core.BlockKind::Heading,
+    "Comments",
+    source_ref=docx_part_source_ref(state, "word/comments.xml", None),
+  )
+  heading.attrs.set("level", "2")
+  out.push(heading)
+  for id in comment_ids {
+    match docx_lookup_comment(state, id) {
+      Some(comment) => {
+        let prefix = docx_comment_author_prefix(comment.author)
+        let blocks : Array[@core.CoreBlock] = []
+        lower_docx_blocks(state, blocks, comment.blocks)
+        if blocks.length() == 0 {
+          continue
+        }
+        let inline_images = docx_collect_comment_inline_images(blocks)
+        match
+          docx_flatten_blocks_to_paragraph_like(
+            state,
+            blocks,
+            comment.source_key,
+            prefix~,
+          ) {
+          Some(item) => {
+            let item = docx_comment_block_without_inline_images(item)
+            let list_item0 = @core.make_block(
+              @core.BlockKind::ListItem,
+              item.text,
+              source_ref=item.source_ref.unwrap_or(@core.empty_source_ref()),
+            )
+            let list_item = @core.block_with_rich_inlines(
+              list_item0,
+              item.rich_inlines,
+            )
+            list_item.attrs.set("ordered", "true")
+            list_item.attrs.set("level", "0")
+            list_item.attrs.set("stable_ordered_marker", "true")
+            out.push(list_item)
+            out.append(inline_images[:])
+          }
+          None => {
+            let first = blocks[0]
+            match first.kind {
+              @core.BlockKind::Paragraph => {
+                let first = docx_comment_block_without_inline_images(first)
+                let item0 = @core.make_block(
+                  @core.BlockKind::ListItem,
+                  prefix + first.text,
+                  source_ref=first.source_ref.unwrap_or(
+                    @core.empty_source_ref(),
+                  ),
+                )
+                let item = match first.rich_inlines {
+                  Some(inlines) =>
+                    @core.block_with_rich_inlines(
+                      item0,
+                      Some(docx_prefixed_rich_inlines(prefix, inlines)),
+                    )
+                  None => item0
+                }
+                item.attrs.set("ordered", "true")
+                item.attrs.set("level", "0")
+                item.attrs.set("stable_ordered_marker", "true")
+                out.push(item)
+                for i in 1..<blocks.length() {
+                  out.push(docx_comment_block_without_inline_images(blocks[i]))
+                }
+                out.append(inline_images[:])
+              }
+              _ => {
+                let item = @core.make_block(
+                  @core.BlockKind::ListItem,
+                  prefix.trim().to_owned(),
+                  source_ref=docx_source_ref_from_key(
+                    state,
+                    comment.source_key,
+                    None,
+                    None,
+                  ),
+                )
+                item.attrs.set("ordered", "true")
+                item.attrs.set("level", "0")
+                item.attrs.set("stable_ordered_marker", "true")
+                out.push(item)
+                for block in blocks {
+                  out.push(docx_comment_block_without_inline_images(block))
+                }
+                out.append(inline_images[:])
+              }
+            }
+          }
+        }
+      }
+      None => ()
+    }
+  }
+}

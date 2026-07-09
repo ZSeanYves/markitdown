@@ -14,7 +14,6 @@ pub fn new_parse_context(
     accurate_features: @product.empty_accurate_feature_profile(),
     ocr_options: default_ocr_options(),
     audio_options: default_audio_options(),
-    pdf_ocr_policy: default_pdf_ocr_policy(),
     pdf_native_runtime_policy: default_pdf_native_runtime_policy(),
     pdf_header_footer_filter_policy: default_pdf_header_footer_filter_policy(),
     pdf_table_reconstruction_policy: default_pdf_table_reconstruction_policy(),
@@ -47,11 +46,6 @@ pub fn explicit_audio_options(language? : String? = None) -> AudioOptions {
 ///|
 pub fn default_pdf_native_runtime_policy() -> PdfNativeRuntimePolicy {
   PdfNativeRuntimePolicy::EnableTextRestore
-}
-
-///|
-pub fn default_pdf_ocr_policy() -> PdfOcrPolicy {
-  @product.default_pdf_ocr_policy()
 }
 
 ///|
@@ -93,15 +87,6 @@ pub fn parse_context_with_audio_options(
   audio_options : AudioOptions,
 ) -> ParseContext {
   { ..context, audio_options, }
-}
-
-///|
-/// Return a copy of `context` with the resolved PDF OCR policy.
-pub fn parse_context_with_pdf_ocr_policy(
-  context : ParseContext,
-  pdf_ocr_policy : PdfOcrPolicy,
-) -> ParseContext {
-  { ..context, pdf_ocr_policy, }
 }
 
 ///|
@@ -217,11 +202,6 @@ pub fn pdf_native_runtime_policy_name(
     PdfNativeRuntimePolicy::DisableTextRestore => "disable_text_restore"
     PdfNativeRuntimePolicy::EnableTextRestore => "enable_text_restore"
   }
-}
-
-///|
-pub fn pdf_ocr_policy_name(policy : PdfOcrPolicy) -> String {
-  @product.pdf_ocr_policy_name(policy)
 }
 
 ///|

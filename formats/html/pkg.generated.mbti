@@ -16,6 +16,8 @@ pub fn html_lowering_prepare_metric(@ZSeanYves/markitdown/format_readers/html.Ht
 
 pub fn html_lowering_top_level_block_metric(@ZSeanYves/markitdown/format_readers/html.HtmlDocument, @ZSeanYves/markitdown/format_readers/html.HtmlSemanticDocument) -> Int
 
+pub fn html_parse_with_prepared_document(@input.InputSource, @parser.ParseContext, @ZSeanYves/markitdown/format_readers/html.PreparedHtmlDocument) -> @parser.ParseResult
+
 pub fn html_parse_with_token_events(@input.InputSource, @parser.ParseContext, String, Array[@ZSeanYves/markitdown/format_readers/html.HtmlTokenEvent]) -> @parser.ParseResult
 
 pub fn html_parser() -> @parser.Parser

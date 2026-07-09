@@ -236,7 +236,7 @@ pub fn line_event_parser_contract_spec(
     ],
     [],
     foundations,
-    @shared.parser_contract_required_foundation_exclusions(),
+    @oxshared.parser_contract_required_foundation_exclusions(),
   )
 }
 
@@ -260,7 +260,7 @@ pub fn row_event_parser_contract_spec(
     ],
     [],
     foundations,
-    @shared.parser_contract_required_foundation_exclusions(),
+    @oxshared.parser_contract_required_foundation_exclusions(),
   )
 }
 
@@ -288,7 +288,7 @@ pub fn record_event_parser_contract_spec(
     ],
     policies,
     foundations,
-    @shared.parser_contract_required_foundation_exclusions(),
+    @oxshared.parser_contract_required_foundation_exclusions(),
   )
 }
 
@@ -316,7 +316,7 @@ pub fn dom_ast_parser_contract_spec(
     ],
     policies,
     foundations,
-    @shared.parser_contract_required_foundation_exclusions(),
+    @oxshared.parser_contract_required_foundation_exclusions(),
   )
 }
 
@@ -344,7 +344,7 @@ pub fn block_stream_parser_contract_spec(
     ],
     policies,
     foundations,
-    @shared.parser_contract_required_foundation_exclusions(),
+    @oxshared.parser_contract_required_foundation_exclusions(),
   )
 }
 
@@ -372,7 +372,7 @@ pub fn package_with_block_large_route_contract_spec(
     ],
     policies,
     foundations,
-    @shared.parser_contract_required_foundation_exclusions(),
+    @oxshared.parser_contract_required_foundation_exclusions(),
   )
 }
 
@@ -399,7 +399,7 @@ pub fn container_parser_contract_spec(
     ],
     policies,
     foundations,
-    @shared.parser_contract_required_foundation_exclusions(),
+    @oxshared.parser_contract_required_foundation_exclusions(),
   )
 }
 
@@ -426,16 +426,16 @@ pub fn page_single_pass_parser_contract_spec(
     ],
     policies,
     foundations,
-    @shared.parser_contract_required_foundation_exclusions(),
+    @oxshared.parser_contract_required_foundation_exclusions(),
   )
 }
 
 ///|
 pub fn docx_parser_contract_spec() -> ParserContractSpec {
   make_parser_contract_spec(
-    @shared.docx_contract_parser_name(),
-    @shared.docx_contract_mode(),
-    @shared.docx_contract_granularity(),
+    @oxshared.docx_contract_parser_name(),
+    @oxshared.docx_contract_mode(),
+    @oxshared.docx_contract_granularity(),
     "document",
     [
       "parser_name", "parser_mode", "effective_mode", "detected_format", "ir_input_kind",
@@ -450,9 +450,9 @@ pub fn docx_parser_contract_spec() -> ParserContractSpec {
       "part_name", "paragraph_index", "run_index", "relationship_id", "container_path",
       "entry_path", "inner_path",
     ],
-    @shared.docx_contract_guardrails(),
+    @oxshared.docx_contract_guardrails(),
     [],
-    @shared.docx_contract_foundations(),
+    @oxshared.docx_contract_foundations(),
     ["old_core", "legacy_convert", "markdown_emitter", "main_cli_fallback"],
   )
 }
@@ -460,9 +460,9 @@ pub fn docx_parser_contract_spec() -> ParserContractSpec {
 ///|
 pub fn pptx_parser_contract_spec() -> ParserContractSpec {
   make_parser_contract_spec(
-    @shared.pptx_contract_parser_name(),
-    @shared.pptx_contract_mode(),
-    @shared.pptx_contract_granularity(),
+    @oxshared.pptx_contract_parser_name(),
+    @oxshared.pptx_contract_mode(),
+    @oxshared.pptx_contract_granularity(),
     "document",
     [
       "parser_name", "parser_mode", "effective_mode", "detected_format", "ir_input_kind",
@@ -474,27 +474,27 @@ pub fn pptx_parser_contract_spec() -> ParserContractSpec {
       "container_path", "entry_path", "entry_index", "entry_format", "inner_path",
       "slide", "shape_id", "relationship_id",
     ],
-    @shared.pptx_contract_source_ref_extra_keys(),
-    @shared.pptx_contract_guardrails(),
+    @oxshared.pptx_contract_source_ref_extra_keys(),
+    @oxshared.pptx_contract_guardrails(),
     [
-      ..@shared.pptx_contract_slide_policy(),
-      ..@shared.pptx_contract_placeholder_policy(),
-      ..@shared.pptx_contract_reading_order_policy(),
-      ..@shared.pptx_contract_notes_policy(),
-      ..@shared.pptx_contract_relationship_policy(),
-      ..@shared.pptx_contract_asset_policy(),
+      ..@oxshared.pptx_contract_slide_policy(),
+      ..@oxshared.pptx_contract_placeholder_policy(),
+      ..@oxshared.pptx_contract_reading_order_policy(),
+      ..@oxshared.pptx_contract_notes_policy(),
+      ..@oxshared.pptx_contract_relationship_policy(),
+      ..@oxshared.pptx_contract_asset_policy(),
     ],
-    @shared.pptx_contract_foundations(),
-    @shared.pptx_contract_excluded_runtime_foundations(),
+    @oxshared.pptx_contract_foundations(),
+    @oxshared.pptx_contract_excluded_runtime_foundations(),
   )
 }
 
 ///|
 pub fn xlsx_parser_contract_spec() -> ParserContractSpec {
   make_parser_contract_spec(
-    @shared.xlsx_contract_parser_name(),
-    @shared.xlsx_contract_mode(),
-    @shared.xlsx_contract_granularity(),
+    @oxshared.xlsx_contract_parser_name(),
+    @oxshared.xlsx_contract_mode(),
+    @oxshared.xlsx_contract_granularity(),
     "document",
     [
       "parser_name", "parser_mode", "effective_mode", "detected_format", "ir_input_kind",
@@ -506,18 +506,20 @@ pub fn xlsx_parser_contract_spec() -> ParserContractSpec {
       "container_path", "entry_path", "entry_index", "entry_format", "inner_path",
       "sheet", "cell_range", "relationship_id",
     ],
-    @shared.xlsx_contract_source_ref_extra_keys(),
-    @shared.xlsx_contract_guardrails(),
+    @oxshared.xlsx_contract_source_ref_extra_keys(),
+    @oxshared.xlsx_contract_guardrails(),
     [
-      ..@shared.xlsx_contract_formula_policy(),
-      ..@shared.xlsx_contract_sheet_policy(),
-      ..@shared.xlsx_contract_relationship_policy(),
-      ..@shared.xlsx_contract_asset_policy(),
+      ..@oxshared.xlsx_contract_formula_policy(),
+      ..@oxshared.xlsx_contract_sheet_policy(),
+      ..@oxshared.xlsx_contract_relationship_policy(),
+      ..@oxshared.xlsx_contract_asset_policy(),
     ],
-    @shared.xlsx_contract_foundations(),
-    @shared.xlsx_contract_excluded_runtime_foundations(),
-    large_route_granularity=Some(@shared.xlsx_contract_large_granularity()),
-    large_route_ir_input_kind=Some(@shared.xlsx_contract_large_ir_input_kind()),
+    @oxshared.xlsx_contract_foundations(),
+    @oxshared.xlsx_contract_excluded_runtime_foundations(),
+    large_route_granularity=Some(@oxshared.xlsx_contract_large_granularity()),
+    large_route_ir_input_kind=Some(
+      @oxshared.xlsx_contract_large_ir_input_kind(),
+    ),
   )
 }
 
@@ -664,7 +666,7 @@ pub fn markdown_parser_contract_spec() -> ParserContractSpec {
       "large or explicit stream markdown lowers through block streaming inside the same parser family",
     ],
     ["format_readers/markdown"],
-    @shared.parser_contract_required_foundation_exclusions(),
+    @oxshared.parser_contract_required_foundation_exclusions(),
     large_route_granularity=Some(@parser.StreamingGranularity::MarkdownBlock),
     large_route_ir_input_kind=Some("block_stream"),
   )
@@ -731,7 +733,7 @@ pub fn srt_parser_contract_spec() -> ParserContractSpec {
     ],
     [],
     ["format_readers/subtitles/srt", "format_readers/subtitles/shared"],
-    @shared.parser_contract_required_foundation_exclusions(),
+    @oxshared.parser_contract_required_foundation_exclusions(),
   )
 }
 
@@ -755,7 +757,7 @@ pub fn vtt_parser_contract_spec() -> ParserContractSpec {
     ],
     [],
     ["format_readers/subtitles/vtt", "format_readers/subtitles/shared"],
-    @shared.parser_contract_required_foundation_exclusions(),
+    @oxshared.parser_contract_required_foundation_exclusions(),
   )
 }
 
@@ -868,7 +870,7 @@ pub fn epub_parser_contract_spec() -> ParserContractSpec {
       "epub canonical route is package-single-pass by spine order", "explicit stream epub uses container-recursive path with archive-entry granularity",
     ],
     ["format_readers/epub", "format_readers/html", "container"],
-    @shared.parser_contract_required_foundation_exclusions(),
+    @oxshared.parser_contract_required_foundation_exclusions(),
     large_route_granularity=Some(@parser.StreamingGranularity::ArchiveEntry),
     large_route_ir_input_kind=Some("block_stream"),
   )
@@ -973,7 +975,7 @@ pub fn image_ocr_parser_contract_spec() -> ParserContractSpec {
     ],
     [],
     ["formats/ocr"],
-    @shared.parser_contract_required_foundation_exclusions(),
+    @oxshared.parser_contract_required_foundation_exclusions(),
   )
 }
 
@@ -998,6 +1000,6 @@ pub fn audio_parser_contract_spec() -> ParserContractSpec {
     ],
     ["accurate audio intentionally degrades to balanced backend during P0"],
     ["formats/audio"],
-    @shared.parser_contract_required_foundation_exclusions(),
+    @oxshared.parser_contract_required_foundation_exclusions(),
   )
 }

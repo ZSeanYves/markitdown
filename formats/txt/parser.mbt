@@ -14,7 +14,7 @@ pub fn txt_parser() -> @parser.Parser {
         source,
         "txt",
       )
-      let parsed = match open_text_document(source) {
+      let prepared = match @dtext.prepare_text_document_from_source(source) {
         Ok(document) => document
         Err(err) => {
           let fallback = invalid_text_parse_result(
@@ -23,7 +23,22 @@ pub fn txt_parser() -> @parser.Parser {
           return Ok(fallback)
         }
       }
-      let inspect = @dtext.inspect_text_document(parsed)
+      let source = prepared.prepared_source
+      let parsed = match prepared.document {
+        Some(document) => document
+        None => {
+          let fallback = invalid_text_parse_result(
+            source,
+            diagnostics,
+            prepared.parse_error.unwrap_or("Utf8DecodeFailed(invalid utf8)"),
+            context,
+          )
+          return Ok(fallback)
+        }
+      }
+      let inspect = prepared.inspect.unwrap_or(
+        @dtext.inspect_text_document(parsed),
+      )
       let events : Array[@core.CoreEvent] = Array::new(
         capacity=parsed.lines.length(),
       )
@@ -202,65 +217,6 @@ fn txt_parser_capability() -> @parser.ParserCapability {
 }
 
 ///|
-fn open_text_document(
-  source : @input.InputSource,
-) -> Result[@dtext.TextDocument, String] {
-  let bytes = match @input.read_input_bytes(source) {
-    Ok(payload) => payload
-    Err(err) => return Err(err)
-  }
-  let text = match decode_txt_input_bytes(bytes) {
-    Ok(payload) => payload
-    Err(err) => return Err(err)
-  }
-  Ok(@dtext.parse_text_document_from_normalized_text(normalize_txt_text(text)))
-}
-
-///|
-fn decode_txt_input_bytes(bytes : Bytes) -> Result[String, String] {
-  match decode_utf16_text_bytes(bytes) {
-    Some(text) => Ok(text)
-    None =>
-      try @utf8.decode(bytes, ignore_bom=false) |> Ok catch {
-        _ => Err("Utf8DecodeFailed(invalid utf8)")
-      }
-  }
-}
-
-///|
-fn decode_utf16_text_bytes(bytes : Bytes) -> String? {
-  let arr = bytes.to_array()
-  if arr.length() < 2 {
-    return None
-  }
-  let first = arr[0].to_int()
-  let second = arr[1].to_int()
-  if first == 0xFF && second == 0xFE {
-    let decoded = @encoding.decode(bytes, encoding=@encoding.UTF16LE) catch {
-      _ => return None
-    }
-    return Some(strip_leading_bom(decoded))
-  }
-  if first == 0xFE && second == 0xFF {
-    let decoded = @encoding.decode(bytes, encoding=@encoding.UTF16BE) catch {
-      _ => return None
-    }
-    return Some(strip_leading_bom(decoded))
-  }
-  None
-}
-
-///|
-fn strip_leading_bom(text : String) -> String {
-  let chars = text.to_array()
-  if chars.length() > 0 && chars[0] == '\u{FEFF}' {
-    String::from_array(chars[1:])
-  } else {
-    text
-  }
-}
-
-///|
 fn invalid_text_parse_result(
   source : @input.InputSource,
   diagnostics : @core.Diagnostics,
@@ -359,123 +315,4 @@ fn truncate_line(text : String, max_chars : Int) -> String {
     return text
   }
   text[:max_chars].to_owned() + " [truncated]"
-}
-
-///|
-fn normalize_txt_text(text : String) -> String {
-  if !txt_text_needs_shared_cleanup(text) {
-    return text
-  }
-  let normalized = normalize_txt_line_endings(text)
-  normalize_txt_low_risk_chars(normalized)
-}
-
-///|
-fn txt_text_needs_shared_cleanup(text : String) -> Bool {
-  for ch in text {
-    if ch == '\r' ||
-      ch == '\u{00A0}' ||
-      ch == '\u{00AD}' ||
-      ch == '\u{2007}' ||
-      ch == '\u{2008}' ||
-      ch == '\u{2009}' ||
-      ch == '\u{200A}' ||
-      ch == '\u{202F}' ||
-      ch == '\u{205F}' ||
-      ch == '\u{3000}' ||
-      ch == '\u{200B}' ||
-      ch == '\u{FEFF}' ||
-      ch == 'ﬀ' ||
-      ch == 'ﬁ' ||
-      ch == 'ﬂ' ||
-      ch == 'ﬃ' ||
-      ch == 'ﬄ' ||
-      ch == 'ﬅ' ||
-      ch == 'ﬆ' {
-      return true
-    }
-  }
-  false
-}
-
-///|
-fn normalize_txt_line_endings(text : String) -> String {
-  let chars = text.to_array()
-  let out = StringBuilder::new()
-  let mut i = 0
-  while i < chars.length() {
-    let ch = chars[i]
-    if ch == '\r' {
-      if i + 1 < chars.length() && chars[i + 1] == '\n' {
-        i += 1
-      }
-      out.write_char('\n')
-    } else {
-      out.write_char(ch)
-    }
-    i += 1
-  }
-  out.to_string()
-}
-
-///|
-fn normalize_txt_low_risk_chars(text : String) -> String {
-  let out = StringBuilder::new()
-  let mut prev_space = false
-  for ch in text.to_array() {
-    match normalized_txt_char(ch) {
-      Some(value) => {
-        let is_space = value == " "
-        if is_space {
-          if !prev_space {
-            out.write_string(value)
-          }
-        } else {
-          out.write_string(value)
-        }
-        prev_space = is_space
-      }
-      None => prev_space = false
-    }
-  }
-  out.to_string()
-}
-
-///|
-fn normalized_txt_char(ch : Char) -> String? {
-  if ch == '\n' {
-    return Some("\n")
-  }
-  if ch == '\u{FEFF}' || ch == '\u{200B}' || ch == '\u{00AD}' {
-    return None
-  }
-  if ch == '\u{00A0}' ||
-    ch == '\u{2007}' ||
-    ch == '\u{2008}' ||
-    ch == '\u{2009}' ||
-    ch == '\u{200A}' ||
-    ch == '\u{202F}' ||
-    ch == '\u{205F}' ||
-    ch == '\u{3000}' ||
-    ch == '\t' {
-    return Some(" ")
-  }
-  match txt_ligature_expansion(ch) {
-    Some(value) => Some(value)
-    None => Some(String::from_array([ch]))
-  }
-}
-
-///|
-fn txt_ligature_expansion(ch : Char) -> String? {
-  match ch {
-    'ﬀ' => Some("ff")
-    'ﬁ' => Some("fi")
-    'ﬂ' => Some("fl")
-    'ﬃ' => Some("ffi")
-    'ﬄ' => Some("ffl")
-    'ﬅ' => Some("ft")
-    'ﬆ' => Some("st")
-    _ => None
-  }
 }

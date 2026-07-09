@@ -1,5 +1,4 @@
 import {
-  "moonbitlang/core/encoding/utf8",
   "ZSeanYves/markitdown/format_readers/xml" @dxml,
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/formats/shared" @fshared,

@@ -37,8 +37,131 @@ pub fn html_parse_with_token_events(
   text : String,
   events : Array[@dhtml.HtmlTokenEvent],
 ) -> @parser.ParseResult {
-  ignore(context)
-  html_block_stream_parse_result_from_events(source, text, events)
+  if context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
+    return html_block_stream_parse_result_from_events(source, text, events)
+  }
+  let diagnostics = @fshared.empty_parser_diagnostics(
+    "html_parser",
+    @parser.ParserMode::DomAstModel,
+    source,
+    "html",
+  )
+  diagnostics.metrics.set("parser_name", "html_parser")
+  diagnostics.metrics.set("parser_mode", "dom_ast_model")
+  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
+  diagnostics.metrics.set("detected_format", "html")
+  diagnostics.metrics.set(
+    "requested_mode",
+    @fshared.requested_mode_name(context),
+  )
+  diagnostics.metrics.set("ir_input_kind", "document")
+  diagnostics.metrics.set("probe_artifact_reused", "true")
+  @fshared.apply_product_metrics(diagnostics, "html")
+  let parsed = try @dhtml.parse_html_document(text) |> Ok catch {
+    e => Err(e.to_string())
+  }
+  match parsed {
+    Err(err) => malformed_html_parse_result(source, text, diagnostics, err)
+    Ok(doc) => {
+      let validation = @dhtml.validate_html_document(doc)
+      let inspect = @dhtml.inspect_html_document(doc)
+      let semantic = @dhtml.collect_html_semantic_document(doc)
+      let semantic_metrics = html_semantic_metric_summary(semantic)
+      let document = lower_html_document(doc, semantic, source)
+      html_fill_common_metrics(
+        diagnostics,
+        inspect,
+        validation,
+        semantic_metrics,
+        semantic,
+        text,
+        0,
+        false,
+        document.assets.length(),
+      )
+      diagnostics.metrics.set("effective_mode", "dom_ast_model")
+      diagnostics.metrics.set("resource_limit_hit", "false")
+      diagnostics.metrics.set("dom_limit_reached", "false")
+      diagnostics.metrics.set(
+        "block_count",
+        document.blocks.length().to_string(),
+      )
+      diagnostics.metrics.set("event_granularity", "none")
+      diagnostics.metrics.set("event_semantics", "dom_ast_model")
+      diagnostics.pass_trace.push("parse:html_parser")
+      let final_document = @core.document_with_diagnostics(
+        document, diagnostics,
+      )
+      @parser.parse_result_with_document_capability(
+        "html_parser",
+        @parser.ParserMode::DomAstModel,
+        final_document,
+        diagnostics,
+        html_parser_capability(),
+      )
+    }
+  }
+}
+
+///|
+pub fn html_parse_with_prepared_document(
+  source : @input.InputSource,
+  context : @parser.ParseContext,
+  prepared : @dhtml.PreparedHtmlDocument,
+) -> @parser.ParseResult {
+  if context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
+    match prepared.events {
+      Some(events) =>
+        return html_block_stream_parse_result_from_events(
+          source,
+          prepared.normalized_text,
+          events,
+        )
+      None => ()
+    }
+  }
+  match prepared.document {
+    Some(_) => {
+      let events = prepared.events
+      if events is Some(_) {
+        let parsed = html_parse_with_token_events(
+          source,
+          context,
+          prepared.normalized_text,
+          events.unwrap(),
+        )
+        parsed.diagnostics.metrics.set("probe_artifact_reused", "true")
+        parsed
+      } else {
+        let diagnostics = @fshared.empty_parser_diagnostics(
+          "html_parser",
+          @parser.ParserMode::DomAstModel,
+          source,
+          "html",
+        )
+        malformed_html_parse_result(
+          source,
+          prepared.original_text,
+          diagnostics,
+          prepared.parse_error.unwrap_or("scan html failed"),
+        )
+      }
+    }
+    None => {
+      let diagnostics = @fshared.empty_parser_diagnostics(
+        "html_parser",
+        @parser.ParserMode::DomAstModel,
+        source,
+        "html",
+      )
+      malformed_html_parse_result(
+        source,
+        prepared.original_text,
+        diagnostics,
+        prepared.parse_error.unwrap_or("parse html failed"),
+      )
+    }
+  }
 }
 
 ///|
@@ -149,30 +272,36 @@ fn parse_html_document_result(
   source : @input.InputSource,
   context : @parser.ParseContext,
 ) -> Result[@parser.ParseResult, String] {
-  let text = match @input.read_input_text(source) {
+  let prepared = match @dhtml.prepare_html_document_from_source(source) {
     Ok(payload) => payload
     Err(err) => return Err(err)
   }
+  let source = prepared.prepared_source
+  let text = prepared.original_text
   let requested_blocks = context.requested_mode ==
     Some(@parser.ParserMode::BlockStreaming)
   if requested_blocks {
     return Ok(html_block_stream_parse_result(source, text, context))
   }
 
-  let parsed = try @dhtml.parse_html_document(text) |> Ok catch {
-    e => Err(e.to_string())
-  }
-  match parsed {
-    Err(err) => {
+  match prepared.document {
+    None => {
       let diagnostics = @fshared.empty_parser_diagnostics(
         "html_parser",
         @parser.ParserMode::DomAstModel,
         source,
         "html",
       )
-      return Ok(malformed_html_parse_result(source, text, diagnostics, err))
+      return Ok(
+        malformed_html_parse_result(
+          source,
+          text,
+          diagnostics,
+          prepared.parse_error.unwrap_or("parse html failed"),
+        ),
+      )
     }
-    Ok(doc) => {
+    Some(doc) => {
       let diagnostics = @fshared.empty_parser_diagnostics(
         "html_parser",
         @parser.ParserMode::DomAstModel,
@@ -265,6 +394,7 @@ fn html_block_stream_parse_result_from_events(
     @parser.new_parse_context(@input.DetectedFormat::Html),
   )
   diagnostics.metrics.set("requested_mode", "block_streaming")
+  diagnostics.metrics.set("probe_artifact_reused", "true")
   let lowered = if html_prefers_semantic_block_stream(source) {
     html_lower_semantic_block_stream_document(source, text, diagnostics)
   } else if html_requires_semantic_block_stream_markup(source) {

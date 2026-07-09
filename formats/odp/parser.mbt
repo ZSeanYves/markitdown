@@ -40,36 +40,50 @@ fn parse_odp_document_result(
   context : @parser.ParseContext,
   capability : @parser.ParserCapability,
 ) -> Result[@parser.ParseResult, String] {
-  let bytes = match @input.read_input_bytes(source) {
-    Ok(payload) => payload
-    Err(err) => return Err(err)
-  }
-  let diagnostics = @fshared.empty_parser_diagnostics(
-    ODP_PARSER_NAME,
-    @parser.ParserMode::PackageSinglePass,
-    source,
-    "odp",
-  )
-  odp_init_diagnostics(diagnostics, source, context)
-  let opened = try @dodf.open_odp_document(bytes) |> Ok catch {
-    e => Err(e.to_string())
-  }
-  let document = match opened {
+  let prepared = match @dodf.prepare_odp_document_from_source(source) {
     Ok(value) => value
-    Err(err) =>
+    Err(err) => {
+      let diagnostics = @fshared.empty_parser_diagnostics(
+        ODP_PARSER_NAME,
+        @parser.ParserMode::PackageSinglePass,
+        source,
+        "odp",
+      )
+      odp_init_diagnostics(diagnostics, source, context)
       return Ok(
         odp_malformed_parse_result(
           source,
           diagnostics,
           "open odp failed: " + err,
           capability,
-          bytes,
+          source.bytes.unwrap_or(Bytes::from_array([])),
           context,
         ),
       )
+    }
   }
-  let inspect = @dodf.inspect_odp_document(document)
-  Ok(odp_parse_with_open_document(source, context, document, inspect))
+  Ok(
+    odp_parse_with_open_document(
+      prepared.prepared_source,
+      context,
+      prepared.document,
+      prepared.inspect,
+    ),
+  )
+}
+
+///|
+pub fn odp_parse_with_prepared_document(
+  source : @input.InputSource,
+  context : @parser.ParseContext,
+  prepared : @dodf.PreparedOdpDocument,
+) -> @parser.ParseResult {
+  odp_parse_with_open_document(
+    source,
+    context,
+    prepared.document,
+    prepared.inspect,
+  )
 }
 
 ///|

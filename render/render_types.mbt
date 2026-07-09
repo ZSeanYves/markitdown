@@ -3,6 +3,9 @@
 ///
 /// The context mirrors the product-level execution choices plus optional
 /// side-channel document state for direct block/event rendering.
+/// `base_diagnostics`, `metadata`, `source_map`, `assets`, and `assembly`
+/// allow renderers to keep outputs aligned with the document-level state even
+/// when they start from blocks or events.
 pub struct RenderContext {
   debug : Bool
   fidelity_mode : @product.FidelityMode
@@ -28,6 +31,9 @@ pub(all) enum RenderInput {
 
 ///|
 /// Final renderer output including diagnostics and optional RAG chunks.
+///
+/// `content` is the serialized user-facing payload, while `chunks` is only
+/// populated for RAG-oriented views that emit a secondary retrieval structure.
 pub struct RenderResult {
   content : String
   diagnostics : @core.Diagnostics
@@ -36,6 +42,9 @@ pub struct RenderResult {
 
 ///|
 /// Renderer interface used by the high-level convert path.
+///
+/// `render` consumes a full `DocumentIR`; `render_input` accepts the broader
+/// public input union and is responsible for any necessary normalization.
 pub struct Renderer {
   name : String
   render : (@core.DocumentIR, RenderContext) -> RenderResult

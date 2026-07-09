@@ -44,10 +44,12 @@ fn parse_subtitle_result(
   context : @parser.ParseContext,
   format_name : String,
 ) -> Result[@parser.ParseResult, String] {
-  let text = match @input.read_input_text(source) {
+  let prepared = match @dsub.prepare_srt_document_from_source(source) {
     Ok(payload) => payload
     Err(err) => return Err(err)
   }
+  let source = prepared.prepared_source
+  let text = prepared.original_text
   let diagnostics = @fshared.empty_parser_diagnostics(
     format_name + "_parser",
     @parser.ParserMode::StreamingEvent,
@@ -67,12 +69,11 @@ fn parse_subtitle_result(
   diagnostics.metrics.set("event_granularity", "record")
   diagnostics.metrics.set("event_semantics", "subtitle_record_event_stream")
   @fshared.apply_product_metrics(diagnostics, format_name)
-  let parsed = try @dsub.parse_srt_document(text) |> Ok catch {
-    e => Err(e.to_string())
-  }
-  match parsed {
-    Ok(parsed) => {
-      let inspect = @dsub.inspect_subtitle_document(parsed)
+  match prepared.document {
+    Some(parsed) => {
+      let inspect = prepared.inspect.unwrap_or(
+        @dsub.inspect_subtitle_document(parsed),
+      )
       let events = subtitle_events_from_document(parsed, source, format_name)
       diagnostics.metrics.set("cue_count", inspect.cue_count.to_string())
       diagnostics.metrics.set("note_count", inspect.note_count.to_string())
@@ -126,10 +127,14 @@ fn parse_subtitle_result(
         ),
       )
     }
-    Err(err) =>
+    None =>
       Ok(
         subtitle_malformed_parse_result(
-          source, text, diagnostics, err, format_name,
+          source,
+          text,
+          diagnostics,
+          prepared.parse_error.unwrap_or("unknown"),
+          format_name,
         ),
       )
   }

@@ -1,6 +1,9 @@
 ///|
 /// Builder abstraction that normalizes any public IR shape into `DocumentIR`
 /// before pipeline passes run.
+///
+/// Keeping the builder injectable makes tests and specialized entry points able
+/// to reuse the pass pipeline without duplicating shape-conversion logic.
 pub struct CoreIRBuilder {
   build : (@core.IRInput) -> @core.DocumentIR
 }
@@ -20,7 +23,9 @@ fn pass_error(message : String) -> PassError {
 /// Mutable shared context passed through all IR passes.
 ///
 /// Besides product options, it holds the evolving diagnostics, metadata,
-/// assets, provenance, and assembly side channels.
+/// assets, provenance, and assembly side channels. The `Ref` fields are
+/// intentionally mutable so independent passes can collaborate without having
+/// to thread large tuples through every transformation.
 pub struct PassContext {
   mode : @product.ConvertMode
   fidelity_mode : @product.FidelityMode
@@ -39,6 +44,9 @@ pub struct PassContext {
 
 ///|
 /// One named IR transformation step in the unified pipeline.
+///
+/// Stable pass names matter because pass traces are exported through
+/// diagnostics and used in regression tests.
 pub struct IRPass {
   name : String
   run : (PassContext, @core.IRInput) -> Result[@core.IRInput, PassError]
@@ -101,13 +109,17 @@ pub fn make_pass_context(
     } else {
       @product.OutputMode::Markdown
     },
-    pdf_cleanup_mode=if pdf_cleanup_enabled {
-      @product.PdfCleanupMode::Conservative
+  )
+  let context = make_product_pass_context(mode, options)
+  context.diagnostics.val.metrics.set(
+    "pdf_header_footer_filter_enabled",
+    if pdf_cleanup_enabled {
+      "true"
     } else {
-      @product.PdfCleanupMode::Disabled
+      "false"
     },
   )
-  make_product_pass_context(mode, options)
+  context
 }
 
 ///|
@@ -237,22 +249,12 @@ pub fn default_pass_pipeline() -> PassPipeline {
 }
 
 ///|
-/// Run the canonical pass pipeline, including fast paths for already-structured
-/// inputs.
+/// Run the canonical pass pipeline for every IR shape.
 pub fn run_default_pipeline(
   input : @core.IRInput,
   context : PassContext,
   trace_passes? : Bool = true,
 ) -> Result[@core.IRInput, PassError] {
-  if event_stream_fast_path(input, context, trace_passes) is Some(result) {
-    return Ok(result)
-  }
-  if block_stream_fast_path(input, context, trace_passes) is Some(result) {
-    return Ok(result)
-  }
-  if document_fast_path(input, context, trace_passes) is Some(result) {
-    return Ok(result)
-  }
   let output = run_pipeline_with_trace(
     default_pass_pipeline(),
     input,
@@ -276,249 +278,6 @@ pub fn run_default_pipeline(
     }
     Err(err) => Err(err)
   }
-}
-
-///|
-fn event_stream_fast_path(
-  input : @core.IRInput,
-  context : PassContext,
-  trace_passes : Bool,
-) -> @core.IRInput? {
-  match input {
-    @core.IRInput::EventStream(events) => {
-      context.diagnostics.val.metrics.set("builder_input_kind", "event_stream")
-      if trace_passes {
-        append_event_stream_fast_path_trace(context.diagnostics.val)
-      }
-      Some(@core.IRInput::EventStream(events))
-    }
-    _ => None
-  }
-}
-
-///|
-fn block_stream_fast_path(
-  input : @core.IRInput,
-  context : PassContext,
-  trace_passes : Bool,
-) -> @core.IRInput? {
-  match input {
-    @core.IRInput::BlockStream(blocks) => {
-      if !block_stream_can_skip_pipeline(context.diagnostics.val) {
-        return None
-      }
-      context.diagnostics.val.metrics.set("builder_input_kind", "block_stream")
-      if trace_passes {
-        append_block_stream_fast_path_trace(context.diagnostics.val)
-      }
-      Some(@core.IRInput::BlockStream(blocks))
-    }
-    _ => None
-  }
-}
-
-///|
-fn document_fast_path(
-  input : @core.IRInput,
-  context : PassContext,
-  trace_passes : Bool,
-) -> @core.IRInput? {
-  match input {
-    @core.IRInput::Document(document) => {
-      if !document_can_use_structured_profile(document.diagnostics) {
-        return None
-      }
-      let pipeline = structured_document_pass_pipeline(document)
-      let output = match
-        run_pipeline_with_trace(pipeline, input, context, trace_passes) {
-        Ok(value) => value
-        Err(err) => abort(pass_error_message(err))
-      }
-      match output {
-        @core.IRInput::Document(next_document) => {
-          context.diagnostics.val.metrics.set("builder_input_kind", "document")
-          context.diagnostics.val.metrics.set(
-            "pipeline_profile", "structured_document",
-          )
-          if trace_passes {
-            append_document_fast_path_trace(context.diagnostics.val)
-          }
-          Some(
-            @core.IRInput::Document(
-              document_from_input_context(next_document, context),
-            ),
-          )
-        }
-        _ => None
-      }
-    }
-    _ => None
-  }
-}
-
-///|
-fn block_stream_can_skip_pipeline(diagnostics : @core.Diagnostics) -> Bool {
-  match diagnostics.metrics.get("event_semantics") {
-    Some("markdown_block_stream") => true
-    Some("html_block_stream") => true
-    Some("xlsx_row_block_stream") => true
-    Some("archive_entry_block_stream") => true
-    Some("epub_spine_block_stream") => true
-    _ => false
-  }
-}
-
-///|
-fn document_can_use_structured_profile(diagnostics : @core.Diagnostics) -> Bool {
-  diagnostics.metrics.get("structured_document_profile") ==
-  Some("pipeline_ready")
-}
-
-///|
-fn append_event_stream_fast_path_trace(diagnostics : @core.Diagnostics) -> Unit {
-  for name in event_stream_fast_path_pass_names() {
-    diagnostics.pass_trace.push(name)
-  }
-}
-
-///|
-fn append_block_stream_fast_path_trace(diagnostics : @core.Diagnostics) -> Unit {
-  diagnostics.pass_trace.push("pipeline:block_stream_fast_path")
-}
-
-///|
-fn append_document_fast_path_trace(diagnostics : @core.Diagnostics) -> Unit {
-  diagnostics.pass_trace.push("pipeline:structured_document_fast_path")
-}
-
-///|
-fn event_stream_fast_path_pass_names() -> Array[String] {
-  [
-    "NormalizeTextPass", "NormalizeWhitespacePass", "MergeTextLinePass", "ResolveReadingOrderPass",
-    "RemoveHeaderFooterPass", "ResolveHeadingPass", "ResolveListPass", "CollectAssetRefsPass",
-    "ResolveTablePass", "ResolveCaptionPass", "ResolveAssetPass", "AssembleSectionTreePass",
-    "ResolveRenderHintsPass", "DebugAnnotationPass",
-  ]
-}
-
-///|
-fn structured_document_pass_pipeline(
-  document : @core.DocumentIR,
-) -> PassPipeline {
-  let probe = inspect_structured_document(document)
-  let passes : Array[IRPass] = [
-    normalize_text_pass(),
-    normalize_whitespace_pass(),
-  ]
-  if probe.needs_asset_ref_collection {
-    passes.push(collect_asset_refs_pass())
-  }
-  if probe.has_tables {
-    passes.push(resolve_table_pass())
-  } else {
-    document.diagnostics.metrics.set("resolved_table_continuation_count", "0")
-  }
-  if probe.needs_caption_resolution {
-    passes.push(resolve_caption_pass())
-  } else {
-    document.diagnostics.metrics.set("resolved_caption_binding_count", "0")
-  }
-  if probe.needs_asset_resolution {
-    passes.push(resolve_asset_pass())
-  } else {
-    document.diagnostics.metrics.set("resolved_asset_binding_count", "0")
-  }
-  passes.push(assemble_section_tree_pass())
-  passes.push(resolve_render_hints_pass())
-  passes.push(debug_annotation_pass())
-  new_pass_pipeline(passes)
-}
-
-///|
-priv struct StructuredDocumentProbe {
-  has_tables : Bool
-  has_images : Bool
-  has_inline_images : Bool
-  has_caption_candidates : Bool
-  needs_asset_ref_collection : Bool
-  needs_caption_resolution : Bool
-  needs_asset_resolution : Bool
-}
-
-///|
-fn inspect_structured_document(
-  document : @core.DocumentIR,
-) -> StructuredDocumentProbe {
-  let state : Ref[StructuredDocumentProbe] = Ref({
-    has_tables: false,
-    has_images: false,
-    has_inline_images: false,
-    has_caption_candidates: false,
-    needs_asset_ref_collection: false,
-    needs_caption_resolution: false,
-    needs_asset_resolution: false,
-  })
-  inspect_structured_document_blocks(document.blocks, state)
-  let has_assets = document.assets.length() > 0
-  let probe = state.val
-  {
-    ..probe,
-    needs_asset_ref_collection: probe.has_images || probe.has_inline_images,
-    needs_caption_resolution: probe.has_images ||
-    (probe.has_tables && probe.has_caption_candidates),
-    needs_asset_resolution: has_assets ||
-    probe.has_images ||
-    probe.has_inline_images,
-  }
-}
-
-///|
-fn inspect_structured_document_blocks(
-  blocks : Array[@core.CoreBlock],
-  state : Ref[StructuredDocumentProbe],
-) -> Unit {
-  let mut i = 0
-  while i < blocks.length() {
-    let block = blocks[i]
-    if block.kind == @core.BlockKind::Table {
-      state.val = { ..state.val, has_tables: true }
-      if i + 1 < blocks.length() &&
-        structured_document_caption_candidate(blocks[i + 1]) {
-        state.val = { ..state.val, has_caption_candidates: true }
-      }
-    }
-    if block.kind == @core.BlockKind::Image {
-      state.val = { ..state.val, has_images: true }
-    }
-    if structured_document_block_has_inline_image(block) {
-      state.val = { ..state.val, has_inline_images: true }
-    }
-    if block.children.length() > 0 {
-      inspect_structured_document_blocks(block.children, state)
-    }
-    i += 1
-  }
-}
-
-///|
-fn structured_document_block_has_inline_image(block : @core.CoreBlock) -> Bool {
-  match block.rich_inlines {
-    Some(inlines) =>
-      inlines.any(fn(inline) { inline.kind == @core.InlineKind::Image })
-    None => false
-  }
-}
-
-///|
-fn structured_document_caption_candidate(block : @core.CoreBlock) -> Bool {
-  if block.kind != @core.BlockKind::Paragraph {
-    return false
-  }
-  let text = block.text.trim().to_lower()
-  text.has_prefix("figure") ||
-  text.has_prefix("fig.") ||
-  text.has_prefix("caption") ||
-  text.has_prefix("table")
 }
 
 ///|

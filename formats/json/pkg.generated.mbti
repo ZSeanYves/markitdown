@@ -7,6 +7,8 @@ import {
 }
 
 // Values
+pub fn json_parse_with_prepared_document(@input.InputSource, @parser.ParseContext, @ZSeanYves/markitdown/format_readers/json.PreparedJsonText) -> @parser.ParseResult
+
 pub fn json_parse_with_stream_document(@input.InputSource, @parser.ParseContext, String, @ZSeanYves/markitdown/format_readers/json.JsonStreamDocument) -> @parser.ParseResult
 
 pub fn json_parser() -> @parser.Parser

@@ -2,10 +2,13 @@
 package "ZSeanYves/markitdown/formats/pptx"
 
 import {
+  "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
 }
 
 // Values
+pub fn pptx_parse_with_prepared_document(@input.InputSource, @parser.ParseContext, @ZSeanYves/markitdown/format_readers/ooxml/pptx.PreparedPptxDocument, probe_artifact_reused? : Bool) -> @parser.ParseResult
+
 pub fn pptx_parser() -> @parser.Parser
 
 pub fn pptx_parser_capability() -> @parser.ParserCapability

@@ -53,28 +53,26 @@ pub fn parse_text_markup_result(
   context : @parser.ParseContext,
   hooks : TextMarkupHooks,
 ) -> Result[@parser.ParseResult, String] {
-  let text = match @input.read_input_text(source) {
+  let prepared = match prepare_text_markup_document_for_hooks(source, hooks) {
     Ok(payload) => payload
     Err(err) => return Err(err)
   }
-  let diagnostics = empty_parser_diagnostics(
-    hooks.parser_name,
-    @parser.ParserMode::DomAstModel,
-    source,
-    hooks.format_name,
-  )
-  let doc = (hooks.parse_document)(text)
-  let inspect = @dmark.inspect_text_markup_document(doc, text)
-  Ok(
-    parse_text_markup_result_with_preparsed_document(
-      source,
-      context,
-      text,
-      doc,
-      inspect,
-      hooks,
-      diagnostics~,
-    ),
+  Ok(parse_text_markup_result_with_prepared_document(prepared, context, hooks))
+}
+
+///|
+pub fn parse_text_markup_result_with_prepared_document(
+  prepared : @dmark.PreparedTextMarkupDocument,
+  context : @parser.ParseContext,
+  hooks : TextMarkupHooks,
+) -> @parser.ParseResult {
+  parse_text_markup_result_with_preparsed_document(
+    prepared.prepared_source,
+    context,
+    prepared.original_text,
+    prepared.document,
+    prepared.inspect,
+    hooks,
   )
 }
 
@@ -451,6 +449,21 @@ pub fn lower_text_markup_document(
     )
   }
   document
+}
+
+///|
+fn prepare_text_markup_document_for_hooks(
+  source : @input.InputSource,
+  hooks : TextMarkupHooks,
+) -> Result[@dmark.PreparedTextMarkupDocument, String] {
+  match hooks.format {
+    @dmark.TextMarkupFormat::Tex =>
+      @dmark.prepare_tex_document_from_source(source)
+    @dmark.TextMarkupFormat::Rst =>
+      @dmark.prepare_rst_document_from_source(source)
+    @dmark.TextMarkupFormat::Asciidoc =>
+      @dmark.prepare_asciidoc_document_from_source(source)
+  }
 }
 
 ///|

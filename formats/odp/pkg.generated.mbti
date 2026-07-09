@@ -10,6 +10,8 @@ import {
 // Values
 pub fn odp_parse_with_open_document(@input.InputSource, @parser.ParseContext, @shared.OdpDocument, @shared.OdpInspectReport) -> @parser.ParseResult
 
+pub fn odp_parse_with_prepared_document(@input.InputSource, @parser.ParseContext, @ZSeanYves/markitdown/format_readers/odf/odp.PreparedOdpDocument) -> @parser.ParseResult
+
 pub fn odp_parser() -> @parser.Parser
 
 pub fn odp_parser_capability() -> @parser.ParserCapability

@@ -24,25 +24,17 @@ fn parse_zip_container_result(
   context : @parser.ParseContext,
   registry_provider : () -> @parser.ParserRegistry,
 ) -> Result[@parser.ParseResult, String] {
-  let bytes = match @input.read_input_bytes(source) {
+  let prepared = match @dzipsource.prepare_zip_from_source(source) {
     Ok(payload) => payload
     Err(err) => return Err(err)
   }
-  let archive = try @dzip.open_zip(bytes) |> Ok catch {
-    e => Err(e.to_string())
-  }
-  let archive = match archive {
-    Ok(value) => value
-    Err(err) => return Err(err)
-  }
-  let report = @dzip.inspect_zip_archive(archive)
   Ok(
     @internal.zip_parse_with_archive(
-      source,
+      prepared.prepared_source,
       context,
       registry_provider(),
-      archive,
-      report,
+      prepared.archive,
+      prepared.inspect,
     ),
   )
 }

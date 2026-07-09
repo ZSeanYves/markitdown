@@ -1,4 +1,5 @@
 ///|
+/// High-level execution shapes exposed by parsers before pipeline recovery.
 pub(all) enum ParserMode {
   StreamingEvent
   BlockStreaming
@@ -11,6 +12,8 @@ pub(all) enum ParserMode {
 } derive(Eq)
 
 ///|
+/// Granularity labels used when a parser can expose partial or streaming
+/// results.
 pub(all) enum StreamingGranularity {
   Byte
   Line
@@ -42,7 +45,9 @@ pub(all) enum StreamingGranularity {
 /// has.
 ///
 /// `supports_*` describes the exposed IR shapes, while `produces_*` describes
-/// which semantics the implementation can preserve.
+/// which semantics the implementation can preserve. The remaining fields let
+/// routing decide whether the parser can handle streaming, random access,
+/// losslessness, and ordering/style preservation requirements.
 pub struct ParserCapability {
   parser_mode : ParserMode
   supports_streaming : Bool
@@ -69,7 +74,8 @@ pub struct ParserCapability {
 /// End-to-end execution knobs passed from route planning into a parser.
 ///
 /// This carries requested route shape, fidelity/output profiles, OCR or audio
-/// hints, and coarse resource limits.
+/// hints, PDF policy toggles, and coarse resource limits. It is the canonical
+/// place for parser-visible runtime policy.
 pub struct ParseContext {
   detected_format : @input.DetectedFormat
   requested_mode : ParserMode?
@@ -81,7 +87,6 @@ pub struct ParseContext {
   accurate_features : @product.AccurateFeatureProfile
   ocr_options : OcrOptions
   audio_options : AudioOptions
-  pdf_ocr_policy : PdfOcrPolicy
   pdf_native_runtime_policy : PdfNativeRuntimePolicy
   pdf_header_footer_filter_policy : PdfHeaderFooterFilterPolicy
   pdf_table_reconstruction_policy : PdfTableReconstructionPolicy
@@ -93,6 +98,7 @@ pub struct ParseContext {
 }
 
 ///|
+/// OCR intent after CLI defaults and route planning have been resolved.
 pub(all) enum OcrIntent {
   Disabled
   Auto
@@ -100,21 +106,21 @@ pub(all) enum OcrIntent {
 } derive(Eq)
 
 ///|
-pub type PdfOcrPolicy = @product.PdfOcrPolicy
-
-///|
+/// Whether native PDF text restoration is allowed to execute.
 pub(all) enum PdfNativeRuntimePolicy {
   DisableTextRestore
   EnableTextRestore
 } derive(Eq)
 
 ///|
+/// Policy controlling internal PDF header/footer filtering during lowering.
 pub(all) enum PdfHeaderFooterFilterPolicy {
   Disabled
   InternalHighConfidenceOnly
 } derive(Eq)
 
 ///|
+/// Policy controlling internal PDF table reconstruction heuristics.
 pub(all) enum PdfTableReconstructionPolicy {
   Disabled
   InternalSimpleRowsOnly
@@ -122,6 +128,10 @@ pub(all) enum PdfTableReconstructionPolicy {
 
 ///|
 /// OCR settings shared by image and PDF OCR routes.
+///
+/// `intent` records whether OCR is disabled, automatically selected, or
+/// explicitly required, while `language` passes through a user hint when one
+/// exists.
 pub struct OcrOptions {
   intent : OcrIntent
   language : String?
@@ -129,6 +139,9 @@ pub struct OcrOptions {
 
 ///|
 /// Audio-transcription hints shared by media-pipeline parsers.
+///
+/// `language` is advisory and may be ignored by runtimes that only support
+/// auto-detection.
 pub struct AudioOptions {
   language : String?
 }
@@ -137,7 +150,8 @@ pub struct AudioOptions {
 /// One parser result exposed to the rest of the product path.
 ///
 /// Exactly one of `event_stream`, `block_stream`, or `document` is expected to
-/// be populated.
+/// be populated. The remaining fields are side channels that downstream stages
+/// can consume without reopening parser-private state.
 pub struct ParseResult {
   parser_name : String
   mode : ParserMode
@@ -154,6 +168,9 @@ pub struct ParseResult {
 
 ///|
 /// Parser registry entry used by canonical format dispatch.
+///
+/// `name` and `mode` stay stable for diagnostics and provenance, and `parse`
+/// is expected to respect the declared `capability`.
 pub struct Parser {
   name : String
   mode : ParserMode
@@ -175,6 +192,9 @@ pub struct AsyncParser {
 
 ///|
 /// Format-keyed parser registry used by the unified product path.
+///
+/// Each key maps to one canonical default parser plus optional later
+/// registrations for mode-specific overrides.
 pub struct ParserRegistry {
   parsers : Map[String, Array[Parser]]
 }
@@ -186,6 +206,7 @@ pub struct AsyncParserRegistry {
 }
 
 ///|
+/// Stable diagnostics/provenance label for a parser mode.
 pub fn mode_name(mode : ParserMode) -> String {
   match mode {
     ParserMode::StreamingEvent => "streaming_event"
@@ -200,6 +221,7 @@ pub fn mode_name(mode : ParserMode) -> String {
 }
 
 ///|
+/// Stable diagnostics/provenance label for one streaming granularity.
 pub fn streaming_granularity_name(granularity : StreamingGranularity) -> String {
   match granularity {
     StreamingGranularity::Byte => "byte"

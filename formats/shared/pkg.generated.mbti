@@ -58,6 +58,8 @@ pub fn min_int(Int, Int) -> Int
 
 pub fn parse_text_markup_result(@input.InputSource, @parser.ParseContext, TextMarkupHooks) -> Result[@parser.ParseResult, String]
 
+pub fn parse_text_markup_result_with_prepared_document(@ZSeanYves/markitdown/format_readers/text_markup/shared.PreparedTextMarkupDocument, @parser.ParseContext, TextMarkupHooks) -> @parser.ParseResult
+
 pub fn parse_text_markup_result_with_preparsed_document(@input.InputSource, @parser.ParseContext, String, @ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupDocument, @ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupInspectReport, TextMarkupHooks, diagnostics? : @core.Diagnostics) -> @parser.ParseResult
 
 pub fn projected_row_from_key_index(Array[String], Map[String, Int], (Int) -> String) -> Array[String]

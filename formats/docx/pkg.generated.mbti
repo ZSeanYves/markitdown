@@ -2,10 +2,13 @@
 package "ZSeanYves/markitdown/formats/docx"
 
 import {
+  "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
 }
 
 // Values
+pub fn docx_parse_with_prepared_document(@input.InputSource, @parser.ParseContext, @ZSeanYves/markitdown/format_readers/ooxml/docx.PreparedDocxDocument, probe_artifact_reused? : Bool) -> @parser.ParseResult
+
 pub fn docx_parser() -> @parser.Parser
 
 pub fn docx_parser_capability() -> @parser.ParserCapability

@@ -15,20 +15,13 @@ fn xlsx_benchmark_parse_context() -> @parser.ParseContext {
 fn xlsx_workbook_from_source(
   source : @input.InputSource,
 ) -> Result[XlsxWorkbook, String] {
-  let bytes = match @input.read_input_bytes(source) {
-    Ok(value) => value
-    Err(err) => return Err(err)
-  }
-  let pkg = try @ox.open_ooxml_package(bytes) |> Ok catch {
-    err => Err(err.to_string())
-  }
-  let pkg = match pkg {
+  let prepared = match @drxlsx.prepare_xlsx_package_from_source(source) {
     Ok(value) => value
     Err(err) => return Err(err)
   }
   try
     xlsx_parse_workbook(
-      pkg,
+      prepared.opened_package,
       @core.empty_diagnostics(),
       xlsx_benchmark_parse_context(),
     )

@@ -1,4 +1,79 @@
 ///|
+type PdfBBox = @dpdfnative.PdfBBox
+
+///|
+type PdfPageGeometry = @dpdfnative.PdfPageGeometry
+
+///|
+type PdfNativeTextSpan = @dpdfnative.PdfNativeTextSpan
+
+///|
+type PdfNativeTextLine = @dpdfnative.PdfNativeTextLine
+
+///|
+type PdfNativeTextBlock = @dpdfnative.PdfNativeTextBlock
+
+///|
+type PdfNativeLinkCandidate = @dpdfnative.PdfNativeLinkCandidate
+
+///|
+type PdfNativeAnnotation = @dpdfnative.PdfNativeAnnotation
+
+///|
+type PdfNativeFormField = @dpdfnative.PdfNativeFormField
+
+///|
+type PdfNativeOutlineItem = @dpdfnative.PdfNativeOutlineItem
+
+///|
+type PdfNativeDestination = @dpdfnative.PdfNativeDestination
+
+///|
+type PdfNativePage = @dpdfnative.PdfNativePage
+
+///|
+type PdfNativeDocument = @dpdfnative.PdfNativeDocument
+
+///|
+fn make_pdf_bbox(
+  x : Double,
+  y : Double,
+  width : Double,
+  height : Double,
+) -> PdfBBox {
+  @dpdfnative.make_pdf_bbox(x, y, width, height)
+}
+
+///|
+fn pdf_bbox_right(bbox : PdfBBox) -> Double {
+  @dpdfnative.pdf_bbox_right(bbox)
+}
+
+///|
+fn pdf_bbox_bottom(bbox : PdfBBox) -> Double {
+  @dpdfnative.pdf_bbox_bottom(bbox)
+}
+
+///|
+fn pdf_bbox_is_empty(bbox : PdfBBox) -> Bool {
+  @dpdfnative.pdf_bbox_is_empty(bbox)
+}
+
+///|
+fn pdf_union_bbox(left : PdfBBox, right : PdfBBox) -> PdfBBox {
+  @dpdfnative.pdf_union_bbox(left, right)
+}
+
+///|
+fn pdf_abs_double(value : Double) -> Double {
+  if value < 0.0 {
+    0.0 - value
+  } else {
+    value
+  }
+}
+
+///|
 pub fn pdf_native_document_to_ir(doc : PdfNativeDocument) -> @core.DocumentIR {
   pdf_native_document_to_ir_with_policies(
     doc,
@@ -14,6 +89,8 @@ pub fn pdf_native_document_to_ir_with_policies(
   table_reconstruction_policy : @parser.PdfTableReconstructionPolicy,
 ) -> @core.DocumentIR {
   let blocks : Array[@core.CoreBlock] = []
+  let assets : Array[@core.AssetRef] = []
+  let asset_paths : Map[String, String] = Map([])
   let link_candidates : Array[@core.JsonValue] = []
   let annotation_items : Array[@core.JsonValue] = []
   let form_field_items : Array[@core.JsonValue] = []
@@ -27,6 +104,7 @@ pub fn pdf_native_document_to_ir_with_policies(
     table_reconstruction_policy,
   )
   let mut paragraph_count = 0
+  let mut lowered_image_count = 0
   let mut image_candidate_count = 0
   let mut table_candidate_count = 0
   let mut artifact_candidate_count = 0
@@ -51,6 +129,9 @@ pub fn pdf_native_document_to_ir_with_policies(
         PdfNativeLoweringItem::Table(table) => blocks.push(table)
       }
     }
+    let lowered_images = pdf_native_lower_page_images(page, assets, asset_paths)
+    blocks.append(lowered_images.0[:])
+    lowered_image_count += lowered_images.1
     for link in page.link_candidates {
       link_candidates.push(
         pdf_native_link_candidate_json(link, page.geometry.page_no),
@@ -67,6 +148,7 @@ pub fn pdf_native_document_to_ir_with_policies(
     outline_items.push(pdf_native_outline_item_json(outline_item))
   }
   let document = @core.document_from_blocks(blocks)
+  document.assets.append(assets[:])
   for entry in doc.metadata.to_array() {
     document.metadata.set(entry.0, entry.1)
   }
@@ -120,6 +202,14 @@ pub fn pdf_native_document_to_ir_with_policies(
   document.metadata.set(
     "pdf_link_candidate_count",
     @core.JsonValue::Number(link_candidates.length().to_string()),
+  )
+  document.metadata.set(
+    "image_count",
+    @core.JsonValue::Number(lowered_image_count.to_string()),
+  )
+  document.metadata.set(
+    "pdf_image_candidate_count",
+    @core.JsonValue::Number(image_candidate_count.to_string()),
   )
   document.metadata.set(
     "pdf_native_annotation_count",
@@ -187,6 +277,8 @@ pub fn pdf_native_document_to_ir_with_policies(
     doc.outline_items.length(),
     destination_count + doc.named_destinations.length(),
     doc.pages.length(),
+    lowered_image_count,
+    assets.length(),
     image_candidate_count,
     table_candidate_count,
     artifact_candidate_count,
@@ -388,6 +480,146 @@ pub fn pdf_native_page_to_paragraph_blocks(
     }
   }
   blocks
+}
+
+///|
+fn pdf_native_lower_page_images(
+  page : PdfNativePage,
+  assets : Array[@core.AssetRef],
+  asset_paths : Map[String, String],
+) -> (Array[@core.CoreBlock], Int) {
+  let blocks : Array[@core.CoreBlock] = []
+  let mut lowered_count = 0
+  for image_index in 0..<page.image_candidates.length() {
+    match
+      pdf_native_lower_image_candidate(
+        page,
+        page.image_candidates[image_index],
+        image_index + 1,
+        assets,
+        asset_paths,
+      ) {
+      Some(block) => {
+        blocks.push(block)
+        lowered_count += 1
+      }
+      None => ()
+    }
+  }
+  (blocks, lowered_count)
+}
+
+///|
+fn pdf_native_lower_image_candidate(
+  page : PdfNativePage,
+  candidate : @dpdfnative.PdfNativeImageCandidate,
+  image_index : Int,
+  assets : Array[@core.AssetRef],
+  asset_paths : Map[String, String],
+) -> @core.CoreBlock? {
+  let asset = match candidate.asset_ref {
+    Some(value) => value
+    None => return None
+  }
+  let materialized_asset = pdf_native_materialize_image_asset(
+    asset, assets, asset_paths,
+  )
+  let source_ref = match candidate.source_ref {
+    Some(value) => value
+    None => materialized_asset.source_ref.unwrap_or(@core.empty_source_ref())
+  }
+  let block = @core.make_block(@core.BlockKind::Image, "", source_ref~)
+  block.attrs.set("asset_id", materialized_asset.asset_id)
+  block.attrs.set("path", materialized_asset.path.unwrap_or("#"))
+  block.attrs.set(
+    "alt",
+    pdf_native_image_alt_text(
+      page.geometry.page_no,
+      image_index,
+      materialized_asset,
+    ),
+  )
+  match materialized_asset.mime_type {
+    Some(value) => block.attrs.set("mime_type", value)
+    None => ()
+  }
+  match materialized_asset.attrs.get("source_path") {
+    Some(value) => block.attrs.set("source_path", value)
+    None => ()
+  }
+  match materialized_asset.attrs.get("title") {
+    Some(value) if value.trim() != "" => block.attrs.set("title", value)
+    _ => ()
+  }
+  Some(block)
+}
+
+///|
+fn pdf_native_materialize_image_asset(
+  asset : @core.AssetRef,
+  assets : Array[@core.AssetRef],
+  asset_paths : Map[String, String],
+) -> @core.AssetRef {
+  match asset_paths.get(asset.asset_id) {
+    Some(_) =>
+      for existing in assets {
+        if existing.asset_id == asset.asset_id {
+          return existing
+        }
+      }
+    None => ()
+  }
+  let path = match asset.path {
+    Some(value) if value.trim() != "" => value.trim().to_owned()
+    _ =>
+      "assets/image" +
+      pdf_native_two_digits(assets.length() + 1) +
+      "." +
+      pdf_native_asset_ext(asset)
+  }
+  let next_asset = { ..asset, path: Some(path) }
+  asset_paths.set(asset.asset_id, path)
+  assets.push(next_asset)
+  next_asset
+}
+
+///|
+fn pdf_native_image_alt_text(
+  page_no : Int,
+  image_index : Int,
+  asset : @core.AssetRef,
+) -> String {
+  match asset.attrs.get("alt") {
+    Some(value) if value.trim() != "" && value.trim() != "image" =>
+      value.trim().to_owned()
+    _ => "page-" + page_no.to_string() + "-image-" + image_index.to_string()
+  }
+}
+
+///|
+fn pdf_native_asset_ext(asset : @core.AssetRef) -> String {
+  match asset.attrs.get("file_ext") {
+    Some(value) if value.trim() != "" => value.trim().to_owned()
+    _ =>
+      match asset.mime_type {
+        Some("image/jpeg") => "jpg"
+        Some("image/png") => "png"
+        Some("image/gif") => "gif"
+        Some("image/bmp") => "bmp"
+        Some("image/webp") => "webp"
+        Some("image/jp2") => "jp2"
+        _ => "bin"
+      }
+  }
+}
+
+///|
+fn pdf_native_two_digits(value : Int) -> String {
+  if value < 10 {
+    "0" + value.to_string()
+  } else {
+    value.to_string()
+  }
 }
 
 ///|
@@ -713,6 +945,8 @@ fn pdf_native_projection_diagnostics(
   outline_count : Int,
   destination_count : Int,
   page_count : Int,
+  image_count : Int,
+  asset_count : Int,
   image_candidate_count : Int,
   table_candidate_count : Int,
   artifact_candidate_count : Int,
@@ -729,7 +963,8 @@ fn pdf_native_projection_diagnostics(
     "table_count",
     lowering.table_reconstruction_table_count.to_string(),
   )
-  next.metrics.set("asset_count", "0")
+  next.metrics.set("image_count", image_count.to_string())
+  next.metrics.set("asset_count", asset_count.to_string())
   next.metrics.set("signal_count", "0")
   next.metrics.set("page_count", page_count.to_string())
   next.metrics.set("link_count", link_count.to_string())
@@ -839,7 +1074,7 @@ fn pdf_native_projection_diagnostics(
   if destination_count > 0 {
     next.degraded_features.push("pdf_destination_candidates_metadata_only")
   }
-  if image_candidate_count > 0 {
+  if image_count < image_candidate_count {
     next.degraded_features.push("pdf_image_candidates_not_lowered")
   }
   if table_candidate_count > 0 {
@@ -1329,19 +1564,32 @@ fn pdf_native_header_footer_text_is_eligible(text : String) -> Bool {
 fn pdf_native_header_footer_normalized_text(text : String) -> String {
   let chars : Array[Char] = []
   let mut previous_space = false
-  for ch in text.trim().to_owned().to_lower().to_array() {
-    let is_space = ch == ' ' || ch == '\n' || ch == '\r' || ch == '\t'
+  for ch in text.trim().to_owned().to_array() {
+    let lowered = pdf_native_ascii_lower_char(ch)
+    let is_space = lowered == ' ' ||
+      lowered == '\n' ||
+      lowered == '\r' ||
+      lowered == '\t'
     if is_space {
       if !previous_space {
         chars.push(' ')
       }
       previous_space = true
     } else {
-      chars.push(ch)
+      chars.push(lowered)
       previous_space = false
     }
   }
   String::from_array(chars).trim().to_owned()
+}
+
+///|
+fn pdf_native_ascii_lower_char(ch : Char) -> Char {
+  if ch >= 'A' && ch <= 'Z' {
+    Int::unsafe_to_char(ch.to_int() + 32)
+  } else {
+    ch
+  }
 }
 
 ///|

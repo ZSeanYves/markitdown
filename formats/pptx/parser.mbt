@@ -67,6 +67,44 @@ fn parse_pptx_document_result(
   context : @parser.ParseContext,
   capability : @parser.ParserCapability,
 ) -> Result[@parser.ParseResult, String] {
+  let prepared = match @pptxdoc.prepare_pptx_document_from_source(source) {
+    Ok(value) => value
+    Err(err) => {
+      let diagnostics = @fshared.empty_parser_diagnostics(
+        "pptx_parser",
+        @parser.ParserMode::PackageSinglePass,
+        source,
+        "pptx",
+      )
+      pptx_init_diagnostics(diagnostics, source, context)
+      return Ok(
+        pptx_malformed_parse_result(
+          source,
+          diagnostics,
+          "prepare pptx failed: " + err,
+          capability,
+        ),
+      )
+    }
+  }
+  Ok(
+    pptx_parse_with_prepared_document(
+      prepared.prepared_source,
+      context,
+      prepared,
+      probe_artifact_reused=false,
+    ),
+  )
+}
+
+///|
+pub fn pptx_parse_with_prepared_document(
+  source : @input.InputSource,
+  context : @parser.ParseContext,
+  prepared : @pptxdoc.PreparedPptxDocument,
+  probe_artifact_reused? : Bool = true,
+) -> @parser.ParseResult {
+  let capability = pptx_parser_capability()
   let diagnostics = @fshared.empty_parser_diagnostics(
     "pptx_parser",
     @parser.ParserMode::PackageSinglePass,
@@ -74,44 +112,16 @@ fn parse_pptx_document_result(
     "pptx",
   )
   pptx_init_diagnostics(diagnostics, source, context)
-
-  let bytes = match @input.read_input_bytes(source) {
-    Ok(payload) => payload
-    Err(err) => return Err(err)
-  }
-  let pkg = try @ox.open_ooxml_package(bytes) |> Ok catch {
-    e => Err(e.to_string())
-  }
-  let pkg = match pkg {
-    Ok(value) => value
-    Err(err) =>
-      return Ok(
-        pptx_malformed_parse_result(
-          source,
-          diagnostics,
-          "open package failed: " + err,
-          capability,
-        ),
-      )
-  }
-
-  let presentation = try
-    @pptxdoc.parse_pptx_document_from_package(pkg) |> Ok
-  catch {
-    e => Err(e.to_string())
-  }
-  let presentation = match presentation {
-    Ok(value) => value
-    Err(err) =>
-      return Ok(
-        pptx_malformed_parse_result(
-          source,
-          diagnostics,
-          "parse pptx failed: " + err,
-          capability,
-        ),
-      )
-  }
+  diagnostics.metrics.set(
+    "probe_artifact_reused",
+    if probe_artifact_reused {
+      "true"
+    } else {
+      "false"
+    },
+  )
+  let pkg = prepared.opened_package
+  let presentation = prepared.document
 
   pptx_fill_package_metrics(diagnostics, pkg, presentation)
   let document = pptx_lower_document(source, presentation, diagnostics, context)
@@ -140,14 +150,12 @@ fn parse_pptx_document_result(
   @fshared.mark_structured_document_profile(diagnostics)
   diagnostics.pass_trace.push("parse:pptx_parser")
   let final_document = @core.document_with_diagnostics(document, diagnostics)
-  Ok(
-    @parser.parse_result_with_document_capability(
-      "pptx_parser",
-      @parser.ParserMode::PackageSinglePass,
-      final_document,
-      diagnostics,
-      capability,
-    ),
+  @parser.parse_result_with_document_capability(
+    "pptx_parser",
+    @parser.ParserMode::PackageSinglePass,
+    final_document,
+    diagnostics,
+    capability,
   )
 }
 

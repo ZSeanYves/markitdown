@@ -47,6 +47,72 @@ fn parse_docx_document_result(
   context : @parser.ParseContext,
   capability : @parser.ParserCapability,
 ) -> Result[@parser.ParseResult, String] {
+  let prepared = match @ddocx.prepare_docx_document_from_source(source) {
+    Ok(value) => value
+    Err(err) => {
+      let diagnostics = @fshared.empty_parser_diagnostics(
+        "docx_parser",
+        @parser.ParserMode::PackageSinglePass,
+        source,
+        "docx",
+      )
+      diagnostics.metrics.set("parser_name", "docx_parser")
+      diagnostics.metrics.set("parser_mode", "package_single_pass")
+      diagnostics.metrics.set(
+        "input_kind",
+        @fshared.input_kind_name(source.kind),
+      )
+      diagnostics.metrics.set("detected_format", "docx")
+      diagnostics.metrics.set(
+        "requested_mode",
+        @fshared.requested_mode_name(context),
+      )
+      diagnostics.metrics.set(
+        "fidelity_mode",
+        @product.fidelity_mode_name(context.fidelity_mode),
+      )
+      diagnostics.metrics.set(
+        "output_mode",
+        @product.output_mode_name(context.output_mode),
+      )
+      diagnostics.metrics.set("effective_mode", "package_single_pass")
+      diagnostics.metrics.set("ir_input_kind", "document")
+      diagnostics.metrics.set("event_granularity", "docx_block")
+      diagnostics.metrics.set("event_semantics", "package_single_pass")
+      diagnostics.metrics.set("office_document_kind", "docx")
+      diagnostics.metrics.set("product_path_enabled", "true")
+      diagnostics.metrics.set("resource_limit_hit", "false")
+      diagnostics.metrics.set("format_family", "office")
+      diagnostics.metrics.set("native_impl_location", "formats/docx")
+      @fshared.apply_product_metrics(diagnostics, "docx")
+      return Ok(
+        malformed_docx_parse_result(
+          source,
+          diagnostics,
+          "prepare docx failed: " + err,
+          capability,
+        ),
+      )
+    }
+  }
+  Ok(
+    docx_parse_with_prepared_document(
+      prepared.prepared_source,
+      context,
+      prepared,
+      probe_artifact_reused=false,
+    ),
+  )
+}
+
+///|
+pub fn docx_parse_with_prepared_document(
+  source : @input.InputSource,
+  context : @parser.ParseContext,
+  prepared : @ddocx.PreparedDocxDocument,
+  probe_artifact_reused? : Bool = true,
+) -> @parser.ParseResult {
+  let capability = docx_parser_capability()
   let diagnostics = @fshared.empty_parser_diagnostics(
     "docx_parser",
     @parser.ParserMode::PackageSinglePass,
@@ -75,6 +141,14 @@ fn parse_docx_document_result(
   diagnostics.metrics.set("event_semantics", "package_single_pass")
   diagnostics.metrics.set("office_document_kind", "docx")
   diagnostics.metrics.set("product_path_enabled", "true")
+  diagnostics.metrics.set(
+    "probe_artifact_reused",
+    if probe_artifact_reused {
+      "true"
+    } else {
+      "false"
+    },
+  )
   diagnostics.metrics.set("resource_limit_hit", "false")
   diagnostics.metrics.set("media_asset_count", "0")
   diagnostics.metrics.set("materialized_asset_count", "0")
@@ -100,43 +174,8 @@ fn parse_docx_document_result(
   diagnostics.metrics.set("format_family", "office")
   diagnostics.metrics.set("native_impl_location", "formats/docx")
   @fshared.apply_product_metrics(diagnostics, "docx")
-
-  let bytes = match @input.read_input_bytes(source) {
-    Ok(payload) => payload
-    Err(err) => return Err(err)
-  }
-  let pkg = try @ox.open_ooxml_package(bytes) |> Ok catch {
-    e => Err(e.to_string())
-  }
-  let pkg = match pkg {
-    Ok(value) => value
-    Err(err) =>
-      return Ok(
-        malformed_docx_parse_result(
-          source,
-          diagnostics,
-          "open package failed: " + err,
-          capability,
-        ),
-      )
-  }
-
-  let docx = try @ddocx.parse_docx_document_from_package(pkg) |> Ok catch {
-    e => Err(e.to_string())
-  }
-  let docx = match docx {
-    Ok(value) => value
-    Err(err) =>
-      return Ok(
-        malformed_docx_parse_result(
-          source,
-          diagnostics,
-          "parse docx failed: " + err,
-          capability,
-        ),
-      )
-  }
-
+  let pkg = prepared.opened_package
+  let docx = prepared.document
   fill_docx_package_metrics(diagnostics, pkg)
   let document = lower_docx_document_ir(source, docx, pkg, diagnostics, context)
   diagnostics.metrics.set("block_count", document.blocks.length().to_string())
@@ -164,14 +203,12 @@ fn parse_docx_document_result(
   @fshared.mark_structured_document_profile(diagnostics)
   diagnostics.pass_trace.push("parse:docx_parser")
   let final_document = @core.document_with_diagnostics(document, diagnostics)
-  Ok(
-    @parser.parse_result_with_document_capability(
-      "docx_parser",
-      @parser.ParserMode::PackageSinglePass,
-      final_document,
-      diagnostics,
-      capability,
-    ),
+  @parser.parse_result_with_document_capability(
+    "docx_parser",
+    @parser.ParserMode::PackageSinglePass,
+    final_document,
+    diagnostics,
+    capability,
   )
 }
 

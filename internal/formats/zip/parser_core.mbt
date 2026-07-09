@@ -378,6 +378,22 @@ pub fn zip_parse_with_archive_artifact(
 }
 
 ///|
+pub fn zip_parse_with_prepared_archive(
+  source : @input.InputSource,
+  context : @parser.ParseContext,
+  registry : @parser.ParserRegistry,
+  prepared : @dzipsource.PreparedZipArchive,
+) -> @parser.ParseResult {
+  zip_parse_with_archive_artifact(
+    source,
+    context,
+    registry,
+    prepared.archive,
+    prepared.inspect,
+  )
+}
+
+///|
 pub fn zip_parse_with_archive(
   source : @input.InputSource,
   context : @parser.ParseContext,

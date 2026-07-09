@@ -38,17 +38,120 @@ pub fn odt_parser() -> @parser.Parser {
 pub fn odt_route_preflight_summary(
   source : @input.InputSource,
 ) -> Result[OdtPreflightSummary, String] {
-  let bytes = match @input.read_input_bytes(source) {
-    Ok(payload) => payload
+  let prepared = match @dodf.prepare_odt_document_from_source(source) {
+    Ok(value) => value
     Err(err) => return Err(err)
   }
-  let doc = try @dodf.open_odt_document(bytes) |> Ok catch {
-    e => Err(e.to_string())
+  match prepared.document {
+    value => Ok(odt_preflight_summary_from_document(value))
   }
-  match doc {
-    Ok(value) => Ok(odt_preflight_summary_from_document(value))
-    Err(err) => Err(err)
+}
+
+///|
+pub fn odt_parse_with_prepared_document(
+  source : @input.InputSource,
+  context : @parser.ParseContext,
+  prepared : @dodf.PreparedOdtDocument,
+) -> @parser.ParseResult {
+  odt_parse_with_open_document(
+    source,
+    context,
+    prepared.document,
+    prepared.inspect,
+  )
+}
+
+///|
+fn parse_odt_with_prepared_result(
+  prepared : @dodf.PreparedOdtDocument,
+  context : @parser.ParseContext,
+  capability : @parser.ParserCapability,
+) -> @parser.ParseResult {
+  let source = prepared.prepared_source
+  let diagnostics = @fshared.empty_parser_diagnostics(
+    ODT_PARSER_NAME,
+    @parser.ParserMode::PackageSinglePass,
+    source,
+    "odt",
+  )
+  odt_init_diagnostics(diagnostics, source, context)
+  odt_fill_metrics(
+    diagnostics,
+    prepared.document,
+    prepared.inspect,
+    source.bytes.unwrap_or(Bytes::from_array([])),
+  )
+  if context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
+    let lowered = odt_lower_block_stream_document(
+      source,
+      prepared.document,
+      context,
+    )
+    diagnostics.metrics.set("parser_mode", "block_streaming")
+    diagnostics.metrics.set("effective_mode", "block_streaming")
+    diagnostics.metrics.set("ir_input_kind", "block_stream")
+    diagnostics.metrics.set("event_granularity", "block")
+    diagnostics.metrics.set("event_semantics", "odt_block_stream")
+    diagnostics.metrics.set("block_count", lowered.blocks.length().to_string())
+    diagnostics.metrics.set("asset_count", lowered.assets.length().to_string())
+    @fshared.refresh_parser_count_metrics(diagnostics, "block_stream")
+    diagnostics.pass_trace.push("parse:odt_parser:block_stream_route")
+    diagnostics.pass_trace.push("lower:odt_block_stream")
+    diagnostics.pass_trace.push("parse:odt_parser")
+    return @parser.parse_result_with_blocks_capability(
+      ODT_PARSER_NAME,
+      @parser.ParserMode::BlockStreaming,
+      lowered.blocks,
+      diagnostics,
+      capability,
+      metadata=lowered.metadata,
+      assets=lowered.assets,
+      source_map=lowered.source_map,
+    )
   }
+  let lowered = odt_lower_document_ir(source, prepared.document, context)
+  diagnostics.metrics.set("parser_mode", "package_single_pass")
+  diagnostics.metrics.set("effective_mode", "package_single_pass")
+  diagnostics.metrics.set("ir_input_kind", "document")
+  diagnostics.metrics.set("event_granularity", "block")
+  diagnostics.metrics.set("event_semantics", "package_single_pass")
+  diagnostics.metrics.set("block_count", lowered.blocks.length().to_string())
+  diagnostics.metrics.set("asset_count", lowered.assets.length().to_string())
+  @fshared.refresh_parser_count_metrics(diagnostics, "document")
+  diagnostics.pass_trace.push("parse:odt_parser:package_single_pass")
+  diagnostics.pass_trace.push("parse:odt_parser")
+  let final_document = @core.document_with_diagnostics(lowered, diagnostics)
+  @parser.parse_result_with_document_capability(
+    ODT_PARSER_NAME,
+    @parser.ParserMode::PackageSinglePass,
+    final_document,
+    diagnostics,
+    capability,
+  )
+}
+
+///|
+fn odt_prepare_failure_result(
+  source : @input.InputSource,
+  context : @parser.ParseContext,
+  capability : @parser.ParserCapability,
+  err : String,
+) -> @parser.ParseResult {
+  let diagnostics = @fshared.empty_parser_diagnostics(
+    ODT_PARSER_NAME,
+    @parser.ParserMode::PackageSinglePass,
+    source,
+    "odt",
+  )
+  odt_init_diagnostics(diagnostics, source, context)
+  odt_malformed_parse_result(
+    source,
+    diagnostics,
+    "open odt failed: " + err,
+    capability,
+    source.bytes.unwrap_or(Bytes::from_array([])),
+    context,
+  )
 }
 
 ///|
@@ -68,36 +171,12 @@ fn parse_odt_document_result(
   context : @parser.ParseContext,
   capability : @parser.ParserCapability,
 ) -> Result[@parser.ParseResult, String] {
-  let bytes = match @input.read_input_bytes(source) {
-    Ok(payload) => payload
-    Err(err) => return Err(err)
-  }
-  let diagnostics = @fshared.empty_parser_diagnostics(
-    ODT_PARSER_NAME,
-    @parser.ParserMode::PackageSinglePass,
-    source,
-    "odt",
-  )
-  odt_init_diagnostics(diagnostics, source, context)
-  let opened = try @dodf.open_odt_document(bytes) |> Ok catch {
-    e => Err(e.to_string())
-  }
-  let document = match opened {
+  let prepared = match @dodf.prepare_odt_document_from_source(source) {
     Ok(value) => value
     Err(err) =>
-      return Ok(
-        odt_malformed_parse_result(
-          source,
-          diagnostics,
-          "open odt failed: " + err,
-          capability,
-          bytes,
-          context,
-        ),
-      )
+      return Ok(odt_prepare_failure_result(source, context, capability, err))
   }
-  let inspect = @dodf.inspect_odt_document(document)
-  Ok(odt_parse_with_open_document(source, context, document, inspect))
+  Ok(parse_odt_with_prepared_result(prepared, context, capability))
 }
 
 ///|

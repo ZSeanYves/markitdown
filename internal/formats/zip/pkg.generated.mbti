@@ -2,6 +2,7 @@
 package "ZSeanYves/markitdown/internal/formats/zip"
 
 import {
+  "ZSeanYves/markitdown/format_readers/zip_source",
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
 }
@@ -10,6 +11,8 @@ import {
 pub fn zip_parse_with_archive(@input.InputSource, @parser.ParseContext, @parser.ParserRegistry, @ZSeanYves/markitdown/format_readers/zip.ZipArchive, @ZSeanYves/markitdown/format_readers/zip.ZipArchiveInspectReport) -> @parser.ParseResult
 
 pub fn zip_parse_with_archive_artifact(@input.InputSource, @parser.ParseContext, @parser.ParserRegistry, @ZSeanYves/markitdown/format_readers/zip.ZipArchive, @ZSeanYves/markitdown/format_readers/zip.ZipArchiveInspectReport) -> @parser.ParseResult
+
+pub fn zip_parse_with_prepared_archive(@input.InputSource, @parser.ParseContext, @parser.ParserRegistry, @zip_source.PreparedZipArchive) -> @parser.ParseResult
 
 pub fn zip_parser_capability() -> @parser.ParserCapability
 

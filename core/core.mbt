@@ -1,13 +1,17 @@
 ///|
+/// Shared rectangle alias used by layout-aware formats and OCR helpers.
 pub type LayoutBox = BBox
 
 ///|
+/// Stable identifier type for one block inside `DocumentIR`.
 pub type BlockId = String
 
 ///|
+/// Hierarchical heading trail such as `["Chapter 1", "Section 2"]`.
 pub type HeadingPath = Array[String]
 
 ///|
+/// Format-neutral metadata map attached to the document root.
 pub type DocumentMetadata = Map[String, JsonValue]
 
 ///|
@@ -36,6 +40,7 @@ pub(all) struct DocumentIR {
 }
 
 ///|
+/// Block categories used by the canonical IR tree.
 pub(all) enum BlockKind {
   Document
   Section
@@ -57,6 +62,8 @@ pub(all) enum BlockKind {
 ///
 /// `text` is the plain-text fallback used by many render paths, while
 /// `rich_inlines` preserves richer inline semantics when the parser has them.
+/// `children` carries nested structure, `attrs` holds stable string metadata,
+/// and `signals` preserves extra parser/pipeline hints for later passes.
 pub(all) struct CoreBlock {
   block_id : BlockId
   kind : BlockKind
@@ -70,6 +77,11 @@ pub(all) struct CoreBlock {
 }
 
 ///|
+/// One recovered section node inside `DocumentAssembly`.
+///
+/// The section tree is stored separately from `blocks` so renderers and
+/// provenance code can reason about heading hierarchy without rescanning the
+/// block list.
 pub(all) struct SectionNode {
   section_id : BlockId
   heading_block_id : BlockId?
@@ -82,6 +94,7 @@ pub(all) struct SectionNode {
 }
 
 ///|
+/// Link between a recovered caption block and the block it describes.
 pub(all) struct CaptionBinding {
   caption_block_id : BlockId
   target_block_id : BlockId
@@ -90,6 +103,8 @@ pub(all) struct CaptionBinding {
 }
 
 ///|
+/// Relationship between split table fragments that were recovered as one
+/// logical table.
 pub(all) struct TableContinuation {
   table_block_id : BlockId
   continues_from_block_id : BlockId?
@@ -98,6 +113,7 @@ pub(all) struct TableContinuation {
 }
 
 ///|
+/// One normalized reading-order entry emitted by pipeline assembly.
 pub(all) struct ReadingOrderEntry {
   block_id : BlockId
   ordinal : Int
@@ -107,6 +123,8 @@ pub(all) struct ReadingOrderEntry {
 }
 
 ///|
+/// Relationship between an extracted asset and the block that owns or mentions
+/// it.
 pub(all) struct AssetBinding {
   asset_id : String
   owner_block_id : BlockId
@@ -130,6 +148,7 @@ pub(all) struct DocumentAssembly {
 }
 
 ///|
+/// Inline categories preserved by richer parsers and renderers.
 pub(all) enum InlineKind {
   Text
   LineBreak
@@ -141,6 +160,9 @@ pub(all) enum InlineKind {
 ///|
 /// Rich inline content attached to a block when plain text alone is not
 /// enough.
+///
+/// `href` and `title` are used by link/image-like nodes, while `attrs` keeps
+/// extra stable annotations such as language or emphasis markers.
 pub(all) struct CoreInline {
   kind : InlineKind
   text : String
@@ -151,6 +173,8 @@ pub(all) struct CoreInline {
 }
 
 ///|
+/// Semantic hint categories emitted by parsers or inferred during pipeline
+/// recovery.
 pub(all) enum SignalType {
   HeadingCandidate
   ListCandidate
@@ -176,6 +200,9 @@ pub(all) enum SignalType {
 ///|
 /// Parser- or pipeline-emitted semantic hints that help later passes recover
 /// structure conservatively.
+///
+/// `confidence` stays intentionally coarse, and `payload` carries
+/// format-specific evidence without expanding the public enum every time.
 pub(all) struct CoreSignal {
   signal_type : SignalType
   confidence : Int
@@ -184,6 +211,9 @@ pub(all) struct CoreSignal {
 
 ///|
 /// Provenance for one public block or asset entry in a `SourceMap`.
+///
+/// `primary_ref` is the main location shown to users, `refs` stores all
+/// equivalent references, and `merged_from` preserves source collapse history.
 pub(all) struct SourceMapEntry {
   primary_ref : SourceRef?
   refs : Array[SourceRef]
@@ -194,6 +224,9 @@ pub(all) struct SourceMapEntry {
 
 ///|
 /// Public-facing provenance map kept alongside a `DocumentIR`.
+///
+/// `block_entries` and `asset_entries` are index-aligned with the exported
+/// block and asset lists rather than keyed by raw parser internals.
 pub(all) struct SourceMap {
   document_ref : SourceRef?
   block_entries : Array[SourceMapEntry]
@@ -203,6 +236,9 @@ pub(all) struct SourceMap {
 ///|
 /// A location pointer that can target files, pages, slides, sheets, archive
 /// entries, markup paths, or media time ranges.
+///
+/// Different formats populate different subsets of fields; absent fields mean
+/// “not applicable”, not “unknown”.
 pub(all) struct SourceRef {
   file_id : String?
   format : String?
@@ -234,6 +270,7 @@ pub(all) struct SourceRef {
 }
 
 ///|
+/// Canonical kinds assigned to normalized container entries.
 pub(all) enum ContainerEntryKind {
   Document
   Asset
@@ -244,6 +281,7 @@ pub(all) enum ContainerEntryKind {
 } derive(Eq)
 
 ///|
+/// Security findings that can be attached to container or package entries.
 pub(all) enum ContainerSecurityFinding {
   PathTraversal
   AbsolutePath
@@ -258,6 +296,10 @@ pub(all) enum ContainerSecurityFinding {
 
 ///|
 /// Observed archive or package entry after normalization and security checks.
+///
+/// `entry_path` keeps the raw archive path, `normalized_path` keeps the safe
+/// normalized form, and `security_findings` records why an entry may be
+/// rejected or downgraded.
 pub(all) struct ContainerEntry {
   entry_path : String
   normalized_path : String?
@@ -276,6 +318,9 @@ pub(all) struct ContainerEntry {
 
 ///|
 /// Raw geometry in page- or image-local coordinates.
+///
+/// Coordinates use the source format's local coordinate system and are not
+/// normalized to screen pixels.
 pub(all) struct BBox {
   x0 : Double
   y0 : Double
@@ -285,6 +330,9 @@ pub(all) struct BBox {
 
 ///|
 /// Lightweight recovered style identity attached to a block.
+///
+/// `attrs` holds extra stable style attributes when a dedicated field would be
+/// too format-specific.
 pub(all) struct StyleRef {
   style_id : String?
   style_name : String?
@@ -292,6 +340,7 @@ pub(all) struct StyleRef {
 }
 
 ///|
+/// Asset categories exposed by the public document model.
 pub(all) enum AssetKind {
   Image
   Attachment
@@ -302,6 +351,9 @@ pub(all) enum AssetKind {
 
 ///|
 /// Referenced binary or logical asset discovered during parsing.
+///
+/// `path` is the suggested relative output path when one exists, while
+/// `attrs` can carry stable metadata such as size, role, or original filename.
 pub(all) struct AssetRef {
   asset_kind : AssetKind
   asset_id : String
@@ -314,6 +366,10 @@ pub(all) struct AssetRef {
 ///|
 /// Cross-stage diagnostics and execution metadata accumulated along the product
 /// path.
+///
+/// The arrays preserve user-facing warnings, degradation traces, and fallback
+/// history, while `metrics` is reserved for stable stringified counters and
+/// switches.
 pub(all) struct Diagnostics {
   parser_name : String?
   parser_mode : String?
@@ -334,6 +390,7 @@ pub(all) struct Diagnostics {
 }
 
 ///|
+/// Availability state for an external runtime or install dependency.
 pub(all) enum DependencyDiagnosticStatus {
   Missing
   Available
@@ -343,6 +400,9 @@ pub(all) enum DependencyDiagnosticStatus {
 ///|
 /// Install or runtime dependency state surfaced with concrete remediation
 /// hints.
+///
+/// The shell command lists are intentionally platform-specific so CLI and test
+/// surfaces can render actionable guidance without inventing new text.
 pub(all) struct DependencyDiagnostic {
   kind : String
   title : String
@@ -365,6 +425,7 @@ pub(all) enum JsonValue {
 } derive(Eq)
 
 ///|
+/// Event kinds used by streaming parsers and fast-path renderers.
 pub(all) enum EventKind {
   StartDocument
   EndDocument
@@ -384,6 +445,9 @@ pub(all) enum EventKind {
 ///|
 /// Lowest-common-denominator streaming event used by event parsers and fast
 /// render paths.
+///
+/// `text` is the event payload, while `source_ref` lets streaming outputs keep
+/// provenance without first materializing blocks.
 pub(all) struct CoreEvent {
   kind : EventKind
   text : String

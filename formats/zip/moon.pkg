@@ -1,6 +1,6 @@
 import {
   "ZSeanYves/markitdown/internal/formats/zip" @internal,
-  "ZSeanYves/markitdown/format_readers/zip" @dzip,
+  "ZSeanYves/markitdown/format_readers/zip_source" @dzipsource,
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
 }

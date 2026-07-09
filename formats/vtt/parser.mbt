@@ -43,10 +43,12 @@ fn parse_vtt_result(
   source : @input.InputSource,
   context : @parser.ParseContext,
 ) -> Result[@parser.ParseResult, String] {
-  let text = match @input.read_input_text(source) {
+  let prepared = match @dsub.prepare_vtt_document_from_source(source) {
     Ok(payload) => payload
     Err(err) => return Err(err)
   }
+  let source = prepared.prepared_source
+  let text = prepared.original_text
   let diagnostics = @fshared.empty_parser_diagnostics(
     "vtt_parser",
     @parser.ParserMode::StreamingEvent,
@@ -66,12 +68,11 @@ fn parse_vtt_result(
   diagnostics.metrics.set("event_granularity", "record")
   diagnostics.metrics.set("event_semantics", "subtitle_record_event_stream")
   @fshared.apply_product_metrics(diagnostics, "vtt")
-  let parsed = try @dsub.parse_vtt_document(text) |> Ok catch {
-    e => Err(e.to_string())
-  }
-  match parsed {
-    Ok(parsed) => {
-      let inspect = @dsub.inspect_subtitle_document(parsed)
+  match prepared.document {
+    Some(parsed) => {
+      let inspect = prepared.inspect.unwrap_or(
+        @dsub.inspect_subtitle_document(parsed),
+      )
       let events = subtitle_events_from_document(parsed, source, "vtt")
       diagnostics.metrics.set("cue_count", inspect.cue_count.to_string())
       diagnostics.metrics.set("note_count", inspect.note_count.to_string())
@@ -125,8 +126,15 @@ fn parse_vtt_result(
         ),
       )
     }
-    Err(err) =>
-      Ok(subtitle_malformed_parse_result(source, text, diagnostics, err))
+    None =>
+      Ok(
+        subtitle_malformed_parse_result(
+          source,
+          text,
+          diagnostics,
+          prepared.parse_error.unwrap_or("unknown"),
+        ),
+      )
   }
 }
 
