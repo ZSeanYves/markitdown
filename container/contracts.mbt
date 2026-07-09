@@ -47,14 +47,14 @@ pub fn container_supported_inner_formats() -> Array[String] {
   [
     "txt", "csv", "tsv", "srt", "vtt", "json", "jsonl", "ndjson", "ipynb", "xml",
     "yaml", "yml", "toml", "html", "htm", "markdown", "md", "tex", "latex", "rst",
-    "adoc", "asciidoc", "eml", "epub", "odt", "ods", "odp",
+    "adoc", "asciidoc", "eml", "docx", "xlsx", "pptx", "odt", "ods", "odp",
   ]
 }
 
 ///|
 /// Inner formats that intentionally fail closed inside root containers today.
 pub fn container_unsupported_inner_formats() -> Array[String] {
-  ["docx", "pptx", "xlsx", "pdf", "zip", "images", "ocr"]
+  ["pdf", "zip", "images", "ocr"]
 }
 
 ///|
@@ -80,7 +80,9 @@ pub fn container_supports_inner_format(format : @input.DetectedFormat) -> Bool {
     @input.DetectedFormat::Rst => true
     @input.DetectedFormat::Asciidoc => true
     @input.DetectedFormat::Eml => true
-    @input.DetectedFormat::Epub => true
+    @input.DetectedFormat::Docx => true
+    @input.DetectedFormat::Xlsx => true
+    @input.DetectedFormat::Pptx => true
     @input.DetectedFormat::Odt => true
     @input.DetectedFormat::Ods => true
     @input.DetectedFormat::Odp => true

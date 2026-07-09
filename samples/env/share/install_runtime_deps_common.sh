@@ -61,10 +61,10 @@ apt_package_installed() {
 install_system_packages() {
   local family="$1"
   shift
-  local requested_packages=("$@")
+  local requested_packages_text="$*"
   local packages=()
   local package
-  for package in "${requested_packages[@]}"; do
+  for package in "$@"; do
     case "$family" in
       brew)
         if ! brew_package_installed "$package"; then
@@ -82,7 +82,11 @@ install_system_packages() {
     esac
   done
   if [[ "${#packages[@]}" -eq 0 ]]; then
-    log_note "System packages already installed for $family: ${requested_packages[*]}"
+    if [[ -n "$requested_packages_text" ]]; then
+      log_note "System packages already installed for $family: $requested_packages_text"
+    else
+      log_note "No additional system packages required for $family"
+    fi
     return
   fi
   case "$family" in

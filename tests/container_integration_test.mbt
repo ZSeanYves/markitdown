@@ -1,4 +1,66 @@
 ///|
+fn container_test_read_sample_bytes(path : String) -> Bytes raise {
+  @fs.read_file_to_bytes(path) catch {
+    e =>
+      fail("failed to read container sample: " + path + " : " + e.to_string())
+  }
+}
+
+///|
+fn container_test_nested_office_zip_bytes() -> Bytes raise {
+  @therm.build_store_zip_bytes([
+    (
+      "nested.docx",
+      container_test_read_sample_bytes(
+        "samples/fixtures/contracts/docx/docx_image_alt_title.docx",
+      ),
+    ),
+    (
+      "nested.xlsx",
+      container_test_read_sample_bytes(
+        "samples/fixtures/contracts/xlsx/sheet_simple.xlsx",
+      ),
+    ),
+    (
+      "nested.pptx",
+      container_test_read_sample_bytes(
+        "samples/fixtures/contracts/pptx/pptx_image_single.pptx",
+      ),
+    ),
+  ])
+}
+
+///|
+fn container_test_convert_nested_office_zip(
+  zip_bytes : Bytes,
+  mode? : @convert.ConvertMode = @convert.ConvertMode::Balanced,
+) -> @convert.ConvertResult {
+  let options = @convert.make_convert_options(
+    mode,
+    @convert.OutputFormat::Markdown,
+    Some(@input.DetectedFormat::Zip),
+    @parser.default_ocr_options(),
+    @convert.default_resource_limits(),
+    output_mode=@convert.output_mode_for_output_format(
+      @convert.OutputFormat::Markdown,
+    ),
+    stream_requested=mode == @convert.ConvertMode::Stream,
+  )
+  match
+    @convert.convert_input(
+      @input.input_from_bytes_with_format(
+        zip_bytes,
+        "nested-office.zip",
+        Some(@input.DetectedFormat::Zip),
+      ),
+      options,
+    ) {
+    Ok(value) => value
+    Err(err) => abort("nested office zip convert failed: " + err.to_string())
+  }
+}
+
+///|
 test "container parser mode naming stays explicit without exposing container irinput variants" {
   assert_true(
     @parser.mode_name(@parser.ParserMode::ContainerRecursive) ==
@@ -14,21 +76,77 @@ test "container contracts keep inner dispatch on the root pipeline and bounded" 
     [
       "txt", "csv", "tsv", "srt", "vtt", "json", "jsonl", "ndjson", "ipynb", "xml",
       "yaml", "yml", "toml", "html", "htm", "markdown", "md", "tex", "latex", "rst",
-      "adoc", "asciidoc", "eml", "epub", "odt", "ods", "odp",
+      "adoc", "asciidoc", "eml", "docx", "xlsx", "pptx", "odt", "ods", "odp",
     ],
   )
+  let unsupported = @container.container_unsupported_inner_formats()
+  assert_true(unsupported == ["pdf", "zip", "images", "ocr"])
   assert_true(
     @container.container_supports_inner_format(@input.DetectedFormat::Txt),
   )
   assert_true(
     @container.container_supports_inner_format(@input.DetectedFormat::Markdown),
   )
+  assert_true(!unsupported.contains("html"))
   assert_true(
-    !@container.container_unsupported_inner_formats().contains("html"),
+    @container.container_supports_inner_format(@input.DetectedFormat::Docx),
+  )
+  assert_true(
+    @container.container_supports_inner_format(@input.DetectedFormat::Xlsx),
+  )
+  assert_true(
+    @container.container_supports_inner_format(@input.DetectedFormat::Pptx),
   )
   assert_contains_all(@container.container_dispatch_guardrails().join("\n"), [
     "root ParserRegistry / root pipeline", "container parsing stays inside the canonical product path",
     "no format-specific side dispatcher",
+  ])
+}
+
+///|
+test "zip container parser expands nested office children on the root product path" {
+  let zip_bytes = container_test_nested_office_zip_bytes()
+  let parsed = default_registry_parse(
+    @input.input_from_bytes_with_format(
+      zip_bytes,
+      "nested-office.zip",
+      Some(@input.DetectedFormat::Zip),
+    ),
+    @input.DetectedFormat::Zip,
+  )
+  assert_parse_result_matches_contract_spec(
+    parsed,
+    @fmeta.zip_parser_contract_spec(),
+  )
+  assert_metric_eq(parsed.diagnostics, "selected_entry_count", "3")
+  assert_metric_eq(parsed.diagnostics, "unsupported_entry_count", "0")
+  assert_metric_eq(parsed.diagnostics, "nested_archive_count", "0")
+
+  let converted = container_test_convert_nested_office_zip(zip_bytes)
+  assert_contains_all(converted.content, [
+    "# nested.docx", "![Figure alt text](assets/archive/nested.docx/image01.png)",
+    "# nested.xlsx", "## Sheet1", "| Name | Value | 备注 |", "# nested.pptx", "![slide-1-image-1](assets/archive/nested.pptx/image01.png)",
+  ])
+  assert_contains_none(converted.content, [
+    "Skipped: unsupported file type: docx", "Skipped: unsupported file type: xlsx",
+    "Skipped: unsupported file type: pptx",
+  ])
+}
+
+///|
+test "zip container stream mode keeps nested office children on supported paths" {
+  let converted = container_test_convert_nested_office_zip(
+    container_test_nested_office_zip_bytes(),
+    mode=@convert.ConvertMode::Stream,
+  )
+  assert_true(converted.convert_mode == @convert.ConvertMode::Stream)
+  assert_true(converted.parser_mode == @parser.ParserMode::ContainerRecursive)
+  assert_contains_all(converted.content, [
+    "# nested.docx", "# nested.xlsx", "## Sheet1", "# nested.pptx",
+  ])
+  assert_contains_none(converted.content, [
+    "Skipped: unsupported file type: docx", "Skipped: unsupported file type: xlsx",
+    "Skipped: unsupported file type: pptx",
   ])
 }
 

@@ -1,4 +1,45 @@
 ///|
+fn cli_output_read_contract_bytes(path : String) -> Bytes raise {
+  @fs.read_file_to_bytes(path) catch {
+    e => fail("read contract sample failed: " + path + " : " + e.to_string())
+  }
+}
+
+///|
+fn cli_output_nested_office_zip_bytes() -> Bytes raise {
+  @therm.build_store_zip_bytes([
+    (
+      "nested.docx",
+      cli_output_read_contract_bytes(
+        "samples/fixtures/contracts/docx/docx_image_alt_title.docx",
+      ),
+    ),
+    (
+      "nested.xlsx",
+      cli_output_read_contract_bytes(
+        "samples/fixtures/contracts/xlsx/sheet_simple.xlsx",
+      ),
+    ),
+    (
+      "nested.pptx",
+      cli_output_read_contract_bytes(
+        "samples/fixtures/contracts/pptx/pptx_image_single.pptx",
+      ),
+    ),
+  ])
+}
+
+///|
+fn cli_output_assert_contains_all(
+  text : String,
+  needles : Array[String],
+) -> Unit raise {
+  for needle in needles {
+    assert_true(text.contains(needle))
+  }
+}
+
+///|
 test "root cli converts txt csv tsv json jsonl ndjson xml yaml and markdown through the current product shell" {
   let root = test_tmp_root() + "/main-cli"
   recreate_clean_dir(root)
@@ -399,6 +440,49 @@ test "main cli converts zip through the root container pipeline and persists loc
   assert_true(@fs.path_exists(copied_asset_path))
   assert_true(
     !@fs.path_exists(out_dir + "/assets/archive/site_page.html/image02.png"),
+  )
+}
+
+///|
+test "main cli expands nested office entries from zip and persists rewritten assets at output boundary" {
+  let root = test_tmp_root() + "/main-cli-zip-office"
+  recreate_clean_dir(root)
+  defer cleanup_temp_dir(root)
+
+  let zip_input = root + "/nested-office.zip"
+  let out_dir = root + "/out"
+  let out_md = out_dir + "/archive.md"
+  ensure_dir_tree(out_dir)
+  @fs.write_bytes_to_file(zip_input, cli_output_nested_office_zip_bytes()) catch {
+    e => fail("write nested office zip failed: " + e.to_string())
+  }
+
+  let rendered = match
+    run_cli(
+      cli_options(
+        zip_input,
+        Some(out_md),
+        Some(@input.DetectedFormat::Zip),
+        @convert.OutputFormat::Markdown,
+      ),
+    ) {
+    Ok(value) => value
+    Err(msg) => fail("nested office zip cli failed: " + msg)
+  }
+
+  cli_output_assert_contains_all(rendered, [
+    "# nested.docx", "![Figure alt text](assets/archive/nested.docx/image01.png)",
+    "# nested.xlsx", "## Sheet1", "# nested.pptx", "![slide-1-image-1](assets/archive/nested.pptx/image01.png)",
+  ])
+  let persisted_markdown = read_utf8_text(out_md)
+  cli_output_assert_contains_all(persisted_markdown, [
+    "![Figure alt text](assets/archive/nested.docx/image01.png)", "![slide-1-image-1](assets/archive/nested.pptx/image01.png)",
+  ])
+  assert_true(
+    @fs.path_exists(out_dir + "/assets/archive/nested.docx/image01.png"),
+  )
+  assert_true(
+    @fs.path_exists(out_dir + "/assets/archive/nested.pptx/image01.png"),
   )
 }
 

@@ -414,6 +414,9 @@ fn persist_cli_assets(
     if rel_path == "" {
       continue
     }
+    if persist_nested_zip_backed_asset(zip_archive, output_dir, rel_path, asset) {
+      continue
+    }
     if persist_zip_backed_asset(zip_archive, output_dir, rel_path, asset) {
       continue
     }
@@ -479,7 +482,8 @@ fn load_zip_archive_for_assets(
 ) -> @dzip.ZipArchive? {
   let mut needs_zip = false
   for asset in assets {
-    if asset.attrs.get("zip_entry_path") is Some(_) {
+    if asset.attrs.get("zip_entry_path") is Some(_) ||
+      asset.attrs.get("zip_nested_archive_entry_path") is Some(_) {
       needs_zip = true
       break
     }
@@ -497,6 +501,57 @@ fn load_zip_archive_for_assets(
   try @dzip.open_zip(bytes) |> Some catch {
     _ => None
   }
+}
+
+///|
+fn persist_nested_zip_backed_asset(
+  archive : @dzip.ZipArchive?,
+  output_dir : String,
+  rel_path : String,
+  asset : @core.AssetRef,
+) -> Bool raise @fs.IOError {
+  let outer_entry_path = match
+    asset.attrs.get("zip_nested_archive_entry_path") {
+    Some(value) => value
+    None => return false
+  }
+  let inner_entry_path = match asset.attrs.get("zip_nested_asset_entry_path") {
+    Some(value) => value
+    None => return false
+  }
+  let archive = match archive {
+    Some(value) => value
+    None => return false
+  }
+  let nested_bytes = try
+    @dzip.read_entry(archive, outer_entry_path) |> Ok
+  catch {
+    _ => Err(())
+  }
+  let nested_bytes = match nested_bytes {
+    Ok(value) => value
+    Err(_) => return true
+  }
+  let nested_archive = try @dzip.open_zip(nested_bytes) |> Ok catch {
+    _ => Err(())
+  }
+  let nested_archive = match nested_archive {
+    Ok(value) => value
+    Err(_) => return true
+  }
+  let data = try
+    @dzip.read_entry(nested_archive, inner_entry_path) |> Ok
+  catch {
+    _ => Err(())
+  }
+  let data = match data {
+    Ok(value) => value
+    Err(_) => return true
+  }
+  let dst = join_dir_path(output_dir, rel_path)
+  ensure_dir_tree(dirname_of_path(dst))
+  @fs.write_bytes_to_file(dst, data)
+  true
 }
 
 ///|

@@ -309,15 +309,22 @@ fn zip_rewrite_child_assets(
             })
           }
           None =>
-            diagnostics.warnings.push(
-              "zip asset entry missing for `" +
-              entry_path +
-              "`: " +
-              resolved_entry,
-            )
+            match zip_preserve_nested_child_asset(asset, entry, old_path) {
+              Some((next_asset, rewrite)) => {
+                merged_assets.push(next_asset)
+                rewrites.push(rewrite)
+              }
+              None =>
+                diagnostics.warnings.push(
+                  "zip asset entry missing for `" +
+                  entry_path +
+                  "`: " +
+                  resolved_entry,
+                )
+            }
         }
       }
-      None =>
+      None => {
         if zip_asset_is_remote(asset) {
           let next_source_ref = zip_rewrite_source_ref(
             asset.source_ref.unwrap_or(
@@ -327,10 +334,107 @@ fn zip_rewrite_child_assets(
             inner_path=None,
           )
           merged_assets.push({ ..asset, source_ref: Some(next_source_ref) })
+          continue
         }
+        match zip_preserve_nested_child_asset(asset, entry, old_path) {
+          Some((next_asset, rewrite)) => {
+            merged_assets.push(next_asset)
+            rewrites.push(rewrite)
+          }
+          None => ()
+        }
+      }
     }
   }
   rewrites
+}
+
+///|
+fn zip_preserve_nested_child_asset(
+  asset : @core.AssetRef,
+  entry : @core.ContainerEntry,
+  old_path : String,
+) -> (@core.AssetRef, ZipAssetRewrite)? {
+  let nested_asset_entry = match asset.attrs.get("zip_entry_path") {
+    Some(value) => {
+      let trimmed = value.trim().to_owned()
+      if trimmed == "" {
+        None
+      } else {
+        Some(trimmed)
+      }
+    }
+    None => None
+  }
+  let has_inline_payload = asset.attrs.get("inline_payload_kind") is Some(_)
+  if nested_asset_entry is None && !has_inline_payload {
+    return None
+  }
+  let child_asset_path = if old_path != "" {
+    old_path
+  } else {
+    asset.path.unwrap_or(asset.asset_id)
+  }
+  if child_asset_path.trim() == "" {
+    return None
+  }
+  let output_relative_path = zip_asset_output_path(
+    entry.entry_path,
+    child_asset_path,
+  )
+  let new_asset_id = "zip:" + entry.entry_path + ":" + asset.asset_id
+  let next_source_ref = zip_rewrite_source_ref(
+    asset.source_ref.unwrap_or(
+      entry.source_ref.unwrap_or(@core.empty_source_ref()),
+    ),
+    entry,
+    inner_path=None,
+  )
+  let next_attrs = zip_nested_child_asset_attrs(asset.attrs, entry)
+  let next_asset = {
+    ..asset,
+    asset_id: new_asset_id,
+    path: Some(output_relative_path),
+    source_ref: Some(next_source_ref),
+    attrs: next_attrs,
+  }
+  match nested_asset_entry {
+    Some(value) => next_asset.attrs.set("zip_nested_asset_entry_path", value)
+    None => ()
+  }
+  Some(
+    (
+      next_asset,
+      {
+        old_asset_id: asset.asset_id,
+        old_path,
+        new_asset_id,
+        new_path: output_relative_path,
+      },
+    ),
+  )
+}
+
+///|
+fn zip_nested_child_asset_attrs(
+  attrs : Map[String, String],
+  entry : @core.ContainerEntry,
+) -> Map[String, String] {
+  let out : Map[String, String] = Map([])
+  for attr in attrs {
+    if attr.0 != "zip_entry_path" {
+      out.set(attr.0, attr.1)
+    }
+  }
+  out.set("zip_nested_archive_entry_path", entry.entry_path)
+  out.set("zip_container_format", "zip")
+  out.set(
+    "zip_container_path",
+    entry.source_ref.unwrap_or(@core.empty_source_ref()).container_path.unwrap_or(
+      "",
+    ),
+  )
+  out
 }
 
 ///|

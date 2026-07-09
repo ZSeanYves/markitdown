@@ -53,7 +53,11 @@ case "$platform_family" in
     fi
     ;;
 esac
-install_system_packages "$platform_family" "${system_packages[@]}"
+if [[ "${#system_packages[@]}" -eq 0 ]]; then
+  install_system_packages "$platform_family"
+else
+  install_system_packages "$platform_family" "${system_packages[@]}"
+fi
 write_managed_command_path_record tesseract tesseract
 write_managed_command_path_record pdftoppm pdftoppm
 
