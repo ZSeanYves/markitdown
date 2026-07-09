@@ -1,34 +1,36 @@
 # Environment Dependencies
 
-This repo now provides stable setup scripts for the three runtime dependency groups we actually use.
+This repository now provides script-based setup for runtime dependencies. In most cases, you only need to run the matching script from the repo root, and it will prepare the environment automatically.
 
-Python dependencies are installed into a repo-local virtualenv under `./env/`.
-Native tools such as `tesseract`, `pdftoppm`, and `ffmpeg` still come from your
-system package manager because markitdown invokes those binaries directly.
+These scripts do a few things:
 
-Pick the script that matches the capability you want:
+- Install local command dependencies through the system package manager.
+- Create or reuse a repo-local Python virtual environment under `./env/`.
+- Record repo-managed absolute paths under `./env/managed-paths/` so repo-root runs can prefer those paths first.
+- Generate optional `env/*.env.sh` files; if you run the CLI from the repo root, you usually do not need to `source` them manually.
 
-## 1. Balanced OCR / Balanced PDF OCR
+The current install scripts support Homebrew and `apt-get`.
+
+## 1. Direct Image OCR (`balance`)
 
 Use this when you need:
 
-- direct image OCR in `balance`
-- PDF OCR in `balance`
+- direct image OCR on the main product path
 
 Run:
 
 ```bash
-./samples/env/install_ocr_pdf_balance_deps.sh
+./samples/env/install_ocr_balance_deps.sh
 ```
 
-This installs the local runtime pieces needed for:
+This script installs or records:
 
 - `tesseract`
-- `pdftoppm`
+- `./env/managed-paths/tesseract`
 
-No extra markitdown environment variable is required after it finishes.
+No extra environment variables are usually required after it finishes.
 
-## 2. Accurate OCR / Accurate PDF OCR
+## 2. Accurate Image OCR And Accurate PDF OCR
 
 Use this when you need:
 
@@ -41,24 +43,28 @@ Run:
 ./samples/env/install_ocr_pdf_accurate_deps.sh
 ```
 
-If you run `markitdown` from the repo root, that is enough: the runtime auto-detects the repo-local virtualenv and wrapper.
-Use `source ./env/accurate-ocr-pdf.env.sh` only when you want those paths exported into another shell.
+This script automatically prepares:
 
-This installs:
-
-- `pdftoppm`
+- `tesseract`
+- `pdftoppm` from `poppler` / `poppler-utils`
+- a repo-local Python runtime and virtual environment
 - `paddlepaddle`
 - `paddleocr`
 - `pillow`
 
-The Python packages above are installed into the repo-local virtualenv at
-`./env/.venv-markitdown-runtime`, not into your global Python environment.
+It also writes:
 
-It also writes a stable env file that exports:
+- `./env/managed-paths/tesseract`
+- `./env/managed-paths/pdftoppm`
+- `./env/accurate-ocr-pdf.env.sh`
 
-- `MARKITDOWN_PADDLE_OCR_CMD`
+If you run the CLI from the repo root, running the script is usually enough. Only `source` the env file when you want to export those paths into another shell:
 
-## 3. Audio
+```bash
+source ./env/accurate-ocr-pdf.env.sh
+```
+
+## 3. Audio / Media
 
 Use this when you need:
 
@@ -72,54 +78,79 @@ Run:
 ./samples/env/install_audio_deps.sh
 ```
 
-If you specifically want the small Chinese Vosk model instead of the default small English model:
+If you want the small Chinese model:
 
 ```bash
 ./samples/env/install_audio_deps.sh --model cn-small
 ```
 
-If you run `markitdown` from the repo root, that is enough: the runtime prefers the repo-local virtualenv automatically.
-Use `source ./env/audio.env.sh` only when you want those paths exported into another shell.
-
-This installs:
+This script automatically prepares:
 
 - `ffmpeg`
 - `unzip`
+- a repo-local Python runtime and virtual environment
 - `vosk`
 - one local Vosk model
 
-The Python packages above are installed into the repo-local virtualenv at
-`./env/.venv-markitdown-runtime`, not into your global Python environment.
+It also writes:
 
-It also writes a stable env file that exports:
+- `./env/managed-paths/ffmpeg`
+- `./env/audio.env.sh`
 
-- `MARKITDOWN_AUDIO_CMD`
-- `MARKITDOWN_AUDIO_MODEL_PATH`
+If you run the CLI from the repo root, running the script is usually enough. Only `source` the env file when you want to export those paths into another shell:
 
-## 4. External Regression Corpus
+```bash
+source ./env/audio.env.sh
+```
 
-If you need `samples/check_balance.sh`, `samples/check_balance_quality.sh`, or `samples/check_accurate.sh` against the external lab corpora:
+## 4. Official `markitdown` For Benchmark Comparison
+
+If you need formal benchmark runs, or you need a local baseline `markitdown` CLI:
+
+```bash
+./samples/env/install_bench_baseline_deps.sh
+```
+
+This script installs the following under `./env/`:
+
+- `markitdown[all]`
+
+It also writes:
+
+- `./env/bench-baseline.env.sh`
+- the repo-local `markitdown` executable path exported through `MARKITDOWN_BIN`
+
+If you run the benchmark runner from the repo root, it will usually auto-detect this repo-local `markitdown` without extra manual setup.
+
+## 5. External Corpus And Benchmark Sample Repository
+
+If you need external-corpus validation scripts, or if you need formal benchmark runs, clone the external repository:
 
 ```bash
 git clone https://github.com/ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab
 ```
 
-## 5. Benchmark Baseline
+To be explicit, `markitdown-quality-lab` is not only the home of external regression corpora; it also carries the sample payloads and manifests used by formal bench runs.
 
-If you need formal `bench`, also install the baseline Python `markitdown` CLI:
+It currently serves both of these purposes:
 
-```bash
-python3 -m pip install --upgrade pip
-python3 -m pip install 'markitdown[all]'
-which markitdown
+- main regression and quality-regression scripts such as `samples/check_balance.sh`, `samples/check_balance_quality.sh`, and `samples/check_accurate.sh`
+- external benchmark samples and manifests used by formal benchmark runs
+
+When running from the repo root, the official expected location is:
+
+```text
+./markitdown-quality-lab/
 ```
 
-If that binary lives inside a virtual environment, pass it explicitly later through `MARKITDOWN_BIN` or `--markitdown-path`.
+## 6. Build The CLI Before Checks
 
-## 6. Build Before Checks
-
-Before `samples/check_balance.sh`, `samples/check_balance_quality.sh`, or `samples/check_accurate.sh`, build the native CLI:
+Before running the various validation scripts, build the native CLI first:
 
 ```bash
 moon build cli --target native
 ```
+
+## 7. Custom Installation Notes
+
+Besides the provided setup scripts, users can still install and configure dependencies manually by following the relevant official documentation. If you do that, make sure the CLI can discover the required commands or paths through the expected runtime conventions or environment variables.

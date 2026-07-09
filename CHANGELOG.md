@@ -35,12 +35,10 @@
   path, so extension-based CLI detection, `--format`, help text, and quality
   examples no longer need a manual `eml` override for RFC822-style `.msg`
   fixtures
-* `samples/quality_examples/` now provides a checked-in, source-attributed
-  quality showcase built only from
-  `markitdown-quality-lab/external_quality/`; each non-audio format now keeps a
-  real copied-in sample under `<format>/<source>/` with current `markdown`,
-  `rag`, and `debug` outputs beside the original file, and samples that
-  exercise asset export also keep per-view `assets/` directories
+* the retired checked-in `samples/quality_examples/` showcase is no longer part
+  of the main repo workflow; formal quality coverage remains external-corpus
+  scoped under `markitdown-quality-lab/external_quality/` through
+  `samples/check_balance_quality.sh`
 * direct image OCR is now a formal main-CLI product path for
   `png/jpg/jpeg/bmp/webp/tif/tiff`; image input uses local Tesseract OCR by
   default, `--no-ocr` explicitly disables it, and `--ocr-lang` is accepted for

@@ -1,640 +1,354 @@
 # Capability Boundaries and Limitations
 
-`markitdown-mb` now runs on a unified product path:
+`markitdown-mb` ships as one main binary with one formal product path:
 
 ```text
-input -> parser -> pipeline -> render
+input -> detect -> probe -> planner -> parse -> pipeline -> render
 ```
 
-That unified path gives the project a few important product properties:
+The public support surface is grouped by internal capability layer:
 
-- All formal formats go through one main chain instead of several historical branches.
-- Output is not only Markdown. We also preserve richer semantics, diagnostics, source refs, and provenance facts.
-- Benchmarks, main regression, and quality regression all measure the same product path.
-- Unsupported capabilities fail closed instead of hiding boundaries behind silent fallback.
+- `Core`
+- `Office`
+- `Containers`
+- `Media`
+- `PdfOcr`
 
-This document answers two practical questions:
+This document is the public support boundary. It distinguishes three things:
 
-1. Which formats are formally supported today.
-2. Which capabilities are formally available, which are limited, and which are intentionally not promised.
+- what is wired into the current source tree and registry
+- what is productized at the mode / route level
+- what is backed by checked-in regression fixtures versus external regression entry points
 
-For system packages, external tools, and regression dependencies, see [environment-dependencies.md](./environment-dependencies.md).
+Internal implementation details may evolve, but capability grouping, fail-closed behavior, and route-mode boundaries should stay aligned with the code and the regression surface.
 
 ## 1. Product Boundary
 
-The project is inspired by Microsoft's `MarkItDown`: convert common document formats into stable, consumable Markdown.
-
-This implementation is not a line-by-line clone. It is a MoonBit-first, engineering-oriented implementation that prioritizes:
+This implementation prioritizes:
 
 - one formal product path
-- richer intermediate semantics
-- stronger provenance, route fidelity, and benchmark trust gates
-- a clearer support matrix and clearer fail-closed boundaries
+- explicit detection, probing, and route selection
+- typed diagnostics and provenance
+- fail-closed behavior instead of silent fallback
 
 This project is not trying to be:
 
-- a full editor-grade semantic restoration stack for every format
-- a layout-intelligence-heavy AI platform by default
-- a collection of per-format shortcuts optimized for a few nice-looking samples
-
-It is trying to be:
-
-- a maintainable long-term open-source conversion project
-- strong under complex formats and engineering-scale workloads
-- traceable and honest about route selection and capability boundaries
-
-## 2. Formally Supported Main CLI Inputs
-
-The main CLI currently supports these input families:
-
-| Format family | Extensions / entry | Formal status |
-| --- | --- | --- |
-| Plain text | `txt` | formally supported |
-| Subtitle text | `srt`, `vtt` | formally supported |
-| Delimited text | `csv`, `tsv` | formally supported |
-| Structured text | `json`, `jsonl`, `ndjson`, `ipynb`, `xml`, `yaml`, `yml`, `toml` | formally supported |
-| Web and markup | `html`, `htm`, `markdown`, `md`, `rst`, `adoc`, `asciidoc`, `tex`, `latex` | formally supported |
-| Mail | `eml`, `msg` | formally supported |
-| Containers | `zip`, `epub` | formally supported |
-| Office | `odt`, `ods`, `odp`, `docx`, `xlsx`, `pptx` | formally supported |
-| PDF | `pdf` | formally supported; default is native-text, `--pdf-ocr explicit|auto-scanned` enables balanced PDF OCR, `--accurate` defaults to `auto-scanned` and can enter accurate PDF OCR on scanned-like pages |
-| Audio | `wav`, `mp3`, `m4a` | formally supported through an optional local transcript backend; current path is a narrow transcript-only media pipeline |
-| Direct image OCR | `png`, `jpg`, `jpeg`, `bmp`, `webp`, `tif`, `tiff` | formally supported |
-
-These inputs are not part of the default formal matrix:
-
-- scanned or image-based PDF when neither `--pdf-ocr` nor `--accurate` is enabled
-- `mp4`, video, streaming audio, subtitle sidecars as primary input, recursive audio dispatch inside containers
-- any format not listed above
-
-## 3. Capability Overview
-
-| Format | Current main path | Formally supported today | Current limitation or non-goal |
-| --- | --- | --- | --- |
-| `txt` | `streaming_event` | paragraph output, basic text output, RAG, debug, benchmark | naturally limited semantics |
-| `srt` / `vtt` | `streaming_event` | cue time ranges, multiline captions, first-class `SourceRef.time_start/time_end`, controlled WebVTT degrade, RAG, debug | no player-grade style or layout execution |
-| `csv` / `tsv` | `streaming_event` | table-style output, RAG, debug, benchmark | no workbook-grade formula or style semantics |
-| `json` | `dom_ast_model`, or `streaming_event` when large or explicitly streamed | structured output for small and medium inputs, streaming for large inputs, RAG, debug | not a full JSON editor semantic model |
-| `jsonl` / `ndjson` | `streaming_event` | line-delimited record output, RAG, debug | no full document-tree semantics |
-| `ipynb` | `dom_ast_model`, or `block_streaming` when large or explicitly streamed | markdown/code/raw cells, typed outputs, multi-MIME selection, RAG, debug, assets, source refs | no notebook execution or widget runtime recovery |
-| `toml` | `dom_ast_model` | tables, key-values, array-of-tables, RAG, debug | no comment-preserving or editor-grade round-trip promise |
-| `xml` | `dom_ast_model`, or `streaming_event` when large | structured output, streaming path, RAG, debug | no full schema-aware semantics |
-| `yaml` | `dom_ast_model`, or `streaming_event` when large | mapping/list/table-like output, RAG, debug | no promise to cover every YAML dialect |
-| `markdown` | `dom_ast_model`, or `block_streaming` when large or explicitly streamed | Markdown read path, frontmatter passthrough, debug, RAG | not a full Markdown editor or AST toolkit |
-| `rst` / `asciidoc` / `tex` | `dom_ast_model` | typed semantic inventory, heading/paragraph/list/code/common table/common link/common boundary handling, RAG, debug | no full dialect execution or full editor semantics |
-| `html` | `dom_ast_model`, or `block_streaming(HtmlTokenStructure)` when large or explicitly streamed | content-root selection, boilerplate suppression, headings, paragraphs, lists, tables, images, links, RAG, assets | no browser-grade visual layout restoration |
-| `eml` | `block_streaming(Message)` | header summary, body selection, controlled `text/html`, nested message support, typed attachment dispatch, inline image assets, RAG, debug | no unbounded recursive attachment expansion or full mail-client behavior restoration |
-| `zip` | `container_recursive` | container scan, path safety, child document dispatch, assets | no arbitrary binary interpretation |
-| `epub` | `package_single_pass`, or `container_recursive` when explicitly streamed | OPF/spine order, chapter dispatch, local resource materialization, RAG | no remote fetch, no reader-grade runtime semantics |
-| `odt` | `package_single_pass`, or `block_streaming` when explicitly streamed | main content, tables, images, hyperlinks, footnotes/endnotes, comment appendix, RAG, debug source refs, assets | no full ODF style round-trip, revision recovery, or macro execution |
-| `ods` | `package_single_pass`, or `block_streaming` when explicitly streamed | sheet reading, table-like output, RAG, debug source refs, hidden-sheet visibility metrics | no formula execution, no full style or embedded-object recovery |
-| `odp` | `package_single_pass`, or `block_streaming` when explicitly streamed | slide order, text blocks, tables, images, notes, RAG, debug source refs, assets | no full visual layout reconstruction, animation execution, or style round-trip |
-| `docx` | `package_single_pass` | main Office blocks, links, images, debug source refs, RAG | not a full Word advanced-layout semantic stack |
-| `xlsx` | `package_single_pass`, or `block_streaming` when large or explicitly streamed | sheet reading, table-like output, hidden-sheet policy, cached formula values, debug | no Excel calculation engine |
-| `pptx` | `package_single_pass` | slide order, lists, images, speaker notes, hidden-slide policy, debug | no full slide-layout reconstruction |
-| `pdf` | `page_single_pass` or `layout_two_stage` | native-text extraction, balanced PDF OCR, accurate PDF OCR, cleanup hooks, optional table signals, RAG, debug | OCR routes do not currently promise deep layout intelligence or complex-table reconstruction |
-| direct image OCR | `layout_two_stage` or image OCR parser route | text extraction, OCR diagnostics, provenance, provider-aware fallback from accurate to balanced when accurate dependencies are missing | quality depends heavily on the OCR provider and image complexity |
-| `wav` / `mp3` / `m4a` | `media_pipeline` | transcript output, timestamps, Markdown, RAG, debug, provenance through a local optional backend | no diarization, no speaker separation promise, no dedicated accurate enhancement line, and compressed-audio support may require local normalization |
-
-## 3.1 Current Maturity Audit
-
-We currently use four maturity levels:
-
-- `usable`: product path is available, but semantics, quality confidence, or coverage depth are still limited
-- `mature`: canonical path is stable and regression coverage is strong enough for long-term maintenance
-- `strong mature`: mature plus stronger route, accurate, or stress confidence for complex formats
-- `experimental`: not yet part of the formal long-term product promise
-
-There is no formally supported input family that is publicly labeled `experimental`. Experimental status today applies mainly to some scoped `pdf --accurate` enhancements; the audio line is now intentionally narrow and optional rather than broad and experimental.
-
-| Format | Current level | Summary |
-| --- | --- | --- |
-| `txt` | `mature` | stable lightweight `streaming_event` path |
-| `srt` / `vtt` | `mature` | stable cue timing and source refs |
-| `csv` / `tsv` | `mature` | stable table-style streaming path |
-| `json` | `strong mature` | stable DOM and streaming routes with strong provenance confidence |
-| `jsonl` / `ndjson` | `mature` | clear line-delimited record path |
-| `ipynb` | `mature` | typed cells, outputs, assets, and source refs are stable |
-| `toml` | `mature` | stable canonical DOM path and malformed-input degrade behavior |
-| `xml` | `mature` | stable DOM and streaming paths |
-| `yaml` | `mature` | stable mapping/list/table-like output path |
-| `markdown` | `mature` | stable read path, frontmatter, debug, RAG, and stream fallback |
-| `rst` / `asciidoc` / `tex` | `mature` | shared canonical text-markup path with dedicated contract coverage |
-| `html` | `strong mature` | strong content-root selection, boilerplate suppression, assets, and quality regression confidence |
-| `eml` | `mature` | stable message/body/attachment path |
-| `zip` | `mature` | stable container recursion and path safety |
-| `epub` | `mature` | stable package and spine path |
-| `odt` | `mature` | stable package path with notes/comments appendix and source refs |
-| `ods` | `mature` | stable main path for sheet visibility and large-table handling |
-| `odp` | `mature` | stable slide-local organization and notes appendix path |
-| `docx` | `strong mature` | strong package path, accurate enhancements, and regression confidence |
-| `xlsx` | `strong mature` | strong large-sheet, hidden-sheet, sparse-table, and accurate semantics |
-| `pptx` | `strong mature` | strong slide/notes handling and readable-order-like semantics |
-| `pdf` | `strong mature` | stable native-text path plus clear balanced versus accurate PDF OCR split |
-| direct image OCR | `usable` | formally available, but highly dependent on OCR provider quality |
-| `wav` / `mp3` / `m4a` | `usable` | formal main-path integration exists through a stable optional local backend, but the current product contract is intentionally narrow |
-
-The most important update from this audit is that `rst`, `asciidoc`, and `tex` should now be considered mature canonical formats, not provisional semantic inventory experiments.
+- a browser-grade layout engine
+- an editor-grade round-trip restoration stack
+- a hidden multi-product CLI with per-format side entrances
 
-## 4. Per-Format Notes
+## 2. Capability Groups
 
-### 4.1 TXT
+### 2.1 Core
 
-Current status:
+Source-wired formats:
 
-- formally supported
-- lightweight canonical text path
-- supports Markdown, RAG, and debug output
+- plain text: `txt`
+- subtitles: `srt`, `vtt`
+- delimited text: `csv`, `tsv`
+- structured text: `json`, `jsonl`, `ndjson`, `ipynb`, `xml`, `yaml`, `yml`, `toml`
+- web and markup: `html`, `htm`, `markdown`, `md`, `rst`, `adoc`, `asciidoc`, `tex`, `latex`
+- mail: `eml`
 
-Current non-goals:
+Important notes:
 
-- rich layout recovery
-- external metadata inference
+- `txt`, `csv`, `tsv`, `srt`, `vtt`, `jsonl`, and `ndjson` are canonical `streaming_event` formats.
+- `json`, `ipynb`, `xml`, `yaml`, `toml`, `html`, `markdown`, `tex`, `rst`, and `asciidoc` stay on the typed structured-text path and still converge back to the unified pipeline.
+- `eml` is productized as a MIME-part-oriented `block_streaming` format with recursive child dispatch guarded by the root registry.
+- The user-facing label `msg` is currently accepted as an alias to the mail parser. It should not be read as a distinct native Outlook `.msg` binary stack.
 
-### 4.2 SRT / VTT
+Mode boundary:
 
-Current status:
+- explicit `stream` is productized for `txt`, `csv`, `tsv`, `srt`, `vtt`, `json`, `jsonl`, `ndjson`, `ipynb`, `xml`, `yaml`, `html`, `markdown`, and `eml`
+- `toml`, `tex`, `rst`, and `asciidoc` currently stay on canonical structured routes and do not expose a distinct explicit stream route
+- `accurate` does not introduce a separate core route family; for core formats without accurate features it falls back explicitly to `balanced`
 
-- formally supported
-- always runs through `streaming_event`
-- explicit `--stream` stays on the same canonical route
+### 2.2 Office
 
-Verified today:
+Source-wired formats:
 
-- cue time range output
-- stable `time_start` and `time_end` source refs
-- multiline captions
-- controlled degrade for WebVTT `NOTE`, `STYLE`, and `REGION`
-- RAG, diagnostics, and line-range source refs
-- malformed input fails closed inside the subtitle route
+- OOXML: `docx`, `xlsx`, `pptx`
+- ODF: `odt`, `ods`, `odp`
 
-Current non-goals:
+Current product behavior:
 
-- CSS or region positioning execution
-- full subtitle styling systems
-- media playback semantics
+- all office formats are package-based and probe-first
+- parser execution is expected to reuse typed probe artifacts
+- missing or mismatched heavy-format artifacts fail closed
 
-### 4.3 CSV / TSV
+Mode boundary:
 
-Current status:
+- `xlsx`, `odt`, `ods`, and `odp` expose productized explicit stream / large-route block forms
+- `docx` and `pptx` remain canonical `package_single_pass` routes without a distinct explicit stream route
+- `accurate` is productized here as same-route semantic enhancement rather than a new route family
 
-- formally supported
-- canonical streaming path
+Current accurate semantic surface includes:
 
-Verified today:
+- `docx`: textbox lowering, alternate-content restore, notes appendix
+- `xlsx`: hidden sheets, hidden rows, merged spans
+- `pptx`: reading order, group summary, hidden-slide semantics, notes appendix
+- `odt`: richer notes and comments appendix
+- `ods`: hidden sheets, hidden rows, covered-cell spans
+- `odp`: notes appendix and slide summary
 
-- table-style Markdown output
-- repo-local regression coverage
-- RAG output
-- benchmark coverage
+### 2.3 Containers
 
-Current non-goals:
+Source-wired formats:
 
-- spreadsheet formula execution
-- workbook-grade style or chart semantics
+- `zip`
+- `epub`
 
-### 4.4 JSON / JSONL / NDJSON
+Current product behavior:
 
-Current status:
+- both stay on the canonical product path
+- `zip` is productized as `container_recursive`
+- `epub` has a canonical `package_single_pass` route and an explicit container-recursive stream route
+- local assets may be materialized only at the output boundary
+- remote fetch is a non-goal
 
-- formally supported
-- route chosen between `dom_ast_model` and `streaming_event` based on input shape
+Current ZIP recursive inner-document scope is intentionally limited. It currently covers:
 
-Verified today:
+- `txt`, `csv`, `tsv`
+- `srt`, `vtt`
+- `json`, `jsonl`, `ndjson`, `ipynb`
+- `xml`, `yaml`, `toml`
+- `html`, `markdown`
+- `tex`, `rst`, `asciidoc`
+- `eml`
+- `epub`
+- `odt`, `ods`, `odp`
 
-- richer structure for small and medium JSON
-- stable streaming route for large JSON
-- strong conversion success on representative high-pressure JSON samples
+Notable limitations:
 
-Current non-goals:
+- ZIP recursion does not currently productize `docx`, `xlsx`, `pptx`, `pdf`, audio, or direct-image OCR as first-class recursive inner documents
+- container parsing remains bounded and guarded by root-registry dispatch, resource limits, and output-path safety rules
 
-- a general JSON query engine
-- full schema-specific semantic reconstruction for every JSON family
+### 2.4 Media
 
-### 4.5 IPYNB
+Source-wired formats:
 
-Current status:
+- `wav`
+- `mp3`
+- `m4a`
 
-- formally supported
-- default route is `dom_ast_model`
-- explicit `--stream` or oversized inputs fall back to `block_streaming`
+Current product behavior:
 
-Verified today:
+- media support is intentionally narrow and transcript-first
+- the canonical route is `media_pipeline`
+- the current runtime contract is local-backend oriented: Vosk-based transcription plus `ffmpeg` normalization when compressed audio requires it
+- missing runtime pieces fail closed and are surfaced explicitly in diagnostics
 
-- notebook summary tables
-- markdown, code, and raw cell boundaries
-- typed output lowering for `stream`, `display_data`, `execute_result`, and `error`
-- explicit degrade for JavaScript MIME outputs
-- structured JSON lowering for `application/json` and `application/*+json`
-- asset materialization for images and markdown attachments
-- RAG, debug, source refs, and diagnostics
+Mode boundary:
 
-Current non-goals:
+- there is no separate media-specific `accurate` route family today
+- there is no productized explicit `stream` route for audio today
+- `accurate` therefore falls back explicitly to `balanced` for `wav`, `mp3`, and `m4a`
 
-- notebook execution
-- kernel-state reconstruction
-- widget or browser runtime restoration
+### 2.5 PdfOcr
 
-### 4.6 XML
+Source-wired formats:
 
-Current status:
+- `pdf`
+- direct image OCR: `png`, `jpg`, `jpeg`, `bmp`, `webp`, `tif`, `tiff`
 
-- formally supported
-- default route is `dom_ast_model`
-- oversized inputs can switch to `streaming_event`
+Current product behavior:
 
-Verified today:
+- `pdf` in `balanced` uses the native-text `page_single_pass` route
+- `pdf` in `accurate` uses the `layout_two_stage` high-fidelity route
+- direct image inputs are productized on `layout_two_stage`
+- OCR and rasterization dependencies are explicit and fail closed when unavailable
 
-- structural XML-to-Markdown conversion
-- large-XML benchmark coverage
-- main regression and diagnostic coverage
+Important route boundary:
 
-Current non-goals:
+- scanned-like PDFs do not silently OCR on the default balanced route
+- balanced scanned-like PDFs are expected to fail closed rather than pretend that native-text extraction succeeded
+- PDF OCR remains part of the `accurate` PDF contract
+- direct image OCR remains part of the formal main product surface rather than a debug-only side path
 
-- deep schema-aware semantics
-- domain-specific business reconstruction for every XML standard
+Provider/runtime notes:
 
-### 4.7 YAML / YML
+- direct image OCR defaults to a Tesseract-targeted balanced path and a PaddleOCR-targeted accurate path
+- PDF accurate uses the PDF-specific accurate OCR/runtime contract rather than the native PDF parser path
 
-Current status:
+## 3. Probe Boundary
 
-- formally supported
-- default route is `dom_ast_model`
-- oversized inputs can switch to `streaming_event`
+Unified probe templates are:
 
-Verified today:
+- `Exempt`
+- `StructuredTextProbe`
+- `PackageContainerProbe`
+- `PagedMediaProbe`
 
-- mapping and nested mapping output
-- flow collections
-- metadata-like output
-- RAG output
+Probe-exempt light formats are:
 
-Current non-goals:
+- `txt`
+- `csv`
+- `tsv`
+- `jsonl`
+- `ndjson`
+- `srt`
+- `vtt`
 
-- every YAML edge syntax or dialect
-- strong product promises around complex anchor or alias expansion
+Structured-text probe formats currently include:
 
-### 4.8 TOML
+- `json`, `xml`, `yaml`, `toml`
+- `markdown`, `html`, `ipynb`
+- `tex`, `rst`, `asciidoc`
+- `eml`
+- `wav`, `mp3`, `m4a`
 
-Current status:
+Package/container probe formats currently include:
 
-- formally supported
-- canonical `dom_ast_model` path
+- `docx`, `pptx`, `xlsx`
+- `odt`, `ods`, `odp`
+- `epub`, `zip`
 
-Verified today:
+Paged/media probe formats currently include:
 
-- top-level key-values, named tables, dotted keys
-- arrays, array-of-tables, inline tables
-- multiline strings, RAG output, and debug diagnostics
-- malformed input degrades to raw fenced TOML with explicit warning signals
+- `pdf`
+- `png`, `jpg`, `jpeg`, `bmp`, `webp`, `tif`, `tiff`
 
-Current non-goals:
+Typed probe artifact reuse is a checked contract for heavy-route parsing, especially for:
 
-- editor-grade comment preservation
-- wide TOML dialect promises beyond the current regression scope
+- `html`
+- `ipynb`
+- `docx`, `pptx`, `xlsx`
+- `odt`, `ods`, `odp`
+- `epub`, `zip`
+- `pdf`
 
-### 4.9 Markdown
+## 4. Mode and Route Boundary
 
-Current status:
+Public product modes remain:
 
-- formally supported
-- default route is `dom_ast_model`
-- explicit `--stream` or oversized inputs can switch to `block_streaming`
+- `balanced`
+- `accurate`
+- `stream`
 
-Verified today:
+Support is intentionally non-universal.
 
-- headings, paragraphs, and list structure
-- frontmatter passthrough
-- debug diagnostics
-- RAG output
+Current `accurate` behavior falls into three groups:
 
-Current non-goals:
+1. Dedicated accurate route family:
+   `pdf`, direct image OCR
+2. Same-route accurate semantic enhancements:
+   `docx`, `xlsx`, `pptx`, `odt`, `ods`, `odp`
+3. Explicit fallback to balanced:
+   `txt`, `csv`, `tsv`, `srt`, `vtt`, `json`, `jsonl`, `ndjson`, `ipynb`, `xml`, `yaml`, `toml`, `html`, `markdown`, `tex`, `rst`, `asciidoc`, `eml`, `zip`, `epub`, `wav`, `mp3`, `m4a`
 
-- acting as a full Markdown editor
-- covering every Markdown dialect extension
+Current explicit `stream` productization is present for:
 
-### 4.10 RST / AsciiDoc / TEX
+- `txt`, `csv`, `tsv`
+- `srt`, `vtt`
+- `json`, `jsonl`, `ndjson`
+- `ipynb`
+- `xml`, `yaml`
+- `html`, `markdown`
+- `eml`
+- `zip`, `epub`
+- `xlsx`, `odt`, `ods`, `odp`
 
-Current status:
+Formats that currently do not expose a distinct explicit `stream` route include:
 
-- formally supported
-- current formal level is mature canonical format
-- default route is `dom_ast_model`
-- explicit `--stream` warns honestly and falls back to the canonical route
+- `toml`
+- `tex`, `rst`, `asciidoc`
+- `docx`, `pptx`
+- `pdf`
+- `wav`, `mp3`, `m4a`
+- `png`, `jpg`, `jpeg`, `bmp`, `webp`, `tif`, `tiff`
 
-Verified today:
+Across all groups:
 
-- shared `text_markup` canonical path
-- typed lowering for headings, paragraphs, lists, code, common tables, and common links
-- stable semantic inventory for representative RST, AsciiDoc, and TEX structures
-- observable semantic attrs, boundaries, source refs, and diagnostics across Markdown, RAG, and debug output
-- dedicated contract tests and dedicated main-regression fixtures
+- same-mode adaptation is allowed only when the planner records the reason explicitly
+- heavy-format parser code must not privately choose a different route
+- renderer selection (`Markdown`, `RagJson`, `DebugJson`) does not change route ownership
 
-Current non-goals:
+## 5. Regression Coverage Boundary
 
-- full dialect editor behavior
-- complex directive, include, macro, or environment execution
-- layout-intelligence-style accurate recovery
-- full cross-reference and every table dialect
+### 5.1 Checked-in repo-local fixtures
 
-### 4.11 HTML
+Checked-in contract fixture directories currently exist under `samples/fixtures/contracts/` for:
 
-Current status:
+- core and markup: `txt`, `csv`, `tsv`, `json`, `jsonl`, `ndjson`, `ipynb`, `xml`, `yaml`, `toml`, `html`, `markdown`, `tex`, `rst`, `asciidoc`
+- office: `docx`, `xlsx`, `pptx`, `odt`, `ods`, `odp`
+- containers: `zip`, `epub`
+- PDF / OCR / media: `pdf`, `ocr`, `audio`
 
-- formally supported
-- default route is `dom_ast_model`
-- explicit `--stream` or oversized inputs can switch to `block_streaming`
+Checked-in fixture directories do not currently exist there for:
 
-Verified today:
+- `eml`
+- `srt`
+- `vtt`
 
-- content-root selection from `main`, `article`, `body`, and fragments
-- suppression for nav/footer/hidden/script/style/template/repeated boilerplate
-- headings, paragraphs, lists, basic tables, links, and images
-- RAG output
-- asset materialization
+### 5.2 Where checked-in goldens are strongest
 
-Current non-goals:
+The strongest checked-in Markdown / asset-style golden coverage is currently around:
 
-- browser-grade CSS layout reconstruction
-- full visual reading-order recovery
-- JavaScript-executed page semantics
+- `txt`, `csv`, `tsv`
+- `json`, `jsonl`, `ndjson`, `ipynb`, `xml`, `yaml`, `toml`
+- `html`, `markdown`
+- `docx`, `xlsx`, `pptx`
+- `zip`, `epub`
+- native-text `pdf`
+- tiny direct-image OCR samples across all supported image extensions
 
-### 4.12 ODT
+Notable details:
 
-Current status:
+- `docx`, `pptx`, `epub`, and `zip` also include checked-in asset/result fixtures
+- `pdf` includes checked-in native-text goldens plus OCR-oriented sample inputs such as `pdf_ocr_single_page.pdf` and `pdf_ocr_two_page.pdf`
+- `ocr` includes checked-in tiny-format goldens for `png/jpg/jpeg/bmp/webp/tif/tiff`, plus larger image inputs without repo-local Markdown goldens
 
-- formally supported
-- default route is `package_single_pass`
-- explicit `--stream` switches to `block_streaming`
+### 5.3 Thinner checked-in sample coverage
 
-Verified today:
+The following areas are source-supported, but their checked-in repo-local sample coverage is thinner than the strongest groups above:
 
-- `content.xml` main-block scan
-- headings, paragraphs, lists, tables, and images
-- hyperlinks, footnotes, endnotes, and comment appendix
-- asset materialization
-- RAG, debug diagnostics, and source refs
+- `odt`, `ods`, `odp` currently have checked-in input fixtures but no checked-in Markdown goldens in `samples/fixtures/contracts/`
+- `tex`, `rst`, and `asciidoc` currently have checked-in input fixtures but no checked-in Markdown goldens there
+- `audio` currently has checked-in input fixtures, while most runtime confidence comes from MoonBit runtime tests rather than checked-in Markdown golden outputs
+- `srt` and `vtt` are parser-tested, but do not currently have checked-in `samples/fixtures/contracts/srt|vtt/` directories
+- `eml` is registry-wired and integrated into the recursive parsing surface, but does not currently have a checked-in `samples/fixtures/contracts/eml/` directory
 
-Current non-goals:
+### 5.4 Boundary / malformed fixtures
 
-- full ODF style, revision, and macro semantics
-- complete parity with every advanced `docx` feature
+Checked-in malformed and fail-closed boundary fixtures under `samples/fixtures/boundaries/` are currently concentrated in:
 
-### 4.13 ODS
+- `epub`
 
-Current status:
+### 5.5 External regression entry points
 
-- formally supported
-- default route is `package_single_pass`
-- explicit `--stream` switches to `block_streaming`
+The repository also ships external regression entry points under [samples/README.md](../samples/README.md), but the formal corpora are not vendored here and live in `markitdown-quality-lab/`.
 
-Verified today:
+The external main-regression runner is currently wired for:
 
-- `content.xml` sheet scan
-- visible-sheet headings and table-like output
-- row-level block streaming
-- RAG, debug diagnostics, and sheet source refs
+- `csv`, `tsv`, `txt`
+- `srt`, `vtt`
+- `json`, `jsonl`, `ndjson`, `ipynb`
+- `xml`, `yaml`, `toml`
+- `html`, `markdown`, `eml`
+- `tex`, `rst`, `asciidoc`
+- `zip`, `epub`
+- `odt`, `ods`, `odp`
+- `docx`, `xlsx`, `pptx`
+- `pdf`
+- `wav`, `mp3`, `m4a`
+- `ocr`
 
-Current non-goals:
+Because those corpora are external, checked-in repo-local fixtures remain the most reliable indicator of what this repository itself currently carries as sample coverage.
 
-- formula execution or recalculation
-- full ODF style, comment, and embedded-object recovery
-- complete parity with every advanced `xlsx` feature
+## 6. Current Non-goals and Limitations
 
-### 4.14 ODP
+- unknown formats fail closed
+- there is no public browser-grade layout engine
+- there is no editor-grade round-trip restoration contract
+- there is no hidden alternate product path for unsupported formats
+- there is no runtime plugin-style capability expansion
+- ZIP recursion does not currently act as a generic wrapper around every supported top-level format
+- balanced PDF does not silently upgrade scanned-like input into OCR
+- audio remains local-backend oriented rather than a cloud-provider abstraction layer
+- `msg` is not a distinct native Outlook-binary capability surface
 
-Current status:
+## 7. Dependency Summary
 
-- formally supported
-- default route is `package_single_pass`
-- explicit `--stream` switches to `block_streaming`
+For system tools and optional local runtimes, see [environment-dependencies.md](./environment-dependencies.md).
 
-Verified today:
-
-- slide-order scan through `content.xml`
-- headings, paragraphs, lists, tables, images, and notes
-- local image asset materialization
-- RAG, debug diagnostics, and slide source refs
-
-Current non-goals:
-
-- full visual layout, animation, or transition recovery
-- macro or script execution
-- complete parity with every advanced `pptx` feature
-
-### 4.15 ZIP
-
-Current status:
-
-- formally supported
-- canonical route is `container_recursive`
-
-Verified today:
-
-- entry enumeration
-- path normalization and safety boundaries
-- dispatch back into the unified main path for supported child formats
-- resource materialization
-
-Current non-goals:
-
-- smart interpretation for arbitrary binary members
-- remote fetch or execution of external references
-
-### 4.16 EPUB
-
-Current status:
-
-- formally supported
-- default route is `package_single_pass`
-- explicit `--stream` switches to `container_recursive`
-
-Verified today:
-
-- OPF and spine ordering
-- chapter-level HTML dispatch
-- local resource materialization
-- remote/data image no-fetch and no-persist behavior
-- debug JSON exposure for spine and missing-item diagnostics
-
-Current non-goals:
-
-- full reader-grade interaction semantics
-- remote resource download
-- arbitrary script or linked-content execution
-
-### 4.17 DOCX
-
-Current status:
-
-- formally supported
-- canonical route is `package_single_pass`
-
-Verified today:
-
-- main Office document blocks
-- links
-- images and assets
-- debug JSON exposure for `relationship_id`, `part_name`, and `paragraph_index`
-- stable RAG and asset-lane regression coverage
-
-Current non-goals:
-
-- full Word advanced-layout semantics
-
-### 4.18 XLSX
-
-Current status:
-
-- formally supported
-- default route is `package_single_pass`
-- oversized or explicit streaming requests can switch to `block_streaming`
-
-Verified today:
-
-- workbook and worksheet scanning
-- table-like output
-- hidden-sheet policy
-- cached formula value preservation
-- debug output
-
-Current non-goals:
-
-- formula execution
-- an Excel calculation engine
-
-### 4.19 PPTX
-
-Current status:
-
-- formally supported
-- canonical route is `package_single_pass`
-
-Verified today:
-
-- slide order
-- text blocks and lists
-- images
-- speaker notes
-- hidden-slide policy
-- debug output
-
-Current non-goals:
-
-- full presentation-layout reconstruction
-
-### 4.20 PDF
-
-Current status:
-
-- formally supported
-- default product path is native-text first
-- balanced and accurate PDF OCR are both integrated into the unified planner
-
-Verified today:
-
-- native-text extraction
-- balanced PDF OCR through explicit or scanned-like policy
-- accurate PDF OCR for `--accurate`
-- route fidelity and provenance
-- cleanup and optional table signals
-- RAG and debug output
-- provider fallback from accurate PDF OCR to balanced OCR with an explicit warning when accurate dependencies are missing
-
-Current non-goals:
-
-- deep layout intelligence as a balanced default
-- full complex-table or full visual layout reconstruction guarantees on OCR routes
-
-## 5. OCR Status
-
-Current formal OCR behavior is intentionally narrow and explicit:
-
-- Direct image OCR is formally supported.
-- Balanced direct image OCR and balanced PDF OCR are the stable default OCR paths.
-- Accurate direct image OCR and accurate PDF OCR both require the accurate OCR dependency path.
-- When accurate direct image OCR or accurate PDF OCR is requested but accurate OCR dependencies are missing, the product now emits an explicit warning and falls back to the balanced OCR provider.
-- Route fallback and provider fallback are both recorded in diagnostics and provenance.
-
-Current non-goals:
-
-- silent OCR provider switching
-- layout-intelligence promises for every OCR case
-- automatic OCR of embedded PDF figures just because page OCR is enabled
-
-## 6. What the Unified Architecture Already Buys Us
-
-Moving to the unified architecture already gives the project several long-term benefits:
-
-- one planner and one provenance contract across formats
-- one renderer contract across Markdown, RAG, and debug views
-- one benchmark story tied to the real product path
-- clearer failure behavior for unsupported stream or accurate requests
-- stronger regression coverage across route selection and capability boundaries
-
-## 7. Performance and Stress-Sample Positioning
-
-Representative benchmark results should still be refreshed by rerunning the bench suite before a formal release. The current long-term positioning is:
-
-- The project shows clear advantages on more complex formats and more stressful input shapes.
-- The engine is better suited for engineering-scale workloads where route honesty and traceability matter.
-- The project behaves more predictably under oversized or borderline inputs because unsupported capabilities fail closed and supported capabilities keep provenance.
-- In some representative high-pressure cases, the MoonBit path continues to produce successful output where the external baseline fails to form a comparable result set.
-
-For formal benchmark commands and benchmark architecture, see [bench/README.md](../bench/README.md) and [benchmark-architecture.md](./architecture/benchmark-architecture.md).
-
-## 8. Capabilities We Do Not Currently Promise
-
-The project does not currently promise:
-
-- full editor-grade round-trip semantics for every input family
-- full browser-grade, Office-grade, or PDF-viewer-grade layout reconstruction
-- formula execution, macro execution, or script execution
-- automatic accurate upgrades for formats that do not formally support them
-- audio accurate mode as a real separate product line today
-- stable production guarantees for dependency-heavy `pdf --accurate` and the current optional audio backend line
-
-Important note:
-
-- `pdf --accurate` is still the more dependency-heavy path today
-- audio is available through an optional local backend with a narrow transcript-only contract, not as a broad fully managed media product line
-
-## 9. Recommended Validation Entry Points
-
-For normal local validation:
-
-```bash
-moon test
-```
-
-For full repository validation:
-
-```bash
-moon clean
-moon build
-moon test
-```
-
-For main regression and quality regression, first fetch the external corpus repository:
-
-```bash
-git clone https://github.com/ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab
-```
-
-Then run:
-
-```bash
-moon build cli --target native
-bash samples/check_balance.sh
-bash samples/check_balance_quality.sh
-```
-
-For a representative external comparison benchmark run:
-
-```bash
-moon build --target native --release --package ZSeanYves/markitdown/cli
-moon build --target native --release --package ZSeanYves/markitdown/bench/runner
-_build/native/release/build/bench/runner/runner.exe run --preset official-compare
-```
-
-If the baseline `markitdown` CLI is not already on `PATH`, set `MARKITDOWN_BIN` or pass `--markitdown-path /absolute/path/to/markitdown`.
+For external regression entry points and corpus layout, see [samples/README.md](../samples/README.md).

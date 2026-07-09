@@ -1,20 +1,28 @@
-# Regression Samples And Validation Entry Points
+# Regression Samples and Validation Entry Points
 
-`samples/` is the regression sample and validation entry area for this repository.
+`samples/` contains the regression samples and validation entry points for this
+repository.
 
-There are two main kinds of regression here:
+There are three main regression surfaces here:
 
 - Main regression:
-  validates whether the default product conversion path stays stable
+  validates that the default product conversion path stays stable
 - Quality regression:
   validates output quality against the external quality corpus
 - Accurate regression:
   validates accurate-only behavior, route upgrades, and OCR/provider evidence
   against the external accurate corpus
 
-The main repository only keeps lightweight functional fixtures for unit-level coverage and shell contracts. Formal main regression, quality regression, and benchmark runs all depend on `./markitdown-quality-lab/` at the repository root. Benchmark usage is documented in [bench/README.md](../bench/README.md).
+The main repository keeps only lightweight functional fixtures for unit-level
+coverage and shell contracts. Formal main regression, quality regression, and
+benchmark runs all depend on `./markitdown-quality-lab/` at the repository
+root. Benchmark usage is documented in [bench/README.md](../bench/README.md).
 
-The current main regression for `rst / asciidoc / tex` also includes a lightweight semantic inventory set beyond basic heading / paragraph / code / table coverage. These rows help keep field-or-attribute metadata, definition-like inventory, quote/admonition/include behavior, and tex metadata/environment output stable.
+The current main regression for `rst / asciidoc / tex` also includes a
+lightweight semantic inventory set beyond basic heading / paragraph / code /
+table coverage. These rows help keep field-or-attribute metadata,
+definition-style inventory, quote / admonition / include behavior, and TeX
+metadata / environment output stable.
 
 ## Main Regression
 
@@ -25,14 +33,15 @@ moon build cli --target native
 ./samples/check_balance.sh
 ```
 
-By default it runs the main product formats through:
+By default, it runs the main product formats through:
 
 - Markdown regression
 - RAG regression
 - Assets regression
 - Explicit OCR lane regression
 
-This is not a pure repo-local check. The formal corpus comes from `markitdown-quality-lab/external_main_process/`.
+This is not a pure repo-local check. The formal corpus comes from
+`markitdown-quality-lab/external_main_process/`.
 
 Supported formats:
 
@@ -54,7 +63,8 @@ moon build cli --target native
 Directory conventions:
 
 - `samples/fixtures/contracts/<format>/`:
-  minimal fixtures needed by repo-local tests and retained shell contracts
+  minimal fixtures needed by repo-local tests and lightweight shell
+  smoke/verify helpers
 - `samples/fixtures/boundaries/<format>/`:
   high-value malformed / fail-closed / safety fixtures
 - `markitdown-quality-lab/external_main_process/<format>/<lane>/`:
@@ -74,14 +84,22 @@ Run outputs are written to `.tmp/check/runs/<run_id>/`. The most useful files ar
 
 Notes:
 
-- This suite only validates the product default path on the external main corpus
-- `./samples/check_balance.sh` first validates the external manifest, enrollment, and run workspace, so a short preparation phase before row execution is expected
-- Unsupported formats fail closed here as well; they do not silently switch to another route
+- This suite only validates the product default path on the external main
+  corpus
+- `./samples/check_balance.sh` first validates the external manifest,
+  enrollment, and run workspace, so a short preparation phase before row
+  execution is expected
+- Unsupported formats fail closed here as well; they do not silently switch to
+  another route
 - The `ocr` gate covers supported direct-image OCR input:
   `png/jpg/jpeg/bmp/webp/tif/tiff`
-- The `pdf/ocr` lane covers both `pdf --accurate` and explicit `pdf --ocr` OCR paths without changing the default native-text PDF gate
-- The `wav/mp3/m4a` gate covers the current audio wrapper integration around local `Vosk`; `wav` is the lightest route, and compressed audio may also depend on local `ffmpeg`
-- `workspace/` is only a temporary working area and is not the main place to inspect failures
+- The `pdf/ocr` lane covers both `pdf --accurate` and explicit `pdf --ocr`
+  OCR paths without changing the default native-text PDF gate
+- The `wav/mp3/m4a` gate covers the current audio wrapper integration around
+  local `Vosk`; `wav` is the lightest route, and compressed audio may also
+  depend on local `ffmpeg`
+- `workspace/` is only a temporary working area and is not the main place to
+  inspect failures
 
 ## Quality Regression
 
@@ -92,7 +110,8 @@ moon build cli --target native
 ./samples/check_balance_quality.sh
 ```
 
-This suite only uses the external quality corpus under `./markitdown-quality-lab`. It does not fall back to repo-local samples.
+This suite only uses the external quality corpus under
+`./markitdown-quality-lab`. It does not fall back to repo-local samples.
 
 Prepare the corpus:
 
@@ -120,10 +139,13 @@ Run outputs are written to `.tmp/quality/runs/<run_id>/`. The most useful files 
 
 Notes:
 
-- This suite is an external quality signal. It does not replace main regression
+- This suite is an external quality signal. It does not replace main
+  regression
 - `workspace/` is still only a temporary working directory
-- Benchmark corpus and quality corpus are different things; formal benchmark runs use `./markitdown-quality-lab/external_bench/`
-- ZIP-related rows and the main ZIP path build on `format_readers/zip`, with decompression still relying on `bikallem/compress/flate`
+- Benchmark corpus and quality corpus are different things; formal benchmark
+  runs use `./markitdown-quality-lab/external_bench/`
+- ZIP-related rows and the main ZIP path build on `format_readers/zip`, with
+  decompression still relying on `bikallem/compress/flate`
 
 ## Accurate Regression
 
@@ -147,24 +169,11 @@ moon build cli --target native
 
 Notes:
 
-- this suite performs an accurate runtime preflight before row execution
-- validation is mixed across Markdown, debug JSON, and provenance sidecars
+- This suite performs an accurate runtime preflight before row execution
+- Validation is mixed across Markdown, debug JSON, and provenance sidecars
 - OCR rows fail if the accurate path falls back away from PaddleOCR
-- this suite is separate from `check_balance_quality.sh` so accurate-only behavior can
-  evolve without weakening the broader quality surface
-
-## Quality Examples
-
-Refresh the checked-in showcase corpus with:
-
-```bash
-moon build cli --target native
-bash samples/helpers/generate_quality_examples.sh
-```
-
-By default this regenerates every non-audio format enrolled in
-`samples/helpers/generate_quality_examples.sh`. You can also pass one or more
-format labels to refresh only part of the showcase.
+- This suite is separate from `check_balance_quality.sh` so accurate-only
+  behavior can evolve without weakening the broader quality surface
 
 ## Coverage Scope
 
@@ -190,6 +199,9 @@ Accurate regression covers:
 
 In short:
 
-- run `moon build cli --target native && ./samples/check_balance.sh` to see whether the main product path regressed
-- run `moon build cli --target native && ./samples/check_balance_quality.sh` to see how the current build behaves on the external balance-quality corpus
-- run `moon build cli --target native && ./samples/check_accurate.sh` to validate the dedicated accurate regression surface
+- Run `moon build cli --target native && ./samples/check_balance.sh` to see
+  whether the main product path regressed
+- Run `moon build cli --target native && ./samples/check_balance_quality.sh`
+  to see how the current build behaves on the external balance-quality corpus
+- Run `moon build cli --target native && ./samples/check_accurate.sh` to
+  validate the dedicated accurate regression surface
