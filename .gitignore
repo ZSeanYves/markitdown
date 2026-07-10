@@ -8,3 +8,6 @@ target/
 markitdown-quality-lab/
 .codex
 .codex/
+__pycache__/
+*.pyc
+*.pyo
