@@ -39,13 +39,13 @@ _build/native/release/build/bench/runner/runner.exe doctor
 If you plan to use `official-compare`, install the comparison baseline once per repo clone:
 
 ```bash
-./samples/env/install_bench_baseline_deps.sh
+./tools/env/install_bench_baseline_deps.sh
 ```
 
 If you run the release runner from the repo root, `official-compare` auto-detects:
 
 ```text
-./env/.venv-markitdown-baseline/bin/markitdown
+./env/.venv-markitdown-bench/bin/markitdown
 ```
 
 `source ./env/bench-baseline.env.sh` is only needed when you want `MARKITDOWN_BIN` exported into another shell.
@@ -60,7 +60,7 @@ Corpus discovery rules:
 Baseline `markitdown` resolution order for `official-compare`:
 
 1. `--markitdown-path <path>`
-2. repo-local `./env/.venv-markitdown-baseline/bin/markitdown`
+2. repo-local `./env/.venv-markitdown-bench/bin/markitdown`
 3. `MARKITDOWN_BIN`
 4. `PATH`
 5. fallback paths such as `/usr/local/bin/markitdown` and `/opt/homebrew/bin/markitdown`

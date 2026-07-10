@@ -325,8 +325,8 @@ pub fn tesseract_ocr_install_hint() -> String {
   dependency_diagnostic_card(
     "Missing dependency: Tesseract OCR",
     "Direct image OCR and Tesseract-backed fallback routes require a local Tesseract runtime on this machine.",
-    ["./samples/env/install_ocr_balance_deps.sh"],
-    ["./samples/env/install_ocr_balance_deps.sh"],
+    ["./tools/env/install_ocr_balance_deps.sh"],
+    ["./tools/env/install_ocr_balance_deps.sh"],
     footer=Some(
       "The install script records the repo-managed Tesseract path under `./env/managed-paths/tesseract`. Custom overrides can still use `MARKITDOWN_TESSERACT_BIN`, but repo-managed defaults win first.",
     ),
@@ -338,8 +338,8 @@ pub fn tesseract_ocr_dependency_diagnostic() -> @core.DependencyDiagnostic {
   dependency_diagnostic_entry(
     "Missing dependency: Tesseract OCR",
     "Direct image OCR and Tesseract-backed fallback routes require a local Tesseract runtime on this machine.",
-    ["./samples/env/install_ocr_balance_deps.sh"],
-    ["./samples/env/install_ocr_balance_deps.sh"],
+    ["./tools/env/install_ocr_balance_deps.sh"],
+    ["./tools/env/install_ocr_balance_deps.sh"],
     footer=Some(
       "The install script records the repo-managed Tesseract path under `./env/managed-paths/tesseract`. Custom overrides can still use `MARKITDOWN_TESSERACT_BIN`, but repo-managed defaults win first.",
     ),
@@ -350,12 +350,12 @@ pub fn tesseract_ocr_dependency_diagnostic() -> @core.DependencyDiagnostic {
 pub fn paddle_ocr_install_hint() -> String {
   dependency_diagnostic_card(
     "Missing dependency: PaddleOCR wrapper",
-    "Accurate OCR and Accurate PDF OCR require a Paddle-backed wrapper command. Repo-root runs prefer the official repo-managed runtime after `./samples/env/install_ocr_pdf_accurate_deps.sh`; `MARKITDOWN_PADDLE_OCR_CMD` remains the lower-priority custom wrapper command, and `MARKITDOWN_RUNTIME_PYTHON` is the secondary official-wrapper fallback when the repo-managed runtime is unavailable.",
+    "Accurate OCR and Accurate PDF OCR require a Paddle-backed wrapper command. Repo-root runs prefer the official repo-managed runtime after `./tools/env/install_ocr_pdf_accurate_deps.sh`; `MARKITDOWN_PADDLE_OCR_CMD` remains the lower-priority custom wrapper command, and `MARKITDOWN_RUNTIME_PYTHON` is the secondary official-wrapper fallback when the repo-managed runtime is unavailable.",
     [
-      "./samples/env/install_ocr_pdf_accurate_deps.sh", "source ./env/accurate-ocr-pdf.env.sh",
+      "./tools/env/install_ocr_pdf_accurate_deps.sh", "source ./env/accurate-ocr-pdf.env.sh",
     ],
     [
-      "./samples/env/install_ocr_pdf_accurate_deps.sh", "source ./env/accurate-ocr-pdf.env.sh",
+      "./tools/env/install_ocr_pdf_accurate_deps.sh", "source ./env/accurate-ocr-pdf.env.sh",
     ],
     footer=Some(
       "The install script keeps Paddle Python packages in the repo-local virtualenv under `./env/`, and records repo-managed `tesseract`/`pdftoppm` paths under `./env/managed-paths/`. If you run from the repo root, `source ./env/accurate-ocr-pdf.env.sh` is optional; use it when you want the wrapper paths exported into another shell.",
@@ -367,12 +367,12 @@ pub fn paddle_ocr_install_hint() -> String {
 pub fn paddle_ocr_dependency_diagnostic() -> @core.DependencyDiagnostic {
   dependency_diagnostic_entry(
     "Missing dependency: PaddleOCR wrapper",
-    "Accurate OCR and Accurate PDF OCR require a Paddle-backed wrapper command. Repo-root runs prefer the official repo-managed runtime after `./samples/env/install_ocr_pdf_accurate_deps.sh`; `MARKITDOWN_PADDLE_OCR_CMD` remains the lower-priority custom wrapper command, and `MARKITDOWN_RUNTIME_PYTHON` is the secondary official-wrapper fallback when the repo-managed runtime is unavailable.",
+    "Accurate OCR and Accurate PDF OCR require a Paddle-backed wrapper command. Repo-root runs prefer the official repo-managed runtime after `./tools/env/install_ocr_pdf_accurate_deps.sh`; `MARKITDOWN_PADDLE_OCR_CMD` remains the lower-priority custom wrapper command, and `MARKITDOWN_RUNTIME_PYTHON` is the secondary official-wrapper fallback when the repo-managed runtime is unavailable.",
     [
-      "./samples/env/install_ocr_pdf_accurate_deps.sh", "source ./env/accurate-ocr-pdf.env.sh",
+      "./tools/env/install_ocr_pdf_accurate_deps.sh", "source ./env/accurate-ocr-pdf.env.sh",
     ],
     [
-      "./samples/env/install_ocr_pdf_accurate_deps.sh", "source ./env/accurate-ocr-pdf.env.sh",
+      "./tools/env/install_ocr_pdf_accurate_deps.sh", "source ./env/accurate-ocr-pdf.env.sh",
     ],
     footer=Some(
       "The install script keeps Paddle Python packages in the repo-local virtualenv under `./env/`, and records repo-managed `tesseract`/`pdftoppm` paths under `./env/managed-paths/`. If you run from the repo root, `source ./env/accurate-ocr-pdf.env.sh` is optional; use it when you want the wrapper paths exported into another shell.",

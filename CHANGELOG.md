@@ -5,8 +5,8 @@
 ### Current baseline
 
 * main-repo runtime and `moon test` remain self-contained
-* formal main regression runs through `bash ./samples/check_balance.sh` and explicitly depends on the checked-out external corpus repo
-* formal quality runs through `bash ./samples/check_balance_quality.sh` and explicitly depend on the same external corpus repo
+* formal main regression runs through `bash ./tools/regression/check_balance.sh` and explicitly depends on the checked-out external corpus repo
+* formal quality runs through `bash ./tools/regression/check_balance_quality.sh` and explicitly depend on the same external corpus repo
 * repo-root `./markitdown-quality-lab/` is the official home for:
   * external corpus payloads
   * benchmark payloads and `bench` sample manifests
@@ -19,7 +19,7 @@
 ### Validation baseline
 
 * `moon test`: `591 passed`
-* `./samples/check_balance.sh`: formal main regression remains external-corpus scoped and depends on the checked-out `markitdown-quality-lab` manifest
+* `./tools/regression/check_balance.sh`: formal main regression remains external-corpus scoped and depends on the checked-out `markitdown-quality-lab` manifest
 * public-only quality: `24 rows / 0 skipped / 0 expected_fail`
 * full quality remains external-corpus scoped and depends on the checked-out
   `markitdown-quality-lab` manifest
@@ -38,7 +38,7 @@
 * the retired checked-in `samples/quality_examples/` showcase is no longer part
   of the main repo workflow; formal quality coverage remains external-corpus
   scoped under `markitdown-quality-lab/external_quality/` through
-  `samples/check_balance_quality.sh`
+  `tools/regression/check_balance_quality.sh`
 * direct image OCR is now a formal main-CLI product path for
   `png/jpg/jpeg/bmp/webp/tif/tiff`; image input uses local Tesseract OCR by
   default, `--no-ocr` explicitly disables it, and `--ocr-lang` is accepted for
@@ -60,8 +60,8 @@
 * sample fixtures and contract checks were expanded and refreshed across OCR,
   PDF OCR, ZIP / EPUB / PPTX boundary cases, and release-facing CLI docs so the
   published command surface is now executable and regression-guarded end to end
-* `samples/check_balance.sh` remains the formal main-regression entrypoint on the external corpus, and
-  `samples/check_balance_quality.sh` remains the formal quality-regression entrypoint on the external corpus
+* `tools/regression/check_balance.sh` remains the formal main-regression entrypoint on the external corpus, and
+  `tools/regression/check_balance_quality.sh` remains the formal quality-regression entrypoint on the external corpus
 * benchmark sample payloads moved out of the main repo into
   `markitdown-quality-lab`, keeping runtime validation lightweight while leaving
   formal bench runs on the external corpus path

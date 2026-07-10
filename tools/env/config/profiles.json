@@ -1,0 +1,80 @@
+{
+  "profiles": {
+    "balance": {
+      "env_file": "balance-ocr-pdf.env.sh",
+      "fingerprint_file": "balance-runtime.json",
+      "venv_name": null,
+      "python_lock": null,
+      "python_version": null,
+      "system_tools": [
+        "tesseract",
+        "pdftoppm"
+      ],
+      "models": []
+    },
+    "audio": {
+      "env_file": "audio.env.sh",
+      "fingerprint_file": "audio-runtime.json",
+      "venv_name": ".venv-markitdown-audio",
+      "python_lock": "python/audio.lock",
+      "python_version": null,
+      "system_tools": [
+        "ffmpeg"
+      ],
+      "models": [
+        {
+          "binding": "audio_model",
+          "default_key": "en-us-small",
+          "allowed_keys": [
+            "en-us-small",
+            "cn-small"
+          ],
+          "env_var": "MARKITDOWN_AUDIO_MODEL_PATH",
+          "metadata_env_var": "MARKITDOWN_AUDIO_MODEL_METADATA_PATH"
+        }
+      ]
+    },
+    "accurate": {
+      "env_file": "accurate-ocr-pdf.env.sh",
+      "fingerprint_file": "accurate-runtime.json",
+      "venv_name": ".venv-markitdown-accurate",
+      "python_lock": "python/accurate.lock",
+      "python_version": null,
+      "system_tools": [
+        "tesseract",
+        "pdftoppm"
+      ],
+      "models": [
+        {
+          "binding": "paddle_default_det",
+          "key": "ocr-default-det",
+          "env_var": "MARKITDOWN_PADDLE_OCR_DEFAULT_DET_MODEL_DIR"
+        },
+        {
+          "binding": "paddle_default_rec",
+          "key": "ocr-default-rec",
+          "env_var": "MARKITDOWN_PADDLE_OCR_DEFAULT_REC_MODEL_DIR"
+        },
+        {
+          "binding": "paddle_korean_det",
+          "key": "ocr-korean-det",
+          "env_var": "MARKITDOWN_PADDLE_OCR_KOREAN_DET_MODEL_DIR"
+        },
+        {
+          "binding": "paddle_korean_rec",
+          "key": "ocr-korean-rec",
+          "env_var": "MARKITDOWN_PADDLE_OCR_KOREAN_REC_MODEL_DIR"
+        }
+      ]
+    },
+    "bench": {
+      "env_file": "bench-baseline.env.sh",
+      "fingerprint_file": "bench-runtime.json",
+      "venv_name": ".venv-markitdown-bench",
+      "python_lock": "python/bench.lock",
+      "python_version": null,
+      "system_tools": [],
+      "models": []
+    }
+  }
+}

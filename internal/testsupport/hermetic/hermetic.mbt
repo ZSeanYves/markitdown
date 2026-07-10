@@ -343,12 +343,12 @@ pub fn with_managed_command_record(
 
 ///|
 pub fn repo_local_runtime_python_path() -> String {
-  "env/.venv-markitdown-runtime/bin/python"
+  "env/.venv-markitdown-accurate/bin/python"
 }
 
 ///|
 pub fn repo_local_runtime_python_dir() -> String {
-  "env/.venv-markitdown-runtime/bin"
+  "env/.venv-markitdown-accurate/bin"
 }
 
 ///|

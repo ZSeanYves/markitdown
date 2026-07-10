@@ -43,5 +43,5 @@
 
 ```bash
 moon test
-bash samples/check_balance.sh
+bash tools/regression/check_balance.sh
 ```

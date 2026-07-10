@@ -33,15 +33,7 @@ pub fn audio_backend_name() -> String {
 
 ///|
 fn audio_default_model_path() -> String {
-  let cache_root = match @rtcmd.normalized_env_var("XDG_CACHE_HOME") {
-    Some(path) => path
-    None =>
-      match @rtcmd.normalized_env_var("HOME") {
-        Some(home) => home + "/.cache"
-        None => ".cache"
-      }
-  }
-  cache_root + "/markitdown/vosk/model"
+  @rtcmd.resolve_repo_relative_path("env/models/vosk/model")
 }
 
 ///|
@@ -63,13 +55,13 @@ fn audio_resolved_model_path() -> String {
 ///|
 fn audio_default_wrapper_path() -> String {
   @rtcmd.resolve_repo_relative_path(
-    "samples/env/audio/audio_transcribe_wrapper.py",
+    "tools/env/wrappers/audio_transcribe_wrapper.py",
   )
 }
 
 ///|
 fn repo_local_runtime_python_path() -> String {
-  @rtcmd.resolve_repo_relative_path("env/.venv-markitdown-runtime/bin/python")
+  @rtcmd.resolve_repo_relative_path("env/.venv-markitdown-audio/bin/python")
 }
 
 ///|
@@ -126,7 +118,7 @@ fn audio_wrapper_resolution_from_parts(
 ///|
 pub fn audio_transcribe_install_hint() -> String {
   [
-    "Preferred: run `./samples/env/install_audio_deps.sh` and let repo-root runs use the repo-managed virtualenv plus `samples/env/audio/audio_transcribe_wrapper.py` by default.",
+    "Preferred: run `./tools/env/install_audio_deps.sh` and let repo-root runs use the repo-managed virtualenv plus `tools/env/wrappers/audio_transcribe_wrapper.py` by default.",
     "Custom audio wrapper commands still work through `" +
     audio_command_env_var() +
     "`, but that is lower priority than the repo-managed runtime.",

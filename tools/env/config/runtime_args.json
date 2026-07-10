@@ -1,0 +1,50 @@
+{
+  "stable_env": {
+    "TZ": "UTC",
+    "LANG": "en_US.UTF-8",
+    "LC_ALL": "en_US.UTF-8",
+    "PYTHONHASHSEED": "0",
+    "OMP_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1",
+    "NUMEXPR_NUM_THREADS": "1"
+  },
+  "commands": {
+    "pdftoppm": [
+      "-r",
+      "150",
+      "-png"
+    ],
+    "tesseract": [
+      "--oem",
+      "1",
+      "--psm",
+      "6"
+    ],
+    "ffmpeg": [
+      "-ar",
+      "16000",
+      "-ac",
+      "1",
+      "-c:a",
+      "pcm_s16le"
+    ]
+  },
+  "paddle": {
+    "env": {
+      "FLAGS_enable_pir_api": "0"
+    },
+    "init_kwargs": {
+      "enable_mkldnn": false,
+      "use_doc_orientation_classify": false,
+      "use_doc_unwarping": false,
+      "use_textline_orientation": false
+    },
+    "predict_kwargs": {
+      "use_doc_orientation_classify": false,
+      "use_doc_unwarping": false,
+      "use_textline_orientation": false
+    }
+  }
+}

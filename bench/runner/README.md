@@ -49,5 +49,5 @@
 
 ```bash
 moon test
-bash samples/check_balance_quality.sh
+bash tools/regression/check_balance_quality.sh
 ```

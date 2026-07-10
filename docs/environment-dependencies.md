@@ -20,7 +20,7 @@ Use this when you need:
 Run:
 
 ```bash
-./samples/env/install_ocr_balance_deps.sh
+./tools/env/install_ocr_balance_deps.sh
 ```
 
 This script installs or records:
@@ -40,7 +40,7 @@ Use this when you need:
 Run:
 
 ```bash
-./samples/env/install_ocr_pdf_accurate_deps.sh
+./tools/env/install_ocr_pdf_accurate_deps.sh
 ```
 
 This script automatically prepares:
@@ -75,13 +75,13 @@ Use this when you need:
 Run:
 
 ```bash
-./samples/env/install_audio_deps.sh
+./tools/env/install_audio_deps.sh
 ```
 
 If you want the small Chinese model:
 
 ```bash
-./samples/env/install_audio_deps.sh --model cn-small
+./tools/env/install_audio_deps.sh --model cn-small
 ```
 
 This script automatically prepares:
@@ -108,7 +108,7 @@ source ./env/audio.env.sh
 If you need formal benchmark runs, or you need a local baseline `markitdown` CLI:
 
 ```bash
-./samples/env/install_bench_baseline_deps.sh
+./tools/env/install_bench_baseline_deps.sh
 ```
 
 This script installs the following under `./env/`:
@@ -134,7 +134,7 @@ To be explicit, `markitdown-quality-lab` is not only the home of external regres
 
 It currently serves both of these purposes:
 
-- main regression and quality-regression scripts such as `samples/check_balance.sh`, `samples/check_balance_quality.sh`, and `samples/check_accurate.sh`
+- main regression and quality-regression scripts such as `tools/regression/check_balance.sh`, `tools/regression/check_balance_quality.sh`, and `tools/regression/check_accurate.sh`
 - external benchmark samples and manifests used by formal benchmark runs
 
 When running from the repo root, the official expected location is:

@@ -99,6 +99,19 @@ fn pdf_parser_test_line(
 }
 
 ///|
+test "pdftoppm png command uses explicit raster baseline" {
+  let (_, argv) = build_pdftoppm_png_command(
+    "fixtures/input.pdf", ".tmp/pdf_pages",
+  )
+  assert_eq(argv.length(), 5)
+  assert_eq(argv[0], "-r")
+  assert_eq(argv[1], "150")
+  assert_eq(argv[2], "-png")
+  assert_eq(argv[3], "fixtures/input.pdf")
+  assert_eq(argv[4], ".tmp/pdf_pages/page")
+}
+
+///|
 test "pdf native parser default product path can return document ir" {
   let context = @parser.parse_context_with_limits(
     @parser.new_parse_context(@input.DetectedFormat::Pdf),

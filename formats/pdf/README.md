@@ -39,5 +39,5 @@
 
 ```bash
 moon test
-bash samples/check_balance.sh --format pdf
+bash tools/regression/check_balance.sh --format pdf
 ```
