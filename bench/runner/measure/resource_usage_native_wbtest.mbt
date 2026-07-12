@@ -1,7 +1,7 @@
 ///|
 test "native process measurement reports isolated positive RSS" {
   let argv = [
-    "/bin/sh", "-c", "i=0; while [ $i -lt 10000 ]; do i=$((i + 1)); done",
+    "/bin/sh", "-c", "i=0; while [ $i -lt 10000 ]; do i=$((i + 1)); done; sleep 0.05",
   ]
   let argv_blob = encode_c_string_blob(argv)
   let env_blob = encode_c_string_blob([])
