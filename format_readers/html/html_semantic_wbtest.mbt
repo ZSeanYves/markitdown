@@ -63,6 +63,39 @@ test "HTML semantic scope inspection covers fragments and malformed roots" {
 }
 
 ///|
+test "HTML semantic scope and table recovery cover empty fallback structures" {
+  let article = inspect_html_semantic_document(
+    collect_html_semantic_document(
+      parse_html_document("<article><p>article only</p></article>"),
+    ),
+  )
+  assert_true(article.scope_fact_count == 1)
+
+  let document_root = collect_html_semantic_document(
+    parse_html_document("<html><head><title>root only</title></head></html>"),
+  )
+  assert_true(document_root.scope.length() == 1)
+  assert_true(
+    document_root.scope[0].scope_source == HtmlDocumentScopeSource::DocumentRoot,
+  )
+  assert_true(document_root.scope[0].missing_body_warning)
+
+  let empty = collect_html_semantic_document(parse_html_document(""))
+  assert_true(empty.scope.length() == 1)
+  assert_true(empty.scope[0].scope_source == HtmlDocumentScopeSource::Heuristic)
+
+  let malformed_tables = collect_html_semantic_document(
+    parse_html_document(
+      "<main><table></table><table><thead></thead></table></main>",
+    ),
+  )
+  let warning_kinds = malformed_tables.warnings.map(warning => warning.kind)
+  assert_true(
+    warning_kinds.contains(HtmlSemanticWarningKind::MalformedTableStructure),
+  )
+}
+
+///|
 test "HTML semantic guards bound depth previews attributes and large tables" {
   let deep = Array::make(260, "<span>").join("") +
     Array::make(320, "x").join("") +

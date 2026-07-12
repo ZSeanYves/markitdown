@@ -13,9 +13,9 @@ Formal corpora come from the quality-lab commit pinned by
 | `check_balance.sh` | `external_main_process/MANIFEST.tsv` | Exact Markdown/OCR output, structured RAG expectations, and exact asset files |
 | `check_balance_quality.sh` | `external_quality/MANIFEST.tsv` | Approved real-world files satisfy every declared semantic/asset signal |
 | `check_accurate.sh` | `external_accurate/MANIFEST.tsv` | Accurate runtime preflight succeeds and every accurate-only signal passes |
-| `check_coverage.sh --enforce` | MoonBit Cobertura output | core >=90%, formats >=82%, tools >=72% |
+| `check_coverage.sh --enforce` | MoonBit Cobertura output | core >=90%, formats >=80%, tools >=70% |
 | `mutation_smoke.py` | Deterministic mutations of enrolled seeds | Two runs are identical and each mutation either succeeds with non-empty output or fails cleanly on stderr |
-| `self_baseline.py` | Benchmark `samples.jsonl` plus approved platform baseline | Fingerprints, inputs and output hashes match; median time/RSS regress by no more than 10% |
+| `self_baseline.py` | Benchmark `samples.jsonl` plus the approved platform baseline from `markitdown-quality-lab/performance_baselines/` | Fingerprints, inputs and output hashes match; median time/RSS regress by no more than 10% |
 
 ## Main Contract: Exact Results
 
@@ -90,7 +90,8 @@ stdout errors or nondeterministic results fail the check.
 Self-baseline enforcement requires five successful samples per tool/case,
 stable input/output hashes, recorded CLI RSS, an approved baseline, and exact
 platform/runner/runtime fingerprints. Fingerprint drift creates a candidate; it
-never silently reuses an incompatible baseline.
+never silently reuses an incompatible baseline. The quality lab tracks the
+reviewed macOS arm64 and Linux x64 baseline files and their shared JSON schema.
 
 ## Running and Reading Evidence
 

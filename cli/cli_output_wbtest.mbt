@@ -1305,3 +1305,8 @@ test "CLI ZIP asset lookup normalizes safe dot segments" {
     "Pictures/image.png",
   )
 }
+
+///|
+test "batch task skipped status has a stable manifest name" {
+  assert_eq(batch_task_status_name(BatchTaskStatus::Skipped), "skipped")
+}

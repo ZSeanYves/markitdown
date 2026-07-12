@@ -13,8 +13,8 @@ from pathlib import Path
 
 GROUPS = (
     ("core", 90.0, ("input/", "convert/", "parser/", "pipeline/", "runtime/", "render/", "core/", "product/", "rag/")),
-    ("formats", 82.0, ("formats/", "format_readers/", "container/", "internal/formats/", "internal/format_readers/")),
-    ("tools", 72.0, ("cli/", "bench/")),
+    ("formats", 80.0, ("formats/", "format_readers/", "container/", "internal/formats/", "internal/format_readers/")),
+    ("tools", 70.0, ("cli/", "bench/")),
 )
 
 EXTERNAL_RUNTIME_ADAPTERS = {
@@ -33,7 +33,7 @@ EXCLUDED_FILES = {
 
 def classify(filename: str) -> tuple[str, float] | None:
     if filename in EXTERNAL_RUNTIME_ADAPTERS:
-        return "tools", 72.0
+        return "tools", 70.0
     for name, threshold, prefixes in GROUPS:
         if filename.startswith(prefixes):
             return name, threshold

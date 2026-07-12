@@ -30,7 +30,10 @@ moon build --target native --release --package ZSeanYves/markitdown/bench/runner
 
 Inputs and manifests are loaded from
 `markitdown-quality-lab/external_bench/`; the main repository does not contain a
-fallback benchmark corpus.
+fallback benchmark corpus. Reviewed internal-comparison baselines are loaded
+from `markitdown-quality-lab/performance_baselines/`; the quality-lab currently
+tracks approved macOS arm64 and Linux x64 baselines with 106 CLI/engine cases
+per platform.
 
 ## Commands
 
@@ -76,6 +79,19 @@ Self-baseline cases require matching OS, architecture, runner, MoonBit/Python,
 runtime, input, and tool fingerprints. Matching baselines permit at most 10%
 time or RSS regression. Fingerprint changes produce a candidate for explicit
 review instead of silently accepting the old baseline.
+
+Use the baseline matching the controlled runner:
+
+```bash
+python3 tools/regression/self_baseline.py capture \
+  --run .tmp/bench/runs/<run_id> \
+  --output .tmp/bench/<platform>-candidate.json \
+  --platform-key <platform> \
+  --runner-class <runner-class>
+python3 tools/regression/self_baseline.py enforce \
+  --candidate .tmp/bench/<platform>-candidate.json \
+  --baseline markitdown-quality-lab/performance_baselines/<platform>.json
+```
 
 Current RSS budgets are enforced from benchmark policy rather than duplicated
 in this document. Inspect `bench/config/policy.json` and the generated summary

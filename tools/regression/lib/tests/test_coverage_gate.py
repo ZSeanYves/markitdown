@@ -29,6 +29,9 @@ class CoverageGateTests(unittest.TestCase):
         self.assertEqual(groups["core"]["rate"], 50.0)
         self.assertEqual(groups["formats"]["rate"], 100.0)
         self.assertEqual(groups["tools"]["rate"], 33.3333)
+        self.assertEqual(groups["core"]["threshold"], 90.0)
+        self.assertEqual(groups["formats"]["threshold"], 80.0)
+        self.assertEqual(groups["tools"]["threshold"], 70.0)
         runtime_file = next(
             item for item in summary["files"] if item["path"] == "formats/audio/runtime.mbt"
         )

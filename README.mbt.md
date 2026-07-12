@@ -70,8 +70,10 @@ repo-locked Microsoft MarkItDown `0.1.6` baseline:
 
 ODF and optional dependency-backed balance cases use reviewed self baselines
 instead of invalid external comparisons. Dependency versions are locked under
-`tools/env/config/`; inspect a generated `results/summary.json` for the complete
-measurement evidence.
+`tools/env/config/`. Approved macOS arm64 and Linux x64 baselines, each covering
+106 CLI/engine cases, live under
+`markitdown-quality-lab/performance_baselines/`; inspect a generated
+`results/summary.json` for the complete measurement evidence.
 
 For full benchmark usage, see [bench/README.md](./bench/README.md).
 For benchmark architecture, see
@@ -168,8 +170,9 @@ moon info
 moon fmt
 ```
 
-The external corpus repository is only required for `tools/regression/check*.sh`
-and formal benchmarks. If it is not present locally:
+The quality-lab repository is only required for `tools/regression/check*.sh`
+and formal benchmarks, including internal baseline enforcement. If it is not
+present locally:
 
 ```bash
 git clone https://github.com/ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab

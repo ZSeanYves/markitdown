@@ -5,7 +5,7 @@ on:
   pull_request:
   workflow_dispatch:
   schedule:
-    - cron: "17 3 * * 1"
+    - cron: "17 3 * * 6"
 
 permissions:
   contents: read
@@ -27,7 +27,7 @@ env:
   OPENBLAS_NUM_THREADS: "1"
   VECLIB_MAXIMUM_THREADS: "1"
   NUMEXPR_NUM_THREADS: "1"
-  MARKITDOWN_QUALITY_LAB_SHA: "6f581e9498de623b4181cd51c95e0c8bbfc0fd68"
+  MARKITDOWN_QUALITY_LAB_SHA: "cc51a36346e099cdb02f18e63d579577afd4a3dc"
 
 jobs:
   core:
