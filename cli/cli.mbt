@@ -11,7 +11,7 @@
 /// Run the CLI against the default OCR provider and return the rendered output
 /// payload.
 pub fn run_cli(opts : CliOptions) -> Result[String, String] {
-  run_cli_with_image_ocr_provider(opts, @focr.run_ocr_provider)
+  run_cli_with_image_ocr_provider_impl(opts, @focr.run_ocr_provider, false)
 }
 
 ///|
@@ -24,8 +24,23 @@ pub fn run_cli_with_image_ocr_provider(
     @focr.OcrProviderError,
   ],
 ) -> Result[String, String] {
+  run_cli_with_image_ocr_provider_impl(opts, image_ocr_provider, false)
+}
+
+///|
+fn run_cli_with_image_ocr_provider_impl(
+  opts : CliOptions,
+  image_ocr_provider : (@focr.OcrProviderRequest) -> Result[
+    @focr.OcrProviderResult,
+    @focr.OcrProviderError,
+  ],
+  emit_warnings : Bool,
+) -> Result[String, String] {
   run_cli_with_image_ocr_provider_and_pdf_rasterizer(
-    opts, image_ocr_provider, @fpdf.rasterize_pdf_with_pdftoppm_default,
+    opts,
+    image_ocr_provider,
+    @fpdf.rasterize_pdf_with_pdftoppm_default,
+    emit_warnings,
   )
 }
 
@@ -40,6 +55,7 @@ fn run_cli_with_image_ocr_provider_and_pdf_rasterizer(
     (@fpdf.PdfRasterResult, String),
     @fpdf.PdfRasterizerError,
   ],
+  emit_warnings : Bool = false,
 ) -> Result[String, String] {
   let requested_format = cli_requested_format(opts)
   if !cli_is_supported_format(requested_format) {
@@ -79,8 +95,10 @@ fn run_cli_with_image_ocr_provider_and_pdf_rasterizer(
     err => return Err("write provenance failed: " + err.to_string())
   }
   ignore(requested_format)
-  cli_emit_conversion_warnings(execution.result)
-  cli_render_convert_result(opts, execution.result)
+  if emit_warnings {
+    cli_emit_conversion_warnings(execution.result)
+  }
+  cli_render_convert_result(opts, execution.result, emit_warnings)
 }
 
 ///|
@@ -107,6 +125,7 @@ fn cli_emit_conversion_warnings(result : @convert.ConvertResult) -> Unit {
 fn cli_render_convert_result(
   opts : CliOptions,
   result : @convert.ConvertResult,
+  emit_warnings : Bool = false,
 ) -> Result[String, String] {
   if result.content.trim() == "" && result.diagnostics.errors.length() > 0 {
     return Err("conversion failed: " + result.diagnostics.errors.join("; "))
@@ -124,7 +143,9 @@ fn cli_render_convert_result(
       )
       for warning in resolved.warnings {
         result.diagnostics.warnings.push(warning)
-        cli_write_stderr("warning: " + warning + "\n")
+        if emit_warnings {
+          cli_write_stderr("warning: " + warning + "\n")
+        }
       }
       let persisted_content = normalized_written_content(resolved.content)
       let parent = dirname_of_path(path)
@@ -146,7 +167,9 @@ fn cli_render_convert_result(
       )
       for warning in resolved.warnings {
         result.diagnostics.warnings.push(warning)
-        cli_write_stderr("warning: " + warning + "\n")
+        if emit_warnings {
+          cli_write_stderr("warning: " + warning + "\n")
+        }
       }
       Ok(resolved.content)
     }
@@ -213,12 +236,13 @@ pub fn run_cli_app(raw_cli_args : Array[String]) -> Int {
     Ok(value) => value
     Err(msg) => return exit_cli_error(msg, true)
   }
-  let rendered = match run_cli(opts) {
+  let rendered = match
+    run_cli_with_image_ocr_provider_impl(opts, @focr.run_ocr_provider, true) {
     Ok(value) => value
     Err(msg) => return exit_cli_error(msg, false)
   }
   if opts.output is None {
-    println(rendered)
+    cli_println(rendered)
   }
   0
 }

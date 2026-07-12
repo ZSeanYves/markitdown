@@ -1,0 +1,11 @@
+warning: rst canonical semantic block activated
+warning: rst canonical semantic block activated
+warning: rst degraded complex boundary preserved as raw block
+warning: rst degraded complex boundary preserved as raw block
+warning: rst degraded complex quote/admonition preserved as block quote
+warning: rst degraded complex quote/admonition preserved as block quote
+warning: rst canonical semantic block activated
+warning: rst degraded complex boundary preserved as raw block
+warning: rst degraded complex boundary preserved as raw block
+warning: rst degraded complex boundary preserved as raw block
+warning: asset unavailable: images/biohazard.png

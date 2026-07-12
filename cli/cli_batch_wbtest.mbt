@@ -8,7 +8,7 @@ test "main cli batch writes manifest for single markdown input" {
   let out_dir = root + "/out"
   write_utf8_text(input_path, "# Title\n\nhello batch\n")
 
-  let exit_code = run_cli_app(["markitdown-mb", "batch", input_path, out_dir])
+  let exit_code = run_cli_app_silent(["markitdown-mb", "batch", input_path, out_dir])
   assert_eq(exit_code, 0)
   assert_true(@fs.path_exists(out_dir + "/manifest.json"))
   assert_true(@fs.path_exists(out_dir + "/note.md.md"))
@@ -29,7 +29,7 @@ test "main cli batch accurate keeps pdf tasks in the manifest instead of prefilt
   write_utf8_text(input_dir + "/note.md", "# Title\n\nok\n")
   write_utf8_text(input_dir + "/scan.pdf", "%PDF-1.4 fake")
 
-  let exit_code = run_cli_app([
+  let exit_code = run_cli_app_silent([
     "markitdown-mb", "batch", "accurate", input_dir, out_dir,
   ])
   assert_eq(exit_code, 1)
@@ -95,7 +95,7 @@ test "main CLI batch filesystem helpers and missing inputs fail closed" {
     ".debug.json",
   )
   assert_eq(
-    run_cli_app([
+    run_cli_app_silent([
       "markitdown",
       "batch",
       "/definitely/missing/input",

@@ -192,9 +192,20 @@ pub fn run_bench_cli_entry(
     "report" => report_command(args[1:].to_owned())
     "doctor" => doctor_command(runner)
     _ => {
-      println("unknown bench command: " + args[0])
+      bench_println("unknown bench command: " + args[0])
       print_bench_help()
       2
     }
   }
+}
+
+///|
+fn run_bench_cli_entry_silent(
+  raw_args : Array[String],
+  runner : @command.RunnerContext,
+) -> Int {
+  let was_enabled = bench_console_enabled.val
+  bench_console_enabled.val = false
+  defer bench_console_enabled.val = was_enabled
+  run_bench_cli_entry(raw_args, runner)
 }

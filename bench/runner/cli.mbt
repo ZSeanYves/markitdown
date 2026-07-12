@@ -19,33 +19,33 @@ fn normalize_bench_args(raw_args : Array[String]) -> Array[String] {
 
 ///|
 fn print_bench_help() -> Unit {
-  println("Bench binary-only runner for mb-markitdown.")
-  println("Usage:")
-  println(
+  bench_println("Bench binary-only runner for mb-markitdown.")
+  bench_println("Usage:")
+  bench_println(
     "  _build/native/release/build/bench/runner/runner.exe catalog rows [--tiers regular,release,stress] [--bench-id <id[,more]>] [--format <fmt[,more]>] [--comparison-class external_compare|self_baseline] [--limit N]",
   )
-  println(
+  bench_println(
     "  _build/native/release/build/bench/runner/runner.exe catalog scenarios",
   )
-  println(
+  bench_println(
     "  _build/native/release/build/bench/runner/runner.exe run --preset official-internal [--limit N]",
   )
-  println(
+  bench_println(
     "  _build/native/release/build/bench/runner/runner.exe run --preset official-external-compare [--limit N] [--markitdown-path <path>]",
   )
-  println(
+  bench_println(
     "  _build/native/release/build/bench/runner/runner.exe run --preset official-self-baseline [--limit N] [--baseline <run_id>]",
   )
-  println(
+  bench_println(
     "  _build/native/release/build/bench/runner/runner.exe run --scenario <scenario_id> [--bench-id <id>] [--limit N]",
   )
-  println(
+  bench_println(
     "  run options: [--progress auto|json|off] [--keep-outputs failures|all|none] [--resume <run_id>] [--max-disk-mb N]",
   )
-  println(
+  bench_println(
     "  _build/native/release/build/bench/runner/runner.exe report --run <run_id> [--baseline <run_id>]",
   )
-  println("  _build/native/release/build/bench/runner/runner.exe doctor")
+  bench_println("  _build/native/release/build/bench/runner/runner.exe doctor")
 }
 
 ///|
@@ -55,25 +55,25 @@ fn run_catalog(args : Array[String]) -> Int {
     return 1
   }
   if args.length() == 0 {
-    println("catalog requires rows|scenarios")
+    bench_println("catalog requires rows|scenarios")
     return 2
   }
   match args[0] {
     "rows" => {
       let request = @manifest.parse_select_request(args[1:].to_owned()) catch {
         err => {
-          println("catalog rows argument error: " + err.to_string())
+          bench_println("catalog rows argument error: " + err.to_string())
           return 2
         }
       }
       for row in @manifest.select_rows(request) {
-        println(row.to_json().stringify())
+        bench_println(row.to_json().stringify())
       }
       0
     }
     "scenarios" => {
       for scenario in policy_scenarios(policy.unwrap()) {
-        println(
+        bench_println(
           Json::object({
             "scenario_id": scenario.scenario_id.to_json(),
             "scenario_kind": scenario.scenario_kind.to_json(),
@@ -86,7 +86,7 @@ fn run_catalog(args : Array[String]) -> Int {
       0
     }
     _ => {
-      println("unsupported catalog target: " + args[0])
+      bench_println("unsupported catalog target: " + args[0])
       2
     }
   }
@@ -96,7 +96,7 @@ fn run_catalog(args : Array[String]) -> Int {
 fn run_command(args : Array[String], runner : @command.RunnerContext) -> Int {
   let opts = parse_run_options(args) catch {
     err => {
-      println("run argument error: " + err.to_string())
+      bench_println("run argument error: " + err.to_string())
       return 2
     }
   }
@@ -137,7 +137,7 @@ fn run_command(args : Array[String], runner : @command.RunnerContext) -> Int {
   if payload is None {
     return 1
   }
-  println(payload.unwrap().stringify())
+  bench_println(payload.unwrap().stringify())
   0
 }
 
@@ -145,7 +145,7 @@ fn run_command(args : Array[String], runner : @command.RunnerContext) -> Int {
 fn report_command(args : Array[String]) -> Int {
   let run_id = parse_report_run_id(args) catch {
     err => {
-      println("report argument error: " + err.to_string())
+      bench_println("report argument error: " + err.to_string())
       return 2
     }
   }
@@ -157,7 +157,7 @@ fn report_command(args : Array[String]) -> Int {
   if summary is None {
     return 1
   }
-  println(summary.unwrap().to_json().stringify())
+  bench_println(summary.unwrap().to_json().stringify())
   0
 }
 
@@ -171,7 +171,7 @@ fn doctor_command(runner : @command.RunnerContext) -> Int {
     return 1
   }
   let value = contract.unwrap()
-  println(
+  bench_println(
     Json::object({
       "runner_path": value.runner_path.to_json(),
       "cli_path": value.cli_path.to_json(),
@@ -188,7 +188,7 @@ fn[T] unwrap_or_report(result : Result[T, BenchError], label : String) -> T? {
   match result {
     Ok(value) => Some(value)
     Err(err) => {
-      println(label + ": " + err.to_string())
+      bench_println(label + ": " + err.to_string())
       None
     }
   }

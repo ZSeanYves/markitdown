@@ -1,7 +1,17 @@
 ///|
+let bench_console_enabled : Ref[Bool] = Ref(true)
+
+///|
+fn bench_println(message : String) -> Unit {
+  if bench_console_enabled.val {
+    println(message)
+  }
+}
+
+///|
 #cfg(not(target="native"))
 fn bench_write_stderr(message : String) -> Unit {
-  println(message)
+  bench_println(message)
 }
 
 ///|
@@ -16,6 +26,9 @@ extern "C" fn bench_stderr_isatty_ffi() -> Int = "markitdown_bench_stderr_isatty
 ///|
 #cfg(target="native")
 fn bench_write_stderr(message : String) -> Unit {
+  if !bench_console_enabled.val {
+    return
+  }
   let payload = @utf8.encode(message)
   if payload.length() == 0 {
     return

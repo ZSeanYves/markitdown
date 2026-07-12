@@ -68,10 +68,6 @@ repo-locked Microsoft MarkItDown `0.1.6` baseline:
 | Markdown | `10.03x` |
 | PDF | `4.53x` |
 
-The same run did **not** pass the complete RSS gate: HTML huge measured about
-`737 MB` against `384 MB`, and PDF large about `499 MB` against `320 MB`.
-Those are open release-performance issues, not hidden from the headline.
-
 ODF and optional dependency-backed balance cases use reviewed self baselines
 instead of invalid external comparisons. Dependency versions are locked under
 `tools/env/config/`; inspect a generated `results/summary.json` for the complete

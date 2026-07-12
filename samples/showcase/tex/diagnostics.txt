@@ -1,0 +1,11 @@
+warning: tex degraded complex boundary preserved as raw block
+warning: tex degraded complex boundary preserved as raw block
+warning: tex canonical semantic block activated
+warning: tex degraded complex quote/admonition preserved as block quote
+warning: tex degraded complex quote/admonition preserved as block quote
+warning: tex degraded complex boundary preserved as raw block
+warning: tex degraded complex boundary preserved as raw block
+warning: tex degraded complex boundary preserved as raw block
+warning: tex degraded complex boundary preserved as raw block
+warning: tex degraded complex quote/admonition preserved as block quote
+warning: tex degraded complex boundary preserved as raw block

@@ -1,14 +1,14 @@
 ///|
 test "main CLI app dispatches help version and removed command guidance" {
-  assert_eq(run_cli_app(["markitdown"]), 0)
+  assert_eq(run_cli_app_silent(["markitdown"]), 0)
   for arg in ["help", "--help", "-h"] {
-    assert_eq(run_cli_app(["markitdown", arg]), 0)
+    assert_eq(run_cli_app_silent(["markitdown", arg]), 0)
   }
   for arg in ["version", "--version"] {
-    assert_eq(run_cli_app(["markitdown", arg]), 0)
+    assert_eq(run_cli_app_silent(["markitdown", arg]), 0)
   }
   for arg in ["convert", "normal", "debug", "ocr", "bench"] {
-    assert_eq(run_cli_app(["markitdown", arg]), 1)
+    assert_eq(run_cli_app_silent(["markitdown", arg]), 1)
   }
 }
 
@@ -25,7 +25,7 @@ test "main CLI app fails closed on malformed option sets" {
     ["markitdown", "batch", "accurate"],
   ]
   for args in invalid {
-    assert_eq(run_cli_app(args), 1)
+    assert_eq(run_cli_app_silent(args), 1)
   }
 }
 

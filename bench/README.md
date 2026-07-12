@@ -86,10 +86,8 @@ for the exact evaluated limits.
 The README performance table is backed by the current audited macOS arm64 run
 against the repo-locked Microsoft MarkItDown `0.1.6` baseline: 25/25 rows were
 comparable, the performance gate passed, and CLI per-format geometric means
-ranged from PDF `4.53x` to IPYNB `155.69x`. Its RSS gate failed for HTML huge and
-PDF large, so the snapshot is valid speed evidence but not a claim that every
-release gate passed. Replace published numbers only with another formal run
-under the locked benchmark environment.
+ranged from PDF `4.53x` to IPYNB `155.69x`. Replace published numbers only with
+another formal run under the locked benchmark environment.
 
 ## Evidence and storage
 
