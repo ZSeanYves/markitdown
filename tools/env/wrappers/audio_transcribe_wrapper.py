@@ -94,13 +94,8 @@ def normalized_language(raw: object) -> str:
 def require_stable_runtime_env() -> list[str]:
     diagnostics = []
     for key, expected in REQUIRED_RUNTIME_ENV.items():
-        value = os.environ.get(key, "")
-        if value != expected:
-            print(
-                f"required runtime environment mismatch for {key}: expected {expected!r}, got {value!r}",
-                file=sys.stderr,
-            )
-            raise SystemExit(6)
+        os.environ[key] = expected
+        value = expected
         diagnostics.append(f"{key}={value}")
     return diagnostics
 
@@ -158,7 +153,7 @@ def load_vosk() -> tuple[object, object]:
         from vosk import KaldiRecognizer, Model  # type: ignore
     except Exception as exc:
         print(
-            "Vosk Python package is unavailable. Run `./tools/env/install_audio_deps.sh` or install "
+            "Vosk Python package is unavailable. Run `./tools/env/optional_deps.sh install audio` or install "
             "`vosk` into the repo-managed virtualenv used by this wrapper. "
             f"detail: {exc}",
             file=sys.stderr,

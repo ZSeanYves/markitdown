@@ -58,6 +58,17 @@ class PackageManagerTests(unittest.TestCase):
             self.assertTrue(Path(state.record_path).is_file())
             self.assertTrue(Path(state.metadata_path).is_file())
 
+            with mock.patch.dict(os.environ, env_with_path(fake_bin), clear=False):
+                with mock.patch.object(session, "_ensure_packages"):
+                    repeated = session.ensure_tool("ffmpeg")
+            self.assertEqual(
+                Path(repeated.symlink_path).resolve(),
+                Path(state.command_path),
+            )
+            self.assertEqual(
+                list(Path(repeated.symlink_path).parent.glob(".ffmpeg.tmp-*")), []
+            )
+
             check_session = PackageManagerSession(
                 bundle,
                 platform,
@@ -85,8 +96,66 @@ class PackageManagerTests(unittest.TestCase):
             )
             with mock.patch.dict(os.environ, env_with_path(fake_bin), clear=False):
                 with mock.patch.object(session, "_ensure_packages"):
-                    with self.assertRaises(EnvError):
-                        session.ensure_tool("ffmpeg")
+                    with mock.patch.object(session, "_refresh_packages") as refresh:
+                        with self.assertRaises(EnvError):
+                            session.ensure_tool("ffmpeg")
+            refresh.assert_called_once_with(["ffmpeg"], "apt")
+
+    def test_version_fragment_mismatch_refreshes_packages(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp) / "repo"
+            fake_bin = repo_root / "fake-bin"
+            executable = fake_bin / "ffmpeg"
+            write_executable(
+                executable,
+                "#!/bin/sh\necho 'ffmpeg version 0.0.1'\n",
+            )
+            bundle, platform = self.make_bundle(repo_root)
+            session = PackageManagerSession(
+                bundle,
+                platform,
+                no_sudo=True,
+                check_only=False,
+            )
+
+            def upgrade_fake_package(*_args: object) -> None:
+                write_executable(
+                    executable,
+                    "#!/bin/sh\necho 'ffmpeg version 9.9.9-test'\n",
+                )
+
+            with mock.patch.dict(os.environ, env_with_path(fake_bin), clear=False):
+                with mock.patch.object(session, "_ensure_packages"):
+                    with mock.patch.object(
+                        session,
+                        "_refresh_packages",
+                        side_effect=upgrade_fake_package,
+                    ) as refresh:
+                        state = session.ensure_tool("ffmpeg")
+
+            refresh.assert_called_once_with(["ffmpeg"], "apt")
+            self.assertEqual(state.version_line, "ffmpeg version 9.9.9-test")
+
+    def test_brew_refresh_updates_and_upgrades_requested_packages(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp) / "repo"
+            bundle, platform = self.make_bundle(repo_root)
+            session = PackageManagerSession(
+                bundle,
+                platform,
+                no_sudo=True,
+                check_only=False,
+            )
+            with mock.patch("envkit.package_manager.run") as run_command:
+                session._refresh_packages(["poppler"], "brew")
+
+            self.assertEqual(
+                run_command.call_args_list,
+                [
+                    mock.call(["brew", "update"]),
+                    mock.call(["brew", "upgrade", "poppler"]),
+                ],
+            )
 
 
 if __name__ == "__main__":

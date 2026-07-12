@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 import shutil
+import subprocess
 import tarfile
 import tempfile
 import urllib.request
@@ -107,12 +109,66 @@ def download_archive(env_root: Path, spec: dict) -> Path:
     archive_path = downloads_dir / archive_name
     if archive_path.is_file() and sha256_file(archive_path) == spec["sha256"]:
         return archive_path
-    if archive_path.exists():
-        archive_path.unlink()
-    with urllib.request.urlopen(spec["url"]) as response, archive_path.open("wb") as handle:
-        shutil.copyfileobj(response, handle)
-    if sha256_file(archive_path) != spec["sha256"]:
-        raise EnvError(f"checksum mismatch for model archive: {spec['url']}")
+    temporary = archive_path.with_name(f".{archive_path.name}.part-{os.getpid()}")
+    if temporary.exists():
+        temporary.unlink()
+    print(f"[deps] downloading model {spec['key']} from {spec['url']}", flush=True)
+    try:
+        curl = shutil.which("curl")
+        if curl:
+            completed = subprocess.run(
+                [
+                    curl,
+                    "--fail",
+                    "--location",
+                    "--retry",
+                    "3",
+                    "--retry-all-errors",
+                    "--connect-timeout",
+                    "20",
+                    "--speed-time",
+                    "60",
+                    "--speed-limit",
+                    "1024",
+                    "--progress-bar",
+                    "--output",
+                    str(temporary),
+                    spec["url"],
+                ],
+                check=False,
+            )
+            if completed.returncode != 0:
+                raise EnvError(
+                    f"model download failed ({completed.returncode}): {spec['url']}"
+                )
+        else:
+            with (
+                urllib.request.urlopen(spec["url"], timeout=60) as response,
+                temporary.open("wb") as handle,
+            ):
+                total = int(response.headers.get("Content-Length", "0") or 0)
+                downloaded = 0
+                next_report = 8 * 1024 * 1024
+                while True:
+                    chunk = response.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    handle.write(chunk)
+                    downloaded += len(chunk)
+                    if downloaded >= next_report:
+                        detail = (
+                            f"{downloaded * 100 // total}%"
+                            if total > 0
+                            else f"{downloaded // (1024 * 1024)} MiB"
+                        )
+                        print(f"[deps] model {spec['key']}: {detail}", flush=True)
+                        next_report += 8 * 1024 * 1024
+        if sha256_file(temporary) != spec["sha256"]:
+            raise EnvError(f"checksum mismatch for model archive: {spec['url']}")
+        os.replace(temporary, archive_path)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
     return archive_path
 
 

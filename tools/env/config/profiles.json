@@ -1,14 +1,13 @@
 {
   "profiles": {
     "balance": {
-      "env_file": "balance-ocr-pdf.env.sh",
+      "env_file": "balance-ocr.env.sh",
       "fingerprint_file": "balance-runtime.json",
       "venv_name": null,
       "python_lock": null,
       "python_version": null,
       "system_tools": [
-        "tesseract",
-        "pdftoppm"
+        "tesseract"
       ],
       "models": []
     },
@@ -73,6 +72,7 @@
       "venv_name": ".venv-markitdown-bench",
       "python_lock": "python/bench.lock",
       "python_version": null,
+      "python_requires": ">=3.10,<3.14",
       "system_tools": [],
       "models": []
     }

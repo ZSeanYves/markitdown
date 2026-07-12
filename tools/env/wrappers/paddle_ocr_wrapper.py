@@ -97,11 +97,8 @@ def mapped_language(language: str | None) -> str | None:
 def require_stable_runtime_env() -> list[str]:
     diagnostics = []
     for key, expected in REQUIRED_RUNTIME_ENV.items():
-        value = os.environ.get(key, "")
-        if value != expected:
-            raise RuntimeError(
-                f"required runtime environment mismatch for {key}: expected {expected!r}, got {value!r}"
-            )
+        os.environ[key] = expected
+        value = expected
         diagnostics.append(f"{key}={value}")
     return diagnostics
 
@@ -145,7 +142,7 @@ def resolve_model_bundle(language: str | None) -> tuple[Path, Path, list[str]]:
     rec_raw = os.environ.get(rec_env, "").strip()
     if not det_raw or not rec_raw:
         raise RuntimeError(
-            "managed Paddle model directories are not configured; run ./tools/env/install_ocr_pdf_accurate_deps.sh"
+            "managed Paddle model directories are not configured; run ./tools/env/optional_deps.sh install accurate"
         )
     det_dir = Path(det_raw)
     rec_dir = Path(rec_raw)

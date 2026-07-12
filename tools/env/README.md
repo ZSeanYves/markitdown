@@ -1,32 +1,52 @@
-# Managed Env
+# Optional Runtime Management
 
-`tools/env/` owns the repository-managed runtime setup for optional OCR, audio,
-and benchmark dependencies.
+`tools/env/` manages every dependency that is intentionally outside the native
+MoonBit core. Core document readers do not require this directory at runtime.
 
-Primary entrypoints:
-
-```bash
-./tools/env/install_ocr_balance_deps.sh
-./tools/env/install_audio_deps.sh
-./tools/env/install_ocr_pdf_accurate_deps.sh
-./tools/env/install_bench_baseline_deps.sh
-```
-
-What this toolchain manages:
-
-- system tools such as `tesseract`, `pdftoppm`, and `ffmpeg`
-- profile-specific repo-local virtualenvs under `./env/`
-- pinned Python lockfiles under `tools/env/config/python/`
-- managed model downloads with checksum and metadata validation
-- generated env files and structured fingerprints under `./env/`
-
-Useful helpers:
+## Public entrypoints
 
 ```bash
-bash ./tools/env/share/test_env_preflight.sh
-./tools/env/install_audio_deps.sh --check
-./tools/env/install_ocr_pdf_accurate_deps.sh --check
+./tools/env/optional_deps.sh install core
+./tools/env/optional_deps.sh install balance
+./tools/env/optional_deps.sh install audio
+./tools/env/optional_deps.sh install accurate
+./tools/env/optional_deps.sh install bench
+./tools/env/optional_deps.sh install all
+
+./tools/env/optional_deps.sh check all
+./tools/env/reset_test_env.sh
 ```
 
-Generated state remains under `./env/`; `tools/env/` only contains source and
-configuration.
+Profiles have narrow ownership:
+
+| Profile | Installs | Product boundary |
+| --- | --- | --- |
+| `core` | nothing | verifies the dependency-free native boundary |
+| `balance` | Tesseract | top-level image OCR and standalone ZIP image children |
+| `audio` | Vosk, model, ffmpeg | optional `wav/mp3/m4a` transcription |
+| `accurate` | PaddleOCR, models, pdftoppm | optional direct-image/PDF accurate routes |
+| `bench` | Microsoft MarkItDown environment | development comparison only |
+
+`install` creates repo-local state under ignored `env/`. `check` is read-only
+and rejects missing, incomplete, or fingerprint-incompatible state. Official
+wrappers establish their deterministic child-process environment themselves;
+generated `env/*.env.sh` files are available for custom shells but are not
+required for normal repo-root CLI runs.
+
+## Internal layout
+
+- `lib/`: installer, lock, fingerprint, package-manager, and model logic.
+- `config/`: profile, tool, model, and Python lock data.
+- `wrappers/`: stable OCR and audio process ABIs.
+- `installers/`: four compatibility entrypoints retained for older automation.
+- `share/`: implementation helpers used by the manager.
+
+New documentation and automation must call `optional_deps.sh`; do not introduce
+new direct calls to `installers/`.
+
+## Verification
+
+```bash
+find tools/env -type f -name '*.sh' -print0 | xargs -0 bash -n
+python3 -m unittest discover -s tools/env/lib/tests -p 'test_*.py'
+```

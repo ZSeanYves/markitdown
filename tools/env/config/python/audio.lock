@@ -7,5 +7,5 @@ requests==2.34.2
 srt==3.5.3
 tqdm==4.68.4
 urllib3==2.7.0
-vosk==0.3.45
+vosk==0.3.44
 websockets==16.0

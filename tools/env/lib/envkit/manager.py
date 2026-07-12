@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import shutil
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Iterator
 
 from .config import ConfigBundle, detect_platform_key
 from .doctor import (
@@ -47,26 +50,48 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
-        if args.command == "install":
-            install_profile(args)
-            return 0
-        if args.command == "sync-model":
-            sync_model(args)
-            return 0
+        bundle = ConfigBundle()
+        with environment_lock(generated_env_root(bundle.repo_root)):
+            if args.command == "install":
+                install_profile(args, bundle=bundle)
+                return 0
+            if args.command == "sync-model":
+                sync_model(args, bundle=bundle)
+                return 0
     except EnvError as exc:
         print(f"[deps] error: {exc}")
         return 1
     raise AssertionError(f"unreachable command: {args.command}")
 
 
-def install_profile(args: argparse.Namespace) -> None:
-    bundle = ConfigBundle()
+@contextmanager
+def environment_lock(env_root: Path) -> Iterator[None]:
+    env_root.mkdir(parents=True, exist_ok=True)
+    lock_path = env_root / ".install.lock"
+    with lock_path.open("a+", encoding="utf-8") as handle:
+        print(f"[deps] waiting for environment lock: {lock_path}", flush=True)
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        print(f"[deps] acquired environment lock: {lock_path}", flush=True)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
+def install_profile(
+    args: argparse.Namespace,
+    *,
+    bundle: ConfigBundle | None = None,
+) -> None:
+    bundle = bundle or ConfigBundle()
     profile = bundle.profile(args.profile)
     platform = detect_platform_key(bundle)
     env_root = generated_env_root(bundle.repo_root)
     env_root.mkdir(parents=True, exist_ok=True)
     require_en_us_utf8_locale()
     assert_runtime_contracts(bundle.repo_root, bundle.runtime_args)
+    action = "checking" if args.check else "installing"
+    print(f"[deps] {action} optional profile: {args.profile}", flush=True)
 
     package_session = PackageManagerSession(
         bundle,
@@ -74,13 +99,17 @@ def install_profile(args: argparse.Namespace) -> None:
         no_sudo=args.no_sudo,
         check_only=args.check,
     )
-    tool_states = {
-        tool_name: package_session.ensure_tool(tool_name)
-        for tool_name in profile["system_tools"]
-    }
+    tool_states: dict[str, ToolState] = {}
+    for tool_name in profile["system_tools"]:
+        print(f"[deps] resolving system tool: {tool_name}", flush=True)
+        tool_states[tool_name] = package_session.ensure_tool(tool_name)
 
     venv_state: VenvState | None = None
     if profile["venv_name"] and profile["python_lock"]:
+        print(
+            f"[deps] synchronizing Python runtime: {profile['venv_name']}",
+            flush=True,
+        )
         python_bin = resolve_requested_python(args.python_bin)
         venv_state = ensure_venv_from_lock(
             venv_path=env_root / profile["venv_name"],
@@ -89,8 +118,14 @@ def install_profile(args: argparse.Namespace) -> None:
             check_only=args.check,
             force=args.force,
             expected_python_version=profile.get("python_version"),
+            python_requires=profile.get("python_requires"),
         )
 
+    if profile["models"]:
+        print(
+            f"[deps] synchronizing {len(profile['models'])} model binding(s)",
+            flush=True,
+        )
     models = sync_profile_models(bundle, args.profile, profile, args)
     exports = profile_exports(bundle, args.profile, venv_state, tool_states, models)
     env_path = env_root / profile["env_file"]
@@ -118,11 +153,17 @@ def install_profile(args: argparse.Namespace) -> None:
     else:
         write_env_file(env_path, exports, bundle.runtime_args["stable_env"])
         write_fingerprint(fingerprint_path, fingerprint_payload)
-        print_ready_message(args.profile, env_path, fingerprint_path, venv_state, tool_states)
+        print_ready_message(
+            args.profile,
+            env_path,
+            fingerprint_path,
+            venv_state,
+            tool_states,
+        )
 
 
-def sync_model(args: argparse.Namespace) -> None:
-    bundle = ConfigBundle()
+def sync_model(args: argparse.Namespace, *, bundle: ConfigBundle | None = None) -> None:
+    bundle = bundle or ConfigBundle()
     model_state = ensure_model(
         bundle=bundle,
         model_key=args.key,
@@ -195,7 +236,6 @@ def profile_exports(
     exports: dict[str, str] = {"MARKITDOWN_MODULE_ROOT": root}
     if profile_name == "balance":
         exports["MARKITDOWN_TESSERACT_BIN"] = tool_states["tesseract"].symlink_path
-        exports["MARKITDOWN_PDFTOPPM_BIN"] = tool_states["pdftoppm"].symlink_path
         return exports
     if profile_name == "audio":
         assert venv_state is not None

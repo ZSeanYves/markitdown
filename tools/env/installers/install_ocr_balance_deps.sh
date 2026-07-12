@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 source "$ROOT/tools/env/lib/common.sh"
 
 usage() {
   cat <<'EOF'
-Usage: ./tools/env/install_ocr_balance_deps.sh [--check] [--force] [--python PATH] [--no-sudo]
+Usage: ./tools/env/installers/install_ocr_balance_deps.sh [--check] [--force] [--python PATH] [--no-sudo]
 
-Install or verify the managed balanced OCR runtime.
+Install or verify the Tesseract-only balanced image OCR runtime.
 
 Options:
   --check       Verify the current managed state without mutating it.

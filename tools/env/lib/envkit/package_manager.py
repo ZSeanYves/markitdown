@@ -55,12 +55,10 @@ class PackageManagerSession:
         spec = self.bundle.tool(tool_name, self.platform.key)
         if not self.check_only:
             self._ensure_packages(spec["packages"], spec["manager"])
-        command_path = shutil.which(spec["command"])
-        if not command_path:
-            raise EnvError(
-                f"missing managed command after install/check: {spec['command']}"
-            )
-        version_line = first_line_from_command([command_path, *spec["version_args"]])
+        command_path, version_line = self._resolve_tool(spec)
+        if not self.check_only and spec["version_fragment"] not in version_line:
+            self._refresh_packages(spec["packages"], spec["manager"])
+            command_path, version_line = self._resolve_tool(spec)
         if spec["version_fragment"] not in version_line:
             raise EnvError(
                 f"unexpected {tool_name} version output: {version_line!r}; "
@@ -73,17 +71,50 @@ class PackageManagerSession:
             self._write_tool_artifacts(state)
         return state
 
+    def _resolve_tool(self, spec: dict) -> tuple[str, str]:
+        command_path = shutil.which(spec["command"])
+        if not command_path:
+            raise EnvError(
+                f"missing managed command after install/check: {spec['command']}"
+            )
+        version_line = first_line_from_command(
+            [command_path, *spec["version_args"]]
+        )
+        return command_path, version_line
+
     def _ensure_packages(self, packages: list[str], manager: str) -> None:
         if manager == "apt":
-            missing = [pkg for pkg in packages if run(["dpkg", "-s", pkg], check=False).returncode != 0]
+            missing = [
+                pkg
+                for pkg in packages
+                if run(["dpkg", "-s", pkg], check=False).returncode != 0
+            ]
             if missing:
                 self._ensure_apt_updated()
                 self._run_as_root(["apt-get", "install", "-y", *missing])
             return
         if manager == "brew":
-            missing = [pkg for pkg in packages if run(["brew", "list", "--versions", pkg], check=False).returncode != 0]
+            missing = [
+                pkg
+                for pkg in packages
+                if run(["brew", "list", "--versions", pkg], check=False).returncode
+                != 0
+            ]
             if missing:
                 run(["brew", "install", *missing])
+            return
+        raise EnvError(f"unsupported package manager: {manager}")
+
+    def _refresh_packages(self, packages: list[str], manager: str) -> None:
+        if manager == "apt":
+            self._ensure_apt_updated()
+            self._run_as_root(
+                ["apt-get", "install", "-y", "--only-upgrade", *packages]
+            )
+            return
+        if manager == "brew":
+            run(["brew", "update"])
+            run(["brew", "upgrade", *packages])
             return
         raise EnvError(f"unsupported package manager: {manager}")
 
@@ -143,9 +174,13 @@ class PackageManagerSession:
     def _write_tool_artifacts(self, state: ToolState) -> None:
         symlink_path = Path(state.symlink_path)
         ensure_dir(symlink_path.parent)
-        if symlink_path.exists() or symlink_path.is_symlink():
-            symlink_path.unlink()
-        symlink_path.symlink_to(Path(state.command_path))
+        temporary_link = symlink_path.with_name(
+            f".{symlink_path.name}.tmp-{os.getpid()}"
+        )
+        if temporary_link.exists() or temporary_link.is_symlink():
+            temporary_link.unlink()
+        temporary_link.symlink_to(Path(state.command_path))
+        os.replace(temporary_link, symlink_path)
         write_text_if_changed(Path(state.record_path), state.symlink_path + "\n")
         write_text_if_changed(
             Path(state.metadata_path),

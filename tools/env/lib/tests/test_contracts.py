@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import unittest
+import unittest.mock
 from pathlib import Path
 
 from helpers import ROOT
@@ -27,6 +29,18 @@ def import_module_from_path(name: str, path: Path):
 
 
 class ContractTests(unittest.TestCase):
+    def test_balance_profile_is_tesseract_only(self) -> None:
+        profile = ConfigBundle(ROOT).profile("balance")
+        self.assertEqual(profile["system_tools"], ["tesseract"])
+        self.assertEqual(profile["env_file"], "balance-ocr.env.sh")
+
+    def test_audio_lock_pins_cross_platform_vosk_release(self) -> None:
+        lock_path = ROOT / "tools" / "env" / "config" / "python" / "audio.lock"
+        requirements = lock_path.read_text(encoding="utf-8").splitlines()
+
+        # Vosk 0.3.45 has no macOS wheel; 0.3.44 is the latest universal2 release.
+        self.assertIn("vosk==0.3.44", requirements)
+
     def test_repo_runtime_contracts_match_config(self) -> None:
         bundle = ConfigBundle(ROOT)
         assert_runtime_contracts(ROOT, bundle.runtime_args)
@@ -38,6 +52,10 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(module.REQUIRED_RUNTIME_ENV, stable_env(str(ROOT)))
         self.assertEqual(module.FFMPEG_NORMALIZE_ARGS, ffmpeg_normalize_args(str(ROOT)))
+        with unittest.mock.patch.dict(os.environ, {"TZ": ""}, clear=False):
+            diagnostics = module.require_stable_runtime_env()
+            self.assertEqual(os.environ["TZ"], module.REQUIRED_RUNTIME_ENV["TZ"])
+            self.assertIn(f"TZ={module.REQUIRED_RUNTIME_ENV['TZ']}", diagnostics)
 
     def test_paddle_wrapper_uses_shared_runtime_contract(self) -> None:
         module = import_module_from_path(
@@ -48,6 +66,10 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(module.PADDLE_ENV, paddle_env(str(ROOT)))
         self.assertEqual(module.PADDLE_INIT_KWARGS, paddle_init_kwargs(str(ROOT)))
         self.assertEqual(module.PADDLE_PREDICT_KWARGS, paddle_predict_kwargs(str(ROOT)))
+        with unittest.mock.patch.dict(os.environ, {"TZ": ""}, clear=False):
+            diagnostics = module.require_stable_runtime_env()
+            self.assertEqual(os.environ["TZ"], module.REQUIRED_RUNTIME_ENV["TZ"])
+            self.assertIn(f"TZ={module.REQUIRED_RUNTIME_ENV['TZ']}", diagnostics)
 
 
 if __name__ == "__main__":
