@@ -37,7 +37,16 @@ pub struct PreparedYamlDocument {
   document : YamlStructureDocument?
   inspect : YamlInspectReport?
   events : Array[YamlStructureEvent]?
+  compact_sequence : YamlCompactSequenceSummary?
   parse_error : String?
+}
+
+pub struct YamlCompactSequenceSummary {
+  key : String
+  value_summary : String
+  line_start : Int
+  line_end : Int
+  inspect : YamlInspectReport
 }
 
 pub struct YamlDocument {

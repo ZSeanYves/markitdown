@@ -119,6 +119,73 @@ test "builtin registry wires pdf native text parser through the active registry"
 }
 
 ///|
+test "pdf accurate parser contract is registered and matches born-digital accurate output" {
+  let spec = @fmeta.pdf_ocr_parser_contract_spec()
+  assert_true(
+    @fmeta.product_parser_contract_specs().any(spec0 => {
+      spec0.parser_name == spec.parser_name
+    }),
+  )
+  assert_true(
+    @fmeta.contract_profile_matches_spec(@input.DetectedFormat::Pdf, spec),
+  )
+  assert_true(
+    @fmeta.parser_contract_spec_matches_parser(spec, @fpdf.pdf_ocr_parser()),
+  )
+  let context0 = @parser.parse_context_with_product_modes(
+    @parser.new_parse_context(@input.DetectedFormat::Pdf),
+    @product.FidelityMode::Accurate,
+    @product.OutputMode::Markdown,
+  )
+  let context1 = @parser.parse_context_with_limits(
+    context0,
+    Some(@parser.ParserMode::LayoutTwoStage),
+    None,
+    None,
+    None,
+    None,
+    false,
+  )
+  let context2 = @parser.parse_context_with_ocr_options(
+    context1,
+    @parser.explicit_ocr_options(language=Some("eng")),
+  )
+  let context3 = @parser.parse_context_with_pdf_header_footer_filter_policy(
+    context2,
+    @parser.PdfHeaderFooterFilterPolicy::InternalHighConfidenceOnly,
+  )
+  let context = @parser.parse_context_with_pdf_table_reconstruction_policy(
+    context3,
+    @parser.PdfTableReconstructionPolicy::InternalSimpleRowsOnly,
+  )
+  let result = match
+    @fpdf.pdf_ocr_parser_result(
+      @input.input_from_path_with_format(
+        "samples/fixtures/contracts/pdf/text_simple.pdf",
+        Some(@input.DetectedFormat::Pdf),
+      ),
+      context,
+      image_ocr_provider=fn(_request : @focr.OcrProviderRequest) {
+        abort("born-digital accurate contract test should not invoke OCR")
+      },
+      rasterizer=fn(_source : @input.InputSource) {
+        abort("born-digital accurate contract test should not rasterize")
+      },
+    ) {
+    Ok(value) => value
+    Err(err) => fail("expected accurate pdf contract parse success: " + err)
+  }
+  assert_parse_result_matches_contract_spec(result, spec)
+  assert_metric_eq(result.diagnostics, "pdf_ocr_used", "false")
+  assert_metric_eq(
+    result.diagnostics,
+    "ocr_provider_status",
+    "skipped_native_text_only",
+  )
+  assert_metric_eq(result.diagnostics, "pdf_native_backend", "true")
+}
+
+///|
 test "root image parser keeps deterministic fail-closed OCR diagnostics" {
   let source = @input.input_from_path("scan.png")
   let detected = @input.DetectedFormat::Image(@input.ImageFormat::Png)

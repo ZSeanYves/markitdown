@@ -73,14 +73,34 @@ fn run_cli_with_image_ocr_provider_and_pdf_rasterizer(
       pdf_rasterizer,
     ) {
     Ok(value) => value
-    Err(err) => return Err(err.to_string())
+    Err(err) => return Err(cli_convert_error_message(opts, err.to_string()))
   }
-  persist_cli_provenance(opts, execution.provenance) catch {
+  persist_cli_provenance(opts, execution) catch {
     err => return Err("write provenance failed: " + err.to_string())
   }
-  cli_emit_accurate_warning_if_needed(opts, requested_format, execution)
-  cli_emit_stream_warning_if_needed(opts, requested_format, execution)
+  ignore(requested_format)
+  cli_emit_conversion_warnings(execution.result)
   cli_render_convert_result(opts, execution.result)
+}
+
+///|
+fn cli_convert_error_message(opts : CliOptions, message : String) -> String {
+  match opts.explicit_format {
+    Some(format) if message.contains(
+        "route probe artifact missing or mismatched",
+      ) =>
+      "explicit format `" +
+      @input.detected_format_name(format) +
+      "` does not match the input structure or the input is malformed"
+    _ => message
+  }
+}
+
+///|
+fn cli_emit_conversion_warnings(result : @convert.ConvertResult) -> Unit {
+  for warning in result.diagnostics.warnings {
+    cli_write_stderr("warning: " + warning + "\n")
+  }
 }
 
 ///|
@@ -88,9 +108,25 @@ fn cli_render_convert_result(
   opts : CliOptions,
   result : @convert.ConvertResult,
 ) -> Result[String, String] {
-  let persisted_content = normalized_written_content(result.content)
+  if result.content.trim() == "" && result.diagnostics.errors.length() > 0 {
+    return Err("conversion failed: " + result.diagnostics.errors.join("; "))
+  }
   match opts.output {
     Some(path) => {
+      match validate_cli_assets(opts.input, result.assets) {
+        Err(message) => return Err("validate asset output failed: " + message)
+        Ok(_) => ()
+      }
+      let resolved = resolve_cli_assets(
+        opts.input,
+        result.content,
+        result.assets,
+      )
+      for warning in resolved.warnings {
+        result.diagnostics.warnings.push(warning)
+        cli_write_stderr("warning: " + warning + "\n")
+      }
+      let persisted_content = normalized_written_content(resolved.content)
       let parent = dirname_of_path(path)
       ensure_dir_tree(parent) catch {
         e => return Err("create output dir failed: " + e.to_string())
@@ -98,12 +134,22 @@ fn cli_render_convert_result(
       @fs.write_string_to_file(path, persisted_content, encoding="utf8") catch {
         e => return Err("write output failed: " + e.to_string())
       }
-      persist_cli_assets(opts.input, path, result.assets) catch {
+      persist_cli_assets(opts.input, path, resolved.assets) catch {
         e => return Err("write asset output failed: " + e.to_string())
       }
       Ok(persisted_content)
     }
-    None => Ok(result.content)
+    None => {
+      let resolved = resolve_cli_assets_for_stdout(
+        result.content,
+        result.assets,
+      )
+      for warning in resolved.warnings {
+        result.diagnostics.warnings.push(warning)
+        cli_write_stderr("warning: " + warning + "\n")
+      }
+      Ok(resolved.content)
+    }
   }
 }
 

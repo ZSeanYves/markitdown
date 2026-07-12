@@ -107,7 +107,8 @@ fn html_block_span_in_nav_span(
   nav_spans : Array[@dhtml.HtmlSourceSpan],
 ) -> Bool {
   for nav_span in nav_spans {
-    if span.line_start >= nav_span.line_start &&
+    if nav_span.line_start < nav_span.line_end &&
+      span.line_start >= nav_span.line_start &&
       span.line_end <= nav_span.line_end {
       return true
     }

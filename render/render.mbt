@@ -10,7 +10,7 @@ fn write_escaped_markdown_inline_text_to(
   out : StringBuilder,
   text : String,
 ) -> Unit {
-  for ch in text.to_array() {
+  for ch in text {
     let cp = ch.to_int()
     if cp > 0xFFFF {
       out.write_string("&")
@@ -62,7 +62,7 @@ fn write_escaped_markdown_inline_text_html_to(
   out : StringBuilder,
   text : String,
 ) -> Unit {
-  for ch in text.to_array() {
+  for ch in text {
     if ch == '\\' || ch == '`' {
       out.write_char('\\')
     }
@@ -131,33 +131,53 @@ fn escape_markdown_line_prefix(text : String) -> String {
     return ""
   }
 
-  match thematic_break_marker(trimmed) {
-    Some(prefix) =>
-      return "\\" +
-        prefix +
-        escape_markdown_inline_text(trimmed[prefix.length():].to_owned())
-    None => ()
+  let mut first = '\u{0000}'
+  for ch in trimmed {
+    first = ch
+    break
   }
-
-  let chars = trimmed.to_array()
-  let first = chars[0]
+  if first != '#' &&
+    first != '>' &&
+    first != '-' &&
+    first != '+' &&
+    first != '*' &&
+    first != '_' &&
+    !is_ascii_digit(first) &&
+    markdown_literal_tail_is_safe(trimmed) {
+    return trimmed
+  }
+  if first == '-' || first == '*' || first == '_' {
+    match thematic_break_marker(trimmed) {
+      Some(prefix) =>
+        return "\\" +
+          prefix +
+          escape_markdown_inline_text(trimmed[prefix.length():].to_owned())
+      None => ()
+    }
+  }
 
   if first == '#' || first == '>' {
     return "\\" +
-      String::from_array([first]) +
-      escape_markdown_literal_tail(String::from_array(chars[1:].to_owned()))
+      first.to_string() +
+      escape_markdown_literal_tail(trimmed[1:].to_owned())
   }
 
   if (first == '-' || first == '+' || first == '*') &&
-    chars.length() >= 2 &&
-    chars[1] == ' ' {
+    trimmed.length() >= 2 &&
+    trimmed[1:2] == " " {
     return "\\" +
-      String::from_array([first]) +
-      escape_markdown_literal_tail(String::from_array(chars[1:].to_owned()))
+      first.to_string() +
+      escape_markdown_literal_tail(trimmed[1:].to_owned())
   }
 
-  match ordered_list_marker_parts(trimmed) {
+  match
+    (if is_ascii_digit(first) {
+      ordered_list_marker_parts(trimmed)
+    } else {
+      None
+    }) {
     Some((marker_index, suffix_index)) => {
+      let chars = trimmed.to_array()
       let out = StringBuilder::new()
       out.write_string(String::from_array(chars[:marker_index].to_owned()))
       out.write_string("\\")
@@ -222,7 +242,7 @@ fn is_ascii_digit(ch : Char) -> Bool {
 ///|
 fn escape_markdown_literal_tail(text : String) -> String {
   let out = StringBuilder::new()
-  for ch in text.to_array() {
+  for ch in text {
     let cp = ch.to_int()
     if cp > 0xFFFF {
       out.write_string("&")
@@ -237,6 +257,16 @@ fn escape_markdown_literal_tail(text : String) -> String {
     out.write_char(ch)
   }
   out.to_string()
+}
+
+///|
+fn markdown_literal_tail_is_safe(text : String) -> Bool {
+  for ch in text {
+    if ch.to_int() > 0xFFFF || markdown_literal_tail_needs_escape(ch) {
+      return false
+    }
+  }
+  true
 }
 
 ///|

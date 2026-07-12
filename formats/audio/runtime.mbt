@@ -118,7 +118,7 @@ fn audio_wrapper_resolution_from_parts(
 ///|
 pub fn audio_transcribe_install_hint() -> String {
   [
-    "Preferred: run `./tools/env/install_audio_deps.sh` and let repo-root runs use the repo-managed virtualenv plus `tools/env/wrappers/audio_transcribe_wrapper.py` by default.",
+    "Preferred: run `./tools/env/optional_deps.sh install audio` and let repo-root runs use the repo-managed virtualenv plus `tools/env/wrappers/audio_transcribe_wrapper.py` by default.",
     "Custom audio wrapper commands still work through `" +
     audio_command_env_var() +
     "`, but that is lower priority than the repo-managed runtime.",

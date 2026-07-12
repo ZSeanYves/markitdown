@@ -15,7 +15,23 @@ pub fn prepare_ipynb_notebook_from_source(
     Ok(payload) => payload
     Err(err) => return Err(err)
   }
-  let parsed = try parse_ipynb_notebook(text_payload.text) |> Ok catch {
+  let use_native_json = text_payload.text.length() >= 1_048_576 &&
+    !text_payload.text.has_prefix("\u{FEFF}") &&
+    !text_payload.text.contains("\r")
+  let parsed = try
+    ({
+      let root = if use_native_json {
+        @djson.parse_json_document_native(
+          text_payload.text,
+          preserve_number_lexemes=false,
+        )
+      } else {
+        @djson.parse_json_document(text_payload.text)
+      }
+      lower_ipynb_notebook(root)
+    })
+    |> Ok
+  catch {
     e => Err(e.to_string())
   }
   match parsed {

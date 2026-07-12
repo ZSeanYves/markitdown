@@ -142,6 +142,7 @@ pub fn product_parser_contract_specs() -> Array[ParserContractSpec] {
     pptx_parser_contract_spec(),
     xlsx_parser_contract_spec(),
     pdf_native_parser_contract_spec(),
+    pdf_ocr_parser_contract_spec(),
     audio_parser_contract_spec(),
     image_ocr_parser_contract_spec(),
   ]
@@ -191,16 +192,36 @@ pub fn contract_profile_matches_spec(
   spec : ParserContractSpec,
 ) -> Bool {
   let profile = format_route_profile(format)
-  if spec.parser_mode != profile.canonical_parser_mode {
+  let canonical_match = spec.parser_mode == profile.canonical_parser_mode
+  let large_route_match = match profile.large_route_parser_mode {
+    Some(mode) => spec.parser_mode == mode
+    None => false
+  }
+  if !canonical_match && !large_route_match {
     return false
   }
-  if spec.ir_input_kind != profile.canonical_ir_input_kind {
-    return false
-  }
-  if spec.streaming_granularity != profile.capability_granularity {
-    match spec.large_route_granularity {
-      Some(value) if value == profile.capability_granularity => ()
-      _ => return false
+  if canonical_match {
+    if spec.ir_input_kind != profile.canonical_ir_input_kind {
+      return false
+    }
+    if spec.streaming_granularity != profile.capability_granularity {
+      match spec.large_route_granularity {
+        Some(value) if value == profile.capability_granularity => ()
+        _ => return false
+      }
+    }
+  } else {
+    let expected_large_ir_input_kind = profile.large_route_ir_input_kind.unwrap_or(
+      profile.canonical_ir_input_kind,
+    )
+    if spec.ir_input_kind != expected_large_ir_input_kind {
+      return false
+    }
+    let expected_large_granularity = profile.large_route_granularity.unwrap_or(
+      profile.capability_granularity,
+    )
+    if spec.streaming_granularity != expected_large_granularity {
+      return false
     }
   }
   match (spec.large_route_granularity, profile.large_route_granularity) {
@@ -954,6 +975,32 @@ pub fn pdf_native_parser_contract_spec() -> ParserContractSpec {
     policies=[
       "pdf native route is page-single-pass and text-first", "ocr and accurate layout stay explicit alternate routes",
     ],
+  )
+}
+
+///|
+pub fn pdf_ocr_parser_contract_spec() -> ParserContractSpec {
+  make_parser_contract_spec(
+    "pdf_accurate_layout_parser",
+    @parser.ParserMode::LayoutTwoStage,
+    @parser.StreamingGranularity::Page,
+    "document",
+    [
+      "page_count", "table_count", "image_count", "asset_count", "pdf_native_backend",
+      "pdf_native_text_baseline", "pdf_ocr_used", "ocr_provider_status", "pdf_page_route_summary",
+      "pdf_raster_backend", "warning_count", "error_count", "fallback_count",
+    ],
+    ["page"],
+    [],
+    [
+      "accurate pdf route reuses native document facts and only overlays ocr where needed",
+      "productized uri links and scoped single-page tables stay on the shared document pipeline",
+    ],
+    [
+      "accurate pdf route is the explicit layout-two-stage alternate route", "born-digital accurate output must be a semantic superset of balanced native output",
+    ],
+    ["formats/pdf/native", "formats/ocr"],
+    @oxshared.parser_contract_required_foundation_exclusions(),
   )
 }
 

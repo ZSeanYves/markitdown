@@ -26,6 +26,7 @@ pub struct PreparedTomlDocument {
   original_text : String
   document : TomlDocument?
   inspect : TomlInspectReport?
+  fast_array_table : TomlFastArrayTable?
   parse_error : String?
 }
 
@@ -52,6 +53,15 @@ pub(all) enum TomlErrorKind {
   UnsupportedFeature
   Unknown
 } derive(Eq)
+
+pub struct TomlFastArrayTable {
+  base_path : String
+  keys : Array[String]
+  rows : Array[Array[String]]
+  line_start : Int
+  line_end : Int
+  table_count : Int
+}
 
 pub struct TomlInspectReport {
   node_count : Int

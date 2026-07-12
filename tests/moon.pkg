@@ -4,6 +4,7 @@ import {
   "ZSeanYves/markitdown/container",
   "ZSeanYves/markitdown/convert",
   "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/formats/pdf" @fpdf,
   "ZSeanYves/markitdown/internal/formats/meta" @fmeta,
   "ZSeanYves/markitdown/internal/testsupport/hermetic" @therm,
   "ZSeanYves/markitdown/formats" @formats_root,

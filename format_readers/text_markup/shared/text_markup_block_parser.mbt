@@ -30,18 +30,40 @@ fn parse_markup_document(
   text : String,
   format : TextMarkupFormat,
 ) -> TextMarkupDocument {
-  let lines = normalize_markup_text(text)
-    .split("\n")
-    .to_array()
-    .map(line => line.to_owned())
+  let normalized = normalize_markup_text(text)
+  let lines : Array[String] = if normalized.length() >= 1_048_576 {
+    Array::new(capacity=normalized.length() / 24)
+  } else {
+    []
+  }
+  for line in normalized.split("\n") {
+    lines.push(line.to_owned())
+  }
   let context = make_markup_parse_context(lines, format)
-  let blocks : Array[TextMarkupBlock] = []
+  let blocks : Array[TextMarkupBlock] = Array::new(capacity=lines.length() / 2)
+  let block_cache : Map[String, Array[CachedMarkupBlock]] = Map([])
+  let cache_enabled = lines.length() >= 4096
   let mut i = 0
   while i < lines.length() {
+    if cache_enabled {
+      match find_cached_markup_block(block_cache, lines, i) {
+        Some((block, next)) => {
+          blocks.push(block)
+          i = next
+          continue
+        }
+        None => ()
+      }
+    }
     match classify_markup_line(context, i) {
       MarkupLineClass::Blank(next) => i = next
       MarkupLineClass::Block(block, next) => {
         blocks.push(block)
+        if cache_enabled &&
+          !(format == TextMarkupFormat::Tex &&
+          block.kind == TextMarkupBlockKind::ListItem) {
+          cache_markup_block(block_cache, lines, i, next, block)
+        }
         i = next
       }
       MarkupLineClass::ParagraphLine(line_text) => {
@@ -57,7 +79,7 @@ fn parse_markup_document(
             _ => break
           }
         }
-        blocks.push({
+        let block = {
           kind: TextMarkupBlockKind::Paragraph,
           text: para_lines.join(" "),
           level: 0,
@@ -65,7 +87,11 @@ fn parse_markup_document(
           line_start: start,
           line_end: i,
           meta: Map([]),
-        })
+        }
+        blocks.push(block)
+        if cache_enabled {
+          cache_markup_block(block_cache, lines, start - 1, i, block)
+        }
       }
     }
   }
@@ -73,10 +99,85 @@ fn parse_markup_document(
 }
 
 ///|
+priv struct CachedMarkupBlock {
+  source_lines : Array[String]
+  block : TextMarkupBlock
+  origin_index : Int
+}
+
+///|
+fn cache_markup_block(
+  cache : Map[String, Array[CachedMarkupBlock]],
+  lines : Array[String],
+  start : Int,
+  next : Int,
+  block : TextMarkupBlock,
+) -> Unit {
+  if next <= start || lines[start] == "" {
+    return
+  }
+  let source_lines = lines[start:next].to_owned()
+  let entries = cache.get(lines[start]).unwrap_or([])
+  entries.push({ source_lines, block, origin_index: start })
+  cache.set(lines[start], entries)
+}
+
+///|
+fn find_cached_markup_block(
+  cache : Map[String, Array[CachedMarkupBlock]],
+  lines : Array[String],
+  start : Int,
+) -> (TextMarkupBlock, Int)? {
+  let entries = match cache.get(lines[start]) {
+    Some(value) => value
+    None => return None
+  }
+  for entry in entries {
+    if start + entry.source_lines.length() > lines.length() {
+      continue
+    }
+    if entry.source_lines.length() == 1 {
+      let delta = start - entry.origin_index
+      return Some(
+        (
+          {
+            ..entry.block,
+            line_start: entry.block.line_start + delta,
+            line_end: entry.block.line_end + delta,
+          },
+          start + 1,
+        ),
+      )
+    }
+    let mut matches = true
+    for offset in 0..<entry.source_lines.length() {
+      if lines[start + offset] != entry.source_lines[offset] {
+        matches = false
+        break
+      }
+    }
+    if matches {
+      let delta = start - entry.origin_index
+      return Some(
+        (
+          {
+            ..entry.block,
+            line_start: entry.block.line_start + delta,
+            line_end: entry.block.line_end + delta,
+          },
+          start + entry.source_lines.length(),
+        ),
+      )
+    }
+  }
+  None
+}
+
+///|
 priv struct MarkupParseContext {
   lines : Array[String]
   format : TextMarkupFormat
-  semantic_lines : Array[String]
+  trimmed_semantic_lines : Array[String]?
   tex_item_ordered_before_line : Array[Bool]
 }
 
@@ -85,11 +186,21 @@ fn make_markup_parse_context(
   lines : Array[String],
   format : TextMarkupFormat,
 ) -> MarkupParseContext {
-  let semantic_lines = build_markup_semantic_lines(lines, format)
+  let semantic_lines = if format == TextMarkupFormat::Tex {
+    build_markup_semantic_lines(lines, format)
+  } else {
+    lines
+  }
+  let trimmed_semantic_lines = if format == TextMarkupFormat::Tex {
+    Some(build_trimmed_markup_lines(semantic_lines))
+  } else {
+    None
+  }
   let tex_item_ordered_before_line = build_tex_item_ordered_before_line(
-    semantic_lines, format,
+    trimmed_semantic_lines.unwrap_or([]),
+    format,
   )
-  { lines, format, semantic_lines, tex_item_ordered_before_line }
+  { lines, format, trimmed_semantic_lines, tex_item_ordered_before_line }
 }
 
 ///|
@@ -97,11 +208,44 @@ fn build_markup_semantic_lines(
   lines : Array[String],
   format : TextMarkupFormat,
 ) -> Array[String] {
-  let semantic_lines : Array[String] = []
+  let semantic_lines : Array[String] = Array::new(capacity=lines.length())
+  let cache : Map[String, String] = Map([])
   for line in lines {
-    semantic_lines.push(markup_semantic_line(line, format))
+    match cache.get(line) {
+      Some(value) => semantic_lines.push(value)
+      None => {
+        let value = markup_semantic_line(line, format)
+        cache.set(line, value)
+        semantic_lines.push(value)
+      }
+    }
   }
   semantic_lines
+}
+
+///|
+fn build_trimmed_markup_lines(lines : Array[String]) -> Array[String] {
+  let trimmed : Array[String] = Array::new(capacity=lines.length())
+  let cache : Map[String, String] = Map([])
+  for line in lines {
+    match cache.get(line) {
+      Some(value) => trimmed.push(value)
+      None => {
+        let value = line.trim().to_owned()
+        cache.set(line, value)
+        trimmed.push(value)
+      }
+    }
+  }
+  trimmed
+}
+
+///|
+fn markup_trimmed_line(context : MarkupParseContext, index : Int) -> String {
+  match context.trimmed_semantic_lines {
+    Some(lines) => lines[index]
+    None => context.lines[index].trim().to_owned()
+  }
 }
 
 ///|
@@ -109,18 +253,18 @@ fn build_tex_item_ordered_before_line(
   semantic_lines : Array[String],
   format : TextMarkupFormat,
 ) -> Array[Bool] {
-  let states : Array[Bool] = []
+  let states : Array[Bool] = if format == TextMarkupFormat::Tex {
+    Array::new(capacity=semantic_lines.length())
+  } else {
+    []
+  }
   if format != TextMarkupFormat::Tex {
-    for _ in semantic_lines {
-      states.push(false)
-    }
     return states
   }
   let stack : Array[Bool] = []
   for semantic_line in semantic_lines {
-    let trimmed = semantic_line.trim().to_owned()
     states.push(tex_list_stack_top_is_enumerate(stack))
-    match trimmed {
+    match semantic_line {
       "\\begin{itemize}" => stack.push(false)
       "\\begin{enumerate}" => stack.push(true)
       "\\end{itemize}" => if stack.length() > 0 { ignore(stack.pop()) }
@@ -151,12 +295,11 @@ fn classify_markup_line(
   context : MarkupParseContext,
   index : Int,
 ) -> MarkupLineClass {
-  let semantic_line = context.semantic_lines[index]
-  let trimmed = semantic_line.trim().to_owned()
+  let trimmed = markup_trimmed_line(context, index)
   if trimmed == "" {
     return MarkupLineClass::Blank(index + 1)
   }
-  if !text_markup_line_can_start_block(trimmed, context.format) {
+  if !text_markup_line_can_start_block(context, index, trimmed) {
     return MarkupLineClass::ParagraphLine(trimmed)
   }
   match detect_heading(context.lines, index, context.format) {
@@ -192,15 +335,15 @@ fn classify_markup_line(
 
 ///|
 fn text_markup_line_can_start_block(
+  context : MarkupParseContext,
+  index : Int,
   trimmed : String,
-  format : TextMarkupFormat,
 ) -> Bool {
   if trimmed == "" {
     return false
   }
-  let chars = trimmed.to_array()
-  let first = chars[0]
-  match format {
+  let first = trimmed[0]
+  match context.format {
     TextMarkupFormat::Tex =>
       first == '\\' ||
       first == '%' ||
@@ -215,6 +358,9 @@ fn text_markup_line_can_start_block(
       first == '|' ||
       first == '.' ||
       first == '-' ||
+      first == '*' ||
+      first == '+' ||
+      first == '`' ||
       first == '/' ||
       first == 'N' ||
       first == 'T' ||
@@ -222,8 +368,39 @@ fn text_markup_line_can_start_block(
       first == 'I' ||
       first == 'C' ||
       first == 'i'
-    TextMarkupFormat::Rst => true
+    TextMarkupFormat::Rst =>
+      rst_line_may_start_block(context.lines, index, trimmed)
   }
+}
+
+///|
+fn rst_line_may_start_block(
+  lines : Array[String],
+  index : Int,
+  trimmed : String,
+) -> Bool {
+  let first = trimmed[0]
+  if first == '.' ||
+    first == ':' ||
+    first == '-' ||
+    first == '+' ||
+    first == '*' ||
+    first == '=' ||
+    first == '|' ||
+    first == '_' ||
+    (first >= '0' && first <= '9') ||
+    trimmed.has_suffix("::") ||
+    lines[index].has_prefix(" ") ||
+    lines[index].has_prefix("\t") {
+    return true
+  }
+  if index + 1 >= lines.length() {
+    return false
+  }
+  let next = lines[index + 1]
+  let next_trimmed = next.trim().to_owned()
+  (next.has_prefix("  ") || next.has_prefix("\t")) ||
+  (next_trimmed != "" && rst_underline_heading(next_trimmed))
 }
 
 ///|
@@ -234,15 +411,19 @@ fn detect_structured_semantic_block(
 ) -> (TextMarkupBlock, Int)? {
   match format {
     TextMarkupFormat::Rst =>
-      match detect_rst_field_list(lines, index) {
+      match detect_rst_note_definition(lines, index) {
         Some(block) => Some(block)
         None =>
-          match detect_rst_definition_list(lines, index) {
+          match detect_rst_field_list(lines, index) {
             Some(block) => Some(block)
             None =>
-              match detect_rst_include_directive(lines, index) {
+              match detect_rst_definition_list(lines, index) {
                 Some(block) => Some(block)
-                None => detect_rst_directive_block(lines, index)
+                None =>
+                  match detect_rst_include_directive(lines, index) {
+                    Some(block) => Some(block)
+                    None => detect_rst_directive_block(lines, index)
+                  }
               }
           }
       }
@@ -250,15 +431,19 @@ fn detect_structured_semantic_block(
       match detect_asciidoc_attribute_table(lines, index) {
         Some(block) => Some(block)
         None =>
-          match detect_asciidoc_include_directive(lines, index) {
+          match detect_asciidoc_image_block(lines, index) {
             Some(block) => Some(block)
             None =>
-              match detect_asciidoc_block_admonition(lines, index) {
+              match detect_asciidoc_include_directive(lines, index) {
                 Some(block) => Some(block)
                 None =>
-                  match detect_asciidoc_source_block(lines, index) {
+                  match detect_asciidoc_block_admonition(lines, index) {
                     Some(block) => Some(block)
-                    None => detect_asciidoc_quote_block(lines, index)
+                    None =>
+                      match detect_asciidoc_source_block(lines, index) {
+                        Some(block) => Some(block)
+                        None => detect_asciidoc_quote_block(lines, index)
+                      }
                   }
               }
           }
@@ -273,6 +458,52 @@ fn detect_structured_semantic_block(
           }
       }
   }
+}
+
+///|
+fn detect_asciidoc_image_block(
+  lines : Array[String],
+  index : Int,
+) -> (TextMarkupBlock, Int)? {
+  let trimmed = lines[index].trim().to_owned()
+  if !trimmed.has_prefix("image::") || !trimmed.has_suffix("]") {
+    return None
+  }
+  let open = match trimmed.find("[") {
+    Some(value) => value
+    None => return None
+  }
+  let target = trimmed["image::".length():open].trim().to_owned()
+  if target == "" || target.contains("{") || target.contains("}") {
+    return None
+  }
+  let options = trimmed[open + 1:trimmed.length() - 1].to_owned()
+  let alt = match options.find(",") {
+    Some(value) => options[:value].trim().to_owned()
+    None => options.trim().to_owned()
+  }
+  Some(
+    (
+      {
+        kind: TextMarkupBlockKind::Semantic,
+        text: if alt == "" {
+          target
+        } else {
+          alt
+        },
+        level: 0,
+        ordered: false,
+        line_start: index + 1,
+        line_end: index + 1,
+        meta: Map([
+          ("semantic_kind", "image"),
+          ("image_target", target),
+          ("image_alt", if alt == "" { "image" } else { alt }),
+        ]),
+      },
+      index + 1,
+    ),
+  )
 }
 
 ///|
@@ -511,7 +742,7 @@ fn detect_list_item(
   context : MarkupParseContext,
   index : Int,
 ) -> (TextMarkupBlock, Int)? {
-  let trimmed = context.semantic_lines[index].trim().to_owned()
+  let trimmed = markup_trimmed_line(context, index)
   match context.format {
     TextMarkupFormat::Tex =>
       match detect_tex_item(context, index) {
@@ -1000,6 +1231,56 @@ fn detect_rst_field_list(
 }
 
 ///|
+fn detect_rst_note_definition(
+  lines : Array[String],
+  index : Int,
+) -> (TextMarkupBlock, Int)? {
+  let trimmed = lines[index].trim().to_owned()
+  if !trimmed.has_prefix(".. [") {
+    return None
+  }
+  match trimmed.find("]") {
+    Some(close) => {
+      if close <= 4 {
+        return None
+      }
+      let identifier = trimmed[4:close].trim().to_owned()
+      if identifier == "" {
+        return None
+      }
+      let body : Array[String] = []
+      let inline = trimmed[close + 1:].trim().to_owned()
+      if inline != "" {
+        body.push(inline)
+      }
+      let mut i = index + 1
+      while i < lines.length() && is_indented_markup_line(lines[i]) {
+        body.push(lines[i].trim().to_owned())
+        i += 1
+      }
+      Some(
+        (
+          {
+            kind: TextMarkupBlockKind::NoteDefinition,
+            text: body.join(" "),
+            level: 0,
+            ordered: false,
+            line_start: index + 1,
+            line_end: i,
+            meta: Map([
+              ("note_id", identifier),
+              ("semantic_kind", "footnote_or_citation"),
+            ]),
+          },
+          i,
+        ),
+      )
+    }
+    None => None
+  }
+}
+
+///|
 fn detect_rst_definition_list(
   lines : Array[String],
   index : Int,
@@ -1105,10 +1386,24 @@ fn detect_rst_directive_block(
         ("directive_kind", directive),
         ("directive_family", "rst"),
       ])
+      if (lowered == "image" || lowered == "figure") && inline_value != "" {
+        meta.set("semantic_kind", "image")
+        meta.set("image_target", inline_value)
+        for option in options {
+          if option.has_prefix(":alt:") {
+            let alt = option[":alt:".length():].trim().to_owned()
+            if alt != "" {
+              meta.set("image_alt", alt)
+            }
+          }
+        }
+      }
       if options.length() > 0 {
         meta.set("directive_options", options.join("\n"))
       }
-      let block_kind = if lowered == "literalinclude" {
+      let block_kind = if lowered == "image" || lowered == "figure" {
+        TextMarkupBlockKind::Semantic
+      } else if lowered == "literalinclude" {
         TextMarkupBlockKind::Raw
       } else if rst_directive_is_code(directive) && content.length() > 0 {
         TextMarkupBlockKind::Code
@@ -1135,6 +1430,8 @@ fn detect_rst_directive_block(
             } else {
               "include: " + inline_value + "\n" + (options + content).join("\n")
             }
+          } else if meta.get("semantic_kind") == Some("image") {
+            inline_value
           } else if block_kind == TextMarkupBlockKind::Semantic {
             meta.set("semantic_kind", "directive")
             meta.set("degraded_feature", "directive_semantic_boundary")
@@ -1525,6 +1822,35 @@ fn detect_tex_include_directive(
   index : Int,
 ) -> (TextMarkupBlock, Int)? {
   let trimmed = tex_strip_trailing_comment(lines[index].trim().to_owned())
+  if trimmed.has_prefix("\\includegraphics") && trimmed.has_suffix("}") {
+    let open = match trimmed.find("{") {
+      Some(value) => value
+      None => return None
+    }
+    let target = trimmed[open + 1:trimmed.length() - 1].trim().to_owned()
+    if target != "" {
+      return Some(
+        (
+          {
+            kind: TextMarkupBlockKind::Semantic,
+            text: target,
+            level: 0,
+            ordered: false,
+            line_start: index + 1,
+            line_end: index + 1,
+            meta: Map([
+              ("directive_kind", "includegraphics"),
+              ("directive_family", "tex"),
+              ("semantic_kind", "image"),
+              ("image_target", target),
+              ("image_alt", "image"),
+            ]),
+          },
+          index + 1,
+        ),
+      )
+    }
+  }
   for prefix in ["\\input{", "\\include{"] {
     if trimmed.has_prefix(prefix) && trimmed.has_suffix("}") {
       let target = trimmed[prefix.length():trimmed.length() - 1]
@@ -1654,7 +1980,7 @@ fn detect_tex_item(
   context : MarkupParseContext,
   index : Int,
 ) -> (TextMarkupBlock, Int)? {
-  let trimmed = context.semantic_lines[index].trim().to_owned()
+  let trimmed = markup_trimmed_line(context, index)
   if !trimmed.has_prefix("\\item") {
     return None
   }
@@ -1665,7 +1991,7 @@ fn detect_tex_item(
   }
   let mut i = index + 1
   while i < context.lines.length() {
-    let next = context.semantic_lines[i].trim().to_owned()
+    let next = markup_trimmed_line(context, i)
     if next == "" ||
       next.has_prefix("\\item") ||
       next == "\\end{itemize}" ||
@@ -1714,6 +2040,9 @@ fn tex_heading_level(line : String) -> (Int, String)? {
 
 ///|
 fn tex_strip_trailing_comment(line : String) -> String {
+  if !line.contains("%") {
+    return line
+  }
   let chars = line.to_array()
   let mut index = 0
   while index < chars.length() {
@@ -1762,7 +2091,10 @@ fn rst_heading_level(line : String) -> Int {
 
 ///|
 fn normalize_markup_text(text : String) -> String {
-  text.replace(old="\r\n", new="\n").replace(old="\r", new="\n")
+  if !text.contains("\r") {
+    return text
+  }
+  text.replace_all(old="\r\n", new="\n").replace_all(old="\r", new="\n")
 }
 
 ///|
@@ -2076,6 +2408,8 @@ fn rst_directive_is_code(name : String) -> Bool {
 ///|
 fn rst_directive_is_semantic(name : String) -> Bool {
   let lowered = name.to_lower()
+  lowered == "image" ||
+  lowered == "figure" ||
   lowered == "include" ||
   lowered == "literalinclude" ||
   lowered == "contents" ||

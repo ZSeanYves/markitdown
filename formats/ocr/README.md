@@ -40,5 +40,7 @@
 ## Validation
 
 ```bash
+./tools/env/optional_deps.sh install balance
 moon test
+./tools/regression/check_balance.sh --ocr
 ```

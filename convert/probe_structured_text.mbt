@@ -3,11 +3,51 @@ fn markdown_preflight_probe(
   source : @input.InputSource,
   options : ConvertOptions,
 ) -> ProbeOutcome {
-  let prepared = match @dmd.prepare_markdown_document_from_source(source) {
+  let text_payload = match @sourceio.read_source_text(source) {
     Ok(value) => value
     Err(_) => return unavailable_probe("markdown", source)
   }
-  let text = prepared.original_text
+  let text = text_payload.text
+  if options.output_mode == @product.OutputMode::Markdown &&
+    text.length() >= 1_048_576 {
+    let line_count = markdown_probe_line_count(text)
+    let signals = [
+      make_probe_signal(
+        ProbeSignalKind::BlockCount,
+        line_count,
+        limit=Some(options.limits.max_rows),
+        note=Some("large literal block upper bound"),
+      ),
+      make_probe_signal(
+        ProbeSignalKind::CharCount,
+        text.length(),
+        limit=Some(options.limits.max_line_chars),
+      ),
+      make_probe_signal(
+        ProbeSignalKind::ListItemCount,
+        0,
+        limit=Some(options.limits.max_cols),
+        note=Some("deferred in large Markdown output path"),
+      ),
+    ]
+    return probe_outcome(
+      "markdown",
+      signal_summary_lines(signals),
+      text_payload.prepared_source,
+      probe_signals=signals,
+      probe_artifacts=[
+        RouteProbeArtifact::MarkdownLargeLiteral(
+          text_payload.prepared_source,
+          text,
+          line_count,
+        ),
+      ],
+    )
+  }
+  let prepared = @dmd.prepare_markdown_document_from_text(
+    text_payload.prepared_source,
+    text,
+  )
   let inspect = prepared.inspect
   let signals = [
     make_probe_signal(
@@ -33,6 +73,20 @@ fn markdown_preflight_probe(
     probe_signals=signals,
     probe_artifacts=[RouteProbeArtifact::MarkdownPrepared(prepared)],
   )
+}
+
+///|
+fn markdown_probe_line_count(text : String) -> Int {
+  if text == "" {
+    return 0
+  }
+  let mut count = 1
+  for ch in text {
+    if ch == '\n' {
+      count += 1
+    }
+  }
+  count
 }
 
 ///|
@@ -89,11 +143,8 @@ fn yaml_preflight_probe(
     Ok(value) => value
     Err(_) => return unavailable_probe("yaml", source)
   }
-  match prepared.events {
-    Some(events) => {
-      let inspect = prepared.inspect.unwrap_or(
-        @dyaml.inspect_yaml_structure_events(events),
-      )
+  match prepared.inspect {
+    Some(inspect) => {
       let signals = [
         make_probe_signal(
           ProbeSignalKind::NodeCount,
@@ -171,10 +222,7 @@ fn text_markup_preflight_probe(
   }
   let signals = [
     make_probe_signal(ProbeSignalKind::BlockCount, prepared.inspect.block_count),
-    make_probe_signal(
-      ProbeSignalKind::LineCount,
-      @fshared.count_physical_lines(prepared.original_text),
-    ),
+    make_probe_signal(ProbeSignalKind::LineCount, prepared.inspect.line_count),
     make_probe_signal(
       ProbeSignalKind::CharCount,
       prepared.original_text.length(),
@@ -361,8 +409,8 @@ fn html_probe_summary_from_events(
   let mut structural_scope_count = 0
   for event in events {
     match event.kind {
-      @dhtml.HtmlTokenEventKind::Doctype => node_count += 1
-      @dhtml.HtmlTokenEventKind::Comment => node_count += 1
+      @dhtml.HtmlTokenEventKind::Doctype | @dhtml.HtmlTokenEventKind::Comment =>
+        node_count += 1
       @dhtml.HtmlTokenEventKind::Text =>
         if event.source_end > event.source_start {
           node_count += 1

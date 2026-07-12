@@ -167,7 +167,13 @@ fn docx_note_ids_sorted_by_label(labels : Map[String, String]) -> Array[String] 
   keyed.sort_by(fn(a, b) {
     let a_order = docx_sortable_note_label(a.1)
     let b_order = docx_sortable_note_label(b.1)
-    let primary = a_order.compare(b_order)
+    let a_numeric = a_order.has_prefix("0:")
+    let b_numeric = b_order.has_prefix("0:")
+    let primary = if a_numeric == b_numeric {
+      a_order.compare(b_order)
+    } else {
+      b_order.compare(a_order)
+    }
     if primary != 0 {
       primary
     } else {
@@ -180,6 +186,14 @@ fn docx_note_ids_sorted_by_label(labels : Map[String, String]) -> Array[String] 
 ///|
 fn docx_sortable_note_label(label : String) -> String {
   let trimmed = label.trim().to_owned()
+  if trimmed == "" {
+    return "1:"
+  }
+  for ch in trimmed {
+    if ch < '0' || ch > '9' {
+      return "1:" + trimmed
+    }
+  }
   let parsed = @string.parse_int(trimmed) catch { _ => return "1:" + trimmed }
   "0:" + docx_zero_pad_int(parsed, 12)
 }

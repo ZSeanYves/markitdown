@@ -112,6 +112,37 @@ test "pdftoppm png command uses explicit raster baseline" {
 }
 
 ///|
+fn pdf_parser_test_accurate_context(
+  ocr_options? : @parser.OcrOptions = @parser.explicit_ocr_options(
+    language=Some("eng"),
+  ),
+) -> @parser.ParseContext {
+  let base = @parser.parse_context_with_product_modes(
+    @parser.new_parse_context(@input.DetectedFormat::Pdf),
+    @product.FidelityMode::Accurate,
+    @product.OutputMode::Markdown,
+  )
+  let with_mode = @parser.parse_context_with_limits(
+    base,
+    Some(@parser.ParserMode::LayoutTwoStage),
+    None,
+    None,
+    None,
+    None,
+    false,
+  )
+  let with_ocr = @parser.parse_context_with_ocr_options(with_mode, ocr_options)
+  let with_header_footer = @parser.parse_context_with_pdf_header_footer_filter_policy(
+    with_ocr,
+    @parser.PdfHeaderFooterFilterPolicy::InternalHighConfidenceOnly,
+  )
+  @parser.parse_context_with_pdf_table_reconstruction_policy(
+    with_header_footer,
+    @parser.PdfTableReconstructionPolicy::InternalSimpleRowsOnly,
+  )
+}
+
+///|
 test "pdf native parser default product path can return document ir" {
   let context = @parser.parse_context_with_limits(
     @parser.new_parse_context(@input.DetectedFormat::Pdf),
@@ -310,5 +341,56 @@ test "pdf native parser internal header footer filtering removes repeated high c
   assert_true(
     filtered_document.diagnostics.metrics.get("pdf_header_footer_removed_count") ==
     Some("4"),
+  )
+}
+
+///|
+test "pdf accurate parser preserves native born-digital facts when OCR is not needed" {
+  let source = @input.input_from_path_with_format(
+    "samples/fixtures/contracts/pdf/text_simple.pdf",
+    Some(@input.DetectedFormat::Pdf),
+  )
+  let context = pdf_parser_test_accurate_context(
+    ocr_options=@parser.explicit_ocr_options(language=Some("eng")),
+  )
+  let parsed = match
+    pdf_ocr_parser_result(
+      source,
+      context,
+      image_ocr_provider=fn(_request : @focr.OcrProviderRequest) {
+        abort("born-digital accurate route should not invoke OCR provider")
+      },
+      rasterizer=fn(_source : @input.InputSource) {
+        abort("born-digital accurate route should not rasterize")
+      },
+    ) {
+    Ok(value) => value
+    Err(err) => fail("expected accurate born-digital parse success: " + err)
+  }
+  let document = parsed.document.unwrap_or(@core.empty_document_ir())
+  assert_true(parsed.mode == @parser.ParserMode::LayoutTwoStage)
+  assert_true(document.blocks.length() >= 3)
+  assert_true(document.blocks[0].text.contains("MarkItDown"))
+  assert_true(
+    document.metadata.get("pdf_page_route_summary") ==
+    Some(
+      @core.JsonValue::String(
+        "native_text_page=1,hybrid_region_page=0,ocr_page=0",
+      ),
+    ),
+  )
+  assert_true(
+    parsed.diagnostics.metrics.get("provider_invoked") == Some("false"),
+  )
+  assert_true(
+    parsed.diagnostics.metrics.get("ocr_provider_status") ==
+    Some("skipped_native_text_only"),
+  )
+  assert_true(parsed.diagnostics.metrics.get("pdf_ocr_used") == Some("false"))
+  assert_true(
+    parsed.diagnostics.metrics.get("pdf_native_backend") == Some("true"),
+  )
+  assert_true(
+    document.metadata.get("format") == Some(@core.JsonValue::String("pdf")),
   )
 }

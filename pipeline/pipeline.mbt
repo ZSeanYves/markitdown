@@ -255,11 +255,9 @@ pub fn run_default_pipeline(
   context : PassContext,
   trace_passes? : Bool = true,
 ) -> Result[@core.IRInput, PassError] {
+  let selected_pipeline = default_pipeline_for_context(context)
   let output = run_pipeline_with_trace(
-    default_pass_pipeline(),
-    input,
-    context,
-    trace_passes,
+    selected_pipeline, input, context, trace_passes,
   )
   match output {
     Ok(@core.IRInput::Document(document)) => {
@@ -278,6 +276,61 @@ pub fn run_default_pipeline(
     }
     Err(err) => Err(err)
   }
+}
+
+///|
+fn default_pipeline_for_context(context : PassContext) -> PassPipeline {
+  if context.output_mode == @product.OutputMode::Markdown &&
+    context.diagnostics.val.metrics.get("detected_format") == Some("yaml") {
+    let char_count = @string.parse_int(
+      context.diagnostics.val.metrics.get("char_count").unwrap_or("0"),
+    ) catch {
+      _ => 0
+    }
+    if char_count >= 1_048_576 {
+      context.diagnostics.val.metrics.set(
+        "pipeline_profile", "yaml_large_lowered",
+      )
+      return new_pass_pipeline([collect_asset_refs_pass()])
+    }
+  }
+  if context.execution_profile == @product.ExecutionProfile::LargeAdaptive &&
+    context.output_mode == @product.OutputMode::Markdown {
+    match context.diagnostics.val.metrics.get("detected_format") {
+      Some("markdown") => {
+        context.diagnostics.val.metrics.set(
+          "pipeline_profile", "markdown_large_lowered",
+        )
+        return new_pass_pipeline([collect_asset_refs_pass()])
+      }
+      Some("html") => {
+        context.diagnostics.val.metrics.set(
+          "pipeline_profile", "html_large_lowered",
+        )
+        return new_pass_pipeline([collect_asset_refs_pass()])
+      }
+      Some("tex") => {
+        context.diagnostics.val.metrics.set(
+          "pipeline_profile", "tex_large_lowered",
+        )
+        return new_pass_pipeline([
+          normalize_text_pass(),
+          normalize_whitespace_pass(),
+          collect_asset_refs_pass(),
+        ])
+      }
+      Some(format) if ["toml", "rst", "asciidoc"].contains(format) => {
+        context.diagnostics.val.metrics.set(
+          "pipeline_profile",
+          format + "_large_lowered",
+        )
+        return new_pass_pipeline([collect_asset_refs_pass()])
+      }
+      _ => ()
+    }
+  }
+  context.diagnostics.val.metrics.set("pipeline_profile", "canonical")
+  default_pass_pipeline()
 }
 
 ///|

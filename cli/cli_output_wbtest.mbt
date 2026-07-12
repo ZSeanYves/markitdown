@@ -40,6 +40,110 @@ fn cli_output_assert_contains_all(
 }
 
 ///|
+fn cli_output_zero_pad_int(value : Int, width : Int) -> String {
+  let raw = value.to_string()
+  if raw.length() >= width {
+    raw
+  } else {
+    "0".repeat(width - raw.length()) + raw
+  }
+}
+
+///|
+fn cli_output_pdf_stream_object(stream : String) -> String {
+  [
+    "<< /Length " + stream.length().to_string() + " >>",
+    "stream",
+    stream,
+    "endstream",
+  ].join("\n")
+}
+
+///|
+fn cli_output_minimal_pdf_bytes(
+  object_bodies : Array[String],
+  root_object_number : Int,
+) -> Bytes {
+  let sections : Array[String] = ["%PDF-1.4\n"]
+  let offsets : Array[Int] = [0]
+  let mut current_offset = sections[0].length()
+
+  for index in 0..<object_bodies.length() {
+    let object_payload = (index + 1).to_string() +
+      " 0 obj\n" +
+      object_bodies[index] +
+      "\nendobj\n"
+    offsets.push(current_offset)
+    sections.push(object_payload)
+    current_offset += object_payload.length()
+  }
+
+  let xref_offset = current_offset
+  let xref_lines : Array[String] = [
+    "xref",
+    "0 " + (object_bodies.length() + 1).to_string(),
+    "0000000000 65535 f ",
+  ]
+  for index in 1..<offsets.length() {
+    xref_lines.push(cli_output_zero_pad_int(offsets[index], 10) + " 00000 n ")
+  }
+  sections.push(
+    xref_lines.join("\n") +
+    "\n" +
+    [
+      "trailer",
+      "<< /Size " +
+      (object_bodies.length() + 1).to_string() +
+      " /Root " +
+      root_object_number.to_string() +
+      " 0 R >>",
+      "startxref",
+      xref_offset.to_string(),
+      "%%EOF",
+      "",
+    ].join("\n"),
+  )
+  @utf8.encode(sections.join(""))
+}
+
+///|
+fn cli_output_generated_link_pdf_bytes() -> Bytes {
+  let contents = "BT /F1 12 Tf 1 0 0 1 50 700 Tm (Visit the example website for details.) Tj ET"
+  cli_output_minimal_pdf_bytes(
+    [
+      "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+      cli_output_pdf_stream_object(contents),
+      "<< /Type /Annot /Subtype /Link /Rect [49 688 308 706] /Border [0 0 0] /A << /S /URI /URI (https://example.com) >> >>",
+      "<< /Type /Page /Parent 5 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 2 0 R /Annots [3 0 R] >>",
+      "<< /Type /Pages /Kids [4 0 R] /Count 1 >>",
+      "<< /Type /Catalog /Pages 5 0 R >>",
+    ],
+    6,
+  )
+}
+
+///|
+fn cli_output_generated_table_pdf_bytes() -> Bytes {
+  let contents = [
+    "BT /F1 12 Tf 1 0 0 1 40 560 Tm (Product) Tj ET", "BT /F1 12 Tf 1 0 0 1 180 560 Tm (Region) Tj ET",
+    "BT /F1 12 Tf 1 0 0 1 300 560 Tm (Status) Tj ET", "BT /F1 12 Tf 1 0 0 1 40 538 Tm (Alpha) Tj ET",
+    "BT /F1 12 Tf 1 0 0 1 180 538 Tm (East) Tj ET", "BT /F1 12 Tf 1 0 0 1 300 538 Tm (Open) Tj ET",
+    "BT /F1 12 Tf 1 0 0 1 40 516 Tm (Beta) Tj ET", "BT /F1 12 Tf 1 0 0 1 180 516 Tm (West) Tj ET",
+    "BT /F1 12 Tf 1 0 0 1 300 516 Tm (Closed) Tj ET",
+  ].join("\n")
+  cli_output_minimal_pdf_bytes(
+    [
+      "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+      cli_output_pdf_stream_object(contents),
+      "<< /Type /Page /Parent 4 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 2 0 R >>",
+      "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+      "<< /Type /Catalog /Pages 4 0 R >>",
+    ],
+    5,
+  )
+}
+
+///|
 test "root cli converts txt csv tsv json jsonl ndjson xml yaml and markdown through the current product shell" {
   let root = test_tmp_root() + "/main-cli"
   recreate_clean_dir(root)
@@ -276,7 +380,7 @@ test "main cli provenance sidecar preserves conversion output semantics" {
 }
 
 ///|
-test "main cli accurate fallback provenance preserves output semantics" {
+test "main cli rejects unsupported accurate mode without writing output" {
   let root = test_tmp_root() + "/main-cli-accurate-fallback"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -288,7 +392,7 @@ test "main cli accurate fallback provenance preserves output semantics" {
     input_path, "title = \"MarkItDown\"\nenabled = true\ncount = 3\n",
   )
 
-  let rendered = match
+  match
     run_cli_without_emitting_warnings(
       make_cli_options(
         input_path,
@@ -303,20 +407,14 @@ test "main cli accurate fallback provenance preserves output semantics" {
         @convert.OutputFormat::Markdown,
       ),
     ) {
-    Ok(value) => value
-    Err(msg) => fail("expected cli accurate fallback conversion: " + msg)
+    Err(msg) => {
+      assert_true(msg.contains("accurate mode is unsupported for `toml`"))
+      assert_true(msg.contains("use balance mode"))
+    }
+    Ok(_) => fail("unsupported accurate mode must fail closed")
   }
-
-  assert_true(rendered.contains("| Key | Value |"))
-  assert_true(read_utf8_text(output_path).contains("| Key | Value |"))
-  let sidecar = read_utf8_text(provenance_path)
-  assert_true(
-    sidecar.contains("\"route_reason\": \"accurate_unsupported_fell_back\""),
-  )
-  assert_true(sidecar.contains("\"fidelity_mode\": \"balanced\""))
-  assert_true(sidecar.contains("\"requested_fidelity_mode\": ["))
-  assert_true(sidecar.contains("\"accurate\""))
-  assert_true(sidecar.contains("\"accurate_unsupported_fell_back\""))
+  assert_true(!@fs.path_exists(output_path))
+  assert_true(!@fs.path_exists(provenance_path))
 }
 
 ///|
@@ -400,6 +498,41 @@ test "main cli persists markdown local assets only at output boundary" {
     e => fail("read copied markdown asset failed: " + e.to_string())
   }
   assert_true(copied_bytes.to_array() == source_bytes.to_array())
+}
+
+///|
+test "main cli persists markdown inline local assets with surrounding text" {
+  let root = test_tmp_root() + "/main-cli-markdown-inline-assets"
+  recreate_clean_dir(root)
+  defer cleanup_temp_dir(root)
+  let input_dir = root + "/input"
+  let out_dir = root + "/out"
+  ensure_dir_tree(input_dir + "/img")
+  ensure_dir_tree(out_dir)
+  let input_path = input_dir + "/sample.md"
+  let output_path = out_dir + "/sample.md"
+  write_utf8_text(input_path, "Before ![inline](img/img_red.jpg) after.\n")
+  let source_bytes = @fs.read_file_to_bytes(
+    "samples/fixtures/contracts/html/img_red.jpg",
+  ) catch {
+    e => fail("read markdown inline asset sample failed: " + e.to_string())
+  }
+  @fs.write_bytes_to_file(input_dir + "/img/img_red.jpg", source_bytes) catch {
+    e => fail("write markdown inline asset sample failed: " + e.to_string())
+  }
+  let rendered = run_cli(
+    cli_options(
+      input_path,
+      Some(output_path),
+      Some(@input.DetectedFormat::Markdown),
+      @convert.OutputFormat::Markdown,
+    ),
+  ).unwrap()
+  assert_true(rendered.contains("Before ![inline](assets/image01.jpg) after."))
+  let copied = @fs.read_file_to_bytes(out_dir + "/assets/image01.jpg") catch {
+    e => fail("read persisted markdown inline asset failed: " + e.to_string())
+  }
+  assert_true(copied.to_array() == source_bytes.to_array())
 }
 
 ///|
@@ -788,7 +921,11 @@ test "main cli restores docx xlsx pptx and native-text pdf" {
   )
   match docx {
     Ok(value) => {
-      assert_true(value.contains("![Figure alt text](assets/image01.png)"))
+      assert_true(
+        value.contains(
+          "Figure alt text [Asset not materialized on stdout: word/media/image1.png]",
+        ),
+      )
       assert_true(value.contains("*Figure title text*"))
     }
     Err(msg) => fail("docx should be restored: " + msg)
@@ -829,6 +966,126 @@ test "main cli restores docx xlsx pptx and native-text pdf" {
       )
     Err(msg) => fail("pdf should be restored on main cli: " + msg)
   }
+}
+
+///|
+test "main cli accurate pdf keeps born-digital markdown stable and removes repeated header footer text" {
+  let balanced_text = match
+    run_cli(
+      cli_options(
+        "samples/fixtures/contracts/pdf/text_simple.pdf",
+        None,
+        Some(@input.DetectedFormat::Pdf),
+        @convert.OutputFormat::Markdown,
+      ),
+    ) {
+    Ok(value) => value.trim_end().to_owned()
+    Err(msg) => fail("balanced text pdf cli render failed: " + msg)
+  }
+  let accurate_text = match
+    run_cli(
+      make_cli_options(
+        "samples/fixtures/contracts/pdf/text_simple.pdf",
+        None,
+        None,
+        Some(@input.DetectedFormat::Pdf),
+        @parser.default_ocr_options(),
+        @convert.FidelityMode::Accurate,
+        @convert.ConvertMode::Accurate,
+        @convert.output_mode_for_output_format(@convert.OutputFormat::Markdown),
+        false,
+        @convert.OutputFormat::Markdown,
+        rag_options=@rag.default_rag_options(),
+      ),
+    ) {
+    Ok(value) => value.trim_end().to_owned()
+    Err(msg) => fail("accurate text pdf cli render failed: " + msg)
+  }
+  assert_true(balanced_text.contains("MarkItDown"))
+  assert_true(accurate_text.contains("MarkItDown"))
+
+  let accurate_header_footer = match
+    run_cli(
+      make_cli_options(
+        "samples/fixtures/contracts/pdf/pdf_header_footer_variants_phase15.pdf",
+        None,
+        None,
+        Some(@input.DetectedFormat::Pdf),
+        @parser.default_ocr_options(),
+        @convert.FidelityMode::Accurate,
+        @convert.ConvertMode::Accurate,
+        @convert.output_mode_for_output_format(@convert.OutputFormat::Markdown),
+        false,
+        @convert.OutputFormat::Markdown,
+        rag_options=@rag.default_rag_options(),
+      ),
+    ) {
+    Ok(value) => value
+    Err(msg) => fail("accurate header/footer pdf cli render failed: " + msg)
+  }
+  assert_true(accurate_header_footer.contains("Body paragraph page 1"))
+  assert_true(accurate_header_footer.contains("Body paragraph page 2"))
+  assert_true(accurate_header_footer.contains("Body paragraph page 3"))
+  assert_true(!accurate_header_footer.contains("Company Confidential"))
+  assert_true(!accurate_header_footer.contains("Quarterly Summary"))
+}
+
+///|
+test "main cli lowers generated native pdf uri links into markdown links" {
+  let root = test_tmp_root() + "/pdf-link"
+  recreate_clean_dir(root)
+  defer cleanup_temp_dir(root)
+
+  let pdf_path = root + "/uri-link.pdf"
+  @fs.write_bytes_to_file(pdf_path, cli_output_generated_link_pdf_bytes()) catch {
+    e => fail("write generated link pdf failed: " + e.to_string())
+  }
+
+  let markdown = match
+    run_cli(
+      cli_options(
+        pdf_path,
+        None,
+        Some(@input.DetectedFormat::Pdf),
+        @convert.OutputFormat::Markdown,
+      ),
+    ) {
+    Ok(value) => value
+    Err(msg) => fail("generated link pdf cli render failed: " + msg)
+  }
+  assert_true(
+    markdown.contains(
+      "[Visit the example website for details.](https://example.com)",
+    ),
+  )
+}
+
+///|
+test "main cli lowers generated native pdf tables into markdown tables" {
+  let root = test_tmp_root() + "/pdf-table"
+  recreate_clean_dir(root)
+  defer cleanup_temp_dir(root)
+
+  let pdf_path = root + "/table.pdf"
+  @fs.write_bytes_to_file(pdf_path, cli_output_generated_table_pdf_bytes()) catch {
+    e => fail("write generated table pdf failed: " + e.to_string())
+  }
+
+  let markdown = match
+    run_cli(
+      cli_options(
+        pdf_path,
+        None,
+        Some(@input.DetectedFormat::Pdf),
+        @convert.OutputFormat::Markdown,
+      ),
+    ) {
+    Ok(value) => value
+    Err(msg) => fail("generated table pdf cli render failed: " + msg)
+  }
+  cli_output_assert_contains_all(markdown, [
+    "| Product | Region | Status |", "| Alpha | East | Open |", "| Beta | West | Closed |",
+  ])
 }
 
 ///|
@@ -886,6 +1143,78 @@ test "main cli persists html local assets only at output boundary" {
 }
 
 ///|
+test "main cli degrades missing local assets without broken references" {
+  let root = test_tmp_root() + "/main-cli-missing-assets"
+  recreate_clean_dir(root)
+  defer cleanup_temp_dir(root)
+  let cases = [
+    (
+      "html",
+      "<h1>Document</h1><p><img src=\"img/missing.png\" alt=\"diagram\"></p>",
+      @input.DetectedFormat::Html,
+      "diagram [Asset unavailable: img/missing.png]",
+    ),
+    (
+      "rst",
+      "Document\n========\n\n.. image:: images/missing.png\n   :alt: diagram\n",
+      @input.DetectedFormat::Rst,
+      "diagram [Asset unavailable: images/missing.png]",
+    ),
+  ]
+  for item in cases {
+    let input_path = root + "/input." + item.0
+    let output_path = root + "/out-" + item.0 + ".md"
+    write_utf8_text(input_path, item.1)
+    let rendered = run_cli(
+      cli_options(
+        input_path,
+        Some(output_path),
+        Some(item.2),
+        @convert.OutputFormat::Markdown,
+      ),
+    ).unwrap()
+    assert_true(rendered.contains(item.3))
+    assert_true(!rendered.contains("!["))
+    assert_true(read_utf8_text(output_path).contains(item.3))
+    let stdout_rendered = run_cli(
+      cli_options(
+        input_path,
+        None,
+        Some(item.2),
+        @convert.OutputFormat::Markdown,
+      ),
+    ).unwrap()
+    assert_true(stdout_rendered.contains("Asset not materialized on stdout"))
+    assert_true(!stdout_rendered.contains("!["))
+  }
+}
+
+///|
+test "main cli degrades ipynb attachment references with missing payload" {
+  let root = test_tmp_root() + "/main-cli-ipynb-missing-attachment"
+  recreate_clean_dir(root)
+  defer cleanup_temp_dir(root)
+  let input_path = root + "/input.ipynb"
+  let output_path = root + "/out.md"
+  write_utf8_text(
+    input_path,
+    "{\"nbformat\":4,\"nbformat_minor\":5,\"metadata\":{},\"cells\":[{" +
+    "\"cell_type\":\"markdown\",\"metadata\":{},\"source\":[\"![logo](attachment:logo.jpg)\"]," +
+    "\"attachments\":{\"logo.jpg\":{\"image/jpeg\":\"\"}}}]}",
+  )
+  let rendered = run_cli(
+    cli_options(
+      input_path,
+      Some(output_path),
+      Some(@input.DetectedFormat::Ipynb),
+      @convert.OutputFormat::Markdown,
+    ),
+  ).unwrap()
+  assert_true(rendered.contains("Asset unavailable"))
+  assert_true(!rendered.contains("!["))
+}
+
+///|
 test "main cli converts yaml and yml through isolated product shell" {
   let root = test_tmp_root() + "/main-cli-yaml"
   recreate_clean_dir(root)
@@ -911,4 +1240,68 @@ test "main cli converts yaml and yml through isolated product shell" {
   assert_true(yaml.contains("| name | Alice |"))
   assert_true(yml.contains("| Key | Value |"))
   assert_true(yml.contains("| kind | sample |"))
+}
+
+///|
+test "main cli persists TeX RST and AsciiDoc sidecar images" {
+  let root = test_tmp_root() + "/main-cli-text-markup-assets"
+  recreate_clean_dir(root)
+  defer cleanup_temp_dir(root)
+  let source_bytes = @fs.read_file_to_bytes(
+    "samples/fixtures/contracts/pptx/pptx_image_single.assets/image01.png",
+  ) catch {
+    e => fail("read text markup asset sample failed: " + e.to_string())
+  }
+  let cases = [
+    ("tex", "\\includegraphics{local.png}", @input.DetectedFormat::Tex),
+    (
+      "rst",
+      ".. image:: local.png\n   :alt: Local image\n",
+      @input.DetectedFormat::Rst,
+    ),
+    (
+      "asciidoc",
+      "image::local.png[Local image]\n",
+      @input.DetectedFormat::Asciidoc,
+    ),
+  ]
+  for item in cases {
+    let case_root = root + "/" + item.0
+    let output_root = case_root + "/out"
+    ensure_dir_tree(output_root)
+    let input_path = case_root + "/input." + item.0
+    let output_path = output_root + "/result.md"
+    write_utf8_text(input_path, item.1)
+    @fs.write_bytes_to_file(case_root + "/local.png", source_bytes) catch {
+      e => fail("write text markup sidecar failed: " + e.to_string())
+    }
+    let rendered = run_cli(
+      cli_options(
+        input_path,
+        Some(output_path),
+        Some(item.2),
+        @convert.OutputFormat::Markdown,
+      ),
+    ).unwrap()
+    let expected_asset = "assets/" + item.0 + "-local.png"
+    assert_true(rendered.contains(expected_asset))
+    let persisted = output_root + "/" + expected_asset
+    assert_true(@fs.path_exists(persisted))
+    let persisted_bytes = @fs.read_file_to_bytes(persisted) catch {
+      e => fail("read persisted text markup sidecar failed: " + e.to_string())
+    }
+    assert_true(persisted_bytes.to_array() == source_bytes.to_array())
+  }
+}
+
+///|
+test "CLI ZIP asset lookup normalizes safe dot segments" {
+  assert_eq(
+    normalized_zip_asset_entry("./ObjectReplacements/Object 1"),
+    "ObjectReplacements/Object 1",
+  )
+  assert_eq(
+    normalized_zip_asset_entry("Pictures/./image.png"),
+    "Pictures/image.png",
+  )
 }

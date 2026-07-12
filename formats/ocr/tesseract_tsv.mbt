@@ -74,7 +74,7 @@ pub fn parse_tesseract_tsv(
   if normalized.trim() == "" {
     return Err(
       OcrProviderError::EmptyResult(
-        "Tesseract TSV output is empty on the this runtime.",
+        "Tesseract TSV output is empty on this runtime.",
       ),
     )
   }
@@ -85,7 +85,7 @@ pub fn parse_tesseract_tsv(
   if lines.length() == 0 {
     return Err(
       OcrProviderError::EmptyResult(
-        "Tesseract TSV output is empty on the this runtime.",
+        "Tesseract TSV output is empty on this runtime.",
       ),
     )
   }
@@ -97,9 +97,9 @@ pub fn parse_tesseract_tsv(
   let parsed = tesseract_tsv_parse_rows(lines, header, provider)
   if parsed.0.length() == 0 {
     let reason = if parsed.2 {
-      "Tesseract TSV output did not produce any OCR words on the this runtime."
+      "Tesseract TSV output did not produce any OCR words on this runtime."
     } else {
-      "Tesseract TSV output only contained a header on the this runtime."
+      "Tesseract TSV output only contained a header on this runtime."
     }
     return Err(OcrProviderError::EmptyResult(reason))
   }
@@ -132,7 +132,7 @@ fn tesseract_tsv_parse_header(
   if parts.length() < required.length() {
     return Err(
       OcrProviderError::OutputParseFailed(
-        "Tesseract TSV header is malformed on the this runtime.",
+        "Tesseract TSV header is malformed on this runtime.",
       ),
     )
   }

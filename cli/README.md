@@ -36,6 +36,9 @@
 - New flags should normalize into `CliOptions` first instead of leaking intent through scattered booleans
 - The CLI should expose only formal product paths, not experimental parser side routes
 - Dependency-missing, degradation, and fail-closed messages should stay stable so scripts and regression tests can rely on them
+- Unsupported modes must be rejected by the shared route policy, not handled by
+  CLI-only fallback. Stdout must not contain local asset links that were never
+  materialized, and batch must return non-zero on partial failure.
 
 ## Validation
 

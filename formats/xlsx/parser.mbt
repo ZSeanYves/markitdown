@@ -456,6 +456,11 @@ fn xlsx_parse_document_result_from_package(
         )
       }
     }
+    let package_media = xlsx_collect_package_media_assets(
+      source, pkg, diagnostics,
+    )
+    lowered.blocks.append(package_media.0[:])
+    lowered.assets.append(package_media.1[:])
     diagnostics.metrics.set("parser_mode", "block_streaming")
     diagnostics.metrics.set("effective_mode", "block_streaming")
     diagnostics.metrics.set("ir_input_kind", "block_stream")
@@ -514,6 +519,11 @@ fn xlsx_parse_document_result_from_package(
   }
 
   let lowered = xlsx_lower_workbook_document(source, workbook, diagnostics)
+  let package_media = xlsx_collect_package_media_assets(
+    source, pkg, diagnostics,
+  )
+  lowered.blocks.append(package_media.0[:])
+  lowered.assets.append(package_media.1[:])
   diagnostics.metrics.set("block_count", lowered.blocks.length().to_string())
   diagnostics.metrics.set("asset_count", lowered.assets.length().to_string())
   diagnostics.metrics.set(

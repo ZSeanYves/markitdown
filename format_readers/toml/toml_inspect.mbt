@@ -46,6 +46,34 @@ pub fn inspect_toml_document(doc : TomlDocument) -> TomlInspectReport {
 }
 
 ///|
+fn inspect_toml_document_with_fast_array(
+  doc : TomlDocument,
+  fast : TomlFastArrayTable,
+) -> TomlInspectReport {
+  let base = inspect_toml_document(doc)
+  let member_count = fast.table_count * fast.keys.length()
+  let mut path_depth = 0
+  for part in fast.base_path.split("/") {
+    if part != "" {
+      path_depth += 1
+    }
+  }
+  {
+    node_count: base.node_count + fast.table_count + member_count,
+    scalar_count: base.scalar_count + member_count,
+    array_count: base.array_count,
+    table_like_count: base.table_like_count + fast.table_count,
+    table_count: base.table_count + fast.table_count,
+    max_depth: if base.max_depth > path_depth + 1 {
+      base.max_depth
+    } else {
+      path_depth + 1
+    },
+    root_kind: base.root_kind,
+  }
+}
+
+///|
 priv struct TomlInspectStats {
   node_count : Int
   scalar_count : Int

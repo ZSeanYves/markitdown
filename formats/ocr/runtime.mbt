@@ -2,6 +2,122 @@
 const OCR_RUNTIME_TMP_ROOT : String = ".tmp/tests/ocr_runtime"
 
 ///|
+const OCR_MAX_IN_MEMORY_IMAGE_BYTES : Int = 32 * 1024 * 1024
+
+///|
+priv struct OcrPreparedProviderInput {
+  path : String
+  cleanup_dir : String?
+}
+
+///|
+fn ocr_prepare_provider_input(
+  source : @input.InputSource,
+  format : @input.DetectedFormat,
+) -> Result[OcrPreparedProviderInput, String] {
+  match source.path {
+    Some(path) => Ok({ path, cleanup_dir: None })
+    None =>
+      match source.bytes {
+        Some(bytes) => {
+          if bytes.length() > OCR_MAX_IN_MEMORY_IMAGE_BYTES {
+            return Err(
+              "in-memory OCR image exceeds 32 MiB limit: " +
+              bytes.length().to_string(),
+            )
+          }
+          if !ocr_image_bytes_match_format(bytes, format) {
+            return Err(
+              "in-memory OCR image signature does not match " +
+              @input.detected_format_name(format),
+            )
+          }
+          let dir = ocr_runtime_tmp_root() + "/input_" + @env.now().to_string()
+          ocr_runtime_ensure_dir_tree(dir) catch {
+            err =>
+              return Err(
+                "failed to create in-memory OCR input directory: " +
+                err.to_string(),
+              )
+          }
+          let path = dir + "/image." + @input.detected_format_name(format)
+          @fs.write_bytes_to_file(path, bytes) catch {
+            err => {
+              ocr_runtime_cleanup_temp_dir(dir)
+              return Err(
+                "failed to materialize in-memory OCR image: " + err.to_string(),
+              )
+            }
+          }
+          Ok({ path, cleanup_dir: Some(dir) })
+        }
+        None => Err("OCR input has neither path nor bytes")
+      }
+  }
+}
+
+///|
+fn ocr_cleanup_provider_input(input : OcrPreparedProviderInput) -> Unit {
+  match input.cleanup_dir {
+    Some(path) => ocr_runtime_cleanup_temp_dir(path)
+    None => ()
+  }
+}
+
+///|
+fn ocr_image_bytes_match_format(
+  bytes : Bytes,
+  format : @input.DetectedFormat,
+) -> Bool {
+  match format {
+    @input.DetectedFormat::Image(@input.ImageFormat::Png) =>
+      bytes.length() >= 8 &&
+      bytes[0].to_int() == 0x89 &&
+      bytes[1].to_int() == 0x50 &&
+      bytes[2].to_int() == 0x4E &&
+      bytes[3].to_int() == 0x47
+    @input.DetectedFormat::Image(@input.ImageFormat::Jpg)
+    | @input.DetectedFormat::Image(@input.ImageFormat::Jpeg) =>
+      bytes.length() >= 3 &&
+      bytes[0].to_int() == 0xFF &&
+      bytes[1].to_int() == 0xD8 &&
+      bytes[2].to_int() == 0xFF
+    @input.DetectedFormat::Image(@input.ImageFormat::Bmp) =>
+      bytes.length() >= 2 &&
+      bytes[0].to_int() == 0x42 &&
+      bytes[1].to_int() == 0x4D
+    @input.DetectedFormat::Image(@input.ImageFormat::Webp) =>
+      bytes.length() >= 12 &&
+      bytes[0].to_int() == 0x52 &&
+      bytes[1].to_int() == 0x49 &&
+      bytes[2].to_int() == 0x46 &&
+      bytes[3].to_int() == 0x46 &&
+      bytes[8].to_int() == 0x57 &&
+      bytes[9].to_int() == 0x45 &&
+      bytes[10].to_int() == 0x42 &&
+      bytes[11].to_int() == 0x50
+    @input.DetectedFormat::Image(@input.ImageFormat::Tif)
+    | @input.DetectedFormat::Image(@input.ImageFormat::Tiff) =>
+      bytes.length() >= 4 &&
+      (
+        (
+          bytes[0].to_int() == 0x49 &&
+          bytes[1].to_int() == 0x49 &&
+          bytes[2].to_int() == 0x2A &&
+          bytes[3].to_int() == 0
+        ) ||
+        (
+          bytes[0].to_int() == 0x4D &&
+          bytes[1].to_int() == 0x4D &&
+          bytes[2].to_int() == 0 &&
+          bytes[3].to_int() == 0x2A
+        )
+      )
+    _ => false
+  }
+}
+
+///|
 pub fn run_ocr_provider(
   request : OcrProviderRequest,
 ) -> Result[OcrProviderResult, OcrProviderError] {

@@ -312,10 +312,458 @@ fn json_generic_block_events_from_stream(
   stream : @djson.JsonStreamDocument,
   source : @input.InputSource,
 ) -> Array[@core.CoreEvent] {
+  if stream.summary.root_kind == "array" && stream.events.length() >= 100_000 {
+    return json_compact_root_array_events_from_stream(stream, source)
+  }
   let events : Array[@core.CoreEvent] = []
   let cursor = { events: stream.events, index: 0 }
   json_append_value_events(events, cursor, source, "/")
   events
+}
+
+///|
+/// Lower a validated large root array one item at a time. Structural scanning
+/// uses UTF-8 code units only for JSON delimiters, so element slices preserve
+/// the original payload bytes and source offsets.
+fn json_compact_root_array_events_direct(
+  text : String,
+  source : @input.InputSource,
+) -> Result[Array[@core.CoreEvent], String] {
+  let events : Array[@core.CoreEvent] = []
+  let mut index = 0
+  let mut line = 1
+  let length = text.length()
+  while index < length &&
+        json_direct_is_space(text.code_unit_at(index).to_int()) {
+    if text.code_unit_at(index).to_int() == 10 {
+      line += 1
+    }
+    index += 1
+  }
+  if index >= length || text.code_unit_at(index).to_int() != 91 {
+    return Err("large JSON direct lowering requires a root array")
+  }
+  index += 1
+  let mut item_index = 0
+  while index < length {
+    while index < length {
+      let ch = text.code_unit_at(index).to_int()
+      if !json_direct_is_space(ch) {
+        break
+      }
+      if ch == 10 {
+        line += 1
+      }
+      index += 1
+    }
+    if index < length && text.code_unit_at(index).to_int() == 93 {
+      return Ok(events)
+    }
+    let item_start = index
+    let item_line = line
+    let preview_cursor = JsonDirectPreviewCursor::{
+      text,
+      pos: item_start,
+      line_breaks: 0,
+    }
+    let preview = preview_cursor.value_preview(2)
+    let item_end = preview_cursor.pos
+    if item_end <= item_start {
+      return Err("empty JSON root-array item")
+    }
+    line += preview_cursor.line_breaks
+    index = item_end
+    let pointer = json_append_pointer("/", item_index.to_string())
+    let source_ref = json_stream_source_ref(
+      source, pointer, item_line, item_start, item_end,
+    )
+    source_ref.extra.set("ir_event_encoding", "json_list_v1")
+    source_ref.extra.set("ir_block_kind", "list_item")
+    source_ref.extra.set("ir_block_attr_literal", "true")
+    source_ref.extra.set("ir_block_attr_ordered", "false")
+    events.push({
+      kind: @core.EventKind::StartBlock(@core.BlockKind::ListItem),
+      text: preview,
+      source_ref: Some(source_ref),
+    })
+    item_index += 1
+    if index < length && text.code_unit_at(index).to_int() == 44 {
+      index += 1
+    }
+  }
+  Err("unterminated JSON root array")
+}
+
+///|
+fn json_direct_is_space(ch : Int) -> Bool {
+  ch == 32 || ch == 9 || ch == 10 || ch == 13
+}
+
+///|
+priv struct JsonDirectPreviewCursor {
+  text : String
+  mut pos : Int
+  mut line_breaks : Int
+}
+
+///|
+fn JsonDirectPreviewCursor::skip_ws(self : JsonDirectPreviewCursor) -> Unit {
+  while self.pos < self.text.length() &&
+        json_direct_is_space(self.text.code_unit_at(self.pos).to_int()) {
+    if self.text.code_unit_at(self.pos).to_int() == 10 {
+      self.line_breaks += 1
+    }
+    self.pos += 1
+  }
+}
+
+///|
+fn JsonDirectPreviewCursor::value_preview(
+  self : JsonDirectPreviewCursor,
+  preview_depth : Int,
+) -> String {
+  self.skip_ws()
+  if self.pos >= self.text.length() {
+    return ""
+  }
+  match self.text.code_unit_at(self.pos).to_int() {
+    123 => self.object_preview(preview_depth)
+    91 => self.array_preview(preview_depth)
+    34 => json_clip_preview_text(self.string_value(), 96)
+    116 => {
+      self.pos += 4
+      "true"
+    }
+    102 => {
+      self.pos += 5
+      "false"
+    }
+    110 => {
+      self.pos += 4
+      "null"
+    }
+    _ => self.number_value()
+  }
+}
+
+///|
+fn JsonDirectPreviewCursor::object_preview(
+  self : JsonDirectPreviewCursor,
+  preview_depth : Int,
+) -> String {
+  self.pos += 1
+  self.skip_ws()
+  let samples : Array[String] = []
+  let limit = json_preview_member_limit(preview_depth)
+  let mut count = 0
+  if self.pos < self.text.length() &&
+    self.text.code_unit_at(self.pos).to_int() == 125 {
+    self.pos += 1
+    return json_object_summary_text(0, samples)
+  }
+  while self.pos < self.text.length() {
+    self.skip_ws()
+    let key = self.string_value()
+    self.skip_ws()
+    self.pos += 1
+    count += 1
+    if samples.length() < limit {
+      samples.push(
+        json_clip_preview_text(key, 48) +
+        ": " +
+        self.value_preview(preview_depth - 1),
+      )
+    } else {
+      self.skip_value()
+    }
+    self.skip_ws()
+    if self.pos >= self.text.length() {
+      break
+    }
+    let delimiter = self.text.code_unit_at(self.pos).to_int()
+    self.pos += 1
+    if delimiter == 125 {
+      break
+    }
+  }
+  json_object_summary_text(count, samples)
+}
+
+///|
+fn JsonDirectPreviewCursor::array_preview(
+  self : JsonDirectPreviewCursor,
+  preview_depth : Int,
+) -> String {
+  self.pos += 1
+  self.skip_ws()
+  let samples : Array[String] = []
+  let limit = json_preview_sample_limit(preview_depth)
+  let mut count = 0
+  if self.pos < self.text.length() &&
+    self.text.code_unit_at(self.pos).to_int() == 93 {
+    self.pos += 1
+    return json_array_summary_text(0, samples)
+  }
+  while self.pos < self.text.length() {
+    count += 1
+    if samples.length() < limit {
+      samples.push(self.value_preview(preview_depth - 1))
+    } else {
+      self.skip_value()
+    }
+    self.skip_ws()
+    if self.pos >= self.text.length() {
+      break
+    }
+    let delimiter = self.text.code_unit_at(self.pos).to_int()
+    self.pos += 1
+    if delimiter == 93 {
+      break
+    }
+  }
+  json_array_summary_text(count, samples)
+}
+
+///|
+fn JsonDirectPreviewCursor::string_value(
+  self : JsonDirectPreviewCursor,
+) -> String {
+  let quoted_start = self.pos
+  self.pos += 1
+  let content_start = self.pos
+  let mut escaped = false
+  let mut has_escape = false
+  while self.pos < self.text.length() {
+    let ch = self.text.code_unit_at(self.pos).to_int()
+    if escaped {
+      escaped = false
+    } else if ch == 92 {
+      escaped = true
+      has_escape = true
+    } else if ch == 34 {
+      let content_end = self.pos
+      self.pos += 1
+      if !has_escape {
+        return self.text[content_start:content_end].to_owned()
+      }
+      let decoded = @djson.parse_json_document_native(
+        self.text[quoted_start:self.pos].to_owned(),
+        preserve_number_lexemes=false,
+      ) catch {
+        _ => return self.text[content_start:content_end].to_owned()
+      }
+      return match decoded.root {
+        @djson.JsonValue::String(value) => value
+        _ => self.text[content_start:content_end].to_owned()
+      }
+    }
+    self.pos += 1
+  }
+  self.text[content_start:].to_owned()
+}
+
+///|
+fn JsonDirectPreviewCursor::number_value(
+  self : JsonDirectPreviewCursor,
+) -> String {
+  let start = self.pos
+  while self.pos < self.text.length() {
+    let ch = self.text.code_unit_at(self.pos).to_int()
+    if ch == 44 || ch == 93 || ch == 125 || json_direct_is_space(ch) {
+      break
+    }
+    self.pos += 1
+  }
+  self.text[start:self.pos].to_owned()
+}
+
+///|
+fn JsonDirectPreviewCursor::skip_value(self : JsonDirectPreviewCursor) -> Unit {
+  self.skip_ws()
+  if self.pos >= self.text.length() {
+    return
+  }
+  let first = self.text.code_unit_at(self.pos).to_int()
+  if first == 34 {
+    ignore(self.string_value())
+    return
+  }
+  if first != 123 && first != 91 {
+    ignore(self.number_value())
+    return
+  }
+  let mut depth = 0
+  let mut in_string = false
+  let mut escaped = false
+  while self.pos < self.text.length() {
+    let ch = self.text.code_unit_at(self.pos).to_int()
+    if in_string {
+      if escaped {
+        escaped = false
+      } else if ch == 92 {
+        escaped = true
+      } else if ch == 34 {
+        in_string = false
+      }
+    } else if ch == 34 {
+      in_string = true
+    } else if ch == 123 || ch == 91 {
+      depth += 1
+    } else if ch == 125 || ch == 93 {
+      depth -= 1
+      if depth == 0 {
+        self.pos += 1
+        return
+      }
+    }
+    self.pos += 1
+  }
+}
+
+///|
+fn json_compact_root_array_events_from_stream(
+  stream : @djson.JsonStreamDocument,
+  source : @input.InputSource,
+) -> Array[@core.CoreEvent] {
+  let events : Array[@core.CoreEvent] = Array::new(
+    capacity=stream.summary.scalar_count / 4,
+  )
+  let cursor = { events: stream.events, index: 1 }
+  let mut item_index = 0
+  while cursor.index < cursor.events.length() {
+    if cursor.events[cursor.index].kind == @djson.JsonStreamEventKind::ArrayEnd {
+      break
+    }
+    let pointer = json_append_pointer("/", item_index.to_string())
+    let start = cursor.events[cursor.index]
+    let text = json_compact_preview_text(cursor, 2)
+    let end = cursor.events[cursor.index - 1]
+    let source_ref = json_stream_source_ref(
+      source,
+      pointer,
+      start.source.line,
+      start.source.byte_start,
+      end.source.byte_end,
+    )
+    source_ref.extra.set("ir_event_encoding", "json_list_v1")
+    source_ref.extra.set("ir_block_kind", "list_item")
+    source_ref.extra.set("ir_block_attr_literal", "true")
+    source_ref.extra.set("ir_block_attr_ordered", "false")
+    events.push({
+      kind: @core.EventKind::StartBlock(@core.BlockKind::ListItem),
+      text,
+      source_ref: Some(source_ref),
+    })
+    item_index += 1
+  }
+  events
+}
+
+///|
+fn json_compact_preview_text(
+  cursor : JsonStreamCursor,
+  preview_depth : Int,
+) -> String {
+  let event = cursor.events[cursor.index]
+  match event.kind {
+    @djson.JsonStreamEventKind::StringValue => {
+      cursor.index += 1
+      json_clip_preview_text(json_stream_scalar_text(event), 96)
+    }
+    @djson.JsonStreamEventKind::NumberValue
+    | @djson.JsonStreamEventKind::BoolValue
+    | @djson.JsonStreamEventKind::NullValue => {
+      cursor.index += 1
+      json_stream_scalar_text(event)
+    }
+    @djson.JsonStreamEventKind::ObjectStart =>
+      json_compact_object_preview_text(cursor, preview_depth)
+    @djson.JsonStreamEventKind::ArrayStart =>
+      json_compact_array_preview_text(cursor, preview_depth)
+    _ => {
+      cursor.index += 1
+      ""
+    }
+  }
+}
+
+///|
+fn json_compact_object_preview_text(
+  cursor : JsonStreamCursor,
+  preview_depth : Int,
+) -> String {
+  let root_depth = cursor.events[cursor.index].depth
+  let member_depth = root_depth + 1
+  let mut member_count = 0
+  let samples : Array[String] = []
+  cursor.index += 1
+  while cursor.index < cursor.events.length() {
+    let next = cursor.events[cursor.index]
+    match next.kind {
+      @djson.JsonStreamEventKind::Key if next.depth == member_depth => {
+        member_count += 1
+        let key = next.text.unwrap_or("")
+        cursor.index += 1
+        let sample = samples.length() < json_preview_member_limit(preview_depth)
+        let value = json_compact_preview_text(
+          cursor,
+          if sample {
+            preview_depth - 1
+          } else {
+            0
+          },
+        )
+        if sample {
+          samples.push(json_clip_preview_text(key, 48) + ": " + value)
+        }
+        continue
+      }
+      @djson.JsonStreamEventKind::ObjectEnd if next.depth == root_depth => {
+        cursor.index += 1
+        return json_object_summary_text(member_count, samples)
+      }
+      _ => cursor.index += 1
+    }
+  }
+  json_object_summary_text(member_count, samples)
+}
+
+///|
+fn json_compact_array_preview_text(
+  cursor : JsonStreamCursor,
+  preview_depth : Int,
+) -> String {
+  let root_depth = cursor.events[cursor.index].depth
+  let item_depth = root_depth + 1
+  let mut item_count = 0
+  let samples : Array[String] = []
+  cursor.index += 1
+  while cursor.index < cursor.events.length() {
+    let next = cursor.events[cursor.index]
+    if next.kind == @djson.JsonStreamEventKind::ArrayEnd &&
+      next.depth == root_depth {
+      cursor.index += 1
+      return json_array_summary_text(item_count, samples)
+    }
+    if next.depth == item_depth {
+      item_count += 1
+      let sample = samples.length() < json_preview_sample_limit(preview_depth)
+      let value = json_compact_preview_text(
+        cursor,
+        if sample {
+          preview_depth - 1
+        } else {
+          0
+        },
+      )
+      if sample {
+        samples.push(value)
+      }
+      continue
+    }
+    cursor.index += 1
+  }
+  json_array_summary_text(item_count, samples)
 }
 
 ///|
@@ -677,6 +1125,15 @@ fn json_preview_sample_limit(preview_depth : Int) -> Int {
 
 ///|
 fn json_clip_preview_text(text : String, max_chars : Int) -> String {
+  if !text.contains("\n") && !text.contains("\r") {
+    let trimmed = text.trim()
+    if trimmed.length() == text.length() {
+      if text.length() <= max_chars {
+        return text
+      }
+      return text[:max_chars].to_owned() + "..."
+    }
+  }
   let normalized = text
     .replace(old="\n", new=" ")
     .replace(old="\r", new=" ")

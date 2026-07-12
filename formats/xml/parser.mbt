@@ -212,7 +212,12 @@ fn parse_xml_document_result_from_normalized(
             source, normalized, diagnostics, "xml parser policy rejected structured lowering",
           )
         }
-        let events = xml_generic_block_events_from_tokens(tokens, source)
+        let compact_outline = normalized.length() >= 1_048_576
+        let events = if compact_outline {
+          xml_compact_outline_events_from_tokens(tokens, source)
+        } else {
+          xml_generic_block_events_from_tokens(tokens, source)
+        }
         diagnostics.metrics.set("parser_mode", "streaming_event")
         diagnostics.metrics.set("effective_mode", "streaming_event")
         diagnostics.metrics.set("ir_input_kind", "event_stream")
@@ -230,6 +235,10 @@ fn parse_xml_document_result_from_normalized(
         )
         diagnostics.metrics.set("event_granularity", "xml_structure")
         diagnostics.metrics.set("event_semantics", "xml_structure_event_stream")
+        diagnostics.metrics.set(
+          "xml_compact_outline",
+          @fshared.bool_string(compact_outline),
+        )
         diagnostics.pass_trace.push("parse:xml_parser")
         return @parser.parse_result_with_events_capability(
           "xml_parser",

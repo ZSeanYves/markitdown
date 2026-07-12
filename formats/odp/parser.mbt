@@ -406,6 +406,16 @@ fn odp_image_block(
 ) -> @core.CoreBlock {
   match block.image {
     Some(image) => {
+      if image.bytes is None {
+        let unavailable = @core.make_block(
+          @core.BlockKind::BlockQuote,
+          "Asset unavailable: " + image.href,
+          source_ref~,
+        )
+        unavailable.attrs.set("asset_missing", "true")
+        unavailable.attrs.set("asset_source_path", image.href)
+        return unavailable
+      }
       let asset_id = odp_asset_output_path(slide.index, image.href)
       let asset = @core.make_asset_ref(
         @core.AssetKind::Image,

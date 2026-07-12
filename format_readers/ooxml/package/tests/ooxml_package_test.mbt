@@ -322,3 +322,86 @@ test "ooxml package inventory skips directory entries" {
   assert_eq(inventory.part_count, 1)
   assert_eq(inventory.parts[0].part_name, "word/document.xml")
 }
+
+///|
+test "ooxml package inspect reports relationships media and properties" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>" +
+        "<Override PartName=\"/docProps/core.xml\" ContentType=\"application/vnd.openxmlformats-package.core-properties+xml\"/>" +
+        "<Override PartName=\"/docProps/app.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.extended-properties+xml\"/>",
+      ),
+    ),
+    (
+      "_rels/.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rIdMain\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"word/document.xml\"/>" +
+        "<Relationship Id=\"rIdCore\" Type=\"http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties\" Target=\"docProps/core.xml\"/>" +
+        "<Relationship Id=\"rIdApp\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties\" Target=\"docProps/app.xml\"/>",
+      ),
+    ),
+    ("word/document.xml", "<doc/>"),
+    (
+      "word/_rels/document.xml.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rIdImage\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/image\" Target=\"media/image1.png\"/>",
+      ),
+    ),
+    ("word/media/image1.png", "png-bytes"),
+    (
+      "docProps/core.xml", "<cp:coreProperties xmlns:cp=\"http://schemas.openxmlformats.org/package/2006/metadata/core-properties\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\"><dc:title>Inspect Title</dc:title><dc:creator>MoonBit</dc:creator></cp:coreProperties>",
+    ),
+    (
+      "docProps/app.xml", "<Properties xmlns=\"http://schemas.openxmlformats.org/officeDocument/2006/extended-properties\"><Application>MarkItDown</Application><Pages>2</Pages><Words>7</Words></Properties>",
+    ),
+  ])
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => fail("open_ooxml_package failed: " + e.to_string())
+  }
+  let report = @oxi.inspect_ooxml_package(pkg)
+  assert_eq(report.part_count, 6)
+  assert_eq(report.package_relationship_count, 3)
+  assert_eq(report.part_relationship_count, 1)
+  assert_eq(report.media_asset_count, 1)
+  assert_true(@oxi.find_part_info(pkg, "/word/./document.xml") is Some(_))
+  assert_true(@oxi.find_part_info(pkg, "missing.xml") is None)
+  assert_true(@oxi.list_content_type_infos(pkg).length() >= 6)
+  let dump = @oxi.dump_ooxml_package(pkg)
+  assert_true(dump.contains("[Content_Types]"))
+  assert_true(dump.contains("root relationships"))
+  assert_true(dump.contains("word/media/image1.png"))
+  assert_true(dump.contains("Inspect Title"))
+  assert_true(dump.contains("MarkItDown"))
+}
+
+///|
+test "ooxml inspect classifies public package error taxonomy" {
+  let cases = [
+    @ox.OoxmlError::ZipError("bad zip"),
+    @ox.OoxmlError::MissingPart("word/_rels/document.xml.rels"),
+    @ox.OoxmlError::InvalidXml(
+      "[Content_Types].xml: duplicate content type override: /word/document.xml",
+    ),
+    @ox.OoxmlError::InvalidXml(
+      "relationships rels_part=\"word/_rels/document.xml.rels\" source=\"word/document.xml\": malformed",
+    ),
+    @ox.OoxmlError::InvalidXml("generic malformed xml"),
+    @ox.OoxmlError::InvalidPartPath(
+      "unsafe relationship target: word/document.xml: ../../evil.bin",
+    ),
+    @ox.OoxmlError::InvalidPartPath(
+      "normalized part collision: word/document.xml",
+    ),
+    @ox.OoxmlError::InvalidPartPath("/absolute/unsafe.xml"),
+    @ox.OoxmlError::RelationshipNotFound("word/document.xml", "rId404"),
+  ]
+  let infos = cases.map(@oxi.classify_ooxml_error)
+  assert_eq(infos.length(), 9)
+  assert_true(infos.all(info => info.detail != ""))
+  assert_true(infos[1].rels_part_name is Some(_))
+  assert_true(infos[3].source_part == Some("word/document.xml"))
+  assert_true(infos[5].target == Some("../../evil.bin"))
+  assert_true(infos[8].rel_id == Some("rId404"))
+}

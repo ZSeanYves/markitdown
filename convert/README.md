@@ -42,6 +42,9 @@
 - All route decisions should converge in `route_policy.mbt` and the probing modules, not be reimplemented inside CLI or format packages
 - Provenance fields must stay explainable and regression-friendly; new strategy decisions usually need matching provenance fields
 - New capabilities should extend the execution plan and canonical path instead of bypassing convert to call a parser directly
+- Mode support is a route contract: unsupported `accurate`/`stream` requests
+  fail before parse, while provider fallback may occur only inside an already
+  supported route and must remain diagnostic/provenance-visible.
 
 ## Validation
 

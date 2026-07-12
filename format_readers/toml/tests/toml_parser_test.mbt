@@ -87,6 +87,39 @@ test "toml parser rejects invalid datetime token" {
 }
 
 ///|
+test "toml parser validates 1.0 numeric forms datetime bounds and special floats" {
+  let document = @toml.parse_toml_document(
+    "decimal = 1_000\nhex = 0xDEAD_BEEF\noctal = 0o755\nbinary = 0b1010_0110\nfloat = -1_234.5_6e+7\npos_inf = +inf\nquiet_nan = nan\nleap = 2024-02-29T23:59:59.123Z\nlocal_time = 07:32:00\n",
+  )
+  assert_eq(document.root_members.length(), 9)
+  match document.root_members[0].value {
+    @toml.TomlValue::Integer(value) => assert_eq(value, "1_000")
+    _ => fail("expected decimal integer")
+  }
+  match document.root_members[4].value {
+    @toml.TomlValue::Float(value) => assert_eq(value, "-1_234.5_6e+7")
+    _ => fail("expected exponent float")
+  }
+  match document.root_members[7].value {
+    @toml.TomlValue::Datetime(value) =>
+      assert_eq(value, "2024-02-29T23:59:59.123Z")
+    _ => fail("expected offset datetime")
+  }
+  for
+    invalid in [
+      "value = 01\n", "value = 0xZZ\n", "value = 0o8\n", "value = 0b102\n", "value = 1__2\n",
+      "value = 1._0\n", "value = 1e_2\n", "value = 2023-02-29\n", "value = 2024-04-31\n",
+    ] {
+    assert_true(
+      (try @toml.parse_toml_document(invalid) |> Ok catch {
+        _ => Err(())
+      })
+      is Err(_),
+    )
+  }
+}
+
+///|
 test "toml malformed input fails closed and classifies" {
   assert_true(
     (try @toml.parse_toml_document("title = [1, 2") |> Ok catch {

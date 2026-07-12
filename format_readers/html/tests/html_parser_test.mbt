@@ -115,3 +115,30 @@ test "html parser keeps empty documents explicit and classifies malformed hard e
     assert_true(info.kind == expected_kind)
   }
 }
+
+///|
+test "html tokenizer covers multiline tolerant and malformed boundaries" {
+  let source = "<!DOCTYPE\n html>\n" +
+    "<!-- first\nsecond -->\n" +
+    "<DIV\r class='one\ntwo' disabled data-x=value>text</DIV>" +
+    "<script>line1\nline2</SCRIPT>" +
+    "</ \n div><"
+  let tokens = @html.tokenize_html_document(source)
+  let events = @html.tokenize_html_events(source)
+  assert_true(tokens.length() >= 8)
+  assert_true(events.length() >= 8)
+  assert_true(events.any(event => event.span.line_end > event.span.line_start))
+
+  let malformed = [
+    "<!-- broken\ncomment", "<!DOCTYPE\nhtml", "<div", "<a href=", "<a href=>", "<a href='unterminated",
+    "<img / broken>", "<div data-x=/>",
+  ]
+  for value in malformed {
+    assert_true(
+      (try @html.tokenize_html_document(value) |> Ok catch {
+        _ => Err(())
+      })
+      is Err(_),
+    )
+  }
+}

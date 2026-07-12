@@ -406,12 +406,11 @@ pub fn format_route_profile(
         format,
         true,
         FormatRoute::ContainerRecursive,
-        true,
+        false,
         @parser.ParserMode::ContainerRecursive,
         @parser.StreamingGranularity::ArchiveEntry,
         "block_stream",
-        "zip canonical container-recursive",
-        explicit_stream_route=Some(FormatRoute::ContainerRecursive),
+        "zip balance-only container-recursive",
       )
     @input.DetectedFormat::Epub =>
       make_format_route_profile(
@@ -660,6 +659,11 @@ fn hard_limit_thresholds_for_format(
         (@product.ProbeSignalKind::MaxDepth, 0),
         (@product.ProbeSignalKind::CharCount, 0),
       ]
+    @input.DetectedFormat::Toml
+    | @input.DetectedFormat::Tex
+    | @input.DetectedFormat::Rst
+    | @input.DetectedFormat::Asciidoc =>
+      [(@product.ProbeSignalKind::CharCount, 1_048_576)]
     @input.DetectedFormat::Html =>
       [
         (@product.ProbeSignalKind::BlockCount, 0),

@@ -25,11 +25,14 @@ fn convert_input_with_image_ocr_provider_and_pdf_rasterizer_and_provenance(
     @fpdf.PdfRasterizerError,
   ],
 ) -> Result[ConvertExecution, ConvertError] {
+  let execution_started = @env.now()
+  let detect_started = execution_started
   let (effective_source, detected, execution_plan) = match
     detect_and_resolve_execution_plan(source, options) {
     Ok(value) => value
     Err(err) => return Err(err)
   }
+  let detect_elapsed_ms = @env.now() - detect_started
   let detect_trace = format_detection_trace(detected)
   let prepared_source = execution_plan.prepared_source
   let requested_mode = execution_plan.requested_parser_mode
@@ -37,6 +40,7 @@ fn convert_input_with_image_ocr_provider_and_pdf_rasterizer_and_provenance(
     detected.format,
     execution_plan,
   )
+  let parse_started = @env.now()
   let parsed = if @input.detected_format_is_image_candidate(detected.format) {
     match
       @focr.image_ocr_parser_result_with_provider_target(
@@ -65,7 +69,11 @@ fn convert_input_with_image_ocr_provider_and_pdf_rasterizer_and_provenance(
       Err(err) => return Err(ConvertError::ParseFailed(err))
     }
   } else {
-    let registry = @formats.builtin_registry()
+    let probe_registry = match detected.format {
+      @input.DetectedFormat::Zip | @input.DetectedFormat::Epub =>
+        @formats.builtin_registry()
+      _ => @parser.empty_registry()
+    }
     match
       parse_prepared_request(
         {
@@ -82,7 +90,7 @@ fn convert_input_with_image_ocr_provider_and_pdf_rasterizer_and_provenance(
           probe_artifact: None,
         },
         parse_context,
-        registry,
+        probe_registry,
       ) {
       Some(Ok(result)) => result
       Some(Err(err)) => return Err(ConvertError::ParseFailed(err))
@@ -94,7 +102,12 @@ fn convert_input_with_image_ocr_provider_and_pdf_rasterizer_and_provenance(
           ),
         )
       None =>
-        match @parser.registry_parse(registry, prepared_source, parse_context) {
+        match
+          @parser.registry_parse(
+            @formats.builtin_registry(),
+            prepared_source,
+            parse_context,
+          ) {
           Ok(result) => result
           Err(err) => return Err(ConvertError::ParseFailed(err))
         }
@@ -106,6 +119,14 @@ fn convert_input_with_image_ocr_provider_and_pdf_rasterizer_and_provenance(
     execution_plan,
     detected,
   )
+  diagnostics.metrics.set(
+    "timing_detect_probe_ms",
+    detect_elapsed_ms.to_string(),
+  )
+  diagnostics.metrics.set(
+    "timing_parse_lower_ms",
+    (@env.now() - parse_started).to_string(),
+  )
   Ok(
     finalize_pipeline_execution(
       effective_source,
@@ -114,6 +135,7 @@ fn convert_input_with_image_ocr_provider_and_pdf_rasterizer_and_provenance(
       parsed,
       diagnostics,
       execution_plan,
+      execution_started,
     ),
   )
 }

@@ -19,3 +19,13 @@ test "tsv parser handles quoted tabs" {
   let report = @tsv.inspect_tsv_document(doc)
   assert_eq(report.row_count, 2)
 }
+
+///|
+test "tsv malformed unterminated quoted field fails closed" {
+  assert_true(
+    (try @tsv.parse_tsv_document("a\tb\n\"unterminated\tvalue") |> Ok catch {
+      _ => Err(())
+    })
+    is Err(_),
+  )
+}

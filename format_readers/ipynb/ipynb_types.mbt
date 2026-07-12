@@ -56,6 +56,8 @@ pub struct IpynbOutput {
   ename : String?
   evalue : String?
   traceback : Array[String]
+  display_id : String?
+  clear_wait : Bool?
   json_pointer : String
 }
 

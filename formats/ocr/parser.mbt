@@ -29,7 +29,7 @@ pub fn image_requires_explicit_ocr_message(
 ) -> String {
   "image OCR is not enabled for " +
   @input.detected_format_name(format) +
-  " inputs on the this runtime; future support requires an explicit OCR path"
+  " inputs on this runtime; future support requires an explicit OCR path"
 }
 
 ///|
@@ -50,7 +50,7 @@ pub fn image_ocr_provider_not_wired_message(
   }
   "OCR provider is not wired yet for " +
   @input.detected_format_name(format) +
-  " inputs on the this runtime." +
+  " inputs on this runtime." +
   language_note
 }
 
@@ -121,7 +121,7 @@ fn image_ocr_parse_success_result(
       image_ocr_provider_error_message(
         detected_format,
         OcrProviderError::EmptyResult(
-          "OCR provider produced an empty OCR model on the this runtime.",
+          "OCR provider produced an empty OCR model on this runtime.",
         ),
       ),
     )
@@ -142,7 +142,7 @@ fn image_ocr_parse_success_result(
 pub fn image_ocr_disabled_message(format : @input.DetectedFormat) -> String {
   "image input conversion is not enabled for " +
   @input.detected_format_name(format) +
-  " inputs on the this runtime; OCR is disabled"
+  " inputs on this runtime; OCR is disabled"
 }
 
 ///|
@@ -315,9 +315,15 @@ fn image_ocr_parser_parse(
   }
   match options.intent {
     @parser.OcrIntent::Explicit => {
+      let provider_input = match
+        ocr_prepare_provider_input(source, detected_format) {
+        Ok(value) => value
+        Err(err) => return Err(err)
+      }
+      defer ocr_cleanup_provider_input(provider_input)
       let provider_kind = resolved_ocr_provider_kind_for_target(target)
       let request = make_ocr_provider_request(
-        image_source_path(source),
+        provider_input.path,
         provider_kind,
         language=options.language,
       )
@@ -330,7 +336,7 @@ fn image_ocr_parser_parse(
           match ocr_provider_fallback_for_target(target) {
             Some(fallback) if image_ocr_provider_should_fallback(error) => {
               let fallback_request = make_ocr_provider_request(
-                image_source_path(source),
+                provider_input.path,
                 fallback.1,
                 language=options.language,
               )
@@ -386,9 +392,15 @@ async fn image_ocr_parser_parse_async(
   }
   match options.intent {
     @parser.OcrIntent::Explicit => {
+      let provider_input = match
+        ocr_prepare_provider_input(source, detected_format) {
+        Ok(value) => value
+        Err(err) => return Err(err)
+      }
+      defer ocr_cleanup_provider_input(provider_input)
       let provider_kind = resolved_ocr_provider_kind_for_target(target)
       let request = make_ocr_provider_request(
-        image_source_path(source),
+        provider_input.path,
         provider_kind,
         language=options.language,
       )
@@ -401,7 +413,7 @@ async fn image_ocr_parser_parse_async(
           match ocr_provider_fallback_for_target(target) {
             Some(fallback) if image_ocr_provider_should_fallback(error) => {
               let fallback_request = make_ocr_provider_request(
-                image_source_path(source),
+                provider_input.path,
                 fallback.1,
                 language=options.language,
               )
@@ -470,7 +482,7 @@ fn image_ocr_parser_diagnostics(
         Ok(result) =>
           if result.pages.length() == 0 {
             let error = OcrProviderError::EmptyResult(
-              "OCR provider produced an empty OCR model on the this runtime.",
+              "OCR provider produced an empty OCR model on this runtime.",
             )
             diagnostics.metrics.set(
               "ocr_provider_status",

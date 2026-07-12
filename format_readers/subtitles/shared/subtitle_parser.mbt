@@ -1,10 +1,16 @@
 ///|
 pub fn parse_srt_document(text : String) -> SubtitleDocument raise {
+  if text.contains("\u{0000}") {
+    fail("subtitle input contains NUL bytes")
+  }
   parse_subtitle_document(text, SubtitleFormat::Srt)
 }
 
 ///|
 pub fn parse_vtt_document(text : String) -> SubtitleDocument raise {
+  if text.contains("\u{0000}") {
+    fail("subtitle input contains NUL bytes")
+  }
   parse_subtitle_document(text, SubtitleFormat::Vtt)
 }
 
@@ -57,7 +63,7 @@ pub fn inspect_subtitle_document(
 fn parse_subtitle_document(
   text : String,
   format : SubtitleFormat,
-) -> SubtitleDocument raise {
+) -> SubtitleDocument {
   let normalized = strip_bom(normalize_subtitle_text(text))
   let cues : Array[SubtitleCue] = []
   let lines = normalized.split("\n").to_array().map(line => line.to_owned())
@@ -154,12 +160,21 @@ fn parse_subtitle_document(
       identifier = Some(trimmed_first)
       i += 1
       if i >= lines.length() {
-        fail("subtitle cue missing time range after identifier")
+        cues.push(invalid_subtitle_block(cue_index, block_start, i, [first]))
+        cue_index += 1
+        continue
       }
       time_line = lines[i].trim().to_owned()
     }
     if !time_line.contains(" --> ") {
-      fail("subtitle cue missing time range")
+      let payload : Array[String] = [first]
+      while i < lines.length() && lines[i].trim() != "" {
+        payload.push(lines[i])
+        i += 1
+      }
+      cues.push(invalid_subtitle_block(cue_index, block_start, i, payload))
+      cue_index += 1
+      continue
     }
     let (normalized_time_range, cue_settings, time_start, time_end) = split_time_range_and_settings(
       time_line,
@@ -189,15 +204,39 @@ fn parse_subtitle_document(
 }
 
 ///|
+fn invalid_subtitle_block(
+  cue_index : Int,
+  line_start : Int,
+  line_end : Int,
+  payload : Array[String],
+) -> SubtitleCue {
+  {
+    index: cue_index,
+    identifier: None,
+    time_range: "",
+    time_start: None,
+    time_end: None,
+    text_lines: [],
+    note_kind: Some("invalid"),
+    note_payload: Some(payload.join("\n")),
+    cue_settings: None,
+    line_start,
+    line_end,
+  }
+}
+
+///|
 fn normalize_subtitle_text(text : String) -> String {
-  text.replace(old="\r\n", new="\n").replace(old="\r", new="\n")
+  if !text.contains("\r") {
+    return text
+  }
+  text.replace_all(old="\r\n", new="\n").replace_all(old="\r", new="\n")
 }
 
 ///|
 fn strip_bom(text : String) -> String {
-  let chars = text.to_array()
-  if chars.length() > 0 && chars[0] == '\u{FEFF}' {
-    String::from_array(chars[1:])
+  if text.has_prefix("\u{FEFF}") {
+    text[1:].to_owned()
   } else {
     text
   }

@@ -36,7 +36,103 @@ fn parse_pipe_table_literal(text : String) -> TextMarkupTable? {
 
 ///|
 fn parse_rst_table_block(text : String) -> TextMarkupTable? {
-  parse_pipe_table_literal(text)
+  match parse_pipe_table_literal(text) {
+    Some(table) => Some(table)
+    None => parse_rst_simple_table(text)
+  }
+}
+
+///|
+fn parse_rst_simple_table(text : String) -> TextMarkupTable? {
+  let lines = text
+    .split("\n")
+    .to_array()
+    .map(line => line.trim().to_owned())
+    .filter(line => line != "")
+  if lines.length() < 4 || !rst_simple_table_separator(lines[0]) {
+    return None
+  }
+  let columns = rst_simple_table_columns(lines[0])
+  if columns.length() < 2 {
+    return None
+  }
+  let content : Array[Array[String]] = []
+  for i in 1..<lines.length() {
+    let line = lines[i]
+    if rst_simple_table_separator(line) {
+      continue
+    }
+    let cells = split_rst_simple_table_row_at_columns(line, columns)
+    if cells.length() > 0 {
+      content.push(cells)
+    }
+  }
+  if content.length() < 2 || content[0].length() < 2 {
+    return None
+  }
+  let width = content[0].length()
+  let rows : Array[Array[String]] = []
+  for i in 1..<content.length() {
+    if content[i].length() != width {
+      return None
+    }
+    rows.push(content[i])
+  }
+  Some({ header: content[0], rows })
+}
+
+///|
+fn rst_simple_table_separator(line : String) -> Bool {
+  rst_simple_table_columns(line).length() >= 2
+}
+
+///|
+fn rst_simple_table_columns(line : String) -> Array[(Int, Int)] {
+  let chars = line.to_array()
+  let columns : Array[(Int, Int)] = []
+  let mut i = 0
+  while i < chars.length() {
+    while i < chars.length() && (chars[i] == ' ' || chars[i] == '\t') {
+      i += 1
+    }
+    let start = i
+    while i < chars.length() && (chars[i] == '=' || chars[i] == '-') {
+      i += 1
+    }
+    if i > start {
+      columns.push((start, i))
+    }
+    if i < chars.length() && chars[i] != ' ' && chars[i] != '\t' {
+      return []
+    }
+  }
+  columns
+}
+
+///|
+fn split_rst_simple_table_row_at_columns(
+  line : String,
+  columns : Array[(Int, Int)],
+) -> Array[String] {
+  let chars = line.to_array()
+  let cells : Array[String] = []
+  for i in 0..<columns.length() {
+    let start = columns[i].0
+    let end = if i + 1 < columns.length() {
+      columns[i + 1].0
+    } else {
+      chars.length()
+    }
+    let slice : Array[Char] = []
+    let bounded_end = if end < chars.length() { end } else { chars.length() }
+    if start < chars.length() {
+      for index in start..<bounded_end {
+        slice.push(chars[index])
+      }
+    }
+    cells.push(String::from_array(slice).trim().to_owned())
+  }
+  cells
 }
 
 ///|

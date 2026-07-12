@@ -188,6 +188,60 @@ pub fn markdown_blocks_from_scanned_document_light(
 }
 
 ///|
+pub fn markdown_parse_large_literal(
+  source : @input.InputSource,
+  context : @parser.ParseContext,
+  text : String,
+  line_count : Int,
+) -> @parser.ParseResult {
+  let diagnostics = @fshared.empty_parser_diagnostics(
+    "markdown_parser",
+    @parser.ParserMode::DomAstModel,
+    source,
+    "markdown",
+  )
+  diagnostics.metrics.set("parser_name", "markdown_parser")
+  diagnostics.metrics.set("parser_mode", "dom_ast_model")
+  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
+  diagnostics.metrics.set("detected_format", "markdown")
+  diagnostics.metrics.set(
+    "requested_mode",
+    @fshared.requested_mode_name(context),
+  )
+  markdown_set_route_metrics(diagnostics, true)
+  diagnostics.metrics.set("event_granularity", "markdown_block")
+  diagnostics.metrics.set("event_semantics", "markdown_literal_block_stream")
+  diagnostics.metrics.set("line_count", line_count.to_string())
+  diagnostics.metrics.set("char_count", text.length().to_string())
+  diagnostics.metrics.set("block_count", "1")
+  diagnostics.metrics.set("block_inventory_count", "1")
+  diagnostics.metrics.set("event_count", "0")
+  diagnostics.metrics.set("resource_limit_hit", "false")
+  diagnostics.metrics.set("block_limit_reached", "false")
+  diagnostics.metrics.set("markdown_lowering_mode", "large_literal")
+  diagnostics.metrics.set("probe_artifact_reused", "true")
+  diagnostics.metrics.set("asset_count", "0")
+  diagnostics.same_mode_degradation.push(
+    "markdown_large_literal_structure_deferred_for_markdown_output",
+  )
+  diagnostics.fallback_trace.push(
+    "markdown large input -> literal block-stream lowering",
+  )
+  @fshared.apply_product_metrics(diagnostics, "markdown")
+  let source_ref = @core.source_ref_with_lines(
+    @core.empty_source_ref(),
+    Some(source.source_name),
+    Some("markdown"),
+    Some(1),
+    Some(line_count),
+  )
+  let block = @core.make_block(@core.BlockKind::Raw, text, source_ref~)
+  block.attrs.set("raw_kind", "markdown_literal")
+  block.attrs.set("literal", "true")
+  markdown_block_stream_parse_result([block], diagnostics)
+}
+
+///|
 pub fn markdown_blocks_from_scanned_document_light_with_source_ref(
   source : @input.InputSource,
   scanned : @dmd.MarkdownDocument,

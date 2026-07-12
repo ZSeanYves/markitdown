@@ -109,13 +109,22 @@ fn eml_lower_entity_body(
       _ => raise ParseError("multipart part missing boundary")
     }
     let children = eml_split_multipart_parts(body_text, boundary)
+    if children.length() > 1_024 {
+      raise ParseError("maximum eml multipart child count exceeded")
+    }
     let lowered : Array[EmlPart] = []
     for i in 0..<children.length() {
-      let child = eml_parse_entity(
-        children[i],
-        depth + 1,
-        pointer + "/parts/" + i.to_string(),
-      )
+      let child_pointer = pointer + "/parts/" + i.to_string()
+      let child = eml_parse_entity(children[i], depth + 1, child_pointer) catch {
+        err => {
+          let message = err.to_string()
+          if message.contains("maximum eml nesting depth") ||
+            message.contains("maximum eml multipart child count") {
+            raise ParseError(message)
+          }
+          eml_recovered_raw_part(children[i], child_pointer)
+        }
+      }
       lowered.push({ ..child, index: i })
     }
     { ..part, children: lowered }
@@ -183,6 +192,47 @@ fn eml_lower_entity_body(
         { ..part, body_text: Some(body) }
       }
     }
+  }
+}
+
+///|
+fn eml_recovered_raw_part(raw : String, pointer : String) -> EmlPart {
+  let summary : EmlPartSummary = {
+    content_type: "application/x-markitdown-recovered-mime-part",
+    mime_type: "application/x-markitdown-recovered-mime-part",
+    media_type: "application",
+    charset: None,
+    boundary: None,
+    name: None,
+    disposition: None,
+    disposition_filename: None,
+    transfer_encoding: EmlTransferEncoding::SevenBit,
+    content_id: None,
+    location: None,
+    json_pointer: pointer,
+  }
+  {
+    index: 0,
+    headers: [],
+    header_map: {
+      subject: None,
+      from: None,
+      to: None,
+      cc: None,
+      date: None,
+      message_id: None,
+      in_reply_to: None,
+      references: None,
+      mime_version: None,
+      content_type: Some(summary.content_type),
+      content_transfer_encoding: None,
+    },
+    summary,
+    body_text: Some({ text: raw, decoded: false, charset: None }),
+    attachments: [],
+    child_message: None,
+    children: [],
+    raw_body: raw,
   }
 }
 
@@ -386,10 +436,10 @@ fn eml_parse_headers(header_text : String) -> Array[EmlHeader] raise {
 ///|
 fn eml_header_map(headers : Array[EmlHeader]) -> EmlHeaderMap {
   {
-    subject: eml_header_value(headers, "Subject"),
-    from: eml_header_value(headers, "From"),
-    to: eml_header_value(headers, "To"),
-    cc: eml_header_value(headers, "Cc"),
+    subject: eml_decoded_header_value(headers, "Subject"),
+    from: eml_decoded_header_value(headers, "From"),
+    to: eml_decoded_header_value(headers, "To"),
+    cc: eml_decoded_header_value(headers, "Cc"),
     date: eml_header_value(headers, "Date"),
     message_id: eml_header_value(headers, "Message-ID"),
     in_reply_to: eml_header_value(headers, "In-Reply-To"),
@@ -400,6 +450,14 @@ fn eml_header_map(headers : Array[EmlHeader]) -> EmlHeaderMap {
       headers, "Content-Transfer-Encoding",
     ),
   }
+}
+
+///|
+fn eml_decoded_header_value(
+  headers : Array[EmlHeader],
+  name : String,
+) -> String? {
+  eml_header_value(headers, name).map(eml_decode_encoded_words)
 }
 
 ///|
@@ -468,16 +526,37 @@ fn eml_content_type_param(content_type : String, key : String) -> String? {
 
 ///|
 fn eml_header_param(value : String, key : String) -> String? {
-  let target = key.trim().to_lower()
+  let target = key.trim().to_lower().to_owned()
   let parts = value.split(";").to_array()
+  let continuation : Array[String] = []
   for i in 1..<parts.length() {
     match parts[i].split_once("=") {
-      Some((name, raw_value)) =>
-        if name.trim().to_lower() == target {
+      Some((name, raw_value)) => {
+        let normalized_name = name.trim().to_lower().to_owned()
+        if normalized_name == target {
           return Some(eml_strip_quotes(raw_value.trim().to_owned()))
         }
+        if normalized_name == target + "*" {
+          return Some(eml_decode_rfc2231_value(raw_value.trim().to_owned()))
+        }
+        for segment in 0..<32 {
+          let plain = target + "*" + segment.to_string()
+          let encoded = plain + "*"
+          if normalized_name == plain || normalized_name == encoded {
+            while continuation.length() <= segment {
+              continuation.push("")
+            }
+            continuation[segment] = eml_strip_quotes(
+              raw_value.trim().to_owned(),
+            )
+          }
+        }
+      }
       None => ()
     }
+  }
+  if continuation.length() > 0 && continuation.all(part => part != "") {
+    return Some(eml_decode_rfc2231_value(continuation.join("")))
   }
   None
 }
@@ -558,7 +637,6 @@ fn eml_decode_body_text(
   encoding : EmlTransferEncoding,
   charset : String?,
 ) -> (String, Bool, Bytes?) {
-  ignore(charset)
   match encoding {
     EmlTransferEncoding::Base64 => {
       let compact = raw
@@ -569,22 +647,137 @@ fn eml_decode_body_text(
       }
       match decoded {
         Some(bytes) => {
-          let text = eml_decode_text_bytes(bytes)
-          (text, true, Some(bytes))
+          let decoded_text = eml_decode_text_bytes_with_charset(bytes, charset)
+          (decoded_text.0, decoded_text.1, Some(bytes))
         }
         None => (raw, false, None)
       }
     }
     EmlTransferEncoding::QuotedPrintable => {
       let bytes = eml_decode_quoted_printable(raw)
-      let text = eml_decode_text_bytes(bytes)
-      (text, true, Some(bytes))
+      let decoded_text = eml_decode_text_bytes_with_charset(bytes, charset)
+      (decoded_text.0, decoded_text.1, Some(bytes))
     }
     _ => {
       let bytes = @utf8.encode(raw)
       (raw, true, Some(bytes))
     }
   }
+}
+
+///|
+fn eml_decode_text_bytes_with_charset(
+  bytes : Bytes,
+  charset : String?,
+) -> (String, Bool) {
+  let normalized = charset
+    .map(value => {
+      value.trim().to_lower().replace_all(old="_", new="-").to_owned()
+    })
+    .unwrap_or("utf-8")
+  match normalized {
+    "utf-8" | "utf8" =>
+      match
+        (try @utf8.decode(bytes, ignore_bom=false) |> Some catch {
+          _ => None
+        }) {
+        Some(text) => (text, true)
+        None => (eml_decode_text_bytes(bytes), false)
+      }
+    "us-ascii" | "ascii" =>
+      match
+        (try @ascii.decode(bytes) |> Some catch {
+          _ => None
+        }) {
+        Some(text) => (text, true)
+        None => (eml_decode_single_byte_text(bytes, false), false)
+      }
+    "iso-8859-1" | "iso8859-1" | "latin1" | "latin-1" =>
+      (eml_decode_single_byte_text(bytes, false), true)
+    "windows-1252" | "cp1252" =>
+      (eml_decode_single_byte_text(bytes, true), true)
+    "utf-16" | "utf-16le" => (eml_decode_utf16_text(bytes, false), true)
+    "utf-16be" => (eml_decode_utf16_text(bytes, true), true)
+    _ => (eml_decode_text_bytes(bytes), false)
+  }
+}
+
+///|
+fn eml_decode_single_byte_text(bytes : Bytes, windows_1252 : Bool) -> String {
+  let chars : Array[Char] = []
+  for byte in bytes.to_array() {
+    let value = byte.to_int()
+    let codepoint = if windows_1252 && value >= 0x80 && value <= 0x9F {
+      eml_windows_1252_codepoint(value)
+    } else {
+      value
+    }
+    chars.push(Int::unsafe_to_char(codepoint))
+  }
+  String::from_array(chars)
+}
+
+///|
+fn eml_windows_1252_codepoint(value : Int) -> Int {
+  let table = [
+    0x20AC, 0x0081, 0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021, 0x02C6, 0x2030,
+    0x0160, 0x2039, 0x0152, 0x008D, 0x017D, 0x008F, 0x0090, 0x2018, 0x2019, 0x201C,
+    0x201D, 0x2022, 0x2013, 0x2014, 0x02DC, 0x2122, 0x0161, 0x203A, 0x0153, 0x009D,
+    0x017E, 0x0178,
+  ]
+  table[value - 0x80]
+}
+
+///|
+fn eml_decode_utf16_text(bytes : Bytes, big_endian : Bool) -> String {
+  let values = bytes.to_array()
+  let chars : Array[Char] = []
+  let mut i = 0
+  let mut use_big_endian = big_endian
+  if values.length() >= 2 {
+    if values[0].to_int() == 0xFE && values[1].to_int() == 0xFF {
+      use_big_endian = true
+      i = 2
+    } else if values[0].to_int() == 0xFF && values[1].to_int() == 0xFE {
+      use_big_endian = false
+      i = 2
+    }
+  }
+  while i + 1 < values.length() {
+    let first = values[i].to_int()
+    let second = values[i + 1].to_int()
+    let unit = if use_big_endian {
+      first * 256 + second
+    } else {
+      second * 256 + first
+    }
+    i += 2
+    if unit >= 0xD800 && unit <= 0xDBFF && i + 1 < values.length() {
+      let next_first = values[i].to_int()
+      let next_second = values[i + 1].to_int()
+      let low = if use_big_endian {
+        next_first * 256 + next_second
+      } else {
+        next_second * 256 + next_first
+      }
+      if low >= 0xDC00 && low <= 0xDFFF {
+        chars.push(
+          Int::unsafe_to_char(0x10000 + (unit - 0xD800) * 1024 + low - 0xDC00),
+        )
+        i += 2
+        continue
+      }
+    }
+    if unit >= 0xD800 && unit <= 0xDFFF {
+      chars.push('\u{FFFD}')
+    } else {
+      chars.push(Int::unsafe_to_char(unit))
+    }
+  }
+  if i < values.length() {
+    chars.push('\u{FFFD}')
+  }
+  String::from_array(chars)
 }
 
 ///|
@@ -601,6 +794,115 @@ fn eml_decode_text_bytes(bytes : Bytes) -> String {
         }
       }
   }
+}
+
+///|
+fn eml_decode_encoded_words(value : String) -> String {
+  let pieces : Array[String] = []
+  let mut rest = value
+  while true {
+    match rest.find("=?") {
+      Some(start) => {
+        pieces.push(rest[:start].to_owned())
+        let candidate = rest[start + 2:]
+        let charset_end = match candidate.find("?") {
+          Some(index) => index
+          None => {
+            pieces.push(rest[start:].to_owned())
+            break
+          }
+        }
+        let charset = candidate[:charset_end].to_owned()
+        let after_charset = candidate[charset_end + 1:]
+        let encoding_end = match after_charset.find("?") {
+          Some(index) => index
+          None => {
+            pieces.push(rest[start:].to_owned())
+            break
+          }
+        }
+        let encoding = after_charset[:encoding_end].trim().to_lower().to_owned()
+        let payload_and_tail = after_charset[encoding_end + 1:]
+        let payload_end = match payload_and_tail.find("?=") {
+          Some(index) => index
+          None => {
+            pieces.push(rest[start:].to_owned())
+            break
+          }
+        }
+        let payload = payload_and_tail[:payload_end].to_owned()
+        let bytes = if encoding == "b" {
+          try @base64.decode(payload, url_safe=false) |> Some catch {
+            _ => None
+          }
+        } else if encoding == "q" {
+          Some(
+            eml_decode_quoted_printable(payload.replace_all(old="_", new=" ")),
+          )
+        } else {
+          None
+        }
+        match bytes {
+          Some(decoded) =>
+            pieces.push(
+              eml_decode_text_bytes_with_charset(decoded, Some(charset)).0,
+            )
+          None =>
+            pieces.push(
+              rest[start:start +
+              2 +
+              charset_end +
+              1 +
+              encoding_end +
+              1 +
+              payload_end +
+              2].to_owned(),
+            )
+        }
+        rest = payload_and_tail[payload_end + 2:].to_owned()
+      }
+      None => {
+        pieces.push(rest)
+        break
+      }
+    }
+  }
+  pieces.join("").trim().to_owned()
+}
+
+///|
+fn eml_decode_rfc2231_value(value : String) -> String {
+  let stripped = eml_strip_quotes(value)
+  let (charset, encoded) = match stripped.split_once("''") {
+    Some((left, right)) => (Some(left.to_owned()), right.to_owned())
+    None => (None, stripped)
+  }
+  let bytes = eml_percent_decode(encoded)
+  eml_decode_text_bytes_with_charset(bytes, charset).0
+}
+
+///|
+fn eml_percent_decode(value : String) -> Bytes {
+  let chars = value.to_array()
+  let bytes : Array[Byte] = []
+  let mut i = 0
+  while i < chars.length() {
+    if chars[i] == '%' && i + 2 < chars.length() {
+      match (eml_hex_value(chars[i + 1]), eml_hex_value(chars[i + 2])) {
+        (Some(high), Some(low)) => {
+          bytes.push((high * 16 + low).to_byte())
+          i += 3
+          continue
+        }
+        _ => ()
+      }
+    }
+    for byte in @utf8.encode(chars[i].to_string()).to_array() {
+      bytes.push(byte)
+    }
+    i += 1
+  }
+  Bytes::from_array(bytes)
 }
 
 ///|

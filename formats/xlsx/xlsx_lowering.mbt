@@ -1,4 +1,229 @@
 ///|
+fn xlsx_collect_package_media_assets(
+  source : @input.InputSource,
+  pkg : @ox.OoxmlPackage,
+  diagnostics : @core.Diagnostics,
+) -> (Array[@core.CoreBlock], Array[@core.AssetRef]) {
+  let blocks : Array[@core.CoreBlock] = []
+  let assets : Array[@core.AssetRef] = []
+  let inventory = @ox.inspect_ooxml_inventory(pkg)
+  let ordered_media = xlsx_drawing_media_order(pkg)
+  let seen : Map[String, Bool] = Map([])
+  for item in ordered_media {
+    match xlsx_inventory_part(inventory.parts, item.0) {
+      Some(part) => {
+        xlsx_append_package_media_asset(
+          source,
+          part,
+          Some(item.1),
+          Some(item.2),
+          blocks,
+          assets,
+          diagnostics,
+        )
+        seen.set(part.part_name, true)
+      }
+      None => ()
+    }
+  }
+  for part in inventory.parts {
+    if !part.part_name.has_prefix("xl/media/") || part.part_name.has_suffix("/") {
+      continue
+    }
+    if seen.get(part.part_name) == Some(true) {
+      continue
+    }
+    xlsx_append_package_media_asset(
+      source,
+      part,
+      None,
+      None,
+      blocks,
+      assets,
+      diagnostics,
+    )
+  }
+  if assets.length() > 0 {
+    diagnostics.warnings.push(
+      "xlsx images follow sheet and drawing relationship order; exact anchor placement remains partial",
+    )
+    diagnostics.degraded_features.push("xlsx_drawing_anchor_placement_partial")
+  }
+  diagnostics.metrics.set(
+    "materialized_asset_count",
+    assets.length().to_string(),
+  )
+  (blocks, assets)
+}
+
+///|
+fn xlsx_append_package_media_asset(
+  source : @input.InputSource,
+  part : @ox.OoxmlPartInfo,
+  sheet_name : String?,
+  relationship_id : String?,
+  blocks : Array[@core.CoreBlock],
+  assets : Array[@core.AssetRef],
+  diagnostics : @core.Diagnostics,
+) -> Unit {
+  let ext = match xlsx_media_part_ext(part.part_name) {
+    Some(value) => value
+    None => {
+      diagnostics.warnings.push(
+        "xlsx media part has unsupported asset format: " + part.part_name,
+      )
+      diagnostics.degraded_features.push("xlsx_media_format_unsupported")
+      return
+    }
+  }
+  let index = assets.length() + 1
+  let output_path = "assets/xlsx-image" +
+    xlsx_asset_two_digits(index) +
+    "." +
+    ext
+  let source_ref = @core.source_ref_with_container_entry(
+    @core.empty_source_ref(),
+    source.path,
+    Some("xlsx"),
+    source.path,
+    Some(part.part_name),
+    Some(index - 1),
+    Some(ext),
+    None,
+  )
+  let asset_id = "xlsx:" + part.part_name
+  let asset = @core.make_asset_ref(
+    @core.AssetKind::Image,
+    asset_id,
+    source_ref~,
+  )
+  let next_asset = {
+    ..asset,
+    path: Some(output_path),
+    mime_type: part.content_type,
+  }
+  next_asset.attrs.set("zip_entry_path", part.part_name)
+  next_asset.attrs.set("zip_container_format", "xlsx")
+  match source.path {
+    Some(path) => next_asset.attrs.set("zip_container_path", path)
+    None => ()
+  }
+  next_asset.attrs.set("alt", xlsx_media_basename(part.part_name))
+  match sheet_name {
+    Some(value) => next_asset.attrs.set("sheet", value)
+    None => ()
+  }
+  match relationship_id {
+    Some(value) => next_asset.attrs.set("relationship_id", value)
+    None => ()
+  }
+  assets.push(next_asset)
+  let block = @core.make_block(@core.BlockKind::Image, "", source_ref~)
+  block.attrs.set("asset_id", asset_id)
+  block.attrs.set("path", output_path)
+  block.attrs.set("alt", xlsx_media_basename(part.part_name))
+  match sheet_name {
+    Some(value) => block.attrs.set("sheet", value)
+    None => ()
+  }
+  match relationship_id {
+    Some(value) => block.attrs.set("relationship_id", value)
+    None => ()
+  }
+  blocks.push(block)
+}
+
+///|
+fn xlsx_inventory_part(
+  parts : Array[@ox.OoxmlPartInfo],
+  path : String,
+) -> @ox.OoxmlPartInfo? {
+  for part in parts {
+    if part.part_name == path {
+      return Some(part)
+    }
+  }
+  None
+}
+
+///|
+fn xlsx_drawing_media_order(
+  pkg : @ox.OoxmlPackage,
+) -> Array[(String, String, String)] {
+  let ordered : Array[(String, String, String)] = []
+  let shared = xlsx_load_workbook_shared_state(pkg) catch {
+    _ => return ordered
+  }
+  for sheet in shared.sheet_infos {
+    let sheet_rels = @ox.read_part_relationships(pkg, sheet.part_name) catch {
+      _ => continue
+    }
+    for drawing_rel in sheet_rels {
+      if drawing_rel.target_mode == @ox.OoxmlTargetMode::External ||
+        !drawing_rel.rel_type.contains("relationships/drawing") {
+        continue
+      }
+      let drawing_xml = @ox.read_part_text(pkg, drawing_rel.resolved_target) catch {
+        _ => continue
+      }
+      let drawing_rels = @ox.read_part_relationships(
+        pkg,
+        drawing_rel.resolved_target,
+      ) catch {
+        _ => continue
+      }
+      let mut offset = 0
+      while true {
+        let start = match xlsx_find_sub(drawing_xml, "r:embed=\"", offset) {
+          Some(value) => value + "r:embed=\"".length()
+          None => break
+        }
+        let end_ = match xlsx_find_sub(drawing_xml, "\"", start) {
+          Some(value) => value
+          None => break
+        }
+        let id = drawing_xml[start:end_].to_owned()
+        for rel in drawing_rels {
+          if rel.id == id &&
+            rel.target_mode != @ox.OoxmlTargetMode::External &&
+            rel.rel_type.contains("relationships/image") {
+            ordered.push((rel.resolved_target, sheet.sheet_name, id))
+            break
+          }
+        }
+        offset = end_ + 1
+      }
+    }
+  }
+  ordered
+}
+
+///|
+fn xlsx_media_part_ext(path : String) -> String? {
+  let lower = path.to_lower()
+  for ext in ["png", "jpg", "jpeg", "gif", "webp", "svg"] {
+    if lower.has_suffix("." + ext) {
+      return Some(if ext == "jpeg" { "jpg" } else { ext })
+    }
+  }
+  None
+}
+
+///|
+fn xlsx_media_basename(path : String) -> String {
+  path.split("/").to_array().last().unwrap_or(path).to_owned()
+}
+
+///|
+fn xlsx_asset_two_digits(value : Int) -> String {
+  if value < 10 {
+    "0" + value.to_string()
+  } else {
+    value.to_string()
+  }
+}
+
+///|
 fn xlsx_lower_block_stream_document(
   source : @input.InputSource,
   pkg : @ox.OoxmlPackage,

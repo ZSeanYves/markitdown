@@ -1,22 +1,24 @@
-# Sample Fixtures
+# Repository Samples
 
-`samples/` now contains only repo-tracked sample payloads and lightweight
-fixtures used by tests, smoke checks, and manual CLI experiments.
+`samples/fixtures/contracts/` contains small, deterministic fixtures required by
+`moon test` and CLI smoke tests. They are repository-owned or explicitly
+documented in [PROVENANCE.md](./PROVENANCE.md).
 
-Main directories:
+These fixtures test one capability or boundary at a time: normal conversion,
+structured output, assets, malformed input, resource limits, mode rejection,
+and source references. Expected Markdown and asset bytes are checked in only
+when they are part of the local contract.
 
-- `samples/fixtures/contracts/`
-  stable happy-path fixtures used by MoonBit tests and shell smoke checks
-- `samples/fixtures/boundaries/`
-  malformed or fail-closed fixtures that exercise safety boundaries
+Large, third-party, benchmark, and broad quality corpora do not belong here.
+They live in the repo-root `markitdown-quality-lab/` checkout with source URL,
+license, SHA-256, provenance, manifest signals, and review status.
 
-This directory no longer contains managed environment installers or formal
-regression entrypoints.
+After changing local samples, run:
 
-For repo-level tooling, use:
+```bash
+moon test
+./tools/regression/check_balance.sh
+```
 
-- [tools/env/README.md](../tools/env/README.md)
-- [tools/regression/README.md](../tools/regression/README.md)
-
-Formal corpora and benchmark payloads still live in the external
-`markitdown-quality-lab` repository at the repo root.
+Do not update an expected file merely to hide lost text, structure, assets,
+diagnostics, route fidelity, or source references.

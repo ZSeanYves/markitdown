@@ -99,14 +99,12 @@ pub fn pdf_raster_backend_install_hint() -> String {
   @focr.dependency_diagnostic_card(
     "Missing dependency: pdftoppm / Poppler",
     "PDF OCR requires the local `pdftoppm` raster backend before any OCR provider can run.",
-    [
-      "./tools/env/install_ocr_balance_deps.sh", "./tools/env/install_ocr_pdf_accurate_deps.sh",
-    ],
+    ["./tools/env/optional_deps.sh install accurate"],
     [
       "MARKITDOWN_PDFTOPPM_BIN=/absolute/path/to/pdftoppm", "pdftoppm must match the managed/runtime baseline for your OS/arch",
     ],
     footer=Some(
-      "This dependency is required for both Balanced PDF OCR and Accurate PDF OCR. Repo-managed installs record `pdftoppm` under `./env/managed-paths/pdftoppm`; custom overrides can use `MARKITDOWN_PDFTOPPM_BIN`, but must stay aligned with the managed runtime fingerprint.",
+      "This dependency belongs only to the optional Accurate PDF route. Repo-managed installs record `pdftoppm` under `./env/managed-paths/pdftoppm`; custom overrides can use `MARKITDOWN_PDFTOPPM_BIN`, but must stay aligned with the managed runtime fingerprint.",
     ),
   )
 }
@@ -117,14 +115,12 @@ pub fn pdf_raster_backend_dependency_diagnostic() -> @core.DependencyDiagnostic 
   @focr.dependency_diagnostic_entry(
     "Missing dependency: pdftoppm / Poppler",
     "PDF OCR requires the local `pdftoppm` raster backend before any OCR provider can run.",
-    [
-      "./tools/env/install_ocr_balance_deps.sh", "./tools/env/install_ocr_pdf_accurate_deps.sh",
-    ],
+    ["./tools/env/optional_deps.sh install accurate"],
     [
       "MARKITDOWN_PDFTOPPM_BIN=/absolute/path/to/pdftoppm", "pdftoppm must match the managed/runtime baseline for your OS/arch",
     ],
     footer=Some(
-      "This dependency is required for both Balanced PDF OCR and Accurate PDF OCR. Repo-managed installs record `pdftoppm` under `./env/managed-paths/pdftoppm`; custom overrides can use `MARKITDOWN_PDFTOPPM_BIN`, but must stay aligned with the managed runtime fingerprint.",
+      "This dependency belongs only to the optional Accurate PDF route. Repo-managed installs record `pdftoppm` under `./env/managed-paths/pdftoppm`; custom overrides can use `MARKITDOWN_PDFTOPPM_BIN`, but must stay aligned with the managed runtime fingerprint.",
     ),
   )
 }
@@ -223,6 +219,16 @@ fn pdf_ocr_cleanup_temp_dir(path : String) -> Unit {
       _ => Err(())
     },
   )
+}
+
+///|
+async fn pdf_ocr_cleanup_temp_dir_async(path : String) -> Unit {
+  if path.trim() == "" {
+    return
+  }
+  @afs.rmdir(path, recursive=true) catch {
+    _ => ()
+  }
 }
 
 ///|

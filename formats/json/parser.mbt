@@ -135,7 +135,15 @@ pub fn json_parse_with_stream_document(
     "json_structure_event_stream",
   )
   @fshared.apply_product_metrics(diagnostics, "json")
-  let events = json_generic_block_events_from_stream(stream, source)
+  let events = if stream.events.length() == 0 &&
+    stream.summary.root_kind == "array" {
+    match json_compact_root_array_events_direct(text, source) {
+      Ok(value) => value
+      Err(_) => json_generic_block_events_from_stream(stream, source)
+    }
+  } else {
+    json_generic_block_events_from_stream(stream, source)
+  }
   diagnostics.metrics.set("parser_mode", "streaming_event")
   diagnostics.metrics.set("effective_mode", "streaming_event")
   diagnostics.metrics.set("dom_limit_reached", "false")

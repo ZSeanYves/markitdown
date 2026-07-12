@@ -22,6 +22,8 @@ pub fn capability_group_for_format(@input.DetectedFormat) -> CapabilityGroup?
 
 pub fn capability_group_name(CapabilityGroup) -> String
 
+pub fn capability_manifest_json() -> Json
+
 pub fn capability_registry_entries() -> Array[CapabilityEntry]
 
 pub fn cli_supported_for_capability_format(@input.DetectedFormat) -> Bool
@@ -83,6 +85,8 @@ pub fn parser_contract_spec_matches_parser(ParserContractSpec, @parser.Parser) -
 pub fn parser_mode_for_route(FormatRoute) -> @parser.ParserMode
 
 pub fn pdf_native_parser_contract_spec() -> ParserContractSpec
+
+pub fn pdf_ocr_parser_contract_spec() -> ParserContractSpec
 
 pub fn pptx_parser_contract_spec() -> ParserContractSpec
 

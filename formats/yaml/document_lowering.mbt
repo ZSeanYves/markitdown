@@ -1178,6 +1178,66 @@ fn yaml_streaming_parse_result(
 }
 
 ///|
+fn yaml_parse_with_compact_sequence(
+  source : @input.InputSource,
+  context : @parser.ParseContext,
+  text : String,
+  compact : @dyaml.YamlCompactSequenceSummary,
+) -> @parser.ParseResult {
+  let diagnostics = @fshared.empty_parser_diagnostics(
+    "yaml_parser",
+    @parser.ParserMode::DomAstModel,
+    source,
+    "yaml",
+  )
+  @fshared.init_parser_route_metrics_with_granularity(
+    diagnostics,
+    source,
+    context,
+    "yaml",
+    "yaml_parser",
+    @parser.ParserMode::DomAstModel,
+    @parser.ParserMode::StreamingEvent,
+    "event_stream",
+    @parser.StreamingGranularity::YamlStructure,
+    "yaml_structure_event_stream",
+  )
+  diagnostics.metrics.set("resource_limit_hit", "false")
+  diagnostics.metrics.set("dom_limit_reached", "false")
+  @fshared.apply_product_metrics(diagnostics, "yaml")
+  let row_ref = yaml_event_source_ref(
+    source,
+    "/items",
+    compact.line_start,
+    compact.line_end,
+  )
+  let events : Array[@core.CoreEvent] = []
+  yaml_append_table_events(
+    events,
+    [["Key", "Value"], [compact.key, compact.value_summary]],
+    [row_ref, row_ref],
+    source,
+    "/",
+  )
+  diagnostics.metrics.set("parser_mode", "streaming_event")
+  diagnostics.metrics.set("effective_mode", "streaming_event")
+  diagnostics.metrics.set("ir_input_kind", "event_stream")
+  yaml_fill_common_metrics(diagnostics, compact.inspect, text, events.length())
+  diagnostics.metrics.set("table_count", "1")
+  diagnostics.metrics.set("block_count", "1")
+  diagnostics.metrics.set("event_granularity", "yaml_structure")
+  diagnostics.metrics.set("event_semantics", "yaml_structure_event_stream")
+  diagnostics.pass_trace.push("parse:yaml_parser")
+  @parser.parse_result_with_events_capability(
+    "yaml_parser",
+    @parser.ParserMode::StreamingEvent,
+    events,
+    diagnostics,
+    yaml_parser_capability(),
+  )
+}
+
+///|
 fn yaml_malformed_parse_result(
   source : @input.InputSource,
   text : String,

@@ -253,6 +253,13 @@ fn lower_eml_part(
     )
     return blocks
   }
+  if part.summary.mime_type == "application/x-markitdown-recovered-mime-part" {
+    diagnostics.warnings.push(
+      "eml recovered malformed MIME part at " + part.summary.json_pointer,
+    )
+    diagnostics.degraded_features.push("eml_malformed_part_recovered")
+    eml_increment_metric(diagnostics, "recovered_part_count")
+  }
   if part.summary.media_type == "multipart" {
     blocks.push(eml_part_label_block(part, source))
     blocks.append(
