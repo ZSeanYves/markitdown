@@ -22,7 +22,7 @@ fn print_bench_help() -> Unit {
   println("Bench binary-only runner for mb-markitdown.")
   println("Usage:")
   println(
-    "  _build/native/release/build/bench/runner/runner.exe catalog rows [--tiers regular,release,stress] [--bench-id <id[,more]>] [--format <fmt[,more]>] [--limit N]",
+    "  _build/native/release/build/bench/runner/runner.exe catalog rows [--tiers regular,release,stress] [--bench-id <id[,more]>] [--format <fmt[,more]>] [--comparison-class external_compare|self_baseline] [--limit N]",
   )
   println(
     "  _build/native/release/build/bench/runner/runner.exe catalog scenarios",
@@ -31,10 +31,16 @@ fn print_bench_help() -> Unit {
     "  _build/native/release/build/bench/runner/runner.exe run --preset official-internal [--limit N]",
   )
   println(
-    "  _build/native/release/build/bench/runner/runner.exe run --preset official-compare [--limit N] [--markitdown-path <path>]",
+    "  _build/native/release/build/bench/runner/runner.exe run --preset official-external-compare [--limit N] [--markitdown-path <path>]",
+  )
+  println(
+    "  _build/native/release/build/bench/runner/runner.exe run --preset official-self-baseline [--limit N] [--baseline <run_id>]",
   )
   println(
     "  _build/native/release/build/bench/runner/runner.exe run --scenario <scenario_id> [--bench-id <id>] [--limit N]",
+  )
+  println(
+    "  run options: [--progress auto|json|off] [--keep-outputs failures|all|none] [--resume <run_id>] [--max-disk-mb N]",
   )
   println(
     "  _build/native/release/build/bench/runner/runner.exe report --run <run_id> [--baseline <run_id>]",
@@ -54,21 +60,12 @@ fn run_catalog(args : Array[String]) -> Int {
   }
   match args[0] {
     "rows" => {
-      let opts = parse_run_options(args[1:].to_owned()) catch {
+      let request = @manifest.parse_select_request(args[1:].to_owned()) catch {
         err => {
           println("catalog rows argument error: " + err.to_string())
           return 2
         }
       }
-      let request = @manifest.make_select_request(
-        "smoke",
-        opts.exact_tiers,
-        opts.bench_ids,
-        opts.format_filters,
-        opts.limit,
-        @manifest.SelectOutput::Jsonl,
-        false,
-      )
       for row in @manifest.select_rows(request) {
         println(row.to_json().stringify())
       }
@@ -116,7 +113,14 @@ fn run_command(args : Array[String], runner : @command.RunnerContext) -> Int {
   }
   let effective_opts = apply_policy_defaults(opts, policy.unwrap())
   let scenarios = resolve_scenarios(effective_opts, policy.unwrap())
-  let run_id = unwrap_or_report(allocate_run_id(args), "run failed")
+  let run_id = unwrap_or_report(
+    match effective_opts.resume_run_id {
+      Some(value) if @fs.path_exists(run_root(value)) => Ok(value)
+      Some(value) => Err(InvalidArgument("resume run does not exist: " + value))
+      None => allocate_run_id(args)
+    },
+    "run failed",
+  )
   if run_id is None {
     return 1
   }

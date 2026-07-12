@@ -10,9 +10,9 @@ pub fn empty_selector_stats() -> SelectorStats
 
 pub fn ensure_bench_row_payload(BenchRow) -> Bool
 
-pub fn make_bench_row(String, String, String, String, String, String, Int, String, String, Array[String], Array[String], String, String, String) -> BenchRow
+pub fn make_bench_row(String, String, String, String, String, String, Int, String, String, Array[String], Array[String], String, String, String, comparison_class? : String, comparison_reason? : String, comparison_signals? : Array[String]) -> BenchRow
 
-pub fn make_select_request(String, Array[String], Array[String], Array[String], Int?, SelectOutput, Bool) -> SelectRequest
+pub fn make_select_request(String, Array[String], Array[String], Array[String], Int?, SelectOutput, Bool, comparison_classes? : Array[String]) -> SelectRequest
 
 pub fn make_selector_stats(String?, Array[String], String, Array[String], Int, Array[String], Map[String, Int]) -> SelectorStats
 
@@ -57,6 +57,9 @@ pub struct BenchRow {
   tags : Array[String]
   review_status : String
   notes : String
+  comparison_class : String
+  comparison_reason : String
+  comparison_signals : Array[String]
   input_path : String
 } derive(Eq, ToJson, @json.FromJson)
 
@@ -70,6 +73,7 @@ pub struct SelectRequest {
   exact_tiers : Array[String]
   bench_ids : Array[String]
   format_filters : Array[String]
+  comparison_classes : Array[String]
   limit : Int?
   output : SelectOutput
   stats_only : Bool

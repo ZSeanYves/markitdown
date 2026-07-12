@@ -103,7 +103,15 @@ fn allocate_run_id(args : Array[String]) -> Result[String, BenchError] {
 
 ///|
 fn try_reserve_run_root(run_id : String) -> Result[Unit, @fs.IOError] {
-  try @fs.create_dir(run_root(run_id)) |> Ok catch {
+  try_reserve_dir(run_root(run_id))
+}
+
+///|
+fn try_reserve_dir(path : String) -> Result[Unit, @fs.IOError] {
+  ensure_dir_tree(dirname(path)) catch {
+    err => return Err(err)
+  }
+  try @fs.create_dir(path) |> Ok catch {
     err => Err(err)
   }
 }
@@ -230,6 +238,21 @@ fn file_size_or_zero(path : String) -> Int64 {
   }
   let bytes = @fs.read_file_to_bytes(path) catch { _ => return 0L }
   bytes.length().to_int64()
+}
+
+///|
+fn directory_size_bytes(path : String) -> Int64 raise {
+  if !@fs.path_exists(path) {
+    return 0L
+  }
+  if @fs.is_file(path) {
+    return file_size_or_zero(path)
+  }
+  let mut total = 0L
+  for name in @fs.read_dir(path) {
+    total += directory_size_bytes(path + "/" + name)
+  }
+  total
 }
 
 ///|

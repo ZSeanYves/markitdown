@@ -13,6 +13,7 @@ priv struct ScenarioPolicy {
   tool_set : String
   exact_tiers : Array[String]
   format_filters : Array[String]
+  comparison_classes : Array[String]
   official_membership : String
   route_expectation : String
 }
@@ -48,6 +49,10 @@ fn parse_run_options(args : Array[String]) -> RunOptions raise {
   let timeout_ms = Ref(60000)
   let markitdown_path : Ref[String?] = Ref(None)
   let baseline_run_id : Ref[String?] = Ref(None)
+  let progress_mode = Ref("auto")
+  let keep_outputs = Ref("failures")
+  let resume_run_id : Ref[String?] = Ref(None)
+  let max_disk_mb = Ref(4096)
   let i = Ref(0)
   while i.val < args.length() {
     let arg = args[i.val]
@@ -107,6 +112,46 @@ fn parse_run_options(args : Array[String]) -> RunOptions raise {
         baseline_run_id.val = Some(args[i.val + 1].trim().to_owned())
         i.val += 2
       }
+      "--progress" => {
+        ensure_next_arg(args, i.val, "--progress")
+        progress_mode.val = parse_choice(args[i.val + 1], "--progress", [
+          "auto", "json", "off",
+        ])
+        i.val += 2
+      }
+      "--keep-outputs" => {
+        ensure_next_arg(args, i.val, "--keep-outputs")
+        keep_outputs.val = parse_choice(args[i.val + 1], "--keep-outputs", [
+          "failures", "all", "none",
+        ])
+        i.val += 2
+      }
+      "--resume" => {
+        ensure_next_arg(args, i.val, "--resume")
+        resume_run_id.val = Some(args[i.val + 1].trim().to_owned())
+        i.val += 2
+      }
+      "--max-disk-mb" => {
+        ensure_next_arg(args, i.val, "--max-disk-mb")
+        let value = parse_non_negative_int(args[i.val + 1], "--max-disk-mb")
+        if value == 0 {
+          raise InvalidArgument("zero is not allowed for --max-disk-mb")
+        }
+        max_disk_mb.val = value
+        i.val += 2
+      }
+      _ if arg.has_prefix("--progress=") => {
+        progress_mode.val = parse_choice(arg[11:].to_owned(), "--progress", [
+          "auto", "json", "off",
+        ])
+        i.val += 1
+      }
+      _ if arg.has_prefix("--keep-outputs=") => {
+        keep_outputs.val = parse_choice(arg[15:].to_owned(), "--keep-outputs", [
+          "failures", "all", "none",
+        ])
+        i.val += 1
+      }
       _ => raise InvalidArgument("unsupported argument: " + arg)
     }
   }
@@ -122,7 +167,24 @@ fn parse_run_options(args : Array[String]) -> RunOptions raise {
     timeout_ms: timeout_ms.val,
     markitdown_path: markitdown_path.val,
     baseline_run_id: baseline_run_id.val,
+    progress_mode: progress_mode.val,
+    keep_outputs: keep_outputs.val,
+    resume_run_id: resume_run_id.val,
+    max_disk_mb: max_disk_mb.val,
   }
+}
+
+///|
+fn parse_choice(
+  value : String,
+  flag : String,
+  choices : Array[String],
+) -> String raise {
+  let normalized = value.trim().to_lower().to_owned()
+  if !choices.contains(normalized) {
+    raise InvalidArgument(flag + " must be one of: " + choices.join(", "))
+  }
+  normalized
 }
 
 ///|
@@ -218,6 +280,7 @@ fn policy_scenarios(policy : BenchPolicy) -> Array[ScenarioSpec] {
     tool_names: policy.tool_matrix.get(item.tool_set).unwrap_or([]),
     exact_tiers: item.exact_tiers,
     format_filters: item.format_filters,
+    comparison_classes: item.comparison_classes,
     official_membership: item.official_membership,
     route_expectation: item.route_expectation,
   })
@@ -336,6 +399,11 @@ fn decode_scenarios(json : Array[Json]) -> Array[ScenarioPolicy] {
       },
       format_filters: if row_selector.get("formats") is Some(_) {
         json_string_array(row_selector, "formats")
+      } else {
+        []
+      },
+      comparison_classes: if row_selector.get("comparison_classes") is Some(_) {
+        json_string_array(row_selector, "comparison_classes")
       } else {
         []
       },
