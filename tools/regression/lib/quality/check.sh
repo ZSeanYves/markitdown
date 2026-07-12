@@ -476,8 +476,8 @@ normalize_public_row() {
   local raw_line="$2"
   local delimiter=$'\x1f'
   local converted="${raw_line//$'\t'/$delimiter}"
-  local id format path source_type license_status privacy size_class features expected_signals quality_tier notes validation_view extra_fields
-  IFS="$delimiter" read -r id format path source_type license_status privacy size_class features expected_signals quality_tier notes validation_view extra_fields <<< "$converted"
+  local id format path source_type license_status privacy size_class features expected_signals quality_tier notes validation_view _extra_fields
+  IFS="$delimiter" read -r id format path source_type license_status privacy size_class features expected_signals quality_tier notes validation_view _extra_fields <<< "$converted"
   id="$(tsv_field_unquote "$id")"
   format="$(tsv_field_unquote "$format")"
   path="$(tsv_field_unquote "$path")"
@@ -513,8 +513,8 @@ normalize_external_row() {
   local raw_line="$1"
   local delimiter=$'\x1f'
   local converted="${raw_line//$'\t'/$delimiter}"
-  local id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url local_cache_path notes proposed_rel_path migration_action migration_note quality_tags quality_note proposed_expected_fail proposed_skip_reason validation_view extra_fields
-  IFS="$delimiter" read -r id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url local_cache_path notes proposed_rel_path migration_action migration_note quality_tags quality_note proposed_expected_fail proposed_skip_reason validation_view extra_fields <<< "$converted"
+  local id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url local_cache_path notes proposed_rel_path migration_action migration_note quality_tags quality_note proposed_expected_fail proposed_skip_reason validation_view _extra_fields
+  IFS="$delimiter" read -r id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url local_cache_path notes proposed_rel_path migration_action migration_note quality_tags quality_note proposed_expected_fail proposed_skip_reason validation_view _extra_fields <<< "$converted"
   id="$(tsv_field_unquote "$id")"
   format="$(tsv_field_unquote "$format")"
   path="$(tsv_field_unquote "$path")"
@@ -613,7 +613,11 @@ detect_corpus_root
 detect_quality_rows_manifest
 
 if [[ -z "$QUALITY_ROWS_MANIFEST" ]]; then
-  echo "quality lab manifest not found" >&2
+  if [[ "$REQUIRE_LAB" -ne 0 ]]; then
+    echo "required quality lab manifest not found" >&2
+  else
+    echo "quality lab manifest not found" >&2
+  fi
   local_manifest_idx=0
   for local_manifest_idx in "${!QUALITY_ROWS_MANIFEST_CANDIDATES[@]}"; do
     echo "tried: ${QUALITY_ROWS_MANIFEST_CANDIDATE_LABELS[$local_manifest_idx]} -> ${QUALITY_ROWS_MANIFEST_CANDIDATES[$local_manifest_idx]}" >&2
@@ -1057,6 +1061,21 @@ profile_signal_stage_name() {
       ;;
     link_ref)
       printf 'link_ref'
+      ;;
+    asset_count_min:*)
+      printf 'asset_count_min'
+      ;;
+    asset_count_exact:*)
+      printf 'asset_count_exact'
+      ;;
+    asset_exists:*)
+      printf 'asset_exists'
+      ;;
+    asset_sha256:*)
+      printf 'asset_sha256'
+      ;;
+    asset_magic:*)
+      printf 'asset_magic'
       ;;
     review_note:*)
       printf 'review_note'
@@ -1857,8 +1876,8 @@ quality_execute_artifact_group() {
       [[ -n "$row" ]] || continue
       local delimiter=$'\x1f'
       local converted="${row//$'\t'/$delimiter}"
-      local source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes row_validation_view
-      IFS="$delimiter" read -r source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes row_validation_view <<< "$converted"
+      local source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes _row_validation_view
+      IFS="$delimiter" read -r source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes _row_validation_view <<< "$converted"
       local failure_status="fail"
       local failure_note="validation snapshot missing: $validation_view"
       if is_known_bad_tier "$quality_tier"; then

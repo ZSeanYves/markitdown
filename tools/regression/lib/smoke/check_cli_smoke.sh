@@ -54,7 +54,6 @@ CSV_INPUT="$ROOT/samples/fixtures/contracts/csv/csv_basic.csv"
 CSV_EXPECTED="$ROOT/samples/fixtures/contracts/csv/csv_basic.expected.md"
 TSV_INPUT="$ROOT/samples/fixtures/contracts/tsv/tsv_basic.tsv"
 TSV_EXPECTED="$ROOT/samples/fixtures/contracts/tsv/tsv_basic.expected.md"
-DOCX_INPUT="$ROOT/samples/fixtures/contracts/docx/docx_image_alt_title_basic.docx"
 PDF_INPUT="$ROOT/samples/fixtures/contracts/pdf/root_native_text_baseline.pdf"
 MARKDOWN_INPUT="$ROOT/samples/fixtures/contracts/markdown/markdown_basic_heading_paragraph.md"
 JSON_INPUT="$ROOT/samples/fixtures/contracts/json/json_object_basic.json"
@@ -100,7 +99,7 @@ assert_contains "$HELP_SHORT_STDOUT" 'markitdown-mb version | --version'
 
 run_and_capture "$VERSION_STDOUT" run_markitdown_cli --version
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "--version should succeed"
-assert_contains "$VERSION_STDOUT" 'markitdown-mb 0.5.0'
+assert_contains "$VERSION_STDOUT" 'markitdown-mb 0.5.1'
 
 run_and_capture "$VERSION_ALIAS_STDOUT" run_markitdown_cli version
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "version alias should succeed"
@@ -140,7 +139,7 @@ assert_contains "$JSON_STDOUT" '"chunks"'
 echo "==> pdf OCR is a dependency-backed product path"
 run_and_capture "$PDF_ERR" run_markitdown_cli --ocr --ocr-lang eng "$PDF_INPUT"
 [[ "$CAPTURED_STATUS" -ne 0 ]] || fail "balanced PDF OCR should fail closed"
-assert_contains "$PDF_ERR" 'PDF OCR is only available through the `accurate` PDF layout route'
+assert_contains "$PDF_ERR" "PDF OCR is only available through the \`accurate\` PDF layout route"
 
 echo "==> retired PDF product options fail closed"
 run_and_capture "$PDF_ERR" run_markitdown_cli --pdf-cleanup conservative "$PDF_INPUT" "$NO_META_DIR/root_native_text_baseline_optin.md"

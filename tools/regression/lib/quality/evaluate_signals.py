@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -60,6 +61,7 @@ class Snapshot:
     token_text: str
     lines: list[str]
     asset_count: int
+    artifact_dir: Path
 
 
 class Evaluator:
@@ -107,6 +109,27 @@ class Evaluator:
         if signal.startswith("asset_count_min:"):
             limit = int(signal[len("asset_count_min:") :])
             return self.snapshot.asset_count >= limit
+        if signal.startswith("asset_count_exact:"):
+            limit = int(signal[len("asset_count_exact:") :])
+            return self.snapshot.asset_count == limit
+        if signal.startswith("asset_exists:"):
+            return self._asset_path(signal[len("asset_exists:") :]).is_file()
+        if signal.startswith("asset_sha256:"):
+            spec = signal[len("asset_sha256:") :]
+            if "=" not in spec:
+                raise SystemExit("asset_sha256: expected PATH=SHA256")
+            rel_path, expected = spec.rsplit("=", 1)
+            path = self._asset_path(rel_path)
+            if not path.is_file() or not re.fullmatch(r"[0-9a-fA-F]{64}", expected):
+                return False
+            return hashlib.sha256(path.read_bytes()).hexdigest() == expected.lower()
+        if signal.startswith("asset_magic:"):
+            spec = signal[len("asset_magic:") :]
+            if "=" not in spec:
+                raise SystemExit("asset_magic: expected PATH=FORMAT")
+            rel_path, expected = spec.rsplit("=", 1)
+            path = self._asset_path(rel_path)
+            return path.is_file() and self._matches_asset_magic(path, expected.lower())
         if signal.startswith("order:"):
             rest = normalize_signal_literal(signal[len("order:") :])
             pos = -1
@@ -136,6 +159,35 @@ class Evaluator:
         if signal.startswith("review_note:"):
             return True
         raise SystemExit(f"unknown quality signal: {signal}")
+
+    def _asset_path(self, rel_path: str) -> Path:
+        candidate = Path(rel_path)
+        if candidate.is_absolute() or ".." in candidate.parts:
+            raise SystemExit(f"unsafe asset signal path: {rel_path}")
+        path = self.snapshot.artifact_dir / candidate
+        try:
+            path.resolve().relative_to(self.snapshot.artifact_dir.resolve())
+        except ValueError as exc:
+            raise SystemExit(f"unsafe asset signal path: {rel_path}") from exc
+        return path
+
+    @staticmethod
+    def _matches_asset_magic(path: Path, expected: str) -> bool:
+        data = path.read_bytes()[:16]
+        signatures = {
+            "png": data.startswith(b"\x89PNG\r\n\x1a\n"),
+            "jpeg": data.startswith(b"\xff\xd8\xff"),
+            "jpg": data.startswith(b"\xff\xd8\xff"),
+            "gif": data.startswith((b"GIF87a", b"GIF89a")),
+            "webp": len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP",
+            "tiff": data.startswith((b"II*\x00", b"MM\x00*")),
+            "tif": data.startswith((b"II*\x00", b"MM\x00*")),
+            "jp2": data.startswith(b"\x00\x00\x00\x0cjP  \r\n\x87\n"),
+            "jbig2": data.startswith(b"\x97JB2\r\n\x1a\n"),
+        }
+        if expected not in signatures:
+            raise SystemExit(f"asset_magic: unsupported format {expected}")
+        return signatures[expected]
 
     def _count_occurrence_check(self, kind: str, spec: str) -> bool:
         if "=" not in spec:
@@ -172,6 +224,7 @@ def load_snapshot(args: argparse.Namespace) -> Snapshot:
         token_text=token_text,
         lines=snapshot_text.split("\n"),
         asset_count=count_assets_on_disk(Path(args.artifact_dir)),
+        artifact_dir=Path(args.artifact_dir),
     )
 
 

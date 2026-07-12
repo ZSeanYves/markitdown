@@ -20,7 +20,7 @@ if [[ $# -gt 0 ]]; then
   ORIGINAL_ARGS=("$@")
 fi
 
-source_env_file_if_present "$ROOT/env/balance-ocr-pdf.env.sh"
+source_env_file_if_present "$ROOT/env/balance-ocr.env.sh"
 source_env_file_if_present "$ROOT/env/audio.env.sh"
 
 audio_format_selected() {
@@ -80,13 +80,15 @@ setup_balance_audio_mock_runtime() {
     return 0
   fi
 
-  local python_cmd ffmpeg_stub quoted_python quoted_ffmpeg quoted_wrapper
+  local python_cmd ffmpeg_stub mock_model_dir quoted_python quoted_ffmpeg quoted_wrapper
   python_cmd="$(resolve_balance_audio_mock_python)" || {
     echo "tools/regression/check_balance.sh needs python3 or MARKITDOWN_RUNTIME_PYTHON for the deterministic audio mock backend" >&2
     return 1
   }
   ffmpeg_stub="$CHECK_RUN_DIR/audio-mock/bin/ffmpeg"
+  mock_model_dir="$CHECK_RUN_DIR/audio-mock/model"
   mkdir -p "$(dirname "$ffmpeg_stub")"
+  mkdir -p "$mock_model_dir"
   printf -v quoted_python '%q' "$python_cmd"
   printf -v quoted_ffmpeg '%q' "$ROOT/tools/regression/lib/mocks/mock_ffmpeg.py"
   printf -v quoted_wrapper '%q %q' "$python_cmd" "$ROOT/tools/regression/lib/mocks/mock_vosk_wrapper.py"
@@ -99,8 +101,9 @@ EOF
   # Audio balance runs isolate both cwd and module root so the deterministic
   # mock stays active instead of the repo-managed wrapper/runtime.
   mkdir -p "$CHECK_RUN_DIR/audio-mock/cwd"
-  export PATH="$(dirname "$ffmpeg_stub"):$PATH"
+  export PATH="${ffmpeg_stub%/*}:$PATH"
   export MARKITDOWN_AUDIO_CMD="$quoted_wrapper"
+  export MARKITDOWN_AUDIO_MODEL_PATH="$mock_model_dir"
   export MARKITDOWN_AUDIO_RUNNER_CWD="$CHECK_RUN_DIR/audio-mock/cwd"
   BALANCE_AUDIO_MOCK_ACTIVE=1
   BALANCE_AUDIO_RUNTIME_NOTE="deterministic-mock"
@@ -188,7 +191,9 @@ fail_unsupported_format() {
 
 command_text() {
   printf './tools/regression/check_balance.sh'
-  append_command_args "${ORIGINAL_ARGS[@]}"
+  if [[ ${#ORIGINAL_ARGS[@]} -gt 0 ]]; then
+    append_command_args "${ORIGINAL_ARGS[@]}"
+  fi
 }
 
 while [[ $# -gt 0 ]]; do

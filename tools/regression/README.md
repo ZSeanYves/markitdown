@@ -1,28 +1,36 @@
-# Regression Entrypoints
+# Regression Tooling
 
-`tools/regression/` owns the formal repository regression surfaces and their
-shared helper scripts.
+`tools/regression/` contains release-facing validation entrypoints. Unit tests
+remain self-contained in the main repository; formal regression and benchmark
+payloads live in the pinned `markitdown-quality-lab/` checkout.
 
-Primary entrypoints:
+## Gates
 
 ```bash
+moon build cli --target native
 ./tools/regression/check_balance.sh
 ./tools/regression/check_balance_quality.sh
 ./tools/regression/check_accurate.sh
+./tools/regression/check_coverage.sh --enforce
+python3 tools/regression/mutation_smoke.py
 ```
 
-These entrypoints depend on:
+This debug/native build is intentional for development regression turnaround;
+end-user examples use the release CLI.
 
-- a built native CLI: `moon build cli --target native`
-- repo-managed optional runtimes from `tools/env/` when OCR or audio are used
-- the external `markitdown-quality-lab` repository at the repo root
+- `check_balance.sh`: main product contracts across Markdown, RAG, assets, and
+  explicit OCR lanes.
+- `check_balance_quality.sh`: larger real-world, provenance-backed quality set.
+- `check_accurate.sh`: functional accurate capability gate. Accurate is not
+  included in formal performance benchmarks.
+- `check_coverage.sh`: tiered core/formats/tools coverage thresholds.
+- `mutation_smoke.py`: deterministic malformed-input smoke for scheduled CI.
+- `self_baseline.py`: capture and enforce fingerprinted self baselines.
 
-Internal support code lives under `tools/regression/lib/`:
+`run_with_release_manifest.sh` wraps a command and records repository/runtime
+fingerprints plus required artifacts. CI uploads these manifests with the gate
+outputs. A non-zero command, missing artifact, skipped row, or failed row must
+remain visible to the caller.
 
-- `shared/` common shell helpers
-- `quality/` external quality signal evaluation
-- `validation/` main regression validation pipeline
-- `mocks/` deterministic local test doubles
-- `smoke/` and `verify/` lightweight auxiliary checks
-
-Run artifacts continue to be written under `./.tmp/`.
+The shared implementation lives under `lib/`; callers should use the top-level
+entrypoints rather than individual library scripts.

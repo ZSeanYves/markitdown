@@ -6,7 +6,7 @@ display_path() {
   if [[ "$path" == "$root" ]]; then
     printf '.'
   elif [[ "$path" == "$root/"* ]]; then
-    printf '%s' "${path#$root/}"
+    printf '%s' "${path#"$root"/}"
   else
     printf '%s' "$path"
   fi

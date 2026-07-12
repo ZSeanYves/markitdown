@@ -109,7 +109,7 @@ run_markitdown_cli() {
     if [[ -n "$runner_cwd" ]]; then
       mkdir -p "$runner_cwd"
       (
-        cd "$runner_cwd"
+        cd "$runner_cwd" || exit 1
         MARKITDOWN_MODULE_ROOT="$module_root" MARKITDOWN_TMP_DIR="$cli_tmp_root" "$CLI_BIN" "$@"
       )
       return $?
@@ -319,10 +319,13 @@ probe_markitdown_cli() {
   if [[ "$status" -eq 0 ]]; then
     local accurate_input="$ROOT/samples/fixtures/contracts/txt/txt_plain.txt"
     local accurate_output="$probe_dir/accurate/txt_plain.md"
+    local accurate_error="$probe_dir/accurate/txt_plain.stderr"
     mkdir -p "$probe_dir/accurate"
-    if ! MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" accurate "$accurate_input" "$accurate_output" >/dev/null 2>&1; then
+    if MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" accurate "$accurate_input" "$accurate_output" >/dev/null 2>"$accurate_error"; then
       status=1
-    elif [[ ! -s "$accurate_output" ]]; then
+    elif [[ -e "$accurate_output" ]]; then
+      status=1
+    elif ! grep -Fq -- $'accurate mode is unsupported for `txt`' "$accurate_error"; then
       status=1
     fi
   fi
@@ -344,7 +347,7 @@ probe_markitdown_cli() {
 }
 
 validation_progress_init() {
-  VALIDATION_LABEL="${1-}"
+  : "${1-}"
   VALIDATION_TOTAL="${2-0}"
   VALIDATION_CURRENT=0
   VALIDATION_HAS_FAILURES=0

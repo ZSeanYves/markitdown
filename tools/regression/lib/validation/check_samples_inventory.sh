@@ -100,7 +100,7 @@ check_sample_inventory_integrity() {
     line_no=$((line_no + 1))
     [[ -z "$row" ]] && continue
     [[ "$row" =~ ^[[:space:]]*# ]] && continue
-    IFS=$'\t' read -r id fmt lane input_path expected_path notes <<< "$row"
+    IFS=$'\t' read -r id fmt lane input_path expected_path _notes <<< "$row"
     if [[ -z "$id" || -z "$fmt" || -z "$lane" || -z "$input_path" || -z "$expected_path" ]]; then
       echo "[error] malformed manifest row at line $line_no" >&2
       fail=1

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+: "${ROOT:?ROOT must be set before sourcing external_signal_suite.sh}"
 source "$ROOT/tools/regression/lib/shared/regression_common.sh"
 
 signal_suite_supported_formats_array() {
@@ -305,7 +306,11 @@ signal_suite_run() {
     echo "# Run summary"
     echo
     echo "Status: $result_word"
-    echo "Command: ./$SIGNAL_SUITE_ENTRYPOINT$(append_command_args "${ORIGINAL_ARGS[@]}")"
+    if [[ ${#ORIGINAL_ARGS[@]} -gt 0 ]]; then
+      echo "Command: ./$SIGNAL_SUITE_ENTRYPOINT$(append_command_args "${ORIGINAL_ARGS[@]}")"
+    else
+      echo "Command: ./$SIGNAL_SUITE_ENTRYPOINT"
+    fi
     echo "Run directory: $(display_path "$ROOT" "$QUALITY_TMP_DIR")"
     echo "Manifest: $(display_path "$ROOT" "$SIGNAL_SUITE_MANIFEST_PATH")"
     echo "Runner: $runner_label"
