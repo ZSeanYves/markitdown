@@ -9,14 +9,6 @@ fn cli_println(message : String) -> Unit {
 }
 
 ///|
-fn run_cli_app_silent(raw_cli_args : Array[String]) -> Int {
-  let was_enabled = cli_console_enabled.val
-  cli_console_enabled.val = false
-  defer cli_console_enabled.val = was_enabled
-  run_cli_app(raw_cli_args)
-}
-
-///|
 fn print_cli_version() -> Unit {
   cli_println(cli_product_name() + " " + cli_product_version())
 }

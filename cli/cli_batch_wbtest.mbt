@@ -8,7 +8,9 @@ test "main cli batch writes manifest for single markdown input" {
   let out_dir = root + "/out"
   write_utf8_text(input_path, "# Title\n\nhello batch\n")
 
-  let exit_code = run_cli_app_silent(["markitdown-mb", "batch", input_path, out_dir])
+  let exit_code = run_cli_app_silent([
+    "markitdown-mb", "batch", input_path, out_dir,
+  ])
   assert_eq(exit_code, 0)
   assert_true(@fs.path_exists(out_dir + "/manifest.json"))
   assert_true(@fs.path_exists(out_dir + "/note.md.md"))

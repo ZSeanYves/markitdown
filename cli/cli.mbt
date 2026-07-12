@@ -40,7 +40,7 @@ fn run_cli_with_image_ocr_provider_impl(
     opts,
     image_ocr_provider,
     @fpdf.rasterize_pdf_with_pdftoppm_default,
-    emit_warnings,
+    emit_warnings~,
   )
 }
 
@@ -55,7 +55,7 @@ fn run_cli_with_image_ocr_provider_and_pdf_rasterizer(
     (@fpdf.PdfRasterResult, String),
     @fpdf.PdfRasterizerError,
   ],
-  emit_warnings : Bool = false,
+  emit_warnings? : Bool = false,
 ) -> Result[String, String] {
   let requested_format = cli_requested_format(opts)
   if !cli_is_supported_format(requested_format) {
@@ -98,7 +98,7 @@ fn run_cli_with_image_ocr_provider_and_pdf_rasterizer(
   if emit_warnings {
     cli_emit_conversion_warnings(execution.result)
   }
-  cli_render_convert_result(opts, execution.result, emit_warnings)
+  cli_render_convert_result(opts, execution.result, emit_warnings~)
 }
 
 ///|
@@ -125,7 +125,7 @@ fn cli_emit_conversion_warnings(result : @convert.ConvertResult) -> Unit {
 fn cli_render_convert_result(
   opts : CliOptions,
   result : @convert.ConvertResult,
-  emit_warnings : Bool = false,
+  emit_warnings? : Bool = false,
 ) -> Result[String, String] {
   if result.content.trim() == "" && result.diagnostics.errors.length() > 0 {
     return Err("conversion failed: " + result.diagnostics.errors.join("; "))

@@ -835,6 +835,11 @@ test "ensure dir tree tolerates already-created segments" {
 
 ///|
 test "bench CLI entry dispatches help catalog and controlled argument failures" {
+  let was_enabled = bench_console_enabled.val
+  bench_console_enabled.val = false
+  defer {
+    bench_console_enabled.val = was_enabled
+  }
   let dev = @command.make_runner_context("dev_moon_run", None)
   let root = bench_manifest_fixture_root()
   setup_bench_manifest_fixture(root) catch {
@@ -863,6 +868,11 @@ test "bench CLI entry dispatches help catalog and controlled argument failures" 
 
 ///|
 test "bench CLI normalizes executable and moon runner prefixes" {
+  let was_enabled = bench_console_enabled.val
+  bench_console_enabled.val = false
+  defer {
+    bench_console_enabled.val = was_enabled
+  }
   assert_true(
     normalize_bench_args(["/tmp/runner.exe", "catalog", "scenarios"]) ==
     ["catalog", "scenarios"],
@@ -1003,6 +1013,11 @@ test "benchmark process samples record unavailable tool without execution" {
 
 ///|
 test "benchmark progress and output hash helpers are deterministic" {
+  let was_enabled = bench_console_enabled.val
+  bench_console_enabled.val = false
+  defer {
+    bench_console_enabled.val = was_enabled
+  }
   assert_eq(bench_progress_truncate("short", max=8), "short")
   assert_eq(bench_progress_truncate("abcdef", max=3), "abc")
   assert_eq(bench_progress_truncate("abcdefghij", max=6), "abc...")

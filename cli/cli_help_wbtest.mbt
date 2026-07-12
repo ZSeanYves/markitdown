@@ -1,4 +1,14 @@
 ///|
+fn run_cli_app_silent(raw_cli_args : Array[String]) -> Int {
+  let was_enabled = cli_console_enabled.val
+  cli_console_enabled.val = false
+  defer {
+    cli_console_enabled.val = was_enabled
+  }
+  run_cli_app(raw_cli_args)
+}
+
+///|
 test "main CLI app dispatches help version and removed command guidance" {
   assert_eq(run_cli_app_silent(["markitdown"]), 0)
   for arg in ["help", "--help", "-h"] {
@@ -31,6 +41,11 @@ test "main CLI app fails closed on malformed option sets" {
 
 ///|
 test "main CLI help and fail closed messages remain nonempty across categories" {
+  let was_enabled = cli_console_enabled.val
+  cli_console_enabled.val = false
+  defer {
+    cli_console_enabled.val = was_enabled
+  }
   cli_write_stderr("")
   assert_true(cli_unsupported_format_message("xyz").contains("xyz"))
   assert_true(
