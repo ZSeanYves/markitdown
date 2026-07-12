@@ -1,6 +1,6 @@
 ///|
 test "native process measurement reports isolated positive RSS" {
-  let argv = ["/bin/sleep", "0.05"]
+  let argv = ["/bin/sleep", "0.2"]
   let argv_blob = encode_c_string_blob(argv)
   let env_blob = encode_c_string_blob([])
   let measured = native_measure_command(
