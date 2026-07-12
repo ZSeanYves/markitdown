@@ -598,7 +598,7 @@ Part of the concepts defined in OASIS XACML 2.0 https://docs.oasis-open.org/xacm
 
 5
 
-![page-14-image-1](assets/image01.bin)
+![page-14-image-1](assets/image01.png)
 
 NISTSP800-207 ZERO TRUST ARCHITECTURE
 
@@ -774,7 +774,7 @@ as input to a trust algorithm \(see Section 3.3for more details\) to grant, deny
 
 9
 
-![page-18-image-1](assets/image02.bin)
+![page-18-image-1](assets/image02.png)
 
 NISTSP800-207 ZERO TRUST ARCHITECTURE
 
@@ -978,7 +978,7 @@ Usually, these resources serve a single business function or may not be able to 
 
 14
 
-![page-23-image-1](assets/image03.bin)
+![page-23-image-1](assets/image03.png)
 
 NISTSP800-207 ZERO TRUST ARCHITECTURE
 
@@ -1010,7 +1010,7 @@ portal into a private cloud or data center containing legacy applications as sho
 
 15
 
-![page-24-image-1](assets/image04.bin)
+![page-24-image-1](assets/image04.png)
 
 NISTSP800-207 ZERO TRUST ARCHITECTURE
 
@@ -1040,7 +1040,7 @@ processes run compartmentalized on assets. These compartments could be virtual m
 
 16
 
-![page-25-image-1](assets/image05.bin)
+![page-25-image-1](assets/image05.png)
 
 NISTSP800-207 ZERO TRUST ARCHITECTURE
 
@@ -1076,7 +1076,7 @@ threat intelligence sources, and other metadata sources. The process can be grou
 
 17
 
-![page-26-image-1](assets/image06.bin)
+![page-26-image-1](assets/image06.png)
 
 NISTSP800-207 ZERO TRUST ARCHITECTURE
 
@@ -1114,7 +1114,7 @@ multiple subjects could be thought of as a role, but privileges should be assign
 
 18
 
-![page-27-image-1](assets/image07.bin)
+![page-27-image-1](assets/image07.png)
 
 NISTSP800-207 ZERO TRUST ARCHITECTURE
 
@@ -1354,9 +1354,9 @@ This use case isthe server-server implementation of the CSA’s software defined
 
 24
 
-![page-33-image-1](assets/image08.bin)
+![page-33-image-1](assets/image08.png)
 
-![page-33-image-2](assets/image09.bin)
+![page-33-image-2](assets/image09.png)
 
 NISTSP800-207 ZERO TRUST ARCHITECTURE
 
@@ -1384,7 +1384,7 @@ In this example, the organization also has a conference center where visitors in
 
 25
 
-![page-34-image-1](assets/image10.bin)
+![page-34-image-1](assets/image10.png)
 
 NISTSP800-207 ZERO TRUST ARCHITECTURE
 
@@ -1420,7 +1420,7 @@ Enterprise A’s access policies. How this access is accomplished depends on the
 
 26
 
-![page-35-image-1](assets/image11.bin)
+![page-35-image-1](assets/image11.png)
 
 NISTSP800-207 ZERO TRUST ARCHITECTURE
 
@@ -1866,7 +1866,7 @@ Figure 12: ZTA Deployment Cycle
 
 37
 
-![page-46-image-1](assets/image12.bin)
+![page-46-image-1](assets/image12.png)
 
 NISTSP800-207 ZERO TRUST ARCHITECTURE
 

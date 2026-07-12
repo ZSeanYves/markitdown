@@ -253,6 +253,79 @@ fn pdf_wbtest_indexed_pixels_image_pdf_bytes() -> Bytes {
 }
 
 ///|
+fn pdf_wbtest_indirect_indexed_icc_smask_pdf_bytes() -> Bytes {
+  let indexed_hex = "0001>"
+  let palette_hex = "ff000000ff00>"
+  let alpha_hex = "40c0>"
+  pdf_wbtest_single_image_pdf_bytes(
+    [
+      "1 0 obj",
+      "<< /Type /XObject /Subtype /Image /Width 2 /Height 1 /ColorSpace 7 0 R /BitsPerComponent 8 /SMask 9 0 R /Filter /ASCIIHexDecode /Length " +
+      indexed_hex.length().to_string() +
+      " >>",
+      "stream",
+      indexed_hex,
+      "endstream",
+      "endobj",
+    ],
+    extra_object_lines=[
+      "7 0 obj",
+      "[ /Indexed 8 0 R 1 10 0 R ]",
+      "endobj",
+      "8 0 obj",
+      "[ /ICCBased 11 0 R ]",
+      "endobj",
+      "9 0 obj",
+      "<< /Type /XObject /Subtype /Image /Width 2 /Height 1 /ColorSpace 12 0 R /BitsPerComponent 8 /Filter /ASCIIHexDecode /Length " +
+      alpha_hex.length().to_string() +
+      " >>",
+      "stream",
+      alpha_hex,
+      "endstream",
+      "endobj",
+      "10 0 obj",
+      "<< /Filter /ASCIIHexDecode /Length " +
+      palette_hex.length().to_string() +
+      " >>",
+      "stream",
+      palette_hex,
+      "endstream",
+      "endobj",
+      "11 0 obj",
+      "<< /N 3 /Alternate /DeviceRGB /Length 0 >>",
+      "stream",
+      "",
+      "endstream",
+      "endobj",
+      "12 0 obj",
+      "[ /ICCBased 13 0 R ]",
+      "endobj",
+      "13 0 obj",
+      "<< /N 1 /Length 0 >>",
+      "stream",
+      "",
+      "endstream",
+      "endobj",
+    ],
+  )
+}
+
+///|
+fn pdf_wbtest_unsupported_colorspace_image_pdf_bytes() -> Bytes {
+  let rgb_hex = "ff0000>"
+  pdf_wbtest_single_image_pdf_bytes([
+    "1 0 obj",
+    "<< /Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace 99 0 R /BitsPerComponent 8 /Filter /ASCIIHexDecode /Length " +
+    rgb_hex.length().to_string() +
+    " >>",
+    "stream",
+    rgb_hex,
+    "endstream",
+    "endobj",
+  ])
+}
+
+///|
 fn pdf_wbtest_inline_payload_bytes(asset : @core.AssetRef) -> Bytes? {
   let payload = match asset.attrs.get("inline_payload") {
     Some(value) => value
@@ -260,6 +333,24 @@ fn pdf_wbtest_inline_payload_bytes(asset : @core.AssetRef) -> Bytes? {
   }
   try @base64.decode(payload, url_safe=false) |> Some catch {
     _ => None
+  }
+}
+
+///|
+fn pdf_wbtest_png_raw_scanlines(payload : Bytes) -> Bytes? {
+  if payload.length() < 45 {
+    return None
+  }
+  let length = (payload[33].to_int() << 24) |
+    (payload[34].to_int() << 16) |
+    (payload[35].to_int() << 8) |
+    payload[36].to_int()
+  if length <= 0 || 41 + length > payload.length() {
+    return None
+  }
+  match inflate_pdf_stream(payload[41:41 + length].to_owned()) {
+    Ok(value) => Some(value)
+    Err(_) => None
   }
 }
 
@@ -560,6 +651,143 @@ test "pdf native backend expands indexed palette pixels into RGB PNG" {
   let payload = pdf_wbtest_inline_payload_bytes(asset).unwrap()
   assert_true(asset.mime_type == Some("image/png"))
   assert_true(payload[25].to_int() == 2)
+}
+
+///|
+test "pdf native backend resolves indirect Indexed ICCBased palette and soft mask" {
+  let source = @input.input_from_bytes_with_format(
+    pdf_wbtest_indirect_indexed_icc_smask_pdf_bytes(),
+    "indirect-indexed-icc-smask.pdf",
+    Some(@input.DetectedFormat::Pdf),
+  )
+  let document = extract_pdf_native_document(source).unwrap()
+  let asset = document.pages[0].image_candidates[0].asset_ref.unwrap()
+  let payload = pdf_wbtest_inline_payload_bytes(asset).unwrap()
+  let scanlines = pdf_wbtest_png_raw_scanlines(payload).unwrap()
+  assert_true(asset.mime_type == Some("image/png"))
+  assert_true(payload[25].to_int() == 6)
+  assert_true(
+    scanlines.to_array() ==
+    [
+      (0).to_byte(),
+      (255).to_byte(),
+      (0).to_byte(),
+      (0).to_byte(),
+      (64).to_byte(),
+      (0).to_byte(),
+      (255).to_byte(),
+      (0).to_byte(),
+      (192).to_byte(),
+    ],
+  )
+  assert_true(
+    document.diagnostics.metrics.get("pdf_unsupported_image_asset_count") ==
+    Some("0"),
+  )
+}
+
+///|
+test "pdf native backend diagnoses unsupported indirect image colorspaces without bin assets" {
+  let source = @input.input_from_bytes_with_format(
+    pdf_wbtest_unsupported_colorspace_image_pdf_bytes(),
+    "unsupported-colorspace.pdf",
+    Some(@input.DetectedFormat::Pdf),
+  )
+  let document = extract_pdf_native_document(source).unwrap()
+  assert_true(document.pages[0].image_candidates[0].asset_ref is None)
+  assert_true(document.diagnostics.metrics.get("asset_count") == Some("0"))
+  assert_true(
+    document.diagnostics.metrics.get("pdf_unsupported_image_asset_count") ==
+    Some("1"),
+  )
+  assert_true(
+    document.diagnostics.degraded_features.contains(
+      "pdf_image_asset_unsupported",
+    ),
+  )
+  assert_true(document.diagnostics.warnings.length() == 1)
+  let warning = document.diagnostics.warnings[0]
+  assert_true(warning.contains("object_id=1"))
+  assert_true(warning.contains("filters=ASCIIHexDecode"))
+  assert_true(warning.contains("color_space=unresolved"))
+  assert_true(warning.contains("unsupported_or_unresolved_color_space"))
+  assert_true(!warning.contains(".bin"))
+}
+
+///|
+test "pdf image colorspace resolver bounds indirect references and ICC fallbacks" {
+  for component_count in [1, 3, 4] {
+    let objects : Map[Int, PdfNativeObject] = {}
+    objects.set(7, {
+      object_id: 7,
+      dict_text: "[ /ICCBased 8 0 R ]",
+      stream: None,
+    })
+    objects.set(8, {
+      object_id: 8,
+      dict_text: "<< /N " + component_count.to_string() + " >>",
+      stream: None,
+    })
+    let resolved = pdf_resolve_image_color_space_value(
+      PdfNativeDictValue::Reference(7, 0),
+      objects,
+      0,
+      [],
+    )
+    let matches = match (component_count, resolved) {
+      (1, Some(PdfResolvedImageColorSpace::Gray)) => true
+      (3, Some(PdfResolvedImageColorSpace::RGB)) => true
+      (4, Some(PdfResolvedImageColorSpace::CMYK)) => true
+      _ => false
+    }
+    assert_true(matches)
+  }
+  let missing : Map[Int, PdfNativeObject] = {}
+  assert_true(
+    pdf_resolve_image_color_space_value(
+      PdfNativeDictValue::Reference(99, 0),
+      missing,
+      0,
+      [],
+    )
+    is None,
+  )
+  let cycle : Map[Int, PdfNativeObject] = {}
+  cycle.set(7, { object_id: 7, dict_text: "8 0 R", stream: None })
+  cycle.set(8, { object_id: 8, dict_text: "7 0 R", stream: None })
+  assert_true(
+    pdf_resolve_image_color_space_value(
+      PdfNativeDictValue::Reference(7, 0),
+      cycle,
+      0,
+      [],
+    )
+    is None,
+  )
+  let deep : Map[Int, PdfNativeObject] = {}
+  for object_id in 1..<11 {
+    deep.set(object_id, {
+      object_id,
+      dict_text: (object_id + 1).to_string() + " 0 R",
+      stream: None,
+    })
+  }
+  deep.set(11, { object_id: 11, dict_text: "/DeviceRGB", stream: None })
+  assert_true(
+    pdf_resolve_image_color_space_value(
+      PdfNativeDictValue::Reference(1, 0),
+      deep,
+      0,
+      [],
+    )
+    is None,
+  )
+  let truncated = {
+    object_id: 1,
+    dict_text: "<< /ColorSpace [ /Indexed /DeviceRGB 1 <ff00> ] >>",
+    stream: None,
+  }
+  assert_true(pdf_resolve_image_color_space(truncated, {}) is None)
 }
 
 ///|

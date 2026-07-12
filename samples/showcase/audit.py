@@ -42,6 +42,28 @@ def safe(value: str) -> bool:
     return bool(value) and not path.is_absolute() and ".." not in path.parts
 
 
+def image_magic_matches(path: Path) -> bool:
+    data = path.read_bytes()[:32]
+    suffix = path.suffix.lower()
+    if suffix == ".png":
+        return data.startswith(b"\x89PNG\r\n\x1a\n")
+    if suffix in {".jpg", ".jpeg"}:
+        return data.startswith(b"\xff\xd8\xff")
+    if suffix == ".gif":
+        return data.startswith((b"GIF87a", b"GIF89a"))
+    if suffix == ".webp":
+        return data.startswith(b"RIFF") and data[8:12] == b"WEBP"
+    if suffix in {".tif", ".tiff"}:
+        return data.startswith((b"II*\x00", b"MM\x00*"))
+    if suffix in {".jp2", ".jpx"}:
+        return data.startswith(b"\x00\x00\x00\x0cjP  \r\n\x87\n")
+    if suffix in {".jb2", ".jbig2"}:
+        return data.startswith(b"\x97JB2\r\n\x1a\n")
+    if suffix == ".svg":
+        return b"<svg" in data.lower()
+    return suffix != ".bin"
+
+
 def showcase(errors: list[str]) -> None:
     manifest = tsv(ROOT / "MANIFEST.tsv")
     result_manifest = {row["format"]: row for row in tsv(ROOT / "RESULTS.tsv")}
@@ -113,6 +135,10 @@ def showcase(errors: list[str]) -> None:
             target = directory / unquote(reference.split(' "', 1)[0])
             if not target.is_file():
                 errors.append(f"{label}: broken local asset reference {reference!r}")
+            elif target.suffix.lower() == ".bin":
+                errors.append(f"{label}: binary payload cannot be used as an image reference {reference!r}")
+            elif not image_magic_matches(target):
+                errors.append(f"{label}: asset extension and image magic disagree {reference!r}")
     if result_bytes > 10 * 1024 * 1024:
         errors.append(f"showcase: {result_bytes} result bytes exceeds 10 MiB Markdown budget")
     cli = REPO / "_build/native/release/build/cli/cli.exe"

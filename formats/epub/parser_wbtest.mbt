@@ -24,8 +24,8 @@ test "EPUB parser lowers spine metadata navigation images and boundary packages"
 ///|
 test "EPUB parser fails closed for unsafe missing and colliding package paths" {
   let fixtures = [
-    "samples/fixtures/boundaries/epub/epub_missing_container.epub", "samples/fixtures/boundaries/epub/epub_rootfile_parent_escape.epub",
-    "samples/fixtures/boundaries/epub/epub_manifest_href_parent_escape.epub", "samples/fixtures/boundaries/epub/epub_normalized_collision.epub",
+    "samples/fixtures/rejections/epub/epub_missing_container.epub", "samples/fixtures/rejections/epub/epub_rootfile_parent_escape.epub",
+    "samples/fixtures/rejections/epub/epub_manifest_href_parent_escape.epub", "samples/fixtures/rejections/epub/epub_normalized_collision.epub",
   ]
   let parser = epub_parser(fn() { @parser.empty_registry() })
   let context = @parser.new_parse_context(@input.DetectedFormat::Epub)

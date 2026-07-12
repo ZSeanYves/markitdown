@@ -236,19 +236,35 @@ fn pdf_image_candidate_from_xobject(
     object_id,
     xobject_name,
   )
-  make_pdf_native_image_candidate(
+  let asset_ref = pdf_exportable_image_asset_ref(
+    source,
+    geometry.page_no,
     bbox,
-    source_ref=Some(source_ref),
-    asset_ref=pdf_exportable_image_asset_ref(
-      source,
-      geometry.page_no,
-      bbox,
-      xobject_name,
-      object_id,
-      object,
-      object_index,
-    ),
+    xobject_name,
+    object_id,
+    object,
+    object_index,
   )
+  if asset_ref is None {
+    source_ref.extra.set(
+      "pdf_image_filter_chain",
+      pdf_image_filter_chain_label(pdf_extract_filter_names(object.dict_text)),
+    )
+    let color_space = pdf_resolve_image_color_space(object, object_index)
+    source_ref.extra.set(
+      "pdf_image_color_space",
+      pdf_resolved_image_color_space_label(color_space),
+    )
+    source_ref.extra.set(
+      "pdf_image_asset_reason",
+      if color_space is None {
+        "unsupported_or_unresolved_color_space"
+      } else {
+        "unsupported_pixel_layout_or_filter_payload"
+      },
+    )
+  }
+  make_pdf_native_image_candidate(bbox, source_ref=Some(source_ref), asset_ref~)
 }
 
 ///|
@@ -281,6 +297,9 @@ fn pdf_exportable_image_asset_ref(
   let payload_info = match pdf_exportable_image_payload(object, object_index) {
     Some(value) => value
     None => return None
+  }
+  if payload_info.mime_type == "application/octet-stream" {
+    return None
   }
   let source_ref = pdf_source_ref_for_image_candidate(
     source, page_no, bbox, object_id, xobject_name,
@@ -562,20 +581,29 @@ fn pdf_decoded_pixels_png_payload(
   let bits = pdf_extract_int_after(object.dict_text, "/BitsPerComponent").unwrap_or(
     8,
   )
-  let indexed = pdf_expand_indexed_rgb_pixels(
-    object, decoded, width, height, bits,
-  )
-  let (pixels, channels) = match indexed {
-    Some(value) => (value, 3)
-    None if object.dict_text.contains("/DeviceCMYK") && bits == 8 => {
+  let color_space = match pdf_resolve_image_color_space(object, object_index) {
+    Some(value) => value
+    None => return None
+  }
+  let (pixels, channels) = match color_space {
+    PdfResolvedImageColorSpace::Indexed(base, high, palette) => {
+      let expanded = match
+        pdf_expand_indexed_rgb_pixels(
+          decoded, width, height, bits, base, high, palette,
+        ) {
+        Some(value) => value
+        None => return None
+      }
+      (expanded, 3)
+    }
+    PdfResolvedImageColorSpace::CMYK if bits == 8 => {
       let converted = match pdf_convert_cmyk_to_rgb(decoded, width, height) {
         Some(value) => value
         None => return None
       }
       (converted, 3)
     }
-    None if object.dict_text.contains("/DeviceGray") ||
-      object.dict_text.contains("/ImageMask true") =>
+    PdfResolvedImageColorSpace::Gray =>
       if bits == 1 {
         let invert = object.dict_text.contains("/Decode [ 1 0 ]") ||
           object.dict_text.contains("/Decode [1 0]")
@@ -590,8 +618,8 @@ fn pdf_decoded_pixels_png_payload(
       } else {
         return None
       }
-    None if object.dict_text.contains("/DeviceRGB") && bits == 8 => (decoded, 3)
-    None => return None
+    PdfResolvedImageColorSpace::RGB if bits == 8 => (decoded, 3)
+    _ => return None
   }
   let alpha = match
     pdf_image_soft_mask_alpha(object, object_index, width, height) {
@@ -663,44 +691,22 @@ fn pdf_convert_cmyk_to_rgb(
 
 ///|
 fn pdf_expand_indexed_rgb_pixels(
-  object : PdfNativeObject,
   decoded : Bytes,
   width : Int,
   height : Int,
   bits : Int,
+  base : PdfResolvedImageColorSpace,
+  high : Int,
+  palette : Bytes,
 ) -> Bytes? {
   if bits != 1 && bits != 2 && bits != 4 && bits != 8 {
     return None
   }
-  let tokens = match pdf_extract_dict_value(object.dict_text, "/ColorSpace") {
-    Some(PdfNativeDictValue::Array(value)) => value
-    _ => return None
-  }
-  if tokens.length() < 4 {
-    return None
-  }
-  match (tokens[0], tokens[1]) {
-    (
-      PdfNativeContentToken::Name("Indexed"),
-      PdfNativeContentToken::Name("DeviceRGB"),
-    ) => ()
-    _ => return None
-  }
-  let high = match pdf_token_number(tokens[2]) {
-    Some(value) if pdf_double_is_integral(value) => value.to_int()
-    _ => return None
-  }
-  let palette_hex = match tokens[3] {
-    PdfNativeContentToken::HexString(value) => value
-    _ => return None
-  }
-  let palette_values = match pdf_hex_byte_values(palette_hex) {
-    Some(value) => value
-    None => return None
-  }
+  let components = pdf_resolved_image_color_components(base)
   if high < 0 ||
     high > 255 ||
-    palette_values.length() < (high + 1) * 3 ||
+    components <= 0 ||
+    palette.length() < (high + 1) * components ||
     width <= 0 ||
     height <= 0 ||
     width > PDF_PNG_MAX_PIXELS / height {
@@ -721,10 +727,30 @@ fn pdf_expand_indexed_rgb_pixels(
       if index > high {
         return None
       }
-      let palette_offset = index * 3
-      rgb.push(palette_values[palette_offset].to_byte())
-      rgb.push(palette_values[palette_offset + 1].to_byte())
-      rgb.push(palette_values[palette_offset + 2].to_byte())
+      let palette_offset = index * components
+      match base {
+        PdfResolvedImageColorSpace::Gray => {
+          let gray = palette[palette_offset]
+          rgb.push(gray)
+          rgb.push(gray)
+          rgb.push(gray)
+        }
+        PdfResolvedImageColorSpace::RGB => {
+          rgb.push(palette[palette_offset])
+          rgb.push(palette[palette_offset + 1])
+          rgb.push(palette[palette_offset + 2])
+        }
+        PdfResolvedImageColorSpace::CMYK => {
+          let c = palette[palette_offset].to_int()
+          let m = palette[palette_offset + 1].to_int()
+          let y = palette[palette_offset + 2].to_int()
+          let k = palette[palette_offset + 3].to_int()
+          rgb.push((255 - pdf_min_int(255, c + k)).to_byte())
+          rgb.push((255 - pdf_min_int(255, m + k)).to_byte())
+          rgb.push((255 - pdf_min_int(255, y + k)).to_byte())
+        }
+        PdfResolvedImageColorSpace::Indexed(_, _, _) => return None
+      }
     }
   }
   Some(Bytes::from_array(rgb))
@@ -782,9 +808,12 @@ fn pdf_image_soft_mask_alpha(
     None => return None
   }
   if pdf_extract_int_after(mask.dict_text, "/Width") != Some(width) ||
-    pdf_extract_int_after(mask.dict_text, "/Height") != Some(height) ||
-    !mask.dict_text.contains("/DeviceGray") {
+    pdf_extract_int_after(mask.dict_text, "/Height") != Some(height) {
     return None
+  }
+  match pdf_resolve_image_color_space(mask, object_index) {
+    Some(PdfResolvedImageColorSpace::Gray) => ()
+    _ => return None
   }
   let decoded = match pdf_decode_stream_bytes(mask, "soft mask image") {
     Ok(value) => value
@@ -1172,6 +1201,57 @@ fn pdf_native_exportable_image_asset_count(
   image_candidates : Array[PdfNativeImageCandidate],
 ) -> Int {
   image_candidates.filter(candidate => candidate.asset_ref is Some(_)).length()
+}
+
+///|
+fn pdf_native_unsupported_image_asset_count(
+  image_candidates : Array[PdfNativeImageCandidate],
+) -> Int {
+  image_candidates.filter(candidate => candidate.asset_ref is None).length()
+}
+
+///|
+fn pdf_native_unsupported_image_asset_details(
+  image_candidates : Array[PdfNativeImageCandidate],
+) -> Array[String] {
+  let details : Array[String] = []
+  let mut omitted = 0
+  for candidate in image_candidates {
+    if candidate.asset_ref is Some(_) {
+      continue
+    }
+    if details.length() >= 8 {
+      omitted += 1
+      continue
+    }
+    let source_ref = match candidate.source_ref {
+      Some(value) => value
+      None => {
+        details.push("PDF image asset omitted: metadata unavailable")
+        continue
+      }
+    }
+    details.push(
+      "PDF image asset omitted: object_id=" +
+      source_ref.extra.get("pdf_object_id").unwrap_or("unknown") +
+      " xobject=" +
+      source_ref.extra.get("pdf_xobject_name").unwrap_or("unknown") +
+      " filters=" +
+      source_ref.extra.get("pdf_image_filter_chain").unwrap_or("none") +
+      " color_space=" +
+      source_ref.extra.get("pdf_image_color_space").unwrap_or("unresolved") +
+      " reason=" +
+      source_ref.extra.get("pdf_image_asset_reason").unwrap_or("unknown"),
+    )
+  }
+  if omitted > 0 {
+    details.push(
+      "PDF image asset diagnostics omitted for " +
+      omitted.to_string() +
+      " additional candidates",
+    )
+  }
+  details
 }
 
 ///|
