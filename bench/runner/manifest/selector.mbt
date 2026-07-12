@@ -1,5 +1,5 @@
 ///|
-const MANIFEST_HEADER : String = "bench_id\tformat\tsize_class\trel_path\tsource_kind\tsource_ref\tbytes\tsha256\tenabled_tier\tbench_layers\ttags\treview_status\tnotes"
+const MANIFEST_HEADER : String = "bench_id\tformat\tsize_class\trel_path\tsource_kind\tsource_ref\tbytes\tsha256\tenabled_tier\tbench_layers\ttags\treview_status\tnotes\tcomparison_class\tcomparison_reason\tcomparison_signals"
 
 ///|
 const EXTERNAL_BENCH_SUFFIX : String = "external_bench"
@@ -17,19 +17,25 @@ fn bench_root() -> String {
 }
 
 ///|
-fn manifest_path() -> String {
-  bench_root() + "/MANIFEST.tsv"
-}
-
-///|
 pub fn select_rows(request : SelectRequest) -> Array[BenchRow] {
-  let manifest_path = manifest_path()
+  let root = bench_root()
+  let manifest_path = root + "/MANIFEST.tsv"
   let content = @fs.read_file_to_string(manifest_path, encoding="utf8") catch {
     err =>
       abort(
         "bench manifest read failed: " + manifest_path + " : " + err.to_string(),
       )
   }
+  select_rows_from_manifest(content, manifest_path, root, request)
+}
+
+///|
+fn select_rows_from_manifest(
+  content : String,
+  manifest_path : String,
+  root : String,
+  request : SelectRequest,
+) -> Array[BenchRow] {
   let lines = content.split("\n").to_array()
   if lines.length() == 0 || lines[0].trim_end() != MANIFEST_HEADER {
     abort("unexpected bench manifest header: " + manifest_path)
@@ -41,7 +47,7 @@ pub fn select_rows(request : SelectRequest) -> Array[BenchRow] {
     if line.trim() == "" {
       continue
     }
-    let row = parse_manifest_line(line, i + 1)
+    let row = parse_manifest_line_with_root(line, i + 1, root)
     if should_skip_row(row, request) is Some(_) {
       continue
     }
@@ -56,13 +62,24 @@ pub fn select_rows(request : SelectRequest) -> Array[BenchRow] {
 
 ///|
 pub fn selector_stats_json(request : SelectRequest) -> Json {
-  let manifest_path = manifest_path()
+  let root = bench_root()
+  let manifest_path = root + "/MANIFEST.tsv"
   let content = @fs.read_file_to_string(manifest_path, encoding="utf8") catch {
     err =>
       abort(
         "bench manifest read failed: " + manifest_path + " : " + err.to_string(),
       )
   }
+  selector_stats_from_manifest(content, manifest_path, root, request)
+}
+
+///|
+fn selector_stats_from_manifest(
+  content : String,
+  manifest_path : String,
+  root : String,
+  request : SelectRequest,
+) -> Json {
   let lines = content.split("\n").to_array()
   if lines.length() == 0 || lines[0].trim_end() != MANIFEST_HEADER {
     abort("unexpected bench manifest header: " + manifest_path)
@@ -75,7 +92,7 @@ pub fn selector_stats_json(request : SelectRequest) -> Json {
     if line.trim() == "" {
       continue
     }
-    let row = parse_manifest_line(line, i + 1)
+    let row = parse_manifest_line_with_root(line, i + 1, root)
     match should_skip_row(row, request) {
       Some(reason) => increment_skip_reason(skipped, reason)
       None =>
@@ -120,8 +137,13 @@ pub fn empty_selector_stats() -> SelectorStats {
 
 ///|
 pub fn selector_rows_tsv(request : SelectRequest) -> Array[String] {
+  format_selector_rows_tsv(select_rows(request))
+}
+
+///|
+fn format_selector_rows_tsv(rows : Array[BenchRow]) -> Array[String] {
   let lines : Array[String] = []
-  for row in select_rows(request) {
+  for row in rows {
     lines.push(
       row.bench_id +
       "\t" +
@@ -153,8 +175,17 @@ pub fn ensure_bench_row_payload(row : BenchRow) -> Bool {
 
 ///|
 pub fn parse_manifest_line(line : String, line_no : Int) -> BenchRow {
+  parse_manifest_line_with_root(line, line_no, bench_root())
+}
+
+///|
+fn parse_manifest_line_with_root(
+  line : String,
+  line_no : Int,
+  root : String,
+) -> BenchRow {
   let columns = line.split("\t").to_array().map(part => part.to_owned())
-  if columns.length() != 13 {
+  if columns.length() != 16 {
     abort("bench manifest column mismatch at line " + line_no.to_string())
   }
   let rel_path = columns[3]
@@ -172,7 +203,10 @@ pub fn parse_manifest_line(line : String, line_no : Int) -> BenchRow {
     tags: split_csv_field(columns[10]),
     review_status: columns[11],
     notes: columns[12],
-    input_path: repo_rel_input_path(rel_path),
+    comparison_class: columns[13],
+    comparison_reason: columns[14],
+    comparison_signals: split_csv_field(columns[15]),
+    input_path: root + "/" + rel_path,
   }
 }
 
@@ -213,6 +247,12 @@ pub fn should_skip_row(row : BenchRow, request : SelectRequest) -> String? {
       }) {
       return Some("format_filtered")
     }
+  }
+  if request.comparison_classes.length() > 0 &&
+    !request.comparison_classes.any(class => {
+      class.trim().to_lower() == row.comparison_class.trim().to_lower()
+    }) {
+    return Some("comparison_class_filtered")
   }
   if row.rel_path.trim() == "" {
     return Some("missing_rel_path")

@@ -194,6 +194,143 @@ fn xml_generic_block_events_from_tokens(
 }
 
 ///|
+priv struct XmlCompactOutlineFrame {
+  element_name : String
+  element_path : String
+  event_index : Int
+  attribute_count : Int
+  mut has_children : Bool
+  text_values : Array[String]
+}
+
+///|
+fn xml_compact_outline_events_from_tokens(
+  tokens : Array[@dxml.XmlToken],
+  source : @input.InputSource,
+) -> Array[@core.CoreEvent] {
+  let stack : Array[XmlCompactOutlineFrame] = []
+  let roots : Array[@core.CoreEvent] = []
+  let sibling_counts : Array[Map[String, Int]] = []
+  for token in tokens {
+    match token {
+      @dxml.XmlToken::Text(text, _) | @dxml.XmlToken::CData(text, _) =>
+        if text.trim() != "" && stack.length() > 0 {
+          stack[stack.length() - 1].text_values.push(text.trim().to_owned())
+        }
+      @dxml.XmlToken::StartTag(name, attrs, self_closing, span) => {
+        let depth = stack.length()
+        if depth > 0 {
+          let parent = stack[depth - 1]
+          parent.has_children = true
+          if depth == 2 &&
+            parent.attribute_count == 0 &&
+            roots[parent.event_index].text == parent.element_name {
+            roots[parent.event_index] = {
+              ..roots[parent.event_index],
+              text: "<" + parent.element_name + ">",
+            }
+          }
+        }
+        let path = if depth == 0 {
+          "/" + name
+        } else {
+          let counts = sibling_counts[depth - 1]
+          let next_count = counts.get(name).unwrap_or(0)
+          counts.set(name, next_count + 1)
+          stack[depth - 1].element_path +
+          "/" +
+          name +
+          "[" +
+          next_count.to_string() +
+          "]"
+        }
+        let element_ref = xml_stream_element_source_ref(source, span, path)
+        let event_index = roots.length()
+        roots.push(
+          xml_compact_outline_event(
+            if depth == 0 {
+              @core.BlockKind::Heading
+            } else {
+              @core.BlockKind::ListItem
+            },
+            if depth == 0 {
+              "<" + name + ">"
+            } else {
+              name
+            },
+            element_ref,
+            if depth == 0 {
+              0
+            } else {
+              depth - 1
+            },
+          ),
+        )
+        for attr in attrs {
+          roots.push(
+            xml_compact_outline_event(
+              @core.BlockKind::ListItem,
+              "@" + attr.name + ": " + attr.value,
+              xml_stream_attribute_source_ref(
+                source,
+                attr.span,
+                path + "/@" + attr.name,
+              ),
+              depth,
+            ),
+          )
+        }
+        let frame : XmlCompactOutlineFrame = {
+          element_name: name,
+          element_path: path,
+          event_index,
+          attribute_count: attrs.length(),
+          has_children: false,
+          text_values: [],
+        }
+        if !self_closing {
+          stack.push(frame)
+          sibling_counts.push(Map([]))
+        }
+      }
+      @dxml.XmlToken::EndTag(_, _) =>
+        match stack.pop() {
+          Some(frame) => {
+            ignore(sibling_counts.pop())
+            if frame.attribute_count == 0 &&
+              !frame.has_children &&
+              frame.text_values.length() > 0 {
+              roots[frame.event_index] = {
+                ..roots[frame.event_index],
+                text: frame.element_name + ": " + frame.text_values.join(" "),
+              }
+            }
+          }
+          None => ()
+        }
+      _ => ()
+    }
+  }
+  roots
+}
+
+///|
+fn xml_compact_outline_event(
+  kind : @core.BlockKind,
+  text : String,
+  source_ref : @core.SourceRef,
+  depth : Int,
+) -> @core.CoreEvent {
+  source_ref.extra.set("ir_event_encoding", "xml_outline_v1")
+  source_ref.extra.set("xml_outline_depth", depth.to_string())
+  {
+    kind: @core.EventKind::StartBlock(kind),
+    text,
+    source_ref: Some(source_ref),
+  }
+}
+
+///|
 priv struct XmlOutlineFrame {
   element_name : String
   element_path : String
@@ -231,7 +368,7 @@ fn xml_outline_blocks_from_tokens(
         }
       @dxml.XmlToken::StartTag(name, attrs, self_closing, span) => {
         let (path, depth) = xml_outline_push_path(name, stack, sibling_counts)
-        let frame = {
+        let frame : XmlOutlineFrame = {
           element_name: name,
           element_path: path,
           element_ref: xml_stream_element_source_ref(source, span, path),

@@ -72,18 +72,20 @@ pub fn make_indexed_table_block(
   row_ref : (Int, Array[String]) -> @core.SourceRef,
   cell_ref : (Int, Int) -> @core.SourceRef,
 ) -> @core.CoreBlock {
-  let table = @core.make_block(
-    @core.BlockKind::Table,
-    "table",
-    source_ref=table_ref,
+  let table = @core.block_with_children(
+    @core.make_block(@core.BlockKind::Table, "table", source_ref=table_ref),
+    Array::new(capacity=rows.length()),
   )
   table.attrs.set("header_rows", "1")
   for row_index in 0..<rows.length() {
     let row_values = rows[row_index]
-    let row = @core.make_block(
-      @core.BlockKind::TableRow,
-      row_values.join(" | "),
-      source_ref=row_ref(row_index, row_values),
+    let row = @core.block_with_children(
+      @core.make_block(
+        @core.BlockKind::TableRow,
+        row_values.join(" | "),
+        source_ref=row_ref(row_index, row_values),
+      ),
+      Array::new(capacity=row_values.length()),
     )
     for col_index in 0..<row_values.length() {
       row.children.push(

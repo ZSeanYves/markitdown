@@ -103,6 +103,18 @@ pub struct YamlInspectReport {
 }
 
 ///|
+/// Compact, fully validated summary for a large root mapping whose value is a
+/// homogeneous sequence of mappings. Only the bounded rendering preview is
+/// retained; structural counts cover the complete input.
+pub struct YamlCompactSequenceSummary {
+  key : String
+  value_summary : String
+  line_start : Int
+  line_end : Int
+  inspect : YamlInspectReport
+}
+
+///|
 pub impl Show for YamlError with fn to_string(self : YamlError) -> String {
   match self {
     ParseError(msg) => "yaml parse error: " + msg

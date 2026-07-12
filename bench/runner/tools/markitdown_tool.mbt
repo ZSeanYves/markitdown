@@ -111,7 +111,7 @@ fn resolve_strong_path(
 
 ///|
 fn repo_local_markitdown_baseline_path() -> String {
-  "env/.venv-markitdown-baseline/bin/markitdown"
+  "env/.venv-markitdown-bench/bin/markitdown"
 }
 
 ///|

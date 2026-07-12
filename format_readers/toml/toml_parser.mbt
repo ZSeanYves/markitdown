@@ -48,6 +48,8 @@ priv struct TomlParser {
   array_item_count_by_base_path : Map[String, Int]
   mut current_table_path : String
   mut current_table_segments : Array[String]
+  mut current_table_index : Int?
+  mut current_member_keys : Map[String, Bool]
 }
 
 ///|
@@ -64,6 +66,8 @@ fn new_toml_parser(text : String) -> TomlParser {
     array_item_count_by_base_path: Map([]),
     current_table_path: "/",
     current_table_segments: [],
+    current_table_index: None,
+    current_member_keys: Map([]),
   }
 }
 
@@ -112,9 +116,13 @@ fn TomlParser::parse_table_header(self : TomlParser) -> Unit raise {
       is_array_item: true,
     })
     self.table_index_by_path.set(indexed_path, next_index)
+    let member_keys : Map[String, Bool] = Map([])
+    self.table_member_keys.set(indexed_path, member_keys)
     self.array_item_count_by_base_path.set(table_path, item_index + 1)
     self.current_table_path = indexed_path
     self.current_table_segments = indexed_segments
+    self.current_table_index = Some(next_index)
+    self.current_member_keys = member_keys
     return
   }
 
@@ -140,8 +148,12 @@ fn TomlParser::parse_table_header(self : TomlParser) -> Unit raise {
     is_array_item: false,
   })
   self.table_index_by_path.set(table_path, next_index)
+  let member_keys : Map[String, Bool] = Map([])
+  self.table_member_keys.set(table_path, member_keys)
   self.current_table_path = table_path
   self.current_table_segments = segments
+  self.current_table_index = Some(next_index)
+  self.current_member_keys = member_keys
 }
 
 ///|
@@ -212,6 +224,27 @@ fn TomlParser::insert_member(
     self.root_members.push(entry)
     self.root_member_keys.set(entry.key, true)
     return
+  }
+  if target_path == self.current_table_path {
+    match self.current_table_index {
+      Some(target_index) => {
+        if self.current_member_keys.contains(entry.key) {
+          raise ParseError(
+            "duplicate key at line " +
+            entry.line_start.to_string() +
+            ": " +
+            entry.path,
+          )
+        }
+        self.tables[target_index].members.push(entry)
+        self.current_member_keys.set(entry.key, true)
+        if entry.line_end > self.tables[target_index].line_end {
+          self.tables[target_index].line_end = entry.line_end
+        }
+        return
+      }
+      None => ()
+    }
   }
   let target_index = self.find_or_create_table(target_path)
   let table_keys = self.ensure_table_member_keys(target_path)
@@ -895,7 +928,53 @@ fn toml_token_is_float(token : String) -> Bool {
   if lower == "nan" || lower == "+nan" || lower == "-nan" {
     return true
   }
-  token.contains(".") || token.contains("e") || token.contains("E")
+  let chars = token.to_array()
+  let mut exponent_index : Int? = None
+  for index in 0..<chars.length() {
+    if chars[index] == 'e' || chars[index] == 'E' {
+      if exponent_index is Some(_) {
+        return false
+      }
+      exponent_index = Some(index)
+    }
+  }
+  let mantissa_end = exponent_index.unwrap_or(chars.length())
+  if exponent_index is Some(index) {
+    let mut exponent_start = index + 1
+    if exponent_start < chars.length() &&
+      (chars[exponent_start] == '+' || chars[exponent_start] == '-') {
+      exponent_start += 1
+    }
+    if !toml_decimal_digits_with_underscores(
+        chars,
+        exponent_start,
+        chars.length(),
+      ) {
+      return false
+    }
+  }
+  let mut mantissa_start = 0
+  if mantissa_start < mantissa_end &&
+    (chars[mantissa_start] == '+' || chars[mantissa_start] == '-') {
+    mantissa_start += 1
+  }
+  let mut dot_index : Int? = None
+  for index in mantissa_start..<mantissa_end {
+    if chars[index] == '.' {
+      if dot_index is Some(_) {
+        return false
+      }
+      dot_index = Some(index)
+    }
+  }
+  match dot_index {
+    Some(index) =>
+      toml_decimal_integer_body(chars, mantissa_start, index) &&
+      toml_decimal_digits_with_underscores(chars, index + 1, mantissa_end)
+    None =>
+      exponent_index is Some(_) &&
+      toml_decimal_integer_body(chars, mantissa_start, mantissa_end)
+  }
 }
 
 ///|
@@ -904,29 +983,82 @@ fn toml_token_is_integer(token : String) -> Bool {
     return false
   }
   let chars = token.to_array()
-  let mut i = 0
-  if chars[0] == '+' || chars[0] == '-' {
-    if chars.length() == 1 {
+  if chars.length() >= 2 && chars[0] == '0' {
+    match chars[1] {
+      'x' => return toml_based_digits_with_underscores(chars, 2, 16)
+      'o' => return toml_based_digits_with_underscores(chars, 2, 8)
+      'b' => return toml_based_digits_with_underscores(chars, 2, 2)
+      _ => ()
+    }
+  }
+  let start = if chars[0] == '+' || chars[0] == '-' { 1 } else { 0 }
+  toml_decimal_integer_body(chars, start, chars.length())
+}
+
+///|
+fn toml_decimal_integer_body(
+  chars : Array[Char],
+  start : Int,
+  end_ : Int,
+) -> Bool {
+  if !toml_decimal_digits_with_underscores(chars, start, end_) {
+    return false
+  }
+  let digits = chars[start:end_].filter(ch => ch != '_')
+  digits.length() == 1 || digits[0] != '0'
+}
+
+///|
+fn toml_decimal_digits_with_underscores(
+  chars : Array[Char],
+  start : Int,
+  end_ : Int,
+) -> Bool {
+  toml_digits_with_underscores(chars, start, end_, 10)
+}
+
+///|
+fn toml_based_digits_with_underscores(
+  chars : Array[Char],
+  start : Int,
+  base : Int,
+) -> Bool {
+  toml_digits_with_underscores(chars, start, chars.length(), base)
+}
+
+///|
+fn toml_digits_with_underscores(
+  chars : Array[Char],
+  start : Int,
+  end_ : Int,
+  base : Int,
+) -> Bool {
+  if start >= end_ || chars[start] == '_' || chars[end_ - 1] == '_' {
+    return false
+  }
+  let mut previous_underscore = false
+  for index in start..<end_ {
+    let ch = chars[index]
+    if ch == '_' {
+      if previous_underscore {
+        return false
+      }
+      previous_underscore = true
+      continue
+    }
+    let valid = if ch >= '0' && ch <= '9' {
+      ch.to_int() - '0'.to_int() < base
+    } else if base == 16 && ch >= 'a' && ch <= 'f' {
+      true
+    } else {
+      base == 16 && ch >= 'A' && ch <= 'F'
+    }
+    if !valid {
       return false
     }
-    i = 1
+    previous_underscore = false
   }
-  if i + 2 <= chars.length() &&
-    chars[i] == '0' &&
-    (chars[i + 1] == 'x' || chars[i + 1] == 'o' || chars[i + 1] == 'b') {
-    return true
-  }
-  let mut saw_digit = false
-  while i < chars.length() {
-    let ch = chars[i]
-    if ch >= '0' && ch <= '9' {
-      saw_digit = true
-    } else if ch != '_' {
-      return false
-    }
-    i += 1
-  }
-  saw_digit
+  true
 }
 
 ///|
@@ -970,7 +1102,25 @@ fn toml_token_is_local_date(token : String) -> Bool {
   }
   let month_value = toml_parse_decimal(month)
   let day_value = toml_parse_decimal(day)
-  month_value >= 1 && month_value <= 12 && day_value >= 1 && day_value <= 31
+  if month_value < 1 || month_value > 12 || day_value < 1 {
+    return false
+  }
+  let year_value = toml_parse_decimal(year)
+  day_value <= toml_days_in_month(year_value, month_value)
+}
+
+///|
+fn toml_days_in_month(year : Int, month : Int) -> Int {
+  match month {
+    2 =>
+      if year % 400 == 0 || (year % 4 == 0 && year % 100 != 0) {
+        29
+      } else {
+        28
+      }
+    4 | 6 | 9 | 11 => 30
+    _ => 31
+  }
 }
 
 ///|

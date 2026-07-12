@@ -69,6 +69,19 @@ pub fn yaml_parse_with_prepared_document(
   prepared : @dyaml.PreparedYamlDocument,
 ) -> @parser.ParseResult {
   if context.requested_mode == Some(@parser.ParserMode::StreamingEvent) {
+    match prepared.compact_sequence {
+      Some(compact) => {
+        let parsed = yaml_parse_with_compact_sequence(
+          source,
+          context,
+          prepared.original_text,
+          compact,
+        )
+        parsed.diagnostics.metrics.set("probe_artifact_reused", "true")
+        return parsed
+      }
+      None => ()
+    }
     match prepared.events {
       Some(events) => {
         let parsed = yaml_parse_with_structure_events(

@@ -6,6 +6,7 @@ fn finalize_pipeline_execution(
   parsed : @parser.ParseResult,
   diagnostics : @core.Diagnostics,
   execution_plan : ResolvedExecutionPlan,
+  execution_started : UInt64,
 ) -> ConvertExecution {
   let route_plan = route_plan_from_execution_plan(execution_plan)
   let effective_options = {
@@ -33,6 +34,7 @@ fn finalize_pipeline_execution(
     source_map=parsed.source_map,
     assembly=parsed.assembly,
   )
+  let pipeline_started = @env.now()
   let pipeline_result = match
     @pipeline.run_default_pipeline(
       @runtime.parse_result_to_ir_input(parsed),
@@ -41,6 +43,10 @@ fn finalize_pipeline_execution(
     Ok(value) => value
     Err(err) => abort(err.message)
   }
+  diagnostics.metrics.set(
+    "timing_pipeline_ms",
+    (@env.now() - pipeline_started).to_string(),
+  )
   let renderer = renderer_for_output(options.output_format)
   let pipeline_diagnostics = pass_context.diagnostics.val
   pipeline_diagnostics.metrics.set(
@@ -87,6 +93,7 @@ fn finalize_pipeline_execution(
     assets=Some(pass_context.assets.val),
     assembly=pass_context.assembly.val,
   )
+  let render_started = @env.now()
   let rendered = match render_input {
     @render.RenderInput::Document(document) => {
       let prepared = {
@@ -101,6 +108,14 @@ fn finalize_pipeline_execution(
     }
     _ => (renderer.render_input)(render_input, render_context)
   }
+  rendered.diagnostics.metrics.set(
+    "timing_render_ms",
+    (@env.now() - render_started).to_string(),
+  )
+  rendered.diagnostics.metrics.set(
+    "timing_total_ms",
+    (@env.now() - execution_started).to_string(),
+  )
   let result : ConvertResult = {
     content: rendered.content,
     output_format: effective_options.output_format,

@@ -115,12 +115,13 @@ Current ZIP recursive inner-document scope is intentionally limited. It currentl
 - `html`, `markdown`
 - `tex`, `rst`, `asciidoc`
 - `eml`
-- `epub`
+- `docx`, `xlsx`, `pptx`
 - `odt`, `ods`, `odp`
 
 Notable limitations:
 
-- ZIP recursion does not currently productize `docx`, `xlsx`, `pptx`, `pdf`, audio, or direct-image OCR as first-class recursive inner documents
+- ZIP recursion does not currently recurse into nested archives such as `zip`, `jar`, or `epub`
+- ZIP recursion does not currently productize `pdf`, audio, or direct-image OCR as first-class recursive inner documents
 - container parsing remains bounded and guarded by root-registry dispatch, resource limits, and output-path safety rules
 
 ### 2.4 Media

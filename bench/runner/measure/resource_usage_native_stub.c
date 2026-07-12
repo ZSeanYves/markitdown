@@ -45,6 +45,57 @@ static int64_t normalize_rss_kb(long ru_maxrss) {
 #endif
 }
 
+#if defined(__linux__)
+static const char *path_basename(const char *path) {
+  const char *slash = path != NULL ? strrchr(path, '/') : NULL;
+  return slash != NULL ? slash + 1 : path;
+}
+
+static bool linux_process_executable_matches(pid_t pid, const char *program) {
+  if (program == NULL || program[0] == '\0') {
+    return false;
+  }
+  char path[64];
+  int written = snprintf(path, sizeof(path), "/proc/%ld/exe", (long)pid);
+  if (written <= 0 || (size_t)written >= sizeof(path)) {
+    return false;
+  }
+  char executable[4096];
+  ssize_t length = readlink(path, executable, sizeof(executable) - 1U);
+  if (length <= 0) {
+    return false;
+  }
+  executable[length] = '\0';
+  const char *actual_name = path_basename(executable);
+  const char *expected_name = path_basename(program);
+  return actual_name != NULL && expected_name != NULL &&
+    strcmp(actual_name, expected_name) == 0;
+}
+
+static int64_t linux_process_peak_rss_kb(pid_t pid) {
+  char path[64];
+  int written = snprintf(path, sizeof(path), "/proc/%ld/status", (long)pid);
+  if (written <= 0 || (size_t)written >= sizeof(path)) {
+    return 0;
+  }
+  FILE *status = fopen(path, "r");
+  if (status == NULL) {
+    return 0;
+  }
+  char line[256];
+  int64_t peak_kb = 0;
+  while (fgets(line, sizeof(line), status) != NULL) {
+    long value = 0;
+    if (sscanf(line, "VmHWM: %ld kB", &value) == 1 && value > 0) {
+      peak_kb = (int64_t)value;
+      break;
+    }
+  }
+  fclose(status);
+  return peak_kb;
+}
+#endif
+
 static char *copy_c_string(const uint8_t *src, int32_t len) {
   char *out = (char *)malloc((size_t)len + 1U);
   if (out == NULL) {
@@ -357,8 +408,24 @@ MOONBIT_FFI_EXPORT int32_t markitdown_bench_native_measure_command(
   struct rusage usage;
   memset(&usage, 0, sizeof(usage));
   bool did_timeout = false;
+#if defined(__linux__)
+  int64_t sampled_peak_rss_kb = 0;
+  bool linux_executable_observed = false;
+#endif
 
   while (true) {
+#if defined(__linux__)
+    if (linux_process_executable_matches(pid, argv[0])) {
+      if (!linux_executable_observed) {
+        linux_executable_observed = true;
+        usleep(1000);
+      }
+      int64_t current_peak_rss_kb = linux_process_peak_rss_kb(pid);
+      if (current_peak_rss_kb > sampled_peak_rss_kb) {
+        sampled_peak_rss_kb = current_peak_rss_kb;
+      }
+    }
+#endif
     wait_rc = wait4(pid, &status, WNOHANG, &usage);
     if (wait_rc == pid) {
       break;
@@ -393,7 +460,11 @@ MOONBIT_FFI_EXPORT int32_t markitdown_bench_native_measure_command(
       ((int64_t)usage.ru_stime.tv_sec * 1000000LL) + usage.ru_stime.tv_usec;
   }
   if (out_peak_rss_kb != NULL) {
+#if defined(__linux__)
+    *out_peak_rss_kb = sampled_peak_rss_kb;
+#else
     *out_peak_rss_kb = normalize_rss_kb(usage.ru_maxrss);
+#endif
   }
 
   if (wait_rc < 0 && !did_timeout) {

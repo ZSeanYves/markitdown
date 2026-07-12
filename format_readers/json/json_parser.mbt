@@ -5,10 +5,141 @@ pub fn parse_json_document(text : String) -> JsonDocument raise {
 }
 
 ///|
+/// Parse through MoonBit's rolling native JSON implementation and convert the
+/// result back into the source-native model used by format readers.
+pub fn parse_json_document_native(
+  text : String,
+  preserve_number_lexemes? : Bool = true,
+) -> JsonDocument raise {
+  let parsed = @corejson.parse(text) catch {
+    err => raise ParseError(err.to_string())
+  }
+  let number_lexemes = if preserve_number_lexemes {
+    json_number_lexemes(text)
+  } else {
+    []
+  }
+  let number_index : Ref[Int] = { val: 0 }
+  { root: json_value_from_native(parsed, number_lexemes, number_index) }
+}
+
+///|
+fn json_value_from_native(
+  value : Json,
+  number_lexemes : Array[String],
+  number_index : Ref[Int],
+) -> JsonValue {
+  match value {
+    Json::Object(members) => {
+      let out : Array[JsonMember] = []
+      for entry in members {
+        out.push({
+          key: entry.0,
+          value: json_value_from_native(entry.1, number_lexemes, number_index),
+        })
+      }
+      JsonValue::Object(out)
+    }
+    Json::Array(items) =>
+      JsonValue::Array(
+        items.map(item => {
+          json_value_from_native(item, number_lexemes, number_index)
+        }),
+      )
+    Json::String(text) => JsonValue::String(text)
+    Json::Number(number, repr~) => {
+      let text = if number_index.val < number_lexemes.length() {
+        let lexeme = number_lexemes[number_index.val]
+        number_index.val += 1
+        lexeme
+      } else {
+        repr.unwrap_or(number.to_string())
+      }
+      JsonValue::Number(text)
+    }
+    Json::True => JsonValue::Bool(true)
+    Json::False => JsonValue::Bool(false)
+    Json::Null => JsonValue::Null
+  }
+}
+
+///|
+fn json_number_lexemes(text : String) -> Array[String] {
+  let out : Array[String] = []
+  let mut index = 0
+  let mut in_string = false
+  let mut escaped = false
+  while index < text.length() {
+    let ch = text.code_unit_at(index).to_int()
+    if in_string {
+      if escaped {
+        escaped = false
+      } else if ch == 92 {
+        escaped = true
+      } else if ch == 34 {
+        in_string = false
+      }
+      index += 1
+      continue
+    }
+    if ch == 34 {
+      in_string = true
+      index += 1
+      continue
+    }
+    if ch == 45 || (ch >= 48 && ch <= 57) {
+      let start = index
+      index += 1
+      while index < text.length() {
+        let next = text.code_unit_at(index).to_int()
+        if (next >= 48 && next <= 57) ||
+          next == 46 ||
+          next == 101 ||
+          next == 69 ||
+          next == 43 ||
+          next == 45 {
+          index += 1
+        } else {
+          break
+        }
+      }
+      out.push(text[start:index].to_owned())
+      continue
+    }
+    index += 1
+  }
+  out
+}
+
+///|
 /// Parse JSON text into a source-native structural event stream without
 /// materializing the full DOM tree.
 pub fn parse_json_stream(text : String) -> JsonStreamDocument raise {
-  let parser = new_json_stream_parser(text)
+  parse_json_stream_with_pointer_policy(text, true)
+}
+
+///|
+/// Validate JSON and collect structural counts without retaining token events.
+/// This is used before direct lowering of large root arrays.
+pub fn parse_json_stream_summary(text : String) -> JsonStreamDocument raise {
+  parse_json_stream_with_policy(text, false, false)
+}
+
+///|
+fn parse_json_stream_with_pointer_policy(
+  text : String,
+  track_pointers : Bool,
+) -> JsonStreamDocument raise {
+  parse_json_stream_with_policy(text, track_pointers, true)
+}
+
+///|
+fn parse_json_stream_with_policy(
+  text : String,
+  track_pointers : Bool,
+  collect_events : Bool,
+) -> JsonStreamDocument raise {
+  let parser = new_json_stream_parser(text, track_pointers, collect_events)
   parser.skip_ws()
   let start_depth = 1
   let root_kind = parser.parse_stream_value("/", start_depth)
@@ -19,7 +150,7 @@ pub fn parse_json_stream(text : String) -> JsonStreamDocument raise {
   {
     events: parser.events,
     summary: {
-      token_count: parser.events.length(),
+      token_count: parser.token_count,
       object_count: parser.object_count,
       array_count: parser.array_count,
       scalar_count: parser.scalar_count,
@@ -103,10 +234,13 @@ priv struct JsonStreamParser {
   mut column : Int
   mut byte_offset : Int
   events : Array[JsonStreamEvent]
+  mut token_count : Int
   mut object_count : Int
   mut array_count : Int
   mut scalar_count : Int
   mut max_depth : Int
+  track_pointers : Bool
+  collect_events : Bool
 }
 
 ///|
@@ -162,18 +296,29 @@ fn parse_json_document_with_profile(
 }
 
 ///|
-fn new_json_stream_parser(text : String) -> JsonStreamParser {
+fn new_json_stream_parser(
+  text : String,
+  track_pointers : Bool,
+  collect_events : Bool,
+) -> JsonStreamParser {
   {
     chars: normalize_json_chars(text),
     pos: 0,
     line: 1,
     column: 1,
     byte_offset: 0,
-    events: [],
+    events: if collect_events {
+      Array::new(capacity=text.length() / 8)
+    } else {
+      []
+    },
+    token_count: 0,
     object_count: 0,
     array_count: 0,
     scalar_count: 0,
     max_depth: 0,
+    track_pointers,
+    collect_events,
   }
 }
 
@@ -297,7 +442,11 @@ fn JsonStreamParser::parse_stream_object(
     }
     let key_start = self.current_source_start()
     let key = self.parse_string()
-    let child_pointer = json_stream_append_pointer(pointer, key)
+    let child_pointer = if self.track_pointers {
+      json_stream_append_pointer(pointer, key)
+    } else {
+      "/"
+    }
     self.push_event(
       JsonStreamEventKind::Key,
       child_pointer,
@@ -340,12 +489,12 @@ fn JsonStreamParser::parse_stream_array(
   }
   let mut index = 0
   while true {
-    ignore(
-      self.parse_stream_value(
-        json_stream_append_pointer(pointer, index.to_string()),
-        depth + 1,
-      ),
-    )
+    let child_pointer = if self.track_pointers {
+      json_stream_append_pointer(pointer, index.to_string())
+    } else {
+      "/"
+    }
+    ignore(self.parse_stream_value(child_pointer, depth + 1))
     index += 1
     self.skip_ws()
     if self.consume_char(']') {
@@ -390,6 +539,10 @@ fn JsonStreamParser::push_event(
   text : String?,
   start : JsonStreamSource,
 ) -> Unit {
+  self.token_count += 1
+  if !self.collect_events {
+    return
+  }
   let end = self.current_source_end()
   self.events.push({
     kind,
@@ -1006,6 +1159,9 @@ fn JsonStreamParser::read_hex_quad(self : JsonStreamParser) -> Int raise {
 
 ///|
 fn normalize_json_chars(text : String) -> Array[Char] {
+  if !text.has_prefix("\u{FEFF}") && !text.contains("\r") {
+    return text.to_array()
+  }
   let out : Array[Char] = []
   let chars = text.to_array()
   let mut i = 0

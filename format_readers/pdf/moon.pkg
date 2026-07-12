@@ -1,4 +1,5 @@
 import {
+  "moonbitlang/core/lazy",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/string",
   "moonbitlang/x/codec/base64",

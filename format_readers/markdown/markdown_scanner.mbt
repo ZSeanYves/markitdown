@@ -316,6 +316,9 @@ fn markdown_line_left_trimmed(line : MarkdownLineView) -> String {
 
 ///|
 fn normalize_markdown_source(text : String) -> String {
+  if !text.has_prefix("\u{FEFF}") && !text.contains("\r") {
+    return text
+  }
   let chars = text.to_array()
   let out : Array[Char] = []
   let mut i = 0
@@ -348,18 +351,14 @@ fn split_markdown_lines(text : String) -> Array[String] {
   }
 
   let out : Array[String] = []
-  let line : Array[Char] = []
-  for ch in text.to_array() {
-    if ch == '\n' {
-      out.push(String::from_array(line))
-      line.clear()
-    } else {
-      line.push(ch)
-    }
+  let line_views = text.split("\n").to_array()
+  let limit = if text.has_suffix("\n") {
+    line_views.length() - 1
+  } else {
+    line_views.length()
   }
-
-  if line.length() > 0 || !text.has_suffix("\n") {
-    out.push(String::from_array(line))
+  for index in 0..<limit {
+    out.push(line_views[index].to_owned())
   }
   out
 }

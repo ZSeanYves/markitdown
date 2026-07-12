@@ -181,6 +181,9 @@ fn zip_parse_with_archive_core(
   let merged_blocks : Array[@core.CoreBlock] = []
   let merged_assets : Array[@core.AssetRef] = []
   let asset_entry_infos = zip_entry_info_index(report.inventory.entries)
+  let referenced_asset_entries = zip_collect_referenced_asset_entries(
+    archive, candidate_infos, registry, context, container_path,
+  )
   let mut selected_entry_count = 0
   let mut unsupported_entry_count = 0
   let mut nested_archive_count = 0
@@ -216,6 +219,10 @@ fn zip_parse_with_archive_core(
       security_findings~,
     )
     ordered_entries.push(entry)
+    if zip_entry_is_asset(info) &&
+      referenced_asset_entries.get(entry_path) == Some(true) {
+      continue
+    }
     merged_blocks.push(zip_entry_heading_block(entry_source_ref, entry_path))
 
     match zip_skip_reason(info, report, selected_entry_count, decoded_total) {
@@ -234,6 +241,80 @@ fn zip_parse_with_archive_core(
         merged_blocks.push(zip_skip_block(entry_source_ref, reason.message))
       }
       None => {
+        let image_format = match info.extension {
+          Some(ext) => {
+            let value = @input.parse_detected_format(ext)
+            if zip_image_format_uses_ocr(value) {
+              Some(value)
+            } else {
+              None
+            }
+          }
+          None => None
+        }
+        match image_format {
+          Some(format) => {
+            let entry_bytes = match
+              zip_read_entry_bytes(archive, info.raw_name) {
+              Ok(value) => value
+              Err(err) => {
+                diagnostics.warnings.push(
+                  entry_path + ": standalone image read failed: " + err,
+                )
+                diagnostics.degraded_features.push(
+                  "zip_standalone_image_read_failed",
+                )
+                continue
+              }
+            }
+            decoded_total += info.uncompressed_size
+            selected_entry_count += 1
+            let (asset, image_block) = zip_standalone_image_asset(
+              entry, entry_path, container_path, format,
+            )
+            merged_assets.push(asset)
+            let inner_source = zip_inner_source(
+              container_path, entry_path, format, entry_bytes,
+            )
+            match
+              zip_parse_inner_document(registry, inner_source, format, context) {
+              Ok(child) => {
+                zip_absorb_child_diagnostics(diagnostics, child.diagnostics)
+                merged_blocks.append(
+                  zip_rewrite_child_blocks(child.blocks, entry, [], diagnostics)[:],
+                )
+              }
+              Err(err) => {
+                diagnostics.warnings.push(
+                  entry_path + ": standalone image OCR unavailable: " + err,
+                )
+                diagnostics.degraded_features.push(
+                  "zip_standalone_image_ocr_failed",
+                )
+                diagnostics.fallback_trace.push(
+                  "zip standalone image -> preserve asset after OCR failure",
+                )
+              }
+            }
+            merged_blocks.push(image_block)
+            continue
+          }
+          None => ()
+        }
+        if zip_entry_is_asset(info) {
+          selected_entry_count += 1
+          decoded_total += info.uncompressed_size
+          let (asset, image_block) = zip_standalone_image_asset(
+            entry,
+            entry_path,
+            container_path,
+            @input.DetectedFormat::Unknown,
+          )
+          merged_assets.push(asset)
+          merged_blocks.push(image_block)
+          diagnostics.metrics.set("zip_standalone_asset_only_count", "present")
+          continue
+        }
         let detected_format = match zip_supported_inner_format(info) {
           Some(value) => value
           None => {

@@ -4,6 +4,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "moonbit.h"
+
 static bool runtime_is_executable_file(const char *path) {
   if (path == NULL || path[0] == '\0') {
     return false;
@@ -53,19 +55,29 @@ static char *join_path(const char *dir, const char *name) {
   return path;
 }
 
-char *markitdown_runtime_find_in_path(const char *name, const char *path_env) {
+static moonbit_bytes_t bytes_from_c_string(const char *value) {
+  size_t len = value == NULL ? 0 : strlen(value);
+  moonbit_bytes_t result = moonbit_make_bytes_raw((int32_t)len);
+  if (len > 0) {
+    memcpy(result, value, len);
+  }
+  return result;
+}
+
+moonbit_bytes_t markitdown_runtime_find_in_path(const char *name,
+                                                const char *path_env) {
   if (name == NULL || name[0] == '\0') {
-    return strdup("");
+    return bytes_from_c_string("");
   }
   if (strchr(name, '/') != NULL) {
-    return runtime_is_executable_file(name) ? strdup(name) : strdup("");
+    return bytes_from_c_string(runtime_is_executable_file(name) ? name : "");
   }
   const char *path = path_env;
   if (path == NULL || path[0] == '\0') {
     path = getenv("PATH");
   }
   if (path == NULL || path[0] == '\0') {
-    return strdup("");
+    return bytes_from_c_string("");
   }
   const char *cursor = path;
   while (true) {
@@ -73,15 +85,17 @@ char *markitdown_runtime_find_in_path(const char *name, const char *path_env) {
     size_t len = next == NULL ? strlen(cursor) : (size_t)(next - cursor);
     char *dir = len == 0 ? strdup(".") : copy_segment(cursor, len);
     if (dir == NULL) {
-      return strdup("");
+      return bytes_from_c_string("");
     }
     char *candidate = join_path(dir, name);
     free(dir);
     if (candidate == NULL) {
-      return strdup("");
+      return bytes_from_c_string("");
     }
     if (runtime_is_executable_file(candidate)) {
-      return candidate;
+      moonbit_bytes_t result = bytes_from_c_string(candidate);
+      free(candidate);
+      return result;
     }
     free(candidate);
     if (next == NULL) {
@@ -89,5 +103,5 @@ char *markitdown_runtime_find_in_path(const char *name, const char *path_env) {
     }
     cursor = next + 1;
   }
-  return strdup("");
+  return bytes_from_c_string("");
 }

@@ -113,6 +113,25 @@ pub fn read_part_bytes_transient(
 }
 
 ///|
+/// Visit a package part as validated decompressed chunks without materializing
+/// the complete part. The ZIP reader still verifies decoded size and CRC after
+/// the callback has consumed the stream.
+pub fn visit_part_inflated_chunks(
+  pkg : OoxmlPackage,
+  part_name : String,
+  chunk_size? : Int = 64 * 1024,
+  on_chunk : (Bytes) -> Result[Unit, String],
+) -> Result[Unit, String] {
+  let normalized = normalize_part_name(part_name) catch {
+    err => return Err(err.to_string())
+  }
+  let raw_name = resolve_part_raw_name(pkg, normalized) catch {
+    err => return Err(err.to_string())
+  }
+  @zip.visit_inflated_entry_chunks(pkg.archive, raw_name, chunk_size~, on_chunk)
+}
+
+///|
 fn read_part_bytes_normalized(
   pkg : OoxmlPackage,
   normalized : String,

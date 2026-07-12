@@ -26,6 +26,7 @@ pub struct BinaryContract {
 ///|
 pub(all) struct BenchProgressState {
   enabled : Bool
+  mode : String
   total : Int
   completed : Int
 } derive(Eq)
@@ -37,6 +38,7 @@ pub struct ScenarioSpec {
   tool_names : Array[String]
   exact_tiers : Array[String]
   format_filters : Array[String]
+  comparison_classes : Array[String]
   official_membership : String
   route_expectation : String
 } derive(Eq)
@@ -65,6 +67,10 @@ pub struct RunOptions {
   timeout_ms : Int
   markitdown_path : String?
   baseline_run_id : String?
+  progress_mode : String
+  keep_outputs : String
+  resume_run_id : String?
+  max_disk_mb : Int
 } derive(Eq)
 
 ///|
@@ -93,6 +99,7 @@ pub struct SampleRow {
   wall_us : Int64?
   peak_rss_kb : Int64?
   output_bytes : Int64
+  output_sha256 : String?
   error : String?
   route_provenance : Json
   runner_artifact_identity : String
@@ -162,6 +169,8 @@ pub struct RunSummary {
   scenarios : Array[ScenarioSummary]
   tools : Array[ToolSummary]
   by_format : Array[FormatSummary]
+  resource_summary : Json?
+  resume_summary : Json?
 } derive(ToJson, FromJson, Eq)
 
 ///|

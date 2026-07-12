@@ -167,6 +167,32 @@ fn asciidoc_semantic_block(
         ),
       )
     }
+    Some("image") => {
+      let image = @core.make_block(@core.BlockKind::Image, "", source_ref~)
+      let target = block.meta.get("image_target").unwrap_or("")
+      image.attrs.set("src", target)
+      image.attrs.set("alt", block.meta.get("image_alt").unwrap_or("image"))
+      image.attrs.set("reference_only", "true")
+      image.attrs.set("semantic_family", "asciidoc")
+      let lower_target = target.to_lower()
+      if lower_target.has_prefix("http://") ||
+        lower_target.has_prefix("https://") ||
+        lower_target.has_prefix("data:") {
+        image.attrs.set("path", target)
+        image.attrs.set("remote", "true")
+      } else if target != "" {
+        image.attrs.set(
+          "path",
+          @fshared.text_markup_asset_output_path("asciidoc", target),
+        )
+        image.attrs.set("source_path", target)
+        image.attrs.set(
+          "asset_id",
+          "asciidoc-image-" + block.line_start.to_string(),
+        )
+      }
+      Some(image)
+    }
     None => None
     Some(_) => None
   }

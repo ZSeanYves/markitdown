@@ -131,6 +131,11 @@ fn ipynb_lower_output(
     ename: ipynb_optional_string(members, "ename"),
     evalue: ipynb_optional_string(members, "evalue"),
     traceback: ipynb_optional_multiline_lines(members, "traceback"),
+    display_id: ipynb_nested_string(
+      ipynb_optional_member(members, "transient"),
+      ["display_id"],
+    ),
+    clear_wait: ipynb_optional_bool(members, "wait"),
     json_pointer: pointer,
   }
 }
@@ -390,9 +395,21 @@ fn ipynb_output_kind(text : String) -> IpynbOutputKind {
   match text {
     "stream" => IpynbOutputKind::Stream
     "display_data" => IpynbOutputKind::DisplayData
+    "update_display_data" => IpynbOutputKind::DisplayData
     "execute_result" => IpynbOutputKind::ExecuteResult
     "error" => IpynbOutputKind::Error
     _ => IpynbOutputKind::Unknown
+  }
+}
+
+///|
+fn ipynb_optional_bool(
+  members : Array[@djson.JsonMember],
+  key : String,
+) -> Bool? {
+  match ipynb_optional_member_from_members(members, key) {
+    Some(@djson.JsonValue::Bool(value)) => Some(value)
+    _ => None
   }
 }
 

@@ -13,6 +13,16 @@ env:
   HOMEBREW_NO_AUTO_UPDATE: "1"
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
   PIP_NO_PYTHON_VERSION_WARNING: "1"
+  TZ: "UTC"
+  LANG: "en_US.UTF-8"
+  LC_ALL: "en_US.UTF-8"
+  PYTHONHASHSEED: "0"
+  OMP_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  VECLIB_MAXIMUM_THREADS: "1"
+  NUMEXPR_NUM_THREADS: "1"
+  MARKITDOWN_QUALITY_LAB_SHA: "3a7fa4cfda5cded851118af19323c89a158e2f98"
 
 jobs:
   core-validate:
@@ -31,6 +41,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
       - name: Install MoonBit
         run: |
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
@@ -38,6 +53,17 @@ jobs:
 
       - name: Update MoonBit registry
         run: moon update
+
+      - name: Check env shell syntax
+        run: |
+          find tools/env tools/regression -type f -name '*.sh' -print0 | xargs -0 bash -n
+
+      - name: Check env Python syntax
+        run: |
+          python3 -m py_compile $(find tools/env/lib tools/env/wrappers tools/regression/lib -type f -name '*.py' -print)
+
+      - name: Run env unit tests
+        run: python3 -m unittest discover -s tools/env/lib/tests -p 'test_*.py'
 
       - name: Check generated interfaces
         run: |
@@ -77,6 +103,7 @@ jobs:
         with:
           repository: ZSeanYves/markitdown-quality-lab
           path: markitdown-quality-lab
+          ref: ${{ env.MARKITDOWN_QUALITY_LAB_SHA }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -95,13 +122,18 @@ jobs:
         run: moon build cli --target native
 
       - name: Install balance image OCR dependencies
-        run: ./samples/env/install_ocr_balance_deps.sh
+        run: ./tools/env/install_ocr_balance_deps.sh
 
       - name: Install audio dependencies
-        run: ./samples/env/install_audio_deps.sh
+        run: ./tools/env/install_audio_deps.sh
+
+      - name: Verify managed balance/audio env state
+        run: |
+          ./tools/env/install_ocr_balance_deps.sh --check
+          ./tools/env/install_audio_deps.sh --check
 
       - name: External main regression
-        run: ./samples/check_balance.sh
+        run: ./tools/regression/check_balance.sh
 
   external-quality-regression:
     name: external-quality-regression
@@ -119,6 +151,7 @@ jobs:
         with:
           repository: ZSeanYves/markitdown-quality-lab
           path: markitdown-quality-lab
+          ref: ${{ env.MARKITDOWN_QUALITY_LAB_SHA }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -126,15 +159,21 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
           cache-dependency-path: |
-            samples/env/share/install_runtime_deps_common.sh
-            samples/env/install_audio_deps.sh
-            samples/env/share/install_audio_vosk_model.sh
+            tools/env/install_audio_deps.sh
+            tools/env/share/install_audio_vosk_model.sh
+            tools/env/share/install_runtime_deps_common.sh
+            tools/env/lib/common.sh
+            tools/env/lib/**/*.py
+            tools/env/config/**/*.json
+            tools/env/config/python/audio.lock
 
       - name: Restore Vosk model cache
         uses: actions/cache@v4
         with:
-          path: ~/.cache/markitdown/vosk
-          key: ${{ runner.os }}-vosk-${{ hashFiles('samples/env/install_audio_deps.sh', 'samples/env/share/install_audio_vosk_model.sh') }}
+          path: |
+            env/downloads/models/vosk
+            env/models/vosk
+          key: ${{ runner.os }}-vosk-${{ hashFiles('tools/env/install_audio_deps.sh', 'tools/env/share/install_audio_vosk_model.sh', 'tools/env/lib/**/*.py', 'tools/env/config/models.json', 'tools/env/config/profiles.json') }}
 
       - name: Install MoonBit
         run: |
@@ -148,13 +187,18 @@ jobs:
         run: moon build cli --target native
 
       - name: Install balance image OCR dependencies
-        run: ./samples/env/install_ocr_balance_deps.sh
+        run: ./tools/env/install_ocr_balance_deps.sh
 
       - name: Install audio dependencies
-        run: ./samples/env/install_audio_deps.sh
+        run: ./tools/env/install_audio_deps.sh
+
+      - name: Verify managed balance/audio env state
+        run: |
+          ./tools/env/install_ocr_balance_deps.sh --check
+          ./tools/env/install_audio_deps.sh --check
 
       - name: External quality regression
-        run: ./samples/check_balance_quality.sh
+        run: ./tools/regression/check_balance_quality.sh
 
       - name: Show quality failure summary
         if: failure()
@@ -191,6 +235,7 @@ jobs:
         with:
           repository: ZSeanYves/markitdown-quality-lab
           path: markitdown-quality-lab
+          ref: ${{ env.MARKITDOWN_QUALITY_LAB_SHA }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -198,9 +243,13 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
           cache-dependency-path: |
-            samples/env/share/install_runtime_deps_common.sh
-            samples/env/install_ocr_pdf_accurate_deps.sh
-            samples/env/ocr/paddle_ocr_wrapper.py
+            tools/env/install_ocr_pdf_accurate_deps.sh
+            tools/env/wrappers/paddle_ocr_wrapper.py
+            tools/env/share/install_runtime_deps_common.sh
+            tools/env/lib/common.sh
+            tools/env/lib/**/*.py
+            tools/env/config/**/*.json
+            tools/env/config/python/accurate.lock
 
       - name: Install MoonBit
         run: |
@@ -214,10 +263,13 @@ jobs:
         run: moon build cli --target native
 
       - name: Install accurate OCR/PDF dependencies
-        run: ./samples/env/install_ocr_pdf_accurate_deps.sh
+        run: ./tools/env/install_ocr_pdf_accurate_deps.sh
+
+      - name: Verify managed accurate env state
+        run: ./tools/env/install_ocr_pdf_accurate_deps.sh --check
 
       - name: External accurate regression
-        run: ./samples/check_accurate.sh
+        run: ./tools/regression/check_accurate.sh
 
       - name: Show accurate failure summary
         if: failure()

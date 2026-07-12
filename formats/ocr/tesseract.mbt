@@ -175,7 +175,7 @@ fn finalize_tesseract_command_result(
         Err(other) =>
           Err(
             OcrProviderError::OutputParseFailed(
-              "Tesseract TSV parsing failed on the this runtime: " +
+              "Tesseract TSV parsing failed on this runtime: " +
               other.to_string(),
             ),
           )
@@ -196,7 +196,7 @@ fn finalize_tesseract_command_result(
         lowered.contains("no such file") {
         Err(
           OcrProviderError::CommandUnavailable(
-            "Tesseract OCR command is unavailable on the this runtime: " +
+            "Tesseract OCR command is unavailable on this runtime: " +
             raw_message +
             "\nResolved command: " +
             @rtcmd.resolved_command_context(command) +
@@ -207,7 +207,7 @@ fn finalize_tesseract_command_result(
       } else {
         Err(
           OcrProviderError::ExecutionFailed(
-            "Tesseract OCR command failed on the this runtime: " +
+            "Tesseract OCR command failed on this runtime: " +
             raw_message +
             "\nResolved command: " +
             @rtcmd.resolved_command_context(command) +
@@ -229,7 +229,7 @@ async fn collect_tesseract_output_async(
     e =>
       return Err(
         OcrProviderError::ExecutionFailed(
-          "launch tesseract failed on the this runtime: " +
+          "launch tesseract failed on this runtime: " +
           e.to_string() +
           "\nResolved command: " +
           @rtcmd.resolved_command_context(command) +
@@ -244,7 +244,7 @@ async fn collect_tesseract_output_async(
         e =>
           return Err(
             OcrProviderError::OutputParseFailed(
-              "failed to decode Tesseract stdout as UTF-8 on the this runtime: " +
+              "failed to decode Tesseract stdout as UTF-8 on this runtime: " +
               e.to_string(),
             ),
           )
@@ -253,7 +253,7 @@ async fn collect_tesseract_output_async(
         e =>
           return Err(
             OcrProviderError::OutputParseFailed(
-              "failed to decode Tesseract stderr as UTF-8 on the this runtime: " +
+              "failed to decode Tesseract stderr as UTF-8 on this runtime: " +
               e.to_string(),
             ),
           )
@@ -278,7 +278,7 @@ fn collect_tesseract_output(
         collected.val = Some(
           Err(
             OcrProviderError::ExecutionFailed(
-              "launch tesseract failed on the this runtime: " +
+              "launch tesseract failed on this runtime: " +
               e.to_string() +
               "\nResolved command: " +
               @rtcmd.resolved_command_context(command) +
@@ -297,7 +297,7 @@ fn collect_tesseract_output(
             collected.val = Some(
               Err(
                 OcrProviderError::OutputParseFailed(
-                  "failed to decode Tesseract stdout as UTF-8 on the this runtime: " +
+                  "failed to decode Tesseract stdout as UTF-8 on this runtime: " +
                   e.to_string(),
                 ),
               ),
@@ -310,7 +310,7 @@ fn collect_tesseract_output(
             collected.val = Some(
               Err(
                 OcrProviderError::OutputParseFailed(
-                  "failed to decode Tesseract stderr as UTF-8 on the this runtime: " +
+                  "failed to decode Tesseract stderr as UTF-8 on this runtime: " +
                   e.to_string(),
                 ),
               ),
@@ -325,7 +325,7 @@ fn collect_tesseract_output(
     e =>
       return Err(
         OcrProviderError::ExecutionFailed(
-          "launch tesseract failed on the this runtime: " +
+          "launch tesseract failed on this runtime: " +
           e.to_string() +
           "\nResolved command: " +
           @rtcmd.resolved_command_context(command) +
@@ -339,7 +339,7 @@ fn collect_tesseract_output(
     None =>
       Err(
         OcrProviderError::ExecutionFailed(
-          "launch tesseract failed on the this runtime: event loop returned no result\nResolved command: " +
+          "launch tesseract failed on this runtime: event loop returned no result\nResolved command: " +
           @rtcmd.resolved_command_context(command) +
           "\n\n" +
           tesseract_ocr_install_hint(),

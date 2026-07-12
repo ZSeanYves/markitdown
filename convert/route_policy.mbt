@@ -78,8 +78,13 @@ fn pdf_table_reconstruction_policy_for_plan(
   selected_route : CanonicalRoute,
 ) -> @parser.PdfTableReconstructionPolicy {
   if detected_format == @input.DetectedFormat::Pdf &&
-    selected_route == CanonicalRoute::LayoutTwoStage &&
-    fidelity_mode == FidelityMode::Accurate {
+    (
+      (
+        selected_route == CanonicalRoute::LayoutTwoStage &&
+        fidelity_mode == FidelityMode::Accurate
+      ) ||
+      selected_route == CanonicalRoute::PageSinglePass
+    ) {
     @parser.PdfTableReconstructionPolicy::InternalSimpleRowsOnly
   } else {
     @parser.PdfTableReconstructionPolicy::Disabled
@@ -166,17 +171,9 @@ fn strategy_switches_for_plan(
   intent : ExecutionIntent,
   selected : @fmeta.StrategyRouteSpec,
   mode_policy : @fmeta.ModeStrategyPolicy,
-  explicit_stream_fell_back : Bool,
-  accurate_fell_back : Bool,
   execution_profile : ExecutionProfile,
 ) -> Array[String] {
   let switches : Array[String] = []
-  if explicit_stream_fell_back {
-    switches.push("explicit_stream_unsupported_fell_back")
-  }
-  if accurate_fell_back {
-    switches.push("accurate_unsupported_fell_back")
-  }
   if execution_profile == ExecutionProfile::MediumAdaptive {
     switches.push(
       @input.detected_format_name(detected_format) + "_medium_adaptive_profile",
@@ -205,16 +202,8 @@ fn route_reason_for_plan(
   intent : ExecutionIntent,
   selected : @fmeta.StrategyRouteSpec,
   mode_policy : @fmeta.ModeStrategyPolicy,
-  explicit_stream_fell_back : Bool,
-  accurate_fell_back : Bool,
   hard_triggered : Bool,
 ) -> String {
-  if explicit_stream_fell_back {
-    return "explicit_stream_unsupported_fell_back"
-  }
-  if accurate_fell_back {
-    return "accurate_unsupported_fell_back"
-  }
   if intent.stream_requested && mode_policy.explicit_stream_supported {
     return "explicit_stream_mode"
   }
@@ -312,34 +301,25 @@ fn select_strategy_route(
   policy : @fmeta.FormatStrategyPolicy,
   mode_policy : @fmeta.ModeStrategyPolicy,
   hard_trigger_signals : Array[ProbeSignal],
-) -> (@fmeta.StrategyRouteSpec, Bool, Bool) {
+) -> (@fmeta.StrategyRouteSpec, Bool) {
   if detected_format == @input.DetectedFormat::Pdf &&
     intent.fidelity_mode == FidelityMode::Accurate {
-    return (policy.accurate.canonical, false, false)
+    return (policy.accurate.canonical, false)
   }
   if detected_format == @input.DetectedFormat::Pdf {
-    return (policy.balanced.canonical, false, false)
-  }
-  let explicit_stream_fell_back = intent.stream_requested &&
-    !mode_policy.explicit_stream_supported
-  if explicit_stream_fell_back {
-    return (mode_policy.canonical, true, false)
+    return (policy.balanced.canonical, false)
   }
   if intent.stream_requested {
-    return (
-      mode_policy.explicit_stream.unwrap_or(mode_policy.canonical),
-      false,
-      false,
-    )
+    return (mode_policy.explicit_stream.unwrap_or(mode_policy.canonical), false)
   }
   if hard_trigger_signals.length() > 0 {
     match mode_policy.hard_limit_route {
-      Some(route) => return (route, false, true)
+      Some(route) => return (route, true)
       None => ()
     }
   }
   ignore(detected_format)
-  (mode_policy.canonical, false, false)
+  (mode_policy.canonical, false)
 }
 
 ///|
@@ -349,23 +329,7 @@ fn resolve_execution_plan(
   options : ConvertOptions,
 ) -> ResolvedExecutionPlan {
   let intent = execution_intent(options)
-  let preserves_runtime_accurate_semantics = @input.detected_format_is_image_candidate(
-    detected_format,
-  )
-  let accurate_fell_back = detected_format != @input.DetectedFormat::Pdf &&
-    !preserves_runtime_accurate_semantics &&
-    intent.fidelity_mode == FidelityMode::Accurate &&
-    @product.accurate_features_for_detected_format(detected_format).length() ==
-    0
-  let effective_intent = if accurate_fell_back {
-    {
-      ..intent,
-      strategy_mode: ConvertMode::Balanced,
-      fidelity_mode: FidelityMode::Balanced,
-    }
-  } else {
-    intent
-  }
+  let effective_intent = intent
   let probe = preflight_probe(source, detected_format, options)
   let policy = @fmeta.route_contract_for_format(detected_format)
   let mode_policy = @fmeta.route_mode_contract_for_format(
@@ -385,7 +349,7 @@ fn resolve_execution_plan(
     (@input.DetectedFormat::Pdf, Some(signal)) => [signal]
     _ => hard_trigger_signals
   }
-  let (selected, explicit_stream_fell_back, used_hard_limit) = select_strategy_route(
+  let (selected, used_hard_limit) = select_strategy_route(
     detected_format, effective_intent, policy, mode_policy, route_probe_signals,
   )
   let execution_profile = effective_execution_profile(
@@ -401,8 +365,7 @@ fn resolve_execution_plan(
     mode_policy,
   )
   let switches = strategy_switches_for_plan(
-    detected_format, effective_intent, selected, mode_policy, explicit_stream_fell_back,
-    accurate_fell_back, execution_profile,
+    detected_format, effective_intent, selected, mode_policy, execution_profile,
   )
   let ocr_provider_target = ocr_provider_target_for_plan(
     detected_format,
@@ -470,8 +433,7 @@ fn resolve_execution_plan(
       selected.route,
     ),
     reason: route_reason_for_plan(
-      detected_format, effective_intent, selected, mode_policy, explicit_stream_fell_back,
-      accurate_fell_back, used_hard_limit,
+      detected_format, effective_intent, selected, mode_policy, used_hard_limit,
     ),
     probe_signals: probe.probe_signals,
     profile_trigger_signals: if used_hard_limit {
@@ -526,7 +488,34 @@ fn detect_and_resolve_execution_plan(
   ConvertError,
 ] {
   match detect_input(source, options) {
-    Ok((effective_source, detected)) =>
+    Ok((effective_source, detected)) => {
+      let policy = @fmeta.route_contract_for_format(detected.format)
+      let accurate_requested = options.mode == ConvertMode::Accurate ||
+        options.fidelity_mode == FidelityMode::Accurate
+      let accurate_supported = @input.detected_format_is_image_candidate(
+          detected.format,
+        ) ||
+        policy.accurate.accurate_features.length() > 0
+      if accurate_requested && !accurate_supported {
+        return Err(
+          ConvertError::ParseFailed(
+            "accurate mode is unsupported for `" +
+            @input.detected_format_name(detected.format) +
+            "`; use balance mode",
+          ),
+        )
+      }
+      let stream_requested = options.mode == ConvertMode::Stream ||
+        options.stream_requested
+      if stream_requested && !policy.balanced.explicit_stream_supported {
+        return Err(
+          ConvertError::ParseFailed(
+            "stream mode is unsupported for `" +
+            @input.detected_format_name(detected.format) +
+            "`; use balance mode",
+          ),
+        )
+      }
       Ok(
         (
           effective_source,
@@ -534,6 +523,7 @@ fn detect_and_resolve_execution_plan(
           resolve_execution_plan(effective_source, detected.format, options),
         ),
       )
+    }
     Err(err) => Err(err)
   }
 }

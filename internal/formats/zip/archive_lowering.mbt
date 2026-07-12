@@ -189,7 +189,122 @@ fn zip_parse_inner_document(
   format : @input.DetectedFormat,
   context : @parser.ParseContext,
 ) -> Result[@runtime.ChildBlockProduct, String] {
-  @runtime.parse_child_to_block_product(registry, source, format, context)
+  let child_context = match format {
+    @input.DetectedFormat::Image(_) =>
+      @parser.parse_context_with_ocr_options(
+        context,
+        @parser.explicit_ocr_options(),
+      )
+    _ => context
+  }
+  @runtime.parse_child_to_block_product(registry, source, format, child_context)
+}
+
+///|
+fn zip_collect_referenced_asset_entries(
+  archive : @dzip.ZipArchive,
+  infos : Array[@dzip.ZipEntryInfo],
+  registry : @parser.ParserRegistry,
+  context : @parser.ParseContext,
+  container_path : String,
+) -> Map[String, Bool] {
+  let referenced : Map[String, Bool] = Map([])
+  for info in infos {
+    if info.is_unsafe_path || info.is_encrypted {
+      continue
+    }
+    let format = match zip_supported_inner_format(info) {
+      Some(@input.DetectedFormat::Html) => @input.DetectedFormat::Html
+      Some(@input.DetectedFormat::Markdown) => @input.DetectedFormat::Markdown
+      _ => continue
+    }
+    let entry_path = zip_entry_display_path(info)
+    let bytes = match zip_read_entry_bytes(archive, info.raw_name) {
+      Ok(value) => value
+      Err(_) => continue
+    }
+    let source = zip_inner_source(container_path, entry_path, format, bytes)
+    let child = match
+      zip_parse_inner_document(registry, source, format, context) {
+      Ok(value) => value
+      Err(_) => continue
+    }
+    for asset in child.assets {
+      match asset.attrs.get("source_path") {
+        Some(source_path) =>
+          match zip_resolve_asset_entry_path(entry_path, source_path) {
+            Some(resolved) => referenced.set(resolved, true)
+            None => ()
+          }
+        None => ()
+      }
+    }
+  }
+  referenced
+}
+
+///|
+fn zip_image_format_uses_ocr(format : @input.DetectedFormat) -> Bool {
+  match format {
+    @input.DetectedFormat::Image(_) => true
+    _ => false
+  }
+}
+
+///|
+fn zip_standalone_image_asset(
+  entry : @core.ContainerEntry,
+  entry_path : String,
+  container_path : String,
+  format : @input.DetectedFormat,
+) -> (@core.AssetRef, @core.CoreBlock) {
+  let output_path = zip_asset_output_path(entry_path, zip_basename(entry_path))
+  let source_ref = entry.source_ref.unwrap_or(@core.empty_source_ref())
+  let asset_id = "zip:standalone:" + entry_path
+  let asset = @core.make_asset_ref(
+    @core.AssetKind::Image,
+    asset_id,
+    source_ref~,
+  )
+  let mime_type = match zip_image_mime_type(format) {
+    Some(value) => Some(value)
+    None => zip_asset_image_mime_type(entry_path)
+  }
+  let next_asset = { ..asset, path: Some(output_path), mime_type }
+  next_asset.attrs.set("alt", zip_basename(entry_path))
+  next_asset.attrs.set("zip_entry_path", entry_path)
+  next_asset.attrs.set("zip_container_format", "zip")
+  next_asset.attrs.set("zip_container_path", container_path)
+  next_asset.attrs.set("standalone_image", "true")
+  let block = @core.make_block(@core.BlockKind::Image, "", source_ref~)
+  block.attrs.set("asset_id", asset_id)
+  block.attrs.set("path", output_path)
+  block.attrs.set("alt", zip_basename(entry_path))
+  (next_asset, block)
+}
+
+///|
+fn zip_asset_image_mime_type(entry_path : String) -> String? {
+  let lower = entry_path.to_lower()
+  if lower.has_suffix(".gif") {
+    Some("image/gif")
+  } else if lower.has_suffix(".svg") {
+    Some("image/svg+xml")
+  } else {
+    None
+  }
+}
+
+///|
+fn zip_image_mime_type(format : @input.DetectedFormat) -> String? {
+  match @input.detected_format_name(format) {
+    "jpg" | "jpeg" => Some("image/jpeg")
+    "png" => Some("image/png")
+    "bmp" => Some("image/bmp")
+    "webp" => Some("image/webp")
+    "tif" | "tiff" => Some("image/tiff")
+    _ => None
+  }
 }
 
 ///|
@@ -309,15 +424,22 @@ fn zip_rewrite_child_assets(
             })
           }
           None =>
-            diagnostics.warnings.push(
-              "zip asset entry missing for `" +
-              entry_path +
-              "`: " +
-              resolved_entry,
-            )
+            match zip_preserve_nested_child_asset(asset, entry, old_path) {
+              Some((next_asset, rewrite)) => {
+                merged_assets.push(next_asset)
+                rewrites.push(rewrite)
+              }
+              None =>
+                diagnostics.warnings.push(
+                  "zip asset entry missing for `" +
+                  entry_path +
+                  "`: " +
+                  resolved_entry,
+                )
+            }
         }
       }
-      None =>
+      None => {
         if zip_asset_is_remote(asset) {
           let next_source_ref = zip_rewrite_source_ref(
             asset.source_ref.unwrap_or(
@@ -327,10 +449,107 @@ fn zip_rewrite_child_assets(
             inner_path=None,
           )
           merged_assets.push({ ..asset, source_ref: Some(next_source_ref) })
+          continue
         }
+        match zip_preserve_nested_child_asset(asset, entry, old_path) {
+          Some((next_asset, rewrite)) => {
+            merged_assets.push(next_asset)
+            rewrites.push(rewrite)
+          }
+          None => ()
+        }
+      }
     }
   }
   rewrites
+}
+
+///|
+fn zip_preserve_nested_child_asset(
+  asset : @core.AssetRef,
+  entry : @core.ContainerEntry,
+  old_path : String,
+) -> (@core.AssetRef, ZipAssetRewrite)? {
+  let nested_asset_entry = match asset.attrs.get("zip_entry_path") {
+    Some(value) => {
+      let trimmed = value.trim().to_owned()
+      if trimmed == "" {
+        None
+      } else {
+        Some(trimmed)
+      }
+    }
+    None => None
+  }
+  let has_inline_payload = asset.attrs.get("inline_payload_kind") is Some(_)
+  if nested_asset_entry is None && !has_inline_payload {
+    return None
+  }
+  let child_asset_path = if old_path != "" {
+    old_path
+  } else {
+    asset.path.unwrap_or(asset.asset_id)
+  }
+  if child_asset_path.trim() == "" {
+    return None
+  }
+  let output_relative_path = zip_asset_output_path(
+    entry.entry_path,
+    child_asset_path,
+  )
+  let new_asset_id = "zip:" + entry.entry_path + ":" + asset.asset_id
+  let next_source_ref = zip_rewrite_source_ref(
+    asset.source_ref.unwrap_or(
+      entry.source_ref.unwrap_or(@core.empty_source_ref()),
+    ),
+    entry,
+    inner_path=None,
+  )
+  let next_attrs = zip_nested_child_asset_attrs(asset.attrs, entry)
+  let next_asset = {
+    ..asset,
+    asset_id: new_asset_id,
+    path: Some(output_relative_path),
+    source_ref: Some(next_source_ref),
+    attrs: next_attrs,
+  }
+  match nested_asset_entry {
+    Some(value) => next_asset.attrs.set("zip_nested_asset_entry_path", value)
+    None => ()
+  }
+  Some(
+    (
+      next_asset,
+      {
+        old_asset_id: asset.asset_id,
+        old_path,
+        new_asset_id,
+        new_path: output_relative_path,
+      },
+    ),
+  )
+}
+
+///|
+fn zip_nested_child_asset_attrs(
+  attrs : Map[String, String],
+  entry : @core.ContainerEntry,
+) -> Map[String, String] {
+  let out : Map[String, String] = Map([])
+  for attr in attrs {
+    if attr.0 != "zip_entry_path" {
+      out.set(attr.0, attr.1)
+    }
+  }
+  out.set("zip_nested_archive_entry_path", entry.entry_path)
+  out.set("zip_container_format", "zip")
+  out.set(
+    "zip_container_path",
+    entry.source_ref.unwrap_or(@core.empty_source_ref()).container_path.unwrap_or(
+      "",
+    ),
+  )
+  out
 }
 
 ///|
@@ -800,8 +1019,11 @@ fn zip_entry_is_asset(info : @dzip.ZipEntryInfo) -> Bool {
       ext == "png" ||
       ext == "jpg" ||
       ext == "jpeg" ||
+      ext == "bmp" ||
       ext == "gif" ||
       ext == "webp" ||
+      ext == "tif" ||
+      ext == "tiff" ||
       ext == "svg"
     None => false
   }

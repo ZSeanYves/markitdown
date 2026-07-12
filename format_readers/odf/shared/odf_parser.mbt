@@ -16,11 +16,13 @@ pub fn open_odt_document(bytes : Bytes) -> OdtDocument raise {
   }
   let content = parse_odf_content_document(archive, package_info.content_path)
   let metadata = read_odf_metadata(archive, package_info)
+  let styles = odf_collect_text_styles(archive, package_info, content)
   let state : OdtLowerState = {
     blocks: [],
     assets: [],
     content_path: package_info.content_path,
     list_depth: 0,
+    styles,
   }
   match content.root {
     Some(root) => odf_visit_document_root(root, archive, state)
@@ -39,10 +41,14 @@ pub fn open_ods_document(bytes : Bytes) -> OdsDocument raise {
   let content = parse_odf_content_document(archive, package_info.content_path)
   let metadata = read_odf_metadata(archive, package_info)
   let sheets = match content.root {
-    Some(root) => odf_extract_spreadsheet_sheets(root)
+    Some(root) => odf_extract_spreadsheet_sheets(root, archive)
     None => raise ParseError("ods content.xml missing root element")
   }
-  { package_info, metadata, sheets }
+  let assets : Array[OdtImageRef] = []
+  for sheet in sheets {
+    assets.append(sheet.images[:])
+  }
+  { package_info, metadata, sheets, assets }
 }
 
 ///|
@@ -74,6 +80,13 @@ priv struct OdtLowerState {
   assets : Array[OdtImageRef]
   content_path : String
   mut list_depth : Int
+  styles : Map[String, OdfTextStyle]
+}
+
+///|
+priv struct OdfTextStyle {
+  display_name : String?
+  parent_name : String?
 }
 
 ///|
@@ -223,7 +236,9 @@ fn odf_visit_text_element(
     "text:h" =>
       state.blocks.push(odf_heading_block(element, state.content_path))
     "text:p" => {
-      state.blocks.push(odf_paragraph_block(element, state.content_path))
+      state.blocks.push(
+        odf_paragraph_block(element, state.content_path, state.styles),
+      )
       odf_visit_paragraph_frame_images(element, archive, state)
     }
     "text:list" => odf_visit_list(element, archive, state)
@@ -347,6 +362,7 @@ fn odf_heading_block(
 fn odf_paragraph_block(
   element : @dxml.XmlElement,
   content_path : String,
+  styles : Map[String, OdfTextStyle],
 ) -> OdtBlock {
   let inline_model = odf_collect_odt_inlines(element)
   let text = odf_text_from_inlines(inline_model)
@@ -355,7 +371,10 @@ fn odf_paragraph_block(
   } else {
     text.replace_all(old="\n", new=" ").trim().to_owned()
   }
-  let kind = if odf_paragraph_is_code_like(element) {
+  let inherited_heading_level = odf_paragraph_heading_level(element, styles)
+  let kind = if inherited_heading_level is Some(_) {
+    OdtBlockKind::Heading
+  } else if odf_paragraph_is_code_like(element, styles) {
     OdtBlockKind::Code
   } else {
     OdtBlockKind::Paragraph
@@ -363,7 +382,7 @@ fn odf_paragraph_block(
   {
     kind,
     text: normalized,
-    level: None,
+    level: inherited_heading_level,
     list_depth: None,
     rows: [],
     image: None,
@@ -446,13 +465,24 @@ fn odf_table_block(
             match cell_node {
               Element(cell) =>
                 if cell.name == "table:table-cell" {
-                  cells.push({ text: odf_collect_text(cell).trim().to_owned() })
+                  let repeat = odf_bounded_repeat_count(
+                    cell, "table:number-columns-repeated", 16_384,
+                  )
+                  let text = odf_collect_text(cell).trim().to_owned()
+                  for _ in 0..<repeat {
+                    cells.push({ text, })
+                  }
                 }
               _ => ()
             }
           }
           if cells.length() > 0 {
-            rows.push({ cells, })
+            let repeat = odf_bounded_repeat_count(
+              row, "table:number-rows-repeated", 10_000,
+            )
+            for _ in 0..<repeat {
+              rows.push({ cells: cells.copy() })
+            }
           }
         }
       _ => ()
@@ -519,7 +549,10 @@ fn odf_visit_frame(
 }
 
 ///|
-fn odf_extract_spreadsheet_sheets(root : @dxml.XmlElement) -> Array[OdsSheet] {
+fn odf_extract_spreadsheet_sheets(
+  root : @dxml.XmlElement,
+  archive : @dzip.ZipArchive,
+) -> Array[OdsSheet] raise {
   let sheets : Array[OdsSheet] = []
   for child in root.children {
     match child {
@@ -533,7 +566,7 @@ fn odf_extract_spreadsheet_sheets(root : @dxml.XmlElement) -> Array[OdsSheet] {
                     match node {
                       Element(sheet) =>
                         if sheet.name == "table:table" {
-                          sheets.push(odf_extract_sheet(sheet))
+                          sheets.push(odf_extract_sheet(sheet, archive))
                         }
                       _ => ()
                     }
@@ -550,13 +583,18 @@ fn odf_extract_spreadsheet_sheets(root : @dxml.XmlElement) -> Array[OdsSheet] {
 }
 
 ///|
-fn odf_extract_sheet(sheet : @dxml.XmlElement) -> OdsSheet {
+fn odf_extract_sheet(
+  sheet : @dxml.XmlElement,
+  archive : @dzip.ZipArchive,
+) -> OdsSheet raise {
   let name = odf_attr(sheet, "table:name").unwrap_or("Sheet")
   let visible = match odf_attr(sheet, "table:display") {
     Some(value) => value.trim().to_lower() != "false"
     None => true
   }
   let rows : Array[OdsRow] = []
+  let images : Array[OdtImageRef] = []
+  odf_collect_sheet_images(sheet, archive, images)
   let mut row_index = 0
   for child in sheet.children {
     match child {
@@ -570,11 +608,40 @@ fn odf_extract_sheet(sheet : @dxml.XmlElement) -> OdsSheet {
       _ => ()
     }
   }
-  { name, rows, visible }
+  { name, rows, visible, images }
 }
 
 ///|
-fn odf_extract_sheet_row(row : @dxml.XmlElement, row_index : Int) -> OdsRow {
+fn odf_collect_sheet_images(
+  element : @dxml.XmlElement,
+  archive : @dzip.ZipArchive,
+  images : Array[OdtImageRef],
+) -> Unit {
+  if element.name == "draw:image" {
+    match odf_attr(element, "xlink:href") {
+      Some(href) =>
+        images.push({
+          href,
+          media_type: odf_media_type_for_href(archive, href),
+          alt: odf_attr(element, "draw:name"),
+          bytes: odf_read_entry_optional(archive, href),
+        })
+      None => ()
+    }
+  }
+  for child in element.children {
+    match child {
+      Element(next) => odf_collect_sheet_images(next, archive, images)
+      _ => ()
+    }
+  }
+}
+
+///|
+fn odf_extract_sheet_row(
+  row : @dxml.XmlElement,
+  row_index : Int,
+) -> OdsRow raise {
   let cells : Array[OdsCell] = []
   let hidden = match odf_attr(row, "table:visibility") {
     Some(value) => value.trim().to_lower() == "collapse"
@@ -697,6 +764,10 @@ fn odf_extract_slide(
           for asset in frame_blocks.assets {
             assets.push(asset)
           }
+        } else if node.name == "draw:g" {
+          odf_extract_slide_group(
+            node, archive, content_path, blocks, assets, 1,
+          )
         } else if node.name == "presentation:notes" {
           let text = odf_collect_text(node).trim().to_owned()
           if text != "" {
@@ -755,6 +826,83 @@ fn odf_extract_slide(
 }
 
 ///|
+fn odf_extract_slide_group(
+  group : @dxml.XmlElement,
+  archive : @dzip.ZipArchive,
+  content_path : String,
+  blocks : Array[OdpSlideBlock],
+  assets : Array[OdpImageRef],
+  depth : Int,
+) -> Unit {
+  if depth > 32 {
+    let text = odf_collect_text(group).trim().to_owned()
+    if text != "" {
+      blocks.push({
+        kind: OdpBlockKind::Raw,
+        text,
+        rows: [],
+        image: None,
+        content_path,
+        xml_path: "/draw:g",
+        line_start: Some(group.span.line_start),
+        line_end: Some(group.span.line_end),
+        attrs: Map([
+          ("slide_local", "true"),
+          ("group_depth", depth.to_string()),
+          ("group_depth_limited", "true"),
+        ]),
+      })
+    }
+    return
+  }
+  for child in group.children {
+    match child {
+      Element(node) =>
+        if node.name == "draw:frame" {
+          let frame_blocks = odf_extract_slide_frame(
+            node, archive, content_path,
+          )
+          for block in frame_blocks.blocks {
+            block.attrs.set("group_depth", depth.to_string())
+            blocks.push(block)
+          }
+          for asset in frame_blocks.assets {
+            assets.push(asset)
+          }
+        } else if node.name == "draw:g" {
+          odf_extract_slide_group(
+            node,
+            archive,
+            content_path,
+            blocks,
+            assets,
+            depth + 1,
+          )
+        } else {
+          let text = odf_collect_text(node).trim().to_owned()
+          if text != "" {
+            blocks.push({
+              kind: OdpBlockKind::Raw,
+              text,
+              rows: [],
+              image: None,
+              content_path,
+              xml_path: "/draw:g/" + node.name,
+              line_start: Some(node.span.line_start),
+              line_end: Some(node.span.line_end),
+              attrs: Map([
+                ("slide_local", "true"),
+                ("group_depth", depth.to_string()),
+              ]),
+            })
+          }
+        }
+      _ => ()
+    }
+  }
+}
+
+///|
 priv struct OdpFrameBlocks {
   blocks : Array[OdpSlideBlock]
   assets : Array[OdpImageRef]
@@ -802,6 +950,24 @@ fn odf_extract_slide_frame(
             }
             None => ()
           }
+        } else if node.name == "draw:object" || node.name == "chart:chart" {
+          let text = odf_extract_chart_text(node, archive)
+          if text != "" {
+            blocks.push({
+              kind: OdpBlockKind::Raw,
+              text,
+              rows: [],
+              image: None,
+              content_path,
+              xml_path: "/draw:frame/" + node.name,
+              line_start: Some(node.span.line_start),
+              line_end: Some(node.span.line_end),
+              attrs: Map([
+                ("slide_local", "true"),
+                ("semantic_kind", "chart_text"),
+              ]),
+            })
+          }
         } else {
           let text = odf_collect_text(node).trim().to_owned()
           if text != "" {
@@ -822,6 +988,53 @@ fn odf_extract_slide_frame(
     }
   }
   { blocks, assets }
+}
+
+///|
+fn odf_extract_chart_text(
+  node : @dxml.XmlElement,
+  archive : @dzip.ZipArchive,
+) -> String {
+  let inline = odf_collect_text(node).trim().to_owned()
+  if inline != "" {
+    return inline
+  }
+  let href = match odf_attr(node, "xlink:href") {
+    Some(value) => value.trim().to_owned()
+    None => return ""
+  }
+  let normalized = if href.has_prefix("./") {
+    href[2:].to_owned()
+  } else {
+    href
+  }
+  if normalized == "" ||
+    normalized.has_prefix("/") ||
+    normalized.contains("..") ||
+    normalized.contains("\\") {
+    return ""
+  }
+  let path = if normalized.has_suffix("/") {
+    normalized + "content.xml"
+  } else {
+    normalized + "/content.xml"
+  }
+  let bytes = match odf_read_entry_optional(archive, path) {
+    Some(value) => value
+    None => return ""
+  }
+  let xml = @utf8.decode(bytes, ignore_bom=false) catch { _ => return "" }
+  let document = try @dxml.parse_xml_document(xml) |> Ok catch {
+    _ => Err(())
+  }
+  match document {
+    Ok(value) =>
+      match value.root {
+        Some(root) => odf_collect_text(root).trim().to_owned()
+        None => ""
+      }
+    Err(_) => ""
+  }
 }
 
 ///|
@@ -954,9 +1167,27 @@ fn odf_odp_table_block(
 }
 
 ///|
-fn odf_repeated_count(element : @dxml.XmlElement, name : String) -> Int {
-  match odf_attr(element, name) {
-    Some(raw) => @string.parse_int(raw.trim().to_owned()) catch { _ => 1 }
+fn odf_repeated_count(element : @dxml.XmlElement, name : String) -> Int raise {
+  odf_parse_repeated_count(odf_attr(element, name), name)
+}
+
+///|
+fn odf_parse_repeated_count(raw_value : String?, name : String) -> Int raise {
+  match raw_value {
+    Some(raw) => {
+      let count = @string.parse_int(raw.trim().to_owned()) catch {
+        _ => raise ParseError("invalid ODF repeated count for " + name)
+      }
+      let limit = if name == "table:number-rows-repeated" {
+        1_048_576
+      } else {
+        16_384
+      }
+      if count <= 0 || count > limit {
+        raise ParseError("ODF repeated count exceeds limit for " + name)
+      }
+      count
+    }
     None => 1
   }
 }
@@ -969,6 +1200,25 @@ fn odf_attr(element : @dxml.XmlElement, name : String) -> String? {
     }
   }
   None
+}
+
+///|
+fn odf_bounded_repeat_count(
+  element : @dxml.XmlElement,
+  name : String,
+  limit : Int,
+) -> Int {
+  let count = match odf_attr(element, name) {
+    Some(raw) => @string.parse_int(raw.trim().to_owned()) catch { _ => 1 }
+    None => 1
+  }
+  if count <= 0 {
+    1
+  } else if count > limit {
+    limit
+  } else {
+    count
+  }
 }
 
 ///|
@@ -991,7 +1241,7 @@ fn odf_collect_text_into(
         if next.name == "text:line-break" {
           out.push("\n")
         } else if next.name == "text:s" {
-          out.push(" ")
+          out.push(" ".repeat(odf_bounded_repeat_count(next, "text:c", 1_024)))
         } else if next.name == "text:tab" {
           out.push("\t")
         } else {
@@ -1058,7 +1308,11 @@ fn odf_collect_odt_inlines_into(
         } else if next.name == "text:line-break" {
           out.push(odf_plain_odt_inline("\n"))
         } else if next.name == "text:s" {
-          out.push(odf_plain_odt_inline(" "))
+          out.push(
+            odf_plain_odt_inline(
+              " ".repeat(odf_bounded_repeat_count(next, "text:c", 1_024)),
+            ),
+          )
         } else if next.name == "text:tab" {
           out.push(odf_plain_odt_inline("\t"))
         } else {
@@ -1325,14 +1579,132 @@ fn odf_read_entry_optional(archive : @dzip.ZipArchive, path : String) -> Bytes? 
 }
 
 ///|
-fn odf_paragraph_is_code_like(element : @dxml.XmlElement) -> Bool {
+fn odf_paragraph_is_code_like(
+  element : @dxml.XmlElement,
+  styles : Map[String, OdfTextStyle],
+) -> Bool {
+  match odf_attr(element, "text:style-name") {
+    Some(name) =>
+      odf_resolved_style_names(name, styles).any(value => {
+        let lower = value.to_lower()
+        lower.contains("code") ||
+        lower.contains("pre") ||
+        lower.contains("source")
+      })
+    None => false
+  }
+}
+
+///|
+fn odf_paragraph_heading_level(
+  element : @dxml.XmlElement,
+  styles : Map[String, OdfTextStyle],
+) -> Int? {
   match odf_attr(element, "text:style-name") {
     Some(name) => {
-      let lower = name.to_lower()
-      lower.contains("code") ||
-      lower.contains("pre") ||
-      lower.contains("source")
+      let mut heading_seen = false
+      for value in odf_resolved_style_names(name, styles) {
+        let normalized = value.replace_all(old="_20_", new=" ").to_lower()
+        if normalized.contains("heading") || normalized.contains("title") {
+          heading_seen = true
+          for level in 1..<=7 {
+            if normalized.contains(level.to_string()) {
+              return Some(level)
+            }
+          }
+        }
+      }
+      if heading_seen {
+        Some(1)
+      } else {
+        None
+      }
     }
-    None => false
+    None => None
+  }
+}
+
+///|
+fn odf_resolved_style_names(
+  initial : String,
+  styles : Map[String, OdfTextStyle],
+) -> Array[String] {
+  let names : Array[String] = []
+  let mut current : String? = Some(initial)
+  let mut depth = 0
+  while current is Some(_) && depth < 32 {
+    let name = current.unwrap()
+    if names.contains(name) {
+      break
+    }
+    names.push(name)
+    match styles.get(name) {
+      Some(style) => {
+        match style.display_name {
+          Some(display) if !names.contains(display) => names.push(display)
+          _ => ()
+        }
+        current = style.parent_name
+      }
+      None => current = None
+    }
+    depth += 1
+  }
+  names
+}
+
+///|
+fn odf_collect_text_styles(
+  archive : @dzip.ZipArchive,
+  package_info : OdfPackageInfo,
+  content : @dxml.XmlDocument,
+) -> Map[String, OdfTextStyle] {
+  let styles : Map[String, OdfTextStyle] = Map([])
+  match content.root {
+    Some(root) => odf_collect_text_styles_from_element(root, styles)
+    None => ()
+  }
+  match package_info.styles_path {
+    Some(path) => {
+      let parsed = try
+        @dxml.parse_xml_document(odf_read_entry_text(archive, path)) |> Ok
+      catch {
+        _ => Err(())
+      }
+      match parsed {
+        Ok(doc) =>
+          match doc.root {
+            Some(root) => odf_collect_text_styles_from_element(root, styles)
+            None => ()
+          }
+        Err(_) => ()
+      }
+    }
+    None => ()
+  }
+  styles
+}
+
+///|
+fn odf_collect_text_styles_from_element(
+  element : @dxml.XmlElement,
+  styles : Map[String, OdfTextStyle],
+) -> Unit {
+  if element.name == "style:style" &&
+    odf_attr(element, "style:family") == Some("paragraph") {
+    match odf_attr(element, "style:name") {
+      Some(name) =>
+        styles.set(name, {
+          display_name: odf_attr(element, "style:display-name"),
+          parent_name: odf_attr(element, "style:parent-style-name"),
+        })
+      None => ()
+    }
+  }
+  for child in element.children {
+    match child {
+      Element(next) => odf_collect_text_styles_from_element(next, styles)
+      _ => ()
+    }
   }
 }

@@ -108,6 +108,28 @@ fn rst_semantic_block(
   _format_name : String,
 ) -> @core.CoreBlock? {
   match block.meta.get("semantic_kind") {
+    Some("image") => {
+      let target = block.meta.get("image_target").unwrap_or(block.text)
+      let image = @core.make_block(@core.BlockKind::Image, "", source_ref~)
+      image.attrs.set("path", target)
+      image.attrs.set("src", target)
+      image.attrs.set("alt", block.meta.get("image_alt").unwrap_or("image"))
+      image.attrs.set("reference_only", "true")
+      let lower = target.to_lower()
+      if lower.has_prefix("http://") ||
+        lower.has_prefix("https://") ||
+        lower.has_prefix("data:") {
+        image.attrs.set("remote", "true")
+      } else if target != "" {
+        image.attrs.set(
+          "path",
+          @fshared.text_markup_asset_output_path("rst", target),
+        )
+        image.attrs.set("source_path", target)
+        image.attrs.set("asset_id", "rst-image-" + block.line_start.to_string())
+      }
+      Some(image)
+    }
     Some("include") => {
       let target = block.meta.get("include_target").unwrap_or(block.text)
       let text = if block.text.has_prefix("include: ") {

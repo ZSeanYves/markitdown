@@ -144,6 +144,42 @@ fn rag_subtitle_chunks_from_events(
         if event.text.trim() != "" {
           parts.push(event.text)
         }
+      @core.EventKind::StartBlock(@core.BlockKind::BlockQuote) =>
+        match event.source_ref {
+          Some(source_ref) =>
+            match source_ref.extra.get("subtitle_event_layout") {
+              Some("record_v1") => {
+                match source_ref.extra.get("ir_block_attr_time_range") {
+                  Some(value) => if value.trim() != "" { parts.push(value) }
+                  None => ()
+                }
+                if event.text.trim() != "" {
+                  parts.push(event.text)
+                }
+              }
+              Some("record_v2") => {
+                let split = markdown_subtitle_record_v2_parts(event.text)
+                if split.0.trim() != "" {
+                  parts.push(split.0)
+                }
+                if split.1.trim() != "" {
+                  parts.push(split.1)
+                }
+              }
+              _ =>
+                if source_ref.format == Some("srt") &&
+                  source_ref.extra.get("ir_event_encoding") is None {
+                  let split = markdown_subtitle_record_v2_parts(event.text)
+                  if split.0.trim() != "" {
+                    parts.push(split.0)
+                  }
+                  if split.1.trim() != "" {
+                    parts.push(split.1)
+                  }
+                }
+            }
+          None => ()
+        }
       _ => ()
     }
   }
@@ -688,8 +724,34 @@ fn block_batches(
 fn text_event_batches(
   events : Array[@core.CoreEvent],
 ) -> Array[Array[@core.CoreEvent]] {
-  ignore(events)
-  [events]
+  let batches : Array[Array[@core.CoreEvent]] = []
+  let current : Array[@core.CoreEvent] = []
+  let mut current_size = 0
+  for event in events {
+    let event_size = unicode_char_count(event.text)
+    if current.length() > 0 &&
+      current_size + event_size > 600 &&
+      event.kind == @core.EventKind::TextLine {
+      batches.push(current.copy())
+      current.clear()
+      current_size = 0
+    }
+    current.push(event)
+    current_size += event_size
+    if event.kind == @core.EventKind::BlankLine && current_size >= 600 {
+      batches.push(current.copy())
+      current.clear()
+      current_size = 0
+    }
+  }
+  if current.length() > 0 {
+    batches.push(current.copy())
+  }
+  if batches.length() == 0 {
+    [events]
+  } else {
+    batches
+  }
 }
 
 ///|

@@ -28,7 +28,7 @@ To reproduce the current formal benchmark:
 ```bash
 moon build --target native --release --package ZSeanYves/markitdown/cli
 moon build --target native --release --package ZSeanYves/markitdown/bench/runner
-./samples/env/install_bench_baseline_deps.sh
+./tools/env/install_bench_baseline_deps.sh
 RUNNER="_build/native/release/build/bench/runner/runner.exe"
 "$RUNNER" doctor
 "$RUNNER" run --preset official-compare
@@ -155,7 +155,7 @@ moon info
 moon fmt
 ```
 
-The external corpus repository is only required for `samples/check*.sh`
+The external corpus repository is only required for `tools/regression/check*.sh`
 and formal benchmarks. If it is not present locally:
 
 ```bash
@@ -166,13 +166,13 @@ Common regression commands:
 
 ```bash
 moon build cli --target native
-bash samples/check_balance.sh
-bash samples/check_balance_quality.sh
+bash tools/regression/check_balance.sh
+bash tools/regression/check_balance_quality.sh
 ```
 
 The formal benchmark reproduction commands are shown above.
 When run from the repo root, the runner prefers
-`./env/.venv-markitdown-baseline/bin/markitdown`.
+`./env/.venv-markitdown-bench/bin/markitdown`.
 
 To point to a specific baseline:
 

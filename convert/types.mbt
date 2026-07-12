@@ -321,6 +321,7 @@ priv struct ResolvedExecutionPlan {
 ///|
 priv enum RouteProbeArtifact {
   MarkdownPrepared(@dmd.PreparedMarkdownDocument)
+  MarkdownLargeLiteral(@input.InputSource, String, Int)
   HtmlPrepared(@dhtml.PreparedHtmlDocument)
   IpynbPrepared(@dipynb.PreparedIpynbNotebook)
   JsonPrepared(@djson.PreparedJsonText)

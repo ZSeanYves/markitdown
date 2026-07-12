@@ -44,6 +44,8 @@ pub fn key_position_index(Array[String]) -> Map[String, Int]
 
 pub fn keys_match_position_index(Array[String], Map[String, Int], Array[String]) -> Bool
 
+pub fn lower_subtitle_inline_markup(String) -> (String, Bool)
+
 pub fn lower_text_markup_document(@ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupDocument, @input.InputSource, @core.Diagnostics, TextMarkupHooks) -> @core.DocumentIR
 
 pub fn make_indexed_table_block(Array[Array[String]], @core.SourceRef, (Int, Array[String]) -> @core.SourceRef, (Int, Int) -> @core.SourceRef) -> @core.CoreBlock
@@ -67,6 +69,8 @@ pub fn projected_row_from_key_index(Array[String], Map[String, Int], (Int) -> St
 pub fn refresh_parser_count_metrics(@core.Diagnostics, String) -> Unit
 
 pub fn requested_mode_name(@parser.ParseContext) -> String
+
+pub fn text_markup_asset_output_path(String, String) -> String
 
 pub fn text_markup_block_with_inlines(@core.CoreBlock, String, @ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupFormat) -> @core.CoreBlock
 

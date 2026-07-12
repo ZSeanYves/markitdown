@@ -13,6 +13,9 @@ pub struct BenchRow {
   tags : Array[String]
   review_status : String
   notes : String
+  comparison_class : String
+  comparison_reason : String
+  comparison_signals : Array[String]
   input_path : String
 } derive(ToJson, FromJson, Eq)
 
@@ -39,6 +42,7 @@ pub struct SelectRequest {
   exact_tiers : Array[String]
   bench_ids : Array[String]
   format_filters : Array[String]
+  comparison_classes : Array[String]
   limit : Int?
   output : SelectOutput
   stats_only : Bool
@@ -60,6 +64,9 @@ pub fn make_bench_row(
   review_status : String,
   notes : String,
   input_path : String,
+  comparison_class? : String = "external_compare",
+  comparison_reason? : String = "baseline_supported",
+  comparison_signals? : Array[String] = ["non_empty"],
 ) -> BenchRow {
   {
     bench_id,
@@ -75,6 +82,9 @@ pub fn make_bench_row(
     tags,
     review_status,
     notes,
+    comparison_class,
+    comparison_reason,
+    comparison_signals,
     input_path,
   }
 }

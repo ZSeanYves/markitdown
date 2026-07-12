@@ -395,7 +395,13 @@ fn html_block_stream_parse_result_from_events(
   )
   diagnostics.metrics.set("requested_mode", "block_streaming")
   diagnostics.metrics.set("probe_artifact_reused", "true")
-  let lowered = if html_prefers_semantic_block_stream(source) {
+  let large_token_path = text.length() > 4_194_304 &&
+    !html_child_events_require_semantic_block_stream(events)
+  let lowered = if large_token_path {
+    html_lower_child_text_block_stream_document_from_events(
+      source, text, diagnostics, events,
+    )
+  } else if html_prefers_semantic_block_stream(source) {
     html_lower_semantic_block_stream_document(source, text, diagnostics)
   } else if html_requires_semantic_block_stream_markup(source) {
     html_lower_child_semantic_block_stream_document(source, text, diagnostics)

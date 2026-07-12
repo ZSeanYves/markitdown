@@ -16,13 +16,25 @@ pub fn prepare_json_document_from_source(
     Ok(payload) => payload
     Err(err) => return Err(err)
   }
-  let stream = try parse_json_stream(text_payload.text) |> Ok catch {
+  let stream = try
+    (if text_payload.text.length() >= 8_388_608 {
+      parse_json_stream_summary(text_payload.text)
+    } else {
+      parse_json_stream_with_pointer_policy(text_payload.text, true)
+    })
+    |> Ok
+  catch {
     e => Err(e.to_string())
   }
   match stream {
     Ok(stream_doc) => {
-      let document = try parse_json_document(text_payload.text) |> Ok catch {
-        e => Err(e.to_string())
+      let document : Result[JsonDocument, String] = if text_payload.text.length() >
+        256_000 {
+        Err("json DOM preparation skipped above the streaming limit")
+      } else {
+        try parse_json_document(text_payload.text) |> Ok catch {
+          e => Err(e.to_string())
+        }
       }
       match document {
         Ok(doc) =>

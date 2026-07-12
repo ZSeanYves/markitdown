@@ -3,7 +3,28 @@ fn render_markdown_events(events : Array[@core.CoreEvent]) -> String {
   if events.length() == 0 {
     return ""
   }
+  if markdown_text_markup_compact_event_stream(events) {
+    let out = StringBuilder::new(size_hint=events.length() * 128)
+    write_markdown_text_markup_compact_events_to(out, events)
+    return out.to_string()
+  }
   let out = StringBuilder::new()
+  if markdown_xml_outline_event_stream(events) {
+    write_markdown_xml_outline_events_to(out, events)
+    return out.to_string()
+  }
+  if markdown_xml_generic_outline_event_stream(events) {
+    write_markdown_xml_generic_outline_events_to(out, events)
+    return out.to_string()
+  }
+  if markdown_json_list_event_stream(events) {
+    write_markdown_json_list_events_to(out, events)
+    return out.to_string()
+  }
+  if markdown_subtitle_event_stream(events) {
+    write_markdown_subtitle_events_to(out, events)
+    return out.to_string()
+  }
   if generic_block_event_stream(events) {
     write_markdown_generic_block_events_direct_to(out, events)
     return out.to_string()
@@ -19,6 +40,498 @@ fn render_markdown_events(events : Array[@core.CoreEvent]) -> String {
   }
   write_markdown_generic_events_to(out, events)
   out.to_string()
+}
+
+///|
+fn markdown_text_markup_compact_event_stream(
+  events : Array[@core.CoreEvent],
+) -> Bool {
+  match events[0].source_ref {
+    Some(source_ref) =>
+      source_ref.extra.get("ir_event_encoding") ==
+      Some("text_markup_compact_v1")
+    None => false
+  }
+}
+
+///|
+fn write_markdown_text_markup_compact_events_to(
+  out : StringBuilder,
+  events : Array[@core.CoreEvent],
+) -> Unit {
+  let cursor = { events, index: 0 }
+  let mut previous : @core.BlockKind? = None
+  let mut wrote_any = false
+  while cursor.index < events.length() {
+    let event = events[cursor.index]
+    match event.kind {
+      @core.EventKind::StartBlock(kind) => {
+        let compact_leaf = match event.source_ref {
+          Some(source_ref) =>
+            source_ref.extra.get("ir_text_markup_compact_leaf") == Some("true")
+          None => false
+        }
+        let paired_leaf = cursor.index + 1 < events.length() &&
+          events[cursor.index + 1].kind == @core.EventKind::EndBlock(kind)
+        let simple = (compact_leaf || paired_leaf) &&
+          (
+            kind == @core.BlockKind::Heading ||
+            kind == @core.BlockKind::Paragraph ||
+            kind == @core.BlockKind::Code
+          )
+        if simple {
+          let text = event.text
+          if text.trim() != "" || kind == @core.BlockKind::Code {
+            if wrote_any {
+              if markdown_needs_blank_line_between(previous, kind) {
+                out.write_string("\n\n")
+              } else {
+                out.write_char('\n')
+              }
+            }
+            match kind {
+              @core.BlockKind::Heading => {
+                let level = match event.source_ref {
+                  Some(source_ref) =>
+                    clamp_heading_level(
+                      source_ref.extra.get("ir_block_attr_level").unwrap_or("1"),
+                    )
+                  None => 1
+                }
+                out.write_string(repeat_char_string('#', level))
+                out.write_char(' ')
+                out.write_string(text.trim().to_owned())
+              }
+              @core.BlockKind::Paragraph =>
+                if event.source_ref
+                  .map(source_ref => {
+                    source_ref.extra.get("ir_text_markup_rendered_inline") ==
+                    Some("true")
+                  })
+                  .unwrap_or(false) {
+                  out.write_string(text)
+                } else if !text.contains("\n") {
+                  out.write_string(escape_markdown_line_prefix(text))
+                } else {
+                  let lines = render_literal_markdown_lines(text)
+                  for index in 0..<lines.length() {
+                    if index > 0 {
+                      out.write_char('\n')
+                    }
+                    out.write_string(lines[index])
+                  }
+                }
+              @core.BlockKind::Code => {
+                let info = match event.source_ref {
+                  Some(source_ref) =>
+                    source_ref.extra.get("ir_block_attr_info").unwrap_or("")
+                  None => ""
+                }
+                let fence = safe_code_fence(text)
+                out.write_string(fence)
+                out.write_string(info)
+                out.write_char('\n')
+                out.write_string(text)
+                out.write_char('\n')
+                out.write_string(fence)
+              }
+              _ => ()
+            }
+            previous = Some(kind)
+            wrote_any = true
+          }
+          cursor.index += if compact_leaf { 1 } else { 2 }
+          continue
+        }
+        match parse_generic_block_event(cursor) {
+          Some(block) => {
+            let emitted = write_markdown_block_with_separator_to(
+              out, block, previous, wrote_any,
+            )
+            if emitted {
+              previous = Some(block.kind)
+              wrote_any = true
+            }
+          }
+          None => cursor.index += 1
+        }
+      }
+      _ => cursor.index += 1
+    }
+  }
+}
+
+///|
+fn markdown_json_list_event_stream(events : Array[@core.CoreEvent]) -> Bool {
+  match events[0].source_ref {
+    Some(source_ref) =>
+      source_ref.extra.get("ir_event_encoding") == Some("json_list_v1")
+    None => false
+  }
+}
+
+///|
+fn write_markdown_json_list_events_to(
+  out : StringBuilder,
+  events : Array[@core.CoreEvent],
+) -> Unit {
+  let mut wrote_any = false
+  for event in events {
+    if wrote_any {
+      out.write_char('\n')
+    }
+    out.write_string("- ")
+    out.write_string(event.text)
+    wrote_any = true
+  }
+}
+
+///|
+fn markdown_xml_generic_outline_event_stream(
+  events : Array[@core.CoreEvent],
+) -> Bool {
+  match events[0].source_ref {
+    Some(source_ref) =>
+      source_ref.format == Some("xml") &&
+      source_ref.extra.get("ir_event_encoding") == Some("generic_block")
+    None => false
+  }
+}
+
+///|
+fn write_markdown_xml_generic_outline_events_to(
+  out : StringBuilder,
+  events : Array[@core.CoreEvent],
+) -> Unit {
+  let stack : Array[(@core.BlockKind, Int)] = []
+  let mut wrote_any = false
+  let mut needs_heading_gap = false
+  for event in events {
+    match event.kind {
+      @core.EventKind::StartBlock(@core.BlockKind::Heading) => {
+        if wrote_any {
+          out.write_string("\n\n")
+        }
+        out.write_string("# ")
+        out.write_string(event.text.trim().to_owned())
+        wrote_any = true
+        needs_heading_gap = true
+        stack.push((@core.BlockKind::Heading, 0))
+      }
+      @core.EventKind::StartBlock(@core.BlockKind::List) => {
+        let child_depth = if stack.length() == 0 {
+          0
+        } else {
+          let parent = stack[stack.length() - 1]
+          match parent.0 {
+            @core.BlockKind::List => {
+              if wrote_any {
+                out.write_char('\n')
+                if needs_heading_gap {
+                  out.write_char('\n')
+                }
+              }
+              needs_heading_gap = false
+              out.write_string(repeat_char_string(' ', parent.1 * 2))
+              out.write_string("- ")
+              wrote_any = true
+              parent.1 + 1
+            }
+            @core.BlockKind::ListItem => parent.1 + 1
+            _ => 0
+          }
+        }
+        stack.push((@core.BlockKind::List, child_depth))
+      }
+      @core.EventKind::StartBlock(@core.BlockKind::ListItem) => {
+        let depth = if stack.length() > 0 {
+          let parent = stack[stack.length() - 1]
+          if parent.0 == @core.BlockKind::ListItem {
+            parent.1 + 1
+          } else {
+            parent.1
+          }
+        } else {
+          0
+        }
+        if wrote_any {
+          out.write_char('\n')
+          if needs_heading_gap {
+            out.write_char('\n')
+          }
+        }
+        needs_heading_gap = false
+        out.write_string(repeat_char_string(' ', depth * 2))
+        out.write_string("- ")
+        out.write_string(event.text.trim().to_owned())
+        wrote_any = true
+        stack.push((@core.BlockKind::ListItem, depth))
+      }
+      @core.EventKind::EndBlock(_) =>
+        if stack.length() > 0 {
+          ignore(stack.pop())
+        }
+      _ => ()
+    }
+  }
+}
+
+///|
+fn markdown_xml_outline_event_stream(events : Array[@core.CoreEvent]) -> Bool {
+  match events[0].source_ref {
+    Some(source_ref) =>
+      source_ref.extra.get("ir_event_encoding") == Some("xml_outline_v1")
+    None => false
+  }
+}
+
+///|
+fn write_markdown_xml_outline_events_to(
+  out : StringBuilder,
+  events : Array[@core.CoreEvent],
+) -> Unit {
+  let mut wrote_any = false
+  let mut needs_heading_gap = false
+  for event in events {
+    match event.kind {
+      @core.EventKind::StartBlock(@core.BlockKind::Heading) => {
+        if wrote_any {
+          out.write_string("\n\n")
+        }
+        out.write_string("# ")
+        out.write_string(event.text.trim().to_owned())
+        wrote_any = true
+        needs_heading_gap = true
+      }
+      @core.EventKind::StartBlock(@core.BlockKind::ListItem) => {
+        if wrote_any {
+          out.write_char('\n')
+          if needs_heading_gap {
+            out.write_char('\n')
+          }
+        }
+        needs_heading_gap = false
+        let depth = match event.source_ref {
+          Some(source_ref) =>
+            @string.parse_int(
+              source_ref.extra.get("xml_outline_depth").unwrap_or("0"),
+            ) catch {
+              _ => 0
+            }
+          None => 0
+        }
+        out.write_string(repeat_char_string(' ', depth * 2))
+        out.write_string("- ")
+        out.write_string(event.text.trim().to_owned())
+        wrote_any = true
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
+fn markdown_subtitle_event_stream(events : Array[@core.CoreEvent]) -> Bool {
+  match events[0].source_ref {
+    Some(source_ref) => {
+      let format = source_ref.format.unwrap_or("")
+      source_ref.extra.get("ir_event_family") == Some("subtitle") ||
+      format == "srt" ||
+      format == "vtt"
+    }
+    None => false
+  }
+}
+
+///|
+fn write_markdown_subtitle_events_to(
+  out : StringBuilder,
+  events : Array[@core.CoreEvent],
+) -> Unit {
+  let mut index = 0
+  let mut wrote_any = false
+  while index < events.length() {
+    let event = events[index]
+    match event.kind {
+      @core.EventKind::StartBlock(@core.BlockKind::Raw) => {
+        if wrote_any {
+          out.write_string("\n\n")
+        }
+        let info = match event.source_ref {
+          Some(source_ref) =>
+            source_ref.extra
+            .get("ir_block_attr_info")
+            .unwrap_or(source_ref.format.unwrap_or("text"))
+          None => "text"
+        }
+        let fence = safe_code_fence(event.text)
+        out.write_string(fence)
+        out.write_string(info)
+        out.write_char('\n')
+        out.write_string(event.text)
+        out.write_char('\n')
+        out.write_string(fence)
+        wrote_any = true
+        index += 1
+      }
+      @core.EventKind::StartBlock(@core.BlockKind::BlockQuote) => {
+        let compact_layout = match event.source_ref {
+          Some(source_ref) => {
+            let explicit = source_ref.extra
+              .get("subtitle_event_layout")
+              .unwrap_or("")
+            if explicit == "" &&
+              source_ref.format == Some("srt") &&
+              source_ref.extra.get("ir_event_encoding") is None {
+              "record_v2"
+            } else {
+              explicit
+            }
+          }
+          None => ""
+        }
+        if compact_layout == "record_v1" || compact_layout == "record_v2" {
+          if wrote_any {
+            out.write_string("\n\n")
+          }
+          let (heading, body) = if compact_layout == "record_v2" {
+            ("", "")
+          } else {
+            (
+              match event.source_ref {
+                Some(source_ref) =>
+                  source_ref.extra.get("ir_block_attr_time_range").unwrap_or("")
+                None => ""
+              },
+              event.text,
+            )
+          }
+          if compact_layout == "record_v2" {
+            write_markdown_subtitle_record_v2_to(
+              out,
+              event.text,
+              event.source_ref,
+            )
+          } else {
+            write_markdown_subtitle_cue_to(out, heading, body)
+          }
+          wrote_any = true
+          index += 1
+          continue
+        }
+        let mut depth = 1
+        let mut cursor = index + 1
+        let mut heading = ""
+        let mut paragraph = ""
+        while cursor < events.length() && depth > 0 {
+          match events[cursor].kind {
+            @core.EventKind::StartBlock(@core.BlockKind::BlockQuote) =>
+              depth += 1
+            @core.EventKind::EndBlock(@core.BlockKind::BlockQuote) => depth -= 1
+            @core.EventKind::StartBlock(@core.BlockKind::Heading) =>
+              if depth == 1 {
+                heading = events[cursor].text
+              }
+            @core.EventKind::StartBlock(@core.BlockKind::Paragraph) =>
+              if depth == 1 {
+                paragraph = events[cursor].text
+              }
+            _ => ()
+          }
+          cursor += 1
+        }
+        if wrote_any {
+          out.write_string("\n\n")
+        }
+        write_markdown_subtitle_cue_to(out, heading, paragraph)
+        wrote_any = true
+        index = cursor
+      }
+      _ => index += 1
+    }
+  }
+}
+
+///|
+fn write_markdown_subtitle_record_v2_to(
+  out : StringBuilder,
+  text : String,
+  source_ref : @core.SourceRef?,
+) -> Unit {
+  let mut first = true
+  for line in text.split("\n") {
+    if first {
+      out.write_string("> ######")
+      let heading = line.trim().to_owned()
+      if heading != "" {
+        out.write_char(' ')
+        match source_ref {
+          Some(value) =>
+            match value.extra.get("subtitle_identifier") {
+              Some(identifier) => {
+                out.write_char('[')
+                out.write_string(identifier)
+                out.write_string("] ")
+              }
+              None => ()
+            }
+          None => ()
+        }
+        out.write_string(heading)
+      } else {
+        out.write_char(' ')
+      }
+      out.write_string("\n> ")
+      first = false
+    } else {
+      out.write_char('\n')
+      out.write_string("> ")
+      out.write_string(escape_markdown_line_prefix(line.to_owned()))
+    }
+  }
+}
+
+///|
+fn markdown_subtitle_record_v2_parts(text : String) -> (String, String) {
+  let mut heading = ""
+  let body = StringBuilder::new()
+  let mut first = true
+  let mut wrote_body = false
+  for line in text.split("\n") {
+    if first {
+      heading = line.to_owned()
+      first = false
+    } else {
+      if wrote_body {
+        body.write_char('\n')
+      }
+      body.write_string(line.to_owned())
+      wrote_body = true
+    }
+  }
+  (heading, body.to_string())
+}
+
+///|
+fn write_markdown_subtitle_cue_to(
+  out : StringBuilder,
+  heading : String,
+  paragraph : String,
+) -> Unit {
+  out.write_string("> ######")
+  let trimmed_heading = heading.trim().to_owned()
+  if trimmed_heading != "" {
+    out.write_char(' ')
+    out.write_string(trimmed_heading)
+  } else {
+    out.write_char(' ')
+  }
+  out.write_string("\n> ")
+  for line_view in paragraph.split("\n") {
+    out.write_char('\n')
+    out.write_string("> ")
+    out.write_string(escape_markdown_line_prefix(line_view.to_owned()))
+  }
 }
 
 ///|

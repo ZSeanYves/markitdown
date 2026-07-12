@@ -101,6 +101,78 @@ fn lower_toml_document(
 }
 
 ///|
+fn append_toml_fast_array_table(
+  document : @core.DocumentIR,
+  fast : @dtoml.TomlFastArrayTable,
+  source : @input.InputSource,
+  compact : Bool,
+) -> Unit {
+  let start_line = Some(fast.line_start)
+  let end_line = Some(fast.line_end)
+  document.blocks.push(
+    toml_heading_block(
+      toml_display_path(fast.base_path),
+      toml_heading_level_for_path(fast.base_path),
+      toml_source_ref_from_path(source, fast.base_path, start_line, end_line),
+    ),
+  )
+  let rows : Array[Array[String]] = Array::new(capacity=fast.rows.length() + 1)
+  rows.push(fast.keys)
+  rows.append(fast.rows[:])
+  document.blocks.push(
+    if compact {
+      toml_compact_table_block_from_rows(
+        rows,
+        source,
+        fast.base_path,
+        start_line,
+        end_line,
+      )
+    } else {
+      toml_table_block_from_rows(
+        rows,
+        source,
+        fast.base_path,
+        start_line,
+        end_line,
+      )
+    },
+  )
+}
+
+///|
+fn toml_compact_table_block_from_rows(
+  rows : Array[Array[String]],
+  source : @input.InputSource,
+  path : String,
+  line_start : Int?,
+  line_end : Int?,
+) -> @core.CoreBlock {
+  let table_ref = toml_source_ref_from_path(source, path, line_start, line_end)
+  let table = @core.block_with_children(
+    @core.make_block(@core.BlockKind::Table, "table", source_ref=table_ref),
+    Array::new(capacity=rows.length()),
+  )
+  table.attrs.set("header_rows", "1")
+  table.attrs.set("toml_compact_table_v1", "true")
+  for row_index in 0..<rows.length() {
+    let row_ref = @core.source_ref_with_extra(
+      table_ref,
+      "toml_path",
+      @fshared.indexed_table_row_path(path, row_index),
+    )
+    let row = @core.make_block(
+      @core.BlockKind::TableRow,
+      rows[row_index].join(" | "),
+      source_ref=row_ref,
+    )
+    row.attrs.set("toml_compact_cells_v1", rows[row_index].join("\u{0000}"))
+    table.children.push(row)
+  }
+  table
+}
+
+///|
 fn lower_toml_members(
   entries : Array[@dtoml.TomlMember],
   source : @input.InputSource,
@@ -364,15 +436,22 @@ fn toml_table_block_from_rows(
   line_end : Int?,
 ) -> @core.CoreBlock {
   let table_ref = toml_source_ref_from_path(source, path, line_start, line_end)
+  let row_paths : Array[String] = Array::new(capacity=rows.length())
   @fshared.make_indexed_table_block(
     rows,
     table_ref,
     fn(row_index, row_values) {
       ignore(row_values)
-      toml_table_row_source_ref(table_ref, path, row_index)
+      let row_path = @fshared.indexed_table_row_path(path, row_index)
+      row_paths.push(row_path)
+      @core.source_ref_with_extra(table_ref, "toml_path", row_path)
     },
     fn(row_index, col_index) {
-      toml_table_cell_source_ref(table_ref, path, row_index, col_index)
+      @core.source_ref_with_extra(
+        table_ref,
+        "toml_path",
+        @fshared.indexed_table_cell_path(row_paths[row_index], col_index),
+      )
     },
   )
 }
@@ -416,36 +495,6 @@ fn toml_source_ref_from_path(
     line_end,
   )
   @core.source_ref_with_extra(base, "toml_path", path)
-}
-
-///|
-fn toml_table_row_source_ref(
-  table_ref : @core.SourceRef,
-  table_path : String,
-  row_index : Int,
-) -> @core.SourceRef {
-  @core.source_ref_with_extra(
-    table_ref,
-    "toml_path",
-    @fshared.indexed_table_row_path(table_path, row_index),
-  )
-}
-
-///|
-fn toml_table_cell_source_ref(
-  table_ref : @core.SourceRef,
-  table_path : String,
-  row_index : Int,
-  col_index : Int,
-) -> @core.SourceRef {
-  @core.source_ref_with_extra(
-    table_ref,
-    "toml_path",
-    @fshared.indexed_table_cell_path(
-      @fshared.indexed_table_row_path(table_path, row_index),
-      col_index,
-    ),
-  )
 }
 
 ///|
@@ -681,13 +730,11 @@ fn toml_member_row(
   entries : Array[@dtoml.TomlMember],
   keys : Array[String],
 ) -> Array[String] {
-  let entry_index : Map[String, Int] = Map([])
-  for i in 0..<entries.length() {
-    entry_index.set(entries[i].key, i)
+  let row : Array[String] = Array::new(capacity=keys.length())
+  for i in 0..<keys.length() {
+    row.push(toml_value_cell(entries[i].value))
   }
-  @fshared.projected_row_from_key_index(keys, entry_index, fn(index) {
-    toml_value_cell(entries[index].value)
-  })
+  row
 }
 
 ///|

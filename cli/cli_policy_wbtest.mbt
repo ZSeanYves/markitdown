@@ -203,18 +203,14 @@ test "main cli direct image OCR can succeed through injected provider" {
 }
 
 ///|
-test "main cli stream warning message stays stable for unsupported explicit stream fallback" {
-  assert_eq(
-    cli_explicit_stream_warning_message(@input.DetectedFormat::Toml),
-    "warning: explicit --stream is not productized for `toml` yet; falling back to the canonical route",
+test "main cli documents fail-closed unsupported mode policy" {
+  assert_true(
+    cli_usage_text().contains(
+      "`accurate` selects Accurate only for formats with a declared accurate route",
+    ),
   )
-}
-
-///|
-test "main cli accurate warning message stays stable for unsupported accurate fallback" {
-  assert_eq(
-    cli_accurate_fallback_warning_message(@input.DetectedFormat::Toml),
-    "warning: `--accurate` is not productized for `toml` yet; falling back to balanced mode",
+  assert_true(
+    cli_usage_text().contains("`stream` selects a declared streaming"),
   )
 }
 
@@ -251,8 +247,47 @@ test "main cli pdf debug json exposes header footer candidate diagnostics" {
     rendered.contains("\"pdf_header_footer_filter_policy\": \"disabled\""),
   )
   assert_true(
-    rendered.contains("\"pdf_table_reconstruction_policy\": \"disabled\""),
+    rendered.contains(
+      "\"pdf_table_reconstruction_policy\": \"internal_simple_rows_only\"",
+    ),
   )
   assert_true(!rendered.contains("\"pdf_v2\""))
   assert_true(!rendered.contains("\"pdf_debug\""))
+}
+
+///|
+test "main cli accurate pdf debug json preserves native route metrics without OCR invocation" {
+  let rendered = match
+    run_cli(
+      make_cli_options(
+        "samples/fixtures/contracts/pdf/text_simple.pdf",
+        None,
+        None,
+        Some(@input.DetectedFormat::Pdf),
+        @parser.default_ocr_options(),
+        @convert.FidelityMode::Accurate,
+        @convert.ConvertMode::Accurate,
+        @convert.output_mode_for_output_format(@convert.OutputFormat::DebugJson),
+        false,
+        @convert.OutputFormat::DebugJson,
+        rag_options=@rag.default_rag_options(),
+      ),
+    ) {
+    Ok(value) => value
+    Err(msg) => fail("accurate pdf debug json cli failed: " + msg)
+  }
+  assert_true(
+    rendered.contains("\"ocr_provider_status\": \"skipped_native_text_only\""),
+  )
+  assert_true(rendered.contains("\"pdf_ocr_used\": \"false\""))
+  assert_true(rendered.contains("\"pdf_native_backend\": \"true\""))
+  assert_true(
+    rendered.contains(
+      "\"pdf_table_reconstruction_policy\": \"internal_simple_rows_only\"",
+    ),
+  )
+  assert_true(
+    rendered.contains("\"pdf_table_reconstruction_table_count\": \"0\""),
+  )
+  assert_true(rendered.contains("\"pdf_page_route_summary\":"))
 }

@@ -4,6 +4,7 @@ pub fn parse_select_request(args : Array[String]) -> SelectRequest raise {
   let exact_tiers : Ref[Array[String]] = Ref([])
   let bench_ids : Ref[Array[String]] = Ref([])
   let format_filters : Ref[Array[String]] = Ref([])
+  let comparison_classes : Ref[Array[String]] = Ref([])
   let limit : Ref[Int?] = Ref(None)
   let output = Ref(SelectOutput::Jsonl)
   let stats_only = Ref(false)
@@ -29,6 +30,14 @@ pub fn parse_select_request(args : Array[String]) -> SelectRequest raise {
       "--format" => {
         ensure_next_arg(args, i.val, "--format")
         format_filters.val = parse_non_empty_csv(args[i.val + 1], "--format")
+        i.val += 2
+      }
+      "--comparison-class" => {
+        ensure_next_arg(args, i.val, "--comparison-class")
+        comparison_classes.val = parse_non_empty_csv(
+          args[i.val + 1],
+          "--comparison-class",
+        )
         i.val += 2
       }
       "--limit" => {
@@ -58,6 +67,7 @@ pub fn parse_select_request(args : Array[String]) -> SelectRequest raise {
     limit.val,
     output.val,
     stats_only.val,
+    comparison_classes=comparison_classes.val,
   )
 }
 
@@ -70,8 +80,18 @@ pub fn make_select_request(
   limit : Int?,
   output : SelectOutput,
   stats_only : Bool,
+  comparison_classes? : Array[String] = [],
 ) -> SelectRequest {
-  { tier, exact_tiers, bench_ids, format_filters, limit, output, stats_only }
+  {
+    tier,
+    exact_tiers,
+    bench_ids,
+    format_filters,
+    comparison_classes,
+    limit,
+    output,
+    stats_only,
+  }
 }
 
 ///|

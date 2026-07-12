@@ -132,25 +132,34 @@ test "yaml parser accepts single-document start and end markers" {
 }
 
 ///|
-test "yaml parser keeps multi-document stream markers unsupported" {
-  assert_true(
-    (try @yaml.parse_yaml_document("---\na: 1\n---\nb: 2\n") |> Ok catch {
-      e => Err(e)
-    })
-    is Err(_),
-  )
+test "yaml parser represents multi-document streams as a root sequence" {
+  let stream = @yaml.parse_yaml_document("---\na: 1\n---\nb: 2\n")
+  match stream.root {
+    Some(@yaml.YamlValue::Sequence(documents)) => {
+      assert_eq(documents.length(), 2)
+      match documents[0] {
+        @yaml.YamlValue::Mapping(members) => assert_eq(members[0].key, "a")
+        _ => fail("expected first mapping document")
+      }
+      match documents[1] {
+        @yaml.YamlValue::Mapping(members) => assert_eq(members[0].key, "b")
+        _ => fail("expected second mapping document")
+      }
+    }
+    _ => fail("expected multi-document root sequence")
+  }
   assert_true(
     (try @yaml.parse_yaml_document("a: 1\n...\nb: 2\n") |> Ok catch {
       e => Err(e)
     })
     is Err(_),
   )
-  assert_true(
-    (try @yaml.parse_yaml_document("a: 1\n---\nb: 2\n") |> Ok catch {
-      e => Err(e)
-    })
-    is Err(_),
-  )
+  let implicit_first = @yaml.parse_yaml_document("a: 1\n---\nb: 2\n")
+  match implicit_first.root {
+    Some(@yaml.YamlValue::Sequence(documents)) =>
+      assert_eq(documents.length(), 2)
+    _ => fail("expected implicit first document plus explicit second document")
+  }
 }
 
 ///|
@@ -249,7 +258,8 @@ test "yaml parser handles literal and folded block scalars" {
   match literal.root {
     Some(@yaml.YamlValue::Mapping(members)) =>
       match members[0].value {
-        @yaml.YamlValue::String(value) => assert_eq(value, "line one\nline two")
+        @yaml.YamlValue::String(value) =>
+          assert_eq(value, "line one\nline two\n")
         _ => fail("expected literal block scalar string")
       }
     _ => fail("expected mapping root for literal block scalar")
@@ -262,10 +272,162 @@ test "yaml parser handles literal and folded block scalars" {
     Some(@yaml.YamlValue::Mapping(members)) =>
       match members[0].value {
         @yaml.YamlValue::String(value) =>
-          assert_eq(value, "line one line two tail")
+          assert_eq(value, "line one line two tail\n")
         _ => fail("expected folded block scalar string")
       }
     _ => fail("expected mapping root for folded block scalar")
+  }
+}
+
+///|
+test "yaml block scalar chomping and explicit indentation follow YAML semantics" {
+  let parsed = @yaml.parse_yaml_document(
+    "clip: |\n  one\n\nstrip: |-\n  two\n\nkeep: |+\n  three\n  \n  \nfolded: >2-\n  alpha\n  beta\n",
+  )
+  match parsed.root {
+    Some(@yaml.YamlValue::Mapping(entries)) => {
+      match entries[0].value {
+        @yaml.YamlValue::String(value) => assert_eq(value, "one\n")
+        _ => fail("expected clipped literal scalar")
+      }
+      match entries[1].value {
+        @yaml.YamlValue::String(value) => assert_eq(value, "two")
+        _ => fail("expected stripped literal scalar")
+      }
+      match entries[2].value {
+        @yaml.YamlValue::String(value) => assert_eq(value, "three\n\n\n")
+        _ => fail("expected kept literal scalar")
+      }
+      match entries[3].value {
+        @yaml.YamlValue::String(value) => assert_eq(value, "alpha beta")
+        _ => fail("expected stripped folded scalar")
+      }
+    }
+    _ => fail("expected mapping root for block scalar chomping")
+  }
+}
+
+///|
+test "yaml parser supports safe core scalar tags and rejects custom tags" {
+  let document = @yaml.parse_yaml_document(
+    "text: !!str 001\nquoted: !!str \"true\"\ncount: !!int -12\nratio: !!float 3.5\nactive: !!bool true\nempty: !!null ~\n",
+  )
+  match document.root {
+    Some(@yaml.YamlValue::Mapping(members)) => {
+      assert_eq(members.length(), 6)
+      match members[0].value {
+        @yaml.YamlValue::String(value) => assert_eq(value, "001")
+        _ => fail("!!str must not implicitly coerce")
+      }
+      match members[1].value {
+        @yaml.YamlValue::String(value) => assert_eq(value, "true")
+        _ => fail("quoted !!str must stay text")
+      }
+      match members[2].value {
+        @yaml.YamlValue::Number(value) => assert_eq(value, "-12")
+        _ => fail("expected tagged integer")
+      }
+      assert_true(members[4].value is @yaml.YamlValue::Bool(true))
+      assert_true(members[5].value is @yaml.YamlValue::Null)
+    }
+    _ => fail("expected safe-tag mapping")
+  }
+  assert_true(
+    (try @yaml.parse_yaml_document("value: !unsafe payload\n") |> Ok catch {
+      _ => Err(())
+    })
+    is Err(_),
+  )
+  assert_true(
+    (try @yaml.parse_yaml_document("value: !!int 1.5\n") |> Ok catch {
+      _ => Err(())
+    })
+    is Err(_),
+  )
+}
+
+///|
+test "yaml parser resolves anchors aliases and merge keys with explicit override" {
+  let document = @yaml.parse_yaml_document(
+    "defaults: &defaults\n" +
+    "  adapter: postgres\n" +
+    "  host: localhost\n" +
+    "development:\n" +
+    "  <<: *defaults\n" +
+    "  host: dev.example\n" +
+    "copy: *defaults\n",
+  )
+  match document.root {
+    Some(@yaml.YamlValue::Mapping(root)) => {
+      assert_eq(root.length(), 3)
+      match root[1].value {
+        @yaml.YamlValue::Mapping(values) => {
+          assert_eq(values.length(), 2)
+          assert_eq(values[0].key, "adapter")
+          assert_eq(values[1].key, "host")
+          match values[1].value {
+            @yaml.YamlValue::String(value) => assert_eq(value, "dev.example")
+            _ => fail("expected explicit merge override")
+          }
+        }
+        _ => fail("expected merged development mapping")
+      }
+      match root[2].value {
+        @yaml.YamlValue::Mapping(values) => assert_eq(values.length(), 2)
+        _ => fail("expected mapping alias copy")
+      }
+    }
+    _ => fail("expected anchored root mapping")
+  }
+}
+
+///|
+test "yaml parser resolves inline sequence anchors and merge precedence" {
+  let document = @yaml.parse_yaml_document(
+    "first: &first {a: 1, shared: first}\n" +
+    "second: &second {b: 2, shared: second}\n" +
+    "combined:\n" +
+    "  <<: [*first, *second]\n" +
+    "items:\n" +
+    "  - &item\n" +
+    "    name: alpha\n" +
+    "alias: *item\n",
+  )
+  match document.root {
+    Some(@yaml.YamlValue::Mapping(root)) => {
+      match root[2].value {
+        @yaml.YamlValue::Mapping(values) => {
+          assert_eq(values.length(), 3)
+          assert_eq(values[0].key, "a")
+          assert_eq(values[1].key, "shared")
+          assert_eq(values[2].key, "b")
+          match values[1].value {
+            @yaml.YamlValue::String(value) => assert_eq(value, "first")
+            _ => fail("first merge mapping must take precedence")
+          }
+        }
+        _ => fail("expected merge-sequence mapping")
+      }
+      assert_true(root[4].value is @yaml.YamlValue::Mapping(_))
+    }
+    _ => fail("expected root mapping")
+  }
+}
+
+///|
+test "yaml aliases reject undefined forward duplicate and invalid references" {
+  for
+    text in [
+      "value: *missing\n", "copy: *later\nlater: &later value\n", "one: &same 1\ntwo: &same 2\n",
+      "value: *bad/name\n", "value:\n  <<: scalar\n",
+    ] {
+    assert_true(
+      (try @yaml.parse_yaml_document(text) |> Ok catch {
+        _ => Err(())
+      })
+      is Err(_),
+      msg="expected controlled YAML alias failure: " + text,
+    )
   }
 }
 

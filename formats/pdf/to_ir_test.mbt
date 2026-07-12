@@ -163,7 +163,7 @@ test "pdf native header footer candidate scan tolerates unicode punctuation" {
 }
 
 ///|
-test "pdf native unit bridge lowers paragraphs with source refs and metadata only links" {
+test "pdf native unit bridge lowers uri links into rich inlines and leaves unsupported links as metadata only" {
   let bbox1 = @dpdfnative.make_pdf_bbox(10.0, 20.0, 80.0, 12.0)
   let bbox2 = @dpdfnative.make_pdf_bbox(10.0, 40.0, 60.0, 12.0)
   let bbox3 = @dpdfnative.make_pdf_bbox(10.0, 60.0, 70.0, 12.0)
@@ -227,6 +227,11 @@ test "pdf native unit bridge lowers paragraphs with source refs and metadata onl
         annotation_index=Some(0),
         annotation_object_id=Some(42),
       ),
+      @dpdfnative.make_pdf_native_link_candidate(
+        bbox3,
+        "#bookmark-local",
+        text=Some("Second line"),
+      ),
     ],
     table_candidates=[
       @dpdfnative.make_pdf_native_table_candidate(bbox2, row_count=Some(2)),
@@ -261,6 +266,11 @@ test "pdf native unit bridge lowers paragraphs with source refs and metadata onl
   assert_true(first_ref.file_id == Some("synthetic.pdf"))
   assert_true(first_ref.page == Some(1))
   assert_true(first_ref.line_start == Some(7))
+  assert_true(document.blocks[0].rich_inlines is Some(_))
+  assert_true(
+    document.metadata.get("pdf_link_productized_count") ==
+    Some(@core.JsonValue::Number("1")),
+  )
   assert_true(
     document.diagnostics.degraded_features.contains(
       "pdf_link_candidates_metadata_only",
@@ -278,7 +288,7 @@ test "pdf native unit bridge lowers paragraphs with source refs and metadata onl
         @core.JsonValue::Object(payload) =>
           assert_true(
             payload.get("href") ==
-            Some(@core.JsonValue::String("https://example.com")),
+            Some(@core.JsonValue::String("#bookmark-local")),
           )
         _ => fail("expected link candidate object")
       }
@@ -593,4 +603,235 @@ test "pdf native unit bridge records conservative table candidates as metadata o
     }
     _ => fail("expected metadata-only table candidate array")
   }
+}
+
+///|
+test "pdf native unit bridge reconstructs moderate single-page tables with multiline cells" {
+  let header = @dpdfnative.make_pdf_native_text_line(
+    [
+      @dpdfnative.make_pdf_native_text_span(
+        "Name",
+        @dpdfnative.make_pdf_bbox(40.0, 620.0, 38.0, 12.0),
+      ),
+      @dpdfnative.make_pdf_native_text_span(
+        " Region",
+        @dpdfnative.make_pdf_bbox(150.0, 620.0, 52.0, 12.0),
+      ),
+      @dpdfnative.make_pdf_native_text_span(
+        " Status",
+        @dpdfnative.make_pdf_bbox(260.0, 620.0, 46.0, 12.0),
+      ),
+    ],
+    @dpdfnative.make_pdf_bbox(40.0, 620.0, 266.0, 12.0),
+    source_ref=Some(
+      pdf_test_source_ref(
+        "table-reconstruct.pdf",
+        1,
+        1,
+        pdf_test_core_bbox(40.0, 620.0, 306.0, 632.0),
+      ),
+    ),
+    reading_order_index=Some(1),
+  )
+  let row1_line1 = @dpdfnative.make_pdf_native_text_line(
+    [
+      @dpdfnative.make_pdf_native_text_span(
+        "Alpha",
+        @dpdfnative.make_pdf_bbox(40.0, 602.0, 40.0, 12.0),
+      ),
+      @dpdfnative.make_pdf_native_text_span(
+        " North\nAmerica",
+        @dpdfnative.make_pdf_bbox(150.0, 602.0, 60.0, 12.0),
+      ),
+      @dpdfnative.make_pdf_native_text_span(
+        " Open",
+        @dpdfnative.make_pdf_bbox(260.0, 602.0, 34.0, 12.0),
+      ),
+    ],
+    @dpdfnative.make_pdf_bbox(40.0, 602.0, 254.0, 12.0),
+    source_ref=Some(
+      pdf_test_source_ref(
+        "table-reconstruct.pdf",
+        1,
+        2,
+        pdf_test_core_bbox(40.0, 602.0, 294.0, 614.0),
+      ),
+    ),
+    reading_order_index=Some(2),
+  )
+  let row2 = @dpdfnative.make_pdf_native_text_line(
+    [
+      @dpdfnative.make_pdf_native_text_span(
+        "Beta",
+        @dpdfnative.make_pdf_bbox(43.0, 568.0, 32.0, 12.0),
+      ),
+      @dpdfnative.make_pdf_native_text_span(
+        " West",
+        @dpdfnative.make_pdf_bbox(148.0, 568.0, 32.0, 12.0),
+      ),
+      @dpdfnative.make_pdf_native_text_span(
+        " Closed",
+        @dpdfnative.make_pdf_bbox(264.0, 568.0, 44.0, 12.0),
+      ),
+    ],
+    @dpdfnative.make_pdf_bbox(43.0, 568.0, 265.0, 12.0),
+    source_ref=Some(
+      pdf_test_source_ref(
+        "table-reconstruct.pdf",
+        1,
+        3,
+        pdf_test_core_bbox(43.0, 568.0, 308.0, 580.0),
+      ),
+    ),
+    reading_order_index=Some(3),
+  )
+  let body = pdf_test_line(
+    "Narrative paragraph",
+    40.0,
+    520.0,
+    width=140.0,
+    file_id="table-reconstruct.pdf",
+    page=1,
+    line=4,
+    reading_order_index=Some(4),
+  )
+  let document = pdf_native_document_to_ir_with_policies(
+    @dpdfnative.make_pdf_native_document(pages=[
+      @dpdfnative.make_pdf_native_page(
+        @dpdfnative.make_pdf_page_geometry(1, 612.0, 792.0),
+        text_blocks=[
+          @dpdfnative.make_pdf_native_text_block(
+            [header],
+            @dpdfnative.make_pdf_bbox(40.0, 620.0, 266.0, 12.0),
+            reading_order_index=Some(1),
+          ),
+          @dpdfnative.make_pdf_native_text_block(
+            [row1_line1],
+            @dpdfnative.make_pdf_bbox(40.0, 602.0, 254.0, 12.0),
+            reading_order_index=Some(2),
+          ),
+          @dpdfnative.make_pdf_native_text_block(
+            [row2],
+            @dpdfnative.make_pdf_bbox(43.0, 568.0, 265.0, 12.0),
+            reading_order_index=Some(3),
+          ),
+          @dpdfnative.make_pdf_native_text_block(
+            [body],
+            @dpdfnative.make_pdf_bbox(40.0, 520.0, 140.0, 12.0),
+            reading_order_index=Some(4),
+          ),
+        ],
+      ),
+    ]),
+    @parser.PdfHeaderFooterFilterPolicy::Disabled,
+    @parser.PdfTableReconstructionPolicy::InternalSimpleRowsOnly,
+  )
+  assert_eq(document.blocks.length(), 2)
+  assert_true(document.blocks[0].kind == @core.BlockKind::Table)
+  assert_eq(document.blocks[0].children.length(), 3)
+  assert_eq(document.blocks[0].children[0].children[0].text, "Name")
+  assert_eq(document.blocks[0].children[1].children[1].text, "North\nAmerica")
+  assert_true(
+    document.blocks[0].children[1].children[1].rich_inlines is Some(_),
+  )
+  assert_eq(document.blocks[1].text, "Narrative paragraph")
+  assert_true(
+    document.diagnostics.metrics.get("pdf_table_reconstruction_table_count") ==
+    Some("1"),
+  )
+  assert_true(
+    !document.diagnostics.degraded_features.contains(
+      "pdf_table_candidates_not_lowered",
+    ),
+  )
+}
+
+///|
+test "pdf native block stream and IR preserve interactive document facts" {
+  let bbox = @dpdfnative.make_pdf_bbox(24.0, 700.0, 180.0, 14.0)
+  let destination = @dpdfnative.make_pdf_native_destination(
+    page_index=Some(0),
+    target_page_index=Some(0),
+    kind=Some("XYZ"),
+    raw_value=Some("page=1 top=700"),
+    name=Some("chapter-one"),
+    object_id=Some(71),
+  )
+  let page = @dpdfnative.make_pdf_native_page(
+    @dpdfnative.make_pdf_page_geometry(1, 612.0, 792.0),
+    text_blocks=[
+      @dpdfnative.make_pdf_native_text_block(
+        [pdf_test_line("Interactive PDF body", 24.0, 700.0)],
+        bbox,
+      ),
+    ],
+    annotations=[
+      @dpdfnative.make_pdf_native_annotation(
+        0,
+        "Text",
+        bbox=Some(bbox),
+        text=Some("Review this paragraph"),
+        title=Some("Reviewer"),
+        subject=Some("Comment"),
+        modified_at=Some("2026-07-10"),
+        destination=Some(destination),
+        annotation_index=Some(0),
+        object_id=Some(72),
+      ),
+    ],
+    destinations=[destination],
+  )
+  let document = @dpdfnative.make_pdf_native_document(
+    pages=[page],
+    form_fields=[
+      @dpdfnative.make_pdf_native_form_field(
+        page_index=Some(0),
+        field_type=Some("Ch"),
+        field_name=Some("status"),
+        alternate_name=Some("Status"),
+        value=Some("ready"),
+        default_value=Some("draft"),
+        options=["draft", "ready"],
+        bbox=Some(bbox),
+        object_id=Some(73),
+        widget_object_id=Some(74),
+        flags=Some(1),
+      ),
+    ],
+    outline_items=[
+      @dpdfnative.make_pdf_native_outline_item(
+        "Chapter One",
+        1,
+        0,
+        page_index=Some(0),
+        action_kind=Some("GoTo"),
+        target=Some("chapter-one"),
+        destination=Some(destination),
+        object_id=Some(75),
+      ),
+    ],
+    named_destinations=[destination],
+    metadata=Map([("producer", @core.JsonValue::String("synthetic"))]),
+  )
+  let (metadata, blocks, diagnostics) = pdf_native_document_to_blocks_with_policies(
+    document,
+    @parser.PdfHeaderFooterFilterPolicy::Disabled,
+  )
+  assert_true(
+    metadata.get("pdf_native_projection") ==
+    Some(@core.JsonValue::String("product_block_stream")),
+  )
+  assert_eq(blocks.length(), 1)
+  assert_true(
+    diagnostics.metrics.get("pdf_native_form_field_count") == Some("1"),
+  )
+  let ir = pdf_native_document_to_ir_with_policies(
+    document,
+    @parser.PdfHeaderFooterFilterPolicy::Disabled,
+    @parser.PdfTableReconstructionPolicy::Disabled,
+  )
+  assert_true(ir.metadata.contains("pdf_native_annotations"))
+  assert_true(ir.metadata.contains("pdf_native_form_fields"))
+  assert_true(ir.metadata.contains("pdf_native_outline_items"))
+  assert_true(ir.blocks.length() >= 2)
 }

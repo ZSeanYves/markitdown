@@ -21,8 +21,15 @@ pub fn prepare_html_document_from_source(
   let scanned = try tokenize_html_events(text_payload.text) |> Ok catch {
     e => Err(e.to_string())
   }
-  let document = try parse_html_document(text_payload.text) |> Ok catch {
-    e => Err(e.to_string())
+  // Inputs above the product DOM character limit are routed through the
+  // token-backed block stream. Avoid retaining an unused DOM beside events.
+  let document : Result[HtmlDocument, String] = if text_payload.text.length() >
+    256_000 {
+    Err("html DOM preparation skipped above the block-stream limit")
+  } else {
+    try parse_html_document(text_payload.text) |> Ok catch {
+      e => Err(e.to_string())
+    }
   }
   Ok({
     prepared_source: text_payload.prepared_source,

@@ -55,8 +55,13 @@ fn progress_disabled_by_env(name : String) -> Bool {
 }
 
 ///|
-fn bench_progress_state(total : Int) -> BenchProgressState {
-  { enabled: bench_progress_enabled(), total, completed: 0 }
+fn bench_progress_state(total : Int, mode : String) -> BenchProgressState {
+  {
+    enabled: mode == "json" || (mode == "auto" && bench_progress_enabled()),
+    mode,
+    total,
+    completed: 0,
+  }
 }
 
 ///|
@@ -150,10 +155,32 @@ fn bench_progress_update(
   if !state.enabled {
     return
   }
-  bench_write_stderr(
-    "\r" +
-    bench_progress_render_line(state.completed, state.total, status, label),
-  )
+  if state.mode == "json" {
+    bench_write_stderr(
+      bench_progress_json(state.completed, state.total, status, label) + "\n",
+    )
+  } else {
+    bench_write_stderr(
+      "\r" +
+      bench_progress_render_line(state.completed, state.total, status, label),
+    )
+  }
+}
+
+///|
+fn bench_progress_json(
+  completed : Int,
+  total : Int,
+  status : String,
+  label : String,
+) -> String {
+  Json::object({
+    "event": "bench_progress".to_json(),
+    "completed": completed.to_json(),
+    "total": total.to_json(),
+    "status": status.to_json(),
+    "label": label.to_json(),
+  }).stringify()
 }
 
 ///|
@@ -165,11 +192,17 @@ fn bench_progress_finish(
   if !state.enabled {
     return
   }
-  bench_write_stderr(
-    "\r" +
-    bench_progress_render_line(state.completed, state.total, status, label) +
-    "\n",
-  )
+  if state.mode == "json" {
+    bench_write_stderr(
+      bench_progress_json(state.completed, state.total, status, label) + "\n",
+    )
+  } else {
+    bench_write_stderr(
+      "\r" +
+      bench_progress_render_line(state.completed, state.total, status, label) +
+      "\n",
+    )
+  }
 }
 
 ///|
@@ -180,10 +213,16 @@ fn bench_progress_advance(
 ) -> BenchProgressState {
   let next = { ..state, completed: state.completed + 1 }
   if next.enabled {
-    bench_write_stderr(
-      "\r" +
-      bench_progress_render_line(next.completed, next.total, status, label),
-    )
+    if next.mode == "json" {
+      bench_write_stderr(
+        bench_progress_json(next.completed, next.total, status, label) + "\n",
+      )
+    } else {
+      bench_write_stderr(
+        "\r" +
+        bench_progress_render_line(next.completed, next.total, status, label),
+      )
+    }
   }
   next
 }
@@ -257,21 +296,39 @@ fn execute_run(
       }),
     )
   }
-  let samples : Array[SampleRow] = []
-  let progress = Ref(
-    bench_progress_state(bench_progress_total(scenarios, opts)),
+  let samples = match opts.resume_run_id {
+    Some(_) =>
+      match load_sample_rows(samples_jsonl_path(run_id), "sample") {
+        Ok(value) => value
+        Err(_) => []
+      }
+    None => []
+  }
+  let resumed_sample_count = samples.length()
+  let progress_total = bench_progress_total(scenarios, opts)
+  let initial_progress = bench_progress_state(
+    progress_total,
+    opts.progress_mode,
   )
+  let progress = Ref({
+    ..initial_progress,
+    completed: if samples.length() < progress_total {
+      samples.length()
+    } else {
+      progress_total
+    },
+  })
   for scenario in scenarios {
     let rows = select_rows(scenario, opts)
     let scenario_samples = match
-      run_samples(run_id, scenario, rows, opts, contract, progress) {
+      run_samples(run_id, scenario, rows, opts, contract, progress, samples) {
       Ok(value) => value
       Err(err) => {
         bench_progress_finish(progress.val, status="failed")
         return Err(err)
       }
     }
-    samples.append(scenario_samples)
+    ignore(scenario_samples)
   }
   bench_progress_finish(progress.val)
   write_jsonl(samples_jsonl_path(run_id), samples.map(item => item.to_json())) catch {
@@ -290,6 +347,14 @@ fn execute_run(
     contract,
     opts.preset,
     opts.baseline_run_id,
+    resource_summary=Some(benchmark_resource_summary(run_id, samples, opts)),
+    resume_summary=Some(
+      Json::object({
+        "requested": (opts.resume_run_id is Some(_)).to_json(),
+        "reused_samples": resumed_sample_count.to_json(),
+        "completed_samples": samples.length().to_json(),
+      }),
+    ),
   )
   write_summary_and_report(run_id, summary) catch {
     err =>
@@ -305,6 +370,35 @@ fn execute_run(
       "trust_status": summary.trust_status.to_json(),
     }),
   )
+}
+
+///|
+fn benchmark_resource_summary(
+  run_id : String,
+  samples : Array[SampleRow],
+  opts : RunOptions,
+) -> Json {
+  let mut peak_rss_kb = 0L
+  let mut timed_out_samples = 0
+  for sample in samples {
+    match sample.peak_rss_kb {
+      Some(value) if value > peak_rss_kb => peak_rss_kb = value
+      _ => ()
+    }
+    if sample.timed_out {
+      timed_out_samples += 1
+    }
+  }
+  let retained_disk_bytes = directory_size_bytes(run_root(run_id)) catch {
+    _ => 0L
+  }
+  Json::object({
+    "peak_rss_kb": peak_rss_kb.to_json(),
+    "timed_out_samples": timed_out_samples.to_json(),
+    "retained_disk_bytes": retained_disk_bytes.to_json(),
+    "max_disk_mb": opts.max_disk_mb.to_json(),
+    "keep_outputs": opts.keep_outputs.to_json(),
+  })
 }
 
 ///|
@@ -330,6 +424,7 @@ fn select_rows(
     opts.limit,
     @manifest.SelectOutput::Jsonl,
     false,
+    comparison_classes=scenario.comparison_classes,
   )
   @manifest.select_rows(request)
 }
@@ -342,6 +437,7 @@ fn run_samples(
   opts : RunOptions,
   contract : BinaryContract,
   progress : Ref[BenchProgressState],
+  all_samples : Array[SampleRow],
 ) -> Result[Array[SampleRow], BenchError] {
   let config = @tools.make_tool_registry_config(opts.markitdown_path)
   let out : Array[SampleRow] = []
@@ -350,29 +446,119 @@ fn run_samples(
       let tool = @tools.find_tool(tool_name, config~).unwrap_or_else(fn() {
         abort("missing tool registration: " + tool_name)
       })
-      if scenario.official_membership == "official-compare" &&
+      if scenario.official_membership == "official-external-compare" &&
         tool_name == "markitdown" &&
         !tool.is_available() {
         return Err(
           TrustFailure(
-            "official-compare requires markitdown baseline availability",
+            "official-external-compare requires markitdown baseline availability",
           ),
         )
       }
       if tool_name == "moonbit-engine" {
         out.append(
-          run_engine_samples(run_id, scenario, row, opts, contract, progress),
+          run_engine_samples(
+            run_id, scenario, row, opts, contract, progress, all_samples,
+          ),
         )
       } else {
         out.append(
           run_process_samples(
-            run_id, scenario, row, tool, opts, contract, progress,
+            run_id, scenario, row, tool, opts, contract, progress, all_samples,
+          ),
+        )
+      }
+      all_samples.append(out[:])
+      out.clear()
+      write_jsonl(
+        samples_jsonl_path(run_id),
+        all_samples.map(item => item.to_json()),
+      ) catch {
+        err =>
+          return Err(
+            RuntimeFailure("checkpoint samples failed: " + err.to_string()),
+          )
+      }
+      let disk_bytes = directory_size_bytes(run_root(run_id)) catch {
+        err =>
+          return Err(
+            RuntimeFailure(
+              "measure benchmark disk usage failed: " + err.to_string(),
+            ),
+          )
+      }
+      let disk_limit = opts.max_disk_mb.to_int64() * 1024L * 1024L
+      if disk_bytes > disk_limit {
+        return Err(
+          RuntimeFailure(
+            "benchmark disk budget exceeded: " +
+            disk_bytes.to_string() +
+            " > " +
+            disk_limit.to_string() +
+            " bytes",
           ),
         )
       }
     }
   }
   Ok(out)
+}
+
+///|
+fn sample_completed(
+  samples : Array[SampleRow],
+  scenario_id : String,
+  tool : String,
+  bench_id : String,
+  repeat_index : Int,
+  input_sha256 : String,
+  expected_measurement_policy : String,
+  runner_artifact_identity : String,
+) -> Bool {
+  samples.any(fn(sample) {
+    sample.scenario_id == scenario_id &&
+    sample.tool == tool &&
+    sample.bench_id == bench_id &&
+    sample.repeat_index == repeat_index &&
+    sample.input_sha256 == input_sha256 &&
+    sample.measurement_policy == expected_measurement_policy &&
+    sample.runner_artifact_identity == runner_artifact_identity
+  })
+}
+
+///|
+fn cleanup_bench_output(
+  path : String,
+  status : String,
+  policy : String,
+) -> Unit {
+  let keep = policy == "all" || (policy == "failures" && status != "ok")
+  if !keep {
+    if @fs.path_exists(path) {
+      @fs.remove_file(path) catch {
+        _ => ()
+      }
+    }
+    let assets_path = dirname(path) + "/assets"
+    remove_bench_output_tree(assets_path) catch {
+      _ => ()
+    }
+  }
+}
+
+///|
+fn remove_bench_output_tree(path : String) -> Unit raise @fs.IOError {
+  if !@fs.path_exists(path) {
+    return
+  }
+  if @fs.is_dir(path) {
+    for name in @fs.read_dir(path) {
+      remove_bench_output_tree(path + "/" + name)
+    }
+    @fs.remove_dir(path)
+  } else {
+    @fs.remove_file(path)
+  }
 }
 
 ///|
@@ -384,6 +570,7 @@ fn run_process_samples(
   opts : RunOptions,
   contract : BinaryContract,
   progress : Ref[BenchProgressState],
+  completed_samples : Array[SampleRow],
 ) -> Array[SampleRow] {
   let out : Array[SampleRow] = []
   let provenance_path = provenance_output_path(
@@ -442,10 +629,23 @@ fn run_process_samples(
         provenance_path,
       )
       ignore(native_measure_command(command, stdout_path, stderr_path))
+      cleanup_bench_output(warmup_path, "ok", "none")
       progress.val = bench_progress_advance(progress.val, label)
     }
   }
   for repeat_index in 0..<opts.repeat_count {
+    if sample_completed(
+        completed_samples,
+        scenario.scenario_id,
+        tool.name,
+        row.bench_id,
+        repeat_index,
+        row.sha256,
+        measurement_policy(opts),
+        contract.runner_path,
+      ) {
+      continue
+    }
     let label = bench_progress_label(
       scenario,
       tool.name,
@@ -483,7 +683,7 @@ fn run_process_samples(
       "failed"
     }
     progress.val = bench_progress_advance(progress.val, label, status~)
-    out.push({
+    let sample = {
       schema_version: 2,
       run_id,
       scenario_id: scenario.scenario_id,
@@ -508,6 +708,11 @@ fn run_process_samples(
       wall_us: measured.map(fn(m) { m.data.wall_us }),
       peak_rss_kb: measured.map(fn(m) { m.data.peak_rss_kb }),
       output_bytes: file_size_or_zero(output_path),
+      output_sha256: if status == "ok" {
+        file_sha256_or_none(output_path)
+      } else {
+        None
+      },
       error: tool.availability_note,
       route_provenance: if tool.name == "moonbit-cli" {
         read_json_or_default(
@@ -523,7 +728,11 @@ fn run_process_samples(
       } else {
         None
       },
-    })
+    }
+    out.push(sample)
+    cleanup_bench_output(output_path, sample.status, opts.keep_outputs)
+    cleanup_bench_output(stdout_path, sample.status, opts.keep_outputs)
+    cleanup_bench_output(stderr_path, sample.status, opts.keep_outputs)
   }
   out
 }
@@ -536,6 +745,7 @@ fn run_engine_samples(
   opts : RunOptions,
   contract : BinaryContract,
   progress : Ref[BenchProgressState],
+  completed_samples : Array[SampleRow],
 ) -> Array[SampleRow] {
   let out : Array[SampleRow] = []
   let source = @input.input_from_path(row.input_path)
@@ -544,6 +754,18 @@ fn run_engine_samples(
     ignore(@convert.convert_input_with_provenance(source, options))
   }
   for repeat_index in 0..<opts.repeat_count {
+    if sample_completed(
+        completed_samples,
+        scenario.scenario_id,
+        "moonbit-engine",
+        row.bench_id,
+        repeat_index,
+        row.sha256,
+        measurement_policy(opts),
+        contract.runner_path,
+      ) {
+      continue
+    }
     let label = bench_progress_label(
       scenario,
       "moonbit-engine",
@@ -584,10 +806,13 @@ fn run_engine_samples(
           wall_us: Some(wall_us),
           peak_rss_kb: None,
           output_bytes: @utf8.encode(value.result.content).length().to_int64(),
-          error: None,
-          route_provenance: @convert.convert_provenance_to_json(
-            value.provenance,
+          output_sha256: Some(
+            @crypto.bytes_to_hex_string(
+              @crypto.sha256(@utf8.encode(value.result.content)),
+            ),
           ),
+          error: None,
+          route_provenance: bench_provenance_with_stage_timings(value),
           runner_artifact_identity: contract.runner_path,
           cli_artifact_path: None,
         })
@@ -623,6 +848,7 @@ fn run_engine_samples(
           wall_us: Some(wall_us),
           peak_rss_kb: None,
           output_bytes: 0L,
+          output_sha256: None,
           error: Some(err.to_string()),
           route_provenance: Json::object({ "missing": true.to_json() }),
           runner_artifact_identity: contract.runner_path,
@@ -632,6 +858,40 @@ fn run_engine_samples(
     }
   }
   out
+}
+
+///|
+fn file_sha256_or_none(path : String) -> String? {
+  let bytes = @fs.read_file_to_bytes(path) catch { _ => return None }
+  Some(@crypto.bytes_to_hex_string(@crypto.sha256(bytes)))
+}
+
+///|
+fn bench_provenance_with_stage_timings(
+  execution : @convert.ConvertExecution,
+) -> Json {
+  let provenance = @convert.convert_provenance_to_json(execution.provenance)
+  match provenance {
+    Json::Object(fields) => {
+      let timings : Map[String, Json] = {}
+      for
+        entry in [
+          ("detect_probe", "timing_detect_probe_ms"),
+          ("parse_lower", "timing_parse_lower_ms"),
+          ("pipeline", "timing_pipeline_ms"),
+          ("render", "timing_render_ms"),
+          ("total", "timing_total_ms"),
+        ] {
+        match execution.result.diagnostics.metrics.get(entry.1) {
+          Some(value) => timings.set(entry.0, value.to_json())
+          None => ()
+        }
+      }
+      fields.set("stage_timings_ms", Json::object(timings))
+      provenance
+    }
+    _ => provenance
+  }
 }
 
 ///|

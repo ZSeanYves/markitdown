@@ -429,3 +429,29 @@ test "ooxml relationship cache preserves missing rid behavior" {
   assert_eq(relationships_miss_count, 1)
   assert_eq(by_id_miss_count, 1)
 }
+
+///|
+test "ooxml transient chunk visitor preserves bytes without populating cache" {
+  let pkg = cache_test_open_package()
+  let collected = Buffer()
+  let result = visit_part_inflated_chunks(
+    pkg,
+    "word/document.xml",
+    chunk_size=7,
+    fn(chunk) {
+      collected.write_bytes(chunk)
+      Ok(())
+    },
+  )
+  match result {
+    Err(err) => fail("chunk visit failed: " + err)
+    Ok(_) => ()
+  }
+  let expected = read_part_bytes_transient(pkg, "word/document.xml") catch {
+    err => fail("transient comparison read failed: " + err.to_string())
+  }
+  assert_eq(collected.to_bytes(), expected)
+  let (_, _, _, _, bytes_entries, text_entries) = cache_test_part_stats(pkg)
+  assert_eq(bytes_entries, 0)
+  assert_eq(text_entries, 0)
+}

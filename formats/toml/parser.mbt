@@ -90,6 +90,7 @@ pub fn toml_parse_with_preparsed_document(
   text : String,
   doc : @dtoml.TomlDocument,
   inspect : @dtoml.TomlInspectReport,
+  fast_array_table? : @dtoml.TomlFastArrayTable? = None,
 ) -> @parser.ParseResult {
   let diagnostics = @fshared.empty_parser_diagnostics(
     "toml_parser",
@@ -111,6 +112,16 @@ pub fn toml_parse_with_preparsed_document(
   )
   @fshared.apply_product_metrics(diagnostics, "toml")
   let document = lower_toml_document(doc, source)
+  match fast_array_table {
+    Some(fast) =>
+      append_toml_fast_array_table(
+        document,
+        fast,
+        source,
+        context.output_mode == @product.OutputMode::Markdown,
+      )
+    None => ()
+  }
   fill_toml_metrics(diagnostics, inspect, text, document)
   @fshared.mark_structured_document_profile(diagnostics)
   diagnostics.pass_trace.push("parse:toml_parser")
@@ -138,6 +149,7 @@ pub fn toml_parse_with_prepared_document(
         prepared.original_text,
         doc,
         prepared.inspect.unwrap_or(@dtoml.inspect_toml_document(doc)),
+        fast_array_table=prepared.fast_array_table,
       )
       parsed.diagnostics.metrics.set("probe_artifact_reused", "true")
       parsed

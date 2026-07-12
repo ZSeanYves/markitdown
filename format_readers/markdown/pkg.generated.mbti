@@ -12,6 +12,8 @@ pub fn inspect_markdown_document(MarkdownDocument) -> MarkdownInspectReport
 
 pub fn prepare_markdown_document_from_source(@input.InputSource) -> Result[PreparedMarkdownDocument, String]
 
+pub fn prepare_markdown_document_from_text(@input.InputSource, String) -> PreparedMarkdownDocument
+
 pub fn profile_markdown_document(String) -> MarkdownProfiledDocument
 
 pub fn scan_markdown_document(String) -> MarkdownDocument

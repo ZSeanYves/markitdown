@@ -7,6 +7,7 @@
   },
   "tool_matrix": {
     "official-internal": ["moonbit-cli", "moonbit-engine"],
+    "official-self-baseline": ["moonbit-cli", "moonbit-engine"],
     "official-compare": ["moonbit-cli", "moonbit-engine", "markitdown"],
     "doctor": ["moonbit-cli", "moonbit-engine", "markitdown"]
   },
@@ -39,14 +40,28 @@
         "diagnostic.ocr"
       ],
       "tiers": ["regular", "release", "stress"],
-      "repeat_count": 3,
+      "repeat_count": 5,
       "warmup_count": 1,
       "timeout_ms": 60000
     },
     "official-compare": {
-      "scenario_ids": ["compare.official_compare"],
+      "scenario_ids": ["compare.official_external_compare"],
       "tiers": ["regular", "release", "stress"],
-      "repeat_count": 3,
+      "repeat_count": 5,
+      "warmup_count": 1,
+      "timeout_ms": 60000
+    },
+    "official-external-compare": {
+      "scenario_ids": ["compare.official_external_compare"],
+      "tiers": ["regular", "release", "stress"],
+      "repeat_count": 5,
+      "warmup_count": 1,
+      "timeout_ms": 60000
+    },
+    "official-self-baseline": {
+      "scenario_ids": ["product.official_self_baseline"],
+      "tiers": ["regular", "release", "stress"],
+      "repeat_count": 5,
       "warmup_count": 1,
       "timeout_ms": 60000
     },
@@ -71,15 +86,28 @@
       "official_membership": "official-internal"
     },
     {
-      "scenario_id": "compare.official_compare",
+      "scenario_id": "compare.official_external_compare",
       "scenario_kind": "compare",
       "tool_set": "official-compare",
       "row_selector": {
-        "tiers": ["regular", "release", "stress"]
+        "tiers": ["regular", "release", "stress"],
+        "comparison_classes": ["external_compare"]
       },
       "route_expectation": "product_default",
       "measurement_policy": "runner_generated",
-      "official_membership": "official-compare"
+      "official_membership": "official-external-compare"
+    },
+    {
+      "scenario_id": "product.official_self_baseline",
+      "scenario_kind": "product",
+      "tool_set": "official-self-baseline",
+      "row_selector": {
+        "tiers": ["regular", "release", "stress"],
+        "comparison_classes": ["self_baseline"]
+      },
+      "route_expectation": "product_default",
+      "measurement_policy": "runner_generated",
+      "official_membership": "official-self-baseline"
     },
     {
       "scenario_id": "doctor.binary_contract",
@@ -417,9 +445,6 @@
       "route_expectation": "block_streaming"
     },
     "ocr_medium_self_multi_column_v1": {
-      "route_expectation": "layout_two_stage"
-    },
-    "ocr_large_commons_typewriter_photo_v1": {
       "route_expectation": "layout_two_stage"
     },
     "ocr_huge_commons_menu_scene_text_v1": {

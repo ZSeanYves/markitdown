@@ -1,0 +1,193 @@
+{
+  "platforms": {
+    "linux-x86_64-ubuntu-noble": {
+      "manager": "apt"
+    },
+    "darwin-arm64-sequoia": {
+      "manager": "brew"
+    },
+    "darwin-arm64-sonoma": {
+      "manager": "brew"
+    },
+    "darwin-arm64-tahoe": {
+      "manager": "brew"
+    },
+    "darwin-x86_64-sonoma": {
+      "manager": "brew"
+    }
+  },
+  "tools": {
+    "ffmpeg": {
+      "linux-x86_64-ubuntu-noble": {
+        "packages": [
+          "ffmpeg"
+        ],
+        "command": "ffmpeg",
+        "version": "7:6.1.1-3ubuntu5",
+        "version_fragment": "ffmpeg version 6.1.1-3ubuntu5",
+        "version_args": [
+          "--version"
+        ]
+      },
+      "darwin-arm64-sequoia": {
+        "packages": [
+          "ffmpeg"
+        ],
+        "command": "ffmpeg",
+        "version": "8.1.2",
+        "version_fragment": "ffmpeg version 8.1.2",
+        "version_args": [
+          "--version"
+        ]
+      },
+      "darwin-arm64-sonoma": {
+        "packages": [
+          "ffmpeg"
+        ],
+        "command": "ffmpeg",
+        "version": "8.1.2",
+        "version_fragment": "ffmpeg version 8.1.2",
+        "version_args": [
+          "--version"
+        ]
+      },
+      "darwin-arm64-tahoe": {
+        "packages": [
+          "ffmpeg"
+        ],
+        "command": "ffmpeg",
+        "version": "8.1.2",
+        "version_fragment": "ffmpeg version 8.1.2",
+        "version_args": [
+          "--version"
+        ]
+      },
+      "darwin-x86_64-sonoma": {
+        "packages": [
+          "ffmpeg"
+        ],
+        "command": "ffmpeg",
+        "version": "8.1.2",
+        "version_fragment": "ffmpeg version 8.1.2",
+        "version_args": [
+          "--version"
+        ]
+      }
+    },
+    "tesseract": {
+      "linux-x86_64-ubuntu-noble": {
+        "packages": [
+          "tesseract-ocr",
+          "tesseract-ocr-eng"
+        ],
+        "command": "tesseract",
+        "version": "5.3.4-1build5",
+        "version_fragment": "tesseract 5.3.4",
+        "version_args": [
+          "--version"
+        ]
+      },
+      "darwin-arm64-sequoia": {
+        "packages": [
+          "tesseract"
+        ],
+        "command": "tesseract",
+        "version": "5.5.2",
+        "version_fragment": "tesseract 5.5.2",
+        "version_args": [
+          "--version"
+        ]
+      },
+      "darwin-arm64-sonoma": {
+        "packages": [
+          "tesseract"
+        ],
+        "command": "tesseract",
+        "version": "5.5.2",
+        "version_fragment": "tesseract 5.5.2",
+        "version_args": [
+          "--version"
+        ]
+      },
+      "darwin-arm64-tahoe": {
+        "packages": [
+          "tesseract"
+        ],
+        "command": "tesseract",
+        "version": "5.5.2",
+        "version_fragment": "tesseract 5.5.2",
+        "version_args": [
+          "--version"
+        ]
+      },
+      "darwin-x86_64-sonoma": {
+        "packages": [
+          "tesseract"
+        ],
+        "command": "tesseract",
+        "version": "5.5.2",
+        "version_fragment": "tesseract 5.5.2",
+        "version_args": [
+          "--version"
+        ]
+      }
+    },
+    "pdftoppm": {
+      "linux-x86_64-ubuntu-noble": {
+        "packages": [
+          "poppler-utils"
+        ],
+        "command": "pdftoppm",
+        "version": "24.02.0-1ubuntu9.9",
+        "version_fragment": "pdftoppm version 24.02.0",
+        "version_args": [
+          "-v"
+        ]
+      },
+      "darwin-arm64-sequoia": {
+        "packages": [
+          "poppler"
+        ],
+        "command": "pdftoppm",
+        "version": "26.07.0",
+        "version_fragment": "pdftoppm version 26.07.0",
+        "version_args": [
+          "-v"
+        ]
+      },
+      "darwin-arm64-sonoma": {
+        "packages": [
+          "poppler"
+        ],
+        "command": "pdftoppm",
+        "version": "26.07.0",
+        "version_fragment": "pdftoppm version 26.07.0",
+        "version_args": [
+          "-v"
+        ]
+      },
+      "darwin-arm64-tahoe": {
+        "packages": [
+          "poppler"
+        ],
+        "command": "pdftoppm",
+        "version": "26.07.0",
+        "version_fragment": "pdftoppm version 26.07.0",
+        "version_args": [
+          "-v"
+        ]
+      },
+      "darwin-x86_64-sonoma": {
+        "packages": [
+          "poppler"
+        ],
+        "command": "pdftoppm",
+        "version": "26.07.0",
+        "version_fragment": "pdftoppm version 26.07.0",
+        "version_args": [
+          "-v"
+        ]
+      }
+    }
+  }
+}

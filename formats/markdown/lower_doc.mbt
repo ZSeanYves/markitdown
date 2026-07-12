@@ -1267,6 +1267,14 @@ fn markdown_parse_rich_inlines(
           let path = text[path_start + 1:path_end].to_owned()
           let normalized = markdown_image_output_path(path, image_asset_index)
           let inline = @core.make_inline_image(alt, normalized.0, source_ref~)
+          inline.attrs.set("asset_id", normalized.1)
+          match normalized.2 {
+            Some(source_path) => inline.attrs.set("source_path", source_path)
+            None => ()
+          }
+          if markdown_remote_href(path) {
+            inline.attrs.set("remote", "true")
+          }
           out.push(inline)
           cursor = path_end + 1
           i = cursor

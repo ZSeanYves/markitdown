@@ -61,6 +61,8 @@ pub fn resolve_relationship(OoxmlPackage, String, String) -> String raise OoxmlE
 
 pub fn validate_ooxml_package(OoxmlPackage, mode? : OoxmlValidationMode) -> OoxmlValidationReport
 
+pub fn visit_part_inflated_chunks(OoxmlPackage, String, chunk_size? : Int, (Bytes) -> Result[Unit, String]) -> Result[Unit, String]
+
 // Errors
 pub(all) suberror OoxmlError {
   ZipError(String)

@@ -41,6 +41,8 @@ fn regenerate_report(
     contract,
     previous.preset,
     baseline,
+    resource_summary=previous.resource_summary,
+    resume_summary=previous.resume_summary,
   )
   write_summary_and_report(run_id, next) catch {
     err =>
@@ -110,6 +112,16 @@ fn render_markdown_report(summary : RunSummary) -> String {
     )
   }
   lines.push("")
+  lines.push("## Performance Gate")
+  match summary.gate_summary {
+    Json::Object(gate) =>
+      match gate.get("performance") {
+        Some(performance) => lines.push("- `" + performance.stringify() + "`")
+        None => lines.push("- `not_available`")
+      }
+    _ => lines.push("- `not_available`")
+  }
+  lines.push("")
   lines.push("## Route Coverage")
   lines.push(
     "- covered_cases=`" +
@@ -157,6 +169,22 @@ fn render_markdown_report(summary : RunSummary) -> String {
       row.status +
       "`",
     )
+  }
+  match summary.resource_summary {
+    Some(resource) => {
+      lines.push("")
+      lines.push("## Resources")
+      lines.push("- `" + resource.stringify() + "`")
+    }
+    None => ()
+  }
+  match summary.resume_summary {
+    Some(resume_info) => {
+      lines.push("")
+      lines.push("## Resume")
+      lines.push("- `" + resume_info.stringify() + "`")
+    }
+    None => ()
   }
   lines.join("\n") + "\n"
 }
@@ -396,7 +424,11 @@ fn parse_report_run_id(args : Array[String]) -> String raise {
   while i.val < args.length() {
     if args[i.val] == "--run" {
       ensure_next_arg(args, i.val, "--run")
-      return args[i.val + 1].trim().to_owned()
+      let run_id = args[i.val + 1].trim().to_owned()
+      if run_id == "" {
+        raise InvalidArgument("empty value is not allowed for --run")
+      }
+      return run_id
     }
     i.val += 1
   }

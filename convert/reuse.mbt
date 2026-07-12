@@ -22,6 +22,22 @@ fn parse_with_route_probe_artifact(
         } else {
           None
         }
+      RouteProbeArtifact::MarkdownLargeLiteral(
+        prepared_source,
+        text,
+        line_count
+      ) =>
+        if format == @input.DetectedFormat::Markdown {
+          Some(
+            Ok(
+              @fmarkdown.markdown_parse_large_literal(
+                prepared_source, context, text, line_count,
+              ),
+            ),
+          )
+        } else {
+          None
+        }
       RouteProbeArtifact::HtmlPrepared(prepared) =>
         if format == @input.DetectedFormat::Html {
           match prepared.events {
@@ -277,8 +293,8 @@ fn parse_with_route_probe_artifact(
       RouteProbeArtifact::YamlPrepared(prepared) =>
         if format == @input.DetectedFormat::Yaml &&
           context.requested_mode == Some(@parser.ParserMode::StreamingEvent) {
-          match prepared.events {
-            Some(_) =>
+          match (prepared.events, prepared.compact_sequence) {
+            (Some(_), _) | (_, Some(_)) =>
               Some(
                 Ok(
                   @fyaml.yaml_parse_with_prepared_document(
@@ -288,7 +304,7 @@ fn parse_with_route_probe_artifact(
                   ),
                 ),
               )
-            None => None
+            _ => None
           }
         } else {
           None

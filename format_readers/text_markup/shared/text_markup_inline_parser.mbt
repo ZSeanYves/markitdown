@@ -26,6 +26,19 @@ fn parse_rst_inlines(text : String) -> Array[TextMarkupInline] {
       }
       None => ()
     }
+    match rst_consume_note_reference(chars, i) {
+      Some((label, next)) => {
+        flush_inline_text_chars(out, buffer)
+        out.push({
+          kind: TextMarkupInlineKind::Link,
+          text: "[" + label + "]",
+          href: Some("#" + label),
+        })
+        i = next
+        continue
+      }
+      None => ()
+    }
     if chars[i] == '`' {
       match rst_consume_named_link(chars, i) {
         Some((label, href, next)) => {
@@ -90,6 +103,28 @@ fn parse_asciidoc_inlines(text : String) -> Array[TextMarkupInline] {
       }
       None => ()
     }
+    match asciidoc_consume_xref(chars, i) {
+      Some((label, href, next)) => {
+        flush_inline_text_chars(out, buffer)
+        out.push({
+          kind: TextMarkupInlineKind::Link,
+          text: label,
+          href: Some(href),
+        })
+        i = next
+        continue
+      }
+      None => ()
+    }
+    match consume_command_argument(chars, i, "footnote:[", ']') {
+      Some((body, next)) => {
+        flush_inline_text_chars(out, buffer)
+        out.push({ kind: TextMarkupInlineKind::Text, text: body, href: None })
+        i = next
+        continue
+      }
+      None => ()
+    }
     buffer.push(chars[i])
     i += 1
   }
@@ -121,6 +156,28 @@ fn parse_tex_inlines(text : String) -> Array[TextMarkupInline] {
       Some((body, next)) => {
         flush_inline_text_chars(out, buffer)
         out.push({ kind: TextMarkupInlineKind::Code, text: body, href: None })
+        i = next
+        continue
+      }
+      None => ()
+    }
+    match tex_consume_reference(chars, i) {
+      Some((label, href, next)) => {
+        flush_inline_text_chars(out, buffer)
+        out.push({
+          kind: TextMarkupInlineKind::Link,
+          text: label,
+          href: Some(href),
+        })
+        i = next
+        continue
+      }
+      None => ()
+    }
+    match consume_command_argument(chars, i, "\\footnote{", '}') {
+      Some((body, next)) => {
+        flush_inline_text_chars(out, buffer)
+        out.push({ kind: TextMarkupInlineKind::Text, text: body, href: None })
         i = next
         continue
       }
@@ -235,6 +292,26 @@ fn rst_consume_literal(chars : Array[Char], start : Int) -> (String, Int)? {
 }
 
 ///|
+fn rst_consume_note_reference(
+  chars : Array[Char],
+  start : Int,
+) -> (String, Int)? {
+  if start >= chars.length() || chars[start] != '[' {
+    return None
+  }
+  let label : Array[Char] = []
+  let mut i = start + 1
+  while i < chars.length() && chars[i] != ']' {
+    label.push(chars[i])
+    i += 1
+  }
+  if label.length() == 0 || i + 1 >= chars.length() || chars[i + 1] != '_' {
+    return None
+  }
+  Some((String::from_array(label), i + 2))
+}
+
+///|
 fn asciidoc_consume_link(
   chars : Array[Char],
   start : Int,
@@ -261,6 +338,86 @@ fn asciidoc_consume_link(
     return None
   }
   Some((String::from_array(label), String::from_array(href), i + 1))
+}
+
+///|
+fn asciidoc_consume_xref(
+  chars : Array[Char],
+  start : Int,
+) -> (String, String, Int)? {
+  let prefix = if chars_match_literal(chars, start, "xref:") {
+    "xref:"
+  } else if chars_match_literal(chars, start, "<<") {
+    "<<"
+  } else {
+    return None
+  }
+  if prefix == "xref:" {
+    let mut i = start + prefix.length()
+    let target : Array[Char] = []
+    while i < chars.length() && chars[i] != '[' {
+      target.push(chars[i])
+      i += 1
+    }
+    if i >= chars.length() || chars[i] != '[' {
+      return None
+    }
+    let label : Array[Char] = []
+    i += 1
+    while i < chars.length() && chars[i] != ']' {
+      label.push(chars[i])
+      i += 1
+    }
+    if i >= chars.length() {
+      return None
+    }
+    let target_text = String::from_array(target)
+    let label_text = String::from_array(label)
+    return Some(
+      (
+        if label_text == "" {
+          target_text
+        } else {
+          label_text
+        },
+        "#" + target_text,
+        i + 1,
+      ),
+    )
+  }
+  let mut i = start + 2
+  let target : Array[Char] = []
+  let label : Array[Char] = []
+  let mut reading_label = false
+  while i + 1 < chars.length() {
+    if chars[i] == '>' && chars[i + 1] == '>' {
+      let target_text = String::from_array(target).trim().to_owned()
+      let label_text = String::from_array(label).trim().to_owned()
+      if target_text == "" {
+        return None
+      }
+      return Some(
+        (
+          if label_text == "" {
+            target_text
+          } else {
+            label_text
+          },
+          "#" + target_text,
+          i + 2,
+        ),
+      )
+    }
+    if chars[i] == ',' && !reading_label {
+      reading_label = true
+    } else if reading_label {
+      label.push(chars[i])
+    } else {
+      target.push(chars[i])
+    }
+    i += 1
+  }
+  None
 }
 
 ///|
@@ -301,6 +458,46 @@ fn tex_consume_inline_code(chars : Array[Char], start : Int) -> (String, Int)? {
     i += 1
   }
   if i >= chars.length() || chars[i] != '}' {
+    return None
+  }
+  Some((String::from_array(body), i + 1))
+}
+
+///|
+fn tex_consume_reference(
+  chars : Array[Char],
+  start : Int,
+) -> (String, String, Int)? {
+  for command in ["\\url{", "\\ref{", "\\pageref{", "\\cite{"] {
+    match consume_command_argument(chars, start, command, '}') {
+      Some((body, next)) => {
+        let label = if command == "\\cite{" { "[" + body + "]" } else { body }
+        let href = if command == "\\url{" { body } else { "#" + body }
+        return Some((label, href, next))
+      }
+      None => ()
+    }
+  }
+  None
+}
+
+///|
+fn consume_command_argument(
+  chars : Array[Char],
+  start : Int,
+  prefix : String,
+  close : Char,
+) -> (String, Int)? {
+  if !chars_match_literal(chars, start, prefix) {
+    return None
+  }
+  let mut i = start + prefix.length()
+  let body : Array[Char] = []
+  while i < chars.length() && chars[i] != close {
+    body.push(chars[i])
+    i += 1
+  }
+  if i >= chars.length() {
     return None
   }
   Some((String::from_array(body), i + 1))

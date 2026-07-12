@@ -216,12 +216,22 @@ pub fn make_block_id(
   text : String,
   source_ref? : SourceRef? = None,
 ) -> BlockId {
+  finish_block_id(make_block_content_crc(kind, text), source_ref)
+}
+
+///|
+pub fn make_block_content_crc(kind : BlockKind, text : String) -> UInt {
   let mut crc = crc32_init()
   crc = crc32_append_string(crc, block_kind_name(kind))
   crc = crc32_append_separator(crc)
   crc = crc32_append_string(crc, text)
   crc = crc32_append_separator(crc)
-  crc = crc32_append_source_ref_signature(crc, source_ref)
+  crc
+}
+
+///|
+pub fn finish_block_id(content_crc : UInt, source_ref : SourceRef?) -> BlockId {
+  let crc = crc32_append_source_ref_signature(content_crc, source_ref)
   "b_" + crc32_finish(crc).to_string()
 }
 

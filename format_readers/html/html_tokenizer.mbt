@@ -500,7 +500,66 @@ fn HtmlTokenizer::read_name(self : HtmlTokenizer) -> String raise {
     out.push(lower_ascii_html_char(self.chars[self.pos]))
     self.pos += 1
   }
-  String::from_array(out)
+  html_intern_token_name(String::from_array(out))
+}
+
+///|
+fn html_intern_token_name(name : String) -> String {
+  match name {
+    "html" => "html"
+    "head" => "head"
+    "body" => "body"
+    "title" => "title"
+    "meta" => "meta"
+    "main" => "main"
+    "article" => "article"
+    "section" => "section"
+    "div" => "div"
+    "header" => "header"
+    "footer" => "footer"
+    "nav" => "nav"
+    "aside" => "aside"
+    "h1" => "h1"
+    "h2" => "h2"
+    "h3" => "h3"
+    "h4" => "h4"
+    "h5" => "h5"
+    "h6" => "h6"
+    "p" => "p"
+    "a" => "a"
+    "img" => "img"
+    "br" => "br"
+    "hr" => "hr"
+    "ul" => "ul"
+    "ol" => "ol"
+    "li" => "li"
+    "blockquote" => "blockquote"
+    "pre" => "pre"
+    "code" => "code"
+    "table" => "table"
+    "thead" => "thead"
+    "tbody" => "tbody"
+    "tfoot" => "tfoot"
+    "tr" => "tr"
+    "th" => "th"
+    "td" => "td"
+    "figure" => "figure"
+    "figcaption" => "figcaption"
+    "details" => "details"
+    "summary" => "summary"
+    "script" => "script"
+    "style" => "style"
+    "id" => "id"
+    "class" => "class"
+    "href" => "href"
+    "src" => "src"
+    "alt" => "alt"
+    "role" => "role"
+    "charset" => "charset"
+    "colspan" => "colspan"
+    "rowspan" => "rowspan"
+    _ => name
+  }
 }
 
 ///|

@@ -4,6 +4,8 @@ package "ZSeanYves/markitdown/internal/testsupport/hermetic"
 // Values
 pub fn absolute_test_path(String) -> String
 
+pub fn build_store_zip_bytes(Array[(String, Bytes)]) -> Bytes
+
 pub fn chmod_plus_x(String) -> Unit raise
 
 pub fn cleanup_temp_dir(String) -> Unit

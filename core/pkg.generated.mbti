@@ -76,6 +76,8 @@ pub fn empty_source_map() -> SourceMap
 
 pub fn empty_source_ref() -> SourceRef
 
+pub fn finish_block_id(UInt, SourceRef?) -> String
+
 pub fn inline_kind_name(InlineKind) -> String
 
 pub fn inline_with_attr(CoreInline, String, String) -> CoreInline
@@ -87,6 +89,8 @@ pub fn json_string_opt(String?) -> String
 pub fn make_asset_ref(AssetKind, String, source_ref? : SourceRef) -> AssetRef
 
 pub fn make_block(BlockKind, String, source_ref? : SourceRef) -> CoreBlock
+
+pub fn make_block_content_crc(BlockKind, String) -> UInt
 
 pub fn make_block_id(BlockKind, String, source_ref? : SourceRef?) -> String
 

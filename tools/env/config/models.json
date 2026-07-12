@@ -1,0 +1,92 @@
+{
+  "models": {
+    "en-us-small": {
+      "family": "vosk",
+      "model_id": "vosk-model-small-en-us-0.15",
+      "version": "0.15",
+      "archive_type": "zip",
+      "url": "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip",
+      "sha256": "30f26242c4eb449f948e42cb302dd7a686cb29a3423a8367f99ff41780942498",
+      "target_dir": "models/vosk/model",
+      "archive_root": "vosk-model-small-en-us-0.15",
+      "required_files": [
+        "am/final.mdl",
+        "conf/model.conf"
+      ]
+    },
+    "cn-small": {
+      "family": "vosk",
+      "model_id": "vosk-model-small-cn-0.22",
+      "version": "0.22",
+      "archive_type": "zip",
+      "url": "https://alphacephei.com/vosk/models/vosk-model-small-cn-0.22.zip",
+      "sha256": "3af8b0e7e0f835ae9d414ce5df580237a3cfb08d586c9fbbb0f7ff29ad5b14ba",
+      "target_dir": "models/vosk/model",
+      "archive_root": "vosk-model-small-cn-0.22",
+      "required_files": [
+        "am/final.mdl",
+        "conf/model.conf"
+      ]
+    },
+    "ocr-default-det": {
+      "family": "paddle",
+      "model_id": "PP-OCRv6_medium_det",
+      "version": "v6-medium",
+      "archive_type": "tar",
+      "url": "https://paddle-model-ecology.bj.bcebos.com/paddlex/official_inference_model/paddle3.0.0/PP-OCRv6_medium_det_infer.tar",
+      "sha256": "144d0621e059566e5086e228829171591c144c2deb07b2dad4962214fbabfcf7",
+      "target_dir": "models/paddle/ocr-default-det",
+      "archive_root": "PP-OCRv6_medium_det_infer",
+      "required_files": [
+        "inference.pdiparams",
+        "inference.json",
+        "inference.yml"
+      ]
+    },
+    "ocr-default-rec": {
+      "family": "paddle",
+      "model_id": "PP-OCRv6_medium_rec",
+      "version": "v6-medium",
+      "archive_type": "tar",
+      "url": "https://paddle-model-ecology.bj.bcebos.com/paddlex/official_inference_model/paddle3.0.0/PP-OCRv6_medium_rec_infer.tar",
+      "sha256": "4eecc1c6a4623765042e6fc15446da0da110b7d875b6b72b2d351d2b2dbd4da6",
+      "target_dir": "models/paddle/ocr-default-rec",
+      "archive_root": "PP-OCRv6_medium_rec_infer",
+      "required_files": [
+        "inference.pdiparams",
+        "inference.json",
+        "inference.yml"
+      ]
+    },
+    "ocr-korean-det": {
+      "family": "paddle",
+      "model_id": "PP-OCRv5_server_det",
+      "version": "v5-server",
+      "archive_type": "tar",
+      "url": "https://paddle-model-ecology.bj.bcebos.com/paddlex/official_inference_model/paddle3.0.0/PP-OCRv5_server_det_infer.tar",
+      "sha256": "22a33e0ba6a21425ea4192da03bf4395c9a0c67902bd924b7328fc859073045d",
+      "target_dir": "models/paddle/ocr-korean-det",
+      "archive_root": "PP-OCRv5_server_det_infer",
+      "required_files": [
+        "inference.pdiparams",
+        "inference.json",
+        "inference.yml"
+      ]
+    },
+    "ocr-korean-rec": {
+      "family": "paddle",
+      "model_id": "korean_PP-OCRv5_mobile_rec",
+      "version": "v5-mobile",
+      "archive_type": "tar",
+      "url": "https://paddle-model-ecology.bj.bcebos.com/paddlex/official_inference_model/paddle3.0.0/korean_PP-OCRv5_mobile_rec_infer.tar",
+      "sha256": "a6261f800ad335aa6ef77b6f7c4dcedfd5e11b95f4d70982d41ee31c2ace5e66",
+      "target_dir": "models/paddle/ocr-korean-rec",
+      "archive_root": "korean_PP-OCRv5_mobile_rec_infer",
+      "required_files": [
+        "inference.pdiparams",
+        "inference.json",
+        "inference.yml"
+      ]
+    }
+  }
+}

@@ -1,7 +1,8 @@
 ///|
 fn render_markdown_blocks(blocks : Array[@core.CoreBlock]) -> String {
   let out = StringBuilder::new()
-  ignore(write_markdown_blocks_to(out, blocks))
+  let leaf_cache : Map[String, String] = Map([])
+  ignore(write_markdown_blocks_to(out, blocks, leaf_cache~))
   out.to_string()
 }
 
@@ -26,19 +27,80 @@ fn markdown_needs_blank_line_between(
 fn write_markdown_blocks_to(
   out : StringBuilder,
   blocks : Array[@core.CoreBlock],
+  leaf_cache? : Map[String, String] = Map([]),
 ) -> Bool {
   let mut prev_kind : @core.BlockKind? = None
   let mut wrote_any = false
   for block in blocks {
-    let wrote_block = write_markdown_block_with_separator_to(
-      out, block, prev_kind, wrote_any,
-    )
+    let wrote_block = match markdown_leaf_cache_key(block, blocks.length()) {
+      Some(key) => {
+        let rendered = match leaf_cache.get(key) {
+          Some(value) => value
+          None => {
+            let value = render_markdown_block(block)
+            leaf_cache.set(key, value)
+            value
+          }
+        }
+        if rendered.trim() == "" {
+          false
+        } else {
+          if wrote_any {
+            if markdown_needs_blank_line_between(prev_kind, block.kind) {
+              out.write_string("\n\n")
+            } else {
+              out.write_char('\n')
+            }
+          }
+          out.write_string(rendered)
+          true
+        }
+      }
+      None =>
+        write_markdown_block_with_separator_to(out, block, prev_kind, wrote_any)
+    }
     if wrote_block {
       prev_kind = Some(block.kind)
       wrote_any = true
     }
   }
   wrote_any
+}
+
+///|
+fn markdown_leaf_cache_key(
+  block : @core.CoreBlock,
+  sibling_count : Int,
+) -> String? {
+  if sibling_count < 1024 ||
+    block.children.length() > 0 ||
+    block.text.length() < 24 {
+    return None
+  }
+  let kind = match block.kind {
+    @core.BlockKind::Heading => "h"
+    @core.BlockKind::Paragraph => "p"
+    @core.BlockKind::Code => "c"
+    @core.BlockKind::BlockQuote => "q"
+    @core.BlockKind::Raw => "r"
+    @core.BlockKind::Image => "i"
+    _ => return None
+  }
+  let attrs = block.attrs.to_array()
+  attrs.sort_by(fn(left, right) { left.0.compare(right.0) })
+  let out = StringBuilder::new(
+    size_hint=block.text.length() + attrs.length() * 20,
+  )
+  out.write_string(kind)
+  for entry in attrs {
+    out.write_char('\u{0000}')
+    out.write_string(entry.0)
+    out.write_char('=')
+    out.write_string(entry.1)
+  }
+  out.write_char('\u{0001}')
+  out.write_string(block.text)
+  Some(out.to_string())
 }
 
 ///|
@@ -489,6 +551,9 @@ fn render_markdown_table(block : @core.CoreBlock) -> String {
       @core.block_with_attr(block, "raw_kind", "empty_table_fallback"),
     )
   }
+  if block.attrs.get("toml_compact_table_v1") == Some("true") {
+    return render_markdown_compact_toml_table(block)
+  }
   if block.attrs.get("render_html_table") == Some("true") &&
     markdown_table_has_spans(block.children) {
     return render_markdown_html_table(block)
@@ -525,6 +590,54 @@ fn render_markdown_table(block : @core.CoreBlock) -> String {
     write_markdown_table_row(out, row_cells, row_width)
   }
   out.to_string()
+}
+
+///|
+fn render_markdown_compact_toml_table(block : @core.CoreBlock) -> String {
+  let rows = block.children
+  let header = rows[0].attrs.get("toml_compact_cells_v1").unwrap_or("")
+  let width = header.split("\u{0000}").count()
+  let out = StringBuilder::new(size_hint=rows.length() * (width * 16 + 4))
+  write_markdown_compact_cells(out, header, width)
+  out.write_char('\n')
+  write_markdown_table_separator(out, width)
+  for i in 1..<rows.length() {
+    out.write_char('\n')
+    write_markdown_compact_cells(
+      out,
+      rows[i].attrs.get("toml_compact_cells_v1").unwrap_or(""),
+      width,
+    )
+  }
+  out.to_string()
+}
+
+///|
+fn write_markdown_compact_cells(
+  out : StringBuilder,
+  payload : String,
+  width : Int,
+) -> Unit {
+  out.write_string("| ")
+  let mut index = 0
+  for ch in payload {
+    if ch == '\u{0000}' {
+      out.write_string(" | ")
+      index += 1
+    } else if ch == '|' {
+      out.write_string("\\|")
+    } else {
+      out.write_char(ch)
+    }
+  }
+  index += 1
+  while index < width {
+    if index > 0 {
+      out.write_string(" | ")
+    }
+    index += 1
+  }
+  out.write_string(" |")
 }
 
 ///|

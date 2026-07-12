@@ -7,6 +7,135 @@ priv struct XlsxParsedSheetXml {
 }
 
 ///|
+/// Keep the worksheet header, the budgeted leading rows, and metadata after
+/// `sheetData` while still consuming the complete validated ZIP stream.
+fn xlsx_compact_sheet_xml_stream(
+  pkg : @ox.OoxmlPackage,
+  part_name : String,
+  max_rows : Int,
+) -> Result[Bytes, String] {
+  let output = Buffer()
+  let pending = Buffer()
+  let sheet_data_open = b"<sheetData"
+  let tag_end = b">"
+  let row_open = b"<row"
+  let row_close = b"</row>"
+  let sheet_data_close = b"</sheetData>"
+  let mut state = 0
+  let mut kept_rows = 0
+  let row_limit = max_rows.max(1)
+
+  let result = @ox.visit_part_inflated_chunks(pkg, part_name, fn(chunk) {
+    if state == 2 {
+      output.write_bytes(chunk)
+      return Ok(())
+    }
+    pending.write_bytes(chunk)
+    let mut data = pending.to_bytes()
+    pending.reset()
+
+    if state == 0 {
+      match data.find(sheet_data_open) {
+        None => {
+          if data.length() > 32 {
+            let keep = sheet_data_open.length() - 1
+            output.write_bytes(data[0:data.length() - keep])
+            pending.write_bytes(data[data.length() - keep:])
+          } else {
+            pending.write_bytes(data)
+          }
+          return Ok(())
+        }
+        Some(open_start) =>
+          match data[open_start:].find(tag_end) {
+            None => {
+              pending.write_bytes(data)
+              return Ok(())
+            }
+            Some(relative_end) => {
+              let open_end = open_start + relative_end + 1
+              output.write_bytes(data[0:open_end])
+              data = data[open_end:].to_owned()
+              state = 1
+            }
+          }
+      }
+    }
+
+    while state == 1 {
+      if kept_rows >= row_limit {
+        match data.find(sheet_data_close) {
+          Some(close_start) => {
+            output.write_bytes(sheet_data_close)
+            output.write_bytes(data[close_start + sheet_data_close.length():])
+            state = 2
+            data = b""
+          }
+          None => {
+            let keep = sheet_data_close.length() - 1
+            if data.length() > keep {
+              pending.write_bytes(data[data.length() - keep:])
+            } else {
+              pending.write_bytes(data)
+            }
+            data = b""
+            break
+          }
+        }
+      } else {
+        match data.find(row_open) {
+          None =>
+            match data.find(sheet_data_close) {
+              Some(close_start) => {
+                output.write_bytes(sheet_data_close)
+                output.write_bytes(
+                  data[close_start + sheet_data_close.length():],
+                )
+                state = 2
+                data = b""
+              }
+              None => {
+                let keep = row_open.length().max(sheet_data_close.length()) - 1
+                if data.length() > keep {
+                  pending.write_bytes(data[data.length() - keep:])
+                } else {
+                  pending.write_bytes(data)
+                }
+                data = b""
+                break
+              }
+            }
+          Some(row_start) =>
+            match data[row_start:].find(row_close) {
+              None => {
+                pending.write_bytes(data[row_start:])
+                data = b""
+                break
+              }
+              Some(relative_close) => {
+                let row_end = row_start + relative_close + row_close.length()
+                output.write_bytes(data[row_start:row_end])
+                kept_rows += 1
+                data = data[row_end:].to_owned()
+              }
+            }
+        }
+      }
+    }
+    Ok(())
+  })
+  match result {
+    Err(err) => Err(err)
+    Ok(_) =>
+      if state == 2 {
+        Ok(output.to_bytes())
+      } else {
+        Err("worksheet stream ended before </sheetData>")
+      }
+  }
+}
+
+///|
 fn xlsx_parse_dimension_ref(sheet_xml : String) -> String? {
   let tag0 = xlsx_find_sub(sheet_xml, "<dimension", 0)
   match tag0 {

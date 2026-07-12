@@ -1109,17 +1109,13 @@ fn xlsx_parse_sheet_xml_bytes_streaming(
   shared_strings : Array[String],
   styles : XlsxStyles,
   uses_date_1904 : Bool,
-  _max_rows : Int,
+  max_rows : Int,
   _max_cols : Int,
   _max_cells : Int,
   build_cell_source_refs? : Bool = true,
 ) -> Result[XlsxParsedSheetXml, String] {
-  let sheet_xml_bytes = try
-    @ox.read_part_bytes_transient(pkg, sheet_info.part_name) |> Ok
-  catch {
-    err => Err(err.to_string())
-  }
-  let sheet_xml_bytes = match sheet_xml_bytes {
+  let sheet_xml_bytes = match
+    xlsx_compact_sheet_xml_stream(pkg, sheet_info.part_name, max_rows) {
     Ok(value) => value
     Err(err) => return Err(err)
   }

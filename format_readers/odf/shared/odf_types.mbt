@@ -140,6 +140,7 @@ pub struct OdsSheet {
   name : String
   rows : Array[OdsRow]
   visible : Bool
+  images : Array[OdtImageRef]
 }
 
 ///|
@@ -147,6 +148,7 @@ pub struct OdsDocument {
   package_info : OdfPackageInfo
   metadata : OdfMetadataSummary
   sheets : Array[OdsSheet]
+  assets : Array[OdtImageRef]
 }
 
 ///|

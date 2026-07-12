@@ -14,7 +14,11 @@ pub fn json_value_kind(JsonValue) -> String
 
 pub fn parse_json_document(String) -> JsonDocument raise
 
+pub fn parse_json_document_native(String, preserve_number_lexemes? : Bool) -> JsonDocument raise
+
 pub fn parse_json_stream(String) -> JsonStreamDocument raise
+
+pub fn parse_json_stream_summary(String) -> JsonStreamDocument raise
 
 pub fn prepare_json_document_from_source(@input.InputSource) -> Result[PreparedJsonText, String]
 

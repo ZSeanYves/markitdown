@@ -69,7 +69,17 @@ pub fn ipynb_parse_with_preparsed_notebook(
     Some(@parser.ParserMode::BlockStreaming)
   let diagnostics = ipynb_base_diagnostics(source, context)
   diagnostics.metrics.set("probe_artifact_reused", "true")
-  let lowered = lower_ipynb_notebook(notebook, source, diagnostics)
+  let large_literal_markdown = requested_blocks &&
+    notebook.cells.length() >= 1000
+  if large_literal_markdown {
+    diagnostics.metrics.set("ipynb_markdown_lowering", "large_literal")
+    diagnostics.same_mode_degradation.push(
+      "ipynb_large_markdown_cell_structure_deferred",
+    )
+  }
+  let lowered = lower_ipynb_notebook(
+    notebook, source, diagnostics, large_literal_markdown,
+  )
   ipynb_fill_metrics(diagnostics, inspect, text, lowered, requested_blocks)
   diagnostics.pass_trace.push("parse:ipynb_parser")
   if requested_blocks {

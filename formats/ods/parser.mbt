@@ -2,6 +2,9 @@
 const ODS_PARSER_NAME : String = "ods_parser"
 
 ///|
+const ODS_MAX_MATERIALIZED_ROW_REPEAT : Int = 10_000
+
+///|
 pub fn ods_parser_capability() -> @parser.ParserCapability {
   @parser.package_with_block_route_parser_capability(
     @parser.StreamingGranularity::Row,
@@ -103,6 +106,7 @@ pub fn ods_parse_with_open_document(
   ods_init_diagnostics(diagnostics, source, context)
   let bytes = source.bytes.unwrap_or(Bytes::from_array([]))
   ods_fill_metrics(diagnostics, document, inspect, bytes)
+  ods_apply_repeat_diagnostics(diagnostics, document)
   if context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
     let lowered = ods_lower_block_stream_document(source, document, context)
     diagnostics.metrics.set("parser_mode", "block_streaming")
@@ -111,7 +115,7 @@ pub fn ods_parse_with_open_document(
     diagnostics.metrics.set("event_granularity", "row")
     diagnostics.metrics.set("event_semantics", "ods_row_block_stream")
     diagnostics.metrics.set("block_count", lowered.blocks.length().to_string())
-    diagnostics.metrics.set("asset_count", "0")
+    diagnostics.metrics.set("asset_count", lowered.assets.length().to_string())
     @fshared.refresh_parser_count_metrics(diagnostics, "block_stream")
     diagnostics.pass_trace.push("parse:ods_parser:block_stream_route")
     diagnostics.pass_trace.push("lower:ods_block_stream")
@@ -123,6 +127,7 @@ pub fn ods_parse_with_open_document(
       diagnostics,
       capability,
       metadata=lowered.metadata,
+      assets=lowered.assets,
       source_map=Some(lowered.source_map),
     )
   }
@@ -133,7 +138,7 @@ pub fn ods_parse_with_open_document(
   diagnostics.metrics.set("event_granularity", "row")
   diagnostics.metrics.set("event_semantics", "package_single_pass")
   diagnostics.metrics.set("block_count", lowered.blocks.length().to_string())
-  diagnostics.metrics.set("asset_count", "0")
+  diagnostics.metrics.set("asset_count", lowered.assets.length().to_string())
   @fshared.refresh_parser_count_metrics(diagnostics, "document")
   diagnostics.pass_trace.push("parse:ods_parser:package_single_pass")
   diagnostics.pass_trace.push("parse:ods_parser")
@@ -145,6 +150,33 @@ pub fn ods_parse_with_open_document(
     diagnostics,
     capability,
   )
+}
+
+///|
+fn ods_apply_repeat_diagnostics(
+  diagnostics : @core.Diagnostics,
+  document : @dodf.OdsDocument,
+) -> Unit {
+  let mut truncated_rows = 0
+  let mut omitted_rows = 0
+  for sheet in document.sheets {
+    for row in sheet.rows {
+      if row.repeat_count > ODS_MAX_MATERIALIZED_ROW_REPEAT &&
+        ods_row_has_visible_content(row, true) {
+        truncated_rows += 1
+        omitted_rows += row.repeat_count - ODS_MAX_MATERIALIZED_ROW_REPEAT
+      }
+    }
+  }
+  diagnostics.metrics.set("repeated_rows_truncated", truncated_rows.to_string())
+  diagnostics.metrics.set("repeated_rows_omitted", omitted_rows.to_string())
+  if truncated_rows > 0 {
+    diagnostics.warnings.push(
+      "ODS content-bearing repeated rows were bounded during lowering",
+    )
+    diagnostics.degraded_features.push("ods_repeated_rows_bounded")
+    diagnostics.metrics.set("resource_limit_hit", "true")
+  }
 }
 
 ///|
@@ -243,6 +275,7 @@ fn ods_fill_metrics(
 ///|
 priv struct OdsLoweredProduct {
   blocks : Array[@core.CoreBlock]
+  assets : Array[@core.AssetRef]
   metadata : @core.DocumentMetadata
   source_map : @core.SourceMap
 }
@@ -255,9 +288,12 @@ fn ods_lower_document_ir(
 ) -> @core.DocumentIR {
   let lowered = ods_lower_common(source, document, false, context)
   @core.document_with_source_map(
-    @core.document_with_metadata(
-      @core.document_with_blocks(@core.empty_document_ir(), lowered.blocks),
-      lowered.metadata,
+    @core.document_with_assets(
+      @core.document_with_metadata(
+        @core.document_with_blocks(@core.empty_document_ir(), lowered.blocks),
+        lowered.metadata,
+      ),
+      lowered.assets,
     ),
     Some(lowered.source_map),
   )
@@ -280,6 +316,9 @@ fn ods_lower_common(
   context : @parser.ParseContext,
 ) -> OdsLoweredProduct {
   let blocks : Array[@core.CoreBlock] = []
+  let assets : Array[@core.AssetRef] = []
+  let asset_paths_by_href : Map[String, String] = Map([])
+  let asset_ids_by_href : Map[String, String] = Map([])
   let metadata = ods_metadata(document)
   let source_map = @core.empty_source_map()
   let accurate_semantic = context.lowering_profile ==
@@ -309,7 +348,7 @@ fn ods_lower_common(
         visible_rows.push(row)
       }
     }
-    if visible_rows.length() == 0 {
+    if visible_rows.length() == 0 && sheet.images.length() == 0 {
       continue
     }
     let heading_ref = ods_sheet_source_ref(source, document, sheet, None)
@@ -329,39 +368,44 @@ fn ods_lower_common(
         if !ods_row_has_visible_content(row, include_hidden_rows) {
           continue
         }
-        let row_ref = ods_sheet_source_ref(
-          source,
-          document,
-          sheet,
-          Some(row.row_index),
-        )
-        let table = @core.make_block(
-          @core.BlockKind::Table,
-          "row",
-          source_ref=row_ref,
-        )
-        let row_block = @core.make_block(
-          @core.BlockKind::TableRow,
-          "",
-          source_ref=row_ref,
-        )
-        for cell in ods_effective_row_cells(row) {
-          row_block.children.push(
-            @core.make_block(
-              @core.BlockKind::TableCell,
-              cell.text,
-              source_ref=row_ref,
-            ),
+        for repeat_offset in 0..<ods_effective_row_repeat(row) {
+          let row_index = row.row_index + repeat_offset
+          let row_ref = ods_sheet_source_ref(
+            source,
+            document,
+            sheet,
+            Some(row_index),
+          )
+          let table = @core.make_block(
+            @core.BlockKind::Table,
+            "row",
+            source_ref=row_ref,
+          )
+          let row_block = @core.make_block(
+            @core.BlockKind::TableRow,
+            "",
+            source_ref=row_ref,
+          )
+          for cell in ods_effective_row_cells(row) {
+            row_block.children.push(
+              @core.make_block(
+                @core.BlockKind::TableCell,
+                cell.text,
+                source_ref=row_ref,
+              ),
+            )
+          }
+          table.children.push(row_block)
+          table.attrs.set("sheet", sheet.name)
+          table.attrs.set("row_index", row_index.to_string())
+          table.attrs.set("render_table_mode", "sparse")
+          blocks.push(table)
+          source_map.block_entries.push(
+            @core.make_source_map_entry(primary_ref=Some(row_ref), refs=[
+              row_ref,
+            ]),
           )
         }
-        table.children.push(row_block)
-        table.attrs.set("sheet", sheet.name)
-        table.attrs.set("row_index", row.row_index.to_string())
-        table.attrs.set("render_table_mode", "sparse")
-        blocks.push(table)
-        source_map.block_entries.push(
-          @core.make_source_map_entry(primary_ref=Some(row_ref), refs=[row_ref]),
-        )
       }
     } else {
       let table_ref = ods_sheet_source_ref(source, document, sheet, None)
@@ -377,47 +421,49 @@ fn ods_lower_common(
         table.attrs.set("render_table_mode", "sparse")
       }
       for row in visible_rows {
-        let row_ref = ods_sheet_source_ref(
-          source,
-          document,
-          sheet,
-          Some(row.row_index),
-        )
-        let row_block = @core.make_block(
-          @core.BlockKind::TableRow,
-          "",
-          source_ref=row_ref,
-        )
-        for cell in ods_effective_row_cells(row) {
-          if cell.covered &&
-            cell.text == "" &&
-            cell.formula is None &&
-            !include_covered_spans {
-            continue
-          }
-          let cell_block = @core.make_block(
-            @core.BlockKind::TableCell,
-            cell.text,
+        for repeat_offset in 0..<ods_effective_row_repeat(row) {
+          let row_ref = ods_sheet_source_ref(
+            source,
+            document,
+            sheet,
+            Some(row.row_index + repeat_offset),
+          )
+          let row_block = @core.make_block(
+            @core.BlockKind::TableRow,
+            "",
             source_ref=row_ref,
           )
-          if include_covered_spans && !cell.covered {
-            if cell.row_span > 1 {
-              cell_block.attrs.set("rowspan", cell.row_span.to_string())
+          for cell in ods_effective_row_cells(row) {
+            if cell.covered &&
+              cell.text == "" &&
+              cell.formula is None &&
+              !include_covered_spans {
+              continue
             }
-            if cell.col_span > 1 {
-              cell_block.attrs.set("colspan", cell.col_span.to_string())
+            let cell_block = @core.make_block(
+              @core.BlockKind::TableCell,
+              cell.text,
+              source_ref=row_ref,
+            )
+            if include_covered_spans && !cell.covered {
+              if cell.row_span > 1 {
+                cell_block.attrs.set("rowspan", cell.row_span.to_string())
+              }
+              if cell.col_span > 1 {
+                cell_block.attrs.set("colspan", cell.col_span.to_string())
+              }
             }
+            if include_covered_spans && cell.covered {
+              cell_block.attrs.set("covered_cell", "true")
+            }
+            match cell.formula {
+              Some(value) => cell_block.attrs.set("formula", value)
+              None => ()
+            }
+            row_block.children.push(cell_block)
           }
-          if include_covered_spans && cell.covered {
-            cell_block.attrs.set("covered_cell", "true")
-          }
-          match cell.formula {
-            Some(value) => cell_block.attrs.set("formula", value)
-            None => ()
-          }
-          row_block.children.push(cell_block)
+          table.children.push(row_block)
         }
-        table.children.push(row_block)
       }
       table.attrs.set("sheet", sheet.name)
       blocks.push(table)
@@ -427,8 +473,96 @@ fn ods_lower_common(
         ]),
       )
     }
+    for image in sheet.images {
+      let image_ref = ods_sheet_source_ref(source, document, sheet, None)
+      if image.bytes is None {
+        let unavailable = @core.make_block(
+          @core.BlockKind::BlockQuote,
+          "Asset unavailable: " + image.href,
+          source_ref=image_ref,
+        )
+        unavailable.attrs.set("asset_missing", "true")
+        unavailable.attrs.set("asset_source_path", image.href)
+        unavailable.attrs.set("sheet", sheet.name)
+        blocks.push(unavailable)
+        continue
+      }
+      let identity = image.href.trim().to_owned().replace_all(old="\\", new="/")
+      let (asset_id, output_path) = match
+        (asset_ids_by_href.get(identity), asset_paths_by_href.get(identity)) {
+        (Some(id), Some(path)) => (id, path)
+        _ => {
+          let path = ods_asset_output_path(image.href, assets.length() + 1)
+          let id = "ods-image-" + (assets.length() + 1).to_string()
+          let asset = @core.make_asset_ref(
+            @core.AssetKind::Image,
+            id,
+            source_ref=image_ref,
+          )
+          let next_asset = {
+            ..asset,
+            path: Some(path),
+            mime_type: image.media_type,
+          }
+          next_asset.attrs.set("zip_entry_path", identity)
+          match source.path {
+            Some(container) =>
+              next_asset.attrs.set("zip_container_path", container)
+            None => ()
+          }
+          match image.bytes {
+            Some(bytes) => {
+              next_asset.attrs.set("inline_payload_kind", "base64")
+              next_asset.attrs.set(
+                "inline_payload",
+                @base64.encode(bytes, url_safe=false),
+              )
+            }
+            None => ()
+          }
+          assets.push(next_asset)
+          asset_ids_by_href.set(identity, id)
+          asset_paths_by_href.set(identity, path)
+          (id, path)
+        }
+      }
+      let image_block = @core.make_block(
+        @core.BlockKind::Image,
+        "",
+        source_ref=image_ref,
+      )
+      image_block.attrs.set("asset_id", asset_id)
+      image_block.attrs.set("path", output_path)
+      image_block.attrs.set("alt", image.alt.unwrap_or("ods image"))
+      image_block.attrs.set("sheet", sheet.name)
+      blocks.push(image_block)
+      source_map.block_entries.push(
+        @core.make_source_map_entry(primary_ref=Some(image_ref), refs=[
+          image_ref,
+        ]),
+      )
+    }
   }
-  { blocks, metadata, source_map }
+  { blocks, assets, metadata, source_map }
+}
+
+///|
+fn ods_asset_output_path(href : String, index : Int) -> String {
+  let trimmed = href.trim().replace_all(old="\\", new="/")
+  let basename = trimmed.split("/").last().unwrap_or("image.bin").to_owned()
+  let slug : Array[Char] = []
+  for ch in basename.to_lower().to_array() {
+    if (ch >= 'a' && ch <= 'z') ||
+      (ch >= '0' && ch <= '9') ||
+      ch == '.' ||
+      ch == '-' ||
+      ch == '_' {
+      slug.push(ch)
+    }
+  }
+  let name = String::from_array(slug)
+  let safe_name = if name == "" { "image.bin" } else { name }
+  "assets/ods-image" + index.to_string() + "-" + safe_name
 }
 
 ///|
@@ -584,6 +718,17 @@ fn ods_row_has_visible_content(
     }
   }
   false
+}
+
+///|
+fn ods_effective_row_repeat(row : @dodf.OdsRow) -> Int {
+  if row.repeat_count > ODS_MAX_MATERIALIZED_ROW_REPEAT {
+    ODS_MAX_MATERIALIZED_ROW_REPEAT
+  } else if row.repeat_count > 0 {
+    row.repeat_count
+  } else {
+    1
+  }
 }
 
 ///|

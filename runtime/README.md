@@ -30,6 +30,9 @@
 - Keep only cross-package, cross-format runtime glue here; format-private logic should stay in `formats/*` or `format_readers/*`
 - Child-document parsing must continue to use the root registry and default pipeline to avoid format-private side paths
 - Runtime helpers may coordinate external commands, but should not introduce new product-level routing policy
+- Repo-managed optional commands are installed through
+  `tools/env/optional_deps.sh`; official wrappers own deterministic child
+  environment setup rather than requiring callers to source shell state.
 
 ## Validation
 

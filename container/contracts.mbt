@@ -47,14 +47,15 @@ pub fn container_supported_inner_formats() -> Array[String] {
   [
     "txt", "csv", "tsv", "srt", "vtt", "json", "jsonl", "ndjson", "ipynb", "xml",
     "yaml", "yml", "toml", "html", "htm", "markdown", "md", "tex", "latex", "rst",
-    "adoc", "asciidoc", "eml", "epub", "odt", "ods", "odp",
+    "adoc", "asciidoc", "eml", "docx", "xlsx", "pptx", "odt", "ods", "odp", "pdf",
+    "wav", "mp3", "m4a",
   ]
 }
 
 ///|
 /// Inner formats that intentionally fail closed inside root containers today.
 pub fn container_unsupported_inner_formats() -> Array[String] {
-  ["docx", "pptx", "xlsx", "pdf", "zip", "images", "ocr"]
+  ["zip", "png", "jpg", "jpeg", "bmp", "webp", "tif", "tiff", "ocr"]
 }
 
 ///|
@@ -80,10 +81,17 @@ pub fn container_supports_inner_format(format : @input.DetectedFormat) -> Bool {
     @input.DetectedFormat::Rst => true
     @input.DetectedFormat::Asciidoc => true
     @input.DetectedFormat::Eml => true
-    @input.DetectedFormat::Epub => true
+    @input.DetectedFormat::Docx => true
+    @input.DetectedFormat::Xlsx => true
+    @input.DetectedFormat::Pptx => true
     @input.DetectedFormat::Odt => true
     @input.DetectedFormat::Ods => true
     @input.DetectedFormat::Odp => true
+    @input.DetectedFormat::Pdf => true
+    @input.DetectedFormat::Audio(_) => true
+    // OCR is a top-level pure-image capability. Images embedded in containers
+    // remain assets and must not be promoted to child documents.
+    @input.DetectedFormat::Image(_) => false
     _ => false
   }
 }
@@ -94,7 +102,7 @@ pub fn container_dispatch_guardrails() -> Array[String] {
   [
     "inner document dispatch must go through the root ParserRegistry / root pipeline",
     "container parsing stays inside the canonical product path", "no format-specific side dispatcher",
-    "no nested archive recursion by default",
+    "no nested archive recursion by default", "embedded images remain assets and never enter OCR child dispatch",
   ]
 }
 

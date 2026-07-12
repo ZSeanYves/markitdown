@@ -3,6 +3,7 @@ fn lower_ipynb_notebook(
   notebook : @dipynb.IpynbNotebook,
   source : @input.InputSource,
   diagnostics : @core.Diagnostics,
+  large_literal_markdown : Bool,
 ) -> @core.DocumentIR {
   let document = @core.document_with_source_map(
     @core.document_with_metadata(
@@ -14,7 +15,9 @@ fn lower_ipynb_notebook(
   document.blocks.push(ipynb_summary_table_block(notebook, source))
   for cell in notebook.cells {
     document.blocks.append(
-      lower_ipynb_cell(cell, notebook, source, diagnostics, document)[:],
+      lower_ipynb_cell(
+        cell, notebook, source, diagnostics, document, large_literal_markdown,
+      )[:],
     )
   }
   document
@@ -147,27 +150,37 @@ fn lower_ipynb_cell(
   source : @input.InputSource,
   diagnostics : @core.Diagnostics,
   document : @core.DocumentIR,
+  large_literal_markdown : Bool,
 ) -> Array[@core.CoreBlock] {
   let blocks : Array[@core.CoreBlock] = []
-  blocks.push(ipynb_cell_label_block(cell, source))
   let language = ipynb_code_language(cell, notebook)
-  match cell.kind {
-    @dipynb.IpynbCellKind::Markdown =>
-      blocks.append(lower_ipynb_markdown_cell(cell, source, diagnostics)[:])
-    @dipynb.IpynbCellKind::Code =>
-      blocks.push(ipynb_code_block(cell.source, source, cell, language))
-    @dipynb.IpynbCellKind::Raw | @dipynb.IpynbCellKind::Unknown =>
-      blocks.push(ipynb_raw_block(cell.source, source, cell))
+  if large_literal_markdown && cell.kind == @dipynb.IpynbCellKind::Markdown {
+    blocks.push(lower_ipynb_large_markdown_cell(cell, source))
+  } else {
+    blocks.push(ipynb_cell_label_block(cell, source))
+    match cell.kind {
+      @dipynb.IpynbCellKind::Markdown =>
+        blocks.append(
+          lower_ipynb_markdown_cell(
+            cell, source, diagnostics, large_literal_markdown,
+          )[:],
+        )
+      @dipynb.IpynbCellKind::Code =>
+        blocks.push(ipynb_code_block(cell.source, source, cell, language))
+      @dipynb.IpynbCellKind::Raw | @dipynb.IpynbCellKind::Unknown =>
+        blocks.push(ipynb_raw_block(cell.source, source, cell))
+    }
   }
   for attachment in cell.attachments {
     let lowered = lower_ipynb_attachment(attachment, cell, source, document)
     blocks.append(lowered[:])
   }
-  for i in 0..<cell.outputs.length() {
+  let visible_outputs = ipynb_visible_outputs(cell.outputs)
+  for i in 0..<visible_outputs.length() {
     blocks.append(
       lower_ipynb_output(
         cell,
-        cell.outputs[i],
+        visible_outputs[i],
         i,
         source,
         diagnostics,
@@ -179,18 +192,77 @@ fn lower_ipynb_cell(
 }
 
 ///|
+fn lower_ipynb_large_markdown_cell(
+  cell : @dipynb.IpynbCell,
+  source : @input.InputSource,
+) -> @core.CoreBlock {
+  let rewritten = ipynb_rewrite_attachment_refs(cell.source, cell)
+  let text = ipynb_cell_label_text(cell) + "\n\n" + rewritten
+  let source_ref = ipynb_source_ref(
+    source,
+    cell.json_pointer + "/source",
+    Some(cell.index),
+    Some(ipynb_cell_kind_name(cell.kind)),
+    cell.cell_id,
+    None,
+    cell.execution_count,
+    None,
+    None,
+    None,
+  )
+  source_ref.extra.set("ipynb_cell_label_json_pointer", cell.json_pointer)
+  source_ref.extra.set("ipynb_compact_cell", "true")
+  {
+    block_id: "b_ipynb_compact_cell_" + cell.index.to_string(),
+    kind: @core.BlockKind::Raw,
+    text,
+    rich_inlines: None,
+    children: [],
+    attrs: Map([("raw_kind", "markdown_literal")]),
+    source_ref: Some(source_ref),
+    style: None,
+    signals: [],
+  }
+}
+
+///|
+fn ipynb_visible_outputs(
+  outputs : Array[@dipynb.IpynbOutput],
+) -> Array[@dipynb.IpynbOutput] {
+  let visible : Array[@dipynb.IpynbOutput] = []
+  for output in outputs {
+    if output.output_type == "clear_output" {
+      visible.clear()
+      continue
+    }
+    if output.output_type == "update_display_data" &&
+      output.display_id is Some(id) {
+      let mut replaced = false
+      for index in 0..<visible.length() {
+        if visible[index].display_id == Some(id) {
+          visible[index] = output
+          replaced = true
+          break
+        }
+      }
+      if !replaced {
+        visible.push(output)
+      }
+      continue
+    }
+    visible.push(output)
+  }
+  visible
+}
+
+///|
 fn lower_ipynb_markdown_cell(
   cell : @dipynb.IpynbCell,
   source : @input.InputSource,
   _diagnostics : @core.Diagnostics,
+  large_literal_markdown : Bool,
 ) -> Array[@core.CoreBlock] {
   let rewritten = ipynb_rewrite_attachment_refs(cell.source, cell)
-  let parse_source = @input.input_from_text_with_format(
-    rewritten,
-    source.source_name,
-    Some(@input.DetectedFormat::Markdown),
-  )
-  let scanned = @dmd.scan_markdown_document(rewritten)
   let markdown_source_ref = ipynb_source_ref(
     source,
     cell.json_pointer + "/source",
@@ -203,6 +275,22 @@ fn lower_ipynb_markdown_cell(
     None,
     None,
   )
+  if large_literal_markdown {
+    let block = @core.make_block(
+      @core.BlockKind::Raw,
+      rewritten,
+      source_ref=markdown_source_ref,
+    )
+    block.attrs.set("raw_kind", "markdown_literal")
+    block.attrs.set("literal", "true")
+    return [ipynb_finalize_markdown_block(block, cell)]
+  }
+  let parse_source = @input.input_from_text_with_format(
+    rewritten,
+    source.source_name,
+    Some(@input.DetectedFormat::Markdown),
+  )
+  let scanned = @dmd.scan_markdown_document(rewritten)
   let markdown_blocks = @fmarkdown.markdown_blocks_from_scanned_document_light_with_source_ref(
     parse_source,
     scanned,
@@ -566,6 +654,7 @@ fn lower_ipynb_attachment(
         path: Some(asset_id),
         mime_type: Some(entry.mime_type),
       }
+      next_asset.attrs.set("reference_path", "attachment:" + attachment.name)
       ipynb_attach_inline_payload(next_asset, entry)
       document.assets.push(next_asset)
       let image = @core.make_block(@core.BlockKind::Image, "", source_ref~)
@@ -616,20 +705,7 @@ fn ipynb_cell_label_block(
   cell : @dipynb.IpynbCell,
   source : @input.InputSource,
 ) -> @core.CoreBlock {
-  let label = if cell.kind == @dipynb.IpynbCellKind::Code &&
-    cell.execution_count is Some(count) {
-    "[Cell " +
-    (cell.index + 1).to_string() +
-    " | code | execution=" +
-    count.to_string() +
-    "]"
-  } else {
-    "[Cell " +
-    (cell.index + 1).to_string() +
-    " | " +
-    ipynb_cell_kind_name(cell.kind) +
-    "]"
-  }
+  let label = ipynb_cell_label_text(cell)
   let block = @core.make_block(
     @core.BlockKind::Paragraph,
     label,
@@ -648,6 +724,24 @@ fn ipynb_cell_label_block(
   )
   block.attrs.set("rag_solo_source_ref_only", "true")
   block
+}
+
+///|
+fn ipynb_cell_label_text(cell : @dipynb.IpynbCell) -> String {
+  if cell.kind == @dipynb.IpynbCellKind::Code &&
+    cell.execution_count is Some(count) {
+    "[Cell " +
+    (cell.index + 1).to_string() +
+    " | code | execution=" +
+    count.to_string() +
+    "]"
+  } else {
+    "[Cell " +
+    (cell.index + 1).to_string() +
+    " | " +
+    ipynb_cell_kind_name(cell.kind) +
+    "]"
+  }
 }
 
 ///|
@@ -824,65 +918,45 @@ fn ipynb_source_ref(
   attachment_name : String?,
   mime_type : String?,
 ) -> @core.SourceRef {
-  let source_ref = @core.source_ref_with_json_pointer(
-    @core.empty_source_ref(),
-    Some(source.source_name),
-    Some("ipynb"),
-    Some(json_pointer),
-  )
-  let with_cell = match cell_index {
-    Some(value) =>
-      @core.source_ref_with_extra(
-        source_ref,
-        "ipynb_cell_index",
-        value.to_string(),
-      )
-    None => source_ref
+  let extra : Map[String, String] = Map([])
+  match cell_index {
+    Some(value) => extra.set("ipynb_cell_index", value.to_string())
+    None => ()
   }
-  let with_kind = match cell_kind {
-    Some(value) =>
-      @core.source_ref_with_extra(with_cell, "ipynb_cell_kind", value)
-    None => with_cell
+  match cell_kind {
+    Some(value) => extra.set("ipynb_cell_kind", value)
+    None => ()
   }
-  let with_id = match cell_id {
-    Some(value) =>
-      @core.source_ref_with_extra(with_kind, "ipynb_cell_id", value)
-    None => with_kind
+  match cell_id {
+    Some(value) => extra.set("ipynb_cell_id", value)
+    None => ()
   }
-  let with_output = match output_index {
-    Some(value) =>
-      @core.source_ref_with_extra(
-        with_id,
-        "ipynb_output_index",
-        value.to_string(),
-      )
-    None => with_id
+  match output_index {
+    Some(value) => extra.set("ipynb_output_index", value.to_string())
+    None => ()
   }
-  let with_exec = match execution_count {
-    Some(value) =>
-      @core.source_ref_with_extra(
-        with_output,
-        "ipynb_execution_count",
-        value.to_string(),
-      )
-    None => with_output
+  match execution_count {
+    Some(value) => extra.set("ipynb_execution_count", value.to_string())
+    None => ()
   }
-  let with_output_kind = match output_kind {
-    Some(value) =>
-      @core.source_ref_with_extra(with_exec, "ipynb_output_kind", value)
-    None => with_exec
+  match output_kind {
+    Some(value) => extra.set("ipynb_output_kind", value)
+    None => ()
   }
-  let with_attachment = match attachment_name {
-    Some(value) =>
-      @core.source_ref_with_extra(
-        with_output_kind, "ipynb_attachment_name", value,
-      )
-    None => with_output_kind
+  match attachment_name {
+    Some(value) => extra.set("ipynb_attachment_name", value)
+    None => ()
   }
   match mime_type {
-    Some(value) =>
-      @core.source_ref_with_extra(with_attachment, "ipynb_mime_type", value)
-    None => with_attachment
+    Some(value) => extra.set("ipynb_mime_type", value)
+    None => ()
+  }
+  {
+    ..@core.empty_source_ref(),
+    file_id: Some(source.source_name),
+    format: Some("ipynb"),
+    json_pointer: Some(json_pointer),
+    extra,
   }
 }
 

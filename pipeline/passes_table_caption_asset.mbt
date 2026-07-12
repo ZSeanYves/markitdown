@@ -578,9 +578,9 @@ fn collect_single_block_asset_ref(
               block.source_ref.unwrap_or(@core.empty_source_ref()),
             ),
             inline.href.unwrap_or("").trim().to_owned(),
-            None,
+            inline.attrs.get("asset_id"),
             inline.text,
-            None,
+            inline.attrs.get("source_path"),
           )
         }
       }
@@ -598,6 +598,12 @@ fn collect_image_asset_ref(
   source_path_opt : String?,
 ) -> Unit {
   if path == "" {
+    return
+  }
+  let lowered_path = path.to_lower()
+  if lowered_path.has_prefix("http://") ||
+    lowered_path.has_prefix("https://") ||
+    lowered_path.has_prefix("data:") {
     return
   }
   let asset_id = asset_id_opt.unwrap_or(
