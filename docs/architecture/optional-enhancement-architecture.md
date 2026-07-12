@@ -34,6 +34,13 @@ This document covers only three enhancement areas:
 2. the PDF accurate / high-fidelity route
 3. audio `media_pipeline`
 
+Current implementation checkpoint: optional environments are managed only
+through `tools/env/optional_deps.sh`; official wrappers establish deterministic
+child-process environments without requiring callers to source shell files.
+Document-embedded images remain assets. Direct image OCR applies to pure-image
+input, while PDF accurate rasterizes complete pages through its own external
+tool chain.
+
 ---
 
 ## 1. Design Principles

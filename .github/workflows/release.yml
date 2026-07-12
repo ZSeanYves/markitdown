@@ -1,0 +1,133 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  PYTHON_VERSION: "3.11"
+  MARKITDOWN_QUALITY_LAB_SHA: "34ef2daa71f2f875c3b324cd124f7d6e29add0c1"
+
+jobs:
+  validate:
+    name: Release gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - name: Checkout quality lab
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          repository: ZSeanYves/markitdown-quality-lab
+          path: markitdown-quality-lab
+          ref: ${{ env.MARKITDOWN_QUALITY_LAB_SHA }}
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install rolling MoonBit toolchain
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - name: Install release validation runtimes
+        run: |
+          moon update
+          ./tools/env/optional_deps.sh install all
+      - name: Build release binaries
+        run: |
+          moon build cli --target native
+          moon build --target native --release --package ZSeanYves/markitdown/cli
+          moon build --target native --release --package ZSeanYves/markitdown/bench/runner
+      - name: Run correctness gates
+        env:
+          MARKITDOWN_CLI: ${{ github.workspace }}/_build/native/debug/build/cli/cli.exe
+        run: |
+          moon check
+          moon test
+          moon fmt --check
+          ./tools/regression/check_coverage.sh --enforce
+          MARKITDOWN_BALANCE_AUDIO_RUNTIME=mock ./tools/regression/check_balance.sh
+          MARKITDOWN_BALANCE_AUDIO_RUNTIME=real ./tools/regression/check_balance_quality.sh
+          ./tools/regression/check_accurate.sh
+          python3 tools/regression/mutation_smoke.py
+      - name: Require approved self baselines
+        run: |
+          test -f markitdown-quality-lab/performance_baselines/linux-x64.json
+          test -f markitdown-quality-lab/performance_baselines/macos-arm64.json
+      - name: Run full external performance gate
+        run: |
+          set -euo pipefail
+          mkdir -p .tmp/release-bench
+          _build/native/release/build/bench/runner/runner.exe run \
+            --preset official-external-compare --progress=json \
+            --keep-outputs=failures --max-disk-mb 4096 \
+            | tee .tmp/release-bench/run.jsonl
+          summary_path="$(tail -n 1 .tmp/release-bench/run.jsonl | jq -er '.summary_json | select(type == "string" and length > 0)')"
+          test -f "$summary_path"
+          jq -e '
+            .trust_status == "trusted" and
+            .truth_summary.failed_cases == 0 and
+            .gate_summary.performance.status == "pass" and
+            .gate_summary.rss.status == "pass"
+          ' "$summary_path"
+
+  build:
+    name: Package (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            platform: linux-x64
+          - os: macos-15
+            platform: macos-arm64
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - name: Install rolling MoonBit toolchain
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - name: Build and verify
+        run: |
+          moon update
+          moon check
+          moon test
+          moon build --target native --release --package ZSeanYves/markitdown/cli
+      - name: Package release
+        run: |
+          module_version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' moon.mod)"
+          test "$GITHUB_REF_NAME" = "v$module_version"
+          python3 tools/release/package.py \
+            --binary _build/native/release/build/cli/cli.exe \
+            --platform '${{ matrix.platform }}'
+      - name: Upload package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-${{ matrix.platform }}
+          path: dist
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub release
+    needs: [validate, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Download packages
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes

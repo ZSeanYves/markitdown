@@ -4,15 +4,20 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 1"
 
 permissions:
   contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   PYTHON_VERSION: "3.11"
   HOMEBREW_NO_AUTO_UPDATE: "1"
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
-  PIP_NO_PYTHON_VERSION_WARNING: "1"
   TZ: "UTC"
   LANG: "en_US.UTF-8"
   LC_ALL: "en_US.UTF-8"
@@ -22,275 +27,215 @@ env:
   OPENBLAS_NUM_THREADS: "1"
   VECLIB_MAXIMUM_THREADS: "1"
   NUMEXPR_NUM_THREADS: "1"
-  MARKITDOWN_QUALITY_LAB_SHA: "3a7fa4cfda5cded851118af19323c89a158e2f98"
+  MARKITDOWN_QUALITY_LAB_SHA: "6f581e9498de623b4181cd51c95e0c8bbfc0fd68"
 
 jobs:
-  core-validate:
-    name: core-validate (${{ matrix.os }})
+  core:
+    name: MoonBit core (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
-    defaults:
-      run:
-        shell: bash
+        os: [ubuntu-24.04, macos-15]
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
       - name: Install MoonBit
         run: |
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
-
-      - name: Update MoonBit registry
-        run: moon update
-
-      - name: Check env shell syntax
-        run: |
-          find tools/env tools/regression -type f -name '*.sh' -print0 | xargs -0 bash -n
-
-      - name: Check env Python syntax
-        run: |
-          python3 -m py_compile $(find tools/env/lib tools/env/wrappers tools/regression/lib -type f -name '*.py' -print)
-
-      - name: Run env unit tests
-        run: python3 -m unittest discover -s tools/env/lib/tests -p 'test_*.py'
-
-      - name: Check generated interfaces
-        run: |
-          moon info
-          git diff --exit-code
-
-      - name: Check formatting
+      - run: moon update
+      - name: Format
         run: moon fmt --check
-
+      - name: Interfaces
+        run: moon info && git diff --exit-code
       - name: Check
         run: moon check
-
       - name: Test
         run: moon test
 
-  external-main-regression:
-    name: external-main-regression (${{ matrix.os }})
-    needs: core-validate
+  tooling:
+    name: Python and shell tools
+    needs: core
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Shell syntax
+        run: find tools -type f -name '*.sh' -print0 | xargs -0 bash -n
+      - name: ShellCheck
+        uses: ludeeus/action-shellcheck@00cae500b08a931fb5698e11e79bfbd38e612a38 # 2.0.0
+        with:
+          scandir: ./tools
+          check_together: true
+      - name: Python syntax and tests
+        run: |
+          python3 -m py_compile $(find tools -type f -name '*.py' -print)
+          python3 -m unittest discover -s tools/env/lib/tests -p 'test_*.py'
+          python3 -m unittest discover -s tools/regression/lib/tests -p 'test_*.py'
+  coverage:
+    name: Coverage
+    needs: [core, tooling]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - run: moon update
+      - name: Run coverage gate
+        run: |
+          ./tools/regression/run_with_release_manifest.sh \
+            --output .tmp/release/coverage.json \
+            --artifact .tmp/coverage \
+            -- ./tools/regression/check_coverage.sh --enforce
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: coverage
+          path: |
+            .tmp/coverage
+            .tmp/release/coverage.json
+          if-no-files-found: error
+
+  regression:
+    name: ${{ matrix.name }}
+    needs: [core, tooling]
     runs-on: ${{ matrix.os }}
-    env:
-      MARKITDOWN_BALANCE_AUDIO_RUNTIME: mock
+    timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
-    defaults:
-      run:
-        shell: bash
+        include:
+          - name: Main regression (Linux)
+            os: ubuntu-24.04
+            profiles: balance
+            command: check_balance.sh
+            evidence: check
+            audio_mode: mock
+          - name: Main regression (macOS)
+            os: macos-15
+            profiles: balance
+            command: check_balance.sh
+            evidence: check
+            audio_mode: mock
+          - name: Quality regression
+            os: ubuntu-24.04
+            profiles: balance audio
+            command: check_balance_quality.sh
+            evidence: quality
+            audio_mode: real
+          - name: Accurate regression
+            os: ubuntu-24.04
+            profiles: accurate
+            command: check_accurate.sh
+            evidence: accurate
+            audio_mode: mock
+    env:
+      MARKITDOWN_CLI: ${{ github.workspace }}/_build/native/debug/build/cli/cli.exe
+      MARKITDOWN_BALANCE_AUDIO_RUNTIME: ${{ matrix.audio_mode }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Checkout quality lab
-        uses: actions/checkout@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
           repository: ZSeanYves/markitdown-quality-lab
           path: markitdown-quality-lab
           ref: ${{ env.MARKITDOWN_QUALITY_LAB_SHA }}
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-
       - name: Install MoonBit
         run: |
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
-
-      - name: Update MoonBit registry
-        run: moon update
-
-      - name: Build native CLI
+      - run: moon update
+      - name: Build CLI
         run: moon build cli --target native
-
-      - name: Install balance image OCR dependencies
-        run: ./tools/env/install_ocr_balance_deps.sh
-
-      - name: Install audio dependencies
-        run: ./tools/env/install_audio_deps.sh
-
-      - name: Verify managed balance/audio env state
+      - name: Install optional dependencies
         run: |
-          ./tools/env/install_ocr_balance_deps.sh --check
-          ./tools/env/install_audio_deps.sh --check
-
-      - name: External main regression
-        run: ./tools/regression/check_balance.sh
-
-  external-quality-regression:
-    name: external-quality-regression
-    needs: core-validate
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Checkout quality lab
-        uses: actions/checkout@v5
+          for profile in ${{ matrix.profiles }}; do
+            ./tools/env/optional_deps.sh install "$profile"
+            ./tools/env/optional_deps.sh check "$profile"
+          done
+      - name: Run regression
+        run: |
+          ./tools/regression/run_with_release_manifest.sh \
+            --output .tmp/release/${{ matrix.evidence }}.json \
+            --artifact .tmp/${{ matrix.evidence }} \
+            -- ./tools/regression/${{ matrix.command }}
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          repository: ZSeanYves/markitdown-quality-lab
-          path: markitdown-quality-lab
-          ref: ${{ env.MARKITDOWN_QUALITY_LAB_SHA }}
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-          cache-dependency-path: |
-            tools/env/install_audio_deps.sh
-            tools/env/share/install_audio_vosk_model.sh
-            tools/env/share/install_runtime_deps_common.sh
-            tools/env/lib/common.sh
-            tools/env/lib/**/*.py
-            tools/env/config/**/*.json
-            tools/env/config/python/audio.lock
-
-      - name: Restore Vosk model cache
-        uses: actions/cache@v4
-        with:
+          name: regression-${{ matrix.evidence }}-${{ matrix.os }}
           path: |
-            env/downloads/models/vosk
-            env/models/vosk
-          key: ${{ runner.os }}-vosk-${{ hashFiles('tools/env/install_audio_deps.sh', 'tools/env/share/install_audio_vosk_model.sh', 'tools/env/lib/**/*.py', 'tools/env/config/models.json', 'tools/env/config/profiles.json') }}
+            .tmp/${{ matrix.evidence }}
+            .tmp/release/${{ matrix.evidence }}.json
+          if-no-files-found: error
 
-      - name: Install MoonBit
-        run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
-          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
-
-      - name: Update MoonBit registry
-        run: moon update
-
-      - name: Build native CLI
-        run: moon build cli --target native
-
-      - name: Install balance image OCR dependencies
-        run: ./tools/env/install_ocr_balance_deps.sh
-
-      - name: Install audio dependencies
-        run: ./tools/env/install_audio_deps.sh
-
-      - name: Verify managed balance/audio env state
-        run: |
-          ./tools/env/install_ocr_balance_deps.sh --check
-          ./tools/env/install_audio_deps.sh --check
-
-      - name: External quality regression
-        run: ./tools/regression/check_balance_quality.sh
-
-      - name: Show quality failure summary
-        if: failure()
-        run: |
-          find .tmp/quality -path '*/reports/nonpass.md' -print -exec sh -c 'echo; echo "===== $1 ====="; sed -n "1,160p" "$1"' _ {} \;
-          find .tmp/quality -path '*/reports/rows/*.md' -print | head -n 5 | while read -r report; do
-            echo
-            echo "===== $report ====="
-            sed -n '1,160p' "$report"
-          done
-          find .tmp/quality -path '*/logs/entrypoint.log' -print -exec sh -c 'echo; echo "===== $1 ====="; tail -n 120 "$1"' _ {} \;
-
-      - name: Upload quality run artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: external-quality-regression-artifacts
-          path: .tmp/quality
-          if-no-files-found: ignore
-
-  external-accurate-regression:
-    name: external-accurate-regression
-    needs: core-validate
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash
+  benchmark:
+    name: Performance
+    needs: [core, tooling]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Checkout quality lab
-        uses: actions/checkout@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
           repository: ZSeanYves/markitdown-quality-lab
           path: markitdown-quality-lab
           ref: ${{ env.MARKITDOWN_QUALITY_LAB_SHA }}
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-          cache-dependency-path: |
-            tools/env/install_ocr_pdf_accurate_deps.sh
-            tools/env/wrappers/paddle_ocr_wrapper.py
-            tools/env/share/install_runtime_deps_common.sh
-            tools/env/lib/common.sh
-            tools/env/lib/**/*.py
-            tools/env/config/**/*.json
-            tools/env/config/python/accurate.lock
-
       - name: Install MoonBit
         run: |
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
-
-      - name: Update MoonBit registry
-        run: moon update
-
-      - name: Build native CLI
-        run: moon build cli --target native
-
-      - name: Install accurate OCR/PDF dependencies
-        run: ./tools/env/install_ocr_pdf_accurate_deps.sh
-
-      - name: Verify managed accurate env state
-        run: ./tools/env/install_ocr_pdf_accurate_deps.sh --check
-
-      - name: External accurate regression
-        run: ./tools/regression/check_accurate.sh
-
-      - name: Show accurate failure summary
-        if: failure()
+      - run: moon update
+      - name: Install benchmark baseline
+        run: ./tools/env/optional_deps.sh install bench
+      - name: Build benchmark
         run: |
-          find .tmp/accurate -path '*/summary.md' -print -exec sh -c 'echo; echo "===== $1 ====="; sed -n "1,200p" "$1"' _ {} \;
-          find .tmp/accurate -path '*/reports/nonpass.md' -print -exec sh -c 'echo; echo "===== $1 ====="; sed -n "1,200p" "$1"' _ {} \;
-          find .tmp/accurate -path '*/reports/rows/*.md' -print | head -n 8 | while read -r report; do
-            echo
-            echo "===== $report ====="
-            sed -n '1,200p' "$report"
-          done
-          find .tmp/accurate -path '*/logs/*.log' -print | while read -r log; do
-            echo
-            echo "===== $log ====="
-            tail -n 160 "$log"
-          done
-
-      - name: Upload accurate run artifacts
+          moon build --target native --release --package ZSeanYves/markitdown/cli
+          moon build --target native --release --package ZSeanYves/markitdown/bench/runner
+      - name: Doctor
+        run: _build/native/release/build/bench/runner/runner.exe doctor
+      - name: Run benchmark
+        run: |
+          set -euo pipefail
+          mkdir -p .tmp/bench-ci
+          disk=512
+          args=(--preset official-external-compare --limit 1)
+          if [[ "${{ github.event_name }}" == schedule ]]; then
+            disk=4096
+            args=(--preset official-external-compare)
+            python3 tools/regression/mutation_smoke.py
+          fi
+          _build/native/release/build/bench/runner/runner.exe run \
+            "${args[@]}" \
+            --progress=json --keep-outputs=failures --max-disk-mb "$disk" \
+            | tee .tmp/bench-ci/run.jsonl
+          summary="$(tail -n 1 .tmp/bench-ci/run.jsonl | jq -er '.summary_json | select(type == "string" and length > 0)')"
+          test -f "$summary"
+          jq -e '.trust_status == "trusted" and .truth_summary.failed_cases == 0 and .gate_summary.performance.status == "pass" and .gate_summary.rss.status == "pass"' "$summary"
+          cp "$summary" .tmp/bench-ci/summary.json
+      - name: Upload evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: external-accurate-regression-artifacts
-          path: .tmp/accurate
+          name: benchmark
+          path: |
+            .tmp/bench-ci
+            .tmp/bench/runs
+            .tmp/mutation
           if-no-files-found: ignore

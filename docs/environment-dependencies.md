@@ -1,156 +1,124 @@
-# Environment Dependencies
+# Environment and Optional Dependencies
 
-This repository now provides script-based setup for runtime dependencies. In most cases, you only need to run the matching script from the repo root, and it will prepare the environment automatically.
+The native balanced readers are dependency-free. External runtimes are optional
+enhancements with explicit boundaries: top-level image OCR, audio transcription,
+PDF/direct-image accurate, and Microsoft MarkItDown benchmark comparison.
 
-These scripts do a few things:
+## One entrypoint
 
-- Install local command dependencies through the system package manager.
-- Create or reuse a repo-local Python virtual environment under `./env/`.
-- Record repo-managed absolute paths under `./env/managed-paths/` so repo-root runs can prefer those paths first.
-- Generate optional `env/*.env.sh` files; if you run the CLI from the repo root, you usually do not need to `source` them manually.
-
-The current install scripts support Homebrew and `apt-get`.
-
-## 1. Direct Image OCR (`balance`)
-
-Use this when you need:
-
-- direct image OCR on the main product path
-
-Run:
+Use only `tools/env/optional_deps.sh` in documentation and automation:
 
 ```bash
-./tools/env/install_ocr_balance_deps.sh
+./tools/env/optional_deps.sh install core
+./tools/env/optional_deps.sh install balance
+./tools/env/optional_deps.sh install audio
+./tools/env/optional_deps.sh install accurate
+./tools/env/optional_deps.sh install bench
+./tools/env/optional_deps.sh install all
+
+./tools/env/optional_deps.sh check all
 ```
 
-This script installs or records:
+Options after the profile are forwarded to the managed installer, including
+`--force`, `--python PATH`, `--no-sudo`, and audio `--model cn-small`.
 
-- `tesseract`
-- `./env/managed-paths/tesseract`
+The four historical installer scripts remain under `tools/env/installers/` for
+compatibility only. They are not public setup entrypoints.
 
-No extra environment variables are usually required after it finishes.
+## Profile boundaries
 
-## 2. Accurate Image OCR And Accurate PDF OCR
+### `core`
 
-Use this when you need:
+Installs nothing. It documents and verifies that TXT, structured text, markup,
+mail, containers, Office/ODF, EPUB, and native balanced PDF do not require an
+external runtime.
 
-- direct image OCR in `accurate`
-- PDF OCR in `accurate`
+### `balance`
 
-Run:
+Installs Tesseract for top-level pure-image OCR and unreferenced standalone
+image children inside balance-mode ZIP files. Images embedded in documents are
+assets and never enter OCR. ZIP supports balance only.
 
 ```bash
-./tools/env/install_ocr_pdf_accurate_deps.sh
+./tools/env/optional_deps.sh install balance
+./tools/env/optional_deps.sh check balance
 ```
 
-This script automatically prepares:
+### `audio`
 
-- `tesseract`
-- `pdftoppm` from `poppler` / `poppler-utils`
-- a repo-local Python runtime and virtual environment
-- `paddlepaddle`
-- `paddleocr`
-- `pillow`
-
-It also writes:
-
-- `./env/managed-paths/tesseract`
-- `./env/managed-paths/pdftoppm`
-- `./env/accurate-ocr-pdf.env.sh`
-
-If you run the CLI from the repo root, running the script is usually enough. Only `source` the env file when you want to export those paths into another shell:
+Installs the repo-local Vosk environment, one checked model, and ffmpeg for
+compressed audio normalization. It supports optional `wav`, `mp3`, and `m4a`
+transcription on the balance path.
 
 ```bash
-source ./env/accurate-ocr-pdf.env.sh
+./tools/env/optional_deps.sh install audio
+./tools/env/optional_deps.sh install audio --model cn-small
+./tools/env/optional_deps.sh check audio
 ```
 
-## 3. Audio / Media
+The official wrapper establishes `TZ`, locale, hash, and thread controls inside
+its child process. Normal repo-root CLI use does not require sourcing an env
+file.
 
-Use this when you need:
+### `accurate`
 
-- `wav`
-- `mp3`
-- `m4a`
-
-Run:
+Installs PaddleOCR, managed models, and `pdftoppm`. Direct accurate image OCR may
+fall back to Tesseract within the same supported OCR route. PDF accurate uses
+complete-page `pdftoppm` rasterization followed by PaddleOCR; it is not the
+native PDF reader and does not OCR embedded PDF assets.
 
 ```bash
-./tools/env/install_audio_deps.sh
+./tools/env/optional_deps.sh install accurate
+./tools/env/optional_deps.sh check accurate
 ```
 
-If you want the small Chinese model:
+Encrypted/password-protected PDFs and documents remain unsupported. Missing
+required dependencies fail closed with installation guidance.
+
+### `bench`
+
+Creates the isolated Microsoft MarkItDown reference environment used by
+`external_compare`. It is development tooling, not a product dependency.
 
 ```bash
-./tools/env/install_audio_deps.sh --model cn-small
+./tools/env/optional_deps.sh install bench
+./tools/env/optional_deps.sh check bench
 ```
 
-This script automatically prepares:
+## Managed state
 
-- `ffmpeg`
-- `unzip`
-- a repo-local Python runtime and virtual environment
-- `vosk`
-- one local Vosk model
+Generated state lives under ignored `env/`:
 
-It also writes:
+- profile virtual environments;
+- managed tool paths;
+- downloaded and verified models;
+- fingerprints and metadata;
+- optional shell export files.
 
-- `./env/managed-paths/ffmpeg`
-- `./env/audio.env.sh`
+Installers are serialized with a lock and update managed records atomically.
+Model archives are checksum-verified. A failed or interrupted install must not
+be accepted by `check` as complete state.
 
-If you run the CLI from the repo root, running the script is usually enough. Only `source` the env file when you want to export those paths into another shell:
+To audit a clean machine:
 
 ```bash
-source ./env/audio.env.sh
+./tools/env/reset_test_env.sh
+./tools/env/optional_deps.sh check core
+./tools/env/optional_deps.sh install <profile>
+./tools/env/optional_deps.sh check <profile>
 ```
 
-## 4. Official `markitdown` For Benchmark Comparison
+`reset_test_env.sh` deletes only ignored repo-managed `env/` state and reports
+ambient tools still visible on `PATH`.
 
-If you need formal benchmark runs, or you need a local baseline `markitdown` CLI:
+## External corpus
+
+Formal regression and benchmark commands also require the pinned quality repo:
 
 ```bash
-./tools/env/install_bench_baseline_deps.sh
+git clone https://github.com/ZSeanYves/markitdown-quality-lab.git \
+  markitdown-quality-lab
 ```
 
-This script installs the following under `./env/`:
-
-- `markitdown[all]`
-
-It also writes:
-
-- `./env/bench-baseline.env.sh`
-- the repo-local `markitdown` executable path exported through `MARKITDOWN_BIN`
-
-If you run the benchmark runner from the repo root, it will usually auto-detect this repo-local `markitdown` without extra manual setup.
-
-## 5. External Corpus And Benchmark Sample Repository
-
-If you need external-corpus validation scripts, or if you need formal benchmark runs, clone the external repository:
-
-```bash
-git clone https://github.com/ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab
-```
-
-To be explicit, `markitdown-quality-lab` is not only the home of external regression corpora; it also carries the sample payloads and manifests used by formal bench runs.
-
-It currently serves both of these purposes:
-
-- main regression and quality-regression scripts such as `tools/regression/check_balance.sh`, `tools/regression/check_balance_quality.sh`, and `tools/regression/check_accurate.sh`
-- external benchmark samples and manifests used by formal benchmark runs
-
-When running from the repo root, the official expected location is:
-
-```text
-./markitdown-quality-lab/
-```
-
-## 6. Build The CLI Before Checks
-
-Before running the various validation scripts, build the native CLI first:
-
-```bash
-moon build cli --target native
-```
-
-## 7. Custom Installation Notes
-
-Besides the provided setup scripts, users can still install and configure dependencies manually by following the relevant official documentation. If you do that, make sure the CLI can discover the required commands or paths through the expected runtime conventions or environment variables.
+CI pins its exact commit with `MARKITDOWN_QUALITY_LAB_SHA`. The quality repo is
+test evidence and is never packaged into the runtime or release archive.

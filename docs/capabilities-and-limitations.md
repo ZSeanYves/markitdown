@@ -61,7 +61,7 @@ Mode boundary:
 
 - explicit `stream` is productized for `txt`, `csv`, `tsv`, `srt`, `vtt`, `json`, `jsonl`, `ndjson`, `ipynb`, `xml`, `yaml`, `html`, `markdown`, and `eml`
 - `toml`, `tex`, `rst`, and `asciidoc` currently stay on canonical structured routes and do not expose a distinct explicit stream route
-- `accurate` does not introduce a separate core route family; for core formats without accurate features it falls back explicitly to `balanced`
+- core formats without declared accurate features reject `accurate` instead of falling back to `balanced`
 
 ### 2.2 Office
 
@@ -117,11 +117,17 @@ Current ZIP recursive inner-document scope is intentionally limited. It currentl
 - `eml`
 - `docx`, `xlsx`, `pptx`
 - `odt`, `ods`, `odp`
+- native balanced `pdf`
+- `wav`, `mp3`, `m4a`
+- standalone `png`, `jpg`, `jpeg`, `bmp`, `webp`, `tif`, `tiff`
 
 Notable limitations:
 
 - ZIP recursion does not currently recurse into nested archives such as `zip`, `jar`, or `epub`
-- ZIP recursion does not currently productize `pdf`, audio, or direct-image OCR as first-class recursive inner documents
+- document-referenced images remain assets and are not OCR inputs
+- unreferenced standalone OCR-capable images use the same balance Tesseract
+  provider as top-level image input and always preserve the original asset
+- standalone GIF/SVG-like assets may be exported without OCR
 - container parsing remains bounded and guarded by root-registry dispatch, resource limits, and output-path safety rules
 
 ### 2.4 Media
@@ -143,7 +149,7 @@ Mode boundary:
 
 - there is no separate media-specific `accurate` route family today
 - there is no productized explicit `stream` route for audio today
-- `accurate` therefore falls back explicitly to `balanced` for `wav`, `mp3`, and `m4a`
+- `accurate` is rejected for `wav`, `mp3`, and `m4a`
 
 ### 2.5 PdfOcr
 
@@ -228,14 +234,15 @@ Public product modes remain:
 
 Support is intentionally non-universal.
 
-Current `accurate` behavior falls into three groups:
+Current `accurate` support falls into two groups:
 
 1. Dedicated accurate route family:
    `pdf`, direct image OCR
 2. Same-route accurate semantic enhancements:
    `docx`, `xlsx`, `pptx`, `odt`, `ods`, `odp`
-3. Explicit fallback to balanced:
-   `txt`, `csv`, `tsv`, `srt`, `vtt`, `json`, `jsonl`, `ndjson`, `ipynb`, `xml`, `yaml`, `toml`, `html`, `markdown`, `tex`, `rst`, `asciidoc`, `eml`, `zip`, `epub`, `wav`, `mp3`, `m4a`
+
+All other formats reject `accurate` with a non-zero exit status. Unsupported
+mode requests never fall back to `balance`.
 
 Current explicit `stream` productization is present for:
 
@@ -246,8 +253,10 @@ Current explicit `stream` productization is present for:
 - `xml`, `yaml`
 - `html`, `markdown`
 - `eml`
-- `zip`, `epub`
+- `epub`
 - `xlsx`, `odt`, `ods`, `odp`
+
+Formats outside this list reject `stream` with a non-zero exit status.
 
 Formats that currently do not expose a distinct explicit `stream` route include:
 
@@ -264,77 +273,26 @@ Across all groups:
 - heavy-format parser code must not privately choose a different route
 - renderer selection (`Markdown`, `RagJson`, `DebugJson`) does not change route ownership
 
-## 5. Regression Coverage Boundary
+## 5. Regression Evidence Boundary
 
-### 5.1 Checked-in repo-local fixtures
+Evidence is intentionally split rather than summarized by fragile hard-coded
+fixture counts:
 
-Checked-in contract fixture directories currently exist under `samples/fixtures/contracts/` for:
+1. MoonBit whitebox/blackbox tests cover parser branches, malformed inputs,
+   resource limits, route policy, lowering, and rendering.
+2. `samples/fixtures/contracts/` carries small deterministic repository-owned
+   CLI and golden contracts, including asset-byte checks.
+3. `markitdown-quality-lab/external_main_process/` carries the formal main
+   balance corpus.
+4. `external_quality/` carries larger real-world inputs with source catalogs,
+   licenses, hashes, provenance, and semantic signals.
+5. `external_accurate/` is a functional accurate gate only.
+6. `external_bench/` and `performance_baselines/` carry benchmark rows and
+   approved platform baselines.
 
-- core and markup: `txt`, `csv`, `tsv`, `json`, `jsonl`, `ndjson`, `ipynb`, `xml`, `yaml`, `toml`, `html`, `markdown`, `tex`, `rst`, `asciidoc`
-- office: `docx`, `xlsx`, `pptx`, `odt`, `ods`, `odp`
-- containers: `zip`, `epub`
-- PDF / OCR / media: `pdf`, `ocr`, `audio`
-
-Checked-in fixture directories do not currently exist there for:
-
-- `eml`
-- `srt`
-- `vtt`
-
-### 5.2 Where checked-in goldens are strongest
-
-The strongest checked-in Markdown / asset-style golden coverage is currently around:
-
-- `txt`, `csv`, `tsv`
-- `json`, `jsonl`, `ndjson`, `ipynb`, `xml`, `yaml`, `toml`
-- `html`, `markdown`
-- `docx`, `xlsx`, `pptx`
-- `zip`, `epub`
-- native-text `pdf`
-- tiny direct-image OCR samples across all supported image extensions
-
-Notable details:
-
-- `docx`, `pptx`, `epub`, and `zip` also include checked-in asset/result fixtures
-- `pdf` includes checked-in native-text goldens plus OCR-oriented sample inputs such as `pdf_ocr_single_page.pdf` and `pdf_ocr_two_page.pdf`
-- `ocr` includes checked-in tiny-format goldens for `png/jpg/jpeg/bmp/webp/tif/tiff`, plus larger image inputs without repo-local Markdown goldens
-
-### 5.3 Thinner checked-in sample coverage
-
-The following areas are source-supported, but their checked-in repo-local sample coverage is thinner than the strongest groups above:
-
-- `odt`, `ods`, `odp` currently have checked-in input fixtures but no checked-in Markdown goldens in `samples/fixtures/contracts/`
-- `tex`, `rst`, and `asciidoc` currently have checked-in input fixtures but no checked-in Markdown goldens there
-- `audio` currently has checked-in input fixtures, while most runtime confidence comes from MoonBit runtime tests rather than checked-in Markdown golden outputs
-- `srt` and `vtt` are parser-tested, but do not currently have checked-in `samples/fixtures/contracts/srt|vtt/` directories
-- `eml` is registry-wired and integrated into the recursive parsing surface, but does not currently have a checked-in `samples/fixtures/contracts/eml/` directory
-
-### 5.4 Boundary / malformed fixtures
-
-Checked-in malformed and fail-closed boundary fixtures under `samples/fixtures/boundaries/` are currently concentrated in:
-
-- `epub`
-
-### 5.5 External regression entry points
-
-The repository also ships external regression entry points under [samples/README.md](../samples/README.md), but the formal corpora are not vendored here and live in `markitdown-quality-lab/`.
-
-The external main-regression runner is currently wired for:
-
-- `csv`, `tsv`, `txt`
-- `srt`, `vtt`
-- `json`, `jsonl`, `ndjson`, `ipynb`
-- `xml`, `yaml`, `toml`
-- `html`, `markdown`, `eml`
-- `tex`, `rst`, `asciidoc`
-- `zip`, `epub`
-- `odt`, `ods`, `odp`
-- `docx`, `xlsx`, `pptx`
-- `pdf`
-- `wav`, `mp3`, `m4a`
-- `ocr`
-
-Because those corpora are external, checked-in repo-local fixtures remain the most reliable indicator of what this repository itself currently carries as sample coverage.
+The executable manifests and latest CI artifacts are the source of truth for
+row counts. See [samples/README.md](../samples/README.md) and
+[tools/regression/README.md](../tools/regression/README.md).
 
 ## 6. Current Non-goals and Limitations
 
