@@ -33,6 +33,13 @@ wrappers establish their deterministic child-process environment themselves;
 generated `env/*.env.sh` files are available for custom shells but are not
 required for normal repo-root CLI runs.
 
+Large model downloads retain stable partial files and resume after interruption.
+HTTP range-capable servers use four segments by default. Override this with
+`MARKITDOWN_DOWNLOAD_SEGMENTS=1..8`. Regional or internal mirrors can be tried
+before the configured origin with a comma-separated
+`MARKITDOWN_MODEL_MIRROR_BASE_URLS`; the configured SHA-256 remains mandatory
+for every source.
+
 ## Internal layout
 
 - `lib/`: installer, lock, fingerprint, package-manager, and model logic.

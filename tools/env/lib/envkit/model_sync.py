@@ -7,6 +7,7 @@ import tarfile
 import tempfile
 import urllib.request
 import zipfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -109,67 +110,202 @@ def download_archive(env_root: Path, spec: dict) -> Path:
     archive_path = downloads_dir / archive_name
     if archive_path.is_file() and sha256_file(archive_path) == spec["sha256"]:
         return archive_path
-    temporary = archive_path.with_name(f".{archive_path.name}.part-{os.getpid()}")
-    if temporary.exists():
-        temporary.unlink()
-    print(f"[deps] downloading model {spec['key']} from {spec['url']}", flush=True)
+    temporary = archive_path.with_name(f".{archive_path.name}.part")
+    urls = model_download_urls(spec)
+    errors: list[str] = []
+    for url in urls:
+        resumed = temporary.stat().st_size if temporary.is_file() else 0
+        detail = f" (resuming at {resumed} bytes)" if resumed else ""
+        print(f"[deps] downloading model {spec['key']} from {url}{detail}", flush=True)
+        try:
+            curl = shutil.which("curl")
+            segment_paths: list[Path] = []
+            if curl:
+                segment_paths = download_with_curl(curl, url, temporary)
+            else:
+                download_with_urllib(url, temporary)
+            if sha256_file(temporary) != spec["sha256"]:
+                temporary.unlink(missing_ok=True)
+                for path in segment_paths:
+                    path.unlink(missing_ok=True)
+                raise EnvError(f"checksum mismatch for model archive: {url}")
+            os.replace(temporary, archive_path)
+            for path in segment_paths:
+                path.unlink(missing_ok=True)
+            return archive_path
+        except EnvError as exc:
+            errors.append(str(exc))
+    raise EnvError("model download failed from every candidate:\n" + "\n".join(errors))
+
+
+def model_download_urls(spec: dict) -> list[str]:
+    archive_name = Path(spec["url"]).name
+    urls: list[str] = []
+    mirror_bases = os.environ.get("MARKITDOWN_MODEL_MIRROR_BASE_URLS", "")
+    for base in mirror_bases.split(","):
+        if base.strip():
+            urls.append(base.strip().rstrip("/") + "/" + archive_name)
+    urls.extend(str(url) for url in spec.get("urls", []))
+    urls.append(spec["url"])
+    return list(dict.fromkeys(urls))
+
+
+def download_with_curl(curl: str, url: str, temporary: Path) -> list[Path]:
+    range_info = remote_range_info(url)
+    segments = download_segment_count()
+    if range_info is not None and segments > 1 and range_info >= 8 * 1024 * 1024:
+        return download_parallel_curl(curl, url, temporary, range_info, segments)
+    completed = subprocess.run(
+        [
+            curl,
+            "--fail",
+            "--location",
+            "--retry",
+            "3",
+            "--retry-all-errors",
+            "--connect-timeout",
+            "20",
+            "--speed-time",
+            "60",
+            "--speed-limit",
+            "1024",
+            "--continue-at",
+            "-",
+            "--progress-bar",
+            "--output",
+            str(temporary),
+            url,
+        ],
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise EnvError(f"model download failed ({completed.returncode}): {url}")
+    return []
+
+
+def remote_range_info(url: str) -> int | None:
+    if not url.startswith(("http://", "https://")):
+        return None
     try:
-        curl = shutil.which("curl")
-        if curl:
-            completed = subprocess.run(
-                [
-                    curl,
-                    "--fail",
-                    "--location",
-                    "--retry",
-                    "3",
-                    "--retry-all-errors",
-                    "--connect-timeout",
-                    "20",
-                    "--speed-time",
-                    "60",
-                    "--speed-limit",
-                    "1024",
-                    "--progress-bar",
-                    "--output",
-                    str(temporary),
-                    spec["url"],
-                ],
-                check=False,
+        request = urllib.request.Request(url, method="HEAD")
+        with urllib.request.urlopen(request, timeout=20) as response:
+            if response.headers.get("Accept-Ranges", "").lower() != "bytes":
+                return None
+            total = int(response.headers.get("Content-Length", "0") or 0)
+            return total if total > 0 else None
+    except (OSError, ValueError):
+        return None
+
+
+def download_segment_count() -> int:
+    raw = os.environ.get("MARKITDOWN_DOWNLOAD_SEGMENTS", "4")
+    try:
+        return max(1, min(8, int(raw)))
+    except ValueError:
+        raise EnvError(f"invalid MARKITDOWN_DOWNLOAD_SEGMENTS: {raw}") from None
+
+
+def download_parallel_curl(
+    curl: str,
+    url: str,
+    temporary: Path,
+    total: int,
+    segment_count: int,
+) -> list[Path]:
+    segment_size = (total + segment_count - 1) // segment_count
+    segments: list[tuple[Path, int, int]] = []
+    for index in range(segment_count):
+        start = index * segment_size
+        end = min(total - 1, start + segment_size - 1)
+        if start > end:
+            break
+        segments.append((temporary.with_name(f"{temporary.name}.{index}"), start, end))
+    print(
+        f"[deps] parallel download: {len(segments)} segments, {total} bytes",
+        flush=True,
+    )
+    with ThreadPoolExecutor(max_workers=len(segments)) as executor:
+        futures = {
+            executor.submit(download_curl_segment, curl, url, path, start, end): index
+            for index, (path, start, end) in enumerate(segments)
+        }
+        for future in as_completed(futures):
+            future.result()
+            print(
+                f"[deps] model segment {futures[future] + 1}/{len(segments)} ready",
+                flush=True,
             )
-            if completed.returncode != 0:
-                raise EnvError(
-                    f"model download failed ({completed.returncode}): {spec['url']}"
-                )
-        else:
-            with (
-                urllib.request.urlopen(spec["url"], timeout=60) as response,
-                temporary.open("wb") as handle,
-            ):
-                total = int(response.headers.get("Content-Length", "0") or 0)
-                downloaded = 0
-                next_report = 8 * 1024 * 1024
-                while True:
-                    chunk = response.read(1024 * 1024)
-                    if not chunk:
-                        break
-                    handle.write(chunk)
-                    downloaded += len(chunk)
-                    if downloaded >= next_report:
-                        detail = (
-                            f"{downloaded * 100 // total}%"
-                            if total > 0
-                            else f"{downloaded // (1024 * 1024)} MiB"
-                        )
-                        print(f"[deps] model {spec['key']}: {detail}", flush=True)
-                        next_report += 8 * 1024 * 1024
-        if sha256_file(temporary) != spec["sha256"]:
-            raise EnvError(f"checksum mismatch for model archive: {spec['url']}")
-        os.replace(temporary, archive_path)
-    finally:
-        if temporary.exists():
-            temporary.unlink()
-    return archive_path
+    with temporary.open("wb") as output:
+        for path, _, _ in segments:
+            with path.open("rb") as source:
+                shutil.copyfileobj(source, output, length=1024 * 1024)
+    if temporary.stat().st_size != total:
+        raise EnvError(
+            f"parallel model download size mismatch: expected {total}, got {temporary.stat().st_size}"
+        )
+    return [path for path, _, _ in segments]
+
+
+def download_curl_segment(
+    curl: str,
+    url: str,
+    path: Path,
+    start: int,
+    end: int,
+) -> None:
+    expected = end - start + 1
+    current = path.stat().st_size if path.is_file() else 0
+    if current > expected:
+        path.unlink()
+        current = 0
+    if current == expected:
+        return
+    with path.open("ab") as output:
+        completed = subprocess.run(
+            [
+                curl,
+                "--fail",
+                "--location",
+                "--retry",
+                "3",
+                "--retry-all-errors",
+                "--connect-timeout",
+                "20",
+                "--speed-time",
+                "60",
+                "--speed-limit",
+                "1024",
+                "--silent",
+                "--show-error",
+                "--range",
+                f"{start + current}-{end}",
+                url,
+            ],
+            stdout=output,
+            check=False,
+        )
+    actual = path.stat().st_size
+    if completed.returncode != 0 or actual != expected:
+        raise EnvError(
+            f"model segment download failed ({completed.returncode}, {actual}/{expected} bytes): {url}"
+        )
+
+
+def download_with_urllib(url: str, temporary: Path) -> None:
+    current = temporary.stat().st_size if temporary.is_file() else 0
+    request = urllib.request.Request(
+        url,
+        headers={"Range": f"bytes={current}-"} if current else {},
+    )
+    with urllib.request.urlopen(request, timeout=60) as response:
+        resumed = current > 0 and response.headers.get("Content-Range") is not None
+        mode = "ab" if resumed else "wb"
+        with temporary.open(mode) as handle:
+            while True:
+                chunk = response.read(1024 * 1024)
+                if not chunk:
+                    break
+                handle.write(chunk)
 
 
 def install_archive(archive_path: Path, target_dir: Path, spec: dict) -> None:

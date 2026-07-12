@@ -99,6 +99,24 @@ Installers are serialized with a lock and update managed records atomically.
 Model archives are checksum-verified. A failed or interrupted install must not
 be accepted by `check` as complete state.
 
+Model downloads use four resumable HTTP range segments by default when the
+server advertises range support. Stable partial files remain under
+`env/downloads/models/` after an interruption, and the next `install` resumes
+each segment. Set `MARKITDOWN_DOWNLOAD_SEGMENTS=1` to use one connection, or a
+value up to `8` to adjust concurrency.
+
+To prefer an internal or regional mirror, provide one or more comma-separated
+base URLs. The archive filename is appended to each base and the configured
+upstream remains the final fallback:
+
+```bash
+MARKITDOWN_MODEL_MIRROR_BASE_URLS=https://mirror.example/models \
+  ./tools/env/optional_deps.sh install audio
+```
+
+Mirror bytes are never trusted by location: every completed archive must match
+the SHA-256 locked in `tools/env/config/models.json` before it enters the cache.
+
 To audit a clean machine:
 
 ```bash
