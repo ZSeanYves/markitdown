@@ -115,6 +115,10 @@ test "seekable package formats preserve Path Bytes and short Reader results" {
       "samples/fixtures/contracts/zip/zip_basic_structured.zip",
       @input.DetectedFormat::Zip,
     ),
+    (
+      "samples/fixtures/contracts/pdf/text_simple.pdf",
+      @input.DetectedFormat::Pdf,
+    ),
   ]
   for fixture in fixtures {
     let (path, format) = fixture

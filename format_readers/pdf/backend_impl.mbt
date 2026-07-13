@@ -72,16 +72,44 @@ fn txt_ligature_expansion(ch : Char) -> String? {
 }
 
 ///|
-pub fn extract_pdf_native_document_from_path(
-  path : String,
-) -> Result[PdfNativeDocument, PdfNativeError] {
-  extract_pdf_native_document(@input.input_from_path(path))
+fn pdf_load_object_store(
+  source : @input.InputSource,
+) -> Result[PdfParsedObjectStore, PdfNativeError] {
+  let cursor = match @input.open_source_cursor(source) {
+    Ok(value) => value
+    Err(_) => return pdf_load_object_store_materialized(source)
+  }
+  let prefix = match pdf_cursor_read_exact(cursor, 0, 5) {
+    Ok(value) => value
+    Err(_) => return pdf_load_object_store_materialized(source)
+  }
+  if pdf_byte_string(prefix) != "%PDF-" {
+    return Err(
+      PdfNativeError::ParseFailed(
+        "input is not a PDF file: " + pdf_native_source_id(source),
+      ),
+    )
+  }
+  match pdf_parse_objects_via_cursor(cursor) {
+    Ok(Some(store)) =>
+      if pdf_parsed_store_is_encrypted(store) {
+        Err(
+          PdfNativeError::EncryptedUnsupported(
+            "encrypted PDF is unsupported in native PDF reader backend: " +
+            pdf_native_source_id(source),
+          ),
+        )
+      } else {
+        Ok(store)
+      }
+    Ok(None) | Err(_) => pdf_load_object_store_materialized(source)
+  }
 }
 
 ///|
-pub fn extract_pdf_native_document(
+fn pdf_load_object_store_materialized(
   source : @input.InputSource,
-) -> Result[PdfNativeDocument, PdfNativeError] {
+) -> Result[PdfParsedObjectStore, PdfNativeError] {
   let bytes = match @input.read_input_bytes(source) {
     Ok(payload) => payload
     Err(err) =>
@@ -117,7 +145,21 @@ pub fn extract_pdf_native_document(
       ),
     )
   }
-  let parsed_store = match pdf_parse_objects(bytes, view) {
+  pdf_parse_objects(bytes, view)
+}
+
+///|
+pub fn extract_pdf_native_document_from_path(
+  path : String,
+) -> Result[PdfNativeDocument, PdfNativeError] {
+  extract_pdf_native_document(@input.input_from_path(path))
+}
+
+///|
+pub fn extract_pdf_native_document(
+  source : @input.InputSource,
+) -> Result[PdfNativeDocument, PdfNativeError] {
+  let parsed_store = match pdf_load_object_store(source) {
     Ok(parsed) => parsed
     Err(err) => return Err(err)
   }
@@ -271,6 +313,10 @@ pub fn extract_pdf_native_document(
   diagnostics.metrics.set("native_impl_location", "format_readers/pdf")
   diagnostics.metrics.set("pdf_reader_impl", "format_readers/pdf")
   diagnostics.metrics.set("pdf_xref_mode", parsed_store.xref_mode)
+  diagnostics.metrics.set(
+    "pdf_input_access_mode",
+    parsed_store.input_access_mode,
+  )
   diagnostics.metrics.set(
     "pdf_filter_decode_mode",
     parsed_store.filter_decode_mode,
@@ -670,6 +716,7 @@ priv struct PdfParsedObjectStore {
   trailer_hints : Array[String]
   xref_mode : String
   filter_decode_mode : String
+  input_access_mode : String
 }
 
 ///|

@@ -1491,6 +1491,10 @@ test "pdf native backend reads xref stream documents without scan fallback" {
   assert_true(
     document.diagnostics.metrics.get("pdf_xref_mode") == Some("xref_stream_v1"),
   )
+  assert_true(
+    document.diagnostics.metrics.get("pdf_input_access_mode") ==
+    Some("cursor_xref"),
+  )
 }
 
 ///|
@@ -1538,6 +1542,10 @@ test "pdf native backend expands object streams referenced from xref streams" {
   assert_true(
     document.diagnostics.metrics.get("pdf_xref_mode") ==
     Some("xref_stream_objstm_v1"),
+  )
+  assert_true(
+    document.diagnostics.metrics.get("pdf_input_access_mode") ==
+    Some("cursor_xref"),
   )
 }
 

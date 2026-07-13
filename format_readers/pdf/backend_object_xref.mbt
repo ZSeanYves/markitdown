@@ -28,12 +28,176 @@ fn pdf_parse_objects_via_xref(
     Ok(value) => value
     Err(err) => return Err(err)
   }
+  pdf_build_store_from_resolved_xref(
+    resolved,
+    bytes.length(),
+    fn(offset, length) {
+      if offset < 0 || length < 0 || offset + length > bytes.length() {
+        return Err("PDF object range is outside the payload")
+      }
+      Ok(bytes[offset:offset + length].to_owned())
+    },
+    "materialized_xref",
+  )
+}
+
+///|
+const PDF_RANDOM_ACCESS_WINDOW_MAX : Int = 32 * 1024 * 1024
+
+///|
+fn pdf_parse_objects_via_cursor(
+  cursor : @input.SourceCursor,
+) -> Result[PdfParsedObjectStore?, PdfNativeError] {
+  let source_size = match cursor.size {
+    Some(value) if value > 0L && value <= 512L * 1024L * 1024L => value.to_int()
+    _ => return Ok(None)
+  }
+  let tail_length = source_size.min(64 * 1024)
+  let tail_start = source_size - tail_length
+  let tail = match pdf_cursor_read_exact(cursor, tail_start, tail_length) {
+    Ok(value) => value
+    Err(err) => return Err(err)
+  }
+  let tail_view = pdf_byte_string(tail)
+  let startxref = match pdf_find_startxref_offset(tail_view) {
+    Some(value) if value >= 0 && value < source_size => value
+    _ => return Ok(None)
+  }
+  let resolved = match
+    pdf_resolve_xref_chain_cursor(cursor, source_size, startxref) {
+    Ok(value) => value
+    Err(err) => return Err(err)
+  }
+  pdf_build_store_from_resolved_xref(
+    resolved,
+    source_size,
+    fn(offset, length) {
+      match pdf_cursor_read_exact(cursor, offset, length) {
+        Ok(value) => Ok(value)
+        Err(err) => Err(err.to_string())
+      }
+    },
+    "cursor_xref",
+  )
+}
+
+///|
+fn pdf_resolve_xref_chain_cursor(
+  cursor : @input.SourceCursor,
+  source_size : Int,
+  startxref : Int,
+) -> Result[PdfResolvedXrefChain, PdfNativeError] {
+  let pending_offsets : Array[Int] = [startxref]
+  let visited_offsets : Map[Int, Bool] = Map([])
+  let entries : Map[Int, PdfNativeXrefEntry] = Map([])
+  let trailer_hints : Array[String] = []
+  let mut used_xref_stream = false
+  let mut has_object_stream_refs = false
+  let mut parsed_section_count = 0
+  while pending_offsets.length() > 0 {
+    let offset = pending_offsets.pop().unwrap_or(0)
+    if offset < 0 || offset >= source_size {
+      continue
+    }
+    if visited_offsets.get(offset).unwrap_or(false) {
+      continue
+    }
+    visited_offsets.set(offset, true)
+    let window_length = (source_size - offset).min(PDF_RANDOM_ACCESS_WINDOW_MAX)
+    let window = match pdf_cursor_read_exact(cursor, offset, window_length) {
+      Ok(value) => value
+      Err(err) =>
+        if parsed_section_count == 0 && entries.length() == 0 {
+          return Err(err)
+        } else {
+          continue
+        }
+    }
+    let window_view = pdf_byte_string(window)
+    let section = match pdf_parse_xref_section(window, window_view, 0) {
+      Ok(value) => value
+      Err(err) =>
+        if parsed_section_count == 0 && entries.length() == 0 {
+          return Err(err)
+        } else {
+          continue
+        }
+    }
+    parsed_section_count += 1
+    if section.used_xref_stream {
+      used_xref_stream = true
+    }
+    if section.has_object_stream_refs {
+      has_object_stream_refs = true
+    }
+    if section.trailer_text.trim() != "" &&
+      !trailer_hints.contains(section.trailer_text) {
+      trailer_hints.push(section.trailer_text)
+    }
+    for entry in section.entries.to_array() {
+      if !entries.contains(entry.0) {
+        entries.set(entry.0, entry.1)
+      }
+    }
+    for next_offset in section.next_offsets {
+      if next_offset >= 0 &&
+        next_offset < source_size &&
+        !visited_offsets.get(next_offset).unwrap_or(false) {
+        pending_offsets.push(next_offset)
+      }
+    }
+  }
+  Ok({ entries, trailer_hints, used_xref_stream, has_object_stream_refs })
+}
+
+///|
+fn pdf_cursor_read_exact(
+  cursor : @input.SourceCursor,
+  offset : Int,
+  length : Int,
+) -> Result[Bytes, PdfNativeError] {
+  if offset < 0 || length < 0 {
+    return Err(PdfNativeError::ReadFailed("PDF cursor range is invalid"))
+  }
+  let output = Buffer()
+  let mut consumed = 0
+  while consumed < length {
+    let chunk = match
+      @input.source_cursor_read_at(
+        cursor,
+        (offset + consumed).to_int64(),
+        length=length - consumed,
+      ) {
+      Ok(value) => value
+      Err(message) => return Err(PdfNativeError::ReadFailed(message))
+    }
+    if chunk.length() == 0 || chunk.length() > length - consumed {
+      return Err(PdfNativeError::ReadFailed("unexpected EOF in PDF cursor"))
+    }
+    output.write_bytes(chunk)
+    consumed += chunk.length()
+  }
+  Ok(output.to_bytes())
+}
+
+///|
+fn pdf_parsed_store_is_encrypted(store : PdfParsedObjectStore) -> Bool {
+  store.trailer_hints.any(hint => hint.contains("/Encrypt"))
+}
+
+///|
+fn pdf_build_store_from_resolved_xref(
+  resolved : PdfResolvedXrefChain,
+  source_size : Int,
+  read_range : (Int, Int) -> Result[Bytes, String],
+  input_access_mode : String,
+) -> Result[PdfParsedObjectStore?, PdfNativeError] {
   let direct_locations : Array[PdfXrefDirectObjectLocation] = []
   let compressed_refs : Array[PdfXrefCompressedObjectRef] = []
   for entry in resolved.entries.to_array() {
     match entry.1 {
       InUse(offset, _generation) =>
-        if offset >= 0 && offset < bytes.length() {
+        if offset >= 0 && offset < source_size {
           direct_locations.push({ object_id: entry.0, offset })
         }
       Compressed(object_stream_id, _object_index_in_stream) =>
@@ -58,19 +222,42 @@ fn pdf_parse_objects_via_xref(
   })
   let objects : Array[PdfNativeObject] = []
   let object_index : Map[Int, PdfNativeObject] = Map([])
-  for location in direct_locations {
-    let object = match pdf_parse_indirect_object_at(bytes, location.offset) {
+  let mut location_index = 0
+  while location_index < direct_locations.length() {
+    let location = direct_locations[location_index]
+    let next_offset = if location_index + 1 < direct_locations.length() {
+      direct_locations[location_index + 1].offset
+    } else {
+      source_size
+    }
+    let available = if next_offset > location.offset {
+      next_offset - location.offset
+    } else {
+      source_size - location.offset
+    }
+    let window_length = available.min(PDF_RANDOM_ACCESS_WINDOW_MAX)
+    let window = match read_range(location.offset, window_length) {
       Ok(value) => value
-      Err(_err) => continue
+      Err(message) => return Err(PdfNativeError::ReadFailed(message))
+    }
+    let object = match pdf_parse_indirect_object_at(window, 0) {
+      Ok(value) => value
+      Err(_err) => {
+        location_index += 1
+        continue
+      }
     }
     if object.object_id != location.object_id {
+      location_index += 1
       continue
     }
     if object_index.get(object.object_id) is Some(_) {
+      location_index += 1
       continue
     }
     objects.push(object)
     object_index.set(object.object_id, object)
+    location_index += 1
   }
   if objects.length() == 0 {
     return Ok(None)
@@ -138,6 +325,7 @@ fn pdf_parse_objects_via_xref(
           resolved.used_xref_stream,
           resolved.has_object_stream_refs,
         ),
+        input_access_mode,
       ),
     ),
   )
@@ -197,6 +385,7 @@ fn pdf_scan_object_store(
       object_index,
       pdf_collect_trailer_hints_from_view(view),
       xref_mode,
+      "materialized_scan",
     ),
   )
 }
@@ -207,6 +396,7 @@ fn pdf_build_parsed_object_store(
   object_index : Map[Int, PdfNativeObject],
   trailer_hints : Array[String],
   xref_mode : String,
+  input_access_mode : String,
 ) -> PdfParsedObjectStore {
   {
     objects,
@@ -214,6 +404,7 @@ fn pdf_build_parsed_object_store(
     trailer_hints,
     xref_mode,
     filter_decode_mode: "filter_chain_v1",
+    input_access_mode,
   }
 }
 
