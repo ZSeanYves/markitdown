@@ -167,7 +167,10 @@ fn pptx_init_diagnostics(
 ) -> Unit {
   diagnostics.metrics.set("parser_name", "pptx_parser")
   diagnostics.metrics.set("parser_mode", "package_single_pass")
-  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
+  diagnostics.metrics.set(
+    "input_kind",
+    @fshared.input_kind_name(@input.input_kind(source)),
+  )
   diagnostics.metrics.set("detected_format", "pptx")
   diagnostics.metrics.set(
     "requested_mode",

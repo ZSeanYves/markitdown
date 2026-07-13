@@ -14,6 +14,8 @@ pub fn detected_format_name(DetectedFormat) -> String
 
 pub fn image_format_name(ImageFormat) -> String
 
+pub fn input_bytes(InputSource) -> Bytes?
+
 pub fn input_from_bytes(Bytes, source_name? : String) -> InputSource
 
 pub fn input_from_bytes_with_format(Bytes, String, DetectedFormat?) -> InputSource
@@ -22,15 +24,39 @@ pub fn input_from_path(String) -> InputSource
 
 pub fn input_from_path_with_format(String, DetectedFormat?) -> InputSource
 
+pub fn input_from_reader(InputReader, source_name? : String) -> InputSource
+
+pub fn input_from_reader_with_format(InputReader, String, DetectedFormat?) -> InputSource
+
 pub fn input_from_text(String, source_name? : String) -> InputSource
 
 pub fn input_from_text_with_format(String, String, DetectedFormat?) -> InputSource
+
+pub fn input_kind(InputSource) -> InputKind
+
+pub fn input_path(InputSource) -> String?
+
+pub fn input_size(InputSource) -> Int64?
+
+pub fn input_source_size(InputSource) -> Result[Int64?, String]
+
+pub fn input_text(InputSource) -> String?
+
+pub fn make_input_reader((Int64, Int) -> Result[Bytes, String], size? : Int64) -> InputReader
+
+pub fn open_source_cursor(InputSource, max_bytes? : Int64) -> Result[SourceCursor, String]
 
 pub fn parse_detected_format(String) -> DetectedFormat
 
 pub fn read_input_bytes(InputSource) -> Result[Bytes, String]
 
+pub fn read_input_prefix(InputSource, Int) -> Result[Bytes, String]
+
 pub fn read_input_text(InputSource) -> Result[String, String]
+
+pub fn source_cursor_read_at(SourceCursor, Int64, length? : Int) -> Result[Bytes, String]
+
+pub fn source_cursor_view_at(SourceCursor, Int, Int) -> BytesView?
 
 pub fn with_bytes_payload(InputSource, Bytes) -> InputSource
 
@@ -109,16 +135,33 @@ pub(all) enum InputKind {
   Path
   Text
   Bytes
+  Reader
 } derive(Eq)
 
+pub(all) enum InputPayload {
+  Path(String)
+  Text(String)
+  Bytes(Bytes)
+  Reader(InputReader)
+}
+
+pub struct InputReader {
+  size : Int64?
+  read_at : (Int64, Int) -> Result[Bytes, String]
+}
+
 pub struct InputSource {
-  kind : InputKind
   source_name : String
-  path : String?
-  text : String?
-  bytes : Bytes?
+  payload : InputPayload
+  origin_path : String?
   mime_type : String?
   explicit_format : DetectedFormat?
+}
+
+pub struct SourceCursor {
+  size : Int64?
+  read_at : (Int64, Int) -> Result[Bytes, String]
+  view_at : (Int, Int) -> BytesView?
 }
 
 // Type aliases

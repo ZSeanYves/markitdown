@@ -552,7 +552,7 @@ fn html_block_source_ref(
   source : @input.InputSource,
   block : @dhtml.HtmlBlockFact,
 ) -> @core.SourceRef {
-  @core.source_ref_with_html_path(
+  let source_ref = @core.source_ref_with_html_path(
     @core.source_ref_with_lines(
       @core.empty_source_ref(),
       Some(source.source_name),
@@ -564,6 +564,11 @@ fn html_block_source_ref(
     Some("html"),
     Some("/block/" + block.source_key),
   )
+  {
+    ..source_ref,
+    byte_start: Some(block.span.byte_start),
+    byte_end: Some(block.span.byte_end),
+  }
 }
 
 ///|

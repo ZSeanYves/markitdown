@@ -71,7 +71,10 @@ fn parse_vtt_result(
   )
   diagnostics.metrics.set("parser_name", "vtt_parser")
   diagnostics.metrics.set("parser_mode", "streaming_event")
-  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
+  diagnostics.metrics.set(
+    "input_kind",
+    @fshared.input_kind_name(@input.input_kind(source)),
+  )
   diagnostics.metrics.set("detected_format", "vtt")
   diagnostics.metrics.set(
     "requested_mode",
@@ -229,7 +232,10 @@ fn parse_large_vtt_result(
   )
   diagnostics.metrics.set("parser_name", "vtt_parser")
   diagnostics.metrics.set("parser_mode", "streaming_event")
-  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
+  diagnostics.metrics.set(
+    "input_kind",
+    @fshared.input_kind_name(@input.input_kind(source)),
+  )
   diagnostics.metrics.set("detected_format", "vtt")
   diagnostics.metrics.set(
     "requested_mode",

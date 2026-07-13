@@ -26,6 +26,7 @@ fn pdf_native_input_kind_name(kind : @input.InputKind) -> String {
     @input.InputKind::Path => "path"
     @input.InputKind::Text => "text"
     @input.InputKind::Bytes => "bytes"
+    @input.InputKind::Reader => "reader"
   }
 }
 
@@ -192,6 +193,8 @@ pub fn extract_pdf_native_document(
   let mut span_count = 0
   let mut image_count = 0
   let mut exportable_asset_count = 0
+  let mut unsupported_image_asset_count = 0
+  let all_image_candidates : Array[PdfNativeImageCandidate] = []
   let mut link_count = 0
   let mut annotation_count = 0
   let mut destination_count = 0
@@ -201,7 +204,11 @@ pub fn extract_pdf_native_document(
     line_count += pdf_native_page_line_count(page)
     span_count += pdf_native_page_span_count(page)
     image_count += page.image_candidates.length()
+    all_image_candidates.append(page.image_candidates)
     exportable_asset_count += pdf_native_exportable_image_asset_count(
+      page.image_candidates,
+    )
+    unsupported_image_asset_count += pdf_native_unsupported_image_asset_count(
       page.image_candidates,
     )
     link_count += page.link_candidates.length()
@@ -249,7 +256,7 @@ pub fn extract_pdf_native_document(
       Some("pdf_native_backend"),
       Some("page_single_pass"),
     ),
-    Some(pdf_native_input_kind_name(source.kind)),
+    Some(pdf_native_input_kind_name(@input.input_kind(source))),
     Some("pdf"),
   )
   diagnostics.pass_trace.push("pdf_native:extract_document")
@@ -313,6 +320,16 @@ pub fn extract_pdf_native_document(
   )
   diagnostics.metrics.set("table_count", "0")
   diagnostics.metrics.set("asset_count", exportable_asset_count.to_string())
+  diagnostics.metrics.set(
+    "pdf_unsupported_image_asset_count",
+    unsupported_image_asset_count.to_string(),
+  )
+  if unsupported_image_asset_count > 0 {
+    diagnostics.warnings.append(
+      pdf_native_unsupported_image_asset_details(all_image_candidates),
+    )
+    diagnostics.degraded_features.push("pdf_image_asset_unsupported")
+  }
   diagnostics.metrics.set("model_used", "none")
   diagnostics.metrics.set("native_backend", "root_minimal")
   diagnostics.metrics.set("supports_flate_text_streams", "true")

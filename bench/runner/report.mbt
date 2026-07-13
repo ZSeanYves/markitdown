@@ -41,6 +41,7 @@ fn regenerate_report(
     contract,
     previous.preset,
     baseline,
+    policy,
     resource_summary=previous.resource_summary,
     resume_summary=previous.resume_summary,
   )

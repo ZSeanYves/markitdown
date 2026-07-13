@@ -71,8 +71,7 @@ fn pdf_test_inline_image_asset(
   let next_asset = { ..asset, mime_type: Some("image/jpeg") }
   next_asset.attrs.set("alt", "image")
   next_asset.attrs.set("file_ext", "jpg")
-  next_asset.attrs.set("inline_payload_kind", "utf8")
-  next_asset.attrs.set("inline_payload", "jpeg-bytes")
+  next_asset.payload = Some(@core.AssetPayload::Utf8("jpeg-bytes"))
   next_asset
 }
 

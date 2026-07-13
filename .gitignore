@@ -4,6 +4,9 @@ target/
 .mooncakes/
 .moonagent/
 .tmp/
+.audit/
+.pytest_cache/
+/dist/
 /env/
 markitdown-quality-lab/
 .codex

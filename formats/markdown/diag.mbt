@@ -13,7 +13,10 @@ fn markdown_parse_result_from_scanned(
   )
   diagnostics.metrics.set("parser_name", "markdown_parser")
   diagnostics.metrics.set("parser_mode", "dom_ast_model")
-  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
+  diagnostics.metrics.set(
+    "input_kind",
+    @fshared.input_kind_name(@input.input_kind(source)),
+  )
   diagnostics.metrics.set("detected_format", "markdown")
   diagnostics.metrics.set(
     "requested_mode",

@@ -372,6 +372,39 @@ test "policy preset expands all configured scenario ids" {
 }
 
 ///|
+test "benchmark policy owns defaults RSS budgets and change-risk coverage" {
+  let policy = load_policy().unwrap()
+  assert_eq(policy.default_rss_limit_mb, 256)
+  assert_eq(rss_limit_mb(policy, "html", "huge"), 320)
+  assert_eq(rss_limit_mb(policy, "pdf", "large"), 288)
+  assert_eq(rss_limit_mb(policy, "xlsx", "huge"), 448)
+  assert_eq(rss_limit_mb(policy, "zip", "large"), 256)
+  let defaults = apply_policy_defaults(parse_run_options([]), policy)
+  assert_eq(defaults.repeat_count, 3)
+  assert_eq(defaults.warmup_count, 1)
+  assert_eq(defaults.timeout_ms, 60000)
+  let explicit_three = apply_policy_defaults(
+    parse_run_options(["--preset", "doctor", "--repeat", "3"]),
+    policy,
+  )
+  assert_eq(explicit_three.repeat_count, 3)
+  let change_risk_opts = apply_policy_defaults(
+    parse_run_options(["--preset", "change-risk"]),
+    policy,
+  )
+  let scenarios = resolve_scenarios(change_risk_opts, policy)
+  assert_eq(scenarios.length(), 8)
+  let formats : Array[String] = []
+  for scenario in scenarios {
+    formats.append(scenario.format_filters)
+  }
+  for
+    format in ["html", "pdf", "xlsx", "zip", "docx", "pptx", "eml", "markdown"] {
+    assert_true(formats.contains(format))
+  }
+}
+
+///|
 test "bench progress total counts process warmups and repeats plus engine repeats" {
   let policy = match load_policy() {
     Ok(value) => value
@@ -835,6 +868,11 @@ test "ensure dir tree tolerates already-created segments" {
 
 ///|
 test "bench CLI entry dispatches help catalog and controlled argument failures" {
+  let was_enabled = bench_console_enabled.val
+  bench_console_enabled.val = false
+  defer {
+    bench_console_enabled.val = was_enabled
+  }
   let dev = @command.make_runner_context("dev_moon_run", None)
   let root = bench_manifest_fixture_root()
   setup_bench_manifest_fixture(root) catch {
@@ -863,6 +901,11 @@ test "bench CLI entry dispatches help catalog and controlled argument failures" 
 
 ///|
 test "bench CLI normalizes executable and moon runner prefixes" {
+  let was_enabled = bench_console_enabled.val
+  bench_console_enabled.val = false
+  defer {
+    bench_console_enabled.val = was_enabled
+  }
   assert_true(
     normalize_bench_args(["/tmp/runner.exe", "catalog", "scenarios"]) ==
     ["catalog", "scenarios"],
@@ -1003,6 +1046,11 @@ test "benchmark process samples record unavailable tool without execution" {
 
 ///|
 test "benchmark progress and output hash helpers are deterministic" {
+  let was_enabled = bench_console_enabled.val
+  bench_console_enabled.val = false
+  defer {
+    bench_console_enabled.val = was_enabled
+  }
   assert_eq(bench_progress_truncate("short", max=8), "short")
   assert_eq(bench_progress_truncate("abcdef", max=3), "abc")
   assert_eq(bench_progress_truncate("abcdefghij", max=6), "abc...")
@@ -1257,6 +1305,7 @@ test "benchmark aggregation covers repeated partial failed groups and report ren
     execution_test_contract(),
     Some("contract"),
     None,
+    policy,
   )
   let markdown = render_markdown_report(summary)
   assert_true(markdown.contains("# Bench Report"))

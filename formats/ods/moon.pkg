@@ -1,5 +1,4 @@
 import {
-  "moonbitlang/x/codec/base64",
   "ZSeanYves/markitdown/format_readers/odf/ods" @dodf,
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/formats/shared" @fshared,

@@ -177,8 +177,12 @@ fn paragraph_blocks_should_merge(
   if !paragraph_merge_candidate(left) || !paragraph_merge_candidate(right) {
     return false
   }
-  let left_ref = left.source_ref.unwrap_or(@core.empty_source_ref())
-  let right_ref = right.source_ref.unwrap_or(@core.empty_source_ref())
+  let left_ref = @core.block_source_ref(left).unwrap_or(
+    @core.empty_source_ref(),
+  )
+  let right_ref = @core.block_source_ref(right).unwrap_or(
+    @core.empty_source_ref(),
+  )
   if left_ref.page != right_ref.page ||
     left_ref.slide != right_ref.slide ||
     left_ref.sheet != right_ref.sheet {
@@ -213,15 +217,19 @@ fn merge_paragraph_blocks(
 ) -> @core.CoreBlock {
   let merged_text = merge_text_line_strings(left.text, right.text)
   let next = { ..left, text: merged_text }
-  let left_ref = left.source_ref.unwrap_or(@core.empty_source_ref())
-  let right_ref = right.source_ref.unwrap_or(@core.empty_source_ref())
+  let left_ref = @core.block_source_ref(left).unwrap_or(
+    @core.empty_source_ref(),
+  )
+  let right_ref = @core.block_source_ref(right).unwrap_or(
+    @core.empty_source_ref(),
+  )
   let merged_ref = {
     ..left_ref,
     bbox: merge_source_bbox(left_ref.bbox, right_ref.bbox),
     line_start: min_optional_int(left_ref.line_start, right_ref.line_start),
     line_end: max_optional_int(left_ref.line_end, right_ref.line_end),
   }
-  { ..next, source_ref: Some(merged_ref) }
+  { ..next, source_ref: Some(merged_ref), compact_source_ref: None }
 }
 
 ///|
@@ -298,8 +306,12 @@ fn compare_blocks_by_reading_order(
   left : @core.CoreBlock,
   right : @core.CoreBlock,
 ) -> Int {
-  let left_ref = left.source_ref.unwrap_or(@core.empty_source_ref())
-  let right_ref = right.source_ref.unwrap_or(@core.empty_source_ref())
+  let left_ref = @core.block_source_ref(left).unwrap_or(
+    @core.empty_source_ref(),
+  )
+  let right_ref = @core.block_source_ref(right).unwrap_or(
+    @core.empty_source_ref(),
+  )
   let left_rank = block_reading_order_rank(left, left_ref)
   let right_rank = block_reading_order_rank(right, right_ref)
   let rank_order = left_rank.lexical_compare(right_rank)
@@ -325,7 +337,9 @@ fn compare_blocks_by_reading_order(
 
 ///|
 fn block_reading_order_boundary_key(block : @core.CoreBlock) -> String {
-  let source_ref = block.source_ref.unwrap_or(@core.empty_source_ref())
+  let source_ref = @core.block_source_ref(block).unwrap_or(
+    @core.empty_source_ref(),
+  )
   source_ref.format.unwrap_or("") +
   "|" +
   source_ref.page.map(i => i.to_string()).unwrap_or("") +
@@ -409,7 +423,9 @@ fn block_is_header_footer_candidate(block : @core.CoreBlock) -> Bool {
 
 ///|
 fn block_has_explicit_reading_order_hint(block : @core.CoreBlock) -> Bool {
-  let source_ref = block.source_ref.unwrap_or(@core.empty_source_ref())
+  let source_ref = @core.block_source_ref(block).unwrap_or(
+    @core.empty_source_ref(),
+  )
   if source_ref.extra.get("reading_order_index") is Some(_) {
     return true
   }
@@ -460,7 +476,9 @@ fn paragraph_leaf_count(blocks : Array[@core.CoreBlock]) -> Int {
 fn reading_order_hint_block_count(blocks : Array[@core.CoreBlock]) -> Int {
   let mut total = 0
   for block in blocks {
-    let source_ref = block.source_ref.unwrap_or(@core.empty_source_ref())
+    let source_ref = @core.block_source_ref(block).unwrap_or(
+      @core.empty_source_ref(),
+    )
     if source_ref.extra.get("reading_order_key") is Some(_) ||
       source_ref.extra.get("reading_order_index") is Some(_) {
       total += 1

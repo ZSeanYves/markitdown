@@ -119,12 +119,14 @@ test "markdown block renderer emits HTML tables for spans" {
 
 ///|
 test "markdown block renderer expands sparse rows and synthetic headers" {
+  let left = markdown_test_cell("left\nline")
+    |> @core.block_with_attr("column_index", "1")
+  let right = markdown_test_cell("right\tvalue")
+    |> @core.block_with_attr("column_index", "3")
   let row = @core.make_block(@core.BlockKind::TableRow, "")
     |> @core.block_with_attr("sparse_cell_columns", "true")
     |> @core.block_with_attr("declared_column_count", "3")
-    |> @core.block_with_attr(
-      "sparse_row_payload", "1\tleft\\nline\n3\tright\\tvalue",
-    )
+    |> @core.block_with_children([left, right])
   let table = @core.make_block(@core.BlockKind::Table, "")
     |> @core.block_with_attr("header_rows", "0")
     |> @core.block_with_children([row])

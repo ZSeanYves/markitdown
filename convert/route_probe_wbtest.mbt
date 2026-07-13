@@ -421,3 +421,75 @@ test "notebook XML HTML and audio preflight probes cover normal and damaged inpu
   assert_eq(audio.probe_failures.length(), 0)
   assert_true(audio.summary_parts.length() >= 1)
 }
+
+///|
+test "route rejects known input payloads above the configured byte limit" {
+  let limits = make_resource_limits(2000, 50, 100000, max_input_bytes=3L)
+  let options = {
+    ..default_convert_options(),
+    limits,
+    explicit_format: Some(@input.DetectedFormat::Txt),
+  }
+  let source = @input.input_from_bytes(Bytes::from_array([1, 2, 3, 4]))
+  match plan_input(source, options) {
+    Err(
+      ConvertError::ResourceLimitExceeded(
+        kind="input_bytes",
+        observed=4L,
+        limit=3L
+      )
+    ) => ()
+    Err(other) => fail("unexpected error: " + other.to_string())
+    Ok(_) => fail("oversized input should fail before detection")
+  }
+}
+
+///|
+test "route rejects path input by size before reading content" {
+  let limits = make_resource_limits(2000, 50, 100000, max_input_bytes=1L)
+  let options = {
+    ..default_convert_options(),
+    limits,
+    explicit_format: Some(@input.DetectedFormat::Txt),
+  }
+  match plan_input(@input.input_from_path("input/README.md"), options) {
+    Err(ConvertError::ResourceLimitExceeded(kind~, observed~, limit~)) => {
+      assert_eq(kind, "input_bytes")
+      assert_true(observed > 1L)
+      assert_eq(limit, 1L)
+    }
+    Err(other) => fail("unexpected error: " + other.to_string())
+    Ok(_) => fail("oversized path should fail before detection")
+  }
+}
+
+///|
+test "asset payload limits clear oversized payloads and remove markdown targets" {
+  let first = {
+    ..@core.make_asset_ref(@core.AssetKind::Image, "large"),
+    path: Some("assets/large.bin"),
+  }
+  first.payload = Some(@core.AssetPayload::Bytes(Bytes::new(5)))
+  let diagnostics = @core.empty_diagnostics()
+  let limits = make_resource_limits(
+    2000,
+    50,
+    100000,
+    max_asset_bytes=4L,
+    max_total_asset_bytes=8L,
+  )
+  let limited = apply_asset_payload_limits([first], limits, diagnostics)
+  assert_eq(limited.0.length(), 1)
+  assert_eq(limited.1.length(), 1)
+  assert_true(limited.0[0].payload is None)
+  assert_true(
+    diagnostics.degraded_features.contains("asset_payload_limit_skip"),
+  )
+  assert_eq(
+    remove_skipped_asset_references(
+      "before ![large](assets/large.bin) after",
+      limited.1,
+    ),
+    "before large after",
+  )
+}

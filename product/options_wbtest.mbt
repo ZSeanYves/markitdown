@@ -53,6 +53,11 @@ test "product option defaults and mode derivation remain stable" {
   assert_eq(limits.max_cols, 50)
   assert_eq(limits.max_cells, 100000)
   assert_eq(limits.max_line_chars, 4000)
+  assert_eq(limits.max_input_bytes, 536870912L)
+  assert_eq(limits.max_asset_bytes, 33554432L)
+  assert_eq(limits.max_total_asset_bytes, 134217728L)
+  assert_eq(limits.external_command_timeout_ms, 300000)
+  assert_eq(limits.max_external_output_bytes, 8388608L)
   let custom = make_resource_limits(1, 2, 3, max_line_chars=4)
   let options = make_product_options(
     ConvertMode::Accurate,

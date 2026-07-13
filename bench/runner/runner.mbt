@@ -192,7 +192,7 @@ pub fn run_bench_cli_entry(
     "report" => report_command(args[1:].to_owned())
     "doctor" => doctor_command(runner)
     _ => {
-      println("unknown bench command: " + args[0])
+      bench_println("unknown bench command: " + args[0])
       print_bench_help()
       2
     }

@@ -7,7 +7,7 @@ test "large SRT record lowering preserves cue metadata and recovery" {
   )
   let result = parse_large_srt_result(
     source,
-    source.text.unwrap(),
+    @input.input_text(source).unwrap(),
     @parser.new_parse_context(@input.DetectedFormat::Srt),
   )
   let events = result.event_stream.unwrap()
@@ -82,7 +82,7 @@ test "SRT raw fallback and large scanner edge branches retain source bytes" {
   )
   let fallback = subtitle_malformed_parse_result(
     source,
-    source.text.unwrap(),
+    @input.input_text(source).unwrap(),
     diagnostics,
     "invalid timestamps",
     "srt",

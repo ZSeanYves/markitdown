@@ -1,0 +1,18 @@
+warning: asciidoc degraded complex boundary preserved as raw block
+warning: asciidoc degraded complex boundary preserved as raw block
+warning: asciidoc degraded complex boundary preserved as raw block
+warning: asciidoc degraded complex boundary preserved as raw block
+warning: asciidoc degraded complex boundary preserved as raw block
+warning: asciidoc degraded complex boundary preserved as raw block
+warning: asciidoc degraded complex boundary preserved as raw block
+warning: asciidoc canonical semantic block activated
+warning: asciidoc degraded complex boundary preserved as raw block
+warning: asciidoc degraded complex boundary preserved as raw block
+warning: asciidoc degraded complex boundary preserved as raw block
+warning: asciidoc degraded complex boundary preserved as raw block
+warning: asciidoc degraded complex boundary preserved as raw block
+warning: asciidoc degraded complex quote/admonition preserved as block quote
+warning: asciidoc degraded complex boundary preserved as raw block
+warning: asciidoc degraded complex boundary preserved as raw block
+warning: asciidoc degraded complex boundary preserved as raw block
+warning: asciidoc canonical semantic block activated

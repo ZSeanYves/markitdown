@@ -1,12 +1,22 @@
 ///|
+let cli_console_enabled : Ref[Bool] = Ref(true)
+
+///|
+fn cli_println(message : String) -> Unit {
+  if cli_console_enabled.val {
+    println(message)
+  }
+}
+
+///|
 fn print_cli_version() -> Unit {
-  println(cli_product_name() + " " + cli_product_version())
+  cli_println(cli_product_name() + " " + cli_product_version())
 }
 
 ///|
 #cfg(not(target="native"))
 fn cli_write_stderr(_message : String) -> Unit {
-  println(_message)
+  cli_println(_message)
 }
 
 ///|
@@ -17,6 +27,9 @@ extern "C" fn cli_write_stderr_ffi(payload : Bytes, payload_len : Int) = "markit
 ///|
 #cfg(target="native")
 fn cli_write_stderr(message : String) -> Unit {
+  if !cli_console_enabled.val {
+    return
+  }
   let payload = @utf8.encode(message)
   if payload.length() == 0 {
     return
@@ -26,7 +39,7 @@ fn cli_write_stderr(message : String) -> Unit {
 
 ///|
 fn print_cli_help() -> Unit {
-  println(
+  cli_println(
     "Convert documents through one main CLI with capability-group routing.",
   )
 }
@@ -61,7 +74,7 @@ fn cli_usage_text() -> String {
 
 ///|
 fn print_cli_usage() -> Unit {
-  println(cli_usage_text())
+  cli_println(cli_usage_text())
 }
 
 ///|

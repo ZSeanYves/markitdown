@@ -108,7 +108,10 @@ test "document chunks split regular and sparse tables" {
       @core.make_block(@core.BlockKind::TableRow, "")
       |> @core.block_with_attr("sparse_cell_columns", "true")
       |> @core.block_with_attr("declared_column_count", "3")
-      |> @core.block_with_attr("sparse_row_payload", "1\tleft\\nline\n3\tright"),
+      |> @core.block_with_children([
+        rag_test_cell("left\nline", 1),
+        rag_test_cell("right", 3),
+      ]),
     ])
   let chunks = chunks_from_document(
     rag_test_document([table, sparse]),

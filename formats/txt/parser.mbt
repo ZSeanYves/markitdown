@@ -81,7 +81,7 @@ pub fn txt_parser() -> @parser.Parser {
       diagnostics.metrics.set("parser_mode", "streaming_event")
       diagnostics.metrics.set(
         "input_kind",
-        @fshared.input_kind_name(source.kind),
+        @fshared.input_kind_name(@input.input_kind(source)),
       )
       diagnostics.metrics.set("detected_format", "txt")
       @fshared.apply_product_metrics(diagnostics, "txt")
@@ -240,7 +240,10 @@ fn invalid_text_parse_result(
   diagnostics.fallback_trace.push("txt invalid utf8 -> raw placeholder block")
   diagnostics.metrics.set("parser_name", "txt_parser")
   diagnostics.metrics.set("parser_mode", "streaming_event")
-  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
+  diagnostics.metrics.set(
+    "input_kind",
+    @fshared.input_kind_name(@input.input_kind(source)),
+  )
   diagnostics.metrics.set("detected_format", "txt")
   @fshared.apply_product_metrics(diagnostics, "txt")
   diagnostics.metrics.set("input_line_count", "0")

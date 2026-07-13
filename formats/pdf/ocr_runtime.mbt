@@ -233,7 +233,7 @@ async fn pdf_ocr_cleanup_temp_dir_async(path : String) -> Unit {
 
 ///|
 fn pdf_ocr_temp_dir_name(source : @input.InputSource) -> String {
-  let raw = match source.path {
+  let raw = match @input.input_path(source) {
     Some(path) => path
     None => source.source_name
   }
@@ -259,7 +259,7 @@ fn pdf_ocr_materialize_source_path(
   source : @input.InputSource,
   temp_dir : String,
 ) -> Result[String, PdfRasterizerError] {
-  match source.path {
+  match @input.input_path(source) {
     Some(path) => Ok(path)
     None => {
       let bytes = match @input.read_input_bytes(source) {
@@ -362,82 +362,11 @@ pub fn build_pdftoppm_png_command(
 }
 
 ///|
-#warnings("-deprecated")
 fn collect_pdftoppm_output(
   command : @rtcmd.ResolvedCommand,
   args : Array[String],
 ) -> Result[(Int, String, String), PdfRasterizerError] {
-  let collected : Ref[Result[(Int, String, String), PdfRasterizerError]?] = {
-    val: None,
-  }
-  @async.with_event_loop(_group => {
-    let delegated = @process.collect_output(command.program, args) catch {
-      e => {
-        collected.val = Some(
-          Err(
-            PdfRasterizerError::ExecutionFailed(
-              "launch pdftoppm failed on this runtime: " +
-              e.to_string() +
-              "\nResolved command: " +
-              @rtcmd.resolved_command_context(command),
-            ),
-          ),
-        )
-        return
-      }
-    }
-    match delegated {
-      (code, stdout, stderr) => {
-        let stdout_text = stdout.text() catch {
-          e => {
-            collected.val = Some(
-              Err(
-                PdfRasterizerError::OutputParseFailed(
-                  "failed to decode pdftoppm stdout as UTF-8 on this runtime: " +
-                  e.to_string(),
-                ),
-              ),
-            )
-            return
-          }
-        }
-        let stderr_text = stderr.text() catch {
-          e => {
-            collected.val = Some(
-              Err(
-                PdfRasterizerError::OutputParseFailed(
-                  "failed to decode pdftoppm stderr as UTF-8 on this runtime: " +
-                  e.to_string(),
-                ),
-              ),
-            )
-            return
-          }
-        }
-        collected.val = Some(Ok((code, stdout_text, stderr_text)))
-      }
-    }
-  }) catch {
-    e =>
-      return Err(
-        PdfRasterizerError::ExecutionFailed(
-          "launch pdftoppm failed on this runtime: " +
-          e.to_string() +
-          "\nResolved command: " +
-          @rtcmd.resolved_command_context(command),
-        ),
-      )
-  }
-  match collected.val {
-    Some(result) => result
-    None =>
-      Err(
-        PdfRasterizerError::ExecutionFailed(
-          "launch pdftoppm failed on this runtime: event loop returned no result\nResolved command: " +
-          @rtcmd.resolved_command_context(command),
-        ),
-      )
-  }
+  collect_pdftoppm_output_bounded(command, args)
 }
 
 ///|
@@ -445,39 +374,68 @@ async fn collect_pdftoppm_output_async_resolved(
   command : @rtcmd.ResolvedCommand,
   args : Array[String],
 ) -> Result[(Int, String, String), PdfRasterizerError] {
-  let delegated = @process.collect_output(command.program, args) catch {
-    e =>
-      return Err(
+  match @rtcmd.run_resolved_command_async(command, args) {
+    Ok(output) => {
+      if output.timed_out {
+        return Err(
+          PdfRasterizerError::ExecutionFailed(
+            "pdftoppm timed out after 300000 ms",
+          ),
+        )
+      }
+      if output.stdout_limit_exceeded || output.stderr_limit_exceeded {
+        return Err(
+          PdfRasterizerError::ExecutionFailed(
+            "pdftoppm output exceeded 8 MiB limit",
+          ),
+        )
+      }
+      Ok((output.exit_code, output.stdout, output.stderr))
+    }
+    Err(message) =>
+      Err(
         PdfRasterizerError::ExecutionFailed(
           "launch pdftoppm failed on this runtime: " +
-          e.to_string() +
+          message +
           "\nResolved command: " +
           @rtcmd.resolved_command_context(command),
         ),
       )
   }
-  match delegated {
-    (code, stdout, stderr) => {
-      let stdout_text = stdout.text() catch {
-        e =>
-          return Err(
-            PdfRasterizerError::OutputParseFailed(
-              "failed to decode pdftoppm stdout as UTF-8 on this runtime: " +
-              e.to_string(),
-            ),
-          )
+}
+
+///|
+fn collect_pdftoppm_output_bounded(
+  command : @rtcmd.ResolvedCommand,
+  args : Array[String],
+) -> Result[(Int, String, String), PdfRasterizerError] {
+  match @rtcmd.run_resolved_command(command, args) {
+    Ok(output) => {
+      if output.timed_out {
+        return Err(
+          PdfRasterizerError::ExecutionFailed(
+            "pdftoppm timed out after 300000 ms",
+          ),
+        )
       }
-      let stderr_text = stderr.text() catch {
-        e =>
-          return Err(
-            PdfRasterizerError::OutputParseFailed(
-              "failed to decode pdftoppm stderr as UTF-8 on this runtime: " +
-              e.to_string(),
-            ),
-          )
+      if output.stdout_limit_exceeded || output.stderr_limit_exceeded {
+        return Err(
+          PdfRasterizerError::ExecutionFailed(
+            "pdftoppm output exceeded 8 MiB limit",
+          ),
+        )
       }
-      Ok((code, stdout_text, stderr_text))
+      Ok((output.exit_code, output.stdout, output.stderr))
     }
+    Err(message) =>
+      Err(
+        PdfRasterizerError::ExecutionFailed(
+          "launch pdftoppm failed on this runtime: " +
+          message +
+          "\nResolved command: " +
+          @rtcmd.resolved_command_context(command),
+        ),
+      )
   }
 }
 

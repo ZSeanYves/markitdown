@@ -586,12 +586,13 @@ fn image_input_kind_name(kind : @input.InputKind) -> String {
     @input.InputKind::Path => "path"
     @input.InputKind::Text => "text"
     @input.InputKind::Bytes => "bytes"
+    @input.InputKind::Reader => "reader"
   }
 }
 
 ///|
 fn image_source_path(source : @input.InputSource) -> String {
-  match source.path {
+  match @input.input_path(source) {
     Some(path) => path
     None => source.source_name
   }
@@ -1644,7 +1645,7 @@ pub fn ocr_base_diagnostics(
       Some(parser_name),
       Some(@parser.mode_name(@parser.ParserMode::LayoutTwoStage)),
     ),
-    Some(image_input_kind_name(source.kind)),
+    Some(image_input_kind_name(@input.input_kind(source))),
     Some(@input.detected_format_name(detected_format)),
   )
   diagnostics.metrics.set("parser_name", parser_name)

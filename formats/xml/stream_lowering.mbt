@@ -1061,7 +1061,10 @@ fn malformed_xml_parse_result(
   diagnostics.fallback_trace.push("xml parse failed closed: " + info.detail)
   diagnostics.metrics.set("parser_name", "xml_parser")
   diagnostics.metrics.set("parser_mode", "dom_ast_model")
-  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
+  diagnostics.metrics.set(
+    "input_kind",
+    @fshared.input_kind_name(@input.input_kind(source)),
+  )
   diagnostics.metrics.set("detected_format", "xml")
   diagnostics.metrics.set("effective_mode", "dom_ast_model")
   diagnostics.metrics.set("ir_input_kind", "document")
@@ -1157,7 +1160,10 @@ fn malformed_xml_text_parse_result(
   diagnostics.fallback_trace.push("xml fail closed: " + detail)
   diagnostics.metrics.set("parser_name", "xml_parser")
   diagnostics.metrics.set("parser_mode", "dom_ast_model")
-  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
+  diagnostics.metrics.set(
+    "input_kind",
+    @fshared.input_kind_name(@input.input_kind(source)),
+  )
   diagnostics.metrics.set("detected_format", "xml")
   diagnostics.metrics.set("effective_mode", "dom_ast_model")
   diagnostics.metrics.set("ir_input_kind", "document")

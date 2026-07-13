@@ -409,20 +409,28 @@ fn html_heading_level(tag_name : String) -> Int {
 
 ///|
 fn html_scope_event_should_skip(event : @dhtml.HtmlTokenEvent) -> Bool {
-  if event.tag_name == "nav" ||
-    event.tag_name == "footer" ||
-    event.tag_name == "script" ||
-    event.tag_name == "style" ||
-    event.tag_name == "template" {
+  html_scope_tag_should_skip(event.tag_name, event.attributes)
+}
+
+///|
+fn html_scope_tag_should_skip(
+  tag_name : String,
+  attributes : Array[@dhtml.HtmlAttribute],
+) -> Bool {
+  if tag_name == "nav" ||
+    tag_name == "footer" ||
+    tag_name == "script" ||
+    tag_name == "style" ||
+    tag_name == "template" {
     return true
   }
-  if @dhtml.html_token_event_attr_value(event, "hidden") is Some(_) {
+  if @dhtml.html_attributes_value(attributes, "hidden") is Some(_) {
     return true
   }
-  let class_name = @dhtml.html_token_event_attr_value(event, "class")
+  let class_name = @dhtml.html_attributes_value(attributes, "class")
     .unwrap_or("")
     .to_lower()
-  let role_name = @dhtml.html_token_event_attr_value(event, "role")
+  let role_name = @dhtml.html_attributes_value(attributes, "role")
     .unwrap_or("")
     .to_lower()
   class_name.contains("toc") ||

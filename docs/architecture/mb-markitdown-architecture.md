@@ -17,6 +17,13 @@ Document split:
 
 This document is the core chain architecture guide for `mb-markitdown`.
 
+Current implementation checkpoint: the public CLI and library share this chain;
+unsupported `accurate`/`stream` modes fail before parsing, batch uses the same
+planner policy, and output-view selection does not create a route. Capability
+documentation is maintained directly from source contracts and executable
+tests; the retired standalone capability-document generator is not part of the
+architecture.
+
 It follows these principles:
 
 1. The architecture documents take precedence over local implementation details and serve as the target surface for implementation convergence.
@@ -255,15 +262,15 @@ The planner should operate in this order:
 
 same-mode adaptation is allowed, but it must be explicit, explainable, and replayable.
 
-Formal behaviors include:
+Unsupported product modes fail closed before route selection. A format without
+a declared `stream` or `accurate` route must return a non-zero error; it must not
+silently select its balanced canonical route.
 
-1. `explicit_stream_unsupported_fell_back`
-   Indicates that the user explicitly requested stream, but the format has no formal explicit stream route, so the system falls back to the canonical route.
-2. `accurate_unsupported_fell_back`
-   Indicates that the format has no formal accurate product line, so the accurate request falls back to balanced.
-3. `soft_limit_threshold`
+Formal same-mode adaptations include:
+
+1. `soft_limit_threshold`
    Indicates that probe triggered the medium-adaptive profile.
-4. `hard_limit_threshold`
+2. `hard_limit_threshold`
    Indicates that probe triggered the large-adaptive profile or a hard-limit route.
 
 CLI warnings, provenance, and benchmark trust all rely on these explicit records.

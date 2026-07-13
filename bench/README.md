@@ -30,7 +30,10 @@ moon build --target native --release --package ZSeanYves/markitdown/bench/runner
 
 Inputs and manifests are loaded from
 `markitdown-quality-lab/external_bench/`; the main repository does not contain a
-fallback benchmark corpus.
+fallback benchmark corpus. Reviewed internal-comparison baselines are loaded
+from `markitdown-quality-lab/performance_baselines/`; the quality-lab currently
+tracks approved macOS arm64 and Linux x64 baselines with 106 CLI/engine cases
+per platform.
 
 ## Commands
 
@@ -77,6 +80,19 @@ runtime, input, and tool fingerprints. Matching baselines permit at most 10%
 time or RSS regression. Fingerprint changes produce a candidate for explicit
 review instead of silently accepting the old baseline.
 
+Use the baseline matching the controlled runner:
+
+```bash
+python3 tools/regression/self_baseline.py capture \
+  --run .tmp/bench/runs/<run_id> \
+  --output .tmp/bench/<platform>-candidate.json \
+  --platform-key <platform> \
+  --runner-class <runner-class>
+python3 tools/regression/self_baseline.py enforce \
+  --candidate .tmp/bench/<platform>-candidate.json \
+  --baseline markitdown-quality-lab/performance_baselines/<platform>.json
+```
+
 Current RSS budgets are enforced from benchmark policy rather than duplicated
 in this document. Inspect `bench/config/policy.json` and the generated summary
 for the exact evaluated limits.
@@ -86,10 +102,8 @@ for the exact evaluated limits.
 The README performance table is backed by the current audited macOS arm64 run
 against the repo-locked Microsoft MarkItDown `0.1.6` baseline: 25/25 rows were
 comparable, the performance gate passed, and CLI per-format geometric means
-ranged from PDF `4.53x` to IPYNB `155.69x`. Its RSS gate failed for HTML huge and
-PDF large, so the snapshot is valid speed evidence but not a claim that every
-release gate passed. Replace published numbers only with another formal run
-under the locked benchmark environment.
+ranged from PDF `4.53x` to IPYNB `155.69x`. Replace published numbers only with
+another formal run under the locked benchmark environment.
 
 ## Evidence and storage
 

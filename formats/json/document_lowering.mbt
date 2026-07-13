@@ -1416,7 +1416,10 @@ fn malformed_json_parse_result(
     "parser_mode",
     @parser.mode_name(capability.parser_mode),
   )
-  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
+  diagnostics.metrics.set(
+    "input_kind",
+    @fshared.input_kind_name(@input.input_kind(source)),
+  )
   diagnostics.metrics.set("detected_format", format_name)
   diagnostics.metrics.set("json_valid", "false")
   diagnostics.metrics.set("record_count", "0")

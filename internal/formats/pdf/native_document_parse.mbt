@@ -18,14 +18,17 @@ pub fn pdf_parse_with_native_document(
       Some(@pdfroot.pdf_native_parser_name()),
       Some(@parser.mode_name(@parser.ParserMode::PageSinglePass)),
     ),
-    Some(pdf_native_input_kind_name(source.kind)),
+    Some(pdf_native_input_kind_name(@input.input_kind(source))),
     Some("pdf"),
   )
   next.pass_trace.push("parse:pdf_native_parser")
   next.pass_trace.push("pdf_native:parser_success_path")
   next.metrics.set("parser_name", @pdfroot.pdf_native_parser_name())
   next.metrics.set("parser_mode", "page_single_pass")
-  next.metrics.set("input_kind", pdf_native_input_kind_name(source.kind))
+  next.metrics.set(
+    "input_kind",
+    pdf_native_input_kind_name(@input.input_kind(source)),
+  )
   next.metrics.set("detected_format", "pdf")
   next.metrics.set("requested_mode", pdf_native_requested_mode_name(context))
   next.metrics.set("effective_mode", "page_single_pass")
@@ -123,6 +126,7 @@ fn pdf_native_input_kind_name(kind : @input.InputKind) -> String {
     @input.InputKind::Path => "path"
     @input.InputKind::Text => "text"
     @input.InputKind::Bytes => "bytes"
+    @input.InputKind::Reader => "reader"
   }
 }
 

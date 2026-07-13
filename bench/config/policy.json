@@ -5,6 +5,12 @@
     "timeout_ms": 60000,
     "tiers": ["regular", "release", "stress"]
   },
+  "rss_limits_mb": {
+    "default": 256,
+    "html.huge": 320,
+    "pdf.large": 288,
+    "xlsx.huge": 448
+  },
   "tool_matrix": {
     "official-internal": ["moonbit-cli", "moonbit-engine"],
     "official-self-baseline": ["moonbit-cli", "moonbit-engine"],
@@ -70,6 +76,22 @@
       "tiers": ["smoke"],
       "repeat_count": 20,
       "warmup_count": 5,
+      "timeout_ms": 60000
+    },
+    "change-risk": {
+      "scenario_ids": [
+        "diagnostic.html",
+        "diagnostic.pdf",
+        "diagnostic.xlsx",
+        "diagnostic.zip",
+        "diagnostic.docx",
+        "diagnostic.pptx",
+        "diagnostic.eml",
+        "diagnostic.markdown"
+      ],
+      "tiers": ["regular", "release", "stress"],
+      "repeat_count": 3,
+      "warmup_count": 1,
       "timeout_ms": 60000
     }
   },

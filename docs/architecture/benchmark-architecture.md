@@ -21,6 +21,12 @@ Recommended reading order:
 
 This is a normative benchmark architecture document, not a one-off score report.
 
+Current implementation checkpoint: formal presets measure balance only.
+`official-external-compare` contains semantically comparable native cases;
+`official-self-baseline` contains native cases without a valid external baseline
+and optional dependency-backed balance cases. Accurate routes are excluded.
+The operational command surface is documented in `bench/README.md`.
+
 It answers:
 
 1. what the formal benchmark system measures
@@ -258,8 +264,8 @@ Route fidelity means the measured result actually reflects the route the product
 This matters especially for:
 
 - large-file adaptation
-- stream fallback
-- OCR and accurate fallback
+- supported stream route fidelity and unsupported-mode rejection
+- OCR provider fallback inside a supported OCR route
 - PDF native-text versus OCR behavior
 
 ### 6.5 Semantic Density Guard
@@ -331,11 +337,22 @@ External comparison focuses on:
 - whether all compared tools formed enough valid cases
 - whether the baseline can form a real comparable set
 
-### 8.3 Diagnostic View
+Rows enter this view only when both tools pass declared minimum semantic
+signals. A baseline timeout is conservative censored evidence, not a successful
+empty output.
+
+### 8.3 Self-Baseline View
+
+Self baseline covers ODT/ODS/ODP and other balance cases without a valid
+external comparison. It requires an exact platform/runtime/input fingerprint
+match and permits at most the configured regression tolerance. Fingerprint
+changes produce a candidate artifact for review.
+
+### 8.4 Diagnostic View
 
 Diagnostic view exists to explain route or output behavior, not to publish headline scores.
 
-### 8.4 Contract-Check View
+### 8.5 Contract-Check View
 
 Doctor- or contract-style benchmark views exist to catch environment, dependency, or trust regressions quickly.
 

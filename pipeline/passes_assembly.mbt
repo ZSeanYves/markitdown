@@ -52,7 +52,7 @@ fn assemble_document_sections(
           heading_path,
           child_section_ids: [],
           block_ids: [block.block_id],
-          source_ref: block.source_ref,
+          source_ref: @core.block_source_ref(block),
         }
         let section_index = assembly.sections.length()
         assembly.sections.push(section)
@@ -158,7 +158,9 @@ fn push_reading_order_entry(
   block : @core.CoreBlock,
   ordinal : Int,
 ) -> Unit {
-  let source_ref = block.source_ref.unwrap_or(@core.empty_source_ref())
+  let source_ref = @core.block_source_ref(block).unwrap_or(
+    @core.empty_source_ref(),
+  )
   assembly.reading_order.push({
     block_id: block.block_id,
     ordinal,

@@ -116,7 +116,7 @@ fn apply_render_window_hint(block : @core.CoreBlock) -> @core.CoreBlock {
   if block.attrs.get("slide_local") == Some("true") {
     return @core.block_with_attr(block, "render_window_group", "slide_local")
   }
-  match block.source_ref {
+  match @core.block_source_ref(block) {
     Some(source_ref) =>
       if source_ref.page is Some(page) {
         @core.block_with_attr(
@@ -150,9 +150,7 @@ fn apply_render_table_hint(block : @core.CoreBlock) -> @core.CoreBlock {
   if block.kind != @core.BlockKind::Table {
     return block
   }
-  if block.attrs.get("sparse_row_payload") is Some(_) ||
-    block.children.any(fn(row) {
-      row.attrs.get("sparse_row_payload") is Some(_) ||
+  if block.children.any(fn(row) {
       row.attrs.get("sparse_cell_columns") == Some("true")
     }) {
     return @core.block_with_attr(block, "render_table_mode", "sparse")

@@ -1,0 +1,39 @@
+warning: xlsx drawing relationship deferred: Contents -> rId2
+warning: xlsx external relationship preserved as diagnostics only: Terms and conditions -> rId3
+warning: xlsx external relationship preserved as diagnostics only: Terms and conditions -> rId2
+warning: xlsx external relationship preserved as diagnostics only: Terms and conditions -> rId1
+warning: xlsx drawing relationship deferred: Terms and conditions -> rId4
+warning: xlsx external relationship preserved as diagnostics only: Notes and definitions -> rId3
+warning: xlsx drawing relationship deferred: Notes and definitions -> rId7
+warning: xlsx external relationship preserved as diagnostics only: Notes and definitions -> rId2
+warning: xlsx external relationship preserved as diagnostics only: Notes and definitions -> rId1
+warning: xlsx external relationship preserved as diagnostics only: Notes and definitions -> rId5
+warning: xlsx external relationship preserved as diagnostics only: Notes and definitions -> rId4
+warning: xlsx sheet bounds exceeded next limits; content was truncated: Table 2
+warning: xlsx sheet bounds exceeded next limits; content was truncated: Table 4
+warning: xlsx external relationship preserved as diagnostics only: Related publications -> rId8
+warning: xlsx external relationship preserved as diagnostics only: Related publications -> rId13
+warning: xlsx external relationship preserved as diagnostics only: Related publications -> rId18
+warning: xlsx external relationship preserved as diagnostics only: Related publications -> rId3
+warning: xlsx external relationship preserved as diagnostics only: Related publications -> rId21
+warning: xlsx external relationship preserved as diagnostics only: Related publications -> rId7
+warning: xlsx external relationship preserved as diagnostics only: Related publications -> rId12
+warning: xlsx external relationship preserved as diagnostics only: Related publications -> rId17
+warning: xlsx external relationship preserved as diagnostics only: Related publications -> rId25
+warning: xlsx external relationship preserved as diagnostics only: Related publications -> rId2
+warning: xlsx external relationship preserved as diagnostics only: Related publications -> rId16
+warning: xlsx external relationship preserved as diagnostics only: Related publications -> rId20
+warning: xlsx external relationship preserved as diagnostics only: Related publications -> rId1
+warning: xlsx external relationship preserved as diagnostics only: Related publications -> rId6
+warning: xlsx external relationship preserved as diagnostics only: Related publications -> rId11
+warning: xlsx external relationship preserved as diagnostics only: Related publications -> rId24
+warning: xlsx external relationship preserved as diagnostics only: Related publications -> rId5
+warning: xlsx external relationship preserved as diagnostics only: Related publications -> rId15
+warning: xlsx external relationship preserved as diagnostics only: Related publications -> rId23
+warning: xlsx external relationship preserved as diagnostics only: Related publications -> rId10
+warning: xlsx external relationship preserved as diagnostics only: Related publications -> rId19
+warning: xlsx external relationship preserved as diagnostics only: Related publications -> rId4
+warning: xlsx external relationship preserved as diagnostics only: Related publications -> rId9
+warning: xlsx external relationship preserved as diagnostics only: Related publications -> rId14
+warning: xlsx external relationship preserved as diagnostics only: Related publications -> rId22
+warning: xlsx images follow sheet and drawing relationship order; exact anchor placement remains partial

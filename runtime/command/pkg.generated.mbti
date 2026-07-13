@@ -2,6 +2,8 @@
 package "ZSeanYves/markitdown/runtime/command"
 
 // Values
+pub fn default_command_limits() -> CommandLimits
+
 pub fn fallback_command(String) -> ResolvedCommand
 
 pub fn find_in_path(String, String?) -> String?
@@ -9,6 +11,8 @@ pub fn find_in_path(String, String?) -> String?
 pub fn is_executable_file(String) -> Bool
 
 pub fn join_shell_command(Array[String]) -> String
+
+pub fn make_command_limits(timeout_ms? : Int, max_stdout_bytes? : Int, max_stderr_bytes? : Int, termination_grace_ms? : Int) -> CommandLimits
 
 pub fn make_resolved_command(String, String, ResolvedCommandSource) -> ResolvedCommand
 
@@ -32,6 +36,10 @@ pub fn resolved_command_from_parts(Array[String], ResolvedCommandSource) -> Reso
 
 pub fn resolved_command_source_label(ResolvedCommandSource) -> String
 
+pub fn run_resolved_command(ResolvedCommand, Array[String], limits? : CommandLimits) -> Result[CommandOutput, String]
+
+pub async fn run_resolved_command_async(ResolvedCommand, Array[String], limits? : CommandLimits) -> Result[CommandOutput, String]
+
 pub fn shell_quote_command_part(String) -> String
 
 pub fn split_shell_command(String) -> Result[Array[String], ShellCommandSplitError]
@@ -39,6 +47,23 @@ pub fn split_shell_command(String) -> Result[Array[String], ShellCommandSplitErr
 // Errors
 
 // Types and methods
+pub struct CommandLimits {
+  timeout_ms : Int
+  max_stdout_bytes : Int
+  max_stderr_bytes : Int
+  termination_grace_ms : Int
+}
+
+pub struct CommandOutput {
+  exit_code : Int
+  signal : Int
+  stdout : String
+  stderr : String
+  timed_out : Bool
+  stdout_limit_exceeded : Bool
+  stderr_limit_exceeded : Bool
+}
+
 pub struct ResolvedCommand {
   program : String
   display_command : String

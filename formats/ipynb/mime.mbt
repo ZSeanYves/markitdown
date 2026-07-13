@@ -19,24 +19,21 @@ fn ipynb_asset_ext_for_entry(entry : @dipynb.IpynbMimeEntry) -> String {
 }
 
 ///|
-fn ipynb_attach_inline_payload(
+fn ipynb_attach_asset_payload(
   asset : @core.AssetRef,
   entry : @dipynb.IpynbMimeEntry,
 ) -> Unit {
-  match ipynb_inline_payload(entry) {
-    Some((kind, payload)) => {
-      asset.attrs.set("inline_payload_kind", kind)
-      asset.attrs.set("inline_payload", payload)
-    }
+  match ipynb_asset_payload(entry) {
+    Some(payload) => asset.payload = Some(payload)
     None => ()
   }
 }
 
 ///|
-fn ipynb_inline_payload(entry : @dipynb.IpynbMimeEntry) -> (String, String)? {
+fn ipynb_asset_payload(entry : @dipynb.IpynbMimeEntry) -> @core.AssetPayload? {
   if entry.mime_type == "image/svg+xml" {
     match entry.text {
-      Some(payload) => return Some(("utf8", payload))
+      Some(payload) => return Some(@core.AssetPayload::Utf8(payload))
       None => ()
     }
   }
@@ -47,7 +44,13 @@ fn ipynb_inline_payload(entry : @dipynb.IpynbMimeEntry) -> (String, String)? {
           .replace_all(old="\n", new="")
           .replace_all(old="\r", new="")
         if normalized != "" {
-          return Some(("base64", normalized))
+          return try
+            @base64.decode(normalized, url_safe=false)
+            |> @core.AssetPayload::Bytes
+            |> Some
+          catch {
+            _ => None
+          }
         }
       }
       None => ()
@@ -55,13 +58,13 @@ fn ipynb_inline_payload(entry : @dipynb.IpynbMimeEntry) -> (String, String)? {
   }
   if entry.mime_type == "application/json" || entry.mime_type.contains("+json") {
     match entry.raw_json_text {
-      Some(payload) => return Some(("utf8", payload))
+      Some(payload) => return Some(@core.AssetPayload::Utf8(payload))
       None => ()
     }
   }
   if entry.mime_type.has_prefix("text/") {
     match entry.text {
-      Some(payload) => return Some(("utf8", payload))
+      Some(payload) => return Some(@core.AssetPayload::Utf8(payload))
       None => ()
     }
   }
@@ -71,7 +74,13 @@ fn ipynb_inline_payload(entry : @dipynb.IpynbMimeEntry) -> (String, String)? {
         .replace_all(old="\n", new="")
         .replace_all(old="\r", new="")
       if normalized != "" {
-        Some(("base64", normalized))
+        try
+          @base64.decode(normalized, url_safe=false)
+          |> @core.AssetPayload::Bytes
+          |> Some
+        catch {
+          _ => None
+        }
       } else {
         None
       }

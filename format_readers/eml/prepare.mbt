@@ -15,11 +15,12 @@ pub fn prepare_eml_message_from_source(
     Ok(payload) => payload
     Err(err) => return Err(err)
   }
-  let text = match source.text {
+  let text = match @input.input_text(source) {
     Some(value) => value
     None => decode_eml_source_text(bytes_payload.bytes)
   }
-  let prepared_source = if bytes_payload.prepared_source.text is Some(_) {
+  let prepared_source = if @input.input_text(bytes_payload.prepared_source)
+    is Some(_) {
     bytes_payload.prepared_source
   } else {
     @input.with_text_payload(bytes_payload.prepared_source, text)

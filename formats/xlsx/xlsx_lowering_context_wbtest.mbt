@@ -350,5 +350,4 @@ test "XLSX workbook lowering covers tables residual cells merges comments and em
   assert_eq(xlsx_range_ref_from_bounds(1, 1, 4, 4), "A1:D4")
   assert_true(xlsx_should_skip_hidden_row(false, sheet.hidden_rows, 3))
   assert_true(!xlsx_should_skip_hidden_row(true, sheet.hidden_rows, 3))
-  assert_eq(xlsx_escape_sparse_row_cell("a|b\nc"), "a|b\\nc")
 }

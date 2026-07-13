@@ -1,355 +1,98 @@
-# Capability Boundaries and Limitations
+# Capabilities and Limitations
 
-`markitdown-mb` ships as one main binary with one formal product path:
+`markitdown-mb` converts supported inputs through one path:
 
 ```text
-input -> detect -> probe -> planner -> parse -> pipeline -> render
+detect -> probe -> route -> parse -> DocumentIR -> render
 ```
 
-The public support surface is grouped by internal capability layer:
-
-- `Core`
-- `Office`
-- `Containers`
-- `Media`
-- `PdfOcr`
-
-This document is the public support boundary. It distinguishes three things:
-
-- what is wired into the current source tree and registry
-- what is productized at the mode / route level
-- what is backed by checked-in regression fixtures versus external regression entry points
-
-Internal implementation details may evolve, but capability grouping, fail-closed behavior, and route-mode boundaries should stay aligned with the code and the regression surface.
-
-## 1. Product Boundary
-
-This implementation prioritizes:
-
-- one formal product path
-- explicit detection, probing, and route selection
-- typed diagnostics and provenance
-- fail-closed behavior instead of silent fallback
-
-This project is not trying to be:
-
-- a browser-grade layout engine
-- an editor-grade round-trip restoration stack
-- a hidden multi-product CLI with per-format side entrances
-
-## 2. Capability Groups
-
-### 2.1 Core
-
-Source-wired formats:
-
-- plain text: `txt`
-- subtitles: `srt`, `vtt`
-- delimited text: `csv`, `tsv`
-- structured text: `json`, `jsonl`, `ndjson`, `ipynb`, `xml`, `yaml`, `yml`, `toml`
-- web and markup: `html`, `htm`, `markdown`, `md`, `rst`, `adoc`, `asciidoc`, `tex`, `latex`
-- mail: `eml`
-
-Important notes:
-
-- `txt`, `csv`, `tsv`, `srt`, `vtt`, `jsonl`, and `ndjson` are canonical `streaming_event` formats.
-- `json`, `ipynb`, `xml`, `yaml`, `toml`, `html`, `markdown`, `tex`, `rst`, and `asciidoc` stay on the typed structured-text path and still converge back to the unified pipeline.
-- `eml` is productized as a MIME-part-oriented `block_streaming` format with recursive child dispatch guarded by the root registry.
-- The user-facing label `msg` is currently accepted as an alias to the mail parser. It should not be read as a distinct native Outlook `.msg` binary stack.
-
-Mode boundary:
-
-- explicit `stream` is productized for `txt`, `csv`, `tsv`, `srt`, `vtt`, `json`, `jsonl`, `ndjson`, `ipynb`, `xml`, `yaml`, `html`, `markdown`, and `eml`
-- `toml`, `tex`, `rst`, and `asciidoc` currently stay on canonical structured routes and do not expose a distinct explicit stream route
-- `accurate` does not introduce a separate core route family; for core formats without accurate features it falls back explicitly to `balanced`
-
-### 2.2 Office
-
-Source-wired formats:
-
-- OOXML: `docx`, `xlsx`, `pptx`
-- ODF: `odt`, `ods`, `odp`
-
-Current product behavior:
-
-- all office formats are package-based and probe-first
-- parser execution is expected to reuse typed probe artifacts
-- missing or mismatched heavy-format artifacts fail closed
-
-Mode boundary:
-
-- `xlsx`, `odt`, `ods`, and `odp` expose productized explicit stream / large-route block forms
-- `docx` and `pptx` remain canonical `package_single_pass` routes without a distinct explicit stream route
-- `accurate` is productized here as same-route semantic enhancement rather than a new route family
-
-Current accurate semantic surface includes:
-
-- `docx`: textbox lowering, alternate-content restore, notes appendix
-- `xlsx`: hidden sheets, hidden rows, merged spans
-- `pptx`: reading order, group summary, hidden-slide semantics, notes appendix
-- `odt`: richer notes and comments appendix
-- `ods`: hidden sheets, hidden rows, covered-cell spans
-- `odp`: notes appendix and slide summary
-
-### 2.3 Containers
-
-Source-wired formats:
-
-- `zip`
-- `epub`
-
-Current product behavior:
-
-- both stay on the canonical product path
-- `zip` is productized as `container_recursive`
-- `epub` has a canonical `package_single_pass` route and an explicit container-recursive stream route
-- local assets may be materialized only at the output boundary
-- remote fetch is a non-goal
-
-Current ZIP recursive inner-document scope is intentionally limited. It currently covers:
-
-- `txt`, `csv`, `tsv`
-- `srt`, `vtt`
-- `json`, `jsonl`, `ndjson`, `ipynb`
-- `xml`, `yaml`, `toml`
-- `html`, `markdown`
-- `tex`, `rst`, `asciidoc`
-- `eml`
-- `docx`, `xlsx`, `pptx`
-- `odt`, `ods`, `odp`
-
-Notable limitations:
-
-- ZIP recursion does not currently recurse into nested archives such as `zip`, `jar`, or `epub`
-- ZIP recursion does not currently productize `pdf`, audio, or direct-image OCR as first-class recursive inner documents
-- container parsing remains bounded and guarded by root-registry dispatch, resource limits, and output-path safety rules
-
-### 2.4 Media
-
-Source-wired formats:
-
-- `wav`
-- `mp3`
-- `m4a`
-
-Current product behavior:
-
-- media support is intentionally narrow and transcript-first
-- the canonical route is `media_pipeline`
-- the current runtime contract is local-backend oriented: Vosk-based transcription plus `ffmpeg` normalization when compressed audio requires it
-- missing runtime pieces fail closed and are surfaced explicitly in diagnostics
-
-Mode boundary:
-
-- there is no separate media-specific `accurate` route family today
-- there is no productized explicit `stream` route for audio today
-- `accurate` therefore falls back explicitly to `balanced` for `wav`, `mp3`, and `m4a`
-
-### 2.5 PdfOcr
-
-Source-wired formats:
-
-- `pdf`
-- direct image OCR: `png`, `jpg`, `jpeg`, `bmp`, `webp`, `tif`, `tiff`
-
-Current product behavior:
-
-- `pdf` in `balanced` uses the native-text `page_single_pass` route
-- `pdf` in `accurate` uses the `layout_two_stage` high-fidelity route
-- direct image inputs are productized on `layout_two_stage`
-- OCR and rasterization dependencies are explicit and fail closed when unavailable
-
-Important route boundary:
-
-- scanned-like PDFs do not silently OCR on the default balanced route
-- balanced scanned-like PDFs are expected to fail closed rather than pretend that native-text extraction succeeded
-- PDF OCR remains part of the `accurate` PDF contract
-- direct image OCR remains part of the formal main product surface rather than a debug-only side path
-
-Provider/runtime notes:
-
-- direct image OCR defaults to a Tesseract-targeted balanced path and a PaddleOCR-targeted accurate path
-- PDF accurate uses the PDF-specific accurate OCR/runtime contract rather than the native PDF parser path
-
-## 3. Probe Boundary
-
-Unified probe templates are:
-
-- `Exempt`
-- `StructuredTextProbe`
-- `PackageContainerProbe`
-- `PagedMediaProbe`
-
-Probe-exempt light formats are:
-
-- `txt`
-- `csv`
-- `tsv`
-- `jsonl`
-- `ndjson`
-- `srt`
-- `vtt`
-
-Structured-text probe formats currently include:
-
-- `json`, `xml`, `yaml`, `toml`
-- `markdown`, `html`, `ipynb`
-- `tex`, `rst`, `asciidoc`
-- `eml`
-- `wav`, `mp3`, `m4a`
-
-Package/container probe formats currently include:
-
-- `docx`, `pptx`, `xlsx`
-- `odt`, `ods`, `odp`
-- `epub`, `zip`
-
-Paged/media probe formats currently include:
-
-- `pdf`
-- `png`, `jpg`, `jpeg`, `bmp`, `webp`, `tif`, `tiff`
-
-Typed probe artifact reuse is a checked contract for heavy-route parsing, especially for:
-
-- `html`
-- `ipynb`
-- `docx`, `pptx`, `xlsx`
-- `odt`, `ods`, `odp`
-- `epub`, `zip`
-- `pdf`
-
-## 4. Mode and Route Boundary
-
-Public product modes remain:
-
-- `balanced`
-- `accurate`
-- `stream`
-
-Support is intentionally non-universal.
-
-Current `accurate` behavior falls into three groups:
-
-1. Dedicated accurate route family:
-   `pdf`, direct image OCR
-2. Same-route accurate semantic enhancements:
-   `docx`, `xlsx`, `pptx`, `odt`, `ods`, `odp`
-3. Explicit fallback to balanced:
-   `txt`, `csv`, `tsv`, `srt`, `vtt`, `json`, `jsonl`, `ndjson`, `ipynb`, `xml`, `yaml`, `toml`, `html`, `markdown`, `tex`, `rst`, `asciidoc`, `eml`, `zip`, `epub`, `wav`, `mp3`, `m4a`
-
-Current explicit `stream` productization is present for:
-
-- `txt`, `csv`, `tsv`
-- `srt`, `vtt`
-- `json`, `jsonl`, `ndjson`
-- `ipynb`
-- `xml`, `yaml`
-- `html`, `markdown`
-- `eml`
-- `zip`, `epub`
-- `xlsx`, `odt`, `ods`, `odp`
-
-Formats that currently do not expose a distinct explicit `stream` route include:
-
-- `toml`
-- `tex`, `rst`, `asciidoc`
-- `docx`, `pptx`
-- `pdf`
-- `wav`, `mp3`, `m4a`
-- `png`, `jpg`, `jpeg`, `bmp`, `webp`, `tif`, `tiff`
-
-Across all groups:
-
-- same-mode adaptation is allowed only when the planner records the reason explicitly
-- heavy-format parser code must not privately choose a different route
-- renderer selection (`Markdown`, `RagJson`, `DebugJson`) does not change route ownership
-
-## 5. Regression Coverage Boundary
-
-### 5.1 Checked-in repo-local fixtures
-
-Checked-in contract fixture directories currently exist under `samples/fixtures/contracts/` for:
-
-- core and markup: `txt`, `csv`, `tsv`, `json`, `jsonl`, `ndjson`, `ipynb`, `xml`, `yaml`, `toml`, `html`, `markdown`, `tex`, `rst`, `asciidoc`
-- office: `docx`, `xlsx`, `pptx`, `odt`, `ods`, `odp`
-- containers: `zip`, `epub`
-- PDF / OCR / media: `pdf`, `ocr`, `audio`
-
-Checked-in fixture directories do not currently exist there for:
-
-- `eml`
-- `srt`
-- `vtt`
-
-### 5.2 Where checked-in goldens are strongest
-
-The strongest checked-in Markdown / asset-style golden coverage is currently around:
-
-- `txt`, `csv`, `tsv`
-- `json`, `jsonl`, `ndjson`, `ipynb`, `xml`, `yaml`, `toml`
-- `html`, `markdown`
-- `docx`, `xlsx`, `pptx`
-- `zip`, `epub`
-- native-text `pdf`
-- tiny direct-image OCR samples across all supported image extensions
-
-Notable details:
-
-- `docx`, `pptx`, `epub`, and `zip` also include checked-in asset/result fixtures
-- `pdf` includes checked-in native-text goldens plus OCR-oriented sample inputs such as `pdf_ocr_single_page.pdf` and `pdf_ocr_two_page.pdf`
-- `ocr` includes checked-in tiny-format goldens for `png/jpg/jpeg/bmp/webp/tif/tiff`, plus larger image inputs without repo-local Markdown goldens
-
-### 5.3 Thinner checked-in sample coverage
-
-The following areas are source-supported, but their checked-in repo-local sample coverage is thinner than the strongest groups above:
-
-- `odt`, `ods`, `odp` currently have checked-in input fixtures but no checked-in Markdown goldens in `samples/fixtures/contracts/`
-- `tex`, `rst`, and `asciidoc` currently have checked-in input fixtures but no checked-in Markdown goldens there
-- `audio` currently has checked-in input fixtures, while most runtime confidence comes from MoonBit runtime tests rather than checked-in Markdown golden outputs
-- `srt` and `vtt` are parser-tested, but do not currently have checked-in `samples/fixtures/contracts/srt|vtt/` directories
-- `eml` is registry-wired and integrated into the recursive parsing surface, but does not currently have a checked-in `samples/fixtures/contracts/eml/` directory
-
-### 5.4 Boundary / malformed fixtures
-
-Checked-in malformed and fail-closed boundary fixtures under `samples/fixtures/boundaries/` are currently concentrated in:
-
-- `epub`
-
-### 5.5 External regression entry points
-
-The repository also ships external regression entry points under [samples/README.md](../samples/README.md), but the formal corpora are not vendored here and live in `markitdown-quality-lab/`.
-
-The external main-regression runner is currently wired for:
-
-- `csv`, `tsv`, `txt`
-- `srt`, `vtt`
-- `json`, `jsonl`, `ndjson`, `ipynb`
-- `xml`, `yaml`, `toml`
-- `html`, `markdown`, `eml`
-- `tex`, `rst`, `asciidoc`
-- `zip`, `epub`
-- `odt`, `ods`, `odp`
-- `docx`, `xlsx`, `pptx`
-- `pdf`
-- `wav`, `mp3`, `m4a`
-- `ocr`
-
-Because those corpora are external, checked-in repo-local fixtures remain the most reliable indicator of what this repository itself currently carries as sample coverage.
-
-## 6. Current Non-goals and Limitations
-
-- unknown formats fail closed
-- there is no public browser-grade layout engine
-- there is no editor-grade round-trip restoration contract
-- there is no hidden alternate product path for unsupported formats
-- there is no runtime plugin-style capability expansion
-- ZIP recursion does not currently act as a generic wrapper around every supported top-level format
-- balanced PDF does not silently upgrade scanned-like input into OCR
-- audio remains local-backend oriented rather than a cloud-provider abstraction layer
-- `msg` is not a distinct native Outlook-binary capability surface
-
-## 7. Dependency Summary
-
-For system tools and optional local runtimes, see [environment-dependencies.md](./environment-dependencies.md).
-
-For external regression entry points and corpus layout, see [samples/README.md](../samples/README.md).
+`balance` is the default product mode. `accurate` and `stream` are accepted
+only where the table says so; unsupported mode requests return a non-zero error
+instead of silently falling back.
+
+Support levels used below:
+
+- **Mainstream**: covers the structures normally needed for document ingestion.
+- **Common subset**: useful for typical files, but not a complete language or
+  editor implementation.
+- **Optional**: requires a local runtime installed through `tools/env/`.
+
+## Format Matrix
+
+| Format | Level | What is preserved | Modes | Important boundary |
+| --- | --- | --- | --- | --- |
+| `txt` | Mainstream | Unicode text and line order | balance, stream | No inferred document structure |
+| `csv`, `tsv` | Mainstream | Quoted/multiline cells, rows and Markdown tables | balance, stream | Delimiter tables only; no spreadsheet formulas or styles |
+| `srt`, `vtt` | Mainstream | Cue IDs, timings, settings, common inline tags; VTT header/NOTE/STYLE/REGION | balance, stream | Bad cues may be skipped with diagnostics; not a media player |
+| `json` | Mainstream | Nested objects/arrays, scalar types, table/list lowering and source paths | balance, stream | Invalid JSON fails closed; no JSON Schema evaluation |
+| `jsonl`, `ndjson` | Mainstream | Record order and per-record structure | balance, stream | Blank malformed records are diagnosed; no cross-record schema |
+| `yaml`, `yml` | Mainstream | Multiple documents, flow/block collections, scalars, anchors, aliases and merge keys | balance, stream | Safe core tags only; alias expansion is depth/node/byte bounded |
+| `toml` | Mainstream | TOML 1.0 values, dates, numeric forms, dotted/quoted keys, tables, inline tables and array-of-tables | balance | Conflicting declarations fail; no distinct stream mode |
+| `xml` | Mainstream | Elements, attributes, namespaces, text hierarchy and source paths | balance, stream | External entities and network/file access are disabled |
+| `html`, `htm` | Mainstream | Headings, sections, lists, links, figures, details, tables, entities, ARIA names and local images | balance, stream | Malformed recovery is bounded; no CSS layout, script execution or remote fetch |
+| `markdown`, `md` | Mainstream | CommonMark/GFM-style headings, lists, code, tables, task lists, links, footnotes and frontmatter | balance, stream | No plugin execution; local images are copied only when safely resolvable |
+| `ipynb` | Mainstream | nbformat 4 cells, execution metadata, stream/display/error outputs, MIME selection and attachments | balance, stream | Does not execute kernels; unsupported MIME stays diagnostic |
+| `eml` | Mainstream | Folded/encoded headers, charsets, transfer encoding, multipart trees, CID, attachments and nested messages | balance, stream | Recursion and attachment sizes are bounded; remote content is not fetched |
+| `msg` | Alias only | Parsed through the EML/mail path | balance, stream | **Not** native Outlook binary MSG support |
+| `tex`, `latex` | Common subset | Sections, lists, tables, figures/captions, links, references, citations, math, footnotes and verbatim | balance | No TeX execution; unknown macros preserve readable arguments/text; includes are not loaded |
+| `rst` | Common subset | Headings, lists, quotes, roles, directives, footnotes, definitions, tables, code and images | balance | Includes are references only; no directive/plugin execution |
+| `adoc`, `asciidoc` | Common subset | Attributes, xrefs, admonitions, nested lists, source blocks, tables, images and footnotes | balance | Includes do not access the network or arbitrary files |
+| `zip` | Bounded container | Supported child documents, headings per entry, provenance and exported assets | balance only | No nested archive recursion; unsafe/colliding paths and resource bombs fail closed |
+| `epub` | Mainstream | Metadata, spine order, navigation/NCX, chapter HTML, links and images | balance, stream | Encrypted/DRM content and remote resources are unsupported |
+| `docx` | Mainstream | Paragraphs, headings, lists, tables, links, text boxes, notes/comments and images | balance, accurate | No stream mode; complex drawing/layout and editor round-trip are non-goals |
+| `xlsx` | Mainstream | Sheets, typed/cached values, tables, formulas as text, merges, hidden state, comments, hyperlinks and drawings/images | balance, accurate, stream | Formulas are not recalculated; macros and editor layout are unsupported |
+| `pptx` | Mainstream | Slide order, text, lists, tables, links, images, notes, hidden slides and basic chart/group summaries | balance, accurate | No stream mode; animations and pixel-perfect slide layout are unsupported |
+| `odt` | Mainstream | Styles, headings, lists, tables, links, images, notes and comments | balance, accurate, stream | Complex page layout and editor round-trip are not reproduced |
+| `ods` | Mainstream | Typed cells, formulas as text, merges/covered cells, repeated rows/columns, hidden state, comments and images | balance, accurate, stream | Formulas are not recalculated; advanced charts/macros are limited |
+| `odp` | Mainstream | Slides, frames/groups, reading order, text, tables, images, notes, hidden slides and basic chart text | balance, accurate, stream | Animations and presentation rendering are not reproduced |
+| `pdf` | Mainstream, bounded | Native text, fonts/CMaps, page order, simple tables, links, outlines, forms and supported embedded image assets | balance, accurate | Balance does not OCR scanned pages; encrypted PDFs fail closed; accurate uses external full-page raster/OCR |
+| `png`, `jpg`, `jpeg`, `bmp`, `webp`, `tif`, `tiff` | Optional | OCR text, page/line geometry and provider provenance | balance, accurate | Only top-level images and standalone unreferenced ZIP images are OCR inputs; document-embedded images remain assets |
+| `wav`, `mp3`, `m4a` | Optional | Transcript segments, timing, language/runtime metadata | balance | Requires Vosk; compressed input may require ffmpeg; no diarization or accurate/stream mode |
+
+## Accurate and Stream Boundaries
+
+`accurate` has two meanings, both explicit:
+
+- PDF and direct images use an external high-fidelity OCR/layout route.
+- DOCX/XLSX/PPTX/ODT/ODS/ODP stay on their native parser and enable additional
+  semantic recovery such as hidden content, notes, spans or reading order.
+
+All other formats reject `accurate`. Explicit `stream` is limited to:
+
+```text
+txt csv tsv srt vtt json jsonl ndjson ipynb xml yaml html markdown eml
+epub xlsx odt ods odp
+```
+
+`stream` changes execution/storage behavior, not the promised Markdown meaning.
+
+## Assets and OCR
+
+Local assets are written only at the output boundary. Paths must be safe and
+relative; absolute paths, `..`, protocols, remote downloads and silent
+overwrites are rejected. Markdown references must resolve to materialized files
+or be removed with a diagnostic.
+
+Document images are assets, never implicit OCR work. OCR applies only to a pure
+image input or an unreferenced standalone image inside a balance-mode ZIP.
+Native balanced PDF may export supported embedded images, but does not OCR them.
+PNG/JPEG are the common asset contract; GIF/WebP/SVG/JP2/TIFF/JBIG2 are retained
+when the source container and encoding can be saved safely. PDF DCT images stay
+JPEG, while decoded Gray/RGB/CMYK/Indexed images and masks are normalized to PNG.
+
+## General Safety Limits
+
+Parsers enforce format-specific limits for input bytes, nesting, archive entry
+count, decompressed size, compression ratio, object/page trees, MIME recursion,
+aliases and materialized assets. Security, encryption and integrity failures
+fail closed. Recoverable unknown structures may preserve readable content with
+a stable warning instead of discarding the whole document.
+
+The project does not provide browser/editor-grade rendering, password recovery,
+remote includes, external XML entities, parser-time network access, arbitrary
+file reads, or native Outlook MSG decoding.
+
+For runtime installation see
+[environment-dependencies.md](./environment-dependencies.md). For the exact
+regression decision rules see
+[tools/regression/README.md](../tools/regression/README.md).

@@ -692,6 +692,19 @@ fn pdf_build_native_pages(
       "asset_count",
       pdf_native_exportable_image_asset_count(image_candidates).to_string(),
     )
+    let unsupported_image_asset_count = pdf_native_unsupported_image_asset_count(
+      image_candidates,
+    )
+    diagnostics.metrics.set(
+      "pdf_unsupported_image_asset_count",
+      unsupported_image_asset_count.to_string(),
+    )
+    if unsupported_image_asset_count > 0 {
+      diagnostics.warnings.append(
+        pdf_native_unsupported_image_asset_details(image_candidates),
+      )
+      diagnostics.degraded_features.push("pdf_image_asset_unsupported")
+    }
     pages.push(
       make_pdf_native_page(
         geometry,

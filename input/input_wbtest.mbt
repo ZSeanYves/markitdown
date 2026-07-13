@@ -114,22 +114,57 @@ test "input readers prefer attached payloads and report controlled failures" {
   let source = input_from_path("/definitely/missing/markitdown-input")
     |> with_text_payload("attached")
     |> with_bytes_payload(Bytes::from_array([65, 66]))
-  assert_true(read_input_text(source) == Ok("attached"))
+  assert_true(input_text(source) is None)
+  assert_true(input_bytes(source) is Some(_))
+  assert_true(read_input_text(source) == Ok("AB"))
   assert_true(read_input_bytes(source).map(bytes => bytes.length()) == Ok(2))
   let invalid = input_from_bytes(Bytes::from_array([0x80]))
   assert_true(read_input_text(invalid) == Err("utf8 decode failed"))
-  let empty : InputSource = {
-    kind: InputKind::Text,
-    source_name: "empty",
-    path: None,
-    text: None,
-    bytes: None,
-    mime_type: None,
-    explicit_format: None,
-  }
-  assert_true(read_input_text(empty) == Err("input source has no text payload"))
+  let failed = input_from_reader({
+    size: None,
+    read_at: fn(_offset, _length) { Err("unavailable") },
+  })
+  assert_true(read_input_text(failed) == Err("reader read failed: unavailable"))
   assert_true(
-    read_input_bytes(empty) == Err("input source has no byte payload"),
+    read_input_bytes(failed) == Err("reader read failed: unavailable"),
+  )
+}
+
+///|
+test "reader payload supports bounded detection and complete materialization" {
+  let payload = @utf8.encode("reader payload")
+  let reader = make_input_reader(
+    fn(offset, length) {
+      let start = offset.to_int()
+      let end = (start + length).min(payload.length())
+      Ok(payload.view(start~, end~).to_owned())
+    },
+    size=payload.length().to_int64(),
+  )
+  let source = input_from_reader(reader, source_name="fixture.txt")
+  assert_true(input_kind(source) == InputKind::Reader)
+  assert_true(input_path(source) is None)
+  assert_true(read_input_prefix(source, 6) == Ok(@utf8.encode("reader")))
+  assert_true(read_input_text(source) == Ok("reader payload"))
+  assert_true(read_input_bytes(source) == Ok(payload))
+}
+
+///|
+test "source cursor borrows memory views and bounds random access" {
+  let bytes = @utf8.encode("0123456789")
+  let cursor = open_source_cursor(input_from_bytes(bytes), max_bytes=10L).unwrap()
+  assert_true(cursor.size == Some(10L))
+  assert_true(
+    source_cursor_read_at(cursor, 3L, length=4) == Ok(@utf8.encode("3456")),
+  )
+  assert_true(
+    source_cursor_view_at(cursor, 3, 4).map(view => view.to_owned()) ==
+    Some(@utf8.encode("3456")),
+  )
+  assert_true(source_cursor_read_at(cursor, 10L) == Ok(Bytes::new(0)))
+  assert_true(source_cursor_read_at(cursor, -1L) is Err(_))
+  assert_true(
+    open_source_cursor(input_from_bytes(bytes), max_bytes=9L) is Err(_),
   )
 }
 

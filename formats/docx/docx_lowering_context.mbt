@@ -15,7 +15,9 @@ fn docx_source_ref_from_key(
   relationship_id : String?,
   shape_id : String?,
 ) -> @core.SourceRef {
-  let container_path = state.source.path.unwrap_or(state.source.source_name)
+  let container_path = @input.input_path(state.source).unwrap_or(
+    state.source.source_name,
+  )
   let base = @core.source_ref_with_container_entry(
     @core.empty_source_ref(),
     Some(state.source.source_name),
@@ -55,7 +57,9 @@ fn docx_part_source_ref(
   part_name : String,
   relationship_id : String?,
 ) -> @core.SourceRef {
-  let container_path = state.source.path.unwrap_or(state.source.source_name)
+  let container_path = @input.input_path(state.source).unwrap_or(
+    state.source.source_name,
+  )
   let base = @core.source_ref_with_container_entry(
     @core.empty_source_ref(),
     Some(state.source.source_name),

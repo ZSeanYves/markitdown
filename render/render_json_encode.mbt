@@ -79,7 +79,9 @@ fn render_block_json(block : @core.CoreBlock) -> String {
   fields.push(
     "\"rich_inlines\": " + render_rich_inlines_json(block.rich_inlines),
   )
-  fields.push("\"source_ref\": " + render_source_ref_json(block.source_ref))
+  fields.push(
+    "\"source_ref\": " + render_source_ref_json(@core.block_source_ref(block)),
+  )
   let child_items : Array[String] = []
   for child in block.children {
     child_items.push(render_block_json(child))

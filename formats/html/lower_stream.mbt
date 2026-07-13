@@ -101,6 +101,23 @@ fn html_lower_child_text_block_stream_document_from_events(
 }
 
 ///|
+fn html_lower_child_text_block_stream_document_scanned(
+  source : @input.InputSource,
+  text : String,
+  diagnostics : @core.Diagnostics,
+) -> HtmlLoweringResult {
+  diagnostics.metrics.set("html_block_stream_reparse", "true")
+  diagnostics.metrics.set("html_block_stream_token_path", "stream_scan")
+  diagnostics.metrics.set("scope_plan_count", "0")
+  diagnostics.metrics.set("scope_plan_labels", "child_text_stream_scan")
+  let normalized = @dhtml.normalize_html_token_source(text)
+  let lowered = html_lower_child_text_blocks_scanned(
+    source, normalized, diagnostics,
+  )
+  { blocks: lowered.0, metadata: Map([]), assets: lowered.1 }
+}
+
+///|
 fn html_child_events_require_semantic_block_stream(
   events : Array[@dhtml.HtmlTokenEvent],
 ) -> Bool {
@@ -213,6 +230,8 @@ priv struct HtmlChildBlockAccumulator {
   html_path : String
   line_start : Int
   mut line_end : Int
+  byte_start : Int
+  mut byte_end : Int
   inline_state : HtmlChildInlineState
 }
 
@@ -235,12 +254,14 @@ priv struct HtmlChildTextState {
   mut link_has_content : Bool
   list_stack : Array[HtmlChildListFrame]
   list_item_stack : Array[HtmlChildListItemFrame]
+  compact_provenance : Bool
 }
 
 ///|
 priv struct HtmlChildListFrame {
   ordered : Bool
   start_line : Int
+  start_byte : Int
   html_path : String
   items : Array[@core.CoreBlock]
 }
@@ -249,6 +270,7 @@ priv struct HtmlChildListFrame {
 priv struct HtmlChildListItemFrame {
   ordered : Bool
   start_line : Int
+  start_byte : Int
   html_path : String
   body_blocks : Array[@core.CoreBlock]
 }
@@ -304,14 +326,13 @@ fn html_child_inline_materialize_pending_text(
   }
   state.inline_order += 1
   current.inline_state.inlines.push(
-    @core.make_inline_text(
+    html_child_text_make_inline_text(
+      state,
+      source,
       text,
-      source_ref=html_token_lines_source_ref(
-        source,
-        line_start,
-        line_end,
-        "/inline/html:inline:text:" + state.inline_order.to_string(),
-      ),
+      line_start,
+      line_end,
+      "/inline/html:inline:text:" + state.inline_order.to_string(),
     ),
   )
 }
@@ -324,15 +345,132 @@ fn html_lower_child_text_blocks(
   events : Array[@dhtml.HtmlTokenEvent],
   has_table? : Bool = true,
 ) -> (Array[@core.CoreBlock], Array[@core.AssetRef]) {
-  let state = {
-    lowering_state: { assets: [] },
+  let state = html_child_text_state(
     diagnostics,
-    blocks: [],
-    close_index: if has_table {
+    if has_table {
       html_child_token_close_index(events)
     } else {
       Map([])
     },
+  )
+  let mut index = 0
+  while index < events.length() {
+    index = html_child_text_lower_event(
+      state, source, text_chars, events, index,
+    )
+  }
+  html_child_text_finish(state, source)
+}
+
+///|
+fn html_lower_child_text_blocks_scanned(
+  source : @input.InputSource,
+  text : String,
+  diagnostics : @core.Diagnostics,
+) -> (Array[@core.CoreBlock], Array[@core.AssetRef]) {
+  let close_index : Map[Int, Int] = Map([])
+  let state = html_child_text_state(
+    diagnostics,
+    close_index,
+    compact_provenance=true,
+  )
+  let mut table_depth = 0
+  let mut table_source_start = 0
+  let mut table_events : Array[@dhtml.HtmlTokenEvent] = []
+  @dhtml.scan_normalized_html_string_event_fields(text, fn(
+    kind,
+    tag_name,
+    attributes,
+    self_closing,
+    source_start,
+    source_end,
+    line_start,
+    line_end,
+    byte_start,
+    byte_end,
+  ) {
+    if table_depth > 0 {
+      let event = @dhtml.make_html_token_event(
+        kind,
+        tag_name,
+        attributes,
+        self_closing,
+        source_start - table_source_start,
+        source_end - table_source_start,
+        line_start,
+        line_end,
+        byte_start~,
+        byte_end~,
+      )
+      table_events.push(event)
+      if event.kind == @dhtml.HtmlTokenEventKind::StartTag &&
+        event.tag_name == "table" &&
+        !event.self_closing {
+        table_depth += 1
+      } else if event.kind == @dhtml.HtmlTokenEventKind::EndTag &&
+        event.tag_name == "table" {
+        table_depth -= 1
+        if table_depth == 0 {
+          for entry in html_child_token_close_index(table_events) {
+            close_index.set(entry.0, entry.1)
+          }
+          ignore(
+            html_child_text_lower_event(
+              state,
+              source,
+              text[table_source_start:source_end].to_owned().to_array(),
+              table_events,
+              0,
+            ),
+          )
+          table_events = []
+        }
+      }
+    } else if kind == @dhtml.HtmlTokenEventKind::StartTag &&
+      tag_name == "table" &&
+      !self_closing {
+      table_depth = 1
+      table_source_start = source_start
+      table_events = [
+        @dhtml.make_html_token_event(
+          kind,
+          tag_name,
+          attributes,
+          self_closing,
+          0,
+          source_end - source_start,
+          line_start,
+          line_end,
+          byte_start~,
+          byte_end~,
+        ),
+      ]
+    } else {
+      html_child_text_lower_string_fields(
+        state, source, text, kind, tag_name, attributes, self_closing, source_start,
+        source_end, line_start, line_end, byte_start, byte_end,
+      )
+    }
+  }) catch {
+    _ => diagnostics.degraded_features.push("html_event_scan_failed")
+  }
+  if table_events.length() > 0 {
+    diagnostics.degraded_features.push("html_unclosed_table_dropped")
+  }
+  html_child_text_finish(state, source)
+}
+
+///|
+fn html_child_text_state(
+  diagnostics : @core.Diagnostics,
+  close_index : Map[Int, Int],
+  compact_provenance? : Bool = false,
+) -> HtmlChildTextState {
+  {
+    lowering_state: { assets: [] },
+    diagnostics,
+    blocks: [],
+    close_index,
     current: None,
     skip_depth: 0,
     block_order: 0,
@@ -346,13 +484,126 @@ fn html_lower_child_text_blocks(
     link_has_content: false,
     list_stack: [],
     list_item_stack: [],
+    compact_provenance,
   }
-  let mut index = 0
-  while index < events.length() {
-    index = html_child_text_lower_event(
-      state, source, text_chars, events, index,
+}
+
+///|
+fn html_child_text_make_block(
+  state : HtmlChildTextState,
+  source : @input.InputSource,
+  kind : @core.BlockKind,
+  text : String,
+  line_start : Int,
+  line_end : Int,
+  html_path : String,
+  byte_start? : Int = -1,
+  byte_end? : Int = -1,
+) -> @core.CoreBlock {
+  if state.compact_provenance {
+    @core.block_with_compact_source_ref(
+      @core.make_block_without_source_ref(kind, text),
+      @core.make_compact_source_ref(
+        source.source_name,
+        "html",
+        if line_start <= 0 {
+          1
+        } else {
+          line_start
+        },
+        if line_end <= 0 {
+          line_start
+        } else {
+          line_end
+        },
+        byte_start.max(0),
+        byte_end.max(byte_start.max(0)),
+      ),
+    )
+  } else {
+    @core.make_block(
+      kind,
+      text,
+      source_ref=html_token_lines_source_ref(
+        source,
+        line_start,
+        line_end,
+        html_path,
+        byte_start~,
+        byte_end~,
+      ),
     )
   }
+}
+
+///|
+fn html_child_text_make_inline_text(
+  state : HtmlChildTextState,
+  source : @input.InputSource,
+  text : String,
+  line_start : Int,
+  line_end : Int,
+  html_path : String,
+) -> @core.CoreInline {
+  if state.compact_provenance {
+    @core.make_inline_text_without_source_ref(text)
+  } else {
+    @core.make_inline_text(
+      text,
+      source_ref=html_token_lines_source_ref(
+        source, line_start, line_end, html_path,
+      ),
+    )
+  }
+}
+
+///|
+fn html_child_text_make_inline_link(
+  state : HtmlChildTextState,
+  source : @input.InputSource,
+  text : String,
+  href : String,
+  line_start : Int,
+  line_end : Int,
+  html_path : String,
+) -> @core.CoreInline {
+  if state.compact_provenance {
+    @core.make_inline_link_without_source_ref(text, href)
+  } else {
+    @core.make_inline_link(
+      text,
+      href,
+      source_ref=html_token_lines_source_ref(
+        source, line_start, line_end, html_path,
+      ),
+    )
+  }
+}
+
+///|
+fn html_child_text_make_inline_line_break(
+  state : HtmlChildTextState,
+  source : @input.InputSource,
+  line_start : Int,
+  line_end : Int,
+  html_path : String,
+) -> @core.CoreInline {
+  if state.compact_provenance {
+    @core.make_inline_line_break_without_source_ref()
+  } else {
+    @core.make_inline_line_break(
+      source_ref=html_token_lines_source_ref(
+        source, line_start, line_end, html_path,
+      ),
+    )
+  }
+}
+
+///|
+fn html_child_text_finish(
+  state : HtmlChildTextState,
+  source : @input.InputSource,
+) -> (Array[@core.CoreBlock], Array[@core.AssetRef]) {
   html_child_text_flush_link(state, source)
   html_child_text_flush_block(state, source)
   (state.blocks, state.lowering_state.assets)
@@ -422,6 +673,52 @@ fn html_child_text_lower_event(
 }
 
 ///|
+fn html_child_text_lower_string_fields(
+  state : HtmlChildTextState,
+  source : @input.InputSource,
+  text : String,
+  kind : @dhtml.HtmlTokenEventKind,
+  tag_name : String,
+  attributes : Array[@dhtml.HtmlAttribute],
+  self_closing : Bool,
+  source_start : Int,
+  source_end : Int,
+  line_start : Int,
+  line_end : Int,
+  byte_start : Int,
+  byte_end : Int,
+) -> Unit {
+  if state.skip_depth > 0 {
+    if kind == @dhtml.HtmlTokenEventKind::StartTag && !self_closing {
+      state.skip_depth += 1
+    } else if kind == @dhtml.HtmlTokenEventKind::EndTag {
+      state.skip_depth -= 1
+    }
+    return
+  }
+  match kind {
+    @dhtml.HtmlTokenEventKind::Text =>
+      html_child_text_append_text_value(
+        state,
+        text[source_start:source_end].to_owned(),
+        line_start,
+        line_end,
+      )
+    @dhtml.HtmlTokenEventKind::StartTag =>
+      html_child_text_start_tag_fields(
+        state, source, tag_name, attributes, self_closing, line_start, line_end,
+        byte_start, byte_end,
+      )
+    @dhtml.HtmlTokenEventKind::EndTag =>
+      html_child_text_end_tag_fields(
+        state, source, tag_name, line_end, byte_end,
+      )
+    @dhtml.HtmlTokenEventKind::Comment | @dhtml.HtmlTokenEventKind::Doctype =>
+      ()
+  }
+}
+
+///|
 fn html_child_text_start_tag(
   state : HtmlChildTextState,
   source : @input.InputSource,
@@ -472,6 +769,8 @@ fn html_child_text_start_tag(
       state.block_order.to_string(),
       line_start: event.span.line_start,
       line_end: event.span.line_end,
+      byte_start: event.span.byte_start,
+      byte_end: event.span.byte_end,
       inline_state: html_child_inline_state(),
     })
     return index + 1
@@ -493,6 +792,8 @@ fn html_child_text_start_tag(
       html_path: "/block/html:block:p:" + state.block_order.to_string(),
       line_start: event.span.line_start,
       line_end: event.span.line_end,
+      byte_start: event.span.byte_start,
+      byte_end: event.span.byte_end,
       inline_state: html_child_inline_state(),
     })
     return index + 1
@@ -507,6 +808,8 @@ fn html_child_text_start_tag(
       html_path: "/block/html:block:blockquote:" + state.block_order.to_string(),
       line_start: event.span.line_start,
       line_end: event.span.line_end,
+      byte_start: event.span.byte_start,
+      byte_end: event.span.byte_end,
       inline_state: html_child_inline_state(),
     })
     return index + 1
@@ -517,6 +820,7 @@ fn html_child_text_start_tag(
     state.list_stack.push({
       ordered: tag == "ol",
       start_line: event.span.line_start,
+      start_byte: event.span.byte_start,
       html_path: "/block/html:block:" +
       tag +
       ":" +
@@ -535,6 +839,7 @@ fn html_child_text_start_tag(
     state.list_item_stack.push({
       ordered,
       start_line: event.span.line_start,
+      start_byte: event.span.byte_start,
       html_path: "/block/html:block:li:" + state.block_order.to_string(),
       body_blocks: [],
     })
@@ -545,6 +850,8 @@ fn html_child_text_start_tag(
       html_path: "/block/html:block:li:" + state.block_order.to_string(),
       line_start: event.span.line_start,
       line_end: event.span.line_end,
+      byte_start: event.span.byte_start,
+      byte_end: event.span.byte_end,
       inline_state: html_child_inline_state(),
     })
     return index + 1
@@ -559,6 +866,8 @@ fn html_child_text_start_tag(
       html_path: "/block/html:block:pre:" + state.block_order.to_string(),
       line_start: event.span.line_start,
       line_end: event.span.line_end,
+      byte_start: event.span.byte_start,
+      byte_end: event.span.byte_end,
       inline_state: html_child_inline_state(),
     })
     return index + 1
@@ -568,7 +877,7 @@ fn html_child_text_start_tag(
     html_child_text_flush_block(state, source)
     html_child_text_push_block(
       state,
-      html_child_hr_block(source, event, state.block_order),
+      html_child_hr_block(state, source, event, state.block_order),
     )
     return index + 1
   }
@@ -589,6 +898,187 @@ fn html_child_text_start_tag(
 }
 
 ///|
+fn html_child_text_start_tag_fields(
+  state : HtmlChildTextState,
+  source : @input.InputSource,
+  tag : String,
+  attributes : Array[@dhtml.HtmlAttribute],
+  self_closing : Bool,
+  line_start : Int,
+  line_end : Int,
+  byte_start : Int,
+  byte_end : Int,
+) -> Unit {
+  if html_scope_tag_should_skip(tag, attributes) || html_token_skip_tag(tag) {
+    if !self_closing {
+      state.skip_depth = 1
+    }
+    return
+  }
+  if html_dom_counts_as_block(tag, false) {
+    state.block_order += 1
+  }
+  if tag == "html" ||
+    tag == "body" ||
+    tag == "main" ||
+    tag == "article" ||
+    tag == "section" ||
+    tag == "div" ||
+    tag == "header" ||
+    tag == "footer" {
+    return
+  }
+  if tag == "a" {
+    html_child_text_open_link_fields(state, attributes, line_start, line_end)
+    return
+  }
+  if tag == "br" {
+    html_child_text_append_line_break_fields(
+      state, source, line_start, line_end,
+    )
+    return
+  }
+  let heading = html_heading_level(tag)
+  if heading > 0 {
+    html_child_text_flush_link(state, source)
+    html_child_text_flush_block(state, source)
+    state.current = Some({
+      kind: @core.BlockKind::Heading,
+      level: heading,
+      info: "",
+      html_path: "/block/html:block:" +
+      tag +
+      ":" +
+      state.block_order.to_string(),
+      line_start,
+      line_end,
+      byte_start,
+      byte_end,
+      inline_state: html_child_inline_state(),
+    })
+    return
+  }
+  if tag == "p" {
+    match state.current {
+      Some(current) => if current.kind == @core.BlockKind::BlockQuote { return }
+      None => ()
+    }
+    html_child_text_flush_link(state, source)
+    html_child_text_flush_block(state, source)
+    state.current = Some({
+      kind: @core.BlockKind::Paragraph,
+      level: 0,
+      info: "",
+      html_path: "/block/html:block:p:" + state.block_order.to_string(),
+      line_start,
+      line_end,
+      byte_start,
+      byte_end,
+      inline_state: html_child_inline_state(),
+    })
+    return
+  }
+  if tag == "blockquote" {
+    html_child_text_flush_link(state, source)
+    html_child_text_flush_block(state, source)
+    state.current = Some({
+      kind: @core.BlockKind::BlockQuote,
+      level: 0,
+      info: "",
+      html_path: "/block/html:block:blockquote:" + state.block_order.to_string(),
+      line_start,
+      line_end,
+      byte_start,
+      byte_end,
+      inline_state: html_child_inline_state(),
+    })
+    return
+  }
+  if tag == "ul" || tag == "ol" {
+    html_child_text_flush_link(state, source)
+    html_child_text_flush_block(state, source)
+    state.list_stack.push({
+      ordered: tag == "ol",
+      start_line: line_start,
+      start_byte: byte_start,
+      html_path: "/block/html:block:" +
+      tag +
+      ":" +
+      state.block_order.to_string(),
+      items: [],
+    })
+    return
+  }
+  if tag == "li" {
+    html_child_text_flush_link(state, source)
+    html_child_text_flush_block(state, source)
+    let ordered = match state.list_stack.last() {
+      Some(frame) => frame.ordered
+      None => false
+    }
+    state.list_item_stack.push({
+      ordered,
+      start_line: line_start,
+      start_byte: byte_start,
+      html_path: "/block/html:block:li:" + state.block_order.to_string(),
+      body_blocks: [],
+    })
+    state.current = Some({
+      kind: @core.BlockKind::Paragraph,
+      level: 0,
+      info: "",
+      html_path: "/block/html:block:li:" + state.block_order.to_string(),
+      line_start,
+      line_end,
+      byte_start,
+      byte_end,
+      inline_state: html_child_inline_state(),
+    })
+    return
+  }
+  if tag == "pre" {
+    html_child_text_flush_link(state, source)
+    html_child_text_flush_block(state, source)
+    state.current = Some({
+      kind: @core.BlockKind::Code,
+      level: 0,
+      info: "",
+      html_path: "/block/html:block:pre:" + state.block_order.to_string(),
+      line_start,
+      line_end,
+      byte_start,
+      byte_end,
+      inline_state: html_child_inline_state(),
+    })
+    return
+  }
+  if tag == "hr" {
+    html_child_text_flush_link(state, source)
+    html_child_text_flush_block(state, source)
+    html_child_text_push_block(
+      state,
+      html_child_hr_block_fields(
+        state,
+        source,
+        line_start,
+        line_end,
+        byte_start,
+        byte_end,
+        state.block_order,
+      ),
+    )
+    return
+  }
+  if tag == "img" {
+    html_child_text_flush_link(state, source)
+    html_child_text_flush_block(state, source)
+    html_child_text_append_image_fields(
+      state, source, attributes, line_start, line_end, byte_start, byte_end,
+    )
+  }
+}
+
+///|
 fn html_child_text_end_tag(
   state : HtmlChildTextState,
   source : @input.InputSource,
@@ -605,6 +1095,7 @@ fn html_child_text_end_tag(
       Some(current) =>
         if current.kind == @core.BlockKind::BlockQuote {
           current.line_end = event.span.line_end
+          current.byte_end = event.span.byte_end
           return
         }
       None => ()
@@ -613,7 +1104,10 @@ fn html_child_text_end_tag(
   let heading = html_heading_level(tag)
   if heading > 0 || tag == "p" || tag == "pre" || tag == "blockquote" {
     match state.current {
-      Some(current) => current.line_end = event.span.line_end
+      Some(current) => {
+        current.line_end = event.span.line_end
+        current.byte_end = event.span.byte_end
+      }
       None => ()
     }
     html_child_text_flush_link(state, source)
@@ -623,13 +1117,73 @@ fn html_child_text_end_tag(
   if tag == "li" {
     html_child_text_flush_link(state, source)
     html_child_text_flush_block(state, source)
-    html_child_text_close_list_item(state, source, event.span.line_end)
+    html_child_text_close_list_item(
+      state,
+      source,
+      event.span.line_end,
+      event.span.byte_end,
+    )
     return
   }
   if tag == "ul" || tag == "ol" {
     html_child_text_flush_link(state, source)
     html_child_text_flush_block(state, source)
-    html_child_text_close_list(state, source, event.span.line_end)
+    html_child_text_close_list(
+      state,
+      source,
+      event.span.line_end,
+      event.span.byte_end,
+    )
+  }
+}
+
+///|
+fn html_child_text_end_tag_fields(
+  state : HtmlChildTextState,
+  source : @input.InputSource,
+  tag : String,
+  line_end : Int,
+  byte_end : Int,
+) -> Unit {
+  if tag == "a" {
+    state.link_line_end = line_end
+    html_child_text_flush_link(state, source)
+    return
+  }
+  if tag == "p" {
+    match state.current {
+      Some(current) =>
+        if current.kind == @core.BlockKind::BlockQuote {
+          current.line_end = line_end
+          current.byte_end = byte_end
+          return
+        }
+      None => ()
+    }
+  }
+  let heading = html_heading_level(tag)
+  if heading > 0 || tag == "p" || tag == "pre" || tag == "blockquote" {
+    match state.current {
+      Some(current) => {
+        current.line_end = line_end
+        current.byte_end = byte_end
+      }
+      None => ()
+    }
+    html_child_text_flush_link(state, source)
+    html_child_text_flush_block(state, source)
+    return
+  }
+  if tag == "li" {
+    html_child_text_flush_link(state, source)
+    html_child_text_flush_block(state, source)
+    html_child_text_close_list_item(state, source, line_end, byte_end)
+    return
+  }
+  if tag == "ul" || tag == "ol" {
+    html_child_text_flush_link(state, source)
+    html_child_text_flush_block(state, source)
+    html_child_text_close_list(state, source, line_end, byte_end)
   }
 }
 
@@ -643,6 +1197,24 @@ fn html_child_text_open_link(
     state.link_href = html_child_text_event_href(event)
     state.link_line_start = event.span.line_start
     state.link_line_end = event.span.line_end
+    state.link_pending_space = false
+    state.link_has_content = false
+  }
+  state.link_depth += 1
+}
+
+///|
+fn html_child_text_open_link_fields(
+  state : HtmlChildTextState,
+  attributes : Array[@dhtml.HtmlAttribute],
+  line_start : Int,
+  line_end : Int,
+) -> Unit {
+  if state.link_depth == 0 {
+    state.link_text = StringBuilder::new()
+    state.link_href = html_child_text_href_from_attributes(attributes)
+    state.link_line_start = line_start
+    state.link_line_end = line_end
     state.link_pending_space = false
     state.link_has_content = false
   }
@@ -673,32 +1245,40 @@ fn html_child_text_flush_link(
       if current.inline_state.pending_space && current.inline_state.has_content {
         state.inline_order += 1
         current.inline_state.inlines.push(
-          @core.make_inline_text(
+          html_child_text_make_inline_text(
+            state,
+            source,
             " ",
-            source_ref=html_token_lines_source_ref(
-              source,
-              state.link_line_start,
-              state.link_line_end,
-              "/inline/html:inline:text:" + state.inline_order.to_string(),
-            ),
+            state.link_line_start,
+            state.link_line_end,
+            "/inline/html:inline:text:" + state.inline_order.to_string(),
           ),
         )
       }
       state.inline_order += 1
-      let inline_ref = html_token_lines_source_ref(
-        source,
-        state.link_line_start,
-        state.link_line_end,
-        "/inline/html:inline:a:" + state.inline_order.to_string(),
-      )
       match state.link_href {
         Some(href) =>
           current.inline_state.inlines.push(
-            @core.make_inline_link(text, href, source_ref=inline_ref),
+            html_child_text_make_inline_link(
+              state,
+              source,
+              text,
+              href,
+              state.link_line_start,
+              state.link_line_end,
+              "/inline/html:inline:a:" + state.inline_order.to_string(),
+            ),
           )
         None =>
           current.inline_state.inlines.push(
-            @core.make_inline_text(text, source_ref=inline_ref),
+            html_child_text_make_inline_text(
+              state,
+              source,
+              text,
+              state.link_line_start,
+              state.link_line_end,
+              "/inline/html:inline:a:" + state.inline_order.to_string(),
+            ),
           )
       }
       current.inline_state.has_content = true
@@ -721,18 +1301,46 @@ fn html_child_text_append_line_break(
       html_child_inline_materialize_pending_text(state, source, current)
       state.inline_order += 1
       current.inline_state.inlines.push(
-        @core.make_inline_line_break(
-          source_ref=html_token_lines_source_ref(
-            source,
-            event.span.line_start,
-            event.span.line_end,
-            "/inline/html:inline:br:" + state.inline_order.to_string(),
-          ),
+        html_child_text_make_inline_line_break(
+          state,
+          source,
+          event.span.line_start,
+          event.span.line_end,
+          "/inline/html:inline:br:" + state.inline_order.to_string(),
         ),
       )
       current.inline_state.has_content = true
       current.inline_state.pending_space = false
       current.line_end = event.span.line_end
+    }
+    None => ()
+  }
+}
+
+///|
+fn html_child_text_append_line_break_fields(
+  state : HtmlChildTextState,
+  source : @input.InputSource,
+  line_start : Int,
+  line_end : Int,
+) -> Unit {
+  match state.current {
+    Some(current) => {
+      html_child_text_flush_link(state, source)
+      html_child_inline_materialize_pending_text(state, source, current)
+      state.inline_order += 1
+      current.inline_state.inlines.push(
+        html_child_text_make_inline_line_break(
+          state,
+          source,
+          line_start,
+          line_end,
+          "/inline/html:inline:br:" + state.inline_order.to_string(),
+        ),
+      )
+      current.inline_state.has_content = true
+      current.inline_state.pending_space = false
+      current.line_end = line_end
     }
     None => ()
   }
@@ -801,6 +1409,67 @@ fn html_child_text_append_text(
 }
 
 ///|
+fn html_child_text_append_text_value(
+  state : HtmlChildTextState,
+  raw : String,
+  line_start : Int,
+  line_end : Int,
+) -> Unit {
+  match state.current {
+    Some(current) => {
+      let leading_space = current.kind != @core.BlockKind::Code &&
+        html_text_has_leading_space_like(raw)
+      let text = if current.kind == @core.BlockKind::Code {
+        raw
+      } else {
+        html_compact_token_text(raw)
+      }
+      if text == "" {
+        if current.kind != @core.BlockKind::Code &&
+          current.inline_state.has_content {
+          current.inline_state.pending_space = true
+        }
+        return
+      }
+      current.line_end = line_end
+      if state.link_depth > 0 {
+        let normalized = if current.kind != @core.BlockKind::Code &&
+          state.link_has_content &&
+          (state.link_pending_space || leading_space) {
+          " " + text
+        } else {
+          text
+        }
+        state.link_text.write_string(normalized)
+        state.link_line_end = line_end
+        state.link_pending_space = current.kind != @core.BlockKind::Code &&
+          html_text_has_trailing_space_like(raw)
+        state.link_has_content = true
+      } else {
+        let normalized = if current.kind != @core.BlockKind::Code &&
+          current.inline_state.has_content &&
+          (current.inline_state.pending_space || leading_space) {
+          " " + text
+        } else {
+          text
+        }
+        html_child_inline_append_text(
+          current.inline_state,
+          normalized,
+          line_start,
+          line_end,
+        )
+        current.inline_state.pending_space = current.kind !=
+          @core.BlockKind::Code &&
+          html_text_has_trailing_space_like(raw)
+      }
+      current.inline_state.has_content = true
+    }
+    None => ()
+  }
+}
+
+///|
 fn html_child_text_flush_block(
   state : HtmlChildTextState,
   source : @input.InputSource,
@@ -818,15 +1487,16 @@ fn html_child_text_flush_block(
         .to_owned()
       }
       if text != "" {
-        let block = @core.make_block(
+        let block = html_child_text_make_block(
+          state,
+          source,
           current.kind,
           text,
-          source_ref=html_token_lines_source_ref(
-            source,
-            current.line_start,
-            current.line_end,
-            current.html_path,
-          ),
+          current.line_start,
+          current.line_end,
+          current.html_path,
+          byte_start=current.byte_start,
+          byte_end=current.byte_end,
         )
         if current.kind == @core.BlockKind::Heading {
           block.attrs.set("level", current.level.to_string())
@@ -891,13 +1561,16 @@ fn html_child_text_close_list_item(
   state : HtmlChildTextState,
   source : @input.InputSource,
   end_line : Int,
+  end_byte : Int,
 ) -> Unit {
   let frame = match state.list_item_stack.pop() {
     Some(value) => value
     None => return
   }
   let body = frame.body_blocks
-  let item = html_child_text_list_item_block(frame, body, source, end_line)
+  let item = html_child_text_list_item_block(
+    state, frame, body, source, end_line, end_byte,
+  )
   match state.list_stack.last() {
     Some(list) => list.items.push(item)
     None => state.blocks.push(item)
@@ -906,23 +1579,26 @@ fn html_child_text_close_list_item(
 
 ///|
 fn html_child_text_list_item_block(
+  state : HtmlChildTextState,
   frame : HtmlChildListItemFrame,
   body_blocks : Array[@core.CoreBlock],
   source : @input.InputSource,
   end_line : Int,
+  end_byte : Int,
 ) -> @core.CoreBlock {
   let (text, rich, nested_lists, extras) = html_child_text_list_item_body_parts(
     body_blocks,
   )
-  let item = @core.make_block(
+  let item = html_child_text_make_block(
+    state,
+    source,
     @core.BlockKind::ListItem,
     text,
-    source_ref=html_token_lines_source_ref(
-      source,
-      frame.start_line,
-      end_line,
-      frame.html_path,
-    ),
+    frame.start_line,
+    end_line,
+    frame.html_path,
+    byte_start=frame.start_byte,
+    byte_end=end_byte,
   )
   item.attrs.set("ordered", @fshared.bool_string(frame.ordered))
   if frame.ordered {
@@ -1003,6 +1679,7 @@ fn html_child_text_close_list(
   state : HtmlChildTextState,
   source : @input.InputSource,
   end_line : Int,
+  end_byte : Int,
 ) -> Unit {
   let frame = match state.list_stack.pop() {
     Some(value) => value
@@ -1011,15 +1688,16 @@ fn html_child_text_close_list(
   if frame.items.length() == 0 {
     return
   }
-  let list = @core.make_block(
+  let list = html_child_text_make_block(
+    state,
+    source,
     @core.BlockKind::List,
     "",
-    source_ref=html_token_lines_source_ref(
-      source,
-      frame.start_line,
-      end_line,
-      frame.html_path,
-    ),
+    frame.start_line,
+    end_line,
+    frame.html_path,
+    byte_start=frame.start_byte,
+    byte_end=end_byte,
   )
   list.attrs.set("ordered", @fshared.bool_string(frame.ordered))
   let lowered = @core.block_with_children(list, frame.items)
@@ -1031,19 +1709,46 @@ fn html_child_text_close_list(
 
 ///|
 fn html_child_hr_block(
+  state : HtmlChildTextState,
   source : @input.InputSource,
   event : @dhtml.HtmlTokenEvent,
   block_order : Int,
 ) -> @core.CoreBlock {
-  let block = @core.make_block(
+  let block = html_child_text_make_block(
+    state,
+    source,
     @core.BlockKind::Raw,
     "---",
-    source_ref=html_token_lines_source_ref(
-      source,
-      event.span.line_start,
-      event.span.line_end,
-      "/block/html:block:hr:" + block_order.to_string(),
-    ),
+    event.span.line_start,
+    event.span.line_end,
+    "/block/html:block:hr:" + block_order.to_string(),
+    byte_start=event.span.byte_start,
+    byte_end=event.span.byte_end,
+  )
+  block.attrs.set("raw_kind", "thematic_break")
+  block
+}
+
+///|
+fn html_child_hr_block_fields(
+  state : HtmlChildTextState,
+  source : @input.InputSource,
+  line_start : Int,
+  line_end : Int,
+  byte_start : Int,
+  byte_end : Int,
+  block_order : Int,
+) -> @core.CoreBlock {
+  let block = html_child_text_make_block(
+    state,
+    source,
+    @core.BlockKind::Raw,
+    "---",
+    line_start,
+    line_end,
+    "/block/html:block:hr:" + block_order.to_string(),
+    byte_start~,
+    byte_end~,
   )
   block.attrs.set("raw_kind", "thematic_break")
   block
@@ -1080,6 +1785,8 @@ fn html_child_text_append_image(
     event.span.line_start,
     event.span.line_end,
     "/block/html:block:img:" + state.block_order.to_string(),
+    byte_start=event.span.byte_start,
+    byte_end=event.span.byte_end,
   )
   if kind == @dhtml.HtmlImageKind::Remote {
     state.diagnostics.degraded_features.push("html_remote_image_reference_only")
@@ -1126,6 +1833,34 @@ fn html_child_text_append_image(
 }
 
 ///|
+fn html_child_text_append_image_fields(
+  state : HtmlChildTextState,
+  source : @input.InputSource,
+  attributes : Array[@dhtml.HtmlAttribute],
+  line_start : Int,
+  line_end : Int,
+  byte_start : Int,
+  byte_end : Int,
+) -> Unit {
+  html_child_text_append_image(
+    state,
+    source,
+    @dhtml.make_html_token_event(
+      @dhtml.HtmlTokenEventKind::StartTag,
+      "img",
+      attributes,
+      true,
+      0,
+      0,
+      line_start,
+      line_end,
+      byte_start~,
+      byte_end~,
+    ),
+  )
+}
+
+///|
 fn html_child_image_kind(src : String) -> @dhtml.HtmlImageKind {
   let trimmed = src.trim().to_owned()
   if trimmed == "" {
@@ -1161,7 +1896,7 @@ fn html_child_local_image_asset(
     return None
   }
   for existing in state.lowering_state.assets {
-    if existing.attrs.get("source_path") == Some(normalized_src) {
+    if existing.payload == Some(@core.AssetPayload::SourcePath(normalized_src)) {
       return Some(existing)
     }
   }
@@ -1181,7 +1916,7 @@ fn html_child_local_image_asset(
       html_image_ext_from_src(normalized_src),
     ),
   }
-  next_asset.attrs.set("source_path", normalized_src)
+  next_asset.payload = Some(@core.AssetPayload::SourcePath(normalized_src))
   next_asset.attrs.set("alt", alt)
   state.lowering_state.assets.push(next_asset)
   Some(next_asset)
@@ -1226,18 +1961,16 @@ fn html_child_text_append_table_fallback(
   source : @input.InputSource,
   event : @dhtml.HtmlTokenEvent,
 ) -> Unit {
-  let paragraph = @core.make_block(
+  let paragraph = html_child_text_make_block(
+    state,
+    source,
     @core.BlockKind::Paragraph,
     event.tag_name,
-    source_ref=html_token_lines_source_ref(
-      source,
-      event.span.line_start,
-      event.span.line_end,
-      "/block/html:block:" +
-      event.tag_name +
-      ":" +
-      state.block_order.to_string(),
-    ),
+    event.span.line_start,
+    event.span.line_end,
+    "/block/html:block:" + event.tag_name + ":" + state.block_order.to_string(),
+    byte_start=event.span.byte_start,
+    byte_end=event.span.byte_end,
   )
   paragraph.attrs.set("literal", "true")
   paragraph.attrs.set("render_inline_escape_mode", "minimal")
@@ -1291,15 +2024,16 @@ fn html_child_table_block(
   if rows.length() == 0 {
     return None
   }
-  let table = @core.make_block(
+  let table = html_child_text_make_block(
+    state,
+    source,
     @core.BlockKind::Table,
     "table",
-    source_ref=html_token_lines_source_ref(
-      source,
-      open_event.span.line_start,
-      close_event.span.line_end,
-      "/block/html:block:table:" + block_order.to_string(),
-    ),
+    open_event.span.line_start,
+    close_event.span.line_end,
+    "/block/html:block:table:" + block_order.to_string(),
+    byte_start=open_event.span.byte_start,
+    byte_end=close_event.span.byte_end,
   )
   table.attrs.set("header_rows", html_child_table_header_rows(rows).to_string())
   table.attrs.set(
@@ -1324,15 +2058,16 @@ fn html_child_table_row_block(
 ) -> (@core.CoreBlock, Bool)? {
   let open_event = events[open_index]
   let close_event = events[close_index]
-  let row = @core.make_block(
+  let row = html_child_text_make_block(
+    state,
+    source,
     @core.BlockKind::TableRow,
     "",
-    source_ref=html_token_lines_source_ref(
-      source,
-      open_event.span.line_start,
-      close_event.span.line_end,
-      "/table-row/html:table-row:" + row_order.to_string(),
-    ),
+    open_event.span.line_start,
+    close_event.span.line_end,
+    "/table-row/html:table-row:" + row_order.to_string(),
+    byte_start=open_event.span.byte_start,
+    byte_end=close_event.span.byte_end,
   )
   row.attrs.set("literal", "true")
   let cells : Array[@core.CoreBlock] = []
@@ -1404,15 +2139,16 @@ fn html_child_table_cell_block(
   if text == "" {
     return None
   }
-  let cell = @core.make_block(
+  let cell = html_child_text_make_block(
+    state,
+    source,
     @core.BlockKind::TableCell,
     text,
-    source_ref=html_token_lines_source_ref(
-      source,
-      open_event.span.line_start,
-      close_event.span.line_end,
-      "/table-cell/html:table-cell:" + cell_order.to_string(),
-    ),
+    open_event.span.line_start,
+    close_event.span.line_end,
+    "/table-cell/html:table-cell:" + cell_order.to_string(),
+    byte_start=open_event.span.byte_start,
+    byte_end=close_event.span.byte_end,
   )
   cell.attrs.set("literal", "true")
   cell.attrs.set("render_inline_escape_mode", "minimal")
@@ -1653,7 +2389,14 @@ fn html_child_table_column_count(rows : Array[@core.CoreBlock]) -> Int {
 
 ///|
 fn html_child_text_event_href(event : @dhtml.HtmlTokenEvent) -> String? {
-  let href = @dhtml.html_token_event_attr_value(event, "href")
+  html_child_text_href_from_attributes(event.attributes)
+}
+
+///|
+fn html_child_text_href_from_attributes(
+  attributes : Array[@dhtml.HtmlAttribute],
+) -> String? {
+  let href = @dhtml.html_attributes_value(attributes, "href")
     .unwrap_or("")
     .trim()
     .to_owned()
@@ -1947,8 +2690,10 @@ fn html_token_lines_source_ref(
   line_start : Int,
   line_end : Int,
   html_path : String,
+  byte_start? : Int = -1,
+  byte_end? : Int = -1,
 ) -> @core.SourceRef {
-  @core.source_ref_with_html_path(
+  let source_ref = @core.source_ref_with_html_path(
     @core.source_ref_with_lines(
       @core.empty_source_ref(),
       Some(source.source_name),
@@ -1960,4 +2705,9 @@ fn html_token_lines_source_ref(
     Some("html"),
     Some(html_path),
   )
+  if byte_start >= 0 && byte_end >= byte_start {
+    { ..source_ref, byte_start: Some(byte_start), byte_end: Some(byte_end) }
+  } else {
+    source_ref
+  }
 }

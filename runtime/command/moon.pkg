@@ -1,4 +1,7 @@
 import {
+  "moonbitlang/async",
+  "moonbitlang/async/io" @aio,
+  "moonbitlang/async/process",
   "moonbitlang/core/env",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/string",
@@ -9,5 +12,5 @@ supported_targets = "native"
 
 options(
   "preferred-target": "native",
-  "native-stub": [ "path_native_stub.c" ],
+  "native-stub": [ "path_native_stub.c", "process_runner_native_stub.c" ],
 )

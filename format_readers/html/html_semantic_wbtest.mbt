@@ -63,6 +63,39 @@ test "HTML semantic scope inspection covers fragments and malformed roots" {
 }
 
 ///|
+test "HTML semantic scope and table recovery cover empty fallback structures" {
+  let article = inspect_html_semantic_document(
+    collect_html_semantic_document(
+      parse_html_document("<article><p>article only</p></article>"),
+    ),
+  )
+  assert_true(article.scope_fact_count == 1)
+
+  let document_root = collect_html_semantic_document(
+    parse_html_document("<html><head><title>root only</title></head></html>"),
+  )
+  assert_true(document_root.scope.length() == 1)
+  assert_true(
+    document_root.scope[0].scope_source == HtmlDocumentScopeSource::DocumentRoot,
+  )
+  assert_true(document_root.scope[0].missing_body_warning)
+
+  let empty = collect_html_semantic_document(parse_html_document(""))
+  assert_true(empty.scope.length() == 1)
+  assert_true(empty.scope[0].scope_source == HtmlDocumentScopeSource::Heuristic)
+
+  let malformed_tables = collect_html_semantic_document(
+    parse_html_document(
+      "<main><table></table><table><thead></thead></table></main>",
+    ),
+  )
+  let warning_kinds = malformed_tables.warnings.map(warning => warning.kind)
+  assert_true(
+    warning_kinds.contains(HtmlSemanticWarningKind::MalformedTableStructure),
+  )
+}
+
+///|
 test "HTML semantic guards bound depth previews attributes and large tables" {
   let deep = Array::make(260, "<span>").join("") +
     Array::make(320, "x").join("") +
@@ -99,8 +132,8 @@ test "HTML semantic guards bound depth previews attributes and large tables" {
 }
 
 ///|
-test "HTML preparation does not retain a DOM above the block-stream limit" {
-  let body = "<p>bounded</p>".repeat(20_000)
+test "HTML preparation retains only a scan summary above the block-stream limit" {
+  let body = "<p>bounded 😀</p>".repeat(20_000)
   let prepared = prepare_html_document_from_source(
     @input.input_from_text_with_format(
       "<main>" + body + "</main>",
@@ -110,8 +143,9 @@ test "HTML preparation does not retain a DOM above the block-stream limit" {
   ).unwrap()
   assert_true(prepared.document is None)
   assert_true(prepared.inspect is None)
-  assert_true(prepared.events is Some(_))
-  assert_true(prepared.events.unwrap().length() > 20_000)
+  assert_true(prepared.events is None)
+  assert_true(prepared.event_summary is Some(_))
+  assert_true(prepared.event_summary.unwrap().node_count > 20_000)
 }
 
 ///|

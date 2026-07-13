@@ -1022,7 +1022,7 @@ fn audio_transcript_segments(
 fn audio_local_source_path(
   source : @input.InputSource,
 ) -> Result[String, AudioTranscribeError] {
-  match source.path {
+  match @input.input_path(source) {
     Some(path) => {
       let trimmed = path.trim().to_owned()
       if trimmed == "" {
@@ -1110,7 +1110,7 @@ fn audio_cleanup_temp_dir(path : String) -> Unit {
 
 ///|
 fn audio_temp_dir_name(source : @input.InputSource) -> String {
-  let raw = match source.path {
+  let raw = match @input.input_path(source) {
     Some(path) => path
     None => source.source_name
   }
@@ -1329,85 +1329,37 @@ fn json_string_array_optional(
 }
 
 ///|
-#warnings("-deprecated")
 fn collect_audio_transcribe_output(
   command : @rtcmd.ResolvedCommand,
   args : Array[String],
   command_label : String,
 ) -> Result[(Int, String, String), AudioTranscribeError] {
-  let collected : Ref[Result[(Int, String, String), AudioTranscribeError]?] = {
-    val: None,
-  }
-  @async.with_event_loop(_group => {
-    let delegated = @process.collect_output(command.program, args) catch {
-      e => {
-        collected.val = Some(
-          Err(
-            AudioTranscribeError::ExecutionFailed(
-              "launch " +
-              command_label +
-              " failed on this runtime: " +
-              e.to_string() +
-              "\nResolved command: " +
-              @rtcmd.resolved_command_context(command),
-            ),
+  match @rtcmd.run_resolved_command(command, args) {
+    Ok(output) => {
+      if output.timed_out {
+        return Err(
+          AudioTranscribeError::ExecutionFailed(
+            command_label + " timed out after 300000 ms",
           ),
         )
-        return
       }
-    }
-    match delegated {
-      (code, stdout, stderr) => {
-        let stdout_text = stdout.text() catch {
-          e => {
-            collected.val = Some(
-              Err(
-                AudioTranscribeError::OutputParseFailed(
-                  "failed to decode audio command stdout as UTF-8 on this runtime: " +
-                  e.to_string(),
-                ),
-              ),
-            )
-            return
-          }
-        }
-        let stderr_text = stderr.text() catch {
-          e => {
-            collected.val = Some(
-              Err(
-                AudioTranscribeError::OutputParseFailed(
-                  "failed to decode audio command stderr as UTF-8 on this runtime: " +
-                  e.to_string(),
-                ),
-              ),
-            )
-            return
-          }
-        }
-        collected.val = Some(Ok((code, stdout_text, stderr_text)))
+      if output.stdout_limit_exceeded || output.stderr_limit_exceeded {
+        return Err(
+          AudioTranscribeError::ExecutionFailed(
+            command_label + " output exceeded 8 MiB limit",
+          ),
+        )
       }
+      Ok((output.exit_code, output.stdout, output.stderr))
     }
-  }) catch {
-    e =>
-      return Err(
-        AudioTranscribeError::ExecutionFailed(
-          "launch " +
-          command_label +
-          " failed on this runtime: " +
-          e.to_string() +
-          "\nResolved command: " +
-          @rtcmd.resolved_command_context(command),
-        ),
-      )
-  }
-  match collected.val {
-    Some(result) => result
-    None =>
+    Err(message) =>
       Err(
         AudioTranscribeError::ExecutionFailed(
           "launch " +
           command_label +
-          " failed on this runtime: event loop returned no result\nResolved command: " +
+          " failed on this runtime: " +
+          message +
+          "\nResolved command: " +
           @rtcmd.resolved_command_context(command),
         ),
       )

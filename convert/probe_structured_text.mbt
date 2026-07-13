@@ -460,52 +460,62 @@ fn html_preflight_probe(
     Ok(value) => value
     Err(_) => return unavailable_probe("html", source)
   }
-  match prepared.events {
-    Some(events) => {
-      let probe = html_probe_summary_from_events(
-        prepared.normalized_text,
-        events,
-      )
-      let signals = [
-        make_probe_signal(
-          ProbeSignalKind::NodeCount,
-          probe.node_count,
-          limit=Some(options.limits.max_cells),
-        ),
-        make_probe_signal(
-          ProbeSignalKind::BlockCount,
-          probe.block_scope_count,
-          limit=Some(options.limits.max_rows),
-        ),
-        make_probe_signal(
-          ProbeSignalKind::MaxDepth,
-          probe.max_depth,
-          limit=Some(options.limits.max_rows),
-        ),
-        make_probe_signal(
-          ProbeSignalKind::CharCount,
-          probe.char_count,
-          limit=Some(options.limits.max_line_chars * 64),
-        ),
-      ]
-      probe_outcome(
-        "html",
-        signal_summary_lines(signals) +
-        [
-          probe_summary_line(
-            "scopes",
-            probe.structural_scope_count,
-            Some(options.limits.max_rows),
-          ),
-        ],
-        prepared.prepared_source,
-        probe_signals=signals,
-        probe_artifacts=[RouteProbeArtifact::HtmlPrepared(prepared)],
-      )
-    }
+  let probe = match prepared.events {
+    Some(events) =>
+      html_probe_summary_from_events(prepared.normalized_text, events)
     None =>
-      probe_outcome("html", ["scan_failed"], prepared.prepared_source, probe_failures=[
-        make_probe_failure("html", "scan_failed"),
-      ])
+      match prepared.event_summary {
+        Some(summary) =>
+          {
+            node_count: summary.node_count,
+            block_scope_count: summary.block_scope_count,
+            structural_scope_count: summary.structural_scope_count,
+            max_depth: summary.max_depth,
+            char_count: summary.char_count,
+          }
+        None =>
+          return probe_outcome(
+            "html",
+            ["scan_failed"],
+            prepared.prepared_source,
+            probe_failures=[make_probe_failure("html", "scan_failed")],
+          )
+      }
   }
+  let signals = [
+    make_probe_signal(
+      ProbeSignalKind::NodeCount,
+      probe.node_count,
+      limit=Some(options.limits.max_cells),
+    ),
+    make_probe_signal(
+      ProbeSignalKind::BlockCount,
+      probe.block_scope_count,
+      limit=Some(options.limits.max_rows),
+    ),
+    make_probe_signal(
+      ProbeSignalKind::MaxDepth,
+      probe.max_depth,
+      limit=Some(options.limits.max_rows),
+    ),
+    make_probe_signal(
+      ProbeSignalKind::CharCount,
+      probe.char_count,
+      limit=Some(options.limits.max_line_chars * 64),
+    ),
+  ]
+  probe_outcome(
+    "html",
+    signal_summary_lines(signals) +
+    [
+      probe_summary_line(
+        "scopes",
+        probe.structural_scope_count,
+        Some(options.limits.max_rows),
+      ),
+    ],
+    prepared.prepared_source,
+    probe_signals=signals,
+    probe_artifacts=[RouteProbeArtifact::HtmlPrepared(prepared)],
+  )
 }

@@ -1170,10 +1170,6 @@ fn sparse_table_row_cells(row : @core.CoreBlock) -> Array[String] {
     return []
   }
   let cells = Array::make(width, "")
-  if row.children.length() == 0 {
-    sparse_table_row_payload_fill(cells, sparse_table_row_payload(row))
-    return cells
-  }
   for cell in row.children {
     let column = sparse_table_cell_column_index(cell)
     if column <= 0 || column > width {
@@ -1189,11 +1185,6 @@ fn sparse_table_row_cells(row : @core.CoreBlock) -> Array[String] {
 }
 
 ///|
-fn sparse_table_row_payload(row : @core.CoreBlock) -> String {
-  row.attrs.get("sparse_row_payload").unwrap_or("")
-}
-
-///|
 fn sparse_table_declared_width(row : @core.CoreBlock) -> Int {
   match row.attrs.get("declared_column_count") {
     Some(raw) => @string.parse_int(raw.trim()) catch { _ => 0 }
@@ -1202,64 +1193,14 @@ fn sparse_table_declared_width(row : @core.CoreBlock) -> Int {
 }
 
 ///|
-fn sparse_table_row_payload_fill(
-  cells : Array[String],
-  payload : String,
-) -> Unit {
-  if payload.trim() == "" {
-    return
-  }
-  for line in payload.split("\n").to_array() {
-    let entry = line.to_owned()
-    if entry == "" {
-      continue
-    }
-    let parts = entry.split("\t").to_array()
-    if parts.length() < 2 {
-      continue
-    }
-    let column = @string.parse_int(parts[0].trim()) catch { _ => 0 }
-    if column <= 0 || column > cells.length() {
-      continue
-    }
-    cells[column - 1] = xlsx_decode_sparse_row_cell(parts[1].to_owned())
-  }
-}
-
-///|
-fn xlsx_decode_sparse_row_cell(text : String) -> String {
-  let out : Array[Char] = []
-  let chars = text.to_array()
-  let mut i = 0
-  while i < chars.length() {
-    let ch = chars[i]
-    if ch == '\\' && i + 1 < chars.length() {
-      let next = chars[i + 1]
-      if next == 'n' {
-        out.push('\n')
-        i += 2
-        continue
-      } else if next == 't' {
-        out.push('\t')
-        i += 2
-        continue
-      } else if next == '\\' {
-        out.push('\\')
-        i += 2
-        continue
-      }
-    }
-    out.push(ch)
-    i += 1
-  }
-  String::from_array(out)
-}
-
-///|
 fn sparse_table_cell_column_index(cell : @core.CoreBlock) -> Int {
-  match cell.attrs.get("column_index") {
-    Some(raw) => @string.parse_int(raw.trim()) catch { _ => 0 }
-    None => 0
+  match cell.column_index {
+    Some(value) => value
+    None =>
+      match cell.attrs.get("column_index") {
+        Some(raw) => @string.parse_int(raw.trim()) catch { _ => 0 }
+        None => 0
+      }
   }
 }
 

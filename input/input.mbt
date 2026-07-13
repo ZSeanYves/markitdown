@@ -4,7 +4,37 @@ pub(all) enum InputKind {
   Path
   Text
   Bytes
+  Reader
 } derive(Eq)
+
+///|
+/// Caller-owned synchronous random-access reader.
+///
+/// `read_at` returns at most `length` bytes starting at `offset`. Returning an
+/// empty payload marks end-of-input. Callers remain responsible for the
+/// lifetime of resources captured by the callback.
+pub struct InputReader {
+  size : Int64?
+  read_at : (Int64, Int) -> Result[Bytes, String]
+}
+
+///|
+/// Construct a caller-owned random-access reader contract.
+pub fn make_input_reader(
+  read_at : (Int64, Int) -> Result[Bytes, String],
+  size? : Int64,
+) -> InputReader {
+  { size, read_at }
+}
+
+///|
+/// The single payload carried by an input source.
+pub(all) enum InputPayload {
+  Path(String)
+  Text(String)
+  Bytes(Bytes)
+  Reader(InputReader)
+}
 
 ///|
 /// Direct image subtypes currently routed through the image OCR entry.
@@ -65,15 +95,13 @@ pub(all) enum DetectedFormat {
 ///|
 /// Caller-supplied input handle for the product path.
 ///
-/// In practice one payload source is expected according to `kind`, while
-/// `mime_type` and `explicit_format` act as routing hints. `source_name`
-/// should remain stable because it appears in diagnostics and output metadata.
+/// `payload` is the only content-bearing field. `origin_path` is metadata kept
+/// when a path source is materialized so provenance and relative asset lookup
+/// remain stable.
 pub struct InputSource {
-  kind : InputKind
   source_name : String
-  path : String?
-  text : String?
-  bytes : Bytes?
+  payload : InputPayload
+  origin_path : String?
   mime_type : String?
   explicit_format : DetectedFormat?
 }
@@ -111,11 +139,9 @@ pub fn input_from_path_with_format(
   explicit_format : DetectedFormat?,
 ) -> InputSource {
   {
-    kind: InputKind::Path,
     source_name: input_source_name_from_path(path),
-    path: Some(path),
-    text: None,
-    bytes: None,
+    payload: InputPayload::Path(path),
+    origin_path: Some(path),
     mime_type: None,
     explicit_format,
   }
@@ -138,11 +164,9 @@ pub fn input_from_text_with_format(
   explicit_format : DetectedFormat?,
 ) -> InputSource {
   {
-    kind: InputKind::Text,
     source_name,
-    path: None,
-    text: Some(text),
-    bytes: None,
+    payload: InputPayload::Text(text),
+    origin_path: None,
     mime_type: None,
     explicit_format,
   }
@@ -165,13 +189,94 @@ pub fn input_from_bytes_with_format(
   explicit_format : DetectedFormat?,
 ) -> InputSource {
   {
-    kind: InputKind::Bytes,
     source_name,
-    path: None,
-    text: None,
-    bytes: Some(bytes),
+    payload: InputPayload::Bytes(bytes),
+    origin_path: None,
     mime_type: None,
     explicit_format,
+  }
+}
+
+///|
+/// Construct a random-access reader input with the default `<reader>` name.
+pub fn input_from_reader(
+  reader : InputReader,
+  source_name? : String = "<reader>",
+) -> InputSource {
+  input_from_reader_with_format(reader, source_name, None)
+}
+
+///|
+/// Construct a random-access reader input with an explicit format hint.
+pub fn input_from_reader_with_format(
+  reader : InputReader,
+  source_name : String,
+  explicit_format : DetectedFormat?,
+) -> InputSource {
+  {
+    source_name,
+    payload: InputPayload::Reader(reader),
+    origin_path: None,
+    mime_type: None,
+    explicit_format,
+  }
+}
+
+///|
+/// Return the source category while preserving path origin after materializing
+/// a payload.
+pub fn input_kind(source : InputSource) -> InputKind {
+  match source.origin_path {
+    Some(_) => InputKind::Path
+    None =>
+      match source.payload {
+        InputPayload::Path(_) => InputKind::Path
+        InputPayload::Text(_) => InputKind::Text
+        InputPayload::Bytes(_) => InputKind::Bytes
+        InputPayload::Reader(_) => InputKind::Reader
+      }
+  }
+}
+
+///|
+/// Return the original source path when one is available.
+pub fn input_path(source : InputSource) -> String? {
+  match source.origin_path {
+    Some(path) => Some(path)
+    None =>
+      match source.payload {
+        InputPayload::Path(path) => Some(path)
+        _ => None
+      }
+  }
+}
+
+///|
+/// Return an attached text payload without materializing another payload kind.
+pub fn input_text(source : InputSource) -> String? {
+  match source.payload {
+    InputPayload::Text(text) => Some(text)
+    _ => None
+  }
+}
+
+///|
+/// Return an attached byte payload without materializing another payload kind.
+pub fn input_bytes(source : InputSource) -> Bytes? {
+  match source.payload {
+    InputPayload::Bytes(bytes) => Some(bytes)
+    _ => None
+  }
+}
+
+///|
+/// Return the known payload size without reading an unknown-size source.
+pub fn input_size(source : InputSource) -> Int64? {
+  match source.payload {
+    InputPayload::Path(_) => None
+    InputPayload::Text(text) => Some(@utf8.encode(text).length().to_int64())
+    InputPayload::Bytes(bytes) => Some(bytes.length().to_int64())
+    InputPayload::Reader(reader) => reader.size
   }
 }
 
@@ -193,13 +298,13 @@ pub fn with_mime_type(source : InputSource, mime_type : String?) -> InputSource 
 ///|
 /// Return a copy of `source` with an in-memory text payload attached.
 pub fn with_text_payload(source : InputSource, text : String) -> InputSource {
-  { ..source, text: Some(text) }
+  { ..source, payload: InputPayload::Text(text) }
 }
 
 ///|
 /// Return a copy of `source` with an in-memory byte payload attached.
 pub fn with_bytes_payload(source : InputSource, bytes : Bytes) -> InputSource {
-  { ..source, bytes: Some(bytes) }
+  { ..source, payload: InputPayload::Bytes(bytes) }
 }
 
 ///|
@@ -245,7 +350,7 @@ pub fn detect_format(source : InputSource) -> FormatDetectionResult {
     None => ()
   }
 
-  let extension_format = match source.path {
+  let extension_format = match input_path(source) {
     Some(path) => format_from_extension(path)
     None => format_from_extension(source.source_name)
   }
@@ -282,11 +387,19 @@ pub fn detect_format(source : InputSource) -> FormatDetectionResult {
     }
   }
 
-  let bytes = match read_input_bytes(source) {
+  let prefix = match read_input_prefix(source, 64 * 1024) {
     Ok(payload) => payload
     Err(_) => Bytes::from_array([])
   }
-  match detect_format_from_magic_or_container(bytes) {
+  let magic_result = if bytes_have_zip_signature(prefix) {
+    match detect_container_format_from_source(source) {
+      Some(value) => Some(value)
+      None => Some((DetectedFormat::Zip, ["magic_bytes", "zip_signature"]))
+    }
+  } else {
+    detect_format_from_magic_or_container(prefix)
+  }
+  match magic_result {
     Some((format, notes)) =>
       return {
         format,
@@ -298,10 +411,10 @@ pub fn detect_format(source : InputSource) -> FormatDetectionResult {
       }
     None => ()
   }
-  let text_like = bytes_look_text_like(bytes)
-  let binary_like = !text_like && bytes.length() > 0
+  let text_like = bytes_look_text_like(prefix)
+  let binary_like = !text_like && prefix.length() > 0
   if text_like {
-    match detect_ipynb_from_text_bytes(bytes) {
+    match detect_ipynb_from_text_bytes(prefix) {
       Some(notes) =>
         return {
           format: DetectedFormat::Ipynb,
@@ -465,23 +578,15 @@ pub fn detected_format_is_image_candidate(format : DetectedFormat) -> Bool {
 /// The function prefers already attached in-memory payloads before falling
 /// back to filesystem reads.
 pub fn read_input_text(source : InputSource) -> Result[String, String] {
-  match source.text {
-    Some(text) => Ok(text)
-    None =>
-      match source.bytes {
-        Some(bytes) =>
-          try @utf8.decode(bytes, ignore_bom=false) |> Ok catch {
-            _ => Err("utf8 decode failed")
-          }
-        None =>
-          match source.path {
-            Some(path) =>
-              try @fs.read_file_to_string(path, encoding="utf8") |> Ok catch {
-                e => Err("read text failed: " + e.to_string())
-              }
-            None => Err("input source has no text payload")
-          }
+  match source.payload {
+    InputPayload::Text(text) => Ok(text)
+    InputPayload::Bytes(bytes) => decode_input_utf8(bytes)
+    InputPayload::Path(path) =>
+      try @fs.read_file_to_string(path, encoding="utf8") |> Ok catch {
+        e => Err("read text failed: " + e.to_string())
       }
+    InputPayload::Reader(reader) =>
+      read_reader_bytes(reader) |> Result::bind(decode_input_utf8)
   }
 }
 
@@ -492,21 +597,74 @@ pub fn read_input_text(source : InputSource) -> Result[String, String] {
 /// The function mirrors `read_input_text` so downstream code can consume a
 /// uniform API regardless of where the input came from.
 pub fn read_input_bytes(source : InputSource) -> Result[Bytes, String] {
-  match source.bytes {
-    Some(bytes) => Ok(bytes)
-    None =>
-      match source.text {
-        Some(text) => Ok(@utf8.encode(text))
-        None =>
-          match source.path {
-            Some(path) =>
-              try @fs.read_file_to_bytes(path) |> Ok catch {
-                e => Err("read bytes failed: " + e.to_string())
-              }
-            None => Err("input source has no byte payload")
-          }
+  match source.payload {
+    InputPayload::Bytes(bytes) => Ok(bytes)
+    InputPayload::Text(text) => Ok(@utf8.encode(text))
+    InputPayload::Path(path) =>
+      try @fs.read_file_to_bytes(path) |> Ok catch {
+        e => Err("read bytes failed: " + e.to_string())
       }
+    InputPayload::Reader(reader) => read_reader_bytes(reader)
   }
+}
+
+///|
+/// Read at most `limit` bytes for format detection.
+pub fn read_input_prefix(
+  source : InputSource,
+  limit : Int,
+) -> Result[Bytes, String] {
+  if limit <= 0 {
+    return Ok(Bytes::new(0))
+  }
+  match open_source_cursor(source) {
+    Ok(cursor) => source_cursor_read_at(cursor, 0L, length=limit)
+    Err(message) => Err(message)
+  }
+}
+
+///|
+fn decode_input_utf8(bytes : Bytes) -> Result[String, String] {
+  try @utf8.decode(bytes, ignore_bom=false) |> Ok catch {
+    _ => Err("utf8 decode failed")
+  }
+}
+
+///|
+fn read_reader_bytes(reader : InputReader) -> Result[Bytes, String] {
+  let chunk_size = 64 * 1024
+  let out : Array[Byte] = []
+  let mut offset = 0L
+  while true {
+    match reader.size {
+      Some(size) if offset >= size => break
+      _ => ()
+    }
+    let chunk = match (reader.read_at)(offset, chunk_size) {
+      Ok(chunk) => chunk
+      Err(message) => return Err("reader read failed: " + message)
+    }
+    if chunk.length() > chunk_size {
+      return Err("reader returned more bytes than requested")
+    }
+    if chunk.length() == 0 {
+      match reader.size {
+        Some(size) if offset < size =>
+          return Err("reader ended before declared size")
+        _ => break
+      }
+    }
+    for byte in chunk {
+      out.push(byte)
+    }
+    offset = offset + chunk.length().to_int64()
+    match reader.size {
+      Some(size) if offset > size =>
+        return Err("reader returned bytes beyond declared size")
+      _ => ()
+    }
+  }
+  Ok(Bytes::from_array(out))
 }
 
 ///|
@@ -584,6 +742,212 @@ fn bytes_look_text_like(bytes : Bytes) -> Bool {
     }
   }
   suspicious * 8 < arr.length()
+}
+
+///|
+fn bytes_have_zip_signature(bytes : Bytes) -> Bool {
+  bytes.length() >= 4 &&
+  byte_to_int(bytes[0]) == 0x50 &&
+  byte_to_int(bytes[1]) == 0x4B &&
+  byte_to_int(bytes[2]) == 0x03 &&
+  byte_to_int(bytes[3]) == 0x04
+}
+
+///|
+fn detect_container_format_from_source(
+  source : InputSource,
+) -> (DetectedFormat, Array[String])? {
+  let cursor = match open_source_cursor(source) {
+    Ok(value) => value
+    Err(_) => return None
+  }
+  let size = match cursor.size {
+    Some(value) => value
+    None => return None
+  }
+  let tail_length = if size > 65557L { 65557 } else { size.to_int() }
+  let tail_offset = size - tail_length.to_int64()
+  let tail = match
+    source_cursor_read_at(cursor, tail_offset, length=tail_length) {
+    Ok(value) => value
+    Err(_) => return None
+  }
+  let eocd = find_zip_eocd(tail)
+  let eocd = match eocd {
+    Some(value) => value
+    None => return None
+  }
+  let directory_size = zip_u32(tail, eocd + 12)
+  let directory_offset = zip_u32(tail, eocd + 16)
+  if directory_size < 0 ||
+    directory_size > 16 * 1024 * 1024 ||
+    directory_offset < 0 ||
+    directory_offset.to_int64() + directory_size.to_int64() > size {
+    return None
+  }
+  let directory = match
+    source_cursor_read_at(
+      cursor,
+      directory_offset.to_int64(),
+      length=directory_size,
+    ) {
+    Ok(value) => value
+    Err(_) => return None
+  }
+  let mut has_docx = false
+  let mut has_pptx = false
+  let mut has_xlsx = false
+  let mut has_epub_container = false
+  let mut mimetype_offset : Int? = None
+  let mut position = 0
+  while position + 46 <= directory.length() {
+    if zip_u32(directory, position) != 0x02014B50 {
+      break
+    }
+    let name_length = zip_u16(directory, position + 28)
+    let extra_length = zip_u16(directory, position + 30)
+    let comment_length = zip_u16(directory, position + 32)
+    let entry_end = position + 46 + name_length + extra_length + comment_length
+    if name_length < 0 || entry_end > directory.length() {
+      break
+    }
+    let name_bytes = directory
+      .view(start=position + 46, end=position + 46 + name_length)
+      .to_owned()
+    let name = @utf8.decode(name_bytes, ignore_bom=true) catch { _ => "" }
+    match name {
+      "word/document.xml" => has_docx = true
+      "ppt/presentation.xml" => has_pptx = true
+      "xl/workbook.xml" => has_xlsx = true
+      "META-INF/container.xml" => has_epub_container = true
+      "mimetype" => mimetype_offset = Some(zip_u32(directory, position + 42))
+      _ => ()
+    }
+    position = entry_end
+  }
+  if has_docx {
+    return Some(
+      (
+        DetectedFormat::Docx,
+        ["magic_bytes", "zip_signature", "container_inspection", "ooxml_docx"],
+      ),
+    )
+  }
+  if has_pptx {
+    return Some(
+      (
+        DetectedFormat::Pptx,
+        ["magic_bytes", "zip_signature", "container_inspection", "ooxml_pptx"],
+      ),
+    )
+  }
+  if has_xlsx {
+    return Some(
+      (
+        DetectedFormat::Xlsx,
+        ["magic_bytes", "zip_signature", "container_inspection", "ooxml_xlsx"],
+      ),
+    )
+  }
+  let mimetype = match mimetype_offset {
+    Some(offset) => read_zip_stored_mimetype(cursor, offset)
+    None => None
+  }
+  match mimetype {
+    Some("application/epub+zip") if has_epub_container =>
+      Some(
+        (
+          DetectedFormat::Epub,
+          [
+            "magic_bytes", "zip_signature", "container_inspection", "epub_container",
+          ],
+        ),
+      )
+    Some("application/vnd.oasis.opendocument.text") =>
+      Some(
+        (
+          DetectedFormat::Odt,
+          ["magic_bytes", "zip_signature", "container_inspection", "odf_odt"],
+        ),
+      )
+    Some("application/vnd.oasis.opendocument.spreadsheet") =>
+      Some(
+        (
+          DetectedFormat::Ods,
+          ["magic_bytes", "zip_signature", "container_inspection", "odf_ods"],
+        ),
+      )
+    Some("application/vnd.oasis.opendocument.presentation") =>
+      Some(
+        (
+          DetectedFormat::Odp,
+          ["magic_bytes", "zip_signature", "container_inspection", "odf_odp"],
+        ),
+      )
+    _ => None
+  }
+}
+
+///|
+fn find_zip_eocd(tail : Bytes) -> Int? {
+  let mut index = tail.length() - 22
+  while index >= 0 {
+    if zip_u32(tail, index) == 0x06054B50 {
+      return Some(index)
+    }
+    index -= 1
+  }
+  None
+}
+
+///|
+fn read_zip_stored_mimetype(cursor : SourceCursor, offset : Int) -> String? {
+  if offset < 0 {
+    return None
+  }
+  let header = match
+    source_cursor_read_at(cursor, offset.to_int64(), length=30) {
+    Ok(value) => value
+    Err(_) => return None
+  }
+  if header.length() < 30 || zip_u32(header, 0) != 0x04034B50 {
+    return None
+  }
+  let compression = zip_u16(header, 8)
+  let payload_size = zip_u32(header, 18)
+  let name_length = zip_u16(header, 26)
+  let extra_length = zip_u16(header, 28)
+  if compression != 0 || payload_size < 0 || payload_size > 256 {
+    return None
+  }
+  let data_offset = offset + 30 + name_length + extra_length
+  let payload = match
+    source_cursor_read_at(cursor, data_offset.to_int64(), length=payload_size) {
+    Ok(value) => value
+    Err(_) => return None
+  }
+  try @utf8.decode(payload, ignore_bom=true).trim().to_owned() |> Some catch {
+    _ => None
+  }
+}
+
+///|
+fn zip_u16(bytes : Bytes, offset : Int) -> Int {
+  if offset < 0 || offset + 2 > bytes.length() {
+    return -1
+  }
+  byte_to_int(bytes[offset]) | (byte_to_int(bytes[offset + 1]) << 8)
+}
+
+///|
+fn zip_u32(bytes : Bytes, offset : Int) -> Int {
+  if offset < 0 || offset + 4 > bytes.length() {
+    return -1
+  }
+  byte_to_int(bytes[offset]) |
+  (byte_to_int(bytes[offset + 1]) << 8) |
+  (byte_to_int(bytes[offset + 2]) << 16) |
+  (byte_to_int(bytes[offset + 3]) << 24)
 }
 
 ///|
