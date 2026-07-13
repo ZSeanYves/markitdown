@@ -51,7 +51,20 @@ fn parse_with_route_probe_artifact(
                   ),
                 ),
               )
-            None => None
+            None =>
+              match prepared.event_summary {
+                Some(_) =>
+                  Some(
+                    Ok(
+                      @fhtml.html_parse_with_prepared_document(
+                        prepared.prepared_source,
+                        context,
+                        prepared,
+                      ),
+                    ),
+                  )
+                None => None
+              }
           }
         } else {
           None

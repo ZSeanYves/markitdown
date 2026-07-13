@@ -18,6 +18,8 @@ pub fn decode_html_entities(String) -> String
 
 pub fn html_attr_value(String, String) -> String?
 
+pub fn html_attributes_value(Array[HtmlAttribute], String) -> String?
+
 pub fn html_raw_attr_value(String, String) -> String?
 
 pub fn html_tag_name(String) -> String?
@@ -36,11 +38,15 @@ pub fn inspect_html_document(HtmlDocument) -> HtmlInspectReport
 
 pub fn inspect_html_semantic_document(HtmlSemanticDocument) -> HtmlSemanticInspectReport
 
+pub fn make_html_token_event(HtmlTokenEventKind, String, Array[HtmlAttribute], Bool, Int, Int, Int, Int) -> HtmlTokenEvent
+
 pub fn normalize_html_token_source(String) -> String
 
 pub fn parse_html_document(String) -> HtmlDocument raise
 
 pub fn prepare_html_document_from_source(@input.InputSource) -> Result[PreparedHtmlDocument, String]
+
+pub fn scan_normalized_html_string_event_fields(String, (HtmlTokenEventKind, String, Array[HtmlAttribute], Bool, Int, Int, Int, Int) -> Unit) -> Unit raise
 
 pub fn tokenize_html_document(String) -> Array[HtmlToken] raise
 
@@ -889,6 +895,14 @@ pub(all) enum HtmlTokenEventKind {
   Doctype
 } derive(Eq)
 
+pub struct HtmlTokenEventSummary {
+  node_count : Int
+  block_scope_count : Int
+  structural_scope_count : Int
+  max_depth : Int
+  char_count : Int
+}
+
 pub struct HtmlTokenSourceRange {
   source_start : Int
   source_end : Int
@@ -987,6 +1001,7 @@ pub struct PreparedHtmlDocument {
   document : HtmlDocument?
   inspect : HtmlInspectReport?
   events : Array[HtmlTokenEvent]?
+  event_summary : HtmlTokenEventSummary?
   parse_error : String?
 }
 

@@ -132,7 +132,7 @@ test "HTML semantic guards bound depth previews attributes and large tables" {
 }
 
 ///|
-test "HTML preparation does not retain a DOM above the block-stream limit" {
+test "HTML preparation retains only a scan summary above the block-stream limit" {
   let body = "<p>bounded</p>".repeat(20_000)
   let prepared = prepare_html_document_from_source(
     @input.input_from_text_with_format(
@@ -143,8 +143,9 @@ test "HTML preparation does not retain a DOM above the block-stream limit" {
   ).unwrap()
   assert_true(prepared.document is None)
   assert_true(prepared.inspect is None)
-  assert_true(prepared.events is Some(_))
-  assert_true(prepared.events.unwrap().length() > 20_000)
+  assert_true(prepared.events is None)
+  assert_true(prepared.event_summary is Some(_))
+  assert_true(prepared.event_summary.unwrap().node_count > 20_000)
 }
 
 ///|

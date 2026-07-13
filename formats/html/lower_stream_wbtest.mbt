@@ -85,7 +85,7 @@ test "HTML stream switches semantic path for disclosure and figure markup" {
 }
 
 ///|
-test "HTML huge byte sources reuse prepared token events" {
+test "HTML huge byte sources lower from the prepared scan summary" {
   let html = "<main>" +
     "<p>plain <a href=\"/x\">link</a></p>".repeat(140_000) +
     "</main>"
@@ -109,10 +109,17 @@ test "HTML huge byte sources reuse prepared token events" {
     context,
     prepared,
   )
-  assert_true(result.block_stream.unwrap().length() > 120_000)
+  let blocks = result.block_stream.unwrap()
+  assert_true(blocks.length() > 120_000)
+  assert_true(blocks[0].source_ref is None)
+  assert_true(
+    blocks[0].rich_inlines
+    .unwrap_or([])
+    .all(inline => inline.source_ref is None),
+  )
   assert_true(
     result.diagnostics.metrics.get("scope_plan_labels") ==
-    Some("child_text_fast"),
+    Some("child_text_stream_scan"),
   )
 }
 

@@ -12,6 +12,103 @@ pub fn tokenize_html_events(text : String) -> Array[HtmlTokenEvent] raise {
 }
 
 ///|
+pub fn scan_normalized_html_string_event_fields(
+  text : String,
+  visit : (
+    HtmlTokenEventKind,
+    String,
+    Array[HtmlAttribute],
+    Bool,
+    Int,
+    Int,
+    Int,
+    Int,
+  ) -> Unit,
+) -> Unit raise {
+  let tokenizer = HtmlTokenizer::{
+    chars: [],
+    pos: 0,
+    line: 1,
+    collect_events: false,
+    emit_tokens: false,
+    events: [],
+    field_visitor: Some(visit),
+    text_source: Some(text),
+  }
+  ignore(tokenizer.parse_tokens())
+}
+
+///|
+fn scan_html_event_summary(text : String) -> HtmlTokenEventSummary raise {
+  let mut node_count = 0
+  let mut depth = 0
+  let mut max_depth = 0
+  let mut block_scope_count = 0
+  let mut structural_scope_count = 0
+  let normalized = normalize_html_source(text)
+  scan_normalized_html_string_event_fields(normalized, fn(
+    kind,
+    tag_name,
+    attributes,
+    self_closing,
+    source_start,
+    source_end,
+    _line_start,
+    _line_end,
+  ) {
+    match kind {
+      HtmlTokenEventKind::Doctype | HtmlTokenEventKind::Comment =>
+        node_count += 1
+      HtmlTokenEventKind::Text =>
+        if source_end > source_start {
+          node_count += 1
+        }
+      HtmlTokenEventKind::StartTag => {
+        node_count += 1 + attributes.length()
+        if tag_name == "main" || tag_name == "article" || tag_name == "section" {
+          block_scope_count += 1
+        }
+        if tag_name == "main" ||
+          tag_name == "article" ||
+          tag_name == "section" ||
+          tag_name == "nav" ||
+          tag_name == "aside" ||
+          tag_name == "table" ||
+          tag_name == "ul" ||
+          tag_name == "ol" {
+          structural_scope_count += 1
+        }
+        if !self_closing {
+          depth += 1
+          if depth > max_depth {
+            max_depth = depth
+          }
+        }
+      }
+      HtmlTokenEventKind::EndTag => if depth > 0 { depth -= 1 }
+    }
+  })
+  {
+    node_count,
+    block_scope_count,
+    structural_scope_count,
+    max_depth,
+    char_count: text.length(),
+  }
+}
+
+///|
+fn html_token_source_has_surrogate(text : String) -> Bool {
+  for unit in text.code_units() {
+    let value = unit.to_int()
+    if value >= 0xD800 && value <= 0xDFFF {
+      return true
+    }
+  }
+  false
+}
+
+///|
 /// Return the source string used for token event offsets.
 pub fn normalize_html_token_source(text : String) -> String {
   normalize_html_source(text)
@@ -28,6 +125,8 @@ fn tokenize_normalized_html_document(
     collect_events: false,
     emit_tokens: true,
     events: [],
+    field_visitor: None,
+    text_source: None,
   }
   tokenizer.parse_tokens()
 }
@@ -43,6 +142,8 @@ fn tokenize_normalized_html_event_scan(
     collect_events: true,
     emit_tokens: false,
     events: [],
+    field_visitor: None,
+    text_source: None,
   }
   let tokens = tokenizer.parse_tokens()
   { tokens, events: tokenizer.events }
@@ -62,18 +163,50 @@ priv struct HtmlTokenizer {
   collect_events : Bool
   emit_tokens : Bool
   events : Array[HtmlTokenEvent]
+  field_visitor : ((
+    HtmlTokenEventKind,
+    String,
+    Array[HtmlAttribute],
+    Bool,
+    Int,
+    Int,
+    Int,
+    Int,
+  ) -> Unit)?
+  text_source : String?
+}
+
+///|
+fn HtmlTokenizer::source_length(self : HtmlTokenizer) -> Int {
+  match self.text_source {
+    Some(text) => text.length()
+    None => self.chars.length()
+  }
+}
+
+///|
+fn HtmlTokenizer::source_char_at(self : HtmlTokenizer, index : Int) -> Char {
+  match self.text_source {
+    Some(text) => Int::unsafe_to_char(text[index].to_int())
+    None => self.chars[index]
+  }
 }
 
 ///|
 fn HtmlTokenizer::parse_tokens(self : HtmlTokenizer) -> Array[HtmlToken] raise {
   let out : Array[HtmlToken] = []
 
-  while self.pos < self.chars.length() {
+  while self.pos < self.source_length() {
     let start_line = self.line
     let start_pos = self.pos
-    if self.chars[self.pos] == '<' {
+    if self.source_char_at(self.pos) == '<' {
       if self.starts_with("<!--") {
-        let comment = self.read_comment()
+        let comment = if self.emit_tokens {
+          self.read_comment()
+        } else {
+          self.skip_comment()
+          ""
+        }
         let span = { line_start: start_line, line_end: self.line }
         if self.emit_tokens {
           out.push(HtmlToken::Comment(comment, span))
@@ -103,7 +236,12 @@ fn HtmlTokenizer::parse_tokens(self : HtmlTokenizer) -> Array[HtmlToken] raise {
           span,
         )
       } else if self.starts_with_case_insensitive("<!doctype") {
-        let text = self.read_doctype_like()
+        let text = if self.emit_tokens {
+          self.read_doctype_like()
+        } else {
+          self.skip_doctype_like()
+          ""
+        }
         let span = { line_start: start_line, line_end: self.line }
         if self.emit_tokens {
           out.push(HtmlToken::Doctype(text, span))
@@ -117,8 +255,8 @@ fn HtmlTokenizer::parse_tokens(self : HtmlTokenizer) -> Array[HtmlToken] raise {
           self.pos,
           span,
         )
-      } else if self.pos + 1 < self.chars.length() &&
-        is_html_name_start(self.chars[self.pos + 1]) {
+      } else if self.pos + 1 < self.source_length() &&
+        is_html_name_start(self.source_char_at(self.pos + 1)) {
         let (name, attrs, self_closing) = self.read_start_tag()
         let span = { line_start: start_line, line_end: self.line }
         if self.emit_tokens {
@@ -136,8 +274,13 @@ fn HtmlTokenizer::parse_tokens(self : HtmlTokenizer) -> Array[HtmlToken] raise {
         if is_html_raw_text_tag(name) {
           let raw_start = self.line
           let raw_start_pos = self.pos
-          let raw_text = self.read_raw_text_body(name)
-          if raw_text != "" {
+          let raw_text = if self.emit_tokens {
+            self.read_raw_text_body(name)
+          } else {
+            self.skip_raw_text_body(name)
+            ""
+          }
+          if self.pos > raw_start_pos {
             let raw_span = { line_start: raw_start, line_end: self.line }
             if self.emit_tokens {
               out.push(HtmlToken::Text(raw_text, raw_span))
@@ -189,8 +332,13 @@ fn HtmlTokenizer::parse_tokens(self : HtmlTokenizer) -> Array[HtmlToken] raise {
         self.pos += 1
       }
     } else {
-      let text_node = self.read_text()
-      if text_node != "" {
+      let text_node = if self.emit_tokens {
+        self.read_text()
+      } else {
+        self.skip_text()
+        ""
+      }
+      if self.pos > start_pos {
         let span = { line_start: start_line, line_end: self.line }
         if self.emit_tokens {
           out.push(HtmlToken::Text(text_node, span))
@@ -232,17 +380,32 @@ fn HtmlTokenizer::push_event(
       source_end,
       span,
     })
+  } else {
+    match self.field_visitor {
+      Some(visit) =>
+        visit(
+          kind,
+          tag_name,
+          attributes,
+          self_closing,
+          source_start,
+          source_end,
+          span.line_start,
+          span.line_end,
+        )
+      None => ()
+    }
   }
 }
 
 ///|
 fn HtmlTokenizer::has_end_tag_name(self : HtmlTokenizer) -> Bool {
-  if self.pos + 2 >= self.chars.length() {
+  if self.pos + 2 >= self.source_length() {
     return false
   }
   let mut i = self.pos + 2
-  while i < self.chars.length() {
-    match self.chars[i] {
+  while i < self.source_length() {
+    match self.source_char_at(i) {
       ' ' | '\t' | '\n' | '\r' => i += 1
       ch => return is_html_name_start(ch)
     }
@@ -253,11 +416,11 @@ fn HtmlTokenizer::has_end_tag_name(self : HtmlTokenizer) -> Bool {
 ///|
 fn HtmlTokenizer::starts_with(self : HtmlTokenizer, prefix : String) -> Bool {
   let chars = prefix.to_array()
-  if self.pos + chars.length() > self.chars.length() {
+  if self.pos + chars.length() > self.source_length() {
     return false
   }
   for i in 0..<chars.length() {
-    if self.chars[self.pos + i] != chars[i] {
+    if self.source_char_at(self.pos + i) != chars[i] {
       return false
     }
   }
@@ -270,11 +433,11 @@ fn HtmlTokenizer::starts_with_case_insensitive(
   prefix : String,
 ) -> Bool {
   let chars = prefix.to_lower().to_array()
-  if self.pos + chars.length() > self.chars.length() {
+  if self.pos + chars.length() > self.source_length() {
     return false
   }
   for i in 0..<chars.length() {
-    if lower_ascii_html_char(self.chars[self.pos + i]) != chars[i] {
+    if lower_ascii_html_char(self.source_char_at(self.pos + i)) != chars[i] {
       return false
     }
   }
@@ -297,12 +460,12 @@ fn HtmlTokenizer::consume_case_insensitive(
 fn HtmlTokenizer::read_comment(self : HtmlTokenizer) -> String raise {
   self.advance_chars("<!--".length())
   let out : Array[Char] = []
-  while self.pos < self.chars.length() {
+  while self.pos < self.source_length() {
     if self.starts_with("-->") {
       self.advance_chars(3)
       return String::from_array(out)
     }
-    let ch = self.chars[self.pos]
+    let ch = self.source_char_at(self.pos)
     if ch == '\n' {
       self.line += 1
     }
@@ -313,12 +476,28 @@ fn HtmlTokenizer::read_comment(self : HtmlTokenizer) -> String raise {
 }
 
 ///|
+fn HtmlTokenizer::skip_comment(self : HtmlTokenizer) -> Unit raise {
+  self.advance_chars("<!--".length())
+  while self.pos < self.source_length() {
+    if self.starts_with("-->") {
+      self.advance_chars(3)
+      return
+    }
+    if self.source_char_at(self.pos) == '\n' {
+      self.line += 1
+    }
+    self.pos += 1
+  }
+  raise ParseError("unterminated comment")
+}
+
+///|
 fn HtmlTokenizer::read_doctype_like(self : HtmlTokenizer) -> String raise {
   self.expect_char('<', "malformed doctype")
   self.expect_char('!', "malformed doctype")
   let out : Array[Char] = []
-  while self.pos < self.chars.length() {
-    let ch = self.chars[self.pos]
+  while self.pos < self.source_length() {
+    let ch = self.source_char_at(self.pos)
     if ch == '>' {
       self.pos += 1
       return String::from_array(out).trim().to_owned()
@@ -328,6 +507,23 @@ fn HtmlTokenizer::read_doctype_like(self : HtmlTokenizer) -> String raise {
     }
     out.push(ch)
     self.pos += 1
+  }
+  raise ParseError("unterminated doctype or declaration")
+}
+
+///|
+fn HtmlTokenizer::skip_doctype_like(self : HtmlTokenizer) -> Unit raise {
+  self.expect_char('<', "malformed doctype")
+  self.expect_char('!', "malformed doctype")
+  while self.pos < self.source_length() {
+    let ch = self.source_char_at(self.pos)
+    self.pos += 1
+    if ch == '>' {
+      return
+    }
+    if ch == '\n' {
+      self.line += 1
+    }
   }
   raise ParseError("unterminated doctype or declaration")
 }
@@ -351,18 +547,18 @@ fn HtmlTokenizer::read_start_tag(
   let name = self.read_name()
   let attrs : Array[HtmlAttribute] = []
 
-  while self.pos < self.chars.length() {
+  while self.pos < self.source_length() {
     self.skip_spaces()
-    if self.pos >= self.chars.length() {
+    if self.pos >= self.source_length() {
       raise ParseError("unterminated start tag")
     }
 
-    if self.chars[self.pos] == '>' {
+    if self.source_char_at(self.pos) == '>' {
       self.pos += 1
       return (name, attrs, false)
     }
 
-    if self.chars[self.pos] == '/' {
+    if self.source_char_at(self.pos) == '/' {
       self.pos += 1
       self.expect_char('>', "unterminated self-closing tag")
       return (name, attrs, true)
@@ -374,7 +570,7 @@ fn HtmlTokenizer::read_start_tag(
     let mut value = ""
     let mut quote_style = HtmlAttributeQuoteStyle::Unquoted
 
-    if self.pos < self.chars.length() && self.chars[self.pos] == '=' {
+    if self.pos < self.source_length() && self.source_char_at(self.pos) == '=' {
       self.pos += 1
       self.skip_spaces()
       let parsed = self.read_attribute_value()
@@ -397,16 +593,16 @@ fn HtmlTokenizer::read_start_tag(
 fn HtmlTokenizer::read_attribute_value(
   self : HtmlTokenizer,
 ) -> (String, HtmlAttributeQuoteStyle) raise {
-  if self.pos >= self.chars.length() {
+  if self.pos >= self.source_length() {
     raise ParseError("missing attribute value")
   }
 
-  let quote = self.chars[self.pos]
+  let quote = self.source_char_at(self.pos)
   if quote == '"' || quote == '\'' {
     self.pos += 1
     let out : Array[Char] = []
-    while self.pos < self.chars.length() {
-      let ch = self.chars[self.pos]
+    while self.pos < self.source_length() {
+      let ch = self.source_char_at(self.pos)
       if ch == '\n' {
         self.line += 1
       }
@@ -428,8 +624,8 @@ fn HtmlTokenizer::read_attribute_value(
   }
 
   let out : Array[Char] = []
-  while self.pos < self.chars.length() {
-    let ch = self.chars[self.pos]
+  while self.pos < self.source_length() {
+    let ch = self.source_char_at(self.pos)
     if ch == ' ' ||
       ch == '\t' ||
       ch == '\n' ||
@@ -455,8 +651,8 @@ fn HtmlTokenizer::read_attribute_value(
 ///|
 fn HtmlTokenizer::read_text(self : HtmlTokenizer) -> String {
   let out : Array[Char] = []
-  while self.pos < self.chars.length() && self.chars[self.pos] != '<' {
-    let ch = self.chars[self.pos]
+  while self.pos < self.source_length() && self.source_char_at(self.pos) != '<' {
+    let ch = self.source_char_at(self.pos)
     if ch == '\n' {
       self.line += 1
     }
@@ -467,16 +663,26 @@ fn HtmlTokenizer::read_text(self : HtmlTokenizer) -> String {
 }
 
 ///|
+fn HtmlTokenizer::skip_text(self : HtmlTokenizer) -> Unit {
+  while self.pos < self.source_length() && self.source_char_at(self.pos) != '<' {
+    if self.source_char_at(self.pos) == '\n' {
+      self.line += 1
+    }
+    self.pos += 1
+  }
+}
+
+///|
 fn HtmlTokenizer::read_raw_text_body(
   self : HtmlTokenizer,
   tag_name : String,
 ) -> String {
   let out : Array[Char] = []
-  while self.pos < self.chars.length() {
+  while self.pos < self.source_length() {
     if self.starts_with_case_insensitive("</" + tag_name) {
       break
     }
-    let ch = self.chars[self.pos]
+    let ch = self.source_char_at(self.pos)
     if ch == '\n' {
       self.line += 1
     }
@@ -487,17 +693,33 @@ fn HtmlTokenizer::read_raw_text_body(
 }
 
 ///|
+fn HtmlTokenizer::skip_raw_text_body(
+  self : HtmlTokenizer,
+  tag_name : String,
+) -> Unit {
+  while self.pos < self.source_length() {
+    if self.starts_with_case_insensitive("</" + tag_name) {
+      return
+    }
+    if self.source_char_at(self.pos) == '\n' {
+      self.line += 1
+    }
+    self.pos += 1
+  }
+}
+
+///|
 fn HtmlTokenizer::read_name(self : HtmlTokenizer) -> String raise {
-  if self.pos >= self.chars.length() ||
-    !is_html_name_start(self.chars[self.pos]) {
+  if self.pos >= self.source_length() ||
+    !is_html_name_start(self.source_char_at(self.pos)) {
     raise ParseError("expected name")
   }
   let out : Array[Char] = []
-  out.push(lower_ascii_html_char(self.chars[self.pos]))
+  out.push(lower_ascii_html_char(self.source_char_at(self.pos)))
   self.pos += 1
-  while self.pos < self.chars.length() &&
-        is_html_name_char(self.chars[self.pos]) {
-    out.push(lower_ascii_html_char(self.chars[self.pos]))
+  while self.pos < self.source_length() &&
+        is_html_name_char(self.source_char_at(self.pos)) {
+    out.push(lower_ascii_html_char(self.source_char_at(self.pos)))
     self.pos += 1
   }
   html_intern_token_name(String::from_array(out))
@@ -564,8 +786,8 @@ fn html_intern_token_name(name : String) -> String {
 
 ///|
 fn HtmlTokenizer::skip_spaces(self : HtmlTokenizer) -> Unit {
-  while self.pos < self.chars.length() {
-    let ch = self.chars[self.pos]
+  while self.pos < self.source_length() {
+    let ch = self.source_char_at(self.pos)
     match ch {
       ' ' | '\t' => self.pos += 1
       '\r' => self.pos += 1
@@ -581,10 +803,10 @@ fn HtmlTokenizer::skip_spaces(self : HtmlTokenizer) -> Unit {
 ///|
 fn HtmlTokenizer::advance_chars(self : HtmlTokenizer, count : Int) -> Unit {
   for _ in 0..<count {
-    if self.pos >= self.chars.length() {
+    if self.pos >= self.source_length() {
       return
     }
-    if self.chars[self.pos] == '\n' {
+    if self.source_char_at(self.pos) == '\n' {
       self.line += 1
     }
     self.pos += 1
@@ -597,7 +819,7 @@ fn HtmlTokenizer::expect_char(
   ch : Char,
   err : String,
 ) -> Unit raise {
-  if self.pos >= self.chars.length() || self.chars[self.pos] != ch {
+  if self.pos >= self.source_length() || self.source_char_at(self.pos) != ch {
     raise ParseError(err)
   }
   self.pos += 1
@@ -605,6 +827,9 @@ fn HtmlTokenizer::expect_char(
 
 ///|
 fn normalize_html_source(text : String) -> String {
+  if !text.has_prefix("\u{FEFF}") && !text.contains("\r") {
+    return text
+  }
   let chars = text.to_array()
   let mut i = 0
   let mut needs_normalization = false
@@ -808,11 +1033,19 @@ pub fn html_token_event_attr_value(
   event : HtmlTokenEvent,
   attr_name : String,
 ) -> String? {
+  html_attributes_value(event.attributes, attr_name)
+}
+
+///|
+pub fn html_attributes_value(
+  attributes : Array[HtmlAttribute],
+  attr_name : String,
+) -> String? {
   let wanted = attr_name.to_lower().trim().to_owned()
   if wanted == "" {
     return None
   }
-  for attr in event.attributes {
+  for attr in attributes {
     if attr.name == wanted {
       return Some(attr.value)
     }

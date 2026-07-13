@@ -18,6 +18,24 @@ pub fn make_block(
 }
 
 ///|
+pub fn make_block_without_source_ref(
+  kind : BlockKind,
+  text : String,
+) -> CoreBlock {
+  {
+    block_id: make_block_id(kind, text),
+    kind,
+    text,
+    rich_inlines: None,
+    children: [],
+    attrs: Map([]),
+    source_ref: None,
+    style: None,
+    signals: [],
+  }
+}
+
+///|
 pub fn block_with_block_id(block : CoreBlock, block_id : BlockId) -> CoreBlock {
   { ..block, block_id, }
 }
@@ -73,6 +91,18 @@ pub fn make_inline_text(
 }
 
 ///|
+pub fn make_inline_text_without_source_ref(text : String) -> CoreInline {
+  {
+    kind: InlineKind::Text,
+    text,
+    href: None,
+    title: None,
+    attrs: Map([]),
+    source_ref: None,
+  }
+}
+
+///|
 pub fn make_inline_line_break(
   source_ref? : SourceRef = empty_source_ref(),
 ) -> CoreInline {
@@ -83,6 +113,18 @@ pub fn make_inline_line_break(
     title: None,
     attrs: Map([]),
     source_ref: Some(source_ref),
+  }
+}
+
+///|
+pub fn make_inline_line_break_without_source_ref() -> CoreInline {
+  {
+    kind: InlineKind::LineBreak,
+    text: "",
+    href: None,
+    title: None,
+    attrs: Map([]),
+    source_ref: None,
   }
 }
 
@@ -100,6 +142,21 @@ pub fn make_inline_link(
     title,
     attrs: Map([]),
     source_ref: Some(source_ref),
+  }
+}
+
+///|
+pub fn make_inline_link_without_source_ref(
+  text : String,
+  href : String,
+) -> CoreInline {
+  {
+    kind: InlineKind::Link,
+    text,
+    href: Some(href),
+    title: None,
+    attrs: Map([]),
+    source_ref: None,
   }
 }
 

@@ -117,7 +117,15 @@ pub fn html_parse_with_prepared_document(
           prepared.normalized_text,
           events,
         )
-      None => ()
+      None =>
+        match prepared.event_summary {
+          Some(_) =>
+            return html_block_stream_parse_result_scanned(
+              source,
+              prepared.normalized_text,
+            )
+          None => ()
+        }
     }
   }
   match prepared.document {
@@ -414,6 +422,23 @@ fn html_block_stream_parse_result_from_events(
       source, text, diagnostics, events,
     )
   }
+  html_block_stream_parse_result_from_lowered(text, diagnostics, lowered)
+}
+
+///|
+fn html_block_stream_parse_result_scanned(
+  source : @input.InputSource,
+  text : String,
+) -> @parser.ParseResult {
+  let diagnostics = html_block_stream_diagnostics(
+    source,
+    @parser.new_parse_context(@input.DetectedFormat::Html),
+  )
+  diagnostics.metrics.set("requested_mode", "block_streaming")
+  diagnostics.metrics.set("probe_artifact_reused", "true")
+  let lowered = html_lower_child_text_block_stream_document_scanned(
+    source, text, diagnostics,
+  )
   html_block_stream_parse_result_from_lowered(text, diagnostics, lowered)
 }
 

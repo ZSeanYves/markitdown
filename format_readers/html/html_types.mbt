@@ -49,6 +49,37 @@ pub struct HtmlTokenEvent {
 }
 
 ///|
+pub fn make_html_token_event(
+  kind : HtmlTokenEventKind,
+  tag_name : String,
+  attributes : Array[HtmlAttribute],
+  self_closing : Bool,
+  source_start : Int,
+  source_end : Int,
+  line_start : Int,
+  line_end : Int,
+) -> HtmlTokenEvent {
+  {
+    kind,
+    tag_name,
+    attributes,
+    self_closing,
+    source_start,
+    source_end,
+    span: { line_start, line_end },
+  }
+}
+
+///|
+pub struct HtmlTokenEventSummary {
+  node_count : Int
+  block_scope_count : Int
+  structural_scope_count : Int
+  max_depth : Int
+  char_count : Int
+}
+
+///|
 pub struct HtmlTokenSourceRange {
   source_start : Int
   source_end : Int

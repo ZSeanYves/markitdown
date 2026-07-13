@@ -792,10 +792,14 @@ fn html_merge_adjacent_text_inlines(
           match out.pop() {
             Some(prev) if prev.kind == @core.InlineKind::Text =>
               out.push(
-                @core.make_inline_text(
-                  prev.text + inline.text,
-                  source_ref=prev.source_ref.unwrap_or(@core.empty_source_ref()),
-                ),
+                match prev.source_ref {
+                  Some(source_ref) =>
+                    @core.make_inline_text(prev.text + inline.text, source_ref~)
+                  None =>
+                    @core.make_inline_text_without_source_ref(
+                      prev.text + inline.text,
+                    )
+                },
               )
             Some(prev) => {
               out.push(prev)
