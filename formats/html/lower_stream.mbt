@@ -216,6 +216,9 @@ fn html_lower_scope_events_to_blocks(
 priv struct HtmlChildInlineState {
   inlines : Array[@core.CoreInline]
   mut text : StringBuilder
+  compact_plain : StringBuilder
+  compact_markdown : StringBuilder
+  mut compact_has_markup : Bool
   mut text_line_start : Int
   mut text_line_end : Int
   mut pending_space : Bool
@@ -280,6 +283,9 @@ fn html_child_inline_state() -> HtmlChildInlineState {
   {
     inlines: [],
     text: StringBuilder::new(),
+    compact_plain: StringBuilder::new(),
+    compact_markdown: StringBuilder::new(),
+    compact_has_markup: false,
     text_line_start: 0,
     text_line_end: 0,
     pending_space: false,
@@ -324,6 +330,14 @@ fn html_child_inline_materialize_pending_text(
   if text == "" {
     return
   }
+  if state.compact_provenance {
+    current.inline_state.compact_plain.write_string(text)
+    html_child_write_minimal_markdown(
+      current.inline_state.compact_markdown,
+      text,
+    )
+    return
+  }
   state.inline_order += 1
   current.inline_state.inlines.push(
     html_child_text_make_inline_text(
@@ -335,6 +349,19 @@ fn html_child_inline_materialize_pending_text(
       "/inline/html:inline:text:" + state.inline_order.to_string(),
     ),
   )
+}
+
+///|
+fn html_child_write_minimal_markdown(
+  out : StringBuilder,
+  text : String,
+) -> Unit {
+  for ch in text {
+    if ch == '\\' || ch == '`' {
+      out.write_char('\\')
+    }
+    out.write_char(ch)
+  }
 }
 
 ///|
@@ -1243,43 +1270,78 @@ fn html_child_text_flush_link(
     Some(current) => {
       html_child_inline_materialize_pending_text(state, source, current)
       if current.inline_state.pending_space && current.inline_state.has_content {
-        state.inline_order += 1
-        current.inline_state.inlines.push(
-          html_child_text_make_inline_text(
-            state,
-            source,
-            " ",
-            state.link_line_start,
-            state.link_line_end,
-            "/inline/html:inline:text:" + state.inline_order.to_string(),
-          ),
-        )
-      }
-      state.inline_order += 1
-      match state.link_href {
-        Some(href) =>
-          current.inline_state.inlines.push(
-            html_child_text_make_inline_link(
-              state,
-              source,
-              text,
-              href,
-              state.link_line_start,
-              state.link_line_end,
-              "/inline/html:inline:a:" + state.inline_order.to_string(),
-            ),
-          )
-        None =>
+        if state.compact_provenance {
+          current.inline_state.compact_plain.write_char(' ')
+          current.inline_state.compact_markdown.write_char(' ')
+        } else {
+          state.inline_order += 1
           current.inline_state.inlines.push(
             html_child_text_make_inline_text(
               state,
               source,
-              text,
+              " ",
               state.link_line_start,
               state.link_line_end,
-              "/inline/html:inline:a:" + state.inline_order.to_string(),
+              "/inline/html:inline:text:" + state.inline_order.to_string(),
             ),
           )
+        }
+      }
+      if state.compact_provenance {
+        current.inline_state.compact_plain.write_string(text)
+        match state.link_href {
+          Some(href) => {
+            let target = href.trim().to_owned()
+            if target == "" {
+              html_child_write_minimal_markdown(
+                current.inline_state.compact_markdown,
+                text,
+              )
+            } else {
+              current.inline_state.compact_markdown.write_char('[')
+              html_child_write_minimal_markdown(
+                current.inline_state.compact_markdown,
+                text,
+              )
+              current.inline_state.compact_markdown.write_string("](")
+              current.inline_state.compact_markdown.write_string(target)
+              current.inline_state.compact_markdown.write_char(')')
+              current.inline_state.compact_has_markup = true
+            }
+          }
+          None =>
+            html_child_write_minimal_markdown(
+              current.inline_state.compact_markdown,
+              text,
+            )
+        }
+      } else {
+        state.inline_order += 1
+        match state.link_href {
+          Some(href) =>
+            current.inline_state.inlines.push(
+              html_child_text_make_inline_link(
+                state,
+                source,
+                text,
+                href,
+                state.link_line_start,
+                state.link_line_end,
+                "/inline/html:inline:a:" + state.inline_order.to_string(),
+              ),
+            )
+          None =>
+            current.inline_state.inlines.push(
+              html_child_text_make_inline_text(
+                state,
+                source,
+                text,
+                state.link_line_start,
+                state.link_line_end,
+                "/inline/html:inline:a:" + state.inline_order.to_string(),
+              ),
+            )
+        }
       }
       current.inline_state.has_content = true
       current.inline_state.pending_space = trailing_space
@@ -1299,16 +1361,22 @@ fn html_child_text_append_line_break(
     Some(current) => {
       html_child_text_flush_link(state, source)
       html_child_inline_materialize_pending_text(state, source, current)
-      state.inline_order += 1
-      current.inline_state.inlines.push(
-        html_child_text_make_inline_line_break(
-          state,
-          source,
-          event.span.line_start,
-          event.span.line_end,
-          "/inline/html:inline:br:" + state.inline_order.to_string(),
-        ),
-      )
+      if state.compact_provenance {
+        current.inline_state.compact_plain.write_string("<br>")
+        current.inline_state.compact_markdown.write_string("<br>")
+        current.inline_state.compact_has_markup = true
+      } else {
+        state.inline_order += 1
+        current.inline_state.inlines.push(
+          html_child_text_make_inline_line_break(
+            state,
+            source,
+            event.span.line_start,
+            event.span.line_end,
+            "/inline/html:inline:br:" + state.inline_order.to_string(),
+          ),
+        )
+      }
       current.inline_state.has_content = true
       current.inline_state.pending_space = false
       current.line_end = event.span.line_end
@@ -1328,16 +1396,22 @@ fn html_child_text_append_line_break_fields(
     Some(current) => {
       html_child_text_flush_link(state, source)
       html_child_inline_materialize_pending_text(state, source, current)
-      state.inline_order += 1
-      current.inline_state.inlines.push(
-        html_child_text_make_inline_line_break(
-          state,
-          source,
-          line_start,
-          line_end,
-          "/inline/html:inline:br:" + state.inline_order.to_string(),
-        ),
-      )
+      if state.compact_provenance {
+        current.inline_state.compact_plain.write_string("<br>")
+        current.inline_state.compact_markdown.write_string("<br>")
+        current.inline_state.compact_has_markup = true
+      } else {
+        state.inline_order += 1
+        current.inline_state.inlines.push(
+          html_child_text_make_inline_line_break(
+            state,
+            source,
+            line_start,
+            line_end,
+            "/inline/html:inline:br:" + state.inline_order.to_string(),
+          ),
+        )
+      }
       current.inline_state.has_content = true
       current.inline_state.pending_space = false
       current.line_end = line_end
@@ -1476,7 +1550,10 @@ fn html_child_text_flush_block(
 ) -> Unit {
   match state.current {
     Some(current) => {
-      let text = if current.inline_state.inlines.length() == 0 {
+      let text = if state.compact_provenance {
+        html_child_inline_materialize_pending_text(state, source, current)
+        current.inline_state.compact_plain.to_string().trim().to_owned()
+      } else if current.inline_state.inlines.length() == 0 {
         current.inline_state.text.to_string().trim().to_owned()
       } else {
         html_child_inline_materialize_pending_text(state, source, current)
@@ -1500,28 +1577,64 @@ fn html_child_text_flush_block(
         )
         if current.kind == @core.BlockKind::Heading {
           block.attrs.set("level", current.level.to_string())
-          block.attrs.set("literal", "true")
-          block.attrs.set("render_inline_escape_mode", "minimal")
-          let rich = html_trim_core_inlines_edges(current.inline_state.inlines)
-          if html_child_text_requires_rich_inlines(rich) {
-            html_child_text_push_block(
-              state,
-              @core.block_with_rich_inlines(block, Some(rich)),
+          let rendered_block = if state.compact_provenance {
+            @core.block_with_literal_rendering(
+              block,
+              minimal_inline_escape=true,
             )
           } else {
-            html_child_text_push_block(state, block)
+            block.attrs.set("literal", "true")
+            block.attrs.set("render_inline_escape_mode", "minimal")
+            block
+          }
+          let rich = html_trim_core_inlines_edges(current.inline_state.inlines)
+          if state.compact_provenance && current.inline_state.compact_has_markup {
+            html_child_text_push_block(
+              state,
+              @core.block_with_rendered_markdown(
+                rendered_block,
+                current.inline_state.compact_markdown
+                .to_string()
+                .trim()
+                .to_owned(),
+              ),
+            )
+          } else if html_child_text_requires_rich_inlines(rich) {
+            html_child_text_push_block(
+              state,
+              @core.block_with_rich_inlines(rendered_block, Some(rich)),
+            )
+          } else {
+            html_child_text_push_block(state, rendered_block)
           }
         } else if current.kind == @core.BlockKind::Code {
           block.attrs.set("info", current.info)
           html_child_text_push_block(state, block)
         } else {
-          block.attrs.set("literal", "true")
-          block.attrs.set("render_inline_escape_mode", "minimal")
-          let rich = html_trim_core_inlines_edges(current.inline_state.inlines)
-          let final_block = if html_child_text_requires_rich_inlines(rich) {
-            @core.block_with_rich_inlines(block, Some(rich))
+          let rendered_block = if state.compact_provenance {
+            @core.block_with_literal_rendering(
+              block,
+              minimal_inline_escape=true,
+            )
           } else {
+            block.attrs.set("literal", "true")
+            block.attrs.set("render_inline_escape_mode", "minimal")
             block
+          }
+          let rich = html_trim_core_inlines_edges(current.inline_state.inlines)
+          let final_block = if state.compact_provenance &&
+            current.inline_state.compact_has_markup {
+            @core.block_with_rendered_markdown(
+              rendered_block,
+              current.inline_state.compact_markdown
+              .to_string()
+              .trim()
+              .to_owned(),
+            )
+          } else if html_child_text_requires_rich_inlines(rich) {
+            @core.block_with_rich_inlines(rendered_block, Some(rich))
+          } else {
+            rendered_block
           }
           html_child_text_push_block(state, final_block)
         }
@@ -1586,7 +1699,7 @@ fn html_child_text_list_item_block(
   end_line : Int,
   end_byte : Int,
 ) -> @core.CoreBlock {
-  let (text, rich, nested_lists, extras) = html_child_text_list_item_body_parts(
+  let (text, rendered_markdown, rich, nested_lists, extras) = html_child_text_list_item_body_parts(
     body_blocks,
   )
   let item = html_child_text_make_block(
@@ -1611,6 +1724,10 @@ fn html_child_text_list_item_block(
     Some(inlines) => @core.block_with_rich_inlines(item, Some(inlines))
     None => item
   }
+  match rendered_markdown {
+    Some(rendered) => root = @core.block_with_rendered_markdown(root, rendered)
+    None => ()
+  }
   let children : Array[@core.CoreBlock] = []
   children.append(nested_lists[:])
   children.append(extras[:])
@@ -1625,6 +1742,7 @@ fn html_child_text_list_item_body_parts(
   body_blocks : Array[@core.CoreBlock],
 ) -> (
   String,
+  String?,
   Array[@core.CoreInline]?,
   Array[@core.CoreBlock],
   Array[@core.CoreBlock],
@@ -1632,6 +1750,7 @@ fn html_child_text_list_item_body_parts(
   let nested_lists : Array[@core.CoreBlock] = []
   let extras : Array[@core.CoreBlock] = []
   let mut root_text = ""
+  let mut rendered_markdown : String? = None
   let mut rich : Array[@core.CoreInline]? = None
   let mut root_taken = false
   for block in body_blocks {
@@ -1647,13 +1766,14 @@ fn html_child_text_list_item_body_parts(
         block.kind == @core.BlockKind::Code
       ) {
       root_text = block.text
+      rendered_markdown = @core.block_rendered_markdown(block)
       rich = block.rich_inlines
       root_taken = true
       continue
     }
     extras.push(block)
   }
-  (root_text, rich, nested_lists, extras)
+  (root_text, rendered_markdown, rich, nested_lists, extras)
 }
 
 ///|
@@ -1699,12 +1819,47 @@ fn html_child_text_close_list(
     byte_start=frame.start_byte,
     byte_end=end_byte,
   )
-  list.attrs.set("ordered", @fshared.bool_string(frame.ordered))
-  let lowered = @core.block_with_children(list, frame.items)
+  let lowered = match
+    (if state.compact_provenance {
+      html_child_compact_list_markdown(frame)
+    } else {
+      None
+    }) {
+    Some(rendered) => @core.block_with_rendered_markdown(list, rendered)
+    None => {
+      list.attrs.set("ordered", @fshared.bool_string(frame.ordered))
+      @core.block_with_children(list, frame.items)
+    }
+  }
   match state.list_item_stack.last() {
     Some(item) => item.body_blocks.push(lowered)
     None => state.blocks.push(lowered)
   }
+}
+
+///|
+fn html_child_compact_list_markdown(frame : HtmlChildListFrame) -> String? {
+  let out = StringBuilder::new()
+  for index in 0..<frame.items.length() {
+    let item = frame.items[index]
+    if item.children.length() > 0 {
+      return None
+    }
+    let text = match @core.block_rendered_markdown(item) {
+      Some(rendered) => rendered.trim().to_owned()
+      None =>
+        match item.rich_inlines {
+          Some(_) => return None
+          None => item.text.trim().to_owned()
+        }
+    }
+    if index > 0 {
+      out.write_char('\n')
+    }
+    out.write_string(if frame.ordered { "1. " } else { "- " })
+    out.write_string(text)
+  }
+  Some(out.to_string())
 }
 
 ///|
@@ -2035,6 +2190,13 @@ fn html_child_table_block(
     byte_start=open_event.span.byte_start,
     byte_end=close_event.span.byte_end,
   )
+  if state.compact_provenance {
+    match html_child_compact_table_markdown(rows, header_rows) {
+      Some(rendered) =>
+        return Some(@core.block_with_rendered_markdown(table, rendered))
+      None => ()
+    }
+  }
   table.attrs.set("header_rows", html_child_table_header_rows(rows).to_string())
   table.attrs.set(
     "table_column_count",
@@ -2044,6 +2206,73 @@ fn html_child_table_block(
     table.attrs.set("header_rows", header_rows.to_string())
   }
   Some(@core.block_with_children(table, rows))
+}
+
+///|
+fn html_child_compact_table_markdown(
+  rows : Array[@core.CoreBlock],
+  header_rows : Int,
+) -> String? {
+  if rows.length() == 0 || header_rows <= 0 {
+    return None
+  }
+  let width = rows[0].children.length()
+  if width == 0 {
+    return None
+  }
+  let out = StringBuilder::new()
+  for row_index in 0..<rows.length() {
+    let row = rows[row_index]
+    if row.children.length() != width {
+      return None
+    }
+    if row_index > 0 {
+      out.write_char('\n')
+    }
+    out.write_string("| ")
+    for cell_index in 0..<width {
+      if cell_index > 0 {
+        out.write_string(" | ")
+      }
+      match html_child_compact_table_cell_text(row.children[cell_index]) {
+        Some(text) => out.write_string(text)
+        None => return None
+      }
+    }
+    out.write_string(" |")
+    if row_index == 0 {
+      out.write_char('\n')
+      out.write_string("| ")
+      for column in 0..<width {
+        if column > 0 {
+          out.write_string(" | ")
+        }
+        out.write_string("---")
+      }
+      out.write_string(" |")
+    }
+  }
+  Some(out.to_string())
+}
+
+///|
+fn html_child_compact_table_cell_text(cell : @core.CoreBlock) -> String? {
+  match cell.rich_inlines {
+    Some(inlines) =>
+      if !inlines.all(inline => inline.kind == @core.InlineKind::Text) {
+        return None
+      }
+    None => ()
+  }
+  let text = cell.text.trim().to_owned()
+  if text.contains("|") ||
+    text.contains("\n") ||
+    text.contains("\r") ||
+    text.contains("\\") ||
+    text.contains("`") {
+    return None
+  }
+  Some(text)
 }
 
 ///|

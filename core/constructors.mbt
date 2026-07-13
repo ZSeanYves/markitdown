@@ -53,6 +53,84 @@ pub fn block_with_column_index(
 }
 
 ///|
+pub fn block_with_literal_rendering(
+  block : CoreBlock,
+  minimal_inline_escape? : Bool = false,
+) -> CoreBlock {
+  match block.compact_source_ref {
+    Some(source_ref) =>
+      {
+        ..block,
+        compact_source_ref: Some({
+          ..source_ref,
+          literal: true,
+          minimal_inline_escape,
+        }),
+      }
+    None => {
+      let next = { ..block }
+      next.attrs.set("literal", "true")
+      if minimal_inline_escape {
+        next.attrs.set("render_inline_escape_mode", "minimal")
+      }
+      next
+    }
+  }
+}
+
+///|
+pub fn block_is_literal(block : CoreBlock) -> Bool {
+  match block.compact_source_ref {
+    Some(source_ref) =>
+      source_ref.literal || block.attrs.get("literal") == Some("true")
+    None => block.attrs.get("literal") == Some("true")
+  }
+}
+
+///|
+pub fn block_inline_escape_mode(block : CoreBlock) -> String? {
+  match block.compact_source_ref {
+    Some(source_ref) =>
+      if source_ref.minimal_inline_escape {
+        Some("minimal")
+      } else {
+        block.attrs.get("render_inline_escape_mode")
+      }
+    None => block.attrs.get("render_inline_escape_mode")
+  }
+}
+
+///|
+pub fn block_with_rendered_markdown(
+  block : CoreBlock,
+  rendered_markdown : String,
+) -> CoreBlock {
+  match block.compact_source_ref {
+    Some(source_ref) =>
+      {
+        ..block,
+        compact_source_ref: Some({
+          ..source_ref,
+          rendered_markdown: Some(rendered_markdown),
+        }),
+      }
+    None => block_with_attr(block, "rendered_markdown", rendered_markdown)
+  }
+}
+
+///|
+pub fn block_rendered_markdown(block : CoreBlock) -> String? {
+  match block.compact_source_ref {
+    Some(source_ref) =>
+      match source_ref.rendered_markdown {
+        Some(rendered) => Some(rendered)
+        None => block.attrs.get("rendered_markdown")
+      }
+    None => block.attrs.get("rendered_markdown")
+  }
+}
+
+///|
 pub fn block_with_compact_source_ref(
   block : CoreBlock,
   source_ref : CompactSourceRef,
@@ -69,7 +147,17 @@ pub fn make_compact_source_ref(
   byte_start : Int,
   byte_end : Int,
 ) -> CompactSourceRef {
-  { file_id, format, line_start, line_end, byte_start, byte_end }
+  {
+    file_id,
+    format,
+    line_start,
+    line_end,
+    byte_start,
+    byte_end,
+    literal: false,
+    minimal_inline_escape: false,
+    rendered_markdown: None,
+  }
 }
 
 ///|

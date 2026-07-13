@@ -87,6 +87,9 @@ pub(all) struct CompactSourceRef {
   line_end : Int
   byte_start : Int
   byte_end : Int
+  literal : Bool
+  minimal_inline_escape : Bool
+  rendered_markdown : String?
 }
 
 ///|

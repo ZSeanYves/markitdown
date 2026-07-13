@@ -109,16 +109,53 @@ test "HTML huge byte sources lower from the prepared scan summary" {
   let blocks = result.block_stream.unwrap()
   assert_true(blocks.length() > 120_000)
   assert_true(blocks.all(block => @core.block_source_ref(block) is Some(_)))
+  assert_true(blocks.all(block => @core.block_is_literal(block)))
+  assert_true(
+    blocks.all(block => @core.block_inline_escape_mode(block) == Some("minimal")),
+  )
+  assert_true(blocks[0].attrs.get("literal") is None)
+  assert_true(blocks[0].attrs.get("render_inline_escape_mode") is None)
+  assert_true(blocks[0].rich_inlines is None)
+  assert_true(
+    @core.block_rendered_markdown(blocks[0]) == Some("plain [link](/x)"),
+  )
   let first_ref = @core.block_source_ref(blocks[0]).unwrap()
   assert_true(first_ref.byte_start is Some(_) && first_ref.byte_end is Some(_))
   assert_true(
-    blocks[0].rich_inlines
-    .unwrap_or([])
-    .all(inline => inline.source_ref is None),
-  )
-  assert_true(
     result.diagnostics.metrics.get("scope_plan_labels") ==
     Some("child_text_stream_scan"),
+  )
+}
+
+///|
+test "HTML compact scan stores simple lists and tables without child trees" {
+  let html = "<main><ul><li>alpha</li><li>beta</li></ul>" +
+    "<table><tr><th>a</th><th>b</th></tr>" +
+    "<tr><td>1</td><td>2</td></tr></table></main>"
+  let source = @input.input_from_text_with_format(
+    html,
+    "compact-structures.html",
+    Some(@input.DetectedFormat::Html),
+  )
+  let diagnostics = @fshared.empty_parser_diagnostics(
+    "html_parser",
+    @parser.ParserMode::BlockStreaming,
+    source,
+    "html",
+  )
+  let lowered = html_lower_child_text_blocks_scanned(source, html, diagnostics)
+  let lists = lowered.0.filter(block => block.kind == @core.BlockKind::List)
+  assert_eq(lists.length(), 1)
+  let list = lists[0]
+  assert_eq(list.children.length(), 0)
+  assert_true(@core.block_rendered_markdown(list) == Some("- alpha\n- beta"))
+  let tables = lowered.0.filter(block => block.kind == @core.BlockKind::Table)
+  assert_eq(tables.length(), 1)
+  let table = tables[0]
+  assert_eq(table.children.length(), 0)
+  assert_true(
+    @core.block_rendered_markdown(table) ==
+    Some("| a | b |\n| --- | --- |\n| 1 | 2 |"),
   )
 }
 

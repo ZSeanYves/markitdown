@@ -145,6 +145,10 @@ fn write_markdown_block_with_separator_to(
 
 ///|
 fn render_markdown_block(block : @core.CoreBlock) -> String {
+  match @core.block_rendered_markdown(block) {
+    Some(rendered) => return rendered
+    None => ()
+  }
   match block.kind {
     @core.BlockKind::Heading => render_markdown_heading(block)
     @core.BlockKind::Paragraph => render_markdown_paragraph(block)
@@ -200,7 +204,7 @@ fn markdown_direct_block_visibility(block : @core.CoreBlock) -> Bool? {
       if block.attrs.get("note_definition_id") is None &&
         !rich_inlines_present(block) {
         Some(
-          block.attrs.get("literal") == Some("true") ||
+          @core.block_is_literal(block) ||
           literal_text_block(block) ||
           block.text.trim() != "",
         )
@@ -235,7 +239,7 @@ fn write_markdown_heading_to(
   let level = clamp_heading_level(block.attrs.get("level").unwrap_or("1"))
   out.write_string(repeat_char_string('#', level))
   out.write_char(' ')
-  if block.attrs.get("literal") == Some("true") || literal_text_block(block) {
+  if @core.block_is_literal(block) || literal_text_block(block) {
     out.write_string(block.text.trim().to_owned())
   } else {
     write_escaped_markdown_inline_text_to(out, block.text.trim().to_owned())
@@ -247,7 +251,7 @@ fn write_markdown_paragraph_to(
   out : StringBuilder,
   block : @core.CoreBlock,
 ) -> Unit {
-  if literal_text_block(block) || block.attrs.get("literal") == Some("true") {
+  if literal_text_block(block) || @core.block_is_literal(block) {
     if block.attrs.get("markdown_literal_raw") == Some("true") {
       out.write_string(block.text.trim().to_owned())
       return
@@ -301,7 +305,7 @@ fn write_markdown_image_to(
   out : StringBuilder,
   block : @core.CoreBlock,
 ) -> Unit {
-  let escape_mode = block.attrs.get("render_inline_escape_mode")
+  let escape_mode = @core.block_inline_escape_mode(block)
   let path = block.attrs.get("path").unwrap_or("#")
   out.write_string("![")
   write_escaped_markdown_inline_text_for_format_to(
@@ -348,7 +352,7 @@ fn render_markdown_heading(block : @core.CoreBlock) -> String {
   let prefix = Array::make(level, "#").join("")
   let escaped = if rich_inlines_present(block) {
     render_markdown_inline_text(block).trim().to_owned()
-  } else if block.attrs.get("literal") == Some("true") {
+  } else if @core.block_is_literal(block) {
     block.text.trim().to_owned()
   } else if literal_text_block(block) {
     block.text.trim().to_owned()
@@ -434,7 +438,7 @@ fn render_markdown_list_item(
   }
   let text = if rich_inlines_present(block) {
     render_markdown_inline_text(block).trim().to_owned()
-  } else if block.attrs.get("literal") == Some("true") {
+  } else if @core.block_is_literal(block) {
     block.text.trim().to_owned()
   } else {
     escape_markdown_inline_text(block.text).trim().to_owned()
@@ -797,7 +801,7 @@ fn render_markdown_code(block : @core.CoreBlock) -> String {
 fn render_markdown_image(block : @core.CoreBlock) -> String {
   let alt = escape_markdown_inline_text_for_format(
     block.attrs.get("alt").unwrap_or("image"),
-    block.attrs.get("render_inline_escape_mode"),
+    @core.block_inline_escape_mode(block),
   )
   let path = block.attrs.get("path").unwrap_or("#")
   let lines : Array[String] = ["![" + alt + "](" + path + ")"]
@@ -808,7 +812,7 @@ fn render_markdown_image(block : @core.CoreBlock) -> String {
           "*" +
           escape_markdown_inline_text_for_format(
             title.trim().to_owned(),
-            block.attrs.get("render_inline_escape_mode"),
+            @core.block_inline_escape_mode(block),
           ) +
           "*",
         )
@@ -886,7 +890,7 @@ fn render_markdown_blockquote(block : @core.CoreBlock) -> String {
   if rich_inlines_present(block) {
     return render_inline_markdown_blockquote(block)
   }
-  let literal = block.attrs.get("literal") == Some("true")
+  let literal = @core.block_is_literal(block)
   let lines = block.text.split("\n").to_array().map(line => line.to_owned())
   if text_markup_semantic_blockquote_markdown(block, lines) is Some(rendered) {
     return rendered
@@ -908,7 +912,7 @@ fn text_markup_semantic_blockquote_markdown(
   block : @core.CoreBlock,
   lines : Array[String],
 ) -> String? {
-  if block.attrs.get("literal") != Some("true") || lines.length() == 0 {
+  if !@core.block_is_literal(block) || lines.length() == 0 {
     return None
   }
   if block.attrs.get("semantic_family") is None &&
@@ -967,6 +971,10 @@ fn render_inline_markdown_blockquote(block : @core.CoreBlock) -> String {
 
 ///|
 fn rich_inlines_present(block : @core.CoreBlock) -> Bool {
+  match @core.block_rendered_markdown(block) {
+    Some(rendered) => if rendered != "" { return true }
+    None => ()
+  }
   match block.rich_inlines {
     Some(inlines) => inlines.length() > 0
     None => false
@@ -975,7 +983,11 @@ fn rich_inlines_present(block : @core.CoreBlock) -> Bool {
 
 ///|
 fn render_markdown_inline_text(block : @core.CoreBlock) -> String {
-  let escape_mode = block.attrs.get("render_inline_escape_mode")
+  match @core.block_rendered_markdown(block) {
+    Some(rendered) => return rendered
+    None => ()
+  }
+  let escape_mode = @core.block_inline_escape_mode(block)
   let out = StringBuilder::new()
   match block.rich_inlines {
     Some(inlines) =>
