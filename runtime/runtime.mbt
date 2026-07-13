@@ -150,7 +150,7 @@ fn child_parse_plan(
     context: child_parse_context_from_mode(format, context, requested_mode),
     preference: child_parse_preference_name(format, source, requested_mode),
     preferred_format: @input.detected_format_name(format),
-    predecoded_text_used: source.text is Some(_),
+    predecoded_text_used: @input.input_text(source) is Some(_),
   }
 }
 
@@ -212,7 +212,7 @@ fn resolved_child_requested_mode(
   source : @input.InputSource,
   context : @parser.ParseContext,
 ) -> @parser.ParserMode? {
-  if source.text is Some(_) &&
+  if @input.input_text(source) is Some(_) &&
     child_format_prefers_block_stream_text_markup(format) {
     Some(@parser.ParserMode::BlockStreaming)
   } else {
@@ -226,7 +226,7 @@ fn child_parse_preference_name(
   source : @input.InputSource,
   _requested_mode : @parser.ParserMode?,
 ) -> String {
-  if source.text is Some(_) &&
+  if @input.input_text(source) is Some(_) &&
     child_format_prefers_block_stream_text_markup(format) {
     "prefer_block_stream_text_markup"
   } else {

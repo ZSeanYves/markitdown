@@ -13,7 +13,7 @@ pub fn prepare_odt_document_from_source(
     Ok(payload) => payload
     Err(err) => return Err(err)
   }
-  let prepared_source = if source.bytes is Some(_) {
+  let prepared_source = if @input.input_bytes(source) is Some(_) {
     source
   } else {
     @input.with_bytes_payload(source, bytes)

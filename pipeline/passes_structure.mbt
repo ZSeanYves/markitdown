@@ -44,7 +44,9 @@ fn resolve_heading_block(block : @core.CoreBlock) -> @core.CoreBlock {
     let promoted = @core.make_block(
       @core.BlockKind::Heading,
       next.text.trim().to_owned(),
-      source_ref=next.source_ref.unwrap_or(@core.empty_source_ref()),
+      source_ref=@core.block_source_ref(next).unwrap_or(
+        @core.empty_source_ref(),
+      ),
     )
     let promoted = @core.block_with_block_id(promoted, next.block_id)
     let promoted = if next.rich_inlines is Some(_) {
@@ -188,7 +190,7 @@ fn make_list_container_for_item(
   let list = @core.make_block(
     @core.BlockKind::List,
     "",
-    source_ref=item.source_ref.unwrap_or(@core.empty_source_ref()),
+    source_ref=@core.block_source_ref(item).unwrap_or(@core.empty_source_ref()),
   )
   list.attrs.set("ordered", bool_string(ordered))
   list

@@ -26,6 +26,7 @@ fn pdf_native_input_kind_name(kind : @input.InputKind) -> String {
     @input.InputKind::Path => "path"
     @input.InputKind::Text => "text"
     @input.InputKind::Bytes => "bytes"
+    @input.InputKind::Reader => "reader"
   }
 }
 
@@ -255,7 +256,7 @@ pub fn extract_pdf_native_document(
       Some("pdf_native_backend"),
       Some("page_single_pass"),
     ),
-    Some(pdf_native_input_kind_name(source.kind)),
+    Some(pdf_native_input_kind_name(@input.input_kind(source))),
     Some("pdf"),
   )
   diagnostics.pass_trace.push("pdf_native:extract_document")

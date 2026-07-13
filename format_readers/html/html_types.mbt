@@ -9,6 +9,8 @@ pub(all) suberror HtmlError {
 pub struct HtmlSourceSpan {
   line_start : Int
   line_end : Int
+  byte_start : Int
+  byte_end : Int
 }
 
 ///|
@@ -58,6 +60,8 @@ pub fn make_html_token_event(
   source_end : Int,
   line_start : Int,
   line_end : Int,
+  byte_start? : Int = source_start,
+  byte_end? : Int = source_end,
 ) -> HtmlTokenEvent {
   {
     kind,
@@ -66,7 +70,7 @@ pub fn make_html_token_event(
     self_closing,
     source_start,
     source_end,
-    span: { line_start, line_end },
+    span: { line_start, line_end, byte_start, byte_end },
   }
 }
 

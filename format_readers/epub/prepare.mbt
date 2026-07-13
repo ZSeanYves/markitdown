@@ -7,7 +7,7 @@ pub struct PreparedEpubPackage {
 
 ///|
 fn epub_container_path(source : @input.InputSource) -> String {
-  match source.path {
+  match @input.input_path(source) {
     Some(path) => {
       let parts = path.replace(old="\\", new="/").split("/").to_array()
       parts.last().unwrap_or(source.source_name).to_owned()
@@ -24,7 +24,7 @@ pub fn prepare_epub_package_from_source(
     Ok(payload) => payload
     Err(err) => return Err(err)
   }
-  let prepared_source = if source.bytes is Some(_) {
+  let prepared_source = if @input.input_bytes(source) is Some(_) {
     source
   } else {
     @input.with_bytes_payload(source, bytes)

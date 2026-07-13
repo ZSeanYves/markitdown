@@ -183,6 +183,8 @@ fn HtmlParser::parse_document(
               span: {
                 line_start: closed.span.line_start,
                 line_end: span.line_end,
+                byte_start: closed.span.byte_start,
+                byte_end: span.byte_end,
               },
             }
             push_node(nodes, stack, HtmlNode::Element(finished))
@@ -223,6 +225,8 @@ fn HtmlParser::parse_document(
             span: {
               line_start: element.span.line_start,
               line_end: element.span.line_end,
+              byte_start: element.span.byte_start,
+              byte_end: element.span.byte_end,
             },
           }),
         )
@@ -284,6 +288,8 @@ fn close_html_element(
           span: {
             line_start: unclosed.span.line_start,
             line_end: end_span.line_start,
+            byte_start: unclosed.span.byte_start,
+            byte_end: end_span.byte_start,
           },
         })
         if stack.length() > 0 {

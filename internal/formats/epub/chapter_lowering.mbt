@@ -476,7 +476,11 @@ fn epub_rewrite_child_assets(
   for asset in assets {
     let old_path = asset.path.unwrap_or("").trim().to_owned()
     let old_asset_id = asset.asset_id
-    match asset.attrs.get("source_path") {
+    let source_path = match asset.payload {
+      Some(@core.AssetPayload::SourcePath(path)) => Some(path)
+      _ => asset.attrs.get("source_path")
+    }
+    match source_path {
       Some(source_path) => {
         let resolved_entry = match
           epub_resolve_asset_entry_path(entry_path, source_path) {
@@ -968,7 +972,7 @@ fn epub_skip_block(
 
 ///|
 fn epub_container_path(source : @input.InputSource) -> String {
-  match source.path {
+  match @input.input_path(source) {
     Some(path) => {
       let parts = path.replace(old="\\", new="/").split("/").to_array()
       parts.last().unwrap_or(source.source_name).to_owned()

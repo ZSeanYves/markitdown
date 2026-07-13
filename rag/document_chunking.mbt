@@ -132,7 +132,7 @@ pub fn chunks_from_document(
           text_units.push(unit)
           append_unique_source_ref(
             text_source_refs,
-            block.source_ref,
+            @core.block_source_ref(block),
             normalized_options.preserve_source_ref,
           )
           let block_asset_refs = block_asset_refs(block, document.assets)
@@ -186,7 +186,7 @@ pub fn chunks_from_document(
         if !solo_source_ref_only || text_units.length() == 1 {
           append_unique_source_ref(
             text_source_refs,
-            block.source_ref,
+            @core.block_source_ref(block),
             normalized_options.preserve_source_ref,
           )
         }
@@ -711,13 +711,6 @@ fn render_sparse_table_row(block : @core.CoreBlock) -> String {
     return ""
   }
   let cells = Array::make(width, "")
-  if block.children.length() == 0 {
-    sparse_table_row_payload_fill_for_rag(
-      cells,
-      sparse_table_row_payload_for_rag(block),
-    )
-    return "| " + cells.join(" | ") + " |"
-  }
   for cell in block.children {
     let column_index = sparse_table_cell_column_index_for_rag(cell)
     if column_index <= 0 || column_index > width {
@@ -726,11 +719,6 @@ fn render_sparse_table_row(block : @core.CoreBlock) -> String {
     cells[column_index - 1] = block_plain_text(cell).trim().to_owned()
   }
   "| " + cells.join(" | ") + " |"
-}
-
-///|
-fn sparse_table_row_payload_for_rag(block : @core.CoreBlock) -> String {
-  block.attrs.get("sparse_row_payload").unwrap_or("")
 }
 
 ///|
@@ -750,9 +738,13 @@ fn sparse_table_row_width_for_rag(block : @core.CoreBlock) -> Int {
 
 ///|
 fn sparse_table_cell_column_index_for_rag(cell : @core.CoreBlock) -> Int {
-  match cell.attrs.get("column_index") {
-    Some(raw) => @string.parse_int(raw.trim()) catch { _ => 0 }
-    None => 0
+  match cell.column_index {
+    Some(value) => value
+    None =>
+      match cell.attrs.get("column_index") {
+        Some(raw) => @string.parse_int(raw.trim()) catch { _ => 0 }
+        None => 0
+      }
   }
 }
 
@@ -762,62 +754,6 @@ fn sparse_table_declared_width_for_rag(block : @core.CoreBlock) -> Int {
     Some(raw) => @string.parse_int(raw.trim()) catch { _ => 0 }
     None => 0
   }
-}
-
-///|
-fn sparse_table_row_payload_fill_for_rag(
-  cells : Array[String],
-  payload : String,
-) -> Unit {
-  if payload.trim() == "" {
-    return
-  }
-  for line in payload.split("\n").to_array() {
-    let entry = line.to_owned()
-    if entry == "" {
-      continue
-    }
-    let parts = entry.split("\t").to_array()
-    if parts.length() < 2 {
-      continue
-    }
-    let column_index = @string.parse_int(parts[0].trim()) catch { _ => 0 }
-    if column_index <= 0 || column_index > cells.length() {
-      continue
-    }
-    cells[column_index - 1] = xlsx_decode_sparse_row_cell_for_rag(
-      parts[1].to_owned(),
-    )
-  }
-}
-
-///|
-fn xlsx_decode_sparse_row_cell_for_rag(text : String) -> String {
-  let out : Array[Char] = []
-  let chars = text.to_array()
-  let mut i = 0
-  while i < chars.length() {
-    let ch = chars[i]
-    if ch == '\\' && i + 1 < chars.length() {
-      let next = chars[i + 1]
-      if next == 'n' {
-        out.push('\n')
-        i += 2
-        continue
-      } else if next == 't' {
-        out.push('\t')
-        i += 2
-        continue
-      } else if next == '\\' {
-        out.push('\\')
-        i += 2
-        continue
-      }
-    }
-    out.push(ch)
-    i += 1
-  }
-  String::from_array(out)
 }
 
 ///|
@@ -1096,7 +1032,7 @@ fn blockquote_text(block : @core.CoreBlock) -> String {
 
 ///|
 fn block_location_bucket(block : @core.CoreBlock) -> String {
-  match block.source_ref {
+  match @core.block_source_ref(block) {
     Some(source_ref) =>
       [
         source_ref.page.map(i => i.to_string()).unwrap_or(""),
@@ -1120,7 +1056,7 @@ fn block_source_refs(
 ) -> Array[@core.SourceRef] {
   let refs : Array[@core.SourceRef] = []
   if preserve_source_ref {
-    append_unique_source_ref(refs, block.source_ref, true)
+    append_unique_source_ref(refs, @core.block_source_ref(block), true)
     collect_child_source_refs(refs, block)
   }
   refs
@@ -1132,7 +1068,7 @@ fn collect_child_source_refs(
   block : @core.CoreBlock,
 ) -> Unit {
   for child in block.children {
-    append_unique_source_ref(refs, child.source_ref, true)
+    append_unique_source_ref(refs, @core.block_source_ref(child), true)
     collect_child_source_refs(refs, child)
   }
 }
@@ -1149,7 +1085,7 @@ fn block_asset_refs(
       _ => ()
     }
   }
-  match block.source_ref {
+  match @core.block_source_ref(block) {
     Some(source_ref) =>
       for asset in assets {
         if source_ref_eq(

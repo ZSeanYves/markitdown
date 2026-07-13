@@ -97,7 +97,10 @@ fn delimited_parser(
       let delimiter_name = if is_tsv { "tab" } else { "comma" }
       diagnostics.metrics.set("parser_name", name)
       diagnostics.metrics.set("parser_mode", "streaming_event")
-      diagnostics.metrics.set("input_kind", input_kind_name(source.kind))
+      diagnostics.metrics.set(
+        "input_kind",
+        input_kind_name(@input.input_kind(source)),
+      )
       diagnostics.metrics.set("detected_format", format_name)
       apply_product_metrics(diagnostics, format_name)
       diagnostics.metrics.set("delimiter", delimiter_name)
@@ -352,7 +355,10 @@ fn malformed_delimited_parse_result(
   )
   diagnostics.metrics.set("parser_name", name)
   diagnostics.metrics.set("parser_mode", "streaming_event")
-  diagnostics.metrics.set("input_kind", input_kind_name(source.kind))
+  diagnostics.metrics.set(
+    "input_kind",
+    input_kind_name(@input.input_kind(source)),
+  )
   diagnostics.metrics.set("detected_format", format_name)
   apply_product_metrics(diagnostics, format_name)
   diagnostics.metrics.set(

@@ -216,10 +216,12 @@ fn lower_ipynb_large_markdown_cell(
     block_id: "b_ipynb_compact_cell_" + cell.index.to_string(),
     kind: @core.BlockKind::Raw,
     text,
+    column_index: None,
     rich_inlines: None,
     children: [],
     attrs: Map([("raw_kind", "markdown_literal")]),
     source_ref: Some(source_ref),
+    compact_source_ref: None,
     style: None,
     signals: [],
   }
@@ -612,7 +614,7 @@ fn ipynb_materialize_image_asset(
     path: Some(asset_id),
     mime_type: Some(entry.mime_type),
   }
-  ipynb_attach_inline_payload(next_asset, entry)
+  ipynb_attach_asset_payload(next_asset, entry)
   document.assets.push(next_asset)
   let block = @core.make_block(@core.BlockKind::Image, "", source_ref~)
   block.attrs.set("asset_id", asset_id)
@@ -655,7 +657,7 @@ fn lower_ipynb_attachment(
         mime_type: Some(entry.mime_type),
       }
       next_asset.attrs.set("reference_path", "attachment:" + attachment.name)
-      ipynb_attach_inline_payload(next_asset, entry)
+      ipynb_attach_asset_payload(next_asset, entry)
       document.assets.push(next_asset)
       let image = @core.make_block(@core.BlockKind::Image, "", source_ref~)
       image.attrs.set("asset_id", asset_id)
@@ -686,7 +688,7 @@ fn lower_ipynb_attachment(
         path: Some(asset_id),
         mime_type: Some(entry.mime_type),
       }
-      ipynb_attach_inline_payload(next_asset, entry)
+      ipynb_attach_asset_payload(next_asset, entry)
       document.assets.push(next_asset)
       blocks.push(
         @core.make_block(

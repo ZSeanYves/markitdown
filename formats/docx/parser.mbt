@@ -60,7 +60,7 @@ fn parse_docx_document_result(
       diagnostics.metrics.set("parser_mode", "package_single_pass")
       diagnostics.metrics.set(
         "input_kind",
-        @fshared.input_kind_name(source.kind),
+        @fshared.input_kind_name(@input.input_kind(source)),
       )
       diagnostics.metrics.set("detected_format", "docx")
       diagnostics.metrics.set(
@@ -121,7 +121,10 @@ pub fn docx_parse_with_prepared_document(
   )
   diagnostics.metrics.set("parser_name", "docx_parser")
   diagnostics.metrics.set("parser_mode", "package_single_pass")
-  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
+  diagnostics.metrics.set(
+    "input_kind",
+    @fshared.input_kind_name(@input.input_kind(source)),
+  )
   diagnostics.metrics.set("detected_format", "docx")
   diagnostics.metrics.set(
     "requested_mode",

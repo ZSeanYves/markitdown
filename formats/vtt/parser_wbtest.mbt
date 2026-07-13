@@ -58,7 +58,7 @@ test "VTT fail-closed result retains original text and complete diagnostics" {
   )
   let result = subtitle_malformed_parse_result(
     source,
-    source.text.unwrap(),
+    @input.input_text(source).unwrap(),
     diagnostics,
     "missing WEBVTT header",
   )
@@ -84,7 +84,7 @@ test "VTT large streaming path preserves cue metadata directives and recovery" {
   )
   let result = parse_large_vtt_result(
     source,
-    source.text.unwrap(),
+    @input.input_text(source).unwrap(),
     @parser.new_parse_context(@input.DetectedFormat::Vtt),
   )
   assert_true(

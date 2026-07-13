@@ -43,6 +43,12 @@ fn finalize_pipeline_execution(
     Ok(value) => value
     Err(err) => abort(err.message)
   }
+  let limited_assets = apply_asset_payload_limits(
+    pass_context.assets.val,
+    execution_plan.limits,
+    diagnostics,
+  )
+  pass_context.assets.val = limited_assets.0
   diagnostics.metrics.set(
     "timing_pipeline_ms",
     (@env.now() - pipeline_started).to_string(),
@@ -65,11 +71,14 @@ fn finalize_pipeline_execution(
     "detected_format",
     @input.detected_format_name(detected_format),
   )
-  pipeline_diagnostics.metrics.set("input_kind", input_kind_name(source.kind))
+  pipeline_diagnostics.metrics.set(
+    "input_kind",
+    input_kind_name(@input.input_kind(source)),
+  )
   let final_diagnostics = @core.diagnostics_with_mode(
     @core.diagnostics_with_input(
       pipeline_diagnostics,
-      Some(input_kind_name(source.kind)),
+      Some(input_kind_name(@input.input_kind(source))),
       Some(@input.detected_format_name(detected_format)),
     ),
     Some(parsed.mode |> @parser.mode_name),
@@ -116,8 +125,14 @@ fn finalize_pipeline_execution(
     "timing_total_ms",
     (@env.now() - execution_started).to_string(),
   )
+  let final_content = if effective_options.output_format ==
+    OutputFormat::Markdown {
+    remove_skipped_asset_references(rendered.content, limited_assets.1)
+  } else {
+    rendered.content
+  }
   let result : ConvertResult = {
-    content: rendered.content,
+    content: final_content,
     output_format: effective_options.output_format,
     fidelity_mode: effective_options.fidelity_mode,
     output_mode: effective_options.output_mode,
@@ -217,6 +232,136 @@ fn finalize_pipeline_execution(
 }
 
 ///|
+fn apply_asset_payload_limits(
+  assets : Array[@core.AssetRef],
+  limits : ResourceLimits,
+  diagnostics : @core.Diagnostics,
+) -> (Array[@core.AssetRef], Array[@core.AssetRef]) {
+  let limited : Array[@core.AssetRef] = []
+  let skipped : Array[@core.AssetRef] = []
+  let mut total = 0L
+  for asset in assets {
+    let size = match asset.payload {
+      Some(@core.AssetPayload::Bytes(bytes)) => Some(bytes.length().to_int64())
+      Some(@core.AssetPayload::Utf8(text)) =>
+        Some(@utf8.encode(text).length().to_int64())
+      _ => None
+    }
+    match size {
+      Some(observed) if observed > limits.max_asset_bytes => {
+        let next = { ..asset, payload: None }
+        next.attrs.set("payload_skipped", "single_asset_limit")
+        limited.push(next)
+        skipped.push(next)
+        record_asset_payload_limit(
+          diagnostics,
+          asset,
+          "single_asset_bytes",
+          observed,
+          limits.max_asset_bytes,
+        )
+      }
+      Some(observed) if total + observed > limits.max_total_asset_bytes => {
+        let next = { ..asset, payload: None }
+        next.attrs.set("payload_skipped", "total_asset_limit")
+        limited.push(next)
+        skipped.push(next)
+        record_asset_payload_limit(
+          diagnostics,
+          asset,
+          "total_asset_bytes",
+          total + observed,
+          limits.max_total_asset_bytes,
+        )
+      }
+      Some(observed) => {
+        total = total + observed
+        limited.push(asset)
+      }
+      None => limited.push(asset)
+    }
+  }
+  diagnostics.metrics.set("asset_payload_bytes", total.to_string())
+  diagnostics.metrics.set("asset_payload_skipped", skipped.length().to_string())
+  (limited, skipped)
+}
+
+///|
+fn record_asset_payload_limit(
+  diagnostics : @core.Diagnostics,
+  asset : @core.AssetRef,
+  kind : String,
+  observed : Int64,
+  limit : Int64,
+) -> Unit {
+  diagnostics.warnings.push(
+    "asset payload skipped: " +
+    asset.asset_id +
+    "; kind=" +
+    kind +
+    "; observed=" +
+    observed.to_string() +
+    "; limit=" +
+    limit.to_string(),
+  )
+  if !diagnostics.degraded_features.contains("asset_payload_limit_skip") {
+    diagnostics.degraded_features.push("asset_payload_limit_skip")
+  }
+}
+
+///|
+fn remove_skipped_asset_references(
+  content : String,
+  skipped : Array[@core.AssetRef],
+) -> String {
+  let rendered = Ref(content)
+  for asset in skipped {
+    match asset.path {
+      Some(path) =>
+        rendered.val = remove_markdown_image_target(rendered.val, path)
+      None => ()
+    }
+  }
+  rendered.val
+}
+
+///|
+fn remove_markdown_image_target(content : String, path : String) -> String {
+  if path == "" {
+    return content
+  }
+  let close_marker = "](" + path + ")"
+  let rendered = Ref(content)
+  while true {
+    let close_index = match rendered.val.find(close_marker) {
+      Some(value) => value
+      None => break
+    }
+    let mut cursor = 0
+    let mut open_index : Int? = None
+    while cursor < close_index {
+      match rendered.val[cursor:close_index].find("![") {
+        Some(relative) => {
+          let absolute = cursor + relative
+          open_index = Some(absolute)
+          cursor = absolute + 2
+        }
+        None => break
+      }
+    }
+    let open_index = match open_index {
+      Some(value) => value
+      None => break
+    }
+    let alt = rendered.val[open_index + 2:close_index].to_owned()
+    rendered.val = rendered.val[:open_index].to_owned() +
+      alt +
+      rendered.val[close_index + close_marker.length():].to_owned()
+  }
+  rendered.val
+}
+
+///|
 fn ir_input_to_render_input(input : @core.IRInput) -> @render.RenderInput {
   match input {
     @core.IRInput::Document(document) => @render.RenderInput::Document(document)
@@ -271,5 +416,6 @@ fn input_kind_name(kind : @input.InputKind) -> String {
     @input.InputKind::Path => "path"
     @input.InputKind::Text => "text"
     @input.InputKind::Bytes => "bytes"
+    @input.InputKind::Reader => "reader"
   }
 }

@@ -96,32 +96,34 @@ test "IPYNB MIME helpers select preferred entries and normalize payloads" {
     "application/octet-stream",
   )
   assert_true(
-    ipynb_inline_payload(ipynb_mime_wbtest_find(entries, "image/png")) ==
-    Some(("base64", "cG5n")),
+    ipynb_asset_payload(ipynb_mime_wbtest_find(entries, "image/png")) ==
+    Some(@core.AssetPayload::Bytes(Bytes::from_array([112, 110, 103]))),
   )
   assert_true(
-    ipynb_inline_payload(ipynb_mime_wbtest_find(entries, "image/svg+xml")) ==
-    Some(("utf8", "<svg/>")),
+    ipynb_asset_payload(ipynb_mime_wbtest_find(entries, "image/svg+xml")) ==
+    Some(@core.AssetPayload::Utf8("<svg/>")),
   )
   assert_true(
-    ipynb_inline_payload(ipynb_mime_wbtest_find(entries, "application/json"))
+    ipynb_asset_payload(ipynb_mime_wbtest_find(entries, "application/json"))
     is Some(_),
   )
   assert_true(
-    ipynb_inline_payload(ipynb_mime_wbtest_find(entries, "text/plain")) ==
-    Some(("utf8", "plain")),
+    ipynb_asset_payload(ipynb_mime_wbtest_find(entries, "text/plain")) ==
+    Some(@core.AssetPayload::Utf8("plain")),
   )
   assert_true(
-    ipynb_inline_payload(
+    ipynb_asset_payload(
       ipynb_mime_wbtest_find(entries, "application/octet-stream"),
     ) ==
-    Some(("base64", "Ymlu")),
+    Some(@core.AssetPayload::Bytes(Bytes::from_array([98, 105, 110]))),
   )
   let asset = @core.make_asset_ref(@core.AssetKind::Embedded, "entry.bin")
-  ipynb_attach_inline_payload(
+  ipynb_attach_asset_payload(
     asset,
     ipynb_mime_wbtest_find(entries, "application/octet-stream"),
   )
-  assert_true(asset.attrs.get("inline_payload_kind") == Some("base64"))
-  assert_true(asset.attrs.get("inline_payload") == Some("Ymlu"))
+  assert_true(
+    asset.payload ==
+    Some(@core.AssetPayload::Bytes(Bytes::from_array([98, 105, 110]))),
+  )
 }

@@ -48,7 +48,10 @@ pub fn html_parse_with_token_events(
   )
   diagnostics.metrics.set("parser_name", "html_parser")
   diagnostics.metrics.set("parser_mode", "dom_ast_model")
-  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
+  diagnostics.metrics.set(
+    "input_kind",
+    @fshared.input_kind_name(@input.input_kind(source)),
+  )
   diagnostics.metrics.set("detected_format", "html")
   diagnostics.metrics.set(
     "requested_mode",
@@ -185,7 +188,10 @@ pub fn html_document_to_ir(
   )
   diagnostics.metrics.set("parser_name", "html_parser")
   diagnostics.metrics.set("parser_mode", "dom_ast_model")
-  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
+  diagnostics.metrics.set(
+    "input_kind",
+    @fshared.input_kind_name(@input.input_kind(source)),
+  )
   diagnostics.metrics.set("detected_format", "html")
   diagnostics.metrics.set("requested_mode", "default")
   diagnostics.metrics.set("effective_mode", "dom_ast_model")
@@ -320,7 +326,7 @@ fn parse_html_document_result(
       diagnostics.metrics.set("parser_mode", "dom_ast_model")
       diagnostics.metrics.set(
         "input_kind",
-        @fshared.input_kind_name(source.kind),
+        @fshared.input_kind_name(@input.input_kind(source)),
       )
       diagnostics.metrics.set("detected_format", "html")
       diagnostics.metrics.set(
@@ -381,10 +387,10 @@ fn html_block_stream_parse_result(
   let diagnostics = html_block_stream_diagnostics(source, context)
   let lowered = if html_prefers_semantic_block_stream(source) {
     html_lower_semantic_block_stream_document(source, text, diagnostics)
-  } else if html_prefers_child_text_fast_block_stream(source) {
-    html_lower_child_text_block_stream_document(source, text, diagnostics)
   } else if html_requires_semantic_block_stream_markup(source) {
     html_lower_child_semantic_block_stream_document(source, text, diagnostics)
+  } else if html_prefers_child_text_fast_block_stream(source) {
+    html_lower_child_text_block_stream_document(source, text, diagnostics)
   } else {
     html_lower_block_stream_document(source, text, diagnostics)
   }
@@ -455,7 +461,10 @@ fn html_block_stream_diagnostics(
   )
   diagnostics.metrics.set("parser_name", "html_parser")
   diagnostics.metrics.set("parser_mode", "block_streaming")
-  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
+  diagnostics.metrics.set(
+    "input_kind",
+    @fshared.input_kind_name(@input.input_kind(source)),
+  )
   diagnostics.metrics.set("detected_format", "html")
   diagnostics.metrics.set(
     "requested_mode",
@@ -473,26 +482,25 @@ fn html_block_stream_diagnostics(
 
 ///|
 fn html_prefers_semantic_block_stream(source : @input.InputSource) -> Bool {
-  source.kind == @input.InputKind::Bytes
+  @input.input_kind(source) == @input.InputKind::Bytes
 }
 
 ///|
 fn html_prefers_child_text_fast_block_stream(
   source : @input.InputSource,
 ) -> Bool {
-  source.kind == @input.InputKind::Text &&
-  source.text is Some(_) &&
-  source.bytes is Some(_)
+  @input.input_kind(source) == @input.InputKind::Text &&
+  @input.input_text(source) is Some(_)
 }
 
 ///|
 fn html_requires_semantic_block_stream_markup(
   source : @input.InputSource,
 ) -> Bool {
-  if source.kind != @input.InputKind::Text {
+  if @input.input_kind(source) != @input.InputKind::Text {
     return false
   }
-  let text = match source.text {
+  let text = match @input.input_text(source) {
     Some(value) => value
     None => return false
   }

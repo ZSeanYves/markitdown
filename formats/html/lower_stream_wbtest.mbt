@@ -13,13 +13,10 @@ test "HTML child text block stream lowers rich nested content and assets" {
     #|<pre><code class="language-moonbit">fn main {}</code></pre>
     #|<hr><script>ignored()</script>
     #|</body></html>
-  let source = @input.with_bytes_payload(
-    @input.input_from_text_with_format(
-      html,
-      "complex.html",
-      Some(@input.DetectedFormat::Html),
-    ),
-    @utf8.encode(html),
+  let source = @input.input_from_text_with_format(
+    html,
+    "complex.html",
+    Some(@input.DetectedFormat::Html),
   )
   let context = @parser.parse_context_with_limits(
     @parser.new_parse_context(@input.DetectedFormat::Html),
@@ -111,7 +108,9 @@ test "HTML huge byte sources lower from the prepared scan summary" {
   )
   let blocks = result.block_stream.unwrap()
   assert_true(blocks.length() > 120_000)
-  assert_true(blocks[0].source_ref is None)
+  assert_true(blocks.all(block => @core.block_source_ref(block) is Some(_)))
+  let first_ref = @core.block_source_ref(blocks[0]).unwrap()
+  assert_true(first_ref.byte_start is Some(_) && first_ref.byte_end is Some(_))
   assert_true(
     blocks[0].rich_inlines
     .unwrap_or([])
@@ -121,6 +120,36 @@ test "HTML huge byte sources lower from the prepared scan summary" {
     result.diagnostics.metrics.get("scope_plan_labels") ==
     Some("child_text_stream_scan"),
   )
+}
+
+///|
+test "HTML block provenance uses exact UTF8 bytes after non-BMP text" {
+  let html = "😀\n<p>alpha</p>"
+  let source = @input.input_from_text_with_format(
+    html,
+    "unicode.html",
+    Some(@input.DetectedFormat::Html),
+  )
+  let result = html_parse_with_token_events(
+    source,
+    @parser.parse_context_with_limits(
+      @parser.new_parse_context(@input.DetectedFormat::Html),
+      Some(@parser.ParserMode::BlockStreaming),
+      None,
+      None,
+      None,
+      None,
+      false,
+    ),
+    html,
+    @dhtml.tokenize_html_events(html),
+  )
+  let paragraph = result.block_stream.unwrap().last().unwrap()
+  let source_ref = paragraph.source_ref.unwrap()
+  assert_true(source_ref.line_start == Some(2))
+  assert_true(source_ref.line_end == Some(2))
+  assert_true(source_ref.byte_start == Some(5))
+  assert_true(source_ref.byte_end == Some(17))
 }
 
 ///|

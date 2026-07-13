@@ -30,6 +30,8 @@ priv struct PresetPolicy {
 ///|
 priv struct BenchPolicy {
   defaults : PolicyDefaults
+  default_rss_limit_mb : Int
+  rss_limits_mb : Map[String, Int]
   tool_matrix : Map[String, Array[String]]
   presets : Map[String, PresetPolicy]
   scenarios : Array[ScenarioPolicy]
@@ -44,9 +46,9 @@ fn parse_run_options(args : Array[String]) -> RunOptions raise {
   let bench_ids : Ref[Array[String]] = Ref([])
   let formats : Ref[Array[String]] = Ref([])
   let limit : Ref[Int?] = Ref(None)
-  let repeat_count = Ref(3)
-  let warmup_count = Ref(1)
-  let timeout_ms = Ref(60000)
+  let repeat_count = Ref(-1)
+  let warmup_count = Ref(-1)
+  let timeout_ms = Ref(-1)
   let markitdown_path : Ref[String?] = Ref(None)
   let baseline_run_id : Ref[String?] = Ref(None)
   let progress_mode = Ref("auto")
@@ -313,6 +315,7 @@ fn load_policy() -> Result[BenchPolicy, BenchError] {
 ///|
 fn decode_policy(json : Json) -> BenchPolicy {
   let root = json_object_value_required(json, "bench policy root")
+  let rss_limits = json_object_required(root, "rss_limits_mb")
   {
     defaults: {
       repeat_count: json_int_required_in(
@@ -332,6 +335,10 @@ fn decode_policy(json : Json) -> BenchPolicy {
       ),
       tiers: json_string_array(json_object_required(root, "defaults"), "tiers"),
     },
+    default_rss_limit_mb: json_int_required_in(
+      rss_limits, "default", "rss_limits_mb",
+    ),
+    rss_limits_mb: decode_rss_limits(rss_limits),
     tool_matrix: decode_tool_matrix(json_object_required(root, "tool_matrix")),
     presets: decode_presets(json_object_required(root, "gate_presets")),
     scenarios: decode_scenarios(json_array_required(root, "scenarios")),
@@ -339,6 +346,20 @@ fn decode_policy(json : Json) -> BenchPolicy {
       json_object_required(root, "row_overrides"),
     ),
   }
+}
+
+///|
+fn decode_rss_limits(json : Map[String, Json]) -> Map[String, Int] {
+  let out : Map[String, Int] = {}
+  for entry in json {
+    if entry.0 != "default" {
+      out[entry.0] = match entry.1 {
+        Json::Number(value, ..) => value.to_int()
+        _ => abort("bench policy RSS limit must be an integer: " + entry.0)
+      }
+    }
+  }
+  out
 }
 
 ///|
@@ -448,21 +469,21 @@ fn apply_policy_defaults(opts : RunOptions, policy : BenchPolicy) -> RunOptions 
     } else {
       preset.map(item => item.tiers).unwrap_or(policy.defaults.tiers)
     },
-    repeat_count: if opts.repeat_count == 3 {
+    repeat_count: if opts.repeat_count < 0 {
       preset
       .map(item => item.repeat_count)
       .unwrap_or(policy.defaults.repeat_count)
     } else {
       opts.repeat_count
     },
-    warmup_count: if opts.warmup_count == 1 {
+    warmup_count: if opts.warmup_count < 0 {
       preset
       .map(item => item.warmup_count)
       .unwrap_or(policy.defaults.warmup_count)
     } else {
       opts.warmup_count
     },
-    timeout_ms: if opts.timeout_ms == 60000 {
+    timeout_ms: if opts.timeout_ms < 0 {
       preset.map(item => item.timeout_ms).unwrap_or(policy.defaults.timeout_ms)
     } else {
       opts.timeout_ms

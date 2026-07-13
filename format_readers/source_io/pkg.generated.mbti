@@ -6,9 +6,13 @@ import {
 }
 
 // Values
+pub fn collect_source_text_chunks(@input.InputSource, max_bytes? : Int64) -> Result[String, String]
+
 pub fn decode_utf16_text_bytes(Bytes) -> String?
 
 pub fn decode_xml_input_bytes(Bytes) -> Result[String, String]
+
+pub fn open_source_text_chunk_reader(@input.InputSource, max_bytes? : Int64, chunk_size? : Int) -> Result[SourceTextChunkReader, String]
 
 pub fn read_source_bytes(@input.InputSource) -> Result[SourceBytesPayload, String]
 
@@ -26,6 +30,20 @@ pub fn sniff_xml_declared_encoding(Bytes) -> String?
 pub struct SourceBytesPayload {
   bytes : Bytes
   prepared_source : @input.InputSource
+}
+
+pub struct SourceTextChunk {
+  text : String
+  byte_start : Int64
+  byte_end : Int64
+  line_start : Int
+  line_end : Int
+  utf16_start : Int
+  utf16_end : Int
+}
+
+pub struct SourceTextChunkReader {
+  next : () -> Result[SourceTextChunk?, String]
 }
 
 pub struct SourceTextPayload {

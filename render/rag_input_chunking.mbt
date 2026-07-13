@@ -921,7 +921,7 @@ fn generic_event_block_heading_paths(
       None => ()
     }
   }
-  match block.source_ref {
+  match @core.block_source_ref(block) {
     Some(source_ref) =>
       match event_source_ref_heading_path(source_ref, document_format) {
         Some(path) if path.length() > 0 =>

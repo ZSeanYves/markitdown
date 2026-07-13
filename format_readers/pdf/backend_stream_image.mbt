@@ -312,11 +312,7 @@ fn pdf_exportable_image_asset_ref(
   let next_asset = { ..asset, mime_type: Some(payload_info.mime_type) }
   next_asset.attrs.set("alt", "image")
   next_asset.attrs.set("file_ext", payload_info.ext)
-  next_asset.attrs.set("inline_payload_kind", "base64")
-  next_asset.attrs.set(
-    "inline_payload",
-    @base64.encode(payload_info.payload, url_safe=false),
-  )
+  next_asset.payload = Some(@core.AssetPayload::Bytes(payload_info.payload))
   next_asset.attrs.set("pdf_object_id", object_id.to_string())
   next_asset.attrs.set("pdf_xobject_name", xobject_name)
   next_asset.attrs.set("pdf_filter_chain", payload_info.filter_chain)

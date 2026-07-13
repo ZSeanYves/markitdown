@@ -8,11 +8,17 @@ pub fn asset_kind_name(AssetKind) -> String
 
 pub fn block_kind_name(BlockKind) -> String
 
+pub fn block_source_ref(CoreBlock) -> SourceRef?
+
 pub fn block_with_attr(CoreBlock, String, String) -> CoreBlock
 
 pub fn block_with_block_id(CoreBlock, String) -> CoreBlock
 
 pub fn block_with_children(CoreBlock, Array[CoreBlock]) -> CoreBlock
+
+pub fn block_with_column_index(CoreBlock, Int) -> CoreBlock
+
+pub fn block_with_compact_source_ref(CoreBlock, CompactSourceRef) -> CoreBlock
 
 pub fn block_with_rich_inlines(CoreBlock, Array[CoreInline]?) -> CoreBlock
 
@@ -96,6 +102,8 @@ pub fn make_block_id(BlockKind, String, source_ref? : SourceRef?) -> String
 
 pub fn make_block_without_source_ref(BlockKind, String) -> CoreBlock
 
+pub fn make_compact_source_ref(String, String, Int, Int, Int, Int) -> CompactSourceRef
+
 pub fn make_container_entry(String, ContainerEntryKind, normalized_path? : String?, entry_index? : Int?, detected_format? : String?, media_type? : String?, compressed_size? : Int?, uncompressed_size? : Int?, is_encrypted? : Bool, compression_method? : String?, crc? : String?, source_ref? : SourceRef?, security_findings? : Array[ContainerSecurityFinding]) -> ContainerEntry
 
 pub fn make_dependency_diagnostic(String, String, String, DependencyDiagnosticStatus, Array[String], Array[String], footer? : String?) -> DependencyDiagnostic
@@ -174,12 +182,19 @@ pub(all) enum AssetKind {
   Unknown
 } derive(Eq)
 
+pub(all) enum AssetPayload {
+  Bytes(Bytes)
+  Utf8(String)
+  SourcePath(String)
+} derive(Eq)
+
 pub(all) struct AssetRef {
   asset_kind : AssetKind
   asset_id : String
   path : String?
   mime_type : String?
   source_ref : SourceRef?
+  mut payload : AssetPayload?
   attrs : Map[String, String]
 }
 
@@ -212,6 +227,15 @@ pub(all) struct CaptionBinding {
   target_block_id : String
   relation : String
   confidence : Int?
+}
+
+pub(all) struct CompactSourceRef {
+  file_id : String
+  format : String
+  line_start : Int
+  line_end : Int
+  byte_start : Int
+  byte_end : Int
 }
 
 pub(all) struct ContainerEntry {
@@ -255,10 +279,12 @@ pub(all) struct CoreBlock {
   block_id : String
   kind : BlockKind
   text : String
+  column_index : Int?
   rich_inlines : Array[CoreInline]?
   children : Array[CoreBlock]
   attrs : Map[String, String]
   source_ref : SourceRef?
+  compact_source_ref : CompactSourceRef?
   style : StyleRef?
   signals : Array[CoreSignal]
 }

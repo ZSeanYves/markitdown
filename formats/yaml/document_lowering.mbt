@@ -1264,7 +1264,10 @@ fn yaml_malformed_parse_result(
   diagnostics.fallback_trace.push("yaml parse failed -> raw block fallback")
   diagnostics.metrics.set("parser_name", "yaml_parser")
   diagnostics.metrics.set("parser_mode", "dom_ast_model")
-  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
+  diagnostics.metrics.set(
+    "input_kind",
+    @fshared.input_kind_name(@input.input_kind(source)),
+  )
   diagnostics.metrics.set("detected_format", "yaml")
   diagnostics.metrics.set("requested_mode", "default")
   diagnostics.metrics.set("effective_mode", "dom_ast_model")

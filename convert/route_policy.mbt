@@ -487,6 +487,21 @@ fn detect_and_resolve_execution_plan(
   (@input.InputSource, @input.FormatDetectionResult, ResolvedExecutionPlan),
   ConvertError,
 ] {
+  let input_size = match @input.input_source_size(source) {
+    Ok(value) => value
+    Err(_) => None
+  }
+  match input_size {
+    Some(size) if size > options.limits.max_input_bytes =>
+      return Err(
+        ConvertError::ResourceLimitExceeded(
+          kind="input_bytes",
+          observed=size,
+          limit=options.limits.max_input_bytes,
+        ),
+      )
+    _ => ()
+  }
   match detect_input(source, options) {
     Ok((effective_source, detected)) => {
       let policy = @fmeta.route_contract_for_format(detected.format)

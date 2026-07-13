@@ -56,7 +56,7 @@ fn parse_odp_document_result(
           diagnostics,
           "open odp failed: " + err,
           capability,
-          source.bytes.unwrap_or(Bytes::from_array([])),
+          @input.input_bytes(source).unwrap_or(Bytes::from_array([])),
           context,
         ),
       )
@@ -101,7 +101,7 @@ pub fn odp_parse_with_open_document(
     "odp",
   )
   odp_init_diagnostics(diagnostics, source, context)
-  let bytes = source.bytes.unwrap_or(Bytes::from_array([]))
+  let bytes = @input.input_bytes(source).unwrap_or(Bytes::from_array([]))
   odp_fill_metrics(diagnostics, document, inspect, bytes)
   if context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
     let lowered = odp_lower_block_stream_document(source, document, context)
@@ -428,11 +428,11 @@ fn odp_image_block(
         mime_type: image.media_type,
       }
       next_asset.attrs.set("zip_entry_path", image.href.trim().to_owned())
-      match source.path {
+      match @input.input_path(source) {
         Some(path) => next_asset.attrs.set("zip_container_path", path)
         None => ()
       }
-      odp_attach_inline_payload(next_asset, image)
+      odp_attach_asset_payload(next_asset, image)
       assets.push(next_asset)
       let out = @core.make_block(@core.BlockKind::Image, "", source_ref~)
       out.attrs.set("asset_id", asset_id)
@@ -478,7 +478,7 @@ fn odp_slide_source_ref(
   slide : @dodf.OdpSlide,
   line_start : Int?,
 ) -> @core.SourceRef {
-  let container_path = source.path.unwrap_or(source.source_name)
+  let container_path = @input.input_path(source).unwrap_or(source.source_name)
   let base = @core.source_ref_with_container_entry(
     @core.empty_source_ref(),
     Some(source.source_name),
@@ -557,7 +557,7 @@ fn odp_slug(text : String) -> String {
 }
 
 ///|
-fn odp_attach_inline_payload(
+fn odp_attach_asset_payload(
   asset : @core.AssetRef,
   image : @dodf.OdpImageRef,
 ) -> Unit {
@@ -565,11 +565,9 @@ fn odp_attach_inline_payload(
     Some(bytes) =>
       if image.media_type == Some("image/svg+xml") {
         let text = @utf8.decode(bytes, ignore_bom=false) catch { _ => return }
-        asset.attrs.set("inline_payload_kind", "utf8")
-        asset.attrs.set("inline_payload", text)
+        asset.payload = Some(@core.AssetPayload::Utf8(text))
       } else {
-        asset.attrs.set("inline_payload_kind", "base64")
-        asset.attrs.set("inline_payload", @base64.encode(bytes, url_safe=false))
+        asset.payload = Some(@core.AssetPayload::Bytes(bytes))
       }
     None => ()
   }

@@ -50,9 +50,9 @@ jobs:
       - name: Interfaces
         run: moon info && git diff --exit-code
       - name: Check
-        run: moon check
+        run: moon check --target all
       - name: Test
-        run: moon test
+        run: moon test --target all
 
   tooling:
     name: Python and shell tools
@@ -215,7 +215,7 @@ jobs:
           set -euo pipefail
           mkdir -p .tmp/bench-ci
           disk=512
-          args=(--preset official-external-compare --limit 1)
+          args=(--preset change-risk)
           if [[ "${{ github.event_name }}" == schedule ]]; then
             disk=4096
             args=(--preset official-external-compare)

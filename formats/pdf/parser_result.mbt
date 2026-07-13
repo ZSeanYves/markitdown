@@ -55,7 +55,10 @@ fn pdf_ocr_finalize_result(
     diagnostics,
     native_document_ir.diagnostics,
   )
-  diagnostics.metrics.set("input_kind", pdf_native_input_kind_name(source.kind))
+  diagnostics.metrics.set(
+    "input_kind",
+    pdf_native_input_kind_name(@input.input_kind(source)),
+  )
   diagnostics.metrics.set("ocr_provider_wired", "true")
   diagnostics.metrics.set("ir_input_kind", "document")
   diagnostics.metrics.set("event_granularity", "page")
@@ -434,7 +437,7 @@ pub fn pdf_native_fail_closed_diagnostics(
       Some(pdf_native_parser_name()),
       Some(@parser.mode_name(@parser.ParserMode::PageSinglePass)),
     ),
-    Some(pdf_native_input_kind_name(source.kind)),
+    Some(pdf_native_input_kind_name(@input.input_kind(source))),
     Some("pdf"),
   )
   diagnostics.warnings.push(pdf_native_fail_closed_message())
@@ -445,7 +448,10 @@ pub fn pdf_native_fail_closed_diagnostics(
   diagnostics.pass_trace.push("parse:pdf_native_parser")
   diagnostics.metrics.set("parser_name", pdf_native_parser_name())
   diagnostics.metrics.set("parser_mode", "page_single_pass")
-  diagnostics.metrics.set("input_kind", pdf_native_input_kind_name(source.kind))
+  diagnostics.metrics.set(
+    "input_kind",
+    pdf_native_input_kind_name(@input.input_kind(source)),
+  )
   diagnostics.metrics.set("detected_format", "pdf")
   diagnostics.metrics.set(
     "requested_mode",

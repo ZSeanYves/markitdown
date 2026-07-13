@@ -121,7 +121,7 @@ fn pptx_ensure_asset(
   next_asset.attrs.set("source_path", target_part)
   next_asset.attrs.set("zip_entry_path", target_part)
   next_asset.attrs.set("zip_container_format", "pptx")
-  match state.source.path {
+  match @input.input_path(state.source) {
     Some(path) => next_asset.attrs.set("zip_container_path", path)
     None => ()
   }

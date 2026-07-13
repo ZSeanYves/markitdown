@@ -539,7 +539,7 @@ fn lower_eml_attachment(
       path: Some(asset_id),
       mime_type: Some(attachment.mime_type),
     }
-    eml_attach_inline_payload(next_asset, materialized)
+    eml_attach_asset_payload(next_asset, materialized)
     document.assets.push(next_asset)
     let image = @core.make_block(@core.BlockKind::Image, "", source_ref~)
     image.attrs.set("asset_id", asset_id)
@@ -641,7 +641,7 @@ fn lower_eml_attachment(
         path: Some(asset_id),
         mime_type: Some(attachment.mime_type),
       }
-      eml_attach_inline_payload(next_asset, materialized)
+      eml_attach_asset_payload(next_asset, materialized)
       document.assets.push(next_asset)
     }
   }
@@ -884,7 +884,7 @@ fn eml_materialize_inline_attachment_asset(
     path: Some(asset_path),
     mime_type: Some(attachment.mime_type),
   }
-  eml_attach_inline_payload(next_asset, materialized)
+  eml_attach_asset_payload(next_asset, materialized)
   document.assets.push(next_asset)
 }
 
@@ -1309,7 +1309,7 @@ fn eml_attachment_ext(mime_type : String) -> String {
 }
 
 ///|
-fn eml_attach_inline_payload(
+fn eml_attach_asset_payload(
   asset : @core.AssetRef,
   attachment : @deml.EmlAttachment,
 ) -> Unit {
@@ -1324,20 +1324,15 @@ fn eml_attach_inline_payload(
         let text = attachment.decoded_text.unwrap_or(
           @deml.decode_eml_source_text(bytes),
         )
-        asset.attrs.set("inline_payload_kind", "utf8")
-        asset.attrs.set("inline_payload", text)
+        asset.payload = Some(@core.AssetPayload::Utf8(text))
       } else if bytes.length() <= EML_MAX_INLINE_BINARY_BYTES {
-        asset.attrs.set("inline_payload_kind", "base64")
-        asset.attrs.set("inline_payload", @base64.encode(bytes, url_safe=false))
+        asset.payload = Some(@core.AssetPayload::Bytes(bytes))
       } else {
         ()
       }
     None =>
       match attachment.decoded_text {
-        Some(text) => {
-          asset.attrs.set("inline_payload_kind", "utf8")
-          asset.attrs.set("inline_payload", text)
-        }
+        Some(text) => asset.payload = Some(@core.AssetPayload::Utf8(text))
         None => ()
       }
   }

@@ -77,7 +77,10 @@ fn parse_subtitle_result(
   )
   diagnostics.metrics.set("parser_name", format_name + "_parser")
   diagnostics.metrics.set("parser_mode", "streaming_event")
-  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
+  diagnostics.metrics.set(
+    "input_kind",
+    @fshared.input_kind_name(@input.input_kind(source)),
+  )
   diagnostics.metrics.set("detected_format", format_name)
   diagnostics.metrics.set(
     "requested_mode",
@@ -228,7 +231,10 @@ fn parse_large_srt_result(
   )
   diagnostics.metrics.set("parser_name", "srt_parser")
   diagnostics.metrics.set("parser_mode", "streaming_event")
-  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
+  diagnostics.metrics.set(
+    "input_kind",
+    @fshared.input_kind_name(@input.input_kind(source)),
+  )
   diagnostics.metrics.set("detected_format", "srt")
   diagnostics.metrics.set(
     "requested_mode",

@@ -4,14 +4,14 @@ test "source IO preserves prepared byte and text payloads across input kinds" {
   match read_source_text(text_source) {
     Ok(payload) => {
       assert_eq(payload.text, "hello")
-      assert_true(payload.prepared_source.text == Some("hello"))
+      assert_true(@input.input_text(payload.prepared_source) == Some("hello"))
     }
     Err(error) => fail(error)
   }
   match read_source_bytes(text_source) {
     Ok(payload) => {
       assert_eq(payload.bytes.length(), 5)
-      assert_true(payload.prepared_source.bytes is Some(_))
+      assert_true(@input.input_bytes(payload.prepared_source) is Some(_))
     }
     Err(error) => fail(error)
   }
@@ -20,11 +20,13 @@ test "source IO preserves prepared byte and text payloads across input kinds" {
     source_name="world.txt",
   )
   match read_source_text(bytes_source) {
-    Ok(payload) => assert_true(payload.prepared_source.text == Some("world"))
+    Ok(payload) =>
+      assert_true(@input.input_text(payload.prepared_source) == Some("world"))
     Err(error) => fail(error)
   }
   match read_source_bytes(bytes_source) {
-    Ok(payload) => assert_true(payload.prepared_source.bytes is Some(_))
+    Ok(payload) =>
+      assert_true(@input.input_bytes(payload.prepared_source) is Some(_))
     Err(error) => fail(error)
   }
   let missing = @input.input_from_path(
@@ -46,7 +48,7 @@ test "source IO decodes UTF16 BOM text in little and big endian" {
   match read_source_text_with_utf16_bom(source) {
     Ok(payload) => {
       assert_eq(payload.text, "AB")
-      assert_true(payload.prepared_source.text == Some("AB"))
+      assert_true(@input.input_text(payload.prepared_source) == Some("AB"))
     }
     Err(error) => fail(error)
   }
@@ -95,7 +97,68 @@ test "source IO sniffs XML encodings and fails closed on invalid UTF8" {
     read_xml_source_text(
       @input.input_from_bytes(utf8_xml, source_name="bytes.xml"),
     ) {
-    Ok(payload) => assert_true(payload.prepared_source.text is Some(_))
+    Ok(payload) =>
+      assert_true(@input.input_text(payload.prepared_source) is Some(_))
     Err(error) => fail(error)
   }
+}
+
+///|
+fn chunked_source_io_reader(
+  bytes : Bytes,
+  max_chunk : Int,
+) -> @input.InputSource {
+  let reader = @input.make_input_reader(
+    fn(offset, length) {
+      let start = offset.to_int()
+      let end = (start + length.min(max_chunk)).min(bytes.length())
+      Ok(bytes.view(start~, end~).to_owned())
+    },
+    size=bytes.length().to_int64(),
+  )
+  @input.input_from_reader(reader, source_name="chunked.txt")
+}
+
+///|
+test "streaming UTF8 reader preserves emoji CRLF and provenance offsets" {
+  let text = "A\r\n😀B"
+  let bytes = @utf8.encode(text)
+  let reader = open_source_text_chunk_reader(
+    chunked_source_io_reader(bytes, 1),
+    chunk_size=1,
+  ).unwrap()
+  let collected = StringBuilder::new()
+  let mut last : SourceTextChunk? = None
+  while true {
+    match (reader.next)().unwrap() {
+      Some(chunk) => {
+        collected.write_string(chunk.text)
+        last = Some(chunk)
+      }
+      None => break
+    }
+  }
+  assert_eq(collected.to_string(), text)
+  let last = last.unwrap()
+  assert_eq(last.byte_end, bytes.length().to_int64())
+  assert_eq(last.line_end, 2)
+  assert_eq(last.utf16_end, 6)
+}
+
+///|
+test "streaming UTF8 reader preserves markup entities and CSV multiline quotes" {
+  for
+    text in [
+      "<p title=\"x&amp;y\">😀</p>\r\n", "name,value\r\nalpha,\"line one\r\nline two\"\r\n",
+    ] {
+    let bytes = @utf8.encode(text)
+    assert_true(
+      collect_source_text_chunks(chunked_source_io_reader(bytes, 2)) == Ok(text),
+    )
+  }
+  let invalid = chunked_source_io_reader(
+    Bytes::from_array([0xF0, 0x28, 0x8C, 0x28]),
+    1,
+  )
+  assert_true(collect_source_text_chunks(invalid) == Err("utf8 decode failed"))
 }

@@ -423,7 +423,7 @@ fn html_image_to_asset(
     return None
   }
   for existing in state.assets {
-    if existing.attrs.get("source_path") == Some(src) {
+    if existing.payload == Some(@core.AssetPayload::SourcePath(src)) {
       return Some((existing.asset_id, existing))
     }
   }
@@ -441,10 +441,8 @@ fn html_image_to_asset(
   let next_asset = {
     ..asset,
     path: Some(rel_path),
-    attrs: Map([
-      ("source_path", src),
-      ("alt", image.alt.unwrap_or("image").trim().to_owned()),
-    ]),
+    payload: Some(@core.AssetPayload::SourcePath(src)),
+    attrs: Map([("alt", image.alt.unwrap_or("image").trim().to_owned())]),
   }
   state.assets.push(next_asset)
   Some((asset_id, next_asset))
@@ -656,7 +654,10 @@ fn malformed_html_parse_result(
   diagnostics.fallback_trace.push("html fail closed: " + err)
   diagnostics.metrics.set("parser_name", "html_parser")
   diagnostics.metrics.set("parser_mode", "dom_ast_model")
-  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
+  diagnostics.metrics.set(
+    "input_kind",
+    @fshared.input_kind_name(@input.input_kind(source)),
+  )
   diagnostics.metrics.set("detected_format", "html")
   diagnostics.metrics.set("requested_mode", "default")
   diagnostics.metrics.set("effective_mode", "dom_ast_model")

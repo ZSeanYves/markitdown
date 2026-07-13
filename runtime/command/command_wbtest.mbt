@@ -138,3 +138,117 @@ test "command executable resolution rejects invalid paths and finds PATH tools" 
   assert_true(non_executable_error)
   assert_true(split_shell_command("   ") == Ok([]))
 }
+
+///|
+test "external runner passes argv directly and captures separate outputs" {
+  let command = make_resolved_command(
+    "/bin/sh",
+    "/bin/sh",
+    ResolvedCommandSource::ExplicitArg,
+  )
+  let output = run_resolved_command(command, [
+    "-c", "printf 'out:%s' \"$1\"; printf 'err' >&2; exit 7", "sh", "$(literal)",
+  ]).unwrap()
+  assert_eq(output.exit_code, 7)
+  assert_eq(output.stdout, "out:$(literal)")
+  assert_eq(output.stderr, "err")
+  assert_true(!output.timed_out)
+}
+
+///|
+test "external runner enforces timeout and output ceilings" {
+  let shell = make_resolved_command(
+    "/bin/sh",
+    "/bin/sh",
+    ResolvedCommandSource::ExplicitArg,
+  )
+  let timed = run_resolved_command(
+    shell,
+    ["-c", "sleep 2"],
+    limits=make_command_limits(
+      timeout_ms=50,
+      termination_grace_ms=20,
+      max_stdout_bytes=1024,
+      max_stderr_bytes=1024,
+    ),
+  ).unwrap()
+  assert_true(timed.timed_out)
+  let limited = run_resolved_command(
+    shell,
+    ["-c", "while true; do printf 1234567890; done"],
+    limits=make_command_limits(
+      timeout_ms=2000,
+      termination_grace_ms=20,
+      max_stdout_bytes=256,
+      max_stderr_bytes=256,
+    ),
+  ).unwrap()
+  assert_true(limited.stdout_limit_exceeded)
+  assert_eq(@utf8.encode(limited.stdout).length(), 256)
+}
+
+///|
+async test "async external runner enforces timeout and output ceilings" {
+  let shell = make_resolved_command(
+    "/bin/sh",
+    "/bin/sh",
+    ResolvedCommandSource::ExplicitArg,
+  )
+  let timed = run_resolved_command_async(
+    shell,
+    ["-c", "sleep 2"],
+    limits=make_command_limits(
+      timeout_ms=50,
+      termination_grace_ms=20,
+      max_stdout_bytes=1024,
+      max_stderr_bytes=1024,
+    ),
+  ).unwrap()
+  assert_true(timed.timed_out)
+  let limited = run_resolved_command_async(
+    shell,
+    ["-c", "while true; do printf 1234567890; done"],
+    limits=make_command_limits(
+      timeout_ms=2000,
+      termination_grace_ms=20,
+      max_stdout_bytes=256,
+      max_stderr_bytes=256,
+    ),
+  ).unwrap()
+  assert_true(limited.stdout_limit_exceeded)
+  assert_eq(@utf8.encode(limited.stdout).length(), 256)
+}
+
+///|
+async test "async external runner is cancellable and reaps the child" {
+  let shell = make_resolved_command(
+    "/bin/sh",
+    "/bin/sh",
+    ResolvedCommandSource::ExplicitArg,
+  )
+  let started = @async.now()
+  @async.with_task_group(group => {
+    let task = group.spawn(() => {
+      run_resolved_command_async(
+        shell,
+        ["-c", "sleep 10"],
+        limits=make_command_limits(
+          timeout_ms=20000,
+          termination_grace_ms=20,
+          max_stdout_bytes=1024,
+          max_stderr_bytes=1024,
+        ),
+      )
+    })
+    @async.sleep(50)
+    task.cancel()
+    let cancelled = Ref(false)
+    try task.wait() catch {
+      _ => cancelled.val = true
+    } noraise {
+      _ => ()
+    }
+    assert_true(cancelled.val)
+  })
+  assert_true(@async.now() - started < 2000)
+}

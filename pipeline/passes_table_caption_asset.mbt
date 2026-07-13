@@ -202,8 +202,12 @@ fn tables_look_continued(
     right.attrs.get("header_rows").unwrap_or("0") {
     return false
   }
-  let left_ref = left.source_ref.unwrap_or(@core.empty_source_ref())
-  let right_ref = right.source_ref.unwrap_or(@core.empty_source_ref())
+  let left_ref = @core.block_source_ref(left).unwrap_or(
+    @core.empty_source_ref(),
+  )
+  let right_ref = @core.block_source_ref(right).unwrap_or(
+    @core.empty_source_ref(),
+  )
   table_location_bucket(left_ref) == table_location_bucket(right_ref) &&
   left.block_id != right.block_id
 }
@@ -303,10 +307,15 @@ fn build_asset_binding_index(
         asset_binding_index_push(assets_by_path, path, asset)
       _ => ()
     }
-    match asset.attrs.get("source_path") {
-      Some(path) if path != "" =>
+    match asset.payload {
+      Some(@core.AssetPayload::SourcePath(path)) if path != "" =>
         asset_binding_index_push(assets_by_source_path, path, asset)
-      _ => ()
+      _ =>
+        match asset.attrs.get("source_path") {
+          Some(path) if path != "" =>
+            asset_binding_index_push(assets_by_source_path, path, asset)
+          _ => ()
+        }
     }
     let source_ref_key = asset_source_ref_key(
       asset.source_ref.unwrap_or(@core.empty_source_ref()),
@@ -390,7 +399,9 @@ fn block_owned_assets(
       )
     _ => ()
   }
-  let block_ref = block.source_ref.unwrap_or(@core.empty_source_ref())
+  let block_ref = @core.block_source_ref(block).unwrap_or(
+    @core.empty_source_ref(),
+  )
   let source_ref_key = asset_source_ref_key(block_ref)
   if source_ref_key != "" {
     collect_asset_binding_candidates(
@@ -561,7 +572,7 @@ fn collect_single_block_asset_ref(
     let alt = block.attrs.get("alt").unwrap_or("image")
     collect_image_asset_ref(
       assets,
-      block.source_ref.unwrap_or(@core.empty_source_ref()),
+      @core.block_source_ref(block).unwrap_or(@core.empty_source_ref()),
       block.attrs.get("path").unwrap_or("").trim().to_owned(),
       block.attrs.get("asset_id"),
       alt,
@@ -575,7 +586,7 @@ fn collect_single_block_asset_ref(
           collect_image_asset_ref(
             assets,
             inline.source_ref.unwrap_or(
-              block.source_ref.unwrap_or(@core.empty_source_ref()),
+              @core.block_source_ref(block).unwrap_or(@core.empty_source_ref()),
             ),
             inline.href.unwrap_or("").trim().to_owned(),
             inline.attrs.get("asset_id"),
@@ -622,7 +633,8 @@ fn collect_image_asset_ref(
   let next_asset = { ..asset, path: Some(path) }
   next_asset.attrs.set("alt", alt)
   match source_path_opt {
-    Some(source_path) => next_asset.attrs.set("source_path", source_path)
+    Some(source_path) =>
+      next_asset.payload = Some(@core.AssetPayload::SourcePath(source_path))
     None => ()
   }
   assets.push(next_asset)

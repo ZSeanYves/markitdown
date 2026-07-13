@@ -360,6 +360,7 @@ fn execute_run(
     contract,
     opts.preset,
     opts.baseline_run_id,
+    policy,
     resource_summary=Some(benchmark_resource_summary(run_id, samples, opts)),
     resume_summary=Some(
       Json::object({

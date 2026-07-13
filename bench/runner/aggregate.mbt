@@ -117,6 +117,7 @@ fn summarize_run(
   contract : BinaryContract,
   preset : String?,
   baseline_run_id : String?,
+  policy : BenchPolicy,
   resource_summary? : Json? = None,
   resume_summary? : Json? = None,
 ) -> RunSummary {
@@ -146,7 +147,7 @@ fn summarize_run(
       "comparable_rows": comparable_row_count(cases).to_json(),
       "status": gate_status(cases).to_json(),
       "performance": performance_gate_summary(cases),
-      "rss": rss_gate_summary(samples),
+      "rss": rss_gate_summary(samples, policy),
     }),
     route_coverage_summary: Json::object({
       "covered_cases": cases
@@ -204,7 +205,7 @@ fn summarize_run(
 }
 
 ///|
-fn rss_gate_summary(samples : Array[SampleRow]) -> Json {
+fn rss_gate_summary(samples : Array[SampleRow], policy : BenchPolicy) -> Json {
   let peaks : Map[String, Int64] = {}
   let formats : Map[String, String] = {}
   let sizes : Map[String, String] = {}
@@ -231,7 +232,7 @@ fn rss_gate_summary(samples : Array[SampleRow]) -> Json {
     let peak = entry.1
     let format = formats.get(key).unwrap_or("")
     let size = sizes.get(key).unwrap_or("")
-    let limit_mb = rss_limit_mb(format, size)
+    let limit_mb = rss_limit_mb(policy, format, size)
     if peak > limit_mb.to_int64() * 1024L {
       violations.push(
         Json::object({
@@ -261,16 +262,14 @@ fn rss_gate_summary(samples : Array[SampleRow]) -> Json {
 }
 
 ///|
-fn rss_limit_mb(format : String, size_class : String) -> Int {
-  if format == "xlsx" && size_class == "huge" {
-    512
-  } else if format == "html" && size_class == "huge" {
-    384
-  } else if format == "pdf" && size_class == "large" {
-    320
-  } else {
-    256
-  }
+fn rss_limit_mb(
+  policy : BenchPolicy,
+  format : String,
+  size_class : String,
+) -> Int {
+  policy.rss_limits_mb
+  .get(format + "." + size_class)
+  .unwrap_or(policy.default_rss_limit_mb)
 }
 
 ///|

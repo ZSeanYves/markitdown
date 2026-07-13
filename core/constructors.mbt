@@ -8,10 +8,12 @@ pub fn make_block(
     block_id: make_block_id(kind, text, source_ref=Some(source_ref)),
     kind,
     text,
+    column_index: None,
     rich_inlines: None,
     children: [],
     attrs: Map([]),
     source_ref: Some(source_ref),
+    compact_source_ref: None,
     style: None,
     signals: [],
   }
@@ -26,10 +28,12 @@ pub fn make_block_without_source_ref(
     block_id: make_block_id(kind, text),
     kind,
     text,
+    column_index: None,
     rich_inlines: None,
     children: [],
     attrs: Map([]),
     source_ref: None,
+    compact_source_ref: None,
     style: None,
     signals: [],
   }
@@ -38,6 +42,51 @@ pub fn make_block_without_source_ref(
 ///|
 pub fn block_with_block_id(block : CoreBlock, block_id : BlockId) -> CoreBlock {
   { ..block, block_id, }
+}
+
+///|
+pub fn block_with_column_index(
+  block : CoreBlock,
+  column_index : Int,
+) -> CoreBlock {
+  { ..block, column_index: Some(column_index) }
+}
+
+///|
+pub fn block_with_compact_source_ref(
+  block : CoreBlock,
+  source_ref : CompactSourceRef,
+) -> CoreBlock {
+  { ..block, source_ref: None, compact_source_ref: Some(source_ref) }
+}
+
+///|
+pub fn make_compact_source_ref(
+  file_id : String,
+  format : String,
+  line_start : Int,
+  line_end : Int,
+  byte_start : Int,
+  byte_end : Int,
+) -> CompactSourceRef {
+  { file_id, format, line_start, line_end, byte_start, byte_end }
+}
+
+///|
+pub fn block_source_ref(block : CoreBlock) -> SourceRef? {
+  match block.source_ref {
+    Some(value) => Some(value)
+    None =>
+      block.compact_source_ref.map(value => {
+        ..empty_source_ref(),
+        file_id: Some(value.file_id),
+        format: Some(value.format),
+        line_start: Some(value.line_start),
+        line_end: Some(value.line_end),
+        byte_start: Some(value.byte_start),
+        byte_end: Some(value.byte_end),
+      })
+  }
 }
 
 ///|
@@ -215,6 +264,7 @@ pub fn make_asset_ref(
     path: None,
     mime_type: None,
     source_ref: Some(source_ref),
+    payload: None,
     attrs: Map([]),
   }
 }

@@ -70,14 +70,17 @@ fn pdf_native_enabled_success_diagnostics(
       Some(pdf_native_parser_name()),
       Some(@parser.mode_name(@parser.ParserMode::PageSinglePass)),
     ),
-    Some(pdf_native_input_kind_name(source.kind)),
+    Some(pdf_native_input_kind_name(@input.input_kind(source))),
     Some("pdf"),
   )
   next.pass_trace.push("parse:pdf_native_parser")
   next.pass_trace.push("pdf_native:parser_success_path")
   next.metrics.set("parser_name", pdf_native_parser_name())
   next.metrics.set("parser_mode", "page_single_pass")
-  next.metrics.set("input_kind", pdf_native_input_kind_name(source.kind))
+  next.metrics.set(
+    "input_kind",
+    pdf_native_input_kind_name(@input.input_kind(source)),
+  )
   next.metrics.set("detected_format", "pdf")
   next.metrics.set("requested_mode", pdf_native_requested_mode_name(context))
   next.metrics.set("effective_mode", "page_single_pass")
@@ -182,7 +185,7 @@ fn pdf_native_enabled_error_diagnostics(
       Some(pdf_native_parser_name()),
       Some(@parser.mode_name(@parser.ParserMode::PageSinglePass)),
     ),
-    Some(pdf_native_input_kind_name(source.kind)),
+    Some(pdf_native_input_kind_name(@input.input_kind(source))),
     Some("pdf"),
   )
   diagnostics.errors.push(error.to_string())
@@ -194,7 +197,10 @@ fn pdf_native_enabled_error_diagnostics(
   diagnostics.pass_trace.push("pdf_native:parser_error_path")
   diagnostics.metrics.set("parser_name", pdf_native_parser_name())
   diagnostics.metrics.set("parser_mode", "page_single_pass")
-  diagnostics.metrics.set("input_kind", pdf_native_input_kind_name(source.kind))
+  diagnostics.metrics.set(
+    "input_kind",
+    pdf_native_input_kind_name(@input.input_kind(source)),
+  )
   diagnostics.metrics.set("detected_format", "pdf")
   diagnostics.metrics.set(
     "requested_mode",
@@ -316,6 +322,7 @@ fn pdf_native_input_kind_name(kind : @input.InputKind) -> String {
     @input.InputKind::Path => "path"
     @input.InputKind::Text => "text"
     @input.InputKind::Bytes => "bytes"
+    @input.InputKind::Reader => "reader"
   }
 }
 

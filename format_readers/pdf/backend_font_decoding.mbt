@@ -658,7 +658,7 @@ fn pdf_is_cjk_char(ch : Char) -> Bool {
 
 ///|
 fn pdf_native_source_id(source : @input.InputSource) -> String {
-  match source.path {
+  match @input.input_path(source) {
     Some(path) => path
     None => source.source_name
   }

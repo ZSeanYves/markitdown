@@ -484,7 +484,7 @@ fn resolve_cli_assets(
       continue
     }
     let rel_path = asset.path.unwrap_or(asset.asset_id)
-    let source = asset.attrs.get("source_path").unwrap_or(rel_path)
+    let source = cli_asset_source_label(asset, rel_path)
     let warning = "asset unavailable: " + source
     warnings.push(warning)
     rendered.val = cli_replace_unavailable_image(rendered.val, asset, source)
@@ -501,7 +501,7 @@ fn resolve_cli_assets_for_stdout(
   let rendered = Ref(content)
   for asset in assets {
     let rel_path = asset.path.unwrap_or(asset.asset_id)
-    let source = asset.attrs.get("source_path").unwrap_or(rel_path)
+    let source = cli_asset_source_label(asset, rel_path)
     warnings.push("asset not materialized on stdout: " + source)
     rendered.val = cli_replace_unavailable_image(
       rendered.val,
@@ -572,13 +572,21 @@ fn cli_asset_is_materializable(
     }
     None => ()
   }
-  match asset.attrs.get("inline_payload_kind") {
-    Some(_) => return asset.attrs.get("inline_payload") is Some(_)
-    None => ()
-  }
-  match asset.attrs.get("source_path") {
-    Some(source_path) => @fs.path_exists(join_dir_path(input_dir, source_path))
+  match asset.payload {
+    Some(@core.AssetPayload::Bytes(_)) | Some(@core.AssetPayload::Utf8(_)) =>
+      true
+    Some(@core.AssetPayload::SourcePath(source_path)) =>
+      cli_asset_relative_path_is_safe(source_path) &&
+      @fs.path_exists(join_dir_path(input_dir, source_path))
     None => false
+  }
+}
+
+///|
+fn cli_asset_source_label(asset : @core.AssetRef, fallback : String) -> String {
+  match asset.payload {
+    Some(@core.AssetPayload::SourcePath(path)) => path
+    _ => asset.attrs.get("source_path").unwrap_or(fallback)
   }
 }
 
@@ -684,21 +692,8 @@ fn persist_cli_assets(
     if persist_zip_backed_asset(zip_archive, output_dir, rel_path, asset) {
       continue
     }
-    if persist_inline_asset(output_dir, rel_path, asset) {
+    if persist_asset_payload(input_dir, output_dir, rel_path, asset) {
       continue
-    }
-    match asset.attrs.get("source_path") {
-      Some(source_rel) => {
-        let src = join_dir_path(input_dir, source_rel)
-        if !@fs.path_exists(src) {
-          continue
-        }
-        let dst = join_dir_path(output_dir, rel_path)
-        ensure_dir_tree(dirname_of_path(dst))
-        let data = @fs.read_file_to_bytes(src) catch { _ => continue }
-        @fs.write_bytes_to_file(dst, data)
-      }
-      None => ()
     }
   }
 }
@@ -803,28 +798,13 @@ fn validate_cli_assets(
       }
       None => ()
     }
-    match asset.attrs.get("inline_payload_kind") {
-      Some("base64") => {
-        let payload = match asset.attrs.get("inline_payload") {
-          Some(value) => value
-          None => continue
-        }
-        try @base64.decode(payload, url_safe=false) |> ignore catch {
-          _ => return Err("base64 asset payload is invalid: " + rel_path)
-        }
+    match asset.payload {
+      Some(@core.AssetPayload::Bytes(_)) | Some(@core.AssetPayload::Utf8(_)) =>
         continue
-      }
-      Some("utf8") => {
-        if asset.attrs.get("inline_payload") is None {
-          continue
+      Some(@core.AssetPayload::SourcePath(source_path)) => {
+        if !cli_asset_relative_path_is_safe(source_path) {
+          return Err("unsafe source asset path: " + source_path)
         }
-        continue
-      }
-      Some(kind) => return Err("unsupported inline asset payload kind: " + kind)
-      None => ()
-    }
-    match asset.attrs.get("source_path") {
-      Some(source_path) => {
         let src = join_dir_path(input_dir, source_path)
         if !@fs.path_exists(src) {
           continue
@@ -837,33 +817,25 @@ fn validate_cli_assets(
 }
 
 ///|
-fn persist_inline_asset(
+fn persist_asset_payload(
+  input_dir : String,
   output_dir : String,
   rel_path : String,
   asset : @core.AssetRef,
 ) -> Bool raise @fs.IOError {
-  let inline_kind = match asset.attrs.get("inline_payload_kind") {
-    Some(value) => value
-    None => return false
-  }
-  let data = match inline_kind {
-    "base64" =>
-      match asset.attrs.get("inline_payload") {
-        Some(payload) =>
-          try @base64.decode(payload, url_safe=false) |> Some catch {
-            _ => None
-          }
-        None => None
+  let bytes = match asset.payload {
+    Some(@core.AssetPayload::Bytes(bytes)) => bytes
+    Some(@core.AssetPayload::Utf8(text)) => @utf8.encode(text)
+    Some(@core.AssetPayload::SourcePath(source_path)) => {
+      if !cli_asset_relative_path_is_safe(source_path) {
+        return false
       }
-    "utf8" =>
-      match asset.attrs.get("inline_payload") {
-        Some(payload) => Some(@utf8.encode(payload))
-        None => None
+      let source = join_dir_path(input_dir, source_path)
+      if !@fs.path_exists(source) {
+        return false
       }
-    _ => None
-  }
-  let bytes = match data {
-    Some(value) => value
+      @fs.read_file_to_bytes(source)
+    }
     None => return false
   }
   let dst = join_dir_path(output_dir, rel_path)

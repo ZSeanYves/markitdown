@@ -326,12 +326,10 @@ fn pdf_wbtest_unsupported_colorspace_image_pdf_bytes() -> Bytes {
 }
 
 ///|
-fn pdf_wbtest_inline_payload_bytes(asset : @core.AssetRef) -> Bytes? {
-  let payload = match asset.attrs.get("inline_payload") {
-    Some(value) => value
-    None => return None
-  }
-  try @base64.decode(payload, url_safe=false) |> Some catch {
+fn pdf_wbtest_asset_payload_bytes(asset : @core.AssetRef) -> Bytes? {
+  match asset.payload {
+    Some(@core.AssetPayload::Bytes(bytes)) => Some(bytes)
+    Some(@core.AssetPayload::Utf8(text)) => Some(@utf8.encode(text))
     _ => None
   }
 }
@@ -560,7 +558,7 @@ test "pdf native backend extracts exportable image xobjects without empty text f
           assert_true(asset.asset_id == "pdf:1")
           assert_true(asset.mime_type == Some("image/jpeg"))
           assert_true(asset.attrs.get("file_ext") == Some("jpg"))
-          assert_true(asset.attrs.get("inline_payload_kind") == Some("base64"))
+          assert_true(asset.payload is Some(@core.AssetPayload::Bytes(_)))
         }
         None => fail("expected exportable image asset ref")
       }
@@ -585,7 +583,7 @@ test "pdf native backend normalizes decoded RGB pixels as PNG assets" {
           assert_true(
             asset.attrs.get("pdf_decode_mode") == Some("normalized_png"),
           )
-          let payload = pdf_wbtest_inline_payload_bytes(asset).unwrap()
+          let payload = pdf_wbtest_asset_payload_bytes(asset).unwrap()
           assert_true(payload[0].to_int() == 0x89)
           assert_true(payload[1].to_int() == 0x50)
           assert_true(payload[2].to_int() == 0x4E)
@@ -606,7 +604,7 @@ test "pdf native backend composes a matching soft mask into RGBA PNG" {
   )
   let document = extract_pdf_native_document(source).unwrap()
   let asset = document.pages[0].image_candidates[0].asset_ref.unwrap()
-  let payload = pdf_wbtest_inline_payload_bytes(asset).unwrap()
+  let payload = pdf_wbtest_asset_payload_bytes(asset).unwrap()
   assert_true(asset.mime_type == Some("image/png"))
   assert_true(payload[24].to_int() == 8)
   assert_true(payload[25].to_int() == 6)
@@ -621,7 +619,7 @@ test "pdf native backend composes a color-key mask into RGBA PNG" {
   )
   let document = extract_pdf_native_document(source).unwrap()
   let asset = document.pages[0].image_candidates[0].asset_ref.unwrap()
-  let payload = pdf_wbtest_inline_payload_bytes(asset).unwrap()
+  let payload = pdf_wbtest_asset_payload_bytes(asset).unwrap()
   assert_true(payload[25].to_int() == 6)
 }
 
@@ -634,7 +632,7 @@ test "pdf native backend normalizes decoded CMYK pixels into RGB PNG" {
   )
   let document = extract_pdf_native_document(source).unwrap()
   let asset = document.pages[0].image_candidates[0].asset_ref.unwrap()
-  let payload = pdf_wbtest_inline_payload_bytes(asset).unwrap()
+  let payload = pdf_wbtest_asset_payload_bytes(asset).unwrap()
   assert_true(asset.mime_type == Some("image/png"))
   assert_true(payload[25].to_int() == 2)
 }
@@ -648,7 +646,7 @@ test "pdf native backend expands indexed palette pixels into RGB PNG" {
   )
   let document = extract_pdf_native_document(source).unwrap()
   let asset = document.pages[0].image_candidates[0].asset_ref.unwrap()
-  let payload = pdf_wbtest_inline_payload_bytes(asset).unwrap()
+  let payload = pdf_wbtest_asset_payload_bytes(asset).unwrap()
   assert_true(asset.mime_type == Some("image/png"))
   assert_true(payload[25].to_int() == 2)
 }
@@ -662,7 +660,7 @@ test "pdf native backend resolves indirect Indexed ICCBased palette and soft mas
   )
   let document = extract_pdf_native_document(source).unwrap()
   let asset = document.pages[0].image_candidates[0].asset_ref.unwrap()
-  let payload = pdf_wbtest_inline_payload_bytes(asset).unwrap()
+  let payload = pdf_wbtest_asset_payload_bytes(asset).unwrap()
   let scanlines = pdf_wbtest_png_raw_scanlines(payload).unwrap()
   assert_true(asset.mime_type == Some("image/png"))
   assert_true(payload[25].to_int() == 6)
@@ -817,7 +815,7 @@ test "pdf native backend exports ccitt fax images as tracked tiff assets" {
           assert_true(
             asset.attrs.get("pdf_source_encoding") == Some("CCITTFaxDecode"),
           )
-          match pdf_wbtest_inline_payload_bytes(asset) {
+          match pdf_wbtest_asset_payload_bytes(asset) {
             Some(decoded) => {
               let payload = decoded.to_array()
               assert_true(payload.length() > 4)

@@ -230,7 +230,11 @@ fn zip_collect_referenced_asset_entries(
       Err(_) => continue
     }
     for asset in child.assets {
-      match asset.attrs.get("source_path") {
+      let source_path = match asset.payload {
+        Some(@core.AssetPayload::SourcePath(path)) => Some(path)
+        _ => asset.attrs.get("source_path")
+      }
+      match source_path {
         Some(source_path) =>
           match zip_resolve_asset_entry_path(entry_path, source_path) {
             Some(resolved) => referenced.set(resolved, true)
@@ -355,7 +359,11 @@ fn zip_rewrite_child_assets(
   for asset in assets {
     let old_path = asset.path.unwrap_or("").trim().to_owned()
     let old_asset_id = asset.asset_id
-    match asset.attrs.get("source_path") {
+    let source_path = match asset.payload {
+      Some(@core.AssetPayload::SourcePath(path)) => Some(path)
+      _ => asset.attrs.get("source_path")
+    }
+    match source_path {
       Some(source_path) => {
         let resolved_entry = match
           zip_resolve_asset_entry_path(entry_path, source_path) {
@@ -481,8 +489,12 @@ fn zip_preserve_nested_child_asset(
     }
     None => None
   }
-  let has_inline_payload = asset.attrs.get("inline_payload_kind") is Some(_)
-  if nested_asset_entry is None && !has_inline_payload {
+  let has_payload = match asset.payload {
+    Some(@core.AssetPayload::Bytes(_)) | Some(@core.AssetPayload::Utf8(_)) =>
+      true
+    _ => false
+  }
+  if nested_asset_entry is None && !has_payload {
     return None
   }
   let child_asset_path = if old_path != "" {
@@ -871,7 +883,7 @@ fn zip_skip_block(
 
 ///|
 fn zip_container_path(source : @input.InputSource) -> String {
-  match source.path {
+  match @input.input_path(source) {
     Some(path) => {
       let parts = path.replace(old="\\", new="/").split("/").to_array()
       parts.last().unwrap_or(source.source_name).to_owned()

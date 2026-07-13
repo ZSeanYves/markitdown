@@ -83,9 +83,9 @@ fn xlsx_append_package_media_asset(
     ext
   let source_ref = @core.source_ref_with_container_entry(
     @core.empty_source_ref(),
-    source.path,
+    @input.input_path(source),
     Some("xlsx"),
-    source.path,
+    @input.input_path(source),
     Some(part.part_name),
     Some(index - 1),
     Some(ext),
@@ -104,7 +104,7 @@ fn xlsx_append_package_media_asset(
   }
   next_asset.attrs.set("zip_entry_path", part.part_name)
   next_asset.attrs.set("zip_container_format", "xlsx")
-  match source.path {
+  match @input.input_path(source) {
     Some(path) => next_asset.attrs.set("zip_container_path", path)
     None => ()
   }
@@ -667,8 +667,6 @@ fn xlsx_build_table_block_from_bounds(
       "",
       source_ref=row_ref,
     )
-    let sparse_row_payload = StringBuilder::new()
-    let mut sparse_row_payload_has_entry = false
     if sparse_rows {
       row_block.attrs.set("sparse_cell_columns", "true")
       row_block.attrs.set(
@@ -691,13 +689,27 @@ fn xlsx_build_table_block_from_bounds(
             ignore(merge_range)
             if !xlsx_is_blank_text(cell.display_text) ||
               cell.formula_text is Some(_) {
-              xlsx_write_sparse_row_payload_entry(
-                sparse_row_payload,
-                col,
-                cell.display_text,
-                sparse_row_payload_has_entry,
+              let source_ref = cell.source_ref
+              let cell_block = xlsx_apply_cell_rich_content(
+                match source_ref {
+                  Some(value) =>
+                    @core.make_block(
+                      @core.BlockKind::TableCell,
+                      cell.display_text,
+                      source_ref=value,
+                    )
+                  None =>
+                    @core.make_block_without_source_ref(
+                      @core.BlockKind::TableCell,
+                      cell.display_text,
+                    )
+                },
+                cell,
+                source_ref,
               )
-              sparse_row_payload_has_entry = true
+              row_block.children.push(
+                @core.block_with_column_index(cell_block, col - min_col + 1),
+              )
             }
           } else {
             let source_ref = match merge_range {
@@ -715,7 +727,9 @@ fn xlsx_build_table_block_from_bounds(
               source_ref~,
             )
             let cell_block = xlsx_apply_cell_rich_content(
-              cell_block0, cell, source_ref,
+              cell_block0,
+              cell,
+              Some(source_ref),
             )
             xlsx_apply_merge_attrs(cell_block, merge_range, row, col)
             row_block.children.push(cell_block)
@@ -743,7 +757,6 @@ fn xlsx_build_table_block_from_bounds(
       }
       col += 1
     }
-    row_block.attrs.set("sparse_row_payload", sparse_row_payload.to_string())
     table.children.push(row_block)
     row += 1
   }
@@ -840,25 +853,39 @@ fn xlsx_append_sparse_sheet_view_blocks(
       "declared_column_count",
       (sheet.max_col - sheet.min_col + 1).to_string(),
     )
-    let sparse_row_payload = StringBuilder::new()
-    let mut sparse_row_payload_has_entry = false
     while cell_index < cell_count && sheet.cells[cell_index].row_index < row {
       cell_index += 1
     }
     let mut scan_index = cell_index
     while scan_index < cell_count && sheet.cells[scan_index].row_index == row {
       let cell = sheet.cells[scan_index]
-      xlsx_write_sparse_row_payload_entry(
-        sparse_row_payload,
-        cell.column_index,
-        cell.display_text,
-        sparse_row_payload_has_entry,
+      let source_ref = cell.source_ref
+      let cell_block = xlsx_apply_cell_rich_content(
+        match source_ref {
+          Some(value) =>
+            @core.make_block(
+              @core.BlockKind::TableCell,
+              cell.display_text,
+              source_ref=value,
+            )
+          None =>
+            @core.make_block_without_source_ref(
+              @core.BlockKind::TableCell,
+              cell.display_text,
+            )
+        },
+        cell,
+        source_ref,
       )
-      sparse_row_payload_has_entry = true
+      row_block.children.push(
+        @core.block_with_column_index(
+          cell_block,
+          cell.column_index - sheet.min_col + 1,
+        ),
+      )
       scan_index += 1
     }
     cell_index = scan_index
-    row_block.attrs.set("sparse_row_payload", sparse_row_payload.to_string())
     table.children.push(row_block)
     row += 1
   }
@@ -1159,65 +1186,40 @@ fn xlsx_apply_merge_attrs(
 fn xlsx_apply_cell_rich_content(
   cell_block : @core.CoreBlock,
   cell : XlsxCell,
-  source_ref : @core.SourceRef,
+  source_ref : @core.SourceRef?,
 ) -> @core.CoreBlock {
   match cell.hyperlink_target {
     Some(target) =>
       if cell.display_text.trim() != "" && target.trim() != "" {
-        let link_ref = match cell.hyperlink_relationship_id {
-          Some(rel_id) =>
-            @core.source_ref_with_extra(source_ref, "relationship_id", rel_id)
-          None => source_ref
-        }
+        let link_ref = source_ref.map(value => {
+          match cell.hyperlink_relationship_id {
+            Some(rel_id) =>
+              @core.source_ref_with_extra(value, "relationship_id", rel_id)
+            None => value
+          }
+        })
         return @core.block_with_rich_inlines(
           cell_block,
           Some([
-            @core.make_inline_link(
-              cell.display_text,
-              target,
-              source_ref=link_ref,
-            ),
+            match link_ref {
+              Some(value) =>
+                @core.make_inline_link(
+                  cell.display_text,
+                  target,
+                  source_ref=value,
+                )
+              None =>
+                @core.make_inline_link_without_source_ref(
+                  cell.display_text,
+                  target,
+                )
+            },
           ]),
         )
       }
     None => ()
   }
   cell_block
-}
-
-///|
-fn xlsx_write_sparse_row_payload_entry(
-  out : StringBuilder,
-  column_index : Int,
-  text : String,
-  has_entry : Bool,
-) -> Unit {
-  if has_entry {
-    out.write_char('\n')
-  }
-  out.write_string(column_index.to_string())
-  out.write_char('\t')
-  out.write_string(xlsx_escape_sparse_row_cell(text))
-}
-
-///|
-fn xlsx_escape_sparse_row_cell(text : String) -> String {
-  let out : Array[Char] = []
-  for ch in text.to_array() {
-    if ch == '\\' {
-      out.push('\\')
-      out.push('\\')
-    } else if ch == '\t' {
-      out.push('\\')
-      out.push('t')
-    } else if ch == '\n' {
-      out.push('\\')
-      out.push('n')
-    } else {
-      out.push(ch)
-    }
-  }
-  String::from_array(out)
 }
 
 ///|

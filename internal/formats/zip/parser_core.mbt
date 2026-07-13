@@ -74,7 +74,10 @@ fn zip_parse_with_archive_core(
   )
   diagnostics.metrics.set("parser_name", ZIP_PARSER_NAME)
   diagnostics.metrics.set("parser_mode", "container_recursive")
-  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
+  diagnostics.metrics.set(
+    "input_kind",
+    @fshared.input_kind_name(@input.input_kind(source)),
+  )
   diagnostics.metrics.set("detected_format", "zip")
   diagnostics.metrics.set(
     "requested_mode",

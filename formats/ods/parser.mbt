@@ -59,7 +59,7 @@ fn parse_ods_document_result(
           diagnostics,
           "open ods failed: " + err,
           capability,
-          source.bytes.unwrap_or(Bytes::from_array([])),
+          @input.input_bytes(source).unwrap_or(Bytes::from_array([])),
           context,
         ),
       )
@@ -104,7 +104,7 @@ pub fn ods_parse_with_open_document(
     "ods",
   )
   ods_init_diagnostics(diagnostics, source, context)
-  let bytes = source.bytes.unwrap_or(Bytes::from_array([]))
+  let bytes = @input.input_bytes(source).unwrap_or(Bytes::from_array([]))
   ods_fill_metrics(diagnostics, document, inspect, bytes)
   ods_apply_repeat_diagnostics(diagnostics, document)
   if context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
@@ -505,19 +505,14 @@ fn ods_lower_common(
             mime_type: image.media_type,
           }
           next_asset.attrs.set("zip_entry_path", identity)
-          match source.path {
+          match @input.input_path(source) {
             Some(container) =>
               next_asset.attrs.set("zip_container_path", container)
             None => ()
           }
           match image.bytes {
-            Some(bytes) => {
-              next_asset.attrs.set("inline_payload_kind", "base64")
-              next_asset.attrs.set(
-                "inline_payload",
-                @base64.encode(bytes, url_safe=false),
-              )
-            }
+            Some(bytes) =>
+              next_asset.payload = Some(@core.AssetPayload::Bytes(bytes))
             None => ()
           }
           assets.push(next_asset)
@@ -599,7 +594,7 @@ fn ods_sheet_source_ref(
   sheet : @dodf.OdsSheet,
   row_index : Int?,
 ) -> @core.SourceRef {
-  let container_path = source.path.unwrap_or(source.source_name)
+  let container_path = @input.input_path(source).unwrap_or(source.source_name)
   let base = @core.source_ref_with_container_entry(
     @core.empty_source_ref(),
     Some(source.source_name),

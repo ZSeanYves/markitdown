@@ -20,7 +20,7 @@ pub fn prepare_html_document_from_source(
   }
   let normalized = normalize_html_token_source(text_payload.text)
   let large_input = text_payload.text.length() > 256_000
-  let compact_scan = large_input && !html_token_source_has_surrogate(normalized)
+  let compact_scan = large_input
   let scanned_events : Result[Array[HtmlTokenEvent]?, String] = if compact_scan {
     Ok(None)
   } else {
