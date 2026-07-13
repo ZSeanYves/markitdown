@@ -18,6 +18,17 @@ test "XLSX range and cell reference helpers cover absolute and invalid inputs" {
 }
 
 ///|
+test "XLSX bounded lowering trims text without changing block identity" {
+  let original = @core.make_block_without_source_ref(
+    @core.BlockKind::TableCell,
+    "  value\n",
+  )
+  let trimmed = xlsx_trim_lowered_block_text(original)
+  assert_eq(trimmed.text, "value")
+  assert_eq(trimmed.block_id, original.block_id)
+}
+
+///|
 test "XLSX bounded scanners and attribute helpers cover all boundary outcomes" {
   let xml = "xx<c r=\"B2\" s=\"3\">value</c>yy"
   assert_true(xlsx_find_char(xml, '<', -5, 999) == Some(2))

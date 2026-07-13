@@ -375,9 +375,9 @@ test "policy preset expands all configured scenario ids" {
 test "benchmark policy owns defaults RSS budgets and change-risk coverage" {
   let policy = load_policy().unwrap()
   assert_eq(policy.default_rss_limit_mb, 256)
-  assert_eq(rss_limit_mb(policy, "html", "huge"), 320)
-  assert_eq(rss_limit_mb(policy, "pdf", "large"), 288)
-  assert_eq(rss_limit_mb(policy, "xlsx", "huge"), 448)
+  assert_eq(rss_limit_mb(policy, "html", "huge"), 256)
+  assert_eq(rss_limit_mb(policy, "pdf", "large"), 256)
+  assert_eq(rss_limit_mb(policy, "xlsx", "huge"), 384)
   assert_eq(rss_limit_mb(policy, "zip", "large"), 256)
   let defaults = apply_policy_defaults(parse_run_options([]), policy)
   assert_eq(defaults.repeat_count, 3)

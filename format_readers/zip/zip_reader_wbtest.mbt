@@ -179,3 +179,43 @@ test "zip reader repeated opens keep archive-local caches independent" {
   assert_eq(second.inspect_miss_count.val, 1)
   assert_eq(second.inspect_hit_count.val, 0)
 }
+
+///|
+test "zip transient reads validate payload without populating cache" {
+  let archive = open_zip(
+    wb_build_store_zip([("large/sheet.xml", "<sheet>payload</sheet>")]),
+  ) catch {
+    e => fail("open transient zip failed: " + e.to_string())
+  }
+  let first = read_entry_transient(archive, "large/sheet.xml") catch {
+    e => fail("transient read failed: " + e.to_string())
+  }
+  let second = read_entry_transient(archive, "large/sheet.xml") catch {
+    e => fail("second transient read failed: " + e.to_string())
+  }
+  assert_eq(first, second)
+  assert_eq(archive.read_entry_cache.length(), 0)
+  assert_eq(archive.read_hit_count.val, 0)
+  assert_eq(archive.read_miss_count.val, 0)
+}
+
+///|
+test "zip transient reads enforce the decoded output limit" {
+  let archive = open_zip(
+    wb_build_store_zip([("large/sheet.xml", "0123456789")]),
+  ) catch {
+    e => fail("open limited transient zip failed: " + e.to_string())
+  }
+  let result = try
+    read_entry_transient(archive, "large/sheet.xml", max_output_size=4) |> Ok
+  catch {
+    e => Err(e)
+  }
+  match result {
+    Err(InvalidStructure(message)) =>
+      assert_true(message.contains("exceeds max_output_size"))
+    Err(err) => fail("unexpected transient limit error: " + err.to_string())
+    Ok(_) => fail("transient read should enforce max_output_size")
+  }
+  assert_eq(archive.read_entry_cache.length(), 0)
+}

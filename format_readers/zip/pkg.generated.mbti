@@ -30,6 +30,8 @@ pub fn read_entry(ZipArchive, String, max_output_size? : Int) -> Bytes raise Zip
 
 pub fn read_entry_data_slice(ZipArchive, String) -> ZipEntryDataSlice raise ZipError
 
+pub fn read_entry_transient(ZipArchive, String, max_output_size? : Int) -> Bytes raise ZipError
+
 pub fn validate_zip_archive(ZipArchive) -> ZipValidationReport
 
 pub fn visit_inflated_entry_chunks(ZipArchive, String, chunk_size? : Int, (Bytes) -> Result[Unit, String]) -> Result[Unit, String]

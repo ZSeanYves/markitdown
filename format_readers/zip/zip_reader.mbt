@@ -204,6 +204,54 @@ pub fn read_entry(
 }
 
 ///|
+/// Read and validate an entry without retaining the decoded payload in the
+/// archive cache. Use this for one-shot large parts whose callers keep a
+/// parsed representation instead.
+pub fn read_entry_transient(
+  archive : ZipArchive,
+  path : String,
+  max_output_size? : Int = 128 * 1024 * 1024,
+) -> Bytes raise ZipError {
+  let slice = read_entry_data_slice(archive, path)
+  let entry = slice.entry
+  let compressed = subview(
+    archive.bytes,
+    slice.data_start,
+    slice.data_end,
+    "entry data",
+  )
+  let decoded = decompress(
+    entry.compression_method,
+    compressed,
+    max_output_size~,
+  ) catch {
+    UnsupportedCompressionMethod(code) =>
+      raise UnsupportedCompressionMethod(code)
+    DecodeFailed(msg) =>
+      raise DecodeFailed("decode failed for `" + entry.name + "`: " + msg)
+    OutputTooLarge(max, actual) =>
+      raise InvalidStructure(
+        "decoded entry exceeds max_output_size: max=" +
+        max.to_string() +
+        ", actual=" +
+        actual.to_string(),
+      )
+  }
+  if decoded.length() != entry.uncompressed_size {
+    raise InvalidStructure(
+      "decoded size mismatch for entry: " +
+      entry.name +
+      " expected=" +
+      entry.uncompressed_size.to_string() +
+      " actual=" +
+      decoded.length().to_string(),
+    )
+  }
+  validate_crc32(decoded, entry)
+  decoded
+}
+
+///|
 pub fn read_entry_data_slice(
   archive : ZipArchive,
   path : String,

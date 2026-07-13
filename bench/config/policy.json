@@ -7,9 +7,9 @@
   },
   "rss_limits_mb": {
     "default": 256,
-    "html.huge": 320,
-    "pdf.large": 288,
-    "xlsx.huge": 448
+    "html.huge": 256,
+    "pdf.large": 256,
+    "xlsx.huge": 384
   },
   "tool_matrix": {
     "official-internal": ["moonbit-cli", "moonbit-engine"],

@@ -109,7 +109,10 @@ pub fn read_part_bytes_transient(
 ) -> Bytes raise OoxmlError {
   let normalized = normalize_part_name(part_name)
   let raw_name = resolve_part_raw_name(pkg, normalized)
-  read_archive_entry_or_raise(pkg.archive, raw_name)
+  @zip.read_entry_transient(pkg.archive, raw_name) catch {
+    @zip.EntryNotFound(missing) => raise MissingPart(missing)
+    e => raise ZipError(e.to_string())
+  }
 }
 
 ///|

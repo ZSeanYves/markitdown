@@ -309,6 +309,12 @@ fn default_pipeline_for_context(context : PassContext) -> PassPipeline {
         )
         return new_pass_pipeline([collect_asset_refs_pass()])
       }
+      Some("xlsx") => {
+        context.diagnostics.val.metrics.set(
+          "pipeline_profile", "xlsx_large_lowered",
+        )
+        return new_pass_pipeline([collect_asset_refs_pass()])
+      }
       Some("tex") => {
         context.diagnostics.val.metrics.set(
           "pipeline_profile", "tex_large_lowered",
