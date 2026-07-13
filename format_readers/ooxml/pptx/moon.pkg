@@ -1,6 +1,7 @@
 import {
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/format_readers/ooxml/package" @ox,
+  "ZSeanYves/markitdown/format_readers/zip_source" @zsource,
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/x/fs",
 }

@@ -9,7 +9,11 @@ const ODF_MIMETYPE_ODP : String = "application/vnd.oasis.opendocument.presentati
 
 ///|
 pub fn open_odt_document(bytes : Bytes) -> OdtDocument raise {
-  let archive = @dzip.open_zip(bytes)
+  open_odt_archive(@dzip.open_zip(bytes))
+}
+
+///|
+pub fn open_odt_archive(archive : @dzip.ZipArchive) -> OdtDocument raise {
   let package_info = read_odf_package_info(archive)
   if package_info.document_kind != OdfDocumentKind::Odt {
     raise ParseError("package is not an ODT document")
@@ -33,7 +37,11 @@ pub fn open_odt_document(bytes : Bytes) -> OdtDocument raise {
 
 ///|
 pub fn open_ods_document(bytes : Bytes) -> OdsDocument raise {
-  let archive = @dzip.open_zip(bytes)
+  open_ods_archive(@dzip.open_zip(bytes))
+}
+
+///|
+pub fn open_ods_archive(archive : @dzip.ZipArchive) -> OdsDocument raise {
   let package_info = read_odf_package_info(archive)
   if package_info.document_kind != OdfDocumentKind::Ods {
     raise ParseError("package is not an ODS document")
@@ -53,7 +61,11 @@ pub fn open_ods_document(bytes : Bytes) -> OdsDocument raise {
 
 ///|
 pub fn open_odp_document(bytes : Bytes) -> OdpDocument raise {
-  let archive = @dzip.open_zip(bytes)
+  open_odp_archive(@dzip.open_zip(bytes))
+}
+
+///|
+pub fn open_odp_archive(archive : @dzip.ZipArchive) -> OdpDocument raise {
   let package_info = read_odf_package_info(archive)
   if package_info.document_kind != OdfDocumentKind::Odp {
     raise ParseError("package is not an ODP document")

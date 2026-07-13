@@ -37,6 +37,26 @@ fn open_zip_impl(bytes : Bytes) -> ZipArchive raise ZipError {
   let eocd_offset = find_eocd(bytes)
   let (cd_offset, cd_size, entry_count) = parse_eocd(bytes, eocd_offset)
   let entries = parse_cd_entries(bytes, cd_offset, cd_size, entry_count)
+  build_zip_archive(
+    bytes,
+    bytes.length(),
+    fn(offset, length) {
+      if offset < 0 || length < 0 || offset > bytes.length() {
+        return Err("zip source read is outside the payload")
+      }
+      Ok(bytes[offset:(offset + length).min(bytes.length())].to_owned())
+    },
+    entries,
+  )
+}
+
+///|
+fn build_zip_archive(
+  bytes : Bytes,
+  source_size : Int,
+  source_read_at : (Int, Int) -> Result[Bytes, String],
+  entries : Array[ZipEntryMeta],
+) -> ZipArchive raise ZipError {
   let index : Map[String, Int] = Map([])
 
   let mut i = 0
@@ -55,6 +75,8 @@ fn open_zip_impl(bytes : Bytes) -> ZipArchive raise ZipError {
     bytes,
     entries,
     entry_index: index,
+    source_size,
+    source_read_at,
     inspect_cache: Ref(None),
     read_entry_cache: Map([]),
     inspect_hit_count: { val: 0 },
@@ -67,6 +89,32 @@ fn open_zip_impl(bytes : Bytes) -> ZipArchive raise ZipError {
 ///|
 pub fn open_zip(bytes : Bytes) -> ZipArchive raise ZipError {
   open_zip_impl(bytes)
+}
+
+///|
+/// Open a seekable ZIP source by reading only its EOCD tail and central
+/// directory. The callback must return at most `length` bytes from `offset`.
+pub fn open_zip_reader(
+  size : Int,
+  read_at : (Int, Int) -> Result[Bytes, String],
+) -> ZipArchive raise ZipError {
+  if size < 22 {
+    raise UnexpectedEOF("zip smaller than minimum EOCD size")
+  }
+  let tail_length = size.min(65535 + 22)
+  let tail_start = size - tail_length
+  let tail = read_zip_source_exact(
+    read_at, tail_start, tail_length, "EOCD tail",
+  )
+  let eocd_offset = find_eocd(tail)
+  let (cd_offset, cd_size, entry_count) = parse_eocd_window(
+    tail, eocd_offset, size, tail_start,
+  )
+  let central = read_zip_source_exact(
+    read_at, cd_offset, cd_size, "central directory",
+  )
+  let entries = parse_cd_entries(central, 0, cd_size, entry_count)
+  build_zip_archive(b"", size, read_at, entries)
 }
 
 ///|
@@ -161,8 +209,8 @@ pub fn read_entry(
   }
   let slice = read_entry_data_slice(archive, path)
   let entry = slice.entry
-  let compressed = subview(
-    archive.bytes,
+  let compressed = read_zip_archive_range(
+    archive,
     slice.data_start,
     slice.data_end,
     "entry data",
@@ -214,8 +262,8 @@ pub fn read_entry_transient(
 ) -> Bytes raise ZipError {
   let slice = read_entry_data_slice(archive, path)
   let entry = slice.entry
-  let compressed = subview(
-    archive.bytes,
+  let compressed = read_zip_archive_range(
+    archive,
     slice.data_start,
     slice.data_end,
     "entry data",
@@ -271,49 +319,29 @@ fn read_entry_data_slice_from_meta(
   validate_entry_supported_flags(entry.flags, entry.name)
 
   let local_offset = entry.local_header_offset
-  let sig = read_u32_le(
-    archive.bytes,
+  let local_header = read_zip_archive_range(
+    archive,
     local_offset,
-    "local file header signature",
+    local_offset + 30,
+    "local file header",
   )
+  let sig = read_u32_le(local_header, 0, "local file header signature")
   if sig != LOCAL_FILE_HEADER_SIG {
     raise InvalidSignature("local file header", LOCAL_FILE_HEADER_SIG, sig)
   }
 
-  let flags = read_u16_le(
-    archive.bytes,
-    local_offset + 6,
-    "local file header flags",
-  )
-  let method_code = read_u16_le(
-    archive.bytes,
-    local_offset + 8,
-    "local file header method",
-  )
-  let local_crc32 = read_u32_le(
-    archive.bytes,
-    local_offset + 14,
-    "local file header crc32",
-  )
+  let flags = read_u16_le(local_header, 6, "local file header flags")
+  let method_code = read_u16_le(local_header, 8, "local file header method")
+  let local_crc32 = read_u32_le(local_header, 14, "local file header crc32")
   let local_compressed_size = read_u32_le(
-    archive.bytes,
-    local_offset + 18,
-    "local file header compressed size",
+    local_header, 18, "local file header compressed size",
   )
   let local_uncompressed_size = read_u32_le(
-    archive.bytes,
-    local_offset + 22,
-    "local file header uncompressed size",
+    local_header, 22, "local file header uncompressed size",
   )
-  let name_len = read_u16_le(
-    archive.bytes,
-    local_offset + 26,
-    "local file header name length",
-  )
+  let name_len = read_u16_le(local_header, 26, "local file header name length")
   let extra_len = read_u16_le(
-    archive.bytes,
-    local_offset + 28,
-    "local file header extra length",
+    local_header, 28, "local file header extra length",
   )
 
   validate_entry_supported_flags(flags, entry.name)
@@ -333,11 +361,8 @@ fn read_entry_data_slice_from_meta(
 
   let local_name_start = local_offset + 30
   let local_name_end = local_name_start + name_len
-  let local_name_bytes = subview(
-    archive.bytes,
-    local_name_start,
-    local_name_end,
-    "local file header name",
+  let local_name_bytes = read_zip_archive_range(
+    archive, local_name_start, local_name_end, "local file header name",
   )
   let local_name = bytes_to_string(local_name_bytes)
 
@@ -371,9 +396,7 @@ fn read_entry_data_slice_from_meta(
 
   let data_start = local_name_end + extra_len
   let data_end = data_start + entry.compressed_size
-  if data_start < 0 ||
-    data_end < data_start ||
-    data_end > archive.bytes.length() {
+  if data_start < 0 || data_end < data_start || data_end > archive.source_size {
     raise UnexpectedEOF("entry data")
   }
   { entry, data_start, data_end }
@@ -389,8 +412,8 @@ pub fn visit_inflated_entry_chunks(
   let slice = read_entry_data_slice(archive, path) catch {
     err => return Err(err.to_string())
   }
-  visit_inflated_entry_chunks_from_slice(
-    archive.bytes,
+  visit_inflated_entry_chunks_from_reader(
+    archive.source_read_at,
     slice,
     chunk_size~,
     on_chunk,
@@ -404,6 +427,28 @@ pub fn visit_inflated_entry_chunks_from_slice(
   chunk_size? : Int = 64 * 1024,
   on_chunk : (Bytes) -> Result[Unit, String],
 ) -> Result[Unit, String] {
+  visit_inflated_entry_chunks_from_reader(
+    fn(offset, length) {
+      if offset < 0 || length < 0 || offset > archive_bytes.length() {
+        return Err("zip source read is outside the payload")
+      }
+      Ok(
+        archive_bytes[offset:(offset + length).min(archive_bytes.length())].to_owned(),
+      )
+    },
+    slice,
+    chunk_size~,
+    on_chunk,
+  )
+}
+
+///|
+fn visit_inflated_entry_chunks_from_reader(
+  read_at : (Int, Int) -> Result[Bytes, String],
+  slice : ZipEntryDataSlice,
+  chunk_size? : Int = 64 * 1024,
+  on_chunk : (Bytes) -> Result[Unit, String],
+) -> Result[Unit, String] {
   let chunk_size = if chunk_size <= 0 { 64 * 1024 } else { chunk_size }
   let entry = slice.entry
   let mut emitted_bytes = 0
@@ -413,7 +458,10 @@ pub fn visit_inflated_entry_chunks_from_slice(
       let mut pos = slice.data_start
       while pos < slice.data_end {
         let end_ = (pos + chunk_size).min(slice.data_end)
-        let chunk = archive_bytes[pos:end_].to_owned()
+        let chunk = match read_zip_source_fully(read_at, pos, end_ - pos) {
+          Ok(value) => value
+          Err(err) => return Err(err)
+        }
         emitted_bytes += chunk.length()
         crc.update(chunk[:])
         match on_chunk(chunk) {
@@ -430,7 +478,12 @@ pub fn visit_inflated_entry_chunks_from_slice(
       while !done {
         let feed_end = (pos + chunk_size).min(slice.data_end)
         if pos < feed_end {
-          inflater.src(archive_bytes[pos:feed_end])
+          let compressed = match
+            read_zip_source_fully(read_at, pos, feed_end - pos) {
+            Ok(value) => value
+            Err(err) => return Err(err)
+          }
+          inflater.src(compressed[:])
           pos = feed_end
         }
         let mut needs_more_input = false
@@ -618,6 +671,16 @@ fn parse_eocd(
   bytes : Bytes,
   eocd_offset : Int,
 ) -> (Int, Int, Int) raise ZipError {
+  parse_eocd_window(bytes, eocd_offset, bytes.length(), 0)
+}
+
+///|
+fn parse_eocd_window(
+  bytes : Bytes,
+  eocd_offset : Int,
+  archive_size : Int,
+  window_start : Int,
+) -> (Int, Int, Int) raise ZipError {
   let sig = read_u32_le(bytes, eocd_offset, "EOCD signature")
   if sig != EOCD_SIG {
     raise InvalidSignature("EOCD", EOCD_SIG, sig)
@@ -644,13 +707,13 @@ fn parse_eocd(
     raise InvalidStructure("ZIP64 is not supported in phase-1")
   }
 
-  let eocd_end = eocd_offset + 22 + comment_len
-  if eocd_end != bytes.length() {
+  let eocd_end = window_start + eocd_offset + 22 + comment_len
+  if eocd_end != archive_size {
     raise InvalidStructure("EOCD comment length mismatch")
   }
 
   let cd_end = cd_offset + cd_size
-  if cd_offset < 0 || cd_size < 0 || cd_end > bytes.length() {
+  if cd_offset < 0 || cd_size < 0 || cd_end > archive_size {
     raise InvalidStructure("central directory range out of bounds")
   }
 
@@ -1357,6 +1420,68 @@ fn subview(
     raise UnexpectedEOF(context)
   }
   bytes[start:end_].to_owned()
+}
+
+///|
+fn read_zip_source_exact(
+  read_at : (Int, Int) -> Result[Bytes, String],
+  offset : Int,
+  length : Int,
+  context : String,
+) -> Bytes raise ZipError {
+  if offset < 0 || length < 0 {
+    raise UnexpectedEOF(context)
+  }
+  let bytes = match read_zip_source_fully(read_at, offset, length) {
+    Ok(value) => value
+    Err(message) => raise DecodeFailed(context + " read failed: " + message)
+  }
+  bytes
+}
+
+///|
+fn read_zip_source_fully(
+  read_at : (Int, Int) -> Result[Bytes, String],
+  offset : Int,
+  length : Int,
+) -> Result[Bytes, String] {
+  if offset < 0 || length < 0 {
+    return Err("zip source range must be non-negative")
+  }
+  if length == 0 {
+    return Ok(b"")
+  }
+  let output = Buffer()
+  let mut consumed = 0
+  while consumed < length {
+    let remaining = length - consumed
+    let chunk = match read_at(offset + consumed, remaining) {
+      Ok(value) => value
+      Err(message) => return Err("zip source read failed: " + message)
+    }
+    if chunk.length() == 0 {
+      return Err("unexpected EOF while reading zip source")
+    }
+    if chunk.length() > remaining {
+      return Err("zip source reader returned more bytes than requested")
+    }
+    output.write_bytes(chunk)
+    consumed += chunk.length()
+  }
+  Ok(output.to_bytes())
+}
+
+///|
+fn read_zip_archive_range(
+  archive : ZipArchive,
+  start : Int,
+  end_ : Int,
+  context : String,
+) -> Bytes raise ZipError {
+  if start < 0 || end_ < start || end_ > archive.source_size {
+    raise UnexpectedEOF(context)
+  }
+  read_zip_source_exact(archive.source_read_at, start, end_ - start, context)
 }
 
 ///|

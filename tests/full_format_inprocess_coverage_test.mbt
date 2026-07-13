@@ -24,6 +24,133 @@ fn inprocess_convert_fixture(
 }
 
 ///|
+fn convert_binary_source_for_equivalence(
+  source : @input.InputSource,
+  format : @input.DetectedFormat,
+) -> @convert.ConvertResult {
+  let options = @convert.make_convert_options(
+    @convert.ConvertMode::Balanced,
+    @convert.OutputFormat::Markdown,
+    Some(format),
+    @parser.default_ocr_options(),
+    @convert.default_resource_limits(),
+  )
+  match @convert.convert_input(source, options) {
+    Ok(result) => result
+    Err(err) => abort("binary source conversion failed: " + err.to_string())
+  }
+}
+
+///|
+fn assert_binary_results_equivalent(
+  expected : @convert.ConvertResult,
+  actual : @convert.ConvertResult,
+) -> Unit raise {
+  assert_eq(actual.content, expected.content)
+  assert_true(actual.detected_format == expected.detected_format)
+  assert_true(actual.parser_mode == expected.parser_mode)
+  assert_true(actual.convert_mode == expected.convert_mode)
+  assert_eq(actual.assets.length(), expected.assets.length())
+  for index in 0..<expected.assets.length() {
+    let left = expected.assets[index]
+    let right = actual.assets[index]
+    assert_true(right.asset_kind == left.asset_kind)
+    assert_eq(right.asset_id, left.asset_id)
+    assert_true(right.path == left.path)
+    assert_true(right.mime_type == left.mime_type)
+    assert_true(right.payload == left.payload)
+  }
+  assert_true(
+    actual.diagnostics.parser_name == expected.diagnostics.parser_name,
+  )
+  assert_true(
+    actual.diagnostics.parser_mode == expected.diagnostics.parser_mode,
+  )
+  assert_true(actual.diagnostics.warnings == expected.diagnostics.warnings)
+  assert_true(
+    actual.diagnostics.degraded_features ==
+    expected.diagnostics.degraded_features,
+  )
+  assert_true(actual.diagnostics.pass_trace == expected.diagnostics.pass_trace)
+  for
+    key in [
+      "detected_format", "effective_mode", "resource_limit_hit", "asset_count",
+    ] {
+    assert_true(
+      actual.diagnostics.metrics.get(key) ==
+      expected.diagnostics.metrics.get(key),
+    )
+  }
+}
+
+///|
+test "seekable package formats preserve Path Bytes and short Reader results" {
+  let fixtures : Array[(String, @input.DetectedFormat)] = [
+    ("samples/fixtures/contracts/docx/golden.docx", @input.DetectedFormat::Docx),
+    (
+      "samples/fixtures/contracts/pptx/pptx_simple.pptx",
+      @input.DetectedFormat::Pptx,
+    ),
+    (
+      "samples/fixtures/contracts/xlsx/sheet_simple.xlsx",
+      @input.DetectedFormat::Xlsx,
+    ),
+    (
+      "samples/fixtures/contracts/epub/epub_basic_package.epub",
+      @input.DetectedFormat::Epub,
+    ),
+    (
+      "samples/fixtures/contracts/odt/odt_basic_sample.odt",
+      @input.DetectedFormat::Odt,
+    ),
+    (
+      "samples/fixtures/contracts/ods/ods_basic_sample.ods",
+      @input.DetectedFormat::Ods,
+    ),
+    (
+      "samples/fixtures/contracts/odp/odp_basic_sample.odp",
+      @input.DetectedFormat::Odp,
+    ),
+    (
+      "samples/fixtures/contracts/zip/zip_basic_structured.zip",
+      @input.DetectedFormat::Zip,
+    ),
+  ]
+  for fixture in fixtures {
+    let (path, format) = fixture
+    let bytes = @fs.read_file_to_bytes(path) catch {
+      err => fail("read equivalence fixture failed: " + err.to_string())
+    }
+    let source_name = path.split("/").last().unwrap_or(path).to_owned()
+    let path_result = convert_binary_source_for_equivalence(
+      @input.input_from_path_with_format(path, Some(format)),
+      format,
+    )
+    let bytes_result = convert_binary_source_for_equivalence(
+      @input.input_from_bytes_with_format(bytes, source_name, Some(format)),
+      format,
+    )
+    let read_count = Ref(0)
+    let reader = @input.make_input_reader(
+      fn(offset, length) {
+        read_count.val += 1
+        let start = offset.to_int()
+        let end_ = (start + length.min(4096)).min(bytes.length())
+        Ok(bytes.view(start~, end=end_).to_owned())
+      },
+      size=bytes.length().to_int64(),
+    )
+    let reader_result = convert_binary_source_for_equivalence(
+      @input.input_from_reader_with_format(reader, source_name, Some(format)),
+      format,
+    )
+    assert_binary_results_equivalent(path_result, bytes_result)
+    assert_binary_results_equivalent(path_result, reader_result)
+    assert_true(read_count.val > 1)
+  }
+}
+
+///|
 test "in-process complex document matrix exercises balanced product routes" {
   let fixtures : Array[(String, @input.DetectedFormat)] = [
     (

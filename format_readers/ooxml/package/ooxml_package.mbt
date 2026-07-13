@@ -9,9 +9,16 @@
 /// Non-goal:
 /// - no DOCX/PPTX/XLSX final block recovery in this layer
 pub fn open_ooxml_package(bytes : Bytes) -> OoxmlPackage raise OoxmlError {
+  open_ooxml_archive(ensure_archive(bytes))
+}
+
+///|
+/// Open OOXML semantics over an already validated ZIP archive.
+pub fn open_ooxml_archive(
+  archive : @zip.ZipArchive,
+) -> OoxmlPackage raise OoxmlError {
   let part_cache = new_ooxml_part_cache()
   let relationship_cache = new_ooxml_relationship_cache()
-  let archive = ensure_archive(bytes)
 
   let (part_index, part_size_index) = build_ooxml_part_index(archive)
 

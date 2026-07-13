@@ -3,7 +3,18 @@ pub fn open_epub_package(
   bytes : Bytes,
   source_name : String,
 ) -> EpubPackage raise EpubError {
-  let archive = open_epub_archive(bytes)
+  let archive = @zip.open_zip(bytes) catch {
+    e => raise ZipError(e.to_string())
+  }
+  open_epub_archive(archive, source_name)
+}
+
+///|
+/// Open EPUB semantics over an already validated ZIP archive.
+pub fn open_epub_archive(
+  archive : @zip.ZipArchive,
+  source_name : String,
+) -> EpubPackage raise EpubError {
   let (entries, entry_index) = plan_archive_entries(archive)
 
   if entry_index.contains("META-INF/encryption.xml") {
@@ -110,13 +121,6 @@ pub fn open_epub_package(
     inventory_miss_count: { val: 0 },
   }
   pkg
-}
-
-///|
-fn open_epub_archive(bytes : Bytes) -> @zip.ZipArchive raise EpubError {
-  @zip.open_zip(bytes) catch {
-    e => raise ZipError(e.to_string())
-  }
 }
 
 ///|

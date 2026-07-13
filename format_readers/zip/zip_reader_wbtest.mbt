@@ -219,3 +219,47 @@ test "zip transient reads enforce the decoded output limit" {
   }
   assert_eq(archive.read_entry_cache.length(), 0)
 }
+
+///|
+test "zip seekable reader opens from tail and central directory" {
+  let payload = wb_build_store_zip([("large/payload.bin", "x".repeat(70_000))])
+  let reads : Array[(Int, Int)] = []
+  let archive = open_zip_reader(payload.length(), fn(offset, length) {
+    reads.push((offset, length))
+    if offset < 0 || length < 0 || offset > payload.length() {
+      return Err("outside payload")
+    }
+    Ok(payload[offset:(offset + length).min(payload.length())].to_owned())
+  }) catch {
+    e => fail("open seekable zip failed: " + e.to_string())
+  }
+  assert_eq(archive.bytes.length(), 0)
+  assert_eq(reads[0].1, 65535 + 22)
+  assert_true(reads[0].1 < payload.length())
+  let decoded = read_entry_transient(archive, "large/payload.bin") catch {
+    e => fail("seekable entry read failed: " + e.to_string())
+  }
+  assert_eq(decoded.length(), 70_000)
+  assert_eq(decoded[0], 'x'.to_int().to_byte())
+  assert_true(reads.length() >= 4)
+}
+
+///|
+test "zip seekable reader rejects invalid size and reader contracts" {
+  let undersized = try open_zip_reader(10, fn(_, _) { Ok(b"") }) |> Ok catch {
+    e => Err(e)
+  }
+  match undersized {
+    Err(UnexpectedEOF(_)) => ()
+    _ => fail("undersized seekable ZIP should fail")
+  }
+  assert_true(read_zip_source_fully(fn(_, _) { Ok(b"") }, -1, 1) is Err(_))
+  assert_true(read_zip_source_fully(fn(_, _) { Ok(b"") }, 0, 0) == Ok(b""))
+  assert_true(
+    read_zip_source_fully(fn(_, _) { Err("read failure") }, 0, 1) is Err(_),
+  )
+  assert_true(read_zip_source_fully(fn(_, _) { Ok(b"") }, 0, 1) is Err(_))
+  assert_true(
+    read_zip_source_fully(fn(_, _) { Ok(b"too long") }, 0, 1) is Err(_),
+  )
+}

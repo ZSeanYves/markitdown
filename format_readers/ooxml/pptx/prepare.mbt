@@ -9,16 +9,11 @@ pub struct PreparedPptxDocument {
 pub fn prepare_pptx_document_from_source(
   source : @input.InputSource,
 ) -> Result[PreparedPptxDocument, String] {
-  let bytes = match @input.read_input_bytes(source) {
-    Ok(payload) => payload
+  let prepared = match @zsource.prepare_zip_from_source(source) {
+    Ok(value) => value
     Err(err) => return Err(err)
   }
-  let prepared_source = if @input.input_bytes(source) is Some(_) {
-    source
-  } else {
-    @input.with_bytes_payload(source, bytes)
-  }
-  let pkg = try @ox.open_ooxml_package(bytes) |> Ok catch {
+  let pkg = try @ox.open_ooxml_archive(prepared.archive) |> Ok catch {
     err => Err(err.to_string())
   }
   let pkg = match pkg {
@@ -29,7 +24,12 @@ pub fn prepare_pptx_document_from_source(
     err => Err(err.to_string())
   }
   match document {
-    Ok(value) => Ok({ prepared_source, opened_package: pkg, document: value })
+    Ok(value) =>
+      Ok({
+        prepared_source: prepared.prepared_source,
+        opened_package: pkg,
+        document: value,
+      })
     Err(err) => Err(err)
   }
 }
