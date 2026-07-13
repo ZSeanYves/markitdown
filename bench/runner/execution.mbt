@@ -764,6 +764,18 @@ fn run_engine_samples(
   let out : Array[SampleRow] = []
   let source = @input.input_from_path(row.input_path)
   let options = bench_convert_options_for_row(row)
+  let stdout_path = stdout_output_path(
+    run_id,
+    scenario.scenario_id,
+    "moonbit-engine-rss",
+    row.bench_id,
+  )
+  let stderr_path = stderr_output_path(
+    run_id,
+    scenario.scenario_id,
+    "moonbit-engine-rss",
+    row.bench_id,
+  )
   for _ in 0..<opts.warmup_count {
     ignore(@convert.convert_input_with_provenance(source, options))
   }
@@ -792,6 +804,30 @@ fn run_engine_samples(
     let started = @measure.monotonic_start()
     let execution = @convert.convert_input_with_provenance(source, options)
     let wall_us = @measure.monotonic_elapsed_us(started).to_int64()
+    let worker_output = output_path(
+      run_id,
+      scenario.scenario_id,
+      "moonbit-engine-rss",
+      row.bench_id,
+      repeat_index,
+      opts.repeat_count,
+    )
+    let worker_measurement = measure_engine_worker_rss(
+      contract,
+      row,
+      worker_output,
+      stdout_path,
+      stderr_path,
+      opts.timeout_ms,
+    )
+    let worker_peak_rss = match worker_measurement {
+      Some(measured) if !measured.data.timed_out && measured.data.exit_code == 0 =>
+        Some(measured.data.peak_rss_kb)
+      _ => None
+    }
+    cleanup_bench_output(worker_output, "ok", "none")
+    cleanup_bench_output(stdout_path, "ok", "none")
+    cleanup_bench_output(stderr_path, "ok", "none")
     match execution {
       Ok(value) => {
         progress.val = bench_progress_advance(progress.val, label, status="ok")
@@ -802,7 +838,7 @@ fn run_engine_samples(
           scenario_kind: scenario.scenario_kind,
           official_membership: scenario.official_membership,
           tool: "moonbit-engine",
-          measurement_mode: "inprocess-engine",
+          measurement_mode: "inprocess-engine+process-rss",
           measurement_policy: measurement_policy(opts),
           repeat_index,
           repeat_count: opts.repeat_count,
@@ -818,7 +854,7 @@ fn run_engine_samples(
           exit_code: 0,
           timed_out: false,
           wall_us: Some(wall_us),
-          peak_rss_kb: None,
+          peak_rss_kb: worker_peak_rss,
           output_bytes: @utf8.encode(value.result.content).length().to_int64(),
           output_sha256: Some(
             @crypto.bytes_to_hex_string(
@@ -844,7 +880,7 @@ fn run_engine_samples(
           scenario_kind: scenario.scenario_kind,
           official_membership: scenario.official_membership,
           tool: "moonbit-engine",
-          measurement_mode: "inprocess-engine",
+          measurement_mode: "inprocess-engine+process-rss",
           measurement_policy: measurement_policy(opts),
           repeat_index,
           repeat_count: opts.repeat_count,
@@ -860,7 +896,7 @@ fn run_engine_samples(
           exit_code: 1,
           timed_out: false,
           wall_us: Some(wall_us),
-          peak_rss_kb: None,
+          peak_rss_kb: worker_peak_rss,
           output_bytes: 0L,
           output_sha256: None,
           error: Some(err.to_string()),
@@ -872,6 +908,39 @@ fn run_engine_samples(
     }
   }
   out
+}
+
+///|
+fn measure_engine_worker_rss(
+  contract : BinaryContract,
+  row : @manifest.BenchRow,
+  output_path : String,
+  stdout_path : String,
+  stderr_path : String,
+  timeout_ms : Int,
+) -> @measure.NativeMeasureResult? {
+  if !contract.runner_release_ok || !@fs.path_exists(contract.runner_path) {
+    return None
+  }
+  ensure_parent_dir(output_path) catch {
+    _ => return None
+  }
+  ensure_parent_dir(stdout_path) catch {
+    _ => return None
+  }
+  ensure_parent_dir(stderr_path) catch {
+    _ => return None
+  }
+  let command = @tools.make_tool_command(
+    contract.runner_path,
+    ["engine-worker", row.format, row.input_path, output_path],
+    None,
+    [],
+    timeout_ms,
+    "engine-rss-worker",
+    contract.runner_path + " engine-worker <format> <input> <output>",
+  )
+  Some(native_measure_command(command, stdout_path, stderr_path))
 }
 
 ///|
@@ -919,6 +988,13 @@ fn bench_convert_options_for_row(
   } else {
     (@input.default_format_detector().detect)(source).format
   }
+  bench_convert_options(detected_format)
+}
+
+///|
+fn bench_convert_options(
+  detected_format : @input.DetectedFormat,
+) -> @convert.ConvertOptions {
   let ocr_options = if @input.detected_format_is_image_candidate(
       detected_format,
     ) {

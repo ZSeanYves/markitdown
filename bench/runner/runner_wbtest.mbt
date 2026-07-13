@@ -994,7 +994,9 @@ test "benchmark engine samples cover success failure progress and resume" {
   assert_eq(samples.length(), 2)
   assert_true(samples.all(sample => sample.status == "ok"))
   assert_true(
-    samples.all(sample => sample.measurement_mode == "inprocess-engine"),
+    samples.all(sample => {
+      sample.measurement_mode == "inprocess-engine+process-rss"
+    }),
   )
   assert_true(samples.all(sample => sample.output_bytes > 0L))
   assert_true(samples.all(sample => sample.output_sha256 is Some(_)))
@@ -1014,6 +1016,27 @@ test "benchmark engine samples cover success failure progress and resume" {
   assert_eq(missing.length(), 1)
   assert_eq(missing[0].status, "failed")
   assert_true(missing[0].error is Some(_))
+}
+
+///|
+test "benchmark engine RSS worker validates arguments and writes output" {
+  assert_eq(run_engine_worker([]), 2)
+  assert_eq(run_engine_worker(["unknown", "input", "output"]), 2)
+  let output = ".tmp/bench-test/engine-worker.md"
+  ensure_parent_dir(output) catch {
+    err => fail(err.to_string())
+  }
+  assert_eq(
+    run_engine_worker([
+      "markdown", "samples/fixtures/contracts/markdown/markdown_basic_heading_paragraph.md",
+      output,
+    ]),
+    0,
+  )
+  assert_true(@fs.read_file_to_string(output, encoding="utf8").length() > 0)
+  @fs.remove_file(output) catch {
+    _ => ()
+  }
 }
 
 ///|
