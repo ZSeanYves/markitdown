@@ -101,7 +101,11 @@ COMMAND=(
   python3 "$ROOT/tools/regression/lib/coverage_gate.py"
   --cobertura "$OUTPUT_DIR/cobertura.xml"
   --output-dir "$OUTPUT_DIR"
+  --baseline "$ROOT/tools/regression/coverage-baseline.json"
 )
+if [[ -n "${MARKITDOWN_COVERAGE_BASELINE_REF:-}" ]]; then
+  COMMAND+=(--baseline-ref "$MARKITDOWN_COVERAGE_BASELINE_REF")
+fi
 if [[ ${#ENFORCE[@]} -gt 0 ]]; then
   COMMAND+=("${ENFORCE[@]}")
 fi

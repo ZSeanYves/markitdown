@@ -150,6 +150,69 @@ test "reader payload supports bounded detection and complete materialization" {
 }
 
 ///|
+test "input payload branches enforce reader size and request contracts" {
+  let raw_path : InputSource = {
+    source_name: "raw.txt",
+    payload: InputPayload::Path("/tmp/raw.txt"),
+    origin_path: None,
+    mime_type: None,
+    explicit_format: None,
+  }
+  assert_true(input_kind(raw_path) == InputKind::Path)
+  assert_true(input_path(raw_path) == Some("/tmp/raw.txt"))
+  assert_true(read_input_text(input_from_text("attached")) == Ok("attached"))
+  assert_true(
+    read_input_prefix(input_from_text("attached"), 0) == Ok(Bytes::new(0)),
+  )
+  let sized = input_from_reader(
+    make_input_reader(fn(_offset, _length) { Ok(Bytes::new(0)) }, size=4L),
+  )
+  assert_true(input_size(sized) == Some(4L))
+  assert_true(
+    read_input_bytes(sized) == Err("reader ended before declared size"),
+  )
+  let oversized = input_from_reader(
+    make_input_reader(fn(_offset, length) { Ok(Bytes::new(length + 1)) }),
+  )
+  assert_true(
+    read_input_bytes(oversized) ==
+    Err("reader returned more bytes than requested"),
+  )
+  let beyond = input_from_reader(
+    make_input_reader(
+      fn(_offset, _length) { Ok(@utf8.encode("toolong")) },
+      size=3L,
+    ),
+  )
+  assert_true(
+    read_input_bytes(beyond) ==
+    Err("reader returned bytes beyond declared size"),
+  )
+}
+
+///|
+test "input detection identifies real ZIP package families without extensions" {
+  let fixtures : Array[(String, DetectedFormat)] = [
+    ("samples/fixtures/contracts/docx/golden.docx", DetectedFormat::Docx),
+    ("samples/fixtures/contracts/pptx/pptx_simple.pptx", DetectedFormat::Pptx),
+    ("samples/fixtures/contracts/xlsx/sheet_simple.xlsx", DetectedFormat::Xlsx),
+    (
+      "samples/fixtures/contracts/epub/epub_spine_missing_item_boundary.epub",
+      DetectedFormat::Epub,
+    ),
+    ("samples/fixtures/contracts/odt/odt_basic_sample.odt", DetectedFormat::Odt),
+    ("samples/fixtures/contracts/ods/ods_basic_sample.ods", DetectedFormat::Ods),
+    ("samples/fixtures/contracts/odp/odp_basic_sample.odp", DetectedFormat::Odp),
+  ]
+  for fixture in fixtures {
+    let bytes = @fs.read_file_to_bytes(fixture.0)
+    let result = detect_format(input_from_bytes(bytes, source_name="payload"))
+    assert_true(result.format == fixture.1)
+    assert_true(result.notes.contains("container_inspection"))
+  }
+}
+
+///|
 test "source cursor borrows memory views and bounds random access" {
   let bytes = @utf8.encode("0123456789")
   let cursor = open_source_cursor(input_from_bytes(bytes), max_bytes=10L).unwrap()
@@ -163,6 +226,8 @@ test "source cursor borrows memory views and bounds random access" {
   )
   assert_true(source_cursor_read_at(cursor, 10L) == Ok(Bytes::new(0)))
   assert_true(source_cursor_read_at(cursor, -1L) is Err(_))
+  assert_true(source_cursor_view_at(cursor, -1, 1) is None)
+  assert_true(source_cursor_view_at(cursor, 11, 1) is None)
   assert_true(
     open_source_cursor(input_from_bytes(bytes), max_bytes=9L) is Err(_),
   )

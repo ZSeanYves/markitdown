@@ -734,7 +734,7 @@ fn pdf_extract_stream_slice(
       }
       let endstream_bytes = object_body[raw_start:trimmed_end].to_owned()
       let primary_bytes = match declared_length {
-        Some(length) if raw_start + length <= object_body.length() =>
+        Some(length) if length <= object_body.length() - raw_start =>
           object_body[raw_start:raw_start + length].to_owned()
         _ => endstream_bytes
       }

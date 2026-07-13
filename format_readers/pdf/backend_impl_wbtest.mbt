@@ -1686,6 +1686,7 @@ test "pdf stream slicing covers absent malformed newline and length variants" {
     "<< /Length 3 >> stream\nabc\nendstream", "<< /Length 3 >> stream\r\nabc\r\nendstream",
     "<< /Length 3 >> stream\rabc\rendstream", "<< /Length 3 >> streamabcendstream",
     "<< /Length 99 >> stream\nabc\nendstream", "<< /Length -1 >> stream\nabc\nendstream",
+    "<< /Length 2147483647 >> stream\nabc\nendstream",
   ]
   for body in cases {
     match pdf_extract_stream_slice(@utf8.encode(body)) {

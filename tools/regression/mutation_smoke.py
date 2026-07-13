@@ -6,9 +6,12 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import io
 import json
 import shutil
 import subprocess
+import zipfile
+from functools import lru_cache
 from pathlib import Path
 
 
@@ -42,16 +45,65 @@ def select_seeds(lab: Path) -> dict[str, Path]:
     return seeds
 
 
-def mutations(data: bytes) -> list[tuple[str, bytes]]:
+ZIP_FORMATS = {"zip", "docx", "xlsx", "pptx", "epub"}
+
+
+@lru_cache(maxsize=1)
+def compression_bomb_zip() -> bytes:
+    output = io.BytesIO()
+    info = zipfile.ZipInfo("bomb.bin", date_time=(1980, 1, 1, 0, 0, 0))
+    info.compress_type = zipfile.ZIP_DEFLATED
+    chunk = b"\0" * (1024 * 1024)
+    with zipfile.ZipFile(output, "w", allowZip64=True) as archive:
+        with archive.open(info, "w", force_zip64=True) as entry:
+            for _ in range(129):
+                entry.write(chunk)
+    return output.getvalue()
+
+
+def inflate_depth(fmt: str, data: bytes) -> bytes:
+    if fmt == "html":
+        return b"<div>" * 256 + data + b"</div>" * 256
+    if fmt == "xml":
+        return b"<depth>" * 256 + data + b"</depth>" * 256
+    if fmt == "eml":
+        return data + b"\nX-Nested-Depth: " + b"1." * 512 + b"\n"
+    if fmt == "pdf":
+        return data + b"\n" + b"[" * 512 + b"]" * 512
+    return data + b"\n" + b"deep/" * 512
+
+
+def deceive_size(fmt: str, data: bytes) -> bytes:
+    if fmt in ZIP_FORMATS:
+        mutated = bytearray(data)
+        central = mutated.find(b"PK\x01\x02")
+        if central >= 0 and central + 28 <= len(mutated):
+            mutated[central + 24 : central + 28] = (0x7FFFFFFF).to_bytes(4, "little")
+        return bytes(mutated)
+    if fmt == "pdf":
+        marker = b"/Length "
+        offset = data.find(marker)
+        if offset >= 0:
+            end = offset + len(marker)
+            while end < len(data) and data[end : end + 1].isdigit():
+                end += 1
+            return data[: offset + len(marker)] + b"2147483647" + data[end:]
+    return data + b"\nContent-Length: 2147483647\n"
+
+
+def mutations(fmt: str, data: bytes) -> list[tuple[str, bytes]]:
     if not data:
-        return [("append_nul", b"\0")]
+        data = b"\0"
     middle = len(data) // 2
     flipped = bytearray(data)
     flipped[middle] ^= 0x5A
     return [
         ("truncate_half", data[:middle]),
         ("flip_middle", bytes(flipped)),
-        ("append_nul", data + b"\0"),
+        ("trailing_garbage", data + b"\0MARKITDOWN_TRAILING_GARBAGE"),
+        ("depth_inflation", inflate_depth(fmt, data)),
+        ("size_deception", deceive_size(fmt, data)),
+        ("compression_bomb", compression_bomb_zip()),
     ]
 
 
@@ -98,7 +150,7 @@ def main() -> int:
     results: list[dict[str, object]] = []
     failures: list[str] = []
     for fmt, seed in select_seeds(lab).items():
-        for mutation, data in mutations(seed.read_bytes()):
+        for mutation, data in mutations(fmt, seed.read_bytes()):
             case = work / f"{fmt}-{mutation}{seed.suffix}"
             case.write_bytes(data)
             runs = []

@@ -1037,6 +1037,29 @@ test "benchmark engine RSS worker validates arguments and writes output" {
   @fs.remove_file(output) catch {
     _ => ()
   }
+  assert_eq(
+    run_engine_worker(["markdown", "/definitely/missing/input.md", output]),
+    1,
+  )
+  assert_eq(
+    run_engine_worker([
+      "markdown", "samples/fixtures/contracts/markdown/markdown_basic_heading_paragraph.md",
+      ".tmp",
+    ]),
+    1,
+  )
+  let measured = measure_engine_worker_rss(
+    { ..execution_test_contract(), runner_path: "/usr/bin/true" },
+    execution_test_row(
+      "samples/fixtures/contracts/markdown/markdown_basic_heading_paragraph.md",
+      "engine-rss",
+    ),
+    ".tmp/bench-test/engine-rss.md",
+    ".tmp/bench-test/engine-rss.stdout",
+    ".tmp/bench-test/engine-rss.stderr",
+    1000,
+  )
+  assert_true(measured is Some(result) && result.data.exit_code == 0)
 }
 
 ///|
