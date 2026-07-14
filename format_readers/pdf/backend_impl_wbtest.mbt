@@ -1498,6 +1498,69 @@ test "pdf native backend reads xref stream documents without scan fallback" {
 }
 
 ///|
+test "pdf cursor fallback and read failures stay controlled" {
+  let bytes = pdf_wbtest_xref_stream_pdf_bytes(
+    [
+      (1, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"),
+      (2, "<< /Length 47 >>\nstream\nBT /F1 12 Tf (fallback) Tj ET\nendstream"),
+      (
+        3, "<< /Type /Page /Parent 4 0 R /MediaBox [0 0 200 200] /Resources << /Font << /F1 1 0 R >> >> /Contents 2 0 R >>",
+      ),
+      (4, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
+      (5, "<< /Type /Catalog /Pages 4 0 R >>"),
+    ],
+    5,
+    6,
+  )
+  let unknown_size_reader = @input.make_input_reader(fn(offset, length) {
+    let start = offset.to_int()
+    if start >= bytes.length() {
+      return Ok(Bytes::new(0))
+    }
+    Ok(bytes[start:(start + length.min(4096)).min(bytes.length())].to_owned())
+  })
+  let fallback = match
+    extract_pdf_native_document(
+      @input.input_from_reader_with_format(
+        unknown_size_reader,
+        "fallback.pdf",
+        Some(@input.DetectedFormat::Pdf),
+      ),
+    ) {
+    Ok(value) => value
+    Err(err) => fail("unknown-size PDF fallback failed: " + err.to_string())
+  }
+  assert_true(
+    fallback.diagnostics.metrics.get("pdf_input_access_mode") ==
+    Some("materialized_xref"),
+  )
+
+  let failing_reader = @input.make_input_reader(
+    fn(_, _) { Err("forced cursor read failure") },
+    size=bytes.length().to_int64(),
+  )
+  let failed = extract_pdf_native_document(
+    @input.input_from_reader_with_format(
+      failing_reader,
+      "failed.pdf",
+      Some(@input.DetectedFormat::Pdf),
+    ),
+  )
+  assert_true(failed is Err(_))
+
+  let bad_cursor = @input.open_source_cursor(
+    @input.input_from_reader(
+      @input.make_input_reader(
+        fn(_, _) { Err("cursor error") },
+        size=bytes.length().to_int64(),
+      ),
+    ),
+  ).unwrap()
+  assert_true(pdf_cursor_read_exact(bad_cursor, -1, 1) is Err(_))
+  assert_true(pdf_cursor_read_exact(bad_cursor, 0, 1) is Err(_))
+}
+
+///|
 test "pdf native backend expands object streams referenced from xref streams" {
   let content = "BT /F1 12 Tf 1 0 0 1 50 150 Tm (ObjStm works) Tj ET"
   let object_stream = pdf_wbtest_object_stream_body([
