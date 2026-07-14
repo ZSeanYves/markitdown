@@ -1527,3 +1527,53 @@ test "benchmark tool registry and native measurement encoders cover all entries"
   let started = @measure.monotonic_start()
   assert_true(@measure.monotonic_elapsed_us(started) >= 0.0)
 }
+
+///|
+test "benchmark timeout reaps the measured process group" {
+  let root = bench_test_tmp_root() + "/measure-process-group"
+  bench_recreate_clean_dir(root) catch {
+    err => fail("create process-group test root: " + err.to_string())
+  }
+  defer bench_cleanup_temp_dir(root)
+  let marker = root + "/orphan-marker"
+  let argv = [
+    "/bin/sh",
+    "-c",
+    "(sleep 0.2; printf orphan > " + marker + ") & wait",
+  ]
+  let argv_blob = @measure.encode_c_string_blob(argv)
+  let env_blob = @measure.encode_c_string_blob([])
+  let measured = @measure.native_measure_command(
+    @measure.make_native_measure_spec(
+      argv_blob,
+      argv_blob.length(),
+      argv.length(),
+      env_blob,
+      env_blob.length(),
+      0,
+      root + "/stdout.log",
+      root + "/stderr.log",
+      None,
+      50L,
+    ),
+  )
+  assert_true(measured.data.timed_out)
+  let wait_argv = ["/bin/sleep", "0.4"]
+  let wait_blob = @measure.encode_c_string_blob(wait_argv)
+  let waited = @measure.native_measure_command(
+    @measure.make_native_measure_spec(
+      wait_blob,
+      wait_blob.length(),
+      wait_argv.length(),
+      env_blob,
+      env_blob.length(),
+      0,
+      "/dev/null",
+      "/dev/null",
+      None,
+      2_000L,
+    ),
+  )
+  assert_eq(waited.data.exit_code, 0)
+  assert_true(!@fs.path_exists(marker))
+}
