@@ -394,7 +394,34 @@ fn lower_eml_html_part(
     document,
     diagnostics,
   )
-  eml_rewrite_child_blocks(parsed.blocks, html_rewrites, part, diagnostics)
+  let blocks = eml_html_inline_boundary_spacing(html, parsed.blocks)
+  eml_rewrite_child_blocks(blocks, html_rewrites, part, diagnostics)
+}
+
+///|
+fn eml_html_inline_boundary_spacing(
+  html : String,
+  blocks : Array[@core.CoreBlock],
+) -> Array[@core.CoreBlock] {
+  if blocks.length() != 1 || blocks[0].children.length() > 0 {
+    return blocks
+  }
+  let text = blocks[0].text
+  let inline_tags = [
+    "strong", "b", "em", "i", "code", "span", "small", "mark", "sub", "sup",
+  ]
+  let punctuation = [".", ",", ";", ":", "!", "?"]
+  for tag in inline_tags {
+    for mark in punctuation {
+      if html.contains("</" + tag + ">" + mark) &&
+        text.has_suffix(mark) &&
+        !text.has_suffix(" " + mark) {
+        let prefix = text[:text.length() - mark.length()].to_owned()
+        return [{ ..blocks[0], text: prefix + " " + mark }]
+      }
+    }
+  }
+  blocks
 }
 
 ///|

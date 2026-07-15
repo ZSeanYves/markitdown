@@ -26,6 +26,27 @@ test "EML parser lowers related HTML CID attachments and nested messages" {
 }
 
 ///|
+test "EML HTML compatibility preserves inline boundary spacing" {
+  let block = @core.make_block(Paragraph, "Hello from HTML.")
+  let adjusted = eml_html_inline_boundary_spacing(
+    "<p>Hello from <strong>HTML</strong>.</p>",
+    [block],
+  )
+  assert_eq(adjusted[0].text, "Hello from HTML .")
+  let unchanged = eml_html_inline_boundary_spacing("<p>Hello from HTML.</p>", [
+    block,
+  ])
+  assert_eq(unchanged[0].text, "Hello from HTML.")
+  assert_true(
+    eml_html_inline_boundary_spacing(
+      "<p><strong>One</strong>.</p><p>Two.</p>",
+      [block, @core.make_block(Paragraph, "Two.")],
+    ).length() ==
+    2,
+  )
+}
+
+///|
 test "EML parser rejects malformed multipart and exposes capability limits" {
   let source = @input.input_from_text_with_format(
     "Content-Type: multipart/mixed\n\nbody",
