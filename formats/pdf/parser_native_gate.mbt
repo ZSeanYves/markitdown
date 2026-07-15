@@ -16,7 +16,7 @@ fn pdf_native_parser_enabled_result(
       Err(
         @parser.parse_result_with_document_capability(
           pdf_native_parser_name(),
-          @parser.ParserMode::PageSinglePass,
+          PageSinglePass,
           @core.document_with_diagnostics(
             @core.empty_document_ir(),
             diagnostics,
@@ -50,7 +50,7 @@ fn pdf_native_parser_enabled_result_from_document(
   Ok(
     @parser.parse_result_with_document_capability(
       pdf_native_parser_name(),
-      @parser.ParserMode::PageSinglePass,
+      PageSinglePass,
       final_document,
       diagnostics,
       capability,
@@ -68,16 +68,19 @@ fn pdf_native_enabled_success_diagnostics(
     @core.diagnostics_with_parser(
       diagnostics,
       Some(pdf_native_parser_name()),
-      Some(@parser.mode_name(@parser.ParserMode::PageSinglePass)),
+      Some(@parser.mode_name(PageSinglePass)),
     ),
-    Some(pdf_native_input_kind_name(source.kind)),
+    Some(pdf_native_input_kind_name(@input.input_kind(source))),
     Some("pdf"),
   )
   next.pass_trace.push("parse:pdf_native_parser")
   next.pass_trace.push("pdf_native:parser_success_path")
   next.metrics.set("parser_name", pdf_native_parser_name())
   next.metrics.set("parser_mode", "page_single_pass")
-  next.metrics.set("input_kind", pdf_native_input_kind_name(source.kind))
+  next.metrics.set(
+    "input_kind",
+    pdf_native_input_kind_name(@input.input_kind(source)),
+  )
   next.metrics.set("detected_format", "pdf")
   next.metrics.set("requested_mode", pdf_native_requested_mode_name(context))
   next.metrics.set("effective_mode", "page_single_pass")
@@ -128,8 +131,7 @@ fn pdf_native_enabled_success_diagnostics(
   )
   next.metrics.set(
     "pdf_header_footer_filter_enabled",
-    if context.pdf_header_footer_filter_policy ==
-      @parser.PdfHeaderFooterFilterPolicy::Disabled {
+    if context.pdf_header_footer_filter_policy == Disabled {
       "false"
     } else {
       "true"
@@ -146,8 +148,7 @@ fn pdf_native_enabled_success_diagnostics(
   )
   next.metrics.set(
     "pdf_table_reconstruction_enabled",
-    if context.pdf_table_reconstruction_policy ==
-      @parser.PdfTableReconstructionPolicy::Disabled {
+    if context.pdf_table_reconstruction_policy == Disabled {
       "false"
     } else {
       "true"
@@ -180,9 +181,9 @@ fn pdf_native_enabled_error_diagnostics(
     @core.diagnostics_with_parser(
       @core.empty_diagnostics(),
       Some(pdf_native_parser_name()),
-      Some(@parser.mode_name(@parser.ParserMode::PageSinglePass)),
+      Some(@parser.mode_name(PageSinglePass)),
     ),
-    Some(pdf_native_input_kind_name(source.kind)),
+    Some(pdf_native_input_kind_name(@input.input_kind(source))),
     Some("pdf"),
   )
   diagnostics.errors.push(error.to_string())
@@ -194,7 +195,10 @@ fn pdf_native_enabled_error_diagnostics(
   diagnostics.pass_trace.push("pdf_native:parser_error_path")
   diagnostics.metrics.set("parser_name", pdf_native_parser_name())
   diagnostics.metrics.set("parser_mode", "page_single_pass")
-  diagnostics.metrics.set("input_kind", pdf_native_input_kind_name(source.kind))
+  diagnostics.metrics.set(
+    "input_kind",
+    pdf_native_input_kind_name(@input.input_kind(source)),
+  )
   diagnostics.metrics.set("detected_format", "pdf")
   diagnostics.metrics.set(
     "requested_mode",
@@ -230,8 +234,7 @@ fn pdf_native_enabled_error_diagnostics(
   )
   diagnostics.metrics.set(
     "pdf_header_footer_filter_enabled",
-    if context.pdf_header_footer_filter_policy ==
-      @parser.PdfHeaderFooterFilterPolicy::Disabled {
+    if context.pdf_header_footer_filter_policy == Disabled {
       "false"
     } else {
       "true"
@@ -246,8 +249,7 @@ fn pdf_native_enabled_error_diagnostics(
   )
   diagnostics.metrics.set(
     "pdf_table_reconstruction_enabled",
-    if context.pdf_table_reconstruction_policy ==
-      @parser.PdfTableReconstructionPolicy::Disabled {
+    if context.pdf_table_reconstruction_policy == Disabled {
       "false"
     } else {
       "true"
@@ -287,16 +289,14 @@ fn pdf_native_enabled_error_diagnostics(
 ///|
 fn pdf_native_error_taxonomy(error : PdfNativeError) -> (String, String) {
   match error {
-    PdfNativeError::BackendUnavailable(_) =>
+    BackendUnavailable(_) =>
       ("backend_unavailable", "pdf_native_backend_unavailable")
-    PdfNativeError::ReadFailed(_) => ("read_failed", "pdf_native_read_failed")
-    PdfNativeError::ParseFailed(_) =>
-      ("parse_failed", "pdf_native_parse_failed")
-    PdfNativeError::EncryptedUnsupported(_) =>
+    ReadFailed(_) => ("read_failed", "pdf_native_read_failed")
+    ParseFailed(_) => ("parse_failed", "pdf_native_parse_failed")
+    EncryptedUnsupported(_) =>
       ("encrypted_unsupported", "pdf_native_encrypted_unsupported")
-    PdfNativeError::EmptyTextLayer(_) =>
-      ("empty_text_layer", "pdf_native_empty_text_layer")
-    PdfNativeError::UnsupportedFeature(_) =>
+    EmptyTextLayer(_) => ("empty_text_layer", "pdf_native_empty_text_layer")
+    UnsupportedFeature(_) =>
       ("unsupported_feature", "pdf_native_unsupported_feature")
   }
 }
@@ -313,9 +313,10 @@ fn pdf_native_parser_error_message(diagnostics : @core.Diagnostics) -> String {
 ///|
 fn pdf_native_input_kind_name(kind : @input.InputKind) -> String {
   match kind {
-    @input.InputKind::Path => "path"
-    @input.InputKind::Text => "text"
-    @input.InputKind::Bytes => "bytes"
+    Path => "path"
+    Text => "text"
+    Bytes => "bytes"
+    Reader => "reader"
   }
 }
 

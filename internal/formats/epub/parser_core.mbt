@@ -42,7 +42,7 @@ priv struct EpubSkipReason {
 ///|
 pub fn epub_parser_capability() -> @parser.ParserCapability {
   @parser.package_with_block_route_parser_capability(
-    @parser.StreamingGranularity::EpubSpineItem,
+    EpubSpineItem,
     true,
     false,
     false,
@@ -64,12 +64,11 @@ fn epub_parse_with_package_core(
   pkg : @depub.EpubPackage,
   inspect : @depub.EpubInspectReport,
 ) -> @parser.ParseResult {
-  let requested_container = context.requested_mode ==
-    Some(@parser.ParserMode::ContainerRecursive)
+  let requested_container = context.requested_mode == Some(ContainerRecursive)
   let effective_mode = if requested_container {
     @parser.ParserMode::ContainerRecursive
   } else {
-    @parser.ParserMode::PackageSinglePass
+    PackageSinglePass
   }
   let diagnostics = @fshared.empty_parser_diagnostics(
     EPUB_PARSER_NAME,

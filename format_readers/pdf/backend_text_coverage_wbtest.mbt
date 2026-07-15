@@ -3,7 +3,7 @@ fn pdf_text_coverage_source() -> @input.InputSource {
   @input.input_from_bytes_with_format(
     @utf8.encode("%PDF-1.4\n%%EOF\n"),
     "synthetic-text-coverage.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
 }
 
@@ -108,7 +108,7 @@ test "pdf text stream covers depth malformed tokens and form xobjects" {
       Map([]),
       "BT [(unterminated] TJ ET",
     ) {
-    Err(PdfNativeError::ParseFailed(_)) => ()
+    Err(ParseFailed(_)) => ()
     _ => fail("unterminated array must fail closed")
   }
 
@@ -165,14 +165,10 @@ test "pdf text utility edge cases remain deterministic" {
   assert_true(pdf_text_prefers_no_gap(",next"))
   assert_true(!pdf_text_prefers_no_gap("next"))
   assert_true(
-    pdf_actual_text_from_operands([
-      PdfNativeContentToken::Dict("<< /ActualText (visible) >>"),
-    ]) ==
+    pdf_actual_text_from_operands([Dict("<< /ActualText (visible) >>")]) ==
     Some("visible"),
   )
-  assert_true(
-    pdf_actual_text_from_operands([PdfNativeContentToken::Number(1.0)]) == None,
-  )
+  assert_true(pdf_actual_text_from_operands([Number(1.0)]) == None)
 }
 
 ///|
@@ -519,7 +515,7 @@ test "pdf content token escapes operands and primitive parsers cover failures" {
   assert_true(literal.0.decoded.contains("A(j)"))
   assert_true(!pdf_parse_literal_token("(tail\\", 0).0.terminated)
   match pdf_parse_array_token("[[(broken]", 0) {
-    Err(PdfNativeError::ParseFailed(_)) => ()
+    Err(ParseFailed(_)) => ()
     _ => fail("nested unterminated array must fail")
   }
   assert_true(pdf_parse_dict_token("<< /A << /B 1 >>", 0).0.has_prefix("<<"))
@@ -530,23 +526,10 @@ test "pdf content token escapes operands and primitive parsers cover failures" {
   })
   let hex = PdfNativeContentToken::HexString("4142")
   let bad_hex = PdfNativeContentToken::HexString("GG")
-  let mixed = PdfNativeContentToken::Array([
-    lit,
-    PdfNativeContentToken::Number(-100.0),
-    hex,
-    bad_hex,
-  ])
+  let mixed = PdfNativeContentToken::Array([lit, Number(-100.0), hex, bad_hex])
   assert_true(pdf_decode_text_operand(mixed, Some(info)) is Some(_))
-  assert_true(
-    pdf_decode_text_operand(
-      PdfNativeContentToken::Array([PdfNativeContentToken::Number(1.0)]),
-      None,
-    ) ==
-    None,
-  )
-  assert_true(
-    pdf_decode_text_operand(PdfNativeContentToken::Number(1.0), None) == None,
-  )
+  assert_true(pdf_decode_text_operand(Array([Number(1.0)]), None) == None)
+  assert_true(pdf_decode_text_operand(Number(1.0), None) == None)
   assert_true(
     pdf_text_operand_advance_width(lit, None, 10.0, 1.0, 2.0, 0.5) > 0.0,
   )
@@ -561,21 +544,13 @@ test "pdf content token escapes operands and primitive parsers cover failures" {
     pdf_text_operand_advance_width(mixed, None, 10.0, 0.0, 0.0, 1.0) > 0.0,
   )
   assert_true(
-    pdf_text_operand_advance_width(
-      PdfNativeContentToken::Name("x"),
-      None,
-      10.0,
-      0.0,
-      0.0,
-      1.0,
-    ) ==
-    0.0,
+    pdf_text_operand_advance_width(Name("x"), None, 10.0, 0.0, 0.0, 1.0) == 0.0,
   )
   assert_true(pdf_text_string_advance_width("", 10.0, 1.0, 1.0, 1.0) == 0.0)
   assert_true(pdf_normalize_pdf_fragment_text("\u{0000}") == "")
   assert_true(!pdf_text_outer_space_is_latinish("   "))
   assert_true(!pdf_text_prefers_no_gap(""))
-  assert_true(pdf_token_name(PdfNativeContentToken::Number(1.0)) == None)
+  assert_true(pdf_token_name(Number(1.0)) == None)
   assert_true(pdf_hex_to_string("") == None)
   assert_true(pdf_hex_to_string("  ") == None)
   assert_true(pdf_hex_to_string("FDD0") == None)
@@ -595,10 +570,7 @@ test "pdf content token escapes operands and primitive parsers cover failures" {
   assert_true(pdf_decode_actual_text_literal(actual) == Some("A"))
   assert_true(pdf_decode_actual_text_literal("ABCD") == None)
   assert_true(
-    pdf_actual_text_from_operands([
-      PdfNativeContentToken::Dict("<< /ActualText () >>"),
-    ]) ==
-    None,
+    pdf_actual_text_from_operands([Dict("<< /ActualText () >>")]) == None,
   )
 }
 

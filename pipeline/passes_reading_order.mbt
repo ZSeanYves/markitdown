@@ -166,7 +166,7 @@ fn remove_header_footer_blocks(
 
 ///|
 fn paragraph_merge_candidate(block : @core.CoreBlock) -> Bool {
-  block.kind == @core.BlockKind::Paragraph && block.children.length() == 0
+  block.kind == Paragraph && block.children.length() == 0
 }
 
 ///|
@@ -177,8 +177,12 @@ fn paragraph_blocks_should_merge(
   if !paragraph_merge_candidate(left) || !paragraph_merge_candidate(right) {
     return false
   }
-  let left_ref = left.source_ref.unwrap_or(@core.empty_source_ref())
-  let right_ref = right.source_ref.unwrap_or(@core.empty_source_ref())
+  let left_ref = @core.block_source_ref(left).unwrap_or(
+    @core.empty_source_ref(),
+  )
+  let right_ref = @core.block_source_ref(right).unwrap_or(
+    @core.empty_source_ref(),
+  )
   if left_ref.page != right_ref.page ||
     left_ref.slide != right_ref.slide ||
     left_ref.sheet != right_ref.sheet {
@@ -213,15 +217,19 @@ fn merge_paragraph_blocks(
 ) -> @core.CoreBlock {
   let merged_text = merge_text_line_strings(left.text, right.text)
   let next = { ..left, text: merged_text }
-  let left_ref = left.source_ref.unwrap_or(@core.empty_source_ref())
-  let right_ref = right.source_ref.unwrap_or(@core.empty_source_ref())
+  let left_ref = @core.block_source_ref(left).unwrap_or(
+    @core.empty_source_ref(),
+  )
+  let right_ref = @core.block_source_ref(right).unwrap_or(
+    @core.empty_source_ref(),
+  )
   let merged_ref = {
     ..left_ref,
     bbox: merge_source_bbox(left_ref.bbox, right_ref.bbox),
     line_start: min_optional_int(left_ref.line_start, right_ref.line_start),
     line_end: max_optional_int(left_ref.line_end, right_ref.line_end),
   }
-  { ..next, source_ref: Some(merged_ref) }
+  { ..next, source_ref: Some(merged_ref), compact_source_ref: None }
 }
 
 ///|
@@ -298,8 +306,12 @@ fn compare_blocks_by_reading_order(
   left : @core.CoreBlock,
   right : @core.CoreBlock,
 ) -> Int {
-  let left_ref = left.source_ref.unwrap_or(@core.empty_source_ref())
-  let right_ref = right.source_ref.unwrap_or(@core.empty_source_ref())
+  let left_ref = @core.block_source_ref(left).unwrap_or(
+    @core.empty_source_ref(),
+  )
+  let right_ref = @core.block_source_ref(right).unwrap_or(
+    @core.empty_source_ref(),
+  )
   let left_rank = block_reading_order_rank(left, left_ref)
   let right_rank = block_reading_order_rank(right, right_ref)
   let rank_order = left_rank.lexical_compare(right_rank)
@@ -325,7 +337,9 @@ fn compare_blocks_by_reading_order(
 
 ///|
 fn block_reading_order_boundary_key(block : @core.CoreBlock) -> String {
-  let source_ref = block.source_ref.unwrap_or(@core.empty_source_ref())
+  let source_ref = @core.block_source_ref(block).unwrap_or(
+    @core.empty_source_ref(),
+  )
   source_ref.format.unwrap_or("") +
   "|" +
   source_ref.page.map(i => i.to_string()).unwrap_or("") +
@@ -385,14 +399,14 @@ fn left_pad_numeric_string(value : String, width : Int) -> String {
 ///|
 fn block_kind_rank(kind : @core.BlockKind) -> String {
   match kind {
-    @core.BlockKind::Heading => "00"
-    @core.BlockKind::Paragraph => "01"
-    @core.BlockKind::List => "02"
-    @core.BlockKind::Table => "03"
-    @core.BlockKind::Image => "04"
-    @core.BlockKind::Code => "05"
-    @core.BlockKind::BlockQuote => "06"
-    @core.BlockKind::Raw => "07"
+    Heading => "00"
+    Paragraph => "01"
+    List => "02"
+    Table => "03"
+    Image => "04"
+    Code => "05"
+    BlockQuote => "06"
+    Raw => "07"
     _ => "99"
   }
 }
@@ -402,14 +416,14 @@ fn block_is_header_footer_candidate(block : @core.CoreBlock) -> Bool {
   if block.attrs.get("header_footer_candidate") == Some("true") {
     return true
   }
-  block.signals.any(fn(signal) {
-    signal.signal_type == @core.SignalType::HeaderFooterCandidate
-  })
+  block.signals.any(fn(signal) { signal.signal_type == HeaderFooterCandidate })
 }
 
 ///|
 fn block_has_explicit_reading_order_hint(block : @core.CoreBlock) -> Bool {
-  let source_ref = block.source_ref.unwrap_or(@core.empty_source_ref())
+  let source_ref = @core.block_source_ref(block).unwrap_or(
+    @core.empty_source_ref(),
+  )
   if source_ref.extra.get("reading_order_index") is Some(_) {
     return true
   }
@@ -448,7 +462,7 @@ fn merged_text_line_count(
 fn paragraph_leaf_count(blocks : Array[@core.CoreBlock]) -> Int {
   let mut total = 0
   for block in blocks {
-    if block.kind == @core.BlockKind::Paragraph && block.children.length() == 0 {
+    if block.kind == Paragraph && block.children.length() == 0 {
       total += 1
     }
     total += paragraph_leaf_count(block.children)
@@ -460,7 +474,9 @@ fn paragraph_leaf_count(blocks : Array[@core.CoreBlock]) -> Int {
 fn reading_order_hint_block_count(blocks : Array[@core.CoreBlock]) -> Int {
   let mut total = 0
   for block in blocks {
-    let source_ref = block.source_ref.unwrap_or(@core.empty_source_ref())
+    let source_ref = @core.block_source_ref(block).unwrap_or(
+      @core.empty_source_ref(),
+    )
     if source_ref.extra.get("reading_order_key") is Some(_) ||
       source_ref.extra.get("reading_order_index") is Some(_) {
       total += 1
@@ -476,7 +492,7 @@ fn merge_text_line_input(
   input : @core.IRInput,
 ) -> @core.IRInput {
   match input {
-    @core.IRInput::Document(document) => {
+    Document(document) => {
       let next = @core.document_with_blocks(
         document,
         merge_text_line_blocks(document.blocks),
@@ -485,17 +501,17 @@ fn merge_text_line_input(
         "merged_text_line_count",
         merged_text_line_count(document.blocks, next.blocks).to_string(),
       )
-      @core.IRInput::Document(next)
+      Document(next)
     }
-    @core.IRInput::BlockStream(blocks) => {
+    BlockStream(blocks) => {
       let next_blocks = merge_text_line_blocks(blocks)
       context.diagnostics.val.metrics.set(
         "merged_text_line_count",
         merged_text_line_count(blocks, next_blocks).to_string(),
       )
-      @core.IRInput::BlockStream(next_blocks)
+      BlockStream(next_blocks)
     }
-    @core.IRInput::EventStream(events) => @core.IRInput::EventStream(events)
+    EventStream(events) => EventStream(events)
   }
 }
 
@@ -505,7 +521,7 @@ fn resolve_reading_order_input(
   input : @core.IRInput,
 ) -> @core.IRInput {
   match input {
-    @core.IRInput::Document(document) => {
+    Document(document) => {
       let next = @core.document_with_blocks(
         document,
         resolve_reading_order_blocks(document.blocks),
@@ -514,17 +530,17 @@ fn resolve_reading_order_input(
         "resolved_reading_order_block_count",
         reading_order_hint_block_count(next.blocks).to_string(),
       )
-      @core.IRInput::Document(next)
+      Document(next)
     }
-    @core.IRInput::BlockStream(blocks) => {
+    BlockStream(blocks) => {
       let next_blocks = resolve_reading_order_blocks(blocks)
       context.diagnostics.val.metrics.set(
         "resolved_reading_order_block_count",
         reading_order_hint_block_count(next_blocks).to_string(),
       )
-      @core.IRInput::BlockStream(next_blocks)
+      BlockStream(next_blocks)
     }
-    @core.IRInput::EventStream(events) => @core.IRInput::EventStream(events)
+    EventStream(events) => EventStream(events)
   }
 }
 
@@ -539,7 +555,7 @@ fn remove_header_footer_input(
     ) ==
     Some("true")
   match input {
-    @core.IRInput::Document(document) => {
+    Document(document) => {
       let removal = remove_header_footer_blocks(
         document.blocks,
         cleanup_enabled,
@@ -550,16 +566,16 @@ fn remove_header_footer_input(
         "removed_header_footer_count",
         removal.1.to_string(),
       )
-      @core.IRInput::Document(sync_document_to_context(context, next))
+      Document(sync_document_to_context(context, next))
     }
-    @core.IRInput::BlockStream(blocks) => {
+    BlockStream(blocks) => {
       let removal = remove_header_footer_blocks(blocks, cleanup_enabled, debug)
       context.diagnostics.val.metrics.set(
         "removed_header_footer_count",
         removal.1.to_string(),
       )
-      @core.IRInput::BlockStream(removal.0)
+      BlockStream(removal.0)
     }
-    @core.IRInput::EventStream(events) => @core.IRInput::EventStream(events)
+    EventStream(events) => EventStream(events)
   }
 }

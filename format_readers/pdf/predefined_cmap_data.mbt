@@ -98,7 +98,7 @@ let pdf_builtin_predefined_cmap_range_blob_base64 : String = "eNrsvGdUFFkXBXq6my
   "fWK5C8mfl3tYv7Lcw/rqcheSweUe1tuWe1i/zrqQPLVquYd15nIXkk9ZF5L1X13uYV203IWkY7mH9bdZF5Knby53IRlnXUg26KwLyYb3WBeSZ55iXUieyVnuQvIH8s2/vsp6DH326saU5S4kH7MuJM8+z7qQPHt6uQvJX1kXkk1/x7qQbKpi3dU3DbMuJM/tXO5C8hbrQvJ8HOtC8vz+5S4kv2FdSL5kYl1IvlS83IXkIetC8sLfL3chub3chWSKdSH5smO5C8kHrAvJixtYF5IXc5e7kPwb60Ly0tdZF5KXypa7kIRYF5KvJC53IWld7kLyOetC8tU9y11IPmFdSF5+kXUheTl/uQtJO+tC8rX/ATb+Jusx9H8BOfSJpg=="
 
 ///|
-let pdf_builtin_predefined_cmap_range_blob : @lazy.Lazy[Bytes] = @lazy.Lazy(() => {
+let pdf_builtin_predefined_cmap_range_blob : @lazy.Lazy[Bytes] = Lazy(() => {
   pdf_decode_base64_zlib_blob(
     pdf_builtin_predefined_cmap_range_blob_base64, "pdf_builtin_predefined_cmap_range",
   )
@@ -655,7 +655,7 @@ let pdf_builtin_unicode_family_blob_base64 : String = "eNoMl2VUG2sXhaelBi11V6BQb
   "NaKaUa2odlQnqhvVi+pHDaKGUaOocdQkaho1i5pHLaKWUauoddQmahu1i9pHHaKOUaeoc9Ql6hp1i7pHPaKeUa+od9Qn6hv1i/pHA6KB0aBocDQkGhoNi4ZHI6KR0ahodDQmGhuNi8ZHE6KJ0aRocjQlmhrNjGZFs6M50dxoXjQ/WhAtjBZFi6Ml0dJoWbQ8ikVhBCIYoSiKEqIV0cpoVbQ6WhOtjdZF66MN0cZoU7Q52hJtjbZF26Md0c5oV7Q72hPtjfZF+6MD0cHoUHQ4OhIdjY5Fx6MT/wMZaArE"
 
 ///|
-let pdf_builtin_unicode_family_blob : @lazy.Lazy[Bytes] = @lazy.Lazy(() => {
+let pdf_builtin_unicode_family_blob : @lazy.Lazy[Bytes] = Lazy(() => {
   pdf_decode_base64_zlib_blob(
     pdf_builtin_unicode_family_blob_base64, "pdf_builtin_unicode_family",
   )

@@ -1,21 +1,14 @@
 ///|
 test "XML parser lowers rich document and streaming structure routes" {
   let xml = "<?xml version=\"1.0\"?><catalog><item id=\"1\"><name>Alpha</name><value>10</value></item><item id=\"2\"><name>Beta</name><value>20</value></item></catalog>"
-  let source = @input.input_from_text_with_format(
-    xml,
-    "catalog.xml",
-    Some(@input.DetectedFormat::Xml),
-  )
-  let document = (xml_parser().parse)(
-    source,
-    @parser.new_parse_context(@input.DetectedFormat::Xml),
-  ).unwrap()
+  let source = @input.input_from_text_with_format(xml, "catalog.xml", Some(Xml))
+  let document = (xml_parser().parse)(source, @parser.new_parse_context(Xml)).unwrap()
   assert_true(document.document.unwrap().blocks.length() > 0)
   assert_true(document.diagnostics.metrics.get("element_count") != Some("0"))
   assert_true(document.diagnostics.metrics.get("attribute_count") == Some("2"))
   let context = @parser.parse_context_with_limits(
-    @parser.new_parse_context(@input.DetectedFormat::Xml),
-    Some(@parser.ParserMode::StreamingEvent),
+    @parser.new_parse_context(Xml),
+    Some(StreamingEvent),
     None,
     None,
     None,
@@ -35,12 +28,8 @@ test "XML parser lowers rich document and streaming structure routes" {
 ///|
 test "XML empty and malformed inputs return controlled document fallbacks" {
   let empty = (xml_parser().parse)(
-    @input.input_from_text_with_format(
-      " \n ",
-      "empty.xml",
-      Some(@input.DetectedFormat::Xml),
-    ),
-    @parser.new_parse_context(@input.DetectedFormat::Xml),
+    @input.input_from_text_with_format(" \n ", "empty.xml", Some(Xml)),
+    @parser.new_parse_context(Xml),
   ).unwrap()
   assert_eq(empty.document.unwrap().blocks.length(), 0)
   assert_true(empty.diagnostics.metrics.get("element_count") == Some("0"))
@@ -48,9 +37,9 @@ test "XML empty and malformed inputs return controlled document fallbacks" {
     @input.input_from_text_with_format(
       "<root><unclosed></root>",
       "broken.xml",
-      Some(@input.DetectedFormat::Xml),
+      Some(Xml),
     ),
-    @parser.new_parse_context(@input.DetectedFormat::Xml),
+    @parser.new_parse_context(Xml),
   ).unwrap()
   assert_true(malformed.document.unwrap().blocks.length() == 1)
   assert_true(
@@ -62,14 +51,10 @@ test "XML empty and malformed inputs return controlled document fallbacks" {
   let invalid_utf8 = @input.input_from_bytes_with_format(
     Bytes::from_array([0xC3, 0x28].map(Int::to_byte)),
     "invalid.xml",
-    Some(@input.DetectedFormat::Xml),
+    Some(Xml),
   )
   assert_true(
-    (xml_parser().parse)(
-      invalid_utf8,
-      @parser.new_parse_context(@input.DetectedFormat::Xml),
-    )
-    is Err(_),
+    (xml_parser().parse)(invalid_utf8, @parser.new_parse_context(Xml)) is Err(_),
   )
 }
 
@@ -81,8 +66,8 @@ test "XML streaming policy rejects unsafe or ambiguous structural inputs" {
     "<root>```markdown\ntext\n```</root>",
   ]
   let context = @parser.parse_context_with_limits(
-    @parser.new_parse_context(@input.DetectedFormat::Xml),
-    Some(@parser.ParserMode::StreamingEvent),
+    @parser.new_parse_context(Xml),
+    Some(StreamingEvent),
     None,
     None,
     None,
@@ -94,7 +79,7 @@ test "XML streaming policy rejects unsafe or ambiguous structural inputs" {
       @input.input_from_text_with_format(
         cases[index],
         "policy-" + index.to_string() + ".xml",
-        Some(@input.DetectedFormat::Xml),
+        Some(Xml),
       ),
       context,
     ).unwrap()
@@ -113,16 +98,14 @@ test "XML compact outline events preserve hierarchy text and xpath" {
   let source = @input.input_from_text_with_format(
     "<root page=\"1\"><record><name>A</name><value id=\"v\">10</value></record></root>",
     "compact.xml",
-    Some(@input.DetectedFormat::Xml),
+    Some(Xml),
   )
   let tokens = @dxml.parse_xml_structure_tokens(
     "<root page=\"1\"><record><name>A</name><value id=\"v\">10</value></record></root>",
   )
   let events = xml_compact_outline_events_from_tokens(tokens, source)
   assert_true(events.length() >= 6)
-  assert_true(
-    events[0].kind == @core.EventKind::StartBlock(@core.BlockKind::Heading),
-  )
+  assert_true(events[0].kind == StartBlock(Heading))
   assert_eq(events[0].text, "<root>")
   assert_true(events.any(event => event.text == "name: A"))
   let value_attrs = events.filter(event => event.text == "@id: v")

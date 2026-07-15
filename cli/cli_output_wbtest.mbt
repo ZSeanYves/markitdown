@@ -174,118 +174,47 @@ test "root cli converts txt csv tsv json jsonl ndjson xml yaml and markdown thro
   write_utf8_text(markdown_path, "# Markdown Demo\n\nBody line.\n")
   write_utf8_text(markdown_long_path, "---\ntitle: Demo\n---\n\n# Title\n")
 
-  let txt = match
-    run_cli(
-      cli_options(
-        txt_path,
-        None,
-        Some(@input.DetectedFormat::Txt),
-        @convert.OutputFormat::Markdown,
-      ),
-    ) {
+  let txt = match run_cli(cli_options(txt_path, None, Some(Txt), Markdown)) {
     Ok(value) => value
     Err(msg) => fail("current txt cli failed: " + msg)
   }
-  let csv = match
-    run_cli(
-      cli_options(
-        csv_path,
-        None,
-        Some(@input.DetectedFormat::Csv),
-        @convert.OutputFormat::Markdown,
-      ),
-    ) {
+  let csv = match run_cli(cli_options(csv_path, None, Some(Csv), Markdown)) {
     Ok(value) => value
     Err(msg) => fail("current csv cli failed: " + msg)
   }
-  let tsv = match
-    run_cli(
-      cli_options(
-        tsv_path,
-        None,
-        Some(@input.DetectedFormat::Tsv),
-        @convert.OutputFormat::Markdown,
-      ),
-    ) {
+  let tsv = match run_cli(cli_options(tsv_path, None, Some(Tsv), Markdown)) {
     Ok(value) => value
     Err(msg) => fail("current tsv cli failed: " + msg)
   }
-  let json = match
-    run_cli(
-      cli_options(
-        json_path,
-        None,
-        Some(@input.DetectedFormat::Json),
-        @convert.OutputFormat::Markdown,
-      ),
-    ) {
+  let json = match run_cli(cli_options(json_path, None, Some(Json), Markdown)) {
     Ok(value) => value
     Err(msg) => fail("current json cli failed: " + msg)
   }
   let jsonl = match
-    run_cli(
-      cli_options(
-        jsonl_path,
-        None,
-        Some(@input.DetectedFormat::Jsonl),
-        @convert.OutputFormat::Markdown,
-      ),
-    ) {
+    run_cli(cli_options(jsonl_path, None, Some(Jsonl), Markdown)) {
     Ok(value) => value
     Err(msg) => fail("current jsonl cli failed: " + msg)
   }
   let ndjson = match
-    run_cli(
-      cli_options(
-        ndjson_path,
-        None,
-        Some(@input.DetectedFormat::Ndjson),
-        @convert.OutputFormat::Markdown,
-      ),
-    ) {
+    run_cli(cli_options(ndjson_path, None, Some(Ndjson), Markdown)) {
     Ok(value) => value
     Err(msg) => fail("current ndjson cli failed: " + msg)
   }
-  let xml = match
-    run_cli(
-      cli_options(
-        xml_path,
-        None,
-        Some(@input.DetectedFormat::Xml),
-        @convert.OutputFormat::Markdown,
-      ),
-    ) {
+  let xml = match run_cli(cli_options(xml_path, None, Some(Xml), Markdown)) {
     Ok(value) => value
     Err(msg) => fail("current xml cli failed: " + msg)
   }
-  let yaml = match
-    run_cli(
-      cli_options(
-        yaml_path,
-        None,
-        Some(@input.DetectedFormat::Yaml),
-        @convert.OutputFormat::Markdown,
-      ),
-    ) {
+  let yaml = match run_cli(cli_options(yaml_path, None, Some(Yaml), Markdown)) {
     Ok(value) => value
     Err(msg) => fail("current yaml cli failed: " + msg)
   }
   let markdown = match
-    run_cli(
-      cli_options(markdown_path, None, None, @convert.OutputFormat::Markdown),
-    ) {
+    run_cli(cli_options(markdown_path, None, None, Markdown)) {
     Ok(value) => value
     Err(msg) => fail("current markdown cli failed: " + msg)
   }
   let markdown_long = match
-    run_cli(
-      cli_options(
-        markdown_long_path,
-        None,
-        None,
-        @convert.OutputFormat::Markdown,
-      ),
-    ) {
+    run_cli(cli_options(markdown_long_path, None, None, Markdown)) {
     Ok(value) => value
     Err(msg) => fail("current .markdown cli failed: " + msg)
   }
@@ -318,14 +247,7 @@ test "main cli emits debug json on the canonical renderer path" {
   let txt_path = root + "/debug.txt"
   write_utf8_text(txt_path, "plain")
   let rendered = match
-    run_cli(
-      cli_options(
-        txt_path,
-        None,
-        Some(@input.DetectedFormat::Txt),
-        @convert.OutputFormat::DebugJson,
-      ),
-    ) {
+    run_cli(cli_options(txt_path, None, Some(Txt), DebugJson)) {
     Ok(value) => value
     Err(msg) => fail("debug json cli failed: " + msg)
   }
@@ -352,8 +274,8 @@ test "main cli provenance sidecar preserves conversion output semantics" {
       cli_options(
         input_path,
         Some(output_path),
-        Some(@input.DetectedFormat::Json),
-        @convert.OutputFormat::Markdown,
+        Some(Json),
+        Markdown,
         provenance_output=Some(provenance_path),
       ),
     ) {
@@ -398,13 +320,13 @@ test "main cli rejects unsupported accurate mode without writing output" {
         input_path,
         Some(output_path),
         Some(provenance_path),
-        Some(@input.DetectedFormat::Toml),
+        Some(Toml),
         @parser.default_ocr_options(),
-        @convert.FidelityMode::Accurate,
-        @convert.ConvertMode::Accurate,
-        @convert.output_mode_for_output_format(@convert.OutputFormat::Markdown),
+        Accurate,
+        Accurate,
+        @convert.output_mode_for_output_format(Markdown),
         false,
-        @convert.OutputFormat::Markdown,
+        Markdown,
       ),
     ) {
     Err(msg) => {
@@ -431,8 +353,8 @@ test "main cli persists pptx local assets only at output boundary" {
       cli_options(
         "samples/fixtures/contracts/pptx/pptx_image_single.pptx",
         Some(out_path),
-        Some(@input.DetectedFormat::Pptx),
-        @convert.OutputFormat::Markdown,
+        Some(Pptx),
+        Markdown,
       ),
     ) {
     Ok(value) => value
@@ -473,12 +395,7 @@ test "main cli persists markdown local assets only at output boundary" {
 
   let rendered = match
     run_cli(
-      cli_options(
-        input_path,
-        Some(output_path),
-        Some(@input.DetectedFormat::Markdown),
-        @convert.OutputFormat::Markdown,
-      ),
+      cli_options(input_path, Some(output_path), Some(Markdown), Markdown),
     ) {
     Ok(value) => value
     Err(msg) => fail("current markdown cli asset persistence failed: " + msg)
@@ -521,12 +438,7 @@ test "main cli persists markdown inline local assets with surrounding text" {
     e => fail("write markdown inline asset sample failed: " + e.to_string())
   }
   let rendered = run_cli(
-    cli_options(
-      input_path,
-      Some(output_path),
-      Some(@input.DetectedFormat::Markdown),
-      @convert.OutputFormat::Markdown,
-    ),
+    cli_options(input_path, Some(output_path), Some(Markdown), Markdown),
   ).unwrap()
   assert_true(rendered.contains("Before ![inline](assets/image01.jpg) after."))
   let copied = @fs.read_file_to_bytes(out_dir + "/assets/image01.jpg") catch {
@@ -547,14 +459,7 @@ test "main cli converts zip through the root container pipeline and persists loc
   ensure_dir_tree(out_dir)
 
   let rendered = match
-    run_cli(
-      cli_options(
-        zip_input,
-        Some(out_md),
-        Some(@input.DetectedFormat::Zip),
-        @convert.OutputFormat::Markdown,
-      ),
-    ) {
+    run_cli(cli_options(zip_input, Some(out_md), Some(Zip), Markdown)) {
     Ok(value) => value
     Err(msg) => fail("current zip cli failed: " + msg)
   }
@@ -591,14 +496,7 @@ test "main cli expands nested office entries from zip and persists rewritten ass
   }
 
   let rendered = match
-    run_cli(
-      cli_options(
-        zip_input,
-        Some(out_md),
-        Some(@input.DetectedFormat::Zip),
-        @convert.OutputFormat::Markdown,
-      ),
-    ) {
+    run_cli(cli_options(zip_input, Some(out_md), Some(Zip), Markdown)) {
     Ok(value) => value
     Err(msg) => fail("nested office zip cli failed: " + msg)
   }
@@ -631,14 +529,7 @@ test "main cli preserves namespaced office asset rewrites for repo zip fixtures"
   ensure_dir_tree(out_dir)
 
   let rendered = match
-    run_cli(
-      cli_options(
-        zip_input,
-        Some(out_md),
-        Some(@input.DetectedFormat::Zip),
-        @convert.OutputFormat::Markdown,
-      ),
-    ) {
+    run_cli(cli_options(zip_input, Some(out_md), Some(Zip), Markdown)) {
     Ok(value) => value
     Err(msg) => fail("namespaced office zip cli failed: " + msg)
   }
@@ -708,14 +599,7 @@ test "main cli persists ipynb inline image assets at output boundary" {
   )
 
   let rendered = match
-    run_cli(
-      cli_options(
-        input_path,
-        Some(output_path),
-        Some(@input.DetectedFormat::Ipynb),
-        @convert.OutputFormat::Markdown,
-      ),
-    ) {
+    run_cli(cli_options(input_path, Some(output_path), Some(Ipynb), Markdown)) {
     Ok(value) => value
     Err(msg) => fail("current ipynb cli asset persistence failed: " + msg)
   }
@@ -754,8 +638,8 @@ test "main cli persists odt local assets only at output boundary" {
       cli_options(
         "samples/fixtures/contracts/odt/odt_basic_assets.odt",
         Some(out_path),
-        Some(@input.DetectedFormat::Odt),
-        @convert.OutputFormat::Markdown,
+        Some(Odt),
+        Markdown,
       ),
     ) {
     Ok(value) => value
@@ -781,8 +665,8 @@ test "main cli persists odp local assets only at output boundary" {
       cli_options(
         "samples/fixtures/contracts/odp/odp_basic_assets.odp",
         Some(out_path),
-        Some(@input.DetectedFormat::Odp),
-        @convert.OutputFormat::Markdown,
+        Some(Odp),
+        Markdown,
       ),
     ) {
     Ok(value) => value
@@ -812,8 +696,8 @@ test "main cli keeps epub local assets output boundary only and remote data asse
       cli_options(
         "samples/fixtures/contracts/epub/epub_local_image_basic.epub",
         Some(local_md),
-        Some(@input.DetectedFormat::Epub),
-        @convert.OutputFormat::Markdown,
+        Some(Epub),
+        Markdown,
       ),
     ) {
     Ok(value) => value
@@ -839,8 +723,8 @@ test "main cli keeps epub local assets output boundary only and remote data asse
       cli_options(
         "samples/fixtures/contracts/epub/epub_remote_data_image_boundary.epub",
         Some(remote_md),
-        Some(@input.DetectedFormat::Epub),
-        @convert.OutputFormat::Markdown,
+        Some(Epub),
+        Markdown,
       ),
     ) {
     Ok(value) => value
@@ -899,26 +783,18 @@ test "main cli restores docx xlsx pptx and native-text pdf" {
     e => fail("write pdf sample failed: " + e.to_string())
   }
 
-  let docx = run_cli(
-    cli_options(docx_path, None, None, @convert.OutputFormat::Markdown),
-  )
-  let pptx = run_cli(
-    cli_options(pptx_path, None, None, @convert.OutputFormat::Markdown),
-  )
-  let xlsx = run_cli(
-    cli_options(xlsx_path, None, None, @convert.OutputFormat::Markdown),
-  )
+  let docx = run_cli(cli_options(docx_path, None, None, Markdown))
+  let pptx = run_cli(cli_options(pptx_path, None, None, Markdown))
+  let xlsx = run_cli(cli_options(xlsx_path, None, None, Markdown))
   let epub = run_cli(
     cli_options(
       "samples/fixtures/contracts/epub/epub_basic_package.epub",
       None,
       None,
-      @convert.OutputFormat::Markdown,
+      Markdown,
     ),
   )
-  let pdf = run_cli(
-    cli_options(pdf_path, None, None, @convert.OutputFormat::Markdown),
-  )
+  let pdf = run_cli(cli_options(pdf_path, None, None, Markdown))
   match docx {
     Ok(value) => {
       assert_true(
@@ -975,8 +851,8 @@ test "main cli accurate pdf keeps born-digital markdown stable and removes repea
       cli_options(
         "samples/fixtures/contracts/pdf/text_simple.pdf",
         None,
-        Some(@input.DetectedFormat::Pdf),
-        @convert.OutputFormat::Markdown,
+        Some(Pdf),
+        Markdown,
       ),
     ) {
     Ok(value) => value.trim_end().to_owned()
@@ -988,13 +864,13 @@ test "main cli accurate pdf keeps born-digital markdown stable and removes repea
         "samples/fixtures/contracts/pdf/text_simple.pdf",
         None,
         None,
-        Some(@input.DetectedFormat::Pdf),
+        Some(Pdf),
         @parser.default_ocr_options(),
-        @convert.FidelityMode::Accurate,
-        @convert.ConvertMode::Accurate,
-        @convert.output_mode_for_output_format(@convert.OutputFormat::Markdown),
+        Accurate,
+        Accurate,
+        @convert.output_mode_for_output_format(Markdown),
         false,
-        @convert.OutputFormat::Markdown,
+        Markdown,
         rag_options=@rag.default_rag_options(),
       ),
     ) {
@@ -1010,13 +886,13 @@ test "main cli accurate pdf keeps born-digital markdown stable and removes repea
         "samples/fixtures/contracts/pdf/pdf_header_footer_variants_phase15.pdf",
         None,
         None,
-        Some(@input.DetectedFormat::Pdf),
+        Some(Pdf),
         @parser.default_ocr_options(),
-        @convert.FidelityMode::Accurate,
-        @convert.ConvertMode::Accurate,
-        @convert.output_mode_for_output_format(@convert.OutputFormat::Markdown),
+        Accurate,
+        Accurate,
+        @convert.output_mode_for_output_format(Markdown),
         false,
-        @convert.OutputFormat::Markdown,
+        Markdown,
         rag_options=@rag.default_rag_options(),
       ),
     ) {
@@ -1042,14 +918,7 @@ test "main cli lowers generated native pdf uri links into markdown links" {
   }
 
   let markdown = match
-    run_cli(
-      cli_options(
-        pdf_path,
-        None,
-        Some(@input.DetectedFormat::Pdf),
-        @convert.OutputFormat::Markdown,
-      ),
-    ) {
+    run_cli(cli_options(pdf_path, None, Some(Pdf), Markdown)) {
     Ok(value) => value
     Err(msg) => fail("generated link pdf cli render failed: " + msg)
   }
@@ -1072,14 +941,7 @@ test "main cli lowers generated native pdf tables into markdown tables" {
   }
 
   let markdown = match
-    run_cli(
-      cli_options(
-        pdf_path,
-        None,
-        Some(@input.DetectedFormat::Pdf),
-        @convert.OutputFormat::Markdown,
-      ),
-    ) {
+    run_cli(cli_options(pdf_path, None, Some(Pdf), Markdown)) {
     Ok(value) => value
     Err(msg) => fail("generated table pdf cli render failed: " + msg)
   }
@@ -1116,14 +978,7 @@ test "main cli persists html local assets only at output boundary" {
   }
 
   let rendered = match
-    run_cli(
-      cli_options(
-        input_path,
-        Some(output_path),
-        Some(@input.DetectedFormat::Html),
-        @convert.OutputFormat::Markdown,
-      ),
-    ) {
+    run_cli(cli_options(input_path, Some(output_path), Some(Html), Markdown)) {
     Ok(value) => value
     Err(msg) => fail("current html cli asset persistence failed: " + msg)
   }
@@ -1157,7 +1012,7 @@ test "main cli degrades missing local assets without broken references" {
     (
       "rst",
       "Document\n========\n\n.. image:: images/missing.png\n   :alt: diagram\n",
-      @input.DetectedFormat::Rst,
+      Rst,
       "diagram [Asset unavailable: images/missing.png]",
     ),
   ]
@@ -1166,23 +1021,13 @@ test "main cli degrades missing local assets without broken references" {
     let output_path = root + "/out-" + item.0 + ".md"
     write_utf8_text(input_path, item.1)
     let rendered = run_cli(
-      cli_options(
-        input_path,
-        Some(output_path),
-        Some(item.2),
-        @convert.OutputFormat::Markdown,
-      ),
+      cli_options(input_path, Some(output_path), Some(item.2), Markdown),
     ).unwrap()
     assert_true(rendered.contains(item.3))
     assert_true(!rendered.contains("!["))
     assert_true(read_utf8_text(output_path).contains(item.3))
     let stdout_rendered = run_cli(
-      cli_options(
-        input_path,
-        None,
-        Some(item.2),
-        @convert.OutputFormat::Markdown,
-      ),
+      cli_options(input_path, None, Some(item.2), Markdown),
     ).unwrap()
     assert_true(stdout_rendered.contains("Asset not materialized on stdout"))
     assert_true(!stdout_rendered.contains("!["))
@@ -1203,12 +1048,7 @@ test "main cli degrades ipynb attachment references with missing payload" {
     "\"attachments\":{\"logo.jpg\":{\"image/jpeg\":\"\"}}}]}",
   )
   let rendered = run_cli(
-    cli_options(
-      input_path,
-      Some(output_path),
-      Some(@input.DetectedFormat::Ipynb),
-      @convert.OutputFormat::Markdown,
-    ),
+    cli_options(input_path, Some(output_path), Some(Ipynb), Markdown),
   ).unwrap()
   assert_true(rendered.contains("Asset unavailable"))
   assert_true(!rendered.contains("!["))
@@ -1225,13 +1065,11 @@ test "main cli converts yaml and yml through isolated product shell" {
   write_utf8_text(yaml_path, "name: Alice\nrole: Engineer\n")
   write_utf8_text(yml_path, "kind: sample\nstatus: true\n")
 
-  let yaml = match
-    run_cli(cli_options(yaml_path, None, None, @convert.OutputFormat::Markdown)) {
+  let yaml = match run_cli(cli_options(yaml_path, None, None, Markdown)) {
     Ok(value) => value
     Err(msg) => fail("current yaml cli failed: " + msg)
   }
-  let yml = match
-    run_cli(cli_options(yml_path, None, None, @convert.OutputFormat::Markdown)) {
+  let yml = match run_cli(cli_options(yml_path, None, None, Markdown)) {
     Ok(value) => value
     Err(msg) => fail("current yml cli failed: " + msg)
   }
@@ -1254,16 +1092,8 @@ test "main cli persists TeX RST and AsciiDoc sidecar images" {
   }
   let cases = [
     ("tex", "\\includegraphics{local.png}", @input.DetectedFormat::Tex),
-    (
-      "rst",
-      ".. image:: local.png\n   :alt: Local image\n",
-      @input.DetectedFormat::Rst,
-    ),
-    (
-      "asciidoc",
-      "image::local.png[Local image]\n",
-      @input.DetectedFormat::Asciidoc,
-    ),
+    ("rst", ".. image:: local.png\n   :alt: Local image\n", Rst),
+    ("asciidoc", "image::local.png[Local image]\n", Asciidoc),
   ]
   for item in cases {
     let case_root = root + "/" + item.0
@@ -1276,12 +1106,7 @@ test "main cli persists TeX RST and AsciiDoc sidecar images" {
       e => fail("write text markup sidecar failed: " + e.to_string())
     }
     let rendered = run_cli(
-      cli_options(
-        input_path,
-        Some(output_path),
-        Some(item.2),
-        @convert.OutputFormat::Markdown,
-      ),
+      cli_options(input_path, Some(output_path), Some(item.2), Markdown),
     ).unwrap()
     let expected_asset = "assets/" + item.0 + "-local.png"
     assert_true(rendered.contains(expected_asset))
@@ -1308,5 +1133,5 @@ test "CLI ZIP asset lookup normalizes safe dot segments" {
 
 ///|
 test "batch task skipped status has a stable manifest name" {
-  assert_eq(batch_task_status_name(BatchTaskStatus::Skipped), "skipped")
+  assert_eq(batch_task_status_name(Skipped), "skipped")
 }

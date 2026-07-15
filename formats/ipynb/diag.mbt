@@ -5,13 +5,16 @@ fn ipynb_base_diagnostics(
 ) -> @core.Diagnostics {
   let diagnostics = @fshared.empty_parser_diagnostics(
     "ipynb_parser",
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     source,
     "ipynb",
   )
   diagnostics.metrics.set("parser_name", "ipynb_parser")
   diagnostics.metrics.set("parser_mode", "dom_ast_model")
-  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
+  diagnostics.metrics.set(
+    "input_kind",
+    @fshared.input_kind_name(@input.input_kind(source)),
+  )
   diagnostics.metrics.set("detected_format", "ipynb")
   diagnostics.metrics.set(
     "requested_mode",
@@ -19,7 +22,7 @@ fn ipynb_base_diagnostics(
   )
   diagnostics.metrics.set(
     "effective_mode",
-    if context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
+    if context.requested_mode == Some(BlockStreaming) {
       "block_streaming"
     } else {
       "dom_ast_model"
@@ -27,7 +30,7 @@ fn ipynb_base_diagnostics(
   )
   diagnostics.metrics.set(
     "ir_input_kind",
-    if context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
+    if context.requested_mode == Some(BlockStreaming) {
       "block_stream"
     } else {
       "document"
@@ -35,7 +38,7 @@ fn ipynb_base_diagnostics(
   )
   diagnostics.metrics.set(
     "event_granularity",
-    if context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
+    if context.requested_mode == Some(BlockStreaming) {
       "notebook_cell_output_group"
     } else {
       "none"
@@ -43,7 +46,7 @@ fn ipynb_base_diagnostics(
   )
   diagnostics.metrics.set(
     "event_semantics",
-    if context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
+    if context.requested_mode == Some(BlockStreaming) {
       "ipynb_cell_output_block_stream"
     } else {
       "dom_ast_model"
@@ -148,7 +151,7 @@ fn ipynb_malformed_parse_result(
 ) -> @parser.ParseResult {
   let diagnostics = ipynb_base_diagnostics(source, context)
   let block = @core.make_block(
-    @core.BlockKind::Code,
+    Code,
     text,
     source_ref=@core.source_ref_with_lines(
       ipynb_source_ref(
@@ -209,7 +212,7 @@ fn ipynb_malformed_parse_result(
   )
   diagnostics.metrics.set(
     "builder_input_kind",
-    if context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
+    if context.requested_mode == Some(BlockStreaming) {
       "block_stream"
     } else {
       "document"
@@ -220,7 +223,7 @@ fn ipynb_malformed_parse_result(
   let final_document = @core.document_with_diagnostics(document, diagnostics)
   @parser.parse_result_with_document_capability(
     "ipynb_parser",
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     final_document,
     diagnostics,
     ipynb_parser_capability(),

@@ -53,30 +53,15 @@ fn resolve_markitdown(
 ) -> Result[@rtcmd.ResolvedCommand, String] {
   match explicit_path {
     Some(path) =>
-      return resolve_strong_path(
-        path,
-        "--markitdown-path",
-        @rtcmd.ResolvedCommandSource::ExplicitArg,
-      )
+      return resolve_strong_path(path, "--markitdown-path", ExplicitArg)
     None => ()
   }
   let repo_local = repo_local_markitdown_baseline_path()
   if @rtcmd.is_executable_file(repo_local) {
-    return Ok(
-      @rtcmd.make_resolved_command(
-        repo_local,
-        repo_local,
-        @rtcmd.ResolvedCommandSource::RepoManaged,
-      ),
-    )
+    return Ok(@rtcmd.make_resolved_command(repo_local, repo_local, RepoManaged))
   }
   match @rtcmd.normalized_env_var("MARKITDOWN_BIN") {
-    Some(path) =>
-      return resolve_strong_path(
-        path,
-        "MARKITDOWN_BIN",
-        @rtcmd.ResolvedCommandSource::EnvVar,
-      )
+    Some(path) => return resolve_strong_path(path, "MARKITDOWN_BIN", EnvVar)
     None => ()
   }
   match @rtcmd.resolve_path_command("markitdown") {
@@ -85,13 +70,7 @@ fn resolve_markitdown(
   }
   for path in fallback_candidates() {
     if @rtcmd.is_executable_file(path) {
-      return Ok(
-        @rtcmd.make_resolved_command(
-          path,
-          path,
-          @rtcmd.ResolvedCommandSource::Fallback,
-        ),
-      )
+      return Ok(@rtcmd.make_resolved_command(path, path, Fallback))
     }
   }
   Err(

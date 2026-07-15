@@ -11,15 +11,8 @@ test "EML parser lowers related HTML CID attachments and nested messages" {
     "", "From: nested@example.test", "Subject: Nested", "Content-Type: text/plain",
     "", "Nested body", "--outer--",
   ].join("\r\n")
-  let source = @input.input_from_text_with_format(
-    eml,
-    "complex.eml",
-    Some(@input.DetectedFormat::Eml),
-  )
-  let result = (eml_parser().parse)(
-    source,
-    @parser.new_parse_context(@input.DetectedFormat::Eml),
-  ).unwrap()
+  let source = @input.input_from_text_with_format(eml, "complex.eml", Some(Eml))
+  let result = (eml_parser().parse)(source, @parser.new_parse_context(Eml)).unwrap()
   assert_true(result.block_stream.unwrap().length() >= 4)
   assert_true(result.assets.length() >= 2)
   assert_true(result.diagnostics.metrics.get("attachment_count") == Some("2"))
@@ -37,12 +30,9 @@ test "EML parser rejects malformed multipart and exposes capability limits" {
   let source = @input.input_from_text_with_format(
     "Content-Type: multipart/mixed\n\nbody",
     "broken.eml",
-    Some(@input.DetectedFormat::Eml),
+    Some(Eml),
   )
-  let fallback = (eml_parser().parse)(
-    source,
-    @parser.new_parse_context(@input.DetectedFormat::Eml),
-  ).unwrap()
+  let fallback = (eml_parser().parse)(source, @parser.new_parse_context(Eml)).unwrap()
   assert_eq(fallback.block_stream.unwrap().length(), 1)
   assert_true(fallback.diagnostics.errors.length() == 1)
   assert_true(
@@ -66,12 +56,8 @@ test "EML parser preserves malformed MIME part with typed recovery diagnostics" 
     "--mix--",
   ].join("\n")
   let result = (eml_parser().parse)(
-    @input.input_from_text_with_format(
-      eml,
-      "recover.eml",
-      Some(@input.DetectedFormat::Eml),
-    ),
-    @parser.new_parse_context(@input.DetectedFormat::Eml),
+    @input.input_from_text_with_format(eml, "recover.eml", Some(Eml)),
+    @parser.new_parse_context(Eml),
   ).unwrap()
   let blocks = result.block_stream.unwrap()
   assert_true(blocks.any(block => block.text.contains("retained raw child")))
@@ -90,7 +76,7 @@ test "EML parser preserves malformed MIME part with typed recovery diagnostics" 
 fn eml_wbtest_child_registry() -> @parser.ParserRegistry {
   let registry = @parser.empty_registry()
   let capability = @parser.block_stream_parser_capability(
-    @parser.StreamingGranularity::Block,
+    Block,
     false,
     true,
     true,
@@ -101,7 +87,7 @@ fn eml_wbtest_child_registry() -> @parser.ParserRegistry {
   )
   let child = @parser.make_parser(
     "eml_wbtest_child",
-    @parser.ParserMode::BlockStreaming,
+    BlockStreaming,
     capability,
     fn(source, _context) {
       let source_ref = @core.source_ref_with_lines(
@@ -112,7 +98,7 @@ fn eml_wbtest_child_registry() -> @parser.ParserRegistry {
         Some(1),
       )
       let block = @core.make_block(
-        @core.BlockKind::Paragraph,
+        Paragraph,
         "child:" + source.source_name,
         source_ref~,
       )
@@ -121,7 +107,7 @@ fn eml_wbtest_child_registry() -> @parser.ParserRegistry {
       Ok(
         @parser.parse_result_with_blocks_capability(
           "eml_wbtest_child",
-          @parser.ParserMode::BlockStreaming,
+          BlockStreaming,
           [block],
           diagnostics,
           capability,
@@ -129,13 +115,7 @@ fn eml_wbtest_child_registry() -> @parser.ParserRegistry {
       )
     },
   )
-  for
-    format in [
-      @input.DetectedFormat::Html,
-      @input.DetectedFormat::Json,
-      @input.DetectedFormat::Xml,
-      @input.DetectedFormat::Markdown,
-    ] {
+  for format in [@input.DetectedFormat::Html, Json, Xml, Markdown] {
     @parser.registry_register(registry, format, child)
   }
   registry
@@ -151,12 +131,8 @@ test "EML parser recursively dispatches typed MIME children and absorbs diagnost
     "Content-Type: text/markdown", "", "# markdown", "--typed--",
   ].join("\r\n")
   let result = (eml_parser_with_registry(eml_wbtest_child_registry).parse)(
-    @input.input_from_text_with_format(
-      eml,
-      "typed.eml",
-      Some(@input.DetectedFormat::Eml),
-    ),
-    @parser.new_parse_context(@input.DetectedFormat::Eml),
+    @input.input_from_text_with_format(eml, "typed.eml", Some(Eml)),
+    @parser.new_parse_context(Eml),
   ).unwrap()
   let blocks = result.block_stream.unwrap()
   assert_true(blocks.any(block => block.text.contains("typed.eml.html")))
@@ -185,9 +161,9 @@ test "EML lowering preserves typed fallback unknown parts and recursion budget" 
   let source = @input.input_from_text_with_format(
     eml,
     "fallback.eml",
-    Some(@input.DetectedFormat::Eml),
+    Some(Eml),
   )
-  let context = @parser.new_parse_context(@input.DetectedFormat::Eml)
+  let context = @parser.new_parse_context(Eml)
   let diagnostics = @core.empty_diagnostics()
   let document = @core.empty_document_ir()
   let registry = @parser.empty_registry()
@@ -221,7 +197,7 @@ test "EML lowering preserves typed fallback unknown parts and recursion budget" 
     )
   }
   assert_true(lowered.any(block => block.text.contains("opaque")))
-  assert_true(lowered.any(block => block.kind == @core.BlockKind::Code))
+  assert_true(lowered.any(block => block.kind == Code))
   assert_true(
     diagnostics.degraded_features.contains("eml_recursive_child_limit"),
   )
@@ -232,20 +208,18 @@ test "EML MIME asset and text utility policy covers supported boundary mappings"
   for
     format in [
       @input.DetectedFormat::Txt,
-      @input.DetectedFormat::Markdown,
-      @input.DetectedFormat::Json,
-      @input.DetectedFormat::Xml,
-      @input.DetectedFormat::Yaml,
-      @input.DetectedFormat::Toml,
-      @input.DetectedFormat::Html,
-      @input.DetectedFormat::Eml,
-      @input.DetectedFormat::Ipynb,
+      Markdown,
+      Json,
+      Xml,
+      Yaml,
+      Toml,
+      Html,
+      Eml,
+      Ipynb,
     ] {
     assert_true(eml_detected_format_prefers_text_payload(format))
   }
-  assert_true(
-    !eml_detected_format_prefers_text_payload(@input.DetectedFormat::Pdf),
-  )
+  assert_true(!eml_detected_format_prefers_text_payload(Pdf))
   let extension_cases = [
     ("image/png", ".png"),
     ("image/jpeg", ".jpg"),
@@ -305,13 +279,8 @@ test "EML MIME asset and text utility policy covers supported boundary mappings"
   let named = message.children[1].attachments[0]
   assert_true(eml_attachment_is_inline_image(image))
   assert_true(eml_should_materialize_attachment_asset(image))
-  assert_true(
-    eml_attachment_detected_format(image) ==
-    Some(@input.DetectedFormat::Image(@input.ImageFormat::Png)),
-  )
-  assert_true(
-    eml_attachment_detected_format(named) == Some(@input.DetectedFormat::Json),
-  )
+  assert_true(eml_attachment_detected_format(image) == Some(Image(Png)))
+  assert_true(eml_attachment_detected_format(named) == Some(Json))
 }
 
 ///|
@@ -336,7 +305,7 @@ test "EML multipart alternative selection and nested asset rewrites are determin
 
   let owner = message.children[0]
   let document = @core.empty_document_ir()
-  let asset0 = @core.make_asset_ref(@core.AssetKind::Image, "old")
+  let asset0 = @core.make_asset_ref(Image, "old")
   let asset = { ..asset0, path: Some("old.PNG") }
   let rewrites = eml_rewrite_child_assets(
     [asset],
@@ -347,10 +316,10 @@ test "EML multipart alternative selection and nested asset rewrites are determin
   )
   assert_true(rewrites.length() == 1)
   assert_true(document.assets.length() == 1)
-  let image = @core.make_block(@core.BlockKind::Image, "")
+  let image = @core.make_block(Image, "")
   image.attrs.set("asset_id", "old")
   image.attrs.set("path", "old.PNG")
-  let parent = @core.make_block(@core.BlockKind::Paragraph, "parent")
+  let parent = @core.make_block(Paragraph, "parent")
   parent.children.push(image)
   let rewritten = eml_rewrite_child_block(parent, rewrites)
   assert_true(

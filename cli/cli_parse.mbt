@@ -48,7 +48,7 @@ fn cli_requested_format_from_input(
 ///|
 fn cli_requested_format_is_audio(format : @input.DetectedFormat) -> Bool {
   match format {
-    @input.DetectedFormat::Audio(_) => true
+    Audio(_) => true
     _ => false
   }
 }
@@ -89,15 +89,13 @@ fn cli_effective_ocr_options(
   if @input.detected_format_is_image_candidate(requested_format) {
     return @parser.explicit_ocr_options(language=ocr_language)
   }
-  if requested_format == @input.DetectedFormat::Pdf &&
-    fidelity_mode == @convert.FidelityMode::Accurate {
+  if requested_format == Pdf && fidelity_mode == Accurate {
     return @parser.explicit_ocr_options(language=ocr_language)
   }
   match cli_default_ocr_options(input_path, explicit_format).intent {
-    @parser.OcrIntent::Explicit =>
-      @parser.explicit_ocr_options(language=ocr_language)
-    @parser.OcrIntent::Disabled => @parser.disabled_ocr_options()
-    @parser.OcrIntent::Auto => @parser.default_ocr_options()
+    Explicit => @parser.explicit_ocr_options(language=ocr_language)
+    Disabled => @parser.disabled_ocr_options()
+    Auto => @parser.default_ocr_options()
   }
 }
 
@@ -109,7 +107,7 @@ fn parse_explicit_format(
     None => Ok(None)
     Some(value) => {
       let parsed = @input.parse_detected_format(value)
-      if parsed == @input.DetectedFormat::Unknown {
+      if parsed == Unknown {
         Err("unsupported --format value: " + value)
       } else if !cli_is_supported_format(parsed) {
         Err(
@@ -135,9 +133,9 @@ fn first_user_cli_arg(raw_cli_args : Array[String]) -> String? {
 ///|
 fn cli_mode_from_name(name : String) -> @convert.ConvertMode? {
   match name {
-    "balance" => Some(@convert.ConvertMode::Balanced)
-    "accurate" => Some(@convert.ConvertMode::Accurate)
-    "stream" => Some(@convert.ConvertMode::Stream)
+    "balance" => Some(Balanced)
+    "accurate" => Some(Accurate)
+    "stream" => Some(Stream)
     _ => None
   }
 }
@@ -149,14 +147,14 @@ fn is_cli_mode_word(name : String) -> Bool {
 
 ///|
 fn cli_mode_stream_requested(mode : @convert.ConvertMode) -> Bool {
-  mode == @convert.ConvertMode::Stream
+  mode == Stream
 }
 
 ///|
 fn cli_mode_fidelity_mode(mode : @convert.ConvertMode) -> @convert.FidelityMode {
   match mode {
-    @convert.ConvertMode::Accurate => @convert.FidelityMode::Accurate
-    _ => @convert.FidelityMode::Balanced
+    Accurate => Accurate
+    _ => Balanced
   }
 }
 
@@ -232,7 +230,7 @@ fn parse_cli_options(args : Array[String]) -> Result[CliOptions, String] {
 fn parse_cli_options_from_index(
   args : Array[String],
   start_index : Int,
-  mode? : @convert.ConvertMode = @convert.ConvertMode::Balanced,
+  mode? : @convert.ConvertMode = Balanced,
   allow_batch_audio_language_without_explicit_format? : Bool = false,
 ) -> Result[CliOptions, String] {
   let positionals : Array[String] = []
@@ -279,20 +277,20 @@ fn parse_cli_options_from_index(
       return Err(removed_cli_subcommand_message(arg))
     }
     if arg == "--debug" {
-      if output_mode == @convert.OutputMode::Rag {
+      if output_mode == Rag {
         return Err("cannot combine --debug and --rag")
       }
-      output_mode = @convert.OutputMode::Debug
-      output_format = @convert.OutputFormat::DebugJson
+      output_mode = Debug
+      output_format = DebugJson
       i += 1
       continue
     }
     if arg == "--rag" {
-      if output_format == @convert.OutputFormat::DebugJson {
+      if output_format == DebugJson {
         return Err("cannot combine --debug and --rag")
       }
-      output_mode = @convert.OutputMode::Rag
-      output_format = @convert.OutputFormat::RagJson
+      output_mode = Rag
+      output_format = RagJson
       i += 1
       continue
     }
@@ -369,9 +367,7 @@ fn parse_cli_options_from_index(
     effective_positionals[0],
     explicit_format,
   )
-  if requested_format == @input.DetectedFormat::Pdf &&
-    ocr_enabled &&
-    fidelity_mode != @convert.FidelityMode::Accurate {
+  if requested_format == Pdf && ocr_enabled && fidelity_mode != Accurate {
     return Err(
       "PDF OCR is only available through the `accurate` PDF layout route; `--ocr` continues to work for direct image input",
     )
@@ -382,8 +378,7 @@ fn parse_cli_options_from_index(
   if ocr_language is Some(_) &&
     !ocr_enabled &&
     !@input.detected_format_is_image_candidate(requested_format) &&
-    !(requested_format == @input.DetectedFormat::Pdf &&
-    fidelity_mode == @convert.FidelityMode::Accurate) {
+    !(requested_format == Pdf && fidelity_mode == Accurate) {
     return Err(
       "--ocr-lang requires --ocr, direct image input, or the `accurate` PDF layout route",
     )

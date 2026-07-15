@@ -41,7 +41,7 @@ test "xml predefined entities decode and unknown entities fail closed" {
     None => fail("expected root element")
   }
   match root.children[0] {
-    @xml.XmlNode::Text(text) => assert_eq(text.text, "<&>\"'")
+    Text(text) => assert_eq(text.text, "<&>\"'")
     _ => fail("expected text node")
   }
 
@@ -53,10 +53,8 @@ test "xml predefined entities decode and unknown entities fail closed" {
     Err(_) => ()
     _ => ()
   }
-  let info = @xml.classify_xml_error(
-    @xml.XmlError::ParseError("unsupported entity: &copy;"),
-  )
-  assert_true(info.kind == @xml.XmlErrorKind::UnsupportedEntity)
+  let info = @xml.classify_xml_error(ParseError("unsupported entity: &copy;"))
+  assert_true(info.kind == UnsupportedEntity)
 }
 
 ///|
@@ -67,7 +65,7 @@ test "xml numeric entities decode in decimal and hex forms" {
     None => fail("expected root element")
   }
   match root.children[0] {
-    @xml.XmlNode::Text(text) => assert_eq(text.text, "© A 你")
+    Text(text) => assert_eq(text.text, "© A 你")
     _ => fail("expected text node")
   }
 
@@ -89,9 +87,7 @@ test "xml doctype is preserved as unsupported signal and never fetched" {
   assert_eq(validation.issue_count, 1)
   assert_eq(validation.warning_count, 1)
   assert_eq(validation.error_count, 0)
-  assert_true(
-    validation.issues[0].kind == @xml.XmlValidationIssueKind::UnsupportedDoctype,
-  )
+  assert_true(validation.issues[0].kind == UnsupportedDoctype)
   assert_eq(
     validation.issues[0].message,
     "doctype is preserved as unsupported syntax and never fetched or expanded",
@@ -101,12 +97,12 @@ test "xml doctype is preserved as unsupported signal and never fetched" {
 ///|
 test "xml parser rejects malformed syntax and classifies" {
   let bad_cases : Array[(String, @xml.XmlErrorKind)] = [
-    ("<root><child></root>", @xml.XmlErrorKind::MismatchedTag),
-    ("<root><child>", @xml.XmlErrorKind::UnclosedTag),
-    ("<root a=1></root>", @xml.XmlErrorKind::InvalidToken),
-    ("<root a=\"1\" a=\"2\"></root>", @xml.XmlErrorKind::DuplicateAttribute),
-    ("<!DOCTYPE note [ <!ENTITY a \"x\"> \n", @xml.XmlErrorKind::UnexpectedEOF),
-    ("", @xml.XmlErrorKind::EmptyDocument),
+    ("<root><child></root>", MismatchedTag),
+    ("<root><child>", UnclosedTag),
+    ("<root a=1></root>", InvalidToken),
+    ("<root a=\"1\" a=\"2\"></root>", DuplicateAttribute),
+    ("<!DOCTYPE note [ <!ENTITY a \"x\"> \n", UnexpectedEOF),
+    ("", EmptyDocument),
   ]
 
   for i in 0..<bad_cases.length() {
@@ -118,31 +114,21 @@ test "xml parser rejects malformed syntax and classifies" {
       is Err(_),
     )
     let info = match expected_kind {
-      @xml.XmlErrorKind::MismatchedTag =>
+      MismatchedTag =>
         @xml.classify_xml_error(
-          @xml.XmlError::ParseError(
+          ParseError(
             "mismatched closing tag: expected </child> but found </root>",
           ),
         )
-      @xml.XmlErrorKind::UnclosedTag =>
-        @xml.classify_xml_error(
-          @xml.XmlError::ParseError("unclosed tag: child"),
-        )
-      @xml.XmlErrorKind::InvalidToken =>
-        @xml.classify_xml_error(
-          @xml.XmlError::ParseError("unquoted attribute value"),
-        )
-      @xml.XmlErrorKind::DuplicateAttribute =>
-        @xml.classify_xml_error(
-          @xml.XmlError::ParseError("duplicate attribute: a"),
-        )
-      @xml.XmlErrorKind::UnexpectedEOF =>
-        @xml.classify_xml_error(
-          @xml.XmlError::ParseError("unterminated doctype"),
-        )
-      @xml.XmlErrorKind::EmptyDocument =>
-        @xml.classify_xml_error(@xml.XmlError::ParseError("empty document"))
-      _ => @xml.classify_xml_error(@xml.XmlError::ParseError("unknown"))
+      UnclosedTag => @xml.classify_xml_error(ParseError("unclosed tag: child"))
+      InvalidToken =>
+        @xml.classify_xml_error(ParseError("unquoted attribute value"))
+      DuplicateAttribute =>
+        @xml.classify_xml_error(ParseError("duplicate attribute: a"))
+      UnexpectedEOF =>
+        @xml.classify_xml_error(ParseError("unterminated doctype"))
+      EmptyDocument => @xml.classify_xml_error(ParseError("empty document"))
+      _ => @xml.classify_xml_error(ParseError("unknown"))
     }
     assert_true(info.kind == expected_kind)
   }
@@ -163,7 +149,7 @@ test "xml namespace raw names and source spans are preserved without namespace s
   assert_eq(root.span.line_end, 1)
 
   match root.children[0] {
-    @xml.XmlNode::Element(child) => {
+    Element(child) => {
       assert_eq(child.name, "xhtml:p")
       assert_eq(child.attributes[0].name, "id")
       assert_eq(child.attributes[0].span.line_start, 1)
@@ -202,15 +188,11 @@ test "xml multiple root elements and empty document stay fail-closed" {
     is Err(_),
   )
 
-  let multiple = @xml.classify_xml_error(
-    @xml.XmlError::ParseError("multiple root elements"),
-  )
-  assert_true(multiple.kind == @xml.XmlErrorKind::MultipleRootElements)
+  let multiple = @xml.classify_xml_error(ParseError("multiple root elements"))
+  assert_true(multiple.kind == MultipleRootElements)
 
-  let empty = @xml.classify_xml_error(
-    @xml.XmlError::ParseError("empty document"),
-  )
-  assert_true(empty.kind == @xml.XmlErrorKind::EmptyDocument)
+  let empty = @xml.classify_xml_error(ParseError("empty document"))
+  assert_true(empty.kind == EmptyDocument)
 }
 
 ///|
@@ -252,23 +234,23 @@ test "xml model preserves simple attributes repeated children namespace and cdat
   assert_eq(root.children.length(), 3)
 
   match root.children[0] {
-    @xml.XmlNode::Element(item) => {
+    Element(item) => {
       assert_eq(item.name, "x:item")
       match item.children[0] {
-        @xml.XmlNode::Text(text) => assert_eq(text.text, "One")
+        Text(text) => assert_eq(text.text, "One")
         _ => fail("expected item text")
       }
     }
     _ => fail("expected repeated child element")
   }
   match root.children[1] {
-    @xml.XmlNode::Element(item) => assert_eq(item.name, "x:item")
+    Element(item) => assert_eq(item.name, "x:item")
     _ => fail("expected second repeated child element")
   }
   match root.children[2] {
-    @xml.XmlNode::Element(payload) =>
+    Element(payload) =>
       match payload.children[0] {
-        @xml.XmlNode::CData(cdata) => assert_eq(cdata.text, "<safe>&literal;")
+        CData(cdata) => assert_eq(cdata.text, "<safe>&literal;")
         _ => fail("expected cdata node")
       }
     _ => fail("expected payload element")
@@ -284,15 +266,15 @@ test "xml mixed content is visible through text and element child order" {
   }
   assert_eq(root.children.length(), 3)
   match root.children[0] {
-    @xml.XmlNode::Text(text) => assert_eq(text.text, "Lead ")
+    Text(text) => assert_eq(text.text, "Lead ")
     _ => fail("expected leading text")
   }
   match root.children[1] {
-    @xml.XmlNode::Element(child) => assert_eq(child.name, "b")
+    Element(child) => assert_eq(child.name, "b")
     _ => fail("expected embedded element")
   }
   match root.children[2] {
-    @xml.XmlNode::Text(text) => assert_eq(text.text, " tail")
+    Text(text) => assert_eq(text.text, " tail")
     _ => fail("expected trailing text")
   }
 }

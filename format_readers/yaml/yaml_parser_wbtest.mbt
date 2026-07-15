@@ -1,36 +1,24 @@
 ///|
 test "YAML parser classifies complete fail-closed taxonomy" {
   let cases : Array[(YamlError, YamlErrorKind)] = [
-    (ParseError("unexpected end of input"), YamlErrorKind::UnexpectedEnd),
-    (
-      ParseError("unexpected indentation at line 2"),
-      YamlErrorKind::UnexpectedIndentation,
-    ),
-    (
-      ParseError("unexpected trailing content at line 2"),
-      YamlErrorKind::TrailingContent,
-    ),
-    (ParseError("empty key at line 1"), YamlErrorKind::EmptyKey),
-    (
-      ParseError("expected mapping entry at line 2"),
-      YamlErrorKind::ExpectedMappingEntry,
-    ),
-    (
-      ParseError("expected sequence item at line 2"),
-      YamlErrorKind::ExpectedSequenceItem,
-    ),
+    (ParseError("unexpected end of input"), UnexpectedEnd),
+    (ParseError("unexpected indentation at line 2"), UnexpectedIndentation),
+    (ParseError("unexpected trailing content at line 2"), TrailingContent),
+    (ParseError("empty key at line 1"), EmptyKey),
+    (ParseError("expected mapping entry at line 2"), ExpectedMappingEntry),
+    (ParseError("expected sequence item at line 2"), ExpectedSequenceItem),
     (
       ParseError("unterminated double-quoted string at line 1"),
-      YamlErrorKind::UnterminatedQuotedScalar,
+      UnterminatedQuotedScalar,
     ),
-    (ParseError("invalid escape at line 1"), YamlErrorKind::InvalidEscape),
-    (ParseError("tabs are unsupported"), YamlErrorKind::TabsUnsupported),
+    (ParseError("invalid escape at line 1"), InvalidEscape),
+    (ParseError("tabs are unsupported"), TabsUnsupported),
     (
       ParseError("multi-document markers are unsupported"),
-      YamlErrorKind::MultiDocumentUnsupported,
+      MultiDocumentUnsupported,
     ),
-    (ParseError("anchors are unsupported"), YamlErrorKind::UnsupportedFeature),
-    (ParseError("other failure"), YamlErrorKind::Unknown),
+    (ParseError("anchors are unsupported"), UnsupportedFeature),
+    (ParseError("other failure"), Unknown),
   ]
   for pair in cases {
     let (error, expected) = pair

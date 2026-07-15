@@ -8,10 +8,32 @@ pub fn make_block(
     block_id: make_block_id(kind, text, source_ref=Some(source_ref)),
     kind,
     text,
+    column_index: None,
     rich_inlines: None,
     children: [],
     attrs: Map([]),
     source_ref: Some(source_ref),
+    compact_source_ref: None,
+    style: None,
+    signals: [],
+  }
+}
+
+///|
+pub fn make_block_without_source_ref(
+  kind : BlockKind,
+  text : String,
+) -> CoreBlock {
+  {
+    block_id: make_block_id(kind, text),
+    kind,
+    text,
+    column_index: None,
+    rich_inlines: None,
+    children: [],
+    attrs: Map([]),
+    source_ref: None,
+    compact_source_ref: None,
     style: None,
     signals: [],
   }
@@ -20,6 +42,139 @@ pub fn make_block(
 ///|
 pub fn block_with_block_id(block : CoreBlock, block_id : BlockId) -> CoreBlock {
   { ..block, block_id, }
+}
+
+///|
+pub fn block_with_column_index(
+  block : CoreBlock,
+  column_index : Int,
+) -> CoreBlock {
+  { ..block, column_index: Some(column_index) }
+}
+
+///|
+pub fn block_with_literal_rendering(
+  block : CoreBlock,
+  minimal_inline_escape? : Bool = false,
+) -> CoreBlock {
+  match block.compact_source_ref {
+    Some(source_ref) =>
+      {
+        ..block,
+        compact_source_ref: Some({
+          ..source_ref,
+          literal: true,
+          minimal_inline_escape,
+        }),
+      }
+    None => {
+      let next = { ..block }
+      next.attrs.set("literal", "true")
+      if minimal_inline_escape {
+        next.attrs.set("render_inline_escape_mode", "minimal")
+      }
+      next
+    }
+  }
+}
+
+///|
+pub fn block_is_literal(block : CoreBlock) -> Bool {
+  match block.compact_source_ref {
+    Some(source_ref) =>
+      source_ref.literal || block.attrs.get("literal") == Some("true")
+    None => block.attrs.get("literal") == Some("true")
+  }
+}
+
+///|
+pub fn block_inline_escape_mode(block : CoreBlock) -> String? {
+  match block.compact_source_ref {
+    Some(source_ref) =>
+      if source_ref.minimal_inline_escape {
+        Some("minimal")
+      } else {
+        block.attrs.get("render_inline_escape_mode")
+      }
+    None => block.attrs.get("render_inline_escape_mode")
+  }
+}
+
+///|
+pub fn block_with_rendered_markdown(
+  block : CoreBlock,
+  rendered_markdown : String,
+) -> CoreBlock {
+  match block.compact_source_ref {
+    Some(source_ref) =>
+      {
+        ..block,
+        compact_source_ref: Some({
+          ..source_ref,
+          rendered_markdown: Some(rendered_markdown),
+        }),
+      }
+    None => block_with_attr(block, "rendered_markdown", rendered_markdown)
+  }
+}
+
+///|
+pub fn block_rendered_markdown(block : CoreBlock) -> String? {
+  match block.compact_source_ref {
+    Some(source_ref) =>
+      match source_ref.rendered_markdown {
+        Some(rendered) => Some(rendered)
+        None => block.attrs.get("rendered_markdown")
+      }
+    None => block.attrs.get("rendered_markdown")
+  }
+}
+
+///|
+pub fn block_with_compact_source_ref(
+  block : CoreBlock,
+  source_ref : CompactSourceRef,
+) -> CoreBlock {
+  { ..block, source_ref: None, compact_source_ref: Some(source_ref) }
+}
+
+///|
+pub fn make_compact_source_ref(
+  file_id : String,
+  format : String,
+  line_start : Int,
+  line_end : Int,
+  byte_start : Int,
+  byte_end : Int,
+) -> CompactSourceRef {
+  {
+    file_id,
+    format,
+    line_start,
+    line_end,
+    byte_start,
+    byte_end,
+    literal: false,
+    minimal_inline_escape: false,
+    rendered_markdown: None,
+  }
+}
+
+///|
+pub fn block_source_ref(block : CoreBlock) -> SourceRef? {
+  match block.source_ref {
+    Some(value) => Some(value)
+    None =>
+      block.compact_source_ref.map(value => {
+        ..empty_source_ref(),
+        file_id: Some(value.file_id),
+        format: Some(value.format),
+        line_start: Some(value.line_start),
+        line_end: Some(value.line_end),
+        byte_start: Some(value.byte_start),
+        byte_end: Some(value.byte_end),
+      })
+  }
 }
 
 ///|
@@ -63,7 +218,7 @@ pub fn make_inline_text(
   source_ref? : SourceRef = empty_source_ref(),
 ) -> CoreInline {
   {
-    kind: InlineKind::Text,
+    kind: Text,
     text,
     href: None,
     title: None,
@@ -73,16 +228,40 @@ pub fn make_inline_text(
 }
 
 ///|
+pub fn make_inline_text_without_source_ref(text : String) -> CoreInline {
+  {
+    kind: Text,
+    text,
+    href: None,
+    title: None,
+    attrs: Map([]),
+    source_ref: None,
+  }
+}
+
+///|
 pub fn make_inline_line_break(
   source_ref? : SourceRef = empty_source_ref(),
 ) -> CoreInline {
   {
-    kind: InlineKind::LineBreak,
+    kind: LineBreak,
     text: "",
     href: None,
     title: None,
     attrs: Map([]),
     source_ref: Some(source_ref),
+  }
+}
+
+///|
+pub fn make_inline_line_break_without_source_ref() -> CoreInline {
+  {
+    kind: LineBreak,
+    text: "",
+    href: None,
+    title: None,
+    attrs: Map([]),
+    source_ref: None,
   }
 }
 
@@ -94,12 +273,27 @@ pub fn make_inline_link(
   source_ref? : SourceRef = empty_source_ref(),
 ) -> CoreInline {
   {
-    kind: InlineKind::Link,
+    kind: Link,
     text,
     href: Some(href),
     title,
     attrs: Map([]),
     source_ref: Some(source_ref),
+  }
+}
+
+///|
+pub fn make_inline_link_without_source_ref(
+  text : String,
+  href : String,
+) -> CoreInline {
+  {
+    kind: Link,
+    text,
+    href: Some(href),
+    title: None,
+    attrs: Map([]),
+    source_ref: None,
   }
 }
 
@@ -111,7 +305,7 @@ pub fn make_inline_image(
   source_ref? : SourceRef = empty_source_ref(),
 ) -> CoreInline {
   {
-    kind: InlineKind::Image,
+    kind: Image,
     text: alt,
     href: Some(path),
     title,
@@ -126,7 +320,7 @@ pub fn make_inline_code(
   source_ref? : SourceRef = empty_source_ref(),
 ) -> CoreInline {
   {
-    kind: InlineKind::Code,
+    kind: Code,
     text,
     href: None,
     title: None,
@@ -158,6 +352,7 @@ pub fn make_asset_ref(
     path: None,
     mime_type: None,
     source_ref: Some(source_ref),
+    payload: None,
     attrs: Map([]),
   }
 }
@@ -351,65 +546,65 @@ fn crc32_update_uint(crc : UInt, value : UInt) -> UInt {
 ///|
 pub fn signal_type_name(signal_type : SignalType) -> String {
   match signal_type {
-    SignalType::HeadingCandidate => "heading_candidate"
-    SignalType::ListCandidate => "list_candidate"
-    SignalType::TableCandidate => "table_candidate"
-    SignalType::CaptionCandidate => "caption_candidate"
-    SignalType::HeaderFooterCandidate => "header_footer_candidate"
-    SignalType::PageBreak => "page_break"
-    SignalType::SectionBreak => "section_break"
-    SignalType::ReadingOrderHint => "reading_order_hint"
-    SignalType::FontSignal => "font_signal"
-    SignalType::StyleSignal => "style_signal"
-    SignalType::LayoutSignal => "layout_signal"
-    SignalType::OcrSignal => "ocr_signal"
-    SignalType::TableContinuationCandidate => "table_continuation_candidate"
-    SignalType::ArtifactCandidate => "artifact_candidate"
-    SignalType::LanguageHint => "language_hint"
-    SignalType::CodeLanguageHint => "code_language_hint"
-    SignalType::NoteRef => "note_ref"
-    SignalType::CommentRef => "comment_ref"
-    SignalType::RenderHint => "render_hint"
+    HeadingCandidate => "heading_candidate"
+    ListCandidate => "list_candidate"
+    TableCandidate => "table_candidate"
+    CaptionCandidate => "caption_candidate"
+    HeaderFooterCandidate => "header_footer_candidate"
+    PageBreak => "page_break"
+    SectionBreak => "section_break"
+    ReadingOrderHint => "reading_order_hint"
+    FontSignal => "font_signal"
+    StyleSignal => "style_signal"
+    LayoutSignal => "layout_signal"
+    OcrSignal => "ocr_signal"
+    TableContinuationCandidate => "table_continuation_candidate"
+    ArtifactCandidate => "artifact_candidate"
+    LanguageHint => "language_hint"
+    CodeLanguageHint => "code_language_hint"
+    NoteRef => "note_ref"
+    CommentRef => "comment_ref"
+    RenderHint => "render_hint"
   }
 }
 
 ///|
 pub fn block_kind_name(kind : BlockKind) -> String {
   match kind {
-    BlockKind::Document => "document"
-    BlockKind::Section => "section"
-    BlockKind::Heading => "heading"
-    BlockKind::Paragraph => "paragraph"
-    BlockKind::List => "list"
-    BlockKind::ListItem => "list_item"
-    BlockKind::Table => "table"
-    BlockKind::TableRow => "table_row"
-    BlockKind::TableCell => "table_cell"
-    BlockKind::Image => "image"
-    BlockKind::Code => "code"
-    BlockKind::BlockQuote => "blockquote"
-    BlockKind::Raw => "raw"
+    Document => "document"
+    Section => "section"
+    Heading => "heading"
+    Paragraph => "paragraph"
+    List => "list"
+    ListItem => "list_item"
+    Table => "table"
+    TableRow => "table_row"
+    TableCell => "table_cell"
+    Image => "image"
+    Code => "code"
+    BlockQuote => "blockquote"
+    Raw => "raw"
   }
 }
 
 ///|
 pub fn inline_kind_name(kind : InlineKind) -> String {
   match kind {
-    InlineKind::Text => "text"
-    InlineKind::LineBreak => "line_break"
-    InlineKind::Link => "link"
-    InlineKind::Image => "image"
-    InlineKind::Code => "code"
+    Text => "text"
+    LineBreak => "line_break"
+    Link => "link"
+    Image => "image"
+    Code => "code"
   }
 }
 
 ///|
 pub fn asset_kind_name(kind : AssetKind) -> String {
   match kind {
-    AssetKind::Image => "image"
-    AssetKind::Attachment => "attachment"
-    AssetKind::Link => "link"
-    AssetKind::Embedded => "embedded"
-    AssetKind::Unknown => "unknown"
+    Image => "image"
+    Attachment => "attachment"
+    Link => "link"
+    Embedded => "embedded"
+    Unknown => "unknown"
   }
 }

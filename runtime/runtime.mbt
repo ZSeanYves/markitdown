@@ -5,13 +5,13 @@
 /// block stream, or event stream should be populated.
 pub fn parse_result_to_ir_input(result : @parser.ParseResult) -> @core.IRInput {
   match result.document {
-    Some(document) => @core.IRInput::Document(document)
+    Some(document) => Document(document)
     None =>
       match result.block_stream {
-        Some(blocks) => @core.IRInput::BlockStream(blocks)
+        Some(blocks) => BlockStream(blocks)
         None =>
           match result.event_stream {
-            Some(events) => @core.IRInput::EventStream(events)
+            Some(events) => EventStream(events)
             None =>
               abort(
                 "parse result must expose exactly one public ir shape: " +
@@ -150,7 +150,7 @@ fn child_parse_plan(
     context: child_parse_context_from_mode(format, context, requested_mode),
     preference: child_parse_preference_name(format, source, requested_mode),
     preferred_format: @input.detected_format_name(format),
-    predecoded_text_used: source.text is Some(_),
+    predecoded_text_used: @input.input_text(source) is Some(_),
   }
 }
 
@@ -212,9 +212,9 @@ fn resolved_child_requested_mode(
   source : @input.InputSource,
   context : @parser.ParseContext,
 ) -> @parser.ParserMode? {
-  if source.text is Some(_) &&
+  if @input.input_text(source) is Some(_) &&
     child_format_prefers_block_stream_text_markup(format) {
-    Some(@parser.ParserMode::BlockStreaming)
+    Some(BlockStreaming)
   } else {
     context.requested_mode
   }
@@ -226,7 +226,7 @@ fn child_parse_preference_name(
   source : @input.InputSource,
   _requested_mode : @parser.ParserMode?,
 ) -> String {
-  if source.text is Some(_) &&
+  if @input.input_text(source) is Some(_) &&
     child_format_prefers_block_stream_text_markup(format) {
     "prefer_block_stream_text_markup"
   } else {
@@ -239,8 +239,8 @@ fn child_format_prefers_block_stream_text_markup(
   format : @input.DetectedFormat,
 ) -> Bool {
   match format {
-    @input.DetectedFormat::Html => true
-    @input.DetectedFormat::Markdown => true
+    Html => true
+    Markdown => true
     _ => false
   }
 }
@@ -279,12 +279,12 @@ fn child_product_options(
   context : @parser.ParseContext,
 ) -> @product.ProductOptions {
   @product.make_product_options(
-    if context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
-      @product.ConvertMode::Stream
+    if context.requested_mode == Some(BlockStreaming) {
+      Stream
     } else {
       match context.fidelity_mode {
-        @product.FidelityMode::Accurate => @product.ConvertMode::Accurate
-        @product.FidelityMode::Balanced => @product.ConvertMode::Balanced
+        Accurate => Accurate
+        Balanced => Balanced
       }
     },
     @product.make_resource_limits(
@@ -295,9 +295,8 @@ fn child_product_options(
     ),
     fidelity_mode=context.fidelity_mode,
     output_mode=context.output_mode,
-    stream_requested=context.requested_mode ==
-      Some(@parser.ParserMode::BlockStreaming) ||
-      context.requested_mode == Some(@parser.ParserMode::StreamingEvent),
+    stream_requested=context.requested_mode == Some(BlockStreaming) ||
+      context.requested_mode == Some(StreamingEvent),
   )
 }
 

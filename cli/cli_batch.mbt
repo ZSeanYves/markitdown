@@ -66,7 +66,7 @@ fn cli_provenance_with_stage_timings(
 ) -> Json {
   let provenance = @convert.convert_provenance_to_json(execution.provenance)
   match provenance {
-    Json::Object(fields) => {
+    Object(fields) => {
       fields.set(
         "stage_timings_ms",
         convert_stage_timings_json(execution.result.diagnostics.metrics),
@@ -79,7 +79,7 @@ fn cli_provenance_with_stage_timings(
 
 ///|
 fn convert_stage_timings_json(metrics : Map[String, String]) -> Json {
-  let fields : Map[String, Json] = {}
+  let fields : Map[String, Json] = Map([])
   for
     entry in [
       ("detect_probe", "timing_detect_probe_ms"),
@@ -142,7 +142,7 @@ fn run_batch_cli_app(cli_args : Array[String]) -> Int {
         false,
       )
   }
-  if results.any(fn(result) { result.status == BatchTaskStatus::Failed }) {
+  if results.any(fn(result) { result.status == Failed }) {
     1
   } else {
     0
@@ -184,13 +184,7 @@ fn parse_batch_cli_options(
   }
   if opts.audio_options.language is Some(_) &&
     !(match opts.explicit_format {
-      Some(
-        @input.DetectedFormat::Audio(
-          @input.AudioFormat::Wav
-          | @input.AudioFormat::Mp3
-          | @input.AudioFormat::M4a
-        )
-      ) => true
+      Some(Audio(Wav | Mp3 | M4a)) => true
       _ => false
     }) {
     return Err("batch --audio-lang requires explicit --format wav|mp3|m4a")
@@ -286,9 +280,9 @@ fn basename_of_path(path : String) -> String {
 ///|
 fn batch_output_suffix(output_format : @convert.OutputFormat) -> String {
   match output_format {
-    @convert.OutputFormat::Markdown => ".md"
-    @convert.OutputFormat::DebugJson => ".debug.json"
-    @convert.OutputFormat::RagJson => ".rag.json"
+    Markdown => ".md"
+    DebugJson => ".debug.json"
+    RagJson => ".rag.json"
   }
 }
 
@@ -316,7 +310,7 @@ fn run_single_batch_task(
     return {
       input_path: task_input,
       relative_path,
-      status: BatchTaskStatus::Failed,
+      status: Failed,
       detected_format: @input.detected_format_name(requested_format),
       convert_mode: @convert.convert_mode_name(base_opts.convert_mode),
       fidelity_mode: @convert.fidelity_mode_name(base_opts.fidelity_mode),
@@ -363,7 +357,7 @@ fn run_single_batch_task(
           {
             input_path: task_input,
             relative_path,
-            status: BatchTaskStatus::Success,
+            status: Success,
             detected_format: @input.detected_format_name(requested_format),
             convert_mode: @convert.convert_mode_name(
               execution.result.convert_mode,
@@ -384,7 +378,7 @@ fn run_single_batch_task(
           {
             input_path: task_input,
             relative_path,
-            status: BatchTaskStatus::Failed,
+            status: Failed,
             detected_format: @input.detected_format_name(requested_format),
             convert_mode: @convert.convert_mode_name(opts.convert_mode),
             fidelity_mode: @convert.fidelity_mode_name(opts.fidelity_mode),
@@ -402,7 +396,7 @@ fn run_single_batch_task(
       {
         input_path: task_input,
         relative_path,
-        status: BatchTaskStatus::Failed,
+        status: Failed,
         detected_format: @input.detected_format_name(requested_format),
         convert_mode: @convert.convert_mode_name(opts.convert_mode),
         fidelity_mode: @convert.fidelity_mode_name(opts.fidelity_mode),
@@ -444,7 +438,7 @@ fn path_extension_label(path : String) -> String? {
 ///|
 fn normalize_format_label(label : String) -> String {
   let parsed = @input.parse_detected_format(label)
-  if parsed == @input.DetectedFormat::Unknown {
+  if parsed == Unknown {
     label
   } else {
     @input.detected_format_name(parsed)
@@ -484,7 +478,7 @@ fn resolve_cli_assets(
       continue
     }
     let rel_path = asset.path.unwrap_or(asset.asset_id)
-    let source = asset.attrs.get("source_path").unwrap_or(rel_path)
+    let source = cli_asset_source_label(asset, rel_path)
     let warning = "asset unavailable: " + source
     warnings.push(warning)
     rendered.val = cli_replace_unavailable_image(rendered.val, asset, source)
@@ -501,7 +495,7 @@ fn resolve_cli_assets_for_stdout(
   let rendered = Ref(content)
   for asset in assets {
     let rel_path = asset.path.unwrap_or(asset.asset_id)
-    let source = asset.attrs.get("source_path").unwrap_or(rel_path)
+    let source = cli_asset_source_label(asset, rel_path)
     warnings.push("asset not materialized on stdout: " + source)
     rendered.val = cli_replace_unavailable_image(
       rendered.val,
@@ -572,13 +566,20 @@ fn cli_asset_is_materializable(
     }
     None => ()
   }
-  match asset.attrs.get("inline_payload_kind") {
-    Some(_) => return asset.attrs.get("inline_payload") is Some(_)
-    None => ()
-  }
-  match asset.attrs.get("source_path") {
-    Some(source_path) => @fs.path_exists(join_dir_path(input_dir, source_path))
+  match asset.payload {
+    Some(Bytes(_)) | Some(Utf8(_)) => true
+    Some(SourcePath(source_path)) =>
+      cli_asset_relative_path_is_safe(source_path) &&
+      @fs.path_exists(join_dir_path(input_dir, source_path))
     None => false
+  }
+}
+
+///|
+fn cli_asset_source_label(asset : @core.AssetRef, fallback : String) -> String {
+  match asset.payload {
+    Some(SourcePath(path)) => path
+    _ => asset.attrs.get("source_path").unwrap_or(fallback)
   }
 }
 
@@ -684,21 +685,8 @@ fn persist_cli_assets(
     if persist_zip_backed_asset(zip_archive, output_dir, rel_path, asset) {
       continue
     }
-    if persist_inline_asset(output_dir, rel_path, asset) {
+    if persist_asset_payload(input_dir, output_dir, rel_path, asset) {
       continue
-    }
-    match asset.attrs.get("source_path") {
-      Some(source_rel) => {
-        let src = join_dir_path(input_dir, source_rel)
-        if !@fs.path_exists(src) {
-          continue
-        }
-        let dst = join_dir_path(output_dir, rel_path)
-        ensure_dir_tree(dirname_of_path(dst))
-        let data = @fs.read_file_to_bytes(src) catch { _ => continue }
-        @fs.write_bytes_to_file(dst, data)
-      }
-      None => ()
     }
   }
 }
@@ -803,28 +791,12 @@ fn validate_cli_assets(
       }
       None => ()
     }
-    match asset.attrs.get("inline_payload_kind") {
-      Some("base64") => {
-        let payload = match asset.attrs.get("inline_payload") {
-          Some(value) => value
-          None => continue
+    match asset.payload {
+      Some(Bytes(_)) | Some(Utf8(_)) => continue
+      Some(SourcePath(source_path)) => {
+        if !cli_asset_relative_path_is_safe(source_path) {
+          return Err("unsafe source asset path: " + source_path)
         }
-        try @base64.decode(payload, url_safe=false) |> ignore catch {
-          _ => return Err("base64 asset payload is invalid: " + rel_path)
-        }
-        continue
-      }
-      Some("utf8") => {
-        if asset.attrs.get("inline_payload") is None {
-          continue
-        }
-        continue
-      }
-      Some(kind) => return Err("unsupported inline asset payload kind: " + kind)
-      None => ()
-    }
-    match asset.attrs.get("source_path") {
-      Some(source_path) => {
         let src = join_dir_path(input_dir, source_path)
         if !@fs.path_exists(src) {
           continue
@@ -837,33 +809,25 @@ fn validate_cli_assets(
 }
 
 ///|
-fn persist_inline_asset(
+fn persist_asset_payload(
+  input_dir : String,
   output_dir : String,
   rel_path : String,
   asset : @core.AssetRef,
 ) -> Bool raise @fs.IOError {
-  let inline_kind = match asset.attrs.get("inline_payload_kind") {
-    Some(value) => value
-    None => return false
-  }
-  let data = match inline_kind {
-    "base64" =>
-      match asset.attrs.get("inline_payload") {
-        Some(payload) =>
-          try @base64.decode(payload, url_safe=false) |> Some catch {
-            _ => None
-          }
-        None => None
+  let bytes = match asset.payload {
+    Some(Bytes(bytes)) => bytes
+    Some(Utf8(text)) => @utf8.encode(text)
+    Some(SourcePath(source_path)) => {
+      if !cli_asset_relative_path_is_safe(source_path) {
+        return false
       }
-    "utf8" =>
-      match asset.attrs.get("inline_payload") {
-        Some(payload) => Some(@utf8.encode(payload))
-        None => None
+      let source = join_dir_path(input_dir, source_path)
+      if !@fs.path_exists(source) {
+        return false
       }
-    _ => None
-  }
-  let bytes = match data {
-    Some(value) => value
+      @fs.read_file_to_bytes(source)
+    }
     None => return false
   }
   let dst = join_dir_path(output_dir, rel_path)

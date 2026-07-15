@@ -4,9 +4,9 @@ test "rst canonical semantic blocks carry normalized attrs and stable markdown" 
     @input.input_from_text_with_format(
       ".. include:: shared.rst\n   :start-line: 1\n\n.. rubric:: Overview\n",
       "canonical.rst",
-      Some(@input.DetectedFormat::Rst),
+      Some(Rst),
     ),
-    @input.DetectedFormat::Rst,
+    Rst,
   )
   let document = parsed.document.unwrap_or(@core.empty_document_ir())
   let blocks = document.blocks
@@ -28,9 +28,9 @@ test "asciidoc canonical semantic blocks stabilize admonition quote and include"
     @input.input_from_text_with_format(
       "[WARNING]\n====\nRead carefully.\n====\n\n[quote, Ada Lovelace]\n____\nThat brain of mine.\n____\n\ninclude::shared.adoc[leveloffset=+1]\n",
       "canonical.adoc",
-      Some(@input.DetectedFormat::Asciidoc),
+      Some(Asciidoc),
     ),
-    @input.DetectedFormat::Asciidoc,
+    Asciidoc,
   )
   let document = parsed.document.unwrap_or(@core.empty_document_ir())
   assert_true(
@@ -50,9 +50,9 @@ test "tex canonical semantic blocks expose environment inventory and debug attrs
     @input.input_from_text_with_format(
       "\\input{shared.tex}\n\n\\begin{theorem}\nImportant statement.\n\\end{theorem}\n\n\\begin{remark}\nHelpful note.\n\\end{remark}\n",
       "canonical.tex",
-      Some(@input.DetectedFormat::Tex),
+      Some(Tex),
     ),
-    @input.DetectedFormat::Tex,
+    Tex,
   )
   let document = parsed.document.unwrap_or(@core.empty_document_ir())
   assert_true(

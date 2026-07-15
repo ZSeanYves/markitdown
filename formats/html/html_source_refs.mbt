@@ -32,7 +32,7 @@ fn html_list_item_is_ordered(
       match item.list_source_key {
         Some(list_key) =>
           match index.list_by_source_key.get(list_key) {
-            Some(list) => return list.kind == @dhtml.HtmlListKind::Ordered
+            Some(list) => return list.kind == Ordered
             None => ()
           }
         None => ()
@@ -107,7 +107,7 @@ fn html_table_header_rows(
   for section_key in table.sections {
     match html_table_section_by_key(index, section_key) {
       Some(section) =>
-        if section.kind == @dhtml.HtmlTableSectionKind::Head {
+        if section.kind == Head {
           header_rows += section.row_count
         }
       None => ()
@@ -123,10 +123,7 @@ fn html_table_header_rows(
     Some(row) => {
       for cell_key in row.cell_source_keys {
         match html_table_cell_by_key(index, cell_key) {
-          Some(cell) =>
-            if cell.kind != @dhtml.HtmlTableCellKind::Header {
-              return 0
-            }
+          Some(cell) => if cell.kind != Header { return 0 }
           None => ()
         }
       }
@@ -250,7 +247,7 @@ fn html_core_inline_segments_for_block(
       match html_split_text_only_inline_segment(segments[1]) {
         Some((left, right)) =>
           match child.kind {
-            @dhtml.HtmlBlockKind::List(_) =>
+            List(_) =>
               if segments[0].length() > 0 {
                 segments[0] = html_concat_core_inlines(segments[0], left)
                 segments[1] = right
@@ -272,7 +269,7 @@ fn html_split_text_only_inline_segment(
     return None
   }
   for inline in inlines {
-    if inline.kind != @core.InlineKind::Text {
+    if inline.kind != Text {
       return None
     }
   }
@@ -360,30 +357,25 @@ fn html_quote_lines_from_blocks(
 
   for block in blocks {
     match block.kind {
-      @core.BlockKind::Paragraph =>
-        lines.append(render_quote_lines_from_text(block.text)[:])
-      @core.BlockKind::List =>
+      Paragraph => lines.append(render_quote_lines_from_text(block.text)[:])
+      List =>
         append_quote_lines_with_blanks(
           lines,
           render_quote_lines_from_text(render_list_plain(block, 0)),
         )
-      @core.BlockKind::ListItem =>
+      ListItem =>
         append_quote_lines_with_blanks(
           lines,
           render_quote_lines_from_text(render_list_item_plain(block, 0)),
         )
-      @core.BlockKind::BlockQuote =>
-        lines.append(render_quote_lines_from_text(block.text)[:])
-      @core.BlockKind::Code =>
-        lines.append(render_quote_lines_from_text(block.text)[:])
+      BlockQuote => lines.append(render_quote_lines_from_text(block.text)[:])
+      Code => lines.append(render_quote_lines_from_text(block.text)[:])
       _ =>
         if block.text.trim() != "" {
           lines.append(render_quote_lines_from_text(block.text)[:])
         }
     }
-    if lines.length() > 0 &&
-      block.kind != @core.BlockKind::List &&
-      block.kind != @core.BlockKind::ListItem {
+    if lines.length() > 0 && block.kind != List && block.kind != ListItem {
       lines.push("")
     }
   }
@@ -443,7 +435,7 @@ fn render_list_item_plain(
   let lines : Array[String] = [indent + marker + text.trim().to_owned()]
   for child in block.children {
     match child.kind {
-      @core.BlockKind::List => lines.push(render_list_plain(child, depth + 1))
+      List => lines.push(render_list_plain(child, depth + 1))
       _ =>
         if child.text.trim() != "" {
           lines.push(
@@ -473,7 +465,7 @@ fn html_trim_core_inlines_edges(
   for inline in inlines {
     if !seen_content {
       match inline.kind {
-        @core.InlineKind::Text => {
+        Text => {
           let next_text = html_trim_leading_spaces(inline.text)
           if next_text != "" {
             left_trimmed.push({ ..inline, text: next_text })
@@ -497,7 +489,7 @@ fn html_trim_core_inlines_edges(
     let inline = left_trimmed[index]
     if !trimmed_right {
       match inline.kind {
-        @core.InlineKind::Text => {
+        Text => {
           let next_text = html_trim_trailing_spaces(inline.text)
           if next_text != "" {
             out_rev.push({ ..inline, text: next_text })
@@ -552,7 +544,7 @@ fn html_block_source_ref(
   source : @input.InputSource,
   block : @dhtml.HtmlBlockFact,
 ) -> @core.SourceRef {
-  @core.source_ref_with_html_path(
+  let source_ref = @core.source_ref_with_html_path(
     @core.source_ref_with_lines(
       @core.empty_source_ref(),
       Some(source.source_name),
@@ -564,6 +556,11 @@ fn html_block_source_ref(
     Some("html"),
     Some("/block/" + block.source_key),
   )
+  {
+    ..source_ref,
+    byte_start: Some(block.span.byte_start),
+    byte_end: Some(block.span.byte_end),
+  }
 }
 
 ///|

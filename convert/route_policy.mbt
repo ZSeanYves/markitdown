@@ -22,8 +22,8 @@ fn detect_input(
   let effective_source = detect_effective_source(source, options)
   let detector = @input.default_format_detector()
   let detected = (detector.detect)(effective_source)
-  if detected.format == @input.DetectedFormat::Unknown {
-    Err(ConvertError::DetectFailed("unknown format"))
+  if detected.format == Unknown {
+    Err(DetectFailed("unknown format"))
   } else {
     Ok((effective_source, detected))
   }
@@ -34,9 +34,9 @@ fn product_convert_mode_for_strategy(
   mode : ConvertMode,
 ) -> @product.ConvertMode {
   match mode {
-    ConvertMode::Balanced => @product.ConvertMode::Balanced
-    ConvertMode::Accurate => @product.ConvertMode::Accurate
-    ConvertMode::Stream => @product.ConvertMode::Stream
+    Balanced => Balanced
+    Accurate => Accurate
+    Stream => Stream
   }
 }
 
@@ -62,12 +62,12 @@ fn pdf_header_footer_filter_policy_for_plan(
   fidelity_mode : FidelityMode,
   selected_route : CanonicalRoute,
 ) -> @parser.PdfHeaderFooterFilterPolicy {
-  if detected_format == @input.DetectedFormat::Pdf &&
-    selected_route == CanonicalRoute::LayoutTwoStage &&
-    fidelity_mode == FidelityMode::Accurate {
-    @parser.PdfHeaderFooterFilterPolicy::InternalHighConfidenceOnly
+  if detected_format == Pdf &&
+    selected_route == LayoutTwoStage &&
+    fidelity_mode == Accurate {
+    InternalHighConfidenceOnly
   } else {
-    @parser.PdfHeaderFooterFilterPolicy::Disabled
+    Disabled
   }
 }
 
@@ -77,26 +77,23 @@ fn pdf_table_reconstruction_policy_for_plan(
   fidelity_mode : FidelityMode,
   selected_route : CanonicalRoute,
 ) -> @parser.PdfTableReconstructionPolicy {
-  if detected_format == @input.DetectedFormat::Pdf &&
+  if detected_format == Pdf &&
     (
-      (
-        selected_route == CanonicalRoute::LayoutTwoStage &&
-        fidelity_mode == FidelityMode::Accurate
-      ) ||
-      selected_route == CanonicalRoute::PageSinglePass
+      (selected_route == LayoutTwoStage && fidelity_mode == Accurate) ||
+      selected_route == PageSinglePass
     ) {
-    @parser.PdfTableReconstructionPolicy::InternalSimpleRowsOnly
+    InternalSimpleRowsOnly
   } else {
-    @parser.PdfTableReconstructionPolicy::Disabled
+    Disabled
   }
 }
 
 ///|
 fn route_expects_stream_render(route : CanonicalRoute) -> Bool {
   match route {
-    CanonicalRoute::StreamingEvent => true
-    CanonicalRoute::BlockStreaming => true
-    CanonicalRoute::ContainerRecursive => true
+    StreamingEvent => true
+    BlockStreaming => true
+    ContainerRecursive => true
     _ => false
   }
 }
@@ -145,7 +142,7 @@ fn exceeded_threshold_signals(
 
 ///|
 fn scanned_page_signal(signals : Array[ProbeSignal]) -> ProbeSignal? {
-  match matching_probe_signal(signals, ProbeSignalKind::ScannedPageCount) {
+  match matching_probe_signal(signals, ScannedPageCount) {
     Some(signal) if signal.observed > 0 => Some(signal)
     _ => None
   }
@@ -174,7 +171,7 @@ fn strategy_switches_for_plan(
   execution_profile : ExecutionProfile,
 ) -> Array[String] {
   let switches : Array[String] = []
-  if execution_profile == ExecutionProfile::MediumAdaptive {
+  if execution_profile == MediumAdaptive {
     switches.push(
       @input.detected_format_name(detected_format) + "_medium_adaptive_profile",
     )
@@ -207,12 +204,10 @@ fn route_reason_for_plan(
   if intent.stream_requested && mode_policy.explicit_stream_supported {
     return "explicit_stream_mode"
   }
-  if detected_format == @input.DetectedFormat::Pdf &&
-    selected.route == CanonicalRoute::LayoutTwoStage {
+  if detected_format == Pdf && selected.route == LayoutTwoStage {
     return "pdf_accurate_layout_two_stage"
   }
-  if detected_format == @input.DetectedFormat::Pdf &&
-    selected.route == CanonicalRoute::PageSinglePass {
+  if detected_format == Pdf && selected.route == PageSinglePass {
     return "pdf_canonical_page_single_pass"
   }
   if hard_triggered {
@@ -236,13 +231,13 @@ fn effective_execution_profile(
   if mode_policy.hard_limit_route is Some(route) &&
     route.route == selected.route &&
     hard_trigger_signals.length() > 0 {
-    ExecutionProfile::LargeAdaptive
+    LargeAdaptive
   } else if hard_trigger_signals.length() > 0 {
-    ExecutionProfile::LargeAdaptive
+    LargeAdaptive
   } else if soft_trigger_signals.length() > 0 {
-    ExecutionProfile::MediumAdaptive
+    MediumAdaptive
   } else {
-    ExecutionProfile::Standard
+    Standard
   }
 }
 
@@ -253,11 +248,11 @@ fn effective_render_profile(
   execution_profile : ExecutionProfile,
 ) -> RenderProfile {
   match execution_profile {
-    ExecutionProfile::MediumAdaptive =>
+    MediumAdaptive =>
       mode_policy.soft_limit_render_profile.unwrap_or(
         mode_policy.render_profile,
       )
-    ExecutionProfile::LargeAdaptive =>
+    LargeAdaptive =>
       if route_expects_stream_render(selected.route) {
         mode_policy.soft_limit_render_profile.unwrap_or(
           mode_policy.render_profile,
@@ -265,7 +260,7 @@ fn effective_render_profile(
       } else {
         mode_policy.render_profile
       }
-    ExecutionProfile::Standard => mode_policy.render_profile
+    Standard => mode_policy.render_profile
   }
 }
 
@@ -275,16 +270,16 @@ fn effective_lowering_profile(
   intent : ExecutionIntent,
   execution_profile : ExecutionProfile,
 ) -> LoweringProfile {
-  if execution_profile == ExecutionProfile::LargeAdaptive {
-    return LoweringProfile::LargeAdaptive
+  if execution_profile == LargeAdaptive {
+    return LargeAdaptive
   }
-  if intent.fidelity_mode == FidelityMode::Accurate {
-    return LoweringProfile::AccurateSemantic
+  if intent.fidelity_mode == Accurate {
+    return AccurateSemantic
   }
   if intent.stream_requested || route_expects_stream_render(selected.route) {
-    return LoweringProfile::StreamCanonical
+    return StreamCanonical
   }
-  LoweringProfile::Canonical
+  Canonical
 }
 
 ///|
@@ -302,11 +297,10 @@ fn select_strategy_route(
   mode_policy : @fmeta.ModeStrategyPolicy,
   hard_trigger_signals : Array[ProbeSignal],
 ) -> (@fmeta.StrategyRouteSpec, Bool) {
-  if detected_format == @input.DetectedFormat::Pdf &&
-    intent.fidelity_mode == FidelityMode::Accurate {
+  if detected_format == Pdf && intent.fidelity_mode == Accurate {
     return (policy.accurate.canonical, false)
   }
-  if detected_format == @input.DetectedFormat::Pdf {
+  if detected_format == Pdf {
     return (policy.balanced.canonical, false)
   }
   if intent.stream_requested {
@@ -346,7 +340,7 @@ fn resolve_execution_plan(
   )
   let pdf_scanned_signal = scanned_page_signal(probe.probe_signals)
   let route_probe_signals = match (detected_format, pdf_scanned_signal) {
-    (@input.DetectedFormat::Pdf, Some(signal)) => [signal]
+    (Pdf, Some(signal)) => [signal]
     _ => hard_trigger_signals
   }
   let (selected, used_hard_limit) = select_strategy_route(
@@ -388,7 +382,7 @@ fn resolve_execution_plan(
   }
   let (audio_backend_transport, audio_backend_name, audio_backend_version) = match
     detected_format {
-    @input.DetectedFormat::Audio(_) =>
+    Audio(_) =>
       (
         Some(@faudio.audio_backend_transport_name()),
         Some(@faudio.audio_backend_name()),
@@ -464,17 +458,16 @@ fn ocr_provider_target_for_plan(
 ) -> @focr.OcrProviderSelectionTarget? {
   if @input.detected_format_is_image_candidate(detected_format) {
     return Some(
-      if fidelity_mode == FidelityMode::Accurate {
-        @focr.OcrProviderSelectionTarget::DirectImageAccurate
+      if fidelity_mode == Accurate {
+        DirectImageAccurate
       } else {
-        @focr.OcrProviderSelectionTarget::DirectImageBalanced
+        DirectImageBalanced
       },
     )
   }
-  if detected_format == @input.DetectedFormat::Pdf &&
-    requested_parser_mode == Some(@parser.ParserMode::LayoutTwoStage) {
+  if detected_format == Pdf && requested_parser_mode == Some(LayoutTwoStage) {
     ignore(fidelity_mode)
-    return Some(@focr.OcrProviderSelectionTarget::PdfAccurate)
+    return Some(PdfAccurate)
   }
   None
 }
@@ -487,29 +480,43 @@ fn detect_and_resolve_execution_plan(
   (@input.InputSource, @input.FormatDetectionResult, ResolvedExecutionPlan),
   ConvertError,
 ] {
+  let input_size = match @input.input_source_size(source) {
+    Ok(value) => value
+    Err(_) => None
+  }
+  match input_size {
+    Some(size) if size > options.limits.max_input_bytes =>
+      return Err(
+        ResourceLimitExceeded(
+          kind="input_bytes",
+          observed=size,
+          limit=options.limits.max_input_bytes,
+        ),
+      )
+    _ => ()
+  }
   match detect_input(source, options) {
     Ok((effective_source, detected)) => {
       let policy = @fmeta.route_contract_for_format(detected.format)
-      let accurate_requested = options.mode == ConvertMode::Accurate ||
-        options.fidelity_mode == FidelityMode::Accurate
+      let accurate_requested = options.mode == Accurate ||
+        options.fidelity_mode == Accurate
       let accurate_supported = @input.detected_format_is_image_candidate(
           detected.format,
         ) ||
         policy.accurate.accurate_features.length() > 0
       if accurate_requested && !accurate_supported {
         return Err(
-          ConvertError::ParseFailed(
+          ParseFailed(
             "accurate mode is unsupported for `" +
             @input.detected_format_name(detected.format) +
             "`; use balance mode",
           ),
         )
       }
-      let stream_requested = options.mode == ConvertMode::Stream ||
-        options.stream_requested
+      let stream_requested = options.mode == Stream || options.stream_requested
       if stream_requested && !policy.balanced.explicit_stream_supported {
         return Err(
-          ConvertError::ParseFailed(
+          ParseFailed(
             "stream mode is unsupported for `" +
             @input.detected_format_name(detected.format) +
             "`; use balance mode",

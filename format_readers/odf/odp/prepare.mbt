@@ -9,22 +9,17 @@ pub struct PreparedOdpDocument {
 pub fn prepare_odp_document_from_source(
   source : @input.InputSource,
 ) -> Result[PreparedOdpDocument, String] {
-  let bytes = match @input.read_input_bytes(source) {
-    Ok(payload) => payload
+  let prepared = match @zsource.prepare_zip_from_source(source) {
+    Ok(value) => value
     Err(err) => return Err(err)
   }
-  let prepared_source = if source.bytes is Some(_) {
-    source
-  } else {
-    @input.with_bytes_payload(source, bytes)
-  }
-  let document = try open_odp_document(bytes) |> Ok catch {
+  let document = try @shared.open_odp_archive(prepared.archive) |> Ok catch {
     err => Err(err.to_string())
   }
   match document {
     Ok(value) =>
       Ok({
-        prepared_source,
+        prepared_source: prepared.prepared_source,
         document: value,
         inspect: inspect_odp_document(value),
       })

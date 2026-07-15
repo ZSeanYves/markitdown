@@ -1,31 +1,22 @@
 ///|
 test "JSON parser classifies complete fail-closed taxonomy" {
   let cases : Array[(JsonError, JsonErrorKind)] = [
-    (ParseError("trailing content"), JsonErrorKind::TrailingContent),
-    (ParseError("unexpected end of input"), JsonErrorKind::UnexpectedEnd),
-    (ParseError("unexpected character x"), JsonErrorKind::UnexpectedCharacter),
-    (
-      ParseError("object key must be a string"),
-      JsonErrorKind::ObjectKeyMustBeString,
-    ),
-    (ParseError("unterminated string"), JsonErrorKind::UnterminatedString),
-    (ParseError("unterminated escape"), JsonErrorKind::InvalidEscape),
-    (ParseError("invalid unicode escape"), JsonErrorKind::InvalidUnicodeEscape),
-    (
-      ParseError("invalid unicode surrogate pair"),
-      JsonErrorKind::InvalidUnicodeSurrogate,
-    ),
-    (ParseError("lone low surrogate"), JsonErrorKind::InvalidUnicodeSurrogate),
-    (ParseError("invalid fraction"), JsonErrorKind::InvalidFraction),
-    (ParseError("invalid exponent"), JsonErrorKind::InvalidExponent),
-    (ParseError("invalid leading zero"), JsonErrorKind::InvalidNumber),
-    (ParseError("raw newline in string"), JsonErrorKind::RawNewlineInString),
-    (
-      ParseError("raw control character in string"),
-      JsonErrorKind::RawControlCharacterInString,
-    ),
-    (ParseError("expected character :"), JsonErrorKind::ExpectedToken),
-    (ParseError("other"), JsonErrorKind::Unknown),
+    (ParseError("trailing content"), TrailingContent),
+    (ParseError("unexpected end of input"), UnexpectedEnd),
+    (ParseError("unexpected character x"), UnexpectedCharacter),
+    (ParseError("object key must be a string"), ObjectKeyMustBeString),
+    (ParseError("unterminated string"), UnterminatedString),
+    (ParseError("unterminated escape"), InvalidEscape),
+    (ParseError("invalid unicode escape"), InvalidUnicodeEscape),
+    (ParseError("invalid unicode surrogate pair"), InvalidUnicodeSurrogate),
+    (ParseError("lone low surrogate"), InvalidUnicodeSurrogate),
+    (ParseError("invalid fraction"), InvalidFraction),
+    (ParseError("invalid exponent"), InvalidExponent),
+    (ParseError("invalid leading zero"), InvalidNumber),
+    (ParseError("raw newline in string"), RawNewlineInString),
+    (ParseError("raw control character in string"), RawControlCharacterInString),
+    (ParseError("expected character :"), ExpectedToken),
+    (ParseError("other"), Unknown),
   ]
   for pair in cases {
     let (error, expected) = pair
@@ -101,21 +92,21 @@ test "native JSON bridge preserves nested escapes unicode and number text" {
   assert_eq(native_inspect.object_count, canonical_inspect.object_count)
   assert_eq(native_inspect.array_count, canonical_inspect.array_count)
   match native.root {
-    JsonValue::Object(members) => {
+    Object(members) => {
       let text_member = members.filter(item => item.key == "text")[0]
       match text_member.value {
-        JsonValue::String(value) => assert_eq(value, "caf\u{00E9}\nline")
+        String(value) => assert_eq(value, "caf\u{00E9}\nline")
         _ => fail("expected native string")
       }
       let values = members.filter(item => item.key == "values")[0].value
       match values {
-        JsonValue::Array(items) => {
+        Array(items) => {
           match items[0] {
-            JsonValue::Number(value) => assert_eq(value, "-12.50e+2")
+            Number(value) => assert_eq(value, "-12.50e+2")
             _ => fail("expected native number")
           }
-          assert_true(items[1] is JsonValue::Bool(true))
-          assert_true(items[3] is JsonValue::Null)
+          assert_true(items[1] is Bool(true))
+          assert_true(items[3] is Null)
         }
         _ => fail("expected native array")
       }
@@ -128,11 +119,7 @@ test "native JSON bridge preserves nested escapes unicode and number text" {
 test "JSON preparation does not retain a DOM above the streaming limit" {
   let text = "[" + "{\"value\":1},".repeat(25_000) + "null]"
   let prepared = prepare_json_document_from_source(
-    @input.input_from_text_with_format(
-      text,
-      "large.json",
-      Some(@input.DetectedFormat::Json),
-    ),
+    @input.input_from_text_with_format(text, "large.json", Some(Json)),
   ).unwrap()
   assert_true(prepared.stream is Some(_))
   assert_true(prepared.document is None)

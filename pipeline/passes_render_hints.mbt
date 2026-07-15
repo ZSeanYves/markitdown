@@ -17,7 +17,7 @@ fn resolve_render_hints_input(
   input : @core.IRInput,
 ) -> @core.IRInput {
   match input {
-    @core.IRInput::Document(document) => {
+    Document(document) => {
       let assembly = match document.assembly {
         Some(value) => value
         None => context.assembly.val.unwrap_or(@core.empty_document_assembly())
@@ -32,16 +32,16 @@ fn resolve_render_hints_input(
         "render_hint_block_count",
         blocks.length().to_string(),
       )
-      @core.IRInput::Document(sync_document_to_context(context, next))
+      Document(sync_document_to_context(context, next))
     }
-    @core.IRInput::BlockStream(blocks) =>
-      @core.IRInput::BlockStream(
+    BlockStream(blocks) =>
+      BlockStream(
         apply_render_hints_to_blocks(
           blocks,
           context.assembly.val.unwrap_or(@core.empty_document_assembly()).heading_paths,
         ),
       )
-    @core.IRInput::EventStream(events) => @core.IRInput::EventStream(events)
+    EventStream(events) => EventStream(events)
   }
 }
 
@@ -78,7 +78,7 @@ fn apply_render_boundary_hint(
   block : @core.CoreBlock,
   heading_paths : Map[String, Array[String]],
 ) -> @core.CoreBlock {
-  if block.kind == @core.BlockKind::Heading {
+  if block.kind == Heading {
     let next = @core.block_with_attr(block, "render_boundary", "section")
     return @core.block_with_attr(next, "render_boundary_key", block.block_id)
   }
@@ -116,7 +116,7 @@ fn apply_render_window_hint(block : @core.CoreBlock) -> @core.CoreBlock {
   if block.attrs.get("slide_local") == Some("true") {
     return @core.block_with_attr(block, "render_window_group", "slide_local")
   }
-  match block.source_ref {
+  match @core.block_source_ref(block) {
     Some(source_ref) =>
       if source_ref.page is Some(page) {
         @core.block_with_attr(
@@ -147,12 +147,10 @@ fn apply_render_window_hint(block : @core.CoreBlock) -> @core.CoreBlock {
 
 ///|
 fn apply_render_table_hint(block : @core.CoreBlock) -> @core.CoreBlock {
-  if block.kind != @core.BlockKind::Table {
+  if block.kind != Table {
     return block
   }
-  if block.attrs.get("sparse_row_payload") is Some(_) ||
-    block.children.any(fn(row) {
-      row.attrs.get("sparse_row_payload") is Some(_) ||
+  if block.children.any(fn(row) {
       row.attrs.get("sparse_cell_columns") == Some("true")
     }) {
     return @core.block_with_attr(block, "render_table_mode", "sparse")

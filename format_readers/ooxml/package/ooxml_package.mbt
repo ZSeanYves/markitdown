@@ -9,9 +9,16 @@
 /// Non-goal:
 /// - no DOCX/PPTX/XLSX final block recovery in this layer
 pub fn open_ooxml_package(bytes : Bytes) -> OoxmlPackage raise OoxmlError {
+  open_ooxml_archive(ensure_archive(bytes))
+}
+
+///|
+/// Open OOXML semantics over an already validated ZIP archive.
+pub fn open_ooxml_archive(
+  archive : @zip.ZipArchive,
+) -> OoxmlPackage raise OoxmlError {
   let part_cache = new_ooxml_part_cache()
   let relationship_cache = new_ooxml_relationship_cache()
-  let archive = ensure_archive(bytes)
 
   let (part_index, part_size_index) = build_ooxml_part_index(archive)
 
@@ -109,7 +116,10 @@ pub fn read_part_bytes_transient(
 ) -> Bytes raise OoxmlError {
   let normalized = normalize_part_name(part_name)
   let raw_name = resolve_part_raw_name(pkg, normalized)
-  read_archive_entry_or_raise(pkg.archive, raw_name)
+  @zip.read_entry_transient(pkg.archive, raw_name) catch {
+    EntryNotFound(missing) => raise MissingPart(missing)
+    e => raise ZipError(e.to_string())
+  }
 }
 
 ///|
@@ -168,7 +178,7 @@ fn read_archive_entry_or_raise(
   path : String,
 ) -> Bytes raise OoxmlError {
   @zip.read_entry(archive, path) catch {
-    @zip.EntryNotFound(missing) => raise MissingPart(missing)
+    EntryNotFound(missing) => raise MissingPart(missing)
     e => raise ZipError(e.to_string())
   }
 }

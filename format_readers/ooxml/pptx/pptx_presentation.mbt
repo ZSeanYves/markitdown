@@ -84,8 +84,8 @@ fn parse_presentation_slide_entries(
         } else {
           ctx.warnings.push(
             pptx_warning(
-              PptxWarningKind::MissingSlideRelationship,
-              PptxWarningSeverity::Warning,
+              MissingSlideRelationship,
+              Warning,
               part_name,
               node_key,
               Some(rid),
@@ -97,8 +97,8 @@ fn parse_presentation_slide_entries(
       None =>
         ctx.warnings.push(
           pptx_warning(
-            PptxWarningKind::MissingSlideRelationship,
-            PptxWarningSeverity::Warning,
+            MissingSlideRelationship,
+            Warning,
             part_name,
             node_key,
             Some(rid),

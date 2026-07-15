@@ -16,16 +16,19 @@ pub fn pdf_parse_with_native_document(
     @core.diagnostics_with_parser(
       diagnostics,
       Some(@pdfroot.pdf_native_parser_name()),
-      Some(@parser.mode_name(@parser.ParserMode::PageSinglePass)),
+      Some(@parser.mode_name(PageSinglePass)),
     ),
-    Some(pdf_native_input_kind_name(source.kind)),
+    Some(pdf_native_input_kind_name(@input.input_kind(source))),
     Some("pdf"),
   )
   next.pass_trace.push("parse:pdf_native_parser")
   next.pass_trace.push("pdf_native:parser_success_path")
   next.metrics.set("parser_name", @pdfroot.pdf_native_parser_name())
   next.metrics.set("parser_mode", "page_single_pass")
-  next.metrics.set("input_kind", pdf_native_input_kind_name(source.kind))
+  next.metrics.set(
+    "input_kind",
+    pdf_native_input_kind_name(@input.input_kind(source)),
+  )
   next.metrics.set("detected_format", "pdf")
   next.metrics.set("requested_mode", pdf_native_requested_mode_name(context))
   next.metrics.set("effective_mode", "page_single_pass")
@@ -69,8 +72,7 @@ pub fn pdf_parse_with_native_document(
   )
   next.metrics.set(
     "pdf_header_footer_filter_enabled",
-    if context.pdf_header_footer_filter_policy ==
-      @parser.PdfHeaderFooterFilterPolicy::Disabled {
+    if context.pdf_header_footer_filter_policy == Disabled {
       "false"
     } else {
       "true"
@@ -87,8 +89,7 @@ pub fn pdf_parse_with_native_document(
   )
   next.metrics.set(
     "pdf_table_reconstruction_enabled",
-    if context.pdf_table_reconstruction_policy ==
-      @parser.PdfTableReconstructionPolicy::Disabled {
+    if context.pdf_table_reconstruction_policy == Disabled {
       "false"
     } else {
       "true"
@@ -110,7 +111,7 @@ pub fn pdf_parse_with_native_document(
   let final_document = @core.document_with_diagnostics(document, next)
   @parser.parse_result_with_document_capability(
     @pdfroot.pdf_native_parser_name(),
-    @parser.ParserMode::PageSinglePass,
+    PageSinglePass,
     final_document,
     next,
     @pdfroot.pdf_native_parser_capability(),
@@ -120,9 +121,10 @@ pub fn pdf_parse_with_native_document(
 ///|
 fn pdf_native_input_kind_name(kind : @input.InputKind) -> String {
   match kind {
-    @input.InputKind::Path => "path"
-    @input.InputKind::Text => "text"
-    @input.InputKind::Bytes => "bytes"
+    Path => "path"
+    Text => "text"
+    Bytes => "bytes"
+    Reader => "reader"
   }
 }
 

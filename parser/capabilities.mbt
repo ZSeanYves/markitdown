@@ -3,9 +3,9 @@
 /// `DocumentIR`.
 pub fn default_parser_capability() -> ParserCapability {
   make_parser_capability(
-    ParserMode::DomAstModel,
+    DomAstModel,
     false,
-    StreamingGranularity::None,
+    None,
     true,
     false,
     false,
@@ -36,16 +36,16 @@ pub fn parser_capability(
   let parser_mode = if supports_events {
     ParserMode::StreamingEvent
   } else if supports_blocks {
-    ParserMode::BlockStreaming
+    BlockStreaming
   } else {
-    ParserMode::DomAstModel
+    DomAstModel
   }
   let granularity = if supports_events {
     StreamingGranularity::Record
   } else if supports_blocks {
-    StreamingGranularity::Block
+    Block
   } else {
-    StreamingGranularity::None
+    None
   }
   make_parser_capability(
     parser_mode,
@@ -133,7 +133,7 @@ pub fn dom_ast_parser_capability(
   can_preserve_styles : Bool,
 ) -> ParserCapability {
   make_parser_capability(
-    ParserMode::DomAstModel,
+    DomAstModel,
     supports_streaming,
     streaming_granularity,
     false,
@@ -169,7 +169,7 @@ pub fn block_stream_parser_capability(
   can_preserve_styles : Bool,
 ) -> ParserCapability {
   make_parser_capability(
-    ParserMode::BlockStreaming,
+    BlockStreaming,
     true,
     streaming_granularity,
     false,
@@ -206,7 +206,7 @@ pub fn streaming_event_parser_capability(
   can_preserve_styles : Bool,
 ) -> ParserCapability {
   make_parser_capability(
-    ParserMode::StreamingEvent,
+    StreamingEvent,
     true,
     streaming_granularity,
     false,
@@ -245,7 +245,7 @@ pub fn package_with_block_route_parser_capability(
   can_preserve_styles : Bool,
 ) -> ParserCapability {
   make_parser_capability(
-    ParserMode::PackageSinglePass,
+    PackageSinglePass,
     true,
     streaming_granularity,
     requires_random_access,
@@ -283,7 +283,7 @@ pub fn container_recursive_parser_capability(
   can_preserve_styles : Bool,
 ) -> ParserCapability {
   make_parser_capability(
-    ParserMode::ContainerRecursive,
+    ContainerRecursive,
     true,
     streaming_granularity,
     requires_random_access,

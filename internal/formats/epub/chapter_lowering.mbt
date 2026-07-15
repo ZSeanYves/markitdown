@@ -13,35 +13,35 @@ fn epub_total_uncompressed_bytes(
 fn epub_package_metadata(pkg : @depub.EpubPackage) -> @core.DocumentMetadata {
   let metadata : @core.DocumentMetadata = Map([])
   match pkg.metadata.title {
-    Some(value) => metadata.set("title", @core.JsonValue::String(value))
+    Some(value) => metadata.set("title", String(value))
     None => ()
   }
   match pkg.metadata.creator {
-    Some(value) => metadata.set("creator", @core.JsonValue::String(value))
+    Some(value) => metadata.set("creator", String(value))
     None => ()
   }
   match pkg.metadata.subject {
-    Some(value) => metadata.set("subject", @core.JsonValue::String(value))
+    Some(value) => metadata.set("subject", String(value))
     None => ()
   }
   match pkg.metadata.publisher {
-    Some(value) => metadata.set("publisher", @core.JsonValue::String(value))
+    Some(value) => metadata.set("publisher", String(value))
     None => ()
   }
   match pkg.metadata.language {
-    Some(value) => metadata.set("language", @core.JsonValue::String(value))
+    Some(value) => metadata.set("language", String(value))
     None => ()
   }
   match pkg.metadata.identifier {
-    Some(value) => metadata.set("identifier", @core.JsonValue::String(value))
+    Some(value) => metadata.set("identifier", String(value))
     None => ()
   }
   match pkg.metadata.date {
-    Some(value) => metadata.set("created", @core.JsonValue::String(value))
+    Some(value) => metadata.set("created", String(value))
     None => ()
   }
   match pkg.metadata.modified {
-    Some(value) => metadata.set("modified", @core.JsonValue::String(value))
+    Some(value) => metadata.set("modified", String(value))
     None => ()
   }
   metadata
@@ -53,9 +53,8 @@ fn epub_issue_tallies(issues : Array[@depub.EpubValidationIssue]) -> (Int, Int) 
   let mut missing_spine = 0
   for issue in issues {
     match issue.kind {
-      @depub.EpubValidationIssueKind::MissingManifestItem =>
-        missing_manifest += 1
-      @depub.EpubValidationIssueKind::MissingSpineTarget => missing_spine += 1
+      MissingManifestItem => missing_manifest += 1
+      MissingSpineTarget => missing_spine += 1
       _ => ()
     }
   }
@@ -101,17 +100,13 @@ fn epub_nav_blocks(
   )
   let blocks : Array[@core.CoreBlock] = []
   let heading = @core.make_block(
-    @core.BlockKind::Heading,
+    Heading,
     "Table of Contents",
     source_ref=nav_source_ref,
   )
   heading.attrs.set("level", "1")
   blocks.push(heading)
-  let list = @core.make_block(
-    @core.BlockKind::List,
-    "",
-    source_ref=nav_source_ref,
-  )
+  let list = @core.make_block(List, "", source_ref=nav_source_ref)
   for point in pkg.nav_points {
     let item_ref = @core.source_ref_with_container_entry(
       nav_source_ref,
@@ -123,11 +118,7 @@ fn epub_nav_blocks(
       Some("html"),
       None,
     )
-    let mut item = @core.make_block(
-      @core.BlockKind::ListItem,
-      point.label,
-      source_ref=item_ref,
-    )
+    let mut item = @core.make_block(ListItem, point.label, source_ref=item_ref)
     item = @core.block_with_rich_inlines(
       item,
       Some([
@@ -181,7 +172,7 @@ fn epub_cover_assets(
         "/image01." +
         epub_image_ext(cover_path)
       let asset = @core.make_asset_ref(
-        @core.AssetKind::Image,
+        Image,
         "epub:" + cover_path + ":cover",
         source_ref~,
       )
@@ -193,7 +184,7 @@ fn epub_cover_assets(
       next_asset.attrs.set("zip_container_format", "epub")
       next_asset.attrs.set("zip_container_path", container_path)
       merged_assets.push(next_asset)
-      let image = @core.make_block(@core.BlockKind::Image, "", source_ref~)
+      let image = @core.make_block(Image, "", source_ref~)
       image.attrs.set("path", output_relative_path)
       image.attrs.set("asset_id", "epub:" + cover_path + ":cover")
       image.attrs.set("alt", alt)
@@ -247,26 +238,24 @@ fn epub_spine_entry(
       if epub_spine_item_supported(spine_item) {
         @core.ContainerEntryKind::Document
       } else {
-        @core.ContainerEntryKind::Unsupported
+        Unsupported
       }
     None =>
       match spine_item.manifest_item {
         Some(item) =>
           if epub_is_external_href(item.href) {
-            @core.ContainerEntryKind::Unsupported
+            Unsupported
           } else {
-            @core.ContainerEntryKind::Unsupported
+            Unsupported
           }
-        None => @core.ContainerEntryKind::Unsafe
+        None => Unsafe
       }
   }
   let security_findings : Array[@core.ContainerSecurityFinding] = []
   match spine_item.manifest_item {
     Some(item) =>
       if epub_is_external_href(item.href) {
-        security_findings.push(
-          @core.ContainerSecurityFinding::ExternalReference,
-        )
+        security_findings.push(ExternalReference)
       }
     None => ()
   }
@@ -476,7 +465,11 @@ fn epub_rewrite_child_assets(
   for asset in assets {
     let old_path = asset.path.unwrap_or("").trim().to_owned()
     let old_asset_id = asset.asset_id
-    match asset.attrs.get("source_path") {
+    let source_path = match asset.payload {
+      Some(SourcePath(path)) => Some(path)
+      _ => asset.attrs.get("source_path")
+    }
+    match source_path {
       Some(source_path) => {
         let resolved_entry = match
           epub_resolve_asset_entry_path(entry_path, source_path) {
@@ -630,7 +623,7 @@ fn epub_rewrite_single_block(
   )
   if block.children.length() == 0 &&
     block.rich_inlines is None &&
-    block.kind != @core.BlockKind::Image {
+    block.kind != Image {
     return { ..block, source_ref: Some(source_ref) }
   }
   let rewritten_children = if block.children.length() == 0 {
@@ -661,7 +654,7 @@ fn epub_rewrite_single_block(
     rich_inlines: rewritten_inlines,
     source_ref: Some(source_ref),
   }
-  if block.kind == @core.BlockKind::Image {
+  if block.kind == Image {
     let old_path = block.attrs.get("path").unwrap_or("")
     let old_asset_id = block.attrs.get("asset_id").unwrap_or("")
     match epub_find_asset_rewrite(plan, old_asset_id, old_path) {
@@ -690,7 +683,7 @@ fn epub_rewrite_single_block(
               )
           }
           let alt = block.attrs.get("alt").unwrap_or("image")
-          return @core.make_block(@core.BlockKind::Paragraph, alt, source_ref~)
+          return @core.make_block(Paragraph, alt, source_ref~)
         }
       }
     }
@@ -708,7 +701,7 @@ fn epub_rewrite_inline(
     plan,
     inner_path=None,
   )
-  if inline.kind != @core.InlineKind::Image {
+  if inline.kind != Image {
     return { ..inline, source_ref: Some(source_ref) }
   }
   let old_path = inline.href.unwrap_or("")
@@ -950,7 +943,7 @@ fn epub_entry_heading_block(
   source_ref : @core.SourceRef,
   text : String,
 ) -> @core.CoreBlock {
-  let heading = @core.make_block(@core.BlockKind::Heading, text, source_ref~)
+  let heading = @core.make_block(Heading, text, source_ref~)
   heading.attrs.set("level", "1")
   heading.attrs.set("literal", "true")
   heading
@@ -961,14 +954,14 @@ fn epub_skip_block(
   source_ref : @core.SourceRef,
   text : String,
 ) -> @core.CoreBlock {
-  let block = @core.make_block(@core.BlockKind::BlockQuote, text, source_ref~)
+  let block = @core.make_block(BlockQuote, text, source_ref~)
   block.attrs.set("literal", "true")
   block
 }
 
 ///|
 fn epub_container_path(source : @input.InputSource) -> String {
-  match source.path {
+  match @input.input_path(source) {
     Some(path) => {
       let parts = path.replace(old="\\", new="/").split("/").to_array()
       parts.last().unwrap_or(source.source_name).to_owned()
@@ -1028,8 +1021,8 @@ fn epub_child_prefers_text_source(
   detected_format : @input.DetectedFormat,
 ) -> Bool {
   match detected_format {
-    @input.DetectedFormat::Html => true
-    @input.DetectedFormat::Markdown => true
+    Html => true
+    Markdown => true
     _ => false
   }
 }

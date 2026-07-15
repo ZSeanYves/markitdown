@@ -35,16 +35,18 @@ fn resolve_heading_blocks(
 fn resolve_heading_block(block : @core.CoreBlock) -> @core.CoreBlock {
   let next_children = resolve_heading_blocks(block.children)
   let next = @core.block_with_children(block, next_children)
-  if next.kind == @core.BlockKind::Heading {
+  if next.kind == Heading {
     let level = clamp_heading_level(next.attrs.get("level").unwrap_or("1"))
     next.attrs.set("level", level.to_string())
     return next
   }
   if block_heading_candidate(next) {
     let promoted = @core.make_block(
-      @core.BlockKind::Heading,
+      Heading,
       next.text.trim().to_owned(),
-      source_ref=next.source_ref.unwrap_or(@core.empty_source_ref()),
+      source_ref=@core.block_source_ref(next).unwrap_or(
+        @core.empty_source_ref(),
+      ),
     )
     let promoted = @core.block_with_block_id(promoted, next.block_id)
     let promoted = if next.rich_inlines is Some(_) {
@@ -96,7 +98,7 @@ fn resolve_list_blocks(
 
 ///|
 fn resolve_list_block(block : @core.CoreBlock) -> @core.CoreBlock {
-  if block.kind == @core.BlockKind::List {
+  if block.kind == List {
     return @core.block_with_children(
       block,
       resolve_list_children_in_container(block.children),
@@ -110,9 +112,9 @@ fn resolve_list_children_in_container(
   children : Array[@core.CoreBlock],
 ) -> Array[@core.CoreBlock] {
   children.map(child => {
-    if child.kind == @core.BlockKind::ListItem {
+    if child.kind == ListItem {
       @core.block_with_children(child, resolve_list_blocks(child.children))
-    } else if child.kind == @core.BlockKind::List {
+    } else if child.kind == List {
       @core.block_with_children(
         child,
         resolve_list_children_in_container(child.children),
@@ -131,8 +133,8 @@ fn list_item_group_to_blocks(
     return []
   }
   if items.length() == 1 &&
-    items[0].kind == @core.BlockKind::ListItem &&
-    items[0].children.any(child => child.kind == @core.BlockKind::List) {
+    items[0].kind == ListItem &&
+    items[0].children.any(child => child.kind == List) {
     return [items[0]]
   }
   let root : Array[@core.CoreBlock] = []
@@ -186,9 +188,9 @@ fn make_list_container_for_item(
   ordered : Bool,
 ) -> @core.CoreBlock {
   let list = @core.make_block(
-    @core.BlockKind::List,
+    List,
     "",
-    source_ref=item.source_ref.unwrap_or(@core.empty_source_ref()),
+    source_ref=@core.block_source_ref(item).unwrap_or(@core.empty_source_ref()),
   )
   list.attrs.set("ordered", bool_string(ordered))
   list
@@ -196,8 +198,7 @@ fn make_list_container_for_item(
 
 ///|
 fn block_heading_candidate(block : @core.CoreBlock) -> Bool {
-  block.kind == @core.BlockKind::Paragraph &&
-  heading_candidate_level(block) is Some(_)
+  block.kind == Paragraph && heading_candidate_level(block) is Some(_)
 }
 
 ///|
@@ -216,12 +217,12 @@ fn heading_candidate_level(block : @core.CoreBlock) -> String? {
 ///|
 fn heading_signal_level(signals : Array[@core.CoreSignal]) -> String? {
   for signal in signals {
-    if signal.signal_type != @core.SignalType::HeadingCandidate {
+    if signal.signal_type != HeadingCandidate {
       continue
     }
     match signal.payload.get("level") {
-      Some(@core.JsonValue::String(level)) => return Some(level)
-      Some(@core.JsonValue::Number(level)) => return Some(level)
+      Some(String(level)) => return Some(level)
+      Some(Number(level)) => return Some(level)
       _ => ()
     }
   }
@@ -230,18 +231,16 @@ fn heading_signal_level(signals : Array[@core.CoreSignal]) -> String? {
 
 ///|
 fn list_item_candidate(block : @core.CoreBlock) -> Bool {
-  if block.kind == @core.BlockKind::ListItem {
+  if block.kind == ListItem {
     return true
   }
-  if block.kind != @core.BlockKind::Paragraph {
+  if block.kind != Paragraph {
     return false
   }
   if block.attrs.get("list_item_candidate") == Some("true") {
     return true
   }
-  block.signals.any(fn(signal) {
-    signal.signal_type == @core.SignalType::ListCandidate
-  })
+  block.signals.any(fn(signal) { signal.signal_type == ListCandidate })
 }
 
 ///|
@@ -285,7 +284,7 @@ fn copy_block_attrs(
 fn heading_block_count(blocks : Array[@core.CoreBlock]) -> Int {
   let mut total = 0
   for block in blocks {
-    if block.kind == @core.BlockKind::Heading {
+    if block.kind == Heading {
       total += 1
     }
     total += heading_block_count(block.children)
@@ -297,7 +296,7 @@ fn heading_block_count(blocks : Array[@core.CoreBlock]) -> Int {
 fn list_block_count(blocks : Array[@core.CoreBlock]) -> Int {
   let mut total = 0
   for block in blocks {
-    if block.kind == @core.BlockKind::List {
+    if block.kind == List {
       total += 1
     }
     total += list_block_count(block.children)
@@ -323,7 +322,7 @@ fn resolve_heading_input(
   input : @core.IRInput,
 ) -> @core.IRInput {
   match input {
-    @core.IRInput::Document(document) => {
+    Document(document) => {
       let next = @core.document_with_blocks(
         document,
         resolve_heading_blocks(document.blocks),
@@ -332,17 +331,17 @@ fn resolve_heading_input(
         "resolved_heading_count",
         heading_block_count(next.blocks).to_string(),
       )
-      @core.IRInput::Document(next)
+      Document(next)
     }
-    @core.IRInput::BlockStream(blocks) => {
+    BlockStream(blocks) => {
       let next_blocks = resolve_heading_blocks(blocks)
       context.diagnostics.val.metrics.set(
         "resolved_heading_count",
         heading_block_count(next_blocks).to_string(),
       )
-      @core.IRInput::BlockStream(next_blocks)
+      BlockStream(next_blocks)
     }
-    @core.IRInput::EventStream(events) => @core.IRInput::EventStream(events)
+    EventStream(events) => EventStream(events)
   }
 }
 
@@ -352,7 +351,7 @@ fn resolve_list_input(
   input : @core.IRInput,
 ) -> @core.IRInput {
   match input {
-    @core.IRInput::Document(document) => {
+    Document(document) => {
       let next = @core.document_with_blocks(
         document,
         resolve_list_blocks(document.blocks),
@@ -361,16 +360,16 @@ fn resolve_list_input(
         "resolved_list_count",
         list_block_count(next.blocks).to_string(),
       )
-      @core.IRInput::Document(next)
+      Document(next)
     }
-    @core.IRInput::BlockStream(blocks) => {
+    BlockStream(blocks) => {
       let next_blocks = resolve_list_blocks(blocks)
       context.diagnostics.val.metrics.set(
         "resolved_list_count",
         list_block_count(next_blocks).to_string(),
       )
-      @core.IRInput::BlockStream(next_blocks)
+      BlockStream(next_blocks)
     }
-    @core.IRInput::EventStream(events) => @core.IRInput::EventStream(events)
+    EventStream(events) => EventStream(events)
   }
 }

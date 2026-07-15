@@ -123,11 +123,11 @@ fn html_noise_should_skip(noise : @dhtml.HtmlNoiseCandidateFact) -> Bool {
   }
   for reason in noise.reasons {
     match reason {
-      @dhtml.HtmlNoiseCandidateReason::NavLike
-      | @dhtml.HtmlNoiseCandidateReason::FooterLike
-      | @dhtml.HtmlNoiseCandidateReason::Hiddenish
-      | @dhtml.HtmlNoiseCandidateReason::ScriptStyleTemplate
-      | @dhtml.HtmlNoiseCandidateReason::RepeatedBoilerplate => return true
+      NavLike
+      | FooterLike
+      | Hiddenish
+      | ScriptStyleTemplate
+      | RepeatedBoilerplate => return true
       _ => ()
     }
   }
@@ -160,36 +160,28 @@ fn html_blocks_for_block(
   index : HtmlLoweringIndex,
 ) -> Array[@core.CoreBlock] {
   match block.kind {
-    @dhtml.HtmlBlockKind::Heading(level) =>
+    Heading(level) =>
       html_heading_blocks(state, semantic, source, block, level, index)
-    @dhtml.HtmlBlockKind::Paragraph =>
+    Paragraph =>
       html_paragraph_blocks_for_block(state, semantic, source, block, index)
-    @dhtml.HtmlBlockKind::List(_) =>
+    List(_) =>
       html_list_container_blocks(
         state, semantic, source, block, dom_blocks, index,
       )
-    @dhtml.HtmlBlockKind::ListItem =>
+    ListItem =>
       html_list_item_blocks(state, semantic, source, block, dom_blocks, index)
-    @dhtml.HtmlBlockKind::Table =>
-      html_table_blocks(state, semantic, source, block, index)
-    @dhtml.HtmlBlockKind::BlockQuote =>
+    Table => html_table_blocks(state, semantic, source, block, index)
+    BlockQuote =>
       html_blockquote_blocks(state, semantic, source, block, dom_blocks, index)
-    @dhtml.HtmlBlockKind::Pre =>
-      html_code_blocks(semantic, source, block, index)
-    @dhtml.HtmlBlockKind::CodeBlock =>
-      html_code_blocks(semantic, source, block, index)
-    @dhtml.HtmlBlockKind::Figure =>
-      html_figure_blocks(state, semantic, source, block, index)
-    @dhtml.HtmlBlockKind::HorizontalRule =>
-      [html_horizontal_rule_block(source, block)]
-    @dhtml.HtmlBlockKind::UnknownBlock =>
+    Pre => html_code_blocks(semantic, source, block, index)
+    CodeBlock => html_code_blocks(semantic, source, block, index)
+    Figure => html_figure_blocks(state, semantic, source, block, index)
+    HorizontalRule => [html_horizontal_rule_block(source, block)]
+    UnknownBlock =>
       html_unknown_container_blocks(
         state, semantic, source, block, dom_blocks, index,
       )
-    @dhtml.HtmlBlockKind::FigCaption
-    | @dhtml.HtmlBlockKind::TableRow
-    | @dhtml.HtmlBlockKind::TableCell(_)
-    | @dhtml.HtmlBlockKind::UnsupportedBlock => []
+    FigCaption | TableRow | TableCell(_) | UnsupportedBlock => []
   }
 }
 
@@ -214,7 +206,7 @@ fn html_heading_blocks(
     return []
   }
   let heading = @core.make_block(
-    @core.BlockKind::Heading,
+    Heading,
     text,
     source_ref=html_block_source_ref(source, block),
   )
@@ -255,28 +247,24 @@ fn html_list_container_blocks(
   index : HtmlLoweringIndex,
 ) -> Array[@core.CoreBlock] {
   let list = @core.make_block(
-    @core.BlockKind::List,
+    List,
     "",
     source_ref=html_block_source_ref(source, block),
   )
   match html_list_for_block(index, block.source_key) {
     Some(fact) =>
-      list.attrs.set(
-        "ordered",
-        @fshared.bool_string(fact.kind == @dhtml.HtmlListKind::Ordered),
-      )
+      list.attrs.set("ordered", @fshared.bool_string(fact.kind == Ordered))
     None => ()
   }
   let trailing_blocks : Array[@core.CoreBlock] = []
   for child_key in block.children {
     match html_block_by_key(index, child_key) {
       Some(child) =>
-        if child.kind == @dhtml.HtmlBlockKind::ListItem {
+        if child.kind == ListItem {
           let item_blocks = html_list_item_blocks(
             state, semantic, source, child, dom_blocks, index,
           )
-          if item_blocks.length() > 0 &&
-            item_blocks[0].kind == @core.BlockKind::ListItem {
+          if item_blocks.length() > 0 && item_blocks[0].kind == ListItem {
             list.children.push(item_blocks[0])
             if item_blocks.length() > 1 {
               for extra in item_blocks[1:] {
@@ -347,7 +335,7 @@ fn html_list_item_blocks(
     }
   }
   let text = html_render_plain_inlines(primary_inlines).trim().to_owned()
-  let item = @core.make_block(@core.BlockKind::ListItem, text, source_ref~)
+  let item = @core.make_block(ListItem, text, source_ref~)
   item.attrs.set("ordered", @fshared.bool_string(ordered))
   if ordered {
     item.attrs.set("ordered_indent_step", "3")
@@ -365,14 +353,14 @@ fn html_list_item_blocks(
     let child = child_blocks[child_pos]
     if primary_child_index != Some(child_pos) {
       match child.kind {
-        @dhtml.HtmlBlockKind::List(_) =>
+        List(_) =>
           html_append_flattened_blocks(
             nested_lists,
             html_blocks_for_block(
               state, semantic, source, child, dom_blocks, index,
             ),
           )
-        @dhtml.HtmlBlockKind::BlockQuote =>
+        BlockQuote =>
           html_append_flattened_blocks(
             extras,
             html_blockquote_body_blocks(
@@ -437,10 +425,9 @@ fn html_list_item_blocks_from_dom(
   let mut root_piece_index : Int? = None
   for index in 0..<pieces.length() {
     let piece = pieces[index]
-    if piece.kind == @core.BlockKind::List {
+    if piece.kind == List {
       nested_lists.push(piece)
-    } else if root_piece_index is None &&
-      piece.kind == @core.BlockKind::Paragraph {
+    } else if root_piece_index is None && piece.kind == Paragraph {
       root_piece_index = Some(index)
     } else {
       extras.push(piece)
@@ -450,7 +437,7 @@ fn html_list_item_blocks_from_dom(
     Some(index) => pieces[index].text
     None => ""
   }
-  let item = @core.make_block(@core.BlockKind::ListItem, root_text, source_ref~)
+  let item = @core.make_block(ListItem, root_text, source_ref~)
   item.attrs.set("ordered", @fshared.bool_string(ordered))
   if ordered {
     item.attrs.set("ordered_indent_step", "3")
@@ -484,7 +471,7 @@ fn html_list_item_primary_child_index(
   child_blocks : Array[@dhtml.HtmlBlockFact],
 ) -> Int? {
   for child_pos in 0..<child_blocks.length() {
-    if child_blocks[child_pos].kind == @dhtml.HtmlBlockKind::Paragraph {
+    if child_blocks[child_pos].kind == Paragraph {
       return Some(child_pos)
     }
   }
@@ -507,7 +494,7 @@ fn html_table_blocks(
       } else {
         [
           @core.make_block(
-            @core.BlockKind::Paragraph,
+            Paragraph,
             block.text_preview.trim().to_owned(),
             source_ref=html_block_source_ref(source, block),
           ),
@@ -538,7 +525,7 @@ fn html_blockquote_blocks(
     } else {
       [
         @core.make_block(
-          @core.BlockKind::BlockQuote,
+          BlockQuote,
           lines.join("\n"),
           source_ref=html_block_source_ref(source, block),
         ),
@@ -546,7 +533,7 @@ fn html_blockquote_blocks(
     }
   } else {
     let quote = @core.make_block(
-      @core.BlockKind::BlockQuote,
+      BlockQuote,
       html_quote_lines_from_blocks(body_blocks).join("\n"),
       source_ref=html_block_source_ref(source, block),
     )
@@ -680,7 +667,7 @@ fn html_container_child_blocks_from_dom(
 
   for child in element.children {
     match child {
-      @dhtml.HtmlNode::Element(child_element) =>
+      Element(child_element) =>
         if html_dom_nav_like(child_element) {
           flush_current_inline_facts(
             out, current_inline_facts, state, semantic, source, block, index,
@@ -696,7 +683,7 @@ fn html_container_child_blocks_from_dom(
             Some((matched_index, child_block)) => {
               child_index = matched_index + 1
               let lowered = if flatten_blockquotes &&
-                child_block.kind == @dhtml.HtmlBlockKind::BlockQuote {
+                child_block.kind == BlockQuote {
                 html_blockquote_body_blocks(
                   state, semantic, source, child_block, dom_blocks, index,
                 )
@@ -761,15 +748,14 @@ fn html_dom_consume_inline_facts_from_node(
   parent_pre : Bool,
 ) -> Int {
   match node {
-    @dhtml.HtmlNode::Text(_) =>
-      if start < facts.length() &&
-        facts[start].kind == @dhtml.HtmlInlineKind::Text {
+    Text(_) =>
+      if start < facts.length() && facts[start].kind == Text {
         out.push(facts[start])
         start + 1
       } else {
         start
       }
-    @dhtml.HtmlNode::Element(element) =>
+    Element(element) =>
       if html_dom_counts_as_block(element.tag_name, parent_pre) {
         start
       } else if html_dom_element_has_top_level_inline_fact(
@@ -853,7 +839,7 @@ fn html_code_blocks(
         []
       } else {
         let out = @core.make_block(
-          @core.BlockKind::Code,
+          Code,
           code.code_text,
           source_ref=html_block_source_ref(source, block),
         )
@@ -895,7 +881,7 @@ fn html_figure_blocks(
                 )
                 [
                   @core.make_block(
-                    @core.BlockKind::Image,
+                    Image,
                     image_block.text,
                     source_ref=html_block_source_ref(source, block),
                   )
@@ -904,14 +890,14 @@ fn html_figure_blocks(
               }
               None => {
                 let out : Array[@core.CoreBlock] = []
-                if image.kind != @dhtml.HtmlImageKind::Remote {
+                if image.kind != Remote {
                   let label = html_image_placeholder_text(
                     image.kind,
                     image.alt.unwrap_or("image").trim().to_owned(),
                   )
                   out.push(
                     @core.make_block(
-                      @core.BlockKind::Paragraph,
+                      Paragraph,
                       label,
                       source_ref=html_block_source_ref(source, block),
                     ),
@@ -921,7 +907,7 @@ fn html_figure_blocks(
                   Some(caption) if caption.trim() != "" =>
                     out.push(
                       @core.make_block(
-                        @core.BlockKind::Paragraph,
+                        Paragraph,
                         caption.trim().to_owned(),
                         source_ref=html_block_source_ref(source, block),
                       ),

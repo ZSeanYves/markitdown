@@ -25,13 +25,13 @@ fn decode_utf16_text_bytes(bytes : Bytes) -> String? {
     return None
   }
   if raw[0].to_int() == 0xFF && raw[1].to_int() == 0xFE {
-    let decoded = @encoding.decode(bytes, encoding=@encoding.UTF16LE) catch {
+    let decoded = @encoding.decode(bytes, encoding=UTF16LE) catch {
       _ => return None
     }
     return Some(strip_leading_bom(decoded))
   }
   if raw[0].to_int() == 0xFE && raw[1].to_int() == 0xFF {
-    let decoded = @encoding.decode(bytes, encoding=@encoding.UTF16BE) catch {
+    let decoded = @encoding.decode(bytes, encoding=UTF16BE) catch {
       _ => return None
     }
     return Some(strip_leading_bom(decoded))
@@ -246,7 +246,7 @@ fn parse_normalized_text_document_with_profile(
   build_text_document_from_chars(
     text,
     chars,
-    TextNewlineStyle::LF,
+    LF,
     lines,
     paragraphs,
     true,
@@ -294,19 +294,18 @@ fn build_text_document_from_chars(
 /// Classify a hard text decoding failure into a stable error kind.
 pub fn classify_text_error(err : TextError) -> TextErrorInfo {
   match err {
-    Utf8DecodeFailed(detail) =>
-      { kind: TextErrorKind::Utf8DecodeFailed, detail }
+    Utf8DecodeFailed(detail) => { kind: Utf8DecodeFailed, detail }
   }
 }
 
 ///|
 fn text_newline_style_name(style : TextNewlineStyle) -> String {
   match style {
-    TextNewlineStyle::None => "none"
-    TextNewlineStyle::LF => "lf"
-    TextNewlineStyle::CRLF => "crlf"
-    TextNewlineStyle::CR => "cr"
-    TextNewlineStyle::Mixed => "mixed"
+    None => "none"
+    LF => "lf"
+    CRLF => "crlf"
+    CR => "cr"
+    Mixed => "mixed"
   }
 }
 
@@ -318,15 +317,15 @@ fn summarize_text_newline_style(
 ) -> TextNewlineStyle {
   let count = bool_to_int(saw_lf) + bool_to_int(saw_crlf) + bool_to_int(saw_cr)
   if count == 0 {
-    TextNewlineStyle::None
+    None
   } else if count > 1 {
-    TextNewlineStyle::Mixed
+    Mixed
   } else if saw_crlf {
-    TextNewlineStyle::CRLF
+    CRLF
   } else if saw_cr {
-    TextNewlineStyle::CR
+    CR
   } else {
-    TextNewlineStyle::LF
+    LF
   }
 }
 

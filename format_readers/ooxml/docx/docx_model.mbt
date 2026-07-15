@@ -290,13 +290,13 @@ fn docx_textbox_blocks_text_signature(blocks : Array[DocxBlock]) -> String {
   let parts : Array[String] = []
   for block in blocks {
     match block {
-      DocxBlock::Paragraph(p) => {
+      Paragraph(p) => {
         let text = p.text.trim().to_owned()
         if text != "" {
           parts.push(text)
         }
       }
-      DocxBlock::ContentControl(control) => {
+      ContentControl(control) => {
         let text = control.text.trim().to_owned()
         if text != "" {
           parts.push(text)
@@ -307,15 +307,13 @@ fn docx_textbox_blocks_text_signature(blocks : Array[DocxBlock]) -> String {
           }
         }
       }
-      DocxBlock::Table(table) => {
+      Table(table) => {
         let nested = docx_textbox_table_text_signature(table)
         if nested != "" {
           parts.push(nested)
         }
       }
-      DocxBlock::TablePlaceholder(_)
-      | DocxBlock::StructuralMarker(_)
-      | DocxBlock::Unsupported(_) => ()
+      TablePlaceholder(_) | StructuralMarker(_) | Unsupported(_) => ()
     }
   }
   parts.join("\n")
@@ -355,8 +353,8 @@ fn docx_model_block(
   textboxes : Array[DocxTextBox],
 ) -> DocxBlock {
   match block.kind {
-    DocxSourceBlockKind::Paragraph =>
-      DocxBlock::Paragraph({
+    Paragraph =>
+      Paragraph({
         style_id: block.paragraph_style_id,
         alignment: block.paragraph_alignment,
         numbering_ref: block.numbering_ref,
@@ -370,60 +368,58 @@ fn docx_model_block(
         text: block.text,
         source_key: block.source_key,
       })
-    DocxSourceBlockKind::Table =>
+    Table =>
       match block.table {
-        Some(table) => DocxBlock::Table(docx_model_table(table, warnings))
+        Some(table) => Table(docx_model_table(table, warnings))
         None => {
           let warning = {
-            kind: DocxWarningKind::UnsupportedTable,
-            severity: DocxWarningSeverity::Warning,
+            kind: UnsupportedTable,
+            severity: Warning,
             message: "table preserved as placeholder",
             source_key: Some(block.source_key),
           }
           if !docx_warning_at_source_exists(warnings, warning) {
             warnings.push(warning)
           }
-          DocxBlock::TablePlaceholder({ source_key: block.source_key })
+          TablePlaceholder({ source_key: block.source_key })
         }
       }
-    DocxSourceBlockKind::ContentControl =>
+    ContentControl =>
       match block.content_control {
         Some(control) =>
-          DocxBlock::ContentControl(
+          ContentControl(
             docx_model_content_control(control, warnings, textboxes),
           )
         None => {
           let warning = {
-            kind: DocxWarningKind::UnknownBodyNode,
-            severity: DocxWarningSeverity::Warning,
+            kind: UnknownBodyNode,
+            severity: Warning,
             message: "content control node missing preserved children",
             source_key: Some(block.source_key),
           }
           if !docx_warning_kind_at_source_exists(warnings, warning) {
             warnings.push(warning)
           }
-          DocxBlock::Unsupported(warning)
+          Unsupported(warning)
         }
       }
-    DocxSourceBlockKind::Structural =>
-      DocxBlock::StructuralMarker({
-        kind: block.structural_kind.unwrap_or(
-          DocxStructuralKind::UnknownNonVisible,
-        ),
+    Structural =>
+      StructuralMarker({
+        kind: block.structural_kind.unwrap_or(UnknownNonVisible),
         tag: block.raw_tag.unwrap_or(""),
         source_key: block.source_key,
       })
-    DocxSourceBlockKind::Unknown => {
+    Unknown => {
       let warning = {
-        kind: DocxWarningKind::UnknownBodyNode,
-        severity: DocxWarningSeverity::Warning,
+        kind: UnknownBodyNode,
+        severity: Warning,
         message: "unsupported body node preserved",
         source_key: Some(block.source_key),
       }
       if !docx_warning_kind_at_source_exists(warnings, warning) {
         warnings.push(warning)
       }
-      DocxBlock::Unsupported(warning)
+      Unsupported(warning)
     }
   }
 }
@@ -524,20 +520,20 @@ fn docx_model_inlines(
   let out : Array[DocxInline] = []
   for inline in source {
     match inline {
-      DocxSourceInline::Text(text) => out.push(DocxInline::Text(text))
-      DocxSourceInline::Tab => out.push(DocxInline::Tab)
-      DocxSourceInline::LineBreak => out.push(DocxInline::LineBreak)
-      DocxSourceInline::Break(value) =>
+      Text(text) => out.push(Text(text))
+      Tab => out.push(Tab)
+      LineBreak => out.push(LineBreak)
+      Break(value) =>
         out.push(
-          DocxInline::Break({
+          Break({
             kind: value.kind,
             break_type: value.break_type,
             source_key: value.source_key,
           }),
         )
-      DocxSourceInline::Hyperlink(link) =>
+      Hyperlink(link) =>
         out.push(
-          DocxInline::Hyperlink({
+          Hyperlink({
             relationship_id: link.relationship_id,
             anchor: link.anchor,
             target: link.target,
@@ -546,11 +542,10 @@ fn docx_model_inlines(
             source_key: link.source_key,
           }),
         )
-      DocxSourceInline::Media(media) =>
-        out.push(DocxInline::Media(docx_model_media_inline(media, warnings)))
-      DocxSourceInline::TextBoxRef(textbox_ref) =>
+      Media(media) => out.push(Media(docx_model_media_inline(media, warnings)))
+      TextBoxRef(textbox_ref) =>
         out.push(
-          DocxInline::TextBoxRef({
+          TextBoxRef({
             anchor_id: docx_resolve_textbox_ref(textbox_ref, textboxes),
             doc_pr_id: textbox_ref.doc_pr_id,
             shape_id: textbox_ref.shape_id,
@@ -558,9 +553,9 @@ fn docx_model_inlines(
             source_key: textbox_ref.source_key,
           }),
         )
-      DocxSourceInline::Drawing(drawing) =>
+      Drawing(drawing) =>
         out.push(
-          DocxInline::Drawing({
+          Drawing({
             anchor_id: drawing.anchor_id,
             owner_part: drawing.owner_part,
             source_key: drawing.source_key,
@@ -595,9 +590,9 @@ fn docx_model_inlines(
             ),
           }),
         )
-      DocxSourceInline::Shape(shape) =>
+      Shape(shape) =>
         out.push(
-          DocxInline::Shape({
+          Shape({
             anchor_id: shape.anchor_id,
             owner_part: shape.owner_part,
             source_key: shape.source_key,
@@ -629,16 +624,16 @@ fn docx_model_inlines(
             ),
           }),
         )
-      DocxSourceInline::ContentControl(control) =>
+      ContentControl(control) =>
         out.push(
-          DocxInline::ContentControl(
+          ContentControl(
             docx_model_content_control(control, warnings, textboxes),
           ),
         )
-      DocxSourceInline::FieldUnsupported(field) => {
+      FieldUnsupported(field) => {
         let warning = {
-          kind: DocxWarningKind::UnsupportedField,
-          severity: DocxWarningSeverity::Warning,
+          kind: UnsupportedField,
+          severity: Warning,
           message: "unsupported field inline preserved: " + field.kind,
           source_key: Some(field.source_key),
         }
@@ -646,7 +641,7 @@ fn docx_model_inlines(
           warnings.push(warning)
         }
         out.push(
-          DocxInline::FieldUnsupported({
+          FieldUnsupported({
             kind: field.kind,
             instruction: field.instruction,
             field_char_type: field.field_char_type,
@@ -661,10 +656,10 @@ fn docx_model_inlines(
           }),
         )
       }
-      DocxSourceInline::Math(math) => {
+      Math(math) => {
         let warning = {
-          kind: DocxWarningKind::UnsupportedMath,
-          severity: DocxWarningSeverity::Warning,
+          kind: UnsupportedMath,
+          severity: Warning,
           message: "OMML math preserved without conversion: " + math.kind,
           source_key: Some(math.source_key),
         }
@@ -672,7 +667,7 @@ fn docx_model_inlines(
           warnings.push(warning)
         }
         out.push(
-          DocxInline::Math({
+          Math({
             kind: math.kind,
             text_signature: math.text_signature,
             child_inlines: docx_model_inlines(
@@ -685,10 +680,10 @@ fn docx_model_inlines(
           }),
         )
       }
-      DocxSourceInline::Bookmark(bookmark) => {
+      Bookmark(bookmark) => {
         let warning = {
-          kind: DocxWarningKind::UnsupportedBookmark,
-          severity: DocxWarningSeverity::Warning,
+          kind: UnsupportedBookmark,
+          severity: Warning,
           message: "bookmark inline preserved without conversion",
           source_key: Some(bookmark.source_key),
         }
@@ -696,7 +691,7 @@ fn docx_model_inlines(
           warnings.push(warning)
         }
         out.push(
-          DocxInline::Bookmark({
+          Bookmark({
             kind: bookmark.kind,
             bookmark_id: bookmark.bookmark_id,
             name: bookmark.name,
@@ -704,10 +699,10 @@ fn docx_model_inlines(
           }),
         )
       }
-      DocxSourceInline::TrackedChange(change) => {
+      TrackedChange(change) => {
         let warning = {
-          kind: DocxWarningKind::TrackedChange,
-          severity: DocxWarningSeverity::Warning,
+          kind: TrackedChange,
+          severity: Warning,
           message: "tracked change inline preserved without review policy: " +
           change.kind,
           source_key: Some(change.source_key),
@@ -716,7 +711,7 @@ fn docx_model_inlines(
           warnings.push(warning)
         }
         out.push(
-          DocxInline::TrackedChange({
+          TrackedChange({
             kind: change.kind,
             text: change.text,
             child_inlines: docx_model_inlines(
@@ -729,9 +724,9 @@ fn docx_model_inlines(
           }),
         )
       }
-      DocxSourceInline::SmartTag(smart_tag) =>
+      SmartTag(smart_tag) =>
         out.push(
-          DocxInline::SmartTag({
+          SmartTag({
             tag: smart_tag.tag,
             child_inlines: docx_model_inlines(
               smart_tag.child_inlines,
@@ -742,36 +737,31 @@ fn docx_model_inlines(
             source_key: smart_tag.source_key,
           }),
         )
-      DocxSourceInline::Symbol(symbol) =>
+      Symbol(symbol) =>
         out.push(
-          DocxInline::Symbol({
+          Symbol({
             font: symbol.font,
             char_hex: symbol.char_hex,
             source_key: symbol.source_key,
           }),
         )
-      DocxSourceInline::Hyphen(hyphen) =>
+      Hyphen(hyphen) =>
+        out.push(Hyphen({ kind: hyphen.kind, source_key: hyphen.source_key }))
+      FootnoteRef(id) => out.push(FootnoteRef(id))
+      EndnoteRef(id) => out.push(EndnoteRef(id))
+      CommentRef(id) => out.push(CommentRef(id))
+      StructuralMarker(marker) =>
         out.push(
-          DocxInline::Hyphen({
-            kind: hyphen.kind,
-            source_key: hyphen.source_key,
-          }),
-        )
-      DocxSourceInline::FootnoteRef(id) => out.push(DocxInline::FootnoteRef(id))
-      DocxSourceInline::EndnoteRef(id) => out.push(DocxInline::EndnoteRef(id))
-      DocxSourceInline::CommentRef(id) => out.push(DocxInline::CommentRef(id))
-      DocxSourceInline::StructuralMarker(marker) =>
-        out.push(
-          DocxInline::StructuralMarker({
+          StructuralMarker({
             kind: marker.kind,
             tag: marker.tag,
             source_key: marker.source_key,
           }),
         )
-      DocxSourceInline::UnsupportedInline(inline) => {
+      UnsupportedInline(inline) => {
         let warning = {
-          kind: DocxWarningKind::UnsupportedInline,
-          severity: DocxWarningSeverity::Warning,
+          kind: UnsupportedInline,
+          severity: Warning,
           message: inline.reason + ": " + inline.tag,
           source_key: Some(inline.source_key),
         }
@@ -779,24 +769,24 @@ fn docx_model_inlines(
           warnings.push(warning)
         }
         out.push(
-          DocxInline::UnsupportedInline({
+          UnsupportedInline({
             tag: inline.tag,
             reason: inline.reason,
             source_key: inline.source_key,
           }),
         )
       }
-      DocxSourceInline::Unsupported(tag) => {
+      Unsupported(tag) => {
         let warning = {
-          kind: DocxWarningKind::UnsupportedInline,
-          severity: DocxWarningSeverity::Warning,
+          kind: UnsupportedInline,
+          severity: Warning,
           message: "unsupported inline node preserved: " + tag,
           source_key: Some(source_key),
         }
         if !docx_warning_kind_at_source_exists(warnings, warning) {
           warnings.push(warning)
         }
-        out.push(DocxInline::Unsupported(tag))
+        out.push(Unsupported(tag))
       }
     }
   }
@@ -824,8 +814,8 @@ fn docx_model_media_inline(
     Some(_) => ()
     None => {
       let warning = {
-        kind: DocxWarningKind::MissingMediaTarget,
-        severity: DocxWarningSeverity::Warning,
+        kind: MissingMediaTarget,
+        severity: Warning,
         message: "media inline has no relationship target",
         source_key: Some(media.source_key),
       }
@@ -834,12 +824,11 @@ fn docx_model_media_inline(
       }
     }
   }
-  if media.target_mode == Some(DocxTargetMode::External) ||
-    media.relationship_kind == DocxMediaRelationshipKind::Link {
+  if media.target_mode == Some(External) || media.relationship_kind == Link {
     let target = media.resolved_target.unwrap_or(media.target.unwrap_or(""))
     let warning = {
-      kind: DocxWarningKind::UnsupportedMedia,
-      severity: DocxWarningSeverity::Warning,
+      kind: UnsupportedMedia,
+      severity: Warning,
       message: if target.trim() == "" {
         "external linked media not exported"
       } else {
@@ -965,46 +954,29 @@ fn docx_resolve_textbox_ref_by_shape_id(
 fn docx_warning_from_source(warning : DocxSourceWarning) -> DocxWarning {
   {
     kind: match warning.kind {
-      DocxSourceWarningKind::MissingMainDocument =>
-        DocxWarningKind::MissingMainDocument
-      DocxSourceWarningKind::MalformedDocumentXml =>
-        DocxWarningKind::MalformedDocumentXml
-      DocxSourceWarningKind::MissingHyperlinkTarget =>
-        DocxWarningKind::MissingHyperlinkTarget
-      DocxSourceWarningKind::MissingMediaTarget =>
-        DocxWarningKind::MissingMediaTarget
-      DocxSourceWarningKind::MissingMediaPart =>
-        DocxWarningKind::MissingMediaPart
-      DocxSourceWarningKind::UnsupportedMedia =>
-        DocxWarningKind::UnsupportedMedia
-      DocxSourceWarningKind::UnsupportedMath => DocxWarningKind::UnsupportedMath
-      DocxSourceWarningKind::MissingStylesPart =>
-        DocxWarningKind::MissingStylesPart
-      DocxSourceWarningKind::MissingNumberingPart =>
-        DocxWarningKind::MissingNumberingPart
-      DocxSourceWarningKind::MissingContainerPart =>
-        DocxWarningKind::MissingContainerPart
-      DocxSourceWarningKind::NestedTable => DocxWarningKind::NestedTable
-      DocxSourceWarningKind::UnsupportedTextbox =>
-        DocxWarningKind::UnsupportedTextbox
-      DocxSourceWarningKind::UnknownBodyNode => DocxWarningKind::UnknownBodyNode
-      DocxSourceWarningKind::UnsupportedTable =>
-        DocxWarningKind::UnsupportedTable
-      DocxSourceWarningKind::UnsupportedField =>
-        DocxWarningKind::UnsupportedField
-      DocxSourceWarningKind::UnsupportedBookmark =>
-        DocxWarningKind::UnsupportedBookmark
-      DocxSourceWarningKind::TrackedChange => DocxWarningKind::TrackedChange
-      DocxSourceWarningKind::UnsupportedInline =>
-        DocxWarningKind::UnsupportedInline
-      DocxSourceWarningKind::UnresolvedFootnoteRef =>
-        DocxWarningKind::UnresolvedFootnoteRef
-      DocxSourceWarningKind::UnresolvedEndnoteRef =>
-        DocxWarningKind::UnresolvedEndnoteRef
-      DocxSourceWarningKind::UnresolvedCommentRef =>
-        DocxWarningKind::UnresolvedCommentRef
+      MissingMainDocument => MissingMainDocument
+      MalformedDocumentXml => MalformedDocumentXml
+      MissingHyperlinkTarget => MissingHyperlinkTarget
+      MissingMediaTarget => MissingMediaTarget
+      MissingMediaPart => MissingMediaPart
+      UnsupportedMedia => UnsupportedMedia
+      UnsupportedMath => UnsupportedMath
+      MissingStylesPart => MissingStylesPart
+      MissingNumberingPart => MissingNumberingPart
+      MissingContainerPart => MissingContainerPart
+      NestedTable => NestedTable
+      UnsupportedTextbox => UnsupportedTextbox
+      UnknownBodyNode => UnknownBodyNode
+      UnsupportedTable => UnsupportedTable
+      UnsupportedField => UnsupportedField
+      UnsupportedBookmark => UnsupportedBookmark
+      TrackedChange => TrackedChange
+      UnsupportedInline => UnsupportedInline
+      UnresolvedFootnoteRef => UnresolvedFootnoteRef
+      UnresolvedEndnoteRef => UnresolvedEndnoteRef
+      UnresolvedCommentRef => UnresolvedCommentRef
     },
-    severity: DocxWarningSeverity::Warning,
+    severity: Warning,
     message: warning.message,
     source_key: warning.source_key,
   }
@@ -1020,7 +992,7 @@ fn docx_add_unresolved_container_ref_warnings(
 ) -> Unit {
   for block in blocks {
     match block {
-      DocxBlock::Paragraph(p) =>
+      Paragraph(p) =>
         docx_add_unresolved_inline_ref_warnings(
           p.inlines,
           p.source_key,
@@ -1029,7 +1001,7 @@ fn docx_add_unresolved_container_ref_warnings(
           comments,
           warnings,
         )
-      DocxBlock::Table(table) =>
+      Table(table) =>
         for row in table.rows {
           for cell in row.cells {
             docx_add_unresolved_container_ref_warnings(
@@ -1041,7 +1013,7 @@ fn docx_add_unresolved_container_ref_warnings(
             )
           }
         }
-      DocxBlock::ContentControl(control) => {
+      ContentControl(control) => {
         docx_add_unresolved_container_ref_warnings(
           control.blocks,
           footnotes,
@@ -1058,9 +1030,7 @@ fn docx_add_unresolved_container_ref_warnings(
           warnings,
         )
       }
-      DocxBlock::TablePlaceholder(_)
-      | DocxBlock::StructuralMarker(_)
-      | DocxBlock::Unsupported(_) => ()
+      TablePlaceholder(_) | StructuralMarker(_) | Unsupported(_) => ()
     }
   }
 }
@@ -1076,34 +1046,34 @@ fn docx_add_unresolved_inline_ref_warnings(
 ) -> Unit {
   for inline in inlines {
     match inline {
-      DocxInline::FootnoteRef(id) =>
+      FootnoteRef(id) =>
         if !docx_source_note_id_exists(footnotes, id) {
           docx_push_unresolved_ref_warning(
             warnings,
-            DocxWarningKind::UnresolvedFootnoteRef,
+            UnresolvedFootnoteRef,
             "unresolved footnote ref: " + id,
             source_key,
           )
         }
-      DocxInline::EndnoteRef(id) =>
+      EndnoteRef(id) =>
         if !docx_source_note_id_exists(endnotes, id) {
           docx_push_unresolved_ref_warning(
             warnings,
-            DocxWarningKind::UnresolvedEndnoteRef,
+            UnresolvedEndnoteRef,
             "unresolved endnote ref: " + id,
             source_key,
           )
         }
-      DocxInline::CommentRef(id) =>
+      CommentRef(id) =>
         if !docx_source_comment_id_exists(comments, id) {
           docx_push_unresolved_ref_warning(
             warnings,
-            DocxWarningKind::UnresolvedCommentRef,
+            UnresolvedCommentRef,
             "unresolved comment ref: " + id,
             source_key,
           )
         }
-      DocxInline::ContentControl(control) => {
+      ContentControl(control) => {
         docx_add_unresolved_container_ref_warnings(
           control.blocks,
           footnotes,
@@ -1120,7 +1090,7 @@ fn docx_add_unresolved_inline_ref_warnings(
           warnings,
         )
       }
-      DocxInline::SmartTag(smart_tag) =>
+      SmartTag(smart_tag) =>
         docx_add_unresolved_inline_ref_warnings(
           smart_tag.child_inlines,
           smart_tag.source_key,
@@ -1129,7 +1099,7 @@ fn docx_add_unresolved_inline_ref_warnings(
           comments,
           warnings,
         )
-      DocxInline::StructuralMarker(_) => ()
+      StructuralMarker(_) => ()
       _ => ()
     }
   }
@@ -1144,7 +1114,7 @@ fn docx_push_unresolved_ref_warning(
 ) -> Unit {
   let warning = {
     kind,
-    severity: DocxWarningSeverity::Warning,
+    severity: Warning,
     message,
     source_key: Some(source_key),
   }
@@ -1190,7 +1160,7 @@ fn docx_add_unresolved_numbering_warnings(
   }
   for block in blocks {
     match block {
-      DocxBlock::Paragraph(p) =>
+      Paragraph(p) =>
         match p.numbering_ref {
           Some(numbering_ref) =>
             match docx_resolve_numbering_level(numbering, numbering_ref) {
@@ -1198,8 +1168,8 @@ fn docx_add_unresolved_numbering_warnings(
               None => {
                 let ilvl = numbering_ref.ilvl.unwrap_or("0")
                 let warning = {
-                  kind: DocxWarningKind::MissingNumberingPart,
-                  severity: DocxWarningSeverity::Warning,
+                  kind: MissingNumberingPart,
+                  severity: Warning,
                   message: "numbering level not resolved: numId=" +
                   numbering_ref.num_id +
                   " ilvl=" +
@@ -1213,7 +1183,7 @@ fn docx_add_unresolved_numbering_warnings(
             }
           None => ()
         }
-      DocxBlock::Table(table) =>
+      Table(table) =>
         for row in table.rows {
           for cell in row.cells {
             docx_add_unresolved_numbering_warnings(
@@ -1223,15 +1193,13 @@ fn docx_add_unresolved_numbering_warnings(
             )
           }
         }
-      DocxBlock::ContentControl(control) =>
+      ContentControl(control) =>
         docx_add_unresolved_numbering_warnings(
           control.blocks,
           numbering,
           warnings,
         )
-      DocxBlock::TablePlaceholder(_)
-      | DocxBlock::StructuralMarker(_)
-      | DocxBlock::Unsupported(_) => ()
+      TablePlaceholder(_) | StructuralMarker(_) | Unsupported(_) => ()
     }
   }
 }

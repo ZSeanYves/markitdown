@@ -8,8 +8,8 @@ fn parse_with_route_probe_artifact(
 ) -> Result[@parser.ParseResult, String]? {
   for artifact in artifacts {
     let matched = match artifact {
-      RouteProbeArtifact::MarkdownPrepared(prepared) =>
-        if format == @input.DetectedFormat::Markdown {
+      MarkdownPrepared(prepared) =>
+        if format == Markdown {
           Some(
             Ok(
               @fmarkdown.markdown_parse_with_prepared_document(
@@ -22,12 +22,8 @@ fn parse_with_route_probe_artifact(
         } else {
           None
         }
-      RouteProbeArtifact::MarkdownLargeLiteral(
-        prepared_source,
-        text,
-        line_count
-      ) =>
-        if format == @input.DetectedFormat::Markdown {
+      MarkdownLargeLiteral(prepared_source, text, line_count) =>
+        if format == Markdown {
           Some(
             Ok(
               @fmarkdown.markdown_parse_large_literal(
@@ -38,8 +34,8 @@ fn parse_with_route_probe_artifact(
         } else {
           None
         }
-      RouteProbeArtifact::HtmlPrepared(prepared) =>
-        if format == @input.DetectedFormat::Html {
+      HtmlPrepared(prepared) =>
+        if format == Html {
           match prepared.events {
             Some(_) =>
               Some(
@@ -51,13 +47,26 @@ fn parse_with_route_probe_artifact(
                   ),
                 ),
               )
-            None => None
+            None =>
+              match prepared.event_summary {
+                Some(_) =>
+                  Some(
+                    Ok(
+                      @fhtml.html_parse_with_prepared_document(
+                        prepared.prepared_source,
+                        context,
+                        prepared,
+                      ),
+                    ),
+                  )
+                None => None
+              }
           }
         } else {
           None
         }
-      RouteProbeArtifact::IpynbPrepared(prepared) =>
-        if format == @input.DetectedFormat::Ipynb {
+      IpynbPrepared(prepared) =>
+        if format == Ipynb {
           Some(
             Ok(
               @fipynb.ipynb_parse_with_prepared_notebook(
@@ -70,9 +79,8 @@ fn parse_with_route_probe_artifact(
         } else {
           None
         }
-      RouteProbeArtifact::JsonPrepared(prepared) =>
-        if format == @input.DetectedFormat::Json &&
-          context.requested_mode == Some(@parser.ParserMode::StreamingEvent) {
+      JsonPrepared(prepared) =>
+        if format == Json && context.requested_mode == Some(StreamingEvent) {
           match prepared.stream {
             Some(_) =>
               Some(
@@ -89,9 +97,9 @@ fn parse_with_route_probe_artifact(
         } else {
           None
         }
-      RouteProbeArtifact::TextMarkupPrepared(prepared) =>
+      TextMarkupPrepared(prepared) =>
         match format {
-          @input.DetectedFormat::Tex =>
+          Tex =>
             Some(
               Ok(
                 @fshared.parse_text_markup_result_with_prepared_document(
@@ -101,7 +109,7 @@ fn parse_with_route_probe_artifact(
                 ),
               ),
             )
-          @input.DetectedFormat::Rst =>
+          Rst =>
             Some(
               Ok(
                 @fshared.parse_text_markup_result_with_prepared_document(
@@ -111,7 +119,7 @@ fn parse_with_route_probe_artifact(
                 ),
               ),
             )
-          @input.DetectedFormat::Asciidoc =>
+          Asciidoc =>
             Some(
               Ok(
                 @fshared.parse_text_markup_result_with_prepared_document(
@@ -123,8 +131,8 @@ fn parse_with_route_probe_artifact(
             )
           _ => None
         }
-      RouteProbeArtifact::TomlPrepared(prepared) =>
-        if format == @input.DetectedFormat::Toml {
+      TomlPrepared(prepared) =>
+        if format == Toml {
           match prepared.document {
             Some(_) =>
               Some(
@@ -141,9 +149,8 @@ fn parse_with_route_probe_artifact(
         } else {
           None
         }
-      RouteProbeArtifact::XmlPrepared(prepared) =>
-        if format == @input.DetectedFormat::Xml &&
-          context.requested_mode == Some(@parser.ParserMode::StreamingEvent) {
+      XmlPrepared(prepared) =>
+        if format == Xml && context.requested_mode == Some(StreamingEvent) {
           match prepared.tokens {
             Some(_) =>
               Some(
@@ -160,8 +167,8 @@ fn parse_with_route_probe_artifact(
         } else {
           None
         }
-      RouteProbeArtifact::DocxPrepared(prepared, _artifact) =>
-        if format == @input.DetectedFormat::Docx {
+      DocxPrepared(prepared, _artifact) =>
+        if format == Docx {
           Some(
             Ok(
               @fdocx.docx_parse_with_prepared_document(
@@ -174,8 +181,8 @@ fn parse_with_route_probe_artifact(
         } else {
           None
         }
-      RouteProbeArtifact::PptxPrepared(prepared, _artifact) =>
-        if format == @input.DetectedFormat::Pptx {
+      PptxPrepared(prepared, _artifact) =>
+        if format == Pptx {
           Some(
             Ok(
               @fpptx.pptx_parse_with_prepared_document(
@@ -188,8 +195,8 @@ fn parse_with_route_probe_artifact(
         } else {
           None
         }
-      RouteProbeArtifact::OdtPrepared(prepared) =>
-        if format == @input.DetectedFormat::Odt {
+      OdtPrepared(prepared) =>
+        if format == Odt {
           Some(
             Ok(
               @fodt.odt_parse_with_prepared_document(
@@ -202,8 +209,8 @@ fn parse_with_route_probe_artifact(
         } else {
           None
         }
-      RouteProbeArtifact::OdsPrepared(prepared) =>
-        if format == @input.DetectedFormat::Ods {
+      OdsPrepared(prepared) =>
+        if format == Ods {
           Some(
             Ok(
               @fods.ods_parse_with_prepared_document(
@@ -216,8 +223,8 @@ fn parse_with_route_probe_artifact(
         } else {
           None
         }
-      RouteProbeArtifact::OdpPrepared(prepared) =>
-        if format == @input.DetectedFormat::Odp {
+      OdpPrepared(prepared) =>
+        if format == Odp {
           Some(
             Ok(
               @fodp.odp_parse_with_prepared_document(
@@ -230,8 +237,8 @@ fn parse_with_route_probe_artifact(
         } else {
           None
         }
-      RouteProbeArtifact::XlsxPrepared(prepared) =>
-        if format == @input.DetectedFormat::Xlsx {
+      XlsxPrepared(prepared) =>
+        if format == Xlsx {
           Some(
             Ok(
               @dxlsx.xlsx_parse_with_prepared_package(
@@ -244,8 +251,8 @@ fn parse_with_route_probe_artifact(
         } else {
           None
         }
-      RouteProbeArtifact::PdfNativeDocument(document) =>
-        if format == @input.DetectedFormat::Pdf {
+      PdfNativeDocument(document) =>
+        if format == Pdf {
           Some(
             Ok(
               @fpdfinternal.pdf_parse_with_native_document(
@@ -259,8 +266,8 @@ fn parse_with_route_probe_artifact(
         } else {
           None
         }
-      RouteProbeArtifact::ZipPrepared(prepared) =>
-        if format == @input.DetectedFormat::Zip {
+      ZipPrepared(prepared) =>
+        if format == Zip {
           Some(
             Ok(
               @fzipinternal.zip_parse_with_prepared_archive(
@@ -274,8 +281,8 @@ fn parse_with_route_probe_artifact(
         } else {
           None
         }
-      RouteProbeArtifact::EpubPrepared(prepared) =>
-        if format == @input.DetectedFormat::Epub {
+      EpubPrepared(prepared) =>
+        if format == Epub {
           Some(
             Ok(
               @fepubinternal.epub_parse_with_package_artifact(
@@ -290,9 +297,8 @@ fn parse_with_route_probe_artifact(
         } else {
           None
         }
-      RouteProbeArtifact::YamlPrepared(prepared) =>
-        if format == @input.DetectedFormat::Yaml &&
-          context.requested_mode == Some(@parser.ParserMode::StreamingEvent) {
+      YamlPrepared(prepared) =>
+        if format == Yaml && context.requested_mode == Some(StreamingEvent) {
           match (prepared.events, prepared.compact_sequence) {
             (Some(_), _) | (_, Some(_)) =>
               Some(
@@ -339,17 +345,17 @@ fn parse_prepared_request(
 ///|
 fn heavy_probe_artifact_required(format : @input.DetectedFormat) -> Bool {
   match format {
-    @input.DetectedFormat::Html => true
-    @input.DetectedFormat::Ipynb => true
-    @input.DetectedFormat::Docx => true
-    @input.DetectedFormat::Pptx => true
-    @input.DetectedFormat::Xlsx => true
-    @input.DetectedFormat::Odt => true
-    @input.DetectedFormat::Ods => true
-    @input.DetectedFormat::Odp => true
-    @input.DetectedFormat::Zip => true
-    @input.DetectedFormat::Epub => true
-    @input.DetectedFormat::Pdf => true
+    Html => true
+    Ipynb => true
+    Docx => true
+    Pptx => true
+    Xlsx => true
+    Odt => true
+    Ods => true
+    Odp => true
+    Zip => true
+    Epub => true
+    Pdf => true
     _ => false
   }
 }

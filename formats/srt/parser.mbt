@@ -2,7 +2,7 @@
 pub fn srt_parser() -> @parser.Parser {
   @parser.make_parser(
     "srt_parser",
-    @parser.ParserMode::StreamingEvent,
+    StreamingEvent,
     subtitle_parser_capability(),
     fn(
       source : @input.InputSource,
@@ -16,9 +16,9 @@ pub fn srt_parser() -> @parser.Parser {
 ///|
 fn subtitle_parser_capability() -> @parser.ParserCapability {
   @parser.make_parser_capability(
-    @parser.ParserMode::StreamingEvent,
+    StreamingEvent,
     true,
-    @parser.StreamingGranularity::Record,
+    Record,
     false,
     true,
     false,
@@ -71,13 +71,16 @@ fn parse_subtitle_result(
   let text = prepared.original_text
   let diagnostics = @fshared.empty_parser_diagnostics(
     format_name + "_parser",
-    @parser.ParserMode::StreamingEvent,
+    StreamingEvent,
     source,
     format_name,
   )
   diagnostics.metrics.set("parser_name", format_name + "_parser")
   diagnostics.metrics.set("parser_mode", "streaming_event")
-  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
+  diagnostics.metrics.set(
+    "input_kind",
+    @fshared.input_kind_name(@input.input_kind(source)),
+  )
   diagnostics.metrics.set("detected_format", format_name)
   diagnostics.metrics.set(
     "requested_mode",
@@ -157,7 +160,7 @@ fn parse_subtitle_result(
       Ok(
         @parser.parse_result_with_events_capability(
           format_name + "_parser",
-          @parser.ParserMode::StreamingEvent,
+          StreamingEvent,
           events,
           diagnostics,
           subtitle_parser_capability(),
@@ -222,13 +225,16 @@ fn parse_large_srt_result(
   }
   let diagnostics = @fshared.empty_parser_diagnostics(
     "srt_parser",
-    @parser.ParserMode::StreamingEvent,
+    StreamingEvent,
     source,
     "srt",
   )
   diagnostics.metrics.set("parser_name", "srt_parser")
   diagnostics.metrics.set("parser_mode", "streaming_event")
-  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
+  diagnostics.metrics.set(
+    "input_kind",
+    @fshared.input_kind_name(@input.input_kind(source)),
+  )
   diagnostics.metrics.set("detected_format", "srt")
   diagnostics.metrics.set(
     "requested_mode",
@@ -271,7 +277,7 @@ fn parse_large_srt_result(
   diagnostics.pass_trace.push("parse:srt_parser")
   @parser.parse_result_with_events_capability(
     "srt_parser",
-    @parser.ParserMode::StreamingEvent,
+    StreamingEvent,
     events,
     diagnostics,
     subtitle_parser_capability(),
@@ -303,7 +309,7 @@ fn append_large_srt_block(
       None,
     )
     events.push({
-      kind: @core.EventKind::StartBlock(@core.BlockKind::Raw),
+      kind: StartBlock(Raw),
       text: block.join("\n"),
       source_ref: Some(raw_ref),
     })
@@ -358,7 +364,7 @@ fn append_large_srt_block(
     cue_ref.extra.set("subtitle_inline_source", raw_body.to_string())
   }
   events.push({
-    kind: @core.EventKind::StartBlock(@core.BlockKind::BlockQuote),
+    kind: StartBlock(BlockQuote),
     text: record.to_string(),
     source_ref: Some(cue_ref),
   })
@@ -421,67 +427,52 @@ fn subtitle_events_from_document(
       cue.time_end,
     )
     if cue.note_kind is Some(kind) {
-      let block_ref = subtitle_generic_block_ref(
-        base_ref,
-        @core.BlockKind::Raw,
-        [
-          ("raw_kind", "subtitle_" + kind),
-          ("info", format_name),
-          ("literal", "true"),
-        ],
-      )
+      let block_ref = subtitle_generic_block_ref(base_ref, Raw, [
+        ("raw_kind", "subtitle_" + kind),
+        ("info", format_name),
+        ("literal", "true"),
+      ])
       events.push({
-        kind: @core.EventKind::StartBlock(@core.BlockKind::Raw),
+        kind: StartBlock(Raw),
         text: cue.note_payload.unwrap_or(""),
         source_ref: Some(block_ref),
       })
-      events.push({
-        kind: @core.EventKind::EndBlock(@core.BlockKind::Raw),
-        text: "",
-        source_ref: Some(block_ref),
-      })
+      events.push({ kind: EndBlock(Raw), text: "", source_ref: Some(block_ref) })
       continue
     }
-    let quote_ref = subtitle_generic_block_ref(
-      base_ref,
-      @core.BlockKind::BlockQuote,
-      [
-        ("literal", "true"),
-        ("cue_index", (cue.index + 1).to_string()),
-        ("time_range", cue.time_range),
-      ],
-    )
+    let quote_ref = subtitle_generic_block_ref(base_ref, BlockQuote, [
+      ("literal", "true"),
+      ("cue_index", (cue.index + 1).to_string()),
+      ("time_range", cue.time_range),
+    ])
     if cue.identifier is Some(identifier) {
       quote_ref.extra.set("subtitle_identifier", identifier)
     }
     if cue.cue_settings is Some(settings) {
       quote_ref.extra.set("subtitle_cue_settings", settings)
     }
-    let heading_ref = subtitle_generic_block_ref(
-      base_ref,
-      @core.BlockKind::Heading,
-      [("level", "6"), ("literal", "true")],
-    )
+    let heading_ref = subtitle_generic_block_ref(base_ref, Heading, [
+      ("level", "6"),
+      ("literal", "true"),
+    ])
     events.push({
-      kind: @core.EventKind::StartBlock(@core.BlockKind::BlockQuote),
+      kind: StartBlock(BlockQuote),
       text: "",
       source_ref: Some(quote_ref),
     })
     events.push({
-      kind: @core.EventKind::StartBlock(@core.BlockKind::Heading),
+      kind: StartBlock(Heading),
       text: cue.time_range,
       source_ref: Some(heading_ref),
     })
     events.push({
-      kind: @core.EventKind::EndBlock(@core.BlockKind::Heading),
+      kind: EndBlock(Heading),
       text: "",
       source_ref: Some(heading_ref),
     })
-    let paragraph_ref = subtitle_generic_block_ref(
-      base_ref,
-      @core.BlockKind::Paragraph,
-      [("literal", "true")],
-    )
+    let paragraph_ref = subtitle_generic_block_ref(base_ref, Paragraph, [
+      ("literal", "true"),
+    ])
     let raw_text = cue.text_lines.join("\n")
     let lowered_text = @fshared.lower_subtitle_inline_markup(raw_text)
     if lowered_text.1 {
@@ -489,17 +480,17 @@ fn subtitle_events_from_document(
       paragraph_ref.extra.set("subtitle_inline_source", raw_text)
     }
     events.push({
-      kind: @core.EventKind::StartBlock(@core.BlockKind::Paragraph),
+      kind: StartBlock(Paragraph),
       text: lowered_text.0,
       source_ref: Some(paragraph_ref),
     })
     events.push({
-      kind: @core.EventKind::EndBlock(@core.BlockKind::Paragraph),
+      kind: EndBlock(Paragraph),
       text: "",
       source_ref: Some(paragraph_ref),
     })
     events.push({
-      kind: @core.EventKind::EndBlock(@core.BlockKind::BlockQuote),
+      kind: EndBlock(BlockQuote),
       text: "",
       source_ref: Some(quote_ref),
     })
@@ -557,7 +548,7 @@ fn count_subtitle_event_blocks(events : Array[@core.CoreEvent]) -> Int {
   let mut count = 0
   for event in events {
     match event.kind {
-      @core.EventKind::StartBlock(_) => count += 1
+      StartBlock(_) => count += 1
       _ => ()
     }
   }
@@ -593,13 +584,13 @@ fn subtitle_malformed_parse_result(
     Some(1),
     Some(count_subtitle_lines(text)),
   )
-  let raw_ref = subtitle_generic_block_ref(source_ref, @core.BlockKind::Raw, [
+  let raw_ref = subtitle_generic_block_ref(source_ref, Raw, [
     ("raw_kind", format_name + "_fail_closed"),
     ("info", format_name),
     ("literal", "true"),
   ])
   let event : @core.CoreEvent = {
-    kind: @core.EventKind::StartBlock(@core.BlockKind::Raw),
+    kind: StartBlock(Raw),
     text,
     source_ref: Some(raw_ref),
   }
@@ -642,7 +633,7 @@ fn subtitle_malformed_parse_result(
   diagnostics.pass_trace.push("parse:" + format_name + "_parser")
   @parser.parse_result_with_events_capability(
     format_name + "_parser",
-    @parser.ParserMode::StreamingEvent,
+    StreamingEvent,
     [event],
     diagnostics,
     subtitle_parser_capability(),

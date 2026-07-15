@@ -2,9 +2,9 @@
 /// Capability for the canonical PPTX package parser.
 pub fn pptx_parser_capability() -> @parser.ParserCapability {
   @parser.make_parser_capability(
-    @parser.ParserMode::PackageSinglePass,
+    PackageSinglePass,
     false,
-    @parser.StreamingGranularity::PptxSlide,
+    PptxSlide,
     true,
     true,
     true,
@@ -28,17 +28,12 @@ pub fn pptx_parser_capability() -> @parser.ParserCapability {
 /// Construct the canonical PPTX parser entrypoint.
 pub fn pptx_parser() -> @parser.Parser {
   let capability = pptx_parser_capability()
-  @parser.make_parser(
-    "pptx_parser",
-    @parser.ParserMode::PackageSinglePass,
-    capability,
-    fn(
-      source : @input.InputSource,
-      context : @parser.ParseContext,
-    ) -> Result[@parser.ParseResult, String] {
-      parse_pptx_document_result(source, context, capability)
-    },
-  )
+  @parser.make_parser("pptx_parser", PackageSinglePass, capability, fn(
+    source : @input.InputSource,
+    context : @parser.ParseContext,
+  ) -> Result[@parser.ParseResult, String] {
+    parse_pptx_document_result(source, context, capability)
+  })
 }
 
 ///|
@@ -72,7 +67,7 @@ fn parse_pptx_document_result(
     Err(err) => {
       let diagnostics = @fshared.empty_parser_diagnostics(
         "pptx_parser",
-        @parser.ParserMode::PackageSinglePass,
+        PackageSinglePass,
         source,
         "pptx",
       )
@@ -107,7 +102,7 @@ pub fn pptx_parse_with_prepared_document(
   let capability = pptx_parser_capability()
   let diagnostics = @fshared.empty_parser_diagnostics(
     "pptx_parser",
-    @parser.ParserMode::PackageSinglePass,
+    PackageSinglePass,
     source,
     "pptx",
   )
@@ -152,7 +147,7 @@ pub fn pptx_parse_with_prepared_document(
   let final_document = @core.document_with_diagnostics(document, diagnostics)
   @parser.parse_result_with_document_capability(
     "pptx_parser",
-    @parser.ParserMode::PackageSinglePass,
+    PackageSinglePass,
     final_document,
     diagnostics,
     capability,
@@ -167,7 +162,10 @@ fn pptx_init_diagnostics(
 ) -> Unit {
   diagnostics.metrics.set("parser_name", "pptx_parser")
   diagnostics.metrics.set("parser_mode", "package_single_pass")
-  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
+  diagnostics.metrics.set(
+    "input_kind",
+    @fshared.input_kind_name(@input.input_kind(source)),
+  )
   diagnostics.metrics.set("detected_format", "pptx")
   diagnostics.metrics.set(
     "requested_mode",
@@ -217,9 +215,7 @@ fn pptx_init_diagnostics(
   diagnostics.metrics.set("pptx_external_media_count", "0")
   diagnostics.metrics.set(
     "pptx_reading_order_strategy",
-    @shared.pptx_reading_order_strategy_name(
-      @shared.PptxReadingOrderStrategy::PlaceholderThenGeometry,
-    ),
+    @shared.pptx_reading_order_strategy_name(PlaceholderThenGeometry),
   )
   diagnostics.metrics.set("native_impl_location", "formats/pptx")
   @fshared.apply_product_metrics(diagnostics, "pptx")
@@ -296,7 +292,7 @@ fn pptx_malformed_parse_result(
   )
   @parser.parse_result_with_document_capability(
     "pptx_parser",
-    @parser.ParserMode::PackageSinglePass,
+    PackageSinglePass,
     document,
     diagnostics,
     capability,

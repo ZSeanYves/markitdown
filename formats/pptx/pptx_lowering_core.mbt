@@ -45,7 +45,7 @@ fn pptx_feature_enabled(
   state : PptxState,
   feature : @product.AccurateFeature,
 ) -> Bool {
-  if state.lowering_profile != @product.LoweringProfile::AccurateSemantic {
+  if state.lowering_profile != AccurateSemantic {
     return false
   }
   @product.accurate_feature_enabled(state.accurate_features, feature)
@@ -57,35 +57,30 @@ fn pptx_fill_metadata(
   source : @input.InputSource,
   presentation : @pptxdoc.PptxDocument,
 ) -> Unit {
-  document.metadata.set(
-    "source_name",
-    @core.JsonValue::String(source.source_name),
-  )
-  document.metadata.set("format", @core.JsonValue::String("pptx"))
+  document.metadata.set("source_name", String(source.source_name))
+  document.metadata.set("format", String("pptx"))
   document.metadata.set(
     "presentation_part",
-    @core.JsonValue::String(presentation.presentation.part_name),
+    String(presentation.presentation.part_name),
   )
   document.metadata.set(
     "slide_count",
-    @core.JsonValue::Number(presentation.slides.length().to_string()),
+    Number(presentation.slides.length().to_string()),
   )
   document.metadata.set(
     "layout_count",
-    @core.JsonValue::Number(presentation.layouts.length().to_string()),
+    Number(presentation.layouts.length().to_string()),
   )
   document.metadata.set(
     "master_count",
-    @core.JsonValue::Number(presentation.masters.length().to_string()),
+    Number(presentation.masters.length().to_string()),
   )
   match presentation.metadata.title {
-    Some(title) =>
-      document.metadata.set("title", @core.JsonValue::String(title))
+    Some(title) => document.metadata.set("title", String(title))
     None => ()
   }
   match presentation.metadata.creator {
-    Some(author) =>
-      document.metadata.set("creator", @core.JsonValue::String(author))
+    Some(author) => document.metadata.set("creator", String(author))
     None => ()
   }
 }
@@ -97,7 +92,7 @@ fn pptx_lower_slide(
   slide : @pptxdoc.PptxSlide,
 ) -> Unit {
   let slide_heading = @core.make_block(
-    @core.BlockKind::Heading,
+    Heading,
     "Slide " + slide.slide_index.to_string(),
     source_ref=pptx_slide_source_ref(state.source, slide, None, None),
   )
@@ -124,7 +119,7 @@ fn pptx_lower_slide(
   if blocks.length() == block_count_before {
     blocks.push(
       @core.make_block(
-        @core.BlockKind::Paragraph,
+        Paragraph,
         "(empty)",
         source_ref=pptx_slide_source_ref(state.source, slide, None, None),
       ),
@@ -138,19 +133,19 @@ fn pptx_collect_unsupported_summary_for_slide(
   obj : @pptxdoc.PptxObject,
   unsupported_objects : Array[(String, String)],
 ) -> Bool {
-  if !pptx_feature_enabled(state, @product.AccurateFeature::PptxGroupSummary) {
+  if !pptx_feature_enabled(state, PptxGroupSummary) {
     return false
   }
   match obj {
-    @pptxdoc.PptxObject::SmartArt(smart) => {
+    SmartArt(smart) => {
       unsupported_objects.push(("SmartArt", pptx_smartart_summary_label(smart)))
       true
     }
-    @pptxdoc.PptxObject::Ole(ole) => {
+    Ole(ole) => {
       unsupported_objects.push(("OLE", pptx_ole_summary_label(ole)))
       true
     }
-    @pptxdoc.PptxObject::Unsupported(unsupported) => {
+    Unsupported(unsupported) => {
       unsupported_objects.push(
         ("object", pptx_unsupported_summary_label(unsupported)),
       )
@@ -166,18 +161,18 @@ fn pptx_collect_visual_noise_for_slide(
   obj : @pptxdoc.PptxObject,
   visual_noise : Array[(String, String)],
 ) -> Bool {
-  if !pptx_feature_enabled(state, @product.AccurateFeature::PptxGroupSummary) {
+  if !pptx_feature_enabled(state, PptxGroupSummary) {
     return false
   }
   match obj {
-    @pptxdoc.PptxObject::Shape(shape) =>
+    Shape(shape) =>
       if shape.text_body is None && pptx_is_decorative_shape(shape) {
         visual_noise.push(("decorative shape", pptx_shape_summary_label(shape)))
         true
       } else {
         false
       }
-    @pptxdoc.PptxObject::Connector(conn) => {
+    Connector(conn) => {
       visual_noise.push(("connector", pptx_connector_summary_label(conn)))
       true
     }
@@ -205,7 +200,7 @@ fn pptx_flush_visual_noise_summary(
     visual_noise.length().to_string(),
   )
   let raw = @core.make_block(
-    @core.BlockKind::Raw,
+    Raw,
     pptx_visual_noise_summary_text(visual_noise),
     source_ref~,
   )
@@ -233,7 +228,7 @@ fn pptx_flush_unsupported_object_summary(
     unsupported_objects.length().to_string(),
   )
   let raw = @core.make_block(
-    @core.BlockKind::Raw,
+    Raw,
     pptx_unsupported_object_summary_text(unsupported_objects),
     source_ref~,
   )

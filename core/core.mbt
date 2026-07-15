@@ -68,12 +68,28 @@ pub(all) struct CoreBlock {
   block_id : BlockId
   kind : BlockKind
   text : String
+  column_index : Int?
   rich_inlines : Array[CoreInline]?
   children : Array[CoreBlock]
   attrs : Map[String, String]
   source_ref : SourceRef?
+  compact_source_ref : CompactSourceRef?
   style : StyleRef?
   signals : Array[CoreSignal]
+}
+
+///|
+/// Compact line/byte provenance for high-cardinality block streams.
+pub(all) struct CompactSourceRef {
+  file_id : String
+  format : String
+  line_start : Int
+  line_end : Int
+  byte_start : Int
+  byte_end : Int
+  literal : Bool
+  minimal_inline_escape : Bool
+  rendered_markdown : String?
 }
 
 ///|
@@ -350,6 +366,14 @@ pub(all) enum AssetKind {
 } derive(Eq)
 
 ///|
+/// Materializable content carried by an asset reference.
+pub(all) enum AssetPayload {
+  Bytes(Bytes)
+  Utf8(String)
+  SourcePath(String)
+} derive(Eq)
+
+///|
 /// Referenced binary or logical asset discovered during parsing.
 ///
 /// `path` is the suggested relative output path when one exists, while
@@ -360,6 +384,7 @@ pub(all) struct AssetRef {
   path : String?
   mime_type : String?
   source_ref : SourceRef?
+  mut payload : AssetPayload?
   attrs : Map[String, String]
 }
 

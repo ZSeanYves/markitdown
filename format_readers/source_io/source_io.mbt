@@ -18,7 +18,7 @@ pub fn read_source_bytes(
     Ok(bytes) =>
       Ok({
         bytes,
-        prepared_source: if source.bytes is Some(_) {
+        prepared_source: if @input.input_bytes(source) is Some(_) {
           source
         } else {
           @input.with_bytes_payload(source, bytes)
@@ -32,11 +32,15 @@ pub fn read_source_bytes(
 pub fn read_source_text(
   source : @input.InputSource,
 ) -> Result[SourceTextPayload, String] {
-  match @input.read_input_text(source) {
+  let text_result = match @input.input_text(source) {
+    Some(text) => Ok(text)
+    None => collect_source_text_chunks(source)
+  }
+  match text_result {
     Ok(text) =>
       Ok({
         text,
-        prepared_source: if source.text is Some(_) {
+        prepared_source: if @input.input_text(source) is Some(_) {
           source
         } else {
           @input.with_text_payload(source, text)
@@ -50,6 +54,13 @@ pub fn read_source_text(
 pub fn read_source_text_with_utf16_bom(
   source : @input.InputSource,
 ) -> Result[SourceTextPayload, String] {
+  let prefix = match @input.read_input_prefix(source, 2) {
+    Ok(value) => value
+    Err(err) => return Err(err)
+  }
+  if decode_utf16_text_bytes(prefix) is None {
+    return read_source_text(source)
+  }
   let bytes_payload = match read_source_bytes(source) {
     Ok(payload) => payload
     Err(err) => return Err(err)
@@ -64,7 +75,8 @@ pub fn read_source_text_with_utf16_bom(
   }
   Ok({
     text,
-    prepared_source: if bytes_payload.prepared_source.text is Some(_) {
+    prepared_source: if @input.input_text(bytes_payload.prepared_source)
+      is Some(_) {
       bytes_payload.prepared_source
     } else {
       @input.with_text_payload(bytes_payload.prepared_source, text)
@@ -76,9 +88,17 @@ pub fn read_source_text_with_utf16_bom(
 pub fn read_xml_source_text(
   source : @input.InputSource,
 ) -> Result[SourceTextPayload, String] {
-  match source.text {
+  match @input.input_text(source) {
     Some(text) => Ok({ text, prepared_source: source })
     None => {
+      let prefix = match @input.read_input_prefix(source, 256) {
+        Ok(value) => value
+        Err(err) => return Err(err)
+      }
+      match sniff_xml_declared_encoding(prefix) {
+        Some("iso-8859-1") | Some("latin1") => ()
+        _ => return read_source_text(source)
+      }
       let bytes_payload = match read_source_bytes(source) {
         Ok(payload) => payload
         Err(err) => return Err(err)
@@ -107,13 +127,13 @@ pub fn decode_utf16_text_bytes(bytes : Bytes) -> String? {
   let first = arr[0].to_int()
   let second = arr[1].to_int()
   if first == 0xFF && second == 0xFE {
-    let decoded = @encoding.decode(bytes, encoding=@encoding.UTF16LE) catch {
+    let decoded = @encoding.decode(bytes, encoding=UTF16LE) catch {
       _ => return None
     }
     return Some(strip_leading_bom(decoded))
   }
   if first == 0xFE && second == 0xFF {
-    let decoded = @encoding.decode(bytes, encoding=@encoding.UTF16BE) catch {
+    let decoded = @encoding.decode(bytes, encoding=UTF16BE) catch {
       _ => return None
     }
     return Some(strip_leading_bom(decoded))

@@ -4,7 +4,7 @@ const ODP_PARSER_NAME : String = "odp_parser"
 ///|
 pub fn odp_parser_capability() -> @parser.ParserCapability {
   @parser.package_with_block_route_parser_capability(
-    @parser.StreamingGranularity::Slide,
+    Slide,
     true,
     true,
     false,
@@ -21,17 +21,12 @@ pub fn odp_parser_capability() -> @parser.ParserCapability {
 ///|
 pub fn odp_parser() -> @parser.Parser {
   let capability = odp_parser_capability()
-  @parser.make_parser(
-    ODP_PARSER_NAME,
-    @parser.ParserMode::PackageSinglePass,
-    capability,
-    fn(
-      source : @input.InputSource,
-      context : @parser.ParseContext,
-    ) -> Result[@parser.ParseResult, String] {
-      parse_odp_document_result(source, context, capability)
-    },
-  )
+  @parser.make_parser(ODP_PARSER_NAME, PackageSinglePass, capability, fn(
+    source : @input.InputSource,
+    context : @parser.ParseContext,
+  ) -> Result[@parser.ParseResult, String] {
+    parse_odp_document_result(source, context, capability)
+  })
 }
 
 ///|
@@ -45,7 +40,7 @@ fn parse_odp_document_result(
     Err(err) => {
       let diagnostics = @fshared.empty_parser_diagnostics(
         ODP_PARSER_NAME,
-        @parser.ParserMode::PackageSinglePass,
+        PackageSinglePass,
         source,
         "odp",
       )
@@ -56,7 +51,7 @@ fn parse_odp_document_result(
           diagnostics,
           "open odp failed: " + err,
           capability,
-          source.bytes.unwrap_or(Bytes::from_array([])),
+          @input.input_bytes(source).unwrap_or(Bytes::from_array([])),
           context,
         ),
       )
@@ -96,14 +91,14 @@ pub fn odp_parse_with_open_document(
   let capability = odp_parser_capability()
   let diagnostics = @fshared.empty_parser_diagnostics(
     ODP_PARSER_NAME,
-    @parser.ParserMode::PackageSinglePass,
+    PackageSinglePass,
     source,
     "odp",
   )
   odp_init_diagnostics(diagnostics, source, context)
-  let bytes = source.bytes.unwrap_or(Bytes::from_array([]))
+  let bytes = @input.input_bytes(source).unwrap_or(Bytes::from_array([]))
   odp_fill_metrics(diagnostics, document, inspect, bytes)
-  if context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
+  if context.requested_mode == Some(BlockStreaming) {
     let lowered = odp_lower_block_stream_document(source, document, context)
     diagnostics.metrics.set("parser_mode", "block_streaming")
     diagnostics.metrics.set("effective_mode", "block_streaming")
@@ -118,7 +113,7 @@ pub fn odp_parse_with_open_document(
     diagnostics.pass_trace.push("parse:odp_parser")
     return @parser.parse_result_with_blocks_capability(
       ODP_PARSER_NAME,
-      @parser.ParserMode::BlockStreaming,
+      BlockStreaming,
       lowered.blocks,
       diagnostics,
       capability,
@@ -141,7 +136,7 @@ pub fn odp_parse_with_open_document(
   let final_document = @core.document_with_diagnostics(lowered, diagnostics)
   @parser.parse_result_with_document_capability(
     ODP_PARSER_NAME,
-    @parser.ParserMode::PackageSinglePass,
+    PackageSinglePass,
     final_document,
     diagnostics,
     capability,
@@ -160,8 +155,8 @@ fn odp_init_diagnostics(
     context,
     "odp",
     ODP_PARSER_NAME,
-    @parser.ParserMode::PackageSinglePass,
-    @parser.ParserMode::PackageSinglePass,
+    PackageSinglePass,
+    PackageSinglePass,
     "document",
     "slide",
     "package_single_pass",
@@ -275,17 +270,17 @@ fn odp_lower_common(
   for slide in document.slides {
     let label_ref = odp_slide_source_ref(source, document, slide, None)
     let label = @core.make_block(
-      @core.BlockKind::Paragraph,
+      Paragraph,
       "[Slide " + (slide.index + 1).to_string() + "]",
       source_ref=label_ref,
     )
     label.attrs.set("literal", "true")
     label.attrs.set("markdown_literal_raw", "true")
     label.attrs.set("slide_local", "true")
-    if context.lowering_profile == @product.LoweringProfile::AccurateSemantic &&
+    if context.lowering_profile == AccurateSemantic &&
       @product.accurate_feature_enabled(
         context.accurate_features,
-        @product.AccurateFeature::OdpSlideSummary,
+        OdpSlideSummary,
       ) {
       label.attrs.set(
         "render_window_group",
@@ -318,49 +313,41 @@ fn odp_lower_block(
 ) -> @core.CoreBlock {
   let source_ref = odp_block_source_ref(source, document, slide, block)
   let lowered = match block.kind {
-    @dodf.OdpBlockKind::Heading =>
-      @core.make_block(@core.BlockKind::Heading, block.text, source_ref~)
-    @dodf.OdpBlockKind::Paragraph =>
-      @core.make_block(@core.BlockKind::Paragraph, block.text, source_ref~)
-    @dodf.OdpBlockKind::ListItem =>
-      @core.make_block(@core.BlockKind::ListItem, block.text, source_ref~)
-    @dodf.OdpBlockKind::Notes => {
-      let note = @core.make_block(
-        @core.BlockKind::Code,
-        block.text,
-        source_ref~,
-      )
+    Heading => @core.make_block(Heading, block.text, source_ref~)
+    Paragraph => @core.make_block(Paragraph, block.text, source_ref~)
+    ListItem => @core.make_block(ListItem, block.text, source_ref~)
+    Notes => {
+      let note = @core.make_block(Code, block.text, source_ref~)
       note.attrs.set("info", "notes")
       for entry in block.attrs.to_array() {
         note.attrs.set(entry.0, entry.1)
       }
-      if context.lowering_profile == @product.LoweringProfile::AccurateSemantic &&
+      if context.lowering_profile == AccurateSemantic &&
         @product.accurate_feature_enabled(
           context.accurate_features,
-          @product.AccurateFeature::OdpNotesAppendix,
+          OdpNotesAppendix,
         ) {
         note.attrs.set("render_appendix_group", "notes")
       }
       note
     }
-    @dodf.OdpBlockKind::Raw => {
-      let raw = @core.make_block(@core.BlockKind::Raw, block.text, source_ref~)
+    Raw => {
+      let raw = @core.make_block(Raw, block.text, source_ref~)
       for entry in block.attrs.to_array() {
         raw.attrs.set(entry.0, entry.1)
       }
       raw
     }
-    @dodf.OdpBlockKind::Table => odp_table_block(block, source_ref)
-    @dodf.OdpBlockKind::Image =>
-      odp_image_block(source, slide, block, assets, source_ref)
+    Table => odp_table_block(block, source_ref)
+    Image => odp_image_block(source, slide, block, assets, source_ref)
   }
   for entry in block.attrs.to_array() {
     lowered.attrs.set(entry.0, entry.1)
   }
-  if context.lowering_profile == @product.LoweringProfile::AccurateSemantic &&
+  if context.lowering_profile == AccurateSemantic &&
     @product.accurate_feature_enabled(
       context.accurate_features,
-      @product.AccurateFeature::OdpSlideSummary,
+      OdpSlideSummary,
     ) &&
     lowered.attrs.get("slide_local") == Some("true") {
     lowered.attrs.set(
@@ -379,16 +366,12 @@ fn odp_table_block(
   block : @dodf.OdpSlideBlock,
   source_ref : @core.SourceRef,
 ) -> @core.CoreBlock {
-  let table = @core.make_block(@core.BlockKind::Table, "table", source_ref~)
+  let table = @core.make_block(Table, "table", source_ref~)
   for row_value in block.rows {
-    let row = @core.make_block(@core.BlockKind::TableRow, "", source_ref~)
+    let row = @core.make_block(TableRow, "", source_ref~)
     for cell_value in row_value.cells {
       row.children.push(
-        @core.make_block(
-          @core.BlockKind::TableCell,
-          cell_value.text,
-          source_ref~,
-        ),
+        @core.make_block(TableCell, cell_value.text, source_ref~),
       )
     }
     table.children.push(row)
@@ -408,7 +391,7 @@ fn odp_image_block(
     Some(image) => {
       if image.bytes is None {
         let unavailable = @core.make_block(
-          @core.BlockKind::BlockQuote,
+          BlockQuote,
           "Asset unavailable: " + image.href,
           source_ref~,
         )
@@ -417,55 +400,51 @@ fn odp_image_block(
         return unavailable
       }
       let asset_id = odp_asset_output_path(slide.index, image.href)
-      let asset = @core.make_asset_ref(
-        @core.AssetKind::Image,
-        asset_id,
-        source_ref~,
-      )
+      let asset = @core.make_asset_ref(Image, asset_id, source_ref~)
       let next_asset = {
         ..asset,
         path: Some(asset_id),
         mime_type: image.media_type,
       }
       next_asset.attrs.set("zip_entry_path", image.href.trim().to_owned())
-      match source.path {
+      match @input.input_path(source) {
         Some(path) => next_asset.attrs.set("zip_container_path", path)
         None => ()
       }
-      odp_attach_inline_payload(next_asset, image)
+      odp_attach_asset_payload(next_asset, image)
       assets.push(next_asset)
-      let out = @core.make_block(@core.BlockKind::Image, "", source_ref~)
+      let out = @core.make_block(Image, "", source_ref~)
       out.attrs.set("asset_id", asset_id)
       out.attrs.set("path", asset_id)
       out.attrs.set("alt", image.alt.unwrap_or("odp image"))
       out
     }
-    None => @core.make_block(@core.BlockKind::Paragraph, "[image]", source_ref~)
+    None => @core.make_block(Paragraph, "[image]", source_ref~)
   }
 }
 
 ///|
 fn odp_metadata(document : @dodf.OdpDocument) -> @core.DocumentMetadata {
   let metadata : @core.DocumentMetadata = Map([])
-  metadata.set("format", @core.JsonValue::String("odp"))
+  metadata.set("format", String("odp"))
   metadata.set(
     "description",
-    @core.JsonValue::String(
+    String(
       "OpenDocument presentation with " +
       document.slides.length().to_string() +
       " slides",
     ),
   )
   match document.metadata.title {
-    Some(value) => metadata.set("title", @core.JsonValue::String(value))
+    Some(value) => metadata.set("title", String(value))
     None => ()
   }
   match document.metadata.subject {
-    Some(value) => metadata.set("subject", @core.JsonValue::String(value))
+    Some(value) => metadata.set("subject", String(value))
     None => ()
   }
   match document.metadata.language {
-    Some(value) => metadata.set("language", @core.JsonValue::String(value))
+    Some(value) => metadata.set("language", String(value))
     None => ()
   }
   metadata
@@ -478,7 +457,7 @@ fn odp_slide_source_ref(
   slide : @dodf.OdpSlide,
   line_start : Int?,
 ) -> @core.SourceRef {
-  let container_path = source.path.unwrap_or(source.source_name)
+  let container_path = @input.input_path(source).unwrap_or(source.source_name)
   let base = @core.source_ref_with_container_entry(
     @core.empty_source_ref(),
     Some(source.source_name),
@@ -557,7 +536,7 @@ fn odp_slug(text : String) -> String {
 }
 
 ///|
-fn odp_attach_inline_payload(
+fn odp_attach_asset_payload(
   asset : @core.AssetRef,
   image : @dodf.OdpImageRef,
 ) -> Unit {
@@ -565,11 +544,9 @@ fn odp_attach_inline_payload(
     Some(bytes) =>
       if image.media_type == Some("image/svg+xml") {
         let text = @utf8.decode(bytes, ignore_bom=false) catch { _ => return }
-        asset.attrs.set("inline_payload_kind", "utf8")
-        asset.attrs.set("inline_payload", text)
+        asset.payload = Some(Utf8(text))
       } else {
-        asset.attrs.set("inline_payload_kind", "base64")
-        asset.attrs.set("inline_payload", @base64.encode(bytes, url_safe=false))
+        asset.payload = Some(Bytes(bytes))
       }
     None => ()
   }
@@ -591,33 +568,33 @@ fn odp_malformed_parse_result(
   diagnostics.metrics.set("syntax_error_count", "1")
   @fshared.refresh_parser_count_metrics(
     diagnostics,
-    if context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
+    if context.requested_mode == Some(BlockStreaming) {
       "block_stream"
     } else {
       "document"
     },
   )
-  if context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
+  if context.requested_mode == Some(BlockStreaming) {
     diagnostics.metrics.set("parser_mode", "block_streaming")
     diagnostics.metrics.set("effective_mode", "block_streaming")
     diagnostics.metrics.set("ir_input_kind", "block_stream")
     diagnostics.metrics.set("event_semantics", "odp_slide_block_stream")
     let raw = @core.make_block(
-      @core.BlockKind::Code,
+      Code,
       "binary odp package (" + bytes.length().to_string() + " bytes)",
       source_ref=odp_fallback_source_ref(source),
     )
     raw.attrs.set("info", "odp")
     return @parser.parse_result_with_blocks_capability(
       ODP_PARSER_NAME,
-      @parser.ParserMode::BlockStreaming,
+      BlockStreaming,
       [raw],
       diagnostics,
       capability,
     )
   }
   let raw = @core.make_block(
-    @core.BlockKind::Code,
+    Code,
     "binary odp package (" + bytes.length().to_string() + " bytes)",
     source_ref=odp_fallback_source_ref(source),
   )
@@ -628,7 +605,7 @@ fn odp_malformed_parse_result(
   )
   @parser.parse_result_with_document_capability(
     ODP_PARSER_NAME,
-    @parser.ParserMode::PackageSinglePass,
+    PackageSinglePass,
     document,
     diagnostics,
     capability,

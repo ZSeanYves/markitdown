@@ -2,7 +2,7 @@
 pub fn tex_parser() -> @parser.Parser {
   @parser.make_parser(
     "tex_parser",
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     @fshared.text_markup_parser_capability(),
     fn(
       source : @input.InputSource,
@@ -22,7 +22,7 @@ pub fn tex_text_markup_hooks() -> @fshared.TextMarkupHooks {
   @fshared.make_text_markup_hooks(
     "tex_parser",
     "tex",
-    @dmark.TextMarkupFormat::Tex,
+    Tex,
     fn(text : String) { @dmark.parse_tex_document(text) },
     text_markup_semantic_quote_text,
     text_markup_semantic_block,
@@ -64,9 +64,9 @@ fn text_markup_semantic_raw_block(
       return Some(
         @core.block_with_attr(
           @fshared.text_markup_block_with_inlines(
-            @core.make_block(@core.BlockKind::Paragraph, text, source_ref~),
+            @core.make_block(Paragraph, text, source_ref~),
             text,
-            @dmark.TextMarkupFormat::Tex,
+            Tex,
           ),
           "literal",
           "true",
@@ -86,9 +86,9 @@ fn text_markup_semantic_raw_block(
       return Some(
         @core.block_with_attr(
           @fshared.text_markup_block_with_inlines(
-            @core.make_block(@core.BlockKind::Paragraph, text, source_ref~),
+            @core.make_block(Paragraph, text, source_ref~),
             text,
-            @dmark.TextMarkupFormat::Tex,
+            Tex,
           ),
           "literal",
           "true",
@@ -108,7 +108,7 @@ fn text_markup_semantic_block(
   match block.meta.get("semantic_kind") {
     Some("image") => {
       let target = block.meta.get("image_target").unwrap_or(block.text)
-      let image = @core.make_block(@core.BlockKind::Image, "", source_ref~)
+      let image = @core.make_block(Image, "", source_ref~)
       image.attrs.set("path", target)
       image.attrs.set("src", target)
       image.attrs.set("alt", block.meta.get("image_alt").unwrap_or("image"))
@@ -135,22 +135,12 @@ fn text_markup_semantic_block(
       } else {
         "Include: " + target
       }
-      let paragraph = @core.make_block(
-        @core.BlockKind::Paragraph,
-        text,
-        source_ref~,
-      )
+      let paragraph = @core.make_block(Paragraph, text, source_ref~)
       paragraph.attrs.set("literal", "true")
       paragraph.attrs.set("semantic_label", "Include")
       paragraph.attrs.set("semantic_family", "tex")
       paragraph.attrs.set("semantic_display", "include")
-      Some(
-        @fshared.text_markup_block_with_inlines(
-          paragraph,
-          text,
-          @dmark.TextMarkupFormat::Tex,
-        ),
-      )
+      Some(@fshared.text_markup_block_with_inlines(paragraph, text, Tex))
     }
     Some("environment") => {
       let label = block.meta
@@ -165,22 +155,12 @@ fn text_markup_semantic_block(
       } else {
         "Environment: " + display + "\n" + body
       }
-      let quote = @core.make_block(
-        @core.BlockKind::BlockQuote,
-        text,
-        source_ref~,
-      )
+      let quote = @core.make_block(BlockQuote, text, source_ref~)
       quote.attrs.set("literal", "true")
       quote.attrs.set("semantic_label", "Environment")
       quote.attrs.set("semantic_family", "tex")
       quote.attrs.set("semantic_display", display)
-      Some(
-        @fshared.text_markup_block_with_inlines(
-          quote,
-          text,
-          @dmark.TextMarkupFormat::Tex,
-        ),
-      )
+      Some(@fshared.text_markup_block_with_inlines(quote, text, Tex))
     }
     None => None
     Some(_) => None

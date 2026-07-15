@@ -41,6 +41,7 @@ fn regenerate_report(
     contract,
     previous.preset,
     baseline,
+    policy,
     resource_summary=previous.resource_summary,
     resume_summary=previous.resume_summary,
   )
@@ -114,7 +115,7 @@ fn render_markdown_report(summary : RunSummary) -> String {
   lines.push("")
   lines.push("## Performance Gate")
   match summary.gate_summary {
-    Json::Object(gate) =>
+    Object(gate) =>
       match gate.get("performance") {
         Some(performance) => lines.push("- `" + performance.stringify() + "`")
         None => lines.push("- `not_available`")
@@ -230,7 +231,7 @@ fn binary_contract_from_summary(
   json : Json,
 ) -> Result[BinaryContract, BenchError] {
   match json {
-    Json::Object(map) => {
+    Object(map) => {
       let runner_path = json_string_required_from_json(
         map, "runner_path", "binary_only_contract",
       )
@@ -302,9 +303,9 @@ fn load_sample_rows(
 ///|
 fn json_optional_string_field(json : Json, key : String) -> String? {
   match json {
-    Json::Object(map) =>
+    Object(map) =>
       match map.get(key) {
-        Some(Json::String(value)) => Some(value)
+        Some(String(value)) => Some(value)
         _ => None
       }
     _ => None
@@ -318,7 +319,7 @@ fn json_string_required_from_json(
   label : String,
 ) -> String {
   match json.get(key) {
-    Some(Json::String(value)) => value
+    Some(String(value)) => value
     _ => abort(label + " missing string field `" + key + "`")
   }
 }
@@ -330,8 +331,8 @@ fn json_bool_required_from_json(
   label : String,
 ) -> Bool {
   match json.get(key) {
-    Some(Json::True) => true
-    Some(Json::False) => false
+    Some(True) => true
+    Some(False) => false
     _ => abort(label + " missing bool field `" + key + "`")
   }
 }
@@ -342,7 +343,7 @@ fn json_object_required(
   key : String,
 ) -> Map[String, Json] {
   match json.get(key) {
-    Some(Json::Object(value)) => value
+    Some(Object(value)) => value
     _ => abort("bench policy missing object field: " + key)
   }
 }
@@ -350,7 +351,7 @@ fn json_object_required(
 ///|
 fn json_array_required(json : Map[String, Json], key : String) -> Array[Json] {
   match json.get(key) {
-    Some(Json::Array(value)) => value
+    Some(Array(value)) => value
     _ => abort("bench policy missing array field: " + key)
   }
 }
@@ -358,7 +359,7 @@ fn json_array_required(json : Map[String, Json], key : String) -> Array[Json] {
 ///|
 fn json_object_value_required(json : Json, label : String) -> Map[String, Json] {
   match json {
-    Json::Object(value) => value
+    Object(value) => value
     _ => abort(label + " must be an object")
   }
 }
@@ -374,10 +375,10 @@ fn json_string_array(json : Map[String, Json], key : String) -> Array[String] {
 ///|
 fn json_string_array_value(json : Json) -> Array[String] {
   match json {
-    Json::Array(items) =>
+    Array(items) =>
       items.map(item => {
         match item {
-          Json::String(value) => value
+          String(value) => value
           _ => abort("bench policy string array contains non-string value")
         }
       })
@@ -392,7 +393,7 @@ fn json_string_required_in(
   label : String,
 ) -> String {
   match json.get(key) {
-    Some(Json::String(value)) => value
+    Some(String(value)) => value
     _ => abort(label + " missing string field `" + key + "`")
   }
 }
@@ -404,7 +405,7 @@ fn json_int_required_in(
   label : String,
 ) -> Int {
   match json.get(key) {
-    Some(Json::Number(value, ..)) => value.to_int()
+    Some(Number(value, ..)) => value.to_int()
     _ => abort(label + " missing integer field `" + key + "`")
   }
 }
@@ -450,9 +451,9 @@ fn parse_report_baseline(args : Array[String]) -> String? {
 ///|
 fn json_string_field(json : Json, key : String) -> String {
   match json {
-    Json::Object(map) =>
+    Object(map) =>
       match map.get(key) {
-        Some(Json::String(value)) => value
+        Some(String(value)) => value
         _ => "unknown"
       }
     _ => "unknown"
@@ -462,9 +463,9 @@ fn json_string_field(json : Json, key : String) -> String {
 ///|
 fn json_int_field(json : Json, key : String) -> Int {
   match json {
-    Json::Object(map) =>
+    Object(map) =>
       match map.get(key) {
-        Some(Json::Number(value, ..)) => value.to_int()
+        Some(Number(value, ..)) => value.to_int()
         _ => 0
       }
     _ => 0

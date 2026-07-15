@@ -60,7 +60,7 @@ fn lower_docx_inlines(
   ) -> Bool {
     if !@product.accurate_feature_enabled(
         state.accurate_features,
-        @product.AccurateFeature::DocxTextboxInline,
+        DocxTextboxInline,
       ) {
       return false
     }
@@ -103,7 +103,7 @@ fn lower_docx_inlines(
     }
     let nested = lower_docx_inlines(
       state,
-      [@ddocx.DocxInline::Text(flattened.text)],
+      [Text(flattened.text)],
       textbox.source_key,
     )
     let lowered = match flattened.rich_inlines {
@@ -132,17 +132,16 @@ fn lower_docx_inlines(
 
   for inline in inlines {
     match inline {
-      @ddocx.DocxInline::Text(text) =>
+      Text(text) =>
         append_plain_and_rich(plain, rich_inlines, text, inline_source_ref)
-      @ddocx.DocxInline::Tab =>
-        append_plain_and_rich(plain, rich_inlines, " ", inline_source_ref)
-      @ddocx.DocxInline::LineBreak => {
+      Tab => append_plain_and_rich(plain, rich_inlines, " ", inline_source_ref)
+      LineBreak => {
         plain.write_string("\n")
         rich_inlines.push(
           @core.make_inline_line_break(source_ref=inline_source_ref),
         )
       }
-      @ddocx.DocxInline::Break(value) =>
+      Break(value) =>
         match render_docx_break_text(value) {
           "\n" => {
             plain.write_string("\n")
@@ -153,7 +152,7 @@ fn lower_docx_inlines(
           text =>
             append_plain_and_rich(plain, rich_inlines, text, inline_source_ref)
         }
-      @ddocx.DocxInline::Hyperlink(link) => {
+      Hyperlink(link) => {
         let source_ref = docx_source_ref_from_key(
           state,
           link.source_key,
@@ -176,7 +175,7 @@ fn lower_docx_inlines(
             rich_inlines.push(@core.make_inline_text(link.text, source_ref~))
         }
       }
-      @ddocx.DocxInline::Media(media) =>
+      Media(media) =>
         image_count_ref.val += lower_docx_media_inline(
           state,
           rich_inlines,
@@ -185,7 +184,7 @@ fn lower_docx_inlines(
           None,
           [],
         )
-      @ddocx.DocxInline::Drawing(drawing) => {
+      Drawing(drawing) => {
         let media_count = match drawing.media {
           Some(media) =>
             lower_docx_media_inline(
@@ -227,7 +226,7 @@ fn lower_docx_inlines(
           )
         }
       }
-      @ddocx.DocxInline::Shape(shape) => {
+      Shape(shape) => {
         let media_count = match shape.media {
           Some(media) =>
             lower_docx_media_inline(
@@ -269,7 +268,7 @@ fn lower_docx_inlines(
           )
         }
       }
-      @ddocx.DocxInline::ContentControl(control) =>
+      ContentControl(control) =>
         if control.inlines.length() > 0 {
           let child = lower_docx_inlines(
             state,
@@ -288,22 +287,22 @@ fn lower_docx_inlines(
             docx_source_ref_from_key(state, control.source_key, None, None),
           )
         }
-      @ddocx.DocxInline::FieldUnsupported(field) =>
+      FieldUnsupported(field) =>
         append_plain_and_rich(
           plain,
           rich_inlines,
           render_docx_field_text(field),
           docx_source_ref_from_key(state, field.source_key, None, None),
         )
-      @ddocx.DocxInline::Math(math) =>
+      Math(math) =>
         append_plain_and_rich(
           plain,
           rich_inlines,
           render_docx_math_text(math),
           docx_source_ref_from_key(state, math.source_key, None, None),
         )
-      @ddocx.DocxInline::Bookmark(_) => ()
-      @ddocx.DocxInline::TrackedChange(change) => {
+      Bookmark(_) => ()
+      TrackedChange(change) => {
         tracked_change_count_ref.val += 1
         let text = render_docx_tracked_change_text(change)
         append_plain_and_rich(
@@ -313,7 +312,7 @@ fn lower_docx_inlines(
           docx_source_ref_from_key(state, change.source_key, None, None),
         )
       }
-      @ddocx.DocxInline::SmartTag(smart_tag) => {
+      SmartTag(smart_tag) => {
         let child = lower_docx_inlines(
           state,
           smart_tag.child_inlines,
@@ -324,21 +323,21 @@ fn lower_docx_inlines(
           tracked_change_count_ref,
         )
       }
-      @ddocx.DocxInline::Symbol(symbol) =>
+      Symbol(symbol) =>
         append_plain_and_rich(
           plain,
           rich_inlines,
           render_docx_symbol_text(symbol),
           docx_source_ref_from_key(state, symbol.source_key, None, None),
         )
-      @ddocx.DocxInline::Hyphen(hyphen) =>
+      Hyphen(hyphen) =>
         append_plain_and_rich(
           plain,
           rich_inlines,
           render_docx_hyphen_text(hyphen),
           docx_source_ref_from_key(state, hyphen.source_key, None, None),
         )
-      @ddocx.DocxInline::FootnoteRef(id) => {
+      FootnoteRef(id) => {
         let marker = docx_note_marker_label(
           state.footnote_labels.get(id).unwrap_or(id),
           "footnote",
@@ -353,7 +352,7 @@ fn lower_docx_inlines(
         plain.write_string(marker)
         rich_inlines.push(marker_inline)
       }
-      @ddocx.DocxInline::EndnoteRef(id) => {
+      EndnoteRef(id) => {
         let marker = docx_note_marker_label(
           state.endnote_labels.get(id).unwrap_or(id),
           "endnote",
@@ -368,7 +367,7 @@ fn lower_docx_inlines(
         plain.write_string(marker)
         rich_inlines.push(marker_inline)
       }
-      @ddocx.DocxInline::CommentRef(id) => {
+      CommentRef(id) => {
         let marker = docx_note_marker_label(
           state.comment_labels.get(id).unwrap_or(id),
           "comment",
@@ -392,8 +391,8 @@ fn lower_docx_inlines(
         rich_inlines.push(marker_inline)
         pending_space_before_comment = false
       }
-      @ddocx.DocxInline::StructuralMarker(_) => ()
-      @ddocx.DocxInline::TextBoxRef(textbox_ref) =>
+      StructuralMarker(_) => ()
+      TextBoxRef(textbox_ref) =>
         ignore(
           append_textbox_inline_if_available(
             state,
@@ -406,11 +405,11 @@ fn lower_docx_inlines(
             tracked_change_count_ref,
           ),
         )
-      @ddocx.DocxInline::UnsupportedInline(_) =>
+      UnsupportedInline(_) =>
         append_plain_and_rich(
           plain, rich_inlines, "[unsupported DOCX inline]", inline_source_ref,
         )
-      @ddocx.DocxInline::Unsupported(_) => ()
+      Unsupported(_) => ()
     }
   }
   ignore(pending_space_before_comment)
@@ -443,7 +442,7 @@ fn lower_docx_media_inline(
   alternate_media : Array[@ddocx.DocxMediaRef],
 ) -> Int {
   match media.target_mode {
-    Some(@ddocx.DocxTargetMode::External) => {
+    Some(External) => {
       state.diagnostics.warnings.push(
         "docx external media is no-fetch and not materialized",
       )
@@ -512,7 +511,7 @@ fn lower_docx_media_inline(
 fn docx_paragraph_is_image_only(inline : DocxInlineLowering) -> Bool {
   inline.image_count == 1 &&
   inline.rich_inlines.length() == 1 &&
-  inline.rich_inlines[0].kind == @core.InlineKind::Image
+  inline.rich_inlines[0].kind == Image
 }
 
 ///|
@@ -523,7 +522,7 @@ fn lower_docx_image_only_paragraph(
   source_ref : @core.SourceRef,
 ) -> @core.CoreBlock {
   let image = inline.rich_inlines[0]
-  let block = @core.make_block(@core.BlockKind::Image, "", source_ref~)
+  let block = @core.make_block(Image, "", source_ref~)
   block.attrs.set("path", image.href.unwrap_or("#"))
   block.attrs.set("alt", image.text)
   match image.title {
@@ -553,11 +552,7 @@ fn ensure_docx_asset_ref(
     None => ()
   }
   let asset_id = "docx:" + target_part
-  let asset = @core.make_asset_ref(
-    @core.AssetKind::Image,
-    asset_id,
-    source_ref~,
-  )
+  let asset = @core.make_asset_ref(Image, asset_id, source_ref~)
   let next_asset = {
     ..asset,
     path: Some(output_path),
@@ -567,7 +562,7 @@ fn ensure_docx_asset_ref(
   next_asset.attrs.set("source_path", target_part)
   next_asset.attrs.set("zip_entry_path", target_part)
   next_asset.attrs.set("zip_container_format", "docx")
-  match state.source.path {
+  match @input.input_path(state.source) {
     Some(path) => next_asset.attrs.set("zip_container_path", path)
     None => ()
   }

@@ -423,26 +423,20 @@ fn pdf_native_header_footer_candidate_json(
   candidate : PdfNativeHeaderFooterLineCandidate,
 ) -> @core.JsonValue {
   let payload : Map[String, @core.JsonValue] = Map([])
-  payload.set("kind", @core.JsonValue::String(candidate.kind))
-  payload.set(
-    "normalized_text",
-    @core.JsonValue::String(candidate.normalized_text),
-  )
-  payload.set("text", @core.JsonValue::String(candidate.text))
-  payload.set(
-    "page_count",
-    @core.JsonValue::Number(candidate.page_count.to_string()),
-  )
+  payload.set("kind", String(candidate.kind))
+  payload.set("normalized_text", String(candidate.normalized_text))
+  payload.set("text", String(candidate.text))
+  payload.set("page_count", Number(candidate.page_count.to_string()))
   payload.set("pages", pdf_native_int_array_json(candidate.pages))
   payload.set("bbox", pdf_native_bbox_json(candidate.representative_bbox))
-  payload.set("confidence", @core.JsonValue::String(candidate.confidence))
-  payload.set("reason", @core.JsonValue::String(candidate.reason))
+  payload.set("confidence", String(candidate.confidence))
+  payload.set("reason", String(candidate.reason))
   match candidate.representative_source_ref {
     Some(source_ref) =>
       payload.set("source_ref", pdf_native_source_ref_json(source_ref))
     None => ()
   }
-  @core.JsonValue::Object(payload)
+  Object(payload)
 }
 
 ///|
@@ -510,26 +504,24 @@ fn pdf_native_line_candidate_source_ref(
 fn pdf_native_source_ref_json(source_ref : @core.SourceRef) -> @core.JsonValue {
   let payload : Map[String, @core.JsonValue] = Map([])
   match source_ref.file_id {
-    Some(file_id) => payload.set("file_id", @core.JsonValue::String(file_id))
+    Some(file_id) => payload.set("file_id", String(file_id))
     None => ()
   }
   match source_ref.format {
-    Some(format) => payload.set("format", @core.JsonValue::String(format))
+    Some(format) => payload.set("format", String(format))
     None => ()
   }
   match source_ref.page {
-    Some(page_no) =>
-      payload.set("page", @core.JsonValue::Number(page_no.to_string()))
+    Some(page_no) => payload.set("page", Number(page_no.to_string()))
     None => ()
   }
   match source_ref.line_start {
     Some(line_start) =>
-      payload.set("line_start", @core.JsonValue::Number(line_start.to_string()))
+      payload.set("line_start", Number(line_start.to_string()))
     None => ()
   }
   match source_ref.line_end {
-    Some(line_end) =>
-      payload.set("line_end", @core.JsonValue::Number(line_end.to_string()))
+    Some(line_end) => payload.set("line_end", Number(line_end.to_string()))
     None => ()
   }
   match source_ref.bbox {
@@ -538,19 +530,17 @@ fn pdf_native_source_ref_json(source_ref : @core.SourceRef) -> @core.JsonValue {
   }
   let extra_entries : Map[String, @core.JsonValue] = Map([])
   for entry in source_ref.extra.to_array() {
-    extra_entries.set(entry.0, @core.JsonValue::String(entry.1))
+    extra_entries.set(entry.0, String(entry.1))
   }
   if extra_entries.length() > 0 {
-    payload.set("extra", @core.JsonValue::Object(extra_entries))
+    payload.set("extra", Object(extra_entries))
   }
-  @core.JsonValue::Object(payload)
+  Object(payload)
 }
 
 ///|
 fn pdf_native_int_array_json(values : Array[Int]) -> @core.JsonValue {
-  @core.JsonValue::Array(
-    values.map(value => @core.JsonValue::Number(value.to_string())),
-  )
+  Array(values.map(value => Number(value.to_string())))
 }
 
 ///|
@@ -694,20 +684,18 @@ fn pdf_native_line_matches_header_footer_candidate(
   let normalized_text = pdf_native_header_footer_normalized_text(text)
   for candidate in summary.candidates {
     match candidate {
-      @core.JsonValue::Object(payload) => {
+      Object(payload) => {
         let same_text = payload.get("normalized_text") ==
-          Some(@core.JsonValue::String(normalized_text))
+          Some(String(normalized_text))
         let same_bbox = payload.get("bbox") ==
           Some(pdf_native_bbox_json(line.bbox))
         let same_line = match (payload.get("source_ref"), source_ref) {
-          (Some(@core.JsonValue::Object(candidate_ref)), Some(current_ref)) =>
+          (Some(Object(candidate_ref)), Some(current_ref)) =>
             candidate_ref.get("page") ==
-            current_ref.page.map(page => {
-              @core.JsonValue::Number(page.to_string())
-            }) &&
+            current_ref.page.map(page => Number(page.to_string())) &&
             candidate_ref.get("line_start") ==
             current_ref.line_start.map(line_start => {
-              @core.JsonValue::Number(line_start.to_string())
+              Number(line_start.to_string())
             })
           _ => false
         }
@@ -944,36 +932,28 @@ fn pdf_native_table_region_candidate_json(
   candidate : PdfNativeTableRegionCandidate,
 ) -> @core.JsonValue {
   let payload : Map[String, @core.JsonValue] = Map([])
-  payload.set("page", @core.JsonValue::Number(candidate.page_no.to_string()))
+  payload.set("page", Number(candidate.page_no.to_string()))
   payload.set("bbox", pdf_native_bbox_json(candidate.bbox))
-  payload.set(
-    "row_count",
-    @core.JsonValue::Number(candidate.row_count.to_string()),
-  )
+  payload.set("row_count", Number(candidate.row_count.to_string()))
   payload.set(
     "column_alignment_count",
-    @core.JsonValue::Number(candidate.column_alignment_count.to_string()),
+    Number(candidate.column_alignment_count.to_string()),
   )
   if candidate.alignment_xs.length() > 0 {
     payload.set(
       "alignment_xs",
-      @core.JsonValue::Array(
-        candidate.alignment_xs.map(value => {
-          @core.JsonValue::Number(value.to_string())
-        }),
-      ),
+      Array(candidate.alignment_xs.map(value => Number(value.to_string()))),
     )
   }
-  payload.set("confidence", @core.JsonValue::String(candidate.confidence))
-  payload.set("reason", @core.JsonValue::String(candidate.reason))
+  payload.set("confidence", String(candidate.confidence))
+  payload.set("reason", String(candidate.reason))
   match candidate.line_start {
     Some(line_start) =>
-      payload.set("line_start", @core.JsonValue::Number(line_start.to_string()))
+      payload.set("line_start", Number(line_start.to_string()))
     None => ()
   }
   match candidate.line_end {
-    Some(line_end) =>
-      payload.set("line_end", @core.JsonValue::Number(line_end.to_string()))
+    Some(line_end) => payload.set("line_end", Number(line_end.to_string()))
     None => ()
   }
   if candidate.reading_order_indices.length() > 0 {
@@ -985,14 +965,14 @@ fn pdf_native_table_region_candidate_json(
   if candidate.source_refs.length() > 0 {
     payload.set(
       "source_refs",
-      @core.JsonValue::Array(
+      Array(
         candidate.source_refs.map(source_ref => {
           pdf_native_source_ref_json(source_ref)
         }),
       ),
     )
   }
-  @core.JsonValue::Object(payload)
+  Object(payload)
 }
 
 ///|
@@ -1000,56 +980,44 @@ fn pdf_native_table_region_candidates_from_summary(
   summary : PdfNativeTableCandidateSummary,
   policy : @parser.PdfTableReconstructionPolicy,
 ) -> Array[PdfNativeTableRegionCandidate] {
-  if policy != @parser.PdfTableReconstructionPolicy::InternalSimpleRowsOnly {
+  if policy != InternalSimpleRowsOnly {
     return []
   }
   let regions : Array[PdfNativeTableRegionCandidate] = []
   for item in summary.candidates {
     match item {
-      @core.JsonValue::Object(payload) => {
+      Object(payload) => {
         let page_no = match payload.get("page") {
-          Some(@core.JsonValue::Number(value)) =>
-            @string.parse_int(value) catch {
-              _ => -1
-            }
+          Some(Number(value)) => @string.parse_int(value) catch { _ => -1 }
           _ => -1
         }
         if page_no <= 0 {
           continue
         }
         let bbox = match payload.get("bbox") {
-          Some(@core.JsonValue::Object(bbox_payload)) =>
+          Some(Object(bbox_payload)) =>
             pdf_native_bbox_from_json_object(bbox_payload)
           _ => None
         }
         let row_count = match payload.get("row_count") {
-          Some(@core.JsonValue::Number(value)) =>
-            @string.parse_int(value) catch {
-              _ => 0
-            }
+          Some(Number(value)) => @string.parse_int(value) catch { _ => 0 }
           _ => 0
         }
         let column_alignment_count = match
           payload.get("column_alignment_count") {
-          Some(@core.JsonValue::Number(value)) =>
-            @string.parse_int(value) catch {
-              _ => 0
-            }
+          Some(Number(value)) => @string.parse_int(value) catch { _ => 0 }
           _ => 0
         }
         let confidence = match payload.get("confidence") {
-          Some(@core.JsonValue::String(value)) => value
+          Some(String(value)) => value
           _ => "low"
         }
         let alignment_xs = match payload.get("alignment_xs") {
-          Some(@core.JsonValue::Array(values)) =>
+          Some(Array(values)) =>
             values
             .map(item => {
               match item {
-                @core.JsonValue::Number(value) =>
-                  @string.parse_double(value) catch {
-                    _ => -1.0
-                  }
+                Number(value) => @string.parse_double(value) catch { _ => -1.0 }
                 _ => -1.0
               }
             })
@@ -1057,25 +1025,23 @@ fn pdf_native_table_region_candidates_from_summary(
           _ => []
         }
         let reason = match payload.get("reason") {
-          Some(@core.JsonValue::String(value)) => value
+          Some(String(value)) => value
           _ => "unknown"
         }
         let line_start = match payload.get("line_start") {
-          Some(@core.JsonValue::Number(value)) =>
-            Some(@string.parse_int(value) catch { _ => 0 })
+          Some(Number(value)) => Some(@string.parse_int(value) catch { _ => 0 })
           _ => None
         }
         let line_end = match payload.get("line_end") {
-          Some(@core.JsonValue::Number(value)) =>
-            Some(@string.parse_int(value) catch { _ => 0 })
+          Some(Number(value)) => Some(@string.parse_int(value) catch { _ => 0 })
           _ => None
         }
         let source_refs = match payload.get("source_refs") {
-          Some(@core.JsonValue::Array(values)) =>
+          Some(Array(values)) =>
             values
             .map(item => {
               match item {
-                @core.JsonValue::Object(source_ref_payload) =>
+                Object(source_ref_payload) =>
                   pdf_native_source_ref_from_json_object(source_ref_payload)
                 _ => None
               }
@@ -1084,14 +1050,11 @@ fn pdf_native_table_region_candidates_from_summary(
           _ => []
         }
         let reading_order_indices = match payload.get("reading_order_indices") {
-          Some(@core.JsonValue::Array(values)) =>
+          Some(Array(values)) =>
             values
             .map(item => {
               match item {
-                @core.JsonValue::Number(value) =>
-                  @string.parse_int(value) catch {
-                    _ => -1
-                  }
+                Number(value) => @string.parse_int(value) catch { _ => -1 }
                 _ => -1
               }
             })

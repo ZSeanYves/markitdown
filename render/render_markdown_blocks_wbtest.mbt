@@ -1,13 +1,11 @@
 ///|
 fn markdown_test_cell(text : String) -> @core.CoreBlock {
-  @core.make_block(@core.BlockKind::TableCell, text)
+  @core.make_block(TableCell, text)
 }
 
 ///|
 test "markdown large repeated leaves reuse exact rendered templates" {
-  assert_true(
-    !markdown_needs_blank_line_between(None, @core.BlockKind::Paragraph),
-  )
+  assert_true(!markdown_needs_blank_line_between(None, Paragraph))
   let blocks : Array[@core.CoreBlock] = Array::new(capacity=1025)
   for i in 0..<1025 {
     let text = if i % 2 == 0 {
@@ -16,7 +14,7 @@ test "markdown large repeated leaves reuse exact rendered templates" {
       "Second repeated paragraph with # literal prefix."
     }
     blocks.push(
-      @core.make_block(@core.BlockKind::Paragraph, text)
+      @core.make_block(Paragraph, text)
       |> @core.block_with_attr("literal", "true"),
     )
   }
@@ -37,36 +35,20 @@ test "markdown event renderer writes subtitle records without rebuilding blocks"
   source_ref.extra.set("ir_event_family", "subtitle")
   source_ref.extra.set("ir_block_attr_literal", "true")
   let events : Array[@core.CoreEvent] = [
+    { kind: StartBlock(BlockQuote), text: "", source_ref: Some(source_ref) },
     {
-      kind: @core.EventKind::StartBlock(@core.BlockKind::BlockQuote),
-      text: "",
-      source_ref: Some(source_ref),
-    },
-    {
-      kind: @core.EventKind::StartBlock(@core.BlockKind::Heading),
+      kind: StartBlock(Heading),
       text: "00:00:00,000 --> 00:00:02,000",
       source_ref: Some(source_ref),
     },
+    { kind: EndBlock(Heading), text: "", source_ref: Some(source_ref) },
     {
-      kind: @core.EventKind::EndBlock(@core.BlockKind::Heading),
-      text: "",
-      source_ref: Some(source_ref),
-    },
-    {
-      kind: @core.EventKind::StartBlock(@core.BlockKind::Paragraph),
+      kind: StartBlock(Paragraph),
       text: "Hello world.\n# literal",
       source_ref: Some(source_ref),
     },
-    {
-      kind: @core.EventKind::EndBlock(@core.BlockKind::Paragraph),
-      text: "",
-      source_ref: Some(source_ref),
-    },
-    {
-      kind: @core.EventKind::EndBlock(@core.BlockKind::BlockQuote),
-      text: "",
-      source_ref: Some(source_ref),
-    },
+    { kind: EndBlock(Paragraph), text: "", source_ref: Some(source_ref) },
+    { kind: EndBlock(BlockQuote), text: "", source_ref: Some(source_ref) },
   ]
   inspect(
     render_markdown_events(events),
@@ -76,15 +58,15 @@ test "markdown event renderer writes subtitle records without rebuilding blocks"
 
 ///|
 test "markdown block renderer formats nested ordered lists" {
-  let nested = @core.make_block(@core.BlockKind::ListItem, "nested *item*")
-  let child_list = @core.make_block(@core.BlockKind::List, "")
+  let nested = @core.make_block(ListItem, "nested *item*")
+  let child_list = @core.make_block(List, "")
     |> @core.block_with_children([nested])
-  let first = @core.make_block(@core.BlockKind::ListItem, "first")
+  let first = @core.make_block(ListItem, "first")
     |> @core.block_with_attr("stable_ordered_marker", "true")
     |> @core.block_with_attr("ordered_indent_step", "4")
     |> @core.block_with_children([child_list])
-  let second = @core.make_block(@core.BlockKind::ListItem, "second")
-  let list = @core.make_block(@core.BlockKind::List, "")
+  let second = @core.make_block(ListItem, "second")
+  let list = @core.make_block(List, "")
     |> @core.block_with_attr("ordered", "true")
     |> @core.block_with_children([first, second])
   let rendered = render_markdown_blocks([list])
@@ -98,14 +80,14 @@ test "markdown block renderer emits HTML tables for spans" {
   let spanning = markdown_test_cell("A < B & C")
     |> @core.block_with_attr("rowspan", "2")
     |> @core.block_with_attr("colspan", "\"2\"")
-  let header = @core.make_block(@core.BlockKind::TableRow, "")
+  let header = @core.make_block(TableRow, "")
     |> @core.block_with_children([spanning, markdown_test_cell("Header")])
-  let body = @core.make_block(@core.BlockKind::TableRow, "")
+  let body = @core.make_block(TableRow, "")
     |> @core.block_with_children([
       markdown_test_cell("Body"),
       markdown_test_cell("Value"),
     ])
-  let table = @core.make_block(@core.BlockKind::Table, "")
+  let table = @core.make_block(Table, "")
     |> @core.block_with_attr("render_html_table", "true")
     |> @core.block_with_attr("header_rows", "1")
     |> @core.block_with_children([header, body])
@@ -119,13 +101,15 @@ test "markdown block renderer emits HTML tables for spans" {
 
 ///|
 test "markdown block renderer expands sparse rows and synthetic headers" {
-  let row = @core.make_block(@core.BlockKind::TableRow, "")
+  let left = markdown_test_cell("left\nline")
+    |> @core.block_with_attr("column_index", "1")
+  let right = markdown_test_cell("right\tvalue")
+    |> @core.block_with_attr("column_index", "3")
+  let row = @core.make_block(TableRow, "")
     |> @core.block_with_attr("sparse_cell_columns", "true")
     |> @core.block_with_attr("declared_column_count", "3")
-    |> @core.block_with_attr(
-      "sparse_row_payload", "1\tleft\\nline\n3\tright\\tvalue",
-    )
-  let table = @core.make_block(@core.BlockKind::Table, "")
+    |> @core.block_with_children([left, right])
+  let table = @core.make_block(Table, "")
     |> @core.block_with_attr("header_rows", "0")
     |> @core.block_with_children([row])
   let rendered = render_markdown_block(table)
@@ -145,7 +129,7 @@ test "markdown block renderer handles rich inline annotations and footnotes" {
     |> @core.inline_with_attr("annotation_marker", "[^comment]")
   let literal = @core.make_inline_text("*literal*")
     |> @core.inline_with_attr("render_literal", "true")
-  let paragraph = @core.make_block(@core.BlockKind::Paragraph, "")
+  let paragraph = @core.make_block(Paragraph, "")
     |> @core.block_with_attr("note_definition_id", "note")
     |> @core.block_with_rich_inlines(
       Some([
@@ -166,16 +150,13 @@ test "markdown block renderer handles rich inline annotations and footnotes" {
 
 ///|
 test "markdown block renderer handles quotes frontmatter and images" {
-  let quote = @core.make_block(
-      @core.BlockKind::BlockQuote,
-      "quoted\ncontinuation",
-    )
+  let quote = @core.make_block(BlockQuote, "quoted\ncontinuation")
     |> @core.block_with_attr("literal", "true")
     |> @core.block_with_attr("semantic_family", "rst")
-  let frontmatter = @core.make_block(@core.BlockKind::Raw, "title: Fixture")
+  let frontmatter = @core.make_block(Raw, "title: Fixture")
     |> @core.block_with_attr("raw_kind", "markdown_frontmatter")
     |> @core.block_with_attr("frontmatter_marker", "+++")
-  let image = @core.make_block(@core.BlockKind::Image, "")
+  let image = @core.make_block(Image, "")
     |> @core.block_with_attr("path", "asset.png")
     |> @core.block_with_attr("alt", "A *diagram*")
     |> @core.block_with_attr("title", "Title")
@@ -189,15 +170,15 @@ test "markdown block renderer handles quotes frontmatter and images" {
 
 ///|
 test "markdown block renderer covers empty and text-row table fallbacks" {
-  let empty = @core.make_block(@core.BlockKind::Table, "fallback")
+  let empty = @core.make_block(Table, "fallback")
   assert_true(render_markdown_block(empty).contains("```text"))
-  let zero_row = @core.make_block(@core.BlockKind::TableRow, "")
-  let zero_table = @core.make_block(@core.BlockKind::Table, "")
+  let zero_row = @core.make_block(TableRow, "")
+  let zero_table = @core.make_block(Table, "")
     |> @core.block_with_children([zero_row])
   assert_true(render_markdown_block(zero_table).contains("```text"))
-  let header = @core.make_block(@core.BlockKind::TableRow, "A|B")
-  let wide = @core.make_block(@core.BlockKind::TableRow, "1|2|3")
-  let table = @core.make_block(@core.BlockKind::Table, "")
+  let header = @core.make_block(TableRow, "A|B")
+  let wide = @core.make_block(TableRow, "1|2|3")
+  let table = @core.make_block(Table, "")
     |> @core.block_with_attr("header_rows", "invalid")
     |> @core.block_with_attr("table_column_count", "invalid")
     |> @core.block_with_children([header, wide])
@@ -222,12 +203,12 @@ test "markdown block renderer covers sparse child cells and safe whitespace" {
     |> @core.block_with_rich_inlines(Some([@core.make_inline_text("right")]))
   let invalid = markdown_test_cell("ignored")
     |> @core.block_with_attr("column_index", "0")
-  let row = @core.make_block(@core.BlockKind::TableRow, "")
+  let row = @core.make_block(TableRow, "")
     |> @core.block_with_attr("sparse_cell_columns", "true")
     |> @core.block_with_children([first, rich, invalid])
   assert_eq(sparse_table_row_width(row), 3)
   assert_true(sparse_table_row_cells(row) == ["left", "", "right"])
-  let empty_sparse = @core.make_block(@core.BlockKind::TableRow, "")
+  let empty_sparse = @core.make_block(TableRow, "")
     |> @core.block_with_attr("sparse_cell_columns", "true")
   assert_eq(sparse_table_row_cells(empty_sparse).length(), 0)
   assert_eq(safe_markdown_table_cell("a\n   b  "), "a<br>b")
@@ -236,18 +217,18 @@ test "markdown block renderer covers sparse child cells and safe whitespace" {
 
 ///|
 test "markdown block renderer covers quote children and rich quote" {
-  let list = @core.make_block(@core.BlockKind::List, "")
+  let list = @core.make_block(List, "")
     |> @core.block_with_children([
-      @core.make_block(@core.BlockKind::ListItem, "one"),
-      @core.make_block(@core.BlockKind::ListItem, "two"),
+      @core.make_block(ListItem, "one"),
+      @core.make_block(ListItem, "two"),
     ])
-  let paragraph = @core.make_block(@core.BlockKind::Paragraph, "body")
-  let quote = @core.make_block(@core.BlockKind::BlockQuote, "")
+  let paragraph = @core.make_block(Paragraph, "body")
+  let quote = @core.make_block(BlockQuote, "")
     |> @core.block_with_children([list, paragraph])
   let rendered = render_markdown_block(quote)
   assert_true(rendered.contains("> - one"))
   assert_true(rendered.contains("> body"))
-  let rich_quote = @core.make_block(@core.BlockKind::BlockQuote, "")
+  let rich_quote = @core.make_block(BlockQuote, "")
     |> @core.block_with_rich_inlines(
       Some([@core.make_inline_text("rich *quote*")]),
     )
@@ -260,24 +241,24 @@ test "markdown block renderer covers quote children and rich quote" {
 
 ///|
 test "markdown block renderer covers literal direct and generic variants" {
-  let empty_paragraph = @core.make_block(@core.BlockKind::Paragraph, "")
+  let empty_paragraph = @core.make_block(Paragraph, "")
   assert_true(!write_markdown_block_to(StringBuilder::new(), empty_paragraph))
-  let literal = @core.make_block(@core.BlockKind::Paragraph, "# one\n> two")
+  let literal = @core.make_block(Paragraph, "# one\n> two")
     |> @core.block_with_attr("literal", "true")
   assert_eq(render_markdown_block(literal), "\\# one\n\\> two")
   let raw_literal = @core.block_with_attr(
     literal, "markdown_literal_raw", "true",
   )
   assert_eq(render_markdown_block(raw_literal), "# one\n> two")
-  let note = @core.make_block(@core.BlockKind::Paragraph, "note body")
+  let note = @core.make_block(Paragraph, "note body")
     |> @core.block_with_attr("note_definition_id", "n")
   assert_eq(render_markdown_block(note), "[^n]: note body")
-  let heading = @core.make_block(@core.BlockKind::Heading, "*heading*")
+  let heading = @core.make_block(Heading, "*heading*")
   assert_eq(render_markdown_block(heading), "# \\*heading\\*")
-  let empty_frontmatter = @core.make_block(@core.BlockKind::Raw, "")
+  let empty_frontmatter = @core.make_block(Raw, "")
     |> @core.block_with_attr("raw_kind", "markdown_frontmatter")
   assert_eq(render_markdown_block(empty_frontmatter), "---\n---")
-  let generic = @core.make_block(@core.BlockKind::Section, "section")
+  let generic = @core.make_block(Section, "section")
   assert_eq(render_markdown_block(generic), "section")
   let generic_children = @core.block_with_children(generic, [note])
   assert_eq(render_markdown_block(generic_children), "[^n]: note body")
@@ -285,18 +266,18 @@ test "markdown block renderer covers literal direct and generic variants" {
 
 ///|
 test "markdown block renderer covers list child blocks and inline fallbacks" {
-  let item = @core.make_block(@core.BlockKind::ListItem, "item")
+  let item = @core.make_block(ListItem, "item")
     |> @core.block_with_attr("ordered", "true")
     |> @core.block_with_attr("ordered_indent_step", "0")
     |> @core.block_with_children([
-      @core.make_block(@core.BlockKind::ListItem, "child"),
-      @core.make_block(@core.BlockKind::Paragraph, "detail\nnext"),
+      @core.make_block(ListItem, "child"),
+      @core.make_block(Paragraph, "detail\nnext"),
     ])
   let rendered = render_markdown_block(item)
   assert_true(rendered.contains("1. item"))
   assert_true(rendered.contains("  - child"))
   assert_true(rendered.contains("  detail next"))
-  let empty_list = @core.make_block(@core.BlockKind::List, "single")
+  let empty_list = @core.make_block(List, "single")
   assert_eq(render_markdown_block(empty_list), "- single")
   let empty_link = @core.make_inline_link("label", "")
   assert_eq(render_markdown_inline_with_format(empty_link, None), "label")
@@ -317,10 +298,10 @@ test "markdown block renderer covers list child blocks and inline fallbacks" {
 
 ///|
 test "markdown block renderer covers direct code image and HTML escaping" {
-  let code = @core.make_block(@core.BlockKind::Code, "a```b")
+  let code = @core.make_block(Code, "a```b")
     |> @core.block_with_attr("info", "txt")
   assert_true(render_markdown_block(code).has_prefix("````txt"))
-  let image = @core.make_block(@core.BlockKind::Image, "")
+  let image = @core.make_block(Image, "")
     |> @core.block_with_attr("literal", "true")
     |> @core.block_with_attr("caption", "literal *caption*")
   assert_true(render_markdown_block(image).contains("literal *caption*"))

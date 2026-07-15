@@ -15,9 +15,9 @@ pub type OutputMode = @product.OutputMode
 ///|
 fn product_convert_mode(mode : ConvertMode) -> @product.ConvertMode {
   match mode {
-    ConvertMode::Balanced => @product.ConvertMode::Balanced
-    ConvertMode::Accurate => @product.ConvertMode::Accurate
-    ConvertMode::Stream => @product.ConvertMode::Stream
+    Balanced => Balanced
+    Accurate => Accurate
+    Stream => Stream
   }
 }
 
@@ -118,38 +118,8 @@ fn make_probe_failure(stage : String, detail : String) -> ProbeFailure {
 }
 
 ///|
-/// Public convert-layer copy of product resource ceilings.
-///
-/// Keeping a local copy lets the public API stay stable even if internal
-/// product options gain additional fields later.
-pub struct ResourceLimits {
-  max_rows : Int
-  max_cols : Int
-  max_cells : Int
-  max_line_chars : Int
-}
-
-///|
-fn resource_limits_from_product(
-  limits : @product.ResourceLimits,
-) -> ResourceLimits {
-  {
-    max_rows: limits.max_rows,
-    max_cols: limits.max_cols,
-    max_cells: limits.max_cells,
-    max_line_chars: limits.max_line_chars,
-  }
-}
-
-///|
-fn product_resource_limits(limits : ResourceLimits) -> @product.ResourceLimits {
-  @product.make_resource_limits(
-    limits.max_rows,
-    limits.max_cols,
-    limits.max_cells,
-    max_line_chars=limits.max_line_chars,
-  )
-}
+/// High-level convert-layer alias of the product resource ceilings.
+pub type ResourceLimits = @product.ResourceLimits
 
 ///|
 /// High-level convert API options accepted by `convert_input`.
@@ -230,7 +200,7 @@ fn product_options_from_convert_options(
 ) -> @product.ProductOptions {
   @product.make_product_options(
     product_convert_mode(options.mode),
-    product_resource_limits(options.limits),
+    options.limits,
     fidelity_mode=options.fidelity_mode,
     output_mode=options.output_mode,
     stream_requested=options.stream_requested,
@@ -345,6 +315,7 @@ pub(all) enum ConvertError {
   DetectFailed(String)
   ParseFailed(String)
   RenderFailed(String)
+  ResourceLimitExceeded(kind~ : String, observed~ : Int64, limit~ : Int64)
 } derive(Eq)
 
 ///|
@@ -353,6 +324,13 @@ pub impl Show for ConvertError with fn to_string(self : ConvertError) -> String 
     DetectFailed(msg) => "detect failed: " + msg
     ParseFailed(msg) => "parse failed: " + msg
     RenderFailed(msg) => "render failed: " + msg
+    ResourceLimitExceeded(kind~, observed~, limit~) =>
+      "resource limit exceeded: " +
+      kind +
+      "; observed=" +
+      observed.to_string() +
+      "; limit=" +
+      limit.to_string()
   }
 }
 
@@ -390,7 +368,7 @@ pub struct ConvertResult {
 /// Return the default convert-layer resource limits aligned with product
 /// defaults.
 pub fn default_resource_limits() -> ResourceLimits {
-  resource_limits_from_product(@product.default_resource_limits())
+  @product.default_resource_limits()
 }
 
 ///|
@@ -400,14 +378,22 @@ pub fn make_resource_limits(
   max_cols : Int,
   max_cells : Int,
   max_line_chars? : Int = 4000,
+  max_input_bytes? : Int64 = 512L * 1024L * 1024L,
+  max_asset_bytes? : Int64 = 32L * 1024L * 1024L,
+  max_total_asset_bytes? : Int64 = 128L * 1024L * 1024L,
+  external_command_timeout_ms? : Int = 300000,
+  max_external_output_bytes? : Int64 = 8L * 1024L * 1024L,
 ) -> ResourceLimits {
-  resource_limits_from_product(
-    @product.make_resource_limits(
-      max_rows,
-      max_cols,
-      max_cells,
-      max_line_chars~,
-    ),
+  @product.make_resource_limits(
+    max_rows,
+    max_cols,
+    max_cells,
+    max_line_chars~,
+    max_input_bytes~,
+    max_asset_bytes~,
+    max_total_asset_bytes~,
+    external_command_timeout_ms~,
+    max_external_output_bytes~,
   )
 }
 
@@ -416,15 +402,15 @@ pub fn make_resource_limits(
 pub fn default_convert_options() -> ConvertOptions {
   let product_options = @product.default_product_options()
   {
-    mode: ConvertMode::Balanced,
-    fidelity_mode: FidelityMode::Balanced,
-    output_mode: OutputMode::Markdown,
+    mode: Balanced,
+    fidelity_mode: Balanced,
+    output_mode: Markdown,
     stream_requested: false,
-    output_format: OutputFormat::Markdown,
+    output_format: Markdown,
     explicit_format: None,
     ocr_options: @parser.default_ocr_options(),
     audio_options: @parser.default_audio_options(),
-    limits: resource_limits_from_product(product_options.limits),
+    limits: product_options.limits,
     rag_options: product_options.rag_options,
   }
 }
@@ -441,7 +427,7 @@ pub fn make_convert_options(
   audio_options? : @parser.AudioOptions = @parser.default_audio_options(),
   fidelity_mode? : FidelityMode = fidelity_mode_for_convert_mode(mode),
   output_mode? : OutputMode = output_mode_for_output_format(output_format),
-  stream_requested? : Bool = mode == ConvertMode::Stream,
+  stream_requested? : Bool = mode == Stream,
   rag_options? : @rag.RagOptions = @rag.default_rag_options(),
 ) -> ConvertOptions {
   {
@@ -486,9 +472,9 @@ pub fn output_mode_for_convert_mode(mode : ConvertMode) -> OutputMode {
 /// Map a public output format to the renderer-facing output mode.
 pub fn output_mode_for_output_format(format : OutputFormat) -> OutputMode {
   match format {
-    OutputFormat::DebugJson => OutputMode::Debug
-    OutputFormat::RagJson => OutputMode::Rag
-    _ => OutputMode::Markdown
+    DebugJson => Debug
+    RagJson => Rag
+    _ => Markdown
   }
 }
 
@@ -505,11 +491,11 @@ pub fn derived_convert_mode(
   stream_requested : Bool,
 ) -> ConvertMode {
   if stream_requested {
-    ConvertMode::Stream
+    Stream
   } else {
     match fidelity_mode {
-      FidelityMode::Accurate => ConvertMode::Accurate
-      FidelityMode::Balanced => ConvertMode::Balanced
+      Accurate => Accurate
+      Balanced => Balanced
     }
   }
 }

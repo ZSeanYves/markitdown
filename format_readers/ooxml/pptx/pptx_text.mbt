@@ -98,10 +98,7 @@ fn parse_runs(
       if gt < 0 {
         break
       }
-      out.push({
-        inlines: [PptxInline::Break],
-        source_key: pptx_source_key(part_name, key),
-      })
+      out.push({ inlines: [Break], source_key: pptx_source_key(part_name, key) })
       pos = gt + 1
     } else {
       match slice_full_element(paragraph_xml, next, kind) {
@@ -110,16 +107,13 @@ fn parse_runs(
           let link = resolve_run_hyperlink(ctx, part_name, block, key)
           let inlines : Array[PptxInline] = []
           match link {
-            Some(h) =>
-              if text != "" {
-                inlines.push(PptxInline::Hyperlink(h, text))
-              }
+            Some(h) => if text != "" { inlines.push(Hyperlink(h, text)) }
             None =>
               if text != "" {
                 if kind == "a:fld" {
-                  inlines.push(PptxInline::Field(text))
+                  inlines.push(Field(text))
                 } else {
-                  inlines.push(PptxInline::Text(text))
+                  inlines.push(Text(text))
                 }
               }
           }
@@ -178,27 +172,22 @@ fn read_list_hint(paragraph_xml : Bytes) -> PptxListHint? raise {
   if contains_bytes(paragraph_xml, pat("<a:buAutoNum")) {
     return Some({
       level,
-      bullet: Some(PptxBulletKind::Ordered),
+      bullet: Some(Ordered),
       source: "a:buAutoNum",
-      confidence: PptxConfidence::High,
+      confidence: High,
     })
   }
   if contains_bytes(paragraph_xml, pat("<a:buChar")) ||
     contains_bytes(paragraph_xml, pat("<a:buBlip")) {
     return Some({
       level,
-      bullet: Some(PptxBulletKind::Unordered),
+      bullet: Some(Unordered),
       source: "a:buChar",
-      confidence: PptxConfidence::High,
+      confidence: High,
     })
   }
   if level > 0 {
-    return Some({
-      level,
-      bullet: None,
-      source: "a:pPr/lvl",
-      confidence: PptxConfidence::Medium,
-    })
+    return Some({ level, bullet: None, source: "a:pPr/lvl", confidence: Medium })
   }
   None
 }
@@ -222,15 +211,15 @@ fn resolve_run_hyperlink(
             relationship_id: Some(rel_id),
             target: Some(rel.resolved_target),
             anchor,
-            is_external: rel.target_mode == PptxTargetMode::External,
+            is_external: rel.target_mode == External,
             broken: false,
             source_key: pptx_source_key(part_name, key + "/hlink"),
           })
         None => {
           ctx.warnings.push(
             pptx_warning(
-              PptxWarningKind::MissingRelationshipTarget,
-              PptxWarningSeverity::Warning,
+              MissingRelationshipTarget,
+              Warning,
               part_name,
               key,
               Some(rel_id),
@@ -295,7 +284,7 @@ fn collect_shape_hyperlinks(
                   relationship_id: Some(rel_id),
                   target: Some(rel.resolved_target),
                   anchor,
-                  is_external: rel.target_mode == PptxTargetMode::External,
+                  is_external: rel.target_mode == External,
                   broken: false,
                   source_key: pptx_source_key(
                     part_name,

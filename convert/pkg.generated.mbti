@@ -28,7 +28,7 @@ pub fn convert_provenance_to_json(ConvertProvenance) -> Json
 
 pub fn default_convert_options() -> ConvertOptions
 
-pub fn default_resource_limits() -> ResourceLimits
+pub fn default_resource_limits() -> @product.ResourceLimits
 
 pub fn derived_convert_mode(@product.FidelityMode, Bool) -> ConvertMode
 
@@ -36,9 +36,9 @@ pub fn fidelity_mode_for_convert_mode(ConvertMode) -> @product.FidelityMode
 
 pub fn fidelity_mode_name(@product.FidelityMode) -> String
 
-pub fn make_convert_options(ConvertMode, OutputFormat, @input.DetectedFormat?, @parser.OcrOptions, ResourceLimits, audio_options? : @parser.AudioOptions, fidelity_mode? : @product.FidelityMode, output_mode? : @product.OutputMode, stream_requested? : Bool, rag_options? : @rag.RagOptions) -> ConvertOptions
+pub fn make_convert_options(ConvertMode, OutputFormat, @input.DetectedFormat?, @parser.OcrOptions, @product.ResourceLimits, audio_options? : @parser.AudioOptions, fidelity_mode? : @product.FidelityMode, output_mode? : @product.OutputMode, stream_requested? : Bool, rag_options? : @rag.RagOptions) -> ConvertOptions
 
-pub fn make_resource_limits(Int, Int, Int, max_line_chars? : Int) -> ResourceLimits
+pub fn make_resource_limits(Int, Int, Int, max_line_chars? : Int, max_input_bytes? : Int64, max_asset_bytes? : Int64, max_total_asset_bytes? : Int64, external_command_timeout_ms? : Int, max_external_output_bytes? : Int64) -> @product.ResourceLimits
 
 pub fn output_mode_for_convert_mode(ConvertMode) -> @product.OutputMode
 
@@ -57,6 +57,7 @@ pub(all) enum ConvertError {
   DetectFailed(String)
   ParseFailed(String)
   RenderFailed(String)
+  ResourceLimitExceeded(kind~ : String, observed~ : Int64, limit~ : Int64)
 } derive(Eq)
 pub impl Show for ConvertError
 
@@ -80,7 +81,7 @@ pub struct ConvertOptions {
   explicit_format : @input.DetectedFormat?
   ocr_options : @parser.OcrOptions
   audio_options : @parser.AudioOptions
-  limits : ResourceLimits
+  limits : @product.ResourceLimits
   rag_options : @rag.RagOptions
 }
 
@@ -131,13 +132,6 @@ pub(all) enum OutputFormat {
   DebugJson
 } derive(Eq)
 
-pub struct ResourceLimits {
-  max_rows : Int
-  max_cols : Int
-  max_cells : Int
-  max_line_chars : Int
-}
-
 pub struct RoutePlan {
   detected_format : @input.DetectedFormat
   selected_route : String
@@ -169,6 +163,8 @@ pub using @product {type OutputMode}
 pub using @product {type ProbeSignalKind}
 
 pub using @product {type RenderProfile}
+
+pub using @product {type ResourceLimits}
 
 // Traits
 

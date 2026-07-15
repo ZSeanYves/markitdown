@@ -372,6 +372,39 @@ test "policy preset expands all configured scenario ids" {
 }
 
 ///|
+test "benchmark policy owns defaults RSS budgets and change-risk coverage" {
+  let policy = load_policy().unwrap()
+  assert_eq(policy.default_rss_limit_mb, 256)
+  assert_eq(rss_limit_mb(policy, "html", "huge"), 256)
+  assert_eq(rss_limit_mb(policy, "pdf", "large"), 256)
+  assert_eq(rss_limit_mb(policy, "xlsx", "huge"), 384)
+  assert_eq(rss_limit_mb(policy, "zip", "large"), 256)
+  let defaults = apply_policy_defaults(parse_run_options([]), policy)
+  assert_eq(defaults.repeat_count, 3)
+  assert_eq(defaults.warmup_count, 1)
+  assert_eq(defaults.timeout_ms, 60000)
+  let explicit_three = apply_policy_defaults(
+    parse_run_options(["--preset", "doctor", "--repeat", "3"]),
+    policy,
+  )
+  assert_eq(explicit_three.repeat_count, 3)
+  let change_risk_opts = apply_policy_defaults(
+    parse_run_options(["--preset", "change-risk"]),
+    policy,
+  )
+  let scenarios = resolve_scenarios(change_risk_opts, policy)
+  assert_eq(scenarios.length(), 8)
+  let formats : Array[String] = []
+  for scenario in scenarios {
+    formats.append(scenario.format_filters)
+  }
+  for
+    format in ["html", "pdf", "xlsx", "zip", "docx", "pptx", "eml", "markdown"] {
+    assert_true(formats.contains(format))
+  }
+}
+
+///|
 test "bench progress total counts process warmups and repeats plus engine repeats" {
   let policy = match load_policy() {
     Ok(value) => value
@@ -643,11 +676,8 @@ test "bench engine options enable product-default direct image OCR and explicit 
     "samples/fixtures/contracts/ocr/ocr_medium_self_multi_column_v1.png",
   )
   let options = bench_convert_options_for_row(row)
-  assert_true(
-    options.explicit_format ==
-    Some(@input.DetectedFormat::Image(@input.ImageFormat::Png)),
-  )
-  assert_true(options.ocr_options.intent == @parser.OcrIntent::Explicit)
+  assert_true(options.explicit_format == Some(Image(Png)))
+  assert_true(options.ocr_options.intent == Explicit)
 }
 
 ///|
@@ -669,11 +699,8 @@ test "bench engine options detect the project synthetic OCR image format" {
     "samples/fixtures/contracts/ocr/ocr_medium_self_multi_column_v1.png",
   )
   let options = bench_convert_options_for_row(row)
-  assert_true(
-    options.explicit_format ==
-    Some(@input.DetectedFormat::Image(@input.ImageFormat::Png)),
-  )
-  assert_true(options.ocr_options.intent == @parser.OcrIntent::Explicit)
+  assert_true(options.explicit_format == Some(Image(Png)))
+  assert_true(options.ocr_options.intent == Explicit)
 }
 
 ///|
@@ -781,8 +808,8 @@ test "report regeneration recomputes current truth summary from samples" {
     }),
     trust_status: "trusted",
     gate_summary: Json::object({ "status": "ok".to_json() }),
-    route_coverage_summary: Json::object({}),
-    truth_summary: Json::object({}),
+    route_coverage_summary: Json::empty_object(),
+    truth_summary: Json::empty_object(),
     diff_summary: None,
     scenarios: [],
     tools: [],
@@ -888,10 +915,7 @@ test "bench CLI normalizes executable and moon runner prefixes" {
   )
   assert_true(normalize_bench_args(["catalog"]) == ["catalog"])
   assert_true(unwrap_or_report(Ok(7), "ok") == Some(7))
-  let failed : Int? = unwrap_or_report(
-    Err(BenchError::InvalidArgument("bad")),
-    "error",
-  )
+  let failed : Int? = unwrap_or_report(Err(InvalidArgument("bad")), "error")
   assert_true(failed is None)
 }
 
@@ -961,7 +985,9 @@ test "benchmark engine samples cover success failure progress and resume" {
   assert_eq(samples.length(), 2)
   assert_true(samples.all(sample => sample.status == "ok"))
   assert_true(
-    samples.all(sample => sample.measurement_mode == "inprocess-engine"),
+    samples.all(sample => {
+      sample.measurement_mode == "inprocess-engine+process-rss"
+    }),
   )
   assert_true(samples.all(sample => sample.output_bytes > 0L))
   assert_true(samples.all(sample => sample.output_sha256 is Some(_)))
@@ -981,6 +1007,50 @@ test "benchmark engine samples cover success failure progress and resume" {
   assert_eq(missing.length(), 1)
   assert_eq(missing[0].status, "failed")
   assert_true(missing[0].error is Some(_))
+}
+
+///|
+test "benchmark engine RSS worker validates arguments and writes output" {
+  assert_eq(run_engine_worker([]), 2)
+  assert_eq(run_engine_worker(["unknown", "input", "output"]), 2)
+  let output = ".tmp/bench-test/engine-worker.md"
+  ensure_parent_dir(output) catch {
+    err => fail(err.to_string())
+  }
+  assert_eq(
+    run_engine_worker([
+      "markdown", "samples/fixtures/contracts/markdown/markdown_basic_heading_paragraph.md",
+      output,
+    ]),
+    0,
+  )
+  assert_true(@fs.read_file_to_string(output, encoding="utf8").length() > 0)
+  @fs.remove_file(output) catch {
+    _ => ()
+  }
+  assert_eq(
+    run_engine_worker(["markdown", "/definitely/missing/input.md", output]),
+    1,
+  )
+  assert_eq(
+    run_engine_worker([
+      "markdown", "samples/fixtures/contracts/markdown/markdown_basic_heading_paragraph.md",
+      ".tmp",
+    ]),
+    1,
+  )
+  let measured = measure_engine_worker_rss(
+    { ..execution_test_contract(), runner_path: "/usr/bin/true" },
+    execution_test_row(
+      "samples/fixtures/contracts/markdown/markdown_basic_heading_paragraph.md",
+      "engine-rss",
+    ),
+    ".tmp/bench-test/engine-rss.md",
+    ".tmp/bench-test/engine-rss.stdout",
+    ".tmp/bench-test/engine-rss.stderr",
+    1000,
+  )
+  assert_true(measured is Some(result) && result.data.exit_code == 0)
 }
 
 ///|
@@ -1272,6 +1342,7 @@ test "benchmark aggregation covers repeated partial failed groups and report ren
     execution_test_contract(),
     Some("contract"),
     None,
+    policy,
   )
   let markdown = render_markdown_report(summary)
   assert_true(markdown.contains("# Bench Report"))
@@ -1292,7 +1363,7 @@ test "benchmark performance gate enforces per-row 2x and per-format 3x" {
   }
   let failed = performance_gate_summary([moon, external_fast])
   match failed {
-    Json::Object(fields) => {
+    Object(fields) => {
       let performance = fields.get("status").unwrap()
       assert_true(performance == "fail".to_json())
       assert_true(fields.get("row_violation_count").unwrap() == (1).to_json())
@@ -1305,7 +1376,7 @@ test "benchmark performance gate enforces per-row 2x and per-format 3x" {
   let external_slow = { ..external_fast, median_wall_us: Some(400L) }
   let passed = performance_gate_summary([moon, external_slow])
   match passed {
-    Json::Object(fields) => {
+    Object(fields) => {
       assert_true(fields.get("status").unwrap() == "pass".to_json())
       assert_true(fields.get("row_violation_count").unwrap() == (0).to_json())
       assert_true(
@@ -1446,4 +1517,54 @@ test "benchmark tool registry and native measurement encoders cover all entries"
   assert_true(@measure.encode_c_path("/tmp/path").length() > 0)
   let started = @measure.monotonic_start()
   assert_true(@measure.monotonic_elapsed_us(started) >= 0.0)
+}
+
+///|
+test "benchmark timeout reaps the measured process group" {
+  let root = bench_test_tmp_root() + "/measure-process-group"
+  bench_recreate_clean_dir(root) catch {
+    err => fail("create process-group test root: " + err.to_string())
+  }
+  defer bench_cleanup_temp_dir(root)
+  let marker = root + "/orphan-marker"
+  let argv = [
+    "/bin/sh",
+    "-c",
+    "(sleep 0.2; printf orphan > " + marker + ") & wait",
+  ]
+  let argv_blob = @measure.encode_c_string_blob(argv)
+  let env_blob = @measure.encode_c_string_blob([])
+  let measured = @measure.native_measure_command(
+    @measure.make_native_measure_spec(
+      argv_blob,
+      argv_blob.length(),
+      argv.length(),
+      env_blob,
+      env_blob.length(),
+      0,
+      root + "/stdout.log",
+      root + "/stderr.log",
+      None,
+      50L,
+    ),
+  )
+  assert_true(measured.data.timed_out)
+  let wait_argv = ["/bin/sleep", "0.4"]
+  let wait_blob = @measure.encode_c_string_blob(wait_argv)
+  let waited = @measure.native_measure_command(
+    @measure.make_native_measure_spec(
+      wait_blob,
+      wait_blob.length(),
+      wait_argv.length(),
+      env_blob,
+      env_blob.length(),
+      0,
+      "/dev/null",
+      "/dev/null",
+      None,
+      2_000L,
+    ),
+  )
+  assert_eq(waited.data.exit_code, 0)
+  assert_true(!@fs.path_exists(marker))
 }

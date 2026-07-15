@@ -50,9 +50,9 @@ jobs:
       - name: Interfaces
         run: moon info && git diff --exit-code
       - name: Check
-        run: moon check
+        run: moon check --target all --warn-list +73 --deny-warn
       - name: Test
-        run: moon test
+        run: moon test --target all
 
   tooling:
     name: Python and shell tools
@@ -83,6 +83,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -92,6 +94,8 @@ jobs:
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
       - run: moon update
       - name: Run coverage gate
+        env:
+          MARKITDOWN_COVERAGE_BASELINE_REF: ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD^' }}
         run: |
           ./tools/regression/run_with_release_manifest.sh \
             --output .tmp/release/coverage.json \
@@ -215,7 +219,7 @@ jobs:
           set -euo pipefail
           mkdir -p .tmp/bench-ci
           disk=512
-          args=(--preset official-external-compare --limit 1)
+          args=(--preset change-risk)
           if [[ "${{ github.event_name }}" == schedule ]]; then
             disk=4096
             args=(--preset official-external-compare)

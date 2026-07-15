@@ -8,20 +8,16 @@ pub struct PreparedXlsxPackage {
 pub fn prepare_xlsx_package_from_source(
   source : @input.InputSource,
 ) -> Result[PreparedXlsxPackage, String] {
-  let bytes = match @input.read_input_bytes(source) {
-    Ok(payload) => payload
+  let prepared = match @zsource.prepare_zip_from_source(source) {
+    Ok(value) => value
     Err(err) => return Err(err)
   }
-  let prepared_source = if source.bytes is Some(_) {
-    source
-  } else {
-    @input.with_bytes_payload(source, bytes)
-  }
-  let pkg = try @ox.open_ooxml_package(bytes) |> Ok catch {
+  let pkg = try @ox.open_ooxml_archive(prepared.archive) |> Ok catch {
     err => Err(err.to_string())
   }
   match pkg {
-    Ok(value) => Ok({ prepared_source, opened_package: value })
+    Ok(value) =>
+      Ok({ prepared_source: prepared.prepared_source, opened_package: value })
     Err(err) => Err(err)
   }
 }

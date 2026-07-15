@@ -18,11 +18,11 @@ test "json parser handles escapes and unicode surrogate pairs" {
     "{\"text\":\"line\\nquote: \\\"hi\\\"\",\"emoji\":\"\\uD83D\\uDE00\"}",
   )
   match doc.root {
-    @json.JsonValue::Object(members) => {
+    Object(members) => {
       assert_eq(members[0].key, "text")
       assert_eq(members[1].key, "emoji")
       match members[1].value {
-        @json.JsonValue::String(s) => assert_eq(s, "😀")
+        String(s) => assert_eq(s, "😀")
         _ => fail("emoji field should stay string")
       }
     }
@@ -46,10 +46,8 @@ test "json malformed input fails closed and classifies" {
     is Err(_),
   )
 
-  let info = @json.classify_json_error(
-    @json.JsonError::ParseError("unexpected character"),
-  )
-  assert_true(info.kind == @json.JsonErrorKind::UnexpectedCharacter)
+  let info = @json.classify_json_error(ParseError("unexpected character"))
+  assert_true(info.kind == UnexpectedCharacter)
 }
 
 ///|
@@ -66,40 +64,34 @@ test "json parser handles number formats and trailing content errors" {
     is Err(_),
   )
 
-  let info = @json.classify_json_error(
-    @json.JsonError::ParseError("trailing content"),
-  )
-  assert_true(info.kind == @json.JsonErrorKind::TrailingContent)
+  let info = @json.classify_json_error(ParseError("trailing content"))
+  assert_true(info.kind == TrailingContent)
 }
 
 ///|
 test "json classifier covers malformed string and unicode cases" {
-  let bad_escape = @json.classify_json_error(
-    @json.JsonError::ParseError("invalid escape"),
-  )
-  assert_true(bad_escape.kind == @json.JsonErrorKind::InvalidEscape)
+  let bad_escape = @json.classify_json_error(ParseError("invalid escape"))
+  assert_true(bad_escape.kind == InvalidEscape)
 
   let bad_unicode = @json.classify_json_error(
-    @json.JsonError::ParseError("invalid unicode escape"),
+    ParseError("invalid unicode escape"),
   )
-  assert_true(bad_unicode.kind == @json.JsonErrorKind::InvalidUnicodeEscape)
+  assert_true(bad_unicode.kind == InvalidUnicodeEscape)
 
   let bad_surrogate = @json.classify_json_error(
-    @json.JsonError::ParseError("invalid unicode surrogate pair"),
+    ParseError("invalid unicode surrogate pair"),
   )
-  assert_true(
-    bad_surrogate.kind == @json.JsonErrorKind::InvalidUnicodeSurrogate,
-  )
+  assert_true(bad_surrogate.kind == InvalidUnicodeSurrogate)
 }
 
 ///|
 test "json parser stays model-only and does not lower to conversion policy" {
   let doc = @json.parse_json_document("[{\"name\":\"Ada\"},{\"name\":\"Bob\"}]")
   match doc.root {
-    @json.JsonValue::Array(values) => {
+    Array(values) => {
       assert_eq(values.length(), 2)
       match values[0] {
-        @json.JsonValue::Object(members) => assert_eq(members[0].key, "name")
+        Object(members) => assert_eq(members[0].key, "name")
         _ => fail("expected object element")
       }
     }
@@ -132,9 +124,9 @@ test "json stream parser emits structural events with pointers and summary" {
   assert_eq(streamed.summary.array_count, 1)
   assert_eq(streamed.summary.scalar_count, 5)
   assert_eq(streamed.summary.max_depth, 4)
-  assert_true(streamed.events[0].kind == @json.JsonStreamEventKind::ObjectStart)
+  assert_true(streamed.events[0].kind == ObjectStart)
   let key_event = streamed.events[1]
-  assert_true(key_event.kind == @json.JsonStreamEventKind::Key)
+  assert_true(key_event.kind == Key)
   assert_eq(key_event.pointer, "/name")
   assert_eq(key_event.text.unwrap_or(""), "name")
 }

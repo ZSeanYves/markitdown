@@ -229,11 +229,11 @@ test "docx parses two body paragraphs from generated package" {
   assert_eq(doc.main_part, "word/document.xml")
   assert_eq(doc.body.length(), 2)
   match doc.body[0] {
-    @docx.DocxBlock::Paragraph(p) => assert_eq(p.text, "First")
+    Paragraph(p) => assert_eq(p.text, "First")
     _ => fail("expected first paragraph")
   }
   match doc.body[1] {
-    @docx.DocxBlock::Paragraph(p) => {
+    Paragraph(p) => {
       assert_eq(p.text, "Second")
       assert_eq(p.source_key.block_index, 1)
     }
@@ -252,10 +252,10 @@ test "docx parses drawing media relationship target and image metadata" {
   )
   let doc = @docx.parse_docx_document_from_package(pkg)
   match doc.body[0] {
-    @docx.DocxBlock::Paragraph(p) => {
+    Paragraph(p) => {
       assert_eq(p.text, "[image: Diagram alt]")
       match p.inlines[0] {
-        @docx.DocxInline::Drawing(drawing) => {
+        Drawing(drawing) => {
           assert_true(drawing.owner_part == "word/document.xml")
           assert_true(drawing.descr == Some("Diagram alt"))
           assert_true(drawing.title == Some("Diagram title"))

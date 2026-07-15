@@ -92,9 +92,9 @@ fn mode_strategy_for(
   mode : @product.ConvertMode,
 ) -> ModeStrategyPolicy {
   match mode {
-    @product.ConvertMode::Balanced => policy.balanced
-    @product.ConvertMode::Accurate => policy.accurate
-    @product.ConvertMode::Stream => policy.stream
+    Balanced => policy.balanced
+    Accurate => policy.accurate
+    Stream => policy.stream
   }
 }
 
@@ -155,406 +155,396 @@ pub fn format_route_profile(
   format : @input.DetectedFormat,
 ) -> FormatRouteProfile {
   match format {
-    @input.DetectedFormat::Txt =>
+    Txt =>
       make_format_route_profile(
         format,
         true,
-        FormatRoute::StreamingEvent,
+        StreamingEvent,
         true,
-        @parser.ParserMode::StreamingEvent,
-        @parser.StreamingGranularity::Line,
+        StreamingEvent,
+        Line,
         "event_stream",
         "txt canonical line-event",
-        explicit_stream_route=Some(FormatRoute::StreamingEvent),
+        explicit_stream_route=Some(StreamingEvent),
       )
-    @input.DetectedFormat::Csv =>
+    Csv =>
       make_format_route_profile(
         format,
         true,
-        FormatRoute::StreamingEvent,
+        StreamingEvent,
         true,
-        @parser.ParserMode::StreamingEvent,
-        @parser.StreamingGranularity::Row,
+        StreamingEvent,
+        Row,
         "event_stream",
         "csv canonical row-event",
-        explicit_stream_route=Some(FormatRoute::StreamingEvent),
+        explicit_stream_route=Some(StreamingEvent),
       )
-    @input.DetectedFormat::Tsv =>
+    Tsv =>
       make_format_route_profile(
         format,
         true,
-        FormatRoute::StreamingEvent,
+        StreamingEvent,
         true,
-        @parser.ParserMode::StreamingEvent,
-        @parser.StreamingGranularity::Row,
+        StreamingEvent,
+        Row,
         "event_stream",
         "tsv canonical row-event",
-        explicit_stream_route=Some(FormatRoute::StreamingEvent),
+        explicit_stream_route=Some(StreamingEvent),
       )
-    @input.DetectedFormat::Srt =>
+    Srt =>
       make_format_route_profile(
         format,
         true,
-        FormatRoute::StreamingEvent,
+        StreamingEvent,
         true,
-        @parser.ParserMode::StreamingEvent,
-        @parser.StreamingGranularity::Record,
+        StreamingEvent,
+        Record,
         "event_stream",
         "srt canonical record-event",
-        explicit_stream_route=Some(FormatRoute::StreamingEvent),
+        explicit_stream_route=Some(StreamingEvent),
       )
-    @input.DetectedFormat::Vtt =>
+    Vtt =>
       make_format_route_profile(
         format,
         true,
-        FormatRoute::StreamingEvent,
+        StreamingEvent,
         true,
-        @parser.ParserMode::StreamingEvent,
-        @parser.StreamingGranularity::Record,
+        StreamingEvent,
+        Record,
         "event_stream",
         "vtt canonical record-event",
-        explicit_stream_route=Some(FormatRoute::StreamingEvent),
+        explicit_stream_route=Some(StreamingEvent),
       )
-    @input.DetectedFormat::Json =>
+    Json =>
       make_format_route_profile(
         format,
         true,
-        FormatRoute::DomAstModel,
+        DomAstModel,
         true,
-        @parser.ParserMode::DomAstModel,
-        @parser.StreamingGranularity::JsonStructure,
+        DomAstModel,
+        JsonStructure,
         "document",
         "json dom-ast with structure-event large route",
-        explicit_stream_route=Some(FormatRoute::StreamingEvent),
-        over_limit_route=Some(FormatRoute::StreamingEvent),
-        large_route_parser_mode=Some(@parser.ParserMode::StreamingEvent),
-        large_route_granularity=Some(
-          @parser.StreamingGranularity::JsonStructure,
-        ),
+        explicit_stream_route=Some(StreamingEvent),
+        over_limit_route=Some(StreamingEvent),
+        large_route_parser_mode=Some(StreamingEvent),
+        large_route_granularity=Some(JsonStructure),
         large_route_ir_input_kind=Some("event_stream"),
       )
-    @input.DetectedFormat::Jsonl =>
+    Jsonl =>
       make_format_route_profile(
         format,
         true,
-        FormatRoute::StreamingEvent,
+        StreamingEvent,
         true,
-        @parser.ParserMode::StreamingEvent,
-        @parser.StreamingGranularity::Record,
+        StreamingEvent,
+        Record,
         "event_stream",
         "jsonl canonical record-event",
-        explicit_stream_route=Some(FormatRoute::StreamingEvent),
+        explicit_stream_route=Some(StreamingEvent),
       )
-    @input.DetectedFormat::Ndjson =>
+    Ndjson =>
       make_format_route_profile(
         format,
         true,
-        FormatRoute::StreamingEvent,
+        StreamingEvent,
         true,
-        @parser.ParserMode::StreamingEvent,
-        @parser.StreamingGranularity::Record,
+        StreamingEvent,
+        Record,
         "event_stream",
         "ndjson canonical record-event",
-        explicit_stream_route=Some(FormatRoute::StreamingEvent),
+        explicit_stream_route=Some(StreamingEvent),
       )
-    @input.DetectedFormat::Ipynb =>
+    Ipynb =>
       make_format_route_profile(
         format,
         true,
-        FormatRoute::DomAstModel,
+        DomAstModel,
         true,
-        @parser.ParserMode::DomAstModel,
-        @parser.StreamingGranularity::NotebookCellOutputGroup,
+        DomAstModel,
+        NotebookCellOutputGroup,
         "document",
         "ipynb dom-ast with notebook-cell-output-group large route",
-        explicit_stream_route=Some(FormatRoute::BlockStreaming),
-        over_limit_route=Some(FormatRoute::BlockStreaming),
-        large_route_parser_mode=Some(@parser.ParserMode::BlockStreaming),
-        large_route_granularity=Some(
-          @parser.StreamingGranularity::NotebookCellOutputGroup,
-        ),
+        explicit_stream_route=Some(BlockStreaming),
+        over_limit_route=Some(BlockStreaming),
+        large_route_parser_mode=Some(BlockStreaming),
+        large_route_granularity=Some(NotebookCellOutputGroup),
         large_route_ir_input_kind=Some("block_stream"),
       )
-    @input.DetectedFormat::Xml =>
+    Xml =>
       make_format_route_profile(
         format,
         true,
-        FormatRoute::DomAstModel,
+        DomAstModel,
         true,
-        @parser.ParserMode::DomAstModel,
-        @parser.StreamingGranularity::XmlStructure,
+        DomAstModel,
+        XmlStructure,
         "document",
         "xml dom-ast with structure-event large route",
-        explicit_stream_route=Some(FormatRoute::StreamingEvent),
-        over_limit_route=Some(FormatRoute::StreamingEvent),
-        large_route_parser_mode=Some(@parser.ParserMode::StreamingEvent),
-        large_route_granularity=Some(@parser.StreamingGranularity::XmlStructure),
+        explicit_stream_route=Some(StreamingEvent),
+        over_limit_route=Some(StreamingEvent),
+        large_route_parser_mode=Some(StreamingEvent),
+        large_route_granularity=Some(XmlStructure),
         large_route_ir_input_kind=Some("event_stream"),
       )
-    @input.DetectedFormat::Yaml =>
+    Yaml =>
       make_format_route_profile(
         format,
         true,
-        FormatRoute::DomAstModel,
+        DomAstModel,
         true,
-        @parser.ParserMode::DomAstModel,
-        @parser.StreamingGranularity::YamlStructure,
+        DomAstModel,
+        YamlStructure,
         "document",
         "yaml dom-ast with structure-event large route",
-        explicit_stream_route=Some(FormatRoute::StreamingEvent),
-        over_limit_route=Some(FormatRoute::StreamingEvent),
-        large_route_parser_mode=Some(@parser.ParserMode::StreamingEvent),
-        large_route_granularity=Some(
-          @parser.StreamingGranularity::YamlStructure,
-        ),
+        explicit_stream_route=Some(StreamingEvent),
+        over_limit_route=Some(StreamingEvent),
+        large_route_parser_mode=Some(StreamingEvent),
+        large_route_granularity=Some(YamlStructure),
         large_route_ir_input_kind=Some("event_stream"),
       )
-    @input.DetectedFormat::Toml =>
+    Toml =>
       make_format_route_profile(
         format,
         true,
-        FormatRoute::DomAstModel,
+        DomAstModel,
         false,
-        @parser.ParserMode::DomAstModel,
-        @parser.StreamingGranularity::None,
+        DomAstModel,
+        None,
         "document",
         "toml dom-ast canonical only",
       )
-    @input.DetectedFormat::Html =>
+    Html =>
       make_format_route_profile(
         format,
         true,
-        FormatRoute::DomAstModel,
+        DomAstModel,
         true,
-        @parser.ParserMode::DomAstModel,
-        @parser.StreamingGranularity::HtmlTokenStructure,
+        DomAstModel,
+        HtmlTokenStructure,
         "document",
         "html dom-ast hybrid readability with token-structure large route",
-        explicit_stream_route=Some(FormatRoute::BlockStreaming),
-        over_limit_route=Some(FormatRoute::BlockStreaming),
-        large_route_parser_mode=Some(@parser.ParserMode::BlockStreaming),
-        large_route_granularity=Some(
-          @parser.StreamingGranularity::HtmlTokenStructure,
-        ),
+        explicit_stream_route=Some(BlockStreaming),
+        over_limit_route=Some(BlockStreaming),
+        large_route_parser_mode=Some(BlockStreaming),
+        large_route_granularity=Some(HtmlTokenStructure),
         large_route_ir_input_kind=Some("block_stream"),
       )
-    @input.DetectedFormat::Markdown =>
+    Markdown =>
       make_format_route_profile(
         format,
         true,
-        FormatRoute::DomAstModel,
+        DomAstModel,
         true,
-        @parser.ParserMode::DomAstModel,
-        @parser.StreamingGranularity::MarkdownBlock,
+        DomAstModel,
+        MarkdownBlock,
         "document",
         "markdown dom-ast with markdown-block large route",
-        explicit_stream_route=Some(FormatRoute::BlockStreaming),
-        over_limit_route=Some(FormatRoute::BlockStreaming),
-        large_route_parser_mode=Some(@parser.ParserMode::BlockStreaming),
-        large_route_granularity=Some(
-          @parser.StreamingGranularity::MarkdownBlock,
-        ),
+        explicit_stream_route=Some(BlockStreaming),
+        over_limit_route=Some(BlockStreaming),
+        large_route_parser_mode=Some(BlockStreaming),
+        large_route_granularity=Some(MarkdownBlock),
         large_route_ir_input_kind=Some("block_stream"),
       )
-    @input.DetectedFormat::Tex =>
+    Tex =>
       make_format_route_profile(
         format,
         true,
-        FormatRoute::DomAstModel,
+        DomAstModel,
         false,
-        @parser.ParserMode::DomAstModel,
-        @parser.StreamingGranularity::None,
+        DomAstModel,
+        None,
         "document",
         "tex dom-ast typed-lowering canonical only",
       )
-    @input.DetectedFormat::Rst =>
+    Rst =>
       make_format_route_profile(
         format,
         true,
-        FormatRoute::DomAstModel,
+        DomAstModel,
         false,
-        @parser.ParserMode::DomAstModel,
-        @parser.StreamingGranularity::None,
+        DomAstModel,
+        None,
         "document",
         "rst dom-ast typed-lowering canonical only",
       )
-    @input.DetectedFormat::Asciidoc =>
+    Asciidoc =>
       make_format_route_profile(
         format,
         true,
-        FormatRoute::DomAstModel,
+        DomAstModel,
         false,
-        @parser.ParserMode::DomAstModel,
-        @parser.StreamingGranularity::None,
+        DomAstModel,
+        None,
         "document",
         "asciidoc dom-ast typed-lowering canonical only",
       )
-    @input.DetectedFormat::Eml =>
+    Eml =>
       make_format_route_profile(
         format,
         true,
-        FormatRoute::BlockStreaming,
+        BlockStreaming,
         true,
-        @parser.ParserMode::BlockStreaming,
-        @parser.StreamingGranularity::Message,
+        BlockStreaming,
+        Message,
         "block_stream",
         "eml canonical mime-part block stream",
-        explicit_stream_route=Some(FormatRoute::BlockStreaming),
+        explicit_stream_route=Some(BlockStreaming),
       )
-    @input.DetectedFormat::Zip =>
+    Zip =>
       make_format_route_profile(
         format,
         true,
-        FormatRoute::ContainerRecursive,
+        ContainerRecursive,
         false,
-        @parser.ParserMode::ContainerRecursive,
-        @parser.StreamingGranularity::ArchiveEntry,
+        ContainerRecursive,
+        ArchiveEntry,
         "block_stream",
         "zip balance-only container-recursive",
       )
-    @input.DetectedFormat::Epub =>
+    Epub =>
       make_format_route_profile(
         format,
         true,
-        FormatRoute::PackageSinglePass,
+        PackageSinglePass,
         true,
-        @parser.ParserMode::PackageSinglePass,
-        @parser.StreamingGranularity::EpubSpineItem,
+        PackageSinglePass,
+        EpubSpineItem,
         "block_stream",
         "epub package-single-pass with explicit container-recursive stream route",
-        explicit_stream_route=Some(FormatRoute::ContainerRecursive),
-        large_route_parser_mode=Some(@parser.ParserMode::ContainerRecursive),
-        large_route_granularity=Some(@parser.StreamingGranularity::ArchiveEntry),
+        explicit_stream_route=Some(ContainerRecursive),
+        large_route_parser_mode=Some(ContainerRecursive),
+        large_route_granularity=Some(ArchiveEntry),
         large_route_ir_input_kind=Some("block_stream"),
       )
-    @input.DetectedFormat::Odt =>
+    Odt =>
       make_format_route_profile(
         format,
         true,
-        FormatRoute::PackageSinglePass,
+        PackageSinglePass,
         true,
-        @parser.ParserMode::PackageSinglePass,
-        @parser.StreamingGranularity::Block,
+        PackageSinglePass,
+        Block,
         "document",
         "odt package-single-pass with block large route",
-        explicit_stream_route=Some(FormatRoute::BlockStreaming),
-        over_limit_route=Some(FormatRoute::BlockStreaming),
-        large_route_parser_mode=Some(@parser.ParserMode::BlockStreaming),
-        large_route_granularity=Some(@parser.StreamingGranularity::Block),
+        explicit_stream_route=Some(BlockStreaming),
+        over_limit_route=Some(BlockStreaming),
+        large_route_parser_mode=Some(BlockStreaming),
+        large_route_granularity=Some(Block),
         large_route_ir_input_kind=Some("block_stream"),
       )
-    @input.DetectedFormat::Ods =>
+    Ods =>
       make_format_route_profile(
         format,
         true,
-        FormatRoute::PackageSinglePass,
+        PackageSinglePass,
         true,
-        @parser.ParserMode::PackageSinglePass,
-        @parser.StreamingGranularity::Row,
+        PackageSinglePass,
+        Row,
         "document",
         "ods package-single-pass with row block large route",
-        explicit_stream_route=Some(FormatRoute::BlockStreaming),
-        over_limit_route=Some(FormatRoute::BlockStreaming),
-        large_route_parser_mode=Some(@parser.ParserMode::BlockStreaming),
-        large_route_granularity=Some(@parser.StreamingGranularity::Row),
+        explicit_stream_route=Some(BlockStreaming),
+        over_limit_route=Some(BlockStreaming),
+        large_route_parser_mode=Some(BlockStreaming),
+        large_route_granularity=Some(Row),
         large_route_ir_input_kind=Some("block_stream"),
       )
-    @input.DetectedFormat::Odp =>
+    Odp =>
       make_format_route_profile(
         format,
         true,
-        FormatRoute::PackageSinglePass,
+        PackageSinglePass,
         true,
-        @parser.ParserMode::PackageSinglePass,
-        @parser.StreamingGranularity::Slide,
+        PackageSinglePass,
+        Slide,
         "document",
         "odp package-single-pass with slide block large route",
-        explicit_stream_route=Some(FormatRoute::BlockStreaming),
-        over_limit_route=Some(FormatRoute::BlockStreaming),
-        large_route_parser_mode=Some(@parser.ParserMode::BlockStreaming),
-        large_route_granularity=Some(@parser.StreamingGranularity::Slide),
+        explicit_stream_route=Some(BlockStreaming),
+        over_limit_route=Some(BlockStreaming),
+        large_route_parser_mode=Some(BlockStreaming),
+        large_route_granularity=Some(Slide),
         large_route_ir_input_kind=Some("block_stream"),
       )
-    @input.DetectedFormat::Pdf =>
+    Pdf =>
       make_format_route_profile(
         format,
         true,
-        FormatRoute::PageSinglePass,
+        PageSinglePass,
         false,
-        @parser.ParserMode::PageSinglePass,
-        @parser.StreamingGranularity::Page,
+        PageSinglePass,
+        Page,
         "document",
         "pdf page-single-pass with explicit accurate/ocr layout route",
-        large_route_parser_mode=Some(@parser.ParserMode::LayoutTwoStage),
+        large_route_parser_mode=Some(LayoutTwoStage),
       )
-    @input.DetectedFormat::Docx =>
+    Docx =>
       make_format_route_profile(
         format,
         true,
-        FormatRoute::PackageSinglePass,
+        PackageSinglePass,
         false,
-        @parser.ParserMode::PackageSinglePass,
-        @parser.StreamingGranularity::DocxBlock,
+        PackageSinglePass,
+        DocxBlock,
         "document",
         "docx package-single-pass canonical",
       )
-    @input.DetectedFormat::Pptx =>
+    Pptx =>
       make_format_route_profile(
         format,
         true,
-        FormatRoute::PackageSinglePass,
+        PackageSinglePass,
         false,
-        @parser.ParserMode::PackageSinglePass,
-        @parser.StreamingGranularity::PptxSlide,
+        PackageSinglePass,
+        PptxSlide,
         "document",
         "pptx package-single-pass canonical",
       )
-    @input.DetectedFormat::Xlsx =>
+    Xlsx =>
       make_format_route_profile(
         format,
         true,
-        FormatRoute::PackageSinglePass,
+        PackageSinglePass,
         true,
-        @parser.ParserMode::PackageSinglePass,
-        @parser.StreamingGranularity::XlsxRow,
+        PackageSinglePass,
+        XlsxRow,
         "document",
         "xlsx package-single-pass with row block large route",
-        explicit_stream_route=Some(FormatRoute::BlockStreaming),
-        over_limit_route=Some(FormatRoute::BlockStreaming),
-        large_route_parser_mode=Some(@parser.ParserMode::BlockStreaming),
-        large_route_granularity=Some(@parser.StreamingGranularity::XlsxRow),
+        explicit_stream_route=Some(BlockStreaming),
+        over_limit_route=Some(BlockStreaming),
+        large_route_parser_mode=Some(BlockStreaming),
+        large_route_granularity=Some(XlsxRow),
         large_route_ir_input_kind=Some("block_stream"),
       )
-    @input.DetectedFormat::Audio(_) =>
+    Audio(_) =>
       make_format_route_profile(
         format,
         true,
-        FormatRoute::MediaPipeline,
+        MediaPipeline,
         false,
-        @parser.ParserMode::MediaPipeline,
-        @parser.StreamingGranularity::None,
+        MediaPipeline,
+        None,
         "document",
         @input.detected_format_name(format) + " canonical media pipeline",
       )
-    @input.DetectedFormat::Image(_) =>
+    Image(_) =>
       make_format_route_profile(
         format,
         true,
-        FormatRoute::LayoutTwoStage,
+        LayoutTwoStage,
         false,
-        @parser.ParserMode::LayoutTwoStage,
-        @parser.StreamingGranularity::Page,
+        LayoutTwoStage,
+        Page,
         "document",
         "image ocr explicit layout route",
       )
-    @input.DetectedFormat::Unknown =>
+    Unknown =>
       make_format_route_profile(
         format,
         false,
-        FormatRoute::DomAstModel,
+        DomAstModel,
         false,
-        @parser.ParserMode::DomAstModel,
-        @parser.StreamingGranularity::None,
+        DomAstModel,
+        None,
         "document",
         "unknown fallback dom-ast",
       )
@@ -567,24 +557,19 @@ fn default_render_profile_for_route(
   route : FormatRoute,
 ) -> @product.RenderProfile {
   match route {
-    FormatRoute::StreamingEvent => @product.RenderProfile::DefaultMarkdown
-    FormatRoute::BlockStreaming =>
+    StreamingEvent => DefaultMarkdown
+    BlockStreaming =>
       match format {
-        @input.DetectedFormat::Csv
-        | @input.DetectedFormat::Tsv
-        | @input.DetectedFormat::Xlsx
-        | @input.DetectedFormat::Ods =>
-          @product.RenderProfile::SparseTableMarkdown
-        _ => @product.RenderProfile::SectionFlushMarkdown
+        Csv | Tsv | Xlsx | Ods => SparseTableMarkdown
+        _ => SectionFlushMarkdown
       }
-    FormatRoute::ContainerRecursive =>
+    ContainerRecursive =>
       match format {
-        @input.DetectedFormat::Zip => @product.RenderProfile::DefaultMarkdown
-        _ => @product.RenderProfile::AssetManifestFirst
+        Zip => DefaultMarkdown
+        _ => AssetManifestFirst
       }
-    FormatRoute::PageSinglePass | FormatRoute::LayoutTwoStage =>
-      @product.RenderProfile::PageWindowMarkdown
-    _ => @product.RenderProfile::DefaultMarkdown
+    PageSinglePass | LayoutTwoStage => PageWindowMarkdown
+    _ => DefaultMarkdown
   }
 }
 
@@ -593,36 +578,16 @@ fn soft_limit_thresholds_for_format(
   format : @input.DetectedFormat,
 ) -> Array[(@product.ProbeSignalKind, Int)] {
   match format {
-    @input.DetectedFormat::Markdown => []
-    @input.DetectedFormat::Json => []
-    @input.DetectedFormat::Yaml => []
-    @input.DetectedFormat::Ipynb =>
-      [
-        (@product.ProbeSignalKind::BlockCount, 800),
-        (@product.ProbeSignalKind::OutputCount, 5000),
-        (@product.ProbeSignalKind::CharCount, 200000),
-      ]
-    @input.DetectedFormat::Xml => []
-    @input.DetectedFormat::Html => []
-    @input.DetectedFormat::Xlsx => []
-    @input.DetectedFormat::Odt =>
-      [
-        (@product.ProbeSignalKind::BlockCount, 4),
-        (@product.ProbeSignalKind::NoteCount, 1),
-        (@product.ProbeSignalKind::CommentCount, 1),
-      ]
-    @input.DetectedFormat::Ods =>
-      [
-        (@product.ProbeSignalKind::RowCount, 2),
-        (@product.ProbeSignalKind::CellEstimate, 20),
-        (@product.ProbeSignalKind::CoveredCellCount, 1),
-      ]
-    @input.DetectedFormat::Odp =>
-      [
-        (@product.ProbeSignalKind::SlideCount, 2),
-        (@product.ProbeSignalKind::BlockCount, 4),
-        (@product.ProbeSignalKind::NoteCount, 1),
-      ]
+    Markdown => []
+    Json => []
+    Yaml => []
+    Ipynb => [(BlockCount, 800), (OutputCount, 5000), (CharCount, 200000)]
+    Xml => []
+    Html => []
+    Xlsx => []
+    Odt => [(BlockCount, 4), (NoteCount, 1), (CommentCount, 1)]
+    Ods => [(RowCount, 2), (CellEstimate, 20), (CoveredCellCount, 1)]
+    Odp => [(SlideCount, 2), (BlockCount, 4), (NoteCount, 1)]
     _ => []
   }
 }
@@ -632,65 +597,17 @@ fn hard_limit_thresholds_for_format(
   format : @input.DetectedFormat,
 ) -> Array[(@product.ProbeSignalKind, Int)] {
   match format {
-    @input.DetectedFormat::Markdown =>
-      [
-        (@product.ProbeSignalKind::BlockCount, 0),
-        (@product.ProbeSignalKind::CharCount, 0),
-      ]
-    @input.DetectedFormat::Json =>
-      [
-        (@product.ProbeSignalKind::NodeCount, 0),
-        (@product.ProbeSignalKind::MaxDepth, 0),
-      ]
-    @input.DetectedFormat::Yaml =>
-      [
-        (@product.ProbeSignalKind::NodeCount, 0),
-        (@product.ProbeSignalKind::MaxDepth, 0),
-      ]
-    @input.DetectedFormat::Ipynb =>
-      [
-        (@product.ProbeSignalKind::BlockCount, 2000),
-        (@product.ProbeSignalKind::OutputCount, 10000),
-        (@product.ProbeSignalKind::AttachmentCount, 1000),
-      ]
-    @input.DetectedFormat::Xml =>
-      [
-        (@product.ProbeSignalKind::NodeCount, 0),
-        (@product.ProbeSignalKind::MaxDepth, 0),
-        (@product.ProbeSignalKind::CharCount, 0),
-      ]
-    @input.DetectedFormat::Toml
-    | @input.DetectedFormat::Tex
-    | @input.DetectedFormat::Rst
-    | @input.DetectedFormat::Asciidoc =>
-      [(@product.ProbeSignalKind::CharCount, 1_048_576)]
-    @input.DetectedFormat::Html =>
-      [
-        (@product.ProbeSignalKind::BlockCount, 0),
-        (@product.ProbeSignalKind::MaxDepth, 0),
-        (@product.ProbeSignalKind::CharCount, 0),
-      ]
-    @input.DetectedFormat::Xlsx =>
-      [
-        (@product.ProbeSignalKind::RowCount, 0),
-        (@product.ProbeSignalKind::CellEstimate, 0),
-      ]
-    @input.DetectedFormat::Odt =>
-      [
-        (@product.ProbeSignalKind::BlockCount, 8),
-        (@product.ProbeSignalKind::NoteCount, 4),
-        (@product.ProbeSignalKind::CommentCount, 4),
-      ]
-    @input.DetectedFormat::Ods =>
-      [
-        (@product.ProbeSignalKind::RowCount, 4),
-        (@product.ProbeSignalKind::CellEstimate, 40),
-      ]
-    @input.DetectedFormat::Odp =>
-      [
-        (@product.ProbeSignalKind::SlideCount, 4),
-        (@product.ProbeSignalKind::BlockCount, 8),
-      ]
+    Markdown => [(BlockCount, 0), (CharCount, 0)]
+    Json => [(NodeCount, 0), (MaxDepth, 0)]
+    Yaml => [(NodeCount, 0), (MaxDepth, 0)]
+    Ipynb => [(BlockCount, 2000), (OutputCount, 10000), (AttachmentCount, 1000)]
+    Xml => [(NodeCount, 0), (MaxDepth, 0), (CharCount, 0)]
+    Toml | Tex | Rst | Asciidoc => [(CharCount, 1_048_576)]
+    Html => [(BlockCount, 0), (MaxDepth, 0), (CharCount, 0)]
+    Xlsx => [(RowCount, 0), (CellEstimate, 0)]
+    Odt => [(BlockCount, 8), (NoteCount, 4), (CommentCount, 4)]
+    Ods => [(RowCount, 4), (CellEstimate, 40)]
+    Odp => [(SlideCount, 4), (BlockCount, 8)]
     _ => []
   }
 }
@@ -766,20 +683,10 @@ pub fn route_contract_for_format(
     None => None
   }
   let accurate_canonical = match format {
-    @input.DetectedFormat::Pdf =>
-      route_spec_from_profile(
-        FormatRoute::LayoutTwoStage,
-        @parser.ParserMode::LayoutTwoStage,
-        @parser.StreamingGranularity::Page,
-        "document",
-      )
-    @input.DetectedFormat::Image(_) =>
-      route_spec_from_profile(
-        FormatRoute::LayoutTwoStage,
-        @parser.ParserMode::LayoutTwoStage,
-        @parser.StreamingGranularity::Page,
-        "document",
-      )
+    Pdf =>
+      route_spec_from_profile(LayoutTwoStage, LayoutTwoStage, Page, "document")
+    Image(_) =>
+      route_spec_from_profile(LayoutTwoStage, LayoutTwoStage, Page, "document")
     _ => canonical
   }
   let stream_canonical = match explicit_stream {
@@ -789,7 +696,7 @@ pub fn route_contract_for_format(
   let balanced = make_mode_strategy_policy(
     canonical,
     profile.explicit_stream_supported,
-    @product.LoweringProfile::Canonical,
+    Canonical,
     default_render_profile_for_route(format, canonical.route),
     profile.current_state_label,
     explicit_stream~,
@@ -804,7 +711,7 @@ pub fn route_contract_for_format(
   let accurate = make_mode_strategy_policy(
     accurate_canonical,
     false,
-    @product.LoweringProfile::AccurateSemantic,
+    AccurateSemantic,
     default_render_profile_for_route(format, accurate_canonical.route),
     profile.current_state_label + " accurate",
     soft_limit_thresholds=soft_limit_thresholds_for_format(format),
@@ -818,7 +725,7 @@ pub fn route_contract_for_format(
   let stream = make_mode_strategy_policy(
     stream_canonical,
     profile.explicit_stream_supported,
-    @product.LoweringProfile::StreamCanonical,
+    StreamCanonical,
     default_render_profile_for_route(format, stream_canonical.route),
     profile.current_state_label + " stream",
     explicit_stream~,
@@ -869,27 +776,27 @@ pub fn over_limit_route_for_format(
 ///|
 pub fn parser_mode_for_route(route : FormatRoute) -> @parser.ParserMode {
   match route {
-    FormatRoute::StreamingEvent => @parser.ParserMode::StreamingEvent
-    FormatRoute::BlockStreaming => @parser.ParserMode::BlockStreaming
-    FormatRoute::PackageSinglePass => @parser.ParserMode::PackageSinglePass
-    FormatRoute::PageSinglePass => @parser.ParserMode::PageSinglePass
-    FormatRoute::DomAstModel => @parser.ParserMode::DomAstModel
-    FormatRoute::LayoutTwoStage => @parser.ParserMode::LayoutTwoStage
-    FormatRoute::MediaPipeline => @parser.ParserMode::MediaPipeline
-    FormatRoute::ContainerRecursive => @parser.ParserMode::ContainerRecursive
+    StreamingEvent => StreamingEvent
+    BlockStreaming => BlockStreaming
+    PackageSinglePass => PackageSinglePass
+    PageSinglePass => PageSinglePass
+    DomAstModel => DomAstModel
+    LayoutTwoStage => LayoutTwoStage
+    MediaPipeline => MediaPipeline
+    ContainerRecursive => ContainerRecursive
   }
 }
 
 ///|
 pub fn route_name(route : FormatRoute) -> String {
   match route {
-    FormatRoute::StreamingEvent => "streaming_event"
-    FormatRoute::BlockStreaming => "block_streaming"
-    FormatRoute::PackageSinglePass => "package_single_pass"
-    FormatRoute::PageSinglePass => "page_single_pass"
-    FormatRoute::DomAstModel => "dom_ast_model"
-    FormatRoute::LayoutTwoStage => "layout_two_stage"
-    FormatRoute::MediaPipeline => "media_pipeline"
-    FormatRoute::ContainerRecursive => "container_recursive"
+    StreamingEvent => "streaming_event"
+    BlockStreaming => "block_streaming"
+    PackageSinglePass => "package_single_pass"
+    PageSinglePass => "page_single_pass"
+    DomAstModel => "dom_ast_model"
+    LayoutTwoStage => "layout_two_stage"
+    MediaPipeline => "media_pipeline"
+    ContainerRecursive => "container_recursive"
   }
 }

@@ -22,7 +22,7 @@ fn parse_docx_styles_from_package(
         read_docx_service_part_text(
           pkg,
           part,
-          DocxSourceWarningKind::MissingStylesPart,
+          MissingStylesPart,
           "styles part is missing: ",
           warnings,
         ) {
@@ -32,7 +32,7 @@ fn parse_docx_styles_from_package(
     None => {
       if docx_source_blocks_have_style_refs(blocks) {
         warnings.push({
-          kind: DocxSourceWarningKind::MissingStylesPart,
+          kind: MissingStylesPart,
           message: "styles part is missing for referenced style",
           source_key: Some(docx_source_key(main_part, 0, "styles")),
         })
@@ -66,7 +66,7 @@ fn parse_docx_numbering_from_package(
         read_docx_service_part_text(
           pkg,
           part,
-          DocxSourceWarningKind::MissingNumberingPart,
+          MissingNumberingPart,
           "numbering part is missing: ",
           warnings,
         ) {
@@ -76,7 +76,7 @@ fn parse_docx_numbering_from_package(
     None => {
       if docx_source_blocks_have_numbering_refs(blocks) {
         warnings.push({
-          kind: DocxSourceWarningKind::MissingNumberingPart,
+          kind: MissingNumberingPart,
           message: "numbering part is missing for referenced numbering",
           source_key: Some(docx_source_key(main_part, 0, "numbering")),
         })
@@ -478,8 +478,8 @@ fn parse_docx_notes_from_part_graph(
 ) -> Array[DocxSourceNote] {
   let out : Array[DocxSourceNote] = []
   let part_kind = match kind {
-    DocxNoteKind::Footnote => DocxDiscoveredPartKind::Footnotes
-    DocxNoteKind::Endnote => DocxDiscoveredPartKind::Endnotes
+    Footnote => DocxDiscoveredPartKind::Footnotes
+    Endnote => Endnotes
   }
   for part in docx_part_graph_parts_by_kind(part_graph, part_kind) {
     match read_docx_discovered_part_text(pkg, part, warnings) {
@@ -513,11 +513,7 @@ fn parse_docx_comments_from_part_graph(
   warnings : Array[DocxSourceWarning],
 ) -> Array[DocxSourceComment] {
   let out : Array[DocxSourceComment] = []
-  for
-    part in docx_part_graph_parts_by_kind(
-      part_graph,
-      DocxDiscoveredPartKind::Comments,
-    ) {
+  for part in docx_part_graph_parts_by_kind(part_graph, Comments) {
     match read_docx_discovered_part_text(pkg, part, warnings) {
       Some(xml) => {
         let part_relationships = read_docx_part_relationships_or_empty(
@@ -551,14 +547,14 @@ fn parse_docx_part_bodies_from_relationships(
 ) -> Array[DocxSourcePartBody] {
   let out : Array[DocxSourcePartBody] = []
   let suffix = match kind {
-    DocxPartBodyKind::Header => "header"
-    DocxPartBodyKind::Footer => "footer"
-    DocxPartBodyKind::Textbox => "textbox"
+    Header => "header"
+    Footer => "footer"
+    Textbox => "textbox"
   }
   let root_tag = match kind {
-    DocxPartBodyKind::Header => "w:hdr"
-    DocxPartBodyKind::Footer => "w:ftr"
-    DocxPartBodyKind::Textbox => "w:txbxContent"
+    Header => "w:hdr"
+    Footer => "w:ftr"
+    Textbox => "w:txbxContent"
   }
   let mut body_index = 0
   for rel in relationships {
@@ -605,9 +601,9 @@ fn docx_part_body_slot_type(
   kind : DocxPartBodyKind,
 ) -> String? {
   let tag_name = match kind {
-    DocxPartBodyKind::Header => "w:headerReference"
-    DocxPartBodyKind::Footer => "w:footerReference"
-    DocxPartBodyKind::Textbox => return None
+    Header => "w:headerReference"
+    Footer => "w:footerReference"
+    Textbox => return None
   }
   let mut offset = 0
   while offset < document_xml.length() {
@@ -673,8 +669,8 @@ fn parse_docx_notes_part(
 ) -> Array[DocxSourceNote] {
   let out : Array[DocxSourceNote] = []
   let tag = match kind {
-    DocxNoteKind::Footnote => "w:footnote"
-    DocxNoteKind::Endnote => "w:endnote"
+    Footnote => "w:footnote"
+    Endnote => "w:endnote"
   }
   let mut i = 0
   let mut note_index = 0
@@ -963,7 +959,7 @@ fn read_docx_related_part_text(
 ) -> String? {
   if !@ox.has_part(pkg, rel.resolved_target) {
     warnings.push({
-      kind: DocxSourceWarningKind::MissingContainerPart,
+      kind: MissingContainerPart,
       message: "related DOCX part is missing: " + rel.resolved_target,
       source_key: Some(docx_source_key(rel.resolved_target, 0, "missing")),
     })
@@ -972,7 +968,7 @@ fn read_docx_related_part_text(
   let text = @ox.read_part_text(pkg, rel.resolved_target) catch {
     e => {
       warnings.push({
-        kind: DocxSourceWarningKind::MissingContainerPart,
+        kind: MissingContainerPart,
         message: "failed to read related DOCX part: " + e.to_string(),
         source_key: Some(docx_source_key(rel.resolved_target, 0, "missing")),
       })
@@ -990,7 +986,7 @@ fn read_docx_discovered_part_text(
 ) -> String? {
   if !@ox.has_part(pkg, part.part_name) {
     warnings.push({
-      kind: DocxSourceWarningKind::MissingContainerPart,
+      kind: MissingContainerPart,
       message: "discovered DOCX part is missing: " + part.part_name,
       source_key: Some(docx_source_key(part.part_name, 0, "missing")),
     })
@@ -999,7 +995,7 @@ fn read_docx_discovered_part_text(
   let text = @ox.read_part_text(pkg, part.part_name) catch {
     e => {
       warnings.push({
-        kind: DocxSourceWarningKind::MissingContainerPart,
+        kind: MissingContainerPart,
         message: "failed to read discovered DOCX part: " + e.to_string(),
         source_key: Some(docx_source_key(part.part_name, 0, "missing")),
       })

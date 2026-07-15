@@ -18,6 +18,14 @@ test "XLSX range and cell reference helpers cover absolute and invalid inputs" {
 }
 
 ///|
+test "XLSX bounded lowering trims text without changing block identity" {
+  let original = @core.make_block_without_source_ref(TableCell, "  value\n")
+  let trimmed = xlsx_trim_lowered_block_text(original)
+  assert_eq(trimmed.text, "value")
+  assert_eq(trimmed.block_id, original.block_id)
+}
+
+///|
 test "XLSX bounded scanners and attribute helpers cover all boundary outcomes" {
   let xml = "xx<c r=\"B2\" s=\"3\">value</c>yy"
   assert_true(xlsx_find_char(xml, '<', -5, 999) == Some(2))
@@ -158,7 +166,7 @@ test "XLSX comments and source refs preserve optional provenance" {
     sheet_id: Some("7"),
     relationship_id: "rId1",
     part_name: "xl/worksheets/sheet1.xml",
-    visibility: @shared.XlsxSheetVisibility::Visible,
+    visibility: Visible,
   }
   let source_ref = xlsx_cell_source_ref(
     info,
@@ -253,7 +261,7 @@ test "XLSX workbook lowering covers tables residual cells merges comments and em
     sheet_id: Some("1"),
     relationship_id: "rId1",
     part_name: "xl/worksheets/sheet1.xml",
-    visibility: @shared.XlsxSheetVisibility::Visible,
+    visibility: Visible,
     include_hidden_rows: false,
     dimension_ref: Some("A1:D4"),
     min_row: 1,
@@ -330,13 +338,13 @@ test "XLSX workbook lowering covers tables residual cells merges comments and em
     @input.input_from_bytes_with_format(
       Bytes::from_array([]),
       "synthetic.xlsx",
-      Some(@input.DetectedFormat::Xlsx),
+      Some(Xlsx),
     ),
     workbook,
     diagnostics,
   )
   assert_true(lowered.blocks.length() >= 6)
-  assert_true(lowered.blocks.any(block => block.kind == @core.BlockKind::Table))
+  assert_true(lowered.blocks.any(block => block.kind == Table))
   assert_true(lowered.blocks.any(block => block.text == "(empty sheet)"))
   assert_true(lowered.blocks.any(block => block.text.contains("Review")))
   assert_true(diagnostics.metrics.get("xlsx_formula_count") == Some("1"))
@@ -350,5 +358,4 @@ test "XLSX workbook lowering covers tables residual cells merges comments and em
   assert_eq(xlsx_range_ref_from_bounds(1, 1, 4, 4), "A1:D4")
   assert_true(xlsx_should_skip_hidden_row(false, sheet.hidden_rows, 3))
   assert_true(!xlsx_should_skip_hidden_row(true, sheet.hidden_rows, 3))
-  assert_eq(xlsx_escape_sparse_row_cell("a|b\nc"), "a|b\\nc")
 }

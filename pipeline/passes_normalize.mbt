@@ -36,16 +36,13 @@ fn normalize_block_text(block : @core.CoreBlock) -> @core.CoreBlock {
 ///|
 fn normalize_block_whitespace(block : @core.CoreBlock) -> @core.CoreBlock {
   let next_text = match block.kind {
-    @core.BlockKind::Paragraph =>
-      if block.attrs.get("literal") == Some("true") {
+    Paragraph =>
+      if @core.block_is_literal(block) {
         block.text
       } else {
         collapse_whitespace(block.text)
       }
-    @core.BlockKind::Code
-    | @core.BlockKind::Raw
-    | @core.BlockKind::BlockQuote
-    | @core.BlockKind::TableCell => block.text
+    Code | Raw | BlockQuote | TableCell => block.text
     _ => collapse_whitespace(block.text)
   }
   let next = @core.block_with_children(
@@ -58,36 +55,32 @@ fn normalize_block_whitespace(block : @core.CoreBlock) -> @core.CoreBlock {
 ///|
 fn normalize_text_input(input : @core.IRInput) -> @core.IRInput {
   match input {
-    @core.IRInput::Document(document) =>
-      @core.IRInput::Document(
+    Document(document) =>
+      Document(
         @core.document_with_blocks(
           document,
           document.blocks.map(block => normalize_block_text(block)),
         ),
       )
-    @core.IRInput::BlockStream(blocks) =>
-      @core.IRInput::BlockStream(
-        blocks.map(block => normalize_block_text(block)),
-      )
-    @core.IRInput::EventStream(events) => @core.IRInput::EventStream(events)
+    BlockStream(blocks) =>
+      BlockStream(blocks.map(block => normalize_block_text(block)))
+    EventStream(events) => EventStream(events)
   }
 }
 
 ///|
 fn normalize_whitespace_input(input : @core.IRInput) -> @core.IRInput {
   match input {
-    @core.IRInput::Document(document) =>
-      @core.IRInput::Document(
+    Document(document) =>
+      Document(
         @core.document_with_blocks(
           document,
           document.blocks.map(block => normalize_block_whitespace(block)),
         ),
       )
-    @core.IRInput::BlockStream(blocks) =>
-      @core.IRInput::BlockStream(
-        blocks.map(block => normalize_block_whitespace(block)),
-      )
-    @core.IRInput::EventStream(events) => @core.IRInput::EventStream(events)
+    BlockStream(blocks) =>
+      BlockStream(blocks.map(block => normalize_block_whitespace(block)))
+    EventStream(events) => EventStream(events)
   }
 }
 

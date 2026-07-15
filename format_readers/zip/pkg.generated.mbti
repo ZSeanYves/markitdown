@@ -26,9 +26,13 @@ pub fn normalize_entry_path(String) -> String?
 
 pub fn open_zip(Bytes) -> ZipArchive raise ZipError
 
+pub fn open_zip_reader(Int, (Int, Int) -> Result[Bytes, String]) -> ZipArchive raise ZipError
+
 pub fn read_entry(ZipArchive, String, max_output_size? : Int) -> Bytes raise ZipError
 
 pub fn read_entry_data_slice(ZipArchive, String) -> ZipEntryDataSlice raise ZipError
+
+pub fn read_entry_transient(ZipArchive, String, max_output_size? : Int) -> Bytes raise ZipError
 
 pub fn validate_zip_archive(ZipArchive) -> ZipValidationReport
 

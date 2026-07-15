@@ -19,13 +19,13 @@ pub fn new_csv_parse_options(
 ///|
 /// Return the default CSV parse options used by `parse_csv_document`.
 pub fn default_csv_parse_options() -> CsvParseOptions {
-  new_csv_parse_options(CsvDelimiter::Comma, '"', true, true, true)
+  new_csv_parse_options(Comma, '"', true, true, true)
 }
 
 ///|
 /// Return TSV-compatible options while reusing the shared CSV parser.
 pub fn csv_parse_options_for_tsv() -> CsvParseOptions {
-  new_csv_parse_options(CsvDelimiter::Tab, '"', true, true, true)
+  new_csv_parse_options(Tab, '"', true, true, true)
 }
 
 ///|
@@ -51,7 +51,7 @@ pub fn classify_csv_error(err : CsvError) -> CsvErrorInfo {
   let kind = if detail.contains("unterminated quoted field") {
     CsvErrorKind::UnterminatedQuotedField
   } else {
-    CsvErrorKind::Unknown
+    Unknown
   }
   { kind, detail: err.to_string() }
 }
@@ -214,8 +214,8 @@ fn parse_delimited_chars(
 ///|
 fn delimiter_char(delimiter : CsvDelimiter) -> Char {
   match delimiter {
-    CsvDelimiter::Comma => ','
-    CsvDelimiter::Tab => '\t'
+    Comma => ','
+    Tab => '\t'
   }
 }
 

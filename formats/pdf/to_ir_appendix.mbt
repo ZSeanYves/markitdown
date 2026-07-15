@@ -23,17 +23,15 @@ pub fn pdf_native_appendix_blocks(
 
 ///|
 fn pdf_native_appendix_heading(title : String) -> @core.CoreBlock {
-  let heading = @core.make_block(@core.BlockKind::Heading, title)
+  let heading = @core.make_block(Heading, title)
   heading.attrs.set("level", "2")
   heading
 }
 
 ///|
 fn pdf_native_appendix_list(lines : Array[String]) -> @core.CoreBlock {
-  let items = lines.map(line => {
-    @core.make_block(@core.BlockKind::ListItem, line)
-  })
-  @core.block_with_children(@core.make_block(@core.BlockKind::List, ""), items)
+  let items = lines.map(line => @core.make_block(ListItem, line))
+  @core.block_with_children(@core.make_block(List, ""), items)
 }
 
 ///|
@@ -43,7 +41,7 @@ fn pdf_native_annotation_appendix_lines(
   let lines : Array[String] = []
   let seen : Map[String, Bool] = Map([])
   match metadata.get("pdf_native_annotations") {
-    Some(@core.JsonValue::Array(items)) => {
+    Some(Array(items)) => {
       let ordered : Array[@core.JsonValue] = []
       ordered.append(items[:])
       ordered.sort_by(fn(left, right) {
@@ -68,7 +66,7 @@ fn pdf_native_annotation_appendix_lines(
 ///|
 fn pdf_native_annotation_line(item : @core.JsonValue) -> String? {
   let payload = match item {
-    @core.JsonValue::Object(value) => value
+    Object(value) => value
     _ => return None
   }
   let subtype = pdf_native_json_string_field(payload, "subtype").unwrap_or("")
@@ -208,7 +206,7 @@ fn pdf_native_form_appendix_lines(
 ) -> Array[String] {
   let lines : Array[String] = []
   match metadata.get("pdf_native_form_fields") {
-    Some(@core.JsonValue::Array(items)) => {
+    Some(Array(items)) => {
       let ordered : Array[@core.JsonValue] = []
       ordered.append(items[:])
       ordered.sort_by(fn(left, right) {
@@ -229,7 +227,7 @@ fn pdf_native_form_appendix_lines(
 ///|
 fn pdf_native_form_line(item : @core.JsonValue) -> String? {
   let payload = match item {
-    @core.JsonValue::Object(value) => value
+    Object(value) => value
     _ => return None
   }
   let page = pdf_native_json_string_field(payload, "page").unwrap_or("?")
@@ -282,7 +280,7 @@ fn pdf_native_bookmark_appendix_lines(
 ) -> Array[String] {
   let lines : Array[String] = []
   match metadata.get("pdf_native_outline_items") {
-    Some(@core.JsonValue::Array(items)) => {
+    Some(Array(items)) => {
       let ordered : Array[@core.JsonValue] = []
       ordered.append(items[:])
       ordered.sort_by(fn(left, right) {
@@ -303,7 +301,7 @@ fn pdf_native_bookmark_appendix_lines(
 ///|
 fn pdf_native_bookmark_line(item : @core.JsonValue) -> String? {
   let payload = match item {
-    @core.JsonValue::Object(value) => value
+    Object(value) => value
     _ => return None
   }
   let title = pdf_native_json_string_field(payload, "title").unwrap_or("")
@@ -324,10 +322,9 @@ fn pdf_native_json_string_field(
   key : String,
 ) -> String? {
   match payload.get(key) {
-    Some(@core.JsonValue::String(value)) => Some(value)
-    Some(@core.JsonValue::Number(value)) => Some(value)
-    Some(@core.JsonValue::Bool(value)) =>
-      Some(if value { "true" } else { "false" })
+    Some(String(value)) => Some(value)
+    Some(Number(value)) => Some(value)
+    Some(Bool(value)) => Some(if value { "true" } else { "false" })
     _ => None
   }
 }
@@ -338,8 +335,8 @@ fn pdf_native_json_number_field(
   key : String,
 ) -> Int? {
   match payload.get(key) {
-    Some(@core.JsonValue::Number(value)) => pdf_native_parse_int(value)
-    Some(@core.JsonValue::String(value)) => pdf_native_parse_int(value)
+    Some(Number(value)) => pdf_native_parse_int(value)
+    Some(String(value)) => pdf_native_parse_int(value)
     _ => None
   }
 }
@@ -350,9 +347,9 @@ fn pdf_native_json_bool_field(
   key : String,
 ) -> Bool? {
   match payload.get(key) {
-    Some(@core.JsonValue::Bool(value)) => Some(value)
-    Some(@core.JsonValue::String("true")) => Some(true)
-    Some(@core.JsonValue::String("false")) => Some(false)
+    Some(Bool(value)) => Some(value)
+    Some(String("true")) => Some(true)
+    Some(String("false")) => Some(false)
     _ => None
   }
 }
@@ -363,7 +360,7 @@ fn pdf_native_json_object_field(
   key : String,
 ) -> Map[String, @core.JsonValue]? {
   match payload.get(key) {
-    Some(@core.JsonValue::Object(value)) => Some(value)
+    Some(Object(value)) => Some(value)
     _ => None
   }
 }
@@ -374,7 +371,7 @@ fn pdf_native_json_string_array_field(
   key : String,
 ) -> Array[String] {
   match payload.get(key) {
-    Some(@core.JsonValue::Array(items)) =>
+    Some(Array(items)) =>
       items
       .map(item => pdf_native_json_metric_string(item))
       .filter(item => item.trim() != "")
@@ -406,11 +403,11 @@ fn pdf_native_annotation_appendix_compare(
   right : @core.JsonValue,
 ) -> Int {
   let left_payload = match left {
-    @core.JsonValue::Object(value) => value
+    Object(value) => value
     _ => return 0
   }
   let right_payload = match right {
-    @core.JsonValue::Object(value) => value
+    Object(value) => value
     _ => return 0
   }
   pdf_native_compare_payload_fields(left_payload, right_payload, [
@@ -424,11 +421,11 @@ fn pdf_native_form_appendix_compare(
   right : @core.JsonValue,
 ) -> Int {
   let left_payload = match left {
-    @core.JsonValue::Object(value) => value
+    Object(value) => value
     _ => return 0
   }
   let right_payload = match right {
-    @core.JsonValue::Object(value) => value
+    Object(value) => value
     _ => return 0
   }
   pdf_native_compare_payload_fields(left_payload, right_payload, [
@@ -442,11 +439,11 @@ fn pdf_native_bookmark_appendix_compare(
   right : @core.JsonValue,
 ) -> Int {
   let left_payload = match left {
-    @core.JsonValue::Object(value) => value
+    Object(value) => value
     _ => return 0
   }
   let right_payload = match right {
-    @core.JsonValue::Object(value) => value
+    Object(value) => value
     _ => return 0
   }
   pdf_native_compare_payload_fields(left_payload, right_payload, [
@@ -729,9 +726,9 @@ fn pdf_native_appendix_quoted(value : String) -> String {
 ///|
 fn pdf_native_json_metric_string(value : @core.JsonValue) -> String {
   match value {
-    @core.JsonValue::String(text) => text
-    @core.JsonValue::Number(text) => text
-    @core.JsonValue::Bool(flag) => if flag { "true" } else { "false" }
+    String(text) => text
+    Number(text) => text
+    Bool(flag) => if flag { "true" } else { "false" }
     _ => ""
   }
 }
@@ -741,58 +738,50 @@ fn pdf_native_annotation_json(
   annotation : PdfNativeAnnotation,
 ) -> @core.JsonValue {
   let payload : Map[String, @core.JsonValue] = Map([])
-  payload.set("subtype", @core.JsonValue::String(annotation.subtype))
-  payload.set(
-    "page",
-    @core.JsonValue::Number(annotation.page_index.to_string()),
-  )
+  payload.set("subtype", String(annotation.subtype))
+  payload.set("page", Number(annotation.page_index.to_string()))
   match annotation.bbox {
     Some(bbox) => payload.set("bbox", pdf_native_bbox_json(bbox))
     None => ()
   }
   match annotation.text {
-    Some(value) => payload.set("text", @core.JsonValue::String(value))
+    Some(value) => payload.set("text", String(value))
     None => ()
   }
   match annotation.title {
-    Some(value) => payload.set("title", @core.JsonValue::String(value))
+    Some(value) => payload.set("title", String(value))
     None => ()
   }
   match annotation.subject {
-    Some(value) => payload.set("subject", @core.JsonValue::String(value))
+    Some(value) => payload.set("subject", String(value))
     None => ()
   }
   match annotation.file_name {
-    Some(value) => payload.set("file_name", @core.JsonValue::String(value))
+    Some(value) => payload.set("file_name", String(value))
     None => ()
   }
   match annotation.name {
-    Some(value) => payload.set("name", @core.JsonValue::String(value))
+    Some(value) => payload.set("name", String(value))
     None => ()
   }
   match annotation.modified_at {
-    Some(value) => payload.set("modified_at", @core.JsonValue::String(value))
+    Some(value) => payload.set("modified_at", String(value))
     None => ()
   }
   match annotation.action_kind {
-    Some(value) => payload.set("action_kind", @core.JsonValue::String(value))
+    Some(value) => payload.set("action_kind", String(value))
     None => ()
   }
   match annotation.target {
-    Some(value) => payload.set("target", @core.JsonValue::String(value))
+    Some(value) => payload.set("target", String(value))
     None => ()
   }
   match annotation.annotation_index {
-    Some(value) =>
-      payload.set(
-        "annotation_index",
-        @core.JsonValue::Number(value.to_string()),
-      )
+    Some(value) => payload.set("annotation_index", Number(value.to_string()))
     None => ()
   }
   match annotation.object_id {
-    Some(value) =>
-      payload.set("object_id", @core.JsonValue::Number(value.to_string()))
+    Some(value) => payload.set("object_id", Number(value.to_string()))
     None => ()
   }
   match annotation.destination {
@@ -800,90 +789,74 @@ fn pdf_native_annotation_json(
       payload.set("destination", pdf_native_destination_json(value))
     None => ()
   }
-  @core.JsonValue::Object(payload)
+  Object(payload)
 }
 
 ///|
 fn pdf_native_form_field_json(field : PdfNativeFormField) -> @core.JsonValue {
   let payload : Map[String, @core.JsonValue] = Map([])
   match field.page_index {
-    Some(value) =>
-      payload.set("page", @core.JsonValue::Number(value.to_string()))
+    Some(value) => payload.set("page", Number(value.to_string()))
     None => ()
   }
   match field.field_type {
-    Some(value) => payload.set("field_type", @core.JsonValue::String(value))
+    Some(value) => payload.set("field_type", String(value))
     None => ()
   }
   match field.field_name {
-    Some(value) => payload.set("field_name", @core.JsonValue::String(value))
+    Some(value) => payload.set("field_name", String(value))
     None => ()
   }
   match field.alternate_name {
-    Some(value) => payload.set("alternate_name", @core.JsonValue::String(value))
+    Some(value) => payload.set("alternate_name", String(value))
     None => ()
   }
   match field.value {
-    Some(value) => payload.set("value", @core.JsonValue::String(value))
+    Some(value) => payload.set("value", String(value))
     None => ()
   }
   match field.default_value {
-    Some(value) => payload.set("default_value", @core.JsonValue::String(value))
+    Some(value) => payload.set("default_value", String(value))
     None => ()
   }
   if field.options.length() > 0 {
-    payload.set(
-      "options",
-      @core.JsonValue::Array(
-        field.options.map(value => @core.JsonValue::String(value)),
-      ),
-    )
+    payload.set("options", Array(field.options.map(value => String(value))))
   }
   match field.bbox {
     Some(bbox) => payload.set("bbox", pdf_native_bbox_json(bbox))
     None => ()
   }
   match field.object_id {
-    Some(value) =>
-      payload.set("object_id", @core.JsonValue::Number(value.to_string()))
+    Some(value) => payload.set("object_id", Number(value.to_string()))
     None => ()
   }
   match field.widget_object_id {
-    Some(value) =>
-      payload.set(
-        "widget_object_id",
-        @core.JsonValue::Number(value.to_string()),
-      )
+    Some(value) => payload.set("widget_object_id", Number(value.to_string()))
     None => ()
   }
   match field.flags {
-    Some(value) =>
-      payload.set("flags", @core.JsonValue::Number(value.to_string()))
+    Some(value) => payload.set("flags", Number(value.to_string()))
     None => ()
   }
-  @core.JsonValue::Object(payload)
+  Object(payload)
 }
 
 ///|
 fn pdf_native_outline_item_json(item : PdfNativeOutlineItem) -> @core.JsonValue {
   let payload : Map[String, @core.JsonValue] = Map([])
-  payload.set("title", @core.JsonValue::String(item.title))
-  payload.set("level", @core.JsonValue::Number(item.level.to_string()))
-  payload.set(
-    "order_index",
-    @core.JsonValue::Number(item.order_index.to_string()),
-  )
+  payload.set("title", String(item.title))
+  payload.set("level", Number(item.level.to_string()))
+  payload.set("order_index", Number(item.order_index.to_string()))
   match item.page_index {
-    Some(value) =>
-      payload.set("page", @core.JsonValue::Number(value.to_string()))
+    Some(value) => payload.set("page", Number(value.to_string()))
     None => ()
   }
   match item.action_kind {
-    Some(value) => payload.set("action_kind", @core.JsonValue::String(value))
+    Some(value) => payload.set("action_kind", String(value))
     None => ()
   }
   match item.target {
-    Some(value) => payload.set("target", @core.JsonValue::String(value))
+    Some(value) => payload.set("target", String(value))
     None => ()
   }
   match item.destination {
@@ -892,11 +865,10 @@ fn pdf_native_outline_item_json(item : PdfNativeOutlineItem) -> @core.JsonValue 
     None => ()
   }
   match item.object_id {
-    Some(value) =>
-      payload.set("object_id", @core.JsonValue::Number(value.to_string()))
+    Some(value) => payload.set("object_id", Number(value.to_string()))
     None => ()
   }
-  @core.JsonValue::Object(payload)
+  Object(payload)
 }
 
 ///|
@@ -905,64 +877,55 @@ fn pdf_native_destination_json(
 ) -> @core.JsonValue {
   let payload : Map[String, @core.JsonValue] = Map([])
   match destination.page_index {
-    Some(value) =>
-      payload.set("page_index", @core.JsonValue::Number(value.to_string()))
+    Some(value) => payload.set("page_index", Number(value.to_string()))
     None => ()
   }
   match destination.target_page_index {
-    Some(value) =>
-      payload.set(
-        "target_page_index",
-        @core.JsonValue::Number(value.to_string()),
-      )
+    Some(value) => payload.set("target_page_index", Number(value.to_string()))
     None => ()
   }
   match destination.target_page_object_id {
     Some(value) =>
-      payload.set(
-        "target_page_object_id",
-        @core.JsonValue::Number(value.to_string()),
-      )
+      payload.set("target_page_object_id", Number(value.to_string()))
     None => ()
   }
   match destination.kind {
-    Some(value) => payload.set("kind", @core.JsonValue::String(value))
+    Some(value) => payload.set("kind", String(value))
     None => ()
   }
   match destination.raw_value {
-    Some(value) => payload.set("raw_value", @core.JsonValue::String(value))
+    Some(value) => payload.set("raw_value", String(value))
     None => ()
   }
   match destination.name {
-    Some(value) => payload.set("name", @core.JsonValue::String(value))
+    Some(value) => payload.set("name", String(value))
     None => ()
   }
   match destination.object_id {
-    Some(value) =>
-      payload.set("object_id", @core.JsonValue::Number(value.to_string()))
+    Some(value) => payload.set("object_id", Number(value.to_string()))
     None => ()
   }
-  @core.JsonValue::Object(payload)
+  Object(payload)
 }
 
 ///|
 fn pdf_native_bbox_json(bbox : PdfBBox) -> @core.JsonValue {
   let payload : Map[String, @core.JsonValue] = Map([])
-  payload.set("x", @core.JsonValue::Number(bbox.x.to_string()))
-  payload.set("y", @core.JsonValue::Number(bbox.y.to_string()))
-  payload.set("width", @core.JsonValue::Number(bbox.width.to_string()))
-  payload.set("height", @core.JsonValue::Number(bbox.height.to_string()))
-  payload.set("x1", @core.JsonValue::Number(pdf_bbox_right(bbox).to_string()))
-  payload.set("y1", @core.JsonValue::Number(pdf_bbox_bottom(bbox).to_string()))
-  @core.JsonValue::Object(payload)
+  payload.set("x", Number(bbox.x.to_string()))
+  payload.set("y", Number(bbox.y.to_string()))
+  payload.set("width", Number(bbox.width.to_string()))
+  payload.set("height", Number(bbox.height.to_string()))
+  payload.set("x1", Number(pdf_bbox_right(bbox).to_string()))
+  payload.set("y1", Number(pdf_bbox_bottom(bbox).to_string()))
+  Object(payload)
 }
 
 ///|
 fn pdf_native_core_bbox_json(bbox : @core.BBox) -> @core.JsonValue {
   let payload : Map[String, @core.JsonValue] = Map([])
-  payload.set("x0", @core.JsonValue::Number(bbox.x0.to_string()))
-  payload.set("y0", @core.JsonValue::Number(bbox.y0.to_string()))
-  payload.set("x1", @core.JsonValue::Number(bbox.x1.to_string()))
-  payload.set("y1", @core.JsonValue::Number(bbox.y1.to_string()))
-  @core.JsonValue::Object(payload)
+  payload.set("x0", Number(bbox.x0.to_string()))
+  payload.set("y0", Number(bbox.y0.to_string()))
+  payload.set("x1", Number(bbox.x1.to_string()))
+  payload.set("y1", Number(bbox.y1.to_string()))
+  Object(payload)
 }

@@ -3,7 +3,7 @@
 pub fn audio_parser() -> @parser.Parser {
   @parser.make_parser(
     "audio_parser",
-    @parser.ParserMode::MediaPipeline,
+    MediaPipeline,
     audio_parser_capability(),
     fn(
       source : @input.InputSource,
@@ -18,9 +18,9 @@ pub fn audio_parser() -> @parser.Parser {
 /// Capability for the audio transcript media pipeline.
 pub fn audio_parser_capability() -> @parser.ParserCapability {
   @parser.make_parser_capability(
-    @parser.ParserMode::MediaPipeline,
+    MediaPipeline,
     false,
-    @parser.StreamingGranularity::None,
+    None,
     true,
     false,
     false,
@@ -48,7 +48,7 @@ pub fn audio_parser_result(
   context : @parser.ParseContext,
 ) -> Result[@parser.ParseResult, String] {
   match detected_format {
-    @input.DetectedFormat::Audio(_) => ()
+    Audio(_) => ()
     _ =>
       return Err(
         "audio_parser only accepts detected audio formats; got " +
@@ -100,7 +100,7 @@ fn audio_parse_result_from_transcript(
 ) -> Result[@parser.ParseResult, String] {
   let diagnostics = @fshared.empty_parser_diagnostics(
     "audio_parser",
-    @parser.ParserMode::MediaPipeline,
+    MediaPipeline,
     source,
     @input.detected_format_name(detected_format),
   )
@@ -110,10 +110,10 @@ fn audio_parse_result_from_transcript(
     context,
     @input.detected_format_name(detected_format),
     "audio_parser",
-    @parser.ParserMode::MediaPipeline,
-    @parser.ParserMode::MediaPipeline,
+    MediaPipeline,
+    MediaPipeline,
     "document",
-    @parser.StreamingGranularity::None,
+    None,
     "audio_media_pipeline_document",
   )
   @fshared.apply_product_metrics(
@@ -237,7 +237,7 @@ fn audio_parse_result_from_transcript(
   Ok(
     @parser.parse_result_with_document_capability(
       "audio_parser",
-      @parser.ParserMode::MediaPipeline,
+      MediaPipeline,
       document,
       diagnostics,
       audio_parser_capability(),
@@ -269,60 +269,45 @@ fn audio_document_metadata(
   transcript : AudioTranscriptResult,
 ) -> @core.DocumentMetadata {
   let metadata : @core.DocumentMetadata = Map([])
-  metadata.set("title", @core.JsonValue::String(source.source_name))
+  metadata.set("title", String(source.source_name))
   metadata.set(
     "audio_format",
-    @core.JsonValue::String(@input.detected_format_name(detected_format)),
+    String(@input.detected_format_name(detected_format)),
   )
   metadata.set(
     "audio_backend_transport",
-    @core.JsonValue::String(audio_backend_transport_name()),
+    String(audio_backend_transport_name()),
   )
-  metadata.set(
-    "audio_backend_name",
-    @core.JsonValue::String(transcript.provider_name),
-  )
+  metadata.set("audio_backend_name", String(transcript.provider_name))
   match transcript.provider_version {
-    Some(value) =>
-      metadata.set("audio_backend_version", @core.JsonValue::String(value))
+    Some(value) => metadata.set("audio_backend_version", String(value))
     None => ()
   }
   match transcript.metadata.duration_ms {
-    Some(value) =>
-      metadata.set(
-        "audio_duration_ms",
-        @core.JsonValue::Number(value.to_string()),
-      )
+    Some(value) => metadata.set("audio_duration_ms", Number(value.to_string()))
     None => ()
   }
   match transcript.metadata.language {
-    Some(value) =>
-      metadata.set("audio_language", @core.JsonValue::String(value))
+    Some(value) => metadata.set("audio_language", String(value))
     None => ()
   }
   match transcript.metadata.codec {
-    Some(value) => metadata.set("audio_codec", @core.JsonValue::String(value))
+    Some(value) => metadata.set("audio_codec", String(value))
     None => ()
   }
   match transcript.metadata.sample_rate_hz {
     Some(value) =>
-      metadata.set(
-        "audio_sample_rate_hz",
-        @core.JsonValue::Number(value.to_string()),
-      )
+      metadata.set("audio_sample_rate_hz", Number(value.to_string()))
     None => ()
   }
   match transcript.metadata.channel_count {
     Some(value) =>
-      metadata.set(
-        "audio_channel_count",
-        @core.JsonValue::Number(value.to_string()),
-      )
+      metadata.set("audio_channel_count", Number(value.to_string()))
     None => ()
   }
   metadata.set(
     "audio_segment_count",
-    @core.JsonValue::Number(transcript.segments.length().to_string()),
+    Number(transcript.segments.length().to_string()),
   )
   metadata
 }
@@ -364,7 +349,7 @@ fn heading_block(
   level : Int,
 ) -> @core.CoreBlock {
   @core.block_with_attr(
-    @core.make_block(@core.BlockKind::Heading, text, source_ref~),
+    @core.make_block(Heading, text, source_ref~),
     "level",
     level.to_string(),
   )
@@ -375,7 +360,7 @@ fn literal_paragraph_block(
   text : String,
   source_ref : @core.SourceRef,
 ) -> @core.CoreBlock {
-  @core.make_block(@core.BlockKind::Paragraph, text, source_ref~)
+  @core.make_block(Paragraph, text, source_ref~)
 }
 
 ///|
@@ -393,7 +378,7 @@ fn audio_segment_block(
     "] " +
     trimmed_text
   @core.block_with_attr(
-    @core.make_block(@core.BlockKind::Paragraph, text, source_ref~),
+    @core.make_block(Paragraph, text, source_ref~),
     "audio_segment",
     "true",
   )

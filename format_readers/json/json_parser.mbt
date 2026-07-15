@@ -30,7 +30,7 @@ fn json_value_from_native(
   number_index : Ref[Int],
 ) -> JsonValue {
   match value {
-    Json::Object(members) => {
+    Object(members) => {
       let out : Array[JsonMember] = []
       for entry in members {
         out.push({
@@ -38,16 +38,16 @@ fn json_value_from_native(
           value: json_value_from_native(entry.1, number_lexemes, number_index),
         })
       }
-      JsonValue::Object(out)
+      Object(out)
     }
-    Json::Array(items) =>
-      JsonValue::Array(
+    Array(items) =>
+      Array(
         items.map(item => {
           json_value_from_native(item, number_lexemes, number_index)
         }),
       )
-    Json::String(text) => JsonValue::String(text)
-    Json::Number(number, repr~) => {
+    String(text) => String(text)
+    Number(number, repr~) => {
       let text = if number_index.val < number_lexemes.length() {
         let lexeme = number_lexemes[number_index.val]
         number_index.val += 1
@@ -55,11 +55,11 @@ fn json_value_from_native(
       } else {
         repr.unwrap_or(number.to_string())
       }
-      JsonValue::Number(text)
+      Number(text)
     }
-    Json::True => JsonValue::Bool(true)
-    Json::False => JsonValue::Bool(false)
-    Json::Null => JsonValue::Null
+    True => Bool(true)
+    False => Bool(false)
+    Null => Null
   }
 }
 
@@ -184,37 +184,37 @@ pub fn classify_json_error(err : JsonError) -> JsonErrorInfo {
   let kind = if detail.contains("trailing content") {
     JsonErrorKind::TrailingContent
   } else if detail.contains("unexpected end of input") {
-    JsonErrorKind::UnexpectedEnd
+    UnexpectedEnd
   } else if detail.contains("unexpected character") {
-    JsonErrorKind::UnexpectedCharacter
+    UnexpectedCharacter
   } else if detail.contains("object key must be a string") {
-    JsonErrorKind::ObjectKeyMustBeString
+    ObjectKeyMustBeString
   } else if detail.contains("unterminated string") {
-    JsonErrorKind::UnterminatedString
+    UnterminatedString
   } else if detail.contains("unterminated escape") ||
     detail.contains("invalid escape") {
-    JsonErrorKind::InvalidEscape
+    InvalidEscape
   } else if detail.contains("invalid unicode escape") {
-    JsonErrorKind::InvalidUnicodeEscape
+    InvalidUnicodeEscape
   } else if detail.contains("invalid unicode surrogate pair") ||
     detail.contains("lone low surrogate") {
-    JsonErrorKind::InvalidUnicodeSurrogate
+    InvalidUnicodeSurrogate
   } else if detail.contains("invalid fraction") {
-    JsonErrorKind::InvalidFraction
+    InvalidFraction
   } else if detail.contains("invalid exponent") {
-    JsonErrorKind::InvalidExponent
+    InvalidExponent
   } else if detail.contains("invalid number") ||
     detail.contains("invalid leading zero") {
-    JsonErrorKind::InvalidNumber
+    InvalidNumber
   } else if detail.contains("raw newline in string") {
-    JsonErrorKind::RawNewlineInString
+    RawNewlineInString
   } else if detail.contains("raw control character in string") {
-    JsonErrorKind::RawControlCharacterInString
+    RawControlCharacterInString
   } else if detail.contains("expected ") ||
     detail.contains("expected character") {
-    JsonErrorKind::ExpectedToken
+    ExpectedToken
   } else {
-    JsonErrorKind::Unknown
+    Unknown
   }
   { kind, detail: err.to_string() }
 }
@@ -345,74 +345,41 @@ fn JsonStreamParser::parse_stream_value(
     '"' => {
       let value = self.parse_string()
       self.scalar_count += 1
-      self.push_scalar_event(
-        JsonStreamEventKind::StringValue,
-        pointer,
-        depth,
-        value,
-      )
+      self.push_scalar_event(StringValue, pointer, depth, value)
       "string"
     }
     't' => {
       let start = self.current_source_start()
       self.expect_literal("true")
       self.scalar_count += 1
-      self.push_event(
-        JsonStreamEventKind::BoolValue,
-        pointer,
-        depth,
-        Some("true"),
-        start,
-      )
+      self.push_event(BoolValue, pointer, depth, Some("true"), start)
       "bool"
     }
     'f' => {
       let start = self.current_source_start()
       self.expect_literal("false")
       self.scalar_count += 1
-      self.push_event(
-        JsonStreamEventKind::BoolValue,
-        pointer,
-        depth,
-        Some("false"),
-        start,
-      )
+      self.push_event(BoolValue, pointer, depth, Some("false"), start)
       "bool"
     }
     'n' => {
       let start = self.current_source_start()
       self.expect_literal("null")
       self.scalar_count += 1
-      self.push_event(
-        JsonStreamEventKind::NullValue,
-        pointer,
-        depth,
-        Some("null"),
-        start,
-      )
+      self.push_event(NullValue, pointer, depth, Some("null"), start)
       "null"
     }
     '-' => {
       let number = self.parse_number()
       self.scalar_count += 1
-      self.push_scalar_event(
-        JsonStreamEventKind::NumberValue,
-        pointer,
-        depth,
-        number,
-      )
+      self.push_scalar_event(NumberValue, pointer, depth, number)
       "number"
     }
     ch =>
       if is_digit(ch) {
         let number = self.parse_number()
         self.scalar_count += 1
-        self.push_scalar_event(
-          JsonStreamEventKind::NumberValue,
-          pointer,
-          depth,
-          number,
-        )
+        self.push_scalar_event(NumberValue, pointer, depth, number)
         "number"
       } else {
         raise ParseError("unexpected character")
@@ -429,10 +396,10 @@ fn JsonStreamParser::parse_stream_object(
   self.object_count += 1
   let start = self.current_source_start()
   self.expect_char('{')
-  self.push_event(JsonStreamEventKind::ObjectStart, pointer, depth, None, start)
+  self.push_event(ObjectStart, pointer, depth, None, start)
   self.skip_ws()
   if self.consume_char('}') {
-    self.push_event(JsonStreamEventKind::ObjectEnd, pointer, depth, None, start)
+    self.push_event(ObjectEnd, pointer, depth, None, start)
     return
   }
   while true {
@@ -447,25 +414,13 @@ fn JsonStreamParser::parse_stream_object(
     } else {
       "/"
     }
-    self.push_event(
-      JsonStreamEventKind::Key,
-      child_pointer,
-      depth + 1,
-      Some(key),
-      key_start,
-    )
+    self.push_event(Key, child_pointer, depth + 1, Some(key), key_start)
     self.skip_ws()
     self.expect_char(':')
     ignore(self.parse_stream_value(child_pointer, depth + 1))
     self.skip_ws()
     if self.consume_char('}') {
-      self.push_event(
-        JsonStreamEventKind::ObjectEnd,
-        pointer,
-        depth,
-        None,
-        start,
-      )
+      self.push_event(ObjectEnd, pointer, depth, None, start)
       break
     }
     self.expect_char(',')
@@ -481,10 +436,10 @@ fn JsonStreamParser::parse_stream_array(
   self.array_count += 1
   let start = self.current_source_start()
   self.expect_char('[')
-  self.push_event(JsonStreamEventKind::ArrayStart, pointer, depth, None, start)
+  self.push_event(ArrayStart, pointer, depth, None, start)
   self.skip_ws()
   if self.consume_char(']') {
-    self.push_event(JsonStreamEventKind::ArrayEnd, pointer, depth, None, start)
+    self.push_event(ArrayEnd, pointer, depth, None, start)
     return
   }
   let mut index = 0
@@ -498,13 +453,7 @@ fn JsonStreamParser::parse_stream_array(
     index += 1
     self.skip_ws()
     if self.consume_char(']') {
-      self.push_event(
-        JsonStreamEventKind::ArrayEnd,
-        pointer,
-        depth,
-        None,
-        start,
-      )
+      self.push_event(ArrayEnd, pointer, depth, None, start)
       break
     }
     self.expect_char(',')
@@ -621,23 +570,23 @@ fn JsonParser::parse_value(self : JsonParser) -> JsonValue raise {
   match self.chars[self.pos] {
     '{' => self.parse_object()
     '[' => self.parse_array()
-    '"' => JsonValue::String(self.parse_string())
+    '"' => String(self.parse_string())
     't' => {
       self.expect_literal("true")
-      JsonValue::Bool(true)
+      Bool(true)
     }
     'f' => {
       self.expect_literal("false")
-      JsonValue::Bool(false)
+      Bool(false)
     }
     'n' => {
       self.expect_literal("null")
-      JsonValue::Null
+      Null
     }
-    '-' => JsonValue::Number(self.parse_number())
+    '-' => Number(self.parse_number())
     c =>
       if is_digit(c) {
-        JsonValue::Number(self.parse_number())
+        Number(self.parse_number())
       } else {
         raise ParseError("unexpected character")
       }
@@ -1238,12 +1187,12 @@ fn hex_value(ch : Char) -> Int {
 /// Return a stable human-readable kind label for a parsed JSON value.
 pub fn json_value_kind(value : JsonValue) -> String {
   match value {
-    JsonValue::Object(_) => "object"
-    JsonValue::Array(_) => "array"
-    JsonValue::String(_) => "string"
-    JsonValue::Number(_) => "number"
-    JsonValue::Bool(_) => "bool"
-    JsonValue::Null => "null"
+    Object(_) => "object"
+    Array(_) => "array"
+    String(_) => "string"
+    Number(_) => "number"
+    Bool(_) => "bool"
+    Null => "null"
   }
 }
 

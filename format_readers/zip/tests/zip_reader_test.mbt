@@ -515,8 +515,8 @@ test "zip facade can read entry bytes and classify missing entry" {
     Ok(_) => fail("expected missing entry read to fail")
     Err(err) => {
       let info = @zip.classify_zip_error(err)
-      if info.kind != @zip.ZipErrorKind::MissingEntry ||
-        info.mapping != @zip.ZipErrorMappingKind::DirectVariant ||
+      if info.kind != MissingEntry ||
+        info.mapping != DirectVariant ||
         info.entry_name != Some("notes/missing.txt") {
         fail("missing entry should classify as direct MissingEntry")
       }
@@ -573,9 +573,8 @@ test "zip validation reports unsafe paths and normalized collisions" {
   let mut duplicate_count = 0
   for issue in validation.issues {
     match issue.kind {
-      @zip.ZipValidationIssueKind::UnsafeEntryPath => unsafe_count += 1
-      @zip.ZipValidationIssueKind::DuplicateNormalizedEntry =>
-        duplicate_count += 1
+      UnsafeEntryPath => unsafe_count += 1
+      DuplicateNormalizedEntry => duplicate_count += 1
       _ => ()
     }
   }
@@ -605,9 +604,8 @@ test "zip validation reports unsupported compression and nested archive candidat
   let mut saw_nested = false
   for issue in validation.issues {
     match issue.kind {
-      @zip.ZipValidationIssueKind::UnsupportedCompressionMethod =>
-        saw_unsupported = true
-      @zip.ZipValidationIssueKind::NestedArchiveCandidate => saw_nested = true
+      UnsupportedCompressionMethod => saw_unsupported = true
+      NestedArchiveCandidate => saw_nested = true
       _ => ()
     }
   }
@@ -622,26 +620,52 @@ test "zip validation reports unsupported compression and nested archive candidat
     Ok(_) => fail("unsupported compression entry should not decode")
     Err(err) => {
       let info = @zip.classify_zip_error(err)
-      if info.kind != @zip.ZipErrorKind::UnsupportedCompressionMethod {
+      if info.kind != UnsupportedCompressionMethod {
         fail("unsupported compression should classify correctly")
       }
     }
+  }
+  let transient = try
+    @zip.read_entry_transient(archive, "unsupported.bin") |> Ok
+  catch {
+    e => Err(e)
+  }
+  match transient {
+    Err(UnsupportedCompressionMethod(99)) => ()
+    Err(err) =>
+      fail("unexpected transient compression error: " + err.to_string())
+    Ok(_) => fail("transient read should reject unsupported compression")
+  }
+}
+
+///|
+test "zip transient read reports malformed deflate data" {
+  let archive = @zip.open_zip(build_zip([("bad.bin", "raw", 8)])) catch {
+    e => fail("open malformed deflate zip failed: " + e.to_string())
+  }
+  let result = try @zip.read_entry_transient(archive, "bad.bin") |> Ok catch {
+    e => Err(e)
+  }
+  match result {
+    Err(DecodeFailed(message)) =>
+      assert_true(message.contains("decode failed for `bad.bin`"))
+    Err(err) => fail("unexpected malformed deflate error: " + err.to_string())
+    Ok(_) => fail("malformed deflate entry should not decode")
   }
 }
 
 ///|
 test "zip error classifier distinguishes direct and best-effort mappings" {
-  let missing = @zip.classify_zip_error(@zip.EntryNotFound("missing.txt"))
-  if missing.kind != @zip.ZipErrorKind::MissingEntry ||
-    missing.mapping != @zip.ZipErrorMappingKind::DirectVariant {
+  let missing = @zip.classify_zip_error(EntryNotFound("missing.txt"))
+  if missing.kind != MissingEntry || missing.mapping != DirectVariant {
     fail("EntryNotFound should classify via direct variant mapping")
   }
 
   let encrypted = @zip.classify_zip_error(
-    @zip.InvalidStructure("encrypted zip is not supported: secret.txt"),
+    InvalidStructure("encrypted zip is not supported: secret.txt"),
   )
-  if encrypted.kind != @zip.ZipErrorKind::EncryptedEntry ||
-    encrypted.mapping != @zip.ZipErrorMappingKind::BestEffortMessage ||
+  if encrypted.kind != EncryptedEntry ||
+    encrypted.mapping != BestEffortMessage ||
     encrypted.entry_name != Some("secret.txt") {
     fail(
       "encrypted invalid-structure error should classify via best-effort mapping",
@@ -649,34 +673,33 @@ test "zip error classifier distinguishes direct and best-effort mappings" {
   }
 
   let duplicate = @zip.classify_zip_error(
-    @zip.InvalidStructure("duplicate entry name in central directory: dup.txt"),
+    InvalidStructure("duplicate entry name in central directory: dup.txt"),
   )
-  if duplicate.kind != @zip.ZipErrorKind::DuplicateEntryName ||
-    duplicate.mapping != @zip.ZipErrorMappingKind::BestEffortMessage {
+  if duplicate.kind != DuplicateEntryName ||
+    duplicate.mapping != BestEffortMessage {
     fail("duplicate-entry invalid-structure error should classify distinctly")
   }
 
   let unsupported = @zip.classify_zip_error(
-    @zip.InvalidStructure("ZIP64 is not supported in phase-1"),
+    InvalidStructure("ZIP64 is not supported in phase-1"),
   )
-  if unsupported.kind != @zip.ZipErrorKind::UnsupportedFeature ||
-    unsupported.mapping != @zip.ZipErrorMappingKind::BestEffortMessage {
+  if unsupported.kind != UnsupportedFeature ||
+    unsupported.mapping != BestEffortMessage {
     fail("ZIP64 unsupported message should classify as UnsupportedFeature")
   }
 
   let malformed = @zip.classify_zip_error(
-    @zip.InvalidStructure("central/local filename mismatch"),
+    InvalidStructure("central/local filename mismatch"),
   )
-  if malformed.kind != @zip.ZipErrorKind::MalformedArchive ||
-    malformed.mapping != @zip.ZipErrorMappingKind::DirectVariant {
+  if malformed.kind != MalformedArchive || malformed.mapping != DirectVariant {
     fail("generic invalid structure should remain malformed archive")
   }
 
   let read_failed = @zip.classify_zip_error(
-    @zip.DecodeFailed("decode failed for `bad.bin`: broken deflate stream"),
+    DecodeFailed("decode failed for `bad.bin`: broken deflate stream"),
   )
-  if read_failed.kind != @zip.ZipErrorKind::ReadEntryFailed ||
-    read_failed.mapping != @zip.ZipErrorMappingKind::DirectVariant ||
+  if read_failed.kind != ReadEntryFailed ||
+    read_failed.mapping != DirectVariant ||
     read_failed.entry_name != Some("bad.bin") {
     fail("decode failure should retain entry context")
   }
@@ -769,7 +792,7 @@ test "zip reader still rejects encrypted data descriptor entries" {
     Ok(_) => fail("encrypted data-descriptor entry should fail")
     Err(err) => {
       let info = @zip.classify_zip_error(err)
-      if info.kind != @zip.ZipErrorKind::EncryptedEntry {
+      if info.kind != EncryptedEntry {
         fail("encrypted data-descriptor entry should classify distinctly")
       }
     }
@@ -801,7 +824,7 @@ test "zip reader still rejects zip64 sentinel sizes on data descriptor entries" 
     Ok(_) => fail("zip64 sentinel size should fail")
     Err(err) => {
       let info = @zip.classify_zip_error(err)
-      if info.kind != @zip.ZipErrorKind::UnsupportedFeature {
+      if info.kind != UnsupportedFeature {
         fail("zip64 sentinel should stay unsupported")
       }
     }
@@ -827,7 +850,7 @@ test "zip reader still rejects unsupported compression on data descriptor entrie
     Ok(_) => fail("unsupported compression should fail on read")
     Err(err) => {
       let info = @zip.classify_zip_error(err)
-      if info.kind != @zip.ZipErrorKind::UnsupportedCompressionMethod {
+      if info.kind != UnsupportedCompressionMethod {
         fail("unsupported compression should retain existing classification")
       }
     }

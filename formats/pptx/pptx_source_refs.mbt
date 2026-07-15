@@ -56,7 +56,7 @@ fn pptx_append_document_warnings(
     return
   }
   let heading = @core.make_block(
-    @core.BlockKind::Heading,
+    Heading,
     "PPTX Warnings",
     source_ref=@core.empty_source_ref(),
   )
@@ -75,11 +75,7 @@ fn pptx_append_document_warnings(
         )
       None => pptx_root_source_ref(state.source)
     }
-    let block = @core.make_block(
-      @core.BlockKind::ListItem,
-      warning.message,
-      source_ref~,
-    )
+    let block = @core.make_block(ListItem, warning.message, source_ref~)
     block.attrs.set("ordered", "false")
     block.attrs.set("level", "0")
     warning_blocks.push(block)
@@ -98,10 +94,10 @@ fn pptx_warning_already_represented_in_markdown(
   state : PptxState,
   warning : @pptxdoc.PptxWarning,
 ) -> Bool {
-  if !pptx_feature_enabled(state, @product.AccurateFeature::PptxGroupSummary) {
+  if !pptx_feature_enabled(state, PptxGroupSummary) {
     return false
   }
-  if warning.kind != @pptxdoc.PptxWarningKind::UnsupportedObject {
+  if warning.kind != UnsupportedObject {
     return false
   }
   let message = warning.message
@@ -115,7 +111,7 @@ fn pptx_root_source_ref(source : @input.InputSource) -> @core.SourceRef {
     @core.empty_source_ref(),
     Some(source.source_name),
     Some("pptx"),
-    source.path,
+    @input.input_path(source),
     None,
     None,
     Some("pptx"),
@@ -143,7 +139,7 @@ fn pptx_slide_source_ref(
       @core.empty_source_ref(),
       Some(source.source_name),
       Some("pptx"),
-      source.path,
+      @input.input_path(source),
       entry_path,
       None,
       Some("pptx"),
@@ -233,7 +229,7 @@ fn pptx_next_shape_top(
   let mut next_top : Int? = None
   for obj in slide.objects {
     match obj {
-      @pptxdoc.PptxObject::Shape(other) =>
+      Shape(other) =>
         if other.shape_id != shape.shape_id {
           match shape_geometry_top(other) {
             Some(top) =>
@@ -372,16 +368,16 @@ fn pptx_placeholder_kind_to_string(
   kind : @pptxdoc.PptxPlaceholderKind,
 ) -> String {
   match kind {
-    @pptxdoc.PptxPlaceholderKind::Title => "title"
-    @pptxdoc.PptxPlaceholderKind::CenterTitle => "center_title"
-    @pptxdoc.PptxPlaceholderKind::Subtitle => "subtitle"
-    @pptxdoc.PptxPlaceholderKind::Body => "body"
-    @pptxdoc.PptxPlaceholderKind::Footer => "footer"
-    @pptxdoc.PptxPlaceholderKind::Date => "date"
-    @pptxdoc.PptxPlaceholderKind::SlideNumber => "slide_number"
-    @pptxdoc.PptxPlaceholderKind::Picture => "picture"
-    @pptxdoc.PptxPlaceholderKind::Table => "table"
-    @pptxdoc.PptxPlaceholderKind::Unknown => "unknown"
+    Title => "title"
+    CenterTitle => "center_title"
+    Subtitle => "subtitle"
+    Body => "body"
+    Footer => "footer"
+    Date => "date"
+    SlideNumber => "slide_number"
+    Picture => "picture"
+    Table => "table"
+    Unknown => "unknown"
   }
 }
 
@@ -415,7 +411,7 @@ fn pptx_raw_placeholder_block(
       @core.source_ref_with_extra(source_ref0, "relationship_id", rid)
     None => source_ref0
   }
-  let raw = @core.make_block(@core.BlockKind::Raw, text, source_ref~)
+  let raw = @core.make_block(Raw, text, source_ref~)
   raw.attrs.set("raw_kind", raw_kind)
   raw
 }
@@ -430,7 +426,7 @@ fn pptx_opt_suffix(value : String?) -> String {
 
 ///|
 fn pptx_include_block_reading_order_hint(state : PptxState) -> Bool {
-  pptx_feature_enabled(state, @product.AccurateFeature::PptxReadingOrder)
+  pptx_feature_enabled(state, PptxReadingOrder)
 }
 
 ///|
@@ -453,7 +449,7 @@ fn pptx_object_reading_order_key(
   source_key : @pptxdoc.PptxSourceKey,
 ) -> String? {
   match obj {
-    @pptxdoc.PptxObject::Shape(shape) =>
+    Shape(shape) =>
       if pptx_source_keys_match(shape.source_key, source_key) {
         match shape.reading_order {
           Some(order) => Some(order.order_key)
@@ -462,7 +458,7 @@ fn pptx_object_reading_order_key(
       } else {
         None
       }
-    @pptxdoc.PptxObject::Group(group) =>
+    Group(group) =>
       if pptx_source_keys_match(group.source_key, source_key) {
         match group.reading_order {
           Some(order) => Some(order.order_key)
@@ -477,7 +473,7 @@ fn pptx_object_reading_order_key(
         }
         None
       }
-    @pptxdoc.PptxObject::Picture(pic) =>
+    Picture(pic) =>
       if pptx_source_keys_match(pic.source_key, source_key) {
         match pic.reading_order {
           Some(order) => Some(order.order_key)
@@ -486,37 +482,37 @@ fn pptx_object_reading_order_key(
       } else {
         None
       }
-    @pptxdoc.PptxObject::Table(table) =>
+    Table(table) =>
       if pptx_source_keys_match(table.source_key, source_key) {
         Some("950:999999999:999999999:" + table.source_key.node_key)
       } else {
         None
       }
-    @pptxdoc.PptxObject::Chart(chart) =>
+    Chart(chart) =>
       if pptx_source_keys_match(chart.source_key, source_key) {
         Some("950:999999999:999999999:" + chart.source_key.node_key)
       } else {
         None
       }
-    @pptxdoc.PptxObject::SmartArt(smart) =>
+    SmartArt(smart) =>
       if pptx_source_keys_match(smart.source_key, source_key) {
         Some("950:999999999:999999999:" + smart.source_key.node_key)
       } else {
         None
       }
-    @pptxdoc.PptxObject::Ole(ole) =>
+    Ole(ole) =>
       if pptx_source_keys_match(ole.source_key, source_key) {
         Some("950:999999999:999999999:" + ole.source_key.node_key)
       } else {
         None
       }
-    @pptxdoc.PptxObject::Connector(conn) =>
+    Connector(conn) =>
       if pptx_source_keys_match(conn.source_key, source_key) {
         Some("950:999999999:999999999:" + conn.source_key.node_key)
       } else {
         None
       }
-    @pptxdoc.PptxObject::Unsupported(unsupported) =>
+    Unsupported(unsupported) =>
       if pptx_source_keys_match(unsupported.source_key, source_key) {
         Some("950:999999999:999999999:" + unsupported.source_key.node_key)
       } else {

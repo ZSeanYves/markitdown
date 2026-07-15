@@ -75,14 +75,12 @@ test "HTML semantic scope and table recovery cover empty fallback structures" {
     parse_html_document("<html><head><title>root only</title></head></html>"),
   )
   assert_true(document_root.scope.length() == 1)
-  assert_true(
-    document_root.scope[0].scope_source == HtmlDocumentScopeSource::DocumentRoot,
-  )
+  assert_true(document_root.scope[0].scope_source == DocumentRoot)
   assert_true(document_root.scope[0].missing_body_warning)
 
   let empty = collect_html_semantic_document(parse_html_document(""))
   assert_true(empty.scope.length() == 1)
-  assert_true(empty.scope[0].scope_source == HtmlDocumentScopeSource::Heuristic)
+  assert_true(empty.scope[0].scope_source == Heuristic)
 
   let malformed_tables = collect_html_semantic_document(
     parse_html_document(
@@ -90,9 +88,7 @@ test "HTML semantic scope and table recovery cover empty fallback structures" {
     ),
   )
   let warning_kinds = malformed_tables.warnings.map(warning => warning.kind)
-  assert_true(
-    warning_kinds.contains(HtmlSemanticWarningKind::MalformedTableStructure),
-  )
+  assert_true(warning_kinds.contains(MalformedTableStructure))
 }
 
 ///|
@@ -123,28 +119,27 @@ test "HTML semantic guards bound depth previews attributes and large tables" {
     "</table></main>"
   let semantic = collect_html_semantic_document(parse_html_document(html))
   let kinds = semantic.warnings.map(warning => warning.kind)
-  assert_true(kinds.contains(HtmlSemanticWarningKind::DepthLimitExceeded))
-  assert_true(kinds.contains(HtmlSemanticWarningKind::TextPreviewTruncated))
-  assert_true(
-    kinds.contains(HtmlSemanticWarningKind::AttributeSummaryTruncated),
-  )
-  assert_true(kinds.contains(HtmlSemanticWarningKind::TableSizeLimitExceeded))
+  assert_true(kinds.contains(DepthLimitExceeded))
+  assert_true(kinds.contains(TextPreviewTruncated))
+  assert_true(kinds.contains(AttributeSummaryTruncated))
+  assert_true(kinds.contains(TableSizeLimitExceeded))
 }
 
 ///|
-test "HTML preparation does not retain a DOM above the block-stream limit" {
-  let body = "<p>bounded</p>".repeat(20_000)
+test "HTML preparation retains only a scan summary above the block-stream limit" {
+  let body = "<p>bounded 😀</p>".repeat(20_000)
   let prepared = prepare_html_document_from_source(
     @input.input_from_text_with_format(
       "<main>" + body + "</main>",
       "large.html",
-      Some(@input.DetectedFormat::Html),
+      Some(Html),
     ),
   ).unwrap()
   assert_true(prepared.document is None)
   assert_true(prepared.inspect is None)
-  assert_true(prepared.events is Some(_))
-  assert_true(prepared.events.unwrap().length() > 20_000)
+  assert_true(prepared.events is None)
+  assert_true(prepared.event_summary is Some(_))
+  assert_true(prepared.event_summary.unwrap().node_count > 20_000)
 }
 
 ///|
@@ -153,53 +148,25 @@ test "HTML semantic helper classifiers cover boundary values" {
   assert_eq(parse_html_semantic_positive_int_attr(Some("0")), 1)
   assert_eq(parse_html_semantic_positive_int_attr(Some("3")), 3)
   assert_eq(parse_html_semantic_positive_int_attr(Some("invalid")), 1)
-  assert_true(html_semantic_inline_kind("em") == Some(HtmlInlineKind::Emphasis))
-  assert_true(
-    html_semantic_inline_kind("strong") == Some(HtmlInlineKind::Strong),
-  )
+  assert_true(html_semantic_inline_kind("em") == Some(Emphasis))
+  assert_true(html_semantic_inline_kind("strong") == Some(Strong))
   assert_true(html_semantic_inline_kind("unknown") is None)
-  assert_true(
-    html_semantic_table_section_kind("thead") ==
-    Some(HtmlTableSectionKind::Head),
-  )
-  assert_true(
-    html_semantic_table_section_kind("tfoot") ==
-    Some(HtmlTableSectionKind::Foot),
-  )
+  assert_true(html_semantic_table_section_kind("thead") == Some(Head))
+  assert_true(html_semantic_table_section_kind("tfoot") == Some(Foot))
   assert_true(html_semantic_table_section_kind("div") is None)
-  assert_true(
-    html_semantic_table_cell_kind("th") == Some(HtmlTableCellKind::Header),
-  )
-  assert_true(
-    html_semantic_table_cell_kind("td") == Some(HtmlTableCellKind::Data),
-  )
+  assert_true(html_semantic_table_cell_kind("th") == Some(Header))
+  assert_true(html_semantic_table_cell_kind("td") == Some(Data))
   assert_true(html_semantic_table_cell_kind("div") is None)
-  assert_true(
-    classify_html_semantic_link_kind("#local") == HtmlLinkKind::Internal,
-  )
-  assert_true(
-    classify_html_semantic_link_kind("mailto:a@b") == HtmlLinkKind::Mailto,
-  )
-  assert_true(classify_html_semantic_link_kind("tel:1") == HtmlLinkKind::Tel)
-  assert_true(
-    classify_html_semantic_link_kind("data:text/plain,x") == HtmlLinkKind::Data,
-  )
-  assert_true(
-    classify_html_semantic_link_kind("javascript:x") == HtmlLinkKind::Unsafe,
-  )
-  assert_true(classify_html_semantic_link_kind("") == HtmlLinkKind::Empty)
-  assert_true(
-    classify_html_semantic_image_kind("image.png") == HtmlImageKind::Local,
-  )
-  assert_true(
-    classify_html_semantic_image_kind("https://x/y.png") ==
-    HtmlImageKind::Remote,
-  )
-  assert_true(
-    classify_html_semantic_image_kind("data:image/png,x") ==
-    HtmlImageKind::DataUri,
-  )
-  assert_true(classify_html_semantic_image_kind("") == HtmlImageKind::Empty)
+  assert_true(classify_html_semantic_link_kind("#local") == Internal)
+  assert_true(classify_html_semantic_link_kind("mailto:a@b") == Mailto)
+  assert_true(classify_html_semantic_link_kind("tel:1") == Tel)
+  assert_true(classify_html_semantic_link_kind("data:text/plain,x") == Data)
+  assert_true(classify_html_semantic_link_kind("javascript:x") == Unsafe)
+  assert_true(classify_html_semantic_link_kind("") == Empty)
+  assert_true(classify_html_semantic_image_kind("image.png") == Local)
+  assert_true(classify_html_semantic_image_kind("https://x/y.png") == Remote)
+  assert_true(classify_html_semantic_image_kind("data:image/png,x") == DataUri)
+  assert_true(classify_html_semantic_image_kind("") == Empty)
   assert_true(
     html_semantic_language_hint_from_class("foo language-rust bar") ==
     Some("rust"),
@@ -238,34 +205,26 @@ test "HTML semantic policy tables cover all block unsupported and URL branches" 
   for
     kind in [
       HtmlLinkKind::Internal,
-      HtmlLinkKind::External,
-      HtmlLinkKind::Mailto,
-      HtmlLinkKind::Tel,
-      HtmlLinkKind::Unknown,
-      HtmlLinkKind::Data,
-      HtmlLinkKind::Unsafe,
-      HtmlLinkKind::Empty,
+      External,
+      Mailto,
+      Tel,
+      Unknown,
+      Data,
+      Unsafe,
+      Empty,
     ] {
     ignore(html_semantic_unsupported_kind_for_link(kind))
   }
-  for
-    kind in [
-      HtmlImageKind::Local,
-      HtmlImageKind::Remote,
-      HtmlImageKind::DataUri,
-      HtmlImageKind::Unsafe,
-      HtmlImageKind::Empty,
-      HtmlImageKind::Unknown,
-    ] {
+  for kind in [HtmlImageKind::Local, Remote, DataUri, Unsafe, Empty, Unknown] {
     ignore(html_semantic_unsupported_kind_for_image(kind))
   }
   for
     kind in [
       HtmlUnsupportedKind::RemoteImage,
-      HtmlUnsupportedKind::DataImage,
-      HtmlUnsupportedKind::UnsafeUrl,
-      HtmlUnsupportedKind::EmptyUrl,
-      HtmlUnsupportedKind::UnknownUnsupported,
+      DataImage,
+      UnsafeUrl,
+      EmptyUrl,
+      UnknownUnsupported,
     ] {
     ignore(html_semantic_unsupported_url_severity(kind))
     assert_true(html_semantic_unsupported_url_message(kind, "image") != "")

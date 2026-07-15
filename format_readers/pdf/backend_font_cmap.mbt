@@ -54,11 +54,10 @@ fn pdf_font_encoding_info_from_value(
   default_encoding_name : String?,
 ) -> PdfNativeFontEncodingInfo {
   match value {
-    PdfNativeDictValue::Name(name) =>
-      pdf_font_encoding_info_from_dict(None, Some(name))
-    PdfNativeDictValue::Dict(dict_text) =>
+    Name(name) => pdf_font_encoding_info_from_dict(None, Some(name))
+    Dict(dict_text) =>
       pdf_font_encoding_info_from_dict(Some(dict_text), default_encoding_name)
-    PdfNativeDictValue::Reference(object_id, generation) => {
+    Reference(object_id, generation) => {
       ignore(generation)
       match object_index.get(object_id) {
         Some(object) => {
@@ -106,7 +105,7 @@ fn pdf_font_encoding_info_from_dict(
   match dict_text {
     Some(text) =>
       match pdf_extract_dict_value(text, "/Differences") {
-        Some(PdfNativeDictValue::Array(tokens)) =>
+        Some(Array(tokens)) =>
           pdf_apply_font_encoding_differences(glyph_names, tokens)
         _ => ()
       }
@@ -139,11 +138,11 @@ fn pdf_apply_font_encoding_differences(
   let mut current_code : Int? = None
   for token in tokens {
     match token {
-      PdfNativeContentToken::Number(value) =>
+      Number(value) =>
         if pdf_double_is_integral(value) {
           current_code = Some(value.to_int())
         }
-      PdfNativeContentToken::Name(name) =>
+      Name(name) =>
         match current_code {
           Some(code) => {
             glyph_names.set(code, name)
@@ -205,7 +204,7 @@ fn pdf_parent_tounicode_cmap_info(
     return pdf_empty_tounicode_cmap_info()
   }
   match pdf_extract_dict_value(cmap_object.dict_text, "/UseCMap") {
-    Some(PdfNativeDictValue::Reference(object_id, generation)) => {
+    Some(Reference(object_id, generation)) => {
       ignore(generation)
       match
         pdf_collect_tounicode_cmap_info(
@@ -218,7 +217,7 @@ fn pdf_parent_tounicode_cmap_info(
         Err(_) => pdf_empty_tounicode_cmap_info()
       }
     }
-    Some(PdfNativeDictValue::Name(name)) =>
+    Some(Name(name)) =>
       match pdf_find_cmap_object_id_by_name(object_index, name) {
         Some(object_id) =>
           match
@@ -369,7 +368,7 @@ fn pdf_collect_font_infos(
             Some(dict_entries) =>
               for dict_entry in dict_entries {
                 match dict_entry.1 {
-                  PdfNativeDictValue::Dict(inline_font_dict) =>
+                  Dict(inline_font_dict) =>
                     if inline_ids.get(inline_font_dict) == None {
                       inline_ids.set(inline_font_dict, next_inline_id)
                       match
@@ -585,7 +584,7 @@ fn pdf_build_native_pages(
       Some(value) => value
       None =>
         return Err(
-          PdfNativeError::ParseFailed(
+          ParseFailed(
             "page tree references missing page object " +
             page_object_id.to_string(),
           ),
@@ -611,7 +610,7 @@ fn pdf_build_native_pages(
         Some(found) => found
         None =>
           return Err(
-            PdfNativeError::ParseFailed(
+            ParseFailed(
               "page " +
               page_no.to_string() +
               " references missing content object " +

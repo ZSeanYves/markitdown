@@ -1,16 +1,11 @@
 ///|
 pub fn office_parser_modes() -> Array[@parser.ParserMode] {
-  [@parser.ParserMode::PackageSinglePass]
+  [PackageSinglePass]
 }
 
 ///|
 pub fn office_streaming_granularities() -> Array[@parser.StreamingGranularity] {
-  [
-    @parser.StreamingGranularity::DocxBlock,
-    @parser.StreamingGranularity::PptxSlide,
-    @parser.StreamingGranularity::XlsxSheet,
-    @parser.StreamingGranularity::XlsxRow,
-  ]
+  [DocxBlock, PptxSlide, XlsxSheet, XlsxRow]
 }
 
 ///|
@@ -25,12 +20,12 @@ pub fn docx_contract_parser_name() -> String {
 
 ///|
 pub fn docx_contract_mode() -> @parser.ParserMode {
-  @parser.ParserMode::PackageSinglePass
+  PackageSinglePass
 }
 
 ///|
 pub fn docx_contract_granularity() -> @parser.StreamingGranularity {
-  @parser.StreamingGranularity::DocxBlock
+  DocxBlock
 }
 
 ///|
@@ -59,12 +54,12 @@ pub fn pptx_contract_parser_name() -> String {
 
 ///|
 pub fn pptx_contract_mode() -> @parser.ParserMode {
-  @parser.ParserMode::PackageSinglePass
+  PackageSinglePass
 }
 
 ///|
 pub fn pptx_contract_granularity() -> @parser.StreamingGranularity {
-  @parser.StreamingGranularity::PptxSlide
+  PptxSlide
 }
 
 ///|
@@ -158,17 +153,17 @@ pub fn xlsx_contract_parser_name() -> String {
 
 ///|
 pub fn xlsx_contract_mode() -> @parser.ParserMode {
-  @parser.ParserMode::PackageSinglePass
+  PackageSinglePass
 }
 
 ///|
 pub fn xlsx_contract_granularity() -> @parser.StreamingGranularity {
-  @parser.StreamingGranularity::XlsxSheet
+  XlsxSheet
 }
 
 ///|
 pub fn xlsx_contract_large_granularity() -> @parser.StreamingGranularity {
-  @parser.StreamingGranularity::XlsxRow
+  XlsxRow
 }
 
 ///|

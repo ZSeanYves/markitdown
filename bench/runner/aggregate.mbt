@@ -6,7 +6,7 @@ fn aggregate_cases(
   policy : BenchPolicy,
 ) -> Array[CaseAggregate] {
   let scenario_map = scenario_map(scenarios)
-  let groups : Map[String, Array[SampleRow]] = {}
+  let groups : Map[String, Array[SampleRow]] = Map([])
   for sample in samples {
     let key = sample.scenario_id + "|" + sample.tool + "|" + sample.bench_id
     groups[key] = match groups.get(key) {
@@ -117,6 +117,7 @@ fn summarize_run(
   contract : BinaryContract,
   preset : String?,
   baseline_run_id : String?,
+  policy : BenchPolicy,
   resource_summary? : Json? = None,
   resume_summary? : Json? = None,
 ) -> RunSummary {
@@ -146,7 +147,7 @@ fn summarize_run(
       "comparable_rows": comparable_row_count(cases).to_json(),
       "status": gate_status(cases).to_json(),
       "performance": performance_gate_summary(cases),
-      "rss": rss_gate_summary(samples),
+      "rss": rss_gate_summary(samples, policy),
     }),
     route_coverage_summary: Json::object({
       "covered_cases": cases
@@ -204,10 +205,10 @@ fn summarize_run(
 }
 
 ///|
-fn rss_gate_summary(samples : Array[SampleRow]) -> Json {
-  let peaks : Map[String, Int64] = {}
-  let formats : Map[String, String] = {}
-  let sizes : Map[String, String] = {}
+fn rss_gate_summary(samples : Array[SampleRow], policy : BenchPolicy) -> Json {
+  let peaks : Map[String, Int64] = Map([])
+  let formats : Map[String, String] = Map([])
+  let sizes : Map[String, String] = Map([])
   let missing : Array[String] = []
   for sample in samples {
     if sample.tool != "moonbit-cli" || sample.status != "ok" {
@@ -231,7 +232,7 @@ fn rss_gate_summary(samples : Array[SampleRow]) -> Json {
     let peak = entry.1
     let format = formats.get(key).unwrap_or("")
     let size = sizes.get(key).unwrap_or("")
-    let limit_mb = rss_limit_mb(format, size)
+    let limit_mb = rss_limit_mb(policy, format, size)
     if peak > limit_mb.to_int64() * 1024L {
       violations.push(
         Json::object({
@@ -261,16 +262,14 @@ fn rss_gate_summary(samples : Array[SampleRow]) -> Json {
 }
 
 ///|
-fn rss_limit_mb(format : String, size_class : String) -> Int {
-  if format == "xlsx" && size_class == "huge" {
-    512
-  } else if format == "html" && size_class == "huge" {
-    384
-  } else if format == "pdf" && size_class == "large" {
-    320
-  } else {
-    256
-  }
+fn rss_limit_mb(
+  policy : BenchPolicy,
+  format : String,
+  size_class : String,
+) -> Int {
+  policy.rss_limits_mb
+  .get(format + "." + size_class)
+  .unwrap_or(policy.default_rss_limit_mb)
 }
 
 ///|
@@ -350,7 +349,7 @@ fn summarize_scenarios(
 
 ///|
 fn summarize_tools(cases : Array[CaseAggregate]) -> Array[ToolSummary] {
-  let groups : Map[String, Array[CaseAggregate]] = {}
+  let groups : Map[String, Array[CaseAggregate]] = Map([])
   for case_ in cases {
     groups[case_.tool] = match groups.get(case_.tool) {
       Some(existing) => {
@@ -379,7 +378,7 @@ fn summarize_tools(cases : Array[CaseAggregate]) -> Array[ToolSummary] {
 
 ///|
 fn summarize_formats(cases : Array[CaseAggregate]) -> Array[FormatSummary] {
-  let groups : Map[String, Array[CaseAggregate]] = {}
+  let groups : Map[String, Array[CaseAggregate]] = Map([])
   for case_ in cases {
     groups[case_.format] = match groups.get(case_.format) {
       Some(existing) => {
@@ -525,7 +524,7 @@ fn bench_row_count(cases : Array[CaseAggregate]) -> Int {
 
 ///|
 fn comparable_row_count(cases : Array[CaseAggregate]) -> Int {
-  let grouped : Map[String, Bool] = {}
+  let grouped : Map[String, Bool] = Map([])
   for case_ in cases {
     let key = case_.scenario_id + "|" + case_.bench_id
     let ok = case_is_comparable(case_)
@@ -570,7 +569,7 @@ fn bench_rows_for_format(cases : Array[CaseAggregate]) -> Int {
 
 ///|
 fn comparable_rows_for_format(cases : Array[CaseAggregate]) -> Int {
-  let grouped : Map[String, Bool] = {}
+  let grouped : Map[String, Bool] = Map([])
   for case_ in cases {
     let key = case_.bench_id + "|" + case_.format
     let ok = case_is_comparable(case_)

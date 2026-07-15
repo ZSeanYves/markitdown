@@ -24,14 +24,12 @@ fn resolve_tesseract_command() -> Result[
         @rtcmd.resolve_executable_path(
           path,
           tesseract_command_env_var(),
-          @rtcmd.ResolvedCommandSource::EnvVar,
+          EnvVar,
         ) {
         Ok(command) => return Ok(command)
         Err(msg) =>
           return Err(
-            OcrProviderError::CommandUnavailable(
-              msg + "\n\n" + tesseract_ocr_install_hint(),
-            ),
+            CommandUnavailable(msg + "\n\n" + tesseract_ocr_install_hint()),
           )
       }
     None => ()
@@ -168,13 +166,11 @@ fn finalize_tesseract_command_result(
           diagnostics.push("tesseract_command=" + command.display_command)
           Ok({ ..result, diagnostics, })
         }
-        Err(OcrProviderError::OutputParseFailed(msg)) =>
-          Err(OcrProviderError::OutputParseFailed(msg))
-        Err(OcrProviderError::EmptyResult(msg)) =>
-          Err(OcrProviderError::EmptyResult(msg))
+        Err(OutputParseFailed(msg)) => Err(OutputParseFailed(msg))
+        Err(EmptyResult(msg)) => Err(EmptyResult(msg))
         Err(other) =>
           Err(
-            OcrProviderError::OutputParseFailed(
+            OutputParseFailed(
               "Tesseract TSV parsing failed on this runtime: " +
               other.to_string(),
             ),
@@ -195,7 +191,7 @@ fn finalize_tesseract_command_result(
         lowered.contains("not found") ||
         lowered.contains("no such file") {
         Err(
-          OcrProviderError::CommandUnavailable(
+          CommandUnavailable(
             "Tesseract OCR command is unavailable on this runtime: " +
             raw_message +
             "\nResolved command: " +
@@ -206,7 +202,7 @@ fn finalize_tesseract_command_result(
         )
       } else {
         Err(
-          OcrProviderError::ExecutionFailed(
+          ExecutionFailed(
             "Tesseract OCR command failed on this runtime: " +
             raw_message +
             "\nResolved command: " +
@@ -225,121 +221,67 @@ async fn collect_tesseract_output_async(
   command : @rtcmd.ResolvedCommand,
   args : Array[String],
 ) -> Result[(Int, String, String), OcrProviderError] {
-  let delegated = @process.collect_output(command.program, args) catch {
-    e =>
-      return Err(
-        OcrProviderError::ExecutionFailed(
+  match @rtcmd.run_resolved_command_async(command, args) {
+    Ok(output) => {
+      if output.timed_out {
+        return Err(
+          ExecutionFailed("Tesseract command timed out after 300000 ms"),
+        )
+      }
+      if output.stdout_limit_exceeded || output.stderr_limit_exceeded {
+        return Err(
+          ExecutionFailed("Tesseract command output exceeded 8 MiB limit"),
+        )
+      }
+      Ok((output.exit_code, output.stdout, output.stderr))
+    }
+    Err(message) =>
+      Err(
+        ExecutionFailed(
           "launch tesseract failed on this runtime: " +
-          e.to_string() +
+          message +
           "\nResolved command: " +
           @rtcmd.resolved_command_context(command) +
           "\n\n" +
           tesseract_ocr_install_hint(),
         ),
       )
-  }
-  match delegated {
-    (code, stdout, stderr) => {
-      let stdout_text = stdout.text() catch {
-        e =>
-          return Err(
-            OcrProviderError::OutputParseFailed(
-              "failed to decode Tesseract stdout as UTF-8 on this runtime: " +
-              e.to_string(),
-            ),
-          )
-      }
-      let stderr_text = stderr.text() catch {
-        e =>
-          return Err(
-            OcrProviderError::OutputParseFailed(
-              "failed to decode Tesseract stderr as UTF-8 on this runtime: " +
-              e.to_string(),
-            ),
-          )
-      }
-      Ok((code, stdout_text, stderr_text))
-    }
   }
 }
 
 ///|
-#warnings("-deprecated")
 fn collect_tesseract_output(
   command : @rtcmd.ResolvedCommand,
   args : Array[String],
 ) -> Result[(Int, String, String), OcrProviderError] {
-  let collected : Ref[Result[(Int, String, String), OcrProviderError]?] = {
-    val: None,
-  }
-  @async.with_event_loop(_group => {
-    let delegated = @process.collect_output(command.program, args) catch {
-      e => {
-        collected.val = Some(
-          Err(
-            OcrProviderError::ExecutionFailed(
-              "launch tesseract failed on this runtime: " +
-              e.to_string() +
-              "\nResolved command: " +
-              @rtcmd.resolved_command_context(command) +
-              "\n\n" +
-              tesseract_ocr_install_hint(),
-            ),
-          ),
+  collect_tesseract_output_bounded(command, args)
+}
+
+///|
+fn collect_tesseract_output_bounded(
+  command : @rtcmd.ResolvedCommand,
+  args : Array[String],
+) -> Result[(Int, String, String), OcrProviderError] {
+  match @rtcmd.run_resolved_command(command, args) {
+    Ok(output) => {
+      if output.timed_out {
+        return Err(
+          ExecutionFailed("Tesseract command timed out after 300000 ms"),
         )
-        return
       }
-    }
-    match delegated {
-      (code, stdout, stderr) => {
-        let stdout_text = stdout.text() catch {
-          e => {
-            collected.val = Some(
-              Err(
-                OcrProviderError::OutputParseFailed(
-                  "failed to decode Tesseract stdout as UTF-8 on this runtime: " +
-                  e.to_string(),
-                ),
-              ),
-            )
-            return
-          }
-        }
-        let stderr_text = stderr.text() catch {
-          e => {
-            collected.val = Some(
-              Err(
-                OcrProviderError::OutputParseFailed(
-                  "failed to decode Tesseract stderr as UTF-8 on this runtime: " +
-                  e.to_string(),
-                ),
-              ),
-            )
-            return
-          }
-        }
-        collected.val = Some(Ok((code, stdout_text, stderr_text)))
+      if output.stdout_limit_exceeded || output.stderr_limit_exceeded {
+        return Err(
+          ExecutionFailed("Tesseract command output exceeded 8 MiB limit"),
+        )
       }
+      Ok((output.exit_code, output.stdout, output.stderr))
     }
-  }) catch {
-    e =>
-      return Err(
-        OcrProviderError::ExecutionFailed(
-          "launch tesseract failed on this runtime: " +
-          e.to_string() +
-          "\nResolved command: " +
-          @rtcmd.resolved_command_context(command) +
-          "\n\n" +
-          tesseract_ocr_install_hint(),
-        ),
-      )
-  }
-  match collected.val {
-    Some(result) => result
-    None =>
+    Err(message) =>
       Err(
-        OcrProviderError::ExecutionFailed(
-          "launch tesseract failed on this runtime: event loop returned no result\nResolved command: " +
+        ExecutionFailed(
+          "launch tesseract failed on this runtime: " +
+          message +
+          "\nResolved command: " +
           @rtcmd.resolved_command_context(command) +
           "\n\n" +
           tesseract_ocr_install_hint(),

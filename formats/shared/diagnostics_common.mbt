@@ -1,9 +1,10 @@
 ///|
 pub fn input_kind_name(kind : @input.InputKind) -> String {
   match kind {
-    @input.InputKind::Path => "path"
-    @input.InputKind::Text => "text"
-    @input.InputKind::Bytes => "bytes"
+    Path => "path"
+    Text => "text"
+    Bytes => "bytes"
+    Reader => "reader"
   }
 }
 
@@ -37,7 +38,7 @@ pub fn empty_parser_diagnostics(
       Some(parser_name),
       Some(@parser.mode_name(parser_mode)),
     ),
-    Some(input_kind_name(source.kind)),
+    Some(input_kind_name(@input.input_kind(source))),
     Some(format_name),
   )
 }
@@ -57,7 +58,10 @@ pub fn init_parser_route_metrics(
 ) -> Unit {
   diagnostics.metrics.set("parser_name", parser_name)
   diagnostics.metrics.set("parser_mode", @parser.mode_name(parser_mode))
-  diagnostics.metrics.set("input_kind", input_kind_name(source.kind))
+  diagnostics.metrics.set(
+    "input_kind",
+    input_kind_name(@input.input_kind(source)),
+  )
   diagnostics.metrics.set("detected_format", format_name)
   diagnostics.metrics.set("requested_mode", requested_mode_name(context))
   diagnostics.metrics.set("effective_mode", @parser.mode_name(effective_mode))

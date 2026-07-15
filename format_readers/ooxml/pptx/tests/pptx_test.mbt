@@ -325,24 +325,21 @@ test "pptx M0-M10 source and model facts" {
   let mut saw_picture_media = false
   for obj in slide.objects {
     match obj {
-      @pptx.PptxObject::Table(table) => {
+      Table(table) => {
         saw_table = true
         assert_eq(table.rows.length(), 2)
       }
-      @pptx.PptxObject::Unsupported(_) => saw_unknown = true
-      @pptx.PptxObject::Picture(pic) => {
+      Unsupported(_) => saw_unknown = true
+      Picture(pic) => {
         saw_picture = true
         match pic.media {
           Some(_) => saw_picture_media = true
           None => ()
         }
       }
-      @pptx.PptxObject::Shape(shape) =>
+      Shape(shape) =>
         match shape.placeholder {
-          Some(ph) =>
-            if ph.kind == @pptx.PptxPlaceholderKind::Title {
-              saw_title_hint = true
-            }
+          Some(ph) => if ph.kind == Title { saw_title_hint = true }
           None => ()
         }
       _ => ()
@@ -357,10 +354,10 @@ test "pptx M0-M10 source and model facts" {
   let mut saw_external_media_warning = false
   let mut saw_missing_author_warning = false
   for warning in doc.warnings {
-    if warning.kind == @pptx.PptxWarningKind::ExternalMedia {
+    if warning.kind == ExternalMedia {
       saw_external_media_warning = true
     }
-    if warning.kind == @pptx.PptxWarningKind::MissingCommentAuthor {
+    if warning.kind == MissingCommentAuthor {
       saw_missing_author_warning = true
     }
   }
@@ -449,7 +446,7 @@ test "pptx M11 graphic frames produce typed refs and warnings" {
   let mut saw_unknown = false
   for obj in slide.objects {
     match obj {
-      @pptx.PptxObject::Chart(chart) =>
+      Chart(chart) =>
         match chart.relationship_id {
           Some("rIdChart") => {
             saw_chart = true
@@ -469,17 +466,17 @@ test "pptx M11 graphic frames produce typed refs and warnings" {
           }
           _ => ()
         }
-      @pptx.PptxObject::SmartArt(smart) => {
+      SmartArt(smart) => {
         saw_smart_art = true
         assert_true(smart.relationship_id == Some("rIdDm"))
         assert_true(smart.target_part == Some("ppt/diagrams/data1.xml"))
       }
-      @pptx.PptxObject::Ole(ole) => {
+      Ole(ole) => {
         saw_ole = true
         assert_true(ole.relationship_id == Some("rIdOle"))
         assert_true(ole.target_part == Some("ppt/embeddings/oleObject1.bin"))
       }
-      @pptx.PptxObject::Unsupported(unsupported) =>
+      Unsupported(unsupported) =>
         if unsupported.kind == "UnknownGraphicFrame" {
           saw_unknown = true
         }
@@ -494,10 +491,10 @@ test "pptx M11 graphic frames produce typed refs and warnings" {
   let mut saw_missing_rel_warning = false
   let mut unsupported_warnings = 0
   for warning in doc.warnings {
-    if warning.kind == @pptx.PptxWarningKind::MissingRelationshipTarget {
+    if warning.kind == MissingRelationshipTarget {
       saw_missing_rel_warning = true
     }
-    if warning.kind == @pptx.PptxWarningKind::UnsupportedObject {
+    if warning.kind == UnsupportedObject {
       unsupported_warnings += 1
     }
   }
@@ -646,10 +643,10 @@ test "pptx M12 groups connectors decorative shapes and depth guard" {
   let mut saw_decorative = false
   for obj in slide.objects {
     match obj {
-      @pptx.PptxObject::Group(group) =>
+      Group(group) =>
         for child in group.children {
           match child {
-            @pptx.PptxObject::Shape(shape) =>
+            Shape(shape) =>
               match shape.text_body {
                 Some(body) =>
                   if body.paragraphs.length() > 0 {
@@ -660,17 +657,14 @@ test "pptx M12 groups connectors decorative shapes and depth guard" {
             _ => ()
           }
         }
-      @pptx.PptxObject::Connector(conn) => {
+      Connector(conn) => {
         saw_connector = true
         assert_true(conn.name == Some("Connector"))
       }
-      @pptx.PptxObject::Shape(shape) =>
+      Shape(shape) =>
         if shape.name == Some("Decoration") && shape.text_body is None {
           match shape.reading_order {
-            Some(hint) =>
-              if hint.bucket == @pptx.PptxReadingBucket::Decorative {
-                saw_decorative = true
-              }
+            Some(hint) => if hint.bucket == Decorative { saw_decorative = true }
             None => ()
           }
         }
@@ -682,8 +676,7 @@ test "pptx M12 groups connectors decorative shapes and depth guard" {
   assert_true(saw_decorative)
   let mut saw_depth_guard = false
   for warning in doc.warnings {
-    if warning.kind == @pptx.PptxWarningKind::OverBudget &&
-      warning.message.contains("group depth") {
+    if warning.kind == OverBudget && warning.message.contains("group depth") {
       saw_depth_guard = true
     }
   }
@@ -1006,15 +999,15 @@ test "pptx A image caption pairs preserve image metadata" {
   assert_true(pair.image_alt_text == Some("System diagram alt"))
   assert_true(pair.image_title == Some("System diagram title"))
   assert_true(pair.caption_text == "Figure 1: System diagram")
-  assert_true(pair.confidence == @pptx.PptxConfidence::High)
+  assert_true(pair.confidence == High)
   assert_true(slide0.layout_regions.length() >= 2)
   let mut saw_caption_bucket = false
   for obj in slide0.objects {
     match obj {
-      @pptx.PptxObject::Shape(shape) =>
+      Shape(shape) =>
         match shape.reading_order {
           Some(hint) =>
-            if hint.bucket == @pptx.PptxReadingBucket::CaptionLike {
+            if hint.bucket == CaptionLike {
               saw_caption_bucket = true
             }
           None => ()
@@ -1044,7 +1037,7 @@ test "pptx parser bounds oversized media bytes" {
   }
   let mut saw_budget_warning = false
   for warning in doc.warnings {
-    if warning.kind == @pptx.PptxWarningKind::OverBudget &&
+    if warning.kind == OverBudget &&
       warning.message.contains("media asset byte budget") {
       saw_budget_warning = true
     }
@@ -1070,7 +1063,7 @@ test "pptx parser bounds deck media references without loading extra bytes" {
   assert_true(budgeted_refs > 0)
   let mut saw_budget_warning = false
   for warning in doc.warnings {
-    if warning.kind == @pptx.PptxWarningKind::OverBudget &&
+    if warning.kind == OverBudget &&
       warning.message.contains("media reference budget exceeded") {
       saw_budget_warning = true
     }
@@ -1087,7 +1080,7 @@ test "pptx parser bounds table grid span expansion facts" {
   let mut saw_table = false
   for obj in doc.slides[0].objects {
     match obj {
-      @pptx.PptxObject::Table(table) => {
+      Table(table) => {
         saw_table = true
         match table.rows[0].cells[0].grid_span {
           Some(span) => assert_eq(span, 128)
@@ -1100,7 +1093,7 @@ test "pptx parser bounds table grid span expansion facts" {
   assert_true(saw_table)
   let mut saw_budget_warning = false
   for warning in doc.warnings {
-    if warning.kind == @pptx.PptxWarningKind::OverBudget &&
+    if warning.kind == OverBudget &&
       warning.message.contains("gridSpan truncated") {
       saw_budget_warning = true
     }
@@ -1117,7 +1110,7 @@ test "pptx parser bounds table row and output cell span expansion" {
   let mut saw_table = false
   for obj in doc.slides[0].objects {
     match obj {
-      @pptx.PptxObject::Table(table) => {
+      Table(table) => {
         saw_table = true
         assert_true(table.rows[0].cells.length() <= 8)
       }
@@ -1127,7 +1120,7 @@ test "pptx parser bounds table row and output cell span expansion" {
   assert_true(saw_table)
   let mut saw_budget_warning = false
   for warning in doc.warnings {
-    if warning.kind == @pptx.PptxWarningKind::OverBudget &&
+    if warning.kind == OverBudget &&
       warning.message.contains("table span expansion budget") {
       saw_budget_warning = true
     }
@@ -1144,7 +1137,7 @@ test "pptx parser preserves table merge spans and continuation hints" {
   let mut saw_table = false
   for obj in doc.slides[0].objects {
     match obj {
-      @pptx.PptxObject::Table(table) => {
+      Table(table) => {
         saw_table = true
         let top_left = table.rows[0].cells[0]
         assert_true(top_left.grid_span == Some(2))
@@ -1169,11 +1162,11 @@ test "pptx parser keeps hyperlink facts inside table cells" {
   let mut saw_table = false
   for obj in doc.slides[0].objects {
     match obj {
-      @pptx.PptxObject::Table(table) => {
+      Table(table) => {
         saw_table = true
         let para = table.rows[0].cells[0].paragraphs[0]
         match para.runs[0].inlines[0] {
-          @pptx.PptxInline::Hyperlink(link, text) => {
+          Hyperlink(link, text) => {
             assert_true(text == "Spec")
             assert_true(link.target == Some("https://example.com/spec"))
           }
@@ -1205,13 +1198,12 @@ test "pptx B inferred table grid card and two-column regions" {
   let mut saw_explicit_table = false
   for obj in table_doc.slides[0].objects {
     match obj {
-      @pptx.PptxObject::Table(_) => saw_explicit_table = true
+      Table(_) => saw_explicit_table = true
       _ => ()
     }
   }
   for region in table_doc.slides[0].layout_regions {
-    if region.kind == @pptx.PptxLayoutRegionKind::TableLike &&
-      region.confidence == @pptx.PptxConfidence::High {
+    if region.kind == TableLike && region.confidence == High {
       saw_table_like = true
     }
   }
@@ -1233,7 +1225,7 @@ test "pptx B inferred table grid card and two-column regions" {
   )
   let mut saw_two_column = false
   for region in two_col_doc.slides[0].layout_regions {
-    if region.kind == @pptx.PptxLayoutRegionKind::TwoColumn {
+    if region.kind == TwoColumn {
       saw_two_column = true
     }
   }
@@ -1264,7 +1256,7 @@ test "pptx B inferred table grid card and two-column regions" {
   )
   let mut saw_grid = false
   for region in grid_doc.slides[0].layout_regions {
-    if region.kind == @pptx.PptxLayoutRegionKind::GridLike {
+    if region.kind == GridLike {
       saw_grid = true
     }
   }
@@ -1283,8 +1275,7 @@ test "pptx B inferred table grid card and two-column regions" {
   )
   let mut saw_card = false
   for region in card_doc.slides[0].layout_regions {
-    if region.kind == @pptx.PptxLayoutRegionKind::CardLike &&
-      region.confidence == @pptx.PptxConfidence::High {
+    if region.kind == CardLike && region.confidence == High {
       saw_card = true
     }
   }
@@ -1316,26 +1307,24 @@ test "pptx E reading order policy uses placeholders geometry and grouping" {
   let mut saw_group_order = false
   for obj in slide0.objects {
     match obj {
-      @pptx.PptxObject::Shape(shape) =>
+      Shape(shape) =>
         match shape.reading_order {
           Some(hint) => {
-            if shape.name == Some("Footer") &&
-              hint.bucket == @pptx.PptxReadingBucket::Footer {
+            if shape.name == Some("Footer") && hint.bucket == Footer {
               saw_footer = true
             }
-            if shape.name == Some("Decoration") &&
-              hint.bucket == @pptx.PptxReadingBucket::Decorative {
+            if shape.name == Some("Decoration") && hint.bucket == Decorative {
               saw_decorative = true
             }
           }
           None => ()
         }
-      @pptx.PptxObject::Group(group) => {
+      Group(group) => {
         let sorted = group.children.copy()
         let keyed : Array[(String, String)] = []
         for child in sorted {
           match child {
-            @pptx.PptxObject::Shape(shape) =>
+            Shape(shape) =>
               match shape.reading_order {
                 Some(hint) =>
                   keyed.push((hint.order_key, shape.name.unwrap_or("")))
@@ -1375,7 +1364,7 @@ test "pptx E reading order keeps large grouped coordinates in slide space" {
   let mut group_key = ""
   for obj in slide0.objects {
     match obj {
-      @pptx.PptxObject::Shape(shape) =>
+      Shape(shape) =>
         if shape.name == Some("TextBox 6") {
           saw_test = true
           match shape.reading_order {
@@ -1383,10 +1372,10 @@ test "pptx E reading order keeps large grouped coordinates in slide space" {
             None => fail("expected reading order for test text")
           }
         }
-      @pptx.PptxObject::Group(group) =>
+      Group(group) =>
         for child in group.children {
           match child {
-            @pptx.PptxObject::Shape(shape) =>
+            Shape(shape) =>
               if shape.name == Some("TextBox 9") {
                 saw_group = true
                 match shape.reading_order {

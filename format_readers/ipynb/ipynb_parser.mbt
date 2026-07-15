@@ -12,12 +12,12 @@ pub fn classify_ipynb_error(err : IpynbError) -> String {
 ///|
 fn lower_ipynb_notebook(root : @djson.JsonDocument) -> IpynbNotebook raise {
   let root_members = match root.root {
-    @djson.JsonValue::Object(members) => members
+    Object(members) => members
     _ => raise ParseError("top-level notebook must be a JSON object")
   }
   let cells_value = ipynb_required_member(root_members, "cells")
   let cells_array = match cells_value {
-    @djson.JsonValue::Array(items) => items
+    Array(items) => items
     _ => raise ParseError("top-level cells must be an array")
   }
   let metadata = ipynb_optional_member(root_members, "metadata")
@@ -42,7 +42,7 @@ fn lower_ipynb_notebook(root : @djson.JsonDocument) -> IpynbNotebook raise {
 ///|
 fn lower_ipynb_cell(value : @djson.JsonValue, index : Int) -> IpynbCell raise {
   let members = match value {
-    @djson.JsonValue::Object(items) => items
+    Object(items) => items
     _ =>
       raise ParseError(
         "cell at index " + index.to_string() + " must be an object",
@@ -88,7 +88,7 @@ fn ipynb_lower_outputs(
 ) -> Array[IpynbOutput] raise {
   match value {
     None => []
-    Some(@djson.JsonValue::Array(items)) => {
+    Some(Array(items)) => {
       let outputs : Array[IpynbOutput] = []
       for i in 0..<items.length() {
         outputs.push(
@@ -108,7 +108,7 @@ fn ipynb_lower_output(
   pointer : String,
 ) -> IpynbOutput raise {
   let members = match value {
-    @djson.JsonValue::Object(items) => items
+    Object(items) => items
     _ =>
       raise ParseError(
         "output at index " + index.to_string() + " must be an object",
@@ -147,12 +147,11 @@ fn ipynb_lower_attachments(
 ) -> Array[IpynbAttachment] raise {
   match value {
     None => []
-    Some(@djson.JsonValue::Object(members)) => {
+    Some(Object(members)) => {
       let attachments : Array[IpynbAttachment] = []
       for entry in members {
         let mime_entries = match entry.value {
-          @djson.JsonValue::Object(_) =>
-            ipynb_lower_mime_bundle(Some(entry.value))
+          Object(_) => ipynb_lower_mime_bundle(Some(entry.value))
           _ =>
             raise ParseError(
               "attachment " + entry.key + " must be a mime bundle object",
@@ -172,7 +171,7 @@ fn ipynb_lower_mime_bundle(
 ) -> Array[IpynbMimeEntry] raise {
   match value {
     None => []
-    Some(@djson.JsonValue::Object(members)) => {
+    Some(Object(members)) => {
       let entries : Array[IpynbMimeEntry] = []
       for entry in members {
         entries.push(ipynb_lower_mime_entry(entry.key, entry.value))
@@ -189,13 +188,13 @@ fn ipynb_lower_mime_entry(
   value : @djson.JsonValue,
 ) -> IpynbMimeEntry raise {
   match value {
-    @djson.JsonValue::String(text) =>
+    String(text) =>
       { mime_type, text: Some(text), json_value: None, raw_json_text: None }
-    @djson.JsonValue::Array(items) => {
+    Array(items) => {
       let text_parts : Array[String] = []
       for item in items {
         match item {
-          @djson.JsonValue::String(part) => text_parts.push(part)
+          String(part) => text_parts.push(part)
           _ =>
             raise ParseError(
               "mime entry " +
@@ -260,7 +259,7 @@ fn ipynb_required_string(
   err : String,
 ) -> String raise {
   match ipynb_optional_member_from_members(members, key) {
-    Some(@djson.JsonValue::String(text)) => text
+    Some(String(text)) => text
     _ => raise ParseError(err)
   }
 }
@@ -271,7 +270,7 @@ fn ipynb_optional_string(
   key : String,
 ) -> String? {
   match ipynb_optional_member_from_members(members, key) {
-    Some(@djson.JsonValue::String(text)) => Some(text)
+    Some(String(text)) => Some(text)
     _ => None
   }
 }
@@ -279,7 +278,7 @@ fn ipynb_optional_string(
 ///|
 fn ipynb_optional_int(members : Array[@djson.JsonMember], key : String) -> Int? {
   match ipynb_optional_member_from_members(members, key) {
-    Some(@djson.JsonValue::Number(text)) =>
+    Some(Number(text)) =>
       Some(@string.parse_int(text.trim().to_owned()) catch { _ => return None })
     _ => None
   }
@@ -303,12 +302,12 @@ fn ipynb_optional_multiline_string(
   key : String,
 ) -> String? {
   match ipynb_optional_member_from_members(members, key) {
-    Some(@djson.JsonValue::String(text)) => Some(text)
-    Some(@djson.JsonValue::Array(items)) => {
+    Some(String(text)) => Some(text)
+    Some(Array(items)) => {
       let parts : Array[String] = []
       for item in items {
         match item {
-          @djson.JsonValue::String(part) => parts.push(part)
+          String(part) => parts.push(part)
           _ => return None
         }
       }
@@ -325,12 +324,12 @@ fn ipynb_optional_multiline_lines(
   key : String,
 ) -> Array[String] {
   match ipynb_optional_member_from_members(members, key) {
-    Some(@djson.JsonValue::String(text)) => [text]
-    Some(@djson.JsonValue::Array(items)) => {
+    Some(String(text)) => [text]
+    Some(Array(items)) => {
       let lines : Array[String] = []
       for item in items {
         match item {
-          @djson.JsonValue::String(line) => lines.push(line)
+          String(line) => lines.push(line)
           _ => ()
         }
       }
@@ -346,12 +345,12 @@ fn ipynb_multiline_string_value(
   err : String,
 ) -> String raise {
   match value {
-    @djson.JsonValue::String(text) => text
-    @djson.JsonValue::Array(items) => {
+    String(text) => text
+    Array(items) => {
       let parts : Array[String] = []
       for item in items {
         match item {
-          @djson.JsonValue::String(part) => parts.push(part)
+          String(part) => parts.push(part)
           _ => raise ParseError(err)
         }
       }
@@ -369,13 +368,13 @@ fn ipynb_nested_string(
   let mut current = root
   for segment in path {
     current = match current {
-      Some(@djson.JsonValue::Object(members)) =>
+      Some(Object(members)) =>
         ipynb_optional_member_from_members(members, segment)
       _ => None
     }
   }
   match current {
-    Some(@djson.JsonValue::String(text)) => Some(text)
+    Some(String(text)) => Some(text)
     _ => None
   }
 }
@@ -383,22 +382,22 @@ fn ipynb_nested_string(
 ///|
 fn ipynb_cell_kind(text : String) -> IpynbCellKind {
   match text {
-    "markdown" => IpynbCellKind::Markdown
-    "code" => IpynbCellKind::Code
-    "raw" => IpynbCellKind::Raw
-    _ => IpynbCellKind::Unknown
+    "markdown" => Markdown
+    "code" => Code
+    "raw" => Raw
+    _ => Unknown
   }
 }
 
 ///|
 fn ipynb_output_kind(text : String) -> IpynbOutputKind {
   match text {
-    "stream" => IpynbOutputKind::Stream
-    "display_data" => IpynbOutputKind::DisplayData
-    "update_display_data" => IpynbOutputKind::DisplayData
-    "execute_result" => IpynbOutputKind::ExecuteResult
-    "error" => IpynbOutputKind::Error
-    _ => IpynbOutputKind::Unknown
+    "stream" => Stream
+    "display_data" => DisplayData
+    "update_display_data" => DisplayData
+    "execute_result" => ExecuteResult
+    "error" => Error
+    _ => Unknown
   }
 }
 
@@ -408,7 +407,7 @@ fn ipynb_optional_bool(
   key : String,
 ) -> Bool? {
   match ipynb_optional_member_from_members(members, key) {
-    Some(@djson.JsonValue::Bool(value)) => Some(value)
+    Some(Bool(value)) => Some(value)
     _ => None
   }
 }
@@ -416,7 +415,7 @@ fn ipynb_optional_bool(
 ///|
 fn ipynb_stringify_json_value(value : @djson.JsonValue) -> String {
   match value {
-    @djson.JsonValue::Object(members) => {
+    Object(members) => {
       let pairs : Array[String] = []
       for entry in members {
         pairs.push(
@@ -428,13 +427,12 @@ fn ipynb_stringify_json_value(value : @djson.JsonValue) -> String {
       }
       "{" + pairs.join(",") + "}"
     }
-    @djson.JsonValue::Array(items) =>
+    Array(items) =>
       "[" + items.map(item => ipynb_stringify_json_value(item)).join(",") + "]"
-    @djson.JsonValue::String(text) =>
-      "\"" + ipynb_escape_json_string(text) + "\""
-    @djson.JsonValue::Number(text) => text
-    @djson.JsonValue::Bool(flag) => if flag { "true" } else { "false" }
-    @djson.JsonValue::Null => "null"
+    String(text) => "\"" + ipynb_escape_json_string(text) + "\""
+    Number(text) => text
+    Bool(flag) => if flag { "true" } else { "false" }
+    Null => "null"
   }
 }
 

@@ -13,17 +13,14 @@ test "HTML child text block stream lowers rich nested content and assets" {
     #|<pre><code class="language-moonbit">fn main {}</code></pre>
     #|<hr><script>ignored()</script>
     #|</body></html>
-  let source = @input.with_bytes_payload(
-    @input.input_from_text_with_format(
-      html,
-      "complex.html",
-      Some(@input.DetectedFormat::Html),
-    ),
-    @utf8.encode(html),
+  let source = @input.input_from_text_with_format(
+    html,
+    "complex.html",
+    Some(Html),
   )
   let context = @parser.parse_context_with_limits(
-    @parser.new_parse_context(@input.DetectedFormat::Html),
-    Some(@parser.ParserMode::BlockStreaming),
+    @parser.new_parse_context(Html),
+    Some(BlockStreaming),
     None,
     None,
     None,
@@ -38,11 +35,11 @@ test "HTML child text block stream lowers rich nested content and assets" {
   )
   let blocks = result.block_stream.unwrap()
   assert_true(blocks.length() >= 7)
-  assert_true(blocks.any(block => block.kind == @core.BlockKind::Heading))
-  assert_true(blocks.any(block => block.kind == @core.BlockKind::List))
-  assert_true(blocks.any(block => block.kind == @core.BlockKind::BlockQuote))
-  assert_true(blocks.any(block => block.kind == @core.BlockKind::Table))
-  assert_true(blocks.any(block => block.kind == @core.BlockKind::Code))
+  assert_true(blocks.any(block => block.kind == Heading))
+  assert_true(blocks.any(block => block.kind == List))
+  assert_true(blocks.any(block => block.kind == BlockQuote))
+  assert_true(blocks.any(block => block.kind == Table))
+  assert_true(blocks.any(block => block.kind == Code))
   assert_true(
     blocks.any(block => block.attrs.get("raw_kind") == Some("thematic_break")),
   )
@@ -65,11 +62,11 @@ test "HTML stream switches semantic path for disclosure and figure markup" {
   let source = @input.input_from_text_with_format(
     html,
     "semantic.html",
-    Some(@input.DetectedFormat::Html),
+    Some(Html),
   )
   let context = @parser.parse_context_with_limits(
-    @parser.new_parse_context(@input.DetectedFormat::Html),
-    Some(@parser.ParserMode::BlockStreaming),
+    @parser.new_parse_context(Html),
+    Some(BlockStreaming),
     None,
     None,
     None,
@@ -85,19 +82,19 @@ test "HTML stream switches semantic path for disclosure and figure markup" {
 }
 
 ///|
-test "HTML huge byte sources reuse prepared token events" {
+test "HTML huge byte sources lower from the prepared scan summary" {
   let html = "<main>" +
     "<p>plain <a href=\"/x\">link</a></p>".repeat(140_000) +
     "</main>"
   let source = @input.input_from_bytes_with_format(
     @utf8.encode(html),
     "huge.html",
-    Some(@input.DetectedFormat::Html),
+    Some(Html),
   )
   let prepared = @dhtml.prepare_html_document_from_source(source).unwrap()
   let context = @parser.parse_context_with_limits(
-    @parser.new_parse_context(@input.DetectedFormat::Html),
-    Some(@parser.ParserMode::BlockStreaming),
+    @parser.new_parse_context(Html),
+    Some(BlockStreaming),
     None,
     None,
     None,
@@ -109,11 +106,87 @@ test "HTML huge byte sources reuse prepared token events" {
     context,
     prepared,
   )
-  assert_true(result.block_stream.unwrap().length() > 120_000)
+  let blocks = result.block_stream.unwrap()
+  assert_true(blocks.length() > 120_000)
+  assert_true(blocks.all(block => @core.block_source_ref(block) is Some(_)))
+  assert_true(blocks.all(block => @core.block_is_literal(block)))
+  assert_true(
+    blocks.all(block => @core.block_inline_escape_mode(block) == Some("minimal")),
+  )
+  assert_true(blocks[0].attrs.get("literal") is None)
+  assert_true(blocks[0].attrs.get("render_inline_escape_mode") is None)
+  assert_true(blocks[0].rich_inlines is None)
+  assert_true(
+    @core.block_rendered_markdown(blocks[0]) == Some("plain [link](/x)"),
+  )
+  let first_ref = @core.block_source_ref(blocks[0]).unwrap()
+  assert_true(first_ref.byte_start is Some(_) && first_ref.byte_end is Some(_))
   assert_true(
     result.diagnostics.metrics.get("scope_plan_labels") ==
-    Some("child_text_fast"),
+    Some("child_text_stream_scan"),
   )
+}
+
+///|
+test "HTML compact scan stores simple lists and tables without child trees" {
+  let html = "<main><ul><li>alpha</li><li>beta</li></ul>" +
+    "<table><tr><th>a</th><th>b</th></tr>" +
+    "<tr><td>1</td><td>2</td></tr></table></main>"
+  let source = @input.input_from_text_with_format(
+    html,
+    "compact-structures.html",
+    Some(Html),
+  )
+  let diagnostics = @fshared.empty_parser_diagnostics(
+    "html_parser",
+    BlockStreaming,
+    source,
+    "html",
+  )
+  let lowered = html_lower_child_text_blocks_scanned(source, html, diagnostics)
+  let lists = lowered.0.filter(block => block.kind == List)
+  assert_eq(lists.length(), 1)
+  let list = lists[0]
+  assert_eq(list.children.length(), 0)
+  assert_true(@core.block_rendered_markdown(list) == Some("- alpha\n- beta"))
+  let tables = lowered.0.filter(block => block.kind == Table)
+  assert_eq(tables.length(), 1)
+  let table = tables[0]
+  assert_eq(table.children.length(), 0)
+  assert_true(
+    @core.block_rendered_markdown(table) ==
+    Some("| a | b |\n| --- | --- |\n| 1 | 2 |"),
+  )
+}
+
+///|
+test "HTML block provenance uses exact UTF8 bytes after non-BMP text" {
+  let html = "😀\n<p>alpha</p>"
+  let source = @input.input_from_text_with_format(
+    html,
+    "unicode.html",
+    Some(Html),
+  )
+  let result = html_parse_with_token_events(
+    source,
+    @parser.parse_context_with_limits(
+      @parser.new_parse_context(Html),
+      Some(BlockStreaming),
+      None,
+      None,
+      None,
+      None,
+      false,
+    ),
+    html,
+    @dhtml.tokenize_html_events(html),
+  )
+  let paragraph = result.block_stream.unwrap().last().unwrap()
+  let source_ref = paragraph.source_ref.unwrap()
+  assert_true(source_ref.line_start == Some(2))
+  assert_true(source_ref.line_end == Some(2))
+  assert_true(source_ref.byte_start == Some(5))
+  assert_true(source_ref.byte_end == Some(17))
 }
 
 ///|
@@ -137,7 +210,7 @@ test "HTML DOM route lowers semantic notes tables figures noise and unsupported 
   let source = @input.input_from_text_with_format(
     html,
     "semantic-dom.html",
-    Some(@input.DetectedFormat::Html),
+    Some(Html),
   )
   match html_document_to_ir(source, html) {
     Ok((document, diagnostics)) => {
@@ -148,10 +221,7 @@ test "HTML DOM route lowers semantic notes tables figures noise and unsupported 
     }
     Err(error) => fail(error)
   }
-  let result = (html_parser().parse)(
-    source,
-    @parser.new_parse_context(@input.DetectedFormat::Html),
-  ).unwrap()
+  let result = (html_parser().parse)(source, @parser.new_parse_context(Html)).unwrap()
   assert_true(result.document is Some(_))
   assert_true(
     result.diagnostics.metrics.get("effective_mode") == Some("dom_ast_model"),
@@ -190,15 +260,15 @@ test "HTML source helper paths trim inlines render lists and classify local imag
   assert_eq(html_trim_trailing_spaces("alpha \r\n"), "alpha")
   assert_true(html_ascii_space_like('\t'))
   assert_true(!html_ascii_space_like('x'))
-  let list = @core.make_block(@core.BlockKind::List, "")
+  let list = @core.make_block(List, "")
   list.attrs.set("ordered", "true")
-  let first = @core.make_block(@core.BlockKind::ListItem, "First")
-  first.children.push(@core.make_block(@core.BlockKind::Paragraph, "detail"))
-  let nested = @core.make_block(@core.BlockKind::List, "")
-  nested.children.push(@core.make_block(@core.BlockKind::ListItem, "Nested"))
+  let first = @core.make_block(ListItem, "First")
+  first.children.push(@core.make_block(Paragraph, "detail"))
+  let nested = @core.make_block(List, "")
+  nested.children.push(@core.make_block(ListItem, "Nested"))
   first.children.push(nested)
   list.children.push(first)
-  list.children.push(@core.make_block(@core.BlockKind::ListItem, "Second"))
+  list.children.push(@core.make_block(ListItem, "Second"))
   let rendered = render_list_plain(list, 0)
   assert_true(rendered.contains("1. First"))
   assert_true(rendered.contains("detail"))

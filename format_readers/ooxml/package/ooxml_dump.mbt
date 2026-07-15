@@ -28,7 +28,7 @@ fn build_package_inventory(pkg : OoxmlPackage) -> OoxmlPackageInventory {
   for entry in pkg.content_types_default {
     let (extension, content_type) = entry
     content_types.push({
-      kind: OoxmlContentTypeInfoKind::DefaultExtension,
+      kind: DefaultExtension,
       extension: Some(extension),
       part_name: None,
       content_type,
@@ -58,7 +58,7 @@ fn build_package_inventory(pkg : OoxmlPackage) -> OoxmlPackageInventory {
   for entry in pkg.content_types_override {
     let (part_name, content_type) = entry
     content_types.push({
-      kind: OoxmlContentTypeInfoKind::OverridePart,
+      kind: OverridePart,
       extension: None,
       part_name: Some(part_name),
       content_type,
@@ -95,10 +95,8 @@ fn compare_content_type_infos(
 ///|
 fn content_type_sort_key(info : OoxmlContentTypeInfo) -> String {
   match info.kind {
-    OoxmlContentTypeInfoKind::DefaultExtension =>
-      "0:" + string_opt_or_empty(info.extension)
-    OoxmlContentTypeInfoKind::OverridePart =>
-      "1:" + string_opt_or_empty(info.part_name)
+    DefaultExtension => "0:" + string_opt_or_empty(info.extension)
+    OverridePart => "1:" + string_opt_or_empty(info.part_name)
   }
 }
 

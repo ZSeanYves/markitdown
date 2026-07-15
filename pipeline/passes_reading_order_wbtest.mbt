@@ -47,37 +47,37 @@ fn assert_block_text_order(
 fn sample_reading_order_blocks(format : String) -> Array[@core.CoreBlock] {
   [
     reading_order_test_block(
-      @core.BlockKind::Paragraph,
+      Paragraph,
       "Test text",
       format,
       "030:0002924944:0005580112:00004:shape-7",
     ),
     reading_order_test_block(
-      @core.BlockKind::Paragraph,
+      Paragraph,
       "Group test text",
       format,
       "030:0004581128:0005580112:00002:group-11/shape-10",
     ),
     reading_order_test_block(
-      @core.BlockKind::Image,
+      Image,
       "group-image",
       format,
       "050:0003645024:0005580112:00001:group-11/picture-9",
     ),
     reading_order_test_block(
-      @core.BlockKind::Paragraph,
+      Paragraph,
       "Box 1",
       format,
       "030:0005517232:0005652120:00006:shape-12",
     ),
     reading_order_test_block(
-      @core.BlockKind::Paragraph,
+      Paragraph,
       "Box 2",
       format,
       "030:0005517232:0007668344:00007:shape-13",
     ),
     reading_order_test_block(
-      @core.BlockKind::Image,
+      Image,
       "top-image",
       format,
       "050:0001988840:0005580112:00003:picture-6",
@@ -124,7 +124,7 @@ fn pdf_line_block(
   }
   source_ref.extra.set("pdf_merge_group", group)
   source_ref.extra.set("reading_order_index", index)
-  @core.make_block(@core.BlockKind::Paragraph, text, source_ref~)
+  @core.make_block(Paragraph, text, source_ref~)
 }
 
 ///|
@@ -180,13 +180,11 @@ test "reading order pass refuses unsafe PDF line merges" {
 
 ///|
 test "reading order header footer cleanup honors debug and signals" {
-  let attr_candidate = @core.make_block(@core.BlockKind::Paragraph, "header")
+  let attr_candidate = @core.make_block(Paragraph, "header")
     |> @core.block_with_attr("header_footer_candidate", "true")
-  let signal_candidate = @core.make_block(@core.BlockKind::Paragraph, "footer")
-    |> @core.block_with_signals([
-      @core.make_signal(@core.SignalType::HeaderFooterCandidate, 100),
-    ])
-  let body = @core.make_block(@core.BlockKind::Paragraph, "body")
+  let signal_candidate = @core.make_block(Paragraph, "footer")
+    |> @core.block_with_signals([@core.make_signal(HeaderFooterCandidate, 100)])
+  let body = @core.make_block(Paragraph, "body")
   let removed = remove_header_footer_blocks(
     [attr_candidate, body, signal_candidate],
     true,
@@ -211,43 +209,30 @@ test "reading order passes preserve IR shapes and publish metrics" {
     pdf_line_block("one", "group", "1", 1, None),
     pdf_line_block("two", "group", "1", 2, None),
   ]
-  let merged = (merge_text_line_pass().run)(
-    context,
-    @core.IRInput::BlockStream(blocks),
-  ).unwrap()
+  let merged = (merge_text_line_pass().run)(context, BlockStream(blocks)).unwrap()
   match merged {
-    @core.IRInput::BlockStream(items) => assert_eq(items.length(), 1)
+    BlockStream(items) => assert_eq(items.length(), 1)
     _ => fail("expected block stream")
   }
   assert_true(
     context.diagnostics.val.metrics.get("merged_text_line_count") == Some("1"),
   )
-  let event : @core.CoreEvent = {
-    kind: @core.EventKind::Text,
-    text: "event",
-    source_ref: None,
-  }
+  let event : @core.CoreEvent = { kind: Text, text: "event", source_ref: None }
   match
-    (resolve_reading_order_pass().run)(
-      context,
-      @core.IRInput::EventStream([event]),
-    ).unwrap() {
-    @core.IRInput::EventStream(events) => assert_eq(events.length(), 1)
+    (resolve_reading_order_pass().run)(context, EventStream([event])).unwrap() {
+    EventStream(events) => assert_eq(events.length(), 1)
     _ => fail("expected event stream")
   }
   let document = {
     ..@core.empty_document_ir(),
     blocks: [
-      @core.make_block(@core.BlockKind::Paragraph, "header")
+      @core.make_block(Paragraph, "header")
       |> @core.block_with_attr("header_footer_candidate", "true"),
     ],
   }
   match
-    (remove_header_footer_pass().run)(
-      context,
-      @core.IRInput::Document(document),
-    ).unwrap() {
-    @core.IRInput::Document(next) => {
+    (remove_header_footer_pass().run)(context, Document(document)).unwrap() {
+    Document(next) => {
       assert_eq(next.blocks.length(), 0)
       assert_true(
         next.diagnostics.metrics.get("removed_header_footer_count") == Some("1"),

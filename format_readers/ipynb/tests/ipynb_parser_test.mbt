@@ -69,7 +69,7 @@ test "ipynb reader rejects malformed notebooks and classifies errors" {
     is Err(_),
   )
   let classified = @ipynb.classify_ipynb_error(
-    @ipynb.IpynbError::ParseError("top-level cells must be an array"),
+    ParseError("top-level cells must be an array"),
   )
   assert_true(classified.contains("top-level cells must be an array"))
 }

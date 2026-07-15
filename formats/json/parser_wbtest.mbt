@@ -4,18 +4,15 @@ test "JSON parser lowers complex document and streaming structure routes" {
   let source = @input.input_from_text_with_format(
     json,
     "complex.json",
-    Some(@input.DetectedFormat::Json),
+    Some(Json),
   )
-  let document = (json_parser().parse)(
-    source,
-    @parser.new_parse_context(@input.DetectedFormat::Json),
-  ).unwrap()
+  let document = (json_parser().parse)(source, @parser.new_parse_context(Json)).unwrap()
   assert_true(document.document.unwrap().blocks.length() > 0)
   assert_true(document.diagnostics.metrics.get("json_valid") == Some("true"))
   assert_true(document.diagnostics.metrics.get("root_kind") == Some("object"))
   let stream_context = @parser.parse_context_with_limits(
-    @parser.new_parse_context(@input.DetectedFormat::Json),
-    Some(@parser.ParserMode::StreamingEvent),
+    @parser.new_parse_context(Json),
+    Some(StreamingEvent),
     None,
     None,
     None,
@@ -36,12 +33,9 @@ test "JSON malformed document produces explicit raw fallback diagnostics" {
   let source = @input.input_from_text_with_format(
     "{\"broken\": [1,}",
     "broken.json",
-    Some(@input.DetectedFormat::Json),
+    Some(Json),
   )
-  let result = (json_parser().parse)(
-    source,
-    @parser.new_parse_context(@input.DetectedFormat::Json),
-  ).unwrap()
+  let result = (json_parser().parse)(source, @parser.new_parse_context(Json)).unwrap()
   assert_true(result.document.unwrap().blocks.length() == 1)
   assert_true(result.diagnostics.warnings.length() == 1)
   assert_true(
@@ -57,12 +51,9 @@ test "JSONL parser emits valid records and fails closed on a malformed line" {
   let source = @input.input_from_text_with_format(
     text,
     "records.jsonl",
-    Some(@input.DetectedFormat::Jsonl),
+    Some(Jsonl),
   )
-  let result = (jsonl_parser().parse)(
-    source,
-    @parser.new_parse_context(@input.DetectedFormat::Jsonl),
-  ).unwrap()
+  let result = (jsonl_parser().parse)(source, @parser.new_parse_context(Jsonl)).unwrap()
   assert_true(result.event_stream.unwrap().length() > 0)
   assert_true(result.diagnostics.metrics.get("record_count") == Some("3"))
   assert_true(
@@ -75,11 +66,11 @@ test "JSONL parser emits valid records and fails closed on a malformed line" {
   let broken_source = @input.input_from_text_with_format(
     "{\"id\":1}\ninvalid",
     "broken.jsonl",
-    Some(@input.DetectedFormat::Jsonl),
+    Some(Jsonl),
   )
   let fallback = (jsonl_parser().parse)(
     broken_source,
-    @parser.new_parse_context(@input.DetectedFormat::Jsonl),
+    @parser.new_parse_context(Jsonl),
   ).unwrap()
   assert_true(fallback.document is Some(_))
   assert_true(fallback.diagnostics.warnings.length() == 1)
@@ -93,11 +84,11 @@ test "NDJSON parser handles empty input and capability distinctions" {
   let source = @input.input_from_text_with_format(
     "",
     "empty.ndjson",
-    Some(@input.DetectedFormat::Ndjson),
+    Some(Ndjson),
   )
   let result = (ndjson_parser().parse)(
     source,
-    @parser.new_parse_context(@input.DetectedFormat::Ndjson),
+    @parser.new_parse_context(Ndjson),
   ).unwrap()
   assert_eq(result.event_stream.unwrap().length(), 0)
   assert_true(result.diagnostics.metrics.get("record_count") == Some("0"))
@@ -110,14 +101,14 @@ test "NDJSON parser handles empty input and capability distinctions" {
 test "JSON lowering covers every root and array product shape" {
   let cases = [
     ("\"text root\"", @core.BlockKind::Paragraph),
-    ("42", @core.BlockKind::Paragraph),
-    ("true", @core.BlockKind::Paragraph),
-    ("false", @core.BlockKind::Paragraph),
-    ("null", @core.BlockKind::Paragraph),
-    ("[]", @core.BlockKind::Code),
-    ("[1,\"two\",false,null]", @core.BlockKind::List),
-    ("[{\"a\":1,\"b\":2},{\"a\":3,\"b\":4}]", @core.BlockKind::Table),
-    ("[{\"a\":1},[2,3]]", @core.BlockKind::Code),
+    ("42", Paragraph),
+    ("true", Paragraph),
+    ("false", Paragraph),
+    ("null", Paragraph),
+    ("[]", Code),
+    ("[1,\"two\",false,null]", List),
+    ("[{\"a\":1,\"b\":2},{\"a\":3,\"b\":4}]", Table),
+    ("[{\"a\":1},[2,3]]", Code),
   ]
   for indexed in 0..<cases.length() {
     let (text, expected_kind) = cases[indexed]
@@ -125,9 +116,9 @@ test "JSON lowering covers every root and array product shape" {
       @input.input_from_text_with_format(
         text,
         "root-" + indexed.to_string() + ".json",
-        Some(@input.DetectedFormat::Json),
+        Some(Json),
       ),
-      @parser.new_parse_context(@input.DetectedFormat::Json),
+      @parser.new_parse_context(Json),
     ).unwrap()
     let blocks = result.document.unwrap().blocks
     assert_true(blocks.length() >= 1)
@@ -138,8 +129,8 @@ test "JSON lowering covers every root and array product shape" {
 ///|
 test "JSON streaming and line-delimited lowering cover heterogeneous bounded records" {
   let stream_context = @parser.parse_context_with_limits(
-    @parser.new_parse_context(@input.DetectedFormat::Json),
-    Some(@parser.ParserMode::StreamingEvent),
+    @parser.new_parse_context(Json),
+    Some(StreamingEvent),
     None,
     None,
     None,
@@ -149,17 +140,13 @@ test "JSON streaming and line-delimited lowering cover heterogeneous bounded rec
   for
     text in ["{}", "[]", "[1,{\"nested\":[true,null]}]", "\"scalar\"", "false"] {
     let result = (json_parser().parse)(
-      @input.input_from_text_with_format(
-        text,
-        "stream.json",
-        Some(@input.DetectedFormat::Json),
-      ),
+      @input.input_from_text_with_format(text, "stream.json", Some(Json)),
       stream_context,
     ).unwrap()
     assert_true(result.event_stream.unwrap().length() > 0)
   }
   let limited = @parser.parse_context_with_limits(
-    @parser.new_parse_context(@input.DetectedFormat::Jsonl),
+    @parser.new_parse_context(Jsonl),
     None,
     Some(3),
     None,
@@ -173,11 +160,7 @@ test "JSON streaming and line-delimited lowering cover heterogeneous bounded rec
     "[7,8]\n" +
     "{\"a\":9,\"b\":10}\n"
   let result = (jsonl_parser().parse)(
-    @input.input_from_text_with_format(
-      text,
-      "bounded.jsonl",
-      Some(@input.DetectedFormat::Jsonl),
-    ),
+    @input.input_from_text_with_format(text, "bounded.jsonl", Some(Jsonl)),
     limited,
   ).unwrap()
   assert_true(result.event_stream.unwrap().length() > 0)
@@ -191,7 +174,7 @@ test "JSON compact root array events preserve previews pointers and ranges" {
   let source = @input.input_from_text_with_format(
     text,
     "compact.json",
-    Some(@input.DetectedFormat::Json),
+    Some(Json),
   )
   let stream = @djson.parse_json_stream(text)
   let events = json_compact_root_array_events_from_stream(stream, source)
@@ -211,7 +194,7 @@ test "JSON direct root array lowering matches compact event semantics" {
   let source = @input.input_from_text_with_format(
     text,
     "compact-direct.json",
-    Some(@input.DetectedFormat::Json),
+    Some(Json),
   )
   let retained = json_compact_root_array_events_from_stream(
     @djson.parse_json_stream(text),

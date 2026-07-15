@@ -53,21 +53,15 @@ test "IPYNB MIME helpers classify extensions labels and kind names" {
   assert_eq(ipynb_info_from_mime("application/json"), "json")
   assert_eq(ipynb_info_from_mime("application/vnd.test+json"), "json")
   assert_eq(ipynb_info_from_mime("text/plain"), "text")
-  assert_eq(ipynb_cell_kind_name(@dipynb.IpynbCellKind::Markdown), "markdown")
-  assert_eq(ipynb_cell_kind_name(@dipynb.IpynbCellKind::Code), "code")
-  assert_eq(ipynb_cell_kind_name(@dipynb.IpynbCellKind::Raw), "raw")
-  assert_eq(ipynb_cell_kind_name(@dipynb.IpynbCellKind::Unknown), "unknown")
-  assert_eq(ipynb_output_kind_name(@dipynb.IpynbOutputKind::Stream), "stream")
-  assert_eq(
-    ipynb_output_kind_name(@dipynb.IpynbOutputKind::DisplayData),
-    "display_data",
-  )
-  assert_eq(
-    ipynb_output_kind_name(@dipynb.IpynbOutputKind::ExecuteResult),
-    "execute_result",
-  )
-  assert_eq(ipynb_output_kind_name(@dipynb.IpynbOutputKind::Error), "error")
-  assert_eq(ipynb_output_kind_name(@dipynb.IpynbOutputKind::Unknown), "unknown")
+  assert_eq(ipynb_cell_kind_name(Markdown), "markdown")
+  assert_eq(ipynb_cell_kind_name(Code), "code")
+  assert_eq(ipynb_cell_kind_name(Raw), "raw")
+  assert_eq(ipynb_cell_kind_name(Unknown), "unknown")
+  assert_eq(ipynb_output_kind_name(Stream), "stream")
+  assert_eq(ipynb_output_kind_name(DisplayData), "display_data")
+  assert_eq(ipynb_output_kind_name(ExecuteResult), "execute_result")
+  assert_eq(ipynb_output_kind_name(Error), "error")
+  assert_eq(ipynb_output_kind_name(Unknown), "unknown")
 }
 
 ///|
@@ -96,32 +90,31 @@ test "IPYNB MIME helpers select preferred entries and normalize payloads" {
     "application/octet-stream",
   )
   assert_true(
-    ipynb_inline_payload(ipynb_mime_wbtest_find(entries, "image/png")) ==
-    Some(("base64", "cG5n")),
+    ipynb_asset_payload(ipynb_mime_wbtest_find(entries, "image/png")) ==
+    Some(Bytes(Bytes::from_array([112, 110, 103]))),
   )
   assert_true(
-    ipynb_inline_payload(ipynb_mime_wbtest_find(entries, "image/svg+xml")) ==
-    Some(("utf8", "<svg/>")),
+    ipynb_asset_payload(ipynb_mime_wbtest_find(entries, "image/svg+xml")) ==
+    Some(Utf8("<svg/>")),
   )
   assert_true(
-    ipynb_inline_payload(ipynb_mime_wbtest_find(entries, "application/json"))
+    ipynb_asset_payload(ipynb_mime_wbtest_find(entries, "application/json"))
     is Some(_),
   )
   assert_true(
-    ipynb_inline_payload(ipynb_mime_wbtest_find(entries, "text/plain")) ==
-    Some(("utf8", "plain")),
+    ipynb_asset_payload(ipynb_mime_wbtest_find(entries, "text/plain")) ==
+    Some(Utf8("plain")),
   )
   assert_true(
-    ipynb_inline_payload(
+    ipynb_asset_payload(
       ipynb_mime_wbtest_find(entries, "application/octet-stream"),
     ) ==
-    Some(("base64", "Ymlu")),
+    Some(Bytes(Bytes::from_array([98, 105, 110]))),
   )
-  let asset = @core.make_asset_ref(@core.AssetKind::Embedded, "entry.bin")
-  ipynb_attach_inline_payload(
+  let asset = @core.make_asset_ref(Embedded, "entry.bin")
+  ipynb_attach_asset_payload(
     asset,
     ipynb_mime_wbtest_find(entries, "application/octet-stream"),
   )
-  assert_true(asset.attrs.get("inline_payload_kind") == Some("base64"))
-  assert_true(asset.attrs.get("inline_payload") == Some("Ymlu"))
+  assert_true(asset.payload == Some(Bytes(Bytes::from_array([98, 105, 110]))))
 }

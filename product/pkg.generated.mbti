@@ -39,7 +39,7 @@ pub fn make_accurate_feature_profile(Array[AccurateFeature]) -> AccurateFeatureP
 
 pub fn make_product_options(ConvertMode, ResourceLimits, fidelity_mode? : FidelityMode, output_mode? : OutputMode, stream_requested? : Bool, rag_options? : @rag.RagOptions) -> ProductOptions
 
-pub fn make_resource_limits(Int, Int, Int, max_line_chars? : Int) -> ResourceLimits
+pub fn make_resource_limits(Int, Int, Int, max_line_chars? : Int, max_input_bytes? : Int64, max_asset_bytes? : Int64, max_total_asset_bytes? : Int64, external_command_timeout_ms? : Int, max_external_output_bytes? : Int64) -> ResourceLimits
 
 pub fn output_mode_for_convert_mode(ConvertMode) -> OutputMode
 
@@ -160,6 +160,11 @@ pub struct ResourceLimits {
   max_cols : Int
   max_cells : Int
   max_line_chars : Int
+  max_input_bytes : Int64
+  max_asset_bytes : Int64
+  max_total_asset_bytes : Int64
+  external_command_timeout_ms : Int
+  max_external_output_bytes : Int64
 }
 
 // Type aliases

@@ -58,7 +58,7 @@ fn lower_html_document_from_prepared(
   match html_primary_title(semantic) {
     Some(title) =>
       if title.trim() != "" {
-        metadata.set("title", @core.JsonValue::String(title))
+        metadata.set("title", String(title))
       }
     None => ()
   }
@@ -136,7 +136,7 @@ fn html_dom_collect_index(
 ) -> Unit {
   for node in nodes {
     match node {
-      @dhtml.HtmlNode::Element(element) => {
+      Element(element) => {
         if html_dom_nav_like(element) {
           nav_spans.push(element.span)
         }
@@ -289,7 +289,7 @@ fn html_heading_subtree_scope_plans(
   let mut index = 0
   for i in 0..<events.length() {
     let event = events[i]
-    if event.kind != @dhtml.HtmlTokenEventKind::StartTag {
+    if event.kind != StartTag {
       continue
     }
     let level = html_heading_level(event.tag_name)
@@ -409,20 +409,28 @@ fn html_heading_level(tag_name : String) -> Int {
 
 ///|
 fn html_scope_event_should_skip(event : @dhtml.HtmlTokenEvent) -> Bool {
-  if event.tag_name == "nav" ||
-    event.tag_name == "footer" ||
-    event.tag_name == "script" ||
-    event.tag_name == "style" ||
-    event.tag_name == "template" {
+  html_scope_tag_should_skip(event.tag_name, event.attributes)
+}
+
+///|
+fn html_scope_tag_should_skip(
+  tag_name : String,
+  attributes : Array[@dhtml.HtmlAttribute],
+) -> Bool {
+  if tag_name == "nav" ||
+    tag_name == "footer" ||
+    tag_name == "script" ||
+    tag_name == "style" ||
+    tag_name == "template" {
     return true
   }
-  if @dhtml.html_token_event_attr_value(event, "hidden") is Some(_) {
+  if @dhtml.html_attributes_value(attributes, "hidden") is Some(_) {
     return true
   }
-  let class_name = @dhtml.html_token_event_attr_value(event, "class")
+  let class_name = @dhtml.html_attributes_value(attributes, "class")
     .unwrap_or("")
     .to_lower()
-  let role_name = @dhtml.html_token_event_attr_value(event, "role")
+  let role_name = @dhtml.html_attributes_value(attributes, "role")
     .unwrap_or("")
     .to_lower()
   class_name.contains("toc") ||

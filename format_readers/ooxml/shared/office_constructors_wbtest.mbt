@@ -2,59 +2,54 @@
 test "Office constructor enum names cover every public variant" {
   assert_true(
     [
-      office_document_kind_name(OfficeDocumentKind::Docx),
-      office_document_kind_name(OfficeDocumentKind::Pptx),
-      office_document_kind_name(OfficeDocumentKind::Xlsx),
-      office_document_kind_name(OfficeDocumentKind::Unknown),
+      office_document_kind_name(Docx),
+      office_document_kind_name(Pptx),
+      office_document_kind_name(Xlsx),
+      office_document_kind_name(Unknown),
     ] ==
     ["docx", "pptx", "xlsx", "unknown"],
   )
   let findings = [
     OfficeSecurityFinding::UnsafePartPath,
-    OfficeSecurityFinding::DuplicateNormalizedPart,
-    OfficeSecurityFinding::MissingRelationshipTarget,
-    OfficeSecurityFinding::UnsupportedRelationship,
-    OfficeSecurityFinding::ExternalRelationship,
-    OfficeSecurityFinding::EncryptedEntry,
-    OfficeSecurityFinding::UnsupportedCompression,
-    OfficeSecurityFinding::ResourceLimitHit,
-    OfficeSecurityFinding::PathTraversal,
+    DuplicateNormalizedPart,
+    MissingRelationshipTarget,
+    UnsupportedRelationship,
+    ExternalRelationship,
+    EncryptedEntry,
+    UnsupportedCompression,
+    ResourceLimitHit,
+    PathTraversal,
   ].map(office_security_finding_name)
   assert_eq(findings.length(), 9)
   assert_true(findings.contains("path_traversal"))
   assert_true(
     [
-      office_asset_copy_policy_name(
-        OfficeAssetCopyPolicy::MaterializeAtOutputBoundary,
-      ),
-      office_asset_copy_policy_name(OfficeAssetCopyPolicy::ReferenceOnly),
-      office_asset_copy_policy_name(OfficeAssetCopyPolicy::RejectUnsafePath),
+      office_asset_copy_policy_name(MaterializeAtOutputBoundary),
+      office_asset_copy_policy_name(ReferenceOnly),
+      office_asset_copy_policy_name(RejectUnsafePath),
     ] ==
     ["materialize_at_output_boundary", "reference_only", "reject_unsafe_path"],
   )
   assert_true(
-    [
-      pptx_slide_visibility_name(PptxSlideVisibility::Visible),
-      pptx_slide_visibility_name(PptxSlideVisibility::Hidden),
-    ] ==
+    [pptx_slide_visibility_name(Visible), pptx_slide_visibility_name(Hidden)] ==
     ["visible", "hidden"],
   )
   let shape_names = [
     PptxShapeType::Title,
-    PptxShapeType::Subtitle,
-    PptxShapeType::Body,
-    PptxShapeType::TextBox,
-    PptxShapeType::Picture,
-    PptxShapeType::Table,
-    PptxShapeType::Chart,
-    PptxShapeType::SmartArt,
-    PptxShapeType::Media,
-    PptxShapeType::Connector,
-    PptxShapeType::Group,
-    PptxShapeType::Placeholder,
-    PptxShapeType::NotesAnchor,
-    PptxShapeType::Decorative,
-    PptxShapeType::Unknown,
+    Subtitle,
+    Body,
+    TextBox,
+    Picture,
+    Table,
+    Chart,
+    SmartArt,
+    Media,
+    Connector,
+    Group,
+    Placeholder,
+    NotesAnchor,
+    Decorative,
+    Unknown,
   ].map(pptx_shape_type_name)
   assert_eq(shape_names.length(), 15)
   assert_true(
@@ -62,11 +57,11 @@ test "Office constructor enum names cover every public variant" {
   )
   assert_true(
     [
-      pptx_placeholder_origin_name(PptxPlaceholderOrigin::DirectSlide),
-      pptx_placeholder_origin_name(PptxPlaceholderOrigin::LayoutPlaceholder),
-      pptx_placeholder_origin_name(PptxPlaceholderOrigin::MasterPlaceholder),
-      pptx_placeholder_origin_name(PptxPlaceholderOrigin::GeometryInference),
-      pptx_placeholder_origin_name(PptxPlaceholderOrigin::Unresolved),
+      pptx_placeholder_origin_name(DirectSlide),
+      pptx_placeholder_origin_name(LayoutPlaceholder),
+      pptx_placeholder_origin_name(MasterPlaceholder),
+      pptx_placeholder_origin_name(GeometryInference),
+      pptx_placeholder_origin_name(Unresolved),
     ] ==
     [
       "direct_slide", "layout_placeholder", "master_placeholder", "geometry_inference",
@@ -75,15 +70,11 @@ test "Office constructor enum names cover every public variant" {
   )
   assert_true(
     [
-      pptx_reading_order_strategy_name(
-        PptxReadingOrderStrategy::PresentationOrder,
-      ),
-      pptx_reading_order_strategy_name(
-        PptxReadingOrderStrategy::PlaceholderThenGeometry,
-      ),
-      pptx_reading_order_strategy_name(PptxReadingOrderStrategy::GeometryOnly),
-      pptx_reading_order_strategy_name(PptxReadingOrderStrategy::ExplicitZOrder),
-      pptx_reading_order_strategy_name(PptxReadingOrderStrategy::Unknown),
+      pptx_reading_order_strategy_name(PresentationOrder),
+      pptx_reading_order_strategy_name(PlaceholderThenGeometry),
+      pptx_reading_order_strategy_name(GeometryOnly),
+      pptx_reading_order_strategy_name(ExplicitZOrder),
+      pptx_reading_order_strategy_name(Unknown),
     ] ==
     [
       "presentation_order", "placeholder_then_geometry", "geometry_only", "explicit_z_order",
@@ -92,22 +83,22 @@ test "Office constructor enum names cover every public variant" {
   )
   assert_true(
     [
-      xlsx_sheet_visibility_name(XlsxSheetVisibility::Visible),
-      xlsx_sheet_visibility_name(XlsxSheetVisibility::Hidden),
-      xlsx_sheet_visibility_name(XlsxSheetVisibility::VeryHidden),
+      xlsx_sheet_visibility_name(Visible),
+      xlsx_sheet_visibility_name(Hidden),
+      xlsx_sheet_visibility_name(VeryHidden),
     ] ==
     ["visible", "hidden", "very_hidden"],
   )
   let cell_names = [
     XlsxCellType::Blank,
-    XlsxCellType::String,
-    XlsxCellType::SharedString,
-    XlsxCellType::InlineString,
-    XlsxCellType::Number,
-    XlsxCellType::Bool,
-    XlsxCellType::Error,
-    XlsxCellType::DateLike,
-    XlsxCellType::Formula,
+    String,
+    SharedString,
+    InlineString,
+    Number,
+    Bool,
+    Error,
+    DateLike,
+    Formula,
   ].map(xlsx_cell_type_name)
   assert_eq(cell_names.length(), 9)
   assert_true(
@@ -135,7 +126,7 @@ test "Office model constructors preserve defaults and nested contracts" {
   )
   let asset_plan = make_office_asset_plan("word/media/a.png", "assets/a.png")
   let office_package = make_office_package(
-    OfficeDocumentKind::Docx,
+    Docx,
     [part],
     [rel],
     [content_type],
@@ -143,7 +134,7 @@ test "Office model constructors preserve defaults and nested contracts" {
     container_path=Some("sample.docx"),
   )
   let semantic = make_office_semantic_plan(
-    OfficeDocumentKind::Docx,
+    Docx,
     office_package,
     "document",
     ["word/document.xml"],
@@ -151,8 +142,7 @@ test "Office model constructors preserve defaults and nested contracts" {
   )
   assert_eq(semantic.office_package.parts.length(), 1)
   assert_true(
-    semantic.asset_plans[0].copy_policy ==
-    OfficeAssetCopyPolicy::MaterializeAtOutputBoundary,
+    semantic.asset_plans[0].copy_policy == MaterializeAtOutputBoundary,
   )
   let theme = make_pptx_theme_model(theme_name=Some("Office"))
   let master = make_pptx_master_model(master_name=Some("Master"))
@@ -164,7 +154,7 @@ test "Office model constructors preserve defaults and nested contracts" {
   let cell = make_pptx_table_cell_model(0, 0, "A")
   let table = make_pptx_table_model([make_pptx_table_row_model(0, [cell])])
   let shape = make_pptx_shape_model(
-    PptxShapeType::Title,
+    Title,
     text_paragraphs=[paragraph],
     image=Some(image),
     table=Some(table),
@@ -172,11 +162,7 @@ test "Office model constructors preserve defaults and nested contracts" {
   )
   let notes = make_pptx_notes_model(["note"])
   let comment = make_pptx_comment_model("1", "comment")
-  let order = make_pptx_reading_order_item(
-    0,
-    1,
-    PptxReadingOrderStrategy::PresentationOrder,
-  )
+  let order = make_pptx_reading_order_item(0, 1, PresentationOrder)
   let slide = make_pptx_slide_model(
     1,
     [shape],
@@ -195,13 +181,7 @@ test "Office model constructors preserve defaults and nested contracts" {
   let shared = make_xlsx_shared_string(0, "Hello")
   let formula = make_xlsx_formula("SUM(A1:A2)", cached_value=Some("3"))
   let merged = make_xlsx_merged_range("A1:B1", "A1", "B1")
-  let xcell = make_xlsx_cell_model(
-    "A1",
-    1,
-    1,
-    XlsxCellType::Formula,
-    formula=Some(formula),
-  )
+  let xcell = make_xlsx_cell_model("A1", 1, 1, Formula, formula=Some(formula))
   let row = make_xlsx_row_model(1, [xcell])
   let sheet = make_xlsx_sheet_model("Sheet1", [row], merged_ranges=[merged])
   let workbook = make_xlsx_workbook_model([sheet], shared_strings=[shared])

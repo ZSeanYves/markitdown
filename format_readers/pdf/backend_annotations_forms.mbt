@@ -217,58 +217,50 @@ fn pdf_native_backend_annotation_json(
   object_index : Map[Int, PdfNativeObject],
 ) -> @core.JsonValue {
   let payload : Map[String, @core.JsonValue] = Map([])
-  payload.set("subtype", @core.JsonValue::String(annotation.subtype))
-  payload.set(
-    "page",
-    @core.JsonValue::Number(annotation.page_index.to_string()),
-  )
+  payload.set("subtype", String(annotation.subtype))
+  payload.set("page", Number(annotation.page_index.to_string()))
   match annotation.bbox {
     Some(bbox) => payload.set("bbox", pdf_native_backend_bbox_json_value(bbox))
     None => ()
   }
   match annotation.text {
-    Some(value) => payload.set("text", @core.JsonValue::String(value))
+    Some(value) => payload.set("text", String(value))
     None => ()
   }
   match annotation.title {
-    Some(value) => payload.set("title", @core.JsonValue::String(value))
+    Some(value) => payload.set("title", String(value))
     None => ()
   }
   match annotation.subject {
-    Some(value) => payload.set("subject", @core.JsonValue::String(value))
+    Some(value) => payload.set("subject", String(value))
     None => ()
   }
   match annotation.file_name {
-    Some(value) => payload.set("file_name", @core.JsonValue::String(value))
+    Some(value) => payload.set("file_name", String(value))
     None => ()
   }
   match annotation.name {
-    Some(value) => payload.set("name", @core.JsonValue::String(value))
+    Some(value) => payload.set("name", String(value))
     None => ()
   }
   match annotation.modified_at {
-    Some(value) => payload.set("modified_at", @core.JsonValue::String(value))
+    Some(value) => payload.set("modified_at", String(value))
     None => ()
   }
   match annotation.action_kind {
-    Some(value) => payload.set("action_kind", @core.JsonValue::String(value))
+    Some(value) => payload.set("action_kind", String(value))
     None => ()
   }
   match annotation.target {
-    Some(value) => payload.set("target", @core.JsonValue::String(value))
+    Some(value) => payload.set("target", String(value))
     None => ()
   }
   match annotation.annotation_index {
-    Some(value) =>
-      payload.set(
-        "annotation_index",
-        @core.JsonValue::Number(value.to_string()),
-      )
+    Some(value) => payload.set("annotation_index", Number(value.to_string()))
     None => ()
   }
   match annotation.object_id {
-    Some(value) =>
-      payload.set("object_id", @core.JsonValue::Number(value.to_string()))
+    Some(value) => payload.set("object_id", Number(value.to_string()))
     None => ()
   }
   match annotation.destination {
@@ -282,19 +274,10 @@ fn pdf_native_backend_annotation_json(
         Some(object) =>
           match pdf_extract_int_after(object.dict_text, "/F") {
             Some(value) => {
-              payload.set("flags", @core.JsonValue::Number(value.to_string()))
-              payload.set(
-                "flag_hidden",
-                @core.JsonValue::Bool((value & (1 << 1)) != 0),
-              )
-              payload.set(
-                "flag_print",
-                @core.JsonValue::Bool((value & (1 << 2)) != 0),
-              )
-              payload.set(
-                "flag_no_view",
-                @core.JsonValue::Bool((value & (1 << 5)) != 0),
-              )
+              payload.set("flags", Number(value.to_string()))
+              payload.set("flag_hidden", Bool((value & (1 << 1)) != 0))
+              payload.set("flag_print", Bool((value & (1 << 2)) != 0))
+              payload.set("flag_no_view", Bool((value & (1 << 5)) != 0))
             }
             None => ()
           }
@@ -302,7 +285,7 @@ fn pdf_native_backend_annotation_json(
       }
     None => ()
   }
-  @core.JsonValue::Object(payload)
+  Object(payload)
 }
 
 ///|
@@ -311,54 +294,45 @@ fn pdf_native_backend_destination_json(
 ) -> @core.JsonValue {
   let payload : Map[String, @core.JsonValue] = Map([])
   match destination.page_index {
-    Some(value) =>
-      payload.set("page_index", @core.JsonValue::Number(value.to_string()))
+    Some(value) => payload.set("page_index", Number(value.to_string()))
     None => ()
   }
   match destination.target_page_index {
-    Some(value) =>
-      payload.set(
-        "target_page_index",
-        @core.JsonValue::Number(value.to_string()),
-      )
+    Some(value) => payload.set("target_page_index", Number(value.to_string()))
     None => ()
   }
   match destination.target_page_object_id {
     Some(value) =>
-      payload.set(
-        "target_page_object_id",
-        @core.JsonValue::Number(value.to_string()),
-      )
+      payload.set("target_page_object_id", Number(value.to_string()))
     None => ()
   }
   match destination.kind {
-    Some(value) => payload.set("kind", @core.JsonValue::String(value))
+    Some(value) => payload.set("kind", String(value))
     None => ()
   }
   match destination.raw_value {
-    Some(value) => payload.set("raw_value", @core.JsonValue::String(value))
+    Some(value) => payload.set("raw_value", String(value))
     None => ()
   }
   match destination.name {
-    Some(value) => payload.set("name", @core.JsonValue::String(value))
+    Some(value) => payload.set("name", String(value))
     None => ()
   }
   match destination.object_id {
-    Some(value) =>
-      payload.set("object_id", @core.JsonValue::Number(value.to_string()))
+    Some(value) => payload.set("object_id", Number(value.to_string()))
     None => ()
   }
-  @core.JsonValue::Object(payload)
+  Object(payload)
 }
 
 ///|
 fn pdf_native_backend_bbox_json_value(bbox : PdfBBox) -> @core.JsonValue {
-  @core.JsonValue::Object(
+  Object(
     Map([
-      ("x", @core.JsonValue::String(bbox.x.to_string())),
-      ("y", @core.JsonValue::String(bbox.y.to_string())),
-      ("width", @core.JsonValue::String(bbox.width.to_string())),
-      ("height", @core.JsonValue::String(bbox.height.to_string())),
+      ("x", String(bbox.x.to_string())),
+      ("y", String(bbox.y.to_string())),
+      ("width", String(bbox.width.to_string())),
+      ("height", String(bbox.height.to_string())),
     ]),
   )
 }
@@ -454,7 +428,7 @@ fn pdf_destination_from_value(
   page_numbers : Map[Int, Int],
 ) -> PdfNativeDestination? {
   match value {
-    PdfNativeDictValue::Reference(object_id, generation) => {
+    Reference(object_id, generation) => {
       ignore(generation)
       match object_index.get(object_id) {
         Some(object) =>
@@ -476,9 +450,9 @@ fn pdf_destination_from_value(
         None => None
       }
     }
-    PdfNativeDictValue::Array(tokens) =>
+    Array(tokens) =>
       pdf_destination_from_tokens(tokens, page_index, source_ref, page_numbers)
-    PdfNativeDictValue::Name(name) =>
+    Name(name) =>
       Some(
         make_pdf_native_destination(
           page_index=Some(page_index),
@@ -487,7 +461,7 @@ fn pdf_destination_from_value(
           source_ref~,
         ),
       )
-    PdfNativeDictValue::LiteralString(text) =>
+    LiteralString(text) =>
       Some(
         make_pdf_native_destination(
           page_index=Some(page_index),
@@ -496,7 +470,7 @@ fn pdf_destination_from_value(
           source_ref~,
         ),
       )
-    PdfNativeDictValue::HexString(hex) =>
+    HexString(hex) =>
       match pdf_decode_hex_pdf_text(hex, None) {
         Some(decoded) =>
           Some(
@@ -509,7 +483,7 @@ fn pdf_destination_from_value(
           )
         None => None
       }
-    PdfNativeDictValue::Dict(dict_text) =>
+    Dict(dict_text) =>
       match pdf_extract_dict_value(dict_text, "/D") {
         Some(inner) =>
           pdf_destination_from_value(
@@ -562,12 +536,11 @@ fn pdf_destination_tokens_text(tokens : Array[PdfNativeContentToken]) -> String 
   let parts : Array[String] = []
   for token in tokens {
     match token {
-      PdfNativeContentToken::Name(value) => parts.push("/" + value)
-      PdfNativeContentToken::Word(value) => parts.push(value)
-      PdfNativeContentToken::Number(value) => parts.push(value.to_string())
-      PdfNativeContentToken::LiteralString(value) =>
-        parts.push(pdf_normalize_pdf_text(value.decoded))
-      PdfNativeContentToken::HexString(value) =>
+      Name(value) => parts.push("/" + value)
+      Word(value) => parts.push(value)
+      Number(value) => parts.push(value.to_string())
+      LiteralString(value) => parts.push(pdf_normalize_pdf_text(value.decoded))
+      HexString(value) =>
         match pdf_decode_hex_pdf_text(value, None) {
           Some(decoded) => parts.push(decoded)
           None => parts.push(value)
@@ -626,8 +599,8 @@ fn pdf_inline_or_referenced_dict_text(
   object_index : Map[Int, PdfNativeObject],
 ) -> String? {
   match pdf_extract_dict_value(dict_text, key) {
-    Some(PdfNativeDictValue::Dict(value)) => Some(value)
-    Some(PdfNativeDictValue::Reference(object_id, generation)) => {
+    Some(Dict(value)) => Some(value)
+    Some(Reference(object_id, generation)) => {
       ignore(generation)
       match object_index.get(object_id) {
         Some(object) => Some(object.dict_text)

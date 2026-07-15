@@ -12,12 +12,8 @@ fn markdown_needs_blank_line_between(
   next_kind : @core.BlockKind,
 ) -> Bool {
   match prev_kind {
-    Some(@core.BlockKind::List) =>
-      next_kind != @core.BlockKind::List &&
-      next_kind != @core.BlockKind::ListItem
-    Some(@core.BlockKind::ListItem) =>
-      next_kind != @core.BlockKind::List &&
-      next_kind != @core.BlockKind::ListItem
+    Some(List) => next_kind != List && next_kind != ListItem
+    Some(ListItem) => next_kind != List && next_kind != ListItem
     Some(_) => true
     None => false
   }
@@ -78,12 +74,12 @@ fn markdown_leaf_cache_key(
     return None
   }
   let kind = match block.kind {
-    @core.BlockKind::Heading => "h"
-    @core.BlockKind::Paragraph => "p"
-    @core.BlockKind::Code => "c"
-    @core.BlockKind::BlockQuote => "q"
-    @core.BlockKind::Raw => "r"
-    @core.BlockKind::Image => "i"
+    Heading => "h"
+    Paragraph => "p"
+    Code => "c"
+    BlockQuote => "q"
+    Raw => "r"
+    Image => "i"
     _ => return None
   }
   let attrs = block.attrs.to_array()
@@ -145,16 +141,20 @@ fn write_markdown_block_with_separator_to(
 
 ///|
 fn render_markdown_block(block : @core.CoreBlock) -> String {
+  match @core.block_rendered_markdown(block) {
+    Some(rendered) => return rendered
+    None => ()
+  }
   match block.kind {
-    @core.BlockKind::Heading => render_markdown_heading(block)
-    @core.BlockKind::Paragraph => render_markdown_paragraph(block)
-    @core.BlockKind::List => render_markdown_list(block)
-    @core.BlockKind::ListItem => render_markdown_list_item(block, 1, false, 0)
-    @core.BlockKind::Table => render_markdown_table(block)
-    @core.BlockKind::Code => render_markdown_code(block)
-    @core.BlockKind::Image => render_markdown_image(block)
-    @core.BlockKind::BlockQuote => render_markdown_blockquote(block)
-    @core.BlockKind::Raw => render_markdown_raw(block)
+    Heading => render_markdown_heading(block)
+    Paragraph => render_markdown_paragraph(block)
+    List => render_markdown_list(block)
+    ListItem => render_markdown_list_item(block, 1, false, 0)
+    Table => render_markdown_table(block)
+    Code => render_markdown_code(block)
+    Image => render_markdown_image(block)
+    BlockQuote => render_markdown_blockquote(block)
+    Raw => render_markdown_raw(block)
     _ =>
       if block.children.length() > 0 {
         block.children.map(child => render_markdown_block(child)).join("\n")
@@ -190,25 +190,20 @@ fn write_markdown_block_to(
 ///|
 fn markdown_direct_block_visibility(block : @core.CoreBlock) -> Bool? {
   match block.kind {
-    @core.BlockKind::Heading =>
-      if !rich_inlines_present(block) {
-        Some(true)
-      } else {
-        None
-      }
-    @core.BlockKind::Paragraph =>
+    Heading => if !rich_inlines_present(block) { Some(true) } else { None }
+    Paragraph =>
       if block.attrs.get("note_definition_id") is None &&
         !rich_inlines_present(block) {
         Some(
-          block.attrs.get("literal") == Some("true") ||
+          @core.block_is_literal(block) ||
           literal_text_block(block) ||
           block.text.trim() != "",
         )
       } else {
         None
       }
-    @core.BlockKind::Code => Some(true)
-    @core.BlockKind::Image => Some(true)
+    Code => Some(true)
+    Image => Some(true)
     _ => None
   }
 }
@@ -219,10 +214,10 @@ fn write_markdown_block_direct_to(
   block : @core.CoreBlock,
 ) -> Unit {
   match block.kind {
-    @core.BlockKind::Heading => write_markdown_heading_to(out, block)
-    @core.BlockKind::Paragraph => write_markdown_paragraph_to(out, block)
-    @core.BlockKind::Code => write_markdown_code_to(out, block)
-    @core.BlockKind::Image => write_markdown_image_to(out, block)
+    Heading => write_markdown_heading_to(out, block)
+    Paragraph => write_markdown_paragraph_to(out, block)
+    Code => write_markdown_code_to(out, block)
+    Image => write_markdown_image_to(out, block)
     _ => ignore(write_markdown_block_to(out, block))
   }
 }
@@ -235,7 +230,7 @@ fn write_markdown_heading_to(
   let level = clamp_heading_level(block.attrs.get("level").unwrap_or("1"))
   out.write_string(repeat_char_string('#', level))
   out.write_char(' ')
-  if block.attrs.get("literal") == Some("true") || literal_text_block(block) {
+  if @core.block_is_literal(block) || literal_text_block(block) {
     out.write_string(block.text.trim().to_owned())
   } else {
     write_escaped_markdown_inline_text_to(out, block.text.trim().to_owned())
@@ -247,7 +242,7 @@ fn write_markdown_paragraph_to(
   out : StringBuilder,
   block : @core.CoreBlock,
 ) -> Unit {
-  if literal_text_block(block) || block.attrs.get("literal") == Some("true") {
+  if literal_text_block(block) || @core.block_is_literal(block) {
     if block.attrs.get("markdown_literal_raw") == Some("true") {
       out.write_string(block.text.trim().to_owned())
       return
@@ -301,7 +296,7 @@ fn write_markdown_image_to(
   out : StringBuilder,
   block : @core.CoreBlock,
 ) -> Unit {
-  let escape_mode = block.attrs.get("render_inline_escape_mode")
+  let escape_mode = @core.block_inline_escape_mode(block)
   let path = block.attrs.get("path").unwrap_or("#")
   out.write_string("![")
   write_escaped_markdown_inline_text_for_format_to(
@@ -348,7 +343,7 @@ fn render_markdown_heading(block : @core.CoreBlock) -> String {
   let prefix = Array::make(level, "#").join("")
   let escaped = if rich_inlines_present(block) {
     render_markdown_inline_text(block).trim().to_owned()
-  } else if block.attrs.get("literal") == Some("true") {
+  } else if @core.block_is_literal(block) {
     block.text.trim().to_owned()
   } else if literal_text_block(block) {
     block.text.trim().to_owned()
@@ -434,7 +429,7 @@ fn render_markdown_list_item(
   }
   let text = if rich_inlines_present(block) {
     render_markdown_inline_text(block).trim().to_owned()
-  } else if block.attrs.get("literal") == Some("true") {
+  } else if @core.block_is_literal(block) {
     block.text.trim().to_owned()
   } else {
     escape_markdown_inline_text(block.text).trim().to_owned()
@@ -452,9 +447,9 @@ fn render_markdown_list_item(
   for i in 0..<block.children.length() {
     let child = block.children[i]
     match child.kind {
-      @core.BlockKind::List =>
+      List =>
         child_lines.push(render_markdown_list_with_depth(child, depth + 1))
-      @core.BlockKind::ListItem =>
+      ListItem =>
         child_lines.push(
           render_markdown_list_item(child, i + 1, false, depth + 1),
         )
@@ -797,7 +792,7 @@ fn render_markdown_code(block : @core.CoreBlock) -> String {
 fn render_markdown_image(block : @core.CoreBlock) -> String {
   let alt = escape_markdown_inline_text_for_format(
     block.attrs.get("alt").unwrap_or("image"),
-    block.attrs.get("render_inline_escape_mode"),
+    @core.block_inline_escape_mode(block),
   )
   let path = block.attrs.get("path").unwrap_or("#")
   let lines : Array[String] = ["![" + alt + "](" + path + ")"]
@@ -808,7 +803,7 @@ fn render_markdown_image(block : @core.CoreBlock) -> String {
           "*" +
           escape_markdown_inline_text_for_format(
             title.trim().to_owned(),
-            block.attrs.get("render_inline_escape_mode"),
+            @core.block_inline_escape_mode(block),
           ) +
           "*",
         )
@@ -886,7 +881,7 @@ fn render_markdown_blockquote(block : @core.CoreBlock) -> String {
   if rich_inlines_present(block) {
     return render_inline_markdown_blockquote(block)
   }
-  let literal = block.attrs.get("literal") == Some("true")
+  let literal = @core.block_is_literal(block)
   let lines = block.text.split("\n").to_array().map(line => line.to_owned())
   if text_markup_semantic_blockquote_markdown(block, lines) is Some(rendered) {
     return rendered
@@ -908,7 +903,7 @@ fn text_markup_semantic_blockquote_markdown(
   block : @core.CoreBlock,
   lines : Array[String],
 ) -> String? {
-  if block.attrs.get("literal") != Some("true") || lines.length() == 0 {
+  if !@core.block_is_literal(block) || lines.length() == 0 {
     return None
   }
   if block.attrs.get("semantic_family") is None &&
@@ -936,7 +931,7 @@ fn render_markdown_blockquote_children(
         .split("\n")
         .to_array()
         .map(line => line.to_owned())
-      if child.kind == @core.BlockKind::List {
+      if child.kind == List {
         for line_index in 0..<child_lines.length() {
           lines.push(child_lines[line_index])
           if line_index + 1 < child_lines.length() {
@@ -967,6 +962,10 @@ fn render_inline_markdown_blockquote(block : @core.CoreBlock) -> String {
 
 ///|
 fn rich_inlines_present(block : @core.CoreBlock) -> Bool {
+  match @core.block_rendered_markdown(block) {
+    Some(rendered) => if rendered != "" { return true }
+    None => ()
+  }
   match block.rich_inlines {
     Some(inlines) => inlines.length() > 0
     None => false
@@ -975,7 +974,11 @@ fn rich_inlines_present(block : @core.CoreBlock) -> Bool {
 
 ///|
 fn render_markdown_inline_text(block : @core.CoreBlock) -> String {
-  let escape_mode = block.attrs.get("render_inline_escape_mode")
+  match @core.block_rendered_markdown(block) {
+    Some(rendered) => return rendered
+    None => ()
+  }
+  let escape_mode = @core.block_inline_escape_mode(block)
   let out = StringBuilder::new()
   match block.rich_inlines {
     Some(inlines) =>
@@ -1003,7 +1006,7 @@ fn annotation_gap_inline(
     return false
   }
   let current = inlines[index]
-  if current.kind != @core.InlineKind::Text || current.text != " " {
+  if current.kind != Text || current.text != " " {
     return false
   }
   annotation_note_marker_inline(inlines[index - 1]) &&
@@ -1012,7 +1015,7 @@ fn annotation_gap_inline(
 
 ///|
 fn annotation_note_marker_inline(inline : @core.CoreInline) -> Bool {
-  if inline.kind != @core.InlineKind::Text {
+  if inline.kind != Text {
     return false
   }
   inline.attrs.get("annotation_role") == Some("note_ref") &&
@@ -1021,7 +1024,7 @@ fn annotation_note_marker_inline(inline : @core.CoreInline) -> Bool {
 
 ///|
 fn annotation_comment_marker_inline(inline : @core.CoreInline) -> Bool {
-  if inline.kind != @core.InlineKind::Text {
+  if inline.kind != Text {
     return false
   }
   inline.attrs.get("annotation_role") == Some("note_ref") &&
@@ -1040,10 +1043,9 @@ fn render_markdown_inline_with_format(
     return inline.attrs.get("annotation_marker").unwrap_or(inline.text)
   }
   match inline.kind {
-    @core.InlineKind::Text =>
-      escape_markdown_inline_text_for_format(inline.text, escape_mode)
-    @core.InlineKind::LineBreak => "<br>"
-    @core.InlineKind::Link => {
+    Text => escape_markdown_inline_text_for_format(inline.text, escape_mode)
+    LineBreak => "<br>"
+    Link => {
       let text = escape_markdown_inline_text_for_format(
         inline.text,
         escape_mode,
@@ -1056,14 +1058,14 @@ fn render_markdown_inline_with_format(
         "[" + display + "](" + href + ")"
       }
     }
-    @core.InlineKind::Image => {
+    Image => {
       let alt = escape_markdown_inline_text_for_format(inline.text, escape_mode)
         .trim()
         .to_owned()
       let path = inline.href.unwrap_or("#").trim().to_owned()
       "![" + alt + "](" + path + ")"
     }
-    @core.InlineKind::Code => {
+    Code => {
       let text = inline.text
       let fence = safe_inline_code_fence(text)
       if text.contains("`") {
@@ -1170,10 +1172,6 @@ fn sparse_table_row_cells(row : @core.CoreBlock) -> Array[String] {
     return []
   }
   let cells = Array::make(width, "")
-  if row.children.length() == 0 {
-    sparse_table_row_payload_fill(cells, sparse_table_row_payload(row))
-    return cells
-  }
   for cell in row.children {
     let column = sparse_table_cell_column_index(cell)
     if column <= 0 || column > width {
@@ -1189,11 +1187,6 @@ fn sparse_table_row_cells(row : @core.CoreBlock) -> Array[String] {
 }
 
 ///|
-fn sparse_table_row_payload(row : @core.CoreBlock) -> String {
-  row.attrs.get("sparse_row_payload").unwrap_or("")
-}
-
-///|
 fn sparse_table_declared_width(row : @core.CoreBlock) -> Int {
   match row.attrs.get("declared_column_count") {
     Some(raw) => @string.parse_int(raw.trim()) catch { _ => 0 }
@@ -1202,64 +1195,14 @@ fn sparse_table_declared_width(row : @core.CoreBlock) -> Int {
 }
 
 ///|
-fn sparse_table_row_payload_fill(
-  cells : Array[String],
-  payload : String,
-) -> Unit {
-  if payload.trim() == "" {
-    return
-  }
-  for line in payload.split("\n").to_array() {
-    let entry = line.to_owned()
-    if entry == "" {
-      continue
-    }
-    let parts = entry.split("\t").to_array()
-    if parts.length() < 2 {
-      continue
-    }
-    let column = @string.parse_int(parts[0].trim()) catch { _ => 0 }
-    if column <= 0 || column > cells.length() {
-      continue
-    }
-    cells[column - 1] = xlsx_decode_sparse_row_cell(parts[1].to_owned())
-  }
-}
-
-///|
-fn xlsx_decode_sparse_row_cell(text : String) -> String {
-  let out : Array[Char] = []
-  let chars = text.to_array()
-  let mut i = 0
-  while i < chars.length() {
-    let ch = chars[i]
-    if ch == '\\' && i + 1 < chars.length() {
-      let next = chars[i + 1]
-      if next == 'n' {
-        out.push('\n')
-        i += 2
-        continue
-      } else if next == 't' {
-        out.push('\t')
-        i += 2
-        continue
-      } else if next == '\\' {
-        out.push('\\')
-        i += 2
-        continue
-      }
-    }
-    out.push(ch)
-    i += 1
-  }
-  String::from_array(out)
-}
-
-///|
 fn sparse_table_cell_column_index(cell : @core.CoreBlock) -> Int {
-  match cell.attrs.get("column_index") {
-    Some(raw) => @string.parse_int(raw.trim()) catch { _ => 0 }
-    None => 0
+  match cell.column_index {
+    Some(value) => value
+    None =>
+      match cell.attrs.get("column_index") {
+        Some(raw) => @string.parse_int(raw.trim()) catch { _ => 0 }
+        None => 0
+      }
   }
 }
 

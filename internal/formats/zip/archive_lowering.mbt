@@ -23,11 +23,7 @@ fn zip_skip_reason(
       severity_error: true,
     })
   }
-  if zip_entry_has_issue(
-      report,
-      info.raw_name,
-      @dzip.ZipValidationIssueKind::FilenameTooLong,
-    ) {
+  if zip_entry_has_issue(report, info.raw_name, FilenameTooLong) {
     return Some({
       message: "Skipped: normalized entry path too long",
       unsupported: false,
@@ -36,11 +32,7 @@ fn zip_skip_reason(
       severity_error: true,
     })
   }
-  if zip_entry_has_issue(
-      report,
-      info.raw_name,
-      @dzip.ZipValidationIssueKind::DirectoryDepthExceeded,
-    ) {
+  if zip_entry_has_issue(report, info.raw_name, DirectoryDepthExceeded) {
     return Some({
       message: "Skipped: normalized entry path too deep",
       unsupported: false,
@@ -51,11 +43,7 @@ fn zip_skip_reason(
   }
   match info.normalized_path {
     Some(path) =>
-      if zip_entry_has_issue(
-          report,
-          info.raw_name,
-          @dzip.ZipValidationIssueKind::DuplicateNormalizedEntry,
-        ) {
+      if zip_entry_has_issue(report, info.raw_name, DuplicateNormalizedEntry) {
         return Some({
           message: "Skipped: duplicate normalized entry path: " + path,
           unsupported: false,
@@ -76,7 +64,7 @@ fn zip_skip_reason(
     })
   }
   match info.compression_method {
-    @dzip.CompressionMethod::Unsupported(_) =>
+    Unsupported(_) =>
       return Some({
         message: "Skipped: unsupported compression method",
         unsupported: false,
@@ -190,7 +178,7 @@ fn zip_parse_inner_document(
   context : @parser.ParseContext,
 ) -> Result[@runtime.ChildBlockProduct, String] {
   let child_context = match format {
-    @input.DetectedFormat::Image(_) =>
+    Image(_) =>
       @parser.parse_context_with_ocr_options(
         context,
         @parser.explicit_ocr_options(),
@@ -214,8 +202,8 @@ fn zip_collect_referenced_asset_entries(
       continue
     }
     let format = match zip_supported_inner_format(info) {
-      Some(@input.DetectedFormat::Html) => @input.DetectedFormat::Html
-      Some(@input.DetectedFormat::Markdown) => @input.DetectedFormat::Markdown
+      Some(Html) => @input.DetectedFormat::Html
+      Some(Markdown) => Markdown
       _ => continue
     }
     let entry_path = zip_entry_display_path(info)
@@ -230,7 +218,11 @@ fn zip_collect_referenced_asset_entries(
       Err(_) => continue
     }
     for asset in child.assets {
-      match asset.attrs.get("source_path") {
+      let source_path = match asset.payload {
+        Some(SourcePath(path)) => Some(path)
+        _ => asset.attrs.get("source_path")
+      }
+      match source_path {
         Some(source_path) =>
           match zip_resolve_asset_entry_path(entry_path, source_path) {
             Some(resolved) => referenced.set(resolved, true)
@@ -246,7 +238,7 @@ fn zip_collect_referenced_asset_entries(
 ///|
 fn zip_image_format_uses_ocr(format : @input.DetectedFormat) -> Bool {
   match format {
-    @input.DetectedFormat::Image(_) => true
+    Image(_) => true
     _ => false
   }
 }
@@ -261,11 +253,7 @@ fn zip_standalone_image_asset(
   let output_path = zip_asset_output_path(entry_path, zip_basename(entry_path))
   let source_ref = entry.source_ref.unwrap_or(@core.empty_source_ref())
   let asset_id = "zip:standalone:" + entry_path
-  let asset = @core.make_asset_ref(
-    @core.AssetKind::Image,
-    asset_id,
-    source_ref~,
-  )
+  let asset = @core.make_asset_ref(Image, asset_id, source_ref~)
   let mime_type = match zip_image_mime_type(format) {
     Some(value) => Some(value)
     None => zip_asset_image_mime_type(entry_path)
@@ -276,7 +264,7 @@ fn zip_standalone_image_asset(
   next_asset.attrs.set("zip_container_format", "zip")
   next_asset.attrs.set("zip_container_path", container_path)
   next_asset.attrs.set("standalone_image", "true")
-  let block = @core.make_block(@core.BlockKind::Image, "", source_ref~)
+  let block = @core.make_block(Image, "", source_ref~)
   block.attrs.set("asset_id", asset_id)
   block.attrs.set("path", output_path)
   block.attrs.set("alt", zip_basename(entry_path))
@@ -355,7 +343,11 @@ fn zip_rewrite_child_assets(
   for asset in assets {
     let old_path = asset.path.unwrap_or("").trim().to_owned()
     let old_asset_id = asset.asset_id
-    match asset.attrs.get("source_path") {
+    let source_path = match asset.payload {
+      Some(SourcePath(path)) => Some(path)
+      _ => asset.attrs.get("source_path")
+    }
+    match source_path {
       Some(source_path) => {
         let resolved_entry = match
           zip_resolve_asset_entry_path(entry_path, source_path) {
@@ -481,8 +473,11 @@ fn zip_preserve_nested_child_asset(
     }
     None => None
   }
-  let has_inline_payload = asset.attrs.get("inline_payload_kind") is Some(_)
-  if nested_asset_entry is None && !has_inline_payload {
+  let has_payload = match asset.payload {
+    Some(Bytes(_)) | Some(Utf8(_)) => true
+    _ => false
+  }
+  if nested_asset_entry is None && !has_payload {
     return None
   }
   let child_asset_path = if old_path != "" {
@@ -600,7 +595,7 @@ fn zip_rewrite_single_block(
     rich_inlines: rewritten_inlines,
     source_ref: Some(source_ref),
   }
-  if block.kind == @core.BlockKind::Image {
+  if block.kind == Image {
     let old_path = block.attrs.get("path").unwrap_or("")
     let old_asset_id = block.attrs.get("asset_id").unwrap_or("")
     match zip_find_asset_rewrite(rewrites, old_asset_id, old_path) {
@@ -629,7 +624,7 @@ fn zip_rewrite_single_block(
               )
           }
           let alt = block.attrs.get("alt").unwrap_or("image")
-          return @core.make_block(@core.BlockKind::Paragraph, alt, source_ref~)
+          return @core.make_block(Paragraph, alt, source_ref~)
         }
         if zip_image_block_looks_local(block) &&
           !zip_block_is_remote_image(block) {
@@ -639,7 +634,7 @@ fn zip_rewrite_single_block(
             "`",
           )
           let alt = block.attrs.get("alt").unwrap_or("image")
-          return @core.make_block(@core.BlockKind::Paragraph, alt, source_ref~)
+          return @core.make_block(Paragraph, alt, source_ref~)
         }
       }
     }
@@ -660,7 +655,7 @@ fn zip_rewrite_inline(
     entry,
     inner_path=None,
   )
-  if inline.kind != @core.InlineKind::Image {
+  if inline.kind != Image {
     return { ..inline, source_ref: Some(source_ref) }
   }
   let old_path = inline.href.unwrap_or("")
@@ -854,7 +849,7 @@ fn zip_entry_heading_block(
   source_ref : @core.SourceRef,
   text : String,
 ) -> @core.CoreBlock {
-  let heading = @core.make_block(@core.BlockKind::Heading, text, source_ref~)
+  let heading = @core.make_block(Heading, text, source_ref~)
   heading.attrs.set("level", "1")
   heading
 }
@@ -864,14 +859,14 @@ fn zip_skip_block(
   source_ref : @core.SourceRef,
   text : String,
 ) -> @core.CoreBlock {
-  let block = @core.make_block(@core.BlockKind::BlockQuote, text, source_ref~)
+  let block = @core.make_block(BlockQuote, text, source_ref~)
   block.attrs.set("literal", "true")
   block
 }
 
 ///|
 fn zip_container_path(source : @input.InputSource) -> String {
-  match source.path {
+  match @input.input_path(source) {
     Some(path) => {
       let parts = path.replace(old="\\", new="/").split("/").to_array()
       parts.last().unwrap_or(source.source_name).to_owned()
@@ -931,8 +926,8 @@ fn zip_child_prefers_text_source(
   detected_format : @input.DetectedFormat,
 ) -> Bool {
   match detected_format {
-    @input.DetectedFormat::Html => true
-    @input.DetectedFormat::Markdown => true
+    Html => true
+    Markdown => true
     _ => false
   }
 }
@@ -955,8 +950,7 @@ fn zip_supported_inner_format(
   match info.extension {
     Some(ext) => {
       let format = @input.parse_detected_format(ext)
-      if format != @input.DetectedFormat::Unknown &&
-        @container.container_supports_inner_format(format) {
+      if format != Unknown && @container.container_supports_inner_format(format) {
         Some(format)
       } else {
         None
@@ -984,31 +978,14 @@ fn zip_entry_kind(
   report : @dzip.ZipArchiveInspectReport,
 ) -> @core.ContainerEntryKind {
   if info.is_unsafe_path ||
-    zip_entry_has_issue(
-      report,
-      info.raw_name,
-      @dzip.ZipValidationIssueKind::DuplicateNormalizedEntry,
-    ) ||
-    zip_entry_has_issue(
-      report,
-      info.raw_name,
-      @dzip.ZipValidationIssueKind::FilenameTooLong,
-    ) ||
-    zip_entry_has_issue(
-      report,
-      info.raw_name,
-      @dzip.ZipValidationIssueKind::DirectoryDepthExceeded,
-    ) {
-    return @core.ContainerEntryKind::Unsafe
+    zip_entry_has_issue(report, info.raw_name, DuplicateNormalizedEntry) ||
+    zip_entry_has_issue(report, info.raw_name, FilenameTooLong) ||
+    zip_entry_has_issue(report, info.raw_name, DirectoryDepthExceeded) {
+    return Unsafe
   }
   match zip_supported_inner_format(info) {
-    Some(_) => @core.ContainerEntryKind::Document
-    None =>
-      if zip_entry_is_asset(info) {
-        @core.ContainerEntryKind::Asset
-      } else {
-        @core.ContainerEntryKind::Unsupported
-      }
+    Some(_) => Document
+    None => if zip_entry_is_asset(info) { Asset } else { Unsupported }
   }
 }
 
@@ -1036,31 +1013,26 @@ fn zip_entry_security_findings(
 ) -> Array[@core.ContainerSecurityFinding] {
   let findings : Array[@core.ContainerSecurityFinding] = []
   if info.is_unsafe_path {
-    findings.push(@core.ContainerSecurityFinding::PathTraversal)
+    findings.push(PathTraversal)
   }
-  if zip_entry_has_issue(
-      report,
-      info.raw_name,
-      @dzip.ZipValidationIssueKind::DuplicateNormalizedEntry,
-    ) {
-    findings.push(@core.ContainerSecurityFinding::DuplicateNormalizedPath)
+  if zip_entry_has_issue(report, info.raw_name, DuplicateNormalizedEntry) {
+    findings.push(DuplicateNormalizedPath)
   }
   if info.is_encrypted {
-    findings.push(@core.ContainerSecurityFinding::EncryptedEntry)
+    findings.push(EncryptedEntry)
   }
   match info.compression_method {
-    @dzip.CompressionMethod::Unsupported(_) =>
-      findings.push(@core.ContainerSecurityFinding::UnsupportedCompression)
+    Unsupported(_) => findings.push(UnsupportedCompression)
     _ => ()
   }
   if info.is_nested_archive_candidate {
-    findings.push(@core.ContainerSecurityFinding::NestedArchive)
+    findings.push(NestedArchive)
   }
   if zip_entry_compression_ratio(info) > ZIP_MAX_COMPRESSION_RATIO {
-    findings.push(@core.ContainerSecurityFinding::CompressionRatioLimit)
+    findings.push(CompressionRatioLimit)
   }
   if info.uncompressed_size > ZIP_MAX_SINGLE_ENTRY_BYTES {
-    findings.push(@core.ContainerSecurityFinding::ResourceLimitHit)
+    findings.push(ResourceLimitHit)
   }
   findings
 }
@@ -1141,10 +1113,9 @@ fn zip_compression_method_name(
   compression_method : @dzip.CompressionMethod,
 ) -> String {
   match compression_method {
-    @dzip.CompressionMethod::Store => "store"
-    @dzip.CompressionMethod::DeflateRaw => "deflate"
-    @dzip.CompressionMethod::Unsupported(code) =>
-      "unsupported:" + code.to_string()
+    Store => "store"
+    DeflateRaw => "deflate"
+    Unsupported(code) => "unsupported:" + code.to_string()
   }
 }
 

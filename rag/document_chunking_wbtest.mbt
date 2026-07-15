@@ -16,28 +16,28 @@ fn rag_test_source_ref(page : Int) -> @core.SourceRef {
 
 ///|
 test "document chunks preserve metadata headings sources and overlap" {
-  let heading = @core.make_block(@core.BlockKind::Heading, "Overview")
+  let heading = @core.make_block(Heading, "Overview")
     |> @core.block_with_attr("level", "1")
   let first = @core.make_block(
-    @core.BlockKind::Paragraph,
+    Paragraph,
     "alpha beta",
     source_ref=rag_test_source_ref(1),
   )
   let second = @core.make_block(
-    @core.BlockKind::Paragraph,
+    Paragraph,
     "gamma delta",
     source_ref=rag_test_source_ref(2),
   )
   let document = rag_test_document([heading, first, second])
-  document.metadata.set("format", @core.JsonValue::String("markdown"))
-  document.metadata.set("title", @core.JsonValue::String("Fixture title"))
-  document.metadata.set("creator", @core.JsonValue::String("MoonBit"))
+  document.metadata.set("format", String("markdown"))
+  document.metadata.set("title", String("Fixture title"))
+  document.metadata.set("creator", String("MoonBit"))
   let chunks = chunks_from_document(
     document,
     make_rag_options(12, 5, true, true, true, true),
   )
   assert_eq(chunks.length(), 3)
-  assert_true(chunks[0].kind == ChunkKind::Metadata)
+  assert_true(chunks[0].kind == Metadata)
   assert_true(chunks[0].text.contains("title: Fixture title"))
   assert_true(chunks[1].heading_path == ["Overview"])
   assert_eq(chunks[1].source_refs.length(), 1)
@@ -47,15 +47,15 @@ test "document chunks preserve metadata headings sources and overlap" {
 
 ///|
 test "document chunks render lists quotes raw and rich inline text" {
-  let nested = @core.make_block(@core.BlockKind::ListItem, "child")
-  let item = @core.make_block(@core.BlockKind::ListItem, "parent")
+  let nested = @core.make_block(ListItem, "child")
+  let item = @core.make_block(ListItem, "parent")
     |> @core.block_with_children([nested])
-  let list = @core.make_block(@core.BlockKind::List, "")
+  let list = @core.make_block(List, "")
     |> @core.block_with_attr("ordered", "true")
     |> @core.block_with_children([item])
-  let quote = @core.make_block(@core.BlockKind::BlockQuote, "one\ntwo")
-  let raw = @core.make_block(@core.BlockKind::Raw, "<custom>raw</custom>")
-  let rich = @core.make_block(@core.BlockKind::Paragraph, "ignored")
+  let quote = @core.make_block(BlockQuote, "one\ntwo")
+  let raw = @core.make_block(Raw, "<custom>raw</custom>")
+  let rich = @core.make_block(Paragraph, "ignored")
     |> @core.block_with_rich_inlines(
       Some([
         @core.make_inline_text("Docs "),
@@ -70,7 +70,7 @@ test "document chunks render lists quotes raw and rich inline text" {
     make_rag_options(1000, 0, true, true, true, true),
   )
   assert_eq(chunks.length(), 1)
-  assert_true(chunks[0].kind == ChunkKind::Raw)
+  assert_true(chunks[0].kind == Raw)
   assert_true(chunks[0].text.contains("1. parent"))
   assert_true(chunks[0].text.contains("  - child"))
   assert_true(chunks[0].text.contains("> one\n> two"))
@@ -80,42 +80,45 @@ test "document chunks render lists quotes raw and rich inline text" {
 
 ///|
 fn rag_test_cell(text : String, column : Int) -> @core.CoreBlock {
-  @core.make_block(@core.BlockKind::TableCell, text)
+  @core.make_block(TableCell, text)
   |> @core.block_with_attr("column_index", column.to_string())
 }
 
 ///|
 test "document chunks split regular and sparse tables" {
-  let header = @core.make_block(@core.BlockKind::TableRow, "")
+  let header = @core.make_block(TableRow, "")
     |> @core.block_with_children([
       rag_test_cell("Name", 1),
       rag_test_cell("Value", 2),
     ])
-  let row1 = @core.make_block(@core.BlockKind::TableRow, "")
+  let row1 = @core.make_block(TableRow, "")
     |> @core.block_with_children([
       rag_test_cell("alpha", 1),
       rag_test_cell("one", 2),
     ])
-  let row2 = @core.make_block(@core.BlockKind::TableRow, "")
+  let row2 = @core.make_block(TableRow, "")
     |> @core.block_with_children([
       rag_test_cell("beta", 1),
       rag_test_cell("two", 2),
     ])
-  let table = @core.make_block(@core.BlockKind::Table, "")
+  let table = @core.make_block(Table, "")
     |> @core.block_with_children([header, row1, row2])
-  let sparse = @core.make_block(@core.BlockKind::Table, "")
+  let sparse = @core.make_block(Table, "")
     |> @core.block_with_children([
-      @core.make_block(@core.BlockKind::TableRow, "")
+      @core.make_block(TableRow, "")
       |> @core.block_with_attr("sparse_cell_columns", "true")
       |> @core.block_with_attr("declared_column_count", "3")
-      |> @core.block_with_attr("sparse_row_payload", "1\tleft\\nline\n3\tright"),
+      |> @core.block_with_children([
+        rag_test_cell("left\nline", 1),
+        rag_test_cell("right", 3),
+      ]),
     ])
   let chunks = chunks_from_document(
     rag_test_document([table, sparse]),
     make_rag_options(22, 0, true, true, true, true),
   )
   assert_true(chunks.length() >= 3)
-  assert_true(chunks[0].kind == ChunkKind::Table)
+  assert_true(chunks[0].kind == Table)
   assert_true(chunks[0].text.contains("| Name | Value |"))
   assert_true(
     chunks.any(chunk => chunk.text.contains("| left\nline |  | right |")),
@@ -124,25 +127,22 @@ test "document chunks split regular and sparse tables" {
 
 ///|
 test "document chunks split code and resolve image assets" {
-  let code = @core.make_block(
-      @core.BlockKind::Code,
-      "first line\nsecond line\nthird line",
-    )
+  let code = @core.make_block(Code, "first line\nsecond line\nthird line")
     |> @core.block_with_attr("language", "moonbit")
-  let image = @core.make_block(@core.BlockKind::Image, "")
+  let image = @core.make_block(Image, "")
     |> @core.block_with_attr("caption", "Architecture diagram")
     |> @core.block_with_attr("asset_id", "asset-1")
-  let asset = @core.make_asset_ref(@core.AssetKind::Image, "asset-1")
+  let asset = @core.make_asset_ref(Image, "asset-1")
   let document = { ..rag_test_document([code, image]), assets: [asset] }
   let chunks = chunks_from_document(
     document,
     make_rag_options(24, 0, false, false, true, true),
   )
   assert_true(chunks.length() >= 3)
-  assert_true(chunks[0].kind == ChunkKind::Code)
+  assert_true(chunks[0].kind == Code)
   assert_true(chunks[0].text.has_prefix("```moonbit"))
   let image_chunk = chunks[chunks.length() - 1]
-  assert_true(image_chunk.kind == ChunkKind::ImageCaption)
+  assert_true(image_chunk.kind == ImageCaption)
   assert_eq(image_chunk.text, "Architecture diagram")
   assert_true(image_chunk.heading_path.length() == 0)
   assert_true(image_chunk.source_refs.length() == 0)
@@ -151,12 +151,12 @@ test "document chunks split code and resolve image assets" {
 
 ///|
 test "document chunks force audio segments and ignore empty special blocks" {
-  let before = @core.make_block(@core.BlockKind::Paragraph, "before")
-  let audio = @core.make_block(@core.BlockKind::Paragraph, "00:01 speaker")
+  let before = @core.make_block(Paragraph, "before")
+  let audio = @core.make_block(Paragraph, "00:01 speaker")
     |> @core.block_with_attr("audio_segment", "true")
-  let after = @core.make_block(@core.BlockKind::Paragraph, "after")
-  let empty_table = @core.make_block(@core.BlockKind::Table, "")
-  let empty_image = @core.make_block(@core.BlockKind::Image, "")
+  let after = @core.make_block(Paragraph, "after")
+  let empty_table = @core.make_block(Table, "")
+  let empty_image = @core.make_block(Image, "")
   let chunks = chunks_from_document(
     rag_test_document([before, audio, after, empty_table, empty_image]),
     default_rag_options(),
@@ -226,9 +226,9 @@ test "RAG text unit splitting covers overlap and disabled provenance" {
 
 ///|
 test "RAG table chunking supports unsplit and disabled context" {
-  let header = @core.make_block(@core.BlockKind::TableRow, "Name|Value")
-  let body = @core.make_block(@core.BlockKind::TableRow, "alpha|one")
-  let table = @core.make_block(@core.BlockKind::Table, "")
+  let header = @core.make_block(TableRow, "Name|Value")
+  let body = @core.make_block(TableRow, "alpha|one")
+  let table = @core.make_block(Table, "")
     |> @core.block_with_children([header, body])
   let chunks = table_chunks_from_block(
     table,
@@ -244,7 +244,7 @@ test "RAG table chunking supports unsplit and disabled context" {
   assert_true(chunks[0].text.contains("Name|Value"))
   assert_eq(
     block_to_special_chunks(
-      @core.make_block(@core.BlockKind::Section, "section"),
+      @core.make_block(Section, "section"),
       [],
       0,
       "txt",
@@ -258,9 +258,9 @@ test "RAG table chunking supports unsplit and disabled context" {
 
 ///|
 test "RAG heading paths cover same-level replacement and assembly fallback" {
-  let first = @core.make_block(@core.BlockKind::Heading, "First")
+  let first = @core.make_block(Heading, "First")
     |> @core.block_with_attr("level", "1")
-  let second = @core.make_block(@core.BlockKind::Heading, "Second")
+  let second = @core.make_block(Heading, "Second")
     |> @core.block_with_attr("level", "1")
   assert_true(update_heading_path(["First"], second) == ["Second"])
   assert_true(!string_arrays_eq(["a"], ["a", "b"]))
@@ -274,7 +274,7 @@ test "RAG heading paths cover same-level replacement and assembly fallback" {
   assert_true(
     block_heading_path(document, assembly.heading_paths, first, []) == ["First"],
   )
-  let paragraph = @core.make_block(@core.BlockKind::Paragraph, "body")
+  let paragraph = @core.make_block(Paragraph, "body")
   assert_eq(
     block_heading_path(document, assembly.heading_paths, paragraph, ["First"]).join(
       "/",
@@ -286,8 +286,8 @@ test "RAG heading paths cover same-level replacement and assembly fallback" {
 ///|
 test "RAG metadata and list-item helpers cover non-text values" {
   let document = rag_test_document([])
-  document.metadata.set("title", @core.JsonValue::Null)
-  document.metadata.set("subject", @core.JsonValue::Bool(true))
+  document.metadata.set("title", Null)
+  document.metadata.set("subject", Bool(true))
   let chunk = metadata_chunk(
     document,
     make_rag_options(10, 0, false, false, true, true),
@@ -296,6 +296,6 @@ test "RAG metadata and list-item helpers cover non-text values" {
     None,
   ).unwrap()
   assert_true(chunk.text.contains("subject: true"))
-  let list_item = @core.make_block(@core.BlockKind::ListItem, "item")
+  let list_item = @core.make_block(ListItem, "item")
   assert_true(block_to_text_unit(list_item).unwrap().block_kind == "list_item")
 }

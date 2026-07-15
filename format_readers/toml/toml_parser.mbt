@@ -12,25 +12,25 @@ pub fn classify_toml_error(err : TomlError) -> TomlErrorInfo {
   let kind = if detail.contains("unexpected end") {
     TomlErrorKind::UnexpectedEnd
   } else if detail.contains("trailing content") {
-    TomlErrorKind::TrailingContent
+    TrailingContent
   } else if detail.contains("duplicate key") {
-    TomlErrorKind::DuplicateKey
+    DuplicateKey
   } else if detail.contains("invalid header") {
-    TomlErrorKind::InvalidHeader
+    InvalidHeader
   } else if detail.contains("invalid key") {
-    TomlErrorKind::InvalidKey
+    InvalidKey
   } else if detail.contains("invalid escape") {
-    TomlErrorKind::InvalidEscape
+    InvalidEscape
   } else if detail.contains("unterminated") || detail.contains("invalid string") {
-    TomlErrorKind::InvalidString
+    InvalidString
   } else if detail.contains("invalid value") {
-    TomlErrorKind::InvalidValue
+    InvalidValue
   } else if detail.contains("expected ") {
-    TomlErrorKind::ExpectedToken
+    ExpectedToken
   } else if detail.contains("unsupported") {
-    TomlErrorKind::UnsupportedFeature
+    UnsupportedFeature
   } else {
-    TomlErrorKind::Unknown
+    Unknown
   }
   { kind, detail: err.to_string() }
 }
@@ -365,26 +365,26 @@ fn TomlParser::parse_value(self : TomlParser) -> (TomlValue, Int) raise {
     Some('"') =>
       if self.starts_with("\"\"\"") {
         let value = self.parse_multiline_basic_string()
-        (TomlValue::String(value.0), value.1)
+        (String(value.0), value.1)
       } else {
         let value = self.parse_basic_string_single_line()
-        (TomlValue::String(value), self.line)
+        (String(value), self.line)
       }
     Some('\'') =>
       if self.starts_with("'''") {
         let value = self.parse_multiline_literal_string()
-        (TomlValue::String(value.0), value.1)
+        (String(value.0), value.1)
       } else {
         let value = self.parse_literal_string_single_line()
-        (TomlValue::String(value), self.line)
+        (String(value), self.line)
       }
     Some('[') => {
       let value = self.parse_array()
-      (TomlValue::Array(value.0), value.1)
+      (Array(value.0), value.1)
     }
     Some('{') => {
       let value = self.parse_inline_table()
-      (TomlValue::InlineTable(value.0), value.1)
+      (InlineTable(value.0), value.1)
     }
     Some(_) => {
       let scalar = self.parse_scalar_token()
@@ -894,19 +894,19 @@ fn toml_hex_value(ch : Char) -> Int raise {
 fn toml_scalar_value_from_token(token : String, line : Int) -> TomlValue raise {
   let lower = token.to_lower()
   if lower == "true" {
-    return TomlValue::Bool(true)
+    return Bool(true)
   }
   if lower == "false" {
-    return TomlValue::Bool(false)
+    return Bool(false)
   }
   if toml_token_is_datetime(token) {
-    return TomlValue::Datetime(token)
+    return Datetime(token)
   }
   if toml_token_is_float(token) {
-    return TomlValue::Float(token)
+    return Float(token)
   }
   if toml_token_is_integer(token) {
-    return TomlValue::Integer(token)
+    return Integer(token)
   }
   raise ParseError("invalid value at line " + line.to_string())
 }

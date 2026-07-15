@@ -16,7 +16,7 @@ test "selector exact tiers account for limits without an external corpus" {
     [],
     [],
     Some(1),
-    SelectOutput::Jsonl,
+    Jsonl,
     true,
   )
   let manifest = selector_gate_manifest()
@@ -38,7 +38,7 @@ test "selector helper boundaries remain deterministic and repository local" {
   assert_eq(tier_rank("smoke"), 0)
   assert_eq(tier_rank("release"), 2)
   assert_eq(tier_rank("unsupported"), 100)
-  let skipped : Map[String, Int] = {}
+  let skipped : Map[String, Int] = Map([])
   increment_skip_reason(skipped, "filtered")
   increment_skip_reason(skipped, "filtered")
   assert_true(skipped.get("filtered") == Some(2))

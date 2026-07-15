@@ -23,9 +23,10 @@ pub impl Show for PdfNativeError with fn to_string(self : PdfNativeError) -> Str
 ///|
 fn pdf_native_input_kind_name(kind : @input.InputKind) -> String {
   match kind {
-    @input.InputKind::Path => "path"
-    @input.InputKind::Text => "text"
-    @input.InputKind::Bytes => "bytes"
+    Path => "path"
+    Text => "text"
+    Bytes => "bytes"
+    Reader => "reader"
   }
 }
 
@@ -71,6 +72,77 @@ fn txt_ligature_expansion(ch : Char) -> String? {
 }
 
 ///|
+fn pdf_load_object_store(
+  source : @input.InputSource,
+) -> Result[PdfParsedObjectStore, PdfNativeError] {
+  let cursor = match @input.open_source_cursor(source) {
+    Ok(value) => value
+    Err(_) => return pdf_load_object_store_materialized(source)
+  }
+  let prefix = match pdf_cursor_read_exact(cursor, 0, 5) {
+    Ok(value) => value
+    Err(_) => return pdf_load_object_store_materialized(source)
+  }
+  if pdf_byte_string(prefix) != "%PDF-" {
+    return Err(
+      ParseFailed("input is not a PDF file: " + pdf_native_source_id(source)),
+    )
+  }
+  match pdf_parse_objects_via_cursor(cursor) {
+    Ok(Some(store)) =>
+      if pdf_parsed_store_is_encrypted(store) {
+        Err(
+          EncryptedUnsupported(
+            "encrypted PDF is unsupported in native PDF reader backend: " +
+            pdf_native_source_id(source),
+          ),
+        )
+      } else {
+        Ok(store)
+      }
+    Ok(None) | Err(_) => pdf_load_object_store_materialized(source)
+  }
+}
+
+///|
+fn pdf_load_object_store_materialized(
+  source : @input.InputSource,
+) -> Result[PdfParsedObjectStore, PdfNativeError] {
+  let bytes = match @input.read_input_bytes(source) {
+    Ok(payload) => payload
+    Err(err) =>
+      return Err(
+        ReadFailed(
+          "failed to read PDF bytes for " +
+          pdf_native_source_id(source) +
+          ": " +
+          err,
+        ),
+      )
+  }
+  if bytes.length() == 0 {
+    return Err(
+      ParseFailed("PDF bytes are empty for " + pdf_native_source_id(source)),
+    )
+  }
+  let view = pdf_byte_string(bytes)
+  if !view.has_prefix("%PDF-") {
+    return Err(
+      ParseFailed("input is not a PDF file: " + pdf_native_source_id(source)),
+    )
+  }
+  if view.contains("/Encrypt") {
+    return Err(
+      EncryptedUnsupported(
+        "encrypted PDF is unsupported in native PDF reader backend: " +
+        pdf_native_source_id(source),
+      ),
+    )
+  }
+  pdf_parse_objects(bytes, view)
+}
+
+///|
 pub fn extract_pdf_native_document_from_path(
   path : String,
 ) -> Result[PdfNativeDocument, PdfNativeError] {
@@ -81,42 +153,7 @@ pub fn extract_pdf_native_document_from_path(
 pub fn extract_pdf_native_document(
   source : @input.InputSource,
 ) -> Result[PdfNativeDocument, PdfNativeError] {
-  let bytes = match @input.read_input_bytes(source) {
-    Ok(payload) => payload
-    Err(err) =>
-      return Err(
-        PdfNativeError::ReadFailed(
-          "failed to read PDF bytes for " +
-          pdf_native_source_id(source) +
-          ": " +
-          err,
-        ),
-      )
-  }
-  if bytes.length() == 0 {
-    return Err(
-      PdfNativeError::ParseFailed(
-        "PDF bytes are empty for " + pdf_native_source_id(source),
-      ),
-    )
-  }
-  let view = pdf_byte_string(bytes)
-  if !view.has_prefix("%PDF-") {
-    return Err(
-      PdfNativeError::ParseFailed(
-        "input is not a PDF file: " + pdf_native_source_id(source),
-      ),
-    )
-  }
-  if view.contains("/Encrypt") {
-    return Err(
-      PdfNativeError::EncryptedUnsupported(
-        "encrypted PDF is unsupported in native PDF reader backend: " +
-        pdf_native_source_id(source),
-      ),
-    )
-  }
-  let parsed_store = match pdf_parse_objects(bytes, view) {
+  let parsed_store = match pdf_load_object_store(source) {
     Ok(parsed) => parsed
     Err(err) => return Err(err)
   }
@@ -181,7 +218,7 @@ pub fn extract_pdf_native_document(
   }
   if pages.length() == 0 {
     return Err(
-      PdfNativeError::ParseFailed(
+      ParseFailed(
         "no page objects found in PDF: " + pdf_native_source_id(source),
       ),
     )
@@ -242,7 +279,7 @@ pub fn extract_pdf_native_document(
   if span_count == 0 {
     if !has_appendix_signal && tounicode_fail_closed_font_count == 0 {
       return Err(
-        PdfNativeError::EmptyTextLayer(
+        EmptyTextLayer(
           "PDF native text layer is empty or not recoverable by native PDF reader backend: " +
           pdf_native_source_id(source),
         ),
@@ -255,7 +292,7 @@ pub fn extract_pdf_native_document(
       Some("pdf_native_backend"),
       Some("page_single_pass"),
     ),
-    Some(pdf_native_input_kind_name(source.kind)),
+    Some(pdf_native_input_kind_name(@input.input_kind(source))),
     Some("pdf"),
   )
   diagnostics.pass_trace.push("pdf_native:extract_document")
@@ -270,6 +307,10 @@ pub fn extract_pdf_native_document(
   diagnostics.metrics.set("native_impl_location", "format_readers/pdf")
   diagnostics.metrics.set("pdf_reader_impl", "format_readers/pdf")
   diagnostics.metrics.set("pdf_xref_mode", parsed_store.xref_mode)
+  diagnostics.metrics.set(
+    "pdf_input_access_mode",
+    parsed_store.input_access_mode,
+  )
   diagnostics.metrics.set(
     "pdf_filter_decode_mode",
     parsed_store.filter_decode_mode,
@@ -411,29 +452,23 @@ pub fn extract_pdf_native_document(
     diagnostics.degraded_features.push("pdf_tounicode_fail_closed")
   }
   let metadata : Map[String, @core.JsonValue] = Map([])
-  metadata.set("pdf_native_backend", @core.JsonValue::Bool(true))
-  metadata.set("pdf_native_text_baseline", @core.JsonValue::Bool(true))
-  metadata.set("pdf_ocr_used", @core.JsonValue::Bool(false))
-  metadata.set("pdf_canonical_pipeline_used", @core.JsonValue::Bool(false))
-  metadata.set(
-    "pdf_predefined_cmap_used",
-    @core.JsonValue::Bool(predefined_cmap_font_count > 0),
-  )
+  metadata.set("pdf_native_backend", Bool(true))
+  metadata.set("pdf_native_text_baseline", Bool(true))
+  metadata.set("pdf_ocr_used", Bool(false))
+  metadata.set("pdf_canonical_pipeline_used", Bool(false))
+  metadata.set("pdf_predefined_cmap_used", Bool(predefined_cmap_font_count > 0))
   metadata.set(
     "pdf_embedded_font_program_used",
-    @core.JsonValue::Bool(embedded_font_program_count > 0),
+    Bool(embedded_font_program_count > 0),
   )
-  metadata.set(
-    "pdf_cid_to_gid_used",
-    @core.JsonValue::Bool(cid_to_gid_font_count > 0),
-  )
+  metadata.set("pdf_cid_to_gid_used", Bool(cid_to_gid_font_count > 0))
   metadata.set(
     "pdf_width_fallback_used",
-    @core.JsonValue::Bool(pdf_metric_labels_contain(width_sources, "heuristic")),
+    Bool(pdf_metric_labels_contain(width_sources, "heuristic")),
   )
   metadata.set(
     "pdf_font_decode_path",
-    @core.JsonValue::String(
+    String(
       if decode_paths.length() == 0 {
         "none"
       } else {
@@ -443,7 +478,7 @@ pub fn extract_pdf_native_document(
   )
   metadata.set(
     "pdf_width_source",
-    @core.JsonValue::String(
+    String(
       if width_sources.length() == 0 {
         "heuristic"
       } else {
@@ -451,50 +486,30 @@ pub fn extract_pdf_native_document(
       },
     ),
   )
-  metadata.set("pdf_empty_text_layer", @core.JsonValue::Bool(span_count == 0))
-  metadata.set("page_count", @core.JsonValue::Number(page_count.to_string()))
-  metadata.set(
-    "pdf_page_count",
-    @core.JsonValue::Number(page_count.to_string()),
-  )
-  metadata.set(
-    "pdf_text_block_count",
-    @core.JsonValue::Number(text_block_count.to_string()),
-  )
-  metadata.set(
-    "pdf_text_line_count",
-    @core.JsonValue::Number(line_count.to_string()),
-  )
-  metadata.set(
-    "pdf_text_span_count",
-    @core.JsonValue::Number(span_count.to_string()),
-  )
-  metadata.set("image_count", @core.JsonValue::Number(image_count.to_string()))
-  metadata.set(
-    "pdf_image_candidate_count",
-    @core.JsonValue::Number(image_count.to_string()),
-  )
-  metadata.set(
-    "pdf_link_candidate_count",
-    @core.JsonValue::Number(link_count.to_string()),
-  )
+  metadata.set("pdf_empty_text_layer", Bool(span_count == 0))
+  metadata.set("page_count", Number(page_count.to_string()))
+  metadata.set("pdf_page_count", Number(page_count.to_string()))
+  metadata.set("pdf_text_block_count", Number(text_block_count.to_string()))
+  metadata.set("pdf_text_line_count", Number(line_count.to_string()))
+  metadata.set("pdf_text_span_count", Number(span_count.to_string()))
+  metadata.set("image_count", Number(image_count.to_string()))
+  metadata.set("pdf_image_candidate_count", Number(image_count.to_string()))
+  metadata.set("pdf_link_candidate_count", Number(link_count.to_string()))
   metadata.set(
     "pdf_native_annotation_count",
-    @core.JsonValue::Number(annotation_count.to_string()),
+    Number(annotation_count.to_string()),
   )
   metadata.set(
     "pdf_native_form_field_count",
-    @core.JsonValue::Number(form_fields.length().to_string()),
+    Number(form_fields.length().to_string()),
   )
   metadata.set(
     "pdf_native_outline_count",
-    @core.JsonValue::Number(outline_items.length().to_string()),
+    Number(outline_items.length().to_string()),
   )
   metadata.set(
     "pdf_native_destination_count",
-    @core.JsonValue::Number(
-      (destination_count + named_destinations.length()).to_string(),
-    ),
+    Number((destination_count + named_destinations.length()).to_string()),
   )
   let annotation_items : Array[@core.JsonValue] = []
   for page in pages {
@@ -505,10 +520,7 @@ pub fn extract_pdf_native_document(
     }
   }
   if annotation_items.length() > 0 {
-    metadata.set(
-      "pdf_native_annotations",
-      @core.JsonValue::Array(annotation_items),
-    )
+    metadata.set("pdf_native_annotations", Array(annotation_items))
   }
   match pdf_extract_info_metadata(parsed_store.trailer_hints, object_index) {
     Some(info) =>
@@ -669,6 +681,7 @@ priv struct PdfParsedObjectStore {
   trailer_hints : Array[String]
   xref_mode : String
   filter_decode_mode : String
+  input_access_mode : String
 }
 
 ///|

@@ -33,6 +33,8 @@ pub fn lookup_content_type_default(OoxmlPackage, String) -> String?
 
 pub fn lookup_content_type_override(OoxmlPackage, String) -> String? raise OoxmlError
 
+pub fn open_ooxml_archive(@zip.ZipArchive) -> OoxmlPackage raise OoxmlError
+
 pub fn open_ooxml_package(Bytes) -> OoxmlPackage raise OoxmlError
 
 pub fn read_app_properties(OoxmlPackage) -> OoxmlAppProperties

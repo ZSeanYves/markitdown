@@ -66,7 +66,7 @@ fn read_archive_entry_bytes(
   logical_path : String,
 ) -> Bytes raise EpubError {
   @zip.read_entry(archive, raw_path) catch {
-    @zip.EntryNotFound(_) => raise MissingPart(logical_path)
+    EntryNotFound(_) => raise MissingPart(logical_path)
     e => raise ZipError(e.to_string())
   }
 }

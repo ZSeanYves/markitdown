@@ -30,6 +30,8 @@ priv struct PresetPolicy {
 ///|
 priv struct BenchPolicy {
   defaults : PolicyDefaults
+  default_rss_limit_mb : Int
+  rss_limits_mb : Map[String, Int]
   tool_matrix : Map[String, Array[String]]
   presets : Map[String, PresetPolicy]
   scenarios : Array[ScenarioPolicy]
@@ -44,9 +46,9 @@ fn parse_run_options(args : Array[String]) -> RunOptions raise {
   let bench_ids : Ref[Array[String]] = Ref([])
   let formats : Ref[Array[String]] = Ref([])
   let limit : Ref[Int?] = Ref(None)
-  let repeat_count = Ref(3)
-  let warmup_count = Ref(1)
-  let timeout_ms = Ref(60000)
+  let repeat_count = Ref(-1)
+  let warmup_count = Ref(-1)
+  let timeout_ms = Ref(-1)
   let markitdown_path : Ref[String?] = Ref(None)
   let baseline_run_id : Ref[String?] = Ref(None)
   let progress_mode = Ref("auto")
@@ -313,6 +315,7 @@ fn load_policy() -> Result[BenchPolicy, BenchError] {
 ///|
 fn decode_policy(json : Json) -> BenchPolicy {
   let root = json_object_value_required(json, "bench policy root")
+  let rss_limits = json_object_required(root, "rss_limits_mb")
   {
     defaults: {
       repeat_count: json_int_required_in(
@@ -332,6 +335,10 @@ fn decode_policy(json : Json) -> BenchPolicy {
       ),
       tiers: json_string_array(json_object_required(root, "defaults"), "tiers"),
     },
+    default_rss_limit_mb: json_int_required_in(
+      rss_limits, "default", "rss_limits_mb",
+    ),
+    rss_limits_mb: decode_rss_limits(rss_limits),
     tool_matrix: decode_tool_matrix(json_object_required(root, "tool_matrix")),
     presets: decode_presets(json_object_required(root, "gate_presets")),
     scenarios: decode_scenarios(json_array_required(root, "scenarios")),
@@ -342,8 +349,22 @@ fn decode_policy(json : Json) -> BenchPolicy {
 }
 
 ///|
+fn decode_rss_limits(json : Map[String, Json]) -> Map[String, Int] {
+  let out : Map[String, Int] = Map([])
+  for entry in json {
+    if entry.0 != "default" {
+      out[entry.0] = match entry.1 {
+        Number(value, ..) => value.to_int()
+        _ => abort("bench policy RSS limit must be an integer: " + entry.0)
+      }
+    }
+  }
+  out
+}
+
+///|
 fn decode_tool_matrix(json : Map[String, Json]) -> Map[String, Array[String]] {
-  let out : Map[String, Array[String]] = {}
+  let out : Map[String, Array[String]] = Map([])
   for entry in json {
     out[entry.0] = json_string_array_value(entry.1)
   }
@@ -352,7 +373,7 @@ fn decode_tool_matrix(json : Map[String, Json]) -> Map[String, Array[String]] {
 
 ///|
 fn decode_presets(json : Map[String, Json]) -> Map[String, PresetPolicy] {
-  let out : Map[String, PresetPolicy] = {}
+  let out : Map[String, PresetPolicy] = Map([])
   for entry in json {
     let object = json_object_value_required(
       entry.1,
@@ -419,17 +440,17 @@ fn decode_scenarios(json : Array[Json]) -> Array[ScenarioPolicy] {
 
 ///|
 fn decode_row_expected_routes(json : Map[String, Json]) -> Map[String, String] {
-  let out : Map[String, String] = {}
+  let out : Map[String, String] = Map([])
   for entry in json {
     let object = json_object_value_required(
       entry.1,
       "row override `" + entry.0 + "`",
     )
     match object.get("route_expectation") {
-      Some(Json::String(value)) => out[entry.0] = value
-      Some(Json::Object(route_object)) =>
+      Some(String(value)) => out[entry.0] = value
+      Some(Object(route_object)) =>
         match route_object.get("selected_route") {
-          Some(Json::String(value)) => out[entry.0] = value
+          Some(String(value)) => out[entry.0] = value
           _ => ()
         }
       _ => ()
@@ -448,21 +469,21 @@ fn apply_policy_defaults(opts : RunOptions, policy : BenchPolicy) -> RunOptions 
     } else {
       preset.map(item => item.tiers).unwrap_or(policy.defaults.tiers)
     },
-    repeat_count: if opts.repeat_count == 3 {
+    repeat_count: if opts.repeat_count < 0 {
       preset
       .map(item => item.repeat_count)
       .unwrap_or(policy.defaults.repeat_count)
     } else {
       opts.repeat_count
     },
-    warmup_count: if opts.warmup_count == 1 {
+    warmup_count: if opts.warmup_count < 0 {
       preset
       .map(item => item.warmup_count)
       .unwrap_or(policy.defaults.warmup_count)
     } else {
       opts.warmup_count
     },
-    timeout_ms: if opts.timeout_ms == 60000 {
+    timeout_ms: if opts.timeout_ms < 0 {
       preset.map(item => item.timeout_ms).unwrap_or(policy.defaults.timeout_ms)
     } else {
       opts.timeout_ms
@@ -494,11 +515,11 @@ fn expected_route_for_case(
 ///|
 fn actual_route_name(route_provenance : Json) -> String? {
   match route_provenance {
-    Json::Object(map) =>
+    Object(map) =>
       match map.get("route_plan") {
-        Some(Json::Object(route_plan)) =>
+        Some(Object(route_plan)) =>
           match route_plan.get("selected_route") {
-            Some(Json::String(value)) => Some(value)
+            Some(String(value)) => Some(value)
             _ => None
           }
         _ => None
@@ -576,9 +597,9 @@ fn structured_text_format_requires_density_guard(format : String) -> Bool {
 ///|
 fn render_path(route_provenance : Json) -> String {
   match route_provenance {
-    Json::Object(map) =>
+    Object(map) =>
       match map.get("render_input_kind") {
-        Some(Json::String(value)) => value
+        Some(String(value)) => value
         _ => "unknown"
       }
     _ => "unknown"
@@ -636,7 +657,7 @@ fn route_fidelity_status(route_provenance : Json) -> String? {
 
 ///|
 fn scenario_map(scenarios : Array[ScenarioSpec]) -> Map[String, ScenarioSpec] {
-  let out : Map[String, ScenarioSpec] = {}
+  let out : Map[String, ScenarioSpec] = Map([])
   for scenario in scenarios {
     out[scenario.scenario_id] = scenario
   }

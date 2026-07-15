@@ -44,8 +44,8 @@ fn convert_memory_text(
   text : String,
   source_name : String,
   format : @input.DetectedFormat,
-  mode? : @convert.ConvertMode = @convert.ConvertMode::Balanced,
-  output? : @convert.OutputFormat = @convert.OutputFormat::Markdown,
+  mode? : @convert.ConvertMode = Balanced,
+  output? : @convert.OutputFormat = Markdown,
   ocr_options? : @parser.OcrOptions = @parser.default_ocr_options(),
   limits? : @convert.ResourceLimits = @convert.default_resource_limits(),
 ) -> @convert.ConvertResult {
@@ -57,7 +57,7 @@ fn convert_memory_text(
     ocr_options,
     limits,
     output_mode~,
-    stream_requested=mode == @convert.ConvertMode::Stream,
+    stream_requested=mode == Stream,
   )
   match
     @convert.convert_input(
@@ -162,30 +162,29 @@ fn streaming_granularity_name_local(
   granularity : @parser.StreamingGranularity,
 ) -> String {
   match granularity {
-    @parser.StreamingGranularity::Byte => "byte"
-    @parser.StreamingGranularity::Line => "line"
-    @parser.StreamingGranularity::Record => "record"
-    @parser.StreamingGranularity::Row => "row"
-    @parser.StreamingGranularity::JsonStructure => "json_structure"
-    @parser.StreamingGranularity::XmlStructure => "xml_structure"
-    @parser.StreamingGranularity::YamlStructure => "yaml_structure"
-    @parser.StreamingGranularity::HtmlTokenStructure => "html_token_structure"
-    @parser.StreamingGranularity::MarkdownBlock => "markdown_block"
-    @parser.StreamingGranularity::DocxBlock => "docx_block"
-    @parser.StreamingGranularity::PptxSlide => "pptx_slide"
-    @parser.StreamingGranularity::XlsxSheet => "xlsx_sheet"
-    @parser.StreamingGranularity::XlsxRow => "xlsx_row"
-    @parser.StreamingGranularity::ArchiveEntry => "archive_entry"
-    @parser.StreamingGranularity::EpubSpineItem => "epub_spine_item"
-    @parser.StreamingGranularity::NotebookCellOutputGroup =>
-      "notebook_cell_output_group"
-    @parser.StreamingGranularity::Block => "block"
-    @parser.StreamingGranularity::Page => "page"
-    @parser.StreamingGranularity::Slide => "slide"
-    @parser.StreamingGranularity::Sheet => "sheet"
-    @parser.StreamingGranularity::Chapter => "chapter"
-    @parser.StreamingGranularity::Message => "message"
-    @parser.StreamingGranularity::None => "none"
+    Byte => "byte"
+    Line => "line"
+    Record => "record"
+    Row => "row"
+    JsonStructure => "json_structure"
+    XmlStructure => "xml_structure"
+    YamlStructure => "yaml_structure"
+    HtmlTokenStructure => "html_token_structure"
+    MarkdownBlock => "markdown_block"
+    DocxBlock => "docx_block"
+    PptxSlide => "pptx_slide"
+    XlsxSheet => "xlsx_sheet"
+    XlsxRow => "xlsx_row"
+    ArchiveEntry => "archive_entry"
+    EpubSpineItem => "epub_spine_item"
+    NotebookCellOutputGroup => "notebook_cell_output_group"
+    Block => "block"
+    Page => "page"
+    Slide => "slide"
+    Sheet => "sheet"
+    Chapter => "chapter"
+    Message => "message"
+    None => "none"
   }
 }
 
@@ -215,9 +214,9 @@ fn assert_parse_result_matches_contract_spec(
   assert_metric_pair("parser_mode", @parser.mode_name(spec.parser_mode))
   let actual_shape = @runtime.parse_result_to_ir_input(result)
   let actual_ir_input_kind = match actual_shape {
-    @core.IRInput::Document(_) => "document"
-    @core.IRInput::BlockStream(_) => "block_stream"
-    @core.IRInput::EventStream(_) => "event_stream"
+    Document(_) => "document"
+    BlockStream(_) => "block_stream"
+    EventStream(_) => "event_stream"
   }
   let expected_ir_input_kind = if actual_ir_input_kind == spec.ir_input_kind {
     spec.ir_input_kind
@@ -246,17 +245,17 @@ fn assert_parse_result_matches_contract_spec(
   )
   assert_metric_pair("ir_input_kind", expected_ir_input_kind)
   match actual_shape {
-    @core.IRInput::Document(_) => {
+    Document(_) => {
       assert_true(result.document is Some(_))
       assert_true(result.block_stream is None)
       assert_true(result.event_stream is None)
     }
-    @core.IRInput::BlockStream(_) => {
+    BlockStream(_) => {
       assert_true(result.document is None)
       assert_true(result.block_stream is Some(_))
       assert_true(result.event_stream is None)
     }
-    @core.IRInput::EventStream(_) => {
+    EventStream(_) => {
       assert_true(result.document is None)
       assert_true(result.block_stream is None)
       assert_true(result.event_stream is Some(_))

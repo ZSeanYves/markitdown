@@ -1,0 +1,33 @@
+{
+  "formats": [
+    { "covered": 59, "name": "asciidoc", "rate": 76.6234, "valid": 77 },
+    { "covered": 481, "name": "audio", "rate": 76.2282, "valid": 631 },
+    { "covered": 94, "name": "csv", "rate": 90.3846, "valid": 104 },
+    { "covered": 2610, "name": "docx", "rate": 75.784, "valid": 3444 },
+    { "covered": 700, "name": "eml", "rate": 81.0185, "valid": 864 },
+    { "covered": 1083, "name": "epub", "rate": 80.0443, "valid": 1353 },
+    { "covered": 3384, "name": "html", "rate": 78.9547, "valid": 4286 },
+    { "covered": 676, "name": "ipynb", "rate": 85.3535, "valid": 792 },
+    { "covered": 1187, "name": "json", "rate": 87.2794, "valid": 1360 },
+    { "covered": 1053, "name": "markdown", "rate": 83.307, "valid": 1264 },
+    { "covered": 1107, "name": "ocr", "rate": 74.4953, "valid": 1486 },
+    { "covered": 224, "name": "odp", "rate": 96.1373, "valid": 233 },
+    { "covered": 276, "name": "ods", "rate": 94.198, "valid": 293 },
+    { "covered": 303, "name": "odt", "rate": 81.4516, "valid": 372 },
+    { "covered": 6763, "name": "pdf", "rate": 81.0523, "valid": 8344 },
+    { "covered": 2198, "name": "pptx", "rate": 73.7336, "valid": 2981 },
+    { "covered": 81, "name": "rst", "rate": 88.0435, "valid": 92 },
+    { "covered": 238, "name": "srt", "rate": 95.9677, "valid": 248 },
+    { "covered": 85, "name": "tex", "rate": 89.4737, "valid": 95 },
+    { "covered": 831, "name": "toml", "rate": 79.0676, "valid": 1051 },
+    { "covered": 4, "name": "tsv", "rate": 66.6667, "valid": 6 },
+    { "covered": 315, "name": "txt", "rate": 86.0656, "valid": 366 },
+    { "covered": 241, "name": "vtt", "rate": 92.6923, "valid": 260 },
+    { "covered": 1620, "name": "xlsx", "rate": 86.4461, "valid": 1874 },
+    { "covered": 912, "name": "xml", "rate": 86.6097, "valid": 1053 },
+    { "covered": 1210, "name": "yaml", "rate": 84.0862, "valid": 1439 },
+    { "covered": 778, "name": "zip", "rate": 77.2592, "valid": 1007 }
+  ],
+  "schema_version": 1,
+  "source": "0.6-local-acceptance"
+}

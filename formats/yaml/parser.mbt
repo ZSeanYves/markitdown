@@ -1,7 +1,7 @@
 ///|
 fn yaml_parser_capability() -> @parser.ParserCapability {
   @parser.dom_ast_parser_capability(
-    @parser.StreamingGranularity::YamlStructure,
+    YamlStructure,
     true,
     true,
     false,
@@ -17,17 +17,12 @@ fn yaml_parser_capability() -> @parser.ParserCapability {
 
 ///|
 pub fn yaml_parser() -> @parser.Parser {
-  @parser.make_parser(
-    "yaml_parser",
-    @parser.ParserMode::DomAstModel,
-    yaml_parser_capability(),
-    fn(
-      source : @input.InputSource,
-      context : @parser.ParseContext,
-    ) -> Result[@parser.ParseResult, String] {
-      parse_yaml_document_result(source, context)
-    },
-  )
+  @parser.make_parser("yaml_parser", DomAstModel, yaml_parser_capability(), fn(
+    source : @input.InputSource,
+    context : @parser.ParseContext,
+  ) -> Result[@parser.ParseResult, String] {
+    parse_yaml_document_result(source, context)
+  })
 }
 
 ///|
@@ -40,7 +35,7 @@ pub fn yaml_parse_with_structure_events(
 ) -> @parser.ParseResult {
   let diagnostics = @fshared.empty_parser_diagnostics(
     "yaml_parser",
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     source,
     "yaml",
   )
@@ -50,10 +45,10 @@ pub fn yaml_parse_with_structure_events(
     context,
     "yaml",
     "yaml_parser",
-    @parser.ParserMode::DomAstModel,
-    @parser.ParserMode::StreamingEvent,
+    DomAstModel,
+    StreamingEvent,
     "event_stream",
-    @parser.StreamingGranularity::YamlStructure,
+    YamlStructure,
     "yaml_structure_event_stream",
   )
   diagnostics.metrics.set("resource_limit_hit", "false")
@@ -68,7 +63,7 @@ pub fn yaml_parse_with_prepared_document(
   context : @parser.ParseContext,
   prepared : @dyaml.PreparedYamlDocument,
 ) -> @parser.ParseResult {
-  if context.requested_mode == Some(@parser.ParserMode::StreamingEvent) {
+  if context.requested_mode == Some(StreamingEvent) {
     match prepared.compact_sequence {
       Some(compact) => {
         let parsed = yaml_parse_with_compact_sequence(
@@ -99,7 +94,7 @@ pub fn yaml_parse_with_prepared_document(
       None => {
         let diagnostics = @fshared.empty_parser_diagnostics(
           "yaml_parser",
-          @parser.ParserMode::DomAstModel,
+          DomAstModel,
           source,
           "yaml",
         )
@@ -109,10 +104,10 @@ pub fn yaml_parse_with_prepared_document(
           context,
           "yaml",
           "yaml_parser",
-          @parser.ParserMode::DomAstModel,
-          @parser.ParserMode::StreamingEvent,
+          DomAstModel,
+          StreamingEvent,
           "event_stream",
-          @parser.StreamingGranularity::YamlStructure,
+          YamlStructure,
           "yaml_structure_event_stream",
         )
         diagnostics.metrics.set("resource_limit_hit", "false")
@@ -132,7 +127,7 @@ pub fn yaml_parse_with_prepared_document(
       Err(err) => {
         let diagnostics = @fshared.empty_parser_diagnostics(
           "yaml_parser",
-          @parser.ParserMode::DomAstModel,
+          DomAstModel,
           source,
           "yaml",
         )
@@ -160,23 +155,22 @@ fn parse_yaml_document_result(
   let text = prepared.original_text
   let diagnostics = @fshared.empty_parser_diagnostics(
     "yaml_parser",
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     source,
     "yaml",
   )
-  let requested_streaming = context.requested_mode ==
-    Some(@parser.ParserMode::StreamingEvent)
+  let requested_streaming = context.requested_mode == Some(StreamingEvent)
   @fshared.init_parser_route_metrics_with_granularity(
     diagnostics,
     source,
     context,
     "yaml",
     "yaml_parser",
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     if requested_streaming {
-      @parser.ParserMode::StreamingEvent
+      StreamingEvent
     } else {
-      @parser.ParserMode::DomAstModel
+      DomAstModel
     },
     if requested_streaming {
       "event_stream"
@@ -184,9 +178,9 @@ fn parse_yaml_document_result(
       "document"
     },
     if requested_streaming {
-      @parser.StreamingGranularity::YamlStructure
+      YamlStructure
     } else {
-      @parser.StreamingGranularity::None
+      None
     },
     if requested_streaming {
       "yaml_structure_event_stream"
@@ -231,7 +225,7 @@ fn parse_yaml_document_result(
       yaml_fill_common_metrics(diagnostics, inspect, text, 0)
       diagnostics.metrics.set(
         "table_count",
-        @fshared.count_blocks_by_kind(document.blocks, @core.BlockKind::Table).to_string(),
+        @fshared.count_blocks_by_kind(document.blocks, Table).to_string(),
       )
       diagnostics.metrics.set(
         "block_count",
@@ -245,7 +239,7 @@ fn parse_yaml_document_result(
       Ok(
         @parser.parse_result_with_document_capability(
           "yaml_parser",
-          @parser.ParserMode::DomAstModel,
+          DomAstModel,
           final_document,
           diagnostics,
           yaml_parser_capability(),

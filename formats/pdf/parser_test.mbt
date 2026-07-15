@@ -118,13 +118,13 @@ fn pdf_parser_test_accurate_context(
   ),
 ) -> @parser.ParseContext {
   let base = @parser.parse_context_with_product_modes(
-    @parser.new_parse_context(@input.DetectedFormat::Pdf),
-    @product.FidelityMode::Accurate,
-    @product.OutputMode::Markdown,
+    @parser.new_parse_context(Pdf),
+    Accurate,
+    Markdown,
   )
   let with_mode = @parser.parse_context_with_limits(
     base,
-    Some(@parser.ParserMode::LayoutTwoStage),
+    Some(LayoutTwoStage),
     None,
     None,
     None,
@@ -134,19 +134,19 @@ fn pdf_parser_test_accurate_context(
   let with_ocr = @parser.parse_context_with_ocr_options(with_mode, ocr_options)
   let with_header_footer = @parser.parse_context_with_pdf_header_footer_filter_policy(
     with_ocr,
-    @parser.PdfHeaderFooterFilterPolicy::InternalHighConfidenceOnly,
+    InternalHighConfidenceOnly,
   )
   @parser.parse_context_with_pdf_table_reconstruction_policy(
     with_header_footer,
-    @parser.PdfTableReconstructionPolicy::InternalSimpleRowsOnly,
+    InternalSimpleRowsOnly,
   )
 }
 
 ///|
 test "pdf native parser default product path can return document ir" {
   let context = @parser.parse_context_with_limits(
-    @parser.new_parse_context(@input.DetectedFormat::Pdf),
-    Some(@parser.ParserMode::PageSinglePass),
+    @parser.new_parse_context(Pdf),
+    Some(PageSinglePass),
     None,
     None,
     None,
@@ -155,12 +155,12 @@ test "pdf native parser default product path can return document ir" {
   )
   let source = @input.input_from_path_with_format(
     "samples/fixtures/contracts/pdf/text_simple.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
   let parsed = pdf_native_parser_result(source, context)
   let document = parsed.document.unwrap_or(@core.empty_document_ir())
   assert_true(parsed.parser_name == pdf_native_parser_name())
-  assert_true(parsed.mode == @parser.ParserMode::PageSinglePass)
+  assert_true(parsed.mode == PageSinglePass)
   assert_true(document.blocks.length() >= 3)
   assert_true(document.blocks[0].text.contains("MarkItDown"))
   assert_true(
@@ -176,8 +176,8 @@ test "pdf native parser default product path can return document ir" {
 ///|
 test "pdf native parser lowers exportable image xobjects into image assets" {
   let context = @parser.parse_context_with_limits(
-    @parser.new_parse_context(@input.DetectedFormat::Pdf),
-    Some(@parser.ParserMode::PageSinglePass),
+    @parser.new_parse_context(Pdf),
+    Some(PageSinglePass),
     None,
     None,
     None,
@@ -187,12 +187,12 @@ test "pdf native parser lowers exportable image xobjects into image assets" {
   let source = @input.input_from_bytes_with_format(
     pdf_test_image_only_pdf_bytes(),
     "image-only.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
   let parsed = pdf_native_parser_result(source, context)
   let document = parsed.document.unwrap_or(@core.empty_document_ir())
   assert_eq(document.blocks.length(), 1)
-  assert_true(document.blocks[0].kind == @core.BlockKind::Image)
+  assert_true(document.blocks[0].kind == Image)
   assert_true(
     document.blocks[0].attrs.get("path") == Some("assets/image01.jpg"),
   )
@@ -205,8 +205,8 @@ test "pdf native parser lowers exportable image xobjects into image assets" {
 ///|
 test "pdf native parser scanned-like inputs stay fail closed with stable diagnostics" {
   let context = @parser.parse_context_with_pdf_native_runtime_policy(
-    @parser.new_parse_context(@input.DetectedFormat::Pdf),
-    @parser.PdfNativeRuntimePolicy::EnableTextRestore,
+    @parser.new_parse_context(Pdf),
+    EnableTextRestore,
   )
 
   let empty_pdf = [
@@ -220,7 +220,7 @@ test "pdf native parser scanned-like inputs stay fail closed with stable diagnos
   let empty_source = @input.input_from_bytes_with_format(
     @utf8.encode(empty_pdf),
     "empty.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
   let empty_document = pdf_native_parser_result(empty_source, context).document.unwrap_or(
     @core.empty_document_ir(),
@@ -246,7 +246,7 @@ test "pdf native parser scanned-like inputs stay fail closed with stable diagnos
   let unsupported_source = @input.input_from_bytes_with_format(
     @utf8.encode(unsupported_filter_pdf),
     "unsupported-feature.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
   let unsupported_document = pdf_native_parser_result(
     unsupported_source, context,
@@ -330,8 +330,8 @@ test "pdf native parser internal header footer filtering removes repeated high c
 
   let filtered_document = pdf_native_document_to_ir_with_policies(
     doc,
-    @parser.PdfHeaderFooterFilterPolicy::InternalHighConfidenceOnly,
-    @parser.PdfTableReconstructionPolicy::Disabled,
+    InternalHighConfidenceOnly,
+    Disabled,
   )
   assert_eq(filtered_document.blocks.length(), 2)
   assert_eq(
@@ -348,7 +348,7 @@ test "pdf native parser internal header footer filtering removes repeated high c
 test "pdf accurate parser preserves native born-digital facts when OCR is not needed" {
   let source = @input.input_from_path_with_format(
     "samples/fixtures/contracts/pdf/text_simple.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
   let context = pdf_parser_test_accurate_context(
     ocr_options=@parser.explicit_ocr_options(language=Some("eng")),
@@ -368,16 +368,12 @@ test "pdf accurate parser preserves native born-digital facts when OCR is not ne
     Err(err) => fail("expected accurate born-digital parse success: " + err)
   }
   let document = parsed.document.unwrap_or(@core.empty_document_ir())
-  assert_true(parsed.mode == @parser.ParserMode::LayoutTwoStage)
+  assert_true(parsed.mode == LayoutTwoStage)
   assert_true(document.blocks.length() >= 3)
   assert_true(document.blocks[0].text.contains("MarkItDown"))
   assert_true(
     document.metadata.get("pdf_page_route_summary") ==
-    Some(
-      @core.JsonValue::String(
-        "native_text_page=1,hybrid_region_page=0,ocr_page=0",
-      ),
-    ),
+    Some(String("native_text_page=1,hybrid_region_page=0,ocr_page=0")),
   )
   assert_true(
     parsed.diagnostics.metrics.get("provider_invoked") == Some("false"),
@@ -390,7 +386,5 @@ test "pdf accurate parser preserves native born-digital facts when OCR is not ne
   assert_true(
     parsed.diagnostics.metrics.get("pdf_native_backend") == Some("true"),
   )
-  assert_true(
-    document.metadata.get("format") == Some(@core.JsonValue::String("pdf")),
-  )
+  assert_true(document.metadata.get("format") == Some(String("pdf")))
 }

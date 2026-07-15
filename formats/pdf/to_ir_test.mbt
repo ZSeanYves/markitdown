@@ -64,15 +64,14 @@ fn pdf_test_inline_image_asset(
   asset_id : String,
 ) -> @core.AssetRef {
   let asset = @core.make_asset_ref(
-    @core.AssetKind::Image,
+    Image,
     asset_id,
     source_ref=pdf_test_source_ref(file_id, page, 1, bbox),
   )
   let next_asset = { ..asset, mime_type: Some("image/jpeg") }
   next_asset.attrs.set("alt", "image")
   next_asset.attrs.set("file_ext", "jpg")
-  next_asset.attrs.set("inline_payload_kind", "utf8")
-  next_asset.attrs.set("inline_payload", "jpeg-bytes")
+  next_asset.payload = Some(Utf8("jpeg-bytes"))
   next_asset
 }
 
@@ -158,7 +157,7 @@ test "pdf native header footer candidate scan tolerates unicode punctuation" {
   )
   assert_true(
     document.metadata.get("pdf_header_footer_candidate_count") ==
-    Some(@core.JsonValue::Number("1")),
+    Some(Number("1")),
   )
 }
 
@@ -268,8 +267,7 @@ test "pdf native unit bridge lowers uri links into rich inlines and leaves unsup
   assert_true(first_ref.line_start == Some(7))
   assert_true(document.blocks[0].rich_inlines is Some(_))
   assert_true(
-    document.metadata.get("pdf_link_productized_count") ==
-    Some(@core.JsonValue::Number("1")),
+    document.metadata.get("pdf_link_productized_count") == Some(Number("1")),
   )
   assert_true(
     document.diagnostics.degraded_features.contains(
@@ -282,14 +280,11 @@ test "pdf native unit bridge lowers uri links into rich inlines and leaves unsup
     ),
   )
   match document.metadata.get("pdf_link_candidates") {
-    Some(@core.JsonValue::Array(items)) => {
+    Some(Array(items)) => {
       assert_eq(items.length(), 1)
       match items[0] {
-        @core.JsonValue::Object(payload) =>
-          assert_true(
-            payload.get("href") ==
-            Some(@core.JsonValue::String("#bookmark-local")),
-          )
+        Object(payload) =>
+          assert_true(payload.get("href") == Some(String("#bookmark-local")))
         _ => fail("expected link candidate object")
       }
     }
@@ -331,7 +326,7 @@ test "pdf native unit bridge lowers exportable image candidates into assets" {
     @dpdfnative.make_pdf_native_document(pages=[page]),
   )
   assert_eq(document.blocks.length(), 1)
-  assert_true(document.blocks[0].kind == @core.BlockKind::Image)
+  assert_true(document.blocks[0].kind == Image)
   assert_true(
     document.blocks[0].attrs.get("path") == Some("assets/image01.jpg"),
   )
@@ -456,10 +451,10 @@ test "pdf native unit bridge records repeated header and footer candidates as me
   assert_eq(document.blocks.length(), 6)
   assert_true(
     document.metadata.get("pdf_header_footer_candidate_count") ==
-    Some(@core.JsonValue::Number("2")),
+    Some(Number("2")),
   )
   match document.metadata.get("pdf_header_footer_candidates") {
-    Some(@core.JsonValue::Array(items)) => assert_eq(items.length(), 2)
+    Some(Array(items)) => assert_eq(items.length(), 2)
     _ => fail("expected header/footer candidate metadata array")
   }
 }
@@ -587,17 +582,14 @@ test "pdf native unit bridge records conservative table candidates as metadata o
   assert_eq(document.blocks[0].text, "Product Region Status")
   assert_eq(document.blocks[3].text, "Body paragraph remains unchanged")
   assert_true(
-    document.metadata.get("pdf_table_candidate_count") ==
-    Some(@core.JsonValue::Number("1")),
+    document.metadata.get("pdf_table_candidate_count") == Some(Number("1")),
   )
   match document.metadata.get("pdf_table_candidates") {
-    Some(@core.JsonValue::Array(items)) => {
+    Some(Array(items)) => {
       assert_eq(items.length(), 1)
       match items[0] {
-        @core.JsonValue::Object(payload) =>
-          assert_true(
-            payload.get("row_count") == Some(@core.JsonValue::Number("3")),
-          )
+        Object(payload) =>
+          assert_true(payload.get("row_count") == Some(Number("3")))
         _ => fail("expected table candidate object")
       }
     }
@@ -723,11 +715,11 @@ test "pdf native unit bridge reconstructs moderate single-page tables with multi
         ],
       ),
     ]),
-    @parser.PdfHeaderFooterFilterPolicy::Disabled,
-    @parser.PdfTableReconstructionPolicy::InternalSimpleRowsOnly,
+    Disabled,
+    InternalSimpleRowsOnly,
   )
   assert_eq(document.blocks.length(), 2)
-  assert_true(document.blocks[0].kind == @core.BlockKind::Table)
+  assert_true(document.blocks[0].kind == Table)
   assert_eq(document.blocks[0].children.length(), 3)
   assert_eq(document.blocks[0].children[0].children[0].text, "Name")
   assert_eq(document.blocks[0].children[1].children[1].text, "North\nAmerica")
@@ -811,25 +803,21 @@ test "pdf native block stream and IR preserve interactive document facts" {
       ),
     ],
     named_destinations=[destination],
-    metadata=Map([("producer", @core.JsonValue::String("synthetic"))]),
+    metadata=Map([("producer", String("synthetic"))]),
   )
   let (metadata, blocks, diagnostics) = pdf_native_document_to_blocks_with_policies(
     document,
-    @parser.PdfHeaderFooterFilterPolicy::Disabled,
+    Disabled,
   )
   assert_true(
     metadata.get("pdf_native_projection") ==
-    Some(@core.JsonValue::String("product_block_stream")),
+    Some(String("product_block_stream")),
   )
   assert_eq(blocks.length(), 1)
   assert_true(
     diagnostics.metrics.get("pdf_native_form_field_count") == Some("1"),
   )
-  let ir = pdf_native_document_to_ir_with_policies(
-    document,
-    @parser.PdfHeaderFooterFilterPolicy::Disabled,
-    @parser.PdfTableReconstructionPolicy::Disabled,
-  )
+  let ir = pdf_native_document_to_ir_with_policies(document, Disabled, Disabled)
   assert_true(ir.metadata.contains("pdf_native_annotations"))
   assert_true(ir.metadata.contains("pdf_native_form_fields"))
   assert_true(ir.metadata.contains("pdf_native_outline_items"))

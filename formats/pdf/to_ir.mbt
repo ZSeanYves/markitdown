@@ -75,11 +75,7 @@ fn pdf_abs_double(value : Double) -> Double {
 
 ///|
 pub fn pdf_native_document_to_ir(doc : PdfNativeDocument) -> @core.DocumentIR {
-  pdf_native_document_to_ir_with_policies(
-    doc,
-    @parser.PdfHeaderFooterFilterPolicy::Disabled,
-    @parser.PdfTableReconstructionPolicy::Disabled,
-  )
+  pdf_native_document_to_ir_with_policies(doc, Disabled, Disabled)
 }
 
 ///|
@@ -121,9 +117,9 @@ pub fn pdf_native_document_to_ir_with_policies(
     let page_plan = lowering.page_plans[page_index]
     for item in page_plan.items {
       match item {
-        PdfNativeLoweringItem::Paragraph(paragraph) => {
+        Paragraph(paragraph) => {
           let block = @core.make_block(
-            @core.BlockKind::Paragraph,
+            Paragraph,
             paragraph.text,
             source_ref=paragraph.source_ref,
           )
@@ -137,7 +133,7 @@ pub fn pdf_native_document_to_ir_with_policies(
           paragraph_count += 1
           lowered_link_count += paragraph.consumed_link_indexes.length()
         }
-        PdfNativeLoweringItem::Table(table) => blocks.push(table)
+        Table(table) => blocks.push(table)
       }
     }
     let lowered_images = pdf_native_lower_page_images(page, assets, asset_paths)
@@ -167,123 +163,95 @@ pub fn pdf_native_document_to_ir_with_policies(
   for entry in doc.metadata.to_array() {
     document.metadata.set(entry.0, entry.1)
   }
-  document.metadata.set("format", @core.JsonValue::String("pdf"))
-  document.metadata.set(
-    "page_count",
-    @core.JsonValue::Number(doc.pages.length().to_string()),
-  )
-  document.metadata.set(
-    "pdf_native_projection",
-    @core.JsonValue::String("unit_path"),
-  )
-  document.metadata.set(
-    "pdf_grouping_strategy",
-    @core.JsonValue::String("conservative_v1"),
-  )
+  document.metadata.set("format", String("pdf"))
+  document.metadata.set("page_count", Number(doc.pages.length().to_string()))
+  document.metadata.set("pdf_native_projection", String("unit_path"))
+  document.metadata.set("pdf_grouping_strategy", String("conservative_v1"))
   document.metadata.set(
     "pdf_grouping_paragraph_count",
-    @core.JsonValue::Number(paragraph_count.to_string()),
+    Number(paragraph_count.to_string()),
   )
   document.metadata.set(
     "pdf_header_footer_candidate_strategy",
-    @core.JsonValue::String(header_footer_candidates.strategy),
+    String(header_footer_candidates.strategy),
   )
   document.metadata.set(
     "pdf_header_candidate_count",
-    @core.JsonValue::Number(header_footer_candidates.header_count.to_string()),
+    Number(header_footer_candidates.header_count.to_string()),
   )
   document.metadata.set(
     "pdf_footer_candidate_count",
-    @core.JsonValue::Number(header_footer_candidates.footer_count.to_string()),
+    Number(header_footer_candidates.footer_count.to_string()),
   )
   document.metadata.set(
     "pdf_header_footer_candidate_count",
-    @core.JsonValue::Number(
-      header_footer_candidates.candidates.length().to_string(),
-    ),
+    Number(header_footer_candidates.candidates.length().to_string()),
   )
   document.metadata.set(
     "pdf_table_candidate_strategy",
-    @core.JsonValue::String(table_candidates.strategy),
+    String(table_candidates.strategy),
   )
   document.metadata.set(
     "pdf_table_candidate_count",
-    @core.JsonValue::Number(table_candidates.candidates.length().to_string()),
+    Number(table_candidates.candidates.length().to_string()),
   )
   document.metadata.set(
     "pdf_table_row_candidate_count",
-    @core.JsonValue::Number(table_candidates.row_count.to_string()),
+    Number(table_candidates.row_count.to_string()),
   )
   document.metadata.set(
     "pdf_link_candidate_count",
-    @core.JsonValue::Number(link_candidates.length().to_string()),
+    Number(link_candidates.length().to_string()),
   )
   document.metadata.set(
     "pdf_link_productized_count",
-    @core.JsonValue::Number(lowered_link_count.to_string()),
+    Number(lowered_link_count.to_string()),
   )
-  document.metadata.set(
-    "image_count",
-    @core.JsonValue::Number(lowered_image_count.to_string()),
-  )
+  document.metadata.set("image_count", Number(lowered_image_count.to_string()))
   document.metadata.set(
     "pdf_image_candidate_count",
-    @core.JsonValue::Number(image_candidate_count.to_string()),
+    Number(image_candidate_count.to_string()),
   )
   document.metadata.set(
     "pdf_native_annotation_count",
-    @core.JsonValue::Number(annotation_count.to_string()),
+    Number(annotation_count.to_string()),
   )
   document.metadata.set(
     "pdf_native_form_field_count",
-    @core.JsonValue::Number(doc.form_fields.length().to_string()),
+    Number(doc.form_fields.length().to_string()),
   )
   document.metadata.set(
     "pdf_native_outline_count",
-    @core.JsonValue::Number(doc.outline_items.length().to_string()),
+    Number(doc.outline_items.length().to_string()),
   )
   document.metadata.set(
     "pdf_native_destination_count",
-    @core.JsonValue::Number(
-      (destination_count + doc.named_destinations.length()).to_string(),
-    ),
+    Number((destination_count + doc.named_destinations.length()).to_string()),
   )
   if header_footer_candidates.candidates.length() > 0 {
     document.metadata.set(
       "pdf_header_footer_candidates",
-      @core.JsonValue::Array(header_footer_candidates.candidates),
+      Array(header_footer_candidates.candidates),
     )
   }
   if table_candidates.candidates.length() > 0 {
     document.metadata.set(
       "pdf_table_candidates",
-      @core.JsonValue::Array(table_candidates.candidates),
+      Array(table_candidates.candidates),
     )
   }
   if link_candidates.length() > 0 {
-    document.metadata.set(
-      "pdf_link_candidates",
-      @core.JsonValue::Array(link_candidates),
-    )
+    document.metadata.set("pdf_link_candidates", Array(link_candidates))
   }
   if annotation_items.length() > 0 &&
     document.metadata.get("pdf_native_annotations") == None {
-    document.metadata.set(
-      "pdf_native_annotations",
-      @core.JsonValue::Array(annotation_items),
-    )
+    document.metadata.set("pdf_native_annotations", Array(annotation_items))
   }
   if form_field_items.length() > 0 {
-    document.metadata.set(
-      "pdf_native_form_fields",
-      @core.JsonValue::Array(form_field_items),
-    )
+    document.metadata.set("pdf_native_form_fields", Array(form_field_items))
   }
   if outline_items.length() > 0 {
-    document.metadata.set(
-      "pdf_native_outline_items",
-      @core.JsonValue::Array(outline_items),
-    )
+    document.metadata.set("pdf_native_outline_items", Array(outline_items))
   }
   document.blocks.append(pdf_native_appendix_blocks(document.metadata)[:])
   let diagnostics = pdf_native_projection_diagnostics(
@@ -358,107 +326,82 @@ pub fn pdf_native_document_to_blocks_with_policies(
   for entry in doc.metadata.to_array() {
     metadata.set(entry.0, entry.1)
   }
-  metadata.set("format", @core.JsonValue::String("pdf"))
-  metadata.set(
-    "page_count",
-    @core.JsonValue::Number(doc.pages.length().to_string()),
-  )
-  metadata.set(
-    "pdf_native_projection",
-    @core.JsonValue::String("product_block_stream"),
-  )
-  metadata.set(
-    "pdf_grouping_strategy",
-    @core.JsonValue::String("conservative_v1"),
-  )
+  metadata.set("format", String("pdf"))
+  metadata.set("page_count", Number(doc.pages.length().to_string()))
+  metadata.set("pdf_native_projection", String("product_block_stream"))
+  metadata.set("pdf_grouping_strategy", String("conservative_v1"))
   metadata.set(
     "pdf_grouping_paragraph_count",
-    @core.JsonValue::Number(paragraph_count.to_string()),
+    Number(paragraph_count.to_string()),
   )
   metadata.set(
     "pdf_header_footer_candidate_strategy",
-    @core.JsonValue::String(header_footer_candidates.strategy),
+    String(header_footer_candidates.strategy),
   )
   metadata.set(
     "pdf_header_candidate_count",
-    @core.JsonValue::Number(header_footer_candidates.header_count.to_string()),
+    Number(header_footer_candidates.header_count.to_string()),
   )
   metadata.set(
     "pdf_footer_candidate_count",
-    @core.JsonValue::Number(header_footer_candidates.footer_count.to_string()),
+    Number(header_footer_candidates.footer_count.to_string()),
   )
   metadata.set(
     "pdf_header_footer_candidate_count",
-    @core.JsonValue::Number(
-      header_footer_candidates.candidates.length().to_string(),
-    ),
+    Number(header_footer_candidates.candidates.length().to_string()),
   )
   metadata.set(
     "pdf_table_candidate_strategy",
-    @core.JsonValue::String(table_candidates.strategy),
+    String(table_candidates.strategy),
   )
   metadata.set(
     "pdf_table_candidate_count",
-    @core.JsonValue::Number(table_candidates.candidates.length().to_string()),
+    Number(table_candidates.candidates.length().to_string()),
   )
   metadata.set(
     "pdf_table_row_candidate_count",
-    @core.JsonValue::Number(table_candidates.row_count.to_string()),
+    Number(table_candidates.row_count.to_string()),
   )
   metadata.set(
     "pdf_link_candidate_count",
-    @core.JsonValue::Number(link_candidates.length().to_string()),
+    Number(link_candidates.length().to_string()),
   )
   metadata.set(
     "pdf_native_annotation_count",
-    @core.JsonValue::Number(annotation_count.to_string()),
+    Number(annotation_count.to_string()),
   )
   metadata.set(
     "pdf_native_form_field_count",
-    @core.JsonValue::Number(doc.form_fields.length().to_string()),
+    Number(doc.form_fields.length().to_string()),
   )
   metadata.set(
     "pdf_native_outline_count",
-    @core.JsonValue::Number(doc.outline_items.length().to_string()),
+    Number(doc.outline_items.length().to_string()),
   )
   metadata.set(
     "pdf_native_destination_count",
-    @core.JsonValue::Number(
-      (destination_count + doc.named_destinations.length()).to_string(),
-    ),
+    Number((destination_count + doc.named_destinations.length()).to_string()),
   )
   if header_footer_candidates.candidates.length() > 0 {
     metadata.set(
       "pdf_header_footer_candidates",
-      @core.JsonValue::Array(header_footer_candidates.candidates),
+      Array(header_footer_candidates.candidates),
     )
   }
   if table_candidates.candidates.length() > 0 {
-    metadata.set(
-      "pdf_table_candidates",
-      @core.JsonValue::Array(table_candidates.candidates),
-    )
+    metadata.set("pdf_table_candidates", Array(table_candidates.candidates))
   }
   if link_candidates.length() > 0 {
-    metadata.set("pdf_link_candidates", @core.JsonValue::Array(link_candidates))
+    metadata.set("pdf_link_candidates", Array(link_candidates))
   }
   if annotation_items.length() > 0 {
-    metadata.set(
-      "pdf_native_annotations",
-      @core.JsonValue::Array(annotation_items),
-    )
+    metadata.set("pdf_native_annotations", Array(annotation_items))
   }
   if form_field_items.length() > 0 {
-    metadata.set(
-      "pdf_native_form_fields",
-      @core.JsonValue::Array(form_field_items),
-    )
+    metadata.set("pdf_native_form_fields", Array(form_field_items))
   }
   if outline_items.length() > 0 {
-    metadata.set(
-      "pdf_native_outline_items",
-      @core.JsonValue::Array(outline_items),
-    )
+    metadata.set("pdf_native_outline_items", Array(outline_items))
   }
   let diagnostics = pdf_native_stream_bridge_diagnostics(
     doc.diagnostics,
@@ -492,9 +435,7 @@ pub fn pdf_native_page_to_paragraph_blocks(
     )
     match paragraph {
       Some((text, source_ref)) =>
-        blocks.push(
-          @core.make_block(@core.BlockKind::Paragraph, text, source_ref~),
-        )
+        blocks.push(@core.make_block(Paragraph, text, source_ref~))
       None => ()
     }
   }
@@ -547,7 +488,7 @@ fn pdf_native_lower_image_candidate(
     Some(value) => value
     None => materialized_asset.source_ref.unwrap_or(@core.empty_source_ref())
   }
-  let block = @core.make_block(@core.BlockKind::Image, "", source_ref~)
+  let block = @core.make_block(Image, "", source_ref~)
   block.attrs.set("asset_id", materialized_asset.asset_id)
   block.attrs.set("path", materialized_asset.path.unwrap_or("#"))
   block.attrs.set(

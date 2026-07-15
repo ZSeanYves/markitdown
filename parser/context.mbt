@@ -6,11 +6,11 @@ pub fn new_parse_context(
   {
     detected_format,
     requested_mode: None,
-    fidelity_mode: @product.FidelityMode::Balanced,
-    output_mode: @product.OutputMode::Markdown,
-    execution_profile: @product.ExecutionProfile::Standard,
-    lowering_profile: @product.LoweringProfile::Canonical,
-    render_profile: @product.RenderProfile::DefaultMarkdown,
+    fidelity_mode: Balanced,
+    output_mode: Markdown,
+    execution_profile: Standard,
+    lowering_profile: Canonical,
+    render_profile: DefaultMarkdown,
     accurate_features: @product.empty_accurate_feature_profile(),
     ocr_options: default_ocr_options(),
     audio_options: default_audio_options(),
@@ -28,7 +28,7 @@ pub fn new_parse_context(
 ///|
 /// Default OCR policy for normal product execution.
 pub fn default_ocr_options() -> OcrOptions {
-  { intent: OcrIntent::Auto, language: None }
+  { intent: Auto, language: None }
 }
 
 ///|
@@ -45,30 +45,30 @@ pub fn explicit_audio_options(language? : String? = None) -> AudioOptions {
 
 ///|
 pub fn default_pdf_native_runtime_policy() -> PdfNativeRuntimePolicy {
-  PdfNativeRuntimePolicy::EnableTextRestore
+  EnableTextRestore
 }
 
 ///|
 pub fn default_pdf_header_footer_filter_policy() -> PdfHeaderFooterFilterPolicy {
-  PdfHeaderFooterFilterPolicy::Disabled
+  Disabled
 }
 
 ///|
 pub fn default_pdf_table_reconstruction_policy() -> PdfTableReconstructionPolicy {
-  PdfTableReconstructionPolicy::Disabled
+  Disabled
 }
 
 ///|
 /// Return OCR options that hard-disable OCR while still preserving an optional
 /// language hint.
 pub fn disabled_ocr_options(language? : String? = None) -> OcrOptions {
-  { intent: OcrIntent::Disabled, language }
+  { intent: Disabled, language }
 }
 
 ///|
 /// Return OCR options that explicitly force OCR with an optional language hint.
 pub fn explicit_ocr_options(language? : String? = None) -> OcrOptions {
-  { intent: OcrIntent::Explicit, language }
+  { intent: Explicit, language }
 }
 
 ///|
@@ -97,7 +97,7 @@ pub fn parse_context_with_product_modes(
   fidelity_mode : @product.FidelityMode,
   output_mode : @product.OutputMode,
 ) -> ParseContext {
-  let accurate_features = if fidelity_mode == @product.FidelityMode::Accurate {
+  let accurate_features = if fidelity_mode == Accurate {
     @product.make_accurate_feature_profile(
       @product.accurate_features_for_detected_format(context.detected_format).copy(),
     )
@@ -108,8 +108,8 @@ pub fn parse_context_with_product_modes(
     ..context,
     fidelity_mode,
     output_mode,
-    lowering_profile: if fidelity_mode == @product.FidelityMode::Accurate {
-      @product.LoweringProfile::AccurateSemantic
+    lowering_profile: if fidelity_mode == Accurate {
+      AccurateSemantic
     } else {
       context.lowering_profile
     },
@@ -188,9 +188,9 @@ pub fn parse_context_with_limits(
 ///|
 pub fn ocr_intent_name(intent : OcrIntent) -> String {
   match intent {
-    OcrIntent::Disabled => "disabled"
-    OcrIntent::Auto => "auto"
-    OcrIntent::Explicit => "explicit"
+    Disabled => "disabled"
+    Auto => "auto"
+    Explicit => "explicit"
   }
 }
 
@@ -199,8 +199,8 @@ pub fn pdf_native_runtime_policy_name(
   policy : PdfNativeRuntimePolicy,
 ) -> String {
   match policy {
-    PdfNativeRuntimePolicy::DisableTextRestore => "disable_text_restore"
-    PdfNativeRuntimePolicy::EnableTextRestore => "enable_text_restore"
+    DisableTextRestore => "disable_text_restore"
+    EnableTextRestore => "enable_text_restore"
   }
 }
 
@@ -209,9 +209,8 @@ pub fn pdf_header_footer_filter_policy_name(
   policy : PdfHeaderFooterFilterPolicy,
 ) -> String {
   match policy {
-    PdfHeaderFooterFilterPolicy::Disabled => "disabled"
-    PdfHeaderFooterFilterPolicy::InternalHighConfidenceOnly =>
-      "internal_high_confidence_only"
+    Disabled => "disabled"
+    InternalHighConfidenceOnly => "internal_high_confidence_only"
   }
 }
 
@@ -220,8 +219,7 @@ pub fn pdf_table_reconstruction_policy_name(
   policy : PdfTableReconstructionPolicy,
 ) -> String {
   match policy {
-    PdfTableReconstructionPolicy::Disabled => "disabled"
-    PdfTableReconstructionPolicy::InternalSimpleRowsOnly =>
-      "internal_simple_rows_only"
+    Disabled => "disabled"
+    InternalSimpleRowsOnly => "internal_simple_rows_only"
   }
 }

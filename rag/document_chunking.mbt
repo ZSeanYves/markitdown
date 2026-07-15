@@ -91,7 +91,7 @@ pub fn chunks_from_document(
   }
 
   for block in document.blocks {
-    if block.kind == @core.BlockKind::Heading {
+    if block.kind == Heading {
       ordinal = flush_text_chunks(
         chunks, text_units, text_source_refs, text_asset_refs, text_heading_path,
         text_char_count, text_contains_raw, ordinal, document_format, document_title,
@@ -132,7 +132,7 @@ pub fn chunks_from_document(
           text_units.push(unit)
           append_unique_source_ref(
             text_source_refs,
-            block.source_ref,
+            @core.block_source_ref(block),
             normalized_options.preserve_source_ref,
           )
           let block_asset_refs = block_asset_refs(block, document.assets)
@@ -140,7 +140,7 @@ pub fn chunks_from_document(
           text_char_count = unit.char_count
           text_location_key = location_key
           text_heading_path = block_heading.copy()
-          text_contains_raw = block.kind == @core.BlockKind::Raw
+          text_contains_raw = block.kind == Raw
 
           ordinal = flush_text_chunks(
             chunks, text_units, text_source_refs, text_asset_refs, text_heading_path,
@@ -186,15 +186,14 @@ pub fn chunks_from_document(
         if !solo_source_ref_only || text_units.length() == 1 {
           append_unique_source_ref(
             text_source_refs,
-            block.source_ref,
+            @core.block_source_ref(block),
             normalized_options.preserve_source_ref,
           )
         }
         let block_asset_refs = block_asset_refs(block, document.assets)
         append_unique_strings(text_asset_refs, block_asset_refs)
         text_char_count += unit.char_count
-        text_contains_raw = text_contains_raw ||
-          block.kind == @core.BlockKind::Raw
+        text_contains_raw = text_contains_raw || block.kind == Raw
       }
       None => {
         ordinal = flush_text_chunks(
@@ -285,14 +284,8 @@ fn metadata_chunk(
     chunk_metadata.set("meta_" + entry.0, entry.1)
   }
   Some({
-    id: make_chunk_id(
-      ChunkKind::Metadata,
-      ordinal,
-      text,
-      heading_path,
-      source_refs,
-    ),
-    kind: ChunkKind::Metadata,
+    id: make_chunk_id(Metadata, ordinal, text, heading_path, source_refs),
+    kind: Metadata,
     text,
     heading_path,
     source_refs,
@@ -346,7 +339,7 @@ fn block_heading_path(
   current : Array[String],
 ) -> Array[String] {
   if !document_has_assembly_heading_paths(document) {
-    return if block.kind == @core.BlockKind::Heading {
+    return if block.kind == Heading {
       update_heading_path(current, block)
     } else {
       current.copy()
@@ -355,7 +348,7 @@ fn block_heading_path(
   match assembly_heading_paths.get(block.block_id) {
     Some(path) => path.copy()
     None =>
-      if block.kind == @core.BlockKind::Heading {
+      if block.kind == Heading {
         update_heading_path(current, block)
       } else {
         current.copy()
@@ -391,35 +384,35 @@ fn block_to_text_unit(block : @core.CoreBlock) -> ChunkUnit? {
     return None
   }
   match block.kind {
-    @core.BlockKind::Paragraph =>
+    Paragraph =>
       Some({
         text,
         char_count: unicode_char_count(text),
         block_kind: "paragraph",
         force_single_chunk: block.attrs.get("audio_segment") == Some("true"),
       })
-    @core.BlockKind::List =>
+    List =>
       Some({
         text,
         char_count: unicode_char_count(text),
         block_kind: "list",
         force_single_chunk: false,
       })
-    @core.BlockKind::ListItem =>
+    ListItem =>
       Some({
         text,
         char_count: unicode_char_count(text),
         block_kind: "list_item",
         force_single_chunk: false,
       })
-    @core.BlockKind::BlockQuote =>
+    BlockQuote =>
       Some({
         text,
         char_count: unicode_char_count(text),
         block_kind: "blockquote",
         force_single_chunk: false,
       })
-    @core.BlockKind::Raw =>
+    Raw =>
       Some({
         text,
         char_count: unicode_char_count(text),
@@ -441,15 +434,15 @@ fn block_to_special_chunks(
   assets : Array[@core.AssetRef],
 ) -> Array[RagChunk] {
   match block.kind {
-    @core.BlockKind::Table =>
+    Table =>
       table_chunks_from_block(
         block, heading_path, ordinal_start, document_format, document_title, options,
       )
-    @core.BlockKind::Code =>
+    Code =>
       code_chunks_from_block(
         block, heading_path, ordinal_start, document_format, document_title, options,
       )
-    @core.BlockKind::Image =>
+    Image =>
       image_chunks_from_block(
         block, heading_path, ordinal_start, document_format, document_title, options,
         assets,
@@ -482,7 +475,7 @@ fn build_text_chunks(
   for i in 0..<slices.length() {
     let slice = slices[i]
     let chunk_text = slice_units_text(slice)
-    let chunk_kind = if contains_raw { ChunkKind::Raw } else { ChunkKind::Text }
+    let chunk_kind = if contains_raw { ChunkKind::Raw } else { Text }
     let effective_heading = if options.preserve_heading_path {
       heading_path.copy()
     } else {
@@ -645,13 +638,13 @@ fn table_chunks_from_block(
     )
     chunks.push({
       id: make_chunk_id(
-        ChunkKind::Table,
+        Table,
         ordinal_start + i,
         text,
         effective_heading,
         effective_refs,
       ),
-      kind: ChunkKind::Table,
+      kind: Table,
       text,
       heading_path: effective_heading,
       source_refs: effective_refs,
@@ -711,13 +704,6 @@ fn render_sparse_table_row(block : @core.CoreBlock) -> String {
     return ""
   }
   let cells = Array::make(width, "")
-  if block.children.length() == 0 {
-    sparse_table_row_payload_fill_for_rag(
-      cells,
-      sparse_table_row_payload_for_rag(block),
-    )
-    return "| " + cells.join(" | ") + " |"
-  }
   for cell in block.children {
     let column_index = sparse_table_cell_column_index_for_rag(cell)
     if column_index <= 0 || column_index > width {
@@ -726,11 +712,6 @@ fn render_sparse_table_row(block : @core.CoreBlock) -> String {
     cells[column_index - 1] = block_plain_text(cell).trim().to_owned()
   }
   "| " + cells.join(" | ") + " |"
-}
-
-///|
-fn sparse_table_row_payload_for_rag(block : @core.CoreBlock) -> String {
-  block.attrs.get("sparse_row_payload").unwrap_or("")
 }
 
 ///|
@@ -750,9 +731,13 @@ fn sparse_table_row_width_for_rag(block : @core.CoreBlock) -> Int {
 
 ///|
 fn sparse_table_cell_column_index_for_rag(cell : @core.CoreBlock) -> Int {
-  match cell.attrs.get("column_index") {
-    Some(raw) => @string.parse_int(raw.trim()) catch { _ => 0 }
-    None => 0
+  match cell.column_index {
+    Some(value) => value
+    None =>
+      match cell.attrs.get("column_index") {
+        Some(raw) => @string.parse_int(raw.trim()) catch { _ => 0 }
+        None => 0
+      }
   }
 }
 
@@ -762,62 +747,6 @@ fn sparse_table_declared_width_for_rag(block : @core.CoreBlock) -> Int {
     Some(raw) => @string.parse_int(raw.trim()) catch { _ => 0 }
     None => 0
   }
-}
-
-///|
-fn sparse_table_row_payload_fill_for_rag(
-  cells : Array[String],
-  payload : String,
-) -> Unit {
-  if payload.trim() == "" {
-    return
-  }
-  for line in payload.split("\n").to_array() {
-    let entry = line.to_owned()
-    if entry == "" {
-      continue
-    }
-    let parts = entry.split("\t").to_array()
-    if parts.length() < 2 {
-      continue
-    }
-    let column_index = @string.parse_int(parts[0].trim()) catch { _ => 0 }
-    if column_index <= 0 || column_index > cells.length() {
-      continue
-    }
-    cells[column_index - 1] = xlsx_decode_sparse_row_cell_for_rag(
-      parts[1].to_owned(),
-    )
-  }
-}
-
-///|
-fn xlsx_decode_sparse_row_cell_for_rag(text : String) -> String {
-  let out : Array[Char] = []
-  let chars = text.to_array()
-  let mut i = 0
-  while i < chars.length() {
-    let ch = chars[i]
-    if ch == '\\' && i + 1 < chars.length() {
-      let next = chars[i + 1]
-      if next == 'n' {
-        out.push('\n')
-        i += 2
-        continue
-      } else if next == 't' {
-        out.push('\t')
-        i += 2
-        continue
-      } else if next == '\\' {
-        out.push('\\')
-        i += 2
-        continue
-      }
-    }
-    out.push(ch)
-    i += 1
-  }
-  String::from_array(out)
 }
 
 ///|
@@ -881,13 +810,13 @@ fn code_chunks_from_block(
     )
     chunks.push({
       id: make_chunk_id(
-        ChunkKind::Code,
+        Code,
         ordinal_start + i,
         text,
         effective_heading,
         effective_refs,
       ),
-      kind: ChunkKind::Code,
+      kind: Code,
       text,
       heading_path: effective_heading,
       source_refs: effective_refs,
@@ -932,13 +861,13 @@ fn image_chunks_from_block(
   [
     {
       id: make_chunk_id(
-        ChunkKind::ImageCaption,
+        ImageCaption,
         ordinal_start,
         text,
         effective_heading,
         effective_refs,
       ),
-      kind: ChunkKind::ImageCaption,
+      kind: ImageCaption,
       text,
       heading_path: effective_heading,
       source_refs: effective_refs,
@@ -972,9 +901,9 @@ fn slice_units_text(units : Array[ChunkUnit]) -> String {
 ///|
 fn block_text_for_chunk(block : @core.CoreBlock) -> String {
   match block.kind {
-    @core.BlockKind::List => list_block_text(block, 0)
-    @core.BlockKind::ListItem => list_item_text(block, 1, false, 0)
-    @core.BlockKind::BlockQuote => blockquote_text(block)
+    List => list_block_text(block, 0)
+    ListItem => list_item_text(block, 1, false, 0)
+    BlockQuote => blockquote_text(block)
     _ => block_plain_text(block)
   }
 }
@@ -1005,8 +934,8 @@ fn inline_text(inlines : Array[@core.CoreInline]) -> String {
   let parts : Array[String] = []
   for inline in inlines {
     match inline.kind {
-      @core.InlineKind::LineBreak => parts.push("\n")
-      @core.InlineKind::Link =>
+      LineBreak => parts.push("\n")
+      Link =>
         parts.push(
           if inline.href == Some("") || inline.href == None {
             inline.text
@@ -1014,7 +943,7 @@ fn inline_text(inlines : Array[@core.CoreInline]) -> String {
             inline.text + " (" + inline.href.unwrap_or("") + ")"
           },
         )
-      @core.InlineKind::Image =>
+      Image =>
         parts.push(
           if inline.title.unwrap_or("") != "" {
             inline.text + " [" + inline.title.unwrap_or("") + "]"
@@ -1022,7 +951,7 @@ fn inline_text(inlines : Array[@core.CoreInline]) -> String {
             inline.text
           },
         )
-      @core.InlineKind::Code => parts.push("`" + inline.text + "`")
+      Code => parts.push("`" + inline.text + "`")
       _ => parts.push(inline.text)
     }
   }
@@ -1061,9 +990,8 @@ fn list_item_text(
   for i in 0..<block.children.length() {
     let child = block.children[i]
     match child.kind {
-      @core.BlockKind::List =>
-        child_lines.push(list_block_text(child, depth + 1))
-      @core.BlockKind::ListItem =>
+      List => child_lines.push(list_block_text(child, depth + 1))
+      ListItem =>
         child_lines.push(list_item_text(child, i + 1, false, depth + 1))
       _ => {
         let nested = block_plain_text(child).trim().to_owned()
@@ -1096,7 +1024,7 @@ fn blockquote_text(block : @core.CoreBlock) -> String {
 
 ///|
 fn block_location_bucket(block : @core.CoreBlock) -> String {
-  match block.source_ref {
+  match @core.block_source_ref(block) {
     Some(source_ref) =>
       [
         source_ref.page.map(i => i.to_string()).unwrap_or(""),
@@ -1120,7 +1048,7 @@ fn block_source_refs(
 ) -> Array[@core.SourceRef] {
   let refs : Array[@core.SourceRef] = []
   if preserve_source_ref {
-    append_unique_source_ref(refs, block.source_ref, true)
+    append_unique_source_ref(refs, @core.block_source_ref(block), true)
     collect_child_source_refs(refs, block)
   }
   refs
@@ -1132,7 +1060,7 @@ fn collect_child_source_refs(
   block : @core.CoreBlock,
 ) -> Unit {
   for child in block.children {
-    append_unique_source_ref(refs, child.source_ref, true)
+    append_unique_source_ref(refs, @core.block_source_ref(child), true)
     collect_child_source_refs(refs, child)
   }
 }
@@ -1149,7 +1077,7 @@ fn block_asset_refs(
       _ => ()
     }
   }
-  match block.source_ref {
+  match @core.block_source_ref(block) {
     Some(source_ref) =>
       for asset in assets {
         if source_ref_eq(

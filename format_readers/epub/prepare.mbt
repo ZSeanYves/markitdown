@@ -7,7 +7,7 @@ pub struct PreparedEpubPackage {
 
 ///|
 fn epub_container_path(source : @input.InputSource) -> String {
-  match source.path {
+  match @input.input_path(source) {
     Some(path) => {
       let parts = path.replace(old="\\", new="/").split("/").to_array()
       parts.last().unwrap_or(source.source_name).to_owned()
@@ -20,24 +20,19 @@ fn epub_container_path(source : @input.InputSource) -> String {
 pub fn prepare_epub_package_from_source(
   source : @input.InputSource,
 ) -> Result[PreparedEpubPackage, String] {
-  let bytes = match @input.read_input_bytes(source) {
-    Ok(payload) => payload
+  let prepared = match @zsource.prepare_zip_from_source(source) {
+    Ok(value) => value
     Err(err) => return Err(err)
   }
-  let prepared_source = if source.bytes is Some(_) {
-    source
-  } else {
-    @input.with_bytes_payload(source, bytes)
-  }
   let pkg = try
-    open_epub_package(bytes, epub_container_path(source)) |> Ok
+    open_epub_archive(prepared.archive, epub_container_path(source)) |> Ok
   catch {
     err => Err(err.to_string())
   }
   match pkg {
     Ok(value) =>
       Ok({
-        prepared_source,
+        prepared_source: prepared.prepared_source,
         opened_package: value,
         inspect: inspect_epub_package(value),
       })

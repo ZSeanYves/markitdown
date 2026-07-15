@@ -19,9 +19,9 @@ test "IPYNB parser lowers every supported MIME payload independently" {
     @input.input_from_text_with_format(
       notebook,
       "mime-matrix.ipynb",
-      Some(@input.DetectedFormat::Ipynb),
+      Some(Ipynb),
     ),
-    @parser.new_parse_context(@input.DetectedFormat::Ipynb),
+    @parser.new_parse_context(Ipynb),
   ).unwrap()
   let document = result.document.unwrap()
   assert_true(document.blocks.length() >= 9)

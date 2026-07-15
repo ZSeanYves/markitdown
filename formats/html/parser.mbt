@@ -1,7 +1,7 @@
 ///|
 fn html_parser_capability() -> @parser.ParserCapability {
   @parser.dom_ast_parser_capability(
-    @parser.StreamingGranularity::HtmlTokenStructure,
+    HtmlTokenStructure,
     true,
     false,
     true,
@@ -17,17 +17,12 @@ fn html_parser_capability() -> @parser.ParserCapability {
 
 ///|
 pub fn html_parser() -> @parser.Parser {
-  @parser.make_parser(
-    "html_parser",
-    @parser.ParserMode::DomAstModel,
-    html_parser_capability(),
-    fn(
-      source : @input.InputSource,
-      context : @parser.ParseContext,
-    ) -> Result[@parser.ParseResult, String] {
-      parse_html_document_result(source, context)
-    },
-  )
+  @parser.make_parser("html_parser", DomAstModel, html_parser_capability(), fn(
+    source : @input.InputSource,
+    context : @parser.ParseContext,
+  ) -> Result[@parser.ParseResult, String] {
+    parse_html_document_result(source, context)
+  })
 }
 
 ///|
@@ -37,18 +32,21 @@ pub fn html_parse_with_token_events(
   text : String,
   events : Array[@dhtml.HtmlTokenEvent],
 ) -> @parser.ParseResult {
-  if context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
+  if context.requested_mode == Some(BlockStreaming) {
     return html_block_stream_parse_result_from_events(source, text, events)
   }
   let diagnostics = @fshared.empty_parser_diagnostics(
     "html_parser",
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     source,
     "html",
   )
   diagnostics.metrics.set("parser_name", "html_parser")
   diagnostics.metrics.set("parser_mode", "dom_ast_model")
-  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
+  diagnostics.metrics.set(
+    "input_kind",
+    @fshared.input_kind_name(@input.input_kind(source)),
+  )
   diagnostics.metrics.set("detected_format", "html")
   diagnostics.metrics.set(
     "requested_mode",
@@ -94,7 +92,7 @@ pub fn html_parse_with_token_events(
       )
       @parser.parse_result_with_document_capability(
         "html_parser",
-        @parser.ParserMode::DomAstModel,
+        DomAstModel,
         final_document,
         diagnostics,
         html_parser_capability(),
@@ -109,7 +107,7 @@ pub fn html_parse_with_prepared_document(
   context : @parser.ParseContext,
   prepared : @dhtml.PreparedHtmlDocument,
 ) -> @parser.ParseResult {
-  if context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
+  if context.requested_mode == Some(BlockStreaming) {
     match prepared.events {
       Some(events) =>
         return html_block_stream_parse_result_from_events(
@@ -117,7 +115,15 @@ pub fn html_parse_with_prepared_document(
           prepared.normalized_text,
           events,
         )
-      None => ()
+      None =>
+        match prepared.event_summary {
+          Some(_) =>
+            return html_block_stream_parse_result_scanned(
+              source,
+              prepared.normalized_text,
+            )
+          None => ()
+        }
     }
   }
   match prepared.document {
@@ -135,7 +141,7 @@ pub fn html_parse_with_prepared_document(
       } else {
         let diagnostics = @fshared.empty_parser_diagnostics(
           "html_parser",
-          @parser.ParserMode::DomAstModel,
+          DomAstModel,
           source,
           "html",
         )
@@ -150,7 +156,7 @@ pub fn html_parse_with_prepared_document(
     None => {
       let diagnostics = @fshared.empty_parser_diagnostics(
         "html_parser",
-        @parser.ParserMode::DomAstModel,
+        DomAstModel,
         source,
         "html",
       )
@@ -171,13 +177,16 @@ pub fn html_document_to_ir(
 ) -> Result[(@core.DocumentIR, @core.Diagnostics), String] {
   let diagnostics = @fshared.empty_parser_diagnostics(
     "html_parser",
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     source,
     "html",
   )
   diagnostics.metrics.set("parser_name", "html_parser")
   diagnostics.metrics.set("parser_mode", "dom_ast_model")
-  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
+  diagnostics.metrics.set(
+    "input_kind",
+    @fshared.input_kind_name(@input.input_kind(source)),
+  )
   diagnostics.metrics.set("detected_format", "html")
   diagnostics.metrics.set("requested_mode", "default")
   diagnostics.metrics.set("effective_mode", "dom_ast_model")
@@ -278,8 +287,7 @@ fn parse_html_document_result(
   }
   let source = prepared.prepared_source
   let text = prepared.original_text
-  let requested_blocks = context.requested_mode ==
-    Some(@parser.ParserMode::BlockStreaming)
+  let requested_blocks = context.requested_mode == Some(BlockStreaming)
   if requested_blocks {
     return Ok(html_block_stream_parse_result(source, text, context))
   }
@@ -288,7 +296,7 @@ fn parse_html_document_result(
     None => {
       let diagnostics = @fshared.empty_parser_diagnostics(
         "html_parser",
-        @parser.ParserMode::DomAstModel,
+        DomAstModel,
         source,
         "html",
       )
@@ -304,7 +312,7 @@ fn parse_html_document_result(
     Some(doc) => {
       let diagnostics = @fshared.empty_parser_diagnostics(
         "html_parser",
-        @parser.ParserMode::DomAstModel,
+        DomAstModel,
         source,
         "html",
       )
@@ -312,7 +320,7 @@ fn parse_html_document_result(
       diagnostics.metrics.set("parser_mode", "dom_ast_model")
       diagnostics.metrics.set(
         "input_kind",
-        @fshared.input_kind_name(source.kind),
+        @fshared.input_kind_name(@input.input_kind(source)),
       )
       diagnostics.metrics.set("detected_format", "html")
       diagnostics.metrics.set(
@@ -354,7 +362,7 @@ fn parse_html_document_result(
       Ok(
         @parser.parse_result_with_document_capability(
           "html_parser",
-          @parser.ParserMode::DomAstModel,
+          DomAstModel,
           final_document,
           diagnostics,
           html_parser_capability(),
@@ -373,10 +381,10 @@ fn html_block_stream_parse_result(
   let diagnostics = html_block_stream_diagnostics(source, context)
   let lowered = if html_prefers_semantic_block_stream(source) {
     html_lower_semantic_block_stream_document(source, text, diagnostics)
-  } else if html_prefers_child_text_fast_block_stream(source) {
-    html_lower_child_text_block_stream_document(source, text, diagnostics)
   } else if html_requires_semantic_block_stream_markup(source) {
     html_lower_child_semantic_block_stream_document(source, text, diagnostics)
+  } else if html_prefers_child_text_fast_block_stream(source) {
+    html_lower_child_text_block_stream_document(source, text, diagnostics)
   } else {
     html_lower_block_stream_document(source, text, diagnostics)
   }
@@ -391,7 +399,7 @@ fn html_block_stream_parse_result_from_events(
 ) -> @parser.ParseResult {
   let diagnostics = html_block_stream_diagnostics(
     source,
-    @parser.new_parse_context(@input.DetectedFormat::Html),
+    @parser.new_parse_context(Html),
   )
   diagnostics.metrics.set("requested_mode", "block_streaming")
   diagnostics.metrics.set("probe_artifact_reused", "true")
@@ -418,19 +426,39 @@ fn html_block_stream_parse_result_from_events(
 }
 
 ///|
+fn html_block_stream_parse_result_scanned(
+  source : @input.InputSource,
+  text : String,
+) -> @parser.ParseResult {
+  let diagnostics = html_block_stream_diagnostics(
+    source,
+    @parser.new_parse_context(Html),
+  )
+  diagnostics.metrics.set("requested_mode", "block_streaming")
+  diagnostics.metrics.set("probe_artifact_reused", "true")
+  let lowered = html_lower_child_text_block_stream_document_scanned(
+    source, text, diagnostics,
+  )
+  html_block_stream_parse_result_from_lowered(text, diagnostics, lowered)
+}
+
+///|
 fn html_block_stream_diagnostics(
   source : @input.InputSource,
   context : @parser.ParseContext,
 ) -> @core.Diagnostics {
   let diagnostics = @fshared.empty_parser_diagnostics(
     "html_parser",
-    @parser.ParserMode::BlockStreaming,
+    BlockStreaming,
     source,
     "html",
   )
   diagnostics.metrics.set("parser_name", "html_parser")
   diagnostics.metrics.set("parser_mode", "block_streaming")
-  diagnostics.metrics.set("input_kind", @fshared.input_kind_name(source.kind))
+  diagnostics.metrics.set(
+    "input_kind",
+    @fshared.input_kind_name(@input.input_kind(source)),
+  )
   diagnostics.metrics.set("detected_format", "html")
   diagnostics.metrics.set(
     "requested_mode",
@@ -448,26 +476,24 @@ fn html_block_stream_diagnostics(
 
 ///|
 fn html_prefers_semantic_block_stream(source : @input.InputSource) -> Bool {
-  source.kind == @input.InputKind::Bytes
+  @input.input_kind(source) == Bytes
 }
 
 ///|
 fn html_prefers_child_text_fast_block_stream(
   source : @input.InputSource,
 ) -> Bool {
-  source.kind == @input.InputKind::Text &&
-  source.text is Some(_) &&
-  source.bytes is Some(_)
+  @input.input_kind(source) == Text && @input.input_text(source) is Some(_)
 }
 
 ///|
 fn html_requires_semantic_block_stream_markup(
   source : @input.InputSource,
 ) -> Bool {
-  if source.kind != @input.InputKind::Text {
+  if @input.input_kind(source) != Text {
     return false
   }
-  let text = match source.text {
+  let text = match @input.input_text(source) {
     Some(value) => value
     None => return false
   }
@@ -552,7 +578,7 @@ fn html_block_stream_parse_result_from_lowered(
   diagnostics.pass_trace.push("parse:html_parser")
   @parser.parse_result_with_blocks_capability(
     "html_parser",
-    @parser.ParserMode::BlockStreaming,
+    BlockStreaming,
     lowered.blocks,
     diagnostics,
     html_parser_capability(),

@@ -97,8 +97,8 @@ pub fn make_select_request(
 ///|
 fn parse_select_output(text : String) -> SelectOutput raise {
   match text.trim().to_lower() {
-    "jsonl" => SelectOutput::Jsonl
-    "tsv" => SelectOutput::Tsv
+    "jsonl" => Jsonl
+    "tsv" => Tsv
     _ => raise InvalidArgument("unsupported --output value: " + text)
   }
 }

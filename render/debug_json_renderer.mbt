@@ -38,8 +38,8 @@ fn render_debug_json_input(
 ) -> RenderResult {
   let renderer = debug_json_renderer()
   match input {
-    RenderInput::Document(document) => (renderer.render)(document, context)
-    RenderInput::BlockStream(blocks) => {
+    Document(document) => (renderer.render)(document, context)
+    BlockStream(blocks) => {
       let profiled = profiled_blocks(blocks, context)
       let diagnostics = block_stream_input_diagnostics(context, profiled)
       diagnostics.metrics.set("renderer_name", "DebugJsonRenderer")
@@ -53,7 +53,7 @@ fn render_debug_json_input(
         chunks: None,
       }
     }
-    RenderInput::EventStream(events) => {
+    EventStream(events) => {
       let diagnostics = stream_input_diagnostics(
         context, events, "event_stream",
       )

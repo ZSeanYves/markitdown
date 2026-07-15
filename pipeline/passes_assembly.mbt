@@ -35,7 +35,7 @@ fn assemble_document_sections(
     for block in blocks {
       local_ordinal += 1
       push_reading_order_entry(assembly, block, local_ordinal)
-      if block.kind == @core.BlockKind::Heading {
+      if block.kind == Heading {
         let level = clamp_heading_level(block.attrs.get("level").unwrap_or("1"))
         while heading_stack.length() > 0 &&
               heading_stack[heading_stack.length() - 1].0 >= level {
@@ -52,7 +52,7 @@ fn assemble_document_sections(
           heading_path,
           child_section_ids: [],
           block_ids: [block.block_id],
-          source_ref: block.source_ref,
+          source_ref: @core.block_source_ref(block),
         }
         let section_index = assembly.sections.length()
         assembly.sections.push(section)
@@ -158,7 +158,9 @@ fn push_reading_order_entry(
   block : @core.CoreBlock,
   ordinal : Int,
 ) -> Unit {
-  let source_ref = block.source_ref.unwrap_or(@core.empty_source_ref())
+  let source_ref = @core.block_source_ref(block).unwrap_or(
+    @core.empty_source_ref(),
+  )
   assembly.reading_order.push({
     block_id: block.block_id,
     ordinal,
@@ -174,7 +176,7 @@ fn assemble_section_tree_input(
   input : @core.IRInput,
 ) -> @core.IRInput {
   match input {
-    @core.IRInput::Document(document) => {
+    Document(document) => {
       let prior = document_assembly_or_empty(document)
       let assembly = assemble_document_sections_from_prior(
         document.blocks,
@@ -197,9 +199,9 @@ fn assemble_section_tree_input(
       if @product.debug_output_mode(context.output_mode) {
         next.diagnostics.metrics.set("assembly_debug_mode", "true")
       }
-      @core.IRInput::Document(sync_document_to_context(context, next))
+      Document(sync_document_to_context(context, next))
     }
-    @core.IRInput::BlockStream(blocks) => {
+    BlockStream(blocks) => {
       let assembly = assemble_document_sections_from_prior(
         blocks,
         context.assembly.val.unwrap_or(@core.empty_document_assembly()),
@@ -220,8 +222,8 @@ fn assemble_section_tree_input(
       if @product.debug_output_mode(context.output_mode) {
         context.diagnostics.val.metrics.set("assembly_debug_mode", "true")
       }
-      @core.IRInput::BlockStream(blocks)
+      BlockStream(blocks)
     }
-    @core.IRInput::EventStream(events) => @core.IRInput::EventStream(events)
+    EventStream(events) => EventStream(events)
   }
 }

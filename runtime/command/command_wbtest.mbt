@@ -16,11 +16,11 @@ fn command_with_env(
 ///|
 test "resolved commands expose stable provenance labels" {
   let sources : Array[(ResolvedCommandSource, String)] = [
-    (ResolvedCommandSource::ExplicitArg, "explicit_arg"),
-    (ResolvedCommandSource::RepoManaged, "repo_managed"),
-    (ResolvedCommandSource::EnvVar, "env_var"),
-    (ResolvedCommandSource::Path, "path"),
-    (ResolvedCommandSource::Fallback, "fallback"),
+    (ExplicitArg, "explicit_arg"),
+    (RepoManaged, "repo_managed"),
+    (EnvVar, "env_var"),
+    (Path, "path"),
+    (Fallback, "fallback"),
   ]
   for entry in sources {
     assert_eq(resolved_command_source_label(entry.0), entry.1)
@@ -28,21 +28,10 @@ test "resolved commands expose stable provenance labels" {
   let fallback = fallback_command("tool")
   assert_eq(resolved_command_context(fallback), "source=fallback;path=tool")
   assert_true(
-    resolved_command_from_parts(
-      ["tool", "two words"],
-      ResolvedCommandSource::ExplicitArg,
-    ) ==
-    Some(
-      make_resolved_command(
-        "tool",
-        "tool \"two words\"",
-        ResolvedCommandSource::ExplicitArg,
-      ),
-    ),
+    resolved_command_from_parts(["tool", "two words"], ExplicitArg) ==
+    Some(make_resolved_command("tool", "tool \"two words\"", ExplicitArg)),
   )
-  assert_true(
-    resolved_command_from_parts([], ResolvedCommandSource::ExplicitArg) is None,
-  )
+  assert_true(resolved_command_from_parts([], ExplicitArg) is None)
 }
 
 ///|
@@ -61,13 +50,9 @@ test "shell command quoting and splitting round trips complex arguments" {
     split_shell_command("tool 'single value' \"double value\"") ==
     Ok(["tool", "single value", "double value"]),
   )
+  assert_true(split_shell_command("tool trailing\\") == Err(TrailingEscape))
   assert_true(
-    split_shell_command("tool trailing\\") ==
-    Err(ShellCommandSplitError::TrailingEscape),
-  )
-  assert_true(
-    split_shell_command("tool 'unterminated") ==
-    Err(ShellCommandSplitError::UnterminatedQuotes),
+    split_shell_command("tool 'unterminated") == Err(UnterminatedQuotes),
   )
 }
 
@@ -96,27 +81,19 @@ test "command environment and repo-relative paths normalize safely" {
 test "command executable resolution rejects invalid paths and finds PATH tools" {
   assert_true(!is_executable_file(""))
   assert_true(find_in_path("", None) is None)
-  let empty = resolve_executable_path(
-    " ",
-    "tool",
-    ResolvedCommandSource::ExplicitArg,
-  )
+  let empty = resolve_executable_path(" ", "tool", ExplicitArg)
   assert_true(empty == Err("tool must not be empty"))
   let missing = resolve_executable_path(
     "/definitely/missing/markitdown-tool",
     "tool",
-    ResolvedCommandSource::ExplicitArg,
+    ExplicitArg,
   )
   assert_true(
     missing ==
     Err("tool path does not exist: /definitely/missing/markitdown-tool"),
   )
   assert_true(is_executable_file("/bin/sh"))
-  let resolved = resolve_executable_path(
-    "/bin/sh",
-    "shell",
-    ResolvedCommandSource::ExplicitArg,
-  )
+  let resolved = resolve_executable_path("/bin/sh", "shell", ExplicitArg)
   assert_true(resolved.unwrap().program == "/bin/sh")
   assert_true(find_in_path("sh", Some("/bin:/usr/bin")) is Some(_))
   assert_true(resolve_path_command("sh") is Some(_))
@@ -129,7 +106,7 @@ test "command executable resolution rejects invalid paths and finds PATH tools" 
   let non_executable = resolve_executable_path(
     "moon.mod",
     "module",
-    ResolvedCommandSource::ExplicitArg,
+    ExplicitArg,
   )
   let non_executable_error = match non_executable {
     Err(message) => message.contains("not executable")
@@ -137,4 +114,102 @@ test "command executable resolution rejects invalid paths and finds PATH tools" 
   }
   assert_true(non_executable_error)
   assert_true(split_shell_command("   ") == Ok([]))
+}
+
+///|
+test "external runner passes argv directly and captures separate outputs" {
+  let command = make_resolved_command("/bin/sh", "/bin/sh", ExplicitArg)
+  let output = run_resolved_command(command, [
+    "-c", "printf 'out:%s' \"$1\"; printf 'err' >&2; exit 7", "sh", "$(literal)",
+  ]).unwrap()
+  assert_eq(output.exit_code, 7)
+  assert_eq(output.stdout, "out:$(literal)")
+  assert_eq(output.stderr, "err")
+  assert_true(!output.timed_out)
+}
+
+///|
+test "external runner enforces timeout and output ceilings" {
+  let shell = make_resolved_command("/bin/sh", "/bin/sh", ExplicitArg)
+  let timed = run_resolved_command(
+    shell,
+    ["-c", "sleep 2"],
+    limits=make_command_limits(
+      timeout_ms=50,
+      termination_grace_ms=20,
+      max_stdout_bytes=1024,
+      max_stderr_bytes=1024,
+    ),
+  ).unwrap()
+  assert_true(timed.timed_out)
+  let limited = run_resolved_command(
+    shell,
+    ["-c", "while true; do printf 1234567890; done"],
+    limits=make_command_limits(
+      timeout_ms=2000,
+      termination_grace_ms=20,
+      max_stdout_bytes=256,
+      max_stderr_bytes=256,
+    ),
+  ).unwrap()
+  assert_true(limited.stdout_limit_exceeded)
+  assert_eq(@utf8.encode(limited.stdout).length(), 256)
+}
+
+///|
+async test "async external runner enforces timeout and output ceilings" {
+  let shell = make_resolved_command("/bin/sh", "/bin/sh", ExplicitArg)
+  let timed = run_resolved_command_async(
+    shell,
+    ["-c", "sleep 2"],
+    limits=make_command_limits(
+      timeout_ms=50,
+      termination_grace_ms=20,
+      max_stdout_bytes=1024,
+      max_stderr_bytes=1024,
+    ),
+  ).unwrap()
+  assert_true(timed.timed_out)
+  let limited = run_resolved_command_async(
+    shell,
+    ["-c", "while true; do printf 1234567890; done"],
+    limits=make_command_limits(
+      timeout_ms=2000,
+      termination_grace_ms=20,
+      max_stdout_bytes=256,
+      max_stderr_bytes=256,
+    ),
+  ).unwrap()
+  assert_true(limited.stdout_limit_exceeded)
+  assert_eq(@utf8.encode(limited.stdout).length(), 256)
+}
+
+///|
+async test "async external runner is cancellable and reaps the child" {
+  let shell = make_resolved_command("/bin/sh", "/bin/sh", ExplicitArg)
+  let started = @env.now()
+  @async.with_task_group(group => {
+    let task = group.spawn(() => {
+      run_resolved_command_async(
+        shell,
+        ["-c", "sleep 10"],
+        limits=make_command_limits(
+          timeout_ms=20000,
+          termination_grace_ms=20,
+          max_stdout_bytes=1024,
+          max_stderr_bytes=1024,
+        ),
+      )
+    })
+    @async.sleep(50)
+    task.cancel()
+    let cancelled = Ref(false)
+    try task.wait() catch {
+      _ => cancelled.val = true
+    } noraise {
+      _ => ()
+    }
+    assert_true(cancelled.val)
+  })
+  assert_true(@env.now() - started < 2000)
 }

@@ -3,30 +3,30 @@ fn pdf_native_source_ref_from_json_object(
   payload : Map[String, @core.JsonValue],
 ) -> @core.SourceRef? {
   let file_id = match payload.get("file_id") {
-    Some(@core.JsonValue::String(value)) => Some(value)
+    Some(String(value)) => Some(value)
     _ => None
   }
   let format = match payload.get("format") {
-    Some(@core.JsonValue::String(value)) => Some(value)
+    Some(String(value)) => Some(value)
     _ => None
   }
   let page = match payload.get("page") {
-    Some(@core.JsonValue::Number(value)) =>
+    Some(Number(value)) =>
       Some(@string.parse_int(value) catch { _ => return None })
     _ => None
   }
   let line_start = match payload.get("line_start") {
-    Some(@core.JsonValue::Number(value)) =>
+    Some(Number(value)) =>
       Some(@string.parse_int(value) catch { _ => return None })
     _ => None
   }
   let line_end = match payload.get("line_end") {
-    Some(@core.JsonValue::Number(value)) =>
+    Some(Number(value)) =>
       Some(@string.parse_int(value) catch { _ => return None })
     _ => None
   }
   let bbox = match payload.get("bbox") {
-    Some(@core.JsonValue::Object(bbox_payload)) =>
+    Some(Object(bbox_payload)) =>
       match pdf_native_bbox_from_core_json_object(bbox_payload) {
         Some(value) => Some(value)
         None => return None
@@ -43,13 +43,12 @@ fn pdf_native_source_ref_from_json_object(
     line_end,
   }
   match payload.get("extra") {
-    Some(@core.JsonValue::Object(extra_payload)) =>
+    Some(Object(extra_payload)) =>
       for entry in extra_payload.to_array() {
         match entry.1 {
-          @core.JsonValue::String(value) => source_ref.extra.set(entry.0, value)
-          @core.JsonValue::Number(value) => source_ref.extra.set(entry.0, value)
-          @core.JsonValue::Bool(value) =>
-            source_ref.extra.set(entry.0, value.to_string())
+          String(value) => source_ref.extra.set(entry.0, value)
+          Number(value) => source_ref.extra.set(entry.0, value)
+          Bool(value) => source_ref.extra.set(entry.0, value.to_string())
           _ => ()
         }
       }
@@ -63,7 +62,7 @@ fn pdf_native_bbox_from_core_json_object(
   payload : Map[String, @core.JsonValue],
 ) -> @core.BBox? {
   let x0 = match payload.get("x0") {
-    Some(@core.JsonValue::Number(value)) =>
+    Some(Number(value)) =>
       match pdf_native_parse_json_double(value) {
         Some(parsed) => parsed
         None => return None
@@ -71,7 +70,7 @@ fn pdf_native_bbox_from_core_json_object(
     _ => return None
   }
   let y0 = match payload.get("y0") {
-    Some(@core.JsonValue::Number(value)) =>
+    Some(Number(value)) =>
       match pdf_native_parse_json_double(value) {
         Some(parsed) => parsed
         None => return None
@@ -79,7 +78,7 @@ fn pdf_native_bbox_from_core_json_object(
     _ => return None
   }
   let x1 = match payload.get("x1") {
-    Some(@core.JsonValue::Number(value)) =>
+    Some(Number(value)) =>
       match pdf_native_parse_json_double(value) {
         Some(parsed) => parsed
         None => return None
@@ -87,7 +86,7 @@ fn pdf_native_bbox_from_core_json_object(
     _ => return None
   }
   let y1 = match payload.get("y1") {
-    Some(@core.JsonValue::Number(value)) =>
+    Some(Number(value)) =>
       match pdf_native_parse_json_double(value) {
         Some(parsed) => parsed
         None => return None
@@ -208,7 +207,7 @@ fn pdf_native_table_block_from_region(
     region.column_alignment_count
   }
   if expected_width < 2 {
-    return PdfNativeTableLoweringResult::Skipped("insufficient_columns")
+    return Skipped("insufficient_columns")
   }
   let region_blocks : Array[(Int, PdfNativeTextBlock, @core.SourceRef, String)] = []
   for text_block_index in 0..<text_blocks.length() {
@@ -227,7 +226,7 @@ fn pdf_native_table_block_from_region(
     }
   }
   if region_blocks.length() < 2 {
-    return PdfNativeTableLoweringResult::Skipped("insufficient_rows")
+    return Skipped("insufficient_rows")
   }
   region_blocks.sort_by(fn(left, right) {
     let left_index = left.2.extra
@@ -260,34 +259,30 @@ fn pdf_native_table_block_from_region(
         row_entry.2,
       ) {
       Some(value) => value
-      None => return PdfNativeTableLoweringResult::Skipped("row_split_failed")
+      None => return Skipped("row_split_failed")
     }
     if pdf_native_table_non_empty_cell_count(cells) < 2 {
-      return PdfNativeTableLoweringResult::Skipped("row_split_failed")
+      return Skipped("row_split_failed")
     }
     row_cells.push(cells)
     block_indexes.push(row_entry.0)
     row_source_refs.push(row_entry.2)
   }
   let table_source_ref = pdf_native_table_source_ref_from_rows(row_source_refs)
-  let table = @core.make_block(
-    @core.BlockKind::Table,
-    "table",
-    source_ref=table_source_ref,
-  )
+  let table = @core.make_block(Table, "table", source_ref=table_source_ref)
   table.attrs.set("header_rows", "1")
   table.attrs.set("table_column_count", expected_width.to_string())
   for row_index in 0..<row_cells.length() {
     let row_ref = row_source_refs[row_index]
     let cells = row_cells[row_index]
     let row = @core.make_block(
-      @core.BlockKind::TableRow,
+      TableRow,
       cells.map(cell => cell.text).join(" | "),
       source_ref=row_ref,
     )
     for cell in cells {
       let cell_block = @core.make_block(
-        @core.BlockKind::TableCell,
+        TableCell,
         cell.text,
         source_ref=row_ref,
       )
@@ -301,7 +296,7 @@ fn pdf_native_table_block_from_region(
     }
     table.children.push(row)
   }
-  PdfNativeTableLoweringResult::Lowered(
+  Lowered(
     table,
     block_indexes,
     pdf_native_source_ref_metric_string(table_source_ref),

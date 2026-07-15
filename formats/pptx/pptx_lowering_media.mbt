@@ -71,7 +71,7 @@ fn pptx_image_block_from_media(
     state, media, asset_key, output_path, source_ref,
   )
   let alt = pptx_image_alt_text(state, pic, media, slide.slide_index)
-  let block = @core.make_block(@core.BlockKind::Image, "", source_ref~)
+  let block = @core.make_block(Image, "", source_ref~)
   block.attrs.set("path", asset.path.unwrap_or(output_path))
   block.attrs.set("alt", alt)
   match media.title {
@@ -107,11 +107,7 @@ fn pptx_ensure_asset(
     None => ()
   }
   let asset_id = "pptx:" + asset_key
-  let asset = @core.make_asset_ref(
-    @core.AssetKind::Image,
-    asset_id,
-    source_ref~,
-  )
+  let asset = @core.make_asset_ref(Image, asset_id, source_ref~)
   let next_asset = {
     ..asset,
     path: Some(output_path),
@@ -121,7 +117,7 @@ fn pptx_ensure_asset(
   next_asset.attrs.set("source_path", target_part)
   next_asset.attrs.set("zip_entry_path", target_part)
   next_asset.attrs.set("zip_container_format", "pptx")
-  match state.source.path {
+  match @input.input_path(state.source) {
     Some(path) => next_asset.attrs.set("zip_container_path", path)
     None => ()
   }

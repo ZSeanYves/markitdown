@@ -105,12 +105,8 @@ fn pdf_native_lowering_plan(
                   page.text_blocks,
                 )
                 match table_result {
-                  PdfNativeTableLoweringResult::Lowered(
-                    table_block,
-                    block_indexes,
-                    source_ref_metric
-                  ) => {
-                    items.push(PdfNativeLoweringItem::Table(table_block))
+                  Lowered(table_block, block_indexes, source_ref_metric) => {
+                    items.push(Table(table_block))
                     table_reconstruction_table_count += 1
                     table_reconstruction_source_refs.push(source_ref_metric)
                     for lowered_block_index in block_indexes {
@@ -121,10 +117,10 @@ fn pdf_native_lowering_plan(
                       }
                     }
                   }
-                  PdfNativeTableLoweringResult::Skipped(reason) => {
+                  Skipped(reason) => {
                     table_reconstruction_skipped_count += 1
                     table_reconstruction_skipped_reasons.push(reason)
-                    items.push(PdfNativeLoweringItem::Paragraph(paragraph))
+                    items.push(Paragraph(paragraph))
                     for link_index in paragraph.consumed_link_indexes {
                       if !consumed_link_indexes.contains(link_index) {
                         consumed_link_indexes.push(link_index)
@@ -135,7 +131,7 @@ fn pdf_native_lowering_plan(
                 }
               }
             None => {
-              items.push(PdfNativeLoweringItem::Paragraph(paragraph))
+              items.push(Paragraph(paragraph))
               for link_index in paragraph.consumed_link_indexes {
                 if !consumed_link_indexes.contains(link_index) {
                   consumed_link_indexes.push(link_index)
@@ -188,17 +184,11 @@ fn pdf_native_page_blocks(
       let source_ref = pdf_native_line_candidate_source_ref(
         page, text_block, block_index, line, line_index, merge_group,
       )
-      let paragraph = @core.make_block(
-        @core.BlockKind::Paragraph,
-        text,
-        source_ref~,
-      )
+      let paragraph = @core.make_block(Paragraph, text, source_ref~)
       if pdf_native_should_remove_text_block(
           page, text_block, block_index, removal_candidates,
         ) {
-        paragraph.signals.push(
-          @core.make_signal(@core.SignalType::HeaderFooterCandidate, 95),
-        )
+        paragraph.signals.push(@core.make_signal(HeaderFooterCandidate, 95))
       }
       blocks.push(paragraph)
     }
@@ -219,48 +209,41 @@ fn pdf_native_header_footer_removal_candidates(
   summary : PdfNativeHeaderFooterCandidateSummary,
   policy : @parser.PdfHeaderFooterFilterPolicy,
 ) -> Array[PdfNativeHeaderFooterRemovalCandidate] {
-  if policy != @parser.PdfHeaderFooterFilterPolicy::InternalHighConfidenceOnly {
+  if policy != InternalHighConfidenceOnly {
     return []
   }
   let candidates : Array[PdfNativeHeaderFooterRemovalCandidate] = []
   for item in summary.candidates {
     match item {
-      @core.JsonValue::Object(payload) => {
-        if payload.get("confidence") != Some(@core.JsonValue::String("high")) {
+      Object(payload) => {
+        if payload.get("confidence") != Some(String("high")) {
           continue
         }
         let kind = match payload.get("kind") {
-          Some(@core.JsonValue::String(value)) => value
+          Some(String(value)) => value
           _ => continue
         }
         let normalized_text = match payload.get("normalized_text") {
-          Some(@core.JsonValue::String(value)) => value
+          Some(String(value)) => value
           _ => continue
         }
         let page_count = match payload.get("page_count") {
-          Some(@core.JsonValue::Number(value)) =>
-            @string.parse_int(value) catch {
-              _ => 0
-            }
+          Some(Number(value)) => @string.parse_int(value) catch { _ => 0 }
           _ => 0
         }
         if page_count < 2 {
           continue
         }
         let bbox = match payload.get("bbox") {
-          Some(@core.JsonValue::Object(bbox)) =>
-            pdf_native_bbox_from_json_object(bbox)
+          Some(Object(bbox)) => pdf_native_bbox_from_json_object(bbox)
           _ => None
         }
         let pages = match payload.get("pages") {
-          Some(@core.JsonValue::Array(values)) =>
+          Some(Array(values)) =>
             values
             .map(item => {
               match item {
-                @core.JsonValue::Number(value) =>
-                  @string.parse_int(value) catch {
-                    _ => -1
-                  }
+                Number(value) => @string.parse_int(value) catch { _ => -1 }
                 _ => -1
               }
             })
@@ -298,7 +281,7 @@ fn pdf_native_bbox_from_json_object(
   payload : Map[String, @core.JsonValue],
 ) -> PdfBBox? {
   let x = match payload.get("x") {
-    Some(@core.JsonValue::Number(value)) =>
+    Some(Number(value)) =>
       match pdf_native_parse_json_double(value) {
         Some(parsed) => parsed
         None => return None
@@ -306,7 +289,7 @@ fn pdf_native_bbox_from_json_object(
     _ => return None
   }
   let y = match payload.get("y") {
-    Some(@core.JsonValue::Number(value)) =>
+    Some(Number(value)) =>
       match pdf_native_parse_json_double(value) {
         Some(parsed) => parsed
         None => return None
@@ -314,7 +297,7 @@ fn pdf_native_bbox_from_json_object(
     _ => return None
   }
   let width = match payload.get("width") {
-    Some(@core.JsonValue::Number(value)) =>
+    Some(Number(value)) =>
       match pdf_native_parse_json_double(value) {
         Some(parsed) => parsed
         None => return None
@@ -322,7 +305,7 @@ fn pdf_native_bbox_from_json_object(
     _ => return None
   }
   let height = match payload.get("height") {
-    Some(@core.JsonValue::Number(value)) =>
+    Some(Number(value)) =>
       match pdf_native_parse_json_double(value) {
         Some(parsed) => parsed
         None => return None

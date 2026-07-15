@@ -7,12 +7,8 @@ test "TeX parser lowers headings lists environments tables and includes" {
     "\\end{tabular}", "\\input{chapter.tex}", "\\begin{verbatim}", "raw code", "\\end{verbatim}",
   ].join("\n")
   let result = (tex_parser().parse)(
-    @input.input_from_text_with_format(
-      text,
-      "complex.tex",
-      Some(@input.DetectedFormat::Tex),
-    ),
-    @parser.new_parse_context(@input.DetectedFormat::Tex),
+    @input.input_from_text_with_format(text, "complex.tex", Some(Tex)),
+    @parser.new_parse_context(Tex),
   ).unwrap()
   assert_true(result.document.unwrap().blocks.length() >= 4)
   assert_true(result.diagnostics.metrics.get("heading_count") != Some("0"))
@@ -28,12 +24,8 @@ test "TeX semantic edge cases keep empty environments and local includes readabl
     "\\caption{A retained caption}", "\\end{figure}", "Unknown \\custommacro{visible argument}.",
   ].join("\n")
   let result = (tex_parser().parse)(
-    @input.input_from_text_with_format(
-      text,
-      "edge.tex",
-      Some(@input.DetectedFormat::Tex),
-    ),
-    @parser.new_parse_context(@input.DetectedFormat::Tex),
+    @input.input_from_text_with_format(text, "edge.tex", Some(Tex)),
+    @parser.new_parse_context(Tex),
   ).unwrap()
   let blocks = result.document.unwrap().blocks
   assert_true(blocks.any(block => block.text.contains("appendix.tex")))
@@ -185,12 +177,12 @@ test "TeX parser exports includegraphics as a sidecar asset" {
     @input.input_from_text_with_format(
       "\\includegraphics[width=4cm]{figure.png}",
       "image.tex",
-      Some(@input.DetectedFormat::Tex),
+      Some(Tex),
     ),
-    @parser.new_parse_context(@input.DetectedFormat::Tex),
+    @parser.new_parse_context(Tex),
   ).unwrap()
   let images = result.document.unwrap().blocks.filter(block => {
-    block.kind == @core.BlockKind::Image
+    block.kind == Image
   })
   assert_eq(images.length(), 1)
   let image = images[0]

@@ -150,13 +150,13 @@ fn collect_table_blocks_with_heading_paths(
     let block_heading = match heading_paths.get(block.block_id) {
       Some(path) => path
       None =>
-        if block.kind == @core.BlockKind::Heading {
+        if block.kind == Heading {
           update_heading_path_local(heading_path, block)
         } else {
           heading_path
         }
     }
-    if block.kind == @core.BlockKind::Table {
+    if block.kind == Table {
       out.push((block, block_heading))
     }
     if block.children.length() > 0 {
@@ -202,8 +202,12 @@ fn tables_look_continued(
     right.attrs.get("header_rows").unwrap_or("0") {
     return false
   }
-  let left_ref = left.source_ref.unwrap_or(@core.empty_source_ref())
-  let right_ref = right.source_ref.unwrap_or(@core.empty_source_ref())
+  let left_ref = @core.block_source_ref(left).unwrap_or(
+    @core.empty_source_ref(),
+  )
+  let right_ref = @core.block_source_ref(right).unwrap_or(
+    @core.empty_source_ref(),
+  )
   table_location_bucket(left_ref) == table_location_bucket(right_ref) &&
   left.block_id != right.block_id
 }
@@ -252,8 +256,7 @@ fn collect_caption_bindings(
   let mut i = 0
   while i < blocks.length() {
     let block = blocks[i]
-    if block.kind == @core.BlockKind::Image &&
-      caption_text_for_block(block) != "" {
+    if block.kind == Image && caption_text_for_block(block) != "" {
       let caption_id = block_caption_block_id(block)
       bindings.push({
         caption_block_id: caption_id,
@@ -262,7 +265,7 @@ fn collect_caption_bindings(
         confidence: Some(95),
       })
     }
-    if block.kind == @core.BlockKind::Table && i + 1 < blocks.length() {
+    if block.kind == Table && i + 1 < blocks.length() {
       let next = blocks[i + 1]
       if paragraph_looks_like_caption(next) {
         bindings.push({
@@ -303,10 +306,15 @@ fn build_asset_binding_index(
         asset_binding_index_push(assets_by_path, path, asset)
       _ => ()
     }
-    match asset.attrs.get("source_path") {
-      Some(path) if path != "" =>
+    match asset.payload {
+      Some(SourcePath(path)) if path != "" =>
         asset_binding_index_push(assets_by_source_path, path, asset)
-      _ => ()
+      _ =>
+        match asset.attrs.get("source_path") {
+          Some(path) if path != "" =>
+            asset_binding_index_push(assets_by_source_path, path, asset)
+          _ => ()
+        }
     }
     let source_ref_key = asset_source_ref_key(
       asset.source_ref.unwrap_or(@core.empty_source_ref()),
@@ -390,7 +398,9 @@ fn block_owned_assets(
       )
     _ => ()
   }
-  let block_ref = block.source_ref.unwrap_or(@core.empty_source_ref())
+  let block_ref = @core.block_source_ref(block).unwrap_or(
+    @core.empty_source_ref(),
+  )
   let source_ref_key = asset_source_ref_key(block_ref)
   if source_ref_key != "" {
     collect_asset_binding_candidates(
@@ -425,7 +435,7 @@ fn asset_binding_relation(
   block : @core.CoreBlock,
   _asset : @core.AssetRef,
 ) -> String {
-  if block.kind == @core.BlockKind::Image {
+  if block.kind == Image {
     "rendered_image_block"
   } else {
     "source_ref_related_asset"
@@ -486,7 +496,7 @@ fn asset_source_ref_key_push(parts : Array[String], value : String?) -> Unit {
 
 ///|
 fn paragraph_looks_like_caption(block : @core.CoreBlock) -> Bool {
-  if block.kind != @core.BlockKind::Paragraph {
+  if block.kind != Paragraph {
     return false
   }
   let text = block.text.trim().to_lower()
@@ -557,11 +567,11 @@ fn collect_single_block_asset_ref(
   block : @core.CoreBlock,
   assets : Array[@core.AssetRef],
 ) -> Unit {
-  if block.kind == @core.BlockKind::Image {
+  if block.kind == Image {
     let alt = block.attrs.get("alt").unwrap_or("image")
     collect_image_asset_ref(
       assets,
-      block.source_ref.unwrap_or(@core.empty_source_ref()),
+      @core.block_source_ref(block).unwrap_or(@core.empty_source_ref()),
       block.attrs.get("path").unwrap_or("").trim().to_owned(),
       block.attrs.get("asset_id"),
       alt,
@@ -571,11 +581,11 @@ fn collect_single_block_asset_ref(
   match block.rich_inlines {
     Some(inlines) =>
       for inline in inlines {
-        if inline.kind == @core.InlineKind::Image {
+        if inline.kind == Image {
           collect_image_asset_ref(
             assets,
             inline.source_ref.unwrap_or(
-              block.source_ref.unwrap_or(@core.empty_source_ref()),
+              @core.block_source_ref(block).unwrap_or(@core.empty_source_ref()),
             ),
             inline.href.unwrap_or("").trim().to_owned(),
             inline.attrs.get("asset_id"),
@@ -614,15 +624,11 @@ fn collect_image_asset_ref(
       return
     }
   }
-  let asset = @core.make_asset_ref(
-    @core.AssetKind::Image,
-    asset_id,
-    source_ref~,
-  )
+  let asset = @core.make_asset_ref(Image, asset_id, source_ref~)
   let next_asset = { ..asset, path: Some(path) }
   next_asset.attrs.set("alt", alt)
   match source_path_opt {
-    Some(source_path) => next_asset.attrs.set("source_path", source_path)
+    Some(source_path) => next_asset.payload = Some(SourcePath(source_path))
     None => ()
   }
   assets.push(next_asset)
@@ -634,23 +640,23 @@ fn collect_asset_refs_input(
   input : @core.IRInput,
 ) -> @core.IRInput {
   match input {
-    @core.IRInput::Document(document) => {
+    Document(document) => {
       let assets = collect_document_asset_refs(document.blocks, document.assets)
       context.assets.val = assets
       let next = @core.document_with_assets(document, assets)
       next.diagnostics.metrics.set("asset_count", assets.length().to_string())
-      @core.IRInput::Document(sync_document_to_context(context, next))
+      Document(sync_document_to_context(context, next))
     }
-    @core.IRInput::BlockStream(blocks) => {
+    BlockStream(blocks) => {
       let assets = collect_document_asset_refs(blocks, context.assets.val)
       context.assets.val = assets
       context.diagnostics.val.metrics.set(
         "asset_count",
         assets.length().to_string(),
       )
-      @core.IRInput::BlockStream(blocks)
+      BlockStream(blocks)
     }
-    @core.IRInput::EventStream(events) => @core.IRInput::EventStream(events)
+    EventStream(events) => EventStream(events)
   }
 }
 
@@ -660,7 +666,7 @@ fn resolve_table_input(
   input : @core.IRInput,
 ) -> @core.IRInput {
   match input {
-    @core.IRInput::Document(document) => {
+    Document(document) => {
       let assembly = table_resolved_assembly(document)
       context.assembly.val = Some(assembly)
       let next = @core.document_with_assembly(document, Some(assembly))
@@ -668,9 +674,9 @@ fn resolve_table_input(
         "resolved_table_continuation_count",
         assembly.table_continuations.length().to_string(),
       )
-      @core.IRInput::Document(sync_document_to_context(context, next))
+      Document(sync_document_to_context(context, next))
     }
-    @core.IRInput::BlockStream(blocks) => {
+    BlockStream(blocks) => {
       let assembly = table_resolved_assembly_from_blocks(
         blocks,
         context.assembly.val.unwrap_or(@core.empty_document_assembly()),
@@ -680,9 +686,9 @@ fn resolve_table_input(
         "resolved_table_continuation_count",
         assembly.table_continuations.length().to_string(),
       )
-      @core.IRInput::BlockStream(blocks)
+      BlockStream(blocks)
     }
-    @core.IRInput::EventStream(events) => @core.IRInput::EventStream(events)
+    EventStream(events) => EventStream(events)
   }
 }
 
@@ -692,7 +698,7 @@ fn resolve_caption_input(
   input : @core.IRInput,
 ) -> @core.IRInput {
   match input {
-    @core.IRInput::Document(document) => {
+    Document(document) => {
       let assembly = caption_resolved_assembly(document)
       context.assembly.val = Some(assembly)
       let next = @core.document_with_assembly(document, Some(assembly))
@@ -700,9 +706,9 @@ fn resolve_caption_input(
         "resolved_caption_binding_count",
         assembly.caption_bindings.length().to_string(),
       )
-      @core.IRInput::Document(sync_document_to_context(context, next))
+      Document(sync_document_to_context(context, next))
     }
-    @core.IRInput::BlockStream(blocks) => {
+    BlockStream(blocks) => {
       let assembly = caption_resolved_assembly_from_blocks(
         blocks,
         context.assembly.val.unwrap_or(@core.empty_document_assembly()),
@@ -712,9 +718,9 @@ fn resolve_caption_input(
         "resolved_caption_binding_count",
         assembly.caption_bindings.length().to_string(),
       )
-      @core.IRInput::BlockStream(blocks)
+      BlockStream(blocks)
     }
-    @core.IRInput::EventStream(events) => @core.IRInput::EventStream(events)
+    EventStream(events) => EventStream(events)
   }
 }
 
@@ -724,7 +730,7 @@ fn resolve_asset_input(
   input : @core.IRInput,
 ) -> @core.IRInput {
   match input {
-    @core.IRInput::Document(document) => {
+    Document(document) => {
       let assembly = asset_resolved_assembly(document)
       context.assembly.val = Some(assembly)
       let next = @core.document_with_assembly(document, Some(assembly))
@@ -732,9 +738,9 @@ fn resolve_asset_input(
         "resolved_asset_binding_count",
         assembly.asset_bindings.length().to_string(),
       )
-      @core.IRInput::Document(sync_document_to_context(context, next))
+      Document(sync_document_to_context(context, next))
     }
-    @core.IRInput::BlockStream(blocks) => {
+    BlockStream(blocks) => {
       let assembly = asset_resolved_assembly_from_blocks(
         blocks,
         context.assets.val,
@@ -745,8 +751,8 @@ fn resolve_asset_input(
         "resolved_asset_binding_count",
         assembly.asset_bindings.length().to_string(),
       )
-      @core.IRInput::BlockStream(blocks)
+      BlockStream(blocks)
     }
-    @core.IRInput::EventStream(events) => @core.IRInput::EventStream(events)
+    EventStream(events) => EventStream(events)
   }
 }
