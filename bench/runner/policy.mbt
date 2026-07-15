@@ -350,7 +350,7 @@ fn decode_policy(json : Json) -> BenchPolicy {
 
 ///|
 fn decode_rss_limits(json : Map[String, Json]) -> Map[String, Int] {
-  let out : Map[String, Int] = {}
+  let out : Map[String, Int] = Map([])
   for entry in json {
     if entry.0 != "default" {
       out[entry.0] = match entry.1 {
@@ -364,7 +364,7 @@ fn decode_rss_limits(json : Map[String, Json]) -> Map[String, Int] {
 
 ///|
 fn decode_tool_matrix(json : Map[String, Json]) -> Map[String, Array[String]] {
-  let out : Map[String, Array[String]] = {}
+  let out : Map[String, Array[String]] = Map([])
   for entry in json {
     out[entry.0] = json_string_array_value(entry.1)
   }
@@ -373,7 +373,7 @@ fn decode_tool_matrix(json : Map[String, Json]) -> Map[String, Array[String]] {
 
 ///|
 fn decode_presets(json : Map[String, Json]) -> Map[String, PresetPolicy] {
-  let out : Map[String, PresetPolicy] = {}
+  let out : Map[String, PresetPolicy] = Map([])
   for entry in json {
     let object = json_object_value_required(
       entry.1,
@@ -440,7 +440,7 @@ fn decode_scenarios(json : Array[Json]) -> Array[ScenarioPolicy] {
 
 ///|
 fn decode_row_expected_routes(json : Map[String, Json]) -> Map[String, String] {
-  let out : Map[String, String] = {}
+  let out : Map[String, String] = Map([])
   for entry in json {
     let object = json_object_value_required(
       entry.1,
@@ -657,7 +657,7 @@ fn route_fidelity_status(route_provenance : Json) -> String? {
 
 ///|
 fn scenario_map(scenarios : Array[ScenarioSpec]) -> Map[String, ScenarioSpec] {
-  let out : Map[String, ScenarioSpec] = {}
+  let out : Map[String, ScenarioSpec] = Map([])
   for scenario in scenarios {
     out[scenario.scenario_id] = scenario
   }

@@ -207,15 +207,28 @@ fn pdf_ocr_ensure_dir_tree(path : String) -> Unit raise @fs.IOError {
 }
 
 ///|
-#warnings("-deprecated")
+fn pdf_ocr_remove_dir_recursive(path : String) -> Unit raise @fs.IOError {
+  if !@fs.path_exists(path) {
+    return
+  }
+  for name in @fs.read_dir(path) {
+    let child = path + "/" + name
+    if @fs.is_dir(child) {
+      pdf_ocr_remove_dir_recursive(child)
+    } else if @fs.is_file(child) {
+      @fs.remove_file(child)
+    }
+  }
+  @fs.remove_dir(path)
+}
+
+///|
 fn pdf_ocr_cleanup_temp_dir(path : String) -> Unit {
   if !@fs.path_exists(path) {
     return
   }
   ignore(
-    try
-      @async.with_event_loop(_group => @afs.rmdir(path, recursive=true)) |> Ok
-    catch {
+    try pdf_ocr_remove_dir_recursive(path) |> Ok catch {
       _ => Err(())
     },
   )

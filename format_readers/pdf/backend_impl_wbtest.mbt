@@ -715,7 +715,7 @@ test "pdf native backend diagnoses unsupported indirect image colorspaces withou
 ///|
 test "pdf image colorspace resolver bounds indirect references and ICC fallbacks" {
   for component_count in [1, 3, 4] {
-    let objects : Map[Int, PdfNativeObject] = {}
+    let objects : Map[Int, PdfNativeObject] = Map([])
     objects.set(7, {
       object_id: 7,
       dict_text: "[ /ICCBased 8 0 R ]",
@@ -740,7 +740,7 @@ test "pdf image colorspace resolver bounds indirect references and ICC fallbacks
     }
     assert_true(matches)
   }
-  let missing : Map[Int, PdfNativeObject] = {}
+  let missing : Map[Int, PdfNativeObject] = Map([])
   assert_true(
     pdf_resolve_image_color_space_value(
       PdfNativeDictValue::Reference(99, 0),
@@ -750,7 +750,7 @@ test "pdf image colorspace resolver bounds indirect references and ICC fallbacks
     )
     is None,
   )
-  let cycle : Map[Int, PdfNativeObject] = {}
+  let cycle : Map[Int, PdfNativeObject] = Map([])
   cycle.set(7, { object_id: 7, dict_text: "8 0 R", stream: None })
   cycle.set(8, { object_id: 8, dict_text: "7 0 R", stream: None })
   assert_true(
@@ -762,7 +762,7 @@ test "pdf image colorspace resolver bounds indirect references and ICC fallbacks
     )
     is None,
   )
-  let deep : Map[Int, PdfNativeObject] = {}
+  let deep : Map[Int, PdfNativeObject] = Map([])
   for object_id in 1..<11 {
     deep.set(object_id, {
       object_id,
@@ -785,7 +785,7 @@ test "pdf image colorspace resolver bounds indirect references and ICC fallbacks
     dict_text: "<< /ColorSpace [ /Indexed /DeviceRGB 1 <ff00> ] >>",
     stream: None,
   }
-  assert_true(pdf_resolve_image_color_space(truncated, {}) is None)
+  assert_true(pdf_resolve_image_color_space(truncated, Map([])) is None)
 }
 
 ///|

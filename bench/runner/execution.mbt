@@ -956,7 +956,7 @@ fn bench_provenance_with_stage_timings(
   let provenance = @convert.convert_provenance_to_json(execution.provenance)
   match provenance {
     Json::Object(fields) => {
-      let timings : Map[String, Json] = {}
+      let timings : Map[String, Json] = Map([])
       for
         entry in [
           ("detect_probe", "timing_detect_probe_ms"),

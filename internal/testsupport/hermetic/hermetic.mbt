@@ -240,19 +240,20 @@ pub fn with_unset_env_var(name : String, body : () -> Unit raise) -> Unit raise 
 }
 
 ///|
-#warnings("-deprecated")
+priv suberror HermeticProcessError {
+  SpawnFailed(String)
+  NonZeroExit(Int, String)
+}
+
+///|
 pub fn run_process(cmd : String, args : Array[String]) -> Unit raise {
-  @async.with_event_loop(_group => {
-    let result = @process.collect_output(cmd, args) catch {
-      e => abort("process failed: " + e.to_string())
-    }
-    match result {
-      (0, _, _) => ()
-      (code, _, _) =>
-        abort("process exited with code " + code.to_string() + ": " + cmd)
-    }
-  }) catch {
-    e => fail("process event loop failed: " + e.to_string())
+  let output = match
+    @rtcmd.run_resolved_command(@rtcmd.fallback_command(cmd), args) {
+    Ok(value) => value
+    Err(message) => raise HermeticProcessError::SpawnFailed(message)
+  }
+  if output.exit_code != 0 {
+    raise HermeticProcessError::NonZeroExit(output.exit_code, cmd)
   }
 }
 

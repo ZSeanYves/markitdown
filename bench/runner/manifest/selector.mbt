@@ -84,7 +84,7 @@ fn selector_stats_from_manifest(
   if lines.length() == 0 || lines[0].trim_end() != MANIFEST_HEADER {
     abort("unexpected bench manifest header: " + manifest_path)
   }
-  let skipped : Map[String, Int] = {}
+  let skipped : Map[String, Int] = Map([])
   let rows : Array[BenchRow] = []
   let selected = Ref(0)
   for i in 1..<lines.length() {
@@ -132,7 +132,7 @@ fn selector_stats_from_manifest(
 
 ///|
 pub fn empty_selector_stats() -> SelectorStats {
-  make_selector_stats(None, [], "cumulative", [], 0, [], {})
+  make_selector_stats(None, [], "cumulative", [], 0, [], Map([]))
 }
 
 ///|

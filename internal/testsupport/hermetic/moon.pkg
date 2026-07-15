@@ -1,8 +1,7 @@
 import {
-  "moonbitlang/async/process",
-  "moonbitlang/async",
   "moonbitlang/core/env",
   "moonbitlang/x/fs",
+  "ZSeanYves/markitdown/runtime/command" @rtcmd,
 }
 
 supported_targets = "native"

@@ -226,7 +226,7 @@ async test "async external runner is cancellable and reaps the child" {
     "/bin/sh",
     ResolvedCommandSource::ExplicitArg,
   )
-  let started = @async.now()
+  let started = @env.now()
   @async.with_task_group(group => {
     let task = group.spawn(() => {
       run_resolved_command_async(
@@ -250,5 +250,5 @@ async test "async external runner is cancellable and reaps the child" {
     }
     assert_true(cancelled.val)
   })
-  assert_true(@async.now() - started < 2000)
+  assert_true(@env.now() - started < 2000)
 }
