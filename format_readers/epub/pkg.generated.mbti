@@ -40,6 +40,8 @@ pub fn list_epub_spine_reading_order(EpubPackage) -> Array[String]
 
 pub fn list_parts(EpubPackage) -> Array[String]
 
+pub fn open_epub_archive(@zip.ZipArchive, String) -> EpubPackage raise EpubError
+
 pub fn open_epub_package(Bytes, String) -> EpubPackage raise EpubError
 
 pub fn prepare_epub_package_from_source(@input.InputSource) -> Result[PreparedEpubPackage, String]

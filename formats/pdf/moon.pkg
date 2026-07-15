@@ -1,5 +1,4 @@
 import {
-  "moonbitlang/async",
   "moonbitlang/async/fs" @afs,
   "moonbitlang/core/env",
   "moonbitlang/core/encoding/utf8",
@@ -14,6 +13,10 @@ import {
   "ZSeanYves/markitdown/product",
   "ZSeanYves/markitdown/runtime/command" @rtcmd,
 }
+
+import {
+  "moonbitlang/async",
+} for "wbtest"
 
 supported_targets = "native"
 

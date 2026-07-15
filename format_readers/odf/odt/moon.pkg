@@ -1,6 +1,7 @@
 import {
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/format_readers/odf/shared",
+  "ZSeanYves/markitdown/format_readers/zip_source" @zsource,
 }
 
 supported_targets = "native"

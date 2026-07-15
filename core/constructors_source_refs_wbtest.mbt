@@ -217,6 +217,8 @@ test "core block IDs and value constructors preserve provenance" {
     Some("mbt"),
   )
   assert_true(make_inline_line_break().kind == InlineKind::LineBreak)
+  assert_true(make_inline_text_without_source_ref("plain").source_ref is None)
+  assert_true(make_inline_line_break_without_source_ref().source_ref is None)
   assert_true(
     make_inline_link("link", "href", title=Some("title")).href == Some("href"),
   )
@@ -232,4 +234,16 @@ test "core block IDs and value constructors preserve provenance" {
     |> source_map_add_asset_entry(map_entry)
   assert_eq(source_map.block_entries.length(), 1)
   assert_eq(source_map.asset_entries.length(), 1)
+  let rendered = make_block_without_source_ref(BlockKind::Paragraph, "plain")
+    |> block_with_literal_rendering(minimal_inline_escape=true)
+    |> block_with_rendered_markdown("rendered")
+  assert_true(block_is_literal(rendered))
+  assert_true(block_inline_escape_mode(rendered) == Some("minimal"))
+  assert_true(block_rendered_markdown(rendered) == Some("rendered"))
+  let compact = make_block_without_source_ref(BlockKind::Paragraph, "compact")
+    |> block_with_compact_source_ref(
+      make_compact_source_ref("file", "html", 1, 1, 0, 7),
+    )
+    |> block_with_attr("render_inline_escape_mode", "legacy")
+  assert_true(block_inline_escape_mode(compact) == Some("legacy"))
 }

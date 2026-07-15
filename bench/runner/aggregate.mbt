@@ -6,7 +6,7 @@ fn aggregate_cases(
   policy : BenchPolicy,
 ) -> Array[CaseAggregate] {
   let scenario_map = scenario_map(scenarios)
-  let groups : Map[String, Array[SampleRow]] = {}
+  let groups : Map[String, Array[SampleRow]] = Map([])
   for sample in samples {
     let key = sample.scenario_id + "|" + sample.tool + "|" + sample.bench_id
     groups[key] = match groups.get(key) {
@@ -206,9 +206,9 @@ fn summarize_run(
 
 ///|
 fn rss_gate_summary(samples : Array[SampleRow], policy : BenchPolicy) -> Json {
-  let peaks : Map[String, Int64] = {}
-  let formats : Map[String, String] = {}
-  let sizes : Map[String, String] = {}
+  let peaks : Map[String, Int64] = Map([])
+  let formats : Map[String, String] = Map([])
+  let sizes : Map[String, String] = Map([])
   let missing : Array[String] = []
   for sample in samples {
     if sample.tool != "moonbit-cli" || sample.status != "ok" {
@@ -349,7 +349,7 @@ fn summarize_scenarios(
 
 ///|
 fn summarize_tools(cases : Array[CaseAggregate]) -> Array[ToolSummary] {
-  let groups : Map[String, Array[CaseAggregate]] = {}
+  let groups : Map[String, Array[CaseAggregate]] = Map([])
   for case_ in cases {
     groups[case_.tool] = match groups.get(case_.tool) {
       Some(existing) => {
@@ -378,7 +378,7 @@ fn summarize_tools(cases : Array[CaseAggregate]) -> Array[ToolSummary] {
 
 ///|
 fn summarize_formats(cases : Array[CaseAggregate]) -> Array[FormatSummary] {
-  let groups : Map[String, Array[CaseAggregate]] = {}
+  let groups : Map[String, Array[CaseAggregate]] = Map([])
   for case_ in cases {
     groups[case_.format] = match groups.get(case_.format) {
       Some(existing) => {
@@ -524,7 +524,7 @@ fn bench_row_count(cases : Array[CaseAggregate]) -> Int {
 
 ///|
 fn comparable_row_count(cases : Array[CaseAggregate]) -> Int {
-  let grouped : Map[String, Bool] = {}
+  let grouped : Map[String, Bool] = Map([])
   for case_ in cases {
     let key = case_.scenario_id + "|" + case_.bench_id
     let ok = case_is_comparable(case_)
@@ -569,7 +569,7 @@ fn bench_rows_for_format(cases : Array[CaseAggregate]) -> Int {
 
 ///|
 fn comparable_rows_for_format(cases : Array[CaseAggregate]) -> Int {
-  let grouped : Map[String, Bool] = {}
+  let grouped : Map[String, Bool] = Map([])
   for case_ in cases {
     let key = case_.bench_id + "|" + case_.format
     let ok = case_is_comparable(case_)

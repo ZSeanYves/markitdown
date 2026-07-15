@@ -2,6 +2,7 @@ import {
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/format_readers/xml",
   "ZSeanYves/markitdown/format_readers/zip",
+  "ZSeanYves/markitdown/format_readers/zip_source" @zsource,
   "moonbitlang/core/encoding/utf8",
 }
 

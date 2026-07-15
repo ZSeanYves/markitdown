@@ -715,7 +715,7 @@ test "pdf native backend diagnoses unsupported indirect image colorspaces withou
 ///|
 test "pdf image colorspace resolver bounds indirect references and ICC fallbacks" {
   for component_count in [1, 3, 4] {
-    let objects : Map[Int, PdfNativeObject] = {}
+    let objects : Map[Int, PdfNativeObject] = Map([])
     objects.set(7, {
       object_id: 7,
       dict_text: "[ /ICCBased 8 0 R ]",
@@ -740,7 +740,7 @@ test "pdf image colorspace resolver bounds indirect references and ICC fallbacks
     }
     assert_true(matches)
   }
-  let missing : Map[Int, PdfNativeObject] = {}
+  let missing : Map[Int, PdfNativeObject] = Map([])
   assert_true(
     pdf_resolve_image_color_space_value(
       PdfNativeDictValue::Reference(99, 0),
@@ -750,7 +750,7 @@ test "pdf image colorspace resolver bounds indirect references and ICC fallbacks
     )
     is None,
   )
-  let cycle : Map[Int, PdfNativeObject] = {}
+  let cycle : Map[Int, PdfNativeObject] = Map([])
   cycle.set(7, { object_id: 7, dict_text: "8 0 R", stream: None })
   cycle.set(8, { object_id: 8, dict_text: "7 0 R", stream: None })
   assert_true(
@@ -762,7 +762,7 @@ test "pdf image colorspace resolver bounds indirect references and ICC fallbacks
     )
     is None,
   )
-  let deep : Map[Int, PdfNativeObject] = {}
+  let deep : Map[Int, PdfNativeObject] = Map([])
   for object_id in 1..<11 {
     deep.set(object_id, {
       object_id,
@@ -785,7 +785,7 @@ test "pdf image colorspace resolver bounds indirect references and ICC fallbacks
     dict_text: "<< /ColorSpace [ /Indexed /DeviceRGB 1 <ff00> ] >>",
     stream: None,
   }
-  assert_true(pdf_resolve_image_color_space(truncated, {}) is None)
+  assert_true(pdf_resolve_image_color_space(truncated, Map([])) is None)
 }
 
 ///|
@@ -1491,6 +1491,73 @@ test "pdf native backend reads xref stream documents without scan fallback" {
   assert_true(
     document.diagnostics.metrics.get("pdf_xref_mode") == Some("xref_stream_v1"),
   )
+  assert_true(
+    document.diagnostics.metrics.get("pdf_input_access_mode") ==
+    Some("cursor_xref"),
+  )
+}
+
+///|
+test "pdf cursor fallback and read failures stay controlled" {
+  let bytes = pdf_wbtest_xref_stream_pdf_bytes(
+    [
+      (1, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"),
+      (2, "<< /Length 47 >>\nstream\nBT /F1 12 Tf (fallback) Tj ET\nendstream"),
+      (
+        3, "<< /Type /Page /Parent 4 0 R /MediaBox [0 0 200 200] /Resources << /Font << /F1 1 0 R >> >> /Contents 2 0 R >>",
+      ),
+      (4, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
+      (5, "<< /Type /Catalog /Pages 4 0 R >>"),
+    ],
+    5,
+    6,
+  )
+  let unknown_size_reader = @input.make_input_reader(fn(offset, length) {
+    let start = offset.to_int()
+    if start >= bytes.length() {
+      return Ok(Bytes::new(0))
+    }
+    Ok(bytes[start:(start + length.min(4096)).min(bytes.length())].to_owned())
+  })
+  let fallback = match
+    extract_pdf_native_document(
+      @input.input_from_reader_with_format(
+        unknown_size_reader,
+        "fallback.pdf",
+        Some(@input.DetectedFormat::Pdf),
+      ),
+    ) {
+    Ok(value) => value
+    Err(err) => fail("unknown-size PDF fallback failed: " + err.to_string())
+  }
+  assert_true(
+    fallback.diagnostics.metrics.get("pdf_input_access_mode") ==
+    Some("materialized_xref"),
+  )
+
+  let failing_reader = @input.make_input_reader(
+    fn(_, _) { Err("forced cursor read failure") },
+    size=bytes.length().to_int64(),
+  )
+  let failed = extract_pdf_native_document(
+    @input.input_from_reader_with_format(
+      failing_reader,
+      "failed.pdf",
+      Some(@input.DetectedFormat::Pdf),
+    ),
+  )
+  assert_true(failed is Err(_))
+
+  let bad_cursor = @input.open_source_cursor(
+    @input.input_from_reader(
+      @input.make_input_reader(
+        fn(_, _) { Err("cursor error") },
+        size=bytes.length().to_int64(),
+      ),
+    ),
+  ).unwrap()
+  assert_true(pdf_cursor_read_exact(bad_cursor, -1, 1) is Err(_))
+  assert_true(pdf_cursor_read_exact(bad_cursor, 0, 1) is Err(_))
 }
 
 ///|
@@ -1538,6 +1605,10 @@ test "pdf native backend expands object streams referenced from xref streams" {
   assert_true(
     document.diagnostics.metrics.get("pdf_xref_mode") ==
     Some("xref_stream_objstm_v1"),
+  )
+  assert_true(
+    document.diagnostics.metrics.get("pdf_input_access_mode") ==
+    Some("cursor_xref"),
   )
 }
 
@@ -1686,6 +1757,7 @@ test "pdf stream slicing covers absent malformed newline and length variants" {
     "<< /Length 3 >> stream\nabc\nendstream", "<< /Length 3 >> stream\r\nabc\r\nendstream",
     "<< /Length 3 >> stream\rabc\rendstream", "<< /Length 3 >> streamabcendstream",
     "<< /Length 99 >> stream\nabc\nendstream", "<< /Length -1 >> stream\nabc\nendstream",
+    "<< /Length 2147483647 >> stream\nabc\nendstream",
   ]
   for body in cases {
     match pdf_extract_stream_slice(@utf8.encode(body)) {

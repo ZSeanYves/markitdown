@@ -184,6 +184,37 @@ fn doctor_command(runner : @command.RunnerContext) -> Int {
 }
 
 ///|
+fn run_engine_worker(args : Array[String]) -> Int {
+  if args.length() != 3 {
+    return 2
+  }
+  let detected_format = @input.parse_detected_format(args[0])
+  if detected_format == @input.DetectedFormat::Unknown {
+    return 2
+  }
+  let source = @input.input_from_path_with_format(
+    args[1],
+    Some(detected_format),
+  )
+  let execution = @convert.convert_input_with_provenance(
+    source,
+    bench_convert_options(detected_format),
+  )
+  match execution {
+    Ok(value) => {
+      ensure_parent_dir(args[2]) catch {
+        _ => return 1
+      }
+      @fs.write_string_to_file(args[2], value.result.content, encoding="utf8") catch {
+        _ => return 1
+      }
+      0
+    }
+    Err(_) => 1
+  }
+}
+
+///|
 fn[T] unwrap_or_report(result : Result[T, BenchError], label : String) -> T? {
   match result {
     Ok(value) => Some(value)

@@ -65,6 +65,37 @@ test "large lowered HTML uses the bounded block-stream pipeline profile" {
 }
 
 ///|
+test "large lowered XLSX skips redundant tree normalization" {
+  let options = @product.default_product_options()
+  let diagnostics = @core.empty_diagnostics()
+  diagnostics.metrics.set("detected_format", "xlsx")
+  let context = make_pass_context_with_product_options(
+    @product.ConvertMode::Balanced,
+    options,
+    execution_profile=@product.ExecutionProfile::LargeAdaptive,
+    lowering_profile=@product.LoweringProfile::LargeAdaptive,
+    render_profile=@product.RenderProfile::SparseTableMarkdown,
+    diagnostics~,
+  )
+  let cell = @core.make_block_without_source_ref(
+    @core.BlockKind::TableCell,
+    "lowered cell text",
+  )
+  let result = run_default_pipeline(@core.IRInput::BlockStream([cell]), context).unwrap()
+  match result {
+    @core.IRInput::BlockStream(blocks) =>
+      assert_eq(blocks[0].text, "lowered cell text")
+    _ => fail("xlsx bounded pipeline must preserve block stream shape")
+  }
+  assert_true(
+    context.diagnostics.val.metrics.get("pipeline_profile") ==
+    Some("xlsx_large_lowered"),
+  )
+  assert_eq(context.diagnostics.val.pass_trace.length(), 1)
+  assert_eq(context.diagnostics.val.pass_trace[0], "CollectAssetRefsPass")
+}
+
+///|
 test "large lowered structured text keeps only the asset collection pass" {
   for format in ["toml", "tex", "rst", "asciidoc"] {
     let diagnostics = @core.empty_diagnostics()

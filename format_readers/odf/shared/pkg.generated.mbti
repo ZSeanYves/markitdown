@@ -1,6 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "ZSeanYves/markitdown/format_readers/odf/shared"
 
+import {
+  "ZSeanYves/markitdown/format_readers/zip",
+}
+
 // Values
 pub fn inspect_odp_document(OdpDocument) -> OdpInspectReport
 
@@ -10,9 +14,15 @@ pub fn inspect_odt_document(OdtDocument) -> OdtInspectReport
 
 pub fn inspect_odt_package(Bytes) -> OdfPackageInfo raise
 
+pub fn open_odp_archive(@zip.ZipArchive) -> OdpDocument raise
+
 pub fn open_odp_document(Bytes) -> OdpDocument raise
 
+pub fn open_ods_archive(@zip.ZipArchive) -> OdsDocument raise
+
 pub fn open_ods_document(Bytes) -> OdsDocument raise
+
+pub fn open_odt_archive(@zip.ZipArchive) -> OdtDocument raise
 
 pub fn open_odt_document(Bytes) -> OdtDocument raise
 

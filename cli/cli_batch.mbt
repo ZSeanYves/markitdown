@@ -79,7 +79,7 @@ fn cli_provenance_with_stage_timings(
 
 ///|
 fn convert_stage_timings_json(metrics : Map[String, String]) -> Json {
-  let fields : Map[String, Json] = {}
+  let fields : Map[String, Json] = Map([])
   for
     entry in [
       ("detect_probe", "timing_detect_probe_ms"),

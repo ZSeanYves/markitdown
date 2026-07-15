@@ -627,6 +627,33 @@ test "zip validation reports unsupported compression and nested archive candidat
       }
     }
   }
+  let transient = try
+    @zip.read_entry_transient(archive, "unsupported.bin") |> Ok
+  catch {
+    e => Err(e)
+  }
+  match transient {
+    Err(@zip.UnsupportedCompressionMethod(99)) => ()
+    Err(err) =>
+      fail("unexpected transient compression error: " + err.to_string())
+    Ok(_) => fail("transient read should reject unsupported compression")
+  }
+}
+
+///|
+test "zip transient read reports malformed deflate data" {
+  let archive = @zip.open_zip(build_zip([("bad.bin", "raw", 8)])) catch {
+    e => fail("open malformed deflate zip failed: " + e.to_string())
+  }
+  let result = try @zip.read_entry_transient(archive, "bad.bin") |> Ok catch {
+    e => Err(e)
+  }
+  match result {
+    Err(@zip.DecodeFailed(message)) =>
+      assert_true(message.contains("decode failed for `bad.bin`"))
+    Err(err) => fail("unexpected malformed deflate error: " + err.to_string())
+    Ok(_) => fail("malformed deflate entry should not decode")
+  }
 }
 
 ///|

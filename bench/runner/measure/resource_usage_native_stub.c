@@ -367,6 +367,37 @@ MOONBIT_FFI_EXPORT int32_t markitdown_bench_native_measure_command(
     }
   }
 
+  posix_spawnattr_t spawn_attributes;
+  int attributes_rc = posix_spawnattr_init(&spawn_attributes);
+  if (attributes_rc != 0) {
+    posix_spawn_file_actions_destroy(&file_actions);
+    free(cwd_c_path);
+    free(stdout_c_path);
+    free(stderr_c_path);
+    free_argv(argv, argv_count);
+    free_argv(envp, env_count);
+    if (out_measurement_error != NULL) *out_measurement_error = 1;
+    if (out_spawn_error != NULL) *out_spawn_error = attributes_rc;
+    return -11;
+  }
+  short spawn_flags = POSIX_SPAWN_SETPGROUP;
+  attributes_rc = posix_spawnattr_setflags(&spawn_attributes, spawn_flags);
+  if (attributes_rc == 0) {
+    attributes_rc = posix_spawnattr_setpgroup(&spawn_attributes, 0);
+  }
+  if (attributes_rc != 0) {
+    posix_spawnattr_destroy(&spawn_attributes);
+    posix_spawn_file_actions_destroy(&file_actions);
+    free(cwd_c_path);
+    free(stdout_c_path);
+    free(stderr_c_path);
+    free_argv(argv, argv_count);
+    free_argv(envp, env_count);
+    if (out_measurement_error != NULL) *out_measurement_error = 1;
+    if (out_spawn_error != NULL) *out_spawn_error = attributes_rc;
+    return -12;
+  }
+
   int64_t started_us = bench_now_us();
   pid_t pid = 0;
   char **effective_env = envp != NULL ? envp : environ;
@@ -376,7 +407,7 @@ MOONBIT_FFI_EXPORT int32_t markitdown_bench_native_measure_command(
       &pid,
       argv[0],
       &file_actions,
-      NULL,
+      &spawn_attributes,
       argv,
       effective_env
     );
@@ -385,11 +416,12 @@ MOONBIT_FFI_EXPORT int32_t markitdown_bench_native_measure_command(
       &pid,
       argv[0],
       &file_actions,
-      NULL,
+      &spawn_attributes,
       argv,
       effective_env
     );
   }
+  posix_spawnattr_destroy(&spawn_attributes);
   posix_spawn_file_actions_destroy(&file_actions);
   free(cwd_c_path);
   free(stdout_c_path);
@@ -440,7 +472,9 @@ MOONBIT_FFI_EXPORT int32_t markitdown_bench_native_measure_command(
     }
     if (timeout_ms > 0 && (bench_now_us() - started_us) / 1000LL >= timeout_ms) {
       did_timeout = true;
-      kill(pid, SIGKILL);
+      if (kill(-pid, SIGKILL) != 0) {
+        kill(pid, SIGKILL);
+      }
       while ((wait_rc = wait4(pid, &status, 0, &usage)) < 0 && errno == EINTR) {
       }
       break;

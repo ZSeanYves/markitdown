@@ -309,7 +309,7 @@ fn markdown_literal_tail_needs_escape(ch : Char) -> Bool {
 
 ///|
 fn literal_text_block(block : @core.CoreBlock) -> Bool {
-  block.attrs.get("literal") == Some("true")
+  @core.block_is_literal(block)
 }
 
 ///|
