@@ -7,8 +7,8 @@ pub fn collect_xml_validation_issues(
 
   if doc.has_unsupported_doctype {
     issues.push({
-      kind: XmlValidationIssueKind::UnsupportedDoctype,
-      severity: XmlValidationSeverity::Warning,
+      kind: UnsupportedDoctype,
+      severity: Warning,
       line_start: None,
       line_end: None,
       message: "doctype is preserved as unsupported syntax and never fetched or expanded",
@@ -18,8 +18,8 @@ pub fn collect_xml_validation_issues(
   let root_count = count_root_elements(doc.nodes)
   if root_count > 1 {
     issues.push({
-      kind: XmlValidationIssueKind::MultipleRootElements,
-      severity: XmlValidationSeverity::Error,
+      kind: MultipleRootElements,
+      severity: Error,
       line_start: None,
       line_end: None,
       message: "document has multiple root elements",
@@ -29,8 +29,8 @@ pub fn collect_xml_validation_issues(
   let has_non_empty_node = doc.nodes.length() > 0
   if !has_non_empty_node {
     issues.push({
-      kind: XmlValidationIssueKind::EmptyDocument,
-      severity: XmlValidationSeverity::Warning,
+      kind: EmptyDocument,
+      severity: Warning,
       line_start: None,
       line_end: None,
       message: "document is empty",
@@ -49,8 +49,8 @@ pub fn validate_xml_document(doc : XmlDocument) -> XmlValidationReport {
 
   for issue in issues {
     match issue.severity {
-      XmlValidationSeverity::Warning => warning_count += 1
-      XmlValidationSeverity::Error => error_count += 1
+      Warning => warning_count += 1
+      Error => error_count += 1
     }
   }
 
@@ -114,17 +114,17 @@ fn visit_xml_node(node : XmlNode, stats : XmlInspectStats, depth : Int) -> Unit 
   }
 
   match node {
-    XmlNode::Element(element) => {
+    Element(element) => {
       stats.element_count += 1
       stats.attribute_count += element.attributes.length()
       for child in element.children {
         visit_xml_node(child, stats, depth + 1)
       }
     }
-    XmlNode::Text(_) => stats.text_node_count += 1
-    XmlNode::Comment(_) => stats.comment_count += 1
-    XmlNode::ProcessingInstruction(_) => stats.processing_instruction_count += 1
-    XmlNode::CData(_) => stats.cdata_count += 1
+    Text(_) => stats.text_node_count += 1
+    Comment(_) => stats.comment_count += 1
+    ProcessingInstruction(_) => stats.processing_instruction_count += 1
+    CData(_) => stats.cdata_count += 1
   }
 }
 
@@ -133,7 +133,7 @@ fn count_root_elements(nodes : Array[XmlNode]) -> Int {
   let mut count = 0
   for node in nodes {
     match node {
-      XmlNode::Element(_) => count += 1
+      Element(_) => count += 1
       _ => ()
     }
   }

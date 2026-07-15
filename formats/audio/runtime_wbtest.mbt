@@ -52,23 +52,18 @@ fn fake_audio_transcript_json(
 ///|
 test "audio runtime fails closed on invalid json and empty transcription" {
   match
-    parse_audio_transcript_json_payload(
-      "not-json",
-      @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
-      Some("eng"),
-    ) {
-    Err(AudioTranscribeError::OutputParseFailed(msg)) =>
-      assert_true(msg.contains("invalid JSON"))
+    parse_audio_transcript_json_payload("not-json", Audio(Wav), Some("eng")) {
+    Err(OutputParseFailed(msg)) => assert_true(msg.contains("invalid JSON"))
     _ => fail("expected invalid json failure")
   }
 
   match
     parse_audio_transcript_json_payload(
       "{\n\"provider_name\":\"mock_audio\",\n\"metadata\":{\"language\":\"en\"},\n\"segments\":[]\n}\n",
-      @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
+      Audio(Wav),
       Some("eng"),
     ) {
-    Err(AudioTranscribeError::EmptyResult(msg)) =>
+    Err(EmptyResult(msg)) =>
       assert_true(msg.contains("zero transcript segments"))
     _ => fail("expected empty transcription failure")
   }
@@ -79,7 +74,7 @@ test "audio parser lowers transcript into media pipeline document with segment r
   let source = @input.input_from_path(
     "samples/fixtures/contracts/audio/contract.m4a",
   )
-  let detected = @input.DetectedFormat::Audio(@input.AudioFormat::M4a)
+  let detected = @input.DetectedFormat::Audio(M4a)
   let context = @parser.parse_context_with_audio_options(
     @parser.new_parse_context(detected),
     @parser.explicit_audio_options(language=Some("eng")),
@@ -99,7 +94,7 @@ test "audio parser lowers transcript into media pipeline document with segment r
     Ok(value) => value
     Err(msg) => fail("expected audio parser success: " + msg)
   }
-  assert_true(parsed.mode == @parser.ParserMode::MediaPipeline)
+  assert_true(parsed.mode == MediaPipeline)
   let document = parsed.document.unwrap_or(@core.empty_document_ir())
   assert_eq(document.blocks[2].text, "Transcript")
   let segment = document.blocks[3]
@@ -117,7 +112,7 @@ test "audio parser fail closes on malformed timestamps and empty transcript text
   let source = @input.input_from_path(
     "samples/fixtures/contracts/audio/contract.wav",
   )
-  let detected = @input.DetectedFormat::Audio(@input.AudioFormat::Wav)
+  let detected = @input.DetectedFormat::Audio(Wav)
   let context = @parser.new_parse_context(detected)
 
   match
@@ -156,7 +151,7 @@ test "audio parser fail closes on malformed timestamps and empty transcript text
 
 ///|
 test "audio transcript JSON ABI covers defaults optional values and validation" {
-  let format = @input.DetectedFormat::Audio(@input.AudioFormat::Wav)
+  let format = @input.DetectedFormat::Audio(Wav)
   let payload =
     #|{
     #|  "metadata": {"language":"auto", "duration_ms":1000, "sample_rate_hz":16000, "channel_count":2},
@@ -187,7 +182,7 @@ test "audio transcript JSON ABI covers defaults optional values and validation" 
 
 ///|
 test "audio transcript JSON malformed shapes fail closed by taxonomy" {
-  let format = @input.DetectedFormat::Audio(@input.AudioFormat::Mp3)
+  let format = @input.DetectedFormat::Audio(Mp3)
   let malformed = [
     "", "[]", "{}", "{\"segments\":{}}", "{\"segments\":[1]}", "{\"segments\":[{}]}",
     "{\"segments\":[{\"text\":1,\"start_ms\":0,\"end_ms\":1}]}", "{\"segments\":[{\"text\":\"x\",\"start_ms\":\"0\",\"end_ms\":1}]}",
@@ -267,12 +262,12 @@ test "audio command finalization records resources and classifies process failur
   let backend = @rtcmd.make_resolved_command(
     "mock-audio",
     "mock-audio --json",
-    @rtcmd.ResolvedCommandSource::ExplicitArg,
+    ExplicitArg,
   )
   let ffmpeg = @rtcmd.make_resolved_command(
     "mock-ffmpeg",
     "mock-ffmpeg -i input",
-    @rtcmd.ResolvedCommandSource::Path,
+    Path,
   )
   let plan : AudioCommandPlan = {
     backend_command: backend,
@@ -291,7 +286,7 @@ test "audio command finalization records resources and classifies process failur
     audio_backend_wall_ms: 5UL,
     audio_normalization_used: true,
   }
-  let format = @input.DetectedFormat::Audio(@input.AudioFormat::Wav)
+  let format = @input.DetectedFormat::Audio(Wav)
   let success = finalize_audio_transcribe_command_result(
     (0, "stdout note", "stderr note"),
     plan,
@@ -316,7 +311,7 @@ test "audio command finalization records resources and classifies process failur
     None,
     metrics,
   )
-  assert_true(missing is Err(AudioTranscribeError::OutputParseFailed(_)))
+  assert_true(missing is Err(OutputParseFailed(_)))
   assert_true(
     finalize_audio_transcribe_command_result(
       (127, "", "command not found"),
@@ -326,7 +321,7 @@ test "audio command finalization records resources and classifies process failur
       None,
       metrics,
     )
-    is Err(AudioTranscribeError::CommandUnavailable(_)),
+    is Err(CommandUnavailable(_)),
   )
   assert_true(
     finalize_audio_transcribe_command_result(
@@ -337,7 +332,7 @@ test "audio command finalization records resources and classifies process failur
       None,
       metrics,
     )
-    is Err(AudioTranscribeError::NotConfigured(_)),
+    is Err(NotConfigured(_)),
   )
   assert_true(
     finalize_audio_transcribe_command_result(
@@ -348,7 +343,7 @@ test "audio command finalization records resources and classifies process failur
       None,
       metrics,
     )
-    is Err(AudioTranscribeError::ExecutionFailed(_)),
+    is Err(ExecutionFailed(_)),
   )
   let derived = audio_runtime_metrics(plan, 6UL)
   assert_eq(derived.external_process_invocation_count, 2)
@@ -358,11 +353,7 @@ test "audio command finalization records resources and classifies process failur
 
 ///|
 test "audio collector captures real subprocess output and launch failures" {
-  let shell = @rtcmd.make_resolved_command(
-    "/bin/sh",
-    "/bin/sh",
-    @rtcmd.ResolvedCommandSource::ExplicitArg,
-  )
+  let shell = @rtcmd.make_resolved_command("/bin/sh", "/bin/sh", ExplicitArg)
   let collected = collect_audio_transcribe_output(
     shell,
     ["-c", "printf audio-out; printf audio-err >&2; exit 6"],
@@ -377,7 +368,7 @@ test "audio collector captures real subprocess output and launch failures" {
       [],
       "audio contract",
     )
-    is Err(AudioTranscribeError::ExecutionFailed(_)),
+    is Err(ExecutionFailed(_)),
   )
 }
 
@@ -406,45 +397,35 @@ test "audio command plan validates model and executes controlled WAV runtime" {
   assert_eq(audio_validate_model_path().unwrap(), root + "/model")
   let wav = audio_prepare_input_for_backend(
     "samples/fixtures/contracts/audio/contract.wav",
-    @input.AudioFormat::Wav,
+    Wav,
     root + "/wav",
   ).unwrap()
   assert_true(wav.normalized_audio_path is None)
   assert_eq(wav.preprocess_invocation_count, 0)
   let mp3 = audio_prepare_input_for_backend(
     "samples/fixtures/contracts/audio/contract.mp3",
-    @input.AudioFormat::Mp3,
+    Mp3,
     root + "/mp3",
   ).unwrap()
   assert_true(mp3.normalized_audio_path is None)
   let source = @input.input_from_path(
     "samples/fixtures/contracts/audio/contract.wav",
   )
-  let command = build_audio_transcribe_command(
-    source,
-    @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
-    Some("eng"),
-  ).unwrap()
+  let command = build_audio_transcribe_command(source, Audio(Wav), Some("eng")).unwrap()
   assert_true(command.1.contains("--request-json"))
-  match
-    run_audio_transcribe_command(
-      source,
-      @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
-      Some("eng"),
-    ) {
+  match run_audio_transcribe_command(source, Audio(Wav), Some("eng")) {
     Ok(result) => assert_true(result.segments.length() > 0)
     Err(error) => assert_true(error.to_string() != "")
   }
   assert_true(
-    build_audio_transcribe_command(source, @input.DetectedFormat::Pdf, None)
-    is Err(AudioTranscribeError::ExecutionFailed(_)),
+    build_audio_transcribe_command(source, Pdf, None) is Err(ExecutionFailed(_)),
   )
   assert_true(
     build_audio_transcribe_command(
       @input.input_from_text("audio"),
-      @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
+      Audio(Wav),
       None,
     )
-    is Err(AudioTranscribeError::ExecutionFailed(_)),
+    is Err(ExecutionFailed(_)),
   )
 }

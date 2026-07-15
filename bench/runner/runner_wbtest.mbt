@@ -676,11 +676,8 @@ test "bench engine options enable product-default direct image OCR and explicit 
     "samples/fixtures/contracts/ocr/ocr_medium_self_multi_column_v1.png",
   )
   let options = bench_convert_options_for_row(row)
-  assert_true(
-    options.explicit_format ==
-    Some(@input.DetectedFormat::Image(@input.ImageFormat::Png)),
-  )
-  assert_true(options.ocr_options.intent == @parser.OcrIntent::Explicit)
+  assert_true(options.explicit_format == Some(Image(Png)))
+  assert_true(options.ocr_options.intent == Explicit)
 }
 
 ///|
@@ -702,11 +699,8 @@ test "bench engine options detect the project synthetic OCR image format" {
     "samples/fixtures/contracts/ocr/ocr_medium_self_multi_column_v1.png",
   )
   let options = bench_convert_options_for_row(row)
-  assert_true(
-    options.explicit_format ==
-    Some(@input.DetectedFormat::Image(@input.ImageFormat::Png)),
-  )
-  assert_true(options.ocr_options.intent == @parser.OcrIntent::Explicit)
+  assert_true(options.explicit_format == Some(Image(Png)))
+  assert_true(options.ocr_options.intent == Explicit)
 }
 
 ///|
@@ -921,10 +915,7 @@ test "bench CLI normalizes executable and moon runner prefixes" {
   )
   assert_true(normalize_bench_args(["catalog"]) == ["catalog"])
   assert_true(unwrap_or_report(Ok(7), "ok") == Some(7))
-  let failed : Int? = unwrap_or_report(
-    Err(BenchError::InvalidArgument("bad")),
-    "error",
-  )
+  let failed : Int? = unwrap_or_report(Err(InvalidArgument("bad")), "error")
   assert_true(failed is None)
 }
 
@@ -1372,7 +1363,7 @@ test "benchmark performance gate enforces per-row 2x and per-format 3x" {
   }
   let failed = performance_gate_summary([moon, external_fast])
   match failed {
-    Json::Object(fields) => {
+    Object(fields) => {
       let performance = fields.get("status").unwrap()
       assert_true(performance == "fail".to_json())
       assert_true(fields.get("row_violation_count").unwrap() == (1).to_json())
@@ -1385,7 +1376,7 @@ test "benchmark performance gate enforces per-row 2x and per-format 3x" {
   let external_slow = { ..external_fast, median_wall_us: Some(400L) }
   let passed = performance_gate_summary([moon, external_slow])
   match passed {
-    Json::Object(fields) => {
+    Object(fields) => {
       assert_true(fields.get("status").unwrap() == "pass".to_json())
       assert_true(fields.get("row_violation_count").unwrap() == (0).to_json())
       assert_true(

@@ -15,7 +15,7 @@ fn fake_ocr_page(language : String?) -> OcrPageModel {
 ///|
 fn fake_success_provider(
   expected_language : String?,
-  expected_provider_kind? : OcrProviderKind = OcrProviderKind::Tesseract,
+  expected_provider_kind? : OcrProviderKind = Tesseract,
 ) -> (OcrProviderRequest) -> Result[OcrProviderResult, OcrProviderError] {
   fn(request : OcrProviderRequest) {
     if request.provider_kind != expected_provider_kind {
@@ -44,7 +44,7 @@ test "in-memory OCR input materializes inside runtime and preserves logical sour
   let source = @input.input_from_bytes_with_format(
     bytes,
     "archive.zip::images/scan.png",
-    Some(@input.DetectedFormat::Image(@input.ImageFormat::Png)),
+    Some(Image(Png)),
   )
   let invoked_path : Ref[String] = { val: "" }
   let provider = fn(request : OcrProviderRequest) {
@@ -57,7 +57,7 @@ test "in-memory OCR input materializes inside runtime and preserves logical sour
   }
   let parsed = image_ocr_parser_result_with_provider(
     source,
-    @input.DetectedFormat::Image(@input.ImageFormat::Png),
+    Image(Png),
     @parser.explicit_ocr_options(),
     provider,
   ).unwrap()
@@ -73,9 +73,9 @@ test "in-memory OCR input materializes inside runtime and preserves logical sour
     @input.input_from_bytes_with_format(
       Bytes::from_array([1, 2, 3].map(Int::to_byte)),
       "bad.png",
-      Some(@input.DetectedFormat::Image(@input.ImageFormat::Png)),
+      Some(Image(Png)),
     ),
-    @input.DetectedFormat::Image(@input.ImageFormat::Png),
+    Image(Png),
     @parser.explicit_ocr_options(),
     fn(_request) {
       calls.val += 1
@@ -88,7 +88,7 @@ test "in-memory OCR input materializes inside runtime and preserves logical sour
 
 ///|
 test "image OCR parser messages fallback policy and empty result remain explicit" {
-  let png = @input.DetectedFormat::Image(@input.ImageFormat::Png)
+  let png = @input.DetectedFormat::Image(Png)
   assert_true(image_requires_explicit_ocr_message(png).contains("png"))
   assert_true(image_ocr_disabled_message(png).contains("OCR is disabled"))
   let no_language = @parser.explicit_ocr_options()
@@ -108,41 +108,25 @@ test "image OCR parser messages fallback policy and empty result remain explicit
     ).contains("language="),
   )
   assert_true(
-    image_ocr_provider_error_message(
-      png,
-      OcrProviderError::ExecutionFailed("boom"),
-    ).contains("image_format=png"),
-  )
-  assert_true(
-    image_ocr_provider_should_fallback(OcrProviderError::NotConfigured("x")),
-  )
-  assert_true(
-    image_ocr_provider_should_fallback(
-      OcrProviderError::CommandUnavailable("x"),
+    image_ocr_provider_error_message(png, ExecutionFailed("boom")).contains(
+      "image_format=png",
     ),
   )
+  assert_true(image_ocr_provider_should_fallback(NotConfigured("x")))
+  assert_true(image_ocr_provider_should_fallback(CommandUnavailable("x")))
+  assert_true(!image_ocr_provider_should_fallback(ExecutionFailed("x")))
+  assert_true(!image_ocr_provider_should_fallback(OutputParseFailed("x")))
+  assert_true(!image_ocr_provider_should_fallback(EmptyResult("x")))
   assert_true(
-    !image_ocr_provider_should_fallback(OcrProviderError::ExecutionFailed("x")),
-  )
-  assert_true(
-    !image_ocr_provider_should_fallback(
-      OcrProviderError::OutputParseFailed("x"),
+    image_ocr_provider_fallback_note(PaddleOcr, Tesseract).contains(
+      "paddle_ocr",
     ),
-  )
-  assert_true(
-    !image_ocr_provider_should_fallback(OcrProviderError::EmptyResult("x")),
-  )
-  assert_true(
-    image_ocr_provider_fallback_note(
-      OcrProviderKind::PaddleOcr,
-      OcrProviderKind::Tesseract,
-    ).contains("paddle_ocr"),
   )
   let original = make_ocr_provider_result([], "empty", diagnostics=["base"])
   let annotated = image_ocr_result_with_fallback_note(
     original,
-    OcrProviderKind::PaddleOcr,
-    OcrProviderKind::Tesseract,
+    PaddleOcr,
+    Tesseract,
   )
   assert_eq(original.diagnostics.length(), 1)
   assert_eq(annotated.diagnostics.length(), 2)
@@ -152,34 +136,32 @@ test "image OCR parser messages fallback policy and empty result remain explicit
       png,
       language,
       original,
-      OcrProviderSelectionTarget::DirectImageBalanced,
+      DirectImageBalanced,
     ) {
     Err(error) => assert_true(error.contains("empty OCR model"))
     Ok(_) => fail("empty OCR result must fail closed")
   }
   let context = @parser.new_parse_context(png)
-  assert_true(
-    ocr_options_from_parse_context(context).intent == @parser.OcrIntent::Auto,
-  )
+  assert_true(ocr_options_from_parse_context(context).intent == Auto)
   assert_true(ocr_image_parser_capability().produces_layout)
 }
 
 ///|
 test "image OCR parser lowers injected OCR pages into document paragraphs and success diagnostics" {
   let source = @input.input_from_path("scan.png")
-  let detected = @input.DetectedFormat::Image(@input.ImageFormat::Png)
+  let detected = @input.DetectedFormat::Image(Png)
   let parsed = match
     image_ocr_parser_result_with_provider(
       source,
       detected,
       @parser.explicit_ocr_options(language=Some("eng")),
       fake_success_provider(Some("eng")),
-      requested_mode=Some(@parser.ParserMode::LayoutTwoStage),
+      requested_mode=Some(LayoutTwoStage),
     ) {
     Ok(value) => value
     Err(msg) => fail("expected OCR parser success: " + msg)
   }
-  assert_true(parsed.mode == @parser.ParserMode::LayoutTwoStage)
+  assert_true(parsed.mode == LayoutTwoStage)
   let document = parsed.document.unwrap_or(@core.empty_document_ir())
   assert_eq(document.blocks.length(), 2)
   assert_eq(document.blocks[0].text, "MoonBit OCR")
@@ -214,10 +196,10 @@ test "image OCR parser injected provider keeps fail-closed taxonomy and no-call 
   match
     image_ocr_parser_result_with_provider(
       @input.input_from_path("scan.png"),
-      @input.DetectedFormat::Image(@input.ImageFormat::Png),
+      Image(Png),
       @parser.explicit_ocr_options(language=Some("eng")),
       failing_provider,
-      requested_mode=Some(@parser.ParserMode::LayoutTwoStage),
+      requested_mode=Some(LayoutTwoStage),
     ) {
     Err(msg) => {
       assert_true(msg.contains("boom"))
@@ -235,7 +217,7 @@ test "image OCR parser injected provider keeps fail-closed taxonomy and no-call 
   match
     image_ocr_parser_result_with_provider(
       @input.input_from_path("scan.png"),
-      @input.DetectedFormat::Image(@input.ImageFormat::Png),
+      Image(Png),
       @parser.default_ocr_options(),
       skipped_provider,
     ) {
@@ -245,7 +227,7 @@ test "image OCR parser injected provider keeps fail-closed taxonomy and no-call 
   match
     image_ocr_parser_result_with_provider(
       @input.input_from_path("scan.png"),
-      @input.DetectedFormat::Image(@input.ImageFormat::Png),
+      Image(Png),
       @parser.disabled_ocr_options(),
       skipped_provider,
     ) {
@@ -264,10 +246,10 @@ async test "image OCR async parser lowers injected provider result" {
   let parsed = match
     image_ocr_parser_result_with_async_provider(
       @input.input_from_path("scan.png"),
-      @input.DetectedFormat::Image(@input.ImageFormat::Png),
+      Image(Png),
       @parser.explicit_ocr_options(language=Some("eng")),
       provider,
-      requested_mode=Some(@parser.ParserMode::LayoutTwoStage),
+      requested_mode=Some(LayoutTwoStage),
     ) {
     Ok(value) => value
     Err(msg) => fail("expected async OCR parser success: " + msg)
@@ -289,7 +271,7 @@ async test "image OCR async parser preserves no-call and invalid-format failures
       Err(OcrProviderError::ExecutionFailed("must not run"))
     }).unwrap()
   }
-  let png = @input.DetectedFormat::Image(@input.ImageFormat::Png)
+  let png = @input.DetectedFormat::Image(Png)
   assert_true(
     image_ocr_parser_result_with_async_provider(
       @input.input_from_path("scan.png"),
@@ -311,7 +293,7 @@ async test "image OCR async parser preserves no-call and invalid-format failures
   assert_true(
     image_ocr_parser_result_with_async_provider(
       @input.input_from_path("not-image.txt"),
-      @input.DetectedFormat::Txt,
+      Txt,
       @parser.explicit_ocr_options(),
       provider,
     )
@@ -335,9 +317,9 @@ async test "image OCR async accurate route controls fallback taxonomy" {
   }
   let parsed = image_ocr_parser_result_with_async_provider_target(
     @input.input_from_path("scan.png"),
-    @input.DetectedFormat::Image(@input.ImageFormat::Png),
+    Image(Png),
     @parser.explicit_ocr_options(language=Some("eng")),
-    OcrProviderSelectionTarget::DirectImageAccurate,
+    DirectImageAccurate,
     fallback_provider,
   ).unwrap()
   assert_eq(calls.val, 2)
@@ -346,9 +328,9 @@ async test "image OCR async accurate route controls fallback taxonomy" {
   )
   let failed = image_ocr_parser_result_with_async_provider_target(
     @input.input_from_path("scan.png"),
-    @input.DetectedFormat::Image(@input.ImageFormat::Png),
+    Image(Png),
     @parser.explicit_ocr_options(),
-    OcrProviderSelectionTarget::DirectImageAccurate,
+    DirectImageAccurate,
     async fn(_request) {
       @async.with_timeout_opt(1000, fn() {
         Err(OcrProviderError::CommandUnavailable("missing"))
@@ -394,17 +376,17 @@ test "image OCR parser splits wide OCR lines into reading-order-aware paragraph 
   let parsed = match
     image_ocr_parser_result_with_provider(
       @input.input_from_path("scan.png"),
-      @input.DetectedFormat::Image(@input.ImageFormat::Png),
+      Image(Png),
       @parser.explicit_ocr_options(language=Some("eng")),
       provider,
-      requested_mode=Some(@parser.ParserMode::LayoutTwoStage),
+      requested_mode=Some(LayoutTwoStage),
     ) {
     Ok(value) => value
     Err(msg) => fail("expected OCR parser success: " + msg)
   }
   let document = parsed.document.unwrap_or(@core.empty_document_ir())
   assert_eq(document.blocks.length(), 3)
-  assert_true(document.blocks[0].kind == @core.BlockKind::Paragraph)
+  assert_true(document.blocks[0].kind == Paragraph)
   assert_eq(document.blocks[0].text, "FIELD NOTES ON COASTAL WEATHER")
   assert_eq(
     document.blocks[1].text,
@@ -415,7 +397,7 @@ test "image OCR parser splits wide OCR lines into reading-order-aware paragraph 
     "Afternoon summaries emphasize vessel and maintenance notices",
   )
   let heading_signal = document.blocks[0].signals.any(fn(signal) {
-    signal.signal_type == @core.SignalType::HeadingCandidate
+    signal.signal_type == HeadingCandidate
   })
   assert_true(heading_signal)
   let left_ref = document.blocks[1].source_ref.unwrap_or(
@@ -432,7 +414,7 @@ test "image OCR parser splits wide OCR lines into reading-order-aware paragraph 
 test "Paddle OCR wrapper payload parses batch geometry hierarchy and diagnostics" {
   let request = make_ocr_provider_batch_request(
     ["page-1.png", "page-2.png"],
-    OcrProviderKind::PaddleOcr,
+    PaddleOcr,
     language=Some("eng"),
   )
   let payload =
@@ -472,10 +454,7 @@ test "Paddle OCR wrapper payload parses batch geometry hierarchy and diagnostics
 
 ///|
 test "Paddle OCR wrapper payload failures remain classified and fail closed" {
-  let request = make_ocr_provider_request(
-    "page.png",
-    OcrProviderKind::PaddleOcr,
-  )
+  let request = make_ocr_provider_request("page.png", PaddleOcr)
   let invalid_payloads = [
     "", "not json", "[]", "{}", "{\"provider_name\":\"paddle\"}", "{\"provider_name\":\"paddle\",\"jobs\":[1]}",
     "{\"provider_name\":\"paddle\",\"jobs\":[{\"job_id\":1,\"status\":\"ok\",\"pages\":[]}]}",
@@ -494,14 +473,14 @@ test "Paddle OCR wrapper payload failures remain classified and fail closed" {
       "{\"provider_name\":\"paddle\",\"jobs\":[{\"job_id\":\"job-0\",\"status\":\"empty\",\"pages\":[]}]}",
       request,
     )
-    is Err(OcrProviderError::EmptyResult(_)),
+    is Err(EmptyResult(_)),
   )
   assert_true(
     parse_paddle_ocr_wrapper_payload(
       "{\"provider_name\":\"paddle\",\"jobs\":[{\"job_id\":\"job-0\",\"status\":\"error\",\"error_message\":\"failed\",\"pages\":[]}]}",
       request,
     )
-    is Err(OcrProviderError::ExecutionFailed(_)),
+    is Err(ExecutionFailed(_)),
   )
 }
 
@@ -509,7 +488,7 @@ test "Paddle OCR wrapper payload failures remain classified and fail closed" {
 test "Paddle OCR explicit wrapper command plans finalize and clean temporary files" {
   let request = make_ocr_provider_request(
     "scan.png",
-    OcrProviderKind::PaddleOcr,
+    PaddleOcr,
     language=Some("eng"),
   )
   let plan = build_paddle_ocr_command_with_wrapper(
@@ -526,7 +505,7 @@ test "Paddle OCR explicit wrapper command plans finalize and clean temporary fil
       let result_path = argv[argv.length() - 1]
       let payload = "{\"provider_name\":\"paddle_ocr\",\"provider_version\":\"test\",\"jobs\":[{\"job_id\":\"job-0\",\"status\":\"ok\",\"pages\":[{\"page_index\":0,\"blocks\":[]}]}]}"
       @fs.write_string_to_file(result_path, payload, encoding="utf8") catch {
-        err => return Err(OcrProviderError::ExecutionFailed(err.to_string()))
+        err => return Err(ExecutionFailed(err.to_string()))
       }
       Ok((0, "wrapper stdout", "wrapper stderr"))
     },
@@ -541,25 +520,22 @@ test "Paddle OCR explicit wrapper command plans finalize and clean temporary fil
 
 ///|
 test "Paddle OCR explicit wrapper command classifies plan collector and process failures" {
-  let request = make_ocr_provider_request(
-    "scan.png",
-    OcrProviderKind::PaddleOcr,
-  )
+  let request = make_ocr_provider_request("scan.png", PaddleOcr)
   assert_true(
     build_paddle_ocr_command_with_wrapper(request, "  ")
-    is Err(OcrProviderError::NotConfigured(_)),
+    is Err(NotConfigured(_)),
   )
   assert_true(
     build_paddle_ocr_command_with_wrapper(request, "python 'unterminated")
-    is Err(OcrProviderError::NotConfigured(_)),
+    is Err(NotConfigured(_)),
   )
   assert_true(
     run_paddle_ocr_provider_with_command_with_wrapper(
       request,
       "/usr/bin/env python3 wrapper.py",
-      fn(_, _) { Err(OcrProviderError::ExecutionFailed("collector")) },
+      fn(_, _) { Err(ExecutionFailed("collector")) },
     )
-    is Err(OcrProviderError::ExecutionFailed(_)),
+    is Err(ExecutionFailed(_)),
   )
   assert_true(
     run_paddle_ocr_provider_with_command_with_wrapper(
@@ -567,7 +543,7 @@ test "Paddle OCR explicit wrapper command classifies plan collector and process 
       "/usr/bin/env python3 wrapper.py",
       fn(_, _) { Ok((0, "", "")) },
     )
-    is Err(OcrProviderError::OutputParseFailed(_)),
+    is Err(OutputParseFailed(_)),
   )
   assert_true(
     run_paddle_ocr_provider_with_command_with_wrapper(
@@ -575,7 +551,7 @@ test "Paddle OCR explicit wrapper command classifies plan collector and process 
       "/usr/bin/env python3 wrapper.py",
       fn(_, _) { Ok((127, "", "command not found")) },
     )
-    is Err(OcrProviderError::CommandUnavailable(_)),
+    is Err(CommandUnavailable(_)),
   )
   assert_true(
     run_paddle_ocr_provider_with_command_with_wrapper(
@@ -583,17 +559,13 @@ test "Paddle OCR explicit wrapper command classifies plan collector and process 
       "/usr/bin/env python3 wrapper.py",
       fn(_, _) { Ok((2, "failed", "")) },
     )
-    is Err(OcrProviderError::ExecutionFailed(_)),
+    is Err(ExecutionFailed(_)),
   )
 }
 
 ///|
 test "Paddle OCR collector captures real subprocess output and launch failures" {
-  let shell = @rtcmd.make_resolved_command(
-    "/bin/sh",
-    "/bin/sh",
-    @rtcmd.ResolvedCommandSource::ExplicitArg,
-  )
+  let shell = @rtcmd.make_resolved_command("/bin/sh", "/bin/sh", ExplicitArg)
   let collected = collect_paddle_ocr_output(shell, [
     "-c", "printf paddle-out; printf paddle-err >&2; exit 4",
   ]).unwrap()
@@ -605,7 +577,7 @@ test "Paddle OCR collector captures real subprocess output and launch failures" 
       @rtcmd.fallback_command("/definitely/missing/paddle-wrapper"),
       [],
     )
-    is Err(OcrProviderError::ExecutionFailed(_)),
+    is Err(ExecutionFailed(_)),
   )
 }
 
@@ -620,17 +592,14 @@ test "Paddle OCR runtime utilities cover configuration paths JSON and recursive 
   )
   assert_true(official_paddle_wrapper_missing_message().contains("PaddleOCR"))
   assert_true(
-    paddle_ocr_split_command_config_error(
-      "TEST",
-      @rtcmd.ShellCommandSplitError::TrailingEscape,
-    )
-    is OcrProviderError::NotConfigured(_),
+    paddle_ocr_split_command_config_error("TEST", TrailingEscape)
+    is NotConfigured(_),
   )
   assert_eq(
     paddle_json_quote_string("a\"b\\c\nd\re\tf"),
     "\"a\\\"b\\\\c\\nd\\re\\tf\"",
   )
-  let empty = make_ocr_provider_batch_request([], OcrProviderKind::PaddleOcr)
+  let empty = make_ocr_provider_batch_request([], PaddleOcr)
   assert_true(ocr_runtime_request_temp_dir(empty).contains("paddle_empty_"))
   assert_true(paddle_ocr_batch_request_json(empty).contains("\"jobs\":[]"))
   let root = ".tmp/tests/ocr_runtime/utility-contract"
@@ -647,10 +616,7 @@ test "Paddle OCR runtime utilities cover configuration paths JSON and recursive 
   ocr_runtime_cleanup_temp_dir(root)
   assert_true(!@fs.path_exists(root))
   ocr_runtime_cleanup_temp_dir(root)
-  let request = make_ocr_provider_request(
-    "scan.png",
-    OcrProviderKind::PaddleOcr,
-  )
+  let request = make_ocr_provider_request("scan.png", PaddleOcr)
   match build_paddle_ocr_command(request) {
     Ok(command) => {
       assert_true(command.0 != "")

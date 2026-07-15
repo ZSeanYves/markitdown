@@ -94,7 +94,7 @@ fn collect_cover_candidates(
   for item in manifest {
     if has_manifest_property(item, "cover-image") {
       out.push({
-        source: EpubCoverCandidateSource::ManifestProperty,
+        source: ManifestProperty,
         path: item.resolved_path,
         manifest_id: Some(item.id),
         media_type: item.media_type,
@@ -110,7 +110,7 @@ fn collect_cover_candidates(
       match manifest_by_id.get(id.trim().to_owned()) {
         Some(item) =>
           out.push({
-            source: EpubCoverCandidateSource::MetadataCover,
+            source: MetadataCover,
             path: item.resolved_path,
             manifest_id: Some(item.id),
             media_type: item.media_type,
@@ -125,7 +125,7 @@ fn collect_cover_candidates(
   match guide_cover_path {
     Some(path) =>
       out.push({
-        source: EpubCoverCandidateSource::GuideReference,
+        source: GuideReference,
         path,
         manifest_id: find_manifest_id_by_path(manifest, path),
         media_type: find_manifest_media_type_by_path(manifest, path),
@@ -194,9 +194,9 @@ fn cover_candidate_sort_key(candidate : EpubCoverCandidate) -> String {
 ///|
 fn cover_candidate_source_text(source : EpubCoverCandidateSource) -> String {
   match source {
-    EpubCoverCandidateSource::ManifestProperty => "0"
-    EpubCoverCandidateSource::MetadataCover => "1"
-    EpubCoverCandidateSource::GuideReference => "2"
+    ManifestProperty => "0"
+    MetadataCover => "1"
+    GuideReference => "2"
   }
 }
 

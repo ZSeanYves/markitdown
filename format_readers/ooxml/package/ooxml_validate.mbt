@@ -1,7 +1,7 @@
 ///|
 pub fn validate_ooxml_package(
   pkg : OoxmlPackage,
-  mode? : OoxmlValidationMode = OoxmlValidationMode::Strict,
+  mode? : OoxmlValidationMode = Strict,
 ) -> OoxmlValidationReport {
   let inventory = inspect_ooxml_inventory(pkg)
   let issues = collect_ooxml_validation_issues(pkg, mode~)
@@ -9,8 +9,8 @@ pub fn validate_ooxml_package(
   let mut warning_count = 0
   for issue in issues {
     match issue.severity {
-      OoxmlValidationSeverity::Error => error_count = error_count + 1
-      OoxmlValidationSeverity::Warning => warning_count = warning_count + 1
+      Error => error_count = error_count + 1
+      Warning => warning_count = warning_count + 1
     }
   }
   {
@@ -27,10 +27,10 @@ pub fn validate_ooxml_package(
 ///|
 fn collect_ooxml_validation_issues(
   pkg : OoxmlPackage,
-  mode? : OoxmlValidationMode = OoxmlValidationMode::Strict,
+  mode? : OoxmlValidationMode = Strict,
 ) -> Array[OoxmlValidationIssue] {
   let issues : Array[OoxmlValidationIssue] = []
-  if mode == OoxmlValidationMode::Compatible {
+  if mode == Compatible {
     return issues
   }
 
@@ -53,8 +53,8 @@ fn collect_ooxml_validation_issues(
       if rel_id == "" {
         issues.push(
           make_validation_issue(
-            OoxmlValidationIssueKind::MissingRelationshipId,
-            OoxmlValidationSeverity::Error,
+            MissingRelationshipId,
+            Error,
             source_part,
             rels_part_name,
             None,
@@ -69,8 +69,8 @@ fn collect_ooxml_validation_issues(
       } else if seen_ids.contains(rel_id) {
         issues.push(
           make_validation_issue(
-            OoxmlValidationIssueKind::DuplicateRelationshipId,
-            OoxmlValidationSeverity::Error,
+            DuplicateRelationshipId,
+            Error,
             source_part,
             rels_part_name,
             Some(rel_id),
@@ -89,8 +89,8 @@ fn collect_ooxml_validation_issues(
       if rel_type == "" {
         issues.push(
           make_validation_issue(
-            OoxmlValidationIssueKind::MissingRelationshipType,
-            OoxmlValidationSeverity::Error,
+            MissingRelationshipType,
+            Error,
             source_part,
             rels_part_name,
             if rel_id == "" {
@@ -111,8 +111,8 @@ fn collect_ooxml_validation_issues(
       if target == "" {
         issues.push(
           make_validation_issue(
-            OoxmlValidationIssueKind::MissingRelationshipTarget,
-            OoxmlValidationSeverity::Error,
+            MissingRelationshipTarget,
+            Error,
             source_part,
             rels_part_name,
             if rel_id == "" {
@@ -124,11 +124,11 @@ fn collect_ooxml_validation_issues(
             "relationship is missing attribute: Target",
           ),
         )
-      } else if target_mode == OoxmlTargetMode::External {
+      } else if target_mode == External {
         issues.push(
           make_validation_issue(
-            OoxmlValidationIssueKind::ExternalRelationship,
-            OoxmlValidationSeverity::Warning,
+            ExternalRelationship,
+            Warning,
             source_part,
             rels_part_name,
             if rel_id == "" {
@@ -149,8 +149,8 @@ fn collect_ooxml_validation_issues(
           InvalidPartPath(_) => {
             issues.push(
               make_validation_issue(
-                OoxmlValidationIssueKind::UnsafeRelationshipTarget,
-                OoxmlValidationSeverity::Error,
+                UnsafeRelationshipTarget,
+                Error,
                 source_part,
                 rels_part_name,
                 if rel_id == "" {
@@ -244,23 +244,19 @@ fn validation_issue_sort_key(issue : OoxmlValidationIssue) -> String {
 ///|
 fn severity_text(severity : OoxmlValidationSeverity) -> String {
   match severity {
-    OoxmlValidationSeverity::Error => "0"
-    OoxmlValidationSeverity::Warning => "1"
+    Error => "0"
+    Warning => "1"
   }
 }
 
 ///|
 fn issue_kind_text(kind : OoxmlValidationIssueKind) -> String {
   match kind {
-    OoxmlValidationIssueKind::ExternalRelationship => "ExternalRelationship"
-    OoxmlValidationIssueKind::DuplicateRelationshipId =>
-      "DuplicateRelationshipId"
-    OoxmlValidationIssueKind::MissingRelationshipId => "MissingRelationshipId"
-    OoxmlValidationIssueKind::MissingRelationshipType =>
-      "MissingRelationshipType"
-    OoxmlValidationIssueKind::MissingRelationshipTarget =>
-      "MissingRelationshipTarget"
-    OoxmlValidationIssueKind::UnsafeRelationshipTarget =>
-      "UnsafeRelationshipTarget"
+    ExternalRelationship => "ExternalRelationship"
+    DuplicateRelationshipId => "DuplicateRelationshipId"
+    MissingRelationshipId => "MissingRelationshipId"
+    MissingRelationshipType => "MissingRelationshipType"
+    MissingRelationshipTarget => "MissingRelationshipTarget"
+    UnsafeRelationshipTarget => "UnsafeRelationshipTarget"
   }
 }

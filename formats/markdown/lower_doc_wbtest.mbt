@@ -37,7 +37,7 @@ fn markdown_complex_contract_source() -> @input.InputSource {
       #|---
     ),
     "complex.md",
-    Some(@input.DetectedFormat::Markdown),
+    Some(Markdown),
   )
 }
 
@@ -45,22 +45,13 @@ fn markdown_complex_contract_source() -> @input.InputSource {
 test "markdown complex lowering covers grouped DOM and block stream semantics" {
   let source = markdown_complex_contract_source()
   let parser = markdown_parser()
-  let dom = (parser.parse)(
-    source,
-    @parser.new_parse_context(@input.DetectedFormat::Markdown),
-  ).unwrap()
+  let dom = (parser.parse)(source, @parser.new_parse_context(Markdown)).unwrap()
   let document = dom.document.unwrap()
   assert_true(document.blocks.length() >= 9)
-  assert_true(
-    document.blocks.any(block => block.kind == @core.BlockKind::Heading),
-  )
-  assert_true(document.blocks.any(block => block.kind == @core.BlockKind::List))
-  assert_true(
-    document.blocks.any(block => block.kind == @core.BlockKind::BlockQuote),
-  )
-  assert_true(
-    document.blocks.any(block => block.kind == @core.BlockKind::Table),
-  )
+  assert_true(document.blocks.any(block => block.kind == Heading))
+  assert_true(document.blocks.any(block => block.kind == List))
+  assert_true(document.blocks.any(block => block.kind == BlockQuote))
+  assert_true(document.blocks.any(block => block.kind == Table))
   assert_true(
     document.blocks.any(block => {
       block.attrs.get("raw_kind") == Some("markdown_footnote_definition")
@@ -68,8 +59,8 @@ test "markdown complex lowering covers grouped DOM and block stream semantics" {
   )
   assert_true(document.blocks.any(block => block.attrs.contains("asset_id")))
   let stream_context = @parser.parse_context_with_limits(
-    @parser.new_parse_context(@input.DetectedFormat::Markdown),
-    Some(@parser.ParserMode::BlockStreaming),
+    @parser.new_parse_context(Markdown),
+    Some(BlockStreaming),
     None,
     None,
     None,
@@ -79,7 +70,7 @@ test "markdown complex lowering covers grouped DOM and block stream semantics" {
   let streamed = (parser.parse)(source, stream_context).unwrap()
   let blocks = streamed.block_stream.unwrap()
   assert_true(blocks.length() >= 8)
-  assert_true(blocks.any(block => block.kind == @core.BlockKind::Raw))
+  assert_true(blocks.any(block => block.kind == Raw))
   assert_true(
     streamed.diagnostics.same_mode_degradation.contains(
       "markdown_block_stream_list_literal_preserved",
@@ -97,11 +88,11 @@ test "markdown large literal lowering preserves source and records strategy" {
   let source = @input.input_from_text_with_format(
     "# Title\n\n- item\n",
     "large.md",
-    Some(@input.DetectedFormat::Markdown),
+    Some(Markdown),
   )
   let context = @parser.parse_context_with_limits(
-    @parser.new_parse_context(@input.DetectedFormat::Markdown),
-    Some(@parser.ParserMode::BlockStreaming),
+    @parser.new_parse_context(Markdown),
+    Some(BlockStreaming),
     None,
     None,
     None,
@@ -126,11 +117,11 @@ test "markdown lowering reports unclosed frontmatter and fences without crashing
   let source = @input.input_from_text_with_format(
     "---\ntitle: open\nbody without closing marker",
     "unclosed.md",
-    Some(@input.DetectedFormat::Markdown),
+    Some(Markdown),
   )
   let result = (markdown_parser().parse)(
     source,
-    @parser.new_parse_context(@input.DetectedFormat::Markdown),
+    @parser.new_parse_context(Markdown),
   ).unwrap()
   assert_true(
     result.diagnostics.degraded_features.contains(
@@ -140,11 +131,11 @@ test "markdown lowering reports unclosed frontmatter and fences without crashing
   let fenced = @input.input_from_text_with_format(
     "```moonbit\nfn main {}",
     "fence.md",
-    Some(@input.DetectedFormat::Markdown),
+    Some(Markdown),
   )
   let fenced_result = (markdown_parser().parse)(
     fenced,
-    @parser.new_parse_context(@input.DetectedFormat::Markdown),
+    @parser.new_parse_context(Markdown),
   ).unwrap()
   assert_true(fenced_result.document.unwrap().blocks.length() == 1)
 }

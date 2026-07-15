@@ -27,7 +27,7 @@ priv struct JsonInspectStats {
 ///|
 fn inspect_json_value(value : JsonValue, depth : Int) -> JsonInspectStats {
   match value {
-    JsonValue::Object(members) => {
+    Object(members) => {
       let mut node_count = 1
       let mut object_count = 1
       let mut array_count = 0
@@ -54,7 +54,7 @@ fn inspect_json_value(value : JsonValue, depth : Int) -> JsonInspectStats {
         max_depth,
       }
     }
-    JsonValue::Array(values) => {
+    Array(values) => {
       let mut node_count = 1
       let mut object_count = 0
       let mut array_count = 1
@@ -81,10 +81,7 @@ fn inspect_json_value(value : JsonValue, depth : Int) -> JsonInspectStats {
         max_depth,
       }
     }
-    JsonValue::String(_)
-    | JsonValue::Number(_)
-    | JsonValue::Bool(_)
-    | JsonValue::Null =>
+    String(_) | Number(_) | Bool(_) | Null =>
       {
         node_count: 1,
         object_count: 0,

@@ -4,10 +4,7 @@ test "RST facade delegates parsing inspection and inline lowering" {
   let doc = parse_rst_document(text)
   assert_true(inspect_text_markup_document(doc, text).block_count > 0)
   assert_true(
-    parse_text_markup_inlines(
-      "Body `link <https://example.test>`_",
-      TextMarkupFormat::Rst,
-    ).length() >
+    parse_text_markup_inlines("Body `link <https://example.test>`_", Rst).length() >
     0,
   )
 }

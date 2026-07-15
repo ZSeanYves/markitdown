@@ -8,7 +8,7 @@ fn markup_test_block(
     meta.set("synthetic_table", "true")
   }
   {
-    kind: TextMarkupBlockKind::Table,
+    kind: Table,
     text,
     level: 0,
     ordered: false,
@@ -22,34 +22,32 @@ fn markup_test_block(
 test "text markup inline parsers cover links code text and truncation" {
   let rst = parse_text_markup_inlines(
     "prefix ``literal`` `Docs <https://example.test>`_ `code` suffix",
-    TextMarkupFormat::Rst,
+    Rst,
   )
-  assert_true(rst.any(item => item.kind == TextMarkupInlineKind::Link))
-  assert_true(
-    rst.filter(item => item.kind == TextMarkupInlineKind::Code).length() == 2,
-  )
-  assert_true(rst.any(item => item.kind == TextMarkupInlineKind::Text))
+  assert_true(rst.any(item => item.kind == Link))
+  assert_true(rst.filter(item => item.kind == Code).length() == 2)
+  assert_true(rst.any(item => item.kind == Text))
   let rst_note = parse_text_markup_inlines(
     "See [1]_ and [RFC]_ for details.",
-    TextMarkupFormat::Rst,
+    Rst,
   )
   assert_true(rst_note.any(item => item.href == Some("#1")))
   assert_true(rst_note.any(item => item.href == Some("#RFC")))
   let asciidoc = parse_text_markup_inlines(
     "prefix link:https://example.test[Docs] and `code` suffix",
-    TextMarkupFormat::Asciidoc,
+    Asciidoc,
   )
   assert_true(asciidoc.any(item => item.href == Some("https://example.test")))
-  assert_true(asciidoc.any(item => item.kind == TextMarkupInlineKind::Code))
+  assert_true(asciidoc.any(item => item.kind == Code))
   let tex = parse_text_markup_inlines(
     "prefix \\href{https://example.test}{Docs} and \\texttt{code} suffix",
-    TextMarkupFormat::Tex,
+    Tex,
   )
   assert_true(tex.any(item => item.href == Some("https://example.test")))
-  assert_true(tex.any(item => item.kind == TextMarkupInlineKind::Code))
+  assert_true(tex.any(item => item.kind == Code))
   let tex_refs = parse_text_markup_inlines(
     "See \\url{https://example.test}, \\ref{section-one}, \\cite{paper}, and \\footnote{detail}.",
-    TextMarkupFormat::Tex,
+    Tex,
   )
   assert_true(tex_refs.any(item => item.href == Some("https://example.test")))
   assert_true(tex_refs.any(item => item.href == Some("#section-one")))
@@ -57,45 +55,34 @@ test "text markup inline parsers cover links code text and truncation" {
   assert_true(tex_refs.any(item => item.text == "detail"))
   let asciidoc_refs = parse_text_markup_inlines(
     "xref:chapter[Chapter] and <<target,Target>> footnote:[detail]",
-    TextMarkupFormat::Asciidoc,
+    Asciidoc,
   )
   assert_true(asciidoc_refs.any(item => item.href == Some("#chapter")))
   assert_true(asciidoc_refs.any(item => item.href == Some("#target")))
   assert_true(asciidoc_refs.any(item => item.text == "detail"))
-  let unmatched = parse_text_markup_inlines(
-    "`unterminated",
-    TextMarkupFormat::Rst,
-  )
-  assert_true(unmatched.all(item => item.kind == TextMarkupInlineKind::Text))
-  let double_unmatched = parse_text_markup_inlines(
-    "``unterminated",
-    TextMarkupFormat::Rst,
-  )
+  let unmatched = parse_text_markup_inlines("`unterminated", Rst)
+  assert_true(unmatched.all(item => item.kind == Text))
+  let double_unmatched = parse_text_markup_inlines("``unterminated", Rst)
+  assert_true(double_unmatched.any(item => item.kind == Code))
   assert_true(
-    double_unmatched.any(item => item.kind == TextMarkupInlineKind::Code),
-  )
-  assert_true(
-    parse_text_markup_inlines("`label <url>`", TextMarkupFormat::Rst).any(item => {
-      item.kind == TextMarkupInlineKind::Code
+    parse_text_markup_inlines("`label <url>`", Rst).any(item => {
+      item.kind == Code
     }),
   )
   assert_true(
-    parse_text_markup_inlines(
-      "link:url[unterminated",
-      TextMarkupFormat::Asciidoc,
-    ).all(item => item.kind == TextMarkupInlineKind::Text),
+    parse_text_markup_inlines("link:url[unterminated", Asciidoc).all(item => {
+      item.kind == Text
+    }),
   )
   assert_true(
-    parse_text_markup_inlines("\\href{url}{unterminated", TextMarkupFormat::Tex).all(item => {
-        item.kind == TextMarkupInlineKind::Text
-      },
-    ),
+    parse_text_markup_inlines("\\href{url}{unterminated", Tex).all(item => {
+      item.kind == Text
+    }),
   )
   assert_true(
-    parse_text_markup_inlines("\\texttt{unterminated", TextMarkupFormat::Tex).all(item => {
-        item.kind == TextMarkupInlineKind::Text
-      },
-    ),
+    parse_text_markup_inlines("\\texttt{unterminated", Tex).all(item => {
+      item.kind == Text
+    }),
   )
 }
 
@@ -123,27 +110,27 @@ test "text markup inline helper consumers reject invalid offsets" {
 test "text markup table parsers cover pipe AsciiDoc and TeX layouts" {
   let pipe = parse_text_markup_table(
     markup_test_block("| Name | Value |\n| alpha | one |", synthetic=true),
-    TextMarkupFormat::Rst,
+    Rst,
   ).unwrap()
   assert_true(pipe.header == ["Name", "Value"])
   assert_true(pipe.rows[0] == ["alpha", "one"])
   let rst = parse_text_markup_table(
     markup_test_block("ignored\n| H1 | H2 |\n| A | B |"),
-    TextMarkupFormat::Rst,
+    Rst,
   ).unwrap()
   assert_eq(rst.rows.length(), 1)
   let rst_simple = parse_text_markup_table(
     markup_test_block(
       "==========  ==================\nName        Description\n==========  ==================\nalpha       first value\nbeta        second value\n==========  ==================",
     ),
-    TextMarkupFormat::Rst,
+    Rst,
   ).unwrap()
   assert_true(rst_simple.header == ["Name", "Description"])
   assert_true(rst_simple.rows[0] == ["alpha", "first value"])
   assert_eq(rst_simple.rows.length(), 2)
   let asciidoc = parse_text_markup_table(
     markup_test_block("|Name |Value\n|alpha\n|one\n|beta |two"),
-    TextMarkupFormat::Asciidoc,
+    Asciidoc,
   ).unwrap()
   assert_true(asciidoc.header == ["Name", "Value"])
   assert_eq(asciidoc.rows.length(), 2)
@@ -151,7 +138,7 @@ test "text markup table parsers cover pipe AsciiDoc and TeX layouts" {
     markup_test_block(
       "Name & Value \\\\\n\\hline\nalpha & one \\\\\nbeta & two",
     ),
-    TextMarkupFormat::Tex,
+    Tex,
   ).unwrap()
   assert_true(tex.header == ["Name", "Value"])
   assert_eq(tex.rows.length(), 2)
@@ -159,12 +146,7 @@ test "text markup table parsers cover pipe AsciiDoc and TeX layouts" {
 
 ///|
 test "text markup table parsers fail closed on incomplete structures" {
-  for
-    format in [
-      TextMarkupFormat::Rst,
-      TextMarkupFormat::Asciidoc,
-      TextMarkupFormat::Tex,
-    ] {
+  for format in [TextMarkupFormat::Rst, Asciidoc, Tex] {
     assert_true(
       parse_text_markup_table(markup_test_block("one row"), format) is None,
     )

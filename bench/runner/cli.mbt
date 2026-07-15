@@ -189,7 +189,7 @@ fn run_engine_worker(args : Array[String]) -> Int {
     return 2
   }
   let detected_format = @input.parse_detected_format(args[0])
-  if detected_format == @input.DetectedFormat::Unknown {
+  if detected_format == Unknown {
     return 2
   }
   let source = @input.input_from_path_with_format(

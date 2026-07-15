@@ -15,9 +15,9 @@ pub type OutputMode = @product.OutputMode
 ///|
 fn product_convert_mode(mode : ConvertMode) -> @product.ConvertMode {
   match mode {
-    ConvertMode::Balanced => @product.ConvertMode::Balanced
-    ConvertMode::Accurate => @product.ConvertMode::Accurate
-    ConvertMode::Stream => @product.ConvertMode::Stream
+    Balanced => Balanced
+    Accurate => Accurate
+    Stream => Stream
   }
 }
 
@@ -402,11 +402,11 @@ pub fn make_resource_limits(
 pub fn default_convert_options() -> ConvertOptions {
   let product_options = @product.default_product_options()
   {
-    mode: ConvertMode::Balanced,
-    fidelity_mode: FidelityMode::Balanced,
-    output_mode: OutputMode::Markdown,
+    mode: Balanced,
+    fidelity_mode: Balanced,
+    output_mode: Markdown,
     stream_requested: false,
-    output_format: OutputFormat::Markdown,
+    output_format: Markdown,
     explicit_format: None,
     ocr_options: @parser.default_ocr_options(),
     audio_options: @parser.default_audio_options(),
@@ -427,7 +427,7 @@ pub fn make_convert_options(
   audio_options? : @parser.AudioOptions = @parser.default_audio_options(),
   fidelity_mode? : FidelityMode = fidelity_mode_for_convert_mode(mode),
   output_mode? : OutputMode = output_mode_for_output_format(output_format),
-  stream_requested? : Bool = mode == ConvertMode::Stream,
+  stream_requested? : Bool = mode == Stream,
   rag_options? : @rag.RagOptions = @rag.default_rag_options(),
 ) -> ConvertOptions {
   {
@@ -472,9 +472,9 @@ pub fn output_mode_for_convert_mode(mode : ConvertMode) -> OutputMode {
 /// Map a public output format to the renderer-facing output mode.
 pub fn output_mode_for_output_format(format : OutputFormat) -> OutputMode {
   match format {
-    OutputFormat::DebugJson => OutputMode::Debug
-    OutputFormat::RagJson => OutputMode::Rag
-    _ => OutputMode::Markdown
+    DebugJson => Debug
+    RagJson => Rag
+    _ => Markdown
   }
 }
 
@@ -491,11 +491,11 @@ pub fn derived_convert_mode(
   stream_requested : Bool,
 ) -> ConvertMode {
   if stream_requested {
-    ConvertMode::Stream
+    Stream
   } else {
     match fidelity_mode {
-      FidelityMode::Accurate => ConvertMode::Accurate
-      FidelityMode::Balanced => ConvertMode::Balanced
+      Accurate => Accurate
+      Balanced => Balanced
     }
   }
 }

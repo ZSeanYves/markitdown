@@ -8,11 +8,11 @@ fn lower_json_document(
   let document = @core.empty_document_ir()
   let root = doc.root
   match root {
-    @djson.JsonValue::Object(members) => {
+    Object(members) => {
       let table = json_object_table_block(members, source, "/")
       document.blocks.push(table)
     }
-    @djson.JsonValue::Array(values) =>
+    Array(values) =>
       match json_array_to_blocks(values, source, "/", "json") {
         Some(blocks) =>
           for block in blocks {
@@ -29,26 +29,26 @@ fn lower_json_document(
             ),
           )
       }
-    @djson.JsonValue::String(value) =>
+    String(value) =>
       document.blocks.push(
         @core.make_block(
-          @core.BlockKind::Paragraph,
+          Paragraph,
           value,
           source_ref=json_pointer_source_ref(source, "json", "/"),
         ),
       )
-    @djson.JsonValue::Number(value) =>
+    Number(value) =>
       document.blocks.push(
         @core.make_block(
-          @core.BlockKind::Paragraph,
+          Paragraph,
           value,
           source_ref=json_pointer_source_ref(source, "json", "/"),
         ),
       )
-    @djson.JsonValue::Bool(value) =>
+    Bool(value) =>
       document.blocks.push(
         @core.make_block(
-          @core.BlockKind::Paragraph,
+          Paragraph,
           if value {
             "true"
           } else {
@@ -57,10 +57,10 @@ fn lower_json_document(
           source_ref=json_pointer_source_ref(source, "json", "/"),
         ),
       )
-    @djson.JsonValue::Null =>
+    Null =>
       document.blocks.push(
         @core.make_block(
-          @core.BlockKind::Paragraph,
+          Paragraph,
           "null",
           source_ref=json_pointer_source_ref(source, "json", "/"),
         ),
@@ -88,7 +88,7 @@ fn json_array_to_blocks(
   }
   if json_array_of_scalars(values) {
     let list = @core.make_block(
-      @core.BlockKind::List,
+      List,
       "",
       source_ref=json_pointer_source_ref(source, format_name, pointer),
     )
@@ -96,7 +96,7 @@ fn json_array_to_blocks(
       list.children.push(
         @core.block_with_attr(
           @core.make_block(
-            @core.BlockKind::ListItem,
+            ListItem,
             json_scalar_text(values[i]),
             source_ref=json_pointer_source_ref(
               source,
@@ -177,7 +177,7 @@ fn lower_line_delimited_json_events(
     record_line_numbers.push(i + 1)
     record_pointers.push(pointer)
     match doc.root {
-      @djson.JsonValue::Object(members) => {
+      Object(members) => {
         let keys = members.map(fn(m) { m.key })
         match header_keys {
           Some(existing) if !@fshared.keys_match_position_index(
@@ -186,7 +186,7 @@ fn lower_line_delimited_json_events(
               keys,
             ) =>
             events.push({
-              kind: @core.EventKind::StartBlock(@core.BlockKind::Code),
+              kind: StartBlock(Code),
               text: raw_line,
               source_ref: Some(
                 line_delimited_code_event_source_ref(
@@ -208,7 +208,7 @@ fn lower_line_delimited_json_events(
       }
       _ =>
         events.push({
-          kind: @core.EventKind::StartBlock(@core.BlockKind::Code),
+          kind: StartBlock(Code),
           text: raw_line,
           source_ref: Some(
             line_delimited_code_event_source_ref(
@@ -382,7 +382,7 @@ fn json_compact_root_array_events_direct(
     source_ref.extra.set("ir_block_attr_literal", "true")
     source_ref.extra.set("ir_block_attr_ordered", "false")
     events.push({
-      kind: @core.EventKind::StartBlock(@core.BlockKind::ListItem),
+      kind: StartBlock(ListItem),
       text: preview,
       source_ref: Some(source_ref),
     })
@@ -553,7 +553,7 @@ fn JsonDirectPreviewCursor::string_value(
         _ => return self.text[content_start:content_end].to_owned()
       }
       return match decoded.root {
-        @djson.JsonValue::String(value) => value
+        String(value) => value
         _ => self.text[content_start:content_end].to_owned()
       }
     }
@@ -631,7 +631,7 @@ fn json_compact_root_array_events_from_stream(
   let cursor = { events: stream.events, index: 1 }
   let mut item_index = 0
   while cursor.index < cursor.events.length() {
-    if cursor.events[cursor.index].kind == @djson.JsonStreamEventKind::ArrayEnd {
+    if cursor.events[cursor.index].kind == ArrayEnd {
       break
     }
     let pointer = json_append_pointer("/", item_index.to_string())
@@ -650,7 +650,7 @@ fn json_compact_root_array_events_from_stream(
     source_ref.extra.set("ir_block_attr_literal", "true")
     source_ref.extra.set("ir_block_attr_ordered", "false")
     events.push({
-      kind: @core.EventKind::StartBlock(@core.BlockKind::ListItem),
+      kind: StartBlock(ListItem),
       text,
       source_ref: Some(source_ref),
     })
@@ -666,20 +666,16 @@ fn json_compact_preview_text(
 ) -> String {
   let event = cursor.events[cursor.index]
   match event.kind {
-    @djson.JsonStreamEventKind::StringValue => {
+    StringValue => {
       cursor.index += 1
       json_clip_preview_text(json_stream_scalar_text(event), 96)
     }
-    @djson.JsonStreamEventKind::NumberValue
-    | @djson.JsonStreamEventKind::BoolValue
-    | @djson.JsonStreamEventKind::NullValue => {
+    NumberValue | BoolValue | NullValue => {
       cursor.index += 1
       json_stream_scalar_text(event)
     }
-    @djson.JsonStreamEventKind::ObjectStart =>
-      json_compact_object_preview_text(cursor, preview_depth)
-    @djson.JsonStreamEventKind::ArrayStart =>
-      json_compact_array_preview_text(cursor, preview_depth)
+    ObjectStart => json_compact_object_preview_text(cursor, preview_depth)
+    ArrayStart => json_compact_array_preview_text(cursor, preview_depth)
     _ => {
       cursor.index += 1
       ""
@@ -700,7 +696,7 @@ fn json_compact_object_preview_text(
   while cursor.index < cursor.events.length() {
     let next = cursor.events[cursor.index]
     match next.kind {
-      @djson.JsonStreamEventKind::Key if next.depth == member_depth => {
+      Key if next.depth == member_depth => {
         member_count += 1
         let key = next.text.unwrap_or("")
         cursor.index += 1
@@ -718,7 +714,7 @@ fn json_compact_object_preview_text(
         }
         continue
       }
-      @djson.JsonStreamEventKind::ObjectEnd if next.depth == root_depth => {
+      ObjectEnd if next.depth == root_depth => {
         cursor.index += 1
         return json_object_summary_text(member_count, samples)
       }
@@ -740,8 +736,7 @@ fn json_compact_array_preview_text(
   cursor.index += 1
   while cursor.index < cursor.events.length() {
     let next = cursor.events[cursor.index]
-    if next.kind == @djson.JsonStreamEventKind::ArrayEnd &&
-      next.depth == root_depth {
+    if next.kind == ArrayEnd && next.depth == root_depth {
       cursor.index += 1
       return json_array_summary_text(item_count, samples)
     }

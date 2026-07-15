@@ -92,10 +92,7 @@ test "main CLI batch filesystem helpers and missing inputs fail closed" {
   assert_true(!fs_is_dir("/definitely/missing/batch"))
   assert_true(!fs_is_file("/definitely/missing/batch"))
   assert_eq(fs_read_dir("/definitely/missing/batch").length(), 0)
-  assert_eq(
-    batch_output_suffix(@convert.OutputFormat::DebugJson),
-    ".debug.json",
-  )
+  assert_eq(batch_output_suffix(DebugJson), ".debug.json")
   assert_eq(
     run_cli_app_silent([
       "markitdown",

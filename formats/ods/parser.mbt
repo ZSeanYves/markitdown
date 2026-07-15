@@ -7,7 +7,7 @@ const ODS_MAX_MATERIALIZED_ROW_REPEAT : Int = 10_000
 ///|
 pub fn ods_parser_capability() -> @parser.ParserCapability {
   @parser.package_with_block_route_parser_capability(
-    @parser.StreamingGranularity::Row,
+    Row,
     true,
     true,
     false,
@@ -24,17 +24,12 @@ pub fn ods_parser_capability() -> @parser.ParserCapability {
 ///|
 pub fn ods_parser() -> @parser.Parser {
   let capability = ods_parser_capability()
-  @parser.make_parser(
-    ODS_PARSER_NAME,
-    @parser.ParserMode::PackageSinglePass,
-    capability,
-    fn(
-      source : @input.InputSource,
-      context : @parser.ParseContext,
-    ) -> Result[@parser.ParseResult, String] {
-      parse_ods_document_result(source, context, capability)
-    },
-  )
+  @parser.make_parser(ODS_PARSER_NAME, PackageSinglePass, capability, fn(
+    source : @input.InputSource,
+    context : @parser.ParseContext,
+  ) -> Result[@parser.ParseResult, String] {
+    parse_ods_document_result(source, context, capability)
+  })
 }
 
 ///|
@@ -48,7 +43,7 @@ fn parse_ods_document_result(
     Err(err) => {
       let diagnostics = @fshared.empty_parser_diagnostics(
         ODS_PARSER_NAME,
-        @parser.ParserMode::PackageSinglePass,
+        PackageSinglePass,
         source,
         "ods",
       )
@@ -99,7 +94,7 @@ pub fn ods_parse_with_open_document(
   let capability = ods_parser_capability()
   let diagnostics = @fshared.empty_parser_diagnostics(
     ODS_PARSER_NAME,
-    @parser.ParserMode::PackageSinglePass,
+    PackageSinglePass,
     source,
     "ods",
   )
@@ -107,7 +102,7 @@ pub fn ods_parse_with_open_document(
   let bytes = @input.input_bytes(source).unwrap_or(Bytes::from_array([]))
   ods_fill_metrics(diagnostics, document, inspect, bytes)
   ods_apply_repeat_diagnostics(diagnostics, document)
-  if context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
+  if context.requested_mode == Some(BlockStreaming) {
     let lowered = ods_lower_block_stream_document(source, document, context)
     diagnostics.metrics.set("parser_mode", "block_streaming")
     diagnostics.metrics.set("effective_mode", "block_streaming")
@@ -122,7 +117,7 @@ pub fn ods_parse_with_open_document(
     diagnostics.pass_trace.push("parse:ods_parser")
     return @parser.parse_result_with_blocks_capability(
       ODS_PARSER_NAME,
-      @parser.ParserMode::BlockStreaming,
+      BlockStreaming,
       lowered.blocks,
       diagnostics,
       capability,
@@ -145,7 +140,7 @@ pub fn ods_parse_with_open_document(
   let final_document = @core.document_with_diagnostics(lowered, diagnostics)
   @parser.parse_result_with_document_capability(
     ODS_PARSER_NAME,
-    @parser.ParserMode::PackageSinglePass,
+    PackageSinglePass,
     final_document,
     diagnostics,
     capability,
@@ -191,8 +186,8 @@ fn ods_init_diagnostics(
     context,
     "ods",
     ODS_PARSER_NAME,
-    @parser.ParserMode::PackageSinglePass,
-    @parser.ParserMode::PackageSinglePass,
+    PackageSinglePass,
+    PackageSinglePass,
     "document",
     "row",
     "package_single_pass",
@@ -321,22 +316,18 @@ fn ods_lower_common(
   let asset_ids_by_href : Map[String, String] = Map([])
   let metadata = ods_metadata(document)
   let source_map = @core.empty_source_map()
-  let accurate_semantic = context.lowering_profile ==
-    @product.LoweringProfile::AccurateSemantic
+  let accurate_semantic = context.lowering_profile == AccurateSemantic
   let include_hidden_sheets = accurate_semantic &&
     @product.accurate_feature_enabled(
       context.accurate_features,
-      @product.AccurateFeature::OdsHiddenSheets,
+      OdsHiddenSheets,
     )
   let include_hidden_rows = accurate_semantic &&
-    @product.accurate_feature_enabled(
-      context.accurate_features,
-      @product.AccurateFeature::OdsHiddenRows,
-    )
+    @product.accurate_feature_enabled(context.accurate_features, OdsHiddenRows)
   let include_covered_spans = accurate_semantic &&
     @product.accurate_feature_enabled(
       context.accurate_features,
-      @product.AccurateFeature::OdsCoveredCellSpans,
+      OdsCoveredCellSpans,
     )
   for sheet in document.sheets {
     if !sheet.visible && !include_hidden_sheets {
@@ -352,11 +343,7 @@ fn ods_lower_common(
       continue
     }
     let heading_ref = ods_sheet_source_ref(source, document, sheet, None)
-    let heading = @core.make_block(
-      @core.BlockKind::Heading,
-      sheet.name,
-      source_ref=heading_ref,
-    )
+    let heading = @core.make_block(Heading, sheet.name, source_ref=heading_ref)
     source_map.block_entries.push(
       @core.make_source_map_entry(primary_ref=Some(heading_ref), refs=[
         heading_ref,
@@ -376,23 +363,11 @@ fn ods_lower_common(
             sheet,
             Some(row_index),
           )
-          let table = @core.make_block(
-            @core.BlockKind::Table,
-            "row",
-            source_ref=row_ref,
-          )
-          let row_block = @core.make_block(
-            @core.BlockKind::TableRow,
-            "",
-            source_ref=row_ref,
-          )
+          let table = @core.make_block(Table, "row", source_ref=row_ref)
+          let row_block = @core.make_block(TableRow, "", source_ref=row_ref)
           for cell in ods_effective_row_cells(row) {
             row_block.children.push(
-              @core.make_block(
-                @core.BlockKind::TableCell,
-                cell.text,
-                source_ref=row_ref,
-              ),
+              @core.make_block(TableCell, cell.text, source_ref=row_ref),
             )
           }
           table.children.push(row_block)
@@ -409,15 +384,11 @@ fn ods_lower_common(
       }
     } else {
       let table_ref = ods_sheet_source_ref(source, document, sheet, None)
-      let table = @core.make_block(
-        @core.BlockKind::Table,
-        "table",
-        source_ref=table_ref,
-      )
+      let table = @core.make_block(Table, "table", source_ref=table_ref)
       if include_covered_spans && ods_sheet_has_span_cells(sheet) {
         table.attrs.set("render_html_table", "true")
       }
-      if context.lowering_profile == @product.LoweringProfile::LargeAdaptive {
+      if context.lowering_profile == LargeAdaptive {
         table.attrs.set("render_table_mode", "sparse")
       }
       for row in visible_rows {
@@ -428,11 +399,7 @@ fn ods_lower_common(
             sheet,
             Some(row.row_index + repeat_offset),
           )
-          let row_block = @core.make_block(
-            @core.BlockKind::TableRow,
-            "",
-            source_ref=row_ref,
-          )
+          let row_block = @core.make_block(TableRow, "", source_ref=row_ref)
           for cell in ods_effective_row_cells(row) {
             if cell.covered &&
               cell.text == "" &&
@@ -441,7 +408,7 @@ fn ods_lower_common(
               continue
             }
             let cell_block = @core.make_block(
-              @core.BlockKind::TableCell,
+              TableCell,
               cell.text,
               source_ref=row_ref,
             )
@@ -477,7 +444,7 @@ fn ods_lower_common(
       let image_ref = ods_sheet_source_ref(source, document, sheet, None)
       if image.bytes is None {
         let unavailable = @core.make_block(
-          @core.BlockKind::BlockQuote,
+          BlockQuote,
           "Asset unavailable: " + image.href,
           source_ref=image_ref,
         )
@@ -494,11 +461,7 @@ fn ods_lower_common(
         _ => {
           let path = ods_asset_output_path(image.href, assets.length() + 1)
           let id = "ods-image-" + (assets.length() + 1).to_string()
-          let asset = @core.make_asset_ref(
-            @core.AssetKind::Image,
-            id,
-            source_ref=image_ref,
-          )
+          let asset = @core.make_asset_ref(Image, id, source_ref=image_ref)
           let next_asset = {
             ..asset,
             path: Some(path),
@@ -511,8 +474,7 @@ fn ods_lower_common(
             None => ()
           }
           match image.bytes {
-            Some(bytes) =>
-              next_asset.payload = Some(@core.AssetPayload::Bytes(bytes))
+            Some(bytes) => next_asset.payload = Some(Bytes(bytes))
             None => ()
           }
           assets.push(next_asset)
@@ -521,11 +483,7 @@ fn ods_lower_common(
           (id, path)
         }
       }
-      let image_block = @core.make_block(
-        @core.BlockKind::Image,
-        "",
-        source_ref=image_ref,
-      )
+      let image_block = @core.make_block(Image, "", source_ref=image_ref)
       image_block.attrs.set("asset_id", asset_id)
       image_block.attrs.set("path", output_path)
       image_block.attrs.set("alt", image.alt.unwrap_or("ods image"))
@@ -563,25 +521,25 @@ fn ods_asset_output_path(href : String, index : Int) -> String {
 ///|
 fn ods_metadata(document : @dodf.OdsDocument) -> @core.DocumentMetadata {
   let metadata : @core.DocumentMetadata = Map([])
-  metadata.set("format", @core.JsonValue::String("ods"))
+  metadata.set("format", String("ods"))
   metadata.set(
     "description",
-    @core.JsonValue::String(
+    String(
       "OpenDocument spreadsheet with " +
       document.sheets.length().to_string() +
       " sheets",
     ),
   )
   match document.metadata.title {
-    Some(value) => metadata.set("title", @core.JsonValue::String(value))
+    Some(value) => metadata.set("title", String(value))
     None => ()
   }
   match document.metadata.subject {
-    Some(value) => metadata.set("subject", @core.JsonValue::String(value))
+    Some(value) => metadata.set("subject", String(value))
     None => ()
   }
   match document.metadata.language {
-    Some(value) => metadata.set("language", @core.JsonValue::String(value))
+    Some(value) => metadata.set("language", String(value))
     None => ()
   }
   metadata
@@ -644,33 +602,33 @@ fn ods_malformed_parse_result(
   diagnostics.metrics.set("syntax_error_count", "1")
   @fshared.refresh_parser_count_metrics(
     diagnostics,
-    if context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
+    if context.requested_mode == Some(BlockStreaming) {
       "block_stream"
     } else {
       "document"
     },
   )
-  if context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
+  if context.requested_mode == Some(BlockStreaming) {
     diagnostics.metrics.set("parser_mode", "block_streaming")
     diagnostics.metrics.set("effective_mode", "block_streaming")
     diagnostics.metrics.set("ir_input_kind", "block_stream")
     diagnostics.metrics.set("event_semantics", "ods_row_block_stream")
     let raw = @core.make_block(
-      @core.BlockKind::Code,
+      Code,
       "binary ods package (" + bytes.length().to_string() + " bytes)",
       source_ref=ods_fallback_source_ref(source),
     )
     raw.attrs.set("info", "ods")
     return @parser.parse_result_with_blocks_capability(
       ODS_PARSER_NAME,
-      @parser.ParserMode::BlockStreaming,
+      BlockStreaming,
       [raw],
       diagnostics,
       capability,
     )
   }
   let raw = @core.make_block(
-    @core.BlockKind::Code,
+    Code,
     "binary ods package (" + bytes.length().to_string() + " bytes)",
     source_ref=ods_fallback_source_ref(source),
   )
@@ -681,7 +639,7 @@ fn ods_malformed_parse_result(
   )
   @parser.parse_result_with_document_capability(
     ODS_PARSER_NAME,
-    @parser.ParserMode::PackageSinglePass,
+    PackageSinglePass,
     document,
     diagnostics,
     capability,

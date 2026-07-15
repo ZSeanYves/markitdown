@@ -291,7 +291,7 @@ fn pdf_actual_text_from_operands(
 ) -> String? {
   for token in operands {
     match token {
-      PdfNativeContentToken::Dict(text) =>
+      Dict(text) =>
         match pdf_extract_literal_string_after(text, "/ActualText") {
           Some(value) if value.trim() != "" =>
             match pdf_decode_actual_text_literal(value) {
@@ -340,7 +340,7 @@ fn pdf_matrix_from_operands(
 ///|
 fn pdf_token_number(token : PdfNativeContentToken) -> Double? {
   match token {
-    PdfNativeContentToken::Number(value) => Some(value)
+    Number(value) => Some(value)
     _ => None
   }
 }
@@ -348,7 +348,7 @@ fn pdf_token_number(token : PdfNativeContentToken) -> Double? {
 ///|
 fn pdf_token_name(token : PdfNativeContentToken) -> String? {
   match token {
-    PdfNativeContentToken::Name(value) => Some(value)
+    Name(value) => Some(value)
     _ => None
   }
 }

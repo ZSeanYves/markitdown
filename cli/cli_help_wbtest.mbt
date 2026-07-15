@@ -51,47 +51,47 @@ test "main CLI help and fail closed messages remain nonempty across categories" 
   assert_true(
     cli_fail_closed_format_message(
       "input.xyz",
-      @input.DetectedFormat::Unknown,
+      Unknown,
       "xyz",
       @parser.default_ocr_options(),
-      @convert.FidelityMode::Balanced,
+      Balanced,
     ).contains("unsupported format"),
   )
   assert_true(
     cli_fail_closed_format_message(
       "input.pdf",
-      @input.DetectedFormat::Pdf,
+      Pdf,
       "pdf",
       @parser.default_ocr_options(),
-      @convert.FidelityMode::Balanced,
+      Balanced,
     ).contains("PDF"),
   )
   assert_true(
     cli_fail_closed_format_message(
       "input.png",
-      @input.DetectedFormat::Image(@input.ImageFormat::Png),
+      Image(Png),
       "png",
       @parser.disabled_ocr_options(),
-      @convert.FidelityMode::Balanced,
+      Balanced,
     ) !=
     "",
   )
   assert_true(
     cli_fail_closed_format_message(
       "/definitely/missing/image.png",
-      @input.DetectedFormat::Image(@input.ImageFormat::Png),
+      Image(Png),
       "png",
       @parser.default_ocr_options(),
-      @convert.FidelityMode::Balanced,
+      Balanced,
     ).contains("image OCR"),
   )
   assert_true(
     cli_fail_closed_format_message(
       "/definitely/missing/image.png",
-      @input.DetectedFormat::Image(@input.ImageFormat::Png),
+      Image(Png),
       "png",
       @parser.explicit_ocr_options(language=Some("eng")),
-      @convert.FidelityMode::Accurate,
+      Accurate,
     ) !=
     "",
   )

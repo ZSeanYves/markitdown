@@ -1,7 +1,7 @@
 ///|
 fn xlsx_benchmark_parse_context() -> @parser.ParseContext {
   @parser.parse_context_with_limits(
-    @parser.new_parse_context(@input.DetectedFormat::Xlsx),
+    @parser.new_parse_context(Xlsx),
     None,
     Some(2000),
     Some(50),
@@ -95,7 +95,7 @@ fn xlsx_malformed_parse_result(
   )
   @parser.parse_result_with_document_capability(
     "xlsx_parser",
-    @parser.ParserMode::PackageSinglePass,
+    PackageSinglePass,
     document,
     diagnostics,
     capability,
@@ -359,22 +359,18 @@ fn xlsx_parse_workbook(
   let max_cols = context.max_cols.unwrap_or(50)
   let max_cells = context.max_cells.unwrap_or(100000)
   let max_sheets = 200
-  let accurate_semantic = context.lowering_profile ==
-    @product.LoweringProfile::AccurateSemantic
+  let accurate_semantic = context.lowering_profile == AccurateSemantic
   let include_hidden_sheets = accurate_semantic &&
     @product.accurate_feature_enabled(
       context.accurate_features,
-      @product.AccurateFeature::XlsxHiddenSheets,
+      XlsxHiddenSheets,
     )
   let include_hidden_rows = accurate_semantic &&
-    @product.accurate_feature_enabled(
-      context.accurate_features,
-      @product.AccurateFeature::XlsxHiddenRows,
-    )
+    @product.accurate_feature_enabled(context.accurate_features, XlsxHiddenRows)
   let include_merge_layout = accurate_semantic &&
     @product.accurate_feature_enabled(
       context.accurate_features,
-      @product.AccurateFeature::XlsxMergedSpans,
+      XlsxMergedSpans,
     )
 
   let included_sheets : Array[XlsxSheet] = []
@@ -405,7 +401,7 @@ fn xlsx_parse_workbook(
 
   for sheet_info in effective_sheet_infos {
     match sheet_info.visibility {
-      @shared.XlsxSheetVisibility::Visible => {
+      Visible => {
         visible_sheet_count += 1
         let sheet = xlsx_parse_sheet(
           pkg,
@@ -432,7 +428,7 @@ fn xlsx_parse_workbook(
         external_link_count += sheet.external_link_count
         included_sheets.push(sheet)
       }
-      @shared.XlsxSheetVisibility::Hidden => {
+      Hidden => {
         hidden_sheet_count += 1
         if include_hidden_sheets {
           let sheet = xlsx_parse_sheet(
@@ -466,7 +462,7 @@ fn xlsx_parse_workbook(
           diagnostics.degraded_features.push("xlsx_hidden_sheet_skipped")
         }
       }
-      @shared.XlsxSheetVisibility::VeryHidden => {
+      VeryHidden => {
         very_hidden_sheet_count += 1
         if include_hidden_sheets {
           let sheet = xlsx_parse_sheet(
@@ -561,12 +557,11 @@ fn xlsx_resolve_workbook_part(
   }
   let package_rels = @ox.read_package_relationships(pkg)
   for rel in package_rels {
-    if rel.target_mode == @ox.OoxmlTargetMode::Internal &&
-      rel.rel_type.has_suffix("/officeDocument") {
+    if rel.target_mode == Internal && rel.rel_type.has_suffix("/officeDocument") {
       return rel.resolved_target
     }
   }
-  raise @ox.MissingPart("xl/workbook.xml")
+  raise MissingPart("xl/workbook.xml")
 }
 
 ///|
@@ -760,11 +755,11 @@ fn xlsx_parse_sheet_infos(
 ///|
 fn xlsx_parse_sheet_visibility(text : String) -> @shared.XlsxSheetVisibility {
   if text == "hidden" {
-    @shared.XlsxSheetVisibility::Hidden
+    Hidden
   } else if text == "veryHidden" {
-    @shared.XlsxSheetVisibility::VeryHidden
+    VeryHidden
   } else {
-    @shared.XlsxSheetVisibility::Visible
+    Visible
   }
 }
 
@@ -874,7 +869,7 @@ fn xlsx_parse_sheet_view(
   let comments : Array[XlsxComment] = []
   let tables : Array[XlsxSheetTable] = []
   for rel in relationships {
-    if rel.target_mode == @ox.OoxmlTargetMode::External {
+    if rel.target_mode == External {
       external_link_count += 1
       diagnostics.warnings.push(
         "xlsx external relationship preserved as diagnostics only: " +

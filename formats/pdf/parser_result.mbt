@@ -22,14 +22,8 @@ fn pdf_ocr_finalize_result(
   } else {
     @core.document_from_blocks(final_blocks)
   }
-  let final_table_count = pdf_document_block_kind_count(
-    document.blocks,
-    @core.BlockKind::Table,
-  )
-  let final_image_count = pdf_document_block_kind_count(
-    document.blocks,
-    @core.BlockKind::Image,
-  )
+  let final_table_count = pdf_document_block_kind_count(document.blocks, Table)
+  let final_image_count = pdf_document_block_kind_count(document.blocks, Image)
   let final_asset_count = document.assets.length()
   let ocr_success_count = state.ocr_success_count.val
   let ocr_failure_count = state.ocr_failure_count.val
@@ -39,9 +33,9 @@ fn pdf_ocr_finalize_result(
   let diagnostics0 = @focr.ocr_base_diagnostics(
     pdf_ocr_parser_name(),
     source,
-    @input.DetectedFormat::Pdf,
+    Pdf,
     context.ocr_options,
-    Some(@parser.ParserMode::LayoutTwoStage),
+    Some(LayoutTwoStage),
     config.provider_target,
   )
   diagnostics0.dependency_diagnostics.append(
@@ -286,8 +280,7 @@ fn pdf_ocr_finalize_result(
   )
   diagnostics.metrics.set(
     "pdf_header_footer_filter_enabled",
-    if context.pdf_header_footer_filter_policy ==
-      @parser.PdfHeaderFooterFilterPolicy::Disabled {
+    if context.pdf_header_footer_filter_policy == Disabled {
       "false"
     } else {
       "true"
@@ -295,8 +288,7 @@ fn pdf_ocr_finalize_result(
   )
   diagnostics.metrics.set(
     "pdf_table_reconstruction_enabled",
-    if context.pdf_table_reconstruction_policy ==
-      @parser.PdfTableReconstructionPolicy::Disabled {
+    if context.pdf_table_reconstruction_policy == Disabled {
       "false"
     } else {
       "true"
@@ -332,22 +324,16 @@ fn pdf_ocr_finalize_result(
     "fallback_count",
     diagnostics.fallback_trace.length().to_string(),
   )
-  document.metadata.set("pdf_ocr_used", @core.JsonValue::Bool(provider_invoked))
-  document.metadata.set(
-    "pdf_native_backend",
-    @core.JsonValue::Bool(native_facts_present),
-  )
+  document.metadata.set("pdf_ocr_used", Bool(provider_invoked))
+  document.metadata.set("pdf_native_backend", Bool(native_facts_present))
   document.metadata.set(
     "pdf_native_text_baseline",
-    @core.JsonValue::Bool(stats.native_detected_page_count > 0),
+    Bool(stats.native_detected_page_count > 0),
   )
-  document.metadata.set(
-    "pdf_canonical_pipeline_used",
-    @core.JsonValue::Bool(false),
-  )
+  document.metadata.set("pdf_canonical_pipeline_used", Bool(false))
   document.metadata.set(
     "pdf_raster_backend",
-    @core.JsonValue::String(
+    String(
       if stats.raster_invoked {
         raster_result.backend_name
       } else {
@@ -355,68 +341,56 @@ fn pdf_ocr_finalize_result(
       },
     ),
   )
-  document.metadata.set(
-    "page_count",
-    @core.JsonValue::Number(stats.page_count.to_string()),
-  )
-  document.metadata.set(
-    "pdf_page_count",
-    @core.JsonValue::Number(stats.page_count.to_string()),
-  )
-  document.metadata.set(
-    "ocr_used_pages",
-    @core.JsonValue::Number(ocr_success_count.to_string()),
-  )
+  document.metadata.set("page_count", Number(stats.page_count.to_string()))
+  document.metadata.set("pdf_page_count", Number(stats.page_count.to_string()))
+  document.metadata.set("ocr_used_pages", Number(ocr_success_count.to_string()))
   document.metadata.set(
     "native_text_page_count",
-    @core.JsonValue::Number(native_text_page_count.to_string()),
+    Number(native_text_page_count.to_string()),
   )
   document.metadata.set(
     "pdf_raster_page_success_count",
-    @core.JsonValue::Number(stats.raster_page_success_count.to_string()),
+    Number(stats.raster_page_success_count.to_string()),
   )
   document.metadata.set(
     "pdf_raster_page_failure_count",
-    @core.JsonValue::Number(raster_failure_count.to_string()),
+    Number(raster_failure_count.to_string()),
   )
   document.metadata.set(
     "pdf_native_page_count",
-    @core.JsonValue::Number(stats.native_page_count.to_string()),
+    Number(stats.native_page_count.to_string()),
   )
   document.metadata.set(
     "pdf_region_hybrid_candidate_count",
-    @core.JsonValue::Number(stats.region_hybrid_candidate_count.to_string()),
+    Number(stats.region_hybrid_candidate_count.to_string()),
   )
   document.metadata.set(
     "pdf_region_hybrid_used",
-    @core.JsonValue::Bool(stats.hybrid_region_page_count > 0),
+    Bool(stats.hybrid_region_page_count > 0),
   )
   document.metadata.set(
     "pdf_native_low_confidence_text_count",
-    @core.JsonValue::Number(stats.native_low_confidence_text_count.to_string()),
+    Number(stats.native_low_confidence_text_count.to_string()),
   )
   document.metadata.set(
     "pdf_ocr_page_count",
-    @core.JsonValue::Number(stats.ocr_page_count.to_string()),
+    Number(stats.ocr_page_count.to_string()),
   )
   document.metadata.set(
     "pdf_rasterized_page_count",
-    @core.JsonValue::Number(stats.rasterized_page_count.to_string()),
+    Number(stats.rasterized_page_count.to_string()),
   )
   document.metadata.set(
     "pdf_page_route_summary",
-    @core.JsonValue::String(stats.page_route_summary),
+    String(stats.page_route_summary),
   )
-  document.metadata.set(
-    "image_count",
-    @core.JsonValue::Number(final_image_count.to_string()),
-  )
-  document.metadata.set("format", @core.JsonValue::String("pdf"))
+  document.metadata.set("image_count", Number(final_image_count.to_string()))
+  document.metadata.set("format", String("pdf"))
   let final_document = @core.document_with_diagnostics(document, diagnostics)
   Ok(
     @parser.parse_result_with_document_capability(
       pdf_ocr_parser_name(),
-      @parser.ParserMode::LayoutTwoStage,
+      LayoutTwoStage,
       final_document,
       diagnostics,
       pdf_ocr_parser_capability(),
@@ -435,7 +409,7 @@ pub fn pdf_native_fail_closed_diagnostics(
     @core.diagnostics_with_parser(
       @core.empty_diagnostics(),
       Some(pdf_native_parser_name()),
-      Some(@parser.mode_name(@parser.ParserMode::PageSinglePass)),
+      Some(@parser.mode_name(PageSinglePass)),
     ),
     Some(pdf_native_input_kind_name(@input.input_kind(source))),
     Some("pdf"),
@@ -481,8 +455,7 @@ pub fn pdf_native_fail_closed_diagnostics(
   )
   diagnostics.metrics.set(
     "pdf_header_footer_filter_enabled",
-    if context.pdf_header_footer_filter_policy ==
-      @parser.PdfHeaderFooterFilterPolicy::Disabled {
+    if context.pdf_header_footer_filter_policy == Disabled {
       "false"
     } else {
       "true"
@@ -497,8 +470,7 @@ pub fn pdf_native_fail_closed_diagnostics(
   )
   diagnostics.metrics.set(
     "pdf_table_reconstruction_enabled",
-    if context.pdf_table_reconstruction_policy ==
-      @parser.PdfTableReconstructionPolicy::Disabled {
+    if context.pdf_table_reconstruction_policy == Disabled {
       "false"
     } else {
       "true"
@@ -542,14 +514,14 @@ fn pdf_native_parser_result_with_gate(
 ) -> Result[@parser.ParseResult, @parser.ParseResult] {
   let capability = pdf_native_parser_capability()
   match context.pdf_native_runtime_policy {
-    @parser.PdfNativeRuntimePolicy::EnableTextRestore =>
+    EnableTextRestore =>
       pdf_native_parser_enabled_result(source, context, capability)
-    @parser.PdfNativeRuntimePolicy::DisableTextRestore => {
+    DisableTextRestore => {
       let diagnostics = pdf_native_fail_closed_diagnostics(source, context)
       Err(
         @parser.parse_result_with_document_capability(
           pdf_native_parser_name(),
-          @parser.ParserMode::PageSinglePass,
+          PageSinglePass,
           @core.document_with_diagnostics(
             @core.empty_document_ir(),
             diagnostics,
@@ -566,26 +538,21 @@ fn pdf_native_parser_result_with_gate(
 /// Construct the native-text PDF parser entrypoint.
 pub fn pdf_native_parser() -> @parser.Parser {
   let capability = pdf_native_parser_capability()
-  @parser.make_parser(
-    pdf_native_parser_name(),
-    @parser.ParserMode::PageSinglePass,
-    capability,
-    fn(
-      source : @input.InputSource,
-      context : @parser.ParseContext,
-    ) -> Result[@parser.ParseResult, String] {
-      match pdf_native_parser_result_with_gate(source, context) {
-        Ok(result) => Ok(result)
-        Err(result) =>
-          match context.pdf_native_runtime_policy {
-            @parser.PdfNativeRuntimePolicy::EnableTextRestore =>
-              Err(pdf_native_parser_error_message(result.diagnostics))
-            @parser.PdfNativeRuntimePolicy::DisableTextRestore => {
-              ignore(result)
-              Err(pdf_native_fail_closed_message())
-            }
+  @parser.make_parser(pdf_native_parser_name(), PageSinglePass, capability, fn(
+    source : @input.InputSource,
+    context : @parser.ParseContext,
+  ) -> Result[@parser.ParseResult, String] {
+    match pdf_native_parser_result_with_gate(source, context) {
+      Ok(result) => Ok(result)
+      Err(result) =>
+        match context.pdf_native_runtime_policy {
+          EnableTextRestore =>
+            Err(pdf_native_parser_error_message(result.diagnostics))
+          DisableTextRestore => {
+            ignore(result)
+            Err(pdf_native_fail_closed_message())
           }
-      }
-    },
-  )
+        }
+    }
+  })
 }

@@ -29,8 +29,7 @@ fn render_markdown_events(events : Array[@core.CoreEvent]) -> String {
     write_markdown_generic_block_events_direct_to(out, events)
     return out.to_string()
   }
-  if events[0].kind == @core.EventKind::TextLine ||
-    events[0].kind == @core.EventKind::BlankLine {
+  if events[0].kind == TextLine || events[0].kind == BlankLine {
     write_markdown_line_events_to(out, events)
     return out.to_string()
   }
@@ -65,23 +64,19 @@ fn write_markdown_text_markup_compact_events_to(
   while cursor.index < events.length() {
     let event = events[cursor.index]
     match event.kind {
-      @core.EventKind::StartBlock(kind) => {
+      StartBlock(kind) => {
         let compact_leaf = match event.source_ref {
           Some(source_ref) =>
             source_ref.extra.get("ir_text_markup_compact_leaf") == Some("true")
           None => false
         }
         let paired_leaf = cursor.index + 1 < events.length() &&
-          events[cursor.index + 1].kind == @core.EventKind::EndBlock(kind)
+          events[cursor.index + 1].kind == EndBlock(kind)
         let simple = (compact_leaf || paired_leaf) &&
-          (
-            kind == @core.BlockKind::Heading ||
-            kind == @core.BlockKind::Paragraph ||
-            kind == @core.BlockKind::Code
-          )
+          (kind == Heading || kind == Paragraph || kind == Code)
         if simple {
           let text = event.text
-          if text.trim() != "" || kind == @core.BlockKind::Code {
+          if text.trim() != "" || kind == Code {
             if wrote_any {
               if markdown_needs_blank_line_between(previous, kind) {
                 out.write_string("\n\n")
@@ -90,7 +85,7 @@ fn write_markdown_text_markup_compact_events_to(
               }
             }
             match kind {
-              @core.BlockKind::Heading => {
+              Heading => {
                 let level = match event.source_ref {
                   Some(source_ref) =>
                     clamp_heading_level(
@@ -102,7 +97,7 @@ fn write_markdown_text_markup_compact_events_to(
                 out.write_char(' ')
                 out.write_string(text.trim().to_owned())
               }
-              @core.BlockKind::Paragraph =>
+              Paragraph =>
                 if event.source_ref
                   .map(source_ref => {
                     source_ref.extra.get("ir_text_markup_rendered_inline") ==
@@ -121,7 +116,7 @@ fn write_markdown_text_markup_compact_events_to(
                     out.write_string(lines[index])
                   }
                 }
-              @core.BlockKind::Code => {
+              Code => {
                 let info = match event.source_ref {
                   Some(source_ref) =>
                     source_ref.extra.get("ir_block_attr_info").unwrap_or("")
@@ -208,7 +203,7 @@ fn write_markdown_xml_generic_outline_events_to(
   let mut needs_heading_gap = false
   for event in events {
     match event.kind {
-      @core.EventKind::StartBlock(@core.BlockKind::Heading) => {
+      StartBlock(Heading) => {
         if wrote_any {
           out.write_string("\n\n")
         }
@@ -216,15 +211,15 @@ fn write_markdown_xml_generic_outline_events_to(
         out.write_string(event.text.trim().to_owned())
         wrote_any = true
         needs_heading_gap = true
-        stack.push((@core.BlockKind::Heading, 0))
+        stack.push((Heading, 0))
       }
-      @core.EventKind::StartBlock(@core.BlockKind::List) => {
+      StartBlock(List) => {
         let child_depth = if stack.length() == 0 {
           0
         } else {
           let parent = stack[stack.length() - 1]
           match parent.0 {
-            @core.BlockKind::List => {
+            List => {
               if wrote_any {
                 out.write_char('\n')
                 if needs_heading_gap {
@@ -237,16 +232,16 @@ fn write_markdown_xml_generic_outline_events_to(
               wrote_any = true
               parent.1 + 1
             }
-            @core.BlockKind::ListItem => parent.1 + 1
+            ListItem => parent.1 + 1
             _ => 0
           }
         }
-        stack.push((@core.BlockKind::List, child_depth))
+        stack.push((List, child_depth))
       }
-      @core.EventKind::StartBlock(@core.BlockKind::ListItem) => {
+      StartBlock(ListItem) => {
         let depth = if stack.length() > 0 {
           let parent = stack[stack.length() - 1]
-          if parent.0 == @core.BlockKind::ListItem {
+          if parent.0 == ListItem {
             parent.1 + 1
           } else {
             parent.1
@@ -265,12 +260,9 @@ fn write_markdown_xml_generic_outline_events_to(
         out.write_string("- ")
         out.write_string(event.text.trim().to_owned())
         wrote_any = true
-        stack.push((@core.BlockKind::ListItem, depth))
+        stack.push((ListItem, depth))
       }
-      @core.EventKind::EndBlock(_) =>
-        if stack.length() > 0 {
-          ignore(stack.pop())
-        }
+      EndBlock(_) => if stack.length() > 0 { ignore(stack.pop()) }
       _ => ()
     }
   }
@@ -294,7 +286,7 @@ fn write_markdown_xml_outline_events_to(
   let mut needs_heading_gap = false
   for event in events {
     match event.kind {
-      @core.EventKind::StartBlock(@core.BlockKind::Heading) => {
+      StartBlock(Heading) => {
         if wrote_any {
           out.write_string("\n\n")
         }
@@ -303,7 +295,7 @@ fn write_markdown_xml_outline_events_to(
         wrote_any = true
         needs_heading_gap = true
       }
-      @core.EventKind::StartBlock(@core.BlockKind::ListItem) => {
+      StartBlock(ListItem) => {
         if wrote_any {
           out.write_char('\n')
           if needs_heading_gap {
@@ -353,7 +345,7 @@ fn write_markdown_subtitle_events_to(
   while index < events.length() {
     let event = events[index]
     match event.kind {
-      @core.EventKind::StartBlock(@core.BlockKind::Raw) => {
+      StartBlock(Raw) => {
         if wrote_any {
           out.write_string("\n\n")
         }
@@ -374,7 +366,7 @@ fn write_markdown_subtitle_events_to(
         wrote_any = true
         index += 1
       }
-      @core.EventKind::StartBlock(@core.BlockKind::BlockQuote) => {
+      StartBlock(BlockQuote) => {
         let compact_layout = match event.source_ref {
           Some(source_ref) => {
             let explicit = source_ref.extra
@@ -425,14 +417,13 @@ fn write_markdown_subtitle_events_to(
         let mut paragraph = ""
         while cursor < events.length() && depth > 0 {
           match events[cursor].kind {
-            @core.EventKind::StartBlock(@core.BlockKind::BlockQuote) =>
-              depth += 1
-            @core.EventKind::EndBlock(@core.BlockKind::BlockQuote) => depth -= 1
-            @core.EventKind::StartBlock(@core.BlockKind::Heading) =>
+            StartBlock(BlockQuote) => depth += 1
+            EndBlock(BlockQuote) => depth -= 1
+            StartBlock(Heading) =>
               if depth == 1 {
                 heading = events[cursor].text
               }
-            @core.EventKind::StartBlock(@core.BlockKind::Paragraph) =>
+            StartBlock(Paragraph) =>
               if depth == 1 {
                 paragraph = events[cursor].text
               }
@@ -543,13 +534,12 @@ fn write_markdown_line_events_to(
   let mut wrote_paragraph = false
   for event in events {
     match event.kind {
-      @core.EventKind::TextLine =>
-        current_lines.push(event.text.trim().to_owned())
-      @core.EventKind::BlankLine =>
+      TextLine => current_lines.push(event.text.trim().to_owned())
+      BlankLine =>
         wrote_paragraph = write_markdown_line_paragraph_to(
           out, current_lines, wrote_paragraph,
         )
-      @core.EventKind::StartBlock(_) | @core.EventKind::EndBlock(_) => {
+      StartBlock(_) | EndBlock(_) => {
         wrote_paragraph = write_markdown_line_paragraph_to(
           out, current_lines, wrote_paragraph,
         )
@@ -600,8 +590,8 @@ fn write_markdown_simple_table_events_to(
   let current_row : Array[String] = []
   for event in events {
     match event.kind {
-      @core.EventKind::Cell => current_row.push(event.text)
-      @core.EventKind::RowBreak =>
+      Cell => current_row.push(event.text)
+      RowBreak =>
         if current_row.length() > 0 {
           rows.push(current_row.copy())
           current_row.clear()
@@ -638,11 +628,7 @@ fn write_markdown_mixed_table_events_to(
   let generic_events : Array[@core.CoreEvent] = []
   let mut in_generic_tail = false
   for event in events {
-    if !in_generic_tail &&
-      (
-        event.kind == @core.EventKind::Cell ||
-        event.kind == @core.EventKind::RowBreak
-      ) {
+    if !in_generic_tail && (event.kind == Cell || event.kind == RowBreak) {
       table_events.push(event)
     } else {
       in_generic_tail = true
@@ -663,7 +649,7 @@ fn write_markdown_mixed_table_events_to(
 ///|
 fn event_stream_contains_table_rows(events : Array[@core.CoreEvent]) -> Bool {
   for event in events {
-    if event.kind == @core.EventKind::RowBreak {
+    if event.kind == RowBreak {
       return true
     }
   }
@@ -734,7 +720,7 @@ fn parse_generic_block_event(cursor : GenericEventCursor) -> @core.CoreBlock? {
   }
   let start = cursor.events[cursor.index]
   match start.kind {
-    @core.EventKind::StartBlock(kind) => {
+    StartBlock(kind) => {
       let source_ref = start.source_ref.unwrap_or(@core.empty_source_ref())
       cursor.index += 1
       Some(
@@ -770,7 +756,7 @@ fn collect_generic_block_event_body(
   while cursor.index < cursor.events.length() {
     let event = cursor.events[cursor.index]
     match event.kind {
-      @core.EventKind::EndBlock(end_kind) => {
+      EndBlock(end_kind) => {
         cursor.index += 1
         if end_kind == kind {
           let rich_inlines = if inlines.length() > 0 {
@@ -781,36 +767,34 @@ fn collect_generic_block_event_body(
           return { ..block, rich_inlines, children, attrs }
         }
       }
-      @core.EventKind::StartBlock(_) =>
+      StartBlock(_) =>
         match parse_generic_block_event(cursor) {
           Some(child) => children.push(child)
           None => cursor.index += 1
         }
-      @core.EventKind::Text => {
+      Text => {
         let raw_event_ref = event.source_ref.unwrap_or(source_ref)
         let event_ref = strip_generic_event_ref(raw_event_ref)
         let inline_kind = generic_inline_kind_name(
           raw_event_ref.extra.get("ir_inline_kind"),
         )
         let inline = match inline_kind {
-          Some(@core.InlineKind::LineBreak) =>
-            @core.make_inline_line_break(source_ref=event_ref)
-          Some(@core.InlineKind::Link) =>
+          Some(LineBreak) => @core.make_inline_line_break(source_ref=event_ref)
+          Some(Link) =>
             @core.make_inline_link(
               event.text,
               raw_event_ref.extra.get("ir_inline_href").unwrap_or("#"),
               title=raw_event_ref.extra.get("ir_inline_title"),
               source_ref=event_ref,
             )
-          Some(@core.InlineKind::Image) =>
+          Some(Image) =>
             @core.make_inline_image(
               event.text,
               raw_event_ref.extra.get("ir_inline_href").unwrap_or("#"),
               title=raw_event_ref.extra.get("ir_inline_title"),
               source_ref=event_ref,
             )
-          Some(@core.InlineKind::Code) =>
-            @core.make_inline_code(event.text, source_ref=event_ref)
+          Some(Code) => @core.make_inline_code(event.text, source_ref=event_ref)
           _ => @core.make_inline_text(event.text, source_ref=event_ref)
         }
         for entry in raw_event_ref.extra.to_array() {
@@ -824,26 +808,26 @@ fn collect_generic_block_event_body(
         inlines.push(inline)
         cursor.index += 1
       }
-      @core.EventKind::Cell => {
+      Cell => {
         table_cells.push(event.text)
         table_cell_refs.push(
           strip_generic_event_ref(event.source_ref.unwrap_or(source_ref)),
         )
         cursor.index += 1
       }
-      @core.EventKind::RowBreak => {
+      RowBreak => {
         let row_ref = strip_generic_event_ref(
           event.source_ref.unwrap_or(source_ref),
         )
         let row = @core.make_block(
-          @core.BlockKind::TableRow,
+          TableRow,
           table_cells.join(" | "),
           source_ref=row_ref,
         )
         for index in 0..<table_cells.length() {
           row.children.push(
             @core.make_block(
-              @core.BlockKind::TableCell,
+              TableCell,
               table_cells[index],
               source_ref=if index < table_cell_refs.length() {
                 table_cell_refs[index]
@@ -881,11 +865,11 @@ fn strip_generic_event_ref(source_ref : @core.SourceRef) -> @core.SourceRef {
 ///|
 fn generic_inline_kind_name(kind : String?) -> @core.InlineKind? {
   match kind {
-    Some("text") => Some(@core.InlineKind::Text)
-    Some("line_break") => Some(@core.InlineKind::LineBreak)
-    Some("link") => Some(@core.InlineKind::Link)
-    Some("image") => Some(@core.InlineKind::Image)
-    Some("code") => Some(@core.InlineKind::Code)
+    Some("text") => Some(Text)
+    Some("line_break") => Some(LineBreak)
+    Some("link") => Some(Link)
+    Some("image") => Some(Image)
+    Some("code") => Some(Code)
     _ => None
   }
 }
@@ -948,9 +932,7 @@ fn markdown_generic_events_visible(events : Array[@core.CoreEvent]) -> Bool {
 ///|
 fn markdown_generic_event_visible(event : @core.CoreEvent) -> Bool {
   match event.kind {
-    @core.EventKind::StartBlock(@core.BlockKind::Code)
-    | @core.EventKind::StartBlock(@core.BlockKind::Raw)
-    | @core.EventKind::Text => event.text.trim() != ""
+    StartBlock(Code) | StartBlock(Raw) | Text => event.text.trim() != ""
     _ => false
   }
 }
@@ -961,9 +943,9 @@ fn write_markdown_generic_event_to(
   event : @core.CoreEvent,
 ) -> Unit {
   match event.kind {
-    @core.EventKind::StartBlock(@core.BlockKind::Code) => {
+    StartBlock(Code) => {
       let code = @core.make_block(
-        @core.BlockKind::Code,
+        Code,
         event.text,
         source_ref=event.source_ref.unwrap_or(@core.empty_source_ref()),
       )
@@ -977,17 +959,16 @@ fn write_markdown_generic_event_to(
       }
       write_markdown_code_to(out, code)
     }
-    @core.EventKind::StartBlock(@core.BlockKind::Raw) => {
+    StartBlock(Raw) => {
       let raw = @core.make_block(
-        @core.BlockKind::Raw,
+        Raw,
         event.text,
         source_ref=event.source_ref.unwrap_or(@core.empty_source_ref()),
       )
       raw.attrs.set("raw_kind", "text")
       out.write_string(render_markdown_raw(raw))
     }
-    @core.EventKind::Text =>
-      write_escaped_markdown_inline_text_to(out, event.text)
+    Text => write_escaped_markdown_inline_text_to(out, event.text)
     _ => ()
   }
 }

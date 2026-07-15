@@ -16,8 +16,8 @@ pub fn validate_markdown_document(
   let mut error_count = 0
   for issue in issues {
     match issue.severity {
-      MarkdownValidationSeverity::Warning => warning_count += 1
-      MarkdownValidationSeverity::Error => error_count += 1
+      Warning => warning_count += 1
+      Error => error_count += 1
     }
   }
   { issue_count: issues.length(), warning_count, error_count, issues }
@@ -41,21 +41,20 @@ pub fn inspect_markdown_document(
 
   for block in doc.blocks {
     match block.kind {
-      MarkdownBlockKind::BlankLine => blank_line_count += 1
-      MarkdownBlockKind::HeadingAtx | MarkdownBlockKind::HeadingSetext =>
-        heading_count += 1
-      MarkdownBlockKind::FencedCode => {
+      BlankLine => blank_line_count += 1
+      HeadingAtx | HeadingSetext => heading_count += 1
+      FencedCode => {
         fenced_code_count += 1
         match block.fenced_code {
           Some(info) => if !info.closed { unclosed_fence_count += 1 }
           None => ()
         }
       }
-      MarkdownBlockKind::ListItem => list_item_count += 1
-      MarkdownBlockKind::BlockQuote => blockquote_count += 1
-      MarkdownBlockKind::TableLikeRow => table_like_row_count += 1
-      MarkdownBlockKind::ThematicBreak => thematic_break_count += 1
-      MarkdownBlockKind::HtmlBlockCandidate => html_block_candidate_count += 1
+      ListItem => list_item_count += 1
+      BlockQuote => blockquote_count += 1
+      TableLikeRow => table_like_row_count += 1
+      ThematicBreak => thematic_break_count += 1
+      HtmlBlockCandidate => html_block_candidate_count += 1
       _ => ()
     }
   }

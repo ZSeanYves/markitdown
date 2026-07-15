@@ -40,9 +40,9 @@ pub struct OoxmlPackageInspectReport {
 ///|
 pub fn classify_ooxml_error(err : @ox.OoxmlError) -> OoxmlErrorInfo {
   match err {
-    @ox.ZipError(msg) =>
+    ZipError(msg) =>
       {
-        kind: @ox.OoxmlErrorKind::ZipFailure,
+        kind: ZipFailure,
         detail: msg,
         part_name: None,
         rels_part_name: None,
@@ -50,9 +50,9 @@ pub fn classify_ooxml_error(err : @ox.OoxmlError) -> OoxmlErrorInfo {
         rel_id: None,
         target: None,
       }
-    @ox.MissingPart(path) =>
+    MissingPart(path) =>
       {
-        kind: @ox.OoxmlErrorKind::MissingPart,
+        kind: MissingPart,
         detail: path,
         part_name: Some(path),
         rels_part_name: if path.has_suffix(".rels") {
@@ -64,11 +64,11 @@ pub fn classify_ooxml_error(err : @ox.OoxmlError) -> OoxmlErrorInfo {
         rel_id: None,
         target: None,
       }
-    @ox.InvalidXml(msg) => classify_invalid_xml_detail(msg)
-    @ox.InvalidPartPath(path) => classify_invalid_part_path_detail(path)
-    @ox.RelationshipNotFound(source_part, rel_id) =>
+    InvalidXml(msg) => classify_invalid_xml_detail(msg)
+    InvalidPartPath(path) => classify_invalid_part_path_detail(path)
+    RelationshipNotFound(source_part, rel_id) =>
       {
-        kind: @ox.OoxmlErrorKind::RelationshipNotFound,
+        kind: RelationshipNotFound,
         detail: "source=" + source_part + ", rel_id=" + rel_id,
         part_name: None,
         rels_part_name: None,
@@ -288,7 +288,7 @@ fn count_default_content_types(infos : Array[@ox.OoxmlContentTypeInfo]) -> Int {
   let mut count = 0
   for info in infos {
     match info.kind {
-      @ox.OoxmlContentTypeInfoKind::DefaultExtension => count += 1
+      DefaultExtension => count += 1
       _ => ()
     }
   }
@@ -300,7 +300,7 @@ fn count_override_content_types(infos : Array[@ox.OoxmlContentTypeInfo]) -> Int 
   let mut count = 0
   for info in infos {
     match info.kind {
-      @ox.OoxmlContentTypeInfoKind::OverridePart => count += 1
+      OverridePart => count += 1
       _ => ()
     }
   }
@@ -396,7 +396,7 @@ fn classify_invalid_xml_detail(msg : String) -> OoxmlErrorInfo {
     classify_relationships_detail(msg)
   } else {
     {
-      kind: @ox.OoxmlErrorKind::InvalidXml,
+      kind: InvalidXml,
       detail: msg,
       part_name: None,
       rels_part_name: None,
@@ -410,9 +410,9 @@ fn classify_invalid_xml_detail(msg : String) -> OoxmlErrorInfo {
 ///|
 fn classify_content_types_detail(detail : String) -> @ox.OoxmlErrorKind {
   if detail.contains("duplicate content type override: ") {
-    @ox.OoxmlErrorKind::DuplicateContentTypeOverride
+    DuplicateContentTypeOverride
   } else {
-    @ox.OoxmlErrorKind::MalformedContentTypes
+    MalformedContentTypes
   }
 }
 
@@ -422,7 +422,7 @@ fn classify_relationships_detail(msg : String) -> OoxmlErrorInfo {
   let source_part = parse_quoted_field(msg, "source=")
   let detail = parse_relationship_detail(msg)
   {
-    kind: @ox.OoxmlErrorKind::MalformedRelationships,
+    kind: MalformedRelationships,
     detail,
     part_name: rels_part_name,
     rels_part_name,
@@ -438,7 +438,7 @@ fn classify_invalid_part_path_detail(path : String) -> OoxmlErrorInfo {
     let detail = path["unsafe relationship target: ".length():].to_owned()
     let target = parse_relationship_target(detail)
     {
-      kind: @ox.OoxmlErrorKind::UnsafeRelationshipTarget,
+      kind: UnsafeRelationshipTarget,
       detail,
       part_name: None,
       rels_part_name: None,
@@ -449,7 +449,7 @@ fn classify_invalid_part_path_detail(path : String) -> OoxmlErrorInfo {
   } else if path.has_prefix("normalized part collision: ") {
     let detail = path["normalized part collision: ".length():].to_owned()
     {
-      kind: @ox.OoxmlErrorKind::DuplicateNormalizedPart,
+      kind: DuplicateNormalizedPart,
       detail,
       part_name: Some(detail),
       rels_part_name: None,
@@ -459,7 +459,7 @@ fn classify_invalid_part_path_detail(path : String) -> OoxmlErrorInfo {
     }
   } else {
     {
-      kind: @ox.OoxmlErrorKind::UnsafePartName,
+      kind: UnsafePartName,
       detail: path,
       part_name: Some(path),
       rels_part_name: None,
@@ -600,8 +600,8 @@ fn write_asset_refs_inline(
 ///|
 fn target_mode_text(mode : @ox.OoxmlTargetMode) -> String {
   match mode {
-    @ox.OoxmlTargetMode::Internal => "Internal"
-    @ox.OoxmlTargetMode::External => "External"
+    Internal => "Internal"
+    External => "External"
   }
 }
 

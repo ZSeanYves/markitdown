@@ -92,11 +92,7 @@ fn xlsx_append_package_media_asset(
     None,
   )
   let asset_id = "xlsx:" + part.part_name
-  let asset = @core.make_asset_ref(
-    @core.AssetKind::Image,
-    asset_id,
-    source_ref~,
-  )
+  let asset = @core.make_asset_ref(Image, asset_id, source_ref~)
   let next_asset = {
     ..asset,
     path: Some(output_path),
@@ -118,7 +114,7 @@ fn xlsx_append_package_media_asset(
     None => ()
   }
   assets.push(next_asset)
-  let block = @core.make_block(@core.BlockKind::Image, "", source_ref~)
+  let block = @core.make_block(Image, "", source_ref~)
   block.attrs.set("asset_id", asset_id)
   block.attrs.set("path", output_path)
   block.attrs.set("alt", xlsx_media_basename(part.part_name))
@@ -159,7 +155,7 @@ fn xlsx_drawing_media_order(
       _ => continue
     }
     for drawing_rel in sheet_rels {
-      if drawing_rel.target_mode == @ox.OoxmlTargetMode::External ||
+      if drawing_rel.target_mode == External ||
         !drawing_rel.rel_type.contains("relationships/drawing") {
         continue
       }
@@ -185,7 +181,7 @@ fn xlsx_drawing_media_order(
         let id = drawing_xml[start:end_].to_owned()
         for rel in drawing_rels {
           if rel.id == id &&
-            rel.target_mode != @ox.OoxmlTargetMode::External &&
+            rel.target_mode != External &&
             rel.rel_type.contains("relationships/image") {
             ordered.push((rel.resolved_target, sheet.sheet_name, id))
             break
@@ -250,12 +246,12 @@ fn xlsx_lower_block_stream_document(
 
   let metadata : @core.DocumentMetadata = Map([])
   let blocks : Array[@core.CoreBlock] = []
-  metadata.set("source_name", @core.JsonValue::String(source.source_name))
-  metadata.set("format", @core.JsonValue::String("xlsx"))
-  metadata.set("workbook_part", @core.JsonValue::String(shared.workbook_part))
+  metadata.set("source_name", String(source.source_name))
+  metadata.set("format", String("xlsx"))
+  metadata.set("workbook_part", String(shared.workbook_part))
   metadata.set(
     "sheet_count",
-    @core.JsonValue::Number(effective_sheet_infos.length().to_string()),
+    Number(effective_sheet_infos.length().to_string()),
   )
   let mut visible_sheet_count = 0
   let mut hidden_sheet_count = 0
@@ -273,7 +269,7 @@ fn xlsx_lower_block_stream_document(
 
   for sheet_info in effective_sheet_infos {
     match sheet_info.visibility {
-      @shared.XlsxSheetVisibility::Visible => {
+      Visible => {
         visible_sheet_count += 1
         let sheet = xlsx_parse_sheet_view(
           pkg,
@@ -302,7 +298,7 @@ fn xlsx_lower_block_stream_document(
         external_link_count += sheet.external_link_count
         xlsx_append_sparse_sheet_view_blocks(blocks, source.source_name, sheet)
       }
-      @shared.XlsxSheetVisibility::Hidden => {
+      Hidden => {
         hidden_sheet_count += 1
         diagnostics.warnings.push(
           "hidden xlsx sheet skipped: " + sheet_info.sheet_name,
@@ -312,7 +308,7 @@ fn xlsx_lower_block_stream_document(
           "xlsx_hidden_sheet_skipped:" + sheet_info.sheet_name,
         )
       }
-      @shared.XlsxSheetVisibility::VeryHidden => {
+      VeryHidden => {
         very_hidden_sheet_count += 1
         diagnostics.warnings.push(
           "very hidden xlsx sheet skipped: " + sheet_info.sheet_name,
@@ -324,13 +320,10 @@ fn xlsx_lower_block_stream_document(
       }
     }
   }
-  metadata.set(
-    "visible_sheet_count",
-    @core.JsonValue::Number(visible_sheet_count.to_string()),
-  )
+  metadata.set("visible_sheet_count", Number(visible_sheet_count.to_string()))
   metadata.set(
     "shared_string_count",
-    @core.JsonValue::Number(shared.shared_strings.length().to_string()),
+    Number(shared.shared_strings.length().to_string()),
   )
   diagnostics.metrics.set(
     "xlsx_sheet_count",
@@ -393,20 +386,17 @@ fn xlsx_lower_workbook_document(
 ) -> XlsxLoweringResult {
   let metadata : @core.DocumentMetadata = Map([])
   let blocks : Array[@core.CoreBlock] = []
-  metadata.set("source_name", @core.JsonValue::String(source.source_name))
-  metadata.set("format", @core.JsonValue::String("xlsx"))
-  metadata.set("workbook_part", @core.JsonValue::String(workbook.workbook_part))
-  metadata.set(
-    "sheet_count",
-    @core.JsonValue::Number(workbook.sheet_count.to_string()),
-  )
+  metadata.set("source_name", String(source.source_name))
+  metadata.set("format", String("xlsx"))
+  metadata.set("workbook_part", String(workbook.workbook_part))
+  metadata.set("sheet_count", Number(workbook.sheet_count.to_string()))
   metadata.set(
     "visible_sheet_count",
-    @core.JsonValue::Number(workbook.visible_sheet_count.to_string()),
+    Number(workbook.visible_sheet_count.to_string()),
   )
   metadata.set(
     "shared_string_count",
-    @core.JsonValue::Number(workbook.shared_strings.length().to_string()),
+    Number(workbook.shared_strings.length().to_string()),
   )
 
   for sheet in workbook.sheets {
@@ -475,18 +465,14 @@ fn xlsx_append_sheet_blocks(
 ) -> Unit {
   let heading_ref = xlsx_sheet_heading_source_ref(source_name, sheet)
   let heading = xlsx_trim_lowered_block_text(
-    @core.make_block(
-      @core.BlockKind::Heading,
-      sheet.sheet_name,
-      source_ref=heading_ref,
-    ),
+    @core.make_block(Heading, sheet.sheet_name, source_ref=heading_ref),
   )
   heading.attrs.set("level", "2")
   blocks.push(heading)
 
   if sheet.is_empty {
     let raw = @core.make_block(
-      @core.BlockKind::Raw,
+      Raw,
       "(empty sheet)",
       source_ref=xlsx_sheet_table_source_ref(source_name, sheet),
     )
@@ -521,7 +507,7 @@ fn xlsx_append_sheet_table_regions(
           Some(name) =>
             if name.trim() != "" && name.trim() != sheet.sheet_name {
               let heading = @core.make_block(
-                @core.BlockKind::Heading,
+                Heading,
                 name,
                 source_ref=table.source_ref.unwrap_or(@core.empty_source_ref()),
               )
@@ -572,7 +558,7 @@ fn xlsx_append_sheet_table_regions(
         xlsx_append_region_spacer(blocks, emitted, table)
         if region_name != sheet.sheet_name {
           let heading = @core.make_block(
-            @core.BlockKind::Heading,
+            Heading,
             region_name,
             source_ref=table.source_ref.unwrap_or(@core.empty_source_ref()),
           )
@@ -636,11 +622,7 @@ fn xlsx_build_table_block_from_bounds(
   sparse_rows? : Bool = false,
   covered? : Map[String, Bool]? = None,
 ) -> @core.CoreBlock? {
-  let table = @core.make_block(
-    @core.BlockKind::Table,
-    "table",
-    source_ref=table_ref,
-  )
+  let table = @core.make_block(Table, "table", source_ref=table_ref)
   table.attrs.set("header_rows", "1")
   table.attrs.set("table_column_count", (max_col - min_col + 1).to_string())
   if sheet.include_merge_layout {
@@ -664,11 +646,7 @@ fn xlsx_build_table_block_from_bounds(
     } else {
       @core.source_ref_with_extra(table_ref, "row_index", row.to_string())
     }
-    let row_block = @core.make_block(
-      @core.BlockKind::TableRow,
-      "",
-      source_ref=row_ref,
-    )
+    let row_block = @core.make_block(TableRow, "", source_ref=row_ref)
     if sparse_rows {
       row_block.attrs.set("sparse_cell_columns", "true")
       row_block.attrs.set(
@@ -696,13 +674,13 @@ fn xlsx_build_table_block_from_bounds(
                 match source_ref {
                   Some(value) =>
                     @core.make_block(
-                      @core.BlockKind::TableCell,
+                      TableCell,
                       cell.display_text,
                       source_ref=value,
                     )
                   None =>
                     @core.make_block_without_source_ref(
-                      @core.BlockKind::TableCell,
+                      TableCell,
                       cell.display_text,
                     )
                 },
@@ -724,7 +702,7 @@ fn xlsx_build_table_block_from_bounds(
               None => cell.source_ref.unwrap_or(@core.empty_source_ref())
             }
             let cell_block0 = @core.make_block(
-              @core.BlockKind::TableCell,
+              TableCell,
               cell.display_text,
               source_ref~,
             )
@@ -742,11 +720,7 @@ fn xlsx_build_table_block_from_bounds(
             let source_ref = xlsx_blank_cell_source_ref(
               source_name, sheet, cell_ref, row, col, merge_range,
             )
-            let cell_block = @core.make_block(
-              @core.BlockKind::TableCell,
-              "",
-              source_ref~,
-            )
+            let cell_block = @core.make_block(TableCell, "", source_ref~)
             xlsx_apply_merge_attrs(cell_block, merge_range, row, col)
             row_block.children.push(cell_block)
           } else {

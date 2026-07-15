@@ -34,26 +34,19 @@ test "TOML parser and lowering cover rich tables arrays and scalar kinds" {
   let source = @input.input_from_text_with_format(
     text,
     "complex.toml",
-    Some(@input.DetectedFormat::Toml),
+    Some(Toml),
   )
-  let result = (toml_parser().parse)(
-    source,
-    @parser.new_parse_context(@input.DetectedFormat::Toml),
-  ).unwrap()
+  let result = (toml_parser().parse)(source, @parser.new_parse_context(Toml)).unwrap()
   let document = result.document.unwrap()
   assert_true(document.blocks.length() >= 7)
-  assert_true(
-    document.blocks.any(block => block.kind == @core.BlockKind::Heading),
-  )
-  assert_true(
-    document.blocks.any(block => block.kind == @core.BlockKind::Table),
-  )
+  assert_true(document.blocks.any(block => block.kind == Heading))
+  assert_true(document.blocks.any(block => block.kind == Table))
   assert_true(result.diagnostics.metrics.get("table_count") != Some("0"))
   assert_true(result.diagnostics.metrics.get("array_count") != Some("0"))
   let prepared = @dtoml.prepare_toml_document_from_source(source).unwrap()
   let reused = toml_parse_with_prepared_document(
     prepared.prepared_source,
-    @parser.new_parse_context(@input.DetectedFormat::Toml),
+    @parser.new_parse_context(Toml),
     prepared,
   )
   assert_true(
@@ -73,12 +66,8 @@ test "TOML malformed structures fail closed with classified diagnostics" {
     ] {
     match
       (toml_parser().parse)(
-        @input.input_from_text_with_format(
-          text,
-          "broken.toml",
-          Some(@input.DetectedFormat::Toml),
-        ),
-        @parser.new_parse_context(@input.DetectedFormat::Toml),
+        @input.input_from_text_with_format(text, "broken.toml", Some(Toml)),
+        @parser.new_parse_context(Toml),
       ) {
       Ok(result) =>
         assert_true(
@@ -94,12 +83,8 @@ test "TOML malformed structures fail closed with classified diagnostics" {
 test "TOML lowering covers empty and heterogeneous table product shapes" {
   for text in ["", "[empty]\n", "items = []\n"] {
     let result = (toml_parser().parse)(
-      @input.input_from_text_with_format(
-        text,
-        "edge.toml",
-        Some(@input.DetectedFormat::Toml),
-      ),
-      @parser.new_parse_context(@input.DetectedFormat::Toml),
+      @input.input_from_text_with_format(text, "edge.toml", Some(Toml)),
+      @parser.new_parse_context(Toml),
     ).unwrap()
     assert_true(result.document.unwrap().blocks.length() >= 1)
   }
@@ -115,9 +100,9 @@ test "TOML lowering covers empty and heterogeneous table product shapes" {
     @input.input_from_text_with_format(
       heterogeneous,
       "heterogeneous.toml",
-      Some(@input.DetectedFormat::Toml),
+      Some(Toml),
     ),
-    @parser.new_parse_context(@input.DetectedFormat::Toml),
+    @parser.new_parse_context(Toml),
   ).unwrap()
   let blocks = result.document.unwrap().blocks
   assert_true(blocks.any(block => block.text == "Item 1"))

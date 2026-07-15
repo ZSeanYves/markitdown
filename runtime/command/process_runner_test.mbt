@@ -1,10 +1,6 @@
 ///|
 test "native command runner preserves argv and bounded output" {
-  let shell = @command.make_resolved_command(
-    "/bin/sh",
-    "/bin/sh",
-    @command.ResolvedCommandSource::ExplicitArg,
-  )
+  let shell = @command.make_resolved_command("/bin/sh", "/bin/sh", ExplicitArg)
   let output = @command.run_resolved_command(
     shell,
     ["-c", "printf '%s' \"$1\"", "sh", "$(literal)"],

@@ -55,46 +55,40 @@ test "source reference builders preserve every location family" {
 ///|
 test "container entry names cover kinds and security findings" {
   let kinds : Array[(ContainerEntryKind, String)] = [
-    (ContainerEntryKind::Document, "document"),
-    (ContainerEntryKind::Asset, "asset"),
-    (ContainerEntryKind::Metadata, "metadata"),
-    (ContainerEntryKind::Directory, "directory"),
-    (ContainerEntryKind::Unsupported, "unsupported"),
-    (ContainerEntryKind::Unsafe, "unsafe"),
+    (Document, "document"),
+    (Asset, "asset"),
+    (Metadata, "metadata"),
+    (Directory, "directory"),
+    (Unsupported, "unsupported"),
+    (Unsafe, "unsafe"),
   ]
   for entry in kinds {
     assert_eq(container_entry_kind_name(entry.0), entry.1)
   }
   let findings : Array[(ContainerSecurityFinding, String)] = [
-    (ContainerSecurityFinding::PathTraversal, "path_traversal"),
-    (ContainerSecurityFinding::AbsolutePath, "absolute_path"),
-    (ContainerSecurityFinding::EncryptedEntry, "encrypted_entry"),
-    (
-      ContainerSecurityFinding::UnsupportedCompression,
-      "unsupported_compression",
-    ),
-    (ContainerSecurityFinding::CompressionRatioLimit, "compression_ratio_limit"),
-    (
-      ContainerSecurityFinding::DuplicateNormalizedPath,
-      "duplicate_normalized_path",
-    ),
-    (ContainerSecurityFinding::NestedArchive, "nested_archive"),
-    (ContainerSecurityFinding::ExternalReference, "external_reference"),
-    (ContainerSecurityFinding::ResourceLimitHit, "resource_limit_hit"),
+    (PathTraversal, "path_traversal"),
+    (AbsolutePath, "absolute_path"),
+    (EncryptedEntry, "encrypted_entry"),
+    (UnsupportedCompression, "unsupported_compression"),
+    (CompressionRatioLimit, "compression_ratio_limit"),
+    (DuplicateNormalizedPath, "duplicate_normalized_path"),
+    (NestedArchive, "nested_archive"),
+    (ExternalReference, "external_reference"),
+    (ResourceLimitHit, "resource_limit_hit"),
   ]
   for entry in findings {
     assert_eq(container_security_finding_name(entry.0), entry.1)
   }
   let container = make_container_entry(
     "../unsafe",
-    ContainerEntryKind::Unsafe,
+    Unsafe,
     normalized_path=Some("unsafe"),
     entry_index=Some(1),
     detected_format=Some("txt"),
     compressed_size=Some(1),
     uncompressed_size=Some(1000),
     is_encrypted=true,
-    security_findings=[ContainerSecurityFinding::PathTraversal],
+    security_findings=[PathTraversal],
   )
   assert_true(container.is_encrypted)
   assert_eq(container.security_findings.length(), 1)
@@ -103,65 +97,51 @@ test "container entry names cover kinds and security findings" {
 ///|
 test "core constructors and stable names cover all semantic enums" {
   let block_kinds : Array[BlockKind] = [
-    BlockKind::Document,
-    BlockKind::Section,
-    BlockKind::Heading,
-    BlockKind::Paragraph,
-    BlockKind::List,
-    BlockKind::ListItem,
-    BlockKind::Table,
-    BlockKind::TableRow,
-    BlockKind::TableCell,
-    BlockKind::Image,
-    BlockKind::Code,
-    BlockKind::BlockQuote,
-    BlockKind::Raw,
+    Document,
+    Section,
+    Heading,
+    Paragraph,
+    List,
+    ListItem,
+    Table,
+    TableRow,
+    TableCell,
+    Image,
+    Code,
+    BlockQuote,
+    Raw,
   ]
   for kind in block_kinds {
     assert_true(block_kind_name(kind) != "")
   }
   let signal_types : Array[SignalType] = [
-    SignalType::HeadingCandidate,
-    SignalType::ListCandidate,
-    SignalType::TableCandidate,
-    SignalType::CaptionCandidate,
-    SignalType::HeaderFooterCandidate,
-    SignalType::PageBreak,
-    SignalType::SectionBreak,
-    SignalType::ReadingOrderHint,
-    SignalType::FontSignal,
-    SignalType::StyleSignal,
-    SignalType::LayoutSignal,
-    SignalType::OcrSignal,
-    SignalType::TableContinuationCandidate,
-    SignalType::ArtifactCandidate,
-    SignalType::LanguageHint,
-    SignalType::CodeLanguageHint,
-    SignalType::NoteRef,
-    SignalType::CommentRef,
-    SignalType::RenderHint,
+    HeadingCandidate,
+    ListCandidate,
+    TableCandidate,
+    CaptionCandidate,
+    HeaderFooterCandidate,
+    PageBreak,
+    SectionBreak,
+    ReadingOrderHint,
+    FontSignal,
+    StyleSignal,
+    LayoutSignal,
+    OcrSignal,
+    TableContinuationCandidate,
+    ArtifactCandidate,
+    LanguageHint,
+    CodeLanguageHint,
+    NoteRef,
+    CommentRef,
+    RenderHint,
   ]
   for signal_type in signal_types {
     assert_true(signal_type_name(signal_type) != "")
   }
-  for
-    kind in [
-      InlineKind::Text,
-      InlineKind::LineBreak,
-      InlineKind::Link,
-      InlineKind::Image,
-      InlineKind::Code,
-    ] {
+  for kind in [InlineKind::Text, LineBreak, Link, Image, Code] {
     assert_true(inline_kind_name(kind) != "")
   }
-  for
-    kind in [
-      AssetKind::Image,
-      AssetKind::Attachment,
-      AssetKind::Link,
-      AssetKind::Embedded,
-      AssetKind::Unknown,
-    ] {
+  for kind in [AssetKind::Image, Attachment, Link, Embedded, Unknown] {
     assert_true(asset_kind_name(kind) != "")
   }
 }
@@ -182,32 +162,20 @@ test "core block IDs and value constructors preserve provenance" {
     Some(2),
     Some(2),
   )
-  let first_id = make_block_id(
-    BlockKind::Paragraph,
-    "text",
-    source_ref=Some(first_ref),
-  )
-  let repeated_id = make_block_id(
-    BlockKind::Paragraph,
-    "text",
-    source_ref=Some(first_ref),
-  )
-  let second_id = make_block_id(
-    BlockKind::Paragraph,
-    "text",
-    source_ref=Some(second_ref),
-  )
-  let content_crc = make_block_content_crc(BlockKind::Paragraph, "text")
+  let first_id = make_block_id(Paragraph, "text", source_ref=Some(first_ref))
+  let repeated_id = make_block_id(Paragraph, "text", source_ref=Some(first_ref))
+  let second_id = make_block_id(Paragraph, "text", source_ref=Some(second_ref))
+  let content_crc = make_block_content_crc(Paragraph, "text")
   assert_eq(first_id, finish_block_id(content_crc, Some(first_ref)))
   assert_eq(second_id, finish_block_id(content_crc, Some(second_ref)))
   assert_eq(first_id, repeated_id)
   assert_true(first_id != second_id)
-  let block = make_block(BlockKind::Paragraph, "text", source_ref=first_ref)
+  let block = make_block(Paragraph, "text", source_ref=first_ref)
     |> block_with_block_id("custom")
     |> block_with_attr("key", "value")
-    |> block_with_children([make_block(BlockKind::Raw, "child")])
+    |> block_with_children([make_block(Raw, "child")])
     |> block_with_rich_inlines(Some([make_inline_text("inline")]))
-    |> block_with_signals([make_signal(SignalType::RenderHint, 80)])
+    |> block_with_signals([make_signal(RenderHint, 80)])
   assert_eq(block.block_id, "custom")
   assert_eq(block.children.length(), 1)
   assert_eq(block.rich_inlines.unwrap().length(), 1)
@@ -216,14 +184,14 @@ test "core block IDs and value constructors preserve provenance" {
     inline_with_attr(make_inline_code("code"), "lang", "mbt").attrs.get("lang") ==
     Some("mbt"),
   )
-  assert_true(make_inline_line_break().kind == InlineKind::LineBreak)
+  assert_true(make_inline_line_break().kind == LineBreak)
   assert_true(make_inline_text_without_source_ref("plain").source_ref is None)
   assert_true(make_inline_line_break_without_source_ref().source_ref is None)
   assert_true(
     make_inline_link("link", "href", title=Some("title")).href == Some("href"),
   )
   assert_true(make_inline_image("alt", "path").href == Some("path"))
-  assert_true(make_asset_ref(AssetKind::Image, "asset").asset_id == "asset")
+  assert_true(make_asset_ref(Image, "asset").asset_id == "asset")
   let map_entry = make_source_map_entry(
     primary_ref=Some(first_ref),
     confidence=Some(90),
@@ -234,13 +202,13 @@ test "core block IDs and value constructors preserve provenance" {
     |> source_map_add_asset_entry(map_entry)
   assert_eq(source_map.block_entries.length(), 1)
   assert_eq(source_map.asset_entries.length(), 1)
-  let rendered = make_block_without_source_ref(BlockKind::Paragraph, "plain")
+  let rendered = make_block_without_source_ref(Paragraph, "plain")
     |> block_with_literal_rendering(minimal_inline_escape=true)
     |> block_with_rendered_markdown("rendered")
   assert_true(block_is_literal(rendered))
   assert_true(block_inline_escape_mode(rendered) == Some("minimal"))
   assert_true(block_rendered_markdown(rendered) == Some("rendered"))
-  let compact = make_block_without_source_ref(BlockKind::Paragraph, "compact")
+  let compact = make_block_without_source_ref(Paragraph, "compact")
     |> block_with_compact_source_ref(
       make_compact_source_ref("file", "html", 1, 1, 0, 7),
     )

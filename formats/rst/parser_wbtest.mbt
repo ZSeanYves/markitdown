@@ -7,12 +7,8 @@ test "RST parser lowers headings lists directives notes tables and includes" {
     "+======+=======+", "| A    | 1     |", "+------+-------+",
   ].join("\n")
   let result = (rst_parser().parse)(
-    @input.input_from_text_with_format(
-      text,
-      "complex.rst",
-      Some(@input.DetectedFormat::Rst),
-    ),
-    @parser.new_parse_context(@input.DetectedFormat::Rst),
+    @input.input_from_text_with_format(text, "complex.rst", Some(Rst)),
+    @parser.new_parse_context(Rst),
   ).unwrap()
   assert_true(result.document.unwrap().blocks.length() >= 4)
   assert_true(result.diagnostics.metrics.get("heading_count") != Some("0"))
@@ -27,12 +23,8 @@ test "RST semantic edge cases retain empty directives roles and references" {
     "", ".. [#] Footnote body", "", ":Author: Example",
   ].join("\n")
   let result = (rst_parser().parse)(
-    @input.input_from_text_with_format(
-      text,
-      "edge.rst",
-      Some(@input.DetectedFormat::Rst),
-    ),
-    @parser.new_parse_context(@input.DetectedFormat::Rst),
+    @input.input_from_text_with_format(text, "edge.rst", Some(Rst)),
+    @parser.new_parse_context(Rst),
   ).unwrap()
   let blocks = result.document.unwrap().blocks
   assert_true(blocks.any(block => block.text.contains("Warning")))
@@ -136,12 +128,12 @@ test "RST parser exports local image directives as sidecar assets" {
     @input.input_from_text_with_format(
       ".. image:: local.png\n   :alt: Local image",
       "image.rst",
-      Some(@input.DetectedFormat::Rst),
+      Some(Rst),
     ),
-    @parser.new_parse_context(@input.DetectedFormat::Rst),
+    @parser.new_parse_context(Rst),
   ).unwrap()
   let images = result.document.unwrap().blocks.filter(block => {
-    block.kind == @core.BlockKind::Image
+    block.kind == Image
   })
   assert_eq(images.length(), 1)
   let image = images[0]
@@ -192,13 +184,9 @@ test "RST large document uses compact events with complete structure metrics" {
   out.write_string("+------+-------+\n")
   let text = out.to_string()
   assert_true(text.length() >= 1_048_576)
-  let context = @parser.new_parse_context(@input.DetectedFormat::Rst)
+  let context = @parser.new_parse_context(Rst)
   let result = (rst_parser().parse)(
-    @input.input_from_text_with_format(
-      text,
-      "large-compact.rst",
-      Some(@input.DetectedFormat::Rst),
-    ),
+    @input.input_from_text_with_format(text, "large-compact.rst", Some(Rst)),
     context,
   ).unwrap()
   let events = result.event_stream.unwrap()

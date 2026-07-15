@@ -62,9 +62,8 @@ fn yaml_value_to_blocks(
   path : String,
 ) -> Array[@core.CoreBlock] {
   match value {
-    @dyaml.YamlValue::Mapping(members) =>
-      [yaml_mapping_table_block(members, source, path)]
-    @dyaml.YamlValue::Sequence(values) =>
+    Mapping(members) => [yaml_mapping_table_block(members, source, path)]
+    Sequence(values) =>
       if values.length() == 0 {
         [yaml_code_block("[]", source, path)]
       } else if yaml_array_of_scalars(values) {
@@ -76,26 +75,26 @@ fn yaml_value_to_blocks(
             [yaml_code_block(yaml_stringify_block(value, 0), source, path)]
         }
       }
-    @dyaml.YamlValue::String(text) =>
+    String(text) =>
       [
         @core.make_block(
-          @core.BlockKind::Paragraph,
+          Paragraph,
           text,
           source_ref=yaml_source_ref(source, path),
         ),
       ]
-    @dyaml.YamlValue::Number(text) =>
+    Number(text) =>
       [
         @core.make_block(
-          @core.BlockKind::Paragraph,
+          Paragraph,
           text,
           source_ref=yaml_source_ref(source, path),
         ),
       ]
-    @dyaml.YamlValue::Bool(value) =>
+    Bool(value) =>
       [
         @core.make_block(
-          @core.BlockKind::Paragraph,
+          Paragraph,
           if value {
             "true"
           } else {
@@ -104,10 +103,10 @@ fn yaml_value_to_blocks(
           source_ref=yaml_source_ref(source, path),
         ),
       ]
-    @dyaml.YamlValue::Null =>
+    Null =>
       [
         @core.make_block(
-          @core.BlockKind::Paragraph,
+          Paragraph,
           "null",
           source_ref=yaml_source_ref(source, path),
         ),
@@ -135,7 +134,7 @@ fn yaml_scalar_list_block(
   path : String,
 ) -> @core.CoreBlock {
   let list = @core.make_block(
-    @core.BlockKind::List,
+    List,
     "",
     source_ref=yaml_source_ref(source, path),
   )
@@ -144,7 +143,7 @@ fn yaml_scalar_list_block(
     list.children.push(
       @core.block_with_attr(
         @core.make_block(
-          @core.BlockKind::ListItem,
+          ListItem,
           yaml_scalar_text(values[i]),
           source_ref=yaml_source_ref(source, item_path),
         ),
@@ -166,7 +165,7 @@ fn yaml_array_object_rows(
   let rows : Array[Array[String]] = []
   for i in 0..<values.length() {
     match values[i] {
-      @dyaml.YamlValue::Mapping(members) => {
+      Mapping(members) => {
         let member_keys = members.map(fn(entry) { entry.key })
         if i == 0 {
           keys = member_keys
@@ -209,10 +208,7 @@ fn yaml_members_to_row(
 fn yaml_array_of_scalars(values : Array[@dyaml.YamlValue]) -> Bool {
   for value in values {
     match value {
-      @dyaml.YamlValue::String(_)
-      | @dyaml.YamlValue::Number(_)
-      | @dyaml.YamlValue::Bool(_)
-      | @dyaml.YamlValue::Null => ()
+      String(_) | Number(_) | Bool(_) | Null => ()
       _ => return false
     }
   }
@@ -222,10 +218,10 @@ fn yaml_array_of_scalars(values : Array[@dyaml.YamlValue]) -> Bool {
 ///|
 fn yaml_value_cell(value : @dyaml.YamlValue) -> String {
   match value {
-    @dyaml.YamlValue::String(text) => text
-    @dyaml.YamlValue::Number(text) => text
-    @dyaml.YamlValue::Bool(value) => if value { "true" } else { "false" }
-    @dyaml.YamlValue::Null => "null"
+    String(text) => text
+    Number(text) => text
+    Bool(value) => if value { "true" } else { "false" }
+    Null => "null"
     _ => yaml_stringify_inline(value)
   }
 }
@@ -238,7 +234,7 @@ fn yaml_scalar_text(value : @dyaml.YamlValue) -> String {
 ///|
 fn yaml_stringify_inline(value : @dyaml.YamlValue) -> String {
   match value {
-    @dyaml.YamlValue::Mapping(members) => {
+    Mapping(members) => {
       let parts : Array[String] = []
       for entry in members {
         parts.push(
@@ -249,22 +245,22 @@ fn yaml_stringify_inline(value : @dyaml.YamlValue) -> String {
       }
       "{" + parts.join(", ") + "}"
     }
-    @dyaml.YamlValue::Sequence(values) => {
+    Sequence(values) => {
       let parts : Array[String] = []
       for item in values {
         parts.push(yaml_stringify_inline(item))
       }
       "[" + parts.join(", ") + "]"
     }
-    @dyaml.YamlValue::String(text) =>
+    String(text) =>
       if yaml_needs_quotes(text) {
         yaml_quote_string(text)
       } else {
         text
       }
-    @dyaml.YamlValue::Number(text) => text
-    @dyaml.YamlValue::Bool(value) => if value { "true" } else { "false" }
-    @dyaml.YamlValue::Null => "null"
+    Number(text) => text
+    Bool(value) => if value { "true" } else { "false" }
+    Null => "null"
   }
 }
 
@@ -272,14 +268,11 @@ fn yaml_stringify_inline(value : @dyaml.YamlValue) -> String {
 fn yaml_stringify_block(value : @dyaml.YamlValue, indent : Int) -> String {
   let prefix = "  ".repeat(indent)
   match value {
-    @dyaml.YamlValue::Mapping(members) => {
+    Mapping(members) => {
       let lines : Array[String] = []
       for entry in members {
         match entry.value {
-          @dyaml.YamlValue::String(_)
-          | @dyaml.YamlValue::Number(_)
-          | @dyaml.YamlValue::Bool(_)
-          | @dyaml.YamlValue::Null =>
+          String(_) | Number(_) | Bool(_) | Null =>
             lines.push(
               prefix +
               yaml_stringify_key(entry.key) +
@@ -294,14 +287,11 @@ fn yaml_stringify_block(value : @dyaml.YamlValue, indent : Int) -> String {
       }
       lines.join("\n")
     }
-    @dyaml.YamlValue::Sequence(values) => {
+    Sequence(values) => {
       let lines : Array[String] = []
       for item in values {
         match item {
-          @dyaml.YamlValue::String(_)
-          | @dyaml.YamlValue::Number(_)
-          | @dyaml.YamlValue::Bool(_)
-          | @dyaml.YamlValue::Null =>
+          String(_) | Number(_) | Bool(_) | Null =>
             lines.push(prefix + "- " + yaml_stringify_inline(item))
           _ => {
             lines.push(prefix + "-")
@@ -460,11 +450,7 @@ fn yaml_code_block(
   source : @input.InputSource,
   path : String,
 ) -> @core.CoreBlock {
-  @core.make_block(
-    @core.BlockKind::Code,
-    text,
-    source_ref=yaml_source_ref(source, path),
-  )
+  @core.make_block(Code, text, source_ref=yaml_source_ref(source, path))
 }
 
 ///|
@@ -520,7 +506,7 @@ fn yaml_append_value_events(
   }
   let event = cursor.events[cursor.index]
   match event.kind {
-    @dyaml.YamlStructureEventKind::MappingStart => {
+    MappingStart => {
       cursor.index += 1
       let rows : Array[Array[String]] = [["Key", "Value"]]
       let row_refs : Array[@core.SourceRef] = [
@@ -534,7 +520,7 @@ fn yaml_append_value_events(
       while cursor.index < cursor.events.length() {
         let next = cursor.events[cursor.index]
         match next.kind {
-          @dyaml.YamlStructureEventKind::Key => {
+          Key => {
             let key = next.text.unwrap_or("")
             let member_path = next.source.path
             cursor.index += 1
@@ -542,7 +528,7 @@ fn yaml_append_value_events(
             rows.push([key, value.0])
             row_refs.push(value.1)
           }
-          @dyaml.YamlStructureEventKind::MappingEnd => {
+          MappingEnd => {
             cursor.index += 1
             yaml_append_table_events(out, rows, row_refs, source, path)
             return
@@ -551,7 +537,7 @@ fn yaml_append_value_events(
         }
       }
     }
-    @dyaml.YamlStructureEventKind::SequenceStart => {
+    SequenceStart => {
       cursor.index += 1
       let values : Array[(String, @core.SourceRef)] = []
       let table_rows : Array[Array[String]] = []
@@ -564,7 +550,7 @@ fn yaml_append_value_events(
       while cursor.index < cursor.events.length() {
         let next = cursor.events[cursor.index]
         match next.kind {
-          @dyaml.YamlStructureEventKind::SequenceEnd => {
+          SequenceEnd => {
             cursor.index += 1
             if can_render_table && table_rows.length() > 1 {
               yaml_append_table_events(
@@ -636,10 +622,7 @@ fn yaml_append_value_events(
         }
       }
     }
-    @dyaml.YamlStructureEventKind::StringValue
-    | @dyaml.YamlStructureEventKind::NumberValue
-    | @dyaml.YamlStructureEventKind::BoolValue
-    | @dyaml.YamlStructureEventKind::NullValue => {
+    StringValue | NumberValue | BoolValue | NullValue => {
       yaml_append_paragraph_events(
         out,
         event.text.unwrap_or(""),
@@ -652,9 +635,7 @@ fn yaml_append_value_events(
       )
       cursor.index += 1
     }
-    @dyaml.YamlStructureEventKind::Key
-    | @dyaml.YamlStructureEventKind::MappingEnd
-    | @dyaml.YamlStructureEventKind::SequenceEnd => cursor.index += 1
+    Key | MappingEnd | SequenceEnd => cursor.index += 1
   }
 }
 
@@ -676,10 +657,7 @@ fn yaml_event_value_preview(
 ) -> (String, @core.SourceRef) {
   let event = cursor.events[cursor.index]
   match event.kind {
-    @dyaml.YamlStructureEventKind::StringValue
-    | @dyaml.YamlStructureEventKind::NumberValue
-    | @dyaml.YamlStructureEventKind::BoolValue
-    | @dyaml.YamlStructureEventKind::NullValue => {
+    StringValue | NumberValue | BoolValue | NullValue => {
       cursor.index += 1
       (
         yaml_clip_preview_text(event.text.unwrap_or(""), 96),
@@ -691,9 +669,9 @@ fn yaml_event_value_preview(
         ),
       )
     }
-    @dyaml.YamlStructureEventKind::MappingStart =>
+    MappingStart =>
       yaml_event_mapping_preview(cursor, source, path, preview_depth)
-    @dyaml.YamlStructureEventKind::SequenceStart =>
+    SequenceStart =>
       yaml_event_sequence_preview(cursor, source, path, preview_depth)
     _ => {
       cursor.index += 1
@@ -727,7 +705,7 @@ fn yaml_event_mapping_preview(
   while cursor.index < cursor.events.length() {
     let next = cursor.events[cursor.index]
     match next.kind {
-      @dyaml.YamlStructureEventKind::Key =>
+      Key =>
         if next.source.depth == member_depth {
           member_count += 1
           let key = next.text.unwrap_or("")
@@ -749,7 +727,7 @@ fn yaml_event_mapping_preview(
           }
           continue
         }
-      @dyaml.YamlStructureEventKind::MappingEnd =>
+      MappingEnd =>
         if next.source.depth == root_depth {
           end_line = next.source.line_end
           cursor.index += 1
@@ -785,7 +763,7 @@ fn yaml_event_sequence_preview(
   while cursor.index < cursor.events.length() {
     let next = cursor.events[cursor.index]
     match next.kind {
-      @dyaml.YamlStructureEventKind::SequenceEnd =>
+      SequenceEnd =>
         if next.source.depth == root_depth {
           end_line = next.source.line_end
           cursor.index += 1
@@ -833,7 +811,7 @@ fn yaml_collect_mapping_row(
   }
   let start = cursor.events[cursor.index]
   match start.kind {
-    @dyaml.YamlStructureEventKind::MappingStart => ()
+    MappingStart => ()
     _ => return None
   }
   let keys : Array[String] = []
@@ -843,7 +821,7 @@ fn yaml_collect_mapping_row(
   while cursor.index < cursor.events.length() {
     let next = cursor.events[cursor.index]
     match next.kind {
-      @dyaml.YamlStructureEventKind::Key => {
+      Key => {
         let key = next.text.unwrap_or("")
         let member_path = next.source.path
         cursor.index += 1
@@ -852,7 +830,7 @@ fn yaml_collect_mapping_row(
         values.push(value.0)
         row_end = value.1.line_end.unwrap_or(row_end)
       }
-      @dyaml.YamlStructureEventKind::MappingEnd => {
+      MappingEnd => {
         cursor.index += 1
         return Some(
           (
@@ -978,12 +956,12 @@ fn yaml_append_table_events(
   } else {
     yaml_source_ref(source, path)
   }
-  let block_ref = yaml_generic_block_ref(base_ref, @core.BlockKind::Table, [
+  let block_ref = yaml_generic_block_ref(base_ref, Table, [
     ("header_rows", "1"),
     ("table_column_count", rows[0].length().to_string()),
   ])
   out.push({
-    kind: @core.EventKind::StartBlock(@core.BlockKind::Table),
+    kind: StartBlock(Table),
     text: "table",
     source_ref: Some(block_ref),
   })
@@ -995,7 +973,7 @@ fn yaml_append_table_events(
     }
     for cell_index in 0..<rows[row_index].length() {
       out.push({
-        kind: @core.EventKind::Cell,
+        kind: Cell,
         text: rows[row_index][cell_index],
         source_ref: Some(
           @core.source_ref_with_cell_range(
@@ -1012,17 +990,9 @@ fn yaml_append_table_events(
         ),
       })
     }
-    out.push({
-      kind: @core.EventKind::RowBreak,
-      text: "",
-      source_ref: Some(row_ref),
-    })
+    out.push({ kind: RowBreak, text: "", source_ref: Some(row_ref) })
   }
-  out.push({
-    kind: @core.EventKind::EndBlock(@core.BlockKind::Table),
-    text: "",
-    source_ref: Some(block_ref),
-  })
+  out.push({ kind: EndBlock(Table), text: "", source_ref: Some(block_ref) })
 }
 
 ///|
@@ -1032,37 +1002,23 @@ fn yaml_append_list_events(
   source : @input.InputSource,
   path : String,
 ) -> Unit {
-  let list_ref = yaml_generic_block_ref(
-    yaml_source_ref(source, path),
-    @core.BlockKind::List,
-    [("ordered", "false")],
-  )
-  out.push({
-    kind: @core.EventKind::StartBlock(@core.BlockKind::List),
-    text: "",
-    source_ref: Some(list_ref),
-  })
+  let list_ref = yaml_generic_block_ref(yaml_source_ref(source, path), List, [
+    ("ordered", "false"),
+  ])
+  out.push({ kind: StartBlock(List), text: "", source_ref: Some(list_ref) })
   for value in values {
-    let item_ref = yaml_generic_block_ref(value.1, @core.BlockKind::ListItem, [
+    let item_ref = yaml_generic_block_ref(value.1, ListItem, [
       ("ordered", "false"),
       ("literal", "true"),
     ])
     out.push({
-      kind: @core.EventKind::StartBlock(@core.BlockKind::ListItem),
+      kind: StartBlock(ListItem),
       text: value.0,
       source_ref: Some(item_ref),
     })
-    out.push({
-      kind: @core.EventKind::EndBlock(@core.BlockKind::ListItem),
-      text: "",
-      source_ref: Some(item_ref),
-    })
+    out.push({ kind: EndBlock(ListItem), text: "", source_ref: Some(item_ref) })
   }
-  out.push({
-    kind: @core.EventKind::EndBlock(@core.BlockKind::List),
-    text: "",
-    source_ref: Some(list_ref),
-  })
+  out.push({ kind: EndBlock(List), text: "", source_ref: Some(list_ref) })
 }
 
 ///|
@@ -1071,21 +1027,11 @@ fn yaml_append_paragraph_events(
   text : String,
   source_ref : @core.SourceRef,
 ) -> Unit {
-  let block_ref = yaml_generic_block_ref(
-    source_ref,
-    @core.BlockKind::Paragraph,
-    [("literal", "true")],
-  )
-  out.push({
-    kind: @core.EventKind::StartBlock(@core.BlockKind::Paragraph),
-    text,
-    source_ref: Some(block_ref),
-  })
-  out.push({
-    kind: @core.EventKind::EndBlock(@core.BlockKind::Paragraph),
-    text: "",
-    source_ref: Some(block_ref),
-  })
+  let block_ref = yaml_generic_block_ref(source_ref, Paragraph, [
+    ("literal", "true"),
+  ])
+  out.push({ kind: StartBlock(Paragraph), text, source_ref: Some(block_ref) })
+  out.push({ kind: EndBlock(Paragraph), text: "", source_ref: Some(block_ref) })
 }
 
 ///|
@@ -1123,7 +1069,7 @@ fn yaml_generic_block_ref(
 fn count_yaml_event_tables(events : Array[@core.CoreEvent]) -> Int {
   let mut count = 0
   for event in events {
-    if event.kind == @core.EventKind::StartBlock(@core.BlockKind::Table) {
+    if event.kind == StartBlock(Table) {
       count += 1
     }
   }
@@ -1135,7 +1081,7 @@ fn count_yaml_event_blocks(events : Array[@core.CoreEvent]) -> Int {
   let mut count = 0
   for event in events {
     match event.kind {
-      @core.EventKind::StartBlock(_) => count += 1
+      StartBlock(_) => count += 1
       _ => ()
     }
   }
@@ -1170,7 +1116,7 @@ fn yaml_streaming_parse_result(
   diagnostics.pass_trace.push("parse:yaml_parser")
   @parser.parse_result_with_events_capability(
     "yaml_parser",
-    @parser.ParserMode::StreamingEvent,
+    StreamingEvent,
     events,
     diagnostics,
     yaml_parser_capability(),
@@ -1186,7 +1132,7 @@ fn yaml_parse_with_compact_sequence(
 ) -> @parser.ParseResult {
   let diagnostics = @fshared.empty_parser_diagnostics(
     "yaml_parser",
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     source,
     "yaml",
   )
@@ -1196,10 +1142,10 @@ fn yaml_parse_with_compact_sequence(
     context,
     "yaml",
     "yaml_parser",
-    @parser.ParserMode::DomAstModel,
-    @parser.ParserMode::StreamingEvent,
+    DomAstModel,
+    StreamingEvent,
     "event_stream",
-    @parser.StreamingGranularity::YamlStructure,
+    YamlStructure,
     "yaml_structure_event_stream",
   )
   diagnostics.metrics.set("resource_limit_hit", "false")
@@ -1230,7 +1176,7 @@ fn yaml_parse_with_compact_sequence(
   diagnostics.pass_trace.push("parse:yaml_parser")
   @parser.parse_result_with_events_capability(
     "yaml_parser",
-    @parser.ParserMode::StreamingEvent,
+    StreamingEvent,
     events,
     diagnostics,
     yaml_parser_capability(),
@@ -1256,7 +1202,7 @@ fn yaml_malformed_parse_result(
     Some(1),
     Some(@fshared.count_physical_lines(text)),
   )
-  let block = @core.make_block(@core.BlockKind::Raw, text, source_ref~)
+  let block = @core.make_block(Raw, text, source_ref~)
   block.attrs.set("raw_kind", "yaml_fail_closed")
   block.attrs.set("info", "yaml")
   diagnostics.warnings.push("yaml parse warning: " + err)
@@ -1316,7 +1262,7 @@ fn yaml_malformed_parse_result(
   let final_document = @core.document_with_diagnostics(document, diagnostics)
   @parser.parse_result_with_document_capability(
     "yaml_parser",
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     final_document,
     diagnostics,
     yaml_parser_capability(),

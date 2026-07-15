@@ -23,7 +23,7 @@ test "docx marker spacing inlines do not inherit note ref metadata" {
     "true",
   )
   let block = @core.block_with_rich_inlines(
-    @core.make_block(@core.BlockKind::Paragraph, ""),
+    @core.make_block(Paragraph, ""),
     Some([
       @core.make_inline_text("Body "),
       note_inline,
@@ -49,12 +49,9 @@ test "DOCX parser capability and malformed package fail closed with full metrics
   let source = @input.input_from_bytes_with_format(
     Bytes::from_array([1, 2, 3].map(Int::to_byte)),
     "broken.docx",
-    Some(@input.DetectedFormat::Docx),
+    Some(Docx),
   )
-  let result = (docx_parser().parse)(
-    source,
-    @parser.new_parse_context(@input.DetectedFormat::Docx),
-  ).unwrap()
+  let result = (docx_parser().parse)(source, @parser.new_parse_context(Docx)).unwrap()
   assert_true(result.document is Some(_))
   assert_true(result.document.unwrap().blocks.length() == 0)
   assert_true(result.diagnostics.errors.length() == 1)
@@ -79,7 +76,7 @@ test "DOCX parser lowers repository complex image list and code fixtures" {
   for path in fixtures {
     let result = (docx_parser().parse)(
       @input.input_from_path(path),
-      @parser.new_parse_context(@input.DetectedFormat::Docx),
+      @parser.new_parse_context(Docx),
     ).unwrap()
     assert_eq(result.diagnostics.errors.length(), 0)
     assert_true(result.document.unwrap().blocks.length() > 0)
@@ -98,14 +95,14 @@ test "DOCX parser covers headings quotes line breaks and baseline package" {
   for path in fixtures {
     let result = (docx_parser().parse)(
       @input.input_from_path(path),
-      @parser.new_parse_context(@input.DetectedFormat::Docx),
+      @parser.new_parse_context(Docx),
     ).unwrap()
     assert_eq(result.diagnostics.errors.length(), 0)
     for block in result.document.unwrap().blocks {
-      if block.kind == @core.BlockKind::Heading {
+      if block.kind == Heading {
         heading_count += 1
       }
-      if block.kind == @core.BlockKind::BlockQuote {
+      if block.kind == BlockQuote {
         quote_count += 1
       }
     }
@@ -125,17 +122,17 @@ test "DOCX full contract corpus covers combined accurate feature lowering" {
   ]
   let context = @parser.parse_context_with_execution_profiles(
     @parser.parse_context_with_product_modes(
-      @parser.new_parse_context(@input.DetectedFormat::Docx),
-      @product.FidelityMode::Accurate,
-      @product.OutputMode::Markdown,
+      @parser.new_parse_context(Docx),
+      Accurate,
+      Markdown,
     ),
-    @product.ExecutionProfile::Standard,
-    @product.LoweringProfile::AccurateSemantic,
-    @product.RenderProfile::NotesAppendixFirst,
+    Standard,
+    AccurateSemantic,
+    NotesAppendixFirst,
     @product.make_accurate_feature_profile([
-      @product.AccurateFeature::DocxTextboxInline,
-      @product.AccurateFeature::DocxAlternateContentRestore,
-      @product.AccurateFeature::DocxNotesAppendix,
+      DocxTextboxInline,
+      DocxAlternateContentRestore,
+      DocxNotesAppendix,
     ]),
   )
   let mut total_blocks = 0
@@ -158,17 +155,17 @@ test "DOCX parser lowers repository accurate note table and textbox contracts" {
   ]
   let context = @parser.parse_context_with_execution_profiles(
     @parser.parse_context_with_product_modes(
-      @parser.new_parse_context(@input.DetectedFormat::Docx),
-      @product.FidelityMode::Accurate,
-      @product.OutputMode::Markdown,
+      @parser.new_parse_context(Docx),
+      Accurate,
+      Markdown,
     ),
-    @product.ExecutionProfile::Standard,
-    @product.LoweringProfile::AccurateSemantic,
-    @product.RenderProfile::NotesAppendixFirst,
+    Standard,
+    AccurateSemantic,
+    NotesAppendixFirst,
     @product.make_accurate_feature_profile([
-      @product.AccurateFeature::DocxTextboxInline,
-      @product.AccurateFeature::DocxAlternateContentRestore,
-      @product.AccurateFeature::DocxNotesAppendix,
+      DocxTextboxInline,
+      DocxAlternateContentRestore,
+      DocxNotesAppendix,
     ]),
   )
   for path in fixtures {
@@ -188,7 +185,7 @@ test "DOCX parser extracts repository image contract assets" {
     @input.input_from_path(
       "samples/fixtures/contracts/docx/docx_image_alt_title.docx",
     ),
-    @parser.new_parse_context(@input.DetectedFormat::Docx),
+    @parser.new_parse_context(Docx),
   ).unwrap()
   assert_eq(result.diagnostics.errors.length(), 0)
   assert_true(result.document.unwrap().assets.length() > 0)
@@ -199,29 +196,14 @@ test "DOCX advanced synthetic contract covers auxiliary parts rich objects and a
   let source = @input.input_from_path(
     "samples/fixtures/contracts/docx/docx_advanced_synthetic.docx",
   )
-  let balanced = (docx_parser().parse)(
-    source,
-    @parser.new_parse_context(@input.DetectedFormat::Docx),
-  ).unwrap()
+  let balanced = (docx_parser().parse)(source, @parser.new_parse_context(Docx)).unwrap()
   let balanced_document = balanced.document.unwrap()
   assert_true(balanced.diagnostics.errors.length() == 0)
-  assert_true(
-    balanced_document.blocks.any(block => block.kind == @core.BlockKind::Heading),
-  )
-  assert_true(
-    balanced_document.blocks.any(block => block.kind == @core.BlockKind::Table),
-  )
-  assert_true(
-    balanced_document.blocks.any(block => block.kind == @core.BlockKind::List),
-  )
-  assert_true(
-    balanced_document.blocks.any(block => {
-      block.kind == @core.BlockKind::BlockQuote
-    }),
-  )
-  assert_true(
-    balanced_document.blocks.any(block => block.kind == @core.BlockKind::Code),
-  )
+  assert_true(balanced_document.blocks.any(block => block.kind == Heading))
+  assert_true(balanced_document.blocks.any(block => block.kind == Table))
+  assert_true(balanced_document.blocks.any(block => block.kind == List))
+  assert_true(balanced_document.blocks.any(block => block.kind == BlockQuote))
+  assert_true(balanced_document.blocks.any(block => block.kind == Code))
   assert_true(
     balanced_document.blocks.any(block => {
       block.text.contains("Content control text")
@@ -231,17 +213,17 @@ test "DOCX advanced synthetic contract covers auxiliary parts rich objects and a
 
   let context = @parser.parse_context_with_execution_profiles(
     @parser.parse_context_with_product_modes(
-      @parser.new_parse_context(@input.DetectedFormat::Docx),
-      @product.FidelityMode::Accurate,
-      @product.OutputMode::Markdown,
+      @parser.new_parse_context(Docx),
+      Accurate,
+      Markdown,
     ),
-    @product.ExecutionProfile::Standard,
-    @product.LoweringProfile::AccurateSemantic,
-    @product.RenderProfile::NotesAppendixFirst,
+    Standard,
+    AccurateSemantic,
+    NotesAppendixFirst,
     @product.make_accurate_feature_profile([
-      @product.AccurateFeature::DocxTextboxInline,
-      @product.AccurateFeature::DocxAlternateContentRestore,
-      @product.AccurateFeature::DocxNotesAppendix,
+      DocxTextboxInline,
+      DocxAlternateContentRestore,
+      DocxNotesAppendix,
     ]),
   )
   let accurate = (docx_parser().parse)(source, context).unwrap()
@@ -276,7 +258,7 @@ test "DOCX note and comment helpers preserve rich inline content" {
   let prefixed = docx_prefixed_rich_inlines("Note: ", inlines)
   assert_eq(prefixed.length(), inlines.length() + 1)
   let block = @core.block_with_rich_inlines(
-    @core.make_block(@core.BlockKind::Paragraph, "", source_ref~),
+    @core.make_block(Paragraph, "", source_ref~),
     Some(inlines),
   )
   let images = docx_collect_comment_inline_images([block])
@@ -286,13 +268,11 @@ test "DOCX note and comment helpers preserve rich inline content" {
   let cleaned = docx_comment_block_without_inline_images(block)
   assert_true(cleaned.text.contains("before docs\ncode"))
   assert_true(
-    cleaned.rich_inlines
-    .unwrap_or([])
-    .all(inline => inline.kind != @core.InlineKind::Image),
+    cleaned.rich_inlines.unwrap_or([]).all(inline => inline.kind != Image),
   )
   assert_true(
     docx_comment_block_without_inline_images(
-      @core.make_block(@core.BlockKind::Paragraph, "plain"),
+      @core.make_block(Paragraph, "plain"),
     ).text ==
     "plain",
   )
@@ -319,22 +299,18 @@ test "DOCX note and comment helpers preserve rich inline content" {
   assert_eq(docx_zero_pad_int(123, 2), "123")
 
   let multiline = @core.block_with_rich_inlines(
-    @core.make_block(@core.BlockKind::Paragraph, ""),
+    @core.make_block(Paragraph, ""),
     Some([@core.make_inline_text("first\r\nsecond\nthird", source_ref~)]),
   )
   let expanded = docx_note_block_with_inline_breaks(multiline)
   let expanded_inlines = expanded.rich_inlines.unwrap_or([])
   assert_eq(expanded_inlines.length(), 5)
   assert_eq(
-    expanded_inlines
-    .filter(inline => inline.kind == @core.InlineKind::LineBreak)
-    .length(),
+    expanded_inlines.filter(inline => inline.kind == LineBreak).length(),
     2,
   )
   assert_true(
-    docx_note_block_with_inline_breaks(
-      @core.make_block(@core.BlockKind::Paragraph, "plain"),
-    ).rich_inlines
+    docx_note_block_with_inline_breaks(@core.make_block(Paragraph, "plain")).rich_inlines
     is None,
   )
 }
@@ -357,20 +333,18 @@ test "DOCX note inline boundary helpers trim breaks and preserve content" {
   let leading = docx_trim_leading_line_breaks([br, text, br])
   assert_true(leading.length() == 2)
   assert_true(leading[0].text == "value")
-  assert_true(leading[1].kind == @core.InlineKind::LineBreak)
+  assert_true(leading[1].kind == LineBreak)
   assert_true(docx_trim_leading_line_breaks([br]).length() == 0)
   assert_true(
     docx_block_has_rich_inlines(
       @core.block_with_rich_inlines(
-        @core.make_block(@core.BlockKind::Paragraph, ""),
+        @core.make_block(Paragraph, ""),
         Some([text]),
       ),
     ),
   )
   assert_true(
-    !docx_block_has_rich_inlines(
-      @core.make_block(@core.BlockKind::Paragraph, "plain"),
-    ),
+    !docx_block_has_rich_inlines(@core.make_block(Paragraph, "plain")),
   )
   assert_eq(docx_sortable_note_label(""), "1:")
   assert_eq(docx_sortable_note_label(" 12 "), "0:000000000012")
@@ -443,14 +417,12 @@ test "DOCX lowering policy helpers cover media styles markers unicode and tables
   assert_true(docx_parse_nonnegative_int("-1") is None)
   assert_true(docx_parse_nonnegative_int("bad") is None)
 
-  let visible = @core.make_block(@core.BlockKind::Table, "table")
-  let row = @core.make_block(@core.BlockKind::TableRow, "")
-  row.children.push(@core.make_block(@core.BlockKind::TableCell, "value"))
+  let visible = @core.make_block(Table, "table")
+  let row = @core.make_block(TableRow, "")
+  row.children.push(@core.make_block(TableCell, "value"))
   visible.children.push(row)
   assert_true(docx_rendered_table_has_visible_cells(visible))
   assert_true(
-    !docx_rendered_table_has_visible_cells(
-      @core.make_block(@core.BlockKind::Table, "table"),
-    ),
+    !docx_rendered_table_has_visible_cells(@core.make_block(Table, "table")),
   )
 }

@@ -58,7 +58,7 @@ fn lower_html_document_from_prepared(
   match html_primary_title(semantic) {
     Some(title) =>
       if title.trim() != "" {
-        metadata.set("title", @core.JsonValue::String(title))
+        metadata.set("title", String(title))
       }
     None => ()
   }
@@ -136,7 +136,7 @@ fn html_dom_collect_index(
 ) -> Unit {
   for node in nodes {
     match node {
-      @dhtml.HtmlNode::Element(element) => {
+      Element(element) => {
         if html_dom_nav_like(element) {
           nav_spans.push(element.span)
         }
@@ -289,7 +289,7 @@ fn html_heading_subtree_scope_plans(
   let mut index = 0
   for i in 0..<events.length() {
     let event = events[i]
-    if event.kind != @dhtml.HtmlTokenEventKind::StartTag {
+    if event.kind != StartTag {
       continue
     }
     let level = html_heading_level(event.tag_name)

@@ -9,9 +9,9 @@ test "bench manifest select arguments cover filters output stats and validation"
   assert_true(request.bench_ids == ["one", "two"])
   assert_true(request.format_filters == ["pdf", "html"])
   assert_true(request.limit == Some(0))
-  assert_true(request.output == SelectOutput::Tsv)
+  assert_true(request.output == Tsv)
   assert_true(request.stats_only)
-  assert_true(parse_select_request([]).output == SelectOutput::Jsonl)
+  assert_true(parse_select_request([]).output == Jsonl)
   assert_true(
     parse_tier_list(" Regular , RELEASE ", "--tiers") == ["regular", "release"],
   )
@@ -96,7 +96,7 @@ test "bench manifest selector reports exclusions and accepts synthetic payload" 
     [],
     [],
     None,
-    SelectOutput::Jsonl,
+    Jsonl,
     false,
   )
   assert_true(
@@ -131,7 +131,7 @@ test "bench manifest selector reports exclusions and accepts synthetic payload" 
     [],
     [],
     None,
-    SelectOutput::Jsonl,
+    Jsonl,
     false,
   )
   assert_true(
@@ -144,7 +144,7 @@ test "bench manifest selector reports exclusions and accepts synthetic payload" 
     ["wanted"],
     [],
     None,
-    SelectOutput::Jsonl,
+    Jsonl,
     false,
   )
   assert_true(
@@ -161,7 +161,7 @@ test "bench manifest selector reports exclusions and accepts synthetic payload" 
     [],
     ["pdf"],
     None,
-    SelectOutput::Jsonl,
+    Jsonl,
     false,
   )
   assert_true(
@@ -180,15 +180,7 @@ test "bench manifest selector reports exclusions and accepts synthetic payload" 
     manifest,
     "synthetic/MANIFEST.tsv",
     ".",
-    make_select_request(
-      "regular",
-      [],
-      [],
-      [],
-      Some(1),
-      SelectOutput::Jsonl,
-      false,
-    ),
+    make_select_request("regular", [], [], [], Some(1), Jsonl, false),
   )
   assert_eq(real.length(), 1)
   assert_true(should_skip_row(real[0], cumulative) is None)
@@ -198,15 +190,7 @@ test "bench manifest selector reports exclusions and accepts synthetic payload" 
     manifest,
     "synthetic/MANIFEST.tsv",
     ".",
-    make_select_request(
-      "regular",
-      [],
-      [],
-      [],
-      Some(1),
-      SelectOutput::Jsonl,
-      true,
-    ),
+    make_select_request("regular", [], [], [], Some(1), Jsonl, true),
   )
   assert_true(stats.stringify().contains("selected_rows"))
   assert_eq(empty_selector_stats().selected_rows, 0)

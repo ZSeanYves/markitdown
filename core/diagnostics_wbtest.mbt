@@ -37,7 +37,7 @@ test "diagnostics builders retain modes traces metrics and dependencies" {
     "binary",
     "pdftoppm",
     "optional PDF rendering",
-    DependencyDiagnosticStatus::Degraded,
+    Degraded,
     ["brew install poppler"],
     ["apt-get install poppler-utils"],
     footer=Some("restart after installation"),
@@ -46,18 +46,9 @@ test "diagnostics builders retain modes traces metrics and dependencies" {
     diagnostics, dependency,
   )
   assert_eq(with_dependency.dependency_diagnostics.length(), 1)
-  assert_eq(
-    dependency_diagnostic_status_name(DependencyDiagnosticStatus::Missing),
-    "missing",
-  )
-  assert_eq(
-    dependency_diagnostic_status_name(DependencyDiagnosticStatus::Available),
-    "available",
-  )
-  assert_eq(
-    dependency_diagnostic_status_name(DependencyDiagnosticStatus::Degraded),
-    "degraded",
-  )
+  assert_eq(dependency_diagnostic_status_name(Missing), "missing")
+  assert_eq(dependency_diagnostic_status_name(Available), "available")
+  assert_eq(dependency_diagnostic_status_name(Degraded), "degraded")
 }
 
 ///|

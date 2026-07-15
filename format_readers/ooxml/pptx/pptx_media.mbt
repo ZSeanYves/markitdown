@@ -34,7 +34,7 @@ fn read_picture_media_ref(
           resolved_extension: None,
           alt_text,
           title,
-          kind: PptxMediaKind::Image,
+          kind: Image,
           is_external: false,
           unsupported: true,
           data: None,
@@ -44,7 +44,7 @@ fn read_picture_media_ref(
       }
       match find_source_relationship_by_id(ctx, part_name, id) {
         Some(rel) => {
-          let is_external = rel.target_mode == PptxTargetMode::External
+          let is_external = rel.target_mode == External
           let content_type = if is_external {
             None
           } else {
@@ -56,8 +56,8 @@ fn read_picture_media_ref(
           if is_external {
             ctx.warnings.push(
               pptx_warning(
-                PptxWarningKind::ExternalMedia,
-                PptxWarningSeverity::Warning,
+                ExternalMedia,
+                Warning,
                 part_name,
                 source_key.node_key,
                 Some(id),
@@ -70,8 +70,8 @@ fn read_picture_media_ref(
             !@ox.has_part(ctx.pkg, rel.resolved_target) {
             ctx.warnings.push(
               pptx_warning(
-                PptxWarningKind::MissingMediaPart,
-                PptxWarningSeverity::Warning,
+                MissingMediaPart,
+                Warning,
                 part_name,
                 source_key.node_key,
                 Some(id),
@@ -83,8 +83,8 @@ fn read_picture_media_ref(
           if unsupported {
             ctx.warnings.push(
               pptx_warning(
-                PptxWarningKind::UnsupportedMedia,
-                PptxWarningSeverity::Warning,
+                UnsupportedMedia,
+                Warning,
                 part_name,
                 source_key.node_key,
                 Some(id),
@@ -128,8 +128,8 @@ fn read_picture_media_ref(
         None => {
           ctx.warnings.push(
             pptx_warning(
-              PptxWarningKind::MissingRelationshipTarget,
-              PptxWarningSeverity::Warning,
+              MissingRelationshipTarget,
+              Warning,
               part_name,
               source_key.node_key,
               Some(id),
@@ -148,7 +148,7 @@ fn read_picture_media_ref(
             resolved_extension: None,
             alt_text,
             title,
-            kind: PptxMediaKind::Image,
+            kind: Image,
             is_external: false,
             unsupported: true,
             data: None,
@@ -257,22 +257,22 @@ fn media_kind_from_type(
   match content_type {
     Some(ct) =>
       if ct.has_prefix("image/") {
-        return PptxMediaKind::Image
+        return Image
       } else if ct.has_prefix("audio/") {
-        return PptxMediaKind::Audio
+        return Audio
       } else if ct.has_prefix("video/") {
-        return PptxMediaKind::Video
+        return Video
       }
     None => ()
   }
   if rel_type.has_suffix("/image") {
-    PptxMediaKind::Image
+    Image
   } else if rel_type.has_suffix("/audio") {
-    PptxMediaKind::Audio
+    Audio
   } else if rel_type.has_suffix("/video") {
-    PptxMediaKind::Video
+    Video
   } else {
-    PptxMediaKind::Other
+    Other
   }
 }
 
@@ -283,7 +283,7 @@ fn media_unsupported(
   content_type : String?,
 ) -> Bool {
   match kind {
-    PptxMediaKind::Image => {
+    Image => {
       let e = ext.unwrap_or("").to_lower()
       let ct = content_type.unwrap_or("").to_lower()
       !(e == "png" ||

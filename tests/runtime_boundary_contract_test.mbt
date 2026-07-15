@@ -2,25 +2,20 @@
 test "detector contract covers core formats and unknown fallback" {
   let detector = @input.default_format_detector()
   assert_true(
-    (detector.detect)(@input.input_from_path("notes.txt")).format ==
-    @input.DetectedFormat::Txt,
+    (detector.detect)(@input.input_from_path("notes.txt")).format == Txt,
   )
   let png = (detector.detect)(@input.input_from_path("scan.png"))
-  assert_true(
-    png.format == @input.DetectedFormat::Image(@input.ImageFormat::Png),
-  )
+  assert_true(png.format == Image(Png))
   assert_true(png.notes.contains("image_ocr_candidate"))
   let audio = (detector.detect)(@input.input_from_path("voice.m4a"))
-  assert_true(
-    audio.format == @input.DetectedFormat::Audio(@input.AudioFormat::M4a),
-  )
+  assert_true(audio.format == Audio(M4a))
   let pdf_magic = (detector.detect)(
     @input.input_from_bytes(
       Bytes::from_array([37, 80, 68, 70, 45, 49, 46, 55]),
       source_name="blob",
     ),
   )
-  assert_true(pdf_magic.format == @input.DetectedFormat::Pdf)
+  assert_true(pdf_magic.format == Pdf)
   let docx_bytes = @fs.read_file_to_bytes(
     "samples/fixtures/contracts/docx/golden.docx",
   ) catch {
@@ -29,7 +24,7 @@ test "detector contract covers core formats and unknown fallback" {
   let docx = (detector.detect)(
     @input.input_from_bytes(docx_bytes, source_name="office-blob"),
   )
-  assert_true(docx.format == @input.DetectedFormat::Docx)
+  assert_true(docx.format == Docx)
   assert_true(docx.notes.contains("container_inspection"))
   let unknown = (detector.detect)(
     @input.input_from_bytes(
@@ -37,7 +32,7 @@ test "detector contract covers core formats and unknown fallback" {
       source_name="blob.bin",
     ),
   )
-  assert_true(unknown.format == @input.DetectedFormat::Unknown)
+  assert_true(unknown.format == Unknown)
   assert_true(unknown.binary_like)
 }
 
@@ -48,8 +43,7 @@ test "unknown convert path stays fail closed" {
       @input.input_from_bytes(Bytes::from_array([0, 1, 2]), source_name="blob"),
       @convert.default_convert_options(),
     ) {
-    Err(@convert.ConvertError::DetectFailed(msg)) =>
-      assert_eq(msg, "unknown format")
+    Err(DetectFailed(msg)) => assert_eq(msg, "unknown format")
     Err(other) => fail("unexpected unknown-format error: " + other.to_string())
     Ok(_) => fail("unknown input should not convert successfully")
   }
@@ -68,10 +62,10 @@ test "convert scanned-like pdf fails closed instead of returning empty markdown"
   let source = @input.input_from_bytes_with_format(
     @utf8.encode(empty_pdf),
     "scanned-like.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
   match @convert.convert_input(source, @convert.default_convert_options()) {
-    Err(@convert.ConvertError::ParseFailed(_)) => ()
+    Err(ParseFailed(_)) => ()
     Err(other) =>
       fail("unexpected scanned-like pdf convert error: " + other.to_string())
     Ok(result) =>
@@ -84,7 +78,7 @@ test "convert scanned-like pdf fails closed instead of returning empty markdown"
     @parser.registry_parse(
       @formats_root.builtin_registry(),
       source,
-      @parser.new_parse_context(@input.DetectedFormat::Pdf),
+      @parser.new_parse_context(Pdf),
     ) {
     Err(_) => ()
     Ok(_) => fail("registry parse should not succeed for scanned-like pdf")
@@ -94,17 +88,18 @@ test "convert scanned-like pdf fails closed instead of returning empty markdown"
 ///|
 test "builtin registry wires pdf native text parser through the active registry" {
   let registry_impl = read_utf8_text("internal/formats/meta/registry.mbt")
-  assert_true(registry_impl.contains("DetectedFormat::Pdf"))
-  assert_true(registry_impl.contains("pdf_native_parser()"))
+  assert_true(
+    registry_impl.contains("registry, Pdf, @fpdf.pdf_native_parser()"),
+  )
   assert_true(!registry_impl.contains("pdf_v2"))
   match
     @parser.registry_parse(
       @formats_root.builtin_registry(),
       @input.input_from_path_with_format(
         "samples/fixtures/contracts/pdf/text_simple.pdf",
-        Some(@input.DetectedFormat::Pdf),
+        Some(Pdf),
       ),
-      @parser.new_parse_context(@input.DetectedFormat::Pdf),
+      @parser.new_parse_context(Pdf),
     ) {
     Ok(result) => {
       let document = result.document.unwrap_or(@core.empty_document_ir())
@@ -126,20 +121,18 @@ test "pdf accurate parser contract is registered and matches born-digital accura
       spec0.parser_name == spec.parser_name
     }),
   )
-  assert_true(
-    @fmeta.contract_profile_matches_spec(@input.DetectedFormat::Pdf, spec),
-  )
+  assert_true(@fmeta.contract_profile_matches_spec(Pdf, spec))
   assert_true(
     @fmeta.parser_contract_spec_matches_parser(spec, @fpdf.pdf_ocr_parser()),
   )
   let context0 = @parser.parse_context_with_product_modes(
-    @parser.new_parse_context(@input.DetectedFormat::Pdf),
-    @product.FidelityMode::Accurate,
-    @product.OutputMode::Markdown,
+    @parser.new_parse_context(Pdf),
+    Accurate,
+    Markdown,
   )
   let context1 = @parser.parse_context_with_limits(
     context0,
-    Some(@parser.ParserMode::LayoutTwoStage),
+    Some(LayoutTwoStage),
     None,
     None,
     None,
@@ -152,17 +145,17 @@ test "pdf accurate parser contract is registered and matches born-digital accura
   )
   let context3 = @parser.parse_context_with_pdf_header_footer_filter_policy(
     context2,
-    @parser.PdfHeaderFooterFilterPolicy::InternalHighConfidenceOnly,
+    InternalHighConfidenceOnly,
   )
   let context = @parser.parse_context_with_pdf_table_reconstruction_policy(
     context3,
-    @parser.PdfTableReconstructionPolicy::InternalSimpleRowsOnly,
+    InternalSimpleRowsOnly,
   )
   let result = match
     @fpdf.pdf_ocr_parser_result(
       @input.input_from_path_with_format(
         "samples/fixtures/contracts/pdf/text_simple.pdf",
-        Some(@input.DetectedFormat::Pdf),
+        Some(Pdf),
       ),
       context,
       image_ocr_provider=fn(_request : @focr.OcrProviderRequest) {
@@ -188,7 +181,7 @@ test "pdf accurate parser contract is registered and matches born-digital accura
 ///|
 test "root image parser keeps deterministic fail-closed OCR diagnostics" {
   let source = @input.input_from_path("scan.png")
-  let detected = @input.DetectedFormat::Image(@input.ImageFormat::Png)
+  let detected = @input.DetectedFormat::Image(Png)
   match
     @focr.image_ocr_parser_result(
       source,
@@ -212,13 +205,9 @@ test "root image parser keeps deterministic fail-closed OCR diagnostics" {
         if request.language != Some("eng") {
           abort("unexpected OCR language")
         }
-        Err(
-          @focr.OcrProviderError::CommandUnavailable(
-            "synthetic OCR provider unavailable",
-          ),
-        )
+        Err(CommandUnavailable("synthetic OCR provider unavailable"))
       },
-      requested_mode=Some(@parser.ParserMode::LayoutTwoStage),
+      requested_mode=Some(LayoutTwoStage),
     ) {
     Err(msg) =>
       assert_true(
@@ -233,7 +222,7 @@ test "root image parser keeps deterministic fail-closed OCR diagnostics" {
     source,
     detected,
     @parser.explicit_ocr_options(language=Some("eng")),
-    requested_mode=Some(@parser.ParserMode::LayoutTwoStage),
+    requested_mode=Some(LayoutTwoStage),
   )
   assert_metric_eq(diagnostics, "ocr_candidate", "true")
   assert_metric_eq(diagnostics, "ocr_provider_wired", "false")
@@ -255,29 +244,22 @@ test "pure tesseract tsv parser stays provider-independent while root image OCR 
   assert_eq(result.pages.length(), 2)
   assert_eq(result.pages[0].blocks[0].lines[0].text, "hello")
   assert_eq(result.pages[1].blocks[0].lines[0].text, "moonbit world")
-  let image = @input.input_from_path_with_format(
-    "scan.png",
-    Some(@input.DetectedFormat::Image(@input.ImageFormat::Png)),
-  )
+  let image = @input.input_from_path_with_format("scan.png", Some(Image(Png)))
   match
     @convert.convert_input_with_image_ocr_provider(
       image,
       @convert.make_convert_options(
-        @convert.ConvertMode::Balanced,
-        @convert.OutputFormat::Markdown,
-        Some(@input.DetectedFormat::Image(@input.ImageFormat::Png)),
+        Balanced,
+        Markdown,
+        Some(Image(Png)),
         @parser.explicit_ocr_options(),
         @convert.default_resource_limits(),
       ),
       fn(_request : @focr.OcrProviderRequest) {
-        Err(
-          @focr.OcrProviderError::ExecutionFailed(
-            "synthetic OCR provider failed",
-          ),
-        )
+        Err(ExecutionFailed("synthetic OCR provider failed"))
       },
     ) {
-    Err(@convert.ConvertError::ParseFailed(msg)) =>
+    Err(ParseFailed(msg)) =>
       assert_true(
         msg.contains("synthetic OCR provider failed") &&
         msg.contains("image_format=png"),
@@ -290,17 +272,14 @@ test "pure tesseract tsv parser stays provider-independent while root image OCR 
 
 ///|
 test "convert explicit image OCR injected provider reaches root convert and render path" {
-  let image = @input.input_from_path_with_format(
-    "scan.png",
-    Some(@input.DetectedFormat::Image(@input.ImageFormat::Png)),
-  )
+  let image = @input.input_from_path_with_format("scan.png", Some(Image(Png)))
   let converted = match
     @convert.convert_input_with_image_ocr_provider(
       image,
       @convert.make_convert_options(
-        @convert.ConvertMode::Balanced,
-        @convert.OutputFormat::Markdown,
-        Some(@input.DetectedFormat::Image(@input.ImageFormat::Png)),
+        Balanced,
+        Markdown,
+        Some(Image(Png)),
         @parser.explicit_ocr_options(language=Some("eng")),
         @convert.default_resource_limits(),
       ),
@@ -310,7 +289,7 @@ test "convert explicit image OCR injected provider reaches root convert and rend
     Err(err) => fail("expected injected convert success: " + err.to_string())
   }
   assert_eq(converted.content, "MoonBit OCR\n\nSample 123")
-  assert_true(converted.parser_mode == @parser.ParserMode::LayoutTwoStage)
+  assert_true(converted.parser_mode == LayoutTwoStage)
   assert_metric_eq(converted.diagnostics, "ocr_provider_status", "success")
   assert_metric_eq(converted.diagnostics, "renderer_name", "MarkdownRenderer")
 }

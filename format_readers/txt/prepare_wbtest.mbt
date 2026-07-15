@@ -21,7 +21,7 @@ test "TXT prepare preserves valid source and reports invalid UTF8 without throwi
   let valid = @input.input_from_text_with_format(
     "one\r\ntwo",
     "valid.txt",
-    Some(@input.DetectedFormat::Txt),
+    Some(Txt),
   )
   match prepare_text_document_from_source(valid) {
     Ok(prepared) => {
@@ -34,7 +34,7 @@ test "TXT prepare preserves valid source and reports invalid UTF8 without throwi
   let invalid = @input.input_from_bytes_with_format(
     Bytes::from_array([0xC3, 0x28].map(Int::to_byte)),
     "invalid.txt",
-    Some(@input.DetectedFormat::Txt),
+    Some(Txt),
   )
   match prepare_text_document_from_source(invalid) {
     Ok(prepared) => {

@@ -71,8 +71,8 @@ fn pdf_extract_cid_to_gid_map(
   object_index : Map[Int, PdfNativeObject],
 ) -> Array[Int]? {
   match pdf_extract_dict_value(cid_font_dict_text, "/CIDToGIDMap") {
-    Some(PdfNativeDictValue::Name("Identity")) => None
-    Some(PdfNativeDictValue::Reference(object_id, generation)) => {
+    Some(Name("Identity")) => None
+    Some(Reference(object_id, generation)) => {
       ignore(generation)
       let object = match object_index.get(object_id) {
         Some(value) => value

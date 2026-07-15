@@ -35,7 +35,7 @@ fn pdf_extract_text_fragments_from_stream(
   let mut current_font_size : Double? = None
   for token in tokens {
     match token {
-      PdfNativeContentToken::Word(op) =>
+      Word(op) =>
         match op {
           "q" => {
             graphics_stack.push(current_matrix)
@@ -382,23 +382,21 @@ fn pdf_scan_content_tokens(
         let parsed = pdf_parse_literal_token(content, index)
         if !parsed.0.terminated {
           return Err(
-            PdfNativeError::ParseFailed(
-              "unterminated PDF literal string in content stream",
-            ),
+            ParseFailed("unterminated PDF literal string in content stream"),
           )
         }
-        tokens.push(PdfNativeContentToken::LiteralString(parsed.0))
+        tokens.push(LiteralString(parsed.0))
         index = parsed.1
       }
       '<' =>
         if index + 1 < content.length() &&
           pdf_char_at(content, index + 1) == '<' {
           let parsed = pdf_parse_dict_token(content, index)
-          tokens.push(PdfNativeContentToken::Dict(parsed.0))
+          tokens.push(Dict(parsed.0))
           index = parsed.1
         } else {
           let parsed = pdf_parse_hex_token(content, index)
-          tokens.push(PdfNativeContentToken::HexString(parsed.0))
+          tokens.push(HexString(parsed.0))
           index = parsed.1
         }
       '[' => {
@@ -406,12 +404,12 @@ fn pdf_scan_content_tokens(
           Ok(value) => value
           Err(err) => return Err(err)
         }
-        tokens.push(PdfNativeContentToken::Array(parsed.0))
+        tokens.push(Array(parsed.0))
         index = parsed.1
       }
       '/' => {
         let parsed = pdf_parse_name_token(content, index)
-        tokens.push(PdfNativeContentToken::Name(parsed.0))
+        tokens.push(Name(parsed.0))
         index = parsed.1
       }
       _ => {
@@ -421,8 +419,8 @@ fn pdf_scan_content_tokens(
           continue
         }
         match pdf_parse_double(parsed.0) {
-          Some(value) => tokens.push(PdfNativeContentToken::Number(value))
-          None => tokens.push(PdfNativeContentToken::Word(parsed.0))
+          Some(value) => tokens.push(Number(value))
+          None => tokens.push(Word(parsed.0))
         }
         index = parsed.1
       }
@@ -452,23 +450,21 @@ fn pdf_parse_array_token(
         let parsed = pdf_parse_literal_token(content, index)
         if !parsed.0.terminated {
           return Err(
-            PdfNativeError::ParseFailed(
-              "unterminated PDF literal string in array token",
-            ),
+            ParseFailed("unterminated PDF literal string in array token"),
           )
         }
-        tokens.push(PdfNativeContentToken::LiteralString(parsed.0))
+        tokens.push(LiteralString(parsed.0))
         index = parsed.1
       }
       '<' =>
         if index + 1 < content.length() &&
           pdf_char_at(content, index + 1) == '<' {
           let parsed = pdf_parse_dict_token(content, index)
-          tokens.push(PdfNativeContentToken::Dict(parsed.0))
+          tokens.push(Dict(parsed.0))
           index = parsed.1
         } else {
           let parsed = pdf_parse_hex_token(content, index)
-          tokens.push(PdfNativeContentToken::HexString(parsed.0))
+          tokens.push(HexString(parsed.0))
           index = parsed.1
         }
       '[' => {
@@ -476,12 +472,12 @@ fn pdf_parse_array_token(
           Ok(value) => value
           Err(err) => return Err(err)
         }
-        tokens.push(PdfNativeContentToken::Array(parsed.0))
+        tokens.push(Array(parsed.0))
         index = parsed.1
       }
       '/' => {
         let parsed = pdf_parse_name_token(content, index)
-        tokens.push(PdfNativeContentToken::Name(parsed.0))
+        tokens.push(Name(parsed.0))
         index = parsed.1
       }
       _ => {
@@ -491,14 +487,14 @@ fn pdf_parse_array_token(
           continue
         }
         match pdf_parse_double(parsed.0) {
-          Some(value) => tokens.push(PdfNativeContentToken::Number(value))
-          None => tokens.push(PdfNativeContentToken::Word(parsed.0))
+          Some(value) => tokens.push(Number(value))
+          None => tokens.push(Word(parsed.0))
         }
         index = parsed.1
       }
     }
   }
-  Err(PdfNativeError::ParseFailed("unterminated PDF array token"))
+  Err(ParseFailed("unterminated PDF array token"))
 }
 
 ///|
@@ -841,22 +837,21 @@ fn pdf_decode_text_operand(
   font_info : PdfNativeFontInfo?,
 ) -> String? {
   match token {
-    PdfNativeContentToken::LiteralString(value) =>
+    LiteralString(value) =>
       Some(pdf_decode_content_literal_pdf_text(value.decoded, font_info))
-    PdfNativeContentToken::HexString(hex) =>
-      pdf_decode_hex_pdf_text(hex, font_info)
-    PdfNativeContentToken::Array(items) =>
+    HexString(hex) => pdf_decode_hex_pdf_text(hex, font_info)
+    Array(items) =>
       match pdf_decode_joined_hex_array(items, font_info) {
         Some(text) => Some(text)
         None => {
           let parts : Array[String] = []
           for item in items {
             match item {
-              PdfNativeContentToken::LiteralString(value) =>
+              LiteralString(value) =>
                 parts.push(
                   pdf_decode_content_literal_pdf_text(value.decoded, font_info),
                 )
-              PdfNativeContentToken::HexString(hex) =>
+              HexString(hex) =>
                 match pdf_decode_hex_pdf_text(hex, font_info) {
                   Some(text) => parts.push(text)
                   None => ()
@@ -886,7 +881,7 @@ fn pdf_text_operand_advance_width(
   horizontal_scaling : Double,
 ) -> Double {
   match token {
-    PdfNativeContentToken::LiteralString(value) =>
+    LiteralString(value) =>
       match font_info {
         Some(info) =>
           match
@@ -916,7 +911,7 @@ fn pdf_text_operand_advance_width(
             horizontal_scaling,
           )
       }
-    PdfNativeContentToken::HexString(hex) =>
+    HexString(hex) =>
       match font_info {
         Some(info) =>
           match pdf_decode_hex_pdf_text_result(hex, info) {
@@ -942,24 +937,24 @@ fn pdf_text_operand_advance_width(
             None => 0.0
           }
       }
-    PdfNativeContentToken::Array(items) => {
+    Array(items) => {
       let mut width = 0.0
       for item in items {
         match item {
-          PdfNativeContentToken::Number(value) =>
+          Number(value) =>
             width += (0.0 - value) * font_size * horizontal_scaling / 1000.0
-          PdfNativeContentToken::LiteralString(value) =>
+          LiteralString(value) =>
             width += pdf_text_operand_advance_width(
-              PdfNativeContentToken::LiteralString(value),
+              LiteralString(value),
               font_info,
               font_size,
               char_spacing,
               word_spacing,
               horizontal_scaling,
             )
-          PdfNativeContentToken::HexString(hex) =>
+          HexString(hex) =>
             width += pdf_text_operand_advance_width(
-              PdfNativeContentToken::HexString(hex),
+              HexString(hex),
               font_info,
               font_size,
               char_spacing,
@@ -1044,8 +1039,8 @@ fn pdf_decode_joined_hex_array(
   let hex_parts : Array[String] = []
   for item in items {
     match item {
-      PdfNativeContentToken::HexString(hex) => hex_parts.push(hex)
-      PdfNativeContentToken::Number(_) => ()
+      HexString(hex) => hex_parts.push(hex)
+      Number(_) => ()
       _ => return None
     }
   }

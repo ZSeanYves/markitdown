@@ -209,7 +209,7 @@ fn docx_materialize_companion_assets(
 ) -> Unit {
   for media in companions {
     match media.target_mode {
-      Some(@ddocx.DocxTargetMode::External) => continue
+      Some(External) => continue
       _ => ()
     }
     if media.target_exists == Some(false) {
@@ -582,31 +582,24 @@ fn render_docx_plain_text_only(inlines : Array[@ddocx.DocxInline]) -> String {
   let out = StringBuilder::new()
   for inline in inlines {
     match inline {
-      @ddocx.DocxInline::Text(text) => out.write_string(text)
-      @ddocx.DocxInline::Tab => out.write_string("\t")
-      @ddocx.DocxInline::LineBreak => out.write_string("\n")
-      @ddocx.DocxInline::Break(value) =>
-        out.write_string(render_docx_break_text(value))
-      @ddocx.DocxInline::Hyperlink(link) => out.write_string(link.text)
-      @ddocx.DocxInline::ContentControl(control) =>
-        out.write_string(control.text)
-      @ddocx.DocxInline::FieldUnsupported(field) =>
-        out.write_string(render_docx_field_text(field))
-      @ddocx.DocxInline::Math(math) =>
-        out.write_string(render_docx_math_text(math))
-      @ddocx.DocxInline::TrackedChange(change) =>
+      Text(text) => out.write_string(text)
+      Tab => out.write_string("\t")
+      LineBreak => out.write_string("\n")
+      Break(value) => out.write_string(render_docx_break_text(value))
+      Hyperlink(link) => out.write_string(link.text)
+      ContentControl(control) => out.write_string(control.text)
+      FieldUnsupported(field) => out.write_string(render_docx_field_text(field))
+      Math(math) => out.write_string(render_docx_math_text(math))
+      TrackedChange(change) =>
         out.write_string(render_docx_tracked_change_text(change))
-      @ddocx.DocxInline::SmartTag(smart_tag) =>
+      SmartTag(smart_tag) =>
         out.write_string(render_docx_plain_text_only(smart_tag.child_inlines))
-      @ddocx.DocxInline::Symbol(symbol) =>
-        out.write_string(render_docx_symbol_text(symbol))
-      @ddocx.DocxInline::Hyphen(hyphen) =>
-        out.write_string(render_docx_hyphen_text(hyphen))
-      @ddocx.DocxInline::FootnoteRef(id) =>
+      Symbol(symbol) => out.write_string(render_docx_symbol_text(symbol))
+      Hyphen(hyphen) => out.write_string(render_docx_hyphen_text(hyphen))
+      FootnoteRef(id) =>
         out.write_string(docx_note_marker_label(id, "footnote"))
-      @ddocx.DocxInline::EndnoteRef(id) =>
-        out.write_string(docx_note_marker_label(id, "endnote"))
-      @ddocx.DocxInline::CommentRef(id) =>
+      EndnoteRef(id) => out.write_string(docx_note_marker_label(id, "endnote"))
+      CommentRef(id) =>
         out.write_string(" " + docx_note_marker_label(id, "comment"))
       _ => ()
     }
@@ -631,7 +624,7 @@ fn docx_paragraph_is_page_number_field_only(p : @ddocx.DocxParagraph) -> Bool {
   let mut saw_page_field = false
   for inline in p.inlines {
     match inline {
-      @ddocx.DocxInline::FieldUnsupported(field) =>
+      FieldUnsupported(field) =>
         match field.instruction {
           Some(instruction) =>
             if docx_normalize_style_label(instruction).contains("page") {
@@ -678,12 +671,12 @@ fn docx_list_item_text(text : String) -> String {
 ///|
 fn render_docx_break_text(value : @ddocx.DocxBreak) -> String {
   match value.kind {
-    @ddocx.DocxBreakKind::Line => "\n"
-    @ddocx.DocxBreakKind::CarriageReturn => "\n"
-    @ddocx.DocxBreakKind::TextWrapping => "\n"
-    @ddocx.DocxBreakKind::Page => "\n"
-    @ddocx.DocxBreakKind::Column => "\n"
-    @ddocx.DocxBreakKind::Unknown => ""
+    Line => "\n"
+    CarriageReturn => "\n"
+    TextWrapping => "\n"
+    Page => "\n"
+    Column => "\n"
+    Unknown => ""
   }
 }
 
@@ -732,8 +725,8 @@ fn render_docx_symbol_text(symbol : @ddocx.DocxSymbol) -> String {
 ///|
 fn render_docx_hyphen_text(hyphen : @ddocx.DocxHyphen) -> String {
   match hyphen.kind {
-    @ddocx.DocxHyphenKind::Soft => ""
-    @ddocx.DocxHyphenKind::NoBreak => "-"
+    Soft => ""
+    NoBreak => "-"
   }
 }
 
@@ -821,23 +814,19 @@ fn docx_textbox_appendix_title(
 fn docx_blocks_have_visible_content(blocks : Array[@ddocx.DocxBlock]) -> Bool {
   for block in blocks {
     match block {
-      @ddocx.DocxBlock::Paragraph(p) =>
+      Paragraph(p) =>
         if !docx_paragraph_is_page_number_field_only(p) &&
           docx_inlines_have_visible_content(p.inlines) {
           return true
         }
-      @ddocx.DocxBlock::Table(table) =>
-        if table.rows.length() > 0 {
-          return true
-        }
-      @ddocx.DocxBlock::ContentControl(control) =>
+      Table(table) => if table.rows.length() > 0 { return true }
+      ContentControl(control) =>
         if control.text.trim() != "" ||
           docx_blocks_have_visible_content(control.blocks) {
           return true
         }
-      @ddocx.DocxBlock::TablePlaceholder(_)
-      | @ddocx.DocxBlock::Unsupported(_) => return true
-      @ddocx.DocxBlock::StructuralMarker(_) => ()
+      TablePlaceholder(_) | Unsupported(_) => return true
+      StructuralMarker(_) => ()
     }
   }
   false
@@ -849,66 +838,56 @@ fn docx_inlines_have_visible_content(
 ) -> Bool {
   for inline in inlines {
     match inline {
-      @ddocx.DocxInline::Text(text) => if text.trim() != "" { return true }
-      @ddocx.DocxInline::Tab
-      | @ddocx.DocxInline::LineBreak
-      | @ddocx.DocxInline::Break(_) => ()
-      @ddocx.DocxInline::Hyperlink(link) =>
-        if link.text.trim() != "" {
-          return true
-        }
-      @ddocx.DocxInline::Media(_) => return true
-      @ddocx.DocxInline::Drawing(drawing) =>
+      Text(text) => if text.trim() != "" { return true }
+      Tab | LineBreak | Break(_) => ()
+      Hyperlink(link) => if link.text.trim() != "" { return true }
+      Media(_) => return true
+      Drawing(drawing) =>
         if drawing.media is Some(_) ||
           docx_inlines_have_visible_content(drawing.child_inlines) {
           return true
         }
-      @ddocx.DocxInline::Shape(shape) =>
+      Shape(shape) =>
         if shape.media is Some(_) ||
           docx_inlines_have_visible_content(shape.child_inlines) {
           return true
         }
-      @ddocx.DocxInline::ContentControl(control) =>
+      ContentControl(control) =>
         if control.text.trim() != "" ||
           docx_inlines_have_visible_content(control.inlines) ||
           docx_blocks_have_visible_content(control.blocks) {
           return true
         }
-      @ddocx.DocxInline::FieldUnsupported(field) =>
+      FieldUnsupported(field) =>
         if render_docx_field_text(field).trim() != "" ||
           docx_inlines_have_visible_content(field.child_inlines) {
           return true
         }
-      @ddocx.DocxInline::Math(math) =>
+      Math(math) =>
         if render_docx_math_text(math).trim() != "" ||
           docx_inlines_have_visible_content(math.child_inlines) {
           return true
         }
-      @ddocx.DocxInline::TrackedChange(change) =>
+      TrackedChange(change) =>
         if render_docx_tracked_change_text(change).trim() != "" ||
           docx_inlines_have_visible_content(change.child_inlines) {
           return true
         }
-      @ddocx.DocxInline::SmartTag(smart_tag) =>
+      SmartTag(smart_tag) =>
         if docx_inlines_have_visible_content(smart_tag.child_inlines) {
           return true
         }
-      @ddocx.DocxInline::Symbol(symbol) =>
+      Symbol(symbol) =>
         if render_docx_symbol_text(symbol).trim() != "" {
           return true
         }
-      @ddocx.DocxInline::Hyphen(hyphen) =>
+      Hyphen(hyphen) =>
         if render_docx_hyphen_text(hyphen).trim() != "" {
           return true
         }
-      @ddocx.DocxInline::FootnoteRef(_)
-      | @ddocx.DocxInline::EndnoteRef(_)
-      | @ddocx.DocxInline::CommentRef(_)
-      | @ddocx.DocxInline::UnsupportedInline(_) => return true
-      @ddocx.DocxInline::Bookmark(_)
-      | @ddocx.DocxInline::StructuralMarker(_)
-      | @ddocx.DocxInline::TextBoxRef(_)
-      | @ddocx.DocxInline::Unsupported(_) => ()
+      FootnoteRef(_) | EndnoteRef(_) | CommentRef(_) | UnsupportedInline(_) =>
+        return true
+      Bookmark(_) | StructuralMarker(_) | TextBoxRef(_) | Unsupported(_) => ()
     }
   }
   false
@@ -1032,7 +1011,7 @@ fn normalize_docx_marker_rich_inlines(
 fn docx_trim_trailing_space_inline(out : Array[@core.CoreInline]) -> Bool {
   match out.last() {
     Some(last) =>
-      if last.kind == @core.InlineKind::Text {
+      if last.kind == Text {
         let (trimmed, changed) = docx_trim_trailing_spaces(last.text)
         if changed {
           ignore(out.pop())
@@ -1077,8 +1056,7 @@ fn docx_ensure_space_before_comment_marker(
   }
   match out.last() {
     Some(last) =>
-      if last.kind == @core.InlineKind::Text &&
-        docx_inline_text_ends_with_space(last.text) {
+      if last.kind == Text && docx_inline_text_ends_with_space(last.text) {
         return
       }
     None => ()
@@ -1112,11 +1090,8 @@ fn docx_next_inline_needs_leading_space(
   while index < inlines.length() {
     let inline = inlines[index]
     match inline.kind {
-      @core.InlineKind::LineBreak => return false
-      @core.InlineKind::Text
-      | @core.InlineKind::Link
-      | @core.InlineKind::Code
-      | @core.InlineKind::Image =>
+      LineBreak => return false
+      Text | Link | Code | Image =>
         return docx_text_requires_leading_space(inline.text)
     }
     index += 1
@@ -1149,7 +1124,7 @@ fn docx_rendered_table_has_visible_cells(block : @core.CoreBlock) -> Bool {
 
 ///|
 fn docx_note_marker_inline(inline : @core.CoreInline) -> Bool {
-  if inline.kind != @core.InlineKind::Text {
+  if inline.kind != Text {
     return false
   }
   inline.attrs.get("annotation_role") == Some("note_ref") &&
@@ -1158,7 +1133,7 @@ fn docx_note_marker_inline(inline : @core.CoreInline) -> Bool {
 
 ///|
 fn docx_comment_marker_inline(inline : @core.CoreInline) -> Bool {
-  if inline.kind != @core.InlineKind::Text {
+  if inline.kind != Text {
     return false
   }
   inline.attrs.get("annotation_role") == Some("note_ref") &&

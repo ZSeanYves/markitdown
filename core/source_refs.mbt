@@ -146,12 +146,12 @@ pub fn make_container_entry(
 ///|
 pub fn container_entry_kind_name(kind : ContainerEntryKind) -> String {
   match kind {
-    ContainerEntryKind::Document => "document"
-    ContainerEntryKind::Asset => "asset"
-    ContainerEntryKind::Metadata => "metadata"
-    ContainerEntryKind::Directory => "directory"
-    ContainerEntryKind::Unsupported => "unsupported"
-    ContainerEntryKind::Unsafe => "unsafe"
+    Document => "document"
+    Asset => "asset"
+    Metadata => "metadata"
+    Directory => "directory"
+    Unsupported => "unsupported"
+    Unsafe => "unsafe"
   }
 }
 
@@ -160,17 +160,15 @@ pub fn container_security_finding_name(
   finding : ContainerSecurityFinding,
 ) -> String {
   match finding {
-    ContainerSecurityFinding::PathTraversal => "path_traversal"
-    ContainerSecurityFinding::AbsolutePath => "absolute_path"
-    ContainerSecurityFinding::EncryptedEntry => "encrypted_entry"
-    ContainerSecurityFinding::UnsupportedCompression =>
-      "unsupported_compression"
-    ContainerSecurityFinding::CompressionRatioLimit => "compression_ratio_limit"
-    ContainerSecurityFinding::DuplicateNormalizedPath =>
-      "duplicate_normalized_path"
-    ContainerSecurityFinding::NestedArchive => "nested_archive"
-    ContainerSecurityFinding::ExternalReference => "external_reference"
-    ContainerSecurityFinding::ResourceLimitHit => "resource_limit_hit"
+    PathTraversal => "path_traversal"
+    AbsolutePath => "absolute_path"
+    EncryptedEntry => "encrypted_entry"
+    UnsupportedCompression => "unsupported_compression"
+    CompressionRatioLimit => "compression_ratio_limit"
+    DuplicateNormalizedPath => "duplicate_normalized_path"
+    NestedArchive => "nested_archive"
+    ExternalReference => "external_reference"
+    ResourceLimitHit => "resource_limit_hit"
   }
 }
 

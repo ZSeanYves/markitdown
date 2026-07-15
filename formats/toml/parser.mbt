@@ -1,7 +1,7 @@
 ///|
 fn toml_parser_capability() -> @parser.ParserCapability {
   @parser.dom_ast_parser_capability(
-    @parser.StreamingGranularity::None,
+    None,
     false,
     false,
     false,
@@ -17,17 +17,12 @@ fn toml_parser_capability() -> @parser.ParserCapability {
 
 ///|
 pub fn toml_parser() -> @parser.Parser {
-  @parser.make_parser(
-    "toml_parser",
-    @parser.ParserMode::DomAstModel,
-    toml_parser_capability(),
-    fn(
-      source : @input.InputSource,
-      context : @parser.ParseContext,
-    ) -> Result[@parser.ParseResult, String] {
-      parse_toml_document_result(source, context)
-    },
-  )
+  @parser.make_parser("toml_parser", DomAstModel, toml_parser_capability(), fn(
+    source : @input.InputSource,
+    context : @parser.ParseContext,
+  ) -> Result[@parser.ParseResult, String] {
+    parse_toml_document_result(source, context)
+  })
 }
 
 ///|
@@ -42,7 +37,7 @@ fn parse_toml_document_result(
   let source = prepared.prepared_source
   let diagnostics = @fshared.empty_parser_diagnostics(
     "toml_parser",
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     source,
     "toml",
   )
@@ -52,10 +47,10 @@ fn parse_toml_document_result(
     context,
     "toml",
     "toml_parser",
-    @parser.ParserMode::DomAstModel,
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
+    DomAstModel,
     "document",
-    @parser.StreamingGranularity::None,
+    None,
     "dom_ast_model",
   )
   @fshared.apply_product_metrics(diagnostics, "toml")
@@ -94,7 +89,7 @@ pub fn toml_parse_with_preparsed_document(
 ) -> @parser.ParseResult {
   let diagnostics = @fshared.empty_parser_diagnostics(
     "toml_parser",
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     source,
     "toml",
   )
@@ -104,10 +99,10 @@ pub fn toml_parse_with_preparsed_document(
     context,
     "toml",
     "toml_parser",
-    @parser.ParserMode::DomAstModel,
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
+    DomAstModel,
     "document",
-    @parser.StreamingGranularity::None,
+    None,
     "dom_ast_model",
   )
   @fshared.apply_product_metrics(diagnostics, "toml")
@@ -118,7 +113,7 @@ pub fn toml_parse_with_preparsed_document(
         document,
         fast,
         source,
-        context.output_mode == @product.OutputMode::Markdown,
+        context.output_mode == Markdown,
       )
     None => ()
   }
@@ -128,7 +123,7 @@ pub fn toml_parse_with_preparsed_document(
   let final_document = @core.document_with_diagnostics(document, diagnostics)
   @parser.parse_result_with_document_capability(
     "toml_parser",
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     final_document,
     diagnostics,
     toml_parser_capability(),
@@ -157,7 +152,7 @@ pub fn toml_parse_with_prepared_document(
     None => {
       let diagnostics = @fshared.empty_parser_diagnostics(
         "toml_parser",
-        @parser.ParserMode::DomAstModel,
+        DomAstModel,
         source,
         "toml",
       )
@@ -167,10 +162,10 @@ pub fn toml_parse_with_prepared_document(
         context,
         "toml",
         "toml_parser",
-        @parser.ParserMode::DomAstModel,
-        @parser.ParserMode::DomAstModel,
+        DomAstModel,
+        DomAstModel,
         "document",
-        @parser.StreamingGranularity::None,
+        None,
         "dom_ast_model",
       )
       @fshared.apply_product_metrics(diagnostics, "toml")

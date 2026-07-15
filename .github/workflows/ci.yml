@@ -50,7 +50,7 @@ jobs:
       - name: Interfaces
         run: moon info && git diff --exit-code
       - name: Check
-        run: moon check --target all
+        run: moon check --target all --warn-list +73 --deny-warn
       - name: Test
         run: moon test --target all
 

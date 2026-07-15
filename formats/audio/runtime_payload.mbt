@@ -7,7 +7,7 @@ fn parse_audio_transcript_json_payload(
   let trimmed = payload.trim().to_owned()
   if trimmed == "" {
     return Err(
-      AudioTranscribeError::EmptyResult(
+      EmptyResult(
         "audio backend produced an empty JSON transcript on this runtime.",
       ),
     )
@@ -15,26 +15,26 @@ fn parse_audio_transcript_json_payload(
   let root = @djson.parse_json_document(trimmed) catch {
     err =>
       return Err(
-        AudioTranscribeError::OutputParseFailed(
+        OutputParseFailed(
           "audio backend emitted invalid JSON on this runtime: " +
           err.to_string(),
         ),
       )
   }
   let root_object = match root.root {
-    @djson.JsonValue::Object(entries) => json_object_from_members(entries)
+    Object(entries) => json_object_from_members(entries)
     _ =>
       return Err(
-        AudioTranscribeError::OutputParseFailed(
+        OutputParseFailed(
           "audio transcript JSON root must be an object on this runtime.",
         ),
       )
   }
   let segments_payload = match root_object.get("segments") {
-    Some(@djson.JsonValue::Array(items)) => items
+    Some(Array(items)) => items
     _ =>
       return Err(
-        AudioTranscribeError::OutputParseFailed(
+        OutputParseFailed(
           "audio transcript JSON must include a `segments` array on this runtime.",
         ),
       )
@@ -57,7 +57,7 @@ fn parse_audio_transcript_json_payload(
   }
   if segments.length() == 0 {
     return Err(
-      AudioTranscribeError::EmptyResult(
+      EmptyResult(
         "audio backend produced zero transcript segments on this runtime.",
       ),
     )
@@ -93,8 +93,7 @@ fn audio_transcript_metadata_from_object(
   requested_language : String?,
 ) -> AudioTranscriptMetadata {
   let metadata_object = match payload.get("metadata") {
-    Some(@djson.JsonValue::Object(entries)) =>
-      Some(json_object_from_members(entries))
+    Some(Object(entries)) => Some(json_object_from_members(entries))
     _ => None
   }
   let metadata = metadata_object.unwrap_or(Map([]))
@@ -125,10 +124,10 @@ fn audio_transcript_segments(
   let segments : Array[AudioTranscriptSegment] = []
   for i in 0..<items.length() {
     let object = match items[i] {
-      @djson.JsonValue::Object(entries) => json_object_from_members(entries)
+      Object(entries) => json_object_from_members(entries)
       _ =>
         return Err(
-          AudioTranscribeError::OutputParseFailed(
+          OutputParseFailed(
             "audio transcript segments must be JSON objects on this runtime.",
           ),
         )
@@ -147,7 +146,7 @@ fn audio_transcript_segments(
     }
     if start_ms < 0 || end_ms < start_ms {
       return Err(
-        AudioTranscribeError::OutputParseFailed(
+        OutputParseFailed(
           "audio transcript segments must carry non-negative ordered timestamps on this runtime.",
         ),
       )
@@ -189,19 +188,19 @@ fn audio_local_source_path(
       let trimmed = path.trim().to_owned()
       if trimmed == "" {
         Err(
-          AudioTranscribeError::ExecutionFailed(
+          ExecutionFailed(
             "audio transcription requires a local file path source",
           ),
         )
       } else if !@fs.path_exists(trimmed) {
         Err(
-          AudioTranscribeError::ExecutionFailed(
+          ExecutionFailed(
             "audio input path does not exist on this runtime: " + trimmed,
           ),
         )
       } else if !(@fs.is_file(trimmed) catch { _ => false }) {
         Err(
-          AudioTranscribeError::ExecutionFailed(
+          ExecutionFailed(
             "audio transcription requires a local file path source",
           ),
         )
@@ -211,9 +210,7 @@ fn audio_local_source_path(
     }
     None =>
       Err(
-        AudioTranscribeError::ExecutionFailed(
-          "audio transcription requires a local file path source",
-        ),
+        ExecutionFailed("audio transcription requires a local file path source"),
       )
   }
 }
@@ -394,10 +391,10 @@ fn json_string_required(
   key : String,
 ) -> Result[String, AudioTranscribeError] {
   match payload.get(key) {
-    Some(@djson.JsonValue::String(value)) => Ok(value)
+    Some(String(value)) => Ok(value)
     _ =>
       Err(
-        AudioTranscribeError::OutputParseFailed(
+        OutputParseFailed(
           "audio transcript payload is missing required string field `" +
           key +
           "` on this runtime.",
@@ -412,7 +409,7 @@ fn json_string_optional(
   key : String,
 ) -> String? {
   match payload.get(key) {
-    Some(@djson.JsonValue::String(value)) => Some(value)
+    Some(String(value)) => Some(value)
     _ => None
   }
 }
@@ -423,12 +420,12 @@ fn json_int_required(
   key : String,
 ) -> Result[Int, AudioTranscribeError] {
   match payload.get(key) {
-    Some(@djson.JsonValue::Number(value)) =>
+    Some(Number(value)) =>
       Ok(
         @string.parse_int(value) catch {
           _ =>
             return Err(
-              AudioTranscribeError::OutputParseFailed(
+              OutputParseFailed(
                 "audio transcript numeric field `" +
                 key +
                 "` is not a valid integer on this runtime.",
@@ -438,7 +435,7 @@ fn json_int_required(
       )
     _ =>
       Err(
-        AudioTranscribeError::OutputParseFailed(
+        OutputParseFailed(
           "audio transcript payload is missing required numeric field `" +
           key +
           "` on this runtime.",
@@ -453,7 +450,7 @@ fn json_int_optional(
   key : String,
 ) -> Int? {
   match payload.get(key) {
-    Some(@djson.JsonValue::Number(value)) =>
+    Some(Number(value)) =>
       Some(@string.parse_int(value) catch { _ => return None })
     _ => None
   }
@@ -465,7 +462,7 @@ fn json_double_optional(
   key : String,
 ) -> Double? {
   match payload.get(key) {
-    Some(@djson.JsonValue::Number(value)) =>
+    Some(Number(value)) =>
       Some(@string.parse_double(value) catch { _ => return None })
     _ => None
   }
@@ -478,10 +475,10 @@ fn json_string_array_optional(
 ) -> Array[String] {
   let values : Array[String] = []
   match payload.get(key) {
-    Some(@djson.JsonValue::Array(items)) =>
+    Some(Array(items)) =>
       for item in items {
         match item {
-          @djson.JsonValue::String(value) => values.push(value)
+          String(value) => values.push(value)
           _ => ()
         }
       }
@@ -500,23 +497,19 @@ fn collect_audio_transcribe_output(
     Ok(output) => {
       if output.timed_out {
         return Err(
-          AudioTranscribeError::ExecutionFailed(
-            command_label + " timed out after 300000 ms",
-          ),
+          ExecutionFailed(command_label + " timed out after 300000 ms"),
         )
       }
       if output.stdout_limit_exceeded || output.stderr_limit_exceeded {
         return Err(
-          AudioTranscribeError::ExecutionFailed(
-            command_label + " output exceeded 8 MiB limit",
-          ),
+          ExecutionFailed(command_label + " output exceeded 8 MiB limit"),
         )
       }
       Ok((output.exit_code, output.stdout, output.stderr))
     }
     Err(message) =>
       Err(
-        AudioTranscribeError::ExecutionFailed(
+        ExecutionFailed(
           "launch " +
           command_label +
           " failed on this runtime: " +

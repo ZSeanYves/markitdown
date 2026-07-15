@@ -79,7 +79,7 @@ fn odf_extract_slide(
           let text = odf_collect_text(node).trim().to_owned()
           if text != "" {
             blocks.push({
-              kind: OdpBlockKind::Notes,
+              kind: Notes,
               text,
               rows: [],
               image: None,
@@ -97,7 +97,7 @@ fn odf_extract_slide(
           let text = odf_collect_text(node).trim().to_owned()
           if text != "" {
             blocks.push({
-              kind: OdpBlockKind::Raw,
+              kind: Raw,
               text,
               rows: [],
               image: None,
@@ -116,7 +116,7 @@ fn odf_extract_slide(
     Some(name) =>
       if name.trim() != "" {
         blocks.insert(0, {
-          kind: OdpBlockKind::Heading,
+          kind: Heading,
           text: name,
           rows: [],
           image: None,
@@ -145,7 +145,7 @@ fn odf_extract_slide_group(
     let text = odf_collect_text(group).trim().to_owned()
     if text != "" {
       blocks.push({
-        kind: OdpBlockKind::Raw,
+        kind: Raw,
         text,
         rows: [],
         image: None,
@@ -189,7 +189,7 @@ fn odf_extract_slide_group(
           let text = odf_collect_text(node).trim().to_owned()
           if text != "" {
             blocks.push({
-              kind: OdpBlockKind::Raw,
+              kind: Raw,
               text,
               rows: [],
               image: None,
@@ -241,7 +241,7 @@ fn odf_extract_slide_frame(
               }
               assets.push(info)
               blocks.push({
-                kind: OdpBlockKind::Image,
+                kind: Image,
                 text: "",
                 rows: [],
                 image: Some(info),
@@ -261,7 +261,7 @@ fn odf_extract_slide_frame(
           let text = odf_extract_chart_text(node, archive)
           if text != "" {
             blocks.push({
-              kind: OdpBlockKind::Raw,
+              kind: Raw,
               text,
               rows: [],
               image: None,
@@ -279,7 +279,7 @@ fn odf_extract_slide_frame(
           let text = odf_collect_text(node).trim().to_owned()
           if text != "" {
             blocks.push({
-              kind: OdpBlockKind::Raw,
+              kind: Raw,
               text,
               rows: [],
               image: None,
@@ -355,7 +355,7 @@ fn odf_collect_slide_text_blocks(
       Element(node) =>
         if node.name == "text:h" {
           blocks.push({
-            kind: OdpBlockKind::Heading,
+            kind: Heading,
             text: odf_collect_text(node).trim().to_owned(),
             rows: [],
             image: None,
@@ -369,7 +369,7 @@ fn odf_collect_slide_text_blocks(
           let text = odf_collect_text(node).trim().to_owned()
           if text != "" {
             blocks.push({
-              kind: OdpBlockKind::Paragraph,
+              kind: Paragraph,
               text,
               rows: [],
               image: None,
@@ -386,7 +386,7 @@ fn odf_collect_slide_text_blocks(
           let text = odf_collect_text(node).trim().to_owned()
           if text != "" {
             blocks.push({
-              kind: OdpBlockKind::Raw,
+              kind: Raw,
               text,
               rows: [],
               image: None,
@@ -416,7 +416,7 @@ fn odf_collect_slide_list_items(
           let text = odf_collect_text(item).trim().to_owned()
           if text != "" {
             blocks.push({
-              kind: OdpBlockKind::ListItem,
+              kind: ListItem,
               text,
               rows: [],
               image: None,
@@ -461,7 +461,7 @@ fn odf_odp_table_block(
     }
   }
   {
-    kind: OdpBlockKind::Table,
+    kind: Table,
     text: "table",
     rows,
     image: None,

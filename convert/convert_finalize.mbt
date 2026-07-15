@@ -104,7 +104,7 @@ fn finalize_pipeline_execution(
   )
   let render_started = @env.now()
   let rendered = match render_input {
-    @render.RenderInput::Document(document) => {
+    Document(document) => {
       let prepared = {
         ..document,
         metadata: pass_context.metadata.val,
@@ -125,8 +125,7 @@ fn finalize_pipeline_execution(
     "timing_total_ms",
     (@env.now() - execution_started).to_string(),
   )
-  let final_content = if effective_options.output_format ==
-    OutputFormat::Markdown {
+  let final_content = if effective_options.output_format == Markdown {
     remove_skipped_asset_references(rendered.content, limited_assets.1)
   } else {
     rendered.content
@@ -142,7 +141,7 @@ fn finalize_pipeline_execution(
     metadata: pass_context.metadata.val,
     diagnostics: rendered.diagnostics,
     assets: pass_context.assets.val,
-    source_map: if effective_options.output_format == OutputFormat::RagJson &&
+    source_map: if effective_options.output_format == RagJson &&
       !execution_plan.rag_options.preserve_source_ref {
       None
     } else {
@@ -206,7 +205,7 @@ fn finalize_pipeline_execution(
     .get("audio_backend_transport")
     .map(value => {
       match value {
-        @core.JsonValue::String(text) => text
+        String(text) => text
         _ => execution_plan.audio_backend_transport.unwrap_or("")
       }
     }),
@@ -214,7 +213,7 @@ fn finalize_pipeline_execution(
     .get("audio_backend_name")
     .map(value => {
       match value {
-        @core.JsonValue::String(text) => text
+        String(text) => text
         _ => execution_plan.audio_backend_name.unwrap_or("")
       }
     }),
@@ -222,7 +221,7 @@ fn finalize_pipeline_execution(
     .get("audio_backend_version")
     .map(value => {
       match value {
-        @core.JsonValue::String(text) => text
+        String(text) => text
         _ => execution_plan.audio_backend_version.unwrap_or("")
       }
     }),
@@ -242,9 +241,8 @@ fn apply_asset_payload_limits(
   let mut total = 0L
   for asset in assets {
     let size = match asset.payload {
-      Some(@core.AssetPayload::Bytes(bytes)) => Some(bytes.length().to_int64())
-      Some(@core.AssetPayload::Utf8(text)) =>
-        Some(@utf8.encode(text).length().to_int64())
+      Some(Bytes(bytes)) => Some(bytes.length().to_int64())
+      Some(Utf8(text)) => Some(@utf8.encode(text).length().to_int64())
       _ => None
     }
     match size {
@@ -364,11 +362,9 @@ fn remove_markdown_image_target(content : String, path : String) -> String {
 ///|
 fn ir_input_to_render_input(input : @core.IRInput) -> @render.RenderInput {
   match input {
-    @core.IRInput::Document(document) => @render.RenderInput::Document(document)
-    @core.IRInput::BlockStream(blocks) =>
-      @render.RenderInput::BlockStream(blocks)
-    @core.IRInput::EventStream(events) =>
-      @render.RenderInput::EventStream(events)
+    Document(document) => Document(document)
+    BlockStream(blocks) => BlockStream(blocks)
+    EventStream(events) => EventStream(events)
   }
 }
 
@@ -377,11 +373,11 @@ fn debug_ir_for_render_input(
   format : OutputFormat,
   input : @render.RenderInput,
 ) -> @core.DocumentIR? {
-  if format != OutputFormat::DebugJson {
+  if format != DebugJson {
     return None
   }
   match input {
-    @render.RenderInput::Document(document) => Some(document)
+    Document(document) => Some(document)
     _ => None
   }
 }
@@ -389,9 +385,9 @@ fn debug_ir_for_render_input(
 ///|
 fn renderer_for_output(format : OutputFormat) -> @render.Renderer {
   match format {
-    OutputFormat::Markdown => @render.markdown_renderer()
-    OutputFormat::RagJson => @render.rag_json_renderer()
-    OutputFormat::DebugJson => @render.debug_json_renderer()
+    Markdown => @render.markdown_renderer()
+    RagJson => @render.rag_json_renderer()
+    DebugJson => @render.debug_json_renderer()
   }
 }
 
@@ -413,9 +409,9 @@ fn format_detection_trace(result : @input.FormatDetectionResult) -> String {
 ///|
 fn input_kind_name(kind : @input.InputKind) -> String {
   match kind {
-    @input.InputKind::Path => "path"
-    @input.InputKind::Text => "text"
-    @input.InputKind::Bytes => "bytes"
-    @input.InputKind::Reader => "reader"
+    Path => "path"
+    Text => "text"
+    Bytes => "bytes"
+    Reader => "reader"
   }
 }

@@ -2,17 +2,9 @@
 test "renderer only consumes core ir and accepts irinput via builder" {
   let builder = @pipeline.default_ir_builder()
   let document = (builder.build)(
-    @core.IRInput::BlockStream([
-      @core.make_block(
-        @core.BlockKind::Heading,
-        "Title",
-        source_ref=@core.empty_source_ref(),
-      ),
-      @core.make_block(
-        @core.BlockKind::Paragraph,
-        "Body",
-        source_ref=@core.empty_source_ref(),
-      ),
+    BlockStream([
+      @core.make_block(Heading, "Title", source_ref=@core.empty_source_ref()),
+      @core.make_block(Paragraph, "Body", source_ref=@core.empty_source_ref()),
     ]),
   )
   let rendered = (@render.markdown_renderer().render)(
@@ -31,9 +23,9 @@ test "debug mode emits diagnostics parser metadata and pass trace" {
   let result = convert_memory_text(
     "Alpha\n\nBeta",
     "debug.txt",
-    @input.DetectedFormat::Txt,
-    mode=@convert.ConvertMode::Balanced,
-    output=@convert.OutputFormat::DebugJson,
+    Txt,
+    mode=Balanced,
+    output=DebugJson,
   )
   assert_true(result.content.contains("\"diagnostics\""))
   assert_true(result.content.contains("\"parser_name\""))
@@ -48,12 +40,12 @@ test "debug mode emits diagnostics parser metadata and pass trace" {
 ///|
 test "rag output can suppress source refs while keeping library source map" {
   let options = @convert.make_convert_options(
-    @convert.ConvertMode::Balanced,
-    @convert.OutputFormat::RagJson,
-    Some(@input.DetectedFormat::Markdown),
+    Balanced,
+    RagJson,
+    Some(Markdown),
     @parser.default_ocr_options(),
     @convert.default_resource_limits(),
-    output_mode=@convert.OutputMode::Rag,
+    output_mode=Rag,
     rag_options=@rag.make_rag_options(1200, 150, true, false, true, true),
   )
   let result = match
@@ -61,7 +53,7 @@ test "rag output can suppress source refs while keeping library source map" {
       @input.input_from_text_with_format(
         "# Title\n\nBody\n",
         "rag.md",
-        Some(@input.DetectedFormat::Markdown),
+        Some(Markdown),
       ),
       options,
     ) {
@@ -99,14 +91,14 @@ test "debug json source ref serialization keeps office and container fields visi
     Some("rId5"),
   )
   let office_block = @core.make_block(
-    @core.BlockKind::Paragraph,
+    Paragraph,
     "Docx paragraph",
     source_ref=@core.source_ref_with_extra(
       office_ref, "part_name", "word/document.xml",
     ),
   )
   let container_block = @core.make_block(
-    @core.BlockKind::Paragraph,
+    Paragraph,
     "Entry text",
     source_ref=@core.source_ref_with_container_entry(
       @core.empty_source_ref(),

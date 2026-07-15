@@ -22,20 +22,10 @@ test "DOCX body recovery preserves mixed structures and diagnoses unknown nodes"
   assert_true(blocks.length() >= 5)
   assert_true(blocks.any(block => block.text.contains("Hello")))
   assert_true(blocks.any(block => block.text.contains("controlled text")))
-  assert_true(blocks.any(block => block.kind == DocxSourceBlockKind::Unknown))
-  assert_true(
-    blocks.any(block => block.kind == DocxSourceBlockKind::Structural),
-  )
-  assert_true(
-    warnings.any(warning => {
-      warning.kind == DocxSourceWarningKind::UnknownBodyNode
-    }),
-  )
-  assert_true(
-    warnings.any(warning => {
-      warning.kind == DocxSourceWarningKind::UnsupportedMath
-    }),
-  )
+  assert_true(blocks.any(block => block.kind == Unknown))
+  assert_true(blocks.any(block => block.kind == Structural))
+  assert_true(warnings.any(warning => warning.kind == UnknownBodyNode))
+  assert_true(warnings.any(warning => warning.kind == UnsupportedMath))
 }
 
 ///|
@@ -66,11 +56,7 @@ test "DOCX nested table recovery retains cells spans headers and depth" {
   assert_true(cell.text.contains("outer"))
   assert_true(cell.text.contains("inner"))
   assert_true(cell.text.contains("cell control"))
-  assert_true(
-    warnings.any(warning => {
-      warning.kind == DocxSourceWarningKind::UnknownBodyNode
-    }),
-  )
+  assert_true(warnings.any(warning => warning.kind == UnknownBodyNode))
 }
 
 ///|
@@ -90,7 +76,7 @@ test "DOCX inline relationship recovery preserves labels and source diagnostics"
   )
   assert_eq(anchored.text, "Section")
   assert_true(anchored.target == Some("#section-1"))
-  assert_true(anchored.target_mode == Some(DocxTargetMode::Internal))
+  assert_true(anchored.target_mode == Some(Internal))
 
   let missing_xml = "<w:hyperlink r:id=\"rMissing\"><w:r><w:t>Still readable</w:t></w:r></w:hyperlink>"
   let missing = parse_docx_hyperlink(
@@ -118,11 +104,7 @@ test "DOCX inline relationship recovery preserves labels and source diagnostics"
     ),
   )
   assert_true(warnings.length() >= 2)
-  assert_true(
-    warnings.all(warning => {
-      warning.kind == DocxSourceWarningKind::MissingHyperlinkTarget
-    }),
-  )
+  assert_true(warnings.all(warning => warning.kind == MissingHyperlinkTarget))
 }
 
 ///|
@@ -167,11 +149,11 @@ test "DOCX drawing and VML metadata survive unresolved media relationships" {
 
   assert_true(
     read_docx_blip_relationship_ref("<a:blip r:link=\"r1\"/>").relationship_kind ==
-    DocxMediaRelationshipKind::Link,
+    Link,
   )
   assert_true(
     read_docx_blip_relationship_ref("<a:blip r:id=\"r2\"/>").relationship_kind ==
-    DocxMediaRelationshipKind::Unknown,
+    Unknown,
   )
   assert_true(
     read_docx_vml_image_relationship_ref("<v:imagedata r:embed=\"r3\"/>").relationship_id ==
@@ -179,7 +161,7 @@ test "DOCX drawing and VML metadata survive unresolved media relationships" {
   )
   assert_true(
     read_docx_vml_image_relationship_ref("<v:imagedata r:link=\"r4\"/>").relationship_kind ==
-    DocxMediaRelationshipKind::Link,
+    Link,
   )
 }
 
@@ -213,39 +195,17 @@ test "DOCX run scanner preserves the supported inline vocabulary in source order
   assert_true(text.contains("inside link"))
   assert_true(text.contains("2026-07-11"))
   assert_true(text.contains("inserted"))
-  assert_true(
-    warnings.any(warning => {
-      warning.kind == DocxSourceWarningKind::UnsupportedInline
-    }),
-  )
-  assert_true(
-    warnings.any(warning => {
-      warning.kind == DocxSourceWarningKind::UnsupportedMath
-    }),
-  )
-  assert_true(
-    warnings.any(warning => {
-      warning.kind == DocxSourceWarningKind::MissingMediaTarget
-    }),
-  )
+  assert_true(warnings.any(warning => warning.kind == UnsupportedInline))
+  assert_true(warnings.any(warning => warning.kind == UnsupportedMath))
+  assert_true(warnings.any(warning => warning.kind == MissingMediaTarget))
 
-  inlines.push(DocxSourceInline::Unsupported("legacy-inline"))
+  inlines.push(Unsupported("legacy-inline"))
   let model_warnings : Array[DocxWarning] = []
   let normalized = docx_model_inlines(inlines, model_warnings, key, [])
   assert_eq(normalized.length(), inlines.length())
-  assert_true(
-    model_warnings.any(warning => {
-      warning.kind == DocxWarningKind::UnsupportedInline
-    }),
-  )
-  assert_true(
-    model_warnings.any(warning => {
-      warning.kind == DocxWarningKind::UnsupportedMath
-    }),
-  )
-  assert_true(
-    model_warnings.any(warning => warning.kind == DocxWarningKind::TrackedChange),
-  )
+  assert_true(model_warnings.any(warning => warning.kind == UnsupportedInline))
+  assert_true(model_warnings.any(warning => warning.kind == UnsupportedMath))
+  assert_true(model_warnings.any(warning => warning.kind == TrackedChange))
   docx_add_unresolved_inline_ref_warnings(
     normalized,
     key,
@@ -255,19 +215,13 @@ test "DOCX run scanner preserves the supported inline vocabulary in source order
     model_warnings,
   )
   assert_true(
-    model_warnings.any(warning => {
-      warning.kind == DocxWarningKind::UnresolvedFootnoteRef
-    }),
+    model_warnings.any(warning => warning.kind == UnresolvedFootnoteRef),
   )
   assert_true(
-    model_warnings.any(warning => {
-      warning.kind == DocxWarningKind::UnresolvedEndnoteRef
-    }),
+    model_warnings.any(warning => warning.kind == UnresolvedEndnoteRef),
   )
   assert_true(
-    model_warnings.any(warning => {
-      warning.kind == DocxWarningKind::UnresolvedCommentRef
-    }),
+    model_warnings.any(warning => warning.kind == UnresolvedCommentRef),
   )
 }
 
@@ -292,11 +246,7 @@ test "DOCX paragraph scanner retains fields smart tags controls and tracked chan
   assert_true(text.contains("field result"))
   assert_true(text.contains("controlled inline"))
   assert_true(text.contains("tagged text"))
-  assert_true(
-    warnings.any(warning => {
-      warning.kind == DocxSourceWarningKind::UnsupportedInline
-    }),
-  )
+  assert_true(warnings.any(warning => warning.kind == UnsupportedInline))
 }
 
 ///|
@@ -405,11 +355,11 @@ test "DOCX model resolves textbox identities conservatively and diagnoses linked
   let warnings : Array[DocxWarning] = []
   let external : DocxSourceMediaRef = {
     relationship_id: Some("rLink"),
-    relationship_kind: DocxMediaRelationshipKind::Link,
-    container_kind: DocxMediaContainerKind::Drawing,
+    relationship_kind: Link,
+    container_kind: Drawing,
     target: Some("https://example.test/image.png"),
     resolved_target: Some("https://example.test/image.png"),
-    target_mode: Some(DocxTargetMode::External),
+    target_mode: Some(External),
     target_part: None,
     target_exists: None,
     content_type: Some("image/png"),
@@ -420,26 +370,22 @@ test "DOCX model resolves textbox identities conservatively and diagnoses linked
   let missing : DocxSourceMediaRef = {
     ..external,
     relationship_id: None,
-    relationship_kind: DocxMediaRelationshipKind::Unknown,
+    relationship_kind: Unknown,
     target: None,
     resolved_target: None,
     target_mode: None,
   }
   let normalized_media = docx_model_media_refs([external, missing], warnings)
   assert_eq(normalized_media.length(), 2)
-  assert_true(
-    warnings.any(warning => warning.kind == DocxWarningKind::UnsupportedMedia),
-  )
-  assert_true(
-    warnings.any(warning => warning.kind == DocxWarningKind::MissingMediaTarget),
-  )
+  assert_true(warnings.any(warning => warning.kind == UnsupportedMedia))
+  assert_true(warnings.any(warning => warning.kind == MissingMediaTarget))
 }
 
 ///|
 test "DOCX model preserves placeholder structural and unknown blocks with warnings" {
   let key = docx_source_key("word/document.xml", 20, "block")
   let table_placeholder : DocxSourceBlock = {
-    kind: DocxSourceBlockKind::Table,
+    kind: Table,
     source_key: key,
     paragraph_style_id: None,
     paragraph_alignment: None,
@@ -454,17 +400,17 @@ test "DOCX model preserves placeholder structural and unknown blocks with warnin
   }
   let control_placeholder : DocxSourceBlock = {
     ..table_placeholder,
-    kind: DocxSourceBlockKind::ContentControl,
+    kind: ContentControl,
     raw_tag: Some("w:sdt"),
   }
   let structural : DocxSourceBlock = {
     ..table_placeholder,
-    kind: DocxSourceBlockKind::Structural,
+    kind: Structural,
     raw_tag: Some("w:proofErr"),
   }
   let unknown : DocxSourceBlock = {
     ..table_placeholder,
-    kind: DocxSourceBlockKind::Unknown,
+    kind: Unknown,
     raw_tag: Some("w:futureNode"),
   }
   let warnings : Array[DocxWarning] = []
@@ -474,16 +420,10 @@ test "DOCX model preserves placeholder structural and unknown blocks with warnin
     [],
   )
   assert_eq(blocks.length(), 5)
-  assert_true(
-    warnings.any(warning => warning.kind == DocxWarningKind::UnsupportedTable),
-  )
-  assert_true(
-    warnings.any(warning => warning.kind == DocxWarningKind::UnknownBodyNode),
-  )
+  assert_true(warnings.any(warning => warning.kind == UnsupportedTable))
+  assert_true(warnings.any(warning => warning.kind == UnknownBodyNode))
   assert_eq(
-    warnings
-    .filter(warning => warning.kind == DocxWarningKind::UnknownBodyNode)
-    .length(),
+    warnings.filter(warning => warning.kind == UnknownBodyNode).length(),
     1,
   )
 }
@@ -492,49 +432,49 @@ test "DOCX model preserves placeholder structural and unknown blocks with warnin
 test "DOCX source diagnostics map one-to-one into product diagnostics" {
   let source_kinds = [
     DocxSourceWarningKind::MissingMainDocument,
-    DocxSourceWarningKind::MalformedDocumentXml,
-    DocxSourceWarningKind::MissingHyperlinkTarget,
-    DocxSourceWarningKind::MissingMediaTarget,
-    DocxSourceWarningKind::MissingMediaPart,
-    DocxSourceWarningKind::UnsupportedMedia,
-    DocxSourceWarningKind::UnsupportedMath,
-    DocxSourceWarningKind::MissingStylesPart,
-    DocxSourceWarningKind::MissingNumberingPart,
-    DocxSourceWarningKind::MissingContainerPart,
-    DocxSourceWarningKind::NestedTable,
-    DocxSourceWarningKind::UnsupportedTextbox,
-    DocxSourceWarningKind::UnknownBodyNode,
-    DocxSourceWarningKind::UnsupportedTable,
-    DocxSourceWarningKind::UnsupportedField,
-    DocxSourceWarningKind::UnsupportedBookmark,
-    DocxSourceWarningKind::TrackedChange,
-    DocxSourceWarningKind::UnsupportedInline,
-    DocxSourceWarningKind::UnresolvedFootnoteRef,
-    DocxSourceWarningKind::UnresolvedEndnoteRef,
-    DocxSourceWarningKind::UnresolvedCommentRef,
+    MalformedDocumentXml,
+    MissingHyperlinkTarget,
+    MissingMediaTarget,
+    MissingMediaPart,
+    UnsupportedMedia,
+    UnsupportedMath,
+    MissingStylesPart,
+    MissingNumberingPart,
+    MissingContainerPart,
+    NestedTable,
+    UnsupportedTextbox,
+    UnknownBodyNode,
+    UnsupportedTable,
+    UnsupportedField,
+    UnsupportedBookmark,
+    TrackedChange,
+    UnsupportedInline,
+    UnresolvedFootnoteRef,
+    UnresolvedEndnoteRef,
+    UnresolvedCommentRef,
   ]
   let product_kinds = [
     DocxWarningKind::MissingMainDocument,
-    DocxWarningKind::MalformedDocumentXml,
-    DocxWarningKind::MissingHyperlinkTarget,
-    DocxWarningKind::MissingMediaTarget,
-    DocxWarningKind::MissingMediaPart,
-    DocxWarningKind::UnsupportedMedia,
-    DocxWarningKind::UnsupportedMath,
-    DocxWarningKind::MissingStylesPart,
-    DocxWarningKind::MissingNumberingPart,
-    DocxWarningKind::MissingContainerPart,
-    DocxWarningKind::NestedTable,
-    DocxWarningKind::UnsupportedTextbox,
-    DocxWarningKind::UnknownBodyNode,
-    DocxWarningKind::UnsupportedTable,
-    DocxWarningKind::UnsupportedField,
-    DocxWarningKind::UnsupportedBookmark,
-    DocxWarningKind::TrackedChange,
-    DocxWarningKind::UnsupportedInline,
-    DocxWarningKind::UnresolvedFootnoteRef,
-    DocxWarningKind::UnresolvedEndnoteRef,
-    DocxWarningKind::UnresolvedCommentRef,
+    MalformedDocumentXml,
+    MissingHyperlinkTarget,
+    MissingMediaTarget,
+    MissingMediaPart,
+    UnsupportedMedia,
+    UnsupportedMath,
+    MissingStylesPart,
+    MissingNumberingPart,
+    MissingContainerPart,
+    NestedTable,
+    UnsupportedTextbox,
+    UnknownBodyNode,
+    UnsupportedTable,
+    UnsupportedField,
+    UnsupportedBookmark,
+    TrackedChange,
+    UnsupportedInline,
+    UnresolvedFootnoteRef,
+    UnresolvedEndnoteRef,
+    UnresolvedCommentRef,
   ]
   for index in 0..<source_kinds.length() {
     let mapped = docx_warning_from_source({
@@ -544,6 +484,6 @@ test "DOCX source diagnostics map one-to-one into product diagnostics" {
     })
     assert_true(mapped.kind == product_kinds[index])
     assert_eq(mapped.message, "diagnostic " + index.to_string())
-    assert_true(mapped.severity == DocxWarningSeverity::Warning)
+    assert_true(mapped.severity == Warning)
   }
 }

@@ -38,7 +38,7 @@ test "csv validation reports ragged rows and empty cells" {
 
   let issues = @csv.collect_csv_validation_issues(doc)
   assert_eq(issues.length(), 1)
-  assert_true(issues[0].kind == @csv.CsvValidationIssueKind::RaggedRow)
+  assert_true(issues[0].kind == RaggedRow)
   assert_eq(issues[0].row_index, 2)
 
   let report = @csv.inspect_csv_document(doc)
@@ -56,23 +56,15 @@ test "csv malformed quote fails closed and classifies" {
     is Err(_),
   )
 
-  let info = @csv.classify_csv_error(
-    @csv.CsvError::ParseError("unterminated quoted field"),
-  )
-  assert_true(info.kind == @csv.CsvErrorKind::UnterminatedQuotedField)
+  let info = @csv.classify_csv_error(ParseError("unterminated quoted field"))
+  assert_true(info.kind == UnterminatedQuotedField)
 }
 
 ///|
 test "csv parse options stay header-neutral and can preserve blank rows" {
   let doc = @csv.parse_csv_with_options(
     "name,age\n\nAda,12\nsolo\n",
-    @csv.new_csv_parse_options(
-      @csv.CsvDelimiter::Comma,
-      '"',
-      true,
-      false,
-      false,
-    ),
+    @csv.new_csv_parse_options(Comma, '"', true, false, false),
   )
 
   assert_eq(doc.rows.length(), 4)
@@ -93,13 +85,7 @@ test "csv parse options stay header-neutral and can preserve blank rows" {
 test "csv validation issue ordering stays deterministic" {
   let doc = @csv.parse_csv_with_options(
     "a,b,c\nx\n\n1,2\n",
-    @csv.new_csv_parse_options(
-      @csv.CsvDelimiter::Comma,
-      '"',
-      true,
-      false,
-      false,
-    ),
+    @csv.new_csv_parse_options(Comma, '"', true, false, false),
   )
   let issues = @csv.collect_csv_validation_issues(doc)
   assert_eq(issues.length(), 3)

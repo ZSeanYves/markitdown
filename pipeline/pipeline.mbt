@@ -62,9 +62,9 @@ pub struct PassPipeline {
 fn make_product_pass_context(
   mode : @product.ConvertMode,
   options : @product.ProductOptions,
-  execution_profile? : @product.ExecutionProfile = @product.ExecutionProfile::Standard,
-  lowering_profile? : @product.LoweringProfile = @product.LoweringProfile::Canonical,
-  render_profile? : @product.RenderProfile = @product.RenderProfile::DefaultMarkdown,
+  execution_profile? : @product.ExecutionProfile = Standard,
+  lowering_profile? : @product.LoweringProfile = Canonical,
+  render_profile? : @product.RenderProfile = DefaultMarkdown,
   accurate_features? : @product.AccurateFeatureProfile = @product.empty_accurate_feature_profile(),
   diagnostics? : @core.Diagnostics = @core.empty_diagnostics(),
   assets? : Array[@core.AssetRef] = [],
@@ -98,17 +98,13 @@ pub fn make_pass_context(
 ) -> PassContext {
   let mode = match mode_name {
     "stream" => @product.ConvertMode::Stream
-    "accurate" => @product.ConvertMode::Accurate
-    _ => @product.ConvertMode::Balanced
+    "accurate" => Accurate
+    _ => Balanced
   }
   let options = @product.make_product_options(
     mode,
     @product.default_resource_limits(),
-    output_mode=if debug {
-      @product.OutputMode::Debug
-    } else {
-      @product.OutputMode::Markdown
-    },
+    output_mode=if debug { Debug } else { Markdown },
   )
   let context = make_product_pass_context(mode, options)
   context.diagnostics.val.metrics.set(
@@ -128,9 +124,9 @@ pub fn make_pass_context(
 pub fn make_pass_context_with_product_options(
   mode : @product.ConvertMode,
   options : @product.ProductOptions,
-  execution_profile? : @product.ExecutionProfile = @product.ExecutionProfile::Standard,
-  lowering_profile? : @product.LoweringProfile = @product.LoweringProfile::Canonical,
-  render_profile? : @product.RenderProfile = @product.RenderProfile::DefaultMarkdown,
+  execution_profile? : @product.ExecutionProfile = Standard,
+  lowering_profile? : @product.LoweringProfile = Canonical,
+  render_profile? : @product.RenderProfile = DefaultMarkdown,
   accurate_features? : @product.AccurateFeatureProfile = @product.empty_accurate_feature_profile(),
   diagnostics? : @core.Diagnostics = @core.empty_diagnostics(),
   assets? : Array[@core.AssetRef] = [],
@@ -169,17 +165,17 @@ pub fn default_ir_builder() -> CoreIRBuilder {
 /// in diagnostics.
 pub fn ir_input_to_document(input : @core.IRInput) -> @core.DocumentIR {
   match input {
-    @core.IRInput::Document(document) => {
+    Document(document) => {
       let next = document
       next.diagnostics.metrics.set("builder_input_kind", "document")
       next
     }
-    @core.IRInput::BlockStream(blocks) => {
+    BlockStream(blocks) => {
       let document = @core.document_from_blocks(blocks)
       document.diagnostics.metrics.set("builder_input_kind", "block_stream")
       document
     }
-    @core.IRInput::EventStream(events) => {
+    EventStream(events) => {
       let document = build_document_from_events(events)
       document.diagnostics.metrics.set("builder_input_kind", "event_stream")
       document
@@ -260,19 +256,17 @@ pub fn run_default_pipeline(
     selected_pipeline, input, context, trace_passes,
   )
   match output {
-    Ok(@core.IRInput::Document(document)) => {
+    Ok(Document(document)) => {
       context.diagnostics.val.metrics.set("builder_input_kind", "document")
-      Ok(
-        @core.IRInput::Document(document_from_input_context(document, context)),
-      )
+      Ok(Document(document_from_input_context(document, context)))
     }
-    Ok(@core.IRInput::BlockStream(blocks)) => {
+    Ok(BlockStream(blocks)) => {
       context.diagnostics.val.metrics.set("builder_input_kind", "block_stream")
-      Ok(@core.IRInput::BlockStream(blocks))
+      Ok(BlockStream(blocks))
     }
-    Ok(@core.IRInput::EventStream(events)) => {
+    Ok(EventStream(events)) => {
       context.diagnostics.val.metrics.set("builder_input_kind", "event_stream")
-      Ok(@core.IRInput::EventStream(events))
+      Ok(EventStream(events))
     }
     Err(err) => Err(err)
   }
@@ -280,7 +274,7 @@ pub fn run_default_pipeline(
 
 ///|
 fn default_pipeline_for_context(context : PassContext) -> PassPipeline {
-  if context.output_mode == @product.OutputMode::Markdown &&
+  if context.output_mode == Markdown &&
     context.diagnostics.val.metrics.get("detected_format") == Some("yaml") {
     let char_count = @string.parse_int(
       context.diagnostics.val.metrics.get("char_count").unwrap_or("0"),
@@ -294,8 +288,8 @@ fn default_pipeline_for_context(context : PassContext) -> PassPipeline {
       return new_pass_pipeline([collect_asset_refs_pass()])
     }
   }
-  if context.execution_profile == @product.ExecutionProfile::LargeAdaptive &&
-    context.output_mode == @product.OutputMode::Markdown {
+  if context.execution_profile == LargeAdaptive &&
+    context.output_mode == Markdown {
     match context.diagnostics.val.metrics.get("detected_format") {
       Some("markdown") => {
         context.diagnostics.val.metrics.set(
@@ -385,10 +379,9 @@ fn sync_input_to_context(
   input : @core.IRInput,
 ) -> @core.IRInput {
   match input {
-    @core.IRInput::Document(document) =>
-      @core.IRInput::Document(sync_document_to_context(context, document))
-    @core.IRInput::BlockStream(blocks) => @core.IRInput::BlockStream(blocks)
-    @core.IRInput::EventStream(events) => @core.IRInput::EventStream(events)
+    Document(document) => Document(sync_document_to_context(context, document))
+    BlockStream(blocks) => BlockStream(blocks)
+    EventStream(events) => EventStream(events)
   }
 }
 
@@ -403,12 +396,12 @@ fn append_pass_trace(
     name,
   )
   match input {
-    @core.IRInput::Document(document) =>
-      @core.IRInput::Document(
+    Document(document) =>
+      Document(
         @core.document_with_diagnostics(document, context.diagnostics.val),
       )
-    @core.IRInput::EventStream(events) => @core.IRInput::EventStream(events)
-    @core.IRInput::BlockStream(blocks) => @core.IRInput::BlockStream(blocks)
+    EventStream(events) => EventStream(events)
+    BlockStream(blocks) => BlockStream(blocks)
   }
 }
 

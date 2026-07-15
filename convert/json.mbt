@@ -41,18 +41,18 @@ fn parse_result_kind(result : @parser.ParseResult) -> String {
 ///|
 fn ir_input_kind_name(input : @core.IRInput) -> String {
   match input {
-    @core.IRInput::Document(_) => "document"
-    @core.IRInput::BlockStream(_) => "block_stream"
-    @core.IRInput::EventStream(_) => "event_stream"
+    Document(_) => "document"
+    BlockStream(_) => "block_stream"
+    EventStream(_) => "event_stream"
   }
 }
 
 ///|
 fn render_input_kind_name(input : @render.RenderInput) -> String {
   match input {
-    @render.RenderInput::Document(_) => "document"
-    @render.RenderInput::BlockStream(_) => "block_stream"
-    @render.RenderInput::EventStream(_) => "event_stream"
+    Document(_) => "document"
+    BlockStream(_) => "block_stream"
+    EventStream(_) => "event_stream"
   }
 }
 

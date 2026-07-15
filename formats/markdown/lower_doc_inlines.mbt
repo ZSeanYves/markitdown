@@ -143,7 +143,7 @@ fn markdown_inline_is_plain_text_only(
     return true
   }
   for inline in inlines {
-    if inline.kind != @core.InlineKind::Text {
+    if inline.kind != Text {
       return false
     }
     if inline.attrs.length() > 0 {
@@ -215,7 +215,7 @@ fn markdown_next_non_blank_block_index(
 ) -> Int? {
   let mut i = start
   while i < blocks.length() {
-    if blocks[i].kind != @dmd.MarkdownBlockKind::BlankLine {
+    if blocks[i].kind != BlankLine {
       return Some(i)
     }
     i += 1
@@ -228,10 +228,9 @@ fn markdown_block_belongs_to_footnote_definition(
   block : @dmd.MarkdownBlock,
 ) -> Bool {
   match block.kind {
-    @dmd.MarkdownBlockKind::ListItem =>
-      markdown_list_indent(block.raw_text) >= 4
-    @dmd.MarkdownBlockKind::BlockQuote => block.raw_text.has_prefix("    ")
-    @dmd.MarkdownBlockKind::ParagraphLike =>
+    ListItem => markdown_list_indent(block.raw_text) >= 4
+    BlockQuote => block.raw_text.has_prefix("    ")
+    ParagraphLike =>
       block.raw_text.has_prefix("    ") ||
       (
         block.raw_text.contains("\n") &&
@@ -626,7 +625,7 @@ fn markdown_annotate_single_block_path(
         raw_index,
         child_path + "/",
         report,
-        if block.kind == @core.BlockKind::List {
+        if block.kind == List {
           list_depth + 1
         } else {
           list_depth
@@ -654,43 +653,43 @@ fn markdown_generated_path_for_block(
   prefix : String,
 ) -> String {
   match block.kind {
-    @core.BlockKind::Heading => {
+    Heading => {
       let index = heading_index.val
       heading_index.val += 1
       prefix + "heading[" + index.to_string() + "]"
     }
-    @core.BlockKind::Paragraph => {
+    Paragraph => {
       let index = paragraph_index.val
       paragraph_index.val += 1
       prefix + "paragraph[" + index.to_string() + "]"
     }
-    @core.BlockKind::List => {
+    List => {
       let index = list_index.val
       list_index.val += 1
       prefix + "list[" + index.to_string() + "]"
     }
-    @core.BlockKind::Table => {
+    Table => {
       let index = table_index.val
       table_index.val += 1
       prefix + "table[" + index.to_string() + "]"
     }
-    @core.BlockKind::Code => {
+    Code => {
       let index = code_index.val
       code_index.val += 1
       prefix + "code[" + index.to_string() + "]"
     }
-    @core.BlockKind::BlockQuote => {
+    BlockQuote => {
       let index = quote_index.val
       quote_index.val += 1
       prefix + "blockquote[" + index.to_string() + "]"
     }
-    @core.BlockKind::Raw => {
+    Raw => {
       let existing = block.attrs.get("raw_kind").unwrap_or("raw")
       let index = raw_index.val
       raw_index.val += 1
       prefix + existing + "[" + index.to_string() + "]"
     }
-    @core.BlockKind::Image => {
+    Image => {
       let index = paragraph_index.val
       paragraph_index.val += 1
       prefix + "image[" + index.to_string() + "]"
@@ -793,9 +792,9 @@ fn markdown_frontmatter_kind_name(
   kind : @dmd.MarkdownFrontmatterKind,
 ) -> String {
   match kind {
-    @dmd.MarkdownFrontmatterKind::Yaml => "yaml"
-    @dmd.MarkdownFrontmatterKind::Toml => "toml"
-    @dmd.MarkdownFrontmatterKind::Unknown => "unknown"
+    Yaml => "yaml"
+    Toml => "toml"
+    Unknown => "unknown"
   }
 }
 

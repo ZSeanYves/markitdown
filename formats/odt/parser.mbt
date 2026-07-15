@@ -4,7 +4,7 @@ const ODT_PARSER_NAME : String = "odt_parser"
 ///|
 pub fn odt_parser_capability() -> @parser.ParserCapability {
   @parser.package_with_block_route_parser_capability(
-    @parser.StreamingGranularity::Block,
+    Block,
     true,
     true,
     false,
@@ -21,17 +21,12 @@ pub fn odt_parser_capability() -> @parser.ParserCapability {
 ///|
 pub fn odt_parser() -> @parser.Parser {
   let capability = odt_parser_capability()
-  @parser.make_parser(
-    ODT_PARSER_NAME,
-    @parser.ParserMode::PackageSinglePass,
-    capability,
-    fn(
-      source : @input.InputSource,
-      context : @parser.ParseContext,
-    ) -> Result[@parser.ParseResult, String] {
-      parse_odt_document_result(source, context, capability)
-    },
-  )
+  @parser.make_parser(ODT_PARSER_NAME, PackageSinglePass, capability, fn(
+    source : @input.InputSource,
+    context : @parser.ParseContext,
+  ) -> Result[@parser.ParseResult, String] {
+    parse_odt_document_result(source, context, capability)
+  })
 }
 
 ///|
@@ -70,7 +65,7 @@ fn parse_odt_with_prepared_result(
   let source = prepared.prepared_source
   let diagnostics = @fshared.empty_parser_diagnostics(
     ODT_PARSER_NAME,
-    @parser.ParserMode::PackageSinglePass,
+    PackageSinglePass,
     source,
     "odt",
   )
@@ -81,7 +76,7 @@ fn parse_odt_with_prepared_result(
     prepared.inspect,
     @input.input_bytes(source).unwrap_or(Bytes::from_array([])),
   )
-  if context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
+  if context.requested_mode == Some(BlockStreaming) {
     let lowered = odt_lower_block_stream_document(
       source,
       prepared.document,
@@ -100,7 +95,7 @@ fn parse_odt_with_prepared_result(
     diagnostics.pass_trace.push("parse:odt_parser")
     return @parser.parse_result_with_blocks_capability(
       ODT_PARSER_NAME,
-      @parser.ParserMode::BlockStreaming,
+      BlockStreaming,
       lowered.blocks,
       diagnostics,
       capability,
@@ -123,7 +118,7 @@ fn parse_odt_with_prepared_result(
   let final_document = @core.document_with_diagnostics(lowered, diagnostics)
   @parser.parse_result_with_document_capability(
     ODT_PARSER_NAME,
-    @parser.ParserMode::PackageSinglePass,
+    PackageSinglePass,
     final_document,
     diagnostics,
     capability,
@@ -139,7 +134,7 @@ fn odt_prepare_failure_result(
 ) -> @parser.ParseResult {
   let diagnostics = @fshared.empty_parser_diagnostics(
     ODT_PARSER_NAME,
-    @parser.ParserMode::PackageSinglePass,
+    PackageSinglePass,
     source,
     "odt",
   )
@@ -189,14 +184,14 @@ pub fn odt_parse_with_open_document(
   let capability = odt_parser_capability()
   let diagnostics = @fshared.empty_parser_diagnostics(
     ODT_PARSER_NAME,
-    @parser.ParserMode::PackageSinglePass,
+    PackageSinglePass,
     source,
     "odt",
   )
   odt_init_diagnostics(diagnostics, source, context)
   let bytes = @input.input_bytes(source).unwrap_or(Bytes::from_array([]))
   odt_fill_metrics(diagnostics, document, inspect, bytes)
-  if context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
+  if context.requested_mode == Some(BlockStreaming) {
     let lowered = odt_lower_block_stream_document(source, document, context)
     diagnostics.metrics.set("parser_mode", "block_streaming")
     diagnostics.metrics.set("effective_mode", "block_streaming")
@@ -211,7 +206,7 @@ pub fn odt_parse_with_open_document(
     diagnostics.pass_trace.push("parse:odt_parser")
     return @parser.parse_result_with_blocks_capability(
       ODT_PARSER_NAME,
-      @parser.ParserMode::BlockStreaming,
+      BlockStreaming,
       lowered.blocks,
       diagnostics,
       capability,
@@ -234,7 +229,7 @@ pub fn odt_parse_with_open_document(
   let final_document = @core.document_with_diagnostics(lowered, diagnostics)
   @parser.parse_result_with_document_capability(
     ODT_PARSER_NAME,
-    @parser.ParserMode::PackageSinglePass,
+    PackageSinglePass,
     final_document,
     diagnostics,
     capability,
@@ -253,8 +248,8 @@ fn odt_init_diagnostics(
     context,
     "odt",
     ODT_PARSER_NAME,
-    @parser.ParserMode::PackageSinglePass,
-    @parser.ParserMode::PackageSinglePass,
+    PackageSinglePass,
+    PackageSinglePass,
     "document",
     "block",
     "package_single_pass",
@@ -425,18 +420,14 @@ fn odt_lower_common(
       None,
       None,
     )
-    let heading = @core.make_block(
-      @core.BlockKind::Heading,
-      "Comments",
-      source_ref=heading_ref,
-    )
+    let heading = @core.make_block(Heading, "Comments", source_ref=heading_ref)
     heading.attrs.set("level", "2")
     heading.attrs.set("appendix_kind", "comments")
     heading.attrs.set("appendix_ready", "true")
-    if context.lowering_profile == @product.LoweringProfile::AccurateSemantic &&
+    if context.lowering_profile == AccurateSemantic &&
       @product.accurate_feature_enabled(
         context.accurate_features,
-        @product.AccurateFeature::OdtCommentsAppendix,
+        OdtCommentsAppendix,
       ) {
       heading.attrs.set("render_appendix_group", "comments")
     }
@@ -472,21 +463,21 @@ fn odt_lower_block(
 ) -> @core.CoreBlock {
   let source_ref = odt_source_ref(source, block)
   let lowered = match block.kind {
-    @dodf.OdtBlockKind::Heading =>
+    Heading =>
       odt_block_with_inlines(
-        @core.make_block(@core.BlockKind::Heading, block.text, source_ref~),
+        @core.make_block(Heading, block.text, source_ref~),
         block,
         source_ref,
       )
-    @dodf.OdtBlockKind::Paragraph =>
+    Paragraph =>
       odt_block_with_inlines(
-        @core.make_block(@core.BlockKind::Paragraph, block.text, source_ref~),
+        @core.make_block(Paragraph, block.text, source_ref~),
         block,
         source_ref,
       )
-    @dodf.OdtBlockKind::ListItem => {
+    ListItem => {
       let item = odt_block_with_inlines(
-        @core.make_block(@core.BlockKind::ListItem, block.text, source_ref~),
+        @core.make_block(ListItem, block.text, source_ref~),
         block,
         source_ref,
       )
@@ -496,22 +487,22 @@ fn odt_lower_block(
       }
       item
     }
-    @dodf.OdtBlockKind::Code => {
+    Code => {
       let code = odt_block_with_inlines(
-        @core.make_block(@core.BlockKind::Code, block.text, source_ref~),
+        @core.make_block(Code, block.text, source_ref~),
         block,
         source_ref,
       )
       code.attrs.set("info", "text")
       code
     }
-    @dodf.OdtBlockKind::Raw =>
+    Raw =>
       odt_block_with_inlines(
-        @core.make_block(@core.BlockKind::Raw, block.text, source_ref~),
+        @core.make_block(Raw, block.text, source_ref~),
         block,
         source_ref,
       )
-    @dodf.OdtBlockKind::NoteDefinition =>
+    NoteDefinition =>
       odt_note_definition_block(
         source,
         {
@@ -523,9 +514,8 @@ fn odt_lower_block(
         },
         context,
       )
-    @dodf.OdtBlockKind::Table => odt_table_block(block, source_ref, context)
-    @dodf.OdtBlockKind::Image =>
-      odt_image_block(source, block, assets, source_ref)
+    Table => odt_table_block(block, source_ref, context)
+    Image => odt_image_block(source, block, assets, source_ref)
   }
   source_map.block_entries.push(
     @core.make_source_map_entry(primary_ref=Some(source_ref), refs=[source_ref]),
@@ -688,11 +678,7 @@ fn odt_note_definition_block(
     None,
     None,
   )
-  let block = @core.make_block(
-    @core.BlockKind::Paragraph,
-    note.body,
-    source_ref~,
-  )
+  let block = @core.make_block(Paragraph, note.body, source_ref~)
   let block = @core.block_with_attr(block, "note_definition_id", note.id)
   let block = @core.block_with_attr(
     block,
@@ -702,11 +688,8 @@ fn odt_note_definition_block(
   let block = @core.block_with_attr(block, "note_definition_kind", note.kind)
   let block = @core.block_with_attr(block, "annotation_marker", note.marker)
   let block = @core.block_with_attr(block, "appendix_ready", "true")
-  if context.lowering_profile == @product.LoweringProfile::AccurateSemantic &&
-    @product.accurate_feature_enabled(
-      context.accurate_features,
-      @product.AccurateFeature::OdtRichNotes,
-    ) {
+  if context.lowering_profile == AccurateSemantic &&
+    @product.accurate_feature_enabled(context.accurate_features, OdtRichNotes) {
     block.attrs.set("render_appendix_group", "notes")
   }
   @core.block_with_rich_inlines(
@@ -729,7 +712,7 @@ fn odt_comment_definition_block(
     None,
   )
   let item = @core.make_block(
-    @core.BlockKind::ListItem,
+    ListItem,
     comment.marker + " " + comment.body,
     source_ref~,
   )
@@ -741,10 +724,10 @@ fn odt_comment_definition_block(
   item.attrs.set("annotation_definition_id", comment.comment_id)
   item.attrs.set("annotation_kind", "comment")
   item.attrs.set("annotation_marker", comment.marker)
-  if context.lowering_profile == @product.LoweringProfile::AccurateSemantic &&
+  if context.lowering_profile == AccurateSemantic &&
     @product.accurate_feature_enabled(
       context.accurate_features,
-      @product.AccurateFeature::OdtCommentsAppendix,
+      OdtCommentsAppendix,
     ) {
     item.attrs.set("render_appendix_group", "comments")
   }
@@ -767,19 +750,15 @@ fn odt_table_block(
   source_ref : @core.SourceRef,
   context : @parser.ParseContext,
 ) -> @core.CoreBlock {
-  let table = @core.make_block(@core.BlockKind::Table, "table", source_ref~)
-  if context.lowering_profile == @product.LoweringProfile::LargeAdaptive {
+  let table = @core.make_block(Table, "table", source_ref~)
+  if context.lowering_profile == LargeAdaptive {
     table.attrs.set("render_table_mode", "sparse")
   }
   for row_value in block.rows {
-    let row = @core.make_block(@core.BlockKind::TableRow, "", source_ref~)
+    let row = @core.make_block(TableRow, "", source_ref~)
     for cell_value in row_value.cells {
       row.children.push(
-        @core.make_block(
-          @core.BlockKind::TableCell,
-          cell_value.text,
-          source_ref~,
-        ),
+        @core.make_block(TableCell, cell_value.text, source_ref~),
       )
     }
     table.children.push(row)
@@ -798,7 +777,7 @@ fn odt_image_block(
     Some(image) => {
       if image.bytes is None {
         let unavailable = @core.make_block(
-          @core.BlockKind::BlockQuote,
+          BlockQuote,
           "Asset unavailable: " + image.href,
           source_ref~,
         )
@@ -807,11 +786,7 @@ fn odt_image_block(
         return unavailable
       }
       let asset_id = odt_asset_output_path(image.href)
-      let asset = @core.make_asset_ref(
-        @core.AssetKind::Image,
-        asset_id,
-        source_ref~,
-      )
+      let asset = @core.make_asset_ref(Image, asset_id, source_ref~)
       let next_asset = {
         ..asset,
         path: Some(asset_id),
@@ -824,14 +799,14 @@ fn odt_image_block(
       }
       odt_attach_asset_payload(next_asset, image)
       assets.push(next_asset)
-      let out = @core.make_block(@core.BlockKind::Image, "", source_ref~)
+      let out = @core.make_block(Image, "", source_ref~)
       out.attrs.set("asset_id", asset_id)
       out.attrs.set("path", asset_id)
       out.attrs.set("alt", image.alt.unwrap_or("odt image"))
       out.attrs.set("source_name", source.source_name)
       out
     }
-    None => @core.make_block(@core.BlockKind::Paragraph, "[image]", source_ref~)
+    None => @core.make_block(Paragraph, "[image]", source_ref~)
   }
 }
 
@@ -841,25 +816,25 @@ fn odt_metadata(
   document : @dodf.OdtDocument,
 ) -> @core.DocumentMetadata {
   let metadata : @core.DocumentMetadata = Map([])
-  metadata.set("format", @core.JsonValue::String("odt"))
+  metadata.set("format", String("odt"))
   metadata.set(
     "description",
-    @core.JsonValue::String(
+    String(
       "OpenDocument text document with " +
       document.blocks.length().to_string() +
       " blocks",
     ),
   )
   match document.metadata.title {
-    Some(value) => metadata.set("title", @core.JsonValue::String(value))
+    Some(value) => metadata.set("title", String(value))
     None => ()
   }
   match document.metadata.subject {
-    Some(value) => metadata.set("subject", @core.JsonValue::String(value))
+    Some(value) => metadata.set("subject", String(value))
     None => ()
   }
   match document.metadata.language {
-    Some(value) => metadata.set("language", @core.JsonValue::String(value))
+    Some(value) => metadata.set("language", String(value))
     None => ()
   }
   metadata
@@ -963,33 +938,33 @@ fn odt_malformed_parse_result(
   diagnostics.metrics.set("syntax_error_count", "1")
   @fshared.refresh_parser_count_metrics(
     diagnostics,
-    if context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
+    if context.requested_mode == Some(BlockStreaming) {
       "block_stream"
     } else {
       "document"
     },
   )
-  if context.requested_mode == Some(@parser.ParserMode::BlockStreaming) {
+  if context.requested_mode == Some(BlockStreaming) {
     diagnostics.metrics.set("parser_mode", "block_streaming")
     diagnostics.metrics.set("effective_mode", "block_streaming")
     diagnostics.metrics.set("ir_input_kind", "block_stream")
     diagnostics.metrics.set("event_semantics", "odt_block_stream")
     let raw = @core.make_block(
-      @core.BlockKind::Code,
+      Code,
       "binary odt package (" + bytes.length().to_string() + " bytes)",
       source_ref=odt_fallback_source_ref(source),
     )
     raw.attrs.set("info", "odt")
     return @parser.parse_result_with_blocks_capability(
       ODT_PARSER_NAME,
-      @parser.ParserMode::BlockStreaming,
+      BlockStreaming,
       [raw],
       diagnostics,
       capability,
     )
   }
   let raw = @core.make_block(
-    @core.BlockKind::Code,
+    Code,
     "binary odt package (" + bytes.length().to_string() + " bytes)",
     source_ref=odt_fallback_source_ref(source),
   )
@@ -1000,7 +975,7 @@ fn odt_malformed_parse_result(
   )
   @parser.parse_result_with_document_capability(
     ODT_PARSER_NAME,
-    @parser.ParserMode::PackageSinglePass,
+    PackageSinglePass,
     document,
     diagnostics,
     capability,
@@ -1016,9 +991,9 @@ fn odt_attach_asset_payload(
     Some(bytes) =>
       if image.media_type == Some("image/svg+xml") {
         let text = @utf8.decode(bytes, ignore_bom=false) catch { _ => return }
-        asset.payload = Some(@core.AssetPayload::Utf8(text))
+        asset.payload = Some(Utf8(text))
       } else {
-        asset.payload = Some(@core.AssetPayload::Bytes(bytes))
+        asset.payload = Some(Bytes(bytes))
       }
     None => ()
   }

@@ -7,7 +7,7 @@ pub fn epub_parser(
 ) -> @parser.Parser {
   @parser.make_parser(
     EPUB_PARSER_NAME,
-    @parser.ParserMode::PackageSinglePass,
+    PackageSinglePass,
     @internal.epub_parser_capability(),
     fn(
       source : @input.InputSource,

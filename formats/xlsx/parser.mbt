@@ -2,9 +2,9 @@
 /// Capability for the canonical XLSX package parser.
 pub fn xlsx_parser_capability() -> @parser.ParserCapability {
   @parser.make_parser_capability(
-    @parser.ParserMode::PackageSinglePass,
+    PackageSinglePass,
     true,
-    @parser.StreamingGranularity::XlsxRow,
+    XlsxRow,
     true,
     true,
     true,
@@ -28,17 +28,12 @@ pub fn xlsx_parser_capability() -> @parser.ParserCapability {
 /// Construct the canonical XLSX parser entrypoint.
 pub fn xlsx_parser() -> @parser.Parser {
   let capability = xlsx_parser_capability()
-  @parser.make_parser(
-    "xlsx_parser",
-    @parser.ParserMode::PackageSinglePass,
-    capability,
-    fn(
-      source : @input.InputSource,
-      context : @parser.ParseContext,
-    ) -> Result[@parser.ParseResult, String] {
-      xlsx_parse_document_result(source, context, capability)
-    },
-  )
+  @parser.make_parser("xlsx_parser", PackageSinglePass, capability, fn(
+    source : @input.InputSource,
+    context : @parser.ParseContext,
+  ) -> Result[@parser.ParseResult, String] {
+    xlsx_parse_document_result(source, context, capability)
+  })
 }
 
 ///|
@@ -159,7 +154,7 @@ pub fn xlsx_preflight_summary_with_package(
   let mut estimated_cells = 0
   for sheet_info in shared.sheet_infos {
     match sheet_info.visibility {
-      @shared.XlsxSheetVisibility::Visible => {
+      Visible => {
         visible_sheet_count += 1
         let sheet_xml = try
           @ox.read_part_text_transient(pkg, sheet_info.part_name) |> Ok
@@ -189,8 +184,8 @@ pub fn xlsx_preflight_summary_with_package(
           Err(_) => ()
         }
       }
-      @shared.XlsxSheetVisibility::Hidden => hidden_sheet_count += 1
-      @shared.XlsxSheetVisibility::VeryHidden => very_hidden_sheet_count += 1
+      Hidden => hidden_sheet_count += 1
+      VeryHidden => very_hidden_sheet_count += 1
     }
   }
   Ok({
@@ -232,7 +227,7 @@ pub fn xlsx_route_preflight_summary_with_package(
   let mut estimated_cells = 0
   for sheet_info in shared.sheet_infos {
     match sheet_info.visibility {
-      @shared.XlsxSheetVisibility::Visible => {
+      Visible => {
         visible_sheet_count += 1
         let part_size = xlsx_preflight_sheet_part_size(
           inventory.parts,
@@ -282,8 +277,8 @@ pub fn xlsx_route_preflight_summary_with_package(
             }
         }
       }
-      @shared.XlsxSheetVisibility::Hidden => hidden_sheet_count += 1
-      @shared.XlsxSheetVisibility::VeryHidden => very_hidden_sheet_count += 1
+      Hidden => hidden_sheet_count += 1
+      VeryHidden => very_hidden_sheet_count += 1
     }
   }
   Ok({
@@ -379,7 +374,7 @@ fn xlsx_parse_document_result_from_package(
 ) -> @parser.ParseResult {
   let diagnostics = @fshared.empty_parser_diagnostics(
     "xlsx_parser",
-    @parser.ParserMode::PackageSinglePass,
+    PackageSinglePass,
     source,
     "xlsx",
   )
@@ -402,8 +397,7 @@ fn xlsx_parse_document_result_from_package(
     "output_mode",
     @product.output_mode_name(context.output_mode),
   )
-  let requested_blocks = context.requested_mode ==
-    Some(@parser.ParserMode::BlockStreaming)
+  let requested_blocks = context.requested_mode == Some(BlockStreaming)
   if requested_blocks {
     let lowered = try
       xlsx_lower_block_stream_document(source, pkg, diagnostics, context) |> Ok
@@ -447,7 +441,7 @@ fn xlsx_parse_document_result_from_package(
         diagnostics.pass_trace.push("parse:xlsx_parser")
         return @parser.parse_result_with_blocks_capability(
           "xlsx_parser",
-          @parser.ParserMode::BlockStreaming,
+          BlockStreaming,
           [],
           diagnostics,
           capability,
@@ -493,7 +487,7 @@ fn xlsx_parse_document_result_from_package(
     diagnostics.pass_trace.push("parse:xlsx_parser")
     return @parser.parse_result_with_blocks_capability(
       "xlsx_parser",
-      @parser.ParserMode::BlockStreaming,
+      BlockStreaming,
       lowered.blocks,
       diagnostics,
       capability,
@@ -558,7 +552,7 @@ fn xlsx_parse_document_result_from_package(
   let final_document = @core.document_with_diagnostics(document, diagnostics)
   @parser.parse_result_with_document_capability(
     "xlsx_parser",
-    @parser.ParserMode::PackageSinglePass,
+    PackageSinglePass,
     final_document,
     diagnostics,
     capability,
@@ -574,7 +568,7 @@ fn xlsx_open_package_failed_result(
 ) -> @parser.ParseResult {
   let diagnostics = @fshared.empty_parser_diagnostics(
     "xlsx_parser",
-    @parser.ParserMode::PackageSinglePass,
+    PackageSinglePass,
     source,
     "xlsx",
   )

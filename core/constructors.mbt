@@ -218,7 +218,7 @@ pub fn make_inline_text(
   source_ref? : SourceRef = empty_source_ref(),
 ) -> CoreInline {
   {
-    kind: InlineKind::Text,
+    kind: Text,
     text,
     href: None,
     title: None,
@@ -230,7 +230,7 @@ pub fn make_inline_text(
 ///|
 pub fn make_inline_text_without_source_ref(text : String) -> CoreInline {
   {
-    kind: InlineKind::Text,
+    kind: Text,
     text,
     href: None,
     title: None,
@@ -244,7 +244,7 @@ pub fn make_inline_line_break(
   source_ref? : SourceRef = empty_source_ref(),
 ) -> CoreInline {
   {
-    kind: InlineKind::LineBreak,
+    kind: LineBreak,
     text: "",
     href: None,
     title: None,
@@ -256,7 +256,7 @@ pub fn make_inline_line_break(
 ///|
 pub fn make_inline_line_break_without_source_ref() -> CoreInline {
   {
-    kind: InlineKind::LineBreak,
+    kind: LineBreak,
     text: "",
     href: None,
     title: None,
@@ -273,7 +273,7 @@ pub fn make_inline_link(
   source_ref? : SourceRef = empty_source_ref(),
 ) -> CoreInline {
   {
-    kind: InlineKind::Link,
+    kind: Link,
     text,
     href: Some(href),
     title,
@@ -288,7 +288,7 @@ pub fn make_inline_link_without_source_ref(
   href : String,
 ) -> CoreInline {
   {
-    kind: InlineKind::Link,
+    kind: Link,
     text,
     href: Some(href),
     title: None,
@@ -305,7 +305,7 @@ pub fn make_inline_image(
   source_ref? : SourceRef = empty_source_ref(),
 ) -> CoreInline {
   {
-    kind: InlineKind::Image,
+    kind: Image,
     text: alt,
     href: Some(path),
     title,
@@ -320,7 +320,7 @@ pub fn make_inline_code(
   source_ref? : SourceRef = empty_source_ref(),
 ) -> CoreInline {
   {
-    kind: InlineKind::Code,
+    kind: Code,
     text,
     href: None,
     title: None,
@@ -546,65 +546,65 @@ fn crc32_update_uint(crc : UInt, value : UInt) -> UInt {
 ///|
 pub fn signal_type_name(signal_type : SignalType) -> String {
   match signal_type {
-    SignalType::HeadingCandidate => "heading_candidate"
-    SignalType::ListCandidate => "list_candidate"
-    SignalType::TableCandidate => "table_candidate"
-    SignalType::CaptionCandidate => "caption_candidate"
-    SignalType::HeaderFooterCandidate => "header_footer_candidate"
-    SignalType::PageBreak => "page_break"
-    SignalType::SectionBreak => "section_break"
-    SignalType::ReadingOrderHint => "reading_order_hint"
-    SignalType::FontSignal => "font_signal"
-    SignalType::StyleSignal => "style_signal"
-    SignalType::LayoutSignal => "layout_signal"
-    SignalType::OcrSignal => "ocr_signal"
-    SignalType::TableContinuationCandidate => "table_continuation_candidate"
-    SignalType::ArtifactCandidate => "artifact_candidate"
-    SignalType::LanguageHint => "language_hint"
-    SignalType::CodeLanguageHint => "code_language_hint"
-    SignalType::NoteRef => "note_ref"
-    SignalType::CommentRef => "comment_ref"
-    SignalType::RenderHint => "render_hint"
+    HeadingCandidate => "heading_candidate"
+    ListCandidate => "list_candidate"
+    TableCandidate => "table_candidate"
+    CaptionCandidate => "caption_candidate"
+    HeaderFooterCandidate => "header_footer_candidate"
+    PageBreak => "page_break"
+    SectionBreak => "section_break"
+    ReadingOrderHint => "reading_order_hint"
+    FontSignal => "font_signal"
+    StyleSignal => "style_signal"
+    LayoutSignal => "layout_signal"
+    OcrSignal => "ocr_signal"
+    TableContinuationCandidate => "table_continuation_candidate"
+    ArtifactCandidate => "artifact_candidate"
+    LanguageHint => "language_hint"
+    CodeLanguageHint => "code_language_hint"
+    NoteRef => "note_ref"
+    CommentRef => "comment_ref"
+    RenderHint => "render_hint"
   }
 }
 
 ///|
 pub fn block_kind_name(kind : BlockKind) -> String {
   match kind {
-    BlockKind::Document => "document"
-    BlockKind::Section => "section"
-    BlockKind::Heading => "heading"
-    BlockKind::Paragraph => "paragraph"
-    BlockKind::List => "list"
-    BlockKind::ListItem => "list_item"
-    BlockKind::Table => "table"
-    BlockKind::TableRow => "table_row"
-    BlockKind::TableCell => "table_cell"
-    BlockKind::Image => "image"
-    BlockKind::Code => "code"
-    BlockKind::BlockQuote => "blockquote"
-    BlockKind::Raw => "raw"
+    Document => "document"
+    Section => "section"
+    Heading => "heading"
+    Paragraph => "paragraph"
+    List => "list"
+    ListItem => "list_item"
+    Table => "table"
+    TableRow => "table_row"
+    TableCell => "table_cell"
+    Image => "image"
+    Code => "code"
+    BlockQuote => "blockquote"
+    Raw => "raw"
   }
 }
 
 ///|
 pub fn inline_kind_name(kind : InlineKind) -> String {
   match kind {
-    InlineKind::Text => "text"
-    InlineKind::LineBreak => "line_break"
-    InlineKind::Link => "link"
-    InlineKind::Image => "image"
-    InlineKind::Code => "code"
+    Text => "text"
+    LineBreak => "line_break"
+    Link => "link"
+    Image => "image"
+    Code => "code"
   }
 }
 
 ///|
 pub fn asset_kind_name(kind : AssetKind) -> String {
   match kind {
-    AssetKind::Image => "image"
-    AssetKind::Attachment => "attachment"
-    AssetKind::Link => "link"
-    AssetKind::Embedded => "embedded"
-    AssetKind::Unknown => "unknown"
+    Image => "image"
+    Attachment => "attachment"
+    Link => "link"
+    Embedded => "embedded"
+    Unknown => "unknown"
   }
 }

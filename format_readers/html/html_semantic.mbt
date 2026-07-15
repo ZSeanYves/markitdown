@@ -252,36 +252,36 @@ pub fn inspect_html_semantic_document(
 
   for block in semantic.blocks {
     match block.kind {
-      HtmlBlockKind::Heading(_) => heading_count += 1
-      HtmlBlockKind::Paragraph => paragraph_count += 1
-      HtmlBlockKind::List(_) => list_count += 1
-      HtmlBlockKind::ListItem => list_item_count += 1
-      HtmlBlockKind::Table => table_count += 1
-      HtmlBlockKind::TableRow => table_row_count += 1
-      HtmlBlockKind::TableCell(_) => table_cell_count += 1
-      HtmlBlockKind::BlockQuote => blockquote_count += 1
-      HtmlBlockKind::Pre => pre_count += 1
-      HtmlBlockKind::CodeBlock => code_block_count += 1
-      HtmlBlockKind::Figure => figure_count += 1
-      HtmlBlockKind::FigCaption => figcaption_count += 1
-      HtmlBlockKind::HorizontalRule => horizontal_rule_count += 1
-      HtmlBlockKind::UnknownBlock => unknown_block_count += 1
-      HtmlBlockKind::UnsupportedBlock => unsupported_block_count += 1
+      Heading(_) => heading_count += 1
+      Paragraph => paragraph_count += 1
+      List(_) => list_count += 1
+      ListItem => list_item_count += 1
+      Table => table_count += 1
+      TableRow => table_row_count += 1
+      TableCell(_) => table_cell_count += 1
+      BlockQuote => blockquote_count += 1
+      Pre => pre_count += 1
+      CodeBlock => code_block_count += 1
+      Figure => figure_count += 1
+      FigCaption => figcaption_count += 1
+      HorizontalRule => horizontal_rule_count += 1
+      UnknownBlock => unknown_block_count += 1
+      UnsupportedBlock => unsupported_block_count += 1
     }
   }
   for inline in semantic.inlines {
     match inline.kind {
-      HtmlInlineKind::Text => text_inline_count += 1
-      HtmlInlineKind::Emphasis => emphasis_inline_count += 1
-      HtmlInlineKind::Strong => strong_inline_count += 1
-      HtmlInlineKind::Code => code_inline_count += 1
-      HtmlInlineKind::Link => link_inline_count += 1
-      HtmlInlineKind::Image => image_inline_count += 1
-      HtmlInlineKind::Break => break_inline_count += 1
-      HtmlInlineKind::Span => span_inline_count += 1
-      HtmlInlineKind::InlineContainer => inline_container_count += 1
-      HtmlInlineKind::UnsupportedInline => unsupported_inline_count += 1
-      HtmlInlineKind::UnknownInline => unknown_inline_count += 1
+      Text => text_inline_count += 1
+      Emphasis => emphasis_inline_count += 1
+      Strong => strong_inline_count += 1
+      Code => code_inline_count += 1
+      Link => link_inline_count += 1
+      Image => image_inline_count += 1
+      Break => break_inline_count += 1
+      Span => span_inline_count += 1
+      InlineContainer => inline_container_count += 1
+      UnsupportedInline => unsupported_inline_count += 1
+      UnknownInline => unknown_inline_count += 1
     }
     if inline.is_whitespace_only {
       whitespace_only_text_inline_count += 1
@@ -339,14 +339,14 @@ pub fn inspect_html_semantic_document(
   }
   for link in semantic.links {
     match link.kind {
-      HtmlLinkKind::Internal => internal_link_count += 1
-      HtmlLinkKind::External => external_link_count += 1
-      HtmlLinkKind::Mailto => mailto_link_count += 1
-      HtmlLinkKind::Tel => tel_link_count += 1
-      HtmlLinkKind::Data => data_link_count += 1
-      HtmlLinkKind::Unsafe => unsafe_link_count += 1
-      HtmlLinkKind::Empty => empty_link_count += 1
-      HtmlLinkKind::Unknown => ()
+      Internal => internal_link_count += 1
+      External => external_link_count += 1
+      Mailto => mailto_link_count += 1
+      Tel => tel_link_count += 1
+      Data => data_link_count += 1
+      Unsafe => unsafe_link_count += 1
+      Empty => empty_link_count += 1
+      Unknown => ()
     }
     if link.has_image {
       linked_image_count += 1
@@ -360,12 +360,12 @@ pub fn inspect_html_semantic_document(
   }
   for image in semantic.images {
     match image.kind {
-      HtmlImageKind::Local => local_image_count += 1
-      HtmlImageKind::Remote => remote_image_count += 1
-      HtmlImageKind::DataUri => data_uri_image_count += 1
-      HtmlImageKind::Empty => empty_image_count += 1
-      HtmlImageKind::Unsafe => unsafe_image_count += 1
-      HtmlImageKind::Unknown => ()
+      Local => local_image_count += 1
+      Remote => remote_image_count += 1
+      DataUri => data_uri_image_count += 1
+      Empty => empty_image_count += 1
+      Unsafe => unsafe_image_count += 1
+      Unknown => ()
     }
     if image.parent_link_source_key is Some(_) {
       image_in_link_count += 1
@@ -411,10 +411,10 @@ pub fn inspect_html_semantic_document(
   }
   for section in semantic.table_sections {
     match section.kind {
-      HtmlTableSectionKind::Head => table_head_section_count += 1
-      HtmlTableSectionKind::Body => table_body_section_count += 1
-      HtmlTableSectionKind::Foot => table_foot_section_count += 1
-      HtmlTableSectionKind::Unknown => table_unknown_section_count += 1
+      Head => table_head_section_count += 1
+      Body => table_body_section_count += 1
+      Foot => table_foot_section_count += 1
+      Unknown => table_unknown_section_count += 1
     }
     table_warning_count += section.warnings.length()
   }
@@ -423,20 +423,20 @@ pub fn inspect_html_semantic_document(
   }
   for cell in semantic.table_cells {
     match cell.kind {
-      HtmlTableCellKind::Header => table_header_cell_count += 1
-      HtmlTableCellKind::Data => table_data_cell_count += 1
-      HtmlTableCellKind::Unknown => table_unknown_cell_count += 1
+      Header => table_header_cell_count += 1
+      Data => table_data_cell_count += 1
+      Unknown => table_unknown_cell_count += 1
     }
     table_warning_count += cell.warnings.length()
   }
   for scope in semantic.scope {
     match scope.scope_source {
-      HtmlDocumentScopeSource::Body => scope_body_count += 1
-      HtmlDocumentScopeSource::Main => scope_main_count += 1
-      HtmlDocumentScopeSource::Article => scope_article_count += 1
-      HtmlDocumentScopeSource::DocumentRoot => scope_document_root_count += 1
-      HtmlDocumentScopeSource::Fragment => scope_fragment_count += 1
-      HtmlDocumentScopeSource::Heuristic => scope_heuristic_count += 1
+      Body => scope_body_count += 1
+      Main => scope_main_count += 1
+      Article => scope_article_count += 1
+      DocumentRoot => scope_document_root_count += 1
+      Fragment => scope_fragment_count += 1
+      Heuristic => scope_heuristic_count += 1
     }
     if scope.missing_body_warning {
       scope_missing_body_count += 1
@@ -451,23 +451,21 @@ pub fn inspect_html_semantic_document(
   for noise in semantic.noise_candidates {
     for reason in noise.reasons {
       match reason {
-        HtmlNoiseCandidateReason::NavLike => noise_nav_like_count += 1
-        HtmlNoiseCandidateReason::FooterLike => noise_footer_like_count += 1
-        HtmlNoiseCandidateReason::SidebarLike => noise_sidebar_like_count += 1
-        HtmlNoiseCandidateReason::Hiddenish => noise_hiddenish_count += 1
-        HtmlNoiseCandidateReason::ScriptStyleTemplate =>
-          noise_script_style_template_count += 1
-        HtmlNoiseCandidateReason::RepeatedBoilerplate =>
-          noise_repeated_boilerplate_count += 1
-        HtmlNoiseCandidateReason::Unknown => ()
+        NavLike => noise_nav_like_count += 1
+        FooterLike => noise_footer_like_count += 1
+        SidebarLike => noise_sidebar_like_count += 1
+        Hiddenish => noise_hiddenish_count += 1
+        ScriptStyleTemplate => noise_script_style_template_count += 1
+        RepeatedBoilerplate => noise_repeated_boilerplate_count += 1
+        Unknown => ()
       }
     }
   }
   for list in semantic.lists {
     match list.kind {
-      HtmlListKind::Ordered => ordered_list_fact_count += 1
-      HtmlListKind::Unordered => unordered_list_fact_count += 1
-      HtmlListKind::Unknown => ()
+      Ordered => ordered_list_fact_count += 1
+      Unordered => unordered_list_fact_count += 1
+      Unknown => ()
     }
     if list.list_depth > max_list_depth {
       max_list_depth = list.list_depth
@@ -496,49 +494,47 @@ pub fn inspect_html_semantic_document(
   }
   for warning in semantic.warnings {
     match warning.severity {
-      HtmlWarningSeverity::Info => warning_info_count += 1
-      HtmlWarningSeverity::Warning => warning_warning_count += 1
-      HtmlWarningSeverity::Error => warning_error_count += 1
+      Info => warning_info_count += 1
+      Warning => warning_warning_count += 1
+      Error => warning_error_count += 1
     }
   }
   for unsupported in semantic.unsupported {
     match unsupported.severity {
-      HtmlWarningSeverity::Info => unsupported_info_count += 1
-      HtmlWarningSeverity::Warning => unsupported_warning_count += 1
-      HtmlWarningSeverity::Error => unsupported_error_count += 1
+      Info => unsupported_info_count += 1
+      Warning => unsupported_warning_count += 1
+      Error => unsupported_error_count += 1
     }
     match unsupported.kind {
-      HtmlUnsupportedKind::Script => unsupported_script_count += 1
-      HtmlUnsupportedKind::Style => unsupported_style_count += 1
-      HtmlUnsupportedKind::Iframe => unsupported_iframe_count += 1
-      HtmlUnsupportedKind::Embed => unsupported_embed_count += 1
-      HtmlUnsupportedKind::Object => unsupported_object_count += 1
-      HtmlUnsupportedKind::Svg => unsupported_svg_count += 1
-      HtmlUnsupportedKind::Math => unsupported_math_count += 1
-      HtmlUnsupportedKind::Template => unsupported_template_count += 1
-      HtmlUnsupportedKind::Form => unsupported_form_count += 1
-      HtmlUnsupportedKind::Input => unsupported_input_count += 1
-      HtmlUnsupportedKind::Select => unsupported_select_count += 1
-      HtmlUnsupportedKind::TextArea => unsupported_textarea_count += 1
-      HtmlUnsupportedKind::Button => unsupported_button_count += 1
-      HtmlUnsupportedKind::Video => unsupported_video_count += 1
-      HtmlUnsupportedKind::Audio => unsupported_audio_count += 1
-      HtmlUnsupportedKind::Source => unsupported_source_count += 1
-      HtmlUnsupportedKind::Canvas => unsupported_canvas_count += 1
-      HtmlUnsupportedKind::RemoteImage => unsupported_remote_image_count += 1
-      HtmlUnsupportedKind::DataImage => unsupported_data_image_count += 1
-      HtmlUnsupportedKind::UnsafeUrl => unsupported_unsafe_url_count += 1
-      HtmlUnsupportedKind::EmptyUrl => unsupported_empty_url_count += 1
-      HtmlUnsupportedKind::BrokenLocalImage =>
-        unsupported_broken_local_image_count += 1
-      HtmlUnsupportedKind::UnsupportedCharset => unsupported_charset_count += 1
-      HtmlUnsupportedKind::HugeTextNode => unsupported_huge_text_node_count += 1
-      HtmlUnsupportedKind::HugeAttributeValue =>
-        unsupported_huge_attribute_value_count += 1
-      HtmlUnsupportedKind::DeepNesting => unsupported_deep_nesting_count += 1
-      HtmlUnsupportedKind::HugeTable => unsupported_huge_table_count += 1
-      HtmlUnsupportedKind::MalformedTag => unsupported_malformed_tag_count += 1
-      HtmlUnsupportedKind::UnknownUnsupported => unsupported_unknown_count += 1
+      Script => unsupported_script_count += 1
+      Style => unsupported_style_count += 1
+      Iframe => unsupported_iframe_count += 1
+      Embed => unsupported_embed_count += 1
+      Object => unsupported_object_count += 1
+      Svg => unsupported_svg_count += 1
+      Math => unsupported_math_count += 1
+      Template => unsupported_template_count += 1
+      Form => unsupported_form_count += 1
+      Input => unsupported_input_count += 1
+      Select => unsupported_select_count += 1
+      TextArea => unsupported_textarea_count += 1
+      Button => unsupported_button_count += 1
+      Video => unsupported_video_count += 1
+      Audio => unsupported_audio_count += 1
+      Source => unsupported_source_count += 1
+      Canvas => unsupported_canvas_count += 1
+      RemoteImage => unsupported_remote_image_count += 1
+      DataImage => unsupported_data_image_count += 1
+      UnsafeUrl => unsupported_unsafe_url_count += 1
+      EmptyUrl => unsupported_empty_url_count += 1
+      BrokenLocalImage => unsupported_broken_local_image_count += 1
+      UnsupportedCharset => unsupported_charset_count += 1
+      HugeTextNode => unsupported_huge_text_node_count += 1
+      HugeAttributeValue => unsupported_huge_attribute_value_count += 1
+      DeepNesting => unsupported_deep_nesting_count += 1
+      HugeTable => unsupported_huge_table_count += 1
+      MalformedTag => unsupported_malformed_tag_count += 1
+      UnknownUnsupported => unsupported_unknown_count += 1
     }
   }
 

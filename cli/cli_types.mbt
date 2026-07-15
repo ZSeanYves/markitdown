@@ -54,9 +54,9 @@ struct BatchTaskResult {
 ///|
 fn batch_task_status_name(status : BatchTaskStatus) -> String {
   match status {
-    BatchTaskStatus::Success => "success"
-    BatchTaskStatus::Failed => "failed"
-    BatchTaskStatus::Skipped => "skipped"
+    Success => "success"
+    Failed => "failed"
+    Skipped => "skipped"
   }
 }
 

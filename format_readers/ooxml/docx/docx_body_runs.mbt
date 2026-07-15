@@ -55,7 +55,7 @@ fn parse_docx_paragraph_runs(
           runs.push({
             style_id: None,
             bold: false,
-            inlines: [DocxSourceInline::Hyperlink(link)],
+            inlines: [Hyperlink(link)],
             source_key: link_key,
           })
           run_index += 1
@@ -93,7 +93,7 @@ fn parse_docx_paragraph_runs(
             style_id: None,
             bold: false,
             inlines: [
-              DocxSourceInline::ContentControl(
+              ContentControl(
                 parse_docx_inline_content_control(
                   xml, start, end_exclusive, "w:sdt", sdt_key, relationships, pkg,
                   warnings,
@@ -118,7 +118,7 @@ fn parse_docx_paragraph_runs(
             style_id: None,
             bold: false,
             inlines: [
-              DocxSourceInline::SmartTag(
+              SmartTag(
                 parse_docx_smart_tag_inline(
                   xml, start, end_exclusive, smart_key, relationships, pkg, warnings,
                 ),
@@ -222,7 +222,7 @@ fn parse_docx_paragraph_runs(
           paragraph_key, "inline", run_index,
         )
         warnings.push({
-          kind: DocxSourceWarningKind::UnsupportedInline,
+          kind: UnsupportedInline,
           message: "unsupported inline node: " + tag,
           source_key: Some(unsupported_key),
         })
@@ -230,7 +230,7 @@ fn parse_docx_paragraph_runs(
           style_id: None,
           bold: false,
           inlines: [
-            DocxSourceInline::UnsupportedInline({
+            UnsupportedInline({
               tag,
               reason: "unsupported paragraph inline node",
               source_key: unsupported_key,
@@ -292,7 +292,7 @@ fn docx_content_control_source_block(
     docx_source_blocks_text(blocks)
   }
   {
-    kind: DocxSourceBlockKind::ContentControl,
+    kind: ContentControl,
     source_key: key,
     paragraph_style_id: None,
     paragraph_alignment: None,
@@ -397,7 +397,7 @@ fn parse_docx_run_inlines(
         None => break
       }
     } else if is_docx_start_tag_at(xml, start, "w:tab") {
-      inlines.push(DocxSourceInline::Tab)
+      inlines.push(Tab)
       inline_index += 1
       match find_docx_any_tag_end(xml, start) {
         Some(end_exclusive) => i = end_exclusive
@@ -416,7 +416,7 @@ fn parse_docx_run_inlines(
       }
       let text = decode_docx_text(xml[text_start:close_start].to_owned())
       if text != "" {
-        inlines.push(DocxSourceInline::Text(text))
+        inlines.push(Text(text))
         inline_index += 1
       }
       i = close_start + "</w:t>".length()
@@ -431,8 +431,8 @@ fn parse_docx_run_inlines(
     } else if is_docx_start_tag_at(xml, start, "w:cr") {
       let break_key = docx_child_source_key(run_key, "break", inline_index)
       inlines.push(
-        DocxSourceInline::Break({
-          kind: DocxBreakKind::CarriageReturn,
+        Break({
+          kind: CarriageReturn,
           break_type: Some("cr"),
           source_key: break_key,
         }),
@@ -466,7 +466,7 @@ fn parse_docx_run_inlines(
             run_key, "drawing", inline_index,
           )
           inlines.push(
-            DocxSourceInline::Drawing(
+            Drawing(
               parse_docx_drawing_anchor(
                 xml, start, end_exclusive, drawing_key, relationships, pkg, warnings,
               ),
@@ -482,7 +482,7 @@ fn parse_docx_run_inlines(
         Some(end_exclusive) => {
           let shape_key = docx_child_source_key(run_key, "shape", inline_index)
           inlines.push(
-            DocxSourceInline::Shape(
+            Shape(
               parse_docx_shape_anchor(
                 xml, start, end_exclusive, shape_key, relationships, pkg, warnings,
               ),
@@ -500,7 +500,7 @@ fn parse_docx_run_inlines(
             run_key, "textbox", inline_index,
           )
           inlines.push(
-            DocxSourceInline::TextBoxRef({
+            TextBoxRef({
               anchor_id: None,
               doc_pr_id: None,
               shape_id: None,
@@ -522,7 +522,7 @@ fn parse_docx_run_inlines(
           let link = parse_docx_hyperlink(
             xml, start, end_exclusive, link_key, relationships, pkg, warnings,
           )
-          inlines.push(DocxSourceInline::Hyperlink(link))
+          inlines.push(Hyperlink(link))
           inline_index += 1
           i = end_exclusive
         }
@@ -605,7 +605,7 @@ fn parse_docx_run_inlines(
       }
     } else if is_docx_start_tag_at(xml, start, "w:footnoteReference") {
       inlines.push(
-        DocxSourceInline::FootnoteRef(
+        FootnoteRef(
           read_docx_attr_value(docx_open_tag_at(xml, start), "w:id").unwrap_or(
             "",
           ),
@@ -618,7 +618,7 @@ fn parse_docx_run_inlines(
       }
     } else if is_docx_start_tag_at(xml, start, "w:endnoteReference") {
       inlines.push(
-        DocxSourceInline::EndnoteRef(
+        EndnoteRef(
           read_docx_attr_value(docx_open_tag_at(xml, start), "w:id").unwrap_or(
             "",
           ),
@@ -631,7 +631,7 @@ fn parse_docx_run_inlines(
       }
     } else if is_docx_start_tag_at(xml, start, "w:commentReference") {
       inlines.push(
-        DocxSourceInline::CommentRef(
+        CommentRef(
           read_docx_attr_value(docx_open_tag_at(xml, start), "w:id").unwrap_or(
             "",
           ),
@@ -652,12 +652,7 @@ fn parse_docx_run_inlines(
       }
     } else if is_docx_start_tag_at(xml, start, "w:softHyphen") {
       let hyphen_key = docx_child_source_key(run_key, "hyphen", inline_index)
-      inlines.push(
-        DocxSourceInline::Hyphen({
-          kind: DocxHyphenKind::Soft,
-          source_key: hyphen_key,
-        }),
-      )
+      inlines.push(Hyphen({ kind: Soft, source_key: hyphen_key }))
       inline_index += 1
       match find_docx_any_tag_end(xml, start) {
         Some(end_exclusive) => i = end_exclusive
@@ -665,12 +660,7 @@ fn parse_docx_run_inlines(
       }
     } else if is_docx_start_tag_at(xml, start, "w:noBreakHyphen") {
       let hyphen_key = docx_child_source_key(run_key, "hyphen", inline_index)
-      inlines.push(
-        DocxSourceInline::Hyphen({
-          kind: DocxHyphenKind::NoBreak,
-          source_key: hyphen_key,
-        }),
-      )
+      inlines.push(Hyphen({ kind: NoBreak, source_key: hyphen_key }))
       inline_index += 1
       match find_docx_any_tag_end(xml, start) {
         Some(end_exclusive) => i = end_exclusive
@@ -705,12 +695,12 @@ fn parse_docx_run_inlines(
           run_key, "inline", inline_index,
         )
         warnings.push({
-          kind: DocxSourceWarningKind::UnsupportedInline,
+          kind: UnsupportedInline,
           message: "unsupported run child: " + tag,
           source_key: Some(unsupported_key),
         })
         inlines.push(
-          DocxSourceInline::UnsupportedInline({
+          UnsupportedInline({
             tag,
             reason: "unsupported run child",
             source_key: unsupported_key,
@@ -816,7 +806,7 @@ fn read_docx_cell_vertical_merge(xml : String) -> String? {
 ///|
 fn docx_source_blocks_have_table(blocks : Array[DocxSourceBlock]) -> Bool {
   for block in blocks {
-    if block.kind == DocxSourceBlockKind::Table {
+    if block.kind == Table {
       return true
     }
   }
@@ -846,7 +836,7 @@ fn docx_source_blocks_have_table_guard(blocks : Array[DocxSourceBlock]) -> Bool 
   for block in blocks {
     match block.table {
       Some(table) => if table.deep_table_guard_triggered { return true }
-      None => if block.kind == DocxSourceBlockKind::Table { return true }
+      None => if block.kind == Table { return true }
     }
   }
   false

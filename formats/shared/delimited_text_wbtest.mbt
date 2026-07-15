@@ -1,14 +1,10 @@
 ///|
 test "CSV parser covers quoted multiline ragged rows and resource limits" {
   let csv = "name,value,notes\nalpha,1,\"line one\nline two\"\nbeta,2\ngamma,3,ok,extra"
-  let source = @input.input_from_text_with_format(
-    csv,
-    "complex.csv",
-    Some(@input.DetectedFormat::Csv),
-  )
+  let source = @input.input_from_text_with_format(csv, "complex.csv", Some(Csv))
   let context = @parser.parse_context_with_limits(
-    @parser.new_parse_context(@input.DetectedFormat::Csv),
-    Some(@parser.ParserMode::StreamingEvent),
+    @parser.new_parse_context(Csv),
+    Some(StreamingEvent),
     Some(3),
     Some(3),
     Some(6),
@@ -18,7 +14,7 @@ test "CSV parser covers quoted multiline ragged rows and resource limits" {
   let result = (csv_parser().parse)(source, context).unwrap()
   let events = result.event_stream.unwrap()
   assert_eq(events.length(), 8)
-  assert_true(events.any(event => event.kind == @core.EventKind::RowBreak))
+  assert_true(events.any(event => event.kind == RowBreak))
   assert_true(
     result.diagnostics.metrics.get("quoted_newline_observed") == Some("true"),
   )
@@ -46,12 +42,9 @@ test "TSV parser emits tab-delimited cells and source cell ranges" {
   let source = @input.input_from_text_with_format(
     "name\tvalue\nalpha\t1",
     "table.tsv",
-    Some(@input.DetectedFormat::Tsv),
+    Some(Tsv),
   )
-  let result = (tsv_parser().parse)(
-    source,
-    @parser.new_parse_context(@input.DetectedFormat::Tsv),
-  ).unwrap()
+  let result = (tsv_parser().parse)(source, @parser.new_parse_context(Tsv)).unwrap()
   let events = result.event_stream.unwrap()
   assert_eq(events.length(), 6)
   assert_eq(events[0].text, "name")
@@ -68,12 +61,9 @@ test "CSV malformed quoted input returns raw document fallback" {
   let source = @input.input_from_text_with_format(
     "name,value\nalpha,\"unterminated",
     "broken.csv",
-    Some(@input.DetectedFormat::Csv),
+    Some(Csv),
   )
-  let result = (csv_parser().parse)(
-    source,
-    @parser.new_parse_context(@input.DetectedFormat::Csv),
-  ).unwrap()
+  let result = (csv_parser().parse)(source, @parser.new_parse_context(Csv)).unwrap()
   assert_true(result.document is Some(_))
   assert_eq(result.document.unwrap().blocks.length(), 1)
   assert_true(result.diagnostics.degraded_features.contains("csv_raw_fallback"))

@@ -25,7 +25,7 @@ fn detect_asciidoc_attribute_table(
   Some(
     (
       {
-        kind: TextMarkupBlockKind::Table,
+        kind: Table,
         text: synthetic_pipe_table("Attribute", "Value", rows),
         level: 0,
         ordered: false,
@@ -59,7 +59,7 @@ fn detect_asciidoc_include_directive(
         return Some(
           (
             {
-              kind: TextMarkupBlockKind::Semantic,
+              kind: Semantic,
               text: if attrs == "" {
                 "include: " + target
               } else {
@@ -121,7 +121,7 @@ fn detect_asciidoc_source_block(
   Some(
     (
       {
-        kind: TextMarkupBlockKind::Code,
+        kind: Code,
         text: body.join("\n"),
         level: 0,
         ordered: false,
@@ -180,7 +180,7 @@ fn detect_asciidoc_quote_block(
   Some(
     (
       {
-        kind: TextMarkupBlockKind::Semantic,
+        kind: Semantic,
         text: body.join("\n").trim().to_owned(),
         level: 0,
         ordered: false,
@@ -233,7 +233,7 @@ fn detect_asciidoc_block_admonition(
   Some(
     (
       {
-        kind: TextMarkupBlockKind::Semantic,
+        kind: Semantic,
         text: body.join("\n").trim().to_owned(),
         level: 0,
         ordered: false,
@@ -285,7 +285,7 @@ fn detect_tex_metadata_table(
   Some(
     (
       {
-        kind: TextMarkupBlockKind::Table,
+        kind: Table,
         text: synthetic_pipe_table("Field", "Value", rows),
         level: 0,
         ordered: false,
@@ -314,7 +314,7 @@ fn detect_tex_include_directive(
       return Some(
         (
           {
-            kind: TextMarkupBlockKind::Semantic,
+            kind: Semantic,
             text: target,
             level: 0,
             ordered: false,
@@ -344,7 +344,7 @@ fn detect_tex_include_directive(
       return Some(
         (
           {
-            kind: TextMarkupBlockKind::Semantic,
+            kind: Semantic,
             text: "include: " + target,
             level: 0,
             ordered: false,
@@ -404,17 +404,17 @@ fn detect_tex_environment_block(
         meta.set("quote_label", env)
         meta.set("semantic_kind", "environment")
         meta.set("degraded_feature", "environment_semantic_boundary")
-        TextMarkupBlockKind::Semantic
+        Semantic
       } else {
         meta.set("semantic_kind", "environment")
         meta.set("degraded_feature", "environment_semantic_boundary")
-        TextMarkupBlockKind::Semantic
+        Semantic
       }
       Some(
         (
           {
             kind: block_kind,
-            text: if block_kind == TextMarkupBlockKind::Semantic {
+            text: if block_kind == Semantic {
               if body.length() == 0 {
                 env
               } else {
@@ -489,7 +489,7 @@ fn detect_tex_item(
   Some(
     (
       {
-        kind: TextMarkupBlockKind::ListItem,
+        kind: ListItem,
         text: body.join(" "),
         level: 0,
         ordered: context.tex_item_ordered_before_line[index],

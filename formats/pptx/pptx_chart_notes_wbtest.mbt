@@ -64,12 +64,9 @@ test "PPTX malformed package fails closed with initialized product diagnostics" 
   let source = @input.input_from_bytes_with_format(
     Bytes::from_array([1, 2, 3].map(Int::to_byte)),
     "broken.pptx",
-    Some(@input.DetectedFormat::Pptx),
+    Some(Pptx),
   )
-  let result = (pptx_parser().parse)(
-    source,
-    @parser.new_parse_context(@input.DetectedFormat::Pptx),
-  ).unwrap()
+  let result = (pptx_parser().parse)(source, @parser.new_parse_context(Pptx)).unwrap()
   assert_true(result.document.unwrap().blocks.length() == 0)
   assert_true(result.diagnostics.errors.length() == 1)
   assert_true(
@@ -92,7 +89,7 @@ test "PPTX parser lowers repository notes groups tables hidden and reading-order
   for path in fixtures {
     let result = (pptx_parser().parse)(
       @input.input_from_path(path),
-      @parser.new_parse_context(@input.DetectedFormat::Pptx),
+      @parser.new_parse_context(Pptx),
     ).unwrap()
     assert_eq(result.diagnostics.errors.length(), 0)
     assert_true(result.document.unwrap().blocks.length() > 0)
@@ -108,18 +105,18 @@ test "PPTX parser lowers repository accurate presentation contracts" {
   ]
   let context = @parser.parse_context_with_execution_profiles(
     @parser.parse_context_with_product_modes(
-      @parser.new_parse_context(@input.DetectedFormat::Pptx),
-      @product.FidelityMode::Accurate,
-      @product.OutputMode::Markdown,
+      @parser.new_parse_context(Pptx),
+      Accurate,
+      Markdown,
     ),
-    @product.ExecutionProfile::Standard,
-    @product.LoweringProfile::AccurateSemantic,
-    @product.RenderProfile::NotesAppendixFirst,
+    Standard,
+    AccurateSemantic,
+    NotesAppendixFirst,
     @product.make_accurate_feature_profile([
-      @product.AccurateFeature::PptxReadingOrder,
-      @product.AccurateFeature::PptxGroupSummary,
-      @product.AccurateFeature::PptxHiddenSlideSemantics,
-      @product.AccurateFeature::PptxNotesAppendix,
+      PptxReadingOrder,
+      PptxGroupSummary,
+      PptxHiddenSlideSemantics,
+      PptxNotesAppendix,
     ]),
   )
   for path in fixtures {
@@ -139,7 +136,7 @@ test "PPTX parser extracts repository image contract assets" {
     @input.input_from_path(
       "samples/fixtures/contracts/pptx/pptx_image_single.pptx",
     ),
-    @parser.new_parse_context(@input.DetectedFormat::Pptx),
+    @parser.new_parse_context(Pptx),
   ).unwrap()
   assert_eq(result.diagnostics.errors.length(), 0)
   assert_true(result.document.unwrap().assets.length() > 0)
@@ -154,11 +151,11 @@ test "PPTX synthetic chart cache lowers title date categories and series table" 
   assert_true(prepared.document.slides.length() == 1)
   let result = (pptx_parser().parse)(
     @input.input_from_path(path),
-    @parser.new_parse_context(@input.DetectedFormat::Pptx),
+    @parser.new_parse_context(Pptx),
   ).unwrap()
   let blocks = result.document.unwrap().blocks
   assert_true(blocks.any(block => block.text == "Quarterly revenue"))
-  let tables = blocks.filter(block => block.kind == @core.BlockKind::Table)
+  let tables = blocks.filter(block => block.kind == Table)
   assert_true(tables.length() == 2)
   let table = tables[0]
   assert_true(table.children.length() == 3)
@@ -188,7 +185,7 @@ test "PPTX synthetic fixtures cover shape source references and hidden notes" {
       ignore(hidden_slide_note_text(slide))
       for obj in slide.objects {
         match obj {
-          @pptxdoc.PptxObject::Shape(shape) => {
+          Shape(shape) => {
             seen_shape = true
             let source_ref = pptx_shape_source_ref(
               source,
@@ -203,17 +200,17 @@ test "PPTX synthetic fixtures cover shape source references and hidden notes" {
             ignore(pptx_next_shape_top(slide, shape))
             ignore(pptx_slide_reading_order_key(slide, shape.source_key))
           }
-          @pptxdoc.PptxObject::Group(group) => {
+          Group(group) => {
             seen_group = true
             ignore(pptx_group_source_ref(source, slide, group, true))
             ignore(pptx_object_reading_order_key(obj, group.source_key))
           }
-          @pptxdoc.PptxObject::Picture(picture) => {
+          Picture(picture) => {
             seen_picture = true
             ignore(pptx_picture_source_ref(source, slide, picture, true))
             ignore(pptx_object_reading_order_key(obj, picture.source_key))
           }
-          @pptxdoc.PptxObject::Table(table) => {
+          Table(table) => {
             seen_table = true
             ignore(pptx_table_source_ref(source, slide, table, true))
             ignore(pptx_object_reading_order_key(obj, table.source_key))
@@ -230,15 +227,15 @@ test "PPTX synthetic fixtures cover shape source references and hidden notes" {
   assert_true(
     [
       @pptxdoc.PptxPlaceholderKind::Title,
-      @pptxdoc.PptxPlaceholderKind::CenterTitle,
-      @pptxdoc.PptxPlaceholderKind::Subtitle,
-      @pptxdoc.PptxPlaceholderKind::Body,
-      @pptxdoc.PptxPlaceholderKind::Footer,
-      @pptxdoc.PptxPlaceholderKind::Date,
-      @pptxdoc.PptxPlaceholderKind::SlideNumber,
-      @pptxdoc.PptxPlaceholderKind::Picture,
-      @pptxdoc.PptxPlaceholderKind::Table,
-      @pptxdoc.PptxPlaceholderKind::Unknown,
+      CenterTitle,
+      Subtitle,
+      Body,
+      Footer,
+      Date,
+      SlideNumber,
+      Picture,
+      Table,
+      Unknown,
     ].map(pptx_placeholder_kind_to_string) ==
     [
       "title", "center_title", "subtitle", "body", "footer", "date", "slide_number",

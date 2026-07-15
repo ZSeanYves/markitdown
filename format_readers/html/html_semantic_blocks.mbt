@@ -12,7 +12,7 @@ fn collect_html_semantic_polished_block_fact(
   text_preview : String,
   block_warnings : Array[HtmlSemanticWarning],
 ) -> Unit {
-  if block_kind == HtmlBlockKind::Paragraph ||
+  if block_kind == Paragraph ||
     html_semantic_container_has_direct_text(element.children) {
     collect_html_semantic_paragraph_fact(
       element, ctx, block_kind, block_source_key, source_order, depth, parent_block_source_key,
@@ -20,27 +20,27 @@ fn collect_html_semantic_polished_block_fact(
     )
   }
   match block_kind {
-    HtmlBlockKind::List(ordered) =>
+    List(ordered) =>
       collect_html_semantic_list_fact(
         element, ctx, block_source_key, source_order, depth, parent_block_source_key,
         ordered, child_block_source_keys, attributes, text_preview, block_warnings,
       )
-    HtmlBlockKind::ListItem =>
+    ListItem =>
       collect_html_semantic_list_item_fact(
         element, ctx, block_source_key, source_order, depth, parent_block_source_key,
         child_block_source_keys, attributes, text_preview, block_warnings,
       )
-    HtmlBlockKind::BlockQuote =>
+    BlockQuote =>
       collect_html_semantic_blockquote_fact(
         element, ctx, block_source_key, source_order, depth, parent_block_source_key,
         child_block_source_keys, attributes, text_preview, block_warnings,
       )
-    HtmlBlockKind::Pre | HtmlBlockKind::CodeBlock =>
+    Pre | CodeBlock =>
       collect_html_semantic_code_block_fact(
         element, ctx, block_source_key, source_order, depth, attributes, text_preview,
         block_warnings,
       )
-    HtmlBlockKind::Figure =>
+    Figure =>
       collect_html_semantic_figure_fact(
         element, ctx, block_source_key, source_order, depth, child_block_source_keys,
         attributes, text_preview, block_warnings,
@@ -101,7 +101,7 @@ fn collect_html_semantic_paragraph_fact(
     html_semantic_contains_repeated_whitespace(raw_text),
     has_newline: inline_summary.has_newline ||
     html_semantic_contains_newline(raw_text),
-    is_candidate: block_kind != HtmlBlockKind::Paragraph,
+    is_candidate: block_kind != Paragraph,
     text_preview,
     attributes,
     span: element.span,
@@ -138,12 +138,12 @@ fn html_semantic_paragraph_inline_summary(
     match html_semantic_inline_for_key(ctx, key) {
       Some(inline) => {
         match inline.kind {
-          HtmlInlineKind::Link => has_links = true
-          HtmlInlineKind::Image => has_images = true
-          HtmlInlineKind::Code => has_code = true
-          HtmlInlineKind::Emphasis => has_emphasis = true
-          HtmlInlineKind::Strong => has_strong = true
-          HtmlInlineKind::Break => has_breaks = true
+          Link => has_links = true
+          Image => has_images = true
+          Code => has_code = true
+          Emphasis => has_emphasis = true
+          Strong => has_strong = true
+          Break => has_breaks = true
           _ => ()
         }
         if inline.contains_repeated_whitespace {
@@ -185,8 +185,7 @@ fn collect_html_semantic_list_fact(
   let source_key = html_semantic_list_source_key(source_order)
   let item_keys : Array[String] = []
   for child_key in child_block_source_keys {
-    if html_semantic_block_kind_for_key(ctx, child_key) ==
-      Some(HtmlBlockKind::ListItem) {
+    if html_semantic_block_kind_for_key(ctx, child_key) == Some(ListItem) {
       item_keys.push(child_key)
     }
   }
@@ -194,11 +193,7 @@ fn collect_html_semantic_list_fact(
   for warning in block_warnings {
     warnings.push(warning)
   }
-  let kind = if ordered {
-    HtmlListKind::Ordered
-  } else {
-    HtmlListKind::Unordered
-  }
+  let kind = if ordered { HtmlListKind::Ordered } else { Unordered }
   ctx.lists.push({
     source_key,
     block_source_key,
@@ -245,7 +240,7 @@ fn collect_html_semantic_list_item_fact(
     match html_semantic_block_for_key(ctx, child_key) {
       Some(block) =>
         match block.kind {
-          HtmlBlockKind::List(_) =>
+          List(_) =>
             child_list_source_keys.push(
               html_semantic_list_source_key(block.source_order),
             )
@@ -441,7 +436,7 @@ fn collect_html_semantic_note_body_fact(
   block_warnings : Array[HtmlSemanticWarning],
 ) -> Unit {
   let kind = html_semantic_note_body_kind(element)
-  if kind == HtmlNoteKind::Unknown {
+  if kind == Unknown {
     return
   }
   let note_id = html_semantic_note_body_id(element)
@@ -457,7 +452,7 @@ fn collect_html_semantic_note_body_fact(
   }
   if duplicate_target {
     let warning = new_html_semantic_warning(
-      HtmlSemanticWarningKind::DuplicateNoteTarget,
+      DuplicateNoteTarget,
       source_key,
       element.tag_name,
       "html semantic note body has duplicate target id",
@@ -521,14 +516,14 @@ fn collect_html_semantic_note_ref_fact(
       "epub:type",
       "endnote",
     ) {
-    HtmlNoteKind::EndnoteLike
+    EndnoteLike
   } else {
-    HtmlNoteKind::Reference
+    Reference
   }
   let is_broken = target_id is None
   if is_broken {
     let warning = new_html_semantic_warning(
-      HtmlSemanticWarningKind::BrokenNoteTarget,
+      BrokenNoteTarget,
       source_key,
       element.tag_name,
       "html semantic note reference has no same-document target",
@@ -547,9 +542,9 @@ fn collect_html_semantic_note_ref_fact(
     kind,
     source_order: ctx.next_note_ref_order,
     relation_confidence: if is_broken {
-      HtmlNoteRelationConfidence::Broken
+      Broken
     } else {
-      HtmlNoteRelationConfidence::Medium
+      Medium
     },
     is_broken,
     is_back_reference,
@@ -567,7 +562,7 @@ fn collect_html_semantic_note_relations(ctx : HtmlSemanticCollectCtx) -> Unit {
       ctx.notes.push({
         source_key: "html:note:" + ctx.next_note_order.to_string(),
         note_id: note_ref.target_id,
-        kind: HtmlNoteKind::BackReference,
+        kind: BackReference,
         ref_source_key: Some(note_ref.source_key),
         body_source_key: None,
         href: Some(note_ref.href),
@@ -602,16 +597,16 @@ fn collect_html_semantic_note_relations(ctx : HtmlSemanticCollectCtx) -> Unit {
               body_text_preview: body.body_text_preview,
               source_order: ctx.next_note_order,
               relation_confidence: if body.duplicate_target {
-                HtmlNoteRelationConfidence::Low
+                Low
               } else {
-                HtmlNoteRelationConfidence::High
+                High
               },
               warnings,
             })
           }
           None => {
             let warning = new_html_semantic_warning(
-              HtmlSemanticWarningKind::MissingNoteTarget,
+              MissingNoteTarget,
               note_ref.source_key,
               "a",
               "html semantic note reference target is missing",
@@ -633,7 +628,7 @@ fn collect_html_semantic_note_relations(ctx : HtmlSemanticCollectCtx) -> Unit {
               ref_text_preview: note_ref.ref_text_preview,
               body_text_preview: "",
               source_order: ctx.next_note_order,
-              relation_confidence: HtmlNoteRelationConfidence::Broken,
+              relation_confidence: Broken,
               warnings,
             })
           }
@@ -650,7 +645,7 @@ fn collect_html_semantic_note_relations(ctx : HtmlSemanticCollectCtx) -> Unit {
           ref_text_preview: note_ref.ref_text_preview,
           body_text_preview: "",
           source_order: ctx.next_note_order,
-          relation_confidence: HtmlNoteRelationConfidence::Broken,
+          relation_confidence: Broken,
           warnings: note_ref.warnings,
         })
       }
@@ -669,7 +664,7 @@ fn collect_html_semantic_note_relations(ctx : HtmlSemanticCollectCtx) -> Unit {
         ref_text_preview: "",
         body_text_preview: body.body_text_preview,
         source_order: ctx.next_note_order,
-        relation_confidence: HtmlNoteRelationConfidence::Low,
+        relation_confidence: Low,
         warnings: body.warnings,
       })
     }

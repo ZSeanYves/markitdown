@@ -25,161 +25,43 @@ fn probe_registration(
 ///|
 fn probe_registrations() -> Array[ProbeRegistration] {
   [
-    probe_registration(
-      @input.DetectedFormat::Txt,
-      ProbeTemplate::Exempt,
-      required=false,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Csv,
-      ProbeTemplate::Exempt,
-      required=false,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Tsv,
-      ProbeTemplate::Exempt,
-      required=false,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Jsonl,
-      ProbeTemplate::Exempt,
-      required=false,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Ndjson,
-      ProbeTemplate::Exempt,
-      required=false,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Srt,
-      ProbeTemplate::Exempt,
-      required=false,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Vtt,
-      ProbeTemplate::Exempt,
-      required=false,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Json,
-      ProbeTemplate::StructuredTextProbe,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Xml,
-      ProbeTemplate::StructuredTextProbe,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Yaml,
-      ProbeTemplate::StructuredTextProbe,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Toml,
-      ProbeTemplate::StructuredTextProbe,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Markdown,
-      ProbeTemplate::StructuredTextProbe,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Html,
-      ProbeTemplate::StructuredTextProbe,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Ipynb,
-      ProbeTemplate::StructuredTextProbe,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Tex,
-      ProbeTemplate::StructuredTextProbe,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Rst,
-      ProbeTemplate::StructuredTextProbe,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Asciidoc,
-      ProbeTemplate::StructuredTextProbe,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Eml,
-      ProbeTemplate::StructuredTextProbe,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Docx,
-      ProbeTemplate::PackageContainerProbe,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Pptx,
-      ProbeTemplate::PackageContainerProbe,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Xlsx,
-      ProbeTemplate::PackageContainerProbe,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Odt,
-      ProbeTemplate::PackageContainerProbe,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Ods,
-      ProbeTemplate::PackageContainerProbe,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Odp,
-      ProbeTemplate::PackageContainerProbe,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Epub,
-      ProbeTemplate::PackageContainerProbe,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Zip,
-      ProbeTemplate::PackageContainerProbe,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Pdf,
-      ProbeTemplate::PagedMediaProbe,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
-      ProbeTemplate::StructuredTextProbe,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Audio(@input.AudioFormat::Mp3),
-      ProbeTemplate::StructuredTextProbe,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Audio(@input.AudioFormat::M4a),
-      ProbeTemplate::StructuredTextProbe,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Image(@input.ImageFormat::Png),
-      ProbeTemplate::PagedMediaProbe,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Image(@input.ImageFormat::Jpg),
-      ProbeTemplate::PagedMediaProbe,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Image(@input.ImageFormat::Jpeg),
-      ProbeTemplate::PagedMediaProbe,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Image(@input.ImageFormat::Bmp),
-      ProbeTemplate::PagedMediaProbe,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Image(@input.ImageFormat::Webp),
-      ProbeTemplate::PagedMediaProbe,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Image(@input.ImageFormat::Tif),
-      ProbeTemplate::PagedMediaProbe,
-    ),
-    probe_registration(
-      @input.DetectedFormat::Image(@input.ImageFormat::Tiff),
-      ProbeTemplate::PagedMediaProbe,
-    ),
+    probe_registration(Txt, Exempt, required=false),
+    probe_registration(Csv, Exempt, required=false),
+    probe_registration(Tsv, Exempt, required=false),
+    probe_registration(Jsonl, Exempt, required=false),
+    probe_registration(Ndjson, Exempt, required=false),
+    probe_registration(Srt, Exempt, required=false),
+    probe_registration(Vtt, Exempt, required=false),
+    probe_registration(Json, StructuredTextProbe),
+    probe_registration(Xml, StructuredTextProbe),
+    probe_registration(Yaml, StructuredTextProbe),
+    probe_registration(Toml, StructuredTextProbe),
+    probe_registration(Markdown, StructuredTextProbe),
+    probe_registration(Html, StructuredTextProbe),
+    probe_registration(Ipynb, StructuredTextProbe),
+    probe_registration(Tex, StructuredTextProbe),
+    probe_registration(Rst, StructuredTextProbe),
+    probe_registration(Asciidoc, StructuredTextProbe),
+    probe_registration(Eml, StructuredTextProbe),
+    probe_registration(Docx, PackageContainerProbe),
+    probe_registration(Pptx, PackageContainerProbe),
+    probe_registration(Xlsx, PackageContainerProbe),
+    probe_registration(Odt, PackageContainerProbe),
+    probe_registration(Ods, PackageContainerProbe),
+    probe_registration(Odp, PackageContainerProbe),
+    probe_registration(Epub, PackageContainerProbe),
+    probe_registration(Zip, PackageContainerProbe),
+    probe_registration(Pdf, PagedMediaProbe),
+    probe_registration(Audio(Wav), StructuredTextProbe),
+    probe_registration(Audio(Mp3), StructuredTextProbe),
+    probe_registration(Audio(M4a), StructuredTextProbe),
+    probe_registration(Image(Png), PagedMediaProbe),
+    probe_registration(Image(Jpg), PagedMediaProbe),
+    probe_registration(Image(Jpeg), PagedMediaProbe),
+    probe_registration(Image(Bmp), PagedMediaProbe),
+    probe_registration(Image(Webp), PagedMediaProbe),
+    probe_registration(Image(Tif), PagedMediaProbe),
+    probe_registration(Image(Tiff), PagedMediaProbe),
   ]
 }
 
@@ -192,7 +74,7 @@ pub fn probe_template_for_format(
       return registration.template
     }
   }
-  ProbeTemplate::StructuredTextProbe
+  StructuredTextProbe
 }
 
 ///|
@@ -208,10 +90,10 @@ pub fn probe_required_for_format(format : @input.DetectedFormat) -> Bool {
 ///|
 pub fn probe_template_name(template : ProbeTemplate) -> String {
   match template {
-    ProbeTemplate::Exempt => "exempt"
-    ProbeTemplate::StructuredTextProbe => "structured_text"
-    ProbeTemplate::PackageContainerProbe => "package_container"
-    ProbeTemplate::PagedMediaProbe => "paged_media"
+    Exempt => "exempt"
+    StructuredTextProbe => "structured_text"
+    PackageContainerProbe => "package_container"
+    PagedMediaProbe => "paged_media"
   }
 }
 

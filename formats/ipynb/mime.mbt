@@ -33,7 +33,7 @@ fn ipynb_attach_asset_payload(
 fn ipynb_asset_payload(entry : @dipynb.IpynbMimeEntry) -> @core.AssetPayload? {
   if entry.mime_type == "image/svg+xml" {
     match entry.text {
-      Some(payload) => return Some(@core.AssetPayload::Utf8(payload))
+      Some(payload) => return Some(Utf8(payload))
       None => ()
     }
   }
@@ -45,9 +45,7 @@ fn ipynb_asset_payload(entry : @dipynb.IpynbMimeEntry) -> @core.AssetPayload? {
           .replace_all(old="\r", new="")
         if normalized != "" {
           return try
-            @base64.decode(normalized, url_safe=false)
-            |> @core.AssetPayload::Bytes
-            |> Some
+            @base64.decode(normalized, url_safe=false) |> Bytes |> Some
           catch {
             _ => None
           }
@@ -58,13 +56,13 @@ fn ipynb_asset_payload(entry : @dipynb.IpynbMimeEntry) -> @core.AssetPayload? {
   }
   if entry.mime_type == "application/json" || entry.mime_type.contains("+json") {
     match entry.raw_json_text {
-      Some(payload) => return Some(@core.AssetPayload::Utf8(payload))
+      Some(payload) => return Some(Utf8(payload))
       None => ()
     }
   }
   if entry.mime_type.has_prefix("text/") {
     match entry.text {
-      Some(payload) => return Some(@core.AssetPayload::Utf8(payload))
+      Some(payload) => return Some(Utf8(payload))
       None => ()
     }
   }
@@ -74,11 +72,7 @@ fn ipynb_asset_payload(entry : @dipynb.IpynbMimeEntry) -> @core.AssetPayload? {
         .replace_all(old="\n", new="")
         .replace_all(old="\r", new="")
       if normalized != "" {
-        try
-          @base64.decode(normalized, url_safe=false)
-          |> @core.AssetPayload::Bytes
-          |> Some
-        catch {
+        try @base64.decode(normalized, url_safe=false) |> Bytes |> Some catch {
           _ => None
         }
       } else {
@@ -92,21 +86,21 @@ fn ipynb_asset_payload(entry : @dipynb.IpynbMimeEntry) -> @core.AssetPayload? {
 ///|
 fn ipynb_cell_kind_name(kind : @dipynb.IpynbCellKind) -> String {
   match kind {
-    @dipynb.IpynbCellKind::Markdown => "markdown"
-    @dipynb.IpynbCellKind::Code => "code"
-    @dipynb.IpynbCellKind::Raw => "raw"
-    @dipynb.IpynbCellKind::Unknown => "unknown"
+    Markdown => "markdown"
+    Code => "code"
+    Raw => "raw"
+    Unknown => "unknown"
   }
 }
 
 ///|
 fn ipynb_output_kind_name(kind : @dipynb.IpynbOutputKind) -> String {
   match kind {
-    @dipynb.IpynbOutputKind::Stream => "stream"
-    @dipynb.IpynbOutputKind::DisplayData => "display_data"
-    @dipynb.IpynbOutputKind::ExecuteResult => "execute_result"
-    @dipynb.IpynbOutputKind::Error => "error"
-    @dipynb.IpynbOutputKind::Unknown => "unknown"
+    Stream => "stream"
+    DisplayData => "display_data"
+    ExecuteResult => "execute_result"
+    Error => "error"
+    Unknown => "unknown"
   }
 }
 

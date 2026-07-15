@@ -3,12 +3,12 @@ test "large SRT record lowering preserves cue metadata and recovery" {
   let source = @input.input_from_text_with_format(
     "cue-a\n00:00:00,000 --> 00:00:02,000 align:start\nHello\nSecond\n\nbad\nnot a time\nraw\n",
     "large.srt",
-    Some(@input.DetectedFormat::Srt),
+    Some(Srt),
   )
   let result = parse_large_srt_result(
     source,
     @input.input_text(source).unwrap(),
-    @parser.new_parse_context(@input.DetectedFormat::Srt),
+    @parser.new_parse_context(Srt),
   )
   let events = result.event_stream.unwrap()
   assert_eq(events.length(), 2)
@@ -18,9 +18,7 @@ test "large SRT record lowering preserves cue metadata and recovery" {
   assert_true(cue_ref.extra.get("subtitle_cue_settings") == Some("align:start"))
   assert_true(cue_ref.time_start == Some("00:00:00,000"))
   assert_true(cue_ref.time_end == Some("00:00:02,000"))
-  assert_true(
-    events[1].kind == @core.EventKind::StartBlock(@core.BlockKind::Raw),
-  )
+  assert_true(events[1].kind == StartBlock(Raw))
   assert_true(
     result.diagnostics.metrics.get("recovered_cue_count") != Some("0"),
   )
@@ -31,11 +29,11 @@ test "standard SRT event lowering preserves BOM CRLF identifiers settings and ba
   let source = @input.input_from_text_with_format(
     "\u{FEFF}cue-a\r\n00:00:00,000 --> 00:00:02,000 align:start\r\n<b>Hello</b>\r\n<i>Second</i>\r\n\r\nbad\r\nnot a time\r\nraw text\r\n",
     "features.srt",
-    Some(@input.DetectedFormat::Srt),
+    Some(Srt),
   )
   let result = parse_subtitle_result(
     source,
-    @parser.new_parse_context(@input.DetectedFormat::Srt),
+    @parser.new_parse_context(Srt),
     "srt",
   ).unwrap()
   let events = result.event_stream.unwrap()
@@ -72,11 +70,11 @@ test "SRT raw fallback and large scanner edge branches retain source bytes" {
   let source = @input.input_from_text_with_format(
     "raw\nsubtitle",
     "broken.srt",
-    Some(@input.DetectedFormat::Srt),
+    Some(Srt),
   )
   let diagnostics = @fshared.empty_parser_diagnostics(
     "srt_parser",
-    @parser.ParserMode::StreamingEvent,
+    StreamingEvent,
     source,
     "srt",
   )

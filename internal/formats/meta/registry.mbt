@@ -1,196 +1,56 @@
 ///|
 /// Register all built-in format parsers into a registry instance.
 pub fn register_builtin_parsers(registry : @parser.ParserRegistry) -> Unit {
+  @parser.registry_register(registry, Txt, @ftxt.txt_parser())
+  @parser.registry_register(registry, Srt, @fsrt.srt_parser())
+  @parser.registry_register(registry, Vtt, @fvtt.vtt_parser())
+  @parser.registry_register(registry, Markdown, @fmarkdown.markdown_parser())
+  @parser.registry_register(registry, Csv, @fcsv.csv_parser())
+  @parser.registry_register(registry, Tsv, @ftsv.tsv_parser())
+  @parser.registry_register(registry, Json, @fjson.json_parser())
+  @parser.registry_register(registry, Jsonl, @fjson.jsonl_parser())
+  @parser.registry_register(registry, Ndjson, @fjson.ndjson_parser())
+  @parser.registry_register(registry, Ipynb, @fipynb.ipynb_parser())
+  @parser.registry_register(registry, Xml, @fxml.xml_parser())
+  @parser.registry_register(registry, Yaml, @fyaml.yaml_parser())
+  @parser.registry_register(registry, Toml, @ftoml.toml_parser())
+  @parser.registry_register(registry, Tex, @ftex.tex_parser())
+  @parser.registry_register(registry, Rst, @frst.rst_parser())
+  @parser.registry_register(registry, Asciidoc, @fasciidoc.asciidoc_parser())
+  @parser.registry_register(registry, Html, @fhtml.html_parser())
   @parser.registry_register(
     registry,
-    @input.DetectedFormat::Txt,
-    @ftxt.txt_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Srt,
-    @fsrt.srt_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Vtt,
-    @fvtt.vtt_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Markdown,
-    @fmarkdown.markdown_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Csv,
-    @fcsv.csv_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Tsv,
-    @ftsv.tsv_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Json,
-    @fjson.json_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Jsonl,
-    @fjson.jsonl_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Ndjson,
-    @fjson.ndjson_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Ipynb,
-    @fipynb.ipynb_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Xml,
-    @fxml.xml_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Yaml,
-    @fyaml.yaml_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Toml,
-    @ftoml.toml_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Tex,
-    @ftex.tex_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Rst,
-    @frst.rst_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Asciidoc,
-    @fasciidoc.asciidoc_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Html,
-    @fhtml.html_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Eml,
+    Eml,
     @feml.eml_parser_with_registry(fn() { builtin_registry() }),
   )
   @parser.registry_register(
     registry,
-    @input.DetectedFormat::Zip,
+    Zip,
     @fzip.zip_container_parser(fn() { builtin_registry() }),
   )
   @parser.registry_register(
     registry,
-    @input.DetectedFormat::Epub,
+    Epub,
     @fepub.epub_parser(fn() { builtin_registry() }),
   )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Odt,
-    @fodt.odt_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Ods,
-    @fods.ods_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Odp,
-    @fodp.odp_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Pdf,
-    @fpdf.pdf_native_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Pdf,
-    @fpdf.pdf_ocr_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
-    @faudio.audio_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Audio(@input.AudioFormat::Mp3),
-    @faudio.audio_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Audio(@input.AudioFormat::M4a),
-    @faudio.audio_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Docx,
-    @fdocx.docx_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Pptx,
-    @fpptx.pptx_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Xlsx,
-    @fxlsx.xlsx_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Image(@input.ImageFormat::Png),
-    @focr.image_ocr_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Image(@input.ImageFormat::Jpg),
-    @focr.image_ocr_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Image(@input.ImageFormat::Jpeg),
-    @focr.image_ocr_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Image(@input.ImageFormat::Bmp),
-    @focr.image_ocr_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Image(@input.ImageFormat::Webp),
-    @focr.image_ocr_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Image(@input.ImageFormat::Tif),
-    @focr.image_ocr_parser(),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Image(@input.ImageFormat::Tiff),
-    @focr.image_ocr_parser(),
-  )
+  @parser.registry_register(registry, Odt, @fodt.odt_parser())
+  @parser.registry_register(registry, Ods, @fods.ods_parser())
+  @parser.registry_register(registry, Odp, @fodp.odp_parser())
+  @parser.registry_register(registry, Pdf, @fpdf.pdf_native_parser())
+  @parser.registry_register(registry, Pdf, @fpdf.pdf_ocr_parser())
+  @parser.registry_register(registry, Audio(Wav), @faudio.audio_parser())
+  @parser.registry_register(registry, Audio(Mp3), @faudio.audio_parser())
+  @parser.registry_register(registry, Audio(M4a), @faudio.audio_parser())
+  @parser.registry_register(registry, Docx, @fdocx.docx_parser())
+  @parser.registry_register(registry, Pptx, @fpptx.pptx_parser())
+  @parser.registry_register(registry, Xlsx, @fxlsx.xlsx_parser())
+  @parser.registry_register(registry, Image(Png), @focr.image_ocr_parser())
+  @parser.registry_register(registry, Image(Jpg), @focr.image_ocr_parser())
+  @parser.registry_register(registry, Image(Jpeg), @focr.image_ocr_parser())
+  @parser.registry_register(registry, Image(Bmp), @focr.image_ocr_parser())
+  @parser.registry_register(registry, Image(Webp), @focr.image_ocr_parser())
+  @parser.registry_register(registry, Image(Tif), @focr.image_ocr_parser())
+  @parser.registry_register(registry, Image(Tiff), @focr.image_ocr_parser())
 }
 
 ///|

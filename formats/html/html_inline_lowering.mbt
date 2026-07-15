@@ -4,7 +4,7 @@ fn html_horizontal_rule_block(
   block : @dhtml.HtmlBlockFact,
 ) -> @core.CoreBlock {
   let raw = @core.make_block(
-    @core.BlockKind::Raw,
+    Raw,
     "---",
     source_ref=html_block_source_ref(source, block),
   )
@@ -36,7 +36,7 @@ fn html_unknown_container_blocks(
     if block.text_preview.trim() != "" {
       return [
         @core.make_block(
-          @core.BlockKind::Paragraph,
+          Paragraph,
           block.text_preview.trim().to_owned(),
           source_ref=html_block_source_ref(source, block),
         ),
@@ -158,7 +158,7 @@ fn html_paragraph_inlines_to_blocks(
       current.clear()
       return
     }
-    let block = @core.make_block(@core.BlockKind::Paragraph, text, source_ref~)
+    let block = @core.make_block(Paragraph, text, source_ref~)
     block.attrs.set("literal", "true")
     block.attrs.set("render_inline_escape_mode", "minimal")
     blocks.push(@core.block_with_rich_inlines(block, Some(snapshot)))
@@ -167,10 +167,10 @@ fn html_paragraph_inlines_to_blocks(
 
   for inline in inlines {
     match inline.kind {
-      @core.InlineKind::Image => {
+      Image => {
         flush_paragraph(blocks, current, source_ref)
         let image = @core.make_block(
-          @core.BlockKind::Image,
+          Image,
           "",
           source_ref=inline.source_ref.unwrap_or(source_ref),
         )
@@ -285,11 +285,10 @@ fn html_append_inline(
 ) -> Unit {
   let source_ref = html_inline_source_ref(source, inline)
   match inline.kind {
-    @dhtml.HtmlInlineKind::Text =>
+    Text =>
       html_push_text_if_non_empty(out, html_inline_text(inline), source_ref)
-    @dhtml.HtmlInlineKind::Break =>
-      out.push(@core.make_inline_line_break(source_ref~))
-    @dhtml.HtmlInlineKind::Image =>
+    Break => out.push(@core.make_inline_line_break(source_ref~))
+    Image =>
       match html_image_for_inline(index, inline.source_key) {
         Some(image) =>
           match html_image_to_asset(state, source, image) {
@@ -312,7 +311,7 @@ fn html_append_inline(
           }
         None => ()
       }
-    @dhtml.HtmlInlineKind::Link => {
+    Link => {
       if !allow_links {
         let children = html_inline_keys_to_core_inlines(
           state,
@@ -351,12 +350,7 @@ fn html_append_inline(
           html_push_text_if_non_empty(out, html_inline_text(inline), source_ref)
       }
     }
-    @dhtml.HtmlInlineKind::Emphasis
-    | @dhtml.HtmlInlineKind::Strong
-    | @dhtml.HtmlInlineKind::Code
-    | @dhtml.HtmlInlineKind::Span
-    | @dhtml.HtmlInlineKind::InlineContainer
-    | @dhtml.HtmlInlineKind::UnknownInline => {
+    Emphasis | Strong | Code | Span | InlineContainer | UnknownInline => {
       let children = html_inline_keys_to_core_inlines(
         state,
         semantic,
@@ -371,7 +365,7 @@ fn html_append_inline(
         out.append(children[:])
       }
     }
-    @dhtml.HtmlInlineKind::UnsupportedInline => ()
+    UnsupportedInline => ()
   }
 }
 
@@ -415,7 +409,7 @@ fn html_image_to_asset(
   source : @input.InputSource,
   image : @dhtml.HtmlImageFact,
 ) -> (String, @core.AssetRef)? {
-  if image.kind != @dhtml.HtmlImageKind::Local {
+  if image.kind != Local {
     return None
   }
   let src = html_strip_query_and_hash(image.src.trim().to_owned())
@@ -423,7 +417,7 @@ fn html_image_to_asset(
     return None
   }
   for existing in state.assets {
-    if existing.payload == Some(@core.AssetPayload::SourcePath(src)) {
+    if existing.payload == Some(SourcePath(src)) {
       return Some((existing.asset_id, existing))
     }
   }
@@ -434,14 +428,14 @@ fn html_image_to_asset(
     "." +
     html_image_ext_from_src(src)
   let asset = @core.make_asset_ref(
-    @core.AssetKind::Image,
+    Image,
     asset_id,
     source_ref=html_image_source_ref(source, image),
   )
   let next_asset = {
     ..asset,
     path: Some(rel_path),
-    payload: Some(@core.AssetPayload::SourcePath(src)),
+    payload: Some(SourcePath(src)),
     attrs: Map([("alt", image.alt.unwrap_or("image").trim().to_owned())]),
   }
   state.assets.push(next_asset)
@@ -457,7 +451,7 @@ fn html_image_block_from_asset(
   caption : String?,
 ) -> @core.CoreBlock {
   let image = @core.make_block(
-    @core.BlockKind::Image,
+    Image,
     "",
     source_ref=asset.source_ref.unwrap_or(@core.empty_source_ref()),
   )
@@ -494,9 +488,9 @@ fn html_image_placeholder_text(
 ) -> String {
   let label = if alt == "" { "image" } else { alt }
   match kind {
-    @dhtml.HtmlImageKind::Remote => "[remote]"
-    @dhtml.HtmlImageKind::DataUri => "[inline data]"
-    @dhtml.HtmlImageKind::Unsafe => "[" + label + "]"
+    Remote => "[remote]"
+    DataUri => "[inline data]"
+    Unsafe => "[" + label + "]"
     _ => "[" + label + "]"
   }
 }
@@ -515,7 +509,7 @@ fn html_table_to_block(
         return None
       }
       let out = @core.make_block(
-        @core.BlockKind::Table,
+        Table,
         "table",
         source_ref=html_block_source_ref_by_key(
           source, semantic, block_source_key, index,
@@ -541,7 +535,7 @@ fn html_table_to_block(
               }
             }
             let row_block = @core.make_block(
-              @core.BlockKind::TableRow,
+              TableRow,
               row_values.join(" | "),
               source_ref=html_table_row_source_ref(source, row),
             )
@@ -560,7 +554,7 @@ fn html_table_to_block(
                 html_table_row_source_ref(source, row)
               }
               let mut cell_block = @core.make_block(
-                @core.BlockKind::TableCell,
+                TableCell,
                 row_values[value_index],
                 source_ref=cell_ref,
               )
@@ -692,7 +686,7 @@ fn malformed_html_parse_result(
   let final_document = @core.document_with_diagnostics(document, diagnostics)
   @parser.parse_result_with_document_capability(
     "html_parser",
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     final_document,
     diagnostics,
     html_parser_capability(),
@@ -763,19 +757,16 @@ fn html_render_plain_inlines(inlines : Array[@core.CoreInline]) -> String {
   let out = StringBuilder::new()
   for inline in inlines {
     match inline.kind {
-      @core.InlineKind::Text => out.write_string(inline.text)
-      @core.InlineKind::LineBreak => out.write_string("<br>")
-      @core.InlineKind::Link =>
-        if inline.text.trim() != "" {
-          out.write_string(inline.text)
-        }
-      @core.InlineKind::Image =>
+      Text => out.write_string(inline.text)
+      LineBreak => out.write_string("<br>")
+      Link => if inline.text.trim() != "" { out.write_string(inline.text) }
+      Image =>
         if inline.text.trim() != "" {
           out.write_string("[" + inline.text.trim().to_owned() + "]")
         } else {
           out.write_string("[image]")
         }
-      @core.InlineKind::Code => out.write_string(inline.text)
+      Code => out.write_string(inline.text)
     }
   }
   out.to_string()
@@ -788,10 +779,10 @@ fn html_merge_adjacent_text_inlines(
   let out : Array[@core.CoreInline] = []
   for inline in inlines {
     match inline.kind {
-      @core.InlineKind::Text =>
+      Text =>
         if inline.text != "" {
           match out.pop() {
-            Some(prev) if prev.kind == @core.InlineKind::Text =>
+            Some(prev) if prev.kind == Text =>
               out.push(
                 match prev.source_ref {
                   Some(source_ref) =>

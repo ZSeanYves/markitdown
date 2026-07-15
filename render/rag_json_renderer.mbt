@@ -17,8 +17,7 @@ pub fn rag_json_renderer() -> Renderer {
       let chunks = chunks_from_document(
         profiled,
         context.rag_options,
-        record_batching=context.render_profile ==
-          @product.RenderProfile::RecordBatchMarkdown,
+        record_batching=context.render_profile == RecordBatchMarkdown,
       )
       apply_rag_chunk_metrics(document.diagnostics, chunks, context)
       {
@@ -48,8 +47,8 @@ fn render_rag_json_input(
 ) -> RenderResult {
   let renderer = rag_json_renderer()
   match input {
-    RenderInput::Document(document) => (renderer.render)(document, context)
-    RenderInput::BlockStream(blocks) => {
+    Document(document) => (renderer.render)(document, context)
+    BlockStream(blocks) => {
       let profiled = profiled_blocks(blocks, context)
       let diagnostics = block_stream_input_diagnostics(context, profiled)
       diagnostics.metrics.set("renderer_name", "RagJsonRenderer")
@@ -64,7 +63,7 @@ fn render_rag_json_input(
       match diagnostics.detected_format {
         Some(format) =>
           if metadata.get("format") is None {
-            metadata.set("format", @core.JsonValue::String(format))
+            metadata.set("format", String(format))
           }
         None => ()
       }
@@ -76,8 +75,7 @@ fn render_rag_json_input(
         context.source_map,
         context.assembly,
         context.rag_options,
-        record_batching=context.render_profile ==
-          @product.RenderProfile::RecordBatchMarkdown,
+        record_batching=context.render_profile == RecordBatchMarkdown,
       )
       apply_rag_chunk_metrics(diagnostics, chunks, context)
       {
@@ -90,7 +88,7 @@ fn render_rag_json_input(
         chunks: Some(chunks),
       }
     }
-    RenderInput::EventStream(events) => {
+    EventStream(events) => {
       let diagnostics = stream_input_diagnostics(
         context, events, "event_stream",
       )
@@ -114,8 +112,7 @@ fn render_rag_json_input(
         context.source_map,
         context.assembly,
         context.rag_options,
-        record_batching=context.render_profile ==
-          @product.RenderProfile::RecordBatchMarkdown,
+        record_batching=context.render_profile == RecordBatchMarkdown,
       )
       apply_rag_chunk_metrics(diagnostics, chunks, context)
       {
@@ -145,7 +142,7 @@ fn apply_rag_chunk_metrics(
   )
   diagnostics.metrics.set(
     "metadata_chunk_emitted",
-    if chunks.any(chunk => chunk.kind == @rag.ChunkKind::Metadata) {
+    if chunks.any(chunk => chunk.kind == Metadata) {
       "true"
     } else {
       "false"
@@ -153,11 +150,11 @@ fn apply_rag_chunk_metrics(
   )
   diagnostics.metrics.set(
     "table_chunk_split_count",
-    chunk_kind_count(chunks, @rag.ChunkKind::Table).to_string(),
+    chunk_kind_count(chunks, Table).to_string(),
   )
   diagnostics.metrics.set(
     "code_chunk_split_count",
-    chunk_kind_count(chunks, @rag.ChunkKind::Code).to_string(),
+    chunk_kind_count(chunks, Code).to_string(),
   )
   diagnostics.metrics.set(
     "rag_chunk_size",
@@ -169,7 +166,7 @@ fn apply_rag_chunk_metrics(
   )
   diagnostics.metrics.set(
     "record_batch_chunking",
-    if context.render_profile == @product.RenderProfile::RecordBatchMarkdown {
+    if context.render_profile == RecordBatchMarkdown {
       "true"
     } else {
       "false"

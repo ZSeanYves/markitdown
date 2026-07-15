@@ -88,12 +88,12 @@ fn normalize_object(
   source_order : Int,
 ) -> PptxObject {
   match obj {
-    PptxObject::Shape(shape) => {
+    Shape(shape) => {
       let placeholder = resolve_placeholder_hint(
         shape, layout_ref, master_ref, layouts, masters,
       )
       let bucket = reading_bucket_for_shape(shape, placeholder)
-      PptxObject::Shape({
+      Shape({
         shape_id: shape.shape_id,
         name: shape.name,
         shape_type: shape.shape_type,
@@ -116,8 +116,8 @@ fn normalize_object(
         source_key: shape.source_key,
       })
     }
-    PptxObject::Picture(pic) =>
-      PptxObject::Picture({
+    Picture(pic) =>
+      Picture({
         shape_id: pic.shape_id,
         name: pic.name,
         object_ref: pic.object_ref,
@@ -125,17 +125,17 @@ fn normalize_object(
         geometry: pic.geometry,
         reading_order: Some(
           reading_hint(
-            PptxReadingBucket::Image,
+            Image,
             source_order,
             pic.source_key,
             pic.geometry,
-            PptxConfidence::Medium,
+            Medium,
             "picture geometry/source order",
           ),
         ),
         source_key: pic.source_key,
       })
-    PptxObject::Group(group) => {
+    Group(group) => {
       let children = normalize_objects(
         group.children,
         layout_ref,
@@ -147,7 +147,7 @@ fn normalize_object(
         group.geometry,
         children,
       )
-      PptxObject::Group({
+      Group({
         shape_id: group.shape_id,
         name: group.name,
         object_ref: group.object_ref,
@@ -166,12 +166,12 @@ fn normalize_object(
         source_key: group.source_key,
       })
     }
-    PptxObject::Table(table) => PptxObject::Table(table)
-    PptxObject::Chart(chart) => PptxObject::Chart(chart)
-    PptxObject::SmartArt(smart) => PptxObject::SmartArt(smart)
-    PptxObject::Ole(ole) => PptxObject::Ole(ole)
-    PptxObject::Connector(conn) => PptxObject::Connector(conn)
-    PptxObject::Unsupported(unsupported) => PptxObject::Unsupported(unsupported)
+    Table(table) => Table(table)
+    Chart(chart) => Chart(chart)
+    SmartArt(smart) => SmartArt(smart)
+    Ole(ole) => Ole(ole)
+    Connector(conn) => Connector(conn)
+    Unsupported(unsupported) => Unsupported(unsupported)
   }
 }
 
@@ -210,24 +210,18 @@ fn group_reading_anchor(
         hint.confidence,
         "group anchored by earliest child reading order",
       )
-    None =>
-      (
-        PptxReadingBucket::Body,
-        fallback_geometry,
-        PptxConfidence::Medium,
-        "group hierarchy",
-      )
+    None => (Body, fallback_geometry, Medium, "group hierarchy")
   }
 }
 
 ///|
 fn object_geometry(obj : PptxObject) -> PptxGeometry? {
   match obj {
-    PptxObject::Shape(shape) => shape.geometry
-    PptxObject::Picture(pic) => pic.geometry
-    PptxObject::Group(group) => group.geometry
-    PptxObject::Table(table) => table.geometry
-    PptxObject::Connector(conn) => conn.geometry
+    Shape(shape) => shape.geometry
+    Picture(pic) => pic.geometry
+    Group(group) => group.geometry
+    Table(table) => table.geometry
+    Connector(conn) => conn.geometry
     _ => None
   }
 }
@@ -245,8 +239,8 @@ fn resolve_placeholder_hint(
       return Some({
         kind: ph.kind,
         index: ph.index,
-        source: PptxPlaceholderResolutionSource::Direct,
-        confidence: PptxConfidence::High,
+        source: Direct,
+        confidence: High,
         reason: "direct slide placeholder",
         trace: [shape.source_key],
       })
@@ -264,8 +258,8 @@ fn resolve_placeholder_hint(
           return Some({
             kind: candidate.placeholder.kind,
             index: candidate.placeholder.index,
-            source: PptxPlaceholderResolutionSource::LayoutTypeIndex,
-            confidence: PptxConfidence::Medium,
+            source: LayoutTypeIndex,
+            confidence: Medium,
             reason: "layout placeholder candidate",
             trace: [shape.source_key, candidate.source_key],
           })
@@ -285,8 +279,8 @@ fn resolve_placeholder_hint(
           return Some({
             kind: candidate.placeholder.kind,
             index: candidate.placeholder.index,
-            source: PptxPlaceholderResolutionSource::MasterTypeIndex,
-            confidence: PptxConfidence::Low,
+            source: MasterTypeIndex,
+            confidence: Low,
             reason: "master placeholder candidate",
             trace: [shape.source_key, candidate.source_key],
           })
@@ -300,8 +294,8 @@ fn resolve_placeholder_hint(
       Some({
         kind,
         index: None,
-        source: PptxPlaceholderResolutionSource::GeometryNameInference,
-        confidence: PptxConfidence::Low,
+        source: GeometryNameInference,
+        confidence: Low,
         reason: "geometry/name inference",
         trace: [shape.source_key],
       })
@@ -370,20 +364,20 @@ fn infer_placeholder_from_geometry_name(
 ) -> PptxPlaceholderKind? {
   let name = shape.name.unwrap_or("").to_lower()
   if name.contains("title") {
-    return Some(PptxPlaceholderKind::Title)
+    return Some(Title)
   }
   if name.contains("subtitle") {
-    return Some(PptxPlaceholderKind::Subtitle)
+    return Some(Subtitle)
   }
   if name.contains("footer") {
-    return Some(PptxPlaceholderKind::Footer)
+    return Some(Footer)
   }
   match shape.geometry {
     Some(g) => {
       let y = g.y.unwrap_or(0)
       let h = g.height.unwrap_or(0)
       if y >= 0 && y < 900000 && h > 100000 {
-        Some(PptxPlaceholderKind::Title)
+        Some(Title)
       } else {
         None
       }
@@ -400,20 +394,12 @@ fn reading_bucket_for_shape(
   match placeholder {
     Some(ph) =>
       match ph.kind {
-        PptxPlaceholderKind::Title | PptxPlaceholderKind::CenterTitle =>
-          PptxReadingBucket::Title
-        PptxPlaceholderKind::Subtitle => PptxReadingBucket::Subtitle
-        PptxPlaceholderKind::Footer
-        | PptxPlaceholderKind::Date
-        | PptxPlaceholderKind::SlideNumber => PptxReadingBucket::Footer
-        _ => PptxReadingBucket::Body
+        Title | CenterTitle => Title
+        Subtitle => Subtitle
+        Footer | Date | SlideNumber => Footer
+        _ => Body
       }
-    None =>
-      if shape.text_body is None {
-        PptxReadingBucket::Decorative
-      } else {
-        PptxReadingBucket::Body
-      }
+    None => if shape.text_body is None { Decorative } else { Body }
   }
 }
 
@@ -424,12 +410,7 @@ fn reading_confidence_for_shape(
 ) -> PptxConfidence {
   match placeholder {
     Some(ph) => ph.confidence
-    None =>
-      if bucket == PptxReadingBucket::Decorative {
-        PptxConfidence::Low
-      } else {
-        PptxConfidence::Medium
-      }
+    None => if bucket == Decorative { Low } else { Medium }
   }
 }
 
@@ -441,7 +422,7 @@ fn reading_reason_for_shape(
   match placeholder {
     Some(ph) => "placeholder " + ph.reason
     None =>
-      if bucket == PptxReadingBucket::Decorative {
+      if bucket == Decorative {
         "decorative shape without text"
       } else {
         "shape geometry/source order"
@@ -459,16 +440,16 @@ fn reading_hint(
   reason : String,
 ) -> PptxReadingOrderHint {
   let priority = match bucket {
-    PptxReadingBucket::Title => 10
-    PptxReadingBucket::Subtitle => 20
-    PptxReadingBucket::Body => 30
-    PptxReadingBucket::Table => 40
-    PptxReadingBucket::Image => 50
-    PptxReadingBucket::CaptionLike => 60
-    PptxReadingBucket::NoteLike => 70
-    PptxReadingBucket::Footer => 80
-    PptxReadingBucket::Decorative => 90
-    PptxReadingBucket::Unknown => 100
+    Title => 10
+    Subtitle => 20
+    Body => 30
+    Table => 40
+    Image => 50
+    CaptionLike => 60
+    NoteLike => 70
+    Footer => 80
+    Decorative => 90
+    Unknown => 100
   }
   let (y, x) = geometry_sort_pair(geometry)
   {
@@ -560,12 +541,12 @@ fn collect_layout_object_infos(
   for obj in objects {
     order_ref.val += 1
     match obj {
-      PptxObject::Shape(shape) => {
+      Shape(shape) => {
         let text = shape_plain_text(shape)
         out.push({
           source_key: shape.source_key,
           object_index: order_ref.val,
-          kind: PptxObjectKind::Shape,
+          kind: Shape,
           text,
           name: shape.name,
           shape_id: shape.shape_id,
@@ -574,7 +555,7 @@ fn collect_layout_object_infos(
           image_title: None,
         })
       }
-      PptxObject::Picture(pic) => {
+      Picture(pic) => {
         let (alt, title) = match pic.media {
           Some(media) => (media.alt_text, media.title)
           None => (None, None)
@@ -582,7 +563,7 @@ fn collect_layout_object_infos(
         out.push({
           source_key: pic.source_key,
           object_index: order_ref.val,
-          kind: PptxObjectKind::Picture,
+          kind: Picture,
           text: "",
           name: pic.name,
           shape_id: pic.shape_id,
@@ -591,11 +572,11 @@ fn collect_layout_object_infos(
           image_title: title,
         })
       }
-      PptxObject::Table(table) =>
+      Table(table) =>
         out.push({
           source_key: table.source_key,
           object_index: order_ref.val,
-          kind: PptxObjectKind::Table,
+          kind: Table,
           text: table_plain_text(table),
           name: None,
           shape_id: None,
@@ -603,7 +584,7 @@ fn collect_layout_object_infos(
           image_alt_text: None,
           image_title: None,
         })
-      PptxObject::Group(group) =>
+      Group(group) =>
         collect_layout_object_infos(out, group.children, order_ref)
       _ => ()
     }
@@ -636,11 +617,11 @@ fn paragraph_plain_text(para : PptxParagraph) -> String {
   for run in para.runs {
     for inline in run.inlines {
       match inline {
-        PptxInline::Text(text) => out = out + text
-        PptxInline::Break => out = out + "\n"
-        PptxInline::Field(text) => out = out + text
-        PptxInline::Hyperlink(_, text) => out = out + text
-        PptxInline::Unsupported(unsupported) =>
+        Text(text) => out = out + text
+        Break => out = out + "\n"
+        Field(text) => out = out + text
+        Hyperlink(_, text) => out = out + text
+        Unsupported(unsupported) =>
           out = out + "[Unsupported PPTX inline: " + unsupported.kind + "]"
       }
     }
@@ -678,7 +659,7 @@ fn infer_image_caption_pairs(
   let used_captions : Array[PptxSourceKey] = []
   let mut comparisons = 0
   for image in infos {
-    if image.kind != PptxObjectKind::Picture {
+    if image.kind != Picture {
       continue
     }
     let mut best_score = 0
@@ -688,7 +669,7 @@ fn infer_image_caption_pairs(
         break
       }
       comparisons += 1
-      if candidate.kind != PptxObjectKind::Shape ||
+      if candidate.kind != Shape ||
         candidate.text.trim() == "" ||
         source_key_array_contains(used_captions, candidate.source_key) {
         continue
@@ -715,11 +696,11 @@ fn infer_image_caption_pairs(
             image_title: image.image_title,
             image_geometry: image.geometry,
             confidence: if best_score >= 70 {
-              PptxConfidence::High
+              High
             } else if best_score >= 50 {
-              PptxConfidence::Medium
+              Medium
             } else {
-              PptxConfidence::Low
+              Low
             },
             reason: caption_pair_reason(best_score, caption),
           })
@@ -816,26 +797,18 @@ fn layout_regions_from_pairs(
   for pair in pairs {
     let members = [pair.picture_key, pair.caption_key]
     regions.push({
-      kind: PptxLayoutRegionKind::CaptionLike,
+      kind: CaptionLike,
       members,
       confidence: pair.confidence,
       reason: pair.reason,
-      order_key: layout_region_order_key(
-        PptxLayoutRegionKind::CaptionLike,
-        members,
-        None,
-      ),
+      order_key: layout_region_order_key(CaptionLike, members, None),
     })
     regions.push({
-      kind: PptxLayoutRegionKind::ImageCaptionPair,
+      kind: ImageCaptionPair,
       members,
       confidence: pair.confidence,
       reason: pair.reason,
-      order_key: layout_region_order_key(
-        PptxLayoutRegionKind::ImageCaptionPair,
-        members,
-        None,
-      ),
+      order_key: layout_region_order_key(ImageCaptionPair, members, None),
     })
   }
   regions
@@ -862,7 +835,7 @@ fn non_caption_text_infos(
 ) -> Array[PptxLayoutObjectInfo] {
   let out : Array[PptxLayoutObjectInfo] = []
   for info in infos {
-    if info.kind == PptxObjectKind::Shape &&
+    if info.kind == Shape &&
       info.text.trim() != "" &&
       !is_caption_key(info.source_key, pairs) {
       out.push(info)
@@ -883,12 +856,12 @@ fn append_two_column_region(
   if cols.length() == 2 {
     let members = source_keys_from_infos(text_infos)
     regions.push({
-      kind: PptxLayoutRegionKind::TwoColumn,
+      kind: TwoColumn,
       members,
-      confidence: PptxConfidence::Medium,
+      confidence: Medium,
       reason: "two-column text geometry",
       order_key: layout_region_order_key(
-        PptxLayoutRegionKind::TwoColumn,
+        TwoColumn,
         members,
         first_geometry(text_infos),
       ),
@@ -913,16 +886,16 @@ fn append_table_like_region(
   if rows.length() >= 2 && cols.length() >= 2 {
     let members = source_keys_from_infos(text_infos)
     regions.push({
-      kind: PptxLayoutRegionKind::TableLike,
+      kind: TableLike,
       members,
       confidence: if text_infos.length() >= rows.length() * cols.length() {
-        PptxConfidence::High
+        High
       } else {
-        PptxConfidence::Medium
+        Medium
       },
       reason: "bounded grid of text shapes, not an explicit a:tbl",
       order_key: layout_region_order_key(
-        PptxLayoutRegionKind::TableLike,
+        TableLike,
         members,
         first_geometry(text_infos),
       ),
@@ -938,7 +911,7 @@ fn append_grid_like_region(
 ) -> Unit {
   let pics : Array[PptxLayoutObjectInfo] = []
   for info in infos {
-    if info.kind == PptxObjectKind::Picture {
+    if info.kind == Picture {
       pics.push(info)
     }
   }
@@ -951,12 +924,12 @@ fn append_grid_like_region(
   if rows.length() >= 2 && cols.length() >= 2 {
     let members = source_keys_from_infos(pics)
     regions.push({
-      kind: PptxLayoutRegionKind::GridLike,
+      kind: GridLike,
       members,
-      confidence: PptxConfidence::High,
+      confidence: High,
       reason: "bounded grid of picture-like objects",
       order_key: layout_region_order_key(
-        PptxLayoutRegionKind::GridLike,
+        GridLike,
         members,
         first_geometry(pics),
       ),
@@ -979,12 +952,12 @@ fn append_card_like_region(
   if cards.length() >= 2 {
     let members = source_keys_from_infos(cards)
     regions.push({
-      kind: PptxLayoutRegionKind::CardLike,
+      kind: CardLike,
       members,
-      confidence: PptxConfidence::High,
+      confidence: High,
       reason: "repeated card-like text shapes",
       order_key: layout_region_order_key(
-        PptxLayoutRegionKind::CardLike,
+        CardLike,
         members,
         first_geometry(cards),
       ),
@@ -1043,17 +1016,17 @@ fn layout_region_order_key(
   geometry : PptxGeometry?,
 ) -> String {
   let priority = match kind {
-    PptxLayoutRegionKind::TitleLike => 10
-    PptxLayoutRegionKind::BodyLike => 30
-    PptxLayoutRegionKind::TwoColumn => 35
-    PptxLayoutRegionKind::TableLike => 45
-    PptxLayoutRegionKind::GridLike => 55
-    PptxLayoutRegionKind::CardLike => 58
-    PptxLayoutRegionKind::CaptionLike => 60
-    PptxLayoutRegionKind::ImageCaptionPair => 60
-    PptxLayoutRegionKind::FooterLike => 80
-    PptxLayoutRegionKind::Decorative => 90
-    PptxLayoutRegionKind::Unknown => 100
+    TitleLike => 10
+    BodyLike => 30
+    TwoColumn => 35
+    TableLike => 45
+    GridLike => 55
+    CardLike => 58
+    CaptionLike => 60
+    ImageCaptionPair => 60
+    FooterLike => 80
+    Decorative => 90
+    Unknown => 100
   }
   let first_key = if members.length() == 0 {
     "region"
@@ -1091,10 +1064,10 @@ fn apply_caption_reading_hint(
   source_order : Int,
 ) -> PptxObject {
   match obj {
-    PptxObject::Shape(shape) =>
+    Shape(shape) =>
       match caption_pair_for_key(shape.source_key, pairs) {
         Some(pair) if caption_pair_is_semantic_for_reading(pair) =>
-          PptxObject::Shape({
+          Shape({
             shape_id: shape.shape_id,
             name: shape.name,
             shape_type: shape.shape_type,
@@ -1106,7 +1079,7 @@ fn apply_caption_reading_hint(
             hyperlinks: shape.hyperlinks,
             reading_order: Some(
               reading_hint(
-                PptxReadingBucket::CaptionLike,
+                CaptionLike,
                 source_order,
                 shape.source_key,
                 shape.geometry,
@@ -1116,10 +1089,10 @@ fn apply_caption_reading_hint(
             ),
             source_key: shape.source_key,
           })
-        _ => PptxObject::Shape(shape)
+        _ => Shape(shape)
       }
-    PptxObject::Group(group) =>
-      PptxObject::Group({
+    Group(group) =>
+      Group({
         shape_id: group.shape_id,
         name: group.name,
         object_ref: group.object_ref,
@@ -1239,9 +1212,9 @@ fn collect_reading_order(objects : Array[PptxObject]) -> Array[PptxSourceKey] {
 ///|
 fn object_reading_hint(obj : PptxObject) -> PptxReadingOrderHint? {
   match obj {
-    PptxObject::Shape(shape) => shape.reading_order
-    PptxObject::Picture(pic) => pic.reading_order
-    PptxObject::Group(group) => group.reading_order
+    Shape(shape) => shape.reading_order
+    Picture(pic) => pic.reading_order
+    Group(group) => group.reading_order
     _ => None
   }
 }
@@ -1249,15 +1222,15 @@ fn object_reading_hint(obj : PptxObject) -> PptxReadingOrderHint? {
 ///|
 fn object_source_key(obj : PptxObject) -> PptxSourceKey {
   match obj {
-    PptxObject::Shape(shape) => shape.source_key
-    PptxObject::Group(group) => group.source_key
-    PptxObject::Picture(pic) => pic.source_key
-    PptxObject::Table(table) => table.source_key
-    PptxObject::Chart(chart) => chart.source_key
-    PptxObject::SmartArt(smart) => smart.source_key
-    PptxObject::Ole(ole) => ole.source_key
-    PptxObject::Connector(conn) => conn.source_key
-    PptxObject::Unsupported(unsupported) => unsupported.source_key
+    Shape(shape) => shape.source_key
+    Group(group) => group.source_key
+    Picture(pic) => pic.source_key
+    Table(table) => table.source_key
+    Chart(chart) => chart.source_key
+    SmartArt(smart) => smart.source_key
+    Ole(ole) => ole.source_key
+    Connector(conn) => conn.source_key
+    Unsupported(unsupported) => unsupported.source_key
   }
 }
 
@@ -1268,13 +1241,12 @@ fn collect_media_from_objects(
 ) -> Unit {
   for obj in objects {
     match obj {
-      PptxObject::Picture(pic) =>
+      Picture(pic) =>
         match pic.media {
           Some(media) => out.push(media)
           None => ()
         }
-      PptxObject::Group(group) =>
-        collect_media_from_objects(out, group.children)
+      Group(group) => collect_media_from_objects(out, group.children)
       _ => ()
     }
   }

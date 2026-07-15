@@ -7,7 +7,7 @@ pub fn zip_container_parser(
 ) -> @parser.Parser {
   @parser.make_parser(
     ZIP_PARSER_NAME,
-    @parser.ParserMode::ContainerRecursive,
+    ContainerRecursive,
     @internal.zip_parser_capability(),
     fn(
       source : @input.InputSource,

@@ -43,7 +43,7 @@ test "YAML compact sequence accepts a self-contained huge-shaped fixture" {
     @input.input_from_text_with_format(
       out.to_string(),
       "self-contained-huge.yaml",
-      Some(@input.DetectedFormat::Yaml),
+      Some(Yaml),
     ),
   ).unwrap()
   let compact = prepared.compact_sequence.unwrap()

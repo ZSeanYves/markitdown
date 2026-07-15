@@ -75,8 +75,8 @@ pub fn collect_csv_validation_issues(
     let row = doc.rows[i]
     if row.original_field_count != doc.column_count {
       issues.push({
-        kind: CsvValidationIssueKind::RaggedRow,
-        severity: CsvValidationSeverity::Warning,
+        kind: RaggedRow,
+        severity: Warning,
         row_index: i + 1,
         actual_field_count: row.original_field_count,
         expected_field_count: doc.column_count,
@@ -97,8 +97,8 @@ pub fn validate_csv_document(doc : CsvDocument) -> CsvValidationReport {
 
   for issue in issues {
     match issue.severity {
-      CsvValidationSeverity::Warning => warning_count += 1
-      CsvValidationSeverity::Error => error_count += 1
+      Warning => warning_count += 1
+      Error => error_count += 1
     }
   }
 

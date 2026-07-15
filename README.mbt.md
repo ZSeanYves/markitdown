@@ -158,7 +158,7 @@ For more CLI options, batch usage, and OCR / PDF / audio examples, see
 Daily commands:
 
 ```bash
-moon check
+moon check --target all --warn-list +73 --deny-warn
 moon build
 moon test
 ```

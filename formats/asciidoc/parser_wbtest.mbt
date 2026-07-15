@@ -7,12 +7,8 @@ test "AsciiDoc parser lowers headings lists blocks tables admonitions and includ
     "[quote]", "____", "Quoted body", "____",
   ].join("\n")
   let result = (asciidoc_parser().parse)(
-    @input.input_from_text_with_format(
-      text,
-      "complex.adoc",
-      Some(@input.DetectedFormat::Asciidoc),
-    ),
-    @parser.new_parse_context(@input.DetectedFormat::Asciidoc),
+    @input.input_from_text_with_format(text, "complex.adoc", Some(Asciidoc)),
+    @parser.new_parse_context(Asciidoc),
   ).unwrap()
   assert_true(result.document.unwrap().blocks.length() >= 4)
   assert_true(result.diagnostics.metrics.get("heading_count") != Some("0"))
@@ -28,18 +24,14 @@ test "AsciiDoc edge syntax retains attributes xrefs footnotes and local includes
     "", "image::diagram.png[Architecture]",
   ].join("\n")
   let result = (asciidoc_parser().parse)(
-    @input.input_from_text_with_format(
-      text,
-      "edge.adoc",
-      Some(@input.DetectedFormat::Asciidoc),
-    ),
-    @parser.new_parse_context(@input.DetectedFormat::Asciidoc),
+    @input.input_from_text_with_format(text, "edge.adoc", Some(Asciidoc)),
+    @parser.new_parse_context(Asciidoc),
   ).unwrap()
   let blocks = result.document.unwrap().blocks
   assert_true(blocks.any(block => block.text.contains("Retained warning")))
   assert_true(blocks.any(block => block.text.contains("local-only.adoc")))
   assert_true(blocks.any(block => block.text.contains("A note")))
-  let images = blocks.filter(block => block.kind == @core.BlockKind::Image)
+  let images = blocks.filter(block => block.kind == Image)
   assert_eq(images.length(), 1)
   assert_true(images[0].attrs.get("src") == Some("diagram.png"))
   assert_true(images[0].attrs.get("alt") == Some("Architecture"))
@@ -96,12 +88,12 @@ test "AsciiDoc image remains a local reference" {
     @input.input_from_text_with_format(
       "image::local.png[Local image]",
       "image.adoc",
-      Some(@input.DetectedFormat::Asciidoc),
+      Some(Asciidoc),
     ),
-    @parser.new_parse_context(@input.DetectedFormat::Asciidoc),
+    @parser.new_parse_context(Asciidoc),
   ).unwrap()
   let images = result.document.unwrap().blocks.filter(block => {
-    block.kind == @core.BlockKind::Image
+    block.kind == Image
   })
   assert_eq(images.length(), 1)
   assert_true(images[0].attrs.get("src") == Some("local.png"))

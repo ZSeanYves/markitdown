@@ -10,7 +10,7 @@ test "PPTX parser lowers remaining repository link footer bullet shape and basel
   for path in fixtures {
     let result = (pptx_parser().parse)(
       @input.input_from_path(path),
-      @parser.new_parse_context(@input.DetectedFormat::Pptx),
+      @parser.new_parse_context(Pptx),
     ).unwrap()
     assert_eq(result.diagnostics.errors.length(), 0)
     let document = result.document.unwrap()
@@ -34,18 +34,18 @@ test "PPTX full contract corpus covers combined accurate feature lowering" {
   ]
   let context = @parser.parse_context_with_execution_profiles(
     @parser.parse_context_with_product_modes(
-      @parser.new_parse_context(@input.DetectedFormat::Pptx),
-      @product.FidelityMode::Accurate,
-      @product.OutputMode::Markdown,
+      @parser.new_parse_context(Pptx),
+      Accurate,
+      Markdown,
     ),
-    @product.ExecutionProfile::Standard,
-    @product.LoweringProfile::AccurateSemantic,
-    @product.RenderProfile::NotesAppendixFirst,
+    Standard,
+    AccurateSemantic,
+    NotesAppendixFirst,
     @product.make_accurate_feature_profile([
-      @product.AccurateFeature::PptxReadingOrder,
-      @product.AccurateFeature::PptxGroupSummary,
-      @product.AccurateFeature::PptxHiddenSlideSemantics,
-      @product.AccurateFeature::PptxNotesAppendix,
+      PptxReadingOrder,
+      PptxGroupSummary,
+      PptxHiddenSlideSemantics,
+      PptxNotesAppendix,
     ]),
   )
   let mut total_blocks = 0

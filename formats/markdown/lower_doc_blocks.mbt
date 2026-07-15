@@ -12,7 +12,7 @@ fn markdown_table_group_to_block_next(
     "/table[0]",
     base_source_ref~,
   )
-  if lowering_mode == MarkdownLoweringMode::BlockStreamingLight {
+  if lowering_mode == BlockStreamingLight {
     diagnostics.same_mode_degradation.push(
       "markdown_block_stream_table_literal_preserved",
     )
@@ -50,7 +50,7 @@ fn markdown_table_literal_block(
   diagnostics : @core.Diagnostics,
   lowering_mode : MarkdownLoweringMode,
 ) -> @core.CoreBlock {
-  if lowering_mode == MarkdownLoweringMode::BlockStreamingLight {
+  if lowering_mode == BlockStreamingLight {
     diagnostics.same_mode_degradation.push(
       "markdown_block_stream_table_literal_preserved",
     )
@@ -88,7 +88,7 @@ fn markdown_table_block_from_lines(
   lines : Array[String],
   source_ref : @core.SourceRef,
 ) -> @core.CoreBlock {
-  let table = @core.make_block(@core.BlockKind::Table, "table", source_ref~)
+  let table = @core.make_block(Table, "table", source_ref~)
   table.attrs.set("header_rows", "1")
   let rows = lines
     .filter(line => !markdown_table_separator_line(line))
@@ -97,15 +97,9 @@ fn markdown_table_block_from_lines(
     return table
   }
   for row_cells in rows {
-    let row = @core.make_block(
-      @core.BlockKind::TableRow,
-      row_cells.join(" | "),
-      source_ref~,
-    )
+    let row = @core.make_block(TableRow, row_cells.join(" | "), source_ref~)
     for cell_text in row_cells {
-      row.children.push(
-        @core.make_block(@core.BlockKind::TableCell, cell_text, source_ref~),
-      )
+      row.children.push(@core.make_block(TableCell, cell_text, source_ref~))
     }
     table.children.push(row)
   }
@@ -154,7 +148,7 @@ fn markdown_paragraph_block(
   defined_footnotes : Map[String, Bool],
   lowering_mode : MarkdownLoweringMode,
 ) -> @core.CoreBlock {
-  if lowering_mode == MarkdownLoweringMode::BlockStreamingLight {
+  if lowering_mode == BlockStreamingLight {
     return markdown_block_stream_paragraph_block(
       block, source_ref, diagnostics, defined_footnotes,
     )
@@ -171,7 +165,7 @@ fn markdown_paragraph_block(
   }
   if !markdown_may_have_rich_inline_markup(normalized) {
     return @core.make_block(
-      @core.BlockKind::Paragraph,
+      Paragraph,
       markdown_plain_paragraph_text(normalized),
       source_ref~,
     )
@@ -181,7 +175,7 @@ fn markdown_paragraph_block(
     Some(image_block) => image_block
     None => {
       let paragraph = @core.make_block(
-        @core.BlockKind::Paragraph,
+        Paragraph,
         markdown_plain_paragraph_text(normalized),
         source_ref~,
       )
@@ -244,7 +238,7 @@ fn markdown_block_stream_paragraph_block(
   }
   if markdown_plain_block_stream_paragraph_candidate(normalized) {
     let paragraph = @core.make_block(
-      @core.BlockKind::Paragraph,
+      Paragraph,
       markdown_plain_paragraph_text(normalized),
       source_ref~,
     )
@@ -298,7 +292,7 @@ fn markdown_image_block_from_parts(
   source_ref : @core.SourceRef,
   image_asset_index : Ref[Int],
 ) -> @core.CoreBlock {
-  let image = @core.make_block(@core.BlockKind::Image, "", source_ref~)
+  let image = @core.make_block(Image, "", source_ref~)
   image.attrs.set("alt", alt)
   let normalized = markdown_image_output_path(path, image_asset_index)
   image.attrs.set("path", normalized.0)
@@ -324,7 +318,7 @@ fn markdown_list_group_to_block_next(
 ) -> @core.CoreBlock {
   ignore(diagnostics)
   ignore(image_asset_index)
-  if lowering_mode == MarkdownLoweringMode::BlockStreamingLight {
+  if lowering_mode == BlockStreamingLight {
     diagnostics.same_mode_degradation.push(
       "markdown_block_stream_list_literal_preserved",
     )
@@ -340,7 +334,7 @@ fn markdown_list_group_to_block_next(
     "/list[0]",
     base_source_ref~,
   )
-  let root = @core.make_block(@core.BlockKind::List, "", source_ref~)
+  let root = @core.make_block(List, "", source_ref~)
   root.attrs.set(
     "ordered",
     @fshared.bool_string(markdown_list_is_ordered(group[0].raw_text)),
@@ -349,7 +343,7 @@ fn markdown_list_group_to_block_next(
   for block in group {
     let indent = markdown_list_indent(block.raw_text)
     let item = @core.make_block(
-      @core.BlockKind::ListItem,
+      ListItem,
       strip_markdown_list_marker(block.raw_text),
       source_ref=markdown_source_ref(block, source, base_source_ref~),
     )
@@ -368,7 +362,7 @@ fn markdown_list_group_to_block_next(
     let current = stack[stack.length() - 1]
     if indent > current.0 {
       let nested = @core.make_block(
-        @core.BlockKind::List,
+        List,
         "",
         source_ref=item.source_ref.unwrap_or(source_ref),
       )
@@ -424,7 +418,7 @@ fn markdown_blockquote_group_to_block_next(
 ) -> @core.CoreBlock {
   ignore(diagnostics)
   ignore(image_asset_index)
-  if lowering_mode == MarkdownLoweringMode::BlockStreamingLight {
+  if lowering_mode == BlockStreamingLight {
     diagnostics.same_mode_degradation.push(
       "markdown_block_stream_blockquote_literal_preserved",
     )
@@ -449,10 +443,6 @@ fn markdown_blockquote_group_to_block_next(
   for block in group {
     lines.push(strip_markdown_blockquote(block.raw_text))
   }
-  let quote = @core.make_block(
-    @core.BlockKind::BlockQuote,
-    lines.join("\n"),
-    source_ref~,
-  )
+  let quote = @core.make_block(BlockQuote, lines.join("\n"), source_ref~)
   quote
 }

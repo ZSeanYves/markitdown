@@ -7,7 +7,7 @@ fn markdown_parse_result_from_scanned(
 ) -> @parser.ParseResult {
   let diagnostics = @fshared.empty_parser_diagnostics(
     "markdown_parser",
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     source,
     "markdown",
   )
@@ -22,8 +22,7 @@ fn markdown_parse_result_from_scanned(
     "requested_mode",
     @fshared.requested_mode_name(context),
   )
-  let requested_blocks = context.requested_mode ==
-    Some(@parser.ParserMode::BlockStreaming)
+  let requested_blocks = context.requested_mode == Some(BlockStreaming)
   markdown_set_route_metrics(diagnostics, requested_blocks)
   diagnostics.metrics.set("event_granularity", "markdown_block")
   diagnostics.metrics.set(
@@ -125,7 +124,7 @@ fn markdown_block_stream_parse_result(
   diagnostics.pass_trace.push("parse:markdown_parser")
   @parser.parse_result_with_blocks_capability(
     "markdown_parser",
-    @parser.ParserMode::BlockStreaming,
+    BlockStreaming,
     blocks,
     diagnostics,
     markdown_parser_capability(),
@@ -143,7 +142,7 @@ fn markdown_document_parse_result(
   let final_document = @core.document_with_diagnostics(document, diagnostics)
   @parser.parse_result_with_document_capability(
     "markdown_parser",
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     final_document,
     diagnostics,
     markdown_parser_capability(),
@@ -153,17 +152,17 @@ fn markdown_document_parse_result(
 ///|
 fn markdown_block_kind_name(kind : @dmd.MarkdownBlockKind) -> String {
   match kind {
-    @dmd.MarkdownBlockKind::ParagraphLike => "paragraph"
-    @dmd.MarkdownBlockKind::HeadingAtx => "heading_atx"
-    @dmd.MarkdownBlockKind::HeadingSetext => "heading_setext"
-    @dmd.MarkdownBlockKind::FencedCode => "fenced_code"
-    @dmd.MarkdownBlockKind::ListItem => "list_item"
-    @dmd.MarkdownBlockKind::BlockQuote => "blockquote"
-    @dmd.MarkdownBlockKind::TableLikeRow => "table_like_row"
-    @dmd.MarkdownBlockKind::ThematicBreak => "thematic_break"
-    @dmd.MarkdownBlockKind::HtmlBlockCandidate => "html_block_candidate"
-    @dmd.MarkdownBlockKind::BlankLine => "blank"
-    @dmd.MarkdownBlockKind::Other => "other"
+    ParagraphLike => "paragraph"
+    HeadingAtx => "heading_atx"
+    HeadingSetext => "heading_setext"
+    FencedCode => "fenced_code"
+    ListItem => "list_item"
+    BlockQuote => "blockquote"
+    TableLikeRow => "table_like_row"
+    ThematicBreak => "thematic_break"
+    HtmlBlockCandidate => "html_block_candidate"
+    BlankLine => "blank"
+    Other => "other"
   }
 }
 
@@ -259,8 +258,8 @@ fn markdown_apply_validation_issues(
       markdown_validation_issue_feature(validation_issue),
     )
     match validation_issue.severity {
-      @dmd.MarkdownValidationSeverity::Warning => warning_count += 1
-      @dmd.MarkdownValidationSeverity::Error => error_count += 1
+      Warning => warning_count += 1
+      Error => error_count += 1
     }
   }
   diagnostics.metrics.set("warning_count", warning_count.to_string())
@@ -338,21 +337,21 @@ fn markdown_accumulate_single_block_report(
   list_depth : Int,
 ) -> Unit {
   match block.kind {
-    @core.BlockKind::Paragraph => report.paragraph_count.val += 1
-    @core.BlockKind::List => {
+    Paragraph => report.paragraph_count.val += 1
+    List => {
       report.list_count.val += 1
       if list_depth + 1 > report.max_list_depth.val {
         report.max_list_depth.val = list_depth + 1
       }
     }
-    @core.BlockKind::Table => report.table_count.val += 1
-    @core.BlockKind::Code => report.code_block_count.val += 1
-    @core.BlockKind::BlockQuote => report.blockquote_count.val += 1
-    @core.BlockKind::Image => {
+    Table => report.table_count.val += 1
+    Code => report.code_block_count.val += 1
+    BlockQuote => report.blockquote_count.val += 1
+    Image => {
       report.image_count.val += 1
       report.asset_count.val += 1
     }
-    @core.BlockKind::Raw =>
+    Raw =>
       if block.attrs.get("raw_kind") == Some("markdown_html_literal") {
         report.raw_html_count.val += 1
         if block.attrs.get("unsafe_html") == Some("true") {
@@ -368,12 +367,12 @@ fn markdown_accumulate_single_block_report(
     Some(inlines) =>
       for inline in inlines {
         match inline.kind {
-          @core.InlineKind::Link => report.link_count.val += 1
-          @core.InlineKind::Image => {
+          Link => report.link_count.val += 1
+          Image => {
             report.image_count.val += 1
             report.asset_count.val += 1
           }
-          @core.InlineKind::Text =>
+          Text =>
             if inline.attrs.get("annotation_kind") == Some("footnote") &&
               inline.attrs.get("annotation_role") == Some("note_ref") {
               report.footnote_reference_count.val += 1
@@ -398,13 +397,10 @@ fn markdown_validation_issue_feature(
   issue : @dmd.MarkdownValidationIssue,
 ) -> String {
   match issue.kind {
-    @dmd.MarkdownValidationIssueKind::UnclosedFence => "markdown_unclosed_fence"
-    @dmd.MarkdownValidationIssueKind::UnclosedFrontmatter =>
-      "markdown_unclosed_frontmatter"
-    @dmd.MarkdownValidationIssueKind::UnknownFrontmatterKind =>
-      "markdown_unknown_frontmatter_kind"
-    @dmd.MarkdownValidationIssueKind::SuspiciousTableRow =>
-      "markdown_table_like_raw_fallback"
+    UnclosedFence => "markdown_unclosed_fence"
+    UnclosedFrontmatter => "markdown_unclosed_frontmatter"
+    UnknownFrontmatterKind => "markdown_unknown_frontmatter_kind"
+    SuspiciousTableRow => "markdown_table_like_raw_fallback"
   }
 }
 
@@ -413,13 +409,10 @@ fn markdown_validation_issue_trace(
   issue : @dmd.MarkdownValidationIssue,
 ) -> String {
   match issue.kind {
-    @dmd.MarkdownValidationIssueKind::UnclosedFence =>
-      "markdown unclosed fence -> code fallback"
-    @dmd.MarkdownValidationIssueKind::UnclosedFrontmatter =>
-      "markdown unclosed frontmatter -> raw metadata block"
-    @dmd.MarkdownValidationIssueKind::UnknownFrontmatterKind =>
+    UnclosedFence => "markdown unclosed fence -> code fallback"
+    UnclosedFrontmatter => "markdown unclosed frontmatter -> raw metadata block"
+    UnknownFrontmatterKind =>
       "markdown unknown frontmatter kind -> raw metadata block"
-    @dmd.MarkdownValidationIssueKind::SuspiciousTableRow =>
-      "markdown suspicious table row -> raw block"
+    SuspiciousTableRow => "markdown suspicious table row -> raw block"
   }
 }

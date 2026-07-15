@@ -18,7 +18,7 @@ pub(all) struct PdfRawCjkDecodeResult {
 pub fn pdf_decode_gb2312_first_bytes(
   bytes : Array[Int],
 ) -> PdfRawCjkDecodeResult {
-  pdf_decode_raw_cjk_bytes(bytes, PdfRawCjkEncodingKind::Gb2312)
+  pdf_decode_raw_cjk_bytes(bytes, Gb2312)
 }
 
 ///|
@@ -122,12 +122,9 @@ fn pdf_raw_cjk_lookup_codepoint(
   trail : Int,
 ) -> Int? {
   match encoding_kind {
-    PdfRawCjkEncodingKind::Gb2312 =>
-      pdf_native_gb2312_lookup_codepoint(lead, trail)
-    PdfRawCjkEncodingKind::EucJp =>
-      pdf_native_euc_jp_lookup_codepoint(lead, trail)
-    PdfRawCjkEncodingKind::ShiftJis =>
-      pdf_native_shift_jis_lookup_codepoint(lead, trail)
+    Gb2312 => pdf_native_gb2312_lookup_codepoint(lead, trail)
+    EucJp => pdf_native_euc_jp_lookup_codepoint(lead, trail)
+    ShiftJis => pdf_native_shift_jis_lookup_codepoint(lead, trail)
   }
 }
 

@@ -337,7 +337,7 @@ pub fn classify_epub_error(err : EpubError) -> EpubErrorInfo {
   match err {
     ZipError(msg) =>
       {
-        kind: EpubErrorKind::ZipFailure,
+        kind: ZipFailure,
         detail: msg,
         part_name: None,
         rootfile_path: None,
@@ -349,7 +349,7 @@ pub fn classify_epub_error(err : EpubError) -> EpubErrorInfo {
     MissingPart(path) =>
       if path == "META-INF/container.xml" {
         {
-          kind: EpubErrorKind::MissingContainer,
+          kind: MissingContainer,
           detail: path,
           part_name: Some(path),
           rootfile_path: None,
@@ -360,7 +360,7 @@ pub fn classify_epub_error(err : EpubError) -> EpubErrorInfo {
         }
       } else {
         {
-          kind: EpubErrorKind::MissingPart,
+          kind: MissingPart,
           detail: path,
           part_name: Some(path),
           rootfile_path: None,
@@ -374,7 +374,7 @@ pub fn classify_epub_error(err : EpubError) -> EpubErrorInfo {
     InvalidPath(path) => classify_invalid_path_detail(path)
     InvalidPackage(msg) =>
       {
-        kind: EpubErrorKind::InvalidPackage,
+        kind: InvalidPackage,
         detail: msg,
         part_name: None,
         rootfile_path: None,
@@ -385,7 +385,7 @@ pub fn classify_epub_error(err : EpubError) -> EpubErrorInfo {
       }
     UnsupportedFeature(msg) =>
       {
-        kind: EpubErrorKind::UnsupportedFeature,
+        kind: UnsupportedFeature,
         detail: msg,
         part_name: None,
         rootfile_path: None,
@@ -404,8 +404,8 @@ pub fn collect_epub_validation_issues(
   let out : Array[EpubValidationIssue] = []
   if pkg.rootfiles.length() > 1 {
     out.push({
-      kind: EpubValidationIssueKind::MultipleRootfiles,
-      severity: EpubValidationSeverity::Warning,
+      kind: MultipleRootfiles,
+      severity: Warning,
       rootfile_path: pkg.rootfile_path,
       manifest_id: None,
       spine_idref: None,
@@ -421,8 +421,8 @@ pub fn collect_epub_validation_issues(
       Some(_) => false
     }) {
     out.push({
-      kind: EpubValidationIssueKind::MissingNavigationDocument,
-      severity: EpubValidationSeverity::Warning,
+      kind: MissingNavigationDocument,
+      severity: Warning,
       rootfile_path: pkg.rootfile_path,
       manifest_id: None,
       spine_idref: None,
@@ -437,8 +437,8 @@ pub fn collect_epub_validation_issues(
   for item in pkg.spine {
     if seen_idrefs.contains(item.idref) {
       out.push({
-        kind: EpubValidationIssueKind::DuplicateSpineIdref,
-        severity: EpubValidationSeverity::Warning,
+        kind: DuplicateSpineIdref,
+        severity: Warning,
         rootfile_path: pkg.rootfile_path,
         manifest_id: item.manifest_item.map(fn(entry) { entry.id }),
         spine_idref: Some(item.idref),
@@ -456,8 +456,8 @@ pub fn collect_epub_validation_issues(
       Some(manifest_item) =>
         if !spine_item_supported(item) {
           out.push({
-            kind: EpubValidationIssueKind::UnsupportedSpineItem,
-            severity: EpubValidationSeverity::Warning,
+            kind: UnsupportedSpineItem,
+            severity: Warning,
             rootfile_path: pkg.rootfile_path,
             manifest_id: Some(manifest_item.id),
             spine_idref: Some(item.idref),
@@ -470,8 +470,8 @@ pub fn collect_epub_validation_issues(
         }
       None =>
         out.push({
-          kind: EpubValidationIssueKind::MissingManifestItem,
-          severity: EpubValidationSeverity::Error,
+          kind: MissingManifestItem,
+          severity: Error,
           rootfile_path: pkg.rootfile_path,
           manifest_id: Some(item.idref),
           spine_idref: Some(item.idref),
@@ -490,8 +490,8 @@ pub fn collect_epub_validation_issues(
           Some(_) => ()
           None =>
             out.push({
-              kind: EpubValidationIssueKind::MissingSpineTarget,
-              severity: EpubValidationSeverity::Error,
+              kind: MissingSpineTarget,
+              severity: Error,
               rootfile_path: pkg.rootfile_path,
               manifest_id: Some(item.idref),
               spine_idref: Some(item.idref),
@@ -516,8 +516,8 @@ pub fn validate_epub_package(pkg : EpubPackage) -> EpubValidationReport {
   let mut warning_count = 0
   for issue in issues {
     match issue.severity {
-      EpubValidationSeverity::Error => error_count += 1
-      EpubValidationSeverity::Warning => warning_count += 1
+      Error => error_count += 1
+      Warning => warning_count += 1
     }
   }
   {
@@ -903,7 +903,7 @@ fn classify_invalid_xml_detail(msg : String) -> EpubErrorInfo {
   if msg.contains("container.xml missing rootfile") ||
     msg.contains("container.xml has no usable rootfile") {
     {
-      kind: EpubErrorKind::MissingRootfile,
+      kind: MissingRootfile,
       detail: msg,
       part_name: Some("META-INF/container.xml"),
       rootfile_path: None,
@@ -914,7 +914,7 @@ fn classify_invalid_xml_detail(msg : String) -> EpubErrorInfo {
     }
   } else if msg.contains("duplicate manifest id: ") {
     {
-      kind: EpubErrorKind::DuplicateManifestId,
+      kind: DuplicateManifestId,
       detail: msg,
       part_name: None,
       rootfile_path: None,
@@ -925,7 +925,7 @@ fn classify_invalid_xml_detail(msg : String) -> EpubErrorInfo {
     }
   } else {
     {
-      kind: EpubErrorKind::InvalidXml,
+      kind: InvalidXml,
       detail: msg,
       part_name: None,
       rootfile_path: None,
@@ -943,7 +943,7 @@ fn classify_invalid_path_detail(path : String) -> EpubErrorInfo {
   let kind = if has_scheme_like_prefix(lower) {
     EpubErrorKind::RemoteResourceBlocked
   } else {
-    EpubErrorKind::UnsafeHref
+    UnsafeHref
   }
   {
     kind,
@@ -1004,20 +1004,19 @@ fn validation_issue_sort_key(issue : EpubValidationIssue) -> String {
 ///|
 fn validation_severity_text(severity : EpubValidationSeverity) -> String {
   match severity {
-    EpubValidationSeverity::Error => "0"
-    EpubValidationSeverity::Warning => "1"
+    Error => "0"
+    Warning => "1"
   }
 }
 
 ///|
 fn validation_issue_kind_text(kind : EpubValidationIssueKind) -> String {
   match kind {
-    EpubValidationIssueKind::MissingManifestItem => "MissingManifestItem"
-    EpubValidationIssueKind::MissingSpineTarget => "MissingSpineTarget"
-    EpubValidationIssueKind::UnsupportedSpineItem => "UnsupportedSpineItem"
-    EpubValidationIssueKind::DuplicateSpineIdref => "DuplicateSpineIdref"
-    EpubValidationIssueKind::MissingNavigationDocument =>
-      "MissingNavigationDocument"
-    EpubValidationIssueKind::MultipleRootfiles => "MultipleRootfiles"
+    MissingManifestItem => "MissingManifestItem"
+    MissingSpineTarget => "MissingSpineTarget"
+    UnsupportedSpineItem => "UnsupportedSpineItem"
+    DuplicateSpineIdref => "DuplicateSpineIdref"
+    MissingNavigationDocument => "MissingNavigationDocument"
+    MultipleRootfiles => "MultipleRootfiles"
   }
 }

@@ -18,7 +18,7 @@ fn pdf_decode_stream_bytes(
     Some(value) => value
     None =>
       return Err(
-        PdfNativeError::ParseFailed(
+        ParseFailed(
           "object " +
           object.object_id.to_string() +
           " has no stream for " +
@@ -31,7 +31,7 @@ fn pdf_decode_stream_bytes(
     Ok(value) => value
     Err(err) =>
       return Err(
-        PdfNativeError::UnsupportedFeature(
+        UnsupportedFeature(
           "stream decode failed for object " +
           object.object_id.to_string() +
           " (" +
@@ -86,7 +86,7 @@ fn pdf_extract_image_candidates_from_stream(
   let mut current_matrix = base_matrix
   for token in tokens {
     match token {
-      PdfNativeContentToken::Word(op) =>
+      Word(op) =>
         match op {
           "q" => {
             graphics_stack.push(current_matrix)
@@ -197,7 +197,7 @@ fn pdf_lookup_xobject_object(
       continue
     }
     match entry.1 {
-      PdfNativeDictValue::Reference(object_id, generation) => {
+      Reference(object_id, generation) => {
         ignore(generation)
         match object_index.get(object_id) {
           Some(object) => return Some((object_id, object))
@@ -305,14 +305,14 @@ fn pdf_exportable_image_asset_ref(
     source, page_no, bbox, object_id, xobject_name,
   )
   let asset = @core.make_asset_ref(
-    @core.AssetKind::Image,
+    Image,
     "pdf:" + object_id.to_string(),
     source_ref~,
   )
   let next_asset = { ..asset, mime_type: Some(payload_info.mime_type) }
   next_asset.attrs.set("alt", "image")
   next_asset.attrs.set("file_ext", payload_info.ext)
-  next_asset.payload = Some(@core.AssetPayload::Bytes(payload_info.payload))
+  next_asset.payload = Some(Bytes(payload_info.payload))
   next_asset.attrs.set("pdf_object_id", object_id.to_string())
   next_asset.attrs.set("pdf_xobject_name", xobject_name)
   next_asset.attrs.set("pdf_filter_chain", payload_info.filter_chain)
@@ -582,7 +582,7 @@ fn pdf_decoded_pixels_png_payload(
     None => return None
   }
   let (pixels, channels) = match color_space {
-    PdfResolvedImageColorSpace::Indexed(base, high, palette) => {
+    Indexed(base, high, palette) => {
       let expanded = match
         pdf_expand_indexed_rgb_pixels(
           decoded, width, height, bits, base, high, palette,
@@ -592,14 +592,14 @@ fn pdf_decoded_pixels_png_payload(
       }
       (expanded, 3)
     }
-    PdfResolvedImageColorSpace::CMYK if bits == 8 => {
+    CMYK if bits == 8 => {
       let converted = match pdf_convert_cmyk_to_rgb(decoded, width, height) {
         Some(value) => value
         None => return None
       }
       (converted, 3)
     }
-    PdfResolvedImageColorSpace::Gray =>
+    Gray =>
       if bits == 1 {
         let invert = object.dict_text.contains("/Decode [ 1 0 ]") ||
           object.dict_text.contains("/Decode [1 0]")
@@ -614,7 +614,7 @@ fn pdf_decoded_pixels_png_payload(
       } else {
         return None
       }
-    PdfResolvedImageColorSpace::RGB if bits == 8 => (decoded, 3)
+    RGB if bits == 8 => (decoded, 3)
     _ => return None
   }
   let alpha = match
@@ -725,18 +725,18 @@ fn pdf_expand_indexed_rgb_pixels(
       }
       let palette_offset = index * components
       match base {
-        PdfResolvedImageColorSpace::Gray => {
+        Gray => {
           let gray = palette[palette_offset]
           rgb.push(gray)
           rgb.push(gray)
           rgb.push(gray)
         }
-        PdfResolvedImageColorSpace::RGB => {
+        RGB => {
           rgb.push(palette[palette_offset])
           rgb.push(palette[palette_offset + 1])
           rgb.push(palette[palette_offset + 2])
         }
-        PdfResolvedImageColorSpace::CMYK => {
+        CMYK => {
           let c = palette[palette_offset].to_int()
           let m = palette[palette_offset + 1].to_int()
           let y = palette[palette_offset + 2].to_int()
@@ -745,7 +745,7 @@ fn pdf_expand_indexed_rgb_pixels(
           rgb.push((255 - pdf_min_int(255, m + k)).to_byte())
           rgb.push((255 - pdf_min_int(255, y + k)).to_byte())
         }
-        PdfResolvedImageColorSpace::Indexed(_, _, _) => return None
+        Indexed(_, _, _) => return None
       }
     }
   }
@@ -808,7 +808,7 @@ fn pdf_image_soft_mask_alpha(
     return None
   }
   match pdf_resolve_image_color_space(mask, object_index) {
-    Some(PdfResolvedImageColorSpace::Gray) => ()
+    Some(Gray) => ()
     _ => return None
   }
   let decoded = match pdf_decode_stream_bytes(mask, "soft mask image") {

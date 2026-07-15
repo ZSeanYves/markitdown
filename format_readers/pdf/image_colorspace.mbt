@@ -12,7 +12,7 @@ fn pdf_resolve_image_color_space(
   object_index : Map[Int, PdfNativeObject],
 ) -> PdfResolvedImageColorSpace? {
   if object.dict_text.contains("/ImageMask true") {
-    return Some(PdfResolvedImageColorSpace::Gray)
+    return Some(Gray)
   }
   let value = match pdf_extract_dict_value(object.dict_text, "/ColorSpace") {
     Some(value) => value
@@ -32,20 +32,17 @@ fn pdf_resolve_image_color_space_value(
     return None
   }
   match value {
-    PdfNativeDictValue::Name("DeviceGray") =>
-      Some(PdfResolvedImageColorSpace::Gray)
-    PdfNativeDictValue::Name("DeviceRGB") =>
-      Some(PdfResolvedImageColorSpace::RGB)
-    PdfNativeDictValue::Name("DeviceCMYK") =>
-      Some(PdfResolvedImageColorSpace::CMYK)
-    PdfNativeDictValue::Array(tokens) =>
+    Name("DeviceGray") => Some(Gray)
+    Name("DeviceRGB") => Some(RGB)
+    Name("DeviceCMYK") => Some(CMYK)
+    Array(tokens) =>
       pdf_resolve_image_color_space_array(
         tokens,
         object_index,
         depth + 1,
         visited,
       )
-    PdfNativeDictValue::Reference(object_id, generation) => {
+    Reference(object_id, generation) => {
       ignore(generation)
       if visited.contains(object_id) {
         return None
@@ -82,18 +79,15 @@ fn pdf_resolve_image_color_space_array(
     return None
   }
   match tokens[0] {
-    PdfNativeContentToken::Name("ICCBased") =>
+    Name("ICCBased") =>
       pdf_resolve_icc_image_color_space(tokens, object_index, depth, visited)
-    PdfNativeContentToken::Name("Indexed") =>
+    Name("Indexed") =>
       pdf_resolve_indexed_image_color_space(
         tokens, object_index, depth, visited,
       )
-    PdfNativeContentToken::Name("DeviceGray") =>
-      Some(PdfResolvedImageColorSpace::Gray)
-    PdfNativeContentToken::Name("DeviceRGB") =>
-      Some(PdfResolvedImageColorSpace::RGB)
-    PdfNativeContentToken::Name("DeviceCMYK") =>
-      Some(PdfResolvedImageColorSpace::CMYK)
+    Name("DeviceGray") => Some(Gray)
+    Name("DeviceRGB") => Some(RGB)
+    Name("DeviceCMYK") => Some(CMYK)
     _ => None
   }
 }
@@ -107,7 +101,7 @@ fn pdf_resolve_icc_image_color_space(
 ) -> PdfResolvedImageColorSpace? {
   let (profile_value, _) = pdf_dict_value_from_tokens(tokens, 1)
   let profile_id = match profile_value {
-    PdfNativeDictValue::Reference(object_id, generation) => {
+    Reference(object_id, generation) => {
       ignore(generation)
       object_id
     }
@@ -137,9 +131,9 @@ fn pdf_resolve_icc_image_color_space(
     None => ()
   }
   match pdf_extract_int_after(profile.dict_text, "/N") {
-    Some(1) => Some(PdfResolvedImageColorSpace::Gray)
-    Some(3) => Some(PdfResolvedImageColorSpace::RGB)
-    Some(4) => Some(PdfResolvedImageColorSpace::CMYK)
+    Some(1) => Some(Gray)
+    Some(3) => Some(RGB)
+    Some(4) => Some(CMYK)
     _ => None
   }
 }
@@ -164,8 +158,7 @@ fn pdf_resolve_indexed_image_color_space(
   }
   let (high_value, after_high) = pdf_dict_value_from_tokens(tokens, after_base)
   let high = match high_value {
-    PdfNativeDictValue::Number(value) if pdf_double_is_integral(value) =>
-      value.to_int()
+    Number(value) if pdf_double_is_integral(value) => value.to_int()
     _ => return None
   }
   if high < 0 || high > 255 {
@@ -181,7 +174,7 @@ fn pdf_resolve_indexed_image_color_space(
   if components <= 0 || lookup.length() < (high + 1) * components {
     return None
   }
-  Some(PdfResolvedImageColorSpace::Indexed(base, high, lookup))
+  Some(Indexed(base, high, lookup))
 }
 
 ///|
@@ -195,16 +188,15 @@ fn pdf_image_lookup_bytes(
     return None
   }
   match value {
-    PdfNativeDictValue::HexString(hex) => {
+    HexString(hex) => {
       let values = match pdf_hex_byte_values(hex) {
         Some(value) => value
         None => return None
       }
       Some(Bytes::from_array(values.map(Int::to_byte)))
     }
-    PdfNativeDictValue::LiteralString(value) =>
-      Some(pdf_image_literal_bytes(value.decoded))
-    PdfNativeDictValue::Reference(object_id, generation) => {
+    LiteralString(value) => Some(pdf_image_literal_bytes(value.decoded))
+    Reference(object_id, generation) => {
       ignore(generation)
       if visited.contains(object_id) {
         return None
@@ -260,10 +252,10 @@ fn pdf_resolved_image_color_components(
   color_space : PdfResolvedImageColorSpace,
 ) -> Int {
   match color_space {
-    PdfResolvedImageColorSpace::Gray => 1
-    PdfResolvedImageColorSpace::RGB => 3
-    PdfResolvedImageColorSpace::CMYK => 4
-    PdfResolvedImageColorSpace::Indexed(_, _, _) => 1
+    Gray => 1
+    RGB => 3
+    CMYK => 4
+    Indexed(_, _, _) => 1
   }
 }
 
@@ -272,10 +264,10 @@ fn pdf_resolved_image_color_space_label(
   color_space : PdfResolvedImageColorSpace?,
 ) -> String {
   match color_space {
-    Some(PdfResolvedImageColorSpace::Gray) => "DeviceGray"
-    Some(PdfResolvedImageColorSpace::RGB) => "DeviceRGB"
-    Some(PdfResolvedImageColorSpace::CMYK) => "DeviceCMYK"
-    Some(PdfResolvedImageColorSpace::Indexed(_, _, _)) => "Indexed"
+    Some(Gray) => "DeviceGray"
+    Some(RGB) => "DeviceRGB"
+    Some(CMYK) => "DeviceCMYK"
+    Some(Indexed(_, _, _)) => "Indexed"
     None => "unresolved"
   }
 }

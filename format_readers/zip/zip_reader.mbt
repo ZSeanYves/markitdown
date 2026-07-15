@@ -564,29 +564,29 @@ pub fn classify_zip_error(err : ZipError) -> ZipErrorInfo {
   match err {
     EntryNotFound(path) =>
       {
-        kind: ZipErrorKind::MissingEntry,
-        mapping: ZipErrorMappingKind::DirectVariant,
+        kind: MissingEntry,
+        mapping: DirectVariant,
         entry_name: Some(path),
         detail: err.to_string(),
       }
     UnsupportedCompressionMethod(_) =>
       {
-        kind: ZipErrorKind::UnsupportedCompressionMethod,
-        mapping: ZipErrorMappingKind::DirectVariant,
+        kind: UnsupportedCompressionMethod,
+        mapping: DirectVariant,
         entry_name: None,
         detail: err.to_string(),
       }
     DecodeFailed(detail) =>
       {
-        kind: ZipErrorKind::ReadEntryFailed,
-        mapping: ZipErrorMappingKind::DirectVariant,
+        kind: ReadEntryFailed,
+        mapping: DirectVariant,
         entry_name: extract_backtick_wrapped_name(detail),
         detail: err.to_string(),
       }
     UnexpectedEOF(_) | InvalidSignature(_, _, _) =>
       {
-        kind: ZipErrorKind::MalformedArchive,
-        mapping: ZipErrorMappingKind::DirectVariant,
+        kind: MalformedArchive,
+        mapping: DirectVariant,
         entry_name: None,
         detail: err.to_string(),
       }

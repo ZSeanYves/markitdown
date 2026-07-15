@@ -2,7 +2,7 @@
 test "tesseract argv keeps explicit baseline args and language" {
   let request = make_ocr_provider_request(
     "scan.png",
-    OcrProviderKind::Tesseract,
+    Tesseract,
     language=Some("eng"),
   )
   let argv = build_tesseract_argv(request)
@@ -16,7 +16,7 @@ test "tesseract argv keeps explicit baseline args and language" {
 test "tesseract injected command covers success and classified failures" {
   let request = make_ocr_provider_request(
     "scan.png",
-    OcrProviderKind::Tesseract,
+    Tesseract,
     language=Some("eng"),
   )
   let tsv = "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n" +
@@ -38,35 +38,31 @@ test "tesseract injected command covers success and classified failures" {
   )
   assert_true(
     run_tesseract_provider_with_command(request, fn(_, _) { Ok((0, "", "")) })
-    is Err(OcrProviderError::EmptyResult(_)),
+    is Err(EmptyResult(_)),
   )
   assert_true(
     run_tesseract_provider_with_command(request, fn(_, _) {
       Ok((127, "", "command not found"))
     })
-    is Err(OcrProviderError::CommandUnavailable(_)),
+    is Err(CommandUnavailable(_)),
   )
   assert_true(
     run_tesseract_provider_with_command(request, fn(_, _) {
       Ok((2, "bad input", ""))
     })
-    is Err(OcrProviderError::ExecutionFailed(_)),
+    is Err(ExecutionFailed(_)),
   )
   assert_true(
     run_tesseract_provider_with_command(request, fn(_, _) {
-      Err(OcrProviderError::ExecutionFailed("collector failed"))
+      Err(ExecutionFailed("collector failed"))
     })
-    is Err(OcrProviderError::ExecutionFailed(_)),
+    is Err(ExecutionFailed(_)),
   )
 }
 
 ///|
 test "tesseract collector captures real subprocess output and launch failures" {
-  let shell = @rtcmd.make_resolved_command(
-    "/bin/sh",
-    "/bin/sh",
-    @rtcmd.ResolvedCommandSource::ExplicitArg,
-  )
+  let shell = @rtcmd.make_resolved_command("/bin/sh", "/bin/sh", ExplicitArg)
   let collected = collect_tesseract_output(shell, [
     "-c", "printf tess-out; printf tess-err >&2; exit 5",
   ]).unwrap()
@@ -78,7 +74,7 @@ test "tesseract collector captures real subprocess output and launch failures" {
       @rtcmd.fallback_command("/definitely/missing/tesseract"),
       [],
     )
-    is Err(OcrProviderError::ExecutionFailed(_)),
+    is Err(ExecutionFailed(_)),
   )
 }
 
@@ -92,7 +88,7 @@ test "tesseract default resolver and provider execute or fail closed reproducibl
   })
   let request = make_ocr_provider_request(
     "samples/fixtures/contracts/ocr/ocr_tiny_png.png",
-    OcrProviderKind::Tesseract,
+    Tesseract,
     language=Some("eng"),
   )
   let command = build_tesseract_tsv_command(request)
@@ -106,17 +102,13 @@ test "tesseract default resolver and provider execute or fail closed reproducibl
     Err(error) => assert_true(error.to_string() != "")
   }
   let no_language = build_tesseract_argv(
-    make_ocr_provider_request(
-      "scan.png",
-      OcrProviderKind::Tesseract,
-      language=Some("   "),
-    ),
+    make_ocr_provider_request("scan.png", Tesseract, language=Some("   ")),
   )
   assert_true(!no_language.contains("-l"))
   let fallback = @rtcmd.fallback_command("tesseract")
   assert_true(
     finalize_tesseract_command_result(request, fallback, (9, "", ""))
-    is Err(OcrProviderError::ExecutionFailed(_)),
+    is Err(ExecutionFailed(_)),
   )
   assert_true(
     finalize_tesseract_command_result(request, fallback, (0, "invalid tsv", ""))

@@ -1,19 +1,19 @@
 ///|
 test "debug JSON event encoder covers every event kind" {
   let kinds : Array[@core.EventKind] = [
-    @core.EventKind::StartDocument,
-    @core.EventKind::EndDocument,
-    @core.EventKind::StartBlock(@core.BlockKind::Paragraph),
-    @core.EventKind::EndBlock(@core.BlockKind::Paragraph),
-    @core.EventKind::Text,
-    @core.EventKind::TextLine,
-    @core.EventKind::BlankLine,
-    @core.EventKind::Cell,
-    @core.EventKind::RowBreak,
-    @core.EventKind::StructureStart,
-    @core.EventKind::StructureEnd,
-    @core.EventKind::Key,
-    @core.EventKind::Scalar,
+    StartDocument,
+    EndDocument,
+    StartBlock(Paragraph),
+    EndBlock(Paragraph),
+    Text,
+    TextLine,
+    BlankLine,
+    Cell,
+    RowBreak,
+    StructureStart,
+    StructureEnd,
+    Key,
+    Scalar,
   ]
   let events = kinds.map(kind => rag_test_event(kind, "value"))
   let encoded = render_debug_json_events(events, @core.empty_diagnostics())
@@ -67,14 +67,14 @@ test "debug JSON block encoder preserves source rich inline and assets" {
     title=Some("Title"),
     source_ref~,
   )
-  let child = @core.make_block(@core.BlockKind::Paragraph, "child", source_ref~)
-  let block = @core.make_block(@core.BlockKind::Heading, "Heading", source_ref~)
+  let child = @core.make_block(Paragraph, "child", source_ref~)
+  let block = @core.make_block(Heading, "Heading", source_ref~)
     |> @core.block_with_attr("z", "last")
     |> @core.block_with_attr("a", "first")
     |> @core.block_with_rich_inlines(Some([inline]))
     |> @core.block_with_children([child])
   let asset = {
-    ..@core.make_asset_ref(@core.AssetKind::Image, "asset-1", source_ref~),
+    ..@core.make_asset_ref(Image, "asset-1", source_ref~),
     path: Some("assets/image.png"),
     mime_type: Some("image/png"),
   }
@@ -98,20 +98,12 @@ test "debug JSON block encoder preserves source rich inline and assets" {
 ///|
 test "debug JSON encodes metadata source maps and diagnostics" {
   let metadata : @core.DocumentMetadata = Map([])
-  metadata.set("string", @core.JsonValue::String("value"))
-  metadata.set("number", @core.JsonValue::Number("42"))
-  metadata.set("bool", @core.JsonValue::Bool(true))
-  metadata.set("null", @core.JsonValue::Null)
-  metadata.set(
-    "array",
-    @core.JsonValue::Array([@core.JsonValue::String("item")]),
-  )
-  metadata.set(
-    "object",
-    @core.JsonValue::Object(
-      Map::from_array([("key", @core.JsonValue::Bool(false))]),
-    ),
-  )
+  metadata.set("string", String("value"))
+  metadata.set("number", Number("42"))
+  metadata.set("bool", Bool(true))
+  metadata.set("null", Null)
+  metadata.set("array", Array([String("item")]))
+  metadata.set("object", Object(Map::from_array([("key", Bool(false))])))
   let metadata_json = render_document_metadata_json(metadata)
   assert_true(metadata_json.contains("\"number\": 42"))
   assert_true(metadata_json.contains("\"bool\": true"))
@@ -140,7 +132,7 @@ test "debug JSON encodes metadata source maps and diagnostics" {
     "binary",
     "tool",
     "required tool",
-    @core.DependencyDiagnosticStatus::Missing,
+    Missing,
     ["brew install tool"],
     ["apt install tool"],
     footer=Some("restart"),

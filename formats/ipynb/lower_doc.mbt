@@ -28,24 +28,22 @@ fn ipynb_document_metadata(
   notebook : @dipynb.IpynbNotebook,
 ) -> @core.DocumentMetadata {
   let metadata : @core.DocumentMetadata = Map([])
-  metadata.set("format", @core.JsonValue::String("ipynb"))
+  metadata.set("format", String("ipynb"))
   match notebook.summary.nbformat {
-    Some(value) =>
-      metadata.set("nbformat", @core.JsonValue::Number(value.to_string()))
+    Some(value) => metadata.set("nbformat", Number(value.to_string()))
     None => ()
   }
   match notebook.summary.nbformat_minor {
-    Some(value) =>
-      metadata.set("nbformat_minor", @core.JsonValue::Number(value.to_string()))
+    Some(value) => metadata.set("nbformat_minor", Number(value.to_string()))
     None => ()
   }
   match notebook.summary.kernelspec_display_name {
-    Some(value) => metadata.set("title", @core.JsonValue::String(value))
+    Some(value) => metadata.set("title", String(value))
     None => ()
   }
   metadata.set(
     "description",
-    @core.JsonValue::String(
+    String(
       "Jupyter notebook with " + notebook.cells.length().to_string() + " cells",
     ),
   )
@@ -58,7 +56,7 @@ fn ipynb_summary_table_block(
   source : @input.InputSource,
 ) -> @core.CoreBlock {
   let table = @core.make_block(
-    @core.BlockKind::Table,
+    Table,
     "table",
     source_ref=ipynb_source_ref(
       source,
@@ -103,7 +101,7 @@ fn ipynb_summary_table_block(
   }
   for i in 0..<rows.length() {
     let row = @core.make_block(
-      @core.BlockKind::TableRow,
+      TableRow,
       "",
       source_ref=ipynb_source_ref(
         source,
@@ -121,7 +119,7 @@ fn ipynb_summary_table_block(
     for cell_text in rows[i] {
       row.children.push(
         @core.make_block(
-          @core.BlockKind::TableCell,
+          TableCell,
           cell_text,
           source_ref=ipynb_source_ref(
             source,
@@ -154,21 +152,19 @@ fn lower_ipynb_cell(
 ) -> Array[@core.CoreBlock] {
   let blocks : Array[@core.CoreBlock] = []
   let language = ipynb_code_language(cell, notebook)
-  if large_literal_markdown && cell.kind == @dipynb.IpynbCellKind::Markdown {
+  if large_literal_markdown && cell.kind == Markdown {
     blocks.push(lower_ipynb_large_markdown_cell(cell, source))
   } else {
     blocks.push(ipynb_cell_label_block(cell, source))
     match cell.kind {
-      @dipynb.IpynbCellKind::Markdown =>
+      Markdown =>
         blocks.append(
           lower_ipynb_markdown_cell(
             cell, source, diagnostics, large_literal_markdown,
           )[:],
         )
-      @dipynb.IpynbCellKind::Code =>
-        blocks.push(ipynb_code_block(cell.source, source, cell, language))
-      @dipynb.IpynbCellKind::Raw | @dipynb.IpynbCellKind::Unknown =>
-        blocks.push(ipynb_raw_block(cell.source, source, cell))
+      Code => blocks.push(ipynb_code_block(cell.source, source, cell, language))
+      Raw | Unknown => blocks.push(ipynb_raw_block(cell.source, source, cell))
     }
   }
   for attachment in cell.attachments {
@@ -214,7 +210,7 @@ fn lower_ipynb_large_markdown_cell(
   source_ref.extra.set("ipynb_compact_cell", "true")
   {
     block_id: "b_ipynb_compact_cell_" + cell.index.to_string(),
-    kind: @core.BlockKind::Raw,
+    kind: Raw,
     text,
     column_index: None,
     rich_inlines: None,
@@ -278,11 +274,7 @@ fn lower_ipynb_markdown_cell(
     None,
   )
   if large_literal_markdown {
-    let block = @core.make_block(
-      @core.BlockKind::Raw,
-      rewritten,
-      source_ref=markdown_source_ref,
-    )
+    let block = @core.make_block(Raw, rewritten, source_ref=markdown_source_ref)
     block.attrs.set("raw_kind", "markdown_literal")
     block.attrs.set("literal", "true")
     return [ipynb_finalize_markdown_block(block, cell)]
@@ -290,7 +282,7 @@ fn lower_ipynb_markdown_cell(
   let parse_source = @input.input_from_text_with_format(
     rewritten,
     source.source_name,
-    Some(@input.DetectedFormat::Markdown),
+    Some(Markdown),
   )
   let scanned = @dmd.scan_markdown_document(rewritten)
   let markdown_blocks = @fmarkdown.markdown_blocks_from_scanned_document_light_with_source_ref(
@@ -314,7 +306,7 @@ fn lower_ipynb_output(
   let output_kind_name = ipynb_output_kind_name(output.kind)
   blocks.push(ipynb_output_label_block(cell, output, output_index, source))
   match output.kind {
-    @dipynb.IpynbOutputKind::Stream =>
+    Stream =>
       blocks.push(
         ipynb_fenced_text_block(
           output.text.unwrap_or(""),
@@ -325,7 +317,7 @@ fn lower_ipynb_output(
           "text",
         ),
       )
-    @dipynb.IpynbOutputKind::Error => {
+    Error => {
       let text = if output.traceback.length() > 0 {
         output.traceback.join("")
       } else {
@@ -428,12 +420,12 @@ fn lower_ipynb_mime_entry(
         let parse_source = @input.input_from_text_with_format(
           text,
           source.source_name,
-          Some(@input.DetectedFormat::Markdown),
+          Some(Markdown),
         )
         let scanned = @dmd.scan_markdown_document(text)
         let parsed = @fmarkdown.markdown_parse_with_scanned_document(
           parse_source,
-          @parser.new_parse_context(@input.DetectedFormat::Markdown),
+          @parser.new_parse_context(Markdown),
           scanned,
           @dmd.inspect_markdown_document(scanned),
         )
@@ -458,7 +450,7 @@ fn lower_ipynb_mime_entry(
             @input.input_from_text_with_format(
               text,
               source.source_name,
-              Some(@input.DetectedFormat::Html),
+              Some(Html),
             ),
             text,
           ) {
@@ -519,13 +511,10 @@ fn lower_ipynb_mime_entry(
     let parse_source = @input.input_from_text_with_format(
       text,
       source.source_name,
-      Some(@input.DetectedFormat::Json),
+      Some(Json),
     )
     let parser = @fjson.json_parser()
-    let result = (parser.parse)(
-      parse_source,
-      @parser.new_parse_context(@input.DetectedFormat::Json),
-    )
+    let result = (parser.parse)(parse_source, @parser.new_parse_context(Json))
     match result {
       Ok(parsed) =>
         match parsed.document {
@@ -604,11 +593,7 @@ fn ipynb_materialize_image_asset(
     None,
     Some(entry.mime_type),
   )
-  let asset = @core.make_asset_ref(
-    @core.AssetKind::Image,
-    asset_id,
-    source_ref~,
-  )
+  let asset = @core.make_asset_ref(Image, asset_id, source_ref~)
   let next_asset = {
     ..asset,
     path: Some(asset_id),
@@ -616,7 +601,7 @@ fn ipynb_materialize_image_asset(
   }
   ipynb_attach_asset_payload(next_asset, entry)
   document.assets.push(next_asset)
-  let block = @core.make_block(@core.BlockKind::Image, "", source_ref~)
+  let block = @core.make_block(Image, "", source_ref~)
   block.attrs.set("asset_id", asset_id)
   block.attrs.set("path", asset_id)
   block.attrs.set("alt", "notebook image")
@@ -646,11 +631,7 @@ fn lower_ipynb_attachment(
         Some(attachment.name),
         Some(entry.mime_type),
       )
-      let asset = @core.make_asset_ref(
-        @core.AssetKind::Image,
-        asset_id,
-        source_ref~,
-      )
+      let asset = @core.make_asset_ref(Image, asset_id, source_ref~)
       let next_asset = {
         ..asset,
         path: Some(asset_id),
@@ -659,7 +640,7 @@ fn lower_ipynb_attachment(
       next_asset.attrs.set("reference_path", "attachment:" + attachment.name)
       ipynb_attach_asset_payload(next_asset, entry)
       document.assets.push(next_asset)
-      let image = @core.make_block(@core.BlockKind::Image, "", source_ref~)
+      let image = @core.make_block(Image, "", source_ref~)
       image.attrs.set("asset_id", asset_id)
       image.attrs.set("path", asset_id)
       image.attrs.set("alt", attachment.name)
@@ -678,11 +659,7 @@ fn lower_ipynb_attachment(
         Some(attachment.name),
         Some(entry.mime_type),
       )
-      let asset = @core.make_asset_ref(
-        @core.AssetKind::Attachment,
-        asset_id,
-        source_ref~,
-      )
+      let asset = @core.make_asset_ref(Attachment, asset_id, source_ref~)
       let next_asset = {
         ..asset,
         path: Some(asset_id),
@@ -692,7 +669,7 @@ fn lower_ipynb_attachment(
       document.assets.push(next_asset)
       blocks.push(
         @core.make_block(
-          @core.BlockKind::Paragraph,
+          Paragraph,
           "[Attachment: " + attachment.name + " | " + entry.mime_type + "]",
           source_ref~,
         ),
@@ -709,7 +686,7 @@ fn ipynb_cell_label_block(
 ) -> @core.CoreBlock {
   let label = ipynb_cell_label_text(cell)
   let block = @core.make_block(
-    @core.BlockKind::Paragraph,
+    Paragraph,
     label,
     source_ref=ipynb_source_ref(
       source,
@@ -730,8 +707,7 @@ fn ipynb_cell_label_block(
 
 ///|
 fn ipynb_cell_label_text(cell : @dipynb.IpynbCell) -> String {
-  if cell.kind == @dipynb.IpynbCellKind::Code &&
-    cell.execution_count is Some(count) {
+  if cell.kind == Code && cell.execution_count is Some(count) {
     "[Cell " +
     (cell.index + 1).to_string() +
     " | code | execution=" +
@@ -754,16 +730,14 @@ fn ipynb_output_label_block(
   source : @input.InputSource,
 ) -> @core.CoreBlock {
   let flavor = match output.kind {
-    @dipynb.IpynbOutputKind::Stream => output.name.unwrap_or("stdout")
-    @dipynb.IpynbOutputKind::DisplayData =>
-      ipynb_preferred_mime_label(output.mime_entries)
-    @dipynb.IpynbOutputKind::ExecuteResult =>
-      ipynb_preferred_mime_label(output.mime_entries)
-    @dipynb.IpynbOutputKind::Error => output.ename.unwrap_or("error")
-    @dipynb.IpynbOutputKind::Unknown => output.output_type
+    Stream => output.name.unwrap_or("stdout")
+    DisplayData => ipynb_preferred_mime_label(output.mime_entries)
+    ExecuteResult => ipynb_preferred_mime_label(output.mime_entries)
+    Error => output.ename.unwrap_or("error")
+    Unknown => output.output_type
   }
   let block = @core.make_block(
-    @core.BlockKind::Paragraph,
+    Paragraph,
     "[Output " +
     (cell.index + 1).to_string() +
     "." +
@@ -798,7 +772,7 @@ fn ipynb_code_block(
   language : String?,
 ) -> @core.CoreBlock {
   let block = @core.make_block(
-    @core.BlockKind::Code,
+    Code,
     text,
     source_ref=ipynb_source_ref(
       source,
@@ -827,7 +801,7 @@ fn ipynb_raw_block(
   cell : @dipynb.IpynbCell,
 ) -> @core.CoreBlock {
   let block = @core.make_block(
-    @core.BlockKind::Code,
+    Code,
     text,
     source_ref=ipynb_source_ref(
       source,
@@ -860,7 +834,7 @@ fn ipynb_plain_or_fenced_text_block(
     )
   } else {
     @core.make_block(
-      @core.BlockKind::Paragraph,
+      Paragraph,
       text,
       source_ref=ipynb_source_ref(
         source,
@@ -888,7 +862,7 @@ fn ipynb_fenced_text_block(
   info : String,
 ) -> @core.CoreBlock {
   let block = @core.make_block(
-    @core.BlockKind::Code,
+    Code,
     text,
     source_ref=ipynb_source_ref(
       source,
@@ -1044,7 +1018,7 @@ fn ipynb_finalize_markdown_block(
   block : @core.CoreBlock,
   cell : @dipynb.IpynbCell,
 ) -> @core.CoreBlock {
-  if block.kind == @core.BlockKind::Image {
+  if block.kind == Image {
     let next = { ..block }
     let alt = next.attrs.get("alt").unwrap_or("").trim().to_owned()
     match ipynb_attachment_for_alt(cell.attachments, alt) {

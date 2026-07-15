@@ -140,7 +140,7 @@ pub fn input_from_path_with_format(
 ) -> InputSource {
   {
     source_name: input_source_name_from_path(path),
-    payload: InputPayload::Path(path),
+    payload: Path(path),
     origin_path: Some(path),
     mime_type: None,
     explicit_format,
@@ -165,7 +165,7 @@ pub fn input_from_text_with_format(
 ) -> InputSource {
   {
     source_name,
-    payload: InputPayload::Text(text),
+    payload: Text(text),
     origin_path: None,
     mime_type: None,
     explicit_format,
@@ -190,7 +190,7 @@ pub fn input_from_bytes_with_format(
 ) -> InputSource {
   {
     source_name,
-    payload: InputPayload::Bytes(bytes),
+    payload: Bytes(bytes),
     origin_path: None,
     mime_type: None,
     explicit_format,
@@ -215,7 +215,7 @@ pub fn input_from_reader_with_format(
 ) -> InputSource {
   {
     source_name,
-    payload: InputPayload::Reader(reader),
+    payload: Reader(reader),
     origin_path: None,
     mime_type: None,
     explicit_format,
@@ -227,13 +227,13 @@ pub fn input_from_reader_with_format(
 /// a payload.
 pub fn input_kind(source : InputSource) -> InputKind {
   match source.origin_path {
-    Some(_) => InputKind::Path
+    Some(_) => Path
     None =>
       match source.payload {
-        InputPayload::Path(_) => InputKind::Path
-        InputPayload::Text(_) => InputKind::Text
-        InputPayload::Bytes(_) => InputKind::Bytes
-        InputPayload::Reader(_) => InputKind::Reader
+        Path(_) => Path
+        Text(_) => Text
+        Bytes(_) => Bytes
+        Reader(_) => Reader
       }
   }
 }
@@ -245,7 +245,7 @@ pub fn input_path(source : InputSource) -> String? {
     Some(path) => Some(path)
     None =>
       match source.payload {
-        InputPayload::Path(path) => Some(path)
+        Path(path) => Some(path)
         _ => None
       }
   }
@@ -255,7 +255,7 @@ pub fn input_path(source : InputSource) -> String? {
 /// Return an attached text payload without materializing another payload kind.
 pub fn input_text(source : InputSource) -> String? {
   match source.payload {
-    InputPayload::Text(text) => Some(text)
+    Text(text) => Some(text)
     _ => None
   }
 }
@@ -264,7 +264,7 @@ pub fn input_text(source : InputSource) -> String? {
 /// Return an attached byte payload without materializing another payload kind.
 pub fn input_bytes(source : InputSource) -> Bytes? {
   match source.payload {
-    InputPayload::Bytes(bytes) => Some(bytes)
+    Bytes(bytes) => Some(bytes)
     _ => None
   }
 }
@@ -273,10 +273,10 @@ pub fn input_bytes(source : InputSource) -> Bytes? {
 /// Return the known payload size without reading an unknown-size source.
 pub fn input_size(source : InputSource) -> Int64? {
   match source.payload {
-    InputPayload::Path(_) => None
-    InputPayload::Text(text) => Some(@utf8.encode(text).length().to_int64())
-    InputPayload::Bytes(bytes) => Some(bytes.length().to_int64())
-    InputPayload::Reader(reader) => reader.size
+    Path(_) => None
+    Text(text) => Some(@utf8.encode(text).length().to_int64())
+    Bytes(bytes) => Some(bytes.length().to_int64())
+    Reader(reader) => reader.size
   }
 }
 
@@ -298,13 +298,13 @@ pub fn with_mime_type(source : InputSource, mime_type : String?) -> InputSource 
 ///|
 /// Return a copy of `source` with an in-memory text payload attached.
 pub fn with_text_payload(source : InputSource, text : String) -> InputSource {
-  { ..source, payload: InputPayload::Text(text) }
+  { ..source, payload: Text(text) }
 }
 
 ///|
 /// Return a copy of `source` with an in-memory byte payload attached.
 pub fn with_bytes_payload(source : InputSource, bytes : Bytes) -> InputSource {
-  { ..source, payload: InputPayload::Bytes(bytes) }
+  { ..source, payload: Bytes(bytes) }
 }
 
 ///|
@@ -354,7 +354,7 @@ pub fn detect_format(source : InputSource) -> FormatDetectionResult {
     Some(path) => format_from_extension(path)
     None => format_from_extension(source.source_name)
   }
-  if extension_format != DetectedFormat::Unknown {
+  if extension_format != Unknown {
     return {
       format: extension_format,
       used_explicit_format: false,
@@ -368,7 +368,7 @@ pub fn detect_format(source : InputSource) -> FormatDetectionResult {
   let lower_name = source.source_name.trim().to_lower()
   if lower_name.has_suffix(".jsonl") {
     return {
-      format: DetectedFormat::Jsonl,
+      format: Jsonl,
       used_explicit_format: false,
       used_extension: true,
       text_like: true,
@@ -378,7 +378,7 @@ pub fn detect_format(source : InputSource) -> FormatDetectionResult {
   }
   if lower_name.has_suffix(".ndjson") {
     return {
-      format: DetectedFormat::Ndjson,
+      format: Ndjson,
       used_explicit_format: false,
       used_extension: true,
       text_like: true,
@@ -394,7 +394,7 @@ pub fn detect_format(source : InputSource) -> FormatDetectionResult {
   let magic_result = if bytes_have_zip_signature(prefix) {
     match detect_container_format_from_source(source) {
       Some(value) => Some(value)
-      None => Some((DetectedFormat::Zip, ["magic_bytes", "zip_signature"]))
+      None => Some((Zip, ["magic_bytes", "zip_signature"]))
     }
   } else {
     detect_format_from_magic_or_container(prefix)
@@ -417,7 +417,7 @@ pub fn detect_format(source : InputSource) -> FormatDetectionResult {
     match detect_ipynb_from_text_bytes(prefix) {
       Some(notes) =>
         return {
-          format: DetectedFormat::Ipynb,
+          format: Ipynb,
           used_explicit_format: false,
           used_extension: false,
           text_like: true,
@@ -427,11 +427,7 @@ pub fn detect_format(source : InputSource) -> FormatDetectionResult {
       None => ()
     }
   }
-  let heuristic_format = if text_like {
-    DetectedFormat::Txt
-  } else {
-    DetectedFormat::Unknown
-  }
+  let heuristic_format = if text_like { DetectedFormat::Txt } else { Unknown }
   let notes : Array[String] = []
   if text_like {
     notes.push("text_heuristic")
@@ -454,36 +450,36 @@ pub fn detect_format(source : InputSource) -> FormatDetectionResult {
 /// provenance output.
 pub fn detected_format_name(format : DetectedFormat) -> String {
   match format {
-    DetectedFormat::Txt => "txt"
-    DetectedFormat::Markdown => "markdown"
-    DetectedFormat::Csv => "csv"
-    DetectedFormat::Tsv => "tsv"
-    DetectedFormat::Srt => "srt"
-    DetectedFormat::Vtt => "vtt"
-    DetectedFormat::Json => "json"
-    DetectedFormat::Jsonl => "jsonl"
-    DetectedFormat::Ndjson => "ndjson"
-    DetectedFormat::Ipynb => "ipynb"
-    DetectedFormat::Xml => "xml"
-    DetectedFormat::Yaml => "yaml"
-    DetectedFormat::Toml => "toml"
-    DetectedFormat::Html => "html"
-    DetectedFormat::Tex => "tex"
-    DetectedFormat::Rst => "rst"
-    DetectedFormat::Asciidoc => "asciidoc"
-    DetectedFormat::Eml => "eml"
-    DetectedFormat::Zip => "zip"
-    DetectedFormat::Epub => "epub"
-    DetectedFormat::Odt => "odt"
-    DetectedFormat::Ods => "ods"
-    DetectedFormat::Odp => "odp"
-    DetectedFormat::Pdf => "pdf"
-    DetectedFormat::Docx => "docx"
-    DetectedFormat::Pptx => "pptx"
-    DetectedFormat::Xlsx => "xlsx"
-    DetectedFormat::Audio(kind) => audio_format_name(kind)
-    DetectedFormat::Image(kind) => image_format_name(kind)
-    DetectedFormat::Unknown => "unknown"
+    Txt => "txt"
+    Markdown => "markdown"
+    Csv => "csv"
+    Tsv => "tsv"
+    Srt => "srt"
+    Vtt => "vtt"
+    Json => "json"
+    Jsonl => "jsonl"
+    Ndjson => "ndjson"
+    Ipynb => "ipynb"
+    Xml => "xml"
+    Yaml => "yaml"
+    Toml => "toml"
+    Html => "html"
+    Tex => "tex"
+    Rst => "rst"
+    Asciidoc => "asciidoc"
+    Eml => "eml"
+    Zip => "zip"
+    Epub => "epub"
+    Odt => "odt"
+    Ods => "ods"
+    Odp => "odp"
+    Pdf => "pdf"
+    Docx => "docx"
+    Pptx => "pptx"
+    Xlsx => "xlsx"
+    Audio(kind) => audio_format_name(kind)
+    Image(kind) => image_format_name(kind)
+    Unknown => "unknown"
   }
 }
 
@@ -491,50 +487,50 @@ pub fn detected_format_name(format : DetectedFormat) -> String {
 /// Parse a user-facing format label into the internal `DetectedFormat` enum.
 pub fn parse_detected_format(name : String) -> DetectedFormat {
   match name.trim().to_lower() {
-    "txt" => DetectedFormat::Txt
-    "md" => DetectedFormat::Markdown
-    "markdown" => DetectedFormat::Markdown
-    "csv" => DetectedFormat::Csv
-    "tsv" => DetectedFormat::Tsv
-    "srt" => DetectedFormat::Srt
-    "vtt" => DetectedFormat::Vtt
-    "json" => DetectedFormat::Json
-    "jsonl" => DetectedFormat::Jsonl
-    "ndjson" => DetectedFormat::Ndjson
-    "ipynb" => DetectedFormat::Ipynb
-    "xml" => DetectedFormat::Xml
-    "yaml" => DetectedFormat::Yaml
-    "yml" => DetectedFormat::Yaml
-    "toml" => DetectedFormat::Toml
-    "html" => DetectedFormat::Html
-    "htm" => DetectedFormat::Html
-    "tex" => DetectedFormat::Tex
-    "latex" => DetectedFormat::Tex
-    "rst" => DetectedFormat::Rst
-    "adoc" => DetectedFormat::Asciidoc
-    "asciidoc" => DetectedFormat::Asciidoc
-    "eml" => DetectedFormat::Eml
-    "msg" => DetectedFormat::Eml
-    "zip" => DetectedFormat::Zip
-    "epub" => DetectedFormat::Epub
-    "odt" => DetectedFormat::Odt
-    "ods" => DetectedFormat::Ods
-    "odp" => DetectedFormat::Odp
-    "pdf" => DetectedFormat::Pdf
-    "docx" => DetectedFormat::Docx
-    "pptx" => DetectedFormat::Pptx
-    "xlsx" => DetectedFormat::Xlsx
-    "wav" => DetectedFormat::Audio(AudioFormat::Wav)
-    "mp3" => DetectedFormat::Audio(AudioFormat::Mp3)
-    "m4a" => DetectedFormat::Audio(AudioFormat::M4a)
-    "png" => DetectedFormat::Image(ImageFormat::Png)
-    "jpg" => DetectedFormat::Image(ImageFormat::Jpg)
-    "jpeg" => DetectedFormat::Image(ImageFormat::Jpeg)
-    "bmp" => DetectedFormat::Image(ImageFormat::Bmp)
-    "webp" => DetectedFormat::Image(ImageFormat::Webp)
-    "tif" => DetectedFormat::Image(ImageFormat::Tif)
-    "tiff" => DetectedFormat::Image(ImageFormat::Tiff)
-    _ => DetectedFormat::Unknown
+    "txt" => Txt
+    "md" => Markdown
+    "markdown" => Markdown
+    "csv" => Csv
+    "tsv" => Tsv
+    "srt" => Srt
+    "vtt" => Vtt
+    "json" => Json
+    "jsonl" => Jsonl
+    "ndjson" => Ndjson
+    "ipynb" => Ipynb
+    "xml" => Xml
+    "yaml" => Yaml
+    "yml" => Yaml
+    "toml" => Toml
+    "html" => Html
+    "htm" => Html
+    "tex" => Tex
+    "latex" => Tex
+    "rst" => Rst
+    "adoc" => Asciidoc
+    "asciidoc" => Asciidoc
+    "eml" => Eml
+    "msg" => Eml
+    "zip" => Zip
+    "epub" => Epub
+    "odt" => Odt
+    "ods" => Ods
+    "odp" => Odp
+    "pdf" => Pdf
+    "docx" => Docx
+    "pptx" => Pptx
+    "xlsx" => Xlsx
+    "wav" => Audio(Wav)
+    "mp3" => Audio(Mp3)
+    "m4a" => Audio(M4a)
+    "png" => Image(Png)
+    "jpg" => Image(Jpg)
+    "jpeg" => Image(Jpeg)
+    "bmp" => Image(Bmp)
+    "webp" => Image(Webp)
+    "tif" => Image(Tif)
+    "tiff" => Image(Tiff)
+    _ => Unknown
   }
 }
 
@@ -542,9 +538,9 @@ pub fn parse_detected_format(name : String) -> DetectedFormat {
 /// Return the stable label for an audio subtype.
 pub fn audio_format_name(format : AudioFormat) -> String {
   match format {
-    AudioFormat::Wav => "wav"
-    AudioFormat::Mp3 => "mp3"
-    AudioFormat::M4a => "m4a"
+    Wav => "wav"
+    Mp3 => "mp3"
+    M4a => "m4a"
   }
 }
 
@@ -552,13 +548,13 @@ pub fn audio_format_name(format : AudioFormat) -> String {
 /// Return the stable label for an image subtype.
 pub fn image_format_name(format : ImageFormat) -> String {
   match format {
-    ImageFormat::Png => "png"
-    ImageFormat::Jpg => "jpg"
-    ImageFormat::Jpeg => "jpeg"
-    ImageFormat::Bmp => "bmp"
-    ImageFormat::Webp => "webp"
-    ImageFormat::Tif => "tif"
-    ImageFormat::Tiff => "tiff"
+    Png => "png"
+    Jpg => "jpg"
+    Jpeg => "jpeg"
+    Bmp => "bmp"
+    Webp => "webp"
+    Tif => "tif"
+    Tiff => "tiff"
   }
 }
 
@@ -566,7 +562,7 @@ pub fn image_format_name(format : ImageFormat) -> String {
 /// Return whether the detected format should enter the image OCR routing path.
 pub fn detected_format_is_image_candidate(format : DetectedFormat) -> Bool {
   match format {
-    DetectedFormat::Image(_) => true
+    Image(_) => true
     _ => false
   }
 }
@@ -579,13 +575,13 @@ pub fn detected_format_is_image_candidate(format : DetectedFormat) -> Bool {
 /// back to filesystem reads.
 pub fn read_input_text(source : InputSource) -> Result[String, String] {
   match source.payload {
-    InputPayload::Text(text) => Ok(text)
-    InputPayload::Bytes(bytes) => decode_input_utf8(bytes)
-    InputPayload::Path(path) =>
+    Text(text) => Ok(text)
+    Bytes(bytes) => decode_input_utf8(bytes)
+    Path(path) =>
       try @fs.read_file_to_string(path, encoding="utf8") |> Ok catch {
         e => Err("read text failed: " + e.to_string())
       }
-    InputPayload::Reader(reader) =>
+    Reader(reader) =>
       read_reader_bytes(reader) |> Result::bind(decode_input_utf8)
   }
 }
@@ -598,13 +594,13 @@ pub fn read_input_text(source : InputSource) -> Result[String, String] {
 /// uniform API regardless of where the input came from.
 pub fn read_input_bytes(source : InputSource) -> Result[Bytes, String] {
   match source.payload {
-    InputPayload::Bytes(bytes) => Ok(bytes)
-    InputPayload::Text(text) => Ok(@utf8.encode(text))
-    InputPayload::Path(path) =>
+    Bytes(bytes) => Ok(bytes)
+    Text(text) => Ok(@utf8.encode(text))
+    Path(path) =>
       try @fs.read_file_to_bytes(path) |> Ok catch {
         e => Err("read bytes failed: " + e.to_string())
       }
-    InputPayload::Reader(reader) => read_reader_bytes(reader)
+    Reader(reader) => read_reader_bytes(reader)
   }
 }
 
@@ -685,25 +681,25 @@ fn format_from_extension(path : String) -> DetectedFormat {
   }
   match last_dot {
     Some(index) => parse_detected_format(trimmed[index + 1:].to_owned())
-    None => DetectedFormat::Unknown
+    None => Unknown
   }
 }
 
 ///|
 fn detected_format_is_binary_like(format : DetectedFormat) -> Bool {
   match format {
-    DetectedFormat::Pdf
-    | DetectedFormat::Eml
-    | DetectedFormat::Zip
-    | DetectedFormat::Epub
-    | DetectedFormat::Odt
-    | DetectedFormat::Ods
-    | DetectedFormat::Odp
-    | DetectedFormat::Docx
-    | DetectedFormat::Pptx
-    | DetectedFormat::Xlsx
-    | DetectedFormat::Audio(_)
-    | DetectedFormat::Image(_) => true
+    Pdf
+    | Eml
+    | Zip
+    | Epub
+    | Odt
+    | Ods
+    | Odp
+    | Docx
+    | Pptx
+    | Xlsx
+    | Audio(_)
+    | Image(_) => true
     _ => false
   }
 }

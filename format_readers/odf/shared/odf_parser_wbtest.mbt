@@ -114,7 +114,7 @@ test "ODT repeated spaces rows and cells expand within materialization limits" {
   ])
   let document = open_odt_document(bytes)
   assert_true(document.blocks.any(block => block.text == "A   B"))
-  let table = document.blocks.filter(block => block.kind == OdtBlockKind::Table)[0]
+  let table = document.blocks.filter(block => block.kind == Table)[0]
   assert_eq(table.rows.length(), 2)
   assert_eq(table.rows[0].cells.length(), 2)
   assert_true(table.rows[0].cells.all(cell => cell.text == "X"))
@@ -145,8 +145,8 @@ test "ODT paragraph styles inherit heading and code semantics" {
   let heading = document.blocks.filter(block => {
       block.text == "Inherited heading"
     })[0]
-  assert_true(heading.kind == OdtBlockKind::Heading)
+  assert_true(heading.kind == Heading)
   assert_true(heading.level == Some(2))
   let code = document.blocks.filter(block => block.text == "let value = 1")[0]
-  assert_true(code.kind == OdtBlockKind::Code)
+  assert_true(code.kind == Code)
 }

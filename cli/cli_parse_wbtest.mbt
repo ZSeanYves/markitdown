@@ -1,83 +1,43 @@
 ///|
 test "main cli product policy exposes text, notebook, markup, container, office, pdf, and image formats" {
-  assert_true(cli_is_supported_format(@input.DetectedFormat::Txt))
-  assert_true(cli_is_supported_format(@input.DetectedFormat::Csv))
-  assert_true(cli_is_supported_format(@input.DetectedFormat::Tsv))
-  assert_true(cli_is_supported_format(@input.DetectedFormat::Srt))
-  assert_true(cli_is_supported_format(@input.DetectedFormat::Vtt))
-  assert_true(cli_is_supported_format(@input.DetectedFormat::Json))
-  assert_true(cli_is_supported_format(@input.DetectedFormat::Jsonl))
-  assert_true(cli_is_supported_format(@input.DetectedFormat::Ndjson))
-  assert_true(cli_is_supported_format(@input.DetectedFormat::Ipynb))
-  assert_true(cli_is_supported_format(@input.DetectedFormat::Xml))
-  assert_true(cli_is_supported_format(@input.DetectedFormat::Yaml))
-  assert_true(cli_is_supported_format(@input.DetectedFormat::Toml))
-  assert_true(cli_is_supported_format(@input.DetectedFormat::Html))
-  assert_true(cli_is_supported_format(@input.DetectedFormat::Eml))
-  assert_true(cli_is_supported_format(@input.DetectedFormat::Markdown))
-  assert_true(cli_is_supported_format(@input.DetectedFormat::Tex))
-  assert_true(cli_is_supported_format(@input.DetectedFormat::Rst))
-  assert_true(cli_is_supported_format(@input.DetectedFormat::Asciidoc))
-  assert_true(cli_is_supported_format(@input.DetectedFormat::Zip))
-  assert_true(cli_is_supported_format(@input.DetectedFormat::Epub))
-  assert_true(cli_is_supported_format(@input.DetectedFormat::Odt))
-  assert_true(cli_is_supported_format(@input.DetectedFormat::Ods))
-  assert_true(cli_is_supported_format(@input.DetectedFormat::Odp))
-  assert_true(cli_is_supported_format(@input.DetectedFormat::Docx))
-  assert_true(cli_is_supported_format(@input.DetectedFormat::Xlsx))
-  assert_true(cli_is_supported_format(@input.DetectedFormat::Pptx))
-  assert_true(cli_is_supported_format(@input.DetectedFormat::Pdf))
-  assert_true(
-    cli_is_supported_format(
-      @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
-    ),
-  )
-  assert_true(
-    cli_is_supported_format(
-      @input.DetectedFormat::Audio(@input.AudioFormat::Mp3),
-    ),
-  )
-  assert_true(
-    cli_is_supported_format(
-      @input.DetectedFormat::Audio(@input.AudioFormat::M4a),
-    ),
-  )
-  assert_true(
-    cli_is_supported_format(
-      @input.DetectedFormat::Image(@input.ImageFormat::Png),
-    ),
-  )
-  assert_true(
-    cli_is_supported_format(
-      @input.DetectedFormat::Image(@input.ImageFormat::Jpg),
-    ),
-  )
-  assert_true(
-    cli_is_supported_format(
-      @input.DetectedFormat::Image(@input.ImageFormat::Jpeg),
-    ),
-  )
-  assert_true(
-    cli_is_supported_format(
-      @input.DetectedFormat::Image(@input.ImageFormat::Bmp),
-    ),
-  )
-  assert_true(
-    cli_is_supported_format(
-      @input.DetectedFormat::Image(@input.ImageFormat::Webp),
-    ),
-  )
-  assert_true(
-    cli_is_supported_format(
-      @input.DetectedFormat::Image(@input.ImageFormat::Tif),
-    ),
-  )
-  assert_true(
-    cli_is_supported_format(
-      @input.DetectedFormat::Image(@input.ImageFormat::Tiff),
-    ),
-  )
-  assert_true(!cli_is_supported_format(@input.DetectedFormat::Unknown))
+  assert_true(cli_is_supported_format(Txt))
+  assert_true(cli_is_supported_format(Csv))
+  assert_true(cli_is_supported_format(Tsv))
+  assert_true(cli_is_supported_format(Srt))
+  assert_true(cli_is_supported_format(Vtt))
+  assert_true(cli_is_supported_format(Json))
+  assert_true(cli_is_supported_format(Jsonl))
+  assert_true(cli_is_supported_format(Ndjson))
+  assert_true(cli_is_supported_format(Ipynb))
+  assert_true(cli_is_supported_format(Xml))
+  assert_true(cli_is_supported_format(Yaml))
+  assert_true(cli_is_supported_format(Toml))
+  assert_true(cli_is_supported_format(Html))
+  assert_true(cli_is_supported_format(Eml))
+  assert_true(cli_is_supported_format(Markdown))
+  assert_true(cli_is_supported_format(Tex))
+  assert_true(cli_is_supported_format(Rst))
+  assert_true(cli_is_supported_format(Asciidoc))
+  assert_true(cli_is_supported_format(Zip))
+  assert_true(cli_is_supported_format(Epub))
+  assert_true(cli_is_supported_format(Odt))
+  assert_true(cli_is_supported_format(Ods))
+  assert_true(cli_is_supported_format(Odp))
+  assert_true(cli_is_supported_format(Docx))
+  assert_true(cli_is_supported_format(Xlsx))
+  assert_true(cli_is_supported_format(Pptx))
+  assert_true(cli_is_supported_format(Pdf))
+  assert_true(cli_is_supported_format(Audio(Wav)))
+  assert_true(cli_is_supported_format(Audio(Mp3)))
+  assert_true(cli_is_supported_format(Audio(M4a)))
+  assert_true(cli_is_supported_format(Image(Png)))
+  assert_true(cli_is_supported_format(Image(Jpg)))
+  assert_true(cli_is_supported_format(Image(Jpeg)))
+  assert_true(cli_is_supported_format(Image(Bmp)))
+  assert_true(cli_is_supported_format(Image(Webp)))
+  assert_true(cli_is_supported_format(Image(Tif)))
+  assert_true(cli_is_supported_format(Image(Tiff)))
+  assert_true(!cli_is_supported_format(Unknown))
   let supported = [
     "txt", "csv", "tsv", "srt", "vtt", "json", "jsonl", "ndjson", "ipynb", "xml",
     "yaml", "yml", "toml", "html", "htm", "markdown", "md", "eml", "msg", "tex",
@@ -130,14 +90,13 @@ test "main cli product policy exposes text, notebook, markup, container, office,
 ///|
 test "main cli parses msg as eml alias" {
   match parse_cli_options(["--format", "msg", "mail.msg"]) {
-    Ok(opts) =>
-      assert_true(opts.explicit_format == Some(@input.DetectedFormat::Eml))
+    Ok(opts) => assert_true(opts.explicit_format == Some(Eml))
     Err(msg) => fail("expected msg alias to parse: " + msg)
   }
 
   match parse_cli_options(["mail.msg"]) {
     Ok(opts) => {
-      assert_true(cli_requested_format(opts) == @input.DetectedFormat::Eml)
+      assert_true(cli_requested_format(opts) == Eml)
       assert_eq(cli_requested_format_label(opts), "eml")
     }
     Err(msg) => fail("expected implicit msg alias to parse: " + msg)
@@ -155,10 +114,7 @@ test "main cli accepts known image extensions as supported formats" {
 
   let explicit = parse_explicit_format(Some("png"))
   match explicit {
-    Ok(Some(format)) =>
-      assert_true(
-        format == @input.DetectedFormat::Image(@input.ImageFormat::Png),
-      )
+    Ok(Some(format)) => assert_true(format == Image(Png))
     Ok(None) => fail("expected explicit png format to parse")
     Err(msg) => fail("expected explicit png format to stay supported: " + msg)
   }
@@ -168,7 +124,7 @@ test "main cli accepts known image extensions as supported formats" {
 test "main cli parses explicit OCR intent flags" {
   match parse_cli_options(["--ocr", "--ocr-lang", "eng", "tiny.png"]) {
     Ok(opts) => {
-      assert_true(opts.ocr_options.intent == @parser.OcrIntent::Explicit)
+      assert_true(opts.ocr_options.intent == Explicit)
       assert_true(opts.ocr_options.language == Some("eng"))
     }
     Err(msg) => fail("expected OCR flags to parse: " + msg)
@@ -176,7 +132,7 @@ test "main cli parses explicit OCR intent flags" {
 
   match parse_cli_options(["--no-ocr", "tiny.png"]) {
     Ok(opts) => {
-      assert_true(opts.ocr_options.intent == @parser.OcrIntent::Disabled)
+      assert_true(opts.ocr_options.intent == Disabled)
       assert_true(opts.ocr_options.language == None)
     }
     Err(msg) => fail("expected --no-ocr to parse: " + msg)
@@ -184,7 +140,7 @@ test "main cli parses explicit OCR intent flags" {
 
   match parse_cli_options(["tiny.png"]) {
     Ok(opts) => {
-      assert_true(opts.ocr_options.intent == @parser.OcrIntent::Explicit)
+      assert_true(opts.ocr_options.intent == Explicit)
       assert_true(opts.ocr_options.language == None)
     }
     Err(msg) => fail("expected direct image input to default to OCR: " + msg)
@@ -192,7 +148,7 @@ test "main cli parses explicit OCR intent flags" {
 
   match parse_cli_options(["--ocr-lang", "eng", "tiny.png"]) {
     Ok(opts) => {
-      assert_true(opts.ocr_options.intent == @parser.OcrIntent::Explicit)
+      assert_true(opts.ocr_options.intent == Explicit)
       assert_true(opts.ocr_options.language == Some("eng"))
     }
     Err(msg) => fail("expected direct image input to accept --ocr-lang: " + msg)
@@ -209,66 +165,52 @@ test "main cli parses explicit OCR intent flags" {
 
 ///|
 test "main cli keeps --debug and rejects retired --json alias" {
-  match
-    parse_cli_options_from_index(
-      ["tiny.txt"],
-      0,
-      mode=@convert.ConvertMode::Accurate,
-    ) {
+  match parse_cli_options_from_index(["tiny.txt"], 0, mode=Accurate) {
     Ok(opts) => {
-      assert_true(opts.fidelity_mode == @convert.FidelityMode::Accurate)
-      assert_true(opts.convert_mode == @convert.ConvertMode::Accurate)
-      assert_true(opts.output_mode == @convert.OutputMode::Markdown)
-      assert_true(opts.output_format == @convert.OutputFormat::Markdown)
+      assert_true(opts.fidelity_mode == Accurate)
+      assert_true(opts.convert_mode == Accurate)
+      assert_true(opts.output_mode == Markdown)
+      assert_true(opts.output_format == Markdown)
     }
     Err(msg) => fail("expected accurate mode to parse: " + msg)
   }
 
   match
-    parse_cli_options_from_index(
-      ["--debug", "tiny.txt"],
-      0,
-      mode=@convert.ConvertMode::Accurate,
-    ) {
+    parse_cli_options_from_index(["--debug", "tiny.txt"], 0, mode=Accurate) {
     Ok(opts) => {
-      assert_true(opts.fidelity_mode == @convert.FidelityMode::Accurate)
-      assert_true(opts.convert_mode == @convert.ConvertMode::Accurate)
-      assert_true(opts.output_mode == @convert.OutputMode::Debug)
-      assert_true(opts.output_format == @convert.OutputFormat::DebugJson)
+      assert_true(opts.fidelity_mode == Accurate)
+      assert_true(opts.convert_mode == Accurate)
+      assert_true(opts.output_mode == Debug)
+      assert_true(opts.output_format == DebugJson)
     }
     Err(msg) => fail("expected accurate --debug to parse: " + msg)
   }
 
-  match
-    parse_cli_options_from_index(
-      ["--rag", "tiny.txt"],
-      0,
-      mode=@convert.ConvertMode::Accurate,
-    ) {
+  match parse_cli_options_from_index(["--rag", "tiny.txt"], 0, mode=Accurate) {
     Ok(opts) => {
-      assert_true(opts.fidelity_mode == @convert.FidelityMode::Accurate)
-      assert_true(opts.convert_mode == @convert.ConvertMode::Accurate)
-      assert_true(opts.output_mode == @convert.OutputMode::Rag)
-      assert_true(opts.output_format == @convert.OutputFormat::RagJson)
+      assert_true(opts.fidelity_mode == Accurate)
+      assert_true(opts.convert_mode == Accurate)
+      assert_true(opts.output_mode == Rag)
+      assert_true(opts.output_format == RagJson)
     }
     Err(msg) => fail("expected accurate --rag to parse: " + msg)
   }
 
   match parse_cli_options(["--debug", "tiny.txt"]) {
     Ok(opts) => {
-      assert_true(opts.convert_mode == @convert.ConvertMode::Balanced)
+      assert_true(opts.convert_mode == Balanced)
       assert_true(!opts.stream_requested)
-      assert_true(opts.output_mode == @convert.OutputMode::Debug)
-      assert_true(opts.output_format == @convert.OutputFormat::DebugJson)
+      assert_true(opts.output_mode == Debug)
+      assert_true(opts.output_format == DebugJson)
     }
     Err(msg) => fail("expected --debug to parse: " + msg)
   }
 
   match parse_cli_options(["--rag", "tiny.txt"]) {
     Ok(opts) => {
-      assert_true(opts.convert_mode == @convert.ConvertMode::Balanced)
-      assert_true(opts.output_mode == @convert.OutputMode::Rag)
-      assert_true(opts.output_format == @convert.OutputFormat::RagJson)
+      assert_true(opts.convert_mode == Balanced)
+      assert_true(opts.output_mode == Rag)
+      assert_true(opts.output_format == RagJson)
       assert_eq(
         opts.rag_options.chunk_size,
         @rag.default_rag_options().chunk_size,
@@ -290,47 +232,32 @@ test "main cli keeps --debug and rejects retired --json alias" {
     Ok(_) => fail("expected --debug and --rag to conflict")
   }
 
-  match
-    parse_cli_options_from_index(
-      ["tiny.txt"],
-      0,
-      mode=@convert.ConvertMode::Stream,
-    ) {
+  match parse_cli_options_from_index(["tiny.txt"], 0, mode=Stream) {
     Ok(opts) => {
       assert_true(opts.stream_requested)
-      assert_true(opts.convert_mode == @convert.ConvertMode::Stream)
-      assert_true(opts.output_mode == @convert.OutputMode::Markdown)
-      assert_true(opts.output_format == @convert.OutputFormat::Markdown)
+      assert_true(opts.convert_mode == Stream)
+      assert_true(opts.output_mode == Markdown)
+      assert_true(opts.output_format == Markdown)
     }
     Err(msg) => fail("expected stream mode to parse: " + msg)
   }
 
-  match
-    parse_cli_options_from_index(
-      ["--debug", "tiny.txt"],
-      0,
-      mode=@convert.ConvertMode::Stream,
-    ) {
+  match parse_cli_options_from_index(["--debug", "tiny.txt"], 0, mode=Stream) {
     Ok(opts) => {
       assert_true(opts.stream_requested)
-      assert_true(opts.convert_mode == @convert.ConvertMode::Stream)
-      assert_true(opts.output_mode == @convert.OutputMode::Debug)
-      assert_true(opts.output_format == @convert.OutputFormat::DebugJson)
+      assert_true(opts.convert_mode == Stream)
+      assert_true(opts.output_mode == Debug)
+      assert_true(opts.output_format == DebugJson)
     }
     Err(msg) => fail("expected stream --debug to parse: " + msg)
   }
 
-  match
-    parse_cli_options_from_index(
-      ["--rag", "tiny.txt"],
-      0,
-      mode=@convert.ConvertMode::Stream,
-    ) {
+  match parse_cli_options_from_index(["--rag", "tiny.txt"], 0, mode=Stream) {
     Ok(opts) => {
       assert_true(opts.stream_requested)
-      assert_true(opts.convert_mode == @convert.ConvertMode::Stream)
-      assert_true(opts.output_mode == @convert.OutputMode::Rag)
-      assert_true(opts.output_format == @convert.OutputFormat::RagJson)
+      assert_true(opts.convert_mode == Stream)
+      assert_true(opts.output_mode == Rag)
+      assert_true(opts.output_format == RagJson)
     }
     Err(msg) => fail("expected stream --rag to parse: " + msg)
   }
@@ -383,7 +310,7 @@ test "main cli rejects conflicting OCR intent flags" {
 test "main cli constrains --ocr-lang to OCR-capable routes" {
   match parse_cli_options(["--ocr-lang", "eng", "tiny.png"]) {
     Ok(opts) => {
-      assert_true(opts.ocr_options.intent == @parser.OcrIntent::Explicit)
+      assert_true(opts.ocr_options.intent == Explicit)
       assert_true(opts.ocr_options.language == Some("eng"))
     }
     Err(msg) => fail("expected direct image --ocr-lang to parse: " + msg)
@@ -409,15 +336,10 @@ test "main cli constrains --ocr-lang to OCR-capable routes" {
     Ok(_) => fail("expected balanced pdf --ocr to fail closed")
   }
 
-  match
-    parse_cli_options_from_index(
-      ["tiny.pdf"],
-      0,
-      mode=@convert.ConvertMode::Accurate,
-    ) {
+  match parse_cli_options_from_index(["tiny.pdf"], 0, mode=Accurate) {
     Ok(opts) => {
-      assert_true(opts.fidelity_mode == @convert.FidelityMode::Accurate)
-      assert_true(opts.ocr_options.intent == @parser.OcrIntent::Explicit)
+      assert_true(opts.fidelity_mode == Accurate)
+      assert_true(opts.ocr_options.intent == Explicit)
       assert_true(opts.input == "tiny.pdf")
     }
     Err(msg) => fail("expected accurate pdf mode to parse: " + msg)
@@ -502,21 +424,16 @@ test "main cli can parse options from either implicit or explicit mode position"
     Ok(opts) => {
       assert_eq(opts.input, "demo.txt")
       assert_true(opts.output == None)
-      assert_true(opts.convert_mode == @convert.ConvertMode::Balanced)
+      assert_true(opts.convert_mode == Balanced)
     }
     Err(msg) => fail("expected implicit convert argv to parse: " + msg)
   }
 
-  match
-    parse_cli_options_from_index(
-      ["demo.txt", "out.md"],
-      0,
-      mode=@convert.ConvertMode::Accurate,
-    ) {
+  match parse_cli_options_from_index(["demo.txt", "out.md"], 0, mode=Accurate) {
     Ok(opts) => {
       assert_eq(opts.input, "demo.txt")
       assert_true(opts.output == Some("out.md"))
-      assert_true(opts.convert_mode == @convert.ConvertMode::Accurate)
+      assert_true(opts.convert_mode == Accurate)
     }
     Err(msg) => fail("expected explicit accurate mode argv to parse: " + msg)
   }

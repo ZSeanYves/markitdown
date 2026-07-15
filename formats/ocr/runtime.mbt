@@ -70,23 +70,22 @@ fn ocr_image_bytes_match_format(
   format : @input.DetectedFormat,
 ) -> Bool {
   match format {
-    @input.DetectedFormat::Image(@input.ImageFormat::Png) =>
+    Image(Png) =>
       bytes.length() >= 8 &&
       bytes[0].to_int() == 0x89 &&
       bytes[1].to_int() == 0x50 &&
       bytes[2].to_int() == 0x4E &&
       bytes[3].to_int() == 0x47
-    @input.DetectedFormat::Image(@input.ImageFormat::Jpg)
-    | @input.DetectedFormat::Image(@input.ImageFormat::Jpeg) =>
+    Image(Jpg) | Image(Jpeg) =>
       bytes.length() >= 3 &&
       bytes[0].to_int() == 0xFF &&
       bytes[1].to_int() == 0xD8 &&
       bytes[2].to_int() == 0xFF
-    @input.DetectedFormat::Image(@input.ImageFormat::Bmp) =>
+    Image(Bmp) =>
       bytes.length() >= 2 &&
       bytes[0].to_int() == 0x42 &&
       bytes[1].to_int() == 0x4D
-    @input.DetectedFormat::Image(@input.ImageFormat::Webp) =>
+    Image(Webp) =>
       bytes.length() >= 12 &&
       bytes[0].to_int() == 0x52 &&
       bytes[1].to_int() == 0x49 &&
@@ -96,8 +95,7 @@ fn ocr_image_bytes_match_format(
       bytes[9].to_int() == 0x45 &&
       bytes[10].to_int() == 0x42 &&
       bytes[11].to_int() == 0x50
-    @input.DetectedFormat::Image(@input.ImageFormat::Tif)
-    | @input.DetectedFormat::Image(@input.ImageFormat::Tiff) =>
+    Image(Tif) | Image(Tiff) =>
       bytes.length() >= 4 &&
       (
         (
@@ -122,8 +120,8 @@ pub fn run_ocr_provider(
   request : OcrProviderRequest,
 ) -> Result[OcrProviderResult, OcrProviderError] {
   match request.provider_kind {
-    OcrProviderKind::Tesseract => run_tesseract_provider(request)
-    OcrProviderKind::PaddleOcr => run_paddle_ocr_provider(request)
+    Tesseract => run_tesseract_provider(request)
+    PaddleOcr => run_paddle_ocr_provider(request)
   }
 }
 
@@ -139,8 +137,8 @@ pub async fn run_ocr_provider_async(
   request : OcrProviderRequest,
 ) -> Result[OcrProviderResult, OcrProviderError] {
   match request.provider_kind {
-    OcrProviderKind::Tesseract => run_tesseract_provider_async(request)
-    OcrProviderKind::PaddleOcr => run_paddle_ocr_provider_async(request)
+    Tesseract => run_tesseract_provider_async(request)
+    PaddleOcr => run_paddle_ocr_provider_async(request)
   }
 }
 
@@ -156,8 +154,7 @@ pub fn ocr_provider_fallback_for_target(
   target : OcrProviderSelectionTarget,
 ) -> (OcrProviderKind, OcrProviderKind)? {
   match target {
-    OcrProviderSelectionTarget::DirectImageAccurate =>
-      Some((OcrProviderKind::PaddleOcr, OcrProviderKind::Tesseract))
+    DirectImageAccurate => Some((PaddleOcr, Tesseract))
     _ => None
   }
 }
@@ -205,12 +202,10 @@ fn paddle_ocr_split_command_config_error(
   error : @rtcmd.ShellCommandSplitError,
 ) -> OcrProviderError {
   let detail = match error {
-    @rtcmd.ShellCommandSplitError::TrailingEscape =>
-      "ends with a trailing escape."
-    @rtcmd.ShellCommandSplitError::UnterminatedQuotes =>
-      "contains unterminated quotes."
+    TrailingEscape => "ends with a trailing escape."
+    UnterminatedQuotes => "contains unterminated quotes."
   }
-  OcrProviderError::NotConfigured(
+  NotConfigured(
     "PaddleOCR provider command configured through `" +
     env_var +
     "` is not shell-parseable on this runtime. It " +
@@ -427,8 +422,7 @@ fn build_paddle_ocr_command_plan(
       return build_paddle_ocr_command_plan_with_wrapper_resolution(
         request, wrapper,
       )
-    Ok(None) =>
-      Err(OcrProviderError::NotConfigured(paddle_ocr_not_configured_message()))
+    Ok(None) => Err(NotConfigured(paddle_ocr_not_configured_message()))
     Err(error) => Err(error)
   }
 }
@@ -451,9 +445,7 @@ fn build_paddle_ocr_command_plan_with_wrapper(
 ) -> Result[PaddleOcrCommandPlan, OcrProviderError] {
   let trimmed = wrapper_command.trim().to_owned()
   if trimmed == "" {
-    return Err(
-      OcrProviderError::NotConfigured(paddle_ocr_not_configured_message()),
-    )
+    return Err(NotConfigured(paddle_ocr_not_configured_message()))
   }
   let parts = match @rtcmd.split_shell_command(trimmed) {
     Ok(value) => value
@@ -466,16 +458,11 @@ fn build_paddle_ocr_command_plan_with_wrapper(
       )
   }
   if parts.length() == 0 {
-    return Err(
-      OcrProviderError::NotConfigured(paddle_ocr_not_configured_message()),
-    )
+    return Err(NotConfigured(paddle_ocr_not_configured_message()))
   }
   build_paddle_ocr_command_plan_with_wrapper_resolution(
     request,
-    paddle_wrapper_resolution_from_parts(
-      parts,
-      @rtcmd.ResolvedCommandSource::EnvVar,
-    ),
+    paddle_wrapper_resolution_from_parts(parts, EnvVar),
   )
 }
 
@@ -489,7 +476,7 @@ fn resolve_repo_managed_paddle_wrapper() -> PaddleWrapperCommandResolution? {
   Some(
     paddle_wrapper_resolution_from_parts(
       [python_path, paddle_ocr_default_wrapper_path()],
-      @rtcmd.ResolvedCommandSource::RepoManaged,
+      RepoManaged,
     ),
   )
 }
@@ -512,18 +499,9 @@ fn resolve_paddle_wrapper_command_from_env() -> Result[
           )
       }
       if parts.length() == 0 {
-        return Err(
-          OcrProviderError::NotConfigured(paddle_ocr_not_configured_message()),
-        )
+        return Err(NotConfigured(paddle_ocr_not_configured_message()))
       }
-      Ok(
-        Some(
-          paddle_wrapper_resolution_from_parts(
-            parts,
-            @rtcmd.ResolvedCommandSource::EnvVar,
-          ),
-        ),
-      )
+      Ok(Some(paddle_wrapper_resolution_from_parts(parts, EnvVar)))
     }
     None => Ok(None)
   }
@@ -540,7 +518,7 @@ fn resolve_paddle_wrapper_from_runtime_python_env() -> Result[
         resolve_checked_in_paddle_wrapper(
           path,
           runtime_python_env_var(),
-          @rtcmd.ResolvedCommandSource::EnvVar,
+          EnvVar,
         ) {
         Ok(wrapper) => Ok(Some(wrapper))
         Err(error) => Err(error)
@@ -556,19 +534,13 @@ fn resolve_checked_in_paddle_wrapper(
   source : @rtcmd.ResolvedCommandSource,
 ) -> Result[PaddleWrapperCommandResolution, OcrProviderError] {
   if !@fs.path_exists(paddle_ocr_default_wrapper_path()) {
-    return Err(
-      OcrProviderError::NotConfigured(official_paddle_wrapper_missing_message()),
-    )
+    return Err(NotConfigured(official_paddle_wrapper_missing_message()))
   }
   let python = match
     @rtcmd.resolve_executable_path(python_path, label, source) {
     Ok(value) => value
     Err(msg) =>
-      return Err(
-        OcrProviderError::NotConfigured(
-          msg + "\n\n" + paddle_ocr_install_hint(),
-        ),
-      )
+      return Err(NotConfigured(msg + "\n\n" + paddle_ocr_install_hint()))
   }
   Ok(
     paddle_wrapper_resolution_from_parts(
@@ -587,7 +559,7 @@ fn build_paddle_ocr_command_plan_with_wrapper_resolution(
   ocr_runtime_ensure_dir_tree(temp_dir) catch {
     e =>
       return Err(
-        OcrProviderError::ExecutionFailed(
+        ExecutionFailed(
           "failed to create PaddleOCR runtime temp dir: " + e.to_string(),
         ),
       )
@@ -601,7 +573,7 @@ fn build_paddle_ocr_command_plan_with_wrapper_resolution(
   ) catch {
     e =>
       return Err(
-        OcrProviderError::ExecutionFailed(
+        ExecutionFailed(
           "failed to write PaddleOCR batch request JSON: " + e.to_string(),
         ),
       )
@@ -774,7 +746,7 @@ fn finalize_paddle_ocr_command_result(
       let payload = @fs.read_file_to_string(result_json_path, encoding="utf8") catch {
         e =>
           return Err(
-            OcrProviderError::OutputParseFailed(
+            OutputParseFailed(
               "PaddleOCR wrapper did not produce a readable result JSON on this runtime: " +
               e.to_string(),
             ),
@@ -815,7 +787,7 @@ fn finalize_paddle_ocr_command_result(
         lowered.contains("not found") ||
         lowered.contains("no such file") {
         Err(
-          OcrProviderError::CommandUnavailable(
+          CommandUnavailable(
             "PaddleOCR wrapper command is unavailable on this runtime: " +
             raw_message +
             "\nResolved command: " +
@@ -826,7 +798,7 @@ fn finalize_paddle_ocr_command_result(
         )
       } else {
         Err(
-          OcrProviderError::ExecutionFailed(
+          ExecutionFailed(
             "PaddleOCR wrapper command failed on this runtime: " +
             raw_message +
             "\nResolved command: " +

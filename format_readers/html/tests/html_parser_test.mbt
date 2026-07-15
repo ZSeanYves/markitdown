@@ -12,9 +12,7 @@ test "html stable facade handles doctype comments nested elements and multiple t
   let issues = @html.collect_html_validation_issues(doc)
   let validation = @html.validate_html_document(doc)
   let report = @html.inspect_html_document(doc)
-  let info = @html.classify_html_error(
-    @html.HtmlError::ParseError("expected name"),
-  )
+  let info = @html.classify_html_error(ParseError("expected name"))
 
   assert_true(doc.has_doctype)
   assert_eq(doc.nodes.length(), 4)
@@ -25,7 +23,7 @@ test "html stable facade handles doctype comments nested elements and multiple t
   assert_eq(report.heading_element_count, 1)
   assert_eq(report.image_element_count, 1)
   assert_eq(report.issue_count, 0)
-  assert_true(info.kind == @html.HtmlErrorKind::InvalidName)
+  assert_true(info.kind == InvalidName)
 }
 
 ///|
@@ -46,25 +44,23 @@ test "html parser preserves raw script style content and flags unsafe urls witho
   assert_eq(validation.issue_count, 3)
 
   let kinds = validation.issues.map(fn(issue) { issue.kind })
-  assert_true(kinds[0] == @html.HtmlValidationIssueKind::ScriptElement)
-  assert_true(kinds[1] == @html.HtmlValidationIssueKind::StyleElement)
-  assert_true(kinds[2] == @html.HtmlValidationIssueKind::UnsafeUrl)
+  assert_true(kinds[0] == ScriptElement)
+  assert_true(kinds[1] == StyleElement)
+  assert_true(kinds[2] == UnsafeUrl)
 
   match doc.nodes[0] {
-    @html.HtmlNode::Element(script) =>
+    Element(script) =>
       match script.children[0] {
-        @html.HtmlNode::Text(text) =>
-          assert_true(text.text.contains("if (a < b) alert(1);"))
+        Text(text) => assert_true(text.text.contains("if (a < b) alert(1);"))
         _ => fail("expected raw script text child")
       }
     _ => fail("expected first node to be script element")
   }
 
   match doc.nodes[1] {
-    @html.HtmlNode::Element(style) =>
+    Element(style) =>
       match style.children[0] {
-        @html.HtmlNode::Text(text) =>
-          assert_true(text.text.contains(".x { color: red; }"))
+        Text(text) => assert_true(text.text.contains(".x { color: red; }"))
         _ => fail("expected raw style text child")
       }
     _ => fail("expected second node to be style element")
@@ -77,16 +73,13 @@ test "html parser keeps empty documents explicit and classifies malformed hard e
   let empty_validation = @html.validate_html_document(empty)
   let empty_report = @html.inspect_html_document(empty)
   assert_eq(empty_validation.issue_count, 1)
-  assert_true(
-    empty_validation.issues[0].kind ==
-    @html.HtmlValidationIssueKind::EmptyDocument,
-  )
+  assert_true(empty_validation.issues[0].kind == EmptyDocument)
   assert_true(empty_report.is_empty)
 
   let bad_cases : Array[(String, @html.HtmlErrorKind)] = [
-    ("<!-- broken", @html.HtmlErrorKind::UnterminatedComment),
-    ("<div class=\"x></div>", @html.HtmlErrorKind::MalformedAttribute),
-    ("<div", @html.HtmlErrorKind::UnterminatedTag),
+    ("<!-- broken", UnterminatedComment),
+    ("<div class=\"x></div>", MalformedAttribute),
+    ("<div", UnterminatedTag),
   ]
 
   for i in 0..<bad_cases.length() {
@@ -98,19 +91,13 @@ test "html parser keeps empty documents explicit and classifies malformed hard e
       is Err(_),
     )
     let info = match expected_kind {
-      @html.HtmlErrorKind::UnterminatedComment =>
-        @html.classify_html_error(
-          @html.HtmlError::ParseError("unterminated comment"),
-        )
-      @html.HtmlErrorKind::MalformedAttribute =>
-        @html.classify_html_error(
-          @html.HtmlError::ParseError("unterminated attribute value"),
-        )
-      @html.HtmlErrorKind::UnterminatedTag =>
-        @html.classify_html_error(
-          @html.HtmlError::ParseError("unterminated start tag"),
-        )
-      _ => @html.classify_html_error(@html.HtmlError::ParseError("unknown"))
+      UnterminatedComment =>
+        @html.classify_html_error(ParseError("unterminated comment"))
+      MalformedAttribute =>
+        @html.classify_html_error(ParseError("unterminated attribute value"))
+      UnterminatedTag =>
+        @html.classify_html_error(ParseError("unterminated start tag"))
+      _ => @html.classify_html_error(ParseError("unknown"))
     }
     assert_true(info.kind == expected_kind)
   }

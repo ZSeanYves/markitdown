@@ -148,7 +148,7 @@ fn lower_xml_document(
   match doc.root {
     Some(root) => {
       let heading = @core.make_block(
-        @core.BlockKind::Heading,
+        Heading,
         "<" + root.name + ">",
         source_ref=xml_element_source_ref(source, root, "/" + root.name),
       )
@@ -156,7 +156,7 @@ fn lower_xml_document(
       heading.attrs.set("literal", "true")
       document.blocks.push(heading)
       let list = @core.make_block(
-        @core.BlockKind::List,
+        List,
         "",
         source_ref=xml_element_source_ref(source, root, "/" + root.name),
       )
@@ -180,7 +180,7 @@ fn xml_generic_block_events_from_tokens(
   if blocks.length() == 0 {
     return events
   }
-  if blocks[0].kind == @core.BlockKind::Heading {
+  if blocks[0].kind == Heading {
     xml_append_generic_block_events(events, blocks[0])
     if blocks.length() > 1 {
       xml_append_generic_block_events(events, blocks[1])
@@ -213,11 +213,11 @@ fn xml_compact_outline_events_from_tokens(
   let sibling_counts : Array[Map[String, Int]] = []
   for token in tokens {
     match token {
-      @dxml.XmlToken::Text(text, _) | @dxml.XmlToken::CData(text, _) =>
+      Text(text, _) | CData(text, _) =>
         if text.trim() != "" && stack.length() > 0 {
           stack[stack.length() - 1].text_values.push(text.trim().to_owned())
         }
-      @dxml.XmlToken::StartTag(name, attrs, self_closing, span) => {
+      StartTag(name, attrs, self_closing, span) => {
         let depth = stack.length()
         if depth > 0 {
           let parent = stack[depth - 1]
@@ -249,9 +249,9 @@ fn xml_compact_outline_events_from_tokens(
         roots.push(
           xml_compact_outline_event(
             if depth == 0 {
-              @core.BlockKind::Heading
+              Heading
             } else {
-              @core.BlockKind::ListItem
+              ListItem
             },
             if depth == 0 {
               "<" + name + ">"
@@ -269,7 +269,7 @@ fn xml_compact_outline_events_from_tokens(
         for attr in attrs {
           roots.push(
             xml_compact_outline_event(
-              @core.BlockKind::ListItem,
+              ListItem,
               "@" + attr.name + ": " + attr.value,
               xml_stream_attribute_source_ref(
                 source,
@@ -293,7 +293,7 @@ fn xml_compact_outline_events_from_tokens(
           sibling_counts.push(Map([]))
         }
       }
-      @dxml.XmlToken::EndTag(_, _) =>
+      EndTag(_, _) =>
         match stack.pop() {
           Some(frame) => {
             ignore(sibling_counts.pop())
@@ -323,11 +323,7 @@ fn xml_compact_outline_event(
 ) -> @core.CoreEvent {
   source_ref.extra.set("ir_event_encoding", "xml_outline_v1")
   source_ref.extra.set("xml_outline_depth", depth.to_string())
-  {
-    kind: @core.EventKind::StartBlock(kind),
-    text,
-    source_ref: Some(source_ref),
-  }
+  { kind: StartBlock(kind), text, source_ref: Some(source_ref) }
 }
 
 ///|
@@ -350,23 +346,23 @@ fn xml_outline_blocks_from_tokens(
   let sibling_counts : Array[Map[String, Int]] = []
   for token in tokens {
     match token {
-      @dxml.XmlToken::Declaration(_, _) => ()
-      @dxml.XmlToken::ProcessingInstruction(_, _, _) => ()
-      @dxml.XmlToken::Comment(_, _) => ()
-      @dxml.XmlToken::Doctype(_, _) => ()
-      @dxml.XmlToken::Text(text, span) =>
+      Declaration(_, _) => ()
+      ProcessingInstruction(_, _, _) => ()
+      Comment(_, _) => ()
+      Doctype(_, _) => ()
+      Text(text, span) =>
         if text.trim() != "" && stack.length() > 0 {
           let current = stack[stack.length() - 1]
           ignore(span)
           current.text_values.push(text.trim().to_owned())
         }
-      @dxml.XmlToken::CData(text, span) =>
+      CData(text, span) =>
         if text.trim() != "" && stack.length() > 0 {
           let current = stack[stack.length() - 1]
           ignore(span)
           current.text_values.push(text.trim().to_owned())
         }
-      @dxml.XmlToken::StartTag(name, attrs, self_closing, span) => {
+      StartTag(name, attrs, self_closing, span) => {
         let (path, depth) = xml_outline_push_path(name, stack, sibling_counts)
         let frame : XmlOutlineFrame = {
           element_name: name,
@@ -384,7 +380,7 @@ fn xml_outline_blocks_from_tokens(
           sibling_counts.push(Map([]))
         }
       }
-      @dxml.XmlToken::EndTag(_, _) =>
+      EndTag(_, _) =>
         match stack.pop() {
           Some(frame) => {
             ignore(sibling_counts.pop())
@@ -403,11 +399,11 @@ fn xml_outline_blocks_from_tokens(
     return roots
   }
   let first = roots[0]
-  if first.kind != @core.BlockKind::ListItem {
+  if first.kind != ListItem {
     return roots
   }
   let heading = @core.make_block(
-    @core.BlockKind::Heading,
+    Heading,
     first.text,
     source_ref=first.source_ref.unwrap_or(@core.empty_source_ref()),
   )
@@ -415,12 +411,11 @@ fn xml_outline_blocks_from_tokens(
   heading.attrs.set("literal", "true")
   let blocks : Array[@core.CoreBlock] = [heading]
   if first.children.length() > 0 {
-    if first.children.length() == 1 &&
-      first.children[0].kind == @core.BlockKind::List {
+    if first.children.length() == 1 && first.children[0].kind == List {
       blocks.push(first.children[0])
     } else {
       let list = @core.make_block(
-        @core.BlockKind::List,
+        List,
         "",
         source_ref=first.source_ref.unwrap_or(@core.empty_source_ref()),
       )
@@ -490,11 +485,7 @@ fn xml_outline_frame_to_block(
     )
   }
   if frame.children.length() > 0 {
-    let list = @core.make_block(
-      @core.BlockKind::List,
-      "",
-      source_ref=frame.element_ref,
-    )
+    let list = @core.make_block(List, "", source_ref=frame.element_ref)
     list.attrs.set("ordered", "false")
     for child in frame.children {
       list.children.push(child)
@@ -563,18 +554,17 @@ fn xml_stream_summary(tokens : Array[@dxml.XmlToken]) -> XmlStreamSummary {
   let mut has_default_namespace = false
   for token in tokens {
     match token {
-      @dxml.XmlToken::Declaration(_, _) => ()
-      @dxml.XmlToken::Doctype(text, _) => {
+      Declaration(_, _) => ()
+      Doctype(text, _) => {
         has_doctype = true
         has_unsupported_doctype = true
         if text.contains("```") {
           has_markdown_fence_text = true
         }
       }
-      @dxml.XmlToken::ProcessingInstruction(_, _, _) =>
-        processing_instruction_count += 1
-      @dxml.XmlToken::Comment(_, _) => comment_count += 1
-      @dxml.XmlToken::CData(text, _) => {
+      ProcessingInstruction(_, _, _) => processing_instruction_count += 1
+      Comment(_, _) => comment_count += 1
+      CData(text, _) => {
         cdata_count += 1
         if text.trim() != "" {
           text_node_count += 1
@@ -589,7 +579,7 @@ fn xml_stream_summary(tokens : Array[@dxml.XmlToken]) -> XmlStreamSummary {
           }
         }
       }
-      @dxml.XmlToken::Text(text, _) =>
+      Text(text, _) =>
         if text.trim() != "" {
           text_node_count += 1
           if stack.length() > 0 {
@@ -602,7 +592,7 @@ fn xml_stream_summary(tokens : Array[@dxml.XmlToken]) -> XmlStreamSummary {
             has_markdown_fence_text = true
           }
         }
-      @dxml.XmlToken::StartTag(_, attrs, self_closing, _) => {
+      StartTag(_, attrs, self_closing, _) => {
         element_count += 1
         attribute_count += attrs.length()
         for attr in attrs {
@@ -626,7 +616,7 @@ fn xml_stream_summary(tokens : Array[@dxml.XmlToken]) -> XmlStreamSummary {
           non_whitespace_text_before_child_seen.push(false)
         }
       }
-      @dxml.XmlToken::EndTag(_, _) =>
+      EndTag(_, _) =>
         if stack.length() > 0 {
           let has_child = child_element_seen.pop().unwrap_or(false)
           let has_text_before_child = non_whitespace_text_before_child_seen
@@ -661,7 +651,7 @@ fn xml_tokens_have_multiline_attribute_value(
 ) -> Bool {
   for token in tokens {
     match token {
-      @dxml.XmlToken::StartTag(_, attrs, _, _) =>
+      StartTag(_, attrs, _, _) =>
         for attr in attrs {
           if attr.span.line_end > attr.span.line_start {
             return true
@@ -678,7 +668,7 @@ fn xml_list_item_block(
   text : String,
   source_ref : @core.SourceRef,
 ) -> @core.CoreBlock {
-  let item = @core.make_block(@core.BlockKind::ListItem, text, source_ref~)
+  let item = @core.make_block(ListItem, text, source_ref~)
   item.attrs.set("ordered", "false")
   item.attrs.set("literal", "true")
   item
@@ -695,7 +685,7 @@ fn xml_append_generic_block_events(
     block.attrs.to_array(),
   )
   out.push({
-    kind: @core.EventKind::StartBlock(block.kind),
+    kind: StartBlock(block.kind),
     text: block.text,
     source_ref: Some(source_ref),
   })
@@ -703,7 +693,7 @@ fn xml_append_generic_block_events(
     xml_append_generic_block_events(out, child)
   }
   out.push({
-    kind: @core.EventKind::EndBlock(block.kind),
+    kind: EndBlock(block.kind),
     text: "",
     source_ref: Some(source_ref),
   })
@@ -729,7 +719,7 @@ fn count_xml_event_blocks(events : Array[@core.CoreEvent]) -> Int {
   let mut count = 0
   for event in events {
     match event.kind {
-      @core.EventKind::StartBlock(_) => count += 1
+      StartBlock(_) => count += 1
       _ => ()
     }
   }
@@ -750,11 +740,11 @@ fn xml_requires_fail_closed_outline(
   }
   for node in doc.nodes {
     match node {
-      @dxml.XmlNode::Element(_) => ()
-      @dxml.XmlNode::Text(text) => if text.text.trim() != "" { return true }
-      @dxml.XmlNode::CData(cdata) => if cdata.text.trim() != "" { return true }
-      @dxml.XmlNode::Comment(_) => ()
-      @dxml.XmlNode::ProcessingInstruction(_) => ()
+      Element(_) => ()
+      Text(text) => if text.text.trim() != "" { return true }
+      CData(cdata) => if cdata.text.trim() != "" { return true }
+      Comment(_) => ()
+      ProcessingInstruction(_) => ()
     }
   }
   xml_has_complex_mixed_content(root) ||
@@ -769,22 +759,16 @@ fn xml_has_complex_mixed_content(element : @dxml.XmlElement) -> Bool {
   let mut has_element_child = false
   for child in element.children {
     match child {
-      @dxml.XmlNode::Element(child_element) => {
+      Element(child_element) => {
         has_element_child = true
         if xml_has_complex_mixed_content(child_element) {
           return true
         }
       }
-      @dxml.XmlNode::Text(text) =>
-        if text.text.trim() != "" {
-          has_nonempty_text = true
-        }
-      @dxml.XmlNode::CData(cdata) =>
-        if cdata.text.trim() != "" {
-          has_nonempty_text = true
-        }
-      @dxml.XmlNode::Comment(_) => ()
-      @dxml.XmlNode::ProcessingInstruction(_) => ()
+      Text(text) => if text.text.trim() != "" { has_nonempty_text = true }
+      CData(cdata) => if cdata.text.trim() != "" { has_nonempty_text = true }
+      Comment(_) => ()
+      ProcessingInstruction(_) => ()
     }
   }
   has_nonempty_text && has_element_child
@@ -799,17 +783,14 @@ fn xml_has_markdown_fence_text(element : @dxml.XmlElement) -> Bool {
   }
   for child in element.children {
     match child {
-      @dxml.XmlNode::Element(child_element) =>
+      Element(child_element) =>
         if xml_has_markdown_fence_text(child_element) {
           return true
         }
-      @dxml.XmlNode::Text(text) => if text.text.contains("```") { return true }
-      @dxml.XmlNode::CData(cdata) =>
-        if cdata.text.contains("```") {
-          return true
-        }
-      @dxml.XmlNode::Comment(_) => ()
-      @dxml.XmlNode::ProcessingInstruction(_) => ()
+      Text(text) => if text.text.contains("```") { return true }
+      CData(cdata) => if cdata.text.contains("```") { return true }
+      Comment(_) => ()
+      ProcessingInstruction(_) => ()
     }
   }
   false
@@ -824,14 +805,14 @@ fn xml_has_default_namespace(element : @dxml.XmlElement) -> Bool {
   }
   for child in element.children {
     match child {
-      @dxml.XmlNode::Element(child_element) =>
+      Element(child_element) =>
         if xml_has_default_namespace(child_element) {
           return true
         }
-      @dxml.XmlNode::Text(_) => ()
-      @dxml.XmlNode::CData(_) => ()
-      @dxml.XmlNode::Comment(_) => ()
-      @dxml.XmlNode::ProcessingInstruction(_) => ()
+      Text(_) => ()
+      CData(_) => ()
+      Comment(_) => ()
+      ProcessingInstruction(_) => ()
     }
   }
   false
@@ -848,7 +829,7 @@ fn xml_document_has_multiline_attribute_value(
   }
   for child in element.children {
     match child {
-      @dxml.XmlNode::Element(child_element) =>
+      Element(child_element) =>
         if xml_document_has_multiline_attribute_value(child_element) {
           return true
         }
@@ -871,7 +852,7 @@ fn append_xml_element_outline(
       {
         let item = @core.block_with_attr(
           @core.make_block(
-            @core.BlockKind::ListItem,
+            ListItem,
             "@" + attr.name + ": " + attr.value,
             source_ref=xml_attribute_source_ref(
               source,
@@ -891,7 +872,7 @@ fn append_xml_element_outline(
   let child_element_counts : Map[String, Int] = Map([], capacity=8)
   for child in element.children {
     match child {
-      @dxml.XmlNode::Element(child_element) => {
+      Element(child_element) => {
         let next_count = child_element_counts
           .get(child_element.name)
           .unwrap_or(0)
@@ -908,7 +889,7 @@ fn append_xml_element_outline(
               {
                 let item = @core.block_with_attr(
                   @core.make_block(
-                    @core.BlockKind::ListItem,
+                    ListItem,
                     child_element.name + ": " + value,
                     source_ref=xml_element_source_ref(
                       source, child_element, child_path,
@@ -929,7 +910,7 @@ fn append_xml_element_outline(
             }
             let nested = @core.block_with_attr(
               @core.make_block(
-                @core.BlockKind::ListItem,
+                ListItem,
                 label,
                 source_ref=xml_element_source_ref(
                   source, child_element, child_path,
@@ -940,7 +921,7 @@ fn append_xml_element_outline(
             )
             nested.attrs.set("literal", "true")
             let child_list = @core.make_block(
-              @core.BlockKind::List,
+              List,
               "",
               source_ref=xml_element_source_ref(
                 source, child_element, child_path,
@@ -960,13 +941,13 @@ fn append_xml_element_outline(
           }
         }
       }
-      @dxml.XmlNode::Text(text) =>
+      Text(text) =>
         if text.text.trim() != "" {
           list.children.push(
             {
               let item = @core.block_with_attr(
                 @core.make_block(
-                  @core.BlockKind::ListItem,
+                  ListItem,
                   text.text.trim().to_owned(),
                   source_ref=xml_text_source_ref(source, text, path),
                 ),
@@ -978,13 +959,13 @@ fn append_xml_element_outline(
             },
           )
         }
-      @dxml.XmlNode::CData(cdata) =>
+      CData(cdata) =>
         if cdata.text.trim() != "" {
           list.children.push(
             {
               let item = @core.block_with_attr(
                 @core.make_block(
-                  @core.BlockKind::ListItem,
+                  ListItem,
                   cdata.text.trim().to_owned(),
                   source_ref=xml_cdata_source_ref(source, cdata, path),
                 ),
@@ -996,8 +977,8 @@ fn append_xml_element_outline(
             },
           )
         }
-      @dxml.XmlNode::Comment(_) => ()
-      @dxml.XmlNode::ProcessingInstruction(_) => ()
+      Comment(_) => ()
+      ProcessingInstruction(_) => ()
     }
   }
 }
@@ -1010,17 +991,17 @@ fn xml_simple_text_value(element : @dxml.XmlElement) -> String? {
   let collected : Array[String] = []
   for child in element.children {
     match child {
-      @dxml.XmlNode::Text(text) =>
+      Text(text) =>
         if text.text.trim() != "" {
           collected.push(text.text.trim().to_owned())
         }
-      @dxml.XmlNode::CData(cdata) =>
+      CData(cdata) =>
         if cdata.text.trim() != "" {
           collected.push(cdata.text.trim().to_owned())
         }
-      @dxml.XmlNode::Comment(_) => ()
-      @dxml.XmlNode::ProcessingInstruction(_) => ()
-      @dxml.XmlNode::Element(_) => return None
+      Comment(_) => ()
+      ProcessingInstruction(_) => ()
+      Element(_) => return None
     }
   }
   if collected.length() == 0 {
@@ -1053,7 +1034,7 @@ fn malformed_xml_parse_result(
     Some(1),
     Some(@fshared.count_physical_lines(text)),
   )
-  let block = @core.make_block(@core.BlockKind::Raw, text, source_ref~)
+  let block = @core.make_block(Raw, text, source_ref~)
   block.attrs.set("raw_kind", "xml_fail_closed")
   block.attrs.set("info", "xml")
   diagnostics.errors.push("xml parse failed: " + err.to_string())
@@ -1125,7 +1106,7 @@ fn malformed_xml_parse_result(
   let final_document = @core.document_with_diagnostics(document, diagnostics)
   @parser.parse_result_with_document_capability(
     "xml_parser",
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     final_document,
     diagnostics,
     xml_parser_capability(),
@@ -1152,7 +1133,7 @@ fn malformed_xml_text_parse_result(
     Some(1),
     Some(@fshared.count_physical_lines(text)),
   )
-  let block = @core.make_block(@core.BlockKind::Raw, text, source_ref~)
+  let block = @core.make_block(Raw, text, source_ref~)
   block.attrs.set("raw_kind", "xml_fail_closed")
   block.attrs.set("info", "xml")
   diagnostics.warnings.push("xml parse warning: " + detail)
@@ -1224,7 +1205,7 @@ fn malformed_xml_text_parse_result(
   let final_document = @core.document_with_diagnostics(document, diagnostics)
   @parser.parse_result_with_document_capability(
     "xml_parser",
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     final_document,
     diagnostics,
     xml_parser_capability(),

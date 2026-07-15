@@ -66,7 +66,7 @@ fn cli_provenance_with_stage_timings(
 ) -> Json {
   let provenance = @convert.convert_provenance_to_json(execution.provenance)
   match provenance {
-    Json::Object(fields) => {
+    Object(fields) => {
       fields.set(
         "stage_timings_ms",
         convert_stage_timings_json(execution.result.diagnostics.metrics),
@@ -142,7 +142,7 @@ fn run_batch_cli_app(cli_args : Array[String]) -> Int {
         false,
       )
   }
-  if results.any(fn(result) { result.status == BatchTaskStatus::Failed }) {
+  if results.any(fn(result) { result.status == Failed }) {
     1
   } else {
     0
@@ -184,13 +184,7 @@ fn parse_batch_cli_options(
   }
   if opts.audio_options.language is Some(_) &&
     !(match opts.explicit_format {
-      Some(
-        @input.DetectedFormat::Audio(
-          @input.AudioFormat::Wav
-          | @input.AudioFormat::Mp3
-          | @input.AudioFormat::M4a
-        )
-      ) => true
+      Some(Audio(Wav | Mp3 | M4a)) => true
       _ => false
     }) {
     return Err("batch --audio-lang requires explicit --format wav|mp3|m4a")
@@ -286,9 +280,9 @@ fn basename_of_path(path : String) -> String {
 ///|
 fn batch_output_suffix(output_format : @convert.OutputFormat) -> String {
   match output_format {
-    @convert.OutputFormat::Markdown => ".md"
-    @convert.OutputFormat::DebugJson => ".debug.json"
-    @convert.OutputFormat::RagJson => ".rag.json"
+    Markdown => ".md"
+    DebugJson => ".debug.json"
+    RagJson => ".rag.json"
   }
 }
 
@@ -316,7 +310,7 @@ fn run_single_batch_task(
     return {
       input_path: task_input,
       relative_path,
-      status: BatchTaskStatus::Failed,
+      status: Failed,
       detected_format: @input.detected_format_name(requested_format),
       convert_mode: @convert.convert_mode_name(base_opts.convert_mode),
       fidelity_mode: @convert.fidelity_mode_name(base_opts.fidelity_mode),
@@ -363,7 +357,7 @@ fn run_single_batch_task(
           {
             input_path: task_input,
             relative_path,
-            status: BatchTaskStatus::Success,
+            status: Success,
             detected_format: @input.detected_format_name(requested_format),
             convert_mode: @convert.convert_mode_name(
               execution.result.convert_mode,
@@ -384,7 +378,7 @@ fn run_single_batch_task(
           {
             input_path: task_input,
             relative_path,
-            status: BatchTaskStatus::Failed,
+            status: Failed,
             detected_format: @input.detected_format_name(requested_format),
             convert_mode: @convert.convert_mode_name(opts.convert_mode),
             fidelity_mode: @convert.fidelity_mode_name(opts.fidelity_mode),
@@ -402,7 +396,7 @@ fn run_single_batch_task(
       {
         input_path: task_input,
         relative_path,
-        status: BatchTaskStatus::Failed,
+        status: Failed,
         detected_format: @input.detected_format_name(requested_format),
         convert_mode: @convert.convert_mode_name(opts.convert_mode),
         fidelity_mode: @convert.fidelity_mode_name(opts.fidelity_mode),
@@ -444,7 +438,7 @@ fn path_extension_label(path : String) -> String? {
 ///|
 fn normalize_format_label(label : String) -> String {
   let parsed = @input.parse_detected_format(label)
-  if parsed == @input.DetectedFormat::Unknown {
+  if parsed == Unknown {
     label
   } else {
     @input.detected_format_name(parsed)
@@ -573,9 +567,8 @@ fn cli_asset_is_materializable(
     None => ()
   }
   match asset.payload {
-    Some(@core.AssetPayload::Bytes(_)) | Some(@core.AssetPayload::Utf8(_)) =>
-      true
-    Some(@core.AssetPayload::SourcePath(source_path)) =>
+    Some(Bytes(_)) | Some(Utf8(_)) => true
+    Some(SourcePath(source_path)) =>
       cli_asset_relative_path_is_safe(source_path) &&
       @fs.path_exists(join_dir_path(input_dir, source_path))
     None => false
@@ -585,7 +578,7 @@ fn cli_asset_is_materializable(
 ///|
 fn cli_asset_source_label(asset : @core.AssetRef, fallback : String) -> String {
   match asset.payload {
-    Some(@core.AssetPayload::SourcePath(path)) => path
+    Some(SourcePath(path)) => path
     _ => asset.attrs.get("source_path").unwrap_or(fallback)
   }
 }
@@ -799,9 +792,8 @@ fn validate_cli_assets(
       None => ()
     }
     match asset.payload {
-      Some(@core.AssetPayload::Bytes(_)) | Some(@core.AssetPayload::Utf8(_)) =>
-        continue
-      Some(@core.AssetPayload::SourcePath(source_path)) => {
+      Some(Bytes(_)) | Some(Utf8(_)) => continue
+      Some(SourcePath(source_path)) => {
         if !cli_asset_relative_path_is_safe(source_path) {
           return Err("unsafe source asset path: " + source_path)
         }
@@ -824,9 +816,9 @@ fn persist_asset_payload(
   asset : @core.AssetRef,
 ) -> Bool raise @fs.IOError {
   let bytes = match asset.payload {
-    Some(@core.AssetPayload::Bytes(bytes)) => bytes
-    Some(@core.AssetPayload::Utf8(text)) => @utf8.encode(text)
-    Some(@core.AssetPayload::SourcePath(source_path)) => {
+    Some(Bytes(bytes)) => bytes
+    Some(Utf8(text)) => @utf8.encode(text)
+    Some(SourcePath(source_path)) => {
       if !cli_asset_relative_path_is_safe(source_path) {
         return false
       }

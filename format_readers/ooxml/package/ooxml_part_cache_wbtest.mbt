@@ -293,9 +293,7 @@ test "ooxml xml part payload reuses decoded text and exposes structure scan" {
 
   assert_eq(first.text, second.text)
   assert_true(first.bytes.length() > 0)
-  assert_true(
-    first.structure_scan.status == @xml.XmlStructureScanStatus::Success,
-  )
+  assert_true(first.structure_scan.status == Success)
   assert_true(first.structure_scan.element_count > 0)
   let (
     bytes_hit_count,
@@ -378,7 +376,7 @@ test "ooxml relationship cache reuses parsed rels and indexed lookups" {
   match link {
     Some(rel) => {
       assert_eq(rel.resolved_target, first[0].resolved_target)
-      if rel.target_mode != OoxmlTargetMode::External {
+      if rel.target_mode != External {
         fail("expected external hyperlink target mode to be preserved")
       }
     }

@@ -160,7 +160,7 @@ fn eml_materialize_inline_attachment_asset(
     materialized.bytes is None {
     return
   }
-  let asset = @core.make_asset_ref(@core.AssetKind::Image, asset_path)
+  let asset = @core.make_asset_ref(Image, asset_path)
   let next_asset = {
     ..asset,
     path: Some(asset_path),
@@ -187,7 +187,7 @@ fn eml_attachment_summary_blocks(
 ) -> Array[@core.CoreBlock] {
   [
     @core.make_block(
-      @core.BlockKind::Paragraph,
+      Paragraph,
       "[Attachment: " +
       attachment.file_name.unwrap_or(attachment.mime_type) +
       " | " +
@@ -204,7 +204,7 @@ fn eml_headers_table_block(
   source : @input.InputSource,
 ) -> @core.CoreBlock {
   let table = @core.make_block(
-    @core.BlockKind::Table,
+    Table,
     "table",
     source_ref=eml_message_source_ref(source),
   )
@@ -219,14 +219,14 @@ fn eml_headers_table_block(
   rows.push(["Attachments", message.attachments.length().to_string()])
   for row_values in rows {
     let row = @core.make_block(
-      @core.BlockKind::TableRow,
+      TableRow,
       "",
       source_ref=eml_message_source_ref(source),
     )
     for cell_text in row_values {
       row.children.push(
         @core.make_block(
-          @core.BlockKind::TableCell,
+          TableCell,
           cell_text,
           source_ref=eml_message_source_ref(source),
         ),
@@ -261,7 +261,7 @@ fn eml_part_label_block(
     part.summary.mime_type +
     "]"
   @core.make_block(
-    @core.BlockKind::Paragraph,
+    Paragraph,
     label,
     source_ref=eml_part_source_ref(source, part),
   )
@@ -274,7 +274,7 @@ fn eml_raw_fenced_part(
   info : String,
 ) -> Array[@core.CoreBlock] {
   let raw = @core.make_block(
-    @core.BlockKind::Code,
+    Code,
     if part.raw_body.trim() == "" {
       part.summary.mime_type
     } else {
@@ -340,7 +340,7 @@ fn eml_rewrite_child_block(
   rewrites : Array[EmlAssetRewrite],
 ) -> @core.CoreBlock {
   let next = { ..block }
-  if block.kind == @core.BlockKind::Image {
+  if block.kind == Image {
     let old_asset_id = block.attrs.get("asset_id").unwrap_or("")
     let old_path = block.attrs.get("path").unwrap_or("")
     match eml_find_asset_rewrite(rewrites, old_asset_id, old_path) {
@@ -381,22 +381,22 @@ fn eml_find_asset_rewrite(
 ///|
 fn eml_message_metadata(message : @deml.EmlMessage) -> @core.DocumentMetadata {
   let metadata : @core.DocumentMetadata = Map([])
-  metadata.set("format", @core.JsonValue::String("eml"))
+  metadata.set("format", String("eml"))
   match message.header_map.subject {
-    Some(value) => metadata.set("title", @core.JsonValue::String(value))
+    Some(value) => metadata.set("title", String(value))
     None => ()
   }
   match message.header_map.from {
-    Some(value) => metadata.set("from", @core.JsonValue::String(value))
+    Some(value) => metadata.set("from", String(value))
     None => ()
   }
   match message.header_map.to {
-    Some(value) => metadata.set("to", @core.JsonValue::String(value))
+    Some(value) => metadata.set("to", String(value))
     None => ()
   }
   metadata.set(
     "description",
-    @core.JsonValue::String(
+    String(
       "email message with " + message.children.length().to_string() + " parts",
     ),
   )
@@ -470,14 +470,14 @@ fn eml_malformed_parse_result(
   diagnostics.metrics.set("syntax_error_count", "1")
   @fshared.refresh_parser_count_metrics(diagnostics, "block_stream")
   let raw = @core.make_block(
-    @core.BlockKind::Code,
+    Code,
     text,
     source_ref=eml_message_source_ref(source),
   )
   raw.attrs.set("info", "eml")
   @parser.parse_result_with_blocks_capability(
     EML_PARSER_NAME,
-    @parser.ParserMode::BlockStreaming,
+    BlockStreaming,
     [raw],
     diagnostics,
     eml_parser_capability(),
@@ -521,16 +521,15 @@ fn eml_attachment_detected_format(
   attachment : @deml.EmlAttachment,
 ) -> @input.DetectedFormat? {
   match attachment.mime_type {
-    "text/markdown" => Some(@input.DetectedFormat::Markdown)
-    "application/json" => Some(@input.DetectedFormat::Json)
-    "application/x-ipynb+json" => Some(@input.DetectedFormat::Ipynb)
-    "application/xml" | "text/xml" => Some(@input.DetectedFormat::Xml)
-    "application/yaml" | "text/yaml" | "application/x-yaml" =>
-      Some(@input.DetectedFormat::Yaml)
-    "application/toml" => Some(@input.DetectedFormat::Toml)
-    "text/html" => Some(@input.DetectedFormat::Html)
-    "text/plain" => Some(@input.DetectedFormat::Txt)
-    "message/rfc822" => Some(@input.DetectedFormat::Eml)
+    "text/markdown" => Some(Markdown)
+    "application/json" => Some(Json)
+    "application/x-ipynb+json" => Some(Ipynb)
+    "application/xml" | "text/xml" => Some(Xml)
+    "application/yaml" | "text/yaml" | "application/x-yaml" => Some(Yaml)
+    "application/toml" => Some(Toml)
+    "text/html" => Some(Html)
+    "text/plain" => Some(Txt)
+    "message/rfc822" => Some(Eml)
     _ =>
       match attachment.file_name {
         Some(name) => {
@@ -541,7 +540,7 @@ fn eml_attachment_detected_format(
             parts[parts.length() - 1].to_owned()
           }
           match @input.parse_detected_format(ext) {
-            @input.DetectedFormat::Unknown => None
+            Unknown => None
             format => Some(format)
           }
         }
@@ -552,7 +551,7 @@ fn eml_attachment_detected_format(
 
 ///|
 fn eml_attachment_is_inline_image(attachment : @deml.EmlAttachment) -> Bool {
-  attachment.disposition == Some(@deml.EmlDispositionKind::Inline) &&
+  attachment.disposition == Some(Inline) &&
   (
     attachment.mime_type == "image/png" ||
     attachment.mime_type == "image/jpeg" ||
@@ -606,15 +605,15 @@ fn eml_attach_asset_payload(
         let text = attachment.decoded_text.unwrap_or(
           @deml.decode_eml_source_text(bytes),
         )
-        asset.payload = Some(@core.AssetPayload::Utf8(text))
+        asset.payload = Some(Utf8(text))
       } else if bytes.length() <= EML_MAX_INLINE_BINARY_BYTES {
-        asset.payload = Some(@core.AssetPayload::Bytes(bytes))
+        asset.payload = Some(Bytes(bytes))
       } else {
         ()
       }
     None =>
       match attachment.decoded_text {
-        Some(text) => asset.payload = Some(@core.AssetPayload::Utf8(text))
+        Some(text) => asset.payload = Some(Utf8(text))
         None => ()
       }
   }

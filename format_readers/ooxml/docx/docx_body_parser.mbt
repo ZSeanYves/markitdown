@@ -8,17 +8,17 @@ fn parse_docx_body_blocks(
 ) -> Array[DocxSourceBlock] raise DocxError {
   let body_start = match find_docx_start_tag_from(xml, 0, "w:body") {
     Some(pos) => pos
-    None => raise DocxError::MalformedDocument("missing <w:body>")
+    None => raise MalformedDocument("missing <w:body>")
   }
   let body_open_end = match find_docx_any_tag_end(xml, body_start) {
     Some(pos) => pos
-    None => raise DocxError::MalformedDocument("invalid <w:body> tag")
+    None => raise MalformedDocument("invalid <w:body> tag")
   }
   let body_content_start = body_open_end
   let body_close = match
     find_docx_literal_from(xml, body_content_start, "</w:body>") {
     Some(pos) => pos
-    None => raise DocxError::MalformedDocument("missing </w:body>")
+    None => raise MalformedDocument("missing </w:body>")
   }
   let body = xml[body_content_start:body_close].to_owned()
   parse_docx_body_inner(part_name, body, relationships, pkg, warnings)
@@ -56,7 +56,7 @@ fn parse_docx_body_inner(
           )
           let inlines = docx_source_run_inlines(runs)
           blocks.push({
-            kind: DocxSourceBlockKind::Paragraph,
+            kind: Paragraph,
             source_key: key,
             paragraph_style_id,
             paragraph_alignment,
@@ -85,7 +85,7 @@ fn parse_docx_body_inner(
           )
           let table_text = docx_source_table_text(table)
           blocks.push({
-            kind: DocxSourceBlockKind::Table,
+            kind: Table,
             source_key: key,
             paragraph_style_id: None,
             paragraph_alignment: None,
@@ -157,12 +157,12 @@ fn parse_docx_body_inner(
       let tag = docx_tag_name_at(body, start)
       let key = docx_source_key(part_name, block_index, "unknown")
       warnings.push({
-        kind: DocxSourceWarningKind::UnknownBodyNode,
+        kind: UnknownBodyNode,
         message: "unsupported body node: " + tag,
         source_key: Some(key),
       })
       blocks.push({
-        kind: DocxSourceBlockKind::Unknown,
+        kind: Unknown,
         source_key: key,
         paragraph_style_id: None,
         paragraph_alignment: None,
@@ -245,25 +245,25 @@ fn parse_docx_table(
 ///|
 fn docx_structural_block_kind(xml : String, start : Int) -> DocxStructuralKind? {
   if is_docx_start_tag_at(xml, start, "w:sectPr") {
-    Some(DocxStructuralKind::SectionProperties)
+    Some(SectionProperties)
   } else if is_docx_start_tag_at(xml, start, "w:bookmarkStart") ||
     is_docx_start_tag_at(xml, start, "w:bookmarkEnd") {
-    Some(DocxStructuralKind::BookmarkBoundary)
+    Some(BookmarkBoundary)
   } else if is_docx_start_tag_at(xml, start, "w:proofErr") {
-    Some(DocxStructuralKind::ProofError)
+    Some(ProofError)
   } else if is_docx_start_tag_at(xml, start, "w:permStart") ||
     is_docx_start_tag_at(xml, start, "w:permEnd") {
-    Some(DocxStructuralKind::PermissionBoundary)
+    Some(PermissionBoundary)
   } else if is_docx_start_tag_at(xml, start, "w:commentRangeStart") ||
     is_docx_start_tag_at(xml, start, "w:commentRangeEnd") {
-    Some(DocxStructuralKind::CommentRangeBoundary)
+    Some(CommentRangeBoundary)
   } else if is_docx_start_tag_at(xml, start, "w:moveFromRangeStart") ||
     is_docx_start_tag_at(xml, start, "w:moveFromRangeEnd") ||
     is_docx_start_tag_at(xml, start, "w:moveToRangeStart") ||
     is_docx_start_tag_at(xml, start, "w:moveToRangeEnd") {
-    Some(DocxStructuralKind::MoveRangeBoundary)
+    Some(MoveRangeBoundary)
   } else if is_docx_start_tag_at(xml, start, "w:lastRenderedPageBreak") {
-    Some(DocxStructuralKind::LastRenderedPageBreak)
+    Some(LastRenderedPageBreak)
   } else {
     None
   }
@@ -338,7 +338,7 @@ fn docx_structural_source_block(
   tag : String,
 ) -> DocxSourceBlock {
   {
-    kind: DocxSourceBlockKind::Structural,
+    kind: Structural,
     source_key: key,
     paragraph_style_id: None,
     paragraph_alignment: None,
@@ -371,12 +371,7 @@ fn parse_docx_structural_inline(
     Some(value) => value
     None => return None
   }
-  Some(
-    (
-      DocxSourceInline::StructuralMarker({ kind, tag, source_key }),
-      end_exclusive,
-    ),
-  )
+  Some((StructuralMarker({ kind, tag, source_key }), end_exclusive))
 }
 
 ///|
@@ -532,7 +527,7 @@ fn parse_docx_table_cell_blocks(
           )
           let inlines = docx_source_run_inlines(runs)
           blocks.push({
-            kind: DocxSourceBlockKind::Paragraph,
+            kind: Paragraph,
             source_key: key,
             paragraph_style_id: read_docx_paragraph_style_id(inner),
             paragraph_alignment: read_docx_paragraph_alignment(inner),
@@ -561,13 +556,13 @@ fn parse_docx_table_cell_blocks(
       if guard_hit {
         guard_triggered.val = true
         warnings.push({
-          kind: DocxSourceWarningKind::NestedTable,
+          kind: NestedTable,
           message: "nested table depth guard triggered at depth " +
           next_depth.to_string(),
           source_key: Some(key),
         })
         blocks.push({
-          kind: DocxSourceBlockKind::Table,
+          kind: Table,
           source_key: key,
           paragraph_style_id: None,
           paragraph_alignment: None,
@@ -607,7 +602,7 @@ fn parse_docx_table_cell_blocks(
             None => ()
           }
           blocks.push({
-            kind: DocxSourceBlockKind::Table,
+            kind: Table,
             source_key: key,
             paragraph_style_id: None,
             paragraph_alignment: None,
@@ -661,12 +656,12 @@ fn parse_docx_table_cell_blocks(
       let tag = docx_tag_name_at(xml, start)
       let key = docx_child_source_key(cell_key, "unknown", block_index)
       warnings.push({
-        kind: DocxSourceWarningKind::UnknownBodyNode,
+        kind: UnknownBodyNode,
         message: "unsupported table cell node: " + tag,
         source_key: Some(key),
       })
       blocks.push({
-        kind: DocxSourceBlockKind::Unknown,
+        kind: Unknown,
         source_key: key,
         paragraph_style_id: None,
         paragraph_alignment: None,

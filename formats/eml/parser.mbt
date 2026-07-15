@@ -27,7 +27,7 @@ pub fn eml_parser_with_registry(
 ) -> @parser.Parser {
   @parser.make_parser(
     EML_PARSER_NAME,
-    @parser.ParserMode::BlockStreaming,
+    BlockStreaming,
     eml_parser_capability(),
     fn(
       source : @input.InputSource,
@@ -41,7 +41,7 @@ pub fn eml_parser_with_registry(
 ///|
 fn eml_parser_capability() -> @parser.ParserCapability {
   @parser.block_stream_parser_capability(
-    @parser.StreamingGranularity::Message,
+    Message,
     false,
     true,
     true,
@@ -90,7 +90,7 @@ fn parse_eml_result(
       Ok(
         @parser.parse_result_with_blocks_capability(
           EML_PARSER_NAME,
-          @parser.ParserMode::BlockStreaming,
+          BlockStreaming,
           lowered.blocks,
           diagnostics,
           eml_parser_capability(),
@@ -120,7 +120,7 @@ fn eml_base_diagnostics(
 ) -> @core.Diagnostics {
   let diagnostics = @fshared.empty_parser_diagnostics(
     EML_PARSER_NAME,
-    @parser.ParserMode::BlockStreaming,
+    BlockStreaming,
     source,
     "eml",
   )
@@ -130,8 +130,8 @@ fn eml_base_diagnostics(
     context,
     "eml",
     EML_PARSER_NAME,
-    @parser.ParserMode::BlockStreaming,
-    @parser.ParserMode::BlockStreaming,
+    BlockStreaming,
+    BlockStreaming,
     "block_stream",
     "message",
     "eml_mime_part_block_stream",
@@ -246,7 +246,7 @@ fn lower_eml_part(
     diagnostics.degraded_features.push("eml_recursive_child_limit")
     blocks.push(
       @core.make_block(
-        @core.BlockKind::Paragraph,
+        Paragraph,
         "Skipped: recursive child limit reached",
         source_ref=eml_part_source_ref(source, part),
       ),
@@ -281,7 +281,7 @@ fn lower_eml_part(
     Some(child_message) => {
       blocks.push(
         @core.make_block(
-          @core.BlockKind::Paragraph,
+          Paragraph,
           "[Nested Message]",
           source_ref=eml_part_source_ref(source, part),
         ),
@@ -336,7 +336,7 @@ fn lower_eml_text_plain_part(
   if paragraphs.length() == 0 {
     return [
       @core.make_block(
-        @core.BlockKind::Paragraph,
+        Paragraph,
         "",
         source_ref=eml_part_source_ref(source, part),
       ),
@@ -346,7 +346,7 @@ fn lower_eml_text_plain_part(
   for paragraph in paragraphs {
     blocks.push(
       @core.make_block(
-        @core.BlockKind::Paragraph,
+        Paragraph,
         paragraph,
         source_ref=eml_part_source_ref(source, part),
       ),
@@ -379,15 +379,10 @@ fn lower_eml_html_part(
   let html_source = @input.input_from_text_with_format(
     html,
     source.source_name + ".html",
-    Some(@input.DetectedFormat::Html),
+    Some(Html),
   )
   let parsed = match
-    @runtime.parse_child_to_block_product(
-      registry,
-      html_source,
-      @input.DetectedFormat::Html,
-      context,
-    ) {
+    @runtime.parse_child_to_block_product(registry, html_source, Html, context) {
     Ok(value) => value
     Err(_) => return eml_raw_fenced_part(part, source, "html")
   }
@@ -431,7 +426,7 @@ fn lower_eml_non_html_part(
     }
     return eml_lower_typed_text_payload(
       payload,
-      @input.DetectedFormat::Json,
+      Json,
       part,
       source,
       context,
@@ -447,7 +442,7 @@ fn lower_eml_non_html_part(
     }
     return eml_lower_typed_text_payload(
       payload,
-      @input.DetectedFormat::Xml,
+      Xml,
       part,
       source,
       context,
@@ -462,7 +457,7 @@ fn lower_eml_non_html_part(
     }
     return eml_lower_typed_text_payload(
       payload,
-      @input.DetectedFormat::Markdown,
+      Markdown,
       part,
       source,
       context,
@@ -529,11 +524,7 @@ fn lower_eml_attachment(
     )
     let asset_id = eml_attachment_asset_path(part, attachment)
     let source_ref = eml_attachment_source_ref(source, part, attachment)
-    let asset = @core.make_asset_ref(
-      @core.AssetKind::Image,
-      asset_id,
-      source_ref~,
-    )
+    let asset = @core.make_asset_ref(Image, asset_id, source_ref~)
     let next_asset = {
       ..asset,
       path: Some(asset_id),
@@ -541,7 +532,7 @@ fn lower_eml_attachment(
     }
     eml_attach_asset_payload(next_asset, materialized)
     document.assets.push(next_asset)
-    let image = @core.make_block(@core.BlockKind::Image, "", source_ref~)
+    let image = @core.make_block(Image, "", source_ref~)
     image.attrs.set("asset_id", asset_id)
     image.attrs.set("path", asset_id)
     image.attrs.set(
@@ -631,11 +622,7 @@ fn lower_eml_attachment(
     if materialized.bytes is Some(_) {
       let asset_id = eml_attachment_asset_path(part, attachment)
       let source_ref = eml_attachment_source_ref(source, part, attachment)
-      let asset = @core.make_asset_ref(
-        @core.AssetKind::Attachment,
-        asset_id,
-        source_ref~,
-      )
+      let asset = @core.make_asset_ref(Attachment, asset_id, source_ref~)
       let next_asset = {
         ..asset,
         path: Some(asset_id),
@@ -653,15 +640,7 @@ fn eml_detected_format_prefers_text_payload(
   format : @input.DetectedFormat,
 ) -> Bool {
   match format {
-    @input.DetectedFormat::Txt
-    | @input.DetectedFormat::Markdown
-    | @input.DetectedFormat::Json
-    | @input.DetectedFormat::Xml
-    | @input.DetectedFormat::Yaml
-    | @input.DetectedFormat::Toml
-    | @input.DetectedFormat::Html
-    | @input.DetectedFormat::Eml
-    | @input.DetectedFormat::Ipynb => true
+    Txt | Markdown | Json | Xml | Yaml | Toml | Html | Eml | Ipynb => true
     _ => false
   }
 }
@@ -674,7 +653,7 @@ fn eml_should_materialize_attachment_asset(
     return true
   }
   match attachment.transfer_encoding {
-    @deml.EmlTransferEncoding::Base64 => {
+    Base64 => {
       if attachment.raw_text.length() >
         EML_MAX_INLINE_BASE64_RAW_CHARS_UPPER_BOUND {
         return false
@@ -688,11 +667,7 @@ fn eml_should_materialize_attachment_asset(
         eml_max_inline_binary_base64_chars(),
       )
     }
-    @deml.EmlTransferEncoding::QuotedPrintable
-    | @deml.EmlTransferEncoding::SevenBit
-    | @deml.EmlTransferEncoding::EightBit
-    | @deml.EmlTransferEncoding::Binary
-    | @deml.EmlTransferEncoding::Other(_) =>
+    QuotedPrintable | SevenBit | EightBit | Binary | Other(_) =>
       attachment.raw_text.length() <= EML_MAX_INLINE_BINARY_BYTES
   }
 }

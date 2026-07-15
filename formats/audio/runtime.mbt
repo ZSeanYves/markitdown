@@ -80,12 +80,10 @@ fn audio_split_command_config_error(
   error : @rtcmd.ShellCommandSplitError,
 ) -> AudioTranscribeError {
   let detail = match error {
-    @rtcmd.ShellCommandSplitError::TrailingEscape =>
-      "ends with a trailing escape."
-    @rtcmd.ShellCommandSplitError::UnterminatedQuotes =>
-      "contains unterminated quotes."
+    TrailingEscape => "ends with a trailing escape."
+    UnterminatedQuotes => "contains unterminated quotes."
   }
-  AudioTranscribeError::NotConfigured(
+  NotConfigured(
     "Audio command configured through `" +
     env_var +
     "` is not shell-parseable on this runtime. It " +
@@ -186,10 +184,10 @@ fn build_audio_transcribe_plan(
     Err(error) => return Err(error)
   }
   let detected_audio_format = match format {
-    @input.DetectedFormat::Audio(audio_format) => audio_format
+    Audio(audio_format) => audio_format
     _ =>
       return Err(
-        AudioTranscribeError::ExecutionFailed(
+        ExecutionFailed(
           "audio transcription only accepts detected audio formats",
         ),
       )
@@ -198,9 +196,7 @@ fn build_audio_transcribe_plan(
   audio_ensure_dir_tree(temp_dir) catch {
     e =>
       return Err(
-        AudioTranscribeError::ExecutionFailed(
-          "failed to create audio temp dir: " + e.to_string(),
-        ),
+        ExecutionFailed("failed to create audio temp dir: " + e.to_string()),
       )
   }
   let prepared_input = match
@@ -270,12 +266,7 @@ fn audio_backend_command_plan(
       return build_audio_transcribe_command_with_wrapper_resolution(
         prepared_input, result_json_path, language, model_path, temp_dir, wrapper,
       )
-    Ok(None) =>
-      Err(
-        AudioTranscribeError::NotConfigured(
-          audio_transcribe_not_configured_message(),
-        ),
-      )
+    Ok(None) => Err(NotConfigured(audio_transcribe_not_configured_message()))
     Err(error) => Err(error)
   }
 }
@@ -290,7 +281,7 @@ fn resolve_repo_managed_audio_wrapper() -> WrapperCommandResolution? {
   Some(
     audio_wrapper_resolution_from_parts(
       [python_path, audio_default_wrapper_path()],
-      @rtcmd.ResolvedCommandSource::RepoManaged,
+      RepoManaged,
     ),
   )
 }
@@ -310,20 +301,9 @@ fn resolve_audio_wrapper_command_from_env() -> Result[
           )
       }
       if parts.length() == 0 {
-        return Err(
-          AudioTranscribeError::NotConfigured(
-            audio_transcribe_not_configured_message(),
-          ),
-        )
+        return Err(NotConfigured(audio_transcribe_not_configured_message()))
       }
-      Ok(
-        Some(
-          audio_wrapper_resolution_from_parts(
-            parts,
-            @rtcmd.ResolvedCommandSource::EnvVar,
-          ),
-        ),
-      )
+      Ok(Some(audio_wrapper_resolution_from_parts(parts, EnvVar)))
     }
     None => Ok(None)
   }
@@ -337,11 +317,7 @@ fn resolve_audio_wrapper_from_runtime_python_env() -> Result[
   match @rtcmd.normalized_env_var(runtime_python_env_var()) {
     Some(path) =>
       match
-        resolve_checked_in_audio_wrapper(
-          path,
-          runtime_python_env_var(),
-          @rtcmd.ResolvedCommandSource::EnvVar,
-        ) {
+        resolve_checked_in_audio_wrapper(path, runtime_python_env_var(), EnvVar) {
         Ok(wrapper) => Ok(Some(wrapper))
         Err(error) => Err(error)
       }
@@ -356,21 +332,13 @@ fn resolve_checked_in_audio_wrapper(
   source : @rtcmd.ResolvedCommandSource,
 ) -> Result[WrapperCommandResolution, AudioTranscribeError] {
   if !@fs.path_exists(audio_default_wrapper_path()) {
-    return Err(
-      AudioTranscribeError::NotConfigured(
-        official_audio_wrapper_missing_message(),
-      ),
-    )
+    return Err(NotConfigured(official_audio_wrapper_missing_message()))
   }
   let python = match
     @rtcmd.resolve_executable_path(python_path, label, source) {
     Ok(value) => value
     Err(msg) =>
-      return Err(
-        AudioTranscribeError::NotConfigured(
-          msg + "\n\n" + audio_transcribe_install_hint(),
-        ),
-      )
+      return Err(NotConfigured(msg + "\n\n" + audio_transcribe_install_hint()))
   }
   Ok(
     audio_wrapper_resolution_from_parts(
@@ -397,7 +365,7 @@ fn build_audio_transcribe_command_with_wrapper_resolution(
   ) catch {
     e =>
       return Err(
-        AudioTranscribeError::ExecutionFailed(
+        ExecutionFailed(
           "failed to write audio request JSON on this runtime: " + e.to_string(),
         ),
       )
@@ -472,17 +440,11 @@ fn resolve_ffmpeg_command() -> Result[
   match @rtcmd.normalized_env_var(ffmpeg_command_env_var()) {
     Some(path) =>
       match
-        @rtcmd.resolve_executable_path(
-          path,
-          ffmpeg_command_env_var(),
-          @rtcmd.ResolvedCommandSource::EnvVar,
-        ) {
+        @rtcmd.resolve_executable_path(path, ffmpeg_command_env_var(), EnvVar) {
         Ok(command) => return Ok(command)
         Err(msg) =>
           return Err(
-            AudioTranscribeError::CommandUnavailable(
-              msg + "\n\n" + audio_transcribe_install_hint(),
-            ),
+            CommandUnavailable(msg + "\n\n" + audio_transcribe_install_hint()),
           )
       }
     None => ()
@@ -500,7 +462,7 @@ fn audio_prepare_input_for_backend(
   temp_dir : String,
 ) -> Result[PreparedAudioInput, AudioTranscribeError] {
   match audio_format {
-    @input.AudioFormat::M4a => {
+    M4a => {
       let ffmpeg_command = match resolve_ffmpeg_command() {
         Ok(value) => value
         Err(error) => return Err(error)
@@ -524,7 +486,7 @@ fn audio_prepare_input_for_backend(
         (0, stdout, stderr) => {
           if !@fs.path_exists(normalized_wav_path) {
             return Err(
-              AudioTranscribeError::ExecutionFailed(
+              ExecutionFailed(
                 "ffmpeg reported success but produced no normalized wav output on this runtime.\nResolved command: " +
                 @rtcmd.resolved_command_context(ffmpeg_command),
               ),
@@ -564,7 +526,7 @@ fn audio_prepare_input_for_backend(
             lowered.contains("not found") ||
             lowered.contains("no such file") {
             Err(
-              AudioTranscribeError::CommandUnavailable(
+              CommandUnavailable(
                 "ffmpeg is required for `m4a` audio input on this runtime: " +
                 raw_message +
                 "\nResolved command: " +
@@ -575,7 +537,7 @@ fn audio_prepare_input_for_backend(
             )
           } else {
             Err(
-              AudioTranscribeError::ExecutionFailed(
+              ExecutionFailed(
                 "ffmpeg failed to normalize `m4a` audio on this runtime: " +
                 raw_message +
                 "\nResolved command: " +
@@ -606,7 +568,7 @@ fn audio_validate_model_path() -> Result[String, AudioTranscribeError] {
     Ok(model_path)
   } else {
     Err(
-      AudioTranscribeError::NotConfigured(
+      NotConfigured(
         "Vosk model directory is not available on this runtime: " +
         model_path +
         "\n\n" +
@@ -694,7 +656,7 @@ fn finalize_audio_transcribe_command_result(
       let payload = @fs.read_file_to_string(result_json_path, encoding="utf8") catch {
         e =>
           return Err(
-            AudioTranscribeError::OutputParseFailed(
+            OutputParseFailed(
               "audio backend did not produce a readable JSON transcript on this runtime: " +
               e.to_string(),
             ),
@@ -783,7 +745,7 @@ fn finalize_audio_transcribe_command_result(
       if audio_raw_message_suggests_missing_command(raw_message) ||
         lowered.contains("ffmpeg is required") {
         Err(
-          AudioTranscribeError::CommandUnavailable(
+          CommandUnavailable(
             "audio backend command is unavailable on this runtime: " +
             raw_message +
             "\nResolved command: " +
@@ -795,7 +757,7 @@ fn finalize_audio_transcribe_command_result(
       } else if lowered.contains("vosk model directory is unavailable") ||
         lowered.contains("vosk python package is unavailable") {
         Err(
-          AudioTranscribeError::NotConfigured(
+          NotConfigured(
             "audio backend is not fully configured on this runtime: " +
             raw_message +
             "\nResolved command: " +
@@ -806,7 +768,7 @@ fn finalize_audio_transcribe_command_result(
         )
       } else {
         Err(
-          AudioTranscribeError::ExecutionFailed(
+          ExecutionFailed(
             "audio backend command failed on this runtime: " +
             raw_message +
             "\nResolved command: " +

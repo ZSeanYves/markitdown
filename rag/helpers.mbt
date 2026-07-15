@@ -71,34 +71,19 @@ fn rag_metadata_fields(
   asset_refs : Array[String],
 ) -> Map[String, @core.JsonValue] {
   let metadata : Map[String, @core.JsonValue] = Map([])
-  metadata.set("ordinal", @core.JsonValue::Number(ordinal.to_string()))
-  metadata.set(
-    "char_count",
-    @core.JsonValue::Number(unicode_char_count(text).to_string()),
-  )
-  metadata.set(
-    "heading_depth",
-    @core.JsonValue::Number(heading_path.length().to_string()),
-  )
-  metadata.set("document_format", @core.JsonValue::String(document_format))
+  metadata.set("ordinal", Number(ordinal.to_string()))
+  metadata.set("char_count", Number(unicode_char_count(text).to_string()))
+  metadata.set("heading_depth", Number(heading_path.length().to_string()))
+  metadata.set("document_format", String(document_format))
   match document_title {
     Some(title) if title.trim() != "" =>
-      metadata.set("document_title", @core.JsonValue::String(title))
+      metadata.set("document_title", String(title))
     _ => ()
   }
   metadata.set("block_kinds", string_json_array(block_kinds))
-  metadata.set(
-    "source_count",
-    @core.JsonValue::Number(source_refs.length().to_string()),
-  )
-  metadata.set(
-    "asset_count",
-    @core.JsonValue::Number(asset_refs.length().to_string()),
-  )
-  metadata.set(
-    "location",
-    @core.JsonValue::Object(rag_location_metadata(source_refs)),
-  )
+  metadata.set("source_count", Number(source_refs.length().to_string()))
+  metadata.set("asset_count", Number(asset_refs.length().to_string()))
+  metadata.set("location", Object(rag_location_metadata(source_refs)))
   metadata
 }
 
@@ -161,23 +146,22 @@ fn append_unique_string(values : Array[String], value : String) -> Unit {
 
 ///|
 fn string_json_array(values : Array[String]) -> @core.JsonValue {
-  @core.JsonValue::Array(values.map(value => @core.JsonValue::String(value)))
+  Array(values.map(value => String(value)))
 }
 
 ///|
 fn json_value_string(value : @core.JsonValue?) -> String? {
   match value {
-    Some(@core.JsonValue::String(text)) => Some(text)
-    Some(@core.JsonValue::Number(text)) => Some(text)
-    Some(@core.JsonValue::Bool(flag)) =>
-      Some(if flag { "true" } else { "false" })
+    Some(String(text)) => Some(text)
+    Some(Number(text)) => Some(text)
+    Some(Bool(flag)) => Some(if flag { "true" } else { "false" })
     _ => None
   }
 }
 
 ///|
 fn unicode_char_count(text : String) -> Int {
-  let bytes = @encoding.encode(text, encoding=@encoding.UTF16LE)
+  let bytes = @encoding.encode(text, encoding=UTF16LE)
   bytes.length() / 2
 }
 
@@ -196,7 +180,7 @@ fn make_chunk_id(
     text +
     "|" +
     first_last_source_ref_signature(source_refs)
-  let encoded = @encoding.encode(signature, encoding=@encoding.UTF16LE)
+  let encoded = @encoding.encode(signature, encoding=UTF16LE)
   let hash = @crypto.bytes_to_hex_string(@crypto.sha1(encoded))
   chunk_kind_name(kind) + "-" + ordinal.to_string() + "-" + hash[:8].to_owned()
 }

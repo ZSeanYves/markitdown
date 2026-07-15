@@ -366,12 +366,12 @@ fn sequence_item_rest(content : String) -> String {
 /// Return a stable human-readable kind label for a parsed YAML value.
 pub fn yaml_value_kind(value : YamlValue) -> String {
   match value {
-    YamlValue::Mapping(_) => "mapping"
-    YamlValue::Sequence(_) => "sequence"
-    YamlValue::String(_) => "string"
-    YamlValue::Number(_) => "number"
-    YamlValue::Bool(_) => "bool"
-    YamlValue::Null => "null"
+    Mapping(_) => "mapping"
+    Sequence(_) => "sequence"
+    String(_) => "string"
+    Number(_) => "number"
+    Bool(_) => "bool"
+    Null => "null"
   }
 }
 
@@ -385,16 +385,16 @@ fn append_yaml_structure_events(
   depth : Int,
 ) -> Unit {
   match value {
-    YamlValue::Mapping(members) => {
+    Mapping(members) => {
       events.push({
-        kind: YamlStructureEventKind::MappingStart,
+        kind: MappingStart,
         text: None,
         source: { line_start, line_end, path, depth },
       })
       for entry in members {
         let member_path = yaml_member_path(path, entry.key)
         events.push({
-          kind: YamlStructureEventKind::Key,
+          kind: Key,
           text: Some(entry.key),
           source: { line_start, line_end, path: member_path, depth: depth + 1 },
         })
@@ -408,14 +408,14 @@ fn append_yaml_structure_events(
         )
       }
       events.push({
-        kind: YamlStructureEventKind::MappingEnd,
+        kind: MappingEnd,
         text: None,
         source: { line_start, line_end, path, depth },
       })
     }
-    YamlValue::Sequence(values) => {
+    Sequence(values) => {
       events.push({
-        kind: YamlStructureEventKind::SequenceStart,
+        kind: SequenceStart,
         text: None,
         source: { line_start, line_end, path, depth },
       })
@@ -430,32 +430,32 @@ fn append_yaml_structure_events(
         )
       }
       events.push({
-        kind: YamlStructureEventKind::SequenceEnd,
+        kind: SequenceEnd,
         text: None,
         source: { line_start, line_end, path, depth },
       })
     }
-    YamlValue::String(text) =>
+    String(text) =>
       events.push({
-        kind: YamlStructureEventKind::StringValue,
+        kind: StringValue,
         text: Some(text),
         source: { line_start, line_end, path, depth },
       })
-    YamlValue::Number(text) =>
+    Number(text) =>
       events.push({
-        kind: YamlStructureEventKind::NumberValue,
+        kind: NumberValue,
         text: Some(text),
         source: { line_start, line_end, path, depth },
       })
-    YamlValue::Bool(value) =>
+    Bool(value) =>
       events.push({
-        kind: YamlStructureEventKind::BoolValue,
+        kind: BoolValue,
         text: Some(if value { "true" } else { "false" }),
         source: { line_start, line_end, path, depth },
       })
-    YamlValue::Null =>
+    Null =>
       events.push({
-        kind: YamlStructureEventKind::NullValue,
+        kind: NullValue,
         text: Some("null"),
         source: { line_start, line_end, path, depth },
       })

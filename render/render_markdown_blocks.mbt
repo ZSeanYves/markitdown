@@ -12,12 +12,8 @@ fn markdown_needs_blank_line_between(
   next_kind : @core.BlockKind,
 ) -> Bool {
   match prev_kind {
-    Some(@core.BlockKind::List) =>
-      next_kind != @core.BlockKind::List &&
-      next_kind != @core.BlockKind::ListItem
-    Some(@core.BlockKind::ListItem) =>
-      next_kind != @core.BlockKind::List &&
-      next_kind != @core.BlockKind::ListItem
+    Some(List) => next_kind != List && next_kind != ListItem
+    Some(ListItem) => next_kind != List && next_kind != ListItem
     Some(_) => true
     None => false
   }
@@ -78,12 +74,12 @@ fn markdown_leaf_cache_key(
     return None
   }
   let kind = match block.kind {
-    @core.BlockKind::Heading => "h"
-    @core.BlockKind::Paragraph => "p"
-    @core.BlockKind::Code => "c"
-    @core.BlockKind::BlockQuote => "q"
-    @core.BlockKind::Raw => "r"
-    @core.BlockKind::Image => "i"
+    Heading => "h"
+    Paragraph => "p"
+    Code => "c"
+    BlockQuote => "q"
+    Raw => "r"
+    Image => "i"
     _ => return None
   }
   let attrs = block.attrs.to_array()
@@ -150,15 +146,15 @@ fn render_markdown_block(block : @core.CoreBlock) -> String {
     None => ()
   }
   match block.kind {
-    @core.BlockKind::Heading => render_markdown_heading(block)
-    @core.BlockKind::Paragraph => render_markdown_paragraph(block)
-    @core.BlockKind::List => render_markdown_list(block)
-    @core.BlockKind::ListItem => render_markdown_list_item(block, 1, false, 0)
-    @core.BlockKind::Table => render_markdown_table(block)
-    @core.BlockKind::Code => render_markdown_code(block)
-    @core.BlockKind::Image => render_markdown_image(block)
-    @core.BlockKind::BlockQuote => render_markdown_blockquote(block)
-    @core.BlockKind::Raw => render_markdown_raw(block)
+    Heading => render_markdown_heading(block)
+    Paragraph => render_markdown_paragraph(block)
+    List => render_markdown_list(block)
+    ListItem => render_markdown_list_item(block, 1, false, 0)
+    Table => render_markdown_table(block)
+    Code => render_markdown_code(block)
+    Image => render_markdown_image(block)
+    BlockQuote => render_markdown_blockquote(block)
+    Raw => render_markdown_raw(block)
     _ =>
       if block.children.length() > 0 {
         block.children.map(child => render_markdown_block(child)).join("\n")
@@ -194,13 +190,8 @@ fn write_markdown_block_to(
 ///|
 fn markdown_direct_block_visibility(block : @core.CoreBlock) -> Bool? {
   match block.kind {
-    @core.BlockKind::Heading =>
-      if !rich_inlines_present(block) {
-        Some(true)
-      } else {
-        None
-      }
-    @core.BlockKind::Paragraph =>
+    Heading => if !rich_inlines_present(block) { Some(true) } else { None }
+    Paragraph =>
       if block.attrs.get("note_definition_id") is None &&
         !rich_inlines_present(block) {
         Some(
@@ -211,8 +202,8 @@ fn markdown_direct_block_visibility(block : @core.CoreBlock) -> Bool? {
       } else {
         None
       }
-    @core.BlockKind::Code => Some(true)
-    @core.BlockKind::Image => Some(true)
+    Code => Some(true)
+    Image => Some(true)
     _ => None
   }
 }
@@ -223,10 +214,10 @@ fn write_markdown_block_direct_to(
   block : @core.CoreBlock,
 ) -> Unit {
   match block.kind {
-    @core.BlockKind::Heading => write_markdown_heading_to(out, block)
-    @core.BlockKind::Paragraph => write_markdown_paragraph_to(out, block)
-    @core.BlockKind::Code => write_markdown_code_to(out, block)
-    @core.BlockKind::Image => write_markdown_image_to(out, block)
+    Heading => write_markdown_heading_to(out, block)
+    Paragraph => write_markdown_paragraph_to(out, block)
+    Code => write_markdown_code_to(out, block)
+    Image => write_markdown_image_to(out, block)
     _ => ignore(write_markdown_block_to(out, block))
   }
 }
@@ -456,9 +447,9 @@ fn render_markdown_list_item(
   for i in 0..<block.children.length() {
     let child = block.children[i]
     match child.kind {
-      @core.BlockKind::List =>
+      List =>
         child_lines.push(render_markdown_list_with_depth(child, depth + 1))
-      @core.BlockKind::ListItem =>
+      ListItem =>
         child_lines.push(
           render_markdown_list_item(child, i + 1, false, depth + 1),
         )
@@ -940,7 +931,7 @@ fn render_markdown_blockquote_children(
         .split("\n")
         .to_array()
         .map(line => line.to_owned())
-      if child.kind == @core.BlockKind::List {
+      if child.kind == List {
         for line_index in 0..<child_lines.length() {
           lines.push(child_lines[line_index])
           if line_index + 1 < child_lines.length() {
@@ -1015,7 +1006,7 @@ fn annotation_gap_inline(
     return false
   }
   let current = inlines[index]
-  if current.kind != @core.InlineKind::Text || current.text != " " {
+  if current.kind != Text || current.text != " " {
     return false
   }
   annotation_note_marker_inline(inlines[index - 1]) &&
@@ -1024,7 +1015,7 @@ fn annotation_gap_inline(
 
 ///|
 fn annotation_note_marker_inline(inline : @core.CoreInline) -> Bool {
-  if inline.kind != @core.InlineKind::Text {
+  if inline.kind != Text {
     return false
   }
   inline.attrs.get("annotation_role") == Some("note_ref") &&
@@ -1033,7 +1024,7 @@ fn annotation_note_marker_inline(inline : @core.CoreInline) -> Bool {
 
 ///|
 fn annotation_comment_marker_inline(inline : @core.CoreInline) -> Bool {
-  if inline.kind != @core.InlineKind::Text {
+  if inline.kind != Text {
     return false
   }
   inline.attrs.get("annotation_role") == Some("note_ref") &&
@@ -1052,10 +1043,9 @@ fn render_markdown_inline_with_format(
     return inline.attrs.get("annotation_marker").unwrap_or(inline.text)
   }
   match inline.kind {
-    @core.InlineKind::Text =>
-      escape_markdown_inline_text_for_format(inline.text, escape_mode)
-    @core.InlineKind::LineBreak => "<br>"
-    @core.InlineKind::Link => {
+    Text => escape_markdown_inline_text_for_format(inline.text, escape_mode)
+    LineBreak => "<br>"
+    Link => {
       let text = escape_markdown_inline_text_for_format(
         inline.text,
         escape_mode,
@@ -1068,14 +1058,14 @@ fn render_markdown_inline_with_format(
         "[" + display + "](" + href + ")"
       }
     }
-    @core.InlineKind::Image => {
+    Image => {
       let alt = escape_markdown_inline_text_for_format(inline.text, escape_mode)
         .trim()
         .to_owned()
       let path = inline.href.unwrap_or("#").trim().to_owned()
       "![" + alt + "](" + path + ")"
     }
-    @core.InlineKind::Code => {
+    Code => {
       let text = inline.text
       let fence = safe_inline_code_fence(text)
       if text.contains("`") {

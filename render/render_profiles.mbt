@@ -13,14 +13,11 @@ fn profiled_blocks(
   context : RenderContext,
 ) -> Array[@core.CoreBlock] {
   match context.render_profile {
-    @product.RenderProfile::SectionFlushMarkdown => section_flush_blocks(blocks)
-    @product.RenderProfile::SparseTableMarkdown =>
-      sparse_table_profile_blocks(blocks)
-    @product.RenderProfile::NotesAppendixFirst =>
-      notes_appendix_first_blocks(blocks)
-    @product.RenderProfile::AssetManifestFirst =>
-      asset_manifest_first_blocks(blocks, context)
-    @product.RenderProfile::PageWindowMarkdown => page_window_blocks(blocks)
+    SectionFlushMarkdown => section_flush_blocks(blocks)
+    SparseTableMarkdown => sparse_table_profile_blocks(blocks)
+    NotesAppendixFirst => notes_appendix_first_blocks(blocks)
+    AssetManifestFirst => asset_manifest_first_blocks(blocks, context)
+    PageWindowMarkdown => page_window_blocks(blocks)
     _ => blocks
   }
 }
@@ -61,8 +58,7 @@ fn sparse_table_profile_blocks(
 fn sparse_table_profile_block(block : @core.CoreBlock) -> @core.CoreBlock {
   let next_children = sparse_table_profile_blocks(block.children)
   let next = @core.block_with_children(block, next_children)
-  if next.kind == @core.BlockKind::Table &&
-    next.attrs.get("render_table_mode") == Some("sparse") {
+  if next.kind == Table && next.attrs.get("render_table_mode") == Some("sparse") {
     next.attrs.set("sparse_render_enabled", "true")
   }
   next
@@ -108,7 +104,7 @@ fn asset_manifest_first_blocks(
     return blocks
   }
   let manifest_heading = @core.block_with_attr(
-    @core.make_block(@core.BlockKind::Heading, "Assets"),
+    @core.make_block(Heading, "Assets"),
     "level",
     "2",
   )
@@ -120,7 +116,7 @@ fn asset_manifest_first_blocks(
       None => ""
     }
     let label = "- " + asset.asset_id + suffix
-    let item = @core.make_block(@core.BlockKind::ListItem, label)
+    let item = @core.make_block(ListItem, label)
     item.attrs.set("appendix_kind", "assets")
     manifest_items.push(item)
   }
@@ -164,7 +160,7 @@ fn flush_grouped_blocks(
 ///|
 fn render_profile_spacer_block() -> @core.CoreBlock {
   @core.block_with_attr(
-    @core.make_block(@core.BlockKind::Raw, ""),
+    @core.make_block(Raw, ""),
     "raw_kind",
     "markdown_literal",
   )

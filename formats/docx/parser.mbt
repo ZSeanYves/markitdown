@@ -2,9 +2,9 @@
 /// Capability for the canonical DOCX package parser.
 pub fn docx_parser_capability() -> @parser.ParserCapability {
   @parser.make_parser_capability(
-    @parser.ParserMode::PackageSinglePass,
+    PackageSinglePass,
     false,
-    @parser.StreamingGranularity::DocxBlock,
+    DocxBlock,
     true,
     true,
     true,
@@ -28,17 +28,12 @@ pub fn docx_parser_capability() -> @parser.ParserCapability {
 /// Construct the canonical DOCX parser entrypoint.
 pub fn docx_parser() -> @parser.Parser {
   let capability = docx_parser_capability()
-  @parser.make_parser(
-    "docx_parser",
-    @parser.ParserMode::PackageSinglePass,
-    capability,
-    fn(
-      source : @input.InputSource,
-      context : @parser.ParseContext,
-    ) -> Result[@parser.ParseResult, String] {
-      parse_docx_document_result(source, context, capability)
-    },
-  )
+  @parser.make_parser("docx_parser", PackageSinglePass, capability, fn(
+    source : @input.InputSource,
+    context : @parser.ParseContext,
+  ) -> Result[@parser.ParseResult, String] {
+    parse_docx_document_result(source, context, capability)
+  })
 }
 
 ///|
@@ -52,7 +47,7 @@ fn parse_docx_document_result(
     Err(err) => {
       let diagnostics = @fshared.empty_parser_diagnostics(
         "docx_parser",
-        @parser.ParserMode::PackageSinglePass,
+        PackageSinglePass,
         source,
         "docx",
       )
@@ -115,7 +110,7 @@ pub fn docx_parse_with_prepared_document(
   let capability = docx_parser_capability()
   let diagnostics = @fshared.empty_parser_diagnostics(
     "docx_parser",
-    @parser.ParserMode::PackageSinglePass,
+    PackageSinglePass,
     source,
     "docx",
   )
@@ -208,7 +203,7 @@ pub fn docx_parse_with_prepared_document(
   let final_document = @core.document_with_diagnostics(document, diagnostics)
   @parser.parse_result_with_document_capability(
     "docx_parser",
-    @parser.ParserMode::PackageSinglePass,
+    PackageSinglePass,
     final_document,
     diagnostics,
     capability,
@@ -284,7 +279,7 @@ fn malformed_docx_parse_result(
   ignore(source)
   @parser.parse_result_with_document_capability(
     "docx_parser",
-    @parser.ParserMode::PackageSinglePass,
+    PackageSinglePass,
     document,
     diagnostics,
     capability,

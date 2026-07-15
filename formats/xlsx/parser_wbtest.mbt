@@ -5,7 +5,7 @@ fn xlsx_wbtest_sheet_info() -> XlsxSheetInfo {
     sheet_id: Some("1"),
     relationship_id: "rId1",
     part_name: "xl/worksheets/sheet1.xml",
-    visibility: @shared.XlsxSheetVisibility::Visible,
+    visibility: Visible,
   }
 }
 
@@ -246,12 +246,12 @@ test "xlsx parser invalid package paths return controlled diagnostics" {
   let source = @input.input_from_bytes_with_format(
     @utf8.encode("not-a-zip"),
     "broken.xlsx",
-    Some(@input.DetectedFormat::Xlsx),
+    Some(Xlsx),
   )
   assert_true(xlsx_workbook_metric(source) is Err(_))
   assert_true(xlsx_first_sheet_metric(source) is Err(_))
   assert_true(xlsx_preflight_summary(source) is Err(_))
-  let context = @parser.new_parse_context(@input.DetectedFormat::Xlsx)
+  let context = @parser.new_parse_context(Xlsx)
   match xlsx_parse_document_result(source, context, xlsx_parser_capability()) {
     Ok(result) => {
       assert_true(result.diagnostics.errors.length() > 0)
@@ -267,11 +267,11 @@ test "xlsx prepared package parses document and block stream routes" {
   let source = @input.input_from_bytes_with_format(
     Bytes::new(0),
     "prepared.xlsx",
-    Some(@input.DetectedFormat::Xlsx),
+    Some(Xlsx),
   )
   let document_result = xlsx_parse_with_package(
     source,
-    @parser.new_parse_context(@input.DetectedFormat::Xlsx),
+    @parser.new_parse_context(Xlsx),
     pkg,
   )
   assert_eq(document_result.diagnostics.errors.length(), 0)
@@ -281,8 +281,8 @@ test "xlsx prepared package parses document and block stream routes" {
   )
   assert_true(document_result.diagnostics.metrics.get("block_count") is Some(_))
   let block_context = @parser.parse_context_with_limits(
-    @parser.new_parse_context(@input.DetectedFormat::Xlsx),
-    Some(@parser.ParserMode::BlockStreaming),
+    @parser.new_parse_context(Xlsx),
+    Some(BlockStreaming),
     Some(100),
     Some(20),
     Some(2000),
@@ -311,7 +311,7 @@ test "xlsx parser lowers repository formula hidden table merge and hyperlink fix
   for path in fixtures {
     let result = (xlsx_parser().parse)(
       @input.input_from_path(path),
-      @parser.new_parse_context(@input.DetectedFormat::Xlsx),
+      @parser.new_parse_context(Xlsx),
     ).unwrap()
     assert_eq(result.diagnostics.errors.length(), 0)
     assert_true(result.document.unwrap().blocks.length() > 0)
@@ -324,32 +324,23 @@ test "xlsx advanced synthetic contract covers shared styles formulas comments ta
   let source = @input.input_from_path(
     "samples/fixtures/contracts/xlsx/xlsx_advanced_synthetic.xlsx",
   )
-  let balanced = (xlsx_parser().parse)(
-    source,
-    @parser.new_parse_context(@input.DetectedFormat::Xlsx),
-  ).unwrap()
+  let balanced = (xlsx_parser().parse)(source, @parser.new_parse_context(Xlsx)).unwrap()
   let document = balanced.document.unwrap()
   assert_true(balanced.diagnostics.errors.length() == 0)
   assert_true(balanced.diagnostics.metrics.get("xlsx_sheet_count") == Some("2"))
   assert_true(
-    document.blocks.any(block => {
-      block.kind == @core.BlockKind::Heading && block.text == "Data"
-    }),
+    document.blocks.any(block => block.kind == Heading && block.text == "Data"),
   )
-  assert_true(
-    document.blocks.any(block => block.kind == @core.BlockKind::Table),
-  )
-  assert_true(
-    document.blocks.any(block => block.kind == @core.BlockKind::Image),
-  )
+  assert_true(document.blocks.any(block => block.kind == Table))
+  assert_true(document.blocks.any(block => block.kind == Image))
   assert_true(
     !document.blocks.any(block => block.text.contains("Hidden value")),
   )
   assert_true(document.assets.length() == 1)
 
   let stream_context = @parser.parse_context_with_limits(
-    @parser.new_parse_context(@input.DetectedFormat::Xlsx),
-    Some(@parser.ParserMode::BlockStreaming),
+    @parser.new_parse_context(Xlsx),
+    Some(BlockStreaming),
     None,
     None,
     None,

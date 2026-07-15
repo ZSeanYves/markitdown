@@ -43,8 +43,8 @@ fn parse_source_slide(
   if !@ox.has_part(ctx.pkg, part_name) {
     ctx.warnings.push(
       pptx_warning(
-        PptxWarningKind::MissingSlidePart,
-        PptxWarningSeverity::Warning,
+        MissingSlidePart,
+        Warning,
         part_name,
         source_key.node_key,
         slide_ref.relationship_id,
@@ -179,8 +179,8 @@ fn parse_shape_container(
   if c.depth > ctx.budget.max_group_depth {
     ctx.warnings.push(
       pptx_warning(
-        PptxWarningKind::OverBudget,
-        PptxWarningSeverity::Warning,
+        OverBudget,
+        Warning,
         c.part_name,
         "group-depth",
         None,
@@ -206,8 +206,8 @@ fn parse_shape_container(
               if child_count == ctx.budget.max_child_shapes_per_group + 1 {
                 ctx.warnings.push(
                   pptx_warning(
-                    PptxWarningKind::OverBudget,
-                    PptxWarningSeverity::Warning,
+                    OverBudget,
+                    Warning,
                     c.part_name,
                     "group-child-count",
                     None,
@@ -233,20 +233,13 @@ fn parse_shape_container(
             match slice_full_element(inner, start, name) {
               Some((block, next_pos)) => {
                 match name {
-                  "p:grpSp" =>
-                    out.push(
-                      PptxObject::Group(parse_group_shape(ctx, block, c)),
-                    )
-                  "p:sp" =>
-                    out.push(PptxObject::Shape(parse_shape(ctx, block, c)))
-                  "p:pic" =>
-                    out.push(PptxObject::Picture(parse_picture(ctx, block, c)))
+                  "p:grpSp" => out.push(Group(parse_group_shape(ctx, block, c)))
+                  "p:sp" => out.push(Shape(parse_shape(ctx, block, c)))
+                  "p:pic" => out.push(Picture(parse_picture(ctx, block, c)))
                   "p:graphicFrame" =>
                     out.push(parse_graphic_frame(ctx, block, c))
                   "p:cxnSp" =>
-                    out.push(
-                      PptxObject::Connector(parse_connector(ctx, block, c)),
-                    )
+                    out.push(Connector(parse_connector(ctx, block, c)))
                   "p:nvGrpSpPr" | "p:grpSpPr" => ()
                   _ => {
                     let unsupported_key = pptx_source_key(
@@ -255,8 +248,8 @@ fn parse_shape_container(
                     )
                     ctx.warnings.push(
                       pptx_warning(
-                        PptxWarningKind::UnsupportedObject,
-                        PptxWarningSeverity::Warning,
+                        UnsupportedObject,
+                        Warning,
                         c.part_name,
                         unsupported_key.node_key,
                         None,
@@ -265,7 +258,7 @@ fn parse_shape_container(
                       ),
                     )
                     out.push(
-                      PptxObject::Unsupported({
+                      Unsupported({
                         kind: name,
                         message: "unsupported slide object: " + name,
                         source_key: unsupported_key,
@@ -421,7 +414,7 @@ fn parse_graphic_frame(
   )
   track_source_node(ctx, c.part_name, source_key.node_key)
   if contains_bytes(frame_xml, pat("<a:tbl")) {
-    return PptxObject::Table(
+    return Table(
       parse_table(
         ctx,
         c.part_name,
@@ -444,7 +437,7 @@ fn parse_graphic_frame(
       let (title, cached_text, cached_categories, cached_values, cached_series) = read_chart_cached_facts(
         ctx, target,
       )
-      return PptxObject::Chart({
+      return Chart({
         relationship_id: Some(rid),
         target_part: target,
         title,
@@ -466,8 +459,8 @@ fn parse_graphic_frame(
   }
   ctx.warnings.push(
     pptx_warning(
-      PptxWarningKind::UnsupportedObject,
-      PptxWarningSeverity::Warning,
+      UnsupportedObject,
+      Warning,
       c.part_name,
       source_key.node_key,
       None,
@@ -490,23 +483,9 @@ fn parse_graphic_frame(
   }
   match kind {
     "SmartArt" =>
-      PptxObject::SmartArt({
-        relationship_id: rel_id,
-        target_part: target,
-        source_key,
-      })
-    "OLE" =>
-      PptxObject::Ole({
-        relationship_id: rel_id,
-        target_part: target,
-        source_key,
-      })
-    _ =>
-      PptxObject::Unsupported({
-        kind,
-        message: "unsupported graphic frame",
-        source_key,
-      })
+      SmartArt({ relationship_id: rel_id, target_part: target, source_key })
+    "OLE" => Ole({ relationship_id: rel_id, target_part: target, source_key })
+    _ => Unsupported({ kind, message: "unsupported graphic frame", source_key })
   }
 }
 
@@ -524,8 +503,8 @@ fn resolve_graphic_frame_target(
     None => {
       ctx.warnings.push(
         pptx_warning(
-          PptxWarningKind::MissingRelationshipTarget,
-          PptxWarningSeverity::Warning,
+          MissingRelationshipTarget,
+          Warning,
           part_name,
           source_key.node_key,
           Some(rel_id),
@@ -611,8 +590,8 @@ fn read_chart_cached_facts(
     !pptx_chart_cache_is_sufficient(series, categories, numeric_values) {
     ctx.warnings.push(
       pptx_warning(
-        PptxWarningKind::UnsupportedObject,
-        PptxWarningSeverity::Warning,
+        UnsupportedObject,
+        Warning,
         part,
         "chart-external-data",
         None,
@@ -917,15 +896,15 @@ fn read_placeholder(xml : Bytes) -> PptxPlaceholder? raise {
   let raw = read_attr_value_in_tag_bytes(tag, "type")
   let kind = match raw.unwrap_or("") {
     "title" => PptxPlaceholderKind::Title
-    "ctrTitle" => PptxPlaceholderKind::CenterTitle
-    "subTitle" => PptxPlaceholderKind::Subtitle
-    "body" => PptxPlaceholderKind::Body
-    "ftr" => PptxPlaceholderKind::Footer
-    "dt" => PptxPlaceholderKind::Date
-    "sldNum" => PptxPlaceholderKind::SlideNumber
-    "pic" => PptxPlaceholderKind::Picture
-    "tbl" => PptxPlaceholderKind::Table
-    _ => PptxPlaceholderKind::Unknown
+    "ctrTitle" => CenterTitle
+    "subTitle" => Subtitle
+    "body" => Body
+    "ftr" => Footer
+    "dt" => Date
+    "sldNum" => SlideNumber
+    "pic" => Picture
+    "tbl" => Table
+    _ => Unknown
   }
   Some({ kind, index: read_attr_value_in_tag_bytes(tag, "idx"), raw_type: raw })
 }

@@ -64,28 +64,28 @@ pub fn classify_yaml_error(err : YamlError) -> YamlErrorInfo {
   let kind = if detail.contains("unexpected end of input") {
     YamlErrorKind::UnexpectedEnd
   } else if detail.contains("unexpected indentation") {
-    YamlErrorKind::UnexpectedIndentation
+    UnexpectedIndentation
   } else if detail.contains("unexpected trailing content") {
-    YamlErrorKind::TrailingContent
+    TrailingContent
   } else if detail.contains("empty key") {
-    YamlErrorKind::EmptyKey
+    EmptyKey
   } else if detail.contains("expected mapping entry") {
-    YamlErrorKind::ExpectedMappingEntry
+    ExpectedMappingEntry
   } else if detail.contains("expected sequence item") {
-    YamlErrorKind::ExpectedSequenceItem
+    ExpectedSequenceItem
   } else if detail.contains("unterminated double-quoted string") ||
     detail.contains("unterminated single-quoted string") {
-    YamlErrorKind::UnterminatedQuotedScalar
+    UnterminatedQuotedScalar
   } else if detail.contains("invalid escape") {
-    YamlErrorKind::InvalidEscape
+    InvalidEscape
   } else if detail.contains("tabs are unsupported") {
-    YamlErrorKind::TabsUnsupported
+    TabsUnsupported
   } else if detail.contains("multi-document markers are unsupported") {
-    YamlErrorKind::MultiDocumentUnsupported
+    MultiDocumentUnsupported
   } else if detail.contains("unsupported") {
-    YamlErrorKind::UnsupportedFeature
+    UnsupportedFeature
   } else {
-    YamlErrorKind::Unknown
+    Unknown
   }
   { kind, detail: err.to_string() }
 }
@@ -130,10 +130,10 @@ fn parse_yaml_document_with_profile(
       match
         parse_yaml_document_with_profile(document_text, None, profile_totals).root {
         Some(root) => documents.push(root)
-        None => documents.push(YamlValue::Null)
+        None => documents.push(Null)
       }
     }
-    return { root: Some(YamlValue::Sequence(documents)) }
+    return { root: Some(Sequence(documents)) }
   }
   let text = if document_texts.length() == 1 { document_texts[0] } else { "" }
   let lines = prepare_yaml_lines(
@@ -471,7 +471,7 @@ fn consume_mapping_members(
       next = after
       child
     } else {
-      YamlValue::Null
+      Null
     }
 
     members.push({ key, value })
@@ -595,7 +595,7 @@ fn parse_sequence_item(
       let child_indent = lines[index + 1].indent
       return parse_block(lines, index + 1, child_indent, profile_totals)
     }
-    return (index + 1, YamlValue::Null)
+    return (index + 1, Null)
   }
   match yaml_anchor_name_only(rest) {
     Some(name) => {
@@ -657,7 +657,7 @@ fn parse_sequence_item(
         next = after
         child
       } else {
-        YamlValue::Null
+        Null
       }
 
       members.push({ key, value: first_value })
@@ -672,7 +672,7 @@ fn parse_sequence_item(
         }
         next = after
       }
-      (next, YamlValue::Mapping(members))
+      (next, Mapping(members))
     }
     None =>
       (index + 1, parse_scalar_trimmed(rest, line.line_no, profile_totals))
@@ -860,7 +860,7 @@ fn yaml_optional_line_suffix(line_no : Int) -> String {
 
 ///|
 fn yaml_anchor_wrapper(name : String, value : YamlValue) -> YamlValue {
-  YamlValue::Mapping([{ key: yaml_anchor_marker_prefix + name, value }])
+  Mapping([{ key: yaml_anchor_marker_prefix + name, value }])
 }
 
 ///|
@@ -869,7 +869,7 @@ fn resolve_yaml_aliases(
   resolver : YamlAliasResolver,
 ) -> YamlValue raise {
   match value {
-    YamlValue::String(text) =>
+    String(text) =>
       if text.has_prefix(yaml_alias_marker_prefix) {
         resolver.alias_count += 1
         if resolver.alias_count > 1_024 {
@@ -883,14 +883,14 @@ fn resolve_yaml_aliases(
       } else {
         value
       }
-    YamlValue::Sequence(values) => {
+    Sequence(values) => {
       let resolved : Array[YamlValue] = []
       for item in values {
         resolved.push(resolve_yaml_aliases(item, resolver))
       }
-      YamlValue::Sequence(resolved)
+      Sequence(resolved)
     }
-    YamlValue::Mapping(members) => {
+    Mapping(members) => {
       if members.length() == 1 &&
         members[0].key.has_prefix(yaml_anchor_marker_prefix) {
         resolver.anchor_count += 1
@@ -907,7 +907,7 @@ fn resolve_yaml_aliases(
       }
       resolve_yaml_mapping_members(members, resolver)
     }
-    YamlValue::Number(_) | YamlValue::Bool(_) | YamlValue::Null => value
+    Number(_) | Bool(_) | Null => value
   }
 }
 
@@ -939,7 +939,7 @@ fn resolve_yaml_mapping_members(
     }
   }
   out.append(explicit[:])
-  YamlValue::Mapping(out)
+  Mapping(out)
 }
 
 ///|
@@ -948,11 +948,11 @@ fn append_yaml_merge_members(
   value : YamlValue,
 ) -> Unit raise {
   match value {
-    YamlValue::Mapping(members) => out.append(members[:])
-    YamlValue::Sequence(values) =>
+    Mapping(members) => out.append(members[:])
+    Sequence(values) =>
       for item in values {
         match item {
-          YamlValue::Mapping(members) => out.append(members[:])
+          Mapping(members) => out.append(members[:])
           _ => raise ParseError("YAML merge sequence must contain mappings")
         }
       }
@@ -983,21 +983,21 @@ fn parse_yaml_safe_core_tag(
   match tag {
     "!!str" =>
       if raw.has_prefix("\"") {
-        YamlValue::String(parse_double_quoted_scalar(raw, line_no))
+        String(parse_double_quoted_scalar(raw, line_no))
       } else if raw.has_prefix("'") {
-        YamlValue::String(parse_single_quoted_scalar(raw, line_no))
+        String(parse_single_quoted_scalar(raw, line_no))
       } else {
-        YamlValue::String(raw)
+        String(raw)
       }
     "!!int" =>
       if yaml_is_integer_scalar(raw) {
-        YamlValue::Number(raw)
+        Number(raw)
       } else {
         raise ParseError("invalid !!int scalar at line " + line_no.to_string())
       }
     "!!float" =>
       if yaml_is_number_scalar(raw) {
-        YamlValue::Number(raw)
+        Number(raw)
       } else {
         raise ParseError(
           "invalid !!float scalar at line " + line_no.to_string(),
@@ -1005,15 +1005,15 @@ fn parse_yaml_safe_core_tag(
       }
     "!!bool" =>
       if raw == "true" {
-        YamlValue::Bool(true)
+        Bool(true)
       } else if raw == "false" {
-        YamlValue::Bool(false)
+        Bool(false)
       } else {
         raise ParseError("invalid !!bool scalar at line " + line_no.to_string())
       }
     "!!null" =>
       if raw == "null" || raw == "~" {
-        YamlValue::Null
+        Null
       } else {
         raise ParseError("invalid !!null scalar at line " + line_no.to_string())
       }

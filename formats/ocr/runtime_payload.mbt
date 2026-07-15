@@ -6,7 +6,7 @@ pub fn parse_paddle_ocr_wrapper_payload(
   let trimmed = payload.trim().to_owned()
   if trimmed == "" {
     return Err(
-      OcrProviderError::EmptyResult(
+      EmptyResult(
         "PaddleOCR wrapper produced an empty payload on this runtime.",
       ),
     )
@@ -14,17 +14,17 @@ pub fn parse_paddle_ocr_wrapper_payload(
   let root = @djson.parse_json_document(trimmed) catch {
     err =>
       return Err(
-        OcrProviderError::OutputParseFailed(
+        OutputParseFailed(
           "PaddleOCR wrapper emitted invalid JSON on this runtime: " +
           err.to_string(),
         ),
       )
   }
   let root_object = match root.root {
-    @djson.JsonValue::Object(entries) => paddle_json_object(entries)
+    Object(entries) => paddle_json_object(entries)
     _ =>
       return Err(
-        OcrProviderError::OutputParseFailed(
+        OutputParseFailed(
           "PaddleOCR wrapper payload root must be a JSON object on this runtime.",
         ),
       )
@@ -35,14 +35,14 @@ pub fn parse_paddle_ocr_wrapper_payload(
     Err(error) => return Err(error)
   }
   let jobs = match root_object.get("jobs") {
-    Some(@djson.JsonValue::Array(items)) =>
+    Some(Array(items)) =>
       match paddle_json_job_results(items, request) {
         Ok(value) => value
         Err(error) => return Err(error)
       }
     _ =>
       return Err(
-        OcrProviderError::OutputParseFailed(
+        OutputParseFailed(
           "PaddleOCR wrapper payload must include a `jobs` array on this runtime.",
         ),
       )
@@ -62,15 +62,13 @@ pub fn parse_paddle_ocr_wrapper_payload(
     }
   }
   let diagnostics = match root_object.get("diagnostics") {
-    Some(@djson.JsonValue::Array(items)) => paddle_json_string_array(items)
+    Some(Array(items)) => paddle_json_string_array(items)
     _ => []
   }
   if pages.length() == 0 {
     if has_empty_job && !has_ok_job && !has_error_job {
       return Err(
-        OcrProviderError::EmptyResult(
-          "PaddleOCR wrapper produced zero pages on this runtime.",
-        ),
+        EmptyResult("PaddleOCR wrapper produced zero pages on this runtime."),
       )
     }
     if request.image_paths.length() == 1 && has_error_job && !has_ok_job {
@@ -85,7 +83,7 @@ pub fn parse_paddle_ocr_wrapper_payload(
         }
       }
       return Err(
-        OcrProviderError::ExecutionFailed(
+        ExecutionFailed(
           "PaddleOCR wrapper job failed on this runtime: " + first_error_message,
         ),
       )
@@ -112,10 +110,10 @@ fn paddle_json_job_results(
   let jobs : Array[OcrProviderJobResult] = []
   for item in items {
     let job_object = match item {
-      @djson.JsonValue::Object(entries) => paddle_json_object(entries)
+      Object(entries) => paddle_json_object(entries)
       _ =>
         return Err(
-          OcrProviderError::OutputParseFailed(
+          OutputParseFailed(
             "PaddleOCR wrapper job entries must be JSON objects on this runtime.",
           ),
         )
@@ -144,10 +142,10 @@ fn paddle_json_job_result(
     Err(error) => return Err(error)
   }
   let page_items = match payload.get("pages") {
-    Some(@djson.JsonValue::Array(items)) => items
+    Some(Array(items)) => items
     _ =>
       return Err(
-        OcrProviderError::OutputParseFailed(
+        OutputParseFailed(
           "PaddleOCR wrapper job payload must include a `pages` array on this runtime.",
         ),
       )
@@ -168,7 +166,7 @@ fn paddle_json_job_result(
       error_message=paddle_json_string_optional(payload, "error_message"),
       pages,
       diagnostics=match payload.get("diagnostics") {
-        Some(@djson.JsonValue::Array(items)) => paddle_json_string_array(items)
+        Some(Array(items)) => paddle_json_string_array(items)
         _ => []
       },
     ),
@@ -200,10 +198,10 @@ fn paddle_json_pages(
   let pages : Array[OcrPageModel] = []
   for item in items {
     let page_object = match item {
-      @djson.JsonValue::Object(entries) => paddle_json_object(entries)
+      Object(entries) => paddle_json_object(entries)
       _ =>
         return Err(
-          OcrProviderError::OutputParseFailed(
+          OutputParseFailed(
             "PaddleOCR wrapper page entries must be JSON objects on this runtime.",
           ),
         )
@@ -227,14 +225,14 @@ fn paddle_json_page(
     Err(error) => return Err(error)
   }
   let blocks = match payload.get("blocks") {
-    Some(@djson.JsonValue::Array(items)) =>
+    Some(Array(items)) =>
       match paddle_json_blocks(items) {
         Ok(value) => value
         Err(error) => return Err(error)
       }
     _ =>
       return Err(
-        OcrProviderError::OutputParseFailed(
+        OutputParseFailed(
           "PaddleOCR wrapper page payload must include a `blocks` array on this runtime.",
         ),
       )
@@ -252,7 +250,7 @@ fn paddle_json_page(
       ),
     ),
     diagnostics: match payload.get("diagnostics") {
-      Some(@djson.JsonValue::Array(items)) => paddle_json_string_array(items)
+      Some(Array(items)) => paddle_json_string_array(items)
       _ => []
     },
   })
@@ -265,10 +263,10 @@ fn paddle_json_blocks(
   let blocks : Array[OcrBlock] = []
   for item in items {
     let block_object = match item {
-      @djson.JsonValue::Object(entries) => paddle_json_object(entries)
+      Object(entries) => paddle_json_object(entries)
       _ =>
         return Err(
-          OcrProviderError::OutputParseFailed(
+          OutputParseFailed(
             "PaddleOCR wrapper block entries must be JSON objects on this runtime.",
           ),
         )
@@ -292,14 +290,14 @@ fn paddle_json_block(
     Err(error) => return Err(error)
   }
   let lines = match payload.get("lines") {
-    Some(@djson.JsonValue::Array(items)) =>
+    Some(Array(items)) =>
       match paddle_json_lines(items) {
         Ok(value) => value
         Err(error) => return Err(error)
       }
     _ =>
       return Err(
-        OcrProviderError::OutputParseFailed(
+        OutputParseFailed(
           "PaddleOCR wrapper block payload must include a `lines` array on this runtime.",
         ),
       )
@@ -321,10 +319,10 @@ fn paddle_json_lines(
   let lines : Array[OcrLine] = []
   for item in items {
     let line_object = match item {
-      @djson.JsonValue::Object(entries) => paddle_json_object(entries)
+      Object(entries) => paddle_json_object(entries)
       _ =>
         return Err(
-          OcrProviderError::OutputParseFailed(
+          OutputParseFailed(
             "PaddleOCR wrapper line entries must be JSON objects on this runtime.",
           ),
         )
@@ -352,14 +350,14 @@ fn paddle_json_line(
     Err(error) => return Err(error)
   }
   let words = match payload.get("words") {
-    Some(@djson.JsonValue::Array(items)) =>
+    Some(Array(items)) =>
       match paddle_json_words(items) {
         Ok(value) => value
         Err(error) => return Err(error)
       }
     _ =>
       return Err(
-        OcrProviderError::OutputParseFailed(
+        OutputParseFailed(
           "PaddleOCR wrapper line payload must include a `words` array on this runtime.",
         ),
       )
@@ -382,10 +380,10 @@ fn paddle_json_words(
   let words : Array[OcrWord] = []
   for item in items {
     let word_object = match item {
-      @djson.JsonValue::Object(entries) => paddle_json_object(entries)
+      Object(entries) => paddle_json_object(entries)
       _ =>
         return Err(
-          OcrProviderError::OutputParseFailed(
+          OutputParseFailed(
             "PaddleOCR wrapper word entries must be JSON objects on this runtime.",
           ),
         )
@@ -439,10 +437,10 @@ fn paddle_json_string_required(
   key : String,
 ) -> Result[String, OcrProviderError] {
   match payload.get(key) {
-    Some(@djson.JsonValue::String(value)) => Ok(value)
+    Some(String(value)) => Ok(value)
     _ =>
       Err(
-        OcrProviderError::OutputParseFailed(
+        OutputParseFailed(
           "PaddleOCR wrapper payload is missing required string field `" +
           key +
           "` on this runtime.",
@@ -457,7 +455,7 @@ fn paddle_json_string_optional(
   key : String,
 ) -> String? {
   match payload.get(key) {
-    Some(@djson.JsonValue::String(value)) => Some(value)
+    Some(String(value)) => Some(value)
     _ => None
   }
 }
@@ -467,7 +465,7 @@ fn paddle_json_string_array(items : Array[@djson.JsonValue]) -> Array[String] {
   items
   .map(item => {
     match item {
-      @djson.JsonValue::String(value) => value
+      String(value) => value
       _ => ""
     }
   })
@@ -480,12 +478,12 @@ fn paddle_json_int_required(
   key : String,
 ) -> Result[Int, OcrProviderError] {
   match payload.get(key) {
-    Some(@djson.JsonValue::Number(value)) =>
+    Some(Number(value)) =>
       Ok(
         @string.parse_int(value) catch {
           _ =>
             return Err(
-              OcrProviderError::OutputParseFailed(
+              OutputParseFailed(
                 "PaddleOCR wrapper numeric field `" +
                 key +
                 "` is not a valid integer on this runtime.",
@@ -495,7 +493,7 @@ fn paddle_json_int_required(
       )
     _ =>
       Err(
-        OcrProviderError::OutputParseFailed(
+        OutputParseFailed(
           "PaddleOCR wrapper payload is missing required numeric field `" +
           key +
           "` on this runtime.",
@@ -510,7 +508,7 @@ fn paddle_json_double_optional(
   key : String,
 ) -> Double? {
   match payload.get(key) {
-    Some(@djson.JsonValue::Number(value)) =>
+    Some(Number(value)) =>
       Some(@string.parse_double(value) catch { _ => return None })
     _ => None
   }
@@ -522,7 +520,7 @@ fn paddle_json_bbox_optional(
   key : String,
 ) -> @core.BBox? {
   match payload.get(key) {
-    Some(@djson.JsonValue::Object(entries)) =>
+    Some(Object(entries)) =>
       paddle_json_bbox_from_object(paddle_json_object(entries))
     _ => None
   }
@@ -560,23 +558,19 @@ async fn collect_paddle_ocr_output_async(
     Ok(output) => {
       if output.timed_out {
         return Err(
-          OcrProviderError::ExecutionFailed(
-            "PaddleOCR command timed out after 300000 ms",
-          ),
+          ExecutionFailed("PaddleOCR command timed out after 300000 ms"),
         )
       }
       if output.stdout_limit_exceeded || output.stderr_limit_exceeded {
         return Err(
-          OcrProviderError::ExecutionFailed(
-            "PaddleOCR command output exceeded 8 MiB limit",
-          ),
+          ExecutionFailed("PaddleOCR command output exceeded 8 MiB limit"),
         )
       }
       Ok((output.exit_code, output.stdout, output.stderr))
     }
     Err(message) =>
       Err(
-        OcrProviderError::ExecutionFailed(
+        ExecutionFailed(
           "launch PaddleOCR wrapper failed on this runtime: " +
           message +
           "\nResolved command: " +
@@ -605,23 +599,19 @@ fn collect_paddle_ocr_output_bounded(
     Ok(output) => {
       if output.timed_out {
         return Err(
-          OcrProviderError::ExecutionFailed(
-            "PaddleOCR command timed out after 300000 ms",
-          ),
+          ExecutionFailed("PaddleOCR command timed out after 300000 ms"),
         )
       }
       if output.stdout_limit_exceeded || output.stderr_limit_exceeded {
         return Err(
-          OcrProviderError::ExecutionFailed(
-            "PaddleOCR command output exceeded 8 MiB limit",
-          ),
+          ExecutionFailed("PaddleOCR command output exceeded 8 MiB limit"),
         )
       }
       Ok((output.exit_code, output.stdout, output.stderr))
     }
     Err(message) =>
       Err(
-        OcrProviderError::ExecutionFailed(
+        ExecutionFailed(
           "launch PaddleOCR wrapper failed on this runtime: " +
           message +
           "\nResolved command: " +
