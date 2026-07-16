@@ -8,6 +8,8 @@ import {
 }
 
 // Values
+pub fn asset_payload_within_limits(ParseContext, Int64, Int64) -> Bool
+
 pub fn async_parser_from_sync(Parser) -> AsyncParser
 
 pub fn async_registry_from_sync(ParserRegistry) -> AsyncParserRegistry
@@ -60,11 +62,13 @@ pub fn ocr_intent_name(OcrIntent) -> String
 
 pub fn package_with_block_route_parser_capability(StreamingGranularity, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool) -> ParserCapability
 
+pub fn parse_context_with_asset_limits(ParseContext, Int64, Int64) -> ParseContext
+
 pub fn parse_context_with_audio_options(ParseContext, AudioOptions) -> ParseContext
 
 pub fn parse_context_with_execution_profiles(ParseContext, @product.ExecutionProfile, @product.LoweringProfile, @product.RenderProfile, @product.AccurateFeatureProfile) -> ParseContext
 
-pub fn parse_context_with_limits(ParseContext, ParserMode?, Int?, Int?, Int?, Int?, Bool) -> ParseContext
+pub fn parse_context_with_limits(ParseContext, ParserMode?, Int?, Int?, Int?, Int?, Bool, limits? : @product.ResourceLimits) -> ParseContext
 
 pub fn parse_context_with_ocr_options(ParseContext, OcrOptions) -> ParseContext
 
@@ -151,6 +155,7 @@ pub struct ParseContext {
   pdf_native_runtime_policy : PdfNativeRuntimePolicy
   pdf_header_footer_filter_policy : PdfHeaderFooterFilterPolicy
   pdf_table_reconstruction_policy : PdfTableReconstructionPolicy
+  limits : @product.ResourceLimits
   max_rows : Int?
   max_cols : Int?
   max_cells : Int?

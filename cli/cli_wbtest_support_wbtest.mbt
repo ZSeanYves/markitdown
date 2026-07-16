@@ -35,20 +35,17 @@ fn run_cli_without_emitting_warnings(
         requested_format,
         cli_requested_format_label(opts),
         opts.ocr_options,
-        opts.fidelity_mode,
+        @convert.fidelity_mode_for_convert_mode(opts.convert_mode),
       ),
     )
   }
   let convert_options = @convert.make_convert_options(
     opts.convert_mode,
-    opts.output_format,
+    opts.output_mode,
     opts.explicit_format,
     opts.ocr_options,
     @convert.default_resource_limits(),
     audio_options=opts.audio_options,
-    fidelity_mode=opts.fidelity_mode,
-    output_mode=opts.output_mode,
-    stream_requested=opts.stream_requested,
     rag_options=opts.rag_options,
   )
   let execution = match

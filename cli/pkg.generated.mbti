@@ -2,7 +2,6 @@
 package "ZSeanYves/markitdown/cli"
 
 import {
-  "ZSeanYves/markitdown/convert",
   "ZSeanYves/markitdown/formats/ocr",
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
@@ -11,7 +10,7 @@ import {
 }
 
 // Values
-pub fn make_cli_options(String, String?, String?, @input.DetectedFormat?, @parser.OcrOptions, @product.FidelityMode, @convert.ConvertMode, @product.OutputMode, Bool, @convert.OutputFormat, rag_options? : @rag.RagOptions, audio_options? : @parser.AudioOptions) -> CliOptions
+pub fn make_cli_options(String, String?, String?, @input.DetectedFormat?, @parser.OcrOptions, @product.FidelityMode, @product.ConvertMode, @product.OutputMode, Bool, @product.OutputMode, rag_options? : @rag.RagOptions, audio_options? : @parser.AudioOptions) -> CliOptions
 
 pub fn run_cli(CliOptions) -> Result[String, String]
 
@@ -37,11 +36,8 @@ pub struct CliOptions {
   explicit_format : @input.DetectedFormat?
   ocr_options : @parser.OcrOptions
   audio_options : @parser.AudioOptions
-  fidelity_mode : @product.FidelityMode
-  convert_mode : @convert.ConvertMode
+  convert_mode : @product.ConvertMode
   output_mode : @product.OutputMode
-  stream_requested : Bool
-  output_format : @convert.OutputFormat
   rag_options : @rag.RagOptions
 }
 

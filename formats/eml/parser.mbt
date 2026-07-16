@@ -375,6 +375,7 @@ fn lower_eml_html_part(
     part.children,
     document,
     diagnostics,
+    context,
   )
   let html_source = @input.input_from_text_with_format(
     html,
@@ -544,6 +545,11 @@ fn lower_eml_attachment(
   rewrites : Array[EmlAssetRewrite],
 ) -> Array[@core.CoreBlock] {
   let blocks : Array[@core.CoreBlock] = []
+  if !eml_attachment_within_asset_budget(
+      attachment, context, document, diagnostics,
+    ) {
+    return eml_attachment_summary_blocks(attachment, part, source)
+  }
   if eml_attachment_is_inline_image(attachment) &&
     document.assets.length() < EML_MAX_MATERIALIZED_ASSETS {
     let materialized = eml_materialize_attachment_payload(

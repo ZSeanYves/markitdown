@@ -14,6 +14,8 @@ import {
 // Values
 pub fn convert_input(@input.InputSource, ConvertOptions) -> Result[ConvertResult, ConvertError]
 
+pub fn convert_input_to_sink(@input.InputSource, ConvertOptions, OutputSink) -> Result[ConvertResult, ConvertError]
+
 pub fn convert_input_with_image_ocr_provider(@input.InputSource, ConvertOptions, (@ocr.OcrProviderRequest) -> Result[@ocr.OcrProviderResult, @ocr.OcrProviderError]) -> Result[ConvertResult, ConvertError]
 
 pub fn convert_input_with_provenance(@input.InputSource, ConvertOptions) -> Result[ConvertExecution, ConvertError]
@@ -22,7 +24,7 @@ pub fn convert_input_with_provenance_and_image_ocr_provider(@input.InputSource, 
 
 pub fn convert_input_with_provenance_and_image_ocr_provider_and_pdf_rasterizer(@input.InputSource, ConvertOptions, (@ocr.OcrProviderRequest) -> Result[@ocr.OcrProviderResult, @ocr.OcrProviderError], (@input.InputSource) -> Result[(@pdf.PdfRasterResult, String), @pdf.PdfRasterizerError]) -> Result[ConvertExecution, ConvertError]
 
-pub fn convert_mode_name(ConvertMode) -> String
+pub fn convert_mode_name(@product.ConvertMode) -> String
 
 pub fn convert_provenance_to_json(ConvertProvenance) -> Json
 
@@ -30,19 +32,19 @@ pub fn default_convert_options() -> ConvertOptions
 
 pub fn default_resource_limits() -> @product.ResourceLimits
 
-pub fn derived_convert_mode(@product.FidelityMode, Bool) -> ConvertMode
+pub fn derived_convert_mode(@product.FidelityMode, Bool) -> @product.ConvertMode
 
-pub fn fidelity_mode_for_convert_mode(ConvertMode) -> @product.FidelityMode
+pub fn fidelity_mode_for_convert_mode(@product.ConvertMode) -> @product.FidelityMode
 
 pub fn fidelity_mode_name(@product.FidelityMode) -> String
 
-pub fn make_convert_options(ConvertMode, OutputFormat, @input.DetectedFormat?, @parser.OcrOptions, @product.ResourceLimits, audio_options? : @parser.AudioOptions, fidelity_mode? : @product.FidelityMode, output_mode? : @product.OutputMode, stream_requested? : Bool, rag_options? : @rag.RagOptions) -> ConvertOptions
+pub fn make_convert_options(@product.ConvertMode, @product.OutputMode, @input.DetectedFormat?, @parser.OcrOptions, @product.ResourceLimits, audio_options? : @parser.AudioOptions, rag_options? : @rag.RagOptions) -> ConvertOptions
 
-pub fn make_resource_limits(Int, Int, Int, max_line_chars? : Int, max_input_bytes? : Int64, max_asset_bytes? : Int64, max_total_asset_bytes? : Int64, external_command_timeout_ms? : Int, max_external_output_bytes? : Int64) -> @product.ResourceLimits
+pub fn make_output_sink((String) -> Result[Unit, String], () -> Result[Unit, String]) -> OutputSink
 
-pub fn output_mode_for_convert_mode(ConvertMode) -> @product.OutputMode
+pub fn output_mode_for_convert_mode(@product.ConvertMode) -> @product.OutputMode
 
-pub fn output_mode_for_output_format(OutputFormat) -> @product.OutputMode
+pub fn output_mode_for_output_format(@product.OutputMode) -> @product.OutputMode
 
 pub fn output_mode_name(@product.OutputMode) -> String
 
@@ -66,18 +68,9 @@ pub struct ConvertExecution {
   provenance : ConvertProvenance
 }
 
-pub(all) enum ConvertMode {
-  Balanced
-  Accurate
-  Stream
-} derive(Eq)
-
 pub struct ConvertOptions {
-  mode : ConvertMode
-  fidelity_mode : @product.FidelityMode
+  mode : @product.ConvertMode
   output_mode : @product.OutputMode
-  stream_requested : Bool
-  output_format : OutputFormat
   explicit_format : @input.DetectedFormat?
   ocr_options : @parser.OcrOptions
   audio_options : @parser.AudioOptions
@@ -112,12 +105,11 @@ pub struct ConvertProvenance {
 
 pub struct ConvertResult {
   content : String
-  output_format : OutputFormat
   fidelity_mode : @product.FidelityMode
   output_mode : @product.OutputMode
   detected_format : @input.DetectedFormat
   parser_mode : @parser.ParserMode
-  convert_mode : ConvertMode
+  convert_mode : @product.ConvertMode
   metadata : Map[String, @core.JsonValue]
   diagnostics : @core.Diagnostics
   assets : Array[@core.AssetRef]
@@ -126,11 +118,10 @@ pub struct ConvertResult {
   debug_ir : @core.DocumentIR?
 }
 
-pub(all) enum OutputFormat {
-  Markdown
-  RagJson
-  DebugJson
-} derive(Eq)
+pub struct OutputSink {
+  write : (String) -> Result[Unit, String]
+  finish : () -> Result[Unit, String]
+}
 
 pub struct RoutePlan {
   detected_format : @input.DetectedFormat
@@ -148,6 +139,8 @@ pub using @product {type AccurateFeature}
 
 pub using @product {type AccurateFeatureProfile}
 
+pub using @product {type ConvertMode}
+
 pub using @product {type ExecutionProfile}
 
 pub using @product {type FidelityMode}
@@ -157,6 +150,8 @@ pub using @product {type LoweringProfile}
 pub using @ocr {type OcrProviderKind}
 
 pub using @ocr {type OcrProviderSelectionTarget}
+
+pub using @product {type OutputMode as OutputFormat}
 
 pub using @product {type OutputMode}
 

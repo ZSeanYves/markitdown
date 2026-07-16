@@ -246,8 +246,7 @@ test "main cli emits debug json on the canonical renderer path" {
 
   let txt_path = root + "/debug.txt"
   write_utf8_text(txt_path, "plain")
-  let rendered = match
-    run_cli(cli_options(txt_path, None, Some(Txt), DebugJson)) {
+  let rendered = match run_cli(cli_options(txt_path, None, Some(Txt), Debug)) {
     Ok(value) => value
     Err(msg) => fail("debug json cli failed: " + msg)
   }

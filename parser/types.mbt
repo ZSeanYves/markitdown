@@ -90,6 +90,7 @@ pub struct ParseContext {
   pdf_native_runtime_policy : PdfNativeRuntimePolicy
   pdf_header_footer_filter_policy : PdfHeaderFooterFilterPolicy
   pdf_table_reconstruction_policy : PdfTableReconstructionPolicy
+  limits : @product.ResourceLimits
   max_rows : Int?
   max_cols : Int?
   max_cells : Int?

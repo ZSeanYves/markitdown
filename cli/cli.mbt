@@ -65,20 +65,17 @@ fn run_cli_with_image_ocr_provider_and_pdf_rasterizer(
         requested_format,
         cli_requested_format_label(opts),
         opts.ocr_options,
-        opts.fidelity_mode,
+        @convert.fidelity_mode_for_convert_mode(opts.convert_mode),
       ),
     )
   }
   let convert_options = @convert.make_convert_options(
     opts.convert_mode,
-    opts.output_format,
+    opts.output_mode,
     opts.explicit_format,
     opts.ocr_options,
     @convert.default_resource_limits(),
     audio_options=opts.audio_options,
-    fidelity_mode=opts.fidelity_mode,
-    output_mode=opts.output_mode,
-    stream_requested=opts.stream_requested,
     rag_options=opts.rag_options,
   )
   let execution = match

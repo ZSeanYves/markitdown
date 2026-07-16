@@ -211,7 +211,7 @@ test "main cli pdf debug json exposes header footer candidate diagnostics" {
         "samples/fixtures/contracts/pdf/text_simple.pdf",
         None,
         Some(Pdf),
-        DebugJson,
+        Debug,
       ),
     ) {
     Ok(value) => value
@@ -256,9 +256,9 @@ test "main cli accurate pdf debug json preserves native route metrics without OC
         @parser.default_ocr_options(),
         Accurate,
         Accurate,
-        @convert.output_mode_for_output_format(DebugJson),
+        @convert.output_mode_for_output_format(Debug),
         false,
-        DebugJson,
+        Debug,
         rag_options=@rag.default_rag_options(),
       ),
     ) {

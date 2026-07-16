@@ -281,8 +281,8 @@ fn basename_of_path(path : String) -> String {
 fn batch_output_suffix(output_format : @convert.OutputFormat) -> String {
   match output_format {
     Markdown => ".md"
-    DebugJson => ".debug.json"
-    RagJson => ".rag.json"
+    Debug => ".debug.json"
+    Rag => ".rag.json"
   }
 }
 
@@ -313,7 +313,9 @@ fn run_single_batch_task(
       status: Failed,
       detected_format: @input.detected_format_name(requested_format),
       convert_mode: @convert.convert_mode_name(base_opts.convert_mode),
-      fidelity_mode: @convert.fidelity_mode_name(base_opts.fidelity_mode),
+      fidelity_mode: @convert.fidelity_mode_name(
+        @convert.fidelity_mode_for_convert_mode(base_opts.convert_mode),
+      ),
       output_mode: @convert.output_mode_name(base_opts.output_mode),
       output_path: None,
       selected_route: None,
@@ -330,19 +332,16 @@ fn run_single_batch_task(
   let output_path = batch_output_path(
     output_dir,
     relative_path,
-    base_opts.output_format,
+    base_opts.output_mode,
   )
   let opts = { ..base_opts, input: task_input, output: Some(output_path) }
   let convert_options = @convert.make_convert_options(
     opts.convert_mode,
-    opts.output_format,
+    opts.output_mode,
     opts.explicit_format,
     opts.ocr_options,
     @convert.default_resource_limits(),
     audio_options=opts.audio_options,
-    fidelity_mode=opts.fidelity_mode,
-    output_mode=opts.output_mode,
-    stream_requested=opts.stream_requested,
     rag_options=opts.rag_options,
   )
   match
@@ -381,7 +380,9 @@ fn run_single_batch_task(
             status: Failed,
             detected_format: @input.detected_format_name(requested_format),
             convert_mode: @convert.convert_mode_name(opts.convert_mode),
-            fidelity_mode: @convert.fidelity_mode_name(opts.fidelity_mode),
+            fidelity_mode: @convert.fidelity_mode_name(
+              @convert.fidelity_mode_for_convert_mode(opts.convert_mode),
+            ),
             output_mode: @convert.output_mode_name(opts.output_mode),
             output_path: Some(output_path),
             selected_route: Some(execution.provenance.route_plan.selected_route),
@@ -399,7 +400,9 @@ fn run_single_batch_task(
         status: Failed,
         detected_format: @input.detected_format_name(requested_format),
         convert_mode: @convert.convert_mode_name(opts.convert_mode),
-        fidelity_mode: @convert.fidelity_mode_name(opts.fidelity_mode),
+        fidelity_mode: @convert.fidelity_mode_name(
+          @convert.fidelity_mode_for_convert_mode(opts.convert_mode),
+        ),
         output_mode: @convert.output_mode_name(opts.output_mode),
         output_path: None,
         selected_route: None,

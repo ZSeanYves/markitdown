@@ -178,6 +178,7 @@ fn parse_context_from_execution_plan(
     Some(execution_plan.limits.max_cells),
     Some(execution_plan.limits.max_line_chars),
     execution_plan.output_mode == Debug,
+    limits=execution_plan.limits,
   )
 }
 
