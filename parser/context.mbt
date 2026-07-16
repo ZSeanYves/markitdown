@@ -202,6 +202,52 @@ pub fn asset_payload_within_limits(
 }
 
 ///|
+/// Return the configured per-asset payload ceiling for parser diagnostics.
+pub fn max_asset_payload_bytes(context : ParseContext) -> Int64 {
+  context.limits.max_asset_bytes
+}
+
+///|
+/// Count payload bytes already materialized by a parser lowering pass.
+pub fn materialized_asset_payload_bytes(
+  assets : Array[@core.AssetRef],
+) -> Int64 {
+  let mut total = 0L
+  for asset in assets {
+    match asset.payload {
+      Some(Bytes(bytes)) => total += bytes.length().to_int64()
+      Some(Utf8(text)) => total += @utf8.encode(text).length().to_int64()
+      _ => ()
+    }
+  }
+  total
+}
+
+///|
+/// Record a parser-side asset budget skip before a payload is materialized.
+pub fn record_asset_payload_budget_skip(
+  diagnostics : @core.Diagnostics,
+  asset_id : String,
+  kind : String,
+  observed : Int64,
+  limit : Int64,
+) -> Unit {
+  diagnostics.warnings.push(
+    "asset payload skipped: " +
+    asset_id +
+    "; kind=" +
+    kind +
+    "; observed=" +
+    observed.to_string() +
+    "; limit=" +
+    limit.to_string(),
+  )
+  if !diagnostics.degraded_features.contains("asset_payload_limit_skip") {
+    diagnostics.degraded_features.push("asset_payload_limit_skip")
+  }
+}
+
+///|
 /// Return a context with explicit per-asset and cumulative asset ceilings.
 /// This helper keeps ResourceLimits construction owned by the product package.
 pub fn parse_context_with_asset_limits(

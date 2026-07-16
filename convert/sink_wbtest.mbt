@@ -28,6 +28,29 @@ test "sink output is equivalent to buffered conversion" {
 }
 
 ///|
+test "sink uses bounded chunks for large output" {
+  let source = @input.input_from_text("line\n\n".repeat(40_000))
+  let chunks : Array[String] = []
+  let sink = make_output_sink(
+    fn(chunk) {
+      chunks.push(chunk)
+      Ok(())
+    },
+    fn() { Ok(()) },
+  )
+  let result = match
+    convert_input_to_sink(source, default_convert_options(), sink) {
+    Ok(value) => value
+    Err(err) => fail(err.to_string())
+  }
+  assert_true(chunks.length() > 1)
+  for chunk in chunks {
+    assert_true(chunk.length() <= 64 * 1024)
+  }
+  assert_eq(chunks.join(""), result.content)
+}
+
+///|
 test "sink write failure stops before finish" {
   let finished = Ref(false)
   let sink = make_output_sink(fn(_chunk) { Err("cancelled") }, fn() {

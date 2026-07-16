@@ -99,7 +99,9 @@ pub fn odp_parse_with_open_document(
   let bytes = @input.input_bytes(source).unwrap_or(Bytes::from_array([]))
   odp_fill_metrics(diagnostics, document, inspect, bytes)
   if context.requested_mode == Some(BlockStreaming) {
-    let lowered = odp_lower_block_stream_document(source, document, context)
+    let lowered = odp_lower_block_stream_document(
+      source, document, context, diagnostics,
+    )
     diagnostics.metrics.set("parser_mode", "block_streaming")
     diagnostics.metrics.set("effective_mode", "block_streaming")
     diagnostics.metrics.set("ir_input_kind", "block_stream")
@@ -122,7 +124,7 @@ pub fn odp_parse_with_open_document(
       source_map=Some(lowered.source_map),
     )
   }
-  let lowered = odp_lower_document_ir(source, document, context)
+  let lowered = odp_lower_document_ir(source, document, context, diagnostics)
   diagnostics.metrics.set("parser_mode", "package_single_pass")
   diagnostics.metrics.set("effective_mode", "package_single_pass")
   diagnostics.metrics.set("ir_input_kind", "document")
@@ -234,8 +236,9 @@ fn odp_lower_document_ir(
   source : @input.InputSource,
   document : @dodf.OdpDocument,
   context : @parser.ParseContext,
+  diagnostics : @core.Diagnostics,
 ) -> @core.DocumentIR {
-  let lowered = odp_lower_common(source, document, context)
+  let lowered = odp_lower_common(source, document, context, diagnostics)
   @core.document_with_source_map(
     @core.document_with_assets(
       @core.document_with_metadata(
@@ -253,8 +256,9 @@ fn odp_lower_block_stream_document(
   source : @input.InputSource,
   document : @dodf.OdpDocument,
   context : @parser.ParseContext,
+  diagnostics : @core.Diagnostics,
 ) -> OdpLoweredProduct {
-  odp_lower_common(source, document, context)
+  odp_lower_common(source, document, context, diagnostics)
 }
 
 ///|
@@ -262,6 +266,7 @@ fn odp_lower_common(
   source : @input.InputSource,
   document : @dodf.OdpDocument,
   context : @parser.ParseContext,
+  diagnostics : @core.Diagnostics,
 ) -> OdpLoweredProduct {
   let blocks : Array[@core.CoreBlock] = []
   let assets : Array[@core.AssetRef] = []
@@ -293,7 +298,7 @@ fn odp_lower_common(
     blocks.push(label)
     for block in slide.blocks {
       let lowered = odp_lower_block(
-        source, document, slide, block, assets, source_map, context,
+        source, document, slide, block, assets, source_map, context, diagnostics,
       )
       blocks.push(lowered)
     }
@@ -310,6 +315,7 @@ fn odp_lower_block(
   assets : Array[@core.AssetRef],
   source_map : @core.SourceMap,
   context : @parser.ParseContext,
+  diagnostics : @core.Diagnostics,
 ) -> @core.CoreBlock {
   let source_ref = odp_block_source_ref(source, document, slide, block)
   let lowered = match block.kind {
@@ -339,7 +345,10 @@ fn odp_lower_block(
       raw
     }
     Table => odp_table_block(block, source_ref)
-    Image => odp_image_block(source, slide, block, assets, source_ref)
+    Image =>
+      odp_image_block(
+        source, slide, block, assets, source_ref, context, diagnostics,
+      )
   }
   for entry in block.attrs.to_array() {
     lowered.attrs.set(entry.0, entry.1)
@@ -386,6 +395,8 @@ fn odp_image_block(
   block : @dodf.OdpSlideBlock,
   assets : Array[@core.AssetRef],
   source_ref : @core.SourceRef,
+  context : @parser.ParseContext,
+  diagnostics : @core.Diagnostics,
 ) -> @core.CoreBlock {
   match block.image {
     Some(image) => {
@@ -397,6 +408,32 @@ fn odp_image_block(
         )
         unavailable.attrs.set("asset_missing", "true")
         unavailable.attrs.set("asset_source_path", image.href)
+        return unavailable
+      }
+      let observed = match image.bytes {
+        Some(bytes) => bytes.length().to_int64()
+        None => 0L
+      }
+      if !@parser.asset_payload_within_limits(
+          context,
+          observed,
+          @parser.materialized_asset_payload_bytes(assets),
+        ) {
+        @parser.record_asset_payload_budget_skip(
+          diagnostics,
+          "odp-image-" + assets.length().to_string(),
+          "single_or_total_asset_bytes",
+          observed,
+          @parser.max_asset_payload_bytes(context),
+        )
+        let unavailable = @core.make_block(
+          BlockQuote,
+          "Asset unavailable: " + image.href,
+          source_ref~,
+        )
+        unavailable.attrs.set("asset_missing", "true")
+        unavailable.attrs.set("asset_source_path", image.href)
+        unavailable.attrs.set("payload_skipped", "asset_limit")
         return unavailable
       }
       let asset_id = odp_asset_output_path(slide.index, image.href)

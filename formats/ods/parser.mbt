@@ -103,7 +103,9 @@ pub fn ods_parse_with_open_document(
   ods_fill_metrics(diagnostics, document, inspect, bytes)
   ods_apply_repeat_diagnostics(diagnostics, document)
   if context.requested_mode == Some(BlockStreaming) {
-    let lowered = ods_lower_block_stream_document(source, document, context)
+    let lowered = ods_lower_block_stream_document(
+      source, document, context, diagnostics,
+    )
     diagnostics.metrics.set("parser_mode", "block_streaming")
     diagnostics.metrics.set("effective_mode", "block_streaming")
     diagnostics.metrics.set("ir_input_kind", "block_stream")
@@ -126,7 +128,7 @@ pub fn ods_parse_with_open_document(
       source_map=Some(lowered.source_map),
     )
   }
-  let lowered = ods_lower_document_ir(source, document, context)
+  let lowered = ods_lower_document_ir(source, document, context, diagnostics)
   diagnostics.metrics.set("parser_mode", "package_single_pass")
   diagnostics.metrics.set("effective_mode", "package_single_pass")
   diagnostics.metrics.set("ir_input_kind", "document")
@@ -280,8 +282,9 @@ fn ods_lower_document_ir(
   source : @input.InputSource,
   document : @dodf.OdsDocument,
   context : @parser.ParseContext,
+  diagnostics : @core.Diagnostics,
 ) -> @core.DocumentIR {
-  let lowered = ods_lower_common(source, document, false, context)
+  let lowered = ods_lower_common(source, document, false, context, diagnostics)
   @core.document_with_source_map(
     @core.document_with_assets(
       @core.document_with_metadata(
@@ -299,8 +302,9 @@ fn ods_lower_block_stream_document(
   source : @input.InputSource,
   document : @dodf.OdsDocument,
   context : @parser.ParseContext,
+  diagnostics : @core.Diagnostics,
 ) -> OdsLoweredProduct {
-  ods_lower_common(source, document, true, context)
+  ods_lower_common(source, document, true, context, diagnostics)
 }
 
 ///|
@@ -309,6 +313,7 @@ fn ods_lower_common(
   document : @dodf.OdsDocument,
   stream : Bool,
   context : @parser.ParseContext,
+  diagnostics : @core.Diagnostics,
 ) -> OdsLoweredProduct {
   let blocks : Array[@core.CoreBlock] = []
   let assets : Array[@core.AssetRef] = []
@@ -450,6 +455,34 @@ fn ods_lower_common(
         )
         unavailable.attrs.set("asset_missing", "true")
         unavailable.attrs.set("asset_source_path", image.href)
+        unavailable.attrs.set("sheet", sheet.name)
+        blocks.push(unavailable)
+        continue
+      }
+      let observed = match image.bytes {
+        Some(bytes) => bytes.length().to_int64()
+        None => 0L
+      }
+      if !@parser.asset_payload_within_limits(
+          context,
+          observed,
+          @parser.materialized_asset_payload_bytes(assets),
+        ) {
+        @parser.record_asset_payload_budget_skip(
+          diagnostics,
+          "ods-image-" + (assets.length() + 1).to_string(),
+          "single_or_total_asset_bytes",
+          observed,
+          @parser.max_asset_payload_bytes(context),
+        )
+        let unavailable = @core.make_block(
+          BlockQuote,
+          "Asset unavailable: " + image.href,
+          source_ref=image_ref,
+        )
+        unavailable.attrs.set("asset_missing", "true")
+        unavailable.attrs.set("asset_source_path", image.href)
+        unavailable.attrs.set("payload_skipped", "asset_limit")
         unavailable.attrs.set("sheet", sheet.name)
         blocks.push(unavailable)
         continue

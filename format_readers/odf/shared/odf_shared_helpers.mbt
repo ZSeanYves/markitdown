@@ -405,7 +405,23 @@ fn odf_read_entry_optional(archive : @dzip.ZipArchive, path : String) -> Bytes? 
   if normalized == "" || !@dzip.has_entry(archive, normalized) {
     return None
   }
-  try @dzip.read_entry(archive, path.trim().to_owned()) |> Some catch {
+  // Check the declared size before decompression so oversized images never
+  // become a full in-memory payload.  Request-specific limits are enforced by
+  // the parser lowering and finalization layers as well.
+  let entry = match @dzip.find_entry_info(archive, normalized) {
+    Some(info) if info.uncompressed_size > 32 * 1024 * 1024 => return None
+    Some(info) if info.uncompressed_size < 0 => return None
+    Some(info) => info
+    None => return None
+  }
+  try
+    @dzip.read_entry(
+      archive,
+      normalized,
+      max_output_size=entry.uncompressed_size,
+    )
+    |> Some
+  catch {
     _ => None
   }
 }

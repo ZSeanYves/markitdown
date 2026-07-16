@@ -54,6 +54,10 @@ pub fn make_parser(String, ParserMode, ParserCapability, (@input.InputSource, Pa
 
 pub fn make_parser_capability(ParserMode, Bool, StreamingGranularity, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool) -> ParserCapability
 
+pub fn materialized_asset_payload_bytes(Array[@core.AssetRef]) -> Int64
+
+pub fn max_asset_payload_bytes(ParseContext) -> Int64
+
 pub fn mode_name(ParserMode) -> String
 
 pub fn new_parse_context(@input.DetectedFormat) -> ParseContext
@@ -99,6 +103,8 @@ pub fn pdf_header_footer_filter_policy_name(PdfHeaderFooterFilterPolicy) -> Stri
 pub fn pdf_native_runtime_policy_name(PdfNativeRuntimePolicy) -> String
 
 pub fn pdf_table_reconstruction_policy_name(PdfTableReconstructionPolicy) -> String
+
+pub fn record_asset_payload_budget_skip(@core.Diagnostics, String, String, Int64, Int64) -> Unit
 
 pub fn registry_key(@input.DetectedFormat) -> String
 

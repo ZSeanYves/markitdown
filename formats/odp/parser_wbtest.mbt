@@ -82,3 +82,24 @@ test "ODP advanced synthetic contract covers groups table notes images raw and s
   )
   assert_true(streamed.assets.length() == 1)
 }
+
+///|
+test "ODP asset budget skips payload before creating an asset reference" {
+  let source = @input.input_from_path(
+    "samples/fixtures/contracts/odp/odp_advanced_synthetic.odp",
+  )
+  let context = @parser.parse_context_with_asset_limits(
+    @parser.new_parse_context(Odp),
+    1L,
+    1L,
+  )
+  let result = (odp_parser().parse)(source, context).unwrap()
+  let document = result.document.unwrap()
+  assert_eq(document.assets.length(), 0)
+  assert_true(
+    result.diagnostics.degraded_features.contains("asset_payload_limit_skip"),
+  )
+  assert_true(
+    result.diagnostics.warnings.any(w => w.contains("asset payload skipped")),
+  )
+}

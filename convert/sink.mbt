@@ -8,6 +8,9 @@ pub struct OutputSink {
 }
 
 ///|
+const OUTPUT_SINK_CHUNK_CHARS : Int = 64 * 1024
+
+///|
 /// Build an output sink from write and finish callbacks.
 pub fn make_output_sink(
   write : (String) -> Result[Unit, String],
@@ -19,9 +22,8 @@ pub fn make_output_sink(
 ///|
 /// Convert and deliver the rendered Markdown/JSON through `sink`.
 ///
-/// The current renderer contract emits one logical chunk.  Keeping this
-/// boundary explicit lets stream-capable renderers switch to multiple chunks
-/// later while preserving the same failure and cleanup semantics today.
+/// Renderers may still produce a buffered result, but delivery is bounded so
+/// sinks can apply backpressure and cancellation between writes.
 pub fn convert_input_to_sink(
   source : @input.InputSource,
   options : ConvertOptions,
@@ -31,9 +33,21 @@ pub fn convert_input_to_sink(
     Ok(value) => value
     Err(err) => return Err(err)
   }
-  match (sink.write)(result.content) {
-    Ok(_) => ()
-    Err(message) => return Err(RenderFailed("sink write failed: " + message))
+  let content = result.content
+  let content_length = content.length()
+  let mut offset = 0
+  while offset < content_length {
+    let end = if offset + OUTPUT_SINK_CHUNK_CHARS < content_length {
+      offset + OUTPUT_SINK_CHUNK_CHARS
+    } else {
+      content_length
+    }
+    let chunk = content[offset:end].to_owned()
+    match (sink.write)(chunk) {
+      Ok(_) => ()
+      Err(message) => return Err(RenderFailed("sink write failed: " + message))
+    }
+    offset = end
   }
   match (sink.finish)() {
     Ok(_) => Ok(result)

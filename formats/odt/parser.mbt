@@ -81,6 +81,7 @@ fn parse_odt_with_prepared_result(
       source,
       prepared.document,
       context,
+      diagnostics,
     )
     diagnostics.metrics.set("parser_mode", "block_streaming")
     diagnostics.metrics.set("effective_mode", "block_streaming")
@@ -104,7 +105,12 @@ fn parse_odt_with_prepared_result(
       source_map=lowered.source_map,
     )
   }
-  let lowered = odt_lower_document_ir(source, prepared.document, context)
+  let lowered = odt_lower_document_ir(
+    source,
+    prepared.document,
+    context,
+    diagnostics,
+  )
   diagnostics.metrics.set("parser_mode", "package_single_pass")
   diagnostics.metrics.set("effective_mode", "package_single_pass")
   diagnostics.metrics.set("ir_input_kind", "document")
@@ -192,7 +198,9 @@ pub fn odt_parse_with_open_document(
   let bytes = @input.input_bytes(source).unwrap_or(Bytes::from_array([]))
   odt_fill_metrics(diagnostics, document, inspect, bytes)
   if context.requested_mode == Some(BlockStreaming) {
-    let lowered = odt_lower_block_stream_document(source, document, context)
+    let lowered = odt_lower_block_stream_document(
+      source, document, context, diagnostics,
+    )
     diagnostics.metrics.set("parser_mode", "block_streaming")
     diagnostics.metrics.set("effective_mode", "block_streaming")
     diagnostics.metrics.set("ir_input_kind", "block_stream")
@@ -215,7 +223,7 @@ pub fn odt_parse_with_open_document(
       source_map=lowered.source_map,
     )
   }
-  let lowered = odt_lower_document_ir(source, document, context)
+  let lowered = odt_lower_document_ir(source, document, context, diagnostics)
   diagnostics.metrics.set("parser_mode", "package_single_pass")
   diagnostics.metrics.set("effective_mode", "package_single_pass")
   diagnostics.metrics.set("ir_input_kind", "document")
@@ -327,9 +335,10 @@ fn odt_lower_document_ir(
   source : @input.InputSource,
   document : @dodf.OdtDocument,
   context : @parser.ParseContext,
+  diagnostics : @core.Diagnostics,
 ) -> @core.DocumentIR {
   let metadata = odt_metadata(source, document)
-  let lowered = odt_lower_common(source, document, context)
+  let lowered = odt_lower_common(source, document, context, diagnostics)
   @core.document_with_source_map(
     @core.document_with_assets(
       @core.document_with_metadata(
@@ -347,9 +356,10 @@ fn odt_lower_block_stream_document(
   source : @input.InputSource,
   document : @dodf.OdtDocument,
   context : @parser.ParseContext,
+  diagnostics : @core.Diagnostics,
 ) -> @core.DocumentIR {
   let metadata = odt_metadata(source, document)
-  let lowered = odt_lower_common(source, document, context)
+  let lowered = odt_lower_common(source, document, context, diagnostics)
   @core.document_with_source_map(
     @core.document_with_assets(
       @core.document_with_metadata(
@@ -390,6 +400,7 @@ fn odt_lower_common(
   source : @input.InputSource,
   document : @dodf.OdtDocument,
   context : @parser.ParseContext,
+  diagnostics : @core.Diagnostics,
 ) -> OdtLoweredProduct {
   let blocks : Array[@core.CoreBlock] = []
   let assets : Array[@core.AssetRef] = []
@@ -399,7 +410,9 @@ fn odt_lower_common(
   let appended_comment_ids : Array[String] = []
   let pending_comments : Array[PendingOdtComment] = []
   for block in document.blocks {
-    let lowered = odt_lower_block(source, block, assets, source_map, context)
+    let lowered = odt_lower_block(
+      source, block, assets, source_map, context, diagnostics,
+    )
     blocks.push(lowered)
     odt_collect_notes(block, appended_note_ids, pending_notes)
     odt_collect_comments(block, appended_comment_ids, pending_comments)
@@ -460,6 +473,7 @@ fn odt_lower_block(
   assets : Array[@core.AssetRef],
   source_map : @core.SourceMap,
   context : @parser.ParseContext,
+  diagnostics : @core.Diagnostics,
 ) -> @core.CoreBlock {
   let source_ref = odt_source_ref(source, block)
   let lowered = match block.kind {
@@ -515,7 +529,8 @@ fn odt_lower_block(
         context,
       )
     Table => odt_table_block(block, source_ref, context)
-    Image => odt_image_block(source, block, assets, source_ref)
+    Image =>
+      odt_image_block(source, block, assets, source_ref, context, diagnostics)
   }
   source_map.block_entries.push(
     @core.make_source_map_entry(primary_ref=Some(source_ref), refs=[source_ref]),
@@ -772,6 +787,8 @@ fn odt_image_block(
   block : @dodf.OdtBlock,
   assets : Array[@core.AssetRef],
   source_ref : @core.SourceRef,
+  context : @parser.ParseContext,
+  diagnostics : @core.Diagnostics,
 ) -> @core.CoreBlock {
   match block.image {
     Some(image) => {
@@ -783,6 +800,32 @@ fn odt_image_block(
         )
         unavailable.attrs.set("asset_missing", "true")
         unavailable.attrs.set("asset_source_path", image.href)
+        return unavailable
+      }
+      let observed = match image.bytes {
+        Some(bytes) => bytes.length().to_int64()
+        None => 0L
+      }
+      if !@parser.asset_payload_within_limits(
+          context,
+          observed,
+          @parser.materialized_asset_payload_bytes(assets),
+        ) {
+        @parser.record_asset_payload_budget_skip(
+          diagnostics,
+          "odt-image-" + assets.length().to_string(),
+          "single_or_total_asset_bytes",
+          observed,
+          @parser.max_asset_payload_bytes(context),
+        )
+        let unavailable = @core.make_block(
+          BlockQuote,
+          "Asset unavailable: " + image.href,
+          source_ref~,
+        )
+        unavailable.attrs.set("asset_missing", "true")
+        unavailable.attrs.set("asset_source_path", image.href)
+        unavailable.attrs.set("payload_skipped", "asset_limit")
         return unavailable
       }
       let asset_id = odt_asset_output_path(image.href)

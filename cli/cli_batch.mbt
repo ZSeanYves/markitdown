@@ -511,6 +511,9 @@ fn resolve_cli_assets_for_stdout(
 }
 
 ///|
+const CLI_MAX_ASSET_BYTES : Int = 32 * 1024 * 1024
+
+///|
 fn cli_asset_is_materializable(
   input_dir : String,
   zip_archive : @dzip.ZipArchive?,
@@ -527,7 +530,11 @@ fn cli_asset_is_materializable(
         None => return false
       }
       let bytes = try
-        @dzip.read_entry(archive, normalized_zip_asset_entry(outer_path))
+        @dzip.read_entry(
+          archive,
+          normalized_zip_asset_entry(outer_path),
+          max_output_size=CLI_MAX_ASSET_BYTES,
+        )
         |> Some
       catch {
         _ => None
@@ -544,7 +551,13 @@ fn cli_asset_is_materializable(
         None => return false
       }
       return try {
-        ignore(@dzip.read_entry(nested, normalized_zip_asset_entry(inner_path)))
+        ignore(
+          @dzip.read_entry(
+            nested,
+            normalized_zip_asset_entry(inner_path),
+            max_output_size=CLI_MAX_ASSET_BYTES,
+          ),
+        )
         true
       } catch {
         _ => false
@@ -560,7 +573,11 @@ fn cli_asset_is_materializable(
       }
       return try {
         ignore(
-          @dzip.read_entry(archive, normalized_zip_asset_entry(entry_path)),
+          @dzip.read_entry(
+            archive,
+            normalized_zip_asset_entry(entry_path),
+            max_output_size=CLI_MAX_ASSET_BYTES,
+          ),
         )
         true
       } catch {
@@ -746,7 +763,11 @@ fn validate_cli_assets(
             )
         }
         let nested_bytes = try
-          @dzip.read_entry(archive, normalized_zip_asset_entry(outer_path))
+          @dzip.read_entry(
+            archive,
+            normalized_zip_asset_entry(outer_path),
+            max_output_size=CLI_MAX_ASSET_BYTES,
+          )
           |> Ok
         catch {
           err => Err(err.to_string())
@@ -765,7 +786,11 @@ fn validate_cli_assets(
             return Err("open nested archive asset failed: " + message)
         }
         try
-          @dzip.read_entry(nested, normalized_zip_asset_entry(inner_path))
+          @dzip.read_entry(
+            nested,
+            normalized_zip_asset_entry(inner_path),
+            max_output_size=CLI_MAX_ASSET_BYTES,
+          )
           |> ignore
         catch {
           err =>
@@ -785,7 +810,11 @@ fn validate_cli_assets(
             )
         }
         try
-          @dzip.read_entry(archive, normalized_zip_asset_entry(entry_path))
+          @dzip.read_entry(
+            archive,
+            normalized_zip_asset_entry(entry_path),
+            max_output_size=CLI_MAX_ASSET_BYTES,
+          )
           |> ignore
         catch {
           err => return Err("read asset entry failed: " + err.to_string())
@@ -888,7 +917,11 @@ fn persist_nested_zip_backed_asset(
     None => return false
   }
   let nested_bytes = try
-    @dzip.read_entry(archive, normalized_zip_asset_entry(outer_entry_path))
+    @dzip.read_entry(
+      archive,
+      normalized_zip_asset_entry(outer_entry_path),
+      max_output_size=CLI_MAX_ASSET_BYTES,
+    )
     |> Ok
   catch {
     _ => Err(())
@@ -908,6 +941,7 @@ fn persist_nested_zip_backed_asset(
     @dzip.read_entry(
       nested_archive,
       normalized_zip_asset_entry(inner_entry_path),
+      max_output_size=CLI_MAX_ASSET_BYTES,
     )
     |> Ok
   catch {
@@ -939,7 +973,12 @@ fn persist_zip_backed_asset(
     None => return false
   }
   let data = try
-    @dzip.read_entry(archive, normalized_zip_asset_entry(entry_path)) |> Ok
+    @dzip.read_entry(
+      archive,
+      normalized_zip_asset_entry(entry_path),
+      max_output_size=CLI_MAX_ASSET_BYTES,
+    )
+    |> Ok
   catch {
     _ => Err(())
   }
