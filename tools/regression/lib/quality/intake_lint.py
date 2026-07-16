@@ -179,13 +179,21 @@ def lint(lab_root: Path, manifest: Path, catalog: Path, strict: bool = False) ->
                     fail(errors, f"{row_id}: audit missing {', '.join(sorted(missing_audit))}")
                 if data.get("source_id") != source_id:
                     fail(errors, f"{row_id}: audit source_id mismatch")
-                # A source-level audit can cover several fixture files.  The
+                payload_audit = None
+                for candidate in data.get("payloads", []):
+                    if candidate.get("payload_sha256", "").lower() == actual_sha:
+                        payload_audit = candidate
+                        break
+                if payload_audit is not None:
+                    if payload_audit.get("payload_bytes") != payload.stat().st_size:
+                        fail(errors, f"{row_id}: audited payload size mismatch")
+                elif data.get("payload_sha256", "").lower() != actual_sha:
+                    warnings.append(f"{row_id}: source audit payload SHA is for a sibling fixture")
+                # A source-level audit can cover several fixture files. The
                 # row still verifies its own SHA/size above; mismatched scalar
                 # payload fields are retained as a refresh hint rather than a
                 # false failure for sibling files.
-                if data.get("payload_sha256", "").lower() != actual_sha:
-                    warnings.append(f"{row_id}: source audit payload SHA is for a sibling fixture")
-                if data.get("payload_bytes") != payload.stat().st_size:
+                if payload_audit is None and data.get("payload_bytes") != payload.stat().st_size:
                     warnings.append(f"{row_id}: source audit payload size is for a sibling fixture")
         elif not license_evidence(directory):
             warnings.append(f"{row_id}: no AUDIT.json or legacy license evidence in {directory}")
