@@ -3,12 +3,9 @@ test "VTT event lowering preserves headers directives settings and malformed cue
   let source = @input.input_from_text_with_format(
     "\u{FEFF}WEBVTT Demo\r\n\r\nNOTE editor note\r\nkeep this\r\n\r\nSTYLE\r\n::cue { color: lime }\r\n\r\nREGION\r\nid:bottom\r\n\r\ncue-a\r\n00:00:01.000 --> 00:00:03.500 line:90% align:start\r\n<v Speaker>Hello &amp; welcome</v>\r\nsecond line\r\n\r\nbroken\r\nnot a timestamp\r\nrecover me\r\n",
     "features.vtt",
-    Some(@input.DetectedFormat::Vtt),
+    Some(Vtt),
   )
-  let result = parse_vtt_result(
-    source,
-    @parser.new_parse_context(@input.DetectedFormat::Vtt),
-  ).unwrap()
+  let result = parse_vtt_result(source, @parser.new_parse_context(Vtt)).unwrap()
   let events = result.event_stream.unwrap()
   assert_true(events.length() >= 8)
   assert_true(
@@ -48,11 +45,11 @@ test "VTT fail-closed result retains original text and complete diagnostics" {
   let source = @input.input_from_text_with_format(
     "not a webvtt document\nsecond line",
     "broken.vtt",
-    Some(@input.DetectedFormat::Vtt),
+    Some(Vtt),
   )
   let diagnostics = @fshared.empty_parser_diagnostics(
     "vtt_parser",
-    @parser.ParserMode::StreamingEvent,
+    StreamingEvent,
     source,
     "vtt",
   )
@@ -80,12 +77,12 @@ test "VTT large streaming path preserves cue metadata directives and recovery" {
   let source = @input.input_from_text_with_format(
     "WEBVTT\n\nSTYLE\n::cue { color: lime }\n\ncue-a\n00:00:01.000 --> 00:00:03.000 align:start\n<v Ada><b>Hello</b></v>\n\nWEBVTT duplicate\n\nbroken\nraw",
     "large.vtt",
-    Some(@input.DetectedFormat::Vtt),
+    Some(Vtt),
   )
   let result = parse_large_vtt_result(
     source,
     @input.input_text(source).unwrap(),
-    @parser.new_parse_context(@input.DetectedFormat::Vtt),
+    @parser.new_parse_context(Vtt),
   )
   assert_true(
     result.diagnostics.metrics.get("large_streaming_path") == Some("true"),

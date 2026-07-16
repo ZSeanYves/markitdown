@@ -55,10 +55,10 @@ pub struct Renderer {
 /// Construct a render context with safe product defaults.
 pub fn make_render_context(
   debug : Bool,
-  fidelity_mode? : @product.FidelityMode = @product.FidelityMode::Balanced,
-  output_mode? : @product.OutputMode = @product.OutputMode::Markdown,
-  execution_profile? : @product.ExecutionProfile = @product.ExecutionProfile::Standard,
-  render_profile? : @product.RenderProfile = @product.RenderProfile::DefaultMarkdown,
+  fidelity_mode? : @product.FidelityMode = Balanced,
+  output_mode? : @product.OutputMode = Markdown,
+  execution_profile? : @product.ExecutionProfile = Standard,
+  render_profile? : @product.RenderProfile = DefaultMarkdown,
   accurate_features? : @product.AccurateFeatureProfile = @product.empty_accurate_feature_profile(),
   rag_options? : @rag.RagOptions = @rag.default_rag_options(),
   base_diagnostics? : @core.Diagnostics? = None,

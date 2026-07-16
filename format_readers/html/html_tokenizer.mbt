@@ -62,13 +62,9 @@ fn scan_html_event_summary(text : String) -> HtmlTokenEventSummary raise {
     _byte_end,
   ) {
     match kind {
-      HtmlTokenEventKind::Doctype | HtmlTokenEventKind::Comment =>
-        node_count += 1
-      HtmlTokenEventKind::Text =>
-        if source_end > source_start {
-          node_count += 1
-        }
-      HtmlTokenEventKind::StartTag => {
+      Doctype | Comment => node_count += 1
+      Text => if source_end > source_start { node_count += 1 }
+      StartTag => {
         node_count += 1 + attributes.length()
         if tag_name == "main" || tag_name == "article" || tag_name == "section" {
           block_scope_count += 1
@@ -90,7 +86,7 @@ fn scan_html_event_summary(text : String) -> HtmlTokenEventSummary raise {
           }
         }
       }
-      HtmlTokenEventKind::EndTag => if depth > 0 { depth -= 1 }
+      EndTag => if depth > 0 { depth -= 1 }
     }
   })
   {
@@ -260,17 +256,9 @@ fn HtmlTokenizer::parse_tokens(self : HtmlTokenizer) -> Array[HtmlToken] raise {
           byte_end: self.byte_pos,
         }
         if self.emit_tokens {
-          out.push(HtmlToken::Comment(comment, span))
+          out.push(Comment(comment, span))
         }
-        self.push_event(
-          HtmlTokenEventKind::Comment,
-          "",
-          [],
-          false,
-          start_pos,
-          self.pos,
-          span,
-        )
+        self.push_event(Comment, "", [], false, start_pos, self.pos, span)
       } else if self.starts_with("</") && self.has_end_tag_name() {
         let tag_name = self.read_end_tag()
         let span = {
@@ -280,17 +268,9 @@ fn HtmlTokenizer::parse_tokens(self : HtmlTokenizer) -> Array[HtmlToken] raise {
           byte_end: self.byte_pos,
         }
         if self.emit_tokens {
-          out.push(HtmlToken::EndTag(tag_name, span))
+          out.push(EndTag(tag_name, span))
         }
-        self.push_event(
-          HtmlTokenEventKind::EndTag,
-          tag_name,
-          [],
-          false,
-          start_pos,
-          self.pos,
-          span,
-        )
+        self.push_event(EndTag, tag_name, [], false, start_pos, self.pos, span)
       } else if self.starts_with_case_insensitive("<!doctype") {
         let text = if self.emit_tokens {
           self.read_doctype_like()
@@ -305,17 +285,9 @@ fn HtmlTokenizer::parse_tokens(self : HtmlTokenizer) -> Array[HtmlToken] raise {
           byte_end: self.byte_pos,
         }
         if self.emit_tokens {
-          out.push(HtmlToken::Doctype(text, span))
+          out.push(Doctype(text, span))
         }
-        self.push_event(
-          HtmlTokenEventKind::Doctype,
-          "",
-          [],
-          false,
-          start_pos,
-          self.pos,
-          span,
-        )
+        self.push_event(Doctype, "", [], false, start_pos, self.pos, span)
       } else if self.pos + 1 < self.source_length() &&
         is_html_name_start(self.source_char_at(self.pos + 1)) {
         let (name, attrs, self_closing) = self.read_start_tag()
@@ -326,10 +298,10 @@ fn HtmlTokenizer::parse_tokens(self : HtmlTokenizer) -> Array[HtmlToken] raise {
           byte_end: self.byte_pos,
         }
         if self.emit_tokens {
-          out.push(HtmlToken::StartTag(name, attrs, self_closing, span))
+          out.push(StartTag(name, attrs, self_closing, span))
         }
         self.push_event(
-          HtmlTokenEventKind::StartTag,
+          StartTag,
           name,
           attrs,
           self_closing,
@@ -355,10 +327,10 @@ fn HtmlTokenizer::parse_tokens(self : HtmlTokenizer) -> Array[HtmlToken] raise {
               byte_end: self.byte_pos,
             }
             if self.emit_tokens {
-              out.push(HtmlToken::Text(raw_text, raw_span))
+              out.push(Text(raw_text, raw_span))
             }
             self.push_event(
-              HtmlTokenEventKind::Text,
+              Text,
               "",
               [],
               false,
@@ -380,10 +352,10 @@ fn HtmlTokenizer::parse_tokens(self : HtmlTokenizer) -> Array[HtmlToken] raise {
               byte_end: self.byte_pos,
             }
             if self.emit_tokens {
-              out.push(HtmlToken::EndTag(name, close_span))
+              out.push(EndTag(name, close_span))
             }
             self.push_event(
-              HtmlTokenEventKind::EndTag,
+              EndTag,
               name,
               [],
               false,
@@ -401,17 +373,9 @@ fn HtmlTokenizer::parse_tokens(self : HtmlTokenizer) -> Array[HtmlToken] raise {
           byte_end: start_byte + 1,
         }
         if self.emit_tokens {
-          out.push(HtmlToken::Text("<", span))
+          out.push(Text("<", span))
         }
-        self.push_event(
-          HtmlTokenEventKind::Text,
-          "",
-          [],
-          false,
-          start_pos,
-          start_pos + 1,
-          span,
-        )
+        self.push_event(Text, "", [], false, start_pos, start_pos + 1, span)
         self.advance_source_char()
       }
     } else {
@@ -429,17 +393,9 @@ fn HtmlTokenizer::parse_tokens(self : HtmlTokenizer) -> Array[HtmlToken] raise {
           byte_end: self.byte_pos,
         }
         if self.emit_tokens {
-          out.push(HtmlToken::Text(text_node, span))
+          out.push(Text(text_node, span))
         }
-        self.push_event(
-          HtmlTokenEventKind::Text,
-          "",
-          [],
-          false,
-          start_pos,
-          self.pos,
-          span,
-        )
+        self.push_event(Text, "", [], false, start_pos, self.pos, span)
       }
     }
   }
@@ -707,9 +663,9 @@ fn HtmlTokenizer::read_attribute_value(
         return (
           decode_html_entities(String::from_array(out)),
           if quote == '"' {
-            HtmlAttributeQuoteStyle::DoubleQuoted
+            DoubleQuoted
           } else {
-            HtmlAttributeQuoteStyle::SingleQuoted
+            SingleQuoted
           },
         )
       }
@@ -738,10 +694,7 @@ fn HtmlTokenizer::read_attribute_value(
     raise ParseError("malformed attribute")
   }
 
-  (
-    decode_html_entities(String::from_array(out)),
-    HtmlAttributeQuoteStyle::Unquoted,
-  )
+  (decode_html_entities(String::from_array(out)), Unquoted)
 }
 
 ///|
@@ -1111,8 +1064,7 @@ pub fn html_token_event_is_open_tag(
   event : HtmlTokenEvent,
   tag_name : String,
 ) -> Bool {
-  event.kind == HtmlTokenEventKind::StartTag &&
-  event.tag_name == tag_name.to_lower()
+  event.kind == StartTag && event.tag_name == tag_name.to_lower()
 }
 
 ///|
@@ -1120,8 +1072,7 @@ pub fn html_token_event_is_close_tag(
   event : HtmlTokenEvent,
   tag_name : String,
 ) -> Bool {
-  event.kind == HtmlTokenEventKind::EndTag &&
-  event.tag_name == tag_name.to_lower()
+  event.kind == EndTag && event.tag_name == tag_name.to_lower()
 }
 
 ///|
@@ -1158,19 +1109,18 @@ pub fn html_tokens_find_matching_close(
     return None
   }
   let open_event = events[open_index]
-  if open_event.kind != HtmlTokenEventKind::StartTag || open_event.self_closing {
+  if open_event.kind != StartTag || open_event.self_closing {
     return None
   }
   let tag_name = open_event.tag_name
   let mut depth = 0
   for i in open_index..<events.length() {
     let event = events[i]
-    if event.kind == HtmlTokenEventKind::StartTag &&
+    if event.kind == StartTag &&
       event.tag_name == tag_name &&
       !event.self_closing {
       depth += 1
-    } else if event.kind == HtmlTokenEventKind::EndTag &&
-      event.tag_name == tag_name {
+    } else if event.kind == EndTag && event.tag_name == tag_name {
       depth -= 1
       if depth == 0 {
         return Some(i)
@@ -1196,8 +1146,7 @@ pub fn html_tokens_collect_element_ranges(
   let ranges : Array[HtmlTokenSourceRange] = []
   for i in 0..<events.length() {
     let event = events[i]
-    if event.kind == HtmlTokenEventKind::StartTag &&
-      html_tag_name_is_in(event.tag_name, wanted) {
+    if event.kind == StartTag && html_tag_name_is_in(event.tag_name, wanted) {
       match html_tokens_find_matching_close(events, i) {
         Some(close_i) =>
           ranges.push({

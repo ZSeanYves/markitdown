@@ -121,12 +121,12 @@ pub fn normalize_rag_options(options : RagOptions) -> RagOptions {
 /// Return the stable string name for a chunk kind.
 pub fn chunk_kind_name(kind : ChunkKind) -> String {
   match kind {
-    ChunkKind::Text => "text"
-    ChunkKind::Table => "table"
-    ChunkKind::Code => "code"
-    ChunkKind::ImageCaption => "image_caption"
-    ChunkKind::Metadata => "metadata"
-    ChunkKind::Raw => "raw"
+    Text => "text"
+    Table => "table"
+    Code => "code"
+    ImageCaption => "image_caption"
+    Metadata => "metadata"
+    Raw => "raw"
   }
 }
 

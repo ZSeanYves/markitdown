@@ -25,28 +25,28 @@ fn collect_html_semantic_scope_fact(
     Some(_) => HtmlDocumentScopeSource::Main
     None =>
       match article_node_key {
-        Some(_) => HtmlDocumentScopeSource::Article
+        Some(_) => Article
         None =>
           match body_node_key {
-            Some(_) => HtmlDocumentScopeSource::Body
+            Some(_) => Body
             None =>
               if html_count > 0 {
-                HtmlDocumentScopeSource::DocumentRoot
+                DocumentRoot
               } else if doc.nodes.length() > 0 {
-                HtmlDocumentScopeSource::Fragment
+                Fragment
               } else {
-                HtmlDocumentScopeSource::Heuristic
+                Heuristic
               }
           }
       }
   }
   let selected_scope_reason = match scope_source {
-    HtmlDocumentScopeSource::Body => "body"
-    HtmlDocumentScopeSource::Main => "main"
-    HtmlDocumentScopeSource::Article => "article"
-    HtmlDocumentScopeSource::DocumentRoot => "document_root"
-    HtmlDocumentScopeSource::Fragment => "fragment"
-    HtmlDocumentScopeSource::Heuristic => "heuristic"
+    Body => "body"
+    Main => "main"
+    Article => "article"
+    DocumentRoot => "document_root"
+    Fragment => "fragment"
+    Heuristic => "heuristic"
   }
   let missing_body_warning = html_count > 0 && body_count == 0
   let multiple_body_warning = body_count > 1 || html_count > 1
@@ -56,7 +56,7 @@ fn collect_html_semantic_scope_fact(
   if missing_body_warning {
     warnings.push(
       new_html_semantic_warning(
-        HtmlSemanticWarningKind::MalformedDocumentScope,
+        MalformedDocumentScope,
         "html:scope:1",
         "body",
         "html semantic document scope is missing body",
@@ -66,7 +66,7 @@ fn collect_html_semantic_scope_fact(
   if multiple_body_warning {
     warnings.push(
       new_html_semantic_warning(
-        HtmlSemanticWarningKind::MalformedDocumentScope,
+        MalformedDocumentScope,
         "html:scope:1",
         "body",
         "html semantic document scope has multiple body/html roots",
@@ -76,7 +76,7 @@ fn collect_html_semantic_scope_fact(
   if malformed_root_warning && warnings.length() == 0 {
     warnings.push(
       new_html_semantic_warning(
-        HtmlSemanticWarningKind::MalformedDocumentScope,
+        MalformedDocumentScope,
         "html:scope:1",
         "",
         "html semantic document scope saw malformed root recovery",

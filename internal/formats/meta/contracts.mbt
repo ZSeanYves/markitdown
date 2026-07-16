@@ -29,7 +29,7 @@ fn profile_base_contract_spec(
 ) -> ParserContractSpec {
   let profile = format_route_profile(format)
   let canonical_granularity = match profile.canonical_parser_mode {
-    @parser.ParserMode::DomAstModel => @parser.StreamingGranularity::None
+    DomAstModel => @parser.StreamingGranularity::None
     _ => profile.capability_granularity
   }
   make_parser_contract_spec(
@@ -153,36 +153,36 @@ pub fn product_parser_contract_spec_by_format(
   format : @input.DetectedFormat,
 ) -> ParserContractSpec? {
   match format {
-    @input.DetectedFormat::Txt => Some(txt_parser_contract_spec())
-    @input.DetectedFormat::Csv => Some(csv_parser_contract_spec())
-    @input.DetectedFormat::Tsv => Some(tsv_parser_contract_spec())
-    @input.DetectedFormat::Json => Some(json_parser_contract_spec())
-    @input.DetectedFormat::Jsonl => Some(jsonl_parser_contract_spec())
-    @input.DetectedFormat::Ndjson => Some(ndjson_parser_contract_spec())
-    @input.DetectedFormat::Xml => Some(xml_parser_contract_spec())
-    @input.DetectedFormat::Yaml => Some(yaml_parser_contract_spec())
-    @input.DetectedFormat::Toml => Some(toml_parser_contract_spec())
-    @input.DetectedFormat::Markdown => Some(markdown_parser_contract_spec())
-    @input.DetectedFormat::Html => Some(html_parser_contract_spec())
-    @input.DetectedFormat::Ipynb => Some(ipynb_parser_contract_spec())
-    @input.DetectedFormat::Srt => Some(srt_parser_contract_spec())
-    @input.DetectedFormat::Vtt => Some(vtt_parser_contract_spec())
-    @input.DetectedFormat::Tex => Some(tex_parser_contract_spec())
-    @input.DetectedFormat::Rst => Some(rst_parser_contract_spec())
-    @input.DetectedFormat::Asciidoc => Some(asciidoc_parser_contract_spec())
-    @input.DetectedFormat::Eml => Some(eml_parser_contract_spec())
-    @input.DetectedFormat::Zip => Some(zip_parser_contract_spec())
-    @input.DetectedFormat::Epub => Some(epub_parser_contract_spec())
-    @input.DetectedFormat::Odt => Some(odt_parser_contract_spec())
-    @input.DetectedFormat::Ods => Some(ods_parser_contract_spec())
-    @input.DetectedFormat::Odp => Some(odp_parser_contract_spec())
-    @input.DetectedFormat::Docx => Some(docx_parser_contract_spec())
-    @input.DetectedFormat::Pptx => Some(pptx_parser_contract_spec())
-    @input.DetectedFormat::Xlsx => Some(xlsx_parser_contract_spec())
-    @input.DetectedFormat::Pdf => Some(pdf_native_parser_contract_spec())
-    @input.DetectedFormat::Audio(_) => Some(audio_parser_contract_spec())
-    @input.DetectedFormat::Image(_) => Some(image_ocr_parser_contract_spec())
-    @input.DetectedFormat::Unknown => None
+    Txt => Some(txt_parser_contract_spec())
+    Csv => Some(csv_parser_contract_spec())
+    Tsv => Some(tsv_parser_contract_spec())
+    Json => Some(json_parser_contract_spec())
+    Jsonl => Some(jsonl_parser_contract_spec())
+    Ndjson => Some(ndjson_parser_contract_spec())
+    Xml => Some(xml_parser_contract_spec())
+    Yaml => Some(yaml_parser_contract_spec())
+    Toml => Some(toml_parser_contract_spec())
+    Markdown => Some(markdown_parser_contract_spec())
+    Html => Some(html_parser_contract_spec())
+    Ipynb => Some(ipynb_parser_contract_spec())
+    Srt => Some(srt_parser_contract_spec())
+    Vtt => Some(vtt_parser_contract_spec())
+    Tex => Some(tex_parser_contract_spec())
+    Rst => Some(rst_parser_contract_spec())
+    Asciidoc => Some(asciidoc_parser_contract_spec())
+    Eml => Some(eml_parser_contract_spec())
+    Zip => Some(zip_parser_contract_spec())
+    Epub => Some(epub_parser_contract_spec())
+    Odt => Some(odt_parser_contract_spec())
+    Ods => Some(ods_parser_contract_spec())
+    Odp => Some(odp_parser_contract_spec())
+    Docx => Some(docx_parser_contract_spec())
+    Pptx => Some(pptx_parser_contract_spec())
+    Xlsx => Some(xlsx_parser_contract_spec())
+    Pdf => Some(pdf_native_parser_contract_spec())
+    Audio(_) => Some(audio_parser_contract_spec())
+    Image(_) => Some(image_ocr_parser_contract_spec())
+    Unknown => None
   }
 }
 
@@ -546,21 +546,19 @@ pub fn xlsx_parser_contract_spec() -> ParserContractSpec {
 
 ///|
 pub fn txt_parser_contract_spec() -> ParserContractSpec {
-  line_event_parser_contract_spec("txt_parser", @input.DetectedFormat::Txt, [
-    "format_readers/text",
-  ])
+  line_event_parser_contract_spec("txt_parser", Txt, ["format_readers/text"])
 }
 
 ///|
 pub fn csv_parser_contract_spec() -> ParserContractSpec {
-  row_event_parser_contract_spec("csv_parser", @input.DetectedFormat::Csv, [
+  row_event_parser_contract_spec("csv_parser", Csv, [
     "format_readers/delimited/csv", "format_readers/delimited/shared",
   ])
 }
 
 ///|
 pub fn tsv_parser_contract_spec() -> ParserContractSpec {
-  row_event_parser_contract_spec("tsv_parser", @input.DetectedFormat::Tsv, [
+  row_event_parser_contract_spec("tsv_parser", Tsv, [
     "format_readers/delimited/tsv", "format_readers/delimited/shared",
   ])
 }
@@ -569,7 +567,7 @@ pub fn tsv_parser_contract_spec() -> ParserContractSpec {
 pub fn json_parser_contract_spec() -> ParserContractSpec {
   dom_ast_parser_contract_spec(
     "json_parser",
-    @input.DetectedFormat::Json,
+    Json,
     ["format_readers/json"],
     [
       "root_kind", "table_count", "image_count", "asset_count", "block_count", "syntax_error_count",
@@ -586,7 +584,7 @@ pub fn json_parser_contract_spec() -> ParserContractSpec {
 pub fn jsonl_parser_contract_spec() -> ParserContractSpec {
   record_event_parser_contract_spec(
     "jsonl_parser",
-    @input.DetectedFormat::Jsonl,
+    Jsonl,
     ["format_readers/json"],
     ["json_pointer"],
     [],
@@ -600,7 +598,7 @@ pub fn jsonl_parser_contract_spec() -> ParserContractSpec {
 pub fn ndjson_parser_contract_spec() -> ParserContractSpec {
   record_event_parser_contract_spec(
     "ndjson_parser",
-    @input.DetectedFormat::Ndjson,
+    Ndjson,
     ["format_readers/json"],
     ["json_pointer"],
     [],
@@ -614,7 +612,7 @@ pub fn ndjson_parser_contract_spec() -> ParserContractSpec {
 pub fn xml_parser_contract_spec() -> ParserContractSpec {
   dom_ast_parser_contract_spec(
     "xml_parser",
-    @input.DetectedFormat::Xml,
+    Xml,
     ["format_readers/xml"],
     [
       "element_count", "attribute_count", "table_count", "image_count", "asset_count",
@@ -631,7 +629,7 @@ pub fn xml_parser_contract_spec() -> ParserContractSpec {
 pub fn yaml_parser_contract_spec() -> ParserContractSpec {
   dom_ast_parser_contract_spec(
     "yaml_parser",
-    @input.DetectedFormat::Yaml,
+    Yaml,
     ["format_readers/yaml"],
     [
       "resource_limit_hit", "dom_limit_reached", "warning_count", "degraded_feature_count",
@@ -649,7 +647,7 @@ pub fn yaml_parser_contract_spec() -> ParserContractSpec {
 pub fn toml_parser_contract_spec() -> ParserContractSpec {
   dom_ast_parser_contract_spec(
     "toml_parser",
-    @input.DetectedFormat::Toml,
+    Toml,
     ["format_readers/toml"],
     [
       "root_kind", "table_count", "scalar_count", "array_count", "table_like_count",
@@ -668,8 +666,8 @@ pub fn toml_parser_contract_spec() -> ParserContractSpec {
 pub fn markdown_parser_contract_spec() -> ParserContractSpec {
   make_parser_contract_spec(
     "markdown_parser",
-    @parser.ParserMode::DomAstModel,
-    @parser.StreamingGranularity::MarkdownBlock,
+    DomAstModel,
+    MarkdownBlock,
     "document",
     [
       "parser_name", "parser_mode", "effective_mode", "detected_format", "ir_input_kind",
@@ -688,7 +686,7 @@ pub fn markdown_parser_contract_spec() -> ParserContractSpec {
     ],
     ["format_readers/markdown"],
     @oxshared.parser_contract_required_foundation_exclusions(),
-    large_route_granularity=Some(@parser.StreamingGranularity::MarkdownBlock),
+    large_route_granularity=Some(MarkdownBlock),
     large_route_ir_input_kind=Some("block_stream"),
   )
 }
@@ -697,7 +695,7 @@ pub fn markdown_parser_contract_spec() -> ParserContractSpec {
 pub fn html_parser_contract_spec() -> ParserContractSpec {
   dom_ast_parser_contract_spec(
     "html_parser",
-    @input.DetectedFormat::Html,
+    Html,
     ["format_readers/html"],
     [
       "block_count", "asset_count", "char_count", "scope_source", "selected_content_root",
@@ -716,7 +714,7 @@ pub fn html_parser_contract_spec() -> ParserContractSpec {
 pub fn ipynb_parser_contract_spec() -> ParserContractSpec {
   dom_ast_parser_contract_spec(
     "ipynb_parser",
-    @input.DetectedFormat::Ipynb,
+    Ipynb,
     ["format_readers/ipynb", "format_readers/json"],
     [
       "nbformat", "nbformat_minor", "cell_count", "markdown_cell_count", "code_cell_count",
@@ -738,8 +736,8 @@ pub fn ipynb_parser_contract_spec() -> ParserContractSpec {
 pub fn srt_parser_contract_spec() -> ParserContractSpec {
   make_parser_contract_spec(
     "srt_parser",
-    @parser.ParserMode::StreamingEvent,
-    @parser.StreamingGranularity::Record,
+    StreamingEvent,
+    Record,
     "event_stream",
     [
       "parser_name", "parser_mode", "effective_mode", "detected_format", "ir_input_kind",
@@ -762,8 +760,8 @@ pub fn srt_parser_contract_spec() -> ParserContractSpec {
 pub fn vtt_parser_contract_spec() -> ParserContractSpec {
   make_parser_contract_spec(
     "vtt_parser",
-    @parser.ParserMode::StreamingEvent,
-    @parser.StreamingGranularity::Record,
+    StreamingEvent,
+    Record,
     "event_stream",
     [
       "parser_name", "parser_mode", "effective_mode", "detected_format", "ir_input_kind",
@@ -786,7 +784,7 @@ pub fn vtt_parser_contract_spec() -> ParserContractSpec {
 pub fn tex_parser_contract_spec() -> ParserContractSpec {
   dom_ast_parser_contract_spec(
     "tex_parser",
-    @input.DetectedFormat::Tex,
+    Tex,
     ["format_readers/text_markup/tex", "format_readers/text_markup/shared"],
     [
       "block_count", "heading_count", "code_count", "table_count", "raw_count", "line_count",
@@ -803,7 +801,7 @@ pub fn tex_parser_contract_spec() -> ParserContractSpec {
 pub fn rst_parser_contract_spec() -> ParserContractSpec {
   dom_ast_parser_contract_spec(
     "rst_parser",
-    @input.DetectedFormat::Rst,
+    Rst,
     ["format_readers/text_markup/rst", "format_readers/text_markup/shared"],
     [
       "block_count", "heading_count", "code_count", "table_count", "raw_count", "line_count",
@@ -820,7 +818,7 @@ pub fn rst_parser_contract_spec() -> ParserContractSpec {
 pub fn asciidoc_parser_contract_spec() -> ParserContractSpec {
   dom_ast_parser_contract_spec(
     "asciidoc_parser",
-    @input.DetectedFormat::Asciidoc,
+    Asciidoc,
     ["format_readers/text_markup/asciidoc", "format_readers/text_markup/shared"],
     [
       "block_count", "heading_count", "code_count", "table_count", "raw_count", "line_count",
@@ -837,7 +835,7 @@ pub fn asciidoc_parser_contract_spec() -> ParserContractSpec {
 pub fn eml_parser_contract_spec() -> ParserContractSpec {
   block_stream_parser_contract_spec(
     "eml_parser",
-    @input.DetectedFormat::Eml,
+    Eml,
     ["format_readers/eml"],
     [
       "part_count", "attachment_count", "inline_image_count", "nested_message_count",
@@ -856,7 +854,7 @@ pub fn eml_parser_contract_spec() -> ParserContractSpec {
 pub fn zip_parser_contract_spec() -> ParserContractSpec {
   container_parser_contract_spec(
     "zip_container_parser",
-    @input.DetectedFormat::Zip,
+    Zip,
     ["format_readers/zip", "container"],
     [
       "manifest_seen", "resource_limit_hit", "container_entry_count", "selected_entry_count",
@@ -872,8 +870,8 @@ pub fn zip_parser_contract_spec() -> ParserContractSpec {
 pub fn epub_parser_contract_spec() -> ParserContractSpec {
   make_parser_contract_spec(
     "epub_parser",
-    @parser.ParserMode::PackageSinglePass,
-    @parser.StreamingGranularity::EpubSpineItem,
+    PackageSinglePass,
+    EpubSpineItem,
     "block_stream",
     [
       "parser_name", "parser_mode", "effective_mode", "detected_format", "ir_input_kind",
@@ -892,7 +890,7 @@ pub fn epub_parser_contract_spec() -> ParserContractSpec {
     ],
     ["format_readers/epub", "format_readers/html", "container"],
     @oxshared.parser_contract_required_foundation_exclusions(),
-    large_route_granularity=Some(@parser.StreamingGranularity::ArchiveEntry),
+    large_route_granularity=Some(ArchiveEntry),
     large_route_ir_input_kind=Some("block_stream"),
   )
 }
@@ -901,7 +899,7 @@ pub fn epub_parser_contract_spec() -> ParserContractSpec {
 pub fn odt_parser_contract_spec() -> ParserContractSpec {
   package_with_block_large_route_contract_spec(
     "odt_parser",
-    @input.DetectedFormat::Odt,
+    Odt,
     ["format_readers/odf/odt", "format_readers/odf/shared"],
     [
       "office_document_kind", "format_family", "resource_limit_hit", "syntax_error_count",
@@ -922,7 +920,7 @@ pub fn odt_parser_contract_spec() -> ParserContractSpec {
 pub fn ods_parser_contract_spec() -> ParserContractSpec {
   package_with_block_large_route_contract_spec(
     "ods_parser",
-    @input.DetectedFormat::Ods,
+    Ods,
     ["format_readers/odf/ods", "format_readers/odf/shared"],
     [
       "office_document_kind", "format_family", "resource_limit_hit", "syntax_error_count",
@@ -943,7 +941,7 @@ pub fn ods_parser_contract_spec() -> ParserContractSpec {
 pub fn odp_parser_contract_spec() -> ParserContractSpec {
   package_with_block_large_route_contract_spec(
     "odp_parser",
-    @input.DetectedFormat::Odp,
+    Odp,
     ["format_readers/odf/odp", "format_readers/odf/shared"],
     [
       "office_document_kind", "format_family", "resource_limit_hit", "syntax_error_count",
@@ -964,7 +962,7 @@ pub fn odp_parser_contract_spec() -> ParserContractSpec {
 pub fn pdf_native_parser_contract_spec() -> ParserContractSpec {
   page_single_pass_parser_contract_spec(
     "pdf_native_parser",
-    @input.DetectedFormat::Pdf,
+    Pdf,
     ["formats/pdf/native"],
     [
       "page_count", "table_count", "image_count", "asset_count", "pdf_native_backend",
@@ -982,8 +980,8 @@ pub fn pdf_native_parser_contract_spec() -> ParserContractSpec {
 pub fn pdf_ocr_parser_contract_spec() -> ParserContractSpec {
   make_parser_contract_spec(
     "pdf_accurate_layout_parser",
-    @parser.ParserMode::LayoutTwoStage,
-    @parser.StreamingGranularity::Page,
+    LayoutTwoStage,
+    Page,
     "document",
     [
       "page_count", "table_count", "image_count", "asset_count", "pdf_native_backend",
@@ -1008,8 +1006,8 @@ pub fn pdf_ocr_parser_contract_spec() -> ParserContractSpec {
 pub fn image_ocr_parser_contract_spec() -> ParserContractSpec {
   make_parser_contract_spec(
     "image_ocr_parser",
-    @parser.ParserMode::LayoutTwoStage,
-    @parser.StreamingGranularity::Page,
+    LayoutTwoStage,
+    Page,
     "document",
     [
       "parser_name", "parser_mode", "detected_format", "ir_input_kind", "ocr_provider_wired",
@@ -1030,8 +1028,8 @@ pub fn image_ocr_parser_contract_spec() -> ParserContractSpec {
 pub fn audio_parser_contract_spec() -> ParserContractSpec {
   make_parser_contract_spec(
     "audio_parser",
-    @parser.ParserMode::MediaPipeline,
-    @parser.StreamingGranularity::None,
+    MediaPipeline,
+    None,
     "document",
     [
       "parser_name", "parser_mode", "effective_mode", "detected_format", "ir_input_kind",

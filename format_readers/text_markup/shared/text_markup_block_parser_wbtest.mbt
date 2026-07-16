@@ -52,28 +52,14 @@ test "RST block parser covers compound directives lists tables and quotes" {
       #|paragraph::
       #|  literal body
     ),
-    TextMarkupFormat::Rst,
+    Rst,
   )
-  assert_true(
-    markup_blocks_of_kind(document, TextMarkupBlockKind::Heading).length() >= 1,
-  )
-  assert_true(
-    markup_blocks_of_kind(document, TextMarkupBlockKind::Paragraph).length() >=
-    1,
-  )
-  assert_true(
-    markup_blocks_of_kind(document, TextMarkupBlockKind::Table).length() >= 3,
-  )
-  assert_true(
-    markup_blocks_of_kind(document, TextMarkupBlockKind::ListItem).length() >= 2,
-  )
-  assert_true(
-    markup_blocks_of_kind(document, TextMarkupBlockKind::BlockQuote).length() >=
-    1,
-  )
-  assert_true(
-    markup_blocks_of_kind(document, TextMarkupBlockKind::Code).length() >= 2,
-  )
+  assert_true(markup_blocks_of_kind(document, Heading).length() >= 1)
+  assert_true(markup_blocks_of_kind(document, Paragraph).length() >= 1)
+  assert_true(markup_blocks_of_kind(document, Table).length() >= 3)
+  assert_true(markup_blocks_of_kind(document, ListItem).length() >= 2)
+  assert_true(markup_blocks_of_kind(document, BlockQuote).length() >= 1)
+  assert_true(markup_blocks_of_kind(document, Code).length() >= 2)
   assert_true(
     document.blocks.any(block => {
       block.meta.get("include_target") == Some("chapter.rst")
@@ -90,11 +76,9 @@ test "RST block parser covers compound directives lists tables and quotes" {
 test "RST block parser preserves footnote and citation definitions" {
   let doc = parse_markup_document(
     ".. [1] First footnote\n   continuation\n\n.. [RFC] Citation text\n",
-    TextMarkupFormat::Rst,
+    Rst,
   )
-  let notes = doc.blocks.filter(block => {
-    block.kind == TextMarkupBlockKind::NoteDefinition
-  })
+  let notes = doc.blocks.filter(block => block.kind == NoteDefinition)
   assert_eq(notes.length(), 2)
   assert_true(notes[0].meta.get("note_id") == Some("1"))
   assert_true(notes[0].text.contains("continuation"))
@@ -135,39 +119,26 @@ test "AsciiDoc block parser covers attributes source table admonition and trunca
       #|```
       #|unterminated code
     ),
-    TextMarkupFormat::Asciidoc,
+    Asciidoc,
   )
-  assert_true(
-    markup_blocks_of_kind(document, TextMarkupBlockKind::Heading).length() == 1,
-  )
-  assert_true(
-    markup_blocks_of_kind(document, TextMarkupBlockKind::Table).length() >= 2,
-  )
-  assert_true(
-    markup_blocks_of_kind(document, TextMarkupBlockKind::ListItem).length() >= 2,
-  )
-  assert_true(
-    markup_blocks_of_kind(document, TextMarkupBlockKind::BlockQuote).length() >=
-    1,
-  )
-  assert_true(
-    markup_blocks_of_kind(document, TextMarkupBlockKind::Code).length() >= 2,
-  )
+  assert_true(markup_blocks_of_kind(document, Heading).length() == 1)
+  assert_true(markup_blocks_of_kind(document, Table).length() >= 2)
+  assert_true(markup_blocks_of_kind(document, ListItem).length() >= 2)
+  assert_true(markup_blocks_of_kind(document, BlockQuote).length() >= 1)
+  assert_true(markup_blocks_of_kind(document, Code).length() >= 2)
   assert_true(
     document.blocks.any(block => {
       block.meta.get("include_target") == Some("chapter.adoc")
     }),
   )
-  assert_true(
-    markup_blocks_of_kind(document, TextMarkupBlockKind::Raw).length() >= 2,
-  )
+  assert_true(markup_blocks_of_kind(document, Raw).length() >= 2)
 }
 
 ///|
 test "AsciiDoc unresolved image attributes remain readable source text" {
   let document = parse_markup_document(
     "image::{imagesdir}/preview.png[Preview]",
-    TextMarkupFormat::Asciidoc,
+    Asciidoc,
   )
   assert_true(
     document.blocks.any(block => block.text.contains("image::{imagesdir}")),
@@ -210,28 +181,19 @@ test "TeX block parser covers environments nested list state and missing termina
       #|\begin{verbatim}
       #|unterminated
     ),
-    TextMarkupFormat::Tex,
+    Tex,
   )
-  let items = markup_blocks_of_kind(document, TextMarkupBlockKind::ListItem)
+  let items = markup_blocks_of_kind(document, ListItem)
   assert_true(items.length() >= 2)
   assert_true(items.any(block => block.ordered))
   assert_true(items.any(block => !block.ordered))
-  assert_true(
-    markup_blocks_of_kind(document, TextMarkupBlockKind::Table).length() >= 1,
-  )
-  assert_true(
-    markup_blocks_of_kind(document, TextMarkupBlockKind::Code).length() >= 2,
-  )
-  assert_true(
-    markup_blocks_of_kind(document, TextMarkupBlockKind::BlockQuote).length() >=
-    2,
-  )
+  assert_true(markup_blocks_of_kind(document, Table).length() >= 1)
+  assert_true(markup_blocks_of_kind(document, Code).length() >= 2)
+  assert_true(markup_blocks_of_kind(document, BlockQuote).length() >= 2)
   assert_true(
     document.blocks.any(block => {
       block.meta.get("include_target") == Some("chapter")
     }),
   )
-  assert_true(
-    markup_blocks_of_kind(document, TextMarkupBlockKind::Raw).length() >= 1,
-  )
+  assert_true(markup_blocks_of_kind(document, Raw).length() >= 1)
 }

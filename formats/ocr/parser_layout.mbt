@@ -21,7 +21,7 @@ fn image_ocr_parse_result_from_provider_result(
   detected_format : @input.DetectedFormat,
   options : @parser.OcrOptions,
   result : OcrProviderResult,
-  target? : OcrProviderSelectionTarget = OcrProviderSelectionTarget::DirectImageBalanced,
+  target? : OcrProviderSelectionTarget = DirectImageBalanced,
 ) -> @parser.ParseResult {
   ocr_parse_result_from_provider_result(
     "image_ocr_parser",
@@ -75,7 +75,7 @@ pub fn ocr_parse_result_from_provider_result(
   let final_document = @core.document_with_diagnostics(document, diagnostics)
   @parser.parse_result_with_document_capability(
     parser_name,
-    @parser.ParserMode::LayoutTwoStage,
+    LayoutTwoStage,
     final_document,
     diagnostics,
     capability,
@@ -652,11 +652,7 @@ fn image_ocr_block_from_segment(
       )
     None => ()
   }
-  let block = @core.make_block(
-    @core.BlockKind::Paragraph,
-    segment.text,
-    source_ref~,
-  )
+  let block = @core.make_block(Paragraph, segment.text, source_ref~)
   @core.block_with_signals(block, image_ocr_block_signals(segment))
 }
 
@@ -668,21 +664,12 @@ fn image_ocr_block_signals(
   match segment.confidence {
     Some(confidence) => {
       let payload : Map[String, @core.JsonValue] = Map([])
-      payload.set(
-        "confidence",
-        @core.JsonValue::Number(image_ocr_confidence_string(confidence)),
-      )
-      payload.set(
-        "line_start",
-        @core.JsonValue::Number(segment.line_start.to_string()),
-      )
-      payload.set(
-        "line_end",
-        @core.JsonValue::Number(segment.line_end.to_string()),
-      )
+      payload.set("confidence", Number(image_ocr_confidence_string(confidence)))
+      payload.set("line_start", Number(segment.line_start.to_string()))
+      payload.set("line_end", Number(segment.line_end.to_string()))
       signals.push(
         @core.make_signal(
-          @core.SignalType::OcrSignal,
+          OcrSignal,
           image_ocr_confidence_score(confidence),
           payload~,
         ),
@@ -709,10 +696,8 @@ fn image_ocr_mark_heading_candidates(
   }
   let signals = first.signals.copy()
   let payload : Map[String, @core.JsonValue] = Map([])
-  payload.set("level", @core.JsonValue::Number("1"))
-  signals.push(
-    @core.make_signal(@core.SignalType::HeadingCandidate, 90, payload~),
-  )
+  payload.set("level", Number("1"))
+  signals.push(@core.make_signal(HeadingCandidate, 90, payload~))
   let promoted = @core.block_with_signals(
     @core.block_with_attr(
       @core.block_with_attr(first, "heading_candidate", "true"),
@@ -731,7 +716,7 @@ fn image_ocr_should_mark_heading_candidate(
   second : @core.CoreBlock,
   page_width : Double?,
 ) -> Bool {
-  if first.kind != @core.BlockKind::Paragraph {
+  if first.kind != Paragraph {
     return false
   }
   let text = first.text.trim().to_owned()
@@ -975,13 +960,13 @@ fn image_ocr_success_diagnostics(
   options : @parser.OcrOptions,
   result : OcrProviderResult,
   block_count : Int,
-  target? : OcrProviderSelectionTarget = OcrProviderSelectionTarget::DirectImageBalanced,
+  target? : OcrProviderSelectionTarget = DirectImageBalanced,
 ) -> @core.Diagnostics {
   let diagnostics = image_ocr_base_diagnostics(
     source,
     detected_format,
     options,
-    Some(@parser.ParserMode::LayoutTwoStage),
+    Some(LayoutTwoStage),
     target,
   )
   diagnostics.metrics.set("ocr_provider_wired", "true")
@@ -1034,7 +1019,7 @@ pub fn ocr_base_diagnostics(
     @core.diagnostics_with_parser(
       @core.empty_diagnostics(),
       Some(parser_name),
-      Some(@parser.mode_name(@parser.ParserMode::LayoutTwoStage)),
+      Some(@parser.mode_name(LayoutTwoStage)),
     ),
     Some(image_input_kind_name(@input.input_kind(source))),
     Some(@input.detected_format_name(detected_format)),
@@ -1062,7 +1047,7 @@ pub fn ocr_base_diagnostics(
   diagnostics.metrics.set("ocr_intent", @parser.ocr_intent_name(options.intent))
   diagnostics.metrics.set(
     "ocr_explicit_requested",
-    image_bool_string(options.intent == @parser.OcrIntent::Explicit),
+    image_bool_string(options.intent == Explicit),
   )
   diagnostics.metrics.set("provider_invoked", "false")
   diagnostics.metrics.set(
@@ -1094,9 +1079,9 @@ pub fn ocr_base_diagnostics(
   diagnostics.metrics.set(
     "effective_mode",
     match options.intent {
-      @parser.OcrIntent::Explicit => "layout_two_stage"
-      @parser.OcrIntent::Disabled => "fail_closed_disabled"
-      @parser.OcrIntent::Auto => "fail_closed"
+      Explicit => "layout_two_stage"
+      Disabled => "fail_closed_disabled"
+      Auto => "fail_closed"
     },
   )
   image_ocr_record_provider_resolution(diagnostics, target)
@@ -1108,9 +1093,9 @@ pub fn image_ocr_selection_target_for_accuracy(
   accurate_enabled : Bool,
 ) -> OcrProviderSelectionTarget {
   if accurate_enabled {
-    OcrProviderSelectionTarget::DirectImageAccurate
+    DirectImageAccurate
   } else {
-    OcrProviderSelectionTarget::DirectImageBalanced
+    DirectImageBalanced
   }
 }
 

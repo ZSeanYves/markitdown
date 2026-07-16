@@ -4,12 +4,12 @@ test "pptx parser keeps nested lists speaker notes and asset boundaries stable" 
     @input.input_from_path(
       "samples/fixtures/contracts/pptx/pptx_bullet_levels.pptx",
     ),
-    @input.DetectedFormat::Pptx,
+    Pptx,
   )
   let bullet_document = bullets.document.unwrap_or_else(fn() {
     abort("missing pptx bullet document")
   })
-  assert_true(bullet_document.blocks[2].kind == @core.BlockKind::List)
+  assert_true(bullet_document.blocks[2].kind == List)
   let rendered_bullets = (@render.markdown_renderer().render)(
     bullet_document,
     @render.make_render_context(false),
@@ -26,7 +26,7 @@ test "pptx parser keeps nested lists speaker notes and asset boundaries stable" 
     @input.input_from_path(
       "samples/fixtures/contracts/pptx/pptx_speaker_notes_basic.pptx",
     ),
-    @input.DetectedFormat::Pptx,
+    Pptx,
   )
   let notes_document = notes.document.unwrap_or_else(fn() {
     abort("missing pptx notes document")
@@ -37,7 +37,7 @@ test "pptx parser keeps nested lists speaker notes and asset boundaries stable" 
     @input.input_from_path(
       "samples/fixtures/contracts/pptx/pptx_image_single.pptx",
     ),
-    @input.DetectedFormat::Pptx,
+    Pptx,
   )
   let asset_document = assets.document.unwrap_or_else(fn() {
     abort("missing pptx image document")
@@ -50,9 +50,9 @@ test "pptx parser keeps nested lists speaker notes and asset boundaries stable" 
 test "pptx accurate fidelity respects reading-order-driven grouped lowering" {
   let registry = @fmeta.builtin_registry()
   let context = @parser.parse_context_with_product_modes(
-    @parser.new_parse_context(@input.DetectedFormat::Pptx),
-    @product.FidelityMode::Accurate,
-    @product.OutputMode::Markdown,
+    @parser.new_parse_context(Pptx),
+    Accurate,
+    Markdown,
   )
   let result = match
     @parser.registry_parse(
@@ -73,8 +73,8 @@ test "pptx accurate fidelity respects reading-order-driven grouped lowering" {
     document,
     @render.make_render_context(
       false,
-      fidelity_mode=@product.FidelityMode::Accurate,
-      output_mode=@product.OutputMode::Markdown,
+      fidelity_mode=Accurate,
+      output_mode=Markdown,
     ),
   )
   let expected = read_utf8_text(

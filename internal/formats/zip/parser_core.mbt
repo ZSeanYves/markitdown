@@ -36,9 +36,9 @@ priv struct ZipAssetRewrite {
 ///|
 pub fn zip_parser_capability() -> @parser.ParserCapability {
   @parser.make_parser_capability(
-    @parser.ParserMode::ContainerRecursive,
+    ContainerRecursive,
     true,
-    @parser.StreamingGranularity::ArchiveEntry,
+    ArchiveEntry,
     true,
     false,
     false,
@@ -68,7 +68,7 @@ fn zip_parse_with_archive_core(
 ) -> @parser.ParseResult {
   let diagnostics = @fshared.empty_parser_diagnostics(
     ZIP_PARSER_NAME,
-    @parser.ParserMode::ContainerRecursive,
+    ContainerRecursive,
     source,
     "zip",
   )
@@ -311,7 +311,7 @@ fn zip_parse_with_archive_core(
             entry,
             entry_path,
             container_path,
-            @input.DetectedFormat::Unknown,
+            Unknown,
           )
           merged_assets.push(asset)
           merged_blocks.push(image_block)
@@ -437,7 +437,7 @@ fn zip_parse_with_archive_core(
 
   @parser.parse_result_with_blocks_capability(
     ZIP_PARSER_NAME,
-    @parser.ParserMode::ContainerRecursive,
+    ContainerRecursive,
     merged_blocks,
     diagnostics,
     zip_parser_capability(),

@@ -1,7 +1,7 @@
 ///|
 fn xml_parser_capability() -> @parser.ParserCapability {
   @parser.dom_ast_parser_capability(
-    @parser.StreamingGranularity::XmlStructure,
+    XmlStructure,
     true,
     true,
     false,
@@ -17,17 +17,12 @@ fn xml_parser_capability() -> @parser.ParserCapability {
 
 ///|
 pub fn xml_parser() -> @parser.Parser {
-  @parser.make_parser(
-    "xml_parser",
-    @parser.ParserMode::DomAstModel,
-    xml_parser_capability(),
-    fn(
-      source : @input.InputSource,
-      context : @parser.ParseContext,
-    ) -> Result[@parser.ParseResult, String] {
-      parse_xml_document_result(source, context)
-    },
-  )
+  @parser.make_parser("xml_parser", DomAstModel, xml_parser_capability(), fn(
+    source : @input.InputSource,
+    context : @parser.ParseContext,
+  ) -> Result[@parser.ParseResult, String] {
+    parse_xml_document_result(source, context)
+  })
 }
 
 ///|
@@ -58,7 +53,7 @@ pub fn xml_parse_with_prepared_text(
     tokenized=prepared.tokens,
   )
   if prepared.tokens is Some(_) &&
-    context.requested_mode == Some(@parser.ParserMode::StreamingEvent) {
+    context.requested_mode == Some(StreamingEvent) {
     parsed.diagnostics.metrics.set("probe_artifact_reused", "true")
   }
   parsed
@@ -92,23 +87,22 @@ fn parse_xml_document_result_from_normalized(
 ) -> @parser.ParseResult {
   let diagnostics = @fshared.empty_parser_diagnostics(
     "xml_parser",
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     source,
     "xml",
   )
-  let requested_streaming = context.requested_mode ==
-    Some(@parser.ParserMode::StreamingEvent)
+  let requested_streaming = context.requested_mode == Some(StreamingEvent)
   @fshared.init_parser_route_metrics_with_granularity(
     diagnostics,
     source,
     context,
     "xml",
     "xml_parser",
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     if requested_streaming {
-      @parser.ParserMode::StreamingEvent
+      StreamingEvent
     } else {
-      @parser.ParserMode::DomAstModel
+      DomAstModel
     },
     if requested_streaming {
       "event_stream"
@@ -116,9 +110,9 @@ fn parse_xml_document_result_from_normalized(
       "document"
     },
     if requested_streaming {
-      @parser.StreamingGranularity::XmlStructure
+      XmlStructure
     } else {
-      @parser.StreamingGranularity::None
+      None
     },
     if requested_streaming {
       "xml_structure_event_stream"
@@ -163,7 +157,7 @@ fn parse_xml_document_result_from_normalized(
     )
     return @parser.parse_result_with_document_capability(
       "xml_parser",
-      @parser.ParserMode::DomAstModel,
+      DomAstModel,
       document,
       diagnostics,
       xml_parser_capability(),
@@ -242,7 +236,7 @@ fn parse_xml_document_result_from_normalized(
         diagnostics.pass_trace.push("parse:xml_parser")
         return @parser.parse_result_with_events_capability(
           "xml_parser",
-          @parser.ParserMode::StreamingEvent,
+          StreamingEvent,
           events,
           diagnostics,
           xml_parser_capability(),
@@ -284,7 +278,7 @@ fn parse_xml_document_result_from_normalized(
       )
       @parser.parse_result_with_document_capability(
         "xml_parser",
-        @parser.ParserMode::DomAstModel,
+        DomAstModel,
         final_document,
         diagnostics,
         xml_parser_capability(),

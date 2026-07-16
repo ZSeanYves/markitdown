@@ -64,10 +64,7 @@ fn pdf_decode_utf16_literal_string(value : String) -> String? {
       bytes.push(chars[index].to_int().to_byte())
       index += 1
     }
-    let decoded = @encoding.decode(
-      Bytes::from_array(bytes),
-      encoding=@encoding.UTF16LE,
-    ) catch {
+    let decoded = @encoding.decode(Bytes::from_array(bytes), encoding=UTF16LE) catch {
       _ => return None
     }
     return Some(pdf_strip_utf16_bom(decoded))

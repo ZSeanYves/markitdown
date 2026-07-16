@@ -30,17 +30,11 @@ fn xlsx_fill_package_metrics(
   )
   diagnostics.metrics.set(
     "external_relationship_count",
-    xlsx_count_validation_kind(
-      validation.issues,
-      @ox.OoxmlValidationIssueKind::ExternalRelationship,
-    ).to_string(),
+    xlsx_count_validation_kind(validation.issues, ExternalRelationship).to_string(),
   )
   diagnostics.metrics.set(
     "missing_relationship_target_count",
-    xlsx_count_validation_kind(
-      validation.issues,
-      @ox.OoxmlValidationIssueKind::MissingRelationshipTarget,
-    ).to_string(),
+    xlsx_count_validation_kind(validation.issues, MissingRelationshipTarget).to_string(),
   )
   diagnostics.metrics.set("unsupported_relationship_count", "0")
   diagnostics.metrics.set("duplicate_part_count", "0")
@@ -234,7 +228,7 @@ fn xlsx_append_sheet_comments(
     return
   }
   let heading = @core.make_block(
-    @core.BlockKind::Heading,
+    Heading,
     "Comments",
     source_ref=@core.source_ref_with_extra(
       xlsx_sheet_table_source_ref(source_name, sheet),
@@ -246,7 +240,7 @@ fn xlsx_append_sheet_comments(
   blocks.push(heading)
   for comment in sheet.comments {
     let item = @core.make_block(
-      @core.BlockKind::ListItem,
+      ListItem,
       xlsx_comment_item_text(comment),
       source_ref=@core.source_ref_with_extra(
         xlsx_sheet_table_source_ref(source_name, sheet),
@@ -378,7 +372,7 @@ fn xlsx_append_sheet_comments_view(
     return
   }
   let heading = @core.make_block(
-    @core.BlockKind::Heading,
+    Heading,
     "Comments",
     source_ref=@core.source_ref_with_extra(
       xlsx_sheet_table_source_ref_view(source_name, sheet),
@@ -390,7 +384,7 @@ fn xlsx_append_sheet_comments_view(
   blocks.push(heading)
   for comment in sheet.comments {
     let item = @core.make_block(
-      @core.BlockKind::ListItem,
+      ListItem,
       xlsx_comment_item_text(comment),
       source_ref=@core.source_ref_with_extra(
         xlsx_sheet_table_source_ref_view(source_name, sheet),

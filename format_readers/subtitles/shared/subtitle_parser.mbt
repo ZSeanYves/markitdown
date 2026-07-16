@@ -3,7 +3,7 @@ pub fn parse_srt_document(text : String) -> SubtitleDocument raise {
   if text.contains("\u{0000}") {
     fail("subtitle input contains NUL bytes")
   }
-  parse_subtitle_document(text, SubtitleFormat::Srt)
+  parse_subtitle_document(text, Srt)
 }
 
 ///|
@@ -11,7 +11,7 @@ pub fn parse_vtt_document(text : String) -> SubtitleDocument raise {
   if text.contains("\u{0000}") {
     fail("subtitle input contains NUL bytes")
   }
-  parse_subtitle_document(text, SubtitleFormat::Vtt)
+  parse_subtitle_document(text, Vtt)
 }
 
 ///|
@@ -68,7 +68,7 @@ fn parse_subtitle_document(
   let cues : Array[SubtitleCue] = []
   let lines = normalized.split("\n").to_array().map(line => line.to_owned())
   let mut i = 0
-  let has_webvtt_header = format == SubtitleFormat::Vtt &&
+  let has_webvtt_header = format == Vtt &&
     lines.length() > 0 &&
     strip_bom(lines[0]).trim().has_prefix("WEBVTT")
   if has_webvtt_header {
@@ -85,7 +85,7 @@ fn parse_subtitle_document(
     let block_start = i + 1
     let first = lines[i]
     let trimmed_first = first.trim().to_owned()
-    if format == SubtitleFormat::Vtt && is_vtt_note_header(trimmed_first) {
+    if format == Vtt && is_vtt_note_header(trimmed_first) {
       let payload : Array[String] = []
       i += 1
       while i < lines.length() && lines[i].trim() != "" {
@@ -108,7 +108,7 @@ fn parse_subtitle_document(
       })
       continue
     }
-    if format == SubtitleFormat::Vtt && trimmed_first == "STYLE" {
+    if format == Vtt && trimmed_first == "STYLE" {
       let payload : Array[String] = []
       i += 1
       while i < lines.length() && lines[i].trim() != "" {
@@ -131,7 +131,7 @@ fn parse_subtitle_document(
       })
       continue
     }
-    if format == SubtitleFormat::Vtt && trimmed_first == "REGION" {
+    if format == Vtt && trimmed_first == "REGION" {
       let payload : Array[String] = []
       i += 1
       while i < lines.length() && lines[i].trim() != "" {

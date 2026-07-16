@@ -132,8 +132,7 @@ fn html_child_events_contain_tag(
   tag_name : String,
 ) -> Bool {
   for event in events {
-    if event.kind == @dhtml.HtmlTokenEventKind::StartTag &&
-      event.tag_name == tag_name {
+    if event.kind == StartTag && event.tag_name == tag_name {
       return true
     }
   }
@@ -183,7 +182,7 @@ fn html_lower_scope_events_to_blocks(
     text: StringBuilder::new(),
     text_start_line: 0,
     text_end_line: 0,
-    text_kind: @core.BlockKind::Paragraph,
+    text_kind: Paragraph,
     heading_level: 0,
     in_pre: false,
     text_has_content: false,
@@ -430,12 +429,11 @@ fn html_lower_child_text_blocks_scanned(
         byte_end~,
       )
       table_events.push(event)
-      if event.kind == @dhtml.HtmlTokenEventKind::StartTag &&
+      if event.kind == StartTag &&
         event.tag_name == "table" &&
         !event.self_closing {
         table_depth += 1
-      } else if event.kind == @dhtml.HtmlTokenEventKind::EndTag &&
-        event.tag_name == "table" {
+      } else if event.kind == EndTag && event.tag_name == "table" {
         table_depth -= 1
         if table_depth == 0 {
           for entry in html_child_token_close_index(table_events) {
@@ -453,9 +451,7 @@ fn html_lower_child_text_blocks_scanned(
           table_events = []
         }
       }
-    } else if kind == @dhtml.HtmlTokenEventKind::StartTag &&
-      tag_name == "table" &&
-      !self_closing {
+    } else if kind == StartTag && tag_name == "table" && !self_closing {
       table_depth = 1
       table_source_start = source_start
       table_events = [
@@ -645,14 +641,14 @@ fn html_child_token_close_index(
   for index in 0..<events.length() {
     let event = events[index]
     match event.kind {
-      @dhtml.HtmlTokenEventKind::StartTag =>
+      StartTag =>
         if !event.self_closing {
           match stacks.get(event.tag_name) {
             Some(existing) => existing.push(index)
             None => stacks.set(event.tag_name, [index])
           }
         }
-      @dhtml.HtmlTokenEventKind::EndTag =>
+      EndTag =>
         match stacks.get(event.tag_name) {
           Some(existing) =>
             if existing.length() > 0 {
@@ -661,9 +657,7 @@ fn html_child_token_close_index(
             }
           None => ()
         }
-      @dhtml.HtmlTokenEventKind::Text
-      | @dhtml.HtmlTokenEventKind::Comment
-      | @dhtml.HtmlTokenEventKind::Doctype => ()
+      Text | Comment | Doctype => ()
     }
   }
   out
@@ -679,22 +673,19 @@ fn html_child_text_lower_event(
 ) -> Int {
   let event = events[index]
   if state.skip_depth > 0 {
-    if event.kind == @dhtml.HtmlTokenEventKind::StartTag && !event.self_closing {
+    if event.kind == StartTag && !event.self_closing {
       state.skip_depth += 1
-    } else if event.kind == @dhtml.HtmlTokenEventKind::EndTag {
+    } else if event.kind == EndTag {
       state.skip_depth -= 1
     }
     return index + 1
   }
   match event.kind {
-    @dhtml.HtmlTokenEventKind::Text =>
-      html_child_text_append_text(state, source, text_chars, event)
-    @dhtml.HtmlTokenEventKind::StartTag =>
+    Text => html_child_text_append_text(state, source, text_chars, event)
+    StartTag =>
       return html_child_text_start_tag(state, source, text_chars, events, index)
-    @dhtml.HtmlTokenEventKind::EndTag =>
-      html_child_text_end_tag(state, source, event)
-    @dhtml.HtmlTokenEventKind::Comment | @dhtml.HtmlTokenEventKind::Doctype =>
-      ()
+    EndTag => html_child_text_end_tag(state, source, event)
+    Comment | Doctype => ()
   }
   index + 1
 }
@@ -716,32 +707,31 @@ fn html_child_text_lower_string_fields(
   byte_end : Int,
 ) -> Unit {
   if state.skip_depth > 0 {
-    if kind == @dhtml.HtmlTokenEventKind::StartTag && !self_closing {
+    if kind == StartTag && !self_closing {
       state.skip_depth += 1
-    } else if kind == @dhtml.HtmlTokenEventKind::EndTag {
+    } else if kind == EndTag {
       state.skip_depth -= 1
     }
     return
   }
   match kind {
-    @dhtml.HtmlTokenEventKind::Text =>
+    Text =>
       html_child_text_append_text_value(
         state,
         text[source_start:source_end].to_owned(),
         line_start,
         line_end,
       )
-    @dhtml.HtmlTokenEventKind::StartTag =>
+    StartTag =>
       html_child_text_start_tag_fields(
         state, source, tag_name, attributes, self_closing, line_start, line_end,
         byte_start, byte_end,
       )
-    @dhtml.HtmlTokenEventKind::EndTag =>
+    EndTag =>
       html_child_text_end_tag_fields(
         state, source, tag_name, line_end, byte_end,
       )
-    @dhtml.HtmlTokenEventKind::Comment | @dhtml.HtmlTokenEventKind::Doctype =>
-      ()
+    Comment | Doctype => ()
   }
 }
 
@@ -787,7 +777,7 @@ fn html_child_text_start_tag(
     html_child_text_flush_link(state, source)
     html_child_text_flush_block(state, source)
     state.current = Some({
-      kind: @core.BlockKind::Heading,
+      kind: Heading,
       level: heading,
       info: "",
       html_path: "/block/html:block:" +
@@ -804,16 +794,13 @@ fn html_child_text_start_tag(
   }
   if tag == "p" {
     match state.current {
-      Some(current) =>
-        if current.kind == @core.BlockKind::BlockQuote {
-          return index + 1
-        }
+      Some(current) => if current.kind == BlockQuote { return index + 1 }
       None => ()
     }
     html_child_text_flush_link(state, source)
     html_child_text_flush_block(state, source)
     state.current = Some({
-      kind: @core.BlockKind::Paragraph,
+      kind: Paragraph,
       level: 0,
       info: "",
       html_path: "/block/html:block:p:" + state.block_order.to_string(),
@@ -829,7 +816,7 @@ fn html_child_text_start_tag(
     html_child_text_flush_link(state, source)
     html_child_text_flush_block(state, source)
     state.current = Some({
-      kind: @core.BlockKind::BlockQuote,
+      kind: BlockQuote,
       level: 0,
       info: "",
       html_path: "/block/html:block:blockquote:" + state.block_order.to_string(),
@@ -871,7 +858,7 @@ fn html_child_text_start_tag(
       body_blocks: [],
     })
     state.current = Some({
-      kind: @core.BlockKind::Paragraph,
+      kind: Paragraph,
       level: 0,
       info: "",
       html_path: "/block/html:block:li:" + state.block_order.to_string(),
@@ -887,7 +874,7 @@ fn html_child_text_start_tag(
     html_child_text_flush_link(state, source)
     html_child_text_flush_block(state, source)
     state.current = Some({
-      kind: @core.BlockKind::Code,
+      kind: Code,
       level: 0,
       info: "",
       html_path: "/block/html:block:pre:" + state.block_order.to_string(),
@@ -970,7 +957,7 @@ fn html_child_text_start_tag_fields(
     html_child_text_flush_link(state, source)
     html_child_text_flush_block(state, source)
     state.current = Some({
-      kind: @core.BlockKind::Heading,
+      kind: Heading,
       level: heading,
       info: "",
       html_path: "/block/html:block:" +
@@ -987,13 +974,13 @@ fn html_child_text_start_tag_fields(
   }
   if tag == "p" {
     match state.current {
-      Some(current) => if current.kind == @core.BlockKind::BlockQuote { return }
+      Some(current) => if current.kind == BlockQuote { return }
       None => ()
     }
     html_child_text_flush_link(state, source)
     html_child_text_flush_block(state, source)
     state.current = Some({
-      kind: @core.BlockKind::Paragraph,
+      kind: Paragraph,
       level: 0,
       info: "",
       html_path: "/block/html:block:p:" + state.block_order.to_string(),
@@ -1009,7 +996,7 @@ fn html_child_text_start_tag_fields(
     html_child_text_flush_link(state, source)
     html_child_text_flush_block(state, source)
     state.current = Some({
-      kind: @core.BlockKind::BlockQuote,
+      kind: BlockQuote,
       level: 0,
       info: "",
       html_path: "/block/html:block:blockquote:" + state.block_order.to_string(),
@@ -1051,7 +1038,7 @@ fn html_child_text_start_tag_fields(
       body_blocks: [],
     })
     state.current = Some({
-      kind: @core.BlockKind::Paragraph,
+      kind: Paragraph,
       level: 0,
       info: "",
       html_path: "/block/html:block:li:" + state.block_order.to_string(),
@@ -1067,7 +1054,7 @@ fn html_child_text_start_tag_fields(
     html_child_text_flush_link(state, source)
     html_child_text_flush_block(state, source)
     state.current = Some({
-      kind: @core.BlockKind::Code,
+      kind: Code,
       level: 0,
       info: "",
       html_path: "/block/html:block:pre:" + state.block_order.to_string(),

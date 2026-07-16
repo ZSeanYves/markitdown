@@ -26,12 +26,9 @@ fn pptx_fill_package_metrics(
   let mut unsupported_relationship_count = 0
   for issue in validation.issues {
     match issue.kind {
-      @ox.OoxmlValidationIssueKind::ExternalRelationship =>
-        external_relationship_count += 1
-      @ox.OoxmlValidationIssueKind::MissingRelationshipTarget =>
-        missing_relationship_target_count += 1
-      @ox.OoxmlValidationIssueKind::UnsafeRelationshipTarget =>
-        unsupported_relationship_count += 1
+      ExternalRelationship => external_relationship_count += 1
+      MissingRelationshipTarget => missing_relationship_target_count += 1
+      UnsafeRelationshipTarget => unsupported_relationship_count += 1
       _ => ()
     }
   }
@@ -206,7 +203,7 @@ fn pptx_accumulate_object_metrics(
 ) -> Unit {
   ignore(diagnostics)
   match obj {
-    @pptxdoc.PptxObject::Shape(shape) => {
+    Shape(shape) => {
       match shape.direct_placeholder {
         Some(_) => placeholder_count.val += 1
         None => ()
@@ -224,25 +221,23 @@ fn pptx_accumulate_object_metrics(
           }
       }
     }
-    @pptxdoc.PptxObject::Picture(pic) => {
+    Picture(pic) => {
       image_count.val += 1
       match pic.media {
         Some(media) => if media.is_external { external_media_count.val += 1 }
         None => ()
       }
     }
-    @pptxdoc.PptxObject::Group(group) =>
+    Group(group) =>
       for child in group.children {
         pptx_accumulate_object_metrics(
           child, diagnostics, placeholder_count, resolved_placeholder_count, unresolved_placeholder_count,
           text_box_count, image_count, external_media_count,
         )
       }
-    @pptxdoc.PptxObject::Ole(_) =>
-      diagnostics.degraded_features.push("pptx_ole_unsupported")
-    @pptxdoc.PptxObject::Chart(_) =>
-      diagnostics.degraded_features.push("pptx_chart_unsupported")
-    @pptxdoc.PptxObject::SmartArt(_) =>
+    Ole(_) => diagnostics.degraded_features.push("pptx_ole_unsupported")
+    Chart(_) => diagnostics.degraded_features.push("pptx_chart_unsupported")
+    SmartArt(_) =>
       diagnostics.degraded_features.push("pptx_smartart_unsupported")
     _ => ()
   }

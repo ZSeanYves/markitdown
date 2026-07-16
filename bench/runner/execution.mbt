@@ -436,7 +436,7 @@ fn select_rows(
     opts.bench_ids,
     format_filters,
     opts.limit,
-    @manifest.SelectOutput::Jsonl,
+    Jsonl,
     false,
     comparison_classes=scenario.comparison_classes,
   )
@@ -955,7 +955,7 @@ fn bench_provenance_with_stage_timings(
 ) -> Json {
   let provenance = @convert.convert_provenance_to_json(execution.provenance)
   match provenance {
-    Json::Object(fields) => {
+    Object(fields) => {
       let timings : Map[String, Json] = Map([])
       for
         entry in [
@@ -983,7 +983,7 @@ fn bench_convert_options_for_row(
 ) -> @convert.ConvertOptions {
   let source = @input.input_from_path(row.input_path)
   let declared_format = @input.parse_detected_format(row.format)
-  let detected_format = if declared_format != @input.DetectedFormat::Unknown {
+  let detected_format = if declared_format != Unknown {
     declared_format
   } else {
     (@input.default_format_detector().detect)(source).format
@@ -1003,8 +1003,8 @@ fn bench_convert_options(
     @parser.default_ocr_options()
   }
   @convert.make_convert_options(
-    @convert.ConvertMode::Balanced,
-    @convert.OutputFormat::Markdown,
+    Balanced,
+    Markdown,
     Some(detected_format),
     ocr_options,
     @convert.default_resource_limits(),

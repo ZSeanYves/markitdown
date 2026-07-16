@@ -4,9 +4,9 @@ pub fn parse_text_markup_inlines(
   format : TextMarkupFormat,
 ) -> Array[TextMarkupInline] {
   match format {
-    TextMarkupFormat::Rst => parse_rst_inlines(text)
-    TextMarkupFormat::Asciidoc => parse_asciidoc_inlines(text)
-    TextMarkupFormat::Tex => parse_tex_inlines(text)
+    Rst => parse_rst_inlines(text)
+    Asciidoc => parse_asciidoc_inlines(text)
+    Tex => parse_tex_inlines(text)
   }
 }
 
@@ -20,7 +20,7 @@ fn parse_rst_inlines(text : String) -> Array[TextMarkupInline] {
     match rst_consume_literal(chars, i) {
       Some((body, next)) => {
         flush_inline_text_chars(out, buffer)
-        out.push({ kind: TextMarkupInlineKind::Code, text: body, href: None })
+        out.push({ kind: Code, text: body, href: None })
         i = next
         continue
       }
@@ -30,7 +30,7 @@ fn parse_rst_inlines(text : String) -> Array[TextMarkupInline] {
       Some((label, next)) => {
         flush_inline_text_chars(out, buffer)
         out.push({
-          kind: TextMarkupInlineKind::Link,
+          kind: Link,
           text: "[" + label + "]",
           href: Some("#" + label),
         })
@@ -43,11 +43,7 @@ fn parse_rst_inlines(text : String) -> Array[TextMarkupInline] {
       match rst_consume_named_link(chars, i) {
         Some((label, href, next)) => {
           flush_inline_text_chars(out, buffer)
-          out.push({
-            kind: TextMarkupInlineKind::Link,
-            text: label,
-            href: Some(href),
-          })
+          out.push({ kind: Link, text: label, href: Some(href) })
           i = next
           continue
         }
@@ -58,7 +54,7 @@ fn parse_rst_inlines(text : String) -> Array[TextMarkupInline] {
       match consume_delimited(chars, i, '`', '`') {
         Some((body, next)) => {
           flush_inline_text_chars(out, buffer)
-          out.push({ kind: TextMarkupInlineKind::Code, text: body, href: None })
+          out.push({ kind: Code, text: body, href: None })
           i = next
           continue
         }
@@ -83,7 +79,7 @@ fn parse_asciidoc_inlines(text : String) -> Array[TextMarkupInline] {
       match consume_delimited(chars, i, '`', '`') {
         Some((body, next)) => {
           flush_inline_text_chars(out, buffer)
-          out.push({ kind: TextMarkupInlineKind::Code, text: body, href: None })
+          out.push({ kind: Code, text: body, href: None })
           i = next
           continue
         }
@@ -93,11 +89,7 @@ fn parse_asciidoc_inlines(text : String) -> Array[TextMarkupInline] {
     match asciidoc_consume_link(chars, i) {
       Some((label, href, next)) => {
         flush_inline_text_chars(out, buffer)
-        out.push({
-          kind: TextMarkupInlineKind::Link,
-          text: label,
-          href: Some(href),
-        })
+        out.push({ kind: Link, text: label, href: Some(href) })
         i = next
         continue
       }
@@ -106,11 +98,7 @@ fn parse_asciidoc_inlines(text : String) -> Array[TextMarkupInline] {
     match asciidoc_consume_xref(chars, i) {
       Some((label, href, next)) => {
         flush_inline_text_chars(out, buffer)
-        out.push({
-          kind: TextMarkupInlineKind::Link,
-          text: label,
-          href: Some(href),
-        })
+        out.push({ kind: Link, text: label, href: Some(href) })
         i = next
         continue
       }
@@ -119,7 +107,7 @@ fn parse_asciidoc_inlines(text : String) -> Array[TextMarkupInline] {
     match consume_command_argument(chars, i, "footnote:[", ']') {
       Some((body, next)) => {
         flush_inline_text_chars(out, buffer)
-        out.push({ kind: TextMarkupInlineKind::Text, text: body, href: None })
+        out.push({ kind: Text, text: body, href: None })
         i = next
         continue
       }
@@ -142,11 +130,7 @@ fn parse_tex_inlines(text : String) -> Array[TextMarkupInline] {
     match tex_consume_link(chars, i) {
       Some((label, href, next)) => {
         flush_inline_text_chars(out, buffer)
-        out.push({
-          kind: TextMarkupInlineKind::Link,
-          text: label,
-          href: Some(href),
-        })
+        out.push({ kind: Link, text: label, href: Some(href) })
         i = next
         continue
       }
@@ -155,7 +139,7 @@ fn parse_tex_inlines(text : String) -> Array[TextMarkupInline] {
     match tex_consume_inline_code(chars, i) {
       Some((body, next)) => {
         flush_inline_text_chars(out, buffer)
-        out.push({ kind: TextMarkupInlineKind::Code, text: body, href: None })
+        out.push({ kind: Code, text: body, href: None })
         i = next
         continue
       }
@@ -164,11 +148,7 @@ fn parse_tex_inlines(text : String) -> Array[TextMarkupInline] {
     match tex_consume_reference(chars, i) {
       Some((label, href, next)) => {
         flush_inline_text_chars(out, buffer)
-        out.push({
-          kind: TextMarkupInlineKind::Link,
-          text: label,
-          href: Some(href),
-        })
+        out.push({ kind: Link, text: label, href: Some(href) })
         i = next
         continue
       }
@@ -177,7 +157,7 @@ fn parse_tex_inlines(text : String) -> Array[TextMarkupInline] {
     match consume_command_argument(chars, i, "\\footnote{", '}') {
       Some((body, next)) => {
         flush_inline_text_chars(out, buffer)
-        out.push({ kind: TextMarkupInlineKind::Text, text: body, href: None })
+        out.push({ kind: Text, text: body, href: None })
         i = next
         continue
       }
@@ -198,11 +178,7 @@ fn flush_inline_text_chars(
   if chars.length() == 0 {
     return
   }
-  out.push({
-    kind: TextMarkupInlineKind::Text,
-    text: String::from_array(chars[:]),
-    href: None,
-  })
+  out.push({ kind: Text, text: String::from_array(chars[:]), href: None })
   chars.clear()
 }
 

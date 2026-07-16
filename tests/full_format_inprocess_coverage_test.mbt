@@ -6,11 +6,11 @@ fn inprocess_convert_fixture(
 ) -> @convert.ConvertResult {
   let options = @convert.make_convert_options(
     mode,
-    @convert.OutputFormat::Markdown,
+    Markdown,
     Some(format),
     @parser.default_ocr_options(),
     @convert.default_resource_limits(),
-    stream_requested=mode == @convert.ConvertMode::Stream,
+    stream_requested=mode == Stream,
   )
   match
     @convert.convert_input(
@@ -29,8 +29,8 @@ fn convert_binary_source_for_equivalence(
   format : @input.DetectedFormat,
 ) -> @convert.ConvertResult {
   let options = @convert.make_convert_options(
-    @convert.ConvertMode::Balanced,
-    @convert.OutputFormat::Markdown,
+    Balanced,
+    Markdown,
     Some(format),
     @parser.default_ocr_options(),
     @convert.default_resource_limits(),
@@ -86,39 +86,15 @@ fn assert_binary_results_equivalent(
 ///|
 test "seekable package formats preserve Path Bytes and short Reader results" {
   let fixtures : Array[(String, @input.DetectedFormat)] = [
-    ("samples/fixtures/contracts/docx/golden.docx", @input.DetectedFormat::Docx),
-    (
-      "samples/fixtures/contracts/pptx/pptx_simple.pptx",
-      @input.DetectedFormat::Pptx,
-    ),
-    (
-      "samples/fixtures/contracts/xlsx/sheet_simple.xlsx",
-      @input.DetectedFormat::Xlsx,
-    ),
-    (
-      "samples/fixtures/contracts/epub/epub_basic_package.epub",
-      @input.DetectedFormat::Epub,
-    ),
-    (
-      "samples/fixtures/contracts/odt/odt_basic_sample.odt",
-      @input.DetectedFormat::Odt,
-    ),
-    (
-      "samples/fixtures/contracts/ods/ods_basic_sample.ods",
-      @input.DetectedFormat::Ods,
-    ),
-    (
-      "samples/fixtures/contracts/odp/odp_basic_sample.odp",
-      @input.DetectedFormat::Odp,
-    ),
-    (
-      "samples/fixtures/contracts/zip/zip_basic_structured.zip",
-      @input.DetectedFormat::Zip,
-    ),
-    (
-      "samples/fixtures/contracts/pdf/text_simple.pdf",
-      @input.DetectedFormat::Pdf,
-    ),
+    ("samples/fixtures/contracts/docx/golden.docx", Docx),
+    ("samples/fixtures/contracts/pptx/pptx_simple.pptx", Pptx),
+    ("samples/fixtures/contracts/xlsx/sheet_simple.xlsx", Xlsx),
+    ("samples/fixtures/contracts/epub/epub_basic_package.epub", Epub),
+    ("samples/fixtures/contracts/odt/odt_basic_sample.odt", Odt),
+    ("samples/fixtures/contracts/ods/ods_basic_sample.ods", Ods),
+    ("samples/fixtures/contracts/odp/odp_basic_sample.odp", Odp),
+    ("samples/fixtures/contracts/zip/zip_basic_structured.zip", Zip),
+    ("samples/fixtures/contracts/pdf/text_simple.pdf", Pdf),
   ]
   for fixture in fixtures {
     let (path, format) = fixture
@@ -157,65 +133,25 @@ test "seekable package formats preserve Path Bytes and short Reader results" {
 ///|
 test "in-process complex document matrix exercises balanced product routes" {
   let fixtures : Array[(String, @input.DetectedFormat)] = [
-    (
-      "samples/fixtures/contracts/docx/docx_textbox_basic.docx",
-      @input.DetectedFormat::Docx,
-    ),
+    ("samples/fixtures/contracts/docx/docx_textbox_basic.docx", Docx),
     (
       "samples/fixtures/contracts/docx/docx_note_comment_rich_content_boundary.docx",
-      @input.DetectedFormat::Docx,
+      Docx,
     ),
-    (
-      "samples/fixtures/contracts/xlsx/xlsx_multi_sheet_mixed.xlsx",
-      @input.DetectedFormat::Xlsx,
-    ),
-    (
-      "samples/fixtures/contracts/xlsx/sheet_simple.xlsx",
-      @input.DetectedFormat::Xlsx,
-    ),
-    (
-      "samples/fixtures/contracts/pptx/pptx_reading_order_geometry.pptx",
-      @input.DetectedFormat::Pptx,
-    ),
-    (
-      "samples/fixtures/contracts/pptx/pptx_speaker_notes_basic.pptx",
-      @input.DetectedFormat::Pptx,
-    ),
-    (
-      "samples/fixtures/contracts/odt/odt_basic_assets.odt",
-      @input.DetectedFormat::Odt,
-    ),
-    (
-      "samples/fixtures/contracts/odt/odt_basic_sample.odt",
-      @input.DetectedFormat::Odt,
-    ),
-    (
-      "samples/fixtures/contracts/ods/ods_basic_sample.ods",
-      @input.DetectedFormat::Ods,
-    ),
-    (
-      "samples/fixtures/contracts/odp/odp_basic_assets.odp",
-      @input.DetectedFormat::Odp,
-    ),
-    (
-      "samples/fixtures/contracts/epub/epub_ncx_nested.epub",
-      @input.DetectedFormat::Epub,
-    ),
-    (
-      "samples/fixtures/contracts/zip/zip_mixed_supported_entries.zip",
-      @input.DetectedFormat::Zip,
-    ),
-    (
-      "samples/fixtures/contracts/pdf/text_simple.pdf",
-      @input.DetectedFormat::Pdf,
-    ),
+    ("samples/fixtures/contracts/xlsx/xlsx_multi_sheet_mixed.xlsx", Xlsx),
+    ("samples/fixtures/contracts/xlsx/sheet_simple.xlsx", Xlsx),
+    ("samples/fixtures/contracts/pptx/pptx_reading_order_geometry.pptx", Pptx),
+    ("samples/fixtures/contracts/pptx/pptx_speaker_notes_basic.pptx", Pptx),
+    ("samples/fixtures/contracts/odt/odt_basic_assets.odt", Odt),
+    ("samples/fixtures/contracts/odt/odt_basic_sample.odt", Odt),
+    ("samples/fixtures/contracts/ods/ods_basic_sample.ods", Ods),
+    ("samples/fixtures/contracts/odp/odp_basic_assets.odp", Odp),
+    ("samples/fixtures/contracts/epub/epub_ncx_nested.epub", Epub),
+    ("samples/fixtures/contracts/zip/zip_mixed_supported_entries.zip", Zip),
+    ("samples/fixtures/contracts/pdf/text_simple.pdf", Pdf),
   ]
   for fixture in fixtures {
-    let result = inprocess_convert_fixture(
-      fixture.0,
-      fixture.1,
-      @convert.ConvertMode::Balanced,
-    )
+    let result = inprocess_convert_fixture(fixture.0, fixture.1, Balanced)
     assert_true(result.content.length() > 0)
     assert_true(result.diagnostics.detected_format is Some(_))
   }
@@ -224,37 +160,15 @@ test "in-process complex document matrix exercises balanced product routes" {
 ///|
 test "in-process accurate matrix exercises semantic feature routes" {
   let fixtures : Array[(String, @input.DetectedFormat)] = [
-    (
-      "samples/fixtures/contracts/docx/docx_multiple_notes_order.docx",
-      @input.DetectedFormat::Docx,
-    ),
-    (
-      "samples/fixtures/contracts/xlsx/xlsx_hidden_sheets_policy.xlsx",
-      @input.DetectedFormat::Xlsx,
-    ),
-    (
-      "samples/fixtures/contracts/pptx/pptx_hidden_slide_basic.pptx",
-      @input.DetectedFormat::Pptx,
-    ),
-    (
-      "samples/fixtures/contracts/odt/odt_basic_sample.odt",
-      @input.DetectedFormat::Odt,
-    ),
-    (
-      "samples/fixtures/contracts/ods/ods_basic_sample.ods",
-      @input.DetectedFormat::Ods,
-    ),
-    (
-      "samples/fixtures/contracts/odp/odp_basic_sample.odp",
-      @input.DetectedFormat::Odp,
-    ),
+    ("samples/fixtures/contracts/docx/docx_multiple_notes_order.docx", Docx),
+    ("samples/fixtures/contracts/xlsx/xlsx_hidden_sheets_policy.xlsx", Xlsx),
+    ("samples/fixtures/contracts/pptx/pptx_hidden_slide_basic.pptx", Pptx),
+    ("samples/fixtures/contracts/odt/odt_basic_sample.odt", Odt),
+    ("samples/fixtures/contracts/ods/ods_basic_sample.ods", Ods),
+    ("samples/fixtures/contracts/odp/odp_basic_sample.odp", Odp),
   ]
   for fixture in fixtures {
-    let result = inprocess_convert_fixture(
-      fixture.0,
-      fixture.1,
-      @convert.ConvertMode::Accurate,
-    )
+    let result = inprocess_convert_fixture(fixture.0, fixture.1, Accurate)
     assert_true(result.content.length() > 0)
     assert_true(result.diagnostics.fidelity_mode == Some("accurate"))
   }
@@ -263,37 +177,18 @@ test "in-process accurate matrix exercises semantic feature routes" {
 ///|
 test "in-process stream matrix exercises structured and container routes" {
   let fixtures : Array[(String, @input.DetectedFormat)] = [
-    (
-      "samples/fixtures/contracts/json/large_array_streaming.json",
-      @input.DetectedFormat::Json,
-    ),
-    (
-      "samples/fixtures/contracts/xml/xml_nested.xml",
-      @input.DetectedFormat::Xml,
-    ),
-    (
-      "samples/fixtures/contracts/yaml/yaml_mapping_basic.yaml",
-      @input.DetectedFormat::Yaml,
-    ),
-    (
-      "samples/fixtures/contracts/html/html_nested_lists_deep.html",
-      @input.DetectedFormat::Html,
-    ),
+    ("samples/fixtures/contracts/json/large_array_streaming.json", Json),
+    ("samples/fixtures/contracts/xml/xml_nested.xml", Xml),
+    ("samples/fixtures/contracts/yaml/yaml_mapping_basic.yaml", Yaml),
+    ("samples/fixtures/contracts/html/html_nested_lists_deep.html", Html),
     (
       "samples/fixtures/contracts/markdown/markdown_frontmatter_passthrough.markdown",
-      @input.DetectedFormat::Markdown,
+      Markdown,
     ),
-    (
-      "samples/fixtures/contracts/epub/epub_spine_order.epub",
-      @input.DetectedFormat::Epub,
-    ),
+    ("samples/fixtures/contracts/epub/epub_spine_order.epub", Epub),
   ]
   for fixture in fixtures {
-    let result = inprocess_convert_fixture(
-      fixture.0,
-      fixture.1,
-      @convert.ConvertMode::Stream,
-    )
+    let result = inprocess_convert_fixture(fixture.0, fixture.1, Stream)
     assert_true(result.content.length() > 0)
     assert_true(result.diagnostics.convert_mode == Some("stream"))
   }
@@ -303,13 +198,13 @@ test "in-process stream matrix exercises structured and container routes" {
 test "in-process ZIP rejects non-balance modes" {
   let source = @input.input_from_path_with_format(
     "samples/fixtures/contracts/zip/zip_basic_structured.zip",
-    Some(@input.DetectedFormat::Zip),
+    Some(Zip),
   )
-  for mode in [@convert.ConvertMode::Accurate, @convert.ConvertMode::Stream] {
+  for mode in [@convert.ConvertMode::Accurate, Stream] {
     let options = @convert.make_convert_options(
       mode,
-      @convert.OutputFormat::Markdown,
-      Some(@input.DetectedFormat::Zip),
+      Markdown,
+      Some(Zip),
       @parser.default_ocr_options(),
       @convert.default_resource_limits(),
     )
@@ -346,8 +241,8 @@ fn inprocess_smoke_directory(
   let mut failed = 0
   for path in inprocess_contract_files(directory, suffix) {
     let options = @convert.make_convert_options(
-      @convert.ConvertMode::Balanced,
-      @convert.OutputFormat::Markdown,
+      Balanced,
+      Markdown,
       Some(format),
       @parser.default_ocr_options(),
       @convert.default_resource_limits(),
@@ -370,38 +265,26 @@ fn inprocess_smoke_directory(
 ///|
 test "in-process contract directories exercise broad real and malformed corpus" {
   let directories : Array[(String, String, @input.DetectedFormat)] = [
-    ("samples/fixtures/contracts/docx", ".docx", @input.DetectedFormat::Docx),
-    ("samples/fixtures/contracts/xlsx", ".xlsx", @input.DetectedFormat::Xlsx),
-    ("samples/fixtures/contracts/pptx", ".pptx", @input.DetectedFormat::Pptx),
-    ("samples/fixtures/contracts/odt", ".odt", @input.DetectedFormat::Odt),
-    ("samples/fixtures/contracts/ods", ".ods", @input.DetectedFormat::Ods),
-    ("samples/fixtures/contracts/odp", ".odp", @input.DetectedFormat::Odp),
-    ("samples/fixtures/contracts/epub", ".epub", @input.DetectedFormat::Epub),
-    ("samples/fixtures/contracts/zip", ".zip", @input.DetectedFormat::Zip),
-    ("samples/fixtures/contracts/html", ".html", @input.DetectedFormat::Html),
-    ("samples/fixtures/contracts/pdf", ".pdf", @input.DetectedFormat::Pdf),
-    ("samples/fixtures/contracts/json", ".json", @input.DetectedFormat::Json),
-    ("samples/fixtures/contracts/jsonl", ".jsonl", @input.DetectedFormat::Jsonl),
-    (
-      "samples/fixtures/contracts/ndjson",
-      ".ndjson",
-      @input.DetectedFormat::Ndjson,
-    ),
-    ("samples/fixtures/contracts/yaml", ".yaml", @input.DetectedFormat::Yaml),
-    ("samples/fixtures/contracts/xml", ".xml", @input.DetectedFormat::Xml),
-    ("samples/fixtures/contracts/toml", ".toml", @input.DetectedFormat::Toml),
-    (
-      "samples/fixtures/contracts/markdown",
-      ".md",
-      @input.DetectedFormat::Markdown,
-    ),
-    ("samples/fixtures/contracts/tex", ".tex", @input.DetectedFormat::Tex),
-    ("samples/fixtures/contracts/rst", ".rst", @input.DetectedFormat::Rst),
-    (
-      "samples/fixtures/contracts/asciidoc",
-      ".adoc",
-      @input.DetectedFormat::Asciidoc,
-    ),
+    ("samples/fixtures/contracts/docx", ".docx", Docx),
+    ("samples/fixtures/contracts/xlsx", ".xlsx", Xlsx),
+    ("samples/fixtures/contracts/pptx", ".pptx", Pptx),
+    ("samples/fixtures/contracts/odt", ".odt", Odt),
+    ("samples/fixtures/contracts/ods", ".ods", Ods),
+    ("samples/fixtures/contracts/odp", ".odp", Odp),
+    ("samples/fixtures/contracts/epub", ".epub", Epub),
+    ("samples/fixtures/contracts/zip", ".zip", Zip),
+    ("samples/fixtures/contracts/html", ".html", Html),
+    ("samples/fixtures/contracts/pdf", ".pdf", Pdf),
+    ("samples/fixtures/contracts/json", ".json", Json),
+    ("samples/fixtures/contracts/jsonl", ".jsonl", Jsonl),
+    ("samples/fixtures/contracts/ndjson", ".ndjson", Ndjson),
+    ("samples/fixtures/contracts/yaml", ".yaml", Yaml),
+    ("samples/fixtures/contracts/xml", ".xml", Xml),
+    ("samples/fixtures/contracts/toml", ".toml", Toml),
+    ("samples/fixtures/contracts/markdown", ".md", Markdown),
+    ("samples/fixtures/contracts/tex", ".tex", Tex),
+    ("samples/fixtures/contracts/rst", ".rst", Rst),
+    ("samples/fixtures/contracts/asciidoc", ".adoc", Asciidoc),
   ]
   for directory in directories {
     let result = inprocess_smoke_directory(
@@ -427,11 +310,11 @@ fn inprocess_convert_text(
     @input.input_from_text_with_format(text, name, Some(format)),
     @convert.make_convert_options(
       mode,
-      @convert.OutputFormat::Markdown,
+      Markdown,
       Some(format),
       @parser.default_ocr_options(),
       @convert.default_resource_limits(),
-      stream_requested=mode == @convert.ConvertMode::Stream,
+      stream_requested=mode == Stream,
     ),
   )
 }
@@ -453,36 +336,35 @@ test "in-process mail subtitle and structured memory corpus exercises parsers" {
     "Hello VTT", "",
   ].join("\n")
   let sources : Array[(String, String, @input.DetectedFormat)] = [
-    (eml, "fixture.eml", @input.DetectedFormat::Eml),
-    (srt, "fixture.srt", @input.DetectedFormat::Srt),
-    (vtt, "fixture.vtt", @input.DetectedFormat::Vtt),
+    (eml, "fixture.eml", Eml),
+    (srt, "fixture.srt", Srt),
+    (vtt, "fixture.vtt", Vtt),
     (
       "{\"root\":{\"items\":[{\"name\":\"one\",\"tags\":[true,null,3]}]}}",
       "fixture.json",
-      @input.DetectedFormat::Json,
+      Json,
     ),
     (
       "root:\n  items:\n    - name: one\n      tags: [a, b]\n    - name: two\n",
       "fixture.yaml",
-      @input.DetectedFormat::Yaml,
+      Yaml,
     ),
     (
       "<?xml version=\"1.0\"?><root xmlns:x=\"urn:x\"><x:item id=\"1\"><![CDATA[value]]></x:item><!-- note --></root>",
       "fixture.xml",
-      @input.DetectedFormat::Xml,
+      Xml,
     ),
     (
       "title = \"Fixture\"\nvalues = [1, 2, 3]\n[[items]]\nname = \"one\"\n[items.meta]\nenabled = true\n",
       "fixture.toml",
-      @input.DetectedFormat::Toml,
+      Toml,
     ),
   ]
   for source in sources {
-    for mode in [@convert.ConvertMode::Balanced, @convert.ConvertMode::Stream] {
+    for mode in [@convert.ConvertMode::Balanced, Stream] {
       match inprocess_convert_text(source.0, source.1, source.2, mode) {
         Ok(result) => assert_true(result.content.length() > 0)
-        Err(err) if source.2 == @input.DetectedFormat::Toml &&
-          mode == @convert.ConvertMode::Stream =>
+        Err(err) if source.2 == Toml && mode == Stream =>
           assert_true(
             err.to_string().contains("stream mode is unsupported for `toml`"),
           )
@@ -495,26 +377,16 @@ test "in-process mail subtitle and structured memory corpus exercises parsers" {
 ///|
 test "in-process malformed memory corpus fails or degrades under control" {
   let malformed : Array[(String, String, @input.DetectedFormat)] = [
-    (
-      "Content-Type: multipart/mixed\r\n\r\nmissing boundary",
-      "bad.eml",
-      @input.DetectedFormat::Eml,
-    ),
-    ("1\nnot a timestamp\ntext", "bad.srt", @input.DetectedFormat::Srt),
-    ("WEBVTT\n\ninvalid cue", "bad.vtt", @input.DetectedFormat::Vtt),
-    ("{\"root\":[1,", "bad.json", @input.DetectedFormat::Json),
-    ("root: [unterminated", "bad.yaml", @input.DetectedFormat::Yaml),
-    ("<root><item></root>", "bad.xml", @input.DetectedFormat::Xml),
-    ("[section\nvalue =", "bad.toml", @input.DetectedFormat::Toml),
+    ("Content-Type: multipart/mixed\r\n\r\nmissing boundary", "bad.eml", Eml),
+    ("1\nnot a timestamp\ntext", "bad.srt", Srt),
+    ("WEBVTT\n\ninvalid cue", "bad.vtt", Vtt),
+    ("{\"root\":[1,", "bad.json", Json),
+    ("root: [unterminated", "bad.yaml", Yaml),
+    ("<root><item></root>", "bad.xml", Xml),
+    ("[section\nvalue =", "bad.toml", Toml),
   ]
   for source in malformed {
-    match
-      inprocess_convert_text(
-        source.0,
-        source.1,
-        source.2,
-        @convert.ConvertMode::Balanced,
-      ) {
+    match inprocess_convert_text(source.0, source.1, source.2, Balanced) {
       Ok(result) =>
         assert_true(
           result.content.length() > 0 ||
@@ -555,13 +427,7 @@ test "in-process complex EML corpus exercises related attachments and nesting" {
     "", "AAECAwQF", "--mix--",
   ].join("\r\n")
   for source in [related, typed, nested, binary] {
-    match
-      inprocess_convert_text(
-        source,
-        "complex.eml",
-        @input.DetectedFormat::Eml,
-        @convert.ConvertMode::Balanced,
-      ) {
+    match inprocess_convert_text(source, "complex.eml", Eml, Balanced) {
       Ok(result) => {
         assert_true(result.content.length() > 0)
         assert_true(result.diagnostics.metrics.get("part_count") is Some(_))
@@ -575,95 +441,59 @@ test "in-process complex EML corpus exercises related attachments and nesting" {
 test "in-process core text matrix handles strict resource limits under control" {
   let long = "x".repeat(4096)
   let sources : Array[(String, String, @input.DetectedFormat)] = [
-    (long + "\n" + long, "limit.txt", @input.DetectedFormat::Txt),
-    (
-      "a,b\n" + ("1," + long + "\n").repeat(8),
-      "limit.csv",
-      @input.DetectedFormat::Csv,
-    ),
-    (
-      "a\tb\n" + ("1\t" + long + "\n").repeat(8),
-      "limit.tsv",
-      @input.DetectedFormat::Tsv,
-    ),
+    (long + "\n" + long, "limit.txt", Txt),
+    ("a,b\n" + ("1," + long + "\n").repeat(8), "limit.csv", Csv),
+    ("a\tb\n" + ("1\t" + long + "\n").repeat(8), "limit.tsv", Tsv),
     (
       ("1\n00:00:01,000 --> 00:00:02,000\n" + long + "\n\n").repeat(8),
       "limit.srt",
-      @input.DetectedFormat::Srt,
+      Srt,
     ),
     (
       "WEBVTT\n\n" +
       ("00:00:01.000 --> 00:00:02.000\n" + long + "\n\n").repeat(8),
       "limit.vtt",
-      @input.DetectedFormat::Vtt,
+      Vtt,
     ),
     (
       "[" +
       [long, long, long, long].map(value => "\"" + value + "\"").join(",") +
       "]",
       "limit.json",
-      @input.DetectedFormat::Json,
+      Json,
     ),
-    (
-      ("{\"value\":\"" + long + "\"}\n").repeat(8),
-      "limit.jsonl",
-      @input.DetectedFormat::Jsonl,
-    ),
-    (
-      ("{\"value\":\"" + long + "\"}\n").repeat(8),
-      "limit.ndjson",
-      @input.DetectedFormat::Ndjson,
-    ),
-    (
-      "root:\n" + ("  - " + long + "\n").repeat(8),
-      "limit.yaml",
-      @input.DetectedFormat::Yaml,
-    ),
+    (("{\"value\":\"" + long + "\"}\n").repeat(8), "limit.jsonl", Jsonl),
+    (("{\"value\":\"" + long + "\"}\n").repeat(8), "limit.ndjson", Ndjson),
+    ("root:\n" + ("  - " + long + "\n").repeat(8), "limit.yaml", Yaml),
     (
       "<root>" + ("<item>" + long + "</item>").repeat(8) + "</root>",
       "limit.xml",
-      @input.DetectedFormat::Xml,
+      Xml,
     ),
     (
       "values = [" +
       [long, long, long].map(value => "\"" + value + "\"").join(",") +
       "]",
       "limit.toml",
-      @input.DetectedFormat::Toml,
+      Toml,
     ),
     (
       "<html><body>" + ("<p>" + long + "</p>").repeat(8) + "</body></html>",
       "limit.html",
-      @input.DetectedFormat::Html,
+      Html,
     ),
-    (
-      ("# Heading\n\n" + long + "\n\n").repeat(8),
-      "limit.md",
-      @input.DetectedFormat::Markdown,
-    ),
-    (
-      ("Section\n=======\n\n" + long + "\n\n").repeat(8),
-      "limit.rst",
-      @input.DetectedFormat::Rst,
-    ),
-    (
-      ("= Section\n\n" + long + "\n\n").repeat(8),
-      "limit.adoc",
-      @input.DetectedFormat::Asciidoc,
-    ),
-    (
-      ("\\section{Title}\n" + long + "\n").repeat(8),
-      "limit.tex",
-      @input.DetectedFormat::Tex,
-    ),
+    (("# Heading\n\n" + long + "\n\n").repeat(8), "limit.md", Markdown),
+    (("Section\n=======\n\n" + long + "\n\n").repeat(8), "limit.rst", Rst),
+    (("= Section\n\n" + long + "\n\n").repeat(8), "limit.adoc", Asciidoc),
+    (("\\section{Title}\n" + long + "\n").repeat(8), "limit.tex", Tex),
   ]
   let limits = @convert.make_resource_limits(3, 3, 9, max_line_chars=64)
   for source in sources {
     let outcome = @convert.convert_input(
       @input.input_from_text_with_format(source.0, source.1, Some(source.2)),
       @convert.make_convert_options(
-        @convert.ConvertMode::Balanced,
-        @convert.OutputFormat::Markdown,
+        Balanced,
+        Markdown,
         Some(source.2),
         @parser.default_ocr_options(),
         limits,

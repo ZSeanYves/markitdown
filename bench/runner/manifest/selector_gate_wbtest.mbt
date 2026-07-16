@@ -16,7 +16,7 @@ test "selector exact tiers account for limits without an external corpus" {
     [],
     [],
     Some(1),
-    SelectOutput::Jsonl,
+    Jsonl,
     true,
   )
   let manifest = selector_gate_manifest()

@@ -1,7 +1,7 @@
 ///|
 fn markdown_parser_capability() -> @parser.ParserCapability {
   @parser.dom_ast_parser_capability(
-    @parser.StreamingGranularity::MarkdownBlock,
+    MarkdownBlock,
     true,
     false,
     true,
@@ -19,7 +19,7 @@ fn markdown_parser_capability() -> @parser.ParserCapability {
 pub fn markdown_parser() -> @parser.Parser {
   @parser.make_parser(
     "markdown_parser",
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     markdown_parser_capability(),
     fn(
       source : @input.InputSource,
@@ -35,7 +35,7 @@ pub fn markdown_parser() -> @parser.Parser {
       let validation = @dmd.validate_markdown_document(scanned)
       let diagnostics = @fshared.empty_parser_diagnostics(
         "markdown_parser",
-        @parser.ParserMode::DomAstModel,
+        DomAstModel,
         source,
         "markdown",
       )
@@ -50,8 +50,7 @@ pub fn markdown_parser() -> @parser.Parser {
         "requested_mode",
         @fshared.requested_mode_name(context),
       )
-      let requested_blocks = context.requested_mode ==
-        Some(@parser.ParserMode::BlockStreaming)
+      let requested_blocks = context.requested_mode == Some(BlockStreaming)
       markdown_set_route_metrics(diagnostics, requested_blocks)
       diagnostics.metrics.set("event_granularity", "markdown_block")
       diagnostics.metrics.set(
@@ -196,7 +195,7 @@ pub fn markdown_parse_large_literal(
 ) -> @parser.ParseResult {
   let diagnostics = @fshared.empty_parser_diagnostics(
     "markdown_parser",
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     source,
     "markdown",
   )
@@ -238,7 +237,7 @@ pub fn markdown_parse_large_literal(
     Some(1),
     Some(line_count),
   )
-  let block = @core.make_block(@core.BlockKind::Raw, text, source_ref~)
+  let block = @core.make_block(Raw, text, source_ref~)
   block.attrs.set("raw_kind", "markdown_literal")
   block.attrs.set("literal", "true")
   markdown_block_stream_parse_result([block], diagnostics)
@@ -252,7 +251,7 @@ pub fn markdown_blocks_from_scanned_document_light_with_source_ref(
 ) -> Array[@core.CoreBlock] {
   let diagnostics = @fshared.empty_parser_diagnostics(
     "markdown_parser",
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     source,
     "markdown",
   )
@@ -260,7 +259,7 @@ pub fn markdown_blocks_from_scanned_document_light_with_source_ref(
     scanned,
     source,
     diagnostics,
-    MarkdownLoweringMode::DomAstLight,
+    DomAstLight,
     base_source_ref~,
   )
 }

@@ -56,23 +56,21 @@ fn parse_markup_document(
       }
     }
     match classify_markup_line(context, i) {
-      MarkupLineClass::Blank(next) => i = next
-      MarkupLineClass::Block(block, next) => {
+      Blank(next) => i = next
+      Block(block, next) => {
         blocks.push(block)
-        if cache_enabled &&
-          !(format == TextMarkupFormat::Tex &&
-          block.kind == TextMarkupBlockKind::ListItem) {
+        if cache_enabled && !(format == Tex && block.kind == ListItem) {
           cache_markup_block(block_cache, lines, i, next, block)
         }
         i = next
       }
-      MarkupLineClass::ParagraphLine(line_text) => {
+      ParagraphLine(line_text) => {
         let para_lines : Array[String] = [line_text]
         let start = i + 1
         i += 1
         while i < lines.length() {
           match classify_markup_line(context, i) {
-            MarkupLineClass::ParagraphLine(next_line) => {
+            ParagraphLine(next_line) => {
               para_lines.push(next_line)
               i += 1
             }
@@ -80,7 +78,7 @@ fn parse_markup_document(
           }
         }
         let block = {
-          kind: TextMarkupBlockKind::Paragraph,
+          kind: Paragraph,
           text: para_lines.join(" "),
           level: 0,
           ordered: false,
@@ -186,12 +184,12 @@ fn make_markup_parse_context(
   lines : Array[String],
   format : TextMarkupFormat,
 ) -> MarkupParseContext {
-  let semantic_lines = if format == TextMarkupFormat::Tex {
+  let semantic_lines = if format == Tex {
     build_markup_semantic_lines(lines, format)
   } else {
     lines
   }
-  let trimmed_semantic_lines = if format == TextMarkupFormat::Tex {
+  let trimmed_semantic_lines = if format == Tex {
     Some(build_trimmed_markup_lines(semantic_lines))
   } else {
     None
@@ -253,12 +251,12 @@ fn build_tex_item_ordered_before_line(
   semantic_lines : Array[String],
   format : TextMarkupFormat,
 ) -> Array[Bool] {
-  let states : Array[Bool] = if format == TextMarkupFormat::Tex {
+  let states : Array[Bool] = if format == Tex {
     Array::new(capacity=semantic_lines.length())
   } else {
     []
   }
-  if format != TextMarkupFormat::Tex {
+  if format != Tex {
     return states
   }
   let stack : Array[Bool] = []
@@ -297,40 +295,40 @@ fn classify_markup_line(
 ) -> MarkupLineClass {
   let trimmed = markup_trimmed_line(context, index)
   if trimmed == "" {
-    return MarkupLineClass::Blank(index + 1)
+    return Blank(index + 1)
   }
   if !text_markup_line_can_start_block(context, index, trimmed) {
-    return MarkupLineClass::ParagraphLine(trimmed)
+    return ParagraphLine(trimmed)
   }
   match detect_heading(context.lines, index, context.format) {
-    Some((block, next)) => return MarkupLineClass::Block(block, next)
+    Some((block, next)) => return Block(block, next)
     None => ()
   }
   match detect_block_quote(context.lines, index, context.format) {
-    Some((block, next)) => return MarkupLineClass::Block(block, next)
+    Some((block, next)) => return Block(block, next)
     None => ()
   }
   match detect_code_block(context.lines, index, context.format) {
-    Some((block, next)) => return MarkupLineClass::Block(block, next)
+    Some((block, next)) => return Block(block, next)
     None => ()
   }
   match detect_structured_semantic_block(context.lines, index, context.format) {
-    Some((block, next)) => return MarkupLineClass::Block(block, next)
+    Some((block, next)) => return Block(block, next)
     None => ()
   }
   match detect_list_item(context, index) {
-    Some((block, next)) => return MarkupLineClass::Block(block, next)
+    Some((block, next)) => return Block(block, next)
     None => ()
   }
   match detect_table_block(context.lines, index, context.format) {
-    Some((block, next)) => return MarkupLineClass::Block(block, next)
+    Some((block, next)) => return Block(block, next)
     None => ()
   }
   match detect_raw_boundary(context.lines, index, context.format) {
-    Some((block, next)) => return MarkupLineClass::Block(block, next)
+    Some((block, next)) => return Block(block, next)
     None => ()
   }
-  MarkupLineClass::ParagraphLine(trimmed)
+  ParagraphLine(trimmed)
 }
 
 ///|
@@ -344,14 +342,14 @@ fn text_markup_line_can_start_block(
   }
   let first = trimmed[0]
   match context.format {
-    TextMarkupFormat::Tex =>
+    Tex =>
       first == '\\' ||
       first == '%' ||
       first == '[' ||
       first == '{' ||
       first == ']' ||
       first == '}'
-    TextMarkupFormat::Asciidoc =>
+    Asciidoc =>
       first == '=' ||
       first == '[' ||
       first == ':' ||
@@ -368,8 +366,7 @@ fn text_markup_line_can_start_block(
       first == 'I' ||
       first == 'C' ||
       first == 'i'
-    TextMarkupFormat::Rst =>
-      rst_line_may_start_block(context.lines, index, trimmed)
+    Rst => rst_line_may_start_block(context.lines, index, trimmed)
   }
 }
 
@@ -410,7 +407,7 @@ fn detect_structured_semantic_block(
   format : TextMarkupFormat,
 ) -> (TextMarkupBlock, Int)? {
   match format {
-    TextMarkupFormat::Rst =>
+    Rst =>
       match detect_rst_note_definition(lines, index) {
         Some(block) => Some(block)
         None =>
@@ -427,7 +424,7 @@ fn detect_structured_semantic_block(
               }
           }
       }
-    TextMarkupFormat::Asciidoc =>
+    Asciidoc =>
       match detect_asciidoc_attribute_table(lines, index) {
         Some(block) => Some(block)
         None =>
@@ -448,7 +445,7 @@ fn detect_structured_semantic_block(
               }
           }
       }
-    TextMarkupFormat::Tex =>
+    Tex =>
       match detect_tex_metadata_table(lines, index) {
         Some(block) => Some(block)
         None =>
@@ -485,7 +482,7 @@ fn detect_asciidoc_image_block(
   Some(
     (
       {
-        kind: TextMarkupBlockKind::Semantic,
+        kind: Semantic,
         text: if alt == "" {
           target
         } else {
@@ -509,7 +506,7 @@ fn detect_asciidoc_image_block(
 ///|
 fn markup_semantic_line(line : String, format : TextMarkupFormat) -> String {
   match format {
-    TextMarkupFormat::Tex => tex_strip_trailing_comment(line)
+    Tex => tex_strip_trailing_comment(line)
     _ => line
   }
 }
@@ -525,7 +522,7 @@ fn detect_heading(
     return None
   }
   match format {
-    TextMarkupFormat::Asciidoc =>
+    Asciidoc =>
       if line.has_prefix("=") {
         let mut level = 0
         for ch in line {
@@ -545,7 +542,7 @@ fn detect_heading(
         return Some(
           (
             {
-              kind: TextMarkupBlockKind::Heading,
+              kind: Heading,
               text: body,
               level,
               ordered: false,
@@ -557,13 +554,13 @@ fn detect_heading(
           ),
         )
       }
-    TextMarkupFormat::Tex =>
+    Tex =>
       match tex_heading_level(line) {
         Some((level, text)) =>
           return Some(
             (
               {
-                kind: TextMarkupBlockKind::Heading,
+                kind: Heading,
                 text,
                 level,
                 ordered: false,
@@ -576,7 +573,7 @@ fn detect_heading(
           )
         None => ()
       }
-    TextMarkupFormat::Rst => {
+    Rst => {
       if index + 2 < lines.length() {
         let title = lines[index + 1].trim().to_owned()
         let underline = lines[index + 2].trim().to_owned()
@@ -584,7 +581,7 @@ fn detect_heading(
           return Some(
             (
               {
-                kind: TextMarkupBlockKind::Heading,
+                kind: Heading,
                 text: title,
                 level: rst_heading_level(line),
                 ordered: false,
@@ -603,7 +600,7 @@ fn detect_heading(
           return Some(
             (
               {
-                kind: TextMarkupBlockKind::Heading,
+                kind: Heading,
                 text: line,
                 level: rst_heading_level(underline),
                 ordered: false,
@@ -630,7 +627,7 @@ fn detect_code_block(
   let line = lines[index]
   let trimmed = line.trim().to_owned()
   match format {
-    TextMarkupFormat::Asciidoc =>
+    Asciidoc =>
       if trimmed == "----" || trimmed == "```" {
         let start = index + 1
         let body : Array[String] = []
@@ -642,7 +639,7 @@ fn detect_code_block(
         return Some(
           (
             {
-              kind: TextMarkupBlockKind::Code,
+              kind: Code,
               text: body.join("\n"),
               level: 0,
               ordered: false,
@@ -662,7 +659,7 @@ fn detect_code_block(
           ),
         )
       }
-    TextMarkupFormat::Rst =>
+    Rst =>
       if trimmed == "::" || trimmed.has_suffix("::") {
         if trimmed.has_prefix(".. ") {
           return None
@@ -684,7 +681,7 @@ fn detect_code_block(
         return Some(
           (
             {
-              kind: TextMarkupBlockKind::Code,
+              kind: Code,
               text: body.join("\n"),
               level: 0,
               ordered: false,
@@ -696,7 +693,7 @@ fn detect_code_block(
           ),
         )
       }
-    TextMarkupFormat::Tex =>
+    Tex =>
       if trimmed == "\\begin{verbatim}" || trimmed == "\\begin{lstlisting}" {
         let end_marker = if trimmed == "\\begin{verbatim}" {
           "\\end{verbatim}"
@@ -713,7 +710,7 @@ fn detect_code_block(
         return Some(
           (
             {
-              kind: TextMarkupBlockKind::Code,
+              kind: Code,
               text: body.join("\n"),
               level: 0,
               ordered: false,
@@ -744,17 +741,17 @@ fn detect_list_item(
 ) -> (TextMarkupBlock, Int)? {
   let trimmed = markup_trimmed_line(context, index)
   match context.format {
-    TextMarkupFormat::Tex =>
+    Tex =>
       match detect_tex_item(context, index) {
         Some(block) => return Some(block)
         None => ()
       }
-    TextMarkupFormat::Asciidoc =>
+    Asciidoc =>
       if trimmed.has_prefix(". ") {
         return Some(
           (
             {
-              kind: TextMarkupBlockKind::ListItem,
+              kind: ListItem,
               text: trimmed[2:].trim().to_owned(),
               level: 0,
               ordered: true,
@@ -774,7 +771,7 @@ fn detect_list_item(
     return Some(
       (
         {
-          kind: TextMarkupBlockKind::ListItem,
+          kind: ListItem,
           text: trimmed[2:].trim().to_owned(),
           level: 0,
           ordered: false,
@@ -791,7 +788,7 @@ fn detect_list_item(
       return Some(
         (
           {
-            kind: TextMarkupBlockKind::ListItem,
+            kind: ListItem,
             text: tail,
             level: 0,
             ordered: true,
@@ -814,7 +811,7 @@ fn detect_table_block(
   format : TextMarkupFormat,
 ) -> (TextMarkupBlock, Int)? {
   match format {
-    TextMarkupFormat::Rst =>
+    Rst =>
       if rst_table_border(lines[index].trim().to_owned()) {
         let body : Array[String] = []
         let mut i = index
@@ -826,7 +823,7 @@ fn detect_table_block(
           return Some(
             (
               {
-                kind: TextMarkupBlockKind::Table,
+                kind: Table,
                 text: body.join("\n"),
                 level: 0,
                 ordered: false,
@@ -839,7 +836,7 @@ fn detect_table_block(
           )
         }
       }
-    TextMarkupFormat::Asciidoc =>
+    Asciidoc =>
       if lines[index].trim().to_owned() == "|===" {
         let body : Array[String] = []
         let mut i = index + 1
@@ -850,7 +847,7 @@ fn detect_table_block(
         return Some(
           (
             {
-              kind: TextMarkupBlockKind::Table,
+              kind: Table,
               text: body.join("\n"),
               level: 0,
               ordered: false,
@@ -870,7 +867,7 @@ fn detect_table_block(
           ),
         )
       }
-    TextMarkupFormat::Tex =>
+    Tex =>
       if lines[index].trim().to_owned() == "\\begin{tabular}" ||
         lines[index].trim().to_owned().has_prefix("\\begin{tabular}{") {
         let body : Array[String] = []
@@ -883,7 +880,7 @@ fn detect_table_block(
         return Some(
           (
             {
-              kind: TextMarkupBlockKind::Table,
+              kind: Table,
               text: body.join("\n"),
               level: 0,
               ordered: false,
@@ -915,7 +912,7 @@ fn detect_block_quote(
 ) -> (TextMarkupBlock, Int)? {
   let trimmed = lines[index].trim().to_owned()
   match format {
-    TextMarkupFormat::Rst =>
+    Rst =>
       if trimmed.has_prefix(".. ") && trimmed.contains("::") {
         match trimmed[3:].split_once("::") {
           Some((name_raw, value_raw)) => {
@@ -947,7 +944,7 @@ fn detect_block_quote(
               return Some(
                 (
                   {
-                    kind: TextMarkupBlockKind::BlockQuote,
+                    kind: BlockQuote,
                     text: body.join("\n"),
                     level: 0,
                     ordered: false,
@@ -969,7 +966,7 @@ fn detect_block_quote(
           None => ()
         }
       }
-    TextMarkupFormat::Asciidoc =>
+    Asciidoc =>
       if trimmed == "NOTE:" ||
         trimmed == "TIP:" ||
         trimmed == "WARNING:" ||
@@ -983,7 +980,7 @@ fn detect_block_quote(
         return Some(
           (
             {
-              kind: TextMarkupBlockKind::BlockQuote,
+              kind: BlockQuote,
               text: trimmed,
               level: 0,
               ordered: false,
@@ -998,7 +995,7 @@ fn detect_block_quote(
           ),
         )
       }
-    TextMarkupFormat::Tex =>
+    Tex =>
       if trimmed == "\\begin{quote}" ||
         trimmed == "\\begin{quotation}" ||
         trimmed == "\\begin{verse}" {
@@ -1018,7 +1015,7 @@ fn detect_block_quote(
         return Some(
           (
             {
-              kind: TextMarkupBlockKind::BlockQuote,
+              kind: BlockQuote,
               text: body.join("\n"),
               level: 0,
               ordered: false,

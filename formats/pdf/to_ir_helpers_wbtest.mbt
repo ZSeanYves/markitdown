@@ -2,7 +2,7 @@
 fn pdf_helper_object(
   entries : Array[(String, @core.JsonValue)],
 ) -> @core.JsonValue {
-  @core.JsonValue::Object(Map(entries))
+  Object(Map(entries))
 }
 
 ///|
@@ -13,19 +13,18 @@ fn pdf_helper_destination(
 ) -> @core.JsonValue {
   let payload : Map[String, @core.JsonValue] = Map([])
   match target_page {
-    Some(value) =>
-      payload.set("target_page_index", @core.JsonValue::Number(value))
+    Some(value) => payload.set("target_page_index", Number(value))
     None => ()
   }
   match name {
-    Some(value) => payload.set("name", @core.JsonValue::String(value))
+    Some(value) => payload.set("name", String(value))
     None => ()
   }
   match raw {
-    Some(value) => payload.set("raw_value", @core.JsonValue::String(value))
+    Some(value) => payload.set("raw_value", String(value))
     None => ()
   }
-  @core.JsonValue::Object(payload)
+  Object(payload)
 }
 
 ///|
@@ -47,55 +46,52 @@ fn pdf_helper_source_ref(file_id : String, page : Int) -> @core.SourceRef {
 test "PDF appendix lowering covers annotation visibility targets summaries and deduplication" {
   let annotations = [
     @core.JsonValue::String("invalid"),
+    pdf_helper_object([("page", Number("1")), ("subtype", String("Widget"))]),
     pdf_helper_object([
-      ("page", @core.JsonValue::Number("1")),
-      ("subtype", @core.JsonValue::String("Widget")),
+      ("page", Number("1")),
+      ("subtype", String("Link")),
+      ("action_kind", String("URI")),
+      ("target", String("https://example.test")),
     ]),
     pdf_helper_object([
-      ("page", @core.JsonValue::Number("1")),
-      ("subtype", @core.JsonValue::String("Link")),
-      ("action_kind", @core.JsonValue::String("URI")),
-      ("target", @core.JsonValue::String("https://example.test")),
-    ]),
-    pdf_helper_object([
-      ("page", @core.JsonValue::Number("2")),
-      ("annotation_index", @core.JsonValue::Number("2")),
-      ("subtype", @core.JsonValue::String("Link")),
-      ("action_kind", @core.JsonValue::String("GoTo")),
+      ("page", Number("2")),
+      ("annotation_index", Number("2")),
+      ("subtype", String("Link")),
+      ("action_kind", String("GoTo")),
       ("destination", pdf_helper_destination(target_page=Some("4"))),
     ]),
     pdf_helper_object([
-      ("page", @core.JsonValue::Number("3")),
-      ("subtype", @core.JsonValue::String("Text")),
-      ("text", @core.JsonValue::String("hidden")),
-      ("flag_hidden", @core.JsonValue::Bool(true)),
-      ("flag_print", @core.JsonValue::Bool(false)),
+      ("page", Number("3")),
+      ("subtype", String("Text")),
+      ("text", String("hidden")),
+      ("flag_hidden", Bool(true)),
+      ("flag_print", Bool(false)),
     ]),
     pdf_helper_object([
-      ("page", @core.JsonValue::Number("1")),
-      ("annotation_index", @core.JsonValue::Number("1")),
-      ("subtype", @core.JsonValue::String("Square")),
-      ("title", @core.JsonValue::String("same")),
-      ("text", @core.JsonValue::String("same")),
-      ("subject", @core.JsonValue::String("Important")),
+      ("page", Number("1")),
+      ("annotation_index", Number("1")),
+      ("subtype", String("Square")),
+      ("title", String("same")),
+      ("text", String("same")),
+      ("subject", String("Important")),
     ]),
     pdf_helper_object([
-      ("page", @core.JsonValue::Number("5")),
-      ("subtype", @core.JsonValue::String("FileAttachment")),
-      ("title", @core.JsonValue::String("Spec")),
-      ("file_name", @core.JsonValue::String("spec.txt")),
+      ("page", Number("5")),
+      ("subtype", String("FileAttachment")),
+      ("title", String("Spec")),
+      ("file_name", String("spec.txt")),
     ]),
     pdf_helper_object([
-      ("page", @core.JsonValue::Number("1")),
-      ("annotation_index", @core.JsonValue::Number("1")),
-      ("subtype", @core.JsonValue::String("Square")),
-      ("title", @core.JsonValue::String("same")),
-      ("text", @core.JsonValue::String("same")),
-      ("subject", @core.JsonValue::String("Important")),
+      ("page", Number("1")),
+      ("annotation_index", Number("1")),
+      ("subtype", String("Square")),
+      ("title", String("same")),
+      ("text", String("same")),
+      ("subject", String("Important")),
     ]),
   ]
   let metadata : Map[String, @core.JsonValue] = Map([
-    ("pdf_native_annotations", @core.JsonValue::Array(annotations)),
+    ("pdf_native_annotations", Array(annotations)),
   ])
   let lines = pdf_native_annotation_appendix_lines(metadata)
   assert_eq(lines.length(), 3)
@@ -113,52 +109,38 @@ test "PDF appendix lowering covers form kinds values defaults options and labels
   let forms = [
     @core.JsonValue::Null,
     pdf_helper_object([
-      ("page", @core.JsonValue::Number("1")),
-      ("field_type", @core.JsonValue::String("Btn")),
-      ("field_name", @core.JsonValue::String("approved")),
-      ("value", @core.JsonValue::String("true")),
+      ("page", Number("1")),
+      ("field_type", String("Btn")),
+      ("field_name", String("approved")),
+      ("value", String("true")),
     ]),
     pdf_helper_object([
-      ("page", @core.JsonValue::Number("2")),
-      ("field_type", @core.JsonValue::String("Btn")),
-      ("value", @core.JsonValue::String("false")),
+      ("page", Number("2")),
+      ("field_type", String("Btn")),
+      ("value", String("false")),
     ]),
     pdf_helper_object([
-      ("page", @core.JsonValue::Number("3")),
-      ("field_type", @core.JsonValue::String("Ch")),
-      ("alternate_name", @core.JsonValue::String("Status")),
-      ("value", @core.JsonValue::String("ready")),
-      ("flags", @core.JsonValue::Number("1")),
-      (
-        "options",
-        @core.JsonValue::Array([
-          @core.JsonValue::String("draft"),
-          @core.JsonValue::String("ready"),
-          @core.JsonValue::Bool(true),
-          @core.JsonValue::Null,
-        ]),
-      ),
+      ("page", Number("3")),
+      ("field_type", String("Ch")),
+      ("alternate_name", String("Status")),
+      ("value", String("ready")),
+      ("flags", Number("1")),
+      ("options", Array([String("draft"), String("ready"), Bool(true), Null])),
     ]),
     pdf_helper_object([
-      ("page", @core.JsonValue::Number("4")),
-      ("field_type", @core.JsonValue::String("Tx")),
-      ("field_name", @core.JsonValue::String("comment")),
-      ("default_value", @core.JsonValue::String("fallback")),
+      ("page", Number("4")),
+      ("field_type", String("Tx")),
+      ("field_name", String("comment")),
+      ("default_value", String("fallback")),
     ]),
     pdf_helper_object([
-      ("page", @core.JsonValue::Number("5")),
-      ("field_type", @core.JsonValue::String("Ch")),
-      (
-        "options",
-        @core.JsonValue::Array([
-          @core.JsonValue::String("one"),
-          @core.JsonValue::String("two"),
-        ]),
-      ),
+      ("page", Number("5")),
+      ("field_type", String("Ch")),
+      ("options", Array([String("one"), String("two")])),
     ]),
   ]
   let metadata : Map[String, @core.JsonValue] = Map([
-    ("pdf_native_form_fields", @core.JsonValue::Array(forms)),
+    ("pdf_native_form_fields", Array(forms)),
   ])
   let lines = pdf_native_form_appendix_lines(metadata)
   assert_eq(lines.length(), 5)
@@ -176,26 +158,26 @@ test "PDF appendix lowering covers form kinds values defaults options and labels
 test "PDF appendix lowering covers bookmarks destinations JSON helpers and ordering" {
   let bookmarks = [
     @core.JsonValue::Bool(false),
-    pdf_helper_object([("title", @core.JsonValue::String("   "))]),
+    pdf_helper_object([("title", String("   "))]),
     pdf_helper_object([
-      ("order_index", @core.JsonValue::Number("2")),
-      ("title", @core.JsonValue::String("Second")),
-      ("target", @core.JsonValue::String("chapter-two")),
+      ("order_index", Number("2")),
+      ("title", String("Second")),
+      ("target", String("chapter-two")),
     ]),
     pdf_helper_object([
-      ("order_index", @core.JsonValue::Number("1")),
-      ("level", @core.JsonValue::Number("1")),
-      ("title", @core.JsonValue::String("First")),
-      ("target", @core.JsonValue::String("/XYZ raw")),
+      ("order_index", Number("1")),
+      ("level", Number("1")),
+      ("title", String("First")),
+      ("target", String("/XYZ raw")),
       ("destination", pdf_helper_destination(name=Some("intro\"section"))),
     ]),
     pdf_helper_object([
-      ("order_index", @core.JsonValue::Number("3")),
-      ("title", @core.JsonValue::String("Untargeted")),
+      ("order_index", Number("3")),
+      ("title", String("Untargeted")),
     ]),
   ]
   let metadata : Map[String, @core.JsonValue] = Map([
-    ("pdf_native_outline_items", @core.JsonValue::Array(bookmarks)),
+    ("pdf_native_outline_items", Array(bookmarks)),
   ])
   let lines = pdf_native_bookmark_appendix_lines(metadata)
   assert_eq(lines.length(), 3)
@@ -203,10 +185,10 @@ test "PDF appendix lowering covers bookmarks destinations JSON helpers and order
   assert_eq(lines[1], "Second -> chapter-two")
   assert_eq(lines[2], "Untargeted")
   let payload : Map[String, @core.JsonValue] = Map([
-    ("string", @core.JsonValue::String("value")),
-    ("number", @core.JsonValue::Number("12")),
-    ("yes", @core.JsonValue::Bool(true)),
-    ("no", @core.JsonValue::String("false")),
+    ("string", String("value")),
+    ("number", Number("12")),
+    ("yes", Bool(true)),
+    ("no", String("false")),
     ("object", pdf_helper_destination(raw=Some("/Fit"))),
   ])
   assert_true(pdf_native_json_string_field(payload, "number") == Some("12"))
@@ -227,22 +209,16 @@ test "PDF appendix lowering covers bookmarks destinations JSON helpers and order
   assert_eq(pdf_native_form_display_value("Btn", "false"), "unchecked")
   assert_true(pdf_native_looks_like_raw_destination_target("12 0 R"))
   assert_true(
-    pdf_native_destination_has_visible_hint(
-      Map([("object_id", @core.JsonValue::Number("7"))]),
-    ),
+    pdf_native_destination_has_visible_hint(Map([("object_id", Number("7"))])),
   )
 }
 
 ///|
 test "PDF image asset helpers cover extension path deduplication alt and numbering" {
   let source_ref = pdf_helper_source_ref("images.pdf", 1)
-  let base = @core.make_asset_ref(
-    @core.AssetKind::Image,
-    "asset-one",
-    source_ref~,
-  )
+  let base = @core.make_asset_ref(Image, "asset-one", source_ref~)
   let fallback_alt_asset = @core.make_asset_ref(
-    @core.AssetKind::Image,
+    Image,
     "asset-fallback",
     source_ref~,
   )
@@ -377,10 +353,10 @@ test "PDF link and text helpers cover URI overlap anchors substring and line mer
   assert_true(pdf_native_parse_json_double("bad") is None)
   let bbox = pdf_native_bbox_from_json_object(
     Map([
-      ("x", @core.JsonValue::Number("1")),
-      ("y", @core.JsonValue::Number("2")),
-      ("width", @core.JsonValue::Number("3")),
-      ("height", @core.JsonValue::Number("4")),
+      ("x", Number("1")),
+      ("y", Number("2")),
+      ("width", Number("3")),
+      ("height", Number("4")),
     ]),
   ).unwrap()
   assert_true(bbox.x == 1.0 && bbox.height == 4.0)
@@ -491,10 +467,8 @@ test "PDF table candidate helpers cover eligibility alignment joins and regions"
   assert_eq(region.confidence, "medium")
   assert_true(region.source_refs.length() == 3)
   match pdf_native_table_region_candidate_json(region) {
-    @core.JsonValue::Object(payload) => {
-      assert_true(
-        payload.get("row_count") == Some(@core.JsonValue::Number("3")),
-      )
+    Object(payload) => {
+      assert_true(payload.get("row_count") == Some(Number("3")))
       assert_true(payload.get("source_refs") is Some(_))
       assert_true(payload.get("reading_order_indices") is Some(_))
     }

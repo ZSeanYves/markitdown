@@ -3,12 +3,9 @@ fn yaml_test_parse(text : String) -> @parser.ParseResult {
   let source = @input.input_from_text_with_format(
     text,
     "contract.yaml",
-    Some(@input.DetectedFormat::Yaml),
+    Some(Yaml),
   )
-  (yaml_parser().parse)(
-    source,
-    @parser.new_parse_context(@input.DetectedFormat::Yaml),
-  ).unwrap()
+  (yaml_parser().parse)(source, @parser.new_parse_context(Yaml)).unwrap()
 }
 
 ///|
@@ -23,24 +20,16 @@ test "YAML lowering covers scalar sequence table mapping and fallback shapes" {
     results.all(result => result.document.unwrap().blocks.length() == 1),
   )
   assert_true(
-    results.any(result => {
-      result.document.unwrap().blocks[0].kind == @core.BlockKind::List
-    }),
+    results.any(result => result.document.unwrap().blocks[0].kind == List),
   )
   assert_true(
-    results.any(result => {
-      result.document.unwrap().blocks[0].kind == @core.BlockKind::Table
-    }),
+    results.any(result => result.document.unwrap().blocks[0].kind == Table),
   )
   assert_true(
-    results.any(result => {
-      result.document.unwrap().blocks[0].kind == @core.BlockKind::Code
-    }),
+    results.any(result => result.document.unwrap().blocks[0].kind == Code),
   )
   assert_true(
-    results.any(result => {
-      result.document.unwrap().blocks[0].kind == @core.BlockKind::Paragraph
-    }),
+    results.any(result => result.document.unwrap().blocks[0].kind == Paragraph),
   )
 }
 
@@ -50,12 +39,12 @@ test "YAML prepared structure events reproduce canonical document lowering" {
   let source = @input.input_from_text_with_format(
     text,
     "events.yaml",
-    Some(@input.DetectedFormat::Yaml),
+    Some(Yaml),
   )
   let prepared = @dyaml.prepare_yaml_document_from_source(source).unwrap()
   let stream_context = @parser.parse_context_with_limits(
-    @parser.new_parse_context(@input.DetectedFormat::Yaml),
-    Some(@parser.ParserMode::StreamingEvent),
+    @parser.new_parse_context(Yaml),
+    Some(StreamingEvent),
     None,
     None,
     None,
@@ -79,12 +68,8 @@ test "YAML malformed and unsupported documents fail closed with diagnostics" {
   for text in ["key:\n\tbad: tab", "key: \"unterminated"] {
     match
       (yaml_parser().parse)(
-        @input.input_from_text_with_format(
-          text,
-          "broken.yaml",
-          Some(@input.DetectedFormat::Yaml),
-        ),
-        @parser.new_parse_context(@input.DetectedFormat::Yaml),
+        @input.input_from_text_with_format(text, "broken.yaml", Some(Yaml)),
+        @parser.new_parse_context(Yaml),
       ) {
       Ok(result) =>
         assert_true(
@@ -102,7 +87,7 @@ test "YAML unknown directives preserve the complete source in raw fallback" {
   let result = yaml_test_parse(text)
   let document = result.document.unwrap()
   assert_eq(document.blocks.length(), 1)
-  assert_true(document.blocks[0].kind == @core.BlockKind::Raw)
+  assert_true(document.blocks[0].kind == Raw)
   assert_eq(document.blocks[0].text, text)
   assert_true(result.diagnostics.degraded_features.contains("yaml_fail_closed"))
 }
@@ -113,9 +98,9 @@ test "YAML multi-document streams lower without whole-document fallback" {
     @input.input_from_text_with_format(
       "---\na: 1\n---\nb: 2\n",
       "stream.yaml",
-      Some(@input.DetectedFormat::Yaml),
+      Some(Yaml),
     ),
-    @parser.new_parse_context(@input.DetectedFormat::Yaml),
+    @parser.new_parse_context(Yaml),
   ).unwrap()
   assert_true(result.document is Some(_))
   assert_true(result.diagnostics.errors.length() == 0)
@@ -144,11 +129,7 @@ test "YAML lowering helpers preserve quoting block and pointer contracts" {
   assert_eq(yaml_join_index("/items", 2), "/items[2]")
   let empty = lower_yaml_document(
     @dyaml.parse_yaml_document(""),
-    @input.input_from_text_with_format(
-      "",
-      "empty.yaml",
-      Some(@input.DetectedFormat::Yaml),
-    ),
+    @input.input_from_text_with_format("", "empty.yaml", Some(Yaml)),
   )
   assert_eq(empty.blocks.length(), 0)
 }
@@ -156,8 +137,8 @@ test "YAML lowering helpers preserve quoting block and pointer contracts" {
 ///|
 test "YAML streaming lowering covers root and nested event shapes" {
   let context = @parser.parse_context_with_limits(
-    @parser.new_parse_context(@input.DetectedFormat::Yaml),
-    Some(@parser.ParserMode::StreamingEvent),
+    @parser.new_parse_context(Yaml),
+    Some(StreamingEvent),
     None,
     None,
     None,
@@ -169,11 +150,7 @@ test "YAML streaming lowering covers root and nested event shapes" {
       "plain", "false", "null", "[]", "[1, two, true]", "a: 1\nb: false", "- one\n- nested:\n    value: 2",
     ] {
     let result = (yaml_parser().parse)(
-      @input.input_from_text_with_format(
-        text,
-        "stream.yaml",
-        Some(@input.DetectedFormat::Yaml),
-      ),
+      @input.input_from_text_with_format(text, "stream.yaml", Some(Yaml)),
       context,
     ).unwrap()
     assert_true(result.event_stream.unwrap().length() > 0)

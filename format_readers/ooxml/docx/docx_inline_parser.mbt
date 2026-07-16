@@ -22,7 +22,7 @@ fn parse_docx_drawing_anchor(
         start,
         end_exclusive,
         "w:drawing",
-        DocxMediaContainerKind::Drawing,
+        Drawing,
         key,
         relationships,
         pkg,
@@ -35,7 +35,7 @@ fn parse_docx_drawing_anchor(
   let alternate_media = parse_docx_alternate_drawing_media_refs(
     source_xml,
     "w:drawing",
-    DocxMediaContainerKind::Drawing,
+    Drawing,
     key,
     relationships,
     pkg,
@@ -78,7 +78,7 @@ fn parse_docx_shape_anchor(
         start,
         end_exclusive,
         "w:pict",
-        DocxMediaContainerKind::Pict,
+        Pict,
         key,
         relationships,
         pkg,
@@ -177,7 +177,7 @@ fn docx_media_ref_from_relationship_ref(
     }
     None =>
       warnings.push({
-        kind: DocxSourceWarningKind::MissingMediaTarget,
+        kind: MissingMediaTarget,
         message: "media ref has no supported relationship tag: " + container_tag,
         source_key: Some(key),
       })
@@ -190,16 +190,16 @@ fn docx_media_ref_from_relationship_ref(
         Some(rel) => {
           target = Some(rel.target)
           resolved_target = Some(rel.resolved_target)
-          if rel.target_mode == @ox.OoxmlTargetMode::External {
-            target_mode = Some(DocxTargetMode::External)
+          if rel.target_mode == External {
+            target_mode = Some(External)
           } else {
-            target_mode = Some(DocxTargetMode::Internal)
+            target_mode = Some(Internal)
             target_part = Some(rel.resolved_target)
             target_exists = docx_media_target_exists(pkg, rel.resolved_target)
             content_type = docx_media_content_type(pkg, rel.resolved_target)
             if target_exists == Some(false) {
               warnings.push({
-                kind: DocxSourceWarningKind::MissingMediaPart,
+                kind: MissingMediaPart,
                 message: "media part is missing: " + rel.resolved_target,
                 source_key: Some(key),
               })
@@ -208,7 +208,7 @@ fn docx_media_ref_from_relationship_ref(
               Some(ct) =>
                 if !ct.has_prefix("image/") {
                   warnings.push({
-                    kind: DocxSourceWarningKind::UnsupportedMedia,
+                    kind: UnsupportedMedia,
                     message: "media target content type is not image: " + ct,
                     source_key: Some(key),
                   })
@@ -219,7 +219,7 @@ fn docx_media_ref_from_relationship_ref(
         }
         None =>
           warnings.push({
-            kind: DocxSourceWarningKind::MissingMediaTarget,
+            kind: MissingMediaTarget,
             message: "media relationship not found: " + rid,
             source_key: Some(key),
           })
@@ -227,7 +227,7 @@ fn docx_media_ref_from_relationship_ref(
     None =>
       if media_ref is Some(_) {
         warnings.push({
-          kind: DocxSourceWarningKind::MissingMediaTarget,
+          kind: MissingMediaTarget,
           message: "media relationship tag has no relationship id: " +
           container_tag,
           source_key: Some(key),
@@ -471,16 +471,16 @@ fn parse_docx_hyperlink(
             docx_hyperlink_resolved_target(rel.resolved_target, anchor),
           )
           target_mode = Some(
-            if rel.target_mode == @ox.OoxmlTargetMode::External {
-              DocxTargetMode::External
+            if rel.target_mode == External {
+              External
             } else {
-              DocxTargetMode::Internal
+              Internal
             },
           )
         }
         None =>
           warnings.push({
-            kind: DocxSourceWarningKind::MissingHyperlinkTarget,
+            kind: MissingHyperlinkTarget,
             message: "hyperlink relationship not found: " + rid,
             source_key: Some(key),
           })
@@ -491,11 +491,11 @@ fn parse_docx_hyperlink(
     match anchor {
       Some(value) => {
         target = Some("#" + value)
-        target_mode = Some(DocxTargetMode::Internal)
+        target_mode = Some(Internal)
       }
       None =>
         warnings.push({
-          kind: DocxSourceWarningKind::MissingHyperlinkTarget,
+          kind: MissingHyperlinkTarget,
           message: "hyperlink has no relationship id or anchor",
           source_key: Some(key),
         })
@@ -564,15 +564,15 @@ fn parse_docx_break_inline(
       if value == "page" {
         DocxBreakKind::Page
       } else if value == "column" {
-        DocxBreakKind::Column
+        Column
       } else if value == "textWrapping" {
-        DocxBreakKind::TextWrapping
+        TextWrapping
       } else {
-        DocxBreakKind::Unknown
+        Unknown
       }
-    None => DocxBreakKind::Line
+    None => Line
   }
-  DocxSourceInline::Break({ kind, break_type, source_key: key })
+  Break({ kind, break_type, source_key: key })
 }
 
 ///|
@@ -591,11 +591,11 @@ fn parse_docx_math_inline(
   warnings : Array[DocxSourceWarning],
 ) -> DocxSourceInline {
   warnings.push({
-    kind: DocxSourceWarningKind::UnsupportedMath,
+    kind: UnsupportedMath,
     message: "OMML math preserved without conversion: " + tag,
     source_key: Some(key),
   })
-  DocxSourceInline::Math({
+  Math({
     kind: tag,
     text_signature: docx_math_text_signature(
       docx_inner_xml_for_element(xml, start, end_exclusive, tag),
@@ -612,7 +612,7 @@ fn parse_docx_symbol_inline(
   key : DocxSourceKey,
 ) -> DocxSourceInline {
   let open_tag = docx_open_tag_at(xml, start)
-  DocxSourceInline::Symbol({
+  Symbol({
     font: read_docx_attr_value(open_tag, "w:font"),
     char_hex: read_docx_attr_value(open_tag, "w:char"),
     source_key: key,
@@ -711,11 +711,11 @@ fn make_docx_field_inline(
   warnings : Array[DocxSourceWarning],
 ) -> DocxSourceInline {
   warnings.push({
-    kind: DocxSourceWarningKind::UnsupportedField,
+    kind: UnsupportedField,
     message: "unsupported field inline: " + kind,
     source_key: Some(key),
   })
-  DocxSourceInline::FieldUnsupported({
+  FieldUnsupported({
     kind,
     instruction,
     field_char_type,
@@ -736,14 +736,14 @@ fn parse_docx_bookmark(
   let kind = if is_docx_start_tag_at(xml, start, "w:bookmarkStart") {
     DocxBookmarkKind::Start
   } else {
-    DocxBookmarkKind::End
+    End
   }
   warnings.push({
-    kind: DocxSourceWarningKind::UnsupportedBookmark,
+    kind: UnsupportedBookmark,
     message: "bookmark inline preserved without conversion",
     source_key: Some(key),
   })
-  DocxSourceInline::Bookmark({
+  Bookmark({
     kind,
     bookmark_id: read_docx_attr_value(open_tag, "w:id"),
     name: read_docx_attr_value(open_tag, "w:name"),
@@ -771,11 +771,11 @@ fn parse_docx_tracked_change(
   warnings : Array[DocxSourceWarning],
 ) -> DocxSourceInline {
   warnings.push({
-    kind: DocxSourceWarningKind::TrackedChange,
+    kind: TrackedChange,
     message: "tracked change inline preserved without review policy: " + tag,
     source_key: Some(key),
   })
-  DocxSourceInline::TrackedChange({
+  TrackedChange({
     kind: tag,
     text: docx_visible_text_in_scope(
       docx_inner_xml_for_element(xml, start, end_exclusive, tag),
@@ -949,49 +949,38 @@ fn docx_source_inline_text(inlines : Array[DocxSourceInline]) -> String {
   let out = StringBuilder::new()
   for inline in inlines {
     match inline {
-      DocxSourceInline::Text(text) => out.write_string(text)
-      DocxSourceInline::Tab => out.write_string("\t")
-      DocxSourceInline::LineBreak => out.write_string("\n")
-      DocxSourceInline::Break(value) =>
-        out.write_string(docx_source_break_text(value))
-      DocxSourceInline::Hyperlink(link) => out.write_string(link.text)
-      DocxSourceInline::Media(media) =>
-        out.write_string(docx_source_media_text(media))
-      DocxSourceInline::TextBoxRef(_) => ()
-      DocxSourceInline::Drawing(drawing) =>
+      Text(text) => out.write_string(text)
+      Tab => out.write_string("\t")
+      LineBreak => out.write_string("\n")
+      Break(value) => out.write_string(docx_source_break_text(value))
+      Hyperlink(link) => out.write_string(link.text)
+      Media(media) => out.write_string(docx_source_media_text(media))
+      TextBoxRef(_) => ()
+      Drawing(drawing) =>
         match drawing.media {
           Some(media) => out.write_string(docx_source_media_text(media))
           None => ()
         }
-      DocxSourceInline::Shape(shape) =>
+      Shape(shape) =>
         match shape.media {
           Some(media) => out.write_string(docx_source_media_text(media))
           None => out.write_string(docx_source_inline_text(shape.child_inlines))
         }
-      DocxSourceInline::ContentControl(control) =>
-        out.write_string(control.text)
-      DocxSourceInline::FieldUnsupported(field) =>
-        out.write_string(docx_source_field_text(field))
-      DocxSourceInline::Math(math) =>
-        out.write_string(docx_source_math_text(math))
-      DocxSourceInline::TrackedChange(change) => out.write_string(change.text)
-      DocxSourceInline::SmartTag(smart_tag) =>
+      ContentControl(control) => out.write_string(control.text)
+      FieldUnsupported(field) => out.write_string(docx_source_field_text(field))
+      Math(math) => out.write_string(docx_source_math_text(math))
+      TrackedChange(change) => out.write_string(change.text)
+      SmartTag(smart_tag) =>
         out.write_string(docx_source_inline_text(smart_tag.child_inlines))
-      DocxSourceInline::Symbol(symbol) =>
-        out.write_string(docx_source_symbol_text(symbol))
-      DocxSourceInline::Hyphen(hyphen) =>
-        out.write_string(docx_source_hyphen_text(hyphen))
-      DocxSourceInline::FootnoteRef(id) =>
-        out.write_string("[footnote:" + id + "]")
-      DocxSourceInline::EndnoteRef(id) =>
-        out.write_string("[endnote:" + id + "]")
-      DocxSourceInline::CommentRef(id) =>
-        out.write_string("[comment:" + id + "]")
-      DocxSourceInline::StructuralMarker(_) => ()
-      DocxSourceInline::Bookmark(_) => ()
-      DocxSourceInline::UnsupportedInline(_) =>
-        out.write_string("[unsupported DOCX inline]")
-      DocxSourceInline::Unsupported(_) => ()
+      Symbol(symbol) => out.write_string(docx_source_symbol_text(symbol))
+      Hyphen(hyphen) => out.write_string(docx_source_hyphen_text(hyphen))
+      FootnoteRef(id) => out.write_string("[footnote:" + id + "]")
+      EndnoteRef(id) => out.write_string("[endnote:" + id + "]")
+      CommentRef(id) => out.write_string("[comment:" + id + "]")
+      StructuralMarker(_) => ()
+      Bookmark(_) => ()
+      UnsupportedInline(_) => out.write_string("[unsupported DOCX inline]")
+      Unsupported(_) => ()
     }
   }
   out.to_string()
@@ -1032,16 +1021,14 @@ fn docx_source_math_text(math : DocxSourceMath) -> String {
 ///|
 fn docx_source_break_text(break_value : DocxSourceBreak) -> String {
   match break_value.kind {
-    DocxBreakKind::Page => "[break: page]"
-    DocxBreakKind::Column => "[break: column]"
-    DocxBreakKind::Unknown =>
+    Page => "[break: page]"
+    Column => "[break: column]"
+    Unknown =>
       match break_value.break_type {
         Some(value) => "[break: " + value + "]"
         None => "[break]"
       }
-    DocxBreakKind::Line
-    | DocxBreakKind::TextWrapping
-    | DocxBreakKind::CarriageReturn => "\n"
+    Line | TextWrapping | CarriageReturn => "\n"
   }
 }
 
@@ -1053,13 +1040,13 @@ fn docx_source_break_text_from_open_tag(open_tag : String) -> String {
       if value == "page" {
         DocxBreakKind::Page
       } else if value == "column" {
-        DocxBreakKind::Column
+        Column
       } else if value == "textWrapping" {
-        DocxBreakKind::TextWrapping
+        TextWrapping
       } else {
-        DocxBreakKind::Unknown
+        Unknown
       }
-    None => DocxBreakKind::Line
+    None => Line
   }
   docx_source_break_text({
     kind,
@@ -1129,8 +1116,8 @@ fn docx_hex_value(ch : Char) -> Int? {
 ///|
 fn docx_source_hyphen_text(hyphen : DocxSourceHyphen) -> String {
   match hyphen.kind {
-    DocxHyphenKind::Soft => ""
-    DocxHyphenKind::NoBreak => "-"
+    Soft => ""
+    NoBreak => "-"
   }
 }
 

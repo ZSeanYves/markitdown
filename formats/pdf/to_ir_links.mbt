@@ -447,39 +447,32 @@ fn pdf_native_link_candidate_json(
   fallback_page_no : Int,
 ) -> @core.JsonValue {
   let payload : Map[String, @core.JsonValue] = Map([])
-  payload.set("href", @core.JsonValue::String(link.href))
-  payload.set("target", @core.JsonValue::String(link.href))
+  payload.set("href", String(link.href))
+  payload.set("target", String(link.href))
   payload.set(
     "page",
-    @core.JsonValue::Number(
-      pdf_native_link_page_no(link, fallback_page_no).to_string(),
-    ),
+    Number(pdf_native_link_page_no(link, fallback_page_no).to_string()),
   )
   payload.set("bbox", pdf_native_bbox_json(link.bbox))
   match link.text {
     Some(text) =>
       if text.trim() != "" {
-        payload.set("text", @core.JsonValue::String(text.trim().to_owned()))
+        payload.set("text", String(text.trim().to_owned()))
       }
     None => ()
   }
   match link.source_ref {
     Some(source_ref) => {
       match source_ref.file_id {
-        Some(file_id) =>
-          payload.set("file_id", @core.JsonValue::String(file_id))
+        Some(file_id) => payload.set("file_id", String(file_id))
         None => ()
       }
       match source_ref.format {
-        Some(format) => payload.set("format", @core.JsonValue::String(format))
+        Some(format) => payload.set("format", String(format))
         None => ()
       }
       match source_ref.page {
-        Some(page_no) =>
-          payload.set(
-            "source_page",
-            @core.JsonValue::Number(page_no.to_string()),
-          )
+        Some(page_no) => payload.set("source_page", Number(page_no.to_string()))
         None => ()
       }
       match source_ref.bbox {
@@ -488,30 +481,22 @@ fn pdf_native_link_candidate_json(
         None => ()
       }
       match source_ref.extra.get("reading_order_index") {
-        Some(value) =>
-          payload.set("reading_order_index", @core.JsonValue::Number(value))
+        Some(value) => payload.set("reading_order_index", Number(value))
         None => ()
       }
     }
     None => ()
   }
   match link.annotation_index {
-    Some(value) =>
-      payload.set(
-        "annotation_index",
-        @core.JsonValue::Number(value.to_string()),
-      )
+    Some(value) => payload.set("annotation_index", Number(value.to_string()))
     None => ()
   }
   match link.annotation_object_id {
     Some(value) =>
-      payload.set(
-        "annotation_object_id",
-        @core.JsonValue::Number(value.to_string()),
-      )
+      payload.set("annotation_object_id", Number(value.to_string()))
     None => ()
   }
-  @core.JsonValue::Object(payload)
+  Object(payload)
 }
 
 ///|

@@ -73,7 +73,7 @@ fn detect_container_format_from_source(
   if has_docx {
     return Some(
       (
-        DetectedFormat::Docx,
+        Docx,
         ["magic_bytes", "zip_signature", "container_inspection", "ooxml_docx"],
       ),
     )
@@ -81,7 +81,7 @@ fn detect_container_format_from_source(
   if has_pptx {
     return Some(
       (
-        DetectedFormat::Pptx,
+        Pptx,
         ["magic_bytes", "zip_signature", "container_inspection", "ooxml_pptx"],
       ),
     )
@@ -89,7 +89,7 @@ fn detect_container_format_from_source(
   if has_xlsx {
     return Some(
       (
-        DetectedFormat::Xlsx,
+        Xlsx,
         ["magic_bytes", "zip_signature", "container_inspection", "ooxml_xlsx"],
       ),
     )
@@ -102,7 +102,7 @@ fn detect_container_format_from_source(
     Some("application/epub+zip") if has_epub_container =>
       Some(
         (
-          DetectedFormat::Epub,
+          Epub,
           [
             "magic_bytes", "zip_signature", "container_inspection", "epub_container",
           ],
@@ -111,21 +111,21 @@ fn detect_container_format_from_source(
     Some("application/vnd.oasis.opendocument.text") =>
       Some(
         (
-          DetectedFormat::Odt,
+          Odt,
           ["magic_bytes", "zip_signature", "container_inspection", "odf_odt"],
         ),
       )
     Some("application/vnd.oasis.opendocument.spreadsheet") =>
       Some(
         (
-          DetectedFormat::Ods,
+          Ods,
           ["magic_bytes", "zip_signature", "container_inspection", "odf_ods"],
         ),
       )
     Some("application/vnd.oasis.opendocument.presentation") =>
       Some(
         (
-          DetectedFormat::Odp,
+          Odp,
           ["magic_bytes", "zip_signature", "container_inspection", "odf_odp"],
         ),
       )
@@ -208,62 +208,46 @@ fn detect_format_from_mime(
   }
   let notes = ["mime_type"]
   match lowered {
-    "text/plain" => Some((DetectedFormat::Txt, notes))
-    "text/markdown" | "text/x-markdown" =>
-      Some((DetectedFormat::Markdown, notes))
-    "text/csv" => Some((DetectedFormat::Csv, notes))
-    "text/tab-separated-values" => Some((DetectedFormat::Tsv, notes))
-    "application/x-subrip" | "text/srt" => Some((DetectedFormat::Srt, notes))
-    "text/vtt" => Some((DetectedFormat::Vtt, notes))
-    "application/json" | "text/json" => Some((DetectedFormat::Json, notes))
+    "text/plain" => Some((Txt, notes))
+    "text/markdown" | "text/x-markdown" => Some((Markdown, notes))
+    "text/csv" => Some((Csv, notes))
+    "text/tab-separated-values" => Some((Tsv, notes))
+    "application/x-subrip" | "text/srt" => Some((Srt, notes))
+    "text/vtt" => Some((Vtt, notes))
+    "application/json" | "text/json" => Some((Json, notes))
     "application/x-ipynb+json"
     | "application/x-jupyter-notebook+json"
     | "application/vnd.jupyter"
-    | "application/vnd.jupyter.cells" => Some((DetectedFormat::Ipynb, notes))
-    "application/xml" | "text/xml" => Some((DetectedFormat::Xml, notes))
+    | "application/vnd.jupyter.cells" => Some((Ipynb, notes))
+    "application/xml" | "text/xml" => Some((Xml, notes))
     "application/yaml" | "application/x-yaml" | "text/yaml" | "text/x-yaml" =>
-      Some((DetectedFormat::Yaml, notes))
-    "application/toml" | "text/toml" | "text/x-toml" =>
-      Some((DetectedFormat::Toml, notes))
-    "text/html" | "application/html" => Some((DetectedFormat::Html, notes))
-    "application/x-tex" | "text/x-tex" => Some((DetectedFormat::Tex, notes))
-    "text/x-rst" | "text/prs.fallenstein.rst" =>
-      Some((DetectedFormat::Rst, notes))
-    "text/asciidoc" | "text/x-asciidoc" =>
-      Some((DetectedFormat::Asciidoc, notes))
-    "message/rfc822" | "text/rfc822-headers" =>
-      Some((DetectedFormat::Eml, notes))
-    "application/zip" => Some((DetectedFormat::Zip, notes))
-    "application/epub+zip" => Some((DetectedFormat::Epub, notes))
-    "application/vnd.oasis.opendocument.text" =>
-      Some((DetectedFormat::Odt, notes))
-    "application/vnd.oasis.opendocument.spreadsheet" =>
-      Some((DetectedFormat::Ods, notes))
-    "application/vnd.oasis.opendocument.presentation" =>
-      Some((DetectedFormat::Odp, notes))
-    "application/pdf" => Some((DetectedFormat::Pdf, notes))
+      Some((Yaml, notes))
+    "application/toml" | "text/toml" | "text/x-toml" => Some((Toml, notes))
+    "text/html" | "application/html" => Some((Html, notes))
+    "application/x-tex" | "text/x-tex" => Some((Tex, notes))
+    "text/x-rst" | "text/prs.fallenstein.rst" => Some((Rst, notes))
+    "text/asciidoc" | "text/x-asciidoc" => Some((Asciidoc, notes))
+    "message/rfc822" | "text/rfc822-headers" => Some((Eml, notes))
+    "application/zip" => Some((Zip, notes))
+    "application/epub+zip" => Some((Epub, notes))
+    "application/vnd.oasis.opendocument.text" => Some((Odt, notes))
+    "application/vnd.oasis.opendocument.spreadsheet" => Some((Ods, notes))
+    "application/vnd.oasis.opendocument.presentation" => Some((Odp, notes))
+    "application/pdf" => Some((Pdf, notes))
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document" =>
-      Some((DetectedFormat::Docx, notes))
+      Some((Docx, notes))
     "application/vnd.openxmlformats-officedocument.presentationml.presentation" =>
-      Some((DetectedFormat::Pptx, notes))
+      Some((Pptx, notes))
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" =>
-      Some((DetectedFormat::Xlsx, notes))
-    "audio/wav" | "audio/wave" | "audio/x-wav" =>
-      Some((DetectedFormat::Audio(AudioFormat::Wav), notes))
-    "audio/mpeg" | "audio/mp3" =>
-      Some((DetectedFormat::Audio(AudioFormat::Mp3), notes))
-    "audio/mp4" | "audio/m4a" | "audio/x-m4a" =>
-      Some((DetectedFormat::Audio(AudioFormat::M4a), notes))
-    "image/png" =>
-      Some((DetectedFormat::Image(ImageFormat::Png), notes_with_image(notes)))
-    "image/jpeg" =>
-      Some((DetectedFormat::Image(ImageFormat::Jpeg), notes_with_image(notes)))
-    "image/bmp" =>
-      Some((DetectedFormat::Image(ImageFormat::Bmp), notes_with_image(notes)))
-    "image/webp" =>
-      Some((DetectedFormat::Image(ImageFormat::Webp), notes_with_image(notes)))
-    "image/tiff" =>
-      Some((DetectedFormat::Image(ImageFormat::Tiff), notes_with_image(notes)))
+      Some((Xlsx, notes))
+    "audio/wav" | "audio/wave" | "audio/x-wav" => Some((Audio(Wav), notes))
+    "audio/mpeg" | "audio/mp3" => Some((Audio(Mp3), notes))
+    "audio/mp4" | "audio/m4a" | "audio/x-m4a" => Some((Audio(M4a), notes))
+    "image/png" => Some((Image(Png), notes_with_image(notes)))
+    "image/jpeg" => Some((Image(Jpeg), notes_with_image(notes)))
+    "image/bmp" => Some((Image(Bmp), notes_with_image(notes)))
+    "image/webp" => Some((Image(Webp), notes_with_image(notes)))
+    "image/tiff" => Some((Image(Tiff), notes_with_image(notes)))
     _ => None
   }
 }
@@ -285,7 +269,7 @@ fn detect_format_from_magic_or_container(
     byte_to_int(arr[1]) == 0x50 &&
     byte_to_int(arr[2]) == 0x44 &&
     byte_to_int(arr[3]) == 0x46 {
-    return Some((DetectedFormat::Pdf, ["magic_bytes", "pdf_signature"]))
+    return Some((Pdf, ["magic_bytes", "pdf_signature"]))
   }
   if arr.length() >= 12 &&
     byte_to_int(arr[0]) == 0x52 &&
@@ -294,32 +278,19 @@ fn detect_format_from_magic_or_container(
     byte_to_int(arr[3]) == 0x46 &&
     bytes_prefix_ascii(arr, 8, 4) == "WAVE" {
     return Some(
-      (
-        DetectedFormat::Audio(AudioFormat::Wav),
-        ["magic_bytes", "riff_signature", "wave_signature"],
-      ),
+      (Audio(Wav), ["magic_bytes", "riff_signature", "wave_signature"]),
     )
   }
   if arr.length() >= 3 &&
     byte_to_int(arr[0]) == 0x49 &&
     byte_to_int(arr[1]) == 0x44 &&
     byte_to_int(arr[2]) == 0x33 {
-    return Some(
-      (
-        DetectedFormat::Audio(AudioFormat::Mp3),
-        ["magic_bytes", "id3_signature"],
-      ),
-    )
+    return Some((Audio(Mp3), ["magic_bytes", "id3_signature"]))
   }
   if arr.length() >= 2 &&
     byte_to_int(arr[0]) == 0xFF &&
     (byte_to_int(arr[1]) & 0xE0) == 0xE0 {
-    return Some(
-      (
-        DetectedFormat::Audio(AudioFormat::Mp3),
-        ["magic_bytes", "mpeg_frame_sync"],
-      ),
-    )
+    return Some((Audio(Mp3), ["magic_bytes", "mpeg_frame_sync"]))
   }
   if arr.length() >= 4 &&
     byte_to_int(arr[0]) == 0x89 &&
@@ -327,10 +298,7 @@ fn detect_format_from_magic_or_container(
     byte_to_int(arr[2]) == 0x4E &&
     byte_to_int(arr[3]) == 0x47 {
     return Some(
-      (
-        DetectedFormat::Image(ImageFormat::Png),
-        ["magic_bytes", "png_signature", "image_ocr_candidate"],
-      ),
+      (Image(Png), ["magic_bytes", "png_signature", "image_ocr_candidate"]),
     )
   }
   if arr.length() >= 3 &&
@@ -338,20 +306,14 @@ fn detect_format_from_magic_or_container(
     byte_to_int(arr[1]) == 0xD8 &&
     byte_to_int(arr[2]) == 0xFF {
     return Some(
-      (
-        DetectedFormat::Image(ImageFormat::Jpeg),
-        ["magic_bytes", "jpeg_signature", "image_ocr_candidate"],
-      ),
+      (Image(Jpeg), ["magic_bytes", "jpeg_signature", "image_ocr_candidate"]),
     )
   }
   if arr.length() >= 4 &&
     byte_to_int(arr[0]) == 0x42 &&
     byte_to_int(arr[1]) == 0x4D {
     return Some(
-      (
-        DetectedFormat::Image(ImageFormat::Bmp),
-        ["magic_bytes", "bmp_signature", "image_ocr_candidate"],
-      ),
+      (Image(Bmp), ["magic_bytes", "bmp_signature", "image_ocr_candidate"]),
     )
   }
   if arr.length() >= 4 &&
@@ -362,10 +324,7 @@ fn detect_format_from_magic_or_container(
     arr.length() >= 12 &&
     bytes_prefix_ascii(arr, 8, 4) == "WEBP" {
     return Some(
-      (
-        DetectedFormat::Image(ImageFormat::Webp),
-        ["magic_bytes", "webp_signature", "image_ocr_candidate"],
-      ),
+      (Image(Webp), ["magic_bytes", "webp_signature", "image_ocr_candidate"]),
     )
   }
   if arr.length() >= 4 &&
@@ -384,10 +343,7 @@ fn detect_format_from_magic_or_container(
       )
     ) {
     return Some(
-      (
-        DetectedFormat::Image(ImageFormat::Tiff),
-        ["magic_bytes", "tiff_signature", "image_ocr_candidate"],
-      ),
+      (Image(Tiff), ["magic_bytes", "tiff_signature", "image_ocr_candidate"]),
     )
   }
   match detect_format_from_text_magic(bytes) {
@@ -410,24 +366,22 @@ fn detect_format_from_text_magic(
     return None
   }
   if text.has_prefix("WEBVTT") {
-    return Some((DetectedFormat::Vtt, ["magic_text", "webvtt_signature"]))
+    return Some((Vtt, ["magic_text", "webvtt_signature"]))
   }
   if detect_eml_text_signature(text) {
-    return Some((DetectedFormat::Eml, ["magic_text", "rfc822_headers"]))
+    return Some((Eml, ["magic_text", "rfc822_headers"]))
   }
   if detect_rst_text_signature(text) {
-    return Some((DetectedFormat::Rst, ["magic_text", "rst_signature"]))
+    return Some((Rst, ["magic_text", "rst_signature"]))
   }
   if detect_asciidoc_text_signature(text) {
-    return Some(
-      (DetectedFormat::Asciidoc, ["magic_text", "asciidoc_signature"]),
-    )
+    return Some((Asciidoc, ["magic_text", "asciidoc_signature"]))
   }
   if detect_tex_text_signature(text) {
-    return Some((DetectedFormat::Tex, ["magic_text", "tex_signature"]))
+    return Some((Tex, ["magic_text", "tex_signature"]))
   }
   if detect_srt_text_signature(text) {
-    return Some((DetectedFormat::Srt, ["magic_text", "subrip_signature"]))
+    return Some((Srt, ["magic_text", "subrip_signature"]))
   }
   None
 }
@@ -441,14 +395,13 @@ fn detect_container_format_from_zip(
   }
   let archive = match archive {
     Ok(value) => value
-    Err(_) =>
-      return Some((DetectedFormat::Zip, ["magic_bytes", "zip_signature"]))
+    Err(_) => return Some((Zip, ["magic_bytes", "zip_signature"]))
   }
   if @zip.has_entry(archive, "[Content_Types].xml") {
     if @zip.has_entry(archive, "word/document.xml") {
       return Some(
         (
-          DetectedFormat::Docx,
+          Docx,
           ["magic_bytes", "zip_signature", "container_inspection", "ooxml_docx"],
         ),
       )
@@ -456,7 +409,7 @@ fn detect_container_format_from_zip(
     if @zip.has_entry(archive, "ppt/presentation.xml") {
       return Some(
         (
-          DetectedFormat::Pptx,
+          Pptx,
           ["magic_bytes", "zip_signature", "container_inspection", "ooxml_pptx"],
         ),
       )
@@ -464,7 +417,7 @@ fn detect_container_format_from_zip(
     if @zip.has_entry(archive, "xl/workbook.xml") {
       return Some(
         (
-          DetectedFormat::Xlsx,
+          Xlsx,
           ["magic_bytes", "zip_signature", "container_inspection", "ooxml_xlsx"],
         ),
       )
@@ -480,7 +433,7 @@ fn detect_container_format_from_zip(
           Some(value) if value == "application/epub+zip" =>
             return Some(
               (
-                DetectedFormat::Epub,
+                Epub,
                 [
                   "magic_bytes", "zip_signature", "container_inspection", "epub_container",
                 ],
@@ -502,7 +455,7 @@ fn detect_container_format_from_zip(
           Some("application/vnd.oasis.opendocument.text") =>
             return Some(
               (
-                DetectedFormat::Odt,
+                Odt,
                 [
                   "magic_bytes", "zip_signature", "container_inspection", "odf_odt",
                 ],
@@ -511,7 +464,7 @@ fn detect_container_format_from_zip(
           Some("application/vnd.oasis.opendocument.spreadsheet") =>
             return Some(
               (
-                DetectedFormat::Ods,
+                Ods,
                 [
                   "magic_bytes", "zip_signature", "container_inspection", "odf_ods",
                 ],
@@ -520,7 +473,7 @@ fn detect_container_format_from_zip(
           Some("application/vnd.oasis.opendocument.presentation") =>
             return Some(
               (
-                DetectedFormat::Odp,
+                Odp,
                 [
                   "magic_bytes", "zip_signature", "container_inspection", "odf_odp",
                 ],
@@ -531,7 +484,7 @@ fn detect_container_format_from_zip(
       Err(_) => ()
     }
   }
-  Some((DetectedFormat::Zip, ["magic_bytes", "zip_signature"]))
+  Some((Zip, ["magic_bytes", "zip_signature"]))
 }
 
 ///|

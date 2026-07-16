@@ -65,8 +65,7 @@ fn chunks_from_events(
       events, metadata, diagnostics, options,
     )
   }
-  if events[0].kind == @core.EventKind::TextLine ||
-    events[0].kind == @core.EventKind::BlankLine {
+  if events[0].kind == TextLine || events[0].kind == BlankLine {
     return rag_text_chunks_from_events(
       events,
       metadata,
@@ -133,18 +132,17 @@ fn rag_subtitle_chunks_from_events(
       options.preserve_source_ref,
     )
     match event.kind {
-      @core.EventKind::StartBlock(@core.BlockKind::Raw) => {
+      StartBlock(Raw) => {
         has_raw = true
         if event.text.trim() != "" {
           parts.push(event.text)
         }
       }
-      @core.EventKind::StartBlock(@core.BlockKind::Heading)
-      | @core.EventKind::StartBlock(@core.BlockKind::Paragraph) =>
+      StartBlock(Heading) | StartBlock(Paragraph) =>
         if event.text.trim() != "" {
           parts.push(event.text)
         }
-      @core.EventKind::StartBlock(@core.BlockKind::BlockQuote) =>
+      StartBlock(BlockQuote) =>
         match event.source_ref {
           Some(source_ref) =>
             match source_ref.extra.get("subtitle_event_layout") {
@@ -186,7 +184,7 @@ fn rag_subtitle_chunks_from_events(
   if parts.length() == 0 {
     return []
   }
-  let kind = if has_raw { @rag.ChunkKind::Raw } else { @rag.ChunkKind::Text }
+  let kind = if has_raw { @rag.ChunkKind::Raw } else { Text }
   [
     make_event_rag_chunk(
       kind,
@@ -207,7 +205,7 @@ fn event_stream_metadata(
   diagnostics : @core.Diagnostics,
 ) -> @core.DocumentMetadata {
   match diagnostics.detected_format {
-    Some(format) => metadata.set("format", @core.JsonValue::String(format))
+    Some(format) => metadata.set("format", String(format))
     None => ()
   }
   for event in events {
@@ -215,7 +213,7 @@ fn event_stream_metadata(
       Some(source_ref) =>
         match source_ref.file_id {
           Some(file_id) => {
-            metadata.set("source_name", @core.JsonValue::String(file_id))
+            metadata.set("source_name", String(file_id))
             break
           }
           None => ()
@@ -267,14 +265,14 @@ fn rag_text_chunks_from_events(
   }
   for event in events {
     match event.kind {
-      @core.EventKind::TextLine => {
+      TextLine => {
         current_lines.push(event.text.trim().to_owned())
         match event.source_ref {
           Some(source_ref) => current_refs.push(source_ref)
           None => ()
         }
       }
-      @core.EventKind::BlankLine =>
+      BlankLine =>
         flush_paragraph(
           parts,
           refs,
@@ -296,17 +294,7 @@ fn rag_text_chunks_from_events(
     return []
   }
   let text = parts.join("\n")
-  [
-    make_event_rag_chunk(
-      @rag.ChunkKind::Text,
-      0,
-      text,
-      refs,
-      [],
-      metadata,
-      diagnostics,
-    ),
-  ]
+  [make_event_rag_chunk(Text, 0, text, refs, [], metadata, diagnostics)]
 }
 
 ///|
@@ -327,7 +315,7 @@ fn rag_table_chunks_from_events(
   let current_row : Array[String] = []
   for event in events {
     match event.kind {
-      @core.EventKind::Cell => {
+      Cell => {
         current_row.push(event.text)
         append_unique_source_ref(
           refs,
@@ -335,7 +323,7 @@ fn rag_table_chunks_from_events(
           options.preserve_source_ref,
         )
       }
-      @core.EventKind::RowBreak =>
+      RowBreak =>
         if current_row.length() > 0 {
           rows.push(current_row.copy())
           append_unique_source_ref(
@@ -365,7 +353,7 @@ fn rag_table_chunks_from_events(
   }
   [
     make_event_rag_chunk(
-      @rag.ChunkKind::Table,
+      Table,
       0,
       out.to_string(),
       refs,
@@ -399,15 +387,15 @@ fn rag_text_chunks_from_generic_events(
       options.preserve_source_ref,
     )
     match event.kind {
-      @core.EventKind::StartBlock(@core.BlockKind::Code) => {
-        chunk_kind = @rag.ChunkKind::Code
+      StartBlock(Code) => {
+        chunk_kind = Code
         texts.push(event.text)
       }
-      @core.EventKind::StartBlock(@core.BlockKind::Raw) => {
-        chunk_kind = @rag.ChunkKind::Raw
+      StartBlock(Raw) => {
+        chunk_kind = Raw
         texts.push(event.text)
       }
-      @core.EventKind::Text => texts.push(event.text)
+      Text => texts.push(event.text)
       _ => ()
     }
   }
@@ -510,9 +498,8 @@ fn batched_text_chunks_from_events(
     }
     for event in batch {
       match event.kind {
-        @core.EventKind::TextLine =>
-          current_lines.push(event.text.trim().to_owned())
-        @core.EventKind::BlankLine => flush_paragraph(parts, current_lines)
+        TextLine => current_lines.push(event.text.trim().to_owned())
+        BlankLine => flush_paragraph(parts, current_lines)
         _ => ()
       }
     }
@@ -531,7 +518,7 @@ fn batched_text_chunks_from_events(
     out.push(
       rag_chunk_with_batch_metadata(
         make_event_rag_chunk(
-          @rag.ChunkKind::Text,
+          Text,
           ordinal,
           text,
           refs,
@@ -559,7 +546,7 @@ fn batched_table_chunks_from_events(
   let current_refs : Array[@core.SourceRef] = []
   for event in events {
     match event.kind {
-      @core.EventKind::Cell => {
+      Cell => {
         current_row.push(event.text)
         append_unique_source_ref(
           current_refs,
@@ -567,7 +554,7 @@ fn batched_table_chunks_from_events(
           options.preserve_source_ref,
         )
       }
-      @core.EventKind::RowBreak =>
+      RowBreak =>
         if current_row.length() > 0 {
           rows.push((current_row.copy(), current_refs.copy()))
           current_row.clear()
@@ -620,7 +607,7 @@ fn batched_table_chunks_from_events(
     out.push(
       rag_chunk_with_batch_metadata(
         make_event_rag_chunk(
-          @rag.ChunkKind::Table,
+          Table,
           ordinal,
           buffer.to_string(),
           refs,
@@ -656,15 +643,15 @@ fn batched_generic_chunks_from_events(
         options.preserve_source_ref,
       )
       match event.kind {
-        @core.EventKind::StartBlock(@core.BlockKind::Code) => {
-          chunk_kind = @rag.ChunkKind::Code
+        StartBlock(Code) => {
+          chunk_kind = Code
           texts.push(event.text)
         }
-        @core.EventKind::StartBlock(@core.BlockKind::Raw) => {
-          chunk_kind = @rag.ChunkKind::Raw
+        StartBlock(Raw) => {
+          chunk_kind = Raw
           texts.push(event.text)
         }
-        @core.EventKind::Text => texts.push(event.text)
+        Text => texts.push(event.text)
         _ => ()
       }
     }
@@ -731,14 +718,14 @@ fn text_event_batches(
     let event_size = unicode_char_count(event.text)
     if current.length() > 0 &&
       current_size + event_size > 600 &&
-      event.kind == @core.EventKind::TextLine {
+      event.kind == TextLine {
       batches.push(current.copy())
       current.clear()
       current_size = 0
     }
     current.push(event)
     current_size += event_size
-    if event.kind == @core.EventKind::BlankLine && current_size >= 600 {
+    if event.kind == BlankLine && current_size >= 600 {
       batches.push(current.copy())
       current.clear()
       current_size = 0
@@ -791,8 +778,8 @@ fn generic_event_batches(
   for event in events {
     current.push(event)
     match event.kind {
-      @core.EventKind::StartBlock(_) => depth += 1
-      @core.EventKind::EndBlock(_) => {
+      StartBlock(_) => depth += 1
+      EndBlock(_) => {
         depth -= 1
         if depth <= 0 {
           batches.push(current.copy())
@@ -831,11 +818,8 @@ fn rag_chunk_with_batch_metadata(
   batch_ordinal : Int,
 ) -> @rag.RagChunk {
   let metadata = chunk.metadata
-  metadata.set(
-    "batch_ordinal",
-    @core.JsonValue::Number(batch_ordinal.to_string()),
-  )
-  metadata.set("record_batch_profile", @core.JsonValue::Bool(true))
+  metadata.set("batch_ordinal", Number(batch_ordinal.to_string()))
+  metadata.set("record_batch_profile", Bool(true))
   @rag.make_rag_chunk(
     chunk.id,
     chunk.kind,
@@ -853,7 +837,7 @@ fn rag_chunk_with_ordinal(
   ordinal : Int,
 ) -> @rag.RagChunk {
   let metadata = chunk.metadata
-  metadata.set("ordinal", @core.JsonValue::Number(ordinal.to_string()))
+  metadata.set("ordinal", Number(ordinal.to_string()))
   @rag.make_rag_chunk(
     rag_chunk_id_with_ordinal(chunk.id, ordinal),
     chunk.kind,
@@ -1229,34 +1213,19 @@ fn input_chunk_metadata(
   asset_refs : Array[String],
 ) -> Map[String, @core.JsonValue] {
   let metadata : Map[String, @core.JsonValue] = Map([])
-  metadata.set("ordinal", @core.JsonValue::Number(ordinal.to_string()))
-  metadata.set(
-    "char_count",
-    @core.JsonValue::Number(unicode_char_count(text).to_string()),
-  )
-  metadata.set(
-    "heading_depth",
-    @core.JsonValue::Number(heading_path.length().to_string()),
-  )
-  metadata.set("document_format", @core.JsonValue::String(document_format))
+  metadata.set("ordinal", Number(ordinal.to_string()))
+  metadata.set("char_count", Number(unicode_char_count(text).to_string()))
+  metadata.set("heading_depth", Number(heading_path.length().to_string()))
+  metadata.set("document_format", String(document_format))
   match document_title {
     Some(title) if title.trim() != "" =>
-      metadata.set("document_title", @core.JsonValue::String(title))
+      metadata.set("document_title", String(title))
     _ => ()
   }
   metadata.set("block_kinds", string_json_array(block_kinds))
-  metadata.set(
-    "source_count",
-    @core.JsonValue::Number(source_refs.length().to_string()),
-  )
-  metadata.set(
-    "asset_count",
-    @core.JsonValue::Number(asset_refs.length().to_string()),
-  )
-  metadata.set(
-    "location",
-    @core.JsonValue::Object(input_chunk_location_metadata(source_refs)),
-  )
+  metadata.set("source_count", Number(source_refs.length().to_string()))
+  metadata.set("asset_count", Number(asset_refs.length().to_string()))
+  metadata.set("location", Object(input_chunk_location_metadata(source_refs)))
   metadata
 }
 
@@ -1280,16 +1249,15 @@ fn append_unique_string(values : Array[String], value : String) -> Unit {
 
 ///|
 fn string_json_array(values : Array[String]) -> @core.JsonValue {
-  @core.JsonValue::Array(values.map(value => @core.JsonValue::String(value)))
+  Array(values.map(value => String(value)))
 }
 
 ///|
 fn json_value_string(value : @core.JsonValue?) -> String? {
   match value {
-    Some(@core.JsonValue::String(text)) => Some(text)
-    Some(@core.JsonValue::Number(text)) => Some(text)
-    Some(@core.JsonValue::Bool(flag)) =>
-      Some(if flag { "true" } else { "false" })
+    Some(String(text)) => Some(text)
+    Some(Number(text)) => Some(text)
+    Some(Bool(flag)) => Some(if flag { "true" } else { "false" })
     _ => None
   }
 }

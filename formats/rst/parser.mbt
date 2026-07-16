@@ -2,7 +2,7 @@
 pub fn rst_parser() -> @parser.Parser {
   @parser.make_parser(
     "rst_parser",
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     @fshared.text_markup_parser_capability(),
     fn(
       source : @input.InputSource,
@@ -22,7 +22,7 @@ pub fn rst_text_markup_hooks() -> @fshared.TextMarkupHooks {
   @fshared.make_text_markup_hooks(
     "rst_parser",
     "rst",
-    @dmark.TextMarkupFormat::Rst,
+    Rst,
     fn(text : String) { @dmark.parse_rst_document(text) },
     rst_semantic_quote_text,
     rst_semantic_block,
@@ -66,9 +66,9 @@ fn rst_semantic_raw_block(
       return Some(
         @core.block_with_attr(
           @fshared.text_markup_block_with_inlines(
-            @core.make_block(@core.BlockKind::Paragraph, text, source_ref~),
+            @core.make_block(Paragraph, text, source_ref~),
             text,
-            @dmark.TextMarkupFormat::Rst,
+            Rst,
           ),
           "literal",
           "true",
@@ -88,9 +88,9 @@ fn rst_semantic_raw_block(
       return Some(
         @core.block_with_attr(
           @fshared.text_markup_block_with_inlines(
-            @core.make_block(@core.BlockKind::Paragraph, text, source_ref~),
+            @core.make_block(Paragraph, text, source_ref~),
             text,
-            @dmark.TextMarkupFormat::Rst,
+            Rst,
           ),
           "literal",
           "true",
@@ -110,7 +110,7 @@ fn rst_semantic_block(
   match block.meta.get("semantic_kind") {
     Some("image") => {
       let target = block.meta.get("image_target").unwrap_or(block.text)
-      let image = @core.make_block(@core.BlockKind::Image, "", source_ref~)
+      let image = @core.make_block(Image, "", source_ref~)
       image.attrs.set("path", target)
       image.attrs.set("src", target)
       image.attrs.set("alt", block.meta.get("image_alt").unwrap_or("image"))
@@ -137,22 +137,12 @@ fn rst_semantic_block(
       } else {
         "Include: " + target
       }
-      let paragraph = @core.make_block(
-        @core.BlockKind::Paragraph,
-        text,
-        source_ref~,
-      )
+      let paragraph = @core.make_block(Paragraph, text, source_ref~)
       paragraph.attrs.set("literal", "true")
       paragraph.attrs.set("semantic_label", "Include")
       paragraph.attrs.set("semantic_family", "rst")
       paragraph.attrs.set("semantic_display", "include")
-      Some(
-        @fshared.text_markup_block_with_inlines(
-          paragraph,
-          text,
-          @dmark.TextMarkupFormat::Rst,
-        ),
-      )
+      Some(@fshared.text_markup_block_with_inlines(paragraph, text, Rst))
     }
     Some("directive") => {
       let kind = block.meta.get("directive_kind").unwrap_or("directive")
@@ -162,22 +152,12 @@ fn rst_semantic_block(
       } else {
         "Directive: " + display + "\n" + block.text
       }
-      let paragraph = @core.make_block(
-        @core.BlockKind::Paragraph,
-        text,
-        source_ref~,
-      )
+      let paragraph = @core.make_block(Paragraph, text, source_ref~)
       paragraph.attrs.set("literal", "true")
       paragraph.attrs.set("semantic_label", "Directive")
       paragraph.attrs.set("semantic_family", "rst")
       paragraph.attrs.set("semantic_display", display)
-      Some(
-        @fshared.text_markup_block_with_inlines(
-          paragraph,
-          text,
-          @dmark.TextMarkupFormat::Rst,
-        ),
-      )
+      Some(@fshared.text_markup_block_with_inlines(paragraph, text, Rst))
     }
     None => None
     Some(_) => None

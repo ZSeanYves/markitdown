@@ -10,21 +10,21 @@ pub struct PreparedTextMarkupDocument {
 pub fn prepare_tex_document_from_source(
   source : @input.InputSource,
 ) -> Result[PreparedTextMarkupDocument, String] {
-  prepare_text_markup_from_source(source, TextMarkupFormat::Tex)
+  prepare_text_markup_from_source(source, Tex)
 }
 
 ///|
 pub fn prepare_rst_document_from_source(
   source : @input.InputSource,
 ) -> Result[PreparedTextMarkupDocument, String] {
-  prepare_text_markup_from_source(source, TextMarkupFormat::Rst)
+  prepare_text_markup_from_source(source, Rst)
 }
 
 ///|
 pub fn prepare_asciidoc_document_from_source(
   source : @input.InputSource,
 ) -> Result[PreparedTextMarkupDocument, String] {
-  prepare_text_markup_from_source(source, TextMarkupFormat::Asciidoc)
+  prepare_text_markup_from_source(source, Asciidoc)
 }
 
 ///|

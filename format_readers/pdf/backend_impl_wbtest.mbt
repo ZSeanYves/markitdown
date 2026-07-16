@@ -328,8 +328,8 @@ fn pdf_wbtest_unsupported_colorspace_image_pdf_bytes() -> Bytes {
 ///|
 fn pdf_wbtest_asset_payload_bytes(asset : @core.AssetRef) -> Bytes? {
   match asset.payload {
-    Some(@core.AssetPayload::Bytes(bytes)) => Some(bytes)
-    Some(@core.AssetPayload::Utf8(text)) => Some(@utf8.encode(text))
+    Some(Bytes(bytes)) => Some(bytes)
+    Some(Utf8(text)) => Some(@utf8.encode(text))
     _ => None
   }
 }
@@ -508,7 +508,7 @@ test "pdf native backend repeated extraction stays cache-free and artifact-neutr
   let source = @input.input_from_bytes_with_format(
     bytes,
     "cache-hit.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
 
   let first = match extract_pdf_native_document(source) {
@@ -539,7 +539,7 @@ test "pdf native backend extracts exportable image xobjects without empty text f
   let source = @input.input_from_bytes_with_format(
     pdf_wbtest_image_only_pdf_bytes(),
     "image-only.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
   let document = match extract_pdf_native_document(source) {
     Ok(value) => value
@@ -558,7 +558,7 @@ test "pdf native backend extracts exportable image xobjects without empty text f
           assert_true(asset.asset_id == "pdf:1")
           assert_true(asset.mime_type == Some("image/jpeg"))
           assert_true(asset.attrs.get("file_ext") == Some("jpg"))
-          assert_true(asset.payload is Some(@core.AssetPayload::Bytes(_)))
+          assert_true(asset.payload is Some(Bytes(_)))
         }
         None => fail("expected exportable image asset ref")
       }
@@ -571,7 +571,7 @@ test "pdf native backend normalizes decoded RGB pixels as PNG assets" {
   let source = @input.input_from_bytes_with_format(
     pdf_wbtest_rgb_pixels_image_pdf_bytes(),
     "rgb-pixels.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
   let document = extract_pdf_native_document(source).unwrap()
   match document.pages[0].image_candidates {
@@ -600,7 +600,7 @@ test "pdf native backend composes a matching soft mask into RGBA PNG" {
   let source = @input.input_from_bytes_with_format(
     pdf_wbtest_smask_image_pdf_bytes(),
     "smask-image.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
   let document = extract_pdf_native_document(source).unwrap()
   let asset = document.pages[0].image_candidates[0].asset_ref.unwrap()
@@ -615,7 +615,7 @@ test "pdf native backend composes a color-key mask into RGBA PNG" {
   let source = @input.input_from_bytes_with_format(
     pdf_wbtest_color_key_image_pdf_bytes(),
     "color-key-image.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
   let document = extract_pdf_native_document(source).unwrap()
   let asset = document.pages[0].image_candidates[0].asset_ref.unwrap()
@@ -628,7 +628,7 @@ test "pdf native backend normalizes decoded CMYK pixels into RGB PNG" {
   let source = @input.input_from_bytes_with_format(
     pdf_wbtest_cmyk_pixels_image_pdf_bytes(),
     "cmyk-pixels.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
   let document = extract_pdf_native_document(source).unwrap()
   let asset = document.pages[0].image_candidates[0].asset_ref.unwrap()
@@ -642,7 +642,7 @@ test "pdf native backend expands indexed palette pixels into RGB PNG" {
   let source = @input.input_from_bytes_with_format(
     pdf_wbtest_indexed_pixels_image_pdf_bytes(),
     "indexed-pixels.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
   let document = extract_pdf_native_document(source).unwrap()
   let asset = document.pages[0].image_candidates[0].asset_ref.unwrap()
@@ -656,7 +656,7 @@ test "pdf native backend resolves indirect Indexed ICCBased palette and soft mas
   let source = @input.input_from_bytes_with_format(
     pdf_wbtest_indirect_indexed_icc_smask_pdf_bytes(),
     "indirect-indexed-icc-smask.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
   let document = extract_pdf_native_document(source).unwrap()
   let asset = document.pages[0].image_candidates[0].asset_ref.unwrap()
@@ -689,7 +689,7 @@ test "pdf native backend diagnoses unsupported indirect image colorspaces withou
   let source = @input.input_from_bytes_with_format(
     pdf_wbtest_unsupported_colorspace_image_pdf_bytes(),
     "unsupported-colorspace.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
   let document = extract_pdf_native_document(source).unwrap()
   assert_true(document.pages[0].image_candidates[0].asset_ref is None)
@@ -727,40 +727,29 @@ test "pdf image colorspace resolver bounds indirect references and ICC fallbacks
       stream: None,
     })
     let resolved = pdf_resolve_image_color_space_value(
-      PdfNativeDictValue::Reference(7, 0),
+      Reference(7, 0),
       objects,
       0,
       [],
     )
     let matches = match (component_count, resolved) {
-      (1, Some(PdfResolvedImageColorSpace::Gray)) => true
-      (3, Some(PdfResolvedImageColorSpace::RGB)) => true
-      (4, Some(PdfResolvedImageColorSpace::CMYK)) => true
+      (1, Some(Gray)) => true
+      (3, Some(RGB)) => true
+      (4, Some(CMYK)) => true
       _ => false
     }
     assert_true(matches)
   }
   let missing : Map[Int, PdfNativeObject] = Map([])
   assert_true(
-    pdf_resolve_image_color_space_value(
-      PdfNativeDictValue::Reference(99, 0),
-      missing,
-      0,
-      [],
-    )
+    pdf_resolve_image_color_space_value(Reference(99, 0), missing, 0, [])
     is None,
   )
   let cycle : Map[Int, PdfNativeObject] = Map([])
   cycle.set(7, { object_id: 7, dict_text: "8 0 R", stream: None })
   cycle.set(8, { object_id: 8, dict_text: "7 0 R", stream: None })
   assert_true(
-    pdf_resolve_image_color_space_value(
-      PdfNativeDictValue::Reference(7, 0),
-      cycle,
-      0,
-      [],
-    )
-    is None,
+    pdf_resolve_image_color_space_value(Reference(7, 0), cycle, 0, []) is None,
   )
   let deep : Map[Int, PdfNativeObject] = Map([])
   for object_id in 1..<11 {
@@ -772,13 +761,7 @@ test "pdf image colorspace resolver bounds indirect references and ICC fallbacks
   }
   deep.set(11, { object_id: 11, dict_text: "/DeviceRGB", stream: None })
   assert_true(
-    pdf_resolve_image_color_space_value(
-      PdfNativeDictValue::Reference(1, 0),
-      deep,
-      0,
-      [],
-    )
-    is None,
+    pdf_resolve_image_color_space_value(Reference(1, 0), deep, 0, []) is None,
   )
   let truncated = {
     object_id: 1,
@@ -793,7 +776,7 @@ test "pdf native backend exports ccitt fax images as tracked tiff assets" {
   let source = @input.input_from_bytes_with_format(
     pdf_wbtest_ccitt_image_pdf_bytes(),
     "ccitt-image.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
   let document = match extract_pdf_native_document(source) {
     Ok(value) => value
@@ -838,7 +821,7 @@ test "pdf native backend preserves jpx images after prefix filter decode" {
   let source = @input.input_from_bytes_with_format(
     pdf_wbtest_jpx_image_pdf_bytes(),
     "jpx-image.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
   let document = match extract_pdf_native_document(source) {
     Ok(value) => value
@@ -872,7 +855,7 @@ test "pdf native backend preserves jbig2 globals and raw asset metadata" {
   let source = @input.input_from_bytes_with_format(
     pdf_wbtest_jbig2_image_pdf_bytes(),
     "jbig2-image.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
   let document = match extract_pdf_native_document(source) {
     Ok(value) => value
@@ -909,7 +892,7 @@ test "pdf native backend keeps vertical fragments in right-to-left top-down orde
   let source = @input.input_from_bytes_with_format(
     pdf_wbtest_tiny_pdf_bytes(),
     "vertical-order.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
   let geometry = make_pdf_page_geometry(1, 200.0, 200.0)
   let fragments : Array[PdfNativeTextFragment] = [
@@ -963,7 +946,7 @@ test "pdf native backend decodes euc-h raw text without tounicode" {
       content,
     ),
     "euc-h-noembed.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
   let document = match extract_pdf_native_document(source) {
     Ok(value) => value
@@ -989,7 +972,7 @@ test "pdf native backend decodes shift-jis raw text without tounicode" {
       content,
     ),
     "sjis-noembed.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
   let document = match extract_pdf_native_document(source) {
     Ok(value) => value
@@ -1034,7 +1017,7 @@ test "pdf native backend decodes inline type0 font resources" {
       ].join("\n"),
     ),
     "inline-type0-font.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
   let document = match extract_pdf_native_document(source) {
     Ok(value) => value
@@ -1059,7 +1042,7 @@ test "pdf native backend decodes raw gb text when chinese font names are hex esc
       content,
     ),
     "raw-gb-fontname.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
   let document = match extract_pdf_native_document(source) {
     Ok(value) => value
@@ -1182,7 +1165,7 @@ test "pdf native backend resolves tounicode usecmap builtin parents" {
       ],
     ),
     "tounicode-usecmap.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
   let document = match extract_pdf_native_document(source) {
     Ok(value) => value
@@ -1224,7 +1207,7 @@ test "pdf native backend applies simple font encoding differences" {
       "BT /F1 24 Tf 72 160 Td <4142> Tj ET",
     ),
     "differences-simple-font.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
   let document = match extract_pdf_native_document(source) {
     Ok(value) => value
@@ -1254,7 +1237,7 @@ test "pdf native backend decodes ETen-B5 CID fonts without tounicode" {
       "BT /F1 24 Tf 72 160 Td <A440A441A442> Tj ET",
     ),
     "eten-b5-no-tounicode.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
   let document = match extract_pdf_native_document(source) {
     Ok(value) => value
@@ -1478,7 +1461,7 @@ test "pdf native backend reads xref stream documents without scan fallback" {
       6,
     ),
     "xref-stream.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
   let document = match extract_pdf_native_document(source) {
     Ok(value) => value
@@ -1524,7 +1507,7 @@ test "pdf cursor fallback and read failures stay controlled" {
       @input.input_from_reader_with_format(
         unknown_size_reader,
         "fallback.pdf",
-        Some(@input.DetectedFormat::Pdf),
+        Some(Pdf),
       ),
     ) {
     Ok(value) => value
@@ -1543,7 +1526,7 @@ test "pdf cursor fallback and read failures stay controlled" {
     @input.input_from_reader_with_format(
       failing_reader,
       "failed.pdf",
-      Some(@input.DetectedFormat::Pdf),
+      Some(Pdf),
     ),
   )
   assert_true(failed is Err(_))
@@ -1592,7 +1575,7 @@ test "pdf native backend expands object streams referenced from xref streams" {
       ],
     ),
     "xref-stream-objstm.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
   let document = match extract_pdf_native_document(source) {
     Ok(value) => value
@@ -1631,7 +1614,7 @@ test "pdf native backend malformed input stays fail closed" {
   let source = @input.input_from_bytes_with_format(
     @utf8.encode("not-a-pdf"),
     "broken.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
   match extract_pdf_native_document(source) {
     Err(err) => assert_true(err.to_string() != "")
@@ -1643,22 +1626,21 @@ test "pdf native backend malformed input stays fail closed" {
 test "pdf native backend errors input kinds and ligatures remain diagnostic" {
   let errors = [
     PdfNativeError::BackendUnavailable("backend unavailable"),
-    PdfNativeError::ReadFailed("read failed"),
-    PdfNativeError::ParseFailed("parse failed"),
-    PdfNativeError::EncryptedUnsupported("encrypted"),
-    PdfNativeError::EmptyTextLayer("empty"),
-    PdfNativeError::UnsupportedFeature("unsupported"),
+    ReadFailed("read failed"),
+    ParseFailed("parse failed"),
+    EncryptedUnsupported("encrypted"),
+    EmptyTextLayer("empty"),
+    UnsupportedFeature("unsupported"),
   ]
   assert_true(errors.all(error => error.to_string() != ""))
-  assert_eq(pdf_native_input_kind_name(@input.InputKind::Text), "text")
-  assert_eq(pdf_native_input_kind_name(@input.InputKind::Bytes), "bytes")
-  assert_eq(pdf_native_input_kind_name(@input.InputKind::Path), "path")
+  assert_eq(pdf_native_input_kind_name(Text), "text")
+  assert_eq(pdf_native_input_kind_name(Bytes), "bytes")
+  assert_eq(pdf_native_input_kind_name(Path), "path")
   match
     extract_pdf_native_document(
       @input.input_from_path("/definitely/missing/pdf-contract.pdf"),
     ) {
-    Err(PdfNativeError::ReadFailed(message)) =>
-      assert_true(message.contains("missing"))
+    Err(ReadFailed(message)) => assert_true(message.contains("missing"))
     _ => fail("missing path must return ReadFailed")
   }
   match
@@ -1749,8 +1731,7 @@ test "pdf stream slicing covers absent malformed newline and length variants" {
     _ => fail("non-stream object must stay absent")
   }
   match pdf_extract_stream_slice(@utf8.encode("<< >> stream\npayload")) {
-    Err(PdfNativeError::ParseFailed(message)) =>
-      assert_true(message.contains("endstream"))
+    Err(ParseFailed(message)) => assert_true(message.contains("endstream"))
     _ => fail("unterminated stream must fail closed")
   }
   let cases = [
@@ -1795,7 +1776,7 @@ test "pdf classic xref parser covers valid free and malformed sections" {
   ]
   for input in malformed {
     match pdf_parse_classic_xref_section(@utf8.encode(input), input, 0) {
-      Err(PdfNativeError::ParseFailed(message)) => assert_true(message != "")
+      Err(ParseFailed(message)) => assert_true(message != "")
       _ => fail("malformed classic xref must fail closed")
     }
   }
@@ -1812,12 +1793,11 @@ test "pdf indirect object parser covers plain stream mismatch and truncation" {
     Err(error) => fail("plain indirect object failed: " + error.to_string())
   }
   match pdf_parse_indirect_object_at(@utf8.encode("bad"), 0) {
-    Err(PdfNativeError::ParseFailed(message)) => assert_true(message != "")
+    Err(ParseFailed(message)) => assert_true(message != "")
     _ => fail("invalid indirect header must fail closed")
   }
   match pdf_parse_indirect_object_at(@utf8.encode("7 0 obj\n<< >>"), 0) {
-    Err(PdfNativeError::ParseFailed(message)) =>
-      assert_true(message.contains("7"))
+    Err(ParseFailed(message)) => assert_true(message.contains("7"))
     _ => fail("unterminated indirect object must fail closed")
   }
 }
@@ -1826,22 +1806,16 @@ test "pdf indirect object parser covers plain stream mismatch and truncation" {
 test "pdf raw CJK decode covers ASCII invalid bytes confidence and dispatch" {
   let ascii = pdf_decode_raw_cjk_bytes(
     ['A'.to_int(), '\t'.to_int(), '\n'.to_int(), '\r'.to_int(), 0x1F],
-    PdfRawCjkEncodingKind::EucJp,
+    EucJp,
   )
   assert_eq(ascii.text, "A\t\n\r")
   assert_eq(ascii.invalid_byte_count, 1)
   assert_true(!ascii.has_high_bytes)
-  let trailing = pdf_decode_raw_cjk_bytes([0xA4], PdfRawCjkEncodingKind::EucJp)
+  let trailing = pdf_decode_raw_cjk_bytes([0xA4], EucJp)
   assert_true(trailing.has_high_bytes && trailing.invalid_byte_count == 1)
-  let invalid_pair = pdf_decode_raw_cjk_bytes(
-    [0xFF, 0xFF],
-    PdfRawCjkEncodingKind::ShiftJis,
-  )
+  let invalid_pair = pdf_decode_raw_cjk_bytes([0xFF, 0xFF], ShiftJis)
   assert_eq(invalid_pair.invalid_byte_count, 2)
-  let hiragana = pdf_decode_raw_cjk_bytes(
-    [0xA4, 0xA2],
-    PdfRawCjkEncodingKind::EucJp,
-  )
+  let hiragana = pdf_decode_raw_cjk_bytes([0xA4, 0xA2], EucJp)
   assert_true(hiragana.text == "あ" && hiragana.decoded_cjk_count == 1)
   assert_true(pdf_raw_cjk_decode_result_is_confident(hiragana))
   assert_true(pdf_raw_cjk_decode_result_is_confident_gb2312(hiragana))
@@ -1851,25 +1825,11 @@ test "pdf raw CJK decode covers ASCII invalid bytes confidence and dispatch" {
       invalid_byte_count: 1,
     }),
   )
-  assert_true(
-    pdf_raw_cjk_bytes_need_decode(
-      ['A'.to_int(), 0xA4, 0xA2],
-      PdfRawCjkEncodingKind::EucJp,
-    ),
-  )
-  assert_true(
-    !pdf_raw_cjk_bytes_need_decode(['A'.to_int()], PdfRawCjkEncodingKind::EucJp),
-  )
-  assert_true(
-    !pdf_raw_cjk_bytes_need_decode([0xA4], PdfRawCjkEncodingKind::EucJp),
-  )
-  assert_true(
-    !pdf_raw_cjk_bytes_need_decode([0xFF, 0xFF], PdfRawCjkEncodingKind::EucJp),
-  )
-  assert_true(
-    pdf_raw_cjk_lookup_codepoint(PdfRawCjkEncodingKind::Gb2312, 0xD6, 0xD0) ==
-    Some(0x4E2D),
-  )
+  assert_true(pdf_raw_cjk_bytes_need_decode(['A'.to_int(), 0xA4, 0xA2], EucJp))
+  assert_true(!pdf_raw_cjk_bytes_need_decode(['A'.to_int()], EucJp))
+  assert_true(!pdf_raw_cjk_bytes_need_decode([0xA4], EucJp))
+  assert_true(!pdf_raw_cjk_bytes_need_decode([0xFF, 0xFF], EucJp))
+  assert_true(pdf_raw_cjk_lookup_codepoint(Gb2312, 0xD6, 0xD0) == Some(0x4E2D))
 }
 
 ///|

@@ -13,7 +13,7 @@ fn html_child_text_end_tag(
   if tag == "p" {
     match state.current {
       Some(current) =>
-        if current.kind == @core.BlockKind::BlockQuote {
+        if current.kind == BlockQuote {
           current.line_end = event.span.line_end
           current.byte_end = event.span.byte_end
           return
@@ -73,7 +73,7 @@ fn html_child_text_end_tag_fields(
   if tag == "p" {
     match state.current {
       Some(current) =>
-        if current.kind == @core.BlockKind::BlockQuote {
+        if current.kind == BlockQuote {
           current.line_end = line_end
           current.byte_end = byte_end
           return
@@ -323,23 +323,22 @@ fn html_child_text_append_text(
   let raw = html_scope_event_text(text_chars, event)
   match state.current {
     Some(current) => {
-      let leading_space = current.kind != @core.BlockKind::Code &&
+      let leading_space = current.kind != Code &&
         html_text_has_leading_space_like(raw)
-      let text = if current.kind == @core.BlockKind::Code {
+      let text = if current.kind == Code {
         raw
       } else {
         html_compact_token_text(raw)
       }
       if text == "" {
-        if current.kind != @core.BlockKind::Code &&
-          current.inline_state.has_content {
+        if current.kind != Code && current.inline_state.has_content {
           current.inline_state.pending_space = true
         }
         return
       }
       current.line_end = event.span.line_end
       if state.link_depth > 0 {
-        let normalized = if current.kind != @core.BlockKind::Code &&
+        let normalized = if current.kind != Code &&
           state.link_has_content &&
           (state.link_pending_space || leading_space) {
           " " + text
@@ -348,11 +347,11 @@ fn html_child_text_append_text(
         }
         state.link_text.write_string(normalized)
         state.link_line_end = event.span.line_end
-        state.link_pending_space = current.kind != @core.BlockKind::Code &&
+        state.link_pending_space = current.kind != Code &&
           html_text_has_trailing_space_like(raw)
         state.link_has_content = true
       } else {
-        let normalized = if current.kind != @core.BlockKind::Code &&
+        let normalized = if current.kind != Code &&
           current.inline_state.has_content &&
           (current.inline_state.pending_space || leading_space) {
           " " + text
@@ -365,8 +364,7 @@ fn html_child_text_append_text(
           event.span.line_start,
           event.span.line_end,
         )
-        current.inline_state.pending_space = current.kind !=
-          @core.BlockKind::Code &&
+        current.inline_state.pending_space = current.kind != Code &&
           html_text_has_trailing_space_like(raw)
       }
       current.inline_state.has_content = true
@@ -384,23 +382,22 @@ fn html_child_text_append_text_value(
 ) -> Unit {
   match state.current {
     Some(current) => {
-      let leading_space = current.kind != @core.BlockKind::Code &&
+      let leading_space = current.kind != Code &&
         html_text_has_leading_space_like(raw)
-      let text = if current.kind == @core.BlockKind::Code {
+      let text = if current.kind == Code {
         raw
       } else {
         html_compact_token_text(raw)
       }
       if text == "" {
-        if current.kind != @core.BlockKind::Code &&
-          current.inline_state.has_content {
+        if current.kind != Code && current.inline_state.has_content {
           current.inline_state.pending_space = true
         }
         return
       }
       current.line_end = line_end
       if state.link_depth > 0 {
-        let normalized = if current.kind != @core.BlockKind::Code &&
+        let normalized = if current.kind != Code &&
           state.link_has_content &&
           (state.link_pending_space || leading_space) {
           " " + text
@@ -409,11 +406,11 @@ fn html_child_text_append_text_value(
         }
         state.link_text.write_string(normalized)
         state.link_line_end = line_end
-        state.link_pending_space = current.kind != @core.BlockKind::Code &&
+        state.link_pending_space = current.kind != Code &&
           html_text_has_trailing_space_like(raw)
         state.link_has_content = true
       } else {
-        let normalized = if current.kind != @core.BlockKind::Code &&
+        let normalized = if current.kind != Code &&
           current.inline_state.has_content &&
           (current.inline_state.pending_space || leading_space) {
           " " + text
@@ -426,8 +423,7 @@ fn html_child_text_append_text_value(
           line_start,
           line_end,
         )
-        current.inline_state.pending_space = current.kind !=
-          @core.BlockKind::Code &&
+        current.inline_state.pending_space = current.kind != Code &&
           html_text_has_trailing_space_like(raw)
       }
       current.inline_state.has_content = true
@@ -468,7 +464,7 @@ fn html_child_text_flush_block(
           byte_start=current.byte_start,
           byte_end=current.byte_end,
         )
-        if current.kind == @core.BlockKind::Heading {
+        if current.kind == Heading {
           block.attrs.set("level", current.level.to_string())
           let rendered_block = if state.compact_provenance {
             @core.block_with_literal_rendering(
@@ -500,7 +496,7 @@ fn html_child_text_flush_block(
           } else {
             html_child_text_push_block(state, rendered_block)
           }
-        } else if current.kind == @core.BlockKind::Code {
+        } else if current.kind == Code {
           block.attrs.set("info", current.info)
           html_child_text_push_block(state, block)
         } else {
@@ -544,7 +540,7 @@ fn html_child_text_requires_rich_inlines(
 ) -> Bool {
   for inline in inlines {
     match inline.kind {
-      @core.InlineKind::Link | @core.InlineKind::LineBreak => return true
+      Link | LineBreak => return true
       _ => ()
     }
   }
@@ -598,7 +594,7 @@ fn html_child_text_list_item_block(
   let item = html_child_text_make_block(
     state,
     source,
-    @core.BlockKind::ListItem,
+    ListItem,
     text,
     frame.start_line,
     end_line,
@@ -647,16 +643,16 @@ fn html_child_text_list_item_body_parts(
   let mut rich : Array[@core.CoreInline]? = None
   let mut root_taken = false
   for block in body_blocks {
-    if block.kind == @core.BlockKind::List {
+    if block.kind == List {
       nested_lists.push(block)
       continue
     }
     if !root_taken &&
       (
-        block.kind == @core.BlockKind::Paragraph ||
-        block.kind == @core.BlockKind::Heading ||
-        block.kind == @core.BlockKind::BlockQuote ||
-        block.kind == @core.BlockKind::Code
+        block.kind == Paragraph ||
+        block.kind == Heading ||
+        block.kind == BlockQuote ||
+        block.kind == Code
       ) {
       root_text = block.text
       rendered_markdown = @core.block_rendered_markdown(block)
@@ -704,7 +700,7 @@ fn html_child_text_close_list(
   let list = html_child_text_make_block(
     state,
     source,
-    @core.BlockKind::List,
+    List,
     "",
     frame.start_line,
     end_line,
@@ -765,7 +761,7 @@ fn html_child_hr_block(
   let block = html_child_text_make_block(
     state,
     source,
-    @core.BlockKind::Raw,
+    Raw,
     "---",
     event.span.line_start,
     event.span.line_end,
@@ -790,7 +786,7 @@ fn html_child_hr_block_fields(
   let block = html_child_text_make_block(
     state,
     source,
-    @core.BlockKind::Raw,
+    Raw,
     "---",
     line_start,
     line_end,
@@ -836,18 +832,18 @@ fn html_child_text_append_image(
     byte_start=event.span.byte_start,
     byte_end=event.span.byte_end,
   )
-  if kind == @dhtml.HtmlImageKind::Remote {
+  if kind == Remote {
     state.diagnostics.degraded_features.push("html_remote_image_reference_only")
     return
   }
-  if kind == @dhtml.HtmlImageKind::DataUri {
+  if kind == DataUri {
     state.diagnostics.degraded_features.push("html_data_image_reference_only")
     return
   }
-  if kind == @dhtml.HtmlImageKind::Local {
+  if kind == Local {
     match html_child_local_image_asset(state, source_ref, src, alt) {
       Some(asset) => {
-        let image = @core.make_block(@core.BlockKind::Image, "", source_ref~)
+        let image = @core.make_block(Image, "", source_ref~)
         image.attrs.set("alt", alt)
         image.attrs.set("path", asset.path.unwrap_or("#"))
         image.attrs.set("asset_id", asset.asset_id)
@@ -859,7 +855,7 @@ fn html_child_text_append_image(
       }
       None => {
         let paragraph = @core.make_block(
-          @core.BlockKind::Paragraph,
+          Paragraph,
           html_image_placeholder_text(kind, alt),
           source_ref~,
         )
@@ -871,7 +867,7 @@ fn html_child_text_append_image(
     return
   }
   let paragraph = @core.make_block(
-    @core.BlockKind::Paragraph,
+    Paragraph,
     html_image_placeholder_text(kind, alt),
     source_ref~,
   )
@@ -894,7 +890,7 @@ fn html_child_text_append_image_fields(
     state,
     source,
     @dhtml.make_html_token_event(
-      @dhtml.HtmlTokenEventKind::StartTag,
+      StartTag,
       "img",
       attributes,
       true,
@@ -912,24 +908,24 @@ fn html_child_text_append_image_fields(
 fn html_child_image_kind(src : String) -> @dhtml.HtmlImageKind {
   let trimmed = src.trim().to_owned()
   if trimmed == "" {
-    return @dhtml.HtmlImageKind::Empty
+    return Empty
   }
   let lower = trimmed.to_lower()
   if lower.has_prefix("javascript:") || lower.has_prefix("vbscript:") {
-    return @dhtml.HtmlImageKind::Unsafe
+    return Unsafe
   }
   if lower.has_prefix("data:") {
-    return @dhtml.HtmlImageKind::DataUri
+    return DataUri
   }
   if lower.has_prefix("http://") ||
     lower.has_prefix("https://") ||
     lower.has_prefix("//") {
-    return @dhtml.HtmlImageKind::Remote
+    return Remote
   }
   if lower.has_prefix("/") {
-    return @dhtml.HtmlImageKind::Unknown
+    return Unknown
   }
-  @dhtml.HtmlImageKind::Local
+  Local
 }
 
 ///|
@@ -944,17 +940,13 @@ fn html_child_local_image_asset(
     return None
   }
   for existing in state.lowering_state.assets {
-    if existing.payload == Some(@core.AssetPayload::SourcePath(normalized_src)) {
+    if existing.payload == Some(SourcePath(normalized_src)) {
       return Some(existing)
     }
   }
   let asset_index = state.lowering_state.assets.length() + 1
   let asset_id = "html-image-" + asset_index.to_string()
-  let asset = @core.make_asset_ref(
-    @core.AssetKind::Image,
-    asset_id,
-    source_ref~,
-  )
+  let asset = @core.make_asset_ref(Image, asset_id, source_ref~)
   let next_asset = {
     ..asset,
     path: Some(
@@ -964,7 +956,7 @@ fn html_child_local_image_asset(
       html_image_ext_from_src(normalized_src),
     ),
   }
-  next_asset.payload = Some(@core.AssetPayload::SourcePath(normalized_src))
+  next_asset.payload = Some(SourcePath(normalized_src))
   next_asset.attrs.set("alt", alt)
   state.lowering_state.assets.push(next_asset)
   Some(next_asset)

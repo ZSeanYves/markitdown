@@ -4,10 +4,10 @@ pub fn parse_docx_source_from_package(
 ) -> DocxSourceDocument raise DocxError {
   let main_part = locate_docx_main_document_part(pkg)
   let xml = @ox.read_part_text(pkg, main_part) catch {
-    e => raise DocxError::OoxmlFailure(e.to_string())
+    e => raise OoxmlFailure(e.to_string())
   }
   let relationships = @ox.read_part_relationships(pkg, main_part) catch {
-    e => raise DocxError::OoxmlFailure(e.to_string())
+    e => raise OoxmlFailure(e.to_string())
   }
   let metadata = parse_docx_document_metadata(pkg)
   let warnings : Array[DocxSourceWarning] = []
@@ -50,13 +50,13 @@ pub fn parse_docx_source_from_package(
     footnotes: parse_docx_notes_from_part_graph(
       pkg,
       part_graph,
-      DocxNoteKind::Footnote,
+      Footnote,
       warnings,
     ),
     endnotes: parse_docx_notes_from_part_graph(
       pkg,
       part_graph,
-      DocxNoteKind::Endnote,
+      Endnote,
       warnings,
     ),
     comments: parse_docx_comments_from_part_graph(pkg, part_graph, warnings),
@@ -64,14 +64,14 @@ pub fn parse_docx_source_from_package(
       pkg,
       xml,
       relationships,
-      DocxPartBodyKind::Header,
+      Header,
       warnings,
     ),
     footers: parse_docx_part_bodies_from_relationships(
       pkg,
       xml,
       relationships,
-      DocxPartBodyKind::Footer,
+      Footer,
       warnings,
     ),
     textboxes,

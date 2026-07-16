@@ -85,7 +85,7 @@ priv struct TomlInspectStats {
 ///|
 fn inspect_toml_value(value : TomlValue, depth : Int) -> TomlInspectStats {
   match value {
-    TomlValue::Table(members) | TomlValue::InlineTable(members) => {
+    Table(members) | InlineTable(members) => {
       let mut node_count = 1
       let mut scalar_count = 0
       let mut array_count = 0
@@ -103,7 +103,7 @@ fn inspect_toml_value(value : TomlValue, depth : Int) -> TomlInspectStats {
       }
       { node_count, scalar_count, array_count, table_like_count, max_depth }
     }
-    TomlValue::Array(values) => {
+    Array(values) => {
       let mut node_count = 1
       let mut scalar_count = 0
       let mut array_count = 1
@@ -121,11 +121,7 @@ fn inspect_toml_value(value : TomlValue, depth : Int) -> TomlInspectStats {
       }
       { node_count, scalar_count, array_count, table_like_count, max_depth }
     }
-    TomlValue::String(_)
-    | TomlValue::Integer(_)
-    | TomlValue::Float(_)
-    | TomlValue::Bool(_)
-    | TomlValue::Datetime(_) =>
+    String(_) | Integer(_) | Float(_) | Bool(_) | Datetime(_) =>
       {
         node_count: 1,
         scalar_count: 1,

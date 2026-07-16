@@ -62,7 +62,7 @@ pub struct PdfRasterResult {
 /// Stable diagnostics/provenance label for one raster backend kind.
 pub fn pdf_rasterizer_kind_name(kind : PdfRasterizerKind) -> String {
   match kind {
-    PdfRasterizerKind::PdfToPpm => "pdftoppm"
+    PdfToPpm => "pdftoppm"
   }
 }
 
@@ -70,10 +70,10 @@ pub fn pdf_rasterizer_kind_name(kind : PdfRasterizerKind) -> String {
 /// Stable diagnostics/provenance label for one raster status.
 pub fn pdf_rasterizer_status_name(status : PdfRasterizerStatus) -> String {
   match status {
-    PdfRasterizerStatus::CommandUnavailable => "command_unavailable"
-    PdfRasterizerStatus::ExecutionFailed => "execution_failed"
-    PdfRasterizerStatus::OutputParseFailed => "output_parse_failed"
-    PdfRasterizerStatus::EmptyResult => "empty_result"
+    CommandUnavailable => "command_unavailable"
+    ExecutionFailed => "execution_failed"
+    OutputParseFailed => "output_parse_failed"
+    EmptyResult => "empty_result"
   }
 }
 
@@ -83,13 +83,10 @@ pub fn pdf_rasterizer_error_status(
   error : PdfRasterizerError,
 ) -> PdfRasterizerStatus {
   match error {
-    PdfRasterizerError::CommandUnavailable(_) =>
-      PdfRasterizerStatus::CommandUnavailable
-    PdfRasterizerError::ExecutionFailed(_) =>
-      PdfRasterizerStatus::ExecutionFailed
-    PdfRasterizerError::OutputParseFailed(_) =>
-      PdfRasterizerStatus::OutputParseFailed
-    PdfRasterizerError::EmptyResult(_) => PdfRasterizerStatus::EmptyResult
+    CommandUnavailable(_) => CommandUnavailable
+    ExecutionFailed(_) => ExecutionFailed
+    OutputParseFailed(_) => OutputParseFailed
+    EmptyResult(_) => EmptyResult
   }
 }
 
@@ -142,9 +139,9 @@ pub fn pdftoppm_command_env_var() -> String {
 /// layout.
 pub fn pdf_ocr_layout_capability() -> @parser.ParserCapability {
   @parser.make_parser_capability(
-    @parser.ParserMode::LayoutTwoStage,
+    LayoutTwoStage,
     false,
-    @parser.StreamingGranularity::Page,
+    Page,
     true,
     false,
     false,
@@ -279,7 +276,7 @@ fn pdf_ocr_materialize_source_path(
         Ok(payload) => payload
         Err(err) =>
           return Err(
-            PdfRasterizerError::ExecutionFailed(
+            ExecutionFailed(
               "failed to read PDF bytes for OCR rasterization: " + err,
             ),
           )
@@ -288,7 +285,7 @@ fn pdf_ocr_materialize_source_path(
       @fs.write_bytes_to_file(pdf_path, bytes) catch {
         e =>
           return Err(
-            PdfRasterizerError::ExecutionFailed(
+            ExecutionFailed(
               "failed to materialize PDF bytes for OCR rasterization: " +
               e.to_string(),
             ),
@@ -317,13 +314,9 @@ fn resolve_pdftoppm_command() -> Result[
   match @rtcmd.normalized_env_var(pdftoppm_command_env_var()) {
     Some(path) =>
       match
-        @rtcmd.resolve_executable_path(
-          path,
-          pdftoppm_command_env_var(),
-          @rtcmd.ResolvedCommandSource::EnvVar,
-        ) {
+        @rtcmd.resolve_executable_path(path, pdftoppm_command_env_var(), EnvVar) {
         Ok(command) => return Ok(command)
-        Err(msg) => return Err(PdfRasterizerError::CommandUnavailable(msg))
+        Err(msg) => return Err(CommandUnavailable(msg))
       }
     None => ()
   }
@@ -390,24 +383,16 @@ async fn collect_pdftoppm_output_async_resolved(
   match @rtcmd.run_resolved_command_async(command, args) {
     Ok(output) => {
       if output.timed_out {
-        return Err(
-          PdfRasterizerError::ExecutionFailed(
-            "pdftoppm timed out after 300000 ms",
-          ),
-        )
+        return Err(ExecutionFailed("pdftoppm timed out after 300000 ms"))
       }
       if output.stdout_limit_exceeded || output.stderr_limit_exceeded {
-        return Err(
-          PdfRasterizerError::ExecutionFailed(
-            "pdftoppm output exceeded 8 MiB limit",
-          ),
-        )
+        return Err(ExecutionFailed("pdftoppm output exceeded 8 MiB limit"))
       }
       Ok((output.exit_code, output.stdout, output.stderr))
     }
     Err(message) =>
       Err(
-        PdfRasterizerError::ExecutionFailed(
+        ExecutionFailed(
           "launch pdftoppm failed on this runtime: " +
           message +
           "\nResolved command: " +
@@ -425,24 +410,16 @@ fn collect_pdftoppm_output_bounded(
   match @rtcmd.run_resolved_command(command, args) {
     Ok(output) => {
       if output.timed_out {
-        return Err(
-          PdfRasterizerError::ExecutionFailed(
-            "pdftoppm timed out after 300000 ms",
-          ),
-        )
+        return Err(ExecutionFailed("pdftoppm timed out after 300000 ms"))
       }
       if output.stdout_limit_exceeded || output.stderr_limit_exceeded {
-        return Err(
-          PdfRasterizerError::ExecutionFailed(
-            "pdftoppm output exceeded 8 MiB limit",
-          ),
-        )
+        return Err(ExecutionFailed("pdftoppm output exceeded 8 MiB limit"))
       }
       Ok((output.exit_code, output.stdout, output.stderr))
     }
     Err(message) =>
       Err(
-        PdfRasterizerError::ExecutionFailed(
+        ExecutionFailed(
           "launch pdftoppm failed on this runtime: " +
           message +
           "\nResolved command: " +
@@ -458,11 +435,7 @@ pub async fn collect_pdftoppm_output_async(
   args : Array[String],
 ) -> Result[(Int, String, String), PdfRasterizerError] {
   collect_pdftoppm_output_async_resolved(
-    @rtcmd.make_resolved_command(
-      cmd,
-      cmd,
-      @rtcmd.ResolvedCommandSource::Fallback,
-    ),
+    @rtcmd.make_resolved_command(cmd, cmd, Fallback),
     args,
   )
 }
@@ -477,9 +450,7 @@ fn finalize_pdftoppm_result(
     (0, stdout, stderr) => {
       if paths.length() == 0 {
         return Err(
-          PdfRasterizerError::EmptyResult(
-            "pdftoppm produced no page images on this runtime.",
-          ),
+          EmptyResult("pdftoppm produced no page images on this runtime."),
         )
       }
       let pages : Array[PdfRasterPageArtifact] = []
@@ -527,7 +498,7 @@ fn finalize_pdftoppm_result(
         lowered.contains("not found") ||
         lowered.contains("no such file") {
         Err(
-          PdfRasterizerError::CommandUnavailable(
+          CommandUnavailable(
             "pdftoppm command is unavailable on this runtime: " +
             raw_message +
             "\nResolved command: " +
@@ -536,7 +507,7 @@ fn finalize_pdftoppm_result(
         )
       } else {
         Err(
-          PdfRasterizerError::ExecutionFailed(
+          ExecutionFailed(
             "pdftoppm command failed on this runtime: " +
             raw_message +
             "\nResolved command: " +
@@ -581,9 +552,7 @@ pub fn rasterize_pdf_with_pdftoppm(
   pdf_ocr_ensure_dir_tree(temp_dir) catch {
     e =>
       return Err(
-        PdfRasterizerError::ExecutionFailed(
-          "failed to create PDF OCR temp dir: " + e.to_string(),
-        ),
+        ExecutionFailed("failed to create PDF OCR temp dir: " + e.to_string()),
       )
   }
   let pdf_path = match pdf_ocr_materialize_source_path(source, temp_dir) {
@@ -598,9 +567,7 @@ pub fn rasterize_pdf_with_pdftoppm(
     e => {
       pdf_ocr_cleanup_temp_dir(temp_dir)
       return Err(
-        PdfRasterizerError::ExecutionFailed(
-          "failed to create PDF OCR raster dir: " + e.to_string(),
-        ),
+        ExecutionFailed("failed to create PDF OCR raster dir: " + e.to_string()),
       )
     }
   }
@@ -625,7 +592,7 @@ pub fn rasterize_pdf_with_pdftoppm(
         e => {
           pdf_ocr_cleanup_temp_dir(temp_dir)
           return Err(
-            PdfRasterizerError::OutputParseFailed(
+            OutputParseFailed(
               "failed to enumerate pdftoppm output pages on this runtime: " +
               e.to_string(),
             ),
@@ -670,9 +637,7 @@ pub fn rasterize_pdf_with_pdftoppm_default(
   pdf_ocr_ensure_dir_tree(temp_dir) catch {
     e =>
       return Err(
-        PdfRasterizerError::ExecutionFailed(
-          "failed to create PDF OCR temp dir: " + e.to_string(),
-        ),
+        ExecutionFailed("failed to create PDF OCR temp dir: " + e.to_string()),
       )
   }
   let pdf_path = match pdf_ocr_materialize_source_path(source, temp_dir) {
@@ -687,9 +652,7 @@ pub fn rasterize_pdf_with_pdftoppm_default(
     e => {
       pdf_ocr_cleanup_temp_dir(temp_dir)
       return Err(
-        PdfRasterizerError::ExecutionFailed(
-          "failed to create PDF OCR raster dir: " + e.to_string(),
-        ),
+        ExecutionFailed("failed to create PDF OCR raster dir: " + e.to_string()),
       )
     }
   }
@@ -714,7 +677,7 @@ pub fn rasterize_pdf_with_pdftoppm_default(
         e => {
           pdf_ocr_cleanup_temp_dir(temp_dir)
           return Err(
-            PdfRasterizerError::OutputParseFailed(
+            OutputParseFailed(
               "failed to enumerate pdftoppm output pages on this runtime: " +
               e.to_string(),
             ),
@@ -763,9 +726,7 @@ pub async fn rasterize_pdf_with_pdftoppm_async(
   pdf_ocr_ensure_dir_tree(temp_dir) catch {
     e =>
       return Err(
-        PdfRasterizerError::ExecutionFailed(
-          "failed to create PDF OCR temp dir: " + e.to_string(),
-        ),
+        ExecutionFailed("failed to create PDF OCR temp dir: " + e.to_string()),
       )
   }
   let pdf_path = match pdf_ocr_materialize_source_path(source, temp_dir) {
@@ -780,9 +741,7 @@ pub async fn rasterize_pdf_with_pdftoppm_async(
     e => {
       pdf_ocr_cleanup_temp_dir(temp_dir)
       return Err(
-        PdfRasterizerError::ExecutionFailed(
-          "failed to create PDF OCR raster dir: " + e.to_string(),
-        ),
+        ExecutionFailed("failed to create PDF OCR raster dir: " + e.to_string()),
       )
     }
   }
@@ -807,7 +766,7 @@ pub async fn rasterize_pdf_with_pdftoppm_async(
         e => {
           pdf_ocr_cleanup_temp_dir(temp_dir)
           return Err(
-            PdfRasterizerError::OutputParseFailed(
+            OutputParseFailed(
               "failed to enumerate pdftoppm output pages on this runtime: " +
               e.to_string(),
             ),
@@ -852,9 +811,7 @@ pub async fn rasterize_pdf_with_pdftoppm_default_async(
   pdf_ocr_ensure_dir_tree(temp_dir) catch {
     e =>
       return Err(
-        PdfRasterizerError::ExecutionFailed(
-          "failed to create PDF OCR temp dir: " + e.to_string(),
-        ),
+        ExecutionFailed("failed to create PDF OCR temp dir: " + e.to_string()),
       )
   }
   let pdf_path = match pdf_ocr_materialize_source_path(source, temp_dir) {
@@ -869,9 +826,7 @@ pub async fn rasterize_pdf_with_pdftoppm_default_async(
     e => {
       pdf_ocr_cleanup_temp_dir(temp_dir)
       return Err(
-        PdfRasterizerError::ExecutionFailed(
-          "failed to create PDF OCR raster dir: " + e.to_string(),
-        ),
+        ExecutionFailed("failed to create PDF OCR raster dir: " + e.to_string()),
       )
     }
   }
@@ -897,7 +852,7 @@ pub async fn rasterize_pdf_with_pdftoppm_default_async(
         e => {
           pdf_ocr_cleanup_temp_dir(temp_dir)
           return Err(
-            PdfRasterizerError::OutputParseFailed(
+            OutputParseFailed(
               "failed to enumerate pdftoppm output pages on this runtime: " +
               e.to_string(),
             ),

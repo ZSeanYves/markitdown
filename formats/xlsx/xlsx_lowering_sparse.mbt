@@ -6,18 +6,14 @@ fn xlsx_append_sparse_sheet_view_blocks(
 ) -> Unit {
   let heading_ref = xlsx_sheet_heading_source_ref_view(source_name, sheet)
   let heading = xlsx_trim_lowered_block_text(
-    @core.make_block(
-      @core.BlockKind::Heading,
-      sheet.sheet_name,
-      source_ref=heading_ref,
-    ),
+    @core.make_block(Heading, sheet.sheet_name, source_ref=heading_ref),
   )
   heading.attrs.set("level", "2")
   blocks.push(heading)
 
   if sheet.is_empty {
     let raw = @core.make_block(
-      @core.BlockKind::Raw,
+      Raw,
       "(empty sheet)",
       source_ref=xlsx_sheet_table_source_ref_view(source_name, sheet),
     )
@@ -27,7 +23,7 @@ fn xlsx_append_sparse_sheet_view_blocks(
   }
 
   let table = @core.make_block(
-    @core.BlockKind::Table,
+    Table,
     "table",
     source_ref=xlsx_sheet_table_source_ref_view(source_name, sheet),
   )
@@ -50,7 +46,7 @@ fn xlsx_append_sparse_sheet_view_blocks(
       continue
     }
     let row_block = @core.make_block(
-      @core.BlockKind::TableRow,
+      TableRow,
       "",
       source_ref=@core.source_ref_with_extra(
         table_ref,
@@ -72,16 +68,9 @@ fn xlsx_append_sparse_sheet_view_blocks(
       let source_ref = cell.source_ref
       let cell_block0 = match source_ref {
         Some(value) =>
-          @core.make_block(
-            @core.BlockKind::TableCell,
-            cell.display_text,
-            source_ref=value,
-          )
+          @core.make_block(TableCell, cell.display_text, source_ref=value)
         None =>
-          @core.make_block_without_source_ref(
-            @core.BlockKind::TableCell,
-            cell.display_text,
-          )
+          @core.make_block_without_source_ref(TableCell, cell.display_text)
       }
       let cell_block = xlsx_apply_cell_rich_content(
         xlsx_trim_lowered_block_text(cell_block0),
@@ -119,7 +108,7 @@ fn xlsx_append_region_spacer(
     return
   }
   let spacer = @core.make_block(
-    @core.BlockKind::Raw,
+    Raw,
     "",
     source_ref=table.source_ref.unwrap_or(@core.empty_source_ref()),
   )

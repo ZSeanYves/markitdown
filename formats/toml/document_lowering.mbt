@@ -91,7 +91,7 @@ fn lower_toml_document(
   if document.blocks.length() == 0 {
     document.blocks.push(
       @core.make_block(
-        @core.BlockKind::Paragraph,
+        Paragraph,
         "[empty document]",
         source_ref=toml_source_ref_from_path(source, "/", Some(1), Some(1)),
       ),
@@ -150,7 +150,7 @@ fn toml_compact_table_block_from_rows(
 ) -> @core.CoreBlock {
   let table_ref = toml_source_ref_from_path(source, path, line_start, line_end)
   let table = @core.block_with_children(
-    @core.make_block(@core.BlockKind::Table, "table", source_ref=table_ref),
+    @core.make_block(Table, "table", source_ref=table_ref),
     Array::new(capacity=rows.length()),
   )
   table.attrs.set("header_rows", "1")
@@ -162,7 +162,7 @@ fn toml_compact_table_block_from_rows(
       @fshared.indexed_table_row_path(path, row_index),
     )
     let row = @core.make_block(
-      @core.BlockKind::TableRow,
+      TableRow,
       rows[row_index].join(" | "),
       source_ref=row_ref,
     )
@@ -194,7 +194,7 @@ fn lower_toml_members(
   } else if entries.length() == 0 {
     out.push(
       @core.make_block(
-        @core.BlockKind::Paragraph,
+        Paragraph,
         if empty_is_table {
           "[empty table]"
         } else {
@@ -234,7 +234,7 @@ fn lower_toml_complex_entry(
     ),
   )
   match entry.value {
-    @dtoml.TomlValue::String(text) =>
+    String(text) =>
       if text.contains("\n") {
         out.push(
           toml_code_block(
@@ -249,24 +249,20 @@ fn lower_toml_complex_entry(
       } else {
         out.push(
           @core.make_block(
-            @core.BlockKind::Paragraph,
+            Paragraph,
             text,
             source_ref=toml_source_ref_from_member(source, entry),
           ),
         )
       }
-    @dtoml.TomlValue::Array(values) =>
+    Array(values) =>
       out.append(lower_toml_array_value(values, source, entry)[:])
-    @dtoml.TomlValue::InlineTable(children)
-    | @dtoml.TomlValue::Table(children) =>
+    InlineTable(children) | Table(children) =>
       out.append(lower_toml_members(children, source, entry.path, true)[:])
-    @dtoml.TomlValue::Integer(_)
-    | @dtoml.TomlValue::Float(_)
-    | @dtoml.TomlValue::Bool(_)
-    | @dtoml.TomlValue::Datetime(_) =>
+    Integer(_) | Float(_) | Bool(_) | Datetime(_) =>
       out.push(
         @core.make_block(
-          @core.BlockKind::Paragraph,
+          Paragraph,
           toml_value_cell(entry.value),
           source_ref=toml_source_ref_from_member(source, entry),
         ),
@@ -284,7 +280,7 @@ fn lower_toml_array_value(
   if values.length() == 0 {
     return [
       @core.make_block(
-        @core.BlockKind::Paragraph,
+        Paragraph,
         "[]",
         source_ref=toml_source_ref_from_member(source, owner),
       ),
@@ -383,7 +379,7 @@ fn toml_scalar_list_block(
   owner : @dtoml.TomlMember,
 ) -> @core.CoreBlock {
   let list = @core.make_block(
-    @core.BlockKind::List,
+    List,
     "",
     source_ref=toml_source_ref_from_member(source, owner),
   )
@@ -391,7 +387,7 @@ fn toml_scalar_list_block(
     list.children.push(
       @core.block_with_attr(
         @core.make_block(
-          @core.BlockKind::ListItem,
+          ListItem,
           toml_value_cell(values[i]),
           source_ref=toml_source_ref_from_path(
             source,
@@ -462,7 +458,7 @@ fn toml_heading_block(
   level : Int,
   source_ref : @core.SourceRef,
 ) -> @core.CoreBlock {
-  let heading = @core.make_block(@core.BlockKind::Heading, text, source_ref~)
+  let heading = @core.make_block(Heading, text, source_ref~)
   heading.attrs.set("level", level.to_string())
   heading
 }
@@ -507,7 +503,7 @@ fn toml_code_block(
   info : String,
 ) -> @core.CoreBlock {
   let block = @core.make_block(
-    @core.BlockKind::Code,
+    Code,
     text,
     source_ref=toml_source_ref_from_path(source, path, line_start, line_end),
   )
@@ -567,7 +563,7 @@ fn toml_malformed_parse_result(
   let final_document = @core.document_with_diagnostics(document, diagnostics)
   @parser.parse_result_with_document_capability(
     "toml_parser",
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     final_document,
     diagnostics,
     capability,
@@ -577,15 +573,11 @@ fn toml_malformed_parse_result(
 ///|
 fn toml_value_can_fit_kv_table(value : @dtoml.TomlValue) -> Bool {
   match value {
-    @dtoml.TomlValue::String(text) => !text.contains("\n")
-    @dtoml.TomlValue::Integer(_)
-    | @dtoml.TomlValue::Float(_)
-    | @dtoml.TomlValue::Bool(_)
-    | @dtoml.TomlValue::Datetime(_) => true
-    @dtoml.TomlValue::InlineTable(entries) =>
-      toml_inline_table_inlineable(entries)
-    @dtoml.TomlValue::Table(entries) => toml_inline_table_inlineable(entries)
-    @dtoml.TomlValue::Array(values) =>
+    String(text) => !text.contains("\n")
+    Integer(_) | Float(_) | Bool(_) | Datetime(_) => true
+    InlineTable(entries) => toml_inline_table_inlineable(entries)
+    Table(entries) => toml_inline_table_inlineable(entries)
+    Array(values) =>
       values.length() == 0 ||
       toml_array_of_scalars(values) ||
       toml_inline_table_array_rows(values) is Some(_)
@@ -595,14 +587,14 @@ fn toml_value_can_fit_kv_table(value : @dtoml.TomlValue) -> Bool {
 ///|
 fn toml_value_cell(value : @dtoml.TomlValue) -> String {
   match value {
-    @dtoml.TomlValue::String(text) => text
-    @dtoml.TomlValue::Integer(text) => text
-    @dtoml.TomlValue::Float(text) => text
-    @dtoml.TomlValue::Bool(value) => if value { "true" } else { "false" }
-    @dtoml.TomlValue::Datetime(text) => text
-    @dtoml.TomlValue::InlineTable(entries) => toml_inline_table_text(entries)
-    @dtoml.TomlValue::Table(entries) => toml_inline_table_text(entries)
-    @dtoml.TomlValue::Array(values) =>
+    String(text) => text
+    Integer(text) => text
+    Float(text) => text
+    Bool(value) => if value { "true" } else { "false" }
+    Datetime(text) => text
+    InlineTable(entries) => toml_inline_table_text(entries)
+    Table(entries) => toml_inline_table_text(entries)
+    Array(values) =>
       if values.length() == 0 {
         "[]"
       } else if toml_array_of_scalars(values) {
@@ -636,11 +628,7 @@ fn toml_inline_table_inlineable(entries : Array[@dtoml.TomlMember]) -> Bool {
 fn toml_array_of_scalars(values : Array[@dtoml.TomlValue]) -> Bool {
   for value in values {
     match value {
-      @dtoml.TomlValue::String(_)
-      | @dtoml.TomlValue::Integer(_)
-      | @dtoml.TomlValue::Float(_)
-      | @dtoml.TomlValue::Bool(_)
-      | @dtoml.TomlValue::Datetime(_) => ()
+      String(_) | Integer(_) | Float(_) | Bool(_) | Datetime(_) => ()
       _ => return false
     }
   }
@@ -657,8 +645,8 @@ fn toml_inline_table_array_rows(
   let mut has_key_index = false
   for i in 0..<values.length() {
     let entries = match values[i] {
-      @dtoml.TomlValue::InlineTable(items) => items
-      @dtoml.TomlValue::Table(items) => items
+      InlineTable(items) => items
+      Table(items) => items
       _ => return None
     }
     let next_keys = entries.map(fn(item) { item.key })
@@ -814,8 +802,7 @@ fn toml_array_summary(values : Array[@dtoml.TomlValue]) -> String {
   let mut table_like_count = 0
   for value in values {
     match value {
-      @dtoml.TomlValue::InlineTable(_) | @dtoml.TomlValue::Table(_) =>
-        table_like_count += 1
+      InlineTable(_) | Table(_) => table_like_count += 1
       _ => ()
     }
   }
@@ -829,15 +816,15 @@ fn toml_array_summary(values : Array[@dtoml.TomlValue]) -> String {
 ///|
 fn toml_stringify_value(value : @dtoml.TomlValue) -> String {
   match value {
-    @dtoml.TomlValue::String(text) => toml_quote_string(text)
-    @dtoml.TomlValue::Integer(text) => text
-    @dtoml.TomlValue::Float(text) => text
-    @dtoml.TomlValue::Bool(value) => if value { "true" } else { "false" }
-    @dtoml.TomlValue::Datetime(text) => text
-    @dtoml.TomlValue::Array(values) =>
+    String(text) => toml_quote_string(text)
+    Integer(text) => text
+    Float(text) => text
+    Bool(value) => if value { "true" } else { "false" }
+    Datetime(text) => text
+    Array(values) =>
       "[" + values.map(fn(item) { toml_stringify_value(item) }).join(", ") + "]"
-    @dtoml.TomlValue::InlineTable(entries) => toml_inline_table_text(entries)
-    @dtoml.TomlValue::Table(entries) => toml_inline_table_text(entries)
+    InlineTable(entries) => toml_inline_table_text(entries)
+    Table(entries) => toml_inline_table_text(entries)
   }
 }
 

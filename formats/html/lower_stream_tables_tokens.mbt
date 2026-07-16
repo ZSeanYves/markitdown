@@ -40,7 +40,7 @@ fn html_child_text_append_table_fallback(
   let paragraph = html_child_text_make_block(
     state,
     source,
-    @core.BlockKind::Paragraph,
+    Paragraph,
     event.tag_name,
     event.span.line_start,
     event.span.line_end,
@@ -71,8 +71,7 @@ fn html_child_table_block(
   let mut row_order = 0
   while index < close_index {
     let event = events[index]
-    if event.kind == @dhtml.HtmlTokenEventKind::StartTag &&
-      event.tag_name == "tr" {
+    if event.kind == StartTag && event.tag_name == "tr" {
       match state.close_index.get(index) {
         Some(row_close) =>
           if row_close <= close_index {
@@ -103,7 +102,7 @@ fn html_child_table_block(
   let table = html_child_text_make_block(
     state,
     source,
-    @core.BlockKind::Table,
+    Table,
     "table",
     open_event.span.line_start,
     close_event.span.line_end,
@@ -180,7 +179,7 @@ fn html_child_compact_table_markdown(
 fn html_child_compact_table_cell_text(cell : @core.CoreBlock) -> String? {
   match cell.rich_inlines {
     Some(inlines) =>
-      if !inlines.all(inline => inline.kind == @core.InlineKind::Text) {
+      if !inlines.all(inline => inline.kind == Text) {
         return None
       }
     None => ()
@@ -211,7 +210,7 @@ fn html_child_table_row_block(
   let row = html_child_text_make_block(
     state,
     source,
-    @core.BlockKind::TableRow,
+    TableRow,
     "",
     open_event.span.line_start,
     close_event.span.line_end,
@@ -226,8 +225,7 @@ fn html_child_table_row_block(
   while index < close_index {
     let event = events[index]
     let tag = event.tag_name
-    if event.kind == @dhtml.HtmlTokenEventKind::StartTag &&
-      (tag == "td" || tag == "th") {
+    if event.kind == StartTag && (tag == "td" || tag == "th") {
       match state.close_index.get(index) {
         Some(cell_close) =>
           if cell_close <= close_index {
@@ -292,7 +290,7 @@ fn html_child_table_cell_block(
   let cell = html_child_text_make_block(
     state,
     source,
-    @core.BlockKind::TableCell,
+    TableCell,
     text,
     open_event.span.line_start,
     close_event.span.line_end,
@@ -324,7 +322,7 @@ fn html_child_table_collect_inlines(
   while index < end_index {
     let event = events[index]
     let tag = event.tag_name
-    if event.kind == @dhtml.HtmlTokenEventKind::StartTag {
+    if event.kind == StartTag {
       if tag == "br" {
         out.push(
           @core.make_inline_line_break(
@@ -419,12 +417,12 @@ fn html_child_table_collect_inlines(
         pending_space = true
       }
     }
-    if event.kind == @dhtml.HtmlTokenEventKind::EndTag &&
+    if event.kind == EndTag &&
       html_child_table_spacing_tag(tag) &&
       out.length() > 0 {
       pending_space = true
     }
-    if event.kind == @dhtml.HtmlTokenEventKind::Text {
+    if event.kind == Text {
       let raw = html_scope_event_text(text_chars, event)
       let compact = html_compact_token_text(raw)
       if compact == "" {
@@ -490,7 +488,7 @@ fn html_child_table_append_image_inline(
     "/inline/html:inline:img:" + out.length().to_string(),
   )
   match kind {
-    @dhtml.HtmlImageKind::Local =>
+    Local =>
       match html_child_local_image_asset(state, source_ref, src, alt) {
         Some(asset) =>
           out.push(
@@ -498,13 +496,13 @@ fn html_child_table_append_image_inline(
           )
         None => out.push(@core.make_inline_text("[image]", source_ref~))
       }
-    @dhtml.HtmlImageKind::Remote => {
+    Remote => {
       state.diagnostics.degraded_features.push(
         "html_remote_image_reference_only",
       )
       out.push(@core.make_inline_text("[remote]", source_ref~))
     }
-    @dhtml.HtmlImageKind::DataUri => {
+    DataUri => {
       state.diagnostics.degraded_features.push("html_data_image_reference_only")
       out.push(@core.make_inline_text("[inline data]", source_ref~))
     }
@@ -570,22 +568,18 @@ fn html_token_lower_event(
   event : @dhtml.HtmlTokenEvent,
 ) -> Unit {
   if state.skip_depth > 0 {
-    if event.kind == @dhtml.HtmlTokenEventKind::StartTag && !event.self_closing {
+    if event.kind == StartTag && !event.self_closing {
       state.skip_depth += 1
-    } else if event.kind == @dhtml.HtmlTokenEventKind::EndTag {
+    } else if event.kind == EndTag {
       state.skip_depth -= 1
     }
     return
   }
   match event.kind {
-    @dhtml.HtmlTokenEventKind::Text =>
-      html_token_append_text(state, text_chars, event)
-    @dhtml.HtmlTokenEventKind::StartTag =>
-      html_token_start_tag(state, source, event)
-    @dhtml.HtmlTokenEventKind::EndTag =>
-      html_token_end_tag(state, source, event)
-    @dhtml.HtmlTokenEventKind::Comment | @dhtml.HtmlTokenEventKind::Doctype =>
-      ()
+    Text => html_token_append_text(state, text_chars, event)
+    StartTag => html_token_start_tag(state, source, event)
+    EndTag => html_token_end_tag(state, source, event)
+    Comment | Doctype => ()
   }
 }
 
@@ -605,7 +599,7 @@ fn html_token_start_tag(
   let heading = html_heading_level(tag)
   if heading > 0 {
     html_token_flush_text_block(state, source)
-    state.text_kind = @core.BlockKind::Heading
+    state.text_kind = Heading
     state.heading_level = heading
     state.text_start_line = event.span.line_start
     state.text_end_line = event.span.line_end
@@ -618,7 +612,7 @@ fn html_token_start_tag(
     tag == "div" ||
     tag == "header" {
     html_token_flush_text_block(state, source)
-    state.text_kind = @core.BlockKind::Paragraph
+    state.text_kind = Paragraph
     state.text_start_line = event.span.line_start
     state.text_end_line = event.span.line_end
   } else if tag == "br" {
@@ -626,12 +620,12 @@ fn html_token_start_tag(
   } else if tag == "pre" {
     html_token_flush_text_block(state, source)
     state.in_pre = true
-    state.text_kind = @core.BlockKind::Code
+    state.text_kind = Code
     state.text_start_line = event.span.line_start
     state.text_end_line = event.span.line_end
   } else if tag == "li" {
     html_token_flush_text_block(state, source)
-    state.text_kind = @core.BlockKind::ListItem
+    state.text_kind = ListItem
     state.text_start_line = event.span.line_start
     state.text_end_line = event.span.line_end
   } else if tag == "ul" || tag == "ol" {
@@ -639,13 +633,13 @@ fn html_token_start_tag(
   } else if tag == "blockquote" {
     html_token_flush_text_block(state, source)
     state.quote_depth += 1
-    state.text_kind = @core.BlockKind::BlockQuote
+    state.text_kind = BlockQuote
     state.text_start_line = event.span.line_start
     state.text_end_line = event.span.line_end
   } else if tag == "hr" {
     html_token_flush_text_block(state, source)
     let block = @core.make_block(
-      @core.BlockKind::Raw,
+      Raw,
       "---",
       source_ref=html_token_source_ref(source, event, "/html_token/hr"),
     )
@@ -654,7 +648,7 @@ fn html_token_start_tag(
   } else if tag == "img" {
     html_token_flush_text_block(state, source)
     let image = @core.make_block(
-      @core.BlockKind::Image,
+      Image,
       "",
       source_ref=html_token_source_ref(source, event, "/html_token/img"),
     )
@@ -688,7 +682,7 @@ fn html_token_end_tag(
     tag == "main" {
     state.text_end_line = event.span.line_end
     html_token_flush_text_block(state, source)
-    state.text_kind = @core.BlockKind::Paragraph
+    state.text_kind = Paragraph
     state.heading_level = 0
     if tag == "pre" {
       state.in_pre = false
@@ -745,7 +739,7 @@ fn html_token_flush_text_block(
     "/html_token/block[" + state.blocks.length().to_string() + "]",
   )
   let block = @core.make_block(state.text_kind, text, source_ref~)
-  if state.text_kind == @core.BlockKind::Heading {
+  if state.text_kind == Heading {
     block.attrs.set(
       "level",
       if state.heading_level <= 0 {
@@ -755,13 +749,12 @@ fn html_token_flush_text_block(
       },
     )
     block.attrs.set("render_inline_escape_mode", "minimal")
-  } else if state.text_kind == @core.BlockKind::ListItem {
+  } else if state.text_kind == ListItem {
     block.attrs.set("ordered", "false")
     block.attrs.set("render_inline_escape_mode", "minimal")
-  } else if state.text_kind == @core.BlockKind::Paragraph ||
-    state.text_kind == @core.BlockKind::BlockQuote {
+  } else if state.text_kind == Paragraph || state.text_kind == BlockQuote {
     block.attrs.set("render_inline_escape_mode", "minimal")
-  } else if state.text_kind == @core.BlockKind::Code {
+  } else if state.text_kind == Code {
     block.attrs.set("info", "")
   }
   state.blocks.push(block)

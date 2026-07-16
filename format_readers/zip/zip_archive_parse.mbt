@@ -242,8 +242,8 @@ fn build_zip_archive_report(archive : ZipArchive) -> ZipArchiveInspectReport {
       issue_counts.get(issue.raw_name).unwrap_or(0) + 1,
     )
     match issue.severity {
-      ZipValidationSeverity::Warning => warning_count += 1
-      ZipValidationSeverity::Error => error_count += 1
+      Warning => warning_count += 1
+      Error => error_count += 1
     }
   }
 
@@ -388,8 +388,8 @@ fn collect_zip_validation_issues_from_infos(
   for info in infos {
     if info.is_unsafe_path {
       issues.push({
-        kind: ZipValidationIssueKind::UnsafeEntryPath,
-        severity: ZipValidationSeverity::Error,
+        kind: UnsafeEntryPath,
+        severity: Error,
         raw_name: info.raw_name,
         normalized_path: None,
         compression_method: None,
@@ -399,8 +399,8 @@ fn collect_zip_validation_issues_from_infos(
     }
     if info.is_directory {
       issues.push({
-        kind: ZipValidationIssueKind::DirectoryEntry,
-        severity: ZipValidationSeverity::Warning,
+        kind: DirectoryEntry,
+        severity: Warning,
         raw_name: info.raw_name,
         normalized_path: info.normalized_path,
         compression_method: None,
@@ -408,8 +408,8 @@ fn collect_zip_validation_issues_from_infos(
       })
     } else if info.uncompressed_size == 0 {
       issues.push({
-        kind: ZipValidationIssueKind::EmptyEntry,
-        severity: ZipValidationSeverity::Warning,
+        kind: EmptyEntry,
+        severity: Warning,
         raw_name: info.raw_name,
         normalized_path: info.normalized_path,
         compression_method: None,
@@ -419,8 +419,8 @@ fn collect_zip_validation_issues_from_infos(
     match info.compression_method {
       Unsupported(_) =>
         issues.push({
-          kind: ZipValidationIssueKind::UnsupportedCompressionMethod,
-          severity: ZipValidationSeverity::Error,
+          kind: UnsupportedCompressionMethod,
+          severity: Error,
           raw_name: info.raw_name,
           normalized_path: info.normalized_path,
           compression_method: Some(info.compression_method),
@@ -431,8 +431,8 @@ fn collect_zip_validation_issues_from_infos(
     }
     if info.is_nested_archive_candidate {
       issues.push({
-        kind: ZipValidationIssueKind::NestedArchiveCandidate,
-        severity: ZipValidationSeverity::Warning,
+        kind: NestedArchiveCandidate,
+        severity: Warning,
         raw_name: info.raw_name,
         normalized_path: info.normalized_path,
         compression_method: None,
@@ -444,8 +444,8 @@ fn collect_zip_validation_issues_from_infos(
       Some(path) => {
         if path.length() > MAX_NORMALIZED_ENTRY_PATH_LENGTH {
           issues.push({
-            kind: ZipValidationIssueKind::FilenameTooLong,
-            severity: ZipValidationSeverity::Error,
+            kind: FilenameTooLong,
+            severity: Error,
             raw_name: info.raw_name,
             normalized_path: Some(path),
             compression_method: None,
@@ -454,8 +454,8 @@ fn collect_zip_validation_issues_from_infos(
         }
         if zip_entry_directory_depth(path) > MAX_NORMALIZED_DIRECTORY_DEPTH {
           issues.push({
-            kind: ZipValidationIssueKind::DirectoryDepthExceeded,
-            severity: ZipValidationSeverity::Error,
+            kind: DirectoryDepthExceeded,
+            severity: Error,
             raw_name: info.raw_name,
             normalized_path: Some(path),
             compression_method: None,
@@ -472,8 +472,8 @@ fn collect_zip_validation_issues_from_infos(
       Some(path) =>
         if normalized_counts.get(path).unwrap_or(0) > 1 {
           issues.push({
-            kind: ZipValidationIssueKind::DuplicateNormalizedEntry,
-            severity: ZipValidationSeverity::Error,
+            kind: DuplicateNormalizedEntry,
+            severity: Error,
             raw_name: info.raw_name,
             normalized_path: Some(path),
             compression_method: None,
@@ -494,8 +494,8 @@ fn classify_invalid_structure_detail(detail : String) -> ZipErrorInfo {
       detail, "duplicate entry name in central directory: ",
     )
     return {
-      kind: ZipErrorKind::DuplicateEntryName,
-      mapping: ZipErrorMappingKind::BestEffortMessage,
+      kind: DuplicateEntryName,
+      mapping: BestEffortMessage,
       entry_name: name,
       detail: "invalid zip structure: " + detail,
     }
@@ -504,8 +504,8 @@ fn classify_invalid_structure_detail(detail : String) -> ZipErrorInfo {
   if detail.contains("encrypted zip is not supported: ") {
     let name = extract_after_prefix(detail, "encrypted zip is not supported: ")
     return {
-      kind: ZipErrorKind::EncryptedEntry,
-      mapping: ZipErrorMappingKind::BestEffortMessage,
+      kind: EncryptedEntry,
+      mapping: BestEffortMessage,
       entry_name: name,
       detail: "invalid zip structure: " + detail,
     }
@@ -516,16 +516,16 @@ fn classify_invalid_structure_detail(detail : String) -> ZipErrorInfo {
     detail.contains("ZIP64 is not supported in phase-1") ||
     detail.contains("ZIP64 central directory entry is not supported in phase-1") {
     return {
-      kind: ZipErrorKind::UnsupportedFeature,
-      mapping: ZipErrorMappingKind::BestEffortMessage,
+      kind: UnsupportedFeature,
+      mapping: BestEffortMessage,
       entry_name: extract_after_last_colon(detail),
       detail: "invalid zip structure: " + detail,
     }
   }
 
   {
-    kind: ZipErrorKind::MalformedArchive,
-    mapping: ZipErrorMappingKind::DirectVariant,
+    kind: MalformedArchive,
+    mapping: DirectVariant,
     entry_name: None,
     detail: "invalid zip structure: " + detail,
   }

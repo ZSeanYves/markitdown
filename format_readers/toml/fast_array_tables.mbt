@@ -153,10 +153,10 @@ fn fast_scalar_cell(token : String, line : Int) -> String? {
       _ => None
     }
     match parsed {
-      Some(TomlValue::Integer(value)) => Some(value)
-      Some(TomlValue::Float(value)) => Some(value)
-      Some(TomlValue::Bool(value)) => Some(if value { "true" } else { "false" })
-      Some(TomlValue::Datetime(value)) => Some(value)
+      Some(Integer(value)) => Some(value)
+      Some(Float(value)) => Some(value)
+      Some(Bool(value)) => Some(if value { "true" } else { "false" })
+      Some(Datetime(value)) => Some(value)
       _ => None
     }
   }

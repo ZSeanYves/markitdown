@@ -3,20 +3,17 @@ test "ODS malformed package produces document and block-stream fenced fallbacks"
   let source = @input.input_from_bytes_with_format(
     Bytes::from_array([1, 2, 3].map(Int::to_byte)),
     "broken.ods",
-    Some(@input.DetectedFormat::Ods),
+    Some(Ods),
   )
-  let document = (ods_parser().parse)(
-    source,
-    @parser.new_parse_context(@input.DetectedFormat::Ods),
-  ).unwrap()
+  let document = (ods_parser().parse)(source, @parser.new_parse_context(Ods)).unwrap()
   assert_eq(document.document.unwrap().blocks.length(), 1)
   assert_true(document.diagnostics.errors.length() == 1)
   assert_true(
     document.diagnostics.degraded_features.contains("ods_raw_fenced_fallback"),
   )
   let context = @parser.parse_context_with_limits(
-    @parser.new_parse_context(@input.DetectedFormat::Ods),
-    Some(@parser.ParserMode::BlockStreaming),
+    @parser.new_parse_context(Ods),
+    Some(BlockStreaming),
     None,
     None,
     None,
@@ -60,33 +57,24 @@ test "ODS local drawing assets deduplicate payloads and hide hidden-sheet media"
     ),
   ])
   let result = (ods_parser().parse)(
-    @input.input_from_bytes_with_format(
-      bytes,
-      "images.ods",
-      Some(@input.DetectedFormat::Ods),
-    ),
-    @parser.new_parse_context(@input.DetectedFormat::Ods),
+    @input.input_from_bytes_with_format(bytes, "images.ods", Some(Ods)),
+    @parser.new_parse_context(Ods),
   ).unwrap()
   let document = result.document.unwrap()
   assert_eq(document.assets.length(), 1)
-  assert_eq(
-    document.blocks
-    .filter(block => block.kind == @core.BlockKind::Image)
-    .length(),
-    2,
-  )
+  assert_eq(document.blocks.filter(block => block.kind == Image).length(), 2)
   assert_true(document.assets[0].path == Some("assets/ods-image1-shared.png"))
   assert_true(result.diagnostics.metrics.get("asset_count") == Some("1"))
   assert_true(
     document.blocks.any(block => {
-      block.kind == @core.BlockKind::BlockQuote &&
+      block.kind == BlockQuote &&
       block.text == "Asset unavailable: Pictures/missing.png"
     }),
   )
 
   let stream_context = @parser.parse_context_with_limits(
-    @parser.new_parse_context(@input.DetectedFormat::Ods),
-    Some(@parser.ParserMode::BlockStreaming),
+    @parser.new_parse_context(Ods),
+    Some(BlockStreaming),
     None,
     None,
     None,
@@ -94,19 +82,12 @@ test "ODS local drawing assets deduplicate payloads and hide hidden-sheet media"
     false,
   )
   let streamed = (ods_parser().parse)(
-    @input.input_from_bytes_with_format(
-      bytes,
-      "images.ods",
-      Some(@input.DetectedFormat::Ods),
-    ),
+    @input.input_from_bytes_with_format(bytes, "images.ods", Some(Ods)),
     stream_context,
   ).unwrap()
   assert_eq(streamed.assets.length(), 1)
   assert_eq(
-    streamed.block_stream
-    .unwrap()
-    .filter(block => block.kind == @core.BlockKind::Image)
-    .length(),
+    streamed.block_stream.unwrap().filter(block => block.kind == Image).length(),
     2,
   )
   assert_true(
@@ -120,28 +101,20 @@ test "ODS advanced synthetic contract covers repeated merged hidden formula asse
   let source = @input.input_from_path(
     "samples/fixtures/contracts/ods/ods_advanced_synthetic.ods",
   )
-  let result = (ods_parser().parse)(
-    source,
-    @parser.new_parse_context(@input.DetectedFormat::Ods),
-  ).unwrap()
+  let result = (ods_parser().parse)(source, @parser.new_parse_context(Ods)).unwrap()
   let document = result.document.unwrap()
   assert_true(result.diagnostics.errors.length() == 0)
   assert_true(result.diagnostics.metrics.get("sheet_count") == Some("2"))
   assert_true(result.diagnostics.metrics.get("hidden_sheet_count") == Some("1"))
   assert_true(result.diagnostics.metrics.get("hidden_row_count") == Some("1"))
   assert_true(result.diagnostics.metrics.get("covered_cell_count") == Some("1"))
-  assert_true(
-    document.metadata.get("title") ==
-    Some(@core.JsonValue::String("Advanced ODS")),
-  )
+  assert_true(document.metadata.get("title") == Some(String("Advanced ODS")))
   assert_true(
     document.blocks.any(block => {
-      block.kind == @core.BlockKind::Heading && block.text == "Metrics"
+      block.kind == Heading && block.text == "Metrics"
     }),
   )
-  assert_true(
-    document.blocks.any(block => block.kind == @core.BlockKind::Table),
-  )
+  assert_true(document.blocks.any(block => block.kind == Table))
   assert_true(
     !document.blocks.any(block => block.text.contains("Hidden sheet")),
   )
@@ -150,8 +123,8 @@ test "ODS advanced synthetic contract covers repeated merged hidden formula asse
   assert_true(document.assets[0].path.unwrap_or("").has_suffix("red.png"))
 
   let stream_context = @parser.parse_context_with_limits(
-    @parser.new_parse_context(@input.DetectedFormat::Ods),
-    Some(@parser.ParserMode::BlockStreaming),
+    @parser.new_parse_context(Ods),
+    Some(BlockStreaming),
     None,
     None,
     None,
@@ -160,10 +133,6 @@ test "ODS advanced synthetic contract covers repeated merged hidden formula asse
   )
   let streamed = (ods_parser().parse)(source, stream_context).unwrap()
   assert_true(streamed.diagnostics.errors.length() == 0)
-  assert_true(
-    streamed.block_stream
-    .unwrap()
-    .any(block => block.kind == @core.BlockKind::Table),
-  )
+  assert_true(streamed.block_stream.unwrap().any(block => block.kind == Table))
   assert_true(streamed.assets.length() == 1)
 }

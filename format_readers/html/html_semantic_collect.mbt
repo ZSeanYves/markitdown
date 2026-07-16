@@ -82,7 +82,7 @@ fn collect_html_semantic_node(
   parent_source_key : String?,
 ) -> String? {
   match node {
-    HtmlNode::Element(element) =>
+    Element(element) =>
       collect_html_semantic_element(element, ctx, depth, parent_source_key)
     _ => None
   }
@@ -132,7 +132,7 @@ fn collect_html_semantic_element(
 
       if depth > HTML_SEMANTIC_MAX_DEPTH {
         let warning = new_html_semantic_warning(
-          HtmlSemanticWarningKind::DepthLimitExceeded,
+          DepthLimitExceeded,
           source_key,
           element.tag_name,
           "html semantic depth limit exceeded at <" + element.tag_name + ">",
@@ -142,7 +142,7 @@ fn collect_html_semantic_element(
 
       if is_html_semantic_unsupported_tag(element.tag_name) {
         let warning = new_html_semantic_warning(
-          HtmlSemanticWarningKind::UnsupportedElement,
+          UnsupportedElement,
           source_key,
           element.tag_name,
           "unsupported html block element: <" + element.tag_name + ">",
@@ -162,7 +162,7 @@ fn collect_html_semantic_element(
       )
       if text_truncated {
         let warning = new_html_semantic_warning(
-          HtmlSemanticWarningKind::TextPreviewTruncated,
+          TextPreviewTruncated,
           source_key,
           element.tag_name,
           "html semantic text preview truncated for <" + element.tag_name + ">",
@@ -180,7 +180,7 @@ fn collect_html_semantic_element(
             push_html_semantic_unsupported_fact(
               ctx,
               unsupported_kind,
-              HtmlWarningSeverity::Warning,
+              Warning,
               Some(source_key),
               element.tag_name,
               source_order,
@@ -270,7 +270,7 @@ fn collect_html_semantic_element(
           None => ()
         }
       }
-      if block_kind == HtmlBlockKind::Table {
+      if block_kind == Table {
         collect_html_semantic_table_fact(
           element, ctx, source_key, source_order, effective_depth, parent_source_key,
           attrs, text_preview, local_warnings,
@@ -327,11 +327,11 @@ fn collect_html_semantic_inline_node(
   has_surrounding_text : Bool,
 ) -> String? {
   match node {
-    HtmlNode::Text(text) =>
+    Text(text) =>
       collect_html_semantic_text_inline(
         text, ctx, depth, parent_block_source_key, parent_inline_source_key,
       )
-    HtmlNode::Element(element) =>
+    Element(element) =>
       collect_html_semantic_inline_element(
         element, ctx, depth, parent_block_source_key, parent_inline_source_key, has_surrounding_text,
       )
@@ -372,7 +372,7 @@ fn collect_html_semantic_text_inline(
   if truncated {
     warnings.push(
       new_html_semantic_warning(
-        HtmlSemanticWarningKind::TextPreviewTruncated,
+        TextPreviewTruncated,
         source_key,
         "",
         "html semantic text inline preview truncated",
@@ -395,7 +395,7 @@ fn collect_html_semantic_text_inline(
     text.span,
   )
   let inline : HtmlInlineFact = {
-    kind: HtmlInlineKind::Text,
+    kind: Text,
     source_key,
     tag_name: "",
     source_order,
@@ -469,7 +469,7 @@ fn collect_html_semantic_inline_element(
       if depth > HTML_SEMANTIC_MAX_DEPTH {
         local_warnings.push(
           new_html_semantic_warning(
-            HtmlSemanticWarningKind::DepthLimitExceeded,
+            DepthLimitExceeded,
             source_key,
             element.tag_name,
             "html semantic inline depth limit exceeded at <" +
@@ -478,10 +478,10 @@ fn collect_html_semantic_inline_element(
           ),
         )
       }
-      if kind == HtmlInlineKind::UnsupportedInline {
+      if kind == UnsupportedInline {
         local_warnings.push(
           new_html_semantic_warning(
-            HtmlSemanticWarningKind::UnsupportedElement,
+            UnsupportedElement,
             source_key,
             element.tag_name,
             "unsupported html inline element: <" + element.tag_name + ">",
@@ -501,7 +501,7 @@ fn collect_html_semantic_inline_element(
       if text_truncated {
         local_warnings.push(
           new_html_semantic_warning(
-            HtmlSemanticWarningKind::TextPreviewTruncated,
+            TextPreviewTruncated,
             source_key,
             element.tag_name,
             "html semantic inline text preview truncated for <" +
@@ -549,7 +549,7 @@ fn collect_html_semantic_inline_element(
           raw_text_result.0,
         ),
         is_whitespace_only: raw_text_result.0.trim() == "",
-        preserves_whitespace: kind == HtmlInlineKind::Code,
+        preserves_whitespace: kind == Code,
         has_surrounding_text,
         attributes: attrs,
         span: element.span,
@@ -577,12 +577,12 @@ fn collect_html_semantic_inline_element(
       for child_key in child_keys {
         children.push(child_key)
       }
-      if kind == HtmlInlineKind::Link {
+      if kind == Link {
         collect_html_semantic_link_fact(
           element, ctx, source_key, parent_block_source_key, depth, text_preview,
           child_keys, local_warnings,
         )
-      } else if kind == HtmlInlineKind::Image {
+      } else if kind == Image {
         collect_html_semantic_image_fact(
           element, ctx, source_key, parent_block_source_key, parent_inline_source_key,
           depth, local_warnings,
@@ -596,17 +596,17 @@ fn collect_html_semantic_inline_element(
 ///|
 fn html_semantic_inline_kind(tag_name : String) -> HtmlInlineKind? {
   match tag_name {
-    "a" => Some(HtmlInlineKind::Link)
-    "img" => Some(HtmlInlineKind::Image)
-    "em" | "i" => Some(HtmlInlineKind::Emphasis)
-    "strong" | "b" => Some(HtmlInlineKind::Strong)
-    "code" => Some(HtmlInlineKind::Code)
-    "br" => Some(HtmlInlineKind::Break)
-    "span" => Some(HtmlInlineKind::Span)
-    "small" | "mark" | "sub" | "sup" => Some(HtmlInlineKind::InlineContainer)
+    "a" => Some(Link)
+    "img" => Some(Image)
+    "em" | "i" => Some(Emphasis)
+    "strong" | "b" => Some(Strong)
+    "code" => Some(Code)
+    "br" => Some(Break)
+    "span" => Some(Span)
+    "small" | "mark" | "sub" | "sup" => Some(InlineContainer)
     _ =>
       if is_html_semantic_unsupported_tag(tag_name) {
-        Some(HtmlInlineKind::UnsupportedInline)
+        Some(UnsupportedInline)
       } else {
         None
       }
@@ -643,19 +643,19 @@ fn collect_html_semantic_link_fact(
   }
   let fact_warnings : Array[HtmlSemanticWarning] = []
   match kind {
-    HtmlLinkKind::Unsafe | HtmlLinkKind::Data =>
+    Unsafe | Data =>
       fact_warnings.push(
         new_html_semantic_warning(
-          HtmlSemanticWarningKind::UnsafeUrl,
+          UnsafeUrl,
           source_key,
           element.tag_name,
           "html semantic link has unsafe href",
         ),
       )
-    HtmlLinkKind::Empty =>
+    Empty =>
       fact_warnings.push(
         new_html_semantic_warning(
-          HtmlSemanticWarningKind::EmptyUrl,
+          EmptyUrl,
           source_key,
           element.tag_name,
           "html semantic link has empty href",
@@ -754,37 +754,37 @@ fn collect_html_semantic_image_fact(
   }
   let fact_warnings : Array[HtmlSemanticWarning] = []
   match kind {
-    HtmlImageKind::Remote =>
+    Remote =>
       fact_warnings.push(
         new_html_semantic_warning(
-          HtmlSemanticWarningKind::RemoteImage,
+          RemoteImage,
           source_key,
           element.tag_name,
           "html semantic image references remote source",
         ),
       )
-    HtmlImageKind::DataUri =>
+    DataUri =>
       fact_warnings.push(
         new_html_semantic_warning(
-          HtmlSemanticWarningKind::DataUriImage,
+          DataUriImage,
           source_key,
           element.tag_name,
           "html semantic image uses data uri source",
         ),
       )
-    HtmlImageKind::Unsafe =>
+    Unsafe =>
       fact_warnings.push(
         new_html_semantic_warning(
-          HtmlSemanticWarningKind::UnsafeUrl,
+          UnsafeUrl,
           source_key,
           element.tag_name,
           "html semantic image has unsafe source",
         ),
       )
-    HtmlImageKind::Empty =>
+    Empty =>
       fact_warnings.push(
         new_html_semantic_warning(
-          HtmlSemanticWarningKind::EmptyImageSource,
+          EmptyImageSource,
           source_key,
           element.tag_name,
           "html semantic image has empty source",

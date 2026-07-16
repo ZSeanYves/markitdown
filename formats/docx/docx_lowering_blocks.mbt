@@ -14,7 +14,7 @@ fn lower_docx_blocks(
     while list_stack.length() > min_depth {
       let current = list_stack.pop().unwrap()
       let list_block = @core.make_block(
-        @core.BlockKind::List,
+        List,
         "",
         source_ref=current.items[0].source_ref.unwrap_or(
           @core.empty_source_ref(),
@@ -32,10 +32,10 @@ fn lower_docx_blocks(
 
   for block in blocks {
     match block {
-      @ddocx.DocxBlock::Paragraph(p) =>
+      Paragraph(p) =>
         match lower_docx_paragraph_block(state, p) {
           Some(lowered) =>
-            if lowered.kind == @core.BlockKind::ListItem {
+            if lowered.kind == ListItem {
               let ordered = lowered.attrs.get("ordered").unwrap_or("false") ==
                 "true"
               let level = @string.parse_int(
@@ -62,14 +62,14 @@ fn lower_docx_blocks(
             }
           None => ()
         }
-      @ddocx.DocxBlock::Table(table) => {
+      Table(table) => {
         flush_lists(out, list_stack, 0)
         let lowered = lower_docx_table_block(state, table)
         if docx_rendered_table_has_visible_cells(lowered) {
           out.push(lowered)
         }
       }
-      @ddocx.DocxBlock::TablePlaceholder(placeholder) => {
+      TablePlaceholder(placeholder) => {
         flush_lists(out, list_stack, 0)
         let placeholder_ref = docx_source_ref_from_key(
           state,
@@ -78,14 +78,14 @@ fn lower_docx_blocks(
           None,
         )
         let raw = @core.make_block(
-          @core.BlockKind::Raw,
+          Raw,
           "[Unsupported DOCX table omitted]",
           source_ref=placeholder_ref,
         )
         raw.attrs.set("raw_kind", "docx_table_placeholder")
         out.push(raw)
       }
-      @ddocx.DocxBlock::ContentControl(control) => {
+      ContentControl(control) => {
         flush_lists(out, list_stack, 0)
         if control.blocks.length() > 0 {
           lower_docx_blocks(state, out, control.blocks)
@@ -97,7 +97,7 @@ fn lower_docx_blocks(
           )
           if inline.rich_inlines.length() > 0 || inline.plain_text.trim() != "" {
             let paragraph0 = @core.make_block(
-              @core.BlockKind::Paragraph,
+              Paragraph,
               inline.plain_text,
               source_ref=docx_source_ref_from_key(
                 state,
@@ -118,15 +118,15 @@ fn lower_docx_blocks(
           }
         }
       }
-      @ddocx.DocxBlock::StructuralMarker(_) => ()
-      @ddocx.DocxBlock::Unsupported(warning) => {
+      StructuralMarker(_) => ()
+      Unsupported(warning) => {
         flush_lists(out, list_stack, 0)
         let source_ref = match warning.source_key {
           Some(key) => Some(docx_source_ref_from_key(state, key, None, None))
           None => Some(@core.empty_source_ref())
         }
         let raw = @core.make_block(
-          @core.BlockKind::Raw,
+          Raw,
           "[Unsupported DOCX node: " + warning.message + "]",
           source_ref=source_ref.unwrap_or(@core.empty_source_ref()),
         )
@@ -165,7 +165,7 @@ fn lower_docx_paragraph_block(
   match docx_paragraph_heading_level(resolved_style, p) {
     Some(level) => {
       let heading0 = @core.make_block(
-        @core.BlockKind::Heading,
+        Heading,
         inline.plain_text.trim().to_owned(),
         source_ref~,
       )
@@ -183,7 +183,7 @@ fn lower_docx_paragraph_block(
   match docx_paragraph_list_lowering(state.docx, p) {
     Some((ordered, level)) => {
       let item0 = @core.make_block(
-        @core.BlockKind::ListItem,
+        ListItem,
         docx_list_item_text(inline.plain_text),
         source_ref~,
       )
@@ -203,19 +203,11 @@ fn lower_docx_paragraph_block(
     None => ()
   }
   if docx_paragraph_is_code_style(resolved_style, p, inline.plain_text) {
-    let code = @core.make_block(
-      @core.BlockKind::Code,
-      inline.plain_text,
-      source_ref~,
-    )
+    let code = @core.make_block(Code, inline.plain_text, source_ref~)
     return Some(code)
   }
   if docx_paragraph_is_quote_style(resolved_style, p) {
-    let quote0 = @core.make_block(
-      @core.BlockKind::BlockQuote,
-      inline.plain_text,
-      source_ref~,
-    )
+    let quote0 = @core.make_block(BlockQuote, inline.plain_text, source_ref~)
     let quote = if inline.rich_inlines.length() > 0 {
       @core.block_with_rich_inlines(quote0, Some(inline.rich_inlines))
     } else {
@@ -223,11 +215,7 @@ fn lower_docx_paragraph_block(
     }
     return Some(quote)
   }
-  let paragraph0 = @core.make_block(
-    @core.BlockKind::Paragraph,
-    inline.plain_text,
-    source_ref~,
-  )
+  let paragraph0 = @core.make_block(Paragraph, inline.plain_text, source_ref~)
   let paragraph = if inline.rich_inlines.length() > 0 {
     @core.block_with_rich_inlines(paragraph0, Some(inline.rich_inlines))
   } else {
@@ -246,7 +234,7 @@ fn lower_docx_table_block(
   table : @ddocx.DocxTable,
 ) -> @core.CoreBlock {
   let source_ref = docx_source_ref_from_key(state, table.source_key, None, None)
-  let block = @core.make_block(@core.BlockKind::Table, "table", source_ref~)
+  let block = @core.make_block(Table, "table", source_ref~)
   block.attrs.set("header_rows", docx_table_header_rows(table).to_string())
   block.attrs.set(
     "table_column_count",
@@ -254,11 +242,7 @@ fn lower_docx_table_block(
   )
   for row in table.rows {
     let row_ref = docx_source_ref_from_key(state, row.source_key, None, None)
-    let row_block = @core.make_block(
-      @core.BlockKind::TableRow,
-      "",
-      source_ref=row_ref,
-    )
+    let row_block = @core.make_block(TableRow, "", source_ref=row_ref)
     for cell in row.cells {
       let cell_ref = docx_source_ref_from_key(
         state,
@@ -268,7 +252,7 @@ fn lower_docx_table_block(
       )
       let (cell_text, cell_rich) = docx_table_cell_content(state, cell)
       let cell_block0 = @core.make_block(
-        @core.BlockKind::TableCell,
+        TableCell,
         cell_text,
         source_ref=cell_ref,
       )
@@ -352,7 +336,7 @@ fn docx_table_cell_content(
 
   for block in cell.blocks {
     match block {
-      @ddocx.DocxBlock::Paragraph(p) => {
+      Paragraph(p) => {
         let lowered = lower_docx_inlines(state, p.inlines, p.source_key)
         let normalized = docx_table_cell_block_text(lowered.plain_text, p)
         if normalized == "" {
@@ -371,7 +355,7 @@ fn docx_table_cell_content(
         if lowered.rich_inlines.length() > 0 {
           let cell_inlines : Array[@core.CoreInline] = []
           for inline in lowered.rich_inlines {
-            if inline.kind == @core.InlineKind::Image {
+            if inline.kind == Image {
               cell_inlines.push(
                 @core.make_inline_text(
                   inline.text,
@@ -388,7 +372,7 @@ fn docx_table_cell_content(
         }
         first = false
       }
-      @ddocx.DocxBlock::Table(table) => {
+      Table(table) => {
         let nested = lower_docx_table_block(state, table)
         let rendered = nested.children
           .map(row => row.children.map(cell => cell.text).join(" | "))
@@ -404,7 +388,7 @@ fn docx_table_cell_content(
         append_text(rich, rendered, source_ref)
         first = false
       }
-      @ddocx.DocxBlock::ContentControl(control) => {
+      ContentControl(control) => {
         let lowered = lower_docx_inlines(
           state,
           control.inlines,
@@ -435,7 +419,7 @@ fn docx_table_cell_content(
         }
         first = false
       }
-      @ddocx.DocxBlock::TablePlaceholder(_) => {
+      TablePlaceholder(_) => {
         let text = "[Unsupported DOCX nested table depth limit]"
         if !first {
           append_break(parts, rich, @core.empty_source_ref())
@@ -444,7 +428,7 @@ fn docx_table_cell_content(
         append_text(rich, text, @core.empty_source_ref())
         first = false
       }
-      @ddocx.DocxBlock::Unsupported(_) => {
+      Unsupported(_) => {
         let text = "[Unsupported DOCX inline]"
         if !first {
           append_break(parts, rich, @core.empty_source_ref())
@@ -453,7 +437,7 @@ fn docx_table_cell_content(
         append_text(rich, text, @core.empty_source_ref())
         first = false
       }
-      @ddocx.DocxBlock::StructuralMarker(_) => ()
+      StructuralMarker(_) => ()
     }
   }
   (parts.join(""), rich)

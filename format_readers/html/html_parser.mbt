@@ -38,21 +38,21 @@ pub fn classify_html_error(err : HtmlError) -> HtmlErrorInfo {
   } else if detail.contains("unterminated attribute value") ||
     detail.contains("missing attribute value") ||
     detail.contains("malformed attribute") {
-    HtmlErrorKind::MalformedAttribute
+    MalformedAttribute
   } else if detail.contains("unterminated start tag") ||
     detail.contains("unterminated end tag") ||
     detail.contains("unterminated self-closing tag") ||
     detail.contains("unterminated raw-text closing tag") ||
     detail.contains("unterminated doctype") {
-    HtmlErrorKind::UnterminatedTag
+    UnterminatedTag
   } else if detail.contains("unexpected eof") {
-    HtmlErrorKind::UnexpectedEOF
+    UnexpectedEOF
   } else if detail.contains("expected name") {
-    HtmlErrorKind::InvalidName
+    InvalidName
   } else if detail.contains("invalid") || detail.contains("malformed") {
-    HtmlErrorKind::InvalidToken
+    InvalidToken
   } else {
-    HtmlErrorKind::Unknown
+    Unknown
   }
   { kind, detail: err.to_string() }
 }
@@ -87,27 +87,27 @@ fn HtmlParser::parse_document(
 
   while self.pos < self.tokens.length() {
     match self.tokens[self.pos] {
-      HtmlToken::Text(text, span) => {
+      Text(text, span) => {
         if stack.length() > 0 || text.trim() != "" {
-          push_node(nodes, stack, HtmlNode::Text({ text, span }))
+          push_node(nodes, stack, Text({ text, span }))
         }
         self.pos += 1
       }
-      HtmlToken::Comment(text, span) => {
-        push_node(nodes, stack, HtmlNode::Comment({ text, span }))
+      Comment(text, span) => {
+        push_node(nodes, stack, Comment({ text, span }))
         self.pos += 1
       }
-      HtmlToken::Doctype(text, span) => {
+      Doctype(text, span) => {
         has_doctype = true
-        push_node(nodes, stack, HtmlNode::Doctype({ text, span }))
+        push_node(nodes, stack, Doctype({ text, span }))
         self.pos += 1
       }
-      HtmlToken::StartTag(tag_name, attributes, explicit_self_closing, span) => {
+      StartTag(tag_name, attributes, explicit_self_closing, span) => {
         let duplicate = collect_duplicate_attribute_names(attributes)
         for attr_name in duplicate {
           issues.push({
-            kind: HtmlValidationIssueKind::DuplicateAttribute,
-            severity: HtmlValidationSeverity::Warning,
+            kind: DuplicateAttribute,
+            severity: Warning,
             line_start: Some(span.line_start),
             line_end: Some(span.line_end),
             tag_name: Some(tag_name),
@@ -120,8 +120,8 @@ fn HtmlParser::parse_document(
             match classify_html_unsafe_url(attr.value) {
               Some(reason) =>
                 issues.push({
-                  kind: HtmlValidationIssueKind::UnsafeUrl,
-                  severity: HtmlValidationSeverity::Warning,
+                  kind: UnsafeUrl,
+                  severity: Warning,
                   line_start: Some(attr.span.line_start),
                   line_end: Some(attr.span.line_end),
                   tag_name: Some(tag_name),
@@ -134,8 +134,8 @@ fn HtmlParser::parse_document(
 
         if tag_name == "script" {
           issues.push({
-            kind: HtmlValidationIssueKind::ScriptElement,
-            severity: HtmlValidationSeverity::Warning,
+            kind: ScriptElement,
+            severity: Warning,
             line_start: Some(span.line_start),
             line_end: Some(span.line_end),
             tag_name: Some(tag_name),
@@ -144,8 +144,8 @@ fn HtmlParser::parse_document(
         }
         if tag_name == "style" {
           issues.push({
-            kind: HtmlValidationIssueKind::StyleElement,
-            severity: HtmlValidationSeverity::Warning,
+            kind: StyleElement,
+            severity: Warning,
             line_start: Some(span.line_start),
             line_end: Some(span.line_end),
             tag_name: Some(tag_name),
@@ -166,12 +166,12 @@ fn HtmlParser::parse_document(
         self.pos += 1
 
         if self_closing {
-          push_node(nodes, stack, HtmlNode::Element(element))
+          push_node(nodes, stack, Element(element))
         } else {
           stack.push(element)
         }
       }
-      HtmlToken::EndTag(tag_name, span) => {
+      EndTag(tag_name, span) => {
         self.pos += 1
         match close_html_element(stack, tag_name, issues, span) {
           Some(closed) => {
@@ -187,12 +187,12 @@ fn HtmlParser::parse_document(
                 byte_end: span.byte_end,
               },
             }
-            push_node(nodes, stack, HtmlNode::Element(finished))
+            push_node(nodes, stack, Element(finished))
           }
           None =>
             issues.push({
-              kind: HtmlValidationIssueKind::UnexpectedClosingTag,
-              severity: HtmlValidationSeverity::Warning,
+              kind: UnexpectedClosingTag,
+              severity: Warning,
               line_start: Some(span.line_start),
               line_end: Some(span.line_end),
               tag_name: Some(tag_name),
@@ -207,8 +207,8 @@ fn HtmlParser::parse_document(
     match stack.pop() {
       Some(element) => {
         issues.push({
-          kind: HtmlValidationIssueKind::UnclosedElement,
-          severity: HtmlValidationSeverity::Warning,
+          kind: UnclosedElement,
+          severity: Warning,
           line_start: Some(element.span.line_start),
           line_end: Some(element.span.line_end),
           tag_name: Some(element.tag_name),
@@ -217,7 +217,7 @@ fn HtmlParser::parse_document(
         push_node(
           nodes,
           stack,
-          HtmlNode::Element({
+          Element({
             tag_name: element.tag_name,
             attributes: element.attributes,
             children: element.children,
@@ -237,8 +237,8 @@ fn HtmlParser::parse_document(
 
   if nodes.length() == 0 {
     issues.push({
-      kind: HtmlValidationIssueKind::EmptyDocument,
-      severity: HtmlValidationSeverity::Warning,
+      kind: EmptyDocument,
+      severity: Warning,
       line_start: None,
       line_end: None,
       tag_name: None,
@@ -273,8 +273,8 @@ fn close_html_element(
     match stack.pop() {
       Some(unclosed) => {
         issues.push({
-          kind: HtmlValidationIssueKind::UnclosedElement,
-          severity: HtmlValidationSeverity::Warning,
+          kind: UnclosedElement,
+          severity: Warning,
           line_start: Some(unclosed.span.line_start),
           line_end: Some(end_span.line_start),
           tag_name: Some(unclosed.tag_name),

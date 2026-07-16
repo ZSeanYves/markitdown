@@ -62,11 +62,11 @@ fn count_objects(
   for obj in objects {
     object_count.val += 1
     match obj {
-      PptxObject::Shape(_) => shape_count.val += 1
-      PptxObject::Picture(_) => picture_count.val += 1
-      PptxObject::Table(_) => table_count.val += 1
-      PptxObject::Unsupported(_) => unsupported_count.val += 1
-      PptxObject::Group(group) =>
+      Shape(_) => shape_count.val += 1
+      Picture(_) => picture_count.val += 1
+      Table(_) => table_count.val += 1
+      Unsupported(_) => unsupported_count.val += 1
+      Group(group) =>
         count_objects(
           group.children,
           object_count,
@@ -75,10 +75,7 @@ fn count_objects(
           table_count,
           unsupported_count,
         )
-      PptxObject::Chart(_)
-      | PptxObject::SmartArt(_)
-      | PptxObject::Ole(_)
-      | PptxObject::Connector(_) => ()
+      Chart(_) | SmartArt(_) | Ole(_) | Connector(_) => ()
     }
   }
 }

@@ -25,7 +25,7 @@ fn html_semantic_metric_summary(
   let mut noise_repeated_boilerplate_count = 0
   for noise in semantic.noise_candidates {
     for reason in noise.reasons {
-      if reason == @dhtml.HtmlNoiseCandidateReason::RepeatedBoilerplate {
+      if reason == RepeatedBoilerplate {
         noise_repeated_boilerplate_count += 1
       }
     }
@@ -35,7 +35,7 @@ fn html_semantic_metric_summary(
   let mut warning_error_count = 0
   for warning in semantic.warnings {
     warning_count += 1
-    if warning.severity == @dhtml.HtmlWarningSeverity::Error {
+    if warning.severity == Error {
       warning_error_count += 1
     }
   }
@@ -50,15 +50,14 @@ fn html_semantic_metric_summary(
   let mut unsupported_unsafe_url_count = 0
   for unsupported in semantic.unsupported {
     match unsupported.kind {
-      @dhtml.HtmlUnsupportedKind::Script => unsupported_script_count += 1
-      @dhtml.HtmlUnsupportedKind::Style => unsupported_style_count += 1
-      @dhtml.HtmlUnsupportedKind::Iframe => unsupported_iframe_count += 1
-      @dhtml.HtmlUnsupportedKind::Embed => unsupported_embed_count += 1
-      @dhtml.HtmlUnsupportedKind::Object => unsupported_object_count += 1
-      @dhtml.HtmlUnsupportedKind::RemoteImage =>
-        unsupported_remote_image_count += 1
-      @dhtml.HtmlUnsupportedKind::DataImage => unsupported_data_image_count += 1
-      @dhtml.HtmlUnsupportedKind::UnsafeUrl => unsupported_unsafe_url_count += 1
+      Script => unsupported_script_count += 1
+      Style => unsupported_style_count += 1
+      Iframe => unsupported_iframe_count += 1
+      Embed => unsupported_embed_count += 1
+      Object => unsupported_object_count += 1
+      RemoteImage => unsupported_remote_image_count += 1
+      DataImage => unsupported_data_image_count += 1
+      UnsafeUrl => unsupported_unsafe_url_count += 1
       _ => ()
     }
   }
@@ -336,12 +335,12 @@ fn html_fill_child_semantic_metrics(
 fn html_scope_source_metric(semantic : @dhtml.HtmlSemanticDocument) -> String {
   for scope in semantic.scope {
     return match scope.scope_source {
-      @dhtml.HtmlDocumentScopeSource::Body => "body"
-      @dhtml.HtmlDocumentScopeSource::Main => "main"
-      @dhtml.HtmlDocumentScopeSource::Article => "article"
-      @dhtml.HtmlDocumentScopeSource::DocumentRoot => "document_root"
-      @dhtml.HtmlDocumentScopeSource::Fragment => "fragment"
-      @dhtml.HtmlDocumentScopeSource::Heuristic => "heuristic"
+      Body => "body"
+      Main => "main"
+      Article => "article"
+      DocumentRoot => "document_root"
+      Fragment => "fragment"
+      Heuristic => "heuristic"
     }
   }
   "none"

@@ -248,10 +248,7 @@ test "ooxml package malformed content types is classified" {
       e => Err(e)
     },
   )
-  let info = expect_error_info(
-    result,
-    @ox.OoxmlErrorKind::MalformedContentTypes,
-  )
+  let info = expect_error_info(result, MalformedContentTypes)
   match info.part_name {
     Some(path) => assert_eq(path, "[Content_Types].xml")
     None => fail("expected content types part name")
@@ -287,10 +284,7 @@ test "ooxml package rejects unsafe relationship target path" {
       e => Err(e)
     },
   )
-  let info = expect_error_info(
-    result,
-    @ox.OoxmlErrorKind::UnsafeRelationshipTarget,
-  )
+  let info = expect_error_info(result, UnsafeRelationshipTarget)
   if !info.detail.contains("rels_part=\"word/_rels/document.xml.rels\"") {
     fail("unsafe relationship target should preserve rels part context")
   }
@@ -380,22 +374,20 @@ test "ooxml package inspect reports relationships media and properties" {
 test "ooxml inspect classifies public package error taxonomy" {
   let cases = [
     @ox.OoxmlError::ZipError("bad zip"),
-    @ox.OoxmlError::MissingPart("word/_rels/document.xml.rels"),
-    @ox.OoxmlError::InvalidXml(
+    MissingPart("word/_rels/document.xml.rels"),
+    InvalidXml(
       "[Content_Types].xml: duplicate content type override: /word/document.xml",
     ),
-    @ox.OoxmlError::InvalidXml(
+    InvalidXml(
       "relationships rels_part=\"word/_rels/document.xml.rels\" source=\"word/document.xml\": malformed",
     ),
-    @ox.OoxmlError::InvalidXml("generic malformed xml"),
-    @ox.OoxmlError::InvalidPartPath(
+    InvalidXml("generic malformed xml"),
+    InvalidPartPath(
       "unsafe relationship target: word/document.xml: ../../evil.bin",
     ),
-    @ox.OoxmlError::InvalidPartPath(
-      "normalized part collision: word/document.xml",
-    ),
-    @ox.OoxmlError::InvalidPartPath("/absolute/unsafe.xml"),
-    @ox.OoxmlError::RelationshipNotFound("word/document.xml", "rId404"),
+    InvalidPartPath("normalized part collision: word/document.xml"),
+    InvalidPartPath("/absolute/unsafe.xml"),
+    RelationshipNotFound("word/document.xml", "rId404"),
   ]
   let infos = cases.map(@oxi.classify_ooxml_error)
   assert_eq(infos.length(), 9)

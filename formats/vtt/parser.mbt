@@ -2,7 +2,7 @@
 pub fn vtt_parser() -> @parser.Parser {
   @parser.make_parser(
     "vtt_parser",
-    @parser.ParserMode::StreamingEvent,
+    StreamingEvent,
     subtitle_parser_capability(),
     fn(
       source : @input.InputSource,
@@ -16,9 +16,9 @@ pub fn vtt_parser() -> @parser.Parser {
 ///|
 fn subtitle_parser_capability() -> @parser.ParserCapability {
   @parser.make_parser_capability(
-    @parser.ParserMode::StreamingEvent,
+    StreamingEvent,
     true,
-    @parser.StreamingGranularity::Record,
+    Record,
     false,
     true,
     false,
@@ -65,7 +65,7 @@ fn parse_vtt_result(
   let text = prepared.original_text
   let diagnostics = @fshared.empty_parser_diagnostics(
     "vtt_parser",
-    @parser.ParserMode::StreamingEvent,
+    StreamingEvent,
     source,
     "vtt",
   )
@@ -151,7 +151,7 @@ fn parse_vtt_result(
       Ok(
         @parser.parse_result_with_events_capability(
           "vtt_parser",
-          @parser.ParserMode::StreamingEvent,
+          StreamingEvent,
           events,
           diagnostics,
           subtitle_parser_capability(),
@@ -226,7 +226,7 @@ fn parse_large_vtt_result(
   }
   let diagnostics = @fshared.empty_parser_diagnostics(
     "vtt_parser",
-    @parser.ParserMode::StreamingEvent,
+    StreamingEvent,
     source,
     "vtt",
   )
@@ -283,7 +283,7 @@ fn parse_large_vtt_result(
   diagnostics.pass_trace.push("parse:vtt_parser")
   @parser.parse_result_with_events_capability(
     "vtt_parser",
-    @parser.ParserMode::StreamingEvent,
+    StreamingEvent,
     events,
     diagnostics,
     subtitle_parser_capability(),
@@ -330,17 +330,12 @@ fn append_large_vtt_block(
       None,
       None,
     )
-    let raw_ref = subtitle_generic_block_ref(source_ref, @core.BlockKind::Raw, [
+    let raw_ref = subtitle_generic_block_ref(source_ref, Raw, [
       ("raw_kind", "subtitle_" + kind),
       ("info", "vtt"),
       ("literal", "true"),
     ])
-    append_large_vtt_generic_block(
-      events,
-      @core.BlockKind::Raw,
-      payload,
-      raw_ref,
-    )
+    append_large_vtt_generic_block(events, Raw, payload, raw_ref)
     stats.cue_count += 1
     return
   }
@@ -402,7 +397,7 @@ fn append_large_vtt_block(
   }
   cue_ref.extra.set("subtitle_event_layout", "record_v2")
   events.push({
-    kind: @core.EventKind::StartBlock(@core.BlockKind::BlockQuote),
+    kind: StartBlock(BlockQuote),
     text: start +
     " --> " +
     finish +
@@ -429,17 +424,12 @@ fn append_large_vtt_invalid(
     None,
     None,
   )
-  let raw_ref = subtitle_generic_block_ref(source_ref, @core.BlockKind::Raw, [
+  let raw_ref = subtitle_generic_block_ref(source_ref, Raw, [
     ("raw_kind", "subtitle_invalid"),
     ("info", "vtt"),
     ("literal", "true"),
   ])
-  append_large_vtt_generic_block(
-    events,
-    @core.BlockKind::Raw,
-    block.join("\n"),
-    raw_ref,
-  )
+  append_large_vtt_generic_block(events, Raw, block.join("\n"), raw_ref)
   stats.invalid_count += 1
   stats.cue_count += 1
 }
@@ -451,16 +441,8 @@ fn append_large_vtt_generic_block(
   text : String,
   source_ref : @core.SourceRef,
 ) -> Unit {
-  events.push({
-    kind: @core.EventKind::StartBlock(kind),
-    text,
-    source_ref: Some(source_ref),
-  })
-  events.push({
-    kind: @core.EventKind::EndBlock(kind),
-    text: "",
-    source_ref: Some(source_ref),
-  })
+  events.push({ kind: StartBlock(kind), text, source_ref: Some(source_ref) })
+  events.push({ kind: EndBlock(kind), text: "", source_ref: Some(source_ref) })
 }
 
 ///|
@@ -494,67 +476,52 @@ fn subtitle_events_from_document(
       cue.time_end,
     )
     if cue.note_kind is Some(kind) {
-      let block_ref = subtitle_generic_block_ref(
-        base_ref,
-        @core.BlockKind::Raw,
-        [
-          ("raw_kind", "subtitle_" + kind),
-          ("info", format_name),
-          ("literal", "true"),
-        ],
-      )
+      let block_ref = subtitle_generic_block_ref(base_ref, Raw, [
+        ("raw_kind", "subtitle_" + kind),
+        ("info", format_name),
+        ("literal", "true"),
+      ])
       events.push({
-        kind: @core.EventKind::StartBlock(@core.BlockKind::Raw),
+        kind: StartBlock(Raw),
         text: cue.note_payload.unwrap_or(""),
         source_ref: Some(block_ref),
       })
-      events.push({
-        kind: @core.EventKind::EndBlock(@core.BlockKind::Raw),
-        text: "",
-        source_ref: Some(block_ref),
-      })
+      events.push({ kind: EndBlock(Raw), text: "", source_ref: Some(block_ref) })
       continue
     }
-    let quote_ref = subtitle_generic_block_ref(
-      base_ref,
-      @core.BlockKind::BlockQuote,
-      [
-        ("literal", "true"),
-        ("cue_index", (cue.index + 1).to_string()),
-        ("time_range", cue.time_range),
-      ],
-    )
+    let quote_ref = subtitle_generic_block_ref(base_ref, BlockQuote, [
+      ("literal", "true"),
+      ("cue_index", (cue.index + 1).to_string()),
+      ("time_range", cue.time_range),
+    ])
     if cue.identifier is Some(identifier) {
       quote_ref.extra.set("subtitle_identifier", identifier)
     }
     if cue.cue_settings is Some(settings) {
       quote_ref.extra.set("subtitle_cue_settings", settings)
     }
-    let heading_ref = subtitle_generic_block_ref(
-      base_ref,
-      @core.BlockKind::Heading,
-      [("level", "6"), ("literal", "true")],
-    )
+    let heading_ref = subtitle_generic_block_ref(base_ref, Heading, [
+      ("level", "6"),
+      ("literal", "true"),
+    ])
     events.push({
-      kind: @core.EventKind::StartBlock(@core.BlockKind::BlockQuote),
+      kind: StartBlock(BlockQuote),
       text: "",
       source_ref: Some(quote_ref),
     })
     events.push({
-      kind: @core.EventKind::StartBlock(@core.BlockKind::Heading),
+      kind: StartBlock(Heading),
       text: cue.time_range,
       source_ref: Some(heading_ref),
     })
     events.push({
-      kind: @core.EventKind::EndBlock(@core.BlockKind::Heading),
+      kind: EndBlock(Heading),
       text: "",
       source_ref: Some(heading_ref),
     })
-    let paragraph_ref = subtitle_generic_block_ref(
-      base_ref,
-      @core.BlockKind::Paragraph,
-      [("literal", "true")],
-    )
+    let paragraph_ref = subtitle_generic_block_ref(base_ref, Paragraph, [
+      ("literal", "true"),
+    ])
     let raw_text = cue.text_lines.join("\n")
     let lowered_text = @fshared.lower_subtitle_inline_markup(raw_text)
     if lowered_text.1 {
@@ -562,17 +529,17 @@ fn subtitle_events_from_document(
       paragraph_ref.extra.set("subtitle_inline_source", raw_text)
     }
     events.push({
-      kind: @core.EventKind::StartBlock(@core.BlockKind::Paragraph),
+      kind: StartBlock(Paragraph),
       text: lowered_text.0,
       source_ref: Some(paragraph_ref),
     })
     events.push({
-      kind: @core.EventKind::EndBlock(@core.BlockKind::Paragraph),
+      kind: EndBlock(Paragraph),
       text: "",
       source_ref: Some(paragraph_ref),
     })
     events.push({
-      kind: @core.EventKind::EndBlock(@core.BlockKind::BlockQuote),
+      kind: EndBlock(BlockQuote),
       text: "",
       source_ref: Some(quote_ref),
     })
@@ -630,7 +597,7 @@ fn count_subtitle_event_blocks(events : Array[@core.CoreEvent]) -> Int {
   let mut count = 0
   for event in events {
     match event.kind {
-      @core.EventKind::StartBlock(_) => count += 1
+      StartBlock(_) => count += 1
       _ => ()
     }
   }
@@ -665,13 +632,13 @@ fn subtitle_malformed_parse_result(
     Some(1),
     Some(count_subtitle_lines(text)),
   )
-  let raw_ref = subtitle_generic_block_ref(source_ref, @core.BlockKind::Raw, [
+  let raw_ref = subtitle_generic_block_ref(source_ref, Raw, [
     ("raw_kind", "vtt_fail_closed"),
     ("info", "vtt"),
     ("literal", "true"),
   ])
   let event : @core.CoreEvent = {
-    kind: @core.EventKind::StartBlock(@core.BlockKind::Raw),
+    kind: StartBlock(Raw),
     text,
     source_ref: Some(raw_ref),
   }
@@ -714,7 +681,7 @@ fn subtitle_malformed_parse_result(
   diagnostics.pass_trace.push("parse:vtt_parser")
   @parser.parse_result_with_events_capability(
     "vtt_parser",
-    @parser.ParserMode::StreamingEvent,
+    StreamingEvent,
     [event],
     diagnostics,
     subtitle_parser_capability(),

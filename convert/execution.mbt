@@ -48,16 +48,15 @@ fn convert_input_with_image_ocr_provider_and_pdf_rasterizer_and_provenance(
         detected.format,
         execution_plan.ocr_options,
         @focr.image_ocr_selection_target_for_accuracy(
-          execution_plan.fidelity_mode == FidelityMode::Accurate,
+          execution_plan.fidelity_mode == Accurate,
         ),
         image_ocr_provider,
         requested_mode~,
       ) {
       Ok(result) => result
-      Err(err) => return Err(ConvertError::ParseFailed(err))
+      Err(err) => return Err(ParseFailed(err))
     }
-  } else if detected.format == @input.DetectedFormat::Pdf &&
-    requested_mode == Some(@parser.ParserMode::LayoutTwoStage) {
+  } else if detected.format == Pdf && requested_mode == Some(LayoutTwoStage) {
     match
       @fpdf.pdf_ocr_parser_result(
         prepared_source,
@@ -66,12 +65,11 @@ fn convert_input_with_image_ocr_provider_and_pdf_rasterizer_and_provenance(
         rasterizer=pdf_rasterizer,
       ) {
       Ok(result) => result
-      Err(err) => return Err(ConvertError::ParseFailed(err))
+      Err(err) => return Err(ParseFailed(err))
     }
   } else {
     let probe_registry = match detected.format {
-      @input.DetectedFormat::Zip | @input.DetectedFormat::Epub =>
-        @formats.builtin_registry()
+      Zip | Epub => @formats.builtin_registry()
       _ => @parser.empty_registry()
     }
     match
@@ -93,10 +91,10 @@ fn convert_input_with_image_ocr_provider_and_pdf_rasterizer_and_provenance(
         probe_registry,
       ) {
       Some(Ok(result)) => result
-      Some(Err(err)) => return Err(ConvertError::ParseFailed(err))
+      Some(Err(err)) => return Err(ParseFailed(err))
       None if heavy_probe_artifact_required(detected.format) =>
         return Err(
-          ConvertError::ParseFailed(
+          ParseFailed(
             "route probe artifact missing or mismatched for format: " +
             @input.detected_format_name(detected.format),
           ),
@@ -109,7 +107,7 @@ fn convert_input_with_image_ocr_provider_and_pdf_rasterizer_and_provenance(
             parse_context,
           ) {
           Ok(result) => result
-          Err(err) => return Err(ConvertError::ParseFailed(err))
+          Err(err) => return Err(ParseFailed(err))
         }
     }
   }
@@ -179,7 +177,7 @@ fn parse_context_from_execution_plan(
     Some(execution_plan.limits.max_cols),
     Some(execution_plan.limits.max_cells),
     Some(execution_plan.limits.max_line_chars),
-    execution_plan.output_mode == OutputMode::Debug,
+    execution_plan.output_mode == Debug,
   )
 }
 
@@ -293,33 +291,33 @@ fn format_detector_notes(notes : Array[String]) -> String {
 ///|
 fn probe_signal_kind_name(kind : ProbeSignalKind) -> String {
   match kind {
-    ProbeSignalKind::CharCount => "char_count"
-    ProbeSignalKind::LineCount => "line_count"
-    ProbeSignalKind::BlockCount => "block_count"
-    ProbeSignalKind::ListItemCount => "list_item_count"
-    ProbeSignalKind::NodeCount => "node_count"
-    ProbeSignalKind::MaxDepth => "max_depth"
-    ProbeSignalKind::RowCount => "row_count"
-    ProbeSignalKind::ColCount => "col_count"
-    ProbeSignalKind::CellCount => "cell_count"
-    ProbeSignalKind::CellEstimate => "cell_estimate"
-    ProbeSignalKind::OutputCount => "output_count"
-    ProbeSignalKind::AttachmentCount => "attachment_count"
-    ProbeSignalKind::AssetCount => "asset_count"
-    ProbeSignalKind::EntryCount => "entry_count"
-    ProbeSignalKind::PageCount => "page_count"
-    ProbeSignalKind::SlideCount => "slide_count"
-    ProbeSignalKind::SheetCount => "sheet_count"
-    ProbeSignalKind::ScalarCount => "scalar_count"
-    ProbeSignalKind::ObjectCount => "object_count"
-    ProbeSignalKind::ArrayCount => "array_count"
-    ProbeSignalKind::HiddenRowCount => "hidden_row_count"
-    ProbeSignalKind::HiddenSheetCount => "hidden_sheet_count"
-    ProbeSignalKind::CoveredCellCount => "covered_cell_count"
-    ProbeSignalKind::NoteCount => "note_count"
-    ProbeSignalKind::CommentCount => "comment_count"
-    ProbeSignalKind::ScannedPageCount => "scanned_page_count"
-    ProbeSignalKind::NativeTextPageCount => "native_text_page_count"
+    CharCount => "char_count"
+    LineCount => "line_count"
+    BlockCount => "block_count"
+    ListItemCount => "list_item_count"
+    NodeCount => "node_count"
+    MaxDepth => "max_depth"
+    RowCount => "row_count"
+    ColCount => "col_count"
+    CellCount => "cell_count"
+    CellEstimate => "cell_estimate"
+    OutputCount => "output_count"
+    AttachmentCount => "attachment_count"
+    AssetCount => "asset_count"
+    EntryCount => "entry_count"
+    PageCount => "page_count"
+    SlideCount => "slide_count"
+    SheetCount => "sheet_count"
+    ScalarCount => "scalar_count"
+    ObjectCount => "object_count"
+    ArrayCount => "array_count"
+    HiddenRowCount => "hidden_row_count"
+    HiddenSheetCount => "hidden_sheet_count"
+    CoveredCellCount => "covered_cell_count"
+    NoteCount => "note_count"
+    CommentCount => "comment_count"
+    ScannedPageCount => "scanned_page_count"
+    NativeTextPageCount => "native_text_page_count"
   }
 }
 

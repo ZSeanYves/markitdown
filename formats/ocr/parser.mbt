@@ -1,9 +1,9 @@
 ///|
 pub fn ocr_image_parser_capability() -> @parser.ParserCapability {
   @parser.make_parser_capability(
-    @parser.ParserMode::LayoutTwoStage,
+    LayoutTwoStage,
     false,
-    @parser.StreamingGranularity::Page,
+    Page,
     true,
     false,
     false,
@@ -67,21 +67,20 @@ fn image_provider_not_configured_error_for_target(
   target : OcrProviderSelectionTarget,
 ) -> OcrProviderError {
   match resolved_ocr_provider_kind_for_target(target) {
-    OcrProviderKind::Tesseract =>
-      OcrProviderError::NotConfigured(
+    Tesseract =>
+      NotConfigured(
         "Tesseract OCR provider is not configured on this runtime.\n\n" +
         tesseract_ocr_install_hint(),
       )
-    OcrProviderKind::PaddleOcr =>
-      OcrProviderError::NotConfigured(paddle_ocr_not_configured_message())
+    PaddleOcr => NotConfigured(paddle_ocr_not_configured_message())
   }
 }
 
 ///|
 fn image_ocr_provider_should_fallback(error : OcrProviderError) -> Bool {
   match ocr_provider_error_status(error) {
-    OcrProviderStatus::NotConfigured => true
-    OcrProviderStatus::CommandUnavailable => true
+    NotConfigured => true
+    CommandUnavailable => true
     _ => false
   }
 }
@@ -120,9 +119,7 @@ fn image_ocr_parse_success_result(
     Err(
       image_ocr_provider_error_message(
         detected_format,
-        OcrProviderError::EmptyResult(
-          "OCR provider produced an empty OCR model on this runtime.",
-        ),
+        EmptyResult("OCR provider produced an empty OCR model on this runtime."),
       ),
     )
   } else {
@@ -156,7 +153,7 @@ pub fn ocr_options_from_parse_context(
 pub fn image_ocr_parser() -> @parser.Parser {
   @parser.make_parser(
     "image_ocr_parser",
-    @parser.ParserMode::LayoutTwoStage,
+    LayoutTwoStage,
     ocr_image_parser_capability(),
     fn(
       source : @input.InputSource,
@@ -189,7 +186,7 @@ pub fn image_ocr_parser_result(
     detected_format,
     options,
     requested_mode,
-    OcrProviderSelectionTarget::DirectImageBalanced,
+    DirectImageBalanced,
     run_ocr_provider,
   )
 }
@@ -207,7 +204,7 @@ pub fn image_ocr_parser_result_with_provider(
     detected_format,
     options,
     requested_mode,
-    OcrProviderSelectionTarget::DirectImageBalanced,
+    DirectImageBalanced,
     provider,
   )
 }
@@ -242,7 +239,7 @@ pub async fn image_ocr_parser_result_with_async_provider(
     detected_format,
     options,
     requested_mode,
-    OcrProviderSelectionTarget::DirectImageBalanced,
+    DirectImageBalanced,
     provider,
   )
 }
@@ -275,7 +272,7 @@ pub fn image_ocr_fail_closed_diagnostics(
     source,
     detected_format,
     options,
-    OcrProviderSelectionTarget::DirectImageBalanced,
+    DirectImageBalanced,
     requested_mode~,
   )
 }
@@ -314,7 +311,7 @@ fn image_ocr_parser_parse(
     )
   }
   match options.intent {
-    @parser.OcrIntent::Explicit => {
+    Explicit => {
       let provider_input = match
         ocr_prepare_provider_input(source, detected_format) {
         Ok(value) => value
@@ -365,10 +362,8 @@ fn image_ocr_parser_parse(
           }
       }
     }
-    @parser.OcrIntent::Disabled =>
-      Err(image_ocr_disabled_message(detected_format))
-    @parser.OcrIntent::Auto =>
-      Err(image_requires_explicit_ocr_message(detected_format))
+    Disabled => Err(image_ocr_disabled_message(detected_format))
+    Auto => Err(image_requires_explicit_ocr_message(detected_format))
   }
 }
 
@@ -391,7 +386,7 @@ async fn image_ocr_parser_parse_async(
     )
   }
   match options.intent {
-    @parser.OcrIntent::Explicit => {
+    Explicit => {
       let provider_input = match
         ocr_prepare_provider_input(source, detected_format) {
         Ok(value) => value
@@ -442,10 +437,8 @@ async fn image_ocr_parser_parse_async(
           }
       }
     }
-    @parser.OcrIntent::Disabled =>
-      Err(image_ocr_disabled_message(detected_format))
-    @parser.OcrIntent::Auto =>
-      Err(image_requires_explicit_ocr_message(detected_format))
+    Disabled => Err(image_ocr_disabled_message(detected_format))
+    Auto => Err(image_requires_explicit_ocr_message(detected_format))
   }
 }
 
@@ -462,7 +455,7 @@ fn image_ocr_parser_diagnostics(
     source, detected_format, options, requested_mode, target,
   )
   match options.intent {
-    @parser.OcrIntent::Explicit => {
+    Explicit => {
       let provider_kind = resolved_ocr_provider_kind_for_target(target)
       let request = make_ocr_provider_request(
         image_source_path(source),
@@ -523,11 +516,11 @@ fn image_ocr_parser_diagnostics(
             ocr_provider_status_name(ocr_provider_error_status(error)),
           )
           match error {
-            OcrProviderError::NotConfigured(_) =>
+            NotConfigured(_) =>
               diagnostics.dependency_diagnostics.push(
                 ocr_dependency_diagnostic_for_target(target),
               )
-            OcrProviderError::CommandUnavailable(_) =>
+            CommandUnavailable(_) =>
               diagnostics.dependency_diagnostics.push(
                 ocr_dependency_diagnostic_for_target(target),
               )
@@ -548,7 +541,7 @@ fn image_ocr_parser_diagnostics(
         }
       }
     }
-    @parser.OcrIntent::Disabled => {
+    Disabled => {
       diagnostics.metrics.set("ocr_provider_status", "skipped_disabled")
       diagnostics.warnings.push(image_ocr_disabled_message(detected_format))
       diagnostics.degraded_features.push("image_ocr_disabled")
@@ -557,7 +550,7 @@ fn image_ocr_parser_diagnostics(
       )
       diagnostics.pass_trace.push("parse:image_ocr_parser:disabled_fail_closed")
     }
-    @parser.OcrIntent::Auto => {
+    Auto => {
       diagnostics.metrics.set("ocr_provider_status", "skipped_auto")
       diagnostics.warnings.push(
         image_requires_explicit_ocr_message(detected_format),
@@ -583,10 +576,10 @@ fn image_requested_mode_name(mode : @parser.ParserMode?) -> String {
 ///|
 fn image_input_kind_name(kind : @input.InputKind) -> String {
   match kind {
-    @input.InputKind::Path => "path"
-    @input.InputKind::Text => "text"
-    @input.InputKind::Bytes => "bytes"
-    @input.InputKind::Reader => "reader"
+    Path => "path"
+    Text => "text"
+    Bytes => "bytes"
+    Reader => "reader"
   }
 }
 

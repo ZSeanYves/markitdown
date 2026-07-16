@@ -3,7 +3,7 @@ fn locate_docx_main_document_part(
   pkg : @ox.OoxmlPackage,
 ) -> String raise DocxError {
   let rels = @ox.find_relationships_by_type(pkg, "", "/officeDocument") catch {
-    e => raise DocxError::OoxmlFailure(e.to_string())
+    e => raise OoxmlFailure(e.to_string())
   }
   if rels.length() > 0 {
     return rels[0].resolved_target
@@ -21,7 +21,7 @@ fn locate_docx_main_document_part(
   if candidates.length() > 0 {
     candidates[0]
   } else {
-    raise DocxError::MissingMainDocument
+    raise MissingMainDocument
   }
 }
 
@@ -101,8 +101,8 @@ fn docx_empty_part_graph(main_part : String) -> DocxPartGraph {
     parts: [
       {
         part_name: main_part,
-        kind: DocxDiscoveredPartKind::MainDocument,
-        source: DocxPartDiscoverySource::ContentType,
+        kind: MainDocument,
+        source: ContentType,
         relationship_id: None,
         source_part: None,
         content_type: None,
@@ -132,17 +132,17 @@ fn docx_discover_relationship_parts(
   relationships : Array[@ox.OoxmlRelationship],
 ) -> Unit {
   for rel in relationships {
-    if rel.target_mode == @ox.OoxmlTargetMode::External {
+    if rel.target_mode == External {
       continue
     }
     let kind = docx_discovered_part_kind_from_relationship(rel)
-    if kind == DocxDiscoveredPartKind::Unknown {
+    if kind == Unknown {
       continue
     }
     docx_push_discovered_part(graph, {
       part_name: rel.resolved_target,
       kind,
-      source: DocxPartDiscoverySource::Relationship,
+      source: Relationship,
       relationship_id: Some(rel.id),
       source_part: Some(source_part),
       content_type: docx_lookup_part_content_type(pkg, rel.resolved_target),
@@ -185,11 +185,11 @@ fn docx_discover_content_type_parts(
     match docx_lookup_part_content_type(pkg, part) {
       Some(content_type) => {
         let kind = docx_discovered_part_kind_from_content_type(content_type)
-        if kind != DocxDiscoveredPartKind::Unknown {
+        if kind != Unknown {
           docx_push_discovered_part(graph, {
             part_name: part,
             kind,
-            source: DocxPartDiscoverySource::ContentType,
+            source: ContentType,
             relationship_id: None,
             source_part: if part == main_part {
               None
@@ -297,7 +297,7 @@ fn docx_discover_conventional_part(
   docx_push_discovered_part(graph, {
     part_name,
     kind,
-    source: DocxPartDiscoverySource::ConventionalPath,
+    source: ConventionalPath,
     relationship_id: None,
     source_part: Some(main_part),
     content_type: docx_lookup_part_content_type(pkg, part_name),

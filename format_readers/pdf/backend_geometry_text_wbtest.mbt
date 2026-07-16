@@ -426,7 +426,7 @@ test "pdf ToUnicode parser covers scalar array invalid and malformed ranges" {
     "40",
     "40",
     "",
-    Some([PdfNativeContentToken::Word("bad")]),
+    Some([Word("bad")]),
   )
   assert_true(mapping.length() == 0)
   assert_true(invalid.get("30") == Some(true))

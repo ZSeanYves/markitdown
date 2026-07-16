@@ -166,7 +166,7 @@ fn remove_header_footer_blocks(
 
 ///|
 fn paragraph_merge_candidate(block : @core.CoreBlock) -> Bool {
-  block.kind == @core.BlockKind::Paragraph && block.children.length() == 0
+  block.kind == Paragraph && block.children.length() == 0
 }
 
 ///|
@@ -399,14 +399,14 @@ fn left_pad_numeric_string(value : String, width : Int) -> String {
 ///|
 fn block_kind_rank(kind : @core.BlockKind) -> String {
   match kind {
-    @core.BlockKind::Heading => "00"
-    @core.BlockKind::Paragraph => "01"
-    @core.BlockKind::List => "02"
-    @core.BlockKind::Table => "03"
-    @core.BlockKind::Image => "04"
-    @core.BlockKind::Code => "05"
-    @core.BlockKind::BlockQuote => "06"
-    @core.BlockKind::Raw => "07"
+    Heading => "00"
+    Paragraph => "01"
+    List => "02"
+    Table => "03"
+    Image => "04"
+    Code => "05"
+    BlockQuote => "06"
+    Raw => "07"
     _ => "99"
   }
 }
@@ -416,9 +416,7 @@ fn block_is_header_footer_candidate(block : @core.CoreBlock) -> Bool {
   if block.attrs.get("header_footer_candidate") == Some("true") {
     return true
   }
-  block.signals.any(fn(signal) {
-    signal.signal_type == @core.SignalType::HeaderFooterCandidate
-  })
+  block.signals.any(fn(signal) { signal.signal_type == HeaderFooterCandidate })
 }
 
 ///|
@@ -464,7 +462,7 @@ fn merged_text_line_count(
 fn paragraph_leaf_count(blocks : Array[@core.CoreBlock]) -> Int {
   let mut total = 0
   for block in blocks {
-    if block.kind == @core.BlockKind::Paragraph && block.children.length() == 0 {
+    if block.kind == Paragraph && block.children.length() == 0 {
       total += 1
     }
     total += paragraph_leaf_count(block.children)
@@ -494,7 +492,7 @@ fn merge_text_line_input(
   input : @core.IRInput,
 ) -> @core.IRInput {
   match input {
-    @core.IRInput::Document(document) => {
+    Document(document) => {
       let next = @core.document_with_blocks(
         document,
         merge_text_line_blocks(document.blocks),
@@ -503,17 +501,17 @@ fn merge_text_line_input(
         "merged_text_line_count",
         merged_text_line_count(document.blocks, next.blocks).to_string(),
       )
-      @core.IRInput::Document(next)
+      Document(next)
     }
-    @core.IRInput::BlockStream(blocks) => {
+    BlockStream(blocks) => {
       let next_blocks = merge_text_line_blocks(blocks)
       context.diagnostics.val.metrics.set(
         "merged_text_line_count",
         merged_text_line_count(blocks, next_blocks).to_string(),
       )
-      @core.IRInput::BlockStream(next_blocks)
+      BlockStream(next_blocks)
     }
-    @core.IRInput::EventStream(events) => @core.IRInput::EventStream(events)
+    EventStream(events) => EventStream(events)
   }
 }
 
@@ -523,7 +521,7 @@ fn resolve_reading_order_input(
   input : @core.IRInput,
 ) -> @core.IRInput {
   match input {
-    @core.IRInput::Document(document) => {
+    Document(document) => {
       let next = @core.document_with_blocks(
         document,
         resolve_reading_order_blocks(document.blocks),
@@ -532,17 +530,17 @@ fn resolve_reading_order_input(
         "resolved_reading_order_block_count",
         reading_order_hint_block_count(next.blocks).to_string(),
       )
-      @core.IRInput::Document(next)
+      Document(next)
     }
-    @core.IRInput::BlockStream(blocks) => {
+    BlockStream(blocks) => {
       let next_blocks = resolve_reading_order_blocks(blocks)
       context.diagnostics.val.metrics.set(
         "resolved_reading_order_block_count",
         reading_order_hint_block_count(next_blocks).to_string(),
       )
-      @core.IRInput::BlockStream(next_blocks)
+      BlockStream(next_blocks)
     }
-    @core.IRInput::EventStream(events) => @core.IRInput::EventStream(events)
+    EventStream(events) => EventStream(events)
   }
 }
 
@@ -557,7 +555,7 @@ fn remove_header_footer_input(
     ) ==
     Some("true")
   match input {
-    @core.IRInput::Document(document) => {
+    Document(document) => {
       let removal = remove_header_footer_blocks(
         document.blocks,
         cleanup_enabled,
@@ -568,16 +566,16 @@ fn remove_header_footer_input(
         "removed_header_footer_count",
         removal.1.to_string(),
       )
-      @core.IRInput::Document(sync_document_to_context(context, next))
+      Document(sync_document_to_context(context, next))
     }
-    @core.IRInput::BlockStream(blocks) => {
+    BlockStream(blocks) => {
       let removal = remove_header_footer_blocks(blocks, cleanup_enabled, debug)
       context.diagnostics.val.metrics.set(
         "removed_header_footer_count",
         removal.1.to_string(),
       )
-      @core.IRInput::BlockStream(removal.0)
+      BlockStream(removal.0)
     }
-    @core.IRInput::EventStream(events) => @core.IRInput::EventStream(events)
+    EventStream(events) => EventStream(events)
   }
 }

@@ -18,7 +18,7 @@ pub fn pdf_ocr_parser_result(
   let native_document_result = extract_pdf_native_document(source)
   let native_document = match native_document_result {
     Ok(value) => Some(value)
-    Err(PdfNativeError::EmptyTextLayer(_)) => None
+    Err(EmptyTextLayer(_)) => None
     Err(error) =>
       return Err(
         pdf_native_enabled_error_diagnostics(source, context, error).errors[0],
@@ -159,7 +159,7 @@ pub fn pdf_ocr_parser_result(
               for model in job.pages {
                 let model_blocks = @focr.ocr_page_blocks_from_page(
                   source,
-                  @input.DetectedFormat::Pdf,
+                  Pdf,
                   page_number,
                   model,
                 )
@@ -198,7 +198,7 @@ pub fn pdf_ocr_parser_result(
               pdf_native_enabled_error_diagnostics(
                 source,
                 context,
-                PdfNativeError::ParseFailed(error.to_string()),
+                ParseFailed(error.to_string()),
               ),
             ),
           )
@@ -305,7 +305,7 @@ pub async fn pdf_ocr_parser_result_async(
   let native_document_result = extract_pdf_native_document(source)
   let native_document = match native_document_result {
     Ok(value) => Some(value)
-    Err(PdfNativeError::EmptyTextLayer(_)) => None
+    Err(EmptyTextLayer(_)) => None
     Err(error) =>
       return Err(
         pdf_native_enabled_error_diagnostics(source, context, error).errors[0],
@@ -445,7 +445,7 @@ pub async fn pdf_ocr_parser_result_async(
               for model in job.pages {
                 let model_blocks = @focr.ocr_page_blocks_from_page(
                   source,
-                  @input.DetectedFormat::Pdf,
+                  Pdf,
                   page_number,
                   model,
                 )
@@ -487,7 +487,7 @@ pub async fn pdf_ocr_parser_result_async(
               pdf_native_enabled_error_diagnostics(
                 source,
                 context,
-                PdfNativeError::ParseFailed(error.to_string()),
+                ParseFailed(error.to_string()),
               ),
             ),
           )
@@ -583,7 +583,7 @@ pub async fn pdf_ocr_parser_result_async(
 pub fn pdf_ocr_parser() -> @parser.Parser {
   @parser.make_parser(
     pdf_ocr_parser_name(),
-    @parser.ParserMode::LayoutTwoStage,
+    LayoutTwoStage,
     pdf_ocr_parser_capability(),
     fn(
       source : @input.InputSource,

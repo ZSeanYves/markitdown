@@ -15,9 +15,9 @@ pub fn inspect_ipynb_notebook(notebook : IpynbNotebook) -> IpynbInspectReport {
   let mut max_output_text_chars = 0
   for cell in notebook.cells {
     match cell.kind {
-      IpynbCellKind::Markdown => markdown_cell_count += 1
-      IpynbCellKind::Code => code_cell_count += 1
-      IpynbCellKind::Raw => raw_cell_count += 1
+      Markdown => markdown_cell_count += 1
+      Code => code_cell_count += 1
+      Raw => raw_cell_count += 1
       _ => ()
     }
     if cell.source.length() > max_cell_source_chars {
@@ -35,10 +35,10 @@ pub fn inspect_ipynb_notebook(notebook : IpynbNotebook) -> IpynbInspectReport {
     output_count += cell.outputs.length()
     for output in cell.outputs {
       match output.kind {
-        IpynbOutputKind::Stream => stream_output_count += 1
-        IpynbOutputKind::DisplayData => display_data_count += 1
-        IpynbOutputKind::ExecuteResult => execute_result_count += 1
-        IpynbOutputKind::Error => error_output_count += 1
+        Stream => stream_output_count += 1
+        DisplayData => display_data_count += 1
+        ExecuteResult => execute_result_count += 1
+        Error => error_output_count += 1
         _ => ()
       }
       if output.text is Some(text) && text.length() > max_output_text_chars {

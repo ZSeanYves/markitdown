@@ -21,7 +21,7 @@ fn pdf_collect_simple_font_widths(font_dict_text : String) -> Map[Int, Int] {
     None => return widths
   }
   let width_tokens = match pdf_extract_dict_value(font_dict_text, "/Widths") {
-    Some(PdfNativeDictValue::Array(tokens)) => tokens
+    Some(Array(tokens)) => tokens
     _ => return widths
   }
   let mut code = first_char
@@ -58,7 +58,7 @@ fn pdf_collect_font_missing_width(
 fn pdf_collect_cid_font_width_pairs(cid_font_dict_text : String) -> Array[Int] {
   let pairs : Array[Int] = []
   let tokens = match pdf_extract_dict_value(cid_font_dict_text, "/W") {
-    Some(PdfNativeDictValue::Array(items)) => items
+    Some(Array(items)) => items
     _ => return pairs
   }
   let mut index = 0
@@ -74,7 +74,7 @@ fn pdf_collect_cid_font_width_pairs(cid_font_dict_text : String) -> Array[Int] {
       break
     }
     match tokens[index + 1] {
-      PdfNativeContentToken::Array(values) => {
+      Array(values) => {
         let mut cid = start_cid
         for token in values {
           match pdf_token_number(token) {
@@ -129,7 +129,7 @@ fn pdf_collect_cid_vertical_width_pairs(
 ) -> Array[Int] {
   let pairs : Array[Int] = []
   let tokens = match pdf_extract_dict_value(cid_font_dict_text, "/W2") {
-    Some(PdfNativeDictValue::Array(items)) => items
+    Some(Array(items)) => items
     _ => return pairs
   }
   let mut index = 0
@@ -145,7 +145,7 @@ fn pdf_collect_cid_vertical_width_pairs(
       break
     }
     match tokens[index + 1] {
-      PdfNativeContentToken::Array(values) => {
+      Array(values) => {
         let mut cid = start_cid
         let mut value_index = 0
         while value_index + 2 < values.length() {
@@ -201,7 +201,7 @@ fn pdf_collect_cid_vertical_width_pairs(
 ///|
 fn pdf_collect_cid_default_vertical_width(cid_font_dict_text : String) -> Int? {
   match pdf_extract_dict_value(cid_font_dict_text, "/DW2") {
-    Some(PdfNativeDictValue::Array(values)) if values.length() > 0 =>
+    Some(Array(values)) if values.length() > 0 =>
       match pdf_token_number(values[0]) {
         Some(width) if pdf_double_is_integral(width) =>
           Some(pdf_abs_int(width.to_int()))

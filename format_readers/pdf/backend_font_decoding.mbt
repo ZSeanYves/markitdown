@@ -538,17 +538,17 @@ fn pdf_font_raw_cjk_encoding_kind(
   info : PdfNativeFontInfo,
 ) -> PdfRawCjkEncodingKind? {
   if pdf_font_prefers_raw_gb_family_decode(info) {
-    Some(PdfRawCjkEncodingKind::Gb2312)
+    Some(Gb2312)
   } else if info.encoding_name == Some("EUC-H") ||
     info.encoding_name == Some("EUC-V") {
-    Some(PdfRawCjkEncodingKind::EucJp)
+    Some(EucJp)
   } else if pdf_font_encoding_name_has_prefix(info, "90ms-RKSJ-") ||
     pdf_font_encoding_name_has_prefix(info, "83pv-RKSJ-") {
-    Some(PdfRawCjkEncodingKind::ShiftJis)
+    Some(ShiftJis)
   } else if pdf_font_prefers_raw_shift_jis_decode(info) {
-    Some(PdfRawCjkEncodingKind::ShiftJis)
+    Some(ShiftJis)
   } else if pdf_font_prefers_raw_euc_jp_decode(info) {
-    Some(PdfRawCjkEncodingKind::EucJp)
+    Some(EucJp)
   } else {
     None
   }

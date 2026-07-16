@@ -42,7 +42,7 @@ fn pdf_parse_object_stream_entries(
     Some(value) if value >= 0 && value <= stream_text.length() => value
     _ =>
       return Err(
-        PdfNativeError::ParseFailed(
+        ParseFailed(
           "object stream " +
           object.object_id.to_string() +
           " is missing valid /First",
@@ -53,7 +53,7 @@ fn pdf_parse_object_stream_entries(
     Some(value) if value >= 0 => value
     _ =>
       return Err(
-        PdfNativeError::ParseFailed(
+        ParseFailed(
           "object stream " +
           object.object_id.to_string() +
           " is missing valid /N",
@@ -65,7 +65,7 @@ fn pdf_parse_object_stream_entries(
   let header_parts = pdf_split_ascii_whitespace(header_text)
   if header_parts.length() < count * 2 {
     return Err(
-      PdfNativeError::ParseFailed(
+      ParseFailed(
         "object stream " + object.object_id.to_string() + " header is truncated",
       ),
     )
@@ -81,7 +81,7 @@ fn pdf_parse_object_stream_entries(
       (Some(object_id), Some(offset)) => entries.push((object_id, offset))
       _ =>
         return Err(
-          PdfNativeError::ParseFailed(
+          ParseFailed(
             "object stream " +
             object.object_id.to_string() +
             " header contains invalid object entry",
@@ -100,7 +100,7 @@ fn pdf_parse_object_stream_entries(
     }
     if offset < 0 || next_offset < offset || next_offset > body_text.length() {
       return Err(
-        PdfNativeError::ParseFailed(
+        ParseFailed(
           "object stream " +
           object.object_id.to_string() +
           " has invalid embedded object offsets",
@@ -129,12 +129,12 @@ fn pdf_parse_object_stream_entries(
 ///|
 fn pdf_extract_filter_names(dict_text : String) -> Array[String] {
   match pdf_extract_dict_value(dict_text, "/Filter") {
-    Some(PdfNativeDictValue::Name(value)) => [value]
-    Some(PdfNativeDictValue::Array(tokens)) => {
+    Some(Name(value)) => [value]
+    Some(Array(tokens)) => {
       let names : Array[String] = []
       for token in tokens {
         match token {
-          PdfNativeContentToken::Name(value) => names.push(value)
+          Name(value) => names.push(value)
           _ => ()
         }
       }
@@ -153,12 +153,12 @@ fn pdf_extract_stream_filter_specs(
     None => pdf_extract_dict_value(dict_text, "/F")
   }
   let filters = match filter_value {
-    Some(PdfNativeDictValue::Name(value)) => [value]
-    Some(PdfNativeDictValue::Array(tokens)) => {
+    Some(Name(value)) => [value]
+    Some(Array(tokens)) => {
       let names : Array[String] = []
       for token in tokens {
         match token {
-          PdfNativeContentToken::Name(value) => names.push(value)
+          Name(value) => names.push(value)
           _ => ()
         }
       }
@@ -180,24 +180,20 @@ fn pdf_extract_stream_filter_specs(
   }
   match decode_params_value {
     None => Ok((filters, params))
-    Some(PdfNativeDictValue::Array(tokens)) => {
+    Some(Array(tokens)) => {
       let mut filter_index = 0
       for token in tokens {
         if filter_index >= filters.length() {
           break
         }
         let value = match token {
-          PdfNativeContentToken::Dict(dict) => PdfNativeDictValue::Dict(dict)
-          PdfNativeContentToken::Word(word) => PdfNativeDictValue::Word(word)
-          PdfNativeContentToken::Number(number) =>
-            PdfNativeDictValue::Number(number)
-          PdfNativeContentToken::Name(name) => PdfNativeDictValue::Name(name)
-          PdfNativeContentToken::Array(items) =>
-            PdfNativeDictValue::Array(items)
-          PdfNativeContentToken::LiteralString(text) =>
-            PdfNativeDictValue::LiteralString(text)
-          PdfNativeContentToken::HexString(hex) =>
-            PdfNativeDictValue::HexString(hex)
+          Dict(dict) => PdfNativeDictValue::Dict(dict)
+          Word(word) => Word(word)
+          Number(number) => Number(number)
+          Name(name) => Name(name)
+          Array(items) => Array(items)
+          LiteralString(text) => LiteralString(text)
+          HexString(hex) => HexString(hex)
         }
         match pdf_stream_decode_params_from_value(value) {
           Ok(parsed) => params[filter_index] = parsed
@@ -227,10 +223,9 @@ fn pdf_stream_decode_params_from_value(
   value : PdfNativeDictValue,
 ) -> Result[PdfStreamDecodeParams?, String] {
   match value {
-    PdfNativeDictValue::Dict(dict_text) =>
-      Ok(Some(pdf_stream_decode_params_from_dict(dict_text)))
-    PdfNativeDictValue::Word("null") => Ok(None)
-    PdfNativeDictValue::Reference(object_id, generation) => {
+    Dict(dict_text) => Ok(Some(pdf_stream_decode_params_from_dict(dict_text)))
+    Word("null") => Ok(None)
+    Reference(object_id, generation) => {
       ignore(generation)
       Err(
         "indirect DecodeParms are unsupported for stream decode (object " +
@@ -263,11 +258,7 @@ fn pdf_collect_reference_ids_from_tokens(
   let mut index = 0
   while index + 2 < tokens.length() {
     match (tokens[index], tokens[index + 1], tokens[index + 2]) {
-      (
-        PdfNativeContentToken::Number(object_id),
-        PdfNativeContentToken::Number(_generation),
-        PdfNativeContentToken::Word("R"),
-      ) =>
+      (Number(object_id), Number(_generation), Word("R")) =>
         if pdf_double_is_integral(object_id) {
           refs.push(object_id.to_int())
         }
@@ -314,7 +305,7 @@ fn pdf_parse_dict_entries(
   let mut index = 0
   while index < tokens.length() {
     match tokens[index] {
-      PdfNativeContentToken::Name(name) => {
+      Name(name) => {
         let (value, next_index) = pdf_dict_value_from_tokens(tokens, index + 1)
         if name != "" {
           entries.push(("/" + name, value))
@@ -333,43 +324,26 @@ fn pdf_dict_value_from_tokens(
   start : Int,
 ) -> (PdfNativeDictValue, Int) {
   if start >= tokens.length() {
-    return (PdfNativeDictValue::Word(""), start)
+    return (Word(""), start)
   }
   if start + 2 < tokens.length() {
     match (tokens[start], tokens[start + 1], tokens[start + 2]) {
-      (
-        PdfNativeContentToken::Number(object_id),
-        PdfNativeContentToken::Number(generation),
-        PdfNativeContentToken::Word("R"),
-      ) =>
+      (Number(object_id), Number(generation), Word("R")) =>
         if pdf_double_is_integral(object_id) &&
           pdf_double_is_integral(generation) {
-          return (
-            PdfNativeDictValue::Reference(
-              object_id.to_int(),
-              generation.to_int(),
-            ),
-            start + 3,
-          )
+          return (Reference(object_id.to_int(), generation.to_int()), start + 3)
         }
       _ => ()
     }
   }
   match tokens[start] {
-    PdfNativeContentToken::Number(value) =>
-      (PdfNativeDictValue::Number(value), start + 1)
-    PdfNativeContentToken::Name(value) =>
-      (PdfNativeDictValue::Name(value), start + 1)
-    PdfNativeContentToken::Word(value) =>
-      (PdfNativeDictValue::Word(value), start + 1)
-    PdfNativeContentToken::LiteralString(value) =>
-      (PdfNativeDictValue::LiteralString(value), start + 1)
-    PdfNativeContentToken::HexString(value) =>
-      (PdfNativeDictValue::HexString(value), start + 1)
-    PdfNativeContentToken::Array(value) =>
-      (PdfNativeDictValue::Array(value), start + 1)
-    PdfNativeContentToken::Dict(value) =>
-      (PdfNativeDictValue::Dict(value), start + 1)
+    Number(value) => (Number(value), start + 1)
+    Name(value) => (Name(value), start + 1)
+    Word(value) => (Word(value), start + 1)
+    LiteralString(value) => (LiteralString(value), start + 1)
+    HexString(value) => (HexString(value), start + 1)
+    Array(value) => (Array(value), start + 1)
+    Dict(value) => (Dict(value), start + 1)
   }
 }
 
@@ -388,10 +362,7 @@ fn pdf_decode_hex_utf16be(hex : String) -> String? {
     }
     index += 2
   }
-  let decoded = @encoding.decode(
-    Bytes::from_array(bytes),
-    encoding=@encoding.UTF16BE,
-  ) catch {
+  let decoded = @encoding.decode(Bytes::from_array(bytes), encoding=UTF16BE) catch {
     _ => return None
   }
   Some(pdf_strip_utf16_bom(decoded))

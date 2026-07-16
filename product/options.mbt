@@ -135,26 +135,25 @@ pub fn make_accurate_feature_profile(
 /// Return the stable diagnostics/provenance name for one accurate feature.
 pub fn accurate_feature_name(feature : AccurateFeature) -> String {
   match feature {
-    AccurateFeature::PdfPageAppendix => "pdf_page_appendix"
-    AccurateFeature::PdfWindowedAssembly => "pdf_windowed_assembly"
-    AccurateFeature::DocxTextboxInline => "docx_textbox_inline"
-    AccurateFeature::DocxAlternateContentRestore =>
-      "docx_alternate_content_restore"
-    AccurateFeature::DocxNotesAppendix => "docx_notes_appendix"
-    AccurateFeature::XlsxHiddenSheets => "xlsx_hidden_sheets"
-    AccurateFeature::XlsxHiddenRows => "xlsx_hidden_rows"
-    AccurateFeature::XlsxMergedSpans => "xlsx_merged_spans"
-    AccurateFeature::PptxReadingOrder => "pptx_reading_order"
-    AccurateFeature::PptxGroupSummary => "pptx_group_summary"
-    AccurateFeature::PptxHiddenSlideSemantics => "pptx_hidden_slide_semantics"
-    AccurateFeature::PptxNotesAppendix => "pptx_notes_appendix"
-    AccurateFeature::OdtRichNotes => "odt_rich_notes"
-    AccurateFeature::OdtCommentsAppendix => "odt_comments_appendix"
-    AccurateFeature::OdsHiddenSheets => "ods_hidden_sheets"
-    AccurateFeature::OdsHiddenRows => "ods_hidden_rows"
-    AccurateFeature::OdsCoveredCellSpans => "ods_covered_cell_spans"
-    AccurateFeature::OdpNotesAppendix => "odp_notes_appendix"
-    AccurateFeature::OdpSlideSummary => "odp_slide_summary"
+    PdfPageAppendix => "pdf_page_appendix"
+    PdfWindowedAssembly => "pdf_windowed_assembly"
+    DocxTextboxInline => "docx_textbox_inline"
+    DocxAlternateContentRestore => "docx_alternate_content_restore"
+    DocxNotesAppendix => "docx_notes_appendix"
+    XlsxHiddenSheets => "xlsx_hidden_sheets"
+    XlsxHiddenRows => "xlsx_hidden_rows"
+    XlsxMergedSpans => "xlsx_merged_spans"
+    PptxReadingOrder => "pptx_reading_order"
+    PptxGroupSummary => "pptx_group_summary"
+    PptxHiddenSlideSemantics => "pptx_hidden_slide_semantics"
+    PptxNotesAppendix => "pptx_notes_appendix"
+    OdtRichNotes => "odt_rich_notes"
+    OdtCommentsAppendix => "odt_comments_appendix"
+    OdsHiddenSheets => "ods_hidden_sheets"
+    OdsHiddenRows => "ods_hidden_rows"
+    OdsCoveredCellSpans => "ods_covered_cell_spans"
+    OdpNotesAppendix => "odp_notes_appendix"
+    OdpSlideSummary => "odp_slide_summary"
   }
 }
 
@@ -181,37 +180,19 @@ pub fn accurate_features_for_detected_format(
   format : @input.DetectedFormat,
 ) -> Array[AccurateFeature] {
   match format {
-    @input.DetectedFormat::Pdf =>
-      [AccurateFeature::PdfPageAppendix, AccurateFeature::PdfWindowedAssembly]
-    @input.DetectedFormat::Docx =>
+    Pdf => [PdfPageAppendix, PdfWindowedAssembly]
+    Docx => [DocxTextboxInline, DocxAlternateContentRestore, DocxNotesAppendix]
+    Xlsx => [XlsxHiddenSheets, XlsxHiddenRows, XlsxMergedSpans]
+    Pptx =>
       [
-        AccurateFeature::DocxTextboxInline,
-        AccurateFeature::DocxAlternateContentRestore,
-        AccurateFeature::DocxNotesAppendix,
+        PptxReadingOrder,
+        PptxGroupSummary,
+        PptxHiddenSlideSemantics,
+        PptxNotesAppendix,
       ]
-    @input.DetectedFormat::Xlsx =>
-      [
-        AccurateFeature::XlsxHiddenSheets,
-        AccurateFeature::XlsxHiddenRows,
-        AccurateFeature::XlsxMergedSpans,
-      ]
-    @input.DetectedFormat::Pptx =>
-      [
-        AccurateFeature::PptxReadingOrder,
-        AccurateFeature::PptxGroupSummary,
-        AccurateFeature::PptxHiddenSlideSemantics,
-        AccurateFeature::PptxNotesAppendix,
-      ]
-    @input.DetectedFormat::Odt =>
-      [AccurateFeature::OdtRichNotes, AccurateFeature::OdtCommentsAppendix]
-    @input.DetectedFormat::Ods =>
-      [
-        AccurateFeature::OdsHiddenSheets,
-        AccurateFeature::OdsHiddenRows,
-        AccurateFeature::OdsCoveredCellSpans,
-      ]
-    @input.DetectedFormat::Odp =>
-      [AccurateFeature::OdpNotesAppendix, AccurateFeature::OdpSlideSummary]
+    Odt => [OdtRichNotes, OdtCommentsAppendix]
+    Ods => [OdsHiddenSheets, OdsHiddenRows, OdsCoveredCellSpans]
+    Odp => [OdpNotesAppendix, OdpSlideSummary]
     _ => []
   }
 }
@@ -295,9 +276,9 @@ pub fn make_resource_limits(
 /// Return baseline product defaults for the balanced Markdown path.
 pub fn default_product_options() -> ProductOptions {
   {
-    mode: ConvertMode::Balanced,
-    fidelity_mode: FidelityMode::Balanced,
-    output_mode: OutputMode::Markdown,
+    mode: Balanced,
+    fidelity_mode: Balanced,
+    output_mode: Markdown,
     stream_requested: false,
     limits: default_resource_limits(),
     rag_options: @rag.default_rag_options(),
@@ -311,8 +292,8 @@ pub fn make_product_options(
   mode : ConvertMode,
   limits : ResourceLimits,
   fidelity_mode? : FidelityMode = fidelity_mode_for_convert_mode(mode),
-  output_mode? : OutputMode = OutputMode::Markdown,
-  stream_requested? : Bool = mode == ConvertMode::Stream,
+  output_mode? : OutputMode = Markdown,
+  stream_requested? : Bool = mode == Stream,
   rag_options? : @rag.RagOptions = @rag.default_rag_options(),
 ) -> ProductOptions {
   { mode, fidelity_mode, output_mode, stream_requested, limits, rag_options }
@@ -322,9 +303,9 @@ pub fn make_product_options(
 /// Stable diagnostics/provenance label for a convert mode.
 pub fn convert_mode_name(mode : ConvertMode) -> String {
   match mode {
-    ConvertMode::Balanced => "balanced"
-    ConvertMode::Accurate => "accurate"
-    ConvertMode::Stream => "stream"
+    Balanced => "balanced"
+    Accurate => "accurate"
+    Stream => "stream"
   }
 }
 
@@ -332,8 +313,8 @@ pub fn convert_mode_name(mode : ConvertMode) -> String {
 /// Return the default fidelity target implied by a convert mode.
 pub fn fidelity_mode_for_convert_mode(mode : ConvertMode) -> FidelityMode {
   match mode {
-    ConvertMode::Accurate => FidelityMode::Accurate
-    _ => FidelityMode::Balanced
+    Accurate => Accurate
+    _ => Balanced
   }
 }
 
@@ -341,7 +322,7 @@ pub fn fidelity_mode_for_convert_mode(mode : ConvertMode) -> FidelityMode {
 /// Return the default renderer-facing output mode implied by a convert mode.
 pub fn output_mode_for_convert_mode(mode : ConvertMode) -> OutputMode {
   ignore(mode)
-  OutputMode::Markdown
+  Markdown
 }
 
 ///|
@@ -352,11 +333,11 @@ pub fn convert_mode_from_modes(
   stream_requested : Bool,
 ) -> ConvertMode {
   if stream_requested {
-    ConvertMode::Stream
+    Stream
   } else {
     match fidelity_mode {
-      FidelityMode::Accurate => ConvertMode::Accurate
-      FidelityMode::Balanced => ConvertMode::Balanced
+      Accurate => Accurate
+      Balanced => Balanced
     }
   }
 }
@@ -365,8 +346,8 @@ pub fn convert_mode_from_modes(
 /// Stable diagnostics/provenance label for one fidelity mode.
 pub fn fidelity_mode_name(mode : FidelityMode) -> String {
   match mode {
-    FidelityMode::Balanced => "balanced"
-    FidelityMode::Accurate => "accurate"
+    Balanced => "balanced"
+    Accurate => "accurate"
   }
 }
 
@@ -374,9 +355,9 @@ pub fn fidelity_mode_name(mode : FidelityMode) -> String {
 /// Stable diagnostics/provenance label for one output mode.
 pub fn output_mode_name(mode : OutputMode) -> String {
   match mode {
-    OutputMode::Markdown => "markdown"
-    OutputMode::Debug => "debug"
-    OutputMode::Rag => "rag"
+    Markdown => "markdown"
+    Debug => "debug"
+    Rag => "rag"
   }
 }
 
@@ -384,9 +365,9 @@ pub fn output_mode_name(mode : OutputMode) -> String {
 /// Stable diagnostics/provenance label for one execution profile.
 pub fn execution_profile_name(profile : ExecutionProfile) -> String {
   match profile {
-    ExecutionProfile::Standard => "standard"
-    ExecutionProfile::MediumAdaptive => "medium_adaptive"
-    ExecutionProfile::LargeAdaptive => "large_adaptive"
+    Standard => "standard"
+    MediumAdaptive => "medium_adaptive"
+    LargeAdaptive => "large_adaptive"
   }
 }
 
@@ -394,10 +375,10 @@ pub fn execution_profile_name(profile : ExecutionProfile) -> String {
 /// Stable diagnostics/provenance label for one lowering profile.
 pub fn lowering_profile_name(profile : LoweringProfile) -> String {
   match profile {
-    LoweringProfile::Canonical => "canonical"
-    LoweringProfile::AccurateSemantic => "accurate_semantic"
-    LoweringProfile::StreamCanonical => "stream_canonical"
-    LoweringProfile::LargeAdaptive => "large_adaptive"
+    Canonical => "canonical"
+    AccurateSemantic => "accurate_semantic"
+    StreamCanonical => "stream_canonical"
+    LargeAdaptive => "large_adaptive"
   }
 }
 
@@ -405,18 +386,18 @@ pub fn lowering_profile_name(profile : LoweringProfile) -> String {
 /// Stable diagnostics/provenance label for one render profile.
 pub fn render_profile_name(profile : RenderProfile) -> String {
   match profile {
-    RenderProfile::DefaultMarkdown => "default_markdown"
-    RenderProfile::SectionFlushMarkdown => "section_flush_markdown"
-    RenderProfile::SparseTableMarkdown => "sparse_table_markdown"
-    RenderProfile::NotesAppendixFirst => "notes_appendix_first"
-    RenderProfile::AssetManifestFirst => "asset_manifest_first"
-    RenderProfile::PageWindowMarkdown => "page_window_markdown"
-    RenderProfile::RecordBatchMarkdown => "record_batch_markdown"
+    DefaultMarkdown => "default_markdown"
+    SectionFlushMarkdown => "section_flush_markdown"
+    SparseTableMarkdown => "sparse_table_markdown"
+    NotesAppendixFirst => "notes_appendix_first"
+    AssetManifestFirst => "asset_manifest_first"
+    PageWindowMarkdown => "page_window_markdown"
+    RecordBatchMarkdown => "record_batch_markdown"
   }
 }
 
 ///|
 /// Return whether the current output mode is the debug JSON view.
 pub fn debug_output_mode(mode : OutputMode) -> Bool {
-  mode == OutputMode::Debug
+  mode == Debug
 }

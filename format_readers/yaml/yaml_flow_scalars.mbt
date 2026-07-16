@@ -51,7 +51,7 @@ fn parse_block_scalar(
   } else {
     text
   }
-  (next, YamlValue::String(yaml_apply_block_scalar_chomping(styled, chomping)))
+  (next, String(yaml_apply_block_scalar_chomping(styled, chomping)))
 }
 
 ///|
@@ -200,14 +200,14 @@ fn parse_flow_sequence(
   let inner = text[1:end].to_owned().trim().to_owned()
   let values : Array[YamlValue] = []
   if inner == "" {
-    return YamlValue::Sequence(values)
+    return Sequence(values)
   }
 
   let parts = split_flow_items(inner, line_no)
   for part in parts {
     values.push(parse_flow_value(part, line_no, profile_totals))
   }
-  YamlValue::Sequence(values)
+  Sequence(values)
 }
 
 ///|
@@ -228,7 +228,7 @@ fn parse_flow_mapping(
   let inner = text[1:end].to_owned().trim().to_owned()
   let members : Array[YamlMember] = []
   if inner == "" {
-    return YamlValue::Mapping(members)
+    return Mapping(members)
   }
 
   let parts = split_flow_items(inner, line_no)
@@ -245,7 +245,7 @@ fn parse_flow_mapping(
       value: parse_flow_value(raw_value, line_no, profile_totals),
     })
   }
-  YamlValue::Mapping(members)
+  Mapping(members)
 }
 
 ///|

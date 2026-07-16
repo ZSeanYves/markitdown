@@ -63,8 +63,8 @@ fn xml_structure_scan_from_tokens(tokens : Array[XmlToken]) -> XmlStructureScan 
 
   for token in tokens {
     match token {
-      XmlToken::Declaration(_, _) => ()
-      XmlToken::Doctype(text, _) => {
+      Declaration(_, _) => ()
+      Doctype(text, _) => {
         node_count += 1
         has_doctype = true
         has_unsupported_doctype = true
@@ -72,21 +72,21 @@ fn xml_structure_scan_from_tokens(tokens : Array[XmlToken]) -> XmlStructureScan 
           has_markdown_fence_text = true
         }
       }
-      XmlToken::ProcessingInstruction(target, body, _) => {
+      ProcessingInstruction(target, body, _) => {
         node_count += 1
         processing_instruction_count += 1
         if target.contains("```") || body.contains("```") {
           has_markdown_fence_text = true
         }
       }
-      XmlToken::Comment(text, _) => {
+      Comment(text, _) => {
         node_count += 1
         comment_count += 1
         if text.contains("```") {
           has_markdown_fence_text = true
         }
       }
-      XmlToken::CData(text, _) => {
+      CData(text, _) => {
         cdata_count += 1
         if text.trim() != "" {
           node_count += 1
@@ -102,7 +102,7 @@ fn xml_structure_scan_from_tokens(tokens : Array[XmlToken]) -> XmlStructureScan 
           }
         }
       }
-      XmlToken::Text(text, _) =>
+      Text(text, _) =>
         if text.trim() != "" {
           node_count += 1
           text_node_count += 1
@@ -116,7 +116,7 @@ fn xml_structure_scan_from_tokens(tokens : Array[XmlToken]) -> XmlStructureScan 
             has_markdown_fence_text = true
           }
         }
-      XmlToken::StartTag(_, attrs, self_closing, _) => {
+      StartTag(_, attrs, self_closing, _) => {
         node_count += 1 + attrs.length()
         element_count += 1
         attribute_count += attrs.length()
@@ -141,7 +141,7 @@ fn xml_structure_scan_from_tokens(tokens : Array[XmlToken]) -> XmlStructureScan 
           non_whitespace_text_before_child_seen.push(false)
         }
       }
-      XmlToken::EndTag(_, _) =>
+      EndTag(_, _) =>
         if stack.length() > 0 {
           let has_child = child_element_seen.pop().unwrap_or(false)
           let has_text_before_child = non_whitespace_text_before_child_seen
@@ -156,7 +156,7 @@ fn xml_structure_scan_from_tokens(tokens : Array[XmlToken]) -> XmlStructureScan 
   }
 
   {
-    status: XmlStructureScanStatus::Success,
+    status: Success,
     node_count,
     element_count,
     attribute_count,
@@ -177,7 +177,7 @@ fn xml_structure_scan_from_tokens(tokens : Array[XmlToken]) -> XmlStructureScan 
 ///|
 fn empty_xml_structure_scan() -> XmlStructureScan {
   {
-    status: XmlStructureScanStatus::ParseFailed,
+    status: ParseFailed,
     node_count: 0,
     element_count: 0,
     attribute_count: 0,

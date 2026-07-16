@@ -53,45 +53,43 @@ pub fn inspect_yaml_structure_events(
       max_depth = event.source.depth + 1
     }
     match event.kind {
-      YamlStructureEventKind::MappingStart => {
+      MappingStart => {
         mapping_count += 1
         if root_kind is None {
           root_kind = Some("mapping")
         }
       }
-      YamlStructureEventKind::SequenceStart => {
+      SequenceStart => {
         sequence_count += 1
         if root_kind is None {
           root_kind = Some("sequence")
         }
       }
-      YamlStructureEventKind::StringValue => {
+      StringValue => {
         scalar_count += 1
         if root_kind is None {
           root_kind = Some("string")
         }
       }
-      YamlStructureEventKind::NumberValue => {
+      NumberValue => {
         scalar_count += 1
         if root_kind is None {
           root_kind = Some("number")
         }
       }
-      YamlStructureEventKind::BoolValue => {
+      BoolValue => {
         scalar_count += 1
         if root_kind is None {
           root_kind = Some("bool")
         }
       }
-      YamlStructureEventKind::NullValue => {
+      NullValue => {
         scalar_count += 1
         if root_kind is None {
           root_kind = Some("null")
         }
       }
-      YamlStructureEventKind::Key
-      | YamlStructureEventKind::MappingEnd
-      | YamlStructureEventKind::SequenceEnd => ()
+      Key | MappingEnd | SequenceEnd => ()
     }
   }
   {
@@ -117,7 +115,7 @@ priv struct YamlInspectStats {
 ///|
 fn inspect_yaml_value(value : YamlValue, depth : Int) -> YamlInspectStats {
   match value {
-    YamlValue::Mapping(members) => {
+    Mapping(members) => {
       let mut node_count = 1
       let mut mapping_count = 1
       let mut sequence_count = 0
@@ -135,7 +133,7 @@ fn inspect_yaml_value(value : YamlValue, depth : Int) -> YamlInspectStats {
       }
       { node_count, mapping_count, sequence_count, scalar_count, max_depth }
     }
-    YamlValue::Sequence(values) => {
+    Sequence(values) => {
       let mut node_count = 1
       let mut mapping_count = 0
       let mut sequence_count = 1
@@ -153,10 +151,7 @@ fn inspect_yaml_value(value : YamlValue, depth : Int) -> YamlInspectStats {
       }
       { node_count, mapping_count, sequence_count, scalar_count, max_depth }
     }
-    YamlValue::String(_)
-    | YamlValue::Number(_)
-    | YamlValue::Bool(_)
-    | YamlValue::Null =>
+    String(_) | Number(_) | Bool(_) | Null =>
       {
         node_count: 1,
         mapping_count: 0,

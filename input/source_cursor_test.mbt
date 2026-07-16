@@ -38,7 +38,7 @@ test "ZIP detection reads prefix tail and central directory through Reader" {
   let detected = @input.detect_format(
     @input.input_from_reader(reader, source_name="office-blob"),
   )
-  assert_true(detected.format == @input.DetectedFormat::Docx)
+  assert_true(detected.format == Docx)
   assert_true(read_tail.val)
   assert_true(max_request.val < bytes.length())
 }

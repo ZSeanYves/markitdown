@@ -13,13 +13,10 @@ fn docx_prefixed_rich_inlines(
 
 ///|
 fn docx_should_inline_textboxes_in_place(state : DocxLoweringState) -> Bool {
-  if state.lowering_profile != @product.LoweringProfile::AccurateSemantic {
+  if state.lowering_profile != AccurateSemantic {
     return false
   }
-  @product.accurate_feature_enabled(
-    state.accurate_features,
-    @product.AccurateFeature::DocxTextboxInline,
-  )
+  @product.accurate_feature_enabled(state.accurate_features, DocxTextboxInline)
 }
 
 ///|
@@ -62,9 +59,9 @@ fn docx_collect_comment_inline_images(
     match block.rich_inlines {
       Some(inlines) =>
         for inline in inlines {
-          if inline.kind == @core.InlineKind::Image {
+          if inline.kind == Image {
             let image = @core.make_block(
-              @core.BlockKind::Image,
+              Image,
               "",
               source_ref=inline.source_ref.unwrap_or(@core.empty_source_ref()),
             )
@@ -92,7 +89,7 @@ fn docx_comment_block_without_inline_images(
       let filtered : Array[@core.CoreInline] = []
       let text = StringBuilder::new()
       for inline in inlines {
-        if inline.kind == @core.InlineKind::Image {
+        if inline.kind == Image {
           continue
         }
         filtered.push(inline)
@@ -113,10 +110,9 @@ fn docx_comment_block_without_inline_images(
 ///|
 fn docx_comment_inline_text_fragment(inline : @core.CoreInline) -> String {
   match inline.kind {
-    @core.InlineKind::Text | @core.InlineKind::Link | @core.InlineKind::Code =>
-      inline.text
-    @core.InlineKind::LineBreak => "\n"
-    @core.InlineKind::Image => ""
+    Text | Link | Code => inline.text
+    LineBreak => "\n"
+    Image => ""
   }
 }
 
@@ -227,7 +223,7 @@ fn append_docx_note_definition_blocks(
     None => {
       let first = lowered[0]
       let note0 = @core.make_block(
-        @core.BlockKind::Paragraph,
+        Paragraph,
         first.text,
         source_ref=first.source_ref.unwrap_or(
           docx_source_ref_from_key(state, source_key, None, None),
@@ -249,7 +245,7 @@ fn docx_note_block_with_inline_breaks(
     Some(inlines) => {
       let expanded : Array[@core.CoreInline] = []
       for inline in inlines {
-        if inline.kind == @core.InlineKind::Text && inline.text.contains("\n") {
+        if inline.kind == Text && inline.text.contains("\n") {
           let parts = inline.text
             .replace(old="\r\n", new="\n")
             .replace(old="\r", new="\n")
@@ -306,7 +302,7 @@ fn append_docx_part_body_blocks(
     return
   }
   let heading = @core.make_block(
-    @core.BlockKind::Heading,
+    Heading,
     section_title,
     source_ref=docx_part_source_ref(
       state,
@@ -324,7 +320,7 @@ fn append_docx_part_body_blocks(
       " " +
       docx_part_body_slot_label(body)
     let body_heading = @core.make_block(
-      @core.BlockKind::Heading,
+      Heading,
       title,
       source_ref=docx_part_source_ref(
         state,
@@ -435,7 +431,7 @@ fn append_docx_textboxes_blocks(
     return
   }
   let heading = @core.make_block(
-    @core.BlockKind::Heading,
+    Heading,
     "Text Boxes",
     source_ref=docx_part_source_ref(
       state,
@@ -449,7 +445,7 @@ fn append_docx_textboxes_blocks(
   for textbox in visible {
     let title = docx_textbox_appendix_title(textbox, index)
     let box_heading = @core.make_block(
-      @core.BlockKind::Heading,
+      Heading,
       title,
       source_ref=docx_source_ref_from_key(
         state,
@@ -520,9 +516,7 @@ fn docx_flatten_blocks_to_paragraph_like(
 
   for block in blocks {
     match block.kind {
-      @core.BlockKind::Paragraph
-      | @core.BlockKind::Heading
-      | @core.BlockKind::ListItem => {
+      Paragraph | Heading | ListItem => {
         if saw_content && !is_first {
           append_separator(plain, rich, block.source_ref.unwrap_or(source_ref))
         }
@@ -566,7 +560,7 @@ fn docx_flatten_blocks_to_paragraph_like(
         saw_content = true
         is_first = false
       }
-      @core.BlockKind::List => {
+      List => {
         let flattened = docx_flatten_blocks_to_paragraph_like(
           state,
           block.children,
@@ -606,7 +600,7 @@ fn docx_flatten_blocks_to_paragraph_like(
     return None
   }
   let text = normalize_docx_ref_marker_spacing(plain.to_string())
-  let block0 = @core.make_block(@core.BlockKind::Paragraph, text, source_ref~)
+  let block0 = @core.make_block(Paragraph, text, source_ref~)
   if rich.length() == 0 {
     Some(block0)
   } else {
@@ -628,7 +622,7 @@ fn docx_all_rich_inlines_are_breaks(inlines : Array[@core.CoreInline]) -> Bool {
     return false
   }
   for inline in inlines {
-    if inline.kind != @core.InlineKind::LineBreak {
+    if inline.kind != LineBreak {
       return false
     }
   }
@@ -679,7 +673,7 @@ fn docx_trim_leading_line_breaks(
 ///|
 fn docx_first_non_break_inline_index(inlines : Array[@core.CoreInline]) -> Int? {
   for i in 0..<inlines.length() {
-    if inlines[i].kind != @core.InlineKind::LineBreak {
+    if inlines[i].kind != LineBreak {
       return Some(i)
     }
   }
@@ -690,7 +684,7 @@ fn docx_first_non_break_inline_index(inlines : Array[@core.CoreInline]) -> Int? 
 fn docx_last_non_break_inline_index(inlines : Array[@core.CoreInline]) -> Int? {
   let mut i = inlines.length() - 1
   while i >= 0 {
-    if inlines[i].kind != @core.InlineKind::LineBreak {
+    if inlines[i].kind != LineBreak {
       return Some(i)
     }
     if i == 0 {
@@ -710,14 +704,14 @@ fn collect_docx_reference_ids(
 ) -> Unit {
   for block in blocks {
     match block {
-      @ddocx.DocxBlock::Paragraph(p) =>
+      Paragraph(p) =>
         collect_docx_inline_reference_ids(
           p.inlines,
           footnote_ids,
           endnote_ids,
           comment_ids,
         )
-      @ddocx.DocxBlock::Table(table) =>
+      Table(table) =>
         for row in table.rows {
           for cell in row.cells {
             collect_docx_reference_ids(
@@ -728,7 +722,7 @@ fn collect_docx_reference_ids(
             )
           }
         }
-      @ddocx.DocxBlock::ContentControl(control) => {
+      ContentControl(control) => {
         collect_docx_reference_ids(
           control.blocks,
           footnote_ids,
@@ -756,24 +750,24 @@ fn collect_docx_inline_reference_ids(
 ) -> Unit {
   for inline in inlines {
     match inline {
-      @ddocx.DocxInline::FootnoteRef(id) => push_unique_string(footnote_ids, id)
-      @ddocx.DocxInline::EndnoteRef(id) => push_unique_string(endnote_ids, id)
-      @ddocx.DocxInline::CommentRef(id) => push_unique_string(comment_ids, id)
-      @ddocx.DocxInline::Drawing(drawing) =>
+      FootnoteRef(id) => push_unique_string(footnote_ids, id)
+      EndnoteRef(id) => push_unique_string(endnote_ids, id)
+      CommentRef(id) => push_unique_string(comment_ids, id)
+      Drawing(drawing) =>
         collect_docx_inline_reference_ids(
           drawing.child_inlines,
           footnote_ids,
           endnote_ids,
           comment_ids,
         )
-      @ddocx.DocxInline::Shape(shape) =>
+      Shape(shape) =>
         collect_docx_inline_reference_ids(
           shape.child_inlines,
           footnote_ids,
           endnote_ids,
           comment_ids,
         )
-      @ddocx.DocxInline::ContentControl(control) => {
+      ContentControl(control) => {
         collect_docx_reference_ids(
           control.blocks,
           footnote_ids,
@@ -787,28 +781,28 @@ fn collect_docx_inline_reference_ids(
           comment_ids,
         )
       }
-      @ddocx.DocxInline::FieldUnsupported(field) =>
+      FieldUnsupported(field) =>
         collect_docx_inline_reference_ids(
           field.child_inlines,
           footnote_ids,
           endnote_ids,
           comment_ids,
         )
-      @ddocx.DocxInline::Math(math) =>
+      Math(math) =>
         collect_docx_inline_reference_ids(
           math.child_inlines,
           footnote_ids,
           endnote_ids,
           comment_ids,
         )
-      @ddocx.DocxInline::TrackedChange(change) =>
+      TrackedChange(change) =>
         collect_docx_inline_reference_ids(
           change.child_inlines,
           footnote_ids,
           endnote_ids,
           comment_ids,
         )
-      @ddocx.DocxInline::SmartTag(smart_tag) =>
+      SmartTag(smart_tag) =>
         collect_docx_inline_reference_ids(
           smart_tag.child_inlines,
           footnote_ids,
@@ -833,7 +827,7 @@ fn append_docx_comments_blocks(
     return
   }
   let heading = @core.make_block(
-    @core.BlockKind::Heading,
+    Heading,
     "Comments",
     source_ref=docx_part_source_ref(state, "word/comments.xml", None),
   )
@@ -859,7 +853,7 @@ fn append_docx_comments_blocks(
           Some(item) => {
             let item = docx_comment_block_without_inline_images(item)
             let list_item0 = @core.make_block(
-              @core.BlockKind::ListItem,
+              ListItem,
               item.text,
               source_ref=item.source_ref.unwrap_or(@core.empty_source_ref()),
             )
@@ -876,10 +870,10 @@ fn append_docx_comments_blocks(
           None => {
             let first = blocks[0]
             match first.kind {
-              @core.BlockKind::Paragraph => {
+              Paragraph => {
                 let first = docx_comment_block_without_inline_images(first)
                 let item0 = @core.make_block(
-                  @core.BlockKind::ListItem,
+                  ListItem,
                   prefix + first.text,
                   source_ref=first.source_ref.unwrap_or(
                     @core.empty_source_ref(),
@@ -904,7 +898,7 @@ fn append_docx_comments_blocks(
               }
               _ => {
                 let item = @core.make_block(
-                  @core.BlockKind::ListItem,
+                  ListItem,
                   prefix.trim().to_owned(),
                   source_ref=docx_source_ref_from_key(
                     state,

@@ -6,7 +6,7 @@ fn detect_raw_boundary(
 ) -> (TextMarkupBlock, Int)? {
   let trimmed = lines[index].trim().to_owned()
   match format {
-    TextMarkupFormat::Asciidoc => {
+    Asciidoc => {
       if trimmed.has_prefix("[") && trimmed.has_suffix("]") {
         let meta : Map[String, String] = Map([
           ("degraded_feature", "directive_boundary"),
@@ -14,7 +14,7 @@ fn detect_raw_boundary(
         return Some(
           (
             {
-              kind: TextMarkupBlockKind::Raw,
+              kind: Raw,
               text: lines[index],
               level: 0,
               ordered: false,
@@ -33,7 +33,7 @@ fn detect_raw_boundary(
         return Some(
           (
             {
-              kind: TextMarkupBlockKind::Raw,
+              kind: Raw,
               text: lines[index],
               level: 0,
               ordered: false,
@@ -52,7 +52,7 @@ fn detect_raw_boundary(
         return Some(
           (
             {
-              kind: TextMarkupBlockKind::Raw,
+              kind: Raw,
               text: lines[index],
               level: 0,
               ordered: false,
@@ -65,7 +65,7 @@ fn detect_raw_boundary(
         )
       }
     }
-    TextMarkupFormat::Rst =>
+    Rst =>
       if trimmed.has_prefix(".. ") {
         if trimmed.contains("::") {
           return None
@@ -76,7 +76,7 @@ fn detect_raw_boundary(
         return Some(
           (
             {
-              kind: TextMarkupBlockKind::Raw,
+              kind: Raw,
               text: lines[index],
               level: 0,
               ordered: false,
@@ -88,7 +88,7 @@ fn detect_raw_boundary(
           ),
         )
       }
-    TextMarkupFormat::Tex =>
+    Tex =>
       if trimmed.has_prefix("\\begin{") ||
         trimmed.has_prefix("\\end{") ||
         trimmed.has_prefix("\\newcommand") ||
@@ -100,7 +100,7 @@ fn detect_raw_boundary(
         return Some(
           (
             {
-              kind: TextMarkupBlockKind::Raw,
+              kind: Raw,
               text: lines[index],
               level: 0,
               ordered: false,
@@ -156,7 +156,7 @@ fn detect_rst_field_list(
   Some(
     (
       {
-        kind: TextMarkupBlockKind::Table,
+        kind: Table,
         text: synthetic_pipe_table("Field", "Value", rows),
         level: 0,
         ordered: false,
@@ -200,7 +200,7 @@ fn detect_rst_note_definition(
       Some(
         (
           {
-            kind: TextMarkupBlockKind::NoteDefinition,
+            kind: NoteDefinition,
             text: body.join(" "),
             level: 0,
             ordered: false,
@@ -253,7 +253,7 @@ fn detect_rst_definition_list(
   Some(
     (
       {
-        kind: TextMarkupBlockKind::Table,
+        kind: Table,
         text: synthetic_pipe_table("Term", "Definition", [
           (term, body.join(" ")),
         ]),
@@ -343,16 +343,16 @@ fn detect_rst_directive_block(
       let block_kind = if lowered == "image" || lowered == "figure" {
         TextMarkupBlockKind::Semantic
       } else if lowered == "literalinclude" {
-        TextMarkupBlockKind::Raw
+        Raw
       } else if rst_directive_is_code(directive) && content.length() > 0 {
-        TextMarkupBlockKind::Code
+        Code
       } else if rst_directive_is_semantic(directive) {
-        TextMarkupBlockKind::Semantic
+        Semantic
       } else {
-        TextMarkupBlockKind::Raw
+        Raw
       }
       let text = match block_kind {
-        TextMarkupBlockKind::Code => {
+        Code => {
           match rst_directive_language(directive, inline_value, options) {
             Some(language) => meta.set("code_language", language)
             None => ()
@@ -371,7 +371,7 @@ fn detect_rst_directive_block(
             }
           } else if meta.get("semantic_kind") == Some("image") {
             inline_value
-          } else if block_kind == TextMarkupBlockKind::Semantic {
+          } else if block_kind == Semantic {
             meta.set("semantic_kind", "directive")
             meta.set("degraded_feature", "directive_semantic_boundary")
             if payload.length() == 0 {
@@ -432,7 +432,7 @@ fn detect_rst_include_directive(
   Some(
     (
       {
-        kind: TextMarkupBlockKind::Semantic,
+        kind: Semantic,
         text: if options.length() == 0 {
           "include: " + target
         } else {

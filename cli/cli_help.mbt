@@ -90,19 +90,18 @@ fn cli_fail_closed_format_message(
   ocr_options : @parser.OcrOptions,
   fidelity_mode : @convert.FidelityMode,
 ) -> String {
-  if format == @input.DetectedFormat::Pdf {
+  if format == Pdf {
     cli_unsupported_format_message(label) +
     "\n" +
     @fpdf.pdf_native_fail_closed_message()
   } else if @input.detected_format_is_image_candidate(format) {
     let detail = match ocr_options.intent {
-      @parser.OcrIntent::Explicit =>
+      Explicit =>
         cli_image_explicit_ocr_message(
           input_path, format, ocr_options, fidelity_mode,
         )
-      @parser.OcrIntent::Disabled => @focr.image_ocr_disabled_message(format)
-      @parser.OcrIntent::Auto =>
-        @focr.image_requires_explicit_ocr_message(format)
+      Disabled => @focr.image_ocr_disabled_message(format)
+      Auto => @focr.image_requires_explicit_ocr_message(format)
     }
     detail
   } else {
@@ -118,7 +117,7 @@ fn cli_image_explicit_ocr_message(
   fidelity_mode : @convert.FidelityMode,
 ) -> String {
   let target = @focr.image_ocr_selection_target_for_accuracy(
-    fidelity_mode == @convert.FidelityMode::Accurate,
+    fidelity_mode == Accurate,
   )
   let request = @focr.make_ocr_provider_request(
     input_path,
@@ -130,7 +129,7 @@ fn cli_image_explicit_ocr_message(
       if result.pages.length() == 0 {
         @focr.image_ocr_provider_error_message(
           format,
-          @focr.OcrProviderError::EmptyResult(
+          EmptyResult(
             "OCR provider produced an empty OCR model on the active runtime.",
           ),
         )

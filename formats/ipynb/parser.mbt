@@ -1,7 +1,7 @@
 ///|
 fn ipynb_parser_capability() -> @parser.ParserCapability {
   @parser.dom_ast_parser_capability(
-    @parser.StreamingGranularity::NotebookCellOutputGroup,
+    NotebookCellOutputGroup,
     true,
     false,
     true,
@@ -17,44 +17,37 @@ fn ipynb_parser_capability() -> @parser.ParserCapability {
 
 ///|
 pub fn ipynb_parser() -> @parser.Parser {
-  @parser.make_parser(
-    "ipynb_parser",
-    @parser.ParserMode::DomAstModel,
-    ipynb_parser_capability(),
-    fn(
-      source : @input.InputSource,
-      context : @parser.ParseContext,
-    ) -> Result[@parser.ParseResult, String] {
-      let prepared = match @dipynb.prepare_ipynb_notebook_from_source(source) {
-        Ok(payload) => payload
-        Err(err) => return Err(err)
-      }
-      let source = prepared.prepared_source
-      match prepared.notebook {
-        Some(notebook) =>
-          Ok(
-            ipynb_parse_with_preparsed_notebook(
-              source,
-              context,
-              prepared.original_text,
-              notebook,
-              prepared.inspect.unwrap_or(
-                @dipynb.inspect_ipynb_notebook(notebook),
-              ),
-            ),
-          )
-        None =>
-          Ok(
-            ipynb_malformed_parse_result(
-              source,
-              prepared.original_text,
-              context,
-              prepared.parse_error.unwrap_or("unknown"),
-            ),
-          )
-      }
-    },
-  )
+  @parser.make_parser("ipynb_parser", DomAstModel, ipynb_parser_capability(), fn(
+    source : @input.InputSource,
+    context : @parser.ParseContext,
+  ) -> Result[@parser.ParseResult, String] {
+    let prepared = match @dipynb.prepare_ipynb_notebook_from_source(source) {
+      Ok(payload) => payload
+      Err(err) => return Err(err)
+    }
+    let source = prepared.prepared_source
+    match prepared.notebook {
+      Some(notebook) =>
+        Ok(
+          ipynb_parse_with_preparsed_notebook(
+            source,
+            context,
+            prepared.original_text,
+            notebook,
+            prepared.inspect.unwrap_or(@dipynb.inspect_ipynb_notebook(notebook)),
+          ),
+        )
+      None =>
+        Ok(
+          ipynb_malformed_parse_result(
+            source,
+            prepared.original_text,
+            context,
+            prepared.parse_error.unwrap_or("unknown"),
+          ),
+        )
+    }
+  })
 }
 
 ///|
@@ -65,8 +58,7 @@ pub fn ipynb_parse_with_preparsed_notebook(
   notebook : @dipynb.IpynbNotebook,
   inspect : @dipynb.IpynbInspectReport,
 ) -> @parser.ParseResult {
-  let requested_blocks = context.requested_mode ==
-    Some(@parser.ParserMode::BlockStreaming)
+  let requested_blocks = context.requested_mode == Some(BlockStreaming)
   let diagnostics = ipynb_base_diagnostics(source, context)
   diagnostics.metrics.set("probe_artifact_reused", "true")
   let large_literal_markdown = requested_blocks &&
@@ -85,7 +77,7 @@ pub fn ipynb_parse_with_preparsed_notebook(
   if requested_blocks {
     @parser.parse_result_with_blocks_capability(
       "ipynb_parser",
-      @parser.ParserMode::BlockStreaming,
+      BlockStreaming,
       lowered.blocks,
       diagnostics,
       ipynb_parser_capability(),
@@ -98,7 +90,7 @@ pub fn ipynb_parse_with_preparsed_notebook(
     let final_document = @core.document_with_diagnostics(lowered, diagnostics)
     @parser.parse_result_with_document_capability(
       "ipynb_parser",
-      @parser.ParserMode::DomAstModel,
+      DomAstModel,
       final_document,
       diagnostics,
       ipynb_parser_capability(),

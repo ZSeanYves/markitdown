@@ -118,13 +118,13 @@ fn pdf_parser_wbtest_fake_ocr_provider(
 ///|
 fn pdf_parser_wbtest_accurate_context() -> @parser.ParseContext {
   let base = @parser.parse_context_with_product_modes(
-    @parser.new_parse_context(@input.DetectedFormat::Pdf),
-    @product.FidelityMode::Accurate,
-    @product.OutputMode::Markdown,
+    @parser.new_parse_context(Pdf),
+    Accurate,
+    Markdown,
   )
   let with_mode = @parser.parse_context_with_limits(
     base,
-    Some(@parser.ParserMode::LayoutTwoStage),
+    Some(LayoutTwoStage),
     None,
     None,
     None,
@@ -137,11 +137,11 @@ fn pdf_parser_wbtest_accurate_context() -> @parser.ParseContext {
   )
   let with_header_footer = @parser.parse_context_with_pdf_header_footer_filter_policy(
     with_ocr,
-    @parser.PdfHeaderFooterFilterPolicy::InternalHighConfidenceOnly,
+    InternalHighConfidenceOnly,
   )
   @parser.parse_context_with_pdf_table_reconstruction_policy(
     with_header_footer,
-    @parser.PdfTableReconstructionPolicy::InternalSimpleRowsOnly,
+    InternalSimpleRowsOnly,
   )
 }
 
@@ -149,29 +149,29 @@ fn pdf_parser_wbtest_accurate_context() -> @parser.ParseContext {
 test "pdf hybrid page merge keeps native blocks and only appends non-duplicate OCR blocks in scope" {
   let native_blocks = [
     @core.make_block(
-      @core.BlockKind::Paragraph,
+      Paragraph,
       "Native body",
       source_ref=pdf_parser_wbtest_source_ref(1, 10.0, 500.0, 120.0, 512.0),
     ),
     @core.make_block(
-      @core.BlockKind::Image,
+      Image,
       "image",
       source_ref=pdf_parser_wbtest_source_ref(1, 20.0, 430.0, 80.0, 470.0),
     ),
   ]
   let ocr_blocks = [
     @core.make_block(
-      @core.BlockKind::Paragraph,
+      Paragraph,
       "Native body",
       source_ref=pdf_parser_wbtest_source_ref(1, 10.0, 500.0, 120.0, 512.0),
     ),
     @core.make_block(
-      @core.BlockKind::Paragraph,
+      Paragraph,
       "Added OCR",
       source_ref=pdf_parser_wbtest_source_ref(1, 15.0, 470.0, 110.0, 482.0),
     ),
     @core.make_block(
-      @core.BlockKind::Paragraph,
+      Paragraph,
       "Outside OCR",
       source_ref=pdf_parser_wbtest_source_ref(1, 260.0, 470.0, 340.0, 482.0),
     ),
@@ -187,7 +187,7 @@ test "pdf hybrid page merge keeps native blocks and only appends non-duplicate O
   assert_true(merged.any(block => block.text == "Native body"))
   assert_true(merged.any(block => block.text == "Added OCR"))
   assert_true(!merged.any(block => block.text == "Outside OCR"))
-  let mut added = @core.make_block(@core.BlockKind::Paragraph, "")
+  let mut added = @core.make_block(Paragraph, "")
   for block in merged {
     if block.text == "Added OCR" {
       added = block
@@ -207,7 +207,7 @@ test "PDF native formats pipeline lowers main contract corpus to IR" {
     "samples/fixtures/contracts/pdf/text_multipage.pdf", "samples/fixtures/contracts/pdf/text_simple.pdf",
   ]
   let parser = pdf_native_parser()
-  let context = @parser.new_parse_context(@input.DetectedFormat::Pdf)
+  let context = @parser.new_parse_context(Pdf)
   let mut succeeded = 0
   let mut failed = 0
   let mut blocks = 0
@@ -241,7 +241,7 @@ test "pdf accurate parser scanned route keeps OCR metrics and succeeds with inje
     pdf_ocr_parser_result(
       @input.input_from_path_with_format(
         "samples/fixtures/contracts/pdf/pdf_ocr_single_page.pdf",
-        Some(@input.DetectedFormat::Pdf),
+        Some(Pdf),
       ),
       pdf_parser_wbtest_accurate_context(),
       image_ocr_provider=pdf_parser_wbtest_fake_ocr_provider(Some("eng")),
@@ -264,9 +264,7 @@ test "pdf accurate parser scanned route keeps OCR metrics and succeeds with inje
     parsed.diagnostics.metrics.get("pdf_page_route_summary") ==
     Some("native_text_page=0,hybrid_region_page=0,ocr_page=1"),
   )
-  assert_true(
-    document.metadata.get("page_count") == Some(@core.JsonValue::Number("1")),
-  )
+  assert_true(document.metadata.get("page_count") == Some(Number("1")))
 }
 
 ///|
@@ -279,7 +277,7 @@ async test "pdf accurate async parser preserves injected scanned route semantics
     pdf_ocr_parser_result_async(
       @input.input_from_path_with_format(
         "samples/fixtures/contracts/pdf/pdf_ocr_single_page.pdf",
-        Some(@input.DetectedFormat::Pdf),
+        Some(Pdf),
       ),
       pdf_parser_wbtest_accurate_context(),
       image_ocr_provider=fn(request) { provider(request) },

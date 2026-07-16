@@ -1,69 +1,55 @@
 ///|
 test "OOXML inspect classifies package XML relationship and path errors" {
-  let zip = classify_ooxml_error(@ox.OoxmlError::ZipError("bad zip"))
-  assert_true(zip.kind == @ox.OoxmlErrorKind::ZipFailure)
+  let zip = classify_ooxml_error(ZipError("bad zip"))
+  assert_true(zip.kind == ZipFailure)
   assert_true(zip.detail == "bad zip" && zip.part_name is None)
   let missing_rels = classify_ooxml_error(
-    @ox.OoxmlError::MissingPart("word/_rels/document.xml.rels"),
+    MissingPart("word/_rels/document.xml.rels"),
   )
-  assert_true(missing_rels.kind == @ox.OoxmlErrorKind::MissingPart)
+  assert_true(missing_rels.kind == MissingPart)
   assert_true(missing_rels.rels_part_name == missing_rels.part_name)
-  let missing_part = classify_ooxml_error(
-    @ox.OoxmlError::MissingPart("word/document.xml"),
-  )
+  let missing_part = classify_ooxml_error(MissingPart("word/document.xml"))
   assert_true(missing_part.rels_part_name is None)
   let duplicate = classify_ooxml_error(
-    @ox.OoxmlError::InvalidXml(
+    InvalidXml(
       "[Content_Types].xml: duplicate content type override: /word/document.xml",
     ),
   )
-  assert_true(
-    duplicate.kind == @ox.OoxmlErrorKind::DuplicateContentTypeOverride,
-  )
+  assert_true(duplicate.kind == DuplicateContentTypeOverride)
   assert_true(duplicate.part_name == Some("[Content_Types].xml"))
   let malformed_types = classify_ooxml_error(
-    @ox.OoxmlError::InvalidXml("[Content_Types].xml: missing Types root"),
+    InvalidXml("[Content_Types].xml: missing Types root"),
   )
-  assert_true(malformed_types.kind == @ox.OoxmlErrorKind::MalformedContentTypes)
+  assert_true(malformed_types.kind == MalformedContentTypes)
   let malformed_rels = classify_ooxml_error(
-    @ox.OoxmlError::InvalidXml(
+    InvalidXml(
       "relationships rels_part=\"word/_rels/document.xml.rels\" source=\"word/document.xml\": missing Id",
     ),
   )
-  assert_true(malformed_rels.kind == @ox.OoxmlErrorKind::MalformedRelationships)
+  assert_true(malformed_rels.kind == MalformedRelationships)
   assert_true(
     malformed_rels.rels_part_name == Some("word/_rels/document.xml.rels"),
   )
   assert_true(malformed_rels.source_part == Some("word/document.xml"))
   assert_eq(malformed_rels.detail, "missing Id")
-  let generic_xml = classify_ooxml_error(
-    @ox.OoxmlError::InvalidXml("other malformed XML"),
-  )
-  assert_true(generic_xml.kind == @ox.OoxmlErrorKind::InvalidXml)
+  let generic_xml = classify_ooxml_error(InvalidXml("other malformed XML"))
+  assert_true(generic_xml.kind == InvalidXml)
   let unsafe_target = classify_ooxml_error(
-    @ox.OoxmlError::InvalidPartPath(
-      "unsafe relationship target: source: ../../outside.xml",
-    ),
+    InvalidPartPath("unsafe relationship target: source: ../../outside.xml"),
   )
-  assert_true(
-    unsafe_target.kind == @ox.OoxmlErrorKind::UnsafeRelationshipTarget,
-  )
+  assert_true(unsafe_target.kind == UnsafeRelationshipTarget)
   assert_true(unsafe_target.target == Some("../../outside.xml"))
   let collision = classify_ooxml_error(
-    @ox.OoxmlError::InvalidPartPath(
-      "normalized part collision: word/document.xml",
-    ),
+    InvalidPartPath("normalized part collision: word/document.xml"),
   )
-  assert_true(collision.kind == @ox.OoxmlErrorKind::DuplicateNormalizedPart)
-  let unsafe_name = classify_ooxml_error(
-    @ox.OoxmlError::InvalidPartPath("../outside.xml"),
-  )
-  assert_true(unsafe_name.kind == @ox.OoxmlErrorKind::UnsafePartName)
+  assert_true(collision.kind == DuplicateNormalizedPart)
+  let unsafe_name = classify_ooxml_error(InvalidPartPath("../outside.xml"))
+  assert_true(unsafe_name.kind == UnsafePartName)
   let rel_missing = classify_ooxml_error(
-    @ox.OoxmlError::RelationshipNotFound("word/document.xml", "rId9"),
+    RelationshipNotFound("word/document.xml", "rId9"),
   )
   assert_true(
-    rel_missing.kind == @ox.OoxmlErrorKind::RelationshipNotFound &&
+    rel_missing.kind == RelationshipNotFound &&
     rel_missing.rel_id == Some("rId9"),
   )
 }
@@ -116,8 +102,8 @@ test "OOXML inspect parsers handle quoted fields targets and search boundaries" 
 
 ///|
 test "OOXML inspect summary writers cover empty and populated relationships" {
-  assert_eq(target_mode_text(@ox.OoxmlTargetMode::Internal), "Internal")
-  assert_eq(target_mode_text(@ox.OoxmlTargetMode::External), "External")
+  assert_eq(target_mode_text(Internal), "Internal")
+  assert_eq(target_mode_text(External), "External")
   assert_eq(string_opt(None), "(none)")
   assert_eq(string_opt(Some("")), "(empty)")
   assert_eq(string_opt(Some("value")), "value")
@@ -131,7 +117,7 @@ test "OOXML inspect summary writers cover empty and populated relationships" {
       id: "rId1",
       rel_type: "image",
       target: "media/image1.png",
-      target_mode: @ox.OoxmlTargetMode::Internal,
+      target_mode: Internal,
       resolved_target: "word/media/image1.png",
     },
     {
@@ -140,7 +126,7 @@ test "OOXML inspect summary writers cover empty and populated relationships" {
       id: "rId2",
       rel_type: "hyperlink",
       target: "https://example.test",
-      target_mode: @ox.OoxmlTargetMode::External,
+      target_mode: External,
       resolved_target: "https://example.test",
     },
   ]

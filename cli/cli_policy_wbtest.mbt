@@ -13,15 +13,13 @@ test "main cli image OCR intent remains fail closed by mode" {
         png_path,
         None,
         None,
-        @convert.OutputFormat::Markdown,
+        Markdown,
         ocr_options=@parser.explicit_ocr_options(),
       ),
       fake_cli_failing_image_provider(
         png_path,
         None,
-        @focr.OcrProviderError::CommandUnavailable(
-          "synthetic OCR provider unavailable",
-        ),
+        CommandUnavailable("synthetic OCR provider unavailable"),
       ),
     ) {
     Err(msg) =>
@@ -38,13 +36,13 @@ test "main cli image OCR intent remains fail closed by mode" {
         png_path,
         None,
         None,
-        @convert.OutputFormat::Markdown,
+        Markdown,
         ocr_options=@parser.explicit_ocr_options(language=Some("eng")),
       ),
       fake_cli_failing_image_provider(
         png_path,
         Some("eng"),
-        @focr.OcrProviderError::ExecutionFailed("synthetic OCR provider failed"),
+        ExecutionFailed("synthetic OCR provider failed"),
       ),
     ) {
     Err(msg) =>
@@ -62,12 +60,12 @@ test "main cli image OCR intent remains fail closed by mode" {
         png_path,
         None,
         None,
-        @convert.OutputFormat::Markdown,
+        Markdown,
         ocr_options=@parser.disabled_ocr_options(),
       ),
       fn(_request : @focr.OcrProviderRequest) {
         provider_calls.val = provider_calls.val + 1
-        Err(@focr.OcrProviderError::ExecutionFailed("provider should not run"))
+        Err(ExecutionFailed("provider should not run"))
       },
     ) {
     Err(msg) => {
@@ -118,8 +116,7 @@ test "main cli scanned-like pdf fails closed instead of returning empty markdown
     ].join("\n"),
   )
 
-  match
-    run_cli(cli_options(pdf_path, None, None, @convert.OutputFormat::Markdown)) {
+  match run_cli(cli_options(pdf_path, None, None, Markdown)) {
     Err(msg) => {
       assert_true(
         msg.contains("empty") ||
@@ -156,7 +153,7 @@ test "main cli direct image OCR can succeed through injected provider as a suppo
       png_path,
       None,
       None,
-      @convert.OutputFormat::Markdown,
+      Markdown,
       ocr_options=@parser.explicit_ocr_options(language=Some("eng")),
     ),
     fake_cli_image_provider(png_path, Some("eng")),
@@ -165,11 +162,7 @@ test "main cli direct image OCR can succeed through injected provider as a suppo
     Ok(content) => assert_eq(content, "MoonBit OCR\n\nSample 123")
     Err(msg) => fail("expected injected cli OCR success: " + msg)
   }
-  assert_true(
-    cli_is_supported_format(
-      @input.DetectedFormat::Image(@input.ImageFormat::Png),
-    ),
-  )
+  assert_true(cli_is_supported_format(Image(Png)))
 }
 
 ///|
@@ -186,7 +179,7 @@ test "main cli direct image OCR can succeed through injected provider" {
       png_path,
       None,
       None,
-      @convert.OutputFormat::Markdown,
+      Markdown,
       ocr_options=@parser.explicit_ocr_options(language=Some("eng")),
     ),
     fake_cli_image_provider(png_path, Some("eng")),
@@ -195,11 +188,7 @@ test "main cli direct image OCR can succeed through injected provider" {
     Ok(content) => assert_eq(content, "MoonBit OCR\n\nSample 123")
     Err(msg) => fail("expected injected async cli OCR success: " + msg)
   }
-  assert_true(
-    cli_is_supported_format(
-      @input.DetectedFormat::Image(@input.ImageFormat::Png),
-    ),
-  )
+  assert_true(cli_is_supported_format(Image(Png)))
 }
 
 ///|
@@ -221,8 +210,8 @@ test "main cli pdf debug json exposes header footer candidate diagnostics" {
       cli_options(
         "samples/fixtures/contracts/pdf/text_simple.pdf",
         None,
-        Some(@input.DetectedFormat::Pdf),
-        @convert.OutputFormat::DebugJson,
+        Some(Pdf),
+        DebugJson,
       ),
     ) {
     Ok(value) => value
@@ -263,13 +252,13 @@ test "main cli accurate pdf debug json preserves native route metrics without OC
         "samples/fixtures/contracts/pdf/text_simple.pdf",
         None,
         None,
-        Some(@input.DetectedFormat::Pdf),
+        Some(Pdf),
         @parser.default_ocr_options(),
-        @convert.FidelityMode::Accurate,
-        @convert.ConvertMode::Accurate,
-        @convert.output_mode_for_output_format(@convert.OutputFormat::DebugJson),
+        Accurate,
+        Accurate,
+        @convert.output_mode_for_output_format(DebugJson),
         false,
-        @convert.OutputFormat::DebugJson,
+        DebugJson,
         rag_options=@rag.default_rag_options(),
       ),
     ) {

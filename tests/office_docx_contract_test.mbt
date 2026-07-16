@@ -4,7 +4,7 @@ test "docx parser preserves note ordering code blocks and comment spacing" {
     @input.input_from_path(
       "samples/fixtures/contracts/docx/docx_multiple_notes_order.docx",
     ),
-    @input.DetectedFormat::Docx,
+    Docx,
   )
   let note_document = notes.document.unwrap_or_else(fn() {
     abort("missing note-order document")
@@ -23,13 +23,13 @@ test "docx parser preserves note ordering code blocks and comment spacing" {
     @input.input_from_path(
       "samples/fixtures/contracts/docx/docx_codeblock_basic.docx",
     ),
-    @input.DetectedFormat::Docx,
+    Docx,
   )
   let code_document = code.document.unwrap_or_else(fn() {
     abort("missing code document")
   })
   assert_true(code_document.blocks.length() == 1)
-  assert_true(code_document.blocks[0].kind == @core.BlockKind::Code)
+  assert_true(code_document.blocks[0].kind == Code)
   assert_eq(code_document.blocks[0].text, "let x = 1\nprintln(x)")
 }
 
@@ -37,9 +37,9 @@ test "docx parser preserves note ordering code blocks and comment spacing" {
 test "docx accurate fidelity inlines anchored textboxes into body order" {
   let registry = @fmeta.builtin_registry()
   let context = @parser.parse_context_with_product_modes(
-    @parser.new_parse_context(@input.DetectedFormat::Docx),
-    @product.FidelityMode::Accurate,
-    @product.OutputMode::Markdown,
+    @parser.new_parse_context(Docx),
+    Accurate,
+    Markdown,
   )
   let result = match
     @parser.registry_parse(
@@ -60,8 +60,8 @@ test "docx accurate fidelity inlines anchored textboxes into body order" {
     document,
     @render.make_render_context(
       false,
-      fidelity_mode=@product.FidelityMode::Accurate,
-      output_mode=@product.OutputMode::Markdown,
+      fidelity_mode=Accurate,
+      output_mode=Markdown,
     ),
   )
   assert_true(

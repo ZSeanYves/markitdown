@@ -21,7 +21,7 @@ fn pptx_table_block(
     table,
     pptx_include_block_reading_order_hint(state),
   )
-  let block = @core.make_block(@core.BlockKind::Table, "table", source_ref~)
+  let block = @core.make_block(Table, "table", source_ref~)
   block.attrs.set("header_rows", "1")
   block.attrs.set(
     "table_column_count",
@@ -42,11 +42,7 @@ fn pptx_table_block(
       "row_index",
       row.row_index.to_string(),
     )
-    let row_block = @core.make_block(
-      @core.BlockKind::TableRow,
-      "",
-      source_ref=row_ref,
-    )
+    let row_block = @core.make_block(TableRow, "", source_ref=row_ref)
     for cell in row.cells {
       if span_aware && pptx_should_skip_merged_placeholder_cell(cell) {
         continue
@@ -66,7 +62,7 @@ fn pptx_table_block(
         cell.column_index.to_string(),
       )
       let cell_block = @core.make_block(
-        @core.BlockKind::TableCell,
+        TableCell,
         pptx_table_cell_text(cell),
         source_ref=cell_ref,
       )
@@ -81,11 +77,7 @@ fn pptx_table_block(
       if !span_aware && grid_span > 1 {
         for _ in 1..<grid_span {
           row_block.children.push(
-            @core.make_block(
-              @core.BlockKind::TableCell,
-              "",
-              source_ref=cell_ref,
-            ),
+            @core.make_block(TableCell, "", source_ref=cell_ref),
           )
         }
       }
@@ -174,23 +166,22 @@ fn pptx_table_cell_paragraph_inlines(
     )
     for inline in run.inlines {
       match inline {
-        @pptxdoc.PptxInline::Text(text) =>
+        Text(text) =>
           out.push(
             @core.make_inline_text(
               pptx_normalize_text_fragment(text),
               source_ref=run_ref,
             ),
           )
-        @pptxdoc.PptxInline::Break =>
-          out.push(@core.make_inline_line_break(source_ref=run_ref))
-        @pptxdoc.PptxInline::Field(text) =>
+        Break => out.push(@core.make_inline_line_break(source_ref=run_ref))
+        Field(text) =>
           out.push(
             @core.make_inline_text(
               pptx_normalize_text_fragment(text),
               source_ref=run_ref,
             ),
           )
-        @pptxdoc.PptxInline::Hyperlink(link, text) =>
+        Hyperlink(link, text) =>
           match link.target {
             Some(target) =>
               out.push(
@@ -216,7 +207,7 @@ fn pptx_table_cell_paragraph_inlines(
                 ),
               )
           }
-        @pptxdoc.PptxInline::Unsupported(unsupported) =>
+        Unsupported(unsupported) =>
           out.push(
             @core.make_inline_text(
               "[Unsupported PPTX inline: " + unsupported.kind + "]",
@@ -234,7 +225,7 @@ fn pptx_table_use_span_rendering(
   state : PptxState,
   table : @pptxdoc.PptxTable,
 ) -> Bool {
-  if !pptx_feature_enabled(state, @product.AccurateFeature::PptxGroupSummary) {
+  if !pptx_feature_enabled(state, PptxGroupSummary) {
     return false
   }
   for row in table.rows {
@@ -337,7 +328,7 @@ fn pptx_chart_title_block(
         None
       } else {
         let block = @core.make_block(
-          @core.BlockKind::Heading,
+          Heading,
           title,
           source_ref=pptx_chart_source_ref(
             state.source,
@@ -415,20 +406,20 @@ fn pptx_chart_series_table_block(
     chart,
     pptx_include_block_reading_order_hint(state),
   )
-  let block = @core.make_block(@core.BlockKind::Table, "table", source_ref~)
+  let block = @core.make_block(Table, "table", source_ref~)
   block.attrs.set("header_rows", "1")
   block.attrs.set(
     "table_column_count",
     (chart.cached_series.length() + 1).to_string(),
   )
   let header = @core.make_block(
-    @core.BlockKind::TableRow,
+    TableRow,
     "",
     source_ref=@core.source_ref_with_extra(source_ref, "row_index", "0"),
   )
   header.children.push(
     @core.make_block(
-      @core.BlockKind::TableCell,
+      TableCell,
       "Category",
       source_ref=@core.source_ref_with_extra(
         @core.source_ref_with_extra(source_ref, "row_index", "0"),
@@ -441,7 +432,7 @@ fn pptx_chart_series_table_block(
     let series = chart.cached_series[index]
     header.children.push(
       @core.make_block(
-        @core.BlockKind::TableCell,
+        TableCell,
         series.name.unwrap_or("Series " + (index + 1).to_string()),
         source_ref=@core.source_ref_with_extra(
           @core.source_ref_with_extra(source_ref, "row_index", "0"),
@@ -454,7 +445,7 @@ fn pptx_chart_series_table_block(
   block.children.push(header)
   for row_index in 0..<categories.length() {
     let row = @core.make_block(
-      @core.BlockKind::TableRow,
+      TableRow,
       "",
       source_ref=@core.source_ref_with_extra(
         source_ref,
@@ -464,7 +455,7 @@ fn pptx_chart_series_table_block(
     )
     row.children.push(
       @core.make_block(
-        @core.BlockKind::TableCell,
+        TableCell,
         pptx_chart_display_value(categories[row_index]),
         source_ref=@core.source_ref_with_extra(
           @core.source_ref_with_extra(
@@ -486,7 +477,7 @@ fn pptx_chart_series_table_block(
       }
       row.children.push(
         @core.make_block(
-          @core.BlockKind::TableCell,
+          TableCell,
           value,
           source_ref=@core.source_ref_with_extra(
             @core.source_ref_with_extra(
@@ -557,7 +548,7 @@ fn pptx_chart_series_list_blocks(
       continue
     }
     let heading = @core.make_block(
-      @core.BlockKind::Heading,
+      Heading,
       series.name.unwrap_or("Series " + (series_index + 1).to_string()),
       source_ref=pptx_chart_source_ref(
         state.source,
@@ -570,7 +561,7 @@ fn pptx_chart_series_list_blocks(
     out.push(heading)
     for item_index in 0..<pair_count {
       let item = @core.make_block(
-        @core.BlockKind::ListItem,
+        ListItem,
         pptx_chart_display_value(categories[item_index]) +
         ": " +
         pptx_chart_display_value(series.values[item_index]),
@@ -632,17 +623,17 @@ fn pptx_chart_category_value_table_block(
     chart,
     pptx_include_block_reading_order_hint(state),
   )
-  let block = @core.make_block(@core.BlockKind::Table, "table", source_ref~)
+  let block = @core.make_block(Table, "table", source_ref~)
   block.attrs.set("header_rows", "1")
   block.attrs.set("table_column_count", "2")
   let header = @core.make_block(
-    @core.BlockKind::TableRow,
+    TableRow,
     "",
     source_ref=@core.source_ref_with_extra(source_ref, "row_index", "0"),
   )
   header.children.push(
     @core.make_block(
-      @core.BlockKind::TableCell,
+      TableCell,
       "Category",
       source_ref=@core.source_ref_with_extra(
         @core.source_ref_with_extra(source_ref, "row_index", "0"),
@@ -653,7 +644,7 @@ fn pptx_chart_category_value_table_block(
   )
   header.children.push(
     @core.make_block(
-      @core.BlockKind::TableCell,
+      TableCell,
       pptx_chart_category_value_header(chart),
       source_ref=@core.source_ref_with_extra(
         @core.source_ref_with_extra(source_ref, "row_index", "0"),
@@ -665,7 +656,7 @@ fn pptx_chart_category_value_table_block(
   block.children.push(header)
   for row_index in 0..<row_count {
     let row = @core.make_block(
-      @core.BlockKind::TableRow,
+      TableRow,
       "",
       source_ref=@core.source_ref_with_extra(
         source_ref,
@@ -675,7 +666,7 @@ fn pptx_chart_category_value_table_block(
     )
     row.children.push(
       @core.make_block(
-        @core.BlockKind::TableCell,
+        TableCell,
         pptx_chart_display_value(chart.cached_categories[row_index]),
         source_ref=@core.source_ref_with_extra(
           @core.source_ref_with_extra(
@@ -690,7 +681,7 @@ fn pptx_chart_category_value_table_block(
     )
     row.children.push(
       @core.make_block(
-        @core.BlockKind::TableCell,
+        TableCell,
         pptx_chart_display_value(chart.cached_values[row_index]),
         source_ref=@core.source_ref_with_extra(
           @core.source_ref_with_extra(
@@ -736,7 +727,7 @@ fn pptx_chart_missing_cache_block(
   }
   state.chart_fallback_emitted.val = true
   let raw = @core.make_block(
-    @core.BlockKind::Raw,
+    Raw,
     "[Chart data not embedded in chart cache]",
     source_ref=pptx_chart_source_ref(
       state.source,
@@ -928,21 +919,20 @@ fn pptx_plain_text_from_paragraph(para : @pptxdoc.PptxParagraph) -> String {
   for run in para.runs {
     for inline in run.inlines {
       match inline {
-        @pptxdoc.PptxInline::Text(text) =>
+        Text(text) =>
           synthetic.push(
             @core.make_inline_text(pptx_normalize_text_fragment(text)),
           )
-        @pptxdoc.PptxInline::Break =>
-          synthetic.push(@core.make_inline_line_break())
-        @pptxdoc.PptxInline::Field(text) =>
+        Break => synthetic.push(@core.make_inline_line_break())
+        Field(text) =>
           synthetic.push(
             @core.make_inline_text(pptx_normalize_text_fragment(text)),
           )
-        @pptxdoc.PptxInline::Hyperlink(_, text) =>
+        Hyperlink(_, text) =>
           synthetic.push(
             @core.make_inline_text(pptx_normalize_text_fragment(text)),
           )
-        @pptxdoc.PptxInline::Unsupported(_) => ()
+        Unsupported(_) => ()
       }
     }
   }
@@ -959,7 +949,7 @@ fn pptx_lower_slide_comments(
     return
   }
   let heading = @core.make_block(
-    @core.BlockKind::Heading,
+    Heading,
     "Comments",
     source_ref=pptx_slide_source_ref(state.source, slide, None, None),
   )
@@ -976,7 +966,7 @@ fn pptx_lower_slide_comments(
         }
     }
     let block = @core.make_block(
-      @core.BlockKind::ListItem,
+      ListItem,
       prefix + comment.text,
       source_ref=@core.source_ref_with_extra(
         pptx_slide_source_ref(
@@ -1008,7 +998,7 @@ fn pptx_lower_slide_notes(
   let note_blocks : Array[@core.CoreBlock] = []
   let hidden_note_text = hidden_slide_note_text(slide)
   let heading = @core.make_block(
-    @core.BlockKind::Heading,
+    Heading,
     "Speaker Notes",
     source_ref=@core.source_ref_with_extra(
       pptx_slide_source_ref(state.source, slide, Some(notes.source_key), None),
@@ -1025,7 +1015,7 @@ fn pptx_lower_slide_notes(
       continue
     }
     let block = @core.make_block(
-      @core.BlockKind::Paragraph,
+      Paragraph,
       text,
       source_ref=@core.source_ref_with_extra(
         pptx_slide_source_ref(state.source, slide, Some(para.source_key), None),

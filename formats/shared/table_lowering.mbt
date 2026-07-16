@@ -73,7 +73,7 @@ pub fn make_indexed_table_block(
   cell_ref : (Int, Int) -> @core.SourceRef,
 ) -> @core.CoreBlock {
   let table = @core.block_with_children(
-    @core.make_block(@core.BlockKind::Table, "table", source_ref=table_ref),
+    @core.make_block(Table, "table", source_ref=table_ref),
     Array::new(capacity=rows.length()),
   )
   table.attrs.set("header_rows", "1")
@@ -81,7 +81,7 @@ pub fn make_indexed_table_block(
     let row_values = rows[row_index]
     let row = @core.block_with_children(
       @core.make_block(
-        @core.BlockKind::TableRow,
+        TableRow,
         row_values.join(" | "),
         source_ref=row_ref(row_index, row_values),
       ),
@@ -90,7 +90,7 @@ pub fn make_indexed_table_block(
     for col_index in 0..<row_values.length() {
       row.children.push(
         @core.make_block(
-          @core.BlockKind::TableCell,
+          TableCell,
           row_values[col_index],
           source_ref=cell_ref(row_index, col_index),
         ),

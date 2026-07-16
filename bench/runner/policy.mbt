@@ -354,7 +354,7 @@ fn decode_rss_limits(json : Map[String, Json]) -> Map[String, Int] {
   for entry in json {
     if entry.0 != "default" {
       out[entry.0] = match entry.1 {
-        Json::Number(value, ..) => value.to_int()
+        Number(value, ..) => value.to_int()
         _ => abort("bench policy RSS limit must be an integer: " + entry.0)
       }
     }
@@ -447,10 +447,10 @@ fn decode_row_expected_routes(json : Map[String, Json]) -> Map[String, String] {
       "row override `" + entry.0 + "`",
     )
     match object.get("route_expectation") {
-      Some(Json::String(value)) => out[entry.0] = value
-      Some(Json::Object(route_object)) =>
+      Some(String(value)) => out[entry.0] = value
+      Some(Object(route_object)) =>
         match route_object.get("selected_route") {
-          Some(Json::String(value)) => out[entry.0] = value
+          Some(String(value)) => out[entry.0] = value
           _ => ()
         }
       _ => ()
@@ -515,11 +515,11 @@ fn expected_route_for_case(
 ///|
 fn actual_route_name(route_provenance : Json) -> String? {
   match route_provenance {
-    Json::Object(map) =>
+    Object(map) =>
       match map.get("route_plan") {
-        Some(Json::Object(route_plan)) =>
+        Some(Object(route_plan)) =>
           match route_plan.get("selected_route") {
-            Some(Json::String(value)) => Some(value)
+            Some(String(value)) => Some(value)
             _ => None
           }
         _ => None
@@ -597,9 +597,9 @@ fn structured_text_format_requires_density_guard(format : String) -> Bool {
 ///|
 fn render_path(route_provenance : Json) -> String {
   match route_provenance {
-    Json::Object(map) =>
+    Object(map) =>
       match map.get("render_input_kind") {
-        Some(Json::String(value)) => value
+        Some(String(value)) => value
         _ => "unknown"
       }
     _ => "unknown"

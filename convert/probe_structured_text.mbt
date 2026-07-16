@@ -8,23 +8,22 @@ fn markdown_preflight_probe(
     Err(_) => return unavailable_probe("markdown", source)
   }
   let text = text_payload.text
-  if options.output_mode == @product.OutputMode::Markdown &&
-    text.length() >= 1_048_576 {
+  if options.output_mode == Markdown && text.length() >= 1_048_576 {
     let line_count = markdown_probe_line_count(text)
     let signals = [
       make_probe_signal(
-        ProbeSignalKind::BlockCount,
+        BlockCount,
         line_count,
         limit=Some(options.limits.max_rows),
         note=Some("large literal block upper bound"),
       ),
       make_probe_signal(
-        ProbeSignalKind::CharCount,
+        CharCount,
         text.length(),
         limit=Some(options.limits.max_line_chars),
       ),
       make_probe_signal(
-        ProbeSignalKind::ListItemCount,
+        ListItemCount,
         0,
         limit=Some(options.limits.max_cols),
         note=Some("deferred in large Markdown output path"),
@@ -36,11 +35,7 @@ fn markdown_preflight_probe(
       text_payload.prepared_source,
       probe_signals=signals,
       probe_artifacts=[
-        RouteProbeArtifact::MarkdownLargeLiteral(
-          text_payload.prepared_source,
-          text,
-          line_count,
-        ),
+        MarkdownLargeLiteral(text_payload.prepared_source, text, line_count),
       ],
     )
   }
@@ -51,17 +46,17 @@ fn markdown_preflight_probe(
   let inspect = prepared.inspect
   let signals = [
     make_probe_signal(
-      ProbeSignalKind::BlockCount,
+      BlockCount,
       inspect.block_count,
       limit=Some(options.limits.max_rows),
     ),
     make_probe_signal(
-      ProbeSignalKind::CharCount,
+      CharCount,
       text.length(),
       limit=Some(options.limits.max_line_chars),
     ),
     make_probe_signal(
-      ProbeSignalKind::ListItemCount,
+      ListItemCount,
       inspect.list_item_count,
       limit=Some(options.limits.max_cols),
     ),
@@ -71,7 +66,7 @@ fn markdown_preflight_probe(
     signal_summary_lines(signals),
     prepared.prepared_source,
     probe_signals=signals,
-    probe_artifacts=[RouteProbeArtifact::MarkdownPrepared(prepared)],
+    probe_artifacts=[MarkdownPrepared(prepared)],
   )
 }
 
@@ -102,17 +97,17 @@ fn json_preflight_probe(
     Some(stream) => {
       let signals = [
         make_probe_signal(
-          ProbeSignalKind::ObjectCount,
+          ObjectCount,
           stream.summary.object_count,
           limit=Some(options.limits.max_rows),
         ),
         make_probe_signal(
-          ProbeSignalKind::MaxDepth,
+          MaxDepth,
           stream.summary.max_depth,
           limit=Some(options.limits.max_rows),
         ),
         make_probe_signal(
-          ProbeSignalKind::NodeCount,
+          NodeCount,
           stream.summary.object_count +
           stream.summary.array_count +
           stream.summary.scalar_count,
@@ -124,7 +119,7 @@ fn json_preflight_probe(
         signal_summary_lines(signals),
         prepared.prepared_source,
         probe_signals=signals,
-        probe_artifacts=[RouteProbeArtifact::JsonPrepared(prepared)],
+        probe_artifacts=[JsonPrepared(prepared)],
       )
     }
     None =>
@@ -147,12 +142,12 @@ fn yaml_preflight_probe(
     Some(inspect) => {
       let signals = [
         make_probe_signal(
-          ProbeSignalKind::NodeCount,
+          NodeCount,
           inspect.node_count,
           limit=Some(options.limits.max_cells),
         ),
         make_probe_signal(
-          ProbeSignalKind::MaxDepth,
+          MaxDepth,
           inspect.max_depth,
           limit=Some(options.limits.max_rows),
         ),
@@ -162,7 +157,7 @@ fn yaml_preflight_probe(
         signal_summary_lines(signals),
         prepared.prepared_source,
         probe_signals=signals,
-        probe_artifacts=[RouteProbeArtifact::YamlPrepared(prepared)],
+        probe_artifacts=[YamlPrepared(prepared)],
       )
     }
     None =>
@@ -183,11 +178,8 @@ fn toml_preflight_probe(
   }
   let text = prepared.original_text
   let signals = [
-    make_probe_signal(ProbeSignalKind::CharCount, text.length()),
-    make_probe_signal(
-      ProbeSignalKind::LineCount,
-      @fshared.count_physical_lines(text),
-    ),
+    make_probe_signal(CharCount, text.length()),
+    make_probe_signal(LineCount, @fshared.count_physical_lines(text)),
   ]
   probe_outcome(
     "toml",
@@ -195,7 +187,7 @@ fn toml_preflight_probe(
     prepared.prepared_source,
     probe_signals=signals,
     probe_artifacts=match (prepared.document, prepared.inspect) {
-      (Some(_), Some(_)) => [RouteProbeArtifact::TomlPrepared(prepared)]
+      (Some(_), Some(_)) => [TomlPrepared(prepared)]
       _ => []
     },
   )
@@ -207,12 +199,9 @@ fn text_markup_preflight_probe(
   format : @input.DetectedFormat,
 ) -> ProbeOutcome {
   let prepared = match format {
-    @input.DetectedFormat::Tex =>
-      @dtext.prepare_tex_document_from_source(source)
-    @input.DetectedFormat::Rst =>
-      @dtext.prepare_rst_document_from_source(source)
-    @input.DetectedFormat::Asciidoc =>
-      @dtext.prepare_asciidoc_document_from_source(source)
+    Tex => @dtext.prepare_tex_document_from_source(source)
+    Rst => @dtext.prepare_rst_document_from_source(source)
+    Asciidoc => @dtext.prepare_asciidoc_document_from_source(source)
     _ => abort("unsupported text markup preflight format")
   }
   let prepared = match prepared {
@@ -221,19 +210,16 @@ fn text_markup_preflight_probe(
       return unavailable_probe(@input.detected_format_name(format), source)
   }
   let signals = [
-    make_probe_signal(ProbeSignalKind::BlockCount, prepared.inspect.block_count),
-    make_probe_signal(ProbeSignalKind::LineCount, prepared.inspect.line_count),
-    make_probe_signal(
-      ProbeSignalKind::CharCount,
-      prepared.original_text.length(),
-    ),
+    make_probe_signal(BlockCount, prepared.inspect.block_count),
+    make_probe_signal(LineCount, prepared.inspect.line_count),
+    make_probe_signal(CharCount, prepared.original_text.length()),
   ]
   probe_outcome(
     @input.detected_format_name(format),
     signal_summary_lines(signals),
     prepared.prepared_source,
     probe_signals=signals,
-    probe_artifacts=[RouteProbeArtifact::TextMarkupPrepared(prepared)],
+    probe_artifacts=[TextMarkupPrepared(prepared)],
   )
 }
 
@@ -266,22 +252,22 @@ fn ipynb_preflight_probe(
       )
       let signals = [
         make_probe_signal(
-          ProbeSignalKind::BlockCount,
+          BlockCount,
           inspect.cell_count,
           limit=Some(options.limits.max_rows),
         ),
         make_probe_signal(
-          ProbeSignalKind::OutputCount,
+          OutputCount,
           inspect.output_count,
           limit=Some(options.limits.max_cells),
         ),
         make_probe_signal(
-          ProbeSignalKind::AttachmentCount,
+          AttachmentCount,
           inspect.attachment_count,
           limit=Some(options.limits.max_cells),
         ),
         make_probe_signal(
-          ProbeSignalKind::CharCount,
+          CharCount,
           prepared.original_text.length(),
           limit=Some(options.limits.max_line_chars),
         ),
@@ -291,7 +277,7 @@ fn ipynb_preflight_probe(
         signal_summary_lines(signals),
         prepared.prepared_source,
         probe_signals=signals,
-        probe_artifacts=[RouteProbeArtifact::IpynbPrepared(prepared)],
+        probe_artifacts=[IpynbPrepared(prepared)],
       )
     }
     None =>
@@ -300,7 +286,7 @@ fn ipynb_preflight_probe(
         ["parse_failed"],
         prepared.prepared_source,
         probe_failures=[make_probe_failure("ipynb", "parse_failed")],
-        probe_artifacts=[RouteProbeArtifact::IpynbPrepared(prepared)],
+        probe_artifacts=[IpynbPrepared(prepared)],
       )
   }
 }
@@ -320,13 +306,13 @@ fn xml_stream_probe_summary_from_tokens(
   let mut max_depth = 0
   for token in tokens {
     match token {
-      @dxml.XmlToken::Declaration(_, _) => ()
-      @dxml.XmlToken::Doctype(_, _) => node_count += 1
-      @dxml.XmlToken::ProcessingInstruction(_, _, _) => node_count += 1
-      @dxml.XmlToken::Comment(_, _) => node_count += 1
-      @dxml.XmlToken::CData(text, _) => if text.trim() != "" { node_count += 1 }
-      @dxml.XmlToken::Text(text, _) => if text.trim() != "" { node_count += 1 }
-      @dxml.XmlToken::StartTag(_, attrs, self_closing, _) => {
+      Declaration(_, _) => ()
+      Doctype(_, _) => node_count += 1
+      ProcessingInstruction(_, _, _) => node_count += 1
+      Comment(_, _) => node_count += 1
+      CData(text, _) => if text.trim() != "" { node_count += 1 }
+      Text(text, _) => if text.trim() != "" { node_count += 1 }
+      StartTag(_, attrs, self_closing, _) => {
         node_count += 1 + attrs.length()
         if !self_closing {
           depth += 1
@@ -335,7 +321,7 @@ fn xml_stream_probe_summary_from_tokens(
           }
         }
       }
-      @dxml.XmlToken::EndTag(_, _) => if depth > 0 { depth -= 1 }
+      EndTag(_, _) => if depth > 0 { depth -= 1 }
     }
   }
   { node_count, max_depth }
@@ -355,17 +341,17 @@ fn xml_preflight_probe(
       let inspect = xml_stream_probe_summary_from_tokens(tokens)
       let signals = [
         make_probe_signal(
-          ProbeSignalKind::NodeCount,
+          NodeCount,
           inspect.node_count,
           limit=Some(options.limits.max_cells),
         ),
         make_probe_signal(
-          ProbeSignalKind::MaxDepth,
+          MaxDepth,
           inspect.max_depth,
           limit=Some(options.limits.max_rows),
         ),
         make_probe_signal(
-          ProbeSignalKind::CharCount,
+          CharCount,
           prepared.original_text.length(),
           limit=Some(options.limits.max_line_chars * 6),
         ),
@@ -375,7 +361,7 @@ fn xml_preflight_probe(
         signal_summary_lines(signals),
         prepared.prepared_source,
         probe_signals=signals,
-        probe_artifacts=[RouteProbeArtifact::XmlPrepared(prepared)],
+        probe_artifacts=[XmlPrepared(prepared)],
       )
     }
     None =>
@@ -409,13 +395,9 @@ fn html_probe_summary_from_events(
   let mut structural_scope_count = 0
   for event in events {
     match event.kind {
-      @dhtml.HtmlTokenEventKind::Doctype | @dhtml.HtmlTokenEventKind::Comment =>
-        node_count += 1
-      @dhtml.HtmlTokenEventKind::Text =>
-        if event.source_end > event.source_start {
-          node_count += 1
-        }
-      @dhtml.HtmlTokenEventKind::StartTag => {
+      Doctype | Comment => node_count += 1
+      Text => if event.source_end > event.source_start { node_count += 1 }
+      StartTag => {
         node_count += 1 + event.attributes.length()
         if event.tag_name == "main" ||
           event.tag_name == "article" ||
@@ -439,7 +421,7 @@ fn html_probe_summary_from_events(
           }
         }
       }
-      @dhtml.HtmlTokenEventKind::EndTag => if depth > 0 { depth -= 1 }
+      EndTag => if depth > 0 { depth -= 1 }
     }
   }
   {
@@ -484,22 +466,22 @@ fn html_preflight_probe(
   }
   let signals = [
     make_probe_signal(
-      ProbeSignalKind::NodeCount,
+      NodeCount,
       probe.node_count,
       limit=Some(options.limits.max_cells),
     ),
     make_probe_signal(
-      ProbeSignalKind::BlockCount,
+      BlockCount,
       probe.block_scope_count,
       limit=Some(options.limits.max_rows),
     ),
     make_probe_signal(
-      ProbeSignalKind::MaxDepth,
+      MaxDepth,
       probe.max_depth,
       limit=Some(options.limits.max_rows),
     ),
     make_probe_signal(
-      ProbeSignalKind::CharCount,
+      CharCount,
       probe.char_count,
       limit=Some(options.limits.max_line_chars * 64),
     ),
@@ -516,6 +498,6 @@ fn html_preflight_probe(
     ],
     prepared.prepared_source,
     probe_signals=signals,
-    probe_artifacts=[RouteProbeArtifact::HtmlPrepared(prepared)],
+    probe_artifacts=[HtmlPrepared(prepared)],
   )
 }

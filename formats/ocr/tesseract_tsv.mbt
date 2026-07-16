@@ -72,22 +72,14 @@ pub fn parse_tesseract_tsv(
 ) -> Result[OcrProviderResult, OcrProviderError] {
   let normalized = tesseract_tsv_normalize_newlines(tsv)
   if normalized.trim() == "" {
-    return Err(
-      OcrProviderError::EmptyResult(
-        "Tesseract TSV output is empty on this runtime.",
-      ),
-    )
+    return Err(EmptyResult("Tesseract TSV output is empty on this runtime."))
   }
   let lines = normalized
     .split("\n")
     .to_array()
     .map(fn(line) { line.to_owned() })
   if lines.length() == 0 {
-    return Err(
-      OcrProviderError::EmptyResult(
-        "Tesseract TSV output is empty on this runtime.",
-      ),
-    )
+    return Err(EmptyResult("Tesseract TSV output is empty on this runtime."))
   }
   let header = match tesseract_tsv_parse_header(lines[0]) {
     Ok(value) => value
@@ -101,7 +93,7 @@ pub fn parse_tesseract_tsv(
     } else {
       "Tesseract TSV output only contained a header on this runtime."
     }
-    return Err(OcrProviderError::EmptyResult(reason))
+    return Err(EmptyResult(reason))
   }
   Ok(make_ocr_provider_result(parsed.0, "tesseract", diagnostics=parsed.1))
 }
@@ -131,9 +123,7 @@ fn tesseract_tsv_parse_header(
   ]
   if parts.length() < required.length() {
     return Err(
-      OcrProviderError::OutputParseFailed(
-        "Tesseract TSV header is malformed on this runtime.",
-      ),
+      OutputParseFailed("Tesseract TSV header is malformed on this runtime."),
     )
   }
   let indexes : Map[String, Int] = Map([])
@@ -143,7 +133,7 @@ fn tesseract_tsv_parse_header(
   for key in required {
     if indexes.get(key) is None {
       return Err(
-        OcrProviderError::OutputParseFailed(
+        OutputParseFailed(
           "Tesseract TSV header is missing required column: " + key,
         ),
       )

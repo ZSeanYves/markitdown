@@ -36,12 +36,11 @@ fn pdf_image_filter_param_dict_text_at(
     None => pdf_extract_dict_value(dict_text, "/DP")
   }
   match value {
-    Some(PdfNativeDictValue::Dict(text)) if filter_count == 1 &&
-      filter_index == 0 => Some(text)
-    Some(PdfNativeDictValue::Array(items)) =>
+    Some(Dict(text)) if filter_count == 1 && filter_index == 0 => Some(text)
+    Some(Array(items)) =>
       if filter_index < items.length() {
         match items[filter_index] {
-          PdfNativeContentToken::Dict(text) => Some(text)
+          Dict(text) => Some(text)
           _ => None
         }
       } else {
@@ -54,8 +53,8 @@ fn pdf_image_filter_param_dict_text_at(
 ///|
 fn pdf_dict_bool_value(dict_text : String, key : String) -> Bool? {
   match pdf_extract_dict_value(dict_text, key) {
-    Some(PdfNativeDictValue::Word("true")) => Some(true)
-    Some(PdfNativeDictValue::Word("false")) => Some(false)
+    Some(Word("true")) => Some(true)
+    Some(Word("false")) => Some(false)
     _ => None
   }
 }
@@ -234,7 +233,7 @@ fn pdf_concat_graphics_matrix(
 ///|
 fn pdf_form_graphics_matrix(dict_text : String) -> PdfNativeGraphicsMatrix {
   match pdf_extract_dict_value(dict_text, "/Matrix") {
-    Some(PdfNativeDictValue::Array(values)) =>
+    Some(Array(values)) =>
       pdf_matrix_from_token_array(values).unwrap_or(pdf_identity_matrix())
     _ => pdf_identity_matrix()
   }

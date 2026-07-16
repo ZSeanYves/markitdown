@@ -1,9 +1,9 @@
 ///|
 fn html_semantic_table_section_kind(tag_name : String) -> HtmlTableSectionKind? {
   match tag_name {
-    "thead" => Some(HtmlTableSectionKind::Head)
-    "tbody" => Some(HtmlTableSectionKind::Body)
-    "tfoot" => Some(HtmlTableSectionKind::Foot)
+    "thead" => Some(Head)
+    "tbody" => Some(Body)
+    "tfoot" => Some(Foot)
     _ => None
   }
 }
@@ -11,8 +11,8 @@ fn html_semantic_table_section_kind(tag_name : String) -> HtmlTableSectionKind? 
 ///|
 fn html_semantic_table_cell_kind(tag_name : String) -> HtmlTableCellKind? {
   match tag_name {
-    "th" => Some(HtmlTableCellKind::Header)
-    "td" => Some(HtmlTableCellKind::Data)
+    "th" => Some(Header)
+    "td" => Some(Data)
     _ => None
   }
 }
@@ -24,7 +24,7 @@ fn find_html_semantic_direct_child_element(
 ) -> HtmlElement? {
   for child in element.children {
     match child {
-      HtmlNode::Element(child_element) =>
+      Element(child_element) =>
         if child_element.tag_name == tag_name {
           return Some(child_element)
         }
@@ -443,7 +443,7 @@ fn html_semantic_table_has_nested_table(
   html_semantic_block_descendants_contain_kind(
     ctx,
     table_block_source_key,
-    HtmlBlockKind::Table,
+    Table,
   )
 }
 
@@ -587,8 +587,7 @@ fn html_semantic_block_descendants_contain_list(
 ) -> Bool {
   for key in html_semantic_descendant_block_keys(ctx, root_source_key) {
     match html_semantic_block_kind_for_key(ctx, key) {
-      Some(HtmlBlockKind::List(_)) | Some(HtmlBlockKind::ListItem) =>
-        return true
+      Some(List(_)) | Some(ListItem) => return true
       _ => ()
     }
   }
@@ -602,7 +601,7 @@ fn html_semantic_block_descendants_contain_pre(
 ) -> Bool {
   for key in html_semantic_descendant_block_keys(ctx, root_source_key) {
     match html_semantic_block_kind_for_key(ctx, key) {
-      Some(HtmlBlockKind::Pre) | Some(HtmlBlockKind::CodeBlock) => return true
+      Some(Pre) | Some(CodeBlock) => return true
       _ => ()
     }
   }
@@ -615,11 +614,11 @@ fn html_semantic_warnings_have_unsupported(
 ) -> Bool {
   for warning in warnings {
     match warning.kind {
-      HtmlSemanticWarningKind::UnsupportedElement
-      | HtmlSemanticWarningKind::UnsafeUrl
-      | HtmlSemanticWarningKind::DataUriImage
-      | HtmlSemanticWarningKind::RemoteImage
-      | HtmlSemanticWarningKind::EmptyImageSource => return true
+      UnsupportedElement
+      | UnsafeUrl
+      | DataUriImage
+      | RemoteImage
+      | EmptyImageSource => return true
       _ => ()
     }
   }
@@ -659,31 +658,31 @@ fn html_semantic_language_hint_from_class(class_value : String) -> String? {
 ///|
 fn html_semantic_block_kind(tag_name : String) -> HtmlBlockKind? {
   match tag_name {
-    "h1" => Some(HtmlBlockKind::Heading(1))
-    "h2" => Some(HtmlBlockKind::Heading(2))
-    "h3" => Some(HtmlBlockKind::Heading(3))
-    "h4" => Some(HtmlBlockKind::Heading(4))
-    "h5" => Some(HtmlBlockKind::Heading(5))
-    "h6" => Some(HtmlBlockKind::Heading(6))
-    "p" => Some(HtmlBlockKind::Paragraph)
-    "ul" => Some(HtmlBlockKind::List(false))
-    "ol" => Some(HtmlBlockKind::List(true))
-    "li" => Some(HtmlBlockKind::ListItem)
-    "table" => Some(HtmlBlockKind::Table)
-    "tr" => Some(HtmlBlockKind::TableRow)
-    "th" => Some(HtmlBlockKind::TableCell(true))
-    "td" => Some(HtmlBlockKind::TableCell(false))
-    "blockquote" => Some(HtmlBlockKind::BlockQuote)
-    "pre" => Some(HtmlBlockKind::Pre)
-    "code" => Some(HtmlBlockKind::CodeBlock)
-    "figure" => Some(HtmlBlockKind::Figure)
-    "figcaption" => Some(HtmlBlockKind::FigCaption)
-    "hr" => Some(HtmlBlockKind::HorizontalRule)
+    "h1" => Some(Heading(1))
+    "h2" => Some(Heading(2))
+    "h3" => Some(Heading(3))
+    "h4" => Some(Heading(4))
+    "h5" => Some(Heading(5))
+    "h6" => Some(Heading(6))
+    "p" => Some(Paragraph)
+    "ul" => Some(List(false))
+    "ol" => Some(List(true))
+    "li" => Some(ListItem)
+    "table" => Some(Table)
+    "tr" => Some(TableRow)
+    "th" => Some(TableCell(true))
+    "td" => Some(TableCell(false))
+    "blockquote" => Some(BlockQuote)
+    "pre" => Some(Pre)
+    "code" => Some(CodeBlock)
+    "figure" => Some(Figure)
+    "figcaption" => Some(FigCaption)
+    "hr" => Some(HorizontalRule)
     _ =>
       if is_html_semantic_unsupported_tag(tag_name) {
-        Some(HtmlBlockKind::UnsupportedBlock)
+        Some(UnsupportedBlock)
       } else if is_html_semantic_container_tag(tag_name) {
-        Some(HtmlBlockKind::UnknownBlock)
+        Some(UnknownBlock)
       } else {
         None
       }
@@ -718,23 +717,23 @@ fn html_semantic_unsupported_kind_for_tag(
   tag_name : String,
 ) -> HtmlUnsupportedKind? {
   match tag_name {
-    "script" | "noscript" => Some(HtmlUnsupportedKind::Script)
-    "style" => Some(HtmlUnsupportedKind::Style)
-    "iframe" => Some(HtmlUnsupportedKind::Iframe)
-    "embed" => Some(HtmlUnsupportedKind::Embed)
-    "object" => Some(HtmlUnsupportedKind::Object)
-    "svg" => Some(HtmlUnsupportedKind::Svg)
-    "math" => Some(HtmlUnsupportedKind::Math)
-    "template" => Some(HtmlUnsupportedKind::Template)
-    "form" => Some(HtmlUnsupportedKind::Form)
-    "input" => Some(HtmlUnsupportedKind::Input)
-    "select" => Some(HtmlUnsupportedKind::Select)
-    "textarea" => Some(HtmlUnsupportedKind::TextArea)
-    "button" => Some(HtmlUnsupportedKind::Button)
-    "video" => Some(HtmlUnsupportedKind::Video)
-    "audio" => Some(HtmlUnsupportedKind::Audio)
-    "source" => Some(HtmlUnsupportedKind::Source)
-    "canvas" => Some(HtmlUnsupportedKind::Canvas)
+    "script" | "noscript" => Some(Script)
+    "style" => Some(Style)
+    "iframe" => Some(Iframe)
+    "embed" => Some(Embed)
+    "object" => Some(Object)
+    "svg" => Some(Svg)
+    "math" => Some(Math)
+    "template" => Some(Template)
+    "form" => Some(Form)
+    "input" => Some(Input)
+    "select" => Some(Select)
+    "textarea" => Some(TextArea)
+    "button" => Some(Button)
+    "video" => Some(Video)
+    "audio" => Some(Audio)
+    "source" => Some(Source)
+    "canvas" => Some(Canvas)
     _ => None
   }
 }
@@ -744,9 +743,8 @@ fn html_semantic_unsupported_kind_for_link(
   kind : HtmlLinkKind,
 ) -> HtmlUnsupportedKind? {
   match kind {
-    HtmlLinkKind::Data | HtmlLinkKind::Unsafe =>
-      Some(HtmlUnsupportedKind::UnsafeUrl)
-    HtmlLinkKind::Empty => Some(HtmlUnsupportedKind::EmptyUrl)
+    Data | Unsafe => Some(UnsafeUrl)
+    Empty => Some(EmptyUrl)
     _ => None
   }
 }
@@ -756,10 +754,10 @@ fn html_semantic_unsupported_kind_for_image(
   kind : HtmlImageKind,
 ) -> HtmlUnsupportedKind? {
   match kind {
-    HtmlImageKind::Remote => Some(HtmlUnsupportedKind::RemoteImage)
-    HtmlImageKind::DataUri => Some(HtmlUnsupportedKind::DataImage)
-    HtmlImageKind::Unsafe => Some(HtmlUnsupportedKind::UnsafeUrl)
-    HtmlImageKind::Empty => Some(HtmlUnsupportedKind::EmptyUrl)
+    Remote => Some(RemoteImage)
+    DataUri => Some(DataImage)
+    Unsafe => Some(UnsafeUrl)
+    Empty => Some(EmptyUrl)
     _ => None
   }
 }
@@ -769,11 +767,11 @@ fn html_semantic_unsupported_url_severity(
   kind : HtmlUnsupportedKind,
 ) -> HtmlWarningSeverity {
   match kind {
-    HtmlUnsupportedKind::RemoteImage => HtmlWarningSeverity::Info
-    HtmlUnsupportedKind::EmptyUrl => HtmlWarningSeverity::Info
-    HtmlUnsupportedKind::DataImage => HtmlWarningSeverity::Warning
-    HtmlUnsupportedKind::UnsafeUrl => HtmlWarningSeverity::Warning
-    _ => HtmlWarningSeverity::Warning
+    RemoteImage => Info
+    EmptyUrl => Info
+    DataImage => Warning
+    UnsafeUrl => Warning
+    _ => Warning
   }
 }
 
@@ -783,14 +781,10 @@ fn html_semantic_unsupported_url_message(
   subject : String,
 ) -> String {
   match kind {
-    HtmlUnsupportedKind::RemoteImage =>
-      "html semantic " + subject + " references remote source"
-    HtmlUnsupportedKind::DataImage =>
-      "html semantic " + subject + " uses data uri source"
-    HtmlUnsupportedKind::UnsafeUrl =>
-      "html semantic " + subject + " has unsafe url"
-    HtmlUnsupportedKind::EmptyUrl =>
-      "html semantic " + subject + " has empty url"
+    RemoteImage => "html semantic " + subject + " references remote source"
+    DataImage => "html semantic " + subject + " uses data uri source"
+    UnsafeUrl => "html semantic " + subject + " has unsafe url"
+    EmptyUrl => "html semantic " + subject + " has empty url"
     _ => "html semantic " + subject + " has unsupported url"
   }
 }
@@ -866,7 +860,7 @@ fn html_semantic_note_body_kind(element : HtmlElement) -> HtmlNoteKind {
       "role",
       "doc-footnote",
     ) {
-    return HtmlNoteKind::Footnote
+    return Footnote
   }
   if html_semantic_attr_token_contains(
       element.attributes,
@@ -874,7 +868,7 @@ fn html_semantic_note_body_kind(element : HtmlElement) -> HtmlNoteKind {
       "endnote",
     ) ||
     html_semantic_attr_token_contains(element.attributes, "role", "doc-endnote") {
-    return HtmlNoteKind::EndnoteLike
+    return EndnoteLike
   }
   if html_semantic_attr_any_contains(
       element.attributes,
@@ -882,16 +876,16 @@ fn html_semantic_note_body_kind(element : HtmlElement) -> HtmlNoteKind {
       "footnote",
     ) ||
     html_semantic_attr_any_contains(element.attributes, ["class", "id"], "fn") {
-    return HtmlNoteKind::Footnote
+    return Footnote
   }
   if html_semantic_attr_any_contains(
       element.attributes,
       ["class", "id"],
       "endnote",
     ) {
-    return HtmlNoteKind::EndnoteLike
+    return EndnoteLike
   }
-  HtmlNoteKind::Unknown
+  Unknown
 }
 
 ///|
@@ -985,23 +979,23 @@ fn html_semantic_index_block_ancestry(
   }
 
   match block_kind {
-    HtmlBlockKind::List(_) => {
+    List(_) => {
       list_depth += 1
       nearest_list_source_key = Some(
         html_semantic_list_source_key(source_order),
       )
     }
-    HtmlBlockKind::ListItem =>
+    ListItem =>
       nearest_list_item_source_key = Some(
         html_semantic_list_item_source_key(source_order),
       )
-    HtmlBlockKind::BlockQuote => {
+    BlockQuote => {
       quote_depth += 1
       nearest_quote_source_key = Some(
         html_semantic_blockquote_source_key(source_order),
       )
     }
-    HtmlBlockKind::Table => nearest_table_ancestor_source_key = Some(source_key)
+    Table => nearest_table_ancestor_source_key = Some(source_key)
     _ => ()
   }
 
@@ -1031,7 +1025,7 @@ fn html_semantic_index_block_ancestry(
   }
 
   match (parent_source_key, block_kind) {
-    (Some(parent_key), HtmlBlockKind::TableCell(_)) =>
+    (Some(parent_key), TableCell(_)) =>
       html_semantic_map_push_string(
         ctx.direct_table_cell_block_source_keys_by_row_source_key,
         parent_key,
@@ -1040,7 +1034,7 @@ fn html_semantic_index_block_ancestry(
     _ => ()
   }
   match block_kind {
-    HtmlBlockKind::TableRow =>
+    TableRow =>
       match nearest_table_ancestor_source_key {
         Some(table_key) =>
           html_semantic_map_push_string(

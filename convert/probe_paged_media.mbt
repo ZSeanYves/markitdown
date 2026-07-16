@@ -29,13 +29,10 @@ fn pdf_preflight_probe(
         }
       }
       let signals = [
-        make_probe_signal(ProbeSignalKind::PageCount, document.pages.length()),
+        make_probe_signal(PageCount, document.pages.length()),
+        make_probe_signal(NativeTextPageCount, native_text_pages),
         make_probe_signal(
-          ProbeSignalKind::NativeTextPageCount,
-          native_text_pages,
-        ),
-        make_probe_signal(
-          ProbeSignalKind::ScannedPageCount,
+          ScannedPageCount,
           scanned_pages,
           note=Some(convert_mode_name(options.mode)),
         ),
@@ -46,13 +43,13 @@ fn pdf_preflight_probe(
         "scanned_pages=" + scanned_pages.to_string(),
       ]
       probe_outcome("pdf", summary, prepared_source, probe_signals=signals, probe_artifacts=[
-        RouteProbeArtifact::PdfNativeDocument(document),
+        PdfNativeDocument(document),
       ])
     }
     Err(_error) => {
       let signals = [
         make_probe_signal(
-          ProbeSignalKind::PageCount,
+          PageCount,
           0,
           note=Some(convert_mode_name(options.mode)),
         ),

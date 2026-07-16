@@ -46,8 +46,8 @@ fn track_source_node(
   if ctx.total_source_nodes.val == ctx.budget.max_total_source_nodes + 1 {
     ctx.warnings.push(
       pptx_warning(
-        PptxWarningKind::OverBudget,
-        PptxWarningSeverity::Warning,
+        OverBudget,
+        Warning,
         part_name,
         node_key,
         None,
@@ -69,8 +69,8 @@ fn push_over_budget_warning(
 ) -> Unit {
   ctx.warnings.push(
     pptx_warning(
-      PptxWarningKind::OverBudget,
-      PptxWarningSeverity::Warning,
+      OverBudget,
+      Warning,
       part_name,
       node_key,
       relationship_id,
@@ -127,8 +127,8 @@ fn read_source_part_text(
 ///|
 fn to_pptx_target_mode(mode : @ox.OoxmlTargetMode) -> PptxTargetMode {
   match mode {
-    @ox.OoxmlTargetMode::Internal => PptxTargetMode::Internal
-    @ox.OoxmlTargetMode::External => PptxTargetMode::External
+    Internal => Internal
+    External => External
   }
 }
 
@@ -166,8 +166,8 @@ fn read_source_relationships(
       if count == ctx.budget.max_relationships_per_part + 1 {
         ctx.warnings.push(
           pptx_warning(
-            PptxWarningKind::OverBudget,
-            PptxWarningSeverity::Warning,
+            OverBudget,
+            Warning,
             source_part,
             "rels",
             None,
@@ -249,8 +249,8 @@ fn build_pptx_part_graph(ctx : PptxSourceParseContext) -> PptxPartGraph {
     None =>
       ctx.warnings.push(
         pptx_warning(
-          PptxWarningKind::MissingPresentation,
-          PptxWarningSeverity::Error,
+          MissingPresentation,
+          Error,
           "ppt/presentation.xml",
           "presentation",
           None,
@@ -414,8 +414,8 @@ pub fn parse_pptx_source(pkg : @ox.OoxmlPackage) -> PptxSourceDocument raise {
     if slide_count > ctx.budget.max_slides {
       ctx.warnings.push(
         pptx_warning(
-          PptxWarningKind::OverBudget,
-          PptxWarningSeverity::Warning,
+          OverBudget,
+          Warning,
           slide_ref.part_name,
           slide_ref.source_key.node_key,
           slide_ref.relationship_id,

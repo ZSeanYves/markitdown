@@ -445,7 +445,7 @@ test "epub package rejects missing container" {
   )
   assert_epub_error_kind(
     "samples/fixtures/rejections/epub/epub_missing_container.epub",
-    @epub.EpubErrorKind::MissingContainer,
+    MissingContainer,
   )
 }
 
@@ -456,7 +456,7 @@ test "epub package rejects rootfile parent escape" {
   )
   assert_epub_error_kind(
     "samples/fixtures/rejections/epub/epub_rootfile_parent_escape.epub",
-    @epub.EpubErrorKind::MissingRootfile,
+    MissingRootfile,
   )
 }
 
@@ -467,7 +467,7 @@ test "epub package rejects manifest href parent escape" {
   )
   assert_epub_error_kind(
     "samples/fixtures/rejections/epub/epub_manifest_href_parent_escape.epub",
-    @epub.EpubErrorKind::UnsafeHref,
+    UnsafeHref,
   )
 }
 
@@ -478,7 +478,7 @@ test "epub package rejects normalized collisions" {
   )
   assert_epub_error_kind(
     "samples/fixtures/rejections/epub/epub_normalized_collision.epub",
-    @epub.EpubErrorKind::InvalidPackage,
+    InvalidPackage,
   )
 }
 
@@ -489,7 +489,7 @@ test "epub package rejects encryption xml" {
   )
   assert_epub_error_kind(
     "samples/fixtures/rejections/epub/epub_encryption_xml.epub",
-    @epub.EpubErrorKind::UnsupportedFeature,
+    UnsupportedFeature,
   )
 }
 
@@ -525,13 +525,13 @@ test "epub package keeps missing manifest spine item" {
 
   let issues = @epub.collect_epub_validation_issues(pkg)
   assert_eq(issues.length(), 3)
-  if issues[0].kind != @epub.EpubValidationIssueKind::MissingManifestItem {
+  if issues[0].kind != MissingManifestItem {
     fail("expected missing manifest issue first")
   }
-  if issues[1].kind != @epub.EpubValidationIssueKind::MissingSpineTarget {
+  if issues[1].kind != MissingSpineTarget {
     fail("expected missing spine target issue second")
   }
-  if issues[2].kind != @epub.EpubValidationIssueKind::MissingNavigationDocument {
+  if issues[2].kind != MissingNavigationDocument {
     fail("expected missing navigation issue third")
   }
 
@@ -588,8 +588,7 @@ test "epub package detects nav cover and richer metadata" {
   }
   let cover_candidates = @epub.find_epub_cover_candidates(cover_pkg)
   assert_eq(cover_candidates.length(), 1)
-  if cover_candidates[0].source !=
-    @epub.EpubCoverCandidateSource::ManifestProperty {
+  if cover_candidates[0].source != ManifestProperty {
     fail("expected manifest-property cover candidate")
   }
   assert_eq(cover_candidates[0].selected, true)
@@ -640,7 +639,7 @@ test "epub package detects guide cover image fallback" {
   }
   let candidates = @epub.find_epub_cover_candidates(pkg)
   assert_eq(candidates.length(), 1)
-  if candidates[0].source != @epub.EpubCoverCandidateSource::GuideReference {
+  if candidates[0].source != GuideReference {
     fail("expected guide cover candidate source")
   }
   assert_eq(candidates[0].is_image, true)
@@ -695,7 +694,7 @@ test "epub package rejects unsafe guide cover href" {
   )
   assert_epub_error_kind(
     "samples/fixtures/rejections/epub/epub_guide_cover_unsafe.epub",
-    @epub.EpubErrorKind::UnsafeHref,
+    UnsafeHref,
   )
 }
 
@@ -854,11 +853,10 @@ test "epub package selects first usable rootfile deterministically" {
   assert_eq(rootfiles[1].is_primary, true)
 
   let report = @epub.validate_epub_package(pkg)
-  if report.issues[0].kind !=
-    @epub.EpubValidationIssueKind::MissingNavigationDocument {
+  if report.issues[0].kind != MissingNavigationDocument {
     fail("expected missing navigation issue first")
   }
-  if report.issues[1].kind != @epub.EpubValidationIssueKind::MultipleRootfiles {
+  if report.issues[1].kind != MultipleRootfiles {
     fail("expected multiple rootfiles issue second")
   }
 }
@@ -893,7 +891,7 @@ test "epub package validation reports duplicate spine idref deterministically" {
 
   let issues = @epub.collect_epub_validation_issues(pkg)
   assert_eq(issues.length(), 1)
-  if issues[0].kind != @epub.EpubValidationIssueKind::DuplicateSpineIdref {
+  if issues[0].kind != DuplicateSpineIdref {
     fail("expected duplicate spine idref issue")
   }
   if issues[0].spine_idref != Some("c1") {
@@ -928,7 +926,7 @@ test "epub package missing nav and ncx is validation warning not fatal" {
   }
   let issues = @epub.collect_epub_validation_issues(pkg)
   assert_eq(issues.length(), 1)
-  if issues[0].kind != @epub.EpubValidationIssueKind::MissingNavigationDocument {
+  if issues[0].kind != MissingNavigationDocument {
     fail("expected missing navigation issue")
   }
 }
@@ -972,13 +970,13 @@ test "epub package validation warns on unsupported spine item" {
   )
   let issues = @epub.collect_epub_validation_issues(pkg)
   assert_eq(issues.length(), 2)
-  if issues[0].kind != @epub.EpubValidationIssueKind::MissingNavigationDocument {
+  if issues[0].kind != MissingNavigationDocument {
     fail("expected missing navigation issue first")
   }
-  if issues[1].kind != @epub.EpubValidationIssueKind::UnsupportedSpineItem {
+  if issues[1].kind != UnsupportedSpineItem {
     fail("expected unsupported spine item issue second")
   }
-  if issues[1].severity != @epub.EpubValidationSeverity::Warning {
+  if issues[1].severity != Warning {
     fail("expected unsupported spine item warning")
   }
 
@@ -1138,7 +1136,7 @@ test "epub package duplicate manifest id classifier stays additive" {
     Ok(_) => fail("expected duplicate manifest package to fail")
     Err(err) => {
       let info = @epub.classify_epub_error(err)
-      if info.kind != @epub.EpubErrorKind::DuplicateManifestId {
+      if info.kind != DuplicateManifestId {
         fail("expected duplicate manifest classifier")
       }
       if info.manifest_id != Some("dup") {

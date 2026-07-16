@@ -80,7 +80,7 @@ fn collect_placeholder_candidates_from_objects(
 ) -> Unit {
   for obj in objects {
     match obj {
-      PptxObject::Shape(shape) =>
+      Shape(shape) =>
         match shape.direct_placeholder {
           Some(ph) =>
             if out.length() >= ctx.budget.max_layout_master_candidates {
@@ -106,7 +106,7 @@ fn collect_placeholder_candidates_from_objects(
             }
           None => ()
         }
-      PptxObject::Group(group) =>
+      Group(group) =>
         collect_placeholder_candidates_from_objects(
           ctx,
           out,

@@ -157,7 +157,7 @@ fn pdf_cursor_read_exact(
   length : Int,
 ) -> Result[Bytes, PdfNativeError] {
   if offset < 0 || length < 0 {
-    return Err(PdfNativeError::ReadFailed("PDF cursor range is invalid"))
+    return Err(ReadFailed("PDF cursor range is invalid"))
   }
   let output = Buffer()
   let mut consumed = 0
@@ -169,10 +169,10 @@ fn pdf_cursor_read_exact(
         length=length - consumed,
       ) {
       Ok(value) => value
-      Err(message) => return Err(PdfNativeError::ReadFailed(message))
+      Err(message) => return Err(ReadFailed(message))
     }
     if chunk.length() == 0 || chunk.length() > length - consumed {
-      return Err(PdfNativeError::ReadFailed("unexpected EOF in PDF cursor"))
+      return Err(ReadFailed("unexpected EOF in PDF cursor"))
     }
     output.write_bytes(chunk)
     consumed += chunk.length()
@@ -238,7 +238,7 @@ fn pdf_build_store_from_resolved_xref(
     let window_length = available.min(PDF_RANDOM_ACCESS_WINDOW_MAX)
     let window = match read_range(location.offset, window_length) {
       Ok(value) => value
-      Err(message) => return Err(PdfNativeError::ReadFailed(message))
+      Err(message) => return Err(ReadFailed(message))
     }
     let object = match pdf_parse_indirect_object_at(window, 0) {
       Ok(value) => value
@@ -349,9 +349,7 @@ fn pdf_scan_object_store(
       Some(index) => index
       None =>
         return Err(
-          PdfNativeError::ParseFailed(
-            "unterminated PDF object " + header.object_id.to_string(),
-          ),
+          ParseFailed("unterminated PDF object " + header.object_id.to_string()),
         )
     }
     let object_body = bytes[header.body_start:endobj].to_owned()
@@ -526,11 +524,7 @@ fn pdf_parse_classic_xref_section(
   while true {
     cursor = pdf_skip_ascii_whitespace_and_comments_bytes(bytes, cursor)
     if cursor >= bytes.length() {
-      return Err(
-        PdfNativeError::ParseFailed(
-          "classic xref table is truncated before trailer",
-        ),
-      )
+      return Err(ParseFailed("classic xref table is truncated before trailer"))
     }
     if pdf_bytes_have_prefix(bytes, cursor, "trailer") {
       cursor += "trailer".length()
@@ -541,7 +535,7 @@ fn pdf_parse_classic_xref_section(
     let header_parts = pdf_split_ascii_whitespace(header_line.0)
     if header_parts.length() < 2 {
       return Err(
-        PdfNativeError::ParseFailed(
+        ParseFailed(
           "classic xref subsection header is malformed: " + header_line.0,
         ),
       )
@@ -550,7 +544,7 @@ fn pdf_parse_classic_xref_section(
       Some(value) if value >= 0 => value
       _ =>
         return Err(
-          PdfNativeError::ParseFailed(
+          ParseFailed(
             "classic xref subsection first object is invalid: " + header_line.0,
           ),
         )
@@ -559,7 +553,7 @@ fn pdf_parse_classic_xref_section(
       Some(value) if value >= 0 => value
       _ =>
         return Err(
-          PdfNativeError::ParseFailed(
+          ParseFailed(
             "classic xref subsection length is invalid: " + header_line.0,
           ),
         )
@@ -570,9 +564,7 @@ fn pdf_parse_classic_xref_section(
       let entry_parts = pdf_split_ascii_whitespace(entry_line.0)
       if entry_parts.length() < 3 {
         return Err(
-          PdfNativeError::ParseFailed(
-            "classic xref entry is malformed: " + entry_line.0,
-          ),
+          ParseFailed("classic xref entry is malformed: " + entry_line.0),
         )
       }
       let object_id = first_object + index
@@ -580,16 +572,14 @@ fn pdf_parse_classic_xref_section(
         Some(value) if value >= 0 => value
         _ =>
           return Err(
-            PdfNativeError::ParseFailed(
-              "classic xref entry offset is invalid: " + entry_line.0,
-            ),
+            ParseFailed("classic xref entry offset is invalid: " + entry_line.0),
           )
       }
       let generation = match pdf_parse_int(entry_parts[1]) {
         Some(value) if value >= 0 => value
         _ =>
           return Err(
-            PdfNativeError::ParseFailed(
+            ParseFailed(
               "classic xref entry generation is invalid: " + entry_line.0,
             ),
           )
@@ -605,9 +595,7 @@ fn pdf_parse_classic_xref_section(
     Some(value) => value
     None =>
       return Err(
-        PdfNativeError::ParseFailed(
-          "classic xref trailer dictionary is missing or malformed",
-        ),
+        ParseFailed("classic xref trailer dictionary is missing or malformed"),
       )
   }
   Ok({
@@ -634,7 +622,7 @@ fn pdf_parse_xref_stream_section(
     [a, b, c] => [a, b, c]
     _ =>
       return Err(
-        PdfNativeError::ParseFailed(
+        ParseFailed(
           "xref stream object " +
           object.object_id.to_string() +
           " is missing valid /W widths",
@@ -648,7 +636,7 @@ fn pdf_parse_xref_stream_section(
         Some(size) if size >= 0 => [0, size]
         _ =>
           return Err(
-            PdfNativeError::ParseFailed(
+            ParseFailed(
               "xref stream object " +
               object.object_id.to_string() +
               " is missing valid /Index or /Size",
@@ -659,7 +647,7 @@ fn pdf_parse_xref_stream_section(
   }
   if section_pairs.length() % 2 != 0 {
     return Err(
-      PdfNativeError::ParseFailed(
+      ParseFailed(
         "xref stream object " +
         object.object_id.to_string() +
         " has malformed /Index array",
@@ -669,7 +657,7 @@ fn pdf_parse_xref_stream_section(
   let entry_width = widths[0] + widths[1] + widths[2]
   if entry_width <= 0 {
     return Err(
-      PdfNativeError::ParseFailed(
+      ParseFailed(
         "xref stream object " +
         object.object_id.to_string() +
         " has invalid entry width",
@@ -689,7 +677,7 @@ fn pdf_parse_xref_stream_section(
     let object_count = section_pairs[index + 1]
     if first_object < 0 || object_count < 0 {
       return Err(
-        PdfNativeError::ParseFailed(
+        ParseFailed(
           "xref stream object " +
           object.object_id.to_string() +
           " has negative /Index values",
@@ -699,7 +687,7 @@ fn pdf_parse_xref_stream_section(
     for item in 0..<object_count {
       if cursor + entry_width > raw_stream.length() {
         return Err(
-          PdfNativeError::ParseFailed(
+          ParseFailed(
             "xref stream object " +
             object.object_id.to_string() +
             " is truncated",
@@ -750,7 +738,7 @@ fn pdf_parse_indirect_object_at(
     Some(value) => value
     None =>
       return Err(
-        PdfNativeError::ParseFailed(
+        ParseFailed(
           "failed to parse indirect object header at offset " +
           offset.to_string(),
         ),
@@ -761,9 +749,7 @@ fn pdf_parse_indirect_object_at(
     Some(index) => index
     None =>
       return Err(
-        PdfNativeError::ParseFailed(
-          "unterminated PDF object " + header.object_id.to_string(),
-        ),
+        ParseFailed("unterminated PDF object " + header.object_id.to_string()),
       )
   }
   let object_body = bytes[header.body_start:endobj].to_owned()
@@ -902,11 +888,7 @@ fn pdf_extract_stream_slice(
         pdf_find_bytes(object_body, pdf_ascii_bytes("endstream"), raw_start) {
         Some(index) => index
         None =>
-          return Err(
-            PdfNativeError::ParseFailed(
-              "stream object is missing endstream marker",
-            ),
-          )
+          return Err(ParseFailed("stream object is missing endstream marker"))
       }
       let mut trimmed_end = endstream_rel
       if trimmed_end >= 2 &&

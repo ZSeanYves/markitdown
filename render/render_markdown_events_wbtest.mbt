@@ -34,22 +34,22 @@ test "markdown event renderer covers compact text-markup leaf protocol" {
   inline_ref.extra.set("ir_text_markup_rendered_inline", "true")
   let events = [
     rag_test_event(
-      @core.EventKind::StartBlock(@core.BlockKind::Heading),
+      StartBlock(Heading),
       "Compact title",
       source_ref=Some(compact_markup_ref(level="2")),
     ),
     rag_test_event(
-      @core.EventKind::StartBlock(@core.BlockKind::Paragraph),
+      StartBlock(Paragraph),
       "[docs](https://example.test)",
       source_ref=Some(inline_ref),
     ),
     rag_test_event(
-      @core.EventKind::StartBlock(@core.BlockKind::Paragraph),
+      StartBlock(Paragraph),
       "first\n# literal",
       source_ref=Some(compact_markup_ref()),
     ),
     rag_test_event(
-      @core.EventKind::StartBlock(@core.BlockKind::Code),
+      StartBlock(Code),
       "literal code",
       source_ref=Some(compact_markup_ref()),
     ),
@@ -65,22 +65,22 @@ test "markdown event renderer covers compact text-markup leaf protocol" {
 test "markdown event renderer preserves XML generic and compact outlines" {
   let compact = render_markdown_events([
     rag_test_event(
-      @core.EventKind::StartBlock(@core.BlockKind::Heading),
+      StartBlock(Heading),
       "<root>",
       source_ref=Some(xml_outline_test_ref("xml_outline_v1", 0)),
     ),
     rag_test_event(
-      @core.EventKind::StartBlock(@core.BlockKind::ListItem),
+      StartBlock(ListItem),
       "@page: 1",
       source_ref=Some(xml_outline_test_ref("xml_outline_v1", 0)),
     ),
     rag_test_event(
-      @core.EventKind::StartBlock(@core.BlockKind::ListItem),
+      StartBlock(ListItem),
       "",
       source_ref=Some(xml_outline_test_ref("xml_outline_v1", 0)),
     ),
     rag_test_event(
-      @core.EventKind::StartBlock(@core.BlockKind::ListItem),
+      StartBlock(ListItem),
       "name: A",
       source_ref=Some(xml_outline_test_ref("xml_outline_v1", 1)),
     ),
@@ -92,20 +92,20 @@ test "markdown event renderer preserves XML generic and compact outlines" {
 test "markdown event renderer handles empty line and mixed table streams" {
   assert_eq(render_markdown_events([]), "")
   let lines = render_markdown_events([
-    rag_test_event(@core.EventKind::TextLine, " first *value* "),
-    rag_test_event(@core.EventKind::TextLine, "second"),
-    rag_test_event(@core.EventKind::BlankLine, ""),
-    rag_test_event(@core.EventKind::TextLine, "third"),
+    rag_test_event(TextLine, " first *value* "),
+    rag_test_event(TextLine, "second"),
+    rag_test_event(BlankLine, ""),
+    rag_test_event(TextLine, "third"),
   ])
   assert_eq(lines, "first \\*value\\* second\n\nthird")
 
   let table = render_markdown_events([
-    rag_test_event(@core.EventKind::Cell, "Name"),
-    rag_test_event(@core.EventKind::Cell, "A | B"),
-    rag_test_event(@core.EventKind::RowBreak, ""),
-    rag_test_event(@core.EventKind::Cell, "alpha"),
-    rag_test_event(@core.EventKind::RowBreak, ""),
-    rag_test_event(@core.EventKind::Text, "tail *text*"),
+    rag_test_event(Cell, "Name"),
+    rag_test_event(Cell, "A | B"),
+    rag_test_event(RowBreak, ""),
+    rag_test_event(Cell, "alpha"),
+    rag_test_event(RowBreak, ""),
+    rag_test_event(Text, "tail *text*"),
   ])
   assert_true(table.contains("| Name | A \\| B |"))
   assert_true(table.contains("| --- | --- |"))
@@ -118,17 +118,10 @@ test "markdown event renderer handles visible generic code and raw events" {
   let code_ref = @core.empty_source_ref()
   code_ref.extra.set("ir_block_attr_info", "moonbit")
   let output = render_markdown_events([
-    rag_test_event(
-      @core.EventKind::StartBlock(@core.BlockKind::Code),
-      "fn main() {}",
-      source_ref=Some(code_ref),
-    ),
-    rag_test_event(
-      @core.EventKind::StartBlock(@core.BlockKind::Raw),
-      "<aside>raw</aside>",
-    ),
-    rag_test_event(@core.EventKind::Text, "plain _text_"),
-    rag_test_event(@core.EventKind::EndDocument, "ignored"),
+    rag_test_event(StartBlock(Code), "fn main() {}", source_ref=Some(code_ref)),
+    rag_test_event(StartBlock(Raw), "<aside>raw</aside>"),
+    rag_test_event(Text, "plain _text_"),
+    rag_test_event(EndDocument, "ignored"),
   ])
   assert_true(output.contains("```moonbit\nfn main() {}\n```"))
   assert_true(output.contains("<aside>raw</aside>"))
@@ -148,20 +141,12 @@ test "markdown event renderer reconstructs generic rich blocks" {
   let code_ref = markdown_generic_ref()
   code_ref.extra.set("ir_inline_kind", "code")
   let output = render_markdown_events([
-    rag_test_event(
-      @core.EventKind::StartBlock(@core.BlockKind::Paragraph),
-      "",
-      source_ref=Some(paragraph_ref),
-    ),
-    rag_test_event(
-      @core.EventKind::Text,
-      "Read ",
-      source_ref=Some(markdown_generic_ref()),
-    ),
-    rag_test_event(@core.EventKind::Text, "docs", source_ref=Some(link_ref)),
-    rag_test_event(@core.EventKind::Text, "", source_ref=Some(break_ref)),
-    rag_test_event(@core.EventKind::Text, "value", source_ref=Some(code_ref)),
-    rag_test_event(@core.EventKind::EndBlock(@core.BlockKind::Paragraph), ""),
+    rag_test_event(StartBlock(Paragraph), "", source_ref=Some(paragraph_ref)),
+    rag_test_event(Text, "Read ", source_ref=Some(markdown_generic_ref())),
+    rag_test_event(Text, "docs", source_ref=Some(link_ref)),
+    rag_test_event(Text, "", source_ref=Some(break_ref)),
+    rag_test_event(Text, "value", source_ref=Some(code_ref)),
+    rag_test_event(EndBlock(Paragraph), ""),
   ])
   assert_true(output.contains("[docs](https://example.test)"))
   assert_true(output.contains("`value`"))
@@ -179,24 +164,20 @@ test "markdown event renderer reconstructs generic tables and image inlines" {
   let text_ref = markdown_generic_ref()
   text_ref.extra.set("ir_inline_kind", "text")
   let blocks = generic_blocks_from_events([
+    rag_test_event(StartBlock(Table), "", source_ref=Some(table_ref)),
+    rag_test_event(Cell, "A", source_ref=Some(cell_ref)),
+    rag_test_event(Cell, "B"),
+    rag_test_event(RowBreak, ""),
+    rag_test_event(StructureStart, "ignored"),
+    rag_test_event(EndBlock(Table), ""),
     rag_test_event(
-      @core.EventKind::StartBlock(@core.BlockKind::Table),
-      "",
-      source_ref=Some(table_ref),
-    ),
-    rag_test_event(@core.EventKind::Cell, "A", source_ref=Some(cell_ref)),
-    rag_test_event(@core.EventKind::Cell, "B"),
-    rag_test_event(@core.EventKind::RowBreak, ""),
-    rag_test_event(@core.EventKind::StructureStart, "ignored"),
-    rag_test_event(@core.EventKind::EndBlock(@core.BlockKind::Table), ""),
-    rag_test_event(
-      @core.EventKind::StartBlock(@core.BlockKind::Paragraph),
+      StartBlock(Paragraph),
       "",
       source_ref=Some(markdown_generic_ref()),
     ),
-    rag_test_event(@core.EventKind::Text, "plain", source_ref=Some(text_ref)),
-    rag_test_event(@core.EventKind::Text, "diagram", source_ref=Some(image_ref)),
-    rag_test_event(@core.EventKind::EndBlock(@core.BlockKind::Paragraph), ""),
+    rag_test_event(Text, "plain", source_ref=Some(text_ref)),
+    rag_test_event(Text, "diagram", source_ref=Some(image_ref)),
+    rag_test_event(EndBlock(Paragraph), ""),
   ])
   assert_eq(blocks.length(), 2)
   assert_eq(blocks[0].children.length(), 1)
@@ -205,22 +186,14 @@ test "markdown event renderer reconstructs generic tables and image inlines" {
   assert_true(
     blocks[0].source_ref.unwrap().extra.get("ir_event_encoding") is None,
   )
-  assert_true(blocks[1].rich_inlines.unwrap()[0].kind == @core.InlineKind::Text)
-  assert_true(
-    blocks[1].rich_inlines.unwrap()[1].kind == @core.InlineKind::Image,
-  )
+  assert_true(blocks[1].rich_inlines.unwrap()[0].kind == Text)
+  assert_true(blocks[1].rich_inlines.unwrap()[1].kind == Image)
   let rendered = render_markdown_events([
-    rag_test_event(
-      @core.EventKind::StartBlock(@core.BlockKind::Code),
-      "code without info",
-    ),
-    rag_test_event(@core.EventKind::EndDocument, "ignored"),
+    rag_test_event(StartBlock(Code), "code without info"),
+    rag_test_event(EndDocument, "ignored"),
   ])
   assert_true(rendered.contains("```\ncode without info\n```"))
   let out = StringBuilder::new()
-  write_markdown_generic_event_to(
-    out,
-    rag_test_event(@core.EventKind::EndDocument, "ignored"),
-  )
+  write_markdown_generic_event_to(out, rag_test_event(EndDocument, "ignored"))
   assert_eq(out.to_string(), "")
 }

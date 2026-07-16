@@ -15,13 +15,13 @@ fn build_document_from_simple_events(events : Array[CoreEvent]) -> DocumentIR {
   let table_rows : Array[CoreBlock] = []
   for event in events {
     match event.kind {
-      EventKind::StartBlock(kind) => {
+      StartBlock(kind) => {
         let block = make_block(
           kind,
           event.text,
           source_ref=event.source_ref.unwrap_or(empty_source_ref()),
         )
-        if kind == BlockKind::Code {
+        if kind == Code {
           match event.source_ref {
             Some(source_ref) =>
               match source_ref.extra.get("ir_block_attr_info") {
@@ -33,12 +33,12 @@ fn build_document_from_simple_events(events : Array[CoreEvent]) -> DocumentIR {
         }
         document.blocks.push(block)
       }
-      EventKind::TextLine | EventKind::BlankLine => text_lines.push(event)
-      EventKind::Cell => {
+      TextLine | BlankLine => text_lines.push(event)
+      Cell => {
         current_row.push(event.text)
         current_row_refs.push(event.source_ref.unwrap_or(empty_source_ref()))
       }
-      EventKind::RowBreak =>
+      RowBreak =>
         if current_row.length() > 0 {
           let row_ref = event.source_ref.unwrap_or(
             if current_row_refs.length() > 0 {
@@ -80,7 +80,7 @@ fn build_document_from_simple_events(events : Array[CoreEvent]) -> DocumentIR {
         table_rows.map(row => row.source_ref.unwrap_or(empty_source_ref())),
       ),
     )
-    let table = make_block(BlockKind::Table, "table", source_ref=table_ref)
+    let table = make_block(Table, "table", source_ref=table_ref)
     table.attrs.set("header_rows", "1")
     table.attrs.set(
       "table_column_count",
@@ -100,7 +100,7 @@ fn simple_event_table_row(
   row_ref : SourceRef,
 ) -> CoreBlock {
   let row_block = make_block(
-    BlockKind::TableRow,
+    TableRow,
     current_row.join(" | "),
     source_ref=row_ref,
   )
@@ -111,11 +111,7 @@ fn simple_event_table_row(
       row_ref
     }
     row_block.children.push(
-      make_block(
-        BlockKind::TableCell,
-        current_row[cell_index],
-        source_ref=cell_ref,
-      ),
+      make_block(TableCell, current_row[cell_index], source_ref=cell_ref),
     )
   }
   row_block
@@ -163,21 +159,18 @@ fn paragraph_blocks_from_line_events(
       first_ref.byte_start,
       last_ref.byte_end,
     )
-    blocks.push(
-      make_block(BlockKind::Paragraph, current_lines.join(" "), source_ref~),
-    )
+    blocks.push(make_block(Paragraph, current_lines.join(" "), source_ref~))
     current_lines.clear()
     current_refs.clear()
   }
 
   for event in events {
     match event.kind {
-      EventKind::TextLine => {
+      TextLine => {
         current_lines.push(event.text.trim().to_owned())
         current_refs.push(event.source_ref.unwrap_or(empty_source_ref()))
       }
-      EventKind::BlankLine =>
-        flush_paragraph(blocks, current_lines, current_refs)
+      BlankLine => flush_paragraph(blocks, current_lines, current_refs)
       _ => ()
     }
   }
@@ -225,7 +218,7 @@ fn parse_generic_block_event(cursor : GenericEventCursor) -> CoreBlock? {
   }
   let start = cursor.events[cursor.index]
   match start.kind {
-    EventKind::StartBlock(kind) => {
+    StartBlock(kind) => {
       let source_ref = start.source_ref.unwrap_or(empty_source_ref())
       cursor.index += 1
       Some(
@@ -261,7 +254,7 @@ fn collect_generic_block_event_body(
   while cursor.index < cursor.events.length() {
     let event = cursor.events[cursor.index]
     match event.kind {
-      EventKind::EndBlock(end_kind) => {
+      EndBlock(end_kind) => {
         cursor.index += 1
         if end_kind == kind {
           let rich_inlines = if inlines.length() > 0 {
@@ -272,36 +265,34 @@ fn collect_generic_block_event_body(
           return { ..block, rich_inlines, children, attrs }
         }
       }
-      EventKind::StartBlock(_) =>
+      StartBlock(_) =>
         match parse_generic_block_event(cursor) {
           Some(child) => children.push(child)
           None => cursor.index += 1
         }
-      EventKind::Text => {
+      Text => {
         let raw_event_ref = event.source_ref.unwrap_or(source_ref)
         let event_ref = strip_generic_event_ref(raw_event_ref)
         let inline_kind = generic_inline_kind_name(
           raw_event_ref.extra.get("ir_inline_kind"),
         )
         let inline = match inline_kind {
-          Some(InlineKind::LineBreak) =>
-            make_inline_line_break(source_ref=event_ref)
-          Some(InlineKind::Link) =>
+          Some(LineBreak) => make_inline_line_break(source_ref=event_ref)
+          Some(Link) =>
             make_inline_link(
               event.text,
               raw_event_ref.extra.get("ir_inline_href").unwrap_or("#"),
               title=raw_event_ref.extra.get("ir_inline_title"),
               source_ref=event_ref,
             )
-          Some(InlineKind::Image) =>
+          Some(Image) =>
             make_inline_image(
               event.text,
               raw_event_ref.extra.get("ir_inline_href").unwrap_or("#"),
               title=raw_event_ref.extra.get("ir_inline_title"),
               source_ref=event_ref,
             )
-          Some(InlineKind::Code) =>
-            make_inline_code(event.text, source_ref=event_ref)
+          Some(Code) => make_inline_code(event.text, source_ref=event_ref)
           _ => make_inline_text(event.text, source_ref=event_ref)
         }
         for entry in raw_event_ref.extra.to_array() {
@@ -315,26 +306,26 @@ fn collect_generic_block_event_body(
         inlines.push(inline)
         cursor.index += 1
       }
-      EventKind::Cell => {
+      Cell => {
         table_cells.push(event.text)
         table_cell_refs.push(
           strip_generic_event_ref(event.source_ref.unwrap_or(source_ref)),
         )
         cursor.index += 1
       }
-      EventKind::RowBreak => {
+      RowBreak => {
         let row_ref = strip_generic_event_ref(
           event.source_ref.unwrap_or(source_ref),
         )
         let row = make_block(
-          BlockKind::TableRow,
+          TableRow,
           table_cells.join(" | "),
           source_ref=row_ref,
         )
         for index in 0..<table_cells.length() {
           row.children.push(
             make_block(
-              BlockKind::TableCell,
+              TableCell,
               table_cells[index],
               source_ref=if index < table_cell_refs.length() {
                 table_cell_refs[index]
@@ -372,11 +363,11 @@ fn strip_generic_event_ref(source_ref : SourceRef) -> SourceRef {
 ///|
 fn generic_inline_kind_name(kind : String?) -> InlineKind? {
   match kind {
-    Some("text") => Some(InlineKind::Text)
-    Some("line_break") => Some(InlineKind::LineBreak)
-    Some("link") => Some(InlineKind::Link)
-    Some("image") => Some(InlineKind::Image)
-    Some("code") => Some(InlineKind::Code)
+    Some("text") => Some(Text)
+    Some("line_break") => Some(LineBreak)
+    Some("link") => Some(Link)
+    Some("image") => Some(Image)
+    Some("code") => Some(Code)
     _ => None
   }
 }

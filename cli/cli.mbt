@@ -225,9 +225,7 @@ pub fn run_cli_app(raw_cli_args : Array[String]) -> Int {
     return run_batch_cli_app(cli_args)
   }
   let parsed = if is_cli_mode_word(first) {
-    let mode = cli_mode_from_name(first).unwrap_or(
-      @convert.ConvertMode::Balanced,
-    )
+    let mode = cli_mode_from_name(first).unwrap_or(Balanced)
     parse_cli_options_from_index(cli_args, 1, mode~)
   } else {
     parse_cli_options(cli_args)

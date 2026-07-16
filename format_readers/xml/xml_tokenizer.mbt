@@ -32,7 +32,7 @@ fn XmlTokenizer::parse_tokens(self : XmlTokenizer) -> Array[XmlToken] raise {
         self.starts_with("<?xml\t") ||
         self.starts_with("<?xml?>") {
         out.push(
-          XmlToken::Declaration(self.read_declaration(), {
+          Declaration(self.read_declaration(), {
             line_start: start_line,
             line_end: self.line,
           }),
@@ -40,28 +40,28 @@ fn XmlTokenizer::parse_tokens(self : XmlTokenizer) -> Array[XmlToken] raise {
       } else if self.starts_with("<?") {
         let (name, body) = self.read_processing_instruction()
         out.push(
-          XmlToken::ProcessingInstruction(name, body, {
+          ProcessingInstruction(name, body, {
             line_start: start_line,
             line_end: self.line,
           }),
         )
       } else if self.starts_with("<!--") {
         out.push(
-          XmlToken::Comment(self.read_comment(), {
+          Comment(self.read_comment(), {
             line_start: start_line,
             line_end: self.line,
           }),
         )
       } else if self.starts_with("<![CDATA[") {
         out.push(
-          XmlToken::CData(self.read_cdata(), {
+          CData(self.read_cdata(), {
             line_start: start_line,
             line_end: self.line,
           }),
         )
       } else if self.starts_with("<!DOCTYPE") {
         out.push(
-          XmlToken::Doctype(self.read_doctype(), {
+          Doctype(self.read_doctype(), {
             line_start: start_line,
             line_end: self.line,
           }),
@@ -69,16 +69,14 @@ fn XmlTokenizer::parse_tokens(self : XmlTokenizer) -> Array[XmlToken] raise {
       } else if self.starts_with("</") {
         let name = self.read_end_tag()
         self.pop_expected_tag(name)
-        out.push(
-          XmlToken::EndTag(name, { line_start: start_line, line_end: self.line }),
-        )
+        out.push(EndTag(name, { line_start: start_line, line_end: self.line }))
       } else if self.starts_with("<!") {
         raise ParseError("unsupported declaration-like syntax")
       } else {
         let (name, attrs, empty) = self.read_start_like_tag()
         if empty {
           out.push(
-            XmlToken::StartTag(name, attrs, true, {
+            StartTag(name, attrs, true, {
               line_start: start_line,
               line_end: self.line,
             }),
@@ -86,7 +84,7 @@ fn XmlTokenizer::parse_tokens(self : XmlTokenizer) -> Array[XmlToken] raise {
         } else {
           self.stack.push(name)
           out.push(
-            XmlToken::StartTag(name, attrs, false, {
+            StartTag(name, attrs, false, {
               line_start: start_line,
               line_end: self.line,
             }),
@@ -96,9 +94,7 @@ fn XmlTokenizer::parse_tokens(self : XmlTokenizer) -> Array[XmlToken] raise {
     } else {
       let text = self.read_text()
       if text != "" {
-        out.push(
-          XmlToken::Text(text, { line_start: start_line, line_end: self.line }),
-        )
+        out.push(Text(text, { line_start: start_line, line_end: self.line }))
       }
     }
   }

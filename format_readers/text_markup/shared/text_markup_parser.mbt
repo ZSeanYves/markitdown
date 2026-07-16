@@ -1,16 +1,16 @@
 ///|
 pub fn parse_tex_document(text : String) -> TextMarkupDocument {
-  parse_markup_document(text, TextMarkupFormat::Tex)
+  parse_markup_document(text, Tex)
 }
 
 ///|
 pub fn parse_rst_document(text : String) -> TextMarkupDocument {
-  parse_markup_document(text, TextMarkupFormat::Rst)
+  parse_markup_document(text, Rst)
 }
 
 ///|
 pub fn parse_asciidoc_document(text : String) -> TextMarkupDocument {
-  parse_markup_document(text, TextMarkupFormat::Asciidoc)
+  parse_markup_document(text, Asciidoc)
 }
 
 ///|
@@ -27,20 +27,20 @@ pub fn inspect_text_markup_document(
   let mut paragraph_count = 0
   for block in doc.blocks {
     match block.kind {
-      TextMarkupBlockKind::Heading => heading_count += 1
-      TextMarkupBlockKind::ListItem => list_item_count += 1
-      TextMarkupBlockKind::Code => code_count += 1
-      TextMarkupBlockKind::Table => table_count += 1
-      TextMarkupBlockKind::BlockQuote => blockquote_count += 1
-      TextMarkupBlockKind::Semantic =>
+      Heading => heading_count += 1
+      ListItem => list_item_count += 1
+      Code => code_count += 1
+      Table => table_count += 1
+      BlockQuote => blockquote_count += 1
+      Semantic =>
         if text_markup_semantic_counts_as_quote(block) {
           blockquote_count += 1
         } else {
           paragraph_count += 1
         }
-      TextMarkupBlockKind::NoteDefinition => paragraph_count += 1
-      TextMarkupBlockKind::Raw => raw_count += 1
-      TextMarkupBlockKind::Paragraph => paragraph_count += 1
+      NoteDefinition => paragraph_count += 1
+      Raw => raw_count += 1
+      Paragraph => paragraph_count += 1
     }
   }
   {

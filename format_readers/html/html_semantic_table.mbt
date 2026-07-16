@@ -32,7 +32,7 @@ fn collect_html_semantic_table_fact(
   let cell_count : Ref[Int] = { val: 0 }
   for child in element.children {
     match child {
-      HtmlNode::Element(child_element) =>
+      Element(child_element) =>
         if html_semantic_table_section_kind(child_element.tag_name)
           is Some(kind) {
           collect_html_semantic_table_section_fact(
@@ -85,7 +85,7 @@ fn collect_html_semantic_table_fact(
     cell_count.val > HTML_SEMANTIC_TABLE_MAX_CELLS {
     table_warnings.push(
       new_html_semantic_warning(
-        HtmlSemanticWarningKind::TableSizeLimitExceeded,
+        TableSizeLimitExceeded,
         source_key,
         element.tag_name,
         "html semantic table size limit exceeded",
@@ -94,8 +94,8 @@ fn collect_html_semantic_table_fact(
     ignore(
       push_html_semantic_unsupported_fact(
         ctx,
-        HtmlUnsupportedKind::HugeTable,
-        HtmlWarningSeverity::Warning,
+        HugeTable,
+        Warning,
         Some(source_key),
         element.tag_name,
         ctx.next_table_order,
@@ -112,7 +112,7 @@ fn collect_html_semantic_table_fact(
   if row_count.val == 0 || cell_count.val == 0 {
     table_warnings.push(
       new_html_semantic_warning(
-        HtmlSemanticWarningKind::MalformedTableStructure,
+        MalformedTableStructure,
         source_key,
         element.tag_name,
         "html semantic table has no rows or cells",
@@ -145,7 +145,7 @@ fn collect_html_semantic_table_fact(
   )
   let malformed_warning_count = html_semantic_warning_kind_count(
     table_warnings,
-    HtmlSemanticWarningKind::MalformedTableStructure,
+    MalformedTableStructure,
   )
   let safe_simple_table_candidate = table_warnings.length() == 0 &&
     row_count.val > 0 &&
@@ -221,7 +221,7 @@ fn collect_html_semantic_table_section_fact(
   if text_truncated {
     local_warnings.push(
       new_html_semantic_warning(
-        HtmlSemanticWarningKind::TextPreviewTruncated,
+        TextPreviewTruncated,
         source_key,
         element.tag_name,
         "html semantic table section text preview truncated for <" +
@@ -235,7 +235,7 @@ fn collect_html_semantic_table_section_fact(
   let start_row_count = row_count.val
   for child in element.children {
     match child {
-      HtmlNode::Element(child_element) =>
+      Element(child_element) =>
         if child_element.tag_name == "tr" {
           match
             collect_html_semantic_table_row_fact(
@@ -273,7 +273,7 @@ fn collect_html_semantic_table_section_fact(
   if row_source_keys.length() == 0 {
     local_warnings.push(
       new_html_semantic_warning(
-        HtmlSemanticWarningKind::MalformedTableStructure,
+        MalformedTableStructure,
         source_key,
         element.tag_name,
         "html semantic table section has no rows",
@@ -318,7 +318,7 @@ fn collect_html_semantic_table_nested_rows(
   }
   for child in element.children {
     match child {
-      HtmlNode::Element(child_element) =>
+      Element(child_element) =>
         if child_element.tag_name == "tr" {
           ignore(
             collect_html_semantic_table_row_fact(
@@ -387,7 +387,7 @@ fn collect_html_semantic_table_row_fact(
   if text_truncated {
     local_warnings.push(
       new_html_semantic_warning(
-        HtmlSemanticWarningKind::TextPreviewTruncated,
+        TextPreviewTruncated,
         source_key,
         element.tag_name,
         "html semantic table row text preview truncated",
@@ -399,7 +399,7 @@ fn collect_html_semantic_table_row_fact(
   let mut row_cell_count = 0
   for child in element.children {
     match child {
-      HtmlNode::Element(child_element) =>
+      Element(child_element) =>
         match html_semantic_table_cell_kind(child_element.tag_name) {
           Some(kind) => {
             cell_count.val += 1
@@ -433,7 +433,7 @@ fn collect_html_semantic_table_row_fact(
   if row_cell_count == 0 {
     local_warnings.push(
       new_html_semantic_warning(
-        HtmlSemanticWarningKind::MalformedTableStructure,
+        MalformedTableStructure,
         source_key,
         element.tag_name,
         "html semantic table row has no cells",
@@ -495,7 +495,7 @@ fn collect_html_semantic_table_cell_fact(
   if text_truncated {
     local_warnings.push(
       new_html_semantic_warning(
-        HtmlSemanticWarningKind::TextPreviewTruncated,
+        TextPreviewTruncated,
         source_key,
         element.tag_name,
         "html semantic table cell text preview truncated",
@@ -523,7 +523,7 @@ fn collect_html_semantic_table_cell_fact(
   let has_nested_table = html_semantic_block_descendants_contain_kind(
     ctx,
     cell_block_source_key,
-    HtmlBlockKind::Table,
+    Table,
   )
   let has_image = html_semantic_block_has_image(ctx, cell_block_source_key)
   let has_list = html_semantic_block_descendants_contain_list(
@@ -532,7 +532,7 @@ fn collect_html_semantic_table_cell_fact(
   let has_blockquote = html_semantic_block_descendants_contain_kind(
     ctx,
     cell_block_source_key,
-    HtmlBlockKind::BlockQuote,
+    BlockQuote,
   )
   let has_pre = html_semantic_block_descendants_contain_pre(
     ctx, cell_block_source_key,
@@ -540,7 +540,7 @@ fn collect_html_semantic_table_cell_fact(
   let has_figure = html_semantic_block_descendants_contain_kind(
     ctx,
     cell_block_source_key,
-    HtmlBlockKind::Figure,
+    Figure,
   )
   let has_unsupported_warning = html_semantic_warnings_have_unsupported(
     local_warnings,

@@ -16,7 +16,7 @@ fn json_append_value_events(
   }
   let event = cursor.events[cursor.index]
   match event.kind {
-    @djson.JsonStreamEventKind::ObjectStart => {
+    ObjectStart => {
       cursor.index += 1
       let rows : Array[Array[String]] = [["Key", "Value"]]
       let row_refs : Array[@core.SourceRef] = [
@@ -31,7 +31,7 @@ fn json_append_value_events(
       while cursor.index < cursor.events.length() {
         let next = cursor.events[cursor.index]
         match next.kind {
-          @djson.JsonStreamEventKind::Key => {
+          Key => {
             let key = next.text.unwrap_or("")
             let key_ref = json_stream_source_ref(
               source,
@@ -51,7 +51,7 @@ fn json_append_value_events(
               merge_stream_bytes_into_source_ref(key_ref, value_text.1),
             )
           }
-          @djson.JsonStreamEventKind::ObjectEnd => {
+          ObjectEnd => {
             cursor.index += 1
             json_append_table_block_events(
               out, rows, row_refs, source, "json", pointer,
@@ -62,7 +62,7 @@ fn json_append_value_events(
         }
       }
     }
-    @djson.JsonStreamEventKind::ArrayStart => {
+    ArrayStart => {
       let start = event
       cursor.index += 1
       let values : Array[(String, @core.SourceRef)] = []
@@ -70,7 +70,7 @@ fn json_append_value_events(
       while cursor.index < cursor.events.length() {
         let next = cursor.events[cursor.index]
         match next.kind {
-          @djson.JsonStreamEventKind::ArrayEnd => {
+          ArrayEnd => {
             cursor.index += 1
             if values.length() > 0 {
               json_append_scalar_list_events(out, values, source, pointer)
@@ -104,10 +104,7 @@ fn json_append_value_events(
         }
       }
     }
-    @djson.JsonStreamEventKind::StringValue
-    | @djson.JsonStreamEventKind::NumberValue
-    | @djson.JsonStreamEventKind::BoolValue
-    | @djson.JsonStreamEventKind::NullValue => {
+    StringValue | NumberValue | BoolValue | NullValue => {
       let source_ref = json_stream_source_ref(
         source,
         event.pointer,
@@ -116,21 +113,17 @@ fn json_append_value_events(
         event.source.byte_end,
       )
       out.push({
-        kind: @core.EventKind::StartBlock(@core.BlockKind::Paragraph),
+        kind: StartBlock(Paragraph),
         text: json_stream_scalar_text(event),
         source_ref: Some(
-          generic_event_source_ref(source_ref, @core.BlockKind::Paragraph, [
-            ("literal", "true"),
-          ]),
+          generic_event_source_ref(source_ref, Paragraph, [("literal", "true")]),
         ),
       })
       out.push({
-        kind: @core.EventKind::EndBlock(@core.BlockKind::Paragraph),
+        kind: EndBlock(Paragraph),
         text: "",
         source_ref: Some(
-          generic_event_source_ref(source_ref, @core.BlockKind::Paragraph, [
-            ("literal", "true"),
-          ]),
+          generic_event_source_ref(source_ref, Paragraph, [("literal", "true")]),
         ),
       })
       cursor.index += 1
@@ -157,10 +150,7 @@ fn json_stream_value_preview_text(
 ) -> (String, @core.SourceRef) {
   let event = cursor.events[cursor.index]
   match event.kind {
-    @djson.JsonStreamEventKind::StringValue
-    | @djson.JsonStreamEventKind::NumberValue
-    | @djson.JsonStreamEventKind::BoolValue
-    | @djson.JsonStreamEventKind::NullValue => {
+    StringValue | NumberValue | BoolValue | NullValue => {
       cursor.index += 1
       (
         json_clip_preview_text(json_stream_scalar_text(event), 96),
@@ -173,9 +163,9 @@ fn json_stream_value_preview_text(
         ),
       )
     }
-    @djson.JsonStreamEventKind::ObjectStart =>
+    ObjectStart =>
       json_stream_object_preview_text(cursor, source, pointer, preview_depth)
-    @djson.JsonStreamEventKind::ArrayStart =>
+    ArrayStart =>
       json_stream_array_preview_text(cursor, source, pointer, preview_depth)
     _ => {
       cursor.index += 1
@@ -217,7 +207,7 @@ fn json_stream_object_preview_text(
   while cursor.index < cursor.events.length() {
     let next = cursor.events[cursor.index]
     match next.kind {
-      @djson.JsonStreamEventKind::Key =>
+      Key =>
         if next.depth == member_depth {
           member_count += 1
           let key = next.text.unwrap_or("")
@@ -243,7 +233,7 @@ fn json_stream_object_preview_text(
           }
           continue
         }
-      @djson.JsonStreamEventKind::ObjectEnd =>
+      ObjectEnd =>
         if next.depth == root_depth {
           end_ref = json_stream_source_ref(
             source,
@@ -292,7 +282,7 @@ fn json_stream_array_preview_text(
   while cursor.index < cursor.events.length() {
     let next = cursor.events[cursor.index]
     match next.kind {
-      @djson.JsonStreamEventKind::ArrayEnd =>
+      ArrayEnd =>
         if next.depth == root_depth {
           end_ref = json_stream_source_ref(
             source,
@@ -381,10 +371,9 @@ fn json_clip_preview_text(text : String, max_chars : Int) -> String {
 ///|
 fn json_stream_scalar_text(event : @djson.JsonStreamEvent) -> String {
   match event.kind {
-    @djson.JsonStreamEventKind::StringValue
-    | @djson.JsonStreamEventKind::NumberValue => event.text.unwrap_or("")
-    @djson.JsonStreamEventKind::BoolValue => event.text.unwrap_or("false")
-    @djson.JsonStreamEventKind::NullValue => "null"
+    StringValue | NumberValue => event.text.unwrap_or("")
+    BoolValue => event.text.unwrap_or("false")
+    NullValue => "null"
     _ => ""
   }
 }
@@ -455,12 +444,12 @@ fn json_append_table_block_events(
   } else {
     json_pointer_source_ref(source, format_name, pointer)
   }
-  let block_ref = generic_event_source_ref(base_ref, @core.BlockKind::Table, [
+  let block_ref = generic_event_source_ref(base_ref, Table, [
     ("header_rows", "1"),
     ("table_column_count", rows[0].length().to_string()),
   ])
   out.push({
-    kind: @core.EventKind::StartBlock(@core.BlockKind::Table),
+    kind: StartBlock(Table),
     text: "table",
     source_ref: Some(block_ref),
   })
@@ -473,7 +462,7 @@ fn json_append_table_block_events(
     }
     for cell_index in 0..<row.length() {
       out.push({
-        kind: @core.EventKind::Cell,
+        kind: Cell,
         text: row[cell_index],
         source_ref: Some(
           @core.source_ref_with_cell_range(
@@ -490,17 +479,9 @@ fn json_append_table_block_events(
         ),
       })
     }
-    out.push({
-      kind: @core.EventKind::RowBreak,
-      text: "",
-      source_ref: Some(row_ref),
-    })
+    out.push({ kind: RowBreak, text: "", source_ref: Some(row_ref) })
   }
-  out.push({
-    kind: @core.EventKind::EndBlock(@core.BlockKind::Table),
-    text: "",
-    source_ref: Some(block_ref),
-  })
+  out.push({ kind: EndBlock(Table), text: "", source_ref: Some(block_ref) })
 }
 
 ///|
@@ -512,36 +493,23 @@ fn json_append_scalar_list_events(
 ) -> Unit {
   let list_ref = generic_event_source_ref(
     json_pointer_source_ref(source, "json", pointer),
-    @core.BlockKind::List,
+    List,
     [("ordered", "false")],
   )
-  out.push({
-    kind: @core.EventKind::StartBlock(@core.BlockKind::List),
-    text: "",
-    source_ref: Some(list_ref),
-  })
+  out.push({ kind: StartBlock(List), text: "", source_ref: Some(list_ref) })
   for value in values {
-    let item_ref = generic_event_source_ref(
-      value.1,
-      @core.BlockKind::ListItem,
-      [("ordered", "false"), ("literal", "true")],
-    )
+    let item_ref = generic_event_source_ref(value.1, ListItem, [
+      ("ordered", "false"),
+      ("literal", "true"),
+    ])
     out.push({
-      kind: @core.EventKind::StartBlock(@core.BlockKind::ListItem),
+      kind: StartBlock(ListItem),
       text: value.0,
       source_ref: Some(item_ref),
     })
-    out.push({
-      kind: @core.EventKind::EndBlock(@core.BlockKind::ListItem),
-      text: "",
-      source_ref: Some(item_ref),
-    })
+    out.push({ kind: EndBlock(ListItem), text: "", source_ref: Some(item_ref) })
   }
-  out.push({
-    kind: @core.EventKind::EndBlock(@core.BlockKind::List),
-    text: "",
-    source_ref: Some(list_ref),
-  })
+  out.push({ kind: EndBlock(List), text: "", source_ref: Some(list_ref) })
 }
 
 ///|
@@ -554,12 +522,12 @@ fn json_code_block_event(
   byte_end : Int,
 ) -> @core.CoreEvent {
   {
-    kind: @core.EventKind::StartBlock(@core.BlockKind::Code),
+    kind: StartBlock(Code),
     text,
     source_ref: Some(
       generic_event_source_ref(
         json_stream_source_ref(source, pointer, line, byte_start, byte_end),
-        @core.BlockKind::Code,
+        Code,
         [("info", "json")],
       ),
     ),
@@ -585,7 +553,7 @@ fn generic_event_source_ref(
 fn count_event_tables(events : Array[@core.CoreEvent]) -> Int {
   let mut count = 0
   for event in events {
-    if event.kind == @core.EventKind::StartBlock(@core.BlockKind::Table) {
+    if event.kind == StartBlock(Table) {
       count += 1
     }
   }
@@ -597,7 +565,7 @@ fn count_event_blocks(events : Array[@core.CoreEvent]) -> Int {
   let mut count = 0
   for event in events {
     match event.kind {
-      @core.EventKind::StartBlock(_) => count += 1
+      StartBlock(_) => count += 1
       _ => ()
     }
   }
@@ -608,7 +576,7 @@ fn count_event_blocks(events : Array[@core.CoreEvent]) -> Int {
 fn infer_line_json_table_count(events : Array[@core.CoreEvent]) -> Int {
   let mut cell_count = 0
   for event in events {
-    if event.kind == @core.EventKind::Cell {
+    if event.kind == Cell {
       cell_count += 1
     }
   }
@@ -636,7 +604,7 @@ fn malformed_json_parse_result(
     Some(1),
     Some(@fshared.count_physical_lines(text)),
   )
-  let block = @core.make_block(@core.BlockKind::Code, text, source_ref~)
+  let block = @core.make_block(Code, text, source_ref~)
   block.attrs.set("info", format_name)
   diagnostics.warnings.push(format_name + " parse warning: " + err)
   diagnostics.degraded_features.push(format_name + "_raw_fenced_fallback")
@@ -676,7 +644,7 @@ fn malformed_json_parse_result(
   diagnostics.metrics.set("ir_input_kind", "document")
   diagnostics.metrics.set(
     "event_granularity",
-    if capability.parser_mode == @parser.ParserMode::StreamingEvent {
+    if capability.parser_mode == StreamingEvent {
       "json_structure"
     } else {
       "none"
@@ -684,7 +652,7 @@ fn malformed_json_parse_result(
   )
   diagnostics.metrics.set(
     "event_semantics",
-    if capability.parser_mode == @parser.ParserMode::StreamingEvent {
+    if capability.parser_mode == StreamingEvent {
       "json_structure_event_stream_failed_closed"
     } else {
       "dom_ast_model"
@@ -838,17 +806,13 @@ fn table_events_from_rows(
         cell_ref.extra.set("record_index", (row_index - 1).to_string())
       }
       events.push({
-        kind: @core.EventKind::Cell,
+        kind: Cell,
         text: row[col_index],
         source_ref: Some(cell_ref),
       })
     }
     if row.length() > 0 {
-      events.push({
-        kind: @core.EventKind::RowBreak,
-        text: "",
-        source_ref: Some(row_ref),
-      })
+      events.push({ kind: RowBreak, text: "", source_ref: Some(row_ref) })
     }
   }
   events
@@ -856,7 +820,7 @@ fn table_events_from_rows(
 
 ///|
 fn count_json_tables(document : @core.DocumentIR) -> Int {
-  @fshared.count_blocks_by_kind(document.blocks, @core.BlockKind::Table)
+  @fshared.count_blocks_by_kind(document.blocks, Table)
 }
 
 ///|
@@ -869,7 +833,7 @@ fn json_array_object_rows(
   let rows : Array[Array[String]] = []
   for i in 0..<values.length() {
     match values[i] {
-      @djson.JsonValue::Object(members) => {
+      Object(members) => {
         let member_keys = members.map(fn(entry) { entry.key })
         if i == 0 {
           keys = member_keys
@@ -912,10 +876,7 @@ fn json_members_to_row(
 fn json_array_of_scalars(values : Array[@djson.JsonValue]) -> Bool {
   for value in values {
     match value {
-      @djson.JsonValue::String(_)
-      | @djson.JsonValue::Number(_)
-      | @djson.JsonValue::Bool(_)
-      | @djson.JsonValue::Null => ()
+      String(_) | Number(_) | Bool(_) | Null => ()
       _ => return false
     }
   }
@@ -925,10 +886,10 @@ fn json_array_of_scalars(values : Array[@djson.JsonValue]) -> Bool {
 ///|
 fn json_value_cell(value : @djson.JsonValue) -> String {
   match value {
-    @djson.JsonValue::String(text) => text
-    @djson.JsonValue::Number(text) => text
-    @djson.JsonValue::Bool(value) => if value { "true" } else { "false" }
-    @djson.JsonValue::Null => "null"
+    String(text) => text
+    Number(text) => text
+    Bool(value) => if value { "true" } else { "false" }
+    Null => "null"
     _ => stringify_json_value(value)
   }
 }
@@ -970,7 +931,7 @@ fn json_code_block(
   include_info : Bool,
 ) -> @core.CoreBlock {
   let block = @core.make_block(
-    @core.BlockKind::Code,
+    Code,
     text,
     source_ref=json_pointer_source_ref(source, format_name, pointer),
   )
@@ -983,7 +944,7 @@ fn json_code_block(
 ///|
 fn stringify_json_value(value : @djson.JsonValue) -> String {
   match value {
-    @djson.JsonValue::Object(members) => {
+    Object(members) => {
       let parts : Array[String] = []
       for entry in members {
         parts.push(
@@ -992,17 +953,17 @@ fn stringify_json_value(value : @djson.JsonValue) -> String {
       }
       "{" + parts.join(",") + "}"
     }
-    @djson.JsonValue::Array(values) => {
+    Array(values) => {
       let parts : Array[String] = []
       for entry in values {
         parts.push(stringify_json_value(entry))
       }
       "[" + parts.join(",") + "]"
     }
-    @djson.JsonValue::String(text) => quote_json_string(text)
-    @djson.JsonValue::Number(text) => text
-    @djson.JsonValue::Bool(value) => if value { "true" } else { "false" }
-    @djson.JsonValue::Null => "null"
+    String(text) => quote_json_string(text)
+    Number(text) => text
+    Bool(value) => if value { "true" } else { "false" }
+    Null => "null"
   }
 }
 

@@ -51,12 +51,14 @@
 - Shell/Python tooling validation runs only after the core gate. Coverage,
   dependency installation, regressions, benchmarks, and self baselines run in
   later jobs.
-- Current verified local baseline: `801/801` MoonBit tests; `535/535` main,
-  `379/379` quality, and `21/21` accurate regression rows, with zero skips.
-- Coverage thresholds currently pass at core `90.13%`, formats `82.00%`, and
-  tools `72.39%`.
-- `tools/release/package.py` creates deterministic Linux/macOS archives,
-  SHA-256 files, and SPDX SBOMs before `gh release create` publishes them.
+- Current verified local baseline: native `855/855`; JS, Wasm, and Wasm-GC
+  `472/472` each; `535/535` main, `380/380` quality, and `21/21` accurate
+  regression rows, with zero unexpected skips.
+- Coverage thresholds currently pass at core `90.09%`, formats `81.78%`, and
+  tools `72.26%`; changed production code is `82.73%` covered.
+- `tools/release/package.py` creates deterministic local Linux/macOS archives,
+  SHA-256 files, and SPDX SBOMs. The `0.7.0` development line does not publish
+  those artifacts or provide a remote release workflow.
 
 ### Benchmark policy
 

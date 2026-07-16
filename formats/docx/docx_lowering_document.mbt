@@ -181,12 +181,9 @@ fn fill_docx_package_metrics(
   let mut unsupported_relationship_count = 0
   for issue in validation.issues {
     match issue.kind {
-      @ox.OoxmlValidationIssueKind::ExternalRelationship =>
-        external_relationship_count += 1
-      @ox.OoxmlValidationIssueKind::MissingRelationshipTarget =>
-        missing_relationship_target_count += 1
-      @ox.OoxmlValidationIssueKind::UnsafeRelationshipTarget =>
-        unsupported_relationship_count += 1
+      ExternalRelationship => external_relationship_count += 1
+      MissingRelationshipTarget => missing_relationship_target_count += 1
+      UnsafeRelationshipTarget => unsupported_relationship_count += 1
       _ => ()
     }
   }
@@ -302,9 +299,9 @@ fn fill_docx_metadata(
   if docx.metadata.custom_properties.length() > 0 {
     let entries : Map[String, @core.JsonValue] = Map([])
     for prop in docx.metadata.custom_properties {
-      entries.set(prop.name, @core.JsonValue::String(prop.value))
+      entries.set(prop.name, String(prop.value))
     }
-    metadata.set("custom_properties", @core.JsonValue::Object(entries))
+    metadata.set("custom_properties", Object(entries))
   }
 }
 
@@ -315,10 +312,7 @@ fn set_document_metadata_string(
   value : String?,
 ) -> Unit {
   match value {
-    Some(text) =>
-      if text.trim() != "" {
-        metadata.set(key, @core.JsonValue::String(text))
-      }
+    Some(text) => if text.trim() != "" { metadata.set(key, String(text)) }
     None => ()
   }
 }

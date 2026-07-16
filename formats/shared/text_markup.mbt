@@ -61,7 +61,7 @@ pub fn make_text_markup_hooks(
 ///|
 pub fn text_markup_parser_capability() -> @parser.ParserCapability {
   @parser.dom_ast_parser_capability(
-    @parser.StreamingGranularity::None,
+    None,
     false,
     false,
     false,
@@ -95,8 +95,8 @@ pub fn parse_text_markup_result_with_prepared_document(
   hooks : TextMarkupHooks,
 ) -> @parser.ParseResult {
   if prepared.original_text.length() >= 1_048_576 &&
-    context.output_mode == @product.OutputMode::Markdown &&
-    hooks.format == @dmark.TextMarkupFormat::Rst {
+    context.output_mode == Markdown &&
+    hooks.format == Rst {
     return parse_large_text_markup_events(prepared, context, hooks)
   }
   parse_text_markup_result_with_preparsed_document(
@@ -118,7 +118,7 @@ fn parse_large_text_markup_events(
   let source = prepared.prepared_source
   let diagnostics = empty_parser_diagnostics(
     hooks.parser_name,
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     source,
     hooks.format_name,
   )
@@ -128,8 +128,8 @@ fn parse_large_text_markup_events(
     context,
     hooks.format_name,
     hooks.parser_name,
-    @parser.ParserMode::DomAstModel,
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
+    DomAstModel,
     "event_stream",
     "record",
     "dom_ast_compact_events",
@@ -181,7 +181,7 @@ fn parse_large_text_markup_events(
   diagnostics.pass_trace.push("parse:" + hooks.parser_name)
   @parser.parse_result_with_events_capability(
     hooks.parser_name,
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     events,
     diagnostics,
     text_markup_parser_capability(),
@@ -218,11 +218,7 @@ fn text_markup_compact_events(
       ),
       [("ordered", if pending[0].ordered { "true" } else { "false" })],
     )
-    events.push({
-      kind: @core.EventKind::StartBlock(@core.BlockKind::List),
-      text: "",
-      source_ref: Some(list_ref),
-    })
+    events.push({ kind: StartBlock(List), text: "", source_ref: Some(list_ref) })
     for item in pending {
       let item_ref = text_markup_event_ref(
         text_markup_source_ref(
@@ -237,7 +233,7 @@ fn text_markup_compact_events(
         ],
       )
       events.push({
-        kind: @core.EventKind::StartBlock(@core.BlockKind::ListItem),
+        kind: StartBlock(ListItem),
         text: if text_markup_might_have_inline_markup(item.text, hooks.format) {
           text_markup_render_inline_markdown_cached(
             item.text,
@@ -250,20 +246,16 @@ fn text_markup_compact_events(
         source_ref: Some(item_ref),
       })
       events.push({
-        kind: @core.EventKind::EndBlock(@core.BlockKind::ListItem),
+        kind: EndBlock(ListItem),
         text: "",
         source_ref: Some(item_ref),
       })
     }
-    events.push({
-      kind: @core.EventKind::EndBlock(@core.BlockKind::List),
-      text: "",
-      source_ref: Some(list_ref),
-    })
+    events.push({ kind: EndBlock(List), text: "", source_ref: Some(list_ref) })
     pending.clear()
   }
   for block in doc.blocks {
-    if block.kind == @dmark.TextMarkupBlockKind::ListItem {
+    if block.kind == ListItem {
       pending.push(block)
       continue
     }
@@ -279,12 +271,12 @@ fn text_markup_compact_events(
       [("literal", "true")],
     )
     events.push({
-      kind: @core.EventKind::StartBlock(@core.BlockKind::Paragraph),
+      kind: StartBlock(Paragraph),
       text: "[empty document]",
       source_ref: Some(empty_ref),
     })
     events.push({
-      kind: @core.EventKind::EndBlock(@core.BlockKind::Paragraph),
+      kind: EndBlock(Paragraph),
       text: "",
       source_ref: Some(empty_ref),
     })
@@ -308,10 +300,10 @@ fn text_markup_append_block_events(
     block.line_end,
   )
   match block.kind {
-    @dmark.TextMarkupBlockKind::Heading =>
+    Heading =>
       text_markup_append_simple_event_block(
         events,
-        @core.BlockKind::Heading,
+        Heading,
         block.text,
         text_markup_event_ref(source_ref, [
           ("level", block.level.to_string()),
@@ -321,24 +313,24 @@ fn text_markup_append_block_events(
         false,
         inline_markdown_cache,
       )
-    @dmark.TextMarkupBlockKind::Paragraph =>
+    Paragraph =>
       text_markup_append_simple_event_block(
         events,
-        @core.BlockKind::Paragraph,
+        Paragraph,
         block.text,
         text_markup_event_ref(source_ref, [("literal", "true")]),
         hooks.format,
         true,
         inline_markdown_cache,
       )
-    @dmark.TextMarkupBlockKind::Code => {
+    Code => {
       let attrs : Array[(String, String)] = [("info", hooks.format_name)]
       for entry in block.meta.to_array() {
         attrs.push(entry)
       }
       text_markup_append_simple_event_block(
         events,
-        @core.BlockKind::Code,
+        Code,
         block.text,
         text_markup_event_ref(source_ref, attrs),
         hooks.format,
@@ -346,12 +338,8 @@ fn text_markup_append_block_events(
         inline_markdown_cache,
       )
     }
-    @dmark.TextMarkupBlockKind::NoteDefinition => {
-      let core = @core.make_block(
-        @core.BlockKind::Paragraph,
-        block.text,
-        source_ref~,
-      )
+    NoteDefinition => {
+      let core = @core.make_block(Paragraph, block.text, source_ref~)
       for entry in block.meta.to_array() {
         core.attrs.set(entry.0, entry.1)
       }
@@ -360,7 +348,7 @@ fn text_markup_append_block_events(
         text_markup_block_with_inlines(core, block.text, hooks.format),
       )
     }
-    @dmark.TextMarkupBlockKind::Table =>
+    Table =>
       match @dmark.parse_text_markup_table(block, hooks.format) {
         Some(table) =>
           text_markup_append_core_block_events(
@@ -373,23 +361,15 @@ fn text_markup_append_block_events(
             ),
           )
         None => {
-          let core = @core.make_block(
-            @core.BlockKind::Raw,
-            block.text,
-            source_ref~,
-          )
+          let core = @core.make_block(Raw, block.text, source_ref~)
           core.attrs.set("raw_kind", hooks.format_name + "_table_boundary")
           core.attrs.set("info", hooks.format_name)
           text_markup_append_core_block_events(events, core)
         }
       }
-    @dmark.TextMarkupBlockKind::BlockQuote => {
+    BlockQuote => {
       let text = (hooks.quote_text)(block, hooks.format_name)
-      let core = @core.make_block(
-        @core.BlockKind::BlockQuote,
-        text,
-        source_ref~,
-      )
+      let core = @core.make_block(BlockQuote, text, source_ref~)
       core.attrs.set("literal", "true")
       for entry in block.meta.to_array() {
         core.attrs.set(entry.0, entry.1)
@@ -399,17 +379,13 @@ fn text_markup_append_block_events(
         text_markup_block_with_inlines(core, text, hooks.format),
       )
     }
-    @dmark.TextMarkupBlockKind::Semantic => {
+    Semantic => {
       let core = match
         (hooks.semantic_block)(block, source_ref, hooks.format_name) {
         Some(value) => value
         None => {
           let text = (hooks.quote_text)(block, hooks.format_name)
-          let value = @core.make_block(
-            @core.BlockKind::Paragraph,
-            text,
-            source_ref~,
-          )
+          let value = @core.make_block(Paragraph, text, source_ref~)
           value.attrs.set("literal", "true")
           text_markup_block_with_inlines(value, text, hooks.format)
         }
@@ -422,16 +398,12 @@ fn text_markup_append_block_events(
       )
       text_markup_append_core_block_events(events, core)
     }
-    @dmark.TextMarkupBlockKind::Raw => {
+    Raw => {
       let core = match
         (hooks.semantic_raw_block)(block, source_ref, hooks.format_name) {
         Some(value) => value
         None => {
-          let value = @core.make_block(
-            @core.BlockKind::Raw,
-            block.text,
-            source_ref~,
-          )
+          let value = @core.make_block(Raw, block.text, source_ref~)
           value.attrs.set("raw_kind", hooks.format_name + "_raw_boundary")
           value.attrs.set("info", hooks.format_name)
           value
@@ -442,7 +414,7 @@ fn text_markup_append_block_events(
       }
       text_markup_append_core_block_events(events, core)
     }
-    @dmark.TextMarkupBlockKind::ListItem => ()
+    ListItem => ()
   }
 }
 
@@ -458,17 +430,13 @@ fn text_markup_append_simple_event_block(
 ) -> Unit {
   if !include_inlines || !text_markup_might_have_inline_markup(text, format) {
     source_ref.extra.set("ir_text_markup_compact_leaf", "true")
-    events.push({
-      kind: @core.EventKind::StartBlock(kind),
-      text,
-      source_ref: Some(source_ref),
-    })
+    events.push({ kind: StartBlock(kind), text, source_ref: Some(source_ref) })
     return
   }
   source_ref.extra.set("ir_text_markup_compact_leaf", "true")
   source_ref.extra.set("ir_text_markup_rendered_inline", "true")
   events.push({
-    kind: @core.EventKind::StartBlock(kind),
+    kind: StartBlock(kind),
     text: text_markup_render_inline_markdown_cached(
       text, format, inline_markdown_cache,
     ),
@@ -484,9 +452,8 @@ fn text_markup_render_inline_markdown(
   let out = StringBuilder::new()
   for inline in @dmark.parse_text_markup_inlines(text, format) {
     match inline.kind {
-      @dmark.TextMarkupInlineKind::Text =>
-        text_markup_write_escaped_inline(out, inline.text)
-      @dmark.TextMarkupInlineKind::Link => {
+      Text => text_markup_write_escaped_inline(out, inline.text)
+      Link => {
         let label_out = StringBuilder::new()
         text_markup_write_escaped_inline(label_out, inline.text)
         let label = label_out.to_string().trim().to_owned()
@@ -501,7 +468,7 @@ fn text_markup_render_inline_markdown(
           out.write_char(')')
         }
       }
-      @dmark.TextMarkupInlineKind::Code => {
+      Code => {
         let fence = text_markup_inline_code_fence(inline.text)
         out.write_string(fence)
         if inline.text.contains("`") {
@@ -610,7 +577,7 @@ fn text_markup_append_core_block_events(
     block.attrs.to_array(),
   )
   events.push({
-    kind: @core.EventKind::StartBlock(block.kind),
+    kind: StartBlock(block.kind),
     text: block.text,
     source_ref: Some(source_ref),
   })
@@ -622,22 +589,20 @@ fn text_markup_append_core_block_events(
           extra: Map([]),
         }
         match inline.kind {
-          @core.InlineKind::Link => {
+          Link => {
             inline_ref.extra.set("ir_inline_kind", "link")
             inline_ref.extra.set("ir_inline_href", inline.href.unwrap_or("#"))
           }
-          @core.InlineKind::Code =>
-            inline_ref.extra.set("ir_inline_kind", "code")
-          @core.InlineKind::Image => {
+          Code => inline_ref.extra.set("ir_inline_kind", "code")
+          Image => {
             inline_ref.extra.set("ir_inline_kind", "image")
             inline_ref.extra.set("ir_inline_href", inline.href.unwrap_or("#"))
           }
-          @core.InlineKind::LineBreak =>
-            inline_ref.extra.set("ir_inline_kind", "line_break")
+          LineBreak => inline_ref.extra.set("ir_inline_kind", "line_break")
           _ => inline_ref.extra.set("ir_inline_kind", "text")
         }
         events.push({
-          kind: @core.EventKind::Text,
+          kind: Text,
           text: inline.text,
           source_ref: Some(inline_ref),
         })
@@ -648,7 +613,7 @@ fn text_markup_append_core_block_events(
     text_markup_append_core_block_events(events, child)
   }
   events.push({
-    kind: @core.EventKind::EndBlock(block.kind),
+    kind: EndBlock(block.kind),
     text: "",
     source_ref: Some(source_ref),
   })
@@ -664,7 +629,7 @@ pub fn parse_text_markup_result_with_preparsed_document(
   hooks : TextMarkupHooks,
   diagnostics? : @core.Diagnostics = empty_parser_diagnostics(
     hooks.parser_name,
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     source,
     hooks.format_name,
   ),
@@ -675,8 +640,8 @@ pub fn parse_text_markup_result_with_preparsed_document(
     context,
     hooks.format_name,
     hooks.parser_name,
-    @parser.ParserMode::DomAstModel,
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
+    DomAstModel,
     "document",
     "none",
     "dom_ast_model",
@@ -720,7 +685,7 @@ pub fn parse_text_markup_result_with_preparsed_document(
   let final_document = @core.document_with_diagnostics(document, diagnostics)
   @parser.parse_result_with_document_capability(
     hooks.parser_name,
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     final_document,
     diagnostics,
     text_markup_parser_capability(),
@@ -761,7 +726,7 @@ pub fn lower_text_markup_document(
       return
     }
     let list = @core.make_block(
-      @core.BlockKind::List,
+      List,
       "",
       source_ref=text_markup_source_ref(
         source,
@@ -793,11 +758,7 @@ pub fn lower_text_markup_document(
       let item_block = match item_cache.get(item.text) {
         Some(cached) => text_markup_rebase_cached_block(cached, item_ref)
         None => {
-          let value = @core.make_block(
-            @core.BlockKind::ListItem,
-            item.text,
-            source_ref=item_ref,
-          )
+          let value = @core.make_block(ListItem, item.text, source_ref=item_ref)
           value.attrs.set(
             "ordered",
             if item.ordered {
@@ -823,7 +784,7 @@ pub fn lower_text_markup_document(
     pending_list_items.clear()
   }
   for block in doc.blocks {
-    if block.kind == @dmark.TextMarkupBlockKind::ListItem {
+    if block.kind == ListItem {
       pending_list_items.push(block)
       continue
     }
@@ -844,16 +805,12 @@ pub fn lower_text_markup_document(
       block.line_end,
     )
     match block.kind {
-      @dmark.TextMarkupBlockKind::Heading => {
+      Heading => {
         let heading_key = block.level.to_string() + "\u{0000}" + block.text
         let heading = match heading_cache.get(heading_key) {
           Some(cached) => text_markup_rebase_cached_block(cached, source_ref)
           None => {
-            let value = @core.make_block(
-              @core.BlockKind::Heading,
-              block.text,
-              source_ref~,
-            )
+            let value = @core.make_block(Heading, block.text, source_ref~)
             value.attrs.set("level", block.level.to_string())
             value.attrs.set("literal", "true")
             heading_cache.set(heading_key, cached_lowered_block(value))
@@ -862,17 +819,13 @@ pub fn lower_text_markup_document(
         }
         document.blocks.push(heading)
       }
-      @dmark.TextMarkupBlockKind::Paragraph => {
+      Paragraph => {
         let paragraph = match paragraph_cache.get(block.text) {
           Some(cached) => text_markup_rebase_cached_block(cached, source_ref)
           None => {
             let value = @core.block_with_attr(
               text_markup_block_with_cached_inlines(
-                @core.make_block(
-                  @core.BlockKind::Paragraph,
-                  block.text,
-                  source_ref~,
-                ),
+                @core.make_block(Paragraph, block.text, source_ref~),
                 block.text,
                 hooks.format,
                 inline_cache,
@@ -886,12 +839,8 @@ pub fn lower_text_markup_document(
         }
         document.blocks.push(paragraph)
       }
-      @dmark.TextMarkupBlockKind::Code => {
-        let code = @core.make_block(
-          @core.BlockKind::Code,
-          block.text,
-          source_ref~,
-        )
+      Code => {
+        let code = @core.make_block(Code, block.text, source_ref~)
         code.attrs.set("info", hooks.format_name)
         for entry in block.meta.to_array() {
           code.attrs.set(entry.0, entry.1)
@@ -912,12 +861,8 @@ pub fn lower_text_markup_document(
         }
         document.blocks.push(code)
       }
-      @dmark.TextMarkupBlockKind::NoteDefinition => {
-        let note = @core.make_block(
-          @core.BlockKind::Paragraph,
-          block.text,
-          source_ref~,
-        )
+      NoteDefinition => {
+        let note = @core.make_block(Paragraph, block.text, source_ref~)
         for entry in block.meta.to_array() {
           note.attrs.set(entry.0, entry.1)
         }
@@ -930,7 +875,7 @@ pub fn lower_text_markup_document(
           ),
         )
       }
-      @dmark.TextMarkupBlockKind::Table =>
+      Table =>
         match table_cache.get(block.text) {
           Some(cached) =>
             document.blocks.push(
@@ -949,11 +894,7 @@ pub fn lower_text_markup_document(
                 document.blocks.push(table)
               }
               None => {
-                let table = @core.make_block(
-                  @core.BlockKind::Raw,
-                  block.text,
-                  source_ref~,
-                )
+                let table = @core.make_block(Raw, block.text, source_ref~)
                 table.attrs.set(
                   "raw_kind",
                   hooks.format_name + "_table_boundary",
@@ -972,13 +913,9 @@ pub fn lower_text_markup_document(
               }
             }
         }
-      @dmark.TextMarkupBlockKind::BlockQuote => {
+      BlockQuote => {
         let quote_text = (hooks.quote_text)(block, hooks.format_name)
-        let quote = @core.make_block(
-          @core.BlockKind::BlockQuote,
-          quote_text,
-          source_ref~,
-        )
+        let quote = @core.make_block(BlockQuote, quote_text, source_ref~)
         quote.attrs.set("literal", "true")
         for entry in block.meta.to_array() {
           quote.attrs.set(entry.0, entry.1)
@@ -999,7 +936,7 @@ pub fn lower_text_markup_document(
           ),
         )
       }
-      @dmark.TextMarkupBlockKind::Semantic =>
+      Semantic =>
         match (hooks.semantic_block)(block, source_ref, hooks.format_name) {
           Some(semantic) => {
             text_markup_apply_semantic_attrs(
@@ -1012,11 +949,7 @@ pub fn lower_text_markup_document(
           }
           None => {
             let text = (hooks.quote_text)(block, hooks.format_name)
-            let semantic = @core.make_block(
-              @core.BlockKind::Paragraph,
-              text,
-              source_ref~,
-            )
+            let semantic = @core.make_block(Paragraph, text, source_ref~)
             semantic.attrs.set("literal", "true")
             text_markup_apply_semantic_attrs(
               semantic,
@@ -1034,7 +967,7 @@ pub fn lower_text_markup_document(
             )
           }
         }
-      @dmark.TextMarkupBlockKind::Raw => {
+      Raw => {
         let signature = text_markup_meta_signature(block.meta)
         let cached = match raw_cache.get(block.text) {
           Some(entries) => entries.get(signature)
@@ -1056,11 +989,7 @@ pub fn lower_text_markup_document(
               (hooks.semantic_raw_block)(block, source_ref, hooks.format_name) {
               Some(value) => (value, true)
               None => {
-                let value = @core.make_block(
-                  @core.BlockKind::Raw,
-                  block.text,
-                  source_ref~,
-                )
+                let value = @core.make_block(Raw, block.text, source_ref~)
                 value.attrs.set("raw_kind", hooks.format_name + "_raw_boundary")
                 value.attrs.set("info", hooks.format_name)
                 (value, false)
@@ -1087,7 +1016,7 @@ pub fn lower_text_markup_document(
         }
         document.blocks.push(lowered)
       }
-      @dmark.TextMarkupBlockKind::ListItem => ()
+      ListItem => ()
     }
   }
   flush_list(
@@ -1104,7 +1033,7 @@ pub fn lower_text_markup_document(
     document.blocks.push(
       @core.block_with_attr(
         @core.make_block(
-          @core.BlockKind::Paragraph,
+          Paragraph,
           "[empty document]",
           source_ref=text_markup_source_ref(source, hooks.format_name, 1, 1),
         ),
@@ -1238,12 +1167,9 @@ fn prepare_text_markup_document_for_hooks(
   hooks : TextMarkupHooks,
 ) -> Result[@dmark.PreparedTextMarkupDocument, String] {
   match hooks.format {
-    @dmark.TextMarkupFormat::Tex =>
-      @dmark.prepare_tex_document_from_source(source)
-    @dmark.TextMarkupFormat::Rst =>
-      @dmark.prepare_rst_document_from_source(source)
-    @dmark.TextMarkupFormat::Asciidoc =>
-      @dmark.prepare_asciidoc_document_from_source(source)
+    Tex => @dmark.prepare_tex_document_from_source(source)
+    Rst => @dmark.prepare_rst_document_from_source(source)
+    Asciidoc => @dmark.prepare_asciidoc_document_from_source(source)
   }
 }
 
@@ -1319,12 +1245,10 @@ pub fn text_markup_inlines(
   let out : Array[@core.CoreInline] = []
   for inline in @dmark.parse_text_markup_inlines(text, format) {
     match inline.kind {
-      @dmark.TextMarkupInlineKind::Text =>
-        out.push(@core.make_inline_text(inline.text))
-      @dmark.TextMarkupInlineKind::Link =>
+      Text => out.push(@core.make_inline_text(inline.text))
+      Link =>
         out.push(@core.make_inline_link(inline.text, inline.href.unwrap_or("")))
-      @dmark.TextMarkupInlineKind::Code =>
-        out.push(@core.make_inline_code(inline.text))
+      Code => out.push(@core.make_inline_code(inline.text))
     }
   }
   out
@@ -1339,11 +1263,9 @@ fn text_markup_might_have_inline_markup(
     return true
   }
   match format {
-    @dmark.TextMarkupFormat::Rst =>
-      text.contains("<") && text.contains(">") && text.contains("`")
-    @dmark.TextMarkupFormat::Asciidoc => text.contains("link:")
-    @dmark.TextMarkupFormat::Tex =>
-      text.contains("\\href{") || text.contains("\\texttt{")
+    Rst => text.contains("<") && text.contains(">") && text.contains("`")
+    Asciidoc => text.contains("link:")
+    Tex => text.contains("\\href{") || text.contains("\\texttt{")
   }
 }
 
@@ -1354,7 +1276,7 @@ pub fn text_markup_table_block(
   format_name : String,
   format : @dmark.TextMarkupFormat,
 ) -> @core.CoreBlock {
-  let table = @core.make_block(@core.BlockKind::Table, "table", source_ref~)
+  let table = @core.make_block(Table, "table", source_ref~)
   table.attrs.set("info", format_name)
   table.children.push(
     text_markup_table_row(table_model.header, source_ref, format),
@@ -1371,9 +1293,9 @@ pub fn text_markup_table_row(
   source_ref : @core.SourceRef,
   format : @dmark.TextMarkupFormat,
 ) -> @core.CoreBlock {
-  let row = @core.make_block(@core.BlockKind::TableRow, "", source_ref~)
+  let row = @core.make_block(TableRow, "", source_ref~)
   for value in values {
-    let cell = @core.make_block(@core.BlockKind::TableCell, value, source_ref~)
+    let cell = @core.make_block(TableCell, value, source_ref~)
     let rich = text_markup_inlines(value, format)
     row.children.push(
       if rich.length() == 0 {

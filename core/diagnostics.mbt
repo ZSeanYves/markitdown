@@ -135,9 +135,9 @@ pub fn dependency_diagnostic_status_name(
   status : DependencyDiagnosticStatus,
 ) -> String {
   match status {
-    DependencyDiagnosticStatus::Missing => "missing"
-    DependencyDiagnosticStatus::Available => "available"
-    DependencyDiagnosticStatus::Degraded => "degraded"
+    Missing => "missing"
+    Available => "available"
+    Degraded => "degraded"
   }
 }
 

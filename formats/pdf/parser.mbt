@@ -40,9 +40,9 @@ pub fn pdf_ocr_parser_name() -> String {
 /// Capability for the native-text PDF route.
 pub fn pdf_native_parser_capability() -> @parser.ParserCapability {
   @parser.make_parser_capability(
-    @parser.ParserMode::PageSinglePass,
+    PageSinglePass,
     false,
-    @parser.StreamingGranularity::Page,
+    Page,
     true,
     true,
     false,
@@ -66,9 +66,9 @@ pub fn pdf_native_parser_capability() -> @parser.ParserCapability {
 /// Capability for the OCR-backed PDF route.
 pub fn pdf_ocr_parser_capability() -> @parser.ParserCapability {
   @parser.make_parser_capability(
-    @parser.ParserMode::LayoutTwoStage,
+    LayoutTwoStage,
     false,
-    @parser.StreamingGranularity::Page,
+    Page,
     true,
     false,
     false,
@@ -151,7 +151,7 @@ fn pdf_ocr_execution_config(
   let provider_kind = @focr.resolved_ocr_provider_kind_for_target(
     provider_target,
   )
-  if context.fidelity_mode != @product.FidelityMode::Accurate {
+  if context.fidelity_mode != Accurate {
     return Err(
       "PDF accurate layout parsing requires accurate fidelity mode on this runtime",
     )
@@ -263,7 +263,7 @@ fn pdf_non_paragraph_blocks(
 ) -> Array[@core.CoreBlock] {
   let filtered : Array[@core.CoreBlock] = []
   for block in blocks {
-    if block.kind != @core.BlockKind::Paragraph {
+    if block.kind != Paragraph {
       filtered.push(block)
     }
   }
@@ -860,8 +860,7 @@ fn pdf_region_hybrid_page_blocks(
     }
     let mut overlaps_native = false
     for native_block in native_blocks {
-      if native_block.kind == @core.BlockKind::Image ||
-        native_block.text.trim().to_owned() == "" {
+      if native_block.kind == Image || native_block.text.trim().to_owned() == "" {
         continue
       }
       if pdf_blocks_overlap_significantly(block, native_block) {

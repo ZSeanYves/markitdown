@@ -72,8 +72,8 @@ fn parse_table_row(
               if cell_count.val == ctx.budget.max_table_cells + 1 {
                 ctx.warnings.push(
                   pptx_warning(
-                    PptxWarningKind::OverBudget,
-                    PptxWarningSeverity::Warning,
+                    OverBudget,
+                    Warning,
                     part_name,
                     parent_key,
                     None,

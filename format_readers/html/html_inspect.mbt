@@ -14,8 +14,8 @@ pub fn validate_html_document(doc : HtmlDocument) -> HtmlValidationReport {
   let mut error_count = 0
   for issue in issues {
     match issue.severity {
-      HtmlValidationSeverity::Warning => warning_count += 1
-      HtmlValidationSeverity::Error => error_count += 1
+      Warning => warning_count += 1
+      Error => error_count += 1
     }
   }
   { issue_count: issues.length(), warning_count, error_count, issues }
@@ -53,8 +53,8 @@ pub fn inspect_html_document(doc : HtmlDocument) -> HtmlInspectReport {
   let mut error_count = 0
   for issue in issues {
     match issue.severity {
-      HtmlValidationSeverity::Warning => warning_count += 1
-      HtmlValidationSeverity::Error => error_count += 1
+      Warning => warning_count += 1
+      Error => error_count += 1
     }
   }
 
@@ -117,7 +117,7 @@ fn visit_html_node(
   }
 
   match node {
-    HtmlNode::Element(element) => {
+    Element(element) => {
       stats.element_count += 1
       stats.attribute_count += element.attributes.length()
       match element.tag_name {
@@ -138,8 +138,8 @@ fn visit_html_node(
         visit_html_node(child, stats, depth + 1)
       }
     }
-    HtmlNode::Text(_) => stats.text_node_count += 1
-    HtmlNode::Comment(_) => stats.comment_count += 1
-    HtmlNode::Doctype(_) => stats.doctype_count += 1
+    Text(_) => stats.text_node_count += 1
+    Comment(_) => stats.comment_count += 1
+    Doctype(_) => stats.doctype_count += 1
   }
 }

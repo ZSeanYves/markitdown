@@ -13,8 +13,8 @@ fn text_markup_probe_source(
 ///|
 fn balanced_markdown_options(format : @input.DetectedFormat) -> ConvertOptions {
   make_convert_options(
-    ConvertMode::Balanced,
-    OutputFormat::Markdown,
+    Balanced,
+    Markdown,
     Some(format),
     @parser.default_ocr_options(),
     default_resource_limits(),
@@ -27,9 +27,9 @@ test "route probe metric vocabulary covers empty and structured signal branches"
   assert_eq(probe_signals_metric([]), "")
   assert_eq(probe_failures_metric([]), "")
   let signals = [
-    make_probe_signal(ProbeSignalKind::CellCount, 12),
-    make_probe_signal(ProbeSignalKind::ScalarCount, 4, limit=Some(10)),
-    make_probe_signal(ProbeSignalKind::ArrayCount, 2, note=Some("nested")),
+    make_probe_signal(CellCount, 12),
+    make_probe_signal(ScalarCount, 4, limit=Some(10)),
+    make_probe_signal(ArrayCount, 2, note=Some("nested")),
   ]
   let metric = probe_signals_metric(signals)
   assert_true(metric.contains("cell_count=12"))
@@ -46,14 +46,11 @@ test "route probe metric vocabulary covers empty and structured signal branches"
 
 ///|
 test "route policy rejects unsupported modes and keeps declared stream routes" {
-  let toml_source = text_markup_probe_source(
-    "title = \"demo\"\n",
-    @input.DetectedFormat::Toml,
-  )
+  let toml_source = text_markup_probe_source("title = \"demo\"\n", Toml)
   let accurate_toml = make_convert_options(
-    ConvertMode::Accurate,
-    OutputFormat::Markdown,
-    Some(@input.DetectedFormat::Toml),
+    Accurate,
+    Markdown,
+    Some(Toml),
     @parser.default_ocr_options(),
     default_resource_limits(),
   )
@@ -67,12 +64,12 @@ test "route policy rejects unsupported modes and keeps declared stream routes" {
 
   let pdf_source = @input.input_from_path_with_format(
     "samples/fixtures/contracts/pdf/text_simple.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
   let stream_pdf = make_convert_options(
-    ConvertMode::Stream,
-    OutputFormat::Markdown,
-    Some(@input.DetectedFormat::Pdf),
+    Stream,
+    Markdown,
+    Some(Pdf),
     @parser.default_ocr_options(),
     default_resource_limits(),
   )
@@ -84,14 +81,11 @@ test "route policy rejects unsupported modes and keeps declared stream routes" {
     Ok(_) => fail("unsupported PDF stream mode must fail closed")
   }
 
-  let json_source = text_markup_probe_source(
-    "{\"ok\":true}",
-    @input.DetectedFormat::Json,
-  )
+  let json_source = text_markup_probe_source("{\"ok\":true}", Json)
   let stream_json = make_convert_options(
-    ConvertMode::Stream,
-    OutputFormat::Markdown,
-    Some(@input.DetectedFormat::Json),
+    Stream,
+    Markdown,
+    Some(Json),
     @parser.default_ocr_options(),
     default_resource_limits(),
   )
@@ -108,22 +102,19 @@ test "route policy rejects unsupported modes and keeps declared stream routes" {
 test "text markup preflight probe reuses preparsed tex document artifact" {
   let source = text_markup_probe_source(
     "\\section{Intro}\n\nHello world.\n",
-    @input.DetectedFormat::Tex,
+    Tex,
   )
-  let options = balanced_markdown_options(@input.DetectedFormat::Tex)
+  let options = balanced_markdown_options(Tex)
   let plan = match detect_and_resolve_execution_plan(source, options) {
     Ok(value) => value.2
     Err(err) => fail(err.to_string())
   }
   assert_eq(plan.probe_artifacts.length(), 1)
-  let context = parse_context_from_execution_plan(
-    @input.DetectedFormat::Tex,
-    plan,
-  )
+  let context = parse_context_from_execution_plan(Tex, plan)
   let parsed = match
     parse_with_route_probe_artifact(
       plan.prepared_source,
-      @input.DetectedFormat::Tex,
+      Tex,
       context,
       @formats.builtin_registry(),
       plan.probe_artifacts,
@@ -134,7 +125,7 @@ test "text markup preflight probe reuses preparsed tex document artifact" {
   }
   let document = parsed.document.unwrap_or(@core.empty_document_ir())
   assert_true(document.blocks.length() >= 2)
-  assert_true(document.blocks[0].kind == @core.BlockKind::Heading)
+  assert_true(document.blocks[0].kind == Heading)
   assert_true(document.blocks[0].text.contains("Intro"))
 }
 
@@ -142,22 +133,19 @@ test "text markup preflight probe reuses preparsed tex document artifact" {
 test "text markup preflight probe reuses preparsed rst document artifact" {
   let source = text_markup_probe_source(
     "Title\n=====\n\nBody paragraph.\n",
-    @input.DetectedFormat::Rst,
+    Rst,
   )
-  let options = balanced_markdown_options(@input.DetectedFormat::Rst)
+  let options = balanced_markdown_options(Rst)
   let plan = match detect_and_resolve_execution_plan(source, options) {
     Ok(value) => value.2
     Err(err) => fail(err.to_string())
   }
   assert_eq(plan.probe_artifacts.length(), 1)
-  let context = parse_context_from_execution_plan(
-    @input.DetectedFormat::Rst,
-    plan,
-  )
+  let context = parse_context_from_execution_plan(Rst, plan)
   let parsed = match
     parse_with_route_probe_artifact(
       plan.prepared_source,
-      @input.DetectedFormat::Rst,
+      Rst,
       context,
       @formats.builtin_registry(),
       plan.probe_artifacts,
@@ -168,7 +156,7 @@ test "text markup preflight probe reuses preparsed rst document artifact" {
   }
   let document = parsed.document.unwrap_or(@core.empty_document_ir())
   assert_true(document.blocks.length() >= 2)
-  assert_true(document.blocks[0].kind == @core.BlockKind::Heading)
+  assert_true(document.blocks[0].kind == Heading)
   assert_true(document.blocks[1].text.contains("Body paragraph"))
 }
 
@@ -176,22 +164,19 @@ test "text markup preflight probe reuses preparsed rst document artifact" {
 test "text markup preflight probe reuses preparsed asciidoc document artifact" {
   let source = text_markup_probe_source(
     "= Title\n\nA short paragraph.\n",
-    @input.DetectedFormat::Asciidoc,
+    Asciidoc,
   )
-  let options = balanced_markdown_options(@input.DetectedFormat::Asciidoc)
+  let options = balanced_markdown_options(Asciidoc)
   let plan = match detect_and_resolve_execution_plan(source, options) {
     Ok(value) => value.2
     Err(err) => fail(err.to_string())
   }
   assert_eq(plan.probe_artifacts.length(), 1)
-  let context = parse_context_from_execution_plan(
-    @input.DetectedFormat::Asciidoc,
-    plan,
-  )
+  let context = parse_context_from_execution_plan(Asciidoc, plan)
   let parsed = match
     parse_with_route_probe_artifact(
       plan.prepared_source,
-      @input.DetectedFormat::Asciidoc,
+      Asciidoc,
       context,
       @formats.builtin_registry(),
       plan.probe_artifacts,
@@ -202,7 +187,7 @@ test "text markup preflight probe reuses preparsed asciidoc document artifact" {
   }
   let document = parsed.document.unwrap_or(@core.empty_document_ir())
   assert_true(document.blocks.length() >= 2)
-  assert_true(document.blocks[0].kind == @core.BlockKind::Heading)
+  assert_true(document.blocks[0].kind == Heading)
   assert_true(document.blocks[0].text.contains("Title"))
 }
 
@@ -210,22 +195,19 @@ test "text markup preflight probe reuses preparsed asciidoc document artifact" {
 test "pdf preflight probe reuses native document artifact on product parse path" {
   let source = @input.input_from_path_with_format(
     "samples/fixtures/contracts/pdf/text_simple.pdf",
-    Some(@input.DetectedFormat::Pdf),
+    Some(Pdf),
   )
-  let options = balanced_markdown_options(@input.DetectedFormat::Pdf)
+  let options = balanced_markdown_options(Pdf)
   let plan = match detect_and_resolve_execution_plan(source, options) {
     Ok(value) => value.2
     Err(err) => fail(err.to_string())
   }
   assert_eq(plan.probe_artifacts.length(), 1)
-  let context = parse_context_from_execution_plan(
-    @input.DetectedFormat::Pdf,
-    plan,
-  )
+  let context = parse_context_from_execution_plan(Pdf, plan)
   let parsed = match
     parse_with_route_probe_artifact(
       plan.prepared_source,
-      @input.DetectedFormat::Pdf,
+      Pdf,
       context,
       @formats.builtin_registry(),
       plan.probe_artifacts,
@@ -248,22 +230,19 @@ test "pdf preflight probe reuses native document artifact on product parse path"
 test "zip preflight probe reuses archive artifact on product parse path" {
   let source = @input.input_from_path_with_format(
     "samples/fixtures/contracts/zip/zip_assets_namespace.zip",
-    Some(@input.DetectedFormat::Zip),
+    Some(Zip),
   )
-  let options = balanced_markdown_options(@input.DetectedFormat::Zip)
+  let options = balanced_markdown_options(Zip)
   let plan = match detect_and_resolve_execution_plan(source, options) {
     Ok(value) => value.2
     Err(err) => fail(err.to_string())
   }
   assert_eq(plan.probe_artifacts.length(), 1)
-  let context = parse_context_from_execution_plan(
-    @input.DetectedFormat::Zip,
-    plan,
-  )
+  let context = parse_context_from_execution_plan(Zip, plan)
   let parsed = match
     parse_with_route_probe_artifact(
       plan.prepared_source,
-      @input.DetectedFormat::Zip,
+      Zip,
       context,
       @formats.builtin_registry(),
       plan.probe_artifacts,
@@ -285,22 +264,19 @@ test "zip preflight probe reuses archive artifact on product parse path" {
 test "epub preflight probe reuses package artifact on product parse path" {
   let source = @input.input_from_path_with_format(
     "samples/fixtures/contracts/epub/epub_basic_package.epub",
-    Some(@input.DetectedFormat::Epub),
+    Some(Epub),
   )
-  let options = balanced_markdown_options(@input.DetectedFormat::Epub)
+  let options = balanced_markdown_options(Epub)
   let plan = match detect_and_resolve_execution_plan(source, options) {
     Ok(value) => value.2
     Err(err) => fail(err.to_string())
   }
   assert_eq(plan.probe_artifacts.length(), 1)
-  let context = parse_context_from_execution_plan(
-    @input.DetectedFormat::Epub,
-    plan,
-  )
+  let context = parse_context_from_execution_plan(Epub, plan)
   let parsed = match
     parse_with_route_probe_artifact(
       plan.prepared_source,
-      @input.DetectedFormat::Epub,
+      Epub,
       context,
       @formats.builtin_registry(),
       plan.probe_artifacts,
@@ -321,39 +297,33 @@ test "epub preflight probe reuses package artifact on product parse path" {
 ///|
 test "structured text preflight probes expose signals and controlled failures" {
   let markdown = markdown_preflight_probe(
-    text_markup_probe_source(
-      "# Title\n\n- one\n- two\n",
-      @input.DetectedFormat::Markdown,
-    ),
-    balanced_markdown_options(@input.DetectedFormat::Markdown),
+    text_markup_probe_source("# Title\n\n- one\n- two\n", Markdown),
+    balanced_markdown_options(Markdown),
   )
   assert_true(markdown.probe_signals.length() >= 3)
   assert_true(markdown.probe_artifacts.length() == 1)
 
   let json = json_preflight_probe(
-    text_markup_probe_source("{\"a\":[1,2]}", @input.DetectedFormat::Json),
-    balanced_markdown_options(@input.DetectedFormat::Json),
+    text_markup_probe_source("{\"a\":[1,2]}", Json),
+    balanced_markdown_options(Json),
   )
   assert_eq(json.probe_signals.length(), 3)
   assert_eq(json.probe_artifacts.length(), 1)
   let invalid_json = json_preflight_probe(
-    text_markup_probe_source("{invalid", @input.DetectedFormat::Json),
-    balanced_markdown_options(@input.DetectedFormat::Json),
+    text_markup_probe_source("{invalid", Json),
+    balanced_markdown_options(Json),
   )
   assert_true(invalid_json.probe_failures.length() >= 1)
 
   let yaml = yaml_preflight_probe(
-    text_markup_probe_source(
-      "root:\n  items:\n    - one\n",
-      @input.DetectedFormat::Yaml,
-    ),
-    balanced_markdown_options(@input.DetectedFormat::Yaml),
+    text_markup_probe_source("root:\n  items:\n    - one\n", Yaml),
+    balanced_markdown_options(Yaml),
   )
   assert_eq(yaml.probe_signals.length(), 2)
   assert_eq(yaml.probe_artifacts.length(), 1)
   let invalid_yaml = yaml_preflight_probe(
-    text_markup_probe_source("root: [unterminated", @input.DetectedFormat::Yaml),
-    balanced_markdown_options(@input.DetectedFormat::Yaml),
+    text_markup_probe_source("root: [unterminated", Yaml),
+    balanced_markdown_options(Yaml),
   )
   assert_true(
     invalid_yaml.probe_failures.length() >= 1 ||
@@ -363,9 +333,9 @@ test "structured text preflight probes expose signals and controlled failures" {
   let toml = toml_preflight_probe(
     text_markup_probe_source(
       "title = \"Fixture\"\n[section]\nvalue = 1\n",
-      @input.DetectedFormat::Toml,
+      Toml,
     ),
-    balanced_markdown_options(@input.DetectedFormat::Toml),
+    balanced_markdown_options(Toml),
   )
   assert_eq(toml.probe_signals.length(), 2)
 }
@@ -374,38 +344,38 @@ test "structured text preflight probes expose signals and controlled failures" {
 test "notebook XML HTML and audio preflight probes cover normal and damaged inputs" {
   let ipynb_text = "{\"cells\":[{\"cell_type\":\"markdown\",\"metadata\":{},\"source\":[\"hello\"]}],\"metadata\":{},\"nbformat\":4,\"nbformat_minor\":5}"
   let ipynb = ipynb_preflight_probe(
-    text_markup_probe_source(ipynb_text, @input.DetectedFormat::Ipynb),
-    balanced_markdown_options(@input.DetectedFormat::Ipynb),
+    text_markup_probe_source(ipynb_text, Ipynb),
+    balanced_markdown_options(Ipynb),
   )
   assert_eq(ipynb.probe_signals.length(), 4)
   assert_eq(ipynb.probe_artifacts.length(), 1)
   let invalid_ipynb = ipynb_preflight_probe(
-    text_markup_probe_source("{invalid", @input.DetectedFormat::Ipynb),
-    balanced_markdown_options(@input.DetectedFormat::Ipynb),
+    text_markup_probe_source("{invalid", Ipynb),
+    balanced_markdown_options(Ipynb),
   )
   assert_true(invalid_ipynb.probe_failures.length() >= 1)
 
   let xml = xml_preflight_probe(
     text_markup_probe_source(
       "<?xml version=\"1.0\"?><root><item a=\"1\">text</item></root>",
-      @input.DetectedFormat::Xml,
+      Xml,
     ),
-    balanced_markdown_options(@input.DetectedFormat::Xml),
+    balanced_markdown_options(Xml),
   )
   assert_eq(xml.probe_signals.length(), 3)
   assert_eq(xml.probe_artifacts.length(), 1)
   let invalid_xml = xml_preflight_probe(
-    text_markup_probe_source("<root><item></root>", @input.DetectedFormat::Xml),
-    balanced_markdown_options(@input.DetectedFormat::Xml),
+    text_markup_probe_source("<root><item></root>", Xml),
+    balanced_markdown_options(Xml),
   )
   assert_true(invalid_xml.probe_failures.length() >= 1)
 
   let html = html_preflight_probe(
     text_markup_probe_source(
       "<!doctype html><main><section><p>text</p></section></main>",
-      @input.DetectedFormat::Html,
+      Html,
     ),
-    balanced_markdown_options(@input.DetectedFormat::Html),
+    balanced_markdown_options(Html),
   )
   assert_true(html.probe_signals.length() >= 4)
   assert_eq(html.probe_artifacts.length(), 1)
@@ -414,9 +384,9 @@ test "notebook XML HTML and audio preflight probes cover normal and damaged inpu
     @input.input_from_bytes_with_format(
       Bytes::from_array([]),
       "empty.wav",
-      Some(@input.DetectedFormat::Audio(@input.AudioFormat::Wav)),
+      Some(Audio(Wav)),
     ),
-    @input.DetectedFormat::Audio(@input.AudioFormat::Wav),
+    Audio(Wav),
   )
   assert_eq(audio.probe_failures.length(), 0)
   assert_true(audio.summary_parts.length() >= 1)
@@ -428,17 +398,11 @@ test "route rejects known input payloads above the configured byte limit" {
   let options = {
     ..default_convert_options(),
     limits,
-    explicit_format: Some(@input.DetectedFormat::Txt),
+    explicit_format: Some(Txt),
   }
   let source = @input.input_from_bytes(Bytes::from_array([1, 2, 3, 4]))
   match plan_input(source, options) {
-    Err(
-      ConvertError::ResourceLimitExceeded(
-        kind="input_bytes",
-        observed=4L,
-        limit=3L
-      )
-    ) => ()
+    Err(ResourceLimitExceeded(kind="input_bytes", observed=4L, limit=3L)) => ()
     Err(other) => fail("unexpected error: " + other.to_string())
     Ok(_) => fail("oversized input should fail before detection")
   }
@@ -450,10 +414,10 @@ test "route rejects path input by size before reading content" {
   let options = {
     ..default_convert_options(),
     limits,
-    explicit_format: Some(@input.DetectedFormat::Txt),
+    explicit_format: Some(Txt),
   }
   match plan_input(@input.input_from_path("input/README.md"), options) {
-    Err(ConvertError::ResourceLimitExceeded(kind~, observed~, limit~)) => {
+    Err(ResourceLimitExceeded(kind~, observed~, limit~)) => {
       assert_eq(kind, "input_bytes")
       assert_true(observed > 1L)
       assert_eq(limit, 1L)
@@ -466,10 +430,10 @@ test "route rejects path input by size before reading content" {
 ///|
 test "asset payload limits clear oversized payloads and remove markdown targets" {
   let first = {
-    ..@core.make_asset_ref(@core.AssetKind::Image, "large"),
+    ..@core.make_asset_ref(Image, "large"),
     path: Some("assets/large.bin"),
   }
-  first.payload = Some(@core.AssetPayload::Bytes(Bytes::new(5)))
+  first.payload = Some(Bytes(Bytes::new(5)))
   let diagnostics = @core.empty_diagnostics()
   let limits = make_resource_limits(
     2000,

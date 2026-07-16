@@ -1,13 +1,13 @@
 ///|
 fn markdown_group_key(block : @dmd.MarkdownBlock) -> String {
   match block.kind {
-    @dmd.MarkdownBlockKind::ListItem =>
+    ListItem =>
       if markdown_list_is_ordered(block.raw_text) {
         "list:ordered"
       } else {
         "list:unordered"
       }
-    @dmd.MarkdownBlockKind::BlockQuote => "blockquote"
+    BlockQuote => "blockquote"
     _ => "single:" + markdown_block_kind_name(block.kind)
   }
 }
@@ -22,7 +22,7 @@ fn markdown_lowered_blocks_for_mode(
   let lowering_mode = if block_stream_mode {
     MarkdownLoweringMode::BlockStreamingLight
   } else {
-    MarkdownLoweringMode::DomAstLight
+    DomAstLight
   }
   let lowered = markdown_blocks_from_scanned_document(
     scanned, source, diagnostics, lowering_mode,
@@ -94,8 +94,7 @@ fn markdown_blocks_from_scanned_document(
 ) -> Array[@core.CoreBlock] {
   let blocks : Array[@core.CoreBlock] = []
   let image_asset_index : Ref[Int] = { val: 0 }
-  let defined_footnotes = if lowering_mode ==
-    MarkdownLoweringMode::BlockStreamingLight &&
+  let defined_footnotes = if lowering_mode == BlockStreamingLight &&
     !markdown_blocks_may_define_footnotes(scanned.blocks) {
     Map([])
   } else {
@@ -121,7 +120,7 @@ fn markdown_blocks_from_scanned_document(
       diagnostics.metrics.set("frontmatter_closed", "false")
     }
   }
-  if lowering_mode == MarkdownLoweringMode::BlockStreamingLight {
+  if lowering_mode == BlockStreamingLight {
     let block_groups = markdown_group_scanned_blocks(scanned.blocks)
     for group in block_groups {
       for
@@ -210,7 +209,7 @@ fn markdown_group_scanned_blocks(
   }
 
   for block in blocks {
-    if block.kind == @dmd.MarkdownBlockKind::BlankLine {
+    if block.kind == BlankLine {
       current_key = flush_group(groups, current, current_key)
       continue
     }
@@ -240,7 +239,7 @@ fn markdown_scanned_group_to_core_blocks_next(
   }
   let first_block = group[0]
   match first_block.kind {
-    @dmd.MarkdownBlockKind::ListItem =>
+    ListItem =>
       [
         markdown_list_group_to_block_next(
           group,
@@ -251,7 +250,7 @@ fn markdown_scanned_group_to_core_blocks_next(
           base_source_ref~,
         ),
       ]
-    @dmd.MarkdownBlockKind::BlockQuote =>
+    BlockQuote =>
       [
         markdown_blockquote_group_to_block_next(
           group,
@@ -262,7 +261,7 @@ fn markdown_scanned_group_to_core_blocks_next(
           base_source_ref~,
         ),
       ]
-    @dmd.MarkdownBlockKind::HtmlBlockCandidate =>
+    HtmlBlockCandidate =>
       [
         markdown_html_group_to_block_next(
           group,
@@ -272,7 +271,7 @@ fn markdown_scanned_group_to_core_blocks_next(
           base_source_ref~,
         ),
       ]
-    @dmd.MarkdownBlockKind::TableLikeRow =>
+    TableLikeRow =>
       [
         markdown_table_group_to_block_next(
           group,
@@ -312,7 +311,7 @@ fn markdown_prepare_lowering_items(
         let mut j = i + 1
         while j < blocks.length() {
           let next = blocks[j]
-          if next.kind == @dmd.MarkdownBlockKind::BlankLine {
+          if next.kind == BlankLine {
             match markdown_next_non_blank_block_index(blocks, j + 1) {
               Some(next_index) =>
                 if markdown_block_belongs_to_footnote_definition(
@@ -336,11 +335,11 @@ fn markdown_prepare_lowering_items(
             break
           }
         }
-        out.push(MarkdownLoweringItem::FootnoteDefinition(block, continuation))
+        out.push(FootnoteDefinition(block, continuation))
         i = j
       }
       None => {
-        out.push(MarkdownLoweringItem::Scanned(block))
+        out.push(Scanned(block))
         i += 1
       }
     }
@@ -390,17 +389,16 @@ fn group_markdown_lowering_items(
 ///|
 fn markdown_lowering_item_is_blank(item : MarkdownLoweringItem) -> Bool {
   match item {
-    MarkdownLoweringItem::Scanned(block) =>
-      block.kind == @dmd.MarkdownBlockKind::BlankLine
-    MarkdownLoweringItem::FootnoteDefinition(_, _) => false
+    Scanned(block) => block.kind == BlankLine
+    FootnoteDefinition(_, _) => false
   }
 }
 
 ///|
 fn markdown_lowering_item_group_key(item : MarkdownLoweringItem) -> String {
   match item {
-    MarkdownLoweringItem::FootnoteDefinition(_, _) => "footnote_definition"
-    MarkdownLoweringItem::Scanned(block) => markdown_group_key(block)
+    FootnoteDefinition(_, _) => "footnote_definition"
+    Scanned(block) => markdown_group_key(block)
   }
 }
 
@@ -419,9 +417,9 @@ fn markdown_frontmatter_block(
     ),
     "/frontmatter",
   )
-  let block = @core.make_block(@core.BlockKind::Raw, value.content, source_ref~)
+  let block = @core.make_block(Raw, value.content, source_ref~)
   let marker = match value.kind {
-    @dmd.MarkdownFrontmatterKind::Toml => "+++"
+    Toml => "+++"
     _ => "---"
   }
   block.attrs.set("raw_kind", "markdown_frontmatter")
@@ -449,7 +447,7 @@ fn markdown_group_to_core_blocks_next(
   }
   let first = group[0]
   match first {
-    MarkdownLoweringItem::FootnoteDefinition(_, _) =>
+    FootnoteDefinition(_, _) =>
       markdown_footnote_group_to_core_blocks_next(
         group,
         source,
@@ -459,10 +457,10 @@ fn markdown_group_to_core_blocks_next(
         lowering_mode,
         base_source_ref~,
       )
-    MarkdownLoweringItem::Scanned(first_block) => {
+    Scanned(first_block) => {
       let scanned_group = group.map(item => markdown_lowering_item_block(item))
       match first_block.kind {
-        @dmd.MarkdownBlockKind::ListItem =>
+        ListItem =>
           [
             markdown_list_group_to_block_next(
               scanned_group,
@@ -473,7 +471,7 @@ fn markdown_group_to_core_blocks_next(
               base_source_ref~,
             ),
           ]
-        @dmd.MarkdownBlockKind::BlockQuote =>
+        BlockQuote =>
           [
             markdown_blockquote_group_to_block_next(
               scanned_group,
@@ -484,7 +482,7 @@ fn markdown_group_to_core_blocks_next(
               base_source_ref~,
             ),
           ]
-        @dmd.MarkdownBlockKind::HtmlBlockCandidate =>
+        HtmlBlockCandidate =>
           [
             markdown_html_group_to_block_next(
               scanned_group,
@@ -494,7 +492,7 @@ fn markdown_group_to_core_blocks_next(
               base_source_ref~,
             ),
           ]
-        @dmd.MarkdownBlockKind::TableLikeRow =>
+        TableLikeRow =>
           [
             markdown_table_group_to_block_next(
               scanned_group,
@@ -526,8 +524,8 @@ fn markdown_lowering_item_block(
   item : MarkdownLoweringItem,
 ) -> @dmd.MarkdownBlock {
   match item {
-    MarkdownLoweringItem::Scanned(block) => block
-    MarkdownLoweringItem::FootnoteDefinition(block, _) => block
+    Scanned(block) => block
+    FootnoteDefinition(block, _) => block
   }
 }
 
@@ -546,7 +544,7 @@ fn markdown_footnote_group_to_core_blocks_next(
   let out : Array[@core.CoreBlock] = []
   for item in group {
     match item {
-      MarkdownLoweringItem::FootnoteDefinition(head, continuation) =>
+      FootnoteDefinition(head, continuation) =>
         out.push(
           markdown_footnote_definition_block(
             head,
@@ -556,7 +554,7 @@ fn markdown_footnote_group_to_core_blocks_next(
             base_source_ref~,
           ),
         )
-      MarkdownLoweringItem::Scanned(block) =>
+      Scanned(block) =>
         out.push(
           markdown_single_block_to_core_block_next(
             block,
@@ -638,9 +636,9 @@ fn markdown_single_block_to_core_block_next(
 ) -> @core.CoreBlock {
   let source_ref = markdown_source_ref(block, source, base_source_ref~)
   match block.kind {
-    @dmd.MarkdownBlockKind::HeadingAtx => {
+    HeadingAtx => {
       let heading = @core.make_block(
-        @core.BlockKind::Heading,
+        Heading,
         strip_markdown_heading(block.raw_text),
         source_ref~,
       )
@@ -650,9 +648,9 @@ fn markdown_single_block_to_core_block_next(
       )
       heading
     }
-    @dmd.MarkdownBlockKind::HeadingSetext => {
+    HeadingSetext => {
       let heading = @core.make_block(
-        @core.BlockKind::Heading,
+        Heading,
         strip_setext_heading(block.raw_text),
         source_ref~,
       )
@@ -662,9 +660,9 @@ fn markdown_single_block_to_core_block_next(
       )
       heading
     }
-    @dmd.MarkdownBlockKind::FencedCode => {
+    FencedCode => {
       let code = @core.make_block(
-        @core.BlockKind::Code,
+        Code,
         strip_fence_block_content(block.raw_text),
         source_ref~,
       )
@@ -680,26 +678,26 @@ fn markdown_single_block_to_core_block_next(
       }
       code
     }
-    @dmd.MarkdownBlockKind::ThematicBreak => {
+    ThematicBreak => {
       let raw = @core.make_block(
-        @core.BlockKind::Raw,
+        Raw,
         block.raw_text.trim().to_owned(),
         source_ref~,
       )
       raw.attrs.set("raw_kind", "markdown_thematic_break")
       raw
     }
-    @dmd.MarkdownBlockKind::HtmlBlockCandidate =>
+    HtmlBlockCandidate =>
       markdown_html_literal_block(block, source_ref, diagnostics, lowering_mode)
-    @dmd.MarkdownBlockKind::TableLikeRow =>
+    TableLikeRow =>
       markdown_table_literal_block(
         block, source_ref, diagnostics, lowering_mode,
       )
-    @dmd.MarkdownBlockKind::ParagraphLike =>
+    ParagraphLike =>
       markdown_paragraph_block(
         block, source_ref, diagnostics, image_asset_index, defined_footnotes, lowering_mode,
       )
-    @dmd.MarkdownBlockKind::Other =>
+    Other =>
       markdown_literal_block(block.raw_text, source_ref, "markdown_literal")
     _ => markdown_literal_block(block.raw_text, source_ref, "markdown_literal")
   }
@@ -711,7 +709,7 @@ fn markdown_literal_block(
   source_ref : @core.SourceRef,
   raw_kind : String,
 ) -> @core.CoreBlock {
-  let block = @core.make_block(@core.BlockKind::Raw, text, source_ref~)
+  let block = @core.make_block(Raw, text, source_ref~)
   block.attrs.set("raw_kind", raw_kind)
   block
 }
@@ -731,7 +729,7 @@ fn markdown_html_group_to_block_next(
     base_source_ref~,
   )
   let text = group.map(block => block.raw_text).join("\n")
-  if lowering_mode == MarkdownLoweringMode::BlockStreamingLight {
+  if lowering_mode == BlockStreamingLight {
     diagnostics.same_mode_degradation.push(
       "markdown_block_stream_html_literal_preserved",
     )
@@ -756,7 +754,7 @@ fn markdown_html_literal_block(
   diagnostics : @core.Diagnostics,
   lowering_mode : MarkdownLoweringMode,
 ) -> @core.CoreBlock {
-  if lowering_mode == MarkdownLoweringMode::BlockStreamingLight {
+  if lowering_mode == BlockStreamingLight {
     diagnostics.same_mode_degradation.push(
       "markdown_block_stream_html_literal_preserved",
     )

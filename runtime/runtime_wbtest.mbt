@@ -6,29 +6,29 @@ test "runtime converts every parse result public IR shape" {
     parse_result_to_ir_input(
       @parser.parse_result_with_document(
         "document",
-        @parser.ParserMode::DomAstModel,
+        DomAstModel,
         document,
         diagnostics,
       ),
     ) {
-    @core.IRInput::Document(_) => ()
+    Document(_) => ()
     _ => fail("expected document IR")
   }
-  let block = @core.make_block(@core.BlockKind::Paragraph, "block")
+  let block = @core.make_block(Paragraph, "block")
   match
     parse_result_to_ir_input(
       @parser.parse_result_with_blocks(
         "blocks",
-        @parser.ParserMode::BlockStreaming,
+        BlockStreaming,
         [block],
         diagnostics,
       ),
     ) {
-    @core.IRInput::BlockStream(blocks) => assert_eq(blocks.length(), 1)
+    BlockStream(blocks) => assert_eq(blocks.length(), 1)
     _ => fail("expected block stream")
   }
   let event : @core.CoreEvent = {
-    kind: @core.EventKind::TextLine,
+    kind: TextLine,
     text: "event",
     source_ref: None,
   }
@@ -36,12 +36,12 @@ test "runtime converts every parse result public IR shape" {
     parse_result_to_ir_input(
       @parser.parse_result_with_events(
         "events",
-        @parser.ParserMode::StreamingEvent,
+        StreamingEvent,
         [event],
         diagnostics,
       ),
     ) {
-    @core.IRInput::EventStream(events) => assert_eq(events.length(), 1)
+    EventStream(events) => assert_eq(events.length(), 1)
     _ => fail("expected event stream")
   }
 }
@@ -81,17 +81,17 @@ test "runtime diagnostics merge supports unique and append semantics" {
 fn runtime_document_parser(name : String) -> @parser.Parser {
   @parser.make_parser(
     name,
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     @parser.parser_capability(false, false, true),
     fn(_, _) {
       let document = {
         ..@core.empty_document_ir(),
-        blocks: [@core.make_block(@core.BlockKind::Paragraph, "document")],
+        blocks: [@core.make_block(Paragraph, "document")],
       }
       Ok(
         @parser.parse_result_with_document(
           name,
-          @parser.ParserMode::DomAstModel,
+          DomAstModel,
           document,
           @core.empty_diagnostics(),
         ),
@@ -104,14 +104,14 @@ fn runtime_document_parser(name : String) -> @parser.Parser {
 fn runtime_block_parser(name : String) -> @parser.Parser {
   @parser.make_parser(
     name,
-    @parser.ParserMode::BlockStreaming,
+    BlockStreaming,
     @parser.parser_capability(false, true, true),
     fn(_, _) {
       Ok(
         @parser.parse_result_with_blocks(
           name,
-          @parser.ParserMode::BlockStreaming,
-          [@core.make_block(@core.BlockKind::Paragraph, "block")],
+          BlockStreaming,
+          [@core.make_block(Paragraph, "block")],
           @core.empty_diagnostics(),
         ),
       )
@@ -122,21 +122,13 @@ fn runtime_block_parser(name : String) -> @parser.Parser {
 ///|
 test "runtime child parsing prefers predecoded block stream for markup" {
   let registry = @parser.empty_registry()
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Html,
-    runtime_document_parser("document"),
-  )
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Html,
-    runtime_block_parser("blocks"),
-  )
+  @parser.registry_register(registry, Html, runtime_document_parser("document"))
+  @parser.registry_register(registry, Html, runtime_block_parser("blocks"))
   let product = parse_child_to_block_product(
     registry,
     @input.input_from_text("<p>fixture</p>"),
-    @input.DetectedFormat::Html,
-    @parser.new_parse_context(@input.DetectedFormat::Zip),
+    Html,
+    @parser.new_parse_context(Zip),
   ).unwrap()
   assert_eq(product.blocks.length(), 1)
   assert_eq(product.blocks[0].text, "block")
@@ -157,33 +149,29 @@ test "runtime child parsing prefers predecoded block stream for markup" {
 ///|
 test "runtime child parsing builds events and preserves document fast path" {
   let registry = @parser.empty_registry()
-  @parser.registry_register(
-    registry,
-    @input.DetectedFormat::Json,
-    runtime_document_parser("document"),
-  )
+  @parser.registry_register(registry, Json, runtime_document_parser("document"))
   let document = parse_child_to_document(
     registry,
     @input.input_from_text("{}"),
-    @input.DetectedFormat::Json,
-    @parser.new_parse_context(@input.DetectedFormat::Zip),
+    Json,
+    @parser.new_parse_context(Zip),
   ).unwrap()
   assert_eq(document.blocks[0].text, "document")
 
   let event_parser = @parser.make_parser(
     "events",
-    @parser.ParserMode::StreamingEvent,
+    StreamingEvent,
     @parser.parser_capability(true, false, false),
     fn(_, _) {
       let event : @core.CoreEvent = {
-        kind: @core.EventKind::TextLine,
+        kind: TextLine,
         text: "event child",
         source_ref: Some(@core.empty_source_ref()),
       }
       Ok(
         @parser.parse_result_with_events(
           "events",
-          @parser.ParserMode::StreamingEvent,
+          StreamingEvent,
           [event],
           @core.empty_diagnostics(),
         ),
@@ -191,16 +179,12 @@ test "runtime child parsing builds events and preserves document fast path" {
     },
   )
   let event_registry = @parser.empty_registry()
-  @parser.registry_register(
-    event_registry,
-    @input.DetectedFormat::Txt,
-    event_parser,
-  )
+  @parser.registry_register(event_registry, Txt, event_parser)
   let product = parse_child_to_block_product(
     event_registry,
     @input.input_from_text("event child"),
-    @input.DetectedFormat::Txt,
-    @parser.new_parse_context(@input.DetectedFormat::Zip),
+    Txt,
+    @parser.new_parse_context(Zip),
   ).unwrap()
   assert_eq(product.blocks[0].text, "event child")
   assert_true(
@@ -213,53 +197,34 @@ test "runtime child parsing builds events and preserves document fast path" {
 test "runtime child parsing propagates missing parser errors and mode options" {
   let registry = @parser.empty_registry()
   let source = @input.input_from_text("fixture")
-  let context = @parser.new_parse_context(@input.DetectedFormat::Zip)
-  let blocks = parse_child_to_block_product(
-    registry,
-    source,
-    @input.DetectedFormat::Markdown,
-    context,
-  )
+  let context = @parser.new_parse_context(Zip)
+  let blocks = parse_child_to_block_product(registry, source, Markdown, context)
   let block_error = match blocks {
     Err(message) => message.contains("no parser registered")
     Ok(_) => false
   }
   assert_true(block_error)
-  let document = parse_child_to_document(
-    registry,
-    source,
-    @input.DetectedFormat::Txt,
-    context,
-  )
+  let document = parse_child_to_document(registry, source, Txt, context)
   let document_error = match document {
     Err(message) => message.contains("no parser registered")
     Ok(_) => false
   }
   assert_true(document_error)
-  assert_true(
-    child_format_prefers_block_stream_text_markup(
-      @input.DetectedFormat::Markdown,
-    ),
-  )
+  assert_true(child_format_prefers_block_stream_text_markup(Markdown))
   let stream_context = @parser.parse_context_with_limits(
     context,
-    Some(@parser.ParserMode::BlockStreaming),
+    Some(BlockStreaming),
     None,
     None,
     None,
     None,
     false,
   )
-  assert_true(
-    child_product_options(stream_context).mode == @product.ConvertMode::Stream,
-  )
+  assert_true(child_product_options(stream_context).mode == Stream)
   let accurate_context = @parser.parse_context_with_product_modes(
     context,
-    @product.FidelityMode::Accurate,
-    @product.OutputMode::Markdown,
+    Accurate,
+    Markdown,
   )
-  assert_true(
-    child_product_options(accurate_context).mode ==
-    @product.ConvertMode::Accurate,
-  )
+  assert_true(child_product_options(accurate_context).mode == Accurate)
 }

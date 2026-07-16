@@ -1,17 +1,17 @@
 ///|
 test "TOML parser classifies complete fail-closed taxonomy" {
   let cases : Array[(TomlError, TomlErrorKind)] = [
-    (ParseError("unexpected end"), TomlErrorKind::UnexpectedEnd),
-    (ParseError("trailing content"), TomlErrorKind::TrailingContent),
-    (ParseError("duplicate key x"), TomlErrorKind::DuplicateKey),
-    (ParseError("invalid header"), TomlErrorKind::InvalidHeader),
-    (ParseError("invalid key"), TomlErrorKind::InvalidKey),
-    (ParseError("invalid escape"), TomlErrorKind::InvalidEscape),
-    (ParseError("unterminated string"), TomlErrorKind::InvalidString),
-    (ParseError("invalid value"), TomlErrorKind::InvalidValue),
-    (ParseError("expected character"), TomlErrorKind::ExpectedToken),
-    (ParseError("unsupported token"), TomlErrorKind::UnsupportedFeature),
-    (ParseError("other"), TomlErrorKind::Unknown),
+    (ParseError("unexpected end"), UnexpectedEnd),
+    (ParseError("trailing content"), TrailingContent),
+    (ParseError("duplicate key x"), DuplicateKey),
+    (ParseError("invalid header"), InvalidHeader),
+    (ParseError("invalid key"), InvalidKey),
+    (ParseError("invalid escape"), InvalidEscape),
+    (ParseError("unterminated string"), InvalidString),
+    (ParseError("invalid value"), InvalidValue),
+    (ParseError("expected character"), ExpectedToken),
+    (ParseError("unsupported token"), UnsupportedFeature),
+    (ParseError("other"), Unknown),
   ]
   for pair in cases {
     let (error, expected) = pair

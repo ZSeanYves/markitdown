@@ -2,7 +2,7 @@
 pub fn asciidoc_parser() -> @parser.Parser {
   @parser.make_parser(
     "asciidoc_parser",
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     @fshared.text_markup_parser_capability(),
     fn(
       source : @input.InputSource,
@@ -22,7 +22,7 @@ pub fn asciidoc_text_markup_hooks() -> @fshared.TextMarkupHooks {
   @fshared.make_text_markup_hooks(
     "asciidoc_parser",
     "asciidoc",
-    @dmark.TextMarkupFormat::Asciidoc,
+    Asciidoc,
     fn(text : String) { @dmark.parse_asciidoc_document(text) },
     asciidoc_semantic_quote_text,
     asciidoc_semantic_block,
@@ -62,9 +62,9 @@ fn asciidoc_semantic_raw_block(
       return Some(
         @core.block_with_attr(
           @fshared.text_markup_block_with_inlines(
-            @core.make_block(@core.BlockKind::Paragraph, text, source_ref~),
+            @core.make_block(Paragraph, text, source_ref~),
             text,
-            @dmark.TextMarkupFormat::Asciidoc,
+            Asciidoc,
           ),
           "literal",
           "true",
@@ -79,9 +79,9 @@ fn asciidoc_semantic_raw_block(
       return Some(
         @core.block_with_attr(
           @fshared.text_markup_block_with_inlines(
-            @core.make_block(@core.BlockKind::Paragraph, text, source_ref~),
+            @core.make_block(Paragraph, text, source_ref~),
             text,
-            @dmark.TextMarkupFormat::Asciidoc,
+            Asciidoc,
           ),
           "literal",
           "true",
@@ -106,30 +106,16 @@ fn asciidoc_semantic_block(
       } else {
         "Include: " + target
       }
-      let paragraph = @core.make_block(
-        @core.BlockKind::Paragraph,
-        text,
-        source_ref~,
-      )
+      let paragraph = @core.make_block(Paragraph, text, source_ref~)
       paragraph.attrs.set("literal", "true")
       paragraph.attrs.set("semantic_label", "Include")
       paragraph.attrs.set("semantic_family", "asciidoc")
       paragraph.attrs.set("semantic_display", "include")
-      Some(
-        @fshared.text_markup_block_with_inlines(
-          paragraph,
-          text,
-          @dmark.TextMarkupFormat::Asciidoc,
-        ),
-      )
+      Some(@fshared.text_markup_block_with_inlines(paragraph, text, Asciidoc))
     }
     Some("quote") => {
       let text = asciidoc_semantic_quote_text(block, "asciidoc")
-      let quote = @core.make_block(
-        @core.BlockKind::BlockQuote,
-        text,
-        source_ref~,
-      )
+      let quote = @core.make_block(BlockQuote, text, source_ref~)
       quote.attrs.set("literal", "true")
       quote.attrs.set("semantic_label", "Quote")
       quote.attrs.set("semantic_family", "asciidoc")
@@ -137,21 +123,11 @@ fn asciidoc_semantic_block(
         "semantic_display",
         block.meta.get("quote_label").unwrap_or("QUOTE"),
       )
-      Some(
-        @fshared.text_markup_block_with_inlines(
-          quote,
-          text,
-          @dmark.TextMarkupFormat::Asciidoc,
-        ),
-      )
+      Some(@fshared.text_markup_block_with_inlines(quote, text, Asciidoc))
     }
     Some("admonition") => {
       let text = asciidoc_semantic_quote_text(block, "asciidoc")
-      let quote = @core.make_block(
-        @core.BlockKind::BlockQuote,
-        text,
-        source_ref~,
-      )
+      let quote = @core.make_block(BlockQuote, text, source_ref~)
       quote.attrs.set("literal", "true")
       quote.attrs.set("semantic_label", "Admonition")
       quote.attrs.set("semantic_family", "asciidoc")
@@ -159,16 +135,10 @@ fn asciidoc_semantic_block(
         "semantic_display",
         block.meta.get("quote_label").unwrap_or("NOTE"),
       )
-      Some(
-        @fshared.text_markup_block_with_inlines(
-          quote,
-          text,
-          @dmark.TextMarkupFormat::Asciidoc,
-        ),
-      )
+      Some(@fshared.text_markup_block_with_inlines(quote, text, Asciidoc))
     }
     Some("image") => {
-      let image = @core.make_block(@core.BlockKind::Image, "", source_ref~)
+      let image = @core.make_block(Image, "", source_ref~)
       let target = block.meta.get("image_target").unwrap_or("")
       image.attrs.set("src", target)
       image.attrs.set("alt", block.meta.get("image_alt").unwrap_or("image"))

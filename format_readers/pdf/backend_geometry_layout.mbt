@@ -106,39 +106,38 @@ fn pdf_parse_tounicode_cmap_info(cmap_text : String) -> PdfToUnicodeCMapInfo {
   let mut index = 0
   while index < tokens.length() {
     match tokens[index] {
-      PdfNativeContentToken::Word("begincodespacerange") => {
+      Word("begincodespacerange") => {
         in_codespacerange = true
         in_bfchar = false
         in_bfrange = false
       }
-      PdfNativeContentToken::Word("endcodespacerange") =>
-        in_codespacerange = false
-      PdfNativeContentToken::Word("beginbfchar") => {
+      Word("endcodespacerange") => in_codespacerange = false
+      Word("beginbfchar") => {
         in_codespacerange = false
         in_bfchar = true
         in_bfrange = false
       }
-      PdfNativeContentToken::Word("endbfchar") => in_bfchar = false
-      PdfNativeContentToken::Word("beginbfrange") => {
+      Word("endbfchar") => in_bfchar = false
+      Word("beginbfrange") => {
         in_codespacerange = false
         in_bfchar = false
         in_bfrange = true
       }
-      PdfNativeContentToken::Word("endbfrange") => in_bfrange = false
-      PdfNativeContentToken::Name(name) =>
+      Word("endbfrange") => in_bfrange = false
+      Name(name) =>
         if index + 1 < tokens.length() {
           match tokens[index + 1] {
-            PdfNativeContentToken::Word("usecmap") => {
+            Word("usecmap") => {
               usecmap_name = Some(name)
               index += 1
             }
             _ => ()
           }
         }
-      PdfNativeContentToken::HexString(start_hex) if in_codespacerange =>
+      HexString(start_hex) if in_codespacerange =>
         if index + 1 < tokens.length() {
           match tokens[index + 1] {
-            PdfNativeContentToken::HexString(_end_hex) => {
+            HexString(_end_hex) => {
               let width = start_hex.length() / 2
               if width > 0 {
                 widths.set(width, true)
@@ -148,10 +147,10 @@ fn pdf_parse_tounicode_cmap_info(cmap_text : String) -> PdfToUnicodeCMapInfo {
             _ => ()
           }
         }
-      PdfNativeContentToken::HexString(src) if in_bfchar =>
+      HexString(src) if in_bfchar =>
         if index + 1 < tokens.length() {
           match tokens[index + 1] {
-            PdfNativeContentToken::HexString(dst) => {
+            HexString(dst) => {
               let width = src.length() / 2
               if width > 0 {
                 widths.set(width, true)
@@ -167,17 +166,14 @@ fn pdf_parse_tounicode_cmap_info(cmap_text : String) -> PdfToUnicodeCMapInfo {
             _ => ()
           }
         }
-      PdfNativeContentToken::HexString(start_hex) if in_bfrange =>
+      HexString(start_hex) if in_bfrange =>
         if index + 2 < tokens.length() {
           let start_width = start_hex.length() / 2
           if start_width > 0 {
             widths.set(start_width, true)
           }
           match (tokens[index + 1], tokens[index + 2]) {
-            (
-              PdfNativeContentToken::HexString(end_hex),
-              PdfNativeContentToken::HexString(base_hex),
-            ) =>
+            (HexString(end_hex), HexString(base_hex)) =>
               pdf_apply_tounicode_bfrange(
                 mapping,
                 invalid_keys,
@@ -186,10 +182,7 @@ fn pdf_parse_tounicode_cmap_info(cmap_text : String) -> PdfToUnicodeCMapInfo {
                 base_hex,
                 None,
               )
-            (
-              PdfNativeContentToken::HexString(end_hex),
-              PdfNativeContentToken::Array(items),
-            ) =>
+            (HexString(end_hex), Array(items)) =>
               pdf_apply_tounicode_bfrange(
                 mapping,
                 invalid_keys,
@@ -242,7 +235,7 @@ fn pdf_apply_tounicode_bfrange(
               break
             }
             match item {
-              PdfNativeContentToken::HexString(value_hex) => {
+              HexString(value_hex) => {
                 let value = pdf_hex_to_string(value_hex).unwrap_or("")
                 if pdf_is_usable_tounicode_text(value) {
                   mapping.set(pdf_hex_upper(cursor, start_hex.length()), value)
@@ -373,13 +366,13 @@ fn pdf_font_aliases_from_resources_text(
     Some(entries) =>
       for entry in entries {
         match entry.1 {
-          PdfNativeDictValue::Reference(object_id, generation) => {
+          Reference(object_id, generation) => {
             ignore(generation)
             if entry.0.has_prefix("/") && entry.0.length() > 1 {
               aliases.set(entry.0[1:].to_owned(), object_id)
             }
           }
-          PdfNativeDictValue::Dict(inline_font_dict) =>
+          Dict(inline_font_dict) =>
             match inline_font_ids.get(inline_font_dict) {
               Some(object_id) =>
                 if entry.0.has_prefix("/") && entry.0.length() > 1 {
@@ -488,7 +481,7 @@ fn pdf_extract_info_metadata(
       Some(value) if value.trim() != "" =>
         metadata.set(
           key[1:].to_owned().to_lower(),
-          @core.JsonValue::String(pdf_normalize_pdf_text(value)),
+          String(pdf_normalize_pdf_text(value)),
         )
       _ => ()
     }
@@ -659,7 +652,7 @@ fn pdf_collect_xref_follow_offsets(trailer_text : String) -> Array[Int] {
 ///|
 fn pdf_object_is_page(object : PdfNativeObject) -> Bool {
   match pdf_extract_dict_value(object.dict_text, "/Type") {
-    Some(PdfNativeDictValue::Name("Page")) => true
+    Some(Name("Page")) => true
     _ => false
   }
 }
@@ -667,7 +660,7 @@ fn pdf_object_is_page(object : PdfNativeObject) -> Bool {
 ///|
 fn pdf_object_is_pages_node(object : PdfNativeObject) -> Bool {
   match pdf_extract_dict_value(object.dict_text, "/Type") {
-    Some(PdfNativeDictValue::Name("Pages")) => true
+    Some(Name("Pages")) => true
     _ => false
   }
 }
@@ -675,7 +668,7 @@ fn pdf_object_is_pages_node(object : PdfNativeObject) -> Bool {
 ///|
 fn pdf_extract_object_reference_after(text : String, key : String) -> Int? {
   match pdf_extract_dict_value(text, key) {
-    Some(PdfNativeDictValue::Reference(object_id, generation)) => {
+    Some(Reference(object_id, generation)) => {
       ignore(generation)
       Some(object_id)
     }
@@ -690,11 +683,11 @@ fn pdf_extract_object_references_after(
 ) -> Array[Int] {
   let refs : Array[Int] = []
   match pdf_extract_dict_value(text, key) {
-    Some(PdfNativeDictValue::Reference(object_id, generation)) => {
+    Some(Reference(object_id, generation)) => {
       ignore(generation)
       refs.push(object_id)
     }
-    Some(PdfNativeDictValue::Array(tokens)) =>
+    Some(Array(tokens)) =>
       refs.append(pdf_collect_reference_ids_from_tokens(tokens)[:])
     _ => ()
   }
@@ -708,7 +701,7 @@ fn pdf_extract_resolved_object_references_after(
   object_index : Map[Int, PdfNativeObject],
 ) -> Array[Int] {
   match pdf_extract_dict_value(text, key) {
-    Some(PdfNativeDictValue::Reference(object_id, generation)) => {
+    Some(Reference(object_id, generation)) => {
       ignore(generation)
       match object_index.get(object_id) {
         Some(object) => {
@@ -722,8 +715,7 @@ fn pdf_extract_resolved_object_references_after(
         None => [object_id]
       }
     }
-    Some(PdfNativeDictValue::Array(tokens)) =>
-      pdf_collect_reference_ids_from_tokens(tokens)
+    Some(Array(tokens)) => pdf_collect_reference_ids_from_tokens(tokens)
     _ => []
   }
 }
@@ -740,8 +732,7 @@ fn pdf_reference_ids_from_object_text(text : String) -> Array[Int] {
   }
   if tokens.length() == 1 {
     match tokens[0] {
-      PdfNativeContentToken::Array(items) =>
-        return pdf_collect_reference_ids_from_tokens(items)
+      Array(items) => return pdf_collect_reference_ids_from_tokens(items)
       _ => ()
     }
   }
@@ -765,7 +756,7 @@ fn pdf_catalog_object_fallback(
 ///|
 fn pdf_extract_name_after(text : String, key : String) -> String? {
   match pdf_extract_dict_value(text, key) {
-    Some(PdfNativeDictValue::Name(value)) => Some(value)
+    Some(Name(value)) => Some(value)
     _ => None
   }
 }
@@ -773,13 +764,13 @@ fn pdf_extract_name_after(text : String, key : String) -> String? {
 ///|
 fn pdf_extract_int_after(text : String, key : String) -> Int? {
   match pdf_extract_dict_value(text, key) {
-    Some(PdfNativeDictValue::Number(value)) =>
+    Some(Number(value)) =>
       if pdf_double_is_integral(value) {
         Some(value.to_int())
       } else {
         None
       }
-    Some(PdfNativeDictValue::Word(value)) => pdf_parse_int(value)
+    Some(Word(value)) => pdf_parse_int(value)
     _ => None
   }
 }
@@ -788,7 +779,7 @@ fn pdf_extract_int_after(text : String, key : String) -> Int? {
 fn pdf_extract_int_array_after(text : String, key : String) -> Array[Int] {
   let values : Array[Int] = []
   match pdf_extract_dict_value(text, key) {
-    Some(PdfNativeDictValue::Array(tokens)) =>
+    Some(Array(tokens)) =>
       for token in tokens {
         match pdf_token_number(token) {
           Some(value) if pdf_double_is_integral(value) =>
@@ -796,11 +787,11 @@ fn pdf_extract_int_array_after(text : String, key : String) -> Array[Int] {
           _ => ()
         }
       }
-    Some(PdfNativeDictValue::Number(value)) =>
+    Some(Number(value)) =>
       if pdf_double_is_integral(value) {
         values.push(value.to_int())
       }
-    Some(PdfNativeDictValue::Word(value)) =>
+    Some(Word(value)) =>
       match pdf_parse_int(value) {
         Some(parsed) => values.push(parsed)
         None => ()
@@ -832,7 +823,7 @@ fn pdf_extract_literal_string_after(text : String, key : String) -> String? {
 ///|
 fn pdf_extract_rect_after(text : String, key : String) -> PdfBBox? {
   match pdf_extract_dict_value(text, key) {
-    Some(PdfNativeDictValue::Array(tokens)) if tokens.length() >= 4 =>
+    Some(Array(tokens)) if tokens.length() >= 4 =>
       match
         (
           pdf_token_number(tokens[0]),
@@ -851,7 +842,7 @@ fn pdf_extract_rect_after(text : String, key : String) -> PdfBBox? {
 ///|
 fn pdf_extract_inline_dict_after(text : String, key : String) -> String? {
   match pdf_extract_dict_value(text, key) {
-    Some(PdfNativeDictValue::Dict(value)) => Some(value)
+    Some(Dict(value)) => Some(value)
     _ => None
   }
 }
@@ -859,15 +850,15 @@ fn pdf_extract_inline_dict_after(text : String, key : String) -> String? {
 ///|
 fn pdf_extract_string_after(text : String, key : String) -> String? {
   match pdf_extract_dict_value(text, key) {
-    Some(PdfNativeDictValue::LiteralString(value)) =>
+    Some(LiteralString(value)) =>
       Some(pdf_normalize_pdf_text(pdf_decode_literal_pdf_text(value.decoded)))
-    Some(PdfNativeDictValue::HexString(value)) =>
+    Some(HexString(value)) =>
       match pdf_decode_hex_pdf_text(value, None) {
         Some(decoded) => Some(pdf_normalize_pdf_text(decoded))
         None => None
       }
-    Some(PdfNativeDictValue::Name(value)) => Some(value)
-    Some(PdfNativeDictValue::Word(value)) => Some(value)
+    Some(Name(value)) => Some(value)
+    Some(Word(value)) => Some(value)
     _ => None
   }
 }
@@ -875,12 +866,11 @@ fn pdf_extract_string_after(text : String, key : String) -> String? {
 ///|
 fn pdf_extract_raw_string_after(text : String, key : String) -> String? {
   match pdf_extract_dict_value(text, key) {
-    Some(PdfNativeDictValue::LiteralString(value)) =>
+    Some(LiteralString(value)) =>
       Some(pdf_decode_literal_pdf_text(value.decoded))
-    Some(PdfNativeDictValue::HexString(value)) =>
-      pdf_decode_hex_pdf_text(value, None)
-    Some(PdfNativeDictValue::Name(value)) => Some(value)
-    Some(PdfNativeDictValue::Word(value)) => Some(value)
+    Some(HexString(value)) => pdf_decode_hex_pdf_text(value, None)
+    Some(Name(value)) => Some(value)
+    Some(Word(value)) => Some(value)
     _ => None
   }
 }
@@ -889,8 +879,7 @@ fn pdf_extract_raw_string_after(text : String, key : String) -> String? {
 fn pdf_extract_string_array_after(text : String, key : String) -> Array[String] {
   let values : Array[String] = []
   match pdf_extract_dict_value(text, key) {
-    Some(PdfNativeDictValue::Array(tokens)) =>
-      pdf_collect_string_array_values(tokens, values)
+    Some(Array(tokens)) => pdf_collect_string_array_values(tokens, values)
     Some(value) =>
       match pdf_dict_value_text(value) {
         Some(text) if text.trim() != "" => values.push(text.trim().to_owned())
@@ -904,12 +893,12 @@ fn pdf_extract_string_array_after(text : String, key : String) -> Array[String] 
 ///|
 fn pdf_dict_value_text(value : PdfNativeDictValue) -> String? {
   match value {
-    PdfNativeDictValue::LiteralString(token) =>
+    LiteralString(token) =>
       Some(pdf_normalize_pdf_text(pdf_decode_literal_pdf_text(token.decoded)))
-    PdfNativeDictValue::HexString(hex) => pdf_decode_hex_pdf_text(hex, None)
-    PdfNativeDictValue::Name(name) => Some(name)
-    PdfNativeDictValue::Word(word) => Some(word)
-    PdfNativeDictValue::Number(number) => Some(number.to_string())
+    HexString(hex) => pdf_decode_hex_pdf_text(hex, None)
+    Name(name) => Some(name)
+    Word(word) => Some(word)
+    Number(number) => Some(number.to_string())
     _ => None
   }
 }
@@ -917,12 +906,12 @@ fn pdf_dict_value_text(value : PdfNativeDictValue) -> String? {
 ///|
 fn pdf_token_text(token : PdfNativeContentToken) -> String? {
   match token {
-    PdfNativeContentToken::LiteralString(value) =>
+    LiteralString(value) =>
       Some(pdf_normalize_pdf_text(pdf_decode_literal_pdf_text(value.decoded)))
-    PdfNativeContentToken::HexString(hex) => pdf_decode_hex_pdf_text(hex, None)
-    PdfNativeContentToken::Name(name) => Some(name)
-    PdfNativeContentToken::Word(word) => Some(word)
-    PdfNativeContentToken::Number(number) => Some(number.to_string())
+    HexString(hex) => pdf_decode_hex_pdf_text(hex, None)
+    Name(name) => Some(name)
+    Word(word) => Some(word)
+    Number(number) => Some(number.to_string())
     _ => None
   }
 }
@@ -934,7 +923,7 @@ fn pdf_collect_string_array_values(
 ) -> Unit {
   for token in tokens {
     match token {
-      PdfNativeContentToken::Array(items) => {
+      Array(items) => {
         let pair_text = pdf_token_array_preferred_text(items)
         if pair_text != "" {
           values.push(pair_text)

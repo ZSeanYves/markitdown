@@ -1,18 +1,18 @@
 ///|
 test "pipeline assigns stable block ids and assembly summary" {
   let heading = @core.make_block(
-    @core.BlockKind::Heading,
+    Heading,
     "Alpha",
     source_ref=@core.empty_source_ref(),
   )
   heading.attrs.set("level", "1")
   let paragraph = @core.make_block(
-    @core.BlockKind::Paragraph,
+    Paragraph,
     "Body",
     source_ref=@core.empty_source_ref(),
   )
   let document = @pipeline.build_document_with_default_pipeline(
-    @core.IRInput::BlockStream([heading, paragraph]),
+    BlockStream([heading, paragraph]),
     @pipeline.make_pass_context(false, "balanced"),
   )
   assert_true(heading.block_id != "")
@@ -33,22 +33,15 @@ test "assembler resolves asset ownership from block asset ids" {
     Some("html"),
     Some("/html/body/p/img[1]"),
   )
-  let image = @core.make_block(@core.BlockKind::Image, "", source_ref~)
+  let image = @core.make_block(Image, "", source_ref~)
   image.attrs.set("asset_id", "asset-image-1")
   image.attrs.set("path", "assets/image01.jpg")
 
-  let asset = @core.make_asset_ref(
-    @core.AssetKind::Image,
-    "asset-image-1",
-    source_ref~,
-  )
+  let asset = @core.make_asset_ref(Image, "asset-image-1", source_ref~)
   let asset = { ..asset, path: Some("assets/image01.jpg") }
 
   let document = @pipeline.build_document_with_default_pipeline(
-    @core.IRInput::Document({
-      ..@core.document_from_blocks([image]),
-      assets: [asset],
-    }),
+    Document({ ..@core.document_from_blocks([image]), assets: [asset] }),
     @pipeline.make_pass_context(false, "balanced"),
   )
   let assembly = document.assembly.unwrap_or(@core.empty_document_assembly())

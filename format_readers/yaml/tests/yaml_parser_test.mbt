@@ -15,7 +15,7 @@ test "yaml parser handles nested subset and quoted strings" {
     "root:\n  title: \"Ada\"\n  note: 'say ''hi'''\n",
   )
   match doc.root {
-    Some(@yaml.YamlValue::Mapping(members)) => assert_eq(members[0].key, "root")
+    Some(Mapping(members)) => assert_eq(members[0].key, "root")
     _ => fail("expected mapping root")
   }
 }
@@ -30,32 +30,26 @@ test "yaml unsupported features fail closed and classify" {
   )
 
   let unsupported = @yaml.classify_yaml_error(
-    @yaml.YamlError::ParseError(
-      "anchors, aliases, and tags are unsupported at line 1",
-    ),
+    ParseError("anchors, aliases, and tags are unsupported at line 1"),
   )
-  assert_true(unsupported.kind == @yaml.YamlErrorKind::UnsupportedFeature)
+  assert_true(unsupported.kind == UnsupportedFeature)
 
   let tabs = @yaml.classify_yaml_error(
-    @yaml.YamlError::ParseError(
-      "tabs are unsupported for indentation at line 2",
-    ),
+    ParseError("tabs are unsupported for indentation at line 2"),
   )
-  assert_true(tabs.kind == @yaml.YamlErrorKind::TabsUnsupported)
+  assert_true(tabs.kind == TabsUnsupported)
 
   let multi_doc = @yaml.classify_yaml_error(
-    @yaml.YamlError::ParseError(
-      "multi-document markers are unsupported at line 1",
-    ),
+    ParseError("multi-document markers are unsupported at line 1"),
   )
-  assert_true(multi_doc.kind == @yaml.YamlErrorKind::MultiDocumentUnsupported)
+  assert_true(multi_doc.kind == MultiDocumentUnsupported)
 }
 
 ///|
 test "yaml parser accepts single-document start and end markers" {
   let leading = @yaml.parse_yaml_document("---\ntitle: Example\ncount: 1\n")
   match leading.root {
-    Some(@yaml.YamlValue::Mapping(members)) => {
+    Some(Mapping(members)) => {
       assert_eq(members.length(), 2)
       assert_eq(members[0].key, "title")
       assert_eq(members[1].key, "count")
@@ -67,8 +61,7 @@ test "yaml parser accepts single-document start and end markers" {
     "--- # document\ntitle: Example\n",
   )
   match leading_with_comment.root {
-    Some(@yaml.YamlValue::Mapping(members)) =>
-      assert_eq(members[0].key, "title")
+    Some(Mapping(members)) => assert_eq(members[0].key, "title")
     _ => fail("expected mapping root for commented leading marker case")
   }
 
@@ -76,8 +69,7 @@ test "yaml parser accepts single-document start and end markers" {
     "---\ntitle: Example\n---\n",
   )
   match leading_and_trailing_start.root {
-    Some(@yaml.YamlValue::Mapping(members)) =>
-      assert_eq(members[0].key, "title")
+    Some(Mapping(members)) => assert_eq(members[0].key, "title")
     _ => fail("expected mapping root for leading + trailing start marker case")
   }
 
@@ -85,8 +77,7 @@ test "yaml parser accepts single-document start and end markers" {
     "---\ntitle: Example\n---\n# end comment\n",
   )
   match leading_and_trailing_start_with_comment.root {
-    Some(@yaml.YamlValue::Mapping(members)) =>
-      assert_eq(members[0].key, "title")
+    Some(Mapping(members)) => assert_eq(members[0].key, "title")
     _ =>
       fail(
         "expected mapping root for leading + trailing start marker comment case",
@@ -95,8 +86,7 @@ test "yaml parser accepts single-document start and end markers" {
 
   let trailing = @yaml.parse_yaml_document("title: Example\n...\n")
   match trailing.root {
-    Some(@yaml.YamlValue::Mapping(members)) =>
-      assert_eq(members[0].key, "title")
+    Some(Mapping(members)) => assert_eq(members[0].key, "title")
     _ => fail("expected mapping root for trailing marker case")
   }
 
@@ -104,15 +94,13 @@ test "yaml parser accepts single-document start and end markers" {
     "title: Example\n...\n# end comment\n\n",
   )
   match trailing_with_comment.root {
-    Some(@yaml.YamlValue::Mapping(members)) =>
-      assert_eq(members[0].key, "title")
+    Some(Mapping(members)) => assert_eq(members[0].key, "title")
     _ => fail("expected mapping root for trailing marker with comment case")
   }
 
   let trailing_start_marker = @yaml.parse_yaml_document("title: Example\n---\n")
   match trailing_start_marker.root {
-    Some(@yaml.YamlValue::Mapping(members)) =>
-      assert_eq(members[0].key, "title")
+    Some(Mapping(members)) => assert_eq(members[0].key, "title")
     _ => fail("expected mapping root for trailing start marker case")
   }
 
@@ -120,8 +108,7 @@ test "yaml parser accepts single-document start and end markers" {
     "title: Example\n---\n# end comment\n",
   )
   match trailing_start_marker_with_comment.root {
-    Some(@yaml.YamlValue::Mapping(members)) =>
-      assert_eq(members[0].key, "title")
+    Some(Mapping(members)) => assert_eq(members[0].key, "title")
     _ =>
       fail("expected mapping root for trailing start marker with comment case")
   }
@@ -135,14 +122,14 @@ test "yaml parser accepts single-document start and end markers" {
 test "yaml parser represents multi-document streams as a root sequence" {
   let stream = @yaml.parse_yaml_document("---\na: 1\n---\nb: 2\n")
   match stream.root {
-    Some(@yaml.YamlValue::Sequence(documents)) => {
+    Some(Sequence(documents)) => {
       assert_eq(documents.length(), 2)
       match documents[0] {
-        @yaml.YamlValue::Mapping(members) => assert_eq(members[0].key, "a")
+        Mapping(members) => assert_eq(members[0].key, "a")
         _ => fail("expected first mapping document")
       }
       match documents[1] {
-        @yaml.YamlValue::Mapping(members) => assert_eq(members[0].key, "b")
+        Mapping(members) => assert_eq(members[0].key, "b")
         _ => fail("expected second mapping document")
       }
     }
@@ -156,8 +143,7 @@ test "yaml parser represents multi-document streams as a root sequence" {
   )
   let implicit_first = @yaml.parse_yaml_document("a: 1\n---\nb: 2\n")
   match implicit_first.root {
-    Some(@yaml.YamlValue::Sequence(documents)) =>
-      assert_eq(documents.length(), 2)
+    Some(Sequence(documents)) => assert_eq(documents.length(), 2)
     _ => fail("expected implicit first document plus explicit second document")
   }
 }
@@ -166,13 +152,13 @@ test "yaml parser represents multi-document streams as a root sequence" {
 test "yaml parser keeps marker-like scalars as scalar content" {
   let doc = @yaml.parse_yaml_document("a: \"---\"\nb: \"...\"\n")
   match doc.root {
-    Some(@yaml.YamlValue::Mapping(members)) => {
+    Some(Mapping(members)) => {
       match members[0].value {
-        @yaml.YamlValue::String(value) => assert_eq(value, "---")
+        String(value) => assert_eq(value, "---")
         _ => fail("expected scalar string for a")
       }
       match members[1].value {
-        @yaml.YamlValue::String(value) => assert_eq(value, "...")
+        String(value) => assert_eq(value, "...")
         _ => fail("expected scalar string for b")
       }
     }
@@ -215,14 +201,14 @@ test "yaml parser handles mapping child sequence followed by sibling keys" {
 test "yaml parser handles conservative flow sequence" {
   let doc = @yaml.parse_yaml_document("[one, two, true, null]")
   match doc.root {
-    Some(@yaml.YamlValue::Sequence(values)) => {
+    Some(Sequence(values)) => {
       assert_eq(values.length(), 4)
       match values[2] {
-        @yaml.YamlValue::Bool(value) => assert_true(value)
+        Bool(value) => assert_true(value)
         _ => fail("expected bool flow item")
       }
       match values[3] {
-        @yaml.YamlValue::Null => ()
+        Null => ()
         _ => fail("expected null flow item")
       }
     }
@@ -234,17 +220,17 @@ test "yaml parser handles conservative flow sequence" {
 test "yaml parser preserves numbers as first-class scalars" {
   let doc = @yaml.parse_yaml_document("count: 42\nratio: 3.14\nneg: -7\n")
   match doc.root {
-    Some(@yaml.YamlValue::Mapping(members)) => {
+    Some(Mapping(members)) => {
       match members[0].value {
-        @yaml.YamlValue::Number(value) => assert_eq(value, "42")
+        Number(value) => assert_eq(value, "42")
         _ => fail("expected number for count")
       }
       match members[1].value {
-        @yaml.YamlValue::Number(value) => assert_eq(value, "3.14")
+        Number(value) => assert_eq(value, "3.14")
         _ => fail("expected number for ratio")
       }
       match members[2].value {
-        @yaml.YamlValue::Number(value) => assert_eq(value, "-7")
+        Number(value) => assert_eq(value, "-7")
         _ => fail("expected number for neg")
       }
     }
@@ -256,10 +242,9 @@ test "yaml parser preserves numbers as first-class scalars" {
 test "yaml parser handles literal and folded block scalars" {
   let literal = @yaml.parse_yaml_document("note: |\n  line one\n  line two\n")
   match literal.root {
-    Some(@yaml.YamlValue::Mapping(members)) =>
+    Some(Mapping(members)) =>
       match members[0].value {
-        @yaml.YamlValue::String(value) =>
-          assert_eq(value, "line one\nline two\n")
+        String(value) => assert_eq(value, "line one\nline two\n")
         _ => fail("expected literal block scalar string")
       }
     _ => fail("expected mapping root for literal block scalar")
@@ -269,10 +254,9 @@ test "yaml parser handles literal and folded block scalars" {
     "note: >\n  line one\n  line two\n  tail\n",
   )
   match folded.root {
-    Some(@yaml.YamlValue::Mapping(members)) =>
+    Some(Mapping(members)) =>
       match members[0].value {
-        @yaml.YamlValue::String(value) =>
-          assert_eq(value, "line one line two tail\n")
+        String(value) => assert_eq(value, "line one line two tail\n")
         _ => fail("expected folded block scalar string")
       }
     _ => fail("expected mapping root for folded block scalar")
@@ -285,21 +269,21 @@ test "yaml block scalar chomping and explicit indentation follow YAML semantics"
     "clip: |\n  one\n\nstrip: |-\n  two\n\nkeep: |+\n  three\n  \n  \nfolded: >2-\n  alpha\n  beta\n",
   )
   match parsed.root {
-    Some(@yaml.YamlValue::Mapping(entries)) => {
+    Some(Mapping(entries)) => {
       match entries[0].value {
-        @yaml.YamlValue::String(value) => assert_eq(value, "one\n")
+        String(value) => assert_eq(value, "one\n")
         _ => fail("expected clipped literal scalar")
       }
       match entries[1].value {
-        @yaml.YamlValue::String(value) => assert_eq(value, "two")
+        String(value) => assert_eq(value, "two")
         _ => fail("expected stripped literal scalar")
       }
       match entries[2].value {
-        @yaml.YamlValue::String(value) => assert_eq(value, "three\n\n\n")
+        String(value) => assert_eq(value, "three\n\n\n")
         _ => fail("expected kept literal scalar")
       }
       match entries[3].value {
-        @yaml.YamlValue::String(value) => assert_eq(value, "alpha beta")
+        String(value) => assert_eq(value, "alpha beta")
         _ => fail("expected stripped folded scalar")
       }
     }
@@ -313,22 +297,22 @@ test "yaml parser supports safe core scalar tags and rejects custom tags" {
     "text: !!str 001\nquoted: !!str \"true\"\ncount: !!int -12\nratio: !!float 3.5\nactive: !!bool true\nempty: !!null ~\n",
   )
   match document.root {
-    Some(@yaml.YamlValue::Mapping(members)) => {
+    Some(Mapping(members)) => {
       assert_eq(members.length(), 6)
       match members[0].value {
-        @yaml.YamlValue::String(value) => assert_eq(value, "001")
+        String(value) => assert_eq(value, "001")
         _ => fail("!!str must not implicitly coerce")
       }
       match members[1].value {
-        @yaml.YamlValue::String(value) => assert_eq(value, "true")
+        String(value) => assert_eq(value, "true")
         _ => fail("quoted !!str must stay text")
       }
       match members[2].value {
-        @yaml.YamlValue::Number(value) => assert_eq(value, "-12")
+        Number(value) => assert_eq(value, "-12")
         _ => fail("expected tagged integer")
       }
-      assert_true(members[4].value is @yaml.YamlValue::Bool(true))
-      assert_true(members[5].value is @yaml.YamlValue::Null)
+      assert_true(members[4].value is Bool(true))
+      assert_true(members[5].value is Null)
     }
     _ => fail("expected safe-tag mapping")
   }
@@ -358,22 +342,22 @@ test "yaml parser resolves anchors aliases and merge keys with explicit override
     "copy: *defaults\n",
   )
   match document.root {
-    Some(@yaml.YamlValue::Mapping(root)) => {
+    Some(Mapping(root)) => {
       assert_eq(root.length(), 3)
       match root[1].value {
-        @yaml.YamlValue::Mapping(values) => {
+        Mapping(values) => {
           assert_eq(values.length(), 2)
           assert_eq(values[0].key, "adapter")
           assert_eq(values[1].key, "host")
           match values[1].value {
-            @yaml.YamlValue::String(value) => assert_eq(value, "dev.example")
+            String(value) => assert_eq(value, "dev.example")
             _ => fail("expected explicit merge override")
           }
         }
         _ => fail("expected merged development mapping")
       }
       match root[2].value {
-        @yaml.YamlValue::Mapping(values) => assert_eq(values.length(), 2)
+        Mapping(values) => assert_eq(values.length(), 2)
         _ => fail("expected mapping alias copy")
       }
     }
@@ -394,21 +378,21 @@ test "yaml parser resolves inline sequence anchors and merge precedence" {
     "alias: *item\n",
   )
   match document.root {
-    Some(@yaml.YamlValue::Mapping(root)) => {
+    Some(Mapping(root)) => {
       match root[2].value {
-        @yaml.YamlValue::Mapping(values) => {
+        Mapping(values) => {
           assert_eq(values.length(), 3)
           assert_eq(values[0].key, "a")
           assert_eq(values[1].key, "shared")
           assert_eq(values[2].key, "b")
           match values[1].value {
-            @yaml.YamlValue::String(value) => assert_eq(value, "first")
+            String(value) => assert_eq(value, "first")
             _ => fail("first merge mapping must take precedence")
           }
         }
         _ => fail("expected merge-sequence mapping")
       }
-      assert_true(root[4].value is @yaml.YamlValue::Mapping(_))
+      assert_true(root[4].value is Mapping(_))
     }
     _ => fail("expected root mapping")
   }
@@ -435,9 +419,9 @@ test "yaml aliases reject undefined forward duplicate and invalid references" {
 test "yaml parser handles flow values in mappings" {
   let sequence_doc = @yaml.parse_yaml_document("items: [one, two]\n")
   match sequence_doc.root {
-    Some(@yaml.YamlValue::Mapping(members)) =>
+    Some(Mapping(members)) =>
       match members[0].value {
-        @yaml.YamlValue::Sequence(values) => assert_eq(values.length(), 2)
+        Sequence(values) => assert_eq(values.length(), 2)
         _ => fail("expected flow sequence value")
       }
     _ => fail("expected mapping root")
@@ -447,12 +431,12 @@ test "yaml parser handles flow values in mappings" {
     "person: {name: Ada, active: true}\n",
   )
   match object_doc.root {
-    Some(@yaml.YamlValue::Mapping(members)) =>
+    Some(Mapping(members)) =>
       match members[0].value {
-        @yaml.YamlValue::Mapping(person) => {
+        Mapping(person) => {
           assert_eq(person[0].key, "name")
           match person[1].value {
-            @yaml.YamlValue::Bool(value) => assert_true(value)
+            Bool(value) => assert_true(value)
             _ => fail("expected bool flow mapping value")
           }
         }
@@ -472,15 +456,15 @@ test "yaml parser handles nested and quoted flow values" {
 
   let quoted = @yaml.parse_yaml_document("text: [\"a,b\", \"x:y\"]\n")
   match quoted.root {
-    Some(@yaml.YamlValue::Mapping(members)) =>
+    Some(Mapping(members)) =>
       match members[0].value {
-        @yaml.YamlValue::Sequence(values) => {
+        Sequence(values) => {
           match values[0] {
-            @yaml.YamlValue::String(value) => assert_eq(value, "a,b")
+            String(value) => assert_eq(value, "a,b")
             _ => fail("expected quoted comma string")
           }
           match values[1] {
-            @yaml.YamlValue::String(value) => assert_eq(value, "x:y")
+            String(value) => assert_eq(value, "x:y")
             _ => fail("expected quoted colon string")
           }
         }
@@ -494,13 +478,13 @@ test "yaml parser handles nested and quoted flow values" {
 test "yaml parser handles empty flow collections" {
   let doc = @yaml.parse_yaml_document("empty_list: []\nempty_map: {}\n")
   match doc.root {
-    Some(@yaml.YamlValue::Mapping(members)) => {
+    Some(Mapping(members)) => {
       match members[0].value {
-        @yaml.YamlValue::Sequence(values) => assert_eq(values.length(), 0)
+        Sequence(values) => assert_eq(values.length(), 0)
         _ => fail("expected empty flow sequence")
       }
       match members[1].value {
-        @yaml.YamlValue::Mapping(values) => assert_eq(values.length(), 0)
+        Mapping(values) => assert_eq(values.length(), 0)
         _ => fail("expected empty flow mapping")
       }
     }

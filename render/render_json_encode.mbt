@@ -50,21 +50,19 @@ fn render_event_json(event : @core.CoreEvent) -> String {
 ///|
 fn event_kind_name(kind : @core.EventKind) -> String {
   match kind {
-    @core.EventKind::StartDocument => "start_document"
-    @core.EventKind::EndDocument => "end_document"
-    @core.EventKind::StartBlock(block_kind) =>
-      "start_block:" + @core.block_kind_name(block_kind)
-    @core.EventKind::EndBlock(block_kind) =>
-      "end_block:" + @core.block_kind_name(block_kind)
-    @core.EventKind::Text => "text"
-    @core.EventKind::TextLine => "text_line"
-    @core.EventKind::BlankLine => "blank_line"
-    @core.EventKind::Cell => "cell"
-    @core.EventKind::RowBreak => "row_break"
-    @core.EventKind::StructureStart => "structure_start"
-    @core.EventKind::StructureEnd => "structure_end"
-    @core.EventKind::Key => "key"
-    @core.EventKind::Scalar => "scalar"
+    StartDocument => "start_document"
+    EndDocument => "end_document"
+    StartBlock(block_kind) => "start_block:" + @core.block_kind_name(block_kind)
+    EndBlock(block_kind) => "end_block:" + @core.block_kind_name(block_kind)
+    Text => "text"
+    TextLine => "text_line"
+    BlankLine => "blank_line"
+    Cell => "cell"
+    RowBreak => "row_break"
+    StructureStart => "structure_start"
+    StructureEnd => "structure_end"
+    Key => "key"
+    Scalar => "scalar"
   }
 }
 
@@ -271,13 +269,12 @@ fn render_document_metadata_json(metadata : @core.DocumentMetadata) -> String {
 ///|
 fn render_json_value(value : @core.JsonValue) -> String {
   match value {
-    @core.JsonValue::String(text) => @core.json_string(text)
-    @core.JsonValue::Number(text) => text
-    @core.JsonValue::Bool(flag) => if flag { "true" } else { "false" }
-    @core.JsonValue::Null => "null"
-    @core.JsonValue::Array(items) =>
-      @core.array_json(items.map(item => render_json_value(item)))
-    @core.JsonValue::Object(fields) => {
+    String(text) => @core.json_string(text)
+    Number(text) => text
+    Bool(flag) => if flag { "true" } else { "false" }
+    Null => "null"
+    Array(items) => @core.array_json(items.map(item => render_json_value(item)))
+    Object(fields) => {
       let pairs : Array[String] = []
       let entries = fields.to_array()
       entries.sort_by(fn(a, b) { a.0[:].lexical_compare(b.0[:]) })

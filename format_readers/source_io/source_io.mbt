@@ -127,13 +127,13 @@ pub fn decode_utf16_text_bytes(bytes : Bytes) -> String? {
   let first = arr[0].to_int()
   let second = arr[1].to_int()
   if first == 0xFF && second == 0xFE {
-    let decoded = @encoding.decode(bytes, encoding=@encoding.UTF16LE) catch {
+    let decoded = @encoding.decode(bytes, encoding=UTF16LE) catch {
       _ => return None
     }
     return Some(strip_leading_bom(decoded))
   }
   if first == 0xFE && second == 0xFF {
-    let decoded = @encoding.decode(bytes, encoding=@encoding.UTF16BE) catch {
+    let decoded = @encoding.decode(bytes, encoding=UTF16BE) catch {
       _ => return None
     }
     return Some(strip_leading_bom(decoded))

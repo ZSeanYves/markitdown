@@ -43,11 +43,11 @@ extern "C" fn native_find_in_path(
 ///|
 pub fn resolved_command_source_label(source : ResolvedCommandSource) -> String {
   match source {
-    ResolvedCommandSource::ExplicitArg => "explicit_arg"
-    ResolvedCommandSource::RepoManaged => "repo_managed"
-    ResolvedCommandSource::EnvVar => "env_var"
-    ResolvedCommandSource::Path => "path"
-    ResolvedCommandSource::Fallback => "fallback"
+    ExplicitArg => "explicit_arg"
+    RepoManaged => "repo_managed"
+    EnvVar => "env_var"
+    Path => "path"
+    Fallback => "fallback"
   }
 }
 
@@ -167,15 +167,14 @@ pub fn resolve_executable_path(
 ///|
 pub fn resolve_path_command(name : String) -> ResolvedCommand? {
   match find_in_path(name, @env.get_env_var("PATH")) {
-    Some(path) =>
-      Some(make_resolved_command(path, path, ResolvedCommandSource::Path))
+    Some(path) => Some(make_resolved_command(path, path, Path))
     None => None
   }
 }
 
 ///|
 pub fn fallback_command(name : String) -> ResolvedCommand {
-  make_resolved_command(name, name, ResolvedCommandSource::Fallback)
+  make_resolved_command(name, name, Fallback)
 }
 
 ///|
@@ -196,12 +195,7 @@ pub fn resolve_repo_managed_command(name : String) -> ResolvedCommand? {
     !trimmed.has_prefix("/") {
     return None
   }
-  match
-    resolve_executable_path(
-      trimmed,
-      record_path,
-      ResolvedCommandSource::RepoManaged,
-    ) {
+  match resolve_executable_path(trimmed, record_path, RepoManaged) {
     Ok(resolved) => Some(resolved)
     Err(_) => None
   }
@@ -300,10 +294,10 @@ pub fn split_shell_command(
   }
 
   if escape_next {
-    return Err(ShellCommandSplitError::TrailingEscape)
+    return Err(TrailingEscape)
   }
   if in_single_quote || in_double_quote {
-    return Err(ShellCommandSplitError::UnterminatedQuotes)
+    return Err(UnterminatedQuotes)
   }
   flush_current(parts, current)
   Ok(parts)

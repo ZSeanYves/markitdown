@@ -1,37 +1,34 @@
 ///|
 pub fn office_document_kind_name(kind : OfficeDocumentKind) -> String {
   match kind {
-    OfficeDocumentKind::Docx => "docx"
-    OfficeDocumentKind::Pptx => "pptx"
-    OfficeDocumentKind::Xlsx => "xlsx"
-    OfficeDocumentKind::Unknown => "unknown"
+    Docx => "docx"
+    Pptx => "pptx"
+    Xlsx => "xlsx"
+    Unknown => "unknown"
   }
 }
 
 ///|
 pub fn office_security_finding_name(finding : OfficeSecurityFinding) -> String {
   match finding {
-    OfficeSecurityFinding::UnsafePartPath => "unsafe_part_path"
-    OfficeSecurityFinding::DuplicateNormalizedPart =>
-      "duplicate_normalized_part"
-    OfficeSecurityFinding::MissingRelationshipTarget =>
-      "missing_relationship_target"
-    OfficeSecurityFinding::UnsupportedRelationship => "unsupported_relationship"
-    OfficeSecurityFinding::ExternalRelationship => "external_relationship"
-    OfficeSecurityFinding::EncryptedEntry => "encrypted_entry"
-    OfficeSecurityFinding::UnsupportedCompression => "unsupported_compression"
-    OfficeSecurityFinding::ResourceLimitHit => "resource_limit_hit"
-    OfficeSecurityFinding::PathTraversal => "path_traversal"
+    UnsafePartPath => "unsafe_part_path"
+    DuplicateNormalizedPart => "duplicate_normalized_part"
+    MissingRelationshipTarget => "missing_relationship_target"
+    UnsupportedRelationship => "unsupported_relationship"
+    ExternalRelationship => "external_relationship"
+    EncryptedEntry => "encrypted_entry"
+    UnsupportedCompression => "unsupported_compression"
+    ResourceLimitHit => "resource_limit_hit"
+    PathTraversal => "path_traversal"
   }
 }
 
 ///|
 pub fn office_asset_copy_policy_name(policy : OfficeAssetCopyPolicy) -> String {
   match policy {
-    OfficeAssetCopyPolicy::MaterializeAtOutputBoundary =>
-      "materialize_at_output_boundary"
-    OfficeAssetCopyPolicy::ReferenceOnly => "reference_only"
-    OfficeAssetCopyPolicy::RejectUnsafePath => "reject_unsafe_path"
+    MaterializeAtOutputBoundary => "materialize_at_output_boundary"
+    ReferenceOnly => "reference_only"
+    RejectUnsafePath => "reject_unsafe_path"
   }
 }
 
@@ -107,7 +104,7 @@ pub fn make_office_media_asset(
 pub fn make_office_asset_plan(
   media_part : String,
   output_relative_path : String,
-  copy_policy? : OfficeAssetCopyPolicy = OfficeAssetCopyPolicy::MaterializeAtOutputBoundary,
+  copy_policy? : OfficeAssetCopyPolicy = MaterializeAtOutputBoundary,
   source_ref? : @core.SourceRef? = None,
 ) -> OfficeAssetPlan {
   { media_part, output_relative_path, copy_policy, source_ref }
@@ -160,40 +157,40 @@ pub fn make_office_semantic_plan(
 ///|
 pub fn pptx_slide_visibility_name(visibility : PptxSlideVisibility) -> String {
   match visibility {
-    PptxSlideVisibility::Visible => "visible"
-    PptxSlideVisibility::Hidden => "hidden"
+    Visible => "visible"
+    Hidden => "hidden"
   }
 }
 
 ///|
 pub fn pptx_shape_type_name(shape_type : PptxShapeType) -> String {
   match shape_type {
-    PptxShapeType::Title => "title"
-    PptxShapeType::Subtitle => "subtitle"
-    PptxShapeType::Body => "body"
-    PptxShapeType::TextBox => "text_box"
-    PptxShapeType::Picture => "picture"
-    PptxShapeType::Table => "table"
-    PptxShapeType::Chart => "chart"
-    PptxShapeType::SmartArt => "smart_art"
-    PptxShapeType::Media => "media"
-    PptxShapeType::Connector => "connector"
-    PptxShapeType::Group => "group"
-    PptxShapeType::Placeholder => "placeholder"
-    PptxShapeType::NotesAnchor => "notes_anchor"
-    PptxShapeType::Decorative => "decorative"
-    PptxShapeType::Unknown => "unknown"
+    Title => "title"
+    Subtitle => "subtitle"
+    Body => "body"
+    TextBox => "text_box"
+    Picture => "picture"
+    Table => "table"
+    Chart => "chart"
+    SmartArt => "smart_art"
+    Media => "media"
+    Connector => "connector"
+    Group => "group"
+    Placeholder => "placeholder"
+    NotesAnchor => "notes_anchor"
+    Decorative => "decorative"
+    Unknown => "unknown"
   }
 }
 
 ///|
 pub fn pptx_placeholder_origin_name(origin : PptxPlaceholderOrigin) -> String {
   match origin {
-    PptxPlaceholderOrigin::DirectSlide => "direct_slide"
-    PptxPlaceholderOrigin::LayoutPlaceholder => "layout_placeholder"
-    PptxPlaceholderOrigin::MasterPlaceholder => "master_placeholder"
-    PptxPlaceholderOrigin::GeometryInference => "geometry_inference"
-    PptxPlaceholderOrigin::Unresolved => "unresolved"
+    DirectSlide => "direct_slide"
+    LayoutPlaceholder => "layout_placeholder"
+    MasterPlaceholder => "master_placeholder"
+    GeometryInference => "geometry_inference"
+    Unresolved => "unresolved"
   }
 }
 
@@ -202,12 +199,11 @@ pub fn pptx_reading_order_strategy_name(
   strategy : PptxReadingOrderStrategy,
 ) -> String {
   match strategy {
-    PptxReadingOrderStrategy::PresentationOrder => "presentation_order"
-    PptxReadingOrderStrategy::PlaceholderThenGeometry =>
-      "placeholder_then_geometry"
-    PptxReadingOrderStrategy::GeometryOnly => "geometry_only"
-    PptxReadingOrderStrategy::ExplicitZOrder => "explicit_z_order"
-    PptxReadingOrderStrategy::Unknown => "unknown"
+    PresentationOrder => "presentation_order"
+    PlaceholderThenGeometry => "placeholder_then_geometry"
+    GeometryOnly => "geometry_only"
+    ExplicitZOrder => "explicit_z_order"
+    Unknown => "unknown"
   }
 }
 
@@ -257,7 +253,7 @@ pub fn make_pptx_placeholder_model(
   placeholder_type : String,
   placeholder_index? : String? = None,
   placeholder_name? : String? = None,
-  resolved_from? : PptxPlaceholderOrigin = PptxPlaceholderOrigin::Unresolved,
+  resolved_from? : PptxPlaceholderOrigin = Unresolved,
   source_ref? : @core.SourceRef? = None,
 ) -> PptxPlaceholderModel {
   {
@@ -411,7 +407,7 @@ pub fn make_pptx_slide_model(
   shapes : Array[PptxShapeModel],
   slide_id? : String? = None,
   slide_part? : String? = None,
-  visibility? : PptxSlideVisibility = PptxSlideVisibility::Visible,
+  visibility? : PptxSlideVisibility = Visible,
   layout_part? : String? = None,
   master_part? : String? = None,
   theme_part? : String? = None,
@@ -464,24 +460,24 @@ pub fn make_pptx_presentation_plan(
 ///|
 pub fn xlsx_sheet_visibility_name(visibility : XlsxSheetVisibility) -> String {
   match visibility {
-    XlsxSheetVisibility::Visible => "visible"
-    XlsxSheetVisibility::Hidden => "hidden"
-    XlsxSheetVisibility::VeryHidden => "very_hidden"
+    Visible => "visible"
+    Hidden => "hidden"
+    VeryHidden => "very_hidden"
   }
 }
 
 ///|
 pub fn xlsx_cell_type_name(cell_type : XlsxCellType) -> String {
   match cell_type {
-    XlsxCellType::Blank => "blank"
-    XlsxCellType::String => "string"
-    XlsxCellType::SharedString => "shared_string"
-    XlsxCellType::InlineString => "inline_string"
-    XlsxCellType::Number => "number"
-    XlsxCellType::Bool => "bool"
-    XlsxCellType::Error => "error"
-    XlsxCellType::DateLike => "date_like"
-    XlsxCellType::Formula => "formula"
+    Blank => "blank"
+    String => "string"
+    SharedString => "shared_string"
+    InlineString => "inline_string"
+    Number => "number"
+    Bool => "bool"
+    Error => "error"
+    DateLike => "date_like"
+    Formula => "formula"
   }
 }
 
@@ -568,7 +564,7 @@ pub fn make_xlsx_sheet_model(
   sheet_id? : String? = None,
   relationship_id? : String? = None,
   part_name? : String? = None,
-  visibility? : XlsxSheetVisibility = XlsxSheetVisibility::Visible,
+  visibility? : XlsxSheetVisibility = Visible,
   dimension_ref? : String? = None,
   merged_ranges? : Array[XlsxMergedRange] = [],
   source_ref? : @core.SourceRef? = None,

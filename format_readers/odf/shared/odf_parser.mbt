@@ -15,7 +15,7 @@ pub fn open_odt_document(bytes : Bytes) -> OdtDocument raise {
 ///|
 pub fn open_odt_archive(archive : @dzip.ZipArchive) -> OdtDocument raise {
   let package_info = read_odf_package_info(archive)
-  if package_info.document_kind != OdfDocumentKind::Odt {
+  if package_info.document_kind != Odt {
     raise ParseError("package is not an ODT document")
   }
   let content = parse_odf_content_document(archive, package_info.content_path)
@@ -43,7 +43,7 @@ pub fn open_ods_document(bytes : Bytes) -> OdsDocument raise {
 ///|
 pub fn open_ods_archive(archive : @dzip.ZipArchive) -> OdsDocument raise {
   let package_info = read_odf_package_info(archive)
-  if package_info.document_kind != OdfDocumentKind::Ods {
+  if package_info.document_kind != Ods {
     raise ParseError("package is not an ODS document")
   }
   let content = parse_odf_content_document(archive, package_info.content_path)
@@ -67,7 +67,7 @@ pub fn open_odp_document(bytes : Bytes) -> OdpDocument raise {
 ///|
 pub fn open_odp_archive(archive : @dzip.ZipArchive) -> OdpDocument raise {
   let package_info = read_odf_package_info(archive)
-  if package_info.document_kind != OdfDocumentKind::Odp {
+  if package_info.document_kind != Odp {
     raise ParseError("package is not an ODP document")
   }
   let content = parse_odf_content_document(archive, package_info.content_path)
@@ -119,8 +119,8 @@ fn read_odf_package_info(archive : @dzip.ZipArchive) -> OdfPackageInfo raise {
   let mimetype = odf_read_entry_text(archive, "mimetype").trim().to_owned()
   let document_kind = match mimetype {
     ODF_MIMETYPE_ODT => OdfDocumentKind::Odt
-    ODF_MIMETYPE_ODS => OdfDocumentKind::Ods
-    ODF_MIMETYPE_ODP => OdfDocumentKind::Odp
+    ODF_MIMETYPE_ODS => Ods
+    ODF_MIMETYPE_ODP => Odp
     _ => raise ParseError("unsupported odf mimetype: " + mimetype)
   }
   {
@@ -268,7 +268,7 @@ fn odf_visit_text_element(
       let text = odf_collect_text(element).trim().to_owned()
       if text != "" {
         state.blocks.push({
-          kind: OdtBlockKind::Raw,
+          kind: Raw,
           text,
           level: None,
           list_depth: None,
@@ -345,7 +345,7 @@ fn odf_heading_block(
     None => 1
   }
   {
-    kind: OdtBlockKind::Heading,
+    kind: Heading,
     text,
     level: Some(level),
     list_depth: None,
@@ -387,9 +387,9 @@ fn odf_paragraph_block(
   let kind = if inherited_heading_level is Some(_) {
     OdtBlockKind::Heading
   } else if odf_paragraph_is_code_like(element, styles) {
-    OdtBlockKind::Code
+    Code
   } else {
-    OdtBlockKind::Paragraph
+    Paragraph
   }
   {
     kind,
@@ -422,7 +422,7 @@ fn odf_visit_list(
           let text = odf_collect_text(item).trim().to_owned()
           if text != "" {
             state.blocks.push({
-              kind: OdtBlockKind::ListItem,
+              kind: ListItem,
               text,
               level: None,
               list_depth: Some(state.list_depth),
@@ -501,7 +501,7 @@ fn odf_table_block(
     }
   }
   {
-    kind: OdtBlockKind::Table,
+    kind: Table,
     text: "table",
     level: None,
     list_depth: None,
@@ -537,7 +537,7 @@ fn odf_visit_frame(
               }
               state.assets.push(info)
               state.blocks.push({
-                kind: OdtBlockKind::Image,
+                kind: Image,
                 text: "",
                 level: None,
                 list_depth: None,

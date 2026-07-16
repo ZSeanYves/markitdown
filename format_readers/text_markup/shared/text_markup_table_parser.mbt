@@ -7,9 +7,9 @@ pub fn parse_text_markup_table(
     return parse_pipe_table_literal(block.text)
   }
   match format {
-    TextMarkupFormat::Rst => parse_rst_table_block(block.text)
-    TextMarkupFormat::Asciidoc => parse_asciidoc_table_block(block.text)
-    TextMarkupFormat::Tex => parse_tex_table_block(block.text)
+    Rst => parse_rst_table_block(block.text)
+    Asciidoc => parse_asciidoc_table_block(block.text)
+    Tex => parse_tex_table_block(block.text)
   }
 }
 

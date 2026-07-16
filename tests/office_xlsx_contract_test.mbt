@@ -4,7 +4,7 @@ test "xlsx parser keeps package-single-pass route diagnostics and source refs st
     @input.input_from_path(
       "samples/fixtures/contracts/xlsx/xlsx_hidden_sheets_policy.xlsx",
     ),
-    @input.DetectedFormat::Xlsx,
+    Xlsx,
   )
   let spec = @fmeta.xlsx_parser_contract_spec()
   assert_parse_result_matches_contract_spec(parsed, spec)
@@ -12,7 +12,7 @@ test "xlsx parser keeps package-single-pass route diagnostics and source refs st
     abort("missing xlsx document")
   })
   match document.metadata.get("workbook_part") {
-    Some(@core.JsonValue::String(value)) => assert_eq(value, "xl/workbook.xml")
+    Some(String(value)) => assert_eq(value, "xl/workbook.xml")
     _ => fail("xlsx document metadata should keep workbook_part")
   }
   let table_ref = document.blocks[1].source_ref.unwrap_or(
@@ -28,9 +28,9 @@ test "xlsx parser keeps package-single-pass route diagnostics and source refs st
 test "xlsx accurate fidelity includes hidden sheets instead of skipping them" {
   let registry = @fmeta.builtin_registry()
   let context = @parser.parse_context_with_product_modes(
-    @parser.new_parse_context(@input.DetectedFormat::Xlsx),
-    @product.FidelityMode::Accurate,
-    @product.OutputMode::Markdown,
+    @parser.new_parse_context(Xlsx),
+    Accurate,
+    Markdown,
   )
   let result = match
     @parser.registry_parse(

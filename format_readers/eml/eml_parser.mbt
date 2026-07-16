@@ -206,7 +206,7 @@ fn eml_recovered_raw_part(raw : String, pointer : String) -> EmlPart {
     name: None,
     disposition: None,
     disposition_filename: None,
-    transfer_encoding: EmlTransferEncoding::SevenBit,
+    transfer_encoding: SevenBit,
     content_id: None,
     location: None,
     json_pointer: pointer,
@@ -238,9 +238,8 @@ fn eml_recovered_raw_part(raw : String, pointer : String) -> EmlPart {
 
 ///|
 fn eml_maybe_attachment(part : EmlPart, body_text : String) -> EmlAttachment? {
-  let is_inline = part.summary.disposition == Some(EmlDispositionKind::Inline)
-  let explicit_attachment = part.summary.disposition ==
-    Some(EmlDispositionKind::Attachment)
+  let is_inline = part.summary.disposition == Some(Inline)
+  let explicit_attachment = part.summary.disposition == Some(Attachment)
   let is_image = eml_mime_is_image(part.summary.mime_type)
   let has_name = part.summary.name is Some(_) ||
     part.summary.disposition_filename is Some(_)
@@ -344,7 +343,7 @@ fn eml_collect_message_views(
 
 ///|
 fn eml_attachment_is_inline_image_local(attachment : EmlAttachment) -> Bool {
-  attachment.disposition == Some(EmlDispositionKind::Inline) &&
+  attachment.disposition == Some(Inline) &&
   eml_mime_is_image(attachment.mime_type)
 }
 
@@ -478,13 +477,13 @@ fn eml_transfer_encoding(raw : String?) -> EmlTransferEncoding {
     None => ""
   }
   match lowered {
-    "7bit" => EmlTransferEncoding::SevenBit
-    "8bit" => EmlTransferEncoding::EightBit
-    "binary" => EmlTransferEncoding::Binary
-    "base64" => EmlTransferEncoding::Base64
-    "quoted-printable" => EmlTransferEncoding::QuotedPrintable
-    "" => EmlTransferEncoding::SevenBit
-    value => EmlTransferEncoding::Other(value)
+    "7bit" => SevenBit
+    "8bit" => EightBit
+    "binary" => Binary
+    "base64" => Base64
+    "quoted-printable" => QuotedPrintable
+    "" => SevenBit
+    value => Other(value)
   }
 }
 
@@ -497,8 +496,8 @@ fn eml_parse_disposition(raw : String?) -> (EmlDispositionKind, String?)? {
   let kind_text = value.split(";").to_array()[0].trim().to_lower()
   let kind = match kind_text {
     "inline" => EmlDispositionKind::Inline
-    "attachment" => EmlDispositionKind::Attachment
-    _ => EmlDispositionKind::Other(kind_text.to_owned())
+    "attachment" => Attachment
+    _ => Other(kind_text.to_owned())
   }
   let filename = eml_header_param(value, "filename")
   Some((kind, filename))
@@ -638,7 +637,7 @@ fn eml_decode_body_text(
   charset : String?,
 ) -> (String, Bool, Bytes?) {
   match encoding {
-    EmlTransferEncoding::Base64 => {
+    Base64 => {
       let compact = raw
         .replace_all(old="\n", new="")
         .replace_all(old=" ", new="")
@@ -653,7 +652,7 @@ fn eml_decode_body_text(
         None => (raw, false, None)
       }
     }
-    EmlTransferEncoding::QuotedPrintable => {
+    QuotedPrintable => {
       let bytes = eml_decode_quoted_printable(raw)
       let decoded_text = eml_decode_text_bytes_with_charset(bytes, charset)
       (decoded_text.0, decoded_text.1, Some(bytes))

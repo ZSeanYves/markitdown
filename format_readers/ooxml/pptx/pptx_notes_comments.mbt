@@ -18,8 +18,8 @@ fn parse_notes_for_slide(
   if !@ox.has_part(ctx.pkg, part) {
     ctx.warnings.push(
       pptx_warning(
-        PptxWarningKind::MissingRelationshipTarget,
-        PptxWarningSeverity::Warning,
+        MissingRelationshipTarget,
+        Warning,
         slide_part,
         "notes",
         None,
@@ -82,7 +82,7 @@ fn collect_paragraphs_from_objects(
 ) -> Unit {
   for obj in objects {
     match obj {
-      PptxObject::Shape(shape) =>
+      Shape(shape) =>
         match shape.text_body {
           Some(body) =>
             for p in body.paragraphs {
@@ -90,8 +90,7 @@ fn collect_paragraphs_from_objects(
             }
           None => ()
         }
-      PptxObject::Group(group) =>
-        collect_paragraphs_from_objects(out, group.children)
+      Group(group) => collect_paragraphs_from_objects(out, group.children)
       _ => ()
     }
   }
@@ -203,8 +202,8 @@ fn parse_comments_for_slide(
                 if author_id.trim() != "" && author_name is None {
                   ctx.warnings.push(
                     pptx_warning(
-                      PptxWarningKind::MissingCommentAuthor,
-                      PptxWarningSeverity::Warning,
+                      MissingCommentAuthor,
+                      Warning,
                       part,
                       "comment-" + idx.to_string(),
                       None,

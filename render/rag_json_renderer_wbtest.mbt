@@ -6,13 +6,13 @@ test "RAG JSON renderer covers document block and event front doors" {
     Some("json"),
     Some("/name"),
   )
-  let block = @core.make_block(@core.BlockKind::Paragraph, "value", source_ref~)
+  let block = @core.make_block(Paragraph, "value", source_ref~)
   let diagnostics = @core.empty_diagnostics()
     |> @core.diagnostics_with_input(Some("memory"), Some("json"))
   let document = {
     ..@core.empty_document_ir(),
     blocks: [block],
-    metadata: Map([("title", @core.JsonValue::String("Fixture"))]),
+    metadata: Map([("title", String("Fixture"))]),
     source_map: Some(
       @core.empty_source_map()
       |> @core.source_map_with_document_ref(Some(source_ref)),
@@ -35,11 +35,11 @@ test "RAG JSON renderer covers document block and event front doors" {
 
   let no_refs = @rag.make_rag_options(100, 0, true, false, true, true)
   let block_result = (renderer.render_input)(
-    RenderInput::BlockStream([block]),
+    BlockStream([block]),
     make_render_context(
       false,
       rag_options=no_refs,
-      metadata=Some(Map([("format", @core.JsonValue::String("json"))])),
+      metadata=Some(Map([("format", String("json"))])),
       source_map=document.source_map,
     ),
   )
@@ -47,15 +47,15 @@ test "RAG JSON renderer covers document block and event front doors" {
   assert_true(block_result.chunks.unwrap()[0].source_refs.length() == 0)
 
   let event : @core.CoreEvent = {
-    kind: @core.EventKind::TextLine,
+    kind: TextLine,
     text: "event value",
     source_ref: Some(source_ref),
   }
   let event_result = (renderer.render_input)(
-    RenderInput::EventStream([event]),
+    EventStream([event]),
     make_render_context(
       false,
-      render_profile=@product.RenderProfile::RecordBatchMarkdown,
+      render_profile=RecordBatchMarkdown,
       base_diagnostics=Some(
         @core.empty_diagnostics()
         |> @core.diagnostics_with_input(Some("memory"), Some("json")),
@@ -74,15 +74,7 @@ test "RAG JSON renderer covers document block and event front doors" {
 ///|
 test "RAG JSON chunk encoding and metrics cover all chunk kinds" {
   let chunks : Array[@rag.RagChunk] = []
-  for
-    kind in [
-      @rag.ChunkKind::Text,
-      @rag.ChunkKind::Table,
-      @rag.ChunkKind::Code,
-      @rag.ChunkKind::ImageCaption,
-      @rag.ChunkKind::Metadata,
-      @rag.ChunkKind::Raw,
-    ] {
+  for kind in [@rag.ChunkKind::Text, Table, Code, ImageCaption, Metadata, Raw] {
     chunks.push(
       @rag.make_rag_chunk(
         @rag.chunk_kind_name(kind) + "-0-id",
@@ -91,12 +83,12 @@ test "RAG JSON chunk encoding and metrics cover all chunk kinds" {
         ["Heading"],
         [],
         ["asset"],
-        Map([("ordinal", @core.JsonValue::Number("0"))]),
+        Map([("ordinal", Number("0"))]),
       ),
     )
   }
-  assert_eq(chunk_kind_count(chunks, @rag.ChunkKind::Table), 1)
-  assert_eq(chunk_kind_count(chunks, @rag.ChunkKind::Code), 1)
+  assert_eq(chunk_kind_count(chunks, Table), 1)
+  assert_eq(chunk_kind_count(chunks, Code), 1)
   for chunk in chunks {
     let encoded = render_rag_chunk_json(chunk)
     assert_true(encoded.contains("\"heading_path\": [\"Heading\"]"))

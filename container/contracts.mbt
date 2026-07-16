@@ -16,29 +16,28 @@ pub fn container_asset_copy_policy_name(
   policy : ContainerAssetCopyPolicy,
 ) -> String {
   match policy {
-    ContainerAssetCopyPolicy::MaterializeAtOutputBoundary =>
-      "materialize_at_output_boundary"
-    ContainerAssetCopyPolicy::ReferenceOnly => "reference_only"
-    ContainerAssetCopyPolicy::RejectUnsafePath => "reject_unsafe_path"
+    MaterializeAtOutputBoundary => "materialize_at_output_boundary"
+    ReferenceOnly => "reference_only"
+    RejectUnsafePath => "reject_unsafe_path"
   }
 }
 
 ///|
 /// Convenience constructor for the default materialization policy.
 pub fn container_asset_copy_policy_materialize_at_output_boundary() -> ContainerAssetCopyPolicy {
-  ContainerAssetCopyPolicy::MaterializeAtOutputBoundary
+  MaterializeAtOutputBoundary
 }
 
 ///|
 /// Convenience constructor for a reference-only policy.
 pub fn container_asset_copy_policy_reference_only() -> ContainerAssetCopyPolicy {
-  ContainerAssetCopyPolicy::ReferenceOnly
+  ReferenceOnly
 }
 
 ///|
 /// Convenience constructor for the strict unsafe-path rejection policy.
 pub fn container_asset_copy_policy_reject_unsafe_path() -> ContainerAssetCopyPolicy {
-  ContainerAssetCopyPolicy::RejectUnsafePath
+  RejectUnsafePath
 }
 
 ///|
@@ -63,35 +62,35 @@ pub fn container_unsupported_inner_formats() -> Array[String] {
 /// document.
 pub fn container_supports_inner_format(format : @input.DetectedFormat) -> Bool {
   match format {
-    @input.DetectedFormat::Txt => true
-    @input.DetectedFormat::Markdown => true
-    @input.DetectedFormat::Csv => true
-    @input.DetectedFormat::Tsv => true
-    @input.DetectedFormat::Srt => true
-    @input.DetectedFormat::Vtt => true
-    @input.DetectedFormat::Json => true
-    @input.DetectedFormat::Jsonl => true
-    @input.DetectedFormat::Ndjson => true
-    @input.DetectedFormat::Ipynb => true
-    @input.DetectedFormat::Xml => true
-    @input.DetectedFormat::Yaml => true
-    @input.DetectedFormat::Toml => true
-    @input.DetectedFormat::Html => true
-    @input.DetectedFormat::Tex => true
-    @input.DetectedFormat::Rst => true
-    @input.DetectedFormat::Asciidoc => true
-    @input.DetectedFormat::Eml => true
-    @input.DetectedFormat::Docx => true
-    @input.DetectedFormat::Xlsx => true
-    @input.DetectedFormat::Pptx => true
-    @input.DetectedFormat::Odt => true
-    @input.DetectedFormat::Ods => true
-    @input.DetectedFormat::Odp => true
-    @input.DetectedFormat::Pdf => true
-    @input.DetectedFormat::Audio(_) => true
+    Txt => true
+    Markdown => true
+    Csv => true
+    Tsv => true
+    Srt => true
+    Vtt => true
+    Json => true
+    Jsonl => true
+    Ndjson => true
+    Ipynb => true
+    Xml => true
+    Yaml => true
+    Toml => true
+    Html => true
+    Tex => true
+    Rst => true
+    Asciidoc => true
+    Eml => true
+    Docx => true
+    Xlsx => true
+    Pptx => true
+    Odt => true
+    Ods => true
+    Odp => true
+    Pdf => true
+    Audio(_) => true
     // OCR is a top-level pure-image capability. Images embedded in containers
     // remain assets and must not be promoted to child documents.
-    @input.DetectedFormat::Image(_) => false
+    Image(_) => false
     _ => false
   }
 }

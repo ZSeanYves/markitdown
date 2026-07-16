@@ -79,8 +79,7 @@ test "tesseract tsv parser sorts out-of-order rows and keeps 0-based pages" {
 ///|
 test "tesseract tsv parser reports empty and malformed outputs" {
   match parse_tesseract_tsv("") {
-    Err(OcrProviderError::EmptyResult(msg)) =>
-      assert_true(msg.contains("empty"))
+    Err(EmptyResult(msg)) => assert_true(msg.contains("empty"))
     Err(other) => fail("unexpected empty TSV error: " + other.to_string())
     Ok(_) => fail("empty TSV should fail")
   }
@@ -89,15 +88,13 @@ test "tesseract tsv parser reports empty and malformed outputs" {
     parse_tesseract_tsv(
       "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n",
     ) {
-    Err(OcrProviderError::EmptyResult(msg)) =>
-      assert_true(msg.contains("header"))
+    Err(EmptyResult(msg)) => assert_true(msg.contains("header"))
     Err(other) => fail("unexpected header-only TSV error: " + other.to_string())
     Ok(_) => fail("header-only TSV should fail")
   }
 
   match parse_tesseract_tsv("bad\theader") {
-    Err(OcrProviderError::OutputParseFailed(msg)) =>
-      assert_true(msg.contains("header"))
+    Err(OutputParseFailed(msg)) => assert_true(msg.contains("header"))
     Err(other) =>
       fail("unexpected malformed header error: " + other.to_string())
     Ok(_) => fail("malformed header TSV should fail")

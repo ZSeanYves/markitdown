@@ -42,7 +42,7 @@ let pdf_font_static_tables_blob_base64 : String = "eNp9Xdli7LYNfWa/ZkjtjzP2OE2bx
   "4zV98kHjdHfQ/GKfwCc+FN7RNzwUjp3C680ZT8rh2x4aJ361HLBZeL0/UzAarzdo8s15vUNTzByvt2gKAuNro3xLHwzROF2XtHwQNcfr3RhWN3xUROOBPjCiceJXywE33rS4NV7RV0g0TuNrtNPQl0o03tLXOzTe0ddMFI6LbtD7bKCbrj4LBLrr6sNAoNuuPg0Euu+2Ws504+2Mdhr6VInGW/q6isY7+vyJwvniq+mhq2+r26+IXy1nXH/xRTqFE7/+b/8HhCYxcg=="
 
 ///|
-let pdf_font_static_tables : @lazy.Lazy[PdfFontStaticTables] = @lazy.Lazy(() => {
+let pdf_font_static_tables : @lazy.Lazy[PdfFontStaticTables] = Lazy(() => {
   pdf_font_decode_static_tables()
 })
 

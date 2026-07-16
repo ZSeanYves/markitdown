@@ -31,7 +31,7 @@ test "toml parser handles array of tables and multiline strings" {
   assert_true(report.table_like_count >= 2)
   assert_true(report.scalar_count >= 5)
   match doc.root_members[0].value {
-    @toml.TomlValue::String(value) => assert_eq(value, "hello\nworld\n")
+    String(value) => assert_eq(value, "hello\nworld\n")
     _ => fail("expected multiline string")
   }
   assert_true(doc.tables[0].is_array_item)
@@ -47,7 +47,7 @@ test "toml parser handles inline tables bom crlf and comments" {
   let report = @toml.inspect_toml_document(doc)
   assert_eq(report.node_count, 8)
   match doc.root_members[1].value {
-    @toml.TomlValue::InlineTable(entries) => {
+    InlineTable(entries) => {
       assert_eq(entries.length(), 2)
       assert_eq(entries[0].key, "x")
     }
@@ -71,7 +71,7 @@ test "toml parser accepts multiline continuation with whitespace before newline"
     "value = \"\"\"\\\n" + "  hello \\   \n" + "  world\\\t\n" + "\"\"\"\n",
   )
   match doc.root_members[0].value {
-    @toml.TomlValue::String(value) => assert_eq(value, "hello world")
+    String(value) => assert_eq(value, "hello world")
     _ => fail("expected multiline string")
   }
 }
@@ -93,16 +93,15 @@ test "toml parser validates 1.0 numeric forms datetime bounds and special floats
   )
   assert_eq(document.root_members.length(), 9)
   match document.root_members[0].value {
-    @toml.TomlValue::Integer(value) => assert_eq(value, "1_000")
+    Integer(value) => assert_eq(value, "1_000")
     _ => fail("expected decimal integer")
   }
   match document.root_members[4].value {
-    @toml.TomlValue::Float(value) => assert_eq(value, "-1_234.5_6e+7")
+    Float(value) => assert_eq(value, "-1_234.5_6e+7")
     _ => fail("expected exponent float")
   }
   match document.root_members[7].value {
-    @toml.TomlValue::Datetime(value) =>
-      assert_eq(value, "2024-02-29T23:59:59.123Z")
+    Datetime(value) => assert_eq(value, "2024-02-29T23:59:59.123Z")
     _ => fail("expected offset datetime")
   }
   for
@@ -127,8 +126,6 @@ test "toml malformed input fails closed and classifies" {
     })
     is Err(_),
   )
-  let info = @toml.classify_toml_error(
-    @toml.TomlError::ParseError("expected closing ]"),
-  )
-  assert_true(info.kind == @toml.TomlErrorKind::ExpectedToken)
+  let info = @toml.classify_toml_error(ParseError("expected closing ]"))
+  assert_true(info.kind == ExpectedToken)
 }

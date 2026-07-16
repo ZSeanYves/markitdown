@@ -166,7 +166,7 @@ test "pdf annotation actions surface flags file specs destinations and JSON" {
   assert_true(pdf_annotation_flag_is_set(4, 2))
   let json = pdf_native_backend_annotation_json(annotations[0], objects)
   match json {
-    @core.JsonValue::Object(payload) => {
+    Object(payload) => {
       assert_true(payload.contains("annotation_index"))
       assert_false(payload.contains("destination"))
     }
@@ -182,18 +182,17 @@ test "pdf annotation actions surface flags file specs destinations and JSON" {
     object_id=Some(9),
   )
   match pdf_native_backend_destination_json(destination) {
-    @core.JsonValue::Object(payload) =>
-      assert_true(payload.contains("target_page_index"))
+    Object(payload) => assert_true(payload.contains("target_page_index"))
     _ => abort("expected destination object")
   }
   match
-    pdf_native_backend_bbox_json_value(PdfBBox::{
+    pdf_native_backend_bbox_json_value({
       x: 1.0,
       y: 2.0,
       width: 3.0,
       height: 4.0,
     }) {
-    @core.JsonValue::Object(payload) => assert_true(payload.contains("width"))
+    Object(payload) => assert_true(payload.contains("width"))
     _ => abort("expected bbox object")
   }
 }

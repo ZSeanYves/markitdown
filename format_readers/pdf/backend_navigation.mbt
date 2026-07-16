@@ -223,7 +223,7 @@ fn pdf_extract_named_destinations_from_name_tree(
   }
   let out : Array[PdfNativeDestination] = []
   match pdf_extract_dict_value(dict_text, "/Names") {
-    Some(PdfNativeDictValue::Array(tokens)) => {
+    Some(Array(tokens)) => {
       let mut index = 0
       while index + 1 < tokens.length() {
         let name = match pdf_token_text(tokens[index]) {
@@ -335,26 +335,25 @@ fn pdf_destination_from_content_token(
 ) -> PdfNativeDestination? {
   ignore(source)
   match token {
-    PdfNativeContentToken::Array(tokens) =>
-      pdf_destination_from_tokens(tokens, 0, None, page_numbers)
-    PdfNativeContentToken::Dict(dict_text) =>
+    Array(tokens) => pdf_destination_from_tokens(tokens, 0, None, page_numbers)
+    Dict(dict_text) =>
       match pdf_extract_dict_value(dict_text, "/D") {
         Some(value) =>
           pdf_destination_from_value(value, object_index, 0, None, page_numbers)
         None => None
       }
-    PdfNativeContentToken::Name(name) =>
+    Name(name) =>
       Some(
         make_pdf_native_destination(name=Some(name), raw_value=Some("/" + name)),
       )
-    PdfNativeContentToken::LiteralString(value) =>
+    LiteralString(value) =>
       Some(
         make_pdf_native_destination(
           name=Some(pdf_normalize_pdf_text(value.decoded)),
           raw_value=Some(pdf_normalize_pdf_text(value.decoded)),
         ),
       )
-    PdfNativeContentToken::HexString(hex) =>
+    HexString(hex) =>
       match pdf_decode_hex_pdf_text(hex, None) {
         Some(decoded) =>
           Some(

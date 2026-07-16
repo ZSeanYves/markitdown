@@ -1,7 +1,7 @@
 ///|
 fn json_parser_capability() -> @parser.ParserCapability {
   @parser.dom_ast_parser_capability(
-    @parser.StreamingGranularity::JsonStructure,
+    JsonStructure,
     true,
     true,
     false,
@@ -18,7 +18,7 @@ fn json_parser_capability() -> @parser.ParserCapability {
 ///|
 fn jsonl_parser_capability() -> @parser.ParserCapability {
   @parser.streaming_event_parser_capability(
-    @parser.StreamingGranularity::Record,
+    Record,
     true,
     true,
     false,
@@ -33,7 +33,7 @@ fn jsonl_parser_capability() -> @parser.ParserCapability {
 ///|
 fn ndjson_parser_capability() -> @parser.ParserCapability {
   @parser.streaming_event_parser_capability(
-    @parser.StreamingGranularity::Record,
+    Record,
     false,
     true,
     false,
@@ -64,24 +64,19 @@ fn line_delimited_code_event_source_ref(
 
 ///|
 pub fn json_parser() -> @parser.Parser {
-  @parser.make_parser(
-    "json_parser",
-    @parser.ParserMode::DomAstModel,
-    json_parser_capability(),
-    fn(
-      source : @input.InputSource,
-      context : @parser.ParseContext,
-    ) -> Result[@parser.ParseResult, String] {
-      parse_json_document_result(source, context)
-    },
-  )
+  @parser.make_parser("json_parser", DomAstModel, json_parser_capability(), fn(
+    source : @input.InputSource,
+    context : @parser.ParseContext,
+  ) -> Result[@parser.ParseResult, String] {
+    parse_json_document_result(source, context)
+  })
 }
 
 ///|
 pub fn jsonl_parser() -> @parser.Parser {
   @parser.make_parser(
     "jsonl_parser",
-    @parser.ParserMode::StreamingEvent,
+    StreamingEvent,
     jsonl_parser_capability(),
     fn(
       source : @input.InputSource,
@@ -96,7 +91,7 @@ pub fn jsonl_parser() -> @parser.Parser {
 pub fn ndjson_parser() -> @parser.Parser {
   @parser.make_parser(
     "ndjson_parser",
-    @parser.ParserMode::StreamingEvent,
+    StreamingEvent,
     ndjson_parser_capability(),
     fn(
       source : @input.InputSource,
@@ -118,7 +113,7 @@ pub fn json_parse_with_stream_document(
 ) -> @parser.ParseResult {
   let diagnostics = @fshared.empty_parser_diagnostics(
     "json_parser",
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     source,
     "json",
   )
@@ -128,10 +123,10 @@ pub fn json_parse_with_stream_document(
     context,
     "json",
     "json_parser",
-    @parser.ParserMode::DomAstModel,
-    @parser.ParserMode::StreamingEvent,
+    DomAstModel,
+    StreamingEvent,
     "event_stream",
-    @parser.StreamingGranularity::JsonStructure,
+    JsonStructure,
     "json_structure_event_stream",
   )
   @fshared.apply_product_metrics(diagnostics, "json")
@@ -179,7 +174,7 @@ pub fn json_parse_with_stream_document(
   diagnostics.pass_trace.push("parse:json_parser")
   @parser.parse_result_with_events_capability(
     "json_parser",
-    @parser.ParserMode::StreamingEvent,
+    StreamingEvent,
     events,
     diagnostics,
     json_parser_capability(),
@@ -192,8 +187,7 @@ pub fn json_parse_with_prepared_document(
   context : @parser.ParseContext,
   prepared : @djson.PreparedJsonText,
 ) -> @parser.ParseResult {
-  let requested_streaming = context.requested_mode ==
-    Some(@parser.ParserMode::StreamingEvent)
+  let requested_streaming = context.requested_mode == Some(StreamingEvent)
   if requested_streaming {
     match prepared.stream {
       Some(stream) => {
@@ -209,7 +203,7 @@ pub fn json_parse_with_prepared_document(
       None => {
         let diagnostics = @fshared.empty_parser_diagnostics(
           "json_parser",
-          @parser.ParserMode::DomAstModel,
+          DomAstModel,
           source,
           "json",
         )
@@ -219,10 +213,10 @@ pub fn json_parse_with_prepared_document(
           context,
           "json",
           "json_parser",
-          @parser.ParserMode::DomAstModel,
-          @parser.ParserMode::StreamingEvent,
+          DomAstModel,
+          StreamingEvent,
           "event_stream",
-          @parser.StreamingGranularity::JsonStructure,
+          JsonStructure,
           "json_structure_event_stream",
         )
         @fshared.apply_product_metrics(diagnostics, "json")
@@ -243,7 +237,7 @@ pub fn json_parse_with_prepared_document(
       Err(err) => {
         let diagnostics = @fshared.empty_parser_diagnostics(
           "json_parser",
-          @parser.ParserMode::DomAstModel,
+          DomAstModel,
           source,
           "json",
         )
@@ -274,23 +268,22 @@ fn parse_json_document_result(
   let text = prepared.original_text
   let diagnostics = @fshared.empty_parser_diagnostics(
     "json_parser",
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     source,
     "json",
   )
-  let requested_streaming = context.requested_mode ==
-    Some(@parser.ParserMode::StreamingEvent)
+  let requested_streaming = context.requested_mode == Some(StreamingEvent)
   @fshared.init_parser_route_metrics_with_granularity(
     diagnostics,
     source,
     context,
     "json",
     "json_parser",
-    @parser.ParserMode::DomAstModel,
+    DomAstModel,
     if requested_streaming {
-      @parser.ParserMode::StreamingEvent
+      StreamingEvent
     } else {
-      @parser.ParserMode::DomAstModel
+      DomAstModel
     },
     if requested_streaming {
       "event_stream"
@@ -298,9 +291,9 @@ fn parse_json_document_result(
       "document"
     },
     if requested_streaming {
-      @parser.StreamingGranularity::JsonStructure
+      JsonStructure
     } else {
-      @parser.StreamingGranularity::None
+      None
     },
     if requested_streaming {
       "json_structure_event_stream"
@@ -357,7 +350,7 @@ fn parse_json_document_result(
         return Ok(
           @parser.parse_result_with_events_capability(
             "json_parser",
-            @parser.ParserMode::StreamingEvent,
+            StreamingEvent,
             events,
             diagnostics,
             json_parser_capability(),
@@ -419,7 +412,7 @@ fn parse_json_document_result(
       Ok(
         @parser.parse_result_with_document_capability(
           "json_parser",
-          @parser.ParserMode::DomAstModel,
+          DomAstModel,
           final_document,
           diagnostics,
           json_parser_capability(),
@@ -456,7 +449,7 @@ fn parse_line_delimited_json_result(
   let text = prepared.original_text
   let diagnostics = @fshared.empty_parser_diagnostics(
     parser_name,
-    @parser.ParserMode::StreamingEvent,
+    StreamingEvent,
     source,
     format_name,
   )
@@ -466,10 +459,10 @@ fn parse_line_delimited_json_result(
     context,
     format_name,
     parser_name,
-    @parser.ParserMode::StreamingEvent,
-    @parser.ParserMode::StreamingEvent,
+    StreamingEvent,
+    StreamingEvent,
     "event_stream",
-    @parser.StreamingGranularity::Record,
+    Record,
     "record_event_stream",
   )
   @fshared.apply_product_metrics(diagnostics, format_name)
@@ -522,7 +515,7 @@ fn parse_line_delimited_json_result(
       Ok(
         @parser.parse_result_with_events_capability(
           parser_name,
-          @parser.ParserMode::StreamingEvent,
+          StreamingEvent,
           events,
           diagnostics,
           if format_name == "jsonl" {

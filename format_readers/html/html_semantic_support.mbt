@@ -32,7 +32,7 @@ fn html_semantic_noise_candidate_reasons(
     html_semantic_attr_token_contains(element.attributes, "role", "navigation") ||
     html_semantic_attr_token_contains(element.attributes, "class", "nav") ||
     html_semantic_attr_token_contains(element.attributes, "class", "menu") {
-    reasons.push(HtmlNoiseCandidateReason::NavLike)
+    reasons.push(NavLike)
   }
   if element.tag_name == "footer" ||
     html_semantic_attr_any_contains(
@@ -45,7 +45,7 @@ fn html_semantic_noise_candidate_reasons(
       ["class", "id"],
       "copyright",
     ) {
-    reasons.push(HtmlNoiseCandidateReason::FooterLike)
+    reasons.push(FooterLike)
   }
   if element.tag_name == "aside" ||
     html_semantic_attr_token_contains(
@@ -64,7 +64,7 @@ fn html_semantic_noise_candidate_reasons(
       ["class", "id"],
       "infobox",
     ) {
-    reasons.push(HtmlNoiseCandidateReason::SidebarLike)
+    reasons.push(SidebarLike)
   }
   if html_semantic_has_attr(element.attributes, "hidden") ||
     html_semantic_attr_token_contains(element.attributes, "aria-hidden", "true") ||
@@ -78,19 +78,19 @@ fn html_semantic_noise_candidate_reasons(
       ["style"],
       "visibility:hidden",
     ) {
-    reasons.push(HtmlNoiseCandidateReason::Hiddenish)
+    reasons.push(Hiddenish)
   }
   if element.tag_name == "script" ||
     element.tag_name == "style" ||
     element.tag_name == "template" {
-    reasons.push(HtmlNoiseCandidateReason::ScriptStyleTemplate)
+    reasons.push(ScriptStyleTemplate)
   }
   if html_semantic_attr_any_contains(
       element.attributes,
       ["class", "id"],
       "boilerplate",
     ) {
-    reasons.push(HtmlNoiseCandidateReason::RepeatedBoilerplate)
+    reasons.push(RepeatedBoilerplate)
   }
   reasons
 }
@@ -105,12 +105,12 @@ fn html_semantic_noise_confidence(
     element.tag_name == "script" ||
     element.tag_name == "style" ||
     element.tag_name == "template" {
-    return HtmlNoiseCandidateConfidence::High
+    return High
   }
   if reasons.length() > 1 {
-    HtmlNoiseCandidateConfidence::High
+    High
   } else {
-    HtmlNoiseCandidateConfidence::Medium
+    Medium
   }
 }
 
@@ -173,7 +173,7 @@ fn html_semantic_attribute_summary(
     if i >= HTML_SEMANTIC_ATTR_MAX_COUNT {
       warnings.push(
         new_html_semantic_warning(
-          HtmlSemanticWarningKind::AttributeSummaryTruncated,
+          AttributeSummaryTruncated,
           source_key,
           element.tag_name,
           "html semantic attribute summary truncated for <" +
@@ -190,7 +190,7 @@ fn html_semantic_attribute_summary(
     if truncated {
       warnings.push(
         new_html_semantic_warning(
-          HtmlSemanticWarningKind::AttributeValuePreviewTruncated,
+          AttributeValuePreviewTruncated,
           source_key,
           element.tag_name,
           "html semantic attribute value preview truncated for <" +
@@ -311,54 +311,54 @@ fn html_semantic_optional_bounded_attr(
 fn classify_html_semantic_link_kind(href : String) -> HtmlLinkKind {
   let trimmed = href.trim().to_owned()
   if trimmed == "" {
-    return HtmlLinkKind::Empty
+    return Empty
   }
   let lower = trimmed.to_lower()
   if lower.has_prefix("javascript:") || lower.has_prefix("vbscript:") {
-    return HtmlLinkKind::Unsafe
+    return Unsafe
   }
   if lower.has_prefix("data:") {
-    return HtmlLinkKind::Data
+    return Data
   }
   if lower.has_prefix("#") || lower.has_prefix("/") {
-    return HtmlLinkKind::Internal
+    return Internal
   }
   if lower.has_prefix("mailto:") {
-    return HtmlLinkKind::Mailto
+    return Mailto
   }
   if lower.has_prefix("tel:") {
-    return HtmlLinkKind::Tel
+    return Tel
   }
   if lower.has_prefix("http://") ||
     lower.has_prefix("https://") ||
     lower.has_prefix("//") {
-    return HtmlLinkKind::External
+    return External
   }
-  HtmlLinkKind::Unknown
+  Unknown
 }
 
 ///|
 fn classify_html_semantic_image_kind(src : String) -> HtmlImageKind {
   let trimmed = src.trim().to_owned()
   if trimmed == "" {
-    return HtmlImageKind::Empty
+    return Empty
   }
   let lower = trimmed.to_lower()
   if lower.has_prefix("javascript:") || lower.has_prefix("vbscript:") {
-    return HtmlImageKind::Unsafe
+    return Unsafe
   }
   if lower.has_prefix("data:") {
-    return HtmlImageKind::DataUri
+    return DataUri
   }
   if lower.has_prefix("http://") ||
     lower.has_prefix("https://") ||
     lower.has_prefix("//") {
-    return HtmlImageKind::Remote
+    return Remote
   }
   if lower.has_prefix("/") {
-    return HtmlImageKind::Unknown
+    return Unknown
   }
-  HtmlImageKind::Local
+  Local
 }
 
 ///|
@@ -373,8 +373,7 @@ fn bounded_html_semantic_url(value : String) -> String {
 fn html_semantic_url_fact_value(href : String, kind : HtmlLinkKind) -> String {
   let trimmed = href.trim().to_owned()
   match kind {
-    HtmlLinkKind::Unsafe | HtmlLinkKind::Data =>
-      bounded_html_semantic_url(trimmed)
+    Unsafe | Data => bounded_html_semantic_url(trimmed)
     _ => trimmed
   }
 }
@@ -386,8 +385,7 @@ fn html_semantic_image_src_fact_value(
 ) -> String {
   let trimmed = src.trim().to_owned()
   match kind {
-    HtmlImageKind::DataUri | HtmlImageKind::Unsafe =>
-      bounded_html_semantic_url(trimmed)
+    DataUri | Unsafe => bounded_html_semantic_url(trimmed)
     _ => trimmed
   }
 }
@@ -423,27 +421,22 @@ fn html_semantic_warning_kind_severity(
   kind : HtmlSemanticWarningKind,
 ) -> HtmlWarningSeverity {
   match kind {
-    HtmlSemanticWarningKind::TextPreviewTruncated => HtmlWarningSeverity::Info
-    HtmlSemanticWarningKind::EmptyUrl => HtmlWarningSeverity::Info
-    HtmlSemanticWarningKind::EmptyImageSource => HtmlWarningSeverity::Info
-    HtmlSemanticWarningKind::RemoteImage => HtmlWarningSeverity::Info
-    HtmlSemanticWarningKind::AttributeSummaryTruncated =>
-      HtmlWarningSeverity::Warning
-    HtmlSemanticWarningKind::AttributeValuePreviewTruncated =>
-      HtmlWarningSeverity::Warning
-    HtmlSemanticWarningKind::UnsupportedElement => HtmlWarningSeverity::Warning
-    HtmlSemanticWarningKind::DepthLimitExceeded => HtmlWarningSeverity::Warning
-    HtmlSemanticWarningKind::UnsafeUrl => HtmlWarningSeverity::Warning
-    HtmlSemanticWarningKind::DataUriImage => HtmlWarningSeverity::Warning
-    HtmlSemanticWarningKind::TableSizeLimitExceeded =>
-      HtmlWarningSeverity::Warning
-    HtmlSemanticWarningKind::MalformedTableStructure =>
-      HtmlWarningSeverity::Warning
-    HtmlSemanticWarningKind::BrokenNoteTarget => HtmlWarningSeverity::Warning
-    HtmlSemanticWarningKind::MissingNoteTarget => HtmlWarningSeverity::Warning
-    HtmlSemanticWarningKind::DuplicateNoteTarget => HtmlWarningSeverity::Warning
-    HtmlSemanticWarningKind::MalformedDocumentScope =>
-      HtmlWarningSeverity::Warning
+    TextPreviewTruncated => Info
+    EmptyUrl => Info
+    EmptyImageSource => Info
+    RemoteImage => Info
+    AttributeSummaryTruncated => Warning
+    AttributeValuePreviewTruncated => Warning
+    UnsupportedElement => Warning
+    DepthLimitExceeded => Warning
+    UnsafeUrl => Warning
+    DataUriImage => Warning
+    TableSizeLimitExceeded => Warning
+    MalformedTableStructure => Warning
+    BrokenNoteTarget => Warning
+    MissingNoteTarget => Warning
+    DuplicateNoteTarget => Warning
+    MalformedDocumentScope => Warning
   }
 }
 
@@ -529,13 +522,10 @@ fn html_semantic_guard_unsupported_kind(
   kind : HtmlSemanticWarningKind,
 ) -> HtmlUnsupportedKind? {
   match kind {
-    HtmlSemanticWarningKind::TextPreviewTruncated =>
-      Some(HtmlUnsupportedKind::HugeTextNode)
-    HtmlSemanticWarningKind::AttributeSummaryTruncated
-    | HtmlSemanticWarningKind::AttributeValuePreviewTruncated =>
-      Some(HtmlUnsupportedKind::HugeAttributeValue)
-    HtmlSemanticWarningKind::DepthLimitExceeded =>
-      Some(HtmlUnsupportedKind::DeepNesting)
+    TextPreviewTruncated => Some(HugeTextNode)
+    AttributeSummaryTruncated | AttributeValuePreviewTruncated =>
+      Some(HugeAttributeValue)
+    DepthLimitExceeded => Some(DeepNesting)
     _ => None
   }
 }
@@ -606,7 +596,7 @@ fn html_semantic_raw_text_preview(children : Array[HtmlNode]) -> (String, Bool) 
 fn html_semantic_container_has_direct_text(children : Array[HtmlNode]) -> Bool {
   for child in children {
     match child {
-      HtmlNode::Text(text) => if text.text.trim() != "" { return true }
+      Text(text) => if text.text.trim() != "" { return true }
       _ => ()
     }
   }
@@ -647,11 +637,10 @@ fn append_html_semantic_code_text(
     return true
   }
   match node {
-    HtmlNode::Text(text) =>
-      append_html_semantic_preview_chars(out, text.text, max_chars)
-    HtmlNode::Comment(comment) =>
+    Text(text) => append_html_semantic_preview_chars(out, text.text, max_chars)
+    Comment(comment) =>
       append_html_semantic_preview_chars(out, comment.text, max_chars)
-    HtmlNode::Element(element) => {
+    Element(element) => {
       for child in element.children {
         if append_html_semantic_code_text(child, out, max_chars) {
           return true
@@ -659,7 +648,7 @@ fn append_html_semantic_code_text(
       }
       false
     }
-    HtmlNode::Doctype(_) => false
+    Doctype(_) => false
   }
 }
 
@@ -673,9 +662,8 @@ fn append_html_semantic_text_preview(
     return true
   }
   match node {
-    HtmlNode::Text(text) =>
-      append_html_semantic_preview_chars(out, text.text, max_chars)
-    HtmlNode::Element(element) => {
+    Text(text) => append_html_semantic_preview_chars(out, text.text, max_chars)
+    Element(element) => {
       for child in element.children {
         if append_html_semantic_text_preview(child, out, max_chars) {
           return true
@@ -723,7 +711,7 @@ fn html_semantic_child_has_adjacent_text(
 ///|
 fn html_semantic_node_has_meaningful_text(node : HtmlNode) -> Bool {
   match node {
-    HtmlNode::Text(text) => text.text.trim() != ""
+    Text(text) => text.text.trim() != ""
     _ => false
   }
 }
@@ -736,7 +724,7 @@ fn html_semantic_count_elements_by_tag(
   let mut count = 0
   for node in nodes {
     match node {
-      HtmlNode::Element(element) => {
+      Element(element) => {
         if element.tag_name == tag_name {
           count += 1
         }
@@ -755,7 +743,7 @@ fn html_semantic_first_dom_key_for_tag(
 ) -> String? {
   for node in nodes {
     match node {
-      HtmlNode::Element(element) => {
+      Element(element) => {
         if element.tag_name == tag_name {
           return Some(
             "html:dom:" + tag_name + ":" + element.span.line_start.to_string(),
@@ -792,7 +780,7 @@ fn html_semantic_first_text_preview_for_tag(
 ) -> String? {
   for node in nodes {
     match node {
-      HtmlNode::Element(element) => {
+      Element(element) => {
         if element.tag_name == tag_name {
           return Some(html_semantic_text_preview(element.children).0)
         }
@@ -835,7 +823,7 @@ fn html_semantic_first_meta_attr(
 ) -> String? {
   for node in nodes {
     match node {
-      HtmlNode::Element(element) => {
+      Element(element) => {
         if element.tag_name == "meta" {
           if attr_name == "charset" {
             match
@@ -879,9 +867,7 @@ fn html_semantic_validation_has_malformed_root(
 ) -> Bool {
   for issue in issues {
     match issue.kind {
-      HtmlValidationIssueKind::UnclosedElement
-      | HtmlValidationIssueKind::UnexpectedClosingTag
-      | HtmlValidationIssueKind::MalformedTag => return true
+      UnclosedElement | UnexpectedClosingTag | MalformedTag => return true
       _ => ()
     }
   }

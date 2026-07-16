@@ -84,7 +84,7 @@ let pdf_native_gb2312_blob_base64 : String = "eNrtuVVsWw0QqJk0LjNzm6RxGU7KzAzHdG
 let pdf_native_gb2312_entry_count : Int = 8178
 
 ///|
-let pdf_native_gb2312_blob : @lazy.Lazy[Bytes] = @lazy.Lazy(() => {
+let pdf_native_gb2312_blob : @lazy.Lazy[Bytes] = Lazy(() => {
   pdf_decode_base64_zlib_blob(
     pdf_native_gb2312_blob_base64, "pdf_native_gb2312",
   )

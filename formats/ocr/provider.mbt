@@ -130,8 +130,8 @@ pub fn make_ocr_provider_result(
 /// Stable diagnostics/provenance label for one OCR provider kind.
 pub fn ocr_provider_kind_name(kind : OcrProviderKind) -> String {
   match kind {
-    OcrProviderKind::Tesseract => "tesseract"
-    OcrProviderKind::PaddleOcr => "paddle_ocr"
+    Tesseract => "tesseract"
+    PaddleOcr => "paddle_ocr"
   }
 }
 
@@ -150,11 +150,9 @@ pub fn default_ocr_provider_kind_for_target(
   target : OcrProviderSelectionTarget,
 ) -> OcrProviderKind {
   match target {
-    OcrProviderSelectionTarget::DirectImageBalanced =>
-      OcrProviderKind::Tesseract
-    OcrProviderSelectionTarget::DirectImageAccurate =>
-      OcrProviderKind::PaddleOcr
-    OcrProviderSelectionTarget::PdfAccurate => OcrProviderKind::PaddleOcr
+    DirectImageBalanced => Tesseract
+    DirectImageAccurate => PaddleOcr
+    PdfAccurate => PaddleOcr
   }
 }
 
@@ -164,9 +162,9 @@ pub fn ocr_provider_selection_target_name(
   target : OcrProviderSelectionTarget,
 ) -> String {
   match target {
-    OcrProviderSelectionTarget::DirectImageBalanced => "direct_image_balanced"
-    OcrProviderSelectionTarget::DirectImageAccurate => "direct_image_accurate"
-    OcrProviderSelectionTarget::PdfAccurate => "pdf_accurate"
+    DirectImageBalanced => "direct_image_balanced"
+    DirectImageAccurate => "direct_image_accurate"
+    PdfAccurate => "pdf_accurate"
   }
 }
 
@@ -174,11 +172,11 @@ pub fn ocr_provider_selection_target_name(
 /// Stable diagnostics/provenance label for one provider status.
 pub fn ocr_provider_status_name(status : OcrProviderStatus) -> String {
   match status {
-    OcrProviderStatus::NotConfigured => "not_configured"
-    OcrProviderStatus::CommandUnavailable => "command_unavailable"
-    OcrProviderStatus::ExecutionFailed => "execution_failed"
-    OcrProviderStatus::OutputParseFailed => "output_parse_failed"
-    OcrProviderStatus::EmptyResult => "empty_result"
+    NotConfigured => "not_configured"
+    CommandUnavailable => "command_unavailable"
+    ExecutionFailed => "execution_failed"
+    OutputParseFailed => "output_parse_failed"
+    EmptyResult => "empty_result"
   }
 }
 
@@ -186,13 +184,11 @@ pub fn ocr_provider_status_name(status : OcrProviderStatus) -> String {
 /// Map a provider error to its coarse status category.
 pub fn ocr_provider_error_status(error : OcrProviderError) -> OcrProviderStatus {
   match error {
-    OcrProviderError::NotConfigured(_) => OcrProviderStatus::NotConfigured
-    OcrProviderError::CommandUnavailable(_) =>
-      OcrProviderStatus::CommandUnavailable
-    OcrProviderError::ExecutionFailed(_) => OcrProviderStatus::ExecutionFailed
-    OcrProviderError::OutputParseFailed(_) =>
-      OcrProviderStatus::OutputParseFailed
-    OcrProviderError::EmptyResult(_) => OcrProviderStatus::EmptyResult
+    NotConfigured(_) => NotConfigured
+    CommandUnavailable(_) => CommandUnavailable
+    ExecutionFailed(_) => ExecutionFailed
+    OutputParseFailed(_) => OutputParseFailed
+    EmptyResult(_) => EmptyResult
   }
 }
 
@@ -294,7 +290,7 @@ pub fn dependency_diagnostic_entry(
     dependency_diagnostic_kind_from_title(title),
     title,
     summary,
-    @core.DependencyDiagnosticStatus::Missing,
+    Missing,
     macos_commands,
     ubuntu_commands,
     footer~,
@@ -306,8 +302,8 @@ pub fn ocr_dependency_diagnostic_for_kind(
   kind : OcrProviderKind,
 ) -> @core.DependencyDiagnostic {
   match kind {
-    OcrProviderKind::Tesseract => tesseract_ocr_dependency_diagnostic()
-    OcrProviderKind::PaddleOcr => paddle_ocr_dependency_diagnostic()
+    Tesseract => tesseract_ocr_dependency_diagnostic()
+    PaddleOcr => paddle_ocr_dependency_diagnostic()
   }
 }
 

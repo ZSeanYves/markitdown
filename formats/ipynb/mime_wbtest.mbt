@@ -53,21 +53,15 @@ test "IPYNB MIME helpers classify extensions labels and kind names" {
   assert_eq(ipynb_info_from_mime("application/json"), "json")
   assert_eq(ipynb_info_from_mime("application/vnd.test+json"), "json")
   assert_eq(ipynb_info_from_mime("text/plain"), "text")
-  assert_eq(ipynb_cell_kind_name(@dipynb.IpynbCellKind::Markdown), "markdown")
-  assert_eq(ipynb_cell_kind_name(@dipynb.IpynbCellKind::Code), "code")
-  assert_eq(ipynb_cell_kind_name(@dipynb.IpynbCellKind::Raw), "raw")
-  assert_eq(ipynb_cell_kind_name(@dipynb.IpynbCellKind::Unknown), "unknown")
-  assert_eq(ipynb_output_kind_name(@dipynb.IpynbOutputKind::Stream), "stream")
-  assert_eq(
-    ipynb_output_kind_name(@dipynb.IpynbOutputKind::DisplayData),
-    "display_data",
-  )
-  assert_eq(
-    ipynb_output_kind_name(@dipynb.IpynbOutputKind::ExecuteResult),
-    "execute_result",
-  )
-  assert_eq(ipynb_output_kind_name(@dipynb.IpynbOutputKind::Error), "error")
-  assert_eq(ipynb_output_kind_name(@dipynb.IpynbOutputKind::Unknown), "unknown")
+  assert_eq(ipynb_cell_kind_name(Markdown), "markdown")
+  assert_eq(ipynb_cell_kind_name(Code), "code")
+  assert_eq(ipynb_cell_kind_name(Raw), "raw")
+  assert_eq(ipynb_cell_kind_name(Unknown), "unknown")
+  assert_eq(ipynb_output_kind_name(Stream), "stream")
+  assert_eq(ipynb_output_kind_name(DisplayData), "display_data")
+  assert_eq(ipynb_output_kind_name(ExecuteResult), "execute_result")
+  assert_eq(ipynb_output_kind_name(Error), "error")
+  assert_eq(ipynb_output_kind_name(Unknown), "unknown")
 }
 
 ///|
@@ -97,11 +91,11 @@ test "IPYNB MIME helpers select preferred entries and normalize payloads" {
   )
   assert_true(
     ipynb_asset_payload(ipynb_mime_wbtest_find(entries, "image/png")) ==
-    Some(@core.AssetPayload::Bytes(Bytes::from_array([112, 110, 103]))),
+    Some(Bytes(Bytes::from_array([112, 110, 103]))),
   )
   assert_true(
     ipynb_asset_payload(ipynb_mime_wbtest_find(entries, "image/svg+xml")) ==
-    Some(@core.AssetPayload::Utf8("<svg/>")),
+    Some(Utf8("<svg/>")),
   )
   assert_true(
     ipynb_asset_payload(ipynb_mime_wbtest_find(entries, "application/json"))
@@ -109,21 +103,18 @@ test "IPYNB MIME helpers select preferred entries and normalize payloads" {
   )
   assert_true(
     ipynb_asset_payload(ipynb_mime_wbtest_find(entries, "text/plain")) ==
-    Some(@core.AssetPayload::Utf8("plain")),
+    Some(Utf8("plain")),
   )
   assert_true(
     ipynb_asset_payload(
       ipynb_mime_wbtest_find(entries, "application/octet-stream"),
     ) ==
-    Some(@core.AssetPayload::Bytes(Bytes::from_array([98, 105, 110]))),
+    Some(Bytes(Bytes::from_array([98, 105, 110]))),
   )
-  let asset = @core.make_asset_ref(@core.AssetKind::Embedded, "entry.bin")
+  let asset = @core.make_asset_ref(Embedded, "entry.bin")
   ipynb_attach_asset_payload(
     asset,
     ipynb_mime_wbtest_find(entries, "application/octet-stream"),
   )
-  assert_true(
-    asset.payload ==
-    Some(@core.AssetPayload::Bytes(Bytes::from_array([98, 105, 110]))),
-  )
+  assert_true(asset.payload == Some(Bytes(Bytes::from_array([98, 105, 110]))))
 }

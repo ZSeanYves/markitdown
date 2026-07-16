@@ -28,12 +28,9 @@ test "IPYNB parser lowers markdown code rich outputs errors and attachments" {
   let source = @input.input_from_text_with_format(
     text,
     "complex.ipynb",
-    Some(@input.DetectedFormat::Ipynb),
+    Some(Ipynb),
   )
-  let result = (ipynb_parser().parse)(
-    source,
-    @parser.new_parse_context(@input.DetectedFormat::Ipynb),
-  ).unwrap()
+  let result = (ipynb_parser().parse)(source, @parser.new_parse_context(Ipynb)).unwrap()
   assert_true(result.document.unwrap().blocks.length() >= 3)
   assert_true(result.assets.length() >= 1)
   assert_true(result.diagnostics.metrics.get("cell_count") == Some("3"))
@@ -49,11 +46,11 @@ test "IPYNB parser reuses lowering for block streaming route" {
   let source = @input.input_from_text_with_format(
     text,
     "stream.ipynb",
-    Some(@input.DetectedFormat::Ipynb),
+    Some(Ipynb),
   )
   let context = @parser.parse_context_with_limits(
-    @parser.new_parse_context(@input.DetectedFormat::Ipynb),
-    Some(@parser.ParserMode::BlockStreaming),
+    @parser.new_parse_context(Ipynb),
+    Some(BlockStreaming),
     None,
     None,
     None,
@@ -75,12 +72,9 @@ test "IPYNB malformed notebook produces raw fenced fallback" {
   let source = @input.input_from_text_with_format(
     "{\"nbformat\":4,\"cells\":\"oops\"}",
     "broken.ipynb",
-    Some(@input.DetectedFormat::Ipynb),
+    Some(Ipynb),
   )
-  let result = (ipynb_parser().parse)(
-    source,
-    @parser.new_parse_context(@input.DetectedFormat::Ipynb),
-  ).unwrap()
+  let result = (ipynb_parser().parse)(source, @parser.new_parse_context(Ipynb)).unwrap()
   assert_true(result.document.unwrap().blocks.length() == 1)
   assert_true(
     result.diagnostics.degraded_features.contains("ipynb_raw_fenced_fallback"),
@@ -102,12 +96,9 @@ test "IPYNB extended display messages resolve to final visible output" {
   let source = @input.input_from_text_with_format(
     text,
     "display.ipynb",
-    Some(@input.DetectedFormat::Ipynb),
+    Some(Ipynb),
   )
-  let result = (ipynb_parser().parse)(
-    source,
-    @parser.new_parse_context(@input.DetectedFormat::Ipynb),
-  ).unwrap()
+  let result = (ipynb_parser().parse)(source, @parser.new_parse_context(Ipynb)).unwrap()
   let blocks = result.document.unwrap().blocks
   assert_true(blocks.any(block => block.text.contains("final")))
   assert_true(!blocks.any(block => block.text.contains("old")))
@@ -121,7 +112,7 @@ test "IPYNB compact large markdown cell preserves visible label source and attac
   let source = @input.input_from_text_with_format(
     ipynb_wbtest_complex_notebook(),
     "large.ipynb",
-    Some(@input.DetectedFormat::Ipynb),
+    Some(Ipynb),
   )
   let block = lower_ipynb_large_markdown_cell(cell, source)
   assert_true(block.text.has_prefix("[Cell 1 | markdown]\n\n# Title"))

@@ -271,9 +271,9 @@ fn read_json_or_default(path : String, fallback : Json) -> Json {
 ///|
 fn route_provenance_complete(json : Json) -> Bool {
   match json {
-    Json::Object(map) => {
+    Object(map) => {
       let route_plan_ok = match map.get("route_plan") {
-        Some(Json::Object(route_plan)) =>
+        Some(Object(route_plan)) =>
           route_plan.get("selected_route") is Some(_) &&
           route_plan.get("route_reason") is Some(_) &&
           route_plan.get("route_probe_summary") is Some(_)

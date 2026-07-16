@@ -6,7 +6,7 @@ test "ZIP parser lowers contract archives and reports unsupported nested entries
     "samples/fixtures/contracts/zip/zip_assets_namespace.zip", "samples/fixtures/contracts/zip/zip_html_local_image.zip",
   ]
   let parser = zip_container_parser(fn() { @parser.empty_registry() })
-  let context = @parser.new_parse_context(@input.DetectedFormat::Zip)
+  let context = @parser.new_parse_context(Zip)
   let mut blocks = 0
   let mut warnings = 0
   for path in fixtures {
@@ -32,12 +32,8 @@ test "ZIP parser rejects invalid and truncated central directories" {
     ] {
     assert_true(
       (parser.parse)(
-        @input.input_from_bytes_with_format(
-          bytes,
-          "broken.zip",
-          Some(@input.DetectedFormat::Zip),
-        ),
-        @parser.new_parse_context(@input.DetectedFormat::Zip),
+        @input.input_from_bytes_with_format(bytes, "broken.zip", Some(Zip)),
+        @parser.new_parse_context(Zip),
       )
       is Err(_),
     )

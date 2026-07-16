@@ -49,10 +49,10 @@ fn open_source_cursor_unchecked(
   source : InputSource,
 ) -> Result[SourceCursor, String] {
   match source.payload {
-    InputPayload::Path(path) => open_path_source_cursor(path)
-    InputPayload::Text(text) => Ok(source_cursor_from_bytes(@utf8.encode(text)))
-    InputPayload::Bytes(bytes) => Ok(source_cursor_from_bytes(bytes))
-    InputPayload::Reader(reader) =>
+    Path(path) => open_path_source_cursor(path)
+    Text(text) => Ok(source_cursor_from_bytes(@utf8.encode(text)))
+    Bytes(bytes) => Ok(source_cursor_from_bytes(bytes))
+    Reader(reader) =>
       Ok({
         size: reader.size,
         read_at: reader.read_at,

@@ -92,7 +92,7 @@ fn scan_markdown_document_with_profile(
 
     if markdown_line_is_blank(line) {
       blocks.push({
-        kind: MarkdownBlockKind::BlankLine,
+        kind: BlankLine,
         line_start: line_no,
         line_end: line_no,
         raw_text: line.raw,
@@ -135,8 +135,8 @@ fn scan_markdown_document_with_profile(
             None => 0
           }
           issues.push({
-            kind: MarkdownValidationIssueKind::UnclosedFence,
-            severity: MarkdownValidationSeverity::Warning,
+            kind: UnclosedFence,
+            severity: Warning,
             line_start: Some(line_no),
             line_end: Some(i + raw_lines.length()),
             message: "fenced code block is not closed",
@@ -148,7 +148,7 @@ fn scan_markdown_document_with_profile(
           markdown_parse_profile_add_elapsed(issue_total, issue_started)
         }
         blocks.push({
-          kind: MarkdownBlockKind::FencedCode,
+          kind: FencedCode,
           line_start: line_no,
           line_end: i + raw_lines.length(),
           raw_text: raw_lines.join("\n"),
@@ -176,7 +176,7 @@ fn scan_markdown_document_with_profile(
     if can_start_setext_heading(lines, i) {
       markdown_parse_profile_add_elapsed(classify_total, classify_started)
       blocks.push({
-        kind: MarkdownBlockKind::HeadingSetext,
+        kind: HeadingSetext,
         line_start: line_no,
         line_end: line_no + 1,
         raw_text: line.raw + "\n" + lines[i + 1].raw,
@@ -188,7 +188,7 @@ fn scan_markdown_document_with_profile(
 
     let kind = classify_markdown_line_kind(line)
     markdown_parse_profile_add_elapsed(classify_total, classify_started)
-    if kind != MarkdownBlockKind::ParagraphLike {
+    if kind != ParagraphLike {
       blocks.push({
         kind,
         line_start: line_no,
@@ -210,7 +210,7 @@ fn scan_markdown_document_with_profile(
       j += 1
     }
     blocks.push({
-      kind: MarkdownBlockKind::ParagraphLike,
+      kind: ParagraphLike,
       line_start: line_no,
       line_end: i + raw_lines.length(),
       raw_text: raw_lines.join("\n"),
@@ -374,7 +374,7 @@ fn consume_markdown_frontmatter(
   let marker = markdown_line_trimmed(lines[0])
   let kind = match marker {
     "---" => Some(MarkdownFrontmatterKind::Yaml)
-    "+++" => Some(MarkdownFrontmatterKind::Toml)
+    "+++" => Some(Toml)
     _ => None
   }
 
@@ -405,8 +405,8 @@ fn consume_markdown_frontmatter(
       }
 
       issues.push({
-        kind: MarkdownValidationIssueKind::UnclosedFrontmatter,
-        severity: MarkdownValidationSeverity::Warning,
+        kind: UnclosedFrontmatter,
+        severity: Warning,
         line_start: Some(1),
         line_end: Some(lines.length()),
         message: "frontmatter block is not closed",
@@ -494,7 +494,7 @@ fn can_start_setext_heading(
     return false
   }
   !markdown_line_is_blank(lines[index]) &&
-  classify_markdown_line_kind(lines[index]) == MarkdownBlockKind::ParagraphLike &&
+  classify_markdown_line_kind(lines[index]) == ParagraphLike &&
   is_markdown_setext_underline(lines[index + 1])
 }
 
@@ -525,19 +525,19 @@ fn is_markdown_setext_underline(line : MarkdownLineView) -> Bool {
 ///|
 fn classify_markdown_line_kind(line : MarkdownLineView) -> MarkdownBlockKind {
   if is_markdown_atx_heading(line) {
-    MarkdownBlockKind::HeadingAtx
+    HeadingAtx
   } else if is_markdown_list_item(line) {
-    MarkdownBlockKind::ListItem
+    ListItem
   } else if is_markdown_blockquote(line) {
-    MarkdownBlockKind::BlockQuote
+    BlockQuote
   } else if is_markdown_thematic_break(line) {
-    MarkdownBlockKind::ThematicBreak
+    ThematicBreak
   } else if is_markdown_html_block_candidate(line) {
-    MarkdownBlockKind::HtmlBlockCandidate
+    HtmlBlockCandidate
   } else if is_markdown_table_like_row(line) {
-    MarkdownBlockKind::TableLikeRow
+    TableLikeRow
   } else {
-    MarkdownBlockKind::ParagraphLike
+    ParagraphLike
   }
 }
 
@@ -559,7 +559,7 @@ fn should_end_markdown_paragraph(
   }
 
   let kind = classify_markdown_line_kind(line)
-  kind != MarkdownBlockKind::ParagraphLike
+  kind != ParagraphLike
 }
 
 ///|
