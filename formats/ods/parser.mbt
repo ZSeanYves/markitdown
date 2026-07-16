@@ -459,10 +459,7 @@ fn ods_lower_common(
         blocks.push(unavailable)
         continue
       }
-      let observed = match image.bytes {
-        Some(bytes) => bytes.length().to_int64()
-        None => 0L
-      }
+      let observed = image.bytes.unwrap().length().to_int64()
       let identity = image.href.trim().to_owned().replace_all(old="\\", new="/")
       let already_materialized = asset_ids_by_href.contains(identity) &&
         asset_paths_by_href.contains(identity)

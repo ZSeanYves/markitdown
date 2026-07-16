@@ -802,10 +802,7 @@ fn odt_image_block(
         unavailable.attrs.set("asset_source_path", image.href)
         return unavailable
       }
-      let observed = match image.bytes {
-        Some(bytes) => bytes.length().to_int64()
-        None => 0L
-      }
+      let observed = image.bytes.unwrap().length().to_int64()
       if !@parser.asset_payload_within_limits(
           context,
           observed,
