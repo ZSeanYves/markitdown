@@ -1388,6 +1388,21 @@ test "benchmark performance gate enforces per-row 2x and per-format 3x" {
 }
 
 ///|
+test "benchmark performance gate is not applicable without an external comparison" {
+  match performance_gate_summary([]) {
+    Object(fields) => {
+      assert_true(fields.get("status").unwrap() == "not_applicable".to_json())
+      assert_true(fields.get("evaluated_rows").unwrap() == (0).to_json())
+      assert_true(fields.get("row_violation_count").unwrap() == (0).to_json())
+      assert_true(
+        fields.get("format_violation_count").unwrap() == (0).to_json(),
+      )
+    }
+    _ => fail("performance gate must be an object")
+  }
+}
+
+///|
 test "benchmark run id allocation creates complete directory layout" {
   let run_id = allocate_run_id(["contract", "paths"]).unwrap()
   defer bench_cleanup_temp_dir(run_root(run_id))

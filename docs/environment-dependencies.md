@@ -140,3 +140,11 @@ git clone https://github.com/ZSeanYves/markitdown-quality-lab.git \
 
 CI pins its exact commit with `MARKITDOWN_QUALITY_LAB_SHA`. The quality repo is
 test evidence and is never packaged into the runtime or release archive.
+
+## Local packaging
+
+`tools/release/package.py` produces deterministic development archives,
+SHA-256 files, and SPDX 2.3 SBOMs for Linux x64 and macOS arm64 binaries. It
+does not upload artifacts, create tags, or publish releases. Keep generated
+packages under an ignored local directory such as
+`.tmp/local-optimization/0.7/release/`.

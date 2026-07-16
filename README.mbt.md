@@ -3,6 +3,10 @@
 `markitdown-mb` is a MoonBit document-to-Markdown tool for document ingestion,
 RAG, and automation pipelines.
 
+The repository is currently on the unreleased `0.7.0` development line. Local
+archives and validation evidence are development artifacts, not published
+releases.
+
 The project is inspired by Microsoft `MarkItDown`, but it is not a port.
 It is designed around stable routing, traceable provenance, explicit failure
 boundaries, and reproducible behavior under complex formats and

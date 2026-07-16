@@ -2,8 +2,8 @@
 
 ## Supported Versions
 
-Security fixes are applied to the current `0.5.x` development line until the
-first stable release policy is published.
+Security fixes are applied to the current unreleased `0.7.x` development line
+until the first stable release policy is published.
 
 ## Reporting
 

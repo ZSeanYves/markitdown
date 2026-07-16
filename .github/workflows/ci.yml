@@ -231,7 +231,15 @@ jobs:
             | tee .tmp/bench-ci/run.jsonl
           summary="$(tail -n 1 .tmp/bench-ci/run.jsonl | jq -er '.summary_json | select(type == "string" and length > 0)')"
           test -f "$summary"
-          jq -e '.trust_status == "trusted" and .truth_summary.failed_cases == 0 and .gate_summary.performance.status == "pass" and .gate_summary.rss.status == "pass"' "$summary"
+          jq -e '
+            .trust_status == "trusted" and
+            .truth_summary.failed_cases == 0 and
+            .gate_summary.rss.status == "pass" and
+            (
+              .gate_summary.performance.status == "pass" or
+              (.preset == "change-risk" and .gate_summary.performance.status == "not_applicable")
+            )
+          ' "$summary"
           cp "$summary" .tmp/bench-ci/summary.json
       - name: Upload evidence
         if: always()
