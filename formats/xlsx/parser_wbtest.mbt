@@ -354,6 +354,25 @@ test "xlsx advanced synthetic contract covers shared styles formulas comments ta
 }
 
 ///|
+test "xlsx parser rejects lazy media references over the request asset budget" {
+  let context = @parser.parse_context_with_asset_limits(
+    @parser.new_parse_context(Xlsx),
+    1L,
+    1L,
+  )
+  let result = (xlsx_parser().parse)(
+    @input.input_from_path(
+      "samples/fixtures/contracts/xlsx/xlsx_advanced_synthetic.xlsx",
+    ),
+    context,
+  ).unwrap()
+  assert_eq(result.document.unwrap().assets.length(), 0)
+  assert_true(
+    result.diagnostics.degraded_features.contains("asset_payload_limit_skip"),
+  )
+}
+
+///|
 test "xlsx parser treats merge-only placeholder cells as an empty sheet" {
   let sheet_xml = "<worksheet><dimension ref=\"A1:C50000\"/><sheetData><row r=\"1\"><c r=\"A1\" s=\"1\"/><c r=\"B1\" s=\"1\"/><c r=\"C1\" s=\"1\"/></row><row r=\"50000\"><c r=\"A50000\" s=\"1\"/><c r=\"B50000\" s=\"1\"/><c r=\"C50000\" s=\"1\"/></row></sheetData><mergeCells count=\"1\"><mergeCell ref=\"A1:C50000\"/></mergeCells></worksheet>"
   let parsed = xlsx_parse_sheet_xml_bytes(

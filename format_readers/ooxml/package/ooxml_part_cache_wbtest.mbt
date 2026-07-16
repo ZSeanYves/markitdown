@@ -251,6 +251,20 @@ test "ooxml part cache reuses bytes by normalized package path" {
 }
 
 ///|
+test "ooxml exposes normalized declared part size without reading payload" {
+  let pkg = cache_test_open_package()
+  let expected = part_declared_size(pkg, "word/document.xml").unwrap()
+  assert_true(expected > 0)
+  assert_eq(part_declared_size(pkg, "/word/./document.xml"), Some(expected))
+  assert_true(part_declared_size(pkg, "word/missing.xml") is None)
+  let (_, bytes_miss_count, _, _, bytes_entry_count, _) = cache_test_part_stats(
+    pkg,
+  )
+  assert_eq(bytes_miss_count, 0)
+  assert_eq(bytes_entry_count, 0)
+}
+
+///|
 test "ooxml part cache reuses decoded text and feeds byte cache" {
   let pkg = cache_test_open_package()
   let first = read_part_text(pkg, "word/document.xml") catch {

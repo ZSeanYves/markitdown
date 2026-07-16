@@ -169,6 +169,33 @@ fn read_media_bytes_with_budget(
   rel_id : String,
   target_part : String,
 ) -> Bytes? {
+  match @ox.part_declared_size(ctx.pkg, target_part) {
+    Some(declared) if declared < 0 ||
+      declared > ctx.budget.max_media_bytes_per_asset => {
+      push_over_budget_warning(
+        ctx,
+        part_name,
+        source_key.node_key,
+        Some(rel_id),
+        None,
+        "pptx media asset byte budget exceeded: " + target_part,
+      )
+      return None
+    }
+    Some(declared) if ctx.media_bytes_loaded.val >
+      ctx.budget.max_media_bytes_total - declared => {
+      push_over_budget_warning(
+        ctx,
+        part_name,
+        source_key.node_key,
+        Some(rel_id),
+        None,
+        "pptx total media byte budget exceeded",
+      )
+      return None
+    }
+    _ => ()
+  }
   let bytes = read_source_part_bytes(ctx, target_part)
   match bytes {
     None => None

@@ -67,6 +67,30 @@ fn pptx_image_block_from_media(
     pic,
     pptx_include_block_reading_order_hint(state),
   )
+  let observed = media.data.unwrap().length().to_int64()
+  if !@parser.asset_payload_within_limits(
+      state.context,
+      observed,
+      pptx_declared_asset_bytes(state.assets),
+    ) {
+    @parser.record_asset_payload_budget_skip(
+      state.diagnostics,
+      "pptx:" + asset_key,
+      "single_or_total_asset_bytes",
+      observed,
+      @parser.max_asset_payload_bytes(state.context),
+    )
+    bump_metric(state.diagnostics, "skipped_asset_count")
+    let unavailable = @core.make_block(
+      BlockQuote,
+      "Asset unavailable: " + target_part,
+      source_ref~,
+    )
+    unavailable.attrs.set("asset_missing", "true")
+    unavailable.attrs.set("asset_source_path", target_part)
+    unavailable.attrs.set("payload_skipped", "asset_limit")
+    return unavailable
+  }
   let asset = pptx_ensure_asset(
     state, media, asset_key, output_path, source_ref,
   )
@@ -117,6 +141,11 @@ fn pptx_ensure_asset(
   next_asset.attrs.set("source_path", target_part)
   next_asset.attrs.set("zip_entry_path", target_part)
   next_asset.attrs.set("zip_container_format", "pptx")
+  match media.data {
+    Some(bytes) =>
+      next_asset.attrs.set("declared_asset_bytes", bytes.length().to_string())
+    None => ()
+  }
   match @input.input_path(state.source) {
     Some(path) => next_asset.attrs.set("zip_container_path", path)
     None => ()
@@ -125,6 +154,18 @@ fn pptx_ensure_asset(
   state.asset_ids.set(asset_key, asset_id)
   bump_metric(state.diagnostics, "materialized_asset_count")
   next_asset
+}
+
+///|
+fn pptx_declared_asset_bytes(assets : Array[@core.AssetRef]) -> Int64 {
+  let mut total = 0L
+  for asset in assets {
+    match asset.attrs.get("declared_asset_bytes") {
+      Some(raw) => total += (@string.parse_int(raw) catch { _ => 0 }).to_int64()
+      None => ()
+    }
+  }
+  total
 }
 
 ///|

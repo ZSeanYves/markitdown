@@ -451,7 +451,7 @@ fn xlsx_parse_document_result_from_package(
       }
     }
     let package_media = xlsx_collect_package_media_assets(
-      source, pkg, diagnostics,
+      source, pkg, diagnostics, context,
     )
     lowered.blocks.append(package_media.0[:])
     lowered.assets.append(package_media.1[:])
@@ -514,7 +514,7 @@ fn xlsx_parse_document_result_from_package(
 
   let lowered = xlsx_lower_workbook_document(source, workbook, diagnostics)
   let package_media = xlsx_collect_package_media_assets(
-    source, pkg, diagnostics,
+    source, pkg, diagnostics, context,
   )
   lowered.blocks.append(package_media.0[:])
   lowered.assets.append(package_media.1[:])

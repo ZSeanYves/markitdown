@@ -36,6 +36,8 @@ fn lower_docx_document_ir(
 priv struct DocxLoweringState {
   source : @input.InputSource
   docx : @ddocx.DocxDocument
+  pkg : @ox.OoxmlPackage
+  context : @parser.ParseContext
   diagnostics : @core.Diagnostics
   lowering_profile : @product.LoweringProfile
   accurate_features : @product.AccurateFeatureProfile
@@ -78,7 +80,7 @@ fn metric_int(diagnostics : @core.Diagnostics, key : String) -> Int {
 fn new_docx_lowering_state(
   source : @input.InputSource,
   docx : @ddocx.DocxDocument,
-  _pkg : @ox.OoxmlPackage,
+  pkg : @ox.OoxmlPackage,
   _document : @core.DocumentIR,
   diagnostics : @core.Diagnostics,
   context : @parser.ParseContext,
@@ -138,6 +140,8 @@ fn new_docx_lowering_state(
   {
     source,
     docx,
+    pkg,
+    context,
     diagnostics,
     lowering_profile: context.lowering_profile,
     accurate_features: context.accurate_features,

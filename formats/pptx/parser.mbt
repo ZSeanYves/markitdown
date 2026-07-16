@@ -39,6 +39,7 @@ pub fn pptx_parser() -> @parser.Parser {
 ///|
 priv struct PptxState {
   source : @input.InputSource
+  context : @parser.ParseContext
   diagnostics : @core.Diagnostics
   presentation : @pptxdoc.PptxDocument
   lowering_profile : @product.LoweringProfile

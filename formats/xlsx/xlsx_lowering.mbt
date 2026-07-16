@@ -3,6 +3,7 @@ fn xlsx_collect_package_media_assets(
   source : @input.InputSource,
   pkg : @ox.OoxmlPackage,
   diagnostics : @core.Diagnostics,
+  context : @parser.ParseContext,
 ) -> (Array[@core.CoreBlock], Array[@core.AssetRef]) {
   let blocks : Array[@core.CoreBlock] = []
   let assets : Array[@core.AssetRef] = []
@@ -20,6 +21,7 @@ fn xlsx_collect_package_media_assets(
           blocks,
           assets,
           diagnostics,
+          context,
         )
         seen.set(part.part_name, true)
       }
@@ -41,6 +43,7 @@ fn xlsx_collect_package_media_assets(
       blocks,
       assets,
       diagnostics,
+      context,
     )
   }
   if assets.length() > 0 {
@@ -65,6 +68,7 @@ fn xlsx_append_package_media_asset(
   blocks : Array[@core.CoreBlock],
   assets : Array[@core.AssetRef],
   diagnostics : @core.Diagnostics,
+  context : @parser.ParseContext,
 ) -> Unit {
   let ext = match xlsx_media_part_ext(part.part_name) {
     Some(value) => value
@@ -77,6 +81,38 @@ fn xlsx_append_package_media_asset(
     }
   }
   let index = assets.length() + 1
+  let observed = part.size.to_int64()
+  let materialized = xlsx_declared_asset_bytes(assets)
+  if !@parser.asset_payload_within_limits(context, observed, materialized) {
+    let asset_id = "xlsx:" + part.part_name
+    @parser.record_asset_payload_budget_skip(
+      diagnostics,
+      asset_id,
+      "single_or_total_asset_bytes",
+      observed,
+      @parser.max_asset_payload_bytes(context),
+    )
+    let source_ref = @core.source_ref_with_container_entry(
+      @core.empty_source_ref(),
+      @input.input_path(source),
+      Some("xlsx"),
+      @input.input_path(source),
+      Some(part.part_name),
+      Some(index - 1),
+      Some(ext),
+      None,
+    )
+    let unavailable = @core.make_block(
+      BlockQuote,
+      "Asset unavailable: " + part.part_name,
+      source_ref~,
+    )
+    unavailable.attrs.set("asset_missing", "true")
+    unavailable.attrs.set("asset_source_path", part.part_name)
+    unavailable.attrs.set("payload_skipped", "asset_limit")
+    blocks.push(unavailable)
+    return
+  }
   let output_path = "assets/xlsx-image" +
     xlsx_asset_two_digits(index) +
     "." +
@@ -105,6 +141,7 @@ fn xlsx_append_package_media_asset(
     None => ()
   }
   next_asset.attrs.set("alt", xlsx_media_basename(part.part_name))
+  next_asset.attrs.set("declared_asset_bytes", part.size.to_string())
   match sheet_name {
     Some(value) => next_asset.attrs.set("sheet", value)
     None => ()
@@ -127,6 +164,18 @@ fn xlsx_append_package_media_asset(
     None => ()
   }
   blocks.push(block)
+}
+
+///|
+fn xlsx_declared_asset_bytes(assets : Array[@core.AssetRef]) -> Int64 {
+  let mut total = 0L
+  for asset in assets {
+    match asset.attrs.get("declared_asset_bytes") {
+      Some(raw) => total += (@string.parse_int(raw) catch { _ => 0 }).to_int64()
+      None => ()
+    }
+  }
+  total
 }
 
 ///|

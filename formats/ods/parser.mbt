@@ -463,7 +463,11 @@ fn ods_lower_common(
         Some(bytes) => bytes.length().to_int64()
         None => 0L
       }
-      if !@parser.asset_payload_within_limits(
+      let identity = image.href.trim().to_owned().replace_all(old="\\", new="/")
+      let already_materialized = asset_ids_by_href.contains(identity) &&
+        asset_paths_by_href.contains(identity)
+      if !already_materialized &&
+        !@parser.asset_payload_within_limits(
           context,
           observed,
           @parser.materialized_asset_payload_bytes(assets),
@@ -487,7 +491,6 @@ fn ods_lower_common(
         blocks.push(unavailable)
         continue
       }
-      let identity = image.href.trim().to_owned().replace_all(old="\\", new="/")
       let (asset_id, output_path) = match
         (asset_ids_by_href.get(identity), asset_paths_by_href.get(identity)) {
         (Some(id), Some(path)) => (id, path)
