@@ -60,7 +60,7 @@
 - Shell/Python tooling validation runs only after the core gate. Coverage,
   dependency installation, regressions, benchmarks, and self baselines run in
   later jobs.
-- Current verified local baseline: native `892/892`; JS, Wasm, and Wasm-GC
+- Current verified local baseline: native `893/893`; JS, Wasm, and Wasm-GC
   `485/485` each; `535/535` main, `409/409` quality, `21/21` accurate, and
   `54/54` deterministic mutation cases, with zero unexpected skips.
 - Coverage against baseline `7be6dfbd96f93af237c37aafdd67ad126c3f85b9`

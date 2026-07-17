@@ -119,6 +119,11 @@ fn cli_atomic_stream_output_supported(
 }
 
 ///|
+fn atomic_sink_should_abort(wrote_any : Bool, error_count : Int) -> Bool {
+  !wrote_any && error_count > 0
+}
+
+///|
 fn cli_convert_to_atomic_stream_file(
   opts : CliOptions,
   convert_options : @convert.ConvertOptions,
@@ -169,7 +174,7 @@ fn cli_convert_to_atomic_stream_file(
     atomic_file_writer_abort(writer)
     return Err("streaming file output produced unexpected assets")
   }
-  if !wrote_any.val && result.diagnostics.errors.length() > 0 {
+  if atomic_sink_should_abort(wrote_any.val, result.diagnostics.errors.length()) {
     atomic_file_writer_abort(writer)
     return Err("conversion failed: " + result.diagnostics.errors.join("; "))
   }

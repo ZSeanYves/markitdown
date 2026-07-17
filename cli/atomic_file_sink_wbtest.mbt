@@ -41,6 +41,13 @@ test "CLI writes assetless Markdown through the atomic unbuffered sink" {
 }
 
 ///|
+test "atomic sink aborts only empty failed conversions" {
+  assert_true(atomic_sink_should_abort(false, 1))
+  assert_false(atomic_sink_should_abort(false, 0))
+  assert_false(atomic_sink_should_abort(true, 1))
+}
+
+///|
 test "CLI atomically commits unknown XML entity fail-closed output" {
   let root = test_tmp_root() + "/atomic-cli-xml-unknown-entity"
   recreate_clean_dir(root)
