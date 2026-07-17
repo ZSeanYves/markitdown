@@ -35,11 +35,18 @@ dispatched to OCR.
 - `ParserCapability`
   The shared contract through which native-text and OCR PDF routes are exposed to the registry
 
+Balanced native PDF opens a `SourceCursor`, resolves supported xref/object
+ranges lazily, and falls back to bounded full-payload parsing only when the
+cursor path cannot safely recover the file. Accurate PDF is a separate external
+boundary that rasterizes complete pages; neither route OCRs embedded assets.
+
 ## Maintenance Rules
 
 - Keep native-text, OCR, and lowering responsibilities clearly layered instead of pushing reader details back into parser orchestration
 - Missing `pdftoppm` or OCR providers must continue to surface explainable fail-closed diagnostics
 - Before adding a new PDF enhancement, decide whether it belongs in the parser, OCR runtime, or lowering layer to avoid responsibility drift
+- Keep image decode working sets and exported asset payloads inside the shared
+  resource budgets; command time/output limits apply to every raster page
 
 ## Validation
 

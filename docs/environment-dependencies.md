@@ -99,6 +99,14 @@ Installers are serialized with a lock and update managed records atomically.
 Model archives are checksum-verified. A failed or interrupted install must not
 be accepted by `check` as complete state.
 
+External commands are resolved at a narrow runtime boundary: an explicit
+argument, a single absolute path recorded under `env/managed-paths/<name>`, an
+approved environment override, `PATH`, then a named fallback. Managed records
+reject empty, relative, multiline, missing, and non-executable paths. Process
+execution uses argv directly with timeout, termination grace, stdout/stderr
+ceilings, and deterministic wrapper environments; document data is never
+interpolated into a shell command.
+
 Model downloads use four resumable HTTP range segments by default when the
 server advertises range support. Stable partial files remain under
 `env/downloads/models/` after an interruption, and the next `install` resumes

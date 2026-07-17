@@ -39,6 +39,9 @@
 - Keep shared lexical and semantic recovery logic in `shared/` whenever possible to avoid duplicating near-identical logic across the three languages
 - Language-specific rules may extend the behavior, but should not pollute the shared semantic layer
 - When adding another text-markup format, prefer reusing the shared model first and adding only the language-specific parser surface
+- Includes, directives, and image references remain declarative. Reader code
+  must not execute plugins, fetch remote content, or bypass product resource
+  limits while recovering readable structure.
 
 ## Validation
 

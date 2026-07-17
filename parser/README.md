@@ -8,6 +8,8 @@
 - Define the shared parse-stage `ParseContext`
 - Define the unified `ParseResult`
 - Provide synchronous and asynchronous registry registration and dispatch
+- Expose controlled pull streams for formats that can preserve canonical line
+  or table semantics without materializing an event array
 
 ## Key Entry Points
 
@@ -18,7 +20,8 @@
 - `context.mbt`
   `new_parse_context`, `parse_context_with_product_modes`, `parse_context_with_limits`
 - `registry.mbt`
-  `registry_register`, `registry_parse`, `async_registry_from_sync`
+  `registry_register`, `registry_parse`, `registry_open_event_stream`,
+  `async_registry_from_sync`
 - `constructors.mbt`
   `make_parser`, `parse_result_with_*`
 
@@ -30,6 +33,11 @@
   Carries mode, fidelity, OCR, audio, PDF policy, and resource limits
 - `ParseResult`
   Carries exactly one of event stream, block stream, or `DocumentIR`, plus diagnostics, assets, metadata, and source map side channels
+
+Parser pull is an internal producer/consumer contract. It is not the same as
+the product `stream` mode, and it is not the renderer's incremental sink. A
+pull implementation must return an equivalent final parse summary, including
+diagnostics, metadata, assets, source map, mode, and provenance inputs.
 
 ## Maintenance Rules
 

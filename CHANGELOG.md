@@ -1,18 +1,21 @@
 # Changelog
 
-- Added parser pull-stream sinks for TXT, CSV/TSV, SRT/VTT, and
-  JSONL/NDJSON, plus incremental block/event Markdown rendering for all
-  format families.
-- Added an unbuffered sink API and native atomic CLI file writer so successful
-  file output is committed only after conversion finishes.
-
 ## Unreleased
 
 ### Product surface
 
+- Added parser pull-stream sinks for TXT, CSV/TSV, SRT/VTT, and
+  JSONL/NDJSON, plus incremental block/event Markdown rendering for all
+  format families.
+- Added an unbuffered sink API and native atomic CLI file writer so successful
+  file output is committed only after conversion finishes. Fail-closed XML
+  fences commit after sink output while true empty failures still roll back.
+- `InputSource` now carries a tagged Path/Text/Bytes/Reader payload and exposes
+  bounded `SourceCursor` range access for seekable PDF and package readers.
 - The public conversion chain remains
-  `input -> detect -> probe -> planner -> parse -> pipeline -> render` for CLI
-  and library callers.
+  `input -> detect -> probe -> planner -> ParseResult -> pipeline or controlled
+  pull stream -> renderer -> collected output or OutputSink` for CLI and
+  library callers.
 - Unsupported `accurate` and `stream` requests now fail closed instead of
   silently selecting a balanced/canonical route. ZIP supports balance only.
 - Batch writes every task to `manifest.json`, rejects unknown formats like the
@@ -57,11 +60,12 @@
 - Shell/Python tooling validation runs only after the core gate. Coverage,
   dependency installation, regressions, benchmarks, and self baselines run in
   later jobs.
-- Current verified local baseline: native `855/855`; JS, Wasm, and Wasm-GC
-  `472/472` each; `535/535` main, `380/380` quality, and `21/21` accurate
-  regression rows, with zero unexpected skips.
-- Coverage thresholds currently pass at core `90.09%`, formats `81.78%`, and
-  tools `72.26%`; changed production code is `82.73%` covered.
+- Current verified local baseline: native `892/892`; JS, Wasm, and Wasm-GC
+  `485/485` each; `535/535` main, `409/409` quality, `21/21` accurate, and
+  `54/54` deterministic mutation cases, with zero unexpected skips.
+- Coverage against baseline `7be6dfbd96f93af237c37aafdd67ad126c3f85b9`
+  passes at core `90.09%`, formats `81.92%`, and tools `72.21%`; changed
+  production code is `82.79%` covered.
 - `tools/release/package.py` creates deterministic local Linux/macOS archives,
   SHA-256 files, and SPDX SBOMs. The `0.7.0` development line does not publish
   those artifacts or provide a remote release workflow.
@@ -77,6 +81,10 @@
   time/RSS may not regress beyond the configured tolerance.
 - Runs support JSONL progress, atomic sample logs, checkpoints/resume, output
   retention policy, and disk budgets.
+- Audited macOS 15.3 arm64 run `run-1784263977642-7cf3b18a38` has 25/25
+  comparable rows and 75/75 trusted tool cases. Microsoft MarkItDown completed
+  24 rows; XLSX huge is a censored timeout row. Performance and MoonBit CLI RSS
+  gates both pass.
 
 ### Evidence ownership
 

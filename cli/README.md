@@ -31,6 +31,13 @@
 - `BatchTaskResult`
   A per-task summary of detection, route selection, and failure reasons in batch mode
 
+Markdown file output uses an atomic unbuffered sink only for the explicit
+assetless whitelist: TXT, CSV/TSV, SRT/VTT, JSON/JSONL/NDJSON, XML, YAML, and
+TOML. The CLI writes a sibling temporary file and commits only after sink finish.
+Write failures, unexpected assets, and true empty failures abort without a
+target or temporary file. A fail-closed XML fence is valid output and may be
+committed even when diagnostics retain the triggering parse error.
+
 ## Maintenance Rules
 
 - New flags should normalize into `CliOptions` first instead of leaking intent through scattered booleans
@@ -43,6 +50,6 @@
 ## Validation
 
 ```bash
-moon test
+moon test cli --target native
 bash tools/regression/check_balance.sh
 ```

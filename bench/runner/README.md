@@ -13,6 +13,11 @@ Key outputs are JSONL progress, atomic `samples.jsonl`, `summary.json`, and the
 Markdown report. Schema changes require backward-reading tests for existing run
 reports.
 
+`change-risk` is the normal push/PR preset and requires truth plus MoonBit CLI
+RSS; performance may be `not_applicable`. Scheduled CI runs the full external
+comparison and mutation smoke. RSS gates use only `moonbit-cli` samples, never
+an aggregate that includes the external tool process tree.
+
 Validation:
 
 ```bash

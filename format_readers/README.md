@@ -31,6 +31,9 @@
 
 - `Prepared*` families
   Intermediate results that are ready for upper-layer format parsers
+- `SourceCursor` consumers
+  Seekable PDF/ZIP/package readers use bounded `read_at` access and avoid
+  materializing the complete input when their format permits indexed reads
 - `prepare_*_from_source`
   The standard preparation entry points from `InputSource`
 - `inspect_*`
@@ -41,6 +44,8 @@
 - Readers should focus on understanding raw source formats correctly; upper-layer parsers decide how those results enter the unified product path
 - New low-level logic should be added to the matching reader subtree instead of being pushed up into `formats/*`
 - Keep `Prepared*` field semantics stable because upper-layer lowering and snapshot tests depend on them
+- Package readers must enforce compressed/decompressed size, entry count,
+  range, and transient payload budgets before returning source models
 
 ## Validation
 

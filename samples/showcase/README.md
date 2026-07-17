@@ -49,3 +49,7 @@ python3 samples/showcase/audit.py
 The audit verifies repository evidence; it is not legal advice. Dynamic USGS
 and UniProt inputs are dated snapshots, not freshness claims. Project Gutenberg
 notices embedded in the book files must remain intact.
+
+Showcase output is collected release-CLI evidence, not parser-pull or benchmark
+evidence. Generated Markdown and assets must pass the same atomic output, safe
+path, payload hash, and asset-budget boundaries as ordinary CLI conversions.

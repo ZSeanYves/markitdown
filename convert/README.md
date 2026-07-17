@@ -46,6 +46,9 @@
   caller sink. A fragment larger than 64 KiB is split before delivery.
 - TXT, CSV/TSV, SRT/VTT, and JSONL/NDJSON use parser pull streams and do not
   materialize the full source text or parser event array on the sink path.
+- The pull fast path must preserve rendered bytes and final diagnostics,
+  metadata, assets, source map, route fidelity, and provenance relative to the
+  canonical parse/pipeline/render path.
 - Seekable/container formats may retain their bounded parse index or IR, but
   they no longer construct a complete Markdown string before the first write.
 - Debug and RAG JSON keep buffered framing unless their renderer explicitly
@@ -53,6 +56,9 @@
 - `convert_input_to_sink` retains a content copy for source compatibility.
   `convert_input_to_sink_unbuffered` returns `ConvertResult.content == ""` and
   is the memory-bounded API used by native CLI file output.
+- Asset payload limits are enforced before sink completion; an unbuffered
+  result still carries assets and must not be treated as failed merely because
+  `content` is intentionally empty.
 
 ## Maintenance Rules
 

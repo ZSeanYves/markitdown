@@ -97,13 +97,15 @@ Current RSS budgets are enforced from benchmark policy rather than duplicated
 in this document. Inspect `bench/config/policy.json` and the generated summary
 for the exact evaluated limits.
 
-## Published snapshot
+## Audited snapshot
 
-The README performance table is backed by the current audited macOS arm64 run
-against the repo-locked Microsoft MarkItDown `0.1.6` baseline: 25/25 rows were
-comparable, the performance gate passed, and CLI per-format geometric means
-ranged from PDF `4.53x` to IPYNB `155.69x`. Replace published numbers only with
-another formal run under the locked benchmark environment.
+The root README performance table is backed by macOS 15.3 arm64 run
+`run-1784263977642-7cf3b18a38` from 2026-07-17 against the repo-locked
+Microsoft MarkItDown `0.1.6` baseline. All 25 rows were comparable and all 75
+tool cases were trusted. The baseline completed 24 rows; the XLSX huge row is a
+censored lower-bound comparison because all five baseline samples reached the
+60-second timeout. Replace published numbers only with another complete formal
+run under the locked environment.
 
 ## Evidence and storage
 
@@ -116,10 +118,12 @@ reports/report.md
 checkpoint.json
 ```
 
-CI runs a representative external comparison on normal changes and the full
-external comparison plus mutation smoke on schedule. Self baselines are
-captured and enforced only on controlled, fingerprint-matched machines; hosted
-CI timing variance is too large for the 10% per-case regression threshold.
+Normal push and pull-request CI runs `change-risk`: truth and RSS are mandatory,
+while performance may be `not_applicable` because the preset does not execute
+the external baseline. Scheduled CI alone runs `official-external-compare` and
+mutation smoke. Self baselines are captured and enforced only on controlled,
+fingerprint-matched machines; hosted CI timing variance is too large for the
+10% per-case regression threshold.
 
 See [runner/README.md](./runner/README.md) for package ownership and
 [benchmark-architecture.md](../docs/architecture/benchmark-architecture.md)

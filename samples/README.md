@@ -22,9 +22,14 @@ legal evidence.
 After changing local samples, run:
 
 ```bash
-moon test
+moon test --target all
 ./tools/regression/check_balance.sh
 ```
+
+Fixture assets must exercise explicit `AssetPayload` ownership and the same
+resource ceilings as production inputs. Broad quality, mutation, coverage, and
+benchmark evidence stays in the pinned quality-lab or ignored `.tmp/` runs; it
+must not be copied into this deterministic contract tree.
 
 Do not update an expected file merely to hide lost text, structure, assets,
 diagnostics, route fidelity, or source references.

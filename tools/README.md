@@ -10,4 +10,9 @@ Repository tooling is divided by responsibility:
 Tools are development and release infrastructure; they are not imported by the
 native conversion core. Generated state belongs under ignored `env/`, `.tmp/` directories.
 
+Quality intake validates manifest, catalog, license, provenance, and audit
+boundaries before regression execution. Coverage, mutation, packaging, and
+benchmark gates consume explicit evidence paths and never infer success from a
+non-empty output alone.
+
 See each subtree README for commands and ownership rules.

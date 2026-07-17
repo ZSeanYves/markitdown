@@ -51,6 +51,11 @@ for every source.
 New documentation and automation must call `optional_deps.sh`; do not introduce
 new direct calls to `installers/`.
 
+Resolved native tools are recorded as one absolute executable path under
+`env/managed-paths/<name>`. Empty, relative, multiline, missing, or
+non-executable records are rejected. Runtime wrappers set deterministic child
+environments and command runners enforce timeout plus stdout/stderr ceilings.
+
 ## Verification
 
 ```bash

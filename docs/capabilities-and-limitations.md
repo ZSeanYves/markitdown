@@ -3,8 +3,15 @@
 `markitdown-mb` converts supported inputs through one path:
 
 ```text
-detect -> probe -> route -> parse -> DocumentIR -> render
+detect -> probe -> route -> ParseResult -> pipeline or controlled pull stream
+       -> renderer -> collected output or OutputSink
 ```
+
+`ParseResult` may carry an event stream, block stream, or `DocumentIR`. The
+parser-pull sink fast path is a separate bounded delivery optimization for TXT,
+CSV/TSV, SRT/VTT, and JSONL/NDJSON; it must preserve output, diagnostics, route
+provenance, metadata, assets, and source-map semantics relative to the canonical
+path. This is distinct from the user-visible `stream` mode.
 
 `balance` is the default product mode. `accurate` and `stream` are accepted
 only where the table says so; unsupported mode requests return a non-zero error
@@ -87,6 +94,11 @@ count, decompressed size, compression ratio, object/page trees, MIME recursion,
 aliases and materialized assets. Security, encryption and integrity failures
 fail closed. Recoverable unknown structures may preserve readable content with
 a stable warning instead of discarding the whole document.
+
+Inputs may be path, text, bytes, or caller-owned random-access readers.
+`SourceCursor` supplies bounded range reads for seekable PDF and package
+formats. Assets carry explicit `AssetPayload` values and are checked against
+per-asset and total materialization budgets before output persistence.
 
 The project does not provide browser/editor-grade rendering, password recovery,
 remote includes, external XML entities, parser-time network access, arbitrary

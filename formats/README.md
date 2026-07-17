@@ -41,6 +41,9 @@
 - Embedded document images are assets, not OCR requests. Only top-level pure
   images and standalone unreferenced ZIP image children use the balance OCR
   provider.
+- Format parsers may return documents, block streams, event streams, or an
+  approved pull producer. Product `stream`, parser pull, and incremental sink
+  delivery remain separate contracts with equivalent diagnostics/provenance.
 
 ## Validation
 

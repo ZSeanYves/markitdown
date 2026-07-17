@@ -346,6 +346,10 @@ The enhancement chains in this document do not change the following core facts:
 2. the renderer does not replan
 3. the parser or provider runtime does not redefine the output view
 4. the unified benchmark still reads the same provenance fields
+5. external commands resolve through `runtime/command`, receive argv directly,
+   and enforce timeout plus stdout/stderr ceilings
+6. provider pages, models, and returned assets remain inside shared product
+   resource limits
 
 Therefore, enhancement chains should be understood as:
 

@@ -98,6 +98,11 @@ platform/runner/runtime fingerprints. Fingerprint drift creates a candidate; it
 never silently reuses an incompatible baseline. The quality lab tracks the
 reviewed macOS arm64 and Linux x64 baseline files and their shared JSON schema.
 
+Normal push/PR performance validation uses `change-risk`: truth and RSS must
+pass and performance may be `not_applicable`. Full external comparison and
+mutation run only on scheduled CI. Intake lint must pass against the pinned
+quality-lab commit before its formal rows are treated as auditable evidence.
+
 ## Running and Reading Evidence
 
 ```bash

@@ -25,6 +25,12 @@
 - `ResolvedCommand`
   A unified description of an external command source, path, arguments, and fallback context
 
+`runtime/command` is the only shared external-process boundary. Repo-managed
+records contain exactly one absolute executable path under the selected module
+root; empty, relative, multiline, missing, and non-executable records are
+ignored. Child processes receive argv directly and bounded timeout/output
+limits rather than document-derived shell strings.
+
 ## Maintenance Rules
 
 - Keep only cross-package, cross-format runtime glue here; format-private logic should stay in `formats/*` or `format_readers/*`
