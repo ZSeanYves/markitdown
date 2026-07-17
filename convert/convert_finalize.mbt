@@ -7,7 +7,8 @@ fn finalize_pipeline_execution(
   diagnostics : @core.Diagnostics,
   execution_plan : ResolvedExecutionPlan,
   execution_started : UInt64,
-) -> ConvertExecution {
+  sink : OutputSink?,
+) -> Result[ConvertExecution, ConvertError] {
   let route_plan = route_plan_from_execution_plan(execution_plan)
   let effective_options = {
     ..options,
@@ -100,19 +101,42 @@ fn finalize_pipeline_execution(
     assembly=pass_context.assembly.val,
   )
   let render_started = @env.now()
-  let rendered = match render_input {
-    Document(document) => {
-      let prepared = {
-        ..document,
-        metadata: pass_context.metadata.val,
-        diagnostics: final_diagnostics,
-        assets: pass_context.assets.val,
-        source_map: pass_context.source_map.val,
-        assembly: pass_context.assembly.val,
+  let sink_renderer_active = sink is Some(_) &&
+    effective_options.output_mode == Markdown &&
+    limited_assets.1.length() == 0
+  let rendered = match sink {
+    Some(output_sink) if effective_options.output_mode == Markdown &&
+      limited_assets.1.length() == 0 =>
+      match
+        @render.render_markdown_input_to_sink(render_input, render_context, fn(
+          chunk,
+        ) {
+          write_output_sink_bounded(output_sink, chunk)
+        }) {
+        Ok(value) => value
+        Err(message) =>
+          return Err(RenderFailed("sink write failed: " + message))
       }
-      (renderer.render)(prepared, render_context)
-    }
-    _ => (renderer.render_input)(render_input, render_context)
+    _ =>
+      match render_input {
+        Document(document) => {
+          let prepared = {
+            ..document,
+            metadata: pass_context.metadata.val,
+            diagnostics: final_diagnostics,
+            assets: pass_context.assets.val,
+            source_map: pass_context.source_map.val,
+            assembly: pass_context.assembly.val,
+          }
+          (renderer.render)(prepared, render_context)
+        }
+        _ => (renderer.render_input)(render_input, render_context)
+      }
+  }
+  match sink {
+    Some(_) if !sink_renderer_active =>
+      rendered.diagnostics.metrics.set("sink_renderer_fallback", "true")
+    _ => ()
   }
   rendered.diagnostics.metrics.set(
     "timing_render_ms",
@@ -126,6 +150,15 @@ fn finalize_pipeline_execution(
     remove_skipped_asset_references(rendered.content, limited_assets.1)
   } else {
     rendered.content
+  }
+  match sink {
+    Some(output_sink) if final_content != "" =>
+      match write_output_sink_bounded(output_sink, final_content) {
+        Ok(_) => ()
+        Err(message) =>
+          return Err(RenderFailed("sink write failed: " + message))
+      }
+    _ => ()
   }
   let result : ConvertResult = {
     content: final_content,
@@ -223,7 +256,7 @@ fn finalize_pipeline_execution(
     }),
     requested_fidelity_mode: Some(execution_plan.requested_fidelity_mode),
   }
-  { result, provenance }
+  Ok({ result, provenance })
 }
 
 ///|

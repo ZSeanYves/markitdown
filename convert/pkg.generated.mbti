@@ -16,6 +16,8 @@ pub fn convert_input(@input.InputSource, ConvertOptions) -> Result[ConvertResult
 
 pub fn convert_input_to_sink(@input.InputSource, ConvertOptions, OutputSink) -> Result[ConvertResult, ConvertError]
 
+pub fn convert_input_to_sink_unbuffered(@input.InputSource, ConvertOptions, OutputSink) -> Result[ConvertResult, ConvertError]
+
 pub fn convert_input_with_image_ocr_provider(@input.InputSource, ConvertOptions, (@ocr.OcrProviderRequest) -> Result[@ocr.OcrProviderResult, @ocr.OcrProviderError]) -> Result[ConvertResult, ConvertError]
 
 pub fn convert_input_with_provenance(@input.InputSource, ConvertOptions) -> Result[ConvertExecution, ConvertError]

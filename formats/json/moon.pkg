@@ -1,5 +1,6 @@
 import {
   "ZSeanYves/markitdown/format_readers/json" @djson,
+  "ZSeanYves/markitdown/format_readers/source_io" @sourceio,
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/formats/shared" @fshared,
   "ZSeanYves/markitdown/input",

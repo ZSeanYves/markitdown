@@ -448,6 +448,7 @@ fn write_markdown_subtitle_record_v2_to(
   out : StringBuilder,
   text : String,
   source_ref : @core.SourceRef?,
+  include_identifier? : Bool = true,
 ) -> Unit {
   let mut first = true
   for line in text.split("\n") {
@@ -458,7 +459,12 @@ fn write_markdown_subtitle_record_v2_to(
         out.write_char(' ')
         match source_ref {
           Some(value) =>
-            match value.extra.get("subtitle_identifier") {
+            match
+              (if include_identifier {
+                value.extra.get("subtitle_identifier")
+              } else {
+                None
+              }) {
               Some(identifier) => {
                 out.write_char('[')
                 out.write_string(identifier)

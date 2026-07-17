@@ -25,6 +25,32 @@ fn convert_input_with_image_ocr_provider_and_pdf_rasterizer_and_provenance(
     @fpdf.PdfRasterizerError,
   ],
 ) -> Result[ConvertExecution, ConvertError] {
+  convert_input_with_image_ocr_provider_and_pdf_rasterizer_and_provenance_sink(
+    source,
+    options,
+    image_ocr_provider,
+    pdf_rasterizer,
+    None,
+  )
+}
+
+///|
+/// Execute the canonical path with an optional renderer sink. The default
+/// public conversion keeps the established buffered behavior; sink callers
+/// receive output while the renderer is still traversing the IR.
+fn convert_input_with_image_ocr_provider_and_pdf_rasterizer_and_provenance_sink(
+  source : @input.InputSource,
+  options : ConvertOptions,
+  image_ocr_provider : (@focr.OcrProviderRequest) -> Result[
+    @focr.OcrProviderResult,
+    @focr.OcrProviderError,
+  ],
+  pdf_rasterizer : (@input.InputSource) -> Result[
+    (@fpdf.PdfRasterResult, String),
+    @fpdf.PdfRasterizerError,
+  ],
+  sink : OutputSink?,
+) -> Result[ConvertExecution, ConvertError] {
   let execution_started = @env.now()
   let detect_started = execution_started
   let (effective_source, detected, execution_plan) = match
@@ -125,16 +151,15 @@ fn convert_input_with_image_ocr_provider_and_pdf_rasterizer_and_provenance(
     "timing_parse_lower_ms",
     (@env.now() - parse_started).to_string(),
   )
-  Ok(
-    finalize_pipeline_execution(
-      effective_source,
-      detected.format,
-      options,
-      parsed,
-      diagnostics,
-      execution_plan,
-      execution_started,
-    ),
+  finalize_pipeline_execution(
+    effective_source,
+    detected.format,
+    options,
+    parsed,
+    diagnostics,
+    execution_plan,
+    execution_started,
+    sink,
   )
 }
 

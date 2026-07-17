@@ -162,3 +162,61 @@ test "streaming UTF8 reader preserves markup entities and CSV multiline quotes" 
   )
   assert_true(collect_source_text_chunks(invalid) == Err("utf8 decode failed"))
 }
+
+///|
+test "physical line reader preserves CRLF emoji and trailing records" {
+  let source = @input.input_from_text(
+    "\u{FEFF}alpha\r\nemoji 😀\rblank\n\nlast",
+  )
+  let reader = open_source_text_line_reader(source, max_line_chars=64).unwrap()
+  let values : Array[SourceTextLine] = []
+  while true {
+    match (reader.next)().unwrap() {
+      Some(line) => values.push(line)
+      None => break
+    }
+  }
+  assert_eq(values.length(), 5)
+  assert_eq(values[0].text, "alpha")
+  assert_eq(values[1].text, "emoji 😀")
+  assert_eq(values[2].text, "blank")
+  assert_eq(values[3].text, "")
+  assert_eq(values[4].text, "last")
+  assert_eq(values[4].line_no, 5)
+}
+
+///|
+test "block reader retains one bounded record and line provenance" {
+  let reader = open_source_text_block_reader(
+    @input.input_from_text("one\ntwo\n\nthree\n\nfour\nfive\nsix"),
+    max_block_lines=2,
+  ).unwrap()
+  let first = (reader.next)().unwrap().unwrap()
+  assert_eq(first.lines, ["one", "two"])
+  assert_eq(first.line_start, 1)
+  assert_eq(first.line_end, 2)
+  assert_false(first.truncated)
+  let second = (reader.next)().unwrap().unwrap()
+  assert_eq(second.lines, ["three"])
+  let third = (reader.next)().unwrap().unwrap()
+  assert_eq(third.lines, ["four", "five"])
+  assert_true(third.truncated)
+  assert_true((reader.next)().unwrap() is None)
+}
+
+///|
+test "line readers reject invalid limits and missing sources" {
+  match
+    open_source_text_line_reader(
+      @input.input_from_text("value"),
+      max_line_chars=0,
+    ) {
+    Err(message) => assert_eq(message, "text line limit must be positive")
+    Ok(_) => fail("non-positive line limit should fail")
+  }
+  let missing = @input.input_from_path(
+    "/definitely/missing/source-line-reader.txt",
+  )
+  assert_true(open_source_text_line_reader(missing) is Err(_))
+  assert_true(open_source_text_block_reader(missing) is Err(_))
+}

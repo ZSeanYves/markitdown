@@ -78,6 +78,11 @@ fn run_cli_with_image_ocr_provider_and_pdf_rasterizer(
     audio_options=opts.audio_options,
     rag_options=opts.rag_options,
   )
+  if cli_atomic_stream_output_supported(opts, requested_format) {
+    return cli_convert_to_atomic_stream_file(
+      opts, convert_options, emit_warnings,
+    )
+  }
   let execution = match
     @convert.convert_input_with_provenance_and_image_ocr_provider_and_pdf_rasterizer(
       @input.input_from_path(opts.input),
@@ -96,6 +101,94 @@ fn run_cli_with_image_ocr_provider_and_pdf_rasterizer(
     cli_emit_conversion_warnings(execution.result)
   }
   cli_render_convert_result(opts, execution.result, emit_warnings~)
+}
+
+///|
+fn cli_atomic_stream_output_supported(
+  opts : CliOptions,
+  format : @input.DetectedFormat,
+) -> Bool {
+  opts.output is Some(_) &&
+  opts.provenance_output is None &&
+  opts.output_mode == Markdown &&
+  (match format {
+    Txt | Csv | Tsv | Srt | Vtt | Json | Jsonl | Ndjson | Xml | Yaml | Toml =>
+      true
+    _ => false
+  })
+}
+
+///|
+fn cli_convert_to_atomic_stream_file(
+  opts : CliOptions,
+  convert_options : @convert.ConvertOptions,
+  emit_warnings : Bool,
+) -> Result[String, String] {
+  let output_path = opts.output.unwrap_or("")
+  ensure_dir_tree(dirname_of_path(output_path)) catch {
+    error => return Err("create output dir failed: " + error.to_string())
+  }
+  let writer = match open_atomic_file_writer(output_path) {
+    Ok(value) => value
+    Err(message) => return Err(message)
+  }
+  let wrote_any = Ref(false)
+  let ends_with_newline = Ref(false)
+  let sink = @convert.make_output_sink(
+    fn(chunk) {
+      match atomic_file_writer_write(writer, chunk) {
+        Ok(_) => {
+          wrote_any.val = wrote_any.val || chunk != ""
+          ends_with_newline.val = chunk.has_suffix("\n")
+          Ok(())
+        }
+        Err(message) => Err(message)
+      }
+    },
+    fn() {
+      if wrote_any.val && !ends_with_newline.val {
+        atomic_file_writer_write(writer, "\n")
+      } else {
+        Ok(())
+      }
+    },
+  )
+  let result = match
+    @convert.convert_input_to_sink_unbuffered(
+      @input.input_from_path(opts.input),
+      convert_options,
+      sink,
+    ) {
+    Ok(value) => value
+    Err(err) => {
+      atomic_file_writer_abort(writer)
+      return Err(cli_convert_error_message(opts, err.to_string()))
+    }
+  }
+  if result.assets.length() > 0 {
+    atomic_file_writer_abort(writer)
+    return Err("streaming file output produced unexpected assets")
+  }
+  if result.diagnostics.errors.length() > 0 {
+    atomic_file_writer_abort(writer)
+    return Err("conversion failed: " + result.diagnostics.errors.join("; "))
+  }
+  match atomic_file_writer_commit(writer) {
+    Ok(_) => ()
+    Err(message) => {
+      atomic_file_writer_abort(writer)
+      return Err(message)
+    }
+  }
+  if emit_warnings {
+    cli_emit_conversion_warnings(result)
+    Ok("")
+  } else {
+    let persisted = @fs.read_file_to_string(output_path, encoding="utf8") catch {
+      error => return Err("read streamed output failed: " + error.to_string())
+    }
+    Ok(persisted)
+  }
 }
 
 ///|

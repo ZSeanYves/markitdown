@@ -14,15 +14,7 @@ pub fn txt_parser() -> @parser.Parser {
         source,
         "txt",
       )
-      let prepared = match @dtext.prepare_text_document_from_source(source) {
-        Ok(document) => document
-        Err(err) => {
-          let fallback = invalid_text_parse_result(
-            source, diagnostics, err, context,
-          )
-          return Ok(fallback)
-        }
-      }
+      let prepared = @dtext.prepare_text_document_from_source(source).unwrap()
       let source = prepared.prepared_source
       let parsed = match prepared.document {
         Some(document) => document

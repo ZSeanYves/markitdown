@@ -130,3 +130,43 @@ test "SRT raw fallback and large scanner edge branches retain source bytes" {
     events[0].source_ref.unwrap().extra.get("subtitle_identifier") is None,
   )
 }
+
+///|
+test "SRT pull stream reports malformed and truncated records" {
+  let context = @parser.parse_context_with_limits(
+    @parser.new_parse_context(Srt),
+    None,
+    None,
+    None,
+    None,
+    Some(8),
+    false,
+  )
+  let stream = open_srt_event_stream(
+      @input.input_from_text_with_format(
+        "bad\rnot a timestamp\rraw payload without newline",
+        "pull.srt",
+        Some(Srt),
+      ),
+      context,
+    )
+    .unwrap()
+    .unwrap()
+  let events : Array[@core.CoreEvent] = []
+  while true {
+    match (stream.next)().unwrap() {
+      Some(event) => events.push(event)
+      None => break
+    }
+  }
+  let summary = (stream.finish)().unwrap()
+  assert_true(events.any(event => event.kind == StartBlock(Raw)))
+  assert_true(
+    summary.diagnostics.degraded_features.contains(
+      "srt_malformed_cue_recovered",
+    ),
+  )
+  assert_true(
+    summary.diagnostics.degraded_features.contains("srt_record_truncation"),
+  )
+}

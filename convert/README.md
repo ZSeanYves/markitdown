@@ -13,6 +13,9 @@
 
 - `convert.mbt`
   `convert_input`, `plan_input`, `convert_input_with_provenance`
+- `sink.mbt`
+  `convert_input_to_sink` for compatibility with retained content and
+  `convert_input_to_sink_unbuffered` for bounded output delivery
 - `types.mbt`
   `ConvertOptions`, `RoutePlan`, `ConvertProvenance`, `ConvertResult`
 - `route_policy.mbt`
@@ -36,6 +39,20 @@
   The record of actual execution-time modes, profiles, features, providers, and strategy switches
 - `ConvertResult`
   The unified public result object returned by the high-level API
+
+## Sink Semantics
+
+- Markdown renderers write block, row, or event fragments directly to the
+  caller sink. A fragment larger than 64 KiB is split before delivery.
+- TXT, CSV/TSV, SRT/VTT, and JSONL/NDJSON use parser pull streams and do not
+  materialize the full source text or parser event array on the sink path.
+- Seekable/container formats may retain their bounded parse index or IR, but
+  they no longer construct a complete Markdown string before the first write.
+- Debug and RAG JSON keep buffered framing unless their renderer explicitly
+  supports independent chunks.
+- `convert_input_to_sink` retains a content copy for source compatibility.
+  `convert_input_to_sink_unbuffered` returns `ConvertResult.content == ""` and
+  is the memory-bounded API used by native CLI file output.
 
 ## Maintenance Rules
 

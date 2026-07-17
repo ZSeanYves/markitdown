@@ -16,7 +16,13 @@ pub fn markdown_renderer() -> Renderer
 
 pub fn open_markdown_line_event_sink((String) -> Result[Unit, String]) -> MarkdownEventSink
 
+pub fn open_markdown_subtitle_event_sink((String) -> Result[Unit, String]) -> MarkdownEventSink
+
+pub fn open_markdown_table_event_sink((String) -> Result[Unit, String]) -> MarkdownEventSink
+
 pub fn rag_json_renderer() -> Renderer
+
+pub fn render_markdown_input_to_sink(RenderInput, RenderContext, (String) -> Result[Unit, String]) -> Result[RenderResult, String]
 
 // Errors
 

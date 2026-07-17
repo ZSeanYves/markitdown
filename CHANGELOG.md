@@ -1,5 +1,11 @@
 # Changelog
 
+- Added parser pull-stream sinks for TXT, CSV/TSV, SRT/VTT, and
+  JSONL/NDJSON, plus incremental block/event Markdown rendering for all
+  format families.
+- Added an unbuffered sink API and native atomic CLI file writer so successful
+  file output is committed only after conversion finishes.
+
 ## Unreleased
 
 ### Product surface

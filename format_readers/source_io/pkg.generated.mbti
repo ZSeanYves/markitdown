@@ -12,7 +12,11 @@ pub fn decode_utf16_text_bytes(Bytes) -> String?
 
 pub fn decode_xml_input_bytes(Bytes) -> Result[String, String]
 
+pub fn open_source_text_block_reader(@input.InputSource, max_bytes? : Int64, max_line_chars? : Int, max_block_lines? : Int) -> Result[SourceTextBlockReader, String]
+
 pub fn open_source_text_chunk_reader(@input.InputSource, max_bytes? : Int64, chunk_size? : Int) -> Result[SourceTextChunkReader, String]
+
+pub fn open_source_text_line_reader(@input.InputSource, max_bytes? : Int64, max_line_chars? : Int) -> Result[SourceTextLineReader, String]
 
 pub fn read_source_bytes(@input.InputSource) -> Result[SourceBytesPayload, String]
 
@@ -34,6 +38,17 @@ pub struct SourceBytesPayload {
   prepared_source : @input.InputSource
 }
 
+pub struct SourceTextBlock {
+  lines : Array[String]
+  line_start : Int
+  line_end : Int
+  truncated : Bool
+}
+
+pub struct SourceTextBlockReader {
+  next : () -> Result[SourceTextBlock?, String]
+}
+
 pub struct SourceTextChunk {
   text : String
   byte_start : Int64
@@ -46,6 +61,16 @@ pub struct SourceTextChunk {
 
 pub struct SourceTextChunkReader {
   next : () -> Result[SourceTextChunk?, String]
+}
+
+pub struct SourceTextLine {
+  text : String
+  line_no : Int
+  truncated : Bool
+}
+
+pub struct SourceTextLineReader {
+  next : () -> Result[SourceTextLine?, String]
 }
 
 pub struct SourceTextPayload {

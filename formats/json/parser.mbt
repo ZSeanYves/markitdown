@@ -84,6 +84,15 @@ pub fn jsonl_parser() -> @parser.Parser {
     ) -> Result[@parser.ParseResult, String] {
       parse_line_delimited_json_result("jsonl_parser", "jsonl", source, context)
     },
+    stream_events=Some(fn(source, context) {
+      open_line_json_event_stream(
+        "jsonl_parser",
+        "jsonl",
+        source,
+        context,
+        jsonl_parser_capability(),
+      )
+    }),
   )
 }
 
@@ -101,6 +110,15 @@ pub fn ndjson_parser() -> @parser.Parser {
         "ndjson_parser", "ndjson", source, context,
       )
     },
+    stream_events=Some(fn(source, context) {
+      open_line_json_event_stream(
+        "ndjson_parser",
+        "ndjson",
+        source,
+        context,
+        ndjson_parser_capability(),
+      )
+    }),
   )
 }
 
