@@ -40,6 +40,9 @@
 - Prefer adding a dedicated pass for new logic instead of continuing to grow existing large files
 - Pass names must stay stable because diagnostics and regression tests consume pass traces
 - Parsers should not pre-bake renderer-only layout decisions; that recovery logic should stay in the pipeline whenever possible
+- Controlled parser-pull sink routes may skip document assembly only when the
+  format contract does not require these passes and all output/provenance side
+  channels remain equivalent.
 
 ## Validation
 

@@ -8,9 +8,11 @@ Before submitting any change, run the self-contained checks:
 ```bash
 moon fmt --check
 moon info && git diff --exit-code
-moon check
-moon test
-./tools/regression/check_coverage.sh --enforce
+moon check --target all --warn-list +73 --deny-warn
+moon test --target all
+moon build --target all
+MARKITDOWN_COVERAGE_BASELINE_REF=<base-sha> \
+  ./tools/regression/check_coverage.sh --enforce
 ```
 
 Changes to format behavior, routing, assets, optional runtimes, or release
@@ -35,6 +37,9 @@ moon build cli --target native
 ./tools/regression/check_balance.sh
 ./tools/regression/check_balance_quality.sh
 ./tools/regression/check_accurate.sh
+python3 tools/regression/lib/quality/intake_lint.py \
+  --lab-root markitdown-quality-lab --strict
+python3 tools/regression/mutation_smoke.py
 ```
 
 The non-release build above is the development regression runner. User-facing
@@ -45,6 +50,13 @@ All formal regression runs must finish with zero skipped and zero failed rows.
 Use format filters documented by each command while iterating, then run the
 complete affected suite before submission. Accurate capability regression is a
 functional gate; formal performance benchmarks measure balance mode only.
+
+Normal pushes and pull requests run the benchmark runner with
+`--preset change-risk`; its performance status may be `not_applicable`, but
+truth and RSS must pass. Scheduled CI runs mutation smoke and the full
+`official-external-compare` preset. Before publishing benchmark numbers, build
+the release CLI and runner, run `doctor`, and retain the identified run under
+`.tmp/bench/runs/<run_id>/`.
 
 Changes to format behavior should add a self-contained contract fixture first.
 Large or third-party inputs belong in `markitdown-quality-lab` with license,

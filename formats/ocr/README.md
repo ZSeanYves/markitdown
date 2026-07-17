@@ -36,6 +36,9 @@
 - New providers should implement the shared provider contract before being wired into parser/runtime layers
 - Dependency-missing, fallback, and fail-closed diagnostics should remain explainable
 - Keep OCR geometry and text models provider-neutral so upper layers do not become tied to one tool's private output shape
+- OCR accepts only top-level image payloads or explicitly dispatched standalone
+  ZIP children. Provider requests and returned `AssetPayload` values remain
+  subject to product byte/page budgets and bounded command output.
 
 ## Validation
 

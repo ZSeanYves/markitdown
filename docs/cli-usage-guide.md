@@ -36,6 +36,13 @@ If `output` is omitted in single-file mode, the result is written to stdout.
 Because stdout has no asset directory, local asset references are replaced by
 readable placeholders and reported on stderr instead of producing broken links.
 
+For file output in Markdown mode, the CLI uses an atomic unbuffered sink only
+for TXT, CSV/TSV, SRT/VTT, JSON/JSONL/NDJSON, XML, YAML, and TOML. It writes to
+a temporary sibling, commits by rename only after conversion and sink finish,
+and removes the temporary file on write, asset, or empty-failure paths.
+Fail-closed XML raw fences are valid output and are committed even when their
+diagnostics record the parse error that caused the fallback.
+
 ## 3. Common Single-File Examples
 
 Regular conversion:
@@ -70,6 +77,8 @@ Notes:
 - Markdown output ends with `.md`, `--debug` output ends with `.debug.json`, and `--rag` output ends with `.rag.json`.
 - Batch mode does not support `--provenance-out`; it always writes `manifest.json` in the output directory.
 - Batch mode writes every task outcome to the manifest and returns non-zero if any task fails.
+- Single-file conversion returns non-zero when conversion produces no output
+  and has errors, when sink/commit fails, or when asset persistence fails.
 
 ## 5. Output Views
 

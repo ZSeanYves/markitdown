@@ -31,6 +31,9 @@
   Structural overlays such as section trees, reading order, caption bindings, and asset ownership
 - `SourceRef` / `SourceMap`
   The unified provenance location model
+- `AssetRef` / `AssetPayload`
+  Asset identity plus explicit `Bytes`, `Utf8`, or `SourcePath` content;
+  consumers budget materialization rather than infer payload from a path
 - `Diagnostics`
   Cross-stage aggregation of warnings, errors, fallback traces, pass traces, and dependency state
 
@@ -38,6 +41,9 @@
 
 - Only truly cross-format, cross-layer stable fields should enter `core/`
 - Do not leak format-private state into the public IR; prefer metadata, signals, or assembly side channels when needed
+- Keep asset payload ownership explicit. Parser and container layers may carry
+  a source path, while only approved lowering/output boundaries read or persist
+  it under `ResourceLimits`.
 - Adding a new `core` field usually affects parser, pipeline, render, and provenance together, so evaluate the full blast radius first
 
 ## Validation

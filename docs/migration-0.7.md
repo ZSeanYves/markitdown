@@ -16,6 +16,18 @@ New sink callers can use `convert_input_to_sink(source, options, sink)` with
 buffered convenience wrapper. Sink write or finish failures return a structured
 `RenderFailed` error and do not call `finish` after a failed write.
 
+`convert_input_to_sink_unbuffered` returns full diagnostics, metadata, assets,
+source maps, chunks, and provenance but intentionally leaves `content` empty;
+the caller already owns the bytes delivered to the sink. Selected line/table
+formats can use a parser-pull fast path without materializing an event array.
+This fast path is internal storage behavior, not the product `stream` mode.
+
+`InputSource` now carries a tagged `InputPayload`: `Path`, `Text`, `Bytes`, or
+caller-owned `Reader`. Seekable readers should expose `InputReader.read_at` and
+an optional size; `SourceCursor` applies bounded range access for PDF, ZIP,
+OOXML, ODF, and EPUB readers while preserving `origin_path` separately for
+provenance and safe relative asset lookup.
+
 ## Compatibility notes
 
 - `convert.ConvertMode` is an alias of `product.ConvertMode`.

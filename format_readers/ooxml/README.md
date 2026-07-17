@@ -33,6 +33,11 @@
 - `inspect_ooxml_inventory`
   A stable inventory view for tests and debugging
 
+OOXML packages are opened through the shared seekable ZIP reader. XML parts may
+be read transiently; media payloads are materialized only after per-asset and
+total Office budgets are reserved. External relationships remain metadata and
+never become implicit network or filesystem reads.
+
 ## Maintenance Rules
 
 - Shared container logic should converge in `package/` and `shared/` instead of being reimplemented in DOCX/PPTX/XLSX subtrees

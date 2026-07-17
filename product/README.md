@@ -27,7 +27,7 @@
 - `AccurateFeatureProfile`
   The fine-grained enhancement set enabled per format in accurate mode
 - `ResourceLimits`
-  Shared ceilings used by probing, parsing, and lowering
+  Shared input, recursion, archive, output, and asset materialization ceilings
 - `ProductOptions`
   The standard carrier for top-level product defaults and strategy combinations
 
@@ -36,6 +36,9 @@
 - Each product concept should have one formal name here
 - Any new mode or profile should be evaluated across CLI, route planning, render, and provenance together
 - Keep resource-limit definitions aligned across layers instead of letting convert, parser, and format packages invent separate ceilings
+- Product `stream` selects a supported route. Parser pull and renderer sink
+  delivery are internal storage mechanisms and do not independently change the
+  requested mode or fidelity contract.
 
 ## Validation
 

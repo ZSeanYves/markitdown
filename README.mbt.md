@@ -49,28 +49,44 @@ RUNNER="_build/native/release/build/bench/runner/runner.exe"
 ```
 
 The runner report is the source of truth for performance numbers. This README
-keeps one identified snapshot rather than presenting machine-specific results as
-universal constants.
+keeps one reproducible snapshot and its environment rather than presenting
+machine-specific results as universal constants.
 
-Current audited `official-external-compare` snapshot on macOS arm64, using the
-repo-locked Microsoft MarkItDown `0.1.6` baseline:
+Current audited `official-external-compare` snapshot on macOS 15.3 arm64,
+recorded on 2026-07-17 against the repo-locked Microsoft MarkItDown `0.1.6`
+baseline:
 
 - 25 selected rows, 25 semantically comparable rows
 - 75/75 trusted tool cases; no route, fidelity, provenance, or density failure
-- MoonBit CLI aggregate median: `51,295 us`; baseline: `511,348 us`
+- MoonBit CLI aggregate median: `53,036 us`; baseline: `507,465 us`
+- Microsoft baseline: 24 successful rows plus one comparable XLSX huge row
+  censored after all five 60-second samples reached the timeout
 - performance gate: pass, with every case `>=2x` and every format geometric
   mean `>=3x`
 
 | Format | MoonBit CLI geometric-mean speedup |
 | --- | ---: |
-| IPYNB | `155.69x` |
-| DOCX | `54.92x` |
-| XLSX | `53.45x` |
-| PPTX | `32.89x` |
-| HTML | `11.10x` |
-| ZIP | `10.76x` |
-| Markdown | `10.03x` |
-| PDF | `4.53x` |
+| TXT | `9.71x` |
+| CSV | `9.22x` |
+| Markdown | `10.78x` |
+| HTML | `13.08x` |
+| ZIP | `9.79x` |
+| EPUB | `7.70x` |
+| PDF | `4.17x` |
+| DOCX | `54.15x` |
+| PPTX | `32.39x` |
+| XLSX | `61.45x` |
+| IPYNB | `102.63x` |
+
+The RSS gate measures the MoonBit CLI process for each row. The maxima below
+are MoonBit-only peaks from the selected rows; they do not include or combine
+the external baseline process RSS.
+
+| Format | Maximum MoonBit CLI RSS |
+| --- | ---: |
+| HTML | `154,912 KiB` (`151.28 MiB`) |
+| PDF | `252,672 KiB` (`246.75 MiB`) |
+| XLSX | `248,608 KiB` (`242.78 MiB`) |
 
 ODF and optional dependency-backed balance cases use reviewed self baselines
 instead of invalid external comparisons. Dependency versions are locked under
@@ -162,16 +178,11 @@ For more CLI options, batch usage, and OCR / PDF / audio examples, see
 Daily commands:
 
 ```bash
+moon fmt --check
+moon info && git diff --exit-code
 moon check --target all --warn-list +73 --deny-warn
-moon build
-moon test
-```
-
-Refresh interfaces and formatting:
-
-```bash
-moon info
-moon fmt
+moon test --target all
+moon build --target all
 ```
 
 The quality-lab repository is only required for `tools/regression/check*.sh`

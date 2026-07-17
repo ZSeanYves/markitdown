@@ -406,3 +406,10 @@ The benchmark system is not trying to be:
 ## 11. Convergence Principle
 
 The benchmark system stays healthy when it keeps measuring the real product path, keeps timing and memory visible together, and treats provenance, route fidelity, and trust gates as first-class parts of benchmark truth.
+
+Normal push and pull-request CI uses the bounded `change-risk` preset. It must
+pass truth and MoonBit CLI RSS gates; performance may be `not_applicable`
+because no external comparison rows are selected. Scheduled CI runs the full
+`official-external-compare` preset and mutation smoke. Public performance
+numbers must name a complete formal run ID and must never combine MoonBit CLI
+RSS with the external tool process tree.

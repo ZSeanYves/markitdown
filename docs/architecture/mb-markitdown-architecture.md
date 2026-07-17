@@ -70,12 +70,21 @@ InputSource
   -> ParseContext + prepared_source + probe_artifacts
   -> Parser or route-specific parse helper
   -> ParseResult
-  -> IRInput
-  -> Unified Pipeline
+  -> IRInput -> Unified Pipeline
+     or controlled parser-pull stream
   -> RenderInput
   -> Renderer
+  -> collected output or OutputSink
   -> ConvertResult + ConvertProvenance
 ```
+
+The parser-pull branch is permitted only when the selected parser and Markdown
+renderer can preserve the canonical output contract while avoiding a retained
+source/event array. Its output bytes, diagnostics, metadata, assets, source
+maps, route fidelity, and provenance must remain equivalent to the ordinary
+`ParseResult -> pipeline -> renderer` path. Parser pull, incremental renderer
+sink delivery, and the product-visible `stream` mode are three separate
+concepts and must not be used as synonyms.
 
 This main chain carries three formal constraints:
 
@@ -89,7 +98,7 @@ This main chain carries three formal constraints:
 
 | Layer | Formal responsibility | Must not be responsible for |
 | --- | --- | --- |
-| `InputSource` | Represents path / text / bytes inputs | Format-semantic judgment |
+| `InputSource` | Represents tagged path / text / bytes / reader inputs | Format-semantic judgment |
 | `FormatDetector` | Detects format from explicit format, MIME, extension, and magic bytes | Route selection |
 | `Probe` | Collects lightweight evidence, prepares reusable artifacts, and produces probe summaries | Directly deciding the final route |
 | `Planner` | Normalizes intent, consults format policy, and freezes route / profile / parser-mode / provider target | Parsing the source format directly |
@@ -208,6 +217,11 @@ It should cover:
 1. `document`
 2. `block_stream`
 3. `event_stream`
+
+For approved line/table formats the registry may instead expose a controlled
+pull handle consumed directly by a matching renderer sink. The completed pull
+stream still returns the same parse summary side channels and capability facts
+that would have accompanied `ParseResult`.
 
 ### 4.7 `Diagnostics`, `SourceRef`, `SourceMap`, and `DocumentAssembly`
 
