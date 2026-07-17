@@ -178,6 +178,28 @@ pub fn registry_parse(
 }
 
 ///|
+/// Open the canonical parser's pull event stream when the format provides one.
+/// `None` means the parser intentionally uses the buffered contract.
+pub fn registry_open_event_stream(
+  registry : ParserRegistry,
+  source : @input.InputSource,
+  context : ParseContext,
+) -> Result[ParseEventStream?, String] {
+  match registry_lookup_for_context(registry, context) {
+    Some(parser) =>
+      match parser.stream_events {
+        Some(open) => open(source, context)
+        None => Ok(None)
+      }
+    None =>
+      Err(
+        "no parser registered for format: " +
+        @input.detected_format_name(context.detected_format),
+      )
+  }
+}
+
+///|
 /// Dispatch into the registered async parser for `context.detected_format`.
 pub async fn async_registry_parse(
   registry : AsyncParserRegistry,

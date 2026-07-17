@@ -83,3 +83,43 @@ test "TXT newline and truncation helpers cover all styles and boundaries" {
   assert_true(capability.supports_streaming)
   assert_true(capability.produces_text)
 }
+
+///|
+test "TXT pull stream preserves reader chunk boundaries and CRLF" {
+  let bytes = @utf8.encode("alpha\r\nemoji 😀\r\n\r\nomega")
+  let largest_read = Ref(0)
+  let reader = @input.make_input_reader(
+    fn(offset, requested) {
+      largest_read.val = largest_read.val.max(requested)
+      let start = offset.to_int()
+      if start >= bytes.length() {
+        return Ok(Bytes::new(0))
+      }
+      let end = (start + 3).min(bytes.length())
+      Ok(bytes.view(start~, end~).to_owned())
+    },
+    size=bytes.length().to_int64(),
+  )
+  let stream = open_txt_event_stream(
+      @input.input_from_reader_with_format(reader, "chunked.txt", Some(Txt)),
+      @parser.new_parse_context(Txt),
+    )
+    .unwrap()
+    .unwrap()
+  let events : Array[@core.CoreEvent] = []
+  while true {
+    match (stream.next)().unwrap() {
+      Some(event) => events.push(event)
+      None => break
+    }
+  }
+  let summary = (stream.finish)().unwrap()
+  assert_eq(events.length(), 4)
+  assert_eq(events[0].text, "alpha")
+  assert_eq(events[1].text, "emoji 😀")
+  assert_true(events[2].kind == BlankLine)
+  assert_eq(events[3].text, "omega")
+  assert_eq(summary.diagnostics.metrics.get("newline_style"), Some("crlf"))
+  assert_eq(summary.diagnostics.metrics.get("stream_event_count"), Some("4"))
+  assert_true(largest_read.val <= 64 * 1024)
+}

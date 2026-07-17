@@ -24,6 +24,8 @@ pub fn read_xml_source_text(@input.InputSource) -> Result[SourceTextPayload, Str
 
 pub fn sniff_xml_declared_encoding(Bytes) -> String?
 
+pub fn source_text_chunk_text(SourceTextChunk) -> String
+
 // Errors
 
 // Types and methods

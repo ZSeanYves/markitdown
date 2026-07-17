@@ -67,12 +67,16 @@ def resolve_payload(lab_root: Path, manifest_path: str) -> Path:
 def source_dir(lab_root: Path, local_cache: str, payload: Path) -> Path:
     cache = Path(local_cache)
     if cache.is_absolute():
-        return cache
+        return cache.parent if cache.is_file() else cache
     if cache.as_posix().startswith("external_quality/"):
-        return lab_root / cache
+        candidate = lab_root / cache
+        return candidate.parent if candidate.is_file() else candidate
     if cache.as_posix().startswith("external_main_process/"):
-        return lab_root / cache
+        candidate = lab_root / cache
+        return candidate.parent if candidate.is_file() else candidate
     candidate = lab_root / "external_quality" / cache
+    if candidate.is_file():
+        return candidate.parent
     return candidate if candidate.exists() else payload.parent
 
 
@@ -93,15 +97,52 @@ def magic_ok(fmt: str, payload: Path) -> bool:
     return bool(data)
 
 
-def audit_for(directory: Path) -> Path | None:
-    candidate = directory / "_audit" / "AUDIT.json"
-    return candidate if candidate.is_file() else None
+def evidence_boundary(directory: Path, lab_root: Path) -> Path:
+    relative = directory.resolve().relative_to(lab_root.resolve())
+    if len(relative.parts) >= 2 and relative.parts[0] in {
+        "external_quality", "external_accurate", "external_main_process"
+    }:
+        return lab_root.resolve() / relative.parts[0] / relative.parts[1]
+    return directory.resolve()
 
 
-def license_evidence(directory: Path) -> bool:
-    if any(directory.glob("LICENSE*")) or any(directory.glob("COPYING*")):
-        return True
-    return any(directory.glob("NOTICE*"))
+def evidence_ancestors(directory: Path, lab_root: Path):
+    """Yield source directories without escaping the local quality checkout."""
+    current = directory.resolve()
+    boundary = evidence_boundary(current, lab_root)
+    while current == boundary or boundary in current.parents:
+        yield current
+        if current == boundary:
+            break
+        current = current.parent
+
+
+def audit_for(directory: Path, lab_root: Path, source_id: str = "") -> Path | None:
+    for candidate_dir in evidence_ancestors(directory, lab_root):
+        audit_dir = candidate_dir / "_audit"
+        candidates = [audit_dir / "AUDIT.json"]
+        if source_id:
+            candidates.insert(0, audit_dir / f"{source_id}.json")
+        for candidate in candidates:
+            if not candidate.is_file():
+                continue
+            if not source_id:
+                return candidate
+            try:
+                if json.loads(candidate.read_text(encoding="utf-8")).get("source_id") == source_id:
+                    return candidate
+            except (OSError, json.JSONDecodeError):
+                return candidate
+    return None
+
+
+def license_evidence(directory: Path, lab_root: Path) -> bool:
+    for candidate in evidence_ancestors(directory, lab_root):
+        if any(candidate.glob("LICENSE*")) or any(candidate.glob("COPYING*")):
+            return True
+        if any(candidate.glob("NOTICE*")):
+            return True
+    return False
 
 
 def fail(errors: list[str], message: str) -> None:
@@ -167,7 +208,7 @@ def lint(lab_root: Path, manifest: Path, catalog: Path, strict: bool = False) ->
         if not row.get("expected_signals", "").strip():
             fail(errors, f"{row_id}: no executable quality signal")
         directory = source_dir(lab_root, row.get("local_cache_path", ""), payload)
-        audit = audit_for(directory)
+        audit = audit_for(directory, lab_root, source_id)
         if audit is not None:
             try:
                 data = json.loads(audit.read_text(encoding="utf-8"))
@@ -195,7 +236,7 @@ def lint(lab_root: Path, manifest: Path, catalog: Path, strict: bool = False) ->
                 # false failure for sibling files.
                 if payload_audit is None and data.get("payload_bytes") != payload.stat().st_size:
                     warnings.append(f"{row_id}: source audit payload size is for a sibling fixture")
-        elif not license_evidence(directory):
+        elif not license_evidence(directory, lab_root):
             warnings.append(f"{row_id}: no AUDIT.json or legacy license evidence in {directory}")
         else:
             warnings.append(f"{row_id}: legacy provenance accepted; add _audit/AUDIT.json")

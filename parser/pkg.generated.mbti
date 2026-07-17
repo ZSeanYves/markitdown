@@ -50,13 +50,19 @@ pub fn explicit_ocr_options(language? : String?) -> OcrOptions
 
 pub fn make_async_parser(String, ParserMode, ParserCapability, async (@input.InputSource, ParseContext) -> Result[ParseResult, String]) -> AsyncParser
 
-pub fn make_parser(String, ParserMode, ParserCapability, (@input.InputSource, ParseContext) -> Result[ParseResult, String]) -> Parser
+pub fn make_parse_event_stream(() -> Result[@core.CoreEvent?, String], () -> Result[ParseStreamSummary, String]) -> ParseEventStream
+
+pub fn make_parser(String, ParserMode, ParserCapability, (@input.InputSource, ParseContext) -> Result[ParseResult, String], stream_events? : ((@input.InputSource, ParseContext) -> Result[ParseEventStream?, String])?) -> Parser
 
 pub fn make_parser_capability(ParserMode, Bool, StreamingGranularity, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool) -> ParserCapability
 
 pub fn materialized_asset_payload_bytes(Array[@core.AssetRef]) -> Int64
 
 pub fn max_asset_payload_bytes(ParseContext) -> Int64
+
+pub fn max_input_bytes(ParseContext) -> Int64
+
+pub fn max_line_chars(ParseContext) -> Int
 
 pub fn mode_name(ParserMode) -> String
 
@@ -96,6 +102,8 @@ pub fn parse_result_with_events(String, ParserMode, Array[@core.CoreEvent], @cor
 
 pub fn parse_result_with_events_capability(String, ParserMode, Array[@core.CoreEvent], @core.Diagnostics, ParserCapability, metadata? : Map[String, @core.JsonValue], assets? : Array[@core.AssetRef], source_map? : @core.SourceMap?, assembly? : @core.DocumentAssembly?) -> ParseResult
 
+pub fn parse_stream_summary(String, ParserMode, ParserCapability, @core.Diagnostics, metadata? : Map[String, @core.JsonValue], assets? : Array[@core.AssetRef], source_map? : @core.SourceMap?, assembly? : @core.DocumentAssembly?) -> ParseStreamSummary
+
 pub fn parser_capability(Bool, Bool, Bool) -> ParserCapability
 
 pub fn pdf_header_footer_filter_policy_name(PdfHeaderFooterFilterPolicy) -> String
@@ -109,6 +117,8 @@ pub fn record_asset_payload_budget_skip(@core.Diagnostics, String, String, Int64
 pub fn registry_key(@input.DetectedFormat) -> String
 
 pub fn registry_lookup(ParserRegistry, @input.DetectedFormat) -> Parser?
+
+pub fn registry_open_event_stream(ParserRegistry, @input.InputSource, ParseContext) -> Result[ParseEventStream?, String]
 
 pub fn registry_parse(ParserRegistry, @input.InputSource, ParseContext) -> Result[ParseResult, String]
 
@@ -169,6 +179,11 @@ pub struct ParseContext {
   debug : Bool
 }
 
+pub struct ParseEventStream {
+  next : () -> Result[@core.CoreEvent?, String]
+  finish : () -> Result[ParseStreamSummary, String]
+}
+
 pub struct ParseResult {
   parser_name : String
   mode : ParserMode
@@ -183,11 +198,23 @@ pub struct ParseResult {
   diagnostics : @core.Diagnostics
 }
 
+pub struct ParseStreamSummary {
+  parser_name : String
+  mode : ParserMode
+  capabilities : ParserCapability
+  metadata : Map[String, @core.JsonValue]
+  assets : Array[@core.AssetRef]
+  source_map : @core.SourceMap?
+  assembly : @core.DocumentAssembly?
+  diagnostics : @core.Diagnostics
+}
+
 pub struct Parser {
   name : String
   mode : ParserMode
   capability : ParserCapability
   parse : (@input.InputSource, ParseContext) -> Result[ParseResult, String]
+  stream_events : ((@input.InputSource, ParseContext) -> Result[ParseEventStream?, String])?
 }
 
 pub struct ParserCapability {

@@ -14,11 +14,18 @@ pub fn make_render_context(Bool, fidelity_mode? : @product.FidelityMode, output_
 
 pub fn markdown_renderer() -> Renderer
 
+pub fn open_markdown_line_event_sink((String) -> Result[Unit, String]) -> MarkdownEventSink
+
 pub fn rag_json_renderer() -> Renderer
 
 // Errors
 
 // Types and methods
+pub struct MarkdownEventSink {
+  push : (@core.CoreEvent) -> Result[Unit, String]
+  finish : () -> Result[Unit, String]
+}
+
 pub struct RenderContext {
   debug : Bool
   fidelity_mode : @product.FidelityMode

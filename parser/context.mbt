@@ -208,6 +208,18 @@ pub fn max_asset_payload_bytes(context : ParseContext) -> Int64 {
 }
 
 ///|
+/// Return the configured input ceiling for streaming parsers.
+pub fn max_input_bytes(context : ParseContext) -> Int64 {
+  context.limits.max_input_bytes
+}
+
+///|
+/// Return the configured line ceiling for streaming text parsers.
+pub fn max_line_chars(context : ParseContext) -> Int {
+  context.max_line_chars.unwrap_or(4000)
+}
+
+///|
 /// Count payload bytes already materialized by a parser lowering pass.
 pub fn materialized_asset_payload_bytes(
   assets : Array[@core.AssetRef],

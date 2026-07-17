@@ -168,6 +168,30 @@ pub struct ParseResult {
 }
 
 ///|
+/// Summary returned when a parser is consumed through its pull-based event
+/// stream. The event payload itself is deliberately absent so the caller can
+/// render and release each event before requesting the next one.
+pub struct ParseStreamSummary {
+  parser_name : String
+  mode : ParserMode
+  capabilities : ParserCapability
+  metadata : @core.DocumentMetadata
+  assets : Array[@core.AssetRef]
+  source_map : @core.SourceMap?
+  assembly : @core.DocumentAssembly?
+  diagnostics : @core.Diagnostics
+}
+
+///|
+/// Pull-based parser output. `next` returns one event at a time; `finish`
+/// exposes side channels and final diagnostics after EOF. A stream is
+/// single-consumer and must not be polled after an error.
+pub struct ParseEventStream {
+  next : () -> Result[@core.CoreEvent?, String]
+  finish : () -> Result[ParseStreamSummary, String]
+}
+
+///|
 /// Parser registry entry used by canonical format dispatch.
 ///
 /// `name` and `mode` stay stable for diagnostics and provenance, and `parse`
@@ -177,6 +201,10 @@ pub struct Parser {
   mode : ParserMode
   capability : ParserCapability
   parse : (@input.InputSource, ParseContext) -> Result[ParseResult, String]
+  stream_events : ((@input.InputSource, ParseContext) -> Result[
+    ParseEventStream?,
+    String,
+  ])?
 }
 
 ///|

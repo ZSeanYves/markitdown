@@ -11,6 +11,12 @@ pub struct SourceTextChunk {
 }
 
 ///|
+/// Return the decoded text portion of a source chunk.
+pub fn source_text_chunk_text(chunk : SourceTextChunk) -> String {
+  chunk.text
+}
+
+///|
 /// Stateful UTF-8 chunk reader. The callback returns `None` after EOF.
 pub struct SourceTextChunkReader {
   next : () -> Result[SourceTextChunk?, String]
