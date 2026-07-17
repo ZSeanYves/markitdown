@@ -2,7 +2,7 @@
 const PRODUCT_NAME : String = "markitdown-mb"
 
 ///|
-const PRODUCT_VERSION : String = "0.5.1"
+const PRODUCT_VERSION : String = "0.7.0"
 
 ///|
 /// Parsed CLI options normalized into the convert-layer request model.
@@ -17,11 +17,8 @@ pub struct CliOptions {
   explicit_format : @input.DetectedFormat?
   ocr_options : @parser.OcrOptions
   audio_options : @parser.AudioOptions
-  fidelity_mode : @convert.FidelityMode
   convert_mode : @convert.ConvertMode
   output_mode : @convert.OutputMode
-  stream_requested : Bool
-  output_format : @convert.OutputFormat
   rag_options : @rag.RagOptions
 }
 
@@ -111,6 +108,9 @@ pub fn make_cli_options(
   rag_options? : @rag.RagOptions = @rag.default_rag_options(),
   audio_options? : @parser.AudioOptions = @parser.default_audio_options(),
 ) -> CliOptions {
+  ignore(output_format)
+  ignore(fidelity_mode)
+  ignore(stream_requested)
   {
     input,
     output,
@@ -118,11 +118,8 @@ pub fn make_cli_options(
     explicit_format,
     ocr_options,
     audio_options,
-    fidelity_mode,
     convert_mode,
     output_mode,
-    stream_requested,
-    output_format,
     rag_options,
   }
 }

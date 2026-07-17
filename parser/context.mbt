@@ -17,6 +17,7 @@ pub fn new_parse_context(
     pdf_native_runtime_policy: default_pdf_native_runtime_policy(),
     pdf_header_footer_filter_policy: default_pdf_header_footer_filter_policy(),
     pdf_table_reconstruction_policy: default_pdf_table_reconstruction_policy(),
+    limits: @product.default_resource_limits(),
     max_rows: None,
     max_cols: None,
     max_cells: None,
@@ -173,6 +174,7 @@ pub fn parse_context_with_limits(
   max_cells : Int?,
   max_line_chars : Int?,
   debug : Bool,
+  limits? : @product.ResourceLimits = context.limits,
 ) -> ParseContext {
   {
     ..context,
@@ -181,8 +183,103 @@ pub fn parse_context_with_limits(
     max_cols,
     max_cells,
     max_line_chars,
+    limits,
     debug,
   }
+}
+
+///|
+/// Return whether one declared asset can be materialized without exceeding
+/// either the per-asset or cumulative payload budget.
+pub fn asset_payload_within_limits(
+  context : ParseContext,
+  declared_bytes : Int64,
+  materialized_bytes : Int64,
+) -> Bool {
+  declared_bytes >= 0L &&
+  declared_bytes <= context.limits.max_asset_bytes &&
+  materialized_bytes + declared_bytes <= context.limits.max_total_asset_bytes
+}
+
+///|
+/// Return the configured per-asset payload ceiling for parser diagnostics.
+pub fn max_asset_payload_bytes(context : ParseContext) -> Int64 {
+  context.limits.max_asset_bytes
+}
+
+///|
+/// Return the configured input ceiling for streaming parsers.
+pub fn max_input_bytes(context : ParseContext) -> Int64 {
+  context.limits.max_input_bytes
+}
+
+///|
+/// Return the configured line ceiling for streaming text parsers.
+pub fn max_line_chars(context : ParseContext) -> Int {
+  context.max_line_chars.unwrap_or(4000)
+}
+
+///|
+/// Count payload bytes already materialized by a parser lowering pass.
+pub fn materialized_asset_payload_bytes(
+  assets : Array[@core.AssetRef],
+) -> Int64 {
+  let mut total = 0L
+  for asset in assets {
+    match asset.payload {
+      Some(Bytes(bytes)) => total += bytes.length().to_int64()
+      Some(Utf8(text)) => total += @utf8.encode(text).length().to_int64()
+      _ => ()
+    }
+  }
+  total
+}
+
+///|
+/// Record a parser-side asset budget skip before a payload is materialized.
+pub fn record_asset_payload_budget_skip(
+  diagnostics : @core.Diagnostics,
+  asset_id : String,
+  kind : String,
+  observed : Int64,
+  limit : Int64,
+) -> Unit {
+  diagnostics.warnings.push(
+    "asset payload skipped: " +
+    asset_id +
+    "; kind=" +
+    kind +
+    "; observed=" +
+    observed.to_string() +
+    "; limit=" +
+    limit.to_string(),
+  )
+  if !diagnostics.degraded_features.contains("asset_payload_limit_skip") {
+    diagnostics.degraded_features.push("asset_payload_limit_skip")
+  }
+}
+
+///|
+/// Return a context with explicit per-asset and cumulative asset ceilings.
+/// This helper keeps ResourceLimits construction owned by the product package.
+pub fn parse_context_with_asset_limits(
+  context : ParseContext,
+  max_asset_bytes : Int64,
+  max_total_asset_bytes : Int64,
+) -> ParseContext {
+  let current = context.limits
+  let limits = @product.make_resource_limits(
+    current.max_rows,
+    current.max_cols,
+    current.max_cells,
+    max_line_chars=current.max_line_chars,
+    max_input_bytes=current.max_input_bytes,
+    max_asset_bytes~,
+    max_total_asset_bytes~,
+    external_command_timeout_ms=current.external_command_timeout_ms,
+    max_external_output_bytes=current.max_external_output_bytes,
+  )
+  { ..context, limits, }
 }
 
 ///|

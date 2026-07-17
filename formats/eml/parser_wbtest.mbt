@@ -26,6 +26,34 @@ test "EML parser lowers related HTML CID attachments and nested messages" {
 }
 
 ///|
+test "EML parser skips attachment decode before exceeding asset budget" {
+  let eml = [
+    "MIME-Version: 1.0", "Content-Type: multipart/related; boundary=x", "", "--x",
+    "Content-Type: text/html", "", "<p><img src=\"cid:hero\"></p>", "--x", "Content-Type: image/png; name=hero.png",
+    "Content-Disposition: inline; filename=hero.png", "Content-ID: <hero>", "Content-Transfer-Encoding: base64",
+    "", "aGVsbG8=", "--x--",
+  ].join("\r\n")
+  let base_context = @parser.new_parse_context(Eml)
+  let context = @parser.parse_context_with_limits(
+    @parser.parse_context_with_asset_limits(base_context, 4L, 4L),
+    None,
+    None,
+    None,
+    None,
+    None,
+    false,
+  )
+  let result = (eml_parser().parse)(
+    @input.input_from_text_with_format(eml, "budget.eml", Some(Eml)),
+    context,
+  ).unwrap()
+  assert_eq(result.assets.length(), 0)
+  assert_true(
+    result.diagnostics.degraded_features.contains("eml_attachment_budget_skip"),
+  )
+}
+
+///|
 test "EML HTML compatibility preserves inline boundary spacing" {
   let block = @core.make_block(Paragraph, "Hello from HTML.")
   let adjusted = eml_html_inline_boundary_spacing(

@@ -167,10 +167,12 @@ test "main cli parses explicit OCR intent flags" {
 test "main cli keeps --debug and rejects retired --json alias" {
   match parse_cli_options_from_index(["tiny.txt"], 0, mode=Accurate) {
     Ok(opts) => {
-      assert_true(opts.fidelity_mode == Accurate)
+      assert_true(
+        @convert.fidelity_mode_for_convert_mode(opts.convert_mode) == Accurate,
+      )
       assert_true(opts.convert_mode == Accurate)
       assert_true(opts.output_mode == Markdown)
-      assert_true(opts.output_format == Markdown)
+      assert_true(opts.output_mode == Markdown)
     }
     Err(msg) => fail("expected accurate mode to parse: " + msg)
   }
@@ -178,20 +180,22 @@ test "main cli keeps --debug and rejects retired --json alias" {
   match
     parse_cli_options_from_index(["--debug", "tiny.txt"], 0, mode=Accurate) {
     Ok(opts) => {
-      assert_true(opts.fidelity_mode == Accurate)
+      assert_true(
+        @convert.fidelity_mode_for_convert_mode(opts.convert_mode) == Accurate,
+      )
       assert_true(opts.convert_mode == Accurate)
       assert_true(opts.output_mode == Debug)
-      assert_true(opts.output_format == DebugJson)
     }
     Err(msg) => fail("expected accurate --debug to parse: " + msg)
   }
 
   match parse_cli_options_from_index(["--rag", "tiny.txt"], 0, mode=Accurate) {
     Ok(opts) => {
-      assert_true(opts.fidelity_mode == Accurate)
+      assert_true(
+        @convert.fidelity_mode_for_convert_mode(opts.convert_mode) == Accurate,
+      )
       assert_true(opts.convert_mode == Accurate)
       assert_true(opts.output_mode == Rag)
-      assert_true(opts.output_format == RagJson)
     }
     Err(msg) => fail("expected accurate --rag to parse: " + msg)
   }
@@ -199,9 +203,9 @@ test "main cli keeps --debug and rejects retired --json alias" {
   match parse_cli_options(["--debug", "tiny.txt"]) {
     Ok(opts) => {
       assert_true(opts.convert_mode == Balanced)
-      assert_true(!opts.stream_requested)
+      assert_true(opts.convert_mode != Stream)
       assert_true(opts.output_mode == Debug)
-      assert_true(opts.output_format == DebugJson)
+      assert_true(opts.output_mode == Debug)
     }
     Err(msg) => fail("expected --debug to parse: " + msg)
   }
@@ -210,7 +214,7 @@ test "main cli keeps --debug and rejects retired --json alias" {
     Ok(opts) => {
       assert_true(opts.convert_mode == Balanced)
       assert_true(opts.output_mode == Rag)
-      assert_true(opts.output_format == RagJson)
+      assert_true(opts.output_mode == Rag)
       assert_eq(
         opts.rag_options.chunk_size,
         @rag.default_rag_options().chunk_size,
@@ -234,30 +238,24 @@ test "main cli keeps --debug and rejects retired --json alias" {
 
   match parse_cli_options_from_index(["tiny.txt"], 0, mode=Stream) {
     Ok(opts) => {
-      assert_true(opts.stream_requested)
       assert_true(opts.convert_mode == Stream)
       assert_true(opts.output_mode == Markdown)
-      assert_true(opts.output_format == Markdown)
     }
     Err(msg) => fail("expected stream mode to parse: " + msg)
   }
 
   match parse_cli_options_from_index(["--debug", "tiny.txt"], 0, mode=Stream) {
     Ok(opts) => {
-      assert_true(opts.stream_requested)
       assert_true(opts.convert_mode == Stream)
       assert_true(opts.output_mode == Debug)
-      assert_true(opts.output_format == DebugJson)
     }
     Err(msg) => fail("expected stream --debug to parse: " + msg)
   }
 
   match parse_cli_options_from_index(["--rag", "tiny.txt"], 0, mode=Stream) {
     Ok(opts) => {
-      assert_true(opts.stream_requested)
       assert_true(opts.convert_mode == Stream)
       assert_true(opts.output_mode == Rag)
-      assert_true(opts.output_format == RagJson)
     }
     Err(msg) => fail("expected stream --rag to parse: " + msg)
   }
@@ -338,7 +336,9 @@ test "main cli constrains --ocr-lang to OCR-capable routes" {
 
   match parse_cli_options_from_index(["tiny.pdf"], 0, mode=Accurate) {
     Ok(opts) => {
-      assert_true(opts.fidelity_mode == Accurate)
+      assert_true(
+        @convert.fidelity_mode_for_convert_mode(opts.convert_mode) == Accurate,
+      )
       assert_true(opts.ocr_options.intent == Explicit)
       assert_true(opts.input == "tiny.pdf")
     }

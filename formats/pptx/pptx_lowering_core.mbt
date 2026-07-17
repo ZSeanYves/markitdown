@@ -28,6 +28,7 @@ fn new_pptx_state(
 ) -> PptxState {
   {
     source,
+    context,
     diagnostics,
     presentation,
     lowering_profile: context.lowering_profile,

@@ -567,6 +567,28 @@ test "pdf native backend extracts exportable image xobjects without empty text f
 }
 
 ///|
+test "pdf image budget rejects oversized decoded dimensions before filters run" {
+  let stream : PdfNativeStreamSlice = {
+    primary_bytes: Bytes::from_array([(0).to_byte()]),
+    endstream_bytes: Bytes::from_array([]),
+    declared_length: Some(1),
+  }
+  let oversized : PdfNativeObject = {
+    object_id: 1,
+    dict_text: "<< /Subtype /Image /Width 8192 /Height 4096 /ColorSpace /DeviceRGB /BitsPerComponent 8 /SMask 2 0 R >>",
+    stream: Some(stream),
+  }
+  let small : PdfNativeObject = {
+    object_id: 2,
+    dict_text: "<< /Subtype /Image /Width 2 /Height 1 /ColorSpace /DeviceRGB /BitsPerComponent 8 >>",
+    stream: Some(stream),
+  }
+  let object_index : Map[Int, PdfNativeObject] = Map([])
+  assert_true(pdf_image_decode_budget_exceeded(oversized, object_index, stream))
+  assert_false(pdf_image_decode_budget_exceeded(small, object_index, stream))
+}
+
+///|
 test "pdf native backend normalizes decoded RGB pixels as PNG assets" {
   let source = @input.input_from_bytes_with_format(
     pdf_wbtest_rgb_pixels_image_pdf_bytes(),

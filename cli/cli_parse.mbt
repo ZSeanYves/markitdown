@@ -281,16 +281,16 @@ fn parse_cli_options_from_index(
         return Err("cannot combine --debug and --rag")
       }
       output_mode = Debug
-      output_format = DebugJson
+      output_format = Debug
       i += 1
       continue
     }
     if arg == "--rag" {
-      if output_format == DebugJson {
+      if output_format == Debug {
         return Err("cannot combine --debug and --rag")
       }
       output_mode = Rag
-      output_format = RagJson
+      output_format = Rag
       i += 1
       continue
     }

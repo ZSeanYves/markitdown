@@ -1,10 +1,7 @@
 ///|
-/// Public convert strategy modes re-exported by the high-level API.
-pub(all) enum ConvertMode {
-  Balanced
-  Accurate
-  Stream
-} derive(Eq)
+/// The product package owns the strategy-mode vocabulary. Convert re-exports
+/// the type for source compatibility without defining a second enum.
+pub type ConvertMode = @product.ConvertMode
 
 ///|
 pub type FidelityMode = @product.FidelityMode
@@ -13,24 +10,11 @@ pub type FidelityMode = @product.FidelityMode
 pub type OutputMode = @product.OutputMode
 
 ///|
-fn product_convert_mode(mode : ConvertMode) -> @product.ConvertMode {
-  match mode {
-    Balanced => Balanced
-    Accurate => Accurate
-    Stream => Stream
-  }
-}
 
 ///|
-/// External output views currently exposed by the high-level convert API.
-///
-/// These stay slightly narrower than internal `OutputMode` because they model
-/// what callers can request directly from `convert_input`.
-pub(all) enum OutputFormat {
-  Markdown
-  RagJson
-  DebugJson
-} derive(Eq)
+/// Compatibility name for the product-owned output mode. New callers should
+/// use `@product.OutputMode` directly.
+pub type OutputFormat = @product.OutputMode
 
 ///|
 /// High-level convert-layer alias of the product execution profile.
@@ -128,10 +112,7 @@ pub type ResourceLimits = @product.ResourceLimits
 /// options, parser context, renderer selection, and route-planning policy.
 pub struct ConvertOptions {
   mode : ConvertMode
-  fidelity_mode : FidelityMode
   output_mode : OutputMode
-  stream_requested : Bool
-  output_format : OutputFormat
   explicit_format : @input.DetectedFormat?
   ocr_options : @parser.OcrOptions
   audio_options : @parser.AudioOptions
@@ -199,11 +180,9 @@ fn product_options_from_convert_options(
   options : ConvertOptions,
 ) -> @product.ProductOptions {
   @product.make_product_options(
-    product_convert_mode(options.mode),
+    options.mode,
     options.limits,
-    fidelity_mode=options.fidelity_mode,
     output_mode=options.output_mode,
-    stream_requested=options.stream_requested,
     rag_options=options.rag_options,
   )
 }
@@ -239,7 +218,6 @@ priv struct ExecutionIntent {
   requested_fidelity_mode : FidelityMode
   output_mode : OutputMode
   stream_requested : Bool
-  output_format : OutputFormat
   ocr_options : @parser.OcrOptions
   audio_options : @parser.AudioOptions
   limits : ResourceLimits
@@ -255,8 +233,6 @@ priv struct ResolvedExecutionPlan {
   fidelity_mode : FidelityMode
   requested_fidelity_mode : FidelityMode
   output_mode : OutputMode
-  stream_requested : Bool
-  output_format : OutputFormat
   ocr_options : @parser.OcrOptions
   audio_options : @parser.AudioOptions
   limits : ResourceLimits
@@ -350,7 +326,6 @@ pub impl Show for ConvertError with fn output(
 /// optional debug IR snapshot.
 pub struct ConvertResult {
   content : String
-  output_format : OutputFormat
   fidelity_mode : FidelityMode
   output_mode : OutputMode
   detected_format : @input.DetectedFormat
@@ -372,41 +347,12 @@ pub fn default_resource_limits() -> ResourceLimits {
 }
 
 ///|
-/// Build explicit convert-layer resource limits aligned with product policy.
-pub fn make_resource_limits(
-  max_rows : Int,
-  max_cols : Int,
-  max_cells : Int,
-  max_line_chars? : Int = 4000,
-  max_input_bytes? : Int64 = 512L * 1024L * 1024L,
-  max_asset_bytes? : Int64 = 32L * 1024L * 1024L,
-  max_total_asset_bytes? : Int64 = 128L * 1024L * 1024L,
-  external_command_timeout_ms? : Int = 300000,
-  max_external_output_bytes? : Int64 = 8L * 1024L * 1024L,
-) -> ResourceLimits {
-  @product.make_resource_limits(
-    max_rows,
-    max_cols,
-    max_cells,
-    max_line_chars~,
-    max_input_bytes~,
-    max_asset_bytes~,
-    max_total_asset_bytes~,
-    external_command_timeout_ms~,
-    max_external_output_bytes~,
-  )
-}
-
-///|
 /// Return default convert options for the balanced Markdown path.
 pub fn default_convert_options() -> ConvertOptions {
   let product_options = @product.default_product_options()
   {
     mode: Balanced,
-    fidelity_mode: Balanced,
     output_mode: Markdown,
-    stream_requested: false,
-    output_format: Markdown,
     explicit_format: None,
     ocr_options: @parser.default_ocr_options(),
     audio_options: @parser.default_audio_options(),
@@ -420,22 +366,16 @@ pub fn default_convert_options() -> ConvertOptions {
 /// product-level policy.
 pub fn make_convert_options(
   mode : ConvertMode,
-  output_format : OutputFormat,
+  output_mode : OutputMode,
   explicit_format : @input.DetectedFormat?,
   ocr_options : @parser.OcrOptions,
   limits : ResourceLimits,
   audio_options? : @parser.AudioOptions = @parser.default_audio_options(),
-  fidelity_mode? : FidelityMode = fidelity_mode_for_convert_mode(mode),
-  output_mode? : OutputMode = output_mode_for_output_format(output_format),
-  stream_requested? : Bool = mode == Stream,
   rag_options? : @rag.RagOptions = @rag.default_rag_options(),
 ) -> ConvertOptions {
   {
     mode,
-    fidelity_mode,
     output_mode,
-    stream_requested,
-    output_format,
     explicit_format,
     ocr_options,
     audio_options,
@@ -447,13 +387,13 @@ pub fn make_convert_options(
 ///|
 /// Stable name for the selected convert strategy mode.
 pub fn convert_mode_name(mode : ConvertMode) -> String {
-  @product.convert_mode_name(product_convert_mode(mode))
+  @product.convert_mode_name(mode)
 }
 
 ///|
 /// Return the default fidelity associated with a convert mode.
 pub fn fidelity_mode_for_convert_mode(mode : ConvertMode) -> FidelityMode {
-  @product.fidelity_mode_for_convert_mode(product_convert_mode(mode))
+  @product.fidelity_mode_for_convert_mode(mode)
 }
 
 ///|
@@ -465,17 +405,13 @@ pub fn fidelity_mode_name(mode : FidelityMode) -> String {
 ///|
 /// Return the renderer-facing output mode implied by a convert mode.
 pub fn output_mode_for_convert_mode(mode : ConvertMode) -> OutputMode {
-  @product.output_mode_for_convert_mode(product_convert_mode(mode))
+  @product.output_mode_for_convert_mode(mode)
 }
 
 ///|
 /// Map a public output format to the renderer-facing output mode.
 pub fn output_mode_for_output_format(format : OutputFormat) -> OutputMode {
-  match format {
-    DebugJson => Debug
-    RagJson => Rag
-    _ => Markdown
-  }
+  format
 }
 
 ///|

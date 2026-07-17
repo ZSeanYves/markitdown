@@ -222,6 +222,10 @@ fn docx_materialize_companion_assets(
     if !docx_media_should_export_asset(media, target_part) {
       continue
     }
+    if !docx_asset_within_budget(state, target_part) {
+      docx_record_asset_budget_skip(state, "docx:" + target_part, target_part)
+      continue
+    }
     let source_ref = docx_source_ref_from_key(
       state,
       media.source_key,
@@ -232,6 +236,54 @@ fn docx_materialize_companion_assets(
     let asset = ensure_docx_asset_ref(state, media, output_path, source_ref)
     ignore(asset)
   }
+}
+
+///|
+fn docx_asset_within_budget(
+  state : DocxLoweringState,
+  target_part : String,
+) -> Bool {
+  if state.asset_ids.contains(target_part) {
+    return true
+  }
+  let declared = match @ox.part_declared_size(state.pkg, target_part) {
+    Some(value) => value.to_int64()
+    None => return false
+  }
+  @parser.asset_payload_within_limits(
+    state.context,
+    declared,
+    docx_declared_asset_bytes(state.assets),
+  )
+}
+
+///|
+fn docx_declared_asset_bytes(assets : Array[@core.AssetRef]) -> Int64 {
+  let mut total = 0L
+  for asset in assets {
+    match asset.attrs.get("declared_asset_bytes") {
+      Some(raw) => total += (@string.parse_int(raw) catch { _ => 0 }).to_int64()
+      None => ()
+    }
+  }
+  total
+}
+
+///|
+fn docx_record_asset_budget_skip(
+  state : DocxLoweringState,
+  asset_id : String,
+  target_part : String,
+) -> Unit {
+  let observed = @ox.part_declared_size(state.pkg, target_part).unwrap_or(-1)
+  @parser.record_asset_payload_budget_skip(
+    state.diagnostics,
+    asset_id,
+    "single_or_total_asset_bytes",
+    observed.to_int64(),
+    @parser.max_asset_payload_bytes(state.context),
+  )
+  bump_metric(state.diagnostics, "skipped_asset_count")
 }
 
 ///|

@@ -192,6 +192,25 @@ test "DOCX parser extracts repository image contract assets" {
 }
 
 ///|
+test "DOCX parser rejects lazy media references over the request asset budget" {
+  let context = @parser.parse_context_with_asset_limits(
+    @parser.new_parse_context(Docx),
+    1L,
+    1L,
+  )
+  let result = (docx_parser().parse)(
+    @input.input_from_path(
+      "samples/fixtures/contracts/docx/docx_image_alt_title.docx",
+    ),
+    context,
+  ).unwrap()
+  assert_eq(result.document.unwrap().assets.length(), 0)
+  assert_true(
+    result.diagnostics.degraded_features.contains("asset_payload_limit_skip"),
+  )
+}
+
+///|
 test "DOCX advanced synthetic contract covers auxiliary parts rich objects and accurate lowering" {
   let source = @input.input_from_path(
     "samples/fixtures/contracts/docx/docx_advanced_synthetic.docx",

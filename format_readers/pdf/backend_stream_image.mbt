@@ -358,6 +358,9 @@ fn pdf_exportable_image_payload(
     Some(value) => value
     None => return None
   }
+  if pdf_image_decode_budget_exceeded(object, object_index, stream) {
+    return None
+  }
   let filters = pdf_extract_filter_names(object.dict_text)
   let filter_chain = pdf_image_filter_chain_label(filters)
   let payload = pdf_stream_selected_bytes(stream)
@@ -563,6 +566,54 @@ fn pdf_exportable_image_payload(
           })
       }
   }
+}
+
+///|
+const PDF_MAX_IMAGE_DECODE_WORKING_BYTES : Int64 = 64L * 1024L * 1024L
+
+///|
+fn pdf_image_decode_budget_exceeded(
+  object : PdfNativeObject,
+  object_index : Map[Int, PdfNativeObject],
+  stream : PdfNativeStreamSlice,
+) -> Bool {
+  let source_bytes = pdf_stream_selected_bytes(stream).length().to_int64()
+  if source_bytes > PDF_MAX_IMAGE_DECODE_WORKING_BYTES {
+    return true
+  }
+  let width = pdf_extract_int_after(object.dict_text, "/Width").unwrap_or(0)
+  let height = pdf_extract_int_after(object.dict_text, "/Height").unwrap_or(0)
+  let bits = pdf_extract_int_after(object.dict_text, "/BitsPerComponent").unwrap_or(
+    8,
+  )
+  if width <= 0 || height <= 0 || bits <= 0 || bits > 16 {
+    return true
+  }
+  let components = match pdf_resolve_image_color_space(object, object_index) {
+    Some(value) => pdf_resolved_image_color_components(value)
+    None => return true
+  }
+  if components <= 0 || components > 4 {
+    return true
+  }
+  let width64 = width.to_int64()
+  let height64 = height.to_int64()
+  if width64 > PDF_MAX_IMAGE_DECODE_WORKING_BYTES / height64 {
+    return true
+  }
+  let pixels = width64 * height64
+  let decoded_bits = pixels * components.to_int64() * bits.to_int64()
+  let decoded_bytes = (decoded_bits + 7L) / 8L
+  let normalized_channels = if object.dict_text.contains("/SMask") {
+    4L
+  } else if components == 1 {
+    1L
+  } else {
+    3L
+  }
+  let normalized_bytes = pixels * normalized_channels
+  decoded_bytes > PDF_MAX_IMAGE_DECODE_WORKING_BYTES ||
+  normalized_bytes > PDF_MAX_IMAGE_DECODE_WORKING_BYTES
 }
 
 ///|

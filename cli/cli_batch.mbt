@@ -281,8 +281,8 @@ fn basename_of_path(path : String) -> String {
 fn batch_output_suffix(output_format : @convert.OutputFormat) -> String {
   match output_format {
     Markdown => ".md"
-    DebugJson => ".debug.json"
-    RagJson => ".rag.json"
+    Debug => ".debug.json"
+    Rag => ".rag.json"
   }
 }
 
@@ -313,7 +313,9 @@ fn run_single_batch_task(
       status: Failed,
       detected_format: @input.detected_format_name(requested_format),
       convert_mode: @convert.convert_mode_name(base_opts.convert_mode),
-      fidelity_mode: @convert.fidelity_mode_name(base_opts.fidelity_mode),
+      fidelity_mode: @convert.fidelity_mode_name(
+        @convert.fidelity_mode_for_convert_mode(base_opts.convert_mode),
+      ),
       output_mode: @convert.output_mode_name(base_opts.output_mode),
       output_path: None,
       selected_route: None,
@@ -330,19 +332,16 @@ fn run_single_batch_task(
   let output_path = batch_output_path(
     output_dir,
     relative_path,
-    base_opts.output_format,
+    base_opts.output_mode,
   )
   let opts = { ..base_opts, input: task_input, output: Some(output_path) }
   let convert_options = @convert.make_convert_options(
     opts.convert_mode,
-    opts.output_format,
+    opts.output_mode,
     opts.explicit_format,
     opts.ocr_options,
     @convert.default_resource_limits(),
     audio_options=opts.audio_options,
-    fidelity_mode=opts.fidelity_mode,
-    output_mode=opts.output_mode,
-    stream_requested=opts.stream_requested,
     rag_options=opts.rag_options,
   )
   match
@@ -381,7 +380,9 @@ fn run_single_batch_task(
             status: Failed,
             detected_format: @input.detected_format_name(requested_format),
             convert_mode: @convert.convert_mode_name(opts.convert_mode),
-            fidelity_mode: @convert.fidelity_mode_name(opts.fidelity_mode),
+            fidelity_mode: @convert.fidelity_mode_name(
+              @convert.fidelity_mode_for_convert_mode(opts.convert_mode),
+            ),
             output_mode: @convert.output_mode_name(opts.output_mode),
             output_path: Some(output_path),
             selected_route: Some(execution.provenance.route_plan.selected_route),
@@ -399,7 +400,9 @@ fn run_single_batch_task(
         status: Failed,
         detected_format: @input.detected_format_name(requested_format),
         convert_mode: @convert.convert_mode_name(opts.convert_mode),
-        fidelity_mode: @convert.fidelity_mode_name(opts.fidelity_mode),
+        fidelity_mode: @convert.fidelity_mode_name(
+          @convert.fidelity_mode_for_convert_mode(opts.convert_mode),
+        ),
         output_mode: @convert.output_mode_name(opts.output_mode),
         output_path: None,
         selected_route: None,
@@ -508,6 +511,9 @@ fn resolve_cli_assets_for_stdout(
 }
 
 ///|
+const CLI_MAX_ASSET_BYTES : Int = 32 * 1024 * 1024
+
+///|
 fn cli_asset_is_materializable(
   input_dir : String,
   zip_archive : @dzip.ZipArchive?,
@@ -524,7 +530,11 @@ fn cli_asset_is_materializable(
         None => return false
       }
       let bytes = try
-        @dzip.read_entry(archive, normalized_zip_asset_entry(outer_path))
+        @dzip.read_entry(
+          archive,
+          normalized_zip_asset_entry(outer_path),
+          max_output_size=CLI_MAX_ASSET_BYTES,
+        )
         |> Some
       catch {
         _ => None
@@ -541,7 +551,13 @@ fn cli_asset_is_materializable(
         None => return false
       }
       return try {
-        ignore(@dzip.read_entry(nested, normalized_zip_asset_entry(inner_path)))
+        ignore(
+          @dzip.read_entry(
+            nested,
+            normalized_zip_asset_entry(inner_path),
+            max_output_size=CLI_MAX_ASSET_BYTES,
+          ),
+        )
         true
       } catch {
         _ => false
@@ -557,7 +573,11 @@ fn cli_asset_is_materializable(
       }
       return try {
         ignore(
-          @dzip.read_entry(archive, normalized_zip_asset_entry(entry_path)),
+          @dzip.read_entry(
+            archive,
+            normalized_zip_asset_entry(entry_path),
+            max_output_size=CLI_MAX_ASSET_BYTES,
+          ),
         )
         true
       } catch {
@@ -743,7 +763,11 @@ fn validate_cli_assets(
             )
         }
         let nested_bytes = try
-          @dzip.read_entry(archive, normalized_zip_asset_entry(outer_path))
+          @dzip.read_entry(
+            archive,
+            normalized_zip_asset_entry(outer_path),
+            max_output_size=CLI_MAX_ASSET_BYTES,
+          )
           |> Ok
         catch {
           err => Err(err.to_string())
@@ -762,7 +786,11 @@ fn validate_cli_assets(
             return Err("open nested archive asset failed: " + message)
         }
         try
-          @dzip.read_entry(nested, normalized_zip_asset_entry(inner_path))
+          @dzip.read_entry(
+            nested,
+            normalized_zip_asset_entry(inner_path),
+            max_output_size=CLI_MAX_ASSET_BYTES,
+          )
           |> ignore
         catch {
           err =>
@@ -782,7 +810,11 @@ fn validate_cli_assets(
             )
         }
         try
-          @dzip.read_entry(archive, normalized_zip_asset_entry(entry_path))
+          @dzip.read_entry(
+            archive,
+            normalized_zip_asset_entry(entry_path),
+            max_output_size=CLI_MAX_ASSET_BYTES,
+          )
           |> ignore
         catch {
           err => return Err("read asset entry failed: " + err.to_string())
@@ -885,7 +917,11 @@ fn persist_nested_zip_backed_asset(
     None => return false
   }
   let nested_bytes = try
-    @dzip.read_entry(archive, normalized_zip_asset_entry(outer_entry_path))
+    @dzip.read_entry(
+      archive,
+      normalized_zip_asset_entry(outer_entry_path),
+      max_output_size=CLI_MAX_ASSET_BYTES,
+    )
     |> Ok
   catch {
     _ => Err(())
@@ -905,6 +941,7 @@ fn persist_nested_zip_backed_asset(
     @dzip.read_entry(
       nested_archive,
       normalized_zip_asset_entry(inner_entry_path),
+      max_output_size=CLI_MAX_ASSET_BYTES,
     )
     |> Ok
   catch {
@@ -936,7 +973,12 @@ fn persist_zip_backed_asset(
     None => return false
   }
   let data = try
-    @dzip.read_entry(archive, normalized_zip_asset_entry(entry_path)) |> Ok
+    @dzip.read_entry(
+      archive,
+      normalized_zip_asset_entry(entry_path),
+      max_output_size=CLI_MAX_ASSET_BYTES,
+    )
+    |> Ok
   catch {
     _ => Err(())
   }

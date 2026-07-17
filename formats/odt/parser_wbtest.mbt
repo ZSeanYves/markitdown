@@ -83,3 +83,24 @@ test "ODT synthetic contracts cover document stream metadata tables links and as
   )
   assert_true(advanced.assets.length() == 1)
 }
+
+///|
+test "ODT asset budget skips payload before creating an asset reference" {
+  let source = @input.input_from_path(
+    "samples/fixtures/contracts/odt/odt_basic_assets.odt",
+  )
+  let context = @parser.parse_context_with_asset_limits(
+    @parser.new_parse_context(Odt),
+    1L,
+    1L,
+  )
+  let result = (odt_parser().parse)(source, context).unwrap()
+  let document = result.document.unwrap()
+  assert_eq(document.assets.length(), 0)
+  assert_true(
+    result.diagnostics.degraded_features.contains("asset_payload_limit_skip"),
+  )
+  assert_true(
+    result.diagnostics.warnings.any(w => w.contains("asset payload skipped")),
+  )
+}

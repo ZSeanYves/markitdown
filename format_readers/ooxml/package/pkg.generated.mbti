@@ -37,6 +37,8 @@ pub fn open_ooxml_archive(@zip.ZipArchive) -> OoxmlPackage raise OoxmlError
 
 pub fn open_ooxml_package(Bytes) -> OoxmlPackage raise OoxmlError
 
+pub fn part_declared_size(OoxmlPackage, String) -> Int?
+
 pub fn read_app_properties(OoxmlPackage) -> OoxmlAppProperties
 
 pub fn read_core_properties(OoxmlPackage) -> OoxmlCoreProperties

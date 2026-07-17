@@ -10,6 +10,130 @@ pub fn srt_parser() -> @parser.Parser {
     ) -> Result[@parser.ParseResult, String] {
       parse_subtitle_result(source, context, "srt")
     },
+    stream_events=Some(open_srt_event_stream),
+  )
+}
+
+///|
+fn open_srt_event_stream(
+  source : @input.InputSource,
+  context : @parser.ParseContext,
+) -> Result[@parser.ParseEventStream?, String] {
+  let blocks = match
+    @sourceio.open_source_text_block_reader(
+      source,
+      max_bytes=@parser.max_input_bytes(context),
+      max_line_chars=@parser.max_line_chars(context),
+    ) {
+    Ok(value) => value
+    Err(_) => return Ok(None)
+  }
+  let stats : LargeSrtStats = {
+    cue_count: 0,
+    invalid_count: 0,
+    multiline_count: 0,
+    char_count: 0,
+    max_lines_per_cue: 0,
+    line_count: 0,
+  }
+  let queued : Array[@core.CoreEvent] = []
+  let queued_index = Ref(0)
+  let event_count = Ref(0)
+  let truncated_blocks = Ref(0)
+  let diagnostics = @fshared.empty_parser_diagnostics(
+    "srt_parser",
+    StreamingEvent,
+    source,
+    "srt",
+  )
+  Ok(
+    Some(
+      @parser.make_parse_event_stream(
+        fn() {
+          while true {
+            if queued_index.val < queued.length() {
+              let event = queued[queued_index.val]
+              queued_index.val += 1
+              event_count.val += 1
+              return Ok(Some(event))
+            }
+            queued.clear()
+            queued_index.val = 0
+            match (blocks.next)() {
+              Ok(Some(block)) => {
+                stats.line_count = stats.line_count.max(block.line_end)
+                if block.truncated {
+                  truncated_blocks.val += 1
+                }
+                append_large_srt_block(
+                  queued,
+                  source,
+                  block.lines,
+                  block.line_start,
+                  stats,
+                )
+              }
+              Ok(None) => return Ok(None)
+              Err(message) => return Err(message)
+            }
+          }
+          Ok(None)
+        },
+        fn() {
+          diagnostics.metrics.set("parser_name", "srt_parser")
+          diagnostics.metrics.set("parser_mode", "streaming_event")
+          diagnostics.metrics.set("detected_format", "srt")
+          diagnostics.metrics.set("effective_mode", "streaming_event")
+          diagnostics.metrics.set("ir_input_kind", "event_stream")
+          diagnostics.metrics.set("event_granularity", "record")
+          diagnostics.metrics.set(
+            "event_semantics", "subtitle_record_event_stream",
+          )
+          diagnostics.metrics.set("subtitle_lowering_mode", "pull_record_v2")
+          diagnostics.metrics.set("cue_count", stats.cue_count.to_string())
+          diagnostics.metrics.set("line_count", stats.line_count.to_string())
+          diagnostics.metrics.set("char_count", stats.char_count.to_string())
+          diagnostics.metrics.set(
+            "multiline_cue_count",
+            stats.multiline_count.to_string(),
+          )
+          diagnostics.metrics.set(
+            "max_lines_per_cue",
+            stats.max_lines_per_cue.to_string(),
+          )
+          diagnostics.metrics.set(
+            "recovered_cue_count",
+            stats.invalid_count.to_string(),
+          )
+          diagnostics.metrics.set("block_count", stats.cue_count.to_string())
+          diagnostics.metrics.set("event_count", event_count.val.to_string())
+          diagnostics.metrics.set("stream_parser_to_renderer", "true")
+          if stats.invalid_count > 0 {
+            diagnostics.warnings.push(
+              "srt recovered " +
+              stats.invalid_count.to_string() +
+              " malformed cue block(s)",
+            )
+            diagnostics.degraded_features.push("srt_malformed_cue_recovered")
+          }
+          if truncated_blocks.val > 0 {
+            diagnostics.warnings.push("srt record truncated by resource limits")
+            diagnostics.degraded_features.push("srt_record_truncation")
+          }
+          @fshared.apply_product_metrics(diagnostics, "srt")
+          diagnostics.pass_trace.push("parse:srt_parser:pull_stream")
+          diagnostics.pass_trace.push("parse:srt_parser")
+          Ok(
+            @parser.parse_stream_summary(
+              "srt_parser",
+              StreamingEvent,
+              subtitle_parser_capability(),
+              diagnostics,
+            ),
+          )
+        },
+      ),
+    ),
   )
 }
 

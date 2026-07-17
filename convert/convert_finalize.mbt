@@ -7,15 +7,13 @@ fn finalize_pipeline_execution(
   diagnostics : @core.Diagnostics,
   execution_plan : ResolvedExecutionPlan,
   execution_started : UInt64,
-) -> ConvertExecution {
+  sink : OutputSink?,
+) -> Result[ConvertExecution, ConvertError] {
   let route_plan = route_plan_from_execution_plan(execution_plan)
   let effective_options = {
     ..options,
     mode: execution_plan.mode,
-    fidelity_mode: execution_plan.fidelity_mode,
     output_mode: execution_plan.output_mode,
-    stream_requested: execution_plan.stream_requested,
-    output_format: execution_plan.output_format,
     ocr_options: execution_plan.ocr_options,
     limits: execution_plan.limits,
     rag_options: execution_plan.rag_options,
@@ -53,7 +51,7 @@ fn finalize_pipeline_execution(
     "timing_pipeline_ms",
     (@env.now() - pipeline_started).to_string(),
   )
-  let renderer = renderer_for_output(options.output_format)
+  let renderer = renderer_for_output(effective_options.output_mode)
   let pipeline_diagnostics = pass_context.diagnostics.val
   pipeline_diagnostics.metrics.set(
     "convert_mode",
@@ -61,7 +59,7 @@ fn finalize_pipeline_execution(
   )
   pipeline_diagnostics.metrics.set(
     "fidelity_mode",
-    fidelity_mode_name(effective_options.fidelity_mode),
+    fidelity_mode_name(execution_plan.fidelity_mode),
   )
   pipeline_diagnostics.metrics.set(
     "output_mode",
@@ -83,7 +81,7 @@ fn finalize_pipeline_execution(
     ),
     Some(parsed.mode |> @parser.mode_name),
     Some(convert_mode_name(effective_options.mode)),
-    fidelity_mode=Some(fidelity_mode_name(effective_options.fidelity_mode)),
+    fidelity_mode=Some(fidelity_mode_name(execution_plan.fidelity_mode)),
     output_mode=Some(output_mode_name(effective_options.output_mode)),
   )
   final_diagnostics.pass_trace.push("render:" + renderer.name)
@@ -103,19 +101,42 @@ fn finalize_pipeline_execution(
     assembly=pass_context.assembly.val,
   )
   let render_started = @env.now()
-  let rendered = match render_input {
-    Document(document) => {
-      let prepared = {
-        ..document,
-        metadata: pass_context.metadata.val,
-        diagnostics: final_diagnostics,
-        assets: pass_context.assets.val,
-        source_map: pass_context.source_map.val,
-        assembly: pass_context.assembly.val,
+  let sink_renderer_active = sink is Some(_) &&
+    effective_options.output_mode == Markdown &&
+    limited_assets.1.length() == 0
+  let rendered = match sink {
+    Some(output_sink) if effective_options.output_mode == Markdown &&
+      limited_assets.1.length() == 0 =>
+      match
+        @render.render_markdown_input_to_sink(render_input, render_context, fn(
+          chunk,
+        ) {
+          write_output_sink_bounded(output_sink, chunk)
+        }) {
+        Ok(value) => value
+        Err(message) =>
+          return Err(RenderFailed("sink write failed: " + message))
       }
-      (renderer.render)(prepared, render_context)
-    }
-    _ => (renderer.render_input)(render_input, render_context)
+    _ =>
+      match render_input {
+        Document(document) => {
+          let prepared = {
+            ..document,
+            metadata: pass_context.metadata.val,
+            diagnostics: final_diagnostics,
+            assets: pass_context.assets.val,
+            source_map: pass_context.source_map.val,
+            assembly: pass_context.assembly.val,
+          }
+          (renderer.render)(prepared, render_context)
+        }
+        _ => (renderer.render_input)(render_input, render_context)
+      }
+  }
+  match sink {
+    Some(_) if !sink_renderer_active =>
+      rendered.diagnostics.metrics.set("sink_renderer_fallback", "true")
+    _ => ()
   }
   rendered.diagnostics.metrics.set(
     "timing_render_ms",
@@ -125,15 +146,23 @@ fn finalize_pipeline_execution(
     "timing_total_ms",
     (@env.now() - execution_started).to_string(),
   )
-  let final_content = if effective_options.output_format == Markdown {
+  let final_content = if effective_options.output_mode == Markdown {
     remove_skipped_asset_references(rendered.content, limited_assets.1)
   } else {
     rendered.content
   }
+  match sink {
+    Some(output_sink) if final_content != "" =>
+      match write_output_sink_bounded(output_sink, final_content) {
+        Ok(_) => ()
+        Err(message) =>
+          return Err(RenderFailed("sink write failed: " + message))
+      }
+    _ => ()
+  }
   let result : ConvertResult = {
     content: final_content,
-    output_format: effective_options.output_format,
-    fidelity_mode: effective_options.fidelity_mode,
+    fidelity_mode: execution_plan.fidelity_mode,
     output_mode: effective_options.output_mode,
     detected_format,
     parser_mode: parsed.mode,
@@ -141,7 +170,7 @@ fn finalize_pipeline_execution(
     metadata: pass_context.metadata.val,
     diagnostics: rendered.diagnostics,
     assets: pass_context.assets.val,
-    source_map: if effective_options.output_format == RagJson &&
+    source_map: if effective_options.output_mode == Rag &&
       !execution_plan.rag_options.preserve_source_ref {
       None
     } else {
@@ -149,7 +178,7 @@ fn finalize_pipeline_execution(
     },
     chunks: rendered.chunks,
     debug_ir: debug_ir_for_render_input(
-      effective_options.output_format,
+      effective_options.output_mode,
       render_input,
     ),
   }
@@ -158,7 +187,7 @@ fn finalize_pipeline_execution(
   let render_kind = render_input_kind_name(render_input)
   let provenance : ConvertProvenance = {
     route_plan,
-    fidelity_mode: effective_options.fidelity_mode,
+    fidelity_mode: execution_plan.fidelity_mode,
     output_mode: effective_options.output_mode,
     execution_profile: execution_plan.execution_profile,
     execution_profile_reason: execution_plan.execution_profile_reason,
@@ -227,7 +256,7 @@ fn finalize_pipeline_execution(
     }),
     requested_fidelity_mode: Some(execution_plan.requested_fidelity_mode),
   }
-  { result, provenance }
+  Ok({ result, provenance })
 }
 
 ///|
@@ -370,10 +399,10 @@ fn ir_input_to_render_input(input : @core.IRInput) -> @render.RenderInput {
 
 ///|
 fn debug_ir_for_render_input(
-  format : OutputFormat,
+  mode : OutputMode,
   input : @render.RenderInput,
 ) -> @core.DocumentIR? {
-  if format != DebugJson {
+  if mode != Debug {
     return None
   }
   match input {
@@ -383,11 +412,11 @@ fn debug_ir_for_render_input(
 }
 
 ///|
-fn renderer_for_output(format : OutputFormat) -> @render.Renderer {
-  match format {
+fn renderer_for_output(mode : OutputMode) -> @render.Renderer {
+  match mode {
     Markdown => @render.markdown_renderer()
-    RagJson => @render.rag_json_renderer()
-    DebugJson => @render.debug_json_renderer()
+    Rag => @render.rag_json_renderer()
+    Debug => @render.debug_json_renderer()
   }
 }
 

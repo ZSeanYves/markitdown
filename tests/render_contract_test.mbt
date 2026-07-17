@@ -25,7 +25,7 @@ test "debug mode emits diagnostics parser metadata and pass trace" {
     "debug.txt",
     Txt,
     mode=Balanced,
-    output=DebugJson,
+    output=Debug,
   )
   assert_true(result.content.contains("\"diagnostics\""))
   assert_true(result.content.contains("\"parser_name\""))
@@ -41,11 +41,10 @@ test "debug mode emits diagnostics parser metadata and pass trace" {
 test "rag output can suppress source refs while keeping library source map" {
   let options = @convert.make_convert_options(
     Balanced,
-    RagJson,
+    Rag,
     Some(Markdown),
     @parser.default_ocr_options(),
     @convert.default_resource_limits(),
-    output_mode=Rag,
     rag_options=@rag.make_rag_options(1200, 150, true, false, true, true),
   )
   let result = match

@@ -136,3 +136,24 @@ test "ODS advanced synthetic contract covers repeated merged hidden formula asse
   assert_true(streamed.block_stream.unwrap().any(block => block.kind == Table))
   assert_true(streamed.assets.length() == 1)
 }
+
+///|
+test "ODS asset budget skips payload before creating an asset reference" {
+  let source = @input.input_from_path(
+    "samples/fixtures/contracts/ods/ods_advanced_synthetic.ods",
+  )
+  let context = @parser.parse_context_with_asset_limits(
+    @parser.new_parse_context(Ods),
+    1L,
+    1L,
+  )
+  let result = (ods_parser().parse)(source, context).unwrap()
+  let document = result.document.unwrap()
+  assert_eq(document.assets.length(), 0)
+  assert_true(
+    result.diagnostics.degraded_features.contains("asset_payload_limit_skip"),
+  )
+  assert_true(
+    result.diagnostics.warnings.any(w => w.contains("asset payload skipped")),
+  )
+}

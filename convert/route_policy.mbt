@@ -33,22 +33,18 @@ fn detect_input(
 fn product_convert_mode_for_strategy(
   mode : ConvertMode,
 ) -> @product.ConvertMode {
-  match mode {
-    Balanced => Balanced
-    Accurate => Accurate
-    Stream => Stream
-  }
+  mode
 }
 
 ///|
 fn execution_intent(options : ConvertOptions) -> ExecutionIntent {
+  let fidelity_mode = fidelity_mode_for_convert_mode(options.mode)
   {
     strategy_mode: options.mode,
-    fidelity_mode: options.fidelity_mode,
-    requested_fidelity_mode: options.fidelity_mode,
+    fidelity_mode,
+    requested_fidelity_mode: fidelity_mode,
     output_mode: options.output_mode,
-    stream_requested: options.stream_requested,
-    output_format: options.output_format,
+    stream_requested: options.mode == Stream,
     ocr_options: options.ocr_options,
     audio_options: options.audio_options,
     limits: options.limits,
@@ -396,8 +392,6 @@ fn resolve_execution_plan(
     fidelity_mode: effective_intent.fidelity_mode,
     requested_fidelity_mode: intent.requested_fidelity_mode,
     output_mode: effective_intent.output_mode,
-    stream_requested: effective_intent.stream_requested,
-    output_format: effective_intent.output_format,
     ocr_options: effective_intent.ocr_options,
     audio_options: effective_intent.audio_options,
     limits: effective_intent.limits,
@@ -498,8 +492,7 @@ fn detect_and_resolve_execution_plan(
   match detect_input(source, options) {
     Ok((effective_source, detected)) => {
       let policy = @fmeta.route_contract_for_format(detected.format)
-      let accurate_requested = options.mode == Accurate ||
-        options.fidelity_mode == Accurate
+      let accurate_requested = options.mode == Accurate
       let accurate_supported = @input.detected_format_is_image_candidate(
           detected.format,
         ) ||
@@ -513,7 +506,7 @@ fn detect_and_resolve_execution_plan(
           ),
         )
       }
-      let stream_requested = options.mode == Stream || options.stream_requested
+      let stream_requested = options.mode == Stream
       if stream_requested && !policy.balanced.explicit_stream_supported {
         return Err(
           ParseFailed(

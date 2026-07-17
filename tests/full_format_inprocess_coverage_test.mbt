@@ -10,7 +10,6 @@ fn inprocess_convert_fixture(
     Some(format),
     @parser.default_ocr_options(),
     @convert.default_resource_limits(),
-    stream_requested=mode == Stream,
   )
   match
     @convert.convert_input(
@@ -314,7 +313,6 @@ fn inprocess_convert_text(
       Some(format),
       @parser.default_ocr_options(),
       @convert.default_resource_limits(),
-      stream_requested=mode == Stream,
     ),
   )
 }
@@ -487,7 +485,7 @@ test "in-process core text matrix handles strict resource limits under control" 
     (("= Section\n\n" + long + "\n\n").repeat(8), "limit.adoc", Asciidoc),
     (("\\section{Title}\n" + long + "\n").repeat(8), "limit.tex", Tex),
   ]
-  let limits = @convert.make_resource_limits(3, 3, 9, max_line_chars=64)
+  let limits = @product.make_resource_limits(3, 3, 9, max_line_chars=64)
   for source in sources {
     let outcome = @convert.convert_input(
       @input.input_from_text_with_format(source.0, source.1, Some(source.2)),

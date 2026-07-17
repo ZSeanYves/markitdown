@@ -495,6 +495,19 @@ fn lower_docx_media_inline(
     )
     return 0
   }
+  if !docx_asset_within_budget(state, target_part) {
+    docx_record_asset_budget_skip(state, "docx:" + target_part, target_part)
+    let placeholder = "[image: " + alt + "]"
+    plain.write_string(placeholder)
+    rich_inlines.push(
+      @core.inline_with_attr(
+        @core.make_inline_text(placeholder, source_ref~),
+        "render_literal",
+        "true",
+      ),
+    )
+    return 0
+  }
   let output_path = docx_asset_output_path(state, target_part, media)
   rich_inlines.push(
     @core.make_inline_image(alt, output_path, title~, source_ref~),
@@ -562,6 +575,11 @@ fn ensure_docx_asset_ref(
   next_asset.attrs.set("source_path", target_part)
   next_asset.attrs.set("zip_entry_path", target_part)
   next_asset.attrs.set("zip_container_format", "docx")
+  match @ox.part_declared_size(state.pkg, target_part) {
+    Some(value) =>
+      next_asset.attrs.set("declared_asset_bytes", value.to_string())
+    None => ()
+  }
   match @input.input_path(state.source) {
     Some(path) => next_asset.attrs.set("zip_container_path", path)
     None => ()

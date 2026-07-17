@@ -47,17 +47,14 @@ fn convert_memory_text(
   mode? : @convert.ConvertMode = Balanced,
   output? : @convert.OutputFormat = Markdown,
   ocr_options? : @parser.OcrOptions = @parser.default_ocr_options(),
-  limits? : @convert.ResourceLimits = @convert.default_resource_limits(),
+  limits? : @product.ResourceLimits = @product.default_resource_limits(),
 ) -> @convert.ConvertResult {
-  let output_mode = @convert.output_mode_for_output_format(output)
   let options = @convert.make_convert_options(
     mode,
     output,
     Some(format),
     ocr_options,
     limits,
-    output_mode~,
-    stream_requested=mode == Stream,
   )
   match
     @convert.convert_input(
@@ -76,7 +73,7 @@ fn limits(
   max_cells : Int,
   max_line_chars? : Int = 4000,
 ) -> @convert.ResourceLimits {
-  @convert.make_resource_limits(max_rows, max_cols, max_cells, max_line_chars~)
+  @product.make_resource_limits(max_rows, max_cols, max_cells, max_line_chars~)
 }
 
 ///|

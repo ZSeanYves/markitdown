@@ -97,6 +97,14 @@ pub fn has_part(pkg : OoxmlPackage, part_name : String) -> Bool {
 }
 
 ///|
+/// Return the declared uncompressed size for a normalized package part.
+/// Callers can reject oversized binary parts before decompression.
+pub fn part_declared_size(pkg : OoxmlPackage, part_name : String) -> Int? {
+  let normalized = normalize_part_name(part_name) catch { _ => return None }
+  pkg.part_size_index.get(normalized)
+}
+
+///|
 /// Read raw bytes for a package part.
 pub fn read_part_bytes(
   pkg : OoxmlPackage,

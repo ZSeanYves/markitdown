@@ -1,5 +1,7 @@
 import {
+  "moonbitlang/core/encoding/utf8",
   "ZSeanYves/markitdown/format_readers/txt" @dtext,
+  "ZSeanYves/markitdown/format_readers/source_io" @sourceio,
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/formats/shared" @fshared,
   "ZSeanYves/markitdown/input",

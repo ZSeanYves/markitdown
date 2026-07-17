@@ -143,6 +143,25 @@ test "PPTX parser extracts repository image contract assets" {
 }
 
 ///|
+test "PPTX parser rejects media over the request asset budget" {
+  let context = @parser.parse_context_with_asset_limits(
+    @parser.new_parse_context(Pptx),
+    1L,
+    1L,
+  )
+  let result = (pptx_parser().parse)(
+    @input.input_from_path(
+      "samples/fixtures/contracts/pptx/pptx_image_single.pptx",
+    ),
+    context,
+  ).unwrap()
+  assert_eq(result.document.unwrap().assets.length(), 0)
+  assert_true(
+    result.diagnostics.degraded_features.contains("asset_payload_limit_skip"),
+  )
+}
+
+///|
 test "PPTX synthetic chart cache lowers title date categories and series table" {
   let path = "samples/fixtures/contracts/pptx/pptx_chart_cache_synthetic.pptx"
   let prepared = @pptxdoc.prepare_pptx_document_from_source(

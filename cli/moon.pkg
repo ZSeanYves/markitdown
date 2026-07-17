@@ -25,5 +25,5 @@ pkgtype(kind: "executable")
 
 options(
   "preferred-target": "native",
-  "native-stub": [ "stderr_native_stub.c" ],
+  "native-stub": [ "stderr_native_stub.c", "atomic_file_sink_native_stub.c" ],
 )

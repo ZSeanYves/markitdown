@@ -65,8 +65,6 @@ fn container_test_convert_nested_office_zip(
     Some(Zip),
     @parser.default_ocr_options(),
     @convert.default_resource_limits(),
-    output_mode=@convert.output_mode_for_output_format(Markdown),
-    stream_requested=mode == Stream,
   )
   match
     @convert.convert_input(

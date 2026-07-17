@@ -92,6 +92,7 @@ fn eml_rewrite_cid_references(
   sibling_parts : Array[@deml.EmlPart],
   document : @core.DocumentIR,
   diagnostics : @core.Diagnostics,
+  context : @parser.ParseContext,
 ) -> String {
   let mut out = html
   let inline_attachments = eml_inline_image_attachments_for_related(
@@ -105,12 +106,16 @@ fn eml_rewrite_cid_references(
       continue
     }
     let asset_path = eml_attachment_asset_path(owner_part, attachment)
-    let before = out
-    out = out.replace_all(old="cid:" + content_id, new=asset_path)
-    out = out.replace_all(old="cid:<" + content_id + ">", new=asset_path)
-    if out != before {
+    if out.contains("cid:" + content_id) ||
+      out.contains("cid:<" + content_id + ">") {
+      if !eml_materialize_inline_attachment_asset(
+          attachment, owner_part, document, context, diagnostics,
+        ) {
+        continue
+      }
+      out = out.replace_all(old="cid:" + content_id, new=asset_path)
+      out = out.replace_all(old="cid:<" + content_id + ">", new=asset_path)
       eml_increment_metric(diagnostics, "cid_rewrite_count")
-      eml_materialize_inline_attachment_asset(attachment, owner_part, document)
     }
   }
   out
@@ -149,7 +154,14 @@ fn eml_materialize_inline_attachment_asset(
   attachment : @deml.EmlAttachment,
   owner_part : @deml.EmlPart,
   document : @core.DocumentIR,
-) -> Unit {
+  context : @parser.ParseContext,
+  diagnostics : @core.Diagnostics,
+) -> Bool {
+  if !eml_attachment_within_asset_budget(
+      attachment, context, document, diagnostics,
+    ) {
+    return false
+  }
   let materialized = eml_materialize_attachment_payload(attachment, false, true)
   let asset_path = eml_attachment_asset_path(owner_part, attachment)
   let existing = document.assets.any(fn(asset) {
@@ -158,7 +170,7 @@ fn eml_materialize_inline_attachment_asset(
   if existing ||
     document.assets.length() >= EML_MAX_MATERIALIZED_ASSETS ||
     materialized.bytes is None {
-    return
+    return false
   }
   let asset = @core.make_asset_ref(Image, asset_path)
   let next_asset = {
@@ -168,6 +180,45 @@ fn eml_materialize_inline_attachment_asset(
   }
   eml_attach_asset_payload(next_asset, materialized)
   document.assets.push(next_asset)
+  true
+}
+
+///|
+fn eml_attachment_within_asset_budget(
+  attachment : @deml.EmlAttachment,
+  context : @parser.ParseContext,
+  document : @core.DocumentIR,
+  diagnostics : @core.Diagnostics,
+) -> Bool {
+  let declared_bytes = match attachment.bytes {
+    Some(bytes) => bytes.length().to_int64()
+    None => @utf8.encode(attachment.raw_text).length().to_int64()
+  }
+  let mut materialized_bytes = 0L
+  for asset in document.assets {
+    match asset.payload {
+      Some(Bytes(bytes)) =>
+        materialized_bytes = materialized_bytes + bytes.length().to_int64()
+      Some(Utf8(text)) =>
+        materialized_bytes = materialized_bytes +
+          @utf8.encode(text).length().to_int64()
+      _ => ()
+    }
+  }
+  if @parser.asset_payload_within_limits(
+      context, declared_bytes, materialized_bytes,
+    ) {
+    true
+  } else {
+    diagnostics.warnings.push(
+      "EML attachment skipped before decode because it exceeds the asset budget: " +
+      attachment.file_name.unwrap_or(attachment.mime_type),
+    )
+    if !diagnostics.degraded_features.contains("eml_attachment_budget_skip") {
+      diagnostics.degraded_features.push("eml_attachment_budget_skip")
+    }
+    false
+  }
 }
 
 ///|

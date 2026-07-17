@@ -394,7 +394,12 @@ test "notebook XML HTML and audio preflight probes cover normal and damaged inpu
 
 ///|
 test "route rejects known input payloads above the configured byte limit" {
-  let limits = make_resource_limits(2000, 50, 100000, max_input_bytes=3L)
+  let limits = @product.make_resource_limits(
+    2000,
+    50,
+    100000,
+    max_input_bytes=3L,
+  )
   let options = {
     ..default_convert_options(),
     limits,
@@ -410,7 +415,12 @@ test "route rejects known input payloads above the configured byte limit" {
 
 ///|
 test "route rejects path input by size before reading content" {
-  let limits = make_resource_limits(2000, 50, 100000, max_input_bytes=1L)
+  let limits = @product.make_resource_limits(
+    2000,
+    50,
+    100000,
+    max_input_bytes=1L,
+  )
   let options = {
     ..default_convert_options(),
     limits,
@@ -435,7 +445,7 @@ test "asset payload limits clear oversized payloads and remove markdown targets"
   }
   first.payload = Some(Bytes(Bytes::new(5)))
   let diagnostics = @core.empty_diagnostics()
-  let limits = make_resource_limits(
+  let limits = @product.make_resource_limits(
     2000,
     50,
     100000,

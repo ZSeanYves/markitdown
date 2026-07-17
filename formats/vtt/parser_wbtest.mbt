@@ -96,3 +96,46 @@ test "VTT large streaming path preserves cue metadata directives and recovery" {
   assert_true(events.any(event => event.text.contains("raw")))
   assert_true(!events.any(event => event.text.contains("WEBVTT duplicate")))
 }
+
+///|
+test "VTT pull stream covers directives malformed cues and truncation" {
+  let context = @parser.parse_context_with_limits(
+    @parser.new_parse_context(Vtt),
+    None,
+    None,
+    None,
+    None,
+    Some(12),
+    false,
+  )
+  let stream = open_vtt_event_stream(
+      @input.input_from_text_with_format(
+        "WEBVTT\n\nNOTE note\nbody\n\nSTYLE\n::cue { color: lime }\n\nREGION\nid:bottom\n\nbroken\nnot a timestamp\nraw payload that truncates",
+        "pull.vtt",
+        Some(Vtt),
+      ),
+      context,
+    )
+    .unwrap()
+    .unwrap()
+  let events : Array[@core.CoreEvent] = []
+  while true {
+    match (stream.next)().unwrap() {
+      Some(event) => events.push(event)
+      None => break
+    }
+  }
+  let summary = (stream.finish)().unwrap()
+  assert_true(events.any(event => event.kind == StartBlock(Raw)))
+  assert_true(summary.diagnostics.metrics.get("note_count") == Some("3"))
+  assert_true(summary.diagnostics.metrics.get("style_count") == Some("1"))
+  assert_true(summary.diagnostics.metrics.get("region_count") == Some("1"))
+  assert_true(
+    summary.diagnostics.degraded_features.contains(
+      "vtt_malformed_cue_recovered",
+    ),
+  )
+  assert_true(
+    summary.diagnostics.degraded_features.contains("vtt_record_truncation"),
+  )
+}

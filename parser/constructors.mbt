@@ -6,8 +6,45 @@ pub fn make_parser(
   mode : ParserMode,
   capability : ParserCapability,
   parse : (@input.InputSource, ParseContext) -> Result[ParseResult, String],
+  stream_events? : ((@input.InputSource, ParseContext) -> Result[
+    ParseEventStream?,
+    String,
+  ])? = None,
 ) -> Parser {
-  { name, mode, capability, parse }
+  { name, mode, capability, parse, stream_events }
+}
+
+///|
+/// Construct the side-channel summary used by a pull parser after EOF.
+pub fn parse_stream_summary(
+  parser_name : String,
+  mode : ParserMode,
+  capabilities : ParserCapability,
+  diagnostics : @core.Diagnostics,
+  metadata? : @core.DocumentMetadata = Map([]),
+  assets? : Array[@core.AssetRef] = [],
+  source_map? : @core.SourceMap? = None,
+  assembly? : @core.DocumentAssembly? = None,
+) -> ParseStreamSummary {
+  {
+    parser_name,
+    mode,
+    capabilities,
+    metadata,
+    assets,
+    source_map,
+    assembly,
+    diagnostics,
+  }
+}
+
+///|
+/// Construct a pull stream from its producer callbacks.
+pub fn make_parse_event_stream(
+  next : () -> Result[@core.CoreEvent?, String],
+  finish : () -> Result[ParseStreamSummary, String],
+) -> ParseEventStream {
+  { next, finish }
 }
 
 ///|
