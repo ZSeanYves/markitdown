@@ -169,7 +169,7 @@ fn cli_convert_to_atomic_stream_file(
     atomic_file_writer_abort(writer)
     return Err("streaming file output produced unexpected assets")
   }
-  if result.diagnostics.errors.length() > 0 {
+  if !wrote_any.val && result.diagnostics.errors.length() > 0 {
     atomic_file_writer_abort(writer)
     return Err("conversion failed: " + result.diagnostics.errors.join("; "))
   }

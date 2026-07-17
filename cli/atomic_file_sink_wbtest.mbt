@@ -39,3 +39,36 @@ test "CLI writes assetless Markdown through the atomic unbuffered sink" {
   assert_eq(rendered, "alpha\n\nbeta\n")
   assert_eq(read_utf8_text(output_path), rendered)
 }
+
+///|
+test "CLI atomically commits unknown XML entity fail-closed output" {
+  let root = test_tmp_root() + "/atomic-cli-xml-unknown-entity"
+  recreate_clean_dir(root)
+  defer cleanup_temp_dir(root)
+  let input_path = root + "/input.xml"
+  let output_path = root + "/output.md"
+  let source = "<root>&custom;</root>"
+  write_utf8_text(input_path, source)
+  let rendered = run_cli(
+    cli_options(input_path, Some(output_path), Some(Xml), Markdown),
+  ).unwrap()
+  assert_eq(rendered, "```xml\n" + source + "\n```\n")
+  assert_eq(read_utf8_text(output_path), rendered)
+}
+
+///|
+test "CLI atomically preserves XML internal and external entity declarations" {
+  let root = test_tmp_root() + "/atomic-cli-xml-doctype-entities"
+  recreate_clean_dir(root)
+  defer cleanup_temp_dir(root)
+  let input_path = root + "/input.xml"
+  let output_path = root + "/output.md"
+  let source = "<!DOCTYPE root [<!ENTITY internal \"kept-literal\"><!ENTITY external SYSTEM \"file:///definitely/missing/markitdown-xxe\">]><root>&internal;&external;</root>"
+  write_utf8_text(input_path, source)
+  let rendered = run_cli(
+    cli_options(input_path, Some(output_path), Some(Xml), Markdown),
+  ).unwrap()
+  assert_eq(rendered, "```xml\n" + source + "\n```\n")
+  assert_eq(read_utf8_text(output_path), rendered)
+  assert_true(rendered.contains("&internal;&external;"))
+}

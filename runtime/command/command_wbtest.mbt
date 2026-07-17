@@ -14,6 +14,39 @@ fn command_with_env(
 }
 
 ///|
+fn command_test_module_root() -> String raise {
+  let root = "/tmp/markitdown-runtime-command-" + @env.now().to_string()
+  @fs.create_dir(root)
+  @fs.create_dir(root + "/env")
+  @fs.create_dir(root + "/env/managed-paths")
+  root
+}
+
+///|
+fn cleanup_command_test_module_root(root : String, record : String) -> Unit {
+  ignore(
+    try @fs.remove_file(record) |> Ok catch {
+      _ => Err(())
+    },
+  )
+  ignore(
+    try @fs.remove_dir(root + "/env/managed-paths") |> Ok catch {
+      _ => Err(())
+    },
+  )
+  ignore(
+    try @fs.remove_dir(root + "/env") |> Ok catch {
+      _ => Err(())
+    },
+  )
+  ignore(
+    try @fs.remove_dir(root) |> Ok catch {
+      _ => Err(())
+    },
+  )
+}
+
+///|
 test "resolved commands expose stable provenance labels" {
   let sources : Array[(ResolvedCommandSource, String)] = [
     (ExplicitArg, "explicit_arg"),
@@ -99,9 +132,6 @@ test "command executable resolution rejects invalid paths and finds PATH tools" 
   assert_true(resolve_path_command("sh") is Some(_))
   assert_true(find_in_path("markitdown-definitely-missing", None) is None)
   assert_true(resolve_path_command("markitdown-definitely-missing") is None)
-  assert_true(
-    resolve_repo_managed_command("markitdown-definitely-missing") is None,
-  )
   assert_true(split_shell_command("/bin/sh") == Ok(["/bin/sh"]))
   let non_executable = resolve_executable_path(
     "moon.mod",
@@ -114,6 +144,34 @@ test "command executable resolution rejects invalid paths and finds PATH tools" 
   }
   assert_true(non_executable_error)
   assert_true(split_shell_command("   ") == Ok([]))
+}
+
+///|
+test "repo-managed command records resolve hermetically" {
+  let root = command_test_module_root()
+  let name = "command-wbtest-shell"
+  let record = root + "/env/managed-paths/" + name
+  defer cleanup_command_test_module_root(root, record)
+  command_with_env(markitdown_module_root_env_var(), root, () => {
+    assert_eq(repo_managed_command_record_path(name), record)
+    @fs.write_string_to_file(record, "/bin/sh\n", encoding="utf8")
+    let resolved = resolve_repo_managed_command(name).unwrap()
+    assert_eq(resolved.program, "/bin/sh")
+    assert_true(resolved.source == RepoManaged)
+
+    @fs.write_string_to_file(record, "", encoding="utf8")
+    assert_true(resolve_repo_managed_command(name) is None)
+    @fs.write_string_to_file(record, "bin/sh\n", encoding="utf8")
+    assert_true(resolve_repo_managed_command(name) is None)
+    @fs.write_string_to_file(record, "/bin/sh\n/usr/bin/sh\n", encoding="utf8")
+    assert_true(resolve_repo_managed_command(name) is None)
+    @fs.write_string_to_file(
+      record,
+      "/definitely/missing/markitdown-managed-command\n",
+      encoding="utf8",
+    )
+    assert_true(resolve_repo_managed_command(name) is None)
+  })
 }
 
 ///|
