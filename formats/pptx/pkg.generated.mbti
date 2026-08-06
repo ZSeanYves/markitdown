@@ -20,4 +20,3 @@ pub fn pptx_parser_capability() -> @parser.ParserCapability
 // Type aliases
 
 // Traits
-

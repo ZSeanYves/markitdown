@@ -15,4 +15,3 @@ pub fn zip_container_parser(() -> @parser.ParserRegistry) -> @parser.Parser
 // Type aliases
 
 // Traits
-

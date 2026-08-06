@@ -20,4 +20,3 @@ pub fn docx_parser_capability() -> @parser.ParserCapability
 // Type aliases
 
 // Traits
-

@@ -23,4 +23,3 @@ pub fn validate_tsv_document(@csv.CsvDocument) -> @csv.CsvValidationReport
 // Type aliases
 
 // Traits
-

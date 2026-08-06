@@ -24,4 +24,3 @@ pub fn ndjson_parser() -> @parser.Parser
 // Type aliases
 
 // Traits
-

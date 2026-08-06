@@ -1,0 +1,17 @@
+# Default owner until the project assigns backup maintainers.
+* @ZSeanYves
+
+# High-risk boundaries receive explicit ownership in addition to the default.
+/core/ @ZSeanYves
+/input/ @ZSeanYves
+/product/ @ZSeanYves
+/convert/ @ZSeanYves
+/parser/ @ZSeanYves
+/pipeline/ @ZSeanYves
+/render/ @ZSeanYves
+/runtime/ @ZSeanYves
+/format_readers/ @ZSeanYves
+/formats/ @ZSeanYves
+/tools/governance/ @ZSeanYves
+/.github/ @ZSeanYves
+/SECURITY.md @ZSeanYves

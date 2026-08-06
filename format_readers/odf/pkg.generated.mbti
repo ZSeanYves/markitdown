@@ -94,4 +94,3 @@ pub using @ods {type PreparedOdsDocument}
 pub using @odt {type PreparedOdtDocument}
 
 // Traits
-

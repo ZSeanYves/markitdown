@@ -18,4 +18,3 @@ pub fn asciidoc_text_markup_hooks() -> @shared.TextMarkupHooks
 // Type aliases
 
 // Traits
-

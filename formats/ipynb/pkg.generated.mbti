@@ -20,4 +20,3 @@ pub fn ipynb_parser() -> @parser.Parser
 // Type aliases
 
 // Traits
-

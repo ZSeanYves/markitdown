@@ -21,7 +21,7 @@ lxml==6.1.1
 magika==0.6.3
 mammoth==1.11.0
 markdownify==1.2.3
-markitdown==0.1.6
+markitdown==0.1.7
 msal==1.37.0
 msal-extensions==1.3.1
 numpy==2.4.6

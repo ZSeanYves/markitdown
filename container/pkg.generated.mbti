@@ -46,4 +46,3 @@ pub enum ContainerAssetCopyPolicy {
 // Type aliases
 
 // Traits
-

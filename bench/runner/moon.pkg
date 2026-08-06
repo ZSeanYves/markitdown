@@ -1,5 +1,4 @@
 import {
-  "moonbitlang/x/sys",
   "ZSeanYves/markitdown/bench/runner/command",
   "ZSeanYves/markitdown/bench/runner/manifest",
   "ZSeanYves/markitdown/bench/runner/tools",
@@ -7,6 +6,7 @@ import {
   "ZSeanYves/markitdown/convert",
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/runtime/process",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/env",
   "moonbitlang/core/json",

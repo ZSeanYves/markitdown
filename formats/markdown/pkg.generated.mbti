@@ -27,4 +27,3 @@ pub fn markdown_parser() -> @parser.Parser
 // Type aliases
 
 // Traits
-

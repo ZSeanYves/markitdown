@@ -17,4 +17,3 @@ pub fn register_builtin_parsers(@parser.ParserRegistry) -> Unit
 // Type aliases
 
 // Traits
-

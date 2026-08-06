@@ -199,4 +199,3 @@ pub(all) enum XmlValidationSeverity {
 // Type aliases
 
 // Traits
-

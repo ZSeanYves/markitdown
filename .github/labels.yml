@@ -1,0 +1,33 @@
+# Declarative label catalogue. Apply through repository administration or the
+# GitHub CLI; keeping it in source makes issue triage reproducible.
+labels:
+  - name: "risk:R0"
+    color: "1D76DB"
+    description: Documentation or no-behavior change
+  - name: "risk:R1"
+    color: "2DA44E"
+    description: Local implementation change
+  - name: "risk:R2"
+    color: "FBCA04"
+    description: Format, pipeline, fixture or performance change
+  - name: "risk:R3"
+    color: "D93F0B"
+    description: API, FFI, security, dependency or release change
+  - name: "type:bug"
+    color: "B60205"
+    description: Defect or regression
+  - name: "type:enhancement"
+    color: "A2EEEF"
+    description: New capability or improvement
+  - name: "area:compatibility"
+    color: "5319E7"
+    description: Upstream behavior or contract
+  - name: "area:performance"
+    color: "0052CC"
+    description: Benchmark or resource behavior
+  - name: "area:security"
+    color: "B60205"
+    description: Security boundary or vulnerability
+  - name: "risk:triage"
+    color: "E99695"
+    description: Needs maintainer risk classification

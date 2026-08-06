@@ -20,4 +20,3 @@ pub struct PreparedXlsxPackage {
 // Type aliases
 
 // Traits
-

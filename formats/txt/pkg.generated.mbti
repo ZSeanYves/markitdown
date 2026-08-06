@@ -15,4 +15,3 @@ pub fn txt_parser() -> @parser.Parser
 // Type aliases
 
 // Traits
-
