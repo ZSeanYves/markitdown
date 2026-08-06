@@ -1,5 +1,8 @@
 # Parser
 
+> Internal 0.8 extension contract. Registry, context, capability and result
+> records are not part of the stable library API.
+
 `parser/` defines the unified parser contract for the whole repository. Any format that wants to join the main product path must declare its capabilities, context, and result shape here before it can be exposed through the registry.
 
 ## Responsibilities

@@ -1,5 +1,8 @@
 # Input
 
+> Internal 0.8 source implementation. The stable constructors are
+> `@api.Input::from_path/text/bytes/reader`.
+
 `input/` describes external inputs and normalizes them into format identities the product understands. Its job is to answer “what is this input and how do I read it,” not “which high-level strategy should parse it.”
 
 ## Responsibilities

@@ -146,5 +146,32 @@ fn exit_cli_error(msg : String, usage : Bool) -> Int {
   if usage {
     cli_write_stderr(cli_usage_text() + "\n")
   }
-  1
+  cli_error_exit_code(msg, usage)
+}
+
+///|
+/// Map CLI failures to the stable process contract shared by macOS and Linux.
+fn cli_error_exit_code(msg : String, usage : Bool) -> Int {
+  if usage {
+    return 2
+  }
+  let normalized = msg.to_lower()
+  if normalized.contains("resource limit exceeded") {
+    5
+  } else if normalized.contains("render failed") ||
+    normalized.contains("open atomic output failed") ||
+    normalized.contains("create output dir failed") ||
+    normalized.contains("write output failed") ||
+    normalized.contains("write asset output failed") ||
+    normalized.contains("write provenance failed") {
+    6
+  } else if normalized.contains("detect failed") ||
+    normalized.contains("open input path failed") ||
+    normalized.contains("unsupported format") ||
+    normalized.contains("input path not found") ||
+    normalized.contains("no such file") {
+    3
+  } else {
+    4
+  }
 }

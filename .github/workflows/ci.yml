@@ -56,6 +56,8 @@ jobs:
         run: python3 tools/governance/check_toolchain.py
       - name: Verify baseline inputs
         run: python3 tools/governance/collect_baseline.py --check
+      - name: Verify Phase 1 architecture boundaries
+        run: python3 tools/governance/check_architecture.py
       - name: Run governance tests
         run: python3 -m unittest discover -s tools/governance/tests -p 'test_*.py'
       - name: Verify PR policy

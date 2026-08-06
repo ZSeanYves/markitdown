@@ -1,5 +1,8 @@
 # Pipeline
 
+> Internal 0.8 implementation package. `PassContext`, passes and IR builders
+> are intentionally absent from `ZSeanYves/markitdown/api`.
+
 `pipeline/` continues transforming parser output into a more stable and renderable `DocumentIR`. Its passes recover reading order, heading hierarchy, table and caption bindings, asset ownership, and render hints.
 
 ## Responsibilities

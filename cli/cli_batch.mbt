@@ -143,7 +143,7 @@ fn run_batch_cli_app(cli_args : Array[String]) -> Int {
       )
   }
   if results.any(fn(result) { result.status == Failed }) {
-    1
+    4
   } else {
     0
   }

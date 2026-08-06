@@ -22,6 +22,9 @@ class GovernanceTests(unittest.TestCase):
         cls.baseline = load_module("collect_baseline", ROOT / "tools/governance/collect_baseline.py")
         cls.toolchain = load_module("check_toolchain", ROOT / "tools/governance/check_toolchain.py")
         cls.policy = load_module("check_pr_policy", ROOT / "tools/governance/check_pr_policy.py")
+        cls.architecture = load_module(
+            "check_architecture", ROOT / "tools/governance/check_architecture.py"
+        )
 
     def test_toolchain_parser_reads_all_components(self):
         output = """moon 0.1.20260803 (c19f78e 2026-08-03) ~/.moon/bin/moon
@@ -67,6 +70,21 @@ moonrun 0.1.20260803 (c19f78e 2026-08-03) ~/.moon/bin/moonrun
         self.assertEqual(
             self.policy.validate(api_body, ["api/pkg.generated.mbti"]), []
         )
+
+    def test_phase1_architecture_contract_passes_repository(self):
+        self.assertEqual(self.architecture.verify(), [])
+
+    def test_phase1_rejects_internal_type_leaks_and_deep_imports(self):
+        errors = self.architecture.api_surface_errors(
+            'import { "ZSeanYves/markitdown/parser" }\n',
+            'import { "ZSeanYves/markitdown/parser" }\n',
+        )
+        self.assertTrue(any("leaks internal" in error for error in errors))
+        errors = self.architecture.api_import_errors(
+            {"ZSeanYves/markitdown/formats/pdf"}
+        )
+        self.assertTrue(any("unapproved" in error for error in errors))
+
 
 if __name__ == "__main__":
     unittest.main()

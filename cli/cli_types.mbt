@@ -2,7 +2,7 @@
 const PRODUCT_NAME : String = "markitdown-mb"
 
 ///|
-const PRODUCT_VERSION : String = "0.7.0"
+const PRODUCT_VERSION : String = "0.8.0"
 
 ///|
 /// Parsed CLI options normalized into the convert-layer request model.
