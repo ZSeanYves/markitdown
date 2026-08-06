@@ -34,7 +34,7 @@ test "main cli batch accurate keeps pdf tasks in the manifest instead of prefilt
   let exit_code = run_cli_app_silent([
     "markitdown-mb", "batch", "accurate", input_dir, out_dir,
   ])
-  assert_eq(exit_code, 1)
+  assert_eq(exit_code, 4)
   let manifest = read_utf8_text(out_dir + "/manifest.json")
   assert_true(manifest.contains("\"relative_path\": \"note.md\""))
   assert_true(manifest.contains("\"relative_path\": \"scan.pdf\""))
@@ -100,7 +100,7 @@ test "main CLI batch filesystem helpers and missing inputs fail closed" {
       "/definitely/missing/input",
       root + "/output",
     ]),
-    1,
+    3,
   )
   assert_true(parse_batch_cli_options(["batch", root], 1) is Err(_))
 }

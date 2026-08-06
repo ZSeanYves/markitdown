@@ -1,0 +1,38 @@
+name: Feature request
+description: Propose a capability or maintenance improvement with a contract.
+title: "[Feature]: "
+labels: ["type:enhancement", "risk:triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem and users
+      description: What concrete workflow is blocked?
+    validations:
+      required: true
+  - type: textarea
+    id: contract
+    attributes:
+      label: Proposed contract
+      description: Describe surface, semantic and operational behavior, including non-goals.
+    validations:
+      required: true
+  - type: dropdown
+    id: boundary
+    attributes:
+      label: Boundary
+      options:
+        - Core offline capability
+        - Optional native runtime
+        - Network or cloud extension
+        - Dependency or independent library
+        - Governance/tooling
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence and risks
+      description: Include fixtures, compatibility impact, performance, security and rollback concerns.
+    validations:
+      required: true

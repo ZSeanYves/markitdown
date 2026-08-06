@@ -523,4 +523,3 @@ pub type DocumentMetadata = Map[String, JsonValue]
 pub type HeadingPath = Array[String]
 
 // Traits
-

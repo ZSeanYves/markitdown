@@ -1,0 +1,50 @@
+{
+  "api": {
+    "golden": "tools/governance/api-v0.8.mbti",
+    "sha256": "64514d3be92d09f08897b8f06cb69b86cde8a47c7ac12795123499c83fbcd81a",
+    "stable_package": "ZSeanYves/markitdown/api",
+    "target": "native"
+  },
+  "direct_dependency_count": 5,
+  "inputs": [
+    "Path",
+    "Text",
+    "Bytes",
+    "Reader"
+  ],
+  "module_version": "0.8.0",
+  "outputs": [
+    "Markdown",
+    "Debug",
+    "Rag"
+  ],
+  "schema_version": 1,
+  "tests": {
+    "api_native": {
+      "passed": 7,
+      "tests": 7
+    },
+    "js": {
+      "passed": 485,
+      "tests": 485
+    },
+    "native_c": {
+      "passed": 901,
+      "tests": 901
+    },
+    "native_new": {
+      "passed": 901,
+      "tests": 901
+    },
+    "wasm": {
+      "passed": 485,
+      "tests": 485
+    },
+    "wasm-gc": {
+      "passed": 485,
+      "tests": 485
+    }
+  },
+  "verified_date": "2026-08-05",
+  "verified_platform": "macOS arm64"
+}

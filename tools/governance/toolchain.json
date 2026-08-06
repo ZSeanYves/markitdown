@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "moon_version": "0.1.20260803",
+  "moonc_version": "v0.10.6+80dc50f24",
+  "moonrun_version": "0.1.20260803",
+  "native_backend": "c",
+  "native_backend_env": {
+    "MOONBIT_NEW_NATIVE": "0"
+  },
+  "stable_targets": ["wasm", "wasm-gc", "js", "native"],
+  "tier_1_platforms": ["linux-x86_64", "darwin-arm64"]
+}

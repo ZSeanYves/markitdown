@@ -1,5 +1,8 @@
 # Product
 
+> Internal 0.8 policy model. Stable mode, option and limit types live in
+> `ZSeanYves/markitdown/api`.
+
 `product/` holds the top-level product vocabulary. It defines the shared modes, profiles, features, and resource ceilings consumed together by CLI, convert, parser, pipeline, and render.
 
 ## Responsibilities

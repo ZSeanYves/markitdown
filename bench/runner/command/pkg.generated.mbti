@@ -20,4 +20,3 @@ pub struct RunnerContext {
 // Type aliases
 
 // Traits
-

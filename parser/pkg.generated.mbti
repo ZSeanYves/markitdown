@@ -298,4 +298,3 @@ pub(all) enum StreamingGranularity {
 // Type aliases
 
 // Traits
-

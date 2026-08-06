@@ -1,0 +1,48 @@
+name: Bug report
+description: Report a reproducible conversion or build defect.
+title: "[Bug]: "
+labels: ["type:bug", "risk:triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not attach confidential documents or public exploit details. Use the security advisory flow for vulnerabilities.
+  - type: input
+    id: version
+    attributes:
+      label: Project/toolchain version
+      description: Include markitdown-mb, MoonBit and target versions.
+    validations:
+      required: true
+  - type: input
+    id: format
+    attributes:
+      label: Input format
+      placeholder: docx, pdf, html, ...
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Give a minimal command or sanitized fixture and expected/actual behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: Paste stable error codes, route/provenance and relevant logs.
+  - type: dropdown
+    id: target
+    attributes:
+      label: Target
+      options:
+        - Linux x86_64 native
+        - macOS arm64 native
+        - wasm
+        - wasm-gc
+        - js
+        - Other
+    validations:
+      required: true

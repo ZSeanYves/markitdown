@@ -1,5 +1,8 @@
 # RAG
 
+> Internal 0.8 chunking implementation. Stable RAG options and chunk output
+> are projected by `ZSeanYves/markitdown/api`.
+
 `rag/` projects the unified document IR into retrieval-oriented chunk views. It does not parse formats and does not control rendering directly; its job is to own chunking rules, chunk metadata, and stable RAG JSON semantics.
 
 ## Responsibilities

@@ -18,7 +18,7 @@ test "main CLI app dispatches help version and removed command guidance" {
     assert_eq(run_cli_app_silent(["markitdown", arg]), 0)
   }
   for arg in ["convert", "normal", "debug", "ocr", "bench"] {
-    assert_eq(run_cli_app_silent(["markitdown", arg]), 1)
+    assert_eq(run_cli_app_silent(["markitdown", arg]), 2)
   }
 }
 
@@ -35,7 +35,7 @@ test "main CLI app fails closed on malformed option sets" {
     ["markitdown", "batch", "accurate"],
   ]
   for args in invalid {
-    assert_eq(run_cli_app_silent(args), 1)
+    assert_eq(run_cli_app_silent(args), 2)
   }
 }
 
@@ -98,5 +98,12 @@ test "main CLI help and fail closed messages remain nonempty across categories" 
   assert_true(
     cli_usage_text().contains("unsupported mode requests fail closed"),
   )
-  assert_eq(exit_cli_error("contract", false), 1)
+  assert_eq(exit_cli_error("contract", false), 4)
+  assert_eq(cli_error_exit_code("bad option", true), 2)
+  assert_eq(cli_error_exit_code("detect failed: unknown", false), 3)
+  assert_eq(cli_error_exit_code("open input path failed: missing.md", false), 3)
+  assert_eq(cli_error_exit_code("parse failed: malformed", false), 4)
+  assert_eq(cli_error_exit_code("resource limit exceeded", false), 5)
+  assert_eq(cli_error_exit_code("render failed: sink", false), 6)
+  assert_eq(cli_error_exit_code("open atomic output failed", false), 6)
 }

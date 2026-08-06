@@ -1,5 +1,8 @@
 # Formats
 
+> Internal 0.8 lowering/extension packages. Consumers query support through
+> `@api.capabilities()` instead of importing a concrete format package.
+
 `formats/` owns product-level format parsers and lowering logic. Each subpackage connects one reader output to the unified parser contract and decides how it should enter the canonical `DocumentIR` path.
 
 ## Responsibilities

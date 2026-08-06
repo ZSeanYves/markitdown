@@ -19,6 +19,8 @@ class CoverageGateTests(unittest.TestCase):
         <class filename="formats/html/parser.mbt"><lines><line number="1" hits="1"/></lines></class>
         <class filename="formats/audio/runtime.mbt"><lines><line number="1" hits="1"/><line number="2" hits="0"/></lines></class>
         <class filename="cli/a.mbt"><lines><line number="1" hits="0"/></lines></class>
+        <class filename="cli/main.mbt"><lines><line number="1" hits="0"/></lines></class>
+        <class filename="runtime/process/process.mbt"><lines><line number="1" hits="0"/></lines></class>
         <class filename="format_readers/pdf/gb2312_data.mbt"><lines><line number="1" hits="0"/></lines></class>
         </classes></package></packages></coverage>"""
         with tempfile.TemporaryDirectory() as raw_tmp:
@@ -40,6 +42,11 @@ class CoverageGateTests(unittest.TestCase):
         formats = {item["name"]: item for item in summary["formats"]}
         self.assertEqual(formats["html"]["rate"], 100.0)
         self.assertEqual(formats["audio"]["rate"], 50.0)
+        self.assertIn("cli/main.mbt", summary["excluded_files"])
+        self.assertIn("runtime/process/process.mbt", summary["excluded_files"])
+        included_paths = {item["path"] for item in summary["files"]}
+        self.assertNotIn("cli/main.mbt", included_paths)
+        self.assertNotIn("runtime/process/process.mbt", included_paths)
 
     def test_format_mapping_and_ratchet_enforce_half_point_drop(self) -> None:
         files = [

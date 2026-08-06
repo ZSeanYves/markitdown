@@ -27,9 +27,14 @@ EXTERNAL_RUNTIME_ADAPTERS = {
 }
 
 EXCLUDED_FILES = {
+    # Process entrypoints are exercised by release smoke and native linker jobs;
+    # invoking them from an instrumented unit test would terminate the runner.
+    "bench/runner/main.mbt",
+    "cli/main.mbt",
     "format_readers/pdf/font_encoding_tables.mbt",
     "format_readers/pdf/gb2312_data.mbt",
     "format_readers/pdf/predefined_cmap_data.mbt",
+    "runtime/process/process.mbt",
 }
 
 FORMAT_CONTAINER_PREFIXES = (

@@ -1,14 +1,12 @@
 name = "ZSeanYves/markitdown"
 
-version = "0.7.0"
+version = "0.8.0"
 
 import {
   "bikallem/blit@0.2.2",
   "moonbitlang/x@0.4.40",
-  "TheWaWaR/clap@0.2.6",
   "moonbitlang/async@0.20.2",
   "bikallem/compress@0.3.4",
-  "tonyfettes/unicode@0.3.0",
   "tonyfettes/encoding@0.3.9",
 }
 

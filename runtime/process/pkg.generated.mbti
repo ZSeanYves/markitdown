@@ -1,0 +1,13 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/runtime/process"
+
+// Values
+pub fn exit_process(Int) -> Unit
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

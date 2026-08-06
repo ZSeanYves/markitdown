@@ -17,4 +17,3 @@ pub fn eml_parser_with_registry(() -> @parser.ParserRegistry) -> @parser.Parser
 // Type aliases
 
 // Traits
-

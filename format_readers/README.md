@@ -1,5 +1,8 @@
 # Format Readers
 
+> Internal 0.8 syntax/model packages. They are replaceable implementation
+> details and are not supported as consumer imports.
+
 `format_readers/` owns low-level source-format understanding and preparation. Its job is to read raw files into stable intermediate models and then hand those results to `formats/*` so they can join the product-level parser contract.
 
 ## Responsibilities

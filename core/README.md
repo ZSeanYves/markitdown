@@ -1,5 +1,8 @@
 # Core
 
+> Internal 0.8 IR package. Public declarations here are repository contracts,
+> not compatibility commitments to library consumers.
+
 `core/` defines the shared public IR and foundational models used across formats. It is the most stable contract layer between parser, pipeline, render, and convert.
 
 ## Responsibilities

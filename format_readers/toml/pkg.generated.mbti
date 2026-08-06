@@ -105,4 +105,3 @@ pub(all) enum TomlValue {
 // Type aliases
 
 // Traits
-

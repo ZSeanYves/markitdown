@@ -44,4 +44,3 @@ pub struct CliOptions {
 // Type aliases
 
 // Traits
-

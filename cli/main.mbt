@@ -1,8 +1,8 @@
 ///|
 /// Native CLI program entrypoint.
 fn main {
-  let status = run_cli_app(@sys.get_cli_args())
+  let status = run_cli_app(@env.args())
   if status != 0 {
-    @sys.exit(status)
+    @process.exit_process(status)
   }
 }

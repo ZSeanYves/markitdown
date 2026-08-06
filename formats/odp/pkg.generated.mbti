@@ -23,4 +23,3 @@ pub fn odp_parser_capability() -> @parser.ParserCapability
 // Type aliases
 
 // Traits
-

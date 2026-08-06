@@ -1,5 +1,8 @@
 # Render
 
+> Internal 0.8 renderer package. Stable consumers select an output mode and
+> receive `@api.Output`.
+
 `render/` owns the final output stage and turns the unified document structure into the text or JSON that users actually consume. It must keep outputs stable while faithfully consuming diagnostics, assembly, source map, and RAG side channels.
 
 ## Responsibilities

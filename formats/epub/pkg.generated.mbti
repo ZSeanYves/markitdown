@@ -15,4 +15,3 @@ pub fn epub_parser(() -> @parser.ParserRegistry) -> @parser.Parser
 // Type aliases
 
 // Traits
-
