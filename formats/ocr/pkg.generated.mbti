@@ -254,4 +254,3 @@ pub struct OcrWord {
 // Type aliases
 
 // Traits
-

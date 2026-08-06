@@ -28,10 +28,45 @@ env:
   VECLIB_MAXIMUM_THREADS: "1"
   NUMEXPR_NUM_THREADS: "1"
   MARKITDOWN_QUALITY_LAB_SHA: "d079e50b3e5ac181283c6c818e931bd2ef936a13"
+  MOONBIT_VERSION: "0.1.20260803"
+  MOONBIT_EXPECTED_MOONC: "v0.10.6+80dc50f24"
+  MOONBIT_NEW_NATIVE: "0"
+
+  # The installer currently exposes a versioned latest artifact rather than a
+  # stable historical URL. The governance check makes a toolchain drift fail
+  # deliberately so updating this pin is an explicit reviewable change.
 
 jobs:
+  governance:
+    name: Phase 0 governance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install pinned MoonBit toolchain
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s latest
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - name: Verify toolchain pin
+        run: python3 tools/governance/check_toolchain.py
+      - name: Verify baseline inputs
+        run: python3 tools/governance/collect_baseline.py --check
+      - name: Verify Phase 1 architecture boundaries
+        run: python3 tools/governance/check_architecture.py
+      - name: Run governance tests
+        run: python3 -m unittest discover -s tools/governance/tests -p 'test_*.py'
+      - name: Verify PR policy
+        if: github.event_name == 'pull_request'
+        run: python3 tools/governance/check_pr_policy.py --event-path "$GITHUB_EVENT_PATH"
+
   core:
     name: MoonBit core (${{ matrix.os }})
+    needs: governance
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
@@ -42,8 +77,10 @@ jobs:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
       - name: Install MoonBit
         run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s latest
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - name: Verify toolchain pin
+        run: python3 tools/governance/check_toolchain.py
       - run: moon update
       - name: Format
         run: moon fmt --check
@@ -90,8 +127,10 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Install MoonBit
         run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s latest
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - name: Verify toolchain pin
+        run: python3 tools/governance/check_toolchain.py
       - run: moon update
       - name: Run coverage gate
         env:
@@ -159,8 +198,10 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Install MoonBit
         run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s latest
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - name: Verify toolchain pin
+        run: python3 tools/governance/check_toolchain.py
       - run: moon update
       - name: Build CLI
         run: moon build cli --target native
@@ -203,8 +244,10 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Install MoonBit
         run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s latest
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - name: Verify toolchain pin
+        run: python3 tools/governance/check_toolchain.py
       - run: moon update
       - name: Install benchmark baseline
         run: ./tools/env/optional_deps.sh install bench
@@ -251,3 +294,28 @@ jobs:
             .tmp/bench/runs
             .tmp/mutation
           if-no-files-found: ignore
+
+  native-backend-canary:
+    name: New native full suite (${{ matrix.os }})
+    needs: governance
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+    env:
+      MOONBIT_NEW_NATIVE: "1"
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - name: Install MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s latest
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - name: Report toolchain
+        run: moon version --all
+      - run: moon update
+      - name: Check new native backend
+        run: moon check --target all --warn-list +73 --deny-warn
+      - name: Test complete new native package suite
+        run: moon test --target native --no-parallelize

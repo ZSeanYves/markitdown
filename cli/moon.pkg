@@ -1,6 +1,7 @@
 import {
   "moonbitlang/core/string",
   "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/env",
   "ZSeanYves/markitdown/convert",
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/internal/formats/meta" @fmeta,
@@ -11,8 +12,8 @@ import {
   "ZSeanYves/markitdown/parser",
   "ZSeanYves/markitdown/product",
   "ZSeanYves/markitdown/rag",
+  "ZSeanYves/markitdown/runtime/process",
   "moonbitlang/x/fs",
-  "moonbitlang/x/sys",
 }
 
 import {

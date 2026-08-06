@@ -1,0 +1,89 @@
+{
+  "baseline_name": "phase-0",
+  "benchmark_baseline": {
+    "lock_path": "tools/env/config/python/bench.lock",
+    "lock_sha256": "0dcf773e58750199153e164a4d7dd21a9d05304b2db837f9518f44653803795b",
+    "markitdown_version": "0.1.7",
+    "python_version": "3.11",
+    "quality_lab_commit": "d079e50b3e5ac181283c6c818e931bd2ef936a13"
+  },
+  "fixtures": {
+    "file_count": 180,
+    "manifest_path": "tools/governance/fixtures.sha256",
+    "manifest_sha256": "3b8b453d800f6bd9bd44124ecb3cd654204955ac611bb13e27ca928deb473e5a",
+    "roots": [
+      "samples/fixtures/contracts",
+      "samples/fixtures/rejections"
+    ]
+  },
+  "inventory": {
+    "generated_interface_lines": 10273,
+    "generated_interfaces": 106,
+    "moon_packages": 106,
+    "moonbit_ffi_files": 5,
+    "moonbit_files": 506,
+    "native_c_files": 8,
+    "production_file_examples": [
+      "bench/runner/aggregate.mbt",
+      "bench/runner/cli.mbt",
+      "bench/runner/command/argv.mbt",
+      "bench/runner/command/command.mbt",
+      "bench/runner/execution.mbt",
+      "bench/runner/main.mbt",
+      "bench/runner/manifest/errors.mbt",
+      "bench/runner/manifest/parser.mbt",
+      "bench/runner/manifest/row.mbt",
+      "bench/runner/manifest/selector.mbt",
+      "bench/runner/measure/monotonic_time.mbt",
+      "bench/runner/measure/resource_usage.mbt"
+    ],
+    "production_moonbit_files": 365,
+    "pub_all_declarations": 213,
+    "public_declarations": 1900,
+    "public_type_declarations": 793
+  },
+  "module": {
+    "name": "ZSeanYves/markitdown",
+    "version": "0.7.0"
+  },
+  "native_baseline": {
+    "backend": "c-and-new-native",
+    "env": {
+      "MOONBIT_NEW_NATIVE": "0-and-1"
+    },
+    "new_native_canary": "full 894-test native suite passes and is a blocking macOS/Linux CI matrix",
+    "targets": {
+      "js": {
+        "passed": 485,
+        "tests": 485
+      },
+      "native": {
+        "passed": 894,
+        "tests": 894
+      },
+      "wasm": {
+        "passed": 485,
+        "tests": 485
+      },
+      "wasm-gc": {
+        "passed": 485,
+        "tests": 485
+      }
+    }
+  },
+  "recorded_commit": "4de4852c3d5b4f4b6919110d6c6d3ec560554d58",
+  "recorded_date": "2026-08-05",
+  "schema_version": 1,
+  "toolchain": {
+    "moon": "0.1.20260803",
+    "moonc": "v0.10.6+80dc50f24",
+    "moonrun": "0.1.20260803"
+  },
+  "upstream": {
+    "commit": "fd239d5d2be43d9b68329730206b9312c7d5a388",
+    "project": "microsoft/markitdown",
+    "source": "https://github.com/microsoft/markitdown/releases/tag/v0.1.7",
+    "tag": "v0.1.7"
+  },
+  "working_tree_policy": "CI requires a clean checkout; local generated output is never baseline input"
+}

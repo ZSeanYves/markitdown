@@ -59,4 +59,3 @@ pub fn write_utf8_text(String, String) -> Unit raise
 // Type aliases
 
 // Traits
-

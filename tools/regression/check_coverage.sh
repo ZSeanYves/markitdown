@@ -103,8 +103,12 @@ COMMAND=(
   --output-dir "$OUTPUT_DIR"
   --baseline "$ROOT/tools/regression/coverage-baseline.json"
 )
-if [[ -n "${MARKITDOWN_COVERAGE_BASELINE_REF:-}" ]]; then
-  COMMAND+=(--baseline-ref "$MARKITDOWN_COVERAGE_BASELINE_REF")
+COVERAGE_BASELINE_REF="${MARKITDOWN_COVERAGE_BASELINE_REF:-}"
+if [[ "$COVERAGE_BASELINE_REF" == "0000000000000000000000000000000000000000" ]]; then
+  COVERAGE_BASELINE_REF="HEAD^"
+fi
+if [[ -n "$COVERAGE_BASELINE_REF" ]]; then
+  COMMAND+=(--baseline-ref "$COVERAGE_BASELINE_REF")
 fi
 if [[ ${#ENFORCE[@]} -gt 0 ]]; then
   COMMAND+=("${ENFORCE[@]}")

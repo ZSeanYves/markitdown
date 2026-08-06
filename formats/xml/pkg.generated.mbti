@@ -20,4 +20,3 @@ pub fn xml_parser() -> @parser.Parser
 // Type aliases
 
 // Traits
-

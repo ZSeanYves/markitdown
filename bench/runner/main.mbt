@@ -1,8 +1,8 @@
 ///|
 fn main {
-  let status = run_bench_cli(@sys.get_cli_args())
+  let status = run_bench_cli(@env.args())
   if status != 0 {
-    @sys.exit(status)
+    @process.exit_process(status)
   }
 }
 

@@ -146,4 +146,3 @@ pub struct PreparedMarkdownDocument {
 // Type aliases
 
 // Traits
-

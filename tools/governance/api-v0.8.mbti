@@ -1,0 +1,270 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/api"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn api_v0_8() -> ApiV0_8
+
+pub fn capabilities() -> Array[Capability]
+
+pub fn convert(Input, options? : ConvertOptions) -> Result[Output, ConvertError]
+
+// Errors
+pub(all) suberror ConvertError {
+  DetectionFailed(String)
+  ParseFailed(String)
+  RenderFailed(String)
+  ResourceLimitExceeded(kind~ : String, observed~ : Int64, limit~ : Int64)
+  InvalidOption(String)
+} derive(Eq, @debug.Debug)
+pub fn ConvertError::code(Self) -> ErrorCode
+pub fn ConvertError::exit_code(Self) -> Int
+pub fn ConvertError::message(Self) -> String
+pub impl Show for ConvertError
+
+// Types and methods
+pub struct ApiV0_8 {
+  // private fields
+}
+pub fn ApiV0_8::convert(Self, Input, options? : ConvertOptions) -> Result[Output, ConvertError]
+pub fn ApiV0_8::v1_migration(Self) -> ApiV1Migration
+
+pub struct ApiV1Migration {
+  source_version : String
+  target_version : String
+  stable_package : String
+  breaking_changes_allowed_before_target : Bool
+} derive(Eq, @debug.Debug)
+
+pub struct Asset {
+  kind : AssetKind
+  id : String
+  path : String?
+  mime_type : String?
+  source_ref : SourceRef?
+  payload : AssetPayload?
+  attrs : Map[String, String]
+} derive(Eq, @debug.Debug)
+
+pub(all) enum AssetKind {
+  Image
+  Attachment
+  Link
+  Embedded
+  Unknown
+} derive(Eq, @debug.Debug)
+
+pub(all) enum AssetPayload {
+  Bytes(Bytes)
+  Utf8(String)
+  SourcePath(String)
+} derive(Eq, @debug.Debug)
+
+pub struct BoundingBox {
+  x0 : Double
+  y0 : Double
+  x1 : Double
+  y1 : Double
+} derive(Eq, @debug.Debug)
+
+pub struct Capability {
+  format : String
+  canonical_format : String
+  status : CapabilityStatus
+  input_kinds : Array[InputKind]
+  convert_modes : Array[ConvertMode]
+  output_modes : Array[OutputMode]
+  external_requirements : Array[String]
+} derive(Eq, @debug.Debug)
+
+pub(all) enum CapabilityStatus {
+  Stable
+  Experimental
+  ExternalRuntime
+} derive(Eq, @debug.Debug)
+
+pub struct Chunk {
+  id : String
+  kind : String
+  text : String
+  heading_path : Array[String]
+  source_refs : Array[SourceRef]
+  asset_refs : Array[String]
+  metadata_json : String
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ConvertMode {
+  Balanced
+  Accurate
+  Stream
+} derive(Eq, @debug.Debug)
+
+pub struct ConvertOptions {
+  mode : ConvertMode
+  output_mode : OutputMode
+  format_hint : String?
+  ocr_mode : OcrMode
+  ocr_language : String?
+  audio_language : String?
+  limits : ResourceLimits
+  rag : RagOptions
+} derive(Eq, @debug.Debug)
+pub fn ConvertOptions::default() -> Self
+pub fn ConvertOptions::with_audio_language(Self, String?) -> Self
+pub fn ConvertOptions::with_format_hint(Self, String?) -> Self
+pub fn ConvertOptions::with_limits(Self, ResourceLimits) -> Self
+pub fn ConvertOptions::with_mode(Self, ConvertMode) -> Self
+pub fn ConvertOptions::with_ocr(Self, OcrMode, language? : String?) -> Self
+pub fn ConvertOptions::with_output_mode(Self, OutputMode) -> Self
+pub fn ConvertOptions::with_rag(Self, RagOptions) -> Self
+
+pub struct Diagnostic {
+  code : String
+  severity : DiagnosticSeverity
+  message : String
+} derive(Eq, @debug.Debug)
+
+pub(all) enum DiagnosticSeverity {
+  Warning
+  Error
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ErrorCode {
+  DetectionFailed
+  ParseFailed
+  RenderFailed
+  ResourceLimitExceeded
+  InvalidOption
+} derive(Eq, @debug.Debug)
+pub fn ErrorCode::stable_name(Self) -> String
+
+pub struct Input {
+  // private fields
+}
+pub fn Input::from_bytes(Bytes, source_name? : String) -> Self
+pub fn Input::from_path(String) -> Self
+pub fn Input::from_reader((Int64, Int) -> Result[Bytes, String], size? : Int64, source_name? : String) -> Self
+pub fn Input::from_text(String, source_name? : String) -> Self
+pub fn Input::kind(Self) -> InputKind
+pub fn Input::source_name(Self) -> String
+
+pub(all) enum InputKind {
+  Path
+  Text
+  Bytes
+  Reader
+} derive(Eq, @debug.Debug)
+
+pub(all) enum OcrMode {
+  Auto
+  Enabled
+  Disabled
+} derive(Eq, @debug.Debug)
+
+pub struct Output {
+  content : String
+  detected_format : String
+  convert_mode : ConvertMode
+  output_mode : OutputMode
+  metadata_json : String
+  diagnostics : Array[Diagnostic]
+  provenance : Provenance
+  assets : Array[Asset]
+  source_map : SourceMap?
+  chunks : Array[Chunk]
+} derive(Eq, @debug.Debug)
+
+pub(all) enum OutputMode {
+  Markdown
+  Debug
+  Rag
+} derive(Eq, @debug.Debug)
+
+pub struct Provenance {
+  detected_format : String
+  selected_route : String
+  route_reason : String
+  parser_mode : String
+  fidelity_mode : String
+  output_mode : String
+  execution_profile : String
+  lowering_profile : String
+  render_profile : String
+  route_fidelity_status : String
+  applied_accurate_features : Array[String]
+  strategy_switches : Array[String]
+} derive(Eq, @debug.Debug)
+
+pub struct RagOptions {
+  chunk_size : Int
+  chunk_overlap : Int
+  preserve_heading_path : Bool
+  preserve_source_ref : Bool
+  split_tables : Bool
+  split_code_blocks : Bool
+} derive(Eq, @debug.Debug)
+pub fn RagOptions::default() -> Self
+
+pub struct ResourceLimits {
+  max_rows : Int
+  max_cols : Int
+  max_cells : Int
+  max_line_chars : Int
+  max_input_bytes : Int64
+  max_asset_bytes : Int64
+  max_total_asset_bytes : Int64
+  external_command_timeout_ms : Int
+  max_external_output_bytes : Int64
+} derive(Eq, @debug.Debug)
+pub fn ResourceLimits::default() -> Self
+
+pub struct SourceMap {
+  document_ref : SourceRef?
+  block_entries : Array[SourceMapEntry]
+  asset_entries : Array[SourceMapEntry]
+} derive(Eq, @debug.Debug)
+
+pub struct SourceMapEntry {
+  primary_ref : SourceRef?
+  refs : Array[SourceRef]
+  merged_from : Array[SourceRef]
+  confidence : Int?
+  relation : String?
+} derive(Eq, @debug.Debug)
+
+pub struct SourceRef {
+  file_id : String?
+  format : String?
+  page : Int?
+  bbox : BoundingBox?
+  line_start : Int?
+  line_end : Int?
+  byte_start : Int?
+  byte_end : Int?
+  time_start : String?
+  time_end : String?
+  xpath : String?
+  json_pointer : String?
+  yaml_path : String?
+  html_path : String?
+  markdown_path : String?
+  container_path : String?
+  entry_path : String?
+  entry_index : Int?
+  entry_format : String?
+  inner_path : String?
+  sheet : String?
+  cell_range : String?
+  slide : Int?
+  shape_id : String?
+  relationship_id : String?
+  chapter_href : String?
+  extra : Map[String, String]
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits

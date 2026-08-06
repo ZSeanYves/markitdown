@@ -110,4 +110,3 @@ pub(all) enum PdfRasterizerStatus {
 // Type aliases
 
 // Traits
-

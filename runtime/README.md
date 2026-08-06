@@ -1,5 +1,8 @@
 # Runtime
 
+> Native-only internal/extension boundary for process FFI, commands and
+> external tools. Runtime types must not cross the stable `api` façade.
+
 `runtime/` contains repository-wide runtime glue. It centralizes recurring coordination logic shared by parser, pipeline, and render, and isolates concerns such as command resolution, nested-document reuse, and diagnostics merging that do not belong to one format package alone.
 
 ## Responsibilities

@@ -3,7 +3,7 @@
 `markitdown-mb` is a MoonBit document-to-Markdown tool for document ingestion,
 RAG, and automation pipelines.
 
-The repository is currently on the unreleased `0.7.0` development line. Local
+The repository is currently on the unreleased `0.8.0` development line. Local
 archives and validation evidence are development artifacts, not published
 releases.
 
@@ -20,6 +20,9 @@ Before first use, read:
   [docs/architecture/mb-markitdown-architecture.md](./docs/architecture/mb-markitdown-architecture.md)
 - Optional enhancement paths for OCR / accurate PDF / audio:
   [docs/architecture/optional-enhancement-architecture.md](./docs/architecture/optional-enhancement-architecture.md)
+- Stable native library API and 0.8 migration:
+  [docs/api-v0.8.md](./docs/api-v0.8.md),
+  [docs/migration-0.8.md](./docs/migration-0.8.md)
 
 Prepare runtime dependencies before first run. Otherwise OCR, `accurate` PDF,
 `audio`, and benchmark examples will not work as expected.
@@ -52,9 +55,10 @@ The runner report is the source of truth for performance numbers. This README
 keeps one reproducible snapshot and its environment rather than presenting
 machine-specific results as universal constants.
 
-Current audited `official-external-compare` snapshot on macOS 15.3 arm64,
-recorded on 2026-07-17 against the repo-locked Microsoft MarkItDown `0.1.6`
-baseline:
+Historical audited `official-external-compare` snapshot on macOS 15.3 arm64,
+recorded on 2026-07-17 against the pre-Phase-0 repo-locked Microsoft MarkItDown
+`0.1.6` baseline. The formal Phase-0 lock is now `0.1.7`; the numbers below
+remain historical evidence until the 0.1.7 rerun is attached:
 
 - 25 selected rows, 25 semantically comparable rows
 - 75/75 trusted tool cases; no route, fidelity, provenance, or density failure
@@ -130,6 +134,20 @@ For the full capability matrix, see
 [docs/capabilities-and-limitations.md](./docs/capabilities-and-limitations.md).
 
 ## Quick Start
+
+The only compatibility-stable 0.8 library package is
+`ZSeanYves/markitdown/api`:
+
+```mbt
+let input = @api.Input::from_path("document.docx")
+let options = @api.ConvertOptions::default()
+  .with_output_mode(Markdown)
+let result = @api.convert(input, options~)
+```
+
+It supports Path, Text, Bytes and Reader inputs plus Markdown, Debug and RAG
+outputs. Parser, format-reader, pipeline, runtime and provider packages are
+internal or extension APIs.
 
 ```bash
 moon build --target native --release --package ZSeanYves/markitdown/cli

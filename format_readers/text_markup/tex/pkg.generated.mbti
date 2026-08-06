@@ -39,4 +39,3 @@ pub using @shared {type TextMarkupInspectReport}
 pub using @shared {type TextMarkupTable}
 
 // Traits
-

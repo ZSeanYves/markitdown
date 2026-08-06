@@ -15,4 +15,3 @@ pub fn vtt_parser() -> @parser.Parser
 // Type aliases
 
 // Traits
-

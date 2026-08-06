@@ -15,4 +15,3 @@ pub fn srt_parser() -> @parser.Parser
 // Type aliases
 
 // Traits
-

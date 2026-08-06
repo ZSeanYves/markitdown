@@ -42,4 +42,3 @@ pub using @shared {type OdsRow}
 pub using @shared {type OdsSheet}
 
 // Traits
-

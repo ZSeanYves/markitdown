@@ -2,6 +2,35 @@
 
 ## Unreleased
 
+### Phase 1 API and package boundaries
+
+- Added the native-only `ZSeanYves/markitdown/api` façade as the sole stable
+  0.8 library surface, with abstract Path/Text/Bytes/Reader input, immutable
+  options, Markdown/Debug/RAG output, projected diagnostics/provenance/chunks
+  and capability discovery.
+- Added typed conversion errors, versioned `MID-*` codes and stable CLI exit
+  classes (`2` usage, `3` input/detect, `4` conversion, `5` resource, `6`
+  render/write).
+- Frozen the generated 0.8 API golden and added CI checks for internal type
+  leaks, dependency drift, deep-format coupling and `pub(all)` growth.
+- Removed unused direct dependencies `TheWaWaR/clap` and
+  `tonyfettes/unicode`; the reviewed direct dependency set is now five.
+- Marked parser registries, format-reader models, pipeline contexts, IR,
+  renderers and native/external runtime providers as internal or extension
+  contracts, with an explicit 0.8 migration guide and ADR.
+
+### Phase 0 governance
+
+- Frozen the MarkItDown `v0.1.7` compatibility reference and benchmark lock.
+- Added a deterministic Phase 0 inventory for MoonBit packages, public
+  declarations, native FFI, generated interfaces and local fixture hashes.
+- Added toolchain consistency checks, PR policy templates, CODEOWNERS, ADR/RFC
+  templates, security policy, release checklist and risk register.
+- Replaced legacy executable argument/process usage with
+  `moonbitlang/core/env` plus native-only `runtime/process`; the complete
+  `MOONBIT_NEW_NATIVE=1` suite no longer references `_moonbit_get_cli_args` and
+  is a blocking macOS/Linux CI matrix.
+
 ### Product surface
 
 - Added parser pull-stream sinks for TXT, CSV/TSV, SRT/VTT, and
@@ -60,7 +89,8 @@
 - Shell/Python tooling validation runs only after the core gate. Coverage,
   dependency installation, regressions, benchmarks, and self baselines run in
   later jobs.
-- Current verified local baseline: native `893/893`; JS, Wasm, and Wasm-GC
+- Current verified local baseline: native C and new-native each `901/901`;
+  JS, Wasm, and Wasm-GC
   `485/485` each; `535/535` main, `409/409` quality, `21/21` accurate, and
   `54/54` deterministic mutation cases, with zero unexpected skips.
 - Coverage against baseline `7be6dfbd96f93af237c37aafdd67ad126c3f85b9`

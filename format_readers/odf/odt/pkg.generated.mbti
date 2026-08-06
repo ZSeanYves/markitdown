@@ -52,4 +52,3 @@ pub using @shared {type OdtTableCell}
 pub using @shared {type OdtTableRow}
 
 // Traits
-
