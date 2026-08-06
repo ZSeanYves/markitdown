@@ -92,8 +92,8 @@
           "tesseract"
         ],
         "command": "tesseract",
-        "version": "5.5.2",
-        "version_fragment": "tesseract 5.5.2",
+        "version": "5.5.3",
+        "version_fragment": "tesseract 5.5.3",
         "version_args": [
           "--version"
         ]
@@ -103,8 +103,8 @@
           "tesseract"
         ],
         "command": "tesseract",
-        "version": "5.5.2",
-        "version_fragment": "tesseract 5.5.2",
+        "version": "5.5.3",
+        "version_fragment": "tesseract 5.5.3",
         "version_args": [
           "--version"
         ]
@@ -114,8 +114,8 @@
           "tesseract"
         ],
         "command": "tesseract",
-        "version": "5.5.2",
-        "version_fragment": "tesseract 5.5.2",
+        "version": "5.5.3",
+        "version_fragment": "tesseract 5.5.3",
         "version_args": [
           "--version"
         ]
@@ -125,8 +125,8 @@
           "tesseract"
         ],
         "command": "tesseract",
-        "version": "5.5.2",
-        "version_fragment": "tesseract 5.5.2",
+        "version": "5.5.3",
+        "version_fragment": "tesseract 5.5.3",
         "version_args": [
           "--version"
         ]
