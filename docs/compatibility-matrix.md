@@ -71,8 +71,10 @@ enhancement`, or `undefined`. Only classified differences may be baselined.
 ```bash
 python3 tools/governance/collect_baseline.py --check
 python3 -m unittest discover -s tools/governance/tests -p 'test_*.py'
-./tools/env/optional_deps.sh install bench
+./tools/env/optional_deps.sh install bench --python /path/to/python3.11
 moon build --target native --release --package ZSeanYves/markitdown/internal/bench_runner
 _build/native/release/build/internal/bench_runner/bench_runner.exe run --preset official-external-compare
 ```
 
+The bench profile accepts Python `>=3.10,<3.14`. Current measured results and
+the exact runner environment are recorded in [performance.md](./performance.md).

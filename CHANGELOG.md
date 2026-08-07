@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+### Documentation and evidence governance
+
+- Rebuilt the documentation entry points around `docs/README.md`; removed the
+  obsolete unreleased 0.7 migration note and separated maintained narrative
+  documentation from fixture, showcase, interface, and benchmark evidence.
+- Rewrote the root README and updated every package/tool README to use the
+  `src/` layout, current release artifact paths, explicit stability boundaries,
+  and reproducible verification commands.
+- Added a blocking documentation check for local links, retired documents,
+  mirrored root READMEs, stale benchmark paths/claims, and performance values
+  that drift from committed trusted summaries.
+- Re-ran the complete formal benchmark on Apple M4/macOS arm64 against
+  Microsoft MarkItDown 0.1.7. External run
+  `run-1786101654079-0f0c773a82` passed all truth, performance, and CLI RSS
+  gates; self run `run-1786102949457-9591fe380a` passed all truth and CLI RSS
+  gates. The self result remains a candidate because the approved baseline has
+  incompatible fingerprints.
+
+### Phase 1.5 source layout
+
+- Made `src/` the sole MoonBit source root while preserving logical functional
+  package names.
+- Moved the benchmark runner to `internal/bench_runner` and cross-package tests
+  to `internal/integration_tests`.
+- Added an architecture gate that rejects any `moon.pkg` outside `src/` and
+  updated CI, CODEOWNERS, coverage, release, environment, and governance paths.
+
 ### Phase 1 API and package boundaries
 
 - Added the native-only `ZSeanYves/markitdown/api` façade as the sole stable
@@ -89,16 +116,15 @@
 - Shell/Python tooling validation runs only after the core gate. Coverage,
   dependency installation, regressions, benchmarks, and self baselines run in
   later jobs.
-- Current verified local baseline: native C and new-native each `901/901`;
-  JS, Wasm, and Wasm-GC
-  `485/485` each; `535/535` main, `409/409` quality, `21/21` accurate, and
-  `54/54` deterministic mutation cases, with zero unexpected skips.
-- Coverage against baseline `7be6dfbd96f93af237c37aafdd67ad126c3f85b9`
-  passes at core `90.09%`, formats `81.92%`, and tools `72.21%`; changed
-  production code is `82.79%` covered.
+- Current verified local baseline: native C and new-native each pass `907/907`;
+  JS, Wasm, and Wasm-GC pass
+  `481/481` each. The main balance regression passes `535/535` with no skip or
+  failure.
+- Current aggregate coverage gates pass at core `90.16%`, formats `82.08%`,
+  and tools `72.34%`.
 - `tools/release/package.py` creates deterministic local Linux/macOS archives,
-  SHA-256 files, and SPDX SBOMs. The `0.7.0` development line does not publish
-  those artifacts or provide a remote release workflow.
+  SHA-256 files, and SPDX SBOMs. The unreleased 0.8 line does not publish those
+  artifacts or provide a remote release workflow.
 
 ### Benchmark policy
 
@@ -111,10 +137,13 @@
   time/RSS may not regress beyond the configured tolerance.
 - Runs support JSONL progress, atomic sample logs, checkpoints/resume, output
   retention policy, and disk budgets.
-- Audited macOS 15.3 arm64 run `run-1784263977642-7cf3b18a38` has 25/25
-  comparable rows and 75/75 trusted tool cases. Microsoft MarkItDown completed
-  24 rows; XLSX huge is a censored timeout row. Performance and MoonBit CLI RSS
-  gates both pass.
+- Audited Apple M4/macOS arm64 external run
+  `run-1786101654079-0f0c773a82` has 25/25 comparable rows and 75/75 trusted
+  tool cases. Microsoft MarkItDown 0.1.7 completed 24 rows; XLSX huge is a
+  censored timeout row. Performance and MoonBit CLI RSS gates both pass.
+- Self run `run-1786102949457-9591fe380a` has 53/53 rows and 106/106 trusted
+  CLI/engine cases. It is not compared to the existing approved baseline
+  because the tool, corpus, OS/runner, and runtime fingerprints differ.
 
 ### Evidence ownership
 

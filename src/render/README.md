@@ -48,5 +48,5 @@
 ## Validation
 
 ```bash
-moon test
+moon test --package ZSeanYves/markitdown/render --target native
 ```

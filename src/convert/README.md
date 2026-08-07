@@ -3,7 +3,9 @@
 > Internal 0.8 orchestration package. External consumers must use
 > `ZSeanYves/markitdown/api`; this package may change without compatibility.
 
-`convert/` is the unified public conversion API layer. CLI, tests, and future external integrations should prefer this layer instead of directly wiring parser, pipeline, and renderer together.
+Logical package `ZSeanYves/markitdown/convert` is the internal orchestration
+layer used by the CLI and stable façade. Repository code should prefer it over
+directly wiring parser, pipeline, and renderer together.
 
 ## Responsibilities
 
@@ -75,6 +77,5 @@
 ## Validation
 
 ```bash
-moon build
-moon test
+moon test --package ZSeanYves/markitdown/convert --target native
 ```

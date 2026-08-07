@@ -53,5 +53,5 @@
 ## Validation
 
 ```bash
-moon test
+moon test --target native
 ```

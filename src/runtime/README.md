@@ -46,5 +46,5 @@ limits rather than document-derived shell strings.
 ## Validation
 
 ```bash
-moon test
+moon test --package ZSeanYves/markitdown/runtime --target native
 ```

@@ -50,5 +50,5 @@
 ## Validation
 
 ```bash
-moon test
+moon test --package ZSeanYves/markitdown/internal/pipeline --target native
 ```

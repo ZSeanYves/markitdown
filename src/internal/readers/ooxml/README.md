@@ -47,5 +47,5 @@ never become implicit network or filesystem reads.
 ## Validation
 
 ```bash
-moon test
+moon test --target native
 ```

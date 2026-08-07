@@ -1,6 +1,10 @@
 # OCR
 
-`formats/ocr/` owns the formal direct-image OCR parser path and also provides the provider protocol, runtime selection logic, and OCR data model reused by PDF OCR.
+> Internal optional-runtime package. Consumer-facing OCR support is reported by
+> `@api.capabilities()` and configured through stable API options.
+
+Logical package `ZSeanYves/markitdown/formats/ocr` owns the formal direct-image
+OCR parser path, provider protocol, runtime selection, and OCR data model.
 
 ## Responsibilities
 
@@ -44,6 +48,6 @@
 
 ```bash
 ./tools/env/optional_deps.sh install balance
-moon test
+moon test --package ZSeanYves/markitdown/formats/ocr --target native
 ./tools/regression/check_balance.sh --ocr
 ```

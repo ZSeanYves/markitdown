@@ -1,6 +1,6 @@
 # MoonBit MarkItDown 项目维护与演进计划
 
-**文档状态：** 已接受；Phase 0-1 与 Phase 1.5 源码根目录规范化已实施，作为 Phase 2-6 工作基线
+**文档状态：** 已接受；Phase 0-1.6 已实施，作为 Phase 2-6 工作基线
 **版本：** 1.0  
 **编制日期：** 2026-08-05  
 **适用范围：** `ZSeanYves/markitdown` 主模块、CLI、格式读取器、转换管线、native FFI、质量实验室、发布物和外部依赖
@@ -16,7 +16,7 @@
 5. 将通用、安全边界明确、拥有独立生命周期的本地实现逐步提取为独立 MoonBit 库，经过双跑和版本化后再回导；
 6. 在 0.8 允许一次集中式破坏性重整，0.9 冻结兼容面，1.0 起遵守明确的 SemVer、弃用和安全支持政策。
 
-当前判断不是“代码不能用”，而是“代码已经足够大，必须先治理边界再继续加格式”。仓库约有 106 个 MoonBit 包、约 506 个 `.mbt` 文件、约 1,900 个 `pub` 声明和约 10,379 行生成接口文件；这种规模下，公开面、依赖面、格式契约和性能证据必须成为自动化门禁，而不能依赖维护者记忆。
+当前判断不是“代码不能用”，而是“代码已经足够大，必须先治理边界再继续加格式”。Phase 0 记录了 106 个 MoonBit 包、506 个 `.mbt` 文件和约 1,900 个公开声明；Phase 1 重整过程一度达到 108 包。当前基线已经收敛为 68 包、509 个 `.mbt` 文件、1,871 个公开声明和 9,878 行生成接口。公开面、依赖面、格式契约、文档和性能证据均已成为自动化门禁，不能再依赖维护者记忆。
 
 ### 1.1 立即结论
 
@@ -61,15 +61,15 @@
 
 ## 3. 当前基线与问题清单
 
-### 3.1 已验证基线（2026-08-05）
+### 3.1 已验证基线（2026-08-07）
 
 | 命令/证据 | 结果 | 解释 |
 | --- | --- | --- |
-| `moon fmt --check` | 通过，613 tasks | 格式可复现 |
+| `moon fmt --check` | 通过，578 tasks | 格式可复现 |
 | `moon check --target all --warn-list +73 --deny-warn` | 通过，各目标无警告 | 语义核心可跨目标检查 |
-| `moon test --target all` | 当前 C native 901/901，JS/Wasm/Wasm-GC 各 485/485 | 完整 `MOONBIT_NEW_NATIVE=1` native 901/901，已解除 `_moonbit_get_cli_args` 阻断并升级为 macOS/Linux 阻断式 CI |
+| `moon test --target all` | C native 907/907，JS/Wasm/Wasm-GC 各 481/481 | 完整 `MOONBIT_NEW_NATIVE=1` native 907/907，macOS/Linux 阻断式 CI 均通过 |
 | 现有 CI | native macOS/Linux、全目标 check/test、覆盖率、回归和部分性能门禁 | 需要补齐 native 全量链接、sanitizer、发布和依赖漂移门禁 |
-| 官方性能证据 | 仓库 README 保存了 0.1.6 的历史 25 个可比案例：MoonBit 中位聚合约 53 ms，Python 约 507 ms | Phase 0 已锁定 0.1.7；必须在 Phase 2/5 重新生成可审计性能证据后才能更新当前宣传数字 |
+| 官方性能证据 | Apple M4/macOS arm64 完整重跑 25 个可比案例；CLI 行中位数 63.941 ms，MarkItDown 0.1.7 为 699.717 ms | 全部 2x/3x 性能门和 CLI RSS 门通过；结果绑定 run ID、commit、输入、release 二进制和采样协议，见 `docs/performance.md` |
 
 完整 new-native suite 的阻断已在 0.8 第一个窗口解决：可执行入口使用 `moonbitlang/core/env` 获取参数，进程退出集中到 native-only `runtime/process`，不再触发 `moonbitlang/x/sys` 对旧 `_moonbit_get_cli_args` 的引用。没有排除第三方测试、没有添加 Python 依赖，也没有保留兼容 C bridge。
 
@@ -85,15 +85,17 @@
 - ZIP reader 已独立于 markitdown 业务包，具备路径规范化、解压上限和安全发现，适合作为第一个提取候选；
 - native command runner、文件游标和原子写出具备 macOS/Linux 基础，但需要 ABI、sanitizer 和失败回收测试。
 
-### 3.3 主要维护性问题
+### 3.3 进入 Phase 2 前的剩余问题
 
-1. **公共面过宽。** 大量 `pub(all)` 记录和跨包公开 helper 使内部模型难以演进；生成 `.mbti` 很大，任何字段调整都可能成为隐式兼容承诺。
-2. **包数量过高。** 106 个包增加了构建、文档、依赖和发布复杂度；应区分“实现包”“扩展包”“真正可复用库”。
-3. **兼容证据碎片化。** 本地 contract fixture 覆盖不均，缺少 XLS、二进制 MSG、RSS/网页特化能力等上游场景的明确状态。
-4. **上游性能证据待重跑。** Phase 0 已将 benchmark lock 和 baseline manifest 升级到 0.1.7；README 中的 0.1.6 数字已明确降级为历史证据，Phase 2/5 必须重新比对 PPTX chart O(n²)、SVG 回退和 OMML 修复。
-5. **native 质量链未闭合。** 全目标静态检查通过并不能替代 macOS/Linux native 的全量链接、运行、ASan/UBSan 和子进程回收验证。
-6. **依赖治理不足。** `TheWaWaR/clap` 与 `tonyfettes/unicode` 在模块声明中但未见生产包使用，应删除直接依赖；其余依赖要逐一建立保留/替换/提取档案。
-7. **发布治理不完整。** 当前打包脚本可生成确定性 tar 和简单 SPDX 文件，但尚无完整 SBOM 关系、签名、制品发布、可重建证明和正式支持窗口。
+Phase 1 已将包从 108 收敛到 68，将 `pub(all)` 从 223 收敛到 210，
+其中可构造/可变记录从 32 降到 22；`src/` 已成为唯一源码根目录。
+公共面和包数量不再列为开放阻断项。当前工作重点是：
+
+1. **兼容证据仍需系统化。** 本地 contract fixture 覆盖不均，缺少 XLS、二进制 MSG、RSS/网页特化能力等上游场景的明确状态。
+2. **self baseline 需要同指纹批准。** 2026-08-07 新测量覆盖 53 行，但现有 approved baseline 的 MoonBit、quality-lab、Python/runtime、OS/runner 指纹不同，不能据此宣称回归或提升。
+3. **native 安全链仍需加强。** macOS/Linux native 全量链接和运行已经阻断 CI；ASan/UBSan、长期 fuzz 和子进程失败回收仍属于后续安全出口。
+4. **候选依赖仍缺替换证据。** 社区包必须先经过 adapter、双跑、规范、安全、许可证、性能和退出计划，不能按下载量直接替换。
+5. **发布治理尚未闭合。** 当前打包脚本可生成确定性归档和 SPDX SBOM，但签名、远程制品发布、可重建证明和正式支持窗口仍待 Phase 6。
 
 ## 4. 目标架构（0.8 后）
 
@@ -243,13 +245,14 @@ flowchart LR
 
 时间是相对周数；并行工作必须遵守依赖关系和阶段出口，不能以“做过任务”替代“达到门”。
 
-### 7.0 实施状态（2026-08-05）
+### 7.0 实施状态（2026-08-07）
 
 | 阶段 | 状态 | 已交付证据 |
 | --- | --- | --- |
 | Phase 0 | 完成 | 0.1.7/工具链/fixture 基线、治理脚本、CODEOWNERS、模板、标签、分支保护、依赖登记、全量 new-native 修复和阻断式 CI |
 | Phase 1 | 完成 | `api` façade、私有 Input、typed error/code、CLI 退出码、Path/Text/Bytes/Reader、Markdown/Debug/RAG、能力/来源投影、0.8 golden、迁移文档、ADR 和架构依赖门禁 |
 | Phase 1.5 | 完成 | `src/` 唯一 MoonBit source root、逻辑包名保持、benchmark runner/集成测试内部化、根目录与物理路径治理门禁 |
+| Phase 1.6 | 完成 | 文档生命周期和索引、README/CHANGELOG 全面复核、陈旧文档删除、链接/性能主张 CI 门禁、MarkItDown 0.1.7 正式性能重跑 |
 | Phase 2-6 | 未开始 | 必须从本文件对应阶段入口继续，不得跳过兼容、性能、安全或发布验收门 |
 
 ### 阶段 0：基线冻结与治理启动（第 0-2 周）
@@ -339,7 +342,7 @@ flowchart LR
 
 **工作项：**
 
-- 将官方基线升级到 0.1.7，统一 release build、同输入、同输出语义、预热/重复次数和 CPU/RSS 采集；
+- 持续使用已锁定的官方 0.1.7 基线，统一 release build、同输入、同输出语义、预热/重复次数和 CPU/RSS 采集；
 - 分离 cold CLI、warm CLI、in-process API、首字节延迟和全量完成时间；
 - 建立 1 KB/1 MB/100 MB/1 GB 输入阶梯、表格/关系/HTML 节点复杂度曲线和最大并发实验；
 - 记录 wall time、CPU time、RSS、分配量、输出字节、诊断数量、峰值 fd/子进程；
@@ -550,7 +553,7 @@ PR 描述必须填写：问题、范围、非目标、风险等级、影响格�
 6. 加入 macOS arm64/Linux x86_64 native debug/release smoke 和依赖 FFI sanitizer；
 7. 建立 YAML/HTML/TOML shadow adapter 的最小 POC 和评审表；
 8. 提交 `safezip` 提取 RFC，不在 RFC 通过前删除本地实现；
-9. 生成性能 0.1.7 结果（cold/warm/in-process、RSS、尺寸阶梯）；
+9. 已生成性能 0.1.7 正式 external/self 结果；Phase 5 继续补 cold/warm 分离、分配量和尺寸阶梯趋势；
 10. 发布 PR 模板、CODEOWNERS、security policy、release checklist 和风险登记表。
 
 ## 16. Definition of Done（任何阶段通用）

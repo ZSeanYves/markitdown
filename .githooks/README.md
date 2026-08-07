@@ -2,7 +2,9 @@
 
 ## Pre-commit Hook
 
-This pre-commit hook performs automatic checks before finalizing your commit.
+This optional pre-commit hook runs `moon check` before finalizing a commit. It
+does not format files, run tests, validate documentation, or replace the CI
+matrix.
 
 ### Usage Instructions
 
@@ -18,4 +20,5 @@ To use this pre-commit hook:
    git config core.hooksPath .githooks
    ```
 
-3. The hook will automatically run when you execute `git commit`
+3. The hook will run when you execute `git commit`. Run the complete commands
+   in [CONTRIBUTING.md](../CONTRIBUTING.md) before opening a pull request.

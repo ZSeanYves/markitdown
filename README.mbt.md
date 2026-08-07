@@ -1,147 +1,67 @@
 # markitdown-mb
 
-`markitdown-mb` is a MoonBit document-to-Markdown tool for document ingestion,
-RAG, and automation pipelines.
+`markitdown-mb` is a native MoonBit document-to-Markdown converter for document
+ingestion, RAG, and automation pipelines. It follows Microsoft MarkItDown's
+observable document-extraction behavior where a reviewed compatibility contract
+exists, but it is an independent implementation rather than a source port.
 
-The repository is currently on the unreleased `0.8.0` development line. Local
-archives and validation evidence are development artifacts, not published
-releases.
+The repository is on the unreleased `0.8.0` development line. The stable 0.8
+library contract is native-only; local archives and benchmark runs are
+development evidence, not published releases.
 
-The project is inspired by Microsoft `MarkItDown`, but it is not a port.
-It is designed around stable routing, traceable provenance, explicit failure
-boundaries, and reproducible behavior under complex formats and
-engineering-scale workloads.
+Start with the [documentation index](./docs/README.md). The most useful entry
+points are the [CLI guide](./docs/cli-usage-guide.md), [capability matrix](./docs/capabilities-and-limitations.md),
+[stable API](./docs/api-v0.8.md), [optional-runtime setup](./docs/environment-dependencies.md),
+and [current performance evidence](./docs/performance.md).
 
-Before first use, read:
+## Install and build
 
-- Environment setup and install commands:
-  [docs/environment-dependencies.md](./docs/environment-dependencies.md)
-- Core architecture overview:
-  [docs/architecture/mb-markitdown-architecture.md](./docs/architecture/mb-markitdown-architecture.md)
-- Optional enhancement paths for OCR / accurate PDF / audio:
-  [docs/architecture/optional-enhancement-architecture.md](./docs/architecture/optional-enhancement-architecture.md)
-- Stable native library API and 0.8 migration:
-  [docs/api-v0.8.md](./docs/api-v0.8.md),
-  [docs/migration-0.8.md](./docs/migration-0.8.md)
-
-All MoonBit packages live under `src/`; `moon.mod` maps that directory to the
-module root, so public imports remain `ZSeanYves/markitdown/...` without a
-`src` segment. Root `bench/`, `samples/`, and `tools/` contain engineering
-assets rather than product packages.
-
-Prepare runtime dependencies before first run. Otherwise OCR, `accurate` PDF,
-`audio`, and benchmark examples will not work as expected.
-
-Core native document readers need no external runtime. Optional profiles use one
-managed entrypoint:
-
-```bash
-./tools/env/optional_deps.sh install balance  # top-level/ZIP image OCR
-./tools/env/optional_deps.sh install audio
-./tools/env/optional_deps.sh install accurate # direct image/PDF accurate
-./tools/env/optional_deps.sh install bench    # development comparison only
-```
-
-## Performance Snapshot
-
-Official performance claims come from `bench` only.
-To reproduce the current formal benchmark:
+Balanced readers for text, structured data, mail, containers, Office/ODF,
+EPUB, and native PDF require no Python or external converter.
 
 ```bash
 moon build --target native --release --package ZSeanYves/markitdown/cli
-moon build --target native --release --package ZSeanYves/markitdown/internal/bench_runner
-./tools/env/optional_deps.sh install bench
-RUNNER="_build/native/release/build/internal/bench_runner/bench_runner.exe"
-"$RUNNER" doctor
-"$RUNNER" run --preset official-external-compare
+./_build/native/release/build/cli/cli.exe --help
 ```
 
-The runner report is the source of truth for performance numbers. This README
-keeps one reproducible snapshot and its environment rather than presenting
-machine-specific results as universal constants.
+Optional local runtimes are installed through one managed entry point:
 
-Historical audited `official-external-compare` snapshot on macOS 15.3 arm64,
-recorded on 2026-07-17 against the pre-Phase-0 repo-locked Microsoft MarkItDown
-`0.1.6` baseline. The formal Phase-0 lock is now `0.1.7`; the numbers below
-remain historical evidence until the 0.1.7 rerun is attached:
+```bash
+./tools/env/optional_deps.sh install balance  # Tesseract image OCR
+./tools/env/optional_deps.sh install audio    # Vosk and FFmpeg
+./tools/env/optional_deps.sh install accurate # PaddleOCR and pdftoppm
+./tools/env/optional_deps.sh install bench    # MarkItDown 0.1.7 comparison
+```
 
-- 25 selected rows, 25 semantically comparable rows
-- 75/75 trusted tool cases; no route, fidelity, provenance, or density failure
-- MoonBit CLI aggregate median: `53,036 us`; baseline: `507,465 us`
-- Microsoft baseline: 24 successful rows plus one comparable XLSX huge row
-  censored after all five 60-second samples reached the timeout
-- performance gate: pass, with every case `>=2x` and every format geometric
-  mean `>=3x`
+Use a Python version in the supported `>=3.10,<3.14` range when the active
+`python3` is newer:
 
-| Format | MoonBit CLI geometric-mean speedup |
-| --- | ---: |
-| TXT | `9.71x` |
-| CSV | `9.22x` |
-| Markdown | `10.78x` |
-| HTML | `13.08x` |
-| ZIP | `9.79x` |
-| EPUB | `7.70x` |
-| PDF | `4.17x` |
-| DOCX | `54.15x` |
-| PPTX | `32.39x` |
-| XLSX | `61.45x` |
-| IPYNB | `102.63x` |
+```bash
+./tools/env/optional_deps.sh install bench --python /path/to/python3.11
+```
 
-The RSS gate measures the MoonBit CLI process for each row. The maxima below
-are MoonBit-only peaks from the selected rows; they do not include or combine
-the external baseline process RSS.
+## CLI quick start
 
-| Format | Maximum MoonBit CLI RSS |
-| --- | ---: |
-| HTML | `154,912 KiB` (`151.28 MiB`) |
-| PDF | `252,672 KiB` (`246.75 MiB`) |
-| XLSX | `248,608 KiB` (`242.78 MiB`) |
+The default mode is `balance`:
 
-ODF and optional dependency-backed balance cases use reviewed self baselines
-instead of invalid external comparisons. Dependency versions are locked under
-`tools/env/config/`. Approved macOS arm64 and Linux x64 baselines, each covering
-106 CLI/engine cases, live under
-`markitdown-quality-lab/performance_baselines/`; inspect a generated
-`results/summary.json` for the complete measurement evidence.
+```bash
+CLI=./_build/native/release/build/cli/cli.exe
+$CLI samples/fixtures/contracts/txt/txt_plain.txt .tmp/manual/plain.md
+$CLI balance --format html input.html output.md
+$CLI balance --rag input.docx output.json
+$CLI balance --provenance-out .tmp/manual/provenance.json input.pdf output.md
+$CLI batch balance samples/fixtures/contracts .tmp/manual/batch
+```
 
-For full benchmark usage, see [bench/README.md](./bench/README.md).
-For benchmark architecture, see
-[docs/architecture/benchmark-architecture.md](./docs/architecture/benchmark-architecture.md).
+`accurate` and `stream` are explicit routes, not quality flags accepted by every
+format. Unsupported requests fail closed. Batch mode always writes
+`manifest.json`; `--provenance-out` is single-file only.
 
-## Input Coverage
+## Stable library API
 
-A brief input surface:
-
-- Core plain text:
-  `txt/csv/tsv/srt/vtt`
-- Core structured text:
-  `json/jsonl/ndjson/ipynb`
-- Core markup and config text:
-  `xml/yaml/toml/html/markdown`
-- Core technical text:
-  `tex/rst/asciidoc`
-- Mail:
-  `eml`
-- Mail alias:
-  `msg` is accepted only as a mail parsing alias.
-  It does not imply native Outlook `.msg` binary parsing
-- Containers:
-  `zip/epub`
-- Office:
-  `docx/xlsx/pptx`
-  `odt/ods/odp`
-- PDF and direct image OCR:
-  `pdf/png/jpg/jpeg/bmp/webp/tif/tiff`
-- Audio (optional):
-  `wav/mp3/m4a`
-
-For the full capability matrix, see
-[docs/capabilities-and-limitations.md](./docs/capabilities-and-limitations.md).
-
-## Quick Start
-
-The only compatibility-stable 0.8 library package is
-`ZSeanYves/markitdown/api`:
+`ZSeanYves/markitdown/api` is the sole compatibility-stable 0.8 package. It
+supports Path, Text, Bytes, and caller-owned Reader inputs plus Markdown,
+Debug, and RAG outputs.
 
 ```mbt
 let input = @api.Input::from_path("document.docx")
@@ -150,89 +70,86 @@ let options = @api.ConvertOptions::default()
 let result = @api.convert(input, options~)
 ```
 
-It supports Path, Text, Bytes and Reader inputs plus Markdown, Debug and RAG
-outputs. Parser, format-reader, pipeline, runtime and provider packages are
-internal or extension APIs.
+Parser, reader, pipeline, renderer, runtime, and provider packages are internal
+or extension contracts. See the [API reference](./docs/api-v0.8.md) and
+[0.8 migration guide](./docs/migration-0.8.md).
 
-```bash
-moon build --target native --release --package ZSeanYves/markitdown/cli
-./_build/native/release/build/cli/cli.exe --help
-./_build/native/release/build/cli/cli.exe balance samples/fixtures/contracts/txt/txt_plain.txt .tmp/manual/out.md
+## Capability summary
+
+- Text and delimited: `txt`, `csv`, `tsv`, `srt`, `vtt`.
+- Structured and markup: `json`, `jsonl`, `ndjson`, `yaml`, `toml`, `xml`,
+  `html`, `markdown`, `ipynb`, `tex`, `rst`, `asciidoc`.
+- Mail and containers: `eml`, `zip`, `epub`. `msg` is an RFC822/EML alias,
+  not native Outlook binary MSG support.
+- Office and ODF: `docx`, `xlsx`, `pptx`, `odt`, `ods`, `odp`.
+- PDF: bounded native balanced extraction; optional full-page OCR in accurate
+  mode.
+- Images: optional OCR for `png`, `jpg`, `jpeg`, `bmp`, `webp`, `tif`, `tiff`.
+- Audio: optional local transcription for `wav`, `mp3`, and `m4a`.
+
+No core reader performs network access, executes document scripts/macros, or
+loads remote includes. See [capabilities and limitations](./docs/capabilities-and-limitations.md)
+for the structures and modes supported by each format.
+
+## Current performance evidence
+
+The latest complete formal measurement was recorded on 2026-08-07 using an
+Apple M4/16 GiB host, native release binaries, Microsoft MarkItDown 0.1.7 on
+Python 3.11.15, and one warmup plus five samples per row.
+
+External run `run-1786101654079-0f0c773a82`:
+
+- 25/25 comparable rows and 75/75 trusted tool cases;
+- MoonBit CLI median of row medians: **63.941 ms**;
+- MarkItDown median of row medians: **699.717 ms**;
+- minimum accepted per-row CLI speedup: **2.36x**;
+- every row passed the 2x gate and every format passed the 3x geometric-mean
+  gate;
+- maximum MoonBit CLI RSS: **253,232 KiB (247.30 MiB)**.
+
+Self run `run-1786102949457-9591fe380a` covered 53 ODF, technical-text,
+OCR/audio, and other non-external-comparison rows: 106/106 CLI/engine cases were
+trusted and all RSS budgets passed. It is a candidate observation, not an
+approved regression delta, because the existing self baseline has different
+tool and runner fingerprints.
+
+See [performance evidence](./docs/performance.md) for the format table,
+methodology, caveats, reproduction commands, and committed runner summaries.
+
+## Repository layout
+
+All 68 MoonBit packages live under `src/`. `source = "src"` in `moon.mod` keeps
+logical imports such as `ZSeanYves/markitdown/api` free of a `src` segment.
+
+```text
+src/      MoonBit product, CLI, internal implementations, tests, benchmark runner
+bench/    benchmark policy and reviewed result summaries
+samples/  deterministic fixtures and showcase outputs
+tools/    environment, regression, governance, and release tooling
+docs/     maintained documentation, architecture, governance, ADRs, and RFCs
 ```
 
-If you need provenance output:
+## Development verification
 
 ```bash
-./_build/native/release/build/cli/cli.exe balance --provenance-out .tmp/manual/out.provenance.json samples/fixtures/contracts/html/html_simple.html .tmp/manual/out.md
-```
-
-For more CLI options, batch usage, and OCR / PDF / audio examples, see
-[docs/cli-usage-guide.md](./docs/cli-usage-guide.md).
-
-## Modes and Boundaries
-
-- The default mode is `balance`
-- Core support means the built-in balanced reader path. Direct image OCR,
-  audio transcription, and PDF accurate are optional enhancements backed by
-  local external runtimes; they are not part of the core reader commitment.
-- Formal benchmarks measure balance mode only. ODT/ODS/ODP remain core native
-  formats but use reviewed self baselines because the external baseline does
-  not support them. OCR and audio also use self baselines.
-- `ocr`, `accurate` PDF / image paths, and `audio` are optional capabilities.
-  They are unavailable in a bare environment and require runtime dependencies
-- `accurate` currently has two supported cases:
-  `pdf` and direct image OCR use a high-fidelity path;
-  `docx/xlsx/pptx/odt/ods/odp` use a semantic enhancement path.
-  Other formats reject the unsupported mode with a non-zero exit status
-- `stream` currently supports:
-  `txt/csv/tsv/srt/vtt/json/jsonl/ndjson/ipynb/xml/yaml/html/markdown/eml/epub/xlsx/odt/ods/odp`
-- `docx/pptx/pdf/audio/direct image OCR` do not expose a standalone `stream`
-  path and reject `stream` with a non-zero exit status
-- PDF OCR is only entered through the `accurate` `PdfOcr` route
-- If `accurate` image OCR is missing Paddle runtime,
-  it falls back to balanced image OCR
-- If `accurate` PDF OCR is missing Paddle dependencies,
-  it reports the missing dependency directly
-- `audio` is only available when a local transcription backend is installed
-- Requests outside the supported boundary fail closed
-
-## Development and Verification
-
-Daily commands:
-
-```bash
+moon info && moon fmt
 moon fmt --check
-moon info && git diff --exit-code
 moon check --target all --warn-list +73 --deny-warn
 moon test --target all
-moon build --target all
-```
-
-The quality-lab repository is only required for `tools/regression/check*.sh`
-and formal benchmarks, including internal baseline enforcement. If it is not
-present locally:
-
-```bash
-git clone https://github.com/ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab
-```
-
-Common regression commands:
-
-```bash
-moon build --target native --release --package ZSeanYves/markitdown/cli
-bash tools/regression/check_balance.sh
-bash tools/regression/check_balance_quality.sh
-bash tools/regression/check_accurate.sh
+python3 tools/governance/check_documentation.py
 ./tools/regression/check_coverage.sh --enforce
 ```
 
-The formal benchmark reproduction commands are shown above.
-When run from the repo root, the runner prefers
-`./env/.venv-markitdown-bench/bin/markitdown`.
-
-To point to a specific baseline:
+External regression and formal performance runs additionally require the
+quality-lab commit pinned in the Phase 0 baseline:
 
 ```bash
-RUNNER="_build/native/release/build/internal/bench_runner/bench_runner.exe"
-"$RUNNER" run --preset official-external-compare --markitdown-path /absolute/path/to/markitdown
+git clone https://github.com/ZSeanYves/markitdown-quality-lab.git \
+  markitdown-quality-lab
+bash tools/regression/check_balance.sh
+bash tools/regression/check_balance_quality.sh
+bash tools/regression/check_accurate.sh
 ```
+
+Contribution rules and risk-specific verification are in
+[CONTRIBUTING.md](./CONTRIBUTING.md).

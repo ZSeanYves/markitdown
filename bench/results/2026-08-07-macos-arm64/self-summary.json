@@ -1,0 +1,217 @@
+{
+  "schema_version": 2,
+  "run_id": "run-1786102949457-9591fe380a",
+  "preset": "official-self-baseline",
+  "scenario_ids": [
+    "product.official_self_baseline"
+  ],
+  "binary_only_contract": {
+    "runner_path": "_build/native/release/build/internal/bench_runner/bench_runner.exe",
+    "cli_path": "_build/native/release/build/cli/cli.exe",
+    "runner_release_ok": true,
+    "cli_release_ok": true,
+    "used_moon_delegate": false
+  },
+  "trust_status": "trusted",
+  "gate_summary": {
+    "selected_rows": 53,
+    "comparable_rows": 53,
+    "status": "ok",
+    "performance": {
+      "status": "not_applicable",
+      "row_min_speedup": 2,
+      "format_geomean_min_speedup": 3,
+      "evaluated_rows": 0,
+      "row_violation_count": 0,
+      "format_violation_count": 0,
+      "row_violations": [],
+      "format_violations": []
+    },
+    "rss": {
+      "status": "pass",
+      "evaluated_rows": 53,
+      "violation_count": 0,
+      "missing_rss_count": 0,
+      "violations": []
+    }
+  },
+  "route_coverage_summary": {
+    "covered_cases": 106,
+    "mismatch_cases": 0,
+    "missing_cases": 0,
+    "not_applicable_cases": 0
+  },
+  "truth_summary": {
+    "trusted_cases": 106,
+    "failed_cases": 0,
+    "low_density_cases": 0,
+    "missing_provenance_cases": 0,
+    "route_mismatch_cases": 0,
+    "fidelity_mismatch_cases": 0
+  },
+  "scenarios": [
+    {
+      "scenario_id": "product.official_self_baseline",
+      "scenario_kind": "product",
+      "official_membership": "official-self-baseline",
+      "selected_rows": 53,
+      "comparable_rows": 53,
+      "trust_status": "trusted",
+      "gate_status": "ok"
+    }
+  ],
+  "tools": [
+    {
+      "tool": "moonbit-cli",
+      "rows": 53,
+      "success_rows": 53,
+      "median_wall_us": "52947"
+    },
+    {
+      "tool": "moonbit-engine",
+      "rows": 53,
+      "success_rows": 53,
+      "median_wall_us": "44360"
+    }
+  ],
+  "by_format": [
+    {
+      "format": "tsv",
+      "rows": 3,
+      "comparable_rows": 3,
+      "status": "ok"
+    },
+    {
+      "format": "json",
+      "rows": 3,
+      "comparable_rows": 3,
+      "status": "ok"
+    },
+    {
+      "format": "yaml",
+      "rows": 3,
+      "comparable_rows": 3,
+      "status": "ok"
+    },
+    {
+      "format": "xml",
+      "rows": 3,
+      "comparable_rows": 3,
+      "status": "ok"
+    },
+    {
+      "format": "srt",
+      "rows": 3,
+      "comparable_rows": 3,
+      "status": "ok"
+    },
+    {
+      "format": "vtt",
+      "rows": 3,
+      "comparable_rows": 3,
+      "status": "ok"
+    },
+    {
+      "format": "jsonl",
+      "rows": 3,
+      "comparable_rows": 3,
+      "status": "ok"
+    },
+    {
+      "format": "ndjson",
+      "rows": 3,
+      "comparable_rows": 3,
+      "status": "ok"
+    },
+    {
+      "format": "ipynb",
+      "rows": 2,
+      "comparable_rows": 2,
+      "status": "ok"
+    },
+    {
+      "format": "toml",
+      "rows": 3,
+      "comparable_rows": 3,
+      "status": "ok"
+    },
+    {
+      "format": "eml",
+      "rows": 3,
+      "comparable_rows": 3,
+      "status": "ok"
+    },
+    {
+      "format": "tex",
+      "rows": 3,
+      "comparable_rows": 3,
+      "status": "ok"
+    },
+    {
+      "format": "rst",
+      "rows": 3,
+      "comparable_rows": 3,
+      "status": "ok"
+    },
+    {
+      "format": "asciidoc",
+      "rows": 3,
+      "comparable_rows": 3,
+      "status": "ok"
+    },
+    {
+      "format": "odt",
+      "rows": 2,
+      "comparable_rows": 2,
+      "status": "ok"
+    },
+    {
+      "format": "ods",
+      "rows": 2,
+      "comparable_rows": 2,
+      "status": "ok"
+    },
+    {
+      "format": "odp",
+      "rows": 2,
+      "comparable_rows": 2,
+      "status": "ok"
+    },
+    {
+      "format": "ocr",
+      "rows": 3,
+      "comparable_rows": 3,
+      "status": "ok"
+    },
+    {
+      "format": "wav",
+      "rows": 1,
+      "comparable_rows": 1,
+      "status": "ok"
+    },
+    {
+      "format": "mp3",
+      "rows": 1,
+      "comparable_rows": 1,
+      "status": "ok"
+    },
+    {
+      "format": "m4a",
+      "rows": 1,
+      "comparable_rows": 1,
+      "status": "ok"
+    }
+  ],
+  "resource_summary": {
+    "peak_rss_kb": "237552",
+    "timed_out_samples": 0,
+    "retained_disk_bytes": "1421265",
+    "max_disk_mb": 4096,
+    "keep_outputs": "failures"
+  },
+  "resume_summary": {
+    "requested": false,
+    "reused_samples": 0,
+    "completed_samples": 530
+  }
+}

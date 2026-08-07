@@ -9,6 +9,8 @@ must attach command output or artifact links for each checked item.
 - [ ] MarkItDown upstream tag/commit and quality-lab SHA are recorded.
 - [ ] MoonBit toolchain matches `tools/governance/toolchain.json`.
 - [ ] `python3 tools/governance/collect_baseline.py --check` passes.
+- [ ] `python3 tools/governance/check_documentation.py` passes and current
+      benchmark claims point to committed trusted summaries.
 - [ ] Dependency lock, license, NOTICE and SBOM diffs are reviewed.
 
 ## Verification
@@ -38,4 +40,3 @@ Keep the previous verified archive, checksum, SBOM and install command. If a
 release fails post-publication verification, mark it withdrawn, publish the
 previous version as the recommended rollback, and add a regression fixture
 before reopening the release line.
-

@@ -39,5 +39,5 @@
 ## Validation
 
 ```bash
-moon test
+moon test --package ZSeanYves/markitdown/rag --target native
 ```
