@@ -132,6 +132,16 @@ moonrun 0.1.20260803 (c19f78e 2026-08-03) ~/.moon/bin/moonrun
         )
         self.assertIsNone(self.documentation.local_link_target("#local-heading"))
 
+    def test_documentation_performance_table_parser(self):
+        table = "| PDF | 2 | 5.62x | 5.62x |\n| DOCX | 1 | 64.11x | 285.79x |\n"
+        self.assertEqual(
+            self.documentation.performance_format_rows(table),
+            {
+                "pdf": (2, "5.62", "5.62"),
+                "docx": (1, "64.11", "285.79"),
+            },
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

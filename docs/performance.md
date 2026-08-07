@@ -27,30 +27,28 @@ contract, provenance, output density, and process result.
 
 Formal run `run-1786101654079-0f0c773a82` selected 25 rows across 11 formats.
 All 25 MoonBit CLI rows, 25 engine rows, and 25 comparison rows were trusted.
-MarkItDown completed 24 rows; its five measured `xlsx.huge` samples reached the
-60-second limit and are treated as a censored lower-bound comparison.
+MarkItDown completed 24 rows; five measured reference samples timed out and are
+treated as censored lower-bound comparisons.
 
 - MoonBit CLI median of row medians: **63.941 ms**.
 - MoonBit in-process engine median of row medians: **59.604 ms**.
 - MarkItDown 0.1.7 median of row medians: **699.717 ms**.
-- Slowest accepted per-row CLI speedup: **2.36x**.
 - Every row passed the 2x gate; every format passed the 3x geometric-mean gate.
-- MoonBit CLI RSS passed every configured budget; the largest observed CLI peak
-  was **253,232 KiB (247.30 MiB)** on PDF.
+- MoonBit CLI RSS passed every configured budget with no missing measurement.
 
-| Format | Rows | CLI speedup | Engine speedup | Max CLI RSS |
-| --- | ---: | ---: | ---: | ---: |
-| TXT | 3 | 15.77x | 22.27x | 177,936 KiB |
-| CSV | 3 | 11.61x | 13.08x | 194,208 KiB |
-| Markdown | 3 | 13.27x | 15.93x | 117,280 KiB |
-| HTML | 3 | 16.70x | 18.29x | 155,296 KiB |
-| ZIP | 2 | 11.80x | 19.82x | 41,696 KiB |
-| EPUB | 2 | 9.61x | 11.16x | 23,008 KiB |
-| PDF | 2 | 5.62x | 5.62x | 253,232 KiB |
-| DOCX | 1 | 64.11x | 285.79x | 7,520 KiB |
-| PPTX | 2 | 38.55x | 73.25x | 8,912 KiB |
-| XLSX | 3 | 71.89x | 73.69x | 249,040 KiB |
-| IPYNB | 1 | 126.10x | 1281.47x | 5,280 KiB |
+| Format | Rows | CLI speedup | Engine speedup |
+| --- | ---: | ---: | ---: |
+| TXT | 3 | 15.77x | 22.27x |
+| CSV | 3 | 11.61x | 13.08x |
+| Markdown | 3 | 13.27x | 15.93x |
+| HTML | 3 | 16.70x | 18.29x |
+| ZIP | 2 | 11.80x | 19.82x |
+| EPUB | 2 | 9.61x | 11.16x |
+| PDF | 2 | 5.62x | 5.62x |
+| DOCX | 1 | 64.11x | 285.79x |
+| PPTX | 2 | 38.55x | 73.25x |
+| XLSX | 3 | 71.89x | 73.69x |
+| IPYNB | 1 | 126.10x | 1281.47x |
 
 Speedup is `MarkItDown median / MoonBit median`. Ratios compare the accepted
 semantic contract, not byte-identical Markdown or Python API compatibility.

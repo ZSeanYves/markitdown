@@ -139,8 +139,8 @@
   retention policy, and disk budgets.
 - Audited Apple M4/macOS arm64 external run
   `run-1786101654079-0f0c773a82` has 25/25 comparable rows and 75/75 trusted
-  tool cases. Microsoft MarkItDown 0.1.7 completed 24 rows; XLSX huge is a
-  censored timeout row. Performance and MoonBit CLI RSS gates both pass.
+  tool cases. Microsoft MarkItDown 0.1.7 completed 24 rows, with five censored
+  timeout samples. Performance and MoonBit CLI RSS gates both pass.
 - Self run `run-1786102949457-9591fe380a` has 53/53 rows and 106/106 trusted
   CLI/engine cases. It is not compared to the existing approved baseline
   because the tool, corpus, OS/runner, and runtime fingerprints differ.

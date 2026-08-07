@@ -42,6 +42,10 @@ CURRENT_NARRATIVES = {
     "docs/performance.md",
 }
 LINK_RE = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
+PERFORMANCE_ROW_RE = re.compile(
+    r"^\|\s*([A-Za-z0-9]+)\s*\|\s*(\d+)\s*\|\s*([0-9.]+)x\s*\|\s*([0-9.]+)x\s*\|$",
+    re.MULTILINE,
+)
 
 
 def tracked_markdown(root: Path = ROOT) -> list[Path]:
@@ -97,9 +101,19 @@ def link_errors(root: Path = ROOT) -> list[str]:
     return errors
 
 
+def performance_format_rows(text: str) -> dict[str, tuple[int, str, str]]:
+    return {
+        format_name.lower(): (int(rows), cli_speedup, engine_speedup)
+        for format_name, rows, cli_speedup, engine_speedup in PERFORMANCE_ROW_RE.findall(
+            text
+        )
+    }
+
+
 def benchmark_claim_errors(root: Path = ROOT) -> list[str]:
     errors = []
     performance = (root / "docs/performance.md").read_text(encoding="utf-8")
+    published_formats = performance_format_rows(performance)
     evidence_manifest = (
         root / "bench/results/2026-08-07-macos-arm64/README.md"
     ).read_text(encoding="utf-8")
@@ -119,8 +133,12 @@ def benchmark_claim_errors(root: Path = ROOT) -> list[str]:
         summary = json.loads(path.read_text(encoding="utf-8"))
         if summary.get("trust_status") != "trusted":
             errors.append(f"benchmark summary is not trusted: {path.relative_to(root)}")
-        if summary.get("gate_summary", {}).get("status") != "ok":
+        gate_summary = summary.get("gate_summary", {})
+        if gate_summary.get("status") != "ok":
             errors.append(f"benchmark gate is not ok: {path.relative_to(root)}")
+        rss_gate = gate_summary.get("rss", {})
+        if rss_gate.get("status") != "pass" or rss_gate.get("missing_rss_count") != 0:
+            errors.append(f"benchmark RSS gate is incomplete: {path.relative_to(root)}")
         contract = summary.get("binary_only_contract", {})
         if not contract.get("runner_release_ok") or not contract.get("cli_release_ok"):
             errors.append(f"benchmark is not release-binary-only: {path.relative_to(root)}")
@@ -132,6 +150,20 @@ def benchmark_claim_errors(root: Path = ROOT) -> list[str]:
             if milliseconds not in performance:
                 errors.append(
                     f"performance document omits {tool['tool']} median {milliseconds}"
+                )
+        for format_row in summary.get("by_format", []):
+            if "cli_geomean_speedup" not in format_row:
+                continue
+            expected = (
+                int(format_row["rows"]),
+                f"{float(format_row['cli_geomean_speedup']):.2f}",
+                f"{float(format_row['engine_geomean_speedup']):.2f}",
+            )
+            actual = published_formats.get(str(format_row["format"]).lower())
+            if actual != expected:
+                errors.append(
+                    "performance format row differs from summary: "
+                    f"{format_row['format']} expected={expected} actual={actual}"
                 )
     return errors
 

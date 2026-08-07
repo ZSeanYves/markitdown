@@ -102,10 +102,9 @@ External run `run-1786101654079-0f0c773a82`:
 - 25/25 comparable rows and 75/75 trusted tool cases;
 - MoonBit CLI median of row medians: **63.941 ms**;
 - MarkItDown median of row medians: **699.717 ms**;
-- minimum accepted per-row CLI speedup: **2.36x**;
 - every row passed the 2x gate and every format passed the 3x geometric-mean
   gate;
-- maximum MoonBit CLI RSS: **253,232 KiB (247.30 MiB)**.
+- every evaluated MoonBit CLI row passed its configured RSS budget.
 
 Self run `run-1786102949457-9591fe380a` covered 53 ODF, technical-text,
 OCR/audio, and other non-external-comparison rows: 106/106 CLI/engine cases were
