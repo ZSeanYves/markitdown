@@ -22,6 +22,6 @@ selection, output assets, and provenance finalization stay in `formats/odt`,
 ## Validation
 
 ```bash
-moon test internal/readers/odf --target native
+moon test --package ZSeanYves/markitdown/internal/readers/odf --target native
 bash tools/regression/check_balance.sh --format odt
 ```

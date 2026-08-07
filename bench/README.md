@@ -25,7 +25,7 @@ git clone https://github.com/ZSeanYves/markitdown-quality-lab.git \
   markitdown-quality-lab
 ./tools/env/optional_deps.sh install bench
 moon build --target native --release --package ZSeanYves/markitdown/cli
-moon build --target native --release --package ZSeanYves/markitdown/bench/runner
+moon build --target native --release --package ZSeanYves/markitdown/internal/bench_runner
 ```
 
 Inputs and manifests are loaded from
@@ -38,7 +38,7 @@ per platform.
 ## Commands
 
 ```bash
-RUNNER=_build/native/release/build/bench/runner/runner.exe
+RUNNER=_build/native/release/build/internal/bench_runner/bench_runner.exe
 
 $RUNNER doctor
 $RUNNER catalog scenarios

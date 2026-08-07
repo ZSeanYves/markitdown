@@ -36,6 +36,8 @@ description = "A MoonBit-native document-to-Markdown converter with multi-format
 
 preferred_target = "native"
 
+source = "src"
+
 options(
-  exclude: [ "markitdown-quality-lab/**" ],
+  exclude: [ "markitdown-quality-lab/**", "**/pkg.generated [0-9]*.mbti" ],
 )

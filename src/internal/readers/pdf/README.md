@@ -23,6 +23,6 @@ resources, or reads XML entities.
 ## Validation
 
 ```bash
-moon test internal/readers/pdf --target native
+moon test --package ZSeanYves/markitdown/internal/readers/pdf --target native
 bash tools/regression/check_balance.sh --format pdf
 ```

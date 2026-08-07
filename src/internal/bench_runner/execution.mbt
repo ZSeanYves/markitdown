@@ -250,13 +250,13 @@ fn release_binary_contract(
   }
   let cli_path = "_build/native/release/build/cli/cli.exe"
   let runner_release_ok = runner.runner_mode == "release" &&
-    runner_path.contains("_build/native/release/build/bench/runner/")
+    runner_path.contains("_build/native/release/build/internal/bench_runner/")
   let cli_release_ok = @fs.path_exists(cli_path)
   let used_moon_delegate = runner_path == "moon" ||
     runner_path.contains("/moon")
   if !runner_release_ok {
     return Err(
-      TrustFailure("formal benchmark runner must be the release runner.exe"),
+      TrustFailure("formal benchmark runner must be the release executable"),
     )
   }
   if !cli_release_ok {

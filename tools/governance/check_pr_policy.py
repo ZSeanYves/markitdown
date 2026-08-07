@@ -21,7 +21,7 @@ REQUIRED_HEADINGS = (
 )
 GENERATED_MARKERS = (".mbti", "golden", "snapshot", ".expected.md", ".result.md")
 STABLE_API_FILES = {
-    "api/pkg.generated.mbti",
+    "src/api/pkg.generated.mbti",
     "tools/governance/api-v0.8.mbti",
 }
 

@@ -22,26 +22,26 @@ def assert_expected_file(path: Path, expected_text: str, label: str) -> None:
 
 
 def assert_runtime_contracts(repo_root: Path, runtime_args: dict) -> None:
-    audio_source = (repo_root / "formats" / "audio" / "runtime.mbt").read_text(
+    audio_source = (repo_root / "src" / "formats" / "audio" / "runtime.mbt").read_text(
         encoding="utf-8"
     )
     ffmpeg_args = runtime_args["commands"]["ffmpeg"]
     ffmpeg_fragment = ", ".join(f'"{item}"' for item in ffmpeg_args)
     if ffmpeg_fragment not in audio_source:
-        raise EnvError("ffmpeg runtime args drift detected in formats/audio/runtime.mbt")
+        raise EnvError("ffmpeg runtime args drift detected in src/formats/audio/runtime.mbt")
 
-    pdftoppm_source = (repo_root / "formats" / "pdf" / "ocr_runtime.mbt").read_text(
+    pdftoppm_source = (repo_root / "src" / "formats" / "pdf" / "ocr_runtime.mbt").read_text(
         encoding="utf-8"
     )
     pdftoppm_args = runtime_args["commands"]["pdftoppm"]
     pdftoppm_fragment = ", ".join(f'"{item}"' for item in pdftoppm_args)
     if pdftoppm_fragment not in pdftoppm_source:
-        raise EnvError("pdftoppm runtime args drift detected in formats/pdf/ocr_runtime.mbt")
+        raise EnvError("pdftoppm runtime args drift detected in src/formats/pdf/ocr_runtime.mbt")
 
-    tesseract_source = (repo_root / "formats" / "ocr" / "tesseract.mbt").read_text(
+    tesseract_source = (repo_root / "src" / "formats" / "ocr" / "tesseract.mbt").read_text(
         encoding="utf-8"
     )
     tesseract_args = runtime_args["commands"]["tesseract"]
     tesseract_fragment = ", ".join(f'"{item}"' for item in tesseract_args)
     if tesseract_fragment not in tesseract_source:
-        raise EnvError("tesseract runtime args drift detected in formats/ocr/tesseract.mbt")
+        raise EnvError("tesseract runtime args drift detected in src/formats/ocr/tesseract.mbt")

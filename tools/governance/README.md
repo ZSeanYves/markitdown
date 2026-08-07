@@ -32,7 +32,7 @@ policy.
 
 ## Phase 1 architecture
 
-`check_architecture.py` compares `api/pkg.generated.mbti` with the reviewed
+`check_architecture.py` compares `src/api/pkg.generated.mbti` with the reviewed
 0.8 golden, rejects internal package types in that interface, limits the API
 adapter to an explicit import allowlist, prevents mutable `pub(all)` records in
 the facade, enforces separate total-visibility and mutable-record ceilings for

@@ -1,6 +1,6 @@
 ///|
 test "native path cursor reads chunks without materializing the whole file" {
-  let path = "input/README.md"
+  let path = "src/input/README.md"
   let expected = @fs.read_file_to_bytes(path) catch {
     error => fail(error.to_string())
   }

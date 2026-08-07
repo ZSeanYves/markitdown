@@ -11,3 +11,5 @@ decision. Link the ADR from the implementation PR and the maintenance plan.
 - `0002-stable-api-v0.8.md`: establish the stable 0.8 facade.
 - `0003-complete-phase-1-boundaries.md`: complete the internal boundary and
   consolidate the package graph after the Phase 0-1 audit.
+- `0004-normalize-source-root.md`: make `src/` the only MoonBit source root
+  without changing published package names.

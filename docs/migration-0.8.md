@@ -16,6 +16,13 @@ reduction of constructible/mutable records from 32 to 22. Profile reports in
 the consolidated TXT, Markdown, and JSON packages remain readable but can no
 longer be constructed or mutated field-by-field by consumers.
 
+The repository now stores every MoonBit package below `src/`. This is a
+filesystem-only normalization for library consumers: the module source root is
+configured as `src`, so package names such as `ZSeanYves/markitdown/api` and
+`ZSeanYves/markitdown/formats/pdf` do not gain a `src` segment. Contributors
+using filesystem filters should pass `src/<package>` or use `--package` with
+the full logical package name.
+
 ## Conversion entrypoint
 
 Before 0.8:

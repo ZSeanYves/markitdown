@@ -19,8 +19,9 @@
     "cli/moon.pkg": 3,
     "convert/moon.pkg": 36,
     "input/moon.pkg": 1,
-    "tests/moon.pkg": 2
+    "internal/integration_tests/moon.pkg": 2
   },
-  "stable_api": "api/pkg.generated.mbti",
+  "source_root": "src",
+  "stable_api": "src/api/pkg.generated.mbti",
   "version": "0.8"
 }

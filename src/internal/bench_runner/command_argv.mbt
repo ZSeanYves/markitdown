@@ -56,7 +56,11 @@ fn detect_runner_path(raw_args : Array[String]) -> String? {
 ///|
 fn is_dev_moon_run_args(raw_args : Array[String]) -> Bool {
   raw_args.length() >= 2 &&
-  (raw_args[1] == "bench/runner" || raw_args[1] == "tools/bench")
+  (
+    raw_args[1] == "internal/bench_runner" ||
+    raw_args[1] == "bench/runner" ||
+    raw_args[1] == "tools/bench"
+  )
 }
 
 ///|
@@ -64,11 +68,11 @@ fn is_release_runner_path(path : String) -> Bool {
   let normalized = path.trim().to_owned()
   normalized.contains("_build/native/release") &&
   (
-    normalized.contains("/bench/runner/") ||
-    normalized.has_suffix("/runner") ||
-    normalized.has_suffix("/runner.exe") ||
-    normalized == "runner" ||
-    normalized == "runner.exe"
+    normalized.contains("/internal/bench_runner/") ||
+    normalized.has_suffix("/bench_runner") ||
+    normalized.has_suffix("/bench_runner.exe") ||
+    normalized == "bench_runner" ||
+    normalized == "bench_runner.exe"
   )
 }
 
@@ -76,5 +80,5 @@ fn is_release_runner_path(path : String) -> Bool {
 fn is_dev_runner_path(path : String) -> Bool {
   let normalized = path.trim().to_owned()
   normalized.contains("_build/native/debug") &&
-  normalized.contains("/bench/runner/")
+  normalized.contains("/internal/bench_runner/")
 }

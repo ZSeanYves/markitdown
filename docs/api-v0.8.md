@@ -76,7 +76,7 @@ transitive requirement of this package.
 Run:
 
 ```bash
-moon info api
+moon info --package ZSeanYves/markitdown/api
 python3 tools/governance/check_architecture.py
 ```
 

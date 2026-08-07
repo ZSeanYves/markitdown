@@ -16,7 +16,7 @@ from pathlib import Path
 GROUPS = (
     ("core", 90.0, ("input/", "convert/", "internal/parser/", "internal/pipeline/", "runtime/", "render/", "core/", "product/", "rag/")),
     ("formats", 80.0, ("formats/", "internal/readers/", "container/", "internal/formats/", "internal/format_readers/")),
-    ("tools", 70.0, ("cli/", "bench/")),
+    ("tools", 70.0, ("cli/", "internal/bench_runner/")),
 )
 
 EXTERNAL_RUNTIME_ADAPTERS = {
@@ -29,7 +29,7 @@ EXTERNAL_RUNTIME_ADAPTERS = {
 EXCLUDED_FILES = {
     # Process entrypoints are exercised by release smoke and native linker jobs;
     # invoking them from an instrumented unit test would terminate the runner.
-    "bench/runner/main.mbt",
+    "internal/bench_runner/main.mbt",
     "cli/main.mbt",
     "internal/readers/pdf/font_encoding_tables.mbt",
     "internal/readers/pdf/gb2312_data.mbt",
@@ -71,6 +71,10 @@ KNOWN_FORMATS = {
     "yaml",
     "zip",
 }
+
+
+def logical_source_path(filename: str) -> str:
+    return filename[4:] if filename.startswith("src/") else filename
 
 
 def classify(filename: str) -> tuple[str, float] | None:
@@ -127,7 +131,7 @@ def summarize(path: Path) -> dict:
     )
     files = []
     for node in root.findall(".//class"):
-        filename = node.attrib["filename"]
+        filename = logical_source_path(node.attrib["filename"])
         group = classify(filename)
         if group is None or filename in EXCLUDED_FILES:
             continue
@@ -206,7 +210,7 @@ def added_lines_since(baseline_ref: str) -> dict[str, set[int]]:
     current_path: str | None = None
     for line in completed.stdout.splitlines():
         if line.startswith("+++ b/"):
-            current_path = line[6:]
+            current_path = logical_source_path(line[6:])
             continue
         if not line.startswith("@@ ") or current_path is None:
             continue
@@ -230,7 +234,7 @@ def new_code_coverage(cobertura: Path, baseline_ref: str | None, threshold: floa
     valid = 0
     root = ET.parse(cobertura).getroot()
     for node in root.findall(".//class"):
-        filename = node.attrib["filename"]
+        filename = logical_source_path(node.attrib["filename"])
         if (
             filename in EXCLUDED_FILES
             or classify(filename) is None

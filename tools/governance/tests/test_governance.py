@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import os
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -68,16 +69,16 @@ moonrun 0.1.20260803 (c19f78e 2026-08-03) ~/.moon/bin/moonrun
     def test_pr_policy_requires_explanation_for_generated_files(self):
         body = "\n".join(self.policy.REQUIRED_HEADINGS)
         self.assertEqual(self.policy.validate(body, []), [])
-        errors = self.policy.validate(body, ["core/pkg.generated.mbti"])
+        errors = self.policy.validate(body, ["src/core/pkg.generated.mbti"])
         self.assertTrue(any("generated/golden" in error for error in errors))
         explained = body + "\n- Generated artifacts and regeneration command: moon info\n"
-        self.assertEqual(self.policy.validate(explained, ["core/pkg.generated.mbti"]), [])
+        self.assertEqual(self.policy.validate(explained, ["src/core/pkg.generated.mbti"]), [])
         api_body = (
             explained
             + "\n- Risk: `R3`\n- RFC/ADR: docs/rfcs/0001-api-change.md\n"
         )
         self.assertEqual(
-            self.policy.validate(api_body, ["api/pkg.generated.mbti"]), []
+            self.policy.validate(api_body, ["src/api/pkg.generated.mbti"]), []
         )
 
     def test_phase1_architecture_contract_passes_repository(self):
@@ -86,6 +87,7 @@ moonrun 0.1.20260803 (c19f78e 2026-08-03) ~/.moon/bin/moonrun
         self.assertLessEqual(
             self.architecture.public_all_mutable_record_count(ROOT), 22
         )
+        self.assertEqual(self.architecture.moon_packages_outside_source(ROOT), [])
 
     def test_phase1_rejects_internal_type_leaks_and_deep_imports(self):
         errors = self.architecture.api_surface_errors(
@@ -97,6 +99,18 @@ moonrun 0.1.20260803 (c19f78e 2026-08-03) ~/.moon/bin/moonrun
             {"ZSeanYves/markitdown/formats/pdf"}
         )
         self.assertTrue(any("unapproved" in error for error in errors))
+
+    def test_source_root_rejects_moon_packages_outside_src(self):
+        with tempfile.TemporaryDirectory() as raw_tmp:
+            root = Path(raw_tmp)
+            (root / "src/api").mkdir(parents=True)
+            (root / "src/api/moon.pkg").write_text("", encoding="utf-8")
+            (root / "stray").mkdir()
+            (root / "stray/moon.pkg").write_text("", encoding="utf-8")
+            self.assertEqual(
+                self.architecture.moon_packages_outside_source(root),
+                ["stray/moon.pkg"],
+            )
 
 
 if __name__ == "__main__":

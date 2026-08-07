@@ -26,7 +26,7 @@ Use the quality repository commit pinned by `MARKITDOWN_QUALITY_LAB_SHA` in
 ```bash
 git clone https://github.com/ZSeanYves/markitdown-quality-lab.git \
   markitdown-quality-lab
-moon build cli --target native
+moon build --target native --package ZSeanYves/markitdown/cli
 
 # Required when the affected rows use image OCR, audio, or accurate OCR/PDF.
 ./tools/env/optional_deps.sh install balance

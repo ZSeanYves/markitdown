@@ -50,6 +50,6 @@ committed even when diagnostics retain the triggering parse error.
 ## Validation
 
 ```bash
-moon test cli --target native
+moon test --package ZSeanYves/markitdown/cli --target native
 bash tools/regression/check_balance.sh
 ```

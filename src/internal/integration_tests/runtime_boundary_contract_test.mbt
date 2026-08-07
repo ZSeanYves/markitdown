@@ -87,7 +87,7 @@ test "convert scanned-like pdf fails closed instead of returning empty markdown"
 
 ///|
 test "builtin registry wires pdf native text parser through the active registry" {
-  let registry_impl = read_utf8_text("internal/formats/meta/registry.mbt")
+  let registry_impl = read_utf8_text("src/internal/formats/meta/registry.mbt")
   assert_true(
     registry_impl.contains("registry, Pdf, @fpdf.pdf_native_parser()"),
   )
