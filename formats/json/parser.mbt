@@ -127,7 +127,7 @@ pub fn json_parse_with_stream_document(
   source : @input.InputSource,
   context : @parser.ParseContext,
   text : String,
-  stream : @djson.JsonStreamDocument,
+  stream : JsonStreamDocument,
 ) -> @parser.ParseResult {
   let diagnostics = @fshared.empty_parser_diagnostics(
     "json_parser",
@@ -203,7 +203,7 @@ pub fn json_parse_with_stream_document(
 pub fn json_parse_with_prepared_document(
   source : @input.InputSource,
   context : @parser.ParseContext,
-  prepared : @djson.PreparedJsonText,
+  prepared : PreparedJsonText,
 ) -> @parser.ParseResult {
   let requested_streaming = context.requested_mode == Some(StreamingEvent)
   if requested_streaming {
@@ -278,7 +278,7 @@ fn parse_json_document_result(
   source : @input.InputSource,
   context : @parser.ParseContext,
 ) -> Result[@parser.ParseResult, String] {
-  let prepared = match @djson.prepare_json_document_from_source(source) {
+  let prepared = match prepare_json_document_from_source(source) {
     Ok(payload) => payload
     Err(err) => return Err(err)
   }
@@ -391,9 +391,7 @@ fn parse_json_document_result(
   }
   match prepared.document {
     Some(doc) => {
-      let inspect = prepared.inspect.unwrap_or(
-        @djson.inspect_json_document(doc),
-      )
+      let inspect = prepared.inspect.unwrap_or(inspect_json_document(doc))
       let document = lower_json_document(doc, text, source, diagnostics)
       diagnostics.metrics.set("effective_mode", "dom_ast_model")
       diagnostics.metrics.set("dom_limit_reached", "false")
@@ -459,7 +457,7 @@ fn parse_line_delimited_json_result(
   source : @input.InputSource,
   context : @parser.ParseContext,
 ) -> Result[@parser.ParseResult, String] {
-  let prepared = match @djson.prepare_json_document_from_source(source) {
+  let prepared = match prepare_json_document_from_source(source) {
     Ok(payload) => payload
     Err(err) => return Err(err)
   }

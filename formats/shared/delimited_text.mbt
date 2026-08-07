@@ -49,9 +49,9 @@ fn delimited_parser(
     ) -> Result[@parser.ParseResult, String] {
       let prepared = match
         (if is_tsv {
-          @ddelimited.prepare_tsv_document_from_source(source)
+          prepare_tsv_document_from_source(source)
         } else {
-          @ddelimited.prepare_csv_document_from_source(source)
+          prepare_csv_document_from_source(source)
         }) {
         Ok(payload) => payload
         Err(err) => return Err(err)
@@ -80,11 +80,9 @@ fn delimited_parser(
           return Ok(fallback)
         }
       }
-      let inspect = prepared.inspect.unwrap_or(
-        @dcsv.inspect_csv_document(table_doc),
-      )
+      let inspect = prepared.inspect.unwrap_or(inspect_csv_document(table_doc))
       let validation = prepared.validation.unwrap_or(
-        @dcsv.validate_csv_document(table_doc),
+        validate_csv_document(table_doc),
       )
       let max_rows = context.max_rows.unwrap_or(200)
       let max_cols = context.max_cols.unwrap_or(50)
@@ -425,9 +423,7 @@ fn malformed_delimited_parse_result(
 }
 
 ///|
-fn delimited_validation_issue_message(
-  issue : @dcsv.CsvValidationIssue,
-) -> String {
+fn delimited_validation_issue_message(issue : CsvValidationIssue) -> String {
   "ragged row warning: row " +
   issue.row_index.to_string() +
   " has " +

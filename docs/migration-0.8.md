@@ -2,11 +2,15 @@
 
 ## Who must migrate
 
-Library consumers importing `convert`, `input`, `parser`, `product`, `rag`,
-`core`, `pipeline`, `render`, `formats/*` or `format_readers/*` directly must
-move product conversion calls to `ZSeanYves/markitdown/api`. Those packages
-remain available temporarily for repository internals, but they are not 0.8
-compatibility promises.
+Library consumers importing `convert`, `input`, `product`, `rag`, `core`,
+`render`, `formats/*` or any implementation package directly must move product
+conversion calls to `ZSeanYves/markitdown/api`. The old `parser/`, `pipeline/`
+and `format_readers/` package roots were removed. Their implementations now
+live under `internal/` for repository use and are not compatibility promises.
+
+The package graph was reduced from 108 packages at audit time to 68. Standalone
+reader test packages, benchmark helper packages, and closely coupled text
+reader/lowering packages no longer exist as separately importable libraries.
 
 ## Conversion entrypoint
 
@@ -34,8 +38,22 @@ let options = @api.ConvertOptions::default()
   .with_mode(Stream)
   .with_output_mode(Rag)
   .with_format_hint(Some("markdown"))
+  .with_limits(
+    @api.ResourceLimits::default()
+      .with_max_input_bytes(64L * 1024L * 1024L)
+      .with_external_command_timeout_ms(30000),
+  )
+  .with_rag(
+    @api.RagOptions::default()
+      .with_chunk_size(1200)
+      .with_chunk_overlap(120),
+  )
 let result = @api.convert(source, options~)
 ```
+
+Reader callbacks must return no more than the requested byte count and must not
+return bytes beyond a declared size. Violations now fail with a typed resource
+or parse error instead of being accepted by a later format fallback.
 
 ## Error handling
 

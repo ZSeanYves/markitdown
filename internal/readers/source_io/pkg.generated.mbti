@@ -1,0 +1,83 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/internal/readers/source_io"
+
+import {
+  "ZSeanYves/markitdown/input",
+}
+
+// Values
+pub fn collect_source_text_chunks(@input.InputSource, max_bytes? : Int64) -> Result[String, String]
+
+pub fn decode_utf16_text_bytes(Bytes) -> String?
+
+pub fn decode_xml_input_bytes(Bytes) -> Result[String, String]
+
+pub fn open_source_text_block_reader(@input.InputSource, max_bytes? : Int64, max_line_chars? : Int, max_block_lines? : Int) -> Result[SourceTextBlockReader, String]
+
+pub fn open_source_text_chunk_reader(@input.InputSource, max_bytes? : Int64, chunk_size? : Int) -> Result[SourceTextChunkReader, String]
+
+pub fn open_source_text_line_reader(@input.InputSource, max_bytes? : Int64, max_line_chars? : Int) -> Result[SourceTextLineReader, String]
+
+pub fn read_source_bytes(@input.InputSource) -> Result[SourceBytesPayload, String]
+
+pub fn read_source_text(@input.InputSource) -> Result[SourceTextPayload, String]
+
+pub fn read_source_text_with_utf16_bom(@input.InputSource) -> Result[SourceTextPayload, String]
+
+pub fn read_xml_source_text(@input.InputSource) -> Result[SourceTextPayload, String]
+
+pub fn sniff_xml_declared_encoding(Bytes) -> String?
+
+pub fn source_text_chunk_text(SourceTextChunk) -> String
+
+// Errors
+
+// Types and methods
+pub struct SourceBytesPayload {
+  bytes : Bytes
+  prepared_source : @input.InputSource
+}
+
+pub struct SourceTextBlock {
+  lines : Array[String]
+  line_start : Int
+  line_end : Int
+  truncated : Bool
+}
+
+pub struct SourceTextBlockReader {
+  next : () -> Result[SourceTextBlock?, String]
+}
+
+pub struct SourceTextChunk {
+  text : String
+  byte_start : Int64
+  byte_end : Int64
+  line_start : Int
+  line_end : Int
+  utf16_start : Int
+  utf16_end : Int
+}
+
+pub struct SourceTextChunkReader {
+  next : () -> Result[SourceTextChunk?, String]
+}
+
+pub struct SourceTextLine {
+  text : String
+  line_no : Int
+  truncated : Bool
+}
+
+pub struct SourceTextLineReader {
+  next : () -> Result[SourceTextLine?, String]
+}
+
+pub struct SourceTextPayload {
+  text : String
+  prepared_source : @input.InputSource
+}
+
+// Type aliases
+
+// Traits

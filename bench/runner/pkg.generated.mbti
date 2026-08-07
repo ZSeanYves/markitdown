@@ -2,17 +2,31 @@
 package "ZSeanYves/markitdown/bench/runner"
 
 import {
-  "ZSeanYves/markitdown/bench/runner/command",
   "moonbitlang/core/json",
 }
 
 // Values
-pub fn run_bench_cli(Array[String]) -> Int
+pub fn default_runner_context() -> RunnerContext
 
-pub fn run_bench_cli_entry(Array[String], @command.RunnerContext) -> Int
+pub fn empty_selector_stats() -> SelectorStats
+
+pub fn parse_manifest_line(String, Int) -> BenchRow
+
+pub fn parse_manifest_line_with_root(String, Int, String) -> BenchRow
+
+pub fn repo_rel_input_path(String) -> String
+
+pub fn selector_rows_tsv(SelectRequest) -> Array[String]
+
+pub fn selector_stats_json(SelectRequest) -> Json
 
 // Errors
-pub(all) suberror BenchError {
+pub suberror BenchCliError {
+  InvalidSelectArgument(String)
+}
+pub impl Show for BenchCliError
+
+pub suberror BenchError {
   InvalidArgument(String)
   TrustFailure(String)
   RuntimeFailure(String)
@@ -20,12 +34,49 @@ pub(all) suberror BenchError {
 pub impl Show for BenchError
 
 // Types and methods
-pub(all) struct BenchProgressState {
+pub struct BenchPolicy {
+  defaults : PolicyDefaults
+  default_rss_limit_mb : Int
+  rss_limits_mb : Map[String, Int]
+  tool_matrix : Map[String, Array[String]]
+  presets : Map[String, PresetPolicy]
+  scenarios : Array[ScenarioPolicy]
+  row_expected_routes : Map[String, String]
+}
+
+pub struct BenchProgressState {
   enabled : Bool
   mode : String
   total : Int
   completed : Int
 } derive(Eq)
+
+pub struct BenchRow {
+  bench_id : String
+  format : String
+  size_class : String
+  rel_path : String
+  source_kind : String
+  source_ref : String
+  input_bytes : Int
+  sha256 : String
+  enabled_tier : String
+  bench_layers : Array[String]
+  tags : Array[String]
+  review_status : String
+  notes : String
+  comparison_class : String
+  comparison_reason : String
+  comparison_signals : Array[String]
+  input_path : String
+} derive(Eq, ToJson, @json.FromJson)
+
+pub struct BenchTool {
+  name : String
+  tool_version : String?
+  availability_note : String?
+  command_builder : (BenchRow, String, Int) -> ToolCommand
+}
 
 pub struct BinaryContract {
   runner_path : String
@@ -73,6 +124,52 @@ pub struct FormatSummary {
   status : String
 } derive(Eq, ToJson, @json.FromJson)
 
+pub struct NativeMeasureData {
+  exit_code : Int
+  timed_out : Bool
+  measurement_error : Bool
+  spawn_error : Int
+  wait_error : Int
+  signal : Int
+  wall_us : Int64
+  user_time_us : Int64
+  sys_time_us : Int64
+  peak_rss_kb : Int64
+} derive(Eq)
+
+pub struct NativeMeasureResult {
+  status : Int
+  data : NativeMeasureData
+} derive(Eq)
+
+pub struct NativeMeasureSpec {
+  argv_blob : Bytes
+  argv_blob_len : Int
+  argv_count : Int
+  env_blob : Bytes
+  env_blob_len : Int
+  env_count : Int
+  stdout_path : String
+  stderr_path : String
+  cwd : String?
+  timeout_ms : Int64
+} derive(Eq)
+
+pub struct PolicyDefaults {
+  repeat_count : Int
+  warmup_count : Int
+  timeout_ms : Int
+  tiers : Array[String]
+}
+
+pub struct PresetPolicy {
+  scenario_ids : Array[String]
+  tiers : Array[String]
+  repeat_count : Int
+  warmup_count : Int
+  timeout_ms : Int
+}
+
 pub struct RunOptions {
   preset : String?
   scenario_id : String?
@@ -109,6 +206,12 @@ pub struct RunSummary {
   resume_summary : Json?
 } derive(Eq, ToJson, @json.FromJson)
 
+pub struct RunnerContext {
+  runner_mode : String
+  canonical_performance : Bool
+  runner_path : String?
+} derive(Eq)
+
 pub struct SampleRow {
   schema_version : Int
   run_id : String
@@ -141,6 +244,17 @@ pub struct SampleRow {
   cli_artifact_path : String?
 } derive(Eq, ToJson, @json.FromJson)
 
+pub struct ScenarioPolicy {
+  scenario_id : String
+  scenario_kind : String
+  tool_set : String
+  exact_tiers : Array[String]
+  format_filters : Array[String]
+  comparison_classes : Array[String]
+  official_membership : String
+  route_expectation : String
+}
+
 pub struct ScenarioSpec {
   scenario_id : String
   scenario_kind : String
@@ -161,6 +275,46 @@ pub struct ScenarioSummary {
   trust_status : String
   gate_status : String
 } derive(Eq, ToJson, @json.FromJson)
+
+pub enum SelectOutput {
+  Jsonl
+  Tsv
+} derive(Eq)
+
+pub struct SelectRequest {
+  tier : String
+  exact_tiers : Array[String]
+  bench_ids : Array[String]
+  format_filters : Array[String]
+  comparison_classes : Array[String]
+  limit : Int?
+  output : SelectOutput
+  stats_only : Bool
+} derive(Eq)
+
+pub struct SelectorStats {
+  requested_tier : String?
+  requested_tiers : Array[String]
+  tier_filter_mode : String
+  requested_bench_ids : Array[String]
+  selected_rows : Int
+  formats : Array[String]
+  skipped_by_reason : Map[String, Int]
+} derive(Eq, ToJson, @json.FromJson)
+
+pub struct ToolCommand {
+  program : String
+  args : Array[String]
+  cwd : String?
+  env : Array[(String, String)]
+  timeout_ms : Int
+  command_kind : String
+  command_display : String
+} derive(Eq)
+
+pub struct ToolRegistryConfig {
+  markitdown_path : String?
+} derive(Eq)
 
 pub struct ToolSummary {
   tool : String

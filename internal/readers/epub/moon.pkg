@@ -1,0 +1,17 @@
+import {
+  "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/internal/readers/xml",
+  "ZSeanYves/markitdown/internal/readers/zip",
+  "ZSeanYves/markitdown/internal/readers/zip_source" @zsource,
+  "moonbitlang/core/encoding/utf8",
+}
+
+import {
+  "moonbitlang/x/fs",
+} for "test"
+
+supported_targets = "native"
+
+options(
+  "preferred-target": "native",
+)

@@ -284,7 +284,7 @@ fn lower_ipynb_markdown_cell(
     source.source_name,
     Some(Markdown),
   )
-  let scanned = @dmd.scan_markdown_document(rewritten)
+  let scanned = @fmarkdown.scan_markdown_document(rewritten)
   let markdown_blocks = @fmarkdown.markdown_blocks_from_scanned_document_light_with_source_ref(
     parse_source,
     scanned,
@@ -422,12 +422,12 @@ fn lower_ipynb_mime_entry(
           source.source_name,
           Some(Markdown),
         )
-        let scanned = @dmd.scan_markdown_document(text)
+        let scanned = @fmarkdown.scan_markdown_document(text)
         let parsed = @fmarkdown.markdown_parse_with_scanned_document(
           parse_source,
           @parser.new_parse_context(Markdown),
           scanned,
-          @dmd.inspect_markdown_document(scanned),
+          @fmarkdown.inspect_markdown_document(scanned),
         )
         match parsed.document {
           Some(doc) =>

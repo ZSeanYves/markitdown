@@ -1,0 +1,15 @@
+import {
+  "ZSeanYves/markitdown/internal/readers/zip",
+  "ZSeanYves/markitdown/internal/readers/xml",
+  "moonbitlang/core/encoding/utf8",
+}
+
+import {
+  "ZSeanYves/markitdown/internal/format_readers/ooxml/package" @oxi,
+} for "wbtest"
+
+supported_targets = "native"
+
+options(
+  "preferred-target": "native",
+)

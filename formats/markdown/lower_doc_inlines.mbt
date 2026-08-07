@@ -170,7 +170,7 @@ fn markdown_footnote_definition_labels(text : String) -> Array[String] {
 
 ///|
 fn markdown_footnote_definition_head(
-  block : @dmd.MarkdownBlock,
+  block : MarkdownBlock,
 ) -> (String, String)? {
   let lines = block.raw_text.split("\n").to_array()
   if lines.length() == 0 {
@@ -210,7 +210,7 @@ fn markdown_parse_footnote_definition_line(line : String) -> (String, String)? {
 
 ///|
 fn markdown_next_non_blank_block_index(
-  blocks : Array[@dmd.MarkdownBlock],
+  blocks : Array[MarkdownBlock],
   start : Int,
 ) -> Int? {
   let mut i = start
@@ -224,9 +224,7 @@ fn markdown_next_non_blank_block_index(
 }
 
 ///|
-fn markdown_block_belongs_to_footnote_definition(
-  block : @dmd.MarkdownBlock,
-) -> Bool {
+fn markdown_block_belongs_to_footnote_definition(block : MarkdownBlock) -> Bool {
   match block.kind {
     ListItem => markdown_list_indent(block.raw_text) >= 4
     BlockQuote => block.raw_text.has_prefix("    ")
@@ -700,7 +698,7 @@ fn markdown_generated_path_for_block(
 
 ///|
 fn markdown_source_ref(
-  block : @dmd.MarkdownBlock,
+  block : MarkdownBlock,
   source : @input.InputSource,
   base_source_ref? : @core.SourceRef? = None,
 ) -> @core.SourceRef {
@@ -788,9 +786,7 @@ fn parse_markdown_image(text : String) -> (String, String)? {
 }
 
 ///|
-fn markdown_frontmatter_kind_name(
-  kind : @dmd.MarkdownFrontmatterKind,
-) -> String {
+fn markdown_frontmatter_kind_name(kind : MarkdownFrontmatterKind) -> String {
   match kind {
     Yaml => "yaml"
     Toml => "toml"

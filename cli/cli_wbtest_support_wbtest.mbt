@@ -60,7 +60,7 @@ fn run_cli_without_emitting_warnings(
   persist_cli_provenance(opts, execution) catch {
     err => return Err("write provenance failed: " + err.to_string())
   }
-  cli_render_convert_result(opts, execution.result)
+  cli_public_result(cli_render_convert_result(opts, execution.result))
 }
 
 ///|

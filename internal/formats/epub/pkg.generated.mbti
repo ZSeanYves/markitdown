@@ -3,13 +3,13 @@ package "ZSeanYves/markitdown/internal/formats/epub"
 
 import {
   "ZSeanYves/markitdown/input",
-  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/internal/parser",
 }
 
 // Values
-pub fn epub_parse_with_package(@input.InputSource, @parser.ParseContext, @parser.ParserRegistry, @ZSeanYves/markitdown/format_readers/epub.EpubPackage, @ZSeanYves/markitdown/format_readers/epub.EpubInspectReport) -> @parser.ParseResult
+pub fn epub_parse_with_package(@input.InputSource, @parser.ParseContext, @parser.ParserRegistry, @ZSeanYves/markitdown/internal/readers/epub.EpubPackage, @ZSeanYves/markitdown/internal/readers/epub.EpubInspectReport) -> @parser.ParseResult
 
-pub fn epub_parse_with_package_artifact(@input.InputSource, @parser.ParseContext, @parser.ParserRegistry, @ZSeanYves/markitdown/format_readers/epub.EpubPackage, @ZSeanYves/markitdown/format_readers/epub.EpubInspectReport) -> @parser.ParseResult
+pub fn epub_parse_with_package_artifact(@input.InputSource, @parser.ParseContext, @parser.ParserRegistry, @ZSeanYves/markitdown/internal/readers/epub.EpubPackage, @ZSeanYves/markitdown/internal/readers/epub.EpubInspectReport) -> @parser.ParseResult
 
 pub fn epub_parser_capability() -> @parser.ParserCapability
 

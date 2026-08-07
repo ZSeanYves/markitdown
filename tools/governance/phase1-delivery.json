@@ -1,7 +1,7 @@
 {
   "api": {
     "golden": "tools/governance/api-v0.8.mbti",
-    "sha256": "64514d3be92d09f08897b8f06cb69b86cde8a47c7ac12795123499c83fbcd81a",
+    "sha256": "b640459e0918cc0912b8670f4d56bd48ba1419bdbee26492f919ae9248a7b222",
     "stable_package": "ZSeanYves/markitdown/api",
     "target": "native"
   },
@@ -21,30 +21,30 @@
   "schema_version": 1,
   "tests": {
     "api_native": {
-      "passed": 7,
-      "tests": 7
+      "passed": 9,
+      "tests": 9
     },
     "js": {
-      "passed": 485,
-      "tests": 485
+      "passed": 479,
+      "tests": 479
     },
     "native_c": {
-      "passed": 901,
-      "tests": 901
+      "passed": 903,
+      "tests": 903
     },
     "native_new": {
-      "passed": 901,
-      "tests": 901
+      "passed": 903,
+      "tests": 903
     },
     "wasm": {
-      "passed": 485,
-      "tests": 485
+      "passed": 479,
+      "tests": 479
     },
     "wasm-gc": {
-      "passed": 485,
-      "tests": 485
+      "passed": 479,
+      "tests": 479
     }
   },
-  "verified_date": "2026-08-05",
+  "verified_date": "2026-08-07",
   "verified_platform": "macOS arm64"
 }

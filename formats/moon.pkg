@@ -1,6 +1,6 @@
 import {
   "ZSeanYves/markitdown/internal/formats/meta",
-  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/internal/parser",
 }
 
 supported_targets = "native"

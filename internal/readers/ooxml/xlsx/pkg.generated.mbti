@@ -1,0 +1,22 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/internal/readers/ooxml/xlsx"
+
+import {
+  "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/internal/readers/ooxml/package",
+}
+
+// Values
+pub fn prepare_xlsx_package_from_source(@input.InputSource) -> Result[PreparedXlsxPackage, String]
+
+// Errors
+
+// Types and methods
+pub struct PreparedXlsxPackage {
+  prepared_source : @input.InputSource
+  opened_package : @package.OoxmlPackage
+}
+
+// Type aliases
+
+// Traits

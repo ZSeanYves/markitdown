@@ -1,0 +1,13 @@
+import {
+  "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/internal/readers/odf/odp",
+  "ZSeanYves/markitdown/internal/readers/odf/ods",
+  "ZSeanYves/markitdown/internal/readers/odf/odt",
+  "ZSeanYves/markitdown/internal/readers/odf/shared",
+}
+
+supported_targets = "native"
+
+options(
+  "preferred-target": "native",
+)

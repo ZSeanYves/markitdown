@@ -3,19 +3,111 @@ package "ZSeanYves/markitdown/formats/toml"
 
 import {
   "ZSeanYves/markitdown/input",
-  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/internal/parser",
 }
 
 // Values
-pub fn toml_parse_with_prepared_document(@input.InputSource, @parser.ParseContext, @ZSeanYves/markitdown/format_readers/toml.PreparedTomlDocument) -> @parser.ParseResult
+pub fn classify_toml_error(TomlError) -> TomlErrorInfo
 
-pub fn toml_parse_with_preparsed_document(@input.InputSource, @parser.ParseContext, String, @ZSeanYves/markitdown/format_readers/toml.TomlDocument, @ZSeanYves/markitdown/format_readers/toml.TomlInspectReport, fast_array_table? : @ZSeanYves/markitdown/format_readers/toml.TomlFastArrayTable?) -> @parser.ParseResult
+pub fn inspect_toml_document(TomlDocument) -> TomlInspectReport
+
+pub fn parse_toml_document(String) -> TomlDocument raise
+
+pub fn prepare_toml_document_from_source(@input.InputSource) -> Result[PreparedTomlDocument, String]
+
+pub fn toml_parse_with_prepared_document(@input.InputSource, @parser.ParseContext, PreparedTomlDocument) -> @parser.ParseResult
+
+pub fn toml_parse_with_preparsed_document(@input.InputSource, @parser.ParseContext, String, TomlDocument, TomlInspectReport, fast_array_table? : TomlFastArrayTable?) -> @parser.ParseResult
 
 pub fn toml_parser() -> @parser.Parser
 
 // Errors
+pub(all) suberror TomlError {
+  ParseError(String)
+}
+pub impl Show for TomlError
 
 // Types and methods
+pub struct PreparedTomlDocument {
+  prepared_source : @input.InputSource
+  original_text : String
+  document : TomlDocument?
+  inspect : TomlInspectReport?
+  fast_array_table : TomlFastArrayTable?
+  parse_error : String?
+}
+
+pub struct TomlDocument {
+  root_members : Array[TomlMember]
+  tables : Array[TomlTable]
+}
+
+pub struct TomlErrorInfo {
+  kind : TomlErrorKind
+  detail : String
+}
+
+pub(all) enum TomlErrorKind {
+  UnexpectedEnd
+  TrailingContent
+  ExpectedToken
+  InvalidHeader
+  InvalidKey
+  DuplicateKey
+  InvalidString
+  InvalidEscape
+  InvalidValue
+  UnsupportedFeature
+  Unknown
+} derive(Eq)
+
+pub struct TomlFastArrayTable {
+  base_path : String
+  keys : Array[String]
+  rows : Array[Array[String]]
+  line_start : Int
+  line_end : Int
+  table_count : Int
+}
+
+pub struct TomlInspectReport {
+  node_count : Int
+  scalar_count : Int
+  array_count : Int
+  table_like_count : Int
+  table_count : Int
+  max_depth : Int
+  root_kind : String
+}
+
+pub struct TomlMember {
+  key : String
+  segments : Array[String]
+  path : String
+  value : TomlValue
+  line_start : Int
+  line_end : Int
+}
+
+pub struct TomlTable {
+  path : String
+  segments : Array[String]
+  members : Array[TomlMember]
+  line_start : Int
+  mut line_end : Int
+  is_array_item : Bool
+}
+
+pub(all) enum TomlValue {
+  Table(Array[TomlMember])
+  Array(Array[TomlValue])
+  String(String)
+  Integer(String)
+  Float(String)
+  Bool(Bool)
+  Datetime(String)
+  InlineTable(Array[TomlMember])
+}
 
 // Type aliases
 

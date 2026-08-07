@@ -176,7 +176,7 @@ test "JSON compact root array events preserve previews pointers and ranges" {
     "compact.json",
     Some(Json),
   )
-  let stream = @djson.parse_json_stream(text)
+  let stream = parse_json_stream(text)
   let events = json_compact_root_array_events_from_stream(stream, source)
   assert_eq(events.length(), 2)
   assert_true(events[0].text.contains("3 keys"))
@@ -197,7 +197,7 @@ test "JSON direct root array lowering matches compact event semantics" {
     Some(Json),
   )
   let retained = json_compact_root_array_events_from_stream(
-    @djson.parse_json_stream(text),
+    parse_json_stream(text),
     source,
   )
   let direct = json_compact_root_array_events_direct(text, source).unwrap()

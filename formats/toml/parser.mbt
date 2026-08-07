@@ -30,7 +30,7 @@ fn parse_toml_document_result(
   source : @input.InputSource,
   context : @parser.ParseContext,
 ) -> Result[@parser.ParseResult, String] {
-  let prepared = match @dtoml.prepare_toml_document_from_source(source) {
+  let prepared = match prepare_toml_document_from_source(source) {
     Ok(payload) => payload
     Err(err) => return Err(err)
   }
@@ -62,7 +62,7 @@ fn parse_toml_document_result(
           context,
           prepared.original_text,
           doc,
-          prepared.inspect.unwrap_or(@dtoml.inspect_toml_document(doc)),
+          prepared.inspect.unwrap_or(inspect_toml_document(doc)),
         ),
       )
     None =>
@@ -83,9 +83,9 @@ pub fn toml_parse_with_preparsed_document(
   source : @input.InputSource,
   context : @parser.ParseContext,
   text : String,
-  doc : @dtoml.TomlDocument,
-  inspect : @dtoml.TomlInspectReport,
-  fast_array_table? : @dtoml.TomlFastArrayTable? = None,
+  doc : TomlDocument,
+  inspect : TomlInspectReport,
+  fast_array_table? : TomlFastArrayTable? = None,
 ) -> @parser.ParseResult {
   let diagnostics = @fshared.empty_parser_diagnostics(
     "toml_parser",
@@ -134,7 +134,7 @@ pub fn toml_parse_with_preparsed_document(
 pub fn toml_parse_with_prepared_document(
   source : @input.InputSource,
   context : @parser.ParseContext,
-  prepared : @dtoml.PreparedTomlDocument,
+  prepared : PreparedTomlDocument,
 ) -> @parser.ParseResult {
   match prepared.document {
     Some(doc) => {
@@ -143,7 +143,7 @@ pub fn toml_parse_with_prepared_document(
         context,
         prepared.original_text,
         doc,
-        prepared.inspect.unwrap_or(@dtoml.inspect_toml_document(doc)),
+        prepared.inspect.unwrap_or(inspect_toml_document(doc)),
         fast_array_table=prepared.fast_array_table,
       )
       parsed.diagnostics.metrics.set("probe_artifact_reused", "true")

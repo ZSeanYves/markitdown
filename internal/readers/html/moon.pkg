@@ -1,0 +1,8 @@
+import {
+  "ZSeanYves/markitdown/internal/readers/source_io" @sourceio,
+  "ZSeanYves/markitdown/input",
+}
+
+options(
+  "preferred-target": "native",
+)

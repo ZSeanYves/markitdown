@@ -1,0 +1,23 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/internal/readers/zip_source"
+
+import {
+  "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/internal/readers/zip",
+}
+
+// Values
+pub fn prepare_zip_from_source(@input.InputSource) -> Result[PreparedZipArchive, String]
+
+// Errors
+
+// Types and methods
+pub struct PreparedZipArchive {
+  prepared_source : @input.InputSource
+  archive : @zip.ZipArchive
+  inspect : @zip.ZipArchiveInspectReport
+}
+
+// Type aliases
+
+// Traits

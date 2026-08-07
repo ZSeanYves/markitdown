@@ -60,13 +60,13 @@ fn run_catalog(args : Array[String]) -> Int {
   }
   match args[0] {
     "rows" => {
-      let request = @manifest.parse_select_request(args[1:].to_owned()) catch {
+      let request = parse_select_request(args[1:].to_owned()) catch {
         err => {
           bench_println("catalog rows argument error: " + err.to_string())
           return 2
         }
       }
-      for row in @manifest.select_rows(request) {
+      for row in select_manifest_rows(request) {
         bench_println(row.to_json().stringify())
       }
       0
@@ -93,7 +93,7 @@ fn run_catalog(args : Array[String]) -> Int {
 }
 
 ///|
-fn run_command(args : Array[String], runner : @command.RunnerContext) -> Int {
+fn run_command(args : Array[String], runner : RunnerContext) -> Int {
   let opts = parse_run_options(args) catch {
     err => {
       bench_println("run argument error: " + err.to_string())
@@ -162,7 +162,7 @@ fn report_command(args : Array[String]) -> Int {
 }
 
 ///|
-fn doctor_command(runner : @command.RunnerContext) -> Int {
+fn doctor_command(runner : RunnerContext) -> Int {
   let contract = unwrap_or_report(
     release_binary_contract(runner),
     "doctor failed",

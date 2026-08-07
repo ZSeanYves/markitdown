@@ -1,0 +1,11 @@
+import {
+  "moonbitlang/core/env",
+  "moonbitlang/core/string",
+  "ZSeanYves/markitdown/formats/json" @djson,
+  "ZSeanYves/markitdown/internal/readers/source_io" @sourceio,
+  "ZSeanYves/markitdown/input",
+}
+
+options(
+  "preferred-target": "native",
+)

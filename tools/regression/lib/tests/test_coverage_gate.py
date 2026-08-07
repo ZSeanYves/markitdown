@@ -21,7 +21,7 @@ class CoverageGateTests(unittest.TestCase):
         <class filename="cli/a.mbt"><lines><line number="1" hits="0"/></lines></class>
         <class filename="cli/main.mbt"><lines><line number="1" hits="0"/></lines></class>
         <class filename="runtime/process/process.mbt"><lines><line number="1" hits="0"/></lines></class>
-        <class filename="format_readers/pdf/gb2312_data.mbt"><lines><line number="1" hits="0"/></lines></class>
+        <class filename="internal/readers/pdf/gb2312_data.mbt"><lines><line number="1" hits="0"/></lines></class>
         </classes></package></packages></coverage>"""
         with tempfile.TemporaryDirectory() as raw_tmp:
             path = Path(raw_tmp) / "coverage.xml"
@@ -50,8 +50,8 @@ class CoverageGateTests(unittest.TestCase):
 
     def test_format_mapping_and_ratchet_enforce_half_point_drop(self) -> None:
         files = [
-            {"path": "format_readers/ooxml/docx/a.mbt", "covered": 79, "valid": 100},
-            {"path": "format_readers/odf/odt/a.mbt", "covered": 90, "valid": 100},
+            {"path": "internal/readers/ooxml/docx/a.mbt", "covered": 79, "valid": 100},
+            {"path": "internal/readers/odf/odt/a.mbt", "covered": 90, "valid": 100},
             {"path": "formats/shared/a.mbt", "covered": 0, "valid": 100},
         ]
         formats = coverage_gate.aggregate_formats(files)

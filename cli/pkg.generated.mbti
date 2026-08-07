@@ -4,7 +4,7 @@ package "ZSeanYves/markitdown/cli"
 import {
   "ZSeanYves/markitdown/formats/ocr",
   "ZSeanYves/markitdown/input",
-  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/internal/parser",
   "ZSeanYves/markitdown/product",
   "ZSeanYves/markitdown/rag",
 }
@@ -28,6 +28,10 @@ pub(all) enum BatchTaskStatus {
   Failed
   Skipped
 } derive(Eq)
+
+type CliFailure
+
+type CliFailureKind derive(Eq)
 
 pub struct CliOptions {
   input : String

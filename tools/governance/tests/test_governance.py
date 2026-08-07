@@ -56,6 +56,15 @@ moonrun 0.1.20260803 (c19f78e 2026-08-03) ~/.moon/bin/moonrun
         self.assertEqual(data["native_baseline"]["targets"]["native"], {"tests": 894, "passed": 894})
         self.assertGreaterEqual(data["inventory"]["moon_packages"], 100)
 
+    def test_maintenance_inventory_matches_sources(self):
+        self.assertEqual(self.baseline.validate_maintenance_inventory(), [])
+        data = json.loads(
+            (ROOT / "tools/governance/phase0-maintenance-inventory.json").read_text()
+        )
+        self.assertFalse(data["network"]["enabled"])
+        self.assertEqual(len(data["external_commands"]), 5)
+        self.assertEqual(data["licenses"]["project"]["spdx"], "Apache-2.0")
+
     def test_pr_policy_requires_explanation_for_generated_files(self):
         body = "\n".join(self.policy.REQUIRED_HEADINGS)
         self.assertEqual(self.policy.validate(body, []), [])
@@ -73,11 +82,12 @@ moonrun 0.1.20260803 (c19f78e 2026-08-03) ~/.moon/bin/moonrun
 
     def test_phase1_architecture_contract_passes_repository(self):
         self.assertEqual(self.architecture.verify(), [])
+        self.assertLessEqual(self.architecture.moon_package_count(ROOT), 68)
 
     def test_phase1_rejects_internal_type_leaks_and_deep_imports(self):
         errors = self.architecture.api_surface_errors(
-            'import { "ZSeanYves/markitdown/parser" }\n',
-            'import { "ZSeanYves/markitdown/parser" }\n',
+            'import { "ZSeanYves/markitdown/internal/parser" }\n',
+            'import { "ZSeanYves/markitdown/internal/parser" }\n',
         )
         self.assertTrue(any("leaks internal" in error for error in errors))
         errors = self.architecture.api_import_errors(

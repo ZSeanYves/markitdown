@@ -98,12 +98,16 @@ test "main CLI help and fail closed messages remain nonempty across categories" 
   assert_true(
     cli_usage_text().contains("unsupported mode requests fail closed"),
   )
-  assert_eq(exit_cli_error("contract", false), 4)
-  assert_eq(cli_error_exit_code("bad option", true), 2)
-  assert_eq(cli_error_exit_code("detect failed: unknown", false), 3)
-  assert_eq(cli_error_exit_code("open input path failed: missing.md", false), 3)
-  assert_eq(cli_error_exit_code("parse failed: malformed", false), 4)
-  assert_eq(cli_error_exit_code("resource limit exceeded", false), 5)
-  assert_eq(cli_error_exit_code("render failed: sink", false), 6)
-  assert_eq(cli_error_exit_code("open atomic output failed", false), 6)
+  assert_eq(exit_cli_error(cli_failure(ConversionFailure, "contract")), 4)
+  assert_eq(cli_failure_exit_code(cli_failure(UsageFailure, "bad option")), 2)
+  assert_eq(
+    cli_failure_exit_code(cli_failure(DetectionFailure, "same text")),
+    3,
+  )
+  assert_eq(
+    cli_failure_exit_code(cli_failure(ConversionFailure, "same text")),
+    4,
+  )
+  assert_eq(cli_failure_exit_code(cli_failure(ResourceFailure, "same text")), 5)
+  assert_eq(cli_failure_exit_code(cli_failure(OutputFailure, "same text")), 6)
 }

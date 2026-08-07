@@ -36,7 +36,7 @@ limits rather than document-derived shell strings.
 
 ## Maintenance Rules
 
-- Keep only cross-package, cross-format runtime glue here; format-private logic should stay in `formats/*` or `format_readers/*`
+- Keep only cross-package, cross-format runtime glue here; format-private logic should stay in `formats/*` or `internal/readers/*`
 - Child-document parsing must continue to use the root registry and default pipeline to avoid format-private side paths
 - Runtime helpers may coordinate external commands, but should not introduce new product-level routing policy
 - Repo-managed optional commands are installed through

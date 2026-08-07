@@ -11,7 +11,9 @@
 /// Run the CLI against the default OCR provider and return the rendered output
 /// payload.
 pub fn run_cli(opts : CliOptions) -> Result[String, String] {
-  run_cli_with_image_ocr_provider_impl(opts, @focr.run_ocr_provider, false)
+  cli_public_result(
+    run_cli_with_image_ocr_provider_impl(opts, @focr.run_ocr_provider, false),
+  )
 }
 
 ///|
@@ -24,7 +26,9 @@ pub fn run_cli_with_image_ocr_provider(
     @focr.OcrProviderError,
   ],
 ) -> Result[String, String] {
-  run_cli_with_image_ocr_provider_impl(opts, image_ocr_provider, false)
+  cli_public_result(
+    run_cli_with_image_ocr_provider_impl(opts, image_ocr_provider, false),
+  )
 }
 
 ///|
@@ -35,7 +39,7 @@ fn run_cli_with_image_ocr_provider_impl(
     @focr.OcrProviderError,
   ],
   emit_warnings : Bool,
-) -> Result[String, String] {
+) -> Result[String, CliFailure] {
   run_cli_with_image_ocr_provider_and_pdf_rasterizer(
     opts,
     image_ocr_provider,
@@ -56,16 +60,19 @@ fn run_cli_with_image_ocr_provider_and_pdf_rasterizer(
     @fpdf.PdfRasterizerError,
   ],
   emit_warnings? : Bool = false,
-) -> Result[String, String] {
+) -> Result[String, CliFailure] {
   let requested_format = cli_requested_format(opts)
   if !cli_is_supported_format(requested_format) {
     return Err(
-      cli_fail_closed_format_message(
-        opts.input,
-        requested_format,
-        cli_requested_format_label(opts),
-        opts.ocr_options,
-        @convert.fidelity_mode_for_convert_mode(opts.convert_mode),
+      cli_failure(
+        DetectionFailure,
+        cli_fail_closed_format_message(
+          opts.input,
+          requested_format,
+          cli_requested_format_label(opts),
+          opts.ocr_options,
+          @convert.fidelity_mode_for_convert_mode(opts.convert_mode),
+        ),
       ),
     )
   }
@@ -91,10 +98,16 @@ fn run_cli_with_image_ocr_provider_and_pdf_rasterizer(
       pdf_rasterizer,
     ) {
     Ok(value) => value
-    Err(err) => return Err(cli_convert_error_message(opts, err.to_string()))
+    Err(err) => return Err(cli_failure_from_convert_error(opts, err))
   }
   persist_cli_provenance(opts, execution) catch {
-    err => return Err("write provenance failed: " + err.to_string())
+    err =>
+      return Err(
+        cli_failure(
+          OutputFailure,
+          "write provenance failed: " + err.to_string(),
+        ),
+      )
   }
   ignore(requested_format)
   if emit_warnings {
@@ -128,14 +141,20 @@ fn cli_convert_to_atomic_stream_file(
   opts : CliOptions,
   convert_options : @convert.ConvertOptions,
   emit_warnings : Bool,
-) -> Result[String, String] {
+) -> Result[String, CliFailure] {
   let output_path = opts.output.unwrap_or("")
   ensure_dir_tree(dirname_of_path(output_path)) catch {
-    error => return Err("create output dir failed: " + error.to_string())
+    error =>
+      return Err(
+        cli_failure(
+          OutputFailure,
+          "create output dir failed: " + error.to_string(),
+        ),
+      )
   }
   let writer = match open_atomic_file_writer(output_path) {
     Ok(value) => value
-    Err(message) => return Err(message)
+    Err(message) => return Err(cli_failure(OutputFailure, message))
   }
   let wrote_any = Ref(false)
   let ends_with_newline = Ref(false)
@@ -167,22 +186,32 @@ fn cli_convert_to_atomic_stream_file(
     Ok(value) => value
     Err(err) => {
       atomic_file_writer_abort(writer)
-      return Err(cli_convert_error_message(opts, err.to_string()))
+      return Err(cli_failure_from_convert_error(opts, err))
     }
   }
   if result.assets.length() > 0 {
     atomic_file_writer_abort(writer)
-    return Err("streaming file output produced unexpected assets")
+    return Err(
+      cli_failure(
+        OutputFailure,
+        "streaming file output produced unexpected assets",
+      ),
+    )
   }
   if atomic_sink_should_abort(wrote_any.val, result.diagnostics.errors.length()) {
     atomic_file_writer_abort(writer)
-    return Err("conversion failed: " + result.diagnostics.errors.join("; "))
+    return Err(
+      cli_failure(
+        ConversionFailure,
+        "conversion failed: " + result.diagnostics.errors.join("; "),
+      ),
+    )
   }
   match atomic_file_writer_commit(writer) {
     Ok(_) => ()
     Err(message) => {
       atomic_file_writer_abort(writer)
-      return Err(message)
+      return Err(cli_failure(OutputFailure, message))
     }
   }
   if emit_warnings {
@@ -190,7 +219,13 @@ fn cli_convert_to_atomic_stream_file(
     Ok("")
   } else {
     let persisted = @fs.read_file_to_string(output_path, encoding="utf8") catch {
-      error => return Err("read streamed output failed: " + error.to_string())
+      error =>
+        return Err(
+          cli_failure(
+            OutputFailure,
+            "read streamed output failed: " + error.to_string(),
+          ),
+        )
     }
     Ok(persisted)
   }
@@ -210,6 +245,20 @@ fn cli_convert_error_message(opts : CliOptions, message : String) -> String {
 }
 
 ///|
+fn cli_failure_from_convert_error(
+  opts : CliOptions,
+  error : @convert.ConvertError,
+) -> CliFailure {
+  let kind = match error {
+    DetectFailed(_) => DetectionFailure
+    ParseFailed(_) => ConversionFailure
+    RenderFailed(_) => OutputFailure
+    ResourceLimitExceeded(..) => ResourceFailure
+  }
+  cli_failure(kind, cli_convert_error_message(opts, error.to_string()))
+}
+
+///|
 fn cli_emit_conversion_warnings(result : @convert.ConvertResult) -> Unit {
   for warning in result.diagnostics.warnings {
     cli_write_stderr("warning: " + warning + "\n")
@@ -221,14 +270,25 @@ fn cli_render_convert_result(
   opts : CliOptions,
   result : @convert.ConvertResult,
   emit_warnings? : Bool = false,
-) -> Result[String, String] {
+) -> Result[String, CliFailure] {
   if result.content.trim() == "" && result.diagnostics.errors.length() > 0 {
-    return Err("conversion failed: " + result.diagnostics.errors.join("; "))
+    return Err(
+      cli_failure(
+        ConversionFailure,
+        "conversion failed: " + result.diagnostics.errors.join("; "),
+      ),
+    )
   }
   match opts.output {
     Some(path) => {
       match validate_cli_assets(opts.input, result.assets) {
-        Err(message) => return Err("validate asset output failed: " + message)
+        Err(message) =>
+          return Err(
+            cli_failure(
+              OutputFailure,
+              "validate asset output failed: " + message,
+            ),
+          )
         Ok(_) => ()
       }
       let resolved = resolve_cli_assets(
@@ -245,13 +305,28 @@ fn cli_render_convert_result(
       let persisted_content = normalized_written_content(resolved.content)
       let parent = dirname_of_path(path)
       ensure_dir_tree(parent) catch {
-        e => return Err("create output dir failed: " + e.to_string())
+        e =>
+          return Err(
+            cli_failure(
+              OutputFailure,
+              "create output dir failed: " + e.to_string(),
+            ),
+          )
       }
       @fs.write_string_to_file(path, persisted_content, encoding="utf8") catch {
-        e => return Err("write output failed: " + e.to_string())
+        e =>
+          return Err(
+            cli_failure(OutputFailure, "write output failed: " + e.to_string()),
+          )
       }
       persist_cli_assets(opts.input, path, resolved.assets) catch {
-        e => return Err("write asset output failed: " + e.to_string())
+        e =>
+          return Err(
+            cli_failure(
+              OutputFailure,
+              "write asset output failed: " + e.to_string(),
+            ),
+          )
       }
       Ok(persisted_content)
     }
@@ -293,20 +368,29 @@ pub fn run_cli_app(raw_cli_args : Array[String]) -> Int {
     return 0
   }
   if first == "convert" || first == "normal" {
-    return exit_cli_error(removed_cli_subcommand_message(first), true)
+    return exit_cli_error(
+      cli_failure(UsageFailure, removed_cli_subcommand_message(first)),
+    )
   }
   if first == "debug" {
     return exit_cli_error(
-      "unsupported subcommand in this build: debug moved to the dedicated debug package and is not exposed through the main product CLI",
-      true,
+      cli_failure(
+        UsageFailure,
+        "unsupported subcommand in this build: debug moved to the dedicated debug package and is not exposed through the main product CLI",
+      ),
     )
   }
   if first == "ocr" {
-    return exit_cli_error("unsupported subcommand in this build: ocr", true)
+    return exit_cli_error(
+      cli_failure(UsageFailure, "unsupported subcommand in this build: ocr"),
+    )
   }
   if first == "bench" {
     return exit_cli_error(
-      "unsupported subcommand: bench moved to the dedicated bench package", true,
+      cli_failure(
+        UsageFailure,
+        "unsupported subcommand: bench moved to the dedicated bench package",
+      ),
     )
   }
 
@@ -327,12 +411,12 @@ pub fn run_cli_app(raw_cli_args : Array[String]) -> Int {
   }
   let opts = match parsed {
     Ok(value) => value
-    Err(msg) => return exit_cli_error(msg, true)
+    Err(msg) => return exit_cli_error(cli_failure(UsageFailure, msg))
   }
   let rendered = match
     run_cli_with_image_ocr_provider_impl(opts, @focr.run_ocr_provider, true) {
     Ok(value) => value
-    Err(msg) => return exit_cli_error(msg, false)
+    Err(failure) => return exit_cli_error(failure)
   }
   if opts.output is None {
     cli_println(rendered)

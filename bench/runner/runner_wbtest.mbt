@@ -107,52 +107,47 @@ fn with_env_var(
 
 ///|
 test "bench runner context detects release and development invocations" {
-  let release = @command.detect_runner_context([
+  let release = detect_runner_context([
     "/repo/_build/native/release/build/bench/runner/runner.exe", "doctor",
   ])
   assert_true(
     release ==
-    @command.make_runner_context(
+    make_runner_context(
       "release",
       Some("/repo/_build/native/release/build/bench/runner/runner.exe"),
     ),
   )
-  let debug = @command.detect_runner_context([
+  let debug = detect_runner_context([
     "/repo/_build/native/debug/build/bench/runner/runner.exe", "doctor",
   ])
   assert_true(
     debug ==
-    @command.make_runner_context(
+    make_runner_context(
       "dev_moon_run",
       Some("/repo/_build/native/debug/build/bench/runner/runner.exe"),
     ),
   )
-  let moon_run = @command.detect_runner_context([
-    "moon", "bench/runner", "doctor",
-  ])
-  assert_true(moon_run == @command.make_runner_context("dev_moon_run", None))
+  let moon_run = detect_runner_context(["moon", "bench/runner", "doctor"])
+  assert_true(moon_run == make_runner_context("dev_moon_run", None))
 }
 
 ///|
 test "bench runner context handles unknown argv and explicit override" {
+  assert_true(detect_runner_context([]) == make_runner_context("unknown", None))
   assert_true(
-    @command.detect_runner_context([]) ==
-    @command.make_runner_context("unknown", None),
-  )
-  assert_true(
-    @command.detect_runner_context(["moon", "test"]) ==
-    @command.make_runner_context("unknown", None),
+    detect_runner_context(["moon", "test"]) ==
+    make_runner_context("unknown", None),
   )
   with_env_var("MARKITDOWN_BENCH_RUNNER_MODE", " release ", () => {
     assert_true(
-      @command.detect_runner_context(["runner", "doctor"]) ==
-      @command.make_runner_context("release", Some("runner")),
+      detect_runner_context(["runner", "doctor"]) ==
+      make_runner_context("release", Some("runner")),
     )
   })
   with_env_var("MARKITDOWN_BENCH_RUNNER_MODE", "invalid", () => {
     assert_true(
-      @command.detect_runner_context(["runner.exe"]) ==
-      @command.make_runner_context("unknown", Some("runner.exe")),
+      detect_runner_context(["runner.exe"]) ==
+      make_runner_context("unknown", Some("runner.exe")),
     )
   })
 }
@@ -430,7 +425,7 @@ test "bench progress total counts process warmups and repeats plus engine repeat
 
 ///|
 test "bench progress label includes scenario tool bench id and phase counter" {
-  let row = @manifest.make_bench_row(
+  let row = make_bench_row(
     "markdown_large_commonmark_spec_v1",
     "markdown",
     "regular",
@@ -659,7 +654,7 @@ test "bench progress render line omits empty labels and truncates long labels" {
 
 ///|
 test "bench engine options enable product-default direct image OCR and explicit format binding" {
-  let row = @manifest.make_bench_row(
+  let row = make_bench_row(
     "ocr_medium_self_multi_column_v1",
     "png",
     "regular",
@@ -682,7 +677,7 @@ test "bench engine options enable product-default direct image OCR and explicit 
 
 ///|
 test "bench engine options detect the project synthetic OCR image format" {
-  let row = @manifest.make_bench_row(
+  let row = make_bench_row(
     "ocr_medium_self_multi_column_v1",
     "ocr",
     "regular",
@@ -867,7 +862,7 @@ test "bench CLI entry dispatches help catalog and controlled argument failures" 
   defer {
     bench_console_enabled.val = was_enabled
   }
-  let dev = @command.make_runner_context("dev_moon_run", None)
+  let dev = make_runner_context("dev_moon_run", None)
   let root = bench_manifest_fixture_root()
   setup_bench_manifest_fixture(root) catch {
     err => fail("setup bench CLI manifest fixture failed: " + err.to_string())
@@ -945,8 +940,8 @@ fn execution_test_contract() -> BinaryContract {
 }
 
 ///|
-fn execution_test_row(path : String, id : String) -> @manifest.BenchRow {
-  @manifest.make_bench_row(
+fn execution_test_row(path : String, id : String) -> BenchRow {
+  make_bench_row(
     id,
     "markdown",
     "small",
@@ -1057,7 +1052,7 @@ test "benchmark engine RSS worker validates arguments and writes output" {
 test "benchmark process samples record unavailable tool without execution" {
   let opts = sample_run_options(repeat_count=2, warmup_count=1)
   let scenario = execution_test_scenario(["markitdown"])
-  let tool = @tools.markitdown_tool(
+  let tool = markitdown_tool(
     explicit_path=Some("/definitely/missing/markitdown"),
   )
   assert_true(!tool.is_available())
@@ -1120,7 +1115,7 @@ test "benchmark progress and output hash helpers are deterministic" {
   assert_true(!progress_disabled_by_env("MARKITDOWN_TEST_MISSING_PROGRESS_ENV"))
 
   let invalid_contract = release_binary_contract(
-    @command.make_runner_context("debug", Some("moon")),
+    make_runner_context("debug", Some("moon")),
   )
   assert_true(invalid_contract is Err(_))
   let doctor : ScenarioSpec = {
@@ -1508,9 +1503,9 @@ test "benchmark tool registry and native measurement encoders cover all entries"
     "samples/fixtures/contracts/markdown/markdown_basic_heading_paragraph.md", "registry",
   )
   for name in ["moonbit-cli", "moonbit-engine", "markitdown"] {
-    let tool = @tools.find_tool(
+    let tool = find_tool(
       name,
-      config=@tools.make_tool_registry_config(
+      config=make_tool_registry_config(
         if name == "markitdown" {
           Some("/definitely/missing/markitdown")
         } else {
@@ -1523,15 +1518,15 @@ test "benchmark tool registry and native measurement encoders cover all entries"
     assert_true(command.program != "" || name == "moonbit-engine")
     assert_eq(command.timeout_ms, 123)
   }
-  assert_true(@tools.find_tool("unknown") is None)
-  assert_true(@tools.default_tool_registry_config().markitdown_path is None)
-  let argv = @measure.encode_c_string_blob(["/bin/sh", "-c", "exit 0"])
-  let env = @measure.encode_c_string_blob(["A=B"])
+  assert_true(find_tool("unknown") is None)
+  assert_true(default_tool_registry_config().markitdown_path is None)
+  let argv = encode_c_string_blob(["/bin/sh", "-c", "exit 0"])
+  let env = encode_c_string_blob(["A=B"])
   assert_true(argv.length() > 0)
   assert_true(env.length() > 0)
-  assert_true(@measure.encode_c_path("/tmp/path").length() > 0)
-  let started = @measure.monotonic_start()
-  assert_true(@measure.monotonic_elapsed_us(started) >= 0.0)
+  assert_true(encode_c_path("/tmp/path").length() > 0)
+  let started = monotonic_start()
+  assert_true(monotonic_elapsed_us(started) >= 0.0)
 }
 
 ///|
@@ -1547,10 +1542,10 @@ test "benchmark timeout reaps the measured process group" {
     "-c",
     "(sleep 0.2; printf orphan > " + marker + ") & wait",
   ]
-  let argv_blob = @measure.encode_c_string_blob(argv)
-  let env_blob = @measure.encode_c_string_blob([])
-  let measured = @measure.native_measure_command(
-    @measure.make_native_measure_spec(
+  let argv_blob = encode_c_string_blob(argv)
+  let env_blob = encode_c_string_blob([])
+  let measured = native_measure_process(
+    make_native_measure_spec(
       argv_blob,
       argv_blob.length(),
       argv.length(),
@@ -1565,9 +1560,9 @@ test "benchmark timeout reaps the measured process group" {
   )
   assert_true(measured.data.timed_out)
   let wait_argv = ["/bin/sleep", "0.4"]
-  let wait_blob = @measure.encode_c_string_blob(wait_argv)
-  let waited = @measure.native_measure_command(
-    @measure.make_native_measure_spec(
+  let wait_blob = encode_c_string_blob(wait_argv)
+  let waited = native_measure_process(
+    make_native_measure_spec(
       wait_blob,
       wait_blob.length(),
       wait_argv.length(),

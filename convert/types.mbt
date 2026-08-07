@@ -266,13 +266,13 @@ priv struct ResolvedExecutionPlan {
 
 ///|
 priv enum RouteProbeArtifact {
-  MarkdownPrepared(@dmd.PreparedMarkdownDocument)
+  MarkdownPrepared(@fmarkdown.PreparedMarkdownDocument)
   MarkdownLargeLiteral(@input.InputSource, String, Int)
   HtmlPrepared(@dhtml.PreparedHtmlDocument)
   IpynbPrepared(@dipynb.PreparedIpynbNotebook)
-  JsonPrepared(@djson.PreparedJsonText)
+  JsonPrepared(@fjson.PreparedJsonText)
   TextMarkupPrepared(@dtext.PreparedTextMarkupDocument)
-  TomlPrepared(@dtoml.PreparedTomlDocument)
+  TomlPrepared(@ftoml.PreparedTomlDocument)
   XmlPrepared(@dxml.PreparedXmlText)
   DocxPrepared(@ddocx.PreparedDocxDocument, DocxProbeArtifact)
   PptxPrepared(@pptxdoc.PreparedPptxDocument, PptxProbeArtifact)

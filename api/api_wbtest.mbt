@@ -129,7 +129,52 @@ test "capability and version surfaces are implementation-neutral" {
   assert_true(
     manifest.any(item => item.format == "png" && item.status == ExternalRuntime),
   )
+  assert_true(
+    manifest.any(item => {
+      item.format == "docx" && !item.input_kinds.contains(Text)
+    }),
+  )
+  assert_true(
+    manifest.any(item => {
+      item.format == "xls" &&
+      item.status == Unsupported &&
+      item.input_kinds.length() == 0
+    }),
+  )
   let migration = api_v0_8().v1_migration()
   assert_eq(migration.source_version, "0.8")
   assert_eq(migration.target_version, "1.0")
+}
+
+///|
+test "reader input enforces requested and conversion byte limits" {
+  let oversized = Input::from_reader(
+    fn(_offset, length) { Ok(Bytes::new(length + 1)) },
+    source_name="oversized.txt",
+  )
+  guard convert(oversized) is Err(error) else {
+    fail("oversized reader chunk should fail")
+  }
+  assert_true(error.message().contains("more bytes than requested"))
+
+  let bytes = @utf8.encode("0123456789")
+  let limited = Input::from_reader(
+    fn(offset, length) {
+      let start = offset.to_int()
+      if start >= bytes.length() {
+        Ok(b"")
+      } else {
+        let stop = Int::min(start + length, bytes.length())
+        Ok(Bytes::from_array(bytes[start:stop].to_array()))
+      }
+    },
+    source_name="limited.txt",
+  )
+  let options = ConvertOptions::default().with_limits(
+    ResourceLimits::default().with_max_input_bytes(4L),
+  )
+  guard convert(limited, options~) is Err(error) else {
+    fail("unknown-size reader should honor max_input_bytes")
+  }
+  assert_true(error.message().contains("input byte limit exceeded"))
 }

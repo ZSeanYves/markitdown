@@ -101,7 +101,7 @@ fn run_batch_cli_app(cli_args : Array[String]) -> Int {
   let parsed = parse_batch_cli_options(cli_args, 1)
   let (opts, output_dir) = match parsed {
     Ok(value) => value
-    Err(msg) => return exit_cli_error(msg, true)
+    Err(msg) => return exit_cli_error(cli_failure(UsageFailure, msg))
   }
   let input_path = opts.input
   let tasks = if fs_is_dir(input_path) {
@@ -109,13 +109,17 @@ fn run_batch_cli_app(cli_args : Array[String]) -> Int {
   } else if @fs.path_exists(input_path) {
     [input_path]
   } else {
-    return exit_cli_error("batch input path not found: " + input_path, false)
+    return exit_cli_error(
+      cli_failure(DetectionFailure, "batch input path not found: " + input_path),
+    )
   }
   ensure_dir_tree(output_dir) catch {
     err =>
       return exit_cli_error(
-        "create batch output dir failed: " + err.to_string(),
-        false,
+        cli_failure(
+          OutputFailure,
+          "create batch output dir failed: " + err.to_string(),
+        ),
       )
   }
   let results : Array[BatchTaskResult] = []
@@ -138,15 +142,24 @@ fn run_batch_cli_app(cli_args : Array[String]) -> Int {
   ) catch {
     err =>
       return exit_cli_error(
-        "write batch manifest failed: " + err.to_string(),
-        false,
+        cli_failure(
+          OutputFailure,
+          "write batch manifest failed: " + err.to_string(),
+        ),
       )
   }
-  if results.any(fn(result) { result.status == Failed }) {
-    4
-  } else {
-    0
+  let mut exit_code = 0
+  for result in results {
+    match result.failure_kind {
+      Some(kind) =>
+        exit_code = Int::max(
+          exit_code,
+          cli_failure_exit_code(cli_failure(kind, "batch task failed")),
+        )
+      None => ()
+    }
   }
+  exit_code
 }
 
 ///|
@@ -327,6 +340,7 @@ fn run_single_batch_task(
         "unsupported format in this build: " +
         path_extension_label(task_input).unwrap_or("unknown"),
       ),
+      failure_kind: Some(DetectionFailure),
     }
   }
   let output_path = batch_output_path(
@@ -372,8 +386,9 @@ fn run_single_batch_task(
             warning_count: execution.result.diagnostics.warnings.length(),
             degraded_features: execution.result.diagnostics.degraded_features.copy(),
             error: None,
+            failure_kind: None,
           }
-        Err(msg) =>
+        Err(failure) =>
           {
             input_path: task_input,
             relative_path,
@@ -390,7 +405,8 @@ fn run_single_batch_task(
             route_reason: Some(execution.provenance.route_plan.route_reason),
             warning_count: execution.result.diagnostics.warnings.length(),
             degraded_features: execution.result.diagnostics.degraded_features.copy(),
-            error: Some(msg),
+            error: Some(failure.message),
+            failure_kind: Some(failure.kind),
           }
       }
     Err(err) =>
@@ -411,6 +427,7 @@ fn run_single_batch_task(
         warning_count: 0,
         degraded_features: [],
         error: Some(cli_convert_error_message(opts, err.to_string())),
+        failure_kind: Some(cli_failure_from_convert_error(opts, err).kind),
       }
   }
 }

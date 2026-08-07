@@ -43,7 +43,7 @@ test "TOML parser and lowering cover rich tables arrays and scalar kinds" {
   assert_true(document.blocks.any(block => block.kind == Table))
   assert_true(result.diagnostics.metrics.get("table_count") != Some("0"))
   assert_true(result.diagnostics.metrics.get("array_count") != Some("0"))
-  let prepared = @dtoml.prepare_toml_document_from_source(source).unwrap()
+  let prepared = prepare_toml_document_from_source(source).unwrap()
   let reused = toml_parse_with_prepared_document(
     prepared.prepared_source,
     @parser.new_parse_context(Toml),

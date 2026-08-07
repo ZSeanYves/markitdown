@@ -207,8 +207,8 @@ fn pdf_ocr_finalize_result(
   )
   diagnostics.metrics.set("product_path_enabled", "true")
   diagnostics.metrics.set("format_contract", "pdf")
-  diagnostics.metrics.set("native_impl_location", "format_readers/pdf")
-  diagnostics.metrics.set("pdf_reader_impl", "format_readers/pdf")
+  diagnostics.metrics.set("native_impl_location", "internal/readers/pdf")
+  diagnostics.metrics.set("pdf_reader_impl", "internal/readers/pdf")
   diagnostics.metrics.set(
     "pdf_raster_backend",
     if stats.raster_invoked {
@@ -484,8 +484,8 @@ pub fn pdf_native_fail_closed_diagnostics(
   diagnostics.metrics.set("fallback_count", "1")
   diagnostics.metrics.set("product_path_enabled", "false")
   diagnostics.metrics.set("format_contract", "pdf")
-  diagnostics.metrics.set("native_impl_location", "format_readers/pdf")
-  diagnostics.metrics.set("pdf_reader_impl", "format_readers/pdf")
+  diagnostics.metrics.set("native_impl_location", "internal/readers/pdf")
+  diagnostics.metrics.set("pdf_reader_impl", "internal/readers/pdf")
   diagnostics.metrics.set("pdf_native_parser_gate", "disabled")
   diagnostics.metrics.set(
     "pdf_native_runtime_policy",

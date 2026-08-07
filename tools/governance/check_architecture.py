@@ -18,18 +18,18 @@ ALLOWED_API_IMPORTS = {
     "ZSeanYves/markitdown/convert",
     "ZSeanYves/markitdown/core",
     "ZSeanYves/markitdown/input",
-    "ZSeanYves/markitdown/parser",
+    "ZSeanYves/markitdown/internal/parser",
     "ZSeanYves/markitdown/product",
     "ZSeanYves/markitdown/rag",
 }
 FORBIDDEN_STABLE_NAMES = (
     "ZSeanYves/markitdown/convert",
     "ZSeanYves/markitdown/core",
-    "ZSeanYves/markitdown/format_readers",
+    "ZSeanYves/markitdown/internal/readers",
     "ZSeanYves/markitdown/formats",
     "ZSeanYves/markitdown/input",
-    "ZSeanYves/markitdown/parser",
-    "ZSeanYves/markitdown/pipeline",
+    "ZSeanYves/markitdown/internal/parser",
+    "ZSeanYves/markitdown/internal/pipeline",
     "ZSeanYves/markitdown/product",
     "ZSeanYves/markitdown/rag",
     "ZSeanYves/markitdown/render",
@@ -84,6 +84,14 @@ def public_all_count(root: Path) -> int:
     return sum(len(pattern.findall(path.read_text(encoding="utf-8"))) for path in moonbit_sources(root))
 
 
+def moon_package_count(root: Path) -> int:
+    return sum(
+        1
+        for path in root.rglob("moon.pkg")
+        if not any(part in IGNORED_PARTS for part in path.relative_to(root).parts)
+    )
+
+
 def direct_dependencies(text: str) -> set[str]:
     match = re.search(r"\bimport\s*\{(.*?)\}", text, re.DOTALL)
     return set(re.findall(r'"([^\"]+@[^\"]+)"', match.group(1))) if match else set()
@@ -91,7 +99,7 @@ def direct_dependencies(text: str) -> set[str]:
 
 def top_level_deep_import_counts(root: Path) -> dict[str, int]:
     counts: dict[str, int] = {}
-    pattern = re.compile(r'"(ZSeanYves/markitdown/(?:formats|format_readers)/[^\"]+)"')
+    pattern = re.compile(r'"(ZSeanYves/markitdown/(?:formats|internal/readers)/[^\"]+)"')
     for path in root.rglob("moon.pkg"):
         relative = path.relative_to(root)
         if any(part in IGNORED_PARTS for part in relative.parts):
@@ -129,6 +137,14 @@ def verify(root: Path = ROOT) -> list[str]:
         errors.append(
             f"legacy pub(all) budget grew: maximum {boundary['legacy_pub_all_max']}, observed {observed_public_all}"
         )
+    observed_packages = moon_package_count(root)
+    if observed_packages > boundary["package_count_max"]:
+        errors.append(
+            f"package count grew: maximum {boundary['package_count_max']}, observed {observed_packages}"
+        )
+    for retired_root in boundary["retired_public_roots"]:
+        if (root / retired_root / "moon.pkg").exists() or any((root / retired_root).glob("**/moon.pkg")):
+            errors.append(f"retired public package root reappeared: {retired_root}")
     expected_dependencies = set(boundary["direct_dependencies"])
     observed_dependencies = direct_dependencies((root / "moon.mod").read_text(encoding="utf-8"))
     if observed_dependencies != expected_dependencies:

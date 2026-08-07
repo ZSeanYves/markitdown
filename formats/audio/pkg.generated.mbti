@@ -3,7 +3,7 @@ package "ZSeanYves/markitdown/formats/audio"
 
 import {
   "ZSeanYves/markitdown/input",
-  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/internal/parser",
 }
 
 // Values

@@ -42,6 +42,19 @@
     "public_declarations": 1900,
     "public_type_declarations": 793
   },
+  "maintenance_inventory": {
+    "coverage_groups": [
+      "core",
+      "formats",
+      "tools"
+    ],
+    "dependency_license_count": 5,
+    "external_command_count": 5,
+    "network_enabled": false,
+    "path": "tools/governance/phase0-maintenance-inventory.json",
+    "resource_limit_count": 10,
+    "sha256": "bedc87bb67b65109afb860d3f260fc7153aea1f6d184ac1100025165ec31cccf"
+  },
   "module": {
     "name": "ZSeanYves/markitdown",
     "version": "0.7.0"

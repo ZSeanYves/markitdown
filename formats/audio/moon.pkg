@@ -2,11 +2,11 @@ import {
   "moonbitlang/core/env",
   "moonbitlang/core/string",
   "moonbitlang/x/fs",
-  "ZSeanYves/markitdown/format_readers/json" @djson,
+  "ZSeanYves/markitdown/formats/json" @djson,
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/formats/shared" @fshared,
   "ZSeanYves/markitdown/input",
-  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/internal/parser",
   "ZSeanYves/markitdown/runtime/command" @rtcmd,
 }
 

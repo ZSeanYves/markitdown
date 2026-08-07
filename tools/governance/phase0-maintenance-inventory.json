@@ -1,0 +1,116 @@
+{
+  "coverage": {
+    "baseline_percent": {
+      "core": 90.11,
+      "formats": 81.91,
+      "tools": 72.55
+    },
+    "command": "./tools/regression/check_coverage.sh --enforce",
+    "threshold_percent": {
+      "core": 90.0,
+      "formats": 80.0,
+      "tools": 70.0
+    }
+  },
+  "external_commands": [
+    {
+      "environment": [
+        "MARKITDOWN_TESSERACT_BIN"
+      ],
+      "executable": "tesseract",
+      "name": "tesseract_ocr",
+      "source": "formats/ocr/tesseract.mbt"
+    },
+    {
+      "environment": [
+        "MARKITDOWN_PADDLE_OCR_CMD",
+        "MARKITDOWN_RUNTIME_PYTHON"
+      ],
+      "executable": "tools/env/wrappers/paddle_ocr_wrapper.py",
+      "name": "paddle_ocr",
+      "source": "formats/ocr/runtime.mbt"
+    },
+    {
+      "environment": [
+        "MARKITDOWN_AUDIO_CMD",
+        "MARKITDOWN_AUDIO_MODEL_PATH",
+        "MARKITDOWN_RUNTIME_PYTHON"
+      ],
+      "executable": "tools/env/wrappers/audio_transcribe_wrapper.py",
+      "name": "audio_transcription",
+      "source": "formats/audio/runtime.mbt"
+    },
+    {
+      "environment": [
+        "MARKITDOWN_FFMPEG_BIN"
+      ],
+      "executable": "ffmpeg",
+      "name": "audio_normalization",
+      "source": "formats/audio/runtime.mbt"
+    },
+    {
+      "environment": [
+        "MARKITDOWN_PDFTOPPM_BIN"
+      ],
+      "executable": "pdftoppm",
+      "name": "pdf_rasterization",
+      "source": "formats/pdf/ocr_runtime.mbt"
+    }
+  ],
+  "licenses": {
+    "dependencies": [
+      {
+        "license": "Apache-2.0",
+        "name": "bikallem/blit",
+        "version": "0.2.2"
+      },
+      {
+        "license": "Apache-2.0",
+        "name": "bikallem/compress",
+        "version": "0.3.4"
+      },
+      {
+        "license": "Apache-2.0",
+        "name": "moonbitlang/async",
+        "version": "0.20.2"
+      },
+      {
+        "license": "Apache-2.0",
+        "name": "moonbitlang/x",
+        "version": "0.4.40"
+      },
+      {
+        "license": "Apache-2.0",
+        "name": "tonyfettes/encoding",
+        "version": "0.3.9"
+      }
+    ],
+    "project": {
+      "file": "LICENSE",
+      "spdx": "Apache-2.0"
+    },
+    "register": "docs/dependency-register.md"
+  },
+  "network": {
+    "enabled": false,
+    "production_entrypoints": [],
+    "rules": [
+      "HTML never fetches remote resources",
+      "OOXML external relationships remain references",
+      "stable conversion accepts local Path, Text, Bytes, or Reader input only"
+    ]
+  },
+  "resource_limits": {
+    "external_command_timeout_ms": 300000,
+    "external_termination_grace_ms": 2000,
+    "max_asset_bytes": 33554432,
+    "max_cells": 100000,
+    "max_cols": 50,
+    "max_external_output_bytes": 8388608,
+    "max_input_bytes": 536870912,
+    "max_line_chars": 4000,
+    "max_rows": 2000,
+    "max_total_asset_bytes": 134217728
+  },
+  "schema_version": 1
+}

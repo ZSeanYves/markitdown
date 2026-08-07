@@ -3,7 +3,7 @@ package "ZSeanYves/markitdown/internal/formats/meta"
 
 import {
   "ZSeanYves/markitdown/input",
-  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/internal/parser",
   "ZSeanYves/markitdown/product",
 }
 

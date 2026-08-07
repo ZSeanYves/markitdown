@@ -3,13 +3,13 @@ package "ZSeanYves/markitdown/formats/ipynb"
 
 import {
   "ZSeanYves/markitdown/input",
-  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/internal/parser",
 }
 
 // Values
-pub fn ipynb_parse_with_prepared_notebook(@input.InputSource, @parser.ParseContext, @ZSeanYves/markitdown/format_readers/ipynb.PreparedIpynbNotebook) -> @parser.ParseResult
+pub fn ipynb_parse_with_prepared_notebook(@input.InputSource, @parser.ParseContext, @ZSeanYves/markitdown/internal/readers/ipynb.PreparedIpynbNotebook) -> @parser.ParseResult
 
-pub fn ipynb_parse_with_preparsed_notebook(@input.InputSource, @parser.ParseContext, String, @ZSeanYves/markitdown/format_readers/ipynb.IpynbNotebook, @ZSeanYves/markitdown/format_readers/ipynb.IpynbInspectReport) -> @parser.ParseResult
+pub fn ipynb_parse_with_preparsed_notebook(@input.InputSource, @parser.ParseContext, String, @ZSeanYves/markitdown/internal/readers/ipynb.IpynbNotebook, @ZSeanYves/markitdown/internal/readers/ipynb.IpynbInspectReport) -> @parser.ParseResult
 
 pub fn ipynb_parser() -> @parser.Parser
 

@@ -30,6 +30,47 @@ pub(all) enum BatchTaskStatus {
 } derive(Eq)
 
 ///|
+enum CliFailureKind {
+  UsageFailure
+  DetectionFailure
+  ConversionFailure
+  ResourceFailure
+  OutputFailure
+} derive(Eq)
+
+///|
+struct CliFailure {
+  kind : CliFailureKind
+  message : String
+}
+
+///|
+fn cli_failure(kind : CliFailureKind, message : String) -> CliFailure {
+  { kind, message }
+}
+
+///|
+fn cli_failure_exit_code(failure : CliFailure) -> Int {
+  match failure.kind {
+    UsageFailure => 2
+    DetectionFailure => 3
+    ConversionFailure => 4
+    ResourceFailure => 5
+    OutputFailure => 6
+  }
+}
+
+///|
+fn cli_public_result(
+  result : Result[String, CliFailure],
+) -> Result[String, String] {
+  match result {
+    Ok(value) => Ok(value)
+    Err(failure) => Err(failure.message)
+  }
+}
+
+///|
 /// Per-file batch execution outcome used in manifest and summary generation.
 struct BatchTaskResult {
   input_path : String
@@ -46,6 +87,7 @@ struct BatchTaskResult {
   warning_count : Int
   degraded_features : Array[String]
   error : String?
+  failure_kind : CliFailureKind?
 }
 
 ///|

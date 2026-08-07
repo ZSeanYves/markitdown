@@ -42,7 +42,12 @@ test {
 
 Reader callbacks receive `(offset, length)` and return at most `length` bytes.
 An empty result means end of input. Reader resource ownership stays with the
-caller.
+caller. The adapter rejects oversized chunks, reads beyond a declared size and
+data beyond `ResourceLimits.max_input_bytes`.
+
+`ResourceLimits` and `RagOptions` are immutable. Start with `default()` and use
+their `with_*` methods to set every supported field before attaching them to
+`ConvertOptions`.
 
 ## Errors and CLI exits
 

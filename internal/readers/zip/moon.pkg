@@ -1,0 +1,13 @@
+import {
+  "bikallem/blit",
+  "bikallem/compress/checksum",
+  "bikallem/compress/flate",
+}
+
+import {
+  "moonbitlang/x/fs",
+} for "test"
+
+options(
+  "preferred-target": "native",
+)

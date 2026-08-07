@@ -1,5 +1,5 @@
 ///|
-pub(all) suberror BenchError {
+pub suberror BenchError {
   InvalidArgument(String)
   TrustFailure(String)
   RuntimeFailure(String)
@@ -24,7 +24,7 @@ pub struct BinaryContract {
 } derive(Eq)
 
 ///|
-pub(all) struct BenchProgressState {
+pub struct BenchProgressState {
   enabled : Bool
   mode : String
   total : Int
@@ -174,10 +174,7 @@ pub struct RunSummary {
 } derive(ToJson, FromJson, Eq)
 
 ///|
-pub fn run_bench_cli_entry(
-  raw_args : Array[String],
-  runner : @command.RunnerContext,
-) -> Int {
+fn run_bench_cli_entry(raw_args : Array[String], runner : RunnerContext) -> Int {
   let args = normalize_bench_args(raw_args)
   if args.length() == 0 ||
     args[0] == "help" ||

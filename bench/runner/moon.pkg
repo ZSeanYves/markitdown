@@ -1,12 +1,10 @@
 import {
-  "ZSeanYves/markitdown/bench/runner/command",
-  "ZSeanYves/markitdown/bench/runner/manifest",
-  "ZSeanYves/markitdown/bench/runner/tools",
-  "ZSeanYves/markitdown/bench/runner/measure",
   "ZSeanYves/markitdown/convert",
   "ZSeanYves/markitdown/input",
-  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/internal/parser",
+  "ZSeanYves/markitdown/runtime/command" @rtcmd,
   "ZSeanYves/markitdown/runtime/process",
+  "moonbitlang/core/bench",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/env",
   "moonbitlang/core/json",
@@ -21,5 +19,5 @@ supported_targets = "native"
 pkgtype(kind: "executable")
 
 options(
-  "native-stub": [ "stderr_native_stub.c" ],
+  "native-stub": [ "stderr_native_stub.c", "resource_usage_native_stub.c" ],
 )

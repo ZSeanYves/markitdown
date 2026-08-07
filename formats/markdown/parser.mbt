@@ -25,14 +25,14 @@ pub fn markdown_parser() -> @parser.Parser {
       source : @input.InputSource,
       context : @parser.ParseContext,
     ) -> Result[@parser.ParseResult, String] {
-      let prepared = match @dmd.prepare_markdown_document_from_source(source) {
+      let prepared = match prepare_markdown_document_from_source(source) {
         Ok(payload) => payload
         Err(err) => return Err(err)
       }
       let source = prepared.prepared_source
       let scanned = prepared.document
       let inspect = prepared.inspect
-      let validation = @dmd.validate_markdown_document(scanned)
+      let validation = validate_markdown_document(scanned)
       let diagnostics = @fshared.empty_parser_diagnostics(
         "markdown_parser",
         DomAstModel,
@@ -152,8 +152,8 @@ pub fn markdown_parser() -> @parser.Parser {
 pub fn markdown_parse_with_scanned_document(
   source : @input.InputSource,
   context : @parser.ParseContext,
-  scanned : @dmd.MarkdownDocument,
-  inspect : @dmd.MarkdownInspectReport,
+  scanned : MarkdownDocument,
+  inspect : MarkdownInspectReport,
 ) -> @parser.ParseResult {
   markdown_parse_result_from_scanned(source, context, scanned, inspect)
 }
@@ -162,7 +162,7 @@ pub fn markdown_parse_with_scanned_document(
 pub fn markdown_parse_with_prepared_document(
   source : @input.InputSource,
   context : @parser.ParseContext,
-  prepared : @dmd.PreparedMarkdownDocument,
+  prepared : PreparedMarkdownDocument,
 ) -> @parser.ParseResult {
   let parsed = markdown_parse_result_from_scanned(
     source,
@@ -177,7 +177,7 @@ pub fn markdown_parse_with_prepared_document(
 ///|
 pub fn markdown_blocks_from_scanned_document_light(
   source : @input.InputSource,
-  scanned : @dmd.MarkdownDocument,
+  scanned : MarkdownDocument,
 ) -> Array[@core.CoreBlock] {
   markdown_blocks_from_scanned_document_light_with_source_ref(
     source,
@@ -246,7 +246,7 @@ pub fn markdown_parse_large_literal(
 ///|
 pub fn markdown_blocks_from_scanned_document_light_with_source_ref(
   source : @input.InputSource,
-  scanned : @dmd.MarkdownDocument,
+  scanned : MarkdownDocument,
   base_source_ref : @core.SourceRef?,
 ) -> Array[@core.CoreBlock] {
   let diagnostics = @fshared.empty_parser_diagnostics(
