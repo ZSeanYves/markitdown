@@ -426,7 +426,7 @@ test "route rejects path input by size before reading content" {
     limits,
     explicit_format: Some(Txt),
   }
-  match plan_input(@input.input_from_path("input/README.md"), options) {
+  match plan_input(@input.input_from_path("src/input/README.md"), options) {
     Err(ResourceLimitExceeded(kind~, observed~, limit~)) => {
       assert_eq(kind, "input_bytes")
       assert_true(observed > 1L)

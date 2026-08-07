@@ -45,7 +45,7 @@ filesystem/process product path has equivalent behavior.
 
 ```bash
 moon test --target native -p ZSeanYves/markitdown/api
-moon info api
+moon info --package ZSeanYves/markitdown/api
 python3 tools/governance/check_architecture.py
 ```
 

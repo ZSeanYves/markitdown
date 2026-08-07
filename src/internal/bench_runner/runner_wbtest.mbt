@@ -108,27 +108,35 @@ fn with_env_var(
 ///|
 test "bench runner context detects release and development invocations" {
   let release = detect_runner_context([
-    "/repo/_build/native/release/build/bench/runner/runner.exe", "doctor",
+    "/repo/_build/native/release/build/internal/bench_runner/bench_runner.exe", "doctor",
   ])
   assert_true(
     release ==
     make_runner_context(
       "release",
-      Some("/repo/_build/native/release/build/bench/runner/runner.exe"),
+      Some(
+        "/repo/_build/native/release/build/internal/bench_runner/bench_runner.exe",
+      ),
     ),
   )
   let debug = detect_runner_context([
-    "/repo/_build/native/debug/build/bench/runner/runner.exe", "doctor",
+    "/repo/_build/native/debug/build/internal/bench_runner/bench_runner.exe", "doctor",
   ])
   assert_true(
     debug ==
     make_runner_context(
       "dev_moon_run",
-      Some("/repo/_build/native/debug/build/bench/runner/runner.exe"),
+      Some(
+        "/repo/_build/native/debug/build/internal/bench_runner/bench_runner.exe",
+      ),
     ),
   )
-  let moon_run = detect_runner_context(["moon", "bench/runner", "doctor"])
+  let moon_run = detect_runner_context([
+    "moon", "internal/bench_runner", "doctor",
+  ])
   assert_true(moon_run == make_runner_context("dev_moon_run", None))
+  let legacy_moon_run = detect_runner_context(["moon", "bench/runner", "doctor"])
+  assert_true(legacy_moon_run == make_runner_context("dev_moon_run", None))
 }
 
 ///|
@@ -292,7 +300,7 @@ fn sample_row(
     output_sha256: Some("output-sha"),
     error: None,
     route_provenance,
-    runner_artifact_identity: "_build/native/release/build/bench/runner/runner.exe",
+    runner_artifact_identity: "_build/native/release/build/internal/bench_runner/bench_runner.exe",
     cli_artifact_path: if tool == "moonbit-cli" {
       Some("_build/native/release/build/cli/cli.exe")
     } else {
@@ -557,7 +565,7 @@ test "bench resume identity matches one exact sample" {
       0,
       "sha",
       "warmup=1;samples=3;order=row_major_interleaved",
-      "_build/native/release/build/bench/runner/runner.exe",
+      "_build/native/release/build/internal/bench_runner/bench_runner.exe",
     ),
   )
   assert_true(
@@ -569,7 +577,7 @@ test "bench resume identity matches one exact sample" {
       1,
       "sha",
       "warmup=1;samples=3;order=row_major_interleaved",
-      "_build/native/release/build/bench/runner/runner.exe",
+      "_build/native/release/build/internal/bench_runner/bench_runner.exe",
     ),
   )
 }
@@ -795,7 +803,7 @@ test "report regeneration recomputes current truth summary from samples" {
     preset: Some("official-internal"),
     scenario_ids: ["product.official_internal", "diagnostic.markdown"],
     binary_only_contract: Json::object({
-      "runner_path": "_build/native/release/build/bench/runner/runner.exe".to_json(),
+      "runner_path": "_build/native/release/build/internal/bench_runner/bench_runner.exe".to_json(),
       "cli_path": "_build/native/release/build/cli/cli.exe".to_json(),
       "runner_release_ok": true.to_json(),
       "cli_release_ok": true.to_json(),

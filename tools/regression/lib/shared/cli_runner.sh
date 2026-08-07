@@ -135,7 +135,7 @@ native_cli_staleness_sentinel() {
   local package="${1-}"
   case "$package" in
     cli)
-      printf '%s' "$ROOT/cli/cli.mbt"
+      printf '%s' "$ROOT/src/cli/cli.mbt"
       ;;
     *)
       return 1
@@ -148,20 +148,8 @@ native_cli_source_roots() {
   case "$package" in
     cli)
       cat <<EOF
-$ROOT/cli
-$ROOT/container
-$ROOT/convert
-$ROOT/core
-$ROOT/format_readers
-$ROOT/formats
-$ROOT/input
-$ROOT/parser
-$ROOT/pipeline
-$ROOT/product
-$ROOT/rag
-$ROOT/render
-$ROOT/runtime
-$ROOT/moon.mod.json
+$ROOT/src
+$ROOT/moon.mod
 EOF
       ;;
     *)

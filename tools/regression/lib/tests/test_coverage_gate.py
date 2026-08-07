@@ -15,10 +15,11 @@ SPEC.loader.exec_module(coverage_gate)
 class CoverageGateTests(unittest.TestCase):
     def test_groups_lines_and_excludes_static_data(self) -> None:
         xml = """<coverage><packages><package><classes>
-        <class filename="convert/a.mbt"><lines><line number="1" hits="1"/><line number="2" hits="0"/></lines></class>
-        <class filename="formats/html/parser.mbt"><lines><line number="1" hits="1"/></lines></class>
+        <class filename="src/convert/a.mbt"><lines><line number="1" hits="1"/><line number="2" hits="0"/></lines></class>
+        <class filename="src/formats/html/parser.mbt"><lines><line number="1" hits="1"/></lines></class>
         <class filename="formats/audio/runtime.mbt"><lines><line number="1" hits="1"/><line number="2" hits="0"/></lines></class>
-        <class filename="cli/a.mbt"><lines><line number="1" hits="0"/></lines></class>
+        <class filename="src/cli/a.mbt"><lines><line number="1" hits="0"/></lines></class>
+        <class filename="src/internal/bench_runner/a.mbt"><lines><line number="1" hits="1"/></lines></class>
         <class filename="cli/main.mbt"><lines><line number="1" hits="0"/></lines></class>
         <class filename="runtime/process/process.mbt"><lines><line number="1" hits="0"/></lines></class>
         <class filename="internal/readers/pdf/gb2312_data.mbt"><lines><line number="1" hits="0"/></lines></class>
@@ -30,7 +31,7 @@ class CoverageGateTests(unittest.TestCase):
         groups = {item["name"]: item for item in summary["groups"]}
         self.assertEqual(groups["core"]["rate"], 50.0)
         self.assertEqual(groups["formats"]["rate"], 100.0)
-        self.assertEqual(groups["tools"]["rate"], 33.3333)
+        self.assertEqual(groups["tools"]["rate"], 50.0)
         self.assertEqual(groups["core"]["threshold"], 90.0)
         self.assertEqual(groups["formats"]["threshold"], 80.0)
         self.assertEqual(groups["tools"]["threshold"], 70.0)
@@ -47,6 +48,17 @@ class CoverageGateTests(unittest.TestCase):
         included_paths = {item["path"] for item in summary["files"]}
         self.assertNotIn("cli/main.mbt", included_paths)
         self.assertNotIn("runtime/process/process.mbt", included_paths)
+        self.assertIn("internal/bench_runner/a.mbt", included_paths)
+
+    def test_source_root_is_transparent_to_logical_paths(self) -> None:
+        self.assertEqual(
+            coverage_gate.logical_source_path("src/formats/pdf/parser.mbt"),
+            "formats/pdf/parser.mbt",
+        )
+        self.assertEqual(
+            coverage_gate.logical_source_path("formats/pdf/parser.mbt"),
+            "formats/pdf/parser.mbt",
+        )
 
     def test_format_mapping_and_ratchet_enforce_half_point_drop(self) -> None:
         files = [

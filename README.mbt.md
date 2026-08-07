@@ -24,6 +24,11 @@ Before first use, read:
   [docs/api-v0.8.md](./docs/api-v0.8.md),
   [docs/migration-0.8.md](./docs/migration-0.8.md)
 
+All MoonBit packages live under `src/`; `moon.mod` maps that directory to the
+module root, so public imports remain `ZSeanYves/markitdown/...` without a
+`src` segment. Root `bench/`, `samples/`, and `tools/` contain engineering
+assets rather than product packages.
+
 Prepare runtime dependencies before first run. Otherwise OCR, `accurate` PDF,
 `audio`, and benchmark examples will not work as expected.
 
@@ -44,9 +49,9 @@ To reproduce the current formal benchmark:
 
 ```bash
 moon build --target native --release --package ZSeanYves/markitdown/cli
-moon build --target native --release --package ZSeanYves/markitdown/bench/runner
+moon build --target native --release --package ZSeanYves/markitdown/internal/bench_runner
 ./tools/env/optional_deps.sh install bench
-RUNNER="_build/native/release/build/bench/runner/runner.exe"
+RUNNER="_build/native/release/build/internal/bench_runner/bench_runner.exe"
 "$RUNNER" doctor
 "$RUNNER" run --preset official-external-compare
 ```
@@ -228,6 +233,6 @@ When run from the repo root, the runner prefers
 To point to a specific baseline:
 
 ```bash
-RUNNER="_build/native/release/build/bench/runner/runner.exe"
+RUNNER="_build/native/release/build/internal/bench_runner/bench_runner.exe"
 "$RUNNER" run --preset official-external-compare --markitdown-path /absolute/path/to/markitdown
 ```

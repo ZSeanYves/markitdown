@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "ZSeanYves/markitdown/tests"
+package "ZSeanYves/markitdown/internal/integration_tests"
 
 // Values
 

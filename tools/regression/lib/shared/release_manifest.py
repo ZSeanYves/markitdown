@@ -113,7 +113,7 @@ def main() -> int:
             "cli": binary_fingerprint(root, "_build/native/release/build/cli/cli.exe"),
             "bench_runner": binary_fingerprint(
                 root,
-                "_build/native/release/build/bench/runner/runner.exe",
+                "_build/native/release/build/internal/bench_runner/bench_runner.exe",
             ),
             "tesseract": command_fingerprint("tesseract", ["--version"], root),
             "pdftoppm": command_fingerprint("pdftoppm", ["-v"], root),

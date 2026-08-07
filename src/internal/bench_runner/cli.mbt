@@ -11,7 +11,11 @@ fn normalize_bench_args(raw_args : Array[String]) -> Array[String] {
     raw_args.copy()
   }
   if args.length() >= 1 &&
-    (args[0] == "tools/bench" || args[0] == "bench/runner") {
+    (
+      args[0] == "internal/bench_runner" ||
+      args[0] == "tools/bench" ||
+      args[0] == "bench/runner"
+    ) {
     return args[1:].to_owned()
   }
   args
@@ -22,30 +26,32 @@ fn print_bench_help() -> Unit {
   bench_println("Bench binary-only runner for mb-markitdown.")
   bench_println("Usage:")
   bench_println(
-    "  _build/native/release/build/bench/runner/runner.exe catalog rows [--tiers regular,release,stress] [--bench-id <id[,more]>] [--format <fmt[,more]>] [--comparison-class external_compare|self_baseline] [--limit N]",
+    "  _build/native/release/build/internal/bench_runner/bench_runner.exe catalog rows [--tiers regular,release,stress] [--bench-id <id[,more]>] [--format <fmt[,more]>] [--comparison-class external_compare|self_baseline] [--limit N]",
   )
   bench_println(
-    "  _build/native/release/build/bench/runner/runner.exe catalog scenarios",
+    "  _build/native/release/build/internal/bench_runner/bench_runner.exe catalog scenarios",
   )
   bench_println(
-    "  _build/native/release/build/bench/runner/runner.exe run --preset official-internal [--limit N]",
+    "  _build/native/release/build/internal/bench_runner/bench_runner.exe run --preset official-internal [--limit N]",
   )
   bench_println(
-    "  _build/native/release/build/bench/runner/runner.exe run --preset official-external-compare [--limit N] [--markitdown-path <path>]",
+    "  _build/native/release/build/internal/bench_runner/bench_runner.exe run --preset official-external-compare [--limit N] [--markitdown-path <path>]",
   )
   bench_println(
-    "  _build/native/release/build/bench/runner/runner.exe run --preset official-self-baseline [--limit N] [--baseline <run_id>]",
+    "  _build/native/release/build/internal/bench_runner/bench_runner.exe run --preset official-self-baseline [--limit N] [--baseline <run_id>]",
   )
   bench_println(
-    "  _build/native/release/build/bench/runner/runner.exe run --scenario <scenario_id> [--bench-id <id>] [--limit N]",
+    "  _build/native/release/build/internal/bench_runner/bench_runner.exe run --scenario <scenario_id> [--bench-id <id>] [--limit N]",
   )
   bench_println(
     "  run options: [--progress auto|json|off] [--keep-outputs failures|all|none] [--resume <run_id>] [--max-disk-mb N]",
   )
   bench_println(
-    "  _build/native/release/build/bench/runner/runner.exe report --run <run_id> [--baseline <run_id>]",
+    "  _build/native/release/build/internal/bench_runner/bench_runner.exe report --run <run_id> [--baseline <run_id>]",
   )
-  bench_println("  _build/native/release/build/bench/runner/runner.exe doctor")
+  bench_println(
+    "  _build/native/release/build/internal/bench_runner/bench_runner.exe doctor",
+  )
 }
 
 ///|

@@ -106,7 +106,7 @@ quality-lab commit before its formal rows are treated as auditable evidence.
 ## Running and Reading Evidence
 
 ```bash
-moon build cli --target native
+moon build --target native --package ZSeanYves/markitdown/cli
 ./tools/regression/check_balance.sh
 ./tools/regression/check_balance_quality.sh
 ./tools/regression/check_accurate.sh

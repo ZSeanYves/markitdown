@@ -72,7 +72,7 @@ enhancement`, or `undefined`. Only classified differences may be baselined.
 python3 tools/governance/collect_baseline.py --check
 python3 -m unittest discover -s tools/governance/tests -p 'test_*.py'
 ./tools/env/optional_deps.sh install bench
-moon build --target native --release --package ZSeanYves/markitdown/bench/runner
-_build/native/release/build/bench/runner/runner.exe run --preset official-external-compare
+moon build --target native --release --package ZSeanYves/markitdown/internal/bench_runner
+_build/native/release/build/internal/bench_runner/bench_runner.exe run --preset official-external-compare
 ```
 

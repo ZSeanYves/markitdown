@@ -72,10 +72,11 @@ def api_surface_errors(current: str, golden: str) -> list[str]:
 
 
 def moonbit_sources(root: Path) -> list[Path]:
+    source_root = root / "src"
     return [
         path
-        for path in root.rglob("*.mbt")
-        if not any(part in IGNORED_PARTS for part in path.relative_to(root).parts)
+        for path in source_root.rglob("*.mbt")
+        if not any(part in IGNORED_PARTS for part in path.relative_to(source_root).parts)
     ]
 
 
@@ -90,10 +91,21 @@ def public_all_mutable_record_count(root: Path) -> int:
 
 
 def moon_package_count(root: Path) -> int:
+    source_root = root / "src"
     return sum(
         1
+        for path in source_root.rglob("moon.pkg")
+        if not any(part in IGNORED_PARTS for part in path.relative_to(source_root).parts)
+    )
+
+
+def moon_packages_outside_source(root: Path) -> list[str]:
+    source_root = root / "src"
+    return sorted(
+        str(path.relative_to(root))
         for path in root.rglob("moon.pkg")
-        if not any(part in IGNORED_PARTS for part in path.relative_to(root).parts)
+        if not path.is_relative_to(source_root)
+        and not any(part in IGNORED_PARTS for part in path.relative_to(root).parts)
     )
 
 
@@ -105,8 +117,9 @@ def direct_dependencies(text: str) -> set[str]:
 def top_level_deep_import_counts(root: Path) -> dict[str, int]:
     counts: dict[str, int] = {}
     pattern = re.compile(r'"(ZSeanYves/markitdown/(?:formats|internal/readers)/[^\"]+)"')
-    for path in root.rglob("moon.pkg"):
-        relative = path.relative_to(root)
+    source_root = root / "src"
+    for path in source_root.rglob("moon.pkg"):
+        relative = path.relative_to(source_root)
         if any(part in IGNORED_PARTS for part in relative.parts):
             continue
         if relative.parts[0] in {"formats", "format_readers", "internal"}:
@@ -123,17 +136,27 @@ def verify(root: Path = ROOT) -> list[str]:
     interface_path = root / boundary["stable_api"]
     golden_path = root / boundary["api_golden"]
     if not interface_path.exists() or not golden_path.exists():
-        return ["stable API interface or golden is missing; run `moon info api`"]
+        return [
+            "stable API interface or golden is missing; run "
+            "`moon info --package ZSeanYves/markitdown/api`"
+        ]
     errors.extend(
         api_surface_errors(
             interface_path.read_text(encoding="utf-8"),
             golden_path.read_text(encoding="utf-8"),
         )
     )
-    errors.extend(api_import_errors(quoted_imports((root / "api/moon.pkg").read_text(encoding="utf-8"))))
+    source_root = root / boundary["source_root"]
+    module_text = (root / "moon.mod").read_text(encoding="utf-8")
+    if not re.search(r'^source\s*=\s*"src"\s*$', module_text, re.MULTILINE):
+        errors.append('moon.mod must declare source = "src"')
+    outside_packages = moon_packages_outside_source(root)
+    if outside_packages:
+        errors.append("MoonBit packages must live under src/: " + repr(outside_packages))
+    errors.extend(api_import_errors(quoted_imports((source_root / "api/moon.pkg").read_text(encoding="utf-8"))))
     api_mutable_records = sum(
         len(re.findall(r"pub\(all\)\s+(?:struct|type)", path.read_text(encoding="utf-8")))
-        for path in (root / "api").glob("*.mbt")
+        for path in (source_root / "api").glob("*.mbt")
     )
     if api_mutable_records:
         errors.append("stable api records must be readonly or abstract, not pub(all)")
@@ -154,10 +177,10 @@ def verify(root: Path = ROOT) -> list[str]:
             f"package count grew: maximum {boundary['package_count_max']}, observed {observed_packages}"
         )
     for retired_root in boundary["retired_public_roots"]:
-        if (root / retired_root / "moon.pkg").exists() or any((root / retired_root).glob("**/moon.pkg")):
+        if (source_root / retired_root / "moon.pkg").exists() or any((source_root / retired_root).glob("**/moon.pkg")):
             errors.append(f"retired public package root reappeared: {retired_root}")
     expected_dependencies = set(boundary["direct_dependencies"])
-    observed_dependencies = direct_dependencies((root / "moon.mod").read_text(encoding="utf-8"))
+    observed_dependencies = direct_dependencies(module_text)
     if observed_dependencies != expected_dependencies:
         errors.append(
             "direct dependency set changed: expected "

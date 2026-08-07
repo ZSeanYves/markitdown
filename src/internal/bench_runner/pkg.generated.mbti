@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "ZSeanYves/markitdown/bench/runner"
+package "ZSeanYves/markitdown/internal/bench_runner"
 
 import {
   "moonbitlang/core/json",

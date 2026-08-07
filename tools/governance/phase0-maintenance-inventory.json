@@ -19,7 +19,7 @@
       ],
       "executable": "tesseract",
       "name": "tesseract_ocr",
-      "source": "formats/ocr/tesseract.mbt"
+      "source": "src/formats/ocr/tesseract.mbt"
     },
     {
       "environment": [
@@ -28,7 +28,7 @@
       ],
       "executable": "tools/env/wrappers/paddle_ocr_wrapper.py",
       "name": "paddle_ocr",
-      "source": "formats/ocr/runtime.mbt"
+      "source": "src/formats/ocr/runtime.mbt"
     },
     {
       "environment": [
@@ -38,7 +38,7 @@
       ],
       "executable": "tools/env/wrappers/audio_transcribe_wrapper.py",
       "name": "audio_transcription",
-      "source": "formats/audio/runtime.mbt"
+      "source": "src/formats/audio/runtime.mbt"
     },
     {
       "environment": [
@@ -46,7 +46,7 @@
       ],
       "executable": "ffmpeg",
       "name": "audio_normalization",
-      "source": "formats/audio/runtime.mbt"
+      "source": "src/formats/audio/runtime.mbt"
     },
     {
       "environment": [
@@ -54,7 +54,7 @@
       ],
       "executable": "pdftoppm",
       "name": "pdf_rasterization",
-      "source": "formats/pdf/ocr_runtime.mbt"
+      "source": "src/formats/pdf/ocr_runtime.mbt"
     }
   ],
   "licenses": {

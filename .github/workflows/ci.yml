@@ -204,7 +204,7 @@ jobs:
         run: python3 tools/governance/check_toolchain.py
       - run: moon update
       - name: Build CLI
-        run: moon build cli --target native
+        run: moon build --target native --package ZSeanYves/markitdown/cli
       - name: Install optional dependencies
         run: |
           for profile in ${{ matrix.profiles }}; do
@@ -254,9 +254,9 @@ jobs:
       - name: Build benchmark
         run: |
           moon build --target native --release --package ZSeanYves/markitdown/cli
-          moon build --target native --release --package ZSeanYves/markitdown/bench/runner
+          moon build --target native --release --package ZSeanYves/markitdown/internal/bench_runner
       - name: Doctor
-        run: _build/native/release/build/bench/runner/runner.exe doctor
+        run: _build/native/release/build/internal/bench_runner/bench_runner.exe doctor
       - name: Run benchmark
         run: |
           set -euo pipefail
@@ -268,7 +268,7 @@ jobs:
             args=(--preset official-external-compare)
             python3 tools/regression/mutation_smoke.py
           fi
-          _build/native/release/build/bench/runner/runner.exe run \
+          _build/native/release/build/internal/bench_runner/bench_runner.exe run \
             "${args[@]}" \
             --progress=json --keep-outputs=failures --max-disk-mb "$disk" \
             | tee .tmp/bench-ci/run.jsonl

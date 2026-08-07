@@ -53,7 +53,7 @@
     "network_enabled": false,
     "path": "tools/governance/phase0-maintenance-inventory.json",
     "resource_limit_count": 10,
-    "sha256": "bedc87bb67b65109afb860d3f260fc7153aea1f6d184ac1100025165ec31cccf"
+    "sha256": "ce1a5b0166cc94eb82de83e72a6c5192a846e22df458e17bde3e2935c8a52c29"
   },
   "module": {
     "name": "ZSeanYves/markitdown",

@@ -23,5 +23,5 @@ environment.
 ## Validation
 
 ```bash
-moon test runtime/command --target native
+moon test --package ZSeanYves/markitdown/runtime/command --target native
 ```

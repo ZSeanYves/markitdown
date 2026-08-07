@@ -1,6 +1,6 @@
 # Benchmark Runner
 
-`bench/runner` owns CLI parsing, sample execution, resume/checkpoint state,
+`internal/bench_runner` owns CLI parsing, sample execution, resume/checkpoint state,
 resource collection, report generation, and enforcement summaries for the
 binary-only benchmark system.
 
@@ -21,9 +21,10 @@ an aggregate that includes the external tool process tree.
 Validation:
 
 ```bash
-moon test --package ZSeanYves/markitdown/bench/runner
-moon build --target native --release --package ZSeanYves/markitdown/bench/runner
-_build/native/release/build/bench/runner/runner.exe doctor
+moon test --package ZSeanYves/markitdown/internal/bench_runner
+moon build --target native --release --package ZSeanYves/markitdown/internal/bench_runner
+_build/native/release/build/internal/bench_runner/bench_runner.exe doctor
 ```
 
-User-facing commands and gates are documented in [../README.md](../README.md).
+User-facing commands and gates are documented in
+[../../../bench/README.md](../../../bench/README.md).

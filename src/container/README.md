@@ -21,6 +21,6 @@ ownership and are materialized only at an approved output boundary.
 ## Validation
 
 ```bash
-moon test container
-moon test tests/container_integration_test.mbt
+moon test --package ZSeanYves/markitdown/container
+moon test src/internal/integration_tests/container_integration_test.mbt
 ```

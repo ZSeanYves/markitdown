@@ -1,6 +1,6 @@
 # MoonBit MarkItDown 项目维护与演进计划
 
-**文档状态：** 已接受；Phase 0-1 已实施，作为 Phase 2-6 工作基线  
+**文档状态：** 已接受；Phase 0-1 与 Phase 1.5 源码根目录规范化已实施，作为 Phase 2-6 工作基线
 **版本：** 1.0  
 **编制日期：** 2026-08-05  
 **适用范围：** `ZSeanYves/markitdown` 主模块、CLI、格式读取器、转换管线、native FFI、质量实验室、发布物和外部依赖
@@ -140,6 +140,18 @@ flowchart LR
 - **traits/virtual package：** 不把实验性 virtual package 当作生产插件协议；1.0 前使用显式记录、函数和 registry。若未来采用 trait，先以内部试验包验证工具链和文档生成。
 - **包 API：** MoonBit 包中 `pub`/`pub(all)`/`priv` 的可见性会影响消费者构造和修改值（见 [Packages](https://docs.moonbitlang.com/en/latest/language/packages.html)）；任何可破坏字段变更必须先从 `pub(all)` 收敛。
 
+### 4.3 仓库源码根目录
+
+`moon.mod` 使用 `source = "src"`，所有 MoonBit 包均位于 `src/` 下。
+`src` 不进入逻辑包名，因此稳定入口仍为 `ZSeanYves/markitdown/api`，
+实现包仍使用 `formats/*`、`internal/*`、`runtime/*` 等既有包路径。
+
+仓库根目录只保留 `src`、`bench`、`samples`、`tools`、`docs` 和仓库治理
+元数据。`bench/` 保存策略、清单、基线和报告；可执行 runner 位于
+`src/internal/bench_runner`。包内测试继续与实现同包，跨包集成测试集中在
+`src/internal/integration_tests`。治理门禁拒绝任何重新出现在 `src/` 外的
+`moon.pkg`。
+
 ## 5. 能力与兼容路线
 
 ### 5.1 核心格式矩阵
@@ -237,6 +249,7 @@ flowchart LR
 | --- | --- | --- |
 | Phase 0 | 完成 | 0.1.7/工具链/fixture 基线、治理脚本、CODEOWNERS、模板、标签、分支保护、依赖登记、全量 new-native 修复和阻断式 CI |
 | Phase 1 | 完成 | `api` façade、私有 Input、typed error/code、CLI 退出码、Path/Text/Bytes/Reader、Markdown/Debug/RAG、能力/来源投影、0.8 golden、迁移文档、ADR 和架构依赖门禁 |
+| Phase 1.5 | 完成 | `src/` 唯一 MoonBit source root、逻辑包名保持、benchmark runner/集成测试内部化、根目录与物理路径治理门禁 |
 | Phase 2-6 | 未开始 | 必须从本文件对应阶段入口继续，不得跳过兼容、性能、安全或发布验收门 |
 
 ### 阶段 0：基线冻结与治理启动（第 0-2 周）
