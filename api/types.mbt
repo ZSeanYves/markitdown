@@ -235,6 +235,7 @@ pub(all) enum CapabilityStatus {
   Stable
   Experimental
   ExternalRuntime
+  Unsupported
 } derive(Eq, @debug.Debug)
 
 ///|

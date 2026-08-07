@@ -14,8 +14,8 @@ from pathlib import Path
 
 
 GROUPS = (
-    ("core", 90.0, ("input/", "convert/", "parser/", "pipeline/", "runtime/", "render/", "core/", "product/", "rag/")),
-    ("formats", 80.0, ("formats/", "format_readers/", "container/", "internal/formats/", "internal/format_readers/")),
+    ("core", 90.0, ("input/", "convert/", "internal/parser/", "internal/pipeline/", "runtime/", "render/", "core/", "product/", "rag/")),
+    ("formats", 80.0, ("formats/", "internal/readers/", "container/", "internal/formats/", "internal/format_readers/")),
     ("tools", 70.0, ("cli/", "bench/")),
 )
 
@@ -31,17 +31,15 @@ EXCLUDED_FILES = {
     # invoking them from an instrumented unit test would terminate the runner.
     "bench/runner/main.mbt",
     "cli/main.mbt",
-    "format_readers/pdf/font_encoding_tables.mbt",
-    "format_readers/pdf/gb2312_data.mbt",
-    "format_readers/pdf/predefined_cmap_data.mbt",
+    "internal/readers/pdf/font_encoding_tables.mbt",
+    "internal/readers/pdf/gb2312_data.mbt",
+    "internal/readers/pdf/predefined_cmap_data.mbt",
     "runtime/process/process.mbt",
 }
 
 FORMAT_CONTAINER_PREFIXES = (
-    "format_readers/ooxml/",
-    "format_readers/odf/",
-    "format_readers/subtitles/",
-    "format_readers/delimited/",
+    "internal/readers/ooxml/",
+    "internal/readers/odf/",
 )
 
 KNOWN_FORMATS = {
@@ -91,7 +89,7 @@ def classify_format(filename: str) -> str | None:
             name = remainder.split("/", 1)[0]
             if name in KNOWN_FORMATS:
                 return name
-    for prefix in ("formats/", "format_readers/", "internal/formats/"):
+    for prefix in ("formats/", "internal/readers/", "internal/formats/"):
         if filename.startswith(prefix):
             remainder = filename[len(prefix):]
             name = remainder.split("/", 1)[0]

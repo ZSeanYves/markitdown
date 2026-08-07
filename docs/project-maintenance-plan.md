@@ -119,10 +119,10 @@ flowchart LR
 | `convert` | 路由、计划执行、资源预算、诊断收集 | 内部，必须有迁移适配 | Core maintainer |
 | `input` | source、cursor、hint、大小/时间预算 | 稳定子集 | Core + security |
 | `product`/IR | 模式、策略、标准化块、资产和 provenance | 仅 façade 投影稳定 | Core maintainer |
-| `parser` | reader/adapter 注册和统一解析契约 | 内部扩展点 | Format maintainer |
-| `format_readers/*` | 原始格式语法、解包、模型 | 各包独立声明；默认不承诺 | 对应格式 owner |
+| `internal/parser` | reader/adapter 注册和统一解析契约 | 内部扩展点 | Format maintainer |
+| `internal/readers/*` | 原始格式语法、解包、模型 | 各包独立声明；默认不承诺 | 对应格式 owner |
 | `formats/*` | 原始模型到 IR 的 lowering | 与官方语义契约绑定 | Format owner |
-| `pipeline`/`render` | 标准化、Markdown/RAG/Debug 输出 | 输出契约稳定 | Core maintainer |
+| `internal/pipeline`/`render` | 标准化、Markdown/RAG/Debug 输出 | 输出契约稳定 | Core maintainer |
 | `runtime/*` | POSIX/C FFI、命令、音频/OCR 等可选运行时 | native-only 或实验性 | Runtime owner |
 | `cli` | 命令行、退出码、原子输出 | 1.0 起稳定 | Release owner |
 | `quality`/`benchmark` | 仅测试、基准、差分和报告 | 不纳入产品 API | Quality owner |

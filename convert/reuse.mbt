@@ -105,7 +105,7 @@ fn parse_with_route_probe_artifact(
                 @fshared.parse_text_markup_result_with_prepared_document(
                   prepared,
                   context,
-                  @ftex.tex_text_markup_hooks(),
+                  @ftextmarkup.tex_text_markup_hooks(),
                 ),
               ),
             )
@@ -115,7 +115,7 @@ fn parse_with_route_probe_artifact(
                 @fshared.parse_text_markup_result_with_prepared_document(
                   prepared,
                   context,
-                  @frst.rst_text_markup_hooks(),
+                  @ftextmarkup.rst_text_markup_hooks(),
                 ),
               ),
             )
@@ -125,7 +125,7 @@ fn parse_with_route_probe_artifact(
                 @fshared.parse_text_markup_result_with_prepared_document(
                   prepared,
                   context,
-                  @fasciidoc.asciidoc_text_markup_hooks(),
+                  @ftextmarkup.asciidoc_text_markup_hooks(),
                 ),
               ),
             )

@@ -22,6 +22,7 @@ BASELINE = ROOT / "tools/governance/phase0-baseline.json"
 FIXTURE_HASHES = ROOT / "tools/governance/fixtures.sha256"
 LOCK = ROOT / "tools/env/config/python/bench.lock"
 CI = ROOT / ".github/workflows/ci.yml"
+MAINTENANCE_INVENTORY = ROOT / "tools/governance/phase0-maintenance-inventory.json"
 
 
 def git_files() -> list[str]:
@@ -82,6 +83,122 @@ def benchmark_lock_version() -> str:
         if line.startswith("markitdown=="):
             return line.split("==", 1)[1].strip()
     return "missing"
+
+
+def maintenance_inventory_summary() -> dict:
+    data = json.loads(MAINTENANCE_INVENTORY.read_text(encoding="utf-8"))
+    return {
+        "path": str(MAINTENANCE_INVENTORY.relative_to(ROOT)),
+        "sha256": sha256_file(MAINTENANCE_INVENTORY),
+        "external_command_count": len(data["external_commands"]),
+        "network_enabled": data["network"]["enabled"],
+        "resource_limit_count": len(data["resource_limits"]),
+        "dependency_license_count": len(data["licenses"]["dependencies"]),
+        "coverage_groups": sorted(data["coverage"]["threshold_percent"]),
+    }
+
+
+def validate_maintenance_inventory() -> list[str]:
+    data = json.loads(MAINTENANCE_INVENTORY.read_text(encoding="utf-8"))
+    errors: list[str] = []
+    if data.get("schema_version") != 1:
+        errors.append("maintenance inventory schema_version must be 1")
+
+    for command in data.get("external_commands", []):
+        source = ROOT / command["source"]
+        if not source.is_file():
+            errors.append(f"external command source is missing: {command['source']}")
+            continue
+        text = source.read_text(encoding="utf-8")
+        for token in [command["executable"], *command["environment"]]:
+            if token not in text:
+                errors.append(
+                    f"external command inventory token {token!r} is absent from {command['source']}"
+                )
+
+    network_markers = (
+        '"moonbitlang/async/http"',
+        '"moonbitlang/async/socket"',
+        '"moonbitlang/x/http"',
+        "@http.",
+        "@socket.",
+    )
+    network_sites: list[str] = []
+    for path in ROOT.rglob("*.mbt"):
+        relative = path.relative_to(ROOT)
+        if any(part in {".mooncakes", ".tmp", "_build", "env", "markitdown-quality-lab"} for part in relative.parts):
+            continue
+        if path.name.endswith(("_test.mbt", "_wbtest.mbt")):
+            continue
+        text = path.read_text(encoding="utf-8")
+        if any(marker in text for marker in network_markers):
+            network_sites.append(str(relative))
+    expected_network_sites = sorted(data.get("network", {}).get("production_entrypoints", []))
+    if sorted(network_sites) != expected_network_sites:
+        errors.append(
+            "production network entrypoints differ: expected "
+            + repr(expected_network_sites)
+            + ", observed "
+            + repr(sorted(network_sites))
+        )
+
+    product_options = (ROOT / "product/options.mbt").read_text(encoding="utf-8")
+    command_runner = (ROOT / "runtime/command/process_runner.mbt").read_text(encoding="utf-8")
+    resource_fragments = {
+        "max_rows": "max_rows: 2000",
+        "max_cols": "max_cols: 50",
+        "max_cells": "max_cells: 100000",
+        "max_line_chars": "max_line_chars: 4000",
+        "max_input_bytes": "max_input_bytes: 512L * 1024L * 1024L",
+        "max_asset_bytes": "max_asset_bytes: 32L * 1024L * 1024L",
+        "max_total_asset_bytes": "max_total_asset_bytes: 128L * 1024L * 1024L",
+        "external_command_timeout_ms": "external_command_timeout_ms: 300000",
+        "max_external_output_bytes": "max_external_output_bytes: 8L * 1024L * 1024L",
+    }
+    expected_resource_values = {
+        "max_rows": 2000,
+        "max_cols": 50,
+        "max_cells": 100000,
+        "max_line_chars": 4000,
+        "max_input_bytes": 536870912,
+        "max_asset_bytes": 33554432,
+        "max_total_asset_bytes": 134217728,
+        "external_command_timeout_ms": 300000,
+        "max_external_output_bytes": 8388608,
+        "external_termination_grace_ms": 2000,
+    }
+    if data.get("resource_limits") != expected_resource_values:
+        errors.append("maintenance inventory resource limit values differ from the reviewed defaults")
+    for name, fragment in resource_fragments.items():
+        if fragment not in product_options:
+            errors.append(f"resource limit source fragment is missing for {name}")
+    if "termination_grace_ms: 2000" not in command_runner:
+        errors.append("external command termination grace source fragment is missing")
+
+    coverage_source = (ROOT / "tools/regression/lib/coverage_gate.py").read_text(encoding="utf-8")
+    for name, threshold in data.get("coverage", {}).get("threshold_percent", {}).items():
+        if f'("{name}", {threshold:.1f},' not in coverage_source:
+            errors.append(f"coverage threshold differs for {name}")
+
+    module_text = (ROOT / "moon.mod").read_text(encoding="utf-8")
+    declared = set(re.findall(r'"([^"@]+)@([^"@]+)"', module_text))
+    licensed = {
+        (entry["name"], entry["version"])
+        for entry in data.get("licenses", {}).get("dependencies", [])
+        if entry.get("license")
+    }
+    if declared != licensed:
+        errors.append(
+            "dependency license inventory differs: expected "
+            + repr(sorted(declared))
+            + ", observed "
+            + repr(sorted(licensed))
+        )
+    project_license = data.get("licenses", {}).get("project", {})
+    license_path = ROOT / project_license.get("file", "")
+    if project_license.get("spdx") != "Apache-2.0" or not license_path.is_file():
+        errors.append("project license inventory must reference the Apache-2.0 LICENSE file")
+    return errors
 
 
 def project_inventory(files: list[str]) -> dict:
@@ -164,6 +281,7 @@ def collect() -> tuple[dict, list[str]]:
             "lock_sha256": sha256_file(LOCK),
             "quality_lab_commit": quality_lab_sha(),
         },
+        "maintenance_inventory": maintenance_inventory_summary(),
         "inventory": inventory,
         "fixtures": {
             "roots": ["samples/fixtures/contracts", "samples/fixtures/rejections"],
@@ -181,6 +299,7 @@ def immutable_fields(manifest: dict) -> dict:
         "upstream": manifest["upstream"],
         "toolchain": manifest["toolchain"],
         "benchmark_baseline": manifest["benchmark_baseline"],
+        "maintenance_inventory": manifest["maintenance_inventory"],
         "fixtures": manifest["fixtures"],
     }
 
@@ -193,6 +312,11 @@ def main() -> int:
     if args.write == args.check:
         parser.error("choose exactly one of --write or --check")
     observed, fixture_lines = collect()
+    validation_errors = validate_maintenance_inventory()
+    if validation_errors:
+        for error in validation_errors:
+            print(f"baseline inventory: {error}", file=sys.stderr)
+        return 1
     if args.write:
         BASELINE.write_text(json.dumps(observed, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         FIXTURE_HASHES.write_text("\n".join(fixture_lines) + "\n", encoding="utf-8")

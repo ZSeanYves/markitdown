@@ -474,7 +474,11 @@ fn detect_and_resolve_execution_plan(
   (@input.InputSource, @input.FormatDetectionResult, ResolvedExecutionPlan),
   ConvertError,
 ] {
-  let input_size = match @input.input_source_size(source) {
+  let bounded_source = @input.input_source_with_reader_limit(
+    source,
+    options.limits.max_input_bytes,
+  )
+  let input_size = match @input.input_source_size(bounded_source) {
     Ok(value) => value
     Err(_) => None
   }
@@ -489,7 +493,7 @@ fn detect_and_resolve_execution_plan(
       )
     _ => ()
   }
-  match detect_input(source, options) {
+  match detect_input(bounded_source, options) {
     Ok((effective_source, detected)) => {
       let policy = @fmeta.route_contract_for_format(detected.format)
       let accurate_requested = options.mode == Accurate

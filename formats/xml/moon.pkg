@@ -1,9 +1,9 @@
 import {
-  "ZSeanYves/markitdown/format_readers/xml" @dxml,
+  "ZSeanYves/markitdown/internal/readers/xml" @dxml,
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/formats/shared" @fshared,
   "ZSeanYves/markitdown/input",
-  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/internal/parser",
 }
 
 options(

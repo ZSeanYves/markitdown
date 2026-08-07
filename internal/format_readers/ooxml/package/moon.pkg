@@ -1,5 +1,5 @@
 import {
-  "ZSeanYves/markitdown/format_readers/ooxml/package" @ox,
+  "ZSeanYves/markitdown/internal/readers/ooxml/package" @ox,
 }
 
 supported_targets = "native"

@@ -6,13 +6,13 @@ tests, security, license and maintenance evidence described below.
 
 ## Direct MoonBit dependencies
 
-| Package | Version | Observed local use | Decision | Required owner/evidence |
-| --- | --- | --- | --- | --- |
-| `bikallem/blit` | 0.2.2 | ZIP and compression; native byte/FFI support | retain, isolate | Runtime owner; bounds, ASan/UBSan, debug/release ABI |
-| `bikallem/compress` | 0.3.4 | DEFLATE, gzip, zlib and ZIP readers | retain | Format owner; truncation, bomb, fuzz, large-stream and differential tests |
-| `moonbitlang/x` | 0.4.40 | filesystem, base64, crypto and codec helpers | retain and upgrade deliberately | Core owner; API diff, target matrix and microbench; executable entrypoints must not use deprecated `x/sys` process shims |
-| `moonbitlang/async` | 0.20.2 | native command/process/filesystem adapters | retain behind runtime boundary | Runtime owner; no stable façade async types; cancellation/timeout/leak tests |
-| `tonyfettes/encoding` | 0.3.9 | source decoding, UTF/legacy encoding and PDF/text paths | retain | Encoding owner; all-target corpus and blocking new-native full-suite gate |
+| Package | Version | License | Observed local use | Decision | Required owner/evidence |
+| --- | --- | --- | --- | --- | --- |
+| `bikallem/blit` | 0.2.2 | Apache-2.0 | ZIP and compression; native byte/FFI support | retain, isolate | Runtime owner; bounds, ASan/UBSan, debug/release ABI |
+| `bikallem/compress` | 0.3.4 | Apache-2.0 | DEFLATE, gzip, zlib and ZIP readers | retain | Format owner; truncation, bomb, fuzz, large-stream and differential tests |
+| `moonbitlang/x` | 0.4.40 | Apache-2.0 | filesystem, base64, crypto and codec helpers | retain and upgrade deliberately | Core owner; API diff, target matrix and microbench; executable entrypoints must not use deprecated `x/sys` process shims |
+| `moonbitlang/async` | 0.20.2 | Apache-2.0 | native command/process/filesystem adapters | retain behind runtime boundary | Runtime owner; no stable façade async types; cancellation/timeout/leak tests |
+| `tonyfettes/encoding` | 0.3.9 | Apache-2.0 | source decoding, UTF/legacy encoding and PDF/text paths | retain | Encoding owner; all-target corpus and blocking new-native full-suite gate |
 
 `moon tree` now resolves five direct declarations. `TheWaWaR/clap@0.2.6` and
 `tonyfettes/unicode@0.3.0` were removed after confirming that no package imported

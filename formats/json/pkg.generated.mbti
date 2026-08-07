@@ -3,23 +3,160 @@ package "ZSeanYves/markitdown/formats/json"
 
 import {
   "ZSeanYves/markitdown/input",
-  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/internal/parser",
 }
 
 // Values
-pub fn json_parse_with_prepared_document(@input.InputSource, @parser.ParseContext, @ZSeanYves/markitdown/format_readers/json.PreparedJsonText) -> @parser.ParseResult
+pub fn classify_json_error(JsonError) -> JsonErrorInfo
 
-pub fn json_parse_with_stream_document(@input.InputSource, @parser.ParseContext, String, @ZSeanYves/markitdown/format_readers/json.JsonStreamDocument) -> @parser.ParseResult
+pub fn inspect_json_document(JsonDocument) -> JsonInspectReport
+
+pub fn json_parse_with_prepared_document(@input.InputSource, @parser.ParseContext, PreparedJsonText) -> @parser.ParseResult
+
+pub fn json_parse_with_stream_document(@input.InputSource, @parser.ParseContext, String, JsonStreamDocument) -> @parser.ParseResult
 
 pub fn json_parser() -> @parser.Parser
+
+pub fn json_value_kind(JsonValue) -> String
 
 pub fn jsonl_parser() -> @parser.Parser
 
 pub fn ndjson_parser() -> @parser.Parser
 
+pub fn parse_json_document(String) -> JsonDocument raise
+
+pub fn parse_json_document_native(String, preserve_number_lexemes? : Bool) -> JsonDocument raise
+
+pub fn parse_json_stream(String) -> JsonStreamDocument raise
+
+pub fn parse_json_stream_summary(String) -> JsonStreamDocument raise
+
+pub fn prepare_json_document_from_source(@input.InputSource) -> Result[PreparedJsonText, String]
+
+pub fn profile_json_document(String) -> JsonProfiledDocument raise
+
 // Errors
+pub(all) suberror JsonError {
+  ParseError(String)
+}
+pub impl Show for JsonError
 
 // Types and methods
+pub struct JsonDocument {
+  root : JsonValue
+}
+
+pub struct JsonErrorInfo {
+  kind : JsonErrorKind
+  detail : String
+}
+
+pub(all) enum JsonErrorKind {
+  UnexpectedEnd
+  TrailingContent
+  UnexpectedCharacter
+  ObjectKeyMustBeString
+  UnterminatedString
+  InvalidEscape
+  InvalidUnicodeEscape
+  InvalidUnicodeSurrogate
+  InvalidNumber
+  InvalidFraction
+  InvalidExponent
+  RawNewlineInString
+  RawControlCharacterInString
+  ExpectedToken
+  Unknown
+} derive(Eq)
+
+pub struct JsonInspectReport {
+  node_count : Int
+  object_count : Int
+  array_count : Int
+  scalar_count : Int
+  member_count : Int
+  max_depth : Int
+  root_kind : String
+}
+
+pub struct JsonMember {
+  key : String
+  value : JsonValue
+}
+
+pub struct JsonParseProfileReport {
+  stages : Array[JsonParseProfileStage]
+}
+
+pub struct JsonParseProfileStage {
+  name : String
+  elapsed_ms : UInt64
+  detail : String?
+}
+
+pub struct JsonProfiledDocument {
+  document : JsonDocument
+  report : JsonParseProfileReport
+}
+
+pub struct JsonStreamDocument {
+  events : Array[JsonStreamEvent]
+  summary : JsonStreamSummary
+}
+
+pub struct JsonStreamEvent {
+  kind : JsonStreamEventKind
+  pointer : String
+  depth : Int
+  text : String?
+  source : JsonStreamSource
+}
+
+pub(all) enum JsonStreamEventKind {
+  ObjectStart
+  ObjectEnd
+  ArrayStart
+  ArrayEnd
+  Key
+  StringValue
+  NumberValue
+  BoolValue
+  NullValue
+} derive(Eq)
+
+pub struct JsonStreamSource {
+  line : Int
+  column : Int
+  byte_start : Int
+  byte_end : Int
+}
+
+pub struct JsonStreamSummary {
+  token_count : Int
+  object_count : Int
+  array_count : Int
+  scalar_count : Int
+  max_depth : Int
+  root_kind : String
+}
+
+pub(all) enum JsonValue {
+  Object(Array[JsonMember])
+  Array(Array[JsonValue])
+  String(String)
+  Number(String)
+  Bool(Bool)
+  Null
+}
+
+pub struct PreparedJsonText {
+  prepared_source : @input.InputSource
+  original_text : String
+  document : JsonDocument?
+  inspect : JsonInspectReport?
+  stream : JsonStreamDocument?
+  parse_error : String?
+}
 
 // Type aliases
 

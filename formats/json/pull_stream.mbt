@@ -234,7 +234,7 @@ fn next_line_json_record(
   format_name : String,
   context : @parser.ParseContext,
   count : Ref[Int],
-) -> Result[(@sourceio.SourceTextLine, @djson.JsonDocument)?, String] {
+) -> Result[(@sourceio.SourceTextLine, JsonDocument)?, String] {
   let max_rows = context.max_rows.unwrap_or(200)
   while count.val < max_rows {
     let line = match (reader.next)() {
@@ -249,7 +249,7 @@ fn next_line_json_record(
     if line.truncated {
       return Err(format_name + " record exceeds max_line_chars")
     }
-    let document = @djson.parse_json_document(raw) catch {
+    let document = parse_json_document(raw) catch {
       error =>
         return Err(
           "invalid " +
@@ -298,7 +298,7 @@ fn scan_line_json_source(
     if line.truncated {
       return Err(format_name + " record exceeds max_line_chars")
     }
-    let document = @djson.parse_json_document(raw) catch {
+    let document = parse_json_document(raw) catch {
       error =>
         return Err(
           "invalid " +
@@ -309,7 +309,7 @@ fn scan_line_json_source(
           error.to_string(),
         )
     }
-    let inspect = @djson.inspect_json_document(document)
+    let inspect = inspect_json_document(document)
     object_count += inspect.object_count
     array_count += inspect.array_count
     scalar_count += inspect.scalar_count

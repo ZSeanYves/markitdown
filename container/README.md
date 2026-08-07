@@ -12,7 +12,7 @@ not ZIP decoding or format-specific lowering.
 
 ## Boundaries
 
-Raw ZIP access stays in `format_readers/zip`; product dispatch stays in the
+Raw ZIP access stays in `internal/readers/zip`; product dispatch stays in the
 relevant `formats/*` package and reuses the root registry/pipeline through
 `runtime`. Nested archives, unsafe paths, duplicate output names, entry bombs,
 and budget overruns fail closed. Child assets retain explicit `AssetPayload`

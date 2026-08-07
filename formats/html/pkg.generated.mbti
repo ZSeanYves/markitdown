@@ -4,21 +4,21 @@ package "ZSeanYves/markitdown/formats/html"
 import {
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/input",
-  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/internal/parser",
 }
 
 // Values
 pub fn html_document_to_ir(@input.InputSource, String) -> Result[(@core.DocumentIR, @core.Diagnostics), String]
 
-pub fn html_lowering_block_metric(@input.InputSource, @ZSeanYves/markitdown/format_readers/html.HtmlDocument, @ZSeanYves/markitdown/format_readers/html.HtmlSemanticDocument) -> Int
+pub fn html_lowering_block_metric(@input.InputSource, @ZSeanYves/markitdown/internal/readers/html.HtmlDocument, @ZSeanYves/markitdown/internal/readers/html.HtmlSemanticDocument) -> Int
 
-pub fn html_lowering_prepare_metric(@ZSeanYves/markitdown/format_readers/html.HtmlDocument, @ZSeanYves/markitdown/format_readers/html.HtmlSemanticDocument) -> Int
+pub fn html_lowering_prepare_metric(@ZSeanYves/markitdown/internal/readers/html.HtmlDocument, @ZSeanYves/markitdown/internal/readers/html.HtmlSemanticDocument) -> Int
 
-pub fn html_lowering_top_level_block_metric(@ZSeanYves/markitdown/format_readers/html.HtmlDocument, @ZSeanYves/markitdown/format_readers/html.HtmlSemanticDocument) -> Int
+pub fn html_lowering_top_level_block_metric(@ZSeanYves/markitdown/internal/readers/html.HtmlDocument, @ZSeanYves/markitdown/internal/readers/html.HtmlSemanticDocument) -> Int
 
-pub fn html_parse_with_prepared_document(@input.InputSource, @parser.ParseContext, @ZSeanYves/markitdown/format_readers/html.PreparedHtmlDocument) -> @parser.ParseResult
+pub fn html_parse_with_prepared_document(@input.InputSource, @parser.ParseContext, @ZSeanYves/markitdown/internal/readers/html.PreparedHtmlDocument) -> @parser.ParseResult
 
-pub fn html_parse_with_token_events(@input.InputSource, @parser.ParseContext, String, Array[@ZSeanYves/markitdown/format_readers/html.HtmlTokenEvent]) -> @parser.ParseResult
+pub fn html_parse_with_token_events(@input.InputSource, @parser.ParseContext, String, Array[@ZSeanYves/markitdown/internal/readers/html.HtmlTokenEvent]) -> @parser.ParseResult
 
 pub fn html_parser() -> @parser.Parser
 

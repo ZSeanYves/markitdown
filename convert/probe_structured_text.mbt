@@ -39,7 +39,7 @@ fn markdown_preflight_probe(
       ],
     )
   }
-  let prepared = @dmd.prepare_markdown_document_from_text(
+  let prepared = @fmarkdown.prepare_markdown_document_from_text(
     text_payload.prepared_source,
     text,
   )
@@ -89,7 +89,7 @@ fn json_preflight_probe(
   source : @input.InputSource,
   options : ConvertOptions,
 ) -> ProbeOutcome {
-  let prepared = match @djson.prepare_json_document_from_source(source) {
+  let prepared = match @fjson.prepare_json_document_from_source(source) {
     Ok(value) => value
     Err(_) => return unavailable_probe("json", source)
   }
@@ -172,7 +172,7 @@ fn toml_preflight_probe(
   source : @input.InputSource,
   _options : ConvertOptions,
 ) -> ProbeOutcome {
-  let prepared = match @dtoml.prepare_toml_document_from_source(source) {
+  let prepared = match @ftoml.prepare_toml_document_from_source(source) {
     Ok(value) => value
     Err(_) => return unavailable_probe("toml", source)
   }

@@ -9,7 +9,7 @@
 
 - Register built-in parsers and expose the unified registry upward
 - Implement parser, lowering, and format-specific diagnostics behavior
-- Consume prepared or source-model outputs from `format_readers/*`
+- Consume prepared or source-model outputs from `internal/readers/*`
 - Keep format behavior aligned with product capabilities, route contracts, and fail-closed boundaries
 
 ## Key Entry Points
@@ -40,7 +40,7 @@
 
 - A new format should complete the reader, parser, registry, and contract story together instead of landing as a parser entry point only
 - Fail-closed boundaries must stay explicit, especially around OCR, container recursion, and large-object degradation
-- `formats/*` owns product semantics, not low-level decoders; raw parse details should stay in `format_readers/*`
+- `formats/*` owns product semantics, not low-level decoders; raw parse details should stay in `internal/readers/*`
 - Embedded document images are assets, not OCR requests. Only top-level pure
   images and standalone unreferenced ZIP image children use the balance OCR
   provider.

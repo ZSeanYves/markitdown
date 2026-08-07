@@ -1,0 +1,16 @@
+import {
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/string",
+  "ZSeanYves/markitdown/internal/readers/xml" @dxml,
+  "ZSeanYves/markitdown/internal/readers/zip" @dzip,
+}
+
+import {
+  "ZSeanYves/markitdown/internal/testsupport/hermetic" @therm,
+} for "wbtest"
+
+supported_targets = "native"
+
+options(
+  "preferred-target": "native",
+)

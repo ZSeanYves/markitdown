@@ -1,7 +1,7 @@
 ///|
 fn fill_toml_metrics(
   diagnostics : @core.Diagnostics,
-  inspect : @dtoml.TomlInspectReport,
+  inspect : TomlInspectReport,
   text : String,
   document : @core.DocumentIR,
 ) -> Unit {
@@ -40,7 +40,7 @@ fn fill_toml_metrics(
 
 ///|
 fn lower_toml_document(
-  doc : @dtoml.TomlDocument,
+  doc : TomlDocument,
   source : @input.InputSource,
 ) -> @core.DocumentIR {
   let document = @core.empty_document_ir()
@@ -103,7 +103,7 @@ fn lower_toml_document(
 ///|
 fn append_toml_fast_array_table(
   document : @core.DocumentIR,
-  fast : @dtoml.TomlFastArrayTable,
+  fast : TomlFastArrayTable,
   source : @input.InputSource,
   compact : Bool,
 ) -> Unit {
@@ -174,14 +174,14 @@ fn toml_compact_table_block_from_rows(
 
 ///|
 fn lower_toml_members(
-  entries : Array[@dtoml.TomlMember],
+  entries : Array[TomlMember],
   source : @input.InputSource,
   base_path : String,
   empty_is_table : Bool,
 ) -> Array[@core.CoreBlock] {
   let out : Array[@core.CoreBlock] = []
-  let scalar_entries : Array[@dtoml.TomlMember] = []
-  let complex_entries : Array[@dtoml.TomlMember] = []
+  let scalar_entries : Array[TomlMember] = []
+  let complex_entries : Array[TomlMember] = []
   for entry in entries {
     if toml_value_can_fit_kv_table(entry.value) {
       scalar_entries.push(entry)
@@ -217,7 +217,7 @@ fn lower_toml_members(
 
 ///|
 fn lower_toml_complex_entry(
-  entry : @dtoml.TomlMember,
+  entry : TomlMember,
   source : @input.InputSource,
 ) -> Array[@core.CoreBlock] {
   let out : Array[@core.CoreBlock] = []
@@ -273,9 +273,9 @@ fn lower_toml_complex_entry(
 
 ///|
 fn lower_toml_array_value(
-  values : Array[@dtoml.TomlValue],
+  values : Array[TomlValue],
   source : @input.InputSource,
-  owner : @dtoml.TomlMember,
+  owner : TomlMember,
 ) -> Array[@core.CoreBlock] {
   if values.length() == 0 {
     return [
@@ -316,7 +316,7 @@ fn lower_toml_array_value(
 
 ///|
 fn lower_toml_array_of_tables_group(
-  grouped : Array[@dtoml.TomlTable],
+  grouped : Array[TomlTable],
   source : @input.InputSource,
   base_path : String,
 ) -> Array[@core.CoreBlock] {
@@ -374,9 +374,9 @@ fn lower_toml_array_of_tables_group(
 
 ///|
 fn toml_scalar_list_block(
-  values : Array[@dtoml.TomlValue],
+  values : Array[TomlValue],
   source : @input.InputSource,
-  owner : @dtoml.TomlMember,
+  owner : TomlMember,
 ) -> @core.CoreBlock {
   let list = @core.make_block(
     List,
@@ -406,7 +406,7 @@ fn toml_scalar_list_block(
 
 ///|
 fn toml_table_block_from_members(
-  entries : Array[@dtoml.TomlMember],
+  entries : Array[TomlMember],
   source : @input.InputSource,
   path : String,
 ) -> @core.CoreBlock {
@@ -466,7 +466,7 @@ fn toml_heading_block(
 ///|
 fn toml_source_ref_from_member(
   source : @input.InputSource,
-  entry : @dtoml.TomlMember,
+  entry : TomlMember,
 ) -> @core.SourceRef {
   toml_source_ref_from_path(
     source,
@@ -571,7 +571,7 @@ fn toml_malformed_parse_result(
 }
 
 ///|
-fn toml_value_can_fit_kv_table(value : @dtoml.TomlValue) -> Bool {
+fn toml_value_can_fit_kv_table(value : TomlValue) -> Bool {
   match value {
     String(text) => !text.contains("\n")
     Integer(_) | Float(_) | Bool(_) | Datetime(_) => true
@@ -585,7 +585,7 @@ fn toml_value_can_fit_kv_table(value : @dtoml.TomlValue) -> Bool {
 }
 
 ///|
-fn toml_value_cell(value : @dtoml.TomlValue) -> String {
+fn toml_value_cell(value : TomlValue) -> String {
   match value {
     String(text) => text
     Integer(text) => text
@@ -606,7 +606,7 @@ fn toml_value_cell(value : @dtoml.TomlValue) -> String {
 }
 
 ///|
-fn toml_inline_table_text(entries : Array[@dtoml.TomlMember]) -> String {
+fn toml_inline_table_text(entries : Array[TomlMember]) -> String {
   let parts : Array[String] = []
   for entry in entries {
     parts.push(entry.key + " = " + toml_value_cell(entry.value))
@@ -615,7 +615,7 @@ fn toml_inline_table_text(entries : Array[@dtoml.TomlMember]) -> String {
 }
 
 ///|
-fn toml_inline_table_inlineable(entries : Array[@dtoml.TomlMember]) -> Bool {
+fn toml_inline_table_inlineable(entries : Array[TomlMember]) -> Bool {
   for entry in entries {
     if !toml_value_can_fit_kv_table(entry.value) {
       return false
@@ -625,7 +625,7 @@ fn toml_inline_table_inlineable(entries : Array[@dtoml.TomlMember]) -> Bool {
 }
 
 ///|
-fn toml_array_of_scalars(values : Array[@dtoml.TomlValue]) -> Bool {
+fn toml_array_of_scalars(values : Array[TomlValue]) -> Bool {
   for value in values {
     match value {
       String(_) | Integer(_) | Float(_) | Bool(_) | Datetime(_) => ()
@@ -637,7 +637,7 @@ fn toml_array_of_scalars(values : Array[@dtoml.TomlValue]) -> Bool {
 
 ///|
 fn toml_inline_table_array_rows(
-  values : Array[@dtoml.TomlValue],
+  values : Array[TomlValue],
 ) -> Array[Array[String]]? {
   let rows : Array[Array[String]] = []
   let mut keys : Array[String] = []
@@ -671,9 +671,7 @@ fn toml_inline_table_array_rows(
 }
 
 ///|
-fn toml_array_tables_shared_keys(
-  tables : Array[@dtoml.TomlTable],
-) -> Array[String]? {
+fn toml_array_tables_shared_keys(tables : Array[TomlTable]) -> Array[String]? {
   let mut keys : Array[String] = []
   let key_index : Map[String, Int] = Map([])
   let mut has_key_index = false
@@ -699,7 +697,7 @@ fn toml_array_tables_shared_keys(
 
 ///|
 fn toml_table_block_from_array_tables(
-  tables : Array[@dtoml.TomlTable],
+  tables : Array[TomlTable],
   keys : Array[String],
   source : @input.InputSource,
   path : String,
@@ -715,7 +713,7 @@ fn toml_table_block_from_array_tables(
 
 ///|
 fn toml_member_row(
-  entries : Array[@dtoml.TomlMember],
+  entries : Array[TomlMember],
   keys : Array[String],
 ) -> Array[String] {
   let row : Array[String] = Array::new(capacity=keys.length())
@@ -727,9 +725,9 @@ fn toml_member_row(
 
 ///|
 fn toml_group_array_tables(
-  tables : Array[@dtoml.TomlTable],
-) -> Map[String, Array[@dtoml.TomlTable]] {
-  let groups : Map[String, Array[@dtoml.TomlTable]] = Map([])
+  tables : Array[TomlTable],
+) -> Map[String, Array[TomlTable]] {
+  let groups : Map[String, Array[TomlTable]] = Map([])
   for table in tables {
     if !table.is_array_item {
       continue
@@ -798,7 +796,7 @@ fn toml_path_depth(path : String) -> Int {
 }
 
 ///|
-fn toml_array_summary(values : Array[@dtoml.TomlValue]) -> String {
+fn toml_array_summary(values : Array[TomlValue]) -> String {
   let mut table_like_count = 0
   for value in values {
     match value {
@@ -814,7 +812,7 @@ fn toml_array_summary(values : Array[@dtoml.TomlValue]) -> String {
 }
 
 ///|
-fn toml_stringify_value(value : @dtoml.TomlValue) -> String {
+fn toml_stringify_value(value : TomlValue) -> String {
   match value {
     String(text) => toml_quote_string(text)
     Integer(text) => text

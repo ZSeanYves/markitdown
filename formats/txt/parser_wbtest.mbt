@@ -95,7 +95,7 @@ test "TXT pull stream preserves reader chunk boundaries and CRLF" {
       if start >= bytes.length() {
         return Ok(Bytes::new(0))
       }
-      let end = (start + 3).min(bytes.length())
+      let end = (start + requested.min(3)).min(bytes.length())
       Ok(bytes.view(start~, end~).to_owned())
     },
     size=bytes.length().to_int64(),

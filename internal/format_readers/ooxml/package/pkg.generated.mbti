@@ -2,31 +2,31 @@
 package "ZSeanYves/markitdown/internal/format_readers/ooxml/package"
 
 // Values
-pub fn classify_ooxml_error(@ZSeanYves/markitdown/format_readers/ooxml/package.OoxmlError) -> OoxmlErrorInfo
+pub fn classify_ooxml_error(@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlError) -> OoxmlErrorInfo
 
-pub fn dump_media_assets_summary(@ZSeanYves/markitdown/format_readers/ooxml/package.OoxmlPackage) -> String
+pub fn dump_media_assets_summary(@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPackage) -> String
 
-pub fn dump_ooxml_package(@ZSeanYves/markitdown/format_readers/ooxml/package.OoxmlPackage) -> String
+pub fn dump_ooxml_package(@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPackage) -> String
 
-pub fn dump_package_summary(@ZSeanYves/markitdown/format_readers/ooxml/package.OoxmlPackage) -> String
+pub fn dump_package_summary(@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPackage) -> String
 
-pub fn dump_properties_summary(@ZSeanYves/markitdown/format_readers/ooxml/package.OoxmlPackage) -> String
+pub fn dump_properties_summary(@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPackage) -> String
 
-pub fn dump_relationships_summary(@ZSeanYves/markitdown/format_readers/ooxml/package.OoxmlPackage) -> String
+pub fn dump_relationships_summary(@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPackage) -> String
 
-pub fn find_part_info(@ZSeanYves/markitdown/format_readers/ooxml/package.OoxmlPackage, String) -> @ZSeanYves/markitdown/format_readers/ooxml/package.OoxmlPartInfo?
+pub fn find_part_info(@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPackage, String) -> @ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPartInfo?
 
-pub fn inspect_ooxml_package(@ZSeanYves/markitdown/format_readers/ooxml/package.OoxmlPackage) -> OoxmlPackageInspectReport
+pub fn inspect_ooxml_package(@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPackage) -> OoxmlPackageInspectReport
 
-pub fn list_content_type_infos(@ZSeanYves/markitdown/format_readers/ooxml/package.OoxmlPackage) -> Array[@ZSeanYves/markitdown/format_readers/ooxml/package.OoxmlContentTypeInfo]
+pub fn list_content_type_infos(@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPackage) -> Array[@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlContentTypeInfo]
 
-pub fn list_relationship_infos(@ZSeanYves/markitdown/format_readers/ooxml/package.OoxmlPackage, String) -> Array[OoxmlRelationshipInfo] raise @ZSeanYves/markitdown/format_readers/ooxml/package.OoxmlError
+pub fn list_relationship_infos(@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPackage, String) -> Array[OoxmlRelationshipInfo] raise @ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlError
 
 // Errors
 
 // Types and methods
 pub struct OoxmlErrorInfo {
-  kind : @ZSeanYves/markitdown/format_readers/ooxml/package.OoxmlErrorKind
+  kind : @ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlErrorKind
   detail : String
   part_name : String?
   rels_part_name : String?
@@ -43,12 +43,12 @@ pub struct OoxmlPackageInspectReport {
   package_relationship_count : Int
   part_relationship_count : Int
   media_asset_count : Int
-  inventory : @ZSeanYves/markitdown/format_readers/ooxml/package.OoxmlPackageInventory
+  inventory : @ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPackageInventory
   package_relationships : Array[OoxmlRelationshipInfo]
   part_relationships : Array[OoxmlRelationshipInfo]
-  media_assets : Array[@ZSeanYves/markitdown/format_readers/ooxml/package.OoxmlAsset]
-  core_properties : @ZSeanYves/markitdown/format_readers/ooxml/package.OoxmlCoreProperties
-  app_properties : @ZSeanYves/markitdown/format_readers/ooxml/package.OoxmlAppProperties
+  media_assets : Array[@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlAsset]
+  core_properties : @ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlCoreProperties
+  app_properties : @ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlAppProperties
 }
 
 pub struct OoxmlRelationshipInfo {
@@ -57,7 +57,7 @@ pub struct OoxmlRelationshipInfo {
   id : String
   rel_type : String
   target : String
-  target_mode : @ZSeanYves/markitdown/format_readers/ooxml/package.OoxmlTargetMode
+  target_mode : @ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlTargetMode
   resolved_target : String
 }
 

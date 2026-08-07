@@ -7,7 +7,7 @@ fn main {
 }
 
 ///|
-pub fn run_bench_cli(raw_args : Array[String]) -> Int {
-  let runner = @command.detect_runner_context(raw_args)
+fn run_bench_cli(raw_args : Array[String]) -> Int {
+  let runner = detect_runner_context(raw_args)
   run_bench_cli_entry(raw_args, runner)
 }

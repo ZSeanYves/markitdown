@@ -6,11 +6,11 @@
 /input/ @ZSeanYves
 /product/ @ZSeanYves
 /convert/ @ZSeanYves
-/parser/ @ZSeanYves
-/pipeline/ @ZSeanYves
+/internal/parser/ @ZSeanYves
+/internal/pipeline/ @ZSeanYves
 /render/ @ZSeanYves
 /runtime/ @ZSeanYves
-/format_readers/ @ZSeanYves
+/internal/readers/ @ZSeanYves
 /formats/ @ZSeanYves
 /tools/governance/ @ZSeanYves
 /.github/ @ZSeanYves

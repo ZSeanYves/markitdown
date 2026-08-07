@@ -546,20 +546,20 @@ pub fn xlsx_parser_contract_spec() -> ParserContractSpec {
 
 ///|
 pub fn txt_parser_contract_spec() -> ParserContractSpec {
-  line_event_parser_contract_spec("txt_parser", Txt, ["format_readers/text"])
+  line_event_parser_contract_spec("txt_parser", Txt, ["internal/readers/text"])
 }
 
 ///|
 pub fn csv_parser_contract_spec() -> ParserContractSpec {
   row_event_parser_contract_spec("csv_parser", Csv, [
-    "format_readers/delimited/csv", "format_readers/delimited/shared",
+    "formats/delimited", "formats/delimited",
   ])
 }
 
 ///|
 pub fn tsv_parser_contract_spec() -> ParserContractSpec {
   row_event_parser_contract_spec("tsv_parser", Tsv, [
-    "format_readers/delimited/tsv", "format_readers/delimited/shared",
+    "formats/delimited", "formats/delimited",
   ])
 }
 
@@ -568,7 +568,7 @@ pub fn json_parser_contract_spec() -> ParserContractSpec {
   dom_ast_parser_contract_spec(
     "json_parser",
     Json,
-    ["format_readers/json"],
+    ["formats/json"],
     [
       "root_kind", "table_count", "image_count", "asset_count", "block_count", "syntax_error_count",
     ],
@@ -585,7 +585,7 @@ pub fn jsonl_parser_contract_spec() -> ParserContractSpec {
   record_event_parser_contract_spec(
     "jsonl_parser",
     Jsonl,
-    ["format_readers/json"],
+    ["formats/json"],
     ["json_pointer"],
     [],
     [
@@ -599,7 +599,7 @@ pub fn ndjson_parser_contract_spec() -> ParserContractSpec {
   record_event_parser_contract_spec(
     "ndjson_parser",
     Ndjson,
-    ["format_readers/json"],
+    ["formats/json"],
     ["json_pointer"],
     [],
     [
@@ -613,7 +613,7 @@ pub fn xml_parser_contract_spec() -> ParserContractSpec {
   dom_ast_parser_contract_spec(
     "xml_parser",
     Xml,
-    ["format_readers/xml"],
+    ["internal/readers/xml"],
     [
       "element_count", "attribute_count", "table_count", "image_count", "asset_count",
       "validation_issue_count", "warning_count", "error_count", "block_count", "syntax_error_count",
@@ -630,7 +630,7 @@ pub fn yaml_parser_contract_spec() -> ParserContractSpec {
   dom_ast_parser_contract_spec(
     "yaml_parser",
     Yaml,
-    ["format_readers/yaml"],
+    ["internal/readers/yaml"],
     [
       "resource_limit_hit", "dom_limit_reached", "warning_count", "degraded_feature_count",
       "fallback_count",
@@ -648,7 +648,7 @@ pub fn toml_parser_contract_spec() -> ParserContractSpec {
   dom_ast_parser_contract_spec(
     "toml_parser",
     Toml,
-    ["format_readers/toml"],
+    ["formats/toml"],
     [
       "root_kind", "table_count", "scalar_count", "array_count", "table_like_count",
       "max_depth_observed", "warning_count", "degraded_feature_count", "fallback_count",
@@ -684,7 +684,7 @@ pub fn markdown_parser_contract_spec() -> ParserContractSpec {
       "markdown canonical route is dom-ast-model with block-inventory diagnostics",
       "large or explicit stream markdown lowers through block streaming inside the same parser family",
     ],
-    ["format_readers/markdown"],
+    ["formats/markdown"],
     @oxshared.parser_contract_required_foundation_exclusions(),
     large_route_granularity=Some(MarkdownBlock),
     large_route_ir_input_kind=Some("block_stream"),
@@ -696,7 +696,7 @@ pub fn html_parser_contract_spec() -> ParserContractSpec {
   dom_ast_parser_contract_spec(
     "html_parser",
     Html,
-    ["format_readers/html"],
+    ["internal/readers/html"],
     [
       "block_count", "asset_count", "char_count", "scope_source", "selected_content_root",
       "readability_mode", "noise_repeated_boilerplate_count", "boilerplate_skipped_block_count",
@@ -715,7 +715,7 @@ pub fn ipynb_parser_contract_spec() -> ParserContractSpec {
   dom_ast_parser_contract_spec(
     "ipynb_parser",
     Ipynb,
-    ["format_readers/ipynb", "format_readers/json"],
+    ["internal/readers/ipynb", "formats/json"],
     [
       "nbformat", "nbformat_minor", "cell_count", "markdown_cell_count", "code_cell_count",
       "raw_cell_count", "output_count", "stream_output_count", "display_data_count",
@@ -751,7 +751,7 @@ pub fn srt_parser_contract_spec() -> ParserContractSpec {
       "subtitle cue stream stays canonical", "time range source refs are first-class fields rather than extra metadata",
     ],
     [],
-    ["format_readers/subtitles/srt", "format_readers/subtitles/shared"],
+    ["formats/subtitles", "formats/subtitles"],
     @oxshared.parser_contract_required_foundation_exclusions(),
   )
 }
@@ -775,7 +775,7 @@ pub fn vtt_parser_contract_spec() -> ParserContractSpec {
       "subtitle cue stream stays canonical", "time range source refs are first-class fields rather than extra metadata",
     ],
     [],
-    ["format_readers/subtitles/vtt", "format_readers/subtitles/shared"],
+    ["formats/subtitles", "formats/subtitles"],
     @oxshared.parser_contract_required_foundation_exclusions(),
   )
 }
@@ -785,7 +785,7 @@ pub fn tex_parser_contract_spec() -> ParserContractSpec {
   dom_ast_parser_contract_spec(
     "tex_parser",
     Tex,
-    ["format_readers/text_markup/tex", "format_readers/text_markup/shared"],
+    ["internal/readers/text_markup", "internal/readers/text_markup"],
     [
       "block_count", "heading_count", "code_count", "table_count", "raw_count", "line_count",
       "char_count", "asset_count", "warning_count", "degraded_feature_count", "fallback_count",
@@ -802,7 +802,7 @@ pub fn rst_parser_contract_spec() -> ParserContractSpec {
   dom_ast_parser_contract_spec(
     "rst_parser",
     Rst,
-    ["format_readers/text_markup/rst", "format_readers/text_markup/shared"],
+    ["internal/readers/text_markup", "internal/readers/text_markup"],
     [
       "block_count", "heading_count", "code_count", "table_count", "raw_count", "line_count",
       "char_count", "asset_count", "warning_count", "degraded_feature_count", "fallback_count",
@@ -819,7 +819,7 @@ pub fn asciidoc_parser_contract_spec() -> ParserContractSpec {
   dom_ast_parser_contract_spec(
     "asciidoc_parser",
     Asciidoc,
-    ["format_readers/text_markup/asciidoc", "format_readers/text_markup/shared"],
+    ["internal/readers/text_markup", "internal/readers/text_markup"],
     [
       "block_count", "heading_count", "code_count", "table_count", "raw_count", "line_count",
       "char_count", "asset_count", "warning_count", "degraded_feature_count", "fallback_count",
@@ -836,7 +836,7 @@ pub fn eml_parser_contract_spec() -> ParserContractSpec {
   block_stream_parser_contract_spec(
     "eml_parser",
     Eml,
-    ["format_readers/eml"],
+    ["internal/readers/eml"],
     [
       "part_count", "attachment_count", "inline_image_count", "nested_message_count",
       "max_depth_observed", "max_part_chars", "asset_count", "block_count", "warning_count",
@@ -855,7 +855,7 @@ pub fn zip_parser_contract_spec() -> ParserContractSpec {
   container_parser_contract_spec(
     "zip_container_parser",
     Zip,
-    ["format_readers/zip", "container"],
+    ["internal/readers/zip", "container"],
     [
       "manifest_seen", "resource_limit_hit", "container_entry_count", "selected_entry_count",
       "skipped_entry_count", "unsupported_entry_count", "asset_count", "total_uncompressed_bytes",
@@ -888,7 +888,7 @@ pub fn epub_parser_contract_spec() -> ParserContractSpec {
     [
       "epub canonical route is package-single-pass by spine order", "explicit stream epub uses container-recursive path with archive-entry granularity",
     ],
-    ["format_readers/epub", "format_readers/html", "container"],
+    ["internal/readers/epub", "internal/readers/html", "container"],
     @oxshared.parser_contract_required_foundation_exclusions(),
     large_route_granularity=Some(ArchiveEntry),
     large_route_ir_input_kind=Some("block_stream"),
@@ -900,7 +900,7 @@ pub fn odt_parser_contract_spec() -> ParserContractSpec {
   package_with_block_large_route_contract_spec(
     "odt_parser",
     Odt,
-    ["format_readers/odf/odt", "format_readers/odf/shared"],
+    ["internal/readers/odf/odt", "internal/readers/odf/shared"],
     [
       "office_document_kind", "format_family", "resource_limit_hit", "syntax_error_count",
       "warning_count", "degraded_feature_count", "fallback_count", "asset_count",
@@ -921,7 +921,7 @@ pub fn ods_parser_contract_spec() -> ParserContractSpec {
   package_with_block_large_route_contract_spec(
     "ods_parser",
     Ods,
-    ["format_readers/odf/ods", "format_readers/odf/shared"],
+    ["internal/readers/odf/ods", "internal/readers/odf/shared"],
     [
       "office_document_kind", "format_family", "resource_limit_hit", "syntax_error_count",
       "warning_count", "degraded_feature_count", "fallback_count", "asset_count",
@@ -942,7 +942,7 @@ pub fn odp_parser_contract_spec() -> ParserContractSpec {
   package_with_block_large_route_contract_spec(
     "odp_parser",
     Odp,
-    ["format_readers/odf/odp", "format_readers/odf/shared"],
+    ["internal/readers/odf/odp", "internal/readers/odf/shared"],
     [
       "office_document_kind", "format_family", "resource_limit_hit", "syntax_error_count",
       "warning_count", "degraded_feature_count", "fallback_count", "asset_count",

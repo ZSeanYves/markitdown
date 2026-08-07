@@ -1,6 +1,6 @@
 ///|
 fn lower_json_document(
-  doc : @djson.JsonDocument,
+  doc : JsonDocument,
   original_text : String,
   source : @input.InputSource,
   diagnostics : @core.Diagnostics,
@@ -78,7 +78,7 @@ fn lower_json_document(
 
 ///|
 fn json_array_to_blocks(
-  values : Array[@djson.JsonValue],
+  values : Array[JsonValue],
   source : @input.InputSource,
   pointer : String,
   format_name : String,
@@ -151,7 +151,7 @@ fn lower_line_delimited_json_events(
     if record_index >= max_rows {
       break
     }
-    let parsed = try @djson.parse_json_document(raw_line) |> Ok catch {
+    let parsed = try parse_json_document(raw_line) |> Ok catch {
       e =>
         Err(
           "invalid " +
@@ -166,7 +166,7 @@ fn lower_line_delimited_json_events(
       Ok(value) => value
       Err(err) => return Err(err)
     }
-    let inspect = @djson.inspect_json_document(doc)
+    let inspect = inspect_json_document(doc)
     object_count += inspect.object_count
     array_count += inspect.array_count
     scalar_count += inspect.scalar_count
@@ -309,7 +309,7 @@ fn merge_stream_bytes_into_source_ref(
 
 ///|
 fn json_generic_block_events_from_stream(
-  stream : @djson.JsonStreamDocument,
+  stream : JsonStreamDocument,
   source : @input.InputSource,
 ) -> Array[@core.CoreEvent] {
   if stream.summary.root_kind == "array" && stream.events.length() >= 100_000 {
@@ -546,7 +546,7 @@ fn JsonDirectPreviewCursor::string_value(
       if !has_escape {
         return self.text[content_start:content_end].to_owned()
       }
-      let decoded = @djson.parse_json_document_native(
+      let decoded = parse_json_document_native(
         self.text[quoted_start:self.pos].to_owned(),
         preserve_number_lexemes=false,
       ) catch {
@@ -622,7 +622,7 @@ fn JsonDirectPreviewCursor::skip_value(self : JsonDirectPreviewCursor) -> Unit {
 
 ///|
 fn json_compact_root_array_events_from_stream(
-  stream : @djson.JsonStreamDocument,
+  stream : JsonStreamDocument,
   source : @input.InputSource,
 ) -> Array[@core.CoreEvent] {
   let events : Array[@core.CoreEvent] = Array::new(

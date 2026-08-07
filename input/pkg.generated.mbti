@@ -16,6 +16,8 @@ pub fn image_format_name(ImageFormat) -> String
 
 pub fn input_bytes(InputSource) -> Bytes?
 
+pub fn input_error_is_fatal_reader_error(String) -> Bool
+
 pub fn input_from_bytes(Bytes, source_name? : String) -> InputSource
 
 pub fn input_from_bytes_with_format(Bytes, String, DetectedFormat?) -> InputSource
@@ -39,6 +41,8 @@ pub fn input_path(InputSource) -> String?
 pub fn input_size(InputSource) -> Int64?
 
 pub fn input_source_size(InputSource) -> Result[Int64?, String]
+
+pub fn input_source_with_reader_limit(InputSource, Int64) -> InputSource
 
 pub fn input_text(InputSource) -> String?
 

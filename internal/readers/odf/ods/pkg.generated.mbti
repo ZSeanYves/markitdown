@@ -1,0 +1,44 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/internal/readers/odf/ods"
+
+import {
+  "ZSeanYves/markitdown/input",
+  "ZSeanYves/markitdown/internal/readers/odf/shared",
+}
+
+// Values
+pub fn inspect_ods_document(@shared.OdsDocument) -> @shared.OdsInspectReport
+
+pub fn open_ods_document(Bytes) -> @shared.OdsDocument raise
+
+pub fn prepare_ods_document_from_source(@input.InputSource) -> Result[PreparedOdsDocument, String]
+
+// Errors
+
+// Types and methods
+pub struct PreparedOdsDocument {
+  prepared_source : @input.InputSource
+  document : @shared.OdsDocument
+  inspect : @shared.OdsInspectReport
+}
+
+// Type aliases
+pub using @shared {type OdfDocumentKind}
+
+pub using @shared {type OdfError}
+
+pub using @shared {type OdfMetadataSummary}
+
+pub using @shared {type OdfPackageInfo}
+
+pub using @shared {type OdsCell}
+
+pub using @shared {type OdsDocument}
+
+pub using @shared {type OdsInspectReport}
+
+pub using @shared {type OdsRow}
+
+pub using @shared {type OdsSheet}
+
+// Traits

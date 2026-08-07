@@ -98,12 +98,52 @@ test "main CLI help and fail closed messages remain nonempty across categories" 
   assert_true(
     cli_usage_text().contains("unsupported mode requests fail closed"),
   )
-  assert_eq(exit_cli_error("contract", false), 4)
-  assert_eq(cli_error_exit_code("bad option", true), 2)
-  assert_eq(cli_error_exit_code("detect failed: unknown", false), 3)
-  assert_eq(cli_error_exit_code("open input path failed: missing.md", false), 3)
-  assert_eq(cli_error_exit_code("parse failed: malformed", false), 4)
-  assert_eq(cli_error_exit_code("resource limit exceeded", false), 5)
-  assert_eq(cli_error_exit_code("render failed: sink", false), 6)
-  assert_eq(cli_error_exit_code("open atomic output failed", false), 6)
+  assert_eq(exit_cli_error(cli_failure(ConversionFailure, "contract")), 4)
+  assert_eq(cli_failure_exit_code(cli_failure(UsageFailure, "bad option")), 2)
+  assert_eq(
+    cli_failure_exit_code(cli_failure(DetectionFailure, "same text")),
+    3,
+  )
+  assert_eq(
+    cli_failure_exit_code(cli_failure(ConversionFailure, "same text")),
+    4,
+  )
+  assert_eq(cli_failure_exit_code(cli_failure(ResourceFailure, "same text")), 5)
+  assert_eq(cli_failure_exit_code(cli_failure(OutputFailure, "same text")), 6)
+}
+
+///|
+test "typed CLI failures preserve conversion categories and unsupported formats" {
+  let opts = cli_options("/definitely/missing/input.txt", None, None, Markdown)
+  let mapped = [
+    cli_failure_from_convert_error(opts, DetectFailed("detect")),
+    cli_failure_from_convert_error(opts, ParseFailed("parse")),
+    cli_failure_from_convert_error(opts, RenderFailed("render")),
+    cli_failure_from_convert_error(
+      opts,
+      ResourceLimitExceeded(kind="input_bytes", observed=2L, limit=1L),
+    ),
+  ]
+  assert_true(mapped[0].kind == DetectionFailure)
+  assert_true(mapped[1].kind == ConversionFailure)
+  assert_true(mapped[2].kind == OutputFailure)
+  assert_true(mapped[3].kind == ResourceFailure)
+
+  let unsupported = cli_options(
+    "/definitely/missing/workbook.xls",
+    None,
+    Some(Unknown),
+    Markdown,
+  )
+  match
+    run_cli_with_image_ocr_provider_impl(
+      unsupported, @focr.run_ocr_provider, false,
+    ) {
+    Err(failure) => {
+      assert_true(failure.kind == DetectionFailure)
+      assert_eq(cli_failure_exit_code(failure), 3)
+      assert_true(failure.message.contains("unsupported format"))
+    }
+    Ok(_) => fail("unsupported format must fail before conversion")
+  }
 }

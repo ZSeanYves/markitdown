@@ -2,11 +2,11 @@
 /// Register all built-in format parsers into a registry instance.
 pub fn register_builtin_parsers(registry : @parser.ParserRegistry) -> Unit {
   @parser.registry_register(registry, Txt, @ftxt.txt_parser())
-  @parser.registry_register(registry, Srt, @fsrt.srt_parser())
-  @parser.registry_register(registry, Vtt, @fvtt.vtt_parser())
+  @parser.registry_register(registry, Srt, @fsubtitles.srt_parser())
+  @parser.registry_register(registry, Vtt, @fsubtitles.vtt_parser())
   @parser.registry_register(registry, Markdown, @fmarkdown.markdown_parser())
-  @parser.registry_register(registry, Csv, @fcsv.csv_parser())
-  @parser.registry_register(registry, Tsv, @ftsv.tsv_parser())
+  @parser.registry_register(registry, Csv, @fdelimited.csv_parser())
+  @parser.registry_register(registry, Tsv, @fdelimited.tsv_parser())
   @parser.registry_register(registry, Json, @fjson.json_parser())
   @parser.registry_register(registry, Jsonl, @fjson.jsonl_parser())
   @parser.registry_register(registry, Ndjson, @fjson.ndjson_parser())
@@ -14,9 +14,9 @@ pub fn register_builtin_parsers(registry : @parser.ParserRegistry) -> Unit {
   @parser.registry_register(registry, Xml, @fxml.xml_parser())
   @parser.registry_register(registry, Yaml, @fyaml.yaml_parser())
   @parser.registry_register(registry, Toml, @ftoml.toml_parser())
-  @parser.registry_register(registry, Tex, @ftex.tex_parser())
-  @parser.registry_register(registry, Rst, @frst.rst_parser())
-  @parser.registry_register(registry, Asciidoc, @fasciidoc.asciidoc_parser())
+  @parser.registry_register(registry, Tex, @ftextmarkup.tex_parser())
+  @parser.registry_register(registry, Rst, @ftextmarkup.rst_parser())
+  @parser.registry_register(registry, Asciidoc, @ftextmarkup.asciidoc_parser())
   @parser.registry_register(registry, Html, @fhtml.html_parser())
   @parser.registry_register(
     registry,

@@ -1,5 +1,5 @@
 ///|
-fn markdown_group_key(block : @dmd.MarkdownBlock) -> String {
+fn markdown_group_key(block : MarkdownBlock) -> String {
   match block.kind {
     ListItem =>
       if markdown_list_is_ordered(block.raw_text) {
@@ -14,7 +14,7 @@ fn markdown_group_key(block : @dmd.MarkdownBlock) -> String {
 
 ///|
 fn markdown_lowered_blocks_for_mode(
-  scanned : @dmd.MarkdownDocument,
+  scanned : MarkdownDocument,
   source : @input.InputSource,
   diagnostics : @core.Diagnostics,
   block_stream_mode : Bool,
@@ -74,8 +74,8 @@ priv struct MarkdownInlineParseResult {
 
 ///|
 priv enum MarkdownLoweringItem {
-  Scanned(@dmd.MarkdownBlock)
-  FootnoteDefinition(@dmd.MarkdownBlock, Array[@dmd.MarkdownBlock])
+  Scanned(MarkdownBlock)
+  FootnoteDefinition(MarkdownBlock, Array[MarkdownBlock])
 }
 
 ///|
@@ -86,7 +86,7 @@ priv enum MarkdownLoweringMode {
 
 ///|
 fn markdown_blocks_from_scanned_document(
-  scanned : @dmd.MarkdownDocument,
+  scanned : MarkdownDocument,
   source : @input.InputSource,
   diagnostics : @core.Diagnostics,
   lowering_mode : MarkdownLoweringMode,
@@ -162,7 +162,7 @@ fn markdown_blocks_from_scanned_document(
 
 ///|
 fn markdown_collect_defined_footnotes(
-  blocks : Array[@dmd.MarkdownBlock],
+  blocks : Array[MarkdownBlock],
 ) -> Map[String, Bool] {
   let out : Map[String, Bool] = Map([])
   for block in blocks {
@@ -174,9 +174,7 @@ fn markdown_collect_defined_footnotes(
 }
 
 ///|
-fn markdown_blocks_may_define_footnotes(
-  blocks : Array[@dmd.MarkdownBlock],
-) -> Bool {
+fn markdown_blocks_may_define_footnotes(blocks : Array[MarkdownBlock]) -> Bool {
   for block in blocks {
     if block.raw_text.contains("[^") && block.raw_text.contains("]:") {
       return true
@@ -187,21 +185,21 @@ fn markdown_blocks_may_define_footnotes(
 
 ///|
 fn markdown_group_scanned_blocks(
-  blocks : Array[@dmd.MarkdownBlock],
-) -> Array[Array[@dmd.MarkdownBlock]] {
-  let groups : Array[Array[@dmd.MarkdownBlock]] = []
-  let current : Array[@dmd.MarkdownBlock] = []
+  blocks : Array[MarkdownBlock],
+) -> Array[Array[MarkdownBlock]] {
+  let groups : Array[Array[MarkdownBlock]] = []
+  let current : Array[MarkdownBlock] = []
   let mut current_key = ""
 
   fn flush_group(
-    groups : Array[Array[@dmd.MarkdownBlock]],
-    current : Array[@dmd.MarkdownBlock],
+    groups : Array[Array[MarkdownBlock]],
+    current : Array[MarkdownBlock],
     current_key : String,
   ) -> String {
     if current.length() == 0 {
       return current_key
     }
-    let snapshot : Array[@dmd.MarkdownBlock] = []
+    let snapshot : Array[MarkdownBlock] = []
     snapshot.append(current[:])
     groups.push(snapshot)
     current.clear()
@@ -226,7 +224,7 @@ fn markdown_group_scanned_blocks(
 
 ///|
 fn markdown_scanned_group_to_core_blocks_next(
-  group : Array[@dmd.MarkdownBlock],
+  group : Array[MarkdownBlock],
   source : @input.InputSource,
   diagnostics : @core.Diagnostics,
   image_asset_index : Ref[Int],
@@ -298,7 +296,7 @@ fn markdown_scanned_group_to_core_blocks_next(
 
 ///|
 fn markdown_prepare_lowering_items(
-  blocks : Array[@dmd.MarkdownBlock],
+  blocks : Array[MarkdownBlock],
   _defined_footnotes : Map[String, Bool],
 ) -> Array[MarkdownLoweringItem] {
   let out : Array[MarkdownLoweringItem] = []
@@ -307,7 +305,7 @@ fn markdown_prepare_lowering_items(
     let block = blocks[i]
     match markdown_footnote_definition_head(block) {
       Some(_) => {
-        let continuation : Array[@dmd.MarkdownBlock] = []
+        let continuation : Array[MarkdownBlock] = []
         let mut j = i + 1
         while j < blocks.length() {
           let next = blocks[j]
@@ -404,7 +402,7 @@ fn markdown_lowering_item_group_key(item : MarkdownLoweringItem) -> String {
 
 ///|
 fn markdown_frontmatter_block(
-  value : @dmd.MarkdownFrontmatter,
+  value : MarkdownFrontmatter,
   source : @input.InputSource,
   base_source_ref? : @core.SourceRef? = None,
 ) -> @core.CoreBlock {
@@ -520,9 +518,7 @@ fn markdown_group_to_core_blocks_next(
 }
 
 ///|
-fn markdown_lowering_item_block(
-  item : MarkdownLoweringItem,
-) -> @dmd.MarkdownBlock {
+fn markdown_lowering_item_block(item : MarkdownLoweringItem) -> MarkdownBlock {
   match item {
     Scanned(block) => block
     FootnoteDefinition(block, _) => block
@@ -573,8 +569,8 @@ fn markdown_footnote_group_to_core_blocks_next(
 
 ///|
 fn markdown_footnote_definition_block(
-  head : @dmd.MarkdownBlock,
-  continuation : Array[@dmd.MarkdownBlock],
+  head : MarkdownBlock,
+  continuation : Array[MarkdownBlock],
   source : @input.InputSource,
   defined_footnotes : Map[String, Bool],
   base_source_ref? : @core.SourceRef? = None,
@@ -626,7 +622,7 @@ fn markdown_footnote_definition_block(
 
 ///|
 fn markdown_single_block_to_core_block_next(
-  block : @dmd.MarkdownBlock,
+  block : MarkdownBlock,
   source : @input.InputSource,
   diagnostics : @core.Diagnostics,
   image_asset_index : Ref[Int],
@@ -716,7 +712,7 @@ fn markdown_literal_block(
 
 ///|
 fn markdown_html_group_to_block_next(
-  group : Array[@dmd.MarkdownBlock],
+  group : Array[MarkdownBlock],
   source : @input.InputSource,
   diagnostics : @core.Diagnostics,
   lowering_mode : MarkdownLoweringMode,
@@ -749,7 +745,7 @@ fn markdown_html_group_to_block_next(
 
 ///|
 fn markdown_html_literal_block(
-  block : @dmd.MarkdownBlock,
+  block : MarkdownBlock,
   source_ref : @core.SourceRef,
   diagnostics : @core.Diagnostics,
   lowering_mode : MarkdownLoweringMode,

@@ -102,7 +102,7 @@ fn bench_progress_total(
 fn bench_progress_label(
   scenario : ScenarioSpec,
   tool_name : String,
-  row : @manifest.BenchRow,
+  row : BenchRow,
   phase : String,
   index : Int,
   total : Int,
@@ -242,7 +242,7 @@ fn bench_progress_advance(
 
 ///|
 fn release_binary_contract(
-  runner : @command.RunnerContext,
+  runner : RunnerContext,
 ) -> Result[BinaryContract, BenchError] {
   let runner_path = match runner.runner_path {
     Some(path) => path
@@ -416,10 +416,7 @@ fn benchmark_resource_summary(
 }
 
 ///|
-fn select_rows(
-  scenario : ScenarioSpec,
-  opts : RunOptions,
-) -> Array[@manifest.BenchRow] {
+fn select_rows(scenario : ScenarioSpec, opts : RunOptions) -> Array[BenchRow] {
   let exact_tiers = if opts.exact_tiers.length() > 0 {
     opts.exact_tiers
   } else {
@@ -430,7 +427,7 @@ fn select_rows(
   } else {
     scenario.format_filters
   }
-  let request = @manifest.make_select_request(
+  let request = make_select_request(
     "smoke",
     exact_tiers,
     opts.bench_ids,
@@ -440,24 +437,24 @@ fn select_rows(
     false,
     comparison_classes=scenario.comparison_classes,
   )
-  @manifest.select_rows(request)
+  select_manifest_rows(request)
 }
 
 ///|
 fn run_samples(
   run_id : String,
   scenario : ScenarioSpec,
-  rows : Array[@manifest.BenchRow],
+  rows : Array[BenchRow],
   opts : RunOptions,
   contract : BinaryContract,
   progress : Ref[BenchProgressState],
   all_samples : Array[SampleRow],
 ) -> Result[Array[SampleRow], BenchError] {
-  let config = @tools.make_tool_registry_config(opts.markitdown_path)
+  let config = make_tool_registry_config(opts.markitdown_path)
   let out : Array[SampleRow] = []
   for row in rows {
     for tool_name in scenario.tool_names {
-      let tool = @tools.find_tool(tool_name, config~).unwrap_or_else(fn() {
+      let tool = find_tool(tool_name, config~).unwrap_or_else(fn() {
         abort("missing tool registration: " + tool_name)
       })
       if scenario.official_membership == "official-external-compare" &&
@@ -579,8 +576,8 @@ fn remove_bench_output_tree(path : String) -> Unit raise @fs.IOError {
 fn run_process_samples(
   run_id : String,
   scenario : ScenarioSpec,
-  row : @manifest.BenchRow,
-  tool : @tools.BenchTool,
+  row : BenchRow,
+  tool : BenchTool,
   opts : RunOptions,
   contract : BinaryContract,
   progress : Ref[BenchProgressState],
@@ -755,7 +752,7 @@ fn run_process_samples(
 fn run_engine_samples(
   run_id : String,
   scenario : ScenarioSpec,
-  row : @manifest.BenchRow,
+  row : BenchRow,
   opts : RunOptions,
   contract : BinaryContract,
   progress : Ref[BenchProgressState],
@@ -801,9 +798,9 @@ fn run_engine_samples(
       opts.repeat_count,
     )
     bench_progress_update(progress.val, "running", label)
-    let started = @measure.monotonic_start()
+    let started = monotonic_start()
     let execution = @convert.convert_input_with_provenance(source, options)
-    let wall_us = @measure.monotonic_elapsed_us(started).to_int64()
+    let wall_us = monotonic_elapsed_us(started).to_int64()
     let worker_output = output_path(
       run_id,
       scenario.scenario_id,
@@ -913,12 +910,12 @@ fn run_engine_samples(
 ///|
 fn measure_engine_worker_rss(
   contract : BinaryContract,
-  row : @manifest.BenchRow,
+  row : BenchRow,
   output_path : String,
   stdout_path : String,
   stderr_path : String,
   timeout_ms : Int,
-) -> @measure.NativeMeasureResult? {
+) -> NativeMeasureResult? {
   if !contract.runner_release_ok || !@fs.path_exists(contract.runner_path) {
     return None
   }
@@ -931,7 +928,7 @@ fn measure_engine_worker_rss(
   ensure_parent_dir(stderr_path) catch {
     _ => return None
   }
-  let command = @tools.make_tool_command(
+  let command = make_tool_command(
     contract.runner_path,
     ["engine-worker", row.format, row.input_path, output_path],
     None,
@@ -978,9 +975,7 @@ fn bench_provenance_with_stage_timings(
 }
 
 ///|
-fn bench_convert_options_for_row(
-  row : @manifest.BenchRow,
-) -> @convert.ConvertOptions {
+fn bench_convert_options_for_row(row : BenchRow) -> @convert.ConvertOptions {
   let source = @input.input_from_path(row.input_path)
   let declared_format = @input.parse_detected_format(row.format)
   let detected_format = if declared_format != Unknown {
@@ -1013,10 +1008,10 @@ fn bench_convert_options(
 
 ///|
 fn cli_command_with_provenance(
-  command : @tools.ToolCommand,
+  command : ToolCommand,
   tool_name : String,
   provenance_path : String,
-) -> @tools.ToolCommand {
+) -> ToolCommand {
   if tool_name != "moonbit-cli" {
     return command
   }
@@ -1031,7 +1026,7 @@ fn cli_command_with_provenance(
   } else {
     args.append(command.args)
   }
-  @tools.make_tool_command(
+  make_tool_command(
     command.program,
     args,
     command.cwd,
@@ -1044,15 +1039,15 @@ fn cli_command_with_provenance(
 
 ///|
 fn native_measure_command(
-  command : @tools.ToolCommand,
+  command : ToolCommand,
   stdout_path : String,
   stderr_path : String,
-) -> @measure.NativeMeasureResult {
+) -> NativeMeasureResult {
   let argv : Array[String] = [command.program]
   argv.append(command.args)
-  let argv_blob = @measure.encode_c_string_blob(argv)
-  let env_blob = @measure.encode_c_string_blob([])
-  let spec = @measure.make_native_measure_spec(
+  let argv_blob = encode_c_string_blob(argv)
+  let env_blob = encode_c_string_blob([])
+  let spec = make_native_measure_spec(
     argv_blob,
     argv_blob.length(),
     argv.length(),
@@ -1064,5 +1059,5 @@ fn native_measure_command(
     command.cwd,
     command.timeout_ms.to_int64(),
   )
-  @measure.native_measure_command(spec)
+  native_measure_process(spec)
 }

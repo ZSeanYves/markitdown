@@ -4,7 +4,7 @@ package "ZSeanYves/markitdown/runtime"
 import {
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/input",
-  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/internal/parser",
 }
 
 // Values

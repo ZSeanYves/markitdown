@@ -1,9 +1,18 @@
 {
   "api": {
     "golden": "tools/governance/api-v0.8.mbti",
-    "sha256": "64514d3be92d09f08897b8f06cb69b86cde8a47c7ac12795123499c83fbcd81a",
+    "sha256": "b640459e0918cc0912b8670f4d56bd48ba1419bdbee26492f919ae9248a7b222",
     "stable_package": "ZSeanYves/markitdown/api",
     "target": "native"
+  },
+  "architecture": {
+    "generated_interface_lines": 9878,
+    "generated_interfaces": 68,
+    "moon_packages": 68,
+    "mutable_pub_all_records": 22,
+    "pub_all_declarations": 210,
+    "public_declarations": 1871,
+    "public_type_declarations": 791
   },
   "direct_dependency_count": 5,
   "inputs": [
@@ -21,30 +30,30 @@
   "schema_version": 1,
   "tests": {
     "api_native": {
-      "passed": 7,
-      "tests": 7
+      "passed": 9,
+      "tests": 9
     },
     "js": {
-      "passed": 485,
-      "tests": 485
+      "passed": 481,
+      "tests": 481
     },
     "native_c": {
-      "passed": 901,
-      "tests": 901
+      "passed": 907,
+      "tests": 907
     },
     "native_new": {
-      "passed": 901,
-      "tests": 901
+      "passed": 907,
+      "tests": 907
     },
     "wasm": {
-      "passed": 485,
-      "tests": 485
+      "passed": 481,
+      "tests": 481
     },
     "wasm-gc": {
-      "passed": 485,
-      "tests": 485
+      "passed": 481,
+      "tests": 481
     }
   },
-  "verified_date": "2026-08-05",
+  "verified_date": "2026-08-07",
   "verified_platform": "macOS arm64"
 }

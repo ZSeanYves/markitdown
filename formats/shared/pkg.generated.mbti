@@ -4,7 +4,8 @@ package "ZSeanYves/markitdown/formats/shared"
 import {
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/input",
-  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/internal/parser",
+  "ZSeanYves/markitdown/internal/readers/text_markup",
 }
 
 // Values
@@ -13,6 +14,10 @@ pub fn apply_product_metrics(@core.Diagnostics, String) -> Unit
 pub fn bool_string(Bool) -> String
 
 pub fn clamp_int(Int, Int, Int) -> Int
+
+pub fn classify_tsv_error(CsvError) -> CsvErrorInfo
+
+pub fn collect_tsv_validation_issues(CsvDocument) -> Array[CsvValidationIssue]
 
 pub fn count_blocks_by_kind(Array[@core.CoreBlock], @core.BlockKind) -> Int
 
@@ -40,17 +45,19 @@ pub fn init_parser_route_metrics_with_granularity(@core.Diagnostics, @input.Inpu
 
 pub fn input_kind_name(@input.InputKind) -> String
 
+pub fn inspect_tsv_document(CsvDocument) -> CsvInspectReport
+
 pub fn key_position_index(Array[String]) -> Map[String, Int]
 
 pub fn keys_match_position_index(Array[String], Map[String, Int], Array[String]) -> Bool
 
 pub fn lower_subtitle_inline_markup(String) -> (String, Bool)
 
-pub fn lower_text_markup_document(@ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupDocument, @input.InputSource, @core.Diagnostics, TextMarkupHooks) -> @core.DocumentIR
+pub fn lower_text_markup_document(@text_markup.TextMarkupDocument, @input.InputSource, @core.Diagnostics, TextMarkupHooks) -> @core.DocumentIR
 
 pub fn make_indexed_table_block(Array[Array[String]], @core.SourceRef, (Int, Array[String]) -> @core.SourceRef, (Int, Int) -> @core.SourceRef) -> @core.CoreBlock
 
-pub fn make_text_markup_hooks(String, String, @ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupFormat, (String) -> @ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupDocument, (@ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupBlock, String) -> String, (@ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupBlock, @core.SourceRef, String) -> @core.CoreBlock?, (@ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupBlock, @core.SourceRef, String) -> @core.CoreBlock?) -> TextMarkupHooks
+pub fn make_text_markup_hooks(String, String, @text_markup.TextMarkupFormat, (String) -> @text_markup.TextMarkupDocument, (@text_markup.TextMarkupBlock, String) -> String, (@text_markup.TextMarkupBlock, @core.SourceRef, String) -> @core.CoreBlock?, (@text_markup.TextMarkupBlock, @core.SourceRef, String) -> @core.CoreBlock?) -> TextMarkupHooks
 
 pub fn mark_structured_document_profile(@core.Diagnostics) -> Unit
 
@@ -60,9 +67,11 @@ pub fn min_int(Int, Int) -> Int
 
 pub fn parse_text_markup_result(@input.InputSource, @parser.ParseContext, TextMarkupHooks) -> Result[@parser.ParseResult, String]
 
-pub fn parse_text_markup_result_with_prepared_document(@ZSeanYves/markitdown/format_readers/text_markup/shared.PreparedTextMarkupDocument, @parser.ParseContext, TextMarkupHooks) -> @parser.ParseResult
+pub fn parse_text_markup_result_with_prepared_document(@text_markup.PreparedTextMarkupDocument, @parser.ParseContext, TextMarkupHooks) -> @parser.ParseResult
 
-pub fn parse_text_markup_result_with_preparsed_document(@input.InputSource, @parser.ParseContext, String, @ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupDocument, @ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupInspectReport, TextMarkupHooks, diagnostics? : @core.Diagnostics) -> @parser.ParseResult
+pub fn parse_text_markup_result_with_preparsed_document(@input.InputSource, @parser.ParseContext, String, @text_markup.TextMarkupDocument, @text_markup.TextMarkupInspectReport, TextMarkupHooks, diagnostics? : @core.Diagnostics) -> @parser.ParseResult
+
+pub fn parse_tsv_document(String) -> CsvDocument raise
 
 pub fn projected_row_from_key_index(Array[String], Map[String, Int], (Int) -> String) -> Array[String]
 
@@ -72,31 +81,126 @@ pub fn requested_mode_name(@parser.ParseContext) -> String
 
 pub fn text_markup_asset_output_path(String, String) -> String
 
-pub fn text_markup_block_with_inlines(@core.CoreBlock, String, @ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupFormat) -> @core.CoreBlock
+pub fn text_markup_block_with_inlines(@core.CoreBlock, String, @text_markup.TextMarkupFormat) -> @core.CoreBlock
 
-pub fn text_markup_inlines(String, @ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupFormat) -> Array[@core.CoreInline]
+pub fn text_markup_inlines(String, @text_markup.TextMarkupFormat) -> Array[@core.CoreInline]
 
 pub fn text_markup_parser_capability() -> @parser.ParserCapability
 
 pub fn text_markup_source_ref(@input.InputSource, String, Int, Int) -> @core.SourceRef
 
-pub fn text_markup_table_block(@ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupTable, @core.SourceRef, String, @ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupFormat) -> @core.CoreBlock
+pub fn text_markup_table_block(@text_markup.TextMarkupTable, @core.SourceRef, String, @text_markup.TextMarkupFormat) -> @core.CoreBlock
 
-pub fn text_markup_table_row(Array[String], @core.SourceRef, @ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupFormat) -> @core.CoreBlock
+pub fn text_markup_table_row(Array[String], @core.SourceRef, @text_markup.TextMarkupFormat) -> @core.CoreBlock
 
 pub fn tsv_parser() -> @parser.Parser
 
+pub fn validate_tsv_document(CsvDocument) -> CsvValidationReport
+
 // Errors
+pub(all) suberror CsvError {
+  ParseError(String)
+}
+pub impl Show for CsvError
 
 // Types and methods
+pub(all) enum CsvDelimiter {
+  Comma
+  Tab
+} derive(Eq)
+
+pub struct CsvDocument {
+  delimiter : CsvDelimiter
+  rows : Array[CsvRow]
+  column_count : Int
+  line_count : Int
+}
+
+pub struct CsvErrorInfo {
+  kind : CsvErrorKind
+  detail : String
+}
+
+pub(all) enum CsvErrorKind {
+  UnterminatedQuotedField
+  Unknown
+} derive(Eq)
+
+pub struct CsvInspectReport {
+  delimiter : CsvDelimiter
+  row_count : Int
+  column_count : Int
+  line_count : Int
+  min_field_count : Int
+  max_field_count : Int
+  empty_cell_count : Int
+  blank_row_count : Int
+  ragged_row_count : Int
+  multiline_row_count : Int
+  multiline_field_count : Int
+}
+
+pub struct CsvParseOptions {
+  delimiter : CsvDelimiter
+  quote_char : Char
+  double_quote_escape : Bool
+  skip_blank_rows : Bool
+  normalize_ragged_rows : Bool
+}
+
+pub struct CsvRow {
+  fields : Array[String]
+  original_field_count : Int
+  line_start : Int
+  line_end : Int
+}
+
+pub struct CsvValidationIssue {
+  kind : CsvValidationIssueKind
+  severity : CsvValidationSeverity
+  row_index : Int
+  actual_field_count : Int
+  expected_field_count : Int
+  message : String
+}
+
+pub(all) enum CsvValidationIssueKind {
+  RaggedRow
+} derive(Eq)
+
+pub struct CsvValidationReport {
+  row_count : Int
+  column_count : Int
+  issue_count : Int
+  warning_count : Int
+  error_count : Int
+  issues : Array[CsvValidationIssue]
+}
+
+pub(all) enum CsvValidationSeverity {
+  Warning
+  Error
+} derive(Eq)
+
+pub struct PreparedDelimitedDocument {
+  prepared_source : @input.InputSource
+  original_text : String
+  document : CsvDocument?
+  inspect : CsvInspectReport?
+  validation : CsvValidationReport?
+  parse_error : String?
+  format_name : String
+  is_tsv : Bool
+}
+
 pub struct TextMarkupHooks {
   parser_name : String
   format_name : String
-  format : @ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupFormat
-  parse_document : (String) -> @ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupDocument
-  quote_text : (@ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupBlock, String) -> String
-  semantic_block : (@ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupBlock, @core.SourceRef, String) -> @core.CoreBlock?
-  semantic_raw_block : (@ZSeanYves/markitdown/format_readers/text_markup/shared.TextMarkupBlock, @core.SourceRef, String) -> @core.CoreBlock?
+  format : @text_markup.TextMarkupFormat
+  parse_document : (String) -> @text_markup.TextMarkupDocument
+  quote_text : (@text_markup.TextMarkupBlock, String) -> String
+  semantic_block : (@text_markup.TextMarkupBlock, @core.SourceRef, String) -> @core.CoreBlock?
+  semantic_raw_block : (@text_markup.TextMarkupBlock, @core.SourceRef, String) -> @core.CoreBlock?
 }
 
 // Type aliases

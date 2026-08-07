@@ -1,6 +1,6 @@
 ///|
 fn markdown_table_group_to_block_next(
-  group : Array[@dmd.MarkdownBlock],
+  group : Array[MarkdownBlock],
   source : @input.InputSource,
   diagnostics : @core.Diagnostics,
   lowering_mode : MarkdownLoweringMode,
@@ -45,7 +45,7 @@ fn markdown_table_group_to_block_next(
 
 ///|
 fn markdown_table_literal_block(
-  block : @dmd.MarkdownBlock,
+  block : MarkdownBlock,
   source_ref : @core.SourceRef,
   diagnostics : @core.Diagnostics,
   lowering_mode : MarkdownLoweringMode,
@@ -141,7 +141,7 @@ fn markdown_table_cells(line : String) -> Array[String] {
 
 ///|
 fn markdown_paragraph_block(
-  block : @dmd.MarkdownBlock,
+  block : MarkdownBlock,
   source_ref : @core.SourceRef,
   diagnostics : @core.Diagnostics,
   image_asset_index : Ref[Int],
@@ -219,7 +219,7 @@ fn markdown_plain_paragraph_text(text : String) -> String {
 
 ///|
 fn markdown_block_stream_paragraph_block(
-  block : @dmd.MarkdownBlock,
+  block : MarkdownBlock,
   source_ref : @core.SourceRef,
   diagnostics : @core.Diagnostics,
   defined_footnotes : Map[String, Bool],
@@ -309,7 +309,7 @@ fn markdown_image_block_from_parts(
 
 ///|
 fn markdown_list_group_to_block_next(
-  group : Array[@dmd.MarkdownBlock],
+  group : Array[MarkdownBlock],
   source : @input.InputSource,
   diagnostics : @core.Diagnostics,
   image_asset_index : Ref[Int],
@@ -381,7 +381,7 @@ fn markdown_list_group_to_block_next(
 
 ///|
 fn markdown_group_source_ref(
-  group : Array[@dmd.MarkdownBlock],
+  group : Array[MarkdownBlock],
   source : @input.InputSource,
   path : String,
   base_source_ref? : @core.SourceRef? = None,
@@ -409,7 +409,7 @@ fn markdown_list_indent(text : String) -> Int {
 
 ///|
 fn markdown_blockquote_group_to_block_next(
-  group : Array[@dmd.MarkdownBlock],
+  group : Array[MarkdownBlock],
   source : @input.InputSource,
   diagnostics : @core.Diagnostics,
   image_asset_index : Ref[Int],

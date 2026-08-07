@@ -3,10 +3,10 @@ import {
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/string",
   "moonbitlang/x/fs",
-  "ZSeanYves/markitdown/format_readers/json" @djson,
+  "ZSeanYves/markitdown/formats/json" @djson,
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/input",
-  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/internal/parser",
   "ZSeanYves/markitdown/runtime/command" @rtcmd,
 }
 

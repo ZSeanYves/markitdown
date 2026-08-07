@@ -3,11 +3,11 @@ package "ZSeanYves/markitdown/internal/formats/pdf"
 
 import {
   "ZSeanYves/markitdown/input",
-  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/internal/parser",
 }
 
 // Values
-pub fn pdf_parse_with_native_document(@input.InputSource, @parser.ParseContext, @ZSeanYves/markitdown/format_readers/pdf.PdfNativeDocument, probe_artifact_reused? : Bool) -> @parser.ParseResult
+pub fn pdf_parse_with_native_document(@input.InputSource, @parser.ParseContext, @ZSeanYves/markitdown/internal/readers/pdf.PdfNativeDocument, probe_artifact_reused? : Bool) -> @parser.ParseResult
 
 // Errors
 

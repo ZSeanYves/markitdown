@@ -1,6 +1,6 @@
 ///|
 priv struct JsonStreamCursor {
-  events : Array[@djson.JsonStreamEvent]
+  events : Array[JsonStreamEvent]
   mut index : Int
 }
 
@@ -369,7 +369,7 @@ fn json_clip_preview_text(text : String, max_chars : Int) -> String {
 }
 
 ///|
-fn json_stream_scalar_text(event : @djson.JsonStreamEvent) -> String {
+fn json_stream_scalar_text(event : JsonStreamEvent) -> String {
   match event.kind {
     StringValue | NumberValue => event.text.unwrap_or("")
     BoolValue => event.text.unwrap_or("false")
@@ -681,7 +681,7 @@ fn malformed_json_parse_result(
 
 ///|
 fn json_object_table_block(
-  members : Array[@djson.JsonMember],
+  members : Array[JsonMember],
   source : @input.InputSource,
   pointer : String,
 ) -> @core.CoreBlock {
@@ -824,9 +824,7 @@ fn count_json_tables(document : @core.DocumentIR) -> Int {
 }
 
 ///|
-fn json_array_object_rows(
-  values : Array[@djson.JsonValue],
-) -> Array[Array[String]]? {
+fn json_array_object_rows(values : Array[JsonValue]) -> Array[Array[String]]? {
   let mut keys : Array[String] = []
   let key_index : Map[String, Int] = Map([])
   let mut has_key_index = false
@@ -860,7 +858,7 @@ fn json_array_object_rows(
 
 ///|
 fn json_members_to_row(
-  members : Array[@djson.JsonMember],
+  members : Array[JsonMember],
   keys : Array[String],
 ) -> Array[String] {
   let member_index : Map[String, Int] = Map([])
@@ -873,7 +871,7 @@ fn json_members_to_row(
 }
 
 ///|
-fn json_array_of_scalars(values : Array[@djson.JsonValue]) -> Bool {
+fn json_array_of_scalars(values : Array[JsonValue]) -> Bool {
   for value in values {
     match value {
       String(_) | Number(_) | Bool(_) | Null => ()
@@ -884,7 +882,7 @@ fn json_array_of_scalars(values : Array[@djson.JsonValue]) -> Bool {
 }
 
 ///|
-fn json_value_cell(value : @djson.JsonValue) -> String {
+fn json_value_cell(value : JsonValue) -> String {
   match value {
     String(text) => text
     Number(text) => text
@@ -895,7 +893,7 @@ fn json_value_cell(value : @djson.JsonValue) -> String {
 }
 
 ///|
-fn json_scalar_text(value : @djson.JsonValue) -> String {
+fn json_scalar_text(value : JsonValue) -> String {
   json_value_cell(value)
 }
 
@@ -942,7 +940,7 @@ fn json_code_block(
 }
 
 ///|
-fn stringify_json_value(value : @djson.JsonValue) -> String {
+fn stringify_json_value(value : JsonValue) -> String {
   match value {
     Object(members) => {
       let parts : Array[String] = []

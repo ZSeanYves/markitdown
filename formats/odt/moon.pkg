@@ -3,9 +3,9 @@ import {
   "moonbitlang/core/string",
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/formats/shared" @fshared,
-  "ZSeanYves/markitdown/format_readers/odf/odt" @dodf,
+  "ZSeanYves/markitdown/internal/readers/odf/odt" @dodf,
   "ZSeanYves/markitdown/input",
-  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/internal/parser",
   "ZSeanYves/markitdown/product",
 }
 

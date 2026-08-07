@@ -2,9 +2,9 @@
 package "ZSeanYves/markitdown/formats/xlsx"
 
 import {
-  "ZSeanYves/markitdown/format_readers/ooxml/package",
   "ZSeanYves/markitdown/input",
-  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/internal/parser",
+  "ZSeanYves/markitdown/internal/readers/ooxml/package",
 }
 
 // Values
@@ -12,7 +12,7 @@ pub fn xlsx_first_sheet_metric(@input.InputSource) -> Result[Int, String]
 
 pub fn xlsx_parse_with_package(@input.InputSource, @parser.ParseContext, @package.OoxmlPackage) -> @parser.ParseResult
 
-pub fn xlsx_parse_with_prepared_package(@input.InputSource, @parser.ParseContext, @ZSeanYves/markitdown/format_readers/ooxml/xlsx.PreparedXlsxPackage, probe_artifact_reused? : Bool) -> @parser.ParseResult
+pub fn xlsx_parse_with_prepared_package(@input.InputSource, @parser.ParseContext, @ZSeanYves/markitdown/internal/readers/ooxml/xlsx.PreparedXlsxPackage, probe_artifact_reused? : Bool) -> @parser.ParseResult
 
 pub fn xlsx_parser() -> @parser.Parser
 

@@ -1,6 +1,6 @@
 # PDF
 
-`formats/pdf/` owns the formal PDF parser path, including native-text recovery, the explicit accurate scanned-PDF route, and PDF-specific IR lowering. Low-level PDF decoding, font handling, and geometry models still live in `format_readers/pdf/` and `internal/formats/pdf/`.
+`formats/pdf/` owns the formal PDF parser path, including native-text recovery, the explicit accurate scanned-PDF route, and PDF-specific IR lowering. Low-level PDF decoding, font handling, and geometry models live in `internal/readers/pdf/` and `internal/formats/pdf/`.
 
 The accurate scanned-PDF route is a PDF-specific external-tool boundary:
 `pdftoppm` rasterizes complete pages and the PaddleOCR wrapper recognizes those

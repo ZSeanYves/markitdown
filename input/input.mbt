@@ -28,6 +28,64 @@ pub fn make_input_reader(
 }
 
 ///|
+/// Apply a conversion-level byte ceiling to caller-owned reader input.
+pub fn input_source_with_reader_limit(
+  source : InputSource,
+  max_bytes : Int64,
+) -> InputSource {
+  match source.payload {
+    Reader(reader) => {
+      let bounded_read_at = fn(offset, length) {
+        if offset < 0L || length < 0 {
+          return Err("reader offset and length must be non-negative")
+        }
+        if offset > max_bytes {
+          return Err(
+            "input byte limit exceeded: observed=" +
+            offset.to_string() +
+            "; limit=" +
+            max_bytes.to_string(),
+          )
+        }
+        let bytes = match (reader.read_at)(offset, length) {
+          Ok(value) => value
+          Err(message) => return Err(message)
+        }
+        if bytes.length() > length {
+          return Err("reader returned more bytes than requested")
+        }
+        let remaining = max_bytes - offset
+        if bytes.length().to_int64() > remaining {
+          return Err(
+            "input byte limit exceeded: observed=" +
+            (offset + bytes.length().to_int64()).to_string() +
+            "; limit=" +
+            max_bytes.to_string(),
+          )
+        }
+        Ok(bytes)
+      }
+      let bounded = match reader.size {
+        Some(size) => make_input_reader(bounded_read_at, size~)
+        None => make_input_reader(bounded_read_at)
+      }
+      { ..source, payload: Reader(bounded) }
+    }
+    _ => source
+  }
+}
+
+///|
+/// Return whether an input error violates the reader or resource contract.
+pub fn input_error_is_fatal_reader_error(message : String) -> Bool {
+  message.contains("input byte limit exceeded") ||
+  message.contains("reader returned more bytes than requested") ||
+  message.contains("reader returned bytes beyond declared size") ||
+  message.contains("reader ended before declared size") ||
+  message.contains("reader offset and length must be non-negative")
+}
+
+///|
 /// The single payload carried by an input source.
 pub(all) enum InputPayload {
   Path(String)

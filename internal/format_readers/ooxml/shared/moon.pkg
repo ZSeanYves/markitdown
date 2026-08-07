@@ -1,6 +1,6 @@
 import {
-  "ZSeanYves/markitdown/format_readers/ooxml/shared" @oshared,
-  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/internal/readers/ooxml/shared" @oshared,
+  "ZSeanYves/markitdown/internal/parser",
 }
 
 options(

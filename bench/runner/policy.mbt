@@ -1,5 +1,5 @@
 ///|
-priv struct PolicyDefaults {
+pub struct PolicyDefaults {
   repeat_count : Int
   warmup_count : Int
   timeout_ms : Int
@@ -7,7 +7,7 @@ priv struct PolicyDefaults {
 }
 
 ///|
-priv struct ScenarioPolicy {
+pub struct ScenarioPolicy {
   scenario_id : String
   scenario_kind : String
   tool_set : String
@@ -19,7 +19,7 @@ priv struct ScenarioPolicy {
 }
 
 ///|
-priv struct PresetPolicy {
+pub struct PresetPolicy {
   scenario_ids : Array[String]
   tiers : Array[String]
   repeat_count : Int
@@ -28,7 +28,7 @@ priv struct PresetPolicy {
 }
 
 ///|
-priv struct BenchPolicy {
+pub struct BenchPolicy {
   defaults : PolicyDefaults
   default_rss_limit_mb : Int
   rss_limits_mb : Map[String, Int]
@@ -71,7 +71,7 @@ fn parse_run_options(args : Array[String]) -> RunOptions raise {
       }
       "--tiers" => {
         ensure_next_arg(args, i.val, "--tiers")
-        exact_tiers.val = @manifest.parse_tier_list(args[i.val + 1], "--tiers")
+        exact_tiers.val = parse_tier_list(args[i.val + 1], "--tiers")
         i.val += 2
       }
       "--bench-id" => {

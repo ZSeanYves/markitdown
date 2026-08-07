@@ -5,7 +5,7 @@ import {
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/formats/ocr",
   "ZSeanYves/markitdown/input",
-  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/internal/parser",
 }
 
 // Values
@@ -17,17 +17,17 @@ pub async fn collect_pdftoppm_output_async(String, Array[String]) -> Result[(Int
 
 pub fn pdf_native_appendix_blocks(Map[String, @core.JsonValue]) -> Array[@core.CoreBlock]
 
-pub fn pdf_native_document_to_blocks_with_policies(@ZSeanYves/markitdown/format_readers/pdf.PdfNativeDocument, @parser.PdfHeaderFooterFilterPolicy) -> (Map[String, @core.JsonValue], Array[@core.CoreBlock], @core.Diagnostics)
+pub fn pdf_native_document_to_blocks_with_policies(@ZSeanYves/markitdown/internal/readers/pdf.PdfNativeDocument, @parser.PdfHeaderFooterFilterPolicy) -> (Map[String, @core.JsonValue], Array[@core.CoreBlock], @core.Diagnostics)
 
-pub fn pdf_native_document_to_ir(@ZSeanYves/markitdown/format_readers/pdf.PdfNativeDocument) -> @core.DocumentIR
+pub fn pdf_native_document_to_ir(@ZSeanYves/markitdown/internal/readers/pdf.PdfNativeDocument) -> @core.DocumentIR
 
-pub fn pdf_native_document_to_ir_with_policies(@ZSeanYves/markitdown/format_readers/pdf.PdfNativeDocument, @parser.PdfHeaderFooterFilterPolicy, @parser.PdfTableReconstructionPolicy) -> @core.DocumentIR
+pub fn pdf_native_document_to_ir_with_policies(@ZSeanYves/markitdown/internal/readers/pdf.PdfNativeDocument, @parser.PdfHeaderFooterFilterPolicy, @parser.PdfTableReconstructionPolicy) -> @core.DocumentIR
 
 pub fn pdf_native_fail_closed_diagnostics(@input.InputSource, @parser.ParseContext) -> @core.Diagnostics
 
 pub fn pdf_native_fail_closed_message() -> String
 
-pub fn pdf_native_page_to_paragraph_blocks(@ZSeanYves/markitdown/format_readers/pdf.PdfNativePage) -> Array[@core.CoreBlock]
+pub fn pdf_native_page_to_paragraph_blocks(@ZSeanYves/markitdown/internal/readers/pdf.PdfNativePage) -> Array[@core.CoreBlock]
 
 pub fn pdf_native_parser() -> @parser.Parser
 

@@ -1,9 +1,0 @@
-import {
-  "bikallem/blit",
-  "bikallem/compress/checksum",
-  "bikallem/compress/flate",
-}
-
-options(
-  "preferred-target": "native",
-)

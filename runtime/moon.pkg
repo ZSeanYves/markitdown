@@ -1,8 +1,8 @@
 import {
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/input",
-  "ZSeanYves/markitdown/parser",
-  "ZSeanYves/markitdown/pipeline",
+  "ZSeanYves/markitdown/internal/parser",
+  "ZSeanYves/markitdown/internal/pipeline",
   "ZSeanYves/markitdown/product",
 }
 

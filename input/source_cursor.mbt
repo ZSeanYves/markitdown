@@ -71,9 +71,22 @@ pub fn source_cursor_read_at(
   if offset < 0L || length < 0 {
     return Err("cursor offset and length must be non-negative")
   }
-  match cursor.size {
+  let result = match cursor.size {
     Some(size) if offset >= size => Ok(Bytes::new(0))
     _ => (cursor.read_at)(offset, length)
+  }
+  match result {
+    Err(message) => Err(message)
+    Ok(bytes) => {
+      if bytes.length() > length {
+        return Err("reader returned more bytes than requested")
+      }
+      match cursor.size {
+        Some(size) if bytes.length().to_int64() > size - offset =>
+          Err("reader returned bytes beyond declared size")
+        _ => Ok(bytes)
+      }
+    }
   }
 }
 

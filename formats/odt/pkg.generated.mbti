@@ -2,15 +2,15 @@
 package "ZSeanYves/markitdown/formats/odt"
 
 import {
-  "ZSeanYves/markitdown/format_readers/odf/shared",
   "ZSeanYves/markitdown/input",
-  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/internal/parser",
+  "ZSeanYves/markitdown/internal/readers/odf/shared",
 }
 
 // Values
 pub fn odt_parse_with_open_document(@input.InputSource, @parser.ParseContext, @shared.OdtDocument, @shared.OdtInspectReport) -> @parser.ParseResult
 
-pub fn odt_parse_with_prepared_document(@input.InputSource, @parser.ParseContext, @ZSeanYves/markitdown/format_readers/odf/odt.PreparedOdtDocument) -> @parser.ParseResult
+pub fn odt_parse_with_prepared_document(@input.InputSource, @parser.ParseContext, @ZSeanYves/markitdown/internal/readers/odf/odt.PreparedOdtDocument) -> @parser.ParseResult
 
 pub fn odt_parser() -> @parser.Parser
 

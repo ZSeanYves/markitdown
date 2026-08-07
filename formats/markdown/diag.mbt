@@ -2,8 +2,8 @@
 fn markdown_parse_result_from_scanned(
   source : @input.InputSource,
   context : @parser.ParseContext,
-  scanned : @dmd.MarkdownDocument,
-  inspect : @dmd.MarkdownInspectReport,
+  scanned : MarkdownDocument,
+  inspect : MarkdownInspectReport,
 ) -> @parser.ParseResult {
   let diagnostics = @fshared.empty_parser_diagnostics(
     "markdown_parser",
@@ -150,7 +150,7 @@ fn markdown_document_parse_result(
 }
 
 ///|
-fn markdown_block_kind_name(kind : @dmd.MarkdownBlockKind) -> String {
+fn markdown_block_kind_name(kind : MarkdownBlockKind) -> String {
   match kind {
     ParagraphLike => "paragraph"
     HeadingAtx => "heading_atx"
@@ -187,7 +187,7 @@ priv struct MarkdownBlockReport {
 ///|
 fn markdown_apply_scan_metrics(
   diagnostics : @core.Diagnostics,
-  inspect : @dmd.MarkdownInspectReport,
+  inspect : MarkdownInspectReport,
 ) -> Unit {
   diagnostics.metrics.set("line_count", inspect.line_count.to_string())
   diagnostics.metrics.set(
@@ -245,7 +245,7 @@ fn markdown_apply_scan_metrics(
 ///|
 fn markdown_apply_validation_issues(
   diagnostics : @core.Diagnostics,
-  issues : Array[@dmd.MarkdownValidationIssue],
+  issues : Array[MarkdownValidationIssue],
 ) -> Unit {
   let mut warning_count = 0
   let mut error_count = 0
@@ -393,9 +393,7 @@ fn markdown_accumulate_single_block_report(
 }
 
 ///|
-fn markdown_validation_issue_feature(
-  issue : @dmd.MarkdownValidationIssue,
-) -> String {
+fn markdown_validation_issue_feature(issue : MarkdownValidationIssue) -> String {
   match issue.kind {
     UnclosedFence => "markdown_unclosed_fence"
     UnclosedFrontmatter => "markdown_unclosed_frontmatter"
@@ -405,9 +403,7 @@ fn markdown_validation_issue_feature(
 }
 
 ///|
-fn markdown_validation_issue_trace(
-  issue : @dmd.MarkdownValidationIssue,
-) -> String {
+fn markdown_validation_issue_trace(issue : MarkdownValidationIssue) -> String {
   match issue.kind {
     UnclosedFence => "markdown unclosed fence -> code fallback"
     UnclosedFrontmatter => "markdown unclosed frontmatter -> raw metadata block"

@@ -2,7 +2,7 @@
 package "ZSeanYves/markitdown/internal/format_readers/ooxml/shared"
 
 import {
-  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/internal/parser",
 }
 
 // Values
@@ -20,7 +20,7 @@ pub fn docx_contract_parser_name() -> String
 
 pub fn office_asset_output_path_is_safe(String) -> Bool
 
-pub fn office_asset_plan_is_safe(@ZSeanYves/markitdown/format_readers/ooxml/shared.OfficeAssetPlan) -> Bool
+pub fn office_asset_plan_is_safe(@ZSeanYves/markitdown/internal/readers/ooxml/shared.OfficeAssetPlan) -> Bool
 
 pub fn office_asset_write_guardrails() -> Array[String]
 
@@ -30,7 +30,7 @@ pub fn office_parser_modes() -> Array[@parser.ParserMode]
 
 pub fn office_relationship_guardrails() -> Array[String]
 
-pub fn office_relationship_is_no_fetch(@ZSeanYves/markitdown/format_readers/ooxml/shared.OfficeRelationship) -> Bool
+pub fn office_relationship_is_no_fetch(@ZSeanYves/markitdown/internal/readers/ooxml/shared.OfficeRelationship) -> Bool
 
 pub fn office_resource_limit_keys() -> Array[String]
 

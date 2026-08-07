@@ -1,8 +1,8 @@
 import {
   "ZSeanYves/markitdown/internal/formats/epub" @internal,
-  "ZSeanYves/markitdown/format_readers/epub" @depub,
+  "ZSeanYves/markitdown/internal/readers/epub" @depub,
   "ZSeanYves/markitdown/input",
-  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/internal/parser",
 }
 
 supported_targets = "native"

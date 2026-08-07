@@ -2,7 +2,7 @@
 package "ZSeanYves/markitdown/formats"
 
 import {
-  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/internal/parser",
 }
 
 // Values

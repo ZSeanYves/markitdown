@@ -1,0 +1,99 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/internal/pipeline"
+
+import {
+  "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/product",
+  "moonbitlang/core/ref",
+}
+
+// Values
+pub fn assemble_section_tree_pass() -> IRPass
+
+pub fn build_document_from_events(Array[@core.CoreEvent]) -> @core.DocumentIR
+
+pub fn build_document_with_default_pipeline(@core.IRInput, PassContext, trace_builder? : Bool, trace_passes? : Bool) -> @core.DocumentIR
+
+pub fn collect_asset_refs_pass() -> IRPass
+
+pub fn collect_document_asset_refs(Array[@core.CoreBlock], Array[@core.AssetRef]) -> Array[@core.AssetRef]
+
+pub fn debug_annotation_pass() -> IRPass
+
+pub fn default_ir_builder() -> CoreIRBuilder
+
+pub fn default_pass_pipeline() -> PassPipeline
+
+pub fn ir_input_to_document(@core.IRInput) -> @core.DocumentIR
+
+pub fn make_pass_context(Bool, String, pdf_cleanup_enabled? : Bool) -> PassContext
+
+pub fn make_pass_context_with_product_options(@product.ConvertMode, @product.ProductOptions, execution_profile? : @product.ExecutionProfile, lowering_profile? : @product.LoweringProfile, render_profile? : @product.RenderProfile, accurate_features? : @product.AccurateFeatureProfile, diagnostics? : @core.Diagnostics, assets? : Array[@core.AssetRef], metadata? : Map[String, @core.JsonValue], source_map? : @core.SourceMap?, assembly? : @core.DocumentAssembly?) -> PassContext
+
+pub fn merge_text_line_pass() -> IRPass
+
+pub fn new_pass_pipeline(Array[IRPass]) -> PassPipeline
+
+pub fn normalize_text_pass() -> IRPass
+
+pub fn normalize_whitespace_pass() -> IRPass
+
+pub fn remove_header_footer_pass() -> IRPass
+
+pub fn resolve_asset_pass() -> IRPass
+
+pub fn resolve_caption_pass() -> IRPass
+
+pub fn resolve_heading_pass() -> IRPass
+
+pub fn resolve_list_pass() -> IRPass
+
+pub fn resolve_reading_order_pass() -> IRPass
+
+pub fn resolve_render_hints_pass() -> IRPass
+
+pub fn resolve_table_pass() -> IRPass
+
+pub fn run_default_pipeline(@core.IRInput, PassContext, trace_passes? : Bool) -> Result[@core.IRInput, PassError]
+
+pub fn run_pipeline(PassPipeline, @core.IRInput, PassContext) -> Result[@core.IRInput, PassError]
+
+// Errors
+
+// Types and methods
+pub struct CoreIRBuilder {
+  build : (@core.IRInput) -> @core.DocumentIR
+}
+
+pub struct IRPass {
+  name : String
+  run : (PassContext, @core.IRInput) -> Result[@core.IRInput, PassError]
+}
+
+pub struct PassContext {
+  mode : @product.ConvertMode
+  fidelity_mode : @product.FidelityMode
+  output_mode : @product.OutputMode
+  execution_profile : @product.ExecutionProfile
+  lowering_profile : @product.LoweringProfile
+  render_profile : @product.RenderProfile
+  accurate_features : @product.AccurateFeatureProfile
+  options : @product.ProductOptions
+  diagnostics : @ref.Ref[@core.Diagnostics]
+  assets : @ref.Ref[Array[@core.AssetRef]]
+  metadata : @ref.Ref[Map[String, @core.JsonValue]]
+  source_map : @ref.Ref[@core.SourceMap?]
+  assembly : @ref.Ref[@core.DocumentAssembly?]
+}
+
+pub struct PassError {
+  message : String
+}
+
+pub struct PassPipeline {
+  passes : Array[IRPass]
+}
+
+// Type aliases
+
+// Traits

@@ -6,7 +6,7 @@ import {
   "ZSeanYves/markitdown/formats/ocr",
   "ZSeanYves/markitdown/formats/pdf",
   "ZSeanYves/markitdown/input",
-  "ZSeanYves/markitdown/parser",
+  "ZSeanYves/markitdown/internal/parser",
   "ZSeanYves/markitdown/product",
   "ZSeanYves/markitdown/rag",
 }

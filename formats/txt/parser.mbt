@@ -14,7 +14,10 @@ pub fn txt_parser() -> @parser.Parser {
         source,
         "txt",
       )
-      let prepared = @dtext.prepare_text_document_from_source(source).unwrap()
+      let prepared = match prepare_text_document_from_source(source) {
+        Ok(value) => value
+        Err(message) => return Err(message)
+      }
       let source = prepared.prepared_source
       let parsed = match prepared.document {
         Some(document) => document
@@ -28,9 +31,7 @@ pub fn txt_parser() -> @parser.Parser {
           return Ok(fallback)
         }
       }
-      let inspect = prepared.inspect.unwrap_or(
-        @dtext.inspect_text_document(parsed),
-      )
+      let inspect = prepared.inspect.unwrap_or(inspect_text_document(parsed))
       let events : Array[@core.CoreEvent] = Array::new(
         capacity=parsed.lines.length(),
       )
@@ -540,17 +541,6 @@ fn invalid_text_parse_result(
     diagnostics,
     txt_parser_capability(),
   )
-}
-
-///|
-fn text_newline_style_name(style : @dtext.TextNewlineStyle) -> String {
-  match style {
-    None => "none"
-    LF => "lf"
-    CRLF => "crlf"
-    CR => "cr"
-    Mixed => "mixed"
-  }
 }
 
 ///|
