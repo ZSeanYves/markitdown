@@ -36,12 +36,17 @@ OCR, audio and accurate-PDF profiles use the existing managed installer and
 fingerprint files. The stable core must continue to work with no Python,
 Tesseract, FFmpeg, Poppler or model files installed.
 
-| Runtime | Profiles | Boundary |
-| --- | --- | --- |
-| Tesseract | balance OCR | explicit capability probe; bounded input/output |
-| FFmpeg + Vosk wrapper | audio | direct argv, timeout, output cap and process-group cleanup |
-| Poppler `pdftoppm` + PaddleOCR | accurate PDF | optional route; model fingerprint and deterministic failure |
-| MarkItDown Python package | bench only | pinned external oracle; never imported by MoonBit product |
+| Runtime | Managed version/lock | Profiles | Boundary |
+| --- | --- | --- | --- |
+| Tesseract | 5.5.3 on macOS; 5.3.4 on Ubuntu | balance OCR | explicit capability probe; bounded input/output |
+| FFmpeg + Vosk wrapper | FFmpeg 8.1.2 on macOS; 6.1.1 on Ubuntu; `python/audio.lock` | audio | direct argv, timeout, output cap and process-group cleanup |
+| Poppler `pdftoppm` + PaddleOCR | platform system-tool lock + `python/accurate.lock` | accurate PDF | optional route; model fingerprint and deterministic failure |
+| MarkItDown Python package | `python/bench.lock` (`0.1.7`) | bench only | pinned external oracle; never imported by MoonBit product |
+
+Platform-specific system-tool versions are authoritative in
+`tools/env/config/system_tools.json`; Python transitive versions are
+authoritative in the profile lock files. Documentation must not replace those
+machine-readable locks with an ambient `PATH` observation.
 
 ## Community candidates
 

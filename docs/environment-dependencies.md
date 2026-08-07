@@ -21,6 +21,9 @@ Use only `tools/env/optional_deps.sh` in documentation and automation:
 
 Options after the profile are forwarded to the managed installer, including
 `--force`, `--python PATH`, `--no-sudo`, and audio `--model cn-small`.
+Python-backed profiles require Python `>=3.10,<3.14`; pass
+`--python /path/to/python3.11` when the ambient interpreter is outside that
+range.
 
 The four historical installer scripts remain under `tools/env/installers/` for
 compatibility only. They are not public setup entrypoints.
@@ -155,4 +158,4 @@ test evidence and is never packaged into the runtime or release archive.
 SHA-256 files, and SPDX 2.3 SBOMs for Linux x64 and macOS arm64 binaries. It
 does not upload artifacts, create tags, or publish releases. Keep generated
 packages under an ignored local directory such as
-`.tmp/local-optimization/0.7/release/`.
+`.tmp/release/0.8/`.

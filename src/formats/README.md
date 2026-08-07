@@ -31,8 +31,8 @@
 
 - `register_builtin_parsers`
   Registers every formally supported format into the shared `ParserRegistry`
-- `*_parser` functions in `parser.mbt`
-  Public parser entry points exposed through the registry
+- Format-local `parser.mbt` files
+  Internal parser entry points registered through the root format registry
 - `lower_*` / `*_to_ir`
   Lower reader outputs into canonical block, event, or document structures
 
@@ -51,6 +51,6 @@
 ## Validation
 
 ```bash
-moon test
+moon test --package ZSeanYves/markitdown/formats --target native
 bash tools/regression/check_balance.sh
 ```

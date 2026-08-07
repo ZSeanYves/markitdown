@@ -26,6 +26,9 @@ class GovernanceTests(unittest.TestCase):
         cls.architecture = load_module(
             "check_architecture", ROOT / "tools/governance/check_architecture.py"
         )
+        cls.documentation = load_module(
+            "check_documentation", ROOT / "tools/governance/check_documentation.py"
+        )
 
     def test_toolchain_parser_reads_all_components(self):
         output = """moon 0.1.20260803 (c19f78e 2026-08-03) ~/.moon/bin/moon
@@ -111,6 +114,33 @@ moonrun 0.1.20260803 (c19f78e 2026-08-03) ~/.moon/bin/moonrun
                 self.architecture.moon_packages_outside_source(root),
                 ["stray/moon.pkg"],
             )
+
+    def test_documentation_contract_passes_repository(self):
+        self.assertEqual(self.documentation.verify(), [])
+
+    def test_documentation_link_parser_only_returns_local_paths(self):
+        self.assertEqual(
+            self.documentation.local_link_target("../docs/README.md#lifecycle"),
+            "../docs/README.md",
+        )
+        self.assertEqual(
+            self.documentation.local_link_target("<../path with spaces/README.md>"),
+            "../path with spaces/README.md",
+        )
+        self.assertIsNone(
+            self.documentation.local_link_target("https://example.com/reference")
+        )
+        self.assertIsNone(self.documentation.local_link_target("#local-heading"))
+
+    def test_documentation_performance_table_parser(self):
+        table = "| PDF | 2 | 5.62x | 5.62x |\n| DOCX | 1 | 64.11x | 285.79x |\n"
+        self.assertEqual(
+            self.documentation.performance_format_rows(table),
+            {
+                "pdf": (2, "5.62", "5.62"),
+                "docx": (1, "64.11", "285.79"),
+            },
+        )
 
 
 if __name__ == "__main__":

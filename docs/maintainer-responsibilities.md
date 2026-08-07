@@ -28,8 +28,7 @@ cannot receive a new 1.0 stability promise.
 
 ## Bus-factor action
 
-Within Phase 0, nominate at least one backup for core/API and one for
+Before 1.0, nominate at least one backup for core/API and one for
 runtime/security. Each backup must perform a release dry run and a native
-sanitizer run independently. The project should not move from 0.9 to 1.0 until
+sanitizer run independently. The project must not move from 0.9 to 1.0 until
 every R3 area has a primary and backup.
-

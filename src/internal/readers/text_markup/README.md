@@ -1,6 +1,9 @@
 # Text Markup Readers
 
-`internal/readers/text_markup/` contains the shared low-level parsing stack for technical markup languages such as TeX, reStructuredText, and AsciiDoc. Its goal is not to emit product IR directly, but to build intermediate document models that upper-layer `formats/*` parsers can consume.
+Logical package `ZSeanYves/markitdown/internal/readers/text_markup` contains the
+consolidated low-level parsing stack for TeX, reStructuredText, and AsciiDoc.
+It builds a shared intermediate model consumed by the corresponding
+`formats/text_markup` lowering package.
 
 ## Responsibilities
 
@@ -10,22 +13,18 @@
 
 ## Key Entry Points
 
-- `shared/prepare.mbt`
-  Unified preparation entry point
-- `shared/text_markup_parser.mbt`
-  Shared main parsing orchestration
-- `shared/text_markup_block_parser.mbt`
-  Paragraph, list, heading, and other block-level recovery
-- `shared/text_markup_inline_parser.mbt`
-  Link, emphasis, code, and other inline recovery
-- `shared/text_markup_table_parser.mbt`
+- `prepare.mbt`
+  Source preparation and format dispatch
+- `parser.mbt`
+  Shared parse orchestration and language entry points
+- `block_parser.mbt` / `rst_blocks.mbt` / `asciidoc_tex_blocks.mbt`
+  Common and language-specific block recovery
+- `inline_parser.mbt`
+  Links, emphasis, code, references, and inline recovery
+- `table_parser.mbt`
   Table recognition and structuring
-- `tex/tex_parser.mbt`
-  TeX entry point
-- `rst/rst_parser.mbt`
-  RST entry point
-- `asciidoc/asciidoc_parser.mbt`
-  AsciiDoc entry point
+- `types.mbt`
+  Shared prepared document, block, inline, and table models
 
 ## Key Types
 
@@ -36,7 +35,8 @@
 
 ## Maintenance Rules
 
-- Keep shared lexical and semantic recovery logic in `shared/` whenever possible to avoid duplicating near-identical logic across the three languages
+- Keep shared lexical and semantic recovery in this package and isolate only
+  genuinely language-specific blocks to avoid duplicating near-identical logic
 - Language-specific rules may extend the behavior, but should not pollute the shared semantic layer
 - When adding another text-markup format, prefer reusing the shared model first and adding only the language-specific parser surface
 - Includes, directives, and image references remain declarative. Reader code
@@ -46,5 +46,5 @@
 ## Validation
 
 ```bash
-moon test
+moon test --package ZSeanYves/markitdown/internal/readers/text_markup --target native
 ```

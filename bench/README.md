@@ -28,6 +28,10 @@ moon build --target native --release --package ZSeanYves/markitdown/cli
 moon build --target native --release --package ZSeanYves/markitdown/internal/bench_runner
 ```
 
+The Python profiles support `>=3.10,<3.14`. If the active `python3` is newer,
+pass a compatible interpreter explicitly, for example
+`--python /opt/homebrew/bin/python3.11`.
+
 Inputs and manifests are loaded from
 `markitdown-quality-lab/external_bench/`; the main repository does not contain a
 fallback benchmark corpus. Reviewed internal-comparison baselines are loaded
@@ -99,13 +103,18 @@ for the exact evaluated limits.
 
 ## Audited snapshot
 
-The root README performance table is backed by macOS 15.3 arm64 run
-`run-1784263977642-7cf3b18a38` from 2026-07-17 against the repo-locked
-Microsoft MarkItDown `0.1.6` baseline. All 25 rows were comparable and all 75
-tool cases were trusted. The baseline completed 24 rows; the XLSX huge row is a
-censored lower-bound comparison because all five baseline samples reached the
-60-second timeout. Replace published numbers only with another complete formal
-run under the locked environment.
+The current public snapshot was measured on 2026-08-07 on macOS arm64 with
+release binaries and Microsoft MarkItDown 0.1.7:
+
+- external run `run-1786101654079-0f0c773a82`: 25/25 comparable rows, 75/75
+  trusted cases, performance and CLI RSS gates passed;
+- self run `run-1786102949457-9591fe380a`: 53/53 rows, 106/106 trusted
+  CLI/engine cases, CLI RSS gate passed.
+
+The existing approved self baseline has different tool and runner
+fingerprints, so the new self run is a candidate observation rather than a
+regression verdict. Exact values, environment, limitations, and committed
+summaries are in [the performance evidence](../docs/performance.md).
 
 ## Evidence and storage
 
@@ -125,6 +134,6 @@ mutation smoke. Self baselines are captured and enforced only on controlled,
 fingerprint-matched machines; hosted CI timing variance is too large for the
 10% per-case regression threshold.
 
-See [runner/README.md](./runner/README.md) for package ownership and
+See [the runner README](../src/internal/bench_runner/README.md) for package ownership and
 [benchmark-architecture.md](../docs/architecture/benchmark-architecture.md)
 for the trust model.

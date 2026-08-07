@@ -39,3 +39,15 @@ the facade, enforces separate total-visibility and mutable-record ceilings for
 legacy packages, and freezes the five reviewed direct dependencies. An
 intentional API or dependency change updates the corresponding machine file in
 the same R3 PR with an RFC, compatibility impact and regeneration command.
+
+## Documentation
+
+`check_documentation.py` separates maintained narrative documentation from
+generated fixture/showcase evidence. It verifies local links across maintained
+docs and every README, keeps the two root README files byte-identical, rejects
+retired guides and benchmark paths, and cross-checks published medians against
+the committed trusted benchmark summaries.
+
+```bash
+python3 tools/governance/check_documentation.py
+```

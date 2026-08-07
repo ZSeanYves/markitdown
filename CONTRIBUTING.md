@@ -11,6 +11,7 @@ moon info && git diff --exit-code
 moon check --target all --warn-list +73 --deny-warn
 moon test --target all
 moon build --target all
+python3 tools/governance/check_documentation.py
 MARKITDOWN_COVERAGE_BASELINE_REF=<base-sha> \
   ./tools/regression/check_coverage.sh --enforce
 ```
@@ -56,7 +57,9 @@ Normal pushes and pull requests run the benchmark runner with
 truth and RSS must pass. Scheduled CI runs mutation smoke and the full
 `official-external-compare` preset. Before publishing benchmark numbers, build
 the release CLI and runner, run `doctor`, and retain the identified run under
-`.tmp/bench/runs/<run_id>/`.
+`.tmp/bench/runs/<run_id>/`. Published numbers must update
+`docs/performance.md` and the generated summaries under `bench/results/` in the
+same PR; cross-fingerprint self-baseline comparisons are not valid evidence.
 
 Changes to format behavior should add a self-contained contract fixture first.
 Large or third-party inputs belong in `markitdown-quality-lab` with license,
