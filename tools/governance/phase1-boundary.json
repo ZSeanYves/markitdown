@@ -7,7 +7,8 @@
     "moonbitlang/x@0.4.40",
     "tonyfettes/encoding@0.3.9"
   ],
-  "legacy_pub_all_max": 220,
+  "legacy_pub_all_max": 210,
+  "legacy_pub_all_mutable_record_max": 22,
   "package_count_max": 68,
   "retired_public_roots": [
     "format_readers",

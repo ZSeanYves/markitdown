@@ -84,17 +84,17 @@ pub struct JsonMember {
   value : JsonValue
 }
 
-pub(all) struct JsonParseProfileReport {
+pub struct JsonParseProfileReport {
   stages : Array[JsonParseProfileStage]
 }
 
-pub(all) struct JsonParseProfileStage {
+pub struct JsonParseProfileStage {
   name : String
   elapsed_ms : UInt64
   detail : String?
 }
 
-pub(all) struct JsonProfiledDocument {
+pub struct JsonProfiledDocument {
   document : JsonDocument
   report : JsonParseProfileReport
 }

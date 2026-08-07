@@ -1,6 +1,6 @@
 ///|
 /// One internal timing sample captured during profiled text parsing.
-pub(all) struct TextParseProfileStage {
+pub struct TextParseProfileStage {
   name : String
   elapsed_ms : UInt64
   detail : String?
@@ -8,20 +8,20 @@ pub(all) struct TextParseProfileStage {
 
 ///|
 /// Internal parse-stage report used for benchmark attribution.
-pub(all) struct TextParseProfileReport {
+pub struct TextParseProfileReport {
   stages : Array[TextParseProfileStage]
 }
 
 ///|
 /// Profiled parse result pairing the normal text document with internal timing
 /// breakdown data.
-pub(all) struct TextProfiledDocument {
+pub struct TextProfiledDocument {
   document : TextDocument
   report : TextParseProfileReport
 }
 
 ///|
-pub(all) struct TextParseProfileTotals {
+priv struct TextParseProfileTotals {
   line_build_elapsed_ms : Ref[UInt64]
   paragraph_build_elapsed_ms : Ref[UInt64]
 }

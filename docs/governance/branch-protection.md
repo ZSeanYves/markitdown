@@ -9,7 +9,8 @@ state and should be verified with the command shown after each change.
 - Require pull requests before merging; allow zero approvals while the project
   has one active maintainer, then raise to one when a backup reviewer is added.
 - Require these CI checks: `Phase 0 governance`, `MoonBit core (ubuntu-24.04)`,
-  `MoonBit core (macos-15)`, `Python and shell tools`, `Coverage`, `Main
+  `MoonBit core (macos-15)`, `New native full suite (ubuntu-24.04)`, `New
+  native full suite (macos-15)`, `Python and shell tools`, `Coverage`, `Main
   regression (Linux)`, `Main regression (macOS)`, `Quality regression`,
   `Accurate regression`, and `Performance`.
 - Require branches to be up to date before merging.
@@ -29,8 +30,8 @@ gh api repos/ZSeanYves/markitdown/rulesets
 The Phase 0 implementation adds repository-side CODEOWNERS, CI and PR policy
 files. GitHub branch protection remains a repository-admin action and must not
 be inferred from those files alone. It was applied to `main` on 2026-08-05 and
-verified through the API: strict status checks are enabled, pull requests are
-required with zero approvals during the single-maintainer period, force pushes
-and deletion are disabled, linear history and conversation resolution are
-enabled, and administrator enforcement remains false until a backup reviewer
-is assigned.
+re-verified through the API on 2026-08-07: strict status checks include both
+new-native platform jobs, pull requests are required with zero approvals during
+the single-maintainer period, force pushes and deletion are disabled, linear
+history and conversation resolution are enabled, and administrator enforcement
+remains false until a backup reviewer is assigned.

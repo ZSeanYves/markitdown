@@ -83,6 +83,9 @@ moonrun 0.1.20260803 (c19f78e 2026-08-03) ~/.moon/bin/moonrun
     def test_phase1_architecture_contract_passes_repository(self):
         self.assertEqual(self.architecture.verify(), [])
         self.assertLessEqual(self.architecture.moon_package_count(ROOT), 68)
+        self.assertLessEqual(
+            self.architecture.public_all_mutable_record_count(ROOT), 22
+        )
 
     def test_phase1_rejects_internal_type_leaks_and_deep_imports(self):
         errors = self.architecture.api_surface_errors(

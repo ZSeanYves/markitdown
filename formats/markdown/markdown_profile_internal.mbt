@@ -1,6 +1,6 @@
 ///|
 /// One internal timing sample captured during profiled Markdown scanning.
-pub(all) struct MarkdownParseProfileStage {
+pub struct MarkdownParseProfileStage {
   name : String
   elapsed_ms : UInt64
   detail : String?
@@ -8,14 +8,14 @@ pub(all) struct MarkdownParseProfileStage {
 
 ///|
 /// Internal scan-stage report used for benchmark attribution.
-pub(all) struct MarkdownParseProfileReport {
+pub struct MarkdownParseProfileReport {
   stages : Array[MarkdownParseProfileStage]
 }
 
 ///|
 /// Profiled scan result pairing the normal Markdown document with internal
 /// timing breakdown data.
-pub(all) struct MarkdownProfiledDocument {
+pub struct MarkdownProfiledDocument {
   document : MarkdownDocument
   report : MarkdownParseProfileReport
 }

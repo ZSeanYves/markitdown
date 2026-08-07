@@ -4,7 +4,6 @@ package "ZSeanYves/markitdown/formats/txt"
 import {
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/internal/parser",
-  "moonbitlang/core/ref",
 }
 
 // Values
@@ -17,8 +16,6 @@ pub fn open_text_document(Bytes) -> TextDocument raise
 pub fn parse_text_document(String) -> TextDocument
 
 pub fn parse_text_document_from_normalized_text(String) -> TextDocument
-
-pub fn parse_text_document_with_profile(String, TextParseProfileReport?, TextParseProfileTotals?) -> TextDocument
 
 pub fn prepare_text_document_from_source(@input.InputSource) -> Result[PreparedTextSourceDocument, String]
 
@@ -91,22 +88,17 @@ pub struct TextParagraph {
   line_end : Int
 }
 
-pub(all) struct TextParseProfileReport {
+pub struct TextParseProfileReport {
   stages : Array[TextParseProfileStage]
 }
 
-pub(all) struct TextParseProfileStage {
+pub struct TextParseProfileStage {
   name : String
   elapsed_ms : UInt64
   detail : String?
 }
 
-pub(all) struct TextParseProfileTotals {
-  line_build_elapsed_ms : @ref.Ref[UInt64]
-  paragraph_build_elapsed_ms : @ref.Ref[UInt64]
-}
-
-pub(all) struct TextProfiledDocument {
+pub struct TextProfiledDocument {
   document : TextDocument
   report : TextParseProfileReport
 }

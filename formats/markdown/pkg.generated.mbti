@@ -108,17 +108,17 @@ pub struct MarkdownInspectReport {
   is_empty : Bool
 }
 
-pub(all) struct MarkdownParseProfileReport {
+pub struct MarkdownParseProfileReport {
   stages : Array[MarkdownParseProfileStage]
 }
 
-pub(all) struct MarkdownParseProfileStage {
+pub struct MarkdownParseProfileStage {
   name : String
   elapsed_ms : UInt64
   detail : String?
 }
 
-pub(all) struct MarkdownProfiledDocument {
+pub struct MarkdownProfiledDocument {
   document : MarkdownDocument
   report : MarkdownParseProfileReport
 }

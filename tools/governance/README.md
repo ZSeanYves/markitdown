@@ -35,7 +35,7 @@ policy.
 `check_architecture.py` compares `api/pkg.generated.mbti` with the reviewed
 0.8 golden, rejects internal package types in that interface, limits the API
 adapter to an explicit import allowlist, prevents mutable `pub(all)` records in
-the facade or growth beyond the reviewed enum/legacy visibility budget, and
-freezes the five reviewed direct dependencies. An intentional API or dependency
-change updates the corresponding machine file in the same R3 PR with an RFC,
-compatibility impact and regeneration command.
+the facade, enforces separate total-visibility and mutable-record ceilings for
+legacy packages, and freezes the five reviewed direct dependencies. An
+intentional API or dependency change updates the corresponding machine file in
+the same R3 PR with an RFC, compatibility impact and regeneration command.

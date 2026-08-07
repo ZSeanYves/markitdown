@@ -5,6 +5,15 @@
     "stable_package": "ZSeanYves/markitdown/api",
     "target": "native"
   },
+  "architecture": {
+    "generated_interface_lines": 9878,
+    "generated_interfaces": 68,
+    "moon_packages": 68,
+    "mutable_pub_all_records": 22,
+    "pub_all_declarations": 210,
+    "public_declarations": 1871,
+    "public_type_declarations": 791
+  },
   "direct_dependency_count": 5,
   "inputs": [
     "Path",

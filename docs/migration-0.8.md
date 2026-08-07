@@ -11,6 +11,10 @@ live under `internal/` for repository use and are not compatibility promises.
 The package graph was reduced from 108 packages at audit time to 68. Standalone
 reader test packages, benchmark helper packages, and closely coupled text
 reader/lowering packages no longer exist as separately importable libraries.
+The audit-time `pub(all)` count was reduced from 223 to 210, including a
+reduction of constructible/mutable records from 32 to 22. Profile reports in
+the consolidated TXT, Markdown, and JSON packages remain readable but can no
+longer be constructed or mutated field-by-field by consumers.
 
 ## Conversion entrypoint
 

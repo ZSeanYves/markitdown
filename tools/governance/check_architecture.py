@@ -84,6 +84,11 @@ def public_all_count(root: Path) -> int:
     return sum(len(pattern.findall(path.read_text(encoding="utf-8"))) for path in moonbit_sources(root))
 
 
+def public_all_mutable_record_count(root: Path) -> int:
+    pattern = re.compile(r"pub\(all\)\s+struct\b")
+    return sum(len(pattern.findall(path.read_text(encoding="utf-8"))) for path in moonbit_sources(root))
+
+
 def moon_package_count(root: Path) -> int:
     return sum(
         1
@@ -136,6 +141,12 @@ def verify(root: Path = ROOT) -> list[str]:
     if observed_public_all > boundary["legacy_pub_all_max"]:
         errors.append(
             f"legacy pub(all) budget grew: maximum {boundary['legacy_pub_all_max']}, observed {observed_public_all}"
+        )
+    observed_mutable_records = public_all_mutable_record_count(root)
+    if observed_mutable_records > boundary["legacy_pub_all_mutable_record_max"]:
+        errors.append(
+            "mutable pub(all) record budget grew: maximum "
+            f"{boundary['legacy_pub_all_mutable_record_max']}, observed {observed_mutable_records}"
         )
     observed_packages = moon_package_count(root)
     if observed_packages > boundary["package_count_max"]:

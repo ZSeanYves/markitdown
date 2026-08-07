@@ -1,6 +1,6 @@
 ///|
 /// One internal timing sample captured during profiled JSON parsing.
-pub(all) struct JsonParseProfileStage {
+pub struct JsonParseProfileStage {
   name : String
   elapsed_ms : UInt64
   detail : String?
@@ -8,14 +8,14 @@ pub(all) struct JsonParseProfileStage {
 
 ///|
 /// Internal parse-stage report used for benchmark attribution.
-pub(all) struct JsonParseProfileReport {
+pub struct JsonParseProfileReport {
   stages : Array[JsonParseProfileStage]
 }
 
 ///|
 /// Profiled parse result pairing the normal JSON document with internal timing
 /// breakdown data.
-pub(all) struct JsonProfiledDocument {
+pub struct JsonProfiledDocument {
   document : JsonDocument
   report : JsonParseProfileReport
 }

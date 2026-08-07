@@ -42,8 +42,10 @@ Choose option 3.
 - Closely coupled reader and lowering packages are consolidated by format or
   format family. PDF, OOXML, ODF, ZIP, runtime, and FFI boundaries remain split
   unless their dependency and safety contracts justify a later merge.
-- The completed Phase 1 baseline must contain at most 70 MoonBit packages and
-  must reduce legacy `pub(all)` declarations rather than merely raising a cap.
+- The completed Phase 1 baseline contains 68 MoonBit packages, at most 210
+  `pub(all)` declarations, and at most 22 mutable `pub(all)` records. The
+  mutable-record ceiling is separate so enums required for cross-package
+  matching cannot hide a widening constructible record surface.
 - Stable options use immutable builders, CLI exits derive from typed errors,
   and reader length/size contracts are enforced at the input boundary.
 - Governance records package, public-surface, FFI, command, network, resource,

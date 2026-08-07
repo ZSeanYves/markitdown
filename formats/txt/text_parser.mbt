@@ -97,7 +97,7 @@ pub fn profile_text_document_from_normalized_text(
 }
 
 ///|
-pub fn parse_text_document_with_profile(
+fn parse_text_document_with_profile(
   text : String,
   profile : TextParseProfileReport?,
   profile_totals : TextParseProfileTotals?,
