@@ -25,24 +25,24 @@
       "tests": 9
     },
     "js": {
-      "passed": 479,
-      "tests": 479
+      "passed": 481,
+      "tests": 481
     },
     "native_c": {
-      "passed": 903,
-      "tests": 903
+      "passed": 907,
+      "tests": 907
     },
     "native_new": {
-      "passed": 903,
-      "tests": 903
+      "passed": 907,
+      "tests": 907
     },
     "wasm": {
-      "passed": 479,
-      "tests": 479
+      "passed": 481,
+      "tests": 481
     },
     "wasm-gc": {
-      "passed": 479,
-      "tests": 479
+      "passed": 481,
+      "tests": 481
     }
   },
   "verified_date": "2026-08-07",

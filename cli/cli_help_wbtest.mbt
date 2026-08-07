@@ -111,3 +111,39 @@ test "main CLI help and fail closed messages remain nonempty across categories" 
   assert_eq(cli_failure_exit_code(cli_failure(ResourceFailure, "same text")), 5)
   assert_eq(cli_failure_exit_code(cli_failure(OutputFailure, "same text")), 6)
 }
+
+///|
+test "typed CLI failures preserve conversion categories and unsupported formats" {
+  let opts = cli_options("/definitely/missing/input.txt", None, None, Markdown)
+  let mapped = [
+    cli_failure_from_convert_error(opts, DetectFailed("detect")),
+    cli_failure_from_convert_error(opts, ParseFailed("parse")),
+    cli_failure_from_convert_error(opts, RenderFailed("render")),
+    cli_failure_from_convert_error(
+      opts,
+      ResourceLimitExceeded(kind="input_bytes", observed=2L, limit=1L),
+    ),
+  ]
+  assert_true(mapped[0].kind == DetectionFailure)
+  assert_true(mapped[1].kind == ConversionFailure)
+  assert_true(mapped[2].kind == OutputFailure)
+  assert_true(mapped[3].kind == ResourceFailure)
+
+  let unsupported = cli_options(
+    "/definitely/missing/workbook.xls",
+    None,
+    Some(Unknown),
+    Markdown,
+  )
+  match
+    run_cli_with_image_ocr_provider_impl(
+      unsupported, @focr.run_ocr_provider, false,
+    ) {
+    Err(failure) => {
+      assert_true(failure.kind == DetectionFailure)
+      assert_eq(cli_failure_exit_code(failure), 3)
+      assert_true(failure.message.contains("unsupported format"))
+    }
+    Ok(_) => fail("unsupported format must fail before conversion")
+  }
+}

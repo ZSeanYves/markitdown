@@ -198,6 +198,21 @@ test "pdf hybrid page merge keeps native blocks and only appends non-duplicate O
 }
 
 ///|
+test "PDF fail-closed diagnostics expose the internal reader boundary" {
+  let diagnostics = pdf_native_fail_closed_diagnostics(
+    @input.input_from_text_with_format("%PDF-1.4", "blocked.pdf", Some(Pdf)),
+    @parser.new_parse_context(Pdf),
+  )
+  assert_true(
+    diagnostics.metrics.get("native_impl_location") ==
+    Some("internal/readers/pdf"),
+  )
+  assert_true(
+    diagnostics.metrics.get("pdf_reader_impl") == Some("internal/readers/pdf"),
+  )
+}
+
+///|
 test "PDF native formats pipeline lowers main contract corpus to IR" {
   let paths = [
     "samples/fixtures/contracts/pdf/hardwrap_en.pdf", "samples/fixtures/contracts/pdf/pdf_header_footer_variants_phase15.pdf",

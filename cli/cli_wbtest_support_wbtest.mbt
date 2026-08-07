@@ -27,40 +27,9 @@ fn read_utf8_text(path : String) -> String {
 fn run_cli_without_emitting_warnings(
   opts : CliOptions,
 ) -> Result[String, String] {
-  let requested_format = cli_requested_format(opts)
-  if !cli_is_supported_format(requested_format) {
-    return Err(
-      cli_fail_closed_format_message(
-        opts.input,
-        requested_format,
-        cli_requested_format_label(opts),
-        opts.ocr_options,
-        @convert.fidelity_mode_for_convert_mode(opts.convert_mode),
-      ),
-    )
-  }
-  let convert_options = @convert.make_convert_options(
-    opts.convert_mode,
-    opts.output_mode,
-    opts.explicit_format,
-    opts.ocr_options,
-    @convert.default_resource_limits(),
-    audio_options=opts.audio_options,
-    rag_options=opts.rag_options,
+  cli_public_result(
+    run_cli_with_image_ocr_provider_impl(opts, @focr.run_ocr_provider, false),
   )
-  let execution = match
-    @convert.convert_input_with_provenance_and_image_ocr_provider(
-      @input.input_from_path(opts.input),
-      convert_options,
-      @focr.run_ocr_provider,
-    ) {
-    Ok(value) => value
-    Err(err) => return Err(err.to_string())
-  }
-  persist_cli_provenance(opts, execution) catch {
-    err => return Err("write provenance failed: " + err.to_string())
-  }
-  cli_public_result(cli_render_convert_result(opts, execution.result))
 }
 
 ///|

@@ -226,6 +226,52 @@ test "source cursor borrows memory views and bounds random access" {
 }
 
 ///|
+test "reader limit wrapper rejects invalid requests and preserves callback failures" {
+  let bounded = input_source_with_reader_limit(
+    input_from_reader(
+      make_input_reader(fn(_offset, _length) { Err("callback unavailable") }),
+    ),
+    4L,
+  )
+  match bounded.payload {
+    Reader(reader) => {
+      assert_true(
+        (reader.read_at)(-1L, 1) ==
+        Err("reader offset and length must be non-negative"),
+      )
+      assert_true(
+        (reader.read_at)(5L, 1) ==
+        Err("input byte limit exceeded: observed=5; limit=4"),
+      )
+      assert_true((reader.read_at)(0L, 1) == Err("callback unavailable"))
+    }
+    _ => fail("reader limit wrapper must preserve a reader payload")
+  }
+}
+
+///|
+test "source cursor rejects callback over-read contracts" {
+  let over_requested : SourceCursor = {
+    size: None,
+    read_at: fn(_offset, length) { Ok(Bytes::new(length + 1)) },
+    view_at: fn(_offset, _length) { None },
+  }
+  assert_true(
+    source_cursor_read_at(over_requested, 0L, length=1) ==
+    Err("reader returned more bytes than requested"),
+  )
+  let beyond_declared : SourceCursor = {
+    size: Some(1L),
+    read_at: fn(_offset, _length) { Ok(Bytes::new(2)) },
+    view_at: fn(_offset, _length) { None },
+  }
+  assert_true(
+    source_cursor_read_at(beyond_declared, 0L, length=2) ==
+    Err("reader returned bytes beyond declared size"),
+  )
+}
+
+///|
 test "input MIME registry covers every supported format family" {
   let fixtures : Array[(String, DetectedFormat)] = [
     ("text/plain", Txt),
