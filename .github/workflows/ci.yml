@@ -60,8 +60,12 @@ jobs:
         run: python3 tools/governance/check_architecture.py
       - name: Verify maintained documentation
         run: python3 tools/governance/check_documentation.py
+      - name: Verify Phase 2 compatibility manifest
+        run: python3 tools/compatibility/check_contract_manifest.py
       - name: Run governance tests
-        run: python3 -m unittest discover -s tools/governance/tests -p 'test_*.py'
+        run: |
+          python3 -m unittest discover -s tools/governance/tests -p 'test_*.py'
+          python3 -m unittest discover -s tools/compatibility/tests -p 'test_*.py'
       - name: Verify PR policy
         if: github.event_name == 'pull_request'
         run: python3 tools/governance/check_pr_policy.py --event-path "$GITHUB_EVENT_PATH"
@@ -207,6 +211,8 @@ jobs:
       - run: moon update
       - name: Build CLI
         run: moon build --target native --package ZSeanYves/markitdown/cli
+      - name: Run Phase 2 local compatibility lab
+        run: python3 tools/compatibility/run_contract_lab.py --cli ./_build/native/debug/build/cli/cli.exe
       - name: Install optional dependencies
         run: |
           for profile in ${{ matrix.profiles }}; do
@@ -257,6 +263,13 @@ jobs:
         run: |
           moon build --target native --release --package ZSeanYves/markitdown/cli
           moon build --target native --release --package ZSeanYves/markitdown/internal/bench_runner
+      - name: Run Phase 2 upstream corpus comparison
+        run: |
+          python3 tools/compatibility/fetch_upstream_corpus.py
+          python3 tools/compatibility/run_contract_lab.py \
+            --cli ./_build/native/release/build/cli/cli.exe \
+            --upstream ./env/.venv-markitdown-bench/bin/markitdown \
+            --upstream-corpus ./.tmp/compatibility/upstream-v0.1.7
       - name: Doctor
         run: _build/native/release/build/internal/bench_runner/bench_runner.exe doctor
       - name: Run benchmark

@@ -13,3 +13,5 @@ decision. Link the ADR from the implementation PR and the maintenance plan.
   consolidate the package graph after the Phase 0-1 audit.
 - `0004-normalize-source-root.md`: make `src/` the only MoonBit source root
   without changing published package names.
+- `0005-phase-2-compatibility-lab.md`: establish the pinned contract corpus,
+  structural diff taxonomy, and capability-tier evidence gate.

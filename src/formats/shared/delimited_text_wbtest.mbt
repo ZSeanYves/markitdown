@@ -85,3 +85,25 @@ test "Delimited parser helpers classify errors and expose streaming capability" 
   assert_true(capability.supports_streaming)
   assert_true(capability.produces_tables)
 }
+
+///|
+test "Delimited parser decodes UTF16 BOM before legacy byte fallback" {
+  let bytes = Bytes::from_array(
+    [
+      0xFF, 0xFE, 0x6E, 0, 0x61, 0, 0x6D, 0, 0x65, 0, 0x09, 0, 0x76, 0, 0x61, 0,
+      0x6C, 0, 0x75, 0, 0x65, 0, 0x0A, 0, 0x41, 0, 0x09, 0, 0x31, 0,
+    ].map(Int::to_byte),
+  )
+  let source = @input.input_from_bytes_with_format(
+    bytes,
+    "utf16.tsv",
+    Some(Tsv),
+  )
+  let result = (tsv_parser().parse)(source, @parser.new_parse_context(Tsv)).unwrap()
+  let events = result.event_stream.unwrap()
+  assert_eq(events[0].text, "name")
+  assert_eq(events[1].text, "value")
+  assert_true(
+    !result.diagnostics.degraded_features.contains("csv_raw_fallback"),
+  )
+}

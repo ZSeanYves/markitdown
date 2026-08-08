@@ -14,13 +14,50 @@ fn lower_html_document(
     lowering_index,
     top_blocks,
   )
+  let blocks = if lowered.blocks.length() == 0 {
+    match html_conservative_empty_output_fallback(semantic, source) {
+      Some(block) => [block]
+      None => lowered.blocks
+    }
+  } else {
+    lowered.blocks
+  }
   @core.document_with_assets(
     @core.document_with_metadata(
-      @core.document_with_blocks(@core.empty_document_ir(), lowered.blocks),
+      @core.document_with_blocks(@core.empty_document_ir(), blocks),
       lowered.metadata,
     ),
     lowered.assets,
   )
+}
+
+///|
+/// Preserve meaningful source text when aggressive scope/noise filtering would
+/// otherwise make a valid HTML document appear empty. The result is deliberately
+/// a paragraph so the loss is visible and the diagnostic layer can classify it.
+fn html_conservative_empty_output_fallback(
+  semantic : @dhtml.HtmlSemanticDocument,
+  source : @input.InputSource,
+) -> @core.CoreBlock? {
+  let mut candidate : @dhtml.HtmlBlockFact? = None
+  for block in semantic.blocks {
+    if block.text_preview.trim() == "" {
+      continue
+    }
+    match candidate {
+      None => candidate = Some(block)
+      Some(existing) if block.text_preview.length() >
+        existing.text_preview.length() => candidate = Some(block)
+      _ => ()
+    }
+  }
+  candidate.map(fn(block) {
+    @core.make_block(
+      Paragraph,
+      block.text_preview.trim().to_owned(),
+      source_ref=html_block_source_ref(source, block),
+    )
+  })
 }
 
 ///|

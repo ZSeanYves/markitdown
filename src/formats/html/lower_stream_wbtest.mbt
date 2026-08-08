@@ -230,6 +230,25 @@ test "HTML DOM route lowers semantic notes tables figures noise and unsupported 
 }
 
 ///|
+test "HTML DOM route preserves text when selected scope is filtered" {
+  let html = "<html><body><main class='nav'><article><p>fallback content</p></article></main></body></html>"
+  let source = @input.input_from_text_with_format(
+    html,
+    "filtered.html",
+    Some(Html),
+  )
+  match html_document_to_ir(source, html) {
+    Ok((document, _diagnostics)) => {
+      assert_true(document.blocks.length() > 0)
+      assert_true(
+        document.blocks.any(block => block.text.contains("fallback content")),
+      )
+    }
+    Err(error) => fail(error)
+  }
+}
+
+///|
 test "HTML source helper paths trim inlines render lists and classify local images" {
   assert_true(
     html_split_once_double_space("left   right") == Some(("left", "right")),

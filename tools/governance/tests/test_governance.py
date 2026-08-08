@@ -29,6 +29,9 @@ class GovernanceTests(unittest.TestCase):
         cls.documentation = load_module(
             "check_documentation", ROOT / "tools/governance/check_documentation.py"
         )
+        cls.compatibility = load_module(
+            "check_contract_manifest", ROOT / "tools/compatibility/check_contract_manifest.py"
+        )
 
     def test_toolchain_parser_reads_all_components(self):
         output = """moon 0.1.20260803 (c19f78e 2026-08-03) ~/.moon/bin/moon
@@ -117,6 +120,9 @@ moonrun 0.1.20260803 (c19f78e 2026-08-03) ~/.moon/bin/moonrun
 
     def test_documentation_contract_passes_repository(self):
         self.assertEqual(self.documentation.verify(), [])
+
+    def test_phase2_contract_manifest_passes_repository(self):
+        self.assertEqual(self.compatibility.validate(), [])
 
     def test_documentation_link_parser_only_returns_local_paths(self):
         self.assertEqual(

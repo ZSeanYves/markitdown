@@ -7,7 +7,7 @@ fn cli_requested_format(opts : CliOptions) -> @input.DetectedFormat {
         Some(label) => @input.parse_detected_format(label)
         None => {
           let detector = @input.default_format_detector()
-          let detected = (detector.detect)(@input.input_from_path(opts.input))
+          let detected = (detector.detect)(cli_input_source(opts))
           detected.format
         }
       }
@@ -38,7 +38,13 @@ fn cli_requested_format_from_input(
         Some(label) => @input.parse_detected_format(label)
         None => {
           let detector = @input.default_format_detector()
-          let detected = (detector.detect)(@input.input_from_path(input_path))
+          let detected = (detector.detect)(
+            if input_path == "-" {
+              @input.input_from_bytes(Bytes::new(0), source_name="stdin.bin")
+            } else {
+              @input.input_from_path(input_path)
+            },
+          )
           detected.format
         }
       }
@@ -340,7 +346,7 @@ fn parse_cli_options_from_index(
       i += 2
       continue
     }
-    if arg.has_prefix("-") {
+    if arg.has_prefix("-") && arg != "-" {
       return Err("unsupported option: " + arg)
     }
     positionals.push(arg)
@@ -362,6 +368,9 @@ fn parse_cli_options_from_index(
   let explicit_format = match parse_explicit_format(explicit_format_raw) {
     Ok(value) => value
     Err(msg) => return Err(msg)
+  }
+  if effective_positionals[0] == "-" && explicit_format is None {
+    return Err("stdin input requires an explicit --format")
   }
   let requested_format = cli_requested_format_from_input(
     effective_positionals[0],
