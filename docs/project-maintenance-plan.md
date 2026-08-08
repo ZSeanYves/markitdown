@@ -1,8 +1,13 @@
 # MoonBit MarkItDown 项目维护与演进计划
 
 **文档状态：** 已接受；Phase 0-2 已实施，作为 Phase 3-6 工作基线
-**版本：** 1.0  
-**编制日期：** 2026-08-05  
+
+**版本：** 1.1
+
+**编制日期：** 2026-08-05
+
+**最近修订：** 2026-08-09
+
 **适用范围：** `ZSeanYves/markitdown` 主模块、CLI、格式读取器、转换管线、native FFI、质量实验室、发布物和外部依赖
 
 ## 1. 执行摘要
@@ -13,7 +18,7 @@
 2. 在 macOS 和 Linux 上提供可安装、可复现、无需 Python 运行时的 native 产品；
 3. 在语义等价、相同输入和相同输出约束下，性能稳定优于官方 Python 实现；
 4. 把不适合放在核心包的网络、云服务、外部命令和实验性能力隔离成显式可选扩展；
-5. 将通用、安全边界明确、拥有独立生命周期的本地实现逐步提取为独立 MoonBit 库，经过双跑和版本化后再回导；
+5. 将通用、安全边界明确的能力建设为拥有自身生命周期的独立 MoonBit 库，经过独立发布、adapter 双跑和版本化后再由本项目采用；
 6. 在 0.8 允许一次集中式破坏性重整，0.9 冻结兼容面，1.0 起遵守明确的 SemVer、弃用和安全支持政策。
 
 当前判断不是“代码不能用”，而是“代码已经足够大，必须先治理边界再继续加格式”。Phase 0 记录了 106 个 MoonBit 包、506 个 `.mbt` 文件和约 1,900 个公开声明；Phase 1 重整过程一度达到 108 包。当前基线已经收敛为 68 包、509 个 `.mbt` 文件、1,871 个公开声明和 9,878 行生成接口。公开面、依赖面、格式契约、文档和性能证据均已成为自动化门禁，不能再依赖维护者记忆。
@@ -27,9 +32,9 @@
 | 核心运行时 | 同步、无网络、无 Python、默认无外部命令；native 为正式发行目标 |
 | async | 只在可选 runtime 适配层使用；稳定 API 不泄露实验性 async 类型 |
 | 网络/插件/云 | 不进入核心；单独扩展包，默认关闭并有 SSRF、凭证和资源限制 |
-| ZIP | 优先提取为独立安全库；本地 ZIP 安全策略仍由本项目控制 |
-| XML/OOXML/PDF | 先建立独立边界和契约，再决定提取；没有成熟可信替代前继续自有实现 |
-| Markdown/YAML | 暂不因下载量替换；必须先过规范套件、输出差分和性能测试 |
+| ZIP | 建设完整独立的 `safezip` 通用安全库；MarkItDown 只通过版本化 adapter 消费 |
+| XML/OOXML/PDF | 分别建设独立的 `xml-stream`、`opc`、`pdf-extract` 标准基础库；不得依赖 MarkItDown 产品类型 |
+| HTML/YAML/TOML/Markdown | 作为统一依赖评估子阶段；先过规范套件、shadow 双跑、输出差分和性能测试，再决定采用或继续自有 |
 | 官方基线 | 固定 MarkItDown `v0.1.7`；`main` 仅作前瞻观察，不能混入正式回归门禁 |
 | 版本路线 | 0.8 架构/API 重整，0.9 RC，1.0 稳定发布 |
 
@@ -48,6 +53,7 @@
 - **依赖是供应链，不是代码片段。** 下载量不能替代 API 稳定性、许可证、维护者响应、模糊测试和基准证据。
 - **破坏性变更集中完成。** 0.8 进行结构和公共面的收敛，1.0 后通过弃用期而不是随意改名。
 - **生成文件可审计。** `.mbti`、黄金输出和 SBOM 必须能由固定命令重建；手工修改生成物禁止合入。
+- **独立库先独立成立。** Phase 3 标准基础库必须拥有独立仓库、规范驱动 API、测试、CI、版本、发布和安全生命周期；MarkItDown 只是消费者之一，不能成为库的命名、类型或错误模型来源。
 
 ### 2.3 三层兼容定义
 
@@ -82,10 +88,10 @@
 - `Path`、`Text`、`Bytes`、`Reader` 与 source cursor 提供了统一输入抽象；
 - Balanced/Accurate/Stream 三种模式、Markdown/RAG/Debug 输出以及 provenance、diagnostic、source map 已形成产品差异化；
 - regression/quality/benchmark 目录已经具备结构化门禁，不能退化为只跑单元测试；
-- ZIP reader 已独立于 markitdown 业务包，具备路径规范化、解压上限和安全发现，适合作为第一个提取候选；
+- ZIP reader 已独立于 markitdown 业务包，具备路径规范化、解压上限和安全发现，适合作为 `safezip` 独立项目的首个迁移证据来源；
 - native command runner、文件游标和原子写出具备 macOS/Linux 基础，但需要 ABI、sanitizer 和失败回收测试。
 
-### 3.3 进入 Phase 2 前的剩余问题
+### 3.3 Phase 2 完成后的剩余问题
 
 Phase 1 已将包从 108 收敛到 68，将 `pub(all)` 从 223 收敛到 210，
 其中可构造/可变记录从 32 降到 22；`src/` 已成为唯一源码根目录。
@@ -161,13 +167,13 @@ flowchart LR
 | 能力 | 当前状态 | 1.0 目标 | 技术决策 | 退出条件 |
 | --- | --- | --- | --- | --- |
 | TXT/CSV/TSV/SRT/VTT/JSON/JSONL/NDJSON | 已支持 | 稳定 | 保留本地实现；统一编码、行尾和预算 | 规范 fixture、随机输入、100 MB 流式测试 |
-| YAML/TOML/XML | 已支持 | 稳定 | 先做社区 shadow adapter；不满足契约则继续自有实现 | YAML/TOML 官方/社区套件、XML entity/namespace/limit 测试 |
+| YAML/TOML/XML | 已支持 | 稳定 | YAML/TOML 先做社区 shadow；XML 建设独立 `xml-stream`，社区实现仅作差分参照 | YAML/TOML 官方/社区套件、XML entity/namespace/limit 测试 |
 | HTML | 已支持 | 稳定 | 评估 `moonbit-community/html`，只替换语法层，不替换 lowering/provenance | WHATWG/HTML corpus、恶意嵌套、差分和性能全过 |
 | Markdown | 已支持 | 稳定 | 暂不整体替换 `mizchi/markdown`；其文档称 CommonMark 207/542，不能直接宣称完整兼容 | CommonMark + GFM + 本地扩展矩阵达到项目阈值 |
 | IPYNB/EML | 已支持 | 稳定 | 保留；明确 EML 与 Outlook MSG 的边界 | MIME、附件、编码、恶意 header corpus |
-| ZIP/EPUB | 已支持 | 稳定 | 安全 ZIP 优先独立库；EPUB lowering 留在本项目 | zip-slip、bomb、路径/大小/深度、EPUB contract |
-| DOCX/PPTX/XLSX/ODT/ODS/ODP | 已支持 | 稳定 | OOXML/ODF lowering 是本项目核心资产；reader 可后续提取 | 官方 fixtures、关系图、图表、公式、媒体和损坏包 |
-| PDF | 已支持 | 稳定但能力分级 | 保留本地解析；不因“有 PDF 包”就替换 | 文本/字体/图片/损坏页/大文件/差分/内存门禁 |
+| ZIP/EPUB | 已支持 | 稳定 | 建设独立 `safezip`；MarkItDown 保留 adapter 和 EPUB lowering | zip-slip、bomb、路径/大小/深度、EPUB contract |
+| DOCX/PPTX/XLSX/ODT/ODS/ODP | 已支持 | 稳定 | OOXML/ODF lowering 留在本项目；通用 OPC 能力由独立 `opc` 提供 | 官方 fixtures、关系图、图表、公式、媒体和损坏包 |
+| PDF | 已支持 | 稳定但能力分级 | 建设独立 `pdf-extract` 标准基础库；Markdown lowering 和产品诊断留在本项目 | 文本/字体/图片/损坏页/大文件/差分/内存门禁 |
 | 图片 OCR | 可选 | 可选扩展 | native 外部工具或平台库，默认不阻断核心安装 | 工具探测、超时、沙箱、版本指纹、失败降级 |
 | WAV/MP3/M4A | 可选 | 可选扩展 | 外部工具或平台 API；不进入同步核心 | 进程回收、输入大小、无工具时确定性错误 |
 | XLS | 当前缺口 | 1.0 兼容等级中明确标注 | 评估 native OLE/BIFF 库；没有成熟 MoonBit 包时不伪装已支持 | fixture、许可证、恶意 OLE、性能和维护者承诺 |
@@ -210,7 +216,8 @@ flowchart LR
 | 社区 TOML | `bobzhang/toml` 等候选 | adapter POC | toml-test、错误 span、重复键/日期/大数、性能和 API 稳定性 |
 | 社区 XML | `Milky2018/xml` 等候选 | 暂不替换 | namespace、实体、外部实体禁用、深度/大小、pull-stream 和损坏输入 |
 | 社区 ZIP | `ivgtr/moonzip` 下载量和安全契约不足 | 不替代 secure ZIP | zip-slip/bomb、symlink、权限、限制、fuzz、维护响应 |
-| PDF/OOXML/MSG/XLS | 未确认成熟可信 native MoonBit 替代 | 继续自有实现 | 先做独立边界；找到候选后双跑，不因生态“有包”就切换 |
+| PDF/OOXML | 未确认成熟可信 native MoonBit 替代 | 分别建设独立 `pdf-extract` 与 `opc`，MarkItDown 通过 adapter 消费 | 标准套件、恶意输入、资源预算、独立 API/CI/release、双跑和回滚版本 |
+| MSG/XLS | 未确认成熟可信 native MoonBit 替代 | 继续自有评估 | 找到候选后双跑，不因生态“有包”就切换 |
 
 候选包的下载量只是发现信号，不是采用标准。包采用必须检查源码许可证、最近提交、issue 响应、release 频率、目标支持、依赖树、公开 API、错误处理、资源限制和测试覆盖。
 
@@ -227,19 +234,30 @@ flowchart LR
 - 上游维护者愿意提供 issue/安全响应，或本项目能够 fork 并承担维护；
 - 有可逆开关：环境变量/配置或 adapter 仍可切回旧实现一个完整 minor 版本。
 
-### 6.3 独立库提取门槛和顺序
+### 6.3 Phase 3 独立标准基础库原则
 
-只有同时满足“通用边界明确、至少两个潜在消费者或明确安全复用价值、独立测试和 release 能力、维护者明确”才提取。避免把一个仓库拆成许多无人维护的小包。
+`safezip`、`xml-stream`、`opc`、`pdf-extract` 是四个完整独立项目，不是
+MarkItDown 内部包的镜像、子模块或发布别名。现有实现只作为行为证据、迁移
+来源和首个 adapter 的参考。独立库的 API 必须由对应文件格式标准、通用调用
+场景和安全模型驱动，禁止依赖 `ZSeanYves/markitdown/input`、IR、diagnostic、
+format enum、CLI error code 或产品路径。
 
-**建议顺序：**
+每个独立库必须满足：
 
-1. `safezip`：当前 ZIP reader 已与业务包解耦，具有安全策略，是首个提取对象；保留 `ZipPolicy`、错误分类、路径规范化、解压预算和 chunk visitor，建立独立仓库、CI、版本和 fuzz 后回导。
-2. `xml-stream`：在 source cursor、entity policy、namespace 和 resource budget 稳定后评估；若只有本项目一个消费者，继续内部包。
-3. `opc/ooxml-package`：ZIP + XML 关系图、部件读取可独立；DOCX/PPTX/XLSX 的语义 lowering 不提取，避免把 MarkItDown 业务模型外泄。
-4. `pdf-extract`：仅在文本/图片/字体契约、损坏文件处理和安全审查完成后考虑；这是高风险、高维护库，不能为了“独立发表”而提前拆出。
-5. 编码/通用 JSON：优先复用成熟基础包；只有当 source span、保留 lexeme、streaming contract 成为普遍需求时才独立发表。
+- 独立 Git 仓库、MoonBit module、许可证、NOTICE、CODEOWNERS、security policy、changelog 和支持窗口；
+- 自有 public API 与 `.mbti` golden、规范/差分 corpus、单元/属性/fuzz 测试、双平台 native CI、声明支持的语义目标矩阵；
+- 自有资源 policy、typed error、版本策略、依赖登记、SBOM、签名/attestation、源码归档和可重建发布证明；
+- 公共入口保持少而清晰；不得为了映射现有目录把 helper 拆成大量公开包；
+- stable 前至少有第二消费者或明确安全复用证明；否则保持 experimental 0.x，但不得降低安全和发布门；
+- MarkItDown 侧只保留薄 adapter；adapter 负责 `InputSource`、产品诊断、provenance、IR/lowering 和能力映射。
 
-提取流程必须是：抽象 API -> 独立仓库/许可证和 SBOM -> 双向 adapter -> golden 双跑 -> 两个消费者或一轮独立发布 -> 从主仓库删除重复源码 -> 保留迁移说明和回滚版本。未经此流程不得直接删除本地实现。
+迁移顺序必须是：独立 spec/API -> 独立仓库实现与发布 -> MarkItDown adapter ->
+旧/新实现 golden 双跑 -> 至少两轮 RC -> MarkItDown 锁定已发布版本 -> 独立 PR
+删除重复源码 -> 保留一个完整 minor 的回滚版本。不得先删除本地实现再补库，
+也不得从 MarkItDown 源码路径直接发布 Mooncakes 包。
+
+编码和通用 JSON 继续优先复用成熟基础包；只有 source span、lexeme 保留或
+streaming contract 形成独立通用需求时，才另立项目，不纳入本轮 Phase 3。
 
 ## 7. 分阶段路线图与验收门
 
@@ -254,7 +272,8 @@ flowchart LR
 | Phase 1.5 | 完成 | `src/` 唯一 MoonBit source root、逻辑包名保持、benchmark runner/集成测试内部化、根目录与物理路径治理门禁 |
 | Phase 1.6 | 完成 | 文档生命周期和索引、README/CHANGELOG 全面复核、陈旧文档删除、链接/性能主张 CI 门禁、MarkItDown 0.1.7 正式性能重跑 |
 | Phase 2 | 完成 | `tools/compatibility/` 固定 upstream corpus、结构化差分、OMML/PPTX 回归、stdin、能力分级和 CI 门禁 |
-| Phase 3-6 | 未开始 | 必须从本文件对应阶段入口继续，不得跳过依赖、安全、性能或发布验收门 |
+| Phase 3 | 已规划，未开始 | 五个子阶段：四个独立标准基础库和一个依赖评估阶段；各项目在 Codex 中单独立项 |
+| Phase 4-6 | 未开始 | 必须从本文件对应阶段入口继续，不得跳过安全、性能或发布验收门 |
 
 ### 阶段 0：基线冻结与治理启动（第 0-2 周）
 
@@ -305,21 +324,117 @@ flowchart LR
 
 **出口：** Tier A 核心格式达到 semantic compatibility 门槛；缺口有公开 issue 和版本标签；CLI/库的 unsupported 行为和错误码稳定；上游升级可由一条命令重跑。
 
-### 阶段 3：依赖 shadow、独立库和本地实现收敛（第 6-14 周）
+### 阶段 3：独立标准基础库与依赖评估（第 6-22 周）
 
-**目标：** 用证据决定“复用、保留或提取”，而不是按热度换包。
+**总目标：** 建设四个不依赖 MarkItDown 的通用标准基础库，并用一个统一的
+shadow/conformance 阶段决定 HTML、YAML、TOML、Markdown 的依赖策略。
+Phase 3 分为五个可单独立项、单独审查、单独发布的子阶段；完成某个库不自动
+授权修改 MarkItDown，接入必须另走 adapter、双跑和依赖 PR。
 
-**工作项：**
+**共同入口：**
 
-- 对 HTML、YAML、TOML 建立 adapter 双跑 POC；对 Markdown 先执行 CommonMark/GFM 套件，不做直接替换；
-- 对 `bikallem/compress`、`blit`、`encoding` 建立依赖档案和 native sanitizer job；
-- 删除未使用直接依赖，更新 `moon.lock`，一次 PR 只处理一个依赖变更；
-- 完成 `safezip` 独立仓库方案、许可证/NOTICE、SBOM、CI、fuzz 和发布试验；
-- 若 `safezip` 通过双跑和两轮 RC，主项目改为外部导入并删除重复实现；
-- 只有 XML/OPC 的边界和消费者数量达到门槛时才继续提取；
-- 未达到替换门槛的本地实现写入“继续自有”的理由和退出条件。
+- Phase 2 compatibility lab、现有格式 golden、恶意输入和性能基线可从干净 checkout 重跑；
+- 独立仓库名称、owner、许可证、支持目标、标准版本、非目标、版本策略和安全响应人已确认；
+- 库不得 import MarkItDown；共享 fixture 必须有独立来源、许可证和 hash；
+- 每个仓库先提交 spec/RFC 和 public API 草案，再进入实现；R3 审查规则适用。
 
-**出口：** 每个依赖有 owner、版本约束、升级频率、许可证、目标、性能和回滚版本；提取库可独立发布并由主项目锁定；替换没有未解释语义回归。
+#### Phase 3.1：`safezip` 通用安全 ZIP 库
+
+**范围：** ZIP central/local headers、Store/Deflate、ZIP64、路径规范化、重复项、
+加密/不支持特性分类、CRC、随机访问、流式 chunk visitor 和显式 `ZipPolicy`。
+`ZipPolicy` 至少覆盖输入大小、单项/总解压大小、压缩比、entry 数量、文件名、
+目录深度和嵌套归档预算。不得包含 EPUB、OOXML 或 MarkItDown `InputSource`。
+
+**交付：** 独立仓库和 Mooncakes 包；规范/系统工具差分、zip-slip/bomb/symlink/
+截断/重复项 corpus、property/fuzz、ASan/UBSan、macOS arm64/Linux x86_64 CI、
+基准、SBOM、签名制品、两轮 RC。公共包保持单一入口，codec/path/policy helper
+默认不拆成公开包。
+
+**MarkItDown 接入：** 在本仓库维护薄 adapter，将 `InputSource` 转换为库的
+bytes/reader 输入，并把库错误映射为产品 error/diagnostic。两轮 RC 双跑无未解释
+差异后锁定版本，再用独立 PR 删除本地重复 ZIP 实现。
+
+**出口：** 独立库可以在不知道 MarkItDown 的情况下完成打开、检查、受限读取和
+流式访问；安全、性能、许可证和回滚证据完整；MarkItDown ZIP/EPUB/ODF/OOXML
+契约与基线等价。
+
+#### Phase 3.2：`xml-stream` 通用受限 XML 库
+
+**范围：** 增量 tokenizer、pull/visitor stream、namespace、entity policy、
+source span、编码入口、结构扫描和显式资源 policy。默认禁止外部实体和网络；
+预算至少覆盖输入字节、节点、属性、名称/文本长度、深度和实体扩展。
+
+**交付：** 独立仓库和 Mooncakes 包；XML 规范与社区 corpus、namespace/entity/
+malformed/depth/bomb 差分、跨 chunk 边界测试、fuzz、性能和峰值内存、双平台 CI、
+SBOM、签名制品与两轮 RC。DOM convenience API 只能建立在 stream core 之上，
+不得反向决定核心事件模型。
+
+**MarkItDown 接入：** adapter 保留 XML 文档 lowering、产品诊断和 provenance；
+并以 XML、EPUB、ODF、OPC 三类消费者进行 golden 双跑。
+
+**出口：** stream API 在声明目标上行为一致，namespace/entity/span/resource
+contract 稳定；至少有第二消费者或明确通用复用证明；MarkItDown 所有 XML 相关
+格式无未解释回归。
+
+#### Phase 3.3：`opc` 通用 Open Packaging Conventions 库
+
+**依赖入口：** 只能在 `safezip` 与 `xml-stream` 发布可锁定 RC、其 API 不再发生
+无迁移说明的破坏性变化后开始集成。
+
+**范围：** OPC part name、content types、package/part relationships、target resolve、
+core/app/custom properties、part inventory、受限随机/流式 part 读取和 package
+validation。不得包含 DOCX/PPTX/XLSX 的段落、表格、图表、公式或 Markdown lowering。
+
+**交付：** 独立仓库和 Mooncakes 包；ECMA-376/OPC fixtures、危险 target、外部
+relationship、重复/缺失 part、content-type 冲突、损坏包和资源预算测试；锁定
+`safezip`/`xml-stream` 版本，生成独立 SBOM、API golden、双平台 CI 和两轮 RC。
+
+**MarkItDown 接入：** DOCX、PPTX、XLSX 三个 reader 只通过 adapter 使用 OPC；
+Office 语义模型和 lowering 永久留在 MarkItDown。
+
+**出口：** 独立 OPC 包可服务非文档转换消费者；三类 Office golden、资产、关系、
+公式和图表契约无未解释差异；回滚只需恢复依赖版本和 adapter。
+
+#### Phase 3.4：`pdf-extract` 通用 PDF 提取基础库
+
+**风险：** 本子阶段为 R3/high-risk，不因属于 Phase 3 而降低发布门。0.x 可以标记
+experimental，但必须满足安全、资源、许可证和可重建发布要求，不得用 experimental
+标签豁免 fuzz、损坏输入或预算测试。
+
+**范围：** PDF header/trailer、xref table/stream、incremental update、object/object
+stream、stream filters、page tree、字体/CMap/ToUnicode、文本与几何、图片/颜色空间、
+metadata/navigation/forms 的标准化提取结果。不得输出 Markdown、RAG、MarkItDown IR
+或产品诊断。
+
+**交付：** 独立仓库和 Mooncakes 0.x 包；ISO 32000 对应 contract、公开/自有
+损坏 corpus、qpdf/mutool 等差分、对象/流/页面/字体/图片预算、bomb 与递归引用防护、
+fuzz、ASan/UBSan、峰值内存/性能、双平台 CI、SBOM、签名制品和至少两轮 RC。
+
+**MarkItDown 接入：** adapter 将标准化提取结果转换为 balanced/accurate/stream
+产品行为；OCR、Markdown lowering、provenance 和 capability mapping 留在本项目。
+
+**出口：** 声明支持的 PDF 子集、错误和限制有机器可读能力报告；文本/字体/图片/
+损坏页/大文件 contract 达门；MarkItDown 双跑无未解释语义、RSS 或性能回归。未达到
+stable 门时只发布明确 experimental 的 0.x，且不得删除本地回滚实现。
+
+#### Phase 3.5：HTML/YAML/TOML shadow 与 Markdown conformance
+
+**范围：** 这是依赖评估阶段，不建设或发布新的通用基础库。HTML 对候选 WHATWG
+parser 做 shadow adapter；YAML/TOML 对候选社区库做 adapter 双跑；Markdown 执行
+CommonMark/GFM conformance，并把候选包仅作为实现和性能参照。
+
+**交付：** 每个候选的版本、维护者、许可证、依赖树、目标支持、API、错误、资源
+策略、规范通过率、恶意输入、性能、维护响应和回滚评审表；结构化差分报告；至少
+两轮 RC shadow 结果。评估代码位于质量/工具边界，不进入稳定 façade。
+
+**决策出口：** 每个候选只能得到 `adopt`、`retain-local` 或 `continue-shadow` 三种
+结论之一，并附 owner、依据、退出条件和复查日期。`adopt` 仍需独立依赖 PR 和一个
+完整 minor 的可逆 adapter；未过门不得通过修改 golden 或降低断言采用。
+
+**Phase 3 总出口：** 四个基础库均拥有独立可安装仓库、发布制品和支持边界；
+MarkItDown 只依赖发布版本和薄 adapter，不依赖源码复制、git submodule 或未发布
+路径；所有 dependency/shadow 决策可审计；没有未解释语义、安全、资源、性能或
+许可证回归。
 
 ### 阶段 4：格式可靠性、安全和资源预算（第 8-18 周）
 
@@ -504,6 +619,20 @@ PR 描述必须填写：问题、范围、非目标、风险等级、影响格�
 - RC soak 报告和回滚指令存档；
 - 发布后 24 小时验证下载、checksum、安装和最小转换样例。
 
+### 12.3 Phase 3 独立基础库发布门
+
+`safezip`、`xml-stream`、`opc`、`pdf-extract` 的发布不使用 MarkItDown release
+作为替代证明。每个独立仓库在 tag 前必须满足：
+
+- module/package 名、版本、标准范围、支持目标、experimental/stable 等级和非目标清晰；
+- public API golden、文档示例和下游 smoke 可在不 checkout MarkItDown 的环境运行；
+- macOS arm64/Linux x86_64 native debug/release、声明支持的语义目标、规范/差分、fuzz、sanitizer、资源和性能门通过；
+- 依赖 lock、许可证、NOTICE、SPDX/CycloneDX SBOM、源码 hash、checksum、签名/attestation 和 provenance 完整；
+- Mooncakes 包、源码归档和版本 manifest 可从干净机器安装、升级、卸载并运行最小样例；
+- 至少两轮 RC 无 P0/P1；P2 有 owner、影响、回滚和目标版本；
+- MarkItDown adapter 只能锁定已发布版本，不引用本地相对路径、git branch 或不可重建 artifact；
+- 发布后 24 小时完成下载、checksum、安装、API 示例和一个独立非 MarkItDown smoke 验证。
+
 ## 13. 维护组织与可持续性
 
 ### 13.1 最小职责
@@ -541,21 +670,24 @@ PR 描述必须填写：问题、范围、非目标、风险等级、影响格�
 | native 双平台构建不可复现 | 中/高 | checksum/ABI/runner 差异 | clean builders、pinned toolchain、provenance；Release owner |
 | 维护者单点故障 | 中/高 | 无人能发布或审查关键格式 | 主/备 owner、季度演练、文档化；Project maintainer |
 | 可选工具污染核心安装 | 中/中 | Python/云依赖进入默认安装 | 扩展包、能力探测、最小安装 smoke；Runtime owner |
+| 独立库被 MarkItDown 需求反向绑架 | 中/高 | public API 出现产品 IR、diagnostic、format enum 或仓库路径 | 标准驱动 spec、禁止反向依赖、独立消费者 smoke；Library/API owner |
+| Phase 3 多仓库范围失控 | 高/高 | 同时重写多个库、adapter 和产品 lowering，无法独立回滚 | 五子阶段单独立项、stacked RFC/PR、发布后再接入；Project maintainer |
+| PDF 基础库过早承诺稳定 | 高/极高 | corpus/fuzz/预算未达门却删除本地实现或宣称完整支持 | experimental 0.x、能力报告、两轮 RC、保留回滚实现；PDF/Security owner |
 
-## 15. 首 30 天执行清单
+## 15. Phase 3 启动清单
 
-按以下顺序开 issue 并互相引用，完成后才进入大规模代码重整：
+Phase 0-2 的前置清单已经完成。Phase 3 按以下顺序单独立项并互相引用：
 
-1. 修复或隔离 `moonbit_get_cli_args` native 全量测试链接问题；
-2. 固定 MarkItDown 0.1.7 baseline，生成可重跑 manifest 和差分报告；
-3. 建立 `api` façade 草案和 `.mbti` golden；盘点并减少首批 `pub(all)`；
-4. 删除未使用的 `clap`、`unicode` 直接依赖，记录 `moon tree` 前后差异；
-5. 补 OMML、PPTX chart、PPTX SVG 回归 fixture；明确 XLS、binary MSG、RSS/网络能力标签；
-6. 加入 macOS arm64/Linux x86_64 native debug/release smoke 和依赖 FFI sanitizer；
-7. 建立 YAML/HTML/TOML shadow adapter 的最小 POC 和评审表；
-8. 提交 `safezip` 提取 RFC，不在 RFC 通过前删除本地实现；
-9. 已生成性能 0.1.7 正式 external/self 结果；Phase 5 继续补 cold/warm 分离、分配量和尺寸阶梯趋势；
-10. 发布 PR 模板、CODEOWNERS、security policy、release checklist 和风险登记表。
+1. 为四个独立库确定仓库名、module/package 名、owner/backup、许可证、标准版本、支持目标、版本策略和 security/release 模板；
+2. 分别提交 `safezip`、`xml-stream`、`opc`、`pdf-extract` 的独立 spec/RFC；不得用一个总 RFC 掩盖各库 API 和风险；
+3. 先启动 `safezip` 与 `xml-stream`；`opc` 只在二者出现可锁定 RC 后进入集成；
+4. `pdf-extract` 先冻结标准子集、能力模型、资源预算和 corpus，再迁移实现；
+5. 建立 Phase 3.5 统一候选评审 schema，覆盖 HTML/YAML/TOML shadow 与 CommonMark/GFM conformance；
+6. 为 `blit`、`compress`、`encoding` 建立依赖档案、sanitizer、fuzz、性能和回滚证据；
+7. 每个独立库发布前完成 Mooncakes、源码归档、SBOM、签名/attestation 和干净机器安装演练；
+8. 每个 MarkItDown adapter 使用独立 PR，保留旧/新双跑与一个完整 minor 回滚；
+9. 删除重复源码必须是 adapter 稳定后的独立 PR，不与依赖升级、golden 更新或 lowering 改写混合；
+10. Phase 3.5 为每个候选写出 `adopt`、`retain-local` 或 `continue-shadow` 决策和复查日期。
 
 ## 16. Definition of Done（任何阶段通用）
 
@@ -568,7 +700,7 @@ PR 描述必须填写：问题、范围、非目标、风险等级、影响格�
 - 安全边界、许可证和回滚路径可审计；
 - 至少一名非作者 reviewer 能从干净 checkout 重跑关键命令；
 - 能力矩阵和 changelog 与实际结果一致；
-- 若为提取/替换，旧实现已在规定观察期内双跑，且删除动作有独立 PR 和回滚版本。
+- 若为独立库接入或依赖替换，旧实现已在规定观察期内双跑，且删除动作有独立 PR 和回滚版本。
 
 ## 17. 参考资料
 
