@@ -26,8 +26,9 @@ PPTX, XLSX, PDF, HTML, CSV, JSON, XML, IPYNB, ZIP, and EPUB. The checked cases
 cover OMML preservation diagnostics, cached PPTX chart lowering, chart
 fallback behavior, SVG asset policy, and non-empty conversion for the remaining
 formats. The native run executes 28 local mode cases. A second invocation can
-fetch the 15 exact upstream v0.1.7 binary fixtures, compare the same structural
-fields against the official CLI, and currently passes 15/15 upstream samples.
+fetch the 17 exact upstream v0.1.7 binary fixtures (15 executable plus two
+reference-only web fixtures), compare the same structural fields against the
+official CLI, and currently passes 15/15 executable upstream samples.
 
 Three upstream scenarios remain explicit reference-only gaps:
 
