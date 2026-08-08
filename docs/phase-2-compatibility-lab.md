@@ -34,9 +34,9 @@ Three upstream scenarios remain explicit reference-only gaps:
 
 | Scenario | Product status | Stable behavior |
 | --- | --- | --- |
-| Legacy XLS/BIFF | unsupported | capability status `Unsupported`; no parser alias |
-| Binary Outlook MSG | unsupported | `msg` is RFC822/EML-only; binary input is not claimed compatible |
-| RSS/Atom and URI/web converters | unsupported in core | no network access; capability status `Unsupported` |
+| Legacy XLS/BIFF | unsupported | capability status `Unsupported`; no parser alias; follow-up [#155](https://github.com/ZSeanYves/markitdown/issues/155) |
+| Binary Outlook MSG | unsupported | `msg` is RFC822/EML-only; binary input is not claimed compatible; follow-up [#156](https://github.com/ZSeanYves/markitdown/issues/156) |
+| RSS/Atom and URI/web converters | unsupported in core | no network access; capability status `Unsupported`; follow-up [#157](https://github.com/ZSeanYves/markitdown/issues/157) |
 
 These are intentionally not represented by an EML alias or a network fallback.
 They remain in the manifest so an accidental capability expansion is visible.

@@ -220,3 +220,30 @@ test "line readers reject invalid limits and missing sources" {
   assert_true(open_source_text_line_reader(missing) is Err(_))
   assert_true(open_source_text_block_reader(missing) is Err(_))
 }
+
+///|
+test "source IO CP932 fallback is explicit and preserves reader errors" {
+  let cp932 = @input.input_from_bytes(
+    Bytes::from_array([0x96, 0xBC, 0x91, 0x4F].map(Int::to_byte)),
+    source_name="names.csv",
+  )
+  match read_source_text_with_cp932_fallback(cp932) {
+    Ok(payload) => assert_eq(payload.text, "名前")
+    Err(error) => fail(error)
+  }
+  let invalid = @input.input_from_bytes(
+    Bytes::from_array([0x80].map(Int::to_byte)),
+    source_name="bad.csv",
+  )
+  assert_true(read_source_text_with_cp932_fallback(invalid) is Err(_))
+  let text = @input.input_from_text("already utf8", source_name="text.csv")
+  match read_source_text_with_cp932_fallback(text) {
+    Ok(payload) => assert_eq(payload.text, "already utf8")
+    Err(error) => fail(error)
+  }
+  let failing = @input.input_from_reader(
+    @input.make_input_reader(fn(_offset, _length) { Err("reader failed") }),
+    source_name="bad.csv",
+  )
+  assert_true(read_source_text_with_cp932_fallback(failing) is Err(_))
+}

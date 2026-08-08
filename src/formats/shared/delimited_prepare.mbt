@@ -29,10 +29,13 @@ fn prepare_delimited_document_from_source(
   source : @input.InputSource,
   is_tsv : Bool,
 ) -> Result[PreparedDelimitedDocument, String] {
-  let text_payload = match
-    @sourceio.read_source_text_with_cp932_fallback(source) {
+  let text_payload = match @sourceio.read_source_text_with_utf16_bom(source) {
     Ok(payload) => payload
-    Err(err) => return Err(err)
+    Err(_) =>
+      match @sourceio.read_source_text_with_cp932_fallback(source) {
+        Ok(payload) => payload
+        Err(err) => return Err(err)
+      }
   }
   let parsed = if is_tsv {
     try
