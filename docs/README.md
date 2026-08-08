@@ -24,6 +24,8 @@ instead of browsing files by name.
 - [Optional-enhancement architecture](./architecture/optional-enhancement-architecture.md)
 - [Benchmark architecture](./architecture/benchmark-architecture.md)
 - [Compatibility matrix](./compatibility-matrix.md)
+- [Phase 2 compatibility lab](./phase-2-compatibility-lab.md): pinned upstream
+  corpus, structural comparator, and executable semantic gates.
 - [Dependency register](./dependency-register.md)
 - [Maintenance and evolution plan](./project-maintenance-plan.md)
 

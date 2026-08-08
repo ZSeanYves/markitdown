@@ -32,6 +32,18 @@ pub fn run_cli_with_image_ocr_provider(
 }
 
 ///|
+fn cli_input_source(opts : CliOptions) -> @input.InputSource {
+  if opts.input == "-" {
+    @input.input_from_bytes(
+      cli_read_stdin(512 * 1024 * 1024),
+      source_name="stdin." + cli_requested_format_label(opts),
+    )
+  } else {
+    @input.input_from_path(opts.input)
+  }
+}
+
+///|
 fn run_cli_with_image_ocr_provider_impl(
   opts : CliOptions,
   image_ocr_provider : (@focr.OcrProviderRequest) -> Result[
@@ -92,7 +104,7 @@ fn run_cli_with_image_ocr_provider_and_pdf_rasterizer(
   }
   let execution = match
     @convert.convert_input_with_provenance_and_image_ocr_provider_and_pdf_rasterizer(
-      @input.input_from_path(opts.input),
+      cli_input_source(opts),
       convert_options,
       image_ocr_provider,
       pdf_rasterizer,
@@ -179,7 +191,7 @@ fn cli_convert_to_atomic_stream_file(
   )
   let result = match
     @convert.convert_input_to_sink_unbuffered(
-      @input.input_from_path(opts.input),
+      cli_input_source(opts),
       convert_options,
       sink,
     ) {

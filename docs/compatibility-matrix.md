@@ -1,9 +1,11 @@
 # Compatibility Matrix
 
-This is the Phase 0 compatibility contract. The official comparison target is
+This is the compatibility contract carried from Phase 0 into the Phase 2
+official compatibility laboratory. The official comparison target is
 Microsoft MarkItDown `v0.1.7` at commit
 `fd239d5d2be43d9b68329730206b9312c7d5a388`. The upstream tag and local fixture
-hashes are recorded in `tools/governance/phase0-baseline.json`.
+hashes are recorded in `tools/governance/phase0-baseline.json`; the Phase 2
+case dimensions and difference taxonomy are recorded in `tools/compatibility/`.
 
 ## Compatibility axes
 
@@ -52,7 +54,7 @@ must state which of the three axes they cover.
 - A golden update must include a structured old/new diff and an explanation.
   A PR that only changes golden files is rejected by policy.
 
-## Required upstream checks
+## Required Upstream Checks
 
 For each upstream release, rerun:
 
@@ -63,8 +65,13 @@ For each upstream release, rerun:
 5. HTML/CSV encoding/JSON/RSS XML/IPYNB/ZIP/EPUB vectors;
 6. CLI output, exit codes, assets, diagnostics and no-network behavior.
 
-Differences are classified as `bug`, `upstream-feature-gap`, `intentional-
-enhancement`, or `undefined`. Only classified differences may be baselined.
+Differences are classified as `bug`, `upstream_feature_missing`,
+`expected_enhancement`, `undefined_behavior`, or `unsupported_by_design`.
+Only classified differences may be baselined. The machine-readable manifest
+rejects any missing classification.
+
+The executable Phase 2 representative lab is documented in
+[`phase-2-compatibility-lab.md`](./phase-2-compatibility-lab.md).
 
 ## Reproduction
 

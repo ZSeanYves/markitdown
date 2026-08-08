@@ -1,6 +1,6 @@
 # MoonBit MarkItDown 项目维护与演进计划
 
-**文档状态：** 已接受；Phase 0-1.6 已实施，作为 Phase 2-6 工作基线
+**文档状态：** 已接受；Phase 0-2 已实施，作为 Phase 3-6 工作基线
 **版本：** 1.0  
 **编制日期：** 2026-08-05  
 **适用范围：** `ZSeanYves/markitdown` 主模块、CLI、格式读取器、转换管线、native FFI、质量实验室、发布物和外部依赖
@@ -89,9 +89,9 @@
 
 Phase 1 已将包从 108 收敛到 68，将 `pub(all)` 从 223 收敛到 210，
 其中可构造/可变记录从 32 降到 22；`src/` 已成为唯一源码根目录。
-公共面和包数量不再列为开放阻断项。当前工作重点是：
+公共面和包数量不再列为开放阻断项。Phase 2 已通过兼容实验室关闭本节的兼容证据缺口，后续重点是：
 
-1. **兼容证据仍需系统化。** 本地 contract fixture 覆盖不均，缺少 XLS、二进制 MSG、RSS/网页特化能力等上游场景的明确状态。
+1. **Phase 2 已关闭兼容证据阻断。** `contract-manifest.json` 固定 upstream v0.1.7，15 个原始 fixture 与 28 个本地模式案例均由 CI 重跑；XLS、二进制 MSG、RSS/网页特化能力保留为明确 unsupported 缺口。
 2. **self baseline 需要同指纹批准。** 2026-08-07 新测量覆盖 53 行，但现有 approved baseline 的 MoonBit、quality-lab、Python/runtime、OS/runner 指纹不同，不能据此宣称回归或提升。
 3. **native 安全链仍需加强。** macOS/Linux native 全量链接和运行已经阻断 CI；ASan/UBSan、长期 fuzz 和子进程失败回收仍属于后续安全出口。
 4. **候选依赖仍缺替换证据。** 社区包必须先经过 adapter、双跑、规范、安全、许可证、性能和退出计划，不能按下载量直接替换。
@@ -253,7 +253,8 @@ flowchart LR
 | Phase 1 | 完成 | `api` façade、私有 Input、typed error/code、CLI 退出码、Path/Text/Bytes/Reader、Markdown/Debug/RAG、能力/来源投影、0.8 golden、迁移文档、ADR 和架构依赖门禁 |
 | Phase 1.5 | 完成 | `src/` 唯一 MoonBit source root、逻辑包名保持、benchmark runner/集成测试内部化、根目录与物理路径治理门禁 |
 | Phase 1.6 | 完成 | 文档生命周期和索引、README/CHANGELOG 全面复核、陈旧文档删除、链接/性能主张 CI 门禁、MarkItDown 0.1.7 正式性能重跑 |
-| Phase 2-6 | 未开始 | 必须从本文件对应阶段入口继续，不得跳过兼容、性能、安全或发布验收门 |
+| Phase 2 | 完成 | `tools/compatibility/` 固定 upstream corpus、结构化差分、OMML/PPTX 回归、stdin、能力分级和 CI 门禁 |
+| Phase 3-6 | 未开始 | 必须从本文件对应阶段入口继续，不得跳过依赖、安全、性能或发布验收门 |
 
 ### 阶段 0：基线冻结与治理启动（第 0-2 周）
 

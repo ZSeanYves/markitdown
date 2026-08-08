@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### Phase 2 compatibility laboratory
+
+- Added a pinned MarkItDown `v0.1.7` contract manifest with Tier A/B/C format
+  coverage, input-kind and hint dimensions, fixture hashes, and explicit
+  reference-only gaps for XLS, binary Outlook MSG, and RSS/URI converters.
+- Added a blocking difference taxonomy and structural compatibility runner;
+  unclassified differences cannot silently update goldens.
+- Added native executable checks for OMML preservation diagnostics, PPTX cached
+  chart lowering and chart fallback/SVG asset policy, plus XML, IPYNB, ZIP and
+  EPUB contract representatives.
+- Added exact upstream v0.1.7 fixture retrieval with SHA-256 verification,
+  strict reviewed structural-difference fields, CP932 CSV decoding, bounded
+  native stdin input (`-` with explicit `--format`), and a CI upstream corpus
+  comparison gate.
+
 ### Documentation and evidence governance
 
 - Rebuilt the documentation entry points around `docs/README.md`; removed the

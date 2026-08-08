@@ -32,6 +32,8 @@ REQUIRED_DOCUMENTS = {
     "docs/migration-0.8.md",
     "docs/performance.md",
     "docs/project-maintenance-plan.md",
+    "docs/phase-2-compatibility-lab.md",
+    "docs/adr/0005-phase-2-compatibility-lab.md",
 }
 RETIRED_DOCUMENTS = {"docs/migration-0.7.md"}
 CURRENT_NARRATIVES = {

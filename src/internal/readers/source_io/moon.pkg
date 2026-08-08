@@ -6,4 +6,9 @@ import {
 
 options(
   "preferred-target": "native",
+  "native-stub": [ "cp932_native_stub.c" ],
+  targets: {
+    "cp932_native.mbt": [ "native" ],
+    "cp932_portable.mbt": [ "wasm", "wasm-gc", "js" ],
+  },
 )

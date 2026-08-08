@@ -1,0 +1,765 @@
+{
+  "schema_version": 1,
+  "upstream": {
+    "project": "microsoft/markitdown",
+    "tag": "v0.1.7",
+    "commit": "fd239d5d2be43d9b68329730206b9312c7d5a388",
+    "license": "MIT",
+    "repository": "https://github.com/microsoft/markitdown",
+    "test_root": "packages/markitdown/tests/test_files"
+  },
+  "upstream_files": {
+    "equations.docx": "339b064492530598859de0bde8504de7a4aefead88210baf3e9f3db0ed925b40",
+    "test_svg_no_fallback.pptx": "f8f966fd01be50cee72a6912ad48c1a473baf374db4a7dd1baf65fb11d9a532e",
+    "test.docx": "ee1974633f3b1e8bb54201abce779a755cb1cd5259641a08cf7b1b9b36dec42b",
+    "test.xlsx": "a867be6ece38a4224bcfe34312e5c296ed520a76a431e0454603ceb171fbd4af",
+    "test.pptx": "f0b9e5252aec3730c91f276a7c3b8f4a9893a7b66540f6c6af160a49855ca507",
+    "test.pdf": "77c4014cf15ea5e56663e9b8093ddc2a89a9224c15d6a9eb2aa8af2b48e1b237",
+    "test_blog.html": "a4668c9aa9e639a193a1582de35786239bd71d457dc534a2a32e642606ffa221",
+    "test_mskanji.csv": "184c3dbe4c92d80c0ffef7141dc2401d6ed2fed2e001d444dffb3c3414ce5ff9",
+    "test.json": "d489e024aee6ef05f4c6eba3c64fe14404b7b39281385ead3eae0afec92dfe7f",
+    "test_rss.xml": "d94148d91336e3c87cc4311b0e9f780ccb405d5ff075e6b814b5bc955094d7c2",
+    "test_notebook.ipynb": "60bc053abcbdb10588c9bdc7d59436a8b09604b1e7d5e57a093ba31e555e1505",
+    "test_files.zip": "fdc6402d0c47d7f2891f9bb46a0389024c63b0aa6325596027519bbe2ded7f05",
+    "test.epub": "33e65f39f54bd24f74d5f333d24213a68c62ee2f2854d12f8c4c59b15a4031a7",
+    "test_outlook_msg.msg": "028d84ffe67e1865009669d13d4c12682943b32eccf7f84a8da1899db63b0131",
+    "test.xls": "17a94b6514e8998f4dc25bc77265b6f62982c18614ba4401a87fa01f90f53f1d"
+    ,"test_wikipedia.html": "4c1f6c5ca1147455b8df8b19cd957844cad37d23d541c039af421a7634074ea6"
+    ,"test_serp.html": "ac6e1a5f16dfcdb3b04725a08a9379dcf37d3c48bde16cbd3c210279cee39f52"
+  },
+  "comparison": {
+    "normalizer": "markdown-structure-v1",
+    "unclassified_difference_is_failure": true,
+    "allowed_categories": [
+      "bug",
+      "upstream_feature_missing",
+      "expected_enhancement",
+      "undefined_behavior",
+      "unsupported_by_design"
+    ]
+  },
+  "reviewed_upstream_differences": {
+    "docx-equations": ["paragraphs"],
+    "pptx-chart-cache": ["headings", "paragraphs", "tables", "links", "assets"],
+    "pptx-svg-fallback": ["headings", "paragraphs", "links", "assets"],
+    "xlsx-basic": [],
+    "pdf-text": ["headings", "paragraphs"],
+    "html-entities": ["headings", "paragraphs", "links", "assets"],
+    "csv-cp932": [],
+    "json-basic": ["paragraphs", "tables"],
+    "xml-basic": ["headings", "paragraphs", "links"],
+    "ipynb-basic": ["paragraphs", "tables"],
+    "zip-basic": ["headings", "paragraphs", "tables", "links", "assets"],
+    "epub-basic": ["headings", "paragraphs"],
+    "markdown-basic": [],
+    "yaml-basic": ["paragraphs", "tables"],
+    "toml-basic": ["paragraphs", "tables"]
+  },
+  "tiers": {
+    "A": [
+      "docx",
+      "xlsx",
+      "pptx",
+      "pdf",
+      "html",
+      "csv",
+      "json",
+      "xml",
+      "ipynb",
+      "zip",
+      "epub"
+    ],
+    "B": [
+      "eml",
+      "markdown",
+      "yaml",
+      "toml"
+    ],
+    "C": [
+      "xls",
+      "outlook-msg",
+      "rss",
+      "atom",
+      "wikipedia",
+      "youtube",
+      "bing-serp"
+    ]
+  },
+  "cases": [
+    {
+      "id": "docx-equations",
+      "format": "docx",
+      "tier": "A",
+      "input": "samples/fixtures/contracts/docx/docx_advanced_synthetic.docx",
+      "upstream_file": "equations.docx",
+      "source": "upstream-compatible-local",
+      "modes": [
+        "balance",
+        "accurate"
+      ],
+      "input_kinds": [
+        "path",
+        "bytes",
+        "reader"
+      ],
+      "hints": [
+        "none",
+        "mime",
+        "extension"
+      ],
+      "signals": {
+        "contains": [
+          "x \\+ y"
+        ],
+        "math": "preserved-text-signature"
+      },
+      "classification": "upstream_feature_missing",
+      "fixture_sha256": "e068adc11ccaead0004a8cd2b4a39b45b5f8f437f0a7c0854b7fdb21918ed768",
+      "comparison_fields": [
+        "headings",
+        "paragraphs",
+        "tables",
+        "links",
+        "assets",
+        "diagnostics",
+        "math"
+      ]
+    },
+    {
+      "id": "pptx-chart-cache",
+      "format": "pptx",
+      "tier": "A",
+      "input": "samples/fixtures/contracts/pptx/pptx_chart_cache_synthetic.pptx",
+      "upstream_file": "test.pptx",
+      "source": "upstream-compatible-local",
+      "modes": [
+        "balance",
+        "accurate"
+      ],
+      "input_kinds": [
+        "path",
+        "bytes",
+        "reader"
+      ],
+      "hints": [
+        "none",
+        "mime",
+        "extension"
+      ],
+      "signals": {
+        "contains": [
+          "Quarterly revenue",
+          "1970-01-01",
+          "| North |"
+        ],
+        "not_contains": [
+          "[Unsupported PPTX chart"
+        ]
+      },
+      "classification": "expected_enhancement",
+      "fixture_sha256": "ef880baee6c3ad948333f7a57bc1a0f67b000776c1f7bf5d1435d5e3b85135c0",
+      "comparison_fields": [
+        "headings",
+        "paragraphs",
+        "tables",
+        "links",
+        "assets",
+        "diagnostics",
+        "chart",
+        "svg_assets"
+      ]
+    },
+    {
+      "id": "pptx-svg-fallback",
+      "format": "pptx",
+      "tier": "A",
+      "input": "samples/fixtures/contracts/pptx/pptx_simple.pptx",
+      "upstream_file": "test_svg_no_fallback.pptx",
+      "source": "upstream-compatible-local",
+      "modes": [
+        "balance"
+      ],
+      "input_kinds": [
+        "path",
+        "bytes",
+        "reader"
+      ],
+      "hints": [
+        "none",
+        "mime",
+        "extension"
+      ],
+      "signals": {
+        "asset_policy": "preserve-original-or-diagnostic"
+      },
+      "classification": "undefined_behavior",
+      "fixture_sha256": "8e07969ae725de04d9300aab505a0f5c7eb207e7a63a7d1e32dd2aeeea673d27",
+      "comparison_fields": [
+        "headings",
+        "paragraphs",
+        "tables",
+        "links",
+        "assets",
+        "diagnostics",
+        "chart",
+        "svg_assets"
+      ]
+    },
+    {
+      "id": "xlsx-basic",
+      "format": "xlsx",
+      "tier": "A",
+      "input": "samples/fixtures/contracts/xlsx/sheet_simple.xlsx",
+      "upstream_file": "test.xlsx",
+      "source": "upstream-compatible-local",
+      "modes": [
+        "balance",
+        "accurate",
+        "stream"
+      ],
+      "input_kinds": [
+        "path",
+        "bytes",
+        "reader"
+      ],
+      "hints": [
+        "none",
+        "mime",
+        "extension"
+      ],
+      "signals": {
+        "contains": [
+          "Sheet1"
+        ]
+      },
+      "classification": "undefined_behavior",
+      "fixture_sha256": "f05289a8e14b1f30e5ced34daeeed63a9c28b14bcca5eb97ed51a56f6f81c577",
+      "comparison_fields": [
+        "headings",
+        "paragraphs",
+        "tables",
+        "links",
+        "assets",
+        "diagnostics"
+      ]
+    },
+    {
+      "id": "pdf-text",
+      "format": "pdf",
+      "tier": "A",
+      "input": "samples/fixtures/contracts/pdf/text_simple.pdf",
+      "upstream_file": "test.pdf",
+      "source": "upstream-compatible-local",
+      "modes": [
+        "balance",
+        "accurate"
+      ],
+      "input_kinds": [
+        "path",
+        "bytes",
+        "reader"
+      ],
+      "hints": [
+        "none",
+        "mime",
+        "extension"
+      ],
+      "signals": {
+        "non_empty": true
+      },
+      "classification": "undefined_behavior",
+      "fixture_sha256": "ff68dae545ca8b437b028c97dfade55c2a09bb75d4cb614f5d6c0eadbb5bef28",
+      "comparison_fields": [
+        "headings",
+        "paragraphs",
+        "tables",
+        "links",
+        "assets",
+        "diagnostics"
+      ]
+    },
+    {
+      "id": "html-entities",
+      "format": "html",
+      "tier": "A",
+      "input": "samples/fixtures/contracts/html/html_entities.html",
+      "upstream_file": "test_blog.html",
+      "source": "upstream-compatible-local",
+      "modes": [
+        "balance",
+        "stream"
+      ],
+      "input_kinds": [
+        "path",
+        "text",
+        "bytes",
+        "reader"
+      ],
+      "hints": [
+        "none",
+        "mime",
+        "extension"
+      ],
+      "signals": {
+        "non_empty": true
+      },
+      "classification": "undefined_behavior",
+      "fixture_sha256": "17070693e09bfc5c67618e627b018ebd6c536ecf8f4d44564522d73e52ea95fc",
+      "comparison_fields": [
+        "headings",
+        "paragraphs",
+        "tables",
+        "links",
+        "assets",
+        "diagnostics"
+      ]
+    },
+    {
+      "id": "csv-cp932",
+      "format": "csv",
+      "tier": "A",
+      "input": "samples/fixtures/contracts/csv/csv_basic.csv",
+      "upstream_file": "test_mskanji.csv",
+      "source": "upstream-compatible-local",
+      "modes": [
+        "balance",
+        "stream"
+      ],
+      "input_kinds": [
+        "path",
+        "text",
+        "bytes",
+        "reader"
+      ],
+      "hints": [
+        "none",
+        "mime",
+        "extension"
+      ],
+      "signals": {
+        "non_empty": true
+      },
+      "classification": "undefined_behavior",
+      "fixture_sha256": "1e9bf0c637bb6b4eeeab8f6c6ecf90d43ca1d2f0e234c3c314e7a4e861f48c26",
+      "comparison_fields": [
+        "headings",
+        "paragraphs",
+        "tables",
+        "links",
+        "assets",
+        "diagnostics"
+      ]
+    },
+    {
+      "id": "json-basic",
+      "format": "json",
+      "tier": "A",
+      "input": "samples/fixtures/contracts/json/json_object_basic.json",
+      "upstream_file": "test.json",
+      "source": "upstream-compatible-local",
+      "modes": [
+        "balance",
+        "stream"
+      ],
+      "input_kinds": [
+        "path",
+        "text",
+        "bytes",
+        "reader"
+      ],
+      "hints": [
+        "none",
+        "mime",
+        "extension"
+      ],
+      "signals": {
+        "non_empty": true
+      },
+      "classification": "undefined_behavior",
+      "fixture_sha256": "c84aa1cad1d6b6e75f9f8fddbaff93b74cfe3c6f1e7eb39a51bd9ae4446ee231",
+      "comparison_fields": [
+        "headings",
+        "paragraphs",
+        "tables",
+        "links",
+        "assets",
+        "diagnostics"
+      ]
+    },
+    {
+      "id": "rss-unsupported",
+      "format": "rss",
+      "tier": "C",
+      "input": null,
+      "upstream_file": "test_rss.xml",
+      "source": "upstream-reference-only",
+      "modes": [],
+      "input_kinds": [],
+      "hints": [],
+      "signals": {
+        "status": "unsupported",
+        "error_code": "MID-0001"
+      },
+      "classification": "unsupported_by_design"
+    },
+    {
+      "id": "xls-unsupported",
+      "format": "xls",
+      "tier": "C",
+      "input": null,
+      "upstream_file": "test.xls",
+      "source": "upstream-reference-only",
+      "modes": [],
+      "input_kinds": [],
+      "hints": [],
+      "signals": {
+        "status": "unsupported",
+        "error_code": "MID-0001"
+      },
+      "classification": "unsupported_by_design"
+    },
+    {
+      "id": "msg-binary-unsupported",
+      "format": "outlook-msg",
+      "tier": "C",
+      "input": null,
+      "upstream_file": "test_outlook_msg.msg",
+      "source": "upstream-reference-only",
+      "modes": [],
+      "input_kinds": [],
+      "hints": [],
+      "signals": {
+        "status": "unsupported",
+        "error_code": "MID-0001"
+      },
+      "classification": "unsupported_by_design"
+    },
+    {
+      "id": "xml-basic",
+      "format": "xml",
+      "tier": "A",
+      "input": "samples/fixtures/contracts/xml/xml_basic.xml",
+      "upstream_file": "test_rss.xml",
+      "source": "upstream-compatible-local",
+      "modes": [
+        "balance",
+        "stream"
+      ],
+      "input_kinds": [
+        "path",
+        "text",
+        "bytes",
+        "reader"
+      ],
+      "hints": [
+        "none",
+        "mime",
+        "extension"
+      ],
+      "signals": {
+        "non_empty": true
+      },
+      "classification": "undefined_behavior",
+      "fixture_sha256": "15395cdb0483e51d53315ea2946a2d59f90b6a2c82e7566b2e50bf1dcab11f79",
+      "comparison_fields": [
+        "headings",
+        "paragraphs",
+        "tables",
+        "links",
+        "assets",
+        "diagnostics"
+      ]
+    },
+    {
+      "id": "ipynb-basic",
+      "format": "ipynb",
+      "tier": "A",
+      "input": "samples/fixtures/contracts/ipynb/ipynb_markdown_basic.ipynb",
+      "upstream_file": "test_notebook.ipynb",
+      "source": "upstream-compatible-local",
+      "modes": [
+        "balance",
+        "stream"
+      ],
+      "input_kinds": [
+        "path",
+        "bytes",
+        "reader"
+      ],
+      "hints": [
+        "none",
+        "mime",
+        "extension"
+      ],
+      "signals": {
+        "non_empty": true
+      },
+      "classification": "undefined_behavior",
+      "fixture_sha256": "bf11f71f155429535c737877d948596dfa2014284ee5a0aedbb595a2b06a35c0",
+      "comparison_fields": [
+        "headings",
+        "paragraphs",
+        "tables",
+        "links",
+        "assets",
+        "diagnostics"
+      ]
+    },
+    {
+      "id": "zip-basic",
+      "format": "zip",
+      "tier": "A",
+      "input": "samples/fixtures/contracts/zip/zip_basic_structured.zip",
+      "upstream_file": "test_files.zip",
+      "source": "upstream-compatible-local",
+      "modes": [
+        "balance"
+      ],
+      "input_kinds": [
+        "path",
+        "bytes",
+        "reader"
+      ],
+      "hints": [
+        "none",
+        "mime",
+        "extension"
+      ],
+      "signals": {
+        "non_empty": true
+      },
+      "classification": "undefined_behavior",
+      "fixture_sha256": "8abcac29696bdb24359e958c6744d7701038ada11a310721f1f093f6fe7936eb",
+      "comparison_fields": [
+        "headings",
+        "paragraphs",
+        "tables",
+        "links",
+        "assets",
+        "diagnostics"
+      ]
+    },
+    {
+      "id": "epub-basic",
+      "format": "epub",
+      "tier": "A",
+      "input": "samples/fixtures/contracts/epub/epub_basic_package.epub",
+      "upstream_file": "test.epub",
+      "source": "upstream-compatible-local",
+      "modes": [
+        "balance",
+        "stream"
+      ],
+      "input_kinds": [
+        "path",
+        "bytes",
+        "reader"
+      ],
+      "hints": [
+        "none",
+        "mime",
+        "extension"
+      ],
+      "signals": {
+        "non_empty": true
+      },
+      "classification": "undefined_behavior",
+      "fixture_sha256": "c466798fd58d9c8453688e5baec85cef53b916347bae2ab285695e83b748a1fe",
+      "comparison_fields": [
+        "headings",
+        "paragraphs",
+        "tables",
+        "links",
+        "assets",
+        "diagnostics"
+      ]
+    },
+    {
+      "id": "markdown-basic",
+      "format": "markdown",
+      "tier": "B",
+      "input": "samples/fixtures/contracts/markdown/markdown_basic_heading_paragraph.md",
+      "upstream_file": "test_blog.html",
+      "source": "upstream-compatible-local",
+      "modes": [
+        "balance",
+        "stream"
+      ],
+      "input_kinds": [
+        "path",
+        "text",
+        "bytes",
+        "reader"
+      ],
+      "hints": [
+        "none",
+        "mime",
+        "extension"
+      ],
+      "signals": {
+        "non_empty": true
+      },
+      "classification": "undefined_behavior",
+      "fixture_sha256": "25068aaf7a4e2020699499c71f9301abed9889de2a3c675f37584ee67988703e",
+      "comparison_fields": [
+        "headings",
+        "paragraphs",
+        "tables",
+        "links",
+        "assets",
+        "diagnostics"
+      ]
+    },
+    {
+      "id": "yaml-basic",
+      "format": "yaml",
+      "tier": "B",
+      "input": "samples/fixtures/contracts/yaml/yaml_mapping_basic.yaml",
+      "upstream_file": "test.json",
+      "source": "upstream-compatible-local",
+      "modes": [
+        "balance",
+        "stream"
+      ],
+      "input_kinds": [
+        "path",
+        "text",
+        "bytes",
+        "reader"
+      ],
+      "hints": [
+        "none",
+        "mime",
+        "extension"
+      ],
+      "signals": {
+        "non_empty": true
+      },
+      "classification": "undefined_behavior",
+      "fixture_sha256": "6d4e410ee0a9b6eda83a92fafa7493c3f3a07e05c4aebfa340e3ff4827ef26eb",
+      "comparison_fields": [
+        "headings",
+        "paragraphs",
+        "tables",
+        "links",
+        "assets",
+        "diagnostics"
+      ]
+    },
+    {
+      "id": "toml-basic",
+      "format": "toml",
+      "tier": "B",
+      "input": "samples/fixtures/contracts/toml/toml_object_basic.toml",
+      "upstream_file": "test.json",
+      "source": "upstream-compatible-local",
+      "modes": [
+        "balance"
+      ],
+      "input_kinds": [
+        "path",
+        "text",
+        "bytes",
+        "reader"
+      ],
+      "hints": [
+        "none",
+        "mime",
+        "extension"
+      ],
+      "signals": {
+        "non_empty": true
+      },
+      "classification": "undefined_behavior",
+      "fixture_sha256": "0f6e94c97ad5a3dd454eb92ff80c563a6c4c122582d696e323e3730292a0679f",
+      "comparison_fields": [
+        "headings",
+        "paragraphs",
+        "tables",
+        "links",
+        "assets",
+        "diagnostics"
+      ]
+    },
+    {
+      "id": "atom-unsupported",
+      "format": "atom",
+      "tier": "C",
+      "input": null,
+      "upstream_file": "test_rss.xml",
+      "source": "upstream-reference-only",
+      "modes": [],
+      "input_kinds": [],
+      "hints": [],
+      "signals": {
+        "status": "unsupported",
+        "error_code": "MID-0001"
+      },
+      "classification": "unsupported_by_design"
+    },
+    {
+      "id": "wikipedia-unsupported",
+      "format": "wikipedia",
+      "tier": "C",
+      "input": null,
+      "upstream_file": "test_wikipedia.html",
+      "source": "upstream-reference-only",
+      "modes": [],
+      "input_kinds": [],
+      "hints": [],
+      "signals": {
+        "status": "unsupported",
+        "error_code": "MID-0001"
+      },
+      "classification": "unsupported_by_design"
+    },
+    {
+      "id": "youtube-unsupported",
+      "format": "youtube",
+      "tier": "C",
+      "input": null,
+      "upstream_file": "test_youtube.html",
+      "source": "upstream-reference-only",
+      "modes": [],
+      "input_kinds": [],
+      "hints": [],
+      "signals": {
+        "status": "unsupported",
+        "error_code": "MID-0001"
+      },
+      "classification": "unsupported_by_design"
+    },
+    {
+      "id": "bing-serp-unsupported",
+      "format": "bing-serp",
+      "tier": "C",
+      "input": null,
+      "upstream_file": "test_serp.html",
+      "source": "upstream-reference-only",
+      "modes": [],
+      "input_kinds": [],
+      "hints": [],
+      "signals": {
+        "status": "unsupported",
+        "error_code": "MID-0001"
+      },
+      "classification": "unsupported_by_design"
+    },
+    {
+      "id": "eml-reference",
+      "format": "eml",
+      "tier": "B",
+      "input": null,
+      "upstream_file": "test.eml",
+      "source": "upstream-reference-only",
+      "modes": [],
+      "input_kinds": [],
+      "hints": [],
+      "signals": {
+        "status": "stable-reference",
+        "note": "local EML corpus is maintained by the pinned external quality lab"
+      },
+      "classification": "undefined_behavior"
+    }
+  ]
+}

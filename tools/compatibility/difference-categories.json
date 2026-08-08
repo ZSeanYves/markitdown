@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "categories": {
+    "bug": {"owner":"format-owner","action":"fix before golden update","release_effect":"blocking"},
+    "upstream_feature_missing": {"owner":"format-owner","action":"record issue and capability impact","release_effect":"experimental-or-gap"},
+    "expected_enhancement": {"owner":"api-owner","action":"assert project contract separately","release_effect":"non-regression"},
+    "undefined_behavior": {"owner":"quality-owner","action":"do not update golden without decision","release_effect":"review-required"},
+    "unsupported_by_design": {"owner":"api-owner","action":"keep stable unsupported status and code","release_effect":"documented"}
+  }
+}

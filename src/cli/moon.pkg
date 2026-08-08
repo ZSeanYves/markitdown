@@ -26,5 +26,13 @@ pkgtype(kind: "executable")
 
 options(
   "preferred-target": "native",
-  "native-stub": [ "stderr_native_stub.c", "atomic_file_sink_native_stub.c" ],
+  "native-stub": [
+    "stderr_native_stub.c",
+    "atomic_file_sink_native_stub.c",
+    "stdin_native_stub.c",
+  ],
+  targets: {
+    "stdin_native.mbt": [ "native" ],
+    "stdin_portable.mbt": [ "wasm", "wasm-gc", "js" ],
+  },
 )

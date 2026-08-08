@@ -51,6 +51,48 @@ pub fn read_source_text(
 }
 
 ///|
+pub fn read_source_text_with_cp932_fallback(
+  source : @input.InputSource,
+) -> Result[SourceTextPayload, String] {
+  let text_result = match @input.input_text(source) {
+    Some(text) => Ok(text)
+    None =>
+      match read_source_bytes(source) {
+        Ok(payload) => decode_text_bytes_with_fallback(payload.bytes)
+        Err(err) => Err(err)
+      }
+  }
+  match text_result {
+    Ok(text) =>
+      Ok({
+        text,
+        prepared_source: if @input.input_text(source) is Some(_) {
+          source
+        } else {
+          @input.with_text_payload(source, text)
+        },
+      })
+    Err(err) => Err(err)
+  }
+}
+
+///|
+fn decode_text_bytes_with_fallback(bytes : Bytes) -> Result[String, String] {
+  try @utf8.decode(bytes, ignore_bom=false) |> Ok catch {
+    _ => {
+      let converted = decode_cp932_native(bytes)
+      if converted.length() == 0 {
+        Err("utf8/cp932 decode failed")
+      } else {
+        try @utf8.decode(converted, ignore_bom=false) |> Ok catch {
+          _ => Err("utf8/cp932 decode failed")
+        }
+      }
+    }
+  }
+}
+
+///|
 pub fn read_source_text_with_utf16_bom(
   source : @input.InputSource,
 ) -> Result[SourceTextPayload, String] {
