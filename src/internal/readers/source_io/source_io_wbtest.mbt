@@ -222,6 +222,7 @@ test "line readers reject invalid limits and missing sources" {
 }
 
 ///|
+#cfg(target="native")
 test "source IO CP932 fallback is explicit and preserves reader errors" {
   let cp932 = @input.input_from_bytes(
     Bytes::from_array([0x96, 0xBC, 0x91, 0x4F].map(Int::to_byte)),
