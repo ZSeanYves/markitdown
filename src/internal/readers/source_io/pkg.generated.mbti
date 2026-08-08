@@ -22,6 +22,8 @@ pub fn read_source_bytes(@input.InputSource) -> Result[SourceBytesPayload, Strin
 
 pub fn read_source_text(@input.InputSource) -> Result[SourceTextPayload, String]
 
+pub fn read_source_text_with_cp932_fallback(@input.InputSource) -> Result[SourceTextPayload, String]
+
 pub fn read_source_text_with_utf16_bom(@input.InputSource) -> Result[SourceTextPayload, String]
 
 pub fn read_xml_source_text(@input.InputSource) -> Result[SourceTextPayload, String]
