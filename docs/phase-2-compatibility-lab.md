@@ -40,7 +40,7 @@ Three upstream scenarios remain explicit reference-only gaps:
 
 These are intentionally not represented by an EML alias or a network fallback.
 They remain in the manifest so an accidental capability expansion is visible.
-Reference-only web fixture hashes are retained for provenance but are never
+Reference-only web fixture hashes are retained for provenance, and are never
 executed as network converters.
 
 Run the gates from a clean checkout:
