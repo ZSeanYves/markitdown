@@ -146,7 +146,7 @@ fn parser_pull_sink_candidate(
 /// Use a parser pull stream when the selected route can preserve the line
 /// event contract. Complex formats and non-Markdown output intentionally
 /// return `None` and use the established buffered renderer above.
-fn try_convert_event_stream_to_sink(
+async fn try_convert_event_stream_to_sink(
   source : @input.InputSource,
   options : ConvertOptions,
   sink : OutputSink,
@@ -208,7 +208,7 @@ fn try_convert_event_stream_to_sink(
     _ => @render.open_markdown_line_event_sink(write_bounded)
   }
   while true {
-    match (stream.next)() {
+    match (stream.next_async)() {
       Ok(Some(event)) =>
         match (renderer.push)(event) {
           Ok(_) => ()

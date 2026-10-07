@@ -44,7 +44,29 @@ pub fn make_parse_event_stream(
   next : () -> Result[@core.CoreEvent?, String],
   finish : () -> Result[ParseStreamSummary, String],
 ) -> ParseEventStream {
-  { next, finish, }
+  {
+    next,
+    next_async: async fn() {
+      @async.sleep(0)
+      next()
+    },
+    finish,
+  }
+}
+
+///|
+/// Construct a pull stream whose producer already owns an asynchronous
+/// advancement callback. The synchronous projection intentionally remains
+/// unavailable so callers cannot accidentally block on an async source.
+pub fn make_async_parse_event_stream(
+  next : async () -> Result[@core.CoreEvent?, String],
+  finish : () -> Result[ParseStreamSummary, String],
+) -> ParseEventStream {
+  {
+    next: fn() { Err("asynchronous event stream requires async advancement") },
+    next_async: next,
+    finish,
+  }
 }
 
 ///|

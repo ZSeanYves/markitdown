@@ -40,6 +40,8 @@ pub fn empty_registry() -> ParserRegistry
 
 pub fn empty_unified_registry() -> UnifiedParserRegistry
 
+pub fn make_async_parse_event_stream(async () -> Result[@core.CoreEvent?, String], () -> Result[ParseStreamSummary, String]) -> ParseEventStream
+
 pub fn make_async_parser(String, ParserMode, ParserCapability, async (@input.InputSource, ParseContext) -> Result[ParseResult, String]) -> AsyncParser
 
 pub fn make_parse_event_stream(() -> Result[@core.CoreEvent?, String], () -> Result[ParseStreamSummary, String]) -> ParseEventStream
@@ -162,6 +164,7 @@ pub struct ParseContext {
 
 pub struct ParseEventStream {
   next : () -> Result[@core.CoreEvent?, String]
+  next_async : async () -> Result[@core.CoreEvent?, String]
   finish : () -> Result[ParseStreamSummary, String]
 }
 

@@ -157,6 +157,10 @@ pub struct ParseStreamSummary {
 /// single-consumer and must not be polled after an error.
 pub struct ParseEventStream {
   next : () -> Result[@core.CoreEvent?, String]
+  /// Async façade used by the canonical output sink. Existing format
+  /// producers are wrapped at construction time until their pull callbacks
+  /// can read directly from async sources.
+  next_async : async () -> Result[@core.CoreEvent?, String]
   finish : () -> Result[ParseStreamSummary, String]
 }
 
