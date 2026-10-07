@@ -1,0 +1,14 @@
+import {
+  "moonbitlang/async",
+  "ZSeanYves/markitdown/internal/cli",
+  "ZSeanYves/markitdown/internal/host",
+  "ZSeanYves/markitdown/internal/runtime/process",
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "+wasm+native"
+
+options(
+  "preferred-target": "wasm",
+)

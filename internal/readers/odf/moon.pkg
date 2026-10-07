@@ -1,0 +1,11 @@
+import {
+  "ZSeanYves/markitdown/lib/input",
+  "ZSeanYves/markitdown/internal/readers/odf/odp",
+  "ZSeanYves/markitdown/internal/readers/odf/ods",
+  "ZSeanYves/markitdown/internal/readers/odf/odt",
+  "ZSeanYves/markitdown/internal/readers/odf/shared",
+}
+
+options(
+  "preferred-target": "native",
+)

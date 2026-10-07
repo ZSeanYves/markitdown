@@ -30,7 +30,7 @@ Support levels used below:
 | Format | Level | What is preserved | Modes | Important boundary |
 | --- | --- | --- | --- | --- |
 | `txt` | Mainstream | Unicode text and line order | balance, stream | No inferred document structure |
-| `csv`, `tsv` | Mainstream | Quoted/multiline cells, rows and Markdown tables | balance, stream | Delimiter tables only; no spreadsheet formulas or styles |
+| `csv`, `tsv` | Mainstream | Quoted/multiline cells, rows and Markdown tables | balance, stream | Delimiter tables only; no spreadsheet formulas or styles; Wasm's legacy-byte fallback covers Shift_JIS/JIS X 0208 and rejects CP932 extension rows, while Native may use iconv for those rows |
 | `srt`, `vtt` | Mainstream | Cue IDs, timings, settings, common inline tags; VTT header/NOTE/STYLE/REGION | balance, stream | Bad cues may be skipped with diagnostics; not a media player |
 | `json` | Mainstream | Nested objects/arrays, scalar types, table/list lowering and source paths | balance, stream | Invalid JSON fails closed; no JSON Schema evaluation |
 | `jsonl`, `ndjson` | Mainstream | Record order and per-record structure | balance, stream | Blank malformed records are diagnosed; no cross-record schema |

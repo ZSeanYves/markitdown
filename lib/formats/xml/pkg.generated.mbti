@@ -1,0 +1,22 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/lib/formats/xml"
+
+import {
+  "ZSeanYves/markitdown/internal/parser",
+  "ZSeanYves/markitdown/lib/input",
+}
+
+// Values
+pub fn xml_parse_with_prepared_text(@input.InputSource, @parser.ParseContext, @ZSeanYves/markitdown/internal/readers/xml.PreparedXmlText) -> @parser.ParseResult
+
+pub fn xml_parse_with_structure_tokens(@input.InputSource, @parser.ParseContext, String, Array[@ZSeanYves/markitdown/internal/readers/xml.XmlToken]) -> @parser.ParseResult
+
+pub fn xml_parser() -> @parser.Parser
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

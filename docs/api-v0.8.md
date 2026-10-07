@@ -1,6 +1,6 @@
 # Stable Library API 0.8
 
-`ZSeanYves/markitdown/api` is the only compatibility-stable library package in
+`ZSeanYves/markitdown/lib` is the only compatibility-stable library package in
 the 0.8 line. Its text contract builds on Native and linear Wasm. Native-only
 extensions are isolated below the façade. All other project
 packages are implementation or extension packages and may change without a
@@ -10,12 +10,13 @@ deprecation period before 1.0.
 
 The façade exposes only implementation-neutral models:
 
-- `Input` with Path, Text, Bytes and Reader constructors;
+- `Input` with Path, Text, Bytes, synchronous Reader and asynchronous Reader
+  constructors;
 - `ConvertOptions`, `ResourceLimits`, `RagOptions`, conversion/output modes;
 - `Output`, `Asset`, `SourceMap`, `Chunk`, `Diagnostic`, `Provenance` and
   `Capability`;
 - typed `ConvertError`, stable `ErrorCode` strings and process exit mappings;
-- `convert`, `api_v0_8` and the explicit `ApiV0_8` version handle.
+- asynchronous `convert`, `api_v0_8` and the explicit `ApiV0_8` version handle.
 
 `Input` has private fields. The interface does not expose parser registries,
 format-reader records, IR, pipeline contexts, renderer types, async handles,
@@ -26,14 +27,14 @@ in `tools/governance/api-v0.8.mbti`.
 
 ```mbt check
 test {
-  let input = @api.Input::from_text(
+  let input = @lib.Input::from_text(
     "# Title\n\nBody\n",
     source_name="note.md",
   )
-  let options = @api.ConvertOptions::default()
+  let options = @lib.ConvertOptions::default()
     .with_mode(Accurate)
     .with_output_mode(Markdown)
-  guard @api.convert(input, options~) is Ok(output) else {
+  guard @lib.convert(input, options~) is Ok(output) else {
     fail("conversion failed")
   }
   assert_true(output.content.contains("Title"))
@@ -41,10 +42,17 @@ test {
 }
 ```
 
+`convert` is asynchronous. Call it from an async entrypoint and await the
+result; the façade owns parser scheduling and does not expose community futures
+or FFI handles.
+
 Reader callbacks receive `(offset, length)` and return at most `length` bytes.
 An empty result means end of input. Reader resource ownership stays with the
-caller. The adapter rejects oversized chunks, reads beyond a declared size and
-data beyond `ResourceLimits.max_input_bytes`.
+caller. `Input::from_async_reader` is the asynchronous resource boundary; the
+current shared parser chain materializes that reader once under
+`ResourceLimits.max_input_bytes` before entering the same detection, routing
+and semantic pipeline. The adapter rejects oversized chunks, reads beyond a
+declared size and data beyond the input budget.
 
 `ResourceLimits` and `RagOptions` are immutable. Start with `default()` and use
 their `with_*` methods to set every supported field before attaching them to
@@ -79,7 +87,7 @@ package.
 Run:
 
 ```bash
-moon info --package ZSeanYves/markitdown/api
+moon info --package ZSeanYves/markitdown/lib
 python3 tools/governance/check_architecture.py
 ```
 

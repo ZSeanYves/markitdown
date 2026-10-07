@@ -1,7 +1,0 @@
-import {
-  "ZSeanYves/markitdown/input",
-}
-
-options(
-  "preferred-target": "native",
-)

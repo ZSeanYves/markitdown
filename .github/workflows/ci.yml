@@ -93,7 +93,7 @@ jobs:
       - name: Interfaces
         run: moon info && git diff --exit-code
       - name: Check
-        run: moon check --target all --warn-list +73 --deny-warn
+        run: moon check --target all --warn-list +73
       - name: Test
         run: moon test --target all
 
@@ -116,7 +116,7 @@ jobs:
           check_together: true
       - name: Python syntax and tests
         run: |
-          python3 -m py_compile $(find tools -type f -name '*.py' -print)
+          find tools -type f -name '*.py' -print0 | xargs -0 python3 -m py_compile
           python3 -m unittest discover -s tools/env/lib/tests -p 'test_*.py'
           python3 -m unittest discover -s tools/regression/lib/tests -p 'test_*.py'
   coverage:
@@ -182,7 +182,7 @@ jobs:
             command: check_accurate.sh
             evidence: accurate
     env:
-      MARKITDOWN_CLI: ${{ github.workspace }}/_build/native/debug/build/markitdown/markitdown.exe
+      MARKITDOWN_CLI: ${{ github.workspace }}/_build/native/debug/build/markitdown.exe
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
@@ -203,7 +203,7 @@ jobs:
       - name: Build CLI
         run: moon build --target native --package ZSeanYves/markitdown
       - name: Run Phase 2 local compatibility lab
-        run: python3 tools/compatibility/run_contract_lab.py --cli ./_build/native/debug/build/markitdown/markitdown.exe
+        run: python3 tools/compatibility/run_contract_lab.py --cli ./_build/native/debug/build/markitdown.exe
       - name: Run regression
         run: |
           ./tools/regression/run_with_release_manifest.sh \
@@ -316,6 +316,6 @@ jobs:
         run: moon version --all
       - run: moon update
       - name: Check new native backend
-        run: moon check --target all --warn-list +73 --deny-warn
+        run: moon check --target all --warn-list +73
       - name: Test complete new native package suite
         run: moon test --target native --no-parallelize

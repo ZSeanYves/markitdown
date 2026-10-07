@@ -48,7 +48,7 @@ Run the gates from a clean checkout:
 ```bash
 python3 tools/compatibility/check_contract_manifest.py
 python3 tools/compatibility/fetch_upstream_corpus.py
-moon build --target native --release --package ZSeanYves/markitdown/cli
+moon build --target native --release --package ZSeanYves/markitdown/internal/cli
 python3 tools/compatibility/run_contract_lab.py \
   --cli ./_build/native/release/build/markitdown.exe
 python3 tools/compatibility/run_contract_lab.py \

@@ -1,0 +1,10 @@
+import {
+  "ZSeanYves/markitdown/internal/formats/zip" @internal,
+  "ZSeanYves/markitdown/internal/readers/zip_source" @dzipsource,
+  "ZSeanYves/markitdown/lib/input",
+  "ZSeanYves/markitdown/internal/parser",
+}
+
+options(
+  "preferred-target": "native",
+)

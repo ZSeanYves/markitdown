@@ -1,8 +1,0 @@
-import {
-  "ZSeanYves/markitdown/input",
-  "ZSeanYves/markitdown/rag",
-}
-
-options(
-  "preferred-target": "native",
-)

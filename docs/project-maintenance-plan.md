@@ -11,6 +11,10 @@
 > 和 [FFI 清单](./ffi-inventory.md) 为准；公共执行链使用 Native/Wasm
 > 共享文本基座，Native 扩展必须保持在清单边界内。
 
+> 当前包布局已按 cygpath 风格收敛为根可执行入口、公开 `lib/` 和私有
+> `internal/`。下文早期章节中的 `src/`、同步稳定 API 和多模态表格是历史
+> 记录；本次 0.8 实施状态以升级计划、ADR 0006 和能力矩阵为准。
+
 ## 1. 执行摘要
 
 本项目不是 Python MarkItDown 的逐行移植，而是以其用户可观察行为为兼容目标、以 MoonBit 的类型系统、原生编译和跨目标能力为实现基础的独立产品。长期目标是：
@@ -30,8 +34,8 @@
 | --- | --- |
 | 稳定入口 | 收敛到一个小型 `api`/根 façade；内部格式包不再被视为稳定 API |
 | 目标平台 | 1.0 Tier 1 为 Linux x86_64、macOS arm64；Linux arm64、macOS x86_64 为 Tier 2，证据不足时不承诺 |
-| 核心运行时 | 同步、无网络、无 Python、默认无外部命令；native 为正式发行目标 |
-| async | 只在可选 runtime 适配层使用；稳定 API 不泄露实验性 async 类型 |
+| 核心运行时 | 单一异步资源边界、无网络、无 Python、默认无外部命令；Native/Wasm 共用文本链 |
+| async | 公开 `convert`、Reader、解析入口、CLI 和收集/流式出口统一使用 async；纯计算保持同步 |
 | 网络/插件/云 | 不进入核心；单独扩展包，默认关闭并有 SSRF、凭证和资源限制 |
 | ZIP | 优先提取为独立安全库；本地 ZIP 安全策略仍由本项目控制 |
 | XML/OOXML/PDF | 先建立独立边界和契约，再决定提取；没有成熟可信替代前继续自有实现 |
@@ -94,7 +98,8 @@
 ### 3.3 进入 Phase 2 前的剩余问题
 
 Phase 1 已将包从 108 收敛到 68，将 `pub(all)` 从 223 收敛到 210，
-其中可构造/可变记录从 32 降到 22；`src/` 已成为唯一源码根目录。
+其中可构造/可变记录从 32 降到 22；当前仓库进一步按根包、`lib/`、
+`internal/` 分层，旧 `src/` 根已删除。
 公共面和包数量不再列为开放阻断项。Phase 2 已通过兼容实验室关闭本节的兼容证据缺口，后续重点是：
 
 1. **Phase 2 已关闭兼容证据阻断。** `contract-manifest.json` 固定 upstream v0.1.7，15 个原始 fixture 与 28 个本地模式案例均由 CI 重跑；XLS、二进制 MSG、RSS/网页特化能力保留为明确 unsupported 缺口。
@@ -143,22 +148,22 @@ flowchart LR
 - **错误：** 公共边界使用 typed `suberror` 分类（`InvalidInput`、`UnsupportedFormat`、`ParseFailure`、`ResourceLimit`、`ExternalTool`、`NetworkDisabled`、`Internal` 等），保留稳定 code、可选 cause 和 provenance；字符串只作为展示字段。
 - **数据路径：** 解析阶段优先 `Bytes`/`BytesView`/cursor 和流式事件，避免提前把大文件转为 `String`；建立 1 MB、100 MB、1 GB 级输入的峰值内存契约。
 - **target：** 文本语义核心和公共格式继续运行 `moon check/test --target wasm` 与 Native；仅 benchmark、集成测试和 hermetic 测试包保留 native-only，并为运行时扩展提供目标隔离和明确错误。
-- **async：** MoonBit 官方 async 文档明确其 native 最佳、Wasm 不支持且 API 仍不稳定（见 [async 文档](https://docs.moonbitlang.com/en/stable/language/async-experimental.html)）。稳定 API 不暴露 async；CLI/并发批处理通过 native adapter 实现。
+- **async：** MoonBit 官方 async 负责资源边界；稳定 façade 自己拥有输入、结果和领域错误类型，不暴露社区句柄。Native/Wasm 共同使用同一执行链，目标差异只在 host/FFI 能力声明。
 - **FFI：** C stub 只存在于 `runtime/native/*`，所有指针、长度、生命周期、错误码和线程约束写入注释与测试；native debug/release 都编译并运行，因 MoonBit native 后端可能不同（见 [FFI 文档](https://docs.moonbitlang.com/en/latest/language/ffi.html)）。
 - **traits/virtual package：** 不把实验性 virtual package 当作生产插件协议；1.0 前使用显式记录、函数和 registry。若未来采用 trait，先以内部试验包验证工具链和文档生成。
 - **包 API：** MoonBit 包中 `pub`/`pub(all)`/`priv` 的可见性会影响消费者构造和修改值（见 [Packages](https://docs.moonbitlang.com/en/latest/language/packages.html)）；任何可破坏字段变更必须先从 `pub(all)` 收敛。
 
 ### 4.3 仓库源码根目录
 
-`moon.mod` 使用 `source = "src"`，所有 MoonBit 包均位于 `src/` 下。
-`src` 不进入逻辑包名，因此稳定入口仍为 `ZSeanYves/markitdown/api`，
-实现包仍使用 `formats/*`、`internal/*`、`runtime/*` 等既有包路径。
+仓库按逻辑根可执行入口、公开 `lib/` 和私有 `internal/` 分层。根目录的
+`moon.pkg`/`main.mbt` 是唯一 CLI 入口，稳定库包为
+`ZSeanYves/markitdown/lib`，格式、读取器、运行时和测试均位于
+`ZSeanYves/markitdown/internal/*` 或 `lib/*` 的私有子包。
 
-仓库根目录只保留 `src`、`bench`、`samples`、`tools`、`docs` 和仓库治理
-元数据。`bench/` 保存策略、清单、基线和报告；可执行 runner 位于
-`src/internal/bench_runner`。包内测试继续与实现同包，跨包集成测试集中在
-`src/internal/integration_tests`。治理门禁拒绝任何重新出现在 `src/` 外的
-`moon.pkg`。
+`bench/` 保存策略、清单、基线和报告；可执行 runner 位于
+`internal/bench_runner`。包内测试继续与实现同包，跨包集成测试集中在
+`internal/integration_tests`。治理门禁拒绝根目录、`lib/` 和 `internal/`
+之外出现新的 `moon.pkg`。
 
 ## 5. 能力与兼容路线
 

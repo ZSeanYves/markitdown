@@ -1,0 +1,8 @@
+import {
+  "ZSeanYves/markitdown/lib/input",
+  "ZSeanYves/markitdown/lib/rag",
+}
+
+options(
+  "preferred-target": "native",
+)

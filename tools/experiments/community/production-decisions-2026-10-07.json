@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-07",
+  "policy": "A candidate enters production only after two dual runs, semantic/resource parity, and a thin adapter.",
+  "status": "provisional_until_release_candidate_gates",
+  "adopted": [
+    {
+      "package": "moonbit-community/flate",
+      "version": "0.8.5",
+      "scope": "DEFLATE/ZIP codec",
+      "adapter": "internal/formats/zip and lib/formats/zip retain path, CRC, collision, budget, and truncation policy",
+      "evidence": "isolated cross-codec probe passes 6/6 on Native and 6/6 on Wasm, plus the product ZIP regression suite; no parser semantic layer was replaced",
+      "promotion_gate": "two release-candidate dual runs with trusted performance/resource evidence"
+    },
+    {
+      "package": "horideicom/encoding_sjis",
+      "version": "0.1.1",
+      "scope": "portable Shift_JIS/JIS X 0208 decoding; CP932 extensions remain Native-only",
+      "adapter": "internal/readers/source_io/cp932_portable.mbt rejects replacement output and maps decoded text to UTF-8",
+      "evidence": "run_encoding.mbtx covers 名前, ASCII, half-width katakana, JIS X 0208, split-character streaming, truncated/malformed rejection, and explicit FA40 CP932-extension rejection on both targets; product adapter adds the same fail-closed boundary",
+      "remaining_gate": "two Native/Wasm dual runs against a complete CP932 corpus; Native iconv extension mapping is tested separately",
+      "promotion_gate": "full portable CP932 corpus and release-candidate resource/performance evidence"
+    }
+  ],
+  "rejected_or_deferred": [
+    {
+      "package": "Milky2018/xml",
+      "version": "0.5.0",
+      "decision": "defer",
+      "reason": "upstream event model does not carry this project's document nodes, XML source spans, entity policy, and fail-closed diagnostics without a semantic reimplementation"
+    },
+    {
+      "package": "bobzhang/html_parser",
+      "version": "0.2.0",
+      "decision": "defer",
+      "reason": "DOM recovery is useful, but direct HTML-to-output integration would bypass local assets, ARIA/table semantics, provenance, and resource budgets"
+    },
+    {
+      "package": "moonbit-community/toml",
+      "version": "0.5.0",
+      "decision": "defer",
+      "reason": "value-tree API lacks the source range and duplicate-key diagnostics required by the current TOML contract"
+    },
+    {
+      "package": "moonbit-community/cmark",
+      "version": "0.4.10",
+      "decision": "defer",
+      "reason": "Python-generated entity tables add a source-build dependency and the AST adapter would need to recreate local frontmatter, source map, and asset semantics"
+    },
+    {
+      "package": "moonbitlang/docx2html",
+      "version": "0.6.1",
+      "decision": "defer",
+      "reason": "HTML output loses Office source refs, cached values, notes, assets, and accurate-mode policy"
+    },
+    {
+      "package": "moonbitlang/mbtexcel",
+      "version": "0.2.1",
+      "decision": "defer",
+      "reason": "reader model does not expose the existing merged-cell, cached-value, attachment, and provenance contract"
+    },
+    {
+      "package": "moonbitlang/pdflite",
+      "version": "0.3.8",
+      "decision": "defer",
+      "reason": "native-only build paths and observed PDF text normalization differences prevent a shared linear-Wasm replacement"
+    }
+  ]
+}

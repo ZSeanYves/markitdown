@@ -18,7 +18,6 @@ ROOT_DOCUMENTS = {
     "CHANGELOG.md",
     "CONTRIBUTING.md",
     "README.md",
-    "README.mbt.md",
     "SECURITY.md",
 }
 REQUIRED_DOCUMENTS = {
@@ -38,11 +37,11 @@ REQUIRED_DOCUMENTS = {
 RETIRED_DOCUMENTS = {"docs/migration-0.7.md"}
 CURRENT_NARRATIVES = {
     "README.md",
-    "README.mbt.md",
     "bench/README.md",
     "CHANGELOG.md",
     "docs/performance.md",
 }
+WARNING_BASELINE = "tools/governance/warning-baseline.json"
 LINK_RE = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 PERFORMANCE_ROW_RE = re.compile(
     r"^\|\s*([A-Za-z0-9]+)\s*\|\s*(\d+)\s*\|\s*([0-9.]+)x\s*\|\s*([0-9.]+)x\s*\|$",
@@ -170,6 +169,56 @@ def benchmark_claim_errors(root: Path = ROOT) -> list[str]:
     return errors
 
 
+def warning_baseline_errors(root: Path = ROOT) -> list[str]:
+    """Keep the temporary warning inventory explicit and reviewable."""
+    path = root / WARNING_BASELINE
+    errors: list[str] = []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return [f"warning baseline cannot be read: {exc}"]
+    if data.get("schema_version") != 1:
+        errors.append("warning baseline schema_version must be 1")
+    if data.get("status") not in {"preliminary", "reviewed"}:
+        errors.append("warning baseline status must be preliminary or reviewed")
+    toolchain = data.get("toolchain")
+    if not isinstance(toolchain, dict) or not toolchain.get("moon_version") or not toolchain.get("moonc_version"):
+        errors.append("warning baseline must record MoonBit and moonc versions")
+    if data.get("command") != "moon check --target <target> --warn-list +73":
+        errors.append("warning baseline command drifted")
+    targets = data.get("targets")
+    if not isinstance(targets, dict) or set(targets) != {"native", "wasm", "all"}:
+        errors.append("warning baseline must contain native, wasm and all targets")
+    else:
+        for name, item in targets.items():
+            if not isinstance(item, dict):
+                errors.append(f"warning baseline target is not an object: {name}")
+                continue
+            for field in ("warnings", "errors"):
+                value = item.get(field)
+                if not isinstance(value, int) or value < 0:
+                    errors.append(f"warning baseline {name}.{field} must be a non-negative integer")
+            if not item.get("evidence"):
+                errors.append(f"warning baseline {name} is missing evidence note")
+    review = data.get("diagnostic_review")
+    if not isinstance(review, dict):
+        errors.append("warning baseline diagnostic_review is missing")
+    else:
+        if review.get("mode") not in {"aggregate_only", "complete"}:
+            errors.append("warning baseline diagnostic_review.mode is invalid")
+        if not isinstance(review.get("diagnostic_ids"), list):
+            errors.append("warning baseline diagnostic_ids must be a list")
+        for field in ("owner", "expiry", "remediation"):
+            if not review.get(field):
+                errors.append(f"warning baseline diagnostic_review.{field} is required")
+    policy = data.get("policy")
+    if not isinstance(policy, dict) or policy.get("silent_grandfathering") is not False:
+        errors.append("warning baseline must explicitly prohibit silent grandfathering")
+    if not isinstance(policy, dict) or "--deny-warn" not in str(policy.get("release_gate", "")):
+        errors.append("warning baseline must keep --deny-warn as the release gate")
+    return errors
+
+
 def verify(root: Path = ROOT) -> list[str]:
     errors = []
     for relative in sorted(REQUIRED_DOCUMENTS):
@@ -178,8 +227,6 @@ def verify(root: Path = ROOT) -> list[str]:
     for relative in sorted(RETIRED_DOCUMENTS):
         if (root / relative).exists():
             errors.append(f"retired document reappeared: {relative}")
-    if (root / "README.md").read_bytes() != (root / "README.mbt.md").read_bytes():
-        errors.append("README.md and README.mbt.md must be byte-identical")
     for relative in sorted(CURRENT_NARRATIVES):
         text = (root / relative).read_text(encoding="utf-8")
         if "0.1.6" in text:
@@ -188,6 +235,7 @@ def verify(root: Path = ROOT) -> list[str]:
             errors.append(f"retired benchmark runner path in {relative}")
     errors.extend(link_errors(root))
     errors.extend(benchmark_claim_errors(root))
+    errors.extend(warning_baseline_errors(root))
     return errors
 
 

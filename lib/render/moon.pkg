@@ -1,0 +1,10 @@
+import {
+  "moonbitlang/core/string",
+  "ZSeanYves/markitdown/lib/core",
+  "ZSeanYves/markitdown/lib/product",
+  "ZSeanYves/markitdown/lib/rag",
+}
+
+options(
+  "preferred-target": "native",
+)

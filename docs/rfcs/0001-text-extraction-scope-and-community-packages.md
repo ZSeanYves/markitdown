@@ -110,7 +110,7 @@ PDF 输入是 `samples/fixtures/contracts/pdf/text_simple.pdf`。已有预期包
 
 ## OCR/audio 移除的具体影响面
 
-仅 `src/formats/ocr` 和 `src/formats/audio` 下非测试 `.mbt` 文件就有 6,522 行，计数包含注释/空行；没有包含 PDF OCR、CLI、API、测试和安装器，因此不是总删除行数估算。
+仅 `lib/formats/ocr` 和 `lib/formats/audio` 下非测试 `.mbt` 文件就有 6,522 行，计数包含注释/空行；没有包含 PDF OCR、CLI、API、测试和安装器，因此不是总删除行数估算。
 
 实施时需要一起处理：
 
@@ -156,11 +156,14 @@ PDF 输入是 `samples/fixtures/contracts/pdf/text_simple.pdf`。已有预期包
 
 实查 `moonx 0.1.0 --help`：默认 `--target wasm`，也接受 `--target native`。本次已实际执行 `moonx --target native --verbose cli/rev@0.1.1 --help`，完成本机编译并运行缓存的 `.exe`，退出码 0；随后 stdin 输入 `abc` 得到 `cba`。`file` 确认产物为 macOS arm64 Mach-O。Native 路径可用，不应由默认 Wasm 推导 moonx 一律禁止 FFI。独立 `.mbtx` 则只允许 Wasm；`wasm-gc` 不在 moonx 的 target 选项中。
 
-两条执行路径不同：Wasm 包从注册表获取预构建 `.wasm`，Native 路径下载源码、在本机构建并缓存可执行文件。因此 Native 首次调用需要相应构建工具与依赖，不能承诺其具有相同的预编译分发体验。上游 [moonx 源码](https://github.com/moonbitlang/moon/blob/0a3f0d43b228a5338417d8a569d3cdaa833e467d/crates/moon/src/cli/moonx.rs) 与 [registry runner](https://github.com/moonbitlang/moon/blob/0a3f0d43b228a5338417d8a569d3cdaa833e467d/crates/moon/src/cli/registry_runner.rs) 可复查该分流。
+两条执行路径不同：Wasm 包从注册表获取预构建 `.wasm`，Native 路径下载源码、在本机构建并缓存可执行文件。因此 Native 首次调用需要相应构建工具与依赖，不能承诺其具有相同的预编译分发体验。上游 [moonx 源码](https://github.com/moonbitlang/moon/blob/0a3f0d43b228a5338417d8a569d3cdaa833e467d/crates/moon/internal/cli/moonx.rs) 与 [registry runner](https://github.com/moonbitlang/moon/blob/0a3f0d43b228a5338417d8a569d3cdaa833e467d/crates/moon/internal/cli/registry_runner.rs) 可复查该分流。
 
 同时，[2026-09-21 官方发布说明](https://www.moonbitlang.com/updates/2026/09/21/index) 明确宣布 moonx 聚焦 Wasm、弃用 `--target native`；本机帮助中的计划移除日期为 2026-09-14，但此版本仍实际可用。交付应保留独立 Native 二进制和默认 moonx/Wasm；把当前 moonx Native 视为兼容入口，不作为 Native 唯一分发渠道。发布验收分开记录各入口及精确工具链版本。
 
-目前 `moon.mod` 使用 `source = "src"`，可在逻辑根包 `src/moon.pkg` / `src/main.mbt` 放薄入口，目标调用为 `moonx ZSeanYves/markitdown@<version>`；继续放在 `src/cli` 则对应子包路径。入口和包发布仍未实现，本轮没有发布新版本。
+（历史记录）当时 `moon.mod` 使用 `source = "src"`，入口和包发布尚未实现。
+当前 0.8 实现已按根 `moon.pkg`/`main.mbt`、公开 `lib/`、私有
+`internal/` 重构；moonx 目标仍为 `moonx ZSeanYves/markitdown@<version>`，
+但精确版本的注册表消费验收必须在实际发布后单独执行。
 
 ### 每个后端的最大支持目标
 
@@ -180,7 +183,9 @@ PDF 输入是 `samples/fixtures/contracts/pdf/text_simple.pdf`。已有预期包
 
 ### 本地 C/FFI 现状
 
-仓库 `src/` 下找到 9 个 C 文件：7 个属于产品链，2 个属于 benchmark；另有直接绑定 libc `exit` 的 MoonBit FFI 声明。
+（历史记录）当时在 `src/` 下找到 9 个 C 文件。当前 FFI 清单以
+`docs/ffi-inventory.md` 为准，产品 C stub 已集中在 `internal/` 的目标隔离包，
+并由根 `main.mbt` 统一调用链。
 
 | 用途 | 当前实现 | 后端处理方向 |
 | --- | --- | --- |
@@ -191,7 +196,12 @@ PDF 输入是 `samples/fixtures/contracts/pdf/text_simple.pdf`。已有预期包
 | 外部命令与 PATH 查找 | `runtime/command` 的两个 C stub | 多模态移除后审计剩余调用，移除无用途部分；不得引入系统转换器兜底 |
 | RSS/进程测量与终端探测 | `internal/bench_runner` 的两个 C stub | 保留在 Native 测量路径；独立验证 Wasm 测量办法，不能直接继承 Native 性能证据 |
 
-两个现有 portable fallback 不能原样视为无损方案：`input/source_cursor_portable.mbt` 会读完整文件再提供 cursor；`cli/stdin_portable.mbt` 返回空 bytes。`cp932_portable.mbt` 同样返回空 bytes。这些都需要真实实现。
+基线审计中的两个 portable fallback 不能原样视为无损方案：
+`input/source_cursor_portable.mbt` 会读完整文件再提供 cursor，
+`cli/stdin_portable.mbt` 返回空 bytes。`cp932_portable.mbt` 的空 bytes
+占位也已在迁移中替换为 `horideicom/encoding_sjis@0.1.1` 的严格适配；它
+覆盖 Shift_JIS/JIS X 0208，遇到 CP932 扩展行或非法序列会报错，完整 CP932
+对照仍是后续扩大 Wasm 声明前的门槛。
 
 ### 本次新增执行证据
 

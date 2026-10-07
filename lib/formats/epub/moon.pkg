@@ -1,0 +1,10 @@
+import {
+  "ZSeanYves/markitdown/internal/formats/epub" @internal,
+  "ZSeanYves/markitdown/internal/readers/epub" @depub,
+  "ZSeanYves/markitdown/lib/input",
+  "ZSeanYves/markitdown/internal/parser",
+}
+
+options(
+  "preferred-target": "native",
+)

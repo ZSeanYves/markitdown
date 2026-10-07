@@ -42,7 +42,7 @@ This document answers three questions:
 
 The core goals of `mb-markitdown` are:
 
-1. Project many kinds of document, container, and media inputs into Markdown, RAG JSON, and Debug JSON.
+1. Project supported document, container, and text inputs into Markdown, RAG JSON, and Debug JSON.
 2. Preserve route, source map, diagnostics, assets, metadata, and provenance within one unified product chain.
 3. Allow different formats to use different parser shapes, while still converging onto one planner-driven main chain.
 4. Preserve fail-closed behavior, route honesty, and benchmark explainability.
@@ -89,7 +89,7 @@ concepts and must not be used as synonyms.
 This main chain carries three formal constraints:
 
 1. `detect`, `probe`, and `planner` must come before parse. A route must not be retroactively decided after parse.
-2. Heavy formats may reuse probe artifacts, or use route-specific helpers to inject OCR providers, rasterizers, or prepared artifacts; however, they must still return a unified `ParseResult` and must not bypass the second half of the chain.
+2. Heavy formats may reuse probe artifacts or prepared artifacts; they must still return a unified `ParseResult` and must not bypass the second half of the chain. OCR, audio transcription, and scan rasterization are retired capabilities.
 3. `plan_input` stops at `ResolvedExecutionPlan` / `RoutePlan`, while `convert_input_with_provenance` executes the full `parse -> pipeline -> render -> finalize` flow.
 
 ---
@@ -101,7 +101,7 @@ This main chain carries three formal constraints:
 | `InputSource` | Represents tagged path / text / bytes / reader inputs | Format-semantic judgment |
 | `FormatDetector` | Detects format from explicit format, MIME, extension, and magic bytes | Route selection |
 | `Probe` | Collects lightweight evidence, prepares reusable artifacts, and produces probe summaries | Directly deciding the final route |
-| `Planner` | Normalizes intent, consults format policy, and freezes route / profile / parser-mode / provider target | Parsing the source format directly |
+| `Planner` | Normalizes intent, consults format policy, and freezes route / profile / parser-mode | Parsing the source format directly |
 | `Parser` / parse helper | Reads the source format and produces `ParseResult` | Generating final Markdown directly or replanning the route |
 | `ParseResult` | Serves as the unified parser exit for the product main chain | Carrying renderer-owned decisions |
 | `Pipeline` | Performs cross-format normalization, assembly, and render-hint preparation on `IRInput` | Source-format I/O |
@@ -144,10 +144,8 @@ It unifies:
 2. `fidelity_mode`
 3. `output_mode`
 4. `stream_requested`
-5. `ocr_options`
-6. `audio_options`
-7. `limits`
-8. `rag_options`
+5. `limits`
+6. `rag_options`
 
 It must not carry format-private route conclusions.
 
@@ -197,9 +195,7 @@ It should cover:
 6. requested parser mode
 7. PDF runtime policies
 8. same-mode strategy switches
-9. OCR provider selection target / requested kind / resolved kind
-10. audio backend metadata shell
-11. probe signals / failures / summary / prepared source / probe artifacts
+9. probe signals / failures / summary / prepared source / probe artifacts
 
 ### 4.6 `ParseContext` and `ParseResult`
 
@@ -207,10 +203,9 @@ It should cover:
 
 1. requested parser mode
 2. fidelity / output / execution / lowering / render profiles
-3. OCR / audio options
-4. PDF parser policies
-5. coarse resource limits
-6. debug flag
+3. PDF parser policies
+4. coarse resource limits
+5. debug flag
 
 `ParseResult` is the parser's only formal exit into the product main chain. Its public shapes are only:
 
@@ -269,7 +264,7 @@ The planner should operate in this order:
 4. consult `FormatStrategyPolicy`
 5. select route
 6. freeze execution / lowering / render profile
-7. derive parser-mode intent, provider target, and PDF runtime policy
+7. derive parser-mode intent and PDF runtime policy
 8. record route reason, probe summary, and same-mode strategy switches
 
 ### 6.2 same-mode adaptation
@@ -294,10 +289,9 @@ CLI warnings, provenance, and benchmark trust all rely on these explicit records
 The following rules belong to the core architecture contract:
 
 1. PDF `Balanced` selects `page_single_pass`.
-2. PDF `Accurate` selects `layout_two_stage` as the canonical accurate route.
-3. direct image input uses the `layout_two_stage` OCR route.
-4. audio input uses `media_pipeline`.
-5. Switching the output view to `RagJson` or `DebugJson` does not change the route family.
+2. PDF `Accurate` stays on the bounded native text-layer route and preserves its geometry policies.
+3. image and audio inputs fail with `UnsupportedCapability` before parsing.
+4. Switching the output view to `RagJson` or `DebugJson` does not change the route family.
 
 The page-level hybrid behavior of PDF accurate belongs to the optional enhancement chain. See [optional-enhancement-architecture.md](./optional-enhancement-architecture.md).
 
@@ -418,9 +412,8 @@ At a high level, format strategy can be grouped as:
 2. tree-shaped structured text: `dom_ast_model`
 3. package documents: `package_single_pass`
 4. containers: `container_recursive`
-5. PDF: `page_single_pass` for balanced, `layout_two_stage` for accurate
-6. direct image: `layout_two_stage`
-7. audio: `media_pipeline`
+5. PDF: `page_single_pass` for balanced and bounded native text-layer accurate
+6. image and audio: unsupported capability diagnostics
 
 This overview answers only main-chain ownership. It does not expand the provider, hybrid-page, or normalization details inside the enhancement chains.
 

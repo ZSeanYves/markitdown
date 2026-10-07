@@ -1,0 +1,12 @@
+import {
+  "ZSeanYves/markitdown/lib/formats/pdf" @pdfroot,
+  "ZSeanYves/markitdown/internal/readers/pdf" @dpdfnative,
+  "ZSeanYves/markitdown/lib/core",
+  "ZSeanYves/markitdown/lib/formats/shared" @fshared,
+  "ZSeanYves/markitdown/lib/input",
+  "ZSeanYves/markitdown/internal/parser",
+}
+
+options(
+  "preferred-target": "native",
+)

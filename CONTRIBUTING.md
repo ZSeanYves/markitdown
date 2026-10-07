@@ -8,9 +8,10 @@ Before submitting any change, run the self-contained checks:
 ```bash
 moon fmt --check
 moon info && git diff --exit-code
-moon check --target all --warn-list +73 --deny-warn
-moon test --target all
-moon build --target all
+moon check --target all --warn-list +73
+moon test --target all --no-parallelize
+moon build --target native --release --package ZSeanYves/markitdown
+moon build --target wasm --release --package ZSeanYves/markitdown
 python3 tools/governance/check_documentation.py
 MARKITDOWN_COVERAGE_BASELINE_REF=<base-sha> \
   ./tools/regression/check_coverage.sh --enforce
@@ -27,13 +28,12 @@ Use the quality repository commit pinned by `MARKITDOWN_QUALITY_LAB_SHA` in
 ```bash
 git clone https://github.com/ZSeanYves/markitdown-quality-lab.git \
   markitdown-quality-lab
-moon build --target native --package ZSeanYves/markitdown/cli
+moon build --target native --release --package ZSeanYves/markitdown
 
-# Required when the affected rows use image OCR, audio, or accurate OCR/PDF.
-./tools/env/optional_deps.sh install balance
-./tools/env/optional_deps.sh install audio
-./tools/env/optional_deps.sh install accurate
-./tools/env/optional_deps.sh check all
+# The conversion product has no OCR/audio/model installer. Install only the
+# pinned benchmark comparison environment when the affected evidence requires
+# the external reference.
+./tools/env/installers/install_bench_baseline_deps.sh --python /path/to/python3.11
 
 ./tools/regression/check_balance.sh
 ./tools/regression/check_balance_quality.sh
@@ -43,9 +43,9 @@ python3 tools/regression/lib/quality/intake_lint.py \
 python3 tools/regression/mutation_smoke.py
 ```
 
-The non-release build above is the development regression runner. User-facing
-documentation and release artifacts use the optimized release binary under
-`_build/native/release/build/cli/cli.exe`.
+The root build above is the user-facing CLI. Release artifacts use the
+optimized binary under
+`_build/native/release/build/markitdown.exe`.
 
 All formal regression runs must finish with zero skipped and zero failed rows.
 Use format filters documented by each command while iterating, then run the
@@ -67,6 +67,6 @@ SHA-256, provenance, and manifest signals. Never update a golden output merely
 to hide information loss.
 
 Keep the public conversion API, route provenance, source references, and asset
-semantics compatible unless the change is explicitly documented. Optional OCR,
-audio, and PDF accurate behavior must not become a hidden dependency of core
-native readers.
+semantics compatible unless the change is explicitly documented. OCR and audio
+are retired capabilities in 0.8; PDF accurate remains a bounded native
+text-layer mode and must not acquire an external recognizer dependency.

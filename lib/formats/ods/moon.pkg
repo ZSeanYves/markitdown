@@ -1,0 +1,17 @@
+import {
+  "ZSeanYves/markitdown/internal/readers/odf/ods" @dodf,
+  "ZSeanYves/markitdown/lib/core",
+  "ZSeanYves/markitdown/lib/formats/shared" @fshared,
+  "ZSeanYves/markitdown/lib/input",
+  "ZSeanYves/markitdown/internal/parser",
+  "ZSeanYves/markitdown/lib/product",
+}
+
+import {
+  "moonbitlang/core/encoding/utf8",
+  "ZSeanYves/markitdown/internal/testsupport/hermetic" @therm,
+} for "wbtest"
+
+options(
+  "preferred-target": "native",
+)

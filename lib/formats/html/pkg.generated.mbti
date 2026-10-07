@@ -1,0 +1,31 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/lib/formats/html"
+
+import {
+  "ZSeanYves/markitdown/internal/parser",
+  "ZSeanYves/markitdown/lib/core",
+  "ZSeanYves/markitdown/lib/input",
+}
+
+// Values
+pub fn html_document_to_ir(@input.InputSource, String) -> Result[(@core.DocumentIR, @core.Diagnostics), String]
+
+pub fn html_lowering_block_metric(@input.InputSource, @ZSeanYves/markitdown/internal/readers/html.HtmlDocument, @ZSeanYves/markitdown/internal/readers/html.HtmlSemanticDocument) -> Int
+
+pub fn html_lowering_prepare_metric(@ZSeanYves/markitdown/internal/readers/html.HtmlDocument, @ZSeanYves/markitdown/internal/readers/html.HtmlSemanticDocument) -> Int
+
+pub fn html_lowering_top_level_block_metric(@ZSeanYves/markitdown/internal/readers/html.HtmlDocument, @ZSeanYves/markitdown/internal/readers/html.HtmlSemanticDocument) -> Int
+
+pub fn html_parse_with_prepared_document(@input.InputSource, @parser.ParseContext, @ZSeanYves/markitdown/internal/readers/html.PreparedHtmlDocument) -> @parser.ParseResult
+
+pub fn html_parse_with_token_events(@input.InputSource, @parser.ParseContext, String, Array[@ZSeanYves/markitdown/internal/readers/html.HtmlTokenEvent]) -> @parser.ParseResult
+
+pub fn html_parser() -> @parser.Parser
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

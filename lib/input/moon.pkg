@@ -1,0 +1,15 @@
+import {
+  "moonbitlang/async",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/x/fs",
+  "ZSeanYves/markitdown/internal/readers/zip",
+}
+
+options(
+  "preferred-target": "native",
+  "native-stub": [ "source_cursor_native_stub.c" ],
+  targets: {
+    "source_cursor_native.mbt": [ "native" ],
+    "source_cursor_portable.mbt": [ "wasm", "wasm-gc", "js" ],
+  },
+)

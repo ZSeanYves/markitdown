@@ -14,9 +14,9 @@ from pathlib import Path
 
 
 GROUPS = (
-    ("core", 90.0, ("input/", "convert/", "internal/parser/", "internal/pipeline/", "runtime/", "render/", "core/", "product/", "rag/")),
-    ("formats", 80.0, ("formats/", "internal/readers/", "container/", "internal/formats/", "internal/format_readers/")),
-    ("tools", 70.0, ("cli/", "internal/bench_runner/")),
+    ("core", 90.0, ("lib/input/", "lib/convert/", "internal/parser/", "internal/pipeline/", "internal/runtime/", "lib/render/", "lib/core/", "lib/product/", "lib/rag/")),
+    ("formats", 80.0, ("lib/formats/", "internal/readers/", "lib/container/", "internal/formats/", "internal/format_readers/")),
+    ("tools", 70.0, ("internal/cli/", "internal/bench_runner/")),
 )
 
 EXTERNAL_RUNTIME_ADAPTERS = {
@@ -30,7 +30,7 @@ EXCLUDED_FILES = {
     "internal/readers/pdf/font_encoding_tables.mbt",
     "internal/readers/pdf/gb2312_data.mbt",
     "internal/readers/pdf/predefined_cmap_data.mbt",
-    "runtime/process/process.mbt",
+    "internal/runtime/process/process.mbt",
 }
 
 FORMAT_CONTAINER_PREFIXES = (
@@ -68,7 +68,7 @@ KNOWN_FORMATS = {
 
 
 def logical_source_path(filename: str) -> str:
-    return filename[4:] if filename.startswith("src/") else filename
+    return filename
 
 
 def classify(filename: str) -> tuple[str, float] | None:
@@ -87,7 +87,7 @@ def classify_format(filename: str) -> str | None:
             name = remainder.split("/", 1)[0]
             if name in KNOWN_FORMATS:
                 return name
-    for prefix in ("formats/", "internal/readers/", "internal/formats/"):
+    for prefix in ("lib/formats/", "internal/readers/", "internal/formats/"):
         if filename.startswith(prefix):
             remainder = filename[len(prefix):]
             name = remainder.split("/", 1)[0]

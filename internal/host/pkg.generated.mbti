@@ -1,0 +1,19 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/internal/host"
+
+// Values
+pub fn args() -> Array[String]
+
+pub async fn read_stdin(Int) -> Bytes
+
+pub async fn write_stderr(String) -> Unit
+
+pub async fn write_stdout(String) -> Unit
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

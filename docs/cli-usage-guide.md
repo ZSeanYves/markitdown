@@ -23,13 +23,13 @@ moon build --target native --release --package ZSeanYves/markitdown
 Single file:
 
 ```bash
-./_build/native/release/build/src/src.exe [balance|accurate|stream] [--format <format>] [--debug|--rag] [--provenance-out <path>] <input> [output]
+./_build/native/release/build/markitdown.exe [balance|accurate|stream] [--format <format>] [--debug|--rag] [--provenance-out <path>] <input> [output]
 ```
 
 Batch:
 
 ```bash
-./_build/native/release/build/src/src.exe batch [balance|accurate|stream] [--format <format>] [--debug|--rag] <input> <output_dir>
+./_build/native/release/build/markitdown.exe batch [balance|accurate|stream] [--format <format>] [--debug|--rag] <input> <output_dir>
 ```
 
 If `output` is omitted in single-file mode, the result is written to stdout.
@@ -128,7 +128,7 @@ Regular PDF conversion:
 Request accurate PDF text policies:
 
 ```bash
-./_build/native/release/build/src/src.exe accurate samples/fixtures/contracts/pdf/text_simple.pdf .tmp/manual/pdf-accurate.md
+./_build/native/release/build/markitdown.exe accurate samples/fixtures/contracts/pdf/text_simple.pdf .tmp/manual/pdf-accurate.md
 ```
 
 Notes:

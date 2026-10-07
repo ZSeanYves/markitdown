@@ -134,6 +134,6 @@ mutation smoke. Self baselines are captured and enforced only on controlled,
 fingerprint-matched machines; hosted CI timing variance is too large for the
 10% per-case regression threshold.
 
-See [the runner README](../src/internal/bench_runner/README.md) for package ownership and
+See [the runner README](../internal/bench_runner/README.md) for package ownership and
 [benchmark-architecture.md](../docs/architecture/benchmark-architecture.md)
 for the trust model.

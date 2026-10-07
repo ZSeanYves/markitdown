@@ -17,10 +17,13 @@ instead of browsing files by name.
   the pinned Python oracle used only for comparison builds.
 - [Current performance evidence](./performance.md): reproducible measurements,
   scope, environment, and interpretation limits.
+- [0.8 release-candidate acceptance](./release-candidate.md): Linux/macOS
+  artifacts, Wasm/Native smoke checks, and post-publication Moonx verification.
 
 ## Architecture and maintenance
 
 - [Core-chain architecture](./architecture/mb-markitdown-architecture.md)
+- [Moonx package architecture](./architecture/markitdown-package-architecture.md)
 - [Optional-enhancement architecture](./architecture/optional-enhancement-architecture.md)
 - [Benchmark architecture](./architecture/benchmark-architecture.md)
 - [Compatibility matrix](./compatibility-matrix.md)

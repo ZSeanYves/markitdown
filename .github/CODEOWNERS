@@ -2,16 +2,16 @@
 * @ZSeanYves
 
 # High-risk boundaries receive explicit ownership in addition to the default.
-/src/core/ @ZSeanYves
-/src/input/ @ZSeanYves
-/src/product/ @ZSeanYves
-/src/convert/ @ZSeanYves
-/src/internal/parser/ @ZSeanYves
-/src/internal/pipeline/ @ZSeanYves
-/src/render/ @ZSeanYves
-/src/runtime/ @ZSeanYves
-/src/internal/readers/ @ZSeanYves
-/src/formats/ @ZSeanYves
+/lib/core/ @ZSeanYves
+/lib/input/ @ZSeanYves
+/lib/product/ @ZSeanYves
+/lib/convert/ @ZSeanYves
+/internal/parser/ @ZSeanYves
+/internal/pipeline/ @ZSeanYves
+/lib/render/ @ZSeanYves
+/internal/runtime/ @ZSeanYves
+/internal/readers/ @ZSeanYves
+/lib/formats/ @ZSeanYves
 /tools/governance/ @ZSeanYves
 /.github/ @ZSeanYves
 /SECURITY.md @ZSeanYves

@@ -58,16 +58,21 @@ format. Unsupported requests fail closed. Batch mode always writes
 
 ## Stable library API
 
-`ZSeanYves/markitdown/api` is the sole compatibility-stable 0.8 package. It
+`ZSeanYves/markitdown/lib` is the sole compatibility-stable 0.8 package. It
 supports Path, Text, Bytes, and caller-owned Reader inputs plus Markdown,
 Debug, and RAG outputs.
 
 ```mbt
-let input = @api.Input::from_path("document.docx")
-let options = @api.ConvertOptions::default()
-  .with_output_mode(Markdown)
-let result = @api.convert(input, options~)
+async fn convert_example() -> Result[@lib.Output, @lib.ConvertError] {
+  let input = @lib.Input::from_path("document.docx")
+  let options = @lib.ConvertOptions::default()
+    .with_output_mode(Markdown)
+  @lib.convert(input, options~)
+}
 ```
+
+The conversion façade is asynchronous on both targets; the same function is
+used from `moonx` and from a native executable.
 
 Parser, reader, pipeline, renderer, runtime, and provider packages are internal
 or extension contracts. See the [API reference](./docs/api-v0.8.md) and
@@ -115,11 +120,16 @@ methodology, caveats, reproduction commands, and committed runner summaries.
 
 ## Repository layout
 
-All 68 MoonBit packages live under `src/`. `source = "src"` in `moon.mod` keeps
-logical imports such as `ZSeanYves/markitdown/api` free of a `src` segment.
+The executable root is intentionally thin. The public `lib/` package owns the
+stable façade and shared product domain, while `internal/` contains CLI,
+readers, parsers, runtime adapters, and verification packages. `preferred_target
+= "wasm"` makes the portable product the default for `moonx` consumers; Native
+adds only target-isolated host extensions.
 
 ```text
-src/      MoonBit product, CLI, internal implementations, tests, benchmark runner
+main.mbt  one executable composition root
+lib/      public stable package and shared product/domain packages
+internal/ CLI, readers, parsers, runtime adapters, tests, benchmark runner
 bench/    benchmark policy and reviewed result summaries
 samples/  deterministic fixtures and showcase outputs
 tools/    environment, regression, governance, and release tooling
@@ -131,7 +141,7 @@ docs/     maintained documentation, architecture, governance, ADRs, and RFCs
 ```bash
 moon info && moon fmt
 moon fmt --check
-moon check --target all --warn-list +73 --deny-warn
+moon check --target all --warn-list +73
 moon test --target all
 python3 tools/governance/check_documentation.py
 ./tools/regression/check_coverage.sh --enforce

@@ -1,0 +1,201 @@
+///|
+pub suberror BenchError {
+  InvalidArgument(String)
+  TrustFailure(String)
+  RuntimeFailure(String)
+}
+
+///|
+pub impl Show for BenchError with fn to_string(self : BenchError) -> String {
+  match self {
+    InvalidArgument(msg) => msg
+    TrustFailure(msg) => msg
+    RuntimeFailure(msg) => msg
+  }
+}
+
+///|
+pub struct BinaryContract {
+  runner_path : String
+  cli_path : String
+  runner_release_ok : Bool
+  cli_release_ok : Bool
+  used_moon_delegate : Bool
+} derive(Eq)
+
+///|
+pub struct BenchProgressState {
+  enabled : Bool
+  mode : String
+  total : Int
+  completed : Int
+} derive(Eq)
+
+///|
+pub struct ScenarioSpec {
+  scenario_id : String
+  scenario_kind : String
+  tool_names : Array[String]
+  exact_tiers : Array[String]
+  format_filters : Array[String]
+  comparison_classes : Array[String]
+  official_membership : String
+  route_expectation : String
+} derive(Eq)
+
+///|
+pub struct ScenarioSummary {
+  scenario_id : String
+  scenario_kind : String
+  official_membership : String
+  selected_rows : Int
+  comparable_rows : Int
+  trust_status : String
+  gate_status : String
+} derive(ToJson, FromJson, Eq)
+
+///|
+pub struct RunOptions {
+  preset : String?
+  scenario_id : String?
+  exact_tiers : Array[String]
+  bench_ids : Array[String]
+  format_filters : Array[String]
+  limit : Int?
+  repeat_count : Int
+  warmup_count : Int
+  timeout_ms : Int
+  markitdown_path : String?
+  baseline_run_id : String?
+  progress_mode : String
+  keep_outputs : String
+  resume_run_id : String?
+  max_disk_mb : Int
+} derive(Eq)
+
+///|
+pub struct SampleRow {
+  schema_version : Int
+  run_id : String
+  scenario_id : String
+  scenario_kind : String
+  official_membership : String
+  tool : String
+  measurement_mode : String
+  measurement_policy : String
+  repeat_index : Int
+  repeat_count : Int
+  warmup_count : Int
+  bench_id : String
+  format : String
+  size_class : String
+  enabled_tier : String
+  rel_path : String
+  input_bytes : Int
+  input_sha256 : String
+  status : String
+  exit_code : Int
+  timed_out : Bool
+  wall_us : Int64?
+  peak_rss_kb : Int64?
+  output_bytes : Int64
+  output_sha256 : String?
+  error : String?
+  route_provenance : Json
+  runner_artifact_identity : String
+  cli_artifact_path : String?
+} derive(ToJson, FromJson, Eq)
+
+///|
+pub struct CaseAggregate {
+  schema_version : Int
+  run_id : String
+  scenario_id : String
+  tool : String
+  bench_id : String
+  format : String
+  size_class : String
+  input_bytes : Int
+  sample_count : Int
+  success_count : Int
+  median_wall_us : Int64?
+  min_wall_us : Int64?
+  max_wall_us : Int64?
+  median_output_bytes : Int64?
+  output_density : Double?
+  comparable_status : String
+  route_coverage_status : String
+  semantic_coverage : String
+  render_path : String
+  trust_status : String
+  trust_failure_reason : String
+  expected_route : String?
+  actual_route : String?
+  route_fidelity_status : String?
+  provenance_complete : Bool
+  route_provenance : Json
+} derive(ToJson, FromJson, Eq)
+
+///|
+pub struct ToolSummary {
+  tool : String
+  rows : Int
+  success_rows : Int
+  median_wall_us : Int64?
+} derive(ToJson, FromJson, Eq)
+
+///|
+pub struct FormatSummary {
+  format : String
+  rows : Int
+  comparable_rows : Int
+  cli_geomean_speedup : Double?
+  engine_geomean_speedup : Double?
+  status : String
+} derive(ToJson, FromJson, Eq)
+
+///|
+pub struct RunSummary {
+  schema_version : Int
+  run_id : String
+  preset : String?
+  scenario_ids : Array[String]
+  binary_only_contract : Json
+  trust_status : String
+  gate_summary : Json
+  route_coverage_summary : Json
+  truth_summary : Json
+  diff_summary : Json?
+  scenarios : Array[ScenarioSummary]
+  tools : Array[ToolSummary]
+  by_format : Array[FormatSummary]
+  resource_summary : Json?
+  resume_summary : Json?
+} derive(ToJson, FromJson, Eq)
+
+///|
+async fn run_bench_cli_entry(
+  raw_args : Array[String],
+  runner : RunnerContext,
+) -> Int {
+  let args = normalize_bench_args(raw_args)
+  if args.length() == 0 ||
+    args[0] == "help" ||
+    args[0] == "--help" ||
+    args[0] == "-h" {
+    print_bench_help()
+    return 0
+  }
+  match args[0] {
+    "catalog" => run_catalog(args[1:].to_owned())
+    "run" => run_command(args[1:].to_owned(), runner)
+    "report" => report_command(args[1:].to_owned())
+    "doctor" => doctor_command(runner)
+    "engine-worker" => run_engine_worker(args[1:].to_owned())
+    _ => {
+      bench_println("unknown bench command: " + args[0])
+      print_bench_help()
+      2
+    }
+  }
+}

@@ -1,0 +1,168 @@
+name: Release candidate
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rc-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: "3.11"
+  MARKITDOWN_QUALITY_LAB_SHA: "d079e50b3e5ac181283c6c818e931bd2ef936a13"
+  MOONBIT_VERSION: "0.1.20260920"
+  MOONBIT_EXPECTED_MOONC: "v0.10.14+7d59c7ec9"
+
+jobs:
+  release-candidate:
+    name: RC (${{ matrix.os }}, ${{ matrix.round }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+        # A release candidate is accepted only after two independent runs on
+        # the same revision and pinned toolchain. The round is part of the
+        # artifact name so evidence cannot be overwritten accidentally.
+        round: [rc1, rc2]
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install pinned MoonBit toolchain
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s latest
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - name: Verify toolchain and dependencies
+        run: |
+          python3 tools/governance/check_toolchain.py
+          moon update
+      - name: Verify source and generated interfaces
+        run: |
+          moon fmt --check
+          moon info
+          git diff --exit-code
+      - name: Check all targets
+        run: moon check --target all --warn-list +73
+      - name: Test all targets
+        run: moon test --target all --no-parallelize
+      - name: Build Native release artifact
+        run: moon build --target native --release --package ZSeanYves/markitdown
+      - name: Native CLI smoke and capability contract
+        run: |
+          ./_build/native/release/build/markitdown.exe --help
+          ./_build/native/release/build/markitdown.exe --capabilities
+      - name: Build Wasm release artifact
+        run: moon build --target wasm --release --package ZSeanYves/markitdown
+      - name: Wasm CLI smoke and capability contract
+        run: moon run --target wasm . -- --capabilities
+      - name: Run governance and regression unit gates
+        run: |
+          python3 tools/governance/check_architecture.py
+          python3 tools/governance/check_documentation.py
+          python3 -m unittest discover -s tools/governance/tests -p 'test_*.py'
+          python3 -m unittest discover -s tools/regression/lib/tests -p 'test_*.py'
+      - name: Archive RC artifacts
+        run: |
+          mkdir -p .tmp/rc
+          test -s _build/native/release/build/markitdown.exe
+          test -s _build/wasm/release/build/markitdown.wasm
+          cp _build/native/release/build/markitdown.exe .tmp/rc/markitdown-native-${{ matrix.os }}-${{ matrix.round }}
+          cp _build/wasm/release/build/markitdown.wasm .tmp/rc/markitdown-wasm-${{ matrix.os }}-${{ matrix.round }}.wasm
+          git rev-parse HEAD > .tmp/rc/revision.txt
+          git rev-parse --verify HEAD^ > .tmp/rc/rollback-revision.txt
+          moon version --all > .tmp/rc/toolchain.txt
+          checksum_tmp=.tmp/SHA256SUMS
+          for file in .tmp/rc/*; do
+            [ -f "$file" ] || continue
+            if command -v sha256sum >/dev/null 2>&1; then
+              sha256sum "$file"
+            else
+              shasum -a 256 "$file"
+            fi
+          done > "$checksum_tmp"
+          mv "$checksum_tmp" .tmp/rc/SHA256SUMS
+      - name: Upload RC artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: rc-${{ matrix.os }}-${{ matrix.round }}
+          path: .tmp/rc
+          if-no-files-found: error
+
+  performance-release-gate:
+    name: Linux performance release gate (${{ matrix.round }})
+    needs: release-candidate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        round: [rc1, rc2]
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          fetch-depth: 0
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          repository: ZSeanYves/markitdown-quality-lab
+          path: markitdown-quality-lab
+          ref: ${{ env.MARKITDOWN_QUALITY_LAB_SHA }}
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install pinned MoonBit toolchain
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s latest
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - name: Verify toolchain and build release benchmark runner
+        run: |
+          python3 tools/governance/check_toolchain.py
+          moon update
+          moon build --target native --release --package ZSeanYves/markitdown
+          moon build --target native --release --package ZSeanYves/markitdown/internal/bench_runner
+      - name: Install benchmark baseline
+        run: ./tools/env/installers/install_bench_baseline_deps.sh
+      - name: Verify pinned quality lab
+        run: |
+          test -d markitdown-quality-lab/.git
+          test "$(git -C markitdown-quality-lab rev-parse HEAD)" = "$MARKITDOWN_QUALITY_LAB_SHA"
+      - name: Run release performance gate
+        run: |
+          mkdir -p .tmp/rc-performance
+          _build/native/release/build/internal/bench_runner/bench_runner.exe run \
+            --preset official-external-compare \
+            --progress=json --keep-outputs=failures --max-disk-mb 4096 \
+            | tee .tmp/rc-performance/run.jsonl
+          summary="$(tail -n 1 .tmp/rc-performance/run.jsonl | jq -er '.summary_json | select(type == "string" and length > 0)')"
+          test -f "$summary"
+          jq -e '
+            .preset == "official-external-compare" and
+            .gate_summary.status == "ok" and
+            .trust_status == "trusted" and
+            .truth_summary.failed_cases == 0 and
+            .binary_only_contract.runner_release_ok == true and
+            .binary_only_contract.cli_release_ok == true and
+            .gate_summary.rss.status == "pass" and
+            .gate_summary.performance.status == "pass" and
+            .gate_summary.performance.evaluated_rows > 0
+          ' "$summary"
+          cp "$summary" .tmp/rc-performance/summary.json
+          printf '%s\n' '${{ matrix.round }}' > .tmp/rc-performance/round.txt
+      - name: Upload performance evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: rc-performance-linux-${{ matrix.round }}
+          path: .tmp/rc-performance
+          if-no-files-found: error
