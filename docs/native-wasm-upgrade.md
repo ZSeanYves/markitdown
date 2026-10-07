@@ -54,9 +54,9 @@ from the official archive returned HTTP 403; no global installation was changed.
   output ceilings, trailing/truncated DEFLATE and known CRC.
 - Isolated official I/O experiments: 6/6 on each backend; random reads and EOF,
   readonly write failure, sync/rename, cancellation cleanup, suspending short
-  readers and pull/sink backpressure. The public async conversion and reader
-  boundaries now use the shared façade; direct async random access inside each
-  format reader remains a follow-up migration item.
+  readers and pull/sink backpressure. The public async conversion, reader
+  boundary, and sink pull advancement now use the shared façade; direct async
+  random access inside each format reader remains a follow-up migration item.
 - Historical upgrade checkpoints recorded 914/914 after UTF-16, 914/914 after
   flate, and 917/917 after the x/async upgrades. The current package layout and
   async façade pass 867/867 Native and 699/699 Wasm tests; no snapshots were
