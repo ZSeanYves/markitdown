@@ -46,7 +46,7 @@ test "in-memory OCR input materializes inside runtime and preserves logical sour
     "archive.zip::images/scan.png",
     Some(Image(Png)),
   )
-  let invoked_path : Ref[String] = { val: "" }
+  let invoked_path : Ref[String] = { val: "", }
   let provider = fn(request : OcrProviderRequest) {
     invoked_path.val = request.image_path
     let exists = @fs.path_exists(request.image_path)
@@ -68,7 +68,7 @@ test "in-memory OCR input materializes inside runtime and preserves logical sour
     first.source_ref.unwrap().file_id == Some("archive.zip::images/scan.png"),
   )
 
-  let calls : Ref[Int] = { val: 0 }
+  let calls : Ref[Int] = { val: 0, }
   let rejected = image_ocr_parser_result_with_provider(
     @input.input_from_bytes_with_format(
       Bytes::from_array([1, 2, 3].map(Int::to_byte)),
@@ -185,7 +185,7 @@ test "image OCR parser lowers injected OCR pages into document paragraphs and su
 
 ///|
 test "image OCR parser injected provider keeps fail-closed taxonomy and no-call branches" {
-  let provider_called : Ref[Int] = { val: 0 }
+  let provider_called : Ref[Int] = { val: 0, }
   let failing_provider = fn(request : OcrProviderRequest) {
     provider_called.val = provider_called.val + 1
     if request.language != Some("eng") {
@@ -209,7 +209,7 @@ test "image OCR parser injected provider keeps fail-closed taxonomy and no-call 
   }
   assert_eq(provider_called.val, 1)
 
-  let skipped_calls : Ref[Int] = { val: 0 }
+  let skipped_calls : Ref[Int] = { val: 0, }
   let skipped_provider = fn(_request : OcrProviderRequest) {
     skipped_calls.val = skipped_calls.val + 1
     Err(OcrProviderError::ExecutionFailed("should not run"))
@@ -264,7 +264,7 @@ async test "image OCR async parser lowers injected provider result" {
 
 ///|
 async test "image OCR async parser preserves no-call and invalid-format failures" {
-  let calls : Ref[Int] = { val: 0 }
+  let calls : Ref[Int] = { val: 0, }
   let provider = async fn(_request : OcrProviderRequest) {
     @async.with_timeout_opt(1000, fn() {
       calls.val = calls.val + 1
@@ -304,7 +304,7 @@ async test "image OCR async parser preserves no-call and invalid-format failures
 
 ///|
 async test "image OCR async accurate route controls fallback taxonomy" {
-  let calls : Ref[Int] = { val: 0 }
+  let calls : Ref[Int] = { val: 0, }
   let fallback_provider = async fn(request : OcrProviderRequest) {
     @async.with_timeout_opt(1000, fn() {
       calls.val = calls.val + 1
@@ -505,7 +505,7 @@ test "Paddle OCR explicit wrapper command plans finalize and clean temporary fil
       let result_path = argv[argv.length() - 1]
       let payload = "{\"provider_name\":\"paddle_ocr\",\"provider_version\":\"test\",\"jobs\":[{\"job_id\":\"job-0\",\"status\":\"ok\",\"pages\":[{\"page_index\":0,\"blocks\":[]}]}]}"
       @fs.write_string_to_file(result_path, payload, encoding="utf8") catch {
-        err => return Err(ExecutionFailed(err.to_string()))
+        err => return Err(ExecutionFailed((err : Error).to_string()))
       }
       Ok((0, "wrapper stdout", "wrapper stderr"))
     },
@@ -605,13 +605,13 @@ test "Paddle OCR runtime utilities cover configuration paths JSON and recursive 
   let root = ".tmp/tests/ocr_runtime/utility-contract"
   ocr_runtime_cleanup_temp_dir(root)
   ocr_runtime_ensure_dir_tree(root + "/./a/b") catch {
-    err => fail("create OCR utility dirs: " + err.to_string())
+    err => fail("create OCR utility dirs: " + (err : Error).to_string())
   }
   @fs.write_string_to_file(root + "/a/b/value.txt", "value", encoding="utf8") catch {
-    err => fail("write OCR utility file: " + err.to_string())
+    err => fail("write OCR utility file: " + (err : Error).to_string())
   }
   ocr_runtime_ensure_dir_tree(root + "/a/b") catch {
-    err => fail("repeat OCR utility dirs: " + err.to_string())
+    err => fail("repeat OCR utility dirs: " + (err : Error).to_string())
   }
   ocr_runtime_cleanup_temp_dir(root)
   assert_true(!@fs.path_exists(root))

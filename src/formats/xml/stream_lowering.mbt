@@ -323,7 +323,7 @@ fn xml_compact_outline_event(
 ) -> @core.CoreEvent {
   source_ref.extra.set("ir_event_encoding", "xml_outline_v1")
   source_ref.extra.set("xml_outline_depth", depth.to_string())
-  { kind: StartBlock(kind), text, source_ref: Some(source_ref) }
+  { kind: StartBlock(kind), text, source_ref: Some(source_ref), }
 }
 
 ///|

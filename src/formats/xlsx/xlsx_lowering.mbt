@@ -424,7 +424,7 @@ fn xlsx_lower_block_stream_document(
     "external_link_count",
     external_link_count.to_string(),
   )
-  { blocks, metadata, assets: [] }
+  { blocks, metadata, assets: [], }
 }
 
 ///|
@@ -502,7 +502,7 @@ fn xlsx_lower_workbook_document(
     "external_link_count",
     workbook.external_link_count.to_string(),
   )
-  { blocks, metadata, assets: [] }
+  { blocks, metadata, assets: [], }
 }
 
 ///|

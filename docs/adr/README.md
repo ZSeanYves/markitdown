@@ -15,3 +15,5 @@ decision. Link the ADR from the implementation PR and the maintenance plan.
   without changing published package names.
 - `0005-phase-2-compatibility-lab.md`: establish the pinned contract corpus,
   structural diff taxonomy, and capability-tier evidence gate.
+- `0006-shared-text-runtime.md`: adopt one asynchronous text runtime, Wasm as
+  the common capability base, minimal Native extensions and evidence-led reuse.

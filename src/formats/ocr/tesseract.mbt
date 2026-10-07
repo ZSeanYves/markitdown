@@ -65,7 +65,7 @@ fn build_tesseract_command_plan(
     Ok(value) => value
     Err(error) => return Err(error)
   }
-  Ok({ command, argv: build_tesseract_argv(request) })
+  Ok({ command, argv: build_tesseract_argv(request), })
 }
 
 ///|

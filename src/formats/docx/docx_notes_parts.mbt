@@ -96,11 +96,11 @@ fn docx_comment_block_without_inline_images(
         text.write_string(docx_comment_inline_text_fragment(inline))
       }
       let normalized_text = docx_comment_cleanup_spacing(text.to_string())
-      let next = { ..block, text: normalized_text }
+      let next = { ..block, text: normalized_text, }
       if filtered.length() == 0 {
-        { ..next, rich_inlines: None }
+        { ..next, rich_inlines: None, }
       } else {
-        { ..next, rich_inlines: Some(filtered) }
+        { ..next, rich_inlines: Some(filtered), }
       }
     }
     None => block

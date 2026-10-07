@@ -20,7 +20,7 @@ pub fn validate_markdown_document(
       Error => error_count += 1
     }
   }
-  { issue_count: issues.length(), warning_count, error_count, issues }
+  { issue_count: issues.length(), warning_count, error_count, issues, }
 }
 
 ///|

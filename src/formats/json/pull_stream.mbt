@@ -26,7 +26,7 @@ fn open_line_json_event_stream(
     Ok(value) => value
     Err(_) => return Ok(None)
   }
-  let code_reader : Ref[@sourceio.SourceTextLineReader?] = { val: None }
+  let code_reader : Ref[@sourceio.SourceTextLineReader?] = { val: None, }
   let phase = Ref(if scan.header_keys is Some(_) { 0 } else { 1 })
   let header_emitted = Ref(false)
   let table_records = Ref(0)
@@ -361,9 +361,9 @@ fn append_line_json_row_events(
     Some(line_no),
   )
   for value in values {
-    events.push({ kind: Cell, text: value, source_ref: Some(source_ref) })
+    events.push({ kind: Cell, text: value, source_ref: Some(source_ref), })
   }
   if values.length() > 0 {
-    events.push({ kind: RowBreak, text: "", source_ref: Some(source_ref) })
+    events.push({ kind: RowBreak, text: "", source_ref: Some(source_ref), })
   }
 }

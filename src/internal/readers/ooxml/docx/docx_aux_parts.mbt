@@ -27,7 +27,7 @@ fn parse_docx_styles_from_package(
           warnings,
         ) {
         Some(xml) => parse_docx_styles_part(part, xml)
-        None => { part_name: Some(part), styles: [] }
+        None => { part_name: Some(part), styles: [], }
       }
     None => {
       if docx_source_blocks_have_style_refs(blocks) {
@@ -37,7 +37,7 @@ fn parse_docx_styles_from_package(
           source_key: Some(docx_source_key(main_part, 0, "styles")),
         })
       }
-      { part_name: None, styles: [] }
+      { part_name: None, styles: [], }
     }
   }
 }
@@ -71,7 +71,7 @@ fn parse_docx_numbering_from_package(
           warnings,
         ) {
         Some(xml) => parse_docx_numbering_part(part, xml)
-        None => { part_name: Some(part), nums: [], levels: [] }
+        None => { part_name: Some(part), nums: [], levels: [], }
       }
     None => {
       if docx_source_blocks_have_numbering_refs(blocks) {
@@ -81,7 +81,7 @@ fn parse_docx_numbering_from_package(
           source_key: Some(docx_source_key(main_part, 0, "numbering")),
         })
       }
-      { part_name: None, nums: [], levels: [] }
+      { part_name: None, nums: [], levels: [], }
     }
   }
 }
@@ -167,7 +167,7 @@ fn parse_docx_styles_part(part_name : String, xml : String) -> DocxSourceStyles 
       i = start + 1
     }
   }
-  { part_name: Some(part_name), styles }
+  { part_name: Some(part_name), styles, }
 }
 
 ///|

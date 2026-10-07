@@ -218,7 +218,11 @@ fn text_markup_compact_events(
       ),
       [("ordered", if pending[0].ordered { "true" } else { "false" })],
     )
-    events.push({ kind: StartBlock(List), text: "", source_ref: Some(list_ref) })
+    events.push({
+      kind: StartBlock(List),
+      text: "",
+      source_ref: Some(list_ref),
+    })
     for item in pending {
       let item_ref = text_markup_event_ref(
         text_markup_source_ref(
@@ -251,7 +255,7 @@ fn text_markup_compact_events(
         source_ref: Some(item_ref),
       })
     }
-    events.push({ kind: EndBlock(List), text: "", source_ref: Some(list_ref) })
+    events.push({ kind: EndBlock(List), text: "", source_ref: Some(list_ref), })
     pending.clear()
   }
   for block in doc.blocks {
@@ -430,7 +434,7 @@ fn text_markup_append_simple_event_block(
 ) -> Unit {
   if !include_inlines || !text_markup_might_have_inline_markup(text, format) {
     source_ref.extra.set("ir_text_markup_compact_leaf", "true")
-    events.push({ kind: StartBlock(kind), text, source_ref: Some(source_ref) })
+    events.push({ kind: StartBlock(kind), text, source_ref: Some(source_ref), })
     return
   }
   source_ref.extra.set("ir_text_markup_compact_leaf", "true")
@@ -559,7 +563,7 @@ fn text_markup_event_ref(
   source_ref : @core.SourceRef,
   attrs : Array[(String, String)],
 ) -> @core.SourceRef {
-  let next = { ..source_ref, extra: Map([]) }
+  let next = { ..source_ref, extra: Map([]), }
   next.extra.set("ir_event_encoding", "text_markup_compact_v1")
   for attr in attrs {
     next.extra.set("ir_block_attr_" + attr.0, attr.1)
@@ -1088,7 +1092,7 @@ priv struct CachedLoweredBlock {
 
 ///|
 fn cached_lowered_block(block : @core.CoreBlock) -> CachedLoweredBlock {
-  { block, content_crc: @core.make_block_content_crc(block.kind, block.text) }
+  { block, content_crc: @core.make_block_content_crc(block.kind, block.text), }
 }
 
 ///|

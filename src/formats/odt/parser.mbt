@@ -463,7 +463,7 @@ fn odt_lower_common(
       )
     }
   }
-  { blocks, assets, source_map }
+  { blocks, assets, source_map, }
 }
 
 ///|

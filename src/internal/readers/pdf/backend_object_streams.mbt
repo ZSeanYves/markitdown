@@ -121,7 +121,7 @@ fn pdf_parse_object_stream_entries(
       Some(slice) => Some(slice.1)
       None => None
     }
-    out.push({ object_id, dict_text, stream })
+    out.push({ object_id, dict_text, stream, })
   }
   Ok(out)
 }
@@ -362,7 +362,11 @@ fn pdf_decode_hex_utf16be(hex : String) -> String? {
     }
     index += 2
   }
-  let decoded = @encoding.decode(Bytes::from_array(bytes), encoding=UTF16BE) catch {
+  let decoded = @utf16.decode(
+    Bytes::from_array(bytes),
+    ignore_bom=false,
+    endianness=Big,
+  ) catch {
     _ => return None
   }
   Some(pdf_strip_utf16_bom(decoded))

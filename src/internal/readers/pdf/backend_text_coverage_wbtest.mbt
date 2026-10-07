@@ -138,8 +138,8 @@ test "pdf text stream covers depth malformed tokens and form xobjects" {
 
 ///|
 test "pdf text utility edge cases remain deterministic" {
-  let zero : PdfNativeGraphicsMatrix = { a: 0.0, d: 0.0, e: 1.0, f: 2.0 }
-  let scaled : PdfNativeGraphicsMatrix = { a: -2.0, d: 3.0, e: 4.0, f: 5.0 }
+  let zero : PdfNativeGraphicsMatrix = { a: 0.0, d: 0.0, e: 1.0, f: 2.0, }
+  let scaled : PdfNativeGraphicsMatrix = { a: -2.0, d: 3.0, e: 4.0, f: 5.0, }
   assert_true(pdf_effective_font_size(zero, None) == 12.0)
   assert_true(pdf_effective_font_size(scaled, None) == 3.0)
   assert_true(pdf_effective_font_size(scaled, Some(4.0)) == 12.0)
@@ -278,7 +278,7 @@ test "pdf embedded font maps decoding and widths cover controlled fallbacks" {
   assert_true(pdf_embedded_font_decode_bytes([0, 9], info) is None)
   assert_true(pdf_embedded_font_gid_for_charcode(info, 99) == None)
   assert_true(
-    pdf_embedded_font_gid_for_charcode({ ..info, cid_to_gid_map: None }, 4) ==
+    pdf_embedded_font_gid_for_charcode({ ..info, cid_to_gid_map: None, }, 4) ==
     Some(4),
   )
   assert_true(pdf_embedded_font_program_unicode(program, 3) == Some(" "))
@@ -398,7 +398,7 @@ test "pdf font utility comparisons normalization and byte boundaries cover fallb
   assert_true(pdf_native_line_reading_order_compare(line_a, line_c) == -1)
   assert_true(
     pdf_native_line_reading_order_compare(
-      { ..line_a, reading_order_index: None },
+      { ..line_a, reading_order_index: None, },
       line_b,
     ) ==
     -1,
@@ -436,7 +436,7 @@ test "pdf font policy and fallback decoding cover encoding evidence branches" {
   assert_true(!pdf_font_may_use_raw_cjk_decode(identity))
   assert_true(pdf_font_decode_widths(identity) == [2])
   assert_true(
-    pdf_decode_font_code_fallback("0001", { ..identity, has_tounicode: false }) ==
+    pdf_decode_font_code_fallback("0001", { ..identity, has_tounicode: false, }) ==
     Some(" "),
   )
   let embedded_program : PdfEmbeddedFontProgram = {
@@ -454,7 +454,7 @@ test "pdf font policy and fallback decoding cover encoding evidence branches" {
   }
   assert_true(pdf_font_decode_widths(embedded) == [2])
   assert_true(
-    pdf_embedded_font_decode_bytes([1], { ..embedded, code_hex_widths: [] })
+    pdf_embedded_font_decode_bytes([1], { ..embedded, code_hex_widths: [], })
     is None,
   )
   let simple_embedded : PdfNativeFontInfo = {
@@ -633,10 +633,10 @@ test "pdf sfnt cmap formats and malformed tables cover bounded parsing" {
     0,
   )
   let bad_tables : Map[String, PdfSfntTableRecord] = Map([
-    ("head", { offset: 100 }),
-    ("maxp", { offset: 100 }),
-    ("hhea", { offset: 100 }),
-    ("cmap", { offset: 100 }),
+    ("head", { offset: 100, }),
+    ("maxp", { offset: 100, }),
+    ("hhea", { offset: 100, }),
+    ("cmap", { offset: 100, }),
   ])
   let tiny = @utf8.encode("tiny")
   assert_true(pdf_sfnt_table_head_units_per_em(tiny, bad_tables) == None)

@@ -560,7 +560,11 @@ fn subtitle_events_from_document(
         text: cue.note_payload.unwrap_or(""),
         source_ref: Some(block_ref),
       })
-      events.push({ kind: EndBlock(Raw), text: "", source_ref: Some(block_ref) })
+      events.push({
+        kind: EndBlock(Raw),
+        text: "",
+        source_ref: Some(block_ref),
+      })
       continue
     }
     let quote_ref = subtitle_generic_block_ref(base_ref, BlockQuote, [

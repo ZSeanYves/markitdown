@@ -7,7 +7,7 @@ fn markdown_parse_rich_inlines(
   defined_footnotes : Map[String, Bool],
 ) -> MarkdownInlineParseResult {
   let out : Array[@core.CoreInline] = []
-  let unsafe_link_count : Ref[Int] = { val: 0 }
+  let unsafe_link_count : Ref[Int] = { val: 0, }
   let chars = text.to_array()
   let mut i = 0
   let mut cursor = 0
@@ -132,7 +132,7 @@ fn markdown_parse_rich_inlines(
   } else {
     Some(out)
   }
-  { rich_inlines, unsafe_link_count: unsafe_link_count.val }
+  { rich_inlines, unsafe_link_count: unsafe_link_count.val, }
 }
 
 ///|
@@ -550,13 +550,13 @@ fn markdown_source_ref_from_lines(
 fn markdown_annotate_paths_and_report(
   blocks : Array[@core.CoreBlock],
 ) -> (Array[@core.CoreBlock], MarkdownBlockReport) {
-  let heading_index : Ref[Int] = { val: 0 }
-  let paragraph_index : Ref[Int] = { val: 0 }
-  let list_index : Ref[Int] = { val: 0 }
-  let table_index : Ref[Int] = { val: 0 }
-  let code_index : Ref[Int] = { val: 0 }
-  let quote_index : Ref[Int] = { val: 0 }
-  let raw_index : Ref[Int] = { val: 0 }
+  let heading_index : Ref[Int] = { val: 0, }
+  let paragraph_index : Ref[Int] = { val: 0, }
+  let list_index : Ref[Int] = { val: 0, }
+  let table_index : Ref[Int] = { val: 0, }
+  let code_index : Ref[Int] = { val: 0, }
+  let quote_index : Ref[Int] = { val: 0, }
+  let raw_index : Ref[Int] = { val: 0, }
   let report = markdown_new_block_report_accumulator()
   (
     blocks.map(block => {
@@ -613,7 +613,7 @@ fn markdown_annotate_single_block_path(
         Some(child_path),
       )
       let annotated_child = markdown_annotate_single_block_path(
-        { ..child, source_ref: Some(child_source_ref) },
+        { ..child, source_ref: Some(child_source_ref), },
         heading_index,
         paragraph_index,
         list_index,
@@ -635,7 +635,7 @@ fn markdown_annotate_single_block_path(
   } else {
     block.children
   }
-  { ..block, source_ref: Some(next_source_ref), children }
+  { ..block, source_ref: Some(next_source_ref), children, }
 }
 
 ///|

@@ -224,7 +224,7 @@ fn bench_progress_advance(
   label : String,
   status? : String = "done",
 ) -> BenchProgressState {
-  let next = { ..state, completed: state.completed + 1 }
+  let next = { ..state, completed: state.completed + 1, }
   if next.enabled {
     if next.mode == "json" {
       bench_write_stderr(
@@ -290,7 +290,9 @@ fn execute_run(
 ) -> Result[Json, BenchError] {
   ensure_bench_dirs(run_id) catch {
     err =>
-      return Err(RuntimeFailure("init run dirs failed: " + err.to_string()))
+      return Err(
+        RuntimeFailure("init run dirs failed: " + (err : Error).to_string()),
+      )
   }
   if scenarios.length() == 1 && scenarios[0].scenario_kind == "doctor" {
     let summary = summarize_doctor_run(run_id, scenarios[0], opts, contract)

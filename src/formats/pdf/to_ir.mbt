@@ -537,7 +537,7 @@ fn pdf_native_materialize_image_asset(
       "." +
       pdf_native_asset_ext(asset)
   }
-  let next_asset = { ..asset, path: Some(path) }
+  let next_asset = { ..asset, path: Some(path), }
   asset_paths.set(asset.asset_id, path)
   assets.push(next_asset)
   next_asset

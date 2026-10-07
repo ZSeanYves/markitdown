@@ -309,7 +309,7 @@ fn pdf_exportable_image_asset_ref(
     "pdf:" + object_id.to_string(),
     source_ref~,
   )
-  let next_asset = { ..asset, mime_type: Some(payload_info.mime_type) }
+  let next_asset = { ..asset, mime_type: Some(payload_info.mime_type), }
   next_asset.attrs.set("alt", "image")
   next_asset.attrs.set("file_ext", payload_info.ext)
   next_asset.payload = Some(Bytes(payload_info.payload))

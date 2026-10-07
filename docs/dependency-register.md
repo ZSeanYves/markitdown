@@ -4,7 +4,30 @@ This register is the Phase 0-1 source of truth for direct dependencies. A
 registry download count is discovery information only; adoption requires the
 tests, security, license and maintenance evidence described below.
 
-## Direct MoonBit dependencies
+## Current migration selection (2026-10-07)
+
+The implementation is tracked in [Native/Wasm upgrade](./native-wasm-upgrade.md).
+Exact latest registry records, licenses, dependency trees and archive checksums
+are frozen in `tools/experiments/community/registry-2026-10-07.json`.
+
+| Dependency | Production decision | Evidence and remaining gate |
+| --- | --- | --- |
+| `moonbitlang/async@0.22.4` | Upgrade; official shared I/O candidate | Six I/O tests on Native and Wasm; full product Native suite; product async migration pending |
+| `moonbitlang/x@0.5.5` | Upgrade; retain used filesystem/base64/crypto APIs | Error and directory API migration; reevaluate filesystem imports after async migration |
+| `moonbit-community/flate@0.8.5` | Adopt codec layer only | Cross-codec experiments and 917 product tests; retain local ZIP policy and reader; RC/performance gates pending |
+| `bikallem/compress@0.3.4` | Remove | No product imports or transitive dependency remains; available in isolated comparison module |
+| `bikallem/blit@0.2.2` | Remove | All direct and indirect callers eliminated by codec migration |
+| `tonyfettes/encoding@0.3.9` | Remove | Only UTF-16 used; core preserves tested contracts; latest upstream package does not compile on selected compiler |
+
+All three selected registry dependencies are Apache-2.0 and have no additional
+Mooncakes dependencies. Official async has its own platform/runtime stubs;
+this is a transitive native-runtime dependency, not a claim of zero C in the
+native executable. Conversion still has local FFI pending the runtime migration.
+
+The adoption record is provisional until the complete release-candidate gates
+pass; focused tests are not release approval.
+
+## Historical direct dependencies before this migration
 
 | Package | Version | License | Observed local use | Decision | Required owner/evidence |
 | --- | --- | --- | --- | --- | --- |
@@ -14,7 +37,7 @@ tests, security, license and maintenance evidence described below.
 | `moonbitlang/async` | 0.20.2 | Apache-2.0 | native command/process/filesystem adapters | retain behind runtime boundary | Runtime owner; no stable façade async types; cancellation/timeout/leak tests |
 | `tonyfettes/encoding` | 0.3.9 | Apache-2.0 | source decoding, UTF/legacy encoding and PDF/text paths | retain | Encoding owner; all-target corpus and blocking new-native full-suite gate |
 
-`moon tree` now resolves five direct declarations. `TheWaWaR/clap@0.2.6` and
+The frozen source resolved five direct declarations. `TheWaWaR/clap@0.2.6` and
 `tonyfettes/unicode@0.3.0` were removed after confirming that no package imported
 them and after the all-target and full native suites passed. Re-add either only
 with an actual production import and the normal dependency review.
@@ -49,6 +72,11 @@ authoritative in the profile lock files. Documentation must not replace those
 machine-readable locks with an ambient `PATH` observation.
 
 ## Community candidates
+
+The entries below record the Phase 0-1 assessment. For the current registry
+versions, downloaded-source review, native probes, and a proposed text-only
+product boundary, see the [2026-10-07 assessment](./rfcs/0001-text-extraction-scope-and-community-packages.md).
+That draft does not approve adoption or change the direct dependencies above.
 
 | Candidate | Current assessment | Action |
 | --- | --- | --- |

@@ -459,14 +459,14 @@ fn tesseract_tsv_group_pages(
     return []
   }
   let pages : Array[TesseractIndexedPage] = []
-  let mut current = { page_index: blocks[0].page_index, blocks: [blocks[0]] }
+  let mut current = { page_index: blocks[0].page_index, blocks: [blocks[0]], }
   for i in 1..<blocks.length() {
     let block = blocks[i]
     if current.page_index == block.page_index {
       current.blocks.push(block)
     } else {
       pages.push(current)
-      current = { page_index: block.page_index, blocks: [block] }
+      current = { page_index: block.page_index, blocks: [block], }
     }
   }
   pages.push(current)
@@ -499,7 +499,7 @@ fn tesseract_tsv_merge_word_bbox(
       y1 = box.y1
     }
   }
-  Some({ x0, y0, x1, y1 })
+  Some({ x0, y0, x1, y1, })
 }
 
 ///|

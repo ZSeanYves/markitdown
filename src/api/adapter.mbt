@@ -146,16 +146,16 @@ fn metadata_json(metadata : Map[String, @core.JsonValue]) -> String {
 fn stable_diagnostics(diagnostics : @core.Diagnostics) -> Array[Diagnostic] {
   let output : Array[Diagnostic] = []
   for message in diagnostics.warnings {
-    output.push({ code: "MID-WARNING", severity: Warning, message })
+    output.push({ code: "MID-WARNING", severity: Warning, message, })
   }
   for message in diagnostics.errors {
-    output.push({ code: "MID-ERROR", severity: Error, message })
+    output.push({ code: "MID-ERROR", severity: Error, message, })
   }
   for message in diagnostics.degraded_features {
-    output.push({ code: "MID-DEGRADED", severity: Warning, message })
+    output.push({ code: "MID-DEGRADED", severity: Warning, message, })
   }
   for message in diagnostics.same_mode_degradation {
-    output.push({ code: "MID-MODE-DEGRADED", severity: Warning, message })
+    output.push({ code: "MID-MODE-DEGRADED", severity: Warning, message, })
   }
   for dependency in diagnostics.dependency_diagnostics {
     output.push({
@@ -196,7 +196,7 @@ fn stable_provenance(provenance : @convert.ConvertProvenance) -> Provenance {
 
 ///|
 fn stable_bbox(bbox : @core.BBox?) -> BoundingBox? {
-  bbox.map(value => { x0: value.x0, y0: value.y0, x1: value.x1, y1: value.y1 })
+  bbox.map(value => { x0: value.x0, y0: value.y0, x1: value.x1, y1: value.y1, })
 }
 
 ///|

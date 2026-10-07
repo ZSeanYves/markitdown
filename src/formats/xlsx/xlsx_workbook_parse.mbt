@@ -537,7 +537,7 @@ fn xlsx_load_workbook_shared_state(
     let styles_payload = @ox.read_xml_part_payload(pkg, "xl/styles.xml")
     xlsx_parse_styles(styles_payload.text)
   } else {
-    { xf_numfmts: [], custom_numfmts: Map([]) }
+    { xf_numfmts: [], custom_numfmts: Map([]), }
   }
   let uses_date_1904 = xlsx_workbook_uses_date_1904(workbook_payload.text)
   let sheet_infos = xlsx_parse_sheet_infos(
@@ -545,7 +545,7 @@ fn xlsx_load_workbook_shared_state(
     workbook_part,
     workbook_payload.text,
   )
-  { workbook_part, sheet_infos, shared_strings, styles, uses_date_1904 }
+  { workbook_part, sheet_infos, shared_strings, styles, uses_date_1904, }
 }
 
 ///|
@@ -684,7 +684,7 @@ fn xlsx_parse_styles(styles_xml : String) -> XlsxStyles {
     }
   }
 
-  { xf_numfmts, custom_numfmts }
+  { xf_numfmts, custom_numfmts, }
 }
 
 ///|

@@ -152,7 +152,7 @@ fn pdf_embedded_font_decode_bytes(
   if units.length() == 0 {
     None
   } else {
-    Some({ text: text_parts.join(""), units })
+    Some({ text: text_parts.join(""), units, })
   }
 }
 

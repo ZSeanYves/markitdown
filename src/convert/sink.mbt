@@ -39,7 +39,7 @@ pub fn make_output_sink(
   write : (String) -> Result[Unit, String],
   finish : () -> Result[Unit, String],
 ) -> OutputSink {
-  { write, finish }
+  { write, finish, }
 }
 
 ///|
@@ -104,7 +104,7 @@ fn convert_input_to_sink_with_collection(
     Ok(value) => value
     Err(err) => return Err(err)
   }
-  let result = { ..execution.result, content: collected.val.to_string() }
+  let result = { ..execution.result, content: collected.val.to_string(), }
   result.diagnostics.metrics.set("sink_mode", "incremental_renderer")
   if result.diagnostics.metrics.get("sink_renderer_fallback") == Some("true") {
     result.diagnostics.metrics.set("sink_buffered_fallback", "true")

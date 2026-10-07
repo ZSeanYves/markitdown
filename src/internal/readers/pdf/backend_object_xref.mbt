@@ -147,7 +147,7 @@ fn pdf_resolve_xref_chain_cursor(
       }
     }
   }
-  Ok({ entries, trailer_hints, used_xref_stream, has_object_stream_refs })
+  Ok({ entries, trailer_hints, used_xref_stream, has_object_stream_refs, })
 }
 
 ///|
@@ -198,10 +198,10 @@ fn pdf_build_store_from_resolved_xref(
     match entry.1 {
       InUse(offset, _generation) =>
         if offset >= 0 && offset < source_size {
-          direct_locations.push({ object_id: entry.0, offset })
+          direct_locations.push({ object_id: entry.0, offset, })
         }
       Compressed(object_stream_id, _object_index_in_stream) =>
-        compressed_refs.push({ object_id: entry.0, object_stream_id })
+        compressed_refs.push({ object_id: entry.0, object_stream_id, })
     }
   }
   if direct_locations.length() == 0 && compressed_refs.length() == 0 {
@@ -365,7 +365,7 @@ fn pdf_scan_object_store(
       Some(slice) => Some(slice.1)
       None => None
     }
-    objects.push({ object_id: header.object_id, dict_text, stream })
+    objects.push({ object_id: header.object_id, dict_text, stream, })
     cursor = endobj + "endobj".length()
   }
   let expanded = match pdf_expand_object_streams(objects) {
@@ -495,7 +495,7 @@ fn pdf_resolve_xref_chain(
       }
     }
   }
-  Ok({ entries, trailer_hints, used_xref_stream, has_object_stream_refs })
+  Ok({ entries, trailer_hints, used_xref_stream, has_object_stream_refs, })
 }
 
 ///|
@@ -765,7 +765,7 @@ fn pdf_parse_indirect_object_at(
     Some(slice) => Some(slice.1)
     None => None
   }
-  Ok({ object_id: header.object_id, dict_text, stream })
+  Ok({ object_id: header.object_id, dict_text, stream, })
 }
 
 ///|
@@ -816,7 +816,7 @@ fn pdf_find_object_header_at(
         bytes,
         marker + " obj".length(),
       )
-      Some({ object_id, body_start })
+      Some({ object_id, body_start, })
     }
     _ => None
   }
@@ -846,7 +846,7 @@ fn pdf_find_next_object_header_bytes(
             bytes,
             marker + " obj".length(),
           )
-          return Some({ object_id, body_start })
+          return Some({ object_id, body_start, })
         }
         _ => ()
       }
@@ -911,7 +911,9 @@ fn pdf_extract_stream_slice(
           object_body[raw_start:raw_start + length].to_owned()
         _ => endstream_bytes
       }
-      Ok(Some((dict_text, { primary_bytes, endstream_bytes, declared_length })))
+      Ok(
+        Some((dict_text, { primary_bytes, endstream_bytes, declared_length, })),
+      )
     }
   }
 }

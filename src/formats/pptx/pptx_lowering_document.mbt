@@ -129,12 +129,12 @@ fn pptx_fill_package_metrics(
     inspect.comment_count.to_string(),
   )
 
-  let placeholder_count : Ref[Int] = { val: 0 }
-  let resolved_placeholder_count : Ref[Int] = { val: 0 }
-  let unresolved_placeholder_count : Ref[Int] = { val: 0 }
-  let text_box_count : Ref[Int] = { val: 0 }
-  let image_count : Ref[Int] = { val: 0 }
-  let external_media_count : Ref[Int] = { val: 0 }
+  let placeholder_count : Ref[Int] = { val: 0, }
+  let resolved_placeholder_count : Ref[Int] = { val: 0, }
+  let unresolved_placeholder_count : Ref[Int] = { val: 0, }
+  let text_box_count : Ref[Int] = { val: 0, }
+  let image_count : Ref[Int] = { val: 0, }
+  let external_media_count : Ref[Int] = { val: 0, }
   let mut visible_slide_count = 0
   let mut hidden_slide_count = 0
   for slide in presentation.slides {

@@ -39,7 +39,7 @@ fn odf_extract_presentation_slides(
       _ => ()
     }
   }
-  { slides, assets }
+  { slides, assets, }
 }
 
 ///|
@@ -129,7 +129,7 @@ fn odf_extract_slide(
       }
     None => ()
   }
-  { slide: { index: slide_index, name: page_name, blocks }, assets }
+  { slide: { index: slide_index, name: page_name, blocks, }, assets, }
 }
 
 ///|
@@ -294,7 +294,7 @@ fn odf_extract_slide_frame(
       _ => ()
     }
   }
-  { blocks, assets }
+  { blocks, assets, }
 }
 
 ///|
@@ -448,7 +448,7 @@ fn odf_odp_table_block(
             match cell_node {
               Element(cell) =>
                 if cell.name == "table:table-cell" {
-                  cells.push({ text: odf_collect_text(cell).trim().to_owned() })
+                  cells.push({ text: odf_collect_text(cell).trim().to_owned(), })
                 }
               _ => ()
             }

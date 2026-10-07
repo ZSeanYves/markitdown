@@ -24,7 +24,7 @@ pub fn make_input_reader(
   read_at : (Int64, Int) -> Result[Bytes, String],
   size? : Int64,
 ) -> InputReader {
-  { size, read_at }
+  { size, read_at, }
 }
 
 ///|
@@ -69,7 +69,7 @@ pub fn input_source_with_reader_limit(
         Some(size) => make_input_reader(bounded_read_at, size~)
         None => make_input_reader(bounded_read_at)
       }
-      { ..source, payload: Reader(bounded) }
+      { ..source, payload: Reader(bounded), }
     }
     _ => source
   }
@@ -356,13 +356,13 @@ pub fn with_mime_type(source : InputSource, mime_type : String?) -> InputSource 
 ///|
 /// Return a copy of `source` with an in-memory text payload attached.
 pub fn with_text_payload(source : InputSource, text : String) -> InputSource {
-  { ..source, payload: Text(text) }
+  { ..source, payload: Text(text), }
 }
 
 ///|
 /// Return a copy of `source` with an in-memory byte payload attached.
 pub fn with_bytes_payload(source : InputSource, bytes : Bytes) -> InputSource {
-  { ..source, payload: Bytes(bytes) }
+  { ..source, payload: Bytes(bytes), }
 }
 
 ///|
@@ -637,7 +637,7 @@ pub fn read_input_text(source : InputSource) -> Result[String, String] {
     Bytes(bytes) => decode_input_utf8(bytes)
     Path(path) =>
       try @fs.read_file_to_string(path, encoding="utf8") |> Ok catch {
-        e => Err("read text failed: " + e.to_string())
+        e => Err("read text failed: " + (e : Error).to_string())
       }
     Reader(reader) =>
       read_reader_bytes(reader) |> Result::bind(decode_input_utf8)
@@ -656,7 +656,7 @@ pub fn read_input_bytes(source : InputSource) -> Result[Bytes, String] {
     Text(text) => Ok(@utf8.encode(text))
     Path(path) =>
       try @fs.read_file_to_bytes(path) |> Ok catch {
-        e => Err("read bytes failed: " + e.to_string())
+        e => Err("read bytes failed: " + (e : Error).to_string())
       }
     Reader(reader) => read_reader_bytes(reader)
   }

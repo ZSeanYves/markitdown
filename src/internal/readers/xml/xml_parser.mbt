@@ -5,7 +5,7 @@
 /// or browser-style recovery.
 pub fn parse_xml_document(text : String) -> XmlDocument raise {
   let tokens = tokenize_xml_document(text)
-  let parser = XmlParser::{ tokens, pos: 0 }
+  let parser = XmlParser::{ tokens, pos: 0, }
   parser.parse_document(count_xml_source_chars(text))
 }
 
@@ -60,7 +60,7 @@ pub fn classify_xml_error(err : XmlError) -> XmlErrorInfo {
   } else {
     Unknown
   }
-  { kind, detail: err.to_string() }
+  { kind, detail: err.to_string(), }
 }
 
 ///|
@@ -88,11 +88,11 @@ fn XmlParser::parse_document(
         self.pos += 1
       }
       ProcessingInstruction(target, body, span) => {
-        nodes.push(ProcessingInstruction({ target, body, span }))
+        nodes.push(ProcessingInstruction({ target, body, span, }))
         self.pos += 1
       }
       Comment(text, span) => {
-        nodes.push(Comment({ text, span }))
+        nodes.push(Comment({ text, span, }))
         self.pos += 1
       }
       Text(text, span) => {
@@ -100,7 +100,7 @@ fn XmlParser::parse_document(
           if root is Some(_) {
             raise ParseError("multiple root elements")
           }
-          nodes.push(Text({ text, span }))
+          nodes.push(Text({ text, span, }))
         }
         self.pos += 1
       }
@@ -108,7 +108,7 @@ fn XmlParser::parse_document(
         if root is Some(_) {
           raise ParseError("multiple root elements")
         }
-        nodes.push(CData({ text, span }))
+        nodes.push(CData({ text, span, }))
         self.pos += 1
       }
       StartTag(_, _, _, _) => {
@@ -128,7 +128,7 @@ fn XmlParser::parse_document(
     raise ParseError("empty document")
   }
 
-  { nodes, root, source_length, has_doctype, has_unsupported_doctype }
+  { nodes, root, source_length, has_doctype, has_unsupported_doctype, }
 }
 
 ///|
@@ -142,7 +142,7 @@ fn XmlParser::parse_element(self : XmlParser) -> XmlElement raise {
   }
 
   if self_closing {
-    return { name, attributes, children: [], self_closing, span }
+    return { name, attributes, children: [], self_closing, span, }
   }
 
   let children : Array[XmlNode] = []
@@ -167,24 +167,24 @@ fn XmlParser::parse_element(self : XmlParser) -> XmlElement raise {
           attributes,
           children,
           self_closing,
-          span: { line_start: span.line_start, line_end },
+          span: { line_start: span.line_start, line_end, },
         }
       }
       StartTag(_, _, _, _) => children.push(Element(self.parse_element()))
       Text(text, text_span) => {
-        children.push(Text({ text, span: text_span }))
+        children.push(Text({ text, span: text_span, }))
         self.pos += 1
       }
       Comment(text, comment_span) => {
-        children.push(Comment({ text, span: comment_span }))
+        children.push(Comment({ text, span: comment_span, }))
         self.pos += 1
       }
       CData(text, cdata_span) => {
-        children.push(CData({ text, span: cdata_span }))
+        children.push(CData({ text, span: cdata_span, }))
         self.pos += 1
       }
       ProcessingInstruction(target, body, pi_span) => {
-        children.push(ProcessingInstruction({ target, body, span: pi_span }))
+        children.push(ProcessingInstruction({ target, body, span: pi_span, }))
         self.pos += 1
       }
       Declaration(_, _) =>

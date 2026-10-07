@@ -35,20 +35,20 @@ test "markdown event renderer writes subtitle records without rebuilding blocks"
   source_ref.extra.set("ir_event_family", "subtitle")
   source_ref.extra.set("ir_block_attr_literal", "true")
   let events : Array[@core.CoreEvent] = [
-    { kind: StartBlock(BlockQuote), text: "", source_ref: Some(source_ref) },
+    { kind: StartBlock(BlockQuote), text: "", source_ref: Some(source_ref), },
     {
       kind: StartBlock(Heading),
       text: "00:00:00,000 --> 00:00:02,000",
       source_ref: Some(source_ref),
     },
-    { kind: EndBlock(Heading), text: "", source_ref: Some(source_ref) },
+    { kind: EndBlock(Heading), text: "", source_ref: Some(source_ref), },
     {
       kind: StartBlock(Paragraph),
       text: "Hello world.\n# literal",
       source_ref: Some(source_ref),
     },
-    { kind: EndBlock(Paragraph), text: "", source_ref: Some(source_ref) },
-    { kind: EndBlock(BlockQuote), text: "", source_ref: Some(source_ref) },
+    { kind: EndBlock(Paragraph), text: "", source_ref: Some(source_ref), },
+    { kind: EndBlock(BlockQuote), text: "", source_ref: Some(source_ref), },
   ]
   inspect(
     render_markdown_events(events),

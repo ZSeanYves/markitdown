@@ -50,26 +50,26 @@ test "main CLI batch filesystem helpers and missing inputs fail closed" {
   assert_eq(basename_of_path("file.txt"), "file.txt")
   assert_eq(basename_of_path("dir/file.txt"), "file.txt")
   ensure_dir_tree("") catch {
-    err => fail(err.to_string())
+    err => fail((err : Error).to_string())
   }
   ensure_dir_tree(".") catch {
-    err => fail(err.to_string())
+    err => fail((err : Error).to_string())
   }
   let root = ".tmp/tests/cli-batch-helper"
   cleanup_temp_dir(root)
   ensure_dir_tree(root + "/./nested/deeper") catch {
-    err => fail("create batch helper dirs: " + err.to_string())
+    err => fail("create batch helper dirs: " + (err : Error).to_string())
   }
   defer cleanup_temp_dir(root)
   @fs.write_string_to_file(root + "/single.md", "# single", encoding="utf8") catch {
-    err => fail("write batch single fixture: " + err.to_string())
+    err => fail("write batch single fixture: " + (err : Error).to_string())
   }
   @fs.write_string_to_file(
     root + "/nested/deeper/child.md",
     "# child",
     encoding="utf8",
   ) catch {
-    err => fail("write batch nested fixture: " + err.to_string())
+    err => fail("write batch nested fixture: " + (err : Error).to_string())
   }
   assert_true(
     collect_batch_input_paths(root, root + "/single.md") ==

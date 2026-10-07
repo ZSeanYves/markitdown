@@ -70,7 +70,7 @@ pub fn make_html_token_event(
     self_closing,
     source_start,
     source_end,
-    span: { line_start, line_end, byte_start, byte_end },
+    span: { line_start, line_end, byte_start, byte_end, },
   }
 }
 

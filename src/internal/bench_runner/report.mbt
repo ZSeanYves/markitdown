@@ -213,7 +213,10 @@ fn load_summary(run_id : String) -> Result[RunSummary, BenchError] {
     summary_json_path(run_id),
     encoding="utf8",
   ) catch {
-    err => return Err(RuntimeFailure("read summary failed: " + err.to_string()))
+    err =>
+      return Err(
+        RuntimeFailure("read summary failed: " + (err : Error).to_string()),
+      )
   }
   let json = @json.parse(content) catch {
     err =>
@@ -270,7 +273,9 @@ fn load_sample_rows(
   let content = @fs.read_file_to_string(path, encoding="utf8") catch {
     err =>
       return Err(
-        RuntimeFailure("read " + label + " jsonl failed: " + err.to_string()),
+        RuntimeFailure(
+          "read " + label + " jsonl failed: " + (err : Error).to_string(),
+        ),
       )
   }
   let out : Array[SampleRow] = []

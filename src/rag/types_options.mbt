@@ -34,7 +34,7 @@ pub fn make_rag_chunk(
   asset_refs : Array[String],
   metadata : Map[String, @core.JsonValue],
 ) -> RagChunk {
-  { id, kind, text, heading_path, source_refs, asset_refs, metadata }
+  { id, kind, text, heading_path, source_refs, asset_refs, metadata, }
 }
 
 ///|

@@ -110,7 +110,7 @@ fn audio_wrapper_resolution_from_parts(
   }
   let argv_prefix : Array[String] = []
   argv_prefix.append(parts[1:][:])
-  { command: resolved, argv_prefix }
+  { command: resolved, argv_prefix, }
 }
 
 ///|
@@ -196,7 +196,9 @@ fn build_audio_transcribe_plan(
   audio_ensure_dir_tree(temp_dir) catch {
     e =>
       return Err(
-        ExecutionFailed("failed to create audio temp dir: " + e.to_string()),
+        ExecutionFailed(
+          "failed to create audio temp dir: " + (e : Error).to_string(),
+        ),
       )
   }
   let prepared_input = match
@@ -366,7 +368,8 @@ fn build_audio_transcribe_command_with_wrapper_resolution(
     e =>
       return Err(
         ExecutionFailed(
-          "failed to write audio request JSON on this runtime: " + e.to_string(),
+          "failed to write audio request JSON on this runtime: " +
+          (e : Error).to_string(),
         ),
       )
   }
@@ -658,7 +661,7 @@ fn finalize_audio_transcribe_command_result(
           return Err(
             OutputParseFailed(
               "audio backend did not produce a readable JSON transcript on this runtime: " +
-              e.to_string(),
+              (e : Error).to_string(),
             ),
           )
       }

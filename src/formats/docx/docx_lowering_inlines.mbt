@@ -125,10 +125,10 @@ fn lower_docx_inlines(
     true
   }
 
-  let has_link_ref : Ref[Bool] = { val: false }
-  let image_count_ref : Ref[Int] = { val: 0 }
-  let hyperlink_count_ref : Ref[Int] = { val: 0 }
-  let tracked_change_count_ref : Ref[Int] = { val: 0 }
+  let has_link_ref : Ref[Bool] = { val: false, }
+  let image_count_ref : Ref[Int] = { val: 0, }
+  let hyperlink_count_ref : Ref[Int] = { val: 0, }
+  let tracked_change_count_ref : Ref[Int] = { val: 0, }
 
   for inline in inlines {
     match inline {

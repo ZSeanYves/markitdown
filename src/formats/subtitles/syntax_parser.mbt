@@ -198,7 +198,7 @@ fn parse_subtitle_document(
       line_end: i,
     })
   }
-  { format, cues }
+  { format, cues, }
 }
 
 ///|

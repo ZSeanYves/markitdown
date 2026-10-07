@@ -89,7 +89,11 @@ fn docx_custom_properties_from_ooxml(
 ) -> Array[DocxCustomProperty] {
   let out : Array[DocxCustomProperty] = []
   for prop in props {
-    out.push({ name: prop.name, value: prop.value, value_type: prop.value_type })
+    out.push({
+      name: prop.name,
+      value: prop.value,
+      value_type: prop.value_type,
+    })
   }
   out
 }

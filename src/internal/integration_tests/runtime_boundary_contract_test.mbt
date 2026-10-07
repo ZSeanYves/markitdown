@@ -19,7 +19,7 @@ test "detector contract covers core formats and unknown fallback" {
   let docx_bytes = @fs.read_file_to_bytes(
     "samples/fixtures/contracts/docx/golden.docx",
   ) catch {
-    e => fail("failed to read docx sample: " + e.to_string())
+    e => fail("failed to read docx sample: " + (e : Error).to_string())
   }
   let docx = (detector.detect)(
     @input.input_from_bytes(docx_bytes, source_name="office-blob"),
@@ -194,7 +194,7 @@ test "root image parser keeps deterministic fail-closed OCR diagnostics" {
     }
     Ok(_) => fail("default OCR path should stay fail closed")
   }
-  let provider_calls : Ref[Int] = { val: 0 }
+  let provider_calls : Ref[Int] = { val: 0, }
   match
     @focr.image_ocr_parser_result_with_provider(
       source,

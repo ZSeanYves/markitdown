@@ -37,7 +37,7 @@ fn new_pptx_state(
     asset_ids: Map([]),
     image_ids: Map([]),
     slide_image_counts: Map([]),
-    chart_fallback_emitted: { val: false },
+    chart_fallback_emitted: { val: false, },
   }
 }
 

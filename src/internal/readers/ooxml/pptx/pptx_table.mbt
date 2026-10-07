@@ -11,9 +11,9 @@ fn parse_table(
     Some(tbl) => {
       let mut pos = 0
       let mut row_index = 0
-      let cell_count : Ref[Int] = { val: 0 }
-      let text_run_count : Ref[Int] = { val: 0 }
-      let output_cell_count : Ref[Int] = { val: 0 }
+      let cell_count : Ref[Int] = { val: 0, }
+      let text_run_count : Ref[Int] = { val: 0, }
+      let output_cell_count : Ref[Int] = { val: 0, }
       while true {
         let r0 = find_bytes(tbl, pat("<a:tr"), pos)
         match r0 {
@@ -43,7 +43,7 @@ fn parse_table(
     }
     None => ()
   }
-  { rows, geometry, source_key }
+  { rows, geometry, source_key, }
 }
 
 ///|

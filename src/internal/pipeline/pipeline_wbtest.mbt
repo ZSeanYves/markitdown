@@ -14,9 +14,9 @@ test "pipeline context covers stream debug and accurate modes" {
 ///|
 test "pipeline rejects unnamed and failing passes with original errors" {
   let context = make_pass_context(false, "balanced")
-  let unnamed : IRPass = { name: " ", run: fn(_, input) { Ok(input) } }
+  let unnamed : IRPass = { name: " ", run: fn(_, input) { Ok(input) }, }
   let unnamed_result = run_pipeline(
-    { passes: [unnamed] },
+    { passes: [unnamed], },
     BlockStream([]),
     context,
   )
@@ -29,7 +29,7 @@ test "pipeline rejects unnamed and failing passes with original errors" {
     name: "FailingPass",
     run: fn(_, _) { Err(pass_error("failure")) },
   }
-  let failed = run_pipeline({ passes: [failing] }, BlockStream([]), context)
+  let failed = run_pipeline({ passes: [failing], }, BlockStream([]), context)
   let failure_preserved = match failed {
     Err(err) => err.message == "failure"
     Ok(_) => false

@@ -27,7 +27,7 @@ fn make_strategy_route_spec(
   granularity : @parser.StreamingGranularity,
   ir_input_kind : String,
 ) -> StrategyRouteSpec {
-  { route, parser_mode, granularity, ir_input_kind }
+  { route, parser_mode, granularity, ir_input_kind, }
 }
 
 ///|
@@ -733,7 +733,7 @@ pub fn route_contract_for_format(
     hard_limit_thresholds=hard_limit_thresholds_for_format(format),
     hard_limit_route~,
   )
-  { format, cli_supported: profile.cli_supported, balanced, accurate, stream }
+  { format, cli_supported: profile.cli_supported, balanced, accurate, stream, }
 }
 
 ///|

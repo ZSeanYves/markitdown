@@ -176,7 +176,7 @@ fn epub_cover_assets(
         "epub:" + cover_path + ":cover",
         source_ref~,
       )
-      let next_asset = { ..asset, path: Some(output_relative_path) }
+      let next_asset = { ..asset, path: Some(output_relative_path), }
       let alt = epub_basename(cover_path)
       next_asset.attrs.set("alt", alt)
       next_asset.attrs.set("source_path", cover_path)
@@ -549,7 +549,7 @@ fn epub_rewrite_child_assets(
             rewrite_plan,
             inner_path=None,
           )
-          merged_assets.push({ ..asset, source_ref: Some(next_source_ref) })
+          merged_assets.push({ ..asset, source_ref: Some(next_source_ref), })
         }
     }
   }
@@ -624,7 +624,7 @@ fn epub_rewrite_single_block(
   if block.children.length() == 0 &&
     block.rich_inlines is None &&
     block.kind != Image {
-    return { ..block, source_ref: Some(source_ref) }
+    return { ..block, source_ref: Some(source_ref), }
   }
   let rewritten_children = if block.children.length() == 0 {
     block.children
@@ -702,13 +702,13 @@ fn epub_rewrite_inline(
     inner_path=None,
   )
   if inline.kind != Image {
-    return { ..inline, source_ref: Some(source_ref) }
+    return { ..inline, source_ref: Some(source_ref), }
   }
   let old_path = inline.href.unwrap_or("")
   match epub_find_asset_rewrite(plan, "", old_path) {
     Some(rewrite) =>
-      { ..inline, href: Some(rewrite.new_path), source_ref: Some(source_ref) }
-    None => { ..inline, source_ref: Some(source_ref) }
+      { ..inline, href: Some(rewrite.new_path), source_ref: Some(source_ref), }
+    None => { ..inline, source_ref: Some(source_ref), }
   }
 }
 

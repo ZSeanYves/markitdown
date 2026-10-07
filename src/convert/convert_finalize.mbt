@@ -256,7 +256,7 @@ fn finalize_pipeline_execution(
     }),
     requested_fidelity_mode: Some(execution_plan.requested_fidelity_mode),
   }
-  Ok({ result, provenance })
+  Ok({ result, provenance, })
 }
 
 ///|
@@ -276,7 +276,7 @@ fn apply_asset_payload_limits(
     }
     match size {
       Some(observed) if observed > limits.max_asset_bytes => {
-        let next = { ..asset, payload: None }
+        let next = { ..asset, payload: None, }
         next.attrs.set("payload_skipped", "single_asset_limit")
         limited.push(next)
         skipped.push(next)
@@ -289,7 +289,7 @@ fn apply_asset_payload_limits(
         )
       }
       Some(observed) if total + observed > limits.max_total_asset_bytes => {
-        let next = { ..asset, payload: None }
+        let next = { ..asset, payload: None, }
         next.attrs.set("payload_skipped", "total_asset_limit")
         limited.push(next)
         skipped.push(next)

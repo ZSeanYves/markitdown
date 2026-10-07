@@ -143,7 +143,7 @@ fn pdf_native_lowering_plan(
         None => ()
       }
     }
-    page_plans.push({ items, consumed_link_indexes })
+    page_plans.push({ items, consumed_link_indexes, })
   }
   {
     page_plans,
@@ -347,7 +347,7 @@ fn pdf_native_projection_diagnostics(
   table_candidates : PdfNativeTableCandidateSummary,
   lowering : PdfNativeLoweringPlan,
 ) -> @core.Diagnostics {
-  let next = { ..diagnostics }
+  let next = { ..diagnostics, }
   next.pass_trace.push("pdf_native:to_document_ir")
   next.metrics.set("ir_input_kind", "document")
   next.metrics.set("block_count", block_count.to_string())
@@ -503,7 +503,7 @@ fn pdf_native_stream_bridge_diagnostics(
   header_footer_candidates : PdfNativeHeaderFooterCandidateSummary,
   table_candidates : PdfNativeTableCandidateSummary,
 ) -> @core.Diagnostics {
-  let next = { ..diagnostics }
+  let next = { ..diagnostics, }
   next.pass_trace.push("pdf_native:to_block_stream")
   next.metrics.set("ir_input_kind", "block_stream")
   next.metrics.set("block_count", block_count.to_string())

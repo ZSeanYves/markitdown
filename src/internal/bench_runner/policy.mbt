@@ -297,7 +297,7 @@ fn load_policy() -> Result[BenchPolicy, BenchError] {
     err =>
       return Err(
         RuntimeFailure(
-          "read bench/config/policy.json failed: " + err.to_string(),
+          "read bench/config/policy.json failed: " + (err : Error).to_string(),
         ),
       )
   }

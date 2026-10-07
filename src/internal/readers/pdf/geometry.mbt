@@ -22,7 +22,7 @@ pub fn make_pdf_bbox(
   width : Double,
   height : Double,
 ) -> PdfBBox {
-  { x, y, width, height }
+  { x, y, width, height, }
 }
 
 ///|
@@ -33,7 +33,7 @@ pub fn make_pdf_page_geometry(
   rotation_degrees? : Int = 0,
   crop_box? : PdfBBox? = None,
 ) -> PdfPageGeometry {
-  { page_no, width, height, rotation_degrees, crop_box }
+  { page_no, width, height, rotation_degrees, crop_box, }
 }
 
 ///|
@@ -63,7 +63,7 @@ pub fn pdf_union_bbox(left : PdfBBox, right : PdfBBox) -> PdfBBox {
   let y0 = pdf_double_min(left.y, right.y)
   let x1 = pdf_double_max(pdf_bbox_right(left), pdf_bbox_right(right))
   let y1 = pdf_double_max(pdf_bbox_bottom(left), pdf_bbox_bottom(right))
-  { x: x0, y: y0, width: x1 - x0, height: y1 - y0 }
+  { x: x0, y: y0, width: x1 - x0, height: y1 - y0, }
 }
 
 ///|

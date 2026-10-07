@@ -258,7 +258,7 @@ fn html_child_table_row_block(
   if cells.length() == 0 {
     return None
   }
-  let row = { ..row, text: cells.map(cell => cell.text).join(" | ") }
+  let row = { ..row, text: cells.map(cell => cell.text).join(" | "), }
   let row = @core.block_with_children(row, cells)
   Some((row, header_cell_count == cells.length()))
 }
@@ -849,7 +849,7 @@ fn html_token_lines_source_ref(
     Some(html_path),
   )
   if byte_start >= 0 && byte_end >= byte_start {
-    { ..source_ref, byte_start: Some(byte_start), byte_end: Some(byte_end) }
+    { ..source_ref, byte_start: Some(byte_start), byte_end: Some(byte_end), }
   } else {
     source_ref
   }

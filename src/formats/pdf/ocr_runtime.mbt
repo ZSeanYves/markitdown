@@ -287,7 +287,7 @@ fn pdf_ocr_materialize_source_path(
           return Err(
             ExecutionFailed(
               "failed to materialize PDF bytes for OCR rasterization: " +
-              e.to_string(),
+              (e : Error).to_string(),
             ),
           )
       }
@@ -552,7 +552,9 @@ pub fn rasterize_pdf_with_pdftoppm(
   pdf_ocr_ensure_dir_tree(temp_dir) catch {
     e =>
       return Err(
-        ExecutionFailed("failed to create PDF OCR temp dir: " + e.to_string()),
+        ExecutionFailed(
+          "failed to create PDF OCR temp dir: " + (e : Error).to_string(),
+        ),
       )
   }
   let pdf_path = match pdf_ocr_materialize_source_path(source, temp_dir) {
@@ -567,7 +569,9 @@ pub fn rasterize_pdf_with_pdftoppm(
     e => {
       pdf_ocr_cleanup_temp_dir(temp_dir)
       return Err(
-        ExecutionFailed("failed to create PDF OCR raster dir: " + e.to_string()),
+        ExecutionFailed(
+          "failed to create PDF OCR raster dir: " + (e : Error).to_string(),
+        ),
       )
     }
   }
@@ -594,7 +598,7 @@ pub fn rasterize_pdf_with_pdftoppm(
           return Err(
             OutputParseFailed(
               "failed to enumerate pdftoppm output pages on this runtime: " +
-              e.to_string(),
+              (e : Error).to_string(),
             ),
           )
         }
@@ -637,7 +641,9 @@ pub fn rasterize_pdf_with_pdftoppm_default(
   pdf_ocr_ensure_dir_tree(temp_dir) catch {
     e =>
       return Err(
-        ExecutionFailed("failed to create PDF OCR temp dir: " + e.to_string()),
+        ExecutionFailed(
+          "failed to create PDF OCR temp dir: " + (e : Error).to_string(),
+        ),
       )
   }
   let pdf_path = match pdf_ocr_materialize_source_path(source, temp_dir) {
@@ -652,7 +658,9 @@ pub fn rasterize_pdf_with_pdftoppm_default(
     e => {
       pdf_ocr_cleanup_temp_dir(temp_dir)
       return Err(
-        ExecutionFailed("failed to create PDF OCR raster dir: " + e.to_string()),
+        ExecutionFailed(
+          "failed to create PDF OCR raster dir: " + (e : Error).to_string(),
+        ),
       )
     }
   }
@@ -679,7 +687,7 @@ pub fn rasterize_pdf_with_pdftoppm_default(
           return Err(
             OutputParseFailed(
               "failed to enumerate pdftoppm output pages on this runtime: " +
-              e.to_string(),
+              (e : Error).to_string(),
             ),
           )
         }
@@ -726,7 +734,9 @@ pub async fn rasterize_pdf_with_pdftoppm_async(
   pdf_ocr_ensure_dir_tree(temp_dir) catch {
     e =>
       return Err(
-        ExecutionFailed("failed to create PDF OCR temp dir: " + e.to_string()),
+        ExecutionFailed(
+          "failed to create PDF OCR temp dir: " + (e : Error).to_string(),
+        ),
       )
   }
   let pdf_path = match pdf_ocr_materialize_source_path(source, temp_dir) {
@@ -741,7 +751,9 @@ pub async fn rasterize_pdf_with_pdftoppm_async(
     e => {
       pdf_ocr_cleanup_temp_dir(temp_dir)
       return Err(
-        ExecutionFailed("failed to create PDF OCR raster dir: " + e.to_string()),
+        ExecutionFailed(
+          "failed to create PDF OCR raster dir: " + (e : Error).to_string(),
+        ),
       )
     }
   }
@@ -768,7 +780,7 @@ pub async fn rasterize_pdf_with_pdftoppm_async(
           return Err(
             OutputParseFailed(
               "failed to enumerate pdftoppm output pages on this runtime: " +
-              e.to_string(),
+              (e : Error).to_string(),
             ),
           )
         }
@@ -811,7 +823,9 @@ pub async fn rasterize_pdf_with_pdftoppm_default_async(
   pdf_ocr_ensure_dir_tree(temp_dir) catch {
     e =>
       return Err(
-        ExecutionFailed("failed to create PDF OCR temp dir: " + e.to_string()),
+        ExecutionFailed(
+          "failed to create PDF OCR temp dir: " + (e : Error).to_string(),
+        ),
       )
   }
   let pdf_path = match pdf_ocr_materialize_source_path(source, temp_dir) {
@@ -826,7 +840,9 @@ pub async fn rasterize_pdf_with_pdftoppm_default_async(
     e => {
       pdf_ocr_cleanup_temp_dir(temp_dir)
       return Err(
-        ExecutionFailed("failed to create PDF OCR raster dir: " + e.to_string()),
+        ExecutionFailed(
+          "failed to create PDF OCR raster dir: " + (e : Error).to_string(),
+        ),
       )
     }
   }
@@ -854,7 +870,7 @@ pub async fn rasterize_pdf_with_pdftoppm_default_async(
           return Err(
             OutputParseFailed(
               "failed to enumerate pdftoppm output pages on this runtime: " +
-              e.to_string(),
+              (e : Error).to_string(),
             ),
           )
         }

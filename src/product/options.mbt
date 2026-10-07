@@ -120,7 +120,7 @@ pub struct AccurateFeatureProfile {
 ///|
 /// Return an empty accurate-feature profile.
 pub fn empty_accurate_feature_profile() -> AccurateFeatureProfile {
-  { features: [] }
+  { features: [], }
 }
 
 ///|
@@ -296,7 +296,7 @@ pub fn make_product_options(
   stream_requested? : Bool = mode == Stream,
   rag_options? : @rag.RagOptions = @rag.default_rag_options(),
 ) -> ProductOptions {
-  { mode, fidelity_mode, output_mode, stream_requested, limits, rag_options }
+  { mode, fidelity_mode, output_mode, stream_requested, limits, rag_options, }
 }
 
 ///|

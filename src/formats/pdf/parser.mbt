@@ -156,7 +156,7 @@ fn pdf_ocr_execution_config(
       "PDF accurate layout parsing requires accurate fidelity mode on this runtime",
     )
   }
-  Ok({ provider_target, provider_kind })
+  Ok({ provider_target, provider_kind, })
 }
 
 ///|
@@ -166,10 +166,10 @@ fn pdf_ocr_accumulation_state() -> PdfOcrAccumulationState {
     warnings: [],
     fatal_dependency_errors: [],
     fatal_dependency_diagnostics: [],
-    raster_failure_count: { val: 0 },
-    ocr_failure_count: { val: 0 },
-    ocr_success_count: { val: 0 },
-    native_text_page_count: { val: 0 },
+    raster_failure_count: { val: 0, },
+    ocr_failure_count: { val: 0, },
+    ocr_success_count: { val: 0, },
+    native_text_page_count: { val: 0, },
   }
 }
 
@@ -324,7 +324,7 @@ fn pdf_ocr_merge_native_diagnostics(
   diagnostics : @core.Diagnostics,
   native_diagnostics : @core.Diagnostics,
 ) -> @core.Diagnostics {
-  let next = { ..diagnostics }
+  let next = { ..diagnostics, }
   pdf_append_unique_strings(next.warnings, native_diagnostics.warnings)
   pdf_append_unique_strings(next.errors, native_diagnostics.errors)
   pdf_append_unique_strings(
@@ -402,7 +402,7 @@ fn pdf_native_text_block_text(block : @dpdfnative.PdfNativeTextBlock) -> String 
 
 ///|
 fn pdf_core_bbox_from_pdf_bbox(bbox : @dpdfnative.PdfBBox) -> @core.BBox {
-  { x0: bbox.x, y0: bbox.y, x1: bbox.x + bbox.width, y1: bbox.y + bbox.height }
+  { x0: bbox.x, y0: bbox.y, x1: bbox.x + bbox.width, y1: bbox.y + bbox.height, }
 }
 
 ///|
@@ -724,10 +724,10 @@ fn pdf_block_with_bbox(
   bbox : @core.BBox,
 ) -> @core.CoreBlock {
   let next_source_ref = match block.source_ref {
-    Some(source_ref) => Some({ ..source_ref, bbox: Some(bbox) })
-    None => Some({ ..@core.empty_source_ref(), bbox: Some(bbox) })
+    Some(source_ref) => Some({ ..source_ref, bbox: Some(bbox), })
+    None => Some({ ..@core.empty_source_ref(), bbox: Some(bbox), })
   }
-  { ..block, source_ref: next_source_ref }
+  { ..block, source_ref: next_source_ref, }
 }
 
 ///|

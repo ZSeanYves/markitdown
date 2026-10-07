@@ -88,14 +88,14 @@ pub fn parse_child_to_block_product(
         document.diagnostics,
       )
       record_child_parse_preference_metrics(diagnostics, child_plan, true)
-      Ok({ blocks: document.blocks, assets: document.assets, diagnostics })
+      Ok({ blocks: document.blocks, assets: document.assets, diagnostics, })
     }
     None =>
       match parsed.block_stream {
         Some(blocks) => {
           let diagnostics = parsed.diagnostics
           record_child_parse_preference_metrics(diagnostics, child_plan, true)
-          Ok({ blocks, assets: parsed.assets, diagnostics })
+          Ok({ blocks, assets: parsed.assets, diagnostics, })
         }
         None => {
           let built = @pipeline.build_document_with_default_pipeline(
@@ -117,7 +117,7 @@ pub fn parse_child_to_block_product(
             built.diagnostics,
           )
           record_child_parse_preference_metrics(diagnostics, child_plan, false)
-          Ok({ blocks: built.blocks, assets: built.assets, diagnostics })
+          Ok({ blocks: built.blocks, assets: built.assets, diagnostics, })
         }
       }
   }

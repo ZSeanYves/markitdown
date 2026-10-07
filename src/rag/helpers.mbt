@@ -161,7 +161,7 @@ fn json_value_string(value : @core.JsonValue?) -> String? {
 
 ///|
 fn unicode_char_count(text : String) -> Int {
-  let bytes = @encoding.encode(text, encoding=UTF16LE)
+  let bytes = @utf16.encode(text, bom=false, endianness=Little)
   bytes.length() / 2
 }
 
@@ -180,7 +180,7 @@ fn make_chunk_id(
     text +
     "|" +
     first_last_source_ref_signature(source_refs)
-  let encoded = @encoding.encode(signature, encoding=UTF16LE)
+  let encoded = @utf16.encode(signature, bom=false, endianness=Little)
   let hash = @crypto.bytes_to_hex_string(@crypto.sha1(encoded))
   chunk_kind_name(kind) + "-" + ordinal.to_string() + "-" + hash[:8].to_owned()
 }

@@ -15,7 +15,7 @@ fn pdf_parser_wbtest_source_ref(
       Some(1),
     ),
     page: Some(page),
-    bbox: Some({ x0, y0, x1, y1 }),
+    bbox: Some({ x0, y0, x1, y1, }),
   }
 }
 
@@ -54,7 +54,10 @@ fn pdf_parser_wbtest_fake_rasterizer(
   fn(_source : @input.InputSource) {
     let root = ".tmp/tests/formats-pdf/" + dir_name
     pdf_parser_wbtest_ensure_dir_tree(root) catch {
-      err => abort("failed to create fake raster temp dir: " + err.to_string())
+      err =>
+        abort(
+          "failed to create fake raster temp dir: " + (err : Error).to_string(),
+        )
     }
     let pages : Array[PdfRasterPageArtifact] = []
     for page_index in 0..<page_count {
@@ -69,7 +72,7 @@ fn pdf_parser_wbtest_fake_rasterizer(
     }
     Ok(
       (
-        { backend_name: "fake-raster", page_count, pages, diagnostics: [] },
+        { backend_name: "fake-raster", page_count, pages, diagnostics: [], },
         root,
       ),
     )
@@ -179,7 +182,7 @@ test "pdf hybrid page merge keeps native blocks and only appends non-duplicate O
   let merged = pdf_region_hybrid_page_blocks(native_blocks, ocr_blocks, {
     page_index: 1,
     route_kind: "hybrid_region_page",
-    candidate_regions: [{ x0: 0.0, y0: 420.0, x1: 180.0, y1: 520.0 }],
+    candidate_regions: [{ x0: 0.0, y0: 420.0, x1: 180.0, y1: 520.0, }],
     low_confidence_text_count: 1,
     native_text_detected: true,
   })

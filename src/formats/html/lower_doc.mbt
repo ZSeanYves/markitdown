@@ -87,7 +87,7 @@ fn lower_html_document_from_prepared(
   lowering_index : HtmlLoweringIndex,
   top_blocks : Array[@dhtml.HtmlBlockFact],
 ) -> HtmlLoweringResult {
-  let state = { assets: [] }
+  let state = { assets: [], }
   let blocks = html_lower_blocks_from_prepared(
     state, semantic, source, dom_blocks, lowering_index, top_blocks,
   )
@@ -99,7 +99,7 @@ fn lower_html_document_from_prepared(
       }
     None => ()
   }
-  { blocks, metadata, assets: state.assets }
+  { blocks, metadata, assets: state.assets, }
 }
 
 ///|
@@ -158,9 +158,9 @@ priv struct HtmlLoweringIndex {
 fn html_dom_lowering_index(doc : @dhtml.HtmlDocument) -> HtmlDomLoweringIndex {
   let block_elements : Map[String, @dhtml.HtmlElement] = Map([])
   let nav_spans : Array[@dhtml.HtmlSourceSpan] = []
-  let order : Ref[Int] = { val: 0 }
+  let order : Ref[Int] = { val: 0, }
   html_dom_collect_index(doc.nodes, false, order, block_elements, nav_spans)
-  { block_elements, nav_spans }
+  { block_elements, nav_spans, }
 }
 
 ///|
@@ -314,7 +314,7 @@ fn html_block_scope_plans_from_events(
   if subtrees.length() > 0 {
     return subtrees
   }
-  [{ source_start: 0, source_end: text.length(), label: "hybrid_document" }]
+  [{ source_start: 0, source_end: text.length(), label: "hybrid_document", }]
 }
 
 ///|

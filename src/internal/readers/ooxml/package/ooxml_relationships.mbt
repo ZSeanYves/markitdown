@@ -180,7 +180,7 @@ fn build_ooxml_relationship_index(
       None => by_type.set(rel.rel_type, [rel])
     }
   }
-  { relationships, by_id, by_type }
+  { relationships, by_id, by_type, }
 }
 
 ///|
@@ -254,7 +254,7 @@ fn parse_relationships_xml(
       e => raise e
     }
 
-    rels.push({ id, rel_type, target, target_mode, resolved_target })
+    rels.push({ id, rel_type, target, target_mode, resolved_target, })
   }
 
   rels

@@ -109,7 +109,7 @@ pub fn make_command_limits(
   max_stderr_bytes? : Int = 8 * 1024 * 1024,
   termination_grace_ms? : Int = 2000,
 ) -> CommandLimits {
-  { timeout_ms, max_stdout_bytes, max_stderr_bytes, termination_grace_ms }
+  { timeout_ms, max_stdout_bytes, max_stderr_bytes, termination_grace_ms, }
 }
 
 ///|

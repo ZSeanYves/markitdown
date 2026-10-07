@@ -30,16 +30,16 @@ priv struct JsonParseProfileTotals {
 
 ///|
 fn new_json_parse_profile_report() -> JsonParseProfileReport {
-  { stages: [] }
+  { stages: [], }
 }
 
 ///|
 fn new_json_parse_profile_totals() -> JsonParseProfileTotals {
   {
-    parse_object_elapsed_ms: { val: 0 },
-    parse_array_elapsed_ms: { val: 0 },
-    parse_string_elapsed_ms: { val: 0 },
-    parse_number_elapsed_ms: { val: 0 },
+    parse_object_elapsed_ms: { val: 0, },
+    parse_array_elapsed_ms: { val: 0, },
+    parse_string_elapsed_ms: { val: 0, },
+    parse_number_elapsed_ms: { val: 0, },
   }
 }
 
@@ -51,7 +51,7 @@ fn json_parse_profile_push_stage(
   detail : String?,
 ) -> Unit {
   match report {
-    Some(rep) => rep.stages.push({ name, elapsed_ms, detail })
+    Some(rep) => rep.stages.push({ name, elapsed_ms, detail, })
     None => ()
   }
 }

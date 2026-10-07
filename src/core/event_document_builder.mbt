@@ -194,7 +194,7 @@ fn generic_block_event_stream(events : Array[CoreEvent]) -> Bool {
 fn build_document_from_generic_block_events(
   events : Array[CoreEvent],
 ) -> DocumentIR {
-  let cursor = { events, index: 0 }
+  let cursor = { events, index: 0, }
   let document = empty_document_ir()
   while cursor.index < cursor.events.length() {
     match parse_generic_block_event(cursor) {
@@ -262,7 +262,7 @@ fn collect_generic_block_event_body(
           } else {
             None
           }
-          return { ..block, rich_inlines, children, attrs }
+          return { ..block, rich_inlines, children, attrs, }
         }
       }
       StartBlock(_) =>

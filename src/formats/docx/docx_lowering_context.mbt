@@ -1068,7 +1068,7 @@ fn docx_trim_trailing_space_inline(out : Array[@core.CoreInline]) -> Bool {
         if changed {
           ignore(out.pop())
           if trimmed != "" {
-            out.push({ ..last, text: trimmed })
+            out.push({ ..last, text: trimmed, })
           }
           return true
         }

@@ -3,11 +3,9 @@ name = "ZSeanYves/markitdown"
 version = "0.8.0"
 
 import {
-  "bikallem/blit@0.2.2",
-  "moonbitlang/x@0.4.40",
-  "moonbitlang/async@0.20.2",
-  "bikallem/compress@0.3.4",
-  "tonyfettes/encoding@0.3.9",
+  "moonbitlang/x@0.5.5",
+  "moonbitlang/async@0.22.4",
+  "moonbit-community/flate@0.8.5",
 }
 
 readme = "README.mbt.md"
@@ -37,7 +35,3 @@ description = "A MoonBit-native document-to-Markdown converter with multi-format
 preferred_target = "native"
 
 source = "src"
-
-options(
-  exclude: [ "markitdown-quality-lab/**", "**/pkg.generated [0-9]*.mbti" ],
-)

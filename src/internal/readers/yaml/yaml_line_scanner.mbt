@@ -191,7 +191,7 @@ fn prepare_yaml_line(
     )
   }
 
-  Some({ indent, content, line_no, raw_content: raw, blank_lines_before: 0 })
+  Some({ indent, content, line_no, raw_content: raw, blank_lines_before: 0, })
 }
 
 ///|
@@ -389,14 +389,14 @@ fn append_yaml_structure_events(
       events.push({
         kind: MappingStart,
         text: None,
-        source: { line_start, line_end, path, depth },
+        source: { line_start, line_end, path, depth, },
       })
       for entry in members {
         let member_path = yaml_member_path(path, entry.key)
         events.push({
           kind: Key,
           text: Some(entry.key),
-          source: { line_start, line_end, path: member_path, depth: depth + 1 },
+          source: { line_start, line_end, path: member_path, depth: depth + 1, },
         })
         append_yaml_structure_events(
           events,
@@ -410,14 +410,14 @@ fn append_yaml_structure_events(
       events.push({
         kind: MappingEnd,
         text: None,
-        source: { line_start, line_end, path, depth },
+        source: { line_start, line_end, path, depth, },
       })
     }
     Sequence(values) => {
       events.push({
         kind: SequenceStart,
         text: None,
-        source: { line_start, line_end, path, depth },
+        source: { line_start, line_end, path, depth, },
       })
       for i in 0..<values.length() {
         append_yaml_structure_events(
@@ -432,32 +432,32 @@ fn append_yaml_structure_events(
       events.push({
         kind: SequenceEnd,
         text: None,
-        source: { line_start, line_end, path, depth },
+        source: { line_start, line_end, path, depth, },
       })
     }
     String(text) =>
       events.push({
         kind: StringValue,
         text: Some(text),
-        source: { line_start, line_end, path, depth },
+        source: { line_start, line_end, path, depth, },
       })
     Number(text) =>
       events.push({
         kind: NumberValue,
         text: Some(text),
-        source: { line_start, line_end, path, depth },
+        source: { line_start, line_end, path, depth, },
       })
     Bool(value) =>
       events.push({
         kind: BoolValue,
         text: Some(if value { "true" } else { "false" }),
-        source: { line_start, line_end, path, depth },
+        source: { line_start, line_end, path, depth, },
       })
     Null =>
       events.push({
         kind: NullValue,
         text: Some("null"),
-        source: { line_start, line_end, path, depth },
+        source: { line_start, line_end, path, depth, },
       })
   }
 }

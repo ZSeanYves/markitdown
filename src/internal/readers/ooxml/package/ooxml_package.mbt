@@ -70,10 +70,10 @@ fn new_ooxml_part_cache() -> OoxmlPartCache {
   {
     bytes_by_part: Map([]),
     text_by_part: Map([]),
-    bytes_hit_count: { val: 0 },
-    bytes_miss_count: { val: 0 },
-    text_hit_count: { val: 0 },
-    text_decode_count: { val: 0 },
+    bytes_hit_count: { val: 0, },
+    bytes_miss_count: { val: 0, },
+    text_hit_count: { val: 0, },
+    text_decode_count: { val: 0, },
   }
 }
 
@@ -81,11 +81,11 @@ fn new_ooxml_part_cache() -> OoxmlPartCache {
 fn new_ooxml_relationship_cache() -> OoxmlRelationshipCache {
   {
     index_by_rels_part: Map([]),
-    relationships_hit_count: { val: 0 },
-    relationships_miss_count: { val: 0 },
-    by_id_hit_count: { val: 0 },
-    by_id_miss_count: { val: 0 },
-    by_type_query_count: { val: 0 },
+    relationships_hit_count: { val: 0, },
+    relationships_miss_count: { val: 0, },
+    by_id_hit_count: { val: 0, },
+    by_id_miss_count: { val: 0, },
+    by_type_query_count: { val: 0, },
   }
 }
 

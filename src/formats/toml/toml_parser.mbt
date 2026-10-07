@@ -32,7 +32,7 @@ pub fn classify_toml_error(err : TomlError) -> TomlErrorInfo {
   } else {
     Unknown
   }
-  { kind, detail: err.to_string() }
+  { kind, detail: err.to_string(), }
 }
 
 ///|
@@ -82,7 +82,7 @@ fn TomlParser::parse_document(self : TomlParser) -> TomlDocument raise {
     }
     self.skip_ws_and_comments()
   }
-  { root_members: self.root_members, tables: self.tables }
+  { root_members: self.root_members, tables: self.tables, }
 }
 
 ///|

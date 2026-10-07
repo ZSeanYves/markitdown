@@ -1,14 +1,14 @@
 ///|
 pub fn read_utf8_text(path : String) -> String {
   @fs.read_file_to_string(path, encoding="utf8") catch {
-    e => abort("read failed: " + e.to_string())
+    e => abort("read failed: " + (e : Error).to_string())
   }
 }
 
 ///|
 pub fn write_utf8_text(path : String, text : String) -> Unit raise {
   @fs.write_string_to_file(path, text, encoding="utf8") catch {
-    e => fail("write failed: " + e.to_string())
+    e => fail("write failed: " + (e : Error).to_string())
   }
 }
 

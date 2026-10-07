@@ -51,7 +51,7 @@ fn lower_docx_blocks(
                 flush_lists(out, list_stack, target_depth - 1)
               }
               while list_stack.length() < target_depth {
-                list_stack.push({ ordered, items: [] })
+                list_stack.push({ ordered, items: [], })
               }
               if list_stack.length() > 0 {
                 list_stack[list_stack.length() - 1].items.push(lowered)

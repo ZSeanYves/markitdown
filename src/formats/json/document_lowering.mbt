@@ -316,7 +316,7 @@ fn json_generic_block_events_from_stream(
     return json_compact_root_array_events_from_stream(stream, source)
   }
   let events : Array[@core.CoreEvent] = []
-  let cursor = { events: stream.events, index: 0 }
+  let cursor = { events: stream.events, index: 0, }
   json_append_value_events(events, cursor, source, "/")
   events
 }
@@ -628,7 +628,7 @@ fn json_compact_root_array_events_from_stream(
   let events : Array[@core.CoreEvent] = Array::new(
     capacity=stream.summary.scalar_count / 4,
   )
-  let cursor = { events: stream.events, index: 1 }
+  let cursor = { events: stream.events, index: 1, }
   let mut item_index = 0
   while cursor.index < cursor.events.length() {
     if cursor.events[cursor.index].kind == ArrayEnd {

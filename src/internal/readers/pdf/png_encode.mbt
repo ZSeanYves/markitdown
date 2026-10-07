@@ -70,7 +70,7 @@ fn pdf_encode_png_8bit(
       pixels[row * row_size + column - 1]
     }
   })
-  let compressed = @zlib.compress(raw) catch { _ => return None }
+  let compressed = @zlib.zlib_compress(raw)
   let signature = Bytes::from_array([
     (0x89).to_byte(),
     (0x50).to_byte(),

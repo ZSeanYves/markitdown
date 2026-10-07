@@ -19,7 +19,7 @@ pub fn render_markdown_input_to_sink(
       diagnostics.metrics.set("renderer_stream_mode", "block")
       diagnostics.metrics.set("sink_renderer_fallback", "false")
       match write_markdown_blocks_to_sink(profiled.blocks, write) {
-        Ok(_) => Ok({ content: "", diagnostics, chunks: None })
+        Ok(_) => Ok({ content: "", diagnostics, chunks: None, })
         Err(message) => Err(message)
       }
     }
@@ -34,7 +34,7 @@ pub fn render_markdown_input_to_sink(
       diagnostics.metrics.set("renderer_stream_mode", "block")
       diagnostics.metrics.set("sink_renderer_fallback", "false")
       match write_markdown_blocks_to_sink(profiled, write) {
-        Ok(_) => Ok({ content: "", diagnostics, chunks: None })
+        Ok(_) => Ok({ content: "", diagnostics, chunks: None, })
         Err(message) => Err(message)
       }
     }
@@ -70,7 +70,7 @@ pub fn render_markdown_input_to_sink(
         let blocks = generic_blocks_from_events(profiled)
         diagnostics.metrics.set("renderer_stream_mode", "generic_block")
         match write_markdown_blocks_to_sink(blocks, write) {
-          Ok(_) => Ok({ content: "", diagnostics, chunks: None })
+          Ok(_) => Ok({ content: "", diagnostics, chunks: None, })
           Err(message) => Err(message)
         }
       } else {
@@ -82,7 +82,7 @@ pub fn render_markdown_input_to_sink(
 
 ///|
 fn sink_render_result(diagnostics : @core.Diagnostics) -> RenderResult {
-  { content: "", diagnostics, chunks: None }
+  { content: "", diagnostics, chunks: None, }
 }
 
 ///|
@@ -249,7 +249,7 @@ fn write_markdown_text_markup_compact_to_sink(
   write : (String) -> Result[Unit, String],
   diagnostics : @core.Diagnostics,
 ) -> Result[RenderResult, String] {
-  let cursor = { events, index: 0 }
+  let cursor = { events, index: 0, }
   let mut previous : @core.BlockKind? = None
   let mut wrote_any = false
   while cursor.index < events.length() {
@@ -395,7 +395,7 @@ fn write_events_to_sink(
     }
   }
   match (sink.finish)() {
-    Ok(_) => Ok({ content: "", diagnostics, chunks: None })
+    Ok(_) => Ok({ content: "", diagnostics, chunks: None, })
     Err(message) => Err(message)
   }
 }

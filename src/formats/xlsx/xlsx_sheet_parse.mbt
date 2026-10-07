@@ -394,7 +394,7 @@ fn xlsx_parse_sheet_xml_reference(
     }
     pos += 1
   }
-  { dimension_ref, hidden_rows, merged_ranges, cells }
+  { dimension_ref, hidden_rows, merged_ranges, cells, }
 }
 
 ///|
@@ -696,7 +696,7 @@ fn xlsx_extract_formula_info_range(
         Some(start1) => {
           let formula_type = xlsx_get_attr_range(xml, start0, start1, "t")
           if xlsx_tag_is_self_closing(xml, start0, start1) {
-            Some({ formula_type, text: "" })
+            Some({ formula_type, text: "", })
           } else {
             let end0 = xlsx_find_sub_range(xml, "</f>", start1 + 1, range_end)
             match end0 {
@@ -998,7 +998,7 @@ fn xlsx_parse_comments_part(
                 let text = xlsx_concat_text_runs(inner).trim().to_owned()
                 let normalized = xlsx_comment_strip_author_prefix(author, text)
                 if cell_ref != "" && normalized != "" {
-                  out.push({ cell_ref, author, text: normalized })
+                  out.push({ cell_ref, author, text: normalized, })
                 }
                 pos = end1 + 10
               }

@@ -1019,7 +1019,7 @@ fn ipynb_finalize_markdown_block(
   cell : @dipynb.IpynbCell,
 ) -> @core.CoreBlock {
   if block.kind == Image {
-    let next = { ..block }
+    let next = { ..block, }
     let alt = next.attrs.get("alt").unwrap_or("").trim().to_owned()
     match ipynb_attachment_for_alt(cell.attachments, alt) {
       Some(attachment) => {
@@ -1056,7 +1056,7 @@ fn ipynb_rebind_output_block_source_ref(
     None,
   )
   if block.children.length() == 0 {
-    return { ..block, source_ref: Some(rebound_ref) }
+    return { ..block, source_ref: Some(rebound_ref), }
   }
   let children : Array[@core.CoreBlock] = []
   for child in block.children {
@@ -1066,7 +1066,7 @@ fn ipynb_rebind_output_block_source_ref(
       ),
     )
   }
-  { ..block, source_ref: Some(rebound_ref), children }
+  { ..block, source_ref: Some(rebound_ref), children, }
 }
 
 ///|

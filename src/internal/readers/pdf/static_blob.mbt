@@ -7,8 +7,9 @@ fn pdf_decode_base64_zlib_blob(payload : String, label : String) -> Bytes {
     Some(value) => value
     None => abort("invalid base64 static blob: " + label)
   }
-  @zlib.decompress(compressed) catch {
-    err => abort("invalid zlib static blob: " + label + ": " + err.to_string())
+  @zlib.zlib_decompress(compressed) catch {
+    @zlib.ZlibError(_, message) =>
+      abort("invalid zlib static blob: " + label + ": " + message)
   }
 }
 

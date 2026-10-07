@@ -25,13 +25,13 @@ fn decode_utf16_text_bytes(bytes : Bytes) -> String? {
     return None
   }
   if raw[0].to_int() == 0xFF && raw[1].to_int() == 0xFE {
-    let decoded = @encoding.decode(bytes, encoding=UTF16LE) catch {
+    let decoded = @utf16.decode(bytes, ignore_bom=false, endianness=Little) catch {
       _ => return None
     }
     return Some(strip_leading_bom(decoded))
   }
   if raw[0].to_int() == 0xFE && raw[1].to_int() == 0xFF {
-    let decoded = @encoding.decode(bytes, encoding=UTF16BE) catch {
+    let decoded = @utf16.decode(bytes, ignore_bom=false, endianness=Big) catch {
       _ => return None
     }
     return Some(strip_leading_bom(decoded))
@@ -76,7 +76,7 @@ pub fn profile_text_document(text : String) -> TextProfiledDocument {
     Some(totals),
   )
   text_parse_profile_finish_totals(Some(report), Some(totals))
-  { document, report }
+  { document, report, }
 }
 
 ///|
@@ -93,7 +93,7 @@ pub fn profile_text_document_from_normalized_text(
     Some(totals),
   )
   text_parse_profile_finish_totals(Some(report), Some(totals))
-  { document, report }
+  { document, report, }
 }
 
 ///|
@@ -108,8 +108,8 @@ fn parse_text_document_with_profile(
   let paragraphs : Array[TextParagraph] = []
   let current_paragraph : Array[String] = []
   let line_chars : Array[Char] = []
-  let line_start : Ref[Int] = { val: 0 }
-  let line_end : Ref[Int] = { val: 0 }
+  let line_start : Ref[Int] = { val: 0, }
+  let line_end : Ref[Int] = { val: 0, }
   let mut line_no = 1
   let mut saw_lf = false
   let mut saw_crlf = false
@@ -204,8 +204,8 @@ fn parse_normalized_text_document_with_profile(
   let paragraphs : Array[TextParagraph] = []
   let current_paragraph : Array[String] = []
   let line_chars : Array[Char] = []
-  let line_start : Ref[Int] = { val: 0 }
-  let line_end : Ref[Int] = { val: 0 }
+  let line_start : Ref[Int] = { val: 0, }
+  let line_end : Ref[Int] = { val: 0, }
   let mut line_no = 1
 
   let newline_started = text_parse_profile_stage_started(profile)
@@ -294,7 +294,7 @@ fn build_text_document_from_chars(
 /// Classify a hard text decoding failure into a stable error kind.
 pub fn classify_text_error(err : TextError) -> TextErrorInfo {
   match err {
-    Utf8DecodeFailed(detail) => { kind: Utf8DecodeFailed, detail }
+    Utf8DecodeFailed(detail) => { kind: Utf8DecodeFailed, detail, }
   }
 }
 
@@ -349,7 +349,7 @@ fn finish_text_line(
     None => None
   }
   let line_text = String::from_array(line_chars)
-  lines.push({ text: line_text, line_no })
+  lines.push({ text: line_text, line_no, })
   text_parse_profile_add_elapsed(line_total, line_started)
 
   let paragraph_started = match profile_totals {

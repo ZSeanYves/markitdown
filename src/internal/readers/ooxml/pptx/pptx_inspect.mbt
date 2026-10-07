@@ -14,13 +14,13 @@ pub struct PptxInspectReport {
 
 ///|
 pub fn inspect_pptx_document(doc : PptxDocument) -> PptxInspectReport {
-  let object_count : Ref[Int] = { val: 0 }
-  let shape_count : Ref[Int] = { val: 0 }
-  let picture_count : Ref[Int] = { val: 0 }
-  let table_count : Ref[Int] = { val: 0 }
-  let unsupported_count : Ref[Int] = { val: 0 }
-  let notes_count : Ref[Int] = { val: 0 }
-  let comment_count : Ref[Int] = { val: 0 }
+  let object_count : Ref[Int] = { val: 0, }
+  let shape_count : Ref[Int] = { val: 0, }
+  let picture_count : Ref[Int] = { val: 0, }
+  let table_count : Ref[Int] = { val: 0, }
+  let unsupported_count : Ref[Int] = { val: 0, }
+  let notes_count : Ref[Int] = { val: 0, }
+  let comment_count : Ref[Int] = { val: 0, }
   for slide in doc.slides {
     count_objects(
       slide.objects,

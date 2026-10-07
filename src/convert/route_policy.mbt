@@ -126,7 +126,7 @@ fn exceeded_threshold_signals(
         match resolved_threshold_limit(signal, threshold.1) {
           Some(limit) =>
             if signal.observed > limit {
-              matched.push({ ..signal, limit: Some(limit) })
+              matched.push({ ..signal, limit: Some(limit), })
             }
           None => ()
         }

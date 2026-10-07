@@ -151,8 +151,12 @@ test "XLSX calendar helpers cover leap boundaries and padding" {
 
 ///|
 test "XLSX comments and source refs preserve optional provenance" {
-  let anonymous : XlsxComment = { cell_ref: "A1", author: None, text: "note" }
-  let blank : XlsxComment = { cell_ref: "A1", author: Some("  "), text: "note" }
+  let anonymous : XlsxComment = { cell_ref: "A1", author: None, text: "note", }
+  let blank : XlsxComment = {
+    cell_ref: "A1",
+    author: Some("  "),
+    text: "note",
+  }
   let authored : XlsxComment = {
     cell_ref: "A1",
     author: Some("Ada"),
@@ -185,7 +189,7 @@ test "XLSX comments and source refs preserve optional provenance" {
   assert_true(source_ref.extra.get("shared_string_index") == Some("4"))
   assert_true(source_ref.extra.get("merge_range") == Some("B2:C3"))
   let minimal = xlsx_cell_source_ref(
-    { ..info, sheet_id: None },
+    { ..info, sheet_id: None, },
     "A1",
     1,
     1,
@@ -282,7 +286,7 @@ test "XLSX workbook lowering covers tables residual cells merges comments and em
     drawing_count: 1,
     image_count: 1,
     external_link_count: 1,
-    comments: [{ cell_ref: "D4", author: Some("Ada"), text: "Review" }],
+    comments: [{ cell_ref: "D4", author: Some("Ada"), text: "Review", }],
     tables: [
       {
         table_name: Some("Table1"),

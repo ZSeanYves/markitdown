@@ -53,7 +53,7 @@ test "main cli image OCR intent remains fail closed by mode" {
     Ok(_) => fail("expected explicit OCR image/lang path to fail closed")
   }
 
-  let provider_calls : Ref[Int] = { val: 0 }
+  let provider_calls : Ref[Int] = { val: 0, }
   match
     run_cli_with_image_ocr_provider(
       cli_options(

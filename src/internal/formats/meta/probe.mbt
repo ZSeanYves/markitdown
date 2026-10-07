@@ -19,7 +19,7 @@ fn probe_registration(
   template : ProbeTemplate,
   required? : Bool = true,
 ) -> ProbeRegistration {
-  { format, template, required }
+  { format, template, required, }
 }
 
 ///|

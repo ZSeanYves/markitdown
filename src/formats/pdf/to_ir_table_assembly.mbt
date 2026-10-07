@@ -93,7 +93,7 @@ fn pdf_native_bbox_from_core_json_object(
       }
     _ => return None
   }
-  Some({ x0, y0, x1, y1 })
+  Some({ x0, y0, x1, y1, })
 }
 
 ///|
@@ -588,7 +588,7 @@ fn pdf_native_table_source_ref_from_rows(
   let first = refs[0]
   let mut merged_bbox = match first.bbox {
     Some(value) => value
-    None => { x0: 0.0, y0: 0.0, x1: 0.0, y1: 0.0 }
+    None => { x0: 0.0, y0: 0.0, x1: 0.0, y1: 0.0, }
   }
   let mut line_start = first.line_start
   let mut line_end = first.line_end
@@ -631,7 +631,7 @@ fn pdf_native_table_source_ref_from_rows(
       (current, None) => current
     }
   }
-  { ..first, bbox: Some(merged_bbox), line_start, line_end }
+  { ..first, bbox: Some(merged_bbox), line_start, line_end, }
 }
 
 ///|

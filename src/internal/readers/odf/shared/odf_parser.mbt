@@ -32,7 +32,7 @@ pub fn open_odt_archive(archive : @dzip.ZipArchive) -> OdtDocument raise {
     Some(root) => odf_visit_document_root(root, archive, state)
     None => raise ParseError("odt content.xml missing root element")
   }
-  { package_info, metadata, blocks: state.blocks, assets: state.assets }
+  { package_info, metadata, blocks: state.blocks, assets: state.assets, }
 }
 
 ///|
@@ -56,7 +56,7 @@ pub fn open_ods_archive(archive : @dzip.ZipArchive) -> OdsDocument raise {
   for sheet in sheets {
     assets.append(sheet.images[:])
   }
-  { package_info, metadata, sheets, assets }
+  { package_info, metadata, sheets, assets, }
 }
 
 ///|
@@ -77,7 +77,12 @@ pub fn open_odp_archive(archive : @dzip.ZipArchive) -> OdpDocument raise {
       odf_extract_presentation_slides(root, archive, package_info.content_path)
     None => raise ParseError("odp content.xml missing root element")
   }
-  { package_info, metadata, slides: extracted.slides, assets: extracted.assets }
+  {
+    package_info,
+    metadata,
+    slides: extracted.slides,
+    assets: extracted.assets,
+  }
 }
 
 ///|
@@ -159,14 +164,14 @@ fn read_odf_metadata(
           match meta_doc {
             Ok(doc) => odf_extract_metadata(doc)
             Err(_) =>
-              { title: None, subject: None, description: None, language: None }
+              { title: None, subject: None, description: None, language: None, }
           }
         }
         Err(_) =>
-          { title: None, subject: None, description: None, language: None }
+          { title: None, subject: None, description: None, language: None, }
       }
     }
-    None => { title: None, subject: None, description: None, language: None }
+    None => { title: None, subject: None, description: None, language: None, }
   }
 }
 
@@ -493,7 +498,7 @@ fn odf_table_block(
               row, "table:number-rows-repeated", 10_000,
             )
             for _ in 0..<repeat {
-              rows.push({ cells: cells.copy() })
+              rows.push({ cells: cells.copy(), })
             }
           }
         }
@@ -620,7 +625,7 @@ fn odf_extract_sheet(
       _ => ()
     }
   }
-  { name, rows, visible, images }
+  { name, rows, visible, images, }
 }
 
 ///|
@@ -700,5 +705,5 @@ fn odf_extract_sheet_row(
       _ => ()
     }
   }
-  { cells, row_index, hidden, repeat_count }
+  { cells, row_index, hidden, repeat_count, }
 }

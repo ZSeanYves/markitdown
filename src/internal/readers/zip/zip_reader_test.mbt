@@ -16,7 +16,10 @@ fn resolve_sample_path(path : String) -> String raise {
 fn read_sample_bytes(path : String) -> Bytes raise {
   let resolved = resolve_sample_path(path)
   @fs.read_file_to_bytes(resolved) catch {
-    e => fail("failed to read sample: " + resolved + " : " + e.to_string())
+    e =>
+      fail(
+        "failed to read sample: " + resolved + " : " + (e : Error).to_string(),
+      )
   }
 }
 

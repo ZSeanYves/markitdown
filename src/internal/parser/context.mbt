@@ -29,13 +29,13 @@ pub fn new_parse_context(
 ///|
 /// Default OCR policy for normal product execution.
 pub fn default_ocr_options() -> OcrOptions {
-  { intent: Auto, language: None }
+  { intent: Auto, language: None, }
 }
 
 ///|
 /// Default audio-transcription hints for media inputs.
 pub fn default_audio_options() -> AudioOptions {
-  { language: None }
+  { language: None, }
 }
 
 ///|
@@ -63,13 +63,13 @@ pub fn default_pdf_table_reconstruction_policy() -> PdfTableReconstructionPolicy
 /// Return OCR options that hard-disable OCR while still preserving an optional
 /// language hint.
 pub fn disabled_ocr_options(language? : String? = None) -> OcrOptions {
-  { intent: Disabled, language }
+  { intent: Disabled, language, }
 }
 
 ///|
 /// Return OCR options that explicitly force OCR with an optional language hint.
 pub fn explicit_ocr_options(language? : String? = None) -> OcrOptions {
-  { intent: Explicit, language }
+  { intent: Explicit, language, }
 }
 
 ///|

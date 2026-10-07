@@ -16,7 +16,7 @@ fn resolve_sample_path(path : String) -> String raise {
 fn open_sample_package(path : String) -> @epub.EpubPackage raise {
   let sample = resolve_sample_path(path)
   let bytes = @fs.read_file_to_bytes(sample) catch {
-    e => fail("read sample failed: " + e.to_string())
+    e => fail("read sample failed: " + (e : Error).to_string())
   }
   @epub.open_epub_package(bytes, sample_basename(sample)) catch {
     e => fail("open_epub_package failed: " + e.to_string())
@@ -30,7 +30,7 @@ fn assert_open_epub_fails(
 ) -> Unit raise {
   let sample = resolve_sample_path(path)
   let bytes = @fs.read_file_to_bytes(sample) catch {
-    e => fail("read sample failed: " + e.to_string())
+    e => fail("read sample failed: " + (e : Error).to_string())
   }
   let result = try
     @epub.open_epub_package(bytes, sample_basename(sample)) |> Ok
@@ -58,7 +58,7 @@ fn assert_epub_error_kind(
 ) -> Unit raise {
   let sample = resolve_sample_path(path)
   let bytes = @fs.read_file_to_bytes(sample) catch {
-    e => fail("read sample failed: " + e.to_string())
+    e => fail("read sample failed: " + (e : Error).to_string())
   }
   let result = try
     @epub.open_epub_package(bytes, sample_basename(sample)) |> Ok
@@ -1125,7 +1125,7 @@ test "epub package duplicate manifest id classifier stays additive" {
     "samples/fixtures/rejections/epub/epub_duplicate_manifest_id.epub",
   )
   let bytes = @fs.read_file_to_bytes(sample) catch {
-    e => fail("read sample failed: " + e.to_string())
+    e => fail("read sample failed: " + (e : Error).to_string())
   }
   let result = try
     @epub.open_epub_package(bytes, sample_basename(sample)) |> Ok

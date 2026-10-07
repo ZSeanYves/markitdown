@@ -64,7 +64,11 @@ fn pdf_decode_utf16_literal_string(value : String) -> String? {
       bytes.push(chars[index].to_int().to_byte())
       index += 1
     }
-    let decoded = @encoding.decode(Bytes::from_array(bytes), encoding=UTF16LE) catch {
+    let decoded = @utf16.decode(
+      Bytes::from_array(bytes),
+      ignore_bom=false,
+      endianness=Little,
+    ) catch {
       _ => return None
     }
     return Some(pdf_strip_utf16_bom(decoded))
@@ -243,7 +247,7 @@ fn pdf_decode_bytes_with_unicode_map(
   if units.length() == 0 {
     None
   } else {
-    Some({ text: parts.join(""), units })
+    Some({ text: parts.join(""), units, })
   }
 }
 
@@ -308,13 +312,19 @@ fn pdf_identity_ascii_decoded_units(bytes : Array[Int]) -> PdfDecodedFontBytes? 
     }
     let text = pdf_string_from_codepoints([charcode])
     parts.push(text)
-    units.push({ byte_width: 2, charcode, cid: Some(charcode), gid: None, text })
+    units.push({
+      byte_width: 2,
+      charcode,
+      cid: Some(charcode),
+      gid: None,
+      text,
+    })
     index += 2
   }
   if units.length() == 0 {
     None
   } else {
-    Some({ text: parts.join(""), units })
+    Some({ text: parts.join(""), units, })
   }
 }
 

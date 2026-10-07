@@ -53,7 +53,7 @@ fn classify_csv_error(err : CsvError) -> CsvErrorInfo {
   } else {
     Unknown
   }
-  { kind, detail: err.to_string() }
+  { kind, detail: err.to_string(), }
 }
 
 ///|

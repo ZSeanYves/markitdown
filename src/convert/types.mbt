@@ -93,12 +93,12 @@ fn make_probe_signal(
   limit? : Int? = None,
   note? : String? = None,
 ) -> ProbeSignal {
-  { kind, observed, limit, note }
+  { kind, observed, limit, note, }
 }
 
 ///|
 fn make_probe_failure(stage : String, detail : String) -> ProbeFailure {
-  { stage, detail }
+  { stage, detail, }
 }
 
 ///|

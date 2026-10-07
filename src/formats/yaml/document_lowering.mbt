@@ -483,7 +483,7 @@ fn yaml_generic_block_events(
   source : @input.InputSource,
 ) -> Array[@core.CoreEvent] {
   let out : Array[@core.CoreEvent] = []
-  let cursor = { events: yaml_events, index: 0 }
+  let cursor = { events: yaml_events, index: 0, }
   yaml_append_value_events(out, cursor, source, "/")
   out
 }
@@ -990,9 +990,9 @@ fn yaml_append_table_events(
         ),
       })
     }
-    out.push({ kind: RowBreak, text: "", source_ref: Some(row_ref) })
+    out.push({ kind: RowBreak, text: "", source_ref: Some(row_ref), })
   }
-  out.push({ kind: EndBlock(Table), text: "", source_ref: Some(block_ref) })
+  out.push({ kind: EndBlock(Table), text: "", source_ref: Some(block_ref), })
 }
 
 ///|
@@ -1005,7 +1005,7 @@ fn yaml_append_list_events(
   let list_ref = yaml_generic_block_ref(yaml_source_ref(source, path), List, [
     ("ordered", "false"),
   ])
-  out.push({ kind: StartBlock(List), text: "", source_ref: Some(list_ref) })
+  out.push({ kind: StartBlock(List), text: "", source_ref: Some(list_ref), })
   for value in values {
     let item_ref = yaml_generic_block_ref(value.1, ListItem, [
       ("ordered", "false"),
@@ -1016,9 +1016,9 @@ fn yaml_append_list_events(
       text: value.0,
       source_ref: Some(item_ref),
     })
-    out.push({ kind: EndBlock(ListItem), text: "", source_ref: Some(item_ref) })
+    out.push({ kind: EndBlock(ListItem), text: "", source_ref: Some(item_ref), })
   }
-  out.push({ kind: EndBlock(List), text: "", source_ref: Some(list_ref) })
+  out.push({ kind: EndBlock(List), text: "", source_ref: Some(list_ref), })
 }
 
 ///|
@@ -1030,8 +1030,8 @@ fn yaml_append_paragraph_events(
   let block_ref = yaml_generic_block_ref(source_ref, Paragraph, [
     ("literal", "true"),
   ])
-  out.push({ kind: StartBlock(Paragraph), text, source_ref: Some(block_ref) })
-  out.push({ kind: EndBlock(Paragraph), text: "", source_ref: Some(block_ref) })
+  out.push({ kind: StartBlock(Paragraph), text, source_ref: Some(block_ref), })
+  out.push({ kind: EndBlock(Paragraph), text: "", source_ref: Some(block_ref), })
 }
 
 ///|

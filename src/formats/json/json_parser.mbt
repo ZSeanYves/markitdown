@@ -19,8 +19,8 @@ pub fn parse_json_document_native(
   } else {
     []
   }
-  let number_index : Ref[Int] = { val: 0 }
-  { root: json_value_from_native(parsed, number_lexemes, number_index) }
+  let number_index : Ref[Int] = { val: 0, }
+  { root: json_value_from_native(parsed, number_lexemes, number_index), }
 }
 
 ///|
@@ -174,7 +174,7 @@ pub fn profile_json_document(text : String) -> JsonProfiledDocument raise {
     Some(totals),
   )
   json_parse_profile_finish_totals(Some(report), Some(totals))
-  { document, report }
+  { document, report, }
 }
 
 ///|
@@ -216,7 +216,7 @@ pub fn classify_json_error(err : JsonError) -> JsonErrorInfo {
   } else {
     Unknown
   }
-  { kind, detail: err.to_string() }
+  { kind, detail: err.to_string(), }
 }
 
 ///|
@@ -262,7 +262,7 @@ fn parse_json_document_with_profile(
     None => ()
   }
 
-  let parser = JsonParser::{ chars, pos: 0, profile_totals }
+  let parser = JsonParser::{ chars, pos: 0, profile_totals, }
   let parse_started = json_parse_profile_stage_started(profile)
   let root = parser.parse_value()
   parser.skip_ws()
@@ -624,7 +624,7 @@ fn JsonParser::parse_object(self : JsonParser) -> JsonValue raise {
     self.expect_char(':')
 
     let value = self.parse_value()
-    members.push({ key, value })
+    members.push({ key, value, })
 
     self.skip_ws()
     if self.consume_char('}') {

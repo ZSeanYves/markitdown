@@ -38,7 +38,7 @@ fn pdf_helper_source_ref(file_id : String, page : Int) -> @core.SourceRef {
       Some(1),
     ),
     page: Some(page),
-    bbox: Some({ x0: 0.0, y0: 0.0, x1: 10.0, y1: 10.0 }),
+    bbox: Some({ x0: 0.0, y0: 0.0, x1: 10.0, y1: 10.0, }),
   }
 }
 
@@ -222,26 +222,26 @@ test "PDF image asset helpers cover extension path deduplication alt and numberi
     "asset-fallback",
     source_ref~,
   )
-  let jpeg = { ..base, mime_type: Some("image/jpeg") }
+  let jpeg = { ..base, mime_type: Some("image/jpeg"), }
   assert_eq(pdf_native_asset_ext(jpeg), "jpg")
   assert_eq(
-    pdf_native_asset_ext({ ..base, mime_type: Some("image/png") }),
+    pdf_native_asset_ext({ ..base, mime_type: Some("image/png"), }),
     "png",
   )
   assert_eq(
-    pdf_native_asset_ext({ ..base, mime_type: Some("image/gif") }),
+    pdf_native_asset_ext({ ..base, mime_type: Some("image/gif"), }),
     "gif",
   )
   assert_eq(
-    pdf_native_asset_ext({ ..base, mime_type: Some("image/bmp") }),
+    pdf_native_asset_ext({ ..base, mime_type: Some("image/bmp"), }),
     "bmp",
   )
   assert_eq(
-    pdf_native_asset_ext({ ..base, mime_type: Some("image/webp") }),
+    pdf_native_asset_ext({ ..base, mime_type: Some("image/webp"), }),
     "webp",
   )
   assert_eq(
-    pdf_native_asset_ext({ ..base, mime_type: Some("image/jp2") }),
+    pdf_native_asset_ext({ ..base, mime_type: Some("image/jp2"), }),
     "jp2",
   )
   assert_eq(pdf_native_asset_ext(base), "bin")

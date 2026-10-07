@@ -85,7 +85,7 @@ pub fn make_office_content_type(
   part_name? : String? = None,
   source_ref? : @core.SourceRef? = None,
 ) -> OfficeContentType {
-  { extension, part_name, content_type, source_ref }
+  { extension, part_name, content_type, source_ref, }
 }
 
 ///|
@@ -97,7 +97,7 @@ pub fn make_office_media_asset(
   size? : Int? = None,
   source_ref? : @core.SourceRef? = None,
 ) -> OfficeMediaAsset {
-  { part_name, content_type, relationship_id, source_part, size, source_ref }
+  { part_name, content_type, relationship_id, source_part, size, source_ref, }
 }
 
 ///|
@@ -107,7 +107,7 @@ pub fn make_office_asset_plan(
   copy_policy? : OfficeAssetCopyPolicy = MaterializeAtOutputBoundary,
   source_ref? : @core.SourceRef? = None,
 ) -> OfficeAssetPlan {
-  { media_part, output_relative_path, copy_policy, source_ref }
+  { media_part, output_relative_path, copy_policy, source_ref, }
 }
 
 ///|
@@ -215,7 +215,7 @@ pub fn make_pptx_theme_model(
   font_scheme_name? : String? = None,
   source_ref? : @core.SourceRef? = None,
 ) -> PptxThemeModel {
-  { theme_name, part_name, color_scheme_name, font_scheme_name, source_ref }
+  { theme_name, part_name, color_scheme_name, font_scheme_name, source_ref, }
 }
 
 ///|
@@ -226,7 +226,7 @@ pub fn make_pptx_master_model(
   placeholder_count? : Int = 0,
   source_ref? : @core.SourceRef? = None,
 ) -> PptxMasterModel {
-  { master_name, part_name, theme_part, placeholder_count, source_ref }
+  { master_name, part_name, theme_part, placeholder_count, source_ref, }
 }
 
 ///|
@@ -272,7 +272,7 @@ pub fn make_pptx_text_run_model(
   relationship_id? : String? = None,
   source_ref? : @core.SourceRef? = None,
 ) -> PptxTextRunModel {
-  { text, hyperlink_target, relationship_id, source_ref }
+  { text, hyperlink_target, relationship_id, source_ref, }
 }
 
 ///|
@@ -283,7 +283,7 @@ pub fn make_pptx_paragraph_model(
   bullet_kind? : String? = None,
   source_ref? : @core.SourceRef? = None,
 ) -> PptxParagraphModel {
-  { paragraph_index, runs, level, bullet_kind, source_ref }
+  { paragraph_index, runs, level, bullet_kind, source_ref, }
 }
 
 ///|
@@ -295,7 +295,7 @@ pub fn make_pptx_image_model(
   relationship_id? : String? = None,
   source_ref? : @core.SourceRef? = None,
 ) -> PptxImageModel {
-  { asset_part, content_type, alt_text, title, relationship_id, source_ref }
+  { asset_part, content_type, alt_text, title, relationship_id, source_ref, }
 }
 
 ///|
@@ -325,7 +325,7 @@ pub fn make_pptx_table_row_model(
   cells : Array[PptxTableCellModel],
   source_ref? : @core.SourceRef? = None,
 ) -> PptxTableRowModel {
-  { row_index, cells, source_ref }
+  { row_index, cells, source_ref, }
 }
 
 ///|
@@ -333,7 +333,7 @@ pub fn make_pptx_table_model(
   rows : Array[PptxTableRowModel],
   source_ref? : @core.SourceRef? = None,
 ) -> PptxTableModel {
-  { rows, source_ref }
+  { rows, source_ref, }
 }
 
 ///|
@@ -369,7 +369,7 @@ pub fn make_pptx_notes_model(
   notes_part? : String? = None,
   source_ref? : @core.SourceRef? = None,
 ) -> PptxNotesModel {
-  { notes_part, text_blocks, source_ref }
+  { notes_part, text_blocks, source_ref, }
 }
 
 ///|
@@ -379,7 +379,7 @@ pub fn make_pptx_comment_model(
   author? : String? = None,
   source_ref? : @core.SourceRef? = None,
 ) -> PptxCommentModel {
-  { comment_id, author, text, source_ref }
+  { comment_id, author, text, source_ref, }
 }
 
 ///|
@@ -443,7 +443,7 @@ pub fn make_pptx_presentation_model(
   diagnostics? : @core.Diagnostics = @core.empty_diagnostics(),
   source_ref? : @core.SourceRef? = None,
 ) -> PptxPresentationModel {
-  { slides, themes, masters, layouts, diagnostics, source_ref }
+  { slides, themes, masters, layouts, diagnostics, source_ref, }
 }
 
 ///|
@@ -454,7 +454,13 @@ pub fn make_pptx_presentation_plan(
   diagnostics? : @core.Diagnostics = @core.empty_diagnostics(),
   source_ref? : @core.SourceRef? = None,
 ) -> PptxPresentationPlan {
-  { presentation, ordered_slide_ids, hidden_slide_ids, diagnostics, source_ref }
+  {
+    presentation,
+    ordered_slide_ids,
+    hidden_slide_ids,
+    diagnostics,
+    source_ref,
+  }
 }
 
 ///|
@@ -487,7 +493,7 @@ pub fn make_xlsx_shared_string(
   value : String,
   source_ref? : @core.SourceRef? = None,
 ) -> XlsxSharedString {
-  { string_index, value, source_ref }
+  { string_index, value, source_ref, }
 }
 
 ///|
@@ -516,7 +522,7 @@ pub fn make_xlsx_merged_range(
   end_cell : String,
   source_ref? : @core.SourceRef? = None,
 ) -> XlsxMergedRange {
-  { range_ref, start_cell, end_cell, source_ref }
+  { range_ref, start_cell, end_cell, source_ref, }
 }
 
 ///|
@@ -554,7 +560,7 @@ pub fn make_xlsx_row_model(
   cells : Array[XlsxCellModel],
   source_ref? : @core.SourceRef? = None,
 ) -> XlsxRowModel {
-  { row_index, cells, source_ref }
+  { row_index, cells, source_ref, }
 }
 
 ///|

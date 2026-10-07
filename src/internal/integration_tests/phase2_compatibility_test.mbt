@@ -44,7 +44,7 @@ test "phase2 representative cases preserve path bytes reader and hint contracts"
   for fixture in fixtures {
     let (path, format, mime) = fixture
     let bytes = @fs.read_file_to_bytes(path) catch {
-      err => fail("phase2 fixture read failed: " + err.to_string())
+      err => fail("phase2 fixture read failed: " + (err : Error).to_string())
     }
     let name = path.split("/").last().unwrap_or(path).to_owned()
     let path_result = convert_binary_source_for_equivalence(

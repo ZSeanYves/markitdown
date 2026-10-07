@@ -24,7 +24,7 @@ fn default_shape_container_context(part_name : String) -> ShapeContainerContext 
     scale_y_num: 1,
     scale_y_den: 1,
     depth: 0,
-    shape_count: { val: 0 },
+    shape_count: { val: 0, },
   }
 }
 
@@ -397,7 +397,7 @@ fn parse_connector(
     object_ref("connector", shape_id, c.group_prefix).unwrap_or("connector"),
   )
   track_source_node(ctx, c.part_name, source_key.node_key)
-  { shape_id, name, geometry: Some(read_geometry(xml, c)), source_key }
+  { shape_id, name, geometry: Some(read_geometry(xml, c)), source_key, }
 }
 
 ///|
@@ -483,9 +483,10 @@ fn parse_graphic_frame(
   }
   match kind {
     "SmartArt" =>
-      SmartArt({ relationship_id: rel_id, target_part: target, source_key })
-    "OLE" => Ole({ relationship_id: rel_id, target_part: target, source_key })
-    _ => Unsupported({ kind, message: "unsupported graphic frame", source_key })
+      SmartArt({ relationship_id: rel_id, target_part: target, source_key, })
+    "OLE" => Ole({ relationship_id: rel_id, target_part: target, source_key, })
+    _ =>
+      Unsupported({ kind, message: "unsupported graphic frame", source_key, })
   }
 }
 
@@ -671,7 +672,7 @@ fn parse_chart_series(ser_xml : Bytes) -> PptxChartSeries raise {
       push_unique_string(text, value)
     }
   }
-  { name, categories, values, text, preferred_categories }
+  { name, categories, values, text, preferred_categories, }
 }
 
 ///|
@@ -906,7 +907,7 @@ fn read_placeholder(xml : Bytes) -> PptxPlaceholder? raise {
     "tbl" => Table
     _ => Unknown
   }
-  Some({ kind, index: read_attr_value_in_tag_bytes(tag, "idx"), raw_type: raw })
+  Some({ kind, index: read_attr_value_in_tag_bytes(tag, "idx"), raw_type: raw, })
 }
 
 ///|

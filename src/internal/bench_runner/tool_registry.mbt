@@ -47,12 +47,12 @@ fn make_tool_command(
   command_kind : String,
   command_display : String,
 ) -> ToolCommand {
-  { program, args, cwd, env, timeout_ms, command_kind, command_display }
+  { program, args, cwd, env, timeout_ms, command_kind, command_display, }
 }
 
 ///|
 fn default_tool_registry_config() -> ToolRegistryConfig {
-  { markitdown_path: None }
+  { markitdown_path: None, }
 }
 
 ///|

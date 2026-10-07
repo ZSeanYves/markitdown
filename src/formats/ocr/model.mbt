@@ -68,7 +68,7 @@ pub fn make_ocr_provider_info(
   language? : String? = None,
   diagnostics? : Array[String] = [],
 ) -> OcrProviderInfo {
-  { name, version, language, diagnostics }
+  { name, version, language, diagnostics, }
 }
 
 ///|
@@ -79,7 +79,7 @@ pub fn make_ocr_word(
   bbox? : @core.BBox? = None,
   confidence? : Double? = None,
 ) -> OcrWord {
-  { word_index, text, bbox, confidence }
+  { word_index, text, bbox, confidence, }
 }
 
 ///|
@@ -91,7 +91,7 @@ pub fn make_ocr_line(
   bbox? : @core.BBox? = None,
   confidence? : Double? = None,
 ) -> OcrLine {
-  { line_index, text, words, bbox, confidence }
+  { line_index, text, words, bbox, confidence, }
 }
 
 ///|
@@ -102,7 +102,7 @@ pub fn make_ocr_block(
   bbox? : @core.BBox? = None,
   confidence? : Double? = None,
 ) -> OcrBlock {
-  { block_index, lines, bbox, confidence }
+  { block_index, lines, bbox, confidence, }
 }
 
 ///|
@@ -111,7 +111,7 @@ pub fn empty_ocr_document_model(
   provider? : OcrProviderInfo? = None,
   diagnostics? : Array[String] = [],
 ) -> OcrDocumentModel {
-  { pages: [], provider, diagnostics }
+  { pages: [], provider, diagnostics, }
 }
 
 ///|
@@ -121,7 +121,7 @@ pub fn empty_ocr_page_model(
   provider? : OcrProviderInfo? = None,
   diagnostics? : Array[String] = [],
 ) -> OcrPageModel {
-  { page_index, width: None, height: None, blocks: [], provider, diagnostics }
+  { page_index, width: None, height: None, blocks: [], provider, diagnostics, }
 }
 
 ///|

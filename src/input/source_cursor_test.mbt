@@ -2,7 +2,7 @@
 test "native path cursor reads chunks without materializing the whole file" {
   let path = "src/input/README.md"
   let expected = @fs.read_file_to_bytes(path) catch {
-    error => fail(error.to_string())
+    error => fail((error : Error).to_string())
   }
   let cursor = @input.open_source_cursor(@input.input_from_path(path)).unwrap()
   assert_true(cursor.size == Some(expected.length().to_int64()))
@@ -19,7 +19,7 @@ test "ZIP detection reads prefix tail and central directory through Reader" {
   let bytes = @fs.read_file_to_bytes(
     "samples/fixtures/contracts/docx/golden.docx",
   ) catch {
-    error => fail(error.to_string())
+    error => fail((error : Error).to_string())
   }
   let max_request = Ref(0)
   let read_tail = Ref(false)
