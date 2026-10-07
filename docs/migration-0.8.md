@@ -4,7 +4,7 @@
 
 Library consumers importing `convert`, `input`, `product`, `rag`, `core`,
 `render`, `formats/*` or any implementation package directly must move product
-conversion calls to `ZSeanYves/markitdown/api`. The old `parser/`, `pipeline/`
+conversion calls to `ZSeanYves/markitdown/lib`. The old `parser/`, `pipeline/`
 and `format_readers/` package roots were removed. Their implementations now
 live under `internal/` for repository use and are not compatibility promises.
 
@@ -16,12 +16,11 @@ reduction of constructible/mutable records from 32 to 22. Profile reports in
 the consolidated TXT, Markdown, and JSON packages remain readable but can no
 longer be constructed or mutated field-by-field by consumers.
 
-The repository now stores every MoonBit package below `src/`. This is a
-filesystem-only normalization for library consumers: the module source root is
-configured as `src`, so package names such as `ZSeanYves/markitdown/api` and
-`ZSeanYves/markitdown/formats/pdf` do not gain a `src` segment. Contributors
-using filesystem filters should pass `src/<package>` or use `--package` with
-the full logical package name.
+The repository now follows the moonx binary layout: `main.mbt` is the thin
+composition root, `lib/` is the public package and shared product layer, and
+`internal/` contains CLI, readers, parsers, runtime adapters, and tests. The
+module keeps `preferred_target = "wasm"`; Native builds use the same packages
+and add only isolated host extensions.
 
 ## Conversion entrypoint
 
@@ -36,30 +35,36 @@ let result = @convert.convert_input(source, options)
 0.8:
 
 ```mbt
-let source = @api.Input::from_path(path)
-let result = @api.convert(source)
+let source = @lib.Input::from_path(path)
+let result = @lib.convert(source)
 ```
 
+The 0.8 call is asynchronous. Make the containing function `async` and await
+the result; output and errors remain façade-owned models.
+
 Use `Input::from_text`, `Input::from_bytes` and `Input::from_reader` for the
-other stable input forms. Use immutable option modifiers instead of
+other stable input forms. When the caller owns an asynchronous random-access
+source, use `Input::from_async_reader`; it preserves the same callback limits
+and is materialized once under the configured input budget before shared
+parsing. Use immutable option modifiers instead of
 constructing internal records:
 
 ```mbt
-let options = @api.ConvertOptions::default()
+let options = @lib.ConvertOptions::default()
   .with_mode(Stream)
   .with_output_mode(Rag)
   .with_format_hint(Some("markdown"))
   .with_limits(
-    @api.ResourceLimits::default()
+    @lib.ResourceLimits::default()
       .with_max_input_bytes(64L * 1024L * 1024L)
       .with_external_command_timeout_ms(30000),
   )
   .with_rag(
-    @api.RagOptions::default()
+    @lib.RagOptions::default()
       .with_chunk_size(1200)
       .with_chunk_overlap(120),
   )
-let result = @api.convert(source, options~)
+let result = @lib.convert(source, options~)
 ```
 
 Reader callbacks must return no more than the requested byte count and must not
@@ -69,7 +74,7 @@ or parse error instead of being accepted by a later format fallback.
 ## Error handling
 
 Before 0.8, callers commonly formatted `@convert.ConvertError` or propagated
-plain strings. Match `@api.ConvertError` instead and persist
+plain strings. Match `@lib.ConvertError` instead and persist
 `error.code().stable_name()`. The text from `error.message()` is display-only.
 
 ## Result models

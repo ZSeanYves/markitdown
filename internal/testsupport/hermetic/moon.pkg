@@ -1,0 +1,11 @@
+import {
+  "moonbitlang/core/env",
+  "moonbitlang/x/fs",
+  "ZSeanYves/markitdown/internal/runtime/command" @rtcmd,
+}
+
+supported_targets = "native"
+
+options(
+  "preferred-target": "native",
+)

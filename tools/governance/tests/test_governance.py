@@ -75,16 +75,16 @@ moonrun 0.1.20260920 (914d7da 2026-09-20) ~/.moon/bin/moonrun
     def test_pr_policy_requires_explanation_for_generated_files(self):
         body = "\n".join(self.policy.REQUIRED_HEADINGS)
         self.assertEqual(self.policy.validate(body, []), [])
-        errors = self.policy.validate(body, ["src/core/pkg.generated.mbti"])
+        errors = self.policy.validate(body, ["lib/core/pkg.generated.mbti"])
         self.assertTrue(any("generated/golden" in error for error in errors))
         explained = body + "\n- Generated artifacts and regeneration command: moon info\n"
-        self.assertEqual(self.policy.validate(explained, ["src/core/pkg.generated.mbti"]), [])
+        self.assertEqual(self.policy.validate(explained, ["lib/core/pkg.generated.mbti"]), [])
         api_body = (
             explained
             + "\n- Risk: `R3`\n- RFC/ADR: docs/rfcs/0001-api-change.md\n"
         )
         self.assertEqual(
-            self.policy.validate(api_body, ["src/api/pkg.generated.mbti"]), []
+            self.policy.validate(api_body, ["lib/pkg.generated.mbti"]), []
         )
 
     def test_phase1_architecture_contract_passes_repository(self):
@@ -102,15 +102,15 @@ moonrun 0.1.20260920 (914d7da 2026-09-20) ~/.moon/bin/moonrun
         )
         self.assertTrue(any("leaks internal" in error for error in errors))
         errors = self.architecture.api_import_errors(
-            {"ZSeanYves/markitdown/formats/pdf"}
+            {"ZSeanYves/markitdown/lib/formats/pdf"}
         )
         self.assertTrue(any("unapproved" in error for error in errors))
 
-    def test_source_root_rejects_moon_packages_outside_src(self):
+    def test_product_roots_reject_moon_packages_outside_layout(self):
         with tempfile.TemporaryDirectory() as raw_tmp:
             root = Path(raw_tmp)
-            (root / "src/api").mkdir(parents=True)
-            (root / "src/api/moon.pkg").write_text("", encoding="utf-8")
+            (root / "lib").mkdir(parents=True)
+            (root / "lib/moon.pkg").write_text("", encoding="utf-8")
             (root / "stray").mkdir()
             (root / "stray/moon.pkg").write_text("", encoding="utf-8")
             self.assertEqual(

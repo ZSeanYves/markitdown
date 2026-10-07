@@ -22,7 +22,7 @@ callers a durable contract while allowing staged internal migration.
 
 ## Decision
 
-`ZSeanYves/markitdown/api` is the sole stable 0.8 library package. `Input` is
+`ZSeanYves/markitdown/lib` is the sole stable 0.8 library package. `Input` is
 abstract, all output fields use stable local types, and errors have fixed codes
 and exit classes. Parser registries, format models, pass contexts, async, FFI
 and external providers are internal/extension contracts. Existing packages are
@@ -44,8 +44,8 @@ filesystem/process product path has equivalent behavior.
 ## Verification and rollback
 
 ```bash
-moon test --target native -p ZSeanYves/markitdown/api
-moon info --package ZSeanYves/markitdown/api
+moon test --target native -p ZSeanYves/markitdown/lib
+moon info --package ZSeanYves/markitdown/lib
 python3 tools/governance/check_architecture.py
 ```
 

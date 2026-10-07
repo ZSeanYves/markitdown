@@ -1,0 +1,14 @@
+import {
+  "moonbitlang/core/lazy",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/string",
+  "moonbitlang/x/codec/base64",
+  "moonbitlang/core/encoding/utf16",
+  "moonbit-community/flate/zlib",
+  "ZSeanYves/markitdown/lib/core",
+  "ZSeanYves/markitdown/lib/input",
+}
+
+options(
+  "preferred-target": "native",
+)

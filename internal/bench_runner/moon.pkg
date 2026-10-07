@@ -1,0 +1,24 @@
+import {
+  "moonbitlang/async",
+  "ZSeanYves/markitdown/lib/convert",
+  "ZSeanYves/markitdown/lib/input",
+  "ZSeanYves/markitdown/internal/parser",
+  "ZSeanYves/markitdown/internal/runtime/command" @rtcmd,
+  "ZSeanYves/markitdown/internal/runtime/process",
+  "moonbitlang/core/bench",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+  "moonbitlang/core/math",
+  "moonbitlang/core/string",
+  "moonbitlang/x/fs",
+  "moonbitlang/x/crypto",
+}
+
+supported_targets = "native"
+
+pkgtype(kind: "executable")
+
+options(
+  "native-stub": [ "stderr_native_stub.c", "resource_usage_native_stub.c" ],
+)

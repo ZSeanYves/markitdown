@@ -1,0 +1,44 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/internal/cli"
+
+import {
+  "ZSeanYves/markitdown/lib/input",
+  "ZSeanYves/markitdown/lib/product",
+  "ZSeanYves/markitdown/lib/rag",
+}
+
+// Values
+pub fn make_cli_options(String, String?, String?, @input.DetectedFormat?, @product.FidelityMode, @product.ConvertMode, @product.OutputMode, Bool, @product.OutputMode, rag_options? : @rag.RagOptions) -> CliOptions
+
+pub async fn run_cli(CliOptions) -> Result[String, String]
+
+pub async fn run_cli_app(Array[String]) -> Int
+
+// Errors
+
+// Types and methods
+type BatchTaskResult
+
+pub(all) enum BatchTaskStatus {
+  Success
+  Failed
+  Skipped
+} derive(Eq)
+
+type CliFailure
+
+type CliFailureKind derive(Eq)
+
+pub struct CliOptions {
+  input : String
+  output : String?
+  provenance_output : String?
+  explicit_format : @input.DetectedFormat?
+  convert_mode : @product.ConvertMode
+  output_mode : @product.OutputMode
+  rag_options : @rag.RagOptions
+}
+
+// Type aliases
+
+// Traits

@@ -6,9 +6,10 @@ import {
   "moonbitlang/x@0.5.5",
   "moonbitlang/async@0.22.4",
   "moonbit-community/flate@0.8.5",
+  "horideicom/encoding_sjis@0.1.1",
 }
 
-readme = "README.mbt.md"
+readme = "README.md"
 
 repository = "https://github.com/ZSeanYves/markitdown.git"
 
@@ -32,5 +33,3 @@ keywords = [
 description = "A MoonBit-native document-to-Markdown converter with multi-format parsing, metadata, assets, batch conversion, and validation tooling"
 
 preferred_target = "wasm"
-
-source = "src"

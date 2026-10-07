@@ -46,7 +46,7 @@
 
 ### Phase 1 API and package boundaries
 
-- Added the native-only `ZSeanYves/markitdown/api` façade as the sole stable
+- Added the native-only `ZSeanYves/markitdown/lib` façade as the sole stable
   0.8 library surface, with abstract Path/Text/Bytes/Reader input, immutable
   options, Markdown/Debug/RAG output, projected diagnostics/provenance/chunks
   and capability discovery.

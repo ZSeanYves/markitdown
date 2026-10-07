@@ -1,0 +1,70 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/lib/render"
+
+import {
+  "ZSeanYves/markitdown/lib/core",
+  "ZSeanYves/markitdown/lib/product",
+  "ZSeanYves/markitdown/lib/rag",
+}
+
+// Values
+pub fn debug_json_renderer() -> Renderer
+
+pub fn make_render_context(Bool, fidelity_mode? : @product.FidelityMode, output_mode? : @product.OutputMode, execution_profile? : @product.ExecutionProfile, render_profile? : @product.RenderProfile, accurate_features? : @product.AccurateFeatureProfile, rag_options? : @rag.RagOptions, base_diagnostics? : @core.Diagnostics?, metadata? : Map[String, @core.JsonValue]?, source_map? : @core.SourceMap?, assets? : Array[@core.AssetRef]?, assembly? : @core.DocumentAssembly?) -> RenderContext
+
+pub fn markdown_renderer() -> Renderer
+
+pub fn open_markdown_line_event_sink((String) -> Result[Unit, String]) -> MarkdownEventSink
+
+pub fn open_markdown_subtitle_event_sink((String) -> Result[Unit, String]) -> MarkdownEventSink
+
+pub fn open_markdown_table_event_sink((String) -> Result[Unit, String]) -> MarkdownEventSink
+
+pub fn rag_json_renderer() -> Renderer
+
+pub fn render_markdown_input_to_sink(RenderInput, RenderContext, (String) -> Result[Unit, String]) -> Result[RenderResult, String]
+
+// Errors
+
+// Types and methods
+pub struct MarkdownEventSink {
+  push : (@core.CoreEvent) -> Result[Unit, String]
+  finish : () -> Result[Unit, String]
+}
+
+pub struct RenderContext {
+  debug : Bool
+  fidelity_mode : @product.FidelityMode
+  output_mode : @product.OutputMode
+  execution_profile : @product.ExecutionProfile
+  render_profile : @product.RenderProfile
+  accurate_features : @product.AccurateFeatureProfile
+  rag_options : @rag.RagOptions
+  base_diagnostics : @core.Diagnostics?
+  metadata : Map[String, @core.JsonValue]?
+  source_map : @core.SourceMap?
+  assets : Array[@core.AssetRef]?
+  assembly : @core.DocumentAssembly?
+}
+
+pub(all) enum RenderInput {
+  EventStream(Array[@core.CoreEvent])
+  BlockStream(Array[@core.CoreBlock])
+  Document(@core.DocumentIR)
+}
+
+pub struct RenderResult {
+  content : String
+  diagnostics : @core.Diagnostics
+  chunks : Array[@rag.RagChunk]?
+}
+
+pub struct Renderer {
+  name : String
+  render : (@core.DocumentIR, RenderContext) -> RenderResult
+  render_input : (RenderInput, RenderContext) -> RenderResult
+}
+
+// Type aliases
+
+// Traits

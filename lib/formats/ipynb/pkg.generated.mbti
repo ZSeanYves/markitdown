@@ -1,0 +1,22 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/lib/formats/ipynb"
+
+import {
+  "ZSeanYves/markitdown/internal/parser",
+  "ZSeanYves/markitdown/lib/input",
+}
+
+// Values
+pub fn ipynb_parse_with_prepared_notebook(@input.InputSource, @parser.ParseContext, @ZSeanYves/markitdown/internal/readers/ipynb.PreparedIpynbNotebook) -> @parser.ParseResult
+
+pub fn ipynb_parse_with_preparsed_notebook(@input.InputSource, @parser.ParseContext, String, @ZSeanYves/markitdown/internal/readers/ipynb.IpynbNotebook, @ZSeanYves/markitdown/internal/readers/ipynb.IpynbInspectReport) -> @parser.ParseResult
+
+pub fn ipynb_parser() -> @parser.Parser
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

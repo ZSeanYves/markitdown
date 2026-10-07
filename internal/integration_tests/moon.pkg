@@ -1,0 +1,25 @@
+import {
+  "moonbitlang/async",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/x/fs",
+  "ZSeanYves/markitdown/lib/container",
+  "ZSeanYves/markitdown/lib/convert",
+  "ZSeanYves/markitdown/lib/core",
+  "ZSeanYves/markitdown/lib/formats/pdf" @fpdf,
+  "ZSeanYves/markitdown/internal/formats/meta" @fmeta,
+  "ZSeanYves/markitdown/internal/testsupport/hermetic" @therm,
+  "ZSeanYves/markitdown/lib/formats" @formats_root,
+  "ZSeanYves/markitdown/lib/input",
+  "ZSeanYves/markitdown/internal/parser",
+  "ZSeanYves/markitdown/internal/pipeline",
+  "ZSeanYves/markitdown/lib/product",
+  "ZSeanYves/markitdown/lib/rag",
+  "ZSeanYves/markitdown/lib/render",
+  "ZSeanYves/markitdown/internal/runtime",
+} for "test"
+
+supported_targets = "native"
+
+options(
+  "preferred-target": "native",
+)

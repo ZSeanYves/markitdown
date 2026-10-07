@@ -34,7 +34,7 @@ python3 samples/showcase/generate_results.py
 Build and try the release CLI:
 
 ```bash
-moon build --target native --release --package ZSeanYves/markitdown/cli
+moon build --target native --release --package ZSeanYves/markitdown/internal/cli
 ./_build/native/release/build/cli/cli.exe balance \
   samples/showcase/pdf/nist-zero-trust-architecture.pdf \
   .tmp/showcase/nist.md

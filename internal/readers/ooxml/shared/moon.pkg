@@ -1,0 +1,7 @@
+import {
+  "ZSeanYves/markitdown/lib/core",
+}
+
+options(
+  "preferred-target": "native",
+)

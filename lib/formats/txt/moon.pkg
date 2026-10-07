@@ -1,0 +1,14 @@
+import {
+  "moonbitlang/core/encoding/utf16",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/env",
+  "ZSeanYves/markitdown/internal/readers/source_io" @sourceio,
+  "ZSeanYves/markitdown/lib/core",
+  "ZSeanYves/markitdown/lib/formats/shared" @fshared,
+  "ZSeanYves/markitdown/lib/input",
+  "ZSeanYves/markitdown/internal/parser",
+}
+
+options(
+  "preferred-target": "native",
+)

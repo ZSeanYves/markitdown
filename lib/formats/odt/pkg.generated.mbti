@@ -1,0 +1,36 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/lib/formats/odt"
+
+import {
+  "ZSeanYves/markitdown/internal/parser",
+  "ZSeanYves/markitdown/internal/readers/odf/shared",
+  "ZSeanYves/markitdown/lib/input",
+}
+
+// Values
+pub fn odt_parse_with_open_document(@input.InputSource, @parser.ParseContext, @shared.OdtDocument, @shared.OdtInspectReport) -> @parser.ParseResult
+
+pub fn odt_parse_with_prepared_document(@input.InputSource, @parser.ParseContext, @ZSeanYves/markitdown/internal/readers/odf/odt.PreparedOdtDocument) -> @parser.ParseResult
+
+pub fn odt_parser() -> @parser.Parser
+
+pub fn odt_parser_capability() -> @parser.ParserCapability
+
+pub fn odt_route_preflight_summary(@input.InputSource) -> Result[OdtPreflightSummary, String]
+
+// Errors
+
+// Types and methods
+pub struct OdtPreflightSummary {
+  block_count : Int
+  heading_count : Int
+  table_count : Int
+  image_count : Int
+  note_count : Int
+  comment_count : Int
+  max_heading_level : Int
+}
+
+// Type aliases
+
+// Traits

@@ -1,0 +1,12 @@
+import {
+  "ZSeanYves/markitdown/lib/core",
+  "ZSeanYves/markitdown/internal/readers/source_io" @sourceio,
+  "ZSeanYves/markitdown/internal/readers/text_markup" @dmark,
+  "ZSeanYves/markitdown/lib/input",
+  "ZSeanYves/markitdown/internal/parser",
+  "ZSeanYves/markitdown/lib/product",
+}
+
+options(
+  "preferred-target": "native",
+)

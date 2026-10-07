@@ -8,15 +8,15 @@
 ## Context
 
 Phase 1 reduced the package graph from 108 packages at audit time to 68 and
-established `ZSeanYves/markitdown/api` as the stable facade. The repository
+established `ZSeanYves/markitdown/lib` as the stable facade. The repository
 root nevertheless still exposed every functional package beside documentation,
 samples, benchmark assets, and engineering tools. Phase 2 will add compatibility
 corpora and laboratory automation, which would make that mixed root harder to
 navigate and govern.
 
 MoonBit supports a module-level source directory. Setting `source = "src"`
-makes package paths relative to `src/`, so moving `api/` to `src/api/` preserves
-the logical package name `ZSeanYves/markitdown/api`.
+makes package paths relative to `src/`, so moving `api/` to `lib/` preserves
+the logical package name `ZSeanYves/markitdown/lib`.
 
 ## Decision
 

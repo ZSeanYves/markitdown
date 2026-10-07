@@ -1,0 +1,15 @@
+import {
+  "moonbitlang/core/encoding/utf16",
+  "moonbitlang/core/encoding/utf8",
+  "horideicom/encoding_sjis",
+  "ZSeanYves/markitdown/lib/input",
+}
+
+options(
+  "preferred-target": "native",
+  "native-stub": [ "cp932_native_stub.c" ],
+  targets: {
+    "cp932_native.mbt": [ "native" ],
+    "cp932_portable.mbt": [ "wasm", "wasm-gc", "js" ],
+  },
+)

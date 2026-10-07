@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "status": "preliminary",
+  "captured_at": "2026-10-08",
+  "toolchain": {
+    "moon_version": "0.1.20260920",
+    "moonc_version": "v0.10.14+7d59c7ec9"
+  },
+  "command": "moon check --target <target> --warn-list +73",
+  "targets": {
+    "native": {
+      "warnings": 432,
+      "errors": 0,
+      "evidence": "local toolchain run after final async/host boundary changes; aggregate only"
+    },
+    "wasm": {
+      "warnings": 422,
+      "errors": 0,
+      "evidence": "local toolchain run after final async/host boundary changes; aggregate only"
+    },
+    "all": {
+      "warnings": 445,
+      "errors": 0,
+      "evidence": "local toolchain run after final async/host boundary changes; aggregate only"
+    }
+  },
+  "diagnostic_review": {
+    "mode": "aggregate_only",
+    "diagnostic_ids": [],
+    "raw_output": null,
+    "owner": "markitdown maintainers",
+    "expiry": "before-0.8-rc2",
+    "remediation": "classify and clear every diagnostic, then require --deny-warn"
+  },
+  "policy": {
+    "ci_gate": "warn-list +73 while this preliminary inventory is open",
+    "release_gate": "blocked until strict --deny-warn passes",
+    "silent_grandfathering": false
+  }
+}

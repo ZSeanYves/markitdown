@@ -2,7 +2,7 @@
   "api": {
     "golden": "tools/governance/api-v0.8.mbti",
     "sha256": "b640459e0918cc0912b8670f4d56bd48ba1419bdbee26492f919ae9248a7b222",
-    "stable_package": "ZSeanYves/markitdown/api",
+    "stable_package": "ZSeanYves/markitdown/lib",
     "target": "native"
   },
   "architecture": {
@@ -14,7 +14,7 @@
     "public_declarations": 1871,
     "public_type_declarations": 791
   },
-  "direct_dependency_count": 5,
+  "direct_dependency_count": 4,
   "inputs": [
     "Path",
     "Text",
@@ -22,7 +22,7 @@
     "Reader"
   ],
   "module_version": "0.8.0",
-  "source_root": "src",
+  "source_root": ".",
   "outputs": [
     "Markdown",
     "Debug",

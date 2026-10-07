@@ -1,0 +1,11 @@
+import {
+  "ZSeanYves/markitdown/internal/readers/xml" @dxml,
+  "ZSeanYves/markitdown/lib/core",
+  "ZSeanYves/markitdown/lib/formats/shared" @fshared,
+  "ZSeanYves/markitdown/lib/input",
+  "ZSeanYves/markitdown/internal/parser",
+}
+
+options(
+  "preferred-target": "native",
+)

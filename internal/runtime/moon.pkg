@@ -1,0 +1,11 @@
+import {
+  "ZSeanYves/markitdown/lib/core",
+  "ZSeanYves/markitdown/lib/input",
+  "ZSeanYves/markitdown/internal/parser",
+  "ZSeanYves/markitdown/internal/pipeline",
+  "ZSeanYves/markitdown/lib/product",
+}
+
+options(
+  "preferred-target": "native",
+)

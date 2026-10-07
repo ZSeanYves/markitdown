@@ -12,14 +12,15 @@ are frozen in `tools/experiments/community/registry-2026-10-07.json`.
 
 | Dependency | Production decision | Evidence and remaining gate |
 | --- | --- | --- |
-| `moonbitlang/async@0.22.4` | Upgrade; official shared I/O candidate | Six I/O tests on Native and Wasm; full product Native suite; product async migration pending |
+| `moonbitlang/async@0.22.4` | Upgrade; official shared I/O boundary | Six I/O tests on Native and Wasm; full product Native/Wasm suites; product async chain now wired through the shared façade |
 | `moonbitlang/x@0.5.5` | Upgrade; retain used filesystem/base64/crypto APIs | Error and directory API migration; reevaluate filesystem imports after async migration |
-| `moonbit-community/flate@0.8.5` | Adopt codec layer only | Cross-codec experiments and 917 product tests; retain local ZIP policy and reader; RC/performance gates pending |
+| `moonbit-community/flate@0.8.5` | Provisional adoption, codec layer only | Cross-codec experiments and full product tests; retain local ZIP policy and reader; two RC dual runs and performance gates pending |
+| `horideicom/encoding_sjis@0.1.1` | Provisional adoption, portable Shift_JIS/JIS X 0208 subset | Wasm source I/O covers ASCII, half-width, JIS X 0208, malformed/truncated bytes, and rejects CP932 FA-FC extension rows; full CP932 dual corpus and Linux RC gate pending |
 | `bikallem/compress@0.3.4` | Remove | No product imports or transitive dependency remains; available in isolated comparison module |
 | `bikallem/blit@0.2.2` | Remove | All direct and indirect callers eliminated by codec migration |
 | `tonyfettes/encoding@0.3.9` | Remove | Only UTF-16 used; core preserves tested contracts; latest upstream package does not compile on selected compiler |
 
-All three selected registry dependencies are Apache-2.0 and have no additional
+All four selected registry dependencies are Apache-2.0 and have no additional
 Mooncakes dependencies. Official async has its own platform/runtime stubs;
 this is a transitive native-runtime dependency, not a claim of zero C in the
 native executable. Conversion still has local FFI pending the runtime migration.
@@ -66,16 +67,24 @@ files installed.
 
 Python transitive versions are authoritative in the benchmark lock file. The
 oracle is never imported by the MoonBit product or used at conversion runtime.
+Because that lock reproduces the upstream oracle distribution, it can still
+contain transitive packages for upstream multimodal providers. Those entries
+are benchmark-environment inputs only; they are not product capabilities,
+installers, model downloads, or MoonBit runtime dependencies.
 
 ## Community candidates
 
-The entries below record the Phase 0-1 assessment. For the current registry
+The entries below record the Phase 0-1 assessment. The itemized production
+decisions are in `tools/experiments/community/production-decisions-2026-10-07.json`.
+For the current registry
 versions, downloaded-source review, native probes, and a proposed text-only
 product boundary, see the [2026-10-07 assessment](./rfcs/0001-text-extraction-scope-and-community-packages.md).
-That draft does not approve adoption or change the direct dependencies above.
+The RFC is the historical assessment; current production status and remaining
+gates are recorded in the JSON decision file and the table above.
 
 | Candidate | Current assessment | Action |
 | --- | --- | --- |
+| `horideicom/encoding_sjis` | portable Shift_JIS/JIS X 0208 decoder with replacement flag; no CP932 extension rows | adopted in `internal/readers/source_io` with strict adapter; Native iconv remains the extension path |
 | `moonbit-community/yaml` | promising but maturity and exact API contract not established | shadow adapter only |
 | `moonbit-community/html` | WHATWG-oriented claim, but adoption evidence is small | HTML corpus POC; no blind swap |
 | `mizchi/markdown` | useful cross-platform implementation, but not a complete CommonMark/GFM replacement | keep local; use conformance suite first |

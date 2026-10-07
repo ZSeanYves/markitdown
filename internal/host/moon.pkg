@@ -1,0 +1,17 @@
+import {
+  "moonbitlang/async/stdio",
+  "moonbitlang/core/env",
+}
+
+import {
+  "moonbitlang/async",
+} for "wbtest"
+
+options(
+  "preferred-target": "wasm",
+  "native-stub": [ "stdin_native_stub.c" ],
+  targets: {
+    "stdin_native.mbt": [ "native" ],
+    "stdin_portable.mbt": [ "wasm", "wasm-gc", "js" ],
+  },
+)

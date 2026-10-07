@@ -1,0 +1,19 @@
+import {
+  "moonbitlang/async",
+  "moonbitlang/core/debug",
+  "ZSeanYves/markitdown/lib/convert",
+  "ZSeanYves/markitdown/lib/core",
+  "ZSeanYves/markitdown/lib/input",
+  "ZSeanYves/markitdown/internal/parser",
+  "ZSeanYves/markitdown/lib/product",
+  "ZSeanYves/markitdown/lib/rag",
+}
+
+import {
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/x/fs",
+} for "wbtest"
+
+options(
+  "preferred-target": "native",
+)

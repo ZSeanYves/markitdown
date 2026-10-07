@@ -23,7 +23,7 @@ def main() -> None:
     if not CLI.is_file():
         raise SystemExit(
             "release CLI is missing; run: moon build --target native --release "
-            "--package ZSeanYves/markitdown/cli"
+            "--package ZSeanYves/markitdown/internal/cli"
         )
     with (ROOT / "MANIFEST.tsv").open(encoding="utf-8", newline="") as stream:
         inputs = list(csv.DictReader(stream, delimiter="\t"))

@@ -32,7 +32,7 @@ allows a concentrated breaking reorganization in 0.8.
 
 Choose option 3.
 
-- `ZSeanYves/markitdown/api` remains the sole stable library package.
+- `ZSeanYves/markitdown/lib` remains the sole stable library package.
 - Legacy deep-package imports may break in 0.8 and receive migration guidance,
   but no compatibility wrapper is retained solely to preserve package count.
 - Standalone test packages move into black-box test files owned by the package

@@ -1,0 +1,15 @@
+import {
+  "moonbitlang/core/string",
+  "ZSeanYves/markitdown/internal/readers/ooxml/package" @ox,
+  "ZSeanYves/markitdown/internal/readers/ooxml/pptx" @pptxdoc,
+  "ZSeanYves/markitdown/internal/readers/ooxml/shared",
+  "ZSeanYves/markitdown/lib/core",
+  "ZSeanYves/markitdown/lib/formats/shared" @fshared,
+  "ZSeanYves/markitdown/lib/input",
+  "ZSeanYves/markitdown/internal/parser",
+  "ZSeanYves/markitdown/lib/product",
+}
+
+options(
+  "preferred-target": "native",
+)

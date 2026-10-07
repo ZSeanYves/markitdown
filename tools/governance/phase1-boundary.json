@@ -1,6 +1,7 @@
 {
   "api_golden": "tools/governance/api-v0.8.mbti",
   "direct_dependencies": [
+    "horideicom/encoding_sjis@0.1.1",
     "moonbit-community/flate@0.8.5",
     "moonbitlang/async@0.22.4",
     "moonbitlang/x@0.5.5"
@@ -14,12 +15,13 @@
     "pipeline"
   ],
   "legacy_top_level_deep_import_limits": {
-    "cli/moon.pkg": 3,
-    "convert/moon.pkg": 36,
-    "input/moon.pkg": 1,
+    "internal/cli/moon.pkg": 3,
+    "lib/convert/moon.pkg": 36,
+    "lib/input/moon.pkg": 1,
+    "lib/moon.pkg": 0,
     "internal/integration_tests/moon.pkg": 2
   },
-  "source_root": "src",
-  "stable_api": "src/api/pkg.generated.mbti",
+  "source_root": ".",
+  "stable_api": "lib/pkg.generated.mbti",
   "version": "0.8"
 }

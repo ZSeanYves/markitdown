@@ -149,8 +149,8 @@ def validate_maintenance_inventory() -> list[str]:
             + repr(sorted(network_sites))
         )
 
-    product_options = (ROOT / "src/product/options.mbt").read_text(encoding="utf-8")
-    command_runner = (ROOT / "src/runtime/command/process_runner.mbt").read_text(encoding="utf-8")
+    product_options = (ROOT / "lib/product/options.mbt").read_text(encoding="utf-8")
+    command_runner = (ROOT / "internal/runtime/command/process_runner.mbt").read_text(encoding="utf-8")
     resource_fragments = {
         "max_rows": "max_rows: 2000",
         "max_cols": "max_cols: 50",

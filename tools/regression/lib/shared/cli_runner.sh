@@ -135,7 +135,7 @@ native_cli_staleness_sentinel() {
   local package="${1-}"
   case "$package" in
     markitdown)
-      printf '%s' "$ROOT/src/cli/cli.mbt"
+      printf '%s' "$ROOT/internal/cli/cli.mbt"
       ;;
     *)
       return 1

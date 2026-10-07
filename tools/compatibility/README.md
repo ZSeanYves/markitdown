@@ -42,7 +42,7 @@ The runner executes every declared mode and compares structural fields
 (headings, paragraphs, tables, links, assets, math markers, and diagnostics)
 independently. It never turns an unexplained difference into a new golden
 automatically. Path/Bytes/Reader and hint dimensions are exercised by the
-native integration contract in `src/internal/integration_tests`.
+native integration contract in `internal/integration_tests`.
 
 For the upstream comparison, install the pinned reference environment from
 `tools/env/installers/install_bench_baseline_deps.sh`, then pass both `--upstream` and

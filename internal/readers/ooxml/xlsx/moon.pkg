@@ -1,0 +1,9 @@
+import {
+  "ZSeanYves/markitdown/lib/input",
+  "ZSeanYves/markitdown/internal/readers/ooxml/package" @ox,
+  "ZSeanYves/markitdown/internal/readers/zip_source" @zsource,
+}
+
+options(
+  "preferred-target": "native",
+)
