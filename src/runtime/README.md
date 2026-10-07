@@ -1,7 +1,7 @@
 # Runtime
 
-> Native-only internal/extension boundary for process FFI, commands and
-> external tools. Runtime types must not cross the stable `api` façade.
+> Internal/extension boundary for target-isolated process FFI and commands.
+> Runtime types must not cross the stable `api` façade.
 
 `runtime/` contains repository-wide runtime glue. It centralizes recurring coordination logic shared by parser, pipeline, and render, and isolates concerns such as command resolution, nested-document reuse, and diagnostics merging that do not belong to one format package alone.
 
@@ -39,9 +39,8 @@ limits rather than document-derived shell strings.
 - Keep only cross-package, cross-format runtime glue here; format-private logic should stay in `formats/*` or `internal/readers/*`
 - Child-document parsing must continue to use the root registry and default pipeline to avoid format-private side paths
 - Runtime helpers may coordinate external commands, but should not introduce new product-level routing policy
-- Repo-managed optional commands are installed through
-  `tools/env/optional_deps.sh`; official wrappers own deterministic child
-  environment setup rather than requiring callers to source shell state.
+- The conversion product has no optional runtime installer. Benchmark-only
+  Python setup is maintained by `tools/env/installers/install_bench_baseline_deps.sh`.
 
 ## Validation
 

@@ -474,8 +474,7 @@ pub fn format_route_profile(
         PageSinglePass,
         Page,
         "document",
-        "pdf page-single-pass with explicit accurate/ocr layout route",
-        large_route_parser_mode=Some(LayoutTwoStage),
+        "pdf text layer and geometry through the shared page-single-pass route",
       )
     Docx =>
       make_format_route_profile(
@@ -515,27 +514,16 @@ pub fn format_route_profile(
         large_route_granularity=Some(XlsxRow),
         large_route_ir_input_kind=Some("block_stream"),
       )
-    Audio(_) =>
+    Audio(_) | Image(_) =>
       make_format_route_profile(
         format,
-        true,
-        MediaPipeline,
         false,
-        MediaPipeline,
+        DomAstModel,
+        false,
+        DomAstModel,
         None,
         "document",
-        @input.detected_format_name(format) + " canonical media pipeline",
-      )
-    Image(_) =>
-      make_format_route_profile(
-        format,
-        true,
-        LayoutTwoStage,
-        false,
-        LayoutTwoStage,
-        Page,
-        "document",
-        "image ocr explicit layout route",
+        "media input is detected but unsupported",
       )
     Unknown =>
       make_format_route_profile(
@@ -682,13 +670,7 @@ pub fn route_contract_for_format(
       )
     None => None
   }
-  let accurate_canonical = match format {
-    Pdf =>
-      route_spec_from_profile(LayoutTwoStage, LayoutTwoStage, Page, "document")
-    Image(_) =>
-      route_spec_from_profile(LayoutTwoStage, LayoutTwoStage, Page, "document")
-    _ => canonical
-  }
+  let accurate_canonical = canonical
   let stream_canonical = match explicit_stream {
     Some(spec) => spec
     None => canonical

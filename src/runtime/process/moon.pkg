@@ -1,1 +1,3 @@
-supported_targets = "native"
+import {
+  "moonbitlang/x/sys",
+}

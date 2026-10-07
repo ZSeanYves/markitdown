@@ -36,9 +36,14 @@ policy.
 0.8 golden, rejects internal package types in that interface, limits the API
 adapter to an explicit import allowlist, prevents mutable `pub(all)` records in
 the facade, enforces separate total-visibility and mutable-record ceilings for
-legacy packages, and freezes the five reviewed direct dependencies. An
+legacy packages, and freezes the three reviewed direct dependencies. An
 intentional API or dependency change updates the corresponding machine file in
 the same R3 PR with an RFC, compatibility impact and regeneration command.
+
+The maintenance inventory deliberately has no product external commands after
+the 0.8 text-only migration. OCR, audio transcription, PDF rasterization,
+model downloads and their installers are retired; Python remains available only
+for the pinned benchmark oracle environment.
 
 ## Documentation
 

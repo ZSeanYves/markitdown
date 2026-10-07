@@ -21,8 +21,6 @@ class ConfigBundle:
         self.config_root = config_root(self.repo_root)
         self.profile_data = load_json(self.config_root / "profiles.json")["profiles"]
         self.system_tools = load_json(self.config_root / "system_tools.json")
-        self.models = load_json(self.config_root / "models.json")["models"]
-        self.runtime_args = load_json(self.config_root / "runtime_args.json")
 
     def profile(self, name: str) -> dict:
         try:
@@ -55,13 +53,6 @@ class ConfigBundle:
             arch=arch,
             manager=platform_data["manager"],
         )
-
-    def model(self, key: str) -> dict:
-        try:
-            return {**self.models[key], "key": key}
-        except KeyError as exc:
-            raise EnvError(f"unknown managed model key: {key}") from exc
-
 
 def split_platform_key(platform_key: str) -> tuple[str, str]:
     if platform_key.startswith("linux-"):

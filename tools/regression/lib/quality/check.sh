@@ -715,16 +715,9 @@ quality_row_cli_flags() {
     case "$feature" in
       accurate)
         ;;
-      pdf_ocr)
-        if [[ "$format" == "pdf" ]]; then
-          flags+=("--ocr")
-        fi
-        ;;
-      ocr_lang:*)
-        flags+=("--ocr-lang" "${feature#ocr_lang:}")
-        ;;
-      audio_lang:*)
-        flags+=("--audio-lang" "${feature#audio_lang:}")
+      pdf_ocr|ocr_lang:*|audio_lang:*)
+        echo "retired media feature in quality manifest: $feature" >&2
+        return 2
         ;;
     esac
   done
@@ -752,9 +745,6 @@ quality_cli_format_value() {
   local format="$1"
   local abs_path="$2"
   case "$format" in
-    ocr)
-      quality_cli_image_format_from_path "$abs_path"
-      ;;
     *)
       printf '%s' "$format"
       ;;
@@ -1468,6 +1458,7 @@ STATUSES = [
     "skip_no_signals",
     "skip_license",
     "skip_missing_file",
+    "skip_retired_capability",
     "expected_fail",
     "unexpected_pass",
 ]
@@ -1552,6 +1543,17 @@ quality_plan_row() {
 
   local real_signal_count
   real_signal_count="$(real_signal_count_from_expected "$expected_signals")"
+
+  case "$format" in
+    audio|ocr)
+      summary_add "$id" "$format" "$source_scope" "$source_id" "$quality_tier" "skip_retired_capability" 0 0 "format retired by the 0.8 text-only migration"
+      if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
+        profile_record "$id" "row_total" "$(( $(profile_now_ms) - row_start_ms ))" "skip_retired_capability"
+      fi
+      validation_progress_step_status "skipped" "retired $id"
+      return
+      ;;
+  esac
 
   if [[ "$source_scope" == "external" && "$license_review_status" != "approved" ]]; then
     summary_add "$id" "$format" "$source_scope" "$source_id" "$quality_tier" "skip_license" 0 0 "license_review_status=$license_review_status"
@@ -2189,6 +2191,9 @@ for row in "${SUMMARY_ROWS[@]-}"; do
     skip_missing_file)
       skipped_rows=$((skipped_rows + 1))
       skipped_missing_file_rows=$((skipped_missing_file_rows + 1))
+      ;;
+    skip_retired_capability)
+      skipped_rows=$((skipped_rows + 1))
       ;;
     expected_fail)
       expected_fail_rows=$((expected_fail_rows + 1))

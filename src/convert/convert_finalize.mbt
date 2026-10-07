@@ -14,7 +14,6 @@ fn finalize_pipeline_execution(
     ..options,
     mode: execution_plan.mode,
     output_mode: execution_plan.output_mode,
-    ocr_options: execution_plan.ocr_options,
     limits: execution_plan.limits,
     rag_options: execution_plan.rag_options,
   }
@@ -219,41 +218,6 @@ fn finalize_pipeline_execution(
       }
       switches
     },
-    ocr_provider_selection_target: execution_plan.ocr_provider_selection_target.map(target => {
-        @focr.ocr_provider_selection_target_name(target)
-      },
-    ),
-    ocr_provider_requested_kind: execution_plan.ocr_provider_requested_kind.map(kind => {
-        @focr.ocr_provider_kind_name(kind)
-      },
-    ),
-    ocr_provider_resolved_kind: execution_plan.ocr_provider_resolved_kind.map(kind => {
-      @focr.ocr_provider_kind_name(kind)
-    }),
-    audio_backend_transport: parsed.metadata
-    .get("audio_backend_transport")
-    .map(value => {
-      match value {
-        String(text) => text
-        _ => execution_plan.audio_backend_transport.unwrap_or("")
-      }
-    }),
-    audio_backend_name: parsed.metadata
-    .get("audio_backend_name")
-    .map(value => {
-      match value {
-        String(text) => text
-        _ => execution_plan.audio_backend_name.unwrap_or("")
-      }
-    }),
-    audio_backend_version: parsed.metadata
-    .get("audio_backend_version")
-    .map(value => {
-      match value {
-        String(text) => text
-        _ => execution_plan.audio_backend_version.unwrap_or("")
-      }
-    }),
     requested_fidelity_mode: Some(execution_plan.requested_fidelity_mode),
   }
   Ok({ result, provenance, })

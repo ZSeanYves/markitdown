@@ -10,7 +10,8 @@
 - Define parser modes, streaming granularity, and capability declarations
 - Define the shared parse-stage `ParseContext`
 - Define the unified `ParseResult`
-- Provide synchronous and asynchronous registry registration and dispatch
+- Provide synchronous and asynchronous registry registration and dispatch;
+  `UnifiedParserRegistry` is the incremental async façade
 - Expose controlled pull streams for formats that can preserve canonical line
   or table semantics without materializing an event array
 
@@ -25,6 +26,9 @@
 - `registry.mbt`
   `registry_register`, `registry_parse`, `registry_open_event_stream`,
   `async_registry_from_sync`
+- `unified_registry.mbt`
+  `unified_registry_register`, `unified_registry_register_async`,
+  `unified_registry_parse`, `unified_registry_open_event_stream`
 - `constructors.mbt`
   `make_parser`, `parse_result_with_*`
 
@@ -33,7 +37,7 @@
 - `ParserCapability`
   Declares whether a parser can stream, whether it needs random access, and which semantics or provenance it can preserve
 - `ParseContext`
-  Carries mode, fidelity, OCR, audio, PDF policy, and resource limits
+  Carries mode, fidelity, PDF policy, and resource limits
 - `ParseResult`
   Carries exactly one of event stream, block stream, or `DocumentIR`, plus diagnostics, assets, metadata, and source map side channels
 

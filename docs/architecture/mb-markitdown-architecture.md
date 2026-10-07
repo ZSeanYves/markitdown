@@ -7,7 +7,7 @@
 Document split:
 
 1. This document defines the core chain `detect -> probe -> planner -> parse -> pipeline -> render`, together with the stable boundaries for mode, route, profile, and provenance.
-2. [optional-enhancement-architecture.md](./optional-enhancement-architecture.md) defines the optional enhancement chains, including direct image OCR, the PDF accurate high-fidelity chain, and the audio media chain.
+2. [optional-enhancement-architecture.md](./optional-enhancement-architecture.md) records the retired pre-0.8 multimodal design; it is not a current route.
 3. [benchmark-architecture.md](./benchmark-architecture.md) defines the benchmark system, the trust / gate model, and the formal measurement entry points.
 4. [../capabilities-and-limitations.md](../capabilities-and-limitations.md) defines the formal support boundary and the public capability matrix.
 
@@ -245,8 +245,8 @@ The formal route families and parser-mode vocabulary include:
 | `dom_ast_model` | Canonical route centered on a tree model | `json` `xml` `yaml` `toml` `markdown` `html` |
 | `package_single_pass` | Single pass over a package format plus typed lowering | `docx` `pptx` `xlsx` `odt` `ods` `odp` `epub` |
 | `page_single_pass` | Page-oriented born-digital canonical route | `pdf` balanced |
-| `layout_two_stage` | High-fidelity OCR / layout / page-hybrid route | direct image OCR, PDF accurate |
-| `media_pipeline` | Media-transcription main route | `wav` `mp3` `m4a` |
+| `layout_two_stage` | Reserved legacy vocabulary; current PDF routes extract text-layer geometry | PDF accurate text semantics |
+| `media_pipeline` | Retired multimodal vocabulary | no supported audio route |
 | `container_recursive` | Recursive container dispatch back into the unified main chain | `zip`, and some `epub` stream paths |
 
 Route families and parser modes may correspond closely, but their semantics must remain distinct:
@@ -319,9 +319,7 @@ It is not the planner, and it is not the product strategy table.
 
 Route-specific parse helpers are allowed in the following cases:
 
-1. direct image OCR needs OCR-provider injection
-2. PDF accurate needs OCR-provider and rasterizer injection
-3. probe has already prepared heavy artifacts and those prepared documents / packages / native PDFs should be reused to avoid redundant reads
+1. probe has already prepared heavy artifacts and those prepared documents / packages / native PDFs should be reused to avoid redundant reads
 
 This does not create a bypass product line, because these helpers must still satisfy:
 

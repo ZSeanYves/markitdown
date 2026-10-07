@@ -2,8 +2,6 @@ import {
   "ZSeanYves/markitdown/internal/readers/ooxml/package" @ox,
 }
 
-supported_targets = "native"
-
 options(
   "preferred-target": "native",
 )

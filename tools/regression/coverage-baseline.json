@@ -1,7 +1,6 @@
 {
   "formats": [
     { "covered": 59, "name": "asciidoc", "rate": 76.6234, "valid": 77 },
-    { "covered": 481, "name": "audio", "rate": 76.2282, "valid": 631 },
     { "covered": 94, "name": "csv", "rate": 90.3846, "valid": 104 },
     { "covered": 2610, "name": "docx", "rate": 75.784, "valid": 3444 },
     { "covered": 700, "name": "eml", "rate": 81.0185, "valid": 864 },
@@ -10,7 +9,6 @@
     { "covered": 676, "name": "ipynb", "rate": 85.3535, "valid": 792 },
     { "covered": 1187, "name": "json", "rate": 87.2794, "valid": 1360 },
     { "covered": 1053, "name": "markdown", "rate": 83.307, "valid": 1264 },
-    { "covered": 1107, "name": "ocr", "rate": 74.4953, "valid": 1486 },
     { "covered": 224, "name": "odp", "rate": 96.1373, "valid": 233 },
     { "covered": 276, "name": "ods", "rate": 94.198, "valid": 293 },
     { "covered": 303, "name": "odt", "rate": 81.4516, "valid": 372 },

@@ -8,8 +8,6 @@ import {
   "ZSeanYves/markitdown/runtime",
 }
 
-supported_targets = "native"
-
 options(
   "preferred-target": "native",
 )

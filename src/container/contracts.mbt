@@ -47,14 +47,15 @@ pub fn container_supported_inner_formats() -> Array[String] {
     "txt", "csv", "tsv", "srt", "vtt", "json", "jsonl", "ndjson", "ipynb", "xml",
     "yaml", "yml", "toml", "html", "htm", "markdown", "md", "tex", "latex", "rst",
     "adoc", "asciidoc", "eml", "docx", "xlsx", "pptx", "odt", "ods", "odp", "pdf",
-    "wav", "mp3", "m4a",
   ]
 }
 
 ///|
 /// Inner formats that intentionally fail closed inside root containers today.
 pub fn container_unsupported_inner_formats() -> Array[String] {
-  ["zip", "png", "jpg", "jpeg", "bmp", "webp", "tif", "tiff", "ocr"]
+  [
+    "zip", "png", "jpg", "jpeg", "bmp", "webp", "tif", "tiff", "wav", "mp3", "m4a",
+  ]
 }
 
 ///|
@@ -87,9 +88,9 @@ pub fn container_supports_inner_format(format : @input.DetectedFormat) -> Bool {
     Ods => true
     Odp => true
     Pdf => true
-    Audio(_) => true
-    // OCR is a top-level pure-image capability. Images embedded in containers
-    // remain assets and must not be promoted to child documents.
+    Audio(_) => false
+    // Images and audio are detected inputs, never child documents. Images
+    // embedded in containers remain assets.
     Image(_) => false
     _ => false
   }
@@ -101,7 +102,7 @@ pub fn container_dispatch_guardrails() -> Array[String] {
   [
     "inner document dispatch must go through the root ParserRegistry / root pipeline",
     "container parsing stays inside the canonical product path", "no format-specific side dispatcher",
-    "no nested archive recursion by default", "embedded images remain assets and never enter OCR child dispatch",
+    "no nested archive recursion by default", "embedded images remain assets and never enter recognition child dispatch",
   ]
 }
 

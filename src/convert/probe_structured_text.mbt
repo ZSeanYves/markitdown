@@ -224,19 +224,6 @@ fn text_markup_preflight_probe(
 }
 
 ///|
-fn audio_preflight_probe(
-  source : @input.InputSource,
-  format : @input.DetectedFormat,
-) -> ProbeOutcome {
-  let format_name = @input.detected_format_name(format)
-  probe_outcome(
-    format_name,
-    [@fmeta.route_name(@fmeta.canonical_route_for_format(format))],
-    source,
-  )
-}
-
-///|
 fn ipynb_preflight_probe(
   source : @input.InputSource,
   options : ConvertOptions,

@@ -12,8 +12,6 @@ pub fn new_parse_context(
     lowering_profile: Canonical,
     render_profile: DefaultMarkdown,
     accurate_features: @product.empty_accurate_feature_profile(),
-    ocr_options: default_ocr_options(),
-    audio_options: default_audio_options(),
     pdf_native_runtime_policy: default_pdf_native_runtime_policy(),
     pdf_header_footer_filter_policy: default_pdf_header_footer_filter_policy(),
     pdf_table_reconstruction_policy: default_pdf_table_reconstruction_policy(),
@@ -24,24 +22,6 @@ pub fn new_parse_context(
     max_line_chars: None,
     debug: false,
   }
-}
-
-///|
-/// Default OCR policy for normal product execution.
-pub fn default_ocr_options() -> OcrOptions {
-  { intent: Auto, language: None, }
-}
-
-///|
-/// Default audio-transcription hints for media inputs.
-pub fn default_audio_options() -> AudioOptions {
-  { language: None, }
-}
-
-///|
-/// Build explicit audio options, typically from CLI input.
-pub fn explicit_audio_options(language? : String? = None) -> AudioOptions {
-  { language, }
 }
 
 ///|
@@ -57,37 +37,6 @@ pub fn default_pdf_header_footer_filter_policy() -> PdfHeaderFooterFilterPolicy 
 ///|
 pub fn default_pdf_table_reconstruction_policy() -> PdfTableReconstructionPolicy {
   Disabled
-}
-
-///|
-/// Return OCR options that hard-disable OCR while still preserving an optional
-/// language hint.
-pub fn disabled_ocr_options(language? : String? = None) -> OcrOptions {
-  { intent: Disabled, language, }
-}
-
-///|
-/// Return OCR options that explicitly force OCR with an optional language hint.
-pub fn explicit_ocr_options(language? : String? = None) -> OcrOptions {
-  { intent: Explicit, language, }
-}
-
-///|
-/// Return a copy of `context` with updated OCR settings.
-pub fn parse_context_with_ocr_options(
-  context : ParseContext,
-  ocr_options : OcrOptions,
-) -> ParseContext {
-  { ..context, ocr_options, }
-}
-
-///|
-/// Return a copy of `context` with updated audio-transcription hints.
-pub fn parse_context_with_audio_options(
-  context : ParseContext,
-  audio_options : AudioOptions,
-) -> ParseContext {
-  { ..context, audio_options, }
 }
 
 ///|
@@ -276,19 +225,8 @@ pub fn parse_context_with_asset_limits(
     max_input_bytes=current.max_input_bytes,
     max_asset_bytes~,
     max_total_asset_bytes~,
-    external_command_timeout_ms=current.external_command_timeout_ms,
-    max_external_output_bytes=current.max_external_output_bytes,
   )
   { ..context, limits, }
-}
-
-///|
-pub fn ocr_intent_name(intent : OcrIntent) -> String {
-  match intent {
-    Disabled => "disabled"
-    Auto => "auto"
-    Explicit => "explicit"
-  }
 }
 
 ///|

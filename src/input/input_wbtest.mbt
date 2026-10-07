@@ -15,7 +15,7 @@ test "input detection honors explicit mime extension and heuristic priority" {
     |> with_mime_type(Some(" image/png "))
   let mime_result = (default_format_detector().detect)(mime)
   assert_true(mime_result.format == Image(Png))
-  assert_true(mime_result.notes.contains("image_ocr_candidate"))
+  assert_true(mime_result.notes.contains("image_input"))
 
   let extension = detect_format(input_from_path("/tmp/report.DOCX"))
   assert_true(extension.format == Docx)

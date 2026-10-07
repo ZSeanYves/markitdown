@@ -1,4 +1,11 @@
 ///|
+fn run_cli_without_emitting_warnings(
+  opts : CliOptions,
+) -> Result[String, String] {
+  cli_public_result(run_cli_impl(opts, false))
+}
+
+///|
 fn test_tmp_root() -> String {
   ".tmp/tests/cli"
 }
@@ -24,84 +31,23 @@ fn read_utf8_text(path : String) -> String {
 }
 
 ///|
-fn run_cli_without_emitting_warnings(
-  opts : CliOptions,
-) -> Result[String, String] {
-  cli_public_result(
-    run_cli_with_image_ocr_provider_impl(opts, @focr.run_ocr_provider, false),
-  )
-}
-
-///|
-fn fake_cli_failing_image_provider(
-  expected_input : String,
-  expected_language : String?,
-  error : @focr.OcrProviderError,
-) -> (@focr.OcrProviderRequest) -> Result[
-  @focr.OcrProviderResult,
-  @focr.OcrProviderError,
-] {
-  fn(request : @focr.OcrProviderRequest) {
-    if request.image_path != expected_input {
-      abort("unexpected image path")
-    }
-    if request.language != expected_language {
-      abort("unexpected OCR language")
-    }
-    Err(error)
-  }
-}
-
-///|
 fn cli_options(
   input : String,
   output : String?,
   explicit_format : @input.DetectedFormat?,
   output_format : @convert.OutputFormat,
   provenance_output? : String? = None,
-  ocr_options? : @parser.OcrOptions = @parser.default_ocr_options(),
-  audio_options? : @parser.AudioOptions = @parser.default_audio_options(),
 ) -> CliOptions {
   make_cli_options(
     input,
     output,
     provenance_output,
     explicit_format,
-    ocr_options,
     Balanced,
     Balanced,
     @convert.output_mode_for_output_format(output_format),
     false,
     output_format,
     rag_options=@rag.default_rag_options(),
-    audio_options~,
   )
-}
-
-///|
-fn fake_cli_image_provider(
-  expected_input : String,
-  expected_language : String?,
-) -> (@focr.OcrProviderRequest) -> Result[
-  @focr.OcrProviderResult,
-  @focr.OcrProviderError,
-] {
-  fn(request : @focr.OcrProviderRequest) {
-    if request.image_path != expected_input {
-      abort("unexpected image path")
-    }
-    if request.language != expected_language {
-      abort("unexpected OCR language")
-    }
-    let tsv = [
-      "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext",
-      "5\t1\t1\t1\t1\t1\t10\t10\t20\t10\t95\tMoonBit", "5\t1\t1\t1\t1\t2\t35\t10\t15\t10\t94\tOCR",
-      "5\t1\t1\t1\t2\t1\t10\t25\t22\t10\t93\tSample", "5\t1\t1\t1\t2\t2\t36\t25\t18\t10\t92\t123",
-    ].join("\n")
-    match @focr.parse_tesseract_tsv(tsv, language=request.language) {
-      Ok(value) => Ok(value)
-      Err(err) =>
-        abort("expected fake cli OCR TSV parse success: " + err.to_string())
-    }
-  }
 }

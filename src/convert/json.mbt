@@ -11,17 +11,6 @@ fn route_plan_from_execution_plan(
       execution_plan.probe_summary_parts,
     ),
     requested_parser_mode: execution_plan.requested_parser_mode,
-    ocr_provider_selection_target: execution_plan.ocr_provider_selection_target.map(target => {
-        @focr.ocr_provider_selection_target_name(target)
-      },
-    ),
-    ocr_provider_requested_kind: execution_plan.ocr_provider_requested_kind.map(kind => {
-        @focr.ocr_provider_kind_name(kind)
-      },
-    ),
-    ocr_provider_resolved_kind: execution_plan.ocr_provider_resolved_kind.map(kind => {
-      @focr.ocr_provider_kind_name(kind)
-    }),
   }
 }
 
@@ -92,9 +81,6 @@ pub fn route_plan_to_json(route_plan : RoutePlan) -> Json {
     "requested_parser_mode": route_plan.requested_parser_mode
     .map(mode => @parser.mode_name(mode))
     .to_json(),
-    "ocr_provider_selection_target": route_plan.ocr_provider_selection_target.to_json(),
-    "ocr_provider_requested_kind": route_plan.ocr_provider_requested_kind.to_json(),
-    "ocr_provider_resolved_kind": route_plan.ocr_provider_resolved_kind.to_json(),
   })
 }
 
@@ -120,12 +106,6 @@ pub fn convert_provenance_to_json(provenance : ConvertProvenance) -> Json {
     "route_fidelity_status": provenance.route_fidelity_status.to_json(),
     "applied_accurate_features": provenance.applied_accurate_features.to_json(),
     "same_mode_strategy_switches": provenance.same_mode_strategy_switches.to_json(),
-    "ocr_provider_selection_target": provenance.ocr_provider_selection_target.to_json(),
-    "ocr_provider_requested_kind": provenance.ocr_provider_requested_kind.to_json(),
-    "ocr_provider_resolved_kind": provenance.ocr_provider_resolved_kind.to_json(),
-    "audio_backend_transport": provenance.audio_backend_transport.to_json(),
-    "audio_backend_name": provenance.audio_backend_name.to_json(),
-    "audio_backend_version": provenance.audio_backend_version.to_json(),
     "requested_fidelity_mode": provenance.requested_fidelity_mode
     .map(mode => fidelity_mode_name(mode))
     .to_json(),

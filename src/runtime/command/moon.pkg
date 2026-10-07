@@ -4,13 +4,16 @@ import {
   "moonbitlang/async/process",
   "moonbitlang/core/env",
   "moonbitlang/core/encoding/utf8",
-  "moonbitlang/core/string",
   "moonbitlang/x/fs",
 }
-
-supported_targets = "native"
 
 options(
   "preferred-target": "native",
   "native-stub": [ "path_native_stub.c", "process_runner_native_stub.c" ],
+  targets: {
+    "command_native.mbt": [ "native" ],
+    "command_portable.mbt": [ "wasm", "wasm-gc", "js" ],
+    "process_runner_native.mbt": [ "native" ],
+    "process_runner_portable.mbt": [ "wasm", "wasm-gc", "js" ],
+  },
 )

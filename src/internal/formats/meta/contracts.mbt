@@ -142,9 +142,6 @@ pub fn product_parser_contract_specs() -> Array[ParserContractSpec] {
     pptx_parser_contract_spec(),
     xlsx_parser_contract_spec(),
     pdf_native_parser_contract_spec(),
-    pdf_ocr_parser_contract_spec(),
-    audio_parser_contract_spec(),
-    image_ocr_parser_contract_spec(),
   ]
 }
 
@@ -180,9 +177,7 @@ pub fn product_parser_contract_spec_by_format(
     Pptx => Some(pptx_parser_contract_spec())
     Xlsx => Some(xlsx_parser_contract_spec())
     Pdf => Some(pdf_native_parser_contract_spec())
-    Audio(_) => Some(audio_parser_contract_spec())
-    Image(_) => Some(image_ocr_parser_contract_spec())
-    Unknown => None
+    Audio(_) | Image(_) | Unknown => None
   }
 }
 
@@ -443,7 +438,7 @@ pub fn page_single_pass_parser_contract_spec(
     ["page"],
     source_ref_extra_keys,
     [
-      "page-single-pass stays canonical for native text pdf-like documents", "layout/ocr route stays explicit and diagnostics-visible",
+      "page-single-pass stays canonical for native text pdf-like documents", "unsupported media routes stay explicit and diagnostics-visible",
     ],
     policies,
     foundations,
@@ -971,80 +966,7 @@ pub fn pdf_native_parser_contract_spec() -> ParserContractSpec {
     ],
     [],
     policies=[
-      "pdf native route is page-single-pass and text-first", "ocr and accurate layout stay explicit alternate routes",
+      "pdf native route is page-single-pass and text-first", "scanned-page recognition stays unsupported and explicit",
     ],
-  )
-}
-
-///|
-pub fn pdf_ocr_parser_contract_spec() -> ParserContractSpec {
-  make_parser_contract_spec(
-    "pdf_accurate_layout_parser",
-    LayoutTwoStage,
-    Page,
-    "document",
-    [
-      "page_count", "table_count", "image_count", "asset_count", "pdf_native_backend",
-      "pdf_native_text_baseline", "pdf_ocr_used", "ocr_provider_status", "pdf_page_route_summary",
-      "pdf_raster_backend", "warning_count", "error_count", "fallback_count",
-    ],
-    ["page"],
-    [],
-    [
-      "accurate pdf route reuses native document facts and only overlays ocr where needed",
-      "productized uri links and scoped single-page tables stay on the shared document pipeline",
-    ],
-    [
-      "accurate pdf route is the explicit layout-two-stage alternate route", "born-digital accurate output must be a semantic superset of balanced native output",
-    ],
-    ["formats/pdf/native", "formats/ocr"],
-    @oxshared.parser_contract_required_foundation_exclusions(),
-  )
-}
-
-///|
-pub fn image_ocr_parser_contract_spec() -> ParserContractSpec {
-  make_parser_contract_spec(
-    "image_ocr_parser",
-    LayoutTwoStage,
-    Page,
-    "document",
-    [
-      "parser_name", "parser_mode", "detected_format", "ir_input_kind", "ocr_provider_wired",
-      "ocr_provider_status", "provider_invoked", "block_count", "image_count", "asset_count",
-    ],
-    ["page", "bbox"],
-    [],
-    [
-      "image ocr remains explicit and diagnostics-first", "ocr runtime execution is provider-owned and not implied by ordinary text formats",
-    ],
-    [],
-    ["formats/ocr"],
-    @oxshared.parser_contract_required_foundation_exclusions(),
-  )
-}
-
-///|
-pub fn audio_parser_contract_spec() -> ParserContractSpec {
-  make_parser_contract_spec(
-    "audio_parser",
-    MediaPipeline,
-    None,
-    "document",
-    [
-      "parser_name", "parser_mode", "effective_mode", "detected_format", "ir_input_kind",
-      "builder_input_kind", "event_granularity", "event_semantics", "audio_backend_transport",
-      "audio_backend_name", "audio_backend_version", "audio_duration_ms", "audio_sample_rate_hz",
-      "audio_channel_count", "audio_codec", "audio_language", "audio_segment_count",
-      "block_count", "warning_count", "degraded_feature_count", "fallback_count",
-    ],
-    ["time_start", "time_end"],
-    ["audio_segment_id", "audio_start_ms", "audio_end_ms"],
-    [
-      "audio media pipeline stays transcript-only in P0", "segment time boundaries are first-class source ref fields and chunking anchors",
-    ],
-    ["accurate audio intentionally degrades to balanced backend during P0"],
-    ["formats/audio"],
-    @oxshared.parser_contract_required_foundation_exclusions(),
   )
 }

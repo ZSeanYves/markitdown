@@ -1,7 +1,8 @@
 # Stable Library API 0.8
 
 `ZSeanYves/markitdown/api` is the only compatibility-stable library package in
-the 0.8 line. It is native-only and supports macOS and Linux. All other project
+the 0.8 line. Its text contract builds on Native and linear Wasm. Native-only
+extensions are isolated below the façade. All other project
 packages are implementation or extension packages and may change without a
 deprecation period before 1.0.
 
@@ -10,7 +11,7 @@ deprecation period before 1.0.
 The façade exposes only implementation-neutral models:
 
 - `Input` with Path, Text, Bytes and Reader constructors;
-- `ConvertOptions`, `ResourceLimits`, `RagOptions`, conversion/OCR/output modes;
+- `ConvertOptions`, `ResourceLimits`, `RagOptions`, conversion/output modes;
 - `Output`, `Asset`, `SourceMap`, `Chunk`, `Diagnostic`, `Provenance` and
   `Capability`;
 - typed `ConvertError`, stable `ErrorCode` strings and process exit mappings;
@@ -55,6 +56,7 @@ their `with_*` methods to set every supported field before attaching them to
 | --- | --- | ---: |
 | invalid option or CLI usage | `MID-0002` | 2 |
 | detection/input failure | `MID-1001` | 3 |
+| unsupported capability | `MID-1002` | 3 |
 | parse/conversion failure | `MID-2001` | 4 |
 | resource limit | `MID-4001` | 5 |
 | render/write failure | `MID-3001` | 6 |
@@ -65,11 +67,12 @@ are the machine contract. Callers must not parse message text.
 ## Capability and extension policy
 
 `capabilities()` reports every accepted format with supported input kinds,
-conversion modes, output modes and external requirements. Image OCR and audio
-formats are `ExternalRuntime`; their provider and process types remain outside
-the stable API. Core conversion performs no network access. A future network or
-cloud implementation must be a separate opt-in extension and cannot become a
-transitive requirement of this package.
+conversion modes, output modes and external requirements. Image and audio
+inputs are explicitly `Unsupported` in the text-only core and produce the
+typed `UnsupportedCapability` error. Core conversion performs no network or
+Python runtime access. A future recognition or cloud implementation must be a
+separate opt-in extension and cannot become a transitive requirement of this
+package.
 
 ## Changing the surface
 

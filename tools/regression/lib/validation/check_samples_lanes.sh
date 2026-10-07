@@ -10,10 +10,6 @@ sample_lane_cli_args() {
   local fmt="$1"
   local lane="$2"
   local _rel="$3"
-  if [[ "$fmt" == "pdf" && "$lane" == "ocr" ]]; then
-    printf '%s\n' "--ocr"
-    return 0
-  fi
   return 0
 }
 

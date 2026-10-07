@@ -40,7 +40,9 @@ class ReleaseManifestTests(unittest.TestCase):
                 self.assertEqual(len(cli_fingerprint["sha256"]), 64)
             else:
                 self.assertIsNone(cli_fingerprint["sha256"])
-            self.assertIn("available", payload["runtime_fingerprints"]["pdftoppm"])
+            self.assertNotIn("tesseract", payload["runtime_fingerprints"])
+            self.assertNotIn("pdftoppm", payload["runtime_fingerprints"])
+            self.assertNotIn("ffmpeg", payload["runtime_fingerprints"])
 
     def test_missing_commands_are_recorded_as_unavailable(self) -> None:
         with tempfile.TemporaryDirectory() as raw_tmp:
@@ -59,7 +61,7 @@ class ReleaseManifestTests(unittest.TestCase):
             self.assertEqual(completed.returncode, 0)
             payload = json.loads(output.read_text(encoding="utf-8"))
             self.assertEqual(payload["moon_version"], "unavailable")
-            self.assertFalse(payload["runtime_fingerprints"]["pdftoppm"]["available"])
+            self.assertFalse(payload["runtime_fingerprints"]["markitdown"]["available"])
 
     def test_missing_artifact_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory() as raw_tmp:

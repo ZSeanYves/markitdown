@@ -72,27 +72,6 @@ pub fn capabilities() -> Array[Capability] {
       ],
     ),
   )
-  for format in ["wav", "mp3", "m4a"] {
-    output.push(
-      capability(
-        format,
-        input_kinds=[Path, Bytes, Reader],
-        status=ExternalRuntime,
-        external_requirements=["audio transcription runtime"],
-      ),
-    )
-  }
-  for format in ["png", "jpg", "jpeg", "bmp", "webp", "tif", "tiff"] {
-    output.push(
-      capability(
-        format,
-        input_kinds=[Path, Bytes, Reader],
-        convert_modes=[Balanced, Accurate],
-        status=ExternalRuntime,
-        external_requirements=["OCR runtime"],
-      ),
-    )
-  }
   for
     format in [
       "xls", "outlook-msg", "rss", "atom", "wikipedia", "youtube", "bing-serp", "azure-document-intelligence",
@@ -108,5 +87,87 @@ pub fn capabilities() -> Array[Capability] {
       ),
     )
   }
+  for
+    format in [
+      "png", "jpg", "jpeg", "bmp", "webp", "tif", "tiff", "wav", "mp3", "m4a",
+    ] {
+    output.push(
+      capability(
+        format,
+        input_kinds=[],
+        convert_modes=[],
+        output_modes=[],
+        status=Unsupported,
+        external_requirements=[
+          "image recognition and audio transcription are outside the text-only core",
+        ],
+      ),
+    )
+  }
   output
+}
+
+///|
+/// Return the capability registry in the same deterministic JSON shape used
+/// by the CLI. Keeping serialization here makes the public API manifest the
+/// single source for consumers and avoids a second CLI-only format list.
+pub fn capabilities_json() -> String {
+  let status_name = fn(status : CapabilityStatus) {
+    match status {
+      Stable => "stable"
+      Experimental => "experimental"
+      ExternalRuntime => "external_runtime"
+      Unsupported => "unsupported"
+    }
+  }
+  let quote_array = fn(values : Array[String]) {
+    "[" + values.map(value => @core.json_string(value)).join(",") + "]"
+  }
+  let rows = capabilities().map(entry => {
+    "{" +
+    "\"format\":" +
+    @core.json_string(entry.format) +
+    ",\"canonical_format\":" +
+    @core.json_string(entry.canonical_format) +
+    ",\"status\":" +
+    @core.json_string(status_name(entry.status)) +
+    ",\"input_kinds\":" +
+    quote_array(entry.input_kinds.map(input_kind_name)) +
+    ",\"convert_modes\":" +
+    quote_array(entry.convert_modes.map(convert_mode_name)) +
+    ",\"output_modes\":" +
+    quote_array(entry.output_modes.map(output_mode_name)) +
+    ",\"external_requirements\":" +
+    quote_array(entry.external_requirements) +
+    "}"
+  })
+  "[" + rows.join(",") + "]"
+}
+
+///|
+fn input_kind_name(kind : InputKind) -> String {
+  match kind {
+    Path => "path"
+    Text => "text"
+    Bytes => "bytes"
+    Reader => "reader"
+  }
+}
+
+///|
+fn convert_mode_name(mode : ConvertMode) -> String {
+  match mode {
+    Balanced => "balance"
+    Accurate => "accurate"
+    Stream => "stream"
+  }
+}
+
+///|
+fn output_mode_name(mode : OutputMode) -> String {
+  match mode {
+    Markdown => "markdown"
+    Debug => "debug"
+    Rag => "rag"
+  }
 }

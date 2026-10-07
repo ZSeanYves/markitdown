@@ -16,7 +16,6 @@ fn balanced_markdown_options(format : @input.DetectedFormat) -> ConvertOptions {
     Balanced,
     Markdown,
     Some(format),
-    @parser.default_ocr_options(),
     default_resource_limits(),
   )
 }
@@ -51,7 +50,6 @@ test "route policy rejects unsupported modes and keeps declared stream routes" {
     Accurate,
     Markdown,
     Some(Toml),
-    @parser.default_ocr_options(),
     default_resource_limits(),
   )
   match detect_and_resolve_execution_plan(toml_source, accurate_toml) {
@@ -70,7 +68,6 @@ test "route policy rejects unsupported modes and keeps declared stream routes" {
     Stream,
     Markdown,
     Some(Pdf),
-    @parser.default_ocr_options(),
     default_resource_limits(),
   )
   match detect_and_resolve_execution_plan(pdf_source, stream_pdf) {
@@ -86,7 +83,6 @@ test "route policy rejects unsupported modes and keeps declared stream routes" {
     Stream,
     Markdown,
     Some(Json),
-    @parser.default_ocr_options(),
     default_resource_limits(),
   )
   match detect_and_resolve_execution_plan(json_source, stream_json) {
@@ -341,7 +337,7 @@ test "structured text preflight probes expose signals and controlled failures" {
 }
 
 ///|
-test "notebook XML HTML and audio preflight probes cover normal and damaged inputs" {
+test "notebook XML and HTML preflight probes cover normal and damaged inputs" {
   let ipynb_text = "{\"cells\":[{\"cell_type\":\"markdown\",\"metadata\":{},\"source\":[\"hello\"]}],\"metadata\":{},\"nbformat\":4,\"nbformat_minor\":5}"
   let ipynb = ipynb_preflight_probe(
     text_markup_probe_source(ipynb_text, Ipynb),
@@ -379,17 +375,6 @@ test "notebook XML HTML and audio preflight probes cover normal and damaged inpu
   )
   assert_true(html.probe_signals.length() >= 4)
   assert_eq(html.probe_artifacts.length(), 1)
-
-  let audio = audio_preflight_probe(
-    @input.input_from_bytes_with_format(
-      Bytes::from_array([]),
-      "empty.wav",
-      Some(Audio(Wav)),
-    ),
-    Audio(Wav),
-  )
-  assert_eq(audio.probe_failures.length(), 0)
-  assert_true(audio.summary_parts.length() >= 1)
 }
 
 ///|

@@ -17,10 +17,9 @@ class CoverageGateTests(unittest.TestCase):
         xml = """<coverage><packages><package><classes>
         <class filename="src/convert/a.mbt"><lines><line number="1" hits="1"/><line number="2" hits="0"/></lines></class>
         <class filename="src/formats/html/parser.mbt"><lines><line number="1" hits="1"/></lines></class>
-        <class filename="formats/audio/runtime.mbt"><lines><line number="1" hits="1"/><line number="2" hits="0"/></lines></class>
         <class filename="src/cli/a.mbt"><lines><line number="1" hits="0"/></lines></class>
         <class filename="src/internal/bench_runner/a.mbt"><lines><line number="1" hits="1"/></lines></class>
-        <class filename="cli/main.mbt"><lines><line number="1" hits="0"/></lines></class>
+        <class filename="main.mbt"><lines><line number="1" hits="0"/></lines></class>
         <class filename="runtime/process/process.mbt"><lines><line number="1" hits="0"/></lines></class>
         <class filename="internal/readers/pdf/gb2312_data.mbt"><lines><line number="1" hits="0"/></lines></class>
         </classes></package></packages></coverage>"""
@@ -35,18 +34,13 @@ class CoverageGateTests(unittest.TestCase):
         self.assertEqual(groups["core"]["threshold"], 90.0)
         self.assertEqual(groups["formats"]["threshold"], 80.0)
         self.assertEqual(groups["tools"]["threshold"], 70.0)
-        runtime_file = next(
-            item for item in summary["files"] if item["path"] == "formats/audio/runtime.mbt"
-        )
-        self.assertEqual(runtime_file["group"], "tools")
         self.assertFalse(summary["passed"])
         formats = {item["name"]: item for item in summary["formats"]}
         self.assertEqual(formats["html"]["rate"], 100.0)
-        self.assertEqual(formats["audio"]["rate"], 50.0)
-        self.assertIn("cli/main.mbt", summary["excluded_files"])
+        self.assertIn("main.mbt", summary["excluded_files"])
         self.assertIn("runtime/process/process.mbt", summary["excluded_files"])
         included_paths = {item["path"] for item in summary["files"]}
-        self.assertNotIn("cli/main.mbt", included_paths)
+        self.assertNotIn("main.mbt", included_paths)
         self.assertNotIn("runtime/process/process.mbt", included_paths)
         self.assertIn("internal/bench_runner/a.mbt", included_paths)
 

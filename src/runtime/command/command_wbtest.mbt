@@ -90,6 +90,7 @@ test "shell command quoting and splitting round trips complex arguments" {
 }
 
 ///|
+#cfg(target="native")
 test "command environment and repo-relative paths normalize safely" {
   command_with_env("MARKITDOWN_COMMAND_TEST", "  value  ", () => {
     assert_true(normalized_env_var("MARKITDOWN_COMMAND_TEST") == Some("value"))
@@ -111,6 +112,7 @@ test "command environment and repo-relative paths normalize safely" {
 }
 
 ///|
+#cfg(target="native")
 test "command executable resolution rejects invalid paths and finds PATH tools" {
   assert_true(!is_executable_file(""))
   assert_true(find_in_path("", None) is None)
@@ -147,6 +149,7 @@ test "command executable resolution rejects invalid paths and finds PATH tools" 
 }
 
 ///|
+#cfg(target="native")
 test "repo-managed command records resolve hermetically" {
   let root = command_test_module_root()
   let name = "command-wbtest-shell"
@@ -175,6 +178,7 @@ test "repo-managed command records resolve hermetically" {
 }
 
 ///|
+#cfg(target="native")
 test "external runner passes argv directly and captures separate outputs" {
   let command = make_resolved_command("/bin/sh", "/bin/sh", ExplicitArg)
   let output = run_resolved_command(command, [
@@ -187,6 +191,7 @@ test "external runner passes argv directly and captures separate outputs" {
 }
 
 ///|
+#cfg(target="native")
 test "external runner enforces timeout and output ceilings" {
   let shell = make_resolved_command("/bin/sh", "/bin/sh", ExplicitArg)
   let timed = run_resolved_command(
@@ -215,6 +220,7 @@ test "external runner enforces timeout and output ceilings" {
 }
 
 ///|
+#cfg(target="native")
 async test "async external runner enforces timeout and output ceilings" {
   let shell = make_resolved_command("/bin/sh", "/bin/sh", ExplicitArg)
   let timed = run_resolved_command_async(
@@ -243,6 +249,7 @@ async test "async external runner enforces timeout and output ceilings" {
 }
 
 ///|
+#cfg(target="native")
 async test "async external runner is cancellable and reaps the child" {
   let shell = make_resolved_command("/bin/sh", "/bin/sh", ExplicitArg)
   let started = @env.now()

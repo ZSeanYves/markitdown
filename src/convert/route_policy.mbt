@@ -45,8 +45,6 @@ fn execution_intent(options : ConvertOptions) -> ExecutionIntent {
     requested_fidelity_mode: fidelity_mode,
     output_mode: options.output_mode,
     stream_requested: options.mode == Stream,
-    ocr_options: options.ocr_options,
-    audio_options: options.audio_options,
     limits: options.limits,
     rag_options: options.rag_options,
   }
@@ -59,7 +57,7 @@ fn pdf_header_footer_filter_policy_for_plan(
   selected_route : CanonicalRoute,
 ) -> @parser.PdfHeaderFooterFilterPolicy {
   if detected_format == Pdf &&
-    selected_route == LayoutTwoStage &&
+    selected_route == PageSinglePass &&
     fidelity_mode == Accurate {
     InternalHighConfidenceOnly
   } else {
@@ -75,7 +73,7 @@ fn pdf_table_reconstruction_policy_for_plan(
 ) -> @parser.PdfTableReconstructionPolicy {
   if detected_format == Pdf &&
     (
-      (selected_route == LayoutTwoStage && fidelity_mode == Accurate) ||
+      (selected_route == PageSinglePass && fidelity_mode == Accurate) ||
       selected_route == PageSinglePass
     ) {
     InternalSimpleRowsOnly
@@ -357,17 +355,6 @@ fn resolve_execution_plan(
   let switches = strategy_switches_for_plan(
     detected_format, effective_intent, selected, mode_policy, execution_profile,
   )
-  let ocr_provider_target = ocr_provider_target_for_plan(
-    detected_format,
-    effective_intent.fidelity_mode,
-    strategy_route_parser_mode(selected),
-  )
-  let ocr_provider_requested_kind = ocr_provider_target.map(target => {
-    @focr.default_ocr_provider_kind_for_target(target)
-  })
-  let ocr_provider_resolved_kind = ocr_provider_target.map(target => {
-    @focr.resolved_ocr_provider_kind_for_target(target)
-  })
   let strategy_mode = if effective_intent.stream_requested &&
     mode_policy.explicit_stream_supported &&
     selected.route == mode_policy.canonical.route &&
@@ -376,24 +363,12 @@ fn resolve_execution_plan(
   } else {
     effective_intent.strategy_mode
   }
-  let (audio_backend_transport, audio_backend_name, audio_backend_version) = match
-    detected_format {
-    Audio(_) =>
-      (
-        Some(@faudio.audio_backend_transport_name()),
-        Some(@faudio.audio_backend_name()),
-        None,
-      )
-    _ => (None, None, None)
-  }
   {
     detected_format,
     mode: strategy_mode,
     fidelity_mode: effective_intent.fidelity_mode,
     requested_fidelity_mode: intent.requested_fidelity_mode,
     output_mode: effective_intent.output_mode,
-    ocr_options: effective_intent.ocr_options,
-    audio_options: effective_intent.audio_options,
     limits: effective_intent.limits,
     rag_options: effective_intent.rag_options,
     selected_route: selected.route,
@@ -433,37 +408,9 @@ fn resolve_execution_plan(
     probe_summary_format: probe.summary_format,
     probe_summary_parts: probe.summary_parts,
     same_mode_strategy_switches: switches,
-    ocr_provider_selection_target: ocr_provider_target,
-    ocr_provider_requested_kind,
-    ocr_provider_resolved_kind,
-    audio_backend_transport,
-    audio_backend_name,
-    audio_backend_version,
     prepared_source: probe.prepared_source,
     probe_artifacts: probe.probe_artifacts,
   }
-}
-
-///|
-fn ocr_provider_target_for_plan(
-  detected_format : @input.DetectedFormat,
-  fidelity_mode : FidelityMode,
-  requested_parser_mode : @parser.ParserMode?,
-) -> @focr.OcrProviderSelectionTarget? {
-  if @input.detected_format_is_image_candidate(detected_format) {
-    return Some(
-      if fidelity_mode == Accurate {
-        DirectImageAccurate
-      } else {
-        DirectImageBalanced
-      },
-    )
-  }
-  if detected_format == Pdf && requested_parser_mode == Some(LayoutTwoStage) {
-    ignore(fidelity_mode)
-    return Some(PdfAccurate)
-  }
-  None
 }
 
 ///|
@@ -495,12 +442,17 @@ fn detect_and_resolve_execution_plan(
   }
   match detect_input(bounded_source, options) {
     Ok((effective_source, detected)) => {
+      if detected.format is (Audio(_) | Image(_)) {
+        return Err(
+          UnsupportedCapability(
+            @input.detected_format_name(detected.format) +
+            ": OCR and audio transcription are not supported",
+          ),
+        )
+      }
       let policy = @fmeta.route_contract_for_format(detected.format)
       let accurate_requested = options.mode == Accurate
-      let accurate_supported = @input.detected_format_is_image_candidate(
-          detected.format,
-        ) ||
-        policy.accurate.accurate_features.length() > 0
+      let accurate_supported = policy.accurate.accurate_features.length() > 0
       if accurate_requested && !accurate_supported {
         return Err(
           ParseFailed(

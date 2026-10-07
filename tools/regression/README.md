@@ -10,7 +10,7 @@ Formal corpora come from the quality-lab commit pinned by
 
 | Command | Evidence source | Pass/fail basis |
 | --- | --- | --- |
-| `check_balance.sh` | `external_main_process/MANIFEST.tsv` | Exact Markdown/OCR output, structured RAG expectations, and exact asset files |
+| `check_balance.sh` | `external_main_process/MANIFEST.tsv` | Exact Markdown output, structured RAG expectations, and exact asset files |
 | `check_balance_quality.sh` | `external_quality/MANIFEST.tsv` | Approved real-world files satisfy every declared semantic/asset signal |
 | `check_accurate.sh` | `external_accurate/MANIFEST.tsv` | Accurate runtime preflight succeeds and every accurate-only signal passes |
 | `check_coverage.sh --enforce` | MoonBit Cobertura output plus the 0.6 format baseline | core >=90%, formats >=80%, tools >=70%, no format drops by more than 0.5pp, and changed production lines >=80% when a baseline ref is supplied |
@@ -27,7 +27,7 @@ id  format  lane  input_path  expected_path  notes
 
 The lane selects the judge:
 
-- `markdown` / `ocr`: generated Markdown must exactly match the checked-in
+- `markdown`: generated Markdown must exactly match the checked-in
   expected file. A conversion error, missing expected file or diff is failure.
 - `rag`: output must be valid JSON and contain the declared output/format/mode,
   metadata, diagnostics, source-map policy and chunk expectations. Expected
@@ -67,10 +67,9 @@ Signals are evaluated against the requested Markdown, debug or provenance view.
 Asset paths must remain inside the artifact directory; hashes and magic bytes
 validate actual files, not merely Markdown links.
 
-`check_balance_quality.sh` rejects rows tagged `accurate`. It also requires the
-managed balance/audio fingerprints. `check_accurate.sh` first checks the
-PaddleOCR import, wrapper protocol, models, Tesseract and `pdftoppm`, then runs
-only the declared accurate formats.
+`check_balance_quality.sh` rejects rows tagged `accurate`. `check_accurate.sh`
+runs Office/ODF/PDF text semantics through the shared conversion pipeline. OCR,
+audio and scanned-page recognition rows are retired and fail closed.
 
 License rejection, missing payload and absent executable signals are recorded
 as distinct skip reasons. Formal release evidence requires zero unexpected
@@ -106,7 +105,7 @@ quality-lab commit before its formal rows are treated as auditable evidence.
 ## Running and Reading Evidence
 
 ```bash
-moon build --target native --package ZSeanYves/markitdown/cli
+moon build --target native --package ZSeanYves/markitdown
 ./tools/regression/check_balance.sh
 ./tools/regression/check_balance_quality.sh
 ./tools/regression/check_accurate.sh

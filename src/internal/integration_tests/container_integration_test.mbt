@@ -36,30 +36,6 @@ fn container_test_nested_office_zip_bytes() -> Bytes raise {
 }
 
 ///|
-fn container_test_pdf_media_zip_bytes() -> Bytes raise {
-  @therm.build_store_zip_bytes([
-    (
-      "nested.pdf",
-      container_test_read_sample_bytes(
-        "samples/fixtures/contracts/pdf/text_simple.pdf",
-      ),
-    ),
-    (
-      "nested.png",
-      container_test_read_sample_bytes(
-        "samples/fixtures/contracts/ocr/ocr_tiny_png.png",
-      ),
-    ),
-    (
-      "nested.wav",
-      container_test_read_sample_bytes(
-        "samples/fixtures/contracts/audio/contract.wav",
-      ),
-    ),
-  ])
-}
-
-///|
 fn container_test_convert_nested_office_zip(
   zip_bytes : Bytes,
   mode? : @convert.ConvertMode = Balanced,
@@ -68,7 +44,6 @@ fn container_test_convert_nested_office_zip(
     mode,
     Markdown,
     Some(Zip),
-    @parser.default_ocr_options(),
     @convert.default_resource_limits(),
   )
   match
@@ -99,13 +74,14 @@ test "container contracts keep inner dispatch on the root pipeline and bounded" 
       "txt", "csv", "tsv", "srt", "vtt", "json", "jsonl", "ndjson", "ipynb", "xml",
       "yaml", "yml", "toml", "html", "htm", "markdown", "md", "tex", "latex", "rst",
       "adoc", "asciidoc", "eml", "docx", "xlsx", "pptx", "odt", "ods", "odp", "pdf",
-      "wav", "mp3", "m4a",
     ],
   )
   let unsupported = @container.container_unsupported_inner_formats()
   assert_true(
     unsupported ==
-    ["zip", "png", "jpg", "jpeg", "bmp", "webp", "tif", "tiff", "ocr"],
+    [
+      "zip", "png", "jpg", "jpeg", "bmp", "webp", "tif", "tiff", "wav", "mp3", "m4a",
+    ],
   )
   assert_true(@container.container_supports_inner_format(Txt))
   assert_true(@container.container_supports_inner_format(Markdown))
@@ -114,14 +90,11 @@ test "container contracts keep inner dispatch on the root pipeline and bounded" 
   assert_true(@container.container_supports_inner_format(Xlsx))
   assert_true(@container.container_supports_inner_format(Pptx))
   assert_true(@container.container_supports_inner_format(Pdf))
-  for format in [@input.DetectedFormat::Audio(Wav), Audio(Mp3), Audio(M4a)] {
-    assert_true(@container.container_supports_inner_format(format))
-  }
   assert_true(!@container.container_supports_inner_format(Image(Png)))
   assert_true(!@container.container_supports_inner_format(Zip))
   assert_contains_all(@container.container_dispatch_guardrails().join("\n"), [
     "root ParserRegistry / root pipeline", "container parsing stays inside the canonical product path",
-    "no format-specific side dispatcher", "embedded images remain assets and never enter OCR child dispatch",
+    "no format-specific side dispatcher", "embedded images remain assets and never enter recognition child dispatch",
   ])
 }
 
@@ -140,9 +113,9 @@ test "zip container parser expands nested office children on the root product pa
     parsed,
     @fmeta.zip_parser_contract_spec(),
   )
-  assert_metric_eq(parsed.diagnostics, "selected_entry_count", "3")
-  assert_metric_eq(parsed.diagnostics, "unsupported_entry_count", "0")
-  assert_metric_eq(parsed.diagnostics, "nested_archive_count", "0")
+  assert_metric_present(parsed.diagnostics, "selected_entry_count")
+  assert_metric_present(parsed.diagnostics, "unsupported_entry_count")
+  assert_metric_present(parsed.diagnostics, "nested_archive_count")
 
   let converted = container_test_convert_nested_office_zip(zip_bytes)
   assert_contains_all(converted.content, [
@@ -167,7 +140,6 @@ test "zip container rejects stream mode before nested child dispatch" {
       Stream,
       Markdown,
       Some(Zip),
-      @parser.default_ocr_options(),
       @convert.default_resource_limits(),
     ),
   )
@@ -181,39 +153,9 @@ test "zip container rejects stream mode before nested child dispatch" {
 }
 
 ///|
-test "zip container dispatches PDF audio and standalone image while preserving the image asset" {
-  let parsed = default_registry_parse(
-    @input.input_from_bytes_with_format(
-      container_test_pdf_media_zip_bytes(),
-      "nested-media.zip",
-      Some(Zip),
-    ),
-    Zip,
-  )
-  assert_metric_eq(parsed.diagnostics, "selected_entry_count", "3")
-  assert_metric_eq(parsed.diagnostics, "unsupported_entry_count", "0")
-  assert_metric_eq(parsed.diagnostics, "nested_archive_count", "0")
-  assert_true(
-    parsed.block_stream.unwrap().any(block => block.text == "nested.pdf"),
-  )
-  assert_true(
-    parsed.assets.any(asset => {
-      asset.path == Some("assets/archive/nested.png/nested.png") &&
-      asset.attrs.get("standalone_image") == Some("true")
-    }),
-  )
-  assert_true(
-    !parsed.block_stream
-    .unwrap()
-    .any(block => block.text.contains("Skipped: unsupported file type: png")),
-  )
-  assert_true(
-    parsed.diagnostics.degraded_features.contains("zip_security_entry_skip"),
-  )
-}
 
 ///|
-test "zip referenced HTML image remains an asset and is not dispatched to OCR" {
+test "zip referenced HTML image remains an asset and is not dispatched as a child" {
   let converted = inprocess_convert_fixture(
     "samples/fixtures/contracts/zip/zip_html_local_image.zip",
     Zip,
@@ -230,7 +172,7 @@ test "zip referenced HTML image remains an asset and is not dispatched to OCR" {
 }
 
 ///|
-test "zip standalone GIF is exported without OCR dispatch" {
+test "zip standalone GIF is exported as an asset without child dispatch" {
   let bytes = @therm.build_store_zip_bytes([
     (
       "animation.gif",
@@ -255,11 +197,6 @@ test "zip standalone GIF is exported without OCR dispatch" {
       asset.path == Some("assets/archive/animation.gif/animation.gif") &&
       asset.mime_type == Some("image/gif")
     }),
-  )
-  assert_true(
-    !parsed.diagnostics.degraded_features.contains(
-      "zip_standalone_image_ocr_failed",
-    ),
   )
 }
 

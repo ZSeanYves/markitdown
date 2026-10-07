@@ -1,5 +1,6 @@
 import {
   "moonbitlang/core/encoding/utf8",
+  "moonbitlang/async",
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/product",

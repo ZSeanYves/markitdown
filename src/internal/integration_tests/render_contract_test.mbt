@@ -43,7 +43,6 @@ test "rag output can suppress source refs while keeping library source map" {
     Balanced,
     Rag,
     Some(Markdown),
-    @parser.default_ocr_options(),
     @convert.default_resource_limits(),
     rag_options=@rag.make_rag_options(1200, 150, true, false, true, true),
   )

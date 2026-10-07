@@ -992,18 +992,10 @@ fn bench_convert_options_for_row(row : BenchRow) -> @convert.ConvertOptions {
 fn bench_convert_options(
   detected_format : @input.DetectedFormat,
 ) -> @convert.ConvertOptions {
-  let ocr_options = if @input.detected_format_is_image_candidate(
-      detected_format,
-    ) {
-    @parser.explicit_ocr_options()
-  } else {
-    @parser.default_ocr_options()
-  }
   @convert.make_convert_options(
     Balanced,
     Markdown,
     Some(detected_format),
-    ocr_options,
     @convert.default_resource_limits(),
   )
 }

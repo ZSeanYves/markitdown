@@ -7,10 +7,7 @@ source "$ROOT/tools/env/share/install_runtime_deps_common.sh"
 source "$ROOT/tools/regression/lib/shared/cli_runner.sh"
 source "$ROOT/tools/regression/lib/shared/regression_common.sh"
 CHECK_TMP_ROOT="${MARKITDOWN_CHECK_TMP_ROOT:-$ROOT/.tmp/check}"
-SUPPORTED_FORMATS=("txt" "csv" "tsv" "srt" "vtt" "json" "jsonl" "ndjson" "ipynb" "xml" "yaml" "toml" "html" "markdown" "eml" "tex" "rst" "asciidoc" "zip" "epub" "odt" "ods" "odp" "docx" "xlsx" "pptx" "pdf" "wav" "mp3" "m4a" "ocr")
-BALANCE_AUDIO_RUNTIME_MODE="${MARKITDOWN_BALANCE_AUDIO_RUNTIME:-mock}"
-BALANCE_AUDIO_MOCK_ACTIVE=0
-BALANCE_AUDIO_RUNTIME_NOTE="environment"
+SUPPORTED_FORMATS=("txt" "csv" "tsv" "srt" "vtt" "json" "jsonl" "ndjson" "ipynb" "xml" "yaml" "toml" "html" "markdown" "eml" "tex" "rst" "asciidoc" "zip" "epub" "odt" "ods" "odp" "docx" "xlsx" "pptx" "pdf")
 
 ONLY_MODE=""
 FORMAT_FILTER=""
@@ -20,98 +17,9 @@ if [[ $# -gt 0 ]]; then
   ORIGINAL_ARGS=("$@")
 fi
 
-source_env_file_if_present "$ROOT/env/balance-ocr.env.sh"
-source_env_file_if_present "$ROOT/env/audio.env.sh"
-
-audio_format_selected() {
-  case "${1-}" in
-    wav|mp3|m4a)
-      return 0
-      ;;
-    *)
-      return 1
-      ;;
-  esac
-}
-
-balance_audio_mock_enabled() {
-  local raw="${BALANCE_AUDIO_RUNTIME_MODE:-mock}"
-  raw="$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]')"
-  case "$raw" in
-    real|0|false|off)
-      return 1
-      ;;
-    *)
-      return 0
-      ;;
-  esac
-}
-
-balance_run_needs_audio_runtime() {
-  if [[ -n "$FORMAT_FILTER" ]]; then
-    audio_format_selected "$FORMAT_FILTER"
-    return $?
-  fi
-  if [[ "$ONLY_MODE" == "assets" || "$ONLY_MODE" == "ocr" ]]; then
-    return 1
-  fi
-  return 0
-}
-
-resolve_balance_audio_mock_python() {
-  if [[ -n "${MARKITDOWN_RUNTIME_PYTHON:-}" && -x "${MARKITDOWN_RUNTIME_PYTHON}" ]]; then
-    printf '%s' "$MARKITDOWN_RUNTIME_PYTHON"
-    return 0
-  fi
-  if command -v python3 >/dev/null 2>&1; then
-    command -v python3
-    return 0
-  fi
-  return 1
-}
-
-setup_balance_audio_mock_runtime() {
-  if ! balance_audio_mock_enabled; then
-    BALANCE_AUDIO_RUNTIME_NOTE="environment"
-    return 0
-  fi
-  if ! balance_run_needs_audio_runtime; then
-    BALANCE_AUDIO_RUNTIME_NOTE="not-needed"
-    return 0
-  fi
-
-  local python_cmd ffmpeg_stub mock_model_dir quoted_python quoted_ffmpeg quoted_wrapper
-  python_cmd="$(resolve_balance_audio_mock_python)" || {
-    echo "tools/regression/check_balance.sh needs python3 or MARKITDOWN_RUNTIME_PYTHON for the deterministic audio mock backend" >&2
-    return 1
-  }
-  ffmpeg_stub="$CHECK_RUN_DIR/audio-mock/bin/ffmpeg"
-  mock_model_dir="$CHECK_RUN_DIR/audio-mock/model"
-  mkdir -p "$(dirname "$ffmpeg_stub")"
-  mkdir -p "$mock_model_dir"
-  printf -v quoted_python '%q' "$python_cmd"
-  printf -v quoted_ffmpeg '%q' "$ROOT/tools/regression/lib/mocks/mock_ffmpeg.py"
-  printf -v quoted_wrapper '%q %q' "$python_cmd" "$ROOT/tools/regression/lib/mocks/mock_vosk_wrapper.py"
-  cat >"$ffmpeg_stub" <<EOF
-#!/usr/bin/env bash
-set -euo pipefail
-exec $quoted_python $quoted_ffmpeg "\$@"
-EOF
-  chmod +x "$ffmpeg_stub"
-  # Audio balance runs isolate both cwd and module root so the deterministic
-  # mock stays active instead of the repo-managed wrapper/runtime.
-  mkdir -p "$CHECK_RUN_DIR/audio-mock/cwd"
-  export PATH="${ffmpeg_stub%/*}:$PATH"
-  export MARKITDOWN_AUDIO_CMD="$quoted_wrapper"
-  export MARKITDOWN_AUDIO_MODEL_PATH="$mock_model_dir"
-  export MARKITDOWN_AUDIO_RUNNER_CWD="$CHECK_RUN_DIR/audio-mock/cwd"
-  BALANCE_AUDIO_MOCK_ACTIVE=1
-  BALANCE_AUDIO_RUNTIME_NOTE="deterministic-mock"
-}
-
 usage() {
   cat <<'EOF'
-Usage: ./tools/regression/check_balance.sh [--markdown|--rag|--assets|--ocr] [--format FMT|--formats FMT] [--check-inventory] [--list-inventory]
+Usage: ./tools/regression/check_balance.sh [--markdown|--rag|--assets] [--format FMT|--formats FMT] [--check-inventory] [--list-inventory]
 
 Runs the external main balance regression gate from ./markitdown-quality-lab/external_main_process.
 
@@ -119,15 +27,14 @@ Options:
   --markdown          Run only Markdown expected-output checks.
   --rag               Run only RAG expected-output checks.
   --assets            Run only light-asset expected-output checks.
-  --ocr               Run only explicit OCR-lane expected-output checks.
-  --format FMT        Restrict checks to one supported balance-gate format: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, eml, tex, rst, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, wav, mp3, m4a, ocr.
+  --format FMT        Restrict checks to one supported text/document format.
   --formats FMT       Backward-compatible alias of --format for one format.
   --check-inventory   Run sample enrollment/integrity checks without conversion.
   --list-inventory    Print sample inventory counts in TSV form.
   -h, --help          Show this help.
 
 Default:
-  Run markdown, rag, assets, and explicit OCR-lane checks for the external main balance gate: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, eml, tex, rst, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, wav, mp3, m4a, and ocr.
+  Run markdown, rag, and assets checks for the external main balance gate.
   Unsupported formats fail closed here.
 
 Run artifacts:
@@ -208,7 +115,7 @@ while [[ $# -gt 0 ]]; do
       set_only_mode "assets"
       ;;
     --ocr)
-      set_only_mode "ocr"
+      fail_usage "--ocr was retired in the 0.8 text-only migration"
       ;;
     --format|--formats)
       shift
@@ -384,7 +291,6 @@ run_impl() {
   {
     echo "mode: $mode_short"
     echo "format: $fmt"
-    echo "audio-runtime: $BALANCE_AUDIO_RUNTIME_NOTE"
     echo "log: $(display_path "$ROOT" "$log_path")"
   } >> "$ENTRYPOINT_LOG"
 
@@ -465,7 +371,7 @@ write_summary_md() {
   local status="$1"
   local finished_at="$2"
   local duration="$3"
-  local lanes="markdown, rag, assets, ocr"
+  local lanes="markdown, rag, assets"
   local result_word="PASS"
   local failure_report_count
   [[ "$status" -eq 0 ]] || result_word="FAIL"
@@ -490,7 +396,7 @@ write_summary_md() {
     echo
     echo "## What was checked"
     echo
-    echo "External main manifest lane checks for the balance CLI gate: txt, csv, tsv, srt, vtt, json, jsonl, ndjson, ipynb, xml, yaml, toml, html, markdown, eml, tex, rst, asciidoc, zip, epub, odt, ods, odp, docx, xlsx, pptx, pdf, wav, mp3, m4a, and ocr."
+    echo "External main manifest lane checks for the text/document balance CLI gate."
     echo "Lanes: $lanes"
     echo "Formats outside the current gate fail closed and are not part of this check."
     echo
@@ -501,11 +407,6 @@ write_summary_md() {
     echo "- Checked: $CHECKS_TOTAL"
     echo "- Skipped: $SKIPPED_TOTAL"
     echo "- Failed: $FAILED_TOTAL"
-    if [[ "$BALANCE_AUDIO_MOCK_ACTIVE" -eq 1 ]]; then
-      echo "- Audio runtime: deterministic mock (\`tools/regression/lib/mocks/mock_vosk_wrapper.py\` with repo-local mock \`ffmpeg\`)"
-    else
-      echo "- Audio runtime: $BALANCE_AUDIO_RUNTIME_NOTE"
-    fi
     echo
     echo "## Where to look next"
     echo
@@ -592,8 +493,6 @@ if ! balance_cli_preflight; then
   exit 1
 fi
 
-setup_balance_audio_mock_runtime
-
 overall_status=0
 if [[ -n "$ONLY_MODE" ]]; then
   run_impl "$ONLY_MODE" || overall_status=$?
@@ -601,7 +500,6 @@ else
   run_impl "markdown" || overall_status=$?
   run_impl "rag" || overall_status=$?
   run_impl "assets" || overall_status=$?
-  run_impl "ocr" || overall_status=$?
 fi
 
 FINISHED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"

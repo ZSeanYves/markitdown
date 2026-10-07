@@ -95,7 +95,7 @@ pub(all) enum InputPayload {
 }
 
 ///|
-/// Direct image subtypes currently routed through the image OCR entry.
+/// Direct image subtypes detected for asset/unsupported-capability handling.
 pub(all) enum ImageFormat {
   Png
   Jpg
@@ -107,7 +107,7 @@ pub(all) enum ImageFormat {
 } derive(Eq)
 
 ///|
-/// Audio subtypes currently routed through the audio transcription entry.
+/// Audio subtypes detected for unsupported-capability handling.
 pub(all) enum AudioFormat {
   Wav
   Mp3
@@ -617,7 +617,7 @@ pub fn image_format_name(format : ImageFormat) -> String {
 }
 
 ///|
-/// Return whether the detected format should enter the image OCR routing path.
+/// Return whether the detected format is an image input.
 pub fn detected_format_is_image_candidate(format : DetectedFormat) -> Bool {
   match format {
     Image(_) => true
@@ -774,7 +774,7 @@ fn detected_format_detection_notes(
     notes.push("explicit_format")
   }
   if detected_format_is_image_candidate(format) {
-    notes.push("image_ocr_candidate")
+    notes.push("image_input")
   }
   notes
 }

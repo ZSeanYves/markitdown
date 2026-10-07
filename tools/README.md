@@ -3,7 +3,8 @@
 Repository tooling is divided by responsibility:
 
 - `env/`: optional runtime installation, verification, and deterministic
-  wrappers. Use `env/optional_deps.sh` as the public entrypoint.
+  wrappers. The product conversion path has no optional runtime installer;
+  benchmark-only Python setup lives in `env/installers/install_bench_baseline_deps.sh`.
 - `regression/`: coverage, main/quality/accurate gates, mutation smoke,
   release manifests, and self-baseline enforcement.
 - `governance/`: immutable baseline, API/architecture, PR, toolchain, and

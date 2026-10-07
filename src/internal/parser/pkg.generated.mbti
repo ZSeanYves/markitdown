@@ -24,10 +24,6 @@ pub fn block_stream_parser_capability(StreamingGranularity, Bool, Bool, Bool, Bo
 
 pub fn container_recursive_parser_capability(StreamingGranularity, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool) -> ParserCapability
 
-pub fn default_audio_options() -> AudioOptions
-
-pub fn default_ocr_options() -> OcrOptions
-
 pub fn default_parser_capability() -> ParserCapability
 
 pub fn default_pdf_header_footer_filter_policy() -> PdfHeaderFooterFilterPolicy
@@ -36,17 +32,13 @@ pub fn default_pdf_native_runtime_policy() -> PdfNativeRuntimePolicy
 
 pub fn default_pdf_table_reconstruction_policy() -> PdfTableReconstructionPolicy
 
-pub fn disabled_ocr_options(language? : String?) -> OcrOptions
-
 pub fn dom_ast_parser_capability(StreamingGranularity, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool) -> ParserCapability
 
 pub fn empty_async_registry() -> AsyncParserRegistry
 
 pub fn empty_registry() -> ParserRegistry
 
-pub fn explicit_audio_options(language? : String?) -> AudioOptions
-
-pub fn explicit_ocr_options(language? : String?) -> OcrOptions
+pub fn empty_unified_registry() -> UnifiedParserRegistry
 
 pub fn make_async_parser(String, ParserMode, ParserCapability, async (@input.InputSource, ParseContext) -> Result[ParseResult, String]) -> AsyncParser
 
@@ -68,19 +60,13 @@ pub fn mode_name(ParserMode) -> String
 
 pub fn new_parse_context(@input.DetectedFormat) -> ParseContext
 
-pub fn ocr_intent_name(OcrIntent) -> String
-
 pub fn package_with_block_route_parser_capability(StreamingGranularity, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool) -> ParserCapability
 
 pub fn parse_context_with_asset_limits(ParseContext, Int64, Int64) -> ParseContext
 
-pub fn parse_context_with_audio_options(ParseContext, AudioOptions) -> ParseContext
-
 pub fn parse_context_with_execution_profiles(ParseContext, @product.ExecutionProfile, @product.LoweringProfile, @product.RenderProfile, @product.AccurateFeatureProfile) -> ParseContext
 
 pub fn parse_context_with_limits(ParseContext, ParserMode?, Int?, Int?, Int?, Int?, Bool, limits? : @product.ResourceLimits) -> ParseContext
-
-pub fn parse_context_with_ocr_options(ParseContext, OcrOptions) -> ParseContext
 
 pub fn parse_context_with_pdf_header_footer_filter_policy(ParseContext, PdfHeaderFooterFilterPolicy) -> ParseContext
 
@@ -128,6 +114,16 @@ pub fn streaming_event_parser_capability(StreamingGranularity, Bool, Bool, Bool,
 
 pub fn streaming_granularity_name(StreamingGranularity) -> String
 
+pub fn unified_registry_from_sync(ParserRegistry) -> UnifiedParserRegistry
+
+pub fn unified_registry_open_event_stream(UnifiedParserRegistry, @input.InputSource, ParseContext) -> Result[ParseEventStream?, String]
+
+pub async fn unified_registry_parse(UnifiedParserRegistry, @input.InputSource, ParseContext) -> Result[ParseResult, String]
+
+pub fn unified_registry_register(UnifiedParserRegistry, @input.DetectedFormat, Parser) -> Unit
+
+pub fn unified_registry_register_async(UnifiedParserRegistry, @input.DetectedFormat, AsyncParser) -> Unit
+
 // Errors
 
 // Types and methods
@@ -142,21 +138,6 @@ pub struct AsyncParserRegistry {
   parsers : Map[String, Array[AsyncParser]]
 }
 
-pub struct AudioOptions {
-  language : String?
-}
-
-pub(all) enum OcrIntent {
-  Disabled
-  Auto
-  Explicit
-} derive(Eq)
-
-pub struct OcrOptions {
-  intent : OcrIntent
-  language : String?
-}
-
 pub struct ParseContext {
   detected_format : @input.DetectedFormat
   requested_mode : ParserMode?
@@ -166,8 +147,6 @@ pub struct ParseContext {
   lowering_profile : @product.LoweringProfile
   render_profile : @product.RenderProfile
   accurate_features : @product.AccurateFeatureProfile
-  ocr_options : OcrOptions
-  audio_options : AudioOptions
   pdf_native_runtime_policy : PdfNativeRuntimePolicy
   pdf_header_footer_filter_policy : PdfHeaderFooterFilterPolicy
   pdf_table_reconstruction_policy : PdfTableReconstructionPolicy
@@ -250,6 +229,14 @@ pub(all) enum ParserMode {
   ContainerRecursive
 } derive(Eq)
 
+pub struct ParserRegistration {
+  name : String
+  mode : ParserMode
+  capability : ParserCapability
+  sync_parser : Parser?
+  async_parser : AsyncParser?
+}
+
 pub struct ParserRegistry {
   parsers : Map[String, Array[Parser]]
 }
@@ -294,6 +281,10 @@ pub(all) enum StreamingGranularity {
   Message
   None
 } derive(Eq)
+
+pub struct UnifiedParserRegistry {
+  parsers : Map[String, Array[ParserRegistration]]
+}
 
 // Type aliases
 

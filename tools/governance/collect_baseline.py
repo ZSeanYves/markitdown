@@ -27,7 +27,14 @@ MAINTENANCE_INVENTORY = ROOT / "tools/governance/phase0-maintenance-inventory.js
 
 def git_files() -> list[str]:
     raw = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT)
-    return sorted(item for item in raw.decode().split("\0") if item)
+    # A migration may stage a deletion before the new baseline is committed.
+    # Inventory only files present in the checkout; CI still runs from a clean
+    # tree, so this cannot hide an untracked replacement.
+    return sorted(
+        item
+        for item in raw.decode().split("\0")
+        if item and (ROOT / item).is_file()
+    )
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -152,8 +159,6 @@ def validate_maintenance_inventory() -> list[str]:
         "max_input_bytes": "max_input_bytes: 512L * 1024L * 1024L",
         "max_asset_bytes": "max_asset_bytes: 32L * 1024L * 1024L",
         "max_total_asset_bytes": "max_total_asset_bytes: 128L * 1024L * 1024L",
-        "external_command_timeout_ms": "external_command_timeout_ms: 300000",
-        "max_external_output_bytes": "max_external_output_bytes: 8L * 1024L * 1024L",
     }
     expected_resource_values = {
         "max_rows": 2000,
@@ -163,8 +168,6 @@ def validate_maintenance_inventory() -> list[str]:
         "max_input_bytes": 536870912,
         "max_asset_bytes": 33554432,
         "max_total_asset_bytes": 134217728,
-        "external_command_timeout_ms": 300000,
-        "max_external_output_bytes": 8388608,
         "external_termination_grace_ms": 2000,
     }
     if data.get("resource_limits") != expected_resource_values:

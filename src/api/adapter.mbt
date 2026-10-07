@@ -17,15 +17,6 @@ fn legacy_output_mode(mode : OutputMode) -> @product.OutputMode {
 }
 
 ///|
-fn legacy_ocr_options(mode : OcrMode, language : String?) -> @parser.OcrOptions {
-  match mode {
-    Auto => @parser.default_ocr_options()
-    Enabled => @parser.explicit_ocr_options(language~)
-    Disabled => @parser.disabled_ocr_options(language~)
-  }
-}
-
-///|
 fn validate_options(options : ConvertOptions) -> Result[Unit, ConvertError] {
   if options.limits.max_rows <= 0 ||
     options.limits.max_cols <= 0 ||
@@ -35,10 +26,8 @@ fn validate_options(options : ConvertOptions) -> Result[Unit, ConvertError] {
   }
   if options.limits.max_input_bytes <= 0L ||
     options.limits.max_asset_bytes <= 0L ||
-    options.limits.max_total_asset_bytes <= 0L ||
-    options.limits.external_command_timeout_ms <= 0 ||
-    options.limits.max_external_output_bytes <= 0L {
-    return Err(InvalidOption("byte and timeout limits must be positive"))
+    options.limits.max_total_asset_bytes <= 0L {
+    return Err(InvalidOption("byte limits must be positive"))
   }
   if options.rag.chunk_size <= 0 ||
     options.rag.chunk_overlap < 0 ||
@@ -75,8 +64,6 @@ fn legacy_options(
     max_input_bytes=options.limits.max_input_bytes,
     max_asset_bytes=options.limits.max_asset_bytes,
     max_total_asset_bytes=options.limits.max_total_asset_bytes,
-    external_command_timeout_ms=options.limits.external_command_timeout_ms,
-    max_external_output_bytes=options.limits.max_external_output_bytes,
   )
   let rag = @rag.make_rag_options(
     options.rag.chunk_size,
@@ -91,11 +78,7 @@ fn legacy_options(
       legacy_convert_mode(options.mode),
       legacy_output_mode(options.output_mode),
       format,
-      legacy_ocr_options(options.ocr_mode, options.ocr_language),
       limits,
-      audio_options=@parser.explicit_audio_options(
-        language=options.audio_language,
-      ),
       rag_options=rag,
     ),
   )

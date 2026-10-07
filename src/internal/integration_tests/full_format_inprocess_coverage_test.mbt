@@ -8,7 +8,6 @@ fn inprocess_convert_fixture(
     mode,
     Markdown,
     Some(format),
-    @parser.default_ocr_options(),
     @convert.default_resource_limits(),
   )
   match
@@ -31,7 +30,6 @@ fn convert_binary_source_for_equivalence(
     Balanced,
     Markdown,
     Some(format),
-    @parser.default_ocr_options(),
     @convert.default_resource_limits(),
   )
   match @convert.convert_input(source, options) {
@@ -205,7 +203,6 @@ test "in-process ZIP rejects non-balance modes" {
       mode,
       Markdown,
       Some(Zip),
-      @parser.default_ocr_options(),
       @convert.default_resource_limits(),
     )
     match @convert.convert_input(source, options) {
@@ -244,7 +241,6 @@ fn inprocess_smoke_directory(
       Balanced,
       Markdown,
       Some(format),
-      @parser.default_ocr_options(),
       @convert.default_resource_limits(),
     )
     match
@@ -312,7 +308,6 @@ fn inprocess_convert_text(
       mode,
       Markdown,
       Some(format),
-      @parser.default_ocr_options(),
       @convert.default_resource_limits(),
     ),
   )
@@ -490,13 +485,7 @@ test "in-process core text matrix handles strict resource limits under control" 
   for source in sources {
     let outcome = @convert.convert_input(
       @input.input_from_text_with_format(source.0, source.1, Some(source.2)),
-      @convert.make_convert_options(
-        Balanced,
-        Markdown,
-        Some(source.2),
-        @parser.default_ocr_options(),
-        limits,
-      ),
+      @convert.make_convert_options(Balanced, Markdown, Some(source.2), limits),
     )
     match outcome {
       Ok(result) =>

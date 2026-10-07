@@ -1,6 +1,9 @@
 ///|
-/// Terminate the current native process with an explicit status code.
+/// Terminate the current process with an explicit status code.
 ///
-/// Keeping process control in this native-only package prevents executable
-/// entrypoints from depending on the deprecated `moonbitlang/x/sys` shim.
-pub extern "C" fn exit_process(code : Int) = "exit"
+/// The official `moonbitlang/x/sys` package supplies the backend-specific
+/// implementation. This façade keeps the project call site stable while
+/// allowing the runtime package to type-check on Wasm.
+pub fn exit_process(code : Int) -> Unit {
+  @sys.exit(code)
+}

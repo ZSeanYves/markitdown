@@ -46,14 +46,12 @@ fn convert_memory_text(
   format : @input.DetectedFormat,
   mode? : @convert.ConvertMode = Balanced,
   output? : @convert.OutputFormat = Markdown,
-  ocr_options? : @parser.OcrOptions = @parser.default_ocr_options(),
   limits? : @product.ResourceLimits = @product.default_resource_limits(),
 ) -> @convert.ConvertResult {
   let options = @convert.make_convert_options(
     mode,
     output,
     Some(format),
-    ocr_options,
     limits,
   )
   match
@@ -128,30 +126,6 @@ fn block_tree_contains_text_fragment(
     }
   }
   false
-}
-
-///|
-fn pipeline_fake_image_ocr_provider(
-  expected_language : String?,
-) -> (@focr.OcrProviderRequest) -> Result[
-  @focr.OcrProviderResult,
-  @focr.OcrProviderError,
-] {
-  fn(request : @focr.OcrProviderRequest) {
-    if request.language != expected_language {
-      abort("unexpected OCR language")
-    }
-    let tsv = [
-      "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext",
-      "5\t1\t1\t1\t1\t1\t10\t10\t20\t10\t95\tMoonBit", "5\t1\t1\t1\t1\t2\t35\t10\t15\t10\t94\tOCR",
-      "5\t1\t1\t1\t2\t1\t10\t25\t22\t10\t93\tSample", "5\t1\t1\t1\t2\t2\t36\t25\t18\t10\t92\t123",
-    ].join("\n")
-    match @focr.parse_tesseract_tsv(tsv, language=request.language) {
-      Ok(value) => Ok(value)
-      Err(err) =>
-        abort("expected fake OCR TSV parse success: " + err.to_string())
-    }
-  }
 }
 
 ///|

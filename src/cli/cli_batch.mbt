@@ -182,25 +182,13 @@ fn parse_batch_cli_options(
         }
     }
   }
-  let parsed = parse_cli_options_from_index(
-    args,
-    parsed_index,
-    mode~,
-    allow_batch_audio_language_without_explicit_format=true,
-  )
+  let parsed = parse_cli_options_from_index(args, parsed_index, mode~)
   let opts = match parsed {
     Ok(value) => value
     Err(msg) => return Err(msg)
   }
   if opts.provenance_output is Some(_) {
     return Err("batch does not support --provenance-out; use manifest.json")
-  }
-  if opts.audio_options.language is Some(_) &&
-    !(match opts.explicit_format {
-      Some(Audio(Wav | Mp3 | M4a)) => true
-      _ => false
-    }) {
-    return Err("batch --audio-lang requires explicit --format wav|mp3|m4a")
   }
   if opts.output is None {
     return Err("batch requires <input> <output_dir>")
@@ -353,16 +341,13 @@ fn run_single_batch_task(
     opts.convert_mode,
     opts.output_mode,
     opts.explicit_format,
-    opts.ocr_options,
     @convert.default_resource_limits(),
-    audio_options=opts.audio_options,
     rag_options=opts.rag_options,
   )
   match
-    @convert.convert_input_with_provenance_and_image_ocr_provider(
+    @convert.convert_input_with_provenance(
       @input.input_from_path(task_input),
       convert_options,
-      @focr.run_ocr_provider,
     ) {
     Ok(execution) =>
       match cli_render_convert_result(opts, execution.result) {

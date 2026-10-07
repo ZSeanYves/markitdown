@@ -82,11 +82,9 @@ They are generated artifacts; do not edit their values manually.
 ```bash
 git clone https://github.com/ZSeanYves/markitdown-quality-lab.git \
   markitdown-quality-lab
-./tools/env/optional_deps.sh install bench --python /path/to/python3.11
-./tools/env/optional_deps.sh install balance
-./tools/env/optional_deps.sh install audio --python /path/to/python3.11
+./tools/env/installers/install_bench_baseline_deps.sh --python /path/to/python3.11
 
-moon build --target native --release --package ZSeanYves/markitdown/cli
+moon build --target native --release --package ZSeanYves/markitdown
 moon build --target native --release \
   --package ZSeanYves/markitdown/internal/bench_runner
 RUNNER=_build/native/release/build/internal/bench_runner/bench_runner.exe

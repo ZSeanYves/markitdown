@@ -247,7 +247,7 @@ fn zip_parse_with_archive_core(
         let image_format = match info.extension {
           Some(ext) => {
             let value = @input.parse_detected_format(ext)
-            if zip_image_format_uses_ocr(value) {
+            if zip_image_format_is_supported(value) {
               Some(value)
             } else {
               None
@@ -276,29 +276,7 @@ fn zip_parse_with_archive_core(
               entry, entry_path, container_path, format,
             )
             merged_assets.push(asset)
-            let inner_source = zip_inner_source(
-              container_path, entry_path, format, entry_bytes,
-            )
-            match
-              zip_parse_inner_document(registry, inner_source, format, context) {
-              Ok(child) => {
-                zip_absorb_child_diagnostics(diagnostics, child.diagnostics)
-                merged_blocks.append(
-                  zip_rewrite_child_blocks(child.blocks, entry, [], diagnostics)[:],
-                )
-              }
-              Err(err) => {
-                diagnostics.warnings.push(
-                  entry_path + ": standalone image OCR unavailable: " + err,
-                )
-                diagnostics.degraded_features.push(
-                  "zip_standalone_image_ocr_failed",
-                )
-                diagnostics.fallback_trace.push(
-                  "zip standalone image -> preserve asset after OCR failure",
-                )
-              }
-            }
+            ignore(entry_bytes) // Reading validates CRC before exporting the asset.
             merged_blocks.push(image_block)
             continue
           }

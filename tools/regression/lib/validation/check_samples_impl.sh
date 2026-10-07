@@ -28,13 +28,13 @@ fi
 MODE="markdown"
 FORMAT_FILTER=""
 SPECIAL_MODE=""
-FORMATS=("csv" "tsv" "txt" "srt" "vtt" "json" "jsonl" "ndjson" "ipynb" "xml" "yaml" "toml" "html" "markdown" "eml" "tex" "rst" "asciidoc" "zip" "epub" "odt" "ods" "odp" "docx" "xlsx" "pptx" "pdf" "wav" "mp3" "m4a" "ocr")
+FORMATS=("csv" "tsv" "txt" "srt" "vtt" "json" "jsonl" "ndjson" "ipynb" "xml" "yaml" "toml" "html" "markdown" "eml" "tex" "rst" "asciidoc" "zip" "epub" "odt" "ods" "odp" "docx" "xlsx" "pptx" "pdf")
 
 trap 'status=$?; if [[ "$CLEANUP_OUT_DIR" -ne 0 ]]; then sample_cleanup_tmp_dir "$OUT_DIR"; fi; exit "$status"' EXIT
 
 usage() {
   cat <<'EOF'
-Internal usage: check_samples_impl.sh [--markdown|--rag|--assets|--ocr] [--format FMT|--formats FMT] [--check-inventory] [--list-inventory]
+Internal usage: check_samples_impl.sh [--markdown|--rag|--assets] [--format FMT|--formats FMT] [--check-inventory] [--list-inventory]
 EOF
 }
 
@@ -54,38 +54,8 @@ format_is_supported() {
   return 1
 }
 
-audio_format_selected() {
-  case "${1-}" in
-    wav|mp3|m4a)
-      return 0
-      ;;
-    *)
-      return 1
-      ;;
-  esac
-}
-
-sample_runner_cwd_for_format() {
-  local format="${1-}"
-  if audio_format_selected "$format" && [[ -n "${MARKITDOWN_AUDIO_RUNNER_CWD:-}" ]]; then
-    printf '%s' "$MARKITDOWN_AUDIO_RUNNER_CWD"
-    return 0
-  fi
-  return 1
-}
-
 sample_run_markitdown_cli() {
-  local format="$1"
   shift
-  local runner_cwd=""
-  runner_cwd="$(sample_runner_cwd_for_format "$format" 2>/dev/null || true)"
-  if [[ -n "$runner_cwd" ]]; then
-    # Keep audio mock runs hermetic by hiding repo-managed wrappers under an
-    # isolated module root as well as an isolated cwd.
-    MARKITDOWN_RUNNER_CWD="$runner_cwd" MARKITDOWN_MODULE_ROOT="$runner_cwd" \
-      run_markitdown_cli "$@"
-    return $?
-  fi
   run_markitdown_cli "$@"
 }
 
@@ -124,7 +94,8 @@ while [[ $# -gt 0 ]]; do
       MODE="assets"
       ;;
     --ocr)
-      MODE="ocr"
+      echo "--ocr was retired in the 0.8 text-only migration" >&2
+      exit 2
       ;;
     --format|--formats)
       shift
@@ -304,7 +275,7 @@ for row in "${SAMPLE_ROWS[@]}"; do
   fi
 
   case "$lane" in
-    markdown|ocr)
+    markdown)
       if ! validation_diff_or_record "$scope" "$input_path" "$expected_path" "$output_md" "$failure_diff"; then
         copy_if_exists "$output_md" "$failure_actual"
         copy_if_exists "$expected_path" "$failure_expected"

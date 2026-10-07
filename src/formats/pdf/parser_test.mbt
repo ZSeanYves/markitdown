@@ -99,77 +99,17 @@ fn pdf_parser_test_line(
 }
 
 ///|
-test "pdftoppm png command uses explicit raster baseline" {
-  let (_, argv) = build_pdftoppm_png_command(
-    "fixtures/input.pdf", ".tmp/pdf_pages",
-  )
-  assert_eq(argv.length(), 5)
-  assert_eq(argv[0], "-r")
-  assert_eq(argv[1], "150")
-  assert_eq(argv[2], "-png")
-  assert_eq(argv[3], "fixtures/input.pdf")
-  assert_eq(argv[4], ".tmp/pdf_pages/page")
-}
-
-///|
-fn pdf_parser_test_accurate_context(
-  ocr_options? : @parser.OcrOptions = @parser.explicit_ocr_options(
-    language=Some("eng"),
-  ),
-) -> @parser.ParseContext {
-  let base = @parser.parse_context_with_product_modes(
-    @parser.new_parse_context(Pdf),
-    Accurate,
-    Markdown,
-  )
-  let with_mode = @parser.parse_context_with_limits(
-    base,
-    Some(LayoutTwoStage),
-    None,
-    None,
-    None,
-    None,
-    false,
-  )
-  let with_ocr = @parser.parse_context_with_ocr_options(with_mode, ocr_options)
-  let with_header_footer = @parser.parse_context_with_pdf_header_footer_filter_policy(
-    with_ocr,
-    InternalHighConfidenceOnly,
-  )
+fn pdf_parser_test_accurate_context() -> @parser.ParseContext {
   @parser.parse_context_with_pdf_table_reconstruction_policy(
-    with_header_footer,
+    @parser.parse_context_with_pdf_header_footer_filter_policy(
+      @parser.parse_context_with_product_modes(
+        @parser.new_parse_context(Pdf),
+        Accurate,
+        Markdown,
+      ),
+      InternalHighConfidenceOnly,
+    ),
     InternalSimpleRowsOnly,
-  )
-}
-
-///|
-test "pdf native parser default product path can return document ir" {
-  let context = @parser.parse_context_with_limits(
-    @parser.new_parse_context(Pdf),
-    Some(PageSinglePass),
-    None,
-    None,
-    None,
-    None,
-    false,
-  )
-  let source = @input.input_from_path_with_format(
-    "samples/fixtures/contracts/pdf/text_simple.pdf",
-    Some(Pdf),
-  )
-  let parsed = pdf_native_parser_result(source, context)
-  let document = parsed.document.unwrap_or(@core.empty_document_ir())
-  assert_true(parsed.parser_name == pdf_native_parser_name())
-  assert_true(parsed.mode == PageSinglePass)
-  assert_true(document.blocks.length() >= 3)
-  assert_true(document.blocks[0].text.contains("MarkItDown"))
-  assert_true(
-    document.diagnostics.metrics.get("pdf_native_parser_gate") ==
-    Some("enabled"),
-  )
-  assert_true(document.diagnostics.metrics.get("pdf_ocr_used") == Some("false"))
-  assert_true(
-    document.diagnostics.pass_trace.contains("pdf_native:parser_success_path"),
   )
 }
 
@@ -345,46 +285,31 @@ test "pdf native parser internal header footer filtering removes repeated high c
 }
 
 ///|
-test "pdf accurate parser preserves native born-digital facts when OCR is not needed" {
+test "pdf native parser default product path can return document ir" {
+  let context = @parser.parse_context_with_limits(
+    @parser.new_parse_context(Pdf),
+    Some(PageSinglePass),
+    None,
+    None,
+    None,
+    None,
+    false,
+  )
   let source = @input.input_from_path_with_format(
     "samples/fixtures/contracts/pdf/text_simple.pdf",
     Some(Pdf),
   )
-  let context = pdf_parser_test_accurate_context(
-    ocr_options=@parser.explicit_ocr_options(language=Some("eng")),
-  )
-  let parsed = match
-    pdf_ocr_parser_result(
-      source,
-      context,
-      image_ocr_provider=fn(_request : @focr.OcrProviderRequest) {
-        abort("born-digital accurate route should not invoke OCR provider")
-      },
-      rasterizer=fn(_source : @input.InputSource) {
-        abort("born-digital accurate route should not rasterize")
-      },
-    ) {
-    Ok(value) => value
-    Err(err) => fail("expected accurate born-digital parse success: " + err)
-  }
+  let parsed = pdf_native_parser_result(source, context)
   let document = parsed.document.unwrap_or(@core.empty_document_ir())
-  assert_true(parsed.mode == LayoutTwoStage)
+  assert_true(parsed.parser_name == pdf_native_parser_name())
+  assert_true(parsed.mode == PageSinglePass)
   assert_true(document.blocks.length() >= 3)
   assert_true(document.blocks[0].text.contains("MarkItDown"))
   assert_true(
-    document.metadata.get("pdf_page_route_summary") ==
-    Some(String("native_text_page=1,hybrid_region_page=0,ocr_page=0")),
+    document.diagnostics.metrics.get("pdf_native_parser_gate") ==
+    Some("enabled"),
   )
   assert_true(
-    parsed.diagnostics.metrics.get("provider_invoked") == Some("false"),
+    document.diagnostics.pass_trace.contains("pdf_native:parser_success_path"),
   )
-  assert_true(
-    parsed.diagnostics.metrics.get("ocr_provider_status") ==
-    Some("skipped_native_text_only"),
-  )
-  assert_true(parsed.diagnostics.metrics.get("pdf_ocr_used") == Some("false"))
-  assert_true(
-    parsed.diagnostics.metrics.get("pdf_native_backend") == Some("true"),
-  )
-  assert_true(document.metadata.get("format") == Some(String("pdf")))
 }

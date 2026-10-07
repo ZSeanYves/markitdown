@@ -92,8 +92,8 @@ def magic_ok(fmt: str, payload: Path) -> bool:
     if lowered in {"jpg", "jpeg"}:
         return data.startswith(b"\xff\xd8\xff")
     # Text formats and EML are validated by signal execution; reject only
-    # empty payloads here so UTF-8, legacy encodings, and binary audio remain
-    # format-specific concerns.
+    # empty payloads here so UTF-8 and legacy encodings remain format-specific
+    # concerns.
     return bool(data)
 
 

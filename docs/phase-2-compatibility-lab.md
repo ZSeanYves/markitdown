@@ -50,9 +50,9 @@ python3 tools/compatibility/check_contract_manifest.py
 python3 tools/compatibility/fetch_upstream_corpus.py
 moon build --target native --release --package ZSeanYves/markitdown/cli
 python3 tools/compatibility/run_contract_lab.py \
-  --cli ./_build/native/release/build/cli/cli.exe
+  --cli ./_build/native/release/build/markitdown.exe
 python3 tools/compatibility/run_contract_lab.py \
-  --cli ./_build/native/release/build/cli/cli.exe \
+  --cli ./_build/native/release/build/markitdown.exe \
   --upstream ./env/.venv-markitdown-bench/bin/markitdown \
   --upstream-corpus ./.tmp/compatibility/upstream-v0.1.7
 ```

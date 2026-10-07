@@ -1,54 +1,10 @@
 ///|
-fn convert_input_with_image_ocr_provider_and_provenance(
-  source : @input.InputSource,
-  options : ConvertOptions,
-  image_ocr_provider : (@focr.OcrProviderRequest) -> Result[
-    @focr.OcrProviderResult,
-    @focr.OcrProviderError,
-  ],
-) -> Result[ConvertExecution, ConvertError] {
-  convert_input_with_image_ocr_provider_and_pdf_rasterizer_and_provenance(
-    source, options, image_ocr_provider, @fpdf.rasterize_pdf_with_pdftoppm_default,
-  )
-}
-
-///|
-fn convert_input_with_image_ocr_provider_and_pdf_rasterizer_and_provenance(
-  source : @input.InputSource,
-  options : ConvertOptions,
-  image_ocr_provider : (@focr.OcrProviderRequest) -> Result[
-    @focr.OcrProviderResult,
-    @focr.OcrProviderError,
-  ],
-  pdf_rasterizer : (@input.InputSource) -> Result[
-    (@fpdf.PdfRasterResult, String),
-    @fpdf.PdfRasterizerError,
-  ],
-) -> Result[ConvertExecution, ConvertError] {
-  convert_input_with_image_ocr_provider_and_pdf_rasterizer_and_provenance_sink(
-    source,
-    options,
-    image_ocr_provider,
-    pdf_rasterizer,
-    None,
-  )
-}
-
-///|
 /// Execute the canonical path with an optional renderer sink. The default
 /// public conversion keeps the established buffered behavior; sink callers
 /// receive output while the renderer is still traversing the IR.
-fn convert_input_with_image_ocr_provider_and_pdf_rasterizer_and_provenance_sink(
+fn execute_conversion(
   source : @input.InputSource,
   options : ConvertOptions,
-  image_ocr_provider : (@focr.OcrProviderRequest) -> Result[
-    @focr.OcrProviderResult,
-    @focr.OcrProviderError,
-  ],
-  pdf_rasterizer : (@input.InputSource) -> Result[
-    (@fpdf.PdfRasterResult, String),
-    @fpdf.PdfRasterizerError,
-  ],
   sink : OutputSink?,
 ) -> Result[ConvertExecution, ConvertError] {
   let execution_started = @env.now()
@@ -61,39 +17,12 @@ fn convert_input_with_image_ocr_provider_and_pdf_rasterizer_and_provenance_sink(
   let detect_elapsed_ms = @env.now() - detect_started
   let detect_trace = format_detection_trace(detected)
   let prepared_source = execution_plan.prepared_source
-  let requested_mode = execution_plan.requested_parser_mode
   let parse_context = parse_context_from_execution_plan(
     detected.format,
     execution_plan,
   )
   let parse_started = @env.now()
-  let parsed = if @input.detected_format_is_image_candidate(detected.format) {
-    match
-      @focr.image_ocr_parser_result_with_provider_target(
-        prepared_source,
-        detected.format,
-        execution_plan.ocr_options,
-        @focr.image_ocr_selection_target_for_accuracy(
-          execution_plan.fidelity_mode == Accurate,
-        ),
-        image_ocr_provider,
-        requested_mode~,
-      ) {
-      Ok(result) => result
-      Err(err) => return Err(ParseFailed(err))
-    }
-  } else if detected.format == Pdf && requested_mode == Some(LayoutTwoStage) {
-    match
-      @fpdf.pdf_ocr_parser_result(
-        prepared_source,
-        parse_context,
-        image_ocr_provider~,
-        rasterizer=pdf_rasterizer,
-      ) {
-      Ok(result) => result
-      Err(err) => return Err(ParseFailed(err))
-    }
-  } else {
+  let parsed = {
     let probe_registry = match detected.format {
       Zip | Epub => @formats.builtin_registry()
       _ => @parser.empty_registry()
@@ -174,22 +103,16 @@ fn parse_context_from_execution_plan(
     @parser.parse_context_with_pdf_table_reconstruction_policy(
       @parser.parse_context_with_pdf_header_footer_filter_policy(
         @parser.parse_context_with_pdf_native_runtime_policy(
-          @parser.parse_context_with_audio_options(
-            @parser.parse_context_with_ocr_options(
-              @parser.parse_context_with_execution_profiles(
-                @parser.parse_context_with_product_modes(
-                  @parser.new_parse_context(detected_format),
-                  execution_plan.fidelity_mode,
-                  execution_plan.output_mode,
-                ),
-                execution_plan.execution_profile,
-                execution_plan.lowering_profile,
-                execution_plan.render_profile,
-                execution_plan.accurate_feature_profile,
-              ),
-              execution_plan.ocr_options,
+          @parser.parse_context_with_execution_profiles(
+            @parser.parse_context_with_product_modes(
+              @parser.new_parse_context(detected_format),
+              execution_plan.fidelity_mode,
+              execution_plan.output_mode,
             ),
-            execution_plan.audio_options,
+            execution_plan.execution_profile,
+            execution_plan.lowering_profile,
+            execution_plan.render_profile,
+            execution_plan.accurate_feature_profile,
           ),
           execution_plan.pdf_native_runtime_policy,
         ),

@@ -47,7 +47,7 @@ count_quality_comparison_reports() {
 
 inventory_list() {
   local fmt
-  printf 'format\tmain_markdown\tmain_rag\tmain_assets\tmain_ocr\tfixtures\tquality_records\n'
+  printf 'format\tmain_markdown\tmain_rag\tmain_assets\tfixtures\tquality_records\n'
   while IFS= read -r fmt; do
     [[ -z "$fmt" ]] && continue
     printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
@@ -55,7 +55,6 @@ inventory_list() {
       "$(manifest_count_rows "$fmt" "markdown")" \
       "$(manifest_count_rows "$fmt" "rag")" \
       "$(manifest_count_rows "$fmt" "assets")" \
-      "$(manifest_count_rows "$fmt" "ocr")" \
       "$(count_contract_fixtures "$fmt")" \
       "$(count_quality_comparison_reports "$fmt")"
   done < <(manifest_formats)
@@ -111,7 +110,7 @@ check_sample_inventory_integrity() {
       fail=1
     fi
     case "$lane" in
-      markdown|rag|assets|ocr)
+      markdown|rag|assets)
         ;;
       *)
         echo "[error] unsupported lane at line $line_no: $lane" >&2

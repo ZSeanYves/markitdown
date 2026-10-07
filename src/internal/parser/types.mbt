@@ -73,8 +73,7 @@ pub struct ParserCapability {
 ///|
 /// End-to-end execution knobs passed from route planning into a parser.
 ///
-/// This carries requested route shape, fidelity/output profiles, OCR or audio
-/// hints, PDF policy toggles, and coarse resource limits. It is the canonical
+/// This carries requested route shape, fidelity/output profiles, PDF policy toggles, and coarse resource limits. It is the canonical
 /// place for parser-visible runtime policy.
 pub struct ParseContext {
   detected_format : @input.DetectedFormat
@@ -85,8 +84,6 @@ pub struct ParseContext {
   lowering_profile : @product.LoweringProfile
   render_profile : @product.RenderProfile
   accurate_features : @product.AccurateFeatureProfile
-  ocr_options : OcrOptions
-  audio_options : AudioOptions
   pdf_native_runtime_policy : PdfNativeRuntimePolicy
   pdf_header_footer_filter_policy : PdfHeaderFooterFilterPolicy
   pdf_table_reconstruction_policy : PdfTableReconstructionPolicy
@@ -97,14 +94,6 @@ pub struct ParseContext {
   max_line_chars : Int?
   debug : Bool
 }
-
-///|
-/// OCR intent after CLI defaults and route planning have been resolved.
-pub(all) enum OcrIntent {
-  Disabled
-  Auto
-  Explicit
-} derive(Eq)
 
 ///|
 /// Whether native PDF text restoration is allowed to execute.
@@ -126,26 +115,6 @@ pub(all) enum PdfTableReconstructionPolicy {
   Disabled
   InternalSimpleRowsOnly
 } derive(Eq)
-
-///|
-/// OCR settings shared by image and PDF OCR routes.
-///
-/// `intent` records whether OCR is disabled, automatically selected, or
-/// explicitly required, while `language` passes through a user hint when one
-/// exists.
-pub struct OcrOptions {
-  intent : OcrIntent
-  language : String?
-}
-
-///|
-/// Audio-transcription hints shared by media-pipeline parsers.
-///
-/// `language` is advisory and may be ignored by runtimes that only support
-/// auto-detection.
-pub struct AudioOptions {
-  language : String?
-}
 
 ///|
 /// One parser result exposed to the rest of the product path.
@@ -232,6 +201,26 @@ pub struct ParserRegistry {
 /// Format-keyed async parser registry used by async product dispatch.
 pub struct AsyncParserRegistry {
   parsers : Map[String, Array[AsyncParser]]
+}
+
+///|
+/// One registration in the shared asynchronous parser registry.
+///
+/// This is a compatibility façade for incremental migration. New routing can
+/// register either implementation in one table while existing format packages
+/// continue using `ParserRegistry` until their call sites are migrated.
+pub struct ParserRegistration {
+  name : String
+  mode : ParserMode
+  capability : ParserCapability
+  sync_parser : Parser?
+  async_parser : AsyncParser?
+}
+
+///|
+/// Format-keyed façade used by the migration path toward one async dispatch.
+pub struct UnifiedParserRegistry {
+  parsers : Map[String, Array[ParserRegistration]]
 }
 
 ///|

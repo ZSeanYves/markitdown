@@ -10,10 +10,13 @@ pub fn api_v0_8() -> ApiV0_8
 
 pub fn capabilities() -> Array[Capability]
 
+pub fn capabilities_json() -> String
+
 pub fn convert(Input, options? : ConvertOptions) -> Result[Output, ConvertError]
 
 // Errors
 pub(all) suberror ConvertError {
+  UnsupportedCapability(String)
   DetectionFailed(String)
   ParseFailed(String)
   RenderFailed(String)
@@ -107,18 +110,13 @@ pub struct ConvertOptions {
   mode : ConvertMode
   output_mode : OutputMode
   format_hint : String?
-  ocr_mode : OcrMode
-  ocr_language : String?
-  audio_language : String?
   limits : ResourceLimits
   rag : RagOptions
 } derive(Eq, @debug.Debug)
 pub fn ConvertOptions::default() -> Self
-pub fn ConvertOptions::with_audio_language(Self, String?) -> Self
 pub fn ConvertOptions::with_format_hint(Self, String?) -> Self
 pub fn ConvertOptions::with_limits(Self, ResourceLimits) -> Self
 pub fn ConvertOptions::with_mode(Self, ConvertMode) -> Self
-pub fn ConvertOptions::with_ocr(Self, OcrMode, language? : String?) -> Self
 pub fn ConvertOptions::with_output_mode(Self, OutputMode) -> Self
 pub fn ConvertOptions::with_rag(Self, RagOptions) -> Self
 
@@ -134,6 +132,7 @@ pub(all) enum DiagnosticSeverity {
 } derive(Eq, @debug.Debug)
 
 pub(all) enum ErrorCode {
+  UnsupportedCapability
   DetectionFailed
   ParseFailed
   RenderFailed
@@ -157,12 +156,6 @@ pub(all) enum InputKind {
   Text
   Bytes
   Reader
-} derive(Eq, @debug.Debug)
-
-pub(all) enum OcrMode {
-  Auto
-  Enabled
-  Disabled
 } derive(Eq, @debug.Debug)
 
 pub struct Output {
@@ -223,15 +216,11 @@ pub struct ResourceLimits {
   max_input_bytes : Int64
   max_asset_bytes : Int64
   max_total_asset_bytes : Int64
-  external_command_timeout_ms : Int
-  max_external_output_bytes : Int64
 } derive(Eq, @debug.Debug)
 pub fn ResourceLimits::default() -> Self
-pub fn ResourceLimits::with_external_command_timeout_ms(Self, Int) -> Self
 pub fn ResourceLimits::with_max_asset_bytes(Self, Int64) -> Self
 pub fn ResourceLimits::with_max_cells(Self, Int) -> Self
 pub fn ResourceLimits::with_max_cols(Self, Int) -> Self
-pub fn ResourceLimits::with_max_external_output_bytes(Self, Int64) -> Self
 pub fn ResourceLimits::with_max_input_bytes(Self, Int64) -> Self
 pub fn ResourceLimits::with_max_line_chars(Self, Int) -> Self
 pub fn ResourceLimits::with_max_rows(Self, Int) -> Self

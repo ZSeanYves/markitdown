@@ -5,6 +5,12 @@
 **编制日期：** 2026-08-05  
 **适用范围：** `ZSeanYves/markitdown` 主模块、CLI、格式读取器、转换管线、native FFI、质量实验室、发布物和外部依赖
 
+> 0.8 迁移说明：本文早期 Phase 0-6 记录中的 OCR、音频转录、扫描页
+> 识字和对应安装器属于已退役设计。当前边界以
+> [Native/Wasm 升级计划](./native-wasm-upgrade.md)、[能力矩阵](./capabilities-and-limitations.md)
+> 和 [FFI 清单](./ffi-inventory.md) 为准；公共执行链使用 Native/Wasm
+> 共享文本基座，Native 扩展必须保持在清单边界内。
+
 ## 1. 执行摘要
 
 本项目不是 Python MarkItDown 的逐行移植，而是以其用户可观察行为为兼容目标、以 MoonBit 的类型系统、原生编译和跨目标能力为实现基础的独立产品。长期目标是：
@@ -125,7 +131,7 @@ flowchart LR
 | `internal/readers/*` | 原始格式语法、解包、模型 | 各包独立声明；默认不承诺 | 对应格式 owner |
 | `formats/*` | 原始模型到 IR 的 lowering | 与官方语义契约绑定 | Format owner |
 | `internal/pipeline`/`render` | 标准化、Markdown/RAG/Debug 输出 | 输出契约稳定 | Core maintainer |
-| `runtime/*` | POSIX/C FFI、命令、音频/OCR 等可选运行时 | native-only 或实验性 | Runtime owner |
+| `runtime/*` | POSIX/C FFI、命令和目标隔离扩展 | Native 扩展；Wasm fail-closed façade | Runtime owner |
 | `cli` | 命令行、退出码、原子输出 | 1.0 起稳定 | Release owner |
 | `quality`/`benchmark` | 仅测试、基准、差分和报告 | 不纳入产品 API | Quality owner |
 
@@ -136,7 +142,7 @@ flowchart LR
 - **封装：** `pub` 只读类型用于结果和不可变快照；构造复杂值使用 smart constructor/builder；禁止新增长期 `pub(all)`，旧记录按包逐步迁移。
 - **错误：** 公共边界使用 typed `suberror` 分类（`InvalidInput`、`UnsupportedFormat`、`ParseFailure`、`ResourceLimit`、`ExternalTool`、`NetworkDisabled`、`Internal` 等），保留稳定 code、可选 cause 和 provenance；字符串只作为展示字段。
 - **数据路径：** 解析阶段优先 `Bytes`/`BytesView`/cursor 和流式事件，避免提前把大文件转为 `String`；建立 1 MB、100 MB、1 GB 级输入的峰值内存契约。
-- **target：** 语义核心继续运行 `moon check/test --target all`；涉及 C、进程、文件系统和 async 的包声明 native-only，并为 unsupported target 提供编译期清晰错误或空能力报告。
+- **target：** 文本语义核心和公共格式继续运行 `moon check/test --target wasm` 与 Native；仅 benchmark、集成测试和 hermetic 测试包保留 native-only，并为运行时扩展提供目标隔离和明确错误。
 - **async：** MoonBit 官方 async 文档明确其 native 最佳、Wasm 不支持且 API 仍不稳定（见 [async 文档](https://docs.moonbitlang.com/en/stable/language/async-experimental.html)）。稳定 API 不暴露 async；CLI/并发批处理通过 native adapter 实现。
 - **FFI：** C stub 只存在于 `runtime/native/*`，所有指针、长度、生命周期、错误码和线程约束写入注释与测试；native debug/release 都编译并运行，因 MoonBit native 后端可能不同（见 [FFI 文档](https://docs.moonbitlang.com/en/latest/language/ffi.html)）。
 - **traits/virtual package：** 不把实验性 virtual package 当作生产插件协议；1.0 前使用显式记录、函数和 registry。若未来采用 trait，先以内部试验包验证工具链和文档生成。
@@ -497,7 +503,7 @@ PR 描述必须填写：问题、范围、非目标、风险等级、影响格�
 
 - 版本、MoonBit toolchain、依赖 lock、上游 baseline 和 fixture manifest 固定；
 - Tier 1 双平台 native debug/release 构建、安装、CLI smoke、核心/格式/回归/性能/安全门全部通过；
-- JS/Wasm/Wasm-GC 只对声明可支持的语义核心跑全目标门；native-only 包有明确报告；
+- JS/Wasm/Wasm-GC 只对声明可支持的语义核心跑全目标门；当前产品文本包已移除 native-only 声明，工具测试包有明确报告；
 - 无 P0/P1 issue，P2 有 owner、影响和计划；
 - API/CLI/能力矩阵/迁移/已知限制/changelog 同步；
 - 制品、源码、checksum、签名/attestation、SBOM、provenance 可下载；

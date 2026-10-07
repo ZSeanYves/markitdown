@@ -8,27 +8,10 @@
 /// - `cli.mbt` keeps the top-level execution path thin.
 
 ///|
-/// Run the CLI against the default OCR provider and return the rendered output
+/// Run the text conversion CLI and return the rendered output
 /// payload.
 pub fn run_cli(opts : CliOptions) -> Result[String, String] {
-  cli_public_result(
-    run_cli_with_image_ocr_provider_impl(opts, @focr.run_ocr_provider, false),
-  )
-}
-
-///|
-/// Run the CLI with an injected image OCR provider, mainly for tests and
-/// wrapper boundaries.
-pub fn run_cli_with_image_ocr_provider(
-  opts : CliOptions,
-  image_ocr_provider : (@focr.OcrProviderRequest) -> Result[
-    @focr.OcrProviderResult,
-    @focr.OcrProviderError,
-  ],
-) -> Result[String, String] {
-  cli_public_result(
-    run_cli_with_image_ocr_provider_impl(opts, image_ocr_provider, false),
-  )
+  cli_public_result(run_cli_impl(opts, false))
 }
 
 ///|
@@ -44,34 +27,9 @@ fn cli_input_source(opts : CliOptions) -> @input.InputSource {
 }
 
 ///|
-fn run_cli_with_image_ocr_provider_impl(
+fn run_cli_impl(
   opts : CliOptions,
-  image_ocr_provider : (@focr.OcrProviderRequest) -> Result[
-    @focr.OcrProviderResult,
-    @focr.OcrProviderError,
-  ],
   emit_warnings : Bool,
-) -> Result[String, CliFailure] {
-  run_cli_with_image_ocr_provider_and_pdf_rasterizer(
-    opts,
-    image_ocr_provider,
-    @fpdf.rasterize_pdf_with_pdftoppm_default,
-    emit_warnings~,
-  )
-}
-
-///|
-fn run_cli_with_image_ocr_provider_and_pdf_rasterizer(
-  opts : CliOptions,
-  image_ocr_provider : (@focr.OcrProviderRequest) -> Result[
-    @focr.OcrProviderResult,
-    @focr.OcrProviderError,
-  ],
-  pdf_rasterizer : (@input.InputSource) -> Result[
-    (@fpdf.PdfRasterResult, String),
-    @fpdf.PdfRasterizerError,
-  ],
-  emit_warnings? : Bool = false,
 ) -> Result[String, CliFailure] {
   let requested_format = cli_requested_format(opts)
   if !cli_is_supported_format(requested_format) {
@@ -82,7 +40,6 @@ fn run_cli_with_image_ocr_provider_and_pdf_rasterizer(
           opts.input,
           requested_format,
           cli_requested_format_label(opts),
-          opts.ocr_options,
           @convert.fidelity_mode_for_convert_mode(opts.convert_mode),
         ),
       ),
@@ -92,9 +49,7 @@ fn run_cli_with_image_ocr_provider_and_pdf_rasterizer(
     opts.convert_mode,
     opts.output_mode,
     opts.explicit_format,
-    opts.ocr_options,
     @convert.default_resource_limits(),
-    audio_options=opts.audio_options,
     rag_options=opts.rag_options,
   )
   if cli_atomic_stream_output_supported(opts, requested_format) {
@@ -103,11 +58,9 @@ fn run_cli_with_image_ocr_provider_and_pdf_rasterizer(
     )
   }
   let execution = match
-    @convert.convert_input_with_provenance_and_image_ocr_provider_and_pdf_rasterizer(
+    @convert.convert_input_with_provenance(
       cli_input_source(opts),
       convert_options,
-      image_ocr_provider,
-      pdf_rasterizer,
     ) {
     Ok(value) => value
     Err(err) => return Err(cli_failure_from_convert_error(opts, err))
@@ -262,7 +215,7 @@ fn cli_failure_from_convert_error(
   error : @convert.ConvertError,
 ) -> CliFailure {
   let kind = match error {
-    DetectFailed(_) => DetectionFailure
+    DetectFailed(_) | UnsupportedCapability(_) => DetectionFailure
     ParseFailed(_) => ConversionFailure
     RenderFailed(_) => OutputFailure
     ResourceLimitExceeded(..) => ResourceFailure
@@ -378,6 +331,10 @@ pub fn run_cli_app(raw_cli_args : Array[String]) -> Int {
     print_cli_usage()
     return 0
   }
+  if first == "--capabilities" {
+    cli_println(@api.capabilities_json())
+    return 0
+  }
   if first == "version" || first == "--version" {
     print_cli_version()
     return 0
@@ -428,8 +385,7 @@ pub fn run_cli_app(raw_cli_args : Array[String]) -> Int {
     Ok(value) => value
     Err(msg) => return exit_cli_error(cli_failure(UsageFailure, msg))
   }
-  let rendered = match
-    run_cli_with_image_ocr_provider_impl(opts, @focr.run_ocr_provider, true) {
+  let rendered = match run_cli_impl(opts, true) {
     Ok(value) => value
     Err(failure) => return exit_cli_error(failure)
   }

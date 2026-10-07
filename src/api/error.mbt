@@ -2,6 +2,7 @@
 /// Return the stable machine error identifier.
 pub fn ConvertError::code(self : ConvertError) -> ErrorCode {
   match self {
+    UnsupportedCapability(_) => UnsupportedCapability
     DetectionFailed(_) => DetectionFailed
     ParseFailed(_) => ParseFailed
     RenderFailed(_) => RenderFailed
@@ -14,6 +15,7 @@ pub fn ConvertError::code(self : ConvertError) -> ErrorCode {
 /// Return a versioned string code suitable for logs and serialized APIs.
 pub fn ErrorCode::stable_name(self : ErrorCode) -> String {
   match self {
+    UnsupportedCapability => "MID-1002"
     DetectionFailed => "MID-1001"
     ParseFailed => "MID-2001"
     RenderFailed => "MID-3001"
@@ -27,7 +29,7 @@ pub fn ErrorCode::stable_name(self : ErrorCode) -> String {
 pub fn ConvertError::exit_code(self : ConvertError) -> Int {
   match self.code() {
     InvalidOption => 2
-    DetectionFailed => 3
+    DetectionFailed | UnsupportedCapability => 3
     ParseFailed => 4
     ResourceLimitExceeded => 5
     RenderFailed => 6
@@ -38,6 +40,7 @@ pub fn ConvertError::exit_code(self : ConvertError) -> Int {
 /// Return a human-readable error without discarding its machine code.
 pub fn ConvertError::message(self : ConvertError) -> String {
   match self {
+    UnsupportedCapability(message) => "unsupported capability: " + message
     DetectionFailed(message) => "detect failed: " + message
     ParseFailed(message) => "parse failed: " + message
     RenderFailed(message) => "render failed: " + message
@@ -68,6 +71,7 @@ pub impl Show for ConvertError with fn output(
 ///|
 fn convert_error_from_legacy(error : @convert.ConvertError) -> ConvertError {
   match error {
+    UnsupportedCapability(message) => UnsupportedCapability(message)
     DetectFailed(message) => DetectionFailed(message)
     ParseFailed(message) => ParseFailed(message)
     RenderFailed(message) => RenderFailed(message)

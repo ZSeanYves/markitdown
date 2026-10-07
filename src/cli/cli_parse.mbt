@@ -52,60 +52,6 @@ fn cli_requested_format_from_input(
 }
 
 ///|
-fn cli_requested_format_is_audio(format : @input.DetectedFormat) -> Bool {
-  match format {
-    Audio(_) => true
-    _ => false
-  }
-}
-
-///|
-fn cli_default_ocr_options(
-  input_path : String,
-  explicit_format : @input.DetectedFormat?,
-) -> @parser.OcrOptions {
-  let requested_format = cli_requested_format_from_input(
-    input_path, explicit_format,
-  )
-  if @input.detected_format_is_image_candidate(requested_format) {
-    @parser.explicit_ocr_options()
-  } else {
-    @parser.default_ocr_options()
-  }
-}
-
-///|
-fn cli_effective_ocr_options(
-  input_path : String,
-  explicit_format : @input.DetectedFormat?,
-  fidelity_mode : @convert.FidelityMode,
-  ocr_enabled : Bool,
-  ocr_disabled : Bool,
-  ocr_language : String?,
-) -> @parser.OcrOptions {
-  let requested_format = cli_requested_format_from_input(
-    input_path, explicit_format,
-  )
-  if ocr_enabled {
-    return @parser.explicit_ocr_options(language=ocr_language)
-  }
-  if ocr_disabled {
-    return @parser.disabled_ocr_options()
-  }
-  if @input.detected_format_is_image_candidate(requested_format) {
-    return @parser.explicit_ocr_options(language=ocr_language)
-  }
-  if requested_format == Pdf && fidelity_mode == Accurate {
-    return @parser.explicit_ocr_options(language=ocr_language)
-  }
-  match cli_default_ocr_options(input_path, explicit_format).intent {
-    Explicit => @parser.explicit_ocr_options(language=ocr_language)
-    Disabled => @parser.disabled_ocr_options()
-    Auto => @parser.default_ocr_options()
-  }
-}
-
-///|
 fn parse_explicit_format(
   raw : String?,
 ) -> Result[@input.DetectedFormat?, String] {
@@ -237,15 +183,10 @@ fn parse_cli_options_from_index(
   args : Array[String],
   start_index : Int,
   mode? : @convert.ConvertMode = Balanced,
-  allow_batch_audio_language_without_explicit_format? : Bool = false,
 ) -> Result[CliOptions, String] {
   let positionals : Array[String] = []
   let mut explicit_format_raw : String? = None
   let mut provenance_output : String? = None
-  let mut ocr_enabled = false
-  let mut ocr_disabled = false
-  let mut ocr_language : String? = None
-  let mut audio_language : String? = None
   let fidelity_mode = cli_mode_fidelity_mode(mode)
   let convert_mode = mode
   let mut output_mode = @convert.OutputMode::Markdown
@@ -300,39 +241,12 @@ fn parse_cli_options_from_index(
       i += 1
       continue
     }
-    if arg == "--ocr" {
-      ocr_enabled = true
-      i += 1
-      continue
-    }
-    if arg == "--no-ocr" {
-      ocr_disabled = true
-      i += 1
-      continue
-    }
-    if arg == "--ocr-lang" {
-      if i + 1 >= args.length() {
-        return Err("missing value for --ocr-lang")
-      }
-      let value = args[i + 1].trim().to_owned()
-      if value == "" || value.has_prefix("-") {
-        return Err("missing value for --ocr-lang")
-      }
-      ocr_language = Some(value)
-      i += 2
-      continue
-    }
-    if arg == "--audio-lang" {
-      if i + 1 >= args.length() {
-        return Err("missing value for --audio-lang")
-      }
-      let value = args[i + 1].trim().to_owned()
-      if value == "" || value.has_prefix("-") {
-        return Err("missing value for --audio-lang")
-      }
-      audio_language = Some(value)
-      i += 2
-      continue
+    if ["--ocr", "--no-ocr", "--ocr-lang", "--audio-lang"].contains(arg) {
+      return Err(
+        "removed option: " +
+        arg +
+        "; OCR and audio transcription are no longer supported",
+      )
     }
     if arg == "--provenance-out" {
       if i + 1 >= args.length() {
@@ -353,15 +267,9 @@ fn parse_cli_options_from_index(
     i += 1
   }
 
-  if ocr_enabled && ocr_disabled {
-    return Err("cannot combine --ocr and --no-ocr")
-  }
-  if ocr_language is Some(_) && audio_language is Some(_) {
-    return Err("cannot combine --ocr-lang and --audio-lang")
-  }
   if positionals.length() < 1 || positionals.length() > 2 {
     return Err(
-      "usage: [balance|accurate|stream] [--format txt|csv|tsv|srt|vtt|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|eml|msg|tex|latex|rst|adoc|asciidoc|zip|epub|odt|ods|odp|docx|xlsx|pptx|pdf|wav|mp3|m4a|png|jpg|jpeg|bmp|webp|tif|tiff] [--debug|--rag] [--ocr|--no-ocr] [--ocr-lang <LANG>] [--audio-lang <LANG>] [--provenance-out <path>] <input> [output]",
+      "usage: [balance|accurate|stream] [--format txt|csv|tsv|srt|vtt|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|eml|msg|tex|latex|rst|adoc|asciidoc|zip|epub|odt|ods|odp|docx|xlsx|pptx|pdf] [--debug|--rag] [--provenance-out <path>] <input> [output]",
     )
   }
   let effective_positionals = positionals
@@ -372,41 +280,6 @@ fn parse_cli_options_from_index(
   if effective_positionals[0] == "-" && explicit_format is None {
     return Err("stdin input requires an explicit --format")
   }
-  let requested_format = cli_requested_format_from_input(
-    effective_positionals[0],
-    explicit_format,
-  )
-  if requested_format == Pdf && ocr_enabled && fidelity_mode != Accurate {
-    return Err(
-      "PDF OCR is only available through the `accurate` PDF layout route; `--ocr` continues to work for direct image input",
-    )
-  }
-  if ocr_language is Some(_) && cli_requested_format_is_audio(requested_format) {
-    return Err("--ocr-lang cannot be used with audio input; use --audio-lang")
-  }
-  if ocr_language is Some(_) &&
-    !ocr_enabled &&
-    !@input.detected_format_is_image_candidate(requested_format) &&
-    !(requested_format == Pdf && fidelity_mode == Accurate) {
-    return Err(
-      "--ocr-lang requires --ocr, direct image input, or the `accurate` PDF layout route",
-    )
-  }
-  if audio_language is Some(_) &&
-    !cli_requested_format_is_audio(requested_format) &&
-    !(allow_batch_audio_language_without_explicit_format &&
-    explicit_format is None) {
-    return Err("--audio-lang requires audio input (`wav`, `mp3`, or `m4a`)")
-  }
-  let ocr_options = cli_effective_ocr_options(
-    effective_positionals[0],
-    explicit_format,
-    fidelity_mode,
-    ocr_enabled,
-    ocr_disabled,
-    ocr_language,
-  )
-  let audio_options = @parser.explicit_audio_options(language=audio_language)
   let output = if effective_positionals.length() >= 2 {
     Some(effective_positionals[1])
   } else {
@@ -418,14 +291,12 @@ fn parse_cli_options_from_index(
       output,
       provenance_output,
       explicit_format,
-      ocr_options,
       fidelity_mode,
       convert_mode,
       output_mode,
       stream_requested,
       output_format,
       rag_options=@rag.default_rag_options(),
-      audio_options~,
     ),
   )
 }

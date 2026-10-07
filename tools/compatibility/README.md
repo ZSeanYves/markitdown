@@ -33,9 +33,9 @@ python3 tools/compatibility/check_contract_manifest.py
 Run executable local semantic checks after building the native CLI:
 
 ```bash
-moon build --target native --release --package ZSeanYves/markitdown/cli
+moon build --target native --release --package ZSeanYves/markitdown
 python3 tools/compatibility/run_contract_lab.py \
-  --cli ./_build/native/release/build/cli/cli.exe
+  --cli ./_build/native/release/build/markitdown.exe
 ```
 
 The runner executes every declared mode and compares structural fields
@@ -45,6 +45,6 @@ automatically. Path/Bytes/Reader and hint dimensions are exercised by the
 native integration contract in `src/internal/integration_tests`.
 
 For the upstream comparison, install the pinned reference environment from
-`tools/env/optional_deps.sh install bench`, then pass both `--upstream` and
+`tools/env/installers/install_bench_baseline_deps.sh`, then pass both `--upstream` and
 `--upstream-corpus`. The runner fails on any structural field not recorded in
 the case's reviewed classification.

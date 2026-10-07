@@ -3,10 +3,10 @@ import {
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/env",
   "ZSeanYves/markitdown/convert",
+  "ZSeanYves/markitdown/api",
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/internal/formats/meta" @fmeta,
   "ZSeanYves/markitdown/internal/readers/zip" @dzip,
-  "ZSeanYves/markitdown/formats/ocr" @focr,
   "ZSeanYves/markitdown/formats/pdf" @fpdf,
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/internal/parser",
@@ -20,10 +20,6 @@ import {
   "ZSeanYves/markitdown/internal/testsupport/hermetic" @therm,
 } for "wbtest"
 
-supported_targets = "native"
-
-pkgtype(kind: "executable")
-
 options(
   "preferred-target": "native",
   "native-stub": [
@@ -32,6 +28,16 @@ options(
     "stdin_native_stub.c",
   ],
   targets: {
+    "atomic_file_sink.mbt": [ "native" ],
+    "atomic_file_sink_portable.mbt": [ "wasm", "wasm-gc", "js" ],
+    "atomic_file_sink_wbtest.mbt": [ "native" ],
+    "cli_batch_wbtest.mbt": [ "native" ],
+    "cli_help_wbtest.mbt": [ "native" ],
+    "cli_output_wbtest.mbt": [ "native" ],
+    "cli_parse_wbtest.mbt": [ "native" ],
+    "cli_policy_wbtest.mbt": [ "native" ],
+    "cli_stdin_wbtest.mbt": [ "native" ],
+    "cli_wbtest_support_wbtest.mbt": [ "native" ],
     "stdin_native.mbt": [ "native" ],
     "stdin_portable.mbt": [ "wasm", "wasm-gc", "js" ],
   },

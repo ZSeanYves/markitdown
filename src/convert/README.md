@@ -37,7 +37,7 @@ directly wiring parser, pipeline, and renderer together.
 ## Key Types
 
 - `ConvertOptions`
-  User-facing options for mode, output format, OCR/audio, RAG, and resource limits
+  User-facing options for mode, output format, RAG, and resource limits
 - `RoutePlan`
   A human-readable explanation of why the selected route was chosen
 - `ConvertProvenance`

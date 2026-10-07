@@ -33,8 +33,8 @@ must state which of the three axes they cover.
 | DOCX, PPTX, XLSX | stable/mainstream | built-in comparable | stable | OOXML vectors, assets, relationships, formula/math cases |
 | ODT, ODS, ODP | stable/mainstream | no equivalent official baseline in all cases | stable | self baseline + semantic contracts |
 | PDF | stable/bounded | built-in comparable | stable with capability limits | native text, image, corruption, RSS and external-runtime lanes |
-| PNG/JPEG/BMP/WebP/TIFF OCR | optional | optional Python dependency/runtime | optional extension | runtime fingerprint + timeout/failure tests |
-| WAV/MP3/M4A | optional | optional Python dependency/runtime | optional extension | runtime fingerprint + child-process tests |
+| PNG/JPEG/BMP/WebP/TIFF recognition | unsupported by design | no product runtime | explicit `UnsupportedCapability` | detection and fail-closed tests |
+| WAV/MP3/M4A transcription | unsupported by design | no product runtime | explicit `UnsupportedCapability` | detection and fail-closed tests |
 | XLS/BIFF | unsupported | upstream optional converter | explicit unsupported or future extension | do not claim compatibility until native reader exists |
 | binary Outlook MSG | unsupported | upstream optional converter | explicit unsupported or separate extension | real MSG corpus and OLE security review required |
 | RSS/Atom, Wikipedia, YouTube, Bing SERP | core-disabled | network converters | core unsupported; network extension only | SSRF/resource/credential policy required |
@@ -78,7 +78,7 @@ The executable Phase 2 representative lab is documented in
 ```bash
 python3 tools/governance/collect_baseline.py --check
 python3 -m unittest discover -s tools/governance/tests -p 'test_*.py'
-./tools/env/optional_deps.sh install bench --python /path/to/python3.11
+./tools/env/installers/install_bench_baseline_deps.sh --check
 moon build --target native --release --package ZSeanYves/markitdown/internal/bench_runner
 _build/native/release/build/internal/bench_runner/bench_runner.exe run --preset official-external-compare
 ```

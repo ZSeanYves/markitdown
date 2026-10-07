@@ -6,8 +6,6 @@ import {
   "ZSeanYves/markitdown/internal/readers/odf/shared",
 }
 
-supported_targets = "native"
-
 options(
   "preferred-target": "native",
 )

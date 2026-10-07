@@ -46,7 +46,7 @@ python3 tools/compatibility/check_contract_manifest.py
 python3 -m unittest discover -s tools/compatibility/tests -p 'test_*.py'
 moon check --target all --warn-list +73 --deny-warn
 moon test --target native --package ZSeanYves/markitdown/internal/integration_tests --filter 'phase2*'
-python3 tools/compatibility/run_contract_lab.py --cli ./_build/native/release/build/cli/cli.exe
+python3 tools/compatibility/run_contract_lab.py --cli ./_build/native/release/build/markitdown.exe
 ```
 
 Rollback removes the Phase 2 CI steps and compatibility directory while

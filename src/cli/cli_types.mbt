@@ -15,8 +15,6 @@ pub struct CliOptions {
   output : String?
   provenance_output : String?
   explicit_format : @input.DetectedFormat?
-  ocr_options : @parser.OcrOptions
-  audio_options : @parser.AudioOptions
   convert_mode : @convert.ConvertMode
   output_mode : @convert.OutputMode
   rag_options : @rag.RagOptions
@@ -141,14 +139,12 @@ pub fn make_cli_options(
   output : String?,
   provenance_output : String?,
   explicit_format : @input.DetectedFormat?,
-  ocr_options : @parser.OcrOptions,
   fidelity_mode : @convert.FidelityMode,
   convert_mode : @convert.ConvertMode,
   output_mode : @convert.OutputMode,
   stream_requested : Bool,
   output_format : @convert.OutputFormat,
   rag_options? : @rag.RagOptions = @rag.default_rag_options(),
-  audio_options? : @parser.AudioOptions = @parser.default_audio_options(),
 ) -> CliOptions {
   ignore(output_format)
   ignore(fidelity_mode)
@@ -158,8 +154,6 @@ pub fn make_cli_options(
     output,
     provenance_output,
     explicit_format,
-    ocr_options,
-    audio_options,
     convert_mode,
     output_mode,
     rag_options,
