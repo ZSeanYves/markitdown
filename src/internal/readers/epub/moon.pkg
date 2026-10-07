@@ -10,8 +10,6 @@ import {
   "moonbitlang/x/fs",
 } for "test"
 
-supported_targets = "native"
-
 options(
   "preferred-target": "native",
 )

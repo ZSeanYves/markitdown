@@ -10,8 +10,6 @@ pub fn ResourceLimits::default() -> ResourceLimits {
     max_input_bytes: limits.max_input_bytes,
     max_asset_bytes: limits.max_asset_bytes,
     max_total_asset_bytes: limits.max_total_asset_bytes,
-    external_command_timeout_ms: limits.external_command_timeout_ms,
-    max_external_output_bytes: limits.max_external_output_bytes,
   }
 }
 
@@ -76,24 +74,6 @@ pub fn ResourceLimits::with_max_total_asset_bytes(
   max_total_asset_bytes : Int64,
 ) -> ResourceLimits {
   { ..self, max_total_asset_bytes, }
-}
-
-///|
-/// Return a copy with a new external-command timeout.
-pub fn ResourceLimits::with_external_command_timeout_ms(
-  self : ResourceLimits,
-  external_command_timeout_ms : Int,
-) -> ResourceLimits {
-  { ..self, external_command_timeout_ms, }
-}
-
-///|
-/// Return a copy with a new external-command output limit.
-pub fn ResourceLimits::with_max_external_output_bytes(
-  self : ResourceLimits,
-  max_external_output_bytes : Int64,
-) -> ResourceLimits {
-  { ..self, max_external_output_bytes, }
 }
 
 ///|
@@ -165,15 +145,12 @@ pub fn RagOptions::with_split_code_blocks(
 }
 
 ///|
-/// Return balanced Markdown options with automatic OCR selection.
+/// Return balanced Markdown options for text conversion.
 pub fn ConvertOptions::default() -> ConvertOptions {
   {
     mode: Balanced,
     output_mode: Markdown,
     format_hint: None,
-    ocr_mode: Auto,
-    ocr_language: None,
-    audio_language: None,
     limits: ResourceLimits::default(),
     rag: RagOptions::default(),
   }
@@ -204,25 +181,6 @@ pub fn ConvertOptions::with_format_hint(
   format_hint : String?,
 ) -> ConvertOptions {
   { ..self, format_hint, }
-}
-
-///|
-/// Return a copy with an OCR policy and optional language hint.
-pub fn ConvertOptions::with_ocr(
-  self : ConvertOptions,
-  ocr_mode : OcrMode,
-  language? : String? = None,
-) -> ConvertOptions {
-  { ..self, ocr_mode, ocr_language: language, }
-}
-
-///|
-/// Return a copy with an optional audio-transcription language hint.
-pub fn ConvertOptions::with_audio_language(
-  self : ConvertOptions,
-  audio_language : String?,
-) -> ConvertOptions {
-  { ..self, audio_language, }
 }
 
 ///|

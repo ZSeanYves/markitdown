@@ -1,5 +1,5 @@
 ///|
-test "main cli product policy exposes text, notebook, markup, container, office, pdf, and image formats" {
+test "main cli product policy exposes text formats and rejects multimodal formats" {
   assert_true(cli_is_supported_format(Txt))
   assert_true(cli_is_supported_format(Csv))
   assert_true(cli_is_supported_format(Tsv))
@@ -27,16 +27,6 @@ test "main cli product policy exposes text, notebook, markup, container, office,
   assert_true(cli_is_supported_format(Xlsx))
   assert_true(cli_is_supported_format(Pptx))
   assert_true(cli_is_supported_format(Pdf))
-  assert_true(cli_is_supported_format(Audio(Wav)))
-  assert_true(cli_is_supported_format(Audio(Mp3)))
-  assert_true(cli_is_supported_format(Audio(M4a)))
-  assert_true(cli_is_supported_format(Image(Png)))
-  assert_true(cli_is_supported_format(Image(Jpg)))
-  assert_true(cli_is_supported_format(Image(Jpeg)))
-  assert_true(cli_is_supported_format(Image(Bmp)))
-  assert_true(cli_is_supported_format(Image(Webp)))
-  assert_true(cli_is_supported_format(Image(Tif)))
-  assert_true(cli_is_supported_format(Image(Tiff)))
   assert_true(!cli_is_supported_format(Unknown))
   let supported = [
     "txt", "csv", "tsv", "srt", "vtt", "json", "jsonl", "ndjson", "ipynb", "xml",
@@ -104,7 +94,7 @@ test "main cli parses msg as eml alias" {
 }
 
 ///|
-test "main cli accepts known image extensions as supported formats" {
+test "main cli rejects image extensions as conversion formats" {
   let root = test_tmp_root() + "/main-cli-image-fail-closed"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -114,52 +104,8 @@ test "main cli accepts known image extensions as supported formats" {
 
   let explicit = parse_explicit_format(Some("png"))
   match explicit {
-    Ok(Some(format)) => assert_true(format == Image(Png))
-    Ok(None) => fail("expected explicit png format to parse")
-    Err(msg) => fail("expected explicit png format to stay supported: " + msg)
-  }
-}
-
-///|
-test "main cli parses explicit OCR intent flags" {
-  match parse_cli_options(["--ocr", "--ocr-lang", "eng", "tiny.png"]) {
-    Ok(opts) => {
-      assert_true(opts.ocr_options.intent == Explicit)
-      assert_true(opts.ocr_options.language == Some("eng"))
-    }
-    Err(msg) => fail("expected OCR flags to parse: " + msg)
-  }
-
-  match parse_cli_options(["--no-ocr", "tiny.png"]) {
-    Ok(opts) => {
-      assert_true(opts.ocr_options.intent == Disabled)
-      assert_true(opts.ocr_options.language == None)
-    }
-    Err(msg) => fail("expected --no-ocr to parse: " + msg)
-  }
-
-  match parse_cli_options(["tiny.png"]) {
-    Ok(opts) => {
-      assert_true(opts.ocr_options.intent == Explicit)
-      assert_true(opts.ocr_options.language == None)
-    }
-    Err(msg) => fail("expected direct image input to default to OCR: " + msg)
-  }
-
-  match parse_cli_options(["--ocr-lang", "eng", "tiny.png"]) {
-    Ok(opts) => {
-      assert_true(opts.ocr_options.intent == Explicit)
-      assert_true(opts.ocr_options.language == Some("eng"))
-    }
-    Err(msg) => fail("expected direct image input to accept --ocr-lang: " + msg)
-  }
-
-  match parse_cli_options(["--audio-lang", "zh", "tiny.wav"]) {
-    Ok(opts) => {
-      assert_true(opts.audio_options.language == Some("zh"))
-      assert_true(opts.ocr_options.language == None)
-    }
-    Err(msg) => fail("expected audio input to accept --audio-lang: " + msg)
+    Ok(_) => fail("image input must not be an active conversion format")
+    Err(msg) => assert_true(msg.contains("unsupported --format value"))
   }
 }
 
@@ -297,92 +243,12 @@ test "main cli rejects retired PDF-specific options as unsupported" {
 }
 
 ///|
-test "main cli rejects conflicting OCR intent flags" {
-  match parse_cli_options(["--ocr", "--no-ocr", "tiny.png"]) {
-    Err(msg) => assert_true(msg.contains("cannot combine --ocr and --no-ocr"))
-    Ok(_) => fail("expected conflicting OCR flags to fail")
-  }
-}
-
-///|
-test "main cli constrains --ocr-lang to OCR-capable routes" {
-  match parse_cli_options(["--ocr-lang", "eng", "tiny.png"]) {
-    Ok(opts) => {
-      assert_true(opts.ocr_options.intent == Explicit)
-      assert_true(opts.ocr_options.language == Some("eng"))
+test "main cli explicitly rejects all retired multimodal options" {
+  for flag in ["--ocr", "--no-ocr", "--ocr-lang", "--audio-lang"] {
+    match parse_cli_options([flag, "tiny.txt"]) {
+      Err(msg) => assert_true(msg.contains("removed option: " + flag))
+      Ok(_) => fail("retired option must fail")
     }
-    Err(msg) => fail("expected direct image --ocr-lang to parse: " + msg)
-  }
-
-  match parse_cli_options(["--ocr-lang", "eng", "tiny.txt"]) {
-    Err(msg) =>
-      assert_true(
-        msg.contains(
-          "--ocr-lang requires --ocr, direct image input, or the `accurate` PDF layout route",
-        ),
-      )
-    Ok(_) => fail("expected non-image --ocr-lang without --ocr to fail")
-  }
-
-  match parse_cli_options(["--ocr-lang", "eng", "--ocr", "tiny.pdf"]) {
-    Err(msg) =>
-      assert_true(
-        msg.contains(
-          "PDF OCR is only available through the `accurate` PDF layout route",
-        ),
-      )
-    Ok(_) => fail("expected balanced pdf --ocr to fail closed")
-  }
-
-  match parse_cli_options_from_index(["tiny.pdf"], 0, mode=Accurate) {
-    Ok(opts) => {
-      assert_true(
-        @convert.fidelity_mode_for_convert_mode(opts.convert_mode) == Accurate,
-      )
-      assert_true(opts.ocr_options.intent == Explicit)
-      assert_true(opts.input == "tiny.pdf")
-    }
-    Err(msg) => fail("expected accurate pdf mode to parse: " + msg)
-  }
-
-  match parse_cli_options(["--ocr-lang", "eng", "tiny.wav"]) {
-    Err(msg) =>
-      assert_true(msg.contains("--ocr-lang cannot be used with audio input"))
-    Ok(_) => fail("expected audio --ocr-lang to fail")
-  }
-
-  match parse_cli_options(["--audio-lang", "eng", "tiny.txt"]) {
-    Err(msg) => assert_true(msg.contains("--audio-lang requires audio input"))
-    Ok(_) => fail("expected non-audio --audio-lang to fail")
-  }
-
-  match
-    parse_cli_options(["--audio-lang", "eng", "--ocr-lang", "eng", "tiny.wav"]) {
-    Err(msg) =>
-      assert_true(msg.contains("cannot combine --ocr-lang and --audio-lang"))
-    Ok(_) => fail("expected mixed language flags to fail")
-  }
-}
-
-///|
-test "main cli batch constrains --audio-lang to explicit audio formats" {
-  match parse_batch_cli_options(["--audio-lang", "eng", "inputs", "out"], 0) {
-    Err(msg) =>
-      assert_true(msg.contains("batch --audio-lang requires explicit --format"))
-    Ok(_) => fail("expected batch --audio-lang without explicit format to fail")
-  }
-
-  match
-    parse_batch_cli_options(
-      ["--format", "wav", "--audio-lang", "eng", "inputs", "out"],
-      0,
-    ) {
-    Ok((opts, out_dir)) => {
-      assert_true(opts.audio_options.language == Some("eng"))
-      assert_eq(out_dir, "out")
-    }
-    Err(msg) =>
-      fail("expected batch audio format with --audio-lang to parse: " + msg)
   }
 }
 

@@ -210,8 +210,6 @@ pub struct ResourceLimits {
   max_input_bytes : Int64
   max_asset_bytes : Int64
   max_total_asset_bytes : Int64
-  external_command_timeout_ms : Int
-  max_external_output_bytes : Int64
 }
 
 ///|
@@ -241,8 +239,6 @@ pub fn default_resource_limits() -> ResourceLimits {
     max_input_bytes: 512L * 1024L * 1024L,
     max_asset_bytes: 32L * 1024L * 1024L,
     max_total_asset_bytes: 128L * 1024L * 1024L,
-    external_command_timeout_ms: 300000,
-    max_external_output_bytes: 8L * 1024L * 1024L,
   }
 }
 
@@ -256,8 +252,6 @@ pub fn make_resource_limits(
   max_input_bytes? : Int64 = 512L * 1024L * 1024L,
   max_asset_bytes? : Int64 = 32L * 1024L * 1024L,
   max_total_asset_bytes? : Int64 = 128L * 1024L * 1024L,
-  external_command_timeout_ms? : Int = 300000,
-  max_external_output_bytes? : Int64 = 8L * 1024L * 1024L,
 ) -> ResourceLimits {
   {
     max_rows,
@@ -267,8 +261,6 @@ pub fn make_resource_limits(
     max_input_bytes,
     max_asset_bytes,
     max_total_asset_bytes,
-    external_command_timeout_ms,
-    max_external_output_bytes,
   }
 }
 

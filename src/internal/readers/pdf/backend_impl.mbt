@@ -302,7 +302,6 @@ pub fn extract_pdf_native_document(
   diagnostics.metrics.set("detected_format", "pdf")
   diagnostics.metrics.set("pdf_native_backend", "true")
   diagnostics.metrics.set("pdf_native_text_baseline", "true")
-  diagnostics.metrics.set("pdf_ocr_used", "false")
   diagnostics.metrics.set("pdf_canonical_pipeline_used", "false")
   diagnostics.metrics.set("native_impl_location", "internal/readers/pdf")
   diagnostics.metrics.set("pdf_reader_impl", "internal/readers/pdf")
@@ -370,7 +369,6 @@ pub fn extract_pdf_native_document(
     )
     diagnostics.degraded_features.push("pdf_image_asset_unsupported")
   }
-  diagnostics.metrics.set("model_used", "none")
   diagnostics.metrics.set("native_backend", "root_minimal")
   diagnostics.metrics.set("supports_flate_text_streams", "true")
   diagnostics.metrics.set("supports_tounicode", "true")
@@ -441,8 +439,6 @@ pub fn extract_pdf_native_document(
     },
   )
   diagnostics.metrics.set("product_path_enabled", "false")
-  diagnostics.metrics.set("ocr_used_pages", "0")
-  diagnostics.metrics.set("scanned_page_ratio", "0")
   diagnostics.metrics.set("probe_artifact_reused", "false")
   diagnostics.metrics.set("process_cache_hit", "false")
   if tounicode_failed_font_count > 0 {
@@ -454,7 +450,6 @@ pub fn extract_pdf_native_document(
   let metadata : Map[String, @core.JsonValue] = Map([])
   metadata.set("pdf_native_backend", Bool(true))
   metadata.set("pdf_native_text_baseline", Bool(true))
-  metadata.set("pdf_ocr_used", Bool(false))
   metadata.set("pdf_canonical_pipeline_used", Bool(false))
   metadata.set("pdf_predefined_cmap_used", Bool(predefined_cmap_font_count > 0))
   metadata.set(

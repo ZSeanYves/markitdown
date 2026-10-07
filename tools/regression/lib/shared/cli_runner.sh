@@ -7,7 +7,7 @@ SAMPLES_VERBOSE="${SAMPLES_VERBOSE:-${VERBOSE:-0}}"
 CLI_RUNNER_KIND=""
 CLI_RUNNER_NOTE=""
 CLI_BIN=""
-CLI_PACKAGE="cli"
+CLI_PACKAGE="markitdown"
 CLI_MODULE_ROOT=""
 CLI_STALENESS_SENTINEL=""
 
@@ -39,7 +39,7 @@ validation_bool_enabled() {
 }
 
 resolve_markitdown_cli() {
-  resolve_markitdown_package_cli "cli" "MARKITDOWN_CLI" || return 1
+  resolve_markitdown_package_cli "markitdown" "MARKITDOWN_CLI" || return 1
 }
 
 resolve_markitdown_package_cli() {
@@ -134,7 +134,7 @@ EOF
 native_cli_staleness_sentinel() {
   local package="${1-}"
   case "$package" in
-    cli)
+    markitdown)
       printf '%s' "$ROOT/src/cli/cli.mbt"
       ;;
     *)
@@ -146,7 +146,7 @@ native_cli_staleness_sentinel() {
 native_cli_source_roots() {
   local package="${1-}"
   case "$package" in
-    cli)
+    markitdown)
       cat <<EOF
 $ROOT/src
 $ROOT/moon.mod
@@ -292,13 +292,11 @@ probe_markitdown_cli() {
     local help_out
     help_out="$(MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" --help 2>&1)" || status=1
     if [[ "$status" -eq 0 ]]; then
-      if ! grep -Fq -- 'markitdown-mb [balance|accurate|stream] [--format <format>]' <<<"$help_out"; then
+      if ! grep -Fq -- 'markitdown [balance|accurate|stream] [--format <format>]' <<<"$help_out"; then
         status=1
-      elif ! grep -Fq -- 'Capability groups: Core, Office, Containers, Media, PdfOcr.' <<<"$help_out"; then
+      elif ! grep -Fq -- 'Extract text, structure, sources and document image assets.' <<<"$help_out"; then
         status=1
-      elif ! grep -Fq -- 'All other formats fail closed in this build.' <<<"$help_out"; then
-        status=1
-      elif ! grep -Fq -- 'Direct image input uses local OCR by default;' <<<"$help_out"; then
+      elif ! grep -Fq -- 'Image and audio recognition are not supported.' <<<"$help_out"; then
         status=1
       fi
     fi

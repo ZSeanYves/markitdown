@@ -94,13 +94,7 @@ fn convert_input_to_sink_with_collection(
     fn() { Ok(()) },
   )
   let execution = match
-    convert_input_with_image_ocr_provider_and_pdf_rasterizer_and_provenance_sink(
-      source,
-      options,
-      @focr.run_ocr_provider,
-      @fpdf.rasterize_pdf_with_pdftoppm_default,
-      Some(streaming_sink),
-    ) {
+    execute_conversion(source, options, Some(streaming_sink)) {
     Ok(value) => value
     Err(err) => return Err(err)
   }

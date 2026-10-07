@@ -13,8 +13,8 @@ instead of browsing files by name.
 - [Stable API 0.8](./api-v0.8.md): the sole compatibility-stable library
   surface.
 - [Migration to 0.8](./migration-0.8.md): changes required for pre-0.8 callers.
-- [Environment and optional dependencies](./environment-dependencies.md):
-  managed OCR, audio, accurate-PDF, and benchmark runtimes.
+- [Environment and benchmark dependencies](./environment-dependencies.md):
+  the pinned Python oracle used only for comparison builds.
 - [Current performance evidence](./performance.md): reproducible measurements,
   scope, environment, and interpretation limits.
 
@@ -27,8 +27,9 @@ instead of browsing files by name.
 - [Phase 2 compatibility lab](./phase-2-compatibility-lab.md): pinned upstream
   corpus, structural comparator, and executable semantic gates.
 - [Dependency register](./dependency-register.md)
-- [Text extraction scope and community package assessment](./rfcs/0001-text-extraction-scope-and-community-packages.md): draft proposal for shared text semantics and Native/Wasm capabilities, with 2026-10-07 registry and probe evidence; does not change current product support.
+- [Text extraction scope and community package assessment](./rfcs/0001-text-extraction-scope-and-community-packages.md): implemented migration record for shared text semantics and Native/Wasm capabilities, with 2026-10-07 registry and probe evidence; remaining parser adoption gates are explicit.
 - [Native/Wasm upgrade progress](./native-wasm-upgrade.md): accepted architecture, frozen baseline and implementation gates.
+- [Native FFI inventory](./ffi-inventory.md): target-isolated entry points, ownership and removal conditions.
 - [Maintenance and evolution plan](./project-maintenance-plan.md)
 
 ## Governance and release operations

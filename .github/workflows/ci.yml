@@ -28,8 +28,8 @@ env:
   VECLIB_MAXIMUM_THREADS: "1"
   NUMEXPR_NUM_THREADS: "1"
   MARKITDOWN_QUALITY_LAB_SHA: "d079e50b3e5ac181283c6c818e931bd2ef936a13"
-  MOONBIT_VERSION: "0.1.20260803"
-  MOONBIT_EXPECTED_MOONC: "v0.10.6+80dc50f24"
+  MOONBIT_VERSION: "0.1.20260920"
+  MOONBIT_EXPECTED_MOONC: "v0.10.14+7d59c7ec9"
   MOONBIT_NEW_NATIVE: "0"
 
   # The installer currently exposes a versioned latest artifact rather than a
@@ -167,31 +167,22 @@ jobs:
         include:
           - name: Main regression (Linux)
             os: ubuntu-24.04
-            profiles: balance
             command: check_balance.sh
             evidence: check
-            audio_mode: mock
           - name: Main regression (macOS)
             os: macos-15
-            profiles: balance
             command: check_balance.sh
             evidence: check
-            audio_mode: mock
           - name: Quality regression
             os: ubuntu-24.04
-            profiles: balance audio
             command: check_balance_quality.sh
             evidence: quality
-            audio_mode: real
-          - name: Accurate regression
+          - name: Accurate Office regression
             os: ubuntu-24.04
-            profiles: accurate
             command: check_accurate.sh
             evidence: accurate
-            audio_mode: mock
     env:
-      MARKITDOWN_CLI: ${{ github.workspace }}/_build/native/debug/build/cli/cli.exe
-      MARKITDOWN_BALANCE_AUDIO_RUNTIME: ${{ matrix.audio_mode }}
+      MARKITDOWN_CLI: ${{ github.workspace }}/_build/native/debug/build/markitdown/markitdown.exe
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
@@ -210,15 +201,9 @@ jobs:
         run: python3 tools/governance/check_toolchain.py
       - run: moon update
       - name: Build CLI
-        run: moon build --target native --package ZSeanYves/markitdown/cli
+        run: moon build --target native --package ZSeanYves/markitdown
       - name: Run Phase 2 local compatibility lab
-        run: python3 tools/compatibility/run_contract_lab.py --cli ./_build/native/debug/build/cli/cli.exe
-      - name: Install optional dependencies
-        run: |
-          for profile in ${{ matrix.profiles }}; do
-            ./tools/env/optional_deps.sh install "$profile"
-            ./tools/env/optional_deps.sh check "$profile"
-          done
+        run: python3 tools/compatibility/run_contract_lab.py --cli ./_build/native/debug/build/markitdown/markitdown.exe
       - name: Run regression
         run: |
           ./tools/regression/run_with_release_manifest.sh \
@@ -258,16 +243,16 @@ jobs:
         run: python3 tools/governance/check_toolchain.py
       - run: moon update
       - name: Install benchmark baseline
-        run: ./tools/env/optional_deps.sh install bench
+        run: ./tools/env/installers/install_bench_baseline_deps.sh
       - name: Build benchmark
         run: |
-          moon build --target native --release --package ZSeanYves/markitdown/cli
+          moon build --target native --release --package ZSeanYves/markitdown
           moon build --target native --release --package ZSeanYves/markitdown/internal/bench_runner
       - name: Run Phase 2 upstream corpus comparison
         run: |
           python3 tools/compatibility/fetch_upstream_corpus.py
           python3 tools/compatibility/run_contract_lab.py \
-            --cli ./_build/native/release/build/cli/cli.exe \
+            --cli ./_build/native/release/build/markitdown.exe \
             --upstream ./env/.venv-markitdown-bench/bin/markitdown \
             --upstream-corpus ./.tmp/compatibility/upstream-v0.1.7
       - name: Doctor

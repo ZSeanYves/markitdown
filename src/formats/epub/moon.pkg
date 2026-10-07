@@ -5,8 +5,6 @@ import {
   "ZSeanYves/markitdown/internal/parser",
 }
 
-supported_targets = "native"
-
 options(
   "preferred-target": "native",
 )

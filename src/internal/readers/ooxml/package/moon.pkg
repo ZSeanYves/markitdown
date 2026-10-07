@@ -8,8 +8,6 @@ import {
   "ZSeanYves/markitdown/internal/format_readers/ooxml/package" @oxi,
 } for "wbtest"
 
-supported_targets = "native"
-
 options(
   "preferred-target": "native",
 )

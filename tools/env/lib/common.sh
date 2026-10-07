@@ -68,7 +68,3 @@ install_env_profile() {
   shift
   run_env_manager install --profile "$profile" "$@"
 }
-
-sync_env_model() {
-  run_env_manager sync-model "$@"
-}

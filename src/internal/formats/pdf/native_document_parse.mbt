@@ -41,7 +41,6 @@ pub fn pdf_parse_with_native_document(
   next.metrics.set("pdf_reader_impl", "internal/readers/pdf")
   next.metrics.set("pdf_native_backend", "true")
   next.metrics.set("pdf_native_text_baseline", "true")
-  next.metrics.set("pdf_ocr_used", "false")
   next.metrics.set("pdf_canonical_pipeline_used", "false")
   next.metrics.set(
     "probe_artifact_reused",

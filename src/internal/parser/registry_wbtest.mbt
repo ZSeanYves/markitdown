@@ -120,7 +120,6 @@ test "parser registry returns controlled missing-format errors" {
 
 ///|
 test "parser stable names cover disabled policies and all granularities" {
-  assert_eq(ocr_intent_name(Disabled), "disabled")
   assert_eq(
     pdf_native_runtime_policy_name(DisableTextRestore),
     "disable_text_restore",

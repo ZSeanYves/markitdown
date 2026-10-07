@@ -297,24 +297,18 @@ fn detect_format_from_magic_or_container(
     byte_to_int(arr[1]) == 0x50 &&
     byte_to_int(arr[2]) == 0x4E &&
     byte_to_int(arr[3]) == 0x47 {
-    return Some(
-      (Image(Png), ["magic_bytes", "png_signature", "image_ocr_candidate"]),
-    )
+    return Some((Image(Png), ["magic_bytes", "png_signature", "image_input"]))
   }
   if arr.length() >= 3 &&
     byte_to_int(arr[0]) == 0xFF &&
     byte_to_int(arr[1]) == 0xD8 &&
     byte_to_int(arr[2]) == 0xFF {
-    return Some(
-      (Image(Jpeg), ["magic_bytes", "jpeg_signature", "image_ocr_candidate"]),
-    )
+    return Some((Image(Jpeg), ["magic_bytes", "jpeg_signature", "image_input"]))
   }
   if arr.length() >= 4 &&
     byte_to_int(arr[0]) == 0x42 &&
     byte_to_int(arr[1]) == 0x4D {
-    return Some(
-      (Image(Bmp), ["magic_bytes", "bmp_signature", "image_ocr_candidate"]),
-    )
+    return Some((Image(Bmp), ["magic_bytes", "bmp_signature", "image_input"]))
   }
   if arr.length() >= 4 &&
     byte_to_int(arr[0]) == 0x52 &&
@@ -323,9 +317,7 @@ fn detect_format_from_magic_or_container(
     byte_to_int(arr[3]) == 0x46 &&
     arr.length() >= 12 &&
     bytes_prefix_ascii(arr, 8, 4) == "WEBP" {
-    return Some(
-      (Image(Webp), ["magic_bytes", "webp_signature", "image_ocr_candidate"]),
-    )
+    return Some((Image(Webp), ["magic_bytes", "webp_signature", "image_input"]))
   }
   if arr.length() >= 4 &&
     (
@@ -342,9 +334,7 @@ fn detect_format_from_magic_or_container(
         byte_to_int(arr[3]) == 0x2A
       )
     ) {
-    return Some(
-      (Image(Tiff), ["magic_bytes", "tiff_signature", "image_ocr_candidate"]),
-    )
+    return Some((Image(Tiff), ["magic_bytes", "tiff_signature", "image_input"]))
   }
   match detect_format_from_text_magic(bytes) {
     Some(result) => return Some(result)
@@ -493,7 +483,7 @@ fn notes_with_image(notes : Array[String]) -> Array[String] {
   for note in notes {
     out.push(note)
   }
-  out.push("image_ocr_candidate")
+  out.push("image_input")
   out
 }
 

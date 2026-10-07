@@ -1,84 +1,5 @@
 ///|
-test "main cli image OCR intent remains fail closed by mode" {
-  let root = test_tmp_root() + "/main-cli-image-ocr-intent"
-  recreate_clean_dir(root)
-  defer cleanup_temp_dir(root)
-
-  let png_path = root + "/tiny.png"
-  write_utf8_text(png_path, "not-a-real-image")
-
-  match
-    run_cli_with_image_ocr_provider(
-      cli_options(
-        png_path,
-        None,
-        None,
-        Markdown,
-        ocr_options=@parser.explicit_ocr_options(),
-      ),
-      fake_cli_failing_image_provider(
-        png_path,
-        None,
-        CommandUnavailable("synthetic OCR provider unavailable"),
-      ),
-    ) {
-    Err(msg) =>
-      assert_true(
-        msg.contains("synthetic OCR provider unavailable") &&
-        msg.contains("image_format=png"),
-      )
-    Ok(_) => fail("expected explicit OCR image path to fail closed")
-  }
-
-  match
-    run_cli_with_image_ocr_provider(
-      cli_options(
-        png_path,
-        None,
-        None,
-        Markdown,
-        ocr_options=@parser.explicit_ocr_options(language=Some("eng")),
-      ),
-      fake_cli_failing_image_provider(
-        png_path,
-        Some("eng"),
-        ExecutionFailed("synthetic OCR provider failed"),
-      ),
-    ) {
-    Err(msg) =>
-      assert_true(
-        msg.contains("synthetic OCR provider failed") &&
-        msg.contains("image_format=png"),
-      )
-    Ok(_) => fail("expected explicit OCR image/lang path to fail closed")
-  }
-
-  let provider_calls : Ref[Int] = { val: 0, }
-  match
-    run_cli_with_image_ocr_provider(
-      cli_options(
-        png_path,
-        None,
-        None,
-        Markdown,
-        ocr_options=@parser.disabled_ocr_options(),
-      ),
-      fn(_request : @focr.OcrProviderRequest) {
-        provider_calls.val = provider_calls.val + 1
-        Err(ExecutionFailed("provider should not run"))
-      },
-    ) {
-    Err(msg) => {
-      assert_true(msg.contains("image input conversion is not enabled"))
-      assert_true(msg.contains("OCR is disabled"))
-    }
-    Ok(_) => fail("expected disabled OCR image path to fail closed")
-  }
-  assert_eq(provider_calls.val, 0)
-}
-
-///|
-test "main cli parse rejects balanced pdf explicit OCR with accurate-route guidance" {
+test "main cli rejects retired PDF OCR without suggesting an OCR route" {
   let root = test_tmp_root() + "/main-cli-pdf-explicit-ocr"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -87,12 +8,7 @@ test "main cli parse rejects balanced pdf explicit OCR with accurate-route guida
   write_utf8_text(pdf_path, "%PDF-1.4 fake")
 
   match parse_cli_options(["--ocr", pdf_path]) {
-    Err(msg) =>
-      assert_true(
-        msg.contains(
-          "PDF OCR is only available through the `accurate` PDF layout route",
-        ),
-      )
+    Err(msg) => assert_true(msg.contains("removed option: --ocr"))
     Ok(_) => fail("expected balanced pdf --ocr parse to fail closed")
   }
 }
@@ -140,66 +56,14 @@ test "main cli scanned-like pdf fails closed instead of returning empty markdown
 }
 
 ///|
-test "main cli direct image OCR can succeed through injected provider as a supported product path" {
-  let root = test_tmp_root() + "/main-cli-image-ocr-success"
-  recreate_clean_dir(root)
-  defer cleanup_temp_dir(root)
-
-  let png_path = root + "/tiny.png"
-  write_utf8_text(png_path, "not-a-real-image")
-
-  let result = run_cli_with_image_ocr_provider(
-    cli_options(
-      png_path,
-      None,
-      None,
-      Markdown,
-      ocr_options=@parser.explicit_ocr_options(language=Some("eng")),
-    ),
-    fake_cli_image_provider(png_path, Some("eng")),
-  )
-  match result {
-    Ok(content) => assert_eq(content, "MoonBit OCR\n\nSample 123")
-    Err(msg) => fail("expected injected cli OCR success: " + msg)
-  }
-  assert_true(cli_is_supported_format(Image(Png)))
-}
-
-///|
-test "main cli direct image OCR can succeed through injected provider" {
-  let root = test_tmp_root() + "/main-cli-image-ocr-success-async"
-  recreate_clean_dir(root)
-  defer cleanup_temp_dir(root)
-
-  let png_path = root + "/tiny.png"
-  write_utf8_text(png_path, "not-a-real-image")
-
-  let result = run_cli_with_image_ocr_provider(
-    cli_options(
-      png_path,
-      None,
-      None,
-      Markdown,
-      ocr_options=@parser.explicit_ocr_options(language=Some("eng")),
-    ),
-    fake_cli_image_provider(png_path, Some("eng")),
-  )
-  match result {
-    Ok(content) => assert_eq(content, "MoonBit OCR\n\nSample 123")
-    Err(msg) => fail("expected injected async cli OCR success: " + msg)
-  }
-  assert_true(cli_is_supported_format(Image(Png)))
-}
-
-///|
 test "main cli documents fail-closed unsupported mode policy" {
   assert_true(
     cli_usage_text().contains(
-      "`accurate` selects Accurate only for formats with a declared accurate route",
+      "accurate preserves additional Office/ODF semantics",
     ),
   )
   assert_true(
-    cli_usage_text().contains("`stream` selects a declared streaming"),
+    cli_usage_text().contains("stream uses a declared streaming route"),
   )
 }
 
@@ -245,7 +109,7 @@ test "main cli pdf debug json exposes header footer candidate diagnostics" {
 }
 
 ///|
-test "main cli accurate pdf debug json preserves native route metrics without OCR invocation" {
+test "main cli accurate pdf debug json preserves native text route metrics" {
   let rendered = match
     run_cli(
       make_cli_options(
@@ -253,7 +117,6 @@ test "main cli accurate pdf debug json preserves native route metrics without OC
         None,
         None,
         Some(Pdf),
-        @parser.default_ocr_options(),
         Accurate,
         Accurate,
         @convert.output_mode_for_output_format(Debug),
@@ -266,9 +129,10 @@ test "main cli accurate pdf debug json preserves native route metrics without OC
     Err(msg) => fail("accurate pdf debug json cli failed: " + msg)
   }
   assert_true(
-    rendered.contains("\"ocr_provider_status\": \"skipped_native_text_only\""),
+    rendered.contains(
+      "\"pdf_header_footer_filter_policy\": \"internal_high_confidence_only\"",
+    ),
   )
-  assert_true(rendered.contains("\"pdf_ocr_used\": \"false\""))
   assert_true(rendered.contains("\"pdf_native_backend\": \"true\""))
   assert_true(
     rendered.contains(
@@ -278,5 +142,5 @@ test "main cli accurate pdf debug json preserves native route metrics without OC
   assert_true(
     rendered.contains("\"pdf_table_reconstruction_table_count\": \"0\""),
   )
-  assert_true(rendered.contains("\"pdf_page_route_summary\":"))
+  assert_true(rendered.contains("\"parser_mode\": \"page_single_pass\""))
 }

@@ -41,15 +41,6 @@ pub type AccurateFeature = @product.AccurateFeature
 pub type AccurateFeatureProfile = @product.AccurateFeatureProfile
 
 ///|
-/// OCR provider kind re-exported for route plan and provenance surfaces.
-pub type OcrProviderKind = @focr.OcrProviderKind
-
-///|
-/// OCR provider selection target re-exported for route plan and provenance
-/// surfaces.
-pub type OcrProviderSelectionTarget = @focr.OcrProviderSelectionTarget
-
-///|
 priv struct DocxProbeArtifact {
   block_count : Int
   image_count : Int
@@ -114,8 +105,6 @@ pub struct ConvertOptions {
   mode : ConvertMode
   output_mode : OutputMode
   explicit_format : @input.DetectedFormat?
-  ocr_options : @parser.OcrOptions
-  audio_options : @parser.AudioOptions
   limits : ResourceLimits
   rag_options : @rag.RagOptions
 }
@@ -124,17 +113,14 @@ pub struct ConvertOptions {
 /// Human-readable summary of the selected route before execution.
 ///
 /// This is intentionally compact and user-facing, so CLI and tests can explain
-/// why a specific parser mode or OCR provider was selected without dumping the
-/// full internal execution plan.
+/// why a specific parser mode was selected without dumping the full internal
+/// execution plan.
 pub struct RoutePlan {
   detected_format : @input.DetectedFormat
   selected_route : String
   route_reason : String
   route_probe_summary : String
   requested_parser_mode : @parser.ParserMode?
-  ocr_provider_selection_target : String?
-  ocr_provider_requested_kind : String?
-  ocr_provider_resolved_kind : String?
 }
 
 ///|
@@ -159,12 +145,6 @@ pub struct ConvertProvenance {
   route_fidelity_status : String
   applied_accurate_features : Array[String]
   same_mode_strategy_switches : Array[String]
-  ocr_provider_selection_target : String?
-  ocr_provider_requested_kind : String?
-  ocr_provider_resolved_kind : String?
-  audio_backend_transport : String?
-  audio_backend_name : String?
-  audio_backend_version : String?
   requested_fidelity_mode : FidelityMode?
 }
 
@@ -218,8 +198,6 @@ priv struct ExecutionIntent {
   requested_fidelity_mode : FidelityMode
   output_mode : OutputMode
   stream_requested : Bool
-  ocr_options : @parser.OcrOptions
-  audio_options : @parser.AudioOptions
   limits : ResourceLimits
   rag_options : @rag.RagOptions
 }
@@ -233,8 +211,6 @@ priv struct ResolvedExecutionPlan {
   fidelity_mode : FidelityMode
   requested_fidelity_mode : FidelityMode
   output_mode : OutputMode
-  ocr_options : @parser.OcrOptions
-  audio_options : @parser.AudioOptions
   limits : ResourceLimits
   rag_options : @rag.RagOptions
   selected_route : CanonicalRoute
@@ -254,12 +230,6 @@ priv struct ResolvedExecutionPlan {
   probe_summary_format : String
   probe_summary_parts : Array[String]
   same_mode_strategy_switches : Array[String]
-  ocr_provider_selection_target : OcrProviderSelectionTarget?
-  ocr_provider_requested_kind : OcrProviderKind?
-  ocr_provider_resolved_kind : OcrProviderKind?
-  audio_backend_transport : String?
-  audio_backend_name : String?
-  audio_backend_version : String?
   prepared_source : @input.InputSource
   probe_artifacts : Array[RouteProbeArtifact]
 }
@@ -288,6 +258,7 @@ priv enum RouteProbeArtifact {
 
 ///|
 pub(all) enum ConvertError {
+  UnsupportedCapability(String)
   DetectFailed(String)
   ParseFailed(String)
   RenderFailed(String)
@@ -297,6 +268,7 @@ pub(all) enum ConvertError {
 ///|
 pub impl Show for ConvertError with fn to_string(self : ConvertError) -> String {
   match self {
+    UnsupportedCapability(msg) => "unsupported capability: " + msg
     DetectFailed(msg) => "detect failed: " + msg
     ParseFailed(msg) => "parse failed: " + msg
     RenderFailed(msg) => "render failed: " + msg
@@ -354,8 +326,6 @@ pub fn default_convert_options() -> ConvertOptions {
     mode: Balanced,
     output_mode: Markdown,
     explicit_format: None,
-    ocr_options: @parser.default_ocr_options(),
-    audio_options: @parser.default_audio_options(),
     limits: product_options.limits,
     rag_options: product_options.rag_options,
   }
@@ -368,20 +338,10 @@ pub fn make_convert_options(
   mode : ConvertMode,
   output_mode : OutputMode,
   explicit_format : @input.DetectedFormat?,
-  ocr_options : @parser.OcrOptions,
   limits : ResourceLimits,
-  audio_options? : @parser.AudioOptions = @parser.default_audio_options(),
   rag_options? : @rag.RagOptions = @rag.default_rag_options(),
 ) -> ConvertOptions {
-  {
-    mode,
-    output_mode,
-    explicit_format,
-    ocr_options,
-    audio_options,
-    limits,
-    rag_options,
-  }
+  { mode, output_mode, explicit_format, limits, rag_options, }
 }
 
 ///|

@@ -662,52 +662,6 @@ test "bench progress render line omits empty labels and truncates long labels" {
 }
 
 ///|
-test "bench engine options enable product-default direct image OCR and explicit format binding" {
-  let row = make_bench_row(
-    "ocr_medium_self_multi_column_v1",
-    "png",
-    "regular",
-    "ocr/medium/ocr_medium_self_multi_column_v1.png",
-    "copied_from_external_quality",
-    "local",
-    1024,
-    "sha",
-    "regular",
-    ["external_bench"],
-    ["ocr"],
-    "reviewed",
-    "",
-    "samples/fixtures/contracts/ocr/ocr_medium_self_multi_column_v1.png",
-  )
-  let options = bench_convert_options_for_row(row)
-  assert_true(options.explicit_format == Some(Image(Png)))
-  assert_true(options.ocr_options.intent == Explicit)
-}
-
-///|
-test "bench engine options detect the project synthetic OCR image format" {
-  let row = make_bench_row(
-    "ocr_medium_self_multi_column_v1",
-    "ocr",
-    "regular",
-    "ocr/medium/ocr_medium_self_multi_column_v1.png",
-    "copied_from_external_quality",
-    "local",
-    1024,
-    "sha",
-    "regular",
-    ["external_bench"],
-    ["ocr"],
-    "reviewed",
-    "",
-    "samples/fixtures/contracts/ocr/ocr_medium_self_multi_column_v1.png",
-  )
-  let options = bench_convert_options_for_row(row)
-  assert_true(options.explicit_format == Some(Image(Png)))
-  assert_true(options.ocr_options.intent == Explicit)
-}
-
-///|
 test "route provenance completeness requires full convert provenance" {
   let incomplete = Json::object({
     "route_plan": Json::object({

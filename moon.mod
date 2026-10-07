@@ -19,7 +19,6 @@ keywords = [
   "markdown",
   "document-to-markdown",
   "document-conversion",
-  "ocr",
   "pdf",
   "docx",
   "xlsx",
@@ -32,6 +31,6 @@ keywords = [
 
 description = "A MoonBit-native document-to-Markdown converter with multi-format parsing, metadata, assets, batch conversion, and validation tooling"
 
-preferred_target = "native"
+preferred_target = "wasm"
 
 source = "src"

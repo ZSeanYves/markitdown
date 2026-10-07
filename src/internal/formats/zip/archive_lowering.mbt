@@ -177,15 +177,7 @@ fn zip_parse_inner_document(
   format : @input.DetectedFormat,
   context : @parser.ParseContext,
 ) -> Result[@runtime.ChildBlockProduct, String] {
-  let child_context = match format {
-    Image(_) =>
-      @parser.parse_context_with_ocr_options(
-        context,
-        @parser.explicit_ocr_options(),
-      )
-    _ => context
-  }
-  @runtime.parse_child_to_block_product(registry, source, format, child_context)
+  @runtime.parse_child_to_block_product(registry, source, format, context)
 }
 
 ///|
@@ -236,7 +228,7 @@ fn zip_collect_referenced_asset_entries(
 }
 
 ///|
-fn zip_image_format_uses_ocr(format : @input.DetectedFormat) -> Bool {
+fn zip_image_format_is_supported(format : @input.DetectedFormat) -> Bool {
   match format {
     Image(_) => true
     _ => false

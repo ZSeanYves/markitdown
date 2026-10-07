@@ -127,7 +127,11 @@ test "capability and version surfaces are implementation-neutral" {
     manifest.any(item => item.format == "msg" && item.status == Experimental),
   )
   assert_true(
-    manifest.any(item => item.format == "png" && item.status == ExternalRuntime),
+    manifest.any(item => {
+      item.format == "png" &&
+      item.status == Unsupported &&
+      item.input_kinds.length() == 0
+    }),
   )
   assert_true(
     manifest.any(item => {

@@ -1,4 +1,5 @@
 ///|
+#cfg(target="native")
 test "native command runner preserves argv and bounded output" {
   let shell = @command.make_resolved_command("/bin/sh", "/bin/sh", ExplicitArg)
   let output = @command.run_resolved_command(
@@ -15,4 +16,32 @@ test "native command runner preserves argv and bounded output" {
   assert_eq(output.stdout, "$(literal)")
   assert_true(!output.timed_out)
   assert_true(!output.stdout_limit_exceeded)
+}
+
+///|
+#cfg(target="wasm")
+test "wasm command runner fails closed" {
+  let command = @command.make_resolved_command("tool", "tool", Fallback)
+  let result = @command.run_resolved_command(command, [])
+  match result {
+    Err(message) =>
+      assert_true(
+        message == "external command execution is unsupported on wasm",
+      )
+    Ok(_) => assert_true(false)
+  }
+}
+
+///|
+#cfg(target="wasm")
+async test "wasm async command runner fails closed" {
+  let command = @command.make_resolved_command("tool", "tool", Fallback)
+  let result = @command.run_resolved_command_async(command, [])
+  match result {
+    Err(message) =>
+      assert_true(
+        message == "external command execution is unsupported on wasm",
+      )
+    Ok(_) => assert_true(false)
+  }
 }

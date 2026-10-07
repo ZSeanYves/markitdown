@@ -11,7 +11,7 @@ functional capabilities and never enter benchmark presets.
   with comparable semantics. Both outputs must pass minimum semantic signals
   before a speed ratio is trusted.
 - `self_baseline`: native formats without a valid external comparison, plus
-  optional dependency-backed balance capabilities such as OCR/audio. Results
+  text and document capabilities. Results
   are compared only with an approved, fingerprint-compatible platform baseline.
 
 ODT, ODS, and ODP remain core native formats; they use `self_baseline` because
@@ -23,8 +23,8 @@ entirely because benchmarks measure balance only.
 ```bash
 git clone https://github.com/ZSeanYves/markitdown-quality-lab.git \
   markitdown-quality-lab
-./tools/env/optional_deps.sh install bench
-moon build --target native --release --package ZSeanYves/markitdown/cli
+./tools/env/installers/install_bench_baseline_deps.sh
+moon build --target native --release --package ZSeanYves/markitdown
 moon build --target native --release --package ZSeanYves/markitdown/internal/bench_runner
 ```
 

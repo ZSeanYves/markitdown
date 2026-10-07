@@ -177,19 +177,16 @@ fn child_parse_context_from_mode(
     @parser.parse_context_with_pdf_table_reconstruction_policy(
       @parser.parse_context_with_pdf_header_footer_filter_policy(
         @parser.parse_context_with_pdf_native_runtime_policy(
-          @parser.parse_context_with_ocr_options(
-            @parser.parse_context_with_execution_profiles(
-              @parser.parse_context_with_product_modes(
-                @parser.new_parse_context(format),
-                context.fidelity_mode,
-                context.output_mode,
-              ),
-              context.execution_profile,
-              context.lowering_profile,
-              context.render_profile,
-              context.accurate_features,
+          @parser.parse_context_with_execution_profiles(
+            @parser.parse_context_with_product_modes(
+              @parser.new_parse_context(format),
+              context.fidelity_mode,
+              context.output_mode,
             ),
-            context.ocr_options,
+            context.execution_profile,
+            context.lowering_profile,
+            context.render_profile,
+            context.accurate_features,
           ),
           context.pdf_native_runtime_policy,
         ),

@@ -37,20 +37,9 @@ pub fn register_builtin_parsers(registry : @parser.ParserRegistry) -> Unit {
   @parser.registry_register(registry, Ods, @fods.ods_parser())
   @parser.registry_register(registry, Odp, @fodp.odp_parser())
   @parser.registry_register(registry, Pdf, @fpdf.pdf_native_parser())
-  @parser.registry_register(registry, Pdf, @fpdf.pdf_ocr_parser())
-  @parser.registry_register(registry, Audio(Wav), @faudio.audio_parser())
-  @parser.registry_register(registry, Audio(Mp3), @faudio.audio_parser())
-  @parser.registry_register(registry, Audio(M4a), @faudio.audio_parser())
   @parser.registry_register(registry, Docx, @fdocx.docx_parser())
   @parser.registry_register(registry, Pptx, @fpptx.pptx_parser())
   @parser.registry_register(registry, Xlsx, @fxlsx.xlsx_parser())
-  @parser.registry_register(registry, Image(Png), @focr.image_ocr_parser())
-  @parser.registry_register(registry, Image(Jpg), @focr.image_ocr_parser())
-  @parser.registry_register(registry, Image(Jpeg), @focr.image_ocr_parser())
-  @parser.registry_register(registry, Image(Bmp), @focr.image_ocr_parser())
-  @parser.registry_register(registry, Image(Webp), @focr.image_ocr_parser())
-  @parser.registry_register(registry, Image(Tif), @focr.image_ocr_parser())
-  @parser.registry_register(registry, Image(Tiff), @focr.image_ocr_parser())
 }
 
 ///|

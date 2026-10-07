@@ -20,17 +20,13 @@ GROUPS = (
 )
 
 EXTERNAL_RUNTIME_ADAPTERS = {
-    "formats/audio/runtime.mbt",
-    "formats/ocr/runtime.mbt",
-    "formats/ocr/tesseract.mbt",
-    "formats/pdf/ocr_runtime.mbt",
 }
 
 EXCLUDED_FILES = {
     # Process entrypoints are exercised by release smoke and native linker jobs;
     # invoking them from an instrumented unit test would terminate the runner.
     "internal/bench_runner/main.mbt",
-    "cli/main.mbt",
+    "main.mbt",
     "internal/readers/pdf/font_encoding_tables.mbt",
     "internal/readers/pdf/gb2312_data.mbt",
     "internal/readers/pdf/predefined_cmap_data.mbt",
@@ -44,7 +40,6 @@ FORMAT_CONTAINER_PREFIXES = (
 
 KNOWN_FORMATS = {
     "asciidoc",
-    "audio",
     "csv",
     "docx",
     "eml",
@@ -53,7 +48,6 @@ KNOWN_FORMATS = {
     "ipynb",
     "json",
     "markdown",
-    "ocr",
     "odp",
     "ods",
     "odt",

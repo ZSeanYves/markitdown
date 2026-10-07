@@ -34,16 +34,16 @@ class GovernanceTests(unittest.TestCase):
         )
 
     def test_toolchain_parser_reads_all_components(self):
-        output = """moon 0.1.20260803 (c19f78e 2026-08-03) ~/.moon/bin/moon
-moonc v0.10.6+80dc50f24 (2026-08-04) ~/.moon/bin/moonc
-moonrun 0.1.20260803 (c19f78e 2026-08-03) ~/.moon/bin/moonrun
+        output = """moon 0.1.20260920 (914d7da 2026-09-20) ~/.moon/bin/moon
+moonc v0.10.14+7d59c7ec9 (2026-09-18) ~/.moon/bin/moonc
+moonrun 0.1.20260920 (914d7da 2026-09-20) ~/.moon/bin/moonrun
 """
         self.assertEqual(
             self.toolchain.moon_versions(output),
             {
-                "moon_version": "0.1.20260803",
-                "moonc_version": "v0.10.6+80dc50f24",
-                "moonrun_version": "0.1.20260803",
+                "moon_version": "0.1.20260920",
+                "moonc_version": "v0.10.14+7d59c7ec9",
+                "moonrun_version": "0.1.20260920",
             },
         )
 
@@ -69,7 +69,7 @@ moonrun 0.1.20260803 (c19f78e 2026-08-03) ~/.moon/bin/moonrun
             (ROOT / "tools/governance/phase0-maintenance-inventory.json").read_text()
         )
         self.assertFalse(data["network"]["enabled"])
-        self.assertEqual(len(data["external_commands"]), 5)
+        self.assertEqual(len(data["external_commands"]), 0)
         self.assertEqual(data["licenses"]["project"]["spdx"], "Apache-2.0")
 
     def test_pr_policy_requires_explanation_for_generated_files(self):

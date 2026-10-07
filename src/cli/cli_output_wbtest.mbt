@@ -261,49 +261,6 @@ test "main cli emits debug json on the canonical renderer path" {
 }
 
 ///|
-test "main cli provenance sidecar preserves conversion output semantics" {
-  let root = test_tmp_root() + "/main-cli-provenance"
-  recreate_clean_dir(root)
-  defer cleanup_temp_dir(root)
-
-  let input_path = root + "/demo.json"
-  let output_path = root + "/demo.md"
-  let provenance_path = root + "/demo.provenance.json"
-  write_utf8_text(input_path, "{\"name\":\"Alice\",\"role\":\"Engineer\"}\n")
-
-  let rendered = match
-    run_cli(
-      cli_options(
-        input_path,
-        Some(output_path),
-        Some(Json),
-        Markdown,
-        provenance_output=Some(provenance_path),
-      ),
-    ) {
-    Ok(value) => value
-    Err(msg) => fail("expected cli provenance sidecar conversion: " + msg)
-  }
-
-  assert_true(rendered.contains("| Key | Value |"))
-  assert_true(read_utf8_text(output_path).contains("| Key | Value |"))
-  let sidecar = read_utf8_text(provenance_path)
-  assert_true(sidecar.contains("\"selected_route\":"))
-  assert_true(sidecar.contains("\"route_reason\":"))
-  assert_true(sidecar.contains("\"route_probe_summary\":"))
-  assert_true(sidecar.contains("\"effective_parser_mode\":"))
-  assert_true(sidecar.contains("\"render_input_kind\":"))
-  assert_true(sidecar.contains("\"ocr_provider_selection_target\":"))
-  assert_true(sidecar.contains("\"ocr_provider_requested_kind\":"))
-  assert_true(sidecar.contains("\"ocr_provider_resolved_kind\":"))
-  assert_true(sidecar.contains("\"audio_backend_transport\":"))
-  assert_true(sidecar.contains("\"audio_backend_name\":"))
-  assert_true(sidecar.contains("\"audio_backend_version\":"))
-  assert_true(!sidecar.contains("\"ocr_provider_fallback\":"))
-  assert_true(!sidecar.contains("\"dependency_diagnostics\":"))
-}
-
-///|
 test "main cli rejects unsupported accurate mode without writing output" {
   let root = test_tmp_root() + "/main-cli-accurate-fallback"
   recreate_clean_dir(root)
@@ -323,7 +280,6 @@ test "main cli rejects unsupported accurate mode without writing output" {
         Some(output_path),
         Some(provenance_path),
         Some(Toml),
-        @parser.default_ocr_options(),
         Accurate,
         Accurate,
         @convert.output_mode_for_output_format(Markdown),
@@ -877,7 +833,6 @@ test "main cli accurate pdf keeps born-digital markdown stable and removes repea
         None,
         None,
         Some(Pdf),
-        @parser.default_ocr_options(),
         Accurate,
         Accurate,
         @convert.output_mode_for_output_format(Markdown),
@@ -899,7 +854,6 @@ test "main cli accurate pdf keeps born-digital markdown stable and removes repea
         None,
         None,
         Some(Pdf),
-        @parser.default_ocr_options(),
         Accurate,
         Accurate,
         @convert.output_mode_for_output_format(Markdown),
@@ -1151,4 +1105,43 @@ test "CLI ZIP asset lookup normalizes safe dot segments" {
 ///|
 test "batch task skipped status has a stable manifest name" {
   assert_eq(batch_task_status_name(Skipped), "skipped")
+}
+
+///|
+test "main cli provenance sidecar preserves conversion output semantics" {
+  let root = test_tmp_root() + "/main-cli-provenance"
+  recreate_clean_dir(root)
+  defer cleanup_temp_dir(root)
+
+  let input_path = root + "/demo.json"
+  let output_path = root + "/demo.md"
+  let provenance_path = root + "/demo.provenance.json"
+  write_utf8_text(input_path, "{\"name\":\"Alice\",\"role\":\"Engineer\"}\n")
+
+  let rendered = match
+    run_cli(
+      cli_options(
+        input_path,
+        Some(output_path),
+        Some(Json),
+        Markdown,
+        provenance_output=Some(provenance_path),
+      ),
+    ) {
+    Ok(value) => value
+    Err(msg) => fail("expected cli provenance sidecar conversion: " + msg)
+  }
+
+  assert_true(rendered.contains("| Key | Value |"))
+  assert_true(read_utf8_text(output_path).contains("| Key | Value |"))
+  let sidecar = read_utf8_text(provenance_path)
+  assert_true(sidecar.contains("\"selected_route\":"))
+  assert_true(sidecar.contains("\"route_reason\":"))
+  assert_true(sidecar.contains("\"route_probe_summary\":"))
+  assert_true(sidecar.contains("\"effective_parser_mode\":"))
+  assert_true(sidecar.contains("\"render_input_kind\":"))
+  assert_false(sidecar.contains("\"ocr_provider_selection_target\":"))
+  assert_false(sidecar.contains("\"audio_backend_transport\":"))
+  assert_true(!sidecar.contains("\"ocr_provider_fallback\":"))
+  assert_true(!sidecar.contains("\"dependency_diagnostics\":"))
 }

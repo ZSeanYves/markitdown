@@ -49,31 +49,17 @@ test "main CLI help and fail closed messages remain nonempty across categories" 
   cli_write_stderr("")
   assert_true(cli_unsupported_format_message("xyz").contains("xyz"))
   assert_true(
-    cli_fail_closed_format_message(
-      "input.xyz",
-      Unknown,
-      "xyz",
-      @parser.default_ocr_options(),
-      Balanced,
-    ).contains("unsupported format"),
+    cli_fail_closed_format_message("input.xyz", Unknown, "xyz", Balanced).contains(
+      "unsupported format",
+    ),
   )
   assert_true(
-    cli_fail_closed_format_message(
-      "input.pdf",
-      Pdf,
+    cli_fail_closed_format_message("input.pdf", Pdf, "pdf", Balanced).contains(
       "pdf",
-      @parser.default_ocr_options(),
-      Balanced,
-    ).contains("PDF"),
+    ),
   )
   assert_true(
-    cli_fail_closed_format_message(
-      "input.png",
-      Image(Png),
-      "png",
-      @parser.disabled_ocr_options(),
-      Balanced,
-    ) !=
+    cli_fail_closed_format_message("input.png", Image(Png), "png", Balanced) !=
     "",
   )
   assert_true(
@@ -81,16 +67,14 @@ test "main CLI help and fail closed messages remain nonempty across categories" 
       "/definitely/missing/image.png",
       Image(Png),
       "png",
-      @parser.default_ocr_options(),
       Balanced,
-    ).contains("image OCR"),
+    ).contains("unsupported format"),
   )
   assert_true(
     cli_fail_closed_format_message(
       "/definitely/missing/image.png",
       Image(Png),
       "png",
-      @parser.explicit_ocr_options(language=Some("eng")),
       Accurate,
     ) !=
     "",
@@ -135,10 +119,7 @@ test "typed CLI failures preserve conversion categories and unsupported formats"
     Some(Unknown),
     Markdown,
   )
-  match
-    run_cli_with_image_ocr_provider_impl(
-      unsupported, @focr.run_ocr_provider, false,
-    ) {
+  match run_cli_impl(unsupported, false) {
     Err(failure) => {
       assert_true(failure.kind == DetectionFailure)
       assert_eq(cli_failure_exit_code(failure), 3)

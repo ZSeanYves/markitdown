@@ -22,7 +22,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", default=".")
     parser.add_argument("--quality-lab", default="markitdown-quality-lab")
-    parser.add_argument("--cli", default="_build/native/release/build/cli/cli.exe")
+    parser.add_argument("--cli", default="_build/native/release/build/markitdown.exe")
     parser.add_argument("--output", default=".tmp/mutation/summary.json")
     parser.add_argument("--timeout-seconds", type=float, default=15.0)
     return parser.parse_args()

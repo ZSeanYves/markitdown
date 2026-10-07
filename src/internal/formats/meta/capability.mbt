@@ -3,8 +3,7 @@ pub(all) enum CapabilityGroup {
   Core
   Office
   Containers
-  Media
-  PdfOcr
+  PdfText
 } derive(Eq)
 
 ///|
@@ -52,17 +51,7 @@ fn capability_entries() -> Array[CapabilityEntry] {
     capability_entry(Odp, Office),
     capability_entry(Zip, Containers),
     capability_entry(Epub, Containers),
-    capability_entry(Audio(Wav), Media),
-    capability_entry(Audio(Mp3), Media),
-    capability_entry(Audio(M4a), Media),
-    capability_entry(Pdf, PdfOcr),
-    capability_entry(Image(Png), PdfOcr),
-    capability_entry(Image(Jpg), PdfOcr),
-    capability_entry(Image(Jpeg), PdfOcr),
-    capability_entry(Image(Bmp), PdfOcr),
-    capability_entry(Image(Webp), PdfOcr),
-    capability_entry(Image(Tif), PdfOcr),
-    capability_entry(Image(Tiff), PdfOcr),
+    capability_entry(Pdf, PdfText),
   ]
 }
 
@@ -96,8 +85,7 @@ pub fn capability_group_name(group : CapabilityGroup) -> String {
     Core => "core"
     Office => "office"
     Containers => "containers"
-    Media => "media"
-    PdfOcr => "pdf_ocr"
+    PdfText => "pdf_text"
   }
 }
 

@@ -6,7 +6,7 @@ test "detector contract covers core formats and unknown fallback" {
   )
   let png = (detector.detect)(@input.input_from_path("scan.png"))
   assert_true(png.format == Image(Png))
-  assert_true(png.notes.contains("image_ocr_candidate"))
+  assert_true(png.notes.contains("image_input"))
   let audio = (detector.detect)(@input.input_from_path("voice.m4a"))
   assert_true(audio.format == Audio(M4a))
   let pdf_magic = (detector.detect)(
@@ -115,7 +115,7 @@ test "builtin registry wires pdf native text parser through the active registry"
 
 ///|
 test "pdf accurate parser contract is registered and matches born-digital accurate output" {
-  let spec = @fmeta.pdf_ocr_parser_contract_spec()
+  let spec = @fmeta.pdf_native_parser_contract_spec()
   assert_true(
     @fmeta.product_parser_contract_specs().any(spec0 => {
       spec0.parser_name == spec.parser_name
@@ -123,7 +123,7 @@ test "pdf accurate parser contract is registered and matches born-digital accura
   )
   assert_true(@fmeta.contract_profile_matches_spec(Pdf, spec))
   assert_true(
-    @fmeta.parser_contract_spec_matches_parser(spec, @fpdf.pdf_ocr_parser()),
+    @fmeta.parser_contract_spec_matches_parser(spec, @fpdf.pdf_native_parser()),
   )
   let context0 = @parser.parse_context_with_product_modes(
     @parser.new_parse_context(Pdf),
@@ -132,164 +132,33 @@ test "pdf accurate parser contract is registered and matches born-digital accura
   )
   let context1 = @parser.parse_context_with_limits(
     context0,
-    Some(LayoutTwoStage),
+    Some(PageSinglePass),
     None,
     None,
     None,
     None,
     false,
   )
-  let context2 = @parser.parse_context_with_ocr_options(
-    context1,
-    @parser.explicit_ocr_options(language=Some("eng")),
-  )
   let context3 = @parser.parse_context_with_pdf_header_footer_filter_policy(
-    context2,
+    context1,
     InternalHighConfidenceOnly,
   )
   let context = @parser.parse_context_with_pdf_table_reconstruction_policy(
     context3,
     InternalSimpleRowsOnly,
   )
-  let result = match
-    @fpdf.pdf_ocr_parser_result(
-      @input.input_from_path_with_format(
-        "samples/fixtures/contracts/pdf/text_simple.pdf",
-        Some(Pdf),
-      ),
-      context,
-      image_ocr_provider=fn(_request : @focr.OcrProviderRequest) {
-        abort("born-digital accurate contract test should not invoke OCR")
-      },
-      rasterizer=fn(_source : @input.InputSource) {
-        abort("born-digital accurate contract test should not rasterize")
-      },
-    ) {
-    Ok(value) => value
-    Err(err) => fail("expected accurate pdf contract parse success: " + err)
-  }
+  let result = @fpdf.pdf_native_parser_result(
+    @input.input_from_path_with_format(
+      "samples/fixtures/contracts/pdf/text_simple.pdf",
+      Some(Pdf),
+    ),
+    context,
+  )
   assert_parse_result_matches_contract_spec(result, spec)
-  assert_metric_eq(result.diagnostics, "pdf_ocr_used", "false")
   assert_metric_eq(
     result.diagnostics,
-    "ocr_provider_status",
-    "skipped_native_text_only",
+    "pdf_header_footer_filter_policy",
+    "internal_high_confidence_only",
   )
   assert_metric_eq(result.diagnostics, "pdf_native_backend", "true")
-}
-
-///|
-test "root image parser keeps deterministic fail-closed OCR diagnostics" {
-  let source = @input.input_from_path("scan.png")
-  let detected = @input.DetectedFormat::Image(Png)
-  match
-    @focr.image_ocr_parser_result(
-      source,
-      detected,
-      @parser.default_ocr_options(),
-    ) {
-    Err(msg) => {
-      assert_true(msg.contains("image OCR is not enabled"))
-      assert_true(msg.contains("png"))
-    }
-    Ok(_) => fail("default OCR path should stay fail closed")
-  }
-  let provider_calls : Ref[Int] = { val: 0, }
-  match
-    @focr.image_ocr_parser_result_with_provider(
-      source,
-      detected,
-      @parser.explicit_ocr_options(language=Some("eng")),
-      fn(request : @focr.OcrProviderRequest) {
-        provider_calls.val = provider_calls.val + 1
-        if request.language != Some("eng") {
-          abort("unexpected OCR language")
-        }
-        Err(CommandUnavailable("synthetic OCR provider unavailable"))
-      },
-      requested_mode=Some(LayoutTwoStage),
-    ) {
-    Err(msg) =>
-      assert_true(
-        msg.contains("synthetic OCR provider unavailable") &&
-        msg.contains("image_format=png"),
-      )
-    Ok(_) =>
-      fail("explicit OCR path should still fail until provider wiring exists")
-  }
-  assert_eq(provider_calls.val, 1)
-  let diagnostics = @focr.image_ocr_fail_closed_diagnostics(
-    source,
-    detected,
-    @parser.explicit_ocr_options(language=Some("eng")),
-    requested_mode=Some(LayoutTwoStage),
-  )
-  assert_metric_eq(diagnostics, "ocr_candidate", "true")
-  assert_metric_eq(diagnostics, "ocr_provider_wired", "false")
-  assert_metric_eq(diagnostics, "effective_mode", "layout_two_stage")
-}
-
-///|
-test "pure tesseract tsv parser stays provider-independent while root image OCR remains injected" {
-  let tsv = [
-    "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext",
-    "5\t2\t1\t1\t1\t2\t30\t10\t10\t10\t92\tworld", "5\t1\t1\t1\t1\t1\t10\t20\t20\t10\t95\thello",
-    "5\t2\t1\t1\t1\t1\t5\t10\t20\t10\t90\tmoonbit",
-  ].join("\n")
-  let result = match @focr.parse_tesseract_tsv(tsv, language=Some("eng")) {
-    Ok(value) => value
-    Err(err) => fail("expected pure TSV parser success: " + err.to_string())
-  }
-  assert_eq(result.provider_name, "tesseract")
-  assert_eq(result.pages.length(), 2)
-  assert_eq(result.pages[0].blocks[0].lines[0].text, "hello")
-  assert_eq(result.pages[1].blocks[0].lines[0].text, "moonbit world")
-  let image = @input.input_from_path_with_format("scan.png", Some(Image(Png)))
-  match
-    @convert.convert_input_with_image_ocr_provider(
-      image,
-      @convert.make_convert_options(
-        Balanced,
-        Markdown,
-        Some(Image(Png)),
-        @parser.explicit_ocr_options(),
-        @convert.default_resource_limits(),
-      ),
-      fn(_request : @focr.OcrProviderRequest) {
-        Err(ExecutionFailed("synthetic OCR provider failed"))
-      },
-    ) {
-    Err(ParseFailed(msg)) =>
-      assert_true(
-        msg.contains("synthetic OCR provider failed") &&
-        msg.contains("image_format=png"),
-      )
-    Err(other) =>
-      fail("unexpected image OCR product-path error: " + other.to_string())
-    Ok(_) => fail("pure TSV parser must not enable product OCR success path")
-  }
-}
-
-///|
-test "convert explicit image OCR injected provider reaches root convert and render path" {
-  let image = @input.input_from_path_with_format("scan.png", Some(Image(Png)))
-  let converted = match
-    @convert.convert_input_with_image_ocr_provider(
-      image,
-      @convert.make_convert_options(
-        Balanced,
-        Markdown,
-        Some(Image(Png)),
-        @parser.explicit_ocr_options(language=Some("eng")),
-        @convert.default_resource_limits(),
-      ),
-      pipeline_fake_image_ocr_provider(Some("eng")),
-    ) {
-    Ok(value) => value
-    Err(err) => fail("expected injected convert success: " + err.to_string())
-  }
-  assert_eq(converted.content, "MoonBit OCR\n\nSample 123")
-  assert_true(converted.parser_mode == LayoutTwoStage)
-  assert_metric_eq(converted.diagnostics, "ocr_provider_status", "success")
-  assert_metric_eq(converted.diagnostics, "renderer_name", "MarkdownRenderer")
 }

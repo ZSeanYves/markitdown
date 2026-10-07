@@ -1,12 +1,12 @@
 # RFC 0001: 收缩为文档文本提取，并复用社区解析库
 
-- Status: draft
+- Status: implemented incrementally; P4-P6 remain open
 - Risk: R3（公开 API、格式支持和解析器替换）
 - Owners: 待指定
 - 核验日期：2026-10-07（Asia/Shanghai）
 - 代码基线：`6e7a7a2`，工作区原先干净，`moon.mod` 为未发布的 `0.8.0`
 - 工具链：`moon 0.1.20260920 (914d7da)`、`moonx 0.1.0`；隔离探针覆盖 native 与线性内存 Wasm，不代表产品已支持双后端
-- 范围：调查与迁移建议；没有移除现有功能或更换产品依赖
+- 范围：调查、实验和迁移记录；0.8 工作树已落实文本边界、flate 依赖和 Native/Wasm 目标隔离，社区解析候选仍未强行替换
 
 ## 结论
 
@@ -26,7 +26,7 @@
 4. 在独立 MoonBit 模块中编译九个候选库，并用本仓库已有 DOCX/XLSX/PDF 样例及小型语义样例执行 11 项检查。
 5. 没有执行完整兼容性语料、性能/RSS 基准、所有后端测试或安全审计。上游 README 的一致性测试数字是上游自述，本次没有复跑。
 
-可复查的本地证据位于 `.audit/2026-10-07-community-packages/`（Git 忽略）：`registry-snapshot.json`、独立模块的 `moon.mod` / `moon.pkg` / `probe_test.mbt`、检查日志和 PDF 实际输出。最初试验目录是 `/tmp/markitdown-ecosystem-SfVjYm`；完整下载源码保留在那里。探针中的样例根目录为本机绝对路径，跨机器复跑需修改 `fixture()`。
+可复查的本地证据位于 `.audit/2026-10-07-community-packages/`（Git 忽略）：`registry-snapshot.json`、独立模块的 `moon.mod` / `moon.pkg` / `probe_test.mbt`、检查日志和 PDF 实际输出；本轮升级证据位于 `.audit/2026-10-07-upgrade/`。探针中的样例根目录为本机绝对路径，跨机器复跑需修改 `fixture()`。
 
 首次 Moon 包下载出现超时；改用发布包直链并校验后完成编译。用户开启 VPN 后再次下载 `pdflite@0.3.8`：HTTP 200，3,503,966 字节，约 1.31 秒，SHA-256 与注册表相同。这是下载验证，不是解析性能数据。
 

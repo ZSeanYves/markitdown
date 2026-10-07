@@ -34,15 +34,6 @@ pub(all) enum OutputMode {
 } derive(Eq, @debug.Debug)
 
 ///|
-/// OCR selection policy. OCR runtimes remain optional extensions.
-#warnings("-unused_constructor")
-pub(all) enum OcrMode {
-  Auto
-  Enabled
-  Disabled
-} derive(Eq, @debug.Debug)
-
-///|
 /// Stable resource ceilings for one conversion.
 pub struct ResourceLimits {
   max_rows : Int
@@ -52,8 +43,6 @@ pub struct ResourceLimits {
   max_input_bytes : Int64
   max_asset_bytes : Int64
   max_total_asset_bytes : Int64
-  external_command_timeout_ms : Int
-  max_external_output_bytes : Int64
 } derive(Eq, @debug.Debug)
 
 ///|
@@ -73,9 +62,6 @@ pub struct ConvertOptions {
   mode : ConvertMode
   output_mode : OutputMode
   format_hint : String?
-  ocr_mode : OcrMode
-  ocr_language : String?
-  audio_language : String?
   limits : ResourceLimits
   rag : RagOptions
 } derive(Eq, @debug.Debug)
@@ -253,6 +239,7 @@ pub struct Capability {
 ///|
 /// Stable machine-readable conversion error identifiers.
 pub(all) enum ErrorCode {
+  UnsupportedCapability
   DetectionFailed
   ParseFailed
   RenderFailed
@@ -263,6 +250,7 @@ pub(all) enum ErrorCode {
 ///|
 /// Typed conversion failures returned by the 0.8 API.
 pub(all) suberror ConvertError {
+  UnsupportedCapability(String)
   DetectionFailed(String)
   ParseFailed(String)
   RenderFailed(String)

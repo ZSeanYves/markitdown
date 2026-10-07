@@ -9,8 +9,6 @@ import {
   "ZSeanYves/markitdown/product",
 }
 
-supported_targets = "native"
-
 options(
   "preferred-target": "native",
 )

@@ -6,7 +6,6 @@ fn contract_balanced_markdown_options(
     Balanced,
     Markdown,
     Some(format),
-    @parser.default_ocr_options(),
     default_resource_limits(),
   )
 }

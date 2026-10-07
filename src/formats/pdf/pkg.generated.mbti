@@ -3,18 +3,11 @@ package "ZSeanYves/markitdown/formats/pdf"
 
 import {
   "ZSeanYves/markitdown/core",
-  "ZSeanYves/markitdown/formats/ocr",
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/internal/parser",
 }
 
 // Values
-pub fn build_pdftoppm_png_command(String, String) -> (String, Array[String])
-
-pub fn cleanup_pdf_ocr_temp_dir(String) -> Unit
-
-pub async fn collect_pdftoppm_output_async(String, Array[String]) -> Result[(Int, String, String), PdfRasterizerError]
-
 pub fn pdf_native_appendix_blocks(Map[String, @core.JsonValue]) -> Array[@core.CoreBlock]
 
 pub fn pdf_native_document_to_blocks_with_policies(@ZSeanYves/markitdown/internal/readers/pdf.PdfNativeDocument, @parser.PdfHeaderFooterFilterPolicy) -> (Map[String, @core.JsonValue], Array[@core.CoreBlock], @core.Diagnostics)
@@ -37,75 +30,9 @@ pub fn pdf_native_parser_name() -> String
 
 pub fn pdf_native_parser_result(@input.InputSource, @parser.ParseContext) -> @parser.ParseResult
 
-pub fn pdf_ocr_layout_capability() -> @parser.ParserCapability
-
-pub fn pdf_ocr_parser() -> @parser.Parser
-
-pub fn pdf_ocr_parser_capability() -> @parser.ParserCapability
-
-pub fn pdf_ocr_parser_name() -> String
-
-pub fn pdf_ocr_parser_result(@input.InputSource, @parser.ParseContext, image_ocr_provider? : (@ocr.OcrProviderRequest) -> Result[@ocr.OcrProviderResult, @ocr.OcrProviderError], rasterizer? : (@input.InputSource) -> Result[(PdfRasterResult, String), PdfRasterizerError]) -> Result[@parser.ParseResult, String]
-
-pub async fn pdf_ocr_parser_result_async(@input.InputSource, @parser.ParseContext, image_ocr_provider? : async (@ocr.OcrProviderRequest) -> Result[@ocr.OcrProviderResult, @ocr.OcrProviderError], rasterizer? : async (@input.InputSource) -> Result[(PdfRasterResult, String), PdfRasterizerError]) -> Result[@parser.ParseResult, String]
-
-pub fn pdf_raster_backend_dependency_diagnostic() -> @core.DependencyDiagnostic
-
-pub fn pdf_raster_backend_install_hint() -> String
-
-pub fn pdf_raster_provider_error_message(PdfRasterizerError) -> String
-
-pub fn pdf_rasterizer_error_status(PdfRasterizerError) -> PdfRasterizerStatus
-
-pub fn pdf_rasterizer_kind_name(PdfRasterizerKind) -> String
-
-pub fn pdf_rasterizer_status_name(PdfRasterizerStatus) -> String
-
-pub fn pdftoppm_command_env_var() -> String
-
-pub fn rasterize_pdf_with_pdftoppm(@input.InputSource, (String, Array[String]) -> Result[(Int, String, String), PdfRasterizerError]) -> Result[(PdfRasterResult, String), PdfRasterizerError]
-
-pub async fn rasterize_pdf_with_pdftoppm_async(@input.InputSource, async (String, Array[String]) -> Result[(Int, String, String), PdfRasterizerError]) -> Result[(PdfRasterResult, String), PdfRasterizerError]
-
-pub fn rasterize_pdf_with_pdftoppm_default(@input.InputSource) -> Result[(PdfRasterResult, String), PdfRasterizerError]
-
-pub async fn rasterize_pdf_with_pdftoppm_default_async(@input.InputSource) -> Result[(PdfRasterResult, String), PdfRasterizerError]
-
 // Errors
 
 // Types and methods
-pub struct PdfRasterPageArtifact {
-  page_index : Int
-  image_path : String?
-  success : Bool
-  diagnostics : Array[String]
-}
-
-pub struct PdfRasterResult {
-  backend_name : String
-  page_count : Int
-  pages : Array[PdfRasterPageArtifact]
-  diagnostics : Array[String]
-}
-
-pub(all) enum PdfRasterizerError {
-  CommandUnavailable(String)
-  ExecutionFailed(String)
-  OutputParseFailed(String)
-  EmptyResult(String)
-} derive(Eq)
-pub impl Show for PdfRasterizerError
-
-pub(all) enum PdfRasterizerKind {
-  PdfToPpm
-} derive(Eq)
-
-pub(all) enum PdfRasterizerStatus {
-  CommandUnavailable
-  ExecutionFailed
-  OutputParseFailed
-  EmptyResult
-} derive(Eq)
 
 // Type aliases
 

@@ -37,6 +37,7 @@ FORBIDDEN_STABLE_NAMES = (
 )
 IGNORED_PARTS = {
     ".git",
+    ".audit",
     ".mooncakes",
     ".tmp",
     "_build",

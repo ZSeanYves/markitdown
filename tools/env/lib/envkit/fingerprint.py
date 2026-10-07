@@ -9,33 +9,17 @@ from .utils import stable_json_dumps, write_text_if_changed
 from .venv_sync import VenvState
 
 
-def runtime_args_snapshot(bundle: ConfigBundle, profile_name: str) -> dict:
-    stable_env = dict(bundle.runtime_args["stable_env"])
-    commands = dict(bundle.runtime_args["commands"])
-    paddle = dict(bundle.runtime_args["paddle"])
-    if profile_name == "balance":
-        return {
-            "stable_env": stable_env,
-            "commands": {
-                "pdftoppm": commands["pdftoppm"],
-                "tesseract": commands["tesseract"],
-            },
-        }
-    if profile_name == "audio":
-        return {
-            "stable_env": stable_env,
-            "commands": {"ffmpeg": commands["ffmpeg"]},
-        }
-    if profile_name == "accurate":
-        return {
-            "stable_env": stable_env,
-            "commands": {
-                "pdftoppm": commands["pdftoppm"],
-                "tesseract": commands["tesseract"],
-            },
-            "paddle": paddle,
-        }
-    return {"stable_env": stable_env}
+BENCH_ENV = {
+    "TZ": "UTC",
+    "LANG": "en_US.UTF-8",
+    "LC_ALL": "en_US.UTF-8",
+    "PYTHONHASHSEED": "0",
+    "OMP_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1",
+    "NUMEXPR_NUM_THREADS": "1",
+}
 
 
 def profile_fingerprint(
@@ -45,7 +29,6 @@ def profile_fingerprint(
     platform: PlatformInfo,
     tools: dict[str, ToolState],
     venv: VenvState | None,
-    models: dict[str, dict],
 ) -> dict:
     payload: dict[str, object] = {
         "profile": profile_name,
@@ -55,7 +38,7 @@ def profile_fingerprint(
             "os": platform.os_name,
             "key": platform.key,
         },
-        "runtime_args": runtime_args_snapshot(bundle, profile_name),
+        "stable_env": BENCH_ENV,
         "system_tools": {
             tool_name: {
                 "binary_sha256": tool.binary_sha256,
@@ -80,8 +63,6 @@ def profile_fingerprint(
             "python_version": venv.python_version,
             "venv_path": venv.venv_path,
         }
-    if models:
-        payload["models"] = {key: value for key, value in sorted(models.items())}
     return payload
 
 

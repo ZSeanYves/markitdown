@@ -110,14 +110,11 @@ def main() -> int:
         "artifacts": artifacts,
         "missing_artifacts": missing,
         "runtime_fingerprints": {
-            "cli": binary_fingerprint(root, "_build/native/release/build/cli/cli.exe"),
+            "cli": binary_fingerprint(root, "_build/native/release/build/markitdown.exe"),
             "bench_runner": binary_fingerprint(
                 root,
                 "_build/native/release/build/internal/bench_runner/bench_runner.exe",
             ),
-            "tesseract": command_fingerprint("tesseract", ["--version"], root),
-            "pdftoppm": command_fingerprint("pdftoppm", ["-v"], root),
-            "ffmpeg": command_fingerprint("ffmpeg", ["-version"], root),
             "markitdown": command_fingerprint("markitdown", ["--version"], root),
         },
     }

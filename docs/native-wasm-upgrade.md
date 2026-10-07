@@ -2,6 +2,10 @@
 
 Accepted scope: [ADR 0006](./adr/0006-shared-text-runtime.md).
 Candidate research: [RFC 0001](./rfcs/0001-text-extraction-scope-and-community-packages.md).
+The current FFI boundary is listed in [the FFI inventory](./ffi-inventory.md).
+
+The module and root package prefer linear Wasm for the default moonx artifact;
+an explicit Native build remains the compatibility and extension artifact.
 
 ## Frozen starting point
 
@@ -66,11 +70,11 @@ tests per probe and target. Zero tests is a failure.
 
 | Stage | State | Required exit evidence |
 | --- | --- | --- |
-| P0 baseline | In progress | Source, dependency, text contract and runtime fingerprints; baseline failures classified |
-| P1 experiments | In progress | Official I/O, compression, encoding and candidate decisions with exact versions |
-| P2 text scope | Not started | OCR/audio removed and remaining Native text contracts pass |
-| P3 one runtime | Not started | One async registry/reader/pull/sink, common I/O and root entrypoint |
-| P4 all text formats | Not started | Wasm common corpus and Native superset pass |
+| P0 baseline | Evidence captured | Source archive, dependency snapshot, format contract and baseline failures are recorded; release gates remain open |
+| P1 experiments | Evidence captured | Official I/O/codec probes pass on Native and Wasm; community parser candidates remain non-adopted pending format-level POC |
+| P2 text scope | Complete | OCR/audio implementation, installers and model wiring removed; 864/864 remaining Native tests pass |
+| P3 one runtime | In progress | Root moonx executable, target-isolated runtime FFI and shared registry façade landed; product route still uses the compatibility registry while the async call-site migration remains |
+| P4 all text formats | Evidence captured | Public text packages and root CLI build on linear Wasm; 695/695 Wasm tests and 864/864 Native tests pass; full RC corpus remains |
 | P5 adoption | Not started | Each selected adapter has two validation rounds and a rollback |
 | P6 release candidate | Not started | Platform, performance, artifacts and precise-version consumer evidence |
 

@@ -10,8 +10,6 @@ import {
 // Values
 pub fn asciidoc_parser_contract_spec() -> ParserContractSpec
 
-pub fn audio_parser_contract_spec() -> ParserContractSpec
-
 pub fn block_stream_parser_contract_spec(String, @input.DetectedFormat, Array[String], Array[String], Array[String], required_source_ref_extra_keys? : Array[String], policies? : Array[String]) -> ParserContractSpec
 
 pub fn builtin_registry() -> @parser.ParserRegistry
@@ -50,8 +48,6 @@ pub fn format_route_profile(@input.DetectedFormat) -> FormatRouteProfile
 
 pub fn html_parser_contract_spec() -> ParserContractSpec
 
-pub fn image_ocr_parser_contract_spec() -> ParserContractSpec
-
 pub fn ipynb_parser_contract_spec() -> ParserContractSpec
 
 pub fn json_parser_contract_spec() -> ParserContractSpec
@@ -85,8 +81,6 @@ pub fn parser_contract_spec_matches_parser(ParserContractSpec, @parser.Parser) -
 pub fn parser_mode_for_route(FormatRoute) -> @parser.ParserMode
 
 pub fn pdf_native_parser_contract_spec() -> ParserContractSpec
-
-pub fn pdf_ocr_parser_contract_spec() -> ParserContractSpec
 
 pub fn pptx_parser_contract_spec() -> ParserContractSpec
 
@@ -149,8 +143,7 @@ pub(all) enum CapabilityGroup {
   Core
   Office
   Containers
-  Media
-  PdfOcr
+  PdfText
 } derive(Eq)
 
 pub(all) enum FormatRoute {

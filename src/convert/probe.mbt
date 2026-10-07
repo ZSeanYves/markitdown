@@ -15,7 +15,6 @@ fn structured_text_preflight_probe(
     Asciidoc => text_markup_preflight_probe(source, format)
     Xml => xml_preflight_probe(source, options)
     Html => html_preflight_probe(source, options)
-    Audio(_) => audio_preflight_probe(source, format)
     _ => generic_preflight_probe(source, format)
   }
 }

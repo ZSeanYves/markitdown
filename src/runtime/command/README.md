@@ -1,7 +1,7 @@
 # Runtime Command Boundary
 
-`runtime/command/` is the shared native boundary for resolving and executing
-optional external tools. Format packages describe a request; this package owns
+`runtime/command/` is the shared Native extension boundary for resolving and
+executing explicitly enabled external tools. Format packages describe a request; this package owns
 command provenance, argv transport, timeout, cancellation, and output limits.
 
 ## Resolution Order

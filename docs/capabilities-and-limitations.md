@@ -22,7 +22,8 @@ Support levels used below:
 - **Mainstream**: covers the structures normally needed for document ingestion.
 - **Common subset**: useful for typical files, but not a complete language or
   editor implementation.
-- **Optional**: requires a local runtime installed through `tools/env/`.
+- **Optional**: reserved for explicitly declared build or benchmark extensions;
+  the conversion product itself has no external runtime requirement.
 
 ## Format Matrix
 
@@ -52,17 +53,18 @@ Support levels used below:
 | `odt` | Mainstream | Styles, headings, lists, tables, links, images, notes and comments | balance, accurate, stream | Complex page layout and editor round-trip are not reproduced |
 | `ods` | Mainstream | Typed cells, formulas as text, merges/covered cells, repeated rows/columns, hidden state, comments and images | balance, accurate, stream | Formulas are not recalculated; advanced charts/macros are limited |
 | `odp` | Mainstream | Slides, frames/groups, reading order, text, tables, images, notes, hidden slides and basic chart text | balance, accurate, stream | Animations and presentation rendering are not reproduced |
-| `pdf` | Mainstream, bounded | Native text, fonts/CMaps, page order, simple tables, links, outlines, forms and supported embedded image assets | balance, accurate | Balance does not OCR scanned pages; encrypted PDFs fail closed; accurate uses external full-page raster/OCR |
-| `png`, `jpg`, `jpeg`, `bmp`, `webp`, `tif`, `tiff` | Optional | OCR text, page/line geometry and provider provenance | balance, accurate | Only top-level images and standalone unreferenced ZIP images are OCR inputs; document-embedded images remain assets |
-| `wav`, `mp3`, `m4a` | Optional | Transcript segments, timing, language/runtime metadata | balance | Requires Vosk; compressed input may require ffmpeg; no diarization or accurate/stream mode |
+| `pdf` | Mainstream, bounded | Native text, fonts/CMaps, page order, simple tables, links, outlines, forms, geometry and supported embedded image assets | balance, accurate | PDFs without a recoverable text layer fail with a diagnostic; encrypted PDFs fail closed; no scanned-page OCR |
+| `png`, `jpg`, `jpeg`, `bmp`, `webp`, `tif`, `tiff` | Unsupported input | Detected for stable capability diagnostics; images embedded in documents remain assets | — | Image recognition is outside the 0.8 text boundary |
+| `wav`, `mp3`, `m4a` | Unsupported input | Detected for stable capability diagnostics; subtitle files retain their text and timing | — | Audio transcription is outside the 0.8 text boundary |
 
 ## Accurate and Stream Boundaries
 
-`accurate` has two meanings, both explicit:
+`accurate` has one text-extraction meaning per format:
 
-- PDF and direct images use an external high-fidelity OCR/layout route.
 - DOCX/XLSX/PPTX/ODT/ODS/ODP stay on their native parser and enable additional
   semantic recovery such as hidden content, notes, spans or reading order.
+- PDF stays on the bounded native text reader and keeps its geometry/table
+  policies. It never invokes an external OCR/layout route.
 
 All other formats reject `accurate`. Explicit `stream` is limited to:
 
@@ -73,16 +75,17 @@ epub xlsx odt ods odp
 
 `stream` changes execution/storage behavior, not the promised Markdown meaning.
 
-## Assets and OCR
+## Assets and unsupported media
 
 Local assets are written only at the output boundary. Paths must be safe and
 relative; absolute paths, `..`, protocols, remote downloads and silent
 overwrites are rejected. Markdown references must resolve to materialized files
 or be removed with a diagnostic.
 
-Document images are assets, never implicit OCR work. OCR applies only to a pure
-image input or an unreferenced standalone image inside a balance-mode ZIP.
-Native balanced PDF may export supported embedded images, but does not OCR them.
+Document images are assets and never implicit recognition work. A top-level
+image or audio input returns `UnsupportedCapability`; it is not silently
+discarded or sent to an external process. Native PDF may export supported
+embedded images, but does not recognize their pixels.
 PNG/JPEG are the common asset contract; GIF/WebP/SVG/JP2/TIFF/JBIG2 are retained
 when the source container and encoding can be saved safely. PDF DCT images stay
 JPEG, while decoded Gray/RGB/CMYK/Indexed images and masks are normalized to PNG.

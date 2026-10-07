@@ -46,30 +46,26 @@ The `_moonbit_get_cli_args` new-native link failure was not an encoding codec
 failure. Object-level inspection traced the symbol to the legacy
 `moonbitlang/x/sys` argument shim linked into executable test runners. CLI and
 benchmark entrypoints now use `moonbitlang/core/env`; explicit process exit is
-isolated in native-only `runtime/process`. This retains `x@0.4.40` without the
-wide `x@0.4.48` filesystem error-API migration and makes the full new-native
-suite pass without Python or a compatibility C bridge.
+isolated in `runtime/process` and the selected x/async versions are checked
+independently. No Python or compatibility C bridge is needed by conversion.
 
 ## Optional Python/system dependencies
 
-Python is a benchmark/optional-runtime concern, not a core installation
-requirement. The formal comparison environment is `Python 3.11` and
+Python is a benchmark/build-only concern, not a product runtime. The formal
+comparison environment is `Python 3.11` and
 `tools/env/config/python/bench.lock`; its MarkItDown entry is pinned to `0.1.7`.
-OCR, audio and accurate-PDF profiles use the existing managed installer and
-fingerprint files. The stable core must continue to work with no Python,
-Tesseract, FFmpeg, Poppler or model files installed.
+The only managed profile is `bench`, installed by
+`tools/env/installers/install_bench_baseline_deps.sh`. OCR, audio,
+scanned-page recognition, model downloads and system-tool installers were
+removed in 0.8. The stable core works with no Python, system tools or model
+files installed.
 
 | Runtime | Managed version/lock | Profiles | Boundary |
 | --- | --- | --- | --- |
-| Tesseract | 5.5.3 on macOS; 5.3.4 on Ubuntu | balance OCR | explicit capability probe; bounded input/output |
-| FFmpeg + Vosk wrapper | FFmpeg 8.1.2 on macOS; 6.1.1 on Ubuntu; `python/audio.lock` | audio | direct argv, timeout, output cap and process-group cleanup |
-| Poppler `pdftoppm` + PaddleOCR | platform system-tool lock + `python/accurate.lock` | accurate PDF | optional route; model fingerprint and deterministic failure |
 | MarkItDown Python package | `python/bench.lock` (`0.1.7`) | bench only | pinned external oracle; never imported by MoonBit product |
 
-Platform-specific system-tool versions are authoritative in
-`tools/env/config/system_tools.json`; Python transitive versions are
-authoritative in the profile lock files. Documentation must not replace those
-machine-readable locks with an ambient `PATH` observation.
+Python transitive versions are authoritative in the benchmark lock file. The
+oracle is never imported by the MoonBit product or used at conversion runtime.
 
 ## Community candidates
 

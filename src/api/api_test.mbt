@@ -25,8 +25,6 @@ test "0.8 consumers can configure resource and RAG policies" {
     .with_max_input_bytes(1024L)
     .with_max_asset_bytes(512L)
     .with_max_total_asset_bytes(768L)
-    .with_external_command_timeout_ms(250)
-    .with_max_external_output_bytes(4096L)
   let rag = @api.RagOptions::default()
     .with_chunk_size(128)
     .with_chunk_overlap(16)

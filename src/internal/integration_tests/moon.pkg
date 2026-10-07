@@ -8,7 +8,6 @@ import {
   "ZSeanYves/markitdown/internal/formats/meta" @fmeta,
   "ZSeanYves/markitdown/internal/testsupport/hermetic" @therm,
   "ZSeanYves/markitdown/formats" @formats_root,
-  "ZSeanYves/markitdown/formats/ocr" @focr,
   "ZSeanYves/markitdown/input",
   "ZSeanYves/markitdown/internal/parser",
   "ZSeanYves/markitdown/internal/pipeline",

@@ -1,60 +1,28 @@
-# PDF
+# PDF text reader
 
-Logical package `ZSeanYves/markitdown/formats/pdf` owns the formal PDF parser
-path, including native-text recovery, the explicit accurate scanned-PDF route,
-and PDF-specific IR lowering. Low-level PDF decoding, font handling, and
-geometry models live in `internal/readers/pdf`.
-
-The accurate scanned-PDF route is a PDF-specific external-tool boundary:
-`pdftoppm` rasterizes complete pages and the PaddleOCR wrapper recognizes those
-page artifacts. It is separate from the main product OCR path, which only
-accepts top-level pure-image inputs. Embedded images are never independently
-dispatched to OCR.
+`formats/pdf` owns the native text-layer PDF route and lowers it into the
+shared `DocumentIR` pipeline. It accepts born-digital PDFs whose text, font
+maps and page geometry can be recovered by the bounded reader. It does not
+invoke OCR, rasterizers or external processes.
 
 ## Responsibilities
 
-- Expose the formal native-text and OCR parser routes
-- Preserve explicit PDF fail-closed rules in balanced and accurate modes
-- Lower native PDF document models into blocks, signals, source refs, and appendix structures
-- Coordinate the runtime boundary between `pdftoppm` and OCR providers
+- preserve page order, source geometry, links, outlines, forms and safe image
+  assets;
+- report an explicit diagnostic when a PDF has no recoverable text layer;
+- keep random reads, object limits, encryption checks and malformed-input
+  failures inside the common resource policy;
+- return the same `ParseResult` shape used by every other format.
 
-## Key Entry Points
+`accurate` keeps its existing Office/ODF semantic meaning. For PDF it selects
+the same bounded native text route with the declared geometry and table
+policies; it never means scanned-page recognition.
 
-- `parser.mbt`
-  `pdf_native_parser`, `pdf_ocr_parser`, and their matching capabilities and diagnostics
-- `to_ir.mbt`
-  `pdf_native_document_to_ir*`, `pdf_native_appendix_blocks`
-- `ocr_runtime.mbt`
-  `PdfRasterResult`, `rasterize_pdf_with_pdftoppm*`
-- `parser_test.mbt` / `to_ir_test.mbt`
-  Contract-style regression coverage for native-text parsing and lowering
+## Key entry points
 
-## Key Types
+- `parser.mbt`: native parser registration and route diagnostics;
+- `to_ir.mbt`: PDF document to shared IR lowering;
+- `parser_native_gate.mbt`: fail-closed text-layer gate;
+- `parser_test.mbt` / `parser_wbtest.mbt`: text, geometry and corruption cases.
 
-- `PdfRasterPageArtifact`
-  A per-page rasterization artifact plus diagnostics summary
-- `PdfRasterResult`
-  The overall page count, backend name, and page-level results from one rasterization run
-- `ParserCapability`
-  The shared contract through which native-text and OCR PDF routes are exposed to the registry
-
-Balanced native PDF opens a `SourceCursor`, resolves supported xref/object
-ranges lazily, and falls back to bounded full-payload parsing only when the
-cursor path cannot safely recover the file. Accurate PDF is a separate external
-boundary that rasterizes complete pages; neither route OCRs embedded assets.
-
-## Maintenance Rules
-
-- Keep native-text, OCR, and lowering responsibilities clearly layered instead of pushing reader details back into parser orchestration
-- Missing `pdftoppm` or OCR providers must continue to surface explainable fail-closed diagnostics
-- Before adding a new PDF enhancement, decide whether it belongs in the parser, OCR runtime, or lowering layer to avoid responsibility drift
-- Keep image decode working sets and exported asset payloads inside the shared
-  resource budgets; command time/output limits apply to every raster page
-
-## Validation
-
-```bash
-moon test --package ZSeanYves/markitdown/formats/pdf --target native
-bash tools/regression/check_balance.sh --format pdf
-bash tools/regression/check_accurate.sh --pdf
-```
+The package has no Python, model, Poppler, Tesseract or FFmpeg dependency.

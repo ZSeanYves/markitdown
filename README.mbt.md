@@ -1,43 +1,42 @@
 # markitdown-mb
 
-`markitdown-mb` is a native MoonBit document-to-Markdown converter for document
+`markitdown-mb` is a MoonBit document-to-Markdown converter for document
 ingestion, RAG, and automation pipelines. It follows Microsoft MarkItDown's
 observable document-extraction behavior where a reviewed compatibility contract
 exists, but it is an independent implementation rather than a source port.
 
 The repository is on the unreleased `0.8.0` development line. The stable 0.8
-library contract is native-only; local archives and benchmark runs are
-development evidence, not published releases.
+library contract is shared by Native and Wasm. Native may expose additional
+FFI-backed capabilities; local archives and benchmark runs are development
+evidence, not published releases.
 
 Start with the [documentation index](./docs/README.md). The most useful entry
 points are the [CLI guide](./docs/cli-usage-guide.md), [capability matrix](./docs/capabilities-and-limitations.md),
-[stable API](./docs/api-v0.8.md), [optional-runtime setup](./docs/environment-dependencies.md),
+[stable API](./docs/api-v0.8.md), [benchmark environment](./docs/environment-dependencies.md),
 and [current performance evidence](./docs/performance.md).
 
 ## Install and build
 
 Balanced readers for text, structured data, mail, containers, Office/ODF,
-EPUB, and native PDF require no Python or external converter.
+EPUB, and text-layer PDF require no Python or external converter.
 
 ```bash
-moon build --target native --release --package ZSeanYves/markitdown/cli
-./_build/native/release/build/cli/cli.exe --help
+moon build --target native --release --package ZSeanYves/markitdown
+./_build/native/release/build/markitdown.exe --help
 ```
 
-Optional local runtimes are installed through one managed entry point:
+The conversion product has no optional runtime installation. Python is used
+only by the benchmark oracle:
 
 ```bash
-./tools/env/optional_deps.sh install balance  # Tesseract image OCR
-./tools/env/optional_deps.sh install audio    # Vosk and FFmpeg
-./tools/env/optional_deps.sh install accurate # PaddleOCR and pdftoppm
-./tools/env/optional_deps.sh install bench    # MarkItDown 0.1.7 comparison
+./tools/env/installers/install_bench_baseline_deps.sh
 ```
 
 Use a Python version in the supported `>=3.10,<3.14` range when the active
 `python3` is newer:
 
 ```bash
-./tools/env/optional_deps.sh install bench --python /path/to/python3.11
+./tools/env/installers/install_bench_baseline_deps.sh --python /path/to/python3.11
 ```
 
 ## CLI quick start
@@ -45,7 +44,7 @@ Use a Python version in the supported `>=3.10,<3.14` range when the active
 The default mode is `balance`:
 
 ```bash
-CLI=./_build/native/release/build/cli/cli.exe
+CLI=./_build/native/release/build/markitdown.exe
 $CLI samples/fixtures/contracts/txt/txt_plain.txt .tmp/manual/plain.md
 $CLI balance --format html input.html output.md
 $CLI balance --rag input.docx output.json
@@ -82,10 +81,9 @@ or extension contracts. See the [API reference](./docs/api-v0.8.md) and
 - Mail and containers: `eml`, `zip`, `epub`. `msg` is an RFC822/EML alias,
   not native Outlook binary MSG support.
 - Office and ODF: `docx`, `xlsx`, `pptx`, `odt`, `ods`, `odp`.
-- PDF: bounded native balanced extraction; optional full-page OCR in accurate
-  mode.
-- Images: optional OCR for `png`, `jpg`, `jpeg`, `bmp`, `webp`, `tif`, `tiff`.
-- Audio: optional local transcription for `wav`, `mp3`, and `m4a`.
+- PDF: bounded text-layer extraction with page geometry and embedded assets;
+  scanned pages fail with an explicit diagnostic.
+- Images and audio are detected inputs and return `UnsupportedCapability`.
 
 No core reader performs network access, executes document scripts/macros, or
 loads remote includes. See [capabilities and limitations](./docs/capabilities-and-limitations.md)
@@ -106,9 +104,9 @@ External run `run-1786101654079-0f0c773a82`:
   gate;
 - every evaluated MoonBit CLI row passed its configured RSS budget.
 
-Self run `run-1786102949457-9591fe380a` covered 53 ODF, technical-text,
-OCR/audio, and other non-external-comparison rows: 106/106 CLI/engine cases were
-trusted and all RSS budgets passed. It is a candidate observation, not an
+Self run `run-1786102949457-9591fe380a` covered 53 ODF and technical-text
+non-external-comparison rows: 106/106 CLI/engine cases were trusted and all RSS
+budgets passed. It is a candidate observation, not an
 approved regression delta, because the existing self baseline has different
 tool and runner fingerprints.
 

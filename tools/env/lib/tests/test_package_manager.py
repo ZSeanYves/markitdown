@@ -20,12 +20,12 @@ class PackageManagerTests(unittest.TestCase):
             system_tools={
                 "platforms": {"linux-x86_64-ubuntu-noble": {"manager": "apt"}},
                 "tools": {
-                    "ffmpeg": {
+                    "probe_tool": {
                         "linux-x86_64-ubuntu-noble": {
-                            "packages": ["ffmpeg"],
-                            "command": "ffmpeg",
+                            "packages": ["probe_tool"],
+                            "command": "probe_tool",
                             "version": "9.9.9-test",
-                            "version_fragment": "ffmpeg version 9.9.9-test",
+                            "version_fragment": "probe_tool version 9.9.9-test",
                             "version_args": ["--version"],
                         }
                     }
@@ -40,8 +40,8 @@ class PackageManagerTests(unittest.TestCase):
             repo_root = Path(tmp) / "repo"
             fake_bin = repo_root / "fake-bin"
             write_executable(
-                fake_bin / "ffmpeg",
-                "#!/bin/sh\necho 'ffmpeg version 9.9.9-test'\n",
+                fake_bin / "probe_tool",
+                "#!/bin/sh\necho 'probe_tool version 9.9.9-test'\n",
             )
             bundle, platform = self.make_bundle(repo_root)
             session = PackageManagerSession(
@@ -52,7 +52,7 @@ class PackageManagerTests(unittest.TestCase):
             )
             with mock.patch.dict(os.environ, env_with_path(fake_bin), clear=False):
                 with mock.patch.object(session, "_ensure_packages"):
-                    state = session.ensure_tool("ffmpeg")
+                    state = session.ensure_tool("probe_tool")
 
             self.assertTrue(Path(state.symlink_path).is_symlink())
             self.assertTrue(Path(state.record_path).is_file())
@@ -60,13 +60,13 @@ class PackageManagerTests(unittest.TestCase):
 
             with mock.patch.dict(os.environ, env_with_path(fake_bin), clear=False):
                 with mock.patch.object(session, "_ensure_packages"):
-                    repeated = session.ensure_tool("ffmpeg")
+                    repeated = session.ensure_tool("probe_tool")
             self.assertEqual(
                 Path(repeated.symlink_path).resolve(),
                 Path(state.command_path),
             )
             self.assertEqual(
-                list(Path(repeated.symlink_path).parent.glob(".ffmpeg.tmp-*")), []
+                list(Path(repeated.symlink_path).parent.glob(".probe_tool.tmp-*")), []
             )
 
             check_session = PackageManagerSession(
@@ -76,7 +76,7 @@ class PackageManagerTests(unittest.TestCase):
                 check_only=True,
             )
             with mock.patch.dict(os.environ, env_with_path(fake_bin), clear=False):
-                check_state = check_session.ensure_tool("ffmpeg")
+                check_state = check_session.ensure_tool("probe_tool")
             self.assertEqual(check_state.version, "9.9.9-test")
 
     def test_version_fragment_mismatch_fails(self) -> None:
@@ -84,8 +84,8 @@ class PackageManagerTests(unittest.TestCase):
             repo_root = Path(tmp) / "repo"
             fake_bin = repo_root / "fake-bin"
             write_executable(
-                fake_bin / "ffmpeg",
-                "#!/bin/sh\necho 'ffmpeg version 0.0.1'\n",
+                fake_bin / "probe_tool",
+                "#!/bin/sh\necho 'probe_tool version 0.0.1'\n",
             )
             bundle, platform = self.make_bundle(repo_root)
             session = PackageManagerSession(
@@ -98,17 +98,17 @@ class PackageManagerTests(unittest.TestCase):
                 with mock.patch.object(session, "_ensure_packages"):
                     with mock.patch.object(session, "_refresh_packages") as refresh:
                         with self.assertRaises(EnvError):
-                            session.ensure_tool("ffmpeg")
-            refresh.assert_called_once_with(["ffmpeg"], "apt")
+                            session.ensure_tool("probe_tool")
+            refresh.assert_called_once_with(["probe_tool"], "apt")
 
     def test_version_fragment_mismatch_refreshes_packages(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             repo_root = Path(tmp) / "repo"
             fake_bin = repo_root / "fake-bin"
-            executable = fake_bin / "ffmpeg"
+            executable = fake_bin / "probe_tool"
             write_executable(
                 executable,
-                "#!/bin/sh\necho 'ffmpeg version 0.0.1'\n",
+                "#!/bin/sh\necho 'probe_tool version 0.0.1'\n",
             )
             bundle, platform = self.make_bundle(repo_root)
             session = PackageManagerSession(
@@ -121,7 +121,7 @@ class PackageManagerTests(unittest.TestCase):
             def upgrade_fake_package(*_args: object) -> None:
                 write_executable(
                     executable,
-                    "#!/bin/sh\necho 'ffmpeg version 9.9.9-test'\n",
+                    "#!/bin/sh\necho 'probe_tool version 9.9.9-test'\n",
                 )
 
             with mock.patch.dict(os.environ, env_with_path(fake_bin), clear=False):
@@ -131,10 +131,10 @@ class PackageManagerTests(unittest.TestCase):
                         "_refresh_packages",
                         side_effect=upgrade_fake_package,
                     ) as refresh:
-                        state = session.ensure_tool("ffmpeg")
+                        state = session.ensure_tool("probe_tool")
 
-            refresh.assert_called_once_with(["ffmpeg"], "apt")
-            self.assertEqual(state.version_line, "ffmpeg version 9.9.9-test")
+            refresh.assert_called_once_with(["probe_tool"], "apt")
+            self.assertEqual(state.version_line, "probe_tool version 9.9.9-test")
 
     def test_brew_refresh_updates_and_upgrades_requested_packages(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
